@@ -1,6 +1,6 @@
 # D1-405 Design Freeze Traceability Matrix
 
-Status: in progress through M8
+Status: in progress through M9
 
 Canonical baseline: 407F / D1-404
 
@@ -25,9 +25,15 @@ Canonical baseline: 407F / D1-404
 | Truthful LOR Builder seam | Local queue adapter; `productionCreated:false` | Queue tests and browser announcement | PASS |
 | M7 autonomous LOR micro-label adjustment | Undefined/body white → 11px/650 `#75CFEA` on dark card | 9.7573:1 and 10.9957:1; Miyamoto PASS | PASS |
 | Target-specialty variants over shared facts | `specialty-variants.js`; prominent Builder variant bar; active Canvas/export projection | 7 M8 variant tests; browser create/switch proof | PASS |
-| Variant create/switch/rename/remove safeguards | TimelineStore mutations plus last-variant and explicit-confirmation guards | Full 504/504 suite; creation screenshot | PASS |
+| Variant create/switch/rename/remove safeguards | TimelineStore mutations plus last-variant and explicit-confirmation guards | Full 511/511 suite; creation screenshot | PASS |
 | Specialty-specific visibility without privacy elevation | Variant stores hidden event IDs only; factual visibility remains canonical | Nonmutating projection regression | PASS |
 | Active-specialty LOR presentation | Existing target-keyed LOR records consume active variant ID | IM/Pediatrics browser star comparison | PASS |
+| Bounded Explanation annotations | `explanation.js`; Step 7 controlled authoring; canonical event/history/export path | Create/edit/move/resize/delete, four target kinds, leader, live preview and Export tests | PASS |
+| Explanation accessibility and theme treatment | Conditional hidden/disabled panels, Coordinate X/Y, inline errors, light-on-dark card text | Live semantics/focus probes; 16.5528:1 contrast; Vitruvius PASS | PASS |
+| General versus specific Interview Target | Active variant mode/program/specialty/date/location/label | Unit projection plus live Builder/full-preview/Export evidence | PASS |
+| Shared local program-logo workflow | Active variant references one `document.advanced.media` asset and retained blob | Real WEBP upload, persistence, crop/resize, one Guided render layer | PASS |
+| Truthful Matrix Calendar seam | `Scheduled Interviews` unavailable runtime adapter and local-only fixture adapter | Status/live/empty/category contract tests; unavailable browser card | PASS |
+| M9 autonomous control/error adjustments | Gold selection, cyan picker/focus, `#FF9F86` inline alert, focus recovery | 5.5364:1, 10.5102:1, 9.3466:1; specialist final PASS | PASS |
 | No protected writes | Local worktree only | Git/status and browser evidence | PASS TO DATE |
 
 The later Founder Media steering supersedes the original four-destination

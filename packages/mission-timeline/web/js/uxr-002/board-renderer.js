@@ -698,13 +698,19 @@ function buildFlags(events, segments, measureText) {
   });
 }
 
-function buildInterviewMarker(interviewMonth, segments) {
-  const normalized = parseMonth(interviewMonth);
+function buildInterviewMarker(interviewMonth, segments,interviewTarget={}) {
+  const normalized = parseMonth(String(interviewMonth||"").slice(0,7));
   if (!normalized) return null;
   const anchorX = monthPositionInSegments(normalized, segments, {
     margin: KEYNOTE_BOARD_GEOMETRY.margin
   });
-  const width = 132;
+  const markerLabel=String(
+    interviewTarget?.label||
+    interviewTarget?.prog||
+    interviewTarget?.programName||
+    "Interview season"
+  ).trim().slice(0,34);
+  const width = Math.min(260,Math.max(132,markerLabel.length*7.1+28));
   const height = 28;
   const plateY = KEYNOTE_BOARD_GEOMETRY.axisY + 68;
   const minX = KEYNOTE_BOARD_GEOMETRY.margin;
@@ -732,15 +738,77 @@ function buildInterviewMarker(interviewMonth, segments) {
       borderWidth: KEYNOTE_CLASSIC_THEME.flagPlate.borderWidth
     },
     label: {
-      text: "Interview season",
+      text: markerLabel,
       x: plateX + width / 2,
       y: plateY + height / 2 + 4.25,
       color: KEYNOTE_CLASSIC_THEME.ink,
       fontSize: 12.5,
       fontWeight: 600
     },
-    ariaLabel: `Interview season, ${formatMonth(normalized)}`
+    ariaLabel: [
+      markerLabel,
+      interviewTarget?.specialty,
+      interviewTarget?.location,
+      formatMonth(normalized)
+    ].filter(Boolean).join(", ")
   };
+}
+
+function buildExplanations(explanationEvents,segments,arrows,flags){
+  const eventTargets=new Map([
+    ...arrows.map((arrow)=>[
+      arrow.id,
+      {x:(arrow.x+arrow.x2)/2,y:arrow.centerY}
+    ]),
+    ...flags.map((flag)=>[
+      flag.id,
+      {x:flag.anchorX,y:flag.plate.y+flag.plate.height/2}
+    ])
+  ]);
+  return explanationEvents.map((event)=>{
+    const fields=event.fields||{};
+    const target=fields.target||{};
+    let anchor={
+      x:Number(target.x)||960,
+      y:Number(target.y)||KEYNOTE_BOARD_GEOMETRY.axisY
+    };
+    if(target.kind==="event"&&eventTargets.has(String(target.eventId))){
+      anchor=eventTargets.get(String(target.eventId));
+    }else if(target.kind==="date"&&parseMonth(target.date)){
+      anchor={
+        x:monthPositionInSegments(target.date,segments,{
+          margin:KEYNOTE_BOARD_GEOMETRY.margin
+        }),
+        y:KEYNOTE_BOARD_GEOMETRY.axisY
+      };
+    }else if(target.kind==="region"){
+      const region=String(target.region||"").toLowerCase();
+      anchor={
+        x:region.includes("left")
+          ?360
+          :region.includes("right")
+            ?1560
+            :960,
+        y:region.includes("top")
+          ?250
+          :region.includes("bottom")
+            ?830
+            :KEYNOTE_BOARD_GEOMETRY.axisY
+      };
+    }
+    return{
+      kind:"explanation",
+      id:String(event.id),
+      text:String(fields.explanationText||event.title||"Explanation").slice(0,180),
+      x:Number(fields.x)||1180,
+      y:Number(fields.y)||144,
+      width:Number(fields.width)||360,
+      height:Number(fields.height)||126,
+      leaderEnabled:fields.leaderEnabled!==false,
+      target:anchor,
+      ariaLabel:`Explanation: ${String(fields.explanationText||event.title||"").slice(0,180)}`
+    };
+  });
 }
 
 function chronologicalIds(events) {
@@ -758,7 +826,12 @@ export function buildKeynoteClassicScene(
   timeline,
   {
     currentMonth,
-    interviewMonth = timeline?.studentProfile?.interviewSeason ?? null,
+    interviewMonth = (
+      timeline?.metadata?.interview?.date||
+      timeline?.studentProfile?.interviewSeason||
+      null
+    ),
+    interviewTarget = timeline?.metadata?.interview||{},
     audience = "INTERVIEWER_SAFE",
     previousLaneById = {},
     measureText = estimateInterTextWidth
@@ -770,23 +843,39 @@ export function buildKeynoteClassicScene(
   }
   const filtered = audienceEvents(timeline?.events, audience);
   const validated = validateRenderableEvents(filtered.included);
+  const explanationEvents=validated.renderable.filter(
+    (event)=>event?.fields?.builderDomain==="explanation"
+  );
+  const timelineEvents=validated.renderable.filter(
+    (event)=>event?.fields?.builderDomain!=="explanation"
+  );
   const span = deriveTimelineSpan(validated.renderable, {
     currentMonth: normalizedCurrent,
     interviewMonth
   });
   const segments = allocateSegments(span, validated.renderable);
   const axis = buildAxis(segments);
-  const laneResult = assignStableLanes(validated.renderable, { previousLaneById });
+  const laneResult = assignStableLanes(timelineEvents, { previousLaneById });
   const arrowResult = buildArrows(
-    validated.renderable,
+    timelineEvents,
     segments,
     laneResult,
     normalizedCurrent,
     measureText
   );
-  const flags = buildFlags(validated.renderable, segments, measureText);
-  const events = [...arrowResult.arrows, ...flags];
-  const interviewMarker = buildInterviewMarker(interviewMonth, segments);
+  const flags = buildFlags(timelineEvents, segments, measureText);
+  const explanations=buildExplanations(
+    explanationEvents,
+    segments,
+    arrowResult.arrows,
+    flags
+  );
+  const events = [...arrowResult.arrows, ...flags,...explanations];
+  const interviewMarker = buildInterviewMarker(
+    interviewMonth,
+    segments,
+    interviewTarget
+  );
   const fullName = String(timeline?.studentProfile?.fullName || "Your journey");
   const firstYear = segments[0]?.startYear ?? segments[0]?.year;
   const lastYear = segments.at(-1)?.year ?? segments.at(-1)?.endYear;
@@ -824,6 +913,7 @@ export function buildKeynoteClassicScene(
     },
     arrows: arrowResult.arrows,
     flags,
+    explanations,
     events,
     interviewMarker,
     lorLegend:{
@@ -927,6 +1017,44 @@ function serializeInterviewMarker(marker) {
   return `<g data-event-kind="interview-marker" aria-label="${xmlEscape(marker.ariaLabel)}"><line x1="${number(marker.pole.x)}" y1="${number(marker.pole.y1)}" x2="${number(marker.pole.x)}" y2="${number(marker.pole.y2)}" stroke="${marker.pole.color}" stroke-width="${marker.pole.width}"/><rect data-flag-plate="true" x="${number(marker.plate.x)}" y="${number(marker.plate.y)}" width="${number(marker.plate.width)}" height="${number(marker.plate.height)}" rx="${marker.plate.radius}" fill="${marker.plate.fill}" stroke="${marker.plate.border}" stroke-width="${marker.plate.borderWidth}"/><text x="${number(marker.label.x)}" y="${number(marker.label.y)}" text-anchor="middle" fill="${marker.label.color}" font-family="${KEYNOTE_CLASSIC_THEME.fontFamily}" font-size="${marker.label.fontSize}" font-weight="${marker.label.fontWeight}">${xmlEscape(marker.label.text)}</text></g>`;
 }
 
+function explanationLines(text,max=44){
+  const words=String(text||"").split(/\s+/).filter(Boolean);
+  const lines=[];
+  let line="";
+  for(const word of words){
+    const next=line?`${line} ${word}`:word;
+    if(next.length>max&&line){
+      lines.push(line);
+      line=word;
+    }else line=next;
+    if(lines.length===3)break;
+  }
+  if(line&&lines.length<4)lines.push(line);
+  if(words.join(" ").length>lines.join(" ").length&&lines.length){
+    lines[lines.length-1]=`${lines[lines.length-1].replace(/[.…]+$/,"")}…`;
+  }
+  return lines.slice(0,4);
+}
+
+function serializeExplanation(explanation,theme){
+  const paper=theme?.id==="advisor-paper"||
+    theme?.id==="clean-advisor-paper";
+  const fill=paper?"#FFFFFF":"#111827";
+  const ink=paper?"#191C21":"#F4F7FF";
+  const border=theme?.axis?.color||"#B98A2E";
+  const lines=explanationLines(
+    explanation.text,
+    Math.max(22,Math.floor(explanation.width/8.2))
+  );
+  const leader=explanation.leaderEnabled
+    ?`<path data-explanation-leader="true" d="M ${number(explanation.x+explanation.width/2)} ${number(explanation.y+explanation.height)} L ${number(explanation.target.x)} ${number(explanation.target.y)}" fill="none" stroke="${border}" stroke-width="3" stroke-linecap="round"/><circle cx="${number(explanation.target.x)}" cy="${number(explanation.target.y)}" r="6" fill="${fill}" stroke="${border}" stroke-width="3"/>`
+    :"";
+  const text=lines.map((line,index)=>
+    `<tspan x="${number(explanation.x+20)}" dy="${index===0?"0":"23"}">${xmlEscape(line)}</tspan>`
+  ).join("");
+  return`<g data-event-kind="explanation" data-event-id="${xmlEscape(explanation.id)}" role="group" aria-label="${xmlEscape(explanation.ariaLabel)}">${leader}<rect data-explanation-card="true" x="${number(explanation.x)}" y="${number(explanation.y)}" width="${number(explanation.width)}" height="${number(explanation.height)}" rx="10" fill="${fill}" fill-opacity=".96" stroke="${border}" stroke-width="2"/><text x="${number(explanation.x+20)}" y="${number(explanation.y+32)}" fill="${ink}" font-family="${theme?.fontFamily||KEYNOTE_CLASSIC_THEME.fontFamily}" font-size="17" font-weight="650">${text}</text></g>`;
+}
+
 function serializeOpenFadeDefinitions(arrows) {
   return arrows
     .map((arrow, index) => ({ arrow, index }))
@@ -983,8 +1111,11 @@ export function serializeKeynoteClassicSvg(scene) {
   const openFades = serializeOpenFadeDefinitions(scene.arrows);
   const arrows = scene.arrows.map((arrow,index)=>serializeArrow(arrow,index,theme)).join("");
   const flags = scene.flags.map(serializeFlag).join("");
+  const explanations=(scene.explanations||[])
+    .map((explanation)=>serializeExplanation(explanation,theme))
+    .join("");
   const headlineRule=scene.headline.rule?`<line data-headline-rule="true" x1="${number(scene.headline.x)}" y1="${number(scene.headline.y+10)}" x2="${number(scene.headline.x+scene.headline.rule.width)}" y2="${number(scene.headline.y+10)}" stroke="${scene.headline.rule.color}" stroke-width="3"/>`:"";
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" role="img" aria-labelledby="${titleId} ${descriptionId}" data-renderer="${scene.renderer}" data-theme="${theme.id}"><title id="${titleId}">${xmlEscape(scene.accessibility.ariaLabel)}</title><desc id="${descriptionId}">${xmlEscape(scene.accessibility.description)}</desc><defs>${background.definition}${svgShadow(theme)}<pattern id="${SVG_STUDY_PATTERN_ID}" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="${theme.categories?.exams||KEYNOTE_CLASSIC_THEME.categories.exams}" stroke-width="3" stroke-opacity=".6"/></pattern>${openFades}</defs><rect data-board-background="true" width="1920" height="1080" fill="${background.fill}"/><text data-board-headline="true" x="${number(scene.headline.x)}" y="${number(scene.headline.y)}" fill="${scene.headline.color}" font-family="${scene.headline.fontFamily||KEYNOTE_CLASSIC_THEME.fontFamily}" font-size="${scene.headline.fontSize}" font-weight="${scene.headline.fontWeight}">${xmlEscape(scene.headline.text)}</text>${headlineRule}${serializeAxis(scene.axis)}<g data-layer="events">${arrows}${flags}</g>${serializeInterviewMarker(scene.interviewMarker)}${serializeLorLegend(scene.lorLegend,theme)}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" role="img" aria-labelledby="${titleId} ${descriptionId}" data-renderer="${scene.renderer}" data-theme="${theme.id}"><title id="${titleId}">${xmlEscape(scene.accessibility.ariaLabel)}</title><desc id="${descriptionId}">${xmlEscape(scene.accessibility.description)}</desc><defs>${background.definition}${svgShadow(theme)}<pattern id="${SVG_STUDY_PATTERN_ID}" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="${theme.categories?.exams||KEYNOTE_CLASSIC_THEME.categories.exams}" stroke-width="3" stroke-opacity=".6"/></pattern>${openFades}</defs><rect data-board-background="true" width="1920" height="1080" fill="${background.fill}"/><text data-board-headline="true" x="${number(scene.headline.x)}" y="${number(scene.headline.y)}" fill="${scene.headline.color}" font-family="${scene.headline.fontFamily||KEYNOTE_CLASSIC_THEME.fontFamily}" font-size="${scene.headline.fontSize}" font-weight="${scene.headline.fontWeight}">${xmlEscape(scene.headline.text)}</text>${headlineRule}${serializeAxis(scene.axis)}<g data-layer="events">${arrows}${flags}${explanations}</g>${serializeInterviewMarker(scene.interviewMarker)}${serializeLorLegend(scene.lorLegend,theme)}</svg>`;
 }
 
 export function renderKeynoteClassicBoard(timeline, options = {}) {

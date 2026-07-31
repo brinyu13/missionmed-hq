@@ -66,7 +66,12 @@ function mediaMarkup(media,resolveObjectUrl,{
           <text x="${x+width/2}" y="${y+height/2}" fill="#E8EEFB" font-family="Inter" font-size="18" font-weight="700" text-anchor="middle">GIF · MOTION PAUSED</text>
         </g>`;
       }
-      return`<image data-advanced-media="${xml(item.id)}" data-media-kind="${xml(item.kind)}" href="${xml(url)}" x="${number(item.x)}" y="${number(item.y)}" width="${number(item.width,1)}" height="${number(item.height,1)}" preserveAspectRatio="none"/>`;
+      const preserveAspectRatio=item.fit==="cover"
+        ?"xMidYMid slice"
+        :item.fit==="contain"
+          ?"xMidYMid meet"
+          :"none";
+      return`<image data-advanced-media="${xml(item.id)}" data-media-kind="${xml(item.kind)}" href="${xml(url)}" x="${number(item.x)}" y="${number(item.y)}" width="${number(item.width,1)}" height="${number(item.height,1)}" preserveAspectRatio="${preserveAspectRatio}"/>`;
     })
     .join("");
 }

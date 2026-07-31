@@ -60,10 +60,11 @@ Owner metadata resolves preview elements to Builder destinations:
 - `service` → Service & leadership,
 - `work` → Work experience,
 - `personal` → Interests & life,
-- `explanation` → future M9 explanation seam,
-- `interview` → future M9 interview seam.
+- `explanation` → Step 7 Explanation editor,
+- `interview` → Step 7 Interview Target editor.
 
-Unknown, deleted, or stale owners fail closed. Explanation and interview markers are not advertised as complete until their M9 authoring surfaces are implemented.
+Unknown, deleted, or stale owners fail closed. Explanation and interview markers
+now route through their implemented M9 authoring surfaces.
 
 ## Shared date model seam — M5
 
@@ -91,6 +92,46 @@ Implemented seam:
 - Compatible Advanced media records are listed directly without migration to a second store.
 - Immediate destructive asset deletion is not exposed because current versions/history can still reference the source blob.
 - Reduced-motion rendering omits animated GIF image URLs in the library and in placed Guided/Advanced board layers.
+
+## Explanation and Interview Target seams — M9
+
+### Explanation
+
+- Explanation records use the canonical `events` collection with
+  `fields.builderDomain="explanation"` and do not introduce a drawing document.
+- One pure domain module owns normalization, 180-character/12-item limits,
+  target normalization, board bounds, create/update/move/resize/delete, and
+  factual-event isolation.
+- The retained TimelineStore owns every mutation, so autosave, undo/redo,
+  history, versions, deletion, persistence, preview, themes, and Export remain
+  shared.
+- Targets are explicit event/date/region/coordinate descriptors. UI panels hide
+  and disable irrelevant fields; Coordinate supplies bounded X/Y.
+
+### Interview Target and program logo
+
+- Interview configuration remains presentation data on the active specialty
+  variant; it does not duplicate the student timeline.
+- General mode suppresses interview-specific projection. Specific mode projects
+  program, specialty, exact date, location, optional label, and Calendar
+  metadata into the retained marker renderer.
+- `logoMediaId` references one existing `document.advanced.media` asset.
+  Placement, size, and contain/crop remain variant configuration.
+- Upload writes one blob through `TimelineStore.mutateWithBlobs()` and one
+  metadata record. Builder, Edit Timeline, Media, Guided preview, Advanced
+  preview, and Export resolve the same asset.
+- The runtime was verified with one real synthetic WEBP: upload, persistence,
+  crop/resize, active-variant projection, and one Guided SVG media layer.
+
+### Matrix Calendar
+
+- Adapter category: `Scheduled Interviews`.
+- Normalized fields: program, date-time, specialty, location, event ID, and
+  meeting information.
+- The active local runtime returns `status:"unavailable"`, `live:false`, and an
+  empty interview list with explicit no-connection copy.
+- Deterministic data exists only in the local fixture adapter. No runtime
+  fixture, Matrix read/write, or live-integration claim is exposed.
 
 ## Core Info normalization seam — M6
 

@@ -249,3 +249,39 @@ Specialist review exposed three interaction defects before final closure:
 3. The legacy backdrop path initially bypassed specialty-dialog cleanup. A
    capture-phase handler now routes backdrop dismissal through the same trap,
    inert, modal, and opener cleanup. Live keyboard and pointer probes passed.
+
+## M9 — Explanation and Interview Target tools
+
+| Check | Result |
+|---|---|
+| Functional TypeScript suite | 119/119 passed |
+| Browser/module suite | 392/392 passed |
+| Total | 511/511 passed |
+| Focused M8/M9/Export/Advanced-board gate | 39/39 passed |
+| Explanation create/update/move/resize/delete | Passed |
+| Event/date/region/coordinate targets | Passed |
+| Conditional hidden/disabled target semantics | Passed live |
+| Inline validation and focus recovery | Passed live |
+| Theme-aware card and leader serialization | Passed |
+| Specific interview details and active-variant projection | Passed |
+| Real WEBP file-chooser upload | Passed |
+| Shared Media/blob persistence without duplication | Passed |
+| Contain/crop and resize | Passed |
+| Guided full-preview logo render | Passed; one guided layer |
+| Matrix Calendar unavailable/local-fixture boundary | Passed |
+| Default `Interview season` regression | Passed |
+| Fresh browser console | 0 warnings/errors |
+| Typecheck | Passed |
+| Package verification | 23/23 passed |
+| Deterministic build | Passed; 196 runtime files |
+| Build manifest SHA-256 | `857fd5364a5d2eabec04cfd5b19b99833fea0ea7b247e4789771dfd06382dbfa` |
+| Miyamoto final re-audit | PASS |
+| Vitruvius final re-audit | PASS |
+
+The inherited `npm run test:web` command remains a dormant 410-era runner:
+its CommonJS file is invoked as ESM and its body is hard-coded to the unrelated
+`MissionMed_AI_Sandbox/D1_TIMELINE_ENGINE/app_demo_401` authority and evidence
+paths. It was not modified or executed through a workaround because doing so
+would cross the D1-405 no-touch boundary. The current candidate is validated by
+the active 511-test package suite, live in-app browser checks, typecheck,
+23 package gates, and the deterministic build.

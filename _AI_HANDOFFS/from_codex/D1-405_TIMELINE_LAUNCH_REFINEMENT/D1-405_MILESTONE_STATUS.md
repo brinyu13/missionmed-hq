@@ -1,8 +1,8 @@
 # D1-405 Milestone Status
 
-Updated: 2026-07-31T02:05:00Z
+Updated: 2026-07-31
 
-Estimated overall completion: 78%
+Estimated overall completion: 84%
 
 | Milestone | Status | Checkpoint |
 |---|---|---|
@@ -16,7 +16,7 @@ Estimated overall completion: 78%
 | M6 Core Info/medical-school registry | COMPLETE | Commit `3f7923f` |
 | M7 exams and rotations | COMPLETE | Commit `18ab405`; 496/496 tests |
 | M8 specialty variants/LOR intelligence | COMPLETE | Shared facts, normalized variant config, active export; 504/504 tests |
-| M9 explanation/interview tools | PENDING | — |
+| M9 explanation/interview tools | COMPLETE | Bounded annotations, interview-specific target, shared local logo, truthful Calendar seam; 511/511 tests |
 | M10 themes/export audiences | PENDING | — |
 | M11 entitlements/migration | PENDING | — |
 | M12 accessibility/responsive/hardening | PENDING | — |
@@ -34,3 +34,10 @@ the active specialty identity, presentation name, per-variant hidden-event IDs,
 and compatible interview-target configuration. Create, switch, rename, remove,
 and per-event visibility changes use the retained TimelineStore mutation path,
 so autosave, undo/redo, history, and persistence remain intact.
+
+M9 adds bounded Explanation events to the same canonical event collection and
+stores interview-specific presentation data only on the active specialty
+variant. Program logos reuse `document.advanced.media` and the existing
+IndexedDB blob store; the variant holds one asset reference plus placement and
+fit. Matrix Calendar remains a truthful unavailable runtime adapter with
+local-only fixtures and no production claim.

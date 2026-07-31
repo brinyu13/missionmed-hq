@@ -237,3 +237,45 @@ cleanup. Corrections were validated live:
 - the browser console remains clean.
 
 Final M8 Vitruvius verdict: PASS.
+
+## M9 Explanation and Interview Target accessibility
+
+- Explanation authoring uses labeled native controls and bounded
+  event/date/region/coordinate target panels.
+- Irrelevant target panels are both hidden and disabled; Coordinate exposes
+  labeled X/Y controls rather than an implicit point.
+- Explanation text has a 180-character limit, and placement/size controls
+  enforce visible-board bounds.
+- Create/save failures set `aria-invalid`, expose linked `role="alert"` error
+  text, announce through the global polite live region, and restore focus to the
+  invalid textarea.
+- Leader-arrow state uses a named native checkbox with a 44px label hit area.
+- General/specific interview purpose uses native radio semantics, 44px labels,
+  transparent unchecked centers, and a gold inner dot only when checked.
+- Program-logo upload has a 44px minimum target and a visible
+  `:focus-within` ring; type/storage failures use the same inline/live
+  validation and focus-recovery pattern.
+- Month/date picker indicators use the existing cyan visibility treatment on
+  dark fields and retain the global focus-visible ring.
+- Matrix Calendar fails closed with visible `Calendar unavailable` and
+  `LOCAL REVIEW · NO LIVE CONNECTION` text.
+- Program-logo upload, persistence, resize/crop, Guided rendering, and
+  full-preview evidence were verified with a real local synthetic WEBP.
+- Fresh live-browser console remained at zero warnings/errors.
+
+### M9 autonomous adjustments
+
+| Original | Replacement | Reason | Calculated contrast | Affected components |
+|---|---|---|---|---|
+| Theme ink inherited on `#111827` Explanation card | `#F4F7FF`; paper cards retain `#191C21` on white | Prevent dark-on-dark annotation text | 16.5528:1 on `#111827`; 17.0815:1 on white | Builder, full preview, Export |
+| Native blue checkbox/radio and dark date indicator | Gold `#B98A2E` selection and cyan `#75CFEA` picker/focus treatment | Preserve 407F identity while improving perceivability | 5.5364:1 gold on `#111B2C`; 10.5102:1 cyan on `#0B1321` | Leader control, interview-purpose radios, date controls |
+| Toast-only failure | Linked `#FF9F86` alert, `aria-invalid`, live announcement, focus recovery | Make error state screen-reader and keyboard operable | 9.3466:1 on `#0B1321` | Explanation and logo failures |
+
+Vitruvius initially failed M9 for conditional-target semantics, Coordinate X/Y,
+logo target/focus treatment, and toast-only validation. All were corrected and
+verified live. Miyamoto initially failed browser-default control styling and
+the unchecked radio’s false-selected appearance. Both were corrected.
+
+Final M9 Miyamoto verdict: PASS.
+
+Final M9 Vitruvius verdict: PASS.

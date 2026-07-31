@@ -2,16 +2,16 @@
 
 Status date: 2026-07-31
 
-Overall estimated completion: 78%
+Overall estimated completion: 84%
 
-`PASS TO DATE` means the criterion passes at the M7 checkpoint but remains
+`PASS TO DATE` means the criterion passes at the M9 checkpoint but remains
 subject to the final M12/M13 regression gate. `PENDING` means its assigned
 milestone has not yet completed.
 
 | # | Acceptance criterion | Status | Evidence / next milestone |
 |---|---|---|---|
 | 1 | D1-404 remains the direct implementation base; no parallel app or shell | PASS | Canonical 407F `web/index.html`; in-place commits |
-| 2 | Existing D1-404 functionality remains operational | PASS TO DATE | 504/504 tests |
+| 2 | Existing D1-404 functionality remains operational | PASS TO DATE | 511/511 tests |
 | 3 | Required MissionMed branding | PASS | M1 |
 | 4 | Exactly four primary destinations remain | SUPERSEDED / PASS | Later Founder steering explicitly adds Media; active order is Home, Builder, Edit Timeline, Media, Export |
 | 5 | Canvas founder label replaced after ten-option evaluation | PASS | Edit Timeline |
@@ -38,9 +38,9 @@ milestone has not yet completed.
 | 26 | Truthful LOR Builder integration seam | PASS | M7; local queue, `productionCreated:false` |
 | 27 | Specialty variants share factual history | PASS | M8 normalized presentation configuration; no event duplication |
 | 28 | Work, Research, Personal retain quality | PASS TO DATE | Retained workflows; final M12 regression pending |
-| 29 | Explanation annotations are editable/exportable | PENDING | M9 |
-| 30 | Interview target and logo workflow function locally | PENDING | M9 |
-| 31 | Matrix Calendar seam is activation-ready without live claim | PENDING | M9 |
+| 29 | Explanation annotations are editable/exportable | PASS | Bounded Builder create/edit/move/resize/delete; leader line; active preview and Export |
+| 30 | Interview target and logo workflow function locally | PASS | General/specific mode; program details; shared local WEBP upload; contain/crop, resize, placement, remove/replace; live full-preview proof |
+| 31 | Matrix Calendar seam is activation-ready without live claim | PASS | `Scheduled Interviews` adapter contract; runtime truthfully unavailable; fixtures local-only |
 | 32 | Theme previews work with/without student data | PASS | Existing D1-404/M2 regressions |
 | 33 | Safe extensible theme registry | PENDING | M10 |
 | 34 | Explicit export audience options replace Everything | PENDING | M10 |
@@ -48,16 +48,16 @@ milestone has not yet completed.
 | 36 | Entitlement limit/override states | PENDING | M11 |
 | 37 | Existing D1-404 documents migrate without data loss | PASS TO DATE | Date, school, exam, LOR persistence regressions; final M11 gate pending |
 | 38 | Undo, autosave, history, versions, export, advisor remain intact | PASS TO DATE | Current complete regression suite |
-| 39 | Accessibility passes modified routes | PASS TO DATE | Miyamoto and Vitruvius PASS through M7 |
+| 39 | Accessibility passes modified routes | PASS TO DATE | Miyamoto and Vitruvius final PASS through M9 |
 | 40 | Responsive exact-boundary behavior passes | PASS TO DATE | Current modified routes pass; final M12 gate pending |
-| 41 | Fresh browser console is clean | PASS TO DATE | Zero warnings/errors after M8 create/switch interaction |
-| 42 | Full test suite passes | PASS TO DATE | 504/504 |
+| 41 | Fresh browser console is clean | PASS TO DATE | Zero warnings/errors after M9 Builder/Export interaction |
+| 42 | Full test suite passes | PASS TO DATE | 511/511 |
 | 43 | Typecheck passes | PASS | `npm run typecheck` |
 | 44 | Package verification passes | PASS | 23/23 |
-| 45 | Deterministic build passes | PASS | 193 files; manifest `7cd64b...df48` |
+| 45 | Deterministic build passes | PASS | 196 files; manifest `857fd536...82dbfa` |
 | 46 | No protected external mutation occurred | PASS TO DATE | No push/deploy/Matrix/WordPress/production write |
 | 47 | One local review URL | PASS | `http://localhost:8793/web/` |
-| 48 | Progress screenshots shown | PASS TO DATE | M0–M8 evidence |
-| 49 | Updates include honest completion percentage | PASS TO DATE | Current 78% |
+| 48 | Progress screenshots shown | PASS TO DATE | M0–M9 evidence |
+| 49 | Updates include honest completion percentage | PASS TO DATE | Current 84% |
 | 50 | Automatic continuation unless Founder objects | PASS TO DATE | Active execution loop |
 | 51 | No out-of-scope feature/design concept | PASS TO DATE | Authority-bound milestone reviews |

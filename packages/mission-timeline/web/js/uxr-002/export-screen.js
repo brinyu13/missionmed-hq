@@ -254,7 +254,10 @@ export function buildExportPreviewInput(document,state={}){
        * renderer not to perform a second, potentially divergent filter pass.
        */
       audience:"EVERYTHING",
-      interviewMonth:timeline.studentProfile?.interviewSeason||null
+      interviewMonth:timeline.metadata?.interview?.date||
+        timeline.studentProfile?.interviewSeason||
+        null,
+      interviewTarget:clone(timeline.metadata?.interview||{})
     },
     audience:{
       mode:filtered.audience,

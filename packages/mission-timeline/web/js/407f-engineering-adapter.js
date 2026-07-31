@@ -158,8 +158,21 @@ import {
   removeSpecialtyVariant,
   renameSpecialtyVariant,
   setVariantEventHidden,
+  setVariantInterviewTarget,
   switchSpecialtyVariant
 } from "./uxr-002/specialty-variants.js";
+import {
+  EXPLANATION_TEXT_MAX,
+  createExplanation,
+  deleteExplanation,
+  isExplanationEvent,
+  moveExplanation,
+  resizeExplanation,
+  updateExplanation
+} from "./uxr-002/explanation.js";
+import {
+  createUnavailableMatrixCalendarAdapter
+} from "./uxr-002/matrix-calendar-adapter.js";
 import {parseMonth,uid} from "./uxr-002/utils.js";
 
 const CATEGORY_TO_407F=Object.freeze({
@@ -855,12 +868,15 @@ export async function boot407FEngineeringAdapter({
   const runtimeDatasets=createRuntimeDatasets();
   const lorBuilderAdapter=createLocalQueuedLorBuilderAdapter();
   const mediaUrls=createObjectUrlRegistry();
+  const matrixCalendarAdapter=createUnavailableMatrixCalendarAdapter();
+  const matrixCalendarState=await matrixCalendarAdapter
+    .listScheduledInterviews();
   const advancedBoardRenderer=createAdvancedBoardRenderer({
     baseRenderer:render407FThemedBoard,
     resolveObjectUrl:(id)=>mediaUrls.get(id)
   });
   const renderResponsiveAdvancedBoard=(document,options={})=>
-    advancedBoardRenderer(document,{
+    advancedBoardRenderer(timelineWithLorPresentation(document),{
       ...options,
       reducedMotion:window.matchMedia?.(
         "(prefers-reduced-motion: reduce)"
@@ -910,6 +926,9 @@ export async function boot407FEngineeringAdapter({
   let onSpecialtyVariantClick=()=>{};
   let onSpecialtyVariantChange=()=>{};
   let onSpecialtyVariantBackdrop=()=>{};
+  let onM9BuilderClick=()=>{};
+  let onM9BuilderChange=()=>{};
+  let renderM9BuilderSurfaces=()=>{};
   let onRouteRendered=()=>{};
   let responsiveRuntime=null;
   let shortcutTrap=null;
@@ -1008,6 +1027,8 @@ export async function boot407FEngineeringAdapter({
       onBuilderPreviewBackdrop,
       true
     );
+    document.removeEventListener("click",onM9BuilderClick);
+    document.removeEventListener("change",onM9BuilderChange);
     document.getElementById("builderPreviewToggle")?.removeEventListener("click",onBuilderPreview);
     document.getElementById("homeFileVault")?.removeEventListener("click",onHomeFileVault);
     document.removeEventListener("click",onMediaLibraryClick);
@@ -1296,6 +1317,7 @@ export async function boot407FEngineeringAdapter({
     applyDocumentTo407FState(store.document,bridge.state);
     bridge.renderAll();
     renderSpecialtyVariantBar();
+    renderM9BuilderSurfaces();
     canvasController?.render();
     lastState=stableState(bridge.state);
     applying=false;
@@ -1626,6 +1648,443 @@ export async function boot407FEngineeringAdapter({
   document.addEventListener("dragleave",onMediaLibraryDragLeave);
   document.addEventListener("dragend",onMediaLibraryDragEnd);
   document.addEventListener("drop",onMediaLibraryDrop);
+  const explanationTargetMarkup=(event)=>{
+    const target=event?.fields?.target||{};
+    const kind=["event","date","region","coordinate"].includes(target.kind)
+      ?target.kind
+      :"event";
+    const panelAttributes=(panelKind)=>panelKind===kind
+      ?` data-explanation-target-panel="${panelKind}"`
+      :` data-explanation-target-panel="${panelKind}" hidden`;
+    const disabledAttribute=(panelKind)=>panelKind===kind?"":" disabled";
+    const factual=(store.document.events||[]).filter(
+      (candidate)=>!isExplanationEvent(candidate)
+    );
+    return`<div class="m9FieldGrid">
+      <label>Points to
+        <select data-explanation-target-kind>
+          ${["event","date","region","coordinate"].map((optionKind)=>`<option value="${optionKind}" ${kind===optionKind?"selected":""}>${optionKind[0].toUpperCase()+optionKind.slice(1)}</option>`).join("")}
+        </select>
+      </label>
+      <label${panelAttributes("event")}>Timeline item
+        <select data-explanation-target-event${disabledAttribute("event")}>
+          <option value="">Choose an item…</option>
+          ${factual.map((item)=>`<option value="${escapeMarkup(item.id)}" ${target.eventId===item.id?"selected":""}>${escapeMarkup(item.title)}</option>`).join("")}
+        </select>
+      </label>
+      <label${panelAttributes("date")}>Date
+        <input type="month" data-explanation-target-date value="${escapeMarkup(target.date||event?.startDate||"")}"${disabledAttribute("date")}>
+      </label>
+      <label${panelAttributes("region")}>Region
+        <select data-explanation-target-region${disabledAttribute("region")}>
+          ${["top left","top center","top right","bottom left","bottom center","bottom right"].map((region)=>`<option value="${region}" ${target.region===region?"selected":""}>${region}</option>`).join("")}
+        </select>
+      </label>
+      <fieldset class="m9CoordinateTarget"${panelAttributes("coordinate")}>
+        <legend>Target coordinate</legend>
+        <label>X <input type="number" min="96" max="1824" step="8" value="${Number(target.x)||960}" data-explanation-target-x${disabledAttribute("coordinate")}></label>
+        <label>Y <input type="number" min="112" max="968" step="8" value="${Number(target.y)||540}" data-explanation-target-y${disabledAttribute("coordinate")}></label>
+      </fieldset>
+    </div>`;
+  };
+  const explanationCardMarkup=(event)=>{
+    const fields=event.fields||{};
+    const errorId=`m9ExplanationError-${escapeMarkup(event.id)}`;
+    return`<article class="m9ExplanationCard" data-explanation-editor="${escapeMarkup(event.id)}">
+      <label>Short explanation
+        <textarea maxlength="${EXPLANATION_TEXT_MAX}" data-explanation-text aria-describedby="${errorId}">${escapeMarkup(fields.explanationText||event.title)}</textarea>
+        <small class="m9InlineError" id="${errorId}" data-explanation-error role="alert" hidden></small>
+      </label>
+      ${explanationTargetMarkup(event)}
+      <label class="canvas407FDetailCheck"><input type="checkbox" data-explanation-leader ${fields.leaderEnabled!==false?"checked":""}> <span>Show leader arrow</span></label>
+      <div class="m9Geometry" aria-label="Explanation placement and size">
+        <label>X <input type="number" min="96" max="1744" step="8" value="${Number(fields.x)||1180}" data-explanation-x></label>
+        <label>Y <input type="number" min="112" max="904" step="8" value="${Number(fields.y)||144}" data-explanation-y></label>
+        <label>Width <input type="number" min="220" max="520" step="8" value="${Number(fields.width)||360}" data-explanation-width></label>
+        <label>Height <input type="number" min="96" max="220" step="8" value="${Number(fields.height)||126}" data-explanation-height></label>
+      </div>
+      <div class="m9Nudge" role="toolbar" aria-label="Move explanation">
+        ${["left","up","down","right"].map((direction)=>`<button type="button" class="btnD alt sm" data-explanation-move="${direction}" data-event-id="${escapeMarkup(event.id)}">${direction}</button>`).join("")}
+        <button type="button" class="btnD alt sm" data-explanation-resize="smaller" data-event-id="${escapeMarkup(event.id)}">Smaller</button>
+        <button type="button" class="btnD alt sm" data-explanation-resize="larger" data-event-id="${escapeMarkup(event.id)}">Larger</button>
+      </div>
+      <div class="m9CardActions">
+        <button type="button" class="btnD go sm" data-explanation-save data-event-id="${escapeMarkup(event.id)}">SAVE EXPLANATION</button>
+        <button type="button" class="homeTertiary" data-explanation-delete data-event-id="${escapeMarkup(event.id)}">Delete</button>
+      </div>
+    </article>`;
+  };
+  const interviewLogoMarkup=(target)=>{
+    const asset=(store.document.advanced?.media||[]).find(
+      (item)=>item.id===target.logoMediaId
+    );
+    const url=asset?mediaUrls.get(asset.id):"";
+    return`<section class="m9LogoEditor" aria-labelledby="m9LogoTitle">
+      <div>
+        <div class="builderVariantEyebrow" id="m9LogoTitle">PROGRAM LOGO · LOCAL MEDIA</div>
+        <p>PNG, JPG, or WEBP. The original local asset stays in Media; this timeline stores only its reference and placement.</p>
+      </div>
+      ${asset?`<div class="m9LogoPreview">${url?`<img src="${escapeMarkup(url)}" alt="Current program logo preview">`:""}<strong>${escapeMarkup(asset.source?.name||"Program logo")}</strong></div>`:"<div class=\"m9LogoEmpty\">No program logo selected.</div>"}
+      <label class="btnD alt sm m9LogoUpload">CHOOSE OR REPLACE LOGO<input type="file" accept="image/png,image/jpeg,image/webp" data-interview-logo-upload aria-describedby="m9LogoError"></label>
+      <small class="m9InlineError" id="m9LogoError" data-interview-logo-error role="alert" hidden></small>
+      <div class="m9FieldGrid">
+        <label>Fit
+          <select data-interview-logo-fit><option value="contain" ${target.logoFit!=="cover"?"selected":""}>Contain</option><option value="cover" ${target.logoFit==="cover"?"selected":""}>Crop to frame</option></select>
+        </label>
+        <label>X <input type="number" min="96" max="1744" value="${Number(target.logoX)||1560}" data-interview-logo-x></label>
+        <label>Y <input type="number" min="80" max="904" value="${Number(target.logoY)||112}" data-interview-logo-y></label>
+        <label>Width <input type="number" min="80" max="420" value="${Number(target.logoWidth)||180}" data-interview-logo-width></label>
+        <label>Height <input type="number" min="60" max="260" value="${Number(target.logoHeight)||96}" data-interview-logo-height></label>
+      </div>
+      ${asset?'<button type="button" class="homeTertiary" data-interview-logo-remove>Remove from this interview timeline</button>':""}
+    </section>`;
+  };
+  renderM9BuilderSurfaces=()=>{
+    const explanationHost=document.getElementById("explanationBuilder407F");
+    const interviewHost=document.getElementById("interviewConfig407F");
+    if(!explanationHost||!interviewHost)return;
+    const explanations=(store.document.events||[]).filter(isExplanationEvent);
+    explanationHost.innerHTML=`<section class="builderReviewBlock m9BuilderTool" aria-labelledby="m9ExplanationTitle">
+      <header class="m9ToolHeader">
+        <div><div class="builderVariantEyebrow">BOUNDED ANNOTATION</div><h2 id="m9ExplanationTitle">Explanation</h2></div>
+        <span>${explanations.length}/12</span>
+      </header>
+      <p>Add brief interview context without creating an unrestricted drawing layer.</p>
+      <form class="m9CreateExplanation" data-explanation-create-form>
+        <label>Short explanation
+          <textarea maxlength="${EXPLANATION_TEXT_MAX}" placeholder="Explain a gap, transition, or unusual sequence." data-explanation-create-text aria-describedby="m9ExplanationCreateError"></textarea>
+          <small class="m9InlineError" id="m9ExplanationCreateError" data-explanation-error role="alert" hidden></small>
+        </label>
+        ${explanationTargetMarkup(null)}
+        <label class="canvas407FDetailCheck"><input type="checkbox" data-explanation-create-leader checked> <span>Show leader arrow</span></label>
+        <button type="button" class="btnD go sm" data-explanation-create ${explanations.length>=12?"disabled":""}>ADD EXPLANATION</button>
+      </form>
+      <div class="m9ExplanationList">${explanations.map(explanationCardMarkup).join("")}</div>
+    </section>`;
+    const variant=activeSpecialtyVariant(store.document);
+    const target=variant.interviewTarget||{};
+    const specific=target.mode==="specific";
+    interviewHost.innerHTML=`<section class="builderReviewBlock m9BuilderTool" aria-labelledby="m9InterviewTitle" data-interview-config>
+      <header class="m9ToolHeader">
+        <div><div class="builderVariantEyebrow">ACTIVE VARIANT</div><h2 id="m9InterviewTitle">Interview target</h2></div>
+        <span>${escapeMarkup(variant.name)}</span>
+      </header>
+      <fieldset class="m9ModeChoice">
+        <legend>Timeline purpose</legend>
+        <label><input type="radio" name="interview-mode" value="general" ${!specific?"checked":""}> General timeline</label>
+        <label><input type="radio" name="interview-mode" value="specific" ${specific?"checked":""}> Specific interview</label>
+      </fieldset>
+      <div class="m9InterviewSpecific" data-interview-specific ${specific?"":"hidden"}>
+        <div class="m9FieldGrid">
+          <label>Program name <input type="text" maxlength="100" value="${escapeMarkup(target.programName||"")}" data-interview-program></label>
+          <label>Specialty
+            <select data-interview-specialty>
+              ${PINNED_ROTATION_SPECIALTIES.map((label)=>`<option value="${escapeMarkup(normalizeSpecialtyId(label))}" data-label="${escapeMarkup(label)}" ${(target.specialtyId||variant.specialty.id)===normalizeSpecialtyId(label)?"selected":""}>${escapeMarkup(label)}</option>`).join("")}
+            </select>
+          </label>
+          <label>Interview date <input type="date" value="${escapeMarkup(target.interviewDate||"")}" data-interview-date></label>
+          <label>Program location <input type="text" maxlength="100" value="${escapeMarkup(target.location||"")}" data-interview-location></label>
+          <label>Optional timeline label <input type="text" maxlength="60" value="${escapeMarkup(target.label||"")}" data-interview-label></label>
+        </div>
+        ${interviewLogoMarkup(target)}
+      </div>
+      <section class="m9CalendarState" aria-labelledby="m9CalendarTitle">
+        <div><div class="builderVariantEyebrow">MATRIX CALENDAR · SCHEDULED INTERVIEWS</div><h3 id="m9CalendarTitle">${matrixCalendarState.status==="unavailable"?"Calendar unavailable":"Scheduled interviews"}</h3></div>
+        <p>${escapeMarkup(matrixCalendarState.message)}</p>
+        <span class="chip">LOCAL REVIEW · NO LIVE CONNECTION</span>
+      </section>
+      <button type="button" class="btnD go sm" data-interview-save>SAVE INTERVIEW TARGET</button>
+    </section>`;
+  };
+  const explanationTargetFrom=(root)=>{
+    const kind=root.querySelector("[data-explanation-target-kind]")?.value||"coordinate";
+    return{
+      kind,
+      eventId:root.querySelector("[data-explanation-target-event]")?.value||"",
+      date:root.querySelector("[data-explanation-target-date]")?.value||"",
+      region:root.querySelector("[data-explanation-target-region]")?.value||"",
+      x:root.querySelector("[data-explanation-target-x]")?.value||960,
+      y:root.querySelector("[data-explanation-target-y]")?.value||540
+    };
+  };
+  const syncExplanationTargetPanels=(root)=>{
+    const kind=root?.querySelector("[data-explanation-target-kind]")?.value;
+    if(!kind)return;
+    for(const panel of root.querySelectorAll("[data-explanation-target-panel]")){
+      const active=panel.dataset.explanationTargetPanel===kind;
+      panel.hidden=!active;
+      for(const control of panel.querySelectorAll("input,select")){
+        control.disabled=!active;
+      }
+    }
+  };
+  const explanationErrorMessage=(result)=>({
+    EXPLANATION_TEXT_TOO_LONG:`Keep the explanation to ${EXPLANATION_TEXT_MAX} characters.`,
+    EXPLANATION_LIMIT_REACHED:"This timeline already has the maximum of 12 explanations."
+  }[result?.code]||"Enter a short explanation.");
+  const setM9InlineError=(control,error,message)=>{
+    if(!control||!error)return;
+    control.setAttribute("aria-invalid","true");
+    error.textContent=message;
+    error.hidden=false;
+    announceGlobal(message);
+    control.focus();
+  };
+  const clearM9InlineError=(control,error)=>{
+    control?.removeAttribute("aria-invalid");
+    if(error){
+      error.textContent="";
+      error.hidden=true;
+    }
+  };
+  const refreshM9=({focusSelector=""}={})=>{
+    syncBridgeFromStore();
+    queueBuilderEmbeddedPreview({force:true});
+    if(bridge.state.view==="export")queueExportRender();
+    if(focusSelector)queueMicrotask(()=>document.querySelector(focusSelector)?.focus());
+  };
+  onM9BuilderClick=(event)=>{
+    if(
+      event.target.closest?.('[data-builder-step="7"]')||
+      event.target.closest?.("#builderContinue")
+    ){
+      queueMicrotask(renderM9BuilderSurfaces);
+    }
+    const create=event.target.closest?.("[data-explanation-create]");
+    if(create){
+      const form=create.closest("[data-explanation-create-form]");
+      const textControl=form.querySelector("[data-explanation-create-text]");
+      const error=form.querySelector("[data-explanation-error]");
+      clearM9InlineError(textControl,error);
+      const target=explanationTargetFrom(form);
+      const owner=(store.document.events||[]).find(
+        (item)=>item.id===target.eventId
+      );
+      let result={ok:false};
+      store.mutate("Add Explanation",(document)=>{
+        result=createExplanation(document,{
+          text:form.querySelector("[data-explanation-create-text]")?.value,
+          target,
+          startDate:target.date||owner?.startDate||currentMonth()
+        });
+        if(result.ok){
+          result.event.fields.leaderEnabled=
+            form.querySelector("[data-explanation-create-leader]")?.checked!==false;
+          const canonical=document.events.find(
+            (item)=>item.id===result.event.id
+          );
+          if(canonical)canonical.fields.leaderEnabled=result.event.fields.leaderEnabled;
+        }
+      });
+      if(!result.ok){
+        const message=explanationErrorMessage(result);
+        bridge.toast(message);
+        setM9InlineError(textControl,error,message);
+        return;
+      }
+      refreshM9({
+        focusSelector:`[data-explanation-editor="${CSS.escape(result.event.id)}"] [data-explanation-text]`
+      });
+      bridge.toast("Explanation added");
+      announceGlobal("Explanation added to the timeline");
+      return;
+    }
+    const save=event.target.closest?.("[data-explanation-save]");
+    if(save){
+      const card=save.closest("[data-explanation-editor]");
+      const id=save.dataset.eventId;
+      const textControl=card.querySelector("[data-explanation-text]");
+      const error=card.querySelector("[data-explanation-error]");
+      clearM9InlineError(textControl,error);
+      let result={ok:false};
+      store.mutate("Edit Explanation",(document)=>{
+        result=updateExplanation(document,id,{
+          text:card.querySelector("[data-explanation-text]")?.value,
+          target:explanationTargetFrom(card),
+          leaderEnabled:card.querySelector("[data-explanation-leader]")?.checked,
+          x:card.querySelector("[data-explanation-x]")?.value,
+          y:card.querySelector("[data-explanation-y]")?.value,
+          width:card.querySelector("[data-explanation-width]")?.value,
+          height:card.querySelector("[data-explanation-height]")?.value
+        });
+      });
+      if(!result.ok){
+        const message=explanationErrorMessage(result);
+        bridge.toast(message);
+        setM9InlineError(textControl,error,message);
+        return;
+      }
+      refreshM9({focusSelector:`[data-explanation-editor="${CSS.escape(id)}"] [data-explanation-save]`});
+      bridge.toast("Explanation updated");
+      return;
+    }
+    const remove=event.target.closest?.("[data-explanation-delete]");
+    if(remove){
+      const id=remove.dataset.eventId;
+      store.mutate("Delete Explanation",(document)=>
+        deleteExplanation(document,id)
+      );
+      refreshM9({focusSelector:"[data-explanation-create-text]"});
+      bridge.toast("Explanation deleted");
+      return;
+    }
+    const move=event.target.closest?.("[data-explanation-move]");
+    if(move){
+      const source=store.document.events.find(
+        (item)=>item.id===move.dataset.eventId
+      );
+      const fields=source?.fields||{};
+      const delta={
+        left:{x:-24,y:0},
+        right:{x:24,y:0},
+        up:{x:0,y:-24},
+        down:{x:0,y:24}
+      }[move.dataset.explanationMove];
+      store.mutate("Move Explanation",(document)=>moveExplanation(
+        document,
+        move.dataset.eventId,
+        {x:(Number(fields.x)||1180)+delta.x,y:(Number(fields.y)||144)+delta.y}
+      ));
+      refreshM9({focusSelector:`[data-explanation-move="${move.dataset.explanationMove}"][data-event-id="${CSS.escape(move.dataset.eventId)}"]`});
+      announceGlobal(`Explanation moved ${move.dataset.explanationMove}`);
+      return;
+    }
+    const resize=event.target.closest?.("[data-explanation-resize]");
+    if(resize){
+      const source=store.document.events.find(
+        (item)=>item.id===resize.dataset.eventId
+      );
+      const fields=source?.fields||{};
+      const delta=resize.dataset.explanationResize==="larger"?24:-24;
+      store.mutate("Resize Explanation",(document)=>resizeExplanation(
+        document,
+        resize.dataset.eventId,
+        {width:(Number(fields.width)||360)+delta,height:(Number(fields.height)||126)+delta/2}
+      ));
+      refreshM9({focusSelector:`[data-explanation-resize="${resize.dataset.explanationResize}"][data-event-id="${CSS.escape(resize.dataset.eventId)}"]`});
+      announceGlobal(`Explanation ${resize.dataset.explanationResize}`);
+      return;
+    }
+    if(event.target.closest?.("[data-interview-logo-remove]")){
+      const active=activeSpecialtyVariant(store.document);
+      store.mutate("Remove interview logo",(document)=>{
+        setVariantInterviewTarget(document,active.id,{
+          ...active.interviewTarget,
+          logoMediaId:""
+        });
+      });
+      refreshM9({focusSelector:"[data-interview-logo-upload]"});
+      bridge.toast("Logo removed from this interview timeline");
+      return;
+    }
+    if(event.target.closest?.("[data-interview-save]")){
+      const root=event.target.closest("[data-interview-config]");
+      const mode=root.querySelector('[name="interview-mode"]:checked')?.value||"general";
+      const specialty=root.querySelector("[data-interview-specialty]");
+      const active=activeSpecialtyVariant(store.document);
+      store.mutate("Save interview target",(document)=>{
+        setVariantInterviewTarget(document,active.id,{
+          ...active.interviewTarget,
+          mode,
+          programName:root.querySelector("[data-interview-program]")?.value,
+          specialtyId:specialty?.value||active.specialty.id,
+          specialtyLabel:specialty?.selectedOptions?.[0]?.dataset?.label||
+            active.specialty.label,
+          interviewDate:root.querySelector("[data-interview-date]")?.value,
+          location:root.querySelector("[data-interview-location]")?.value,
+          label:root.querySelector("[data-interview-label]")?.value,
+          logoFit:root.querySelector("[data-interview-logo-fit]")?.value,
+          logoX:root.querySelector("[data-interview-logo-x]")?.value,
+          logoY:root.querySelector("[data-interview-logo-y]")?.value,
+          logoWidth:root.querySelector("[data-interview-logo-width]")?.value,
+          logoHeight:root.querySelector("[data-interview-logo-height]")?.value
+        });
+      });
+      refreshM9({focusSelector:"[data-interview-save]"});
+      bridge.toast(mode==="specific"?"Interview target saved":"General timeline saved");
+      announceGlobal(mode==="specific"?"Interview-specific timeline saved":"General timeline saved");
+    }
+  };
+  onM9BuilderChange=async(event)=>{
+    const targetKind=event.target.closest?.("[data-explanation-target-kind]");
+    if(targetKind){
+      syncExplanationTargetPanels(
+        targetKind.closest("[data-explanation-create-form],[data-explanation-editor]")
+      );
+      return;
+    }
+    const mode=event.target.closest?.('[name="interview-mode"]');
+    if(mode){
+      const root=mode.closest("[data-interview-config]");
+      const specific=root?.querySelector("[data-interview-specific]");
+      if(specific)specific.hidden=mode.value!=="specific";
+      return;
+    }
+    const input=event.target.closest?.("[data-interview-logo-upload]");
+    if(!input)return;
+    const logoRoot=input.closest(".m9LogoEditor");
+    const logoError=logoRoot?.querySelector("[data-interview-logo-error]");
+    clearM9InlineError(input,logoError);
+    const file=input.files?.[0];
+    input.value="";
+    if(!file)return;
+    if(!["image/png","image/jpeg","image/webp"].includes(file.type)){
+      const message="Choose a PNG, JPG, or WEBP logo.";
+      bridge.toast(message);
+      setM9InlineError(input,logoError,message);
+      return;
+    }
+    try{
+      const id=uid("interview-logo");
+      const metrics=await imageMetrics(file);
+      const asset=createMediaLibraryAsset({
+        id,
+        file,
+        naturalWidth:metrics.width,
+        naturalHeight:metrics.height,
+        layerIndex:mediaItems().length
+      });
+      asset.source.blobKey=id;
+      asset.role="interview-program-logo-source";
+      const active=activeSpecialtyVariant(store.document);
+      await store.mutateWithBlobs(
+        "Add interview program logo",
+        (document)=>{
+          document.advanced.media.push(asset);
+          setVariantInterviewTarget(document,active.id,{
+            ...active.interviewTarget,
+            logoMediaId:id
+          });
+        },
+        {
+          blobs:[{
+            key:id,
+            blob:file,
+            metadata:{
+              kind:"interview-program-logo",
+              name:file.name,
+              type:file.type,
+              size:file.size,
+              localOnly:true
+            }
+          }],
+          reason:"ADD_INTERVIEW_PROGRAM_LOGO"
+        }
+      );
+      mediaUrls.set(id,file);
+      refreshM9({focusSelector:"[data-interview-logo-upload]"});
+      renderMediaLibrarySurfaces();
+      bridge.toast("Program logo added locally");
+      announceGlobal("Program logo added to the active interview timeline");
+    }catch(error){
+      const message=String(error?.message||error);
+      bridge.toast(message);
+      setM9InlineError(input,logoError,message);
+    }
+  };
+  document.addEventListener("click",onM9BuilderClick);
+  document.addEventListener("change",onM9BuilderChange);
+  renderM9BuilderSurfaces();
   const previewBackgroundInert=(active)=>{
     for(const element of [
       document.querySelector("header"),
@@ -1800,10 +2259,16 @@ export async function boot407FEngineeringAdapter({
       bridge.toast("This preview item is not connected to an editable entry.");
       return false;
     }
-    if(route.kind==="interview-target"){
-      store.mutate("Open interview configuration",(document)=>{
+    if(route.kind==="interview-target"||route.kind==="explanation"){
+      store.mutate(
+        route.kind==="explanation"
+          ?"Open Explanation"
+          :"Open interview configuration",
+        (document)=>{
         document.builder={...(document.builder||{}),step:7};
-      },{history:false,material:false});
+        },
+        {history:false,material:false}
+      );
     }else{
       store.mutate("Open Builder entry",(document)=>{
         beginBuilderEntryEdit(document,route.eventId);
@@ -1820,6 +2285,8 @@ export async function boot407FEngineeringAdapter({
     announceGlobal(
       route.kind==="interview-target"
         ?"Opened interview configuration in Review & Finish"
+        :route.kind==="explanation"
+          ?"Opened explanation in Review & Finish"
         :`Opened ${event?.title||"timeline item"} in Builder`
     );
     return true;
@@ -2468,7 +2935,10 @@ export async function boot407FEngineeringAdapter({
   on407FRendered=()=>{
     if(bridge.state.view==="export")queueExportRender();
     if(bridge.state.view==="advisor")queueMicrotask(renderAdvisorHost);
-    if(bridge.state.view==="builder")queueBuilderEmbeddedPreview();
+    if(bridge.state.view==="builder"){
+      queueBuilderEmbeddedPreview();
+      queueMicrotask(renderM9BuilderSurfaces);
+    }
     if(["builder","canvas","media"].includes(bridge.state.view)){
       queueMicrotask(renderMediaLibrarySurfaces);
     }
@@ -3270,6 +3740,7 @@ export async function boot407FEngineeringAdapter({
     const active=document.querySelector("section[data-view].live");
     if(!active)return;
     const view=String(active.dataset.view||"");
+    if(view==="builder")renderM9BuilderSurfaces();
     if(!["builder","canvas"].includes(view))closeMediaLibrary();
     if(["builder","canvas","media"].includes(view))renderMediaLibrarySurfaces();
     if(view===lastFocusedView)return;

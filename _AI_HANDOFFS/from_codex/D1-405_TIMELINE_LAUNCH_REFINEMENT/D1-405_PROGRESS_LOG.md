@@ -374,3 +374,43 @@
 - No push, deployment, Matrix mutation, WordPress mutation, cloud-storage
   write, or production external task creation occurred.
 - Next action: M9 explanation annotations and interview-target tooling.
+
+## 2026-07-31 — M9 Explanation and Interview Target checkpoint
+
+- Added bounded Explanation authoring with event/date/region/coordinate targets,
+  optional leader, move/resize, edit/delete, and shared TimelineStore history.
+- Added theme-aware Explanation rendering to embedded/full preview and Export.
+- Added active-variant general/specific Interview Target configuration:
+  program, normalized specialty, exact date, location, and optional label.
+- Added program-logo upload through the existing shared Media metadata/blob
+  architecture; no duplicate storage or parallel asset system.
+- Verified a real synthetic WEBP through the file chooser, persistence,
+  crop/resize, active-variant projection, and full Guided preview.
+- Added truthful Matrix Calendar `Scheduled Interviews` adapter seam:
+  unavailable local runtime, local-only fixtures, no live claim.
+- Corrected autonomous accessibility details:
+  - Explanation text `#F4F7FF` on `#111827` = 16.5528:1;
+  - gold selection `#B98A2E` on `#111B2C` = 5.5364:1;
+  - cyan picker/focus `#75CFEA` on `#0B1321` = 10.5102:1;
+  - inline error `#FF9F86` on `#0B1321` = 9.3466:1.
+- Added conditional hidden/disabled target panels, Coordinate X/Y, 44px logo
+  target/focus ring, `aria-invalid`, linked alerts, live announcements, and
+  invalid-control focus recovery.
+- Preserved frozen default marker label `Interview season`; specific targets
+  use the configured label/program.
+- Verification:
+  - TypeScript suite: 119/119;
+  - browser/module suite: 392/392;
+  - total: 511/511;
+  - focused M8/M9/Export/Advanced-board gate: 39/39;
+  - typecheck: passed;
+  - package verification: 23/23;
+  - deterministic build: 196 runtime files;
+  - manifest SHA-256:
+    `857fd5364a5d2eabec04cfd5b19b99833fea0ea7b247e4789771dfd06382dbfa`;
+  - fresh browser console: zero warnings/errors;
+  - Miyamoto final PASS;
+  - Vitruvius final PASS.
+- Protected boundaries preserved: no push, deploy, Matrix, WordPress,
+  production persistence, cloud storage, or external task creation.
+- Next action: M10 themes and export-audience refinement.

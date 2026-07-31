@@ -235,3 +235,40 @@ desaturated, non-actionable treatment with a visible not-allowed cursor and no
 hover-color response.
 
 Final M8 Miyamoto verdict: PASS.
+
+## M9 visual checkpoint
+
+The Explanation tool is a bounded 407F instrument panel rather than a drawing
+canvas. Its controls remain in the single primary Builder column while the
+larger proportional preview stays fixed to the right and updates immediately.
+The artifact uses a restrained dark callout with a gold leader and high-contrast
+light text; Advisor Paper retains a white card with dark ink.
+
+The Interview Target panel uses the same dark material language, cyan
+micro-labels, gold edge, tactile segmented purpose controls, exact program
+details, and a shared local Media logo well. A real WEBP was uploaded, cropped,
+resized, persisted, and rendered in the full preview.
+
+Initial review defects and corrections:
+
+1. Native blue checkbox/radio styling and dark picker glyphs were replaced by
+   407F gold selection and cyan picker/focus treatments.
+2. The unchecked interview-purpose radio was changed from a solid white circle
+   to a transparent center; only the selected radio receives a gold inner dot.
+3. Explanation text inherited dark theme ink on a dark card. Non-paper cards
+   now use `#F4F7FF` at 16.5528:1 contrast on `#111827`.
+
+Evidence:
+
+- `evidence/screenshots/D1-405-M9-explanation-creation.jpg`
+- `evidence/screenshots/D1-405-M9-explanation-move-resize-leader.jpg`
+- `evidence/screenshots/D1-405-M9-interview-specific-calendar-unavailable.jpg`
+- `evidence/screenshots/D1-405-M9-calendar-unavailable.jpg`
+- `evidence/screenshots/D1-405-M9-explanation-interview-export.jpg`
+- `evidence/screenshots/D1-405-M9-control-polish.jpg`
+- `evidence/screenshots/D1-405-M9-interview-control-polish.jpg`
+- `evidence/screenshots/D1-405-M9-conditional-target-validation.png`
+- `evidence/screenshots/D1-405-M9-program-logo-upload-resize.png`
+- `evidence/screenshots/D1-405-M9-program-logo-full-preview.png`
+
+Final M9 Miyamoto verdict: PASS.

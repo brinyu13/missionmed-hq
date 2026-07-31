@@ -44,10 +44,30 @@ function normalizeVariant(variant,index=0){
     specialty:{id,label},
     hiddenEventIds:unique(variant?.hiddenEventIds),
     interviewTarget:{
+      mode:variant?.interviewTarget?.mode==="specific"?"specific":"general",
       programId:clean(variant?.interviewTarget?.programId),
       programName:clean(variant?.interviewTarget?.programName),
+      specialtyId:clean(variant?.interviewTarget?.specialtyId),
+      specialtyLabel:clean(variant?.interviewTarget?.specialtyLabel),
       interviewDate:clean(variant?.interviewTarget?.interviewDate),
-      label:clean(variant?.interviewTarget?.label)
+      location:clean(variant?.interviewTarget?.location),
+      label:clean(variant?.interviewTarget?.label),
+      calendarEventId:clean(variant?.interviewTarget?.calendarEventId),
+      meetingInformation:clean(variant?.interviewTarget?.meetingInformation),
+      logoMediaId:clean(variant?.interviewTarget?.logoMediaId),
+      logoFit:variant?.interviewTarget?.logoFit==="cover"?"cover":"contain",
+      logoX:Number.isFinite(Number(variant?.interviewTarget?.logoX))
+        ?Number(variant.interviewTarget.logoX)
+        :1560,
+      logoY:Number.isFinite(Number(variant?.interviewTarget?.logoY))
+        ?Number(variant.interviewTarget.logoY)
+        :112,
+      logoWidth:Number.isFinite(Number(variant?.interviewTarget?.logoWidth))
+        ?Number(variant.interviewTarget.logoWidth)
+        :180,
+      logoHeight:Number.isFinite(Number(variant?.interviewTarget?.logoHeight))
+        ?Number(variant.interviewTarget.logoHeight)
+        :96
     }
   };
 }
@@ -64,7 +84,20 @@ function legacyVariant(document){
   return normalizeVariant({
     id:variantIdFor(id),
     name:label?`${label} timeline`:"Primary specialty timeline",
-    specialty:{id,label}
+    specialty:{id,label},
+    interviewTarget:{
+      mode:document?.metadata?.interview?.prog||
+        document?.metadata?.interview?.date
+        ?"specific"
+        :"general",
+      programName:document?.metadata?.interview?.prog,
+      specialtyLabel:label,
+      specialtyId:id,
+      interviewDate:document?.metadata?.interview?.date,
+      location:document?.metadata?.interview?.location,
+      label:document?.metadata?.interview?.label,
+      logoMediaId:document?.metadata?.interview?.logoMediaId
+    }
   });
 }
 
@@ -186,10 +219,22 @@ export function setVariantInterviewTarget(document,variantId,target={}){
   const variant=state.variants.find(({id})=>id===clean(variantId));
   if(!variant)return{ok:false,code:"SPECIALTY_VARIANT_NOT_FOUND"};
   variant.interviewTarget={
+    mode:target.mode==="specific"?"specific":"general",
     programId:clean(target.programId),
     programName:clean(target.programName),
+    specialtyId:clean(target.specialtyId),
+    specialtyLabel:clean(target.specialtyLabel),
     interviewDate:clean(target.interviewDate),
-    label:clean(target.label)
+    location:clean(target.location),
+    label:clean(target.label),
+    calendarEventId:clean(target.calendarEventId),
+    meetingInformation:clean(target.meetingInformation),
+    logoMediaId:clean(target.logoMediaId),
+    logoFit:target.logoFit==="cover"?"cover":"contain",
+    logoX:Number(target.logoX)||1560,
+    logoY:Number(target.logoY)||112,
+    logoWidth:Number(target.logoWidth)||180,
+    logoHeight:Number(target.logoHeight)||96
   };
   return{ok:true,interviewTarget:clone(variant.interviewTarget)};
 }
@@ -220,10 +265,40 @@ export function applyActiveSpecialtyVariant(document){
     },
     interview:{
       ...(projected.metadata?.interview||{}),
-      prog:active.interviewTarget.programName,
-      date:active.interviewTarget.interviewDate,
-      label:active.interviewTarget.label
+      mode:active.interviewTarget.mode,
+      prog:active.interviewTarget.mode==="specific"
+        ?active.interviewTarget.programName
+        :"",
+      specialty:active.interviewTarget.specialtyLabel,
+      date:active.interviewTarget.mode==="specific"
+        ?active.interviewTarget.interviewDate
+        :"",
+      location:active.interviewTarget.location,
+      label:active.interviewTarget.label,
+      calendarEventId:active.interviewTarget.calendarEventId,
+      meetingInformation:active.interviewTarget.meetingInformation,
+      logoMediaId:active.interviewTarget.logoMediaId
     }
   };
+  if(active.interviewTarget.logoMediaId){
+    projected.advanced={
+      ...(projected.advanced||{}),
+      media:(projected.advanced?.media||[]).map((item)=>
+        item.id===active.interviewTarget.logoMediaId
+          ?{
+            ...item,
+            placed:true,
+            x:active.interviewTarget.logoX,
+            y:active.interviewTarget.logoY,
+            width:active.interviewTarget.logoWidth,
+            height:active.interviewTarget.logoHeight,
+            fit:active.interviewTarget.logoFit,
+            guidedVisible:true,
+            role:"interview-program-logo"
+          }
+          :item
+      )
+    };
+  }
   return projected;
 }

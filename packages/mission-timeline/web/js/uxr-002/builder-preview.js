@@ -191,6 +191,14 @@ export function resolveBuilderPreviewOwner(document,{
     :event;
   if(!routedEvent)return null;
   const route=detailsRouteForEvent(routedEvent);
+  const ownerRoute=resolvedOwner.kind==="explanation"
+    ?{
+      ...route,
+      step:7,
+      stepId:"review",
+      builderDomain:"explanation"
+    }
+    :route;
   const focusSelector=resolvedOwner.kind==="exam-attempt"
     ?`[data-exam-card="${escapeAttribute(resolvedOwner.id)}"]`
     :resolvedOwner.kind==="core-education"
@@ -199,7 +207,7 @@ export function resolveBuilderPreviewOwner(document,{
         ?`[data-explanation-editor="${escapeAttribute(resolvedOwner.id)}"]`
         :`[data-domain-form="${escapeAttribute(route.stepId)}"]`;
   return freeze({
-    ...route,
+    ...ownerRoute,
     kind:resolvedOwner.kind,
     ownerId:resolvedOwner.id,
     eventId:String(routedEvent.id||""),

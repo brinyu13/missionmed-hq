@@ -808,6 +808,291 @@ main{
   padding:10px 12px;
 }
 
+.m9BuilderTool{
+  background:
+    linear-gradient(145deg,rgba(57,214,255,.045),transparent 42%),
+    repeating-linear-gradient(112deg,rgba(232,238,251,.014) 0 1px,transparent 1px 6px),
+    #101827;
+  border:1px solid var(--edge2);
+  border-left:3px solid var(--cy);
+  display:grid;
+  gap:14px;
+  margin-top:18px;
+  padding:18px;
+}
+
+.m9BuilderTool>p,
+.m9LogoEditor p,
+.m9CalendarState p{
+  color:var(--mid);
+  line-height:1.5;
+}
+
+.m9ToolHeader{
+  align-items:center;
+  display:flex;
+  gap:18px;
+  justify-content:space-between;
+}
+
+.m9ToolHeader h2{
+  color:var(--tx);
+  font-family:var(--disp);
+  font-size:22px;
+}
+
+.m9ToolHeader>span{
+  color:#75cfea;
+  font-size:11px;
+  font-weight:650;
+  letter-spacing:.08em;
+  text-align:right;
+}
+
+.m9CreateExplanation,
+.m9ExplanationCard,
+.m9LogoEditor,
+.m9CalendarState{
+  background:linear-gradient(160deg,#172237,#0d1422);
+  border:1px solid var(--edge);
+  border-radius:3px;
+  display:grid;
+  gap:12px;
+  padding:14px;
+}
+
+.m9ExplanationList{
+  display:grid;
+  gap:12px;
+}
+
+.m9CreateExplanation label,
+.m9ExplanationCard label,
+.m9InterviewSpecific label,
+.m9LogoEditor label{
+  color:var(--mid);
+  display:grid;
+  font-size:12px;
+  font-weight:700;
+  gap:6px;
+}
+
+.m9BuilderTool input,
+.m9BuilderTool select,
+.m9BuilderTool textarea{
+  background:#0b1321;
+  border:1px solid var(--edge2);
+  border-radius:2px;
+  color:var(--tx);
+  font:inherit;
+  min-height:44px;
+  padding:9px 10px;
+}
+
+.m9BuilderTool textarea{
+  min-height:88px;
+  resize:vertical;
+}
+
+.m9BuilderTool .canvas407FDetailCheck,
+.m9ModeChoice label{
+  align-items:center;
+  cursor:pointer;
+  display:flex;
+  gap:10px;
+  min-height:44px;
+}
+
+.m9BuilderTool .canvas407FDetailCheck input,
+.m9ModeChoice input{
+  accent-color:var(--gd);
+  background:transparent;
+  border:0;
+  border-radius:0;
+  flex:0 0 18px;
+  height:18px;
+  margin:0;
+  min-height:0;
+  padding:0;
+  width:18px;
+}
+
+.m9ModeChoice input[type="radio"]{
+  appearance:none;
+  border:1px solid #75cfea;
+  border-radius:50%;
+  display:grid;
+  place-content:center;
+}
+
+.m9ModeChoice input[type="radio"]::before{
+  background:var(--gd);
+  border-radius:50%;
+  box-shadow:0 0 0 2px rgba(185,138,46,.18);
+  content:"";
+  height:10px;
+  transform:scale(0);
+  transition:transform 120ms ease;
+  width:10px;
+}
+
+.m9ModeChoice input[type="radio"]:checked::before{
+  transform:scale(1);
+}
+
+.m9BuilderTool input[type="month"],
+.m9BuilderTool input[type="date"]{
+  color-scheme:dark;
+}
+
+.m9BuilderTool input[type="month"]::-webkit-calendar-picker-indicator,
+.m9BuilderTool input[type="date"]::-webkit-calendar-picker-indicator{
+  cursor:pointer;
+  filter:invert(81%) sepia(22%) saturate(1037%) hue-rotate(153deg)
+    brightness(96%) contrast(91%);
+  opacity:1;
+}
+
+.m9CoordinateTarget{
+  border:0;
+  display:grid;
+  gap:10px;
+  grid-column:1/-1;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  padding:0;
+}
+
+.m9CoordinateTarget legend{
+  color:#75cfea;
+  font-size:11px;
+  font-weight:650;
+  grid-column:1/-1;
+  letter-spacing:.08em;
+}
+
+.m9InlineError{
+  color:#ff9f86;
+  font-size:12px;
+  font-weight:700;
+  line-height:18px;
+}
+
+.m9FieldGrid{
+  display:grid;
+  gap:10px;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+
+.m9Geometry{
+  display:grid;
+  gap:8px;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+}
+
+.m9Geometry label{
+  color:var(--mid);
+  font-size:11px;
+  font-weight:650;
+}
+
+.m9Nudge,
+.m9CardActions,
+.m9ModeChoice{
+  align-items:center;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.m9CardActions{
+  justify-content:space-between;
+}
+
+.m9ModeChoice{
+  border:0;
+  color:var(--tx);
+  padding:0;
+}
+
+.m9ModeChoice legend{
+  color:#75cfea;
+  font-size:11px;
+  font-weight:650;
+  letter-spacing:.1em;
+  margin-bottom:8px;
+}
+
+.m9ModeChoice label{
+  background:#111b2c;
+  border:1px solid var(--edge2);
+  padding:8px 12px;
+}
+
+.m9InterviewSpecific{
+  display:grid;
+  gap:14px;
+}
+
+.m9InterviewSpecific[hidden]{
+  display:none;
+}
+
+.m9LogoEditor{
+  border-left:3px solid var(--em);
+}
+
+.m9LogoPreview{
+  align-items:center;
+  background:#f8fafc;
+  color:#191c21;
+  display:flex;
+  gap:14px;
+  min-height:96px;
+  padding:12px;
+}
+
+.m9LogoPreview img{
+  height:72px;
+  object-fit:contain;
+  width:132px;
+}
+
+.m9LogoEmpty{
+  border:1px dashed var(--edge2);
+  color:var(--dim);
+  padding:22px;
+  text-align:center;
+}
+
+.m9LogoUpload{
+  align-items:center;
+  cursor:pointer;
+  justify-content:center;
+  min-height:44px;
+  overflow:hidden;
+  position:relative;
+}
+
+.m9LogoUpload:focus-within{
+  outline:3px solid #75cfea;
+  outline-offset:3px;
+}
+
+.m9LogoUpload input{
+  inset:0;
+  opacity:0;
+  position:absolute;
+}
+
+.m9CalendarState{
+  border-left:3px solid var(--em);
+}
+
+.m9CalendarState h3{
+  color:var(--tx);
+  font-size:17px;
+}
+
 .builderStepper{
   background:
     repeating-linear-gradient(
@@ -5575,6 +5860,17 @@ textarea:focus-visible,
   .builderVariantControls .btnD{
     flex:1 1 100%;
     width:100%;
+  }
+
+  .m9FieldGrid,
+  .m9Geometry{
+    grid-template-columns:minmax(0,1fr);
+  }
+
+  .m9ToolHeader,
+  .m9CardActions{
+    align-items:flex-start;
+    flex-direction:column;
   }
 
   .media407FPageHeader,

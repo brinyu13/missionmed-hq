@@ -1,6 +1,6 @@
 # D1-405 Final Combined Handoff
 
-Status: in progress — updated through M8
+Status: in progress — updated through M9
 
 This document is maintained incrementally and is not a final-completion claim.
 
@@ -9,11 +9,12 @@ This document is maintained incrementally and is not a final-completion claim.
 - Canonical base: 407F / D1-404
 - Branch: `d1-405-timeline-launch-refinement`
 - M7 checkpoint: `18ab405`
-- M8 checkpoint: pending milestone commit
+- M8 checkpoint: `c622dbf`
+- M9 checkpoint: pending milestone commit
 - Local preview: `http://localhost:8793/web/`
-- Estimated completion: 78%
+- Estimated completion: 84%
 
-## Completed through M8
+## Completed through M9
 
 - MissionMed branding and clearer Edit Timeline navigation.
 - File Vault-first Home with truthful local integration boundary.
@@ -35,15 +36,27 @@ This document is maintained incrementally and is not a final-completion claim.
 - Active-variant Builder, Edit Timeline, theme, LOR, and Export projection.
 - Focus-contained create/rename/remove dialogs with inert background, Escape and
   backdrop cleanup, opener restoration, and select-focus retention.
+- Bounded Explanation authoring with event/date/region/coordinate targets,
+  leader lines, direct move/resize controls, deletion, persistence, history,
+  live preview, and Export serialization.
+- General versus specific Interview Target configuration with program,
+  specialty, exact date, location, and optional timeline label.
+- Program-logo upload through the shared local Media/blob architecture with one
+  stored asset, one variant reference, contain/crop, resize, positioning,
+  remove/replace, persistence, Guided preview, and Export rendering.
+- Truthful `Scheduled Interviews` Matrix Calendar adapter seam with an
+  unavailable local runtime state and local-only fixtures.
+- Conditional target panels, 44px logo target, focus-visible treatment, linked
+  inline errors, live announcements, and invalid-control focus recovery.
 
 ## Current verification
 
-- 504/504 tests passed.
+- 511/511 tests passed: 119 TypeScript and 392 module tests.
 - Typecheck passed.
 - Package verification passed 23/23.
-- Deterministic build passed with 194 runtime files.
+- Deterministic build passed with 196 runtime files.
 - Manifest SHA-256:
-  `c7feeb1ac923b5b88eeca0a77dce19de9fdacd83c8943a27710b2faba8f17a42`.
+  `857fd5364a5d2eabec04cfd5b19b99833fea0ea7b247e4789771dfd06382dbfa`.
 - Fresh-browser console: zero warnings/errors.
 - Miyamoto: PASS.
 - Vitruvius: PASS.
@@ -65,11 +78,32 @@ under the Founder implementation authority:
 - `evidence/screenshots/D1-405-M8-two-variants-pediatrics.jpg`
 - `evidence/screenshots/D1-405-M8-lor-star-internal-medicine.jpg`
 
+## M9 autonomous accessibility adjustments
+
+| Original token/treatment | Replacement | Reason | Calculated contrast | Affected components |
+|---|---|---|---|---|
+| Theme ink inherited on `#111827` Explanation cards | `#F4F7FF` on non-paper cards; `#191C21` on paper | Prevent dark-on-dark annotation text while retaining theme-aware paper treatment | 16.5528:1 on `#111827`; 17.0815:1 on white | Builder preview, full preview, Export Explanation cards |
+| Browser-default blue checkbox/radio and dark date indicators | Frozen gold `#B98A2E` selection treatment and cyan `#75CFEA` date indicator/focus treatment | Restore 407F hierarchy and preserve non-color state semantics | 5.5364:1 gold on `#111B2C`; 10.5102:1 cyan on `#0B1321` | Explanation leader, interview-purpose radios, month/date pickers |
+| Toast-only validation | Linked `role="alert"` errors in `#FF9F86`, `aria-invalid`, polite announcement, focus recovery | Make failures perceivable and operable without changing workflow or wording | 9.3466:1 on `#0B1321` | Explanation create/save and program-logo validation |
+
+## M9 visual evidence
+
+- `evidence/screenshots/D1-405-M9-explanation-creation.jpg`
+- `evidence/screenshots/D1-405-M9-explanation-move-resize-leader.jpg`
+- `evidence/screenshots/D1-405-M9-interview-specific-calendar-unavailable.jpg`
+- `evidence/screenshots/D1-405-M9-calendar-unavailable.jpg`
+- `evidence/screenshots/D1-405-M9-explanation-interview-export.jpg`
+- `evidence/screenshots/D1-405-M9-control-polish.jpg`
+- `evidence/screenshots/D1-405-M9-interview-control-polish.jpg`
+- `evidence/screenshots/D1-405-M9-conditional-target-validation.png`
+- `evidence/screenshots/D1-405-M9-program-logo-upload-resize.png`
+- `evidence/screenshots/D1-405-M9-program-logo-full-preview.png`
+
 ## Remaining
 
-M9 through M13 remain. In particular: explanation and interview tools, export
-audience refinement, entitlements/migration, final accessibility/responsive
-hardening, and the complete final evidence package.
+M10 through M13 remain: export audience refinement, entitlement and migration
+work, final accessibility/responsive hardening, and the complete final evidence
+package.
 
 ## Protected boundaries
 

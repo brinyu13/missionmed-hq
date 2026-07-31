@@ -286,3 +286,56 @@ meaning, workflow, layout, or interaction model.
 - Complete M8 gate: 504/504 tests, typecheck, 23/23 package verification,
   deterministic 194-file build, zero live-browser warnings/errors, and final
   Miyamoto/Vitruvius PASS verdicts.
+
+## M9 — Explanation and Interview Target tools
+
+- Added `explanation.js` as a bounded factual-safe annotation domain:
+  180-character text limit, 12-item document limit, event/date/region/coordinate
+  targets, bounded position and size, optional leader, and pure
+  create/update/move/resize/delete operations.
+- Explanation records remain canonical events with
+  `fields.builderDomain="explanation"`; they use the retained TimelineStore, so
+  autosave, undo/redo, history, versions, deletion, keyboard routing, preview,
+  themes, and Export remain shared.
+- Builder Step 7 provides controlled authoring rather than a general drawing
+  system. Target-specific panels hide and disable irrelevant controls; the
+  Coordinate target exposes bounded X/Y inputs.
+- The renderer creates theme-aware Explanation cards, optional leaders, and
+  accessible group labels. The same serialized artifact is used in the embedded
+  preview, full preview, and Export.
+- Extended each specialty variant’s existing interview configuration with
+  general/specific mode, program, normalized specialty, exact interview date,
+  location, optional label, Calendar metadata seam, program-logo reference,
+  contain/crop, and bounded placement/size.
+- Program-logo upload accepts PNG/JPG/WEBP, reuses
+  `document.advanced.media`, the existing IndexedDB blob store, object-URL
+  registry, TimelineStore transaction, Guided/Advanced renderer, and Media
+  surface. No duplicate blob or parallel asset system is created.
+- A real synthetic WEBP was uploaded through the native file-chooser contract,
+  persisted, resized, switched to crop, projected from the active variant, and
+  rendered as one Guided media layer in the full preview.
+- Added the `Scheduled Interviews` Matrix Calendar adapter contract. The active
+  runtime truthfully reports unavailable/no live connection; deterministic
+  fixtures remain local-only and do not claim live data.
+- Default interview-marker wording remains the frozen `Interview season`;
+  specific timelines use the configured optional label or program.
+- The Builder remains one primary editor column with the larger interactive
+  right preview. No shell, route hierarchy, or unrelated workflow changed.
+- Complete M9 gate: 511/511 tests, typecheck, 23/23 package verification,
+  deterministic 196-file build, zero live-browser warnings/errors, and final
+  Miyamoto/Vitruvius PASS verdicts.
+- Build manifest SHA-256:
+  `857fd5364a5d2eabec04cfd5b19b99833fea0ea7b247e4789771dfd06382dbfa`.
+
+### M9 autonomous implementation-level accessibility adjustments
+
+| Original token/treatment | Replacement | Reason | Calculated contrast | Affected components |
+|---|---|---|---|---|
+| Theme ink inherited on dark `#111827` Explanation cards | `#F4F7FF` on non-paper cards; `#191C21` on white paper cards | Prevent dark-on-dark text while preserving paper-theme behavior and product appearance | 16.5528:1 on `#111827`; 17.0815:1 on white | Builder, full preview, Export Explanation text |
+| Browser-default blue selection controls and dark picker glyphs | Frozen gold `#B98A2E` checkbox/radio state and cyan `#75CFEA` date-indicator/focus treatment | Restore premium 407F hierarchy and improve state/picker visibility without changing semantics | 5.5364:1 gold on `#111B2C`; 10.5102:1 cyan on `#0B1321` | Explanation leader, interview-purpose radios, month/date inputs |
+| Toast-only validation | Linked `role="alert"` error in `#FF9F86`, `aria-invalid`, global polite announcement, and invalid-control focus recovery | Make failures independently perceivable and keyboard recoverable | 9.3466:1 on `#0B1321` | Explanation create/save and program-logo validation |
+
+These adjustments are within
+`D1-UXR-002 IMPLEMENTATION AUTHORITY ADDENDUM 001`: they alter only
+implementation tokens, control states, focus treatment, and validation
+semantics while preserving wording, hierarchy, workflow, brand, and behavior.
