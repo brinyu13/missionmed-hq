@@ -739,11 +739,17 @@ test('zero-assignment student sees a truthful disabled mentor-review state', asy
 });
 
 test('Quick Capture draft restores to the signed account and clears after a real save', async ({ page }) => {
+  const lesson = 'I learned to name the concern early and invite the team into the next decision.';
   await page.goto('/');
   await page.getByRole('button', { name: 'Student · Maya' }).click();
   await page.locator('[data-open-capture]').first().click();
+  await expect(page.locator('summary.capMoreHead')).toHaveCount(0);
+  await expect(page.getByText(/Add more now/i)).toHaveCount(0);
+  await expect(page.locator('#capLesson')).toBeVisible();
+  await expect(page.locator('#capLesson')).toBeEditable();
   await page.locator('#capTitle').fill('Durable cross-session capture draft');
   await page.locator('#capBody').fill('This text must survive a reload because it is saved to the signed student account.');
+  await page.locator('#capLesson').fill(lesson);
   await expect(page.locator('#captureDraftStatus')).toHaveText('Draft saved to your account.');
   await page.getByRole('button', { name: 'Close Quick Capture' }).click();
 
@@ -754,12 +760,19 @@ test('Quick Capture draft restores to the signed account and clears after a real
   await expect(page.locator('#capBody')).toHaveValue(
     'This text must survive a reload because it is saved to the signed student account.',
   );
+  await expect(page.locator('#capLesson')).toHaveValue(lesson);
   await expect(page.locator('#captureDraftStatus')).toHaveText('Draft restored from your account.');
   await page.getByRole('button', { name: 'Save story' }).click();
+
+  await page.getByRole('button', { name: /Durable cross-session capture draft/ }).click();
+  await page.getByRole('tab', { name: 'Working version' }).click();
+  await expect(page.locator('#storyLesson')).toHaveValue(lesson);
+  await page.locator('#room [data-close-overlay]').click();
 
   await page.locator('[data-open-capture]').first().click();
   await expect(page.locator('#capTitle')).toHaveValue('');
   await expect(page.locator('#capBody')).toHaveValue('');
+  await expect(page.locator('#capLesson')).toHaveValue('');
   await page.getByRole('button', { name: 'Close Quick Capture' }).click();
 });
 

@@ -336,6 +336,16 @@ export async function openCanonicalSurface(page, surfaceKey) {
     }
   }, { ...contract, surfaceKey });
 
+  // B1-510 makes the existing Learning Lesson body permanently visible and
+  // removes its dead disclosure control. Compare that authorized state with
+  // the same pre-existing canonical body expanded, without weakening any
+  // global conformance threshold or changing the canonical artifact.
+  if (surfaceKey === 'quick_capture') {
+    await page.evaluate(() => {
+      document.querySelector('#capture .capMore')?.classList.add('open');
+    });
+  }
+
   const selector = {
     route: '#main section',
     capture: '#capture.open',

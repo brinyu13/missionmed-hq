@@ -25,6 +25,15 @@ test('Quick Capture is wired to account-scoped durable draft restore and save', 
   assert.doesNotMatch(appSource, /await clearCaptureDraft\(\)/);
 });
 
+test('Quick Capture keeps the Learning Lesson always visible without a disclosure control', () => {
+  assert.match(appSource, /<div class="capMore open">\s*<div class="capMoreBody">/);
+  assert.match(appSource, /<label class="fLbl" for="capLesson">What did this story teach you\?<\/label>/);
+  assert.match(appSource, /<textarea class="capField" id="capLesson" name="lesson"/);
+  assert.doesNotMatch(appSource, /<summary class="capMoreHead">/);
+  assert.doesNotMatch(appSource, /Add more now/i);
+  assert.match(stylesSource, /\.capMore\.open \.capMoreBody\{display:block\}/);
+});
+
 test('story detail returns real audit history and the UI offers curated expansion', () => {
   assert.match(serverSource, /FROM public\.sf_audit_events\s+WHERE story_id = \$1\s+ORDER BY created_at DESC, id DESC/);
   assert.match(serverSource, /history:\s*history\.rows/);

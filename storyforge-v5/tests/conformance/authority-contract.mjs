@@ -94,7 +94,6 @@ export const PRODUCT_SURFACES = Object.freeze({
       'Save it before it fades',
       'The One Where',
       'Record a voice note',
-      'Add more now',
       'Save story',
       'Only you can see it',
     ]),

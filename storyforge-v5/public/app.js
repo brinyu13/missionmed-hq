@@ -1620,8 +1620,7 @@ async function openCapture({
       <textarea class="capField" id="capBody" name="text" placeholder="${voiceEnabled ? 'Tell it like you’d tell a trusted person — type it, or tap Speak below and StoryForge types while you talk.' : 'Tell it like you’d tell a trusted friend. Don’t polish it — just get it down.'}">${esc(text)}</textarea>
     </div>
     ${voiceEnabled ? '<div class="voxDock idle" id="voxDock"></div>' : (recoveredVoice ? `<div class="voxDock error"><div class="voxState voiceError">${esc(VOICE_ERROR_COPY.voiceDisabled)}</div></div>` : '')}
-    <details class="capMore">
-      <summary class="capMoreHead">Add more now <span>— optional</span></summary>
+    <div class="capMore open">
       <div class="capMoreBody">
         <label class="fLbl" for="capLesson">What did this story teach you?</label>
         <textarea class="capField" id="capLesson" name="lesson" placeholder="One or two honest sentences.">${esc(lesson)}</textarea>
@@ -1630,7 +1629,7 @@ async function openCapture({
         <div class="fLbl">How much does this story matter to you?</div>
         ${scorePicker('capture', studentScore)}
       </div>
-    </details>
+    </div>
     <div class="capActions">
       <button class="btnSave" type="submit">Save story</button>
       <span class="capNote" id="captureDraftStatus">${restored ? 'Draft restored from your account.' : 'Draft changes save to your account as you type.'}</span>
