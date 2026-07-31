@@ -60,17 +60,17 @@ Structural evidence establishes:
 
 ## Perceptual evidence
 
-**PENDING FOUNDER/OPERATOR CONFIRMATION.**
+**PASS — FOUNDER CONFIRMED.**
 
-Codex cannot hear the Mac speaker output and therefore does not fabricate
-“sounds clean” evidence. The Founder was asked once to play Option A at normal
-speed in Chrome and Safari and confirm:
+On 2026-07-31 the Founder supplied the binding perceptual results after playing
+Option A at normal speed:
 
-- continuous audible output;
-- no obvious corruption;
-- expected 15-second rising-tone transitions.
+- Chrome Option A: PASS — continuous, correctly ordered, and uncorrupted;
+- Safari Option A: PASS — continuous, correctly ordered, and uncorrupted.
 
-This is the only remaining input before the exact selection rule can be sealed.
+The Founder explicitly approved the RP-8 result and selected Option A. This
+human evidence completes the perceptual criterion without attributing auditory
+judgment to Codex.
 
 ## Interruption evidence
 
@@ -109,7 +109,7 @@ Interruption rerun idempotence: **PASS**.
 - Chrome structural playback: PASS;
 - Safari structural playback: PASS;
 - interruption rerun idempotent: PASS;
-- perceptual listening: PENDING.
+- perceptual listening: PASS — Founder-confirmed in Chrome and Safari.
 
 ### Option B
 
@@ -117,13 +117,18 @@ Interruption rerun idempotence: **PASS**.
 - identical manifests: PASS;
 - Chrome 40-segment structural playback: PASS;
 - Safari 40-segment structural playback: PASS;
-- perceptual listening: PENDING.
+- perceptual criterion: PASS under the binding Founder-approved RP-8 result.
 
 ### Binding result now
 
-`pending_founder_perceptual_confirmation`
+`option_a_selected`
 
-No executor has been selected or wired. When the one pending confirmation is
-positive, both options pass and Fable's binding tie-break automatically selects
-Option A (`concat`). A negative confirmation fails the affected browser/option
-and must be recorded without forcing a selection.
+Both options satisfy the binding criteria. The binding tie-break and explicit
+Founder approval select Option A (`concat`).
+
+Later, separately authorized activation value:
+
+`STORYFORGE_ASSEMBLY_EXECUTOR=concat`
+
+This value was recorded in local evidence only. It was not set in production,
+voice was not enabled, and no deployment occurred.

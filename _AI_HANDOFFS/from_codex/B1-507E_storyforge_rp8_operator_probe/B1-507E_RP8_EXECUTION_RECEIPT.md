@@ -165,16 +165,14 @@ artifact/option hashes remain byte-identical. Interruption idempotence: PASS.
 ## Selection state
 
 Automated runtime criteria and automated structural playback pass for both
-options. Binding selection is not yet finalized because the Founder/operator
-perceptual listening confirmation remains pending. No executor was guessed and
-no environment variable was set.
-
-If the Founder confirms perceptual playback in both browsers, both options pass
-and the binding tie-break selects:
+options. On 2026-07-31 the Founder confirmed that Chrome and Safari Option A
+playback was continuous, correctly ordered, and uncorrupted. The Founder
+approved the RP-8 result and made the binding selection:
 
 - Option A
 - later separately authorized value:
   `STORYFORGE_ASSEMBLY_EXECUTOR=concat`
 
-Until that confirmation is recorded, the current absent executor remains
-fail-closed.
+The activation value is recorded here but was not set in production. The
+current production executor remains unchanged and fail-closed; voice remains
+disabled pending separate activation authority. No deployment occurred.

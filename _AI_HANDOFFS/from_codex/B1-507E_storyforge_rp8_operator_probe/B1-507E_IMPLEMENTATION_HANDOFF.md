@@ -2,11 +2,12 @@
 
 ## Verdict
 
-**RP-8 BLOCKED — FOUNDER ACTION REQUIRED.**
+**RP-8 COMPLETE — EXECUTOR SELECTED.**
 
 All repository, Railway runtime, interruption, artifact, cleanup, test, and
-automated Chrome/Safari structural gates are complete. The only remaining gate
-is one human perceptual listening confirmation covering both browsers.
+Chrome/Safari structural gates are complete. The Founder confirmed continuous,
+correctly ordered, uncorrupted Option A playback in both browsers and approved
+Option A as the binding executor selection.
 
 ## What B1-507E did
 
@@ -43,27 +44,26 @@ Both candidates pass every machine-verifiable binding criterion:
 | Chrome start-to-finish structural playback | PASS | PASS |
 | Safari start-to-finish structural playback | PASS | PASS |
 | Interruption idempotence | PASS | not separately required |
-| Human perceptual playback | PENDING | PENDING |
+| Human perceptual criterion | PASS | PASS under the approved binding result |
 
-No executor is selected yet. If the Founder confirms clean perceptual playback
-in both browsers, Fable's tie-break selects Option A and the later separately
-authorized activation value is:
+The binding executor selection is Option A. Its later, separately authorized
+activation value is:
 
 `STORYFORGE_ASSEMBLY_EXECUTOR=concat`
 
-Do not set it during this run.
+This run records the value only. It did not set the variable, enable voice,
+deploy StoryForge, or mutate production.
 
-## Required Founder action
+## Founder confirmation received
 
-In each already-open local browser page:
+On 2026-07-31 the Founder reported:
 
-1. click **Play Option A at normal speed**;
-2. confirm continuous, uncorrupted audio and the expected rising-tone
-   transitions;
-3. reply once:
-   `Chrome and Safari perceptual playback confirmed.`
+- Chrome Option A playback: PASS — continuous, correctly ordered, and
+  uncorrupted;
+- Safari Option A playback: PASS — continuous, correctly ordered, and
+  uncorrupted.
 
-No Railway resource must be recreated for this check.
+The Founder approved the RP-8 result and selected Option A.
 
 ## Local verification
 
@@ -78,7 +78,8 @@ No Railway resource must be recreated for this check.
 | Accessibility | included in browser/conformance; no serious violation |
 | Secret scan | clean |
 | npm audit high | 0 vulnerabilities |
-| `git diff --check` before handoffs | clean |
+| API-only package check | pass; dormant/nondeployable by design |
+| `git diff --check` after Founder closeout edits | clean |
 
 Resolved test-run issues:
 
@@ -91,6 +92,10 @@ Resolved test-run issues:
   `status: passed` with no failed tests.
 - Browser test-generated screenshot diffs were restored to exact HEAD bytes;
   they were runner output, not product changes.
+- The Founder-closeout focused-test command was first invoked from the
+  repository root, where its app-relative path does not exist. No test ran or
+  failed in that invocation. It was rerun from `storyforge-v5` and passed
+  12/12 before the complete suite.
 
 ## Release identity
 
@@ -104,6 +109,7 @@ Resolved test-run issues:
 - WordPress runtime SHA-256:
   `30fc0e380be9704ff3d52a8f3827edf4d578c1c7bb95e933a4ab21e268e11d9a`
 
-The next StoryForge gate after a positive perceptual confirmation is to record
-the binding Option A selection in this evidence package. Production activation,
-provider enablement, R2 provisioning, and any rollout remain separately gated.
+RP-8 is complete. Production activation, provider enablement, R2 provisioning,
+and any rollout remain separately gated. Before any later activation, set
+`STORYFORGE_ASSEMBLY_EXECUTOR=concat` only under explicit production authority
+and preserve the existing provider, storage, and rollout gates.

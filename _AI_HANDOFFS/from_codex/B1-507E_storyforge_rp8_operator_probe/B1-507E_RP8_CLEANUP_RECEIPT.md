@@ -71,8 +71,10 @@ of the explicitly authorized temporary RP-8 resources.
 
 ## Local synthetic evidence
 
-The downloaded synthetic evidence remained in a temporary local folder while
-the Founder perceptual confirmation was requested. It contains no secret,
-student data, production data, or provider material and is not staged for Git.
-It may be discarded after the perceptual confirmation is recorded; the durable
-handoff retains hashes, timings, container metadata, and browser results.
+The downloaded synthetic evidence remained in a temporary local folder only
+until the Founder perceptual confirmation was recorded. It contained no secret,
+student data, production data, or provider material and was never staged for
+Git. After confirmation, the local playback server was stopped and the
+temporary evidence folder was moved from its active path to macOS Trash
+(recoverable until Trash is emptied). The durable handoff retains hashes,
+timings, container metadata, and browser results.

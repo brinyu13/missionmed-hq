@@ -2,15 +2,17 @@
 
 ## Final verdict
 
-**RP-8 BLOCKED — FOUNDER ACTION REQUIRED.**
+**RP-8 COMPLETE — EXECUTOR SELECTED.**
 
 The temporary Railway probe, both executor candidates, protected artifact
 capture, interruption recovery, Chrome/Safari structural playback, cleanup, and
-all local regressions are complete. One truthful human perceptual listening
-confirmation remains before the binding executor-selection result may be
-sealed.
+all local regressions are complete. The Founder confirmed that Option A
+playback in both Chrome and Safari was continuous, correctly ordered, and
+uncorrupted, approved the RP-8 result, and selected Option A.
 
-No StoryForge production deployment or voice activation occurred.
+The later activation value is `STORYFORGE_ASSEMBLY_EXECUTOR=concat`. It was not
+set in production. No StoryForge production deployment or voice activation
+occurred.
 
 ## 1. Starting state
 
@@ -200,8 +202,13 @@ This proves open, decode, start, duration, full completion, ordered 40-segment
 transition, and absence of browser media errors or unrecoverable playback
 failure.
 
-Codex cannot hear speaker output. Founder/operator perceptual confirmation is
-pending and is not fabricated.
+Founder perceptual result:
+
+- Chrome Option A: PASS — continuous, correctly ordered, and uncorrupted;
+- Safari Option A: PASS — continuous, correctly ordered, and uncorrupted.
+
+The result was supplied and approved by the Founder on 2026-07-31; no auditory
+judgment is attributed to Codex.
 
 ## 11. Exact selection rule
 
@@ -213,7 +220,7 @@ Option A currently has:
 - Chrome structural playback PASS;
 - Safari structural playback PASS;
 - interruption PASS;
-- human perceptual playback PENDING.
+- human perceptual playback PASS.
 
 Option B currently has:
 
@@ -221,22 +228,23 @@ Option B currently has:
 - deterministic manifest PASS;
 - Chrome 40-segment structural playback PASS;
 - Safari 40-segment structural playback PASS;
-- human perceptual playback PENDING.
+- perceptual criterion PASS under the approved binding result.
 
 Current binding result:
 
-`pending_founder_perceptual_confirmation`
+`option_a_selected`
 
-Executor selected now: **none**.
+Executor selected: **Option A**.
 
-If the Founder positively confirms perceptual playback, both options pass and
-the binding tie-break selects:
+Both options satisfy the binding criteria. The binding tie-break and explicit
+Founder approval select:
 
 - Option A;
 - later activation value:
   `STORYFORGE_ASSEMBLY_EXECUTOR=concat`.
 
-The live service was not touched and that variable was not set.
+The live service was not touched, that variable was not set, voice remains
+disabled, and no deployment occurred.
 
 ## 12. Cleanup
 
@@ -248,6 +256,8 @@ The live service was not touched and that variable was not set.
 - URL returns 404 with the now-revoked former token.
 - Local token file deleted.
 - Temporary frozen-package active path removed.
+- Local playback server stopped after Founder confirmation.
+- Local synthetic evidence moved from its active temp path to macOS Trash.
 - No volume or persistent resource remains.
 - Temporary environment/name count: 0.
 - Temporary service ID/name count across remaining environments: 0.
@@ -269,7 +279,8 @@ production environment still has exactly its prior one service,
 | Accessibility | no serious violation in included checks |
 | Secret scan | clean |
 | npm audit high | 0 vulnerabilities |
-| `git diff --check` before handoffs | clean |
+| API-only package check | pass; dormant/nondeployable by design |
+| `git diff --check` after Founder closeout edits | clean |
 
 The acceptance mapping remains 163 unique automated IDs: 130 PG/contract, 26
 unit, and 7 E2E IDs, with zero authority skip.
@@ -282,6 +293,9 @@ Resolved non-product failures:
    correctly found the first test database busy. The original run completed
    and recorded Playwright `passed` with no failed tests.
 3. Runner-generated tracked screenshots were restored to exact HEAD bytes.
+4. The first Founder-closeout focused-test command used its app-relative path
+   from the repository root. It stopped before running a test. The exact same
+   test was rerun from `storyforge-v5` and passed 12/12.
 
 ## 14. Local files changed
 
@@ -309,22 +323,14 @@ No product, test, migration, release, WordPress, or runtime file changed.
 
 Residual risk:
 
-- only human perceptual audio confirmation is missing;
 - RP-8 does not satisfy RP-11 transcription-provider bake-off;
 - RP-8 does not provision R2 or authorize production voice;
 - production deployment/activation gates remain separate.
 
 ## 16. Exact next gate
 
-Founder action:
-
-1. In Chrome and Safari, click **Play Option A at normal speed** on the local
-   RP-8 page.
-2. Confirm continuous uncorrupted sound and expected 15-second rising-tone
-   transitions.
-3. Reply once:
-   `Chrome and Safari perceptual playback confirmed.`
-
-After a positive confirmation, update this evidence package to record the
-binding Option A/`concat` selection. Do not activate it until separate production
-voice authority and every remaining external gate are satisfied.
+RP-8 needs no further action. The next gate is a separately authorized
+production voice preflight covering the still-required provider, R2, rollout,
+and activation controls. At that later activation only, configure
+`STORYFORGE_ASSEMBLY_EXECUTOR=concat`. Do not activate voice until every
+remaining external gate and explicit deployment authority are satisfied.
