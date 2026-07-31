@@ -125,6 +125,25 @@ export function enhanceBuilderPreviewSvg(svg,document){
       'focusable="true"'
     ].join(" ");
     result=result.replace(needle,attributes);
+    const retakeTarget=String(event?.actionChip?.targetAttemptId||"");
+    if(retakeTarget){
+      const chipNeedle=
+        `data-study-action-chip="${escapeAttribute(retakeTarget)}"`;
+      if(result.includes(chipNeedle)){
+        result=result.replace(chipNeedle,[
+          chipNeedle,
+          "data-builder-preview-retake",
+          `data-retake-target="${escapeAttribute(retakeTarget)}"`,
+          `data-owner-order="${ownerOrder+.5}"`,
+          'role="button"',
+          `aria-label="${escapeAttribute(
+            `${event.actionChip.label||"Set retake date"} for ${event.title||"exam"}`
+          )}"`,
+          'tabindex="-1"',
+          'focusable="true"'
+        ].join(" "));
+      }
+    }
   }
   if(result.includes(interviewNeedle)){
     result=result.replace(interviewNeedle,[
@@ -191,6 +210,15 @@ export function resolveBuilderPreviewOwner(document,{
 
 export function builderPreviewTargetAttributes(target){
   if(!target?.closest)return null;
+  const retake=target.closest("[data-builder-preview-retake]");
+  if(retake){
+    return freeze({
+      retakeTarget:String(retake.dataset?.retakeTarget||""),
+      ownerKind:"exam-retake",
+      ownerId:String(retake.dataset?.retakeTarget||""),
+      eventId:""
+    });
+  }
   const owner=target.closest(
     "[data-builder-preview-event],[data-builder-preview-interview]"
   );
@@ -205,7 +233,7 @@ export function builderPreviewTargetAttributes(target){
 export function builderPreviewFocusableTargets(root){
   return root?.querySelectorAll
     ?[...root.querySelectorAll(
-      "[data-builder-preview-event],[data-builder-preview-interview]"
+      "[data-builder-preview-event],[data-builder-preview-interview],[data-builder-preview-retake]"
     )].sort((left,right)=>
       Number(left.dataset?.ownerOrder||0)-Number(right.dataset?.ownerOrder||0)
     )

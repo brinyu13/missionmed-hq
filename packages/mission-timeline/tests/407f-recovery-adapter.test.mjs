@@ -102,6 +102,25 @@ test("document and 407F state bridge preserves profile, theme, media, and events
       provenance:[],
       fields:{}
     }],
+    exams:[
+      {
+        id:"exam-usmle-step-1-attempt-1",
+        system:"USMLE",
+        examId:"step-1",
+        attempt:1,
+        result:"Passed",
+        score:""
+      },
+      {
+        id:"exam-usmle-step-2-ck-attempt-1",
+        system:"USMLE",
+        examId:"step-2-ck",
+        attempt:1,
+        result:"Passed",
+        score:"252"
+      }
+    ],
+    builder:{examSystems:["USMLE"]},
     theme:"clean-advisor-paper",
     metadata:{
       interview:{prog:"Rutgers",date:"2026-12",label:"RUTGERS IV"},
@@ -121,6 +140,8 @@ test("document and 407F state bridge preserves profile, theme, media, and events
   assert.equal(state.user.events[0].cat,"res");
   assert.equal(state.user.events[0].vis,"full");
   assert.equal(state.media.logo,true);
+  assert.equal(state.profile.s1,"Passed");
+  assert.equal(state.profile.s2,"252");
 
   const target={
     studentProfile:{},
@@ -134,6 +155,8 @@ test("document and 407F state bridge preserves profile, theme, media, and events
   assert.equal(target.metadata.canonicalUi,"407F");
   assert.equal(target.metadata.productionWrites,false);
   assert.equal(target.metadata.localOnly,true);
+  assert.equal("step1Score" in target.metadata,false);
+  assert.equal("step2Score" in target.metadata,false);
   assert.equal(
     target.studentProfile.canonicalSchoolId,
     "mm-school-us-dapip-46-129312"

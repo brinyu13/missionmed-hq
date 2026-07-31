@@ -655,12 +655,18 @@ main{
 
 .builderStepper{
   background:
+    repeating-linear-gradient(
+      105deg,
+      rgba(232,238,251,.018) 0 1px,
+      transparent 1px 5px
+    ),
     radial-gradient(ellipse at 12% 0%,rgba(57,214,255,.06),transparent 34%),
     radial-gradient(ellipse at 88% 100%,rgba(255,179,64,.055),transparent 38%),
     linear-gradient(160deg,#141b2b,#0b101a);
   border-color:var(--edge2);
   box-shadow:
-    inset 0 1px 0 rgba(232,238,251,.055),
+    inset 0 1px 0 rgba(232,238,251,.095),
+    inset 0 -2px 0 rgba(4,6,10,.82),
     inset 0 -10px 28px rgba(0,0,0,.18),
     0 10px 28px rgba(0,0,0,.24);
   grid-area:steps;
@@ -680,14 +686,21 @@ main{
 
 .builderStep{
   align-items:center;
-  background:linear-gradient(180deg,#182238 0%,#121a2a 58%,#0f1624 100%);
+  background:
+    repeating-linear-gradient(
+      118deg,
+      rgba(232,238,251,.018) 0 1px,
+      transparent 1px 5px
+    ),
+    linear-gradient(180deg,#1a263d 0%,#121a2a 56%,#0d1421 100%);
   border:1px solid rgba(49,64,92,.72);
   border-bottom:3px solid transparent;
   border-radius:2px;
   box-shadow:
-    inset 0 1px 0 rgba(232,238,251,.05),
-    inset 0 -1px 0 rgba(5,7,13,.82),
-    0 3px 0 rgba(4,6,10,.22);
+    inset 0 1px 0 rgba(232,238,251,.075),
+    inset 0 -2px 0 rgba(5,7,13,.9),
+    0 3px 0 rgba(4,6,10,.36),
+    0 7px 14px rgba(0,0,0,.12);
   color:var(--mid);
   display:grid;
   gap:10px;
@@ -708,6 +721,12 @@ main{
 
 .builderStep::before{
   background:
+    linear-gradient(
+      90deg,
+      rgba(57,214,255,.025),
+      transparent 34%,
+      rgba(255,179,64,.018)
+    ),
     repeating-linear-gradient(
       115deg,
       rgba(232,238,251,.018) 0 2px,
@@ -763,7 +782,9 @@ main{
   border-color:rgba(255,179,64,.54);
   box-shadow:
     inset 0 1px 0 rgba(255,215,106,.16),
-    inset 0 0 0 1px rgba(255,179,64,.12),
+    inset 2px 0 0 rgba(255,179,64,.5),
+    inset 0 0 0 1px rgba(255,179,64,.15),
+    inset 0 -2px 0 rgba(5,7,13,.82),
     0 8px 18px rgba(0,0,0,.28);
   color:var(--tx);
 }
@@ -820,6 +841,14 @@ main{
 .builderStep[data-state="complete"]:not(.current) .builderStepNumber{
   border-color:rgba(74,222,157,.58);
   box-shadow:inset 0 0 0 1px rgba(74,222,157,.1);
+}
+
+.builderStep[data-state="complete"]:not(.current){
+  box-shadow:
+    inset 2px 0 0 rgba(74,222,157,.24),
+    inset 0 1px 0 rgba(232,238,251,.06),
+    inset 0 -2px 0 rgba(5,7,13,.88),
+    0 3px 0 rgba(4,6,10,.3);
 }
 
 .builderStep[data-state="started"] .builderStepGlyph{
@@ -1467,6 +1496,7 @@ main{
   font-size:13px;
   gap:8px;
   margin-top:-6px;
+  min-height:44px;
 }
 
 .builderToggle input{
@@ -1487,7 +1517,7 @@ main{
   color:var(--mid);
   font-size:13px;
   font-weight:700;
-  min-height:40px;
+  min-height:44px;
   padding:8px 16px;
 }
 
@@ -2034,7 +2064,7 @@ main{
   color:var(--cy);
   font-size:12px;
   font-weight:700;
-  min-height:34px;
+  min-height:44px;
   padding:7px 13px;
 }
 
@@ -2194,7 +2224,7 @@ main{
   font-size:10px;
   font-weight:800;
   left:50%;
-  min-height:24px;
+  min-height:44px;
   padding:3px 9px;
   position:absolute;
   top:34px;
@@ -2274,14 +2304,26 @@ main{
 }
 
 .builderTypeaheadList button{
+  align-items:center;
   background:transparent;
   border:0;
   color:var(--mid);
+  display:flex;
   font-size:12px;
-  min-height:38px;
+  gap:10px;
+  justify-content:space-between;
+  min-height:44px;
   padding:8px 10px;
   text-align:left;
   width:100%;
+}
+
+.builderTypeaheadPinned{
+  color:var(--cy);
+  font-family:var(--num);
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.12em;
 }
 
 .builderTypeaheadList li[aria-selected="true"] button,
@@ -2296,6 +2338,157 @@ main{
   display:grid;
   gap:16px;
   padding:16px;
+}
+
+.builderLorCard{
+  background:
+    linear-gradient(135deg,rgba(185,138,46,.10),transparent 46%),
+    repeating-linear-gradient(135deg,rgba(255,255,255,.018) 0 1px,transparent 1px 7px),
+    linear-gradient(160deg,rgba(19,27,41,.96),rgba(8,13,22,.98));
+  border:1px solid rgba(185,138,46,.42);
+  border-left:3px solid var(--em);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.06),
+    inset 0 -1px 0 rgba(0,0,0,.5),
+    0 12px 28px rgba(0,0,0,.18);
+  display:grid;
+  gap:15px;
+  padding:17px;
+}
+
+.builderLorHead{
+  align-items:flex-start;
+  display:flex;
+  gap:16px;
+  justify-content:space-between;
+}
+
+.builderLorHead h3{
+  color:var(--tx);
+  font-size:16px;
+  margin:4px 0 0;
+}
+
+.builderLorCard .microLabel{
+  color:#75cfea;
+  display:block;
+  font-size:11px;
+  font-weight:650;
+  letter-spacing:.1em;
+  line-height:1.25;
+}
+
+.builderLorTarget{
+  background:rgba(38,207,213,.08);
+  border:1px solid rgba(38,207,213,.32);
+  color:var(--cy);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.03em;
+  max-width:46%;
+  padding:7px 9px;
+  text-align:right;
+}
+
+.builderLorIntro,
+.builderLorLocal{
+  color:var(--mid);
+  font-size:12px;
+  line-height:1.55;
+  margin:0;
+}
+
+.builderLorChoiceGrid{
+  display:grid;
+  gap:8px;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+
+.builderLorChoice{
+  align-items:center;
+  background:
+    linear-gradient(180deg,rgba(31,43,63,.88),rgba(13,19,31,.96));
+  border:1px solid var(--edge2);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.045),
+    0 3px 7px rgba(0,0,0,.18);
+  color:var(--mid);
+  display:grid;
+  font-size:12px;
+  font-weight:750;
+  gap:9px;
+  grid-template-columns:24px minmax(0,1fr);
+  min-height:52px;
+  padding:8px 11px;
+  text-align:left;
+}
+
+.builderLorChoice:hover{
+  border-color:rgba(38,207,213,.54);
+  color:var(--tx);
+  transform:translateY(-1px);
+}
+
+.builderLorChoice:active{
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.5);
+  transform:translateY(1px);
+}
+
+.builderLorChoice.on{
+  background:
+    linear-gradient(180deg,rgba(185,138,46,.24),rgba(32,25,13,.62)),
+    #111927;
+  border-color:var(--em);
+  box-shadow:
+    inset 3px 0 0 var(--em),
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 0 0 1px rgba(185,138,46,.12);
+  color:var(--tx);
+}
+
+.builderLorChoiceMark{
+  align-items:center;
+  border:1px solid rgba(185,138,46,.5);
+  border-radius:50%;
+  color:var(--em);
+  display:flex;
+  font-size:14px;
+  height:24px;
+  justify-content:center;
+  width:24px;
+}
+
+.builderLorChoice.on .builderLorChoiceMark{
+  background:var(--em);
+  color:#191c21;
+}
+
+.builderLorExact{
+  border-top:1px solid var(--edge);
+  padding-top:11px;
+}
+
+.builderLorExact summary{
+  color:var(--cy);
+  cursor:pointer;
+  font-size:12px;
+  font-weight:800;
+  min-height:44px;
+  padding:12px 0;
+}
+
+.builderLorExact[open] summary{
+  margin-bottom:8px;
+}
+
+.builderLorLocal{
+  border-top:1px solid var(--edge);
+  color:var(--dim);
+  padding-top:11px;
+}
+
+.builderLorLocal span{
+  color:var(--em);
 }
 
 .builderIconGrid{
@@ -2456,6 +2649,8 @@ main{
 .retakeChip:focus-visible,
 .builderDomainActions button:focus-visible,
 .builderSavedList button:focus-visible,
+.builderLorChoice:focus-visible,
+.builderLorExact summary:focus-visible,
 .builderReviewRow button:focus-visible,
 .builderStoryRow button:focus-visible,
 .builderReviewActions button:focus-visible,
@@ -2464,6 +2659,43 @@ main{
 .builderField select:focus-visible{
   outline:2px solid var(--cy);
   outline-offset:2px;
+}
+
+@media(max-width:640px){
+  .builderLorHead{
+    display:grid;
+    gap:9px;
+  }
+
+  .builderLorTarget{
+    max-width:100%;
+    text-align:left;
+  }
+
+  .builderLorChoiceGrid{
+    grid-template-columns:1fr;
+  }
+
+  .builderSavedList li{
+    grid-template-columns:10px minmax(0,1fr);
+  }
+
+  .builderSavedList li .homeTertiary,
+  .builderSavedList li .builderAdvisorOnly{
+    grid-column:2;
+    justify-self:start;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .builderLorChoice{
+    transition:none;
+  }
+
+  .builderLorChoice:hover,
+  .builderLorChoice:active{
+    transform:none;
+  }
 }
 
 @media(max-width:1279px){
@@ -5243,6 +5475,28 @@ textarea:focus-visible,
 
   .builderStep.current{
     border-bottom-color:var(--em);
+  }
+
+  .builderExamCardHead{
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto;
+  }
+
+  .builderExamCardHead>div{
+    min-width:0;
+  }
+
+  .builderExamDelete{
+    grid-column:2;
+    grid-row:1;
+    margin-left:0;
+  }
+
+  .builderAutoBadge{
+    grid-column:1 / -1;
+    grid-row:2;
+    justify-self:start;
+    margin-left:0;
   }
 
   .builderForm>.pi{

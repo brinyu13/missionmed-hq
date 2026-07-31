@@ -529,11 +529,13 @@ function eventAriaLabel(event, startMonth, endMonth) {
   const category = CATEGORY_DEFINITIONS.find(({ id }) => id === event.categoryId)?.label;
   const title = String(event.title ?? "Untitled event");
   if (isMilestone(event)) {
-    return `${title}, ${category}, ${formatMonth(startMonth)}`;
+    return `${title}, ${category}, ${formatMonth(startMonth)}${
+      event?.fields?.lorSubmitted?", LOR submitted":""
+    }`;
   }
   return `${title}, ${category}, ${formatMonth(startMonth)} to ${
     event?.openEnded ? "Present" : formatMonth(endMonth)
-  }`;
+  }${event?.fields?.lorSubmitted?", LOR submitted":""}`;
 }
 
 function buildArrows(events, segments, laneResult, currentMonth, measureText) {
@@ -585,6 +587,7 @@ function buildArrows(events, segments, laneResult, currentMonth, measureText) {
       study,
       provisional: study && isProvisional(event),
       actionChip:event?.actionChip?{...event.actionChip}:null,
+      lorSubmitted:!!event?.fields?.lorSubmitted,
       openEnded,
       startMonth: geometry.startMonth,
       endMonth: geometry.endMonth,
@@ -823,6 +826,11 @@ export function buildKeynoteClassicScene(
     flags,
     events,
     interviewMarker,
+    lorLegend:{
+      visible:arrowResult.arrows.some((arrow)=>arrow.lorSubmitted),
+      label:"LOR submitted",
+      symbol:"★"
+    },
     omissions: validated.omitted,
     audience: {
       mode: filtered.audience,
@@ -895,9 +903,18 @@ function serializeArrow(arrow, index,theme) {
     ? `<text data-present-label="true" x="${number(arrow.x2)}" y="${number(arrow.centerY + arrow.shaftHeight / 2 + 16)}" text-anchor="end" fill="${theme?.ink||KEYNOTE_CLASSIC_THEME.ink}" fill-opacity=".6" font-family="${KEYNOTE_CLASSIC_THEME.fontFamily}" font-size="10.5" font-weight="600">Present</text>`
     : "";
   const chip=arrow.actionChip?`<g data-study-action-chip="${xmlEscape(arrow.actionChip.targetAttemptId||"")}" transform="translate(${number(Math.max(arrow.x,arrow.x2-122))} ${number(arrow.centerY+arrow.shaftHeight/2+8)})"><rect width="122" height="26" rx="13" fill="#B98A2E" stroke="#A67A26"/><text x="61" y="17" text-anchor="middle" fill="#191C21" font-family="${KEYNOTE_CLASSIC_THEME.fontFamily}" font-size="10.5" font-weight="600">${xmlEscape(arrow.actionChip.label||"Set retake date")}</text></g>`:"";
+  const lor=arrow.lorSubmitted
+    ?`<g data-lor-submitted="true" role="img" aria-label="LOR submitted" transform="translate(${number(Math.max(arrow.x+14,arrow.x2-16))} ${number(arrow.centerY)})"><circle r="13" fill="#191C21" stroke="#B98A2E" stroke-width="2"/><text aria-hidden="true" x="0" y="6" text-anchor="middle" fill="#B98A2E" font-family="${KEYNOTE_CLASSIC_THEME.fontFamily}" font-size="17" font-weight="800">★</text></g>`
+    :"";
   const shadowEnabled=arrow.arrowShadow?.enabled??theme?.arrowShadow?.enabled??true;
   const filter=shadowEnabled?` filter="url(#${SVG_ARROW_SHADOW_ID})"`:"";
-  return `<g data-event-kind="arrow" data-event-id="${xmlEscape(arrow.id)}" data-category="${arrow.categoryId}" data-open-ended="${arrow.openEnded}" data-study="${arrow.study}" aria-label="${xmlEscape(arrow.ariaLabel)}"><path d="${arrow.path}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"${strokeDash}${filter}/>${label}${present}${chip}</g>`;
+  return `<g data-event-kind="arrow" data-event-id="${xmlEscape(arrow.id)}" data-category="${arrow.categoryId}" data-open-ended="${arrow.openEnded}" data-study="${arrow.study}" aria-label="${xmlEscape(arrow.ariaLabel)}"><path d="${arrow.path}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"${strokeDash}${filter}/>${label}${present}${chip}${lor}</g>`;
+}
+
+function serializeLorLegend(legend,theme){
+  if(!legend?.visible)return"";
+  const ink=theme?.ink||KEYNOTE_CLASSIC_THEME.ink;
+  return`<g data-lor-legend="true" role="img" aria-label="LOR submitted" transform="translate(1510 946)"><circle cx="13" cy="13" r="12" fill="#191C21" stroke="#B98A2E" stroke-width="2"/><text aria-hidden="true" x="13" y="19" text-anchor="middle" fill="#B98A2E" font-family="${KEYNOTE_CLASSIC_THEME.fontFamily}" font-size="17" font-weight="800">★</text><text x="34" y="18" fill="${ink}" font-family="${KEYNOTE_CLASSIC_THEME.fontFamily}" font-size="14" font-weight="700">${xmlEscape(legend.label||"LOR submitted")}</text></g>`;
 }
 
 function serializeFlag(flag) {
@@ -967,7 +984,7 @@ export function serializeKeynoteClassicSvg(scene) {
   const arrows = scene.arrows.map((arrow,index)=>serializeArrow(arrow,index,theme)).join("");
   const flags = scene.flags.map(serializeFlag).join("");
   const headlineRule=scene.headline.rule?`<line data-headline-rule="true" x1="${number(scene.headline.x)}" y1="${number(scene.headline.y+10)}" x2="${number(scene.headline.x+scene.headline.rule.width)}" y2="${number(scene.headline.y+10)}" stroke="${scene.headline.rule.color}" stroke-width="3"/>`:"";
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" role="img" aria-labelledby="${titleId} ${descriptionId}" data-renderer="${scene.renderer}" data-theme="${theme.id}"><title id="${titleId}">${xmlEscape(scene.accessibility.ariaLabel)}</title><desc id="${descriptionId}">${xmlEscape(scene.accessibility.description)}</desc><defs>${background.definition}${svgShadow(theme)}<pattern id="${SVG_STUDY_PATTERN_ID}" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="${theme.categories?.exams||KEYNOTE_CLASSIC_THEME.categories.exams}" stroke-width="3" stroke-opacity=".6"/></pattern>${openFades}</defs><rect data-board-background="true" width="1920" height="1080" fill="${background.fill}"/><text data-board-headline="true" x="${number(scene.headline.x)}" y="${number(scene.headline.y)}" fill="${scene.headline.color}" font-family="${scene.headline.fontFamily||KEYNOTE_CLASSIC_THEME.fontFamily}" font-size="${scene.headline.fontSize}" font-weight="${scene.headline.fontWeight}">${xmlEscape(scene.headline.text)}</text>${headlineRule}${serializeAxis(scene.axis)}<g data-layer="events">${arrows}${flags}</g>${serializeInterviewMarker(scene.interviewMarker)}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" role="img" aria-labelledby="${titleId} ${descriptionId}" data-renderer="${scene.renderer}" data-theme="${theme.id}"><title id="${titleId}">${xmlEscape(scene.accessibility.ariaLabel)}</title><desc id="${descriptionId}">${xmlEscape(scene.accessibility.description)}</desc><defs>${background.definition}${svgShadow(theme)}<pattern id="${SVG_STUDY_PATTERN_ID}" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="8" stroke="${theme.categories?.exams||KEYNOTE_CLASSIC_THEME.categories.exams}" stroke-width="3" stroke-opacity=".6"/></pattern>${openFades}</defs><rect data-board-background="true" width="1920" height="1080" fill="${background.fill}"/><text data-board-headline="true" x="${number(scene.headline.x)}" y="${number(scene.headline.y)}" fill="${scene.headline.color}" font-family="${scene.headline.fontFamily||KEYNOTE_CLASSIC_THEME.fontFamily}" font-size="${scene.headline.fontSize}" font-weight="${scene.headline.fontWeight}">${xmlEscape(scene.headline.text)}</text>${headlineRule}${serializeAxis(scene.axis)}<g data-layer="events">${arrows}${flags}</g>${serializeInterviewMarker(scene.interviewMarker)}${serializeLorLegend(scene.lorLegend,theme)}</svg>`;
 }
 
 export function renderKeynoteClassicBoard(timeline, options = {}) {

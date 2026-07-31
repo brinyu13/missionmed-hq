@@ -155,7 +155,7 @@ test("score and result metadata are primary and ordered above secondary date fie
   assert.equal(passFail.score.range,null);
 });
 
-test("result and optional score validation use only the frozen values and ranges",()=>{
+test("scored pass/fail results require exact scores while valid nonnumeric result states remain supported",()=>{
   assert.deepEqual(validateExamResult(""),{value:"",valid:false,error:"Required."});
   assert.deepEqual(validateExamResult("Awaiting"),{
     value:"Awaiting result",
@@ -173,10 +173,29 @@ test("result and optional score validation use only the frozen values and ranges
   for(const score of ["9","600","999"])assert.equal(validateExamScore("comlex-level-2-ce",score).valid,true);
   for(const score of ["8","1000","60.0","text"])assert.equal(validateExamScore("comlex-level-2-ce",score).valid,false);
   assert.equal(validateExamScore("comlex-level-2-ce","8").error,"COMLEX scores run 9–999.");
-  assert.equal(validateExamScore("usmle-step-2-ck","").valid,true,"score is optional");
+  assert.equal(
+    validateExamScore("usmle-step-2-ck","",{result:"Passed"}).valid,
+    false
+  );
+  assert.equal(
+    validateExamScore("usmle-step-2-ck","",{result:"Passed"}).error,
+    "Required."
+  );
+  assert.equal(
+    validateExamScore("usmle-step-2-ck","",{result:"Awaiting result"}).valid,
+    true
+  );
   assert.deepEqual(
-    validateExamScore("usmle-step-1","275"),
-    {value:"",visible:false,optional:true,valid:true,error:null,range:null}
+    validateExamScore("usmle-step-1","275",{result:"Passed"}),
+    {
+      value:"",
+      visible:false,
+      optional:true,
+      required:false,
+      valid:true,
+      error:null,
+      range:null
+    }
   );
 });
 
@@ -430,6 +449,7 @@ test("wizard finish drops a fully empty automatic retake card but preserves its 
   state=addExam(state,"comlex-level-3");
   state=updateExamAttempt(state,examAttemptId("comlex-level-3",1),{
     result:"Failed",
+    score:"601",
     examDate:"2025-01"
   });
   assert.equal(state.exams[0].attempts.length,2);
@@ -439,5 +459,8 @@ test("wizard finish drops a fully empty automatic retake card but preserves its 
   assert.equal(state.studyPeriods.length,1);
   assert.equal(state.studyPeriods[0].provisional,true);
   assert.equal(state.studyPeriods[0].outlineStyle,"dashed");
-  assert.deepEqual(state.studyPeriods[0].actionChip,{label:"Set retake date",targetAttemptId:null});
+  assert.deepEqual(state.studyPeriods[0].actionChip,{
+    label:"Set retake date",
+    targetAttemptId:"exam-comlex-level-3-attempt-2"
+  });
 });

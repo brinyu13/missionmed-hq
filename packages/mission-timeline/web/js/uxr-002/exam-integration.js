@@ -8,7 +8,8 @@ import {
   examTimelineEvents,
   finalizeExamWorkflow,
   setExamSystemActive,
-  updateExamAttempt
+  updateExamAttempt,
+  validateExamAttempt
 } from "./exam-workflow.js";
 
 const BUILDER_SYSTEM_TO_WORKFLOW=Object.freeze({
@@ -53,13 +54,18 @@ function workflowAttempt(state,typeId,attemptNumber){
     ?.attempts.find((attempt)=>attempt.attemptNumber===attemptNumber)||null;
 }
 
+function suppressedRetakeIds(document){
+  return new Set(
+    Array.isArray(document?.builder?.examSuppressedRetakes)
+      ?document.builder.examSuppressedRetakes.map(String)
+      :[]
+  );
+}
+
 export function examWorkflowFromDocument(document={}){
   let state=createExamWorkflowState();
   const records=Array.isArray(document.exams)?document.exams:[];
   const selected=new Set(document.builder?.examSystems||[]);
-  for(const record of records){
-    if(record?.system)selected.add(record.system);
-  }
   for(const builderSystem of selected){
     const workflowSystem=BUILDER_SYSTEM_TO_WORKFLOW[builderSystem];
     if(workflowSystem)state=setExamSystemActive(state,workflowSystem,true);
@@ -73,6 +79,7 @@ export function examWorkflowFromDocument(document={}){
   }
   for(const [typeId,attempts] of groups){
     const type=TYPE_BY_ID.get(typeId);
+    const explicitlyActive=!!state.activeSystems[type.systemId];
     if(!state.activeSystems[type.systemId]){
       state=setExamSystemActive(state,type.systemId,true);
     }
@@ -88,14 +95,27 @@ export function examWorkflowFromDocument(document={}){
         error.attemptNumber=number;
         throw error;
       }
-      state=updateExamAttempt(state,target.id,{
+      const changes={
         result:record.result||"",
         score:record.score||"",
         examDate:record.examDate||"",
-        studyPeriodStart:record.studyStartDate||record.studyPeriodStart||"",
-        showScoreOnTimeline:!!record.showScoreOnTimeline
-      });
+        studyPeriodStart:record.studyStartDate||record.studyPeriodStart||""
+      };
+      if(record.showScoreTouched||record.showScoreWasSet){
+        changes.showScoreOnTimeline=!!record.showScoreOnTimeline;
+      }
+      state=updateExamAttempt(state,target.id,changes);
     }
+    if(!explicitlyActive){
+      state=setExamSystemActive(state,type.systemId,false);
+    }
+  }
+  const suppressed=suppressedRetakeIds(document);
+  if(suppressed.size){
+    state.exams=state.exams.map((group)=>({
+      ...group,
+      attempts:group.attempts.filter((attempt)=>!suppressed.has(attempt.id))
+    }));
   }
   return state;
 }
@@ -150,7 +170,9 @@ export function applyExamWorkflow(document,state){
     .filter(([,active])=>active)
     .map(([systemId])=>WORKFLOW_SYSTEM_TO_BUILDER[systemId])
     .filter(Boolean);
-  document.exams=builderRecordsFromExamWorkflow(state);
+  const suppressed=suppressedRetakeIds(document);
+  document.exams=builderRecordsFromExamWorkflow(state)
+    .filter((record)=>!suppressed.has(record.id));
   document.events=[
     ...(document.events||[]).filter((event)=>event?.sourceType!=="exam-workflow"),
     ...projectedExamEvents(state)
@@ -202,8 +224,56 @@ export function deleteBuilderExamAttempt(document,recordId){
 }
 
 export function finalizeBuilderExams(document){
-  const state=finalizeExamWorkflow(examWorkflowFromDocument(document));
+  const before=examWorkflowFromDocument(document);
+  const suppressed=new Set(suppressedRetakeIds(document));
+  for(const group of before.exams||[]){
+    for(const attempt of group.attempts||[]){
+      if(
+        attempt.automatic&&
+        !String(attempt.result||"").trim()&&
+        !String(attempt.score||"").trim()&&
+        !String(attempt.examDate||"").trim()&&
+        !String(attempt.studyPeriodStart||"").trim()
+      )suppressed.add(attempt.id);
+    }
+  }
+  document.builder=document.builder&&typeof document.builder==="object"
+    ?document.builder:{};
+  document.builder.examSuppressedRetakes=[...suppressed];
+  const state=finalizeExamWorkflow(before);
   return applyExamWorkflow(document,state);
+}
+
+export function restoreBuilderAutomaticRetake(document,targetAttemptId){
+  const targetId=String(targetAttemptId||"");
+  const suppressed=suppressedRetakeIds(document);
+  if(!targetId||!suppressed.has(targetId))return null;
+  const state=examWorkflowFromDocument(document);
+  let failedAttempt=null;
+  for(const group of state.exams||[]){
+    failedAttempt=(group.attempts||[]).find((attempt)=>
+      attempt.result==="Failed"&&
+      examAttemptId(group.examTypeId,attempt.attemptNumber+1)===targetId
+    );
+    if(failedAttempt)break;
+  }
+  if(!failedAttempt)return null;
+  const restored=updateExamAttempt(state,failedAttempt.id,{
+    result:failedAttempt.result,
+    score:failedAttempt.score,
+    examDate:failedAttempt.examDate,
+    studyPeriodStart:failedAttempt.studyPeriodStart
+  });
+  suppressed.delete(targetId);
+  document.builder.examSuppressedRetakes=[...suppressed];
+  applyExamWorkflow(document,restored);
+  return(document.exams||[]).find((record)=>record.id===targetId)||null;
+}
+
+export function completedBuilderExamAttempts(document){
+  const state=examWorkflowFromDocument(document);
+  return(state.exams||[]).flatMap((group)=>group.attempts||[])
+    .filter((attempt)=>validateExamAttempt(attempt).valid);
 }
 
 export function builderExamTypeId(builderSystem,builderExamId){

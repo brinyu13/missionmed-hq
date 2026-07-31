@@ -3,10 +3,12 @@ import test from "node:test";
 
 import {
   addBuilderExam,
+  completedBuilderExamAttempts,
   deleteBuilderExamAttempt,
   examWorkflowFromDocument,
   finalizeBuilderExams,
   normalizeExamDocument,
+  restoreBuilderAutomaticRetake,
   setBuilderExamSystem,
   updateBuilderExamAttempt
 } from "../web/js/uxr-002/exam-integration.js";
@@ -75,7 +77,11 @@ test("M5/M6 integration closes the provisional period when the retake date is en
   const document=defaultDocument();
   setBuilderExamSystem(document,"COMLEX-USA",true);
   addBuilderExam(document,"COMLEX-USA","level-2-ce");
-  updateBuilderExamAttempt(document,document.exams[0].id,{result:"Failed",examDate:"2023-03"});
+  updateBuilderExamAttempt(document,document.exams[0].id,{
+    result:"Failed",
+    score:"501",
+    examDate:"2023-03"
+  });
   updateBuilderExamAttempt(document,document.exams[1].id,{examDate:"2023-09"});
   const study=document.events.find((event)=>event.studyPeriodKind==="automatic-retake");
   assert.equal(study.endDate,"2023-09");
@@ -112,7 +118,11 @@ test("the integrated board renders the neutral failed dot, hatched provisional p
   });
   setBuilderExamSystem(document,"USMLE",true);
   addBuilderExam(document,"USMLE","step-2-ck");
-  updateBuilderExamAttempt(document,document.exams[0].id,{result:"Failed",examDate:"2024-01"});
+  updateBuilderExamAttempt(document,document.exams[0].id,{
+    result:"Failed",
+    score:"214",
+    examDate:"2024-01"
+  });
   const {svg}=renderKeynoteClassicBoard(document,{currentMonth:"2026-07"});
   assert.match(svg,/data-failed-attempt-dot="true"/);
   assert.match(svg,/data-study="true"/);
@@ -125,7 +135,11 @@ test("M5/M6 integration delete renumbers attempts and finalization drops an empt
   const document=defaultDocument();
   setBuilderExamSystem(document,"USMLE",true);
   addBuilderExam(document,"USMLE","step-2-ck");
-  updateBuilderExamAttempt(document,document.exams[0].id,{result:"Failed",examDate:"2024-01"});
+  updateBuilderExamAttempt(document,document.exams[0].id,{
+    result:"Failed",
+    score:"214",
+    examDate:"2024-01"
+  });
   finalizeBuilderExams(document);
   assert.equal(document.exams.length,1,"the empty automatic retake card is dropped at finish");
   assert.equal(document.events.some((event)=>event.studyPeriodKind==="automatic-retake"),true);
@@ -134,4 +148,81 @@ test("M5/M6 integration delete renumbers attempts and finalization drops an empt
   deleteBuilderExamAttempt(document,document.exams[0].id);
   assert.equal(document.exams.length,0);
   assert.equal(document.events.filter((event)=>event.sourceType==="exam-workflow").length,0);
+});
+
+test("M7 does not project or complete a scored pass/fail attempt until its exact score is present",()=>{
+  const document=defaultDocument();
+  setBuilderExamSystem(document,"USMLE",true);
+  addBuilderExam(document,"USMLE","step-2-ck");
+  updateBuilderExamAttempt(document,document.exams[0].id,{
+    result:"Passed",
+    examDate:"2025-06"
+  });
+  assert.equal(completedBuilderExamAttempts(document).length,0);
+  assert.equal(document.events.length,0);
+
+  updateBuilderExamAttempt(document,document.exams[0].id,{score:"252"});
+  assert.equal(completedBuilderExamAttempts(document).length,1);
+  assert.equal(document.events[0].title,"Step 2 CK · 252");
+});
+
+test("M7 system deselection stays explicit through later mutations while retained records reappear on reselection",()=>{
+  const document=defaultDocument();
+  setBuilderExamSystem(document,"USMLE",true);
+  addBuilderExam(document,"USMLE","step-1");
+  updateBuilderExamAttempt(document,document.exams[0].id,{
+    result:"Passed",
+    examDate:"2024-04"
+  });
+
+  setBuilderExamSystem(document,"USMLE",false);
+  assert.deepEqual(document.builder.examSystems,[]);
+  assert.equal(document.exams.length,1,"deselection must not delete saved records");
+  assert.equal(examWorkflowFromDocument(document).activeSystems.usmle,false);
+
+  setBuilderExamSystem(document,"COMLEX-USA",true);
+  assert.deepEqual(document.builder.examSystems,["COMLEX-USA"]);
+  assert.equal(examWorkflowFromDocument(document).activeSystems.usmle,false);
+  setBuilderExamSystem(document,"USMLE",true);
+  assert.deepEqual(
+    new Set(document.builder.examSystems),
+    new Set(["USMLE","COMLEX-USA"])
+  );
+  assert.equal(document.exams[0].name,"Step 1");
+});
+
+test("M7 finalized retake suppression is durable and its shared preview action restores the exact card",()=>{
+  const document=defaultDocument();
+  setBuilderExamSystem(document,"USMLE",true);
+  addBuilderExam(document,"USMLE","step-2-ck");
+  updateBuilderExamAttempt(document,document.exams[0].id,{
+    result:"Failed",
+    score:"214",
+    examDate:"2024-01"
+  });
+  const targetId=document.exams[1].id;
+  finalizeBuilderExams(document);
+  assert.equal(document.exams.some((record)=>record.id===targetId),false);
+  assert.deepEqual(document.builder.examSuppressedRetakes,[targetId]);
+  assert.equal(
+    document.events.find((event)=>event.studyPeriodKind==="automatic-retake")
+      .actionChip.targetAttemptId,
+    targetId
+  );
+
+  setBuilderExamSystem(document,"COMLEX-USA",true);
+  assert.equal(
+    document.exams.some((record)=>record.id===targetId),
+    false,
+    "an unrelated mutation must not reconstruct the finalized empty card"
+  );
+  const restored=restoreBuilderAutomaticRetake(document,targetId);
+  assert.equal(restored.id,targetId);
+  assert.deepEqual(document.builder.examSuppressedRetakes,[]);
+  updateBuilderExamAttempt(document,targetId,{examDate:"2024-08"});
+  const study=document.events.find(
+    (event)=>event.studyPeriodKind==="automatic-retake"
+  );
+  assert.equal(study.endDate,"2024-08");
+  assert.equal(study.provisional,false);
 });

@@ -1500,10 +1500,21 @@ function installBuilderDateControls404(){
   if(controls&&typeof controls.install==='function')controls.install($('#builderStepBody'));
 }
 function validExactDate404(value){
-  const match=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const canonical=canonicalExactDate404(value);
+  const match=String(canonical||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if(!match)return false;
   const date=new Date(Date.UTC(+match[1],+match[2]-1,+match[3]));
   return date.getUTCFullYear()===+match[1]&&date.getUTCMonth()===+match[2]-1&&date.getUTCDate()===+match[3];
+}
+function canonicalExactDate404(value){
+  const controls=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.dateControls;
+  if(controls&&typeof controls.parseExact==='function')return controls.parseExact(value);
+  const raw=String(value||'').trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw))return raw;
+  const match=raw.replace(/,/g,'').match(/^([A-Za-z]+)\s+(\d{1,2})\s+(\d{4})$/);
+  if(!match)return'';
+  const month=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(match[1].slice(0,3).toLowerCase())+1;
+  return month?match[3]+'-'+String(month).padStart(2,'0')+'-'+String(+match[2]).padStart(2,'0'):'';
 }
 function coreInfoMarkup(){
   const w=state.wiz;
@@ -1786,6 +1797,12 @@ function examError404(record,field){
   if(field==='result')return ['Passed','Failed','Awaiting result'].includes(record.result)?'':'Required.';
   if(field==='examDate')return !String(record.examDate||'').trim()?'Required.':(parseBuilderMonth(record.examDate)?'':"Enter a month and year, like 'Jun 2023'.");
   if(field==='studyStartDate')return record.studyStartDate&&!parseBuilderMonth(record.studyStartDate)?"Enter a month and year, like 'Jun 2023'.":'';
+  if(field==='score'){
+    const scoredResult=['Passed','Failed'].includes(record.result);
+    if(scoredResult&&!record.passFailOnly&&!String(record.score||'').trim()){
+      return'Required.';
+    }
+  }
   if(field==='score'&&String(record.score||'').trim()){
     const score=Number(record.score);
     if(record.system==='USMLE'&&(!Number.isInteger(score)||score<1||score>300))return'USMLE scores run 1–300.';
@@ -1793,27 +1810,102 @@ function examError404(record,field){
   }
   return'';
 }
+function showExamErrors404(){
+  const systems=new Set(state.builder.examSystems||[]);
+  const records=(state.builder.exams||[]).filter(record=>systems.has(record.system));
+  let first=null;
+  for(const record of records){
+    const emptyAutomatic=record.automatic&&[
+      record.result,
+      record.score,
+      record.examDate,
+      record.studyStartDate
+    ].every(value=>!String(value||'').trim());
+    if(emptyAutomatic){
+      if(state.builder.examTouched)delete state.builder.examTouched[record.id];
+      continue;
+    }
+    const definition=examDefinition404(record);
+    ['result','examDate','studyStartDate'].forEach(field=>
+      touchExamField404(record.id,field)
+    );
+    if(!definition.passFailOnly)touchExamField404(record.id,'score');
+    for(const field of ['result','score','examDate','studyStartDate']){
+      if(!examError404(record,field))continue;
+      if(!first)first={recordId:record.id,field};
+    }
+  }
+  if(!first)return true;
+  renderBuilder404();
+  requestAnimationFrame(()=>{
+    const control=first.field==='result'
+      ?examFocusTarget404({recordId:first.recordId})
+      :examFocusTarget404(first);
+    if(control)control.focus();
+    announceBuilder404('Complete the highlighted required exam fields.');
+  });
+  return false;
+}
+function examFocusTarget404(options){
+  options=options||{};
+  if(options.system){
+    return document.querySelector(
+      '[data-exam-system="'+CSS.escape(options.system)+'"]'
+    );
+  }
+  if(options.addedHeading){
+    const heading=document.getElementById('builderAddedExams');
+    if(heading)heading.setAttribute('tabindex','-1');
+    return heading;
+  }
+  const card=options.recordId&&document.querySelector(
+    '[data-exam-card="'+CSS.escape(options.recordId)+'"]'
+  );
+  if(!card)return null;
+  if(options.result){
+    return card.querySelector(
+      '[data-exam-result="'+CSS.escape(options.result)+'"]'
+    );
+  }
+  if(options.field){
+    return card.querySelector(
+      '[data-exam-field="'+CSS.escape(options.field)+'"]'
+    );
+  }
+  if(options.scoreVisible)return card.querySelector('[data-exam-score-visible]');
+  return card.querySelector('[data-exam-result]');
+}
+function restoreExamFocus404(options,message){
+  setTimeout(()=>{
+    const control=examFocusTarget404(options);
+    if(control)control.focus();
+    if(message)announceBuilder404(message);
+  },80);
+}
 function examCard404(record){
   const definition=examDefinition404(record);const attempt=Number(record.attempt)||1;
+  const scoreRequired=!definition.passFailOnly&&['Passed','Failed'].includes(record.result);
   const title=attempt>1?definition.label+' — '+examOrdinal404(attempt)+' attempt':definition.label;
+  const headingId='exam-card-title-'+record.id;
   const resultButtons=['Passed','Failed','Awaiting result'].map(result=>'<button type="button" class="builderSegment'+(record.result===result?' on':'')+'" data-exam-result="'+esc(result)+'" aria-pressed="'+String(record.result===result)+'">'+esc(result)+'</button>').join('');
-  return '<article class="builderExamCard'+(record.automatic?' automatic':'')+'" data-exam-card="'+esc(record.id)+'">'
-    +'<div class="builderExamCardHead"><div><span class="builderExamSystem">'+esc(record.system)+'</span><h2>'+esc(title)+'</h2></div>'
+  return '<article class="builderExamCard'+(record.automatic?' automatic':'')+'" data-exam-card="'+esc(record.id)+'" aria-labelledby="'+esc(headingId)+'">'
+    +'<div class="builderExamCardHead"><div><span class="builderExamSystem">'+esc(record.system)+'</span><h2 id="'+esc(headingId)+'">'+esc(title)+'</h2></div>'
     +(record.automatic?'<span class="builderAutoBadge">ADDED AUTOMATICALLY</span>':'')
-    +'<button type="button" class="homeTertiary builderExamDelete" data-exam-delete="'+esc(record.id)+'">Delete</button></div>'
+    +'<button type="button" class="homeTertiary builderExamDelete" data-exam-delete="'+esc(record.id)+'" aria-label="Delete '+esc(title)+'">Delete</button></div>'
     +'<div class="builderExamPrimary">'
     +'<fieldset class="builderField"><legend>Result</legend><div class="builderSegments" role="group" aria-label="Result">'+resultButtons+'</div><small data-exam-error="result">'+esc(examError404(record,'result'))+'</small></fieldset>'
-    +(definition.passFailOnly?'':'<label class="builderField builderScore"><span>Score <em>Optional</em></span><input type="text" inputmode="numeric" maxlength="3" data-exam-field="score" value="'+esc(record.score||'')+'"><small data-exam-error="score">'+esc(examError404(record,'score'))+'</small></label>')
+    +(definition.passFailOnly?'':'<label class="builderField builderScore"><span>Score'+(scoreRequired?' <b aria-hidden="true">*</b>':'')+'</span><input type="text" inputmode="numeric" maxlength="3" data-exam-field="score" value="'+esc(record.score||'')+'"'+(scoreRequired?' required aria-required="true"':'')+'><small data-exam-error="score">'+esc(examError404(record,'score'))+'</small></label>')
     +'</div><div class="builderExamSecondary">'
     +dateControlMarkup404({precision:'month',id:'exam-date-'+record.id,label:record.result==='Awaiting result'?'Exam date (taken)':'Exam date',value:record.examDate||'',required:true,inputAttributes:{'data-exam-field':'examDate'},error:examError404(record,'examDate'),errorAttributes:{'data-exam-error':'examDate'}})
     +dateControlMarkup404({precision:'month',id:'exam-study-'+record.id,label:'Started studying',optional:true,value:record.studyStartDate||'',inputAttributes:{'data-exam-field':'studyStartDate'},error:examError404(record,'studyStartDate'),errorAttributes:{'data-exam-error':'studyStartDate'}})
     +'</div>'
-    +(definition.passFailOnly?'':'<label class="builderToggle"><input type="checkbox" data-exam-score-visible'+(record.showScoreOnTimeline?' checked':'')+(record.result==='Failed'?' disabled':'')+'> <span>Show score on timeline</span></label>')
+    +(definition.passFailOnly?'':'<label class="builderToggle"><input type="checkbox" data-exam-score-visible aria-label="Show '+esc(title)+' score on timeline"'+(record.showScoreOnTimeline?' checked':'')+(record.result==='Failed'?' disabled':'')+'> <span>Show score on timeline</span></label>')
     +(record.automatic?'<p class="builderExamNote">Created automatically after the previous failed attempt.</p>':'')
     +'</article>';
 }
 function examsMarkup404(){
   const systems=new Set(state.builder.examSystems||[]);const exams=state.builder.exams||[];
+  const visibleExams=exams.filter(record=>systems.has(record.system));
   const systemCards=Object.keys(EXAM_SYSTEMS_404).map(system=>'<label class="builderExamSystemCard'+(systems.has(system)?' on':'')+'"><input type="checkbox" data-exam-system="'+esc(system)+'"'+(systems.has(system)?' checked':'')+'><span>'+esc(system)+'</span></label>').join('');
   const chips=[];
   systems.forEach(system=>(EXAM_SYSTEMS_404[system]||[]).forEach(exam=>{
@@ -1824,11 +1916,11 @@ function examsMarkup404(){
   return '<section class="builderExamStep"><fieldset class="builderField builderExamSystems"><legend>Exam systems</legend><div class="builderExamSystemCards">'+systemCards+'</div></fieldset>'
     +(systems.size?'<div class="builderExamChips" aria-label="Add exams">'+chips.join('')+'</div>':'<p class="builderExamEmpty">Choose USMLE, COMLEX, or both.</p>')
     +'<section class="builderAddedExams" aria-labelledby="builderAddedExams"><h2 id="builderAddedExams">Added exams</h2>'
-    +(exams.length?exams.map(examCard404).join(''):'<p class="builderExamEmpty">No exams added yet.</p>')+'</section>'
+    +(visibleExams.length?visibleExams.map(examCard404).join(''):'<p class="builderExamEmpty">No exams added yet.</p>')+'</section>'
     +'<button type="button" class="homeTertiary builderSkip" data-builder-skip="2">I have nothing to add here → skip</button></section>';
 }
 function domainDefaults404(domain){
-  if(domain==='clinical')return{institution:'',institutionShortName:'',specialty:'',rotationType:'',city:'',state:'',startDate:'',endDate:'',rotationStartDate:'',rotationEndDate:'',rotationDatePrecision:'unknown',current:false,notes:''};
+  if(domain==='clinical')return{institution:'',institutionShortName:'',specialty:'',specialtyId:'',rotationType:'',city:'',state:'',startDate:'',endDate:'',rotationStartDate:'',rotationEndDate:'',rotationDatePrecision:'unknown',current:false,preceptor:'',lorStatus:'not-requested',lorTargetSpecialtyId:'',notes:''};
   if(domain==='work')return{role:'',organization:'',country:'',city:'',kind:'',startDate:'',endDate:'',current:false,description:''};
   if(domain==='research')return{projectTitle:'',institution:'',institutionShortName:'',role:'',roleOther:'',startDate:'',endDate:'',ongoing:false,publicationStatus:'Not published',journal:'',publicationYear:'',authorPosition:'',doiOrPmid:'',markPublication:false};
   return{happened:'',whenKind:'One date',startDate:'',endDate:'',icon:'star',visibilityState:'INTERVIEWER_SAFE'};
@@ -1861,7 +1953,7 @@ function domainTypeahead404(label,name,value,provider,options){
   options=options||{};const required=options.required?' <b aria-hidden="true">*</b>':'';
   const listId='builderTypeahead-'+provider+'-'+name;
   return '<label class="builderField builderTypeahead" data-domain-typeahead data-typeahead-provider="'+provider+'" data-allow-free-text="'+String(options.allowFreeText!==false)+'"><span>'+label+required+'</span>'
-    +'<input type="text" name="'+name+'" value="'+esc(value||'')+'" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="'+listId+'" data-typeahead-input>'
+    +'<input type="text" name="'+name+'" value="'+esc(value||'')+'" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="'+listId+'" data-typeahead-input'+(options.required?' required aria-required="true"':'')+'>'
     +'<ul id="'+listId+'" class="builderTypeaheadList" role="listbox" hidden></ul><small data-domain-error="'+name+'"></small></label>';
 }
 function domainSelect404(label,name,value,options,required){
@@ -1876,7 +1968,11 @@ function domainSegments404(label,field,values,selected){
 }
 function domainSavedSummary404(event,domain){
   const f=event.fields||{};const dates=event.mile?fmtL(event.s):(fmtL(event.s)+'–'+(event.e?fmtL(event.e):'now'));
-  if(domain==='clinical')return(f.specialty||'Rotation')+' · '+(f.institution||event.loc||'Institution')+' · '+dates;
+  if(domain==='clinical'){
+    const lor=lorStatusForEvent404(event);
+    return(f.specialty||'Rotation')+' · '+(f.institution||event.loc||'Institution')+' · '+dates+
+      (lor&&lor.statusId==='submitted-to-eras'?' · ★ LOR submitted':'');
+  }
   if(domain==='work')return(f.role||'Role')+' · '+(f.organization||event.loc||'Organization')+' · '+dates;
   if(domain==='research')return(f.projectTitle||event.t||'Research')+' · '+dates;
   return(event.t||'Personal event')+' · '+dates;
@@ -1886,18 +1982,71 @@ function domainSavedList404(domain){
   if(!events.length)return'<p class="builderExamEmpty">Nothing added yet.</p>';
   return '<ul class="builderSavedList">'+events.map(event=>'<li><span class="builderSavedDot" style="--saved-color:'+(CATS[event.cat]?CATS[event.cat].c:'#8A5BBF')+'"></span><span>'+esc(domainSavedSummary404(event,domain))+'</span>'
     +(event.vis==='advisor'?'<span class="builderAdvisorOnly" title="Advisor only">◉̸</span>':'')
+    +(domain==='clinical'?'<button type="button" class="homeTertiary" data-lor-builder-queue="'+esc(event.id)+'">Create LOR to-do</button>':'')
     +'<button type="button" class="homeTertiary" data-domain-edit="'+esc(event.id)+'">Edit</button><button type="button" class="homeTertiary" data-domain-delete="'+esc(event.id)+'">Delete</button></li>').join('')+'</ul>';
+}
+function lorContext404(rotationSpecialty){
+  const lor=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.lor;
+  if(lor&&typeof lor.context==='function')return lor.context(rotationSpecialty||'');
+  const label=String(state.profile&&state.profile.goal||rotationSpecialty||'').trim();
+  return{id:label?'acgme:'+label.toLocaleLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''):'',label:label};
+}
+function lorStatusForEvent404(event){
+  const lor=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.lor;
+  const rotationId=String(event&&event.fields&&event.fields.builderEntryId||event&&event.id||'');
+  const target=lorContext404(event&&event.fields&&event.fields.specialty||'');
+  if(!lor||typeof lor.status!=='function'||!rotationId||!target.id)return null;
+  try{return lor.status(rotationId,target.id)}catch(_error){return null}
+}
+function lorMarkup404(draft){
+  const context=lorContext404(draft.specialty);
+  const status=draft.lorStatus||'not-requested';
+  const api=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.lor;
+  const options=api&&typeof api.options==='function'?api.options():[
+    {id:'not-requested',label:'Not requested'},
+    {id:'request-planned',label:'Request planned'},
+    {id:'requested',label:'Requested'},
+    {id:'writer-accepted',label:'Writer accepted'},
+    {id:'drafting-in-progress',label:'Drafting / in progress'},
+    {id:'uploaded',label:'Uploaded'},
+    {id:'submitted-to-eras',label:'Submitted to ERAS'},
+    {id:'unavailable',label:'Unavailable'},
+    {id:'declined',label:'Declined'},
+    {id:'unknown',label:'Unknown'}
+  ];
+  const choices=[
+    ['submitted-to-eras','Submitted to ERAS for '+(context.label||'target specialty'),'lorSubmitted'],
+    ['uploaded','Available but not submitted','lorAvailable'],
+    ['requested','Requested / in progress','lorProgress'],
+    ['unavailable','No LOR available','lorNone']
+  ];
+  return '<section class="builderLorCard" aria-labelledby="builderLorHeading">'
+    +'<div class="builderLorHead"><div><span class="microLabel">LETTER OF RECOMMENDATION</span><h3 id="builderLorHeading">Rotation LOR status</h3></div><span class="builderLorTarget">'+esc(context.label||'Choose a rotation specialty')+'</span></div>'
+    +'<p class="builderLorIntro">Track this rotation for the selected target specialty. The star appears only after submission to ERAS.</p>'
+    +domainField404('Preceptor <em>Optional</em>','preceptor',draft.preceptor,{placeholder:'e.g., Dr. Rivera'})
+    +'<fieldset class="builderField builderLorChoices"><legend>Current outcome</legend><div class="builderLorChoiceGrid">'
+    +choices.map(item=>'<button type="button" class="builderLorChoice '+item[2]+(status===item[0]?' on':'')+'" data-lor-choice="'+item[0]+'" aria-pressed="'+String(status===item[0])+'"><span class="builderLorChoiceMark" aria-hidden="true">'+(item[0]==='submitted-to-eras'?'★':'')+'</span><span>'+esc(item[1])+'</span></button>').join('')
+    +'</div></fieldset>'
+    +'<details class="builderLorExact"'+(!['submitted-to-eras','uploaded','requested','unavailable'].includes(status)?' open':'')+'><summary>Choose an exact workflow status</summary>'
+    +'<label class="builderField"><span>Exact status</span><select data-lor-status>'
+    +options.map(option=>'<option value="'+esc(option.id)+'"'+(option.id===status?' selected':'')+'>'+esc(option.label)+'</option>').join('')
+    +'</select></label></details>'
+    +'<input type="hidden" name="lorStatus" value="'+esc(status)+'">'
+    +'<input type="hidden" name="lorTargetSpecialtyId" value="'+esc(context.id||draft.lorTargetSpecialtyId||'')+'">'
+    +'<p class="builderLorLocal"><span aria-hidden="true">◇</span> LOR Builder actions are queued locally in this production-candidate workspace.</p>'
+    +'</section>';
 }
 function clinicalMarkup404(draft){
   const startHelp=!draft.rotationStartDate&&draft.startDate?'Legacy month '+fmtL(draft.startDate)+' — choose the exact start day before saving.':'Exact day required.';
   const endHelp=!draft.rotationEndDate&&draft.endDate?'Legacy month '+fmtL(draft.endDate)+' — choose the exact end day before saving.':'Exact day required unless this rotation is current.';
   return domainTypeahead404('Institution','institution',draft.institution,'clinicalInstitutions')
     +'<small class="builderHint domainTypeaheadHint">Type 2+ characters; choose a match or keep your text as written.</small>'
-    +domainTypeahead404('Specialty','specialty',draft.specialty,'specialties')
+    +domainTypeahead404('Specialty','specialty',draft.specialty,'specialties',{required:true,allowFreeText:false})
     +domainSelect404('Rotation type','rotationType',draft.rotationType,['Elective','Sub-internship','Observership','Externship','Clerkship (core)','Other'])
     +'<div class="builderDomainGrid">'+domainField404('City','city',draft.city)+domainField404('State','state',draft.state)+'</div>'
     +'<div class="builderDomainGrid">'+domainDateControl404('clinical','Start','rotationStartDate',draft.rotationStartDate,{precision:'day',required:true,help:startHelp})+(draft.current?'':domainDateControl404('clinical','End','rotationEndDate',draft.rotationEndDate,{precision:'day',required:true,help:endHelp}))+'</div>'
     +'<label class="builderToggle"><input type="checkbox" name="current" data-domain-toggle="current"'+(draft.current?' checked':'')+'> <span>Currently on this rotation</span></label>'
+    +lorMarkup404(draft)
     +domainField404('Notes <em>Optional</em>','notes',draft.notes,{placeholder:'e.g., attending name'});
 }
 function workMarkup404(draft){
@@ -2018,8 +2167,12 @@ function renderBuilder404(){
   $('#builderContinue').hidden=step===7;
 }
 function moveBuilderStep404(next,{focusNavigator=false,focusPanel=false,renderAllViews=false}={}){
-  state.builder.step=Math.max(1,Math.min(7,Number(next)||1));
+  const target=Math.max(1,Math.min(7,Number(next)||1));
+  if(target===7&&state.builder.step!==7)runExamAction404('finalize');
+  state.builder.step=target;
   state.saved=false;
+  const builderLive=document.getElementById('builderLiveStatus407F');
+  if(builderLive)builderLive.textContent='';
   if(renderAllViews)renderAll();else renderBuilder404();
   requestAnimationFrame(()=>{
     const active=document.querySelector('[data-builder-step="'+state.builder.step+'"]');
@@ -2172,9 +2325,22 @@ function runDomainAction404(method){
   const args=Array.prototype.slice.call(arguments,1);
   return domainApi[method].apply(domainApi,args);
 }
+function runLorAction404(method){
+  const lorApi=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.lor;
+  if(!lorApi||typeof lorApi[method]!=='function'){toast('LOR workflow is still initializing');return null}
+  const args=Array.prototype.slice.call(arguments,1);
+  return lorApi[method].apply(lorApi,args);
+}
 function typeaheadSource404(provider){
   if(provider==='clinicalInstitutions'||provider==='researchInstitutions')return US_TEACHING_INSTITUTIONS_404.map(item=>Object.assign({value:item.name,label:item.name+' — '+item.city+', '+item.state},item));
-  if(provider==='specialties')return SPECIALTIES_404.map(value=>({value:value,label:value}));
+  if(provider==='specialties'){
+    const typeahead=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.typeahead;
+    return SPECIALTIES_404.map(value=>
+      typeahead&&typeof typeahead.specialty==='function'
+        ?typeahead.specialty(value)
+        :{value:value,label:value,specialtyId:'acgme:'+value.toLocaleLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}
+    );
+  }
   if(provider==='countries')return COUNTRIES.map(value=>({value:value,label:value}));
   return[];
 }
@@ -2199,17 +2365,27 @@ function typeaheadMatches404(provider,query){
       });
     }
   }
-  return matches.slice(0,8);
+  if(provider==='specialties'){
+    const typeahead=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.typeahead;
+    if(typeahead&&typeof typeahead.rankSpecialties==='function'){
+      matches=typeahead.rankSpecialties(matches,{query:query});
+    }
+  }
+  return matches.slice(0,provider==='specialties'?12:8);
 }
 function typeaheadRows404(field){
   const input=field.querySelector('[data-typeahead-input]');const query=String(input&&input.value||'').trim();
   const provider=field.dataset.typeaheadProvider;const allowFreeText=field.dataset.allowFreeText!=='false';
-  if(provider!=='countries'&&query.length<2)return[];
+  if(provider!=='countries'&&provider!=='specialties'&&query.length<2)return[];
   if(provider==='countries'&&query.length===1)return[];
   const matches=typeaheadMatches404(provider,query);
   const typeahead=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.typeahead;
   if(query.length>=2&&typeahead&&typeof typeahead.rows==='function'){
-    return typeahead.rows(query,matches,{allowFreeText:allowFreeText,limit:8});
+    return typeahead.rows(query,matches,{
+      allowFreeText:allowFreeText,
+      limit:provider==='specialties'?12:8,
+      minQueryLength:provider==='specialties'?0:2
+    });
   }
   return matches.map((item,index)=>Object.assign({id:'match-'+index,kind:'match'},item));
 }
@@ -2220,7 +2396,7 @@ function paintTypeahead404(field){
   if(!rows.length){list.hidden=true;list.innerHTML='';input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');return}
   let active=Number(field.dataset.activeIndex);if(!Number.isInteger(active)||active<0||active>=rows.length)active=0;
   field.dataset.activeIndex=String(active);
-  list.innerHTML=rows.map((row,index)=>'<li role="option" id="'+list.id+'-option-'+index+'" aria-selected="'+String(index===active)+'"><button type="button" data-typeahead-choice="'+index+'">'+esc(row.label)+'</button></li>').join('');
+  list.innerHTML=rows.map((row,index)=>'<li role="option" id="'+list.id+'-option-'+index+'" aria-selected="'+String(index===active)+'"><button type="button" data-typeahead-choice="'+index+'">'+esc(row.label)+(row.pinned?'<span class="builderTypeaheadPinned">COMMON</span>':'')+'</button></li>').join('');
   list.hidden=false;input.setAttribute('aria-expanded','true');input.setAttribute('aria-activedescendant',list.id+'-option-'+active);
 }
 function moveTypeahead404(field,delta){
@@ -2245,6 +2421,12 @@ function commitTypeahead404(field,index){
     if(institution&&row.kind!=='free-text')Object.assign(changes,{institutionShortName:institution.shortName,city:institution.city,state:institution.state});
     else Object.assign(changes,{institutionShortName:'',city:'',state:''});
   }
+  if(name==='specialty'){
+    const typeahead=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.typeahead;
+    changes.specialtyId=row.specialtyId||
+      (typeahead&&typeof typeahead.normalizeSpecialtyId==='function'
+        ?typeahead.normalizeSpecialtyId(value):'');
+  }
   state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
   closeTypeahead404(field);typeaheadCommitting404=true;
   try{runDomainAction404('updateDraft',domain,changes)}finally{typeaheadCommitting404=false}
@@ -2253,9 +2435,16 @@ function domainFormData404(form,domain){
   const draft=domainDraft404(domain);const next=Object.assign({},draft);
   form.querySelectorAll('input[name],select[name]').forEach(control=>{
     if(control.type==='checkbox')next[control.name]=control.checked;
+    else if(control.matches('[data-domain-date]'))next[control.name]=canonicalExactDate404(control.dataset.dateCanonical!==undefined?control.dataset.dateCanonical:control.value);
     else next[control.name]=String(control.dataset.dateCanonical!==undefined?control.dataset.dateCanonical:(control.value||'')).trim();
   });
   if(domain==='clinical'){
+    const typeahead=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.typeahead;
+    next.specialtyId=SPECIALTIES_404.includes(next.specialty)
+      ?(typeahead&&typeof typeahead.normalizeSpecialtyId==='function'
+        ?typeahead.normalizeSpecialtyId(next.specialty)
+        :'acgme:'+next.specialty.toLocaleLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''))
+      :'';
     if(validExactDate404(next.rotationStartDate))next.startDate=next.rotationStartDate.slice(0,7);
     if(validExactDate404(next.rotationEndDate))next.endDate=next.rotationEndDate.slice(0,7);
     if(next.current){next.rotationEndDate='';next.endDate=''}
@@ -2270,6 +2459,7 @@ function domainErrors404(domain,entry){
   const errors={};const required=[];
   if(domain==='clinical'){
     if(!String(entry.specialty||'').trim())errors.specialty='Required.';
+    else if(!String(entry.specialtyId||'').trim())errors.specialty='Choose a supported specialty.';
     if(!validExactDate404(entry.rotationStartDate))errors.rotationStartDate=entry.rotationStartDate?"Enter a complete date, like 'Jun 15, 2023' or '2023-06-15'.":'Required.';
     if(!entry.current&&!validExactDate404(entry.rotationEndDate))errors.rotationEndDate=entry.rotationEndDate?"Enter a complete date, like 'Jun 15, 2023' or '2023-06-15'.":'Required.';
     if(validExactDate404(entry.rotationStartDate)&&validExactDate404(entry.rotationEndDate)&&entry.rotationEndDate<entry.rotationStartDate)errors.rotationEndDate='End date is before the start date.';
@@ -2333,23 +2523,72 @@ document.addEventListener('click',e=>{
   const degree=e.target.closest('[data-degree]');
   if(degree){state.wiz.degree=degree.dataset.degree;state.builder.touched[1]=true;syncCoreInfo();return}
   const addExam=e.target.closest('[data-exam-add-id]');
-  if(addExam){runExamAction404('add',addExam.dataset.examAddSystem,addExam.dataset.examAddId);return}
+  if(addExam){
+    const system=addExam.dataset.examAddSystem;const examId=addExam.dataset.examAddId;
+    const definition=(EXAM_SYSTEMS_404[system]||[]).find(item=>item.id===examId);
+    if(runExamAction404('add',system,examId)){
+      const record=(state.builder.exams||[]).find(item=>
+        item.system===system&&item.examId===examId&&(Number(item.attempt)||1)===1
+      );
+      restoreExamFocus404(
+        {recordId:record&&record.id},
+        (definition?definition.label:'Exam')+' added. Result and exam date are required.'
+      );
+    }
+    return;
+  }
   const deleteExam=e.target.closest('[data-exam-delete]');
-  if(deleteExam){runExamAction404('delete',deleteExam.dataset.examDelete);return}
+  if(deleteExam){
+    const record=(state.builder.exams||[]).find(item=>item.id===deleteExam.dataset.examDelete);
+    const definition=record&&examDefinition404(record);
+    if(runExamAction404('delete',deleteExam.dataset.examDelete)){
+      restoreExamFocus404(
+        {addedHeading:true},
+        (definition?definition.label:'Exam')+' attempt deleted. Attempt numbering updated.'
+      );
+    }
+    return;
+  }
   const result=e.target.closest('[data-exam-result]');
   if(result){
     const card=result.closest('[data-exam-card]');if(!card)return;
+    const record=(state.builder.exams||[]).find(item=>item.id===card.dataset.examCard);
+    const definition=record&&examDefinition404(record);
     touchExamField404(card.dataset.examCard,'result');
-    runExamAction404('update',card.dataset.examCard,{result:result.dataset.examResult});
+    if(definition&&!definition.passFailOnly&&['Passed','Failed'].includes(result.dataset.examResult)){
+      touchExamField404(card.dataset.examCard,'score');
+    }
+    if(runExamAction404('update',card.dataset.examCard,{result:result.dataset.examResult})){
+      const failed=result.dataset.examResult==='Failed';
+      const nextAttempt=failed&&(state.builder.exams||[]).find(item=>
+        record&&item.system===record.system&&item.examId===record.examId&&
+        Number(item.attempt)===(Number(record.attempt)||1)+1
+      );
+      restoreExamFocus404(
+        {recordId:card.dataset.examCard,result:result.dataset.examResult},
+        failed
+          ?(definition?definition.label:'Exam')+' marked Failed. '+
+            (nextAttempt?examOrdinal404(nextAttempt.attempt)+' attempt added automatically.':'Retake workflow updated.')
+          :(definition?definition.label:'Exam')+' result set to '+result.dataset.examResult+'.'
+      );
+    }
     return;
   }
   const retake=e.target.closest('[data-retake-target]');
   if(retake){
+    const targetId=retake.dataset.retakeTarget;
+    if(!(state.builder.exams||[]).some(record=>record.id===targetId)){
+      runExamAction404('restoreRetake',targetId);
+    }
     state.builder.step=2;go('builder');
-    requestAnimationFrame(()=>{
-      const card=document.querySelector('[data-exam-card="'+retake.dataset.retakeTarget+'"]');
-      card&&card.querySelector('[data-exam-field="examDate"]')&&card.querySelector('[data-exam-field="examDate"]').focus();
-    });
+    setTimeout(()=>{
+      const card=document.querySelector('[data-exam-card="'+targetId+'"]');
+      const date=card&&card.querySelector('[data-exam-field="examDate"]');
+      if(date){
+        date.focus();
+        announceBuilder404('Retake exam date field focused.');
+      }
+    },80);
     return;
   }
   const segment=e.target.closest('[data-domain-segment]');
@@ -2359,6 +2598,27 @@ document.addEventListener('click',e=>{
     if(domain==='research'&&segment.dataset.domainSegment==='publicationStatus'&&segment.dataset.domainValue==='Published'&&domainDraft404(domain).publicationStatus!=='Published')changes.markPublication=true;
     state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
     runDomainAction404('updateDraft',domain,changes);return;
+  }
+  const lorChoice=e.target.closest('[data-lor-choice]');
+  if(lorChoice){
+    const form=lorChoice.closest('[data-domain-form]');if(!form)return;
+    const draft=domainDraft404('clinical');
+    const context=lorContext404(draft.specialty);
+    state.builder.touched[3]=true;
+    runDomainAction404('updateDraft','clinical',{
+      lorStatus:lorChoice.dataset.lorChoice,
+      lorTargetSpecialtyId:context.id
+    });
+    return;
+  }
+  const queueLor=e.target.closest('[data-lor-builder-queue]');
+  if(queueLor){
+    const result=runLorAction404('queue',queueLor.dataset.lorBuilderQueue);
+    if(result){
+      toast(result.message||'LOR to-do workflow updated');
+      announceBuilder404(result.message||'LOR to-do workflow updated.');
+    }
+    return;
   }
   const saveDomain=e.target.closest('[data-domain-save]');
   if(saveDomain){
@@ -2457,7 +2717,17 @@ document.addEventListener('d1:date-commit',e=>{
   if(input.matches('[data-exam-field]')){
     const card=input.closest('[data-exam-card]');if(!card)return;
     const field=input.dataset.examField;touchExamField404(card.dataset.examCard,field);
-    runExamAction404('update',card.dataset.examCard,{[field]:value});return;
+    const record=(state.builder.exams||[]).find(item=>item.id===card.dataset.examCard);
+    if(runExamAction404('update',card.dataset.examCard,{[field]:value})){
+      let message=field==='examDate'?'Exam date updated.':'Study period start updated.';
+      if(field==='examDate'&&record&&Number(record.attempt)>1){
+        message='Retake date updated. The linked study period now ends in this month.';
+      }else if(field==='examDate'&&record&&record.result==='Failed'){
+        message='Failed-attempt date updated. A provisional retake study period is shown.';
+      }
+      restoreExamFocus404({recordId:card.dataset.examCard,field},message);
+    }
+    return;
   }
   if(input.matches('[data-domain-date]')){
     const form=input.closest('[data-domain-form]');if(!form)return;
@@ -2473,6 +2743,16 @@ document.addEventListener('d1:date-commit',e=>{
   }
 });
 document.addEventListener('change',e=>{
+  const lorStatus=e.target.closest('[data-lor-status]');
+  if(lorStatus){
+    const context=lorContext404(domainDraft404('clinical').specialty);
+    state.builder.touched[3]=true;
+    runDomainAction404('updateDraft','clinical',{
+      lorStatus:lorStatus.value,
+      lorTargetSpecialtyId:context.id
+    });
+    return;
+  }
   const schoolFilter=e.target.closest('[data-school-filter]');
   if(schoolFilter){
     if(schoolFilter.dataset.schoolFilter==='country')state.wiz.schoolCountryFilter=schoolFilter.value;
@@ -2511,11 +2791,26 @@ document.addEventListener('change',e=>{
   const toggle=e.target.closest('[data-core-toggle]');
   if(toggle){state.wiz[toggle.dataset.coreToggle]=toggle.checked;state.builder.touched[1]=true;syncCoreInfo()}
   const system=e.target.closest('[data-exam-system]');
-  if(system){state.builder.touched[2]=true;runExamAction404('setSystem',system.dataset.examSystem,system.checked);return}
+  if(system){
+    state.builder.touched[2]=true;
+    const label=system.dataset.examSystem;
+    if(runExamAction404('setSystem',label,system.checked)){
+      restoreExamFocus404(
+        {system:label},
+        label+(system.checked?' selected. Exam add options are available.':' cleared.')
+      );
+    }
+    return;
+  }
   const scoreVisible=e.target.closest('[data-exam-score-visible]');
   if(scoreVisible){
     const card=scoreVisible.closest('[data-exam-card]');if(!card)return;
-    runExamAction404('update',card.dataset.examCard,{showScoreOnTimeline:scoreVisible.checked});
+    if(runExamAction404('update',card.dataset.examCard,{showScoreOnTimeline:scoreVisible.checked})){
+      restoreExamFocus404(
+        {recordId:card.dataset.examCard,scoreVisible:true},
+        scoreVisible.checked?'Score will appear on the timeline.':'Score hidden from the timeline.'
+      );
+    }
   }
   const domainToggle=e.target.closest('[data-domain-toggle]');
   if(domainToggle){
@@ -2568,6 +2863,7 @@ document.addEventListener('focusout',e=>{
 $('#builderBack').onclick=()=>{if(state.builder.step>1)moveBuilderStep404(state.builder.step-1,{focusPanel:true,renderAllViews:true})};
 $('#builderContinue').onclick=()=>{
   if(state.builder.step===1&&!showCoreErrors())return;
+  if(state.builder.step===2&&!showExamErrors404())return;
   syncCoreInfo();
   if(state.builder.step===7){go('canvas');return}
   moveBuilderStep404(state.builder.step+1,{focusPanel:true,renderAllViews:true});

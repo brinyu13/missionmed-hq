@@ -1,6 +1,7 @@
 import {BUILDER_STEPS,VISIBILITY} from "./constants.js";
 import {
   addBuilderExam,
+  completedBuilderExamAttempts,
   deleteBuilderExamAttempt,
   finalizeBuilderExams,
   setBuilderExamSystem,
@@ -17,6 +18,7 @@ import {
 import {installMonthFields,monthFieldMarkup} from "./month-field.js";
 import {createUnverifiedSchoolSubmission} from "./medical-school-registry.js";
 import {installReviewFinish,renderReviewFinish} from "./review.js";
+import {normalizeSpecialtyId} from "./specialty-taxonomy.js";
 import {escapeHtml,formatMonth,monthIndex,parseMonth,uid} from "./utils.js";
 
 export const EXAM_SYSTEMS=Object.freeze({
@@ -124,9 +126,13 @@ function providerLabel(item){
   return value;
 }
 
-export function typeaheadRows(query,matches,{allowFreeText=true,limit=8}={}){
+export function typeaheadRows(query,matches,{
+  allowFreeText=true,
+  limit=8,
+  minQueryLength=2
+}={}){
   const typed=String(query||"").trim();
-  if(typed.length<2)return[];
+  if(typed.length<minQueryLength)return[];
   const rows=(Array.isArray(matches)?matches:matches?.items||[]).slice(0,limit).map((item,index)=>{
     const source=typeof item==="string"?{value:item,label:item}:item||{};
     const value=String(source.value||source.name||source.label||"");
@@ -165,6 +171,7 @@ function blankDraft(domain){
     institution:"",
     institutionShortName:"",
     specialty:"",
+    specialtyId:"",
     rotationType:"",
     city:"",
     state:"",
@@ -174,6 +181,9 @@ function blankDraft(domain){
     rotationEndDate:"",
     rotationDatePrecision:"unknown",
     current:false,
+    preceptor:"",
+    lorStatus:"not-requested",
+    lorTargetSpecialtyId:"",
     notes:""
   };
   if(domain==="work")return{
@@ -272,7 +282,12 @@ export function validateExam(exam={}){
   if(!String(exam.examDate||"").trim())errors.examDate="Required.";
   else if(!parseMonth(exam.examDate))errors.examDate="Enter a month and year, like 'Jun 2023'.";
   if(exam.studyStartDate&&!parseMonth(exam.studyStartDate))errors.studyStartDate="Enter a month and year, like 'Jun 2023'.";
-  if(exam.score!==""&&exam.score!=null){
+  const passFailOnly=!!EXAM_SYSTEMS[exam.system]?.exams
+    .find((item)=>item.id===exam.examId)?.passFailOnly;
+  const scoredResult=["Passed","Failed"].includes(exam.result);
+  if(!passFailOnly&&scoredResult&&!String(exam.score??"").trim()){
+    errors.score="Required.";
+  }else if(exam.score!==""&&exam.score!=null){
     const value=Number(exam.score);
     if(!Number.isInteger(value)||(exam.system==="USMLE"&&(value<1||value>300)))errors.score="USMLE scores run 1–300.";
     if(!Number.isInteger(value)||(exam.system==="COMLEX-USA"&&(value<9||value>999)))errors.score="COMLEX scores run 9–999.";
@@ -351,6 +366,7 @@ function stepHasStarted(document,step){
   if(!domain)return false;
   return entryEvents(document,domain).length>0||Object.entries(builder.drafts[domain]).some(([key,value])=>{
     if(domain==="clinical"&&key==="rotationDatePrecision")return value!=="unknown";
+    if(domain==="clinical"&&key==="lorStatus")return value!=="not-requested";
     if(domain==="research"&&key==="publicationStatus")return value!=="Not published";
     if(domain==="personal"&&key==="whenKind")return value!=="One date";
     if(domain==="personal"&&key==="icon")return value!=="star";
@@ -366,7 +382,9 @@ export function builderStepState(document,step){
     return stepHasStarted(document,step)?"started":"untouched";
   }
   const domain={3:"clinical",4:"work",5:"research",6:"personal"}[step];
-  const hasEntry=step===2?(document?.exams||[]).length>0:entryEvents(document,domain).length>0;
+  const hasEntry=step===2
+    ?completedBuilderExamAttempts(document).length>0
+    :entryEvents(document,domain).length>0;
   if(hasEntry)return"complete";
   if(stepHasStarted(document,step))return"started";
   if(builderView(document).skipped.includes(step))return"skipped";
@@ -445,10 +463,13 @@ export function eventFromBuilderEntry(domain,entry,{entryId=null,eventId=null,id
         institution:entry.institution||"",
         institutionShortName:entry.institutionShortName||"",
         specialty:entry.specialty||"",
+        specialtyId:entry.specialtyId||
+          normalizeSpecialtyId(entry.specialty),
         rotationType:entry.rotationType||"",
         city:entry.city||"",
         state:entry.state||"",
         current:!!entry.current,
+        preceptor:entry.preceptor||"",
         rotationStartDate:rotationDates.rotationStartDate,
         rotationEndDate:rotationDates.rotationEndDate,
         rotationDatePrecision:rotationDates.rotationDatePrecision
@@ -594,6 +615,8 @@ export function entryFromBuilderEvent(event){
     institution:fields.institution||event.siteName||"",
     institutionShortName:fields.institutionShortName||"",
     specialty:fields.specialty||"",
+    specialtyId:fields.specialtyId||
+      normalizeSpecialtyId(fields.specialty),
     rotationType:fields.rotationType||"",
     city:fields.city||"",
     state:fields.state||"",
@@ -605,6 +628,9 @@ export function entryFromBuilderEvent(event){
       event.startDate?"month-legacy":"unknown"
     ),
     current:!!event.openEnded,
+    preceptor:fields.preceptor||"",
+    lorStatus:fields.lorStatus||"not-requested",
+    lorTargetSpecialtyId:fields.lorTargetSpecialtyId||"",
     notes:event.notes||""
   };
   if(domain==="work")return{
@@ -899,13 +925,14 @@ function renderExamCard(exam){
   const attempt=Number(exam.attempt)||1;
   const title=attempt>1?`${definition.name} — ${ordinal(attempt)} attempt`:definition.name;
   const scoreError=validateExam(exam).score||"";
+  const scoreRequired=!definition.passFailOnly&&["Passed","Failed"].includes(exam.result);
   return`<article class="exam-card" data-exam-card data-exam-id="${escapeHtml(exam.id)}">
     <header><h3>${escapeHtml(title)}</h3><button type="button" class="button tertiary" data-delete-exam="${escapeHtml(exam.id)}">Delete</button></header>
     <div class="exam-primary-row">
       ${segmented({legend:"Result",name:`result-${exam.id}`,values:["Passed","Failed","Awaiting result"],selected:exam.result,required:true,attributes:'data-exam-result-group'})}
       ${definition.passFailOnly?"":`<div class="field score-field">
-        <label for="score-${escapeHtml(exam.id)}">Score (optional)</label>
-        <input id="score-${escapeHtml(exam.id)}" name="score" data-exam-field="score" inputmode="numeric" pattern="[0-9]{1,3}" maxlength="3" value="${escapeHtml(exam.score||"")}" aria-describedby="score-${escapeHtml(exam.id)}-error">
+        <label for="score-${escapeHtml(exam.id)}">Score${scoreRequired?requiredMark():""}</label>
+        <input id="score-${escapeHtml(exam.id)}" name="score" data-exam-field="score" inputmode="numeric" pattern="[0-9]{1,3}" maxlength="3" value="${escapeHtml(exam.score||"")}" aria-describedby="score-${escapeHtml(exam.id)}-error" ${scoreRequired?'required aria-required="true"':""}>
         <p class="field-error" id="score-${escapeHtml(exam.id)}-error" data-error-for="score" aria-live="polite">${escapeHtml(scoreError)}</p>
       </div>`}
     </div>
@@ -921,6 +948,7 @@ function renderExams(document){
   const builder=builderView(document);
   const selected=new Set(builder.examSystems);
   const exams=Array.isArray(document.exams)?document.exams:[];
+  const visibleExams=exams.filter((exam)=>selected.has(exam.system));
   const chips=[];
   for(const systemId of builder.examSystems){
     const system=EXAM_SYSTEMS[systemId];
@@ -939,7 +967,7 @@ function renderExams(document){
     ${selected.size===0?'<p class="step-helper">Choose USMLE, COMLEX, or both.</p>':`<div class="exam-add-chips" aria-label="Add exams">${chips.join("")}</div>`}
     <section class="added-exams" aria-labelledby="added-exams-title">
       <h2 id="added-exams-title">Added exams</h2>
-      ${exams.length?exams.map(renderExamCard).join(""):'<p class="step-helper">No exams added yet.</p>'}
+      ${visibleExams.length?visibleExams.map(renderExamCard).join(""):'<p class="step-helper">No exams added yet.</p>'}
     </section>
     ${skipLink()}
   </section>`;
@@ -953,7 +981,7 @@ function clinicalForm(draft,editing){
   return`<form class="entry-card" data-entry-form="clinical" novalidate>
     <h2>${editing?"Edit rotation":"Add a rotation"}</h2>
     ${typeaheadField({id:"clinicalInstitution",label:"Institution",value:draft.institution,provider:"usTeachingInstitutions",context:"clinical-institution"})}
-    ${typeaheadField({id:"clinicalSpecialty",label:"Specialty",value:draft.specialty,provider:"specialties",context:"clinical-specialty"})}
+    ${typeaheadField({id:"clinicalSpecialty",label:"Specialty",value:draft.specialty,provider:"specialties",context:"clinical-specialty",required:true,allowFreeText:false})}
     ${selectField({id:"clinicalRotationType",label:"Rotation type",value:draft.rotationType,options:["Elective","Sub-internship","Observership","Externship","Clerkship (core)","Other"]})}
     <div class="field-row">
       ${textField({id:"clinicalCity",label:"City",value:draft.city,attributes:entryInputAttributes("clinical","city")})}

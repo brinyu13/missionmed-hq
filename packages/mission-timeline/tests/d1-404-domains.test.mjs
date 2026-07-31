@@ -129,13 +129,13 @@ test("407F uses the normalized local school registry while preserving domain typ
 
   const clinical=sourceBetween("function clinicalMarkup404(","function workMarkup404(");
   assert.match(clinical,/domainTypeahead404\('Institution','institution',draft\.institution,'clinicalInstitutions'\)/);
-  assert.match(clinical,/domainTypeahead404\('Specialty','specialty',draft\.specialty,'specialties'\)/);
+  assert.match(clinical,/domainTypeahead404\('Specialty','specialty',draft\.specialty,'specialties',\{required:true,allowFreeText:false\}\)/);
   assert.match(clinical,/Type 2\+ characters; choose a match or keep your text as written\./);
 
   const typeahead=sourceBetween("function typeaheadSource404(","function domainFormData404(");
-  assert.match(typeahead,/if\(provider!=='countries'&&query\.length<2\)return\[\]/);
-  assert.match(typeahead,/matches\.slice\(0,8\)/);
-  assert.match(typeahead,/typeahead\.rows\(query,matches,\{allowFreeText:allowFreeText,limit:8\}\)/);
+  assert.match(typeahead,/provider!=='countries'&&provider!=='specialties'&&query\.length<2/);
+  assert.match(typeahead,/provider==='specialties'\?12:8/);
+  assert.match(typeahead,/minQueryLength:provider==='specialties'\?0:2/);
   assert.match(typeahead,/institutionShortName:institution\.shortName,city:institution\.city,state:institution\.state/);
   assert.match(typeahead,/institutionShortName:'',city:'',state:''/);
 
@@ -202,7 +202,7 @@ test("407F domain adapter reuses Builder commit, persistence round-trip, edit, a
     assert.match(adapter,new RegExp(`\\b${name}\\b`));
   }
   assert.match(adapter,/api\.domain=Object\.freeze\(\{/);
-  assert.match(adapter,/save\(domain,entry\)[\s\S]*commitBuilderEntry\(document,domain,clone\(entry\|\|\{\}\)\)/);
+  assert.match(adapter,/save\(domain,entry\)[\s\S]*const normalized=clone\(entry\|\|\{\}\)[\s\S]*commitBuilderEntry\(document,domain,normalized\)/);
   assert.match(adapter,/edit\(eventId\)[\s\S]*beginBuilderEntryEdit\(document,eventId\)/);
   assert.match(adapter,/delete\(eventId\)[\s\S]*deleteBuilderEntry\(document,eventId\)/);
 

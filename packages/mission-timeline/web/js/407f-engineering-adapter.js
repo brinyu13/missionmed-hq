@@ -3,6 +3,8 @@ import {
   addBuilderExam,
   deleteBuilderExamAttempt,
   finalizeBuilderExams,
+  normalizeExamDocument,
+  restoreBuilderAutomaticRetake,
   setBuilderExamSystem,
   updateBuilderExamAttempt
 } from "./uxr-002/exam-integration.js";
@@ -131,6 +133,21 @@ import {
   installFocusTrap,
   installResponsiveRuntime
 } from "./uxr-002/responsive.js";
+import {
+  LOR_GUIDED_STATUS_OPTIONS,
+  createLocalQueuedLorBuilderAdapter,
+  createLorBuilderQueueState,
+  createRotationLorState,
+  deriveLorState,
+  rotationLorIndicator,
+  rotationLorStatus,
+  setRotationLorStatus
+} from "./uxr-002/rotation-lor.js";
+import {
+  normalizeSpecialtyId,
+  rankSpecialtyMatches,
+  specialtyOption
+} from "./uxr-002/specialty-taxonomy.js";
 import {parseMonth,uid} from "./uxr-002/utils.js";
 
 const CATEGORY_TO_407F=Object.freeze({
@@ -171,6 +188,113 @@ const VISIBILITY_FROM_407F=Object.freeze({
 
 function clone(value){
   return value==null?value:structuredClone(value);
+}
+
+function canonicalExamProfileValue(document,system,examId){
+  const attempts=(document?.exams||[])
+    .filter((record)=>
+      record?.system===system&&record?.examId===examId
+    )
+    .slice()
+    .sort((left,right)=>
+      (Number(right.attempt)||1)-(Number(left.attempt)||1)
+    );
+  const record=attempts.find((attempt)=>
+    String(attempt.score||attempt.result||"").trim()
+  );
+  return record
+    ?String(record.score||record.result||"").trim()
+    :"";
+}
+
+function activeTargetSpecialty(document){
+  const label=String(
+    document?.builder?.targetSpecialtyLabel||
+    document?.studentProfile?.specialtyGoal||
+    ""
+  ).trim();
+  const id=String(
+    document?.builder?.targetSpecialtyId||
+    normalizeSpecialtyId(label)
+  ).trim();
+  return{id,label};
+}
+
+function rotationSpecialtyReference(event){
+  const label=String(event?.fields?.specialty||"").trim();
+  const id=String(
+    event?.fields?.specialtyId||
+    normalizeSpecialtyId(label)
+  ).trim();
+  return{id,label};
+}
+
+function lorTargetForRotation(document,event,preferredId=""){
+  const active=activeTargetSpecialty(document);
+  if(active.id)return active;
+  const rotation=rotationSpecialtyReference(event);
+  const id=String(preferredId||rotation.id).trim();
+  return{
+    id,
+    label:id===rotation.id
+      ?rotation.label
+      :(active.label||rotation.label||id)
+  };
+}
+
+function rotationLorStateFromDocument(document){
+  const records=[...(document?.rotationLor?.records||[])];
+  for(const event of document?.events||[]){
+    if(event?.categoryId!=="clinical")continue;
+    const rotationId=String(
+      event?.fields?.builderEntryId||event?.id||""
+    );
+    if(!rotationId)continue;
+    const byTarget=event?.fields?.lorStatusesByTarget||{};
+    for(const [targetSpecialtyId,status] of Object.entries(byTarget)){
+      records.push({rotationId,targetSpecialtyId,status});
+    }
+    if(
+      event?.fields?.lorTargetSpecialtyId&&
+      event?.fields?.lorStatus
+    ){
+      records.push({
+        rotationId,
+        targetSpecialtyId:event.fields.lorTargetSpecialtyId,
+        status:event.fields.lorStatus
+      });
+    }
+  }
+  return createRotationLorState(records);
+}
+
+export function timelineWithLorPresentation(document){
+  const target=activeTargetSpecialty(document);
+  if(!target.id)return document;
+  const lorState=rotationLorStateFromDocument(document);
+  return{
+    ...document,
+    events:(document?.events||[]).map((event)=>{
+      if(event?.categoryId!=="clinical")return event;
+      const rotationId=String(
+        event?.fields?.builderEntryId||event?.id||""
+      );
+      if(!rotationId)return event;
+      const indicator=rotationLorIndicator(lorState,{
+        rotationId,
+        selectedTargetSpecialtyId:target.id
+      });
+      const fields={...(event.fields||{})};
+      if(indicator.visible){
+        fields.lorSubmitted=true;
+        fields.lorSubmittedTargetSpecialtyId=target.id;
+      }else{
+        delete fields.lorSubmitted;
+        delete fields.lorSubmittedTargetSpecialtyId;
+      }
+      return{...event,fields};
+    })
+  };
 }
 
 export function documentEventTo407F(event,index=0){
@@ -243,8 +367,8 @@ export function applyDocumentTo407FState(document,state){
     country:profile.medicalSchoolCountry||state.profile.country,
     visa:authorization.currentUsWorkAuthorization||state.profile.visa,
     goal:profile.specialtyGoal||state.profile.goal,
-    s1:document.metadata?.step1Score||state.profile.s1,
-    s2:document.metadata?.step2Score||state.profile.s2
+    s1:canonicalExamProfileValue(document,"USMLE","step-1"),
+    s2:canonicalExamProfileValue(document,"USMLE","step-2-ck")
   };
   state.sticky=document.metadata?.stickyNote??state.sticky;
   state.media=clone(document.metadata?.boardMedia||state.media);
@@ -395,10 +519,10 @@ export function apply407FStateToDocument(state,document){
     stickyNote:state.sticky||"",
     boardMedia:clone(state.media||{}),
     wizard407F:clone(state.wiz||{}),
-    builder407F:clone(state.builder||{}),
-    step1Score:state.profile?.s1||"",
-    step2Score:state.profile?.s2||""
+    builder407F:clone(state.builder||{})
   };
+  delete document.metadata.step1Score;
+  delete document.metadata.step2Score;
   return document;
 }
 
@@ -511,7 +635,8 @@ export function namespaceBoardSvg(svg,namespace){
 }
 
 function render407FThemedBoard(document,options={}){
-  const base=renderKeynoteClassicBoard(document,options);
+  const timeline=timelineWithLorPresentation(document);
+  const base=renderKeynoteClassicBoard(timeline,options);
   const themeId=document?.theme||DEFAULT_THEME_ID;
   const rendered=themeId===DEFAULT_THEME_ID
     ?base
@@ -704,6 +829,7 @@ export async function boot407FEngineeringAdapter({
 
   const init=await store.initialize();
   const runtimeDatasets=createRuntimeDatasets();
+  const lorBuilderAdapter=createLocalQueuedLorBuilderAdapter();
   const mediaUrls=createObjectUrlRegistry();
   const advancedBoardRenderer=createAdvancedBoardRenderer({
     baseRenderer:render407FThemedBoard,
@@ -770,20 +896,23 @@ export async function boot407FEngineeringAdapter({
   let lastState=stableState(bridge.state);
   const watchedEvents=["input","change","click","pointerup","blur"];
 
-  if(init.restored){
-    applying=true;
-    applyDocumentTo407FState(store.document,bridge.state);
-    bridge.renderAll();
-    lastState=stableState(bridge.state);
-    applying=false;
-  }else{
+  if(!init.restored){
     store.mutate(
       "Seed canonical 407F document",
       (document)=>apply407FStateToDocument(bridge.state,document),
       {history:false}
     );
-    lastState=stableState(bridge.state);
   }
+  store.mutate(
+    "Normalize canonical exam workflow",
+    (document)=>normalizeExamDocument(document),
+    {history:false,material:false}
+  );
+  applying=true;
+  applyDocumentTo407FState(store.document,bridge.state);
+  bridge.renderAll();
+  lastState=stableState(bridge.state);
+  applying=false;
 
   let pending=false;
   const reconcile=(event)=>{
@@ -882,6 +1011,9 @@ export async function boot407FEngineeringAdapter({
     }));
   };
   api.dateControls=Object.freeze({
+    parseExact(value){
+      return parseExactDate(value)||"";
+    },
     markup(options={}){
       return options.precision==="day"
         ?exactDateFieldMarkup(options)
@@ -1400,6 +1532,31 @@ export async function boot407FEngineeringAdapter({
     );
     return true;
   };
+  const activateBuilderPreviewRetake=(targetAttemptId,{fromLightbox=false}={})=>{
+    const id=String(targetAttemptId||"");
+    if(!id)return false;
+    let record=(store.document.exams||[]).find(
+      (attempt)=>String(attempt.id)===id
+    );
+    if(!record)record=api.exam?.restoreRetake?.(id);
+    if(!record){
+      bridge.toast("The retake card could not be restored.");
+      return false;
+    }
+    if(fromLightbox)closeBuilderPreview({restoreFocus:false});
+    bridge.state.builder.step=2;
+    bridge.go("builder");
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const card=document.querySelector(
+        `[data-exam-card="${CSS.escape(id)}"]`
+      );
+      const field=card?.querySelector('[data-exam-field="examDate"]');
+      (field||card)?.focus?.();
+      card?.scrollIntoView?.({block:"center",behavior:"smooth"});
+    }));
+    announceGlobal("Opened the retake exam date in Builder");
+    return true;
+  };
   onBuilderPreviewInteraction=(event)=>{
     const zoomButton=event.type==="click"
       ?event.target?.closest?.("[data-builder-preview-zoom]")
@@ -1422,7 +1579,7 @@ export async function boot407FEngineeringAdapter({
     const attributes=builderPreviewTargetAttributes(event.target);
     if(!attributes)return;
     const target=event.target.closest(
-      "[data-builder-preview-event],[data-builder-preview-interview]"
+      "[data-builder-preview-event],[data-builder-preview-interview],[data-builder-preview-retake]"
     );
     if(event.type==="keydown"){
       const moves={
@@ -1447,13 +1604,18 @@ export async function boot407FEngineeringAdapter({
     }else if(event.type!=="click"){
       return;
     }
-    activateBuilderPreviewOwner(attributes,{
-      fromLightbox:!!target.closest('[data-builder-preview-surface="lightbox"]')
-    });
+    const fromLightbox=!!target.closest(
+      '[data-builder-preview-surface="lightbox"]'
+    );
+    if(attributes.retakeTarget){
+      activateBuilderPreviewRetake(attributes.retakeTarget,{fromLightbox});
+    }else{
+      activateBuilderPreviewOwner(attributes,{fromLightbox});
+    }
   };
   onBuilderPreviewFocus=(event)=>{
     const target=event.target?.closest?.(
-      "[data-builder-preview-event],[data-builder-preview-interview]"
+      "[data-builder-preview-event],[data-builder-preview-interview],[data-builder-preview-retake]"
     );
     if(!target)return;
     for(const item of builderPreviewFocusableTargets(
@@ -2025,9 +2187,10 @@ export async function boot407FEngineeringAdapter({
   };
   window.addEventListener("hashchange",onAdvisorHashChange);
   const commitExamMutation=(label,mutation)=>{
+    let result=null;
     store.mutate(label,(document)=>{
       apply407FStateToDocument(bridge.state,document);
-      mutation(document);
+      result=mutation(document);
     });
     applying=true;
     applyDocumentTo407FState(store.document,bridge.state);
@@ -2035,6 +2198,7 @@ export async function boot407FEngineeringAdapter({
     canvasController?.render();
     lastState=stableState(bridge.state);
     applying=false;
+    return result;
   };
   api.exam=Object.freeze({
     setSystem(system,active){
@@ -2058,9 +2222,14 @@ export async function boot407FEngineeringAdapter({
       });
     },
     finalize(){
-      commitExamMutation("Finish Builder exams",(document)=>{
-        finalizeBuilderExams(document);
-      });
+      return commitExamMutation("Finish Builder exams",(document)=>
+        finalizeBuilderExams(document)
+      );
+    },
+    restoreRetake(targetAttemptId){
+      return commitExamMutation("Restore automatic retake",(document)=>
+        restoreBuilderAutomaticRetake(document,targetAttemptId)
+      );
     }
   });
   const commitDomainMutation=(label,mutation)=>{
@@ -2087,19 +2256,96 @@ export async function boot407FEngineeringAdapter({
       });
     },
     save(domain,entry){
-      return commitDomainMutation(`Save ${domain} entry`,(document)=>
-        commitBuilderEntry(document,domain,clone(entry||{}))
-      );
+      return commitDomainMutation(`Save ${domain} entry`,(document)=>{
+        const normalized=clone(entry||{});
+        const builder=ensureBuilderState(document);
+        const editingEntryId=builder.editing?.[domain]||"";
+        const previousEvent=editingEntryId
+          ?document.events.find((candidate)=>
+            candidate?.fields?.builderEntryId===editingEntryId
+          )
+          :null;
+        const previousLorStatuses=clone(
+          previousEvent?.fields?.lorStatusesByTarget||{}
+        );
+        const result=commitBuilderEntry(document,domain,normalized);
+        if(domain!=="clinical"||result?.ok===false||!result?.event){
+          return result;
+        }
+        const event=document.events.find(
+          (candidate)=>candidate.id===result.event.id
+        )||result.event;
+        const rotationId=String(
+          event?.fields?.builderEntryId||event?.id||""
+        );
+        const target=lorTargetForRotation(
+          document,
+          event,
+          normalized.lorTargetSpecialtyId
+        );
+        if(rotationId&&target.id){
+          event.fields={
+            ...(event.fields||{}),
+            preceptor:normalized.preceptor||"",
+            lorStatus:normalized.lorStatus||"not-requested",
+            lorTargetSpecialtyId:target.id,
+            lorStatusesByTarget:{
+              ...previousLorStatuses,
+              [target.id]:normalized.lorStatus||"not-requested"
+            }
+          };
+          document.rotationLor=setRotationLorStatus(
+            rotationLorStateFromDocument(document),
+            {
+              rotationId,
+              targetSpecialtyId:target.id,
+              status:normalized.lorStatus||"not-requested"
+            }
+          );
+        }
+        return result;
+      });
     },
     edit(eventId){
-      return commitDomainMutation("Edit Builder entry",(document)=>
-        beginBuilderEntryEdit(document,eventId)
-      );
+      return commitDomainMutation("Edit Builder entry",(document)=>{
+        const edited=beginBuilderEntryEdit(document,eventId);
+        const event=document.events.find((candidate)=>candidate.id===eventId);
+        if(!edited||event?.categoryId!=="clinical")return edited;
+        const rotationId=String(
+          event?.fields?.builderEntryId||event?.id||""
+        );
+        const target=lorTargetForRotation(document,event);
+        const builder=ensureBuilderState(document);
+        if(rotationId&&target.id){
+          const status=rotationLorStatus(
+            rotationLorStateFromDocument(document),
+            {rotationId,targetSpecialtyId:target.id}
+          );
+          builder.drafts.clinical={
+            ...builder.drafts.clinical,
+            lorStatus:status.statusId,
+            lorTargetSpecialtyId:target.id
+          };
+        }
+        return edited;
+      });
     },
     delete(eventId){
-      return commitDomainMutation("Delete Builder entry",(document)=>
-        deleteBuilderEntry(document,eventId)
-      );
+      return commitDomainMutation("Delete Builder entry",(document)=>{
+        const event=document.events.find((candidate)=>candidate.id===eventId);
+        const rotationId=String(
+          event?.fields?.builderEntryId||event?.id||""
+        );
+        const deleted=deleteBuilderEntry(document,eventId);
+        if(deleted&&rotationId){
+          document.rotationLor=createRotationLorState(
+            (document.rotationLor?.records||[]).filter(
+              (record)=>record?.rotationId!==rotationId
+            )
+          );
+        }
+        return deleted;
+      });
     },
     cancel(domain){
       return commitDomainMutation(`Cancel ${domain} entry`,(document)=>{
@@ -2110,12 +2356,98 @@ export async function boot407FEngineeringAdapter({
       });
     }
   });
+  api.lor=Object.freeze({
+    options(){
+      return clone(LOR_GUIDED_STATUS_OPTIONS);
+    },
+    context(rotationSpecialty=""){
+      const current=clone(store.document);
+      apply407FStateToDocument(bridge.state,current);
+      const active=activeTargetSpecialty(current);
+      if(active.id)return active;
+      const label=String(rotationSpecialty||"").trim();
+      return{id:normalizeSpecialtyId(label),label};
+    },
+    status(rotationId,targetSpecialtyId){
+      const current=clone(store.document);
+      apply407FStateToDocument(bridge.state,current);
+      return clone(rotationLorStatus(rotationLorStateFromDocument(current),{
+        rotationId,
+        targetSpecialtyId
+      }));
+    },
+    derived(status){
+      return clone(deriveLorState(status));
+    },
+    queue(eventId){
+      return commitDomainMutation("Queue LOR Builder to-do",(document)=>{
+        const event=document.events.find((candidate)=>candidate.id===eventId);
+        if(event?.categoryId!=="clinical"){
+          return{
+            status:"unavailable",
+            productionCreated:false,
+            message:"Nothing was queued because the rotation was not found."
+          };
+        }
+        const rotationId=String(
+          event.fields?.builderEntryId||event.id||""
+        );
+        const target=lorTargetForRotation(document,event);
+        if(!rotationId||!target.id){
+          return{
+            status:"unavailable",
+            productionCreated:false,
+            message:"Choose a target specialty before creating the LOR to-do."
+          };
+        }
+        const status=rotationLorStatus(
+          rotationLorStateFromDocument(document),
+          {rotationId,targetSpecialtyId:target.id}
+        );
+        const specialty=rotationSpecialtyReference(event);
+        const queued=lorBuilderAdapter.queue(
+          createLorBuilderQueueState(
+            document.lorBuilderQueue?.commands||[]
+          ),
+          {
+            studentId:document.studentProfile?.id||"",
+            timelineId:document.id||"timeline-local",
+            rotationId,
+            institution:event.fields?.institution||event.siteName||"",
+            specialty,
+            preceptor:event.fields?.preceptor||"",
+            rotationDates:{
+              startDate:
+                event.fields?.rotationStartDate||event.startDate||"",
+              endDate:
+                event.fields?.rotationEndDate||
+                event.endDate||
+                (event.openEnded?"present":"")
+            },
+            currentStatus:status.statusId,
+            requestedTargetSpecialty:target
+          }
+        );
+        document.lorBuilderQueue=queued.state;
+        return clone(queued.result);
+      });
+    }
+  });
   api.typeahead=Object.freeze({
     rows(query,matches,options){
       return typeaheadRows(query,clone(matches||[]),clone(options||{}));
     },
     rankCountries(matches,options){
       return rankCountryMatches(clone(matches||[]),clone(options||{}));
+    },
+    rankSpecialties(matches,options){
+      return rankSpecialtyMatches(clone(matches||[]),clone(options||{}));
+    },
+    specialty(label){
+      return specialtyOption(label);
+    },
+    normalizeSpecialtyId(label){
+      return normalizeSpecialtyId(label);
     }
   });
   api.schoolRegistry=Object.freeze({

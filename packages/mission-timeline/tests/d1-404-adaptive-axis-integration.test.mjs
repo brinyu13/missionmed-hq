@@ -42,7 +42,7 @@ test("M8 active 407F Canvas delegates rendering to the retained adaptive board e
   );
   assert.match(
     adapter,
-    /function render407FThemedBoard\(document,options=\{\}\)\{\s*const base=renderKeynoteClassicBoard\(document,options\)/
+    /function render407FThemedBoard\(document,options=\{\}\)\{\s*const timeline=timelineWithLorPresentation\(document\);\s*const base=renderKeynoteClassicBoard\(timeline,options\)/
   );
   assert.match(index,/<div id="canvas407F" class="canvas407FHost"/);
 });

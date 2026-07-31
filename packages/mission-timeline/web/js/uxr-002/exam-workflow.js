@@ -16,7 +16,7 @@ export const EXAM_RESULTS=Object.freeze({
 export const EXAM_WORKFLOW_COPY=Object.freeze({
   purpose:"Your exam story — scores and results first, dates second.",
   emptyHelper:"Choose USMLE, COMLEX, or both.",
-  scoreOptional:"Score (optional)",
+  score:"Score",
   examDate:"Exam date",
   awaitingExamDate:"Exam date (taken)",
   studyStart:"Started studying (optional)",
@@ -337,6 +337,8 @@ function createRetakeStudyPeriod(examType,failedAttempt,retakeAttempt){
   const provisional=!retakeDate;
   const endDate=retakeDate||(startDate?addMonths(startDate,3):"");
   const id=retakeStudyPeriodEventId(examType.id,failedAttempt.attemptNumber);
+  const retakeAttemptId=retakeAttempt?.id||
+    examAttemptId(examType.id,failedAttempt.attemptNumber+1);
   return{
     id,
     examTypeId:examType.id,
@@ -350,7 +352,7 @@ function createRetakeStudyPeriod(examType,failedAttempt,retakeAttempt){
     openEnded:false,
     provisional,
     linkedFailureAttemptId:failedAttempt.id,
-    linkedRetakeAttemptId:retakeAttempt?.id||null,
+    linkedRetakeAttemptId:retakeAttemptId,
     automatic:true,
     sourceType:"exam-workflow",
     visibilityState:"INTERVIEWER_SAFE",
@@ -358,13 +360,13 @@ function createRetakeStudyPeriod(examType,failedAttempt,retakeAttempt){
     fillOpacity:0.6,
     outlineStyle:provisional?"dashed":"solid",
     actionChip:provisional
-      ?{label:EXAM_WORKFLOW_COPY.retakeAction,targetAttemptId:retakeAttempt?.id||null}
+      ?{label:EXAM_WORKFLOW_COPY.retakeAction,targetAttemptId:retakeAttemptId}
       :null,
     fields:{
       automatic:true,
       provisional,
       linkedFailureAttemptId:failedAttempt.id,
-      linkedRetakeAttemptId:retakeAttempt?.id||null
+      linkedRetakeAttemptId:retakeAttemptId
     }
   };
 }
@@ -510,14 +512,33 @@ export function validateExamResult(value){
   };
 }
 
-export function validateExamScore(examTypeId,value){
+export function validateExamScore(examTypeId,value,{result=""}={}){
   const examType=requireExamType(examTypeId);
   const text=scoreText(value);
+  const normalizedResult=normalizeExamResult(result);
+  const required=normalizedResult===EXAM_RESULTS.PASSED||
+    normalizedResult===EXAM_RESULTS.FAILED;
   if(examType.passFailOnly){
-    return{value:"",visible:false,optional:true,valid:true,error:null,range:null};
+    return{
+      value:"",
+      visible:false,
+      optional:true,
+      required:false,
+      valid:true,
+      error:null,
+      range:null
+    };
   }
   if(!text){
-    return{value:"",visible:true,optional:true,valid:true,error:null,range:clone(examType.scoreRange)};
+    return{
+      value:"",
+      visible:true,
+      optional:!required,
+      required,
+      valid:!required,
+      error:required?"Required.":null,
+      range:clone(examType.scoreRange)
+    };
   }
   const numeric=/^\d{1,3}$/.test(text)?Number(text):Number.NaN;
   const valid=Number.isInteger(numeric)
@@ -526,7 +547,8 @@ export function validateExamScore(examTypeId,value){
   return{
     value:text,
     visible:true,
-    optional:true,
+    optional:!required,
+    required,
     valid,
     error:valid?null:examType.scoreRange.message,
     range:clone(examType.scoreRange)
@@ -547,6 +569,10 @@ function validateMonthField(value,{required=false}={}){
 export function examCardMetadata(examTypeId,result=""){
   const examType=requireExamType(examTypeId);
   const normalizedResult=normalizeExamResult(result);
+  const scoreRequired=!examType.passFailOnly&&(
+    normalizedResult===EXAM_RESULTS.PASSED||
+    normalizedResult===EXAM_RESULTS.FAILED
+  );
   return{
     examTypeId:examType.id,
     systemId:examType.systemId,
@@ -554,8 +580,9 @@ export function examCardMetadata(examTypeId,result=""){
     fieldOrder:EXAM_CARD_FIELD_ORDER.map((field)=>({
       ...field,
       hidden:field.id==="score"&&examType.passFailOnly,
+      required:field.id==="score"?scoreRequired:field.required,
       label:field.id==="score"
-        ?EXAM_WORKFLOW_COPY.scoreOptional
+        ?EXAM_WORKFLOW_COPY.score
         :field.id==="examDate"
           ?(normalizedResult===EXAM_RESULTS.AWAITING
             ?EXAM_WORKFLOW_COPY.awaitingExamDate
@@ -566,7 +593,8 @@ export function examCardMetadata(examTypeId,result=""){
     })),
     score:{
       visible:!examType.passFailOnly,
-      optional:true,
+      optional:!scoreRequired,
+      required:scoreRequired,
       inputMode:"numeric",
       maxLength:3,
       range:examType.scoreRange?clone(examType.scoreRange):null,
@@ -580,7 +608,9 @@ export function validateExamAttempt(attempt){
   if(!attempt||typeof attempt!=="object")throw new TypeError("Exam attempt must be an object.");
   const examType=requireExamType(attempt.examTypeId);
   const result=validateExamResult(attempt.result);
-  const score=validateExamScore(examType.id,attempt.score);
+  const score=validateExamScore(examType.id,attempt.score,{
+    result:attempt.result
+  });
   const examDate=validateMonthField(attempt.examDate,{required:true});
   const studyPeriodStart=validateMonthField(attempt.studyPeriodStart);
   return{
@@ -599,7 +629,9 @@ export function validateExamAttempt(attempt){
 }
 
 function validScoreForBoard(attempt){
-  const validation=validateExamScore(attempt.examTypeId,attempt.score);
+  const validation=validateExamScore(attempt.examTypeId,attempt.score,{
+    result:attempt.result
+  });
   return validation.valid&&validation.value?validation.value:"";
 }
 
@@ -666,17 +698,22 @@ function studyWindowEvent(examType,attempt){
 
 export function examTimelineEvents(state){
   const events=[];
+  const validAttemptIds=new Set();
   for(const group of addedExamGroups(state)){
     const examType=requireExamType(group.examTypeId);
     for(const attempt of group.attempts){
-      const result=validateExamResult(attempt.result);
+      const validation=validateExamAttempt(attempt);
       const examDate=parseMonth(attempt.examDate);
       const studyStart=parseMonth(attempt.studyPeriodStart);
+      if(!validation.valid)continue;
+      validAttemptIds.add(attempt.id);
       if(studyStart&&examDate)events.push(studyWindowEvent(examType,attempt));
-      if(result.valid&&examDate)events.push(milestoneEvent(examType,attempt));
+      if(examDate)events.push(milestoneEvent(examType,attempt));
     }
   }
-  events.push(...(state?.studyPeriods||[]).map((event)=>clone(event)));
+  events.push(...(state?.studyPeriods||[])
+    .filter((event)=>validAttemptIds.has(event.linkedFailureAttemptId))
+    .map((event)=>clone(event)));
   return events;
 }
 

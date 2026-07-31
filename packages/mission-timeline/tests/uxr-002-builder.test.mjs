@@ -158,7 +158,14 @@ test("Step state is pure and follows required, committed-entry, and skip rules e
   assert.equal(builderStepState(document,4),"skipped");
   builder.examSystems.push("USMLE");
   assert.equal(builderStepState(document,2),"started");
-  document.exams.push({id:"exam-1",system:"USMLE",examId:"step-2-ck"});
+  document.exams.push({
+    id:"exam-usmle-step-1-attempt-1",
+    system:"USMLE",
+    examId:"step-1",
+    attempt:1,
+    result:"Passed",
+    examDate:"2025-05"
+  });
   assert.equal(builderStepState(document,2),"complete");
 });
 
@@ -249,8 +256,8 @@ test("USMLE and COMLEX are independent, chip-added, and retain score/result/date
   assert.doesNotMatch(stepOne,/Score \(optional\)/,"pass/fail-only exams hide score");
 
   const levelTwo=html.slice(html.indexOf('data-exam-id="level-two"'),html.indexOf("</article>",html.indexOf('data-exam-id="level-two"')));
-  assert.ok(levelTwo.indexOf("<legend>Result")<levelTwo.indexOf("Score (optional)"));
-  assert.ok(levelTwo.indexOf("Score (optional)")<levelTwo.indexOf("Exam date (taken)"));
+  assert.ok(levelTwo.indexOf("<legend>Result")<levelTwo.indexOf(">Score<"));
+  assert.ok(levelTwo.indexOf(">Score<")<levelTwo.indexOf("Exam date (taken)"));
   assert.ok(levelTwo.indexOf("Exam date (taken)")<levelTwo.indexOf("Started studying (optional)"));
   assert.match(levelTwo,/Show score on timeline/);
 

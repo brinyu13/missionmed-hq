@@ -25,12 +25,14 @@ test("M4 renders independent USMLE and COMLEX selection with add-via-chip exams"
   assert.match(html,/No exams added yet\./);
 });
 
-test("M4 keeps result and score primary, dates secondary, with frozen copy",async()=>{
+test("M7 keeps result and conditionally required score primary, dates secondary",async()=>{
   const html=await readFile(indexPath,"utf8");
   const card=html.slice(html.indexOf("function examCard404"),html.indexOf("function examsMarkup404"));
   assert.ok(card.indexOf("builderExamPrimary")<card.indexOf("builderExamSecondary"));
   assert.match(card,/Passed','Failed','Awaiting result/);
-  assert.match(card,/Score <em>Optional/);
+  assert.match(card,/const scoreRequired=/);
+  assert.match(card,/required aria-required="true"/);
+  assert.doesNotMatch(card,/Score <em>Optional/);
   assert.match(card,/Exam date \(taken\)/);
   assert.match(card,/label:'Started studying',optional:true/);
   assert.match(card,/Show score on timeline/);
@@ -112,4 +114,30 @@ test("M4 adapter preserves exam records and renders failed/provisional signals i
   assert.match(html,/data-retake-target=/);
   assert.match(css,/\.arrow\.examStudy\.provisional/);
   assert.match(css,/\.retakeChip/);
+});
+
+test("M7 exam mutations restore focus, announce automation, and retain 44px targets",async()=>{
+  const [html,css]=await Promise.all([
+    readFile(indexPath,"utf8"),
+    readFile(stylePath,"utf8")
+  ]);
+  assert.match(html,/function restoreExamFocus404\(options,message\)/);
+  assert.match(html,/Result and exam date are required\./);
+  assert.match(html,/attempt added automatically\./);
+  assert.match(html,/The linked study period now ends in this month\./);
+  assert.match(html,/aria-label="Delete '\+esc\(title\)/);
+  assert.match(html,/aria-label="Show '\+esc\(title\)\+' score on timeline"/);
+  assert.match(html,/if\(builderLive\)builderLive\.textContent=''/);
+  assert.match(
+    css,
+    /\.builderSegment\{[\s\S]*?min-height:44px;/
+  );
+  assert.match(
+    css,
+    /\.builderExamChip\{[\s\S]*?min-height:44px;/
+  );
+  assert.match(
+    css,
+    /\.retakeChip\{[\s\S]*?min-height:44px;/
+  );
 });

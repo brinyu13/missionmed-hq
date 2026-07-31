@@ -106,6 +106,38 @@ test("M4 preserves canonical 1920x1080 geometry and adds stable interactive owne
   );
 });
 
+test("M7 exposes the provisional retake chip as its own keyboard and pointer action",()=>{
+  const timeline=documentWith([
+    event({
+      id:"retake-study",
+      title:"Step 2 CK — preparing for retake",
+      categoryId:"exams",
+      startDate:"2024-02",
+      endDate:"2024-05",
+      provisional:true,
+      actionChip:{
+        label:"Set retake date",
+        targetAttemptId:"exam-usmle-step-2-ck-attempt-2"
+      },
+      fields:{
+        builderDomain:"exams",
+        builderEntryId:"exam-usmle-step-2-ck-attempt-1",
+        studyPeriod:true
+      }
+    })
+  ]);
+  const rendered=renderKeynoteClassicBoard(timeline,{currentMonth:"2026-07"});
+  const svg=enhanceBuilderPreviewSvg(rendered.svg,timeline);
+  assert.match(svg,/data-builder-preview-retake/);
+  assert.match(
+    svg,
+    /data-retake-target="exam-usmle-step-2-ck-attempt-2"/
+  );
+  assert.match(svg,/aria-label="Set retake date for Step 2 CK/);
+  assert.match(adapter,/activateBuilderPreviewRetake/);
+  assert.match(adapter,/api\.exam\?\.restoreRetake/);
+});
+
 test("M4 places the interview marker in chronological keyboard order",()=>{
   const timeline=documentWith([
     event({
