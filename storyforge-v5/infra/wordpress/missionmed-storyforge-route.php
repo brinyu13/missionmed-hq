@@ -25,9 +25,9 @@ define( 'MMSFR_MAX_BODY_BYTES', 6291456 );
 define( 'MMSFR_MAX_RESPONSE_BYTES', 33554432 );
 define( 'MMSFR_TIMEOUT_SECONDS', 9 );
 // BEGIN GENERATED STORYFORGE RELEASE ID.
-define( 'MMSFR_RELEASE_ID', 'v-a9a076957973d7d4' );
-define( 'MMSFR_RELEASE_PHP_SHA256', '30fc0e380be9704ff3d52a8f3827edf4d578c1c7bb95e933a4ab21e268e11d9a' );
-define( 'MMSFR_RELEASE_PHP_SIZE', 872797 );
+define( 'MMSFR_RELEASE_ID', 'v-a790ce4e3168384f' );
+define( 'MMSFR_RELEASE_PHP_SHA256', '01c6871355683ee87ce9e648480bb226ce0d393ef05cae77700943e086552f2f' );
+define( 'MMSFR_RELEASE_PHP_SIZE', 872672 );
 // END GENERATED STORYFORGE RELEASE ID.
 
 /**
@@ -38,10 +38,10 @@ define( 'MMSFR_RELEASE_PHP_SIZE', 872797 );
 function mmsfr_asset_manifest() {
 	return array(
 		// BEGIN GENERATED STORYFORGE ASSET MANIFEST.
-		'assets/app.fded51e056c6.js' => array(
-			'alias' => 'fded51e056c6',
-			'sha256' => 'fded51e056c6a2c16b01c718bf2fa1f43aa4a45fb8ca2d48e8263a6e81d60827',
-			'size' => 295272,
+		'assets/app.9aaf9d3670ee.js' => array(
+			'alias' => '9aaf9d3670ee',
+			'sha256' => '9aaf9d3670eea84ff41aa84859384c4bd945b753c80dd880601a9637fa8361df',
+			'size' => 295185,
 			'type' => 'text/javascript; charset=utf-8',
 			'cache' => 'immutable',
 		),
@@ -130,8 +130,8 @@ function mmsfr_asset_manifest() {
 			'cache' => 'immutable',
 		),
 		'index.html' => array(
-			'alias' => '5a5dd9160958',
-			'sha256' => '5a5dd91609588f231310fb23df836dba9e4adaf9587d22986a9dbe476430fe1f',
+			'alias' => '2071b79c4226',
+			'sha256' => '2071b79c42260b97b5369e26c7662b517d0ed67948e4d15d848e38c574fe5263',
 			'size' => 1397,
 			'type' => 'text/html; charset=utf-8',
 			'cache' => 'html',
