@@ -261,3 +261,28 @@ This adjustment is within
 `D1-UXR-002 IMPLEMENTATION AUTHORITY ADDENDUM 001`: it is an
 implementation-level typography/contrast treatment and changes no product
 meaning, workflow, layout, or interaction model.
+
+## M8 — Target-specialty timelines
+
+- Added `specialty-variants.js` as a normalized presentation configuration,
+  not a second timeline document.
+- The canonical `events`, `exams`, profile, media, sources, and provenance
+  remain shared facts. Each variant stores only its name, normalized specialty,
+  hidden-event IDs, and compatible interview-target configuration.
+- The active variant is prominent above the retained horizontal Builder steps.
+  Create, switch, rename, and guarded remove actions run through TimelineStore,
+  retaining autosave, undo/redo, history, versions, and IndexedDB persistence.
+- A pure projection supplies active specialty identity and event visibility to
+  the Builder preview, Edit Timeline renderer, theme serialization, and Export.
+  Canonical events are never mutated or duplicated by the projection.
+- Variant visibility is intentionally hide-only and cannot promote advisor-only
+  or private source facts.
+- Existing LOR records remain keyed by rotation and normalized target-specialty
+  ID. Switching from Internal Medicine to Pediatrics immediately removes the
+  Internal Medicine submitted star; switching back restores it.
+- The Builder remains one primary editing column with the larger proportional
+  interactive preview on the right. No shell, navigation system, or parallel
+  media architecture was introduced.
+- Complete M8 gate: 504/504 tests, typecheck, 23/23 package verification,
+  deterministic 194-file build, zero live-browser warnings/errors, and final
+  Miyamoto/Vitruvius PASS verdicts.

@@ -144,10 +144,22 @@ import {
   setRotationLorStatus
 } from "./uxr-002/rotation-lor.js";
 import {
+  PINNED_ROTATION_SPECIALTIES,
   normalizeSpecialtyId,
   rankSpecialtyMatches,
   specialtyOption
 } from "./uxr-002/specialty-taxonomy.js";
+import {
+  activeSpecialtyVariant,
+  applyActiveSpecialtyVariant,
+  createSpecialtyVariant,
+  ensureSpecialtyVariants,
+  normalizeSpecialtyVariants,
+  removeSpecialtyVariant,
+  renameSpecialtyVariant,
+  setVariantEventHidden,
+  switchSpecialtyVariant
+} from "./uxr-002/specialty-variants.js";
 import {parseMonth,uid} from "./uxr-002/utils.js";
 
 const CATEGORY_TO_407F=Object.freeze({
@@ -208,6 +220,13 @@ function canonicalExamProfileValue(document,system,examId){
 }
 
 function activeTargetSpecialty(document){
+  const variant=activeSpecialtyVariant(document);
+  if(variant?.specialty?.id){
+    return{
+      id:String(variant.specialty.id),
+      label:String(variant.specialty.label||"")
+    };
+  }
   const label=String(
     document?.builder?.targetSpecialtyLabel||
     document?.studentProfile?.specialtyGoal||
@@ -269,12 +288,13 @@ function rotationLorStateFromDocument(document){
 }
 
 export function timelineWithLorPresentation(document){
-  const target=activeTargetSpecialty(document);
-  if(!target.id)return document;
-  const lorState=rotationLorStateFromDocument(document);
+  const projected=applyActiveSpecialtyVariant(document);
+  const target=activeTargetSpecialty(projected);
+  if(!target.id)return projected;
+  const lorState=rotationLorStateFromDocument(projected);
   return{
-    ...document,
-    events:(document?.events||[]).map((event)=>{
+    ...projected,
+    events:(projected?.events||[]).map((event)=>{
       if(event?.categoryId!=="clinical")return event;
       const rotationId=String(
         event?.fields?.builderEntryId||event?.id||""
@@ -352,6 +372,7 @@ export function event407FToDocument(event,index=0){
 
 export function applyDocumentTo407FState(document,state){
   const profile=document.studentProfile||{};
+  const targetSpecialty=activeTargetSpecialty(document);
   const authorization=normalizeWorkAuthorization(profile);
   state.user.events=(document.events||[])
     .filter((event)=>String(event?.startDate||"").trim())
@@ -366,7 +387,7 @@ export function applyDocumentTo407FState(document,state){
     name:profile.fullName||state.profile.name,
     country:profile.medicalSchoolCountry||state.profile.country,
     visa:authorization.currentUsWorkAuthorization||state.profile.visa,
-    goal:profile.specialtyGoal||state.profile.goal,
+    goal:targetSpecialty.label||profile.specialtyGoal||state.profile.goal,
     s1:canonicalExamProfileValue(document,"USMLE","step-1"),
     s2:canonicalExamProfileValue(document,"USMLE","step-2-ck")
   };
@@ -754,11 +775,13 @@ function canvasDetailField([key,label,type="text"],event){
   return `<label class="canvas407FDetailField"><span>${escapeMarkup(label)}</span><input type="text" data-canvas-detail-field="${key}" value="${escapeMarkup(value)}"></label>`;
 }
 
-function renderCanvasDetails(route,event){
+function renderCanvasDetails(route,event,document){
   const domain=event.fields?.builderDomain||event.categoryId||"personal";
   const detailFields=CANVAS_DETAIL_FIELDS[domain]||[];
   const isMilestone=event.eventType==="milestone";
   const clinical=domain==="clinical";
+  const variant=activeSpecialtyVariant(document||{});
+  const visibleInVariant=!variant.hiddenEventIds.includes(String(event.id));
   const startDateControl=clinical
     ?exactDateFieldMarkup({
       id:`canvas-${event.id}-rotation-start`,
@@ -808,6 +831,7 @@ function renderCanvasDetails(route,event){
         <option value="INTERVIEWER_SAFE" ${event.visibilityState==="INTERVIEWER_SAFE"?"selected":""}>Show everyone</option>
         <option value="ADVISOR_ONLY" ${event.visibilityState==="ADVISOR_ONLY"?"selected":""}>Advisor only</option>
       </select></label>
+      <label class="canvas407FDetailCheck canvas407FDetailWide"><input type="checkbox" data-canvas-variant-visible ${visibleInVariant?"checked":""}> <span>Show in ${escapeMarkup(variant.name)}</span></label>
       <label class="canvas407FDetailField"><span>Site / location</span><input type="text" data-canvas-detail-key="siteName" value="${escapeMarkup(event.siteName)}"></label>
       ${detailFields.map((field)=>canvasDetailField(field,event)).join("")}
       <label class="canvas407FDetailField canvas407FDetailWide"><span>Notes</span><textarea data-canvas-detail-key="notes">${escapeMarkup(event.notes)}</textarea></label>
@@ -883,11 +907,16 @@ export async function boot407FEngineeringAdapter({
   let onMediaLibraryDragLeave=()=>{};
   let onMediaLibraryDragEnd=()=>{};
   let onMediaLibraryDrop=()=>{};
+  let onSpecialtyVariantClick=()=>{};
+  let onSpecialtyVariantChange=()=>{};
+  let onSpecialtyVariantBackdrop=()=>{};
   let onRouteRendered=()=>{};
   let responsiveRuntime=null;
   let shortcutTrap=null;
   let fileVaultTrap=null;
   let builderPreviewTrap=null;
+  let specialtyVariantTrap=null;
+  let specialtyVariantOpener=null;
   let builderPreviewZoom=createCanvasZoom("fit");
   let builderPreviewOpener=null;
   let mediaDrawerOpener=null;
@@ -906,6 +935,11 @@ export async function boot407FEngineeringAdapter({
   store.mutate(
     "Normalize canonical exam workflow",
     (document)=>normalizeExamDocument(document),
+    {history:false,material:false}
+  );
+  store.mutate(
+    "Normalize specialty timeline variants",
+    (document)=>ensureSpecialtyVariants(document),
     {history:false,material:false}
   );
   applying=true;
@@ -983,10 +1017,18 @@ export async function boot407FEngineeringAdapter({
     document.removeEventListener("dragleave",onMediaLibraryDragLeave);
     document.removeEventListener("dragend",onMediaLibraryDragEnd);
     document.removeEventListener("drop",onMediaLibraryDrop);
+    document.removeEventListener("click",onSpecialtyVariantClick);
+    document.removeEventListener("change",onSpecialtyVariantChange);
+    document.getElementById("modalBk")?.removeEventListener(
+      "click",
+      onSpecialtyVariantBackdrop,
+      true
+    );
     responsiveRuntime?.destroy();
     shortcutTrap?.destroy();
     fileVaultTrap?.destroy();
     builderPreviewTrap?.destroy();
+    specialtyVariantTrap?.destroy();
     store.saveNow("PAGE_EXIT").catch(()=>{});
   },{once:true});
 
@@ -1030,14 +1072,264 @@ export async function boot407FEngineeringAdapter({
       });
     }
   });
+  const renderSpecialtyVariantBar=()=>{
+    const host=document.getElementById("builderVariantBarContent");
+    if(!host)return;
+    const state=normalizeSpecialtyVariants(store.document);
+    const active=state.variants.find(
+      (variant)=>variant.id===state.activeVariantId
+    )||state.variants[0];
+    host.innerHTML=`<div class="builderVariantIdentity">
+      <span class="builderVariantSignal" aria-hidden="true"></span>
+      <div>
+        <div class="builderVariantEyebrow" id="builderVariantBarTitle">ACTIVE SPECIALTY TIMELINE</div>
+        <strong class="builderVariantName">${escapeMarkup(active.name)}</strong>
+        <span class="builderVariantSpecialty">${escapeMarkup(active.specialty.label||"Choose a target specialty")}</span>
+      </div>
+    </div>
+    <div class="builderVariantControls">
+      <label class="srOnly407F" for="builderSpecialtyVariantSelect">Active specialty timeline</label>
+      <select class="builderVariantSelect" id="builderSpecialtyVariantSelect" data-specialty-variant-select>
+        ${state.variants.map((variant)=>`<option value="${escapeMarkup(variant.id)}" ${variant.id===active.id?"selected":""}>${escapeMarkup(variant.name)}</option>`).join("")}
+      </select>
+      <button type="button" class="btnD alt sm builderVariantManage" data-specialty-variant-new>+ NEW SPECIALTY TIMELINE</button>
+      <button type="button" class="btnD alt sm builderVariantManage" data-specialty-variant-rename>RENAME</button>
+      <button type="button" class="homeTertiary builderVariantManage" data-specialty-variant-remove ${state.variants.length<=1?"disabled":""}>REMOVE</button>
+    </div>`;
+  };
+  const refreshSpecialtyVariantSurfaces=({restoreSelectFocus=false}={})=>{
+    syncBridgeFromStore();
+    queueBuilderEmbeddedPreview({force:true});
+    if(bridge.state.view==="export")queueExportRender();
+    if(restoreSelectFocus){
+      queueMicrotask(()=>
+        document.querySelector("[data-specialty-variant-select]")?.focus()
+      );
+    }
+  };
+  const closeSpecialtyVariantDialog=({restoreFocus=true}={})=>{
+    const trap=specialtyVariantTrap;
+    specialtyVariantTrap=null;
+    trap?.destroy();
+    document.getElementById("modalBk")?.removeEventListener(
+      "click",
+      onSpecialtyVariantBackdrop,
+      true
+    );
+    bridge.closeModal?.();
+    previewBackgroundInert(false);
+    if(restoreFocus){
+      specialtyVariantOpener?.focus?.();
+    }
+    specialtyVariantOpener=null;
+  };
+  const activateSpecialtyVariantDialog=(dialog,{initialFocus=true}={})=>{
+    if(!dialog)return;
+    specialtyVariantTrap?.destroy();
+    specialtyVariantTrap=installFocusTrap(dialog,{
+      opener:specialtyVariantOpener,
+      restoreFocus:false,
+      initialFocus,
+      onEscape:()=>closeSpecialtyVariantDialog()
+    });
+    onSpecialtyVariantBackdrop=(event)=>{
+      if(event.target?.id!=="modalBk")return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeSpecialtyVariantDialog();
+    };
+    document.getElementById("modalBk")?.addEventListener(
+      "click",
+      onSpecialtyVariantBackdrop,
+      true
+    );
+    previewBackgroundInert(true);
+  };
+  const openCreateSpecialtyVariant=()=>{
+    specialtyVariantOpener=document.activeElement;
+    const existing=new Set(
+      normalizeSpecialtyVariants(store.document).variants
+        .map((variant)=>variant.specialty.id)
+    );
+    const choices=PINNED_ROTATION_SPECIALTIES
+      .map((label)=>specialtyOption(label))
+      .filter((option)=>!existing.has(option.id));
+    bridge.openModal?.(`<section class="specialtyVariantDialog" role="dialog" aria-modal="true" aria-labelledby="specialtyVariantCreateTitle" data-specialty-variant-dialog>
+      <div>
+        <div class="builderVariantEyebrow">SPECIALTY-SPECIFIC PRESENTATION</div>
+        <h2 id="specialtyVariantCreateTitle">New specialty timeline</h2>
+      </div>
+      <p>Your factual history stays shared. This adds a presentation, LOR, visibility, and interview-target configuration for another specialty.</p>
+      <label>Target specialty
+        <select data-specialty-variant-specialty>
+          <option value="">Choose a specialty…</option>
+          ${choices.map((option)=>`<option value="${escapeMarkup(option.id)}" data-label="${escapeMarkup(option.label)}">${escapeMarkup(option.label)}</option>`).join("")}
+        </select>
+      </label>
+      <label>Timeline name
+        <input type="text" maxlength="80" data-specialty-variant-name placeholder="Internal Medicine timeline">
+      </label>
+      <div class="specialtyVariantDialogActions">
+        <button type="button" class="btnD alt" data-specialty-variant-cancel>Cancel</button>
+        <button type="button" class="btnD go" data-specialty-variant-create>Create timeline</button>
+      </div>
+    </section>`);
+    const dialog=document.querySelector("[data-specialty-variant-dialog]");
+    const specialty=dialog?.querySelector("[data-specialty-variant-specialty]");
+    const name=dialog?.querySelector("[data-specialty-variant-name]");
+    activateSpecialtyVariantDialog(dialog,{initialFocus:false});
+    specialty?.addEventListener("change",()=>{
+      const label=specialty.selectedOptions?.[0]?.dataset?.label||"";
+      if(name&&!name.value.trim())name.value=label?`${label} timeline`:"";
+    });
+    dialog?.querySelector("[data-specialty-variant-cancel]")?.addEventListener(
+      "click",
+      closeSpecialtyVariantDialog,
+      {once:true}
+    );
+    dialog?.querySelector("[data-specialty-variant-create]")?.addEventListener("click",()=>{
+      const selected=specialty?.selectedOptions?.[0];
+      let result={ok:false,message:"Choose a specialty."};
+      store.mutate("Create specialty timeline",(document)=>{
+        result=createSpecialtyVariant(document,{
+          specialtyId:specialty?.value||"",
+          specialtyLabel:selected?.dataset?.label||"",
+          name:name?.value||""
+        });
+      });
+      if(!result.ok){
+        bridge.toast(result.message||"Choose a specialty.");
+        specialty?.focus();
+        return;
+      }
+      closeSpecialtyVariantDialog({restoreFocus:false});
+      refreshSpecialtyVariantSurfaces({restoreSelectFocus:true});
+      bridge.toast(`${result.variant.name} created`);
+      announceGlobal(`${result.variant.name} is now active`);
+    });
+    specialty?.focus();
+  };
+  const openRenameSpecialtyVariant=()=>{
+    specialtyVariantOpener=document.activeElement;
+    const active=activeSpecialtyVariant(store.document);
+    bridge.openModal?.(`<section class="specialtyVariantDialog" role="dialog" aria-modal="true" aria-labelledby="specialtyVariantRenameTitle" data-specialty-variant-dialog>
+      <div>
+        <div class="builderVariantEyebrow">PRESENTATION NAME ONLY</div>
+        <h2 id="specialtyVariantRenameTitle">Rename specialty timeline</h2>
+      </div>
+      <label>Timeline name
+        <input type="text" maxlength="80" value="${escapeMarkup(active.name)}" data-specialty-variant-rename-name>
+      </label>
+      <div class="specialtyVariantDialogActions">
+        <button type="button" class="btnD alt" data-specialty-variant-cancel>Cancel</button>
+        <button type="button" class="btnD go" data-specialty-variant-rename-save>Save name</button>
+      </div>
+    </section>`);
+    const dialog=document.querySelector("[data-specialty-variant-dialog]");
+    const input=dialog?.querySelector("[data-specialty-variant-rename-name]");
+    activateSpecialtyVariantDialog(dialog,{initialFocus:false});
+    dialog?.querySelector("[data-specialty-variant-cancel]")?.addEventListener(
+      "click",
+      closeSpecialtyVariantDialog,
+      {once:true}
+    );
+    dialog?.querySelector("[data-specialty-variant-rename-save]")?.addEventListener("click",()=>{
+      let result={ok:false};
+      store.mutate("Rename specialty timeline",(document)=>{
+        result=renameSpecialtyVariant(document,active.id,input?.value||"");
+      });
+      if(!result.ok){
+        bridge.toast("Enter a timeline name.");
+        input?.focus();
+        return;
+      }
+      closeSpecialtyVariantDialog({restoreFocus:false});
+      refreshSpecialtyVariantSurfaces({restoreSelectFocus:true});
+      bridge.toast("Specialty timeline renamed");
+    });
+    input?.focus();
+    input?.select();
+  };
+  const openRemoveSpecialtyVariant=()=>{
+    const state=normalizeSpecialtyVariants(store.document);
+    const active=activeSpecialtyVariant(store.document);
+    if(state.variants.length<=1){
+      bridge.toast("Keep at least one specialty timeline.");
+      return;
+    }
+    specialtyVariantOpener=document.activeElement;
+    bridge.openModal?.(`<section class="specialtyVariantDialog" role="alertdialog" aria-modal="true" aria-labelledby="specialtyVariantRemoveTitle" aria-describedby="specialtyVariantRemoveDescription" data-specialty-variant-dialog>
+      <div>
+        <div class="builderVariantEyebrow">SAFE REMOVE</div>
+        <h2 id="specialtyVariantRemoveTitle">Remove ${escapeMarkup(active.name)}?</h2>
+      </div>
+      <p class="specialtyVariantGuard" id="specialtyVariantRemoveDescription">Only this specialty’s presentation settings are removed. Shared factual events, source data, and other specialty timelines remain unchanged.</p>
+      <div class="specialtyVariantDialogActions">
+        <button type="button" class="btnD alt" data-specialty-variant-cancel>Keep timeline</button>
+        <button type="button" class="btnD go" data-specialty-variant-remove-confirm>Remove configuration</button>
+      </div>
+    </section>`);
+    const dialog=document.querySelector("[data-specialty-variant-dialog]");
+    activateSpecialtyVariantDialog(dialog);
+    dialog?.querySelector("[data-specialty-variant-cancel]")?.addEventListener(
+      "click",
+      closeSpecialtyVariantDialog,
+      {once:true}
+    );
+    dialog?.querySelector("[data-specialty-variant-remove-confirm]")?.addEventListener("click",()=>{
+      let result={ok:false};
+      store.mutate("Remove specialty timeline",(document)=>{
+        result=removeSpecialtyVariant(document,active.id,{confirmed:true});
+      });
+      if(!result.ok){
+        bridge.toast(result.message||"Specialty timeline was not removed.");
+        return;
+      }
+      closeSpecialtyVariantDialog({restoreFocus:false});
+      refreshSpecialtyVariantSurfaces({restoreSelectFocus:true});
+      bridge.toast(`${active.name} removed`);
+      announceGlobal(`${result.active.name} is now active`);
+    });
+  };
   const syncBridgeFromStore=()=>{
     applying=true;
     applyDocumentTo407FState(store.document,bridge.state);
     bridge.renderAll();
+    renderSpecialtyVariantBar();
     canvasController?.render();
     lastState=stableState(bridge.state);
     applying=false;
   };
+  onSpecialtyVariantChange=(event)=>{
+    const select=event.target.closest?.("[data-specialty-variant-select]");
+    if(!select)return;
+    store.mutate("Switch specialty timeline",(document)=>{
+      switchSpecialtyVariant(document,select.value);
+    });
+    refreshSpecialtyVariantSurfaces({restoreSelectFocus:true});
+    const active=activeSpecialtyVariant(store.document);
+    bridge.toast(`${active.name} active`);
+    announceGlobal(`${active.name} active`);
+  };
+  onSpecialtyVariantClick=(event)=>{
+    if(event.target.closest?.("[data-specialty-variant-new]")){
+      event.preventDefault();
+      openCreateSpecialtyVariant();
+      return;
+    }
+    if(event.target.closest?.("[data-specialty-variant-rename]")){
+      event.preventDefault();
+      openRenameSpecialtyVariant();
+      return;
+    }
+    if(event.target.closest?.("[data-specialty-variant-remove]")){
+      event.preventDefault();
+      openRemoveSpecialtyVariant();
+    }
+  };
+  document.addEventListener("change",onSpecialtyVariantChange);
+  document.addEventListener("click",onSpecialtyVariantClick);
+  renderSpecialtyVariantBar();
   const mediaItems=()=>store.document.advanced?.media||[];
   const mediaFocusState=()=>{
     const active=document.activeElement;
@@ -1934,11 +2226,12 @@ export async function boot407FEngineeringAdapter({
     const exportHost=document.getElementById("export407F");
     if(!exportHost)return;
     exportController?.destroy();
+    const exportDocument=timelineWithLorPresentation(store.document);
     let previewHtml="";
-    if((store.document.events||[]).length){
+    if((exportDocument.events||[]).length){
       try{
         previewHtml=renderExportPreview(
-          buildExportPreviewInput(store.document,exportState)
+          buildExportPreviewInput(exportDocument,exportState)
         );
       }catch(error){
         bridge.toast(String(error?.message||error));
@@ -1958,11 +2251,11 @@ export async function boot407FEngineeringAdapter({
       });
       return;
     }
-    exportHost.innerHTML=renderExportScreen(store.document,{
+    exportHost.innerHTML=renderExportScreen(exportDocument,{
       state:exportState,
       previewHtml
     });
-    exportController=installExportScreen(exportHost,store.document,{
+    exportController=installExportScreen(exportHost,exportDocument,{
       state:exportState,
       renderPreview:renderExportPreview,
       exportAdapter,
@@ -2521,7 +2814,7 @@ export async function boot407FEngineeringAdapter({
         activePinId:state.activeAdvisorPinId,
         context:"canvas"
       }),
-      renderDetails:renderCanvasDetails,
+      renderDetails:(route,event)=>renderCanvasDetails(route,event,store.document),
       onStateChange:syncCanvasDocument,
       onOpenBuilder:()=>bridge.go("builder"),
       onDateControl:({edge,event})=>{
@@ -2640,6 +2933,9 @@ export async function boot407FEngineeringAdapter({
             selected.endDate=selected.endDate||null;
             selected.openEnded=!selected.endDate;
           }
+          const active=activeSpecialtyVariant(document);
+          const visible=form.querySelector("[data-canvas-variant-visible]")?.checked!==false;
+          setVariantEventHidden(document,active.id,selected.id,!visible);
         });
         canvasController.render({animateLayout:true});
         bridge.toast("Event details saved");

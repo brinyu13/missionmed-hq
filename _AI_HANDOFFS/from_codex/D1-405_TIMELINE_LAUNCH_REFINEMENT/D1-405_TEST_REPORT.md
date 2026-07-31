@@ -207,3 +207,45 @@ invocation mismatch and is not the D1-405 package verification command. The
 authoritative `npm test`, `npm run typecheck`, `npm run verify`, and
 `npm run build` gates all pass. This wrapper is recorded for the later
 production-hardening milestone rather than represented as a product-test pass.
+
+## M8 — Specialty timeline variants
+
+| Check | Result |
+|---|---|
+| Functional TypeScript suite | 119/119 passed |
+| Browser/module suite | 385/385 passed |
+| Total | 504/504 passed |
+| Focused M7/M8/Media gate | 30/30 passed |
+| Legacy target migration | Passed |
+| Create/switch without factual duplication | Passed |
+| Rename/remove safeguards | Passed |
+| Last-variant protection | Passed |
+| Pure active-variant projection | Passed |
+| Variant visibility cannot elevate privacy | Passed |
+| Specialty-keyed LOR star switch | Passed |
+| Active export projection | Passed |
+| Browser create/switch workflow | Passed |
+| Fresh browser console | 0 warnings/errors |
+| Typecheck | Passed |
+| Package verification | 23/23 passed |
+| Deterministic build | Passed; 194 runtime files |
+| Build manifest SHA-256 | `c7feeb1ac923b5b88eeca0a77dce19de9fdacd83c8943a27710b2faba8f17a42` |
+| Miyamoto final re-audit | PASS |
+| Vitruvius final re-audit | PASS |
+
+Two earlier source-contract tests were updated to recognize the Founder-approved
+variant bar above the horizontal steps and the active-variant export projection.
+The underlying 407F composition and retained export adapter remain unchanged.
+
+Specialist review exposed three interaction defects before final closure:
+
+1. The protected final-variant Remove action lacked a visibly disabled state.
+   It now uses a scoped dim/saturation/cursor treatment while native disabled
+   semantics continue to block activation.
+2. Variant dialogs initially lacked focus containment and switch rerendering
+   destroyed select focus. Dialogs now trap focus, inert the background, close
+   on Escape, restore the opener, and switching restores focus to the rebuilt
+   select.
+3. The legacy backdrop path initially bypassed specialty-dialog cleanup. A
+   capture-phase handler now routes backdrop dismissal through the same trap,
+   inert, modal, and opener cleanup. Live keyboard and pointer probes passed.

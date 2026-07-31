@@ -15,10 +15,10 @@ test("D1-405 M3 Builder uses a horizontal workflow above the editor and larger p
   assert.match(builder,/class="panelD builderPreview" aria-labelledby="builderPreviewTitle"/);
   assert.match(builder,/class="builderPreviewViewport"/);
   assert.match(builder,/id="builderPreviewToggle">OPEN FULL PREVIEW/);
-  assert.match(css,/grid-template-areas:\s*"steps steps"\s*"form preview"/);
+  assert.match(css,/grid-template-areas:\s*"variant variant"\s*"steps steps"\s*"form preview"/);
   assert.match(css,/grid-template-columns:minmax\(420px,5fr\) minmax\(560px,7fr\)/);
   assert.match(css,/#builderStepper\{\s*display:grid;\s*grid-template-columns:repeat\(7,minmax\(0,1fr\)\)/);
-  assert.match(css,/@media\(max-width:1151px\)\{[\s\S]*grid-template-areas:\s*"steps"\s*"form"\s*"preview"/);
+  assert.match(css,/@media\(max-width:1151px\)\{[\s\S]*grid-template-areas:\s*"variant"\s*"steps"\s*"form"\s*"preview"/);
   assert.match(css,/@media\(max-width:1151px\)\{[\s\S]*\.builderStepper\{[\s\S]*overflow-x:auto/);
   assert.doesNotMatch(css,/grid-template-columns:264px/);
   assert.doesNotMatch(css,/grid-template-columns:220px/);

@@ -211,3 +211,27 @@ Evidence:
 - `evidence/screenshots/D1-405-M7-lor-star-legend.jpg`
 
 Final M7 visual verdict: PASS.
+
+## M8 visual checkpoint
+
+The specialty selector is a single, premium 407F instrument panel above the
+horizontal workflow. Its amber status lamp, cyan micro-label, large active name,
+native selector, and restrained machined texture make the active presentation
+clear without becoming a second navigation system.
+
+The one-column editor and larger live preview remain unchanged. Switching from
+Pediatrics to Internal Medicine leaves the factual rotation and canvas geometry
+stable while the specialty-matched LOR star changes immediately.
+
+Evidence:
+
+- `evidence/screenshots/D1-405-M8-variant-creation-workflow.jpg`
+- `evidence/screenshots/D1-405-M8-two-variants-pediatrics.jpg`
+- `evidence/screenshots/D1-405-M8-lor-star-internal-medicine.jpg`
+
+Miyamoto identified one pre-final defect: the last-variant Remove guard looked
+actionable. The corrected native disabled button now has a scoped dim,
+desaturated, non-actionable treatment with a visible not-allowed cursor and no
+hover-color response.
+
+Final M8 Miyamoto verdict: PASS.

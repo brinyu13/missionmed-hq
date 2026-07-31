@@ -1,6 +1,6 @@
 # D1-405 Design Freeze Traceability Matrix
 
-Status: in progress through M7
+Status: in progress through M8
 
 Canonical baseline: 407F / D1-404
 
@@ -24,10 +24,12 @@ Canonical baseline: 407F / D1-404
 | Submitted LOR star and exact legend text | `board-renderer.js` | Five-theme serialization and browser screenshots | PASS |
 | Truthful LOR Builder seam | Local queue adapter; `productionCreated:false` | Queue tests and browser announcement | PASS |
 | M7 autonomous LOR micro-label adjustment | Undefined/body white → 11px/650 `#75CFEA` on dark card | 9.7573:1 and 10.9957:1; Miyamoto PASS | PASS |
-| Target-specialty variants over shared facts | Assigned M8 | Not yet implemented | PENDING |
+| Target-specialty variants over shared facts | `specialty-variants.js`; prominent Builder variant bar; active Canvas/export projection | 7 M8 variant tests; browser create/switch proof | PASS |
+| Variant create/switch/rename/remove safeguards | TimelineStore mutations plus last-variant and explicit-confirmation guards | Full 504/504 suite; creation screenshot | PASS |
+| Specialty-specific visibility without privacy elevation | Variant stores hidden event IDs only; factual visibility remains canonical | Nonmutating projection regression | PASS |
+| Active-specialty LOR presentation | Existing target-keyed LOR records consume active variant ID | IM/Pediatrics browser star comparison | PASS |
 | No protected writes | Local worktree only | Git/status and browser evidence | PASS TO DATE |
 
 The later Founder Media steering supersedes the original four-destination
 acceptance row only to add `Media`; it does not authorize any other navigation
 or workflow reinterpretation.
-

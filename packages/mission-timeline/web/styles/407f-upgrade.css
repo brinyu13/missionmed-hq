@@ -645,12 +645,167 @@ main{
   align-items:start;
   gap:16px 20px;
   grid-template-areas:
+    "variant variant"
     "steps steps"
     "form preview";
   grid-template-columns:minmax(420px,5fr) minmax(560px,7fr);
   margin:0 auto;
   max-width:1440px;
   min-height:calc(100vh - 132px);
+}
+
+.builderVariantBar{
+  background:
+    linear-gradient(90deg,rgba(57,214,255,.07),transparent 42%,rgba(255,179,64,.055)),
+    repeating-linear-gradient(112deg,rgba(232,238,251,.018) 0 1px,transparent 1px 6px),
+    linear-gradient(160deg,#151e30,#0b111d);
+  border-color:rgba(75,95,130,.72);
+  box-shadow:
+    inset 0 1px 0 rgba(232,238,251,.1),
+    inset 0 -2px 0 rgba(4,6,10,.8),
+    0 10px 26px rgba(0,0,0,.22);
+  grid-area:variant;
+}
+
+.builderVariantBar>.pi{
+  align-items:center;
+  display:flex;
+  gap:20px;
+  justify-content:space-between;
+  padding:14px 16px;
+}
+
+.builderVariantIdentity{
+  align-items:center;
+  display:flex;
+  gap:13px;
+  min-width:0;
+}
+
+.builderVariantSignal{
+  background:
+    radial-gradient(circle at 34% 28%,#fff0b8 0 8%,var(--em) 11% 44%,#7d4316 48% 100%);
+  border:1px solid rgba(255,215,106,.66);
+  border-radius:50%;
+  box-shadow:
+    0 0 0 4px rgba(255,179,64,.08),
+    0 0 18px rgba(255,156,64,.22);
+  flex:0 0 auto;
+  height:14px;
+  width:14px;
+}
+
+.builderVariantEyebrow{
+  color:#75cfea;
+  font-size:11px;
+  font-weight:650;
+  letter-spacing:.13em;
+  margin-bottom:4px;
+}
+
+.builderVariantName{
+  color:var(--tx);
+  display:block;
+  font-family:var(--disp);
+  font-size:20px;
+  line-height:1.1;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.builderVariantSpecialty{
+  color:var(--mid);
+  display:block;
+  font-size:12px;
+  margin-top:3px;
+}
+
+.builderVariantControls{
+  align-items:center;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  justify-content:flex-end;
+}
+
+.builderVariantSelect{
+  background:linear-gradient(180deg,#1b2942,#111a2b);
+  border:1px solid var(--edge2);
+  border-radius:2px;
+  color:var(--tx);
+  font-weight:700;
+  min-height:44px;
+  min-width:240px;
+  padding:8px 36px 8px 12px;
+}
+
+.builderVariantManage{
+  min-height:44px;
+}
+
+.builderVariantManage:disabled{
+  color:var(--dim);
+  cursor:not-allowed;
+  filter:saturate(.35);
+  opacity:.42;
+}
+
+@media(hover:hover){
+  .builderVariantManage:disabled:hover{
+    color:var(--dim);
+  }
+}
+
+.specialtyVariantDialog{
+  display:grid;
+  gap:18px;
+  max-width:560px;
+}
+
+.specialtyVariantDialog h2{
+  color:var(--tx);
+  font-family:var(--disp);
+  font-size:25px;
+}
+
+.specialtyVariantDialog p{
+  color:var(--mid);
+  line-height:1.5;
+}
+
+.specialtyVariantDialog label{
+  color:var(--mid);
+  display:grid;
+  font-size:12px;
+  font-weight:700;
+  gap:7px;
+  letter-spacing:.04em;
+}
+
+.specialtyVariantDialog input,
+.specialtyVariantDialog select{
+  background:#0c1422;
+  border:1px solid var(--edge2);
+  border-radius:2px;
+  color:var(--tx);
+  font-size:15px;
+  min-height:44px;
+  padding:9px 11px;
+}
+
+.specialtyVariantDialogActions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:9px;
+  justify-content:flex-end;
+}
+
+.specialtyVariantGuard{
+  background:rgba(255,179,64,.06);
+  border-left:3px solid var(--em);
+  color:#f2d182;
+  padding:10px 12px;
 }
 
 .builderStepper{
@@ -5277,6 +5432,7 @@ textarea:focus-visible,
 @media(max-width:1151px){
   .d1404Builder{
     grid-template-areas:
+      "variant"
       "steps"
       "form"
       "preview";
@@ -5356,6 +5512,7 @@ textarea:focus-visible,
 
   .d1404Builder{
     grid-template-areas:
+      "variant"
       "steps"
       "form"
       "preview";
@@ -5405,6 +5562,21 @@ textarea:focus-visible,
 }
 
 @media(max-width:767px){
+  .builderVariantBar>.pi{
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .builderVariantControls{
+    justify-content:stretch;
+  }
+
+  .builderVariantSelect,
+  .builderVariantControls .btnD{
+    flex:1 1 100%;
+    width:100%;
+  }
+
   .media407FPageHeader,
   .media407FToolbar{
     align-items:flex-start;
@@ -5455,6 +5627,7 @@ textarea:focus-visible,
   .d1404Builder{
     display:grid;
     grid-template-areas:
+      "variant"
       "steps"
       "form"
       "preview";

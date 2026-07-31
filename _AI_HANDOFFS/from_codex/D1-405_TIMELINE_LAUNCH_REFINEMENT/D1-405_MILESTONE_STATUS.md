@@ -1,8 +1,8 @@
 # D1-405 Milestone Status
 
-Updated: 2026-07-31T00:43:20Z
+Updated: 2026-07-31T02:05:00Z
 
-Estimated overall completion: 72%
+Estimated overall completion: 78%
 
 | Milestone | Status | Checkpoint |
 |---|---|---|
@@ -15,7 +15,7 @@ Estimated overall completion: 72%
 | Founder stepper/Media refinement | COMPLETE | Premium stepper; shared local Media |
 | M6 Core Info/medical-school registry | COMPLETE | Commit `3f7923f` |
 | M7 exams and rotations | COMPLETE | Commit `18ab405`; 496/496 tests |
-| M8 specialty variants/LOR intelligence | IN PROGRESS | LOR foundation complete; variant model/UI next |
+| M8 specialty variants/LOR intelligence | COMPLETE | Shared facts, normalized variant config, active export; 504/504 tests |
 | M9 explanation/interview tools | PENDING | — |
 | M10 themes/export audiences | PENDING | — |
 | M11 entitlements/migration | PENDING | — |
@@ -29,3 +29,8 @@ M7 external-state boundaries:
 - no Matrix or WordPress mutation;
 - no push or deployment.
 
+M8 keeps one canonical factual event collection. Specialty variants store only
+the active specialty identity, presentation name, per-variant hidden-event IDs,
+and compatible interview-target configuration. Create, switch, rename, remove,
+and per-event visibility changes use the retained TimelineStore mutation path,
+so autosave, undo/redo, history, and persistence remain intact.

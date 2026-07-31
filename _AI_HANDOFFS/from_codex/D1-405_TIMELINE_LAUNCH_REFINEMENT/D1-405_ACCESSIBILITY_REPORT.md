@@ -207,3 +207,33 @@ Specialist verdicts:
 - Miyamoto: initial FAIL for the undefined micro-label treatment; final PASS
   after correction.
 - Vitruvius: PASS; no concrete M7 functional or accessibility defect.
+
+## M8 specialty-variant accessibility
+
+- The active specialty is communicated by visible eyebrow, timeline name,
+  specialty label, selected native control value, and live announcement; it
+  does not depend on the gold signal alone.
+- The selector and all management actions retain 44px minimum target height,
+  visible cyan focus, keyboard operation, and the 407F dark material language.
+- Create and rename use labeled native controls. Remove uses an `alertdialog`
+  with an explicit description that factual history remains unchanged.
+- The final variant cannot be removed, and the disabled control is visible in
+  the one-variant state.
+- LOR difference remains non-color: the submitted state adds both a named star
+  and the exact `LOR submitted` legend text.
+- Mobile rules stack the identity and controls without narrowing the primary
+  editor; the horizontal stepper remains independently scrollable.
+- Browser create/switch interaction produced zero console warnings/errors.
+
+Vitruvius initially failed the M8 checkpoint for missing dialog containment,
+lost select focus after rerender, and a legacy backdrop path that bypassed inert
+cleanup. Corrections were validated live:
+
+- forward and reverse Tab wrap remain inside the dialog;
+- Escape closes and restores the invoking control;
+- backdrop click closes through the same cleanup path;
+- header, rail, and main inert state clears on every close path;
+- switching variants retains focus on the rebuilt native selector;
+- the browser console remains clean.
+
+Final M8 Vitruvius verdict: PASS.

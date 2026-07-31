@@ -329,3 +329,48 @@
 - No push, deployment, Matrix mutation, WordPress mutation, cloud-storage
   write, or production LOR task creation occurred.
 - Next action: M8 target-specialty variants over one shared factual history.
+
+## 2026-07-31T02:05:00Z — M8 specialty variants checkpoint
+
+- Estimated overall completion: 78%.
+- Added one normalized `specialtyVariants` configuration over the retained
+  factual event collection; no rotations, exams, work, research, or personal
+  events are duplicated.
+- Added a prominent active-specialty bar above the retained horizontal Builder
+  steps without changing the one-column editor/right-preview composition.
+- Create, switch, rename, remove, and specialty-specific visibility all use
+  TimelineStore mutations and therefore preserve autosave, undo/redo, history,
+  versions, and durable local persistence.
+- Removing the final variant is blocked; other removals require an explicit
+  confirmation that only presentation configuration is removed.
+- Active variant projection is pure and cannot promote private factual
+  visibility; a variant may only hide an existing event.
+- Active export, Builder preview, Edit Timeline board, and all five themes
+  consume the same projected document.
+- Browser proof created a Pediatrics timeline over the existing factual
+  rotations, removed the Internal Medicine submitted-LOR star, then restored
+  it immediately when switching back to Internal Medicine.
+- Screenshots:
+  - `evidence/screenshots/D1-405-M8-variant-creation-workflow.jpg`
+  - `evidence/screenshots/D1-405-M8-two-variants-pediatrics.jpg`
+  - `evidence/screenshots/D1-405-M8-lor-star-internal-medicine.jpg`
+- Verification:
+  - functional TypeScript suite: 119/119 passed;
+  - browser/module suite: 385/385 passed;
+  - total: 504/504 passed;
+  - focused M7/M8/Media gate: 30/30 passed;
+  - typecheck: passed;
+  - package verification: 23/23 passed;
+  - deterministic build: 194 runtime files;
+  - build manifest SHA-256:
+    `c7feeb1ac923b5b88eeca0a77dce19de9fdacd83c8943a27710b2faba8f17a42`;
+  - browser console: zero warnings/errors.
+- Specialist re-audits:
+  - Miyamoto identified and verified correction of the single-variant disabled
+    Remove treatment; final PASS.
+  - Vitruvius identified and verified correction of dialog focus containment,
+    switch-focus retention, inert cleanup, Escape, opener restoration, and
+    backdrop dismissal; final PASS.
+- No push, deployment, Matrix mutation, WordPress mutation, cloud-storage
+  write, or production external task creation occurred.
+- Next action: M9 explanation annotations and interview-target tooling.

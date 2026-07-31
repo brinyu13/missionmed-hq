@@ -91,8 +91,9 @@ test("407F reuses export-screen.js and the verified local Export adapter against
   );
   assert.match(adapter,/document\.getElementById\("export407F"\)/);
   assert.match(adapter,/createLocalExportAdapter\(\{/);
-  assert.match(adapter,/renderExportScreen\(store\.document,\s*\{/);
-  assert.match(adapter,/installExportScreen\(exportHost,\s*store\.document,\s*\{/);
+  assert.match(adapter,/const exportDocument=timelineWithLorPresentation\(store\.document\)/);
+  assert.match(adapter,/renderExportScreen\(exportDocument,\s*\{/);
+  assert.match(adapter,/installExportScreen\(exportHost,\s*exportDocument,\s*\{/);
 
   const local=createLocalExportAdapter({
     triggerDownload:()=>({downloaded:true,verification:"bounded-test"})
