@@ -173,6 +173,13 @@ import {
 import {
   createUnavailableMatrixCalendarAdapter
 } from "./uxr-002/matrix-calendar-adapter.js";
+import {
+  createLocalEntitlementAdapter,
+  createProductionEntitlementBoundaryAdapter,
+  entitlementStatusMarkup,
+  evaluateTimelineEntitlement,
+  localEntitlementScenarioFromLocation
+} from "./uxr-002/entitlement.js";
 import {parseMonth,uid} from "./uxr-002/utils.js";
 
 const CATEGORY_TO_407F=Object.freeze({
@@ -881,6 +888,42 @@ export async function boot407FEngineeringAdapter({
   }
 
   const init=await store.initialize();
+  const explicitMode=String(window.D1_TIMELINE_RUNTIME_MODE||"").toLowerCase();
+  const localHost=["localhost","127.0.0.1","0.0.0.0"].includes(
+    String(window.location?.hostname||"").toLowerCase()
+  );
+  const runtimeMode=localHost&&explicitMode!=="production"
+    ?"local"
+    :"production";
+  const entitlementAdapter=runtimeMode==="production"
+    ?createProductionEntitlementBoundaryAdapter()
+    :window.D1_TIMELINE_ENTITLEMENT_ADAPTER||
+      createLocalEntitlementAdapter({
+        scenario:localEntitlementScenarioFromLocation(window.location)||
+          "eligible-360",
+        currentUsage:init.restored?1:0
+      });
+  let entitlementAssertion;
+  try{
+    entitlementAssertion=await entitlementAdapter.resolve();
+  }catch(error){
+    entitlementAssertion={
+      verified:false,
+      enabled:false,
+      eligible:false,
+      allowance:0,
+      currentUsage:0,
+      source:"entitlement-adapter-error",
+      reason:"Timeline entitlement could not be verified.",
+      administratorReason:String(error?.message||error)
+    };
+  }
+  const entitlement=evaluateTimelineEntitlement(entitlementAssertion,{
+    mode:runtimeMode,
+    hasExistingTimeline:init.restored,
+    expectedBinding:entitlementAdapter.expectedBinding||null
+  });
+  store.setEntitlement(entitlement);
   const runtimeDatasets=createRuntimeDatasets();
   const lorBuilderAdapter=createLocalQueuedLorBuilderAdapter();
   const mediaUrls=createObjectUrlRegistry();
@@ -901,7 +944,7 @@ export async function boot407FEngineeringAdapter({
   const exportAdapter=createLocalExportAdapter({
     resolveObjectUrl:(id)=>mediaUrls.get(id)
   });
-  let exportState=normalizeExportState({
+  let exportState=normalizeExportState(store.document.exportState||{
     suggestionState:{
       advisorPaperPdfSuggestionShown:
         !!store.document.preferences?.advisorPaperPdfSuggestionShown
@@ -945,6 +988,7 @@ export async function boot407FEngineeringAdapter({
   let onSpecialtyVariantBackdrop=()=>{};
   let onM9BuilderClick=()=>{};
   let onM9BuilderChange=()=>{};
+  let onEntitlementCapture=()=>{};
   let renderM9BuilderSurfaces=()=>{};
   let onRouteRendered=()=>{};
   let responsiveRuntime=null;
@@ -954,6 +998,8 @@ export async function boot407FEngineeringAdapter({
   let specialtyVariantTrap=null;
   let exportThemeTrap=null;
   let exportThemeOpener=null;
+  let entitlementObserver=null;
+  let entitlementObserverQueued=false;
   let onExportThemeBackdrop=()=>{};
   let specialtyVariantOpener=null;
   let builderPreviewZoom=createCanvasZoom("fit");
@@ -964,23 +1010,28 @@ export async function boot407FEngineeringAdapter({
   let lastState=stableState(bridge.state);
   const watchedEvents=["input","change","click","pointerup","blur"];
 
-  if(!init.restored){
+  if(!init.restored&&entitlement.canCreate){
     store.mutate(
       "Seed canonical 407F document",
       (document)=>apply407FStateToDocument(bridge.state,document),
       {history:false}
     );
   }
-  store.mutate(
-    "Normalize canonical exam workflow",
-    (document)=>normalizeExamDocument(document),
-    {history:false,material:false}
-  );
-  store.mutate(
-    "Normalize specialty timeline variants",
-    (document)=>ensureSpecialtyVariants(document),
-    {history:false,material:false}
-  );
+  if(entitlement.canMutate&&(init.restored||entitlement.canCreate)){
+    store.mutate(
+      "Normalize canonical exam workflow",
+      (document)=>normalizeExamDocument(document),
+      {history:false,material:false}
+    );
+    store.mutate(
+      "Normalize specialty timeline variants",
+      (document)=>ensureSpecialtyVariants(document),
+      {history:false,material:false}
+    );
+    if(!init.restored&&entitlement.canCreate){
+      await store.saveNow("INITIAL_DURABLE_DRAFT");
+    }
+  }
   applying=true;
   applyDocumentTo407FState(store.document,bridge.state);
   bridge.renderAll();
@@ -988,6 +1039,169 @@ export async function boot407FEngineeringAdapter({
   applying=false;
 
   let pending=false;
+  const entitlementViewControl=(control)=>control?.matches?.([
+    "[data-nav]",
+    "[data-builder-preview-open]",
+    "[data-builder-preview-close]",
+    "[data-builder-preview-zoom]",
+    "[data-open-media-library]",
+    "[data-close-media-library]",
+    "[data-canvas-zoom]",
+    "[data-history-menu]",
+    '[data-canvas-action="history"]',
+    '[data-canvas-action="close-history"]',
+    '[data-canvas-action="theme"]',
+    '[data-canvas-action="comments"]'
+  ].join(","));
+  const applyEntitlementSurface=()=>{
+    const access=store.entitlement;
+    const status=entitlementStatusMarkup(access);
+    const focusedBefore=document.activeElement;
+    const badge=document.getElementById("entitlement407F");
+    if(badge){
+      badge.className=`entitlement407F is-${status.tone}`;
+      badge.dataset.access=access.access;
+      badge.innerHTML=`<span>${escapeMarkup(status.label)}</span><small>${escapeMarkup(status.allowance)}</small>`;
+      badge.title=status.reason;
+    }
+    let banner=document.getElementById("entitlementBanner407F");
+    const restoringFromBanner=
+      access.access==="FULL"&&
+      focusedBefore===banner;
+    if(access.access==="FULL"){
+      banner?.remove();
+    }else{
+      if(!banner){
+        banner=document.createElement("div");
+        banner.id="entitlementBanner407F";
+        banner.className="entitlementBanner407F";
+        banner.setAttribute("role","status");
+        banner.tabIndex=-1;
+        document.querySelector("main")?.prepend(banner);
+      }
+      const consequence=access.access==="DENIED"
+        ?"Timeline creation and export are disabled."
+        :"Your saved timeline remains available; editing and export are disabled.";
+      const bannerMarkup=`<strong>${escapeMarkup(status.label)}</strong><span>${escapeMarkup(status.reason)} ${escapeMarkup(consequence)}</span>`;
+      if(banner.innerHTML!==bannerMarkup)banner.innerHTML=bannerMarkup;
+    }
+    const main=document.querySelector("main");
+    main?.classList.toggle("isEntitlementReadOnly",access.canMutate!==true);
+    main?.setAttribute("data-entitlement-access",access.access);
+    if(access.canMutate!==true){
+      main?.querySelectorAll("button,input,select,textarea").forEach((control)=>{
+        if(entitlementViewControl(control))return;
+        if(!Object.hasOwn(control.dataset,"entitlementWasDisabled")){
+          control.dataset.entitlementWasDisabled=String(control.disabled);
+        }
+        control.disabled=true;
+        control.setAttribute("aria-disabled","true");
+        if(!control.title){
+          control.title=status.reason;
+          control.dataset.entitlementTitle="true";
+        }
+      });
+      main?.querySelectorAll("[contenteditable],[draggable='true']").forEach((control)=>{
+        control.dataset.entitlementContenteditable=
+          control.getAttribute("contenteditable")??"__absent__";
+        control.dataset.entitlementDraggable=
+          control.getAttribute("draggable")??"__absent__";
+        control.setAttribute("aria-disabled","true");
+        control.removeAttribute("contenteditable");
+        control.setAttribute("draggable","false");
+      });
+      if(
+        focusedBefore instanceof HTMLElement&&
+        main?.contains(focusedBefore)&&
+        (
+          focusedBefore.matches("input,select,textarea,[contenteditable],[draggable='true']")||
+          (focusedBefore.matches("button")&&!entitlementViewControl(focusedBefore))
+        )
+      ){
+        banner?.focus({preventScroll:true});
+      }
+    }else{
+      main?.querySelectorAll("[data-entitlement-was-disabled]").forEach((control)=>{
+        control.disabled=control.dataset.entitlementWasDisabled==="true";
+        if(control.dataset.entitlementWasDisabled!=="true"){
+          control.removeAttribute("aria-disabled");
+        }
+        if(control.dataset.entitlementTitle==="true")control.removeAttribute("title");
+        delete control.dataset.entitlementWasDisabled;
+        delete control.dataset.entitlementTitle;
+      });
+      main?.querySelectorAll("[data-entitlement-contenteditable]").forEach((control)=>{
+        const contenteditable=control.dataset.entitlementContenteditable;
+        const draggable=control.dataset.entitlementDraggable;
+        if(contenteditable==="__absent__")control.removeAttribute("contenteditable");
+        else control.setAttribute("contenteditable",contenteditable);
+        if(draggable==="__absent__")control.removeAttribute("draggable");
+        else control.setAttribute("draggable",draggable);
+        control.removeAttribute("aria-disabled");
+        delete control.dataset.entitlementContenteditable;
+        delete control.dataset.entitlementDraggable;
+      });
+      if(restoringFromBanner){
+        const focusTarget=
+          main?.querySelector("section.live h1,section.live h2")||
+          main?.querySelector("[data-screen] h1,[data-screen] h2")||
+          document.querySelector('[data-nav][aria-current="page"]');
+        if(focusTarget instanceof HTMLElement){
+          if(!focusTarget.hasAttribute("tabindex"))focusTarget.tabIndex=-1;
+          queueMicrotask(()=>focusTarget.focus({preventScroll:true}));
+        }
+      }
+    }
+    const exportButton=document.getElementById("hudExport");
+    if(exportButton&&access.canExport!==true){
+      if(!Object.hasOwn(exportButton.dataset,"entitlementWasDisabled")){
+        exportButton.dataset.entitlementWasDisabled=String(exportButton.disabled);
+      }
+      exportButton.disabled=true;
+      exportButton.setAttribute("aria-disabled","true");
+      exportButton.title=status.reason;
+    }else if(exportButton?.dataset.entitlementWasDisabled!=null){
+      exportButton.disabled=exportButton.dataset.entitlementWasDisabled==="true";
+      if(!exportButton.disabled)exportButton.removeAttribute("aria-disabled");
+      delete exportButton.dataset.entitlementWasDisabled;
+    }
+  };
+  onEntitlementCapture=(event)=>{
+    if(store.entitlement.canMutate===true)return;
+    const target=event.target?.closest?.(
+      "main button, main input, main select, main textarea, main [contenteditable], main [draggable='true']"
+    );
+    if(!target||entitlementViewControl(target))return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    applying=true;
+    applyDocumentTo407FState(store.document,bridge.state);
+    bridge.renderAll();
+    lastState=stableState(bridge.state);
+    applying=false;
+    applyEntitlementSurface();
+    bridge.toast(store.entitlement.reason);
+  };
+  for(const eventName of ["click","input","change","drop"]){
+    document.addEventListener(eventName,onEntitlementCapture,true);
+  }
+  entitlementObserver=new MutationObserver(()=>{
+    if(
+      store.entitlement.canMutate===true||
+      entitlementObserverQueued
+    )return;
+    entitlementObserverQueued=true;
+    requestAnimationFrame(()=>{
+      entitlementObserverQueued=false;
+      applyEntitlementSurface();
+    });
+  });
+  const entitlementMain=document.querySelector("main");
+  if(entitlementMain){
+    entitlementObserver.observe(entitlementMain,{childList:true,subtree:true});
+  }
+  applyEntitlementSurface();
+
   const reconcile=(event)=>{
     if(event?.target?.closest?.("#canvas407F"))return;
     if(applying||pending)return;
@@ -998,10 +1212,19 @@ export async function boot407FEngineeringAdapter({
       const nextState=stableState(bridge.state);
       if(nextState===lastState)return;
       lastState=nextState;
-      store.mutate(
-        "407F canonical UI change",
-        (document)=>apply407FStateToDocument(bridge.state,document)
-      );
+      if(store.entitlement.canMutate===true){
+        store.mutate(
+          "407F canonical UI change",
+          (document)=>apply407FStateToDocument(bridge.state,document)
+        );
+      }else{
+        applying=true;
+        applyDocumentTo407FState(store.document,bridge.state);
+        bridge.renderAll();
+        lastState=stableState(bridge.state);
+        applying=false;
+        applyEntitlementSurface();
+      }
       if(bridge.state.view==="canvas")canvasController?.render();
     });
   };
@@ -1016,7 +1239,7 @@ export async function boot407FEngineeringAdapter({
       document.removeEventListener(eventName,reconcile,true);
     }
     const nextState=stableState(bridge.state);
-    if(nextState!==lastState){
+    if(nextState!==lastState&&store.entitlement.canMutate===true){
       lastState=nextState;
       store.mutate(
         "407F page exit",
@@ -1031,6 +1254,10 @@ export async function boot407FEngineeringAdapter({
     intakeCleanup();
     mediaUrls.revokeAll();
     unsubscribeStore();
+    entitlementObserver?.disconnect();
+    for(const eventName of ["click","input","change","drop"]){
+      document.removeEventListener(eventName,onEntitlementCapture,true);
+    }
     document.getElementById("canvas407F")?.removeEventListener("click",onCanvasDetailsClick);
     document.getElementById("canvas407F")?.removeEventListener("click",onAdvancedObjectClick);
     window.removeEventListener("resize",onCanvasResize);
@@ -1081,6 +1308,8 @@ export async function boot407FEngineeringAdapter({
 
   const api={
     store,
+    entitlement:store.entitlement,
+    entitlementAdapter,
     bridge,
     reconcile,
     applyDocument(){
@@ -2122,7 +2351,15 @@ export async function boot407FEngineeringAdapter({
     document.documentElement.toggleAttribute("data-builder-preview-open",active);
   };
   const updateBuilderPreviewHitTargets=(root)=>{
-    const svg=root?.querySelector?.("svg");
+    const surface=root?.matches?.("[data-builder-preview-surface]")
+      ?root
+      :root?.querySelector?.("[data-builder-preview-surface]");
+    if(surface?.dataset?.interactive!=="true"){
+      root?.querySelectorAll?.("[data-builder-preview-hit-target]")
+        .forEach((target)=>target.remove());
+      return;
+    }
+    const svg=surface.querySelector?.("svg");
     if(!svg)return;
     const bounds=svg.getBoundingClientRect?.();
     if(!bounds?.width||!bounds?.height)return;
@@ -2152,13 +2389,13 @@ export async function boot407FEngineeringAdapter({
       target.insertBefore(hit,target.firstChild);
     }
   };
-  const builderPreviewSvg=(namespace)=>{
+  const builderPreviewSvg=(namespace,{interactive=true}={})=>{
     const rendered=renderResponsiveAdvancedBoard(store.document,{
       currentMonth:currentMonth(),
       audience:"INTERVIEWER_SAFE",
       idNamespace:namespace
     });
-    return enhanceBuilderPreviewSvg(rendered.svg,store.document);
+    return enhanceBuilderPreviewSvg(rendered.svg,store.document,{interactive});
   };
   const mountBuilderPreview=(host,{
     surface="embedded",
@@ -2171,7 +2408,8 @@ export async function boot407FEngineeringAdapter({
       store.document?.id,
       store.document?.updatedAt,
       store.document?.theme,
-      store.document?.mode
+      store.document?.mode,
+      store.entitlement.canMutate
     ].join("|");
     if(
       !force&&
@@ -2180,15 +2418,23 @@ export async function boot407FEngineeringAdapter({
     )return false;
     let svg="";
     try{
-      svg=builderPreviewSvg(namespace);
+      svg=builderPreviewSvg(namespace,{
+        interactive:store.entitlement.canMutate===true
+      });
     }catch(error){
       bridge.toast(String(error?.message||error));
     }
     host.dataset.builderPreviewSignature=signature;
+    const interactive=store.entitlement.canMutate===true;
     host.innerHTML=svg
-      ?`<div class="builderPreviewSurface" data-builder-preview-surface="${surface}" role="region" aria-label="Interactive timeline preview. Use arrow keys to move between timeline items and Enter to edit.">${svg}</div>`
+      ?`<div class="builderPreviewSurface" data-builder-preview-surface="${surface}" data-interactive="${interactive}" role="region" aria-label="${interactive
+        ?"Interactive timeline preview. Use arrow keys to move between timeline items and Enter to edit."
+        :"Timeline preview. Editing is unavailable in read-only access."
+      }">${svg}</div>`
       :`<div class="builderPreviewTrueEmpty" role="status"><strong>Your timeline preview will appear here.</strong><span>Add information in Builder to create the final 16:9 artifact.</span></div>`;
-    requestAnimationFrame(()=>updateBuilderPreviewHitTargets(host));
+    if(interactive){
+      requestAnimationFrame(()=>updateBuilderPreviewHitTargets(host));
+    }
     return true;
   };
   const renderBuilderEmbeddedPreview=({force=false}={})=>
@@ -2280,6 +2526,10 @@ export async function boot407FEngineeringAdapter({
     }));
   };
   const activateBuilderPreviewOwner=(attributes,{fromLightbox=false}={})=>{
+    if(store.entitlement.canMutate!==true){
+      bridge.toast(store.entitlement.reason);
+      return false;
+    }
     const route=resolveBuilderPreviewOwner(store.document,attributes);
     if(!route){
       bridge.toast("This preview item is not connected to an editable entry.");
@@ -2318,6 +2568,10 @@ export async function boot407FEngineeringAdapter({
     return true;
   };
   const activateBuilderPreviewRetake=(targetAttemptId,{fromLightbox=false}={})=>{
+    if(store.entitlement.canMutate!==true){
+      bridge.toast(store.entitlement.reason);
+      return false;
+    }
     const id=String(targetAttemptId||"");
     if(!id)return false;
     let record=(store.document.exams||[]).find(
@@ -2363,6 +2617,7 @@ export async function boot407FEngineeringAdapter({
     }
     const attributes=builderPreviewTargetAttributes(event.target);
     if(!attributes)return;
+    if(store.entitlement.canMutate!==true)return;
     const target=event.target.closest(
       "[data-builder-preview-event],[data-builder-preview-interview],[data-builder-preview-retake]"
     );
@@ -2793,16 +3048,26 @@ export async function boot407FEngineeringAdapter({
     }
     exportHost.innerHTML=renderExportScreen(exportDocument,{
       state:exportState,
-      previewHtml
+      previewHtml,
+      entitlement:store.entitlement
     });
     exportController=installExportScreen(exportHost,exportDocument,{
       state:exportState,
+      entitlement:store.entitlement,
+      getEntitlement:()=>store.entitlement,
       renderPreview:renderExportPreview,
       exportAdapter,
       toast:(message)=>bridge.toast(message),
       requestVersion:(label,kind)=>store.saveVersion(label,kind),
       onStateChange:(state,reason)=>{
         exportState=state;
+        if(store.entitlement.canMutate===true){
+          store.mutate(
+            "Persist export settings",
+            (document)=>{document.exportState=clone(state);},
+            {history:false,material:false}
+          );
+        }
         if([
           "format",
           "print-margins",
@@ -2846,7 +3111,7 @@ export async function boot407FEngineeringAdapter({
         });
         await store.saveVersion(plan.versionRequest.name,plan.versionRequest.kind);
         const result=applyAdvisorRequest(store.document,plan);
-        await store.adapter.put("syncRecords",{
+        await store.putSyncRecord({
           id:plan.route,
           kind:"local-advisor-session",
           timelineId:store.document.id,
@@ -3012,6 +3277,7 @@ export async function boot407FEngineeringAdapter({
     });
   }
   on407FRendered=()=>{
+    applyEntitlementSurface();
     if(bridge.state.view==="export")queueExportRender();
     if(bridge.state.view==="advisor")queueMicrotask(renderAdvisorHost);
     if(bridge.state.view==="builder"){
@@ -3021,6 +3287,7 @@ export async function boot407FEngineeringAdapter({
     if(["builder","canvas","media"].includes(bridge.state.view)){
       queueMicrotask(renderMediaLibrarySurfaces);
     }
+    requestAnimationFrame(applyEntitlementSurface);
   };
   document.addEventListener("d1:407f-rendered",on407FRendered);
   onAdvisorHashChange=()=>{
@@ -3325,7 +3592,19 @@ export async function boot407FEngineeringAdapter({
   };
   unsubscribeStore=store.subscribe(()=>{
     reflectStoreStatus();
+    applyEntitlementSurface();
+    const entitlementEditable=store.entitlement.canMutate===true;
+    if(
+      canvasController&&
+      canvasController.state.entitlementEditable!==entitlementEditable
+    ){
+      canvasController.setUiState((state)=>({
+        ...state,
+        entitlementEditable
+      }));
+    }
     queueBuilderEmbeddedPreview();
+    if(store.entitlement.canMutate!==true)return;
     if(approvalReconciling)return;
     const approval=reconcileApprovalFingerprint(store.document);
     if(!approval.changed)return;
@@ -3348,10 +3627,13 @@ export async function boot407FEngineeringAdapter({
       canvasSyncing=false;
     };
     canvasController=installCanvas(canvasHost,store,{
-      state:createCanvasState({
-        viewportWidth:window.innerWidth,
-        mode:store.document.mode
-      }),
+      state:{
+        ...createCanvasState({
+          viewportWidth:window.innerWidth,
+          mode:store.document.mode
+        }),
+        entitlementEditable:store.entitlement.canMutate===true
+      },
       renderBoard:renderResponsiveAdvancedBoard,
       renderTheme:(document)=>renderThemePicker(document),
       renderAdvanced:(document,options)=>renderAdvancedStudio(document,{
@@ -3591,9 +3873,11 @@ export async function boot407FEngineeringAdapter({
       onChange:(state)=>{
         renderIntakeHost(state);
         if(state.stage==="upload")intakeMachine.existingEvents=clone(store.document.events||[]);
-        store.mutate("Update Intake flow",(document)=>{
-          document.intake=persistedIntakeState(state);
-        },{history:false,material:false});
+        if(store.entitlement.canMutate===true){
+          store.mutate("Update Intake flow",(document)=>{
+            document.intake=persistedIntakeState(state);
+          },{history:false,material:false});
+        }
         bridge.state.intake=persistedIntakeState(state);
         bridge.renderAll();
       },
@@ -3736,6 +4020,10 @@ export async function boot407FEngineeringAdapter({
     const command=event.metaKey||event.ctrlKey;
     if(command&&lower==="z"&&!isEditableTarget(event.target)){
       event.preventDefault();
+      if(store.entitlement.canMutate!==true){
+        bridge.toast(store.entitlement.reason);
+        return;
+      }
       (event.shiftKey?api.redo:api.undo)();
       return;
     }
@@ -3782,7 +4070,10 @@ export async function boot407FEngineeringAdapter({
       <div class="builderPreview407FHeader">
         <div>
           <h2 id="builderPreview407FTitle">Full timeline preview</h2>
-          <p id="builderPreview407FHelp">Use arrow keys to move between timeline items. Press Enter to edit.</p>
+          <p id="builderPreview407FHelp">${store.entitlement.canMutate===true
+            ?"Use arrow keys to move between timeline items. Press Enter to edit."
+            :"Review the timeline at Fit, 100%, or 150% zoom. Editing is unavailable in read-only access."
+          }</p>
         </div>
         <button type="button" class="btnD alt sm" data-builder-preview-close>Close preview</button>
       </div>

@@ -382,6 +382,7 @@ test("M12 verified local adapter success downloads, toasts, and requests the aut
         return{downloaded:true,method:"browser-download"};
       }
     },
+    authorize:async()=>true,
     requestVersion:async(label,kind)=>calls.push(["version",label,kind]),
     toast:(message,options)=>calls.push(["toast",message,options])
   });
@@ -413,6 +414,7 @@ test("M12 simulated adapters remain truthful: no download, success toast, or ver
       generate:async()=>({simulated:true,description:"prepared only"}),
       download:async()=>{downloads+=1;return{downloaded:true};}
     },
+    authorize:async()=>true,
     requestVersion:async()=>{versions+=1;},
     toast:()=>{toasts+=1;}
   });
@@ -450,6 +452,10 @@ test("M12 installed action re-enables after failure and uses only the frozen fai
   const messages=[];
   installExportScreen(root,fixture(),{
     state:{},
+    entitlement:{
+      access:"FULL",verified:true,canRead:true,canCreate:true,canMutate:true,
+      canExport:true,reason:"Verified test entitlement."
+    },
     now:()=>fixedNow,
     exportAdapter:{
       executionMode:"local",

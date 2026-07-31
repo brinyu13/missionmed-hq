@@ -127,7 +127,9 @@ test("Builder has exactly seven frozen steps, titles, purposes, and order",()=>{
 test("autosave and bounded undo history use the frozen constants",()=>{
   assert.equal(AUTOSAVE_DELAY,800);
   assert.equal(HISTORY_LIMIT,50);
-  assert.match(storeSource,/setTimeout\(\(\)=>this\.saveNow\("AUTOSAVE"\)\.catch\(\(\)=>\{\}\),AUTOSAVE_DELAY\)/);
+  assert.match(storeSource,/scheduleSave\(authorization=this\.capturePersistenceAuthorization\(\)\)/);
+  assert.match(storeSource,/Math\.min\(AUTOSAVE_DELAY,Math\.max\(0,remaining-250\)\)/);
+  assert.match(storeSource,/this\.queueAuthorizedSave\("AUTOSAVE",authorization\)\.catch\(\(\)=>\{\}\)/);
   assert.match(storeSource,/if\(this\.undoStack\.length>HISTORY_LIMIT\)this\.undoStack\.shift\(\)/);
 });
 

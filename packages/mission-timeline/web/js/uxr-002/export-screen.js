@@ -509,6 +509,12 @@ export function buildExportScreenModel(document,state={},options={}){
     normalized.audience,
     normalized.audienceDetails
   );
+  const entitlement=options.entitlement||{
+    canMutate:true,
+    canExport:true,
+    reason:"Timeline access verified."
+  };
+  const entitlementBlocked=entitlement.canExport!==true;
   let filename=null;
   if(!empty&&hasStudentName){
     filename=buildExportFilename(document.studentProfile.fullName,format.id,{now:options.now||new Date()});
@@ -518,8 +524,11 @@ export function buildExportScreenModel(document,state={},options={}){
     state:normalized,
     empty,
     eventCount,
-    controlsDisabled:empty||normalized.exporting,
-    exportActionDisabled:empty||normalized.exporting||!detailsComplete||!hasStudentName,
+    controlsDisabled:empty||normalized.exporting||entitlement.canMutate!==true,
+    exportActionDisabled:empty||normalized.exporting||!detailsComplete||!hasStudentName||entitlementBlocked,
+    entitlementBlocked,
+    entitlementReason:String(entitlement.reason||"Timeline export is unavailable."),
+    entitlementHasExistingTimeline:entitlement.hasExistingTimeline!==false,
     hasStudentName,
     audience,
     audienceDetails:normalized.audienceDetails[audience.id],
@@ -681,8 +690,13 @@ function renderPreview(model,previewHtml){
   </section>`;
 }
 
-export function renderExportScreen(document,{state={},previewHtml="",now=new Date()}={}){
-  const model=buildExportScreenModel(document,state,{now});
+export function renderExportScreen(document,{
+  state={},
+  previewHtml="",
+  now=new Date(),
+  entitlement=null
+}={}){
+  const model=buildExportScreenModel(document,state,{now,entitlement});
   return`<div class="screen export-screen" data-screen="export" data-export-layout="two-column" data-export-controls-width="380">
     <div class="export-layout">
       <section class="export-controls" aria-labelledby="export-title">
@@ -693,6 +707,11 @@ export function renderExportScreen(document,{state={},previewHtml="",now=new Dat
         ${renderAdvisorCard(model)}
         ${!model.empty&&!model.hasStudentName
           ?'<p class="export-blocker" role="status">Add your name in Builder before exporting.</p>'
+          :""}
+        ${model.entitlementBlocked
+          ?`<p class="export-blocker" role="status">${escapeHtml(model.entitlementReason)} ${model.entitlementHasExistingTimeline
+            ?"Existing timeline data remains available to view."
+            :"Timeline creation and export are disabled."}</p>`
           :""}
         <button type="button" class="button primary export-action" data-export-action${disabledAttribute(model.exportActionDisabled)}>Export ${model.format.kind}</button>
       </section>
@@ -720,6 +739,7 @@ function adapterExecutionMode(adapter,artifact){
 export async function executeExportRequest(request,{
   adapter,
   requestVersion,
+  authorize,
   toast=()=>{}
 }={}){
   if(!request||request.contract!=="D1-UXR-002-EXPORT-REQUEST-V1"){
@@ -737,6 +757,15 @@ export async function executeExportRequest(request,{
       "An automatic version request adapter is required."
     );
   }
+  const assertAuthorized=async(stage)=>{
+    if(typeof authorize!=="function"||await authorize(stage)!==true){
+      throw new ExportBoundaryError(
+        "EXPORT_ENTITLEMENT_REQUIRED",
+        "Timeline export is unavailable."
+      );
+    }
+  };
+  await assertAuthorized("before-generation");
   let artifact;
   try{
     artifact=await adapter.generate(request);
@@ -765,6 +794,7 @@ export async function executeExportRequest(request,{
       toastSent:false
     };
   }
+  await assertAuthorized("before-download");
   let delivery;
   try{
     delivery=await adapter.download(artifact,{filename:request.filename,request});
@@ -861,6 +891,8 @@ function setButtonBusy(button,busy,label){
 
 export function installExportScreen(root,document,{
   state={},
+  entitlement=null,
+  getEntitlement=()=>entitlement,
   now=()=>new Date(),
   renderPreview=null,
   exportAdapter=null,
@@ -896,12 +928,14 @@ export function installExportScreen(root,document,{
         :"Complete every recipient field to enable export.";
     }
     if(exportButton){
+      const currentEntitlement=getEntitlement?.()||{};
       exportButton.disabled=
         !Array.isArray(document?.events)||
         document.events.length===0||
         current.exporting||
         !complete||
-        !String(document?.studentProfile?.fullName||"").trim();
+        !String(document?.studentProfile?.fullName||"").trim()||
+        currentEntitlement.canExport!==true;
     }
   };
   const refresh=async(next=current)=>{
@@ -1035,6 +1069,15 @@ export function installExportScreen(root,document,{
 
   exportButton?.addEventListener("click",async()=>{
     const format=exportFormat(current.formatId);
+    const currentEntitlement=getEntitlement?.()||{};
+    if(currentEntitlement.canExport!==true){
+      toast(
+        String(currentEntitlement.reason||"Timeline export is unavailable."),
+        {tone:"danger"}
+      );
+      updateRecipientGate();
+      return;
+    }
     emit(reduceExportState(current,{type:"exporting",value:true}),"export-start");
     setButtonBusy(exportButton,true,`Exporting ${format.kind}…`);
     try{
@@ -1042,6 +1085,7 @@ export function installExportScreen(root,document,{
       const result=await executeExportRequest(request,{
         adapter:exportAdapter,
         requestVersion,
+        authorize:()=>getEntitlement?.()?.canExport===true,
         toast
       });
       if(!result.completed){
@@ -1056,6 +1100,7 @@ export function installExportScreen(root,document,{
     }finally{
       emit(reduceExportState(current,{type:"exporting",value:false}),"export-finish");
       setButtonBusy(exportButton,false,`Export ${format.kind}`);
+      updateRecipientGate();
     }
   });
 

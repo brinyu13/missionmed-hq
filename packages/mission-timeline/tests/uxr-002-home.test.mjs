@@ -9,6 +9,12 @@ import {
 } from "../web/js/uxr-002/home.js";
 import {defaultDocument,TimelineStore} from "../web/js/uxr-002/store.js";
 
+const FULL_ENTITLEMENT=Object.freeze({
+  schemaVersion:"d1-405.timeline-entitlement.1",
+  access:"FULL",verified:true,canRead:true,canCreate:true,canMutate:true,
+  canExport:true,reason:"Verified test entitlement."
+});
+
 class MemoryAdapter{
   constructor(){
     this.kind="m2-memory";
@@ -232,7 +238,7 @@ test("Home metadata helpers handle boundaries without mutating candidate state",
 test("Start over durably versions the current draft, resets student data, and preserves preferences",async()=>{
   const adapter=new MemoryAdapter();
   const clock=()=>new Date("2032-06-14T09:30:00.000Z");
-  const store=new TimelineStore({adapter,clock});
+  const store=new TimelineStore({adapter,clock,entitlement:FULL_ENTITLEMENT});
   await store.initialize();
   store.mutate("Returning draft",(document)=>{
     document.studentProfile.fullName="Amara Osei";

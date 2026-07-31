@@ -39,11 +39,16 @@ function normalizeVariant(variant,index=0){
   );
   const fallbackName=label?`${label} timeline`:`Specialty timeline ${index+1}`;
   return{
+    ...clone(variant||{}),
     id:clean(variant?.id)||`specialty-variant:${index+1}`,
     name:safeName(variant?.name,fallbackName),
-    specialty:{id,label},
+    specialty:{...clone(variant?.specialty||{}),id,label},
+    selectionState:id||label
+      ?clean(variant?.selectionState)||"selected"
+      :"unknown",
     hiddenEventIds:unique(variant?.hiddenEventIds),
     interviewTarget:{
+      ...clone(variant?.interviewTarget||{}),
       mode:variant?.interviewTarget?.mode==="specific"?"specific":"general",
       programId:clean(variant?.interviewTarget?.programId),
       programName:clean(variant?.interviewTarget?.programName),
@@ -88,15 +93,23 @@ function legacyVariant(document){
     interviewTarget:{
       mode:document?.metadata?.interview?.prog||
         document?.metadata?.interview?.date
-        ?"specific"
-        :"general",
+      ?"specific"
+      :"general",
+      programId:document?.metadata?.interview?.programId,
       programName:document?.metadata?.interview?.prog,
       specialtyLabel:label,
       specialtyId:id,
       interviewDate:document?.metadata?.interview?.date,
       location:document?.metadata?.interview?.location,
       label:document?.metadata?.interview?.label,
-      logoMediaId:document?.metadata?.interview?.logoMediaId
+      calendarEventId:document?.metadata?.interview?.calendarEventId,
+      meetingInformation:document?.metadata?.interview?.meetingInformation,
+      logoMediaId:document?.metadata?.interview?.logoMediaId,
+      logoFit:document?.metadata?.interview?.logoFit,
+      logoX:document?.metadata?.interview?.logoX,
+      logoY:document?.metadata?.interview?.logoY,
+      logoWidth:document?.metadata?.interview?.logoWidth,
+      logoHeight:document?.metadata?.interview?.logoHeight
     }
   });
 }
@@ -116,6 +129,7 @@ export function normalizeSpecialtyVariants(document){
   }
   const requested=clean(source?.activeVariantId);
   return{
+    ...clone(source||{}),
     schemaVersion:SPECIALTY_VARIANT_SCHEMA,
     activeVariantId:ids.has(requested)?requested:deduped[0].id,
     variants:deduped

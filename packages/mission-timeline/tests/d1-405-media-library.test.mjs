@@ -18,6 +18,11 @@ import {buildResponsiveModel} from "../web/js/uxr-002/responsive.js";
 import {TimelineStore,defaultDocument} from "../web/js/uxr-002/store.js";
 
 const webRoot=new URL("../web/",import.meta.url);
+const FULL_ENTITLEMENT=Object.freeze({
+  schemaVersion:"d1-405.timeline-entitlement.1",
+  access:"FULL",verified:true,canRead:true,canCreate:true,canMutate:true,
+  canExport:true,reason:"Verified test entitlement."
+});
 const index=await readFile(new URL("index.html",webRoot),"utf8");
 const adapter=await readFile(
   new URL("js/407f-engineering-adapter.js",webRoot),
@@ -211,7 +216,7 @@ test("Founder Media uses one local persistence collection and one drag/drop seam
 
 test("Founder Media route and blob metadata commit share active authority and one atomic transaction",async()=>{
   const memory=new MemoryPersistenceAdapter();
-  const store=new TimelineStore({adapter:memory});
+  const store=new TimelineStore({adapter:memory,entitlement:FULL_ENTITLEMENT});
   await store.initialize();
   assert.equal(store.navigate("media"),true);
   const blob=new Blob(["missionmed"],{type:"image/png"});
@@ -248,7 +253,7 @@ test("Founder Media route and blob metadata commit share active authority and on
 
 test("Founder Media atomic upload failure restores metadata and writes no orphan blob",async()=>{
   const memory=new MemoryPersistenceAdapter();
-  const store=new TimelineStore({adapter:memory});
+  const store=new TimelineStore({adapter:memory,entitlement:FULL_ENTITLEMENT});
   await store.initialize();
   const atomicPut=memory.atomicPut.bind(memory);
   memory.atomicPut=async(entries)=>{

@@ -324,3 +324,38 @@ corrected and re-audited.
 | Two-choice segmented audience control | Native select with cyan indicator/focus and progressive fieldsets | Four explicit audiences require compact, understandable, keyboard-native disclosure | 11.2508:1 cyan on `#090E18` | Export audience |
 | Light-shell `#565D66` micro-label candidate on 407F dark surfaces | 407F `#A9B7D0` dark-surface alias | Preserve delegated Addendum 002 intent while preventing a dark-on-dark failure | 8.3411:1 on `#141D2D`; 9.3335:1 on `#0B111C` | Recipient labels/status |
 | Empty theme miniature without ownership cue | Visible and accessible example label; active check uses `#191C21` on gold | Prevent false student ownership and retain the frozen gold token | 12.3478:1 on `#FFD76A` | Theme picker |
+
+## M11 Entitlement and migration accessibility
+
+- Full, read-only, and denied states have persistent text labels; no state is
+  conveyed by color alone.
+- The header badge exposes its state and allowance as a live status with a
+  descriptive title.
+- Read-only routes prepend one persistent status explaining that saved content
+  remains available while editing and export are disabled.
+- Form controls and action buttons receive native disabled and
+  `aria-disabled` semantics after entitlement loss. The primary rail remains
+  available so every existing route can still be read.
+- Export controls are disabled in the model and DOM, and generation performs a
+  second capability preflight.
+- Read-only interaction capture reprojects the persisted document, preventing
+  the legacy 407F UI from displaying an unsaved mutation.
+- Builder and Canvas previews remove edit-only keyboard labels, roles, hit
+  targets, and pointer treatment in read-only mode while retaining zoom and
+  full-preview inspection.
+- Canvas History remains inspectable with restore/rename/delete disabled;
+  focus survives asynchronous version refresh and returns to the History
+  trigger on close, Escape, or scrim dismissal.
+- Dynamic read-only rendering reapplies native disabled semantics, and focus
+  moves to the persistent banner only when an active mutation control becomes
+  unavailable. Restored access returns focus to the active route heading.
+- Full-access text `#A8E8C8` on conservative `#123024` is 10.2048:1.
+- Read-only badge text `#F3D997` on conservative `#221E17` is 11.9919:1.
+- Badge detail `#AEB5BF` on `#0A0E16` is 9.3457:1.
+- Banner body `#E8ECF2` on `#151921` is 14.8474:1; banner label
+  `#F3D997` is 12.7278:1.
+- Administrator, 360 member, zero, numeric, and removed/read-only states were
+  inspected in the live 407F surface. Fresh removed-access console: zero
+  errors.
+
+M11 final Vitruvius disposition: PASS. No remaining M11 accessibility blocker.

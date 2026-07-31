@@ -133,10 +133,47 @@ under the Founder implementation authority:
 - `screenshots/D1-405-M10-export-mission-residency-alumni.png`
 - `screenshots/D1-405-M10-export-theme-focus-modal.png`
 
+## M11 entitlement/migration checkpoint
+
+- One fail-closed entitlement contract supports Administrator, 360 membership,
+  override, cohort, promotion, zero, numeric, unlimited, expiry, removal, and
+  unavailable production authority.
+- Existing data becomes read-only and is never deleted. Pending/denied new
+  accounts cause zero persistence writes.
+- All active and retained-shell direct writes route through explicit store
+  capability checks; Export performs its own second preflight.
+- D1-404 migration is additive, input-pure, idempotent, and preserves IDs,
+  geometry, unknowns, themes, Advanced data, advisor data,
+  specialty/interview data, history, versions, and Export state.
+- Missing legacy LOR evidence is `unknown`, never submitted.
+- Gate: 540/540 tests (119 TypeScript + 421 module), 16/16 focused
+  entitlement/migration tests, 69/69 expanded changed-surface tests,
+  typecheck, 23/23 verification, 198-file deterministic
+  build, manifest
+  `7242f0fb8b787935f8a7334e437fdc3335ad726158f3750a6cc0c96b6ac6cf0b`,
+  fresh browser console zero errors.
+- Final M11 specialist verdicts: Lorentz PASS, Darwin PASS, Vitruvius PASS.
+
+### M11 autonomous accessibility adjustments
+
+| Original | Replacement | Reason | Calculated contrast | Affected components |
+|---|---|---|---|---|
+| No access-state presentation | Compact 407F badge using `#A8E8C8` full and `#F3D997` read-only text | Expose entitlement without changing hierarchy/workflow | 10.2048:1 and 11.9919:1 | Header |
+| Engineering-only access refusal | Persistent `#E8ECF2`/`#F3D997` read-only strip on `#151921` | Explain preservation and disabled actions before interaction | 14.8474:1 and 12.7278:1 | All routes |
+| Active-looking controls after access loss | Native disabled plus `aria-disabled` and guarded re-projection | Remove false affordance while retaining readable content | Existing 407F control contrast retained | Builder, Canvas, Media, Intake, Advisor, Export |
+
+## M11 visual evidence
+
+- `screenshots/D1-405-M11-entitlement-administrator.png`
+- `screenshots/D1-405-M11-entitlement-eligible-360.png`
+- `screenshots/D1-405-M11-entitlement-zero.png`
+- `screenshots/D1-405-M11-entitlement-numeric-one.png`
+- `screenshots/D1-405-M11-entitlement-removed-read-only.png`
+
 ## Remaining
 
-M11 through M13 remain: entitlement and migration work, final
-accessibility/responsive hardening, and the complete final evidence package.
+M12 through M13 remain: final accessibility/responsive hardening and the
+complete final evidence package.
 
 ## Protected boundaries
 

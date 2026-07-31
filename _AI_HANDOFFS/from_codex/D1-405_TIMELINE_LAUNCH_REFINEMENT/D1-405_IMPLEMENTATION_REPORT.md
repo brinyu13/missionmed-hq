@@ -398,3 +398,52 @@ semantics while preserving wording, hierarchy, workflow, brand, and behavior.
 | Generic two-choice segmented audience control | Native four-option select with cyan focus/indicator and progressive labeled fieldset | Keep the expanded audience model understandable, keyboard-native, and compact without changing Export hierarchy | `#39D6FF` on `#090E18`: 11.2508:1 | Export audience choice |
 | Undefined recipient micro-label treatment on dark cards | Existing 407F `#A9B7D0` dark-surface label token | The light-shell `#565D66` micro-label token would fail on the 407F dark surface; the delegated implementation authority permits a contrast-preserving alias | 8.3411:1 on `#141D2D`; 9.3335:1 on `#0B111C` | Export recipient labels and completion text |
 | Theme active check and unlabeled empty miniature | Dark `#191C21` check ink on frozen gold plus visible `EXAMPLE TIMELINE` badge and accessible name | Preserve gold, meet contrast, and prevent example/student ambiguity without changing theme definitions | `#191C21` on `#FFD76A`: 12.3478:1 | Canvas and Export theme cards |
+
+## M11 entitlement and migration implementation
+
+- `entitlement.js` is the single pure entitlement policy surface. It evaluates
+  global enablement, explicit user override, Administrator role, 360
+  membership, cohort, promotion, default allowance, usage, expiry, and
+  verified production authority in deterministic order.
+- Local proof scenarios are restricted to localhost and disclose zero network,
+  WordPress, Matrix, or production writes. The production boundary is
+  intentionally unavailable and returns an unverified decision.
+- `TimelineStore` defaults to denied/pending. It reads existing current or
+  legacy documents before access resolution and cannot create a draft until an
+  explicitly verified decision grants creation.
+- Every mutation, queued save, blob transaction, undo/redo, version operation,
+  restore, reset, advisor sync record, and Export request has an explicit
+  capability boundary. A local persistence lease is captured synchronously
+  when an authorized mutation is accepted, so that exact snapshot can finish
+  after expiry without allowing any new mutation, undo, redo, or save.
+- Active 407F and retained inactive-shell integration points use the same
+  contract. No parallel state store or UI was introduced.
+- Existing data becomes read-only on zero allowance, expiration, access
+  removal, global disable, or production verification failure. No access
+  decision has destructive effects.
+- Migration preserves D1-404 IDs, geometry, canonical and unknown categories,
+  event extensions, themes, Advanced media/text/background, advisor state,
+  specialty/interview extensions, history, versions, and Export state.
+- Missing clinical LOR evidence is marked `unknown` with non-submission
+  evidence. Missing exact rotation days remain month-legacy/unknown.
+- Migration is input-pure and idempotent. Existing source lineage wins; version
+  records are not eagerly rewritten and restore retains the source version.
+- M11 gate: 540/540 tests (119 TypeScript + 421 module), 16/16 focused
+  entitlement/migration tests, 69/69 expanded changed-surface tests,
+  typecheck, 23/23 package verification,
+  deterministic 198-file build, and zero errors in a fresh removed-access
+  browser session.
+- Manifest SHA-256:
+  `7242f0fb8b787935f8a7334e437fdc3335ad726158f3750a6cc0c96b6ac6cf0b`.
+- Final specialist verdicts: Lorentz PASS for entitlement/security boundaries;
+  Darwin PASS for migration and pre-expiry concurrency preservation;
+  Vitruvius PASS for read-only semantics, focus, inspection, and preview
+  affordances.
+
+### M11 autonomous implementation-level accessibility adjustments
+
+| Original token/treatment | Replacement | Reason | Calculated contrast | Affected components |
+|---|---|---|---|---|
+| No entitlement state treatment | Restrained green `#A8E8C8` full-access text and 407F gold-family `#F3D997` read-only text on dark instrument surfaces | Communicate access without changing 407F hierarchy or adding a new workflow | 10.2048:1 on `#123024`; 11.9919:1 on `#221E17` | Header entitlement badge |
+| Mutation refusal available only at the engineering boundary | Persistent dark read-only banner using `#E8ECF2` body and `#F3D997` label on `#151921` | Make the preserved-data/read-only state perceivable before interaction | 14.8474:1; 12.7278:1 | All primary routes |
+| Visually unchanged controls after entitlement removal | Native disabled and `aria-disabled` semantics plus retained not-allowed treatment | Prevent false affordance while keeping document content and navigation readable | Non-text state plus existing 407F control contrast | Builder, Canvas, Media, Intake, Advisor, Export |

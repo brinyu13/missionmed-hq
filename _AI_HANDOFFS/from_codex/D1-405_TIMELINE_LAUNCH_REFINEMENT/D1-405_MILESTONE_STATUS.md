@@ -2,7 +2,7 @@
 
 Updated: 2026-07-31
 
-Estimated overall completion: 88%
+Estimated overall completion: 94%
 
 | Milestone | Status | Checkpoint |
 |---|---|---|
@@ -18,7 +18,7 @@ Estimated overall completion: 88%
 | M8 specialty variants/LOR intelligence | COMPLETE | Shared facts, normalized variant config, active export; 504/504 tests |
 | M9 explanation/interview tools | COMPLETE | Commit `fae87de`; bounded annotations, interview-specific target, shared local logo, truthful Calendar seam; 511/511 tests |
 | M10 themes/export audiences | COMPLETE | Five frozen themes, labeled empty examples, safe admin seam, four explicit audiences; 522/522 tests |
-| M11 entitlements/migration | PENDING | — |
+| M11 entitlements/migration | COMPLETE | Fail-closed local proof, read-only preservation, lossless D1-404 migration; 540/540 tests; three specialist PASS verdicts |
 | M12 accessibility/responsive/hardening | PENDING | — |
 | M13 final candidate/handoff | PENDING | — |
 
@@ -61,3 +61,20 @@ Escape, backdrop, and opener-restoration behavior; blocks export when the
 student name is absent; preserves focus as recipient details are entered; adds
 recipient-specific advisor-only sharing to Canvas Details; and includes the
 submitted-LOR legend in every empty-account theme example.
+
+M11 introduces one pure entitlement policy and keeps `TimelineStore` as the
+single write authority. WordPress Administrator, 360 Match Mentorship,
+individual override, cohort, promotion, zero, exact numeric, unlimited,
+expiration, removal, global-disable, and production-unverified decisions are
+deterministic. The local adapter makes zero network or protected writes; the
+unavailable production boundary fails closed. Existing documents become
+read-only without deleting documents, checkpoints, versions, blobs, media, or
+exports. New/denied accounts receive no initial persistence write.
+
+D1-404 migration is additive, pure, and idempotent. Existing identifiers,
+geometry, categories, source metadata, specialty/interview fields, Advanced
+content, advisor data, export state, and unknown fields are preserved.
+Unsupported category identity is retained as migration evidence. Missing
+clinical LOR status becomes explicit `unknown`; no submitted evidence or exact
+rotation day is fabricated. Version snapshots migrate lazily on restore and
+the original version remains rollback evidence.

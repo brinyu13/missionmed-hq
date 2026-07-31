@@ -51,13 +51,16 @@ function ownerForEvent(event){
   });
 }
 
-export function enhanceBuilderPreviewSvg(svg,document){
+export function enhanceBuilderPreviewSvg(svg,document,{interactive=true}={}){
   let result=String(svg||"")
     .replace('role="img"','role="group"')
     .replace(
       /<svg\b(?![^>]*\bpreserveAspectRatio=)/,
       '<svg preserveAspectRatio="xMidYMid meet"'
     );
+  if(!interactive){
+    result=result.replace(/; use Tab to move between events/g,"");
+  }
   const events=[...(document?.events||[])];
   const interviewDate=String(
     document?.metadata?.interview?.date||
@@ -120,9 +123,11 @@ export function enhanceBuilderPreviewSvg(svg,document){
       `data-owner-id="${escapeAttribute(owner.id)}"`,
       `data-owner-order="${ownerOrder}"`,
       ...(owner.derived?[`data-owner-derived="${escapeAttribute(owner.derived)}"`]:[]),
-      'role="button"',
-      `tabindex="${ownerOrder===initialOwnerOrder?"0":"-1"}"`,
-      'focusable="true"'
+      ...(interactive?[
+        'role="button"',
+        `tabindex="${ownerOrder===initialOwnerOrder?"0":"-1"}"`,
+        'focusable="true"'
+      ]:[])
     ].join(" ");
     result=result.replace(needle,attributes);
     const retakeTarget=String(event?.actionChip?.targetAttemptId||"");
@@ -135,12 +140,14 @@ export function enhanceBuilderPreviewSvg(svg,document){
           "data-builder-preview-retake",
           `data-retake-target="${escapeAttribute(retakeTarget)}"`,
           `data-owner-order="${ownerOrder+.5}"`,
-          'role="button"',
-          `aria-label="${escapeAttribute(
-            `${event.actionChip.label||"Set retake date"} for ${event.title||"exam"}`
-          )}"`,
-          'tabindex="-1"',
-          'focusable="true"'
+          ...(interactive?[
+            'role="button"',
+            `aria-label="${escapeAttribute(
+              `${event.actionChip.label||"Set retake date"} for ${event.title||"exam"}`
+            )}"`,
+            'tabindex="-1"',
+            'focusable="true"'
+          ]:[])
         ].join(" "));
       }
     }
@@ -152,9 +159,11 @@ export function enhanceBuilderPreviewSvg(svg,document){
       'data-owner-kind="interview-target"',
       'data-owner-id="interview-target"',
       `data-owner-order="${interviewOwnerOrder}"`,
-      'role="button"',
-      `tabindex="${interviewOwnerOrder===initialOwnerOrder?"0":"-1"}"`,
-      'focusable="true"'
+      ...(interactive?[
+        'role="button"',
+        `tabindex="${interviewOwnerOrder===initialOwnerOrder?"0":"-1"}"`,
+        'focusable="true"'
+      ]:[])
     ].join(" "));
   }
   return result;

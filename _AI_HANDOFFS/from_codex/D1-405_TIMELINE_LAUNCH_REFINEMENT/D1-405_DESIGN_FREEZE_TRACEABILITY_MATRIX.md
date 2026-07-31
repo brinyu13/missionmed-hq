@@ -1,6 +1,6 @@
 # D1-405 Design Freeze Traceability Matrix
 
-Status: in progress through M10
+Status: in progress through M11
 
 Canonical baseline: 407F / D1-404
 
@@ -49,6 +49,16 @@ Canonical baseline: 407F / D1-404
 | Shared local program-logo workflow | Active variant references one `document.advanced.media` asset and retained blob | Real WEBP upload, persistence, crop/resize, one Guided render layer | PASS |
 | Truthful Matrix Calendar seam | `Scheduled Interviews` unavailable runtime adapter and local-only fixture adapter | Status/live/empty/category contract tests; unavailable browser card | PASS |
 | M9 autonomous control/error adjustments | Gold selection, cyan picker/focus, `#FF9F86` inline alert, focus recovery | 5.5364:1, 10.5102:1, 9.3466:1; specialist final PASS | PASS |
+| Administrator or 360 initial entitlement | Pure configured entitlement plus localhost proof adapter | Administrator and eligible-360 live screenshots; unit policy tests | PASS |
+| Zero, exact numeric, unlimited, override, expiry/removal states | Explicit allowance/usage and read-only preservation model | Policy/store suite and zero/numeric/removed screenshots | PASS |
+| Production entitlement fails closed | Unavailable production boundary; no calls or writes | Pending/denied zero-write test | PASS |
+| Production assertion binding | Exact trusted principal, issuer, audience, membership version, freshness, expiry, allowance, and server usage | Positive/negative binding matrix; Lorentz PASS | PASS |
+| Exact-limit and zero-override enforcement | Clean origins at allowance are denied; numeric-zero individual override wins over broader role grants | Entitlement regression suite; Lorentz PASS | PASS |
+| Existing data survives entitlement loss | Read-only presentation plus guarded store writes; destructive effects false | Direct-write seam tests and live removed-access proof | PASS |
+| Accepted pre-expiry edits remain durable | Synchronous local persistence lease binds the accepted snapshot; no post-expiry action can acquire a lease | Slow-write and stalled-event-loop regressions; Darwin PASS | PASS |
+| Read-only inspection without edit affordance | Builder/full preview, Canvas, Theme, zoom, Media, and History separate inspection from mutation semantics | Live focus/semantics sweep; Vitruvius PASS | PASS |
+| D1-404 migration without fabricated facts | Additive pure/idempotent migration; unknown LOR/category evidence retained | Sentinel-rich migration and round-trip tests | PASS |
+| M11 autonomous entitlement state tokens | `#A8E8C8`, `#F3D997`, `#AEB5BF`, `#E8ECF2` on bounded dark surfaces | 9.3457:1–14.8474:1 evidence | PASS |
 | No protected writes | Local worktree only | Git/status and browser evidence | PASS TO DATE |
 
 The later Founder Media steering supersedes the original four-destination

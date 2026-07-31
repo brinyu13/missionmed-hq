@@ -455,3 +455,49 @@
 - Protected boundaries preserved: no push, deploy, Matrix, WordPress,
   production persistence, cloud storage, or external task creation.
 - Next action: M11 entitlement and migration work.
+
+## 2026-07-31 — M11 Entitlement and D1-404 migration checkpoint
+
+- Added the versioned `d1-405.timeline-entitlement.1` contract with deterministic
+  Administrator, 360 membership, individual, cohort, promotion, default,
+  allowance, usage, expiry, disabled, and removal evaluation.
+- Added a truthful localhost-only proof adapter and an unavailable production
+  boundary that performs zero calls and fails closed.
+- Corrected the bootstrap to load existing data before entitlement resolution
+  and to write no initial draft unless `canCreate === true`.
+- Changed every store capability check to require explicit `=== true`;
+  blocked new post-expiry work while allowing only snapshots synchronously
+  accepted before expiry to finish their local durable checkpoint.
+- Routed version rename/delete, shared blob writes, and advisor sync records
+  through guarded store methods.
+- Added a persistent 407F entitlement badge and read-only banner. Existing
+  routes/content remain readable; form actions and Export are disabled with
+  native disabled/ARIA semantics.
+- Restored Export state from the migrated document and persisted changes on the
+  same document path; generation performs a second entitlement preflight.
+- Made D1-404 migration pure/idempotent/additive and preserved unknown fields,
+  category identity, geometry, specialty/interview extensions, source lineage,
+  Advanced data, advisor data, history, and Export state.
+- Missing legacy clinical LOR evidence now maps to `unknown`, never
+  `not-requested` or submitted.
+- Live evidence captured for Administrator, eligible 360 member, zero
+  allowance, exact-one allowance, and access removed/read-only.
+- Verification:
+  - TypeScript suite: 119/119;
+  - browser/module suite: 421/421;
+  - total: 540/540;
+  - focused entitlement/migration suite: 16/16;
+  - expanded changed-surface suite: 69/69;
+  - typecheck: passed;
+  - package verification: 23/23;
+  - deterministic build: 198 runtime files;
+  - manifest SHA-256:
+    `7242f0fb8b787935f8a7334e437fdc3335ad726158f3750a6cc0c96b6ac6cf0b`;
+  - fresh removed-access browser console: zero errors.
+- Lorentz and Darwin architecture audits identified the original fail-open and
+  direct-write gaps; all enumerated active and inactive-shell seams were
+  corrected before the full gate. Final Lorentz, Darwin, and Vitruvius
+  re-audits returned PASS.
+- Protected boundaries preserved: no push, deploy, Matrix, WordPress,
+  production persistence, cloud storage, or external task creation.
+- Next action: M12 accessibility, responsive, and hardening sweep.

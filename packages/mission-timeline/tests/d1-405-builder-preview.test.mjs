@@ -106,6 +106,31 @@ test("M4 preserves canonical 1920x1080 geometry and adds stable interactive owne
   );
 });
 
+test("M11 read-only Builder preview preserves ownership without edit semantics",()=>{
+  const timeline=documentWith([event()]);
+  const rendered=renderKeynoteClassicBoard(timeline,{currentMonth:"2026-07"});
+  const svg=enhanceBuilderPreviewSvg(rendered.svg,timeline,{interactive:false});
+  assert.match(svg,/data-builder-preview-event/);
+  assert.doesNotMatch(svg,/role="button"/);
+  assert.doesNotMatch(svg,/tabindex=/);
+  assert.doesNotMatch(svg,/focusable="true"/);
+  assert.doesNotMatch(svg,/use Tab to move between events/);
+  assert.match(adapter,/Editing is unavailable in read-only access/);
+  assert.match(adapter,/data-interactive="\$\{interactive\}"/);
+  assert.match(
+    adapter,
+    /if\(surface\?\.dataset\?\.interactive!=="true"\)\{[\s\S]*data-builder-preview-hit-target/
+  );
+  assert.match(
+    css,
+    /\[data-builder-preview-surface\]\[data-interactive="true"\] \[data-builder-preview-event\]/
+  );
+  assert.match(
+    adapter,
+    /const attributes=builderPreviewTargetAttributes\(event\.target\);[\s\S]*if\(store\.entitlement\.canMutate!==true\)return;/
+  );
+});
+
 test("M7 exposes the provisional retake chip as its own keyboard and pointer action",()=>{
   const timeline=documentWith([
     event({

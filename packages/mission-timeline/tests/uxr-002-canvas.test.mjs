@@ -150,6 +150,21 @@ class FakeStore {
     return version;
   }
 
+  async renameVersion(id,name) {
+    const version=await this.adapter.get("versions",id);
+    if(!version)throw new Error("Version not found.");
+    const updated={...version,name};
+    await this.adapter.put("versions",updated);
+    return updated;
+  }
+
+  async deleteVersion(id) {
+    const version=await this.adapter.get("versions",id);
+    if(!version)return null;
+    await this.adapter.delete("versions",id);
+    return version;
+  }
+
   navigate(route) {
     this.routes.push(route);
     return true;
@@ -652,12 +667,22 @@ test("M8 tablet and phone Canvas contracts are view-only with the exact banner a
     currentMonth:"2026-07"
   });
   assert.match(html,/data-view-only="true"/);
+  assert.match(html,/class="canvas-application" role="region"/);
+  assert.doesNotMatch(html,/use Tab to move between events/);
   assert.match(html,/>Editing needs a larger screen\.<\/div>/);
   assert.match(html,/data-canvas-action="add-event" disabled/);
   assert.match(html,/data-canvas-action="theme"/);
   assert.doesNotMatch(html,/data-context-toolbar/);
   assert.doesNotMatch(html,/Email me a reminder/);
   assert.throws(() => selectCanvasEvent(state,"work"),{code:"D1_UXR_002_CANVAS_VIEW_ONLY"});
+
+  const empty=canonicalDocument();
+  empty.events=[];
+  const emptyHtml=renderCanvas({document:empty,state,currentMonth:"2026-07"});
+  assert.match(
+    emptyHtml,
+    /class="canvas-empty-board" role="region" aria-label="Timeline visualization, 0 events\. Editing is unavailable\."/
+  );
 });
 
 test("D1-405 renders N<4 canvases while preserving the named short-arrow isolation branch",() => {
@@ -741,10 +766,66 @@ test("M10 Canvas theme picker moves focus on open and restores the trigger on cl
   );
   assert.match(
     canvasSource,
-    /opening\?"theme-picker":"theme-trigger"/
+    /opening&&isEditable\(state\)\?"theme-picker":"theme-trigger"/
   );
   assert.match(
     canvasSource,
     /if \(state\.themeOpen\) \{[\s\S]*themeOpen:false\},\{focus:"theme-trigger"\}/
+  );
+});
+
+test("M11 read-only Canvas keeps inspection controls safe and cancels stale mutation paths",()=>{
+  const readOnlyState={
+    ...createCanvasState(),
+    entitlementEditable:false,
+    historyOpen:true
+  };
+  const history=renderHistorySlideOver({
+    state:readOnlyState,
+    versions:[{
+      id:"version-read-only",
+      name:"Before access changed",
+      createdAt:"2031-06-14T12:00:00.000Z",
+      eventCount:6
+    }]
+  });
+  assert.match(history,/Saved versions are available for review/);
+  assert.match(history,/data-history-restore="version-read-only" disabled/);
+  assert.match(history,/data-history-menu="version-read-only"[^>]* disabled/);
+
+  const root=new FakeRoot();
+  const store=new FakeStore();
+  const controller=installCanvas(root,store,{
+    state:readOnlyState,
+    currentMonth:()=>"2026-07"
+  });
+  const before=structuredClone(store.document);
+  assert.doesNotThrow(()=>root.listeners.get("keydown")({
+    key:"ArrowRight",
+    target:{closest:()=>({})},
+    preventDefault(){throw new Error("Read-only key must remain non-mutating.");}
+  }));
+  assert.deepEqual(store.document,before);
+  controller.destroy();
+
+  assert.match(
+    canvasSource,
+    /if\(!isEditable\(next\)&&pointer\)\{[\s\S]*next=\{\.\.\.next,drag:null\}/
+  );
+  assert.match(
+    canvasSource,
+    /const onPointerMove = \(event\) => \{[\s\S]*if\(!isEditable\(state\)\)\{[\s\S]*pointer=null/
+  );
+  assert.match(
+    canvasSource,
+    /const onPointerUp = \(\) => \{[\s\S]*if\(!isEditable\(state\)\)\{[\s\S]*pointer=null/
+  );
+  assert.match(
+    canvasSource,
+    /await refreshVersions\(\);[\s\S]*history-slide-over button/
+  );
+  assert.match(
+    canvasSource,
+    /focus === "history-trigger"[\s\S]*data-canvas-action="history"/
   );
 });

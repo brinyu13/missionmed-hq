@@ -261,3 +261,49 @@ Implemented seam:
 - Missing student names are blocked before request/filename generation.
 - Student-only and hidden visibility never pass this seam.
 - One filtered render input is shared by visible preview and generated file.
+
+## Entitlement and migration seams — M11
+
+### Entitlement decision seam
+
+- Contract: `d1-405.timeline-entitlement.1`.
+- Local proof adapter is localhost-bound and performs no network or protected
+  writes.
+- Production boundary is intentionally disconnected. Missing, throwing,
+  unverified, or malformed authority fails closed.
+- Deterministic policy supports global enablement, individual override,
+  Administrator, 360 membership, cohort, promotion, allowance, usage, and
+  expiry.
+- A future trusted same-origin WordPress/Matrix BFF must bind immutable
+  principal ID, decision ID, issuer/audience, membership version, evaluation
+  time, expiry, allowance, and server-calculated usage. Browser authorization
+  remains presentation-only.
+
+### Store enforcement seam
+
+- `TimelineStore` is the single mutation authority; no entitlement-specific
+  store exists.
+- Bootstrap reads current/legacy data before resolving access and writes no
+  draft while access is pending or denied.
+- Mutation, queued save, atomic blob save, undo/redo, version create/rename/
+  delete/restore, reset, sync record, and Export are capability checked.
+- Every accepted autosave snapshot carries a narrow local persistence lease
+  captured synchronously while `canMutate` is true. That exact snapshot may
+  finish after expiry or revocation; no new mutation, undo, redo, lease,
+  explicit save, or export can start afterward.
+- Async version/blob/sync writers and Export recheck live capability at their
+  persistence or download boundary.
+- Access changes never delete documents, checkpoints, versions, blobs, media,
+  export records, or history.
+
+### D1-404 migration seam
+
+- `migrateDocument` is pure, additive, and idempotent.
+- Existing source lineage, IDs, geometry, categories, unknown extensions,
+  Advanced state, advisor state, specialty/interview state, and Export state
+  win over defaults.
+- Unsupported category identity is retained as evidence while presentation
+  maps to a supported category.
+- Missing clinical LOR evidence is `unknown` and explicitly not submitted.
+- Versions/checkpoints are not eagerly rewritten; restore migrates the snapshot
+  through the ordinary replace boundary while preserving the source record.

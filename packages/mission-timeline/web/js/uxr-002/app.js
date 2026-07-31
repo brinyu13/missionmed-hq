@@ -74,6 +74,12 @@ import {
   renderResponsiveFrame
 } from "./responsive.js";
 import {TimelineStore} from "./store.js";
+import {
+  createLocalEntitlementAdapter,
+  createProductionEntitlementBoundaryAdapter,
+  evaluateTimelineEntitlement,
+  localEntitlementScenarioFromLocation
+} from "./entitlement.js";
 import {renderThemePicker} from "./theme-picker.js";
 import {THEMES_BY_ID} from "./themes.js";
 import {escapeHtml,uid} from "./utils.js";
@@ -444,7 +450,11 @@ function renderScreen(store){
       label:"Export preview",
       audience:state.audience
     }):"";
-    const fullContent=renderExportScreen(store.document,{state,previewHtml});
+    const fullContent=renderExportScreen(store.document,{
+      state,
+      previewHtml,
+      entitlement:store.entitlement
+    });
     const previewContent=`<div class="screen export-screen export-preview-only" data-screen="export">
       <h1 class="sr-only" tabindex="-1">Export</h1>
       <section class="export-preview-panel${store.document.events.length?"":" empty"}" aria-label="Export preview">
@@ -597,7 +607,7 @@ export async function bootTimelineBuilder(){
   };
 
   const persistAdvancedBlob=async(id,file,kind)=>{
-    await store.adapter.putBlob(id,file,{
+    await store.putBlob(id,file,{
       kind,
       name:file.name,
       type:file.type,
@@ -826,6 +836,8 @@ export async function bootTimelineBuilder(){
     if(store.route==="export"&&app.querySelector("[data-export-action]")){
       const controller=installExportScreen(app,store.document,{
         state:store.exportState,
+        entitlement:store.entitlement,
+        getEntitlement:()=>store.entitlement,
         renderPreview:(input)=>canonicalBoardPreview(input.timeline,{
           label:"Export preview",
           audience:"EVERYTHING"
@@ -869,7 +881,7 @@ export async function bootTimelineBuilder(){
           });
           await store.saveVersion(plan.versionRequest.name,plan.versionRequest.kind);
           const result=applyAdvisorRequest(store.document,plan);
-          await store.adapter.put("syncRecords",{
+          await store.putSyncRecord({
             id:plan.route,
             kind:"local-advisor-session",
             timelineId:store.document.id,
@@ -999,8 +1011,51 @@ export async function bootTimelineBuilder(){
     renderQueued=true;
     queueMicrotask(()=>{renderQueued=false;render();});
   };
-  store.subscribe(scheduleRender);
+  store.subscribe(()=>{
+    canvasState={
+      ...canvasState,
+      entitlementEditable:store.entitlement.canMutate===true
+    };
+    scheduleRender();
+  });
   const initialized=await store.initialize();
+  const localHost=["localhost","127.0.0.1","0.0.0.0"].includes(
+    String(window.location?.hostname||"").toLowerCase()
+  );
+  const explicitMode=String(window.D1_TIMELINE_RUNTIME_MODE||"").toLowerCase();
+  const runtimeMode=localHost&&explicitMode!=="production"
+    ?"local"
+    :"production";
+  const entitlementAdapter=runtimeMode==="production"
+    ?createProductionEntitlementBoundaryAdapter()
+    :window.D1_TIMELINE_ENTITLEMENT_ADAPTER||
+      createLocalEntitlementAdapter({
+        scenario:localEntitlementScenarioFromLocation(window.location)||
+          "eligible-360",
+        currentUsage:initialized.restored?1:0
+      });
+  let assertion;
+  try{
+    assertion=await entitlementAdapter.resolve();
+  }catch{
+    assertion={
+      verified:false,
+      enabled:false,
+      eligible:false,
+      allowance:0,
+      currentUsage:0,
+      source:"entitlement-adapter-error",
+      reason:"Timeline entitlement could not be verified."
+    };
+  }
+  store.setEntitlement(evaluateTimelineEntitlement(assertion,{
+    mode:runtimeMode,
+    hasExistingTimeline:initialized.restored,
+    expectedBinding:entitlementAdapter.expectedBinding||null
+  }));
+  if(!initialized.restored&&store.entitlement.canCreate){
+    await store.saveNow("INITIAL_DURABLE_DRAFT");
+  }
   const syncLocationRoute=()=>{
     const route=decodeURIComponent(String(window.location.hash||"").replace(/^#/,""));
     const expectedRoute=advisorSessionRoute(store.document.id);

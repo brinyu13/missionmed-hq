@@ -110,7 +110,6 @@ const EDITING_ACTIONS = new Set([
   "add-event",
   "undo",
   "redo",
-  "history",
   "mode",
   "delete",
   "duplicate",
@@ -159,7 +158,8 @@ function normalizedLane(value) {
 }
 
 function isEditable(state) {
-  return state?.responsive?.editing !== false;
+  return state?.responsive?.editing !== false&&
+    state?.entitlementEditable !== false;
 }
 
 function assertEditable(state) {
@@ -1065,18 +1065,11 @@ export async function createAutomaticCanvasVersion(store,type,{now = new Date()}
 export async function renameCanvasVersion(store,versionId,name) {
   const resolved = String(name || "").trim();
   if (!resolved) throw new TypeError("Version name is required.");
-  const version = await store.adapter.get("versions",versionId);
-  if (!version) throw new Error("Version not found.");
-  const updated = {...version,name:resolved};
-  await store.adapter.put("versions",updated);
-  return updated;
+  return store.renameVersion(versionId,resolved);
 }
 
 export async function deleteCanvasVersion(store,versionId) {
-  const version = await store.adapter.get("versions",versionId);
-  if (!version) return null;
-  await store.adapter.delete("versions",versionId);
-  return version;
+  return store.deleteVersion(versionId);
 }
 
 export async function restoreCanvasVersion(
@@ -1133,7 +1126,7 @@ export function renderCanvasToolbar({
     <button type="button" data-toolbar-item="theme" data-canvas-action="theme" aria-haspopup="true" aria-expanded="${String(!!state.themeOpen)}">Theme ▾</button>
     <div data-toolbar-item="zoom">${renderZoom(state.zoom)}</div>
     <span data-toolbar-item="spacer" class="toolbar-spacer" aria-hidden="true"></span>
-    <button type="button" data-toolbar-item="history" data-canvas-action="history" ${disabled}><span aria-hidden="true">◴</span> History</button>
+    <button type="button" data-toolbar-item="history" data-canvas-action="history"><span aria-hidden="true">◴</span> History</button>
     ${Number(commentsCount) > 0 ? `<button type="button" data-toolbar-item="comments" data-canvas-action="comments">Comments · ${Number(commentsCount)}</button>` : ""}
   </div>`;
 }
@@ -1228,7 +1221,12 @@ function xmlEscape(value) {
 }
 
 function interactiveBoardSvg(svg,scene,state) {
-  if (!isEditable(state)) return svg;
+  if (!isEditable(state)){
+    return String(svg||"").replace(
+      /; use Tab to move between events/g,
+      ""
+    );
+  }
   let result = svg;
   for (const event of scene.events) {
     const needle = `data-event-id="${xmlEscape(event.id)}"`;
@@ -1252,8 +1250,12 @@ function renderSelectionHandles(event,sceneEvent,state) {
   </div>`;
 }
 
-function emptyBoardMarkup() {
-  return `<div class="canvas-empty-board" role="application" aria-label="Timeline visualization, 0 events; use Tab to move between events">
+function emptyBoardMarkup(state) {
+  const editable=isEditable(state);
+  return `<div class="canvas-empty-board" role="${editable?"application":"region"}" aria-label="${editable
+    ?"Timeline visualization, 0 events; use Tab to move between events"
+    :"Timeline visualization, 0 events. Editing is unavailable."
+  }">
     <div class="canvas-axis-placeholder" aria-hidden="true"></div>
     <div class="canvas-empty-message">
       <p>No events yet — add one below or use the Builder.</p>
@@ -1282,14 +1284,17 @@ export function renderHistorySlideOver({
   versions = [],
   now = new Date()
 }) {
-  if (!state.historyOpen || !isEditable(state)) return "";
+  if (!state.historyOpen) return "";
+  const viewOnly=!isEditable(state);
   const sorted = [...versions].sort((left,right) => String(right.createdAt).localeCompare(String(left.createdAt)));
   const defaultName = state.historyName || historyDefaultName(sorted.length,{now});
   return `<div class="history-scrim" data-canvas-action="close-history">
     <section class="history-slide-over" role="dialog" aria-modal="true" aria-labelledby="history-title" data-width="360" style="width:360px">
       <button type="button" data-canvas-action="close-history" aria-label="Close">×</button>
       <h2 id="history-title">History</h2>
-      ${state.historyNaming ? `<form data-history-name-form>
+      ${viewOnly
+        ?'<p class="history-view-only" role="status">Saved versions are available for review. Editing and restore actions require Timeline access.</p>'
+        :state.historyNaming ? `<form data-history-name-form>
         <label for="history-version-name">Version name</label>
         <input id="history-version-name" name="versionName" value="${escapeHtml(defaultName)}">
         <button type="submit">Save</button>
@@ -1303,9 +1308,9 @@ export function renderHistorySlideOver({
               <strong>${escapeHtml(version.name)}</strong>
               <span>${escapeHtml(shortDate(version.createdAt))} · ${Number(version.eventCount || 0)} events</span>
             </div>
-            <button type="button" data-history-restore="${escapeHtml(version.id)}">Restore</button>
-            <button type="button" data-history-menu="${escapeHtml(version.id)}" aria-label="More actions" aria-expanded="${state.versionMenuId === version.id}">⋯</button>
-            ${state.versionMenuId === version.id ? `<div role="menu">
+            <button type="button" data-history-restore="${escapeHtml(version.id)}" ${viewOnly?"disabled":""}>Restore</button>
+            <button type="button" data-history-menu="${escapeHtml(version.id)}" aria-label="More actions" aria-expanded="${state.versionMenuId === version.id}" ${viewOnly?"disabled":""}>⋯</button>
+            ${!viewOnly&&state.versionMenuId === version.id ? `<div role="menu">
               <button type="button" role="menuitem" data-history-rename="${escapeHtml(version.id)}">Rename</button>
               <button type="button" role="menuitem" data-history-delete="${escapeHtml(version.id)}">Delete</button>
             </div>` : ""}
@@ -1332,7 +1337,7 @@ export function renderCanvas({
 }) {
   const viewState = {...state,mode:document?.mode === "advanced" ? "advanced" : "guided"};
   const selected = eventById(document,viewState.selectedEventId);
-  let board = emptyBoardMarkup();
+  let board = emptyBoardMarkup(viewState);
   let scene = null;
   let selectedSceneEvent = null;
 
@@ -1351,7 +1356,14 @@ export function renderCanvas({
     const zoomStyle=viewState.zoom?.mode==="percent"
       ?`width:${1920*Number(viewState.zoom.percent||100)/100}px;max-width:none`
       :"";
-    board = `<div class="canvas-application" role="application" aria-label="${escapeHtml(scene.accessibility.ariaLabel)}" data-logical-width="1920" data-logical-height="1080" data-zoom-mode="${escapeHtml(viewState.zoom?.mode||"fit")}" data-zoom-percent="${Number(viewState.zoom?.percent||0)}" style="${zoomStyle}">
+    const editable=isEditable(viewState);
+    const canvasLabel=editable
+      ?scene.accessibility.ariaLabel
+      :String(scene.accessibility.ariaLabel||"").replace(
+        /; use Tab to move between events/g,
+        ""
+      );
+    board = `<div class="canvas-application" role="${editable?"application":"region"}" aria-label="${escapeHtml(canvasLabel)}" data-logical-width="1920" data-logical-height="1080" data-zoom-mode="${escapeHtml(viewState.zoom?.mode||"fit")}" data-zoom-percent="${Number(viewState.zoom?.percent||0)}" style="${zoomStyle}">
       ${interactiveBoardSvg(rendered.svg,scene,viewState)}
       ${renderSelectionHandles(selected,selectedSceneEvent,viewState)}
       ${renderInlineEditor(viewState,selectedSceneEvent)}
@@ -1508,6 +1520,10 @@ export function installCanvas(
   };
 
   const setState = (next,{focus = null,animateLayout=false} = {}) => {
+    if(!isEditable(next)&&pointer){
+      pointer=null;
+      next={...next,drag:null};
+    }
     state = next;
     render({animateLayout});
     queueMicrotask(() => {
@@ -1525,6 +1541,8 @@ export function installCanvas(
         root.querySelector?.("[data-theme-picker] [data-select-theme], [data-theme-picker] [data-open-backgrounds]")?.focus();
       } else if (focus === "theme-trigger") {
         root.querySelector?.('[data-canvas-action="theme"]')?.focus();
+      } else if (focus === "history-trigger") {
+        root.querySelector?.('[data-canvas-action="history"]')?.focus();
       }
     });
   };
@@ -1554,6 +1572,20 @@ export function installCanvas(
     const advisorPinTarget = event.target.closest?.("[data-advisor-pin]");
     const resolveAdvisorTarget = event.target.closest?.("[data-resolve-advisor-comment]");
     const studyActionTarget = event.target.closest?.("[data-study-action-chip]");
+    if(
+      !isEditable(state)&&(
+        studyActionTarget||
+        resolveAdvisorTarget||
+        selectThemeTarget||
+        categorySwapTarget||
+        categoryTarget||
+        restoreTarget||
+        historyMenuTarget||
+        renameTarget||
+        deleteVersionTarget||
+        menuTarget
+      )
+    )return;
 
     if (studyActionTarget) {
       const group=studyActionTarget.closest?.("[data-event-id]");
@@ -1696,15 +1728,19 @@ export function installCanvas(
       const opening=!state.themeOpen;
       setState(
         {...state,themeOpen:opening},
-        {focus:opening?"theme-picker":"theme-trigger"}
+        {focus:opening&&isEditable(state)?"theme-picker":"theme-trigger"}
       );
       onTheme({state,document:store.document});
     } else if (action === "history") {
       setState({...state,historyOpen:true,historyNaming:false,versionMenuId:null},{focus:"history"});
       await refreshVersions();
+      queueMicrotask(()=>root.querySelector?.(".history-slide-over button")?.focus());
     } else if (action === "close-history") {
       if (event.target === actionTarget || actionTarget.matches?.("button")) {
-        setState({...state,historyOpen:false,historyNaming:false,versionMenuId:null});
+        setState(
+          {...state,historyOpen:false,historyNaming:false,versionMenuId:null},
+          {focus:"history-trigger"}
+        );
       }
     } else if (action === "save-version") {
       setState({
@@ -1783,6 +1819,7 @@ export function installCanvas(
   };
 
   const onInput = (event) => {
+    if(!isEditable(state))return;
     if (event.target.matches?.("[data-inline-label-input]")) {
       state = updateInlineLabelDraft(state,event.target.value);
       onStateChange(state);
@@ -1793,6 +1830,10 @@ export function installCanvas(
   };
 
   const onSubmit = async (event) => {
+    if(!isEditable(state)){
+      event.preventDefault();
+      return;
+    }
     if (event.target.matches?.("[data-inline-label-form]")) {
       event.preventDefault();
       const result = commitInlineLabelEdit(store,state);
@@ -1813,6 +1854,39 @@ export function installCanvas(
   const onKeyDown = (event) => {
     if (state.toolbarFocus && trapToolbarTab(event,root)) return;
     if(trapCanvasDialogTab(event,root))return;
+    if (event.key === "Escape") {
+      if (state.themeOpen) {
+        event.preventDefault();
+        setState({...state,themeOpen:false},{focus:"theme-trigger"});
+        return;
+      }
+      if (state.detailsEventId) {
+        event.preventDefault();
+        setState({...state,detailsEventId:null},{focus:"selected"});
+        return;
+      }
+      if (state.historyOpen) {
+        event.preventDefault();
+        setState({
+          ...state,
+          historyOpen:false,
+          historyNaming:false,
+          versionMenuId:null
+        },{focus:"history-trigger"});
+        return;
+      }
+      if (state.categoryMenuOpen || state.addEventOpen || state.contextMenu) {
+        event.preventDefault();
+        setState({
+          ...state,
+          categoryMenuOpen:false,
+          addEventOpen:false,
+          contextMenu:null
+        },{focus:"selected"});
+        return;
+      }
+    }
+    if(!isEditable(state))return;
     const studyActionTarget=event.target.closest?.("[data-study-action-chip]");
     if(studyActionTarget&&["Enter"," "].includes(event.key)){
       event.preventDefault();
@@ -1835,38 +1909,6 @@ export function installCanvas(
         setState(cancelInlineLabelEdit(state),{focus:"selected"});
       }
       return;
-    }
-    if (event.key === "Escape") {
-      if (state.themeOpen) {
-        event.preventDefault();
-        setState({...state,themeOpen:false},{focus:"theme-trigger"});
-        return;
-      }
-      if (state.detailsEventId) {
-        event.preventDefault();
-        setState({...state,detailsEventId:null},{focus:"selected"});
-        return;
-      }
-      if (state.historyOpen) {
-        event.preventDefault();
-        setState({
-          ...state,
-          historyOpen:false,
-          historyNaming:false,
-          versionMenuId:null
-        });
-        return;
-      }
-      if (state.categoryMenuOpen || state.addEventOpen || state.contextMenu) {
-        event.preventDefault();
-        setState({
-          ...state,
-          categoryMenuOpen:false,
-          addEventOpen:false,
-          contextMenu:null
-        },{focus:"selected"});
-        return;
-      }
     }
     const insideCanvas = event.target.closest?.(".canvas-application,[data-canvas-event],[data-context-toolbar]");
     const commandUndo = isEditable(state) && (
@@ -1927,6 +1969,11 @@ export function installCanvas(
 
   const onPointerMove = (event) => {
     if (!pointer) return;
+    if(!isEditable(state)){
+      pointer=null;
+      if(state.drag)setState({...state,drag:null});
+      return;
+    }
     const dx = Number(event.clientX || 0) - pointer.startX;
     const dy = Number(event.clientY || 0) - pointer.startY;
     if (!pointer.moved && Math.hypot(dx,dy) < touchSlop) return;
@@ -1962,6 +2009,11 @@ export function installCanvas(
 
   const onPointerUp = () => {
     if (!pointer) return;
+    if(!isEditable(state)){
+      pointer=null;
+      if(state.drag)setState({...state,drag:null});
+      return;
+    }
     if (pointer.transaction && pointer.moved) {
       const result = commitCanvasDrag(store,pointer.transaction,{onDropReflow});
       setState({

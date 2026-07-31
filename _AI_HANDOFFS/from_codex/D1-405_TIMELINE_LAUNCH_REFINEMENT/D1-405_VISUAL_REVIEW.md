@@ -309,3 +309,25 @@ Evidence:
 - `screenshots/D1-405-M10-export-theme-focus-modal.png`
 
 Final M10 Miyamoto verdict: PASS.
+
+## M11 visual checkpoint
+
+Entitlement state is integrated into the existing 407F header as a compact
+instrument badge; it does not add a navigation system, shell, or new workflow.
+Full access uses a restrained green status. Zero/removed access uses the
+existing gold-family hierarchy and one slim persistent read-only strip below
+the header. Saved content remains fully visible, while editing and Export lose
+their active affordance.
+
+Evidence:
+
+- `screenshots/D1-405-M11-entitlement-administrator.png`
+- `screenshots/D1-405-M11-entitlement-eligible-360.png`
+- `screenshots/D1-405-M11-entitlement-zero.png`
+- `screenshots/D1-405-M11-entitlement-numeric-one.png`
+- `screenshots/D1-405-M11-entitlement-removed-read-only.png`
+
+M11 visual disposition: PASS. The final read-only Canvas screenshot preserves
+407F hierarchy, disables mutation affordances, and keeps Theme, zoom, History,
+Media inspection, and full-preview inspection available without edit
+semantics.

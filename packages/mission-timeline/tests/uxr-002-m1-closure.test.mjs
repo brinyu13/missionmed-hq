@@ -5,6 +5,12 @@ import test from "node:test";
 import {monthFieldMarkup} from "../web/js/uxr-002/month-field.js";
 import {TimelineStore} from "../web/js/uxr-002/store.js";
 
+const FULL_ENTITLEMENT=Object.freeze({
+  schemaVersion:"d1-405.timeline-entitlement.1",
+  access:"FULL",verified:true,canRead:true,canCreate:true,canMutate:true,
+  canExport:true,reason:"Verified test entitlement."
+});
+
 const read=(relativePath)=>readFileSync(new URL(`../${relativePath}`,import.meta.url),"utf8");
 const styles=read("web/styles/uxr-002.css");
 const appSource=read("web/js/uxr-002/app.js");
@@ -161,7 +167,7 @@ test("§2.1 rail uses the exact dimensions, 250ms hover delay, and explicit pin 
 test("§2.1 pinned-rail preference persists durably without polluting undo history",async()=>{
   const adapter=new MemoryAdapter();
   const clock=()=>new Date("2032-06-01T12:00:00.000Z");
-  const store=new TimelineStore({adapter,clock});
+  const store=new TimelineStore({adapter,clock,entitlement:FULL_ENTITLEMENT});
   await store.initialize();
 
   const changed=store.mutate(
@@ -180,7 +186,7 @@ test("§2.1 pinned-rail preference persists durably without polluting undo histo
   });
   await store.saveNow("M1_RAIL_PREFERENCE");
 
-  const restored=new TimelineStore({adapter,clock});
+  const restored=new TimelineStore({adapter,clock,entitlement:FULL_ENTITLEMENT});
   const result=await restored.initialize();
   assert.equal(result.restored,true);
   assert.equal(restored.document.preferences.railPinned,true);

@@ -332,3 +332,45 @@ recipient-form continuity, name gating, recipient-scope authoring, and the
 empty-example legend. All six were corrected, covered by regression tests, and
 verified in the live browser before the complete 522-test gate was rerun.
 Final M10 Vitruvius re-audit: PASS.
+
+## M11 entitlement and migration gate
+
+| Check | Result |
+|---|---|
+| Functional TypeScript suite | 119/119 passed |
+| Browser/module suite | 421/421 passed |
+| Total | 540/540 passed |
+| Focused entitlement/migration suite | 16/16 passed |
+| Expanded changed-surface suite | 69/69 passed |
+| Administrator and eligible 360 | Passed |
+| Global disabled and explicit override allow/deny | Passed |
+| Zero with existing/no existing data | Passed |
+| Exact numeric and unlimited allowances | Passed |
+| Expiry, removal, ineligible | Passed |
+| Production unavailable/malformed fail-closed | Passed |
+| Pending/denied bootstrap zero writes | Passed |
+| Direct version/sync/blob bypasses blocked | Passed |
+| Exact-limit clean origin and numeric-zero override | Passed |
+| Trusted principal/issuer/audience/membership binding | Passed |
+| Pre-expiry checkpoint concurrency and event-loop stall | Passed |
+| Canvas mid-drag/keyboard/submit revocation | Passed |
+| No destructive effects on access change | Passed |
+| Export model and second preflight | Passed |
+| Migration input purity and idempotence | Passed |
+| IDs, geometry, unknown category/fields | Passed |
+| Themes, Advanced, advisor, specialty/interview, Export state | Passed |
+| Missing LOR evidence remains unknown/not submitted | Passed |
+| Live Administrator/360/zero/numeric/removed states | Passed |
+| Fresh removed-access browser console | 0 errors |
+| Typecheck | Passed |
+| Package verification | 23/23 passed |
+| Deterministic build | Passed; 198 runtime files |
+| Build manifest SHA-256 | `7242f0fb8b787935f8a7334e437fdc3335ad726158f3750a6cc0c96b6ac6cf0b` |
+
+Lorentz and Darwin audits exposed the bootstrap default, async/direct-write
+bypasses, migration-lineage risks, unknown-category loss, and transient Export
+state. Their final re-audits passed after strict production binding, exact-limit
+denial, synchronous pre-expiry persistence leasing, and dynamic-revocation
+guards were added. Vitruvius's final read-only semantics/focus re-audit also
+passed. The active 407F and retained inactive shell now share the corrected
+store/policy boundaries. The complete gate passed after those corrections.

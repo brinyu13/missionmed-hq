@@ -5,6 +5,12 @@ import {AUTOSAVE_DELAY,HISTORY_LIMIT} from "../web/js/uxr-002/constants.js";
 import {TimelineStore,migrateDocument} from "../web/js/uxr-002/store.js";
 import {contrastRatio,formatMonth,parseMonth} from "../web/js/uxr-002/utils.js";
 
+const FULL_ENTITLEMENT=Object.freeze({
+  schemaVersion:"d1-405.timeline-entitlement.1",
+  access:"FULL",verified:true,canRead:true,canCreate:true,canMutate:true,
+  canExport:true,reason:"Verified test entitlement."
+});
+
 class MemoryAdapter{
   constructor(){
     this.kind="deterministic-memory";
@@ -141,7 +147,7 @@ test("candidate contrast calculations reproduce Founder Addenda 001 and 002",()=
 
 test("initialization creates one durable atomic draft and restores it without rewriting",async()=>{
   const adapter=new MemoryAdapter();
-  const first=new TimelineStore({adapter,clock:advancingClock()});
+  const first=new TimelineStore({adapter,clock:advancingClock(),entitlement:FULL_ENTITLEMENT});
   const firstResult=await first.initialize();
 
   assert.deepEqual(firstResult,{
@@ -169,7 +175,7 @@ test("initialization creates one durable atomic draft and restores it without re
     "d1-uxr-002.1"
   );
 
-  const second=new TimelineStore({adapter,clock:advancingClock("2032-06-02T12:00:00.000Z")});
+  const second=new TimelineStore({adapter,clock:advancingClock("2032-06-02T12:00:00.000Z"),entitlement:FULL_ENTITLEMENT});
   const secondResult=await second.initialize();
   assert.equal(secondResult.restored,true);
   assert.equal(second.document.id,first.document.id);
@@ -180,7 +186,7 @@ test("initialization creates one durable atomic draft and restores it without re
 
 test("a no-op mutation changes no timestamp, history, save state, sequence, or persistence",async()=>{
   const adapter=new MemoryAdapter();
-  const store=new TimelineStore({adapter,clock:advancingClock()});
+  const store=new TimelineStore({adapter,clock:advancingClock(),entitlement:FULL_ENTITLEMENT});
   await store.initialize();
   const before=store.snapshot();
   const batchCount=adapter.atomicBatches.length;
@@ -212,7 +218,7 @@ test("a no-op mutation changes no timestamp, history, save state, sequence, or p
 test("history retains only the latest 50 material mutations",async()=>{
   assert.equal(HISTORY_LIMIT,50);
   const adapter=new MemoryAdapter();
-  const store=new TimelineStore({adapter,clock:advancingClock()});
+  const store=new TimelineStore({adapter,clock:advancingClock(),entitlement:FULL_ENTITLEMENT});
   await store.initialize();
 
   for(let index=1;index<=55;index+=1){
@@ -238,7 +244,7 @@ test("history retains only the latest 50 material mutations",async()=>{
 
 test("undo and redo restore document snapshots and maintain both history stacks",async()=>{
   const adapter=new MemoryAdapter();
-  const store=new TimelineStore({adapter,clock:advancingClock()});
+  const store=new TimelineStore({adapter,clock:advancingClock(),entitlement:FULL_ENTITLEMENT});
   await store.initialize();
   const originalTitle=store.document.title;
 
@@ -285,7 +291,7 @@ test("autosave waits exactly 800ms and then persists one atomic candidate snapsh
   assert.equal(AUTOSAVE_DELAY,800);
   t.mock.timers.enable({apis:["setTimeout"]});
   const adapter=new MemoryAdapter();
-  const store=new TimelineStore({adapter,clock:advancingClock()});
+  const store=new TimelineStore({adapter,clock:advancingClock(),entitlement:FULL_ENTITLEMENT});
   await store.initialize();
   adapter.atomicBatches.length=0;
 
