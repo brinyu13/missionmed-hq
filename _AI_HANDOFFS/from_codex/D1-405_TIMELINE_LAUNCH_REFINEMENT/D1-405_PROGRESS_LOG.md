@@ -413,4 +413,6 @@
   - Vitruvius final PASS.
 - Protected boundaries preserved: no push, deploy, Matrix, WordPress,
   production persistence, cloud storage, or external task creation.
+- Local implementation checkpoint:
+  `fae87de feat(timeline): add explanation and interview tools`.
 - Next action: M10 themes and export-audience refinement.

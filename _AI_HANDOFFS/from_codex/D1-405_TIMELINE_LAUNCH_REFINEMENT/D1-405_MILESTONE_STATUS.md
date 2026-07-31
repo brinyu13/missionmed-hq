@@ -16,7 +16,7 @@ Estimated overall completion: 84%
 | M6 Core Info/medical-school registry | COMPLETE | Commit `3f7923f` |
 | M7 exams and rotations | COMPLETE | Commit `18ab405`; 496/496 tests |
 | M8 specialty variants/LOR intelligence | COMPLETE | Shared facts, normalized variant config, active export; 504/504 tests |
-| M9 explanation/interview tools | COMPLETE | Bounded annotations, interview-specific target, shared local logo, truthful Calendar seam; 511/511 tests |
+| M9 explanation/interview tools | COMPLETE | Commit `fae87de`; bounded annotations, interview-specific target, shared local logo, truthful Calendar seam; 511/511 tests |
 | M10 themes/export audiences | PENDING | — |
 | M11 entitlements/migration | PENDING | — |
 | M12 accessibility/responsive/hardening | PENDING | — |

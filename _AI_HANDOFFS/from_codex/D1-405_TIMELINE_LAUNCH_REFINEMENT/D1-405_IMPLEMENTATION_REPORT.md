@@ -324,6 +324,8 @@ meaning, workflow, layout, or interaction model.
 - Complete M9 gate: 511/511 tests, typecheck, 23/23 package verification,
   deterministic 196-file build, zero live-browser warnings/errors, and final
   Miyamoto/Vitruvius PASS verdicts.
+- Implementation checkpoint:
+  `fae87de feat(timeline): add explanation and interview tools`.
 - Build manifest SHA-256:
   `857fd5364a5d2eabec04cfd5b19b99833fea0ea7b247e4789771dfd06382dbfa`.
 

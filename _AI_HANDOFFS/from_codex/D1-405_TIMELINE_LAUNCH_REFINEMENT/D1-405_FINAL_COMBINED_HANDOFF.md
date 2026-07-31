@@ -10,7 +10,7 @@ This document is maintained incrementally and is not a final-completion claim.
 - Branch: `d1-405-timeline-launch-refinement`
 - M7 checkpoint: `18ab405`
 - M8 checkpoint: `c622dbf`
-- M9 checkpoint: pending milestone commit
+- M9 checkpoint: `fae87de`
 - Local preview: `http://localhost:8793/web/`
 - Estimated completion: 84%
 
