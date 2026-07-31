@@ -115,3 +115,62 @@ Implemented seam:
   their approved conditional questions.
 - Production redistribution authority is external to the local provider. No
   code path promotes the local bundle to production or Matrix.
+
+## Exam and rotation intelligence seams — M7
+
+### Exam seam
+
+- `document.exams` remains the canonical record collection.
+- Scored pass/fail validation occurs before projection and Builder-completeness
+  derivation.
+- Provisional study periods remain deterministic projections linked to the
+  owning attempt ID.
+- Automatic retake suppression is stored under the existing Builder document
+  state and is reversible through the shared preview owner action.
+- No separate exam store or preview-only record exists.
+
+### Specialty taxonomy seam
+
+- `specialty-taxonomy.js` supplies stable `acgme:<slug>` IDs and pinned ordering.
+- Rotation events retain both factual display label and normalized ID.
+- The active selector disallows unsupported free text while remaining ready for
+  a future authoritative taxonomy replacement behind the same option shape.
+
+### Rotation date seam
+
+- `event.fields.rotationStartDate` and `rotationEndDate` store exact ISO days.
+- `event.startDate` and `event.endDate` remain month projections for the
+  retained board, adaptive layout, review, persistence, and export engines.
+- Form serialization calls the shared exact-date parser so formatted display
+  values and calendar commits converge on the same ISO representation.
+
+### Specialty-aware LOR seam
+
+- `rotation-lor.js` owns immutable status derivation and pure local command
+  construction.
+- Status identity is `(rotationId, targetSpecialtyId)`.
+- Durable reconstruction accepts both workflow input `status` and serialized
+  record `statusId`.
+- Clinical events retain their target-keyed status map with the owning factual
+  rotation; the adapter also maintains the normalized document record set.
+- Presentation decoration is derived at render time for the active target
+  specialty and never mutates the factual source event.
+- The board renderer consumes only a boolean presentation field and therefore
+  reuses the same star/legend serialization across all themes and exports.
+
+### LOR Builder adapter seam
+
+- Adapter kind: `missionmed-lor-builder-todo-adapter`.
+- Current mode: local queue.
+- Production connectivity: false.
+- Stable command identity binds timeline/student, rotation, and target
+  specialty.
+- Payload includes institution, normalized rotation specialty, optional
+  preceptor, exact rotation dates, current status, requested target specialty,
+  and recommended task type.
+- Queue update is idempotent.
+- Invalid commands preserve the existing queue.
+- The UI never claims task creation; the browser-verified result explicitly
+  says no production LOR Builder task was created.
+- Future production wiring must replace the adapter under separate authority;
+  no Matrix, WordPress, cloud, or external write is present.

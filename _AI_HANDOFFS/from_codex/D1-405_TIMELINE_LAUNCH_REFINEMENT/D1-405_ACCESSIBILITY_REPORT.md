@@ -158,3 +158,52 @@ Evidence:
 - `evidence/screenshots/D1-405-M6-core-info-medical-school-registry-corrected.png`
 - `evidence/screenshots/D1-405-M6-medical-school-alias-search-corrected.png`
 - `evidence/screenshots/D1-405-M6-unlisted-school-normalization-queue-corrected.png`
+
+## M7 — Exams, rotations, and LOR workflow
+
+- Scored Passed/Failed attempts expose `Score *`, `aria-required`, a specific
+  `Required.` error, and focus the first invalid score on Continue.
+- Awaiting result and genuine nonnumeric status paths do not receive a false
+  numeric-score requirement.
+- The preview retake action is a separate keyboard/pointer target and restores
+  focus to the exact retake date field.
+- The specialty selector is a named combobox/listbox with active-descendant
+  navigation, 44px options, non-free-text enforcement, `COMMON` badges, and
+  stable normalized values.
+- Exact rotation days reuse the shared named calendar dialogs and preserve
+  independent start/end validation, including date-order feedback.
+- LOR status uses four guided outcome buttons plus progressively disclosed exact
+  workflow statuses rather than a wall of fields.
+- Selected LOR outcomes use `aria-pressed`; workflow status remains available
+  through a labeled select.
+- The submitted marker is a named `role="img"` with `aria-label="LOR
+  submitted"`. The legend repeats the exact label. Neither depends on color.
+- Rotation event accessibility names include `LOR submitted` only for the
+  currently selected matching specialty.
+- Star and legend serialization passed across all five themes and export
+  rendering.
+- The local LOR Builder action announces its truthful result:
+  `Queued locally. No production LOR Builder task was created.`
+- The premium stepper retains tab semantics, non-color state glyphs, 44px-plus
+  targets, cyan focus, and reduced-motion overrides.
+- The single mobile automatic-retake badge reflows below the card heading rather
+  than narrowing or obscuring the Delete action.
+- Fresh-browser console after persistence restart and queue interaction:
+  zero warnings/errors.
+
+### M7 autonomous contrast/typography adjustment
+
+| Original | Replacement | Reason | Calculated contrast | Affected components |
+|---|---|---|---|---|
+| Undefined `.microLabel`, inheriting body-sized white text | 11px/650 `#75CFEA` uppercase micro-label | Restore card hierarchy while preserving wording, layout, workflow, and brand | 9.7573:1 on `#131B29`; 10.9957:1 on `#080D16` | `LETTER OF RECOMMENDATION` in the rotation LOR card |
+
+This is narrowly implementation-level under the Founder implementation
+authority. It does not replace `accent.gold`, `accent.goldText`,
+`ink.secondary`, or `ink.tertiary`, and it does not reinterpret unrelated
+theme colors.
+
+Specialist verdicts:
+
+- Miyamoto: initial FAIL for the undefined micro-label treatment; final PASS
+  after correction.
+- Vitruvius: PASS; no concrete M7 functional or accessibility defect.

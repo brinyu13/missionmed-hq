@@ -159,3 +159,51 @@ The ingestion evidence validates the raw snapshot, dataset, records payload,
 aggregate accreditation response, manifest, and script hashes. No completeness
 claim is made. The only remaining data issue is an external production
 redistribution authority gate; it is not a local test failure.
+
+## M7 — Exams and rotations
+
+| Check | Result |
+|---|---|
+| Functional TypeScript suite | 119/119 passed |
+| Browser/module suite | 377/377 passed |
+| Total | 496/496 passed |
+| M7 final targeted exams/rotations/LOR/date/renderer gate | 31/31 passed |
+| Scored pass/fail requires score | Passed |
+| Awaiting/nonnumeric score exception | Passed |
+| Invalid scored record excluded from projection/completeness | Passed |
+| Automatic retake suppression/restoration persistence | Passed |
+| Pinned specialty order and normalized IDs | Passed |
+| Unsupported specialty free text blocked | Passed |
+| Exact-day formatted display/save round trip | Passed |
+| Rotation date-order validation | Passed |
+| LOR durable `statusId` reconstruction | Passed |
+| Rotation/target-specialty isolation | Passed |
+| Star and conditional legend across five themes | Passed |
+| Local queue idempotency and non-destructive failure | Passed |
+| `productionCreated:false` truthfulness | Passed |
+| LOR micro-label contrast regression | Passed; 9.7573:1 and 10.9957:1 |
+| Typecheck | Passed |
+| Package verification | 23/23 passed |
+| Deterministic build | Passed; 193 runtime files |
+| Build manifest SHA-256 | `7cd64b9622180e2dc7a888025a4d69d7cdfe1475237ac00323a62cde2c43df48` |
+| `git diff --check` | Passed |
+| Fresh browser console | 0 warnings/errors |
+| Browser persistence restart | Passed |
+| Browser local LOR queue interaction | Passed; explicitly no production task |
+| Miyamoto visual re-audit | PASS |
+| Vitruvius functional/accessibility re-audit | PASS |
+
+Browser testing exposed two defects before the final gate:
+
+1. The exact-day field correctly displayed `Jun 9, 2025` but the save path
+   accepted only the hidden ISO representation. The shared parser is now used
+   at form serialization and the exact display/save round trip passes.
+2. Durable LOR records serialize `statusId`, while the initial reconstruction
+   path expected `status`. Reconstruction now accepts both input forms and a
+   serialized-record restart regression passes.
+
+The retained `npm run test:web` wrapper remains an inherited CommonJS/ESM
+invocation mismatch and is not the D1-405 package verification command. The
+authoritative `npm test`, `npm run typecheck`, `npm run verify`, and
+`npm run build` gates all pass. This wrapper is recorded for the later
+production-hardening milestone rather than represented as a product-test pass.

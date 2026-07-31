@@ -260,3 +260,72 @@
 - Production-only external gate: DAPIP redistribution authority requires legal
   confirmation before production distribution.
 - Next action: M7 Exams workflow completion.
+
+## 2026-07-31T00:43:20Z — M7 exams and rotations checkpoint
+
+- Estimated overall completion: 72%.
+- Preserved the canonical 407F application, shared TimelineStore, one-column
+  Builder editor, larger interactive right preview, and full-preview lightbox.
+- Refined only the horizontal stepper treatment with restrained machined
+  texture, inset depth, tactile hover/press states, gold current, green
+  complete, amber started, cyan focus, and non-color glyph/rail cues.
+- Exams:
+  - scored Passed/Failed attempts require an exact score;
+  - Awaiting result remains valid without a score;
+  - invalid scored attempts do not project or complete the step;
+  - automatic retake suppression/restoration is durable;
+  - the provisional retake action is independently keyboard operable.
+- Rotations:
+  - added normalized specialty IDs and a searchable selector;
+  - pinned the ten Founder-specified common specialties alphabetically before
+    the remaining alphabetical taxonomy;
+  - preserved exact ISO start/end days and month-axis projections;
+  - corrected formatted-date round-trip validation after browser proof.
+- LOR workflow:
+  - added all ten guided statuses and four derived states;
+  - kept status per rotation and per target-specialty ID;
+  - rendered a non-color accessible star and conditional `LOR submitted`
+    legend in all five themes and export serialization;
+  - added a stable, idempotent local-only LOR Builder queue command;
+  - browser proof returned `Queued locally. No production LOR Builder task was
+    created.`;
+  - corrected durable `statusId` reconstruction after fresh-browser console
+    evidence exposed the serialization defect.
+- Founder steering Media requirements remain implemented through the one shared
+  local asset collection and shared Builder/Edit Timeline drag/drop seam; no
+  duplicate media system was introduced.
+- Screenshots:
+  - `evidence/screenshots/D1-405-M7-exam-required-score.jpg`
+  - `evidence/screenshots/D1-405-M7-exam-failure-retake.jpg`
+  - `evidence/screenshots/D1-405-M7-premium-step-navigation.jpg`
+  - `evidence/screenshots/D1-405-M7-rotation-specialty-pinned.jpg`
+  - `evidence/screenshots/D1-405-M7-rotation-exact-dates-lor-workflow.jpg`
+  - `evidence/screenshots/D1-405-M7-lor-star-legend.jpg`
+- Verification:
+  - functional TypeScript suite: 119/119 passed;
+  - browser/module suite: 377/377 passed;
+  - total: 496/496 passed;
+  - M7 targeted final gate: 31/31 passed;
+  - typecheck: passed;
+  - package verification: 23/23 passed;
+  - deterministic build: passed; 193 runtime files;
+  - build manifest SHA-256:
+    `7cd64b9622180e2dc7a888025a4d69d7cdfe1475237ac00323a62cde2c43df48`;
+  - `git diff --check`: passed;
+  - fresh-browser console after persisted restart and local queue interaction:
+    zero warnings/errors.
+- Specialist verdicts:
+  - Miyamoto: initial FAIL for an undefined LOR micro-label treatment; corrected
+    to compact 11px/650 cyan and final PASS.
+  - Vitruvius: PASS; no concrete M7 functional defect.
+- Autonomous accessibility adjustment:
+  - original: inherited body-sized white `LETTER OF RECOMMENDATION`;
+  - replacement: 11px/650 `#75CFEA` on the dark LOR card;
+  - reason: restore hierarchy without changing wording or brand identity;
+  - calculated contrast: 9.7573:1 on `#131B29` and 10.9957:1 on `#080D16`;
+  - affected component: rotation LOR card micro-label.
+- Implementation checkpoint:
+  `18ab405 feat(timeline): add exam and rotation intelligence`.
+- No push, deployment, Matrix mutation, WordPress mutation, cloud-storage
+  write, or production LOR task creation occurred.
+- Next action: M8 target-specialty variants over one shared factual history.

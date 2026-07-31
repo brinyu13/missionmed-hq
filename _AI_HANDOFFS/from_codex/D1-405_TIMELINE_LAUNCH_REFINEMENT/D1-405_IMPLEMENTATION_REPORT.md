@@ -199,3 +199,65 @@ No product hierarchy, workflow, behavior, or meaning changed through this adjust
 - Production-only external gate: confirm DAPIP redistribution authority before
   any production distribution. This does not block the local/no-deploy
   milestone.
+
+## M7 — Exams, normalized rotations, and specialty-aware LOR intelligence
+
+- Preserved the 407F horizontal workflow, one primary form column, larger
+  interactive right preview, full-preview lightbox, and shared TimelineStore.
+- Refined only the stepper presentation with layered/recessed 407F surfaces,
+  tactile hover and press states, restrained gold/green/amber/cyan hierarchy,
+  completion glyphs, visible focus, and reduced-motion behavior.
+- Completed the scored-exam contract:
+  - Passed/Failed scored exams require a score;
+  - Awaiting and genuine nonnumeric statuses remain valid without a score;
+  - invalid scored records cannot complete the Builder step or project a board
+    event;
+  - system deselection retains records without reappearing until reselected;
+  - automatic retake suppression is durable and the preview action restores the
+    exact attempt/date control.
+- Added one locally bundled specialty taxonomy with stable `acgme:<slug>` IDs.
+  The ten required common specialties are pinned alphabetically; the remaining
+  supported labels remain alphabetical. Unsupported free text cannot be saved
+  as a normalized rotation specialty.
+- Exact rotation days remain canonical `YYYY-MM-DD` fields while the retained
+  axis continues to receive month projections. A shared parser now canonicalizes
+  formatted display values during save, preventing a rendered exact date from
+  failing its own round trip.
+- Added `rotation-lor.js` as the pure specialty-aware status and local command
+  layer:
+  - ten guided statuses;
+  - four founder-required derived states;
+  - immutable records keyed by rotation and target-specialty ID;
+  - durable reconstruction from serialized `statusId` records;
+  - stable/idempotent LOR Builder command IDs;
+  - local-only queue and unavailable adapters with non-destructive failure.
+- The 407F adapter keeps the status alongside the owning clinical event and in
+  the normalized rotation-LOR record set, decorates only the active target
+  specialty for presentation, and does not duplicate factual timelines.
+- The canonical board renderer adds a labeled star to the matching submitted
+  rotation and one conditional `LOR submitted` legend entry. Both serialize in
+  all five themes and remain non-color accessible.
+- The LOR Builder action carries timeline/student identity, rotation,
+  institution, normalized rotation specialty, preceptor, exact dates, current
+  status, requested target specialty, and recommended task type. It reports
+  `productionCreated:false`; no external task is fabricated.
+- Complete gate: 496/496 tests, typecheck, 23/23 package verification,
+  deterministic build, `git diff --check`, and a zero-warning/error fresh
+  browser console passed.
+- Build output: 193 runtime files; manifest SHA-256
+  `7cd64b9622180e2dc7a888025a4d69d7cdfe1475237ac00323a62cde2c43df48`.
+- Implementation checkpoint:
+  `18ab405 feat(timeline): add exam and rotation intelligence`.
+- Specialist verdicts: Miyamoto PASS after one hierarchy correction;
+  Vitruvius PASS with no concrete functional defect.
+
+### M7 autonomous implementation-level accessibility adjustment
+
+| Original token/treatment | Replacement | Reason | Calculated contrast | Affected components |
+|---|---|---|---|---|
+| Undefined `.microLabel`, inheriting body-sized white text on the dark LOR card | Compact 11px/650 `#75CFEA` uppercase micro-label | Restore premium hierarchy and keep the Founder-visible wording, workflow, and brand materially unchanged | 9.7573:1 on `#131B29`; 10.9957:1 on `#080D16` | Rotation LOR card `LETTER OF RECOMMENDATION` label |
+
+This adjustment is within
+`D1-UXR-002 IMPLEMENTATION AUTHORITY ADDENDUM 001`: it is an
+implementation-level typography/contrast treatment and changes no product
+meaning, workflow, layout, or interaction model.

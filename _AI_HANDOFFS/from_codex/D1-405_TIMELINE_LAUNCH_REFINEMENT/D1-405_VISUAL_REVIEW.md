@@ -165,3 +165,49 @@ Evidence:
 - `evidence/screenshots/D1-405-M6-core-info-medical-school-registry-corrected.png`
 - `evidence/screenshots/D1-405-M6-medical-school-alias-search-corrected.png`
 - `evidence/screenshots/D1-405-M6-unlisted-school-normalization-queue-corrected.png`
+
+## M7 exams and rotations visual review
+
+The Founder steering was applied as a visual refinement, not a redesign:
+
+- the horizontal seven-step layout remains unchanged;
+- the one-column editing workspace remains primary;
+- the larger proportional interactive preview remains on the right;
+- full preview remains available;
+- no form columns or replacement navigation system were introduced.
+
+The stepper now presents:
+
+- restrained machined texture and inset/recessed depth;
+- a gold current-state rail and selected edge;
+- subordinate green complete state;
+- amber started state;
+- neutral empty state;
+- non-color glyphs and under-rails;
+- tactile hover lift and pressed depression;
+- cyan focus and reduced-motion suppression;
+- no glossy or childish treatment.
+
+The rotation/LOR surface uses the same 407F material language:
+
+- gold edge and restrained diagonal texture;
+- cyan target-specialty badge;
+- exact dates above the LOR workflow;
+- four tactile guided outcome buttons;
+- a small gold/dark submitted star;
+- a conditional bottom-right board legend.
+
+Miyamoto’s first M7 audit returned one concrete FAIL: the unstyled
+`LETTER OF RECOMMENDATION` label inherited body-sized white text and competed
+with the card heading. The correction applies a compact 11px/650 cyan
+micro-label with 9.7573:1–10.9957:1 contrast across the card gradient bounds.
+The corrected screenshot was recaptured and the final re-audit returned PASS.
+
+Evidence:
+
+- `evidence/screenshots/D1-405-M7-premium-step-navigation.jpg`
+- `evidence/screenshots/D1-405-M7-rotation-specialty-pinned.jpg`
+- `evidence/screenshots/D1-405-M7-rotation-exact-dates-lor-workflow.jpg`
+- `evidence/screenshots/D1-405-M7-lor-star-legend.jpg`
+
+Final M7 visual verdict: PASS.
