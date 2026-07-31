@@ -410,6 +410,12 @@ stopped before tests. PATH was explicitly pinned to installed PostgreSQL 18.4;
 the complete suite then passed. This was an environment-selection issue, not a
 test or production failure.
 
+The terminal provenance audit first scoped `STORYFORGE_EXPECTED_COMMIT` only
+to the WordPress-manifest npm command in a chained shell expression. That check
+passed, while the following product-provenance command correctly refused to
+run without its explicit pin. Exporting the exact HEAD for the command chain
+resolved the precondition and product provenance passed. No artifact changed.
+
 The E2E and conformance suites regenerated six older B1-507 screenshot
 artifacts. Exact committed bytes were restored; they are not B1-508 changes.
 

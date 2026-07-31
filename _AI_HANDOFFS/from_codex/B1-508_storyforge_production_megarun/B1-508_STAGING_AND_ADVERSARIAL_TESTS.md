@@ -29,6 +29,11 @@ The two Critical Systems warnings are report-only limitations: Kinsta has no
 process start command, and browser journeys require a browser harness. Both
 were separately exercised through provider-console/browser evidence.
 
+The final product-provenance audit initially omitted the required commit pin
+from the second npm command in a chained shell expression. The unpinned command
+failed closed before verification. It was rerun with the exact HEAD exported
+for the command chain and passed; no release artifact changed.
+
 ## Security-negative coverage
 
 - Anonymous API access: 401.
