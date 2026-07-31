@@ -416,3 +416,42 @@
 - Local implementation checkpoint:
   `fae87de feat(timeline): add explanation and interview tools`.
 - Next action: M10 themes and export-audience refinement.
+
+## 2026-07-31 — M10 Themes and explicit Export audiences checkpoint
+
+- Preserved the five frozen themes and Advanced Studio.
+- Added active-student theme previews and clearly labeled empty-account example
+  previews through the same renderer and theme definitions.
+- Added a safe future admin theme package seam with schema, version,
+  compatibility, permission, asset-integrity, preview, and fallback boundaries.
+- Rejected arbitrary CSS, JavaScript, HTML, executable assets, and unapproved
+  asset references; no production admin backend was built.
+- Replaced the user-facing `Everything` Export choice with Interview-safe, LOR
+  writer, Professional connection, and Mission Residency alumni connection.
+- Added audience-specific recipient fields and required-detail export gating.
+- Added deterministic visibility: exact audience opt-in for advisor-only
+  events; hidden/student-only excluded; preview/download share one input.
+- Reverified the premium horizontal stepper, one-column/right-preview Builder,
+  first-class Media route, and shared local drag/drop architecture.
+- Browser review exposed and corrected an attribute-order-dependent
+  theme-picker visibility defect in both Canvas and Export.
+- Vitruvius identified six bounded hardening gaps. Corrected Canvas theme
+  focus/Escape restoration, Export modal trapping/inert/backdrop/restoration,
+  recipient-field focus continuity, missing-name gating, Canvas recipient
+  scope authoring, and the empty-example LOR legend.
+- Verification:
+  - TypeScript suite: 119/119;
+  - browser/module suite: 403/403;
+  - total: 522/522;
+  - typecheck: passed;
+  - package verification: 23/23;
+  - deterministic build: 197 runtime files;
+  - manifest SHA-256:
+    `d7a1ed69e9a5ffda6ebb70d566265ec7a1801e4000013e8dce029a648d3798cc`;
+  - populated and clean-origin browser console: zero errors.
+- Specialist verdicts:
+  - Miyamoto: PASS;
+  - Vitruvius: PASS after all six hardening findings were corrected.
+- Protected boundaries preserved: no push, deploy, Matrix, WordPress,
+  production persistence, cloud storage, or external task creation.
+- Next action: M11 entitlement and migration work.

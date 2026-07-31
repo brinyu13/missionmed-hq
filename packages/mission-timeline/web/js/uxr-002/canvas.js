@@ -1360,7 +1360,10 @@ export function renderCanvas({
   }
 
   const themeMarkup = typeof renderTheme === "function"
-    ? String(renderTheme(document) || "").replace("data-theme-picker hidden","data-theme-picker")
+    ? String(renderTheme(document) || "").replace(
+      /(<div class="theme-picker-popover"[^>]*?)\s+hidden>/,
+      "$1>"
+    )
     : "";
   const advancedMarkup = typeof renderAdvanced === "function"
     ? String(renderAdvanced(document,{
@@ -1518,6 +1521,10 @@ export function installCanvas(
         root.querySelector?.(".history-slide-over button")?.focus();
       } else if (focus === "details") {
         root.querySelector?.(".canvas-details-sheet button")?.focus();
+      } else if (focus === "theme-picker") {
+        root.querySelector?.("[data-theme-picker] [data-select-theme], [data-theme-picker] [data-open-backgrounds]")?.focus();
+      } else if (focus === "theme-trigger") {
+        root.querySelector?.('[data-canvas-action="theme"]')?.focus();
       }
     });
   };
@@ -1574,7 +1581,7 @@ export function installCanvas(
     }
     if (selectThemeTarget) {
       onSelectTheme(selectThemeTarget.dataset.selectTheme);
-      setState({...state,themeOpen:false});
+      setState({...state,themeOpen:false},{focus:"theme-trigger"});
       return;
     }
     if (openBackgroundsTarget) {
@@ -1686,7 +1693,11 @@ export function installCanvas(
     } else if (action === "redo") {
       announceResult(redoCanvas(store).announcement);
     } else if (action === "theme") {
-      setState({...state,themeOpen:!state.themeOpen});
+      const opening=!state.themeOpen;
+      setState(
+        {...state,themeOpen:opening},
+        {focus:opening?"theme-picker":"theme-trigger"}
+      );
       onTheme({state,document:store.document});
     } else if (action === "history") {
       setState({...state,historyOpen:true,historyNaming:false,versionMenuId:null},{focus:"history"});
@@ -1826,6 +1837,11 @@ export function installCanvas(
       return;
     }
     if (event.key === "Escape") {
+      if (state.themeOpen) {
+        event.preventDefault();
+        setState({...state,themeOpen:false},{focus:"theme-trigger"});
+        return;
+      }
       if (state.detailsEventId) {
         event.preventDefault();
         setState({...state,detailsEventId:null},{focus:"selected"});

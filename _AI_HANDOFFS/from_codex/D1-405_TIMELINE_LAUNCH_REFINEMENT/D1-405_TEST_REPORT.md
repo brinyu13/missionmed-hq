@@ -285,3 +285,50 @@ paths. It was not modified or executed through a workaround because doing so
 would cross the D1-405 no-touch boundary. The current candidate is validated by
 the active 511-test package suite, live in-app browser checks, typecheck,
 23 package gates, and the deterministic build.
+
+## M10 — Themes and explicit export audiences
+
+| Check | Result |
+|---|---|
+| Functional TypeScript suite | 119/119 passed |
+| Browser/module suite | 403/403 passed |
+| Total | 522/522 passed |
+| Five frozen theme regressions | Passed |
+| Student-content theme previews | Passed live |
+| Empty-account labeled examples | Passed live |
+| Same canonical renderer for both preview sources | Passed |
+| Structured admin package validation | Passed |
+| CSS/JS/HTML/executable rejection | Passed |
+| Permission, asset digest, compatibility, version advance | Passed |
+| Unknown-theme safe fallback | Passed |
+| Four explicit audience policies | Passed |
+| No user-facing `Everything` audience | Passed |
+| Recipient-detail progressive disclosure | Passed live |
+| Required-detail export gate | Passed |
+| Missing-student-name export gate | Passed |
+| Recipient-detail focus preservation | Passed live |
+| Canvas/Export theme focus and Escape restoration | Passed live |
+| Export modal focus trap, inert background, backdrop close | Passed live |
+| Canvas recipient-scope authoring | Passed |
+| Empty-example LOR legend in all five themes | Passed |
+| Hidden/student-only exclusion | Passed |
+| Explicit advisor-only audience scopes | Passed |
+| Preview/download input identity | Passed |
+| Founder Builder/Media steering regression | Passed |
+| Fresh browser console | 0 errors |
+| Typecheck | Passed |
+| Package verification | 23/23 passed |
+| Deterministic build | Passed; 197 runtime files |
+| Build manifest SHA-256 | `d7a1ed69e9a5ffda6ebb70d566265ec7a1801e4000013e8dce029a648d3798cc` |
+
+The Canvas and Export theme-opening paths initially depended on the old exact
+`data-theme-picker hidden` attribute order. Adding the preview-source
+attribute exposed that brittleness during browser review; both paths now remove
+only the picker’s final `hidden` attribute with a bounded root-div expression.
+The corrected cards were then verified in populated and clean-origin browsers.
+
+Vitruvius then identified six bounded hardening gaps in focus ownership,
+recipient-form continuity, name gating, recipient-scope authoring, and the
+empty-example legend. All six were corrected, covered by regression tests, and
+verified in the live browser before the complete 522-test gate was rerun.
+Final M10 Vitruvius re-audit: PASS.

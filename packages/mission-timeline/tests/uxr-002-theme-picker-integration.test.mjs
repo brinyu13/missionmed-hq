@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  THEME_EXAMPLE_LABEL,
   buildThemePickerForDocument,
   renderThemePicker
 } from "../web/js/uxr-002/theme-picker.js";
@@ -54,4 +55,24 @@ test("D1-405 renders all theme miniatures for an N<4 student timeline",()=>{
   assert.doesNotMatch(html,/data-render-isolated/);
   assert.equal((html.match(/data-select-theme=/g)||[]).length,5);
   assert.equal((html.match(/data-renderer="D1-UXR-002-Keynote-Classic"/g)||[]).length,5);
+});
+
+test("M10 empty accounts receive clearly labeled examples through the same renderer and theme definitions",()=>{
+  const document=defaultDocument();
+  const model=buildThemePickerForDocument(document,{currentMonth:"2026-07"});
+  assert.equal(model.contentSource,"example");
+  assert.equal(model.example,true);
+  for(const cell of model.cells.filter(({kind})=>kind==="theme")){
+    assert.equal(cell.miniatureInput.source,"example-board");
+    assert.equal(cell.miniatureInput.example,true);
+    assert.equal(cell.miniatureInput.exampleLabel,THEME_EXAMPLE_LABEL);
+    assert.ok(cell.miniatureInput.eventCount>=4);
+    assert.match(cell.miniature,/data-renderer="D1-UXR-002-Keynote-Classic"/);
+    assert.match(cell.miniature,/data-lor-legend="true"/);
+  }
+  const html=renderThemePicker(document,{currentMonth:"2026-07"});
+  assert.match(html,/data-theme-preview-source="example"/);
+  assert.equal((html.match(/EXAMPLE TIMELINE/g)||[]).length,5);
+  assert.equal((html.match(/example timeline preview/g)||[]).length,5);
+  assert.doesNotMatch(html,/data-render-isolated/);
 });

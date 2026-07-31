@@ -57,7 +57,8 @@ function timeline(){
       categoryId:"personal",
       eventType:"milestone",
       startDate:"2023-06",
-      visibilityState:"ADVISOR_ONLY"
+      visibilityState:"ADVISOR_ONLY",
+      fields:{exportAudiences:["LOR_WRITER"]}
     }
   ];
   return document;
@@ -104,7 +105,7 @@ test("407F reuses export-screen.js and the verified local Export adapter against
   assert.equal(local.metadata.productionWrites,false);
 });
 
-test("active Export preserves exact audience, format, filename, and collapsed print-guidance behavior",()=>{
+test("active Export preserves explicit audience, format, filename, and collapsed print-guidance behavior",()=>{
   assert.equal(DEFAULT_EXPORT_AUDIENCE,"INTERVIEWER_SAFE");
   assert.equal(DEFAULT_EXPORT_FORMAT_ID,"png-1920x1080");
   assert.deepEqual(EXPORT_FORMATS.map(({label})=>label),[
@@ -120,7 +121,7 @@ test("active Export preserves exact audience, format, filename, and collapsed pr
     ["safe"]
   );
   assert.deepEqual(
-    filterEventsForAudience(document.events,"EVERYTHING").included.map(({id})=>id),
+    filterEventsForAudience(document.events,"LOR_WRITER").included.map(({id})=>id),
     ["safe","advisor"]
   );
   assert.equal(
@@ -130,7 +131,17 @@ test("active Export preserves exact audience, format, filename, and collapsed pr
 
   const html=renderExportScreen(document,{
     state:{
-      audience:"EVERYTHING",
+      audience:"LOR_WRITER",
+      audienceDetails:{
+        LOR_WRITER:{
+          writerName:"Dr. Maya Chen",
+          titlePosition:"Program Director",
+          institution:"Mission University Hospital",
+          specialty:"Pediatrics",
+          relationship:"Rotation supervisor",
+          understanding:"Clinical growth and service commitment"
+        }
+      },
       formatId:"pdf-letter-landscape",
       showPrintMargins:true
     },
@@ -138,9 +149,12 @@ test("active Export preserves exact audience, format, filename, and collapsed pr
     now:fixedNow
   });
   assert.match(html,/data-export-layout="two-column" data-export-controls-width="380"/);
-  assert.match(html,/>Interview-safe<\/span>/);
-  assert.match(html,/>Everything<\/span>/);
-  assert.match(html,/Includes advisor-only items\. Don&#039;t hand this version to programs\./);
+  assert.match(html,/>Interview-safe<\/option>/);
+  assert.match(html,/>LOR writer<\/option>/);
+  assert.match(html,/>Professional connection<\/option>/);
+  assert.match(html,/>Mission Residency alumni connection<\/option>/);
+  assert.doesNotMatch(html,/>Everything</);
+  assert.match(html,/data-export-audience-detail="writerName"/);
   assert.equal((html.match(/name="export-format"/g)||[]).length,4);
   assert.match(html,/data-month-field="export-interview-season"/);
   assert.match(html,/data-print-margin-mm="12\.7"/);
@@ -205,6 +219,48 @@ test("407F Export integration keeps preview, download, versions, and document up
   assert.match(integration,/onStateChange:/);
   assert.match(integration,/store\.mutate\(/);
   assert.doesNotMatch(integration,/simulated\s*:\s*true|executionMode\s*:\s*["']simulated["']/);
+});
+
+test("M10 Export theme modal traps focus, closes on Escape or backdrop, and restores its opener",()=>{
+  const themeDialog=sourceBetween(
+    adapter,
+    "const closeExportThemeDialog=",
+    "const openAdvisorPaperSuggestion="
+  );
+  assert.match(themeDialog,/installFocusTrap\(dialog,\{/);
+  assert.match(themeDialog,/onEscape:\(\)=>closeExportThemeDialog\(\)/);
+  assert.match(themeDialog,/event\.target\?\.id!==["']modalBk["']/);
+  assert.match(themeDialog,/previewBackgroundInert\(true\)/);
+  assert.match(themeDialog,/previewBackgroundInert\(false\)/);
+  assert.match(themeDialog,/exportThemeOpener\?\.focus\?\.\(\)/);
+});
+
+test("M10 Export rerenders preserve the audience selector and never replace recipient fields on blur",()=>{
+  const integration=sourceBetween(
+    adapter,
+    'const exportHost=document.getElementById("export407F")',
+    "api.undo="
+  );
+  assert.match(
+    integration,
+    /reason===["']audience["'][\s\S]*queueExportRender\(\{focusSelector:["']\[data-export-audience\]["']\}\)/
+  );
+  assert.doesNotMatch(
+    integration,
+    /\[[\s\S]*["']audience-detail["'][\s\S]*\]\.includes\(reason\)[\s\S]*queueExportRender/
+  );
+});
+
+test("M10 Canvas Details authors recipient-specific sharing on the shared event fields",()=>{
+  assert.match(adapter,/id:"LOR_WRITER",label:"LOR writers"/);
+  assert.match(adapter,/id:"PROFESSIONAL_CONNECTION",label:"Professional connections"/);
+  assert.match(adapter,/id:"MISSION_RESIDENCY_ALUMNI",label:"Mission Residency alumni connections"/);
+  assert.match(adapter,/data-canvas-export-audience="\$\{id\}"/);
+  assert.match(
+    adapter,
+    /querySelectorAll\("\[data-canvas-export-audience\]:checked"\)/
+  );
+  assert.match(adapter,/exportAudiences:Array\.from\(/);
 });
 
 test("active 407F CSS styles Export surfaces without theming the shell",()=>{

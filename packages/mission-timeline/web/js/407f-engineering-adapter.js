@@ -788,6 +788,12 @@ function canvasDetailField([key,label,type="text"],event){
   return `<label class="canvas407FDetailField"><span>${escapeMarkup(label)}</span><input type="text" data-canvas-detail-field="${key}" value="${escapeMarkup(value)}"></label>`;
 }
 
+const CANVAS_EXPORT_AUDIENCE_OPTIONS=Object.freeze([
+  Object.freeze({id:"LOR_WRITER",label:"LOR writers"}),
+  Object.freeze({id:"PROFESSIONAL_CONNECTION",label:"Professional connections"}),
+  Object.freeze({id:"MISSION_RESIDENCY_ALUMNI",label:"Mission Residency alumni connections"})
+]);
+
 function renderCanvasDetails(route,event,document){
   const domain=event.fields?.builderDomain||event.categoryId||"personal";
   const detailFields=CANVAS_DETAIL_FIELDS[domain]||[];
@@ -795,6 +801,11 @@ function renderCanvasDetails(route,event,document){
   const clinical=domain==="clinical";
   const variant=activeSpecialtyVariant(document||{});
   const visibleInVariant=!variant.hiddenEventIds.includes(String(event.id));
+  const exportAudiences=new Set(
+    Array.isArray(event.fields?.exportAudiences)
+      ?event.fields.exportAudiences.map((value)=>String(value).toUpperCase())
+      :[]
+  );
   const startDateControl=clinical
     ?exactDateFieldMarkup({
       id:`canvas-${event.id}-rotation-start`,
@@ -844,6 +855,11 @@ function renderCanvasDetails(route,event,document){
         <option value="INTERVIEWER_SAFE" ${event.visibilityState==="INTERVIEWER_SAFE"?"selected":""}>Show everyone</option>
         <option value="ADVISOR_ONLY" ${event.visibilityState==="ADVISOR_ONLY"?"selected":""}>Advisor only</option>
       </select></label>
+      <fieldset class="canvas407FRecipientSharing canvas407FDetailWide">
+        <legend>Recipient sharing</legend>
+        <p>For advisor-only items, choose which export audiences may receive this item.</p>
+        ${CANVAS_EXPORT_AUDIENCE_OPTIONS.map(({id,label})=>`<label class="canvas407FDetailCheck"><input type="checkbox" data-canvas-export-audience="${id}" ${exportAudiences.has(id)?"checked":""}> <span>${escapeMarkup(label)}</span></label>`).join("")}
+      </fieldset>
       <label class="canvas407FDetailCheck canvas407FDetailWide"><input type="checkbox" data-canvas-variant-visible ${visibleInVariant?"checked":""}> <span>Show in ${escapeMarkup(variant.name)}</span></label>
       <label class="canvas407FDetailField"><span>Site / location</span><input type="text" data-canvas-detail-key="siteName" value="${escapeMarkup(event.siteName)}"></label>
       ${detailFields.map((field)=>canvasDetailField(field,event)).join("")}
@@ -896,6 +912,7 @@ export async function boot407FEngineeringAdapter({
   let removeAdvanced=()=>{};
   let exportController=null;
   let exportRenderQueued=false;
+  let exportRenderFocusSelector=null;
   let approvalReconciling=false;
   let advisorCleanup=()=>{};
   let advisorEditingCommentId=null;
@@ -935,6 +952,9 @@ export async function boot407FEngineeringAdapter({
   let fileVaultTrap=null;
   let builderPreviewTrap=null;
   let specialtyVariantTrap=null;
+  let exportThemeTrap=null;
+  let exportThemeOpener=null;
+  let onExportThemeBackdrop=()=>{};
   let specialtyVariantOpener=null;
   let builderPreviewZoom=createCanvasZoom("fit");
   let builderPreviewOpener=null;
@@ -1050,6 +1070,12 @@ export async function boot407FEngineeringAdapter({
     fileVaultTrap?.destroy();
     builderPreviewTrap?.destroy();
     specialtyVariantTrap?.destroy();
+    exportThemeTrap?.destroy();
+    document.getElementById("modalBk")?.removeEventListener(
+      "click",
+      onExportThemeBackdrop,
+      true
+    );
     store.saveNow("PAGE_EXIT").catch(()=>{});
   },{once:true});
 
@@ -2622,18 +2648,44 @@ export async function boot407FEngineeringAdapter({
     });
     return`<div class="board-preview canonical-board-preview export407FBoard" role="img" aria-label="Export preview" data-theme="${escapeMarkup(input.timeline.theme||DEFAULT_THEME_ID)}">${rendered.svg}</div>`;
   };
-  const queueExportRender=()=>{
+  const queueExportRender=({focusSelector=null}={})=>{
+    if(focusSelector)exportRenderFocusSelector=focusSelector;
     if(exportRenderQueued)return;
     exportRenderQueued=true;
     queueMicrotask(()=>{
       exportRenderQueued=false;
-      if(bridge.state.view==="export")renderExportHost();
+      if(bridge.state.view==="export"){
+        renderExportHost();
+        const selector=exportRenderFocusSelector;
+        exportRenderFocusSelector=null;
+        if(selector)queueMicrotask(()=>document.querySelector(selector)?.focus());
+      }else{
+        exportRenderFocusSelector=null;
+      }
     });
+  };
+  const closeExportThemeDialog=({restoreFocus=true}={})=>{
+    const trap=exportThemeTrap;
+    exportThemeTrap=null;
+    trap?.destroy();
+    document.getElementById("modalBk")?.removeEventListener(
+      "click",
+      onExportThemeBackdrop,
+      true
+    );
+    bridge.closeModal?.();
+    previewBackgroundInert(false);
+    if(restoreFocus)exportThemeOpener?.focus?.();
+    exportThemeOpener=null;
   };
   const openExportThemeDialog=()=>{
     if(typeof bridge.openModal!=="function")return;
+    exportThemeOpener=document.activeElement;
     const picker=renderThemePicker(store.document)
-      .replace("data-theme-picker hidden","data-theme-picker");
+      .replace(
+        /(<div class="theme-picker-popover"[^>]*?)\s+hidden>/,
+        "$1>"
+      );
     bridge.openModal(`<section class="export407FThemeDialog" role="dialog" aria-modal="true" aria-label="Choose theme">
       <div class="export407FDialogHeader">
         <h2>Theme</h2>
@@ -2641,21 +2693,42 @@ export async function boot407FEngineeringAdapter({
       </div>
       ${picker}
     </section>`);
+    const dialog=document.querySelector(".export407FThemeDialog");
+    if(dialog){
+      exportThemeTrap=installFocusTrap(dialog,{
+        opener:exportThemeOpener,
+        restoreFocus:false,
+        initialFocus:true,
+        onEscape:()=>closeExportThemeDialog()
+      });
+    }
+    onExportThemeBackdrop=(event)=>{
+      if(event.target?.id!=="modalBk")return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeExportThemeDialog();
+    };
+    document.getElementById("modalBk")?.addEventListener(
+      "click",
+      onExportThemeBackdrop,
+      true
+    );
+    previewBackgroundInert(true);
     document.querySelector("[data-export-theme-close]")?.addEventListener("click",()=>{
-      bridge.closeModal?.();
+      closeExportThemeDialog();
     },{once:true});
     document.querySelectorAll("#modalIn [data-select-theme]").forEach((button)=>{
       button.addEventListener("click",()=>{
         store.mutate("Change theme",(document)=>{
           document.theme=button.dataset.selectTheme;
         });
-        bridge.closeModal?.();
+        closeExportThemeDialog({restoreFocus:false});
         syncBridgeFromStore();
-        queueExportRender();
+        queueExportRender({focusSelector:"[data-export-theme-trigger]"});
       },{once:true});
     });
     document.querySelector("#modalIn [data-open-backgrounds]")?.addEventListener("click",()=>{
-      bridge.closeModal?.();
+      closeExportThemeDialog({restoreFocus:false});
       bridge.go("canvas");
       queueMicrotask(()=>requestCanvasMode("advanced"));
     },{once:true});
@@ -2730,8 +2803,14 @@ export async function boot407FEngineeringAdapter({
       requestVersion:(label,kind)=>store.saveVersion(label,kind),
       onStateChange:(state,reason)=>{
         exportState=state;
-        if(["audience","format","print-margins","export-finish"].includes(reason)){
+        if([
+          "format",
+          "print-margins",
+          "export-finish"
+        ].includes(reason)){
           queueExportRender();
+        }else if(reason==="audience"){
+          queueExportRender({focusSelector:"[data-export-audience]"});
         }
       },
       onOpenBuilder:()=>bridge.go("builder"),
@@ -3373,6 +3452,13 @@ export async function boot407FEngineeringAdapter({
             const key=input.dataset.canvasDetailField;
             selected.fields={...(selected.fields||{}),[key]:input.type==="checkbox"?input.checked:input.value};
           }
+          selected.fields={
+            ...(selected.fields||{}),
+            exportAudiences:Array.from(
+              form.querySelectorAll("[data-canvas-export-audience]:checked"),
+              (input)=>input.dataset.canvasExportAudience
+            )
+          };
           selected.title=String(selected.title||"").trim()||"Untitled event";
           if(clinical){
             const rotationStart=form.querySelector(

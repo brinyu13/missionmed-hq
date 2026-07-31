@@ -2,16 +2,16 @@
 
 Status date: 2026-07-31
 
-Overall estimated completion: 84%
+Overall estimated completion: 88%
 
-`PASS TO DATE` means the criterion passes at the M9 checkpoint but remains
+`PASS TO DATE` means the criterion passes at the M10 checkpoint but remains
 subject to the final M12/M13 regression gate. `PENDING` means its assigned
 milestone has not yet completed.
 
 | # | Acceptance criterion | Status | Evidence / next milestone |
 |---|---|---|---|
 | 1 | D1-404 remains the direct implementation base; no parallel app or shell | PASS | Canonical 407F `web/index.html`; in-place commits |
-| 2 | Existing D1-404 functionality remains operational | PASS TO DATE | 511/511 tests |
+| 2 | Existing D1-404 functionality remains operational | PASS TO DATE | 522/522 tests |
 | 3 | Required MissionMed branding | PASS | M1 |
 | 4 | Exactly four primary destinations remain | SUPERSEDED / PASS | Later Founder steering explicitly adds Media; active order is Home, Builder, Edit Timeline, Media, Export |
 | 5 | Canvas founder label replaced after ten-option evaluation | PASS | Edit Timeline |
@@ -41,23 +41,23 @@ milestone has not yet completed.
 | 29 | Explanation annotations are editable/exportable | PASS | Bounded Builder create/edit/move/resize/delete; leader line; active preview and Export |
 | 30 | Interview target and logo workflow function locally | PASS | General/specific mode; program details; shared local WEBP upload; contain/crop, resize, placement, remove/replace; live full-preview proof |
 | 31 | Matrix Calendar seam is activation-ready without live claim | PASS | `Scheduled Interviews` adapter contract; runtime truthfully unavailable; fixtures local-only |
-| 32 | Theme previews work with/without student data | PASS | Existing D1-404/M2 regressions |
-| 33 | Safe extensible theme registry | PENDING | M10 |
-| 34 | Explicit export audience options replace Everything | PENDING | M10 |
-| 35 | Deterministic audience visibility rules | PENDING | M10 |
+| 32 | Theme previews work with/without student data | PASS | Student content or labeled example through the same renderer; live screenshots |
+| 33 | Safe extensible theme registry | PASS | Structured versioned package, compatibility, permission and asset boundaries, fallback; no executable content |
+| 34 | Explicit export audience options replace Everything | PASS | Interview-safe, LOR writer, Professional connection, Mission Residency alumni connection |
+| 35 | Deterministic audience visibility rules | PASS | Explicit audience scopes; hidden/student-only never included; preview/download share one input |
 | 36 | Entitlement limit/override states | PENDING | M11 |
 | 37 | Existing D1-404 documents migrate without data loss | PASS TO DATE | Date, school, exam, LOR persistence regressions; final M11 gate pending |
 | 38 | Undo, autosave, history, versions, export, advisor remain intact | PASS TO DATE | Current complete regression suite |
-| 39 | Accessibility passes modified routes | PASS TO DATE | Miyamoto and Vitruvius final PASS through M9 |
+| 39 | Accessibility passes modified routes | PASS TO DATE | M10 Miyamoto PASS; six Vitruvius findings corrected; final Vitruvius PASS |
 | 40 | Responsive exact-boundary behavior passes | PASS TO DATE | Current modified routes pass; final M12 gate pending |
-| 41 | Fresh browser console is clean | PASS TO DATE | Zero warnings/errors after M9 Builder/Export interaction |
-| 42 | Full test suite passes | PASS TO DATE | 511/511 |
+| 41 | Fresh browser console is clean | PASS TO DATE | Zero warnings/errors after M10 theme/Export interaction |
+| 42 | Full test suite passes | PASS TO DATE | 522/522 |
 | 43 | Typecheck passes | PASS | `npm run typecheck` |
 | 44 | Package verification passes | PASS | 23/23 |
-| 45 | Deterministic build passes | PASS | 196 files; manifest `857fd536...82dbfa` |
+| 45 | Deterministic build passes | PASS | 197 files; manifest `d7a1ed69...98cc` |
 | 46 | No protected external mutation occurred | PASS TO DATE | No push/deploy/Matrix/WordPress/production write |
 | 47 | One local review URL | PASS | `http://localhost:8793/web/` |
-| 48 | Progress screenshots shown | PASS TO DATE | M0–M9 evidence |
-| 49 | Updates include honest completion percentage | PASS TO DATE | Current 84% |
+| 48 | Progress screenshots shown | PASS TO DATE | M0–M10 evidence |
+| 49 | Updates include honest completion percentage | PASS TO DATE | Current 88% |
 | 50 | Automatic continuation unless Founder objects | PASS TO DATE | Active execution loop |
 | 51 | No out-of-scope feature/design concept | PASS TO DATE | Authority-bound milestone reviews |

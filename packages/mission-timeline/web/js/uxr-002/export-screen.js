@@ -24,14 +24,57 @@ export const EXPORT_AUDIENCES=freezeDeep([
   {
     id:"INTERVIEWER_SAFE",
     label:"Interview-safe",
-    description:"Interview-safe hides items you marked advisor-only.",
-    tone:"secondary"
+    description:"For residency programs and interviewers. Advisor-only, student-only, and hidden items stay out.",
+    scope:null,
+    fields:[]
   },
   {
-    id:"EVERYTHING",
-    label:"Everything",
-    description:"Includes advisor-only items. Don't hand this version to programs.",
-    tone:"danger"
+    id:"LOR_WRITER",
+    label:"LOR writer",
+    description:"Includes interview-safe items plus advisor-only items explicitly shared with LOR writers.",
+    scope:"LOR_WRITER",
+    fields:[
+      {id:"writerName",label:"Writer name"},
+      {id:"titlePosition",label:"Title / position"},
+      {id:"institution",label:"Institution"},
+      {id:"specialty",label:"Specialty"},
+      {id:"relationship",label:"Relationship to you"},
+      {
+        id:"understanding",
+        label:"What you want the writer to understand",
+        multiline:true
+      }
+    ]
+  },
+  {
+    id:"PROFESSIONAL_CONNECTION",
+    label:"Professional connection",
+    description:"Includes interview-safe items plus advisor-only items explicitly shared with professional connections.",
+    scope:"PROFESSIONAL_CONNECTION",
+    fields:[
+      {id:"name",label:"Name"},
+      {id:"position",label:"Position"},
+      {id:"organizationProgram",label:"Organization / program"},
+      {id:"connection",label:"Your connection"},
+      {id:"purpose",label:"Purpose for sharing",multiline:true}
+    ]
+  },
+  {
+    id:"MISSION_RESIDENCY_ALUMNI",
+    label:"Mission Residency alumni connection",
+    description:"Includes interview-safe items plus advisor-only items explicitly shared with this alumni connection.",
+    scope:"MISSION_RESIDENCY_ALUMNI",
+    fields:[
+      {id:"name",label:"Name"},
+      {id:"residencyProgram",label:"Residency / program"},
+      {id:"specialty",label:"Specialty"},
+      {
+        id:"relationshipIntroductionContext",
+        label:"Relationship / introduction context",
+        multiline:true
+      },
+      {id:"purpose",label:"Purpose for sharing",multiline:true}
+    ]
   }
 ]);
 
@@ -109,8 +152,28 @@ function exportFormat(formatId){
 function exportAudience(audience){
   const normalized=String(audience||DEFAULT_EXPORT_AUDIENCE).toUpperCase();
   const entry=EXPORT_AUDIENCES.find((candidate)=>candidate.id===normalized);
-  if(!entry)throw new RangeError("Export audience must be INTERVIEWER_SAFE or EVERYTHING.");
+  if(!entry){
+    throw new RangeError(
+      `Export audience must be one of: ${EXPORT_AUDIENCES.map(({id})=>id).join(", ")}.`
+    );
+  }
   return entry;
+}
+
+function normalizeAudienceDetails(details={}){
+  return Object.fromEntries(EXPORT_AUDIENCES.map((audience)=>[
+    audience.id,
+    Object.fromEntries(audience.fields.map((field)=>[
+      field.id,
+      String(details?.[audience.id]?.[field.id]||"").trim()
+    ]))
+  ]));
+}
+
+export function audienceDetailsComplete(audience,details={}){
+  const selected=exportAudience(audience);
+  const normalized=normalizeAudienceDetails(details)[selected.id];
+  return selected.fields.every((field)=>Boolean(normalized[field.id]));
 }
 
 function localDateStamp(value){
@@ -171,16 +234,32 @@ export function buildExportFilename(fullName,formatId,{now=new Date()}={}){
 export function filterEventsForAudience(events,audience=DEFAULT_EXPORT_AUDIENCE){
   const selection=exportAudience(audience);
   const source=Array.isArray(events)?events:[];
-  const included=selection.id==="EVERYTHING"
-    ?source
-    :source.filter((event)=>event?.visibilityState!=="ADVISOR_ONLY");
-  const excluded=selection.id==="EVERYTHING"
-    ?[]
-    :source.filter((event)=>event?.visibilityState==="ADVISOR_ONLY");
+  const baseVisible=new Set(["INTERVIEWER_SAFE","INTERVIEW_SAFE","FULL_STORY"]);
+  const included=source.filter((event)=>{
+    const visibility=String(event?.visibilityState||"INTERVIEWER_SAFE").toUpperCase();
+    if(baseVisible.has(visibility))return true;
+    if(visibility!=="ADVISOR_ONLY"||!selection.scope)return false;
+    const scopes=Array.isArray(event?.fields?.exportAudiences)
+      ?event.fields.exportAudiences.map((value)=>String(value).toUpperCase())
+      :[];
+    return scopes.includes(selection.scope);
+  });
+  const includedRecords=new Set(included);
+  const excluded=source.filter((event)=>!includedRecords.has(event));
   return{
     audience:selection.id,
     included:clone(included),
-    excludedIds:excluded.map((event)=>String(event?.id||"")).filter(Boolean)
+    excludedIds:excluded.map((event)=>String(event?.id||"")).filter(Boolean),
+    excludedAdvisorOnlyIds:excluded
+      .filter((event)=>event?.visibilityState==="ADVISOR_ONLY")
+      .map((event)=>String(event?.id||""))
+      .filter(Boolean),
+    policy:{
+      baselineVisibility:["INTERVIEWER_SAFE","INTERVIEW_SAFE","FULL_STORY"],
+      explicitAdvisorOnlyScope:selection.scope,
+      studentOnlyIncluded:false,
+      hiddenIncluded:false
+    }
   };
 }
 
@@ -189,6 +268,7 @@ export function normalizeExportState(state={}){
   const format=exportFormat(state.formatId||DEFAULT_EXPORT_FORMAT_ID);
   return{
     audience,
+    audienceDetails:normalizeAudienceDetails(state.audienceDetails),
     formatId:format.id,
     showPrintMargins:format.kind==="PDF"&&Boolean(state.showPrintMargins),
     previewStatus:["idle","loading","ready","error"].includes(state.previewStatus)
@@ -208,6 +288,20 @@ export function reduceExportState(state,action){
   switch(action?.type){
     case"audience":
       return{...current,audience:exportAudience(action.value).id,previewStatus:"loading"};
+    case"audience-detail":{
+      const selected=exportAudience(action.audience||current.audience);
+      if(!selected.fields.some(({id})=>id===action.field))return current;
+      return{
+        ...current,
+        audienceDetails:{
+          ...current.audienceDetails,
+          [selected.id]:{
+            ...current.audienceDetails[selected.id],
+            [action.field]:String(action.value||"").trim()
+          }
+        }
+      };
+    }
     case"format":{
       const format=exportFormat(action.value);
       return{
@@ -243,6 +337,7 @@ export function buildExportPreviewInput(document,state={}){
   const normalized=normalizeExportState(state);
   const format=exportFormat(normalized.formatId);
   const filtered=filterEventsForAudience(document.events,normalized.audience);
+  const selectedAudience=exportAudience(normalized.audience);
   const timeline=clone(document);
   timeline.events=filtered.included;
   return{
@@ -261,10 +356,18 @@ export function buildExportPreviewInput(document,state={}){
     },
     audience:{
       mode:filtered.audience,
+      label:selectedAudience.label,
+      recipient:clone(normalized.audienceDetails[selectedAudience.id]),
+      detailsComplete:audienceDetailsComplete(
+        selectedAudience.id,
+        normalized.audienceDetails
+      ),
+      visibilityPolicy:clone(filtered.policy),
       sourceEventCount:Array.isArray(document.events)?document.events.length:0,
       includedEventCount:timeline.events.length,
       includedEventIds:timeline.events.map((event)=>String(event?.id||"")).filter(Boolean),
-      excludedAdvisorOnlyIds:filtered.excludedIds
+      excludedEventIds:filtered.excludedIds,
+      excludedAdvisorOnlyIds:filtered.excludedAdvisorOnlyIds
     },
     themeId:timeline.theme||DEFAULT_THEME_ID,
     mode:timeline.mode||"guided",
@@ -276,11 +379,19 @@ export function buildExportRequest(document,state={},options={}){
   const normalized=normalizeExportState(state);
   const format=exportFormat(normalized.formatId);
   const renderInput=buildExportPreviewInput(document,normalized);
+  if(!renderInput.audience.detailsComplete){
+    throw new TypeError(
+      `Complete the ${renderInput.audience.label} recipient details before exporting.`
+    );
+  }
   const now=options.now||new Date();
   return{
     contract:"D1-UXR-002-EXPORT-REQUEST-V1",
     filename:buildExportFilename(document?.studentProfile?.fullName,format.id,{now}),
     audience:normalized.audience,
+    recipientContext:clone(
+      normalized.audienceDetails[normalized.audience]
+    ),
     format:clone(format),
     /*
      * Preview and generation intentionally receive the same object. The
@@ -392,9 +503,14 @@ export function buildExportScreenModel(document,state={},options={}){
   const audience=exportAudience(normalized.audience);
   const eventCount=Array.isArray(document?.events)?document.events.length:0;
   const empty=eventCount===0;
+  const hasStudentName=Boolean(String(document?.studentProfile?.fullName||"").trim());
   const theme=THEMES_BY_ID[document?.theme]||THEMES_BY_ID[DEFAULT_THEME_ID];
+  const detailsComplete=audienceDetailsComplete(
+    normalized.audience,
+    normalized.audienceDetails
+  );
   let filename=null;
-  if(!empty&&String(document?.studentProfile?.fullName||"").trim()){
+  if(!empty&&hasStudentName){
     filename=buildExportFilename(document.studentProfile.fullName,format.id,{now:options.now||new Date()});
   }
   return{
@@ -403,7 +519,11 @@ export function buildExportScreenModel(document,state={},options={}){
     empty,
     eventCount,
     controlsDisabled:empty||normalized.exporting,
+    exportActionDisabled:empty||normalized.exporting||!detailsComplete||!hasStudentName,
+    hasStudentName,
     audience,
+    audienceDetails:normalized.audienceDetails[audience.id],
+    audienceDetailsComplete:detailsComplete,
     format,
     formats:EXPORT_FORMATS,
     theme:{id:theme.id,name:theme.name},
@@ -426,16 +546,37 @@ function disabledAttribute(disabled){
   return disabled?" disabled":"";
 }
 
+function renderAudienceDetails(model){
+  if(!model.audience.fields.length)return"";
+  return`<fieldset class="export-audience-details" data-export-audience-details>
+    <legend>${escapeHtml(model.audience.label)} details</legend>
+    ${model.audience.fields.map((field)=>{
+      const value=model.audienceDetails[field.id]||"";
+      const control=field.multiline
+        ?`<textarea data-export-audience-detail="${field.id}" rows="3"${disabledAttribute(model.controlsDisabled)} required>${escapeHtml(value)}</textarea>`
+        :`<input type="text" data-export-audience-detail="${field.id}" value="${escapeHtml(value)}"${disabledAttribute(model.controlsDisabled)} required>`;
+      return`<label>
+        <span>${escapeHtml(field.label)}</span>
+        ${control}
+      </label>`;
+    }).join("")}
+    <p class="export-audience-required" role="status">${model.audienceDetailsComplete
+      ?"Recipient details complete."
+      :"Complete every recipient field to enable export."}</p>
+  </fieldset>`;
+}
+
 function renderAudienceCard(model,document){
   return`<section class="card export-card export-audience-card" aria-labelledby="export-audience-title">
     <h2 id="export-audience-title">Audience</h2>
-    <div class="segmented export-audience" role="radiogroup" aria-label="Export audience">
-      ${EXPORT_AUDIENCES.map((audience)=>`<label>
-        <input type="radio" name="export-audience" value="${audience.id}" ${model.audience.id===audience.id?"checked":""}${disabledAttribute(model.controlsDisabled)}>
-        <span>${audience.label}</span>
-      </label>`).join("")}
-    </div>
-    <p class="export-audience-copy ${model.audience.tone==="danger"?"danger":""}" data-export-audience-copy>${escapeHtml(model.audience.description)}</p>
+    <label class="export-audience-select">
+      <span class="sr-only">Export audience</span>
+      <select data-export-audience${disabledAttribute(model.controlsDisabled)}>
+        ${EXPORT_AUDIENCES.map((audience)=>`<option value="${audience.id}" ${model.audience.id===audience.id?"selected":""}>${escapeHtml(audience.label)}</option>`).join("")}
+      </select>
+    </label>
+    <p class="export-audience-copy" data-export-audience-copy>${escapeHtml(model.audience.description)}</p>
+    ${renderAudienceDetails(model)}
     ${monthFieldMarkup({
       id:"export-interview-season",
       label:"Interview season",
@@ -550,7 +691,10 @@ export function renderExportScreen(document,{state={},previewHtml="",now=new Dat
         ${renderThemeCard(model)}
         ${renderFormatCard(model)}
         ${renderAdvisorCard(model)}
-        <button type="button" class="button primary export-action" data-export-action${disabledAttribute(model.controlsDisabled)}>Export ${model.format.kind}</button>
+        ${!model.empty&&!model.hasStudentName
+          ?'<p class="export-blocker" role="status">Add your name in Builder before exporting.</p>'
+          :""}
+        <button type="button" class="button primary export-action" data-export-action${disabledAttribute(model.exportActionDisabled)}>Export ${model.format.kind}</button>
       </section>
       ${renderPreview(model,previewHtml)}
     </div>
@@ -740,6 +884,26 @@ export function installExportScreen(root,document,{
     return current;
   };
   const previewHost=root.querySelector("[data-export-preview]");
+  const exportButton=root.querySelector("[data-export-action]");
+  const updateRecipientGate=()=>{
+    const complete=audienceDetailsComplete(current.audience,current.audienceDetails);
+    const status=root.querySelector(
+      "[data-export-audience-details] .export-audience-required"
+    );
+    if(status){
+      status.textContent=complete
+        ?"Recipient details complete."
+        :"Complete every recipient field to enable export.";
+    }
+    if(exportButton){
+      exportButton.disabled=
+        !Array.isArray(document?.events)||
+        document.events.length===0||
+        current.exporting||
+        !complete||
+        !String(document?.studentProfile?.fullName||"").trim();
+    }
+  };
   const refresh=async(next=current)=>{
     if(typeof renderPreview!=="function"||!Array.isArray(document?.events)||document.events.length===0)return null;
     const loading=previewHost?.querySelector?.("[data-export-preview-loading]");
@@ -762,10 +926,23 @@ export function installExportScreen(root,document,{
     }
   };
 
-  root.querySelectorAll('[name="export-audience"]').forEach((control)=>{
+  root.querySelector("[data-export-audience]")?.addEventListener("change",(event)=>{
+    const next=emit(
+      reduceExportState(current,{type:"audience",value:event.currentTarget.value}),
+      "audience"
+    );
+    refresh(next);
+  });
+
+  root.querySelectorAll("[data-export-audience-detail]").forEach((control)=>{
     control.addEventListener("change",()=>{
-      const next=emit(reduceExportState(current,{type:"audience",value:control.value}),"audience");
-      refresh(next);
+      const next=emit(reduceExportState(current,{
+        type:"audience-detail",
+        audience:current.audience,
+        field:control.dataset.exportAudienceDetail,
+        value:control.value
+      }),"audience-detail");
+      updateRecipientGate();
     });
   });
 
@@ -856,7 +1033,6 @@ export function installExportScreen(root,document,{
   root.querySelector("[data-export-advisor-cancel]")?.addEventListener("click",onAdvisorCancel);
   root.querySelector("[data-export-advisor-comments]")?.addEventListener("click",onAdvisorComments);
 
-  const exportButton=root.querySelector("[data-export-action]");
   exportButton?.addEventListener("click",async()=>{
     const format=exportFormat(current.formatId);
     emit(reduceExportState(current,{type:"exporting",value:true}),"export-start");

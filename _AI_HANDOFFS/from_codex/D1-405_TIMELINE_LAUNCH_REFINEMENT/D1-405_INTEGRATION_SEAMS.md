@@ -215,3 +215,49 @@ Implemented seam:
   says no production LOR Builder task was created.
 - Future production wiring must replace the adapter under separate authority;
   no Matrix, WordPress, cloud, or external write is present.
+
+## Theme package and Export audience seams — M10
+
+### Theme preview source seam
+
+- `theme-picker.js` selects only the preview source; it does not fork the
+  renderer or theme definitions.
+- Student events present: use the active student document.
+- No student events: use the immutable example document and visibly/accessibly
+  label every card as an example.
+- Both sources pass through `buildKeynoteClassicScene`,
+  `applyThemeToScene`, and `serializeKeynoteClassicSvg`.
+
+### Future admin theme package seam
+
+- Contract module: `admin-theme-registry.js`.
+- Frozen runtime catalog remains authoritative and unchanged.
+- Imported-package shape is declarative and versioned.
+- Compatibility is explicit against the renderer version.
+- Import requires injected `timeline.theme.manage` permission.
+- Asset references require approved MIME, size, SHA-256, and an injected
+  integrity/approval resolver.
+- CSS, JavaScript, HTML, code strings, executable assets, `javascript:`, and
+  `url(...)` are rejected.
+- Registry resolution falls back to `keynote-classic`.
+- Preview generation produces a local-only request; it does not activate an
+  imported theme.
+- Production admin backend, identity, asset hosting, and runtime activation
+  remain outside current authority.
+
+### Export audience seam
+
+- User-facing export audience IDs are `INTERVIEWER_SAFE`, `LOR_WRITER`,
+  `PROFESSIONAL_CONNECTION`, and `MISSION_RESIDENCY_ALUMNI`.
+- Advisor review continues to use its separate internal `EVERYTHING` contract;
+  it is not exposed as a student Export choice.
+- Audience recipient context lives in local Export state and request metadata.
+- Event opt-in uses `event.fields.exportAudiences`; it does not duplicate or
+  rewrite factual event records.
+- Canvas Details is the authoring surface for those three non-interviewer
+  scopes and persists them on the owning shared event.
+- Recipient field commits update state and the gate in place; only an audience
+  change rerenders progressive disclosure, then restores the audience select.
+- Missing student names are blocked before request/filename generation.
+- Student-only and hidden visibility never pass this seam.
+- One filtered render input is shared by visible preview and generated file.

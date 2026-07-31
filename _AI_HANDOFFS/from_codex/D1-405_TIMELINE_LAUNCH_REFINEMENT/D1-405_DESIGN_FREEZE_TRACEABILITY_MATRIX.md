@@ -1,6 +1,6 @@
 # D1-405 Design Freeze Traceability Matrix
 
-Status: in progress through M9
+Status: in progress through M10
 
 Canonical baseline: 407F / D1-404
 
@@ -23,6 +23,21 @@ Canonical baseline: 407F / D1-404
 | Rotation-specific specialty-aware LOR | `rotation-lor.js`; adapter target-keyed records | LOR suite and restart probe | PASS |
 | Submitted LOR star and exact legend text | `board-renderer.js` | Five-theme serialization and browser screenshots | PASS |
 | Truthful LOR Builder seam | Local queue adapter; `productionCreated:false` | Queue tests and browser announcement | PASS |
+| Preserve five themes and Advanced Studio | Frozen `THEME_DEFINITIONS`; unchanged catalog and mode behavior | Theme catalog and Canvas integration regressions | PASS |
+| Student-content theme previews | Active document serialized through canonical renderer | Student-content theme screenshot and integration tests | PASS |
+| Empty-account theme previews | Frozen example document, visible/accessibility `EXAMPLE TIMELINE` labels, same renderer | Empty-origin browser screenshot and M10 theme tests | PASS |
+| Future admin theme package | `admin-theme-registry.js`; structured schema, compatibility, versioning, permission, approved assets, fallback | `d1-405-admin-theme-registry.test.mjs`; future package document | PASS |
+| No arbitrary CSS/JS theme uploader | Executable keys/values and unapproved assets rejected; no production admin backend | Package-boundary tests | PASS |
+| Interview-safe default | `DEFAULT_EXPORT_AUDIENCE="INTERVIEWER_SAFE"` | Export unit/integration/browser checks | PASS |
+| Four explicit export audiences | Interview-safe, LOR writer, Professional connection, Mission Residency alumni connection | Export DOM screenshot set and tests | PASS |
+| Required recipient context | Progressive audience-specific fields; export action gated until complete | Render/model/request tests | PASS |
+| Missing-name export prevention | Non-empty unnamed timelines expose inline status and keep Export disabled | Model/render regression and live gate | PASS |
+| Deterministic audience visibility | Baseline safe/full-story; advisor-only requires exact scope; hidden/student-only excluded | Four-audience deterministic fixture test | PASS |
+| Recipient-scope authoring | Canvas Details writes the three explicit scopes to shared `event.fields.exportAudiences` | Adapter integration regression | PASS |
+| Preview/download parity | One filtered object serves `previewInput` and `renderInput` | Identity assertion and local adapter tests | PASS |
+| Theme and recipient focus continuity | Canvas picker focus/restoration; trapped Export modal; audience-selector restoration; in-place recipient updates | Source regressions and live keyboard checks | PASS |
+| Empty-example conditional legend | Example clinical event includes submitted LOR and every theme miniature serializes `data-lor-legend` | Five-theme example regression | PASS |
+| M10 autonomous dark-surface micro-label alias | `#A9B7D0` instead of light-shell `#565D66` on dark 407F fields | 8.3411:1–9.3335:1 evidence | PASS |
 | M7 autonomous LOR micro-label adjustment | Undefined/body white → 11px/650 `#75CFEA` on dark card | 9.7573:1 and 10.9957:1; Miyamoto PASS | PASS |
 | Target-specialty variants over shared facts | `specialty-variants.js`; prominent Builder variant bar; active Canvas/export projection | 7 M8 variant tests; browser create/switch proof | PASS |
 | Variant create/switch/rename/remove safeguards | TimelineStore mutations plus last-variant and explicit-confirmation guards | Full 511/511 suite; creation screenshot | PASS |

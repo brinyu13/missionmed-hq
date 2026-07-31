@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {readFile} from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -44,6 +45,11 @@ import {
 } from "../web/js/uxr-002/canvas.js";
 import {CATEGORIES,HISTORY_LIMIT,VISIBILITY} from "../web/js/uxr-002/constants.js";
 import {defaultDocument} from "../web/js/uxr-002/store.js";
+
+const canvasSource=await readFile(
+  new URL("../web/js/uxr-002/canvas.js",import.meta.url),
+  "utf8"
+);
 
 class MemoryVersionAdapter {
   constructor() {
@@ -722,4 +728,23 @@ test("M8 install owns delegated Canvas listeners, canonical rendering, responsiv
   assert.match(root.innerHTML,/Editing needs a larger screen\./);
   controller.destroy();
   assert.equal(root.listeners.size,0);
+});
+
+test("M10 Canvas theme picker moves focus on open and restores the trigger on close, selection, and Escape",()=>{
+  assert.match(
+    canvasSource,
+    /focus === "theme-picker"[\s\S]*\[data-theme-picker\] \[data-select-theme\]/
+  );
+  assert.match(
+    canvasSource,
+    /focus === "theme-trigger"[\s\S]*data-canvas-action="theme"/
+  );
+  assert.match(
+    canvasSource,
+    /opening\?"theme-picker":"theme-trigger"/
+  );
+  assert.match(
+    canvasSource,
+    /if \(state\.themeOpen\) \{[\s\S]*themeOpen:false\},\{focus:"theme-trigger"\}/
+  );
 });

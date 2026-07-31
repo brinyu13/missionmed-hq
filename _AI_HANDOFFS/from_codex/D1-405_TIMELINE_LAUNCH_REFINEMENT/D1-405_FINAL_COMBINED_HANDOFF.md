@@ -1,6 +1,6 @@
 # D1-405 Final Combined Handoff
 
-Status: in progress — updated through M9
+Status: in progress — updated through M10
 
 This document is maintained incrementally and is not a final-completion claim.
 
@@ -12,9 +12,9 @@ This document is maintained incrementally and is not a final-completion claim.
 - M8 checkpoint: `c622dbf`
 - M9 checkpoint: `fae87de`
 - Local preview: `http://localhost:8793/web/`
-- Estimated completion: 84%
+- Estimated completion: 88%
 
-## Completed through M9
+## Completed through M10
 
 - MissionMed branding and clearer Edit Timeline navigation.
 - File Vault-first Home with truthful local integration boundary.
@@ -48,18 +48,32 @@ This document is maintained incrementally and is not a final-completion claim.
   unavailable local runtime state and local-only fixtures.
 - Conditional target panels, 44px logo target, focus-visible treatment, linked
   inline errors, live announcements, and invalid-control focus recovery.
+- Premium tactile horizontal Builder stepper with the approved composition
+  unchanged.
+- First-class Media destination with one local asset collection and shared
+  Builder/Edit Timeline drag/drop.
+- Five frozen themes with live student previews or clearly labeled example
+  previews through the same renderer.
+- Structured, versioned future admin theme package seam with permission,
+  compatibility, asset integrity, preview, and safe-fallback boundaries; no
+  executable theme content or production admin backend.
+- Four explicit export audiences with progressive recipient fields,
+  deterministic privacy rules, and identical preview/download filters.
+- Canvas and Export theme focus containment/restoration, recipient-form focus
+  continuity, explicit missing-name gating, and shared Canvas recipient-scope
+  authoring.
 
 ## Current verification
 
-- 511/511 tests passed: 119 TypeScript and 392 module tests.
+- 522/522 tests passed: 119 TypeScript and 403 module tests.
 - Typecheck passed.
 - Package verification passed 23/23.
-- Deterministic build passed with 196 runtime files.
+- Deterministic build passed with 197 runtime files.
 - Manifest SHA-256:
-  `857fd5364a5d2eabec04cfd5b19b99833fea0ea7b247e4789771dfd06382dbfa`.
+  `d7a1ed69e9a5ffda6ebb70d566265ec7a1801e4000013e8dce029a648d3798cc`.
 - Fresh-browser console: zero warnings/errors.
 - Miyamoto: PASS.
-- Vitruvius: PASS.
+- Vitruvius: PASS after all six M10 findings were corrected.
 
 ## M7 accessibility decision evidence
 
@@ -99,11 +113,30 @@ under the Founder implementation authority:
 - `evidence/screenshots/D1-405-M9-program-logo-upload-resize.png`
 - `evidence/screenshots/D1-405-M9-program-logo-full-preview.png`
 
+## M10 autonomous accessibility adjustments
+
+| Original token/treatment | Replacement | Reason | Calculated contrast | Affected components |
+|---|---|---|---|---|
+| Two-choice segmented audience control | Native four-option select with cyan indicator/focus and progressive labeled fields | Keep the explicit audience model compact, understandable, and keyboard-native | 11.2508:1 cyan on `#090E18` | Export audience |
+| Light-shell `#565D66` micro-label candidate on dark 407F surfaces | 407F `#A9B7D0` dark-surface alias | Prevent dark-on-dark failure while preserving delegated Addendum 002 intent | 8.3411:1 on `#141D2D`; 9.3335:1 on `#0B111C` | Recipient labels/status |
+| Unlabeled empty theme card and default active-check ink | Visible/accessibility `EXAMPLE TIMELINE`; `#191C21` on frozen gold | Prevent false student ownership and preserve the frozen gold token | 12.3478:1 on `#FFD76A` | Theme cards |
+
+## M10 visual evidence
+
+- `screenshots/D1-405-Founder-Steering-Builder.png`
+- `screenshots/D1-405-Founder-Steering-Media.png`
+- `screenshots/D1-405-M10-theme-previews-student-content.png`
+- `screenshots/D1-405-M10-theme-previews-empty-example.png`
+- `screenshots/D1-405-M10-export-interview-safe.png`
+- `screenshots/D1-405-M10-export-lor-writer.png`
+- `screenshots/D1-405-M10-export-professional-connection.png`
+- `screenshots/D1-405-M10-export-mission-residency-alumni.png`
+- `screenshots/D1-405-M10-export-theme-focus-modal.png`
+
 ## Remaining
 
-M10 through M13 remain: export audience refinement, entitlement and migration
-work, final accessibility/responsive hardening, and the complete final evidence
-package.
+M11 through M13 remain: entitlement and migration work, final
+accessibility/responsive hardening, and the complete final evidence package.
 
 ## Protected boundaries
 

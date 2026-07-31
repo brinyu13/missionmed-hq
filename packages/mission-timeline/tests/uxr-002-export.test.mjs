@@ -4,10 +4,12 @@ import test from "node:test";
 import {
   DEFAULT_EXPORT_AUDIENCE,
   DEFAULT_EXPORT_FORMAT_ID,
+  EXPORT_AUDIENCES,
   EXPORT_FORMATS,
   EXPORT_PREVIEW_LOADING_MAX_MS,
   EXPORT_PRINT_MARGIN_MM,
   PRINT_GUIDANCE_COPY,
+  audienceDetailsComplete,
   buildAdvisorReviewRequest,
   buildExportFilename,
   buildExportPreviewInput,
@@ -46,14 +48,38 @@ function fixture(){
   document.studentProfile.interviewSeason="2026-01";
   document.events=[
     event("safe-one"),
-    event("advisor-one","ADVISOR_ONLY"),
+    {
+      ...event("advisor-one","ADVISOR_ONLY"),
+      fields:{exportAudiences:["LOR_WRITER"]}
+    },
     event("safe-two")
   ];
   return document;
 }
 
-test("M12 defaults to Interview-safe and the first of exactly four frozen formats",()=>{
+const lorDetails={
+  LOR_WRITER:{
+    writerName:"Dr. Maya Chen",
+    titlePosition:"Program Director",
+    institution:"Mission University Hospital",
+    specialty:"Pediatrics",
+    relationship:"Rotation supervisor",
+    understanding:"Clinical growth and service commitment"
+  }
+};
+
+test("M10 preserves Interview-safe default and defines four explicit recipient audiences",()=>{
   assert.equal(DEFAULT_EXPORT_AUDIENCE,"INTERVIEWER_SAFE");
+  assert.deepEqual(EXPORT_AUDIENCES.map(({label})=>label),[
+    "Interview-safe",
+    "LOR writer",
+    "Professional connection",
+    "Mission Residency alumni connection"
+  ]);
+  assert.equal(EXPORT_AUDIENCES.some(({id})=>id==="EVERYTHING"),false);
+  assert.equal(audienceDetailsComplete("INTERVIEWER_SAFE",{}),true);
+  assert.equal(audienceDetailsComplete("LOR_WRITER",lorDetails),true);
+  assert.equal(audienceDetailsComplete("LOR_WRITER",{}),false);
   assert.equal(DEFAULT_EXPORT_FORMAT_ID,"png-1920x1080");
   assert.equal(EXPORT_FORMATS.length,4);
   assert.deepEqual(EXPORT_FORMATS.map(({label})=>label),[
@@ -65,16 +91,59 @@ test("M12 defaults to Interview-safe and the first of exactly four frozen format
   assert.ok(Object.isFrozen(EXPORT_FORMATS));
 });
 
-test("M12 audience filtering excludes only advisor-only events and never mutates source data",()=>{
+test("M10 audience filtering uses explicit scopes and never exposes hidden or student-only events",()=>{
   const source=fixture().events;
+  source.push(
+    event("hidden-one","HIDDEN"),
+    event("student-one","STUDENT_ONLY")
+  );
   const before=structuredClone(source);
   const safe=filterEventsForAudience(source,"INTERVIEWER_SAFE");
-  const everything=filterEventsForAudience(source,"EVERYTHING");
+  const lor=filterEventsForAudience(source,"LOR_WRITER");
+  const professional=filterEventsForAudience(source,"PROFESSIONAL_CONNECTION");
   assert.deepEqual(safe.included.map(({id})=>id),["safe-one","safe-two"]);
-  assert.deepEqual(safe.excludedIds,["advisor-one"]);
-  assert.deepEqual(everything.included.map(({id})=>id),["safe-one","advisor-one","safe-two"]);
-  assert.deepEqual(everything.excludedIds,[]);
+  assert.deepEqual(safe.excludedIds,["advisor-one","hidden-one","student-one"]);
+  assert.deepEqual(safe.excludedAdvisorOnlyIds,["advisor-one"]);
+  assert.deepEqual(lor.included.map(({id})=>id),["safe-one","advisor-one","safe-two"]);
+  assert.deepEqual(professional.included.map(({id})=>id),["safe-one","safe-two"]);
+  assert.equal(lor.policy.explicitAdvisorOnlyScope,"LOR_WRITER");
+  assert.equal(lor.policy.studentOnlyIncluded,false);
+  assert.equal(lor.policy.hiddenIncluded,false);
   assert.deepEqual(source,before);
+});
+
+test("M10 all four audience policies produce deterministic, distinct event sets",()=>{
+  const events=[
+    event("safe"),
+    {
+      ...event("lor-private","ADVISOR_ONLY"),
+      fields:{exportAudiences:["LOR_WRITER"]}
+    },
+    {
+      ...event("professional-private","ADVISOR_ONLY"),
+      fields:{exportAudiences:["PROFESSIONAL_CONNECTION"]}
+    },
+    {
+      ...event("alumni-private","ADVISOR_ONLY"),
+      fields:{exportAudiences:["MISSION_RESIDENCY_ALUMNI"]}
+    }
+  ];
+  assert.deepEqual(
+    filterEventsForAudience(events,"INTERVIEWER_SAFE").included.map(({id})=>id),
+    ["safe"]
+  );
+  assert.deepEqual(
+    filterEventsForAudience(events,"LOR_WRITER").included.map(({id})=>id),
+    ["safe","lor-private"]
+  );
+  assert.deepEqual(
+    filterEventsForAudience(events,"PROFESSIONAL_CONNECTION").included.map(({id})=>id),
+    ["safe","professional-private"]
+  );
+  assert.deepEqual(
+    filterEventsForAudience(events,"MISSION_RESIDENCY_ALUMNI").included.map(({id})=>id),
+    ["safe","alumni-private"]
+  );
 });
 
 test("M12 preview input performs one exact filter pass and carries theme, mode, and interview target",()=>{
@@ -115,9 +184,10 @@ test("M12 filename parsing is deterministic, space-free, and handles titles, suf
   assert.throws(()=>buildExportFilename("","png-1920x1080",{now:fixedNow}),/Student name is required/);
 });
 
-test("M12 export request gives preview and generation the identical render input while keeping margin guides out of the file",()=>{
+test("M10 export request gives preview and generation identical scoped input plus recipient context",()=>{
   const request=buildExportRequest(fixture(),{
-    audience:"EVERYTHING",
+    audience:"LOR_WRITER",
+    audienceDetails:lorDetails,
     formatId:"pdf-letter-landscape",
     showPrintMargins:true
   },{now:fixedNow});
@@ -126,6 +196,9 @@ test("M12 export request gives preview and generation the identical render input
   assert.deepEqual(request.renderInput.timeline.events.map(({id})=>id),[
     "safe-one","advisor-one","safe-two"
   ]);
+  assert.equal(request.audience,"LOR_WRITER");
+  assert.deepEqual(request.recipientContext,lorDetails.LOR_WRITER);
+  assert.equal(request.renderInput.audience.detailsComplete,true);
   assert.deepEqual(request.printGuide,{
     visible:true,
     marginMm:12.7,
@@ -147,17 +220,28 @@ test("M12 print margin toggle exists only for PDF and normalizing back to PNG cl
   assert.equal(pdfModel.printMarginMm,EXPORT_PRINT_MARGIN_MM);
 });
 
-test("M12 renders the exact two-column controls, danger copy, MonthField, four radios, gold action, and collapsed verbatim guidance",()=>{
+test("M10 renders explicit audience selection, progressive recipient details, and collapsed print guidance",()=>{
   const html=renderExportScreen(fixture(),{
-    state:{audience:"EVERYTHING",formatId:"pdf-letter-landscape",showPrintMargins:true},
+    state:{
+      audience:"LOR_WRITER",
+      audienceDetails:lorDetails,
+      formatId:"pdf-letter-landscape",
+      showPrintMargins:true
+    },
     previewHtml:'<div data-canonical-preview="true"></div>',
     now:fixedNow
   });
   assert.match(html,/data-export-layout="two-column" data-export-controls-width="380"/);
   assert.match(html,/<h1 id="export-title" tabindex="-1">Export<\/h1>/);
-  assert.match(html,/>Interview-safe<\/span>/);
-  assert.match(html,/>Everything<\/span>/);
-  assert.match(html,/Includes advisor-only items\. Don&#039;t hand this version to programs\./);
+  assert.match(html,/data-export-audience/);
+  assert.match(html,/>Interview-safe<\/option>/);
+  assert.match(html,/>LOR writer<\/option>/);
+  assert.match(html,/>Professional connection<\/option>/);
+  assert.match(html,/>Mission Residency alumni connection<\/option>/);
+  assert.doesNotMatch(html,/>Everything</);
+  assert.match(html,/data-export-audience-detail="writerName"/);
+  assert.match(html,/data-export-audience-detail="understanding"/);
+  assert.match(html,/Recipient details complete\./);
   assert.match(html,/data-month-field="export-interview-season"/);
   assert.equal((html.match(/name="export-format"/g)||[]).length,4);
   assert.match(html,/data-export-theme-trigger/);
@@ -186,6 +270,19 @@ test("M12 zero-event state disables controls and action while preserving only th
   assert.match(html,/data-export-open-builder>Open Builder<\/button>/);
   assert.match(html,/data-export-action disabled/);
   assert.doesNotMatch(html,/data-export-preview-content/);
+});
+
+test("M10 non-empty timelines without a student name remain explicitly blocked before export",()=>{
+  const document=fixture();
+  document.studentProfile.fullName="";
+  const model=buildExportScreenModel(document,{}, {now:fixedNow});
+  const html=renderExportScreen(document,{now:fixedNow});
+  assert.equal(model.empty,false);
+  assert.equal(model.hasStudentName,false);
+  assert.equal(model.exportActionDisabled,true);
+  assert.equal(model.filename,null);
+  assert.match(html,/Add your name in Builder before exporting\./);
+  assert.match(html,/data-export-action disabled/);
 });
 
 test("M12 preview refresh exposes and enforces the at-most-400ms loading contract",async()=>{

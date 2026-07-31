@@ -272,3 +272,40 @@ Evidence:
 - `evidence/screenshots/D1-405-M9-program-logo-full-preview.png`
 
 Final M9 Miyamoto verdict: PASS.
+
+## M10 visual checkpoint
+
+The five frozen theme cards remain recognizably 407F: compact dark instrument
+tiles, live 128×72 artifacts, restrained gold active state, and the existing
+Advanced Studio cell. Populated timelines show the student’s real current
+artifact. Empty accounts now show substantive rendered timelines in every
+theme, with a cyan-on-dark `EXAMPLE TIMELINE` badge inside each miniature.
+
+Export retains the 380px control rail and large right artifact preview. The
+audience control is one premium dark native select. LOR, professional, and
+alumni choices disclose only their own recipient fields in a bordered
+instrument panel; Interview-safe stays concise. There is no generic
+`Everything` choice.
+
+Founder steering was rechecked in the same pass:
+
+- the horizontal step layout is unchanged;
+- step tiles use layered material, completion bars, status glyphs, and tactile
+  hover/active/current states;
+- Builder remains one primary editor column with the larger right preview;
+- Media remains a first-class 407F route with one local asset library and
+  shared drag/drop access from Builder/Edit Timeline.
+
+Evidence:
+
+- `screenshots/D1-405-Founder-Steering-Builder.png`
+- `screenshots/D1-405-Founder-Steering-Media.png`
+- `screenshots/D1-405-M10-theme-previews-student-content.png`
+- `screenshots/D1-405-M10-theme-previews-empty-example.png`
+- `screenshots/D1-405-M10-export-interview-safe.png`
+- `screenshots/D1-405-M10-export-lor-writer.png`
+- `screenshots/D1-405-M10-export-professional-connection.png`
+- `screenshots/D1-405-M10-export-mission-residency-alumni.png`
+- `screenshots/D1-405-M10-export-theme-focus-modal.png`
+
+Final M10 Miyamoto verdict: PASS.

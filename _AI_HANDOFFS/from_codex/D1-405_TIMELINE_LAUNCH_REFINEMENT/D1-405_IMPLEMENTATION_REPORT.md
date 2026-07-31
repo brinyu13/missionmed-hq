@@ -341,3 +341,60 @@ These adjustments are within
 `D1-UXR-002 IMPLEMENTATION AUTHORITY ADDENDUM 001`: they alter only
 implementation tokens, control states, focus treatment, and validation
 semantics while preserving wording, hierarchy, workflow, brand, and behavior.
+
+## M10 — Themes and explicit export audiences
+
+- Preserved all five frozen theme definitions, their order, names, descriptors,
+  palettes, geometry, and Advanced Studio behavior.
+- Populated theme cards serialize the student’s active timeline through the
+  canonical renderer. Empty accounts serialize a five-event example through
+  that same renderer and add visible `EXAMPLE TIMELINE` labels plus matching
+  accessible names; no blank cards or student-ownership implication remains.
+- Corrected the Canvas and Export theme-open paths to remove the picker’s
+  `hidden` attribute without depending on exact attribute order.
+- Added a future admin theme registry contract with declarative schema,
+  renderer compatibility, semantic versioning, package replacement rules,
+  permission boundary, approved asset manifest/digest boundary, preview
+  request, and safe fallback.
+- The future package seam rejects CSS, JavaScript, HTML, code strings,
+  executable assets, `javascript:` values, and `url(...)`; it does not provide
+  a production admin backend or activate imported themes.
+- Replaced the user-facing `Everything` export option with Interview-safe, LOR
+  writer, Professional connection, and Mission Residency alumni connection.
+- Each non-interviewer audience exposes only its required recipient context.
+  Export remains disabled until those recipient fields are complete.
+- Visibility is deterministic: interviewer-safe/full-story baseline records
+  are eligible; advisor-only records require an explicit matching
+  `fields.exportAudiences` scope; student-only and hidden records are never
+  included. No audience can elevate an unscoped private event.
+- Preview and generated download retain the same render-input object and the
+  same audience filter. Recipient context and policy evidence travel in the
+  export request without entering external storage.
+- Founder steering remains preserved: the premium horizontal Builder stepper,
+  one primary editing column, larger right preview, first-class Media route,
+  and shared local drag/drop asset system were reverified and not redesigned.
+- Hardened both theme pickers with explicit initial focus, Escape/backdrop
+  closure, inert background containment, and opener restoration.
+- Recipient-detail changes update their gate in place, while audience changes
+  restore the selector after the necessary progressive-disclosure rerender.
+- Non-empty timelines without a student name remain disabled with an explicit
+  Builder correction message before filename generation can fail.
+- Canvas Details now writes recipient scopes to the shared event
+  `fields.exportAudiences`; no parallel export-policy store was introduced.
+- Empty-account theme examples include a submitted-LOR event, so every
+  miniature renders the conditional legend through the canonical renderer.
+- Complete M10 gate: 522/522 tests (119 TypeScript + 403 module), typecheck,
+  23/23 package verification, deterministic 197-file build, and zero live
+  browser console errors.
+- Build manifest SHA-256:
+  `d7a1ed69e9a5ffda6ebb70d566265ec7a1801e4000013e8dce029a648d3798cc`.
+- Specialist verdicts: Miyamoto PASS; Vitruvius PASS after the six bounded
+  hardening findings were corrected.
+
+### M10 autonomous implementation-level accessibility adjustments
+
+| Original token/treatment | Replacement | Reason | Calculated contrast | Affected components |
+|---|---|---|---|---|
+| Generic two-choice segmented audience control | Native four-option select with cyan focus/indicator and progressive labeled fieldset | Keep the expanded audience model understandable, keyboard-native, and compact without changing Export hierarchy | `#39D6FF` on `#090E18`: 11.2508:1 | Export audience choice |
+| Undefined recipient micro-label treatment on dark cards | Existing 407F `#A9B7D0` dark-surface label token | The light-shell `#565D66` micro-label token would fail on the 407F dark surface; the delegated implementation authority permits a contrast-preserving alias | 8.3411:1 on `#141D2D`; 9.3335:1 on `#0B111C` | Export recipient labels and completion text |
+| Theme active check and unlabeled empty miniature | Dark `#191C21` check ink on frozen gold plus visible `EXAMPLE TIMELINE` badge and accessible name | Preserve gold, meet contrast, and prevent example/student ambiguity without changing theme definitions | `#191C21` on `#FFD76A`: 12.3478:1 | Canvas and Export theme cards |

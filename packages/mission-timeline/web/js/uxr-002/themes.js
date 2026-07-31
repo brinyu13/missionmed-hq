@@ -831,6 +831,8 @@ export function buildThemePickerModel({
   scene,
   activeThemeId = DEFAULT_THEME_ID,
   mode = "guided",
+  contentSource = "student",
+  exampleLabel = "Example timeline",
   createMiniature = null
 } = {}) {
   if (!scene?.board || !Array.isArray(scene?.events)) {
@@ -843,6 +845,9 @@ export function buildThemePickerModel({
   if (normalizedMode !== "guided" && normalizedMode !== "advanced") {
     throw new RangeError('Theme picker mode must be "guided" or "advanced".');
   }
+  if (contentSource !== "student" && contentSource !== "example") {
+    throw new RangeError('Theme picker contentSource must be "student" or "example".');
+  }
   if (createMiniature != null && typeof createMiniature !== "function") {
     throw new TypeError("createMiniature must be a function when provided.");
   }
@@ -850,7 +855,9 @@ export function buildThemePickerModel({
   const themeCards = THEME_DEFINITIONS.map((theme) => {
     const themedScene = applyThemeToScene(scene, theme);
     const miniatureInput = {
-      source: "student-board",
+      source: contentSource === "student" ? "student-board" : "example-board",
+      example: contentSource === "example",
+      exampleLabel: contentSource === "example" ? String(exampleLabel) : null,
       renderer: scene.renderer,
       eventIds: eventIds.slice(),
       eventCount: eventIds.length,
@@ -899,6 +906,9 @@ export function buildThemePickerModel({
     };
   return {
     mode: normalizedMode,
+    contentSource,
+    example: contentSource === "example",
+    exampleLabel: contentSource === "example" ? String(exampleLabel) : null,
     columns: THEME_PICKER_LAYOUT.columns,
     rows: THEME_PICKER_LAYOUT.rows,
     themeCount: themeCards.length,

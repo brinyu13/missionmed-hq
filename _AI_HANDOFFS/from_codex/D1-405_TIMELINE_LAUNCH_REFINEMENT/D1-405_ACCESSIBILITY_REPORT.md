@@ -279,3 +279,48 @@ the unchecked radio’s false-selected appearance. Both were corrected.
 Final M9 Miyamoto verdict: PASS.
 
 Final M9 Vitruvius verdict: PASS.
+
+## M10 Themes and Export accessibility
+
+- Theme cards remain native buttons with one active `aria-pressed` state.
+- Student-content cards identify themselves as “your timeline preview.”
+- Empty-account cards identify themselves as “example timeline preview” and
+  show a visible `EXAMPLE TIMELINE` badge inside every miniature.
+- Example and student miniatures use the same canonical renderer, theme
+  definitions, axis, arrows, milestones, labels, legend, and interview marker.
+- The Export audience control is a labeled native select with four explicit
+  options; no ambiguous user-facing `Everything` option remains.
+- Each non-interviewer audience renders one named fieldset with visible labels,
+  native inputs/textareas, required semantics, and a status message.
+- Export generation is disabled until every required recipient field is
+  complete. Interview-safe requires no recipient metadata and remains the
+  default.
+- The policy excludes student-only and hidden records for every audience.
+  Advisor-only records require an exact audience scope.
+- Preview and download share one filtered render input, preventing an
+  accessibility or privacy divergence between visible review and file output.
+- New inputs retain 44px minimum height and the global cyan focus-visible ring.
+- Canvas theme cards receive focus on open; Escape and selection close the
+  picker and restore the Theme trigger.
+- The Export theme dialog traps focus, makes background regions inert, closes
+  on Escape/backdrop/Close, and restores its opener.
+- Recipient fields no longer lose focus when their values commit; the audience
+  selector restores focus after progressive disclosure changes.
+- A missing student name is exposed as an inline status and disables Export.
+- Recipient sharing checkboxes in Canvas Details are native, labeled, and
+  persist to the same event record used by export filtering.
+- Every empty-account theme example now contains the conditional submitted-LOR
+  legend, including its accessible name.
+- Live student and empty-example theme checks and all four audience states
+  produced zero browser console errors.
+
+Final M10 Vitruvius verdict: PASS after all six enumerated findings were
+corrected and re-audited.
+
+### M10 autonomous adjustments
+
+| Original | Replacement | Reason | Calculated contrast | Affected components |
+|---|---|---|---|---|
+| Two-choice segmented audience control | Native select with cyan indicator/focus and progressive fieldsets | Four explicit audiences require compact, understandable, keyboard-native disclosure | 11.2508:1 cyan on `#090E18` | Export audience |
+| Light-shell `#565D66` micro-label candidate on 407F dark surfaces | 407F `#A9B7D0` dark-surface alias | Preserve delegated Addendum 002 intent while preventing a dark-on-dark failure | 8.3411:1 on `#141D2D`; 9.3335:1 on `#0B111C` | Recipient labels/status |
+| Empty theme miniature without ownership cue | Visible and accessible example label; active check uses `#191C21` on gold | Prevent false student ownership and retain the frozen gold token | 12.3478:1 on `#FFD76A` | Theme picker |

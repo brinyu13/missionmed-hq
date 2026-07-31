@@ -2,7 +2,7 @@
 
 Updated: 2026-07-31
 
-Estimated overall completion: 84%
+Estimated overall completion: 88%
 
 | Milestone | Status | Checkpoint |
 |---|---|---|
@@ -17,7 +17,7 @@ Estimated overall completion: 84%
 | M7 exams and rotations | COMPLETE | Commit `18ab405`; 496/496 tests |
 | M8 specialty variants/LOR intelligence | COMPLETE | Shared facts, normalized variant config, active export; 504/504 tests |
 | M9 explanation/interview tools | COMPLETE | Commit `fae87de`; bounded annotations, interview-specific target, shared local logo, truthful Calendar seam; 511/511 tests |
-| M10 themes/export audiences | PENDING | — |
+| M10 themes/export audiences | COMPLETE | Five frozen themes, labeled empty examples, safe admin seam, four explicit audiences; 522/522 tests |
 | M11 entitlements/migration | PENDING | — |
 | M12 accessibility/responsive/hardening | PENDING | — |
 | M13 final candidate/handoff | PENDING | — |
@@ -41,3 +41,23 @@ variant. Program logos reuse `document.advanced.media` and the existing
 IndexedDB blob store; the variant holds one asset reference plus placement and
 fit. Matrix Calendar remains a truthful unavailable runtime adapter with
 local-only fixtures and no production claim.
+
+M10 preserves the five frozen themes and Advanced Studio. Theme previews use
+the active student timeline when events exist; empty accounts use a clearly
+labeled example timeline rendered through the same canonical renderer and the
+same theme definitions. A structured, permission-bound, versioned future admin
+theme package seam rejects CSS, JavaScript, HTML, executable assets, and
+unapproved asset manifests; it does not activate a production admin backend.
+
+Export now defaults to Interview-safe and offers only four explicit audiences:
+Interview-safe, LOR writer, Professional connection, and Mission Residency
+alumni connection. Recipient details use progressive disclosure. Advisor-only
+items enter a non-interviewer export only when an event explicitly names that
+audience scope; student-only and hidden items never enter. Preview and download
+share the identical filtered render input.
+
+M10 hardening also gives the Canvas and Export theme pickers complete focus,
+Escape, backdrop, and opener-restoration behavior; blocks export when the
+student name is absent; preserves focus as recipient details are entered; adds
+recipient-specific advisor-only sharing to Canvas Details; and includes the
+submitted-LOR legend in every empty-account theme example.
