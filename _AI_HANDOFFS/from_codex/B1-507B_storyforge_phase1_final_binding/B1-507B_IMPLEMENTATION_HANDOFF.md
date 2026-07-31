@@ -2,9 +2,13 @@
 
 ## Verdict
 
-**LOCAL IMPLEMENTATION COMPLETE; TWO BINDING ACCEPTANCE-CONTRACT CONTRADICTIONS REQUIRE FABLE CORRECTION.**
+**FINAL AUTHORITY CONFORMANCE COMPLETE UNDER B1-507C/B1-507D.**
 
-The four authorized B1-507B implementation lanes are complete and committed. A deterministic local release candidate exists. No deployment, provider call, real R2 operation, Railway probe environment, production mutation, push, or pull request occurred.
+The four authorized B1-507B implementation lanes are complete and committed.
+B1-507C corrected the two conflicting acceptance expectations, and B1-507D
+applied those corrections without changing production behavior. A deterministic
+local release candidate exists. No deployment, provider call, real R2 operation,
+Railway probe environment, production mutation, push, or pull request occurred.
 
 ## Repository identity
 
@@ -14,6 +18,7 @@ The four authorized B1-507B implementation lanes are complete and committed. A d
 - Implementation commit: `5c142358fdc3a27b1bf88f8520f074bb82aea51f`
 - Deterministic release-candidate commit: `bba4647b3869d6ef523e7d0d573a7987c7d28c9a`
 - Acceptance/baseline evidence audit: `57cd20bccfa807cc44624910eafbfdeddc43fe89`
+- B1-507D authority-conformance implementation: `a854e15a9063adc0c037366d96876154c2dfe631`
 - No remote action: confirmed
 
 ## Lane completion
@@ -84,11 +89,11 @@ Complete, without creating or calling an operator probe environment.
 |---|---|
 | Unit suite | 218/218 passed |
 | Existing PostgreSQL Node suite | 12/12 passed |
-| B1-507B PostgreSQL/contract suite | 129 passed, 1 skipped |
-| Full browser E2E | 58 passed, 1 skipped |
+| B1-507B PostgreSQL/contract suite | 130/130 passed |
+| Full browser E2E | 59/59 passed |
 | Header-focused browser suite | 6/6 passed, included above |
 | Product conformance | 72/72 passed |
-| Deterministic release build | PASS at commit `bba4647b3869d6ef523e7d0d573a7987c7d28c9a` |
+| Deterministic release build | PASS at commit `a854e15a9063adc0c037366d96876154c2dfe631` |
 | API-only provider build | PASS |
 | Secret scan | clean |
 | `npm audit --audit-level=high` | 0 vulnerabilities |
@@ -96,8 +101,8 @@ Complete, without creating or calling an operator probe environment.
 
 B1-507B automated acceptance accounting is exactly 163 cases:
 
-- 161 passed.
-- 2 skipped because the lower-priority test matrix contradicts binding repository/SQL authority.
+- 163 passed.
+- 0 skipped.
 - 11 RP-8 manual cases remain operator-only.
 
 The final acceptance-ID audit compared the authority matrix with the automated
@@ -107,27 +112,31 @@ corrected from descriptive labels to their governing IDs (`T3-12` and `T8-06`);
 the assertions and runtime implementation were unchanged. The unit suite was
 rerun after this correction and remained 218/218.
 
-## Binding contradictions
+## B1-507C authority amendments applied
 
-### T0-03 — literal M4 double apply
+### T0-03 — function replacement repeatability
 
-- Test demand: apply the entire literal M4 twice without error.
-- Higher authority: `B1-507B_EXECUTABLE_CONTRACTS.md` requires exact SQL and explicitly governs wording differences.
-- Repository evidence: exact M4 contains unguarded `CREATE TABLE`, `CREATE INDEX`, `CREATE POLICY`, and singleton `INSERT`; only functions use `CREATE OR REPLACE`.
-- Smallest Fable action: amend T0-03 to test repeat `CREATE OR REPLACE` of the functions, or authorize idempotent guards in the literal M4.
-- Safe complete state: first apply, rollback, reapply after rollback, structural checks, grants, RLS, and production transaction all pass.
+- Re-executes the four exact M4 `CREATE OR REPLACE FUNCTION` definitions against
+  the already-applied schema.
+- The one-time table, index, policy, and singleton statements remain unchanged.
+- Result: pass.
 
-### T3-17 — non-admin E13 response
+### T3-17 — existing E13 admin gate
 
-- Test demand: non-admin receives HTTP 200 with `reconciliation: null`.
-- Higher authority: the existing E13 route is admin-only, Fable authorizes an admin-only report, and the hard boundary forbids a new endpoint.
-- Repository evidence: `/api/admin/voice/health` enforces the admin gate before reading health data.
-- Smallest Fable action: amend T3-17 to expect the existing private 403, or explicitly authorize a non-admin health surface.
-- Safe complete state: admin succeeds; report-function failure returns HTTP 200 with only `reconciliation: null`; non-admin remains safely denied.
+- Admin receives HTTP 200.
+- Non-admin receives the existing HTTP 403 `admin_required` response.
+- Unauthenticated access receives the existing HTTP 401 `auth_required` response.
+- A revoked-function sentinel proves rejected requests do not reach
+  `sf_reconciliation_report`.
+- Result: pass.
+
+Checkpoint 2 is accepted as not required because the implementation landed as
+one atomic commit and no intermediate repository state existed. No screenshot
+was fabricated.
 
 ## Deterministic release candidate
 
-- Commit: `bba4647b3869d6ef523e7d0d573a7987c7d28c9a`
+- Authority-conformant commit: `a854e15a9063adc0c037366d96876154c2dfe631`
 - Release ID: `v-a9a076957973d7d4`
 - Application asset: `app.fded51e056c6.js`
 - Application SHA-256: `fded51e056c6a2c16b01c718bf2fa1f43aa4a45fb8ca2d48e8263a6e81d60827`
@@ -151,4 +160,7 @@ These gates are NOT resolved by B1-507B and remain blocked on their own authorit
 
 ## Exact next action
 
-Fable should issue the two one-line test-matrix corrections for T0-03 and T3-17. Separately, the operator may execute the already-authorized RP-8 Railway/Nixpacks probe from commit `bba4647b3869d6ef523e7d0d573a7987c7d28c9a`, seal its receipt, and choose `concat`, `copy`, or `gate_failed`. No production setting should change before that receipt.
+The authority-consistency correction is complete. Separately, the operator may
+execute the already-authorized RP-8 Railway/Nixpacks probe from the frozen
+candidate, seal its receipt, and choose `concat`, `copy`, or `gate_failed`. No
+production setting should change before that receipt.

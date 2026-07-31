@@ -7,6 +7,7 @@
 - Implementation commit: `5c142358fdc3a27b1bf88f8520f074bb82aea51f`
 - Release-candidate commit: `bba4647b3869d6ef523e7d0d573a7987c7d28c9a`
 - Acceptance/baseline evidence audit: `57cd20bccfa807cc44624910eafbfdeddc43fe89`
+- B1-507D authority-conformance implementation: `a854e15a9063adc0c037366d96876154c2dfe631`
 
 The existing locked StoryForge shell was preserved. One additive product-family header was installed using the existing header mount, Matrix route, actions, fonts, accent token, edge token, and viewport variables.
 
@@ -59,7 +60,8 @@ The structure and polish landed atomically in the minimum two source files, so
 there is no fabricated interim screenshot. Structural evidence is the final
 desktop image plus the geometry test proving `railTop >= headerBottom` and
 `mainTop >= headerBottom`. This is a truthful checkpoint exception, not an
-uncaptured or reconstructed intermediate state.
+uncaptured or reconstructed intermediate state. B1-507C explicitly accepts this
+Checkpoint-2 exception and requires no replacement screenshot.
 
 ### Checkpoint 3 — final brand
 
@@ -103,9 +105,10 @@ Full regression receipts:
 
 - Unit: 218/218.
 - PostgreSQL inherited: 12/12.
-- B1-507B PostgreSQL/contract: 129 passed, 1 authority skip.
-- Browser E2E: 58 passed, 1 authority skip.
+- B1-507B PostgreSQL/contract: 130/130 passed.
+- Browser E2E: 59/59 passed.
 - Product conformance: 72/72.
+- Automated acceptance: 163/163 passed, zero skips.
 
 ## Adversarial findings and resolution
 

@@ -2,11 +2,14 @@
 
 ## Final verdict
 
-**LOCAL IMPLEMENTATION COMPLETE; READY FOR FABLE TEST-MATRIX AMENDMENT AND OPERATOR RP-8 PREFLIGHT.**
+**FINAL AUTHORITY CONFORMANCE COMPLETE; READY FOR EXTERNAL PRODUCTION GATES.**
 
 StoryForge V5.5 Phase 1 now has the exact M4 database foundation, intent-first reconciliation service, weekly lease-coordinated scheduler, E13 operator-report seam, dormant RP-8 executor infrastructure, deterministic release candidate, and Founder-authorized MissionMed product header. The accepted StoryForge product remains intact.
 
 No deployment, production mutation, provider call, real R2 operation, Railway probe environment, push, or pull request occurred.
+
+B1-507C corrected T0-03 and T3-17 and accepted the Checkpoint-2 documentation
+exception. B1-507D applied the amendment without modifying production behavior.
 
 ## Repository and commits
 
@@ -16,6 +19,7 @@ No deployment, production mutation, provider call, real R2 operation, Railway pr
 - Implementation: `5c142358fdc3a27b1bf88f8520f074bb82aea51f`
 - Generated deterministic release candidate: `bba4647b3869d6ef523e7d0d573a7987c7d28c9a`
 - Acceptance/baseline evidence audit: `57cd20bccfa807cc44624910eafbfdeddc43fe89`
+- B1-507D authority-conformance implementation: `a854e15a9063adc0c037366d96876154c2dfe631`
 
 ## Authority verification
 
@@ -88,18 +92,19 @@ No deployment, production mutation, provider call, real R2 operation, Railway pr
 |---|---|
 | `npm test` | 218 passed |
 | Existing PostgreSQL Node tests | 12 passed |
-| B1-507B PG/contract tests | 129 passed, 1 skipped |
-| Full E2E | 58 passed, 1 skipped |
+| B1-507B PG/contract tests | 130/130 passed |
+| Full E2E | 59/59 passed |
 | Header-focused E2E subset | 6 passed |
 | Product conformance | 72 passed |
 | Development provenance build | PASS |
-| Release build at `bba4647…` | PASS, clean terminal provenance |
+| Release build at `a854e15…` | PASS, clean terminal provenance |
 | API-only provider build | PASS |
 | Secret scan | clean |
 | npm audit high | 0 vulnerabilities |
 | git diff check | clean |
 
-The acceptance-matrix total is exactly 163 automated cases: 161 passed and two are explicitly skipped due to contradictions with higher binding authority. The 11 manual RP-8 cases remain operator-only.
+The acceptance-matrix total is exactly 163 automated cases: 163 passed and zero
+skipped. The 11 manual RP-8 cases remain operator-only.
 
 A final one-to-one acceptance-ID audit found 163 expected unique IDs and 163
 implemented unique IDs, with no missing or extra IDs. Existing assertions for
@@ -109,16 +114,20 @@ The unit suite was rerun after the label correction and remained 218/218.
 
 The Docker-backed WordPress integration harness was intentionally not run. The active steer forbids local container-runtime troubleshooting and destructive Docker operations, while that script begins with `docker compose down -v`. This does not block the deterministic candidate or non-container verification.
 
-## Two exact Fable amendments required
+## B1-507C amendments applied
 
-1. T0-03 must be narrowed from “apply literal M4 twice” to “repeat the `CREATE OR REPLACE` functions,” or the literal SQL must be amended with idempotent guards. Exact M4 currently has unguarded table, index, policy, and singleton creation and therefore cannot be applied twice.
-2. T3-17 must expect the existing private 403 for non-admin E13, or Fable must explicitly authorize a new non-admin health surface. The current admin-only route and report authority cannot simultaneously return non-admin HTTP 200.
+1. T0-03 now re-executes only the four exact M4 `CREATE OR REPLACE FUNCTION`
+   definitions. M4 schema creation remains one-time-only and unchanged.
+2. T3-17 now verifies admin HTTP 200, non-admin HTTP 403, unauthenticated HTTP
+   401, and that rejected requests do not invoke the reconciliation report.
+3. Checkpoint 2 is recorded as not required because the implementation landed
+   atomically and no intermediate repository state existed.
 
-Everything safe remains complete without these wording corrections. No implementation weakening was made to manufacture two false passes.
+No implementation weakening or production-behavior change was made.
 
 ## Release candidate
 
-- Commit: `bba4647b3869d6ef523e7d0d573a7987c7d28c9a`
+- Authority-conformant commit: `a854e15a9063adc0c037366d96876154c2dfe631`
 - Release ID: `v-a9a076957973d7d4`
 - App asset SHA-256: `fded51e056c6a2c16b01c718bf2fa1f43aa4a45fb8ca2d48e8263a6e81d60827`
 - Styles SHA-256: `644548c5ff24b3b357c4194b97e56ce8525feab59b0f4914e3bf9779099e00fe`
@@ -207,10 +216,9 @@ These gates are NOT resolved by B1-507B and remain blocked on their own authorit
 
 ## Critical path
 
-1. Fable issues the two narrow acceptance-matrix corrections.
-2. Operator creates the temporary Railway RP-8 probe environment from the frozen candidate, runs the probe, performs Chrome/Safari playback, seals the receipt, and deletes the environment.
-3. If the probe selects an executor, a later separately authorized voice-activation deployment sets `STORYFORGE_ASSEMBLY_EXECUTOR`.
-4. Provision R2 under its own authority, bring E13 live, create a fresh rollback point, and run two reconciliation `dry_run` cycles.
-5. Founder reviews both dry-run reports before any transition to reconciliation `on`.
+1. Operator creates the temporary Railway RP-8 probe environment from the frozen candidate, runs the probe, performs Chrome/Safari playback, seals the receipt, and deletes the environment.
+2. If the probe selects an executor, a later separately authorized voice-activation deployment sets `STORYFORGE_ASSEMBLY_EXECUTOR`.
+3. Provision R2 under its own authority, bring E13 live, create a fresh rollback point, and run two reconciliation `dry_run` cycles.
+4. Founder reviews both dry-run reports before any transition to reconciliation `on`.
 
 This run stops before every remote or production action.
