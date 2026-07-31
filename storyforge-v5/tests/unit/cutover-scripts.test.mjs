@@ -516,6 +516,30 @@ test('production migration runner accepts amended M1 before target reads', () =>
   assert.doesNotMatch(result.stderr, /M1 contains an unrestricted live-identity policy predicate/);
 });
 
+test('production migration post-commit closure includes every M4 grant', () => {
+  const source = readFileSync(migrationScript, 'utf8');
+  const marker = '/* B1_506A_EXACT_ROLE_CLOSURE_POSTCOMMIT */';
+  const markerIndex = source.indexOf(marker);
+  assert.ok(markerIndex >= 0, 'post-commit closure marker must exist');
+  const postCommitClosure = source.slice(markerIndex);
+
+  for (const relation of [
+    'sf_audio_deletion_intents',
+    'sf_reconciliation_runs',
+    'sf_reconciliation_state',
+  ]) {
+    assert.match(postCommitClosure, new RegExp(`'${relation}'`));
+  }
+  assert.match(postCommitClosure, /'sf_reconciliation_sweep_old_runs'/);
+  for (const policy of [
+    'sf_deletion_intents_service',
+    'sf_reconciliation_runs_service',
+    'sf_reconciliation_state_service',
+  ]) {
+    assert.match(postCommitClosure, new RegExp(`'${policy}'`));
+  }
+});
+
 test('production migration runner pins source, backup, provider, DB, and exact ledgers', () => {
   const fixture = mkdtempSync(path.join(os.tmpdir(), 'storyforge-b1-503-migration-'));
   const repository = path.join(fixture, 'repo');

@@ -1226,7 +1226,15 @@ post_role_closure="$(
         ('public'::text, 'sf_recording_segments'::text, 'INSERT'::text, false),
         ('public'::text, 'sf_recording_segments'::text, 'UPDATE'::text, false),
         ('public'::text, 'sf_recording_segments'::text, 'DELETE'::text, false),
-        ('public'::text, 'sf_feature_flags'::text, 'SELECT'::text, false)
+        ('public'::text, 'sf_feature_flags'::text, 'SELECT'::text, false),
+        ('public'::text, 'sf_audio_deletion_intents'::text, 'SELECT'::text, false),
+        ('public'::text, 'sf_audio_deletion_intents'::text, 'INSERT'::text, false),
+        ('public'::text, 'sf_audio_deletion_intents'::text, 'UPDATE'::text, false),
+        ('public'::text, 'sf_reconciliation_runs'::text, 'SELECT'::text, false),
+        ('public'::text, 'sf_reconciliation_runs'::text, 'INSERT'::text, false),
+        ('public'::text, 'sf_reconciliation_runs'::text, 'UPDATE'::text, false),
+        ('public'::text, 'sf_reconciliation_state'::text, 'SELECT'::text, false),
+        ('public'::text, 'sf_reconciliation_state'::text, 'UPDATE'::text, false)
     ),
     actual_relations AS (
       SELECT namespace.nspname::text, relation.relname::text,
@@ -1251,7 +1259,9 @@ post_role_closure="$(
         ('public'::text, 'sf_voice_asset_mark_failed'::text,
          'uuid'::text, 'EXECUTE'::text, false),
         ('public'::text, 'sf_voice_audio_reference_check'::text,
-         'text[]'::text, 'EXECUTE'::text, false)
+         'text[]'::text, 'EXECUTE'::text, false),
+        ('public'::text, 'sf_reconciliation_sweep_old_runs'::text,
+         ''::text, 'EXECUTE'::text, false)
     ),
     actual_routines AS (
       SELECT namespace.nspname::text, routine.proname::text,
@@ -1271,7 +1281,13 @@ post_role_closure="$(
         ('public'::text, 'sf_recording_segments'::text,
          'sf_recording_segments_service'::text, '*'::text, true),
         ('public'::text, 'sf_feature_flags'::text,
-         'sf_feature_flags_service_read'::text, 'r'::text, true)
+         'sf_feature_flags_service_read'::text, 'r'::text, true),
+        ('public'::text, 'sf_audio_deletion_intents'::text,
+         'sf_deletion_intents_service'::text, '*'::text, true),
+        ('public'::text, 'sf_reconciliation_runs'::text,
+         'sf_reconciliation_runs_service'::text, '*'::text, true),
+        ('public'::text, 'sf_reconciliation_state'::text,
+         'sf_reconciliation_state_service'::text, '*'::text, true)
     ),
     actual_policies AS (
       SELECT namespace.nspname::text, relation.relname::text,
@@ -1289,6 +1305,12 @@ post_role_closure="$(
          'pg_class'::regclass::oid, 'public.sf_recording_segments'::regclass::oid, 0, 'a'::text),
         ((SELECT oid FROM pg_database WHERE datname = current_database()),
          'pg_class'::regclass::oid, 'public.sf_feature_flags'::regclass::oid, 0, 'a'::text),
+        ((SELECT oid FROM pg_database WHERE datname = current_database()),
+         'pg_class'::regclass::oid, 'public.sf_audio_deletion_intents'::regclass::oid, 0, 'a'::text),
+        ((SELECT oid FROM pg_database WHERE datname = current_database()),
+         'pg_class'::regclass::oid, 'public.sf_reconciliation_runs'::regclass::oid, 0, 'a'::text),
+        ((SELECT oid FROM pg_database WHERE datname = current_database()),
+         'pg_class'::regclass::oid, 'public.sf_reconciliation_state'::regclass::oid, 0, 'a'::text),
         ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
          'public.sf_append_voice_audit_service(text,text,uuid,uuid,uuid,jsonb,jsonb)'::regprocedure::oid,
          0, 'a'::text),
@@ -1303,7 +1325,9 @@ post_role_closure="$(
         ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
          'public.sf_voice_asset_mark_failed(uuid)'::regprocedure::oid, 0, 'a'::text),
         ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
-         'public.sf_voice_audio_reference_check(text[])'::regprocedure::oid, 0, 'a'::text)
+         'public.sf_voice_audio_reference_check(text[])'::regprocedure::oid, 0, 'a'::text),
+        ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+         'public.sf_reconciliation_sweep_old_runs()'::regprocedure::oid, 0, 'a'::text)
     ),
     actual_dependencies AS (
       SELECT dependency.dbid, dependency.classid, dependency.objid, dependency.objsubid,
