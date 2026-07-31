@@ -93,7 +93,7 @@ function exactRunnerSql(packageDir) {
     'production SQL block end anchor must be unique',
   );
 
-  const phaseOne = ledger.slice(5);
+  const phaseOne = ledger.slice(8);
   const migrationPaths = phaseOne.map(([, file]) => (
     path.join(packageDir, 'infra', 'postgres', 'migrations', file)
   ));
@@ -132,11 +132,12 @@ function psqlArgs(database) {
     '-U', 'postgres',
     '-d', 'storyforge',
     '-v', 'ON_ERROR_STOP=1',
+    `--set=founder_user_id=${founderUserId}`,
   ];
 }
 
 function runTransaction(database, sql) {
-  const phaseOne = ledger.slice(5);
+  const phaseOne = ledger.slice(8);
   const args = [
     ...psqlArgs(database),
     '--single-transaction',
@@ -173,8 +174,25 @@ function runSqlFile(database, file) {
   );
 }
 
-async function seedPreMigrationLedger(database) {
-  for (const [version, fileName, sha256] of ledger.slice(0, 5)) {
+async function seedAcceptedPreMigrationState(database) {
+  for (const [, fileName] of ledger.slice(5, 8)) {
+    const migration = runSqlFile(
+      database,
+      path.join(
+        database.packageDir,
+        'infra',
+        'postgres',
+        'migrations',
+        fileName,
+      ),
+    );
+    assert.equal(
+      migration.status,
+      0,
+      migration.stderr || migration.stdout,
+    );
+  }
+  for (const [version, fileName, sha256] of ledger.slice(0, 8)) {
     await database.client.query(
       `INSERT INTO public.sf_schema_migrations
          (version, file_name, sha256, git_commit, backup_id)
@@ -192,7 +210,7 @@ test(
       applyPhaseOne: false,
     });
     try {
-      await seedPreMigrationLedger(database);
+      await seedAcceptedPreMigrationState(database);
       const result = runTransaction(
         database,
         exactRunnerSql(database.packageDir),
@@ -356,14 +374,14 @@ test(
 );
 
 test(
-  'effective-authority drift aborts the exact transaction and preserves the five-row baseline',
+  'effective-authority drift aborts the exact transaction and preserves the eight-row baseline',
   { timeout: 45_000 },
   async () => {
     const database = await startEphemeralStoryForgeDatabase({
       applyPhaseOne: false,
     });
     try {
-      await seedPreMigrationLedger(database);
+      await seedAcceptedPreMigrationState(database);
       const exactSql = exactRunnerSql(database.packageDir);
       const marker = 'DO $b1_506_post$';
       assert.equal(
@@ -385,11 +403,12 @@ test(
       const state = await database.client.query(
         `SELECT
            (SELECT count(*) FROM public.sf_schema_migrations) AS ledger_count,
-           to_regclass('public.sf_recording_sessions') IS NULL AS m1_absent,
-           to_regclass('public.sf_feature_flags') IS NULL AS m2_absent,
+           to_regclass('public.sf_recording_sessions') IS NOT NULL AS m1_retained,
+           to_regclass('public.sf_feature_flags') IS NOT NULL AS m2_retained,
            to_regprocedure(
              'public.sf_append_voice_audit_service(text,text,uuid,uuid,uuid,jsonb,jsonb)'
-           ) IS NULL AS m3_absent,
+           ) IS NOT NULL AS m3_retained,
+           to_regclass('public.sf_audio_deletion_intents') IS NULL AS m4_absent,
            NOT role_item.rolcanlogin AS app_nologin,
            role_item.rolpassword IS NULL AS password_absent,
            NOT has_table_privilege(
@@ -404,10 +423,11 @@ test(
          WHERE role_item.rolname = 'storyforge_app'`,
       );
       assert.deepEqual(state.rows, [{
-        ledger_count: '5',
-        m1_absent: true,
-        m2_absent: true,
-        m3_absent: true,
+        ledger_count: '8',
+        m1_retained: true,
+        m2_retained: true,
+        m3_retained: true,
+        m4_absent: true,
         app_nologin: true,
         password_absent: true,
         drift_rolled_back: true,
