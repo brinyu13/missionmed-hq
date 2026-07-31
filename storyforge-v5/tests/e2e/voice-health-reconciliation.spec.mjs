@@ -46,10 +46,46 @@ test('T3-16 admin E13 returns the bounded reconciliation report', async ({ reque
   });
 });
 
-test.skip(
-  'T3-17 non-admin 200/null conflicts with the binding admin-only E13 gate',
-  async () => {},
-);
+test('T3-17 E13 admin gate rejects non-admin and unauthenticated access', async ({ request }) => {
+  const admin = await tokenFor(request, 'admin');
+  const student = await tokenFor(request, 'student');
+
+  const adminResponse = await request.get('/api/admin/voice/health', {
+    headers: bearer(admin),
+  });
+  expect(adminResponse.status()).toBe(200);
+  expect(await adminResponse.json()).toHaveProperty('reconciliation');
+
+  // Revocation makes any accidental report invocation fail. The expected 403
+  // therefore proves the outer admin gate rejects the request before E13 reads
+  // sf_reconciliation_report; a reached handler would degrade to HTTP 200/null.
+  await databaseOperation((client) => client.query(
+    'REVOKE EXECUTE ON FUNCTION public.sf_reconciliation_report(integer) FROM authenticated',
+  ));
+  try {
+    const nonAdminResponse = await request.get('/api/admin/voice/health', {
+      headers: bearer(student),
+    });
+    expect(nonAdminResponse.status()).toBe(403);
+    const nonAdminBody = await nonAdminResponse.json();
+    expect(nonAdminBody.error.code).toBe('admin_required');
+    expect(nonAdminBody).not.toHaveProperty('reconciliation');
+    expect(nonAdminBody).not.toHaveProperty('sessionsByState');
+    expect(nonAdminBody).not.toHaveProperty('errorsByCategory');
+
+    const unauthenticatedResponse = await request.get('/api/admin/voice/health');
+    expect(unauthenticatedResponse.status()).toBe(401);
+    const unauthenticatedBody = await unauthenticatedResponse.json();
+    expect(unauthenticatedBody.error.code).toBe('auth_required');
+    expect(unauthenticatedBody).not.toHaveProperty('reconciliation');
+    expect(unauthenticatedBody).not.toHaveProperty('sessionsByState');
+    expect(unauthenticatedBody).not.toHaveProperty('errorsByCategory');
+  } finally {
+    await databaseOperation((client) => client.query(
+      'GRANT EXECUTE ON FUNCTION public.sf_reconciliation_report(integer) TO authenticated',
+    ));
+  }
+});
 
 test('T3-18 report failure degrades only reconciliation to null', async ({ request }) => {
   const admin = await tokenFor(request, 'admin');

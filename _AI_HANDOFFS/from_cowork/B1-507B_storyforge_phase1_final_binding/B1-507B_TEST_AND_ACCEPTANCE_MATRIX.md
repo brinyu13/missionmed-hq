@@ -12,7 +12,7 @@ Conventions: "assert" means the test fails if the condition is false. "PG" means
 |---|---|---|---|
 | T0-01 | M4 migration applies cleanly after M1+M2+M3 | Migration completes without error; all three tables exist in `pg_tables` | INTEGRATION |
 | T0-02 | M4 rollback restores prior state | Rollback drops all three tables, indexes, and policies; sf_append_voice_audit_service and sf_voice_audit_payload_ok revert to M3 versions on M3 re-apply | INTEGRATION |
-| T0-03 | M4 is idempotent on function replacement | Running M4 twice produces no error (CREATE OR REPLACE) | INTEGRATION |
+| T0-03 | M4 CREATE OR REPLACE functions are re-executable | Re-executing the four CREATE OR REPLACE function statements from M4 (sf_reconciliation_report, sf_append_voice_audit_service, sf_voice_audit_payload_ok, sf_reconciliation_sweep_old_runs) against an already-applied M4 schema produces no error; table, index, policy, and singleton creation remains one-time-only with rollback as the recovery path (verified by T0-02) | INTEGRATION |
 | T0-04 | sf_audio_deletion_intents schema check | Table has columns: id (uuid PK), run_id (uuid NOT NULL), object_key (text NOT NULL), category (text NOT NULL, CHECK), student_ref (uuid nullable), story_ref (uuid nullable), ref_state (text NOT NULL, CHECK), state (text NOT NULL DEFAULT 'intended', CHECK), attempts (int NOT NULL DEFAULT 0, CHECK 0..3), resolved_at (timestamptz nullable), created_at (timestamptz NOT NULL DEFAULT now()), updated_at (timestamptz NOT NULL DEFAULT now()); multi-column CHECK enforces state/resolved_at consistency | INTEGRATION |
 | T0-05 | sf_reconciliation_runs schema check | Table has all 18 columns per DDL; mode CHECK ('dry_run','on'); counters default 0; suspended default false | INTEGRATION |
 | T0-06 | sf_reconciliation_state schema check | Table has columns: id (int PK, CHECK id=1), cursor_key (text NOT NULL DEFAULT ''), lease_owner (text nullable), lease_expires_at (timestamptz nullable), updated_at (timestamptz NOT NULL DEFAULT now()) | INTEGRATION |
@@ -109,7 +109,7 @@ Conventions: "assert" means the test fails if the condition is false. "PG" means
 | T3-14 | 180-day sweep preserves unfinished runs | Rows with finished_at = NULL are not deleted regardless of age | INTEGRATION |
 | T3-15 | 180-day sweep preserves recent runs | Rows with finished_at within 180 days are not deleted | INTEGRATION |
 | T3-16 | E13 returns reconciliation report | GET /api/storyforge/voice-health with admin identity includes `reconciliation` array in response | E2E |
-| T3-17 | E13 503 seam: non-admin | GET /api/storyforge/voice-health with non-admin identity: reconciliation field is null, rest of response intact | E2E |
+| T3-17 | E13 admin gate rejects non-admin | GET /api/admin/voice/health (E13) with non-admin identity returns the existing admin-only rejection (HTTP 403); the sf_reconciliation_report function is not invoked; the admin-only outer authorization is preserved | E2E |
 | T3-18 | E13 503 seam: function error | If sf_reconciliation_report throws, reconciliation field is null, HTTP status still 200, rest of E13 unaffected | E2E |
 | T3-19 | WordPress admin status insufficient | A user with WordPress administrator role but app_role != 'admin' cannot access the reconciliation report | INTEGRATION |
 
@@ -291,3 +291,12 @@ Two consecutive clean dry_run runs with zero unexpected failures and counts revi
 | T8 Integration/E2E | 0 | 11 | 8 | 0 | 19 |
 | T9 Security | 0 | 10 | 0 | 0 | 10 |
 | **Total** | **17** | **135** | **11** | **11** | **174** |
+
+### B1-507C evidence amendment
+
+Checkpoint-2 screenshot: not required. The B1-507B implementation landed as a
+single atomic commit (`5c142358fdc3a27b1bf88f8520f074bb82aea51f`).
+No intermediate repository state existed between the Checkpoint-1 baseline and
+the Checkpoint-3/4 final state. Fabricating an intermediate screenshot would
+misrepresent the implementation path. The checkpoint sequence 1, 3, 4 honestly
+reflects the atomic implementation.

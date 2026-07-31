@@ -10,6 +10,24 @@ const tableNames = [
   'sf_reconciliation_state',
 ];
 
+const repeatableFunctionNames = [
+  'sf_reconciliation_report',
+  'sf_append_voice_audit_service',
+  'sf_voice_audit_payload_ok',
+  'sf_reconciliation_sweep_old_runs',
+];
+
+function extractRepeatableFunction(source, functionName) {
+  const startMarker = `CREATE OR REPLACE FUNCTION public.${functionName}`;
+  const start = source.indexOf(startMarker);
+  const endMarker = '\n$$;';
+  const end = source.indexOf(endMarker, start);
+  if (start === -1 || end === -1) {
+    throw new Error(`M4 function definition not found: ${functionName}`);
+  }
+  return source.slice(start, end + endMarker.length);
+}
+
 definePgAcceptanceSuite([
   {
     id: 'T0-01',
@@ -34,9 +52,21 @@ definePgAcceptanceSuite([
   ),
   {
     id: 'T0-03',
-    name: 'literal M4 double-apply contract is contradictory',
-    skip: 'Binding SQL uses unguarded CREATE TABLE/INDEX/POLICY/INSERT, so a literal second apply must fail.',
-    async run() {},
+    name: 'M4 CREATE OR REPLACE functions are re-executable',
+    async run({ assert, client, sources }) {
+      const definitions = repeatableFunctionNames.map((functionName) => ({
+        functionName,
+        sql: extractRepeatableFunction(sources.migration, functionName),
+      }));
+      assert.equal(definitions.length, 4);
+
+      for (const { functionName, sql } of definitions) {
+        await assert.doesNotReject(
+          client.query(sql),
+          `${functionName} must be safely replaceable after M4 is already applied`,
+        );
+      }
+    },
   },
   {
     id: 'T0-04',
