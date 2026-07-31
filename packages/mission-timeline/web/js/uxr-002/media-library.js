@@ -166,7 +166,7 @@ export function mediaLibraryMarkup(media,{
       </div>
       <label class="btnD go sm media407FUpload">
         UPLOAD
-        <input type="file" data-media-upload accept="${MEDIA_LIBRARY_ACCEPT.join(",")}" multiple>
+        <input type="file" data-media-upload aria-label="Upload timeline media" accept="${MEDIA_LIBRARY_ACCEPT.join(",")}" multiple>
       </label>
     </div>
     ${items.length

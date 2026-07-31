@@ -50,6 +50,7 @@ import {
 } from "./uxr-002/month-field.js";
 import {
   createMediaLibraryAsset,
+  mediaKindForFile,
   mediaLibraryMarkup,
   nudgeMediaLibraryAsset,
   placeMediaLibraryAsset,
@@ -75,7 +76,9 @@ import {
   sampleEyeDropper,
   setBackgroundDim,
   setLayoutLock,
-  updateTextBlockContent
+  updateTextBlockContent,
+  validateBackgroundUpload,
+  validateMediaUpload
 } from "./uxr-002/advanced-studio.js";
 import {
   renderKeynoteClassicBoard,
@@ -222,6 +225,18 @@ function clone(value){
   return value==null?value:structuredClone(value);
 }
 
+const EMPTY_407F_WIZARD=Object.freeze({
+  name:"",school:"",canonicalSchoolId:"",schoolRecord:null,
+  schoolEntryMode:"registry",schoolVerificationStatus:"",
+  schoolNormalizationStatus:"",schoolAnalyticsEligible:false,
+  schoolUnlistedSubmission:null,schoolCountryFilter:"",schoolTypeFilter:"",
+  schoolCity:"",country:"",grad:"",notGraduated:false,degree:"",
+  degreeOther:"",visa:"",visaOther:"",eadStatus:"",
+  residencyVisaTypesOpenTo:"",s1a:"",s1b:"",s2a:"",s2b:"",
+  cla:"",clb:"",tha:"",thb:"",ra:"",rb:"",pt:"",pd:"",
+  padv:false,ip:"",idt:""
+});
+
 function canonicalExamProfileValue(document,system,examId){
   const attempts=(document?.exams||[])
     .filter((record)=>
@@ -365,8 +380,9 @@ export function documentEventTo407F(event,index=0){
   };
 }
 
-export function event407FToDocument(event,index=0){
-  return{
+export function event407FToDocument(event,index=0,canonicalSource=null){
+  const result={
+    ...clone(canonicalSource||{}),
     id:event.id||`event-${index+1}`,
     title:event.t||`Event ${index+1}`,
     categoryId:event.fields?.canonicalCategory||CATEGORY_FROM_407F[event.cat]||"personal",
@@ -386,72 +402,95 @@ export function event407FToDocument(event,index=0){
     ...(event.fields?.fillStyle?{fillStyle:event.fields.fillStyle}:{}),
     ...(event.fields?.fillOpacity!=null?{fillOpacity:event.fields.fillOpacity}:{}),
     ...(event.fields?.outlineStyle?{outlineStyle:event.fields.outlineStyle}:{}),
-    fields:{...clone(event.fields||{}),legacy407fCategory:event.cat||"personal"}
+    fields:{
+      ...clone(canonicalSource?.fields||{}),
+      ...clone(event.fields||{}),
+      legacy407fCategory:event.cat||"personal"
+    }
   };
+  for(const key of [
+    "dangerDot","provisional","actionChip","fillStyle","fillOpacity",
+    "outlineStyle"
+  ]){
+    if(!Object.hasOwn(result,key))continue;
+    const fieldKey=key;
+    if(!Object.hasOwn(event.fields||{},fieldKey))delete result[key];
+  }
+  return result;
 }
 
 export function applyDocumentTo407FState(document,state){
   const profile=document.studentProfile||{};
   const targetSpecialty=activeTargetSpecialty(document);
   const authorization=normalizeWorkAuthorization(profile);
-  state.user.events=(document.events||[])
-    .filter((event)=>String(event?.startDate||"").trim())
-    .map(documentEventTo407F);
-  state.user.interview=clone(document.metadata?.interview||state.user.interview||{
+  const canonicalEvents=(document.events||[]);
+  const renderableEvents=canonicalEvents.filter(
+    (event)=>String(event?.startDate||"").trim()
+  );
+  state.user.events=renderableEvents.map(documentEventTo407F);
+  state.user.canonicalEventPayloads=Object.fromEntries(
+    canonicalEvents
+      .filter((event)=>event?.id)
+      .map((event)=>[String(event.id),clone(event)])
+  );
+  state.user.canonicalEventOrder=canonicalEvents.map((event,index)=>({
+    id:String(event?.id||""),
+    index,
+    renderable:String(event?.startDate||"").trim().length>0,
+    event:String(event?.startDate||"").trim()?null:clone(event)
+  }));
+  state.user.interview=clone(document.metadata?.interview||{
     prog:"",
     date:"",
     label:""
   });
   state.profile={
-    ...state.profile,
-    name:profile.fullName||state.profile.name,
-    country:profile.medicalSchoolCountry||state.profile.country,
-    visa:authorization.currentUsWorkAuthorization||state.profile.visa,
-    goal:targetSpecialty.label||profile.specialtyGoal||state.profile.goal,
+    name:profile.fullName||"",
+    country:profile.medicalSchoolCountry||"",
+    visa:authorization.currentUsWorkAuthorization||"",
+    goal:targetSpecialty.label||profile.specialtyGoal||"",
     s1:canonicalExamProfileValue(document,"USMLE","step-1"),
     s2:canonicalExamProfileValue(document,"USMLE","step-2-ck")
   };
-  state.sticky=document.metadata?.stickyNote??state.sticky;
-  state.media=clone(document.metadata?.boardMedia||state.media);
+  state.sticky=document.metadata?.stickyNote??"";
+  state.media=clone(document.metadata?.boardMedia||{
+    photos:{},
+    logo:false,
+    avatar:false
+  });
   state.wiz={
-    ...state.wiz,
+    ...clone(EMPTY_407F_WIZARD),
     ...clone(document.metadata?.wizard407F||{}),
-    school:profile.medicalSchool||state.wiz?.school||"",
-    country:profile.medicalSchoolCountry||state.wiz?.country||"",
+    name:profile.fullName||document.metadata?.wizard407F?.name||"",
+    school:profile.medicalSchool||"",
+    country:profile.medicalSchoolCountry||"",
     canonicalSchoolId:
-      profile.canonicalSchoolId||state.wiz?.canonicalSchoolId||"",
+      profile.canonicalSchoolId||"",
     schoolRecord:clone(
-      profile.medicalSchoolRecord||state.wiz?.schoolRecord||null
+      profile.medicalSchoolRecord||null
     ),
     schoolEntryMode:
-      profile.medicalSchoolEntryMode||state.wiz?.schoolEntryMode||"registry",
+      profile.medicalSchoolEntryMode||"registry",
     schoolVerificationStatus:
-      profile.medicalSchoolVerificationStatus||
-      state.wiz?.schoolVerificationStatus||
-      "",
+      profile.medicalSchoolVerificationStatus||"",
     schoolNormalizationStatus:
-      profile.medicalSchoolNormalizationStatus||
-      state.wiz?.schoolNormalizationStatus||
-      "",
+      profile.medicalSchoolNormalizationStatus||"",
     schoolAnalyticsEligible:
       profile.medicalSchoolAnalyticsEligible===true,
     schoolUnlistedSubmission:clone(
-      profile.medicalSchoolUnlistedSubmission||
-      state.wiz?.schoolUnlistedSubmission||
-      null
+      profile.medicalSchoolUnlistedSubmission||null
     ),
-    schoolCity:profile.medicalSchoolCity||state.wiz?.schoolCity||"",
+    schoolCity:profile.medicalSchoolCity||"",
+    grad:profile.graduationDate||"",
+    notGraduated:profile.graduationExpected===true,
+    degree:profile.degree||"",
+    degreeOther:profile.degreeOther||"",
     visa:
-      authorization.currentUsWorkAuthorization||
-      state.wiz?.visa||
-      "",
-    visaOther:
-      profile.workAuthorizationOther||state.wiz?.visaOther||"",
-    eadStatus:profile.eadStatus||state.wiz?.eadStatus||"",
+      authorization.currentUsWorkAuthorization||"",
+    visaOther:profile.workAuthorizationOther||"",
+    eadStatus:profile.eadStatus||"",
     residencyVisaTypesOpenTo:
-      authorization.residencyVisaTypesOpenTo||
-      state.wiz?.residencyVisaTypesOpenTo||
-      ""
+      authorization.residencyVisaTypesOpenTo||""
   };
   state.builder={
     ...state.builder,
@@ -462,7 +501,7 @@ export function applyDocumentTo407FState(document,state){
     domainDrafts:clone(document.builder?.drafts||{}),
     domainEditing:clone(document.builder?.editing||{})
   };
-  state.intake=clone(document.intake||state.intake||{});
+  state.intake=clone(document.intake||{});
   state.canvasTheme=document.theme==="season-one-board"?"season":
     document.theme==="clean-advisor-paper"||document.theme==="advisor-paper"?"paper":
     document.theme==="horizon"?"horizon":
@@ -473,7 +512,39 @@ export function applyDocumentTo407FState(document,state){
 }
 
 export function apply407FStateToDocument(state,document){
-  document.events=(state.user?.events||[]).map(event407FToDocument);
+  const canonicalPayloads=state.user?.canonicalEventPayloads||{};
+  const renderedEvents=(state.user?.events||[]).map((event,index)=>
+    event407FToDocument(
+      event,
+      index,
+      canonicalPayloads[String(event?.id||"")]||null
+    )
+  );
+  const remainingById=new Map(
+    renderedEvents
+      .filter((event)=>event?.id)
+      .map((event)=>[String(event.id),event])
+  );
+  const orderedEvents=[];
+  for(const entry of state.user?.canonicalEventOrder||[]){
+    if(entry?.renderable===false){
+      orderedEvents.push(clone(entry.event));
+      continue;
+    }
+    const id=String(entry?.id||"");
+    if(!id||!remainingById.has(id))continue;
+    orderedEvents.push(remainingById.get(id));
+    remainingById.delete(id);
+  }
+  const orderedIds=new Set(
+    orderedEvents.filter((event)=>event?.id).map((event)=>String(event.id))
+  );
+  document.events=[
+    ...orderedEvents,
+    ...renderedEvents.filter(
+      (event)=>!event?.id||!orderedIds.has(String(event.id))
+    )
+  ];
   document.studentProfile={
     ...document.studentProfile,
     fullName:state.wiz?.name||state.profile?.name||"",
@@ -738,12 +809,48 @@ function createObjectUrlRegistry(){
   };
 }
 
-async function imageMetrics(file,{sample=false}={}){
+const MAX_IMAGE_DIMENSION=8192;
+const MAX_IMAGE_PIXELS=40_000_000;
+
+async function hasExpectedImageSignature(file,type){
+  const bytes=new Uint8Array(await file.slice(0,16).arrayBuffer());
+  const ascii=(start,end)=>String.fromCharCode(...bytes.slice(start,end));
+  if(type==="png"){
+    return[137,80,78,71,13,10,26,10]
+      .every((value,index)=>bytes[index]===value);
+  }
+  if(type==="jpg")return bytes[0]===255&&bytes[1]===216&&bytes[2]===255;
+  if(type==="gif")return["GIF87a","GIF89a"].includes(ascii(0,6));
+  if(type==="webp")return ascii(0,4)==="RIFF"&&ascii(8,12)==="WEBP";
+  return false;
+}
+
+async function imageMetrics(
+  file,
+  {sample=false,kind="image",background=false}={}
+){
+  const validation=background
+    ?validateBackgroundUpload(file)
+    :validateMediaUpload(file,{kind});
+  if(!validation.valid)throw new TypeError(validation.error);
+  if(!(await hasExpectedImageSignature(file,validation.type))){
+    throw new TypeError("The selected file is not a valid supported image.");
+  }
   if(typeof createImageBitmap!=="function"){
-    return{width:320,height:180,luminance:.5};
+    throw new Error("This browser cannot securely decode local images.");
   }
   const bitmap=await createImageBitmap(file);
   try{
+    const pixels=bitmap.width*bitmap.height;
+    if(
+      bitmap.width>MAX_IMAGE_DIMENSION||
+      bitmap.height>MAX_IMAGE_DIMENSION||
+      pixels>MAX_IMAGE_PIXELS
+    ){
+      throw new RangeError(
+        "Image dimensions exceed the 8,192px / 40-megapixel local limit."
+      );
+    }
     const result={width:bitmap.width,height:bitmap.height,luminance:.5};
     if(sample){
       const canvas=document.createElement("canvas");
@@ -997,26 +1104,24 @@ export async function boot407FEngineeringAdapter({
   let builderPreviewTrap=null;
   let specialtyVariantTrap=null;
   let exportThemeTrap=null;
+  let standardModalTrap=null;
+  let standardModalOpener=null;
   let exportThemeOpener=null;
   let entitlementObserver=null;
   let entitlementObserverQueued=false;
   let onExportThemeBackdrop=()=>{};
+  let onStandardModalBackdrop=()=>{};
   let specialtyVariantOpener=null;
   let builderPreviewZoom=createCanvasZoom("fit");
   let builderPreviewOpener=null;
   let mediaDrawerOpener=null;
   let builderPreviewRenderQueued=false;
   let lastFocusedView=null;
+  let routeFocusFrame=0;
+  let exitPersistenceStarted=false;
   let lastState=stableState(bridge.state);
   const watchedEvents=["input","change","click","pointerup","blur"];
 
-  if(!init.restored&&entitlement.canCreate){
-    store.mutate(
-      "Seed canonical 407F document",
-      (document)=>apply407FStateToDocument(bridge.state,document),
-      {history:false}
-    );
-  }
   if(entitlement.canMutate&&(init.restored||entitlement.canCreate)){
     store.mutate(
       "Normalize canonical exam workflow",
@@ -1028,9 +1133,6 @@ export async function boot407FEngineeringAdapter({
       (document)=>ensureSpecialtyVariants(document),
       {history:false,material:false}
     );
-    if(!init.restored&&entitlement.canCreate){
-      await store.saveNow("INITIAL_DURABLE_DRAFT");
-    }
   }
   applying=true;
   applyDocumentTo407FState(store.document,bridge.state);
@@ -1233,6 +1335,15 @@ export async function boot407FEngineeringAdapter({
   for(const eventName of watchedEvents){
     document.addEventListener(eventName,reconcile,true);
   }
+  const flushExitPersistence=()=>{
+    if(exitPersistenceStarted||store.entitlement.canMutate!==true)return;
+    exitPersistenceStarted=true;
+    store.flushPendingSave("PAGE_EXIT").catch(()=>{});
+  };
+  window.addEventListener("pagehide",flushExitPersistence,{capture:true});
+  window.addEventListener("pageshow",(event)=>{
+    if(event.persisted)exitPersistenceStarted=false;
+  },{capture:true});
   window.addEventListener("beforeunload",()=>{
     document.removeEventListener("d1:407f-rendered",reconcile);
     for(const eventName of watchedEvents){
@@ -1269,6 +1380,7 @@ export async function boot407FEngineeringAdapter({
     document.removeEventListener("keydown",onBuilderPreviewInteraction);
     document.removeEventListener("focusin",onBuilderPreviewFocus);
     window.removeEventListener("resize",onBuilderPreviewResize);
+    cancelAnimationFrame(routeFocusFrame);
     document.getElementById("modalBk")?.removeEventListener(
       "click",
       onBuilderPreviewBackdrop,
@@ -1298,12 +1410,18 @@ export async function boot407FEngineeringAdapter({
     builderPreviewTrap?.destroy();
     specialtyVariantTrap?.destroy();
     exportThemeTrap?.destroy();
+    standardModalTrap?.destroy();
     document.getElementById("modalBk")?.removeEventListener(
       "click",
       onExportThemeBackdrop,
       true
     );
-    store.saveNow("PAGE_EXIT").catch(()=>{});
+    document.getElementById("modalBk")?.removeEventListener(
+      "click",
+      onStandardModalBackdrop,
+      true
+    );
+    flushExitPersistence();
   },{once:true});
 
   const api={
@@ -1810,7 +1928,7 @@ export async function boot407FEngineeringAdapter({
       }
       try{
         const id=uid("media-library");
-        const metrics=await imageMetrics(file);
+        const metrics=await imageMetrics(file,{kind:mediaKindForFile(file)});
         const asset=createMediaLibraryAsset({
           id,
           file,
@@ -2291,7 +2409,7 @@ export async function boot407FEngineeringAdapter({
     }
     try{
       const id=uid("interview-logo");
-      const metrics=await imageMetrics(file);
+      const metrics=await imageMetrics(file,{kind:"logo"});
       const asset=createMediaLibraryAsset({
         id,
         file,
@@ -2349,6 +2467,54 @@ export async function boot407FEngineeringAdapter({
       element.toggleAttribute("inert",active);
     }
     document.documentElement.toggleAttribute("data-builder-preview-open",active);
+  };
+  const standardModalBackgroundInert=(active)=>{
+    for(const element of [
+      document.querySelector("header"),
+      document.getElementById("rail"),
+      document.querySelector("main")
+    ].filter(Boolean)){
+      element.toggleAttribute("inert",active);
+    }
+  };
+  const closeStandardModal=({restoreFocus=true}={})=>{
+    const trap=standardModalTrap;
+    standardModalTrap=null;
+    trap?.destroy();
+    document.getElementById("modalBk")?.removeEventListener(
+      "click",
+      onStandardModalBackdrop,
+      true
+    );
+    bridge.closeModal?.();
+    standardModalBackgroundInert(false);
+    if(restoreFocus)standardModalOpener?.focus?.();
+    standardModalOpener=null;
+  };
+  const openStandardModal=(markup,selector)=>{
+    standardModalOpener=document.activeElement;
+    bridge.openModal?.(markup);
+    const dialog=document.querySelector(selector);
+    if(!dialog)return null;
+    standardModalBackgroundInert(true);
+    standardModalTrap?.destroy();
+    standardModalTrap=installFocusTrap(dialog,{
+      opener:standardModalOpener,
+      restoreFocus:false,
+      onEscape:()=>closeStandardModal()
+    });
+    onStandardModalBackdrop=(event)=>{
+      if(event.target?.id!=="modalBk")return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeStandardModal();
+    };
+    document.getElementById("modalBk")?.addEventListener(
+      "click",
+      onStandardModalBackdrop,
+      true
+    );
+    return dialog;
   };
   const updateBuilderPreviewHitTargets=(root)=>{
     const surface=root?.matches?.("[data-builder-preview-surface]")
@@ -2480,6 +2646,7 @@ export async function boot407FEngineeringAdapter({
   };
   const closeBuilderPreview=({restoreFocus=true}={})=>{
     const trap=builderPreviewTrap;
+    const opener=builderPreviewOpener;
     builderPreviewTrap=null;
     trap?.destroy();
     document.getElementById("modalBk")?.removeEventListener(
@@ -2491,8 +2658,16 @@ export async function boot407FEngineeringAdapter({
     previewBackgroundInert(false);
     if(restoreFocus){
       trap?.restore?.();
-      if(!trap)builderPreviewOpener?.focus?.();
+      opener?.focus?.();
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        const current=document.getElementById("builderPreviewToggle");
+        (current||opener)?.focus?.();
+      }));
     }
+    setTimeout(()=>{
+      const current=document.getElementById("builderPreviewToggle");
+      (current||opener)?.focus?.();
+    },0);
     builderPreviewOpener=null;
   };
   const focusBuilderPreviewOwner=(route)=>{
@@ -2697,15 +2872,18 @@ export async function boot407FEngineeringAdapter({
       return;
     }
     if(typeof bridge.openModal!=="function")return;
-    bridge.openModal(renderModeDialog(plan.dialog));
+    openStandardModal(
+      renderModeDialog(plan.dialog),
+      "[data-advanced-dialog]"
+    );
     document.querySelector("[data-mode-dialog-secondary]")?.addEventListener("click",()=>{
-      bridge.closeModal?.();
+      closeStandardModal();
       const decision=targetMode==="advanced"?"stay-guided":"cancel";
       applyModeDecision(plan,decision)
         .catch((error)=>bridge.toast(String(error?.message||error)));
     },{once:true});
     document.querySelector("[data-mode-dialog-primary]")?.addEventListener("click",()=>{
-      bridge.closeModal?.();
+      closeStandardModal();
       const decision=targetMode==="advanced"?"enter-advanced":"return-guided";
       applyModeDecision(plan,decision)
         .catch((error)=>bridge.toast(String(error?.message||error)));
@@ -2731,7 +2909,7 @@ export async function boot407FEngineeringAdapter({
     const file=await chooseLocalFile(accept);
     if(!file)return;
     const id=uid(`advanced-${kind}`);
-    const metrics=await imageMetrics(file);
+    const metrics=await imageMetrics(file,{kind});
     const media=createMediaElement({
       id,
       kind,
@@ -2753,7 +2931,7 @@ export async function boot407FEngineeringAdapter({
   const addAdvancedBackground=async(file)=>{
     if(!file)return;
     const id=uid("advanced-background");
-    const metrics=await imageMetrics(file,{sample:true});
+    const metrics=await imageMetrics(file,{sample:true,background:true});
     const background=createUploadedBackground(file,{
       id,
       luminance:metrics.luminance
@@ -2993,19 +3171,19 @@ export async function boot407FEngineeringAdapter({
       bridge.toast(suggestion.message);
       return;
     }
-    bridge.openModal(`<section class="export407FSuggestionDialog" role="dialog" aria-modal="true" aria-labelledby="export407FSuggestionTitle">
+    openStandardModal(`<section class="export407FSuggestionDialog" role="dialog" aria-modal="true" aria-labelledby="export407FSuggestionTitle">
       <h2 id="export407FSuggestionTitle">${escapeMarkup(suggestion.message)}</h2>
       <div>
         <button type="button" class="btnD alt" data-export-suggestion-dismiss>Not now</button>
         <button type="button" class="btnD go" data-export-suggestion-apply>${escapeMarkup(suggestion.actionLabel)}</button>
       </div>
-    </section>`);
+    </section>`,".export407FSuggestionDialog");
     document.querySelector("[data-export-suggestion-dismiss]")?.addEventListener("click",()=>{
-      bridge.closeModal?.();
+      closeStandardModal();
       suggestion.dismiss?.();
     },{once:true});
     document.querySelector("[data-export-suggestion-apply]")?.addEventListener("click",()=>{
-      bridge.closeModal?.();
+      closeStandardModal();
       suggestion.apply?.();
     },{once:true});
   };
@@ -3847,20 +4025,20 @@ export async function boot407FEngineeringAdapter({
     };
     const openIntakeDialog=(dialog)=>{
       if(typeof bridge.openModal!=="function")return;
-      bridge.openModal(`<section class="intake407FDialog" role="dialog" aria-modal="true" aria-labelledby="intake407FDialogTitle">
+      openStandardModal(`<section class="intake407FDialog" role="dialog" aria-modal="true" aria-labelledby="intake407FDialogTitle">
         <h2 id="intake407FDialogTitle">${escapeMarkup(dialog.title)}</h2>
         <p>${escapeMarkup(dialog.body)}</p>
         <div>
           <button type="button" class="btnD alt" data-intake-dialog-secondary>${escapeMarkup(dialog.secondaryLabel||"Cancel")}</button>
           <button type="button" class="btnD go" data-intake-dialog-primary>${escapeMarkup(dialog.primaryLabel||"Continue")}</button>
         </div>
-      </section>`);
+      </section>`,".intake407FDialog");
       document.querySelector("[data-intake-dialog-secondary]")?.addEventListener("click",()=>{
-        bridge.closeModal?.();
+        closeStandardModal();
         dialog.onSecondary?.();
       },{once:true});
       document.querySelector("[data-intake-dialog-primary]")?.addEventListener("click",()=>{
-        bridge.closeModal?.();
+        closeStandardModal();
         dialog.onPrimary?.();
       },{once:true});
     };
@@ -3931,6 +4109,10 @@ export async function boot407FEngineeringAdapter({
   const closeOwnedModal=()=>{
     if(builderPreviewTrap){
       closeBuilderPreview();
+      return;
+    }
+    if(standardModalTrap){
+      closeStandardModal();
       return;
     }
     shortcutTrap?.destroy();
@@ -4107,7 +4289,7 @@ export async function boot407FEngineeringAdapter({
     if(dialog){
       builderPreviewTrap=installFocusTrap(dialog,{
         opener:builderPreviewOpener,
-        onEscape:()=>closeBuilderPreview({restoreFocus:false})
+        onEscape:()=>closeBuilderPreview()
       });
     }
   };
@@ -4121,11 +4303,16 @@ export async function boot407FEngineeringAdapter({
     if(!["builder","canvas"].includes(view))closeMediaLibrary();
     if(["builder","canvas","media"].includes(view))renderMediaLibrarySurfaces();
     if(view===lastFocusedView)return;
-    const result=focusScreenHeading(active,{
-      previousViewKey:lastFocusedView,
-      nextViewKey:view
+    cancelAnimationFrame(routeFocusFrame);
+    routeFocusFrame=requestAnimationFrame(()=>{
+      const settled=document.querySelector("section[data-view].live");
+      if(!settled||String(settled.dataset.view||"")!==view)return;
+      const result=focusScreenHeading(settled,{
+        previousViewKey:lastFocusedView,
+        nextViewKey:view
+      });
+      if(result.focused)lastFocusedView=view;
     });
-    if(result.focused)lastFocusedView=view;
   };
   document.addEventListener("d1:407f-rendered",onRouteRendered);
 
@@ -4160,6 +4347,7 @@ export async function boot407FEngineeringAdapter({
 
   window.D1_407F_ENGINEERING=api;
   bridge.renderAll();
+  document.documentElement.classList.remove("d1-hydrating");
   document.dispatchEvent(new CustomEvent("d1:407f-engineering-ready",{
     detail:{documentId:store.document.id,restored:init.restored,adapter:store.adapter.kind}
   }));
@@ -4169,6 +4357,8 @@ export async function boot407FEngineeringAdapter({
 if(typeof window!=="undefined"){
   boot407FEngineeringAdapter().catch((error)=>{
     console.error("407F engineering adapter failed",error);
+    const gate=document.getElementById("d1HydrationGate");
+    if(gate)gate.textContent="Timeline could not be loaded safely.";
     document.dispatchEvent(new CustomEvent("d1:407f-engineering-error",{
       detail:{message:String(error?.message||error)}
     }));

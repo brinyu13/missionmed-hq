@@ -11,6 +11,7 @@ const clone=(value)=>structuredClone(value);
 export const ADVANCED_MODE="advanced";
 export const GUIDED_MODE="guided";
 export const MAX_BACKGROUND_BYTES=10*1024*1024;
+export const MAX_MEDIA_BYTES=20*1024*1024;
 export const DEFAULT_BACKGROUND_DIM=20;
 export const MIN_BACKGROUND_DIM=0;
 export const MAX_BACKGROUND_DIM=60;
@@ -597,16 +598,18 @@ export function validateMediaUpload(file,{kind="image"}={}){
   const allowed=normalizedKind==="gif"?["gif"]:
     normalizedKind==="image"?["png","jpg","webp"]:
     normalizedKind==="logo"?["png","jpg","gif","webp"]:[];
-  const valid=!!file&&allowed.includes(type)&&validFileSize(file);
+  const valid=!!file&&allowed.includes(type)&&validFileSize(file,MAX_MEDIA_BYTES);
   return valid?{
     valid:true,
     type,
     kind:normalizedKind,
-    animated:type==="gif"
+    animated:type==="gif",
+    maxBytes:MAX_MEDIA_BYTES
   }:{
     valid:false,
-    error:normalizedKind==="gif"?"GIF files only.":normalizedKind==="image"?
-      "PNG, JPG, or WEBP files only.":"PNG, JPG, WEBP, or GIF files only."
+    error:normalizedKind==="gif"?"GIF files only, up to 20MB.":normalizedKind==="image"?
+      "PNG, JPG, or WEBP files only, up to 20MB.":"PNG, JPG, WEBP, or GIF files only, up to 20MB.",
+    maxBytes:MAX_MEDIA_BYTES
   };
 }
 

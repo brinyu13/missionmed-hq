@@ -17,6 +17,7 @@ import {
   GIF_EXPORT_NOTICE,
   GUIDED_RETURN_DIALOG,
   MAX_BACKGROUND_BYTES,
+  MAX_MEDIA_BYTES,
   acknowledgeGifStillExportNotice,
   advancedStudioState,
   applyAdvancedObjectAction,
@@ -364,6 +365,14 @@ test("media validation preserves the frozen Image, GIF, and Logo file boundaries
   assert.equal(validateMediaUpload(jpg(),{kind:"logo"}).valid,true);
   assert.equal(validateMediaUpload(gif(),{kind:"logo"}).valid,true);
   assert.equal(validateMediaUpload({name:"vector.svg",type:"image/svg+xml",size:100},{kind:"logo"}).valid,false);
+  assert.equal(
+    validateMediaUpload(png("too-large.png",MAX_MEDIA_BYTES+1),{kind:"image"}).valid,
+    false
+  );
+  assert.equal(
+    validateMediaUpload(png("maximum.png",MAX_MEDIA_BYTES),{kind:"image"}).valid,
+    true
+  );
 });
 
 test("logos drop top-right at 120px and media exposes no rotation",()=>{

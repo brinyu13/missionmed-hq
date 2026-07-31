@@ -277,6 +277,9 @@ test("M6 registry and work-authorization UI use one accessible focus model",()=>
     index,
     /data-core="residencyVisaTypesOpenTo" aria-describedby="residencyVisaError407F"/
   );
-  assert.match(index,/if\(!valid&&firstInvalid\)\{[\s\S]*firstInvalid\.focus\(\)/);
+  assert.match(
+    index,
+    /if\(!valid&&focusInvalid&&firstInvalid&&!\$\('#modalBk'\)\.classList\.contains\('on'\)\)\{[\s\S]*firstInvalid\.focus\(\)/
+  );
   assert.match(css,/max-height:min\(240px,35dvh\)/);
 });

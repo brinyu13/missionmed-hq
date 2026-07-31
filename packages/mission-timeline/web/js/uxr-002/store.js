@@ -16,7 +16,7 @@ export class TimelineEntitlementError extends Error{
 
 function defaultDocument(){
   const now=isoNow();
-  return{
+  const document={
     schemaVersion:DOCUMENT_SCHEMA,
     id:"d1-uxr-002-local-timeline",
     title:"Timeline Builder",
@@ -49,7 +49,7 @@ function defaultDocument(){
     events:[],
     exams:[],
     medicalSchoolNormalizationQueue:[],
-    builder:{step:1,skipped:[],touched:[]},
+    builder:{step:1,skipped:[],touched:[],examSystems:[]},
     theme:"keynote-classic",
     mode:"guided",
     layoutLock:true,
@@ -76,6 +76,8 @@ function defaultDocument(){
     preferences:{railPinned:false,advisorPaperSuggestionDismissed:false,advancedDialogSeen:false},
     metadata:{source:"D1-UXR-002",localOnly:true,productionWrites:false}
   };
+  document.specialtyVariants=normalizeSpecialtyVariants(document);
+  return document;
 }
 
 function eventFromLegacy(event,index){
@@ -175,6 +177,34 @@ function eventFromLegacy(event,index){
   };
 }
 
+function normalizeEventIds(events){
+  const seen=new Set();
+  return events.map((event,index)=>{
+    const originalId=String(event?.id||`legacy-event-${index+1}`);
+    if(!seen.has(originalId)){
+      seen.add(originalId);
+      return event;
+    }
+    let suffix=2;
+    let normalizedId=`${originalId}--duplicate-${suffix}`;
+    while(seen.has(normalizedId)){
+      suffix+=1;
+      normalizedId=`${originalId}--duplicate-${suffix}`;
+    }
+    seen.add(normalizedId);
+    return{
+      ...event,
+      id:normalizedId,
+      fields:{
+        ...clone(event.fields||{}),
+        migrationOriginalId:
+          event.fields?.migrationOriginalId||originalId,
+        migrationDuplicateIdOccurrence:suffix
+      }
+    };
+  });
+}
+
 function migrateDocument(value){
   const base=defaultDocument();
   if(!value||typeof value!=="object")return base;
@@ -208,7 +238,7 @@ function migrateDocument(value){
       }),
       ...unknownCategories
     ],
-    events:(source.events||[]).map(eventFromLegacy),
+    events:normalizeEventIds((source.events||[]).map(eventFromLegacy)),
     medicalSchoolNormalizationQueue:clone(
       source.medicalSchoolNormalizationQueue||[]
     ),
@@ -249,6 +279,7 @@ function migrateDocument(value){
       };
     }
   }
+  if(!source.specialtyVariants)delete result.specialtyVariants;
   result.specialtyVariants=normalizeSpecialtyVariants(result);
   return result;
 }
@@ -267,6 +298,7 @@ export class TimelineStore{
     this.redoStack=[];
     this.listeners=new Set();
     this.timer=null;
+    this.scheduledAuthorization=null;
     this.saveSequence=0;
     this.pendingSave=null;
     this.entitlementTimer=null;
@@ -528,6 +560,7 @@ export class TimelineStore{
 
   scheduleSave(authorization=this.capturePersistenceAuthorization()){
     clearTimeout(this.timer);
+    this.scheduledAuthorization=authorization;
     const expiresAt=Date.parse(String(this.entitlement?.expiresAt||""));
     const remaining=expiresAt-this.clock().getTime();
     const delay=Number.isFinite(remaining)
@@ -537,6 +570,8 @@ export class TimelineStore{
       :AUTOSAVE_DELAY;
     this.timer=setTimeout(()=>{
       this.timer=null;
+      const authorization=this.scheduledAuthorization;
+      this.scheduledAuthorization=null;
       this.queueAuthorizedSave("AUTOSAVE",authorization).catch(()=>{});
     },delay);
   }
@@ -569,12 +604,22 @@ export class TimelineStore{
     const authorization=this.capturePersistenceAuthorization();
     clearTimeout(this.timer);
     this.timer=null;
+    this.scheduledAuthorization=null;
+    return this.queueAuthorizedSave(reason,authorization);
+  }
+
+  flushPendingSave(reason="PAGE_HIDE"){
+    clearTimeout(this.timer);
+    this.timer=null;
+    const authorization=this.scheduledAuthorization||
+      this.capturePersistenceAuthorization();
+    this.scheduledAuthorization=null;
     return this.queueAuthorizedSave(reason,authorization);
   }
 
   async queueAuthorizedSave(reason,{document,authorizedAt,lease}){
     const prior=this.pendingSave;
-    const queued=(prior?prior.catch(()=>{}):Promise.resolve()).then(async()=>{
+    const perform=async()=>{
       this.saveStatus="saving";this.emit();
       const leaseValid=
         lease?.schemaVersion==="d1-405.local-persistence-lease.1"&&
@@ -600,7 +645,8 @@ export class TimelineStore{
       }catch(error){
         this.saveStatus="error";this.saveError=String(error?.message||error);this.emit();throw error;
       }
-    });
+    };
+    const queued=prior?prior.catch(()=>{}).then(perform):perform();
     this.pendingSave=queued;
     return queued.finally(()=>{if(this.pendingSave===queued)this.pendingSave=null;});
   }

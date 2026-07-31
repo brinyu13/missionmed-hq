@@ -2743,7 +2743,7 @@ main{
   display:none;
 }
 
-.builderTypeaheadList button{
+.builderTypeaheadList li{
   align-items:center;
   background:transparent;
   border:0;
@@ -2766,8 +2766,8 @@ main{
   letter-spacing:.12em;
 }
 
-.builderTypeaheadList li[aria-selected="true"] button,
-.builderTypeaheadList button:hover{
+.builderTypeaheadList li[aria-selected="true"],
+.builderTypeaheadList li:hover{
   background:rgba(38,207,213,.1);
   color:var(--tx);
 }
@@ -6252,7 +6252,12 @@ textarea:focus-visible,
   textarea,
   [role="button"],
   [tabindex]:not([tabindex="-1"]){
-    min-height:44px;
+    min-height:44px!important;
+  }
+
+  button,
+  [role="button"]{
+    min-width:44px!important;
   }
 }
 

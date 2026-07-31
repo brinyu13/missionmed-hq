@@ -13,8 +13,13 @@ import {
 import {
   TimelineEntitlementError,
   TimelineStore,
+  defaultDocument,
   migrateDocument
 } from "../web/js/uxr-002/store.js";
+import {
+  apply407FStateToDocument,
+  applyDocumentTo407FState
+} from "../web/js/407f-engineering-adapter.js";
 import {
   buildExportScreenModel,
   executeExportRequest
@@ -758,6 +763,204 @@ test("M11 empty legacy documents migrate to a safe specialty state without fabri
   assert.equal(migrated.specialtyVariants.variants[0].specialty.id,"");
   assert.equal(migrated.specialtyVariants.variants[0].interviewTarget.mode,"general");
   assert.equal(migrated.events.some((event)=>event.fields?.lorSubmitted),false);
+});
+
+test("M12 a fresh canonical document clears every prototype identity and private-context value",()=>{
+  const document=defaultDocument();
+  const state={
+    user:{
+      events:[{id:"demo"}],
+      interview:{prog:"Rutgers IM",date:"2026-12",label:"Private"}
+    },
+    profile:{
+      name:"Dr. Amara Osei",
+      country:"Ghana",
+      visa:"Green card",
+      s1:"246",
+      s2:"251",
+      goal:"Internal Medicine"
+    },
+    sticky:"Helped with baby while rotating",
+    media:{photos:{0:true},logo:true,avatar:true},
+    wiz:{
+      name:"Dr. Amara Osei",
+      country:"Ghana",
+      grad:"2017-05",
+      degree:"MBBS",
+      pt:"Daughter born",
+      pd:"2021-03",
+      padv:true
+    },
+    builder:{step:7},
+    intake:{candidates:[{title:"Private prototype record"}]}
+  };
+  applyDocumentTo407FState(document,state);
+  assert.deepEqual(state.user.events,[]);
+  assert.deepEqual(state.user.interview,{prog:"",date:"",label:""});
+  assert.deepEqual(state.profile,{
+    name:"",country:"",visa:"",goal:"",s1:"",s2:""
+  });
+  assert.equal(state.sticky,"");
+  assert.deepEqual(state.media,{photos:{},logo:false,avatar:false});
+  assert.equal(state.wiz.name,"");
+  assert.equal(state.wiz.country,"");
+  assert.equal(state.wiz.grad,"");
+  assert.equal(state.wiz.degree,"");
+  assert.equal(state.wiz.pt,"");
+  assert.equal(state.wiz.pd,"");
+  assert.equal(state.wiz.padv,false);
+  assert.deepEqual(state.intake.candidates,[]);
+});
+
+test("M12 407F reconciliation preserves opaque legacy event data byte-for-byte",()=>{
+  const source=migrateDocument({
+    schemaVersion:"d1-404.1",
+    events:[{
+      id:"opaque-event",
+      t:"Original title",
+      cat:"work",
+      s:"2024-01",
+      e:"2024-03",
+      x:17,
+      y:29,
+      width:431,
+      height:67,
+      futureOpaque:{nested:["retain",{value:9}]},
+      fields:{futureNested:{alpha:true}}
+    }]
+  });
+  const state={
+    user:{events:[],interview:{}},
+    profile:{},
+    media:{},
+    wiz:{},
+    builder:{}
+  };
+  applyDocumentTo407FState(source,state);
+  state.user.events[0].t="Edited title";
+  const roundTrip=structuredClone(source);
+  apply407FStateToDocument(state,roundTrip);
+  const event=roundTrip.events[0];
+  assert.equal(event.title,"Edited title");
+  for(const key of ["x","y","width","height","futureOpaque"]){
+    assert.deepEqual(event[key],source.events[0][key],`${key} was not preserved`);
+  }
+  assert.deepEqual(
+    event.fields.futureNested,
+    source.events[0].fields.futureNested
+  );
+});
+
+test("M12 407F reconciliation retains undated opaque events while honoring visible deletions",()=>{
+  const source=migrateDocument({
+    schemaVersion:"d1-404.1",
+    events:[
+      {id:"visible-delete",t:"Delete me",cat:"work",s:"2024-01"},
+      {
+        id:"undated-opaque",
+        t:"Undated source evidence",
+        cat:"res",
+        s:"",
+        futureOpaque:{nested:["retain",{value:11}]},
+        fields:{futureNested:{beta:true}}
+      },
+      {id:"visible-keep",t:"Keep me",cat:"th",s:"2024-03"}
+    ]
+  });
+  const state={
+    user:{events:[],interview:{}},
+    profile:{},
+    media:{},
+    wiz:{},
+    builder:{}
+  };
+  applyDocumentTo407FState(source,state);
+  state.user.events=state.user.events.filter(
+    (event)=>event.id!=="visible-delete"
+  );
+  state.user.events[0].t="Kept and edited";
+  const roundTrip=structuredClone(source);
+  apply407FStateToDocument(state,roundTrip);
+  assert.deepEqual(
+    roundTrip.events.map(({id})=>id),
+    ["undated-opaque","visible-keep"]
+  );
+  assert.deepEqual(roundTrip.events[0],source.events[1]);
+  assert.equal(roundTrip.events[1].title,"Kept and edited");
+});
+
+test("M12 migration normalizes duplicate event IDs without collapsing source evidence",()=>{
+  const source=migrateDocument({
+    schemaVersion:"d1-404.1",
+    events:[
+      {id:"duplicate",t:"First",cat:"work",s:"2024-01"},
+      {id:"duplicate",t:"Second",cat:"res",s:"2024-02"}
+    ]
+  });
+  assert.equal(source.events.length,2);
+  assert.equal(source.events[0].id,"duplicate");
+  assert.equal(source.events[1].id,"duplicate--duplicate-2");
+  assert.equal(
+    source.events[1].fields.migrationOriginalId,
+    "duplicate"
+  );
+  const state={
+    user:{events:[],interview:{}},
+    profile:{},
+    media:{},
+    wiz:{},
+    builder:{}
+  };
+  applyDocumentTo407FState(source,state);
+  const roundTrip=structuredClone(source);
+  apply407FStateToDocument(state,roundTrip);
+  assert.equal(roundTrip.events.length,2);
+  assert.deepEqual(
+    roundTrip.events.map(({id})=>id),
+    ["duplicate","duplicate--duplicate-2"]
+  );
+});
+
+test("M12 exit flush starts the accepted autosave transaction synchronously",async()=>{
+  let release;
+  const gate=new Promise((resolve)=>{release=resolve;});
+  class ExitProbeAdapter extends CountingAdapter{
+    constructor(){
+      super();
+      this.exitStarted=false;
+    }
+    async atomicPut(entries){
+      if(entries[0]?.value?.reason==="PAGE_EXIT"){
+        this.exitStarted=true;
+        await gate;
+      }
+      return super.atomicPut(entries);
+    }
+  }
+  const adapter=new ExitProbeAdapter();
+  const store=new TimelineStore({
+    adapter,
+    entitlement:{
+      schemaVersion:"d1-405.timeline-entitlement.1",
+      access:"FULL",
+      verified:true,
+      canRead:true,
+      canCreate:true,
+      canMutate:true,
+      canExport:true,
+      reason:"Test access."
+    }
+  });
+  await store.initialize();
+  store.mutate("Accepted edit",(document)=>{document.title="Exit-safe";});
+  const pending=store.flushPendingSave("PAGE_EXIT");
+  assert.equal(adapter.exitStarted,true);
+  release();
+  await pending;
+  assert.equal(
+    (await adapter.get("documents",store.document.id)).document.title,
+    "Exit-safe"
+  );
 });
 
 test("M11 migration is pure, idempotent, and lossless for unknown category and specialty fields",()=>{

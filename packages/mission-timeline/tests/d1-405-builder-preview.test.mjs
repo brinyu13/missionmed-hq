@@ -281,7 +281,7 @@ test("M4 uses one delegated pointer and keyboard activation path with roving foc
 test("M4 lightbox owns Fit, 100%, 150%, focus restoration, Escape, backdrop, and one zoom scrollport",()=>{
   assert.match(adapter,/BUILDER_PREVIEW_ZOOM_PRESETS\.map/);
   assert.match(adapter,/builderPreviewTrap=installFocusTrap/);
-  assert.match(adapter,/onEscape:\(\)=>closeBuilderPreview\(\{restoreFocus:false\}\)/);
+  assert.match(adapter,/onEscape:\(\)=>closeBuilderPreview\(\)/);
   assert.match(adapter,/onBuilderPreviewBackdrop/);
   assert.match(adapter,/previewBackgroundInert\(true\)/);
   assert.match(css,/builderPreview407FCanvas\[data-zoom-mode="percent"\]/);

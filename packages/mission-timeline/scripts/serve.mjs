@@ -29,8 +29,20 @@ const mime = {
   ".md": "text/markdown; charset=utf-8",
 };
 
+const securityHeaders = Object.freeze({
+  "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+  "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+  "referrer-policy": "no-referrer",
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+});
+
 function sendJson(response, status, value) {
-  response.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+  response.writeHead(status, {
+    ...securityHeaders,
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store"
+  });
   response.end(JSON.stringify(value));
 }
 
@@ -68,10 +80,9 @@ const server = createServer((request, response) => {
     return;
   }
   response.writeHead(200, {
+    ...securityHeaders,
     "content-type": mime[extname(target).toLowerCase()] || "application/octet-stream",
     "cache-control": "no-store",
-    "x-content-type-options": "nosniff",
-    "referrer-policy": "no-referrer",
   });
   createReadStream(target).pipe(response);
 });

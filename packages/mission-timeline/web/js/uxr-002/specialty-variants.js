@@ -233,6 +233,8 @@ export function setVariantInterviewTarget(document,variantId,target={}){
   const variant=state.variants.find(({id})=>id===clean(variantId));
   if(!variant)return{ok:false,code:"SPECIALTY_VARIANT_NOT_FOUND"};
   variant.interviewTarget={
+    ...clone(variant.interviewTarget||{}),
+    ...clone(target||{}),
     mode:target.mode==="specific"?"specific":"general",
     programId:clean(target.programId),
     programName:clean(target.programName),

@@ -162,6 +162,24 @@ test("M9 stores interview details and program-logo reference only on the active 
   assert.match(rendered.svg,/preserveAspectRatio="xMidYMid meet"/);
 });
 
+test("M12 interview edits preserve opaque forward-compatible target fields",()=>{
+  const document=fixture();
+  ensureSpecialtyVariants(document);
+  const variant=activeSpecialtyVariant(document);
+  variant.interviewTarget.futureInterview={opaque:8};
+  const result=setVariantInterviewTarget(document,variant.id,{
+    ...variant.interviewTarget,
+    mode:"specific",
+    programName:"Updated Program"
+  });
+  assert.equal(result.ok,true);
+  assert.deepEqual(
+    result.interviewTarget.futureInterview,
+    {opaque:8}
+  );
+  assert.equal(result.interviewTarget.programName,"Updated Program");
+});
+
 test("M9 interview target appears in the rendered board and export input",()=>{
   const document=fixture();
   ensureSpecialtyVariants(document);

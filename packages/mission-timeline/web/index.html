@@ -2,10 +2,15 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Archivo:ital,wght@0,400;0,600;0,800;0,900;1,800&display=swap" rel="stylesheet">
+<script>document.documentElement.classList.add('d1-hydrating')</script>
+<link rel="icon" href="data:,">
 <title>MissionMed Timeline Builder · Mission:Residency Division · 407F</title>
 <style>
+@font-face{font-family:'Archivo';font-style:normal;font-weight:400 900;font-display:swap;src:url('./assets/fonts/archivo-latin-wght-normal.woff2') format('woff2')}
+@font-face{font-family:'Archivo';font-style:italic;font-weight:800;font-display:swap;src:url('./assets/fonts/archivo-latin-800-italic.woff2') format('woff2')}
+@font-face{font-family:'Rajdhani';font-style:normal;font-weight:400;font-display:swap;src:url('./assets/fonts/rajdhani-latin-400.woff2') format('woff2')}
+@font-face{font-family:'Rajdhani';font-style:normal;font-weight:600;font-display:swap;src:url('./assets/fonts/rajdhani-latin-600.woff2') format('woff2')}
+@font-face{font-family:'Rajdhani';font-style:normal;font-weight:700;font-display:swap;src:url('./assets/fonts/rajdhani-latin-700.woff2') format('woff2')}
 /* ============ MM-CAM-THEME-D-001 TOKENS (verbatim) ============ */
 :root{
   --bg:#0b0e14; --bg2:#101623; --card:#141b2b; --edge:#243046; --edge2:#31405c;
@@ -20,6 +25,14 @@
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%}
 html{background:#05070d}
+html.d1-hydrating body>*{visibility:hidden}
+#d1HydrationGate{display:none}
+html.d1-hydrating #d1HydrationGate{
+  visibility:visible;display:grid;position:fixed;inset:0;z-index:1000;
+  place-items:center;background:#05070d;color:#a9b7d0;
+  font:700 12px/1.5 'Rajdhani',sans-serif;letter-spacing:.2em;
+  text-transform:uppercase
+}
 body{background:
   radial-gradient(ellipse at 18% 12%,rgba(57,214,255,.16),transparent 34%),
   radial-gradient(ellipse at 88% 18%,rgba(255,122,61,.14),transparent 34%),
@@ -478,6 +491,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 <link rel="stylesheet" href="./styles/407f-upgrade.css">
 </head>
 <body>
+<div id="d1HydrationGate" role="status" aria-live="polite">Loading local timeline…</div>
 <canvas id="bgfx"></canvas><div class="vg"></div>
 
 <header class="d1404Header">
@@ -694,7 +708,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
     </div></div>
     <div class="panelD"><div class="pi">
       <div class="subt" style="margin-bottom:12px">CANONICAL 400G CLONE IMAGE</div>
-      <img id="refImg" alt="400g renderer sample" style="width:100%;border-radius:12px;border:1px solid var(--edge2);display:none" src="renderer_400g_best.png">
+      <img id="refImg" alt="400g renderer sample" style="width:100%;border-radius:12px;border:1px solid var(--edge2);display:none" src="assets/renderer_400g_best.png">
       <div id="refPh" style="border:1px dashed var(--edge2);border-radius:12px;padding:48px 22px;text-align:center">
         <div style="font-weight:800;font-size:14px;margin-bottom:8px">400g clone preview goes here</div>
         <div class="subt" style="letter-spacing:.2em;line-height:2">PLACE renderer_400g_best.png NEXT TO THIS FILE<br>400G CLONE PREVIEW · REVIEW GRADE · TEMPLATE NOT FROZEN</div>
@@ -727,7 +741,7 @@ function sizeC(c){const r=c.getBoundingClientRect(),d=devicePixelRatio||1;c.widt
   const c=$('#bgfx'),ctx=c.getContext('2d');
   const P=[];for(let i=0;i<118;i++){const s=Math.random();P.push({x:Math.random(),y:Math.random(),s:s,v:(.05+Math.random()*.18)/120,p:Math.random()*7});}
   const rm=matchMedia('(prefers-reduced-motion:reduce)').matches;
-  function fr(){const[w,h]=sizeC(c),t=performance.now()/1000;ctx.clearRect(0,0,w,h);
+  function fr(){const[w,h]=sizeC(c),t=rm?0:performance.now()/1000;ctx.clearRect(0,0,w,h);
     const g=ctx.createRadialGradient(w*(.52+Math.sin(t*.16)*.08),h*(.42+Math.cos(t*.13)*.06),20,w*.52,h*.44,Math.max(w,h)*.72);
     g.addColorStop(0,'rgba(57,214,255,.10)');g.addColorStop(.38,'rgba(138,125,255,.06)');g.addColorStop(1,'rgba(5,7,13,0)');
     ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
@@ -735,7 +749,7 @@ function sizeC(c){const r=c.getBoundingClientRect(),d=devicePixelRatio||1;c.widt
       const col=p.s>.5?'255,179,64':'57,214,255';
       ctx.fillStyle='rgba('+col+','+(.08+p.s*.18)+')';
       ctx.beginPath();ctx.arc(p.x*w,p.y*h,1+p.s*2.4,0,7);ctx.fill();});
-    requestAnimationFrame(fr);}
+    if(!rm)requestAnimationFrame(fr);}
   fr();
 })();
 
@@ -1229,6 +1243,7 @@ window.D1_407_HARDENING=window.D1_407_HARDENING||{beforeRenderAll:null,afterRend
 function renderAll(){
   if(typeof window.D1_407_HARDENING.beforeRenderAll==='function')window.D1_407_HARDENING.beforeRenderAll();
   renderThemeButtons();renderHome();renderBuilder404();renderBoards();renderEvList();renderElems();renderInspector();renderWizQuick();renderHud();renderHist();renderExport();renderAdvisor();renderQuestionsList();renderVersionsPanel();renderCands();refreshSelClasses();
+  lockProdDarkCanvas();
   if(typeof window.D1_407_HARDENING.afterRenderAll==='function')window.D1_407_HARDENING.afterRenderAll();
   document.dispatchEvent(new CustomEvent('d1:407f-rendered'));
 }
@@ -2265,7 +2280,7 @@ function syncCoreInfo(){
   state.saved=false;
   renderBuilder404();renderBoards();renderHud();renderHome();
 }
-function showCoreErrors(){
+function showCoreErrors(focusInvalid){
   const w=state.wiz;
   let firstInvalid=null;
   for(const key of CORE_REQUIRED){
@@ -2313,7 +2328,7 @@ function showCoreErrors(){
     }
   }
   const valid=coreInfoValid()&&!!parseBuilderMonth(w.grad);
-  if(!valid&&firstInvalid){
+  if(!valid&&focusInvalid&&firstInvalid&&!$('#modalBk').classList.contains('on')){
     firstInvalid.focus();
     announceBuilder404('Complete the highlighted required field.');
   }
@@ -2408,7 +2423,7 @@ function paintTypeahead404(field){
   if(!rows.length){list.hidden=true;list.innerHTML='';input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');return}
   let active=Number(field.dataset.activeIndex);if(!Number.isInteger(active)||active<0||active>=rows.length)active=0;
   field.dataset.activeIndex=String(active);
-  list.innerHTML=rows.map((row,index)=>'<li role="option" id="'+list.id+'-option-'+index+'" aria-selected="'+String(index===active)+'"><button type="button" data-typeahead-choice="'+index+'">'+esc(row.label)+(row.pinned?'<span class="builderTypeaheadPinned">COMMON</span>':'')+'</button></li>').join('');
+  list.innerHTML=rows.map((row,index)=>'<li role="option" data-typeahead-choice="'+index+'" id="'+list.id+'-option-'+index+'" aria-selected="'+String(index===active)+'">'+esc(row.label)+(row.pinned?'<span class="builderTypeaheadPinned">COMMON</span>':'')+'</li>').join('');
   list.hidden=false;input.setAttribute('aria-expanded','true');input.setAttribute('aria-activedescendant',list.id+'-option-'+active);
 }
 function moveTypeahead404(field,delta){
@@ -2442,6 +2457,7 @@ function commitTypeahead404(field,index){
   state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
   closeTypeahead404(field);typeaheadCommitting404=true;
   try{runDomainAction404('updateDraft',domain,changes)}finally{typeaheadCommitting404=false}
+  queueMicrotask(()=>document.querySelector('[data-domain-form="'+CSS.escape(domain)+'"] [data-typeahead-input][name="'+CSS.escape(name)+'"]')?.focus());
 }
 function domainFormData404(form,domain){
   const draft=domainDraft404(domain);const next=Object.assign({},draft);
@@ -2874,7 +2890,7 @@ document.addEventListener('focusout',e=>{
 });
 $('#builderBack').onclick=()=>{if(state.builder.step>1)moveBuilderStep404(state.builder.step-1,{focusPanel:true,renderAllViews:true})};
 $('#builderContinue').onclick=()=>{
-  if(state.builder.step===1&&!showCoreErrors())return;
+  if(state.builder.step===1&&!showCoreErrors(true))return;
   if(state.builder.step===2&&!showExamErrors404())return;
   syncCoreInfo();
   if(state.builder.step===7){go('canvas');return}
@@ -3181,11 +3197,8 @@ function lockProdDarkCanvas(){
     }
   });
 }
-lockProdDarkCanvas();
-setInterval(lockProdDarkCanvas,750);
-new MutationObserver(lockProdDarkCanvas).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});
 window.D1_407F_TEST={state:state,SPR402:SPR402,CATS:CATS,snapshotDoc:snapshotDoc,applyDoc:applyDoc,pushUndo:pushUndo,doUndo:doUndo,renderAll:renderAll,renderBoard:renderBoard,go:go,toast:toast,openModal:openModal,closeModal:closeModal,computeQuestions:computeQuestions,exCounts:exCounts,exWarnings:exWarnings,fixtureSet:fixtureSet};
-renderBuilder404();renderElems();renderMediaSlots();renderAdvisor();renderCands();renderAll();lockProdDarkCanvas();
+renderBuilder404();renderElems();renderMediaSlots();renderAdvisor();renderCands();renderAll();
 </script>
 <script type="module" src="./js/407f-engineering-adapter.js"></script>
 </body>
