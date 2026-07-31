@@ -3520,6 +3520,62 @@ PROBE-C5, reconciliation, and automatic deletion.
 
 ---
 
+### B1-508: StoryForge Phase 1 Founder-Only Production Validation
+**Date:** 2026-07-31
+**Agent:** Codex GPT-5.6
+**Mission:** Deploy and verify the strongest safely authorized StoryForge
+Phase 1 release while preserving independent voice and broader-access gates.
+
+**Result:** STORYFORGE LIVE — FOUNDER-ONLY VALIDATION COMPLETE
+
+**Production changes:**
+
+- created fresh locked Railway, PostgreSQL, MyKinsta, and private Kinsta
+  recovery points before mutation;
+- restored the PostgreSQL dump into isolated PostgreSQL 18.4;
+- applied only accepted M4 and verified complete least-privilege closure;
+- deployed source `97ebf2433849343acd521547e558a9713c579eb0`
+  to Railway deployment `7ce159b6-226a-4e77-8335-e5e5d06519c3`;
+- published immutable Kinsta release
+  `releases/97ebf2433849343acd521547e558a9713c579eb0`;
+- restored exact one-Founder/zero-cohort WordPress access;
+- cleared MyKinsta caches;
+- reconciled the Critical Systems manifest to exact live hashes and migration
+  state.
+
+**Verification:**
+
+- unit 219/219;
+- PostgreSQL 12/12 plus binding contract 130/130;
+- automated acceptance 163/163, zero skips;
+- browser E2E 59/59;
+- product conformance/accessibility 72/72;
+- deterministic release `v-a9a076957973d7d4`;
+- Critical Systems 112 PASS, 0 FAIL, 2 expected report-only WARN;
+- secret scan clean and npm audit 0 vulnerabilities;
+- authenticated Founder create/save/reload/detail/archive canary PASS;
+- zero Railway HTTP 5xx during stabilization.
+
+**Safety state:**
+
+- provider `none`;
+- reconciliation `off`;
+- voice and platform force-off `1`;
+- assembly executor absent (later approved value remains `concat`);
+- no StoryForge R2 or OpenAI credentials;
+- no provider call, R2 operation, broad access, push, or PR;
+- no P0/P1.
+
+**Remaining external gates:** exact student-cohort authority; and, separately
+for voice, FG-1, private R2/scoped credentials, provider contract/key, RP-7
+human corpus, Founder-only voice authority, physical devices, real E2E, E13,
+and reconciliation dry-run progression.
+
+**Canonical receipt:**
+`_AI_HANDOFFS/from_codex/B1-508_storyforge_production_megarun/B1-508_FINAL_COMPLETE_COMBINED_HANDOFF.md`
+
+---
+
 ### B1-507B: StoryForge Phase 1 Final Binding Authority Ruling
 **Date:** 2026-07-30
 **Agent:** Claude Fable (Cowork)
