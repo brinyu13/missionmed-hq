@@ -173,6 +173,7 @@ wp plugin activate missionmed-storyforge-sso
 wp role create mentor Mentor --clone=subscriber
 FOUNDER_ID="$(wp user get localadmin --field=ID)"
 FOUNDER_STORYFORGE_ID="33333333-3333-4333-8333-333333333333"
+wp user update "$FOUNDER_ID" --first_name='Dr' >/dev/null
 SECOND_ADMIN_ID="$(wp user create secondadmin secondadmin@example.test --role=administrator --user_pass=storyforge-local-password --display_name='Second Admin' --porcelain)"
 STUDENT_ID="$(wp user create maya maya@example.test --role=subscriber --user_pass=storyforge-local-password --display_name='Maya Student' --porcelain)"
 MENTOR_ID="$(wp user create drchen drchen@example.test --role=mentor --user_pass=storyforge-local-password --display_name='Dr. Chen' --porcelain)"

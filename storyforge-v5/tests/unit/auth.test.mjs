@@ -27,10 +27,25 @@ async function token(claims = {}, expiration = '5m', signingKey = key) {
 }
 
 test('accepts a signed, purpose-bound, eligible identity', async () => {
-  const identity = await verifyToken(await token(), { key, issuer, audience });
+  const identity = await verifyToken(await token({ first_name: ' Dr ', username: 'brinyu' }), { key, issuer, audience });
   assert.equal(identity.sub, '11111111-1111-4111-8111-111111111111');
   assert.equal(identity.role, 'student');
   assert.equal(identity.eligible, true);
+  assert.equal(identity.firstName, ' Dr ');
+  assert.equal(identity.username, 'brinyu');
+});
+
+test('preserves the signed WordPress first_name exactly and treats absence as blank', async () => {
+  const exact = await verifyToken(await token({ first_name: 'Afthab' }), { key, issuer, audience });
+  assert.equal(exact.firstName, 'Afthab');
+
+  const absent = await verifyToken(await token(), { key, issuer, audience });
+  assert.equal(absent.firstName, '');
+  assert.equal(absent.username, '');
+
+  const malformed = await verifyToken(await token({ first_name: {}, username: 42 }), { key, issuer, audience });
+  assert.equal(malformed.firstName, '');
+  assert.equal(malformed.username, '');
 });
 
 test('rejects an expired JWT', async () => {

@@ -15,6 +15,8 @@ const student = Object.freeze({
   eligible: true,
   cohort: 'G7',
   wpUserId: 101,
+  firstName: 'Dr',
+  username: 'brinyu',
 });
 const admin = Object.freeze({
   sub: adminId,
@@ -147,6 +149,7 @@ async function startFixture(context, fixture, options = {}) {
               id: identity.sub,
               wp_user_id: identity.wpUserId,
               display_name: identity.role === 'admin' ? 'Admin' : 'Student',
+              first_name: 'stale-database-value',
               role: identity.role,
               eligible: true,
               cohort: identity.cohort,
@@ -240,6 +243,8 @@ test('E10 returns only the caller capability and E11 routes preserve admin servi
   assert.equal(session.status, 200);
   assert.deepEqual(session.body.capabilities, { voiceCapture: true });
   assert.equal(session.body.user.id, studentId);
+  assert.equal(session.body.user.first_name, 'Dr');
+  assert.equal(session.body.user.username, 'brinyu');
 
   const features = await json(await fetch(`${origin}/api/admin/features`, {
     headers: { 'x-test-role': 'admin' },

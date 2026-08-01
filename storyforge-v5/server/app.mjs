@@ -681,7 +681,11 @@ async function api(request, response, url, {
       throw error;
     }
     return sendJson(response, 200, {
-      user,
+      user: {
+        ...user,
+        first_name: identity.firstName,
+        username: identity.username,
+      },
       capabilities: { voiceCapture },
     });
   }

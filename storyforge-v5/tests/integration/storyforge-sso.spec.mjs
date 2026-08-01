@@ -245,6 +245,7 @@ test('the WordPress gateway is exact, manifest-bound, and fail-closed', async ({
 test('founder-only zero-assignment workflow remains private and truthful', async ({ page }) => {
   await logIn(page);
   await page.goto('/storyforge/');
+  await expect(page.locator('.greet em')).toHaveText('Dr');
   await page.getByRole('button', { name: /New Story/i }).first().click();
   const captureDialog = page.getByRole('dialog', { name: /New story — Save it before it fades/i });
   await captureDialog.locator('[name="title"]').fill('Founder private rehearsal');

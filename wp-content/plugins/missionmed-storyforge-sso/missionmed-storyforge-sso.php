@@ -341,6 +341,8 @@ function mmsf_issue_jwt($user, $access) {
         'jti' => wp_generate_uuid4(),
         'wp_user_id' => (int) $user->ID,
         'name' => (string) $user->display_name,
+        'first_name' => (string) $user->first_name,
+        'username' => (string) $user->user_login,
         'app_role' => (string) $access['role'],
         'storyforge_eligible' => true,
     );

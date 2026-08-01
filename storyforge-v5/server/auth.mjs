@@ -9,36 +9,42 @@ export const fixtureIdentities = Object.freeze({
     sub: '11111111-1111-4111-8111-111111111111',
     wp_user_id: 1101,
     name: 'Maya Student',
+    first_name: 'Maya',
     app_role: 'student',
   }),
   studentOther: Object.freeze({
     sub: '22222222-2222-4222-8222-222222222222',
     wp_user_id: 1102,
     name: 'Noah Student',
+    first_name: 'Noah',
     app_role: 'student',
   }),
   mentor: Object.freeze({
     sub: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     wp_user_id: 2101,
     name: 'Dr. Chen',
+    first_name: 'Dr. Chen',
     app_role: 'mentor',
   }),
   mentorTwo: Object.freeze({
     sub: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
     wp_user_id: 2102,
     name: 'Dr. Rivera',
+    first_name: 'Dr. Rivera',
     app_role: 'mentor',
   }),
   unassignedMentor: Object.freeze({
     sub: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
     wp_user_id: 2103,
     name: 'Dr. Unassigned',
+    first_name: 'Dr. Unassigned',
     app_role: 'mentor',
   }),
   admin: Object.freeze({
     sub: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
     wp_user_id: 3101,
     name: 'Program Admin',
+    first_name: 'Program Admin',
     app_role: 'admin',
   }),
 });
@@ -115,6 +121,8 @@ export async function verifyToken(token, options = {}) {
     cohort: typeof claims.cohort === 'string' ? claims.cohort.trim() : '',
     wpUserId,
     name: String(claims.name || ''),
+    firstName: typeof claims.first_name === 'string' ? claims.first_name : '',
+    username: typeof claims.username === 'string' ? claims.username : '',
     issuer: String(claims.iss || ''),
   });
 }
