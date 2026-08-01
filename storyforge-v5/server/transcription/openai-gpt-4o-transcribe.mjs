@@ -97,10 +97,14 @@ function composePrompt({ keywords, promptTail }) {
   return terms.length ? `${prefix}${terms.join(', ')}` : tail;
 }
 
-function isPromptEcho(value) {
-  return /^(?:context\s*:\s*)?(?:#+\s*)?vocabulary\s*:/iu.test(
-    String(value || '').trim(),
-  );
+function isPromptEcho(value, keywords) {
+  const text = String(value || '').trim();
+  if (/^(?:context\s*:\s*)?(?:#+\s*)?vocabulary\s*:/iu.test(text)) return true;
+  const prefix = text.slice(0, 300).toLocaleLowerCase('en-US');
+  const contextHits = normalizeKeywords(keywords).filter((term) => (
+    prefix.includes(term.toLocaleLowerCase('en-US'))
+  ));
+  return contextHits.length >= 4;
 }
 
 function responseTokens(value) {
@@ -333,7 +337,7 @@ export function createOpenAITranscriptionDriver({
     }
 
     const text = typeof payload?.text === 'string' ? payload.text : '';
-    if (isPromptEcho(text)) {
+    if (isPromptEcho(text, input.keywords)) {
       throw transcriptionError(
         'transcribe_rejected_format',
         'The transcription response could not be used.',

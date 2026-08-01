@@ -158,6 +158,7 @@ test('whisper driver folds vocabulary into prompt and never invents confidence',
 test('drivers reject provider prompt echoes before text reaches StoryForge', async () => {
   for (const [factory, text] of [
     [createOpenAIGpt4oTranscribeDriver, 'context: ### Vocabulary: Whipple, ICU'],
+    [createOpenAIGpt4oTranscribeDriver, 'Whipple, ICU, CBC, troponin. Unrelated words.'],
     [createOpenAIWhisper1Driver, 'Vocabulary: Whipple, ICU'],
   ]) {
     const driver = factory({
@@ -169,7 +170,7 @@ test('drivers reject provider prompt echoes before text reaches StoryForge', asy
         buffer: Buffer.from([1, 2, 3]),
         mimeType: 'audio/webm',
         seq: 0,
-        keywords: ['Whipple', 'ICU'],
+        keywords: ['Whipple', 'ICU', 'CBC', 'troponin'],
       }),
       (error) => (
         error.code === 'transcribe_rejected_format'
