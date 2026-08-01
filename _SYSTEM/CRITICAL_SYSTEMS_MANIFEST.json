@@ -287,25 +287,25 @@
       "id": "storyforge_v5_index",
       "system": "storyforge_v5",
       "url": "https://missionmedinstitute.com/storyforge/",
-      "approved_sha256": "8a28f5903fa985b8d7373c889f52fc4f25ccb43c0e4ed3763f429fe760dfbbd6",
+      "approved_sha256": "25484c8730689abf4a3dc0263fcf6632823c63e0ae77cfaa4fc03fc0ac9c8a6d",
       "required_markers": [
         "StoryForge V5 · MissionMed",
         "Dr Brian's IV Prep On-Call",
         "Opening your private story workspace"
       ],
-      "local_source_note": "Current accepted B1-510I Phase B/C production asset from exact committed source dab4e67fe6f8044cfa8a76db435b0aa843826074; live bytes independently verified after deployment."
+      "local_source_note": "Current accepted B1-510K production asset from exact committed source 4e9472bc21f0ceeaeb67f7f0276b0c7d8339e981; live bytes independently verified after deployment."
     },
     {
       "id": "storyforge_v5_app_bundle",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/c7d6d2e50f7b",
-      "approved_sha256": "c7d6d2e50f7b047ccdc8b86646cd6a25a94b326be56adcb9cc81b1e0670ff0de",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/b37fc23b87ac",
+      "approved_sha256": "b37fc23b87acb31dba13bb6f866983acbc637f7c493fe3ad21b8dfca8aaaeb33",
       "required_markers": [
         "Back to Matrix",
         "Mentor review unavailable",
         "StoryForge could not open safely"
       ],
-      "local_source_note": "Current accepted B1-510I Phase B/C production asset from exact committed source dab4e67fe6f8044cfa8a76db435b0aa843826074; live bytes independently verified after deployment."
+      "local_source_note": "Current accepted B1-510K production asset from exact committed source 4e9472bc21f0ceeaeb67f7f0276b0c7d8339e981; live bytes independently verified after deployment."
     },
     {
       "id": "storyforge_v5_auth_bundle",
@@ -554,7 +554,7 @@
     {
       "id": "storyforge_app_extensionless_alias",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/c7d6d2e50f7b",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/b37fc23b87ac",
       "method": "GET",
       "expected_status": 200,
       "expected_headers": {
