@@ -33,5 +33,7 @@ variant with the unchanged `gpt-4o-transcribe` model.
 The candidate retained the same lexical sequence while adding supported
 dialogue punctuation. No second formatter was justified.
 
-RP-7 human corpus completion is not claimed. A new live physical-microphone
-Founder perceptual judgment remains required for final presentation acceptance.
+RP-7 human corpus completion is not claimed. On 2026-08-01, the Founder
+completed the requested new live physical-microphone perceptual check and
+reported `PERFECT transcription` and `HUGE PASS`. This is Founder-supplied human
+acceptance, not a Codex auditory claim.

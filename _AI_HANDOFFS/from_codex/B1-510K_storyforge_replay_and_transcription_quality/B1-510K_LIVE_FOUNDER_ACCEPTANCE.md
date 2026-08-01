@@ -22,14 +22,17 @@ Production API checks returned owner 200, cross-user 404, anonymous 401.
 Transient segment rows and transient R2 objects were both zero. HTTP 5xx was
 zero.
 
-## Remaining human canary
+## B1-510K transcription presentation acceptance
 
-Final punctuation/dialogue acceptance requires the Founder to record one new
-non-private phrase in live StoryForge, save it, reopen it, play it, and compare
-the displayed transcript to what was said. The same check should be repeated in
-signed-in Safari. Safari was logged out during this run; no credential was
-entered or modified.
+On 2026-08-01, the Founder completed the requested live physical-microphone
+transcription check and reported: `PERFECT transcription` and `HUGE PASS`.
+This is Founder-supplied human perceptual evidence; Codex does not claim an
+independent auditory judgment. The exact new phrase and returned transcript
+were not supplied with this acceptance and are not fabricated here.
 
-Until that human result is supplied, the honest verdict is:
+The honest verdict is:
 
-`STORYFORGE REPLAY COMPLETE — TRANSCRIPTION QUALITY IN FOUNDER CANARY`
+`STORYFORGE REPLAY COMPLETE — TRANSCRIPTION QUALITY FOUNDER PASS`
+
+The separate signed-in Safari saved-replay check remains unreported. Safari was
+logged out during the engineering run; no credential was entered or modified.

@@ -2,13 +2,14 @@
 
 ## Verdict
 
-**STORYFORGE REPLAY COMPLETE — TRANSCRIPTION QUALITY IN FOUNDER CANARY**
+**STORYFORGE REPLAY COMPLETE — TRANSCRIPTION QUALITY FOUNDER PASS**
 
 The saved-audio replay defect is repaired in production. The bounded native
 GPT-4o transcription-quality correction is deployed, automated lexical safety
 is green, and the same-audio A/B improved supported dialogue punctuation without
-changing word accuracy. A new Founder physical-microphone perceptual judgment
-and signed-in Safari app replay remain the only acceptance gates.
+changing word accuracy. On 2026-08-01, the Founder completed the new live
+physical-microphone perceptual check and reported `PERFECT transcription` and
+`HUGE PASS`. Signed-in Safari app replay is the only unreported human check.
 
 ## Root causes
 
@@ -47,6 +48,7 @@ and signed-in Safari app replay remain the only acceptance gates.
 
 - exact public index/app bytes: PASS;
 - exact CSP R2 origin: PASS;
+- Founder physical-microphone transcription presentation: HUGE PASS;
 - Founder Chrome saved replay including seek: PASS;
 - owner/cross-user/anonymous playback: 200/404/401;
 - eligible student voice: true;
@@ -77,12 +79,12 @@ Matrix, admin-console, motion/branding, or unrelated application change.
 Backups and independent replay, frontend, backend/transcription, and emergency
 voice rollback controls are documented in `B1-510K_BACKUP_AND_ROLLBACK.md`.
 
-## Remaining gate
+## Remaining human check
 
-Founder action: in the live release, record one non-private dialogue-rich phrase,
-save, reopen, play, and mark the transcript `PASS` or provide the exact returned
-text. Repeat saved replay once in signed-in Safari. No engineering change is
-authorized or implied unless that evidence identifies a concrete defect.
+Repeat saved replay once in signed-in Safari. This is not an identified
+engineering defect and does not reopen the completed transcription-quality
+work. No engineering change is authorized or implied unless that evidence
+identifies a concrete defect.
 
 The worktree was clean through the product/release/Critical Systems commits.
 The final documentation-only seal follows those commits and changes no runtime.
