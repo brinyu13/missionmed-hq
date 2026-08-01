@@ -109,11 +109,12 @@ if (canonicalSha256 !== CANONICAL_SHA256) {
   );
 }
 
-const [sourceHtml, sourceApp, sourceAuth, sourceStyles] = await Promise.all([
+const [sourceHtml, sourceApp, sourceAuth, sourceStyles, sourceLogo] = await Promise.all([
   readFile(path.join(publicDir, 'index.html'), 'utf8'),
   readFile(path.join(publicDir, 'app.js'), 'utf8'),
   readFile(path.join(publicDir, 'auth.js'), 'utf8'),
   readFile(path.join(publicDir, 'styles.css'), 'utf8'),
+  readFile(path.join(publicDir, 'missionmed-logo.png')),
 ]);
 
 const expected = new Map();
@@ -156,6 +157,7 @@ for (const [fontName, fontAlias] of fontAliases) {
 
 const appAlias = alias(rewrittenApp);
 const stylesAlias = alias(rewrittenStyles);
+const logoAlias = alias(sourceLogo);
 const builtHead = mode === 'release'
   ? '<head>\n  <base href="/storyforge/">'
   : [
@@ -166,10 +168,15 @@ const builtHead = mode === 'release'
 const builtHtml = replaceExactlyOnce(
   replaceExactlyOnce(
     replaceExactlyOnce(
-      sourceHtml,
-      '<head>',
-      builtHead,
-      'document head',
+      replaceExactlyOnce(
+        sourceHtml,
+        '<head>',
+        builtHead,
+        'document head',
+      ),
+      'src="./missionmed-logo.png"',
+      `src="./_asset/${logoAlias}"`,
+      'MissionMed logo',
     ),
     'href="./styles.css"',
     `href="./_asset/${stylesAlias}"`,
@@ -184,6 +191,7 @@ expected.set('index.html', Buffer.from(builtHtml));
 expected.set(`assets/app.${appAlias}.js`, Buffer.from(rewrittenApp));
 expected.set(`assets/auth.${authAlias}.js`, Buffer.from(sourceAuth));
 expected.set(`assets/styles.${stylesAlias}.css`, Buffer.from(rewrittenStyles));
+expected.set(`assets/missionmed-logo.${logoAlias}.png`, sourceLogo);
 for (const fontName of fontNames) {
   expected.set(
     `assets/fonts/${fontName}`,

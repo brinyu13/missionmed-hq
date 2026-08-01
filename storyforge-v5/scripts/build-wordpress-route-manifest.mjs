@@ -37,6 +37,7 @@ const mimeTypes = new Map([
   ['.css', 'text/css; charset=utf-8'],
   ['.js', 'text/javascript; charset=utf-8'],
   ['.woff2', 'font/woff2'],
+  ['.png', 'image/png'],
   ['.txt', 'text/plain; charset=utf-8'],
 ]);
 
@@ -45,6 +46,7 @@ const approvedTopology = [
   ['app bundle', /^assets\/app\.[a-f0-9]{12}\.js$/],
   ['auth bundle', /^assets\/auth\.[a-f0-9]{12}\.js$/],
   ['stylesheet', /^assets\/styles\.[a-f0-9]{12}\.css$/],
+  ['MissionMed logo', /^assets\/missionmed-logo\.[a-f0-9]{12}\.png$/],
   ['Archivo license', /^assets\/fonts\/OFL-Archivo\.txt$/],
   ['Lora license', /^assets\/fonts\/OFL-Lora\.txt$/],
   ['Rajdhani license', /^assets\/fonts\/OFL-Rajdhani\.txt$/],
@@ -79,7 +81,7 @@ function phpString(value) {
 
 function cacheClass(relative) {
   if (relative === 'index.html') return 'html';
-  if (/^assets\/(?:[^/]+\/)*[^/]+\.[a-f0-9]{12}\.(?:css|js|woff2)$/i.test(relative)) {
+  if (/^assets\/(?:[^/]+\/)*[^/]+\.[a-f0-9]{12}\.(?:css|js|png|woff2)$/i.test(relative)) {
     return 'immutable';
   }
   return 'revalidate';
@@ -104,7 +106,7 @@ function base64Expression(bytes, indent) {
 
 const files = await filesBelow(distDir);
 if (files.length !== approvedTopology.length) {
-  throw new Error(`Expected the approved 14-file StoryForge release, found ${files.length}.`);
+  throw new Error(`Expected the approved ${approvedTopology.length}-file StoryForge release, found ${files.length}.`);
 }
 for (const [label, pattern] of approvedTopology) {
   const matches = files.filter((relative) => pattern.test(relative));
@@ -159,6 +161,7 @@ const indexEntry = entryFor(/^index\.html$/, 'index');
 const appEntry = entryFor(/^assets\/app\./, 'app');
 const authEntry = entryFor(/^assets\/auth\./, 'auth');
 const stylesEntry = entryFor(/^assets\/styles\./, 'stylesheet');
+const logoEntry = entryFor(/^assets\/missionmed-logo\./, 'MissionMed logo');
 const fontEntries = entries.filter((entry) => entry.path.endsWith('.woff2'));
 const indexText = indexEntry.bytes.toString('utf8');
 const appText = appEntry.bytes.toString('utf8');
@@ -166,6 +169,7 @@ const stylesText = stylesEntry.bytes.toString('utf8');
 if (
   !indexText.includes(`href="./_asset/${stylesEntry.alias}"`)
   || !indexText.includes(`src="./_asset/${appEntry.alias}"`)
+  || !indexText.includes(`src="./_asset/${logoEntry.alias}"`)
   || indexText.includes('./assets/')
 ) {
   throw new Error('Built StoryForge HTML does not use only the approved extensionless asset aliases.');
@@ -335,7 +339,7 @@ if (checkOnly) {
   });
   console.log(
     `StoryForge WordPress route and ${releaseId} release.php match commit `
-      + `${completedReleaseProof.expectedCommit}'s approved 14-file release.`,
+      + `${completedReleaseProof.expectedCommit}'s approved ${approvedTopology.length}-file release.`,
   );
 } else {
   await rm(runtimeRoot, { recursive: true, force: true });

@@ -15,6 +15,7 @@ import {
   withServiceTransaction,
 } from './db.mjs';
 import { createFlagService, createPostgresFlagStore } from './flags.mjs';
+import { createAdminConsoleService } from './admin-console.mjs';
 import { previewImport } from './imports.mjs';
 import {
   createAudioPlayback,
@@ -456,6 +457,7 @@ function storyProjection(prefix = '') {
   const p = prefix ? `${prefix}.` : '';
   return `${p}id, ${p}student_id, ${p}title, ${p}original_text, ${p}current_text,
     ${p}capture_type, ${p}status, ${p}student_score, ${p}mentor_score,
+    ${p}review_suitability,
     ${p}classification, ${p}starred, ${p}needs_followup, ${p}uses,
     (SELECT count(*)::integer
        FROM public.sf_story_questions projection_pair
@@ -479,6 +481,9 @@ function storyProjection(prefix = '') {
     (SELECT reviewer.display_name
        FROM public.sf_users reviewer
       WHERE reviewer.id = ${p}reviewed_by) AS reviewed_by_name,
+    (SELECT reviewer.role
+       FROM public.sf_users reviewer
+      WHERE reviewer.id = ${p}reviewed_by) AS reviewed_by_role,
     ${p}row_version, ${p}revision_no,
     ${p}submitted_at, ${p}last_submitted_at, ${p}opened_at,
     ${p}reviewed_at, ${p}approved_at, ${p}student_updated_at,
@@ -569,6 +574,7 @@ async function api(request, response, url, {
   emitEvent,
   withIdentity,
   flagService,
+  adminConsoleService,
   recordingsService,
   signAudioPlayback,
 }) {
@@ -583,6 +589,7 @@ async function api(request, response, url, {
       wpBootstrapPath: config.wpBootstrapPath,
       wpTokenPath: config.wpTokenPath,
       tokenRefreshSkewSeconds: config.tokenRefreshSkewSeconds,
+      premiumMotion: config.premiumMotion,
     });
   }
 
@@ -663,8 +670,62 @@ async function api(request, response, url, {
     return sendJson(response, 200, await flagService.getVoiceHealth(identity));
   }
 
+  if (request.method === 'GET' && url.pathname === '/api/admin/features/admin_console') {
+    return sendJson(response, 200, { flag: await adminConsoleService.getFlag(identity) });
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/admin/features/admin_console') {
+    return sendJson(response, 200, {
+      flag: await adminConsoleService.updateFlag(identity, await readJson(request)),
+    });
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/admin/console/home') {
+    return sendJson(response, 200, await adminConsoleService.home(
+      identity,
+      Object.fromEntries(url.searchParams),
+    ));
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/admin/console/students') {
+    return sendJson(response, 200, await adminConsoleService.students(
+      identity,
+      Object.fromEntries(url.searchParams),
+    ));
+  }
+
+  const adminStudentRoute = url.pathname.match(/^\/api\/admin\/console\/students\/([a-f0-9-]+)$/i);
+  if (request.method === 'GET' && adminStudentRoute) {
+    return sendJson(response, 200, await adminConsoleService.student(
+      identity,
+      adminStudentRoute[1],
+      Object.fromEntries(url.searchParams),
+    ));
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/admin/console/queue') {
+    return sendJson(response, 200, await adminConsoleService.queue(
+      identity,
+      Object.fromEntries(url.searchParams),
+    ));
+  }
+
+  const adminStoryRoute = url.pathname.match(/^\/api\/admin\/console\/stories\/([a-f0-9-]+)(?:\/(review))?$/i);
+  if (adminStoryRoute) {
+    if (request.method === 'GET' && !adminStoryRoute[2]) {
+      return sendJson(response, 200, await adminConsoleService.story(identity, adminStoryRoute[1]));
+    }
+    if (request.method === 'POST' && adminStoryRoute[2] === 'review') {
+      return sendJson(response, 200, await adminConsoleService.review(
+        identity,
+        adminStoryRoute[1],
+        await readJson(request),
+      ));
+    }
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/session') {
-    const [user, voiceCapture] = await Promise.all([
+    const [user, voiceCapture, adminConsole] = await Promise.all([
       withIdentity(identity, async (client) => {
         const result = await client.query(
           `SELECT id, wp_user_id, display_name, first_name, pronouns, role, eligible,
@@ -675,6 +736,7 @@ async function api(request, response, url, {
         return result.rows[0] || null;
       }),
       flagService.voiceCapture(identity),
+      adminConsoleService.capability(identity),
     ]);
     if (!user) {
       const error = new Error('StoryForge profile is missing or eligibility was revoked.');
@@ -687,7 +749,7 @@ async function api(request, response, url, {
         first_name: identity.firstName,
         username: identity.username,
       },
-      capabilities: { voiceCapture },
+      capabilities: { voiceCapture, adminConsole },
     });
   }
 
@@ -770,7 +832,9 @@ async function api(request, response, url, {
           [id],
         ),
         client.query(
-          `SELECT f.id, f.mentor_id, u.display_name AS mentor_name, f.body, f.disposition, f.created_at
+          `SELECT f.id, f.mentor_id, u.display_name AS reviewer_name,
+             u.display_name AS mentor_name, u.role AS reviewer_role,
+             f.body, f.disposition, f.created_at
            FROM public.sf_feedback f JOIN public.sf_users u ON u.id = f.mentor_id
            WHERE f.story_id = $1 ORDER BY f.created_at`,
           [id],
@@ -2445,17 +2509,22 @@ export function createAppServer({
   authorizeRequest = authorize,
   identityTransaction = withDatabaseIdentity,
   phaseOneRuntime = defaultPhaseOneRuntime,
+  adminConsoleService = null,
   auditWriter = appendAudit,
   audioPlaybackSigner = createAudioPlayback,
   reportEvent = emitStructuredEvent,
   reportError = emitStructuredError,
 } = {}) {
+  const resolvedAdminConsoleService = adminConsoleService || createAdminConsoleService({
+    withIdentity: identityTransaction,
+  });
   const apiRuntime = Object.freeze({
     authorizeRequest,
     auditWriter,
     emitEvent: reportEvent,
     withIdentity: identityTransaction,
     flagService: phaseOneRuntime.flagService,
+    adminConsoleService: resolvedAdminConsoleService,
     recordingsService: phaseOneRuntime.recordingsService,
     signAudioPlayback: audioPlaybackSigner,
   });

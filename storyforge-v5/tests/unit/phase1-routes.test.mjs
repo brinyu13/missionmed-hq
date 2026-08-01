@@ -241,7 +241,7 @@ test('E10 returns only the caller capability and E11 routes preserve admin servi
 
   const session = await json(await fetch(`${origin}/api/session`));
   assert.equal(session.status, 200);
-  assert.deepEqual(session.body.capabilities, { voiceCapture: true });
+  assert.deepEqual(session.body.capabilities, { voiceCapture: true, adminConsole: false });
   assert.equal(session.body.user.id, studentId);
   assert.equal(session.body.user.first_name, 'Dr');
   assert.equal(session.body.user.username, 'brinyu');
@@ -267,6 +267,40 @@ test('E10 returns only the caller capability and E11 routes preserve admin servi
   assert.equal(updated.status, 200);
   assert.equal(updated.body.flag.scope, 'allowlist');
   assert.equal(fixture.calls.updateFlag[0].identity.role, 'admin');
+});
+
+test('administrator console routes delegate only through the bounded admin service', async (context) => {
+  const fixture = runtimeFixture();
+  const calls = [];
+  const service = {
+    capability: async (identity) => identity.role === 'admin',
+    getFlag: async (identity) => ({ key: 'admin_console', scope: identity.role === 'admin' ? 'allowlist' : 'off', allowlist: [adminId], cohorts: [] }),
+    updateFlag: async (identity, body) => ({ key: 'admin_console', ...body, actor: identity.sub }),
+    home: async (identity, query) => (calls.push(['home', identity, query]), { metrics: {} }),
+    students: async (identity, query) => (calls.push(['students', identity, query]), { students: [] }),
+    student: async (identity, id, query) => (calls.push(['student', identity, id, query]), { student: { id }, stories: [] }),
+    queue: async (identity, query) => (calls.push(['queue', identity, query]), { stories: [] }),
+    story: async (identity, id) => (calls.push(['story', identity, id]), { story: { id } }),
+    review: async (identity, id, body) => (calls.push(['review', identity, id, body]), { story: { id, rowVersion: 2 } }),
+  };
+  const origin = await startFixture(context, fixture, { adminConsoleService: service });
+  const headers = { 'x-test-role': 'admin' };
+
+  assert.equal((await fetch(`${origin}/api/admin/console/home?limit=8`, { headers })).status, 200);
+  assert.equal((await fetch(`${origin}/api/admin/console/students?q=maya&status=awaiting`, { headers })).status, 200);
+  assert.equal((await fetch(`${origin}/api/admin/console/students/${studentId}`, { headers })).status, 200);
+  assert.equal((await fetch(`${origin}/api/admin/console/queue?status=reviewed`, { headers })).status, 200);
+  assert.equal((await fetch(`${origin}/api/admin/console/stories/${recordingId}`, { headers })).status, 200);
+  assert.equal((await fetch(`${origin}/api/admin/console/stories/${recordingId}/review`, {
+    method: 'POST',
+    headers: { ...headers, 'content-type': 'application/json' },
+    body: JSON.stringify({ expectedVersion: 1, patch: { status: 'reviewed' } }),
+  })).status, 200);
+
+  assert.deepEqual(calls.map(([name]) => name), ['home', 'students', 'student', 'queue', 'story', 'review']);
+  assert.equal(calls.every(([, identity]) => identity.role === 'admin'), true);
+  assert.deepEqual(calls[1][2], { q: 'maya', status: 'awaiting' });
+  assert.deepEqual(calls[5][3], { expectedVersion: 1, patch: { status: 'reviewed' } });
 });
 
 test('E7 mounts through the recording service while legacy upload checks the kill gate first', async (context) => {

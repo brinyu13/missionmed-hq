@@ -30,6 +30,7 @@ const phaseOneMigrations = [
   '20260729000200_b1_506_feature_flags.sql',
   '20260729010000_b1_506a_voice_audit_lifecycle.sql',
   '20260730000100_b1_507b_reconciliation_state.sql',
+  '20260801190000_b1_510i_admin_console.sql',
 ];
 
 function commandPath(name) {
@@ -78,6 +79,7 @@ function psqlArgs(socketDir, database = 'storyforge') {
     '-d', database,
     '-v', 'ON_ERROR_STOP=1',
     '--set=founder_user_id=11111111-1111-4111-8111-111111111111',
+    '--set=admin_console_founder_user_id=cccccccc-cccc-4ccc-8ccc-cccccccccccc',
   ];
 }
 

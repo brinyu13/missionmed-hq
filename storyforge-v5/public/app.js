@@ -162,10 +162,25 @@ const NAV = Object.freeze({
   ],
 });
 
+const ADMIN_CONSOLE_NAV = Object.freeze([
+  ['home', 'Admin Home', '⌂'],
+  ['students', 'Students', '◎'],
+  ['queue', 'Review Queue', '◫'],
+  ['qlib', 'Question Library', '◇'],
+  ['settings', 'Release Controls', '⚙'],
+]);
+
+const SUITABILITY = Object.freeze({
+  ps_only: 'Personal Statement only',
+  interview_only: 'Interview only',
+  both: 'Personal Statement + Interview',
+  neither: 'Neither',
+});
+
 const state = {
   config: null,
   user: null,
-  capabilities: Object.freeze({ voiceCapture: false }),
+  capabilities: Object.freeze({ voiceCapture: false, adminConsole: false }),
   lockout: null,
   route: 'home',
   routeId: null,
@@ -200,9 +215,23 @@ const state = {
   captureRecovering: false,
   captureTypedOnlyFromAudio: false,
   adminFeatures: null,
+  adminConsoleFeature: null,
   adminHealth: null,
   adminFeatureError: '',
+  adminConsoleFeatureError: '',
   adminHealthError: '',
+  adminConsole: {
+    home: null,
+    students: [],
+    studentsCursor: null,
+    studentQuery: '',
+    studentStatus: '',
+    selectedStudent: null,
+    queue: [],
+    queueCursor: null,
+    queueStatus: '',
+    story: null,
+  },
   returnFocus: null,
   busy: false,
 };
@@ -211,7 +240,7 @@ const auth = createAuthClient({
   onLockout(lockoutState, message) {
     suspendVoiceForIdentityExit();
     state.user = null;
-    state.capabilities = Object.freeze({ voiceCapture: false });
+    state.capabilities = Object.freeze({ voiceCapture: false, adminConsole: false });
     state.captureRecovering = false;
     state.lockout = lockoutState || 'access_unavailable';
     renderLockout(state.lockout, message);
@@ -328,6 +357,7 @@ function normalizeStory(raw = {}) {
     revised: Boolean(firstDefined(raw.revised, statusRaw === 'resubmitted')),
     studentScore: Number(firstDefined(raw.studentScore, raw.student_score, 0)) || 0,
     mentorScore: Number(firstDefined(raw.mentorScore, raw.mentor_score, 0)) || 0,
+    reviewSuitability: String(firstDefined(raw.reviewSuitability, raw.review_suitability, '')),
     studentStar: Boolean(firstDefined(raw.studentStar, raw.student_star, false)),
     mentorStar: Boolean(firstDefined(raw.mentorStar, raw.mentor_star, false)),
     themes: asArray(raw.themes).map(String),
@@ -347,6 +377,7 @@ function normalizeStory(raw = {}) {
     feedbackOpenedAt: isoValue(firstDefined(raw.feedbackOpenedAt, raw.feedback_opened_at)),
     studentRespondedAt: isoValue(firstDefined(raw.studentRespondedAt, raw.student_responded_at)),
     reviewedByName: String(firstDefined(raw.reviewedByName, raw.reviewed_by_name, '')),
+    reviewedByRole: String(firstDefined(raw.reviewedByRole, raw.reviewed_by_role, '')),
     feedback: asArray(firstDefined(raw.feedback, raw.comments)),
     revisions,
     history: asArray(firstDefined(raw.history, raw.auditEvents, raw.audit_events)),
@@ -514,6 +545,17 @@ const api = Object.freeze({
     jsonOptions('POST', body),
   ),
   adminVoiceHealth: () => auth.request('/api/admin/voice/health'),
+  adminConsoleFlag: () => auth.request('/api/admin/features/admin_console'),
+  updateAdminConsoleFlag: (body) => auth.request(
+    '/api/admin/features/admin_console',
+    jsonOptions('POST', body),
+  ),
+  adminHome: () => auth.request('/api/admin/console/home'),
+  adminStudents: (query = '') => auth.request(`/api/admin/console/students${query ? `?${query}` : ''}`),
+  adminStudent: (id, query = '') => auth.request(`/api/admin/console/students/${id}${query ? `?${query}` : ''}`),
+  adminQueue: (query = '') => auth.request(`/api/admin/console/queue${query ? `?${query}` : ''}`),
+  adminStory: (id) => auth.request(`/api/admin/console/stories/${id}`),
+  adminReview: (id, body) => auth.request(`/api/admin/console/stories/${id}/review`, jsonOptions('POST', body)),
 });
 
 function isMentor() {
@@ -528,6 +570,10 @@ function isStudent() {
   return state.user?.role === 'student';
 }
 
+function canAdminReview() {
+  return isAdmin() && state.capabilities?.adminConsole === true;
+}
+
 function canGovernQuestions() {
   return isMentor() || isAdmin();
 }
@@ -538,7 +584,7 @@ function roleName() {
 }
 
 function viewLabel() {
-  if (isAdmin()) return 'Question Governance';
+  if (isAdmin()) return canAdminReview() ? 'Administrator View' : 'Question Governance';
   return isMentor() ? 'Mentor View' : 'Student View';
 }
 
@@ -565,6 +611,11 @@ function applyEnvironment() {
   document.body.dataset.role = isMentor() || isAdmin() ? 'advisor' : 'student';
   document.body.dataset.background = activeBackground();
   document.body.classList.toggle('is-booting', !state.user);
+}
+
+function setMotionEnergy(energy = 'low') {
+  const allowed = new Set(['low', 'active', 'recording', 'success']);
+  document.body.dataset.motionEnergy = allowed.has(energy) ? energy : 'low';
 }
 
 function notify(message, kind = '') {
@@ -711,6 +762,8 @@ function routeTitle(route = state.route) {
     student: 'Student Workspace',
     queue: 'Review Queue',
     activity: 'My Activity',
+    student: isAdmin() ? 'Student Account' : 'Student Workspace',
+    story: isAdmin() ? 'Story Review' : 'StoryForge',
   };
   return names[route] || 'StoryForge';
 }
@@ -731,7 +784,7 @@ function railNavButton([route, label, icon]) {
 function renderShell() {
   if (!state.user) return;
   applyEnvironment();
-  const nav = NAV[roleName()];
+  const nav = canAdminReview() ? ADMIN_CONSOLE_NAV : NAV[roleName()];
   rail.innerHTML = `
     <div class="logo" aria-label="StoryForge">Story<b>Forge</b></div><div class="logoSub">MissionMed</div>
     ${isStudent() ? '<button class="railCta" type="button" data-open-capture>＋ <span class="rct">New Story</span></button>' : ''}
@@ -761,9 +814,9 @@ function renderShell() {
         <span class="fLbl">Viewing</span><span class="stuAv">${esc(state.selectedStudent.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join(''))}</span>
         <span class="nm">${esc(state.selectedStudent.name)}</span>${state.selectedStudent.cohort ? `<span class="cohortChip">${esc(state.selectedStudent.cohort)}</span>` : ''}<span class="car">▾</span>
       </button>` : ''}
-      ${isAdmin() ? '' : `<div class="hSearch">
+      ${isAdmin() && !canAdminReview() ? '' : `<div class="hSearch">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
-        <input id="omni" type="search" placeholder="${isMentor() ? 'Search students and stories…' : 'Search your stories…'}" autocomplete="off" aria-label="${isMentor() ? 'Search students and stories' : 'Search your stories'}">
+        <input id="omni" type="search" placeholder="${isMentor() || canAdminReview() ? 'Search students and stories…' : 'Search your stories…'}" autocomplete="off" aria-label="${isMentor() || canAdminReview() ? 'Search students and stories' : 'Search your stories'}">
         <span class="kbd">/</span>
       </div>`}
       ${isStudent() ? '<button class="btnCatch" type="button" data-open-capture>＋ <span class="bc-txt">New Story</span></button>' : ''}
@@ -1091,9 +1144,27 @@ function renderAdminReleaseControls() {
   const audit = asArray(feature.audit);
   const health = state.adminHealth;
   const unavailable = !flag;
+  const adminFlag = state.adminConsoleFeature?.flag || null;
   main.innerHTML = `<section data-view="settings" class="live settingsPage">
     <div class="eyebrow">Administration</div>
     <h1 class="h1">Release <em>Controls</em></h1>
+    <div class="panel panel-spaced">
+      <div class="pHead"><div class="h2">Administrator workspace <em>Founder pilot</em></div></div>
+      <div class="pBody">
+        <p class="stageHint">This independent server-side gate controls the bounded administrator review workspace. It never changes student or mentor authorization.</p>
+        ${state.adminConsoleFeatureError ? `<div class="releaseError" role="alert">${esc(state.adminConsoleFeatureError)}</div>` : ''}
+        ${adminFlag ? `<form id="adminConsoleFeatureForm">
+          <div class="setRow">
+            <label class="sTxt" for="adminConsoleScope"><b>Workspace access</b><span>Off, or allowlisted for this signed Founder administrator only.</span></label>
+            <select id="adminConsoleScope" class="releaseSelect">
+              <option value="off" ${adminFlag.scope === 'off' ? 'selected' : ''}>Off</option>
+              <option value="allowlist" ${adminFlag.scope === 'allowlist' ? 'selected' : ''}>Founder pilot</option>
+            </select>
+          </div>
+          <div class="setRow"><div class="sTxt"><b>Runtime kill switch</b><span>${state.capabilities?.adminConsole ? 'Open for this signed administrator' : 'Closed or not enabled'}.</span></div><button class="rowBtn pri" type="submit">Save admin workspace gate</button></div>
+        </form>` : '<div class="setRow"><div class="sTxt"><b>Gate unavailable</b><span>No administrator access change can be made.</span></div></div>'}
+      </div>
+    </div>
     <div class="panel panel-spaced">
       <div class="pHead"><div class="h2">Voice capture <em>scope</em></div></div>
       <div class="pBody">
@@ -1154,9 +1225,10 @@ function renderAdminReleaseControls() {
 }
 
 async function loadAdminReleaseControls() {
-  const [features, health] = await Promise.allSettled([
+  const [features, health, adminConsole] = await Promise.allSettled([
     api.adminFeatures(),
     api.adminVoiceHealth(),
+    api.adminConsoleFlag(),
   ]);
   if (features.status === 'fulfilled') {
     state.adminFeatures = features.value;
@@ -1175,6 +1247,37 @@ async function loadAdminReleaseControls() {
     state.adminHealthError = health.reason?.code === 'voice_health_audit_unavailable'
       ? 'Error-category health remains locked until the approved content-free audit query is supplied.'
       : (health.reason?.message || 'Voice health is temporarily unavailable.');
+  }
+  if (adminConsole.status === 'fulfilled') {
+    state.adminConsoleFeature = adminConsole.value;
+    state.adminConsoleFeatureError = '';
+  } else {
+    state.adminConsoleFeature = null;
+    state.adminConsoleFeatureError = adminConsole.reason?.message || 'Administrator workspace controls are unavailable.';
+  }
+}
+
+async function saveAdminConsoleReleaseControl(form) {
+  const scope = $('#adminConsoleScope', form)?.value || 'off';
+  state.adminConsoleFeatureError = '';
+  try {
+    const result = await withBusy(() => api.updateAdminConsoleFlag({
+      scope,
+      allowlist: scope === 'allowlist' ? [state.user.id] : [],
+    }));
+    state.adminConsoleFeature = result;
+    const session = await api.session();
+    state.capabilities = Object.freeze({
+      voiceCapture: Boolean(session?.capabilities?.voiceCapture),
+      adminConsole: Boolean(session?.capabilities?.adminConsole),
+    });
+    await loadAdminReleaseControls();
+    renderShell();
+    renderAdminReleaseControls();
+    notify(`Administrator workspace ${scope === 'allowlist' ? 'enabled for this Founder account' : 'disabled'}.`, '✓');
+  } catch (error) {
+    state.adminConsoleFeatureError = error.message || 'Administrator workspace gate could not be saved.';
+    renderAdminReleaseControls();
   }
 }
 
@@ -1642,6 +1745,7 @@ async function openCapture({
     </div>
   </form>`;
   capture.classList.add('open');
+  setMotionEnergy('active');
   capture.dataset.prefixEnabled = String(prefixEnabled);
   capture.dataset.score = String(studentScore);
   capture.dataset.themes = JSON.stringify(themes);
@@ -1687,6 +1791,7 @@ function closeOverlay(node) {
     }
     state.captureDraftSuppressCloseSave = false;
     state.captureRecovering = false;
+    setMotionEnergy('low');
   }
   node.classList.remove('open');
   node.innerHTML = '';
@@ -1869,6 +1974,7 @@ function renderVoiceDock(mode = voiceState.mode) {
   const dock = $('#voxDock');
   if (!dock) return;
   voiceState.mode = mode;
+  setMotionEnergy(mode === 'rec' || mode === 'arming' ? 'recording' : mode === 'review' ? 'success' : 'active');
   dock.className = `voxDock ${mode}`;
   const body = $('#capBody');
   const title = $('#capTitle');
@@ -3007,6 +3113,10 @@ async function saveCapture(form) {
     state.captureTypedOnlyFromAudio = false;
     state.capturePairQuestionId = null;
     closeOverlay(capture);
+    setMotionEnergy('success');
+    window.setTimeout(() => {
+      if (!capture.classList.contains('open')) setMotionEnergy('low');
+    }, 900);
     await loadStories();
     renderShell();
     if (outcome.savedWithoutAudio) {
@@ -3054,7 +3164,15 @@ function feedbackBody(item) {
 }
 
 function feedbackAuthor(item) {
-  return String(firstDefined(item.mentorName, item.mentor_name, item.actor_name, state.storyDetail?.reviewedByName, 'Mentor'));
+  return String(firstDefined(
+    item.reviewerName,
+    item.reviewer_name,
+    item.mentorName,
+    item.mentor_name,
+    item.actor_name,
+    state.storyDetail?.reviewedByName,
+    'Reviewer',
+  ));
 }
 
 function feedbackTime(item) {
@@ -3313,7 +3431,7 @@ function renderStoryRoom() {
     <div class="roomMeta">
       ${statusChip(story)}
       ${scoreDots(story.studentScore, 'student', mentor ? 'Student’s own rating' : 'My rating')}
-      ${story.status === 'private' ? '' : scoreDots(story.mentorScore, 'mentor', 'Mentor score')}
+      ${story.status === 'private' ? '' : scoreDots(story.mentorScore, 'mentor', story.reviewedByRole === 'admin' ? 'Administrator score' : 'Mentor score')}
       ${birdMini(story)}
       <span class="flex-spacer"></span>
       <button class="rowBtn" type="button" data-open-assign="${attr(story.id)}">Assign interview questions</button>
@@ -3362,6 +3480,7 @@ function renderStoryRoom() {
           <div class="stageHint">${esc(STATUS[story.status].hint)}</div>
           ${mentor ? `<div class="statusRow">${['in_review', 'changes', 'reviewed', 'approved'].map((status) => `<button type="button" data-set-status="${status}" class="${story.status === status ? `on ${STATUS[status].col}` : ''}">${esc(STATUS[status].label)}</button>`).join('')}</div>`
             : ['private', 'changes'].includes(story.status) ? studentReviewAction(story) : ''}
+          ${story.reviewSuitability ? `<div class="reviewSuitability"><span class="fLbl">Reviewer classification</span><span class="cohortChip">${esc(SUITABILITY[story.reviewSuitability] || story.reviewSuitability)}</span></div>` : ''}
           <div class="tsList">${storyTimestamps(story)}</div>
         </div>
 
@@ -3369,7 +3488,7 @@ function renderStoryRoom() {
           <div class="rLbl">Scores</div>
           <div class="fLbl">${mentor ? `${esc(story.studentName.split(/\s+/)[0])}’s own rating` : 'My rating — how much this story matters to you'}</div>
           ${mentor ? `<span class="scoreTag">${story.studentScore ? `<b>${story.studentScore}</b>/5` : 'not rated yet'}</span>` : scorePicker('room-student', story.studentScore)}
-          <div class="fLbl">Mentor score${story.reviewedByName ? ` — ${esc(story.reviewedByName)}` : ''}</div>
+          <div class="fLbl">${story.reviewedByRole === 'admin' ? 'Administrator' : 'Mentor'} score${story.reviewedByName ? ` — ${esc(story.reviewedByName)}` : ''}</div>
           ${mentor ? scorePicker('room-mentor', story.mentorScore, true) : `<span class="scoreTag">${story.mentorScore ? `<b>${story.mentorScore}</b>/5` : 'not scored yet'}</span>`}
           <div class="classChips">
             <button class="starBtn ${story.studentStar ? 'on' : ''}" type="button" data-toggle-star="${attr(story.id)}" data-star-kind="student" ${mentor ? 'disabled' : ''}>★</button><span>Student star</span>
@@ -5307,14 +5426,253 @@ function renderPalette(query) {
   </div>`;
 }
 
+function adminConsoleState() {
+  return state.adminConsole;
+}
+
+function adminQuery(values) {
+  const query = new URLSearchParams();
+  Object.entries(values).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && String(value).trim()) query.set(key, String(value));
+  });
+  return query.toString();
+}
+
+function adminStoryRow(story, { showStudent = true } = {}) {
+  const current = normalizeStory(story);
+  return `<article class="mStuRow adminStoryRow">
+    <span class="stuAv">${esc((current.studentName || 'S').split(/\s+/).map((part) => part[0]).slice(0, 2).join(''))}</span>
+    <span class="rMain"><span class="rTitle">${esc(current.title)}</span><span class="rSub">${showStudent ? `${esc(current.studentName)} · ` : ''}${esc(formatDateTime(current.updatedAt))}</span></span>
+    ${statusChip(current)}
+    ${scoreDots(current.mentorScore, 'mentor', 'Reviewer score')}
+    ${current.reviewSuitability ? `<span class="cohortChip">${esc(SUITABILITY[current.reviewSuitability] || current.reviewSuitability)}</span>` : ''}
+    <button class="rowBtn pri" type="button" data-admin-open-story="${attr(current.id)}">Review</button>
+  </article>`;
+}
+
+async function loadAdminHome() {
+  adminConsoleState().home = await api.adminHome();
+}
+
+async function loadAdminStudents() {
+  const admin = adminConsoleState();
+  const payload = await api.adminStudents(adminQuery({
+    q: admin.studentQuery,
+    status: admin.studentStatus,
+    limit: 25,
+  }));
+  admin.students = asArray(payload?.students).map(normalizeStudent);
+  admin.studentsCursor = payload?.nextCursor || null;
+}
+
+async function loadAdminStudent(id) {
+  const payload = await api.adminStudent(id);
+  adminConsoleState().selectedStudent = {
+    ...normalizeStudent(payload?.student || { id }),
+    stories: asArray(payload?.stories).map(normalizeStory),
+  };
+}
+
+async function loadAdminQueue() {
+  const admin = adminConsoleState();
+  const payload = await api.adminQueue(adminQuery({
+    status: admin.queueStatus,
+    limit: 25,
+  }));
+  admin.queue = asArray(payload?.stories).map(normalizeStory);
+  admin.queueCursor = payload?.nextCursor || null;
+}
+
+async function loadAdminStory(id) {
+  const payload = await api.adminStory(id);
+  adminConsoleState().story = normalizeStory({
+    ...(payload?.story || {}),
+    feedback: payload?.feedback,
+    revisions: payload?.revisions,
+    reflections: payload?.reflections,
+    craft: payload?.craft,
+    internalNotes: payload?.internalNotes,
+  });
+}
+
+function renderAdminHome() {
+  const payload = adminConsoleState().home || {};
+  const metrics = payload.metrics || {};
+  const recent = asArray(payload.recent).map(normalizeStory);
+  main.innerHTML = `<section data-view="admin-home" class="live">
+    <div class="homeHero"><div class="eyebrow">Administrator workspace</div><h1 class="h1">Review StoryForge, <em>without crossing privacy lines</em>.</h1>
+      <p class="greetSub">Search eligible students, work submitted stories, and leave clearly attributed review decisions. Private stories remain invisible.</p></div>
+    <div class="forgeStats adminMetrics">
+      <div class="fstat"><div class="n">${Number(metrics.submittedStories || 0)}</div><div class="l">Submitted stories</div></div>
+      <div class="fstat"><div class="n metric-ember">${Number(metrics.awaitingReview || 0)}</div><div class="l">Awaiting review</div></div>
+      <div class="fstat"><div class="n metric-cyan">${Number(metrics.inReview || 0)}</div><div class="l">In review</div></div>
+      <div class="fstat"><div class="n metric-green">${Number(metrics.approved || 0)}</div><div class="l">Approved</div></div>
+      <div class="fstat"><div class="n metric-violet">${Number(metrics.unscored || 0)}</div><div class="l">Unscored</div></div>
+    </div>
+    <div class="inlineActions mentorActions">
+      <button class="bigAction" type="button" data-nav="students"><span class="ba1">Find a student</span><span class="ba2">Search only the eligible StoryForge population with submitted work.</span><span class="baGo">Open Students ▸</span></button>
+      <button class="bigAction" type="button" data-nav="queue"><span class="ba1">Review queue</span><span class="ba2">Filter submitted stories by review state without exposing private drafts.</span><span class="baGo">Open Review Queue ▸</span></button>
+    </div>
+    <div class="panel panel-spaced"><div class="pHead"><div class="h2">Recently active <em>submitted stories</em></div></div><div class="pBody">
+      ${recent.length ? recent.map((story) => adminStoryRow(story)).join('') : '<div class="stageHint">No submitted stories are available.</div>'}
+    </div></div>
+  </section>`;
+}
+
+function renderAdminStudents() {
+  const admin = adminConsoleState();
+  main.innerHTML = `<section data-view="admin-students" class="live">
+    <div class="eyebrow">Administrator · Students</div>
+    <h1 class="h1">Find the right <em>student account</em>.</h1>
+    <form class="listBar" id="adminStudentSearchForm" role="search">
+      <label class="srOnly" for="adminStudentSearch">Search students</label>
+      <input id="adminStudentSearch" type="search" placeholder="Name, WordPress ID, cohort…" value="${attr(admin.studentQuery)}" autocomplete="off">
+      <label class="srOnly" for="adminStudentStatus">Review status</label>
+      <select id="adminStudentStatus">
+        <option value="">All submitted work</option>
+        ${['awaiting', 'in_review', 'changes', 'reviewed', 'approved', 'unscored'].map((status) => `<option value="${status}" ${admin.studentStatus === status ? 'selected' : ''}>${esc(status === 'unscored' ? 'Unscored' : STATUS[status].label)}</option>`).join('')}
+      </select>
+      <button class="rowBtn pri" type="submit">Search</button><span class="countNote">${admin.students.length} results · server-authorized</span>
+    </form>
+    ${admin.students.length ? admin.students.map((student) => `<article class="mStuRow">
+      <span class="stuAv">${esc(student.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join(''))}</span>
+      <span class="rMain"><span class="rTitle">${esc(student.name)}</span><span class="rSub">${esc([student.year, student.specialty, student.cohort].filter(Boolean).join(' · '))}</span></span>
+      <span class="numPair"><span class="n">${student.storyCount}</span><span class="l">Submitted</span></span>
+      <span class="numPair"><span class="n">${student.awaitingReview}</span><span class="l">Awaiting</span></span>
+      <span class="numPair"><span class="n metric-violet">${student.unscored}</span><span class="l">Unscored</span></span>
+      <button class="rowBtn pri" type="button" data-admin-open-student="${attr(student.id)}">Open</button>
+    </article>`).join('') : emptyState('No student matches.', 'Try a different name, WordPress ID, cohort, or review filter.')}
+  </section>`;
+}
+
+function renderAdminStudent() {
+  const student = adminConsoleState().selectedStudent;
+  if (!student) return;
+  main.innerHTML = `<section data-view="admin-student" class="live">
+    <button class="backBtn" type="button" data-nav="students">‹ All students</button>
+    <div class="profHead"><span class="stuAv">${esc(student.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join(''))}</span><div>
+      <div class="eyebrow">Administrator · submitted StoryForge account</div><h1 class="h1">${esc(student.first)} <em>${esc(student.name.split(/\s+/).slice(1).join(' '))}</em></h1>
+      <p class="stageHint">${esc([student.year, student.specialty, student.cohort, student.cycle].filter(Boolean).join(' · '))}</p></div></div>
+    <div class="privacyBoundary" role="note">Private and archived stories are intentionally absent. This workspace cannot enumerate or open them.</div>
+    ${student.stories.length ? student.stories.map((story) => adminStoryRow({ ...story, studentName: student.name }, { showStudent: false })).join('') : emptyState('No submitted stories.', 'Private work remains private until the student submits it.')}
+  </section>`;
+}
+
+function renderAdminQueue() {
+  const admin = adminConsoleState();
+  main.innerHTML = `<section data-view="admin-queue" class="live">
+    <div class="eyebrow">Administrator · Review Queue</div><h1 class="h1">Submitted stories, <em>bounded and auditable</em>.</h1>
+    <div class="listBar"><label class="srOnly" for="adminQueueStatus">Review status</label><select id="adminQueueStatus">
+      <option value="">All submitted stories</option>
+      ${['awaiting', 'in_review', 'changes', 'reviewed', 'approved', 'unscored'].map((status) => `<option value="${status}" ${admin.queueStatus === status ? 'selected' : ''}>${esc(status === 'unscored' ? 'Unscored' : STATUS[status].label)}</option>`).join('')}
+    </select><span class="countNote">${admin.queue.length} results · private stories excluded</span></div>
+    ${admin.queue.length ? admin.queue.map((story) => adminStoryRow(story)).join('') : emptyState('Nothing in this queue.', 'Choose another review state.')}
+  </section>`;
+}
+
+function renderAdminStory() {
+  const story = adminConsoleState().story;
+  if (!story) return;
+  const notes = asArray(story.internalNotes);
+  const revisions = asArray(story.revisions);
+  const craft = story.craft || {};
+  main.innerHTML = `<section data-view="admin-story" class="live adminStoryReview">
+    <button class="backBtn" type="button" data-nav="student" data-nav-id="${attr(story.studentId)}">‹ ${esc(story.studentName)}’s submitted stories</button>
+    <div class="eyebrow">Administrator review · ${esc(story.studentName)}</div>
+    <h1 class="h1">${esc(story.title)}</h1>
+    <div class="roomMeta">${statusChip(story)}${scoreDots(story.studentScore, 'student', 'Student score')}${scoreDots(story.mentorScore, 'mentor', 'Reviewer score')}${birdMini(story)}</div>
+    <div class="roomGrid adminReviewGrid"><div>
+      <div class="panel panel-spaced"><div class="pHead"><div class="h2">Original <em>telling</em></div></div><div class="pBody"><div class="storyProse">${esc(story.originalText) || '<span class="storyEmpty">No original text.</span>'}</div></div></div>
+      <div class="panel panel-spaced"><div class="pHead"><div class="h2">Current <em>version</em></div></div><div class="pBody"><div class="storyProse">${esc(story.text) || '<span class="storyEmpty">No current text.</span>'}</div>
+        <div class="lessonBlock"><div class="lbl">Learning Lesson</div><div class="lessonTxt">${esc(story.lesson) || '<span class="storyEmpty">No lesson added.</span>'}</div></div></div></div>
+      <div class="panel panel-spaced"><div class="pHead"><div class="h2">Story intelligence <em>read-only</em></div></div><div class="pBody">
+        <div class="setRow"><div class="sTxt"><b>Bird type</b><span>${story.birds.map((id) => BIRDS.find((bird) => bird.id === id)?.label || id).join(', ') || 'Not classified'}</span></div></div>
+        <div class="setRow"><div class="sTxt"><b>Ideal positions</b><span>${story.positions.map((id) => POSITIONS.find((position) => position.id === id)?.label || id).join(', ') || 'Not classified'}</span></div></div>
+        <div class="setRow"><div class="sTxt"><b>Craft scores</b><span>${['detail', 'stakes', 'turn', 'honest', 'lesson'].map((key) => `${key}: ${craft[key] ?? '—'}`).join(' · ')}</span></div></div>
+        <div class="setRow"><div class="sTxt"><b>Version provenance</b><span>${revisions.length} immutable revisions · current row ${story.rowVersion}</span></div></div>
+      </div></div>
+    </div><aside>
+      <form id="adminStoryReviewForm" class="railCard adminReviewForm">
+        <div class="rLbl">Administrator review</div>
+        <label class="fLbl" for="adminReviewStatus">Review status</label><select id="adminReviewStatus" class="releaseSelect">${['in_review', 'changes', 'reviewed', 'approved'].map((status) => `<option value="${status}" ${story.status === status ? 'selected' : ''}>${esc(STATUS[status].label)}</option>`).join('')}</select>
+        <label class="fLbl" for="adminReviewScore">Mentor/admin score</label><select id="adminReviewScore" class="releaseSelect"><option value="">Not scored</option>${[1, 2, 3, 4, 5].map((score) => `<option value="${score}" ${story.mentorScore === score ? 'selected' : ''}>${score} / 5</option>`).join('')}</select>
+        <label class="fLbl" for="adminReviewSuitability">Story suitability</label><select id="adminReviewSuitability" class="releaseSelect"><option value="">Not classified</option>${Object.entries(SUITABILITY).map(([value, label]) => `<option value="${value}" ${story.reviewSuitability === value ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select>
+        <label class="fLbl" for="adminStudentFeedback">Student-visible feedback</label><textarea id="adminStudentFeedback" rows="5" placeholder="The student will see this feedback and your administrator attribution."></textarea>
+        <label class="fLbl" for="adminInternalNote">Internal administrator note</label><textarea id="adminInternalNote" class="internalNoteField" rows="4" placeholder="Visible only to StoryForge administrators."></textarea>
+        <p class="stageHint">Internal notes never appear to students or mentors. Saving is version-checked and audit logged.</p>
+        <button class="noteSend" type="submit">Save review</button>
+      </form>
+      <div class="railCard"><div class="rLbl">Student-visible feedback</div>${feedbackMarkup(story)}</div>
+      <div class="railCard adminInternalNotes"><div class="rLbl">Internal administrator notes</div>${notes.length ? notes.map((note) => `<div class="noteItem"><div class="nt">${esc(note.body)}</div><div class="nd">${esc(firstDefined(note.adminName, note.admin_name, 'Administrator'))} · ${esc(formatDateTime(firstDefined(note.createdAt, note.created_at)))}</div></div>`).join('') : '<div class="stageHint">No internal notes.</div>'}</div>
+    </aside></div>
+  </section>`;
+}
+
+async function saveAdminStoryReview(form) {
+  const story = adminConsoleState().story;
+  if (!story) return;
+  const feedback = $('#adminStudentFeedback', form)?.value.trim() || '';
+  const internalNote = $('#adminInternalNote', form)?.value.trim() || '';
+  const scoreValue = $('#adminReviewScore', form)?.value || '';
+  const suitability = $('#adminReviewSuitability', form)?.value || '';
+  const result = await withBusy(() => api.adminReview(story.id, {
+    expectedVersion: story.rowVersion,
+    patch: {
+      status: $('#adminReviewStatus', form)?.value || story.status,
+      mentorScore: scoreValue ? Number(scoreValue) : null,
+      suitability: suitability || null,
+      ...(feedback ? { studentFeedback: feedback } : {}),
+      ...(internalNote ? { internalNote } : {}),
+    },
+  }));
+  adminConsoleState().story = normalizeStory({
+    ...(result?.story || {}),
+    feedback: result?.feedback,
+    revisions: result?.revisions,
+    reflections: result?.reflections,
+    craft: result?.craft,
+    internalNotes: result?.internalNotes,
+  });
+  renderAdminStory();
+  notify('Administrator review saved and audited.', '✓');
+}
+
 /* ========================= Routing, events, and signed boot ========================= */
 
 async function renderRoute() {
   if (!state.user) return;
+  setMotionEnergy('low');
   renderShell();
   main.innerHTML = loadingView(`Opening ${routeTitle()}…`);
 
   if (isAdmin()) {
+    if (canAdminReview()) {
+      if (state.route === 'home') {
+        await loadAdminHome();
+        renderAdminHome();
+        return;
+      }
+      if (state.route === 'students') {
+        await loadAdminStudents();
+        renderAdminStudents();
+        return;
+      }
+      if (state.route === 'student' && state.routeId) {
+        await loadAdminStudent(state.routeId);
+        renderAdminStudent();
+        return;
+      }
+      if (state.route === 'queue') {
+        await loadAdminQueue();
+        renderAdminQueue();
+        return;
+      }
+      if (state.route === 'story' && state.routeId) {
+        await loadAdminStory(state.routeId);
+        renderAdminStory();
+        return;
+      }
+    }
     if (state.route === 'qlib') {
       await Promise.all([loadQuestions(), loadImportBatches()]);
       renderQuestionLibrary();
@@ -5325,7 +5683,7 @@ async function renderRoute() {
       renderAdminReleaseControls();
       return;
     }
-    await navigate('qlib', null, { replace: true });
+    await navigate(canAdminReview() ? 'home' : 'qlib', null, { replace: true });
     return;
   }
 
@@ -5652,6 +6010,14 @@ document.addEventListener('click', async (event) => {
     }
     if (button.matches('[data-open-quick]')) {
       await openQuick(button.dataset.openQuick);
+      return;
+    }
+    if (button.matches('[data-admin-open-student]')) {
+      await navigate('student', button.dataset.adminOpenStudent);
+      return;
+    }
+    if (button.matches('[data-admin-open-story]')) {
+      await navigate('story', button.dataset.adminOpenStory);
       return;
     }
     if (button.matches('[data-open-story]')) {
@@ -5988,6 +6354,22 @@ document.addEventListener('submit', async (event) => {
       event.preventDefault();
       await saveAdminReleaseControls(event.target);
     }
+    if (event.target.id === 'adminConsoleFeatureForm') {
+      event.preventDefault();
+      await saveAdminConsoleReleaseControl(event.target);
+    }
+    if (event.target.id === 'adminStudentSearchForm') {
+      event.preventDefault();
+      const admin = adminConsoleState();
+      admin.studentQuery = $('#adminStudentSearch', event.target)?.value.trim() || '';
+      admin.studentStatus = $('#adminStudentStatus', event.target)?.value || '';
+      await loadAdminStudents();
+      renderAdminStudents();
+    }
+    if (event.target.id === 'adminStoryReviewForm') {
+      event.preventDefault();
+      await saveAdminStoryReview(event.target);
+    }
   } catch (error) {
     notify(error.message || 'StoryForge could not save that change.');
   }
@@ -6010,6 +6392,15 @@ document.addEventListener('input', (event) => {
   if (capture.contains(target) && ['capTitle', 'capBody', 'capLesson'].includes(target.id)) {
     if (target.id === 'capBody') trackVoiceTextEdit(target.value);
     scheduleCaptureDraftSave();
+  } else if (target.id === 'omni' && canAdminReview()) {
+    adminConsoleState().studentQuery = target.value;
+    if (state.route !== 'students') {
+      navigate('students').then(() => {
+        const input = $('#adminStudentSearch');
+        input?.focus();
+        input?.setSelectionRange(input.value.length, input.value.length);
+      });
+    }
   } else if (target.id === 'omni' && !isMentor()) {
     state.library.query = target.value;
     if (state.route !== 'library') {
@@ -6114,6 +6505,10 @@ document.addEventListener('change', async (event) => {
     } else if (target.id === 'queueCohort') {
       mentorState().queueCohort = target.value;
       renderQueue();
+    } else if (target.id === 'adminQueueStatus') {
+      adminConsoleState().queueStatus = target.value;
+      await loadAdminQueue();
+      renderAdminQueue();
     } else if (target.id === 'activityStudent') {
       mentorState().activityFilters.student = target.value;
       await reloadActivityView();
@@ -6190,6 +6585,10 @@ document.addEventListener('keydown', (event) => {
   if (event.key === '/') {
     event.preventDefault();
     if (isMentor()) openPalette();
+    else if (canAdminReview()) {
+      if (state.route !== 'students') navigate('students').then(() => $('#adminStudentSearch')?.focus());
+      else $('#adminStudentSearch')?.focus();
+    }
     else if (state.route !== 'library') navigate('library').then(() => $('#libQ')?.focus());
     else $('#libQ')?.focus();
   }
@@ -6292,7 +6691,7 @@ async function enterFixturePersona(persona) {
 function signOut() {
   suspendVoiceForIdentityExit();
   state.user = null;
-  state.capabilities = Object.freeze({ voiceCapture: false });
+  state.capabilities = Object.freeze({ voiceCapture: false, adminConsole: false });
   state.captureRecovering = false;
   state.lockout = null;
   auth.clear();
@@ -6329,6 +6728,7 @@ async function bootstrapSession() {
   state.user = user;
   state.capabilities = Object.freeze({
     voiceCapture: Boolean(session?.capabilities?.voiceCapture),
+    adminConsole: Boolean(session?.capabilities?.adminConsole),
   });
   state.captureRecovering = false;
   state.lockout = null;
@@ -6336,10 +6736,12 @@ async function bootstrapSession() {
   parseRoute();
   const studentRoutes = new Set(['home', 'library', 'notifications', 'settings', 'prep', 'qshop', 'qlib', 'story']);
   const mentorRoutes = new Set(['home', 'students', 'student', 'queue', 'activity', 'settings', 'prep', 'qshop', 'qlib', 'story']);
-  const adminRoutes = new Set(['qlib', 'settings']);
+  const adminRoutes = new Set(canAdminReview()
+    ? ['home', 'students', 'student', 'queue', 'story', 'qlib', 'settings']
+    : ['qlib', 'settings']);
   const allowedRoutes = isAdmin() ? adminRoutes : isMentor() ? mentorRoutes : studentRoutes;
   if (!allowedRoutes.has(state.route)) {
-    state.route = isAdmin() ? 'qlib' : 'home';
+    state.route = isAdmin() && !canAdminReview() ? 'qlib' : 'home';
     state.routeId = null;
     pushPath(state.route, null, true);
   }
@@ -6350,9 +6752,19 @@ async function bootstrapSession() {
 
 async function init() {
   hideApplicationChrome();
-  main.innerHTML = `<section class="gatePage" role="status" aria-live="polite"><p class="eyebrow">MissionMed 360</p><h1 class="h1">Story<em>Forge</em></h1><p>Opening your story workspace…</p></section>`;
+  setMotionEnergy('active');
+  main.innerHTML = `<section class="storyforgeIntro" role="status" aria-live="polite">
+    <img class="introLogo" src="./missionmed-logo.png" alt="MissionMed Institute">
+    <p class="introCreator">Dr Brian's IV Prep On-Call</p>
+    <p class="introInstitution">MissionMed Institute</p>
+    <p class="introDivision">Mission:Residency Division</p>
+    <h1 class="introProduct">Story<span>Forge</span></h1>
+    <p class="introStatus">Opening your private story workspace…</p>
+  </section>`;
   try {
     state.config = await api.config();
+    document.body.classList.toggle('motion-enabled', state.config.premiumMotion === true);
+    startEnvironmentEngine();
     auth.configure(state.config);
     if (state.config.devAuth) {
       const remembered = sessionStorage.getItem(FIXTURE_PERSONA_KEY);
@@ -6400,15 +6812,27 @@ $('.skip-link')?.addEventListener('click', (event) => {
   heading?.focus();
 });
 
+let environmentEngineStarted = false;
+
 function startEnvironmentEngine() {
+  if (environmentEngineStarted || !document.body.classList.contains('motion-enabled')) return;
   const canvas = $('#bgfx');
   const context = canvas?.getContext('2d');
   if (!context) return;
+  const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
+  if (motionPreference.matches) return;
+  environmentEngineStarted = true;
   let particles = [];
   let stars = [];
   let builtFor = '';
   let tick = 0;
-  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let seed = 0x5101cafe;
+  const random = () => {
+    seed ^= seed << 13;
+    seed ^= seed >>> 17;
+    seed ^= seed << 5;
+    return (seed >>> 0) / 4294967296;
+  };
   const resize = () => {
     const bounds = canvas.getBoundingClientRect();
     const ratio = Math.min(devicePixelRatio || 1, 2);
@@ -6421,34 +6845,40 @@ function startEnvironmentEngine() {
   };
   const build = (mode) => {
     builtFor = mode;
-    particles = Array.from({ length: 64 }, () => ({ x: Math.random(), y: Math.random(), size: Math.random(), phase: Math.random() * 7 }));
-    stars = Array.from({ length: 110 }, () => ({ x: Math.random(), y: Math.random(), size: Math.random(), phase: Math.random() * 7 }));
+    seed = 0x5101cafe;
+    particles = Array.from({ length: 64 }, () => ({ x: random(), y: random(), size: random(), phase: random() * 7 }));
+    stars = Array.from({ length: 110 }, () => ({ x: random(), y: random(), size: random(), phase: random() * 7 }));
   };
   const frame = () => {
+    if (motionPreference.matches || !document.body.classList.contains('motion-enabled')) {
+      environmentEngineStarted = false;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
     const bounds = resize();
     const mode = document.body.dataset.background || 'ember';
+    const energy = document.body.dataset.motionEnergy || 'low';
+    const energyFactor = ({ low: 0.72, active: 1.08, recording: 1.45, success: 0.9 })[energy] || 0.72;
     if (builtFor !== mode) build(mode);
     context.clearRect(0, 0, bounds.width, bounds.height);
-    tick += reduced() ? 0 : 0.012;
+    tick += 0.012 * energyFactor;
     if (mode === 'ember') {
       particles.forEach((particle) => {
-        if (!reduced()) {
-          particle.y -= (0.04 + particle.size * 0.12) / 150;
-          particle.x += Math.sin(tick + particle.phase) * 0.00012;
-          if (particle.y < -0.02) {
-            particle.y = 1.02;
-            particle.x = Math.random();
-          }
+        particle.y -= ((0.04 + particle.size * 0.12) / 150) * energyFactor;
+        particle.x += Math.sin(tick + particle.phase) * 0.00012 * energyFactor;
+        if (particle.y < -0.02) {
+          particle.y = 1.02;
+          particle.x = random();
         }
         const color = particle.size > 0.45 ? '255,179,64' : '57,214,255';
-        context.fillStyle = `rgba(${color},${0.05 + particle.size * 0.11})`;
+        context.fillStyle = `rgba(${color},${(0.05 + particle.size * 0.11) * Math.min(1.35, energyFactor)})`;
         context.beginPath();
         context.arc(particle.x * bounds.width, particle.y * bounds.height, 0.7 + particle.size * 1.7, 0, Math.PI * 2);
         context.fill();
       });
     } else if (mode === 'constellation') {
       stars.forEach((star) => {
-        const twinkle = reduced() ? 0.8 : 0.45 + 0.55 * Math.abs(Math.sin(tick * 0.8 + star.phase * 3));
+        const twinkle = 0.45 + 0.55 * Math.abs(Math.sin(tick * 0.8 + star.phase * 3));
         context.fillStyle = `rgba(${star.size > 0.6 ? '233,238,251' : '159,216,255'},${(0.15 + star.size * 0.5) * twinkle})`;
         context.beginPath();
         context.arc(star.x * bounds.width, star.y * bounds.height, 0.5 + star.size * 1.3, 0, Math.PI * 2);
@@ -6460,5 +6890,4 @@ function startEnvironmentEngine() {
   requestAnimationFrame(frame);
 }
 
-startEnvironmentEngine();
 init();

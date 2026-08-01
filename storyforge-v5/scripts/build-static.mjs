@@ -41,11 +41,12 @@ function replaceExactlyOnce(source, needle, replacement, label) {
   return `${pieces[0]}${replacement}${pieces[1]}`;
 }
 
-const [sourceHtml, sourceApp, sourceAuth, sourceStyles] = await Promise.all([
+const [sourceHtml, sourceApp, sourceAuth, sourceStyles, sourceLogo] = await Promise.all([
   readFile(path.join(publicDir, 'index.html'), 'utf8'),
   readFile(path.join(publicDir, 'app.js'), 'utf8'),
   readFile(path.join(publicDir, 'auth.js'), 'utf8'),
   readFile(path.join(publicDir, 'styles.css'), 'utf8'),
+  readFile(path.join(publicDir, 'missionmed-logo.png')),
 ]);
 const fontNames = (await readdir(fontsDir)).sort();
 const fontAliases = new Map();
@@ -80,6 +81,8 @@ for (const [fontName, alias] of fontAliases) {
   );
 }
 const stylesName = `styles.${digest(rewrittenStyles)}.css`;
+const logoAlias = digest(sourceLogo);
+const logoName = `missionmed-logo.${logoAlias}.png`;
 const head = mode === 'release'
   ? '<head>\n  <base href="/storyforge/">'
   : [
@@ -90,10 +93,15 @@ const head = mode === 'release'
 const html = replaceExactlyOnce(
   replaceExactlyOnce(
     replaceExactlyOnce(
-      sourceHtml,
-      '<head>',
-      head,
-      'document head',
+      replaceExactlyOnce(
+        sourceHtml,
+        '<head>',
+        head,
+        'document head',
+      ),
+      'src="./missionmed-logo.png"',
+      `src="./_asset/${logoAlias}"`,
+      'MissionMed logo',
     ),
     'href="./styles.css"',
     `href="./_asset/${digest(rewrittenStyles)}"`,
@@ -111,6 +119,7 @@ const writes = [
   writeFile(path.join(assetsDir, appName), rewrittenApp),
   writeFile(path.join(assetsDir, authName), sourceAuth),
   writeFile(path.join(assetsDir, stylesName), rewrittenStyles),
+  writeFile(path.join(assetsDir, logoName), sourceLogo),
   cp(fontsDir, path.join(assetsDir, 'fonts'), { recursive: true }),
 ];
 if (mode === 'development') {
@@ -141,12 +150,14 @@ console.log(JSON.stringify({
     appName,
     authName,
     stylesName,
+    logoName,
     ...fontNames.map((name) => `fonts/${name}`),
   ],
   aliases: {
     app: digest(rewrittenApp),
     auth: authAlias,
     styles: digest(rewrittenStyles),
+    logo: logoAlias,
     fonts: Object.fromEntries(fontAliases),
   },
 }, null, 2));

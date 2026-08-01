@@ -79,9 +79,15 @@ button{cursor:pointer;font-family:inherit;border:0;background:none;color:inherit
 /* ============ AMBIENT ENVIRONMENT ============ */
 #bgfx{position:fixed;inset:0;z-index:0}
 .aur{position:fixed;z-index:0;pointer-events:none;filter:blur(90px);opacity:.5;border-radius:50%;will-change:transform}
-.aur.a{width:56vw;height:56vw;left:-16vw;top:-22vw;background:radial-gradient(circle,rgba(255,122,61,.16),rgba(255,122,61,0) 65%);animation:drift1 46s ease-in-out infinite alternate}
-.aur.b{width:64vw;height:64vw;right:-22vw;bottom:-30vw;background:radial-gradient(circle,rgba(90,77,208,.20),rgba(90,77,208,0) 65%);animation:drift2 58s ease-in-out infinite alternate}
-.aur.c{width:38vw;height:38vw;right:6vw;top:-14vw;background:radial-gradient(circle,rgba(57,214,255,.10),rgba(57,214,255,0) 65%);animation:drift3 52s ease-in-out infinite alternate}
+.aur.a{width:56vw;height:56vw;left:-16vw;top:-22vw;background:radial-gradient(circle,rgba(255,122,61,.16),rgba(255,122,61,0) 65%)}
+.aur.b{width:64vw;height:64vw;right:-22vw;bottom:-30vw;background:radial-gradient(circle,rgba(90,77,208,.20),rgba(90,77,208,0) 65%)}
+.aur.c{width:38vw;height:38vw;right:6vw;top:-14vw;background:radial-gradient(circle,rgba(57,214,255,.10),rgba(57,214,255,0) 65%)}
+body.motion-enabled .aur.a{animation:drift1 46s ease-in-out infinite alternate}
+body.motion-enabled .aur.b{animation:drift2 58s ease-in-out infinite alternate}
+body.motion-enabled .aur.c{animation:drift3 52s ease-in-out infinite alternate}
+body.motion-enabled[data-motion-energy="active"] .aur{opacity:.62;animation-duration:34s}
+body.motion-enabled[data-motion-energy="recording"] .aur{opacity:.72;animation-duration:24s}
+body.motion-enabled[data-motion-energy="success"] .aur{opacity:.58;transition:opacity .9s ease}
 @keyframes drift1{to{transform:translate(9vw,7vw) scale(1.12)}}
 @keyframes drift2{to{transform:translate(-8vw,-9vw) scale(1.08)}}
 @keyframes drift3{to{transform:translate(-6vw,8vw) scale(1.18)}}
@@ -90,6 +96,24 @@ button{cursor:pointer;font-family:inherit;border:0;background:none;color:inherit
   .aur{animation:none!important}
   *,*:before,*:after{animation-duration:.001s!important;animation-iteration-count:1!important;transition-duration:.001s!important}
 }
+
+/* Concise Founder presentation; the official MissionMed asset is bundled locally. */
+.storyforgeIntro{position:relative;z-index:2;min-height:100%;display:grid;place-content:center;justify-items:center;padding:42px 22px;text-align:center;isolation:isolate}
+.storyforgeIntro:before{content:"";position:absolute;width:min(720px,88vw);aspect-ratio:1;border-radius:50%;z-index:-1;background:radial-gradient(circle,rgba(255,179,64,.14),rgba(138,125,255,.07) 42%,transparent 70%);filter:blur(16px)}
+.introLogo{width:min(224px,56vw);height:auto;margin-bottom:25px;filter:drop-shadow(0 14px 36px rgba(0,0,0,.42))}
+.introCreator{font-family:var(--num);font-size:clamp(12px,1.3vw,16px);font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--gd)}
+.introInstitution{margin-top:12px;font-size:clamp(11px,1vw,14px);font-weight:700;letter-spacing:.17em;text-transform:uppercase;color:var(--mid)}
+.introDivision{margin-top:7px;font-family:var(--num);font-size:clamp(10px,.9vw,12px);font-weight:700;letter-spacing:.24em;text-transform:uppercase;color:var(--dim)}
+.introProduct{margin-top:18px;font-size:clamp(46px,7vw,92px);font-style:italic;font-weight:900;line-height:.95;letter-spacing:-.065em;text-shadow:0 12px 48px rgba(0,0,0,.55)}
+.introProduct span{color:var(--em)}
+.introStatus{margin-top:21px;color:var(--mid);font-family:var(--voice);font-size:14px}
+body.motion-enabled .storyforgeIntro:before{animation:introAtmosphere 6s ease-in-out infinite alternate}
+body.motion-enabled .introLogo{animation:introResolve .75s cubic-bezier(.2,.9,.3,1) both}
+body.motion-enabled .introCreator,body.motion-enabled .introInstitution,body.motion-enabled .introDivision{animation:introResolve .65s .12s cubic-bezier(.2,.9,.3,1) both}
+body.motion-enabled .introProduct{animation:introResolve .7s .22s cubic-bezier(.2,.9,.3,1) both}
+body.motion-enabled .introStatus{animation:introResolve .65s .32s cubic-bezier(.2,.9,.3,1) both}
+@keyframes introResolve{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes introAtmosphere{to{transform:scale(1.07);opacity:.78}}
 
 /* ============ SHELL ============ */
 header{position:fixed;top:0;left:0;right:0;height:var(--hdr);z-index:70;display:flex;align-items:center;gap:20px;padding:0 22px;
@@ -1314,6 +1338,29 @@ section[data-view].settingsPage{max-width:860px}
 .bg-tide .bgPrev{background:linear-gradient(180deg,transparent 30%,rgba(57,214,255,.16) 45%,transparent 60%,rgba(90,141,255,.14) 78%,transparent 92%),#090d15}
 .bg-meridian .bgPrev{background:repeating-linear-gradient(175deg,transparent 0 18px,rgba(57,214,255,.09) 18px 19px),#0a0d14}
 .bg-static .bgPrev{background:#0b0e14}
+
+/* B1-510I administrator workspace: additive, role-gated, and read-only by default. */
+.adminMetrics{grid-template-columns:repeat(5,minmax(112px,1fr))}
+.adminStoryRow{grid-template-columns:auto minmax(180px,1fr) auto auto auto auto}
+.privacyBoundary{margin:18px 0;padding:12px 15px;border:1px solid rgba(57,214,255,.28);border-radius:11px;background:rgba(57,214,255,.055);color:var(--mid);font-size:12px;line-height:1.55}
+.adminReviewGrid{align-items:start}
+.adminReviewForm textarea{width:100%;box-sizing:border-box;resize:vertical;background:#0f1522;border:1px solid var(--edge);border-radius:9px;color:var(--tx);font:12px/1.55 var(--body);padding:10px;outline:none}
+.adminReviewForm textarea:focus{border-color:var(--cy);box-shadow:0 0 0 1px rgba(57,214,255,.3)}
+.adminReviewForm .releaseSelect{width:100%;margin-bottom:12px}
+.internalNoteField{border-color:rgba(138,125,255,.38)!important}
+.adminInternalNotes{border-color:rgba(138,125,255,.24)}
+.reviewSuitability{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+
+@media(max-width:1100px){
+  .adminMetrics{grid-template-columns:repeat(3,minmax(112px,1fr))}
+  .adminStoryRow{grid-template-columns:auto minmax(180px,1fr) auto auto}
+  .adminStoryRow .embers,.adminStoryRow .cohortChip{display:none}
+}
+@media(max-width:640px){
+  .adminMetrics{grid-template-columns:repeat(2,minmax(112px,1fr))}
+  .adminStoryRow{grid-template-columns:auto minmax(0,1fr) auto}
+  .adminStoryRow>.status{display:none}
+}
 
 @media(max-width:720px){
   .gatePage{padding:28px}

@@ -66,6 +66,7 @@ PSQL_ARGS=(
   -h 127.0.0.1 -p "$SF_PG_PORT" -U postgres -d storyforge
   -v ON_ERROR_STOP=1
   --set=founder_user_id=11111111-1111-4111-8111-111111111111
+  --set=admin_console_founder_user_id=cccccccc-cccc-4ccc-8ccc-cccccccccccc
 )
 "$PSQL_BIN" "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/bootstrap_production.sql"
 
@@ -81,6 +82,7 @@ phase_one_migrations=(
   "20260729000200_b1_506_feature_flags.sql"
   "20260729010000_b1_506a_voice_audit_lifecycle.sql"
   "20260730000100_b1_507b_reconciliation_state.sql"
+  "20260801190000_b1_510i_admin_console.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \
@@ -101,6 +103,7 @@ node --test \
   "$PACKAGE_DIR/tests/postgres/flags-rls.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/voice-audit-lifecycle.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/audio-reconciliation-runtime.test.mjs" \
+  "$PACKAGE_DIR/tests/postgres/admin-console-rls.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/production-migration-transaction.test.mjs"
 
 node --test --test-concurrency=1 "$PACKAGE_DIR"/tests/pg/*.test.mjs

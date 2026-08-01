@@ -39,7 +39,8 @@ test('voice feature flag is seeded off and is admin-write/service-read only', as
 
     const seeded = await client.query(
       `SELECT key, scope, allowlist, cohorts, updated_by
-       FROM public.sf_feature_flags`,
+       FROM public.sf_feature_flags
+       WHERE key = 'voice_capture'`,
     );
     assert.deepEqual(seeded.rows, [{
       key: 'voice_capture',

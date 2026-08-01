@@ -79,6 +79,7 @@ PSQL_ARGS=(
   -d storyforge
   -v ON_ERROR_STOP=1
   --set=founder_user_id=11111111-1111-4111-8111-111111111111
+  --set=admin_console_founder_user_id=cccccccc-cccc-4ccc-8ccc-cccccccccccc
 )
 "$PSQL_BIN" "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/bootstrap_production.sql" >/dev/null
 base_migrations=(
@@ -93,6 +94,7 @@ phase_one_migrations=(
   "20260729000200_b1_506_feature_flags.sql"
   "20260729010000_b1_506a_voice_audit_lifecycle.sql"
   "20260730000100_b1_507b_reconciliation_state.sql"
+  "20260801190000_b1_510i_admin_console.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \
@@ -116,6 +118,7 @@ export STORYFORGE_MATRIX_BASE_URL="http://127.0.0.1:$SF_CONFORMANCE_APP_PORT/mem
 export STORYFORGE_ALLOWED_ORIGINS="http://127.0.0.1:$SF_CONFORMANCE_APP_PORT"
 export STORYFORGE_DEV_AUTH=1
 export STORYFORGE_DEV_JWT_SECRET="b1-503-local-conformance-secret-not-for-production"
+export STORYFORGE_ADMIN_CONSOLE_FORCE_OFF=0
 export STORYFORGE_JWT_ISSUER="storyforge-local-conformance"
 export STORYFORGE_JWT_AUDIENCE="storyforge"
 export STORYFORGE_CONFORMANCE_BASE_URL="http://127.0.0.1:$SF_CONFORMANCE_APP_PORT"

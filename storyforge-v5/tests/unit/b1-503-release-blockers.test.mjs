@@ -48,7 +48,7 @@ test('question governance and file import have explicit production UI paths', ()
   assert.match(appSource, /id="importFile".*accept="\.csv,\.xlsx/);
   assert.match(appSource, /dataBase64:\s*arrayBufferToBase64/);
   assert.match(appSource, /admin:\s*\[\s*\['qlib',\s*'Question Library'/);
-  assert.match(appSource, /if \(isAdmin\(\)\) \{\s*if \(state\.route === 'qlib'\)/);
+  assert.match(appSource, /if \(isAdmin\(\)\) \{[\s\S]*?if \(state\.route === 'qlib'\)/);
   assert.match(appSource, /canGovernQuestions\(\).*governanceState/s);
   assert.match(appSource, /event\.key === 'N'\) && isStudent\(\)/);
 });

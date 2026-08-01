@@ -62,6 +62,7 @@ export const config = Object.freeze({
   jwtSecret: text('STORYFORGE_JWT_SECRET'),
   devAuth: flag('STORYFORGE_DEV_AUTH'),
   devJwtSecret: text('STORYFORGE_DEV_JWT_SECRET'),
+  premiumMotion: flag('STORYFORGE_PREMIUM_MOTION'),
   flags: Object.freeze({
     aiMentorBeta: flag('STORYFORGE_AI_MENTOR_BETA'),
     aiStudentGeneral: flag('STORYFORGE_AI_STUDENT_GENERAL'),
