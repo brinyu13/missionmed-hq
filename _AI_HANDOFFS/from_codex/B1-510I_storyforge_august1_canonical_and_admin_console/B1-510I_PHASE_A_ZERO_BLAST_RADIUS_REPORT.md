@@ -15,8 +15,8 @@ The application change enables the existing eligible-all flag mode at the produc
 
 - Kinsta: one immutable current-UI release published; exact public hashes verified.
 - Railway: backend-only deployments culminating in `80e39e8e-954f-4964-9bfc-6b7c98fac1a4`.
-- PostgreSQL: no schema or data-model change; feature flag briefly moved to `eligible_all`, then was restored to `allowlist:1:0` through the audited endpoint.
-- R2: canary recording objects followed the existing lifecycle and were discarded; reconciliation remains off.
+- PostgreSQL: no schema or data-model change; feature flag moved from `allowlist:1:0` to `eligible_all` through the audited endpoint after the Founder PASS.
+- R2: transient canary objects were cleaned. One permanent audio object is attached to the Founder-saved story and is preserved as user content and replay-defect evidence. Reconciliation remains off.
 - WordPress: the StoryForge setting was temporarily drained only for guarded rollback preflight and restored to a semantically byte-equivalent configuration; no user profile or role data changed.
 
 ## Preserved systems
@@ -25,4 +25,4 @@ Authentication, JWT verification, RLS, private storage, assembly executor `conca
 
 ## Result
 
-The code correction is bounded and fully tested, but the broad production capability change was not left active after the live acceptance gate failed. The safest current production state is preserved.
+Phase A passed. Eligible students now receive voice through the existing trusted entitlement boundary, administrators do not receive unintended student voice, ineligible and anonymous identities remain denied, cross-user direct-ID access remains denied, and the student UI/build is unchanged. Only the three independently reproduced stale StoryForge Critical Systems checks were reconciled; the enforced gate now has zero failures.

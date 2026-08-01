@@ -13,20 +13,31 @@
 
 Final health response: `{"ok":true,"service":"storyforge-v5"}`.
 
-## Live acceptance
+## Founder physical-microphone acceptance
 
-The audited flag change to `eligible_all` successfully granted voice to the eligible student boundary without granting it to administrators or anonymous users. Real MediaRecorder uploads reached the live WordPress gateway and provider path. Several canaries were discarded without saving stories.
+At `2026-08-01T19:55Z`, the Founder completed the required non-private physical-microphone canary in the canonical live release. The real MediaRecorder, WordPress gateway, private R2 path, configured OpenAI transcription provider, and approved `concat` executor produced an editable transcript. The Founder assessed the returned transcript as:
 
-The physical-microphone transcript could not be matched to a controlled phrase because the chosen microphone did not reliably capture synthetic system speech. This prevents the required statements “transcription works” and “real production student canary passes.”
+`PASS — accurate and usable.`
 
-## Final safe state
+This auditory and transcription-quality judgment belongs to the Founder, not Codex. The transcript and story were saved successfully. The Learning Lesson remained available. Reopening the Library preserved the story and transcript.
 
-- feature scope: `allowlist`
-- allowlist count: `1`
+A distinct replay defect remains: the original saved audio did not play when the Founder reopened the story from the Library. This does not invalidate the successful recording/transcription canary and is tracked separately for a narrow follow-up investigation.
+
+## Final Phase A state
+
+- feature scope: `eligible_all`
+- allowlist count: `0`
 - cohort count: `0`
-- broad eligible-student voice: OFF
+- broad eligible-student voice: ON for the existing trusted StoryForge-entitlement population
 - reconciliation: OFF
-- latest canary recording: cancelled; zero retained segments
-- story created by canary: none
+- latest canary recording: attached to the saved Founder story
+- permanent canary audio: one attached, referenced object; preserved as user content and replay-defect evidence
+- transient database segments: `0`
+- transient `storyforge-rec/` R2 objects: `0`
+- HTTP 5xx after activation: `0`
+- cross-user direct-ID request: denied with HTTP `404`
+- Founder administrator voice capability: `false`
+- ineligible WordPress identity: no StoryForge token issued
+- anonymous session: HTTP `401`
 
-This receipt is therefore a deployment-and-rollback receipt, not a Phase A success receipt.
+The audited activation occurred through `POST /api/admin/features/voice_capture` at `2026-08-01T20:18:06.155Z`; PostgreSQL records the actor as the Founder administrator. No direct SQL update was used. Phase A is frozen complete against canonical release `v-21d896bc96f9c454`.

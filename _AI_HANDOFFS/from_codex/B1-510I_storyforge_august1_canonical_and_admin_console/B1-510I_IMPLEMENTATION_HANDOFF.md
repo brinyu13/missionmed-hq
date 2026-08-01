@@ -2,7 +2,7 @@
 
 ## Verdict
 
-Phase A code is locally complete and deployed, but the production rollout is intentionally fail-closed on the remaining physical-microphone acceptance. Broad student voice is not active. Phase B and C were not started.
+Phase A is complete. The Founder’s physical-microphone canary passed, `eligible_all` is active through the audited endpoint, the required identity and isolation matrix passed, transient cleanup is clean, and the three stale Critical Systems checks were reconciled to zero failures. Phase B and C may now proceed behind their separate gates.
 
 ## Commits
 
@@ -23,12 +23,12 @@ Phase A code is locally complete and deployed, but the production rollout is int
 
 - canonical UI release: `v-21d896bc96f9c454`
 - backend deployment: `80e39e8e-954f-4964-9bfc-6b7c98fac1a4`
-- voice flag: `allowlist:1:0`
+- voice flag: `eligible_all`
 - reconciliation: off
-- general eligible-student voice: off
+- general eligible-student voice: on under the canonical trusted entitlement function
 - provider models/storage/JWT/RLS: unchanged
 - database migrations: none
 
 ## Resume point
 
-Do not redo the implementation or broaden scope. Run the single Founder physical-microphone canary described in the live evidence receipt. If it passes, activate `eligible_all`, verify a second eligible student and all negative identities, then update the Critical Systems StoryForge release entries. If it fails, preserve the sample privately and stop on provider/audio-input diagnosis without enabling students.
+Do not redo Phase A. Continue with the bounded role-safe administrator console and premium motion/branding phases. Preserve the saved canary audio while the separate Library-replay defect is investigated; do not alter voice scope, provider models, R2 permissions, reconciliation, entitlement, or the canonical student product.

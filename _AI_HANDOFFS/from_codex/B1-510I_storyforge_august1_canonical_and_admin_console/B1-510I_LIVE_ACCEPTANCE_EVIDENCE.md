@@ -11,23 +11,23 @@
 - actual MediaRecorder upload, WordPress gateway, provider orchestration, and cancellation lifecycle executed;
 - no canary story was saved;
 - the latest canary recording is cancelled with zero retained segments;
-- feature scope was restored to `allowlist:1:0`.
+- the Founder completed the real physical-microphone canary and judged the transcript `PASS — accurate and usable`;
+- the saved story and editable transcript persisted after reload;
+- transient recording cleanup is complete: zero database segment rows and zero `storyforge-rec/` R2 objects;
+- one permanent audio object remains attached to the saved Founder story;
+- direct cross-user story access returned HTTP 404;
+- production HTTP 5xx remained zero after activation;
+- feature scope is audited `eligible_all` with empty allowlist and cohorts;
+- Founder student, Ignacio, and a second eligible student report `voiceCapture=true`;
+- Founder administrator reports `voiceCapture=false`;
+- ineligible WordPress identity cannot obtain a StoryForge token;
+- anonymous session remains HTTP 401;
+- Critical Systems enforced gate: 111 PASS, 3 WARN, 0 FAIL.
 
-## Not proven
+## Separate non-blocking replay defect
 
-A transcript faithful to a known physical-microphone phrase was not obtained. Synthetic macOS speech was not reliably picked up by the selected microphone, and ambient/provider output cannot be accepted as evidence. Transcript bodies are intentionally omitted from this handoff.
+The original saved audio did not play after reopening the story from the Library. Recording, upload, transcription, editable insertion, save, and transcript persistence passed. The replay problem is recorded separately and must be investigated without reopening or invalidating the Founder’s canary acceptance.
 
 ## Screenshot evidence
 
-`screenshots/B1-510I_post_rollback_safe_gate.png` records the privacy-safe fail-closed state after rollback. A live Founder home screenshot containing private story titles was deliberately not retained. Phase B/C checkpoint images do not exist because those phases were not started.
-
-## Required next canary
-
-1. Open an allowlisted Founder student session.
-2. Confirm the current release hashes and recording control.
-3. Speak a short non-private phrase directly into the selected microphone.
-4. Confirm exact/acceptable transcript fidelity.
-5. Save and reload only if the phrase passes.
-6. Delete the canary through the authorized lifecycle.
-7. Verify cross-user denial, zero orphaned transient objects, and zero HTTP 5xx.
-8. Only then activate `eligible_all`, rerun the student matrix, and update Critical Systems.
+`screenshots/B1-510I_post_rollback_safe_gate.png` records the earlier fail-closed checkpoint. No private Founder story-title screenshot is committed. Phase B/C screenshots remain pending their gated implementation.
