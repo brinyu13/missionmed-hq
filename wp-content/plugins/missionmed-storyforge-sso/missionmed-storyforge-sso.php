@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed StoryForge SSO
  * Description: Default-off WordPress session bridge, entitlement gate, and Matrix navigation seam for StoryForge V5.
- * Version: 0.1.0
+ * Version: 0.1.1
  * Requires at least: 6.5
  * Requires PHP: 8.1
  * Author: MissionMed
@@ -16,7 +16,7 @@ const MMSF_OPTION = 'missionmed_storyforge_settings';
 const MMSF_RATE_KEYS_OPTION = 'missionmed_storyforge_rate_keys';
 const MMSF_REST_NAMESPACE = 'missionmed/v1';
 const MMSF_REST_ROUTE = '/storyforge/token';
-const MMSF_VERSION = '0.1.0';
+const MMSF_VERSION = '0.1.1';
 
 function mmsf_defaults() {
     return array(
