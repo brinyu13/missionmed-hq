@@ -36,9 +36,5 @@
     }
   };
   window.addEventListener('hashchange', launchDirectHash);
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', launchDirectHash, { once: true });
-  } else {
-    launchDirectHash();
-  }
+  launchDirectHash();
 })();

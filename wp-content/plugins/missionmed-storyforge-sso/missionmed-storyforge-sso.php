@@ -243,7 +243,9 @@ function mmsf_access_state($user) {
         return new WP_Error('storyforge_disabled', 'StoryForge is not enabled for this pilot.', array('status' => 403));
     }
 
-    if (!mmsf_user_is_allowlisted($user, $settings)) {
+    $role = mmsf_role_for_user($user, $settings);
+    $allowlisted = mmsf_user_is_allowlisted($user, $settings);
+    if (!$allowlisted && $role !== 'student') {
         return new WP_Error(
             'user_not_enabled',
             'StoryForge is not enabled for this account.',
@@ -251,7 +253,6 @@ function mmsf_access_state($user) {
         );
     }
 
-    $role = mmsf_role_for_user($user, $settings);
     if (!in_array($role, $settings['allowed_roles'], true)) {
         return new WP_Error('role_not_enabled', 'StoryForge is not enabled for this account role.', array('status' => 403));
     }
@@ -259,6 +260,7 @@ function mmsf_access_state($user) {
     $cohort = mmsf_cohort_for_user((int) $user->ID);
     if (
         $role === 'student'
+        && $allowlisted
         && !empty($settings['allowed_cohorts'])
         && !in_array($cohort, $settings['allowed_cohorts'], true)
     ) {
@@ -596,7 +598,7 @@ function mmsf_enqueue_matrix_launch_adapter() {
         plugins_url('assets/matrix-launch.js', __FILE__),
         array(),
         MMSF_VERSION,
-        true
+        false
     );
     wp_add_inline_script(
         $handle,
