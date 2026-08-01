@@ -542,8 +542,13 @@ function viewLabel() {
   return isMentor() ? 'Mentor View' : 'Student View';
 }
 
-function firstName() {
-  return String(state.user?.display_name || 'there').split(/\s+/)[0];
+function firstName(user = state.user) {
+  const storedFirstName = typeof user?.first_name === 'string' ? user.first_name : '';
+  if (storedFirstName.trim()) return storedFirstName;
+  const displayName = typeof user?.display_name === 'string' ? user.display_name.trim() : '';
+  if (displayName) return displayName.split(/\s+/u)[0];
+  if (typeof user?.username === 'string' && user.username.trim()) return user.username.trim();
+  return 'there';
 }
 
 function matrixHref() {
