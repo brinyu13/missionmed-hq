@@ -25,9 +25,9 @@ define( 'MMSFR_MAX_BODY_BYTES', 6291456 );
 define( 'MMSFR_MAX_RESPONSE_BYTES', 33554432 );
 define( 'MMSFR_TIMEOUT_SECONDS', 9 );
 // BEGIN GENERATED STORYFORGE RELEASE ID.
-define( 'MMSFR_RELEASE_ID', 'v-21d896bc96f9c454' );
-define( 'MMSFR_RELEASE_PHP_SHA256', '3afec2a55716420b616d4dabd4c35baed741e2e88a219592f0690235d940b147' );
-define( 'MMSFR_RELEASE_PHP_SIZE', 873176 );
+define( 'MMSFR_RELEASE_ID', 'v-18e88e1594474b75' );
+define( 'MMSFR_RELEASE_PHP_SHA256', 'a2b54e4d023b6f6f4361d90f72e18f63509a016cc51b03923b82c617ac89dc8f' );
+define( 'MMSFR_RELEASE_PHP_SIZE', 1009111 );
 // END GENERATED STORYFORGE RELEASE ID.
 
 /**
@@ -38,10 +38,10 @@ define( 'MMSFR_RELEASE_PHP_SIZE', 873176 );
 function mmsfr_asset_manifest() {
 	return array(
 		// BEGIN GENERATED STORYFORGE ASSET MANIFEST.
-		'assets/app.0dd4ed77dc52.js' => array(
-			'alias' => '0dd4ed77dc52',
-			'sha256' => '0dd4ed77dc52731cf49e95033c6962ad371cec2c3db3cc1248d5fa71c6b03176',
-			'size' => 295536,
+		'assets/app.c7d6d2e50f7b.js' => array(
+			'alias' => 'c7d6d2e50f7b',
+			'sha256' => 'c7d6d2e50f7b047ccdc8b86646cd6a25a94b326be56adcb9cc81b1e0670ff0de',
+			'size' => 320050,
 			'type' => 'text/javascript; charset=utf-8',
 			'cache' => 'immutable',
 		),
@@ -122,17 +122,24 @@ function mmsfr_asset_manifest() {
 			'type' => 'font/woff2',
 			'cache' => 'immutable',
 		),
-		'assets/styles.644548c5ff24.css' => array(
-			'alias' => '644548c5ff24',
-			'sha256' => '644548c5ff24b3b357c4194b97e56ce8525feab59b0f4914e3bf9779099e00fe',
-			'size' => 108299,
+		'assets/missionmed-logo.f091d62ac584.png' => array(
+			'alias' => 'f091d62ac584',
+			'sha256' => 'f091d62ac5842cde0e9e455321839fd98b291598478aae6ce13b09ea3896ff56',
+			'size' => 65897,
+			'type' => 'image/png',
+			'cache' => 'immutable',
+		),
+		'assets/styles.a12dfe83ee1d.css' => array(
+			'alias' => 'a12dfe83ee1d',
+			'sha256' => 'a12dfe83ee1dccd30fd7c81572ba220f756324c386d55f0887d1cea2768dc091',
+			'size' => 112234,
 			'type' => 'text/css; charset=utf-8',
 			'cache' => 'immutable',
 		),
 		'index.html' => array(
-			'alias' => 'ffeb8b5f603d',
-			'sha256' => 'ffeb8b5f603d3c6113bca008cc2647fde8b7f17175ba268d6293d0c05349d93a',
-			'size' => 1397,
+			'alias' => '8a28f5903fa9',
+			'sha256' => '8a28f5903fa985b8d7373c889f52fc4f25ccb43c0e4ed3763f429fe760dfbbd6',
+			'size' => 1669,
 			'type' => 'text/html; charset=utf-8',
 			'cache' => 'html',
 		),
