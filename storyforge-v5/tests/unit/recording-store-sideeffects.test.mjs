@@ -227,6 +227,174 @@ test('audio retirement commits before returning its prefix-deletion plan', async
   });
 });
 
+test('audio attachment preserves provider transcript separately from the edited story text', async () => {
+  const calls = [];
+  const providerTranscript = 'He said, “What happened?” I said, “Nothing changed.”';
+  const client = {
+    async query(sql, values) {
+      if (sql.includes('FROM public.sf_recording_sessions') && sql.includes('FOR UPDATE')) {
+        calls.push('session-lock');
+        return {
+          rows: [{
+            id: recordingId,
+            student_id: studentId,
+            story_id: null,
+            state: 'assembled',
+            mime_type: 'audio/webm',
+            total_duration_ms: 8_000,
+            segment_count: 2,
+            assembled_asset_id: null,
+          }],
+        };
+      }
+      if (sql.includes('public.sf_create_story_v5')) {
+        calls.push('story-create');
+        assert.equal(JSON.parse(values[0]).text, providerTranscript);
+        return {
+          rows: [{
+            id: storyId,
+            student_id: studentId,
+            original_text: providerTranscript,
+            current_text: providerTranscript,
+            row_version: 0,
+          }],
+        };
+      }
+      if (sql.includes('string_agg(segment.transcript')) {
+        calls.push('provider-original');
+        assert.deepEqual(values, [recordingId, 2]);
+        return { rows: [{ transcript: providerTranscript, segment_count: 2 }] };
+      }
+      if (sql.includes('public.sf_attach_recording')) {
+        calls.push('audio-attach');
+        return {
+          rows: [{
+            asset_id: assetId,
+            target_object_key: `storyforge-audio/${studentId}/${storyId}/${assetId}`,
+          }],
+        };
+      }
+      if (sql.includes('public.sf_update_story_v5')) {
+        calls.push('working-text-update');
+        assert.deepEqual(values, [
+          storyId,
+          JSON.stringify({ text: 'Student-corrected working transcript.' }),
+          0,
+          'quick',
+        ]);
+        return {
+          rows: [{
+            id: storyId,
+            student_id: studentId,
+            original_text: providerTranscript,
+            current_text: 'Student-corrected working transcript.',
+            row_version: 1,
+          }],
+        };
+      }
+      throw new Error(`Unexpected query: ${sql}`);
+    },
+  };
+  const store = storeWithClient(client);
+
+  const result = await store.attachRecording(identity, recordingId, {
+    title: 'A saved voice story',
+    text: 'Student-corrected working transcript.',
+    surface: 'quick',
+  });
+
+  assert.deepEqual(calls, [
+    'session-lock',
+    'provider-original',
+    'story-create',
+    'audio-attach',
+    'working-text-update',
+  ]);
+  assert.equal(result.story.original_text, providerTranscript);
+  assert.equal(result.story.current_text, 'Student-corrected working transcript.');
+});
+
+test('audio attachment fails closed when every provider segment is not available', async () => {
+  let attachCalled = false;
+  const store = storeWithClient({
+    async query(sql) {
+      if (sql.includes('FROM public.sf_recording_sessions') && sql.includes('FOR UPDATE')) {
+        return {
+          rows: [{
+            id: recordingId,
+            student_id: studentId,
+            state: 'assembled',
+            mime_type: 'audio/webm',
+            segment_count: 2,
+            assembled_asset_id: null,
+          }],
+        };
+      }
+      if (sql.includes('public.sf_create_story_v5')) {
+        return { rows: [{ id: storyId, original_text: 'Edited text.' }] };
+      }
+      if (sql.includes('string_agg(segment.transcript')) return { rows: [] };
+      if (sql.includes('public.sf_attach_recording')) attachCalled = true;
+      throw new Error(`Unexpected query: ${sql}`);
+    },
+  });
+
+  await assert.rejects(
+    store.attachRecording(identity, recordingId, {
+      title: 'Incomplete provider transcript',
+      text: 'Edited text.',
+      surface: 'quick',
+    }),
+    (error) => error.code === 'state_conflict' && error.status === 409,
+  );
+  assert.equal(attachCalled, false);
+});
+
+test('segment completion audits exact provider and model without transcript content', async () => {
+  let auditEvent;
+  const store = storeWithClient({
+    async query(sql, values) {
+      if (sql.includes('UPDATE public.sf_recording_segments')) {
+        assert.equal(values[1], 'Private provider transcript must not enter the audit.');
+        return { rows: [{ id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' }] };
+      }
+      if (sql.includes('UPDATE public.sf_recording_sessions')) {
+        assert.deepEqual(values, [recordingId, 'openai', 'gpt-4o-transcribe']);
+        return { rows: [] };
+      }
+      throw new Error(`Unexpected query: ${sql}`);
+    },
+  }, {
+    async appendServiceAudit(_client, event) {
+      auditEvent = event;
+    },
+  });
+
+  const completed = await store.completeTranscription({
+    id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+    recordingId,
+    seq: 1,
+    studentId,
+  }, {
+    text: 'Private provider transcript must not enter the audit.',
+    flaggedTerms: [],
+    providerId: 'openai',
+    modelId: 'gpt-4o-transcribe',
+    latencyMs: 425,
+  });
+
+  assert.equal(completed, true);
+  assert.deepEqual(auditEvent.newValue, {
+    recordingId,
+    seq: 1,
+    transcribeState: 'transcribed',
+    latencyMs: 425,
+    provider: 'openai',
+    model: 'gpt-4o-transcribe',
+  });
+  assert.equal(JSON.stringify(auditEvent).includes('Private provider transcript'), false);
+});
+
 test('approved sweep-candidate query maps only bounded lifecycle metadata', async () => {
   const store = storeWithClient({
     async query(sql, values) {

@@ -124,7 +124,7 @@ test('all non-index aliases resolve to exact pinned bytes, MIME, and cache polic
     },
   };
 
-  assert.equal(Object.keys(assetAliases).length, 13);
+  assert.equal(Object.keys(assetAliases).length, 14);
   for (const [alias, entry] of Object.entries(assetAliases)) {
     const response = await worker.fetch(
       new Request(`https://missionmedinstitute.com/storyforge/_asset/${alias}`),

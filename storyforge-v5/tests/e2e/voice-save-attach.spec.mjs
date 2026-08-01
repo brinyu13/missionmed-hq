@@ -648,7 +648,7 @@ test('multi-segment playback refreshes E9 before each later segment', async ({
   }
 });
 
-test('saved audio has one accessible play pause progress and replay control', async ({
+test('saved audio has one accessible play pause seek progress and replay control', async ({
   page,
   request,
 }) => {
@@ -742,19 +742,32 @@ test('saved audio has one accessible play pause progress and replay control', as
     await expect(card.getByRole('button', { name: 'Pause original audio' })).toBeFocused();
     await page.evaluate(() => window.__audioInstances.at(-1).tick(2));
     await expect(card.locator('.audTime')).toHaveText('0:02 / 0:08');
-    await expect(card.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '2');
+    const position = card.getByRole('slider', { name: 'Original audio playback position' });
+    await expect(position).toHaveAttribute('aria-valuenow', '2');
     await expect(card.locator('.audTrack i')).toHaveAttribute('style', /width:\s*25%/);
+
+    await position.focus();
+    await position.press('ArrowRight');
+    await expect(card.locator('.audTime')).toHaveText('0:07 / 0:08');
+    await position.press('ArrowLeft');
+    await expect(card.locator('.audTime')).toHaveText('0:02 / 0:08');
+    const positionBounds = await position.boundingBox();
+    expect(positionBounds).not.toBeNull();
+    await position.click({
+      position: { x: positionBounds.width / 2, y: positionBounds.height / 2 },
+    });
+    await expect(card.locator('.audTime')).toHaveText('0:04 / 0:08');
 
     await card.getByRole('button', { name: 'Pause original audio' }).click();
     await expect(card.getByRole('button', { name: 'Resume original audio' })).toBeFocused();
-    await expect(card.getByRole('status')).toHaveText('Paused at 0:02.');
+    await expect(card.getByRole('status')).toHaveText('Paused at 0:04.');
     await card.getByRole('button', { name: 'Resume original audio' }).click();
     await expect(card.getByRole('button', { name: 'Pause original audio' })).toBeFocused();
 
     await page.evaluate(() => window.__audioInstances.at(-1).finish());
     await expect(card.getByRole('button', { name: 'Replay original audio' })).toBeFocused();
     await expect(card.locator('.audTime')).toHaveText('0:08 / 0:08');
-    await expect(card.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '8');
+    await expect(card.getByRole('slider')).toHaveAttribute('aria-valuenow', '8');
     await page.evaluate(() => {
       window.__rejectAudioPlayCount = 1;
     });

@@ -2,6 +2,7 @@ const endpoint = 'https://api.openai.com/v1/audio/transcriptions';
 const defaultTimeoutMs = 30_000;
 const maxPromptCharacters = 600;
 const contextTailCharacters = 200;
+const faithfulPresentationGuidance = 'Verbatim transcript. Preserve every spoken word and meaning, including profanity, names, numbers, negation, and medical terms. Add only natural punctuation, case, paragraphs, and clearly supported dialogue quotes. Do not rewrite.';
 const maxProviderBytes = 25 * 1024 * 1024;
 const fixedModels = new Set(['gpt-4o-transcribe', 'whisper-1']);
 const mimeExtensions = Object.freeze({
@@ -84,28 +85,45 @@ function normalizeKeywords(value) {
   return terms;
 }
 
-function composePrompt({ keywords, promptTail }) {
+function composePrompt({ keywords, promptTail }, model) {
   const tail = String(promptTail || '').slice(-contextTailCharacters);
   const terms = normalizeKeywords(keywords);
-  const prefix = tail ? `${tail}\nVocabulary: ` : 'Vocabulary: ';
+  const guidance = model === 'gpt-4o-transcribe'
+    ? faithfulPresentationGuidance
+    : '';
+  const context = [guidance, tail].filter(Boolean).join('\n');
+  const prefix = context ? `${context}\nVocabulary: ` : 'Vocabulary: ';
   while (
     terms.length
     && `${prefix}${terms.join(', ')}`.length > maxPromptCharacters
   ) {
     terms.pop();
   }
-  return terms.length ? `${prefix}${terms.join(', ')}` : tail;
+  return terms.length ? `${prefix}${terms.join(', ')}` : context;
+}
+
+function exactPromptListEcho(value, keywords) {
+  const firstLine = String(value || '').trim().split(/\r?\n/u, 1)[0];
+  const parts = firstLine
+    .replace(/[.!?]+$/u, '')
+    .split(/\s*[,;]\s*/u)
+    .map((part) => part.trim().toLocaleLowerCase('en-US'))
+    .filter(Boolean);
+  if (parts.length < 2) return false;
+  const terms = new Set(normalizeKeywords(keywords).map((term) => (
+    term.toLocaleLowerCase('en-US')
+  )));
+  return parts.every((part) => terms.has(part));
 }
 
 function isPromptEcho(value, keywords, model) {
   const text = String(value || '').trim();
-  if (/^(?:context\s*:\s*)?(?:#+\s*)?vocabulary\s*:/iu.test(text)) return true;
+  if (
+    /^(?:context\s*:\s*)?(?:#+\s*)?vocabulary\s*:/iu.test(text)
+    || /^verbatim transcript\b/iu.test(text)
+  ) return true;
   if (model !== 'gpt-4o-transcribe') return false;
-  const prefix = text.slice(0, 300).toLocaleLowerCase('en-US');
-  const contextHits = normalizeKeywords(keywords).filter((term) => (
-    prefix.includes(term.toLocaleLowerCase('en-US'))
-  ));
-  return contextHits.length >= 2;
+  return exactPromptListEcho(text, keywords);
 }
 
 function responseTokens(value) {
@@ -272,7 +290,7 @@ export function createOpenAITranscriptionDriver({
     const mimeType = normalizeMimeType(input.mimeType);
     const bytes = normalizeBytes(input.buffer);
     const seq = normalizeSequence(input.seq);
-    const prompt = composePrompt(input);
+    const prompt = composePrompt(input, selectedModel);
     const form = new FormData();
     form.set('file', new Blob([bytes], { type: mimeType }), (
       `seg-${String(seq).padStart(5, '0')}.${mimeExtensions[mimeType]}`

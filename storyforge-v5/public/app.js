@@ -3273,7 +3273,7 @@ function audioMarkup(story, compact = false) {
     <button class="audPlay" type="button" ${audioId ? `data-play-audio="${attr(audioId)}"` : 'disabled'} aria-label="${label}" aria-busy="${phase === 'loading'}">${glyph}</button>
     <div class="audBody">
       <div class="audLbl">Original audio · preserved forever <span>— your spoken telling, separate from any later editing</span></div>
-      <div class="audTrack" role="progressbar" aria-label="Original audio playback progress" aria-valuemin="0" aria-valuemax="${Math.max(0, Math.round(durationMs / 1000))}" aria-valuenow="${Math.max(0, Math.round(current))}" aria-valuetext="${esc(formatDuration(current * 1000))} of ${esc(duration)}"><i style="width:${percent.toFixed(2)}%"></i></div>
+      <div class="audTrack" role="slider" ${audioId ? `tabindex="0" data-seek-audio="${attr(audioId)}"` : 'aria-disabled="true"'} aria-label="Original audio playback position" aria-valuemin="0" aria-valuemax="${Math.max(0, Math.round(durationMs / 1000))}" aria-valuenow="${Math.max(0, Math.round(current))}" aria-valuetext="${esc(formatDuration(current * 1000))} of ${esc(duration)}"><i style="width:${percent.toFixed(2)}%"></i></div>
       ${compact ? '' : `<div class="audWave" aria-hidden="true">${Array.from({ length: 46 }, (_, index) => `<i class="${index / 46 <= percent / 100 ? 'hot' : ''}" style="height:${4 + Math.abs(Math.sin(index * 1.7)) * 12}px"></i>`).join('')}</div>`}
       <div class="audioStatus" role="status" aria-live="polite"></div>
     </div>
@@ -3923,6 +3923,32 @@ function failAudioPlayback() {
   audioReplay.id = id;
   renderAudioReplayState({ announce: true });
   notify('Private audio playback could not start.');
+}
+
+function seekAudioReplay(id, targetSeconds) {
+  if (String(id) !== String(audioReplay.id) || !audioReplay.audio) return false;
+  const segmentDuration = Number(audioReplay.audio.duration);
+  if (!Number.isFinite(segmentDuration) || segmentDuration <= 0) return false;
+  const segmentStart = Math.max(0, Number(audioReplay.completedSeconds || 0));
+  const absoluteTarget = Math.max(
+    segmentStart,
+    Math.min(segmentStart + segmentDuration, Number(targetSeconds || 0)),
+  );
+  try {
+    audioReplay.audio.currentTime = absoluteTarget - segmentStart;
+  } catch {
+    return false;
+  }
+  audioReplay.currentSeconds = absoluteTarget;
+  renderAudioReplayState({ announce: true });
+  return true;
+}
+
+function seekAudioReplayFromTrack(track, clientX) {
+  const bounds = track.getBoundingClientRect();
+  if (!Number.isFinite(bounds.width) || bounds.width <= 0) return false;
+  const ratio = Math.max(0, Math.min(1, (Number(clientX) - bounds.left) / bounds.width));
+  return seekAudioReplay(track.dataset.seekAudio, ratio * audioReplay.totalSeconds);
 }
 
 async function recoverAudioReplaySegment(generation) {
@@ -5951,6 +5977,12 @@ function overlayContaining(target) {
 
 document.addEventListener('click', async (event) => {
   const target = event.target;
+  const seekTrack = target.closest('[data-seek-audio]');
+  if (seekTrack) {
+    event.preventDefault();
+    seekAudioReplayFromTrack(seekTrack, event.clientX);
+    return;
+  }
   const button = target.closest('button, a');
   if (!button) return;
   try {
@@ -6548,6 +6580,19 @@ document.addEventListener('mousedown', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  const seekTrack = event.target.closest?.('[data-seek-audio]');
+  if (seekTrack && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+    event.preventDefault();
+    const current = Math.max(0, Number(audioReplay.currentSeconds || 0));
+    const total = Math.max(0, Number(audioReplay.totalSeconds || 0));
+    const target = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? total
+        : current + (event.key === 'ArrowRight' ? 5 : -5);
+    seekAudioReplay(seekTrack.dataset.seekAudio, target);
+    return;
+  }
   const openOverlay = [qad, quick, capture, room, palette, teaching].find((node) => node.classList.contains('open'));
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
   if (event.key === 'Escape') {

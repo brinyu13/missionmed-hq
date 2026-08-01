@@ -59,7 +59,7 @@ test('local router serves only verified non-index aliases and denies raw logical
   }
   assert.equal(ready, true, stderr);
 
-  assert.equal(Object.keys(assetAliases).length, 13);
+  assert.equal(Object.keys(assetAliases).length, 14);
   for (const [alias, entry] of Object.entries(assetAliases)) {
     const response = await fetch(`${base}/storyforge/_asset/${alias}`);
     const bytes = Buffer.from(await response.arrayBuffer());

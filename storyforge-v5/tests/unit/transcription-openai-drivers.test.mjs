@@ -10,6 +10,7 @@ import {
 
 const testApiKey = 'test-only-openai-key';
 const endpoint = 'https://api.openai.com/v1/audio/transcriptions';
+const faithfulPresentationGuidance = 'Verbatim transcript. Preserve every spoken word and meaning, including profanity, names, numbers, negation, and medical terms. Add only natural punctuation, case, paragraphs, and clearly supported dialogue quotes. Do not rewrite.';
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
@@ -84,7 +85,7 @@ test('gpt-4o driver sends the exact bounded multipart request and maps confidenc
     },
     model: 'gpt-4o-transcribe',
     language: 'es',
-    prompt: 'Previous final text.\nVocabulary: Whipple, overnight',
+    prompt: `${faithfulPresentationGuidance}\nPrevious final text.\nVocabulary: Whipple, overnight`,
     response_format: 'json',
     'include[]': 'logprobs',
   });
@@ -158,7 +159,8 @@ test('whisper driver folds vocabulary into prompt and never invents confidence',
 test('drivers reject provider prompt echoes before text reaches StoryForge', async () => {
   for (const [factory, text] of [
     [createOpenAIGpt4oTranscribeDriver, 'context: ### Vocabulary: Whipple, ICU'],
-    [createOpenAIGpt4oTranscribeDriver, 'The patient had a Whipple and went to the ICU.'],
+    [createOpenAIGpt4oTranscribeDriver, faithfulPresentationGuidance],
+    [createOpenAIGpt4oTranscribeDriver, 'Whipple, ICU, CBC'],
     [createOpenAIWhisper1Driver, 'Vocabulary: Whipple, ICU'],
   ]) {
     const driver = factory({
@@ -178,6 +180,26 @@ test('drivers reject provider prompt echoes before text reaches StoryForge', asy
         && !error.message.includes('context')
       ),
     );
+  }
+});
+
+test('gpt-4o accepts legitimate multi-term narrative and keyword substrings', async () => {
+  for (const text of [
+    'The patient had a Whipple and went to the ICU.',
+    'I speak about this particular experience.',
+  ]) {
+    const driver = createOpenAIGpt4oTranscribeDriver({
+      apiKey: testApiKey,
+      fetchImpl: async () => jsonResponse({ text }),
+    });
+    const result = await driver.transcribeSegment({
+      buffer: Buffer.from([1, 2, 3]),
+      mimeType: 'audio/webm',
+      seq: 0,
+      keywords: ['Whipple', 'ICU', 'PEA', 'CBC'],
+    });
+    assert.equal(result.text, text);
+    assert.equal(result.modelId, 'gpt-4o-transcribe');
   }
 });
 
@@ -224,13 +246,14 @@ test('prompt truncation keeps the full 200-character tail and drops whole terms 
 
   const prompt = double.calls[0].init.body.get('prompt');
   assert.ok(prompt.length <= 600);
-  assert.equal(prompt.startsWith('T'.repeat(200)), true);
+  assert.equal(prompt.startsWith(faithfulPresentationGuidance), true);
+  assert.equal(prompt.includes(`\n${'T'.repeat(200)}\nVocabulary: `), true);
   assert.equal(prompt.includes('discarded-'), false);
   assert.equal(prompt.includes(terms[0]), true);
-  assert.equal(prompt.includes(terms[1]), true);
-  assert.equal(prompt.includes(terms[2]), true);
+  assert.equal(prompt.includes(terms[1]), false);
+  assert.equal(prompt.includes(terms[2]), false);
   assert.equal(prompt.includes(terms[3]), false);
-  assert.equal(prompt.endsWith(terms[2]), true);
+  assert.equal(prompt.endsWith(terms[0]), true);
 });
 
 test('drivers map fixed HTTP and abort failures without exposing provider bodies', async () => {

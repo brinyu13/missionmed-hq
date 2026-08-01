@@ -782,15 +782,47 @@ export function createPostgresRecordingStore({
         ...body,
         captureType: 'audio',
       };
+      const providerOriginal = await client.query(
+        `SELECT string_agg(segment.transcript, ' ' ORDER BY segment.seq) AS transcript,
+                count(*)::integer AS segment_count
+           FROM public.sf_recording_segments segment
+          WHERE segment.session_id = $1
+            AND segment.transcribe_state = 'transcribed'
+         HAVING count(*) = $2`,
+        [recordingId, Number(session.segment_count || 0)],
+      );
+      if (
+        !providerOriginal.rows[0]
+        || typeof providerOriginal.rows[0].transcript !== 'string'
+      ) {
+        throw new RecordingError(
+          'state_conflict',
+          'Recording session is not in a compatible state.',
+          409,
+        );
+      }
+      const originalTranscript = providerOriginal.rows[0].transcript;
       const created = await client.query(
         'SELECT * FROM public.sf_create_story_v5($1::jsonb, $2)',
-        [JSON.stringify(payload), body.surface || 'quick'],
+        [JSON.stringify({ ...payload, text: originalTranscript }), body.surface || 'quick'],
       );
-      const story = created.rows[0];
+      let story = created.rows[0];
       const attached = await client.query(
         'SELECT * FROM public.sf_attach_recording($1, $2, $3)',
         [story.id, recordingId, session.mime_type],
       );
+      if (body.text !== originalTranscript) {
+        const edited = await client.query(
+          'SELECT * FROM public.sf_update_story_v5($1, $2::jsonb, $3, $4)',
+          [
+            story.id,
+            JSON.stringify({ text: body.text }),
+            story.row_version,
+            body.surface || 'quick',
+          ],
+        );
+        story = edited.rows[0];
+      }
       const asset = attached.rows[0];
       return {
         story,
@@ -960,6 +992,8 @@ export function createPostgresRecordingStore({
           seq: claim.seq,
           transcribeState: 'transcribed',
           latencyMs: result.latencyMs,
+          ...(result.providerId ? { provider: result.providerId } : {}),
+          ...(result.modelId ? { model: result.modelId } : {}),
         },
       });
       return true;
