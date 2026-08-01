@@ -158,7 +158,7 @@ test('whisper driver folds vocabulary into prompt and never invents confidence',
 test('drivers reject provider prompt echoes before text reaches StoryForge', async () => {
   for (const [factory, text] of [
     [createOpenAIGpt4oTranscribeDriver, 'context: ### Vocabulary: Whipple, ICU'],
-    [createOpenAIGpt4oTranscribeDriver, 'Whipple, ICU, CBC, troponin. Unrelated words.'],
+    [createOpenAIGpt4oTranscribeDriver, 'The patient had a Whipple and went to the ICU.'],
     [createOpenAIWhisper1Driver, 'Vocabulary: Whipple, ICU'],
   ]) {
     const driver = factory({
@@ -179,6 +179,25 @@ test('drivers reject provider prompt echoes before text reaches StoryForge', asy
       ),
     );
   }
+});
+
+test('Whisper accepts legitimate multi-term medical dictation after primary failover', async () => {
+  const driver = createOpenAIWhisper1Driver({
+    apiKey: testApiKey,
+    fetchImpl: async () => jsonResponse({
+      text: 'After the Whipple, creatinine rose and the patient returned to the ICU.',
+    }),
+  });
+  const result = await driver.transcribeSegment({
+    buffer: Buffer.from([1, 2, 3]),
+    mimeType: 'audio/webm',
+    seq: 0,
+    keywords: ['Whipple', 'creatinine', 'ICU'],
+  });
+  assert.equal(
+    result.text,
+    'After the Whipple, creatinine rose and the patient returned to the ICU.',
+  );
 });
 
 test('prompt truncation keeps the full 200-character tail and drops whole terms from the end', async () => {

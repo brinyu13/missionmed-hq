@@ -97,14 +97,15 @@ function composePrompt({ keywords, promptTail }) {
   return terms.length ? `${prefix}${terms.join(', ')}` : tail;
 }
 
-function isPromptEcho(value, keywords) {
+function isPromptEcho(value, keywords, model) {
   const text = String(value || '').trim();
   if (/^(?:context\s*:\s*)?(?:#+\s*)?vocabulary\s*:/iu.test(text)) return true;
+  if (model !== 'gpt-4o-transcribe') return false;
   const prefix = text.slice(0, 300).toLocaleLowerCase('en-US');
   const contextHits = normalizeKeywords(keywords).filter((term) => (
     prefix.includes(term.toLocaleLowerCase('en-US'))
   ));
-  return contextHits.length >= 4;
+  return contextHits.length >= 2;
 }
 
 function responseTokens(value) {
@@ -337,7 +338,7 @@ export function createOpenAITranscriptionDriver({
     }
 
     const text = typeof payload?.text === 'string' ? payload.text : '';
-    if (isPromptEcho(text, input.keywords)) {
+    if (isPromptEcho(text, input.keywords, selectedModel)) {
       throw transcriptionError(
         'transcribe_rejected_format',
         'The transcription response could not be used.',
