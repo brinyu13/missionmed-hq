@@ -179,6 +179,7 @@ export function createPhaseOneRuntime({
   const flagService = createFlagService({
     store: flagStore,
     environment,
+    allowEligibleAll: true,
     emitEvent: eventWriter,
   });
   const recordingStore = createPostgresRecordingStore({

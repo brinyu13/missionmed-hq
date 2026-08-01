@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   VoiceFlagError,
@@ -20,6 +21,7 @@ const admin = Object.freeze({
   role: 'admin',
   eligible: true,
 });
+const appSource = readFileSync(new URL('../../server/app.mjs', import.meta.url), 'utf8');
 
 function flag(overrides = {}) {
   return {
@@ -228,6 +230,32 @@ test('admin mutations validate UUIDs and exact configured cohorts', async () => 
       cohorts: [],
     }),
     (error) => error.code === 'eligible_all_locked' && error.status === 403,
+  );
+});
+
+test('Founder-authorized eligible-all activation remains student-only', async () => {
+  const fixture = storeFixture();
+  const service = createFlagService({
+    store: fixture.store,
+    environment: {},
+    allowEligibleAll: true,
+  });
+  const updated = await service.updateVoiceCapture(admin, {
+    scope: 'eligible_all',
+    allowlist: [],
+    cohorts: [],
+  });
+  assert.equal(updated.scope, 'eligible_all');
+  assert.deepEqual(updated.allowlist, []);
+  assert.deepEqual(updated.cohorts, []);
+  assert.equal(evaluateVoiceCapability(updated, student), true);
+  assert.equal(evaluateVoiceCapability(updated, { ...student, eligible: false }), false);
+  assert.equal(evaluateVoiceCapability(updated, { ...student, role: 'admin' }), false);
+  assert.equal(evaluateVoiceCapability(updated, { ...student, role: 'mentor' }), false);
+  assert.match(
+    appSource,
+    /createFlagService\(\{[\s\S]*?allowEligibleAll:\s*true,[\s\S]*?\}\)/,
+    'production runtime must explicitly carry the Founder eligible-all authority',
   );
 });
 
