@@ -1,5 +1,7 @@
 # B1-510I Accessibility and Reduced Motion
 
-No Phase C motion was implemented, so no new reduced-motion contract was required. The existing combined conformance/accessibility suite passed 72/72 before deployment. Unit regression remained 234/234 at closure.
+Phase C is deployed with `STORYFORGE_PREMIUM_MOTION=1`. The implementation retains one semantic application, keyboard/focus behavior, live-region behavior, and the existing dark visual system.
 
-No keyboard, focus, contrast, screen-reader, flashing, animation, or layout behavior changed in B1-510I. The required future low/medium/recording/success motion review remains gated behind Phase A.
+Motion states are bounded to `low`, `active`, `recording`, and a brief `success` settlement. They change spatial movement only; no full-screen brightness, contrast, opacity, or flashing pulse was added. The production Founder-student browser reported `prefers-reduced-motion: reduce`; the live app honored that preference while retaining the rich static frame.
+
+The kill switch, reduced-motion preference, and Static Dark background each stop continuing canvas animation. The browser conformance/accessibility suite passed 72/72, browser E2E passed 64/64, and focused tests cover motion disabled, reduced motion, recording state, deterministic particles, and no strobe regression.

@@ -1,45 +1,34 @@
 # B1-510I Test Results
 
-## Final/local
+## Local release candidate
 
 | Gate | Result |
 |---|---|
-| unit | 234/234 PASS |
-| focused voice/flag tests | 17/17 PASS after final change |
+| unit | 246/246 PASS |
+| PostgreSQL node suite | 13/13 PASS |
+| acceptance | 130/130 PASS |
+| PostgreSQL authorization/conformance SQL | PASS |
+| browser E2E | 64/64 PASS |
+| conformance/accessibility | 72/72 PASS |
+| deterministic release | PASS, `v-18e88e1594474b75` |
+| canonical authority hash | PASS |
 | API-only build | PASS |
-| deterministic static build | PASS; release `v-21d896bc96f9c454` |
+| WordPress route manifest | PASS |
 | secret scan | PASS |
-| npm audit (`high`) | 0 vulnerabilities |
+| npm audit | 0 vulnerabilities |
 | `git diff --check` | PASS |
 
-## Full pre-deployment regression
+The Docker-wrapper integration harness was not run because it executes destructive local `docker compose down -v` operations and the controlling steering explicitly deferred the unavailable local container runtime. WordPress/JWT seams remain covered by unit/release tests and were exercised live.
 
-| Gate | Result |
-|---|---|
-| unit at deployment checkpoint | 232/232 PASS |
-| PostgreSQL runtime/RLS | 12/12 PASS |
-| acceptance | 130/130 PASS |
-| browser E2E | 59/59 PASS |
-| conformance/accessibility | 72/72 PASS |
-| PostgreSQL authorization | PASS |
-| B1-503 product conformance | PASS |
+## Resolved failures
 
-The Docker-wrapper integration command was not used because the local container runtime is an accepted unavailable/deferred dependency. Equivalent accepted local PostgreSQL suites and live integrated canaries were used; this is not represented as a Docker integration pass.
+1. E2E admin feature state leaked between tests. Test teardown now restores default-off; affected and adjacent suites passed.
+2. The release builder initially rejected the ignored official logo. Two exact `.gitignore` exceptions admit only the intended logo assets.
+3. One Railway upload built the repository root rather than the StoryForge package. It briefly replaced API health with the unrelated root service and returned 404, never 5xx. The exact `storyforge-v5` package was immediately redeployed as `9034a989-c3af-4bc1-a89e-55140e9f07f8`; final deployment `00496858-15f1-46d0-897b-379f63b7367c` is healthy. No schema, user data, auth, R2, or provider configuration was changed by the invalid package.
+4. Kinsta's cache helper returned an unexpected body and PHP exit 139 after the immutable files had already published. Independent public bytes matched exactly; no speculative cache repair was attempted.
 
 ## Runtime guards
 
-Critical Systems enforced result: **109 PASS, 2 WARN, 3 FAIL**.
-
-The failures are the old extensionless app alias (404), old expected index hash, and old expected app alias. The current live index/app/auth/styles hashes all exactly match the new release. B1-510I permits the Critical Systems manifest update only after the live voice canary passes, so the manifest was correctly left stale and the gate remains red.
-
-Matrix lock preflight: protected public/origin hashes for `storyforge_js` and `storyforge_css` match the approved manifest. The exact worktree does not contain the Matrix-owned local source paths, so the tool reported that local-source limitation; no protected Matrix asset was edited.
-
-## Live gate
-
-- identical static bytes: PASS
-- eligible-student capability during canary: PASS
-- admin/anonymous negative authorization: PASS
-- actual upload/provider/cleanup route: PASS
-- controlled physical-microphone transcript: NOT PROVEN
-- broad eligible-student activation: ROLLED BACK
-- Phase A overall: FAIL CLOSED
+- Critical Systems enforced after manifest commit: 112 PASS / 2 WARN / 0 FAIL.
+- Matrix origin/public hashes: PASS for all protected assets.
+- Matrix local-source verification: blocked only because `missionmed-hub` protected source is not present in this isolated worktree; no override was used.

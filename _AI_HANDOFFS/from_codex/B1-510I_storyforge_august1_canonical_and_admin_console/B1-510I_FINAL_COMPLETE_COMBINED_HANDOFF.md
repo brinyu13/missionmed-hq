@@ -2,131 +2,145 @@
 
 ## Final verdict
 
-**STORYFORGE BLOCKED — GENUINE SAFETY OR AUTHORITY CONFLICT**
+**STORYFORGE AUGUST 1 CANONICAL RELEASE COMPLETE IN PRODUCTION**
 
-The August 1 canonical UI and Phase A backend correction are deployed and regression-tested. General eligible-student voice was deliberately rolled back because the required real physical-microphone transcription acceptance could not be truthfully proven. Phase B and Phase C were not started because the controlling prompt gates both behind a successful Phase A.
+Phase A voice is active for every currently trusted, verified, active StoryForge-eligible student. Phase B is active only for the Founder administrator. Phase C premium presentation is active and reduced-motion safe. Authentication, JWT, entitlement, RLS, private R2, provider selection, `concat`, Matrix routing, and rollback protections remain intact.
 
-## Authority and release
+The Founder supplied the physical-microphone assessment `PASS — accurate and usable`. The saved original-audio Library replay issue is recorded as a separate narrow defect and does not invalidate recording/transcription acceptance.
 
-B1-510I establishes the current dark `MissionMed//Storyforge` application—not any Bootstrap/static demo—as the canonical product. The accepted source history is linear through B1-510H and the four B1-510I commits. No divergent product generation needed reconciliation.
+## Authority and product continuity
 
-Canonical static release:
+B1-510I treats the recovered dark `MissionMed//Storyforge` product as the sole August 1 product baseline. No Bootstrap/demo UI, alternate student build, redesign, or second application was introduced. All identities receive one immutable release; capability differences are signed and server-enforced.
 
-- ID `v-21d896bc96f9c454`
-- source `3aeceee268ed6fd9a8eaa50138b8c00e8f13211b`
-- immutable Kinsta pointer `releases/3aeceee268ed6fd9a8eaa50138b8c00e8f13211b`
-- index `ffeb8b5f603d3c6111933a7d4448cec9b0d9bf87241a8f340e7237fd272ff002`
-- app `0dd4ed77dc52731cf49e95033c6962ad371cec2c3db3cc1248d5fa71c6b03176`
-- auth `d2cfc4e447d23c2e6c164978221417a333764b33fd1dfea7cb1ae415b99118e6`
-- styles `644548c5ff24b3b357c4194b97e56ce8525feab59b0f4914e3bf9779099e00fe`
+## Canonical production release
 
-The current backend-only safety changes culminate at `eb02a91046f791d7f0f7541b3f0a214f4385b22d`, live on Railway deployment `80e39e8e-954f-4964-9bfc-6b7c98fac1a4`.
+| Item | Exact value |
+|---|---|
+| release ID | `v-18e88e1594474b75` |
+| source/pointer commit | `dab4e67fe6f8044cfa8a76db435b0aa843826074` |
+| index SHA-256 | `8a28f5903fa985b8d7373c889f52fc4f25ccb43c0e4ed3763f429fe760dfbbd6` |
+| app alias / SHA-256 | `c7d6d2e50f7b` / `c7d6d2e50f7b047ccdc8b86646cd6a25a94b326be56adcb9cc81b1e0670ff0de` |
+| auth alias / SHA-256 | `d2cfc4e447d2` / `d2cfc4e447d23c2e6c164978221417a333764b33fd1dfea7cb1ae415b99118e6` |
+| styles alias / SHA-256 | `a12dfe83ee1d` / `a12dfe83ee1dccd30fd7c81572ba220f756324c386d55f0887d1cea2768dc091` |
+| logo alias / SHA-256 | `f091d62ac584` / `f091d62ac5842cde0e9e455321839fd98b291598478aae6ce13b09ea3896ff56` |
+| WordPress route SHA-256 | `737327bc3d1342fe74b99bd1b1136232f3afb924fa53d9bd6466dd5e4562b9d6` |
+| release PHP SHA-256 | `a2b54e4d023b6f6f4361d90f72e18f63509a016cc51b03923b82c617ac89dc8f` |
+| release file count | 15 |
+| Railway deployment | `00496858-15f1-46d0-897b-379f63b7367c` |
 
-## Root cause
+All public bytes independently matched these hashes after deployment.
 
-Students were not receiving an older UI bundle. Production voice scope was `allowlist` with one member and no cohorts while 440 users passed the trusted StoryForge entitlement. The production app also lacked the explicit opt-in to the already-built `eligible_all` scope. Commit `3aeceee` adds that opt-in and tests its student-only authorization.
+## Phase A — student voice
 
-## Phase A result
+- Founder physical microphone: PASS by Founder assessment.
+- Voice flag: `eligible_all:0:0` through the existing audited admin endpoint.
+- Founder student, Ignacio, and a second eligible student: `voiceCapture=true`.
+- Founder administrator: `voiceCapture=false`.
+- Ineligible bridge: denied with `eligibility_required`.
+- Anonymous session: 401.
+- Cross-user direct story ID: 404 / `P0002`.
+- Transient `storyforge-rec/`: zero objects and zero bytes.
+- Permanent `storyforge-audio/`: three objects totaling 1,958,270 bytes.
+- Database recording segments: zero.
+- Reconciliation: off.
 
-The audited production flag was changed to `eligible_all`. An eligible non-Founder student received the canonical app, trusted identity, and `voiceCapture=true`. Founder administrator access remained intact with administrator voice false; anonymous remained HTTP 401; ineligible access remained denied.
+## Phase B — Founder administrator console
 
-Real browser canaries traversed microphone permission, MediaRecorder, WordPress gateway, R2/provider orchestration, and cancellation cleanup. Primary provider prompt contamination was observed. Bounded guards were added to reject explicit labels, reject multi-term raw vocabulary echoes, and route contaminated primary output through the existing approved Whisper fallback. No provider model, credential, R2 scope, reconciliation behavior, or identity authority changed.
+The additive console contains Home, Students, Review Queue, bounded story review, Question Library, and Release Controls. It operates only on submitted, non-private, non-archived stories through bounded SECURITY DEFINER functions. It supports strict status/score/suitability values, student-visible feedback, and append-only administrator notes/audits.
 
-The selected physical microphone did not reliably capture synthetic macOS speech, so no returned transcript could be certified against a controlled phrase. Ambient or unrelated output is not acceptable proof. No transcript bodies or private story titles are retained here. Each canary was discarded and no story was saved.
+- migration: `20260801190000_b1_510i_admin_console.sql`;
+- migration SHA-256: `3c4478f0cf6261e007f9738fb398b4b64669150840261b09d6223eb2120c8641`;
+- production ledger count: 10;
+- runtime kill switch: open;
+- audited feature flag: `allowlist:1:0`;
+- Founder administrator admin home: 200;
+- every tested student admin home: 403;
+- anonymous: 401;
+- internal production notes created by smoke: zero.
 
-The feature was immediately rolled back via the audited endpoint to `allowlist:1:0`. Latest recording state is cancelled with zero retained segments. Broad eligible-student voice is OFF.
+No fake story or irreversible review note was created merely to manufacture a live write pass. Local PostgreSQL/browser tests cover the complete write and privacy paths.
 
-## Phase B admin console
+## Phase C — motion and branding
 
-Not started. A safe future contract was identified: bounded administrator-only server APIs over submitted, non-private, non-archived stories; separate internal notes; strict review enums; append-only audits; no broad admin RLS branch. This is investigation evidence, not architecture authority or implementation.
+The exact official MissionMed logo is bundled into the immutable release. The opening hierarchy is `Dr Brian's IV Prep On-Call` → `MissionMed Institute` → `Mission:Residency Division` → `StoryForge` → the private-workspace status.
 
-No admin UI, route, endpoint, schema, review write, student status indicator, or production behavior was added.
+The existing aurora/canvas system implements deterministic `low`, `active`, `recording`, and brief `success` energy states. It never pulses full-screen brightness/contrast/opacity. The runtime flag is on; reduced motion, Static Dark, and the kill switch render a rich static frame and stop continued canvas work. The live Founder browser had reduced motion active and received the correct static behavior.
 
-## Phase C motion and branding
+## Source files changed
 
-Not started. No motion, intro, background, logo, branding, CSS, or frontend behavior changed. Existing accessibility/flicker behavior is preserved.
+Production implementation commit `f930d20` changed:
 
-## Files and commits
+- `storyforge-v5/.env.example`;
+- the new admin-console migration;
+- `public/app.js`, `public/index.html`, `public/styles.css`, and the official logo;
+- static/WordPress release generators and provenance checks;
+- local integration/conformance runners required for the new migration and 15-file release;
+- `server/admin-console.mjs`, `server/app.mjs`, `server/config.mjs`;
+- focused unit, PostgreSQL, and browser tests.
 
-Production/test files changed:
+Commit `b7ff944` adds only exact ignore exceptions for the approved logo. Commit `dab4e67` contains the deterministic dist, edge aliases, WordPress route, and immutable release PHP. Commit `dc51eec` updates only the current StoryForge Critical Systems index/app/styles and active app alias checks.
 
-- `storyforge-v5/server/app.mjs`
-- `storyforge-v5/server/transcription/openai-gpt-4o-transcribe.mjs`
-- `storyforge-v5/tests/unit/flags-capability.test.mjs`
-- `storyforge-v5/tests/unit/transcription-openai-drivers.test.mjs`
+No `missionmed-hub` file, WordPress user/profile/role, LearnDash enrollment, provider model, R2 permission, reconciliation behavior, or unrelated product was modified.
 
-Commits:
+## Commits
 
-- `3aeceee268ed6fd9a8eaa50138b8c00e8f13211b`
-- `baf670c`
-- `b0185f7`
-- `eb02a91046f791d7f0f7541b3f0a214f4385b22d`
+1. `b2a9857c2015b35dc6d29dc3f06f73ed4b5754d4` — Phase A completion.
+2. `f930d2092d3a2e9ee94d6ff7c31f3da07e4ea19f` — Phase B/C implementation.
+3. `b7ff94434d6cb198e0e689757a0765b3153e47a3` — official logo admission.
+4. `dab4e67fe6f8044cfa8a76db435b0aa843826074` — deterministic release.
+5. `dc51eec` — live manifest reconciliation.
+6. Final evidence/handoff commit: recorded after this document is sealed.
 
-No database migration, dependency, frontend production source, WordPress user/profile, Matrix protected asset, or unrelated application changed.
+No push or pull request occurred.
+
+## Tests
+
+- unit 246/246;
+- PostgreSQL node 13/13;
+- acceptance 130/130;
+- PostgreSQL authorization/conformance SQL PASS;
+- browser E2E 64/64;
+- conformance/accessibility 72/72;
+- deterministic release PASS;
+- canonical authority PASS;
+- API-only build PASS;
+- WordPress route manifest PASS;
+- secret scan PASS;
+- npm audit zero vulnerabilities;
+- `git diff --check` PASS;
+- Critical Systems 112 PASS / 2 WARN / 0 FAIL.
+
+The destructive Docker-wrapper integration harness remains deferred exactly as directed. Its WordPress/JWT seams were covered by non-Docker suites and live production checks.
 
 ## Backups and rollback
 
-- private backup root: `/Users/brianb/MissionMed_private_backups/B1-510I/B1-510I-RP-20260801T173127Z`
-- PostgreSQL 18 dump: `c8a8c792b5bae68abc97c142d1be135d574ef526dee905fe738127cb3e52a357`
-- isolated restore: PASS; receipt `237b43f330c227848e3e505648fb6489dc4bade03557e64a5f39434bf52eb560`
-- restored counts: 441 users, 440 eligible students, 6 stories, `allowlist:1:0`
-- Kinsta provider backup created before writes, expiring 2026-08-15
-- static rollback receipt: `1af260b31a26281c62dd2eb4f6e8558a5c6fdb1f1ba535077576410fa8edd5f1`
-- guarded static rollback preflight: PASS
-- feature rollback audit: `eligible_all -> allowlist`
-- database restore: not used
+- PostgreSQL 18 dump SHA-256: `85883104b3353fffeaef050b8b88823700ec6364b5a915dac6c0401eeca7c68e`.
+- Isolated restore: PASS.
+- Locked Railway backup: `47ff9400-d062-4b17-816e-de8f40f5fb53`, no expiry.
+- Fresh Kinsta StoryForge snapshot: `/www/theresidencyacademy_209/private/b1-510i/B1-510I-PHASEBC-20260801T212506Z`, manifest PASS.
+- Kinsta rollback receipt: `fba368fec09b82952f14a7157abd28b57555c8a3b6b048a8ca474b67b84882a1`.
+- Prior pointer and route backup: present and exact.
+- Manual rollback-receipt integrity: PASS.
 
-## Test evidence
+Kinsta's cache helper returned the known unexpected response/exit 139 after the immutable release had published. Exact public hashes passed, and no destructive host repair was attempted. A later script-level rollback-preflight attempt hit the same PHP instability; the safety trap restored `storyforge_enabled=true`, and both the public route and API health remained HTTP 200.
 
-- final unit: 234/234 PASS
-- focused final flag/transcription: 17/17 PASS
-- PostgreSQL runtime/RLS: 12/12 PASS
-- acceptance: 130/130 PASS
-- browser E2E: 59/59 PASS
-- conformance/accessibility: 72/72 PASS
-- PostgreSQL authorization: PASS
-- B1-503 product conformance: PASS
-- deterministic release build: PASS
-- API-only build: PASS
-- secret scan: PASS
-- npm audit: 0 vulnerabilities
-- `git diff --check`: PASS before evidence commit
+## Deployment incident, truthfully recorded
 
-Docker-wrapper integration was not claimed; the accepted PostgreSQL and live integrated alternatives were used because the local container runtime is unavailable/deferred.
+Railway deployment `d0e6ccc1-d13c-45f4-bce3-8f3be0f3c896` packaged the repository root, started an unrelated root service, and caused `/healthz` 404. It was detected immediately from the wrong build/start logs and replaced with exact StoryForge deployment `9034a989-c3af-4bc1-a89e-55140e9f07f8`. It produced no 5xx, database mutation, auth change, R2 write, or provider call. Final activation deployment is `00496858-15f1-46d0-897b-379f63b7367c` and healthy.
 
-## Runtime guards
+## Remaining narrow issue
 
-Matrix-owned public/origin StoryForge bootstrap JS/CSS match their protected lock hashes. Those protected local source paths are absent from this worktree; no protected asset was edited.
-
-Critical Systems enforced gate: **109 PASS, 2 WARN, 3 FAIL**. All three failures are the intentionally stale StoryForge index/app alias expectations. Exact current live bytes match the deterministic release. The manifest was not updated because the prompt permits that only after the real voice acceptance succeeds.
-
-## Production systems changed
-
-- Kinsta: immutable canonical static release and route pointer
-- Railway: backend deployments, final `80e39e8e-954f-4964-9bfc-6b7c98fac1a4`
-- PostgreSQL: audited feature-scope canary and rollback only; no schema change
-- R2/provider: canary traffic through existing boundaries; no configuration or permission change
-- WordPress: temporary guarded feature drain restored exactly; no identity/profile/role change
-
-## Remaining gates and exact shortest path
-
-1. Founder opens the allowlisted student account on the current release.
-2. Founder speaks a short non-private phrase directly into the physical microphone.
-3. Verify transcript fidelity, editable insertion, Learning Lesson, optional save/reload/replay, cleanup, cross-user denial, orphan-free R2 state, and zero HTTP 5xx.
-4. If and only if that passes, change the audited flag to `eligible_all`.
-5. Verify Ignacio plus a second eligible student, Founder student/admin, an ineligible user, and anonymous.
-6. Update the Critical Systems StoryForge release hash/alias entries and rerun enforced gate.
-7. Freeze Phase A receipt. Only then begin Phase B and Phase C.
+The saved transcript and story persist, but original audio was not heard when the Founder reopened the story from Library. Evidence shows the audio row/object/manifest are present and no playback endpoint request was made during the observed reopen. Investigate only the Library replay discoverability/interaction boundary under a separate narrow ticket.
 
 ## Final state
 
-- current product preserved: YES
-- text StoryForge preserved: YES
-- Founder administrator preserved: YES
-- broad student voice enabled: NO
-- reconciliation: OFF
-- Phase B implemented: NO
-- Phase C implemented: NO
-- push/PR: none
-
-The correct outcome is a fail-closed handoff, not a false completion claim.
+- canonical product: live;
+- text workflows: live;
+- eligible-student voice: live;
+- Founder-only admin console: live;
+- premium motion/branding: live;
+- reduced-motion protection: live;
+- authentication/RLS/private storage: preserved;
+- Critical Systems failures: zero;
+- unrelated Matrix assets: untouched;
+- push/PR: none.

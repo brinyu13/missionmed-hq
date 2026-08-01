@@ -1,8 +1,8 @@
 # B1-510I Admin Console Product and Security Contract
 
-Status: design/security investigation complete; implementation not authorized to begin because Phase A did not pass.
+Status: **implemented exactly within this bounded contract after Founder Phase A PASS**.
 
-## Safe future boundary
+## Implemented boundary
 
 An additive admin console can be implemented without weakening student RLS if it uses bounded administrator-only server functions and never adds a broad `is_admin` branch to existing student policies.
 
@@ -15,7 +15,7 @@ The safe initial story population is:
 
 Administrators must not receive unrestricted browser/database access or silent access to private/unsubmitted/archived stories. Any Founder requirement to include those records needs separate explicit authority.
 
-## Minimum future data/API shape
+## Implemented data/API shape
 
 - bounded student search with server-side pagination and authorization;
 - bounded story review lookup by authorized story identifier;
@@ -33,4 +33,4 @@ Administrators must not receive unrestricted browser/database access or silent a
 - administrator: bounded operational views and audited review writes;
 - anonymous/ineligible: no admin surface.
 
-This document records the investigated safe contract only. It does not create architecture authority or claim implementation.
+The deployed implementation preserves this contract. It is default-off in schema, runtime-kill-switch protected, and currently allowlisted only to the Founder administrator. Production checks proved students receive HTTP 403, the Founder administrator receives HTTP 200, and administrators do not receive student voice capability.

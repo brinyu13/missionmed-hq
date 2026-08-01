@@ -15,7 +15,7 @@ The application bundle, WordPress route, JWT bridge, identity mapping, API confi
 
 Commit `3aeceee` explicitly wires `allowEligibleAll: true` into the production flag service and adds tests proving that the scope is student-only. The audited admin flag endpoint was used to change the production scope to `eligible_all`. A non-Founder eligible student then received HTTP 200, a trusted eligible-student identity, and `voiceCapture=true`. Administrators remained voice-disabled; anonymous access remained HTTP 401.
 
-## New acceptance failure and rollback
+## Acceptance failure, correction, and final PASS
 
 Real browser recordings reached the production WordPress gateway, R2/transcription pipeline, and cleanup lifecycle. The primary transcription provider returned prompt-contaminated or otherwise non-verifiable text during successive canaries. Three bounded backend protections were added and deployed:
 
@@ -25,8 +25,8 @@ Real browser recordings reached the production WordPress gateway, R2/transcripti
 
 The selected physical browser microphone did not reliably capture macOS synthetic speech. The resulting transcript therefore could not be certified against a controlled spoken phrase. No private transcript text is reproduced in repository evidence.
 
-Because B1-510I requires a real, recognizable student transcript before broad activation, the feature was immediately restored through the audited endpoint to `allowlist:1:0`. The latest recording canary was cancelled, its segments were removed, and no story was saved.
+Because B1-510I required a real, recognizable student transcript before broad activation, the feature was initially restored through the audited endpoint to `allowlist:1:0`. The Founder then completed the physical-microphone canary and supplied the binding assessment `PASS — accurate and usable`. The saved transcript persisted.
 
-## Smallest remaining action
+## Final state
 
-With an allowlisted Founder student session, speak a short, non-private controlled phrase directly into the selected physical microphone. Confirm the returned transcript is faithful, then repeat cleanup/R2/orphan checks. Only after that pass may the scope be changed to `eligible_all` and the Critical Systems release identity updated.
+The audited voice flag is now `eligible_all:0:0`. Founder student, Ignacio, and a second eligible student report `voiceCapture=true`; the Founder administrator remains voice-disabled. Transient R2 and segment counts are zero, cross-user direct-ID access is 404, and Critical Systems has zero failures. The saved original-audio Library replay issue remains a separate narrow defect.

@@ -4,37 +4,29 @@ Date: 2026-08-01 EDT
 
 ## Binding authority
 
-The B1-510I Founder prompt makes the current dark `MissionMed//Storyforge` product the August 1 canonical baseline. Earlier Bootstrap/demo generations are not production authority. B1-510I also newly authorizes voice for students who pass the existing trusted StoryForge entitlement boundary, but requires a real production student recording/transcription canary before that population may remain activated.
+B1-510I makes the current dark `MissionMed//Storyforge` product the August 1 canonical baseline. The Founder subsequently supplied the required physical-microphone result as `PASS — accurate and usable`, authorizing `eligible_all`, Phase B, and Phase C. The separate Library audio-replay problem does not invalidate that canary.
 
-## Linear accepted source graph
-
-The accepted work is linear; no competing merge or alternate product branch was found.
+## Accepted source graph
 
 | Commit | Accepted change |
 |---|---|
-| `a8a156e` | eligible-student StoryForge routing correction |
-| `04053a2` | routing deployment evidence |
-| `d00c586` | entitled identity synchronization |
-| `db20c5a` | B1-510H identity-sync evidence; B1-510I starting HEAD |
-| `3aeceee268ed6fd9a8eaa50138b8c00e8f13211b` | eligible-student voice parity seam |
-| `baf670c` | reject explicit transcription prompt echoes |
-| `b0185f7` | reject raw multi-term vocabulary echoes |
-| `eb02a91046f791d7f0f7541b3f0a214f4385b22d` | fail contaminated primary output to the accepted Whisper fallback |
+| `b2a9857` | Phase A eligible-student voice activation and receipts |
+| `f930d2092d3a2e9ee94d6ff7c31f3da07e4ea19f` | bounded admin console and premium presentation |
+| `b7ff94434d6cb198e0e689757a0765b3153e47a3` | exact official logo admission |
+| `dab4e67fe6f8044cfa8a76db435b0aa843826074` | deterministic release `v-18e88e1594474b75` |
+| `dc51eec` | independently verified live Critical Systems pins |
 
 ## Canonical deployed release
 
-- Static release ID: `v-21d896bc96f9c454`
-- Static source commit: `3aeceee268ed6fd9a8eaa50138b8c00e8f13211b`
-- Kinsta immutable pointer: `releases/3aeceee268ed6fd9a8eaa50138b8c00e8f13211b`
-- Index SHA-256: `ffeb8b5f603d3c6113bca008cc2647fde8b7f17175ba268d6293d0c05349d93a`
-- App SHA-256: `0dd4ed77dc52731cf49e95033c6962ad371cec2c3db3cc1248d5fa71c6b03176`
-- Auth SHA-256: `d2cfc4e447d23c2e6c164978221417a333764b33fd1dfea7cb1ae415b99118e6`
-- Styles SHA-256: `644548c5ff24b3b357c4194b97e56ce8525feab59b0f4914e3bf9779099e00fe`
-- WordPress route SHA-256: `e673ed291b5fc070330d3c3b30a7ff7b267a7d8ce46f98ab9db8a8f854553925`
-- Generated release PHP SHA-256: `3afec2a55716420b616d4dabd4c35baed741e2e88a219592f0690235d940b147`
+- Release ID: `v-18e88e1594474b75`.
+- Static source commit and immutable Kinsta pointer: `dab4e67fe6f8044cfa8a76db435b0aa843826074`.
+- Index: `8a28f5903fa985b8d7373c889f52fc4f25ccb43c0e4ed3763f429fe760dfbbd6`.
+- App alias/hash: `c7d6d2e50f7b` / `c7d6d2e50f7b047ccdc8b86646cd6a25a94b326be56adcb9cc81b1e0670ff0de`.
+- Auth alias/hash: `d2cfc4e447d2` / `d2cfc4e447d23c2e6c164978221417a333764b33fd1dfea7cb1ae415b99118e6`.
+- Styles alias/hash: `a12dfe83ee1d` / `a12dfe83ee1dccd30fd7c81572ba220f756324c386d55f0887d1cea2768dc091`.
+- Logo alias/hash: `f091d62ac584` / `f091d62ac5842cde0e9e455321839fd98b291598478aae6ce13b09ea3896ff56`.
+- WordPress route: `737327bc3d1342fe74b99bd1b1136232f3afb924fa53d9bd6466dd5e4562b9d6`.
+- Generated release PHP: `a2b54e4d023b6f6f4361d90f72e18f63509a016cc51b03923b82c617ac89dc8f`.
+- Railway deployment: `00496858-15f1-46d0-897b-379f63b7367c`.
 
-The later commits are backend-only transcript safety changes. The current Railway runtime is deployment `80e39e8e-954f-4964-9bfc-6b7c98fac1a4`, built from the final backend source at `eb02a91`.
-
-## Authority conclusion
-
-The student and Founder paths were not serving different static product generations. They received the same canonical application bytes. The observed voice difference came from capability scope, not UI release drift. The Critical Systems manifest remains deliberately unamended because B1-510I permits its release-identity update only after the real production voice acceptance gate succeeds.
+Every role receives these same static bytes. Role differences come only from signed capabilities and bounded server authorization. No Bootstrap/demo generation is active.

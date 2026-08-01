@@ -1,33 +1,44 @@
 # B1-510I Live Acceptance Evidence
 
-## Proven live
+## Canonical release
 
-- production `/storyforge/` index SHA matches `ffeb8b...d93a`;
-- app, auth, and styles alias bytes match their deterministic local release hashes;
-- live Railway service is online on deployment `80e39e8e-954f-4964-9bfc-6b7c98fac1a4`;
-- live health is HTTP 200 with the bounded StoryForge health document;
-- audited `eligible_all` canary admitted an eligible student and continued to deny voice to the administrator;
-- anonymous session remained HTTP 401;
-- actual MediaRecorder upload, WordPress gateway, provider orchestration, and cancellation lifecycle executed;
-- no canary story was saved;
-- the latest canary recording is cancelled with zero retained segments;
-- the Founder completed the real physical-microphone canary and judged the transcript `PASS — accurate and usable`;
-- the saved story and editable transcript persisted after reload;
-- transient recording cleanup is complete: zero database segment rows and zero `storyforge-rec/` R2 objects;
-- one permanent audio object remains attached to the saved Founder story;
-- direct cross-user story access returned HTTP 404;
-- production HTTP 5xx remained zero after activation;
-- feature scope is audited `eligible_all` with empty allowlist and cohorts;
-- Founder student, Ignacio, and a second eligible student report `voiceCapture=true`;
-- Founder administrator reports `voiceCapture=false`;
-- ineligible WordPress identity cannot obtain a StoryForge token;
-- anonymous session remains HTTP 401;
-- Critical Systems enforced gate: 111 PASS, 3 WARN, 0 FAIL.
+- `/storyforge/` index: HTTP 200, SHA-256 `8a28f5903fa985b8d7373c889f52fc4f25ccb43c0e4ed3763f429fe760dfbbd6`.
+- App alias `c7d6d2e50f7b`: exact SHA and 320,050 bytes.
+- Auth alias `d2cfc4e447d2`: exact SHA and 7,236 bytes.
+- Styles alias `a12dfe83ee1d`: exact SHA and 112,234 bytes.
+- Logo alias `f091d62ac584`: exact SHA and 65,897 bytes.
+- Railway health: HTTP 200, `{"ok":true,"service":"storyforge-v5"}`.
+- No Bootstrap Demo appeared.
 
-## Separate non-blocking replay defect
+## Authorization and capabilities
 
-The original saved audio did not play after reopening the story from the Library. Recording, upload, transcription, editable insertion, save, and transcript persistence passed. The replay problem is recorded separately and must be investigated without reopening or invalidating the Founder’s canary acceptance.
+- Founder student: `voiceCapture=true`, `adminConsole=false`, admin route 403.
+- Ignacio: `voiceCapture=true`, `adminConsole=false`, admin route 403.
+- second eligible student: `voiceCapture=true`, `adminConsole=false`, admin route 403.
+- Founder administrator: `voiceCapture=false`, `adminConsole=true`, admin route 200.
+- ineligible WordPress identity: entitlement bridge returned `eligibility_required`.
+- anonymous: session 401.
+- Ignacio direct access to a Founder-owned story: 404 / `P0002`.
 
-## Screenshot evidence
+## Voice, storage, and reliability
 
-`screenshots/B1-510I_post_rollback_safe_gate.png` records the earlier fail-closed checkpoint. No private Founder story-title screenshot is committed. Phase B/C screenshots remain pending their gated implementation.
+The Founder supplied the human perceptual result: physical-microphone recording/transcription PASS, accurate and usable. The saved story and transcript persist. The Library replay issue is separately tracked.
+
+- transient `storyforge-rec/`: 0 objects / 0 bytes;
+- permanent `storyforge-audio/`: 3 objects / 1,958,270 bytes;
+- database recording segments: 0;
+- reconciliation: off;
+- configured provider: OpenAI;
+- primary/fallback: `gpt-4o-transcribe` / `whisper-1`;
+- executor: `concat`;
+- current deployment logs: zero HTTP 5xx and no application failure; only npm/AWS SDK advisory warnings.
+
+## Visual evidence
+
+The authenticated live Founder-student view showed the canonical dark StoryForge homepage, correct greeting, voice action, canonical navigation, and no demo UI. Local deterministic screenshots cover the Founder-admin story review, opening branding, active capture, recording-energy visual state, and reduced-motion frame. No private story title is added to new evidence.
+
+## Critical protection
+
+- Critical Systems enforced: 112 PASS / 2 WARN / 0 FAIL after clean manifest commit.
+- Matrix public/origin lock hashes: exact matches for every protected asset.
+- Matrix local source files are intentionally absent from this isolated worktree, so the guard cannot issue a full local-source PASS; none was edited or deployed.
