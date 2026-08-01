@@ -97,6 +97,12 @@ function composePrompt({ keywords, promptTail }) {
   return terms.length ? `${prefix}${terms.join(', ')}` : tail;
 }
 
+function isPromptEcho(value) {
+  return /^(?:context\s*:\s*)?(?:#+\s*)?vocabulary\s*:/iu.test(
+    String(value || '').trim(),
+  );
+}
+
 function responseTokens(value) {
   if (Array.isArray(value)) return value;
   if (Array.isArray(value?.content)) return value.content;
@@ -327,6 +333,12 @@ export function createOpenAITranscriptionDriver({
     }
 
     const text = typeof payload?.text === 'string' ? payload.text : '';
+    if (isPromptEcho(text)) {
+      throw transcriptionError(
+        'transcribe_rejected_format',
+        'The transcription response could not be used.',
+      );
+    }
     const words = requestConfidence ? wordConfidence(text, payload?.logprobs) : [];
     const overallConfidence = aggregateConfidence(words);
     return Object.freeze({

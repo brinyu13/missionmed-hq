@@ -155,6 +155,31 @@ test('whisper driver folds vocabulary into prompt and never invents confidence',
   assert.deepEqual(result.usage, { durationSeconds: 4.25 });
 });
 
+test('drivers reject provider prompt echoes before text reaches StoryForge', async () => {
+  for (const [factory, text] of [
+    [createOpenAIGpt4oTranscribeDriver, 'context: ### Vocabulary: Whipple, ICU'],
+    [createOpenAIWhisper1Driver, 'Vocabulary: Whipple, ICU'],
+  ]) {
+    const driver = factory({
+      apiKey: testApiKey,
+      fetchImpl: async () => jsonResponse({ text }),
+    });
+    await assert.rejects(
+      driver.transcribeSegment({
+        buffer: Buffer.from([1, 2, 3]),
+        mimeType: 'audio/webm',
+        seq: 0,
+        keywords: ['Whipple', 'ICU'],
+      }),
+      (error) => (
+        error.code === 'transcribe_rejected_format'
+        && !error.message.includes('Whipple')
+        && !error.message.includes('context')
+      ),
+    );
+  }
+});
+
 test('prompt truncation keeps the full 200-character tail and drops whole terms from the end', async () => {
   const double = capturingFetch({ text: '' });
   const driver = createOpenAIGpt4oTranscribeDriver({
