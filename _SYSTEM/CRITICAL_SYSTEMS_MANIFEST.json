@@ -287,25 +287,25 @@
       "id": "storyforge_v5_index",
       "system": "storyforge_v5",
       "url": "https://missionmedinstitute.com/storyforge/",
-      "approved_sha256": "ffeb8b5f603d3c6113bca008cc2647fde8b7f17175ba268d6293d0c05349d93a",
+      "approved_sha256": "8a28f5903fa985b8d7373c889f52fc4f25ccb43c0e4ed3763f429fe760dfbbd6",
       "required_markers": [
         "StoryForge V5 · MissionMed",
-        "MissionMed 360",
-        "Opening your story workspace"
+        "Dr Brian's IV Prep On-Call",
+        "Opening your private story workspace"
       ],
-      "local_source_note": "Current accepted B1-510 production asset from exact committed source 1bb6e8b917d6993c4af08e9ff2408313835f123d; live bytes independently verified before B1-510H."
+      "local_source_note": "Current accepted B1-510I Phase B/C production asset from exact committed source dab4e67fe6f8044cfa8a76db435b0aa843826074; live bytes independently verified after deployment."
     },
     {
       "id": "storyforge_v5_app_bundle",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/0dd4ed77dc52",
-      "approved_sha256": "0dd4ed77dc52731cf49e95033c6962ad371cec2c3db3cc1248d5fa71c6b03176",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/c7d6d2e50f7b",
+      "approved_sha256": "c7d6d2e50f7b047ccdc8b86646cd6a25a94b326be56adcb9cc81b1e0670ff0de",
       "required_markers": [
         "Back to Matrix",
         "Mentor review unavailable",
         "StoryForge could not open safely"
       ],
-      "local_source_note": "Current accepted B1-510 production asset from exact committed source 1bb6e8b917d6993c4af08e9ff2408313835f123d; live bytes independently verified before B1-510H."
+      "local_source_note": "Current accepted B1-510I Phase B/C production asset from exact committed source dab4e67fe6f8044cfa8a76db435b0aa843826074; live bytes independently verified after deployment."
     },
     {
       "id": "storyforge_v5_auth_bundle",
@@ -323,15 +323,15 @@
     {
       "id": "storyforge_v5_styles",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/644548c5ff24",
-      "approved_sha256": "644548c5ff24b3b357c4194b97e56ce8525feab59b0f4914e3bf9779099e00fe",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/a12dfe83ee1d",
+      "approved_sha256": "a12dfe83ee1dccd30fd7c81572ba220f756324c386d55f0887d1cea2768dc091",
       "required_markers": [
         ".homeGrid",
         ".wsGrid",
         "prefers-reduced-motion"
       ],
-      "local_source_path": "storyforge-v5/dist/assets/styles.644548c5ff24.css",
-      "local_source_note": "Current B1-508 Founder-only text-validation production asset."
+      "local_source_path": "storyforge-v5/dist/assets/styles.a12dfe83ee1d.css",
+      "local_source_note": "Current B1-510I Phase C production asset from exact committed source dab4e67fe6f8044cfa8a76db435b0aa843826074; live bytes independently verified after deployment."
     },
     {
       "id": "storyforge_v5_font_archivo_normal",
@@ -554,7 +554,7 @@
     {
       "id": "storyforge_app_extensionless_alias",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/0dd4ed77dc52",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/c7d6d2e50f7b",
       "method": "GET",
       "expected_status": 200,
       "expected_headers": {
