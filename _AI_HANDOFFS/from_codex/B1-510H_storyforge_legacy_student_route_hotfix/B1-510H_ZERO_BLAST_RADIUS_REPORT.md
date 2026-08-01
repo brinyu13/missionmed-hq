@@ -1,45 +1,45 @@
 # B1-510H Zero-Blast-Radius Report
 
-## Changed files
+## Production writes
 
-1. `_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json`
-   - reconciles only StoryForge asset checks and Kinsta release metadata to the
-     already accepted B1-510 live release;
-   - converts the previously stale gate from three failures to zero failures.
-2. `wp-content/plugins/missionmed-storyforge-sso/missionmed-storyforge-sso.php`
-   - permits only native student identities whose existing entitlement result
-     is trusted, verified, and active;
-   - retains exact allowlisting for administrators and mentors;
-   - bypasses the obsolete pilot-cohort gate only for current LearnDash-backed
-     students;
-   - enqueues the existing launch adapter in the document head.
-3. `wp-content/plugins/missionmed-storyforge-sso/assets/matrix-launch.js`
-   - evaluates an initial `#storyforge` hash immediately instead of waiting for
-     DOM readiness.
-4. `storyforge-v5/tests/unit/student-routing-hotfix.test.mjs`
-   - adds the focused entitlement, role-negative, and initial-hash regression
-     coverage.
+- 439 missing PostgreSQL `sf_users` rows inserted transactionally;
+- 439 existing WordPress users received only the existing
+  `_missionmed_storyforge_user_id` metadata value;
+- two existing SSO routing files deployed;
+- SSO adapter version changed from `0.1.0` to `0.1.1` solely to address the
+  observed versioned cache entry.
+
+No WordPress user was created. No username, name, email, role, profile field,
+LearnDash enrollment, or existing valid mapping was changed.
+
+## Repository implementation files
+
+- `storyforge-v5/scripts/storyforge-identity-sync.mjs`;
+- `storyforge-v5/scripts/wp-storyforge-identity-sync.php`;
+- `storyforge-v5/tests/unit/identity-sync.test.mjs`;
+- `storyforge-v5/package.json`;
+- `wp-content/plugins/missionmed-storyforge-sso/missionmed-storyforge-sso.php`.
+
+The previously committed routing candidate remains in:
+
+- `wp-content/plugins/missionmed-storyforge-sso/assets/matrix-launch.js`;
+- `storyforge-v5/tests/unit/student-routing-hotfix.test.mjs`;
+- `_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json`.
 
 ## Explicitly unchanged
 
-- StoryForge product HTML, JavaScript, CSS, layout, and branding;
-- story creation, Learning Lesson, autosave, Library, Builder, Canvas, Export;
-- JWT algorithm, claim names, token format, nonce, rate limits, and RLS;
-- database schema and applied migrations;
-- story, audio, transcription, R2, provider, reconciliation, and voice scope;
-- LearnDash course/product/tier rules;
-- Matrix protected source and all unrelated Matrix modules;
-- WordPress profiles and production user metadata;
-- Railway code, variables, deployment, and replica topology;
-- Cloudflare configuration.
+- StoryForge product HTML, application JS/CSS, UI, layout, and live release;
+- story schema and all story content;
+- audits, recordings, audio, R2, transcription, and reconciliation;
+- provider credentials and provider traffic;
+- voice flag rules and Founder-only voice scope;
+- protected Matrix source;
+- authentication algorithm, JWT contract, RLS, roles, and LearnDash rules;
+- Railway code, variables, deployment, and topology;
+- Cloudflare configuration and unrelated MissionMed applications.
 
-## Test-generated artifacts repaired
+## Test-generated artifacts
 
-The conformance runner refreshed six tracked B1-507B screenshots. The worktree
-was verified clean before that run; those six test-generated changes were
-restored exactly from HEAD. No user work was discarded.
-
-## Production mutation
-
-None. The local candidate was not deployed because the identity population and
-three roster mismatches require external authority/action.
+The browser/conformance runner refreshed six tracked B1-507B screenshots. The
+worktree was clean before the run, and those six generated files were restored
+byte-for-byte from HEAD. No user work was overwritten or discarded.

@@ -1,47 +1,25 @@
 # B1-510H Identity and Entry-Path Matrix
 
-No private identifiers are reproduced. Labels correspond only to the supplied
-acceptance roster.
+No private identifiers are reproduced.
 
-## Production before candidate deployment
+| Identity class | Entitlement | Identity mapping | Direct route | Matrix route | Voice |
+|---|---|---|---|---|---|
+| Founder student | valid | preserved | current app | current app | existing separate grant |
+| Founder admin | valid admin gate | preserved | current app | current app | existing separate grant |
+| Current 360 student | trusted, verified, active course 3893 | present | current app | immediate redirect to current app | false unless separately authorized |
+| Ineligible student | inactive/fails authority | irrelevant | denied | denied/no adapter | false |
+| Anonymous | none | none | HTTP 401 | login boundary | false |
 
-| Identity | Entitlement evidence | `/storyforge/` | Matrix `#storyforge` | Result |
-|---|---|---|---|---|
-| Founder student | exact pilot allowlist and mapped DB row | current release | adapter redirects | current app |
-| Founder admin | exact pilot allowlist and mapped DB row | current release | adapter redirects | current app |
-| S04 affected 360 student | trusted, verified, active course 3893 | current shell, then `user_not_enabled` | protected Bootstrap Demo | FAIL |
-| Other current 360 students | 439 non-admin eligible; zero mapped | same gate by server evidence | same legacy branch | FAIL |
-| Ineligible account | trusted entitlement inactive | denied | Matrix lock/no adapter | PASS fail-closed |
-| Revoked/expired sample | course history/revocation logic inactive | denied | Matrix lock/no adapter | PASS fail-closed |
-| Anonymous | no WordPress session | bootstrap HTTP 401 | dashboard login redirect | PASS fail-closed |
+Population and live evidence:
 
-## Founder roster reconciliation
+- 439/439 current eligible non-admin students are mapped;
+- 11/11 Founder acceptance identities resolved, passed entitlement, mapped, and
+  issued valid StoryForge student tokens;
+- 441 total PostgreSQL identities have 441 distinct WordPress IDs and UUIDs;
+- an ordinary eligible student's story list exposed no Founder data;
+- one live ineligible account and anonymous requests remained denied.
 
-- supplied identities: 11;
-- exact identifiers resolved: 8;
-- resolved identities with current course 3893 access: 8;
-- resolved identities with trusted/verified/active entitlement: 8;
-- resolved identities already mapped: 0;
-- exact supplied usernames not resolved: S03, S06, S10.
-
-The unresolved usernames were not guessed or silently matched by display name.
-Founder confirmation of the correct existing identifier is required.
-
-## Local candidate behavior
-
-The focused harness proves:
-
-| Case | Expected candidate result | Test |
-|---|---|---|
-| unallowlisted trusted active 360 student | admitted as student | PASS |
-| inactive/not eligible | `eligibility_required` | PASS |
-| revoked | `eligibility_revoked` | PASS |
-| unverified source | `eligibility_required` | PASS |
-| unallowlisted administrator | `user_not_enabled` | PASS |
-| unallowlisted mentor | `user_not_enabled` | PASS |
-| Founder student override | unchanged/admitted | PASS |
-| Founder administrator | unchanged/admitted | PASS |
-| initial Matrix `#storyforge` load | immediate same-origin replace to `/storyforge/` | PASS |
-
-This candidate is not sufficient for production until eligible users also have
-the pre-existing WordPress UUID metadata and matching `sf_users` rows.
+The initial-hash redirect, refresh stability, entitlement-negative cases,
+administrator/mentor boundary, and Founder overrides pass focused automated
+coverage. The authenticated Founder browser session also confirmed the current
+Matrix-to-StoryForge route after deployment.

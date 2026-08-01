@@ -1,16 +1,16 @@
 # B1-510H Root Cause and Route Map
 
-## Verdict
+## Pre-repair verdict
 
-The production defect is proven. Two active StoryForge delivery paths use
+The production defect was proven. Two active StoryForge delivery paths used
 different gates:
 
 1. `/member-dashboard/#storyforge` mounts the protected Matrix Bootstrap Demo.
 2. `/storyforge/` serves the accepted current StoryForge release.
 
-The isolated StoryForge SSO adapter redirects the Matrix path only when
-`mmsf_access_state()` succeeds. Production settings allowlist only WordPress
-users 1 and 107, so a normal 360 student never receives that adapter.
+The isolated StoryForge SSO adapter redirected the Matrix path only when
+`mmsf_access_state()` succeeded. Production settings allowlisted only the two
+Founder pilot identities, so a normal 360 student never received that adapter.
 
 ## Obsolete path
 
@@ -29,7 +29,7 @@ hashes equal:
 - JavaScript: `a4aa9665012206771fc8549c897cb5d22801899347c706626062dbafb29c81fa`
 - CSS: `5b0426a7af9dbc36a1401c5d2829ca8cf7827e8070b783fbfe64875c847af7d8`
 
-This proves the obsolete interface is the active locked artifact, not browser
+This proved the obsolete interface was the active locked artifact, not browser
 cache or a fallback after a failed current bootstrap.
 
 ## Canonical path
@@ -55,15 +55,15 @@ and exact index/app bytes. Cache segmentation is not causal.
 The function applies current enrollment, expiry, revocation, restriction, and
 purchase-state checks. No WordPress “360 role” exists or was created.
 
-## Second gate: identity mapping
+## Second gate: identity mapping before repair
 
-Redirect alone is insufficient. The WordPress token bridge requires
+Redirect alone was insufficient. The WordPress token bridge requires
 `_missionmed_storyforge_user_id`, and PostgreSQL RLS binds the signed UUID and
-WordPress ID to one eligible `sf_users` row. Production has 439 entitled
-non-admin users and zero mappings among them. PostgreSQL has two `sf_users`
-rows total.
+WordPress ID to one eligible `sf_users` row. Before B1-510H-B, production had
+439 entitled non-admin users and zero mappings among them. PostgreSQL had two
+`sf_users` rows total.
 
-Therefore an eligible student currently follows this exact causal path:
+Therefore an eligible student previously followed this exact causal path:
 
 `active course 3893 -> Matrix student_bootstrap -> legacy renderer`
 
@@ -71,5 +71,15 @@ and direct entry follows:
 
 `/storyforge/ -> current shell -> SSO user_not_enabled`
 
-If only the route gate were deployed, the last step would become
+Had only the route gate been deployed, the last step would have become
 `storyforge_identity_unmapped` rather than a working application.
+
+## Repaired route
+
+B1-510H-B populated all 439 current eligible non-admin mappings with zero
+conflicts and deployed the already-tested SSO routing seam. The current path is:
+
+`active course 3893 -> trusted/verified/active entitlement -> stable WP/PG UUID mapping -> immediate Matrix redirect -> /storyforge/ current application`
+
+Ineligible and anonymous identities still fail closed. Protected Matrix source
+was not modified.
