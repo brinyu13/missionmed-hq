@@ -9,5 +9,5 @@ turn finalization, stale callback rejection after room exit, harmless queued
 MediaRecorder completion, no second recorder after barge-in, guarded delayed
 advance, request cancellation, and full media/provider cleanup.
 
-Validation: syntax PASS and 31/31 current tests PASS. No files were modified by
+Validation: syntax PASS and 33/33 current tests PASS. No files were modified by
 the independent audit.

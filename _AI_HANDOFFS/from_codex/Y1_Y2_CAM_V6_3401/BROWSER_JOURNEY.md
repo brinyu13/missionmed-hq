@@ -32,9 +32,16 @@ recur.
 
 ## Evidence limits
 
+After the bounded safety/accessibility repair, the in-app browser reloaded the
+current candidate and exposed the revised provider disclosure as visible text.
+Its accessibility tree reported native buttons for the role switch, entry
+actions, and question ordering; the custom builder exposed labeled Move up and
+Move down controls. This is a semantic smoke, not an exhaustive screen-reader
+qualification.
+
 - `evidence/integration/03_results_transcript_observer.png` was captured before
   the final generated-utterance display repair. The repaired mapping is proved
-  by the 31/31 current tests and the targeted evidence audit; do not use that
+  by the 33/33 current tests and the targeted evidence audit; do not use that
   image alone to prove the new line.
 - `evidence/integration/04_conduct_termination_closed.png` proves arrival at
   self-rating after the conduct run but does not visibly include the earlier

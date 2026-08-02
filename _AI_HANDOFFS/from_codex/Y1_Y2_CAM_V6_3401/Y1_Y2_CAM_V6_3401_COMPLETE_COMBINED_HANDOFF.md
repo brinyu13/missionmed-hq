@@ -187,7 +187,7 @@ Open `http://127.0.0.1:8343/`.
 ## Tests and browser evidence
 
 - Current V6 syntax: PASS.
-- Current V6 tests: 31/31 PASS.
+- Current V6 tests: 33/33 PASS.
 - Dependency audit: 0 vulnerabilities.
 - Donor focused tests: 15/15 PASS.
 - Donor retained contracts: 17/17 PASS.
@@ -202,6 +202,9 @@ Open `http://127.0.0.1:8343/`.
   advanced to contextual Q2 and the prior dead end did not recur.
 - Secret boundary: PASS.
 - Baseline hash and rollback restoration: PASS.
+- Bounded truth/accessibility review: PASS after replacing inference-style
+  claims with observation-grounded copy, disclosing the browser/OpenAI speech
+  boundary, adding native keyboard controls, and adding non-drag reordering.
 
 Integration captures are under `evidence/integration/`. Read
 `BROWSER_JOURNEY.md` before using images 03 or 04 as claim evidence: those two
@@ -215,6 +218,9 @@ images have explicit evidentiary limits. Raw test truth is in `TEST_RESULTS.md`.
 - No human perceptual claim is made about voice realism.
 - The provider display name `W. Clint Oxley` is not verified.
 - Media persists only for the current tab; durable persistence is a 3402 task.
+- Founder roles remain a local presentation gate, not authentication. The
+  server is loopback-only and must not be treated as a private online preview.
+- Human screen-reader and voice-realism qualification remain unclaimed.
 
 ## Exact next action for Y1-Y2-CAM-V6-3402
 

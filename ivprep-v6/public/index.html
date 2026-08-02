@@ -233,7 +233,7 @@ section.live>*:nth-child(5){animation-delay:.2s}
 .wizFoot{display:flex;gap:11px;align-items:center;margin-top:20px;flex-wrap:wrap}
 .designer{display:grid;grid-template-columns:290px 1fr;gap:16px;align-items:start}
 .qlib{max-height:56vh;overflow-y:auto;padding-right:4px}
-.qRow{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--edge);border-radius:10px;padding:9px 11px;margin-bottom:7px;font-size:12.5px;line-height:1.45;background:rgba(16,22,35,.7);transition:.15s;cursor:pointer}
+.qRow{display:flex;width:100%;text-align:left;gap:8px;align-items:flex-start;border:1px solid var(--edge);border-radius:10px;padding:9px 11px;margin-bottom:7px;font-size:12.5px;line-height:1.45;background:rgba(16,22,35,.7);transition:.15s;cursor:pointer}
 .qRow:hover{border-color:rgba(255,179,64,.45)}
 .qRow .add{color:var(--em);font-weight:800;font-size:14px;padding:0 3px;flex-shrink:0}
 .catChip{border:1px solid var(--edge2);border-radius:999px;padding:5px 11px;font-family:var(--num);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--mid);transition:.15s;cursor:pointer}
@@ -608,7 +608,7 @@ textarea.note:focus{outline:0;border-color:var(--gd)}
   <button class="btnGhost" onclick="enterApp('coach')">Dr Brian · Coaching Desk</button>
   <button class="btnGhost" onclick="enterApp('admin')">MissionMed Ops</button>
  </div>
- <div class="splashFoot">Prototype · <span class="real">REAL</span> = measured live from your camera and mic · <span class="sim">SIM</span> = prototype simulation, always labeled · people and programs fictional · media never leaves this tab</div>
+ <div class="splashFoot">Prototype · <span class="real">REAL</span> = measured live from your camera and mic · <span class="sim">SIM</span> = prototype simulation, always labeled · people and programs fictional · raw recording stays local to this tab · interview text may be sent to the configured OpenAI service · browser speech recognition follows the browser implementation</div>
 </div>
 
 <!-- ================= APP SHELL ================= -->
@@ -620,7 +620,7 @@ textarea.note:focus{outline:0;border-color:var(--gd)}
  </div>
  <nav id="sideNav"></nav>
  <div class="sideFoot">
-  <div class="roleCard" onclick="toggleRoleMenu(event)">
+  <div class="roleCard" role="button" tabindex="0" aria-label="Switch active role" onclick="toggleRoleMenu(event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleRoleMenu(event)}">
    <div class="hex" id="roleHex">PS</div>
    <div><div class="roleName" id="roleName">Priya Sharma</div><div class="roleSub" id="roleSub">Student · Session J</div></div>
    <button class="roleSwap" title="Switch role">⇄</button>
@@ -736,7 +736,7 @@ textarea.note:focus{outline:0;border-color:var(--gd)}
   <div class="pLbl">What enrolled students see here</div>
   <div class="grid3">
    <div style="font-size:12px;color:var(--mid);line-height:1.6"><b style="color:var(--tx)">A realistic interview room.</b> Zoom-style, Webex-style, Teams-style — accurate down to the button placement, so the real call feels familiar.</div>
-   <div style="font-size:12px;color:var(--mid);line-height:1.6"><b style="color:var(--tx)">An interviewer that remembers.</b> Follow-ups built from what you actually said. Personality you chose. Pressure you dialed.</div>
+   <div style="font-size:12px;color:var(--mid);line-height:1.6"><b style="color:var(--tx)">An interviewer that remembers.</b> Follow-ups built from what you actually said. Interviewer style you chose. Pressure you dialed.</div>
    <div style="font-size:12px;color:var(--mid);line-height:1.6"><b style="color:var(--tx)">A read, then one order.</b> Honest measurement, your stories matched to questions, and a single next step small enough to survive tomorrow.</div>
   </div>
  </div></div>
@@ -789,7 +789,7 @@ textarea.note:focus{outline:0;border-color:var(--gd)}
     <div class="qlib" id="qlib"></div>
    </div></div>
    <div class="panel"><div class="pPad">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><span class="pLbl" style="margin:0">Your interview · drag to reorder</span><span style="flex:1"></span><span class="chip dim" id="buildStat">·</span></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px"><span class="pLbl" style="margin:0">Your interview · drag or use Move buttons to reorder</span><span style="flex:1"></span><span class="chip dim" id="buildStat">·</span></div>
     <div id="buildList"></div>
     <div style="display:flex;gap:8px;margin-top:10px">
      <input id="dzCustom" placeholder="Type your own question (program-specific, weakness, anything)…" style="flex:1">
@@ -811,15 +811,15 @@ textarea.note:focus{outline:0;border-color:var(--gd)}
   <div class="castGrid" id="castGrid"></div>
   <div class="panel composer"><div class="pPad">
    <div class="pLbl" style="color:var(--vi)">Compose your interviewer · applies to sim personas and the future AI track</div>
-   <div class="comprow"><span class="cl">Hospital role</span><span class="selpick on" data-g="role">Program Director</span><span class="selpick" data-g="role">Associate PD</span><span class="selpick" data-g="role">Faculty</span><span class="selpick" data-g="role">Chief Resident</span><span class="selpick" data-g="role">Resident</span><span class="selpick" data-g="role">Coordinator</span></div>
-   <div class="comprow"><span class="cl">Personality</span><span class="selpick" data-g="bird">🦚 Peacock</span><span class="selpick on" data-g="bird">🦉 Owl</span><span class="selpick" data-g="bird">🦅 Eagle</span><span class="selpick" data-g="bird">🕊 Dove</span></div>
+   <div class="comprow"><span class="cl">Hospital role</span><button type="button" class="selpick on" aria-pressed="true" data-g="role">Program Director</button><button type="button" class="selpick" aria-pressed="false" data-g="role">Associate PD</button><button type="button" class="selpick" aria-pressed="false" data-g="role">Faculty</button><button type="button" class="selpick" aria-pressed="false" data-g="role">Chief Resident</button><button type="button" class="selpick" aria-pressed="false" data-g="role">Resident</button><button type="button" class="selpick" aria-pressed="false" data-g="role">Coordinator</button></div>
+   <div class="comprow"><span class="cl">Interviewer style</span><button type="button" class="selpick" data-g="bird">🦚 Expressive</button><button type="button" class="selpick on" data-g="bird">🦉 Detail-focused</button><button type="button" class="selpick" data-g="bird">🦅 Direct</button><button type="button" class="selpick" data-g="bird">🕊 Warm</button></div>
    <div class="birdnote" id="birdnote">OWL · METHODICAL · DETAIL QUESTIONS · LONG SILENCES · WANTS PRECISION</div>
-   <div class="comprow"><span class="cl">Presentation</span>
-    <span class="selpick vi2 on" data-g="gen">Any</span><span class="selpick vi2" data-g="gen">Male</span><span class="selpick vi2" data-g="gen">Female</span>
-    <span class="selpick vi2 on" data-g="age">40s</span><span class="selpick vi2" data-g="age">30s</span><span class="selpick vi2" data-g="age">60s</span>
-    <span class="selpick vi2 on" data-g="acc">US accent</span><span class="selpick vi2" data-g="acc">UK</span><span class="selpick vi2" data-g="acc">S. Asian</span><span class="selpick vi2" data-g="acc">W. African</span>
+   <div class="comprow" aria-label="Fictional simulation presentation settings"><span class="cl">Fictional simulation</span>
+    <button type="button" class="selpick vi2 on" data-g="gen">Any</button><button type="button" class="selpick vi2" data-g="gen">Male</button><button type="button" class="selpick vi2" data-g="gen">Female</button>
+    <button type="button" class="selpick vi2 on" data-g="age">40s</button><button type="button" class="selpick vi2" data-g="age">30s</button><button type="button" class="selpick vi2" data-g="age">60s</button>
+    <button type="button" class="selpick vi2 on" data-g="acc">US accent</button><button type="button" class="selpick vi2" data-g="acc">UK</button><button type="button" class="selpick vi2" data-g="acc">S. Asian</button><button type="button" class="selpick vi2" data-g="acc">W. African</button>
    </div>
-   <div class="birdnote">Presentation shapes the future avatar + voice track <span class="sim">AVATAR TRACK</span> · personality and role shape questions and timing today</div>
+   <div class="birdnote">These are fictional simulation settings, not verified provider voices <span class="sim">SIMULATED</span> · interviewer style and role shape questions and timing today</div>
   </div></div>
   <div class="panel" style="margin-top:12px"><div class="pPad">
    <div class="pLbl">What this seat changes tonight</div>
@@ -998,22 +998,22 @@ textarea.note:focus{outline:0;border-color:var(--gd)}
 <section data-view="room">
  <div class="platbar">
   <span class="eyebrow" style="letter-spacing:.2em;font-size:9px">Platform</span>
-  <span class="selpick on" data-plat="zoom" onclick="setPlat(this,'zoom')">Zoom-style</span>
-  <span class="selpick" data-plat="webex" onclick="setPlat(this,'webex')">Webex-style</span>
-  <span class="selpick" data-plat="teams" onclick="setPlat(this,'teams')">Teams-style</span>
-  <span class="selpick" data-plat="meet" onclick="setPlat(this,'meet')">Meet-style</span>
-  <span class="selpick" data-plat="inperson" onclick="setPlat(this,'inperson')">In-person</span>
+  <button type="button" class="selpick on" aria-pressed="true" data-plat="zoom" onclick="setPlat(this,'zoom')">Zoom-style</button>
+  <button type="button" class="selpick" aria-pressed="false" data-plat="webex" onclick="setPlat(this,'webex')">Webex-style</button>
+  <button type="button" class="selpick" aria-pressed="false" data-plat="teams" onclick="setPlat(this,'teams')">Teams-style</button>
+  <button type="button" class="selpick" aria-pressed="false" data-plat="meet" onclick="setPlat(this,'meet')">Meet-style</button>
+  <button type="button" class="selpick" aria-pressed="false" data-plat="inperson" onclick="setPlat(this,'inperson')">In-person</button>
   <span class="eyebrow" style="letter-spacing:.2em;font-size:9px;margin-left:10px">View</span>
-  <span class="selpick on" data-wm="speaker" onclick="setWinMode(this,'speaker')">Speaker</span>
-  <span class="selpick" data-wm="gallery" onclick="setWinMode(this,'gallery')">Gallery</span>
+  <button type="button" class="selpick on" aria-pressed="true" data-wm="speaker" onclick="setWinMode(this,'speaker')">Speaker</button>
+  <button type="button" class="selpick" aria-pressed="false" data-wm="gallery" onclick="setWinMode(this,'gallery')">Gallery</button>
   <span style="flex:1"></span>
   <div class="seg3" id="modeseg" title="How much the room shows you while you answer">
    <button data-m="sim" onclick="setMode('sim')">Real feel</button>
    <button data-m="std" class="on" onclick="setMode('std')">Standard</button>
    <button data-m="coach" onclick="setMode('coach')">Coach</button>
   </div>
-  <span class="selpick on" id="adv-auto" onclick="setAdvance(true)" title="Founder debug control. The normal interview completes a turn after five seconds of genuine silence following speech.">Continuous mic · 5s silence</span>
-  <span class="selpick" onclick="toggleImmerse()" title="Fullscreen interview: the app disappears, the call remains">⛶ Immersive</span>
+  <button type="button" class="selpick on" aria-pressed="true" id="adv-auto" onclick="setAdvance(true)" title="Founder debug control. The normal interview completes a turn after five seconds of genuine silence following speech.">Continuous mic · 5s silence</button>
+  <button type="button" class="selpick" onclick="toggleImmerse()" title="Fullscreen interview: the app disappears, the call remains">⛶ Immersive</button>
  </div>
  <div class="roundtop">
   <div class="panel ivpanel"><div class="face2" id="ivface">DB</div>
@@ -1178,9 +1178,9 @@ textarea.note:focus{outline:0;border-color:var(--gd)}
  <div class="bigt">Interview <em>vault.</em></div>
  <div class="sub">Your complete interview career — every rep, every mock, every real interview. Private until you share. ★ treasure your best. Delete for real.</div>
  <div class="filterbar" style="margin-top:14px">
-  <span class="selpick on" data-vf="all" onclick="setVFilter('all')">All reps</span>
-  <span class="selpick" data-vf="treasure" onclick="setVFilter('treasure')">★ Treasure chest</span>
-  <span class="selpick" data-vf="shared" onclick="setVFilter('shared')">Shared</span>
+  <button type="button" class="selpick on" aria-pressed="true" data-vf="all" onclick="setVFilter('all')">All reps</button>
+  <button type="button" class="selpick" aria-pressed="false" data-vf="treasure" onclick="setVFilter('treasure')">★ Treasure chest</button>
+  <button type="button" class="selpick" aria-pressed="false" data-vf="shared" onclick="setVFilter('shared')">Shared</button>
   <span class="eyebrow" id="chestcount" style="margin-left:auto;letter-spacing:.14em;font-size:9px"></span>
  </div>
  <div id="vaultlist"></div>
@@ -1407,10 +1407,10 @@ textarea.note:focus{outline:0;border-color:var(--gd)}
     <input id="regName" placeholder="Display name — e.g. 'Dr. Osei — Night-Shift PD'">
     <input id="regLine" placeholder="One-line temperament, printed on the card — e.g. 'Quiet · asks why three times'">
     <div style="display:flex;gap:7px;flex-wrap:wrap" id="regBird">
-     <span class="selpick on" data-rb="🦉 Owl">🦉 Owl</span><span class="selpick" data-rb="🦅 Eagle">🦅 Eagle</span><span class="selpick" data-rb="🕊 Dove">🕊 Dove</span><span class="selpick" data-rb="🦚 Peacock">🦚 Peacock</span>
+     <button type="button" class="selpick on" aria-pressed="true" data-rb="🦉 Owl">🦉 Detail-focused</button><button type="button" class="selpick" aria-pressed="false" data-rb="🦅 Eagle">🦅 Direct</button><button type="button" class="selpick" aria-pressed="false" data-rb="🕊 Dove">🕊 Warm</button><button type="button" class="selpick" aria-pressed="false" data-rb="🦚 Peacock">🦚 Expressive</button>
     </div>
     <div style="display:flex;gap:7px;flex-wrap:wrap" id="regKind">
-     <span class="selpick on" data-rk="SIM PERSONA">Persona</span><span class="selpick" data-rk="PRE-RECORDED · REAL FACULTY">Clip</span><span class="selpick" data-rk="AI FACULTY · FUTURE">AI</span>
+     <button type="button" class="selpick on" aria-pressed="true" data-rk="SIM PERSONA">Persona</button><button type="button" class="selpick" aria-pressed="false" data-rk="PRE-RECORDED · REAL FACULTY">Clip</button><button type="button" class="selpick" aria-pressed="false" data-rk="AI FACULTY · FUTURE">AI</button>
     </div>
     <button class="btnPri cyan" onclick="regAdd()">Add to registry ▸</button>
    </div>
@@ -1490,18 +1490,18 @@ const STAGES=[
  {t:'Delivery Mock',s:'Stage 2',d:'Pace, pauses, hands, face, voice. Simple questions on purpose.'},
  {t:'Traditional Mock',s:'Stage 3',d:'The common major questions, same delivery standard.'},
  {t:'CV Mock',s:'Stage 4',d:'They read your file and dig.'},
- {t:'Behavioral Mock',s:'Stage 5',d:'Behaviorist questions while your body language is read.'},
+ {t:'Behavioral Mock',s:'Stage 5',d:'Behavioral questions with feedback on the answer and observable delivery signals.'},
  {t:'Conversational Mock',s:'Stage 6',d:'No question list. A conversation you steer.'},
  {t:'Advanced Mock',s:'Stage 7',d:'Pressure, follow-ups, red flags — the full gauntlet.'},
  {t:'Program-Specific Mock',s:'Stage 8',d:'Built for the actual program you interview at next.'}];
 let STAGE_AT=1; // Priya: Foundation done, Delivery current
 const PRI=[
  {n:1,t:'Slow the first sentence',ev:2,need:3,why:'If you go too fast in the beginning, you lose control of your answer. Control the first sentence.'},
- {n:2,t:'Get your hands in frame',ev:1,need:2,why:'If we see your hands, we trust you. Hands suggest intention.'},
+ {n:2,t:'Get your hands in frame',ev:1,need:2,why:'Keep gestures in frame so you can review them; do not infer trust or intent from hand position.'},
  {n:3,t:'Sections 1+2 under 30 seconds',ev:0,need:3,why:'By the time we get to prove it, you better be under 30 seconds. That’s where the gold is.'}];
 const STRENGTHS=[
  ['Cold opens are consistently clean','Do not touch what works — 4 straight reps.'],
- ['Deliberate pauses returning','Silences up across the week; calibration aligning with your own reads.'],
+ ['Detected pauses increased','Detected pause time increased across the week; review the placement yourself.'],
  ['Story selection','The Pharmacy Ledger carried three prove-its without wobbling.']];
 const SFSTORIES=[
  {id:'pharm',t:'The Pharmacy Ledger',fit:['classic','specialty','program'],status:'Approved',uses:4,note:'Strong, and getting worn — 4th use this season.'},
@@ -1821,14 +1821,14 @@ function wizNav(d){
 function wizStart(){applyLength();goFlow('meet')}
 /* step 1 · questions */
 function renderCats(){const c=$('#catRow');c.innerHTML='';
- CATS.forEach(([id,l])=>{const s=document.createElement('span');s.className='catChip'+(DZ.cat===id?' on':'');s.textContent=l;
+ CATS.forEach(([id,l])=>{const s=document.createElement('button');s.type='button';s.className='catChip'+(DZ.cat===id?' on':'');s.setAttribute('aria-pressed',DZ.cat===id?'true':'false');s.textContent=l;
   s.onclick=()=>{DZ.cat=id;renderCats();renderLib()};c.appendChild(s)})}
 function renderLib(){const el=$('#qlib');if(!el)return;el.innerHTML='';
  const q=DZ.q.toLowerCase();
  const list=QLIB.filter(x=>(DZ.cat==='all'||x.cat===DZ.cat)&&(!q||x.q.toLowerCase().includes(q)));
  $('#qlibCount').textContent=QLIB.length+' questions · '+(CATS.length-1)+' types';
  if(!list.length){el.innerHTML='<div class="serif" style="padding:14px 4px">No question matches. Try a trigger word — “if”, “mistake”.</div>';return}
- list.forEach(x=>{const d=document.createElement('div');d.className='qRow';
+ list.forEach(x=>{const d=document.createElement('button');d.type='button';d.className='qRow';d.setAttribute('aria-label','Add question: '+x.q);
   d.innerHTML='<span class="add">+</span><div>'+esc(x.q)+'<div>'
    +'<span class="intelTag strat" title="MissionMed strategy for this base type">'+esc(x.strat)+'</span>'
    +(x.story?'<span class="intelTag story" title="An approved StoryForge story fits this question">📖 '+esc((SFSTORIES.find(s=>s.id===x.story)||{}).t||'')+'</span>':'')
@@ -1844,6 +1844,7 @@ function renderBuildList(){const el=$('#buildList');if(!el)return;el.innerHTML='
  BUILD.forEach((b,i)=>{const d=document.createElement('div');d.className='bRow';
   d.style.setProperty('--hue',b.folo?'#8a7dff':b.prog?'#39d6ff':'#ffb340');
   if(!b.folo){d.draggable=true;d.dataset.i=i;
+   d.setAttribute('aria-label','Question '+(i+1)+'. Use Move up or Move down to reorder.');
    d.addEventListener('dragstart',()=>{DRAGI=i;d.classList.add('dragging')});
    d.addEventListener('dragend',()=>{DRAGI=null;d.classList.remove('dragging');$$('#buildList .bRow').forEach(r=>r.classList.remove('dropbefore'))});
    d.addEventListener('dragover',e=>{e.preventDefault();$$('#buildList .bRow').forEach(r=>r.classList.remove('dropbefore'));d.classList.add('dropbefore')});
@@ -1856,11 +1857,13 @@ function renderBuildList(){const el=$('#buildList');if(!el)return;el.innerHTML='
    +(b.mark?'<span class="intelTag hist" title="You’ll mark your SAF sections live — the clock is Priority 3’s drill">⏱ ON THE CLOCK</span>':'')
    +'</div>'+(b.why?'<div class="serif" style="font-size:11px;margin-top:4px">'+esc(b.why)+'</div>':'')+'</div>'
    +'<span style="font-family:var(--num);font-size:11px;color:var(--dim);white-space:nowrap">'+fmtT(b.cap)+' cap</span>'
-   +(b.folo?'':'<button class="kill" onclick="rmQ('+i+')">✕</button>');
+   +(b.folo?'':'<button type="button" class="qBtn" aria-label="Move question '+(i+1)+' up" onclick="moveQ('+i+',-1)" '+(i===0?'disabled':'')+'>↑</button><button type="button" class="qBtn" aria-label="Move question '+(i+1)+' down" onclick="moveQ('+i+',1)" '+(i>=BUILD.filter(x=>!x.folo).length-1?'disabled':'')+'>↓</button><button type="button" class="kill" aria-label="Remove question '+(i+1)+'" onclick="rmQ('+i+')">✕</button>');
   el.appendChild(d)});
  const est=BUILD.reduce((a,b)=>a+b.cap,0);
  $('#buildStat').textContent=BUILD.filter(b=>!b.folo).length+' questions · est '+fmtT(Math.round(est*1.25))}
 function rmQ(i){BUILD.splice(i,1);renderBuildList()}
+function moveQ(i,delta){const to=i+delta;if(to<0||to>=BUILD.length||BUILD[to].folo)return;
+ const[m]=BUILD.splice(i,1);BUILD.splice(to,0,m);renderBuildList();sfx('click')}
 function shuffleQ(){const folo=BUILD.filter(b=>b.folo);const rest=BUILD.filter(b=>!b.folo).sort(()=>Math.random()-.5);
  BUILD=[...rest,...folo];renderBuildList()}
 function addCustomQ(){const inp=$('#dzCustom');const v=(inp.value||'').trim();
@@ -1877,7 +1880,7 @@ function genMine(){
  toast('Drafted from your file: the clock drill, your gap year, your unfixed error story, your publications, and one adaptive follow-up. Drafting simulated — production briefs the AI with these exact sources.')}
 /* step 2 · interviewer */
 const COMP={role:'Program Director',bird:'Owl'};
-const BIRDS={'🦚 Peacock':'PEACOCK · EXPRESSIVE · ENERGY QUESTIONS · WARMS TO ENTHUSIASM','🦉 Owl':'OWL · METHODICAL · DETAIL QUESTIONS · LONG SILENCES · WANTS PRECISION','🦅 Eagle':'EAGLE · DIRECT · CHALLENGES ANSWERS · RESPECTS BREVITY','🕊 Dove':'DOVE · WARM · RELATIONSHIP QUESTIONS · LISTENS FOR EMPATHY'};
+const BIRDS={'🦚 Expressive':'EXPRESSIVE · ENERGY QUESTIONS · WARMS TO ENTHUSIASM','🦉 Detail-focused':'DETAIL-FOCUSED · METHODICAL QUESTIONS · LONG SILENCES · WANTS PRECISION','🦅 Direct':'DIRECT · CHALLENGES ANSWERS · RESPECTS BREVITY','🕊 Warm':'WARM · RELATIONSHIP QUESTIONS · LISTENS FOR EMPATHY'};
 function persona(){return CAST.find(c=>c.id===SEL.cast)||CAST[0]}
 function renderCast(){const g=$('#castGrid');g.innerHTML='';
  CAST.filter(c=>!c.pack||SEL.program==='stfrancis'||SEL.cast==='okon').forEach(c=>{
@@ -1896,13 +1899,13 @@ function renderCastEffect(){const c=persona();
   chief:'Fast. The eagle interrupts padding and respects brevity. Run long on a clock question and expect the “short version” challenge.',
   conv:'No list, no podium. Small talk IS the interview — the hardest easy mode.',
   okon:'Built from 6 St. Francis reports: opens with the journey question, probes research honesty. A tendency, not a prediction — labeled in the room.',
-  ai:'The future track: an AI interviewer composed from role + personality below, remembering everything across the interview. Behind the same laws, later arrival. Tonight a persona stands in.'};
+  ai:'The future track: an AI interviewer composed from the role and interviewer style below, remembering everything across the interview. Behind the same laws, later arrival. Tonight a persona stands in.'};
  $('#castEffect').innerHTML=(m[c.id]||'')+' <span class="chip dim" style="font-size:7.5px;margin-left:6px">'+esc(c.bird||'')+'</span>'}
 $$('.composer .selpick').forEach(p=>{p.onclick=()=>{const g=p.dataset.g;
- $$('.composer .selpick[data-g="'+g+'"]').forEach(x=>x.classList.remove('on'));p.classList.add('on');
+ $$('.composer .selpick[data-g="'+g+'"]').forEach(x=>{x.classList.remove('on');x.setAttribute('aria-pressed','false')});p.classList.add('on');p.setAttribute('aria-pressed','true');
  if(g==='role')COMP.role=p.textContent.trim();
  if(g==='bird'){COMP.bird=p.textContent.trim().split(' ')[1];$('#birdnote').textContent=BIRDS[p.textContent.trim()]||''}
- if(g==='gen'||g==='age'||g==='acc')toast('Presentation set. It shapes the future AI avatar and voice; personality and role shape questions and timing today.')}});
+ if(g==='gen'||g==='age'||g==='acc')toast('Fictional simulation presentation set. These controls are not verified provider voices; interviewer style and role shape questions and timing today.')}});
 /* step 3 · program */
 function renderProgStep(){const g=$('#progGrid');g.innerHTML='';
  PROGRAMS.forEach(p=>{const b=document.createElement('button');b.className='optCard'+(SEL.program===p.id?' on':'');
@@ -2198,12 +2201,12 @@ const WAITCOPY={zoom:['Waiting for {IV} to join this meeting','Your audio is con
  meet:['You are the only one here','No one else can see this practice call'],
  inperson:['They will be with you shortly','Straighten up · breathe · this room is yours too']};
 function ivName(){return persona().name}
-function setPlat(el,p){PLAT=p;$$('[data-plat]').forEach(x=>x.classList.toggle('on',x===el));
+function setPlat(el,p){PLAT=p;$$('[data-plat]').forEach(x=>{x.classList.toggle('on',x===el);x.setAttribute('aria-pressed',x===el?'true':'false')});
  renderPlat(p);sfx('click');
  const wc=WAITCOPY[p]||WAITCOPY.zoom;$('#ms1').textContent=wc[0].replace('{IV}',ivName());$('#ms2').textContent=wc[1];
  toast(p==='inperson'?'In person: no self-view exists in real rooms, so the corner tile is gone. The gold dot is their eyes now.'
   :p.charAt(0).toUpperCase()+p.slice(1)+'-style room armed: their tile is the big one, you live in the corner — colors, controls and button placement match the real call.')}
-function setWinMode(el,m){WINMODE=m;$$('[data-wm]').forEach(x=>x.classList.toggle('on',x===el));
+function setWinMode(el,m){WINMODE=m;$$('[data-wm]').forEach(x=>{x.classList.toggle('on',x===el);x.setAttribute('aria-pressed',x===el?'true':'false')});
  $('#roomstage').classList.toggle('gallery',m==='gallery');sfx('click');
  toast(m==='gallery'?'Gallery view: two equal tiles, like the real platforms. Some programs run interviews this way — practice both.':'Speaker view: they fill the room, you keep the corner.')}
 function renderPlat(p){const mw=$('#meetwrap');if(!mw)return;
@@ -2631,7 +2634,7 @@ function renderResults(rep){
  renderStoryRead(rep);
  renderPriRead(rep);
  const o=orderText(rep);$('#orderT').textContent=o.t;$('#orderD').textContent=o.d;
- $('#bmarks').innerHTML=(rep.bookmarks||[]).map(b=>'<span class="bmark" onclick="seekPB('+b+')">🔖 '+fmtT(b)+'</span>').join('')}
+ $('#bmarks').innerHTML=(rep.bookmarks||[]).map(b=>'<button type="button" class="bmark" onclick="seekPB('+b+')">🔖 '+fmtT(b)+'</button>').join('')}
 function renderChecks(rep){const S=rep.sig||{},mic=rep.real&&rep.real.mic,cam=rep.real&&rep.real.cam;
  const list=[];const add=(cond,ok,name)=>{if(cond)list.push([!!ok,name])};
  add(mic,rep.ratio>=.5&&rep.ratio<=.88,'SPEAKING RATIO 50–88%');
@@ -2649,8 +2652,8 @@ function renderChecks(rep){const S=rep.sig||{},mic=rep.real&&rep.real.mic,cam=re
   s.textContent=(ok?'✓ ':'· ')+name;box.appendChild(s)});
  if(!list.length)box.innerHTML='<span class="serif" style="font-size:11px">Sim round — no measured checks, per the honesty law.</span>'}
 function renderHighlights(rep){const el=$('#highlights');el.innerHTML='';const H=[];
- if(rep.longest>2)H.push(['gold','YOUR LONGEST SILENCE · '+rep.longest.toFixed(1)+'s · REAL','A '+rep.longest.toFixed(1)+'s silence is a power move when placed on purpose. Was this one chosen, or lost? Watch the replay and decide.']);
- else if(rep.real&&rep.real.mic)H.push(['warn','ALMOST NO PAUSES · REAL','Your pauses stayed under a second. Interviewers read deliberate silence as confidence. Place one after your diagnosis line.']);
+ if(rep.longest>2)H.push(['gold','YOUR LONGEST SILENCE · '+rep.longest.toFixed(1)+'s · REAL','A '+rep.longest.toFixed(1)+'s pause was detected. Review the replay and decide whether its placement supported your answer.']);
+ else if(rep.real&&rep.real.mic)H.push(['warn','ALMOST NO PAUSES · REAL','Your detected pauses stayed under a second. If you want more space, try one deliberate pause after the diagnosis line and review it yourself.']);
  if(rep.storyAt!==null&&rep.storyAt!==undefined)H.push([rep.storyAt<=35?'gold':'warn','STORY ARRIVED AT '+rep.storyAt.toFixed(0)+'s · R*',rep.storyAt<=35?'The story got its time — that is where the gold is.':'The story arrived late. The seconds you spend on generals come straight out of the prove-it.']);
  if(rep.fillers!==null&&rep.fillers!==undefined)H.push([rep.fillers<=3?'':'warn','FILLERS · '+rep.fillers+' · REAL FROM TRANSCRIPT',rep.fillers<=3?'Clean. The transcript caught almost no filler — the pauses are doing the work instead.':'The transcript caught '+rep.fillers+' fillers. Each one is a pause you were owed. Take the silence back.']);
  if(rep.framePct!==null&&rep.framePct!==undefined)H.push([rep.framePct>=85?'':'flag','FRAMING · '+rep.framePct+'% IN THE CROP · REAL',rep.framePct>=85?'You held the interview crop. The room did its job; the words got the spotlight.':'You sat outside the crop '+(100-rep.framePct)+'% of the take — the drift usually happens when the story heats up.']);
@@ -2693,7 +2696,7 @@ function orderText(rep){
 function addBookmark(){if(!RUN.active){toast('Bookmarks live on a finished round.');return}
  const pb=$('#playback');const t=(pb&&pb.style.display!=='none')?pb.currentTime:(RUN.active.dur*.5);
  RUN.active.bookmarks.push(t);
- $('#bmarks').innerHTML=RUN.active.bookmarks.map(b=>'<span class="bmark" onclick="seekPB('+b+')">🔖 '+fmtT(b)+'</span>').join('');
+ $('#bmarks').innerHTML=RUN.active.bookmarks.map(b=>'<button type="button" class="bmark" onclick="seekPB('+b+')">🔖 '+fmtT(b)+'</button>').join('');
  toast('Moment bookmarked at '+fmtT(t)+'. It travels with the rep — into the Vault, and to Dr Brian if shared.')}
 function seekPB(t){const pb=$('#playback');if(pb&&pb.style.display!=='none'){pb.currentTime=t;pb.play()}}
 function runAgain(){RUN.reset();goFlow('room');startTakePrep();toast('Same build, fresh take. Nothing from the last one was lost — it just wasn’t saved yet.')}
@@ -2723,7 +2726,7 @@ function saveRep(withOrder){if(!RUN.active){toast('Nothing to save yet — recor
    VAULT + GHOST
    ================================================================ */
 let VFILTER='all',GSEL={A:null,B:null};
-function setVFilter(f){VFILTER=f;$$('[data-vf]').forEach(x=>x.classList.toggle('on',x.dataset.vf===f));renderVault()}
+function setVFilter(f){VFILTER=f;$$('[data-vf]').forEach(x=>{const on=x.dataset.vf===f;x.classList.toggle('on',on);x.setAttribute('aria-pressed',on?'true':'false')});renderVault()}
 function renderVault(){const el=$('#vaultlist');el.innerHTML='';
  const tc=REPS.filter(r=>r.treasure).length,shc=REPS.filter(r=>r.shared).length;
  $('#chestcount').textContent=REPS.length?('★ '+tc+' TREASURED · '+shc+' SHARED · '+REPS.length+' TOTAL'):'';
@@ -2769,7 +2772,7 @@ function renderGhost(){const pick=$('#ghostpick');pick.innerHTML='';
  if(A&&B){gv.style.display='block';
   const dp=B.pauses-A.pauses,dl=(B.longest||0)-(A.longest||0),dr=B.ratio-A.ratio;
   gv.textContent='THE VERDICT: '+((B.s2&&A.s2&&B.s2<A.s2)?'THE CLOCK IS COMING DOWN. THAT IS THE WEEK, WORKING.':
-   dp>0||dl>.5?'PRESENT-YOU HOLDS MORE SILENCE. THAT IS GROWTH YOU CAN HEAR.':
+   dp>0||dl>.5?'PRESENT-YOU HAS MORE DETECTED SILENCE. REVIEW WHETHER THE PLACEMENT HELPS.':
    dr>.08?'PRESENT-YOU FILLS MORE OF THE ROOM. WATCH THAT THE PAUSES SURVIVE IT.':
    'SAME SHAPE, MORE HOURS. CONSISTENCY IS ALSO A RESULT.')}
  else gv.style.display='none'}
@@ -2873,9 +2876,9 @@ function renderDebrief(){
  +'<div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap">'
  +'<button class="micBtn" id="dbMic" onclick="dbMic()">🎙 Speak instead — I’ll do the writing</button>'
  +'<span class="'+(SPEECH.api?'real':'sim')+'">'+(SPEECH.api?'REAL · IN-BROWSER SPEECH':'SIM · NO BROWSER SUPPORT — TYPE INSTEAD')+'</span></div>'
- +(q.chips?'<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">'+q.chips.map(c=>'<span class="catChip '+(DB.chips.includes(c)?'on':'')+'" data-dbchip="'+esc(c)+'">'+(DB.chips.includes(c)?'✓ ':'')+esc(c)+'</span>').join('')+'</div>':'')
- +(q.extra==='bird'?'<div class="pLbl" style="margin:4px 0 6px">Their personality · the bird read</div><div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">'+['🦚 Peacock','🦉 Owl','🦅 Eagle','🕊 Dove','Not sure'].map(b=>'<span class="catChip '+(DB.bird===b?'on':'')+'" data-dbbird="'+esc(b)+'">'+esc(b)+'</span>').join('')+'</div>':'')
- +(q.extra==='dur'?'<div class="pLbl" style="margin:4px 0 6px">Interview duration</div><div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">'+['~15 min','~20 min','~30 min','~45 min','Longer'].map(b=>'<span class="catChip '+(DB.dur===b?'on':'')+'" data-dbdur="'+esc(b)+'">'+esc(b)+'</span>').join('')+'</div>':'')
+ +(q.chips?'<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">'+q.chips.map(c=>'<button type="button" class="catChip '+(DB.chips.includes(c)?'on':'')+'" aria-pressed="'+(DB.chips.includes(c)?'true':'false')+'" data-dbchip="'+esc(c)+'">'+(DB.chips.includes(c)?'✓ ':'')+esc(c)+'</button>').join('')+'</div>':'')
+ +(q.extra==='bird'?'<div class="pLbl" style="margin:4px 0 6px">Reported interaction style · optional shorthand</div><div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">'+['Warm','Direct','Detail-focused','Conversational','Not sure'].map(b=>'<button type="button" class="catChip '+(DB.bird===b?'on':'')+'" aria-pressed="'+(DB.bird===b?'true':'false')+'" data-dbbird="'+esc(b)+'">'+esc(b)+'</button>').join('')+'</div>':'')
+ +(q.extra==='dur'?'<div class="pLbl" style="margin:4px 0 6px">Interview duration</div><div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px">'+['~15 min','~20 min','~30 min','~45 min','Longer'].map(b=>'<button type="button" class="catChip '+(DB.dur===b?'on':'')+'" aria-pressed="'+(DB.dur===b?'true':'false')+'" data-dbdur="'+esc(b)+'">'+esc(b)+'</button>').join('')+'</div>':'')
  +(q.long?'<textarea id="dbIn" style="width:100%;min-height:104px;font-size:14px;line-height:1.6" placeholder="'+esc(q.ph)+'">'+esc(DB.a[q.k]||'')+'</textarea>'
   :'<input id="dbIn" style="width:100%;font-size:14px" placeholder="'+esc(q.ph)+'" value="'+esc(DB.a[q.k]||'')+'">')
  +(q.note?'<div class="serif" style="font-size:11.5px;margin-top:7px">'+esc(q.note)+'</div>':'')
@@ -2948,7 +2951,7 @@ function openDebriefReview(q){const d=$('#drawer');const P=q.payload||{};
  +'<div class="drBody">'
  +'<div class="line"><span class="chip cy" style="min-width:0">Program</span><span>Lakeview University Hospital · IM · virtual screening'+(P.dur?' · '+esc(P.dur):'')+'</span></div>'
  +'<div class="dsLbl">The student’s record — edit before filing</div>'
- +'<textarea class="note" id="drvSum" style="min-height:110px">'+esc(P.story||'One interviewer (~20 min, associate PD, warm — family photo observed). Asked: TMAY, why our program. Used the pharmacy story for why-medicine; interviewer took a note.')+(P.people?'\nPeople: '+esc(P.people):'')+(P.bird&&P.bird!=='Not sure'?'\nPersonality read: '+esc(P.bird):'')+(P.memorable?'\nMemorable: '+esc(P.memorable):'')+'</textarea>'
+ +'<textarea class="note" id="drvSum" style="min-height:110px">'+esc(P.story||'One interviewer (~20 min, associate PD, warm — family photo observed). Asked: TMAY, why our program. Used the pharmacy story for why-medicine; interviewer took a note.')+(P.people?'\nPeople: '+esc(P.people):'')+(P.bird&&P.bird!=='Not sure'?'\nReported interaction style: '+esc(P.bird):'')+(P.memorable?'\nMemorable: '+esc(P.memorable):'')+'</textarea>'
  +'<div class="dsLbl">Uncertainty marks</div>'
  +'<div class="line"><span class="chip em" style="min-width:0">unsure</span><span>“'+esc(P.unsure||'Not 100% sure of her exact title.')+'”'
  +'<div style="display:flex;gap:7px;margin-top:6px"><button class="rowBtn" id="drvKeep">Keep marked uncertain</button><button class="rowBtn" id="drvConf">Confirm as fact</button></div></span></div>'
@@ -3055,8 +3058,8 @@ function renderRegistry(){const el=$('#regList');el.innerHTML='';
   el.appendChild(d)});
  $$('#regList [data-rdel]').forEach(b=>b.onclick=()=>{const i=CAST.findIndex(c=>c.id===b.dataset.rdel);
   if(i>-1){toast(CAST[i].name+' removed from the registry.');CAST.splice(i,1);renderRegistry()}});
- $$('#regBird .selpick').forEach(p=>p.onclick=()=>{$$('#regBird .selpick').forEach(x=>x.classList.remove('on'));p.classList.add('on')});
- $$('#regKind .selpick').forEach(p=>p.onclick=()=>{$$('#regKind .selpick').forEach(x=>x.classList.remove('on'));p.classList.add('on')});
+ $$('#regBird .selpick').forEach(p=>p.onclick=()=>{$$('#regBird .selpick').forEach(x=>{x.classList.remove('on');x.setAttribute('aria-pressed','false')});p.classList.add('on');p.setAttribute('aria-pressed','true')});
+ $$('#regKind .selpick').forEach(p=>p.onclick=()=>{$$('#regKind .selpick').forEach(x=>{x.classList.remove('on');x.setAttribute('aria-pressed','false')});p.classList.add('on');p.setAttribute('aria-pressed','true')});
  if(window.V6Frontier&&window.V6Frontier.renderFounderStudios)window.V6Frontier.renderFounderStudios()}
 function regAdd(){const name=($('#regName').value||'').trim(),line=($('#regLine').value||'').trim();
  if(!name){toast('Give the interviewer a display name first.');return}

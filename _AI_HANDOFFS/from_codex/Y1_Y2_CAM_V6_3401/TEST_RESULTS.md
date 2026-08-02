@@ -3,7 +3,7 @@
 ## Current V6 candidate
 
 - `npm run check`: PASS.
-- `node --test test/*.test.mjs`: 31/31 PASS.
+- `node --test test/*.test.mjs`: 33/33 PASS.
 - `npm audit --omit=dev`: 0 vulnerabilities.
 - `git diff --check`: PASS.
 - Local host-boundary test: PASS; non-loopback startup is rejected.
@@ -13,8 +13,9 @@ The focused suite covers the future AvatarProvider seam, exact model and voice
 IDs, explicit provider failures, model discovery, interviewer-before-observer
 ordering, continuous microphone state, five-second silence, natural pauses,
 barge-in, mute behavior, single-entry turn completion, stale callback guards,
-no-transcript typed recovery, evidence mapping, truthful replay labels, and
-server-only key handling.
+no-transcript typed recovery, evidence mapping, truthful replay labels,
+observation-grounded safety copy, keyboard-operable selectors and question
+ordering, and server-only key handling.
 
 ## Donor regression harness
 
