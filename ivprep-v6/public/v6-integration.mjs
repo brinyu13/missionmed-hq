@@ -136,7 +136,7 @@ async function ensureAlphaSession() {
       method: 'POST',
       body: JSON.stringify({
         testIdentity: 'founder-local',
-        durationMinutes: 15,
+        durationMinutes: 2,
         selectedInterviewer: selected?.id || state.selectedInterviewerId,
         model: state.model,
         voice: state.voiceId,
@@ -153,7 +153,7 @@ async function ensureAlphaSession() {
           alphaSessionId: state.alphaSessionId,
           interviewerId: selected.id,
           avatarId: selected.avatarId,
-          maxSessionDuration: Math.min(20, payload.session.durationMinutes) * 60,
+          maxSessionDuration: Math.min(2, payload.session.durationMinutes) * 60,
         });
         await avatar.start();
         await persistAlphaEvent({ avatarStarted: true, deliveryMode: 'avatar', deliveryReason: 'live-media-ready' });

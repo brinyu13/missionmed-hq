@@ -25,7 +25,12 @@ import {
 import { createOpenAISpeech } from '../providers/openai-speech.mjs';
 import { publicFacultyRoster, surpriseAssignment } from '../config/faculty-roster.mjs';
 import { loadLocalEnvironment as loadEnvironmentFile } from '../config/load-environment.mjs';
-import { AlphaStore, INACTIVE_COMMERCIALIZATION_CONTROLS } from '../persistence/alpha-store.mjs';
+import {
+  ALPHA_DEFAULT_MINUTES,
+  ALPHA_HARD_MAXIMUM_MINUTES,
+  AlphaStore,
+  INACTIVE_COMMERCIALIZATION_CONTROLS,
+} from '../persistence/alpha-store.mjs';
 
 const MODULE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = normalize(join(MODULE_DIRECTORY, '..'));
@@ -300,7 +305,11 @@ export function createIvPrepServer({
           service: 'ivprep-v6-alpha',
           openaiConfigured: configured,
           avatarProvider: publicAvatarHealth(avatarProvider),
-          alpha: { disabled: alphaStore.isDisabled(), defaultMinutes: 15, hardMaximumMinutes: 20 },
+          alpha: {
+            disabled: alphaStore.isDisabled(),
+            defaultMinutes: ALPHA_DEFAULT_MINUTES,
+            hardMaximumMinutes: ALPHA_HARD_MAXIMUM_MINUTES,
+          },
         });
         return;
       }

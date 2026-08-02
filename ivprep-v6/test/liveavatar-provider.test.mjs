@@ -15,7 +15,7 @@ const TEST_ENV = Object.freeze({
   LIVEAVATAR_API_KEY: 'unit-test-api-key',
   LIVEAVATAR_AVATAR_ID: 'bd43ce31-7425-4379-8407-60f029548e61',
   LIVEAVATAR_SANDBOX: 'true',
-  LIVEAVATAR_MAX_SESSION_SECONDS: '1200',
+  LIVEAVATAR_MAX_SESSION_SECONDS: '120',
 });
 
 class FakeWebSocket extends EventEmitter {
@@ -80,7 +80,7 @@ function providerHarness({ stopFailure = false, stopFailures = stopFailure ? Num
           livekit_client_token: 'unit-test-client-token',
           livekit_agent_token: 'must-not-be-retained',
           ws_url: 'wss://unit.test/control?ephemeral=1',
-          max_session_duration: 1200,
+          max_session_duration: 120,
         },
       }, { status: 201 });
     }
@@ -114,7 +114,7 @@ function providerHarness({ stopFailure = false, stopFailures = stopFailure ? Num
   };
 }
 
-test('environment configuration is fail-closed, sandboxed, and capped at twenty minutes', () => {
+test('environment configuration is fail-closed, sandboxed, and capped at two beta minutes', () => {
   const empty = liveAvatarConfigFromEnv({});
   assert.equal(empty.configured, false);
   assert.equal(empty.sandbox, true);
@@ -124,7 +124,7 @@ test('environment configuration is fail-closed, sandboxed, and capped at twenty 
   assert.equal(capped.configured, true);
   assert.equal(capped.hasServerAuthorization, true);
   assert.equal(Object.hasOwn(capped, 'apiKey'), false);
-  assert.equal(capped.maxSessionDuration, 1200);
+  assert.equal(capped.maxSessionDuration, 120);
   assert.equal(capped.videoEncoding, 'H264');
 });
 
@@ -146,7 +146,7 @@ test('LITE session uses the authenticated API contract and keeps control credent
     sessionId: '77777777-7777-4777-8777-777777777777',
     avatarId: TEST_ENV.LIVEAVATAR_AVATAR_ID,
     sandbox: true,
-    maxSessionDuration: 1200,
+    maxSessionDuration: 120,
   });
   assert.equal(started.status, 'connected');
   assert.equal(started.media.transport, 'livekit');
@@ -164,7 +164,7 @@ test('LITE session uses the authenticated API contract and keeps control credent
     avatar_id: TEST_ENV.LIVEAVATAR_AVATAR_ID,
     is_sandbox: true,
     video_settings: { quality: 'high', encoding: 'H264' },
-    max_session_duration: 1200,
+    max_session_duration: 120,
   });
   const startCall = calls.find((call) => call.path === '/v1/sessions/start');
   assert.equal(startCall.init.headers.authorization, 'Bearer unit-test-session-token');

@@ -3,6 +3,9 @@ import { dirname, join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 
 const EMPTY = Object.freeze({ version: 1, disabled: false, sessions: [], usage: [] });
+export const ALPHA_BETA_SESSION_SECONDS = 120;
+export const ALPHA_DEFAULT_MINUTES = ALPHA_BETA_SESSION_SECONDS / 60;
+export const ALPHA_HARD_MAXIMUM_MINUTES = ALPHA_BETA_SESSION_SECONDS / 60;
 
 function cloneEmpty() { return { ...EMPTY, sessions: [], usage: [] }; }
 
@@ -87,8 +90,8 @@ export class AlphaStore {
     if (this.data.sessions.some((session) => session.testIdentity === testIdentity && session.state === 'active')) {
       throw new Error('This test identity already has an active interview.');
     }
-    const requestedMinutes = Number(input.durationMinutes || 15);
-    const durationMinutes = Math.min(20, Math.max(1, Number.isFinite(requestedMinutes) ? requestedMinutes : 15));
+    const requestedMinutes = Number(input.durationMinutes || ALPHA_DEFAULT_MINUTES);
+    const durationMinutes = Math.min(ALPHA_HARD_MAXIMUM_MINUTES, Math.max(1, Number.isFinite(requestedMinutes) ? requestedMinutes : ALPHA_DEFAULT_MINUTES));
     const startedAt = this.now();
     const session = {
       id: randomUUID(),
@@ -134,7 +137,7 @@ export class AlphaStore {
     }
     if (event.replayMediaReference) session.replayMediaReferences.push(event.replayMediaReference);
     session.updatedAt = timestamp;
-    session.usage.estimatedMinutes = Math.min(20, Math.max(0, (timestamp - session.startedAt) / 60_000));
+    session.usage.estimatedMinutes = Math.min(ALPHA_HARD_MAXIMUM_MINUTES, Math.max(0, (timestamp - session.startedAt) / 60_000));
     this.#save();
     return structuredClone(session);
   }
@@ -148,7 +151,7 @@ export class AlphaStore {
       session.state = terminationState === 'hard-cap' ? 'hard-cap-ended' : 'ended';
       session.terminationState = terminationState;
       session.usage.avatarEndedAt ||= session.endedAt;
-      session.usage.estimatedMinutes = Math.min(20, Math.max(0, (session.endedAt - session.startedAt) / 60_000));
+      session.usage.estimatedMinutes = Math.min(ALPHA_HARD_MAXIMUM_MINUTES, Math.max(0, (session.endedAt - session.startedAt) / 60_000));
       this.data.usage.push({
         sessionId: session.id,
         testIdentity: session.testIdentity,

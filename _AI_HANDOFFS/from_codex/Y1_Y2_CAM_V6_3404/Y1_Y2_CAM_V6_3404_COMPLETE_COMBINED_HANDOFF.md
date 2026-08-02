@@ -2,9 +2,9 @@
 
 ## Status
 
-**BLOCKED ON HUMAN LIVEAVATAR ACTION**
+**LIVE AVATAR FOUNDER TEST READY**
 
-The real LiveAvatar integration is activated and rendered the verified Dexter avatar in Google Chrome. The current Free workspace accepts a 120-second LITE session but rejects 300-, 600-, 900-, and 1200-second requests. That provider-owned cap prevents the inherited 15-minute Founder Alpha from completing with the avatar.
+The real LiveAvatar integration is activated and rendered the verified Dexter avatar in Google Chrome. For the initial beta testing phase, the founder changed the application requirement to a 120-second default and hard limit. That requirement now matches the current Free workspace's verified 120-second LITE session capability.
 
 ## Authority
 
@@ -25,7 +25,7 @@ The real LiveAvatar integration is activated and rendered the verified Dexter av
 - Approved LiveKit origin: `wss://heygen-feapbkvq.livekit.cloud`.
 - The LiveAvatar key was confirmed present and non-empty only. It was never printed, copied, logged, committed, screenshotted, or written here.
 
-`ivprep-v6/.env.local` and `ivprep-v6/.env` are ignored, untracked, and mode `0600`. The first holds the existing server secret. The second holds nonsecret activation values and the verified provider-accepted 120-second cap. MissionMed still owns a 15-minute default and 20-minute hard application maximum; 120 seconds is the honest current-provider constraint.
+`ivprep-v6/.env.local` and `ivprep-v6/.env` are ignored, untracked, and mode `0600`. The first holds the existing server secret. The second holds nonsecret activation values and the verified provider-accepted 120-second cap. MissionMed's initial-beta application default and hard maximum are both 120 seconds; the provider and application limits are aligned.
 
 ## Activated flow
 
@@ -56,6 +56,8 @@ The real LiveAvatar integration is activated and rendered the verified Dexter av
 ## Files changed
 
 - `ivprep-v6/ALLOWED_PATHS.txt`
+- `ivprep-v6/.env.template`
+- `ivprep-v6/README.md`
 - `ivprep-v6/persistence/alpha-store.mjs`
 - `ivprep-v6/providers/liveavatar-provider.mjs`
 - `ivprep-v6/public/avatar-provider.mjs`
@@ -63,6 +65,8 @@ The real LiveAvatar integration is activated and rendered the verified Dexter av
 - `ivprep-v6/public/v6-integration.mjs`
 - `ivprep-v6/server/serve.mjs`
 - `ivprep-v6/test/liveavatar-provider.test.mjs`
+- `ivprep-v6/test/faculty-persistence.test.mjs`
+- `ivprep-v6/test/server-alpha-control.test.mjs`
 - `ivprep-v6/test/avatar-activation-contract.test.mjs` (new)
 - this handoff (new)
 
@@ -105,6 +109,7 @@ The supervisor restart preserved 4 records byte-for-byte at that checkpoint. The
 
 - `npm run check`: pass.
 - `npm test`: **57/57 pass, 0 fail**; inherited 51 plus 6 activation/lifecycle tests.
+- Running health reports `defaultMinutes: 2` and `hardMaximumMinutes: 2`; sanitized provider configuration reports `maxSessionDuration: 120`.
 - Exact five-second silence, natural 4.999-second pause, barge-in, reconnect, transient stop retry, shutdown cleanup, and restart durability tests pass.
 - `/.env.local` and `/.env`: HTTP 404.
 - Actual key literal: 0 tracked, diff, public-file, or browser-response hits.
@@ -123,6 +128,6 @@ HOST=127.0.0.1 PORT=8320 npm start
 
 Open `http://localhost:8320/` in Google Chrome. This is loopback-only and not a production deployment.
 
-## Single remaining founder action
+## Founder test action
 
-In LiveAvatar, upgrade or enable the workspace plan/account setting that accepts a production-mode LITE `max_session_duration` of at least 900 seconds. Do not paste or rotate any secret in chat. Then set the ignored `LIVEAVATAR_MAX_SESSION_SECONDS` to `900`, restart locally, and rerun the 15-minute founder acceptance, including a human audible lip-sync judgment and a quiet five-second microphone completion.
+Open `http://localhost:8320/` in Google Chrome and run the two-minute founder test. A provider-plan upgrade is not required for this initial beta phase. Human audible lip-sync judgment and a quiet live five-second microphone completion remain founder-observation items.

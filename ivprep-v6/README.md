@@ -51,6 +51,6 @@ session tokens.
 
 Local session evidence is stored under `.alpha-data/`, which is ignored by
 Git. It contains transcripts and instructor records, not merely metadata. The
-runtime enforces one active interview per test identity, a 15-minute default,
-a 20-minute hard cap, a usage ledger, and emergency disable. This local role
+runtime enforces one active interview per test identity, a 120-second beta
+default and hard cap, a usage ledger, and emergency disable. This local role
 gate is not authentication and does not authorize a private deployment.

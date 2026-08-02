@@ -47,7 +47,7 @@ test('server-owned alpha routes persist, enforce one active identity, and emerge
   const startedResponse = await fetch(`${base}/api/alpha-sessions/start`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(input) });
   assert.equal(startedResponse.status, 201);
   const started = (await startedResponse.json()).session;
-  assert.equal(started.durationMinutes, 20);
+  assert.equal(started.durationMinutes, 2);
 
   const duplicate = await fetch(`${base}/api/alpha-sessions/start`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(input) });
   assert.equal(duplicate.status, 409);

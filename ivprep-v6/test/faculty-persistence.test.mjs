@@ -28,7 +28,7 @@ test('provider readiness controls availability and Surprise Me eligibility', () 
   assert.equal(surpriseAssignment({ specialty: 'Pediatrics', liveAvatarConfigured: true, openaiConfigured: true }), null);
 });
 
-test('durable alpha store enforces one active identity and the twenty-minute hard cap', () => {
+test('durable alpha store enforces one active identity and the two-minute beta hard cap', () => {
   const directory = mkdtempSync(join(tmpdir(), 'ivprep-alpha-store-'));
   const path = join(directory, 'sessions.json');
   let now = 1_000_000;
@@ -37,12 +37,12 @@ test('durable alpha store enforces one active identity and the twenty-minute har
     testIdentity: 'founder-test', durationMinutes: 99, selectedInterviewer: 'senior-academic-pd-male',
     model: 'gpt-5.6-terra', voice: 'cedar', avatar: VERIFIED_DEXTER_AVATAR_ID, behavior: 'direct-program-director', mode: 'voice-only',
   });
-  assert.equal(session.durationMinutes, 20);
+  assert.equal(session.durationMinutes, 2);
   assert.throws(() => first.startSession({ testIdentity: 'founder-test' }), /already has an active interview/);
-  now += 5 * 60_000;
+  now += 60_000;
   first.appendEvent(session.id, { transcript: { question: 'Tell me about yourself.', answer: 'A concise answer.' }, modelUsage: { inputTokens: 12, outputTokens: 8 } });
   const ended = first.endSession(session.id, 'completed');
-  assert.equal(ended.usage.estimatedMinutes, 5);
+  assert.equal(ended.usage.estimatedMinutes, 1);
   assert.equal(ended.transcript.length, 1);
   assert.equal(ended.instructorRecord.length, 0);
   assert.doesNotMatch(readFileSync(path, 'utf8'), /livekit_client_token|session_token|api[_-]?key/i);
@@ -61,7 +61,7 @@ test('emergency disable fails closed and commercialization controls remain inact
   assert.deepEqual(INACTIVE_COMMERCIALIZATION_CONTROLS.warnings, [75, 90, 100]);
 });
 
-test('fifteen-minute default, twenty-minute hard cap, concurrency, and restart usage remain durable', () => {
+test('two-minute beta default, hard cap, concurrency, and restart usage remain durable', () => {
   const directory = mkdtempSync(join(tmpdir(), 'ivprep-alpha-release-'));
   const path = join(directory, 'sessions.json');
   let now = 10_000_000;
@@ -74,12 +74,12 @@ test('fifteen-minute default, twenty-minute hard cap, concurrency, and restart u
     testIdentity: 'synthetic-b', durationMinutes: 20, selectedInterviewer: 'senior-academic-pd-male', model: 'gpt-5.6-terra',
     voice: 'cedar', avatar: VERIFIED_DEXTER_AVATAR_ID, behavior: 'direct-program-director', mode: 'voice-only',
   });
-  assert.equal(defaultSession.durationMinutes, 15);
-  assert.equal(concurrent.durationMinutes, 20);
-  now += 20 * 60_000;
+  assert.equal(defaultSession.durationMinutes, 2);
+  assert.equal(concurrent.durationMinutes, 2);
+  now += 2 * 60_000;
   assert.equal(store.getSession(defaultSession.id).terminationState, 'hard-cap');
   assert.equal(store.getSession(concurrent.id).terminationState, 'hard-cap');
-  assert.deepEqual(store.usageLedger().map((entry) => entry.estimatedMinutes), [15, 20]);
+  assert.deepEqual(store.usageLedger().map((entry) => entry.estimatedMinutes), [2, 2]);
   const restarted = new AlphaStore({ path, now: () => now });
   assert.equal(restarted.listSessions().length, 2);
   assert.equal(restarted.usageLedger().length, 2);
