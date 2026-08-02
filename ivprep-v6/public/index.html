@@ -1012,7 +1012,7 @@ textarea.note:focus{outline:0;border-color:var(--gd)}
    <button data-m="std" class="on" onclick="setMode('std')">Standard</button>
    <button data-m="coach" onclick="setMode('coach')">Coach</button>
   </div>
-  <span class="selpick" id="adv-auto" onclick="setAdvance(true)" title="Ten seconds of silence and the interviewer moves on, like real life">Auto-advance</span>
+  <span class="selpick on" id="adv-auto" onclick="setAdvance(true)" title="Founder debug control. The normal interview completes a turn after five seconds of genuine silence following speech.">Continuous mic · 5s silence</span>
   <span class="selpick" onclick="toggleImmerse()" title="Fullscreen interview: the app disappears, the call remains">⛶ Immersive</span>
  </div>
  <div class="roundtop">
@@ -1102,7 +1102,7 @@ textarea.note:focus{outline:0;border-color:var(--gd)}
  <div class="readGrid">
   <div><!-- LEFT: replay + evidence -->
    <div class="panel"><div class="pPad">
-    <div class="pLbl">Replay · your take <span class="real">REAL RECORDING</span></div>
+    <div class="pLbl" id="replaylabel">Evidence · your take <span class="sim">NO MEDIA</span></div>
     <video class="playback" id="playback" controls style="display:none"></video>
     <div class="empty" id="noplayback" style="padding:24px"><div class="ei">🎬</div><p>No recording in this rep (sim or mic-only mode). The measured audio evidence below is still real where mic was granted.</p></div>
     <div class="canvasbox" style="height:96px;margin-top:12px"><span class="cblabel">WAVEFORM · ENERGY CURVE · <span id="lvltag">REAL</span> · GOLD DOTS = YOUR ACTUAL PAUSES</span><canvas id="lvlc"></canvas></div>
@@ -1635,7 +1635,8 @@ function navOn(v){if(v===VIEW)return true;
  if(v==='results'&&VIEW==='results'&&!INFLOW)return true;
  if(v==='desk'&&VIEW==='mreview')return true;
  return false}
-function show(v){VIEW=v;$$('section[data-view]').forEach(s=>s.classList.toggle('live',s.dataset.view===v));
+function show(v){if(VIEW==='room'&&v!=='room'){SEQTOK++;if(window.V6Frontier&&window.V6Frontier.cancelTurn)window.V6Frontier.cancelTurn('navigation');stopMedia()}
+ VIEW=v;$$('section[data-view]').forEach(s=>s.classList.toggle('live',s.dataset.view===v));
  $('#mainel').scrollTop=0;$('#crumb').textContent=CRUMBS[v]||v.toUpperCase();renderSideNav();
  if(v==='home')renderHome();if(v==='vhome')renderVisitor();if(v==='build')renderBuildHub();
  if(v==='wizard')renderWizard();if(v==='meet')renderMeet();if(v==='perm')permAutopilot();
@@ -1690,7 +1691,7 @@ function renderHome(){
    +'</div>'
    +segbarHTML(last,110)
    +'<div style="display:flex;flex-direction:column;gap:7px">'
-   +'<button class="btnPri" onclick="replayRep(\''+last.id+'\')">▶ Replay</button>'
+   +'<button class="btnPri" onclick="'+(last.blobUrl?'replayRep(\''+last.id+'\')':'openLastResults()')+'">'+(last.blobUrl?'▶ Replay':'Evidence / Results')+'</button>'
    +'<button class="btnGhost" onclick="openLastResults()">Full results ▸</button></div></div>'}
  $('#homeStrengths').innerHTML=STRENGTHS.map(([t,d])=>'<div class="line"><span style="color:var(--gn);min-width:16px;font-weight:700">✓</span><span><b>'+esc(t)+'</b><div style="font-size:11.5px;color:var(--dim);margin-top:2px">'+esc(d)+'</div></span></div>').join('');
  $('#homePris').innerHTML=PRI.map(p=>'<div class="line"><span class="chip '+(p.ev>=p.need?'gn':p.n===3?'em':'dim')+'" style="min-width:92px;justify-content:center">'+(p.ev>=p.need?'✓ armed':p.n===3?'tonight':p.ev+' of '+p.need)+'</span><span style="font-weight:600">'+esc(p.t)+'</span><span class="serif" style="margin-left:auto;font-size:11.5px;color:#5c6a86">P'+p.n+'</span></div>').join('');
@@ -1732,7 +1733,7 @@ function renderVisitor(){renderProg('#progVisitor',true)}
    ================================================================ */
 let BUILD=[];
 let SEL={cast:'chen',hunger:2,silence:2,program:'general',diff:'standard',len:'standard'};
-const RUN={qi:0,takes:[],rating:null,active:null,memory:[],reset(){this.qi=0;this.takes=[];this.rating=null;this.memory=[];this.followupsUsed=0}};
+const RUN={qi:0,takes:[],rating:null,active:null,memory:[],termination:null,reset(){this.qi=0;this.takes=[];this.rating=null;this.memory=[];this.followupsUsed=0;this.termination=null}};
 function renderBuildHub(){
  const el=$('#buildShortcuts');el.innerHTML='';
  [['Re-run tonight’s mission','startMission()'],
@@ -1996,7 +1997,7 @@ function renderMeet(){const p=persona();
    MEDIA ENGINE (REAL) · permissions · station check · speech
    ================================================================ */
 const MEDIA={stream:null,cam:false,mic:false,sim:false,AC:null,analyser:null,data:null,rec:null,chunks:[]};
-let REC=false,recT=0,countdownOn=false;
+let REC=false,recT=0,countdownOn=false,TURN_SPOKEN=false,TURN_FINALIZING=false;
 function permUI(){const cam=MEDIA.cam,mic=MEDIA.mic,sim=MEDIA.sim;
  $('#permstate').innerHTML='STATUS · CAMERA <b class="'+(cam?'ok':'bad')+'">'+(cam?'GRANTED':'OFF')+'</b> · MIC <b class="'+(mic?'ok':'bad')+'">'+(mic?'GRANTED':'OFF')+'</b> · MODE <b class="'+(sim?'simb':'ok')+'">'+(sim?'SIMULATION':(cam?'FULL':(mic?'MIC ONLY':'UNDECIDED')))+'</b>';
  $('#permnext').disabled=!(cam||mic||sim);
@@ -2006,8 +2007,10 @@ function permUI(){const cam=MEDIA.cam,mic=MEDIA.mic,sim=MEDIA.sim;
  const mw=$('#meetwrap');if(mw)mw.classList.toggle('nocam',!cam)}
 async function reqMedia(wantCam,wantMic){try{
   if(MEDIA.stream)MEDIA.stream.getTracks().forEach(t=>t.stop());
-  const st=await navigator.mediaDevices.getUserMedia({video:wantCam?{width:1280,height:720}:false,audio:wantMic});
-  MEDIA.stream=st;st.getTracks().forEach(tr=>tr.onended=()=>{permUI();
+  const st=await navigator.mediaDevices.getUserMedia({video:wantCam?{width:1280,height:720}:false,
+   audio:wantMic?{echoCancellation:true,noiseSuppression:true,autoGainControl:true}:false});
+  MEDIA.stream=st;st.getTracks().forEach(tr=>tr.onended=()=>{MEDIA.cam=st.getVideoTracks().some(t=>t.readyState==='live');MEDIA.mic=st.getAudioTracks().some(t=>t.readyState==='live');
+   if(!MEDIA.cam&&!MEDIA.mic&&MEDIA.stream===st)MEDIA.stream=null;permUI();
    toast('A device disconnected mid-session. Finish or abandon the take, then re-grant from Camera + Mic. Nothing recorded is lost.')});
   MEDIA.cam=wantCam&&st.getVideoTracks().length>0;MEDIA.mic=wantMic&&st.getAudioTracks().length>0;MEDIA.sim=false;
   if(MEDIA.mic){MEDIA.AC=MEDIA.AC||new (window.AudioContext||window.webkitAudioContext)();
@@ -2018,10 +2021,15 @@ async function reqMedia(wantCam,wantMic){try{
   const rv=document.getElementById('roomvid');if(rv){rv.srcObject=st;rv.style.display='none'} /* self lives in the PIP, never full-stage — the room belongs to them */
   const ss=$('#stationsim');if(ss)ss.style.display=MEDIA.cam?'none':'block';
   permUI();const pd=$('#permdenied');if(pd)pd.style.display='none';
-  toast(MEDIA.cam?'Camera and mic live. This is your real preview.':'Mic live. Real level and pause meters armed.');
+ toast(MEDIA.cam?'Camera and mic live. This is your real preview.':'Mic live. Real level and pause meters armed.');
  }catch(e){permUI();
   const pd=$('#permdenied');if(pd)pd.style.display='block';
   toast('Permission blocked ('+(e.name||'error')+'). The recovery steps are on screen; nothing is lost.')}}
+function stopMedia(){speechStop();
+ if(MEDIA.rec&&MEDIA.rec.state!=='inactive'){try{MEDIA.rec.onstop=null;MEDIA.rec.stop()}catch(e){}}
+ if(MEDIA.stream)MEDIA.stream.getTracks().forEach(t=>t.stop());
+ MEDIA.stream=null;MEDIA.cam=false;MEDIA.mic=false;MEDIA.rec=null;MEDIA.chunks=[];MEDIA.analyser=null;MEDIA.data=null;
+ if(MEDIA.AC&&MEDIA.AC.state!=='closed'){try{MEDIA.AC.close()}catch(e){}}MEDIA.AC=null;permUI()}
 function simMode(){if(MEDIA.stream)MEDIA.stream.getTracks().forEach(t=>t.stop());MEDIA.stream=null;MEDIA.cam=false;MEDIA.mic=false;MEDIA.sim=true;
  ['stationvid','roomvid'].forEach(id=>{const v=document.getElementById(id);if(v)v.style.display='none'});
  const ss=$('#stationsim');if(ss)ss.style.display='block';
@@ -2221,7 +2229,7 @@ function platDemo(){toast('Demo control: the call buttons stay decorative here. 
 function platCaptions(){toast('Live captions arrive with the transcript engine. Where in-browser speech recognition is available, speaking rate and time-until-story already go REAL.')}
 function platEnd(){if(REC){endTake()}else if(countdownOn){abandonTake();toast('You left the call before the question. No harm; rejoin when ready.')}else toast('Nothing to end yet. BEGIN INTERVIEW starts the call.')}
 function setAdvance(){AUTOADV=!AUTOADV;$('#adv-auto').classList.toggle('on',AUTOADV);sfx('click');
- toast(AUTOADV?'Auto-advance armed: ten seconds of silence and the interviewer moves on, like real life.':'Manual mode: you end each answer yourself.')}
+ toast(AUTOADV?'Continuous microphone armed: five seconds of genuine silence after speech completes the answer.':'Founder debug: automatic turn completion is off; use Done Answering.')}
 function setMode(m,quiet){MODE=m;$$('#modeseg button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
  const room=document.querySelector('section[data-view="room"]');
  room.classList.toggle('hidden-mode',m==='sim');
@@ -2279,6 +2287,10 @@ function ivSet(joined,cam){const ms=$('#meetstate'),av=$('#avcircle'),cv=$('#ivc
 function setIvState(m){const el=$('#ivstate');if(!el)return;
  if(m==='ask')el.innerHTML='ASKING<span class="askdots"><i></i><i></i><i></i></span>';
  else if(m==='listen')el.textContent='LISTENING · WILL NOT INTERRUPT';
+ else if(m==='speaking')el.textContent='INTERVIEWER SPEAKING · YOU MAY INTERRUPT';
+ else if(m==='thinking')el.textContent='THINKING · BUILDING THE NEXT QUESTION';
+ else if(m==='muted')el.textContent='MICROPHONE MUTED';
+ else if(m==='error')el.textContent='INTERVIEWER UNAVAILABLE · RETRY';
  else if(m==='nod')el.textContent='NODS · MAKES A NOTE';
  else if(m==='silence')el.textContent='…LETS THE SILENCE SIT';
  else el.textContent='ASKS ONCE · THEN LISTENS'}
@@ -2317,20 +2329,20 @@ function startInterview(){if(countdownOn)return;
  let t=0;chain.forEach(([d,f])=>{t+=d;setTimeout(safe(f),RM?60:t)})}
 function currentQ(){return BUILD[RUN.qi]}
 function askQ(){let q=currentQ();if(!q){countdownOn=false;finishRound();return}
- if(q.folo){ // interviewer brain builds the adaptive follow-up live
-  const mem=RUN.memory[RUN.memory.length-1];
-  if(mem){const f=BRAIN.followupFor(mem);q={...q,q:f.q,gen:f.src,genReal:f.real};BUILD[RUN.qi]=q;RUN.followupsUsed++}
-  else {q={...q,q:'Tell me about a moment this week you’re proud of.',gen:'PERSONA POOL · NO PRIOR ANSWER'};BUILD[RUN.qi]=q}}
  $('#qprogchip').textContent='Q'+(RUN.qi+1)+' / '+BUILD.length+(q.folo?' · FOLLOW-UP':'');
  $('#capchip').textContent='CAP '+fmtT(q.cap);
- setIvState('ask');IVANIM='asking';ASKT0=performance.now();typeQ(q.q);
- if(q.gen)toast((q.genReal?'Follow-up built from your own words · REAL':'Follow-up from the persona pool · speech not available'),3200);
+ setIvState('speaking');IVANIM='asking';ASKT0=performance.now();typeQ(q.q);
+ if(q.gen)toast('Frontier follow-up built from the completed answer · observer ran afterward',3200);
  const tok=SEQTOK;
- setTimeout(()=>{if(tok!==SEQTOK)return;
+ const openMic=()=>{if(tok!==SEQTOK||VIEW!=='room'||REC)return;
   const cd=$('#dcount'),n=cd.querySelector('.n');let k=3;cd.style.display='flex';n.textContent=3;sfx('tick');
-  const iv=setInterval(()=>{if(tok!==SEQTOK){clearInterval(iv);cd.style.display='none';return}
-   k--;if(k>0){n.textContent=k;sfx('tick')}else{clearInterval(iv);cd.style.display='none';countdownOn=false;sfx('go');beginRec()}},RM?60:700)},RM?100:q.q.length*11+800)}
-function beginRec(){REC=true;recT=0;AUD.pauses=0;AUD.longest=0;AUD.curSil=0;AUD.talk=0;AUD.total=0;AUD.levels=[];MEDIA.chunks=[];
+  const iv=setInterval(()=>{if(tok!==SEQTOK||VIEW!=='room'||REC){clearInterval(iv);cd.style.display='none';return}
+   k--;if(k>0){n.textContent=k;sfx('tick')}else{clearInterval(iv);cd.style.display='none';countdownOn=false;sfx('go');beginRec()}},RM?60:700)};
+ if(window.V6Frontier&&window.V6Frontier.speak){window.V6Frontier.speak(q.q).then(openMic).catch(e=>{
+  toast('Voice unavailable: '+esc(e&&e.message?e.message:'provider error')+' · the typed question remains visible.');openMic()})}
+ else{setIvState('error');toast('Frontier interviewer runtime is unavailable. No deterministic fallback was used.')}}
+function beginRec(){REC=true;TURN_FINALIZING=false;recT=0;AUD.pauses=0;AUD.longest=0;AUD.curSil=0;AUD.talk=0;AUD.total=0;AUD.levels=[];MEDIA.chunks=[];
+ TURN_SPOKEN=false;
  PSAMP=[];PTT=[];MOVE.sum=0;MOVE.n=0;SAF=[];FRAME.bad=0;FRAME.tot=0;
  SIG={sum:0,n:0,peak:0,qmin:9,first:null,lum:[],cmy:[],outmove:0,askDur:ASKT0?(performance.now()-ASKT0)/1000:null};
  IVANIM='listening';
@@ -2344,7 +2356,8 @@ function beginRec(){REC=true;recT=0;AUD.pauses=0;AUD.longest=0;AUD.curSil=0;AUD.
   MEDIA.rec.ondataavailable=e=>{if(e.data.size)MEDIA.chunks.push(e.data)};MEDIA.rec.start(250)}catch(e){MEDIA.rec=null}}
  if(SPEECH.api&&(MEDIA.mic))speechStart('answer');
  toast('Protected window open. Nothing judges you mid-answer.')}
-function abandonTake(){REC=false;SEQTOK++;countdownOn=false;$('#dcount').style.display='none';clearInterval(TYPT);TYPT=null;
+function abandonTake(){REC=false;TURN_FINALIZING=false;SEQTOK++;countdownOn=false;$('#dcount').style.display='none';clearInterval(TYPT);TYPT=null;
+ if(window.V6Frontier&&window.V6Frontier.cancelTurn)window.V6Frontier.cancelTurn('abandoned');
  speechStop();
  if(MEDIA.rec&&MEDIA.rec.state!=='inactive'){try{MEDIA.rec.onstop=null;MEDIA.rec.stop()}catch(e){}}
  MEDIA.chunks=[];$('#meetwrap').classList.remove('recg');setIvState('idle');
@@ -2353,13 +2366,13 @@ function abandonTake(){REC=false;SEQTOK++;countdownOn=false;$('#dcount').style.d
  $('#roundbtn').style.display='inline-flex';$('#roundbtn').innerHTML='Begin Interview ▸';$('#roundbtn').onclick=startInterview;
  $('#nextqbtn').style.display='none';
  toast('Take abandoned. Nothing was kept, nothing was judged. Breathe, and go again when ready.')}
-function endTake(){REC=false;$('#recb').classList.remove('hot');$('#recb').innerHTML='<i></i>CAPTURED ✓';
+function endTake(){if(!REC||TURN_FINALIZING)return;TURN_FINALIZING=true;REC=false;$('#recb').classList.remove('hot');$('#recb').innerHTML='<i></i>CAPTURED ✓';
  $('#meetwrap').classList.remove('recg');sfx('cap');
  const mr=$('#mrec');if(mr)mr.innerHTML='';
  LASTCAP=performance.now();ASKT0=null;
- const q=currentQ();
+ const q=currentQ(),turnToken=SEQTOK,questionIndex=RUN.qi;
  const transcript=SPEECH.on||SPEECH.finalTxt?SPEECH.txt:'';const marks=SPEECH.marks.slice();speechStop();
- let blobUrl=null;const fin=()=>{
+ let blobUrl=null;const fin=()=>{if(SEQTOK!==turnToken||RUN.qi!==questionIndex||VIEW!=='room')return;
   const pv=PSAMP.length>4?sd(PSAMP):0;
   const words=transcript?transcript.split(/\s+/).filter(Boolean).length:0;
   const take={q:q.q,cat:q.cat,folo:!!q.folo,gen:q.gen||null,dur:recT,pauses:AUD.pauses,longest:AUD.longest,
@@ -2373,28 +2386,49 @@ function endTake(){REC=false;$('#recb').classList.remove('hot');$('#recb').inner
    real:{mic:MEDIA.mic,cam:MEDIA.cam,speech:!!transcript}};
   RUN.takes.push(take);
   RUN.memory.push({q:q.q,cat:q.cat,dur:recT,pauses:AUD.pauses,transcript});
-  /* the brain reacts */
-  if(BRAIN.shouldChallenge(take)){RUN.challenged=true;
-   BUILD.splice(RUN.qi+1,0,{q:'Let me stop you there — give me the thirty-second version. What’s the one thing I should remember?',cat:'stress',cap:45,strat:'Pressure · the short version',chal:true});
-   toast('The eagle wants the short version — the card told you it would.')}
-  const hold=BRAIN.silenceHold();
-  const lastQ=RUN.qi>=BUILD.length-1;
-  const proceed=()=>{setIvState('nod');IVANIM='thinking';setTimeout(()=>{if(IVANIM==='thinking')IVANIM='idle'},1700);
+  const proceed=frontierTurn=>{if(SEQTOK!==turnToken||RUN.qi!==questionIndex||VIEW!=='room')return;
+   if(frontierTurn&&frontierTurn.utterance){
+   take.observer=frontierTurn.observer||null;take.provider=frontierTurn.provider||null;take.model=frontierTurn.model||null;take.providerModel=frontierTurn.providerModel||null;take.providerObserverModel=frontierTurn.providerObserverModel||null;take.voice=frontierTurn.voice||null;
+    take.latency=frontierTurn.latency||null;
+    const nextIndex=RUN.qi+1,planExhausted=nextIndex>=BUILD.length;
+    take.generatedUtterance=frontierTurn.utterance;
+    if(planExhausted&&!frontierTurn.terminated&&!frontierTurn.final){fail(new Error('The interviewer did not return a valid closing utterance. Retry the final turn.'));return}
+    if(frontierTurn.terminated||frontierTurn.final){RUN.termination={terminated:!!frontierTurn.terminated,reason:frontierTurn.terminationReason||null,observer:frontierTurn.observer||null};
+     $('#qprogchip').textContent=frontierTurn.terminated?'INTERVIEW ENDED':'INTERVIEW COMPLETE';$('#capchip').textContent='FINAL';typeQ(frontierTurn.utterance);setIvState('speaking');IVANIM='asking';
+     $('#roundbtn').style.display='none';$('#nextqbtn').style.display='none';
+     const done=()=>{if(SEQTOK===turnToken&&RUN.qi===questionIndex&&VIEW==='room'){setIvState('idle');IVANIM='idle';finishRound()}};
+     if(window.V6Frontier&&window.V6Frontier.speak)window.V6Frontier.speak(frontierTurn.utterance).then(done).catch(e=>{toast('Final interviewer audio unavailable; the exact final statement remains visible.');done()});
+     else done();return}
+    const planned=BUILD[nextIndex]||{};const next={...planned,q:frontierTurn.utterance,cat:planned.cat||'followup',cap:planned.cap||90,strat:planned.strat||'Frontier contextual follow-up',folo:!!planned.folo,
+     gen:'FRONTIER · '+frontierTurn.model,genReal:true,observer:frontierTurn.observer||null};
+    BUILD[nextIndex]=next;
+    RUN.followupsUsed++}
+   const lastQ=RUN.qi>=BUILD.length-1;
+   setIvState('nod');IVANIM='thinking';setTimeout(()=>{if(IVANIM==='thinking')IVANIM='idle'},1700);
    $('#roundbtn').style.display='none';const nb=$('#nextqbtn');nb.style.display='inline-flex';
    nb.innerHTML=lastQ?'Finish · Rate Yourself ▸':'Next Question ▸';
    nb.onclick=lastQ?finishRound:nextQ;
-   toast('Take captured ('+recT.toFixed(0)+'s'+(blobUrl?' · real recording saved to this tab':'')+(transcript?' · transcript caught':'')+').')};
-  if(hold>0&&!lastQ){setIvState('silence');
-   $('#roundbtn').style.display='none';$('#nextqbtn').style.display='none';
-   setTimeout(proceed,RM?80:hold*1000)}
-  else proceed()};
+   toast('Take captured ('+recT.toFixed(0)+'s'+(blobUrl?' · real recording saved to this tab':'')+(transcript?' · transcript caught':'')+').');
+   if(frontierTurn&&!lastQ){$('#nextqbtn').style.display='none';const advanceToken=SEQTOK,advanceIndex=RUN.qi;
+    setTimeout(()=>{if(SEQTOK===advanceToken&&RUN.qi===advanceIndex&&VIEW==='room')nextQ()},RM?80:520)}};
+  const fail=error=>{if(SEQTOK!==turnToken||RUN.qi!==questionIndex||VIEW!=='room')return;setIvState('error');IVANIM='idle';
+   if(!take.transcript){if(take.blobUrl)URL.revokeObjectURL(take.blobUrl);if(RUN.takes[RUN.takes.length-1]===take)RUN.takes.pop();
+    if(RUN.memory.length&&RUN.memory[RUN.memory.length-1].q===take.q&&!RUN.memory[RUN.memory.length-1].transcript)RUN.memory.pop();
+    toast('No usable transcript was captured. The protected answer window is open again; speak or use the typed-answer fallback.');beginRec();return}
+   $('#roundbtn').style.display='none';const nb=$('#nextqbtn');nb.style.display='inline-flex';nb.innerHTML='Retry Interviewer ▸';
+   nb.onclick=()=>{nb.style.display='none';setIvState('thinking');window.V6Frontier.onTakeComplete(take).then(proceed).catch(fail)};
+   toast('Interviewer unavailable: '+esc(error&&error.message?error.message:'provider error')+'. No fallback question was substituted.')};
+  if(window.V6Frontier&&window.V6Frontier.onTakeComplete){setIvState('thinking');IVANIM='thinking';
+   window.V6Frontier.onTakeComplete(take).then(proceed).catch(fail)}
+  else fail(new Error('frontier runtime not loaded'))};
  if(MEDIA.rec&&MEDIA.rec.state!=='inactive'){MEDIA.rec.onstop=()=>{if(MEDIA.chunks.length){blobUrl=URL.createObjectURL(new Blob(MEDIA.chunks,{type:MEDIA.chunks[0].type||'video/webm'}))}fin()};MEDIA.rec.stop()}
  else fin()}
 function nextQ(){RUN.qi++;countdownOn=true;SEQTOK++;
  $('#recb').innerHTML='<i></i>STANDBY';$('#roundbtn').style.display='none';
  const nb=$('#nextqbtn');nb.style.display='inline-flex';nb.innerHTML='✕ Abandon';nb.onclick=abandonTake;
  askQ()}
-function finishRound(){$('#ratechip').textContent=RUN.takes.length+' take'+(RUN.takes.length>1?'s':'')+' · '+ivName()+' · analysis sealed';
+function finishRound(){SEQTOK++;countdownOn=false;REC=false;TURN_FINALIZING=false;if(window.V6Frontier&&window.V6Frontier.cancelTurn)window.V6Frontier.cancelTurn('finished');stopMedia();
+ $('#ratechip').textContent=RUN.takes.length+' take'+(RUN.takes.length>1?'s':'')+' · '+ivName()+(RUN.termination&&RUN.termination.terminated?' · terminated':' · analysis sealed');
  goFlow('selfrate')}
 function safTap(i){if(!REC){toast('The SAF strip listens during your answer. Begin, then tap as you move through your structure.');return}
  SAF.push({phase:i,at:recT});
@@ -2411,12 +2445,12 @@ function safTap(i){if(!REC){toast('The SAF strip listens during your answer. Beg
     if(AUD.pitch){PSAMP.push(AUD.pitch);PTT.push([recT,AUD.pitch])}
     SIG.n++;SIG.sum+=AUD.level;SIG.peak=Math.max(SIG.peak,AUD.level);
     const speaking=AUD.level>.05;
-    if(speaking){if(SIG.first===null)SIG.first=recT;SIG.qmin=Math.min(SIG.qmin,AUD.level)}
+    if(speaking){TURN_SPOKEN=true;if(SIG.first===null)SIG.first=recT;SIG.qmin=Math.min(SIG.qmin,AUD.level)}
     if(speaking){AUD.talk+=dt;if(AUD.curSil>1){AUD.pauses++;AUD.longest=Math.max(AUD.longest,AUD.curSil)}AUD.curSil=0}
     else AUD.curSil+=dt;
     const cap=currentQ()?currentQ().cap:120;
-    $('#rtimer').textContent=recT.toFixed(1)+'s / '+cap+'s'+(AUTOADV&&AUD.curSil>4?(' · SILENCE '+AUD.curSil.toFixed(0)+'s/10'):'');
-    if(AUTOADV&&AUD.curSil>=10&&recT>5){toast('Ten seconds of silence: the interviewer nods and moves on. (Auto-advance is yours to switch off.)');endTake();sfx('gong')}
+    $('#rtimer').textContent=recT.toFixed(1)+'s / '+cap+'s'+(AUTOADV&&TURN_SPOKEN&&AUD.curSil>.7?(' · SILENCE '+AUD.curSil.toFixed(1)+'s / 5.0'):'');
+    if(AUTOADV&&TURN_SPOKEN&&AUD.curSil>=5&&recT>1&&!(window.V6Frontier&&window.V6Frontier.micController)){toast('Five seconds of genuine silence: answer complete.');endTake();sfx('gong')}
     else if(recT>=cap){endTake()}}
    else $('#rtimer').textContent=REC?'':'READY';
    const tc=$('#teamsClock');if(tc)tc.textContent=fmtT(REC?recT:0);
@@ -2474,7 +2508,7 @@ function safTap(i){if(!REC){toast('The SAF strip listens during your answer. Beg
      const col=AUD.curSil<3?'255,215,106':AUD.curSil<6?'255,179,64':'255,84,112';
      g.fillStyle='rgba('+col+',.85)';g.beginPath();g.arc(LW-30,LH*.3,pr,0,7);g.fill();
      g.font='700 9px Rajdhani';g.fillStyle='rgba('+col+',1)';g.textAlign='right';
-     g.fillText(AUD.curSil<3?'HELD · GOOD':AUD.curSil<6?'LONG':'THEY MOVE ON AT 10s',LW-52,LH*.3+3);g.textAlign='left'}
+     g.fillText(AUD.curSil<3?'HELD · GOOD':AUD.curSil<5?'NATURAL PAUSE':'ANSWER COMPLETE AT 5s',LW-52,LH*.3+3);g.textAlign='left'}
     const PS2=PSAMP.slice(-120);
     if(PS2.length>6){const pv2=sd(PS2);
      g.beginPath();PS2.forEach((p,i)=>{const px=i/(PS2.length-1)*LW;
@@ -2484,7 +2518,7 @@ function safTap(i){if(!REC){toast('The SAF strip listens during your answer. Beg
       g.fillText('VOICE FLATTENING · LET THE STORY MOVE IT',6,10)}}
     const tk=$('#laneticker');
     if(tk){const parts=[];
-     if(REC&&AUD.curSil>3)parts.push('SILENCE '+AUD.curSil.toFixed(0)+'s OF 10');
+     if(REC&&TURN_SPOKEN&&AUD.curSil>3)parts.push('SILENCE '+AUD.curSil.toFixed(1)+'s OF 5');
      if(REC&&MEDIA.cam&&!frameOk)parts.push('RE-CENTER IN FRAME');
      tk.textContent=parts.length?parts.join(' · '):(REC?'IN THE BAND · KEEP GOING':'LANE READY')}}
    /* interviewer tile presence */
@@ -2540,6 +2574,8 @@ function reveal(){if(!RUN.rating)return;
   saf:main.saf||[],levels:main.levels||[],blobUrl:(T.find(t=>t.blobUrl)||{}).blobUrl||null,
   sig:main.sig||{},move:main.move,framePct:main.framePct,
   transcript:main.transcript||'',wpm:main.wpm,fillers:main.fillers,storyAt:main.storyAt,
+  frontierTurns:T.map(t=>({question:t.q,answer:t.transcript||'',generatedUtterance:t.generatedUtterance||null,model:t.model||null,providerModel:t.providerModel||null,providerObserverModel:t.providerObserverModel||null,voice:t.voice||null,provider:t.provider||null,
+   latency:t.latency||null,observer:t.observer||null})),
   rating:RUN.rating,real:{mic:MEDIA.mic,cam:MEDIA.cam,speech:!!(main.transcript)},
   shared:false,status:'PENDING',bookmarks:[],treasure:false,teacherRating:null,takeList:T.map(t=>({q:t.q,dur:t.dur,pauses:t.pauses,ratio:t.ratio}))};
  goFlow('results');renderResults(RUN.active);
@@ -2547,8 +2583,8 @@ function reveal(){if(!RUN.rating)return;
 function renderResults(rep){
  $('#calline').textContent='You called it: '+(rep.rating||'—')+' — part of the record';
  const pb=$('#playback'),npb=$('#noplayback');
- if(rep.blobUrl){pb.src=rep.blobUrl;pb.style.display='block';npb.style.display='none'}
- else{pb.style.display='none';npb.style.display='block'}
+ if(rep.blobUrl){pb.src=rep.blobUrl;pb.style.display='block';npb.style.display='none';$('#replaylabel').innerHTML='Replay · your take <span class="real">REAL RECORDING</span>'}
+ else{pb.removeAttribute('src');pb.style.display='none';npb.style.display='block';$('#replaylabel').innerHTML='Evidence · your take <span class="sim">NO MEDIA</span>'}
  $('#lvltag').textContent=rep.real&&rep.real.mic?'REAL':'SIM';
  drawResultCanvases(rep);
  /* the clock */
@@ -2706,7 +2742,7 @@ function renderVault(){const el=$('#vaultlist');el.innerHTML='';
   +'<button class="starb '+(r.treasure?'on':'')+'" data-star="'+r.id+'" title="Treasure this answer">★</button>'
   +'<span class="chip '+(r.status==='REVIEWED'?'gd':'em')+'">'+(r.status==='REVIEWED'?'◆ COACHED':'SAVED')+'</span>'
   +'<span class="sharepill">SHARE<span class="tglD '+(r.shared?'on':'')+'" data-share="'+r.id+'"><i></i></span></span>'
-  +'<button class="rowBtn" data-open="'+r.id+'">Replay</button>'
+  +'<button class="rowBtn" data-open="'+r.id+'">'+(r.blobUrl?'Replay':'Evidence')+'</button>'
   +'<button class="kill" data-del="'+r.id+'">✕</button>';
   el.appendChild(d)});
  $$('#vaultlist [data-star]').forEach(b=>b.onclick=()=>{const r=REPS.find(x=>x.id===b.dataset.star);r.treasure=!r.treasure;persistMeta();
@@ -3020,7 +3056,8 @@ function renderRegistry(){const el=$('#regList');el.innerHTML='';
  $$('#regList [data-rdel]').forEach(b=>b.onclick=()=>{const i=CAST.findIndex(c=>c.id===b.dataset.rdel);
   if(i>-1){toast(CAST[i].name+' removed from the registry.');CAST.splice(i,1);renderRegistry()}});
  $$('#regBird .selpick').forEach(p=>p.onclick=()=>{$$('#regBird .selpick').forEach(x=>x.classList.remove('on'));p.classList.add('on')});
- $$('#regKind .selpick').forEach(p=>p.onclick=()=>{$$('#regKind .selpick').forEach(x=>x.classList.remove('on'));p.classList.add('on')})}
+ $$('#regKind .selpick').forEach(p=>p.onclick=()=>{$$('#regKind .selpick').forEach(x=>x.classList.remove('on'));p.classList.add('on')});
+ if(window.V6Frontier&&window.V6Frontier.renderFounderStudios)window.V6Frontier.renderFounderStudios()}
 function regAdd(){const name=($('#regName').value||'').trim(),line=($('#regLine').value||'').trim();
  if(!name){toast('Give the interviewer a display name first.');return}
  const bird=($('#regBird .selpick.on')||{}).dataset?$('#regBird .selpick.on').dataset.rb:'🦉 Owl';
@@ -3048,11 +3085,21 @@ $('#sndtgl').textContent=SND?'♪ ON':'♪ OFF';
 setMode('std',true);
 renderDials();
 startTakePrep();
+window.V6Bridge={
+ get role(){return ROLE},get view(){return VIEW},get media(){return MEDIA},get audio(){return AUD},get speech(){return SPEECH},
+ get run(){return RUN},get result(){return RUN.active||[...REPS].reverse()[0]||null},get build(){return BUILD},get selection(){return SEL},get recording(){return REC},get turnSpoken(){return TURN_SPOKEN},
+ persona,currentQ,toast,setIvState,typeQ,ivSet,endTake,beginRec,nextQ,finishRound,speechStart,speechStop,stopMedia,renderRegistry,abandonTake,startInterview,nav,
+ setTypedTranscript(text){const clean=String(text||'').trim();SPEECH.txt=clean;SPEECH.finalTxt=clean;SPEECH.marks=clean?[[Math.max(.1,recT),clean]]:[];TURN_SPOKEN=!!clean;return clean},
+ setMuted(muted){if(MEDIA.stream)MEDIA.stream.getAudioTracks().forEach(t=>t.enabled=!muted);setIvState(muted?'muted':(REC?'listen':'idle'))},
+ context(){return {role:ROLE,view:VIEW,selection:{...SEL},interviewer:persona(),questions:BUILD.map(q=>({q:q.q,cat:q.cat,strat:q.strat||null})),
+  memory:RUN.memory.map(m=>({...m})),priorities:PRI.map(p=>({title:p.t,why:p.why})),stories:SFSTORIES.map(s=>({title:s.t,status:s.status,note:s.note})),timeline:TIMELINE.map(t=>t.slice())}}
+};
 (function validate(){
  const views=['home','vhome','build','wizard','meet','perm','station','room','selfrate','results','vault','stories','myfile','programs','desk','mstudent','mreview','mtrends','ops','registry'];
  const missing=views.filter(v=>!document.querySelector('section[data-view="'+v+'"]'));
  console.log('MissionMed IV Prep On-Call V6 ·',views.length,'views ·',missing.length?('MISSING: '+missing):'all present',
   '· media:',navigator.mediaDevices?'ok':'none','· speech:',SPEECH.api?'ok':'absent')})();
 </script>
+<script type="module" src="/v6-integration.mjs"></script>
 </body>
 </html>

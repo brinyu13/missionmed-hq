@@ -1,0 +1,16 @@
+{
+  "name": "@missionmed/ivprep-v6-alpha",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/serve.mjs",
+    "check": "node --check server/serve.mjs && node --check providers/avatar-provider.mjs && node --check providers/errors.mjs && node --check providers/openai-model-discovery.mjs && node --check providers/openai-realtime.mjs && node --check providers/openai-responses.mjs && node --check providers/openai-speech.mjs && node --check config/models.mjs && node --check config/voices.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}

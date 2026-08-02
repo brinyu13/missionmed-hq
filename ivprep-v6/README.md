@@ -11,3 +11,9 @@ Y1-Y2-CAM-V6-3401 and its accepted successors.
   code. They do not modify the MissionMed production runtime.
 
 No production route or deployment is authorized by this directory.
+
+## Local launch
+
+Run `npm install && npm start` in this directory, then open
+`http://127.0.0.1:8343/`. Port 8343 intentionally avoids the existing donor
+proof on port 8320. The server refuses non-loopback hosts.
