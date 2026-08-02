@@ -105,34 +105,32 @@ function scene(options = {}) {
   });
 }
 
-test("M4 freezes the 1920×1080 T1 board, 68% axis, exact palette, type, geometry, shadow, and explicit lane spacing tokens", () => {
+test("Founder artifact correction freezes the 1920×1080 PowerPoint geometry and exact 407F presentation tokens", () => {
   assert.deepEqual(KEYNOTE_BOARD_GEOMETRY, {
     width: 1920,
     height: 1080,
-    margin: 96,
-    innerWidth: 1728,
-    axisRatio: 0.68,
-    axisY: 734.4,
+    margin: 38.4,
+    innerWidth: 1843.2,
+    axisRatio: 64 / 1080,
+    axisY: 64,
     arrow: {
-      shaftHeight: 28,
-      condensedShaftHeight: 22,
-      headLength: 18,
-      headHeight: 40,
-      leftRadius: 3,
-      labelPadding: 8,
-      openFadeLength: 48
+      shaftHeight: 30,
+      condensedShaftHeight: 24,
+      headLength: 15,
+      headHeight: 30,
+      leftRadius: 0,
+      labelPadding: 10,
+      openFadeLength: 0
     },
     flag: {
-      standardHeight: 34,
-      alternateHeight: 52,
+      standardHeight: 78,
+      alternateHeight: 108,
       plateHeight: 24,
-      plateRadius: 6,
-      poleWidth: 1.5
+      plateRadius: 2,
+      poleWidth: 2
     }
   });
-  assert.ok(
-    Math.abs(KEYNOTE_BOARD_GEOMETRY.axisY - KEYNOTE_BOARD_GEOMETRY.height * 0.68) < 1e-9
-  );
+  assert.ok(KEYNOTE_BOARD_GEOMETRY.axisY < KEYNOTE_BOARD_GEOMETRY.height * 0.2);
   assert.equal(KEYNOTE_CLASSIC_THEME.board.start, "#F5F7FB");
   assert.equal(KEYNOTE_CLASSIC_THEME.board.end, "#E9EEF6");
   assert.equal(KEYNOTE_CLASSIC_THEME.board.angle, 165);
@@ -161,24 +159,24 @@ test("M4 freezes the 1920×1080 T1 board, 68% axis, exact palette, type, geometr
     personal: "#8A5BBF"
   });
   assert.deepEqual(KEYNOTE_LANE_SPACING_TOKENS, {
-    standard: { pitch: 64, axisClearance: 52 },
-    condensed: { pitch: 44, axisClearance: 52 }
+    standard: { pitch: 46, axisClearance: 34 },
+    condensed: { pitch: 32, axisClearance: 34 }
   });
 });
 
-test("M4 builds adaptive year segments and ticks whose integer widths sum to the exact 1728px inner board", () => {
+test("Founder artifact correction builds adaptive year segments across the near-full-width 407F axis", () => {
   const rendered = scene();
-  assert.equal(rendered.axis.x1, 96);
-  assert.equal(rendered.axis.x2, 1824);
-  assert.equal(rendered.axis.y, 734.4);
+  assert.equal(rendered.axis.x1, 38.4);
+  assert.equal(rendered.axis.x2, 1881.4);
+  assert.equal(rendered.axis.y, 64);
   assert.equal(
     rendered.axis.segments.reduce((sum, segment) => sum + segment.width, 0),
-    1728
+    1843
   );
-  assert.equal(rendered.axis.segments[0].x, 96);
+  assert.equal(rendered.axis.segments[0].x, 38.4);
   assert.equal(
     rendered.axis.segments.at(-1).x + rendered.axis.segments.at(-1).width,
-    1824
+    1881.4
   );
   assert.equal(rendered.axis.boundaries.length, rendered.axis.segments.length + 1);
   for (const segment of rendered.axis.segments) {
@@ -192,22 +190,21 @@ test("M4 builds adaptive year segments and ticks whose integer widths sum to the
   }
 });
 
-test("M4 renders flat tapered arrows with the frozen normal geometry, one fill, 3px left radius, shadow, and no label plates", () => {
+test("Founder artifact correction renders exact 30px 402A sprite arrows with PowerPoint date composition", () => {
   const rendered = scene();
   const arrow = rendered.arrows.find(({ id }) => id === "medical-school");
-  assert.equal(arrow.shaftHeight, 28);
-  assert.equal(arrow.headLength, 18);
-  assert.equal(arrow.headHeight, 40);
-  assert.equal(arrow.leftRadius, 3);
+  assert.equal(arrow.shaftHeight, 30);
+  assert.equal(arrow.headLength, 15);
+  assert.equal(arrow.headHeight, 30);
+  assert.equal(arrow.leftRadius, 0);
   assert.equal(arrow.fill, "#2C6E8F");
-  assert.match(arrow.path, /^M /);
-  assert.match(arrow.path, / Q /);
-  assert.match(arrow.path, / L [\d.]+ [\d.]+ L /);
   const svg = serializeKeynoteClassicSvg(rendered);
-  assert.match(svg, /<feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#000000" flood-opacity="\.18"\/>/);
-  assert.doesNotMatch(svg, /data-label-plate/);
-  assert.doesNotMatch(svg, /class="[^"]*label[^"]*plate/);
-  assert.match(svg, /data-arrow-label="inside"/);
+  assert.match(svg, /\.locked407F-arrow:before[^}]*width:9px/);
+  assert.match(svg, /\.locked407F-arrow:after[^}]*width:15px/);
+  assert.match(svg, /data-event-id="medical-school"[^>]*--sc:url/);
+  assert.match(svg, /<div class="locked407F-ads">Jan 2021<\/div>/);
+  assert.match(svg, /<div class="locked407F-ade">Dec 2022<\/div>/);
+  assert.match(svg, /<div class="locked407F-al">Medical school<\/div>/);
 });
 
 test("M4 contrast-tests both candidates, prefers passing white, uses passing primary ink, and falls back to bare above text when neither candidate passes", () => {
@@ -249,39 +246,35 @@ test("M4 contrast-tests both candidates, prefers passing white, uses passing pri
   assert.equal(tooLong.reason, "does-not-fit-shaft-padding");
 });
 
-test("M4 uses bare above labels at the exact 4px arrow offset and emits single-line ellipsis metadata without a background", () => {
+test("Founder artifact correction integrates labels inside the sprite while retaining the contrast decision metadata", () => {
   const rendered = scene();
   const clinical = rendered.arrows.find(({ id }) => id === "clinical");
   assert.equal(clinical.label.placement, "above");
-  assert.equal(clinical.label.y, clinical.centerY - 20 - 4);
-  assert.equal(clinical.label.textAnchor, "start");
   assert.equal(clinical.label.color, "#232B36");
   assert.equal(clinical.label.fullText, "US clinical rotations");
   const svg = serializeKeynoteClassicSvg(rendered);
   assert.match(
     svg,
-    /<text data-arrow-label="above"[^>]*><title>US clinical rotations<\/title>/
+    /<div class="locked407F-al">US clinical rotations<\/div>/
   );
 });
 
-test("M4 renders open-ended arrows to the deterministic current month with a 48px fade, no head, and one topmost Present label", () => {
+test("Founder artifact correction renders open-ended spans as solid PowerPoint arrows ending in Present", () => {
   const rendered = scene();
   const open = rendered.arrows.find(({ id }) => id === "open-work");
   assert.equal(open.openEnded, true);
   assert.equal(open.endMonth, "2026-07");
-  assert.equal(open.headLength, 0);
-  assert.equal(open.headHeight, open.shaftHeight);
-  assert.equal(open.fadeLength, 48);
-  assert.equal(open.x2 - open.fadeStartX, 48);
-  assert.equal(open.showPresent, true);
-  assert.doesNotMatch(open.path, / L [\d.]+ [\d.]+ L /);
+  assert.equal(open.headLength, 15);
+  assert.equal(open.headHeight, 30);
+  assert.equal(open.fadeLength, 0);
+  assert.equal(open.fadeStartX, null);
+  assert.equal(open.showPresent, false);
   const svg = serializeKeynoteClassicSvg(rendered);
-  assert.match(svg, /id="d1-open-fade-[^"]+"/);
-  assert.match(svg, /stop-opacity="0"/);
-  assert.equal((svg.match(/data-present-label="true"/g) || []).length, 1);
+  assert.doesNotMatch(svg, /id="d1-open-fade-/);
+  assert.match(svg, /<div class="locked407F-ade">Present<\/div>/);
 });
 
-test("M4 puts Present on only the visually topmost open arrow", () => {
+test("Founder artifact correction labels every open span within its own date composition", () => {
   const rendered = buildKeynoteClassicScene({
     studentProfile: { fullName: "Open spans" },
     events: [
@@ -303,19 +296,14 @@ test("M4 puts Present on only the visually topmost open arrow", () => {
     ]
   }, { currentMonth: "2026-07" });
   const openArrows = rendered.arrows.filter(({ openEnded }) => openEnded);
-  assert.equal(openArrows.filter(({ showPresent }) => showPresent).length, 1);
-  const topmost = openArrows.reduce((highest, arrow) =>
-    arrow.lane > highest.lane ? arrow : highest
-  );
-  assert.equal(topmost.id, "open-topmost");
-  assert.equal(topmost.showPresent, true);
+  assert.equal(openArrows.filter(({ showPresent }) => showPresent).length, 0);
   assert.equal(
-    (serializeKeynoteClassicSvg(rendered).match(/data-present-label="true"/g) || []).length,
-    1
+    (serializeKeynoteClassicSvg(rendered).match(/>Present<\/div>/g) || []).length,
+    2
   );
 });
 
-test("M4 renders study periods with the Exams 45° hatch at 60% and a provisional 1.5px dashed outline", () => {
+test("Founder artifact correction keeps study semantics on the exact exam sprite", () => {
   const rendered = scene();
   const study = rendered.arrows.find(({ id }) => id === "study-window");
   assert.equal(study.study, true);
@@ -323,37 +311,34 @@ test("M4 renders study periods with the Exams 45° hatch at 60% and a provisiona
   assert.equal(study.label.placement, "above");
   assert.equal(study.label.reason, "patterned-fill-requires-bare-above-label");
   const svg = serializeKeynoteClassicSvg(rendered);
-  assert.match(svg, /patternTransform="rotate\(45\)"/);
-  assert.match(svg, /stroke="#3A78C9" stroke-width="3" stroke-opacity="\.6"/);
-  assert.match(
-    svg,
-    /data-event-id="study-window"[\s\S]*?stroke="#3A78C9" stroke-width="1\.5" stroke-dasharray="8 6"/
-  );
+  assert.match(svg, /data-event-id="study-window"[^>]*data-study="true"/);
+  assert.match(svg, /data-event-id="study-window"[^>]*--ac:#3a78c9/);
+  assert.match(svg, /data-event-id="study-window"[^>]*--sc:url/);
 });
 
-test("M4 renders canonical white T1 flag plates on 1.5px axis-planted poles and alternates overlapping flag heights 34/52", () => {
+test("Founder artifact correction renders milestone sprites above the top axis", () => {
   const rendered = scene();
   const first = rendered.flags.find(({ id }) => id === "step-2");
   const second = rendered.flags.find(({ id }) => id === "publication");
   assert.deepEqual([first.height, second.height], [34, 52]);
   for (const flag of [first, second]) {
-    assert.equal(flag.pole.y2, 734.4);
-    assert.equal(flag.pole.width, 1.5);
+    assert.equal(flag.pole.y2, 64);
+    assert.equal(flag.pole.width, 2);
     assert.equal(flag.plate.height, 24);
-    assert.equal(flag.plate.radius, 6);
+    assert.equal(flag.plate.radius, 2);
     assert.equal(flag.plate.fill, "#FFFFFF");
     assert.equal(flag.plate.border, "#C6CFDB");
     assert.equal(flag.plate.borderWidth, 1);
   }
   const svg = serializeKeynoteClassicSvg(rendered);
-  assert.equal((svg.match(/data-flag-plate="true"/g) || []).length, 3);
+  assert.equal((svg.match(/data-event-kind="flag"/g) || []).length, 2);
+  assert.equal((svg.match(/class="locked407F-fmark"/g) || []).length, 3);
 });
 
-test("M4 renders the interview marker below the axis and includes it in accessible scene metadata", () => {
+test("Founder artifact correction integrates the interview marker into the upper-right logo and ribbon language", () => {
   const rendered = scene();
   assert.equal(rendered.interviewMarker.month, "2025-09");
-  assert.equal(rendered.interviewMarker.pole.y1, 734.4);
-  assert.ok(rendered.interviewMarker.plate.y > 734.4);
+  assert.equal(rendered.interviewMarker.pole.y1, 64);
   assert.equal(rendered.interviewMarker.label.text, "Interview season");
   assert.equal(
     rendered.accessibility.interviewMarkerLabel,
@@ -361,7 +346,8 @@ test("M4 renders the interview marker below the axis and includes it in accessib
   );
   const svg = serializeKeynoteClassicSvg(rendered);
   assert.match(svg, /data-event-kind="interview-marker"/);
-  assert.match(svg, />Interview season<\/text>/);
+  assert.match(svg, /data-interview-destination="407f-ribbon"/);
+  assert.match(svg, />YOUR BIG INTERVIEW<\/div>/);
 });
 
 test("M4 defaults to Interview-safe, excludes advisor-only items before layout, and Everything includes them", () => {
@@ -394,9 +380,9 @@ test("M4 exposes application/event accessibility metadata, chronological tab ord
     /Step 2 CK · 254, Exams, Jun 2024/
   );
   const svg = serializeKeynoteClassicSvg(rendered);
-  assert.match(svg, /role="img" aria-labelledby="d1-keynote-classic-title d1-keynote-classic-description"/);
-  assert.match(svg, /<title id="d1-keynote-classic-title">Timeline visualization, 7 events; use Tab to move between events<\/title>/);
-  assert.match(svg, /<desc id="d1-keynote-classic-description">/);
+  assert.match(svg, /role="img" aria-labelledby="d1-locked-407f-title d1-locked-407f-description"/);
+  assert.match(svg, /<title id="d1-locked-407f-title">Timeline visualization, 7 events; use Tab to move between events<\/title>/);
+  assert.match(svg, /<desc id="d1-locked-407f-description">/);
   assert.match(svg, /viewBox="0 0 1920 1080" width="1920" height="1080"/);
 });
 
@@ -422,19 +408,19 @@ test("D1-405 renders N<4 spans with an exact-sum equal-year fallback", () => {
     ]
   }, { currentMonth: "2026-07" });
   assert.equal(scene.axis.segments.length, 3);
-  assert.deepEqual(scene.axis.segments.map(({ width }) => width), [576, 576, 576]);
+  assert.deepEqual(scene.axis.segments.map(({ width }) => width), [615, 614, 614]);
   assert.equal(
     scene.axis.segments.reduce((sum, segment) => sum + segment.width, 0),
-    KEYNOTE_BOARD_GEOMETRY.innerWidth
+    Math.round(KEYNOTE_BOARD_GEOMETRY.innerWidth)
   );
   for (const segment of scene.axis.segments) {
     assert.equal(segment.allocationPolicy, "small-span-exact-sum");
     assert.equal(segment.maximumRelaxed, true);
-    assert.equal(segment.frozenMaximum, KEYNOTE_BOARD_GEOMETRY.innerWidth * 0.28);
+    assert.equal(segment.frozenMaximum, Math.round(KEYNOTE_BOARD_GEOMETRY.innerWidth) * 0.28);
   }
 });
 
-test("M4 explicitly isolates a computed duration width smaller than the frozen 18px head without widening or changing dates", () => {
+test("Founder artifact correction widens short spans to the canonical 52px sprite minimum without changing dates", () => {
   const events = [
     event({
       id: "one-month",
@@ -450,19 +436,13 @@ test("M4 explicitly isolates a computed duration width smaller than the frozen 1
       endDate: "2026-12"
     }))
   ];
-  assert.throws(
-    () => buildKeynoteClassicScene(
-      { studentProfile: { fullName: "Dense span" }, events },
-      { currentMonth: "2026-07" }
-    ),
-    (error) => {
-      assert.equal(error.name, "BoardRenderIsolationError");
-      assert.equal(error.code, "D1_UXR_002_M4_ISOLATED_DURATION_WIDTH_LT_ARROW_HEAD");
-      assert.equal(error.isolated, true);
-      assert.equal(error.details.eventId, "one-month");
-      assert.ok(error.details.visualWidth < 18);
-      assert.equal(error.details.frozenHeadLength, 18);
-      return true;
-    }
+  const rendered=buildKeynoteClassicScene(
+    { studentProfile: { fullName: "Dense span" }, events },
+    { currentMonth: "2026-07" }
   );
+  const short=rendered.arrows.find(({id})=>id==="one-month");
+  assert.equal(short.startMonth,"2019-01");
+  assert.equal(short.endMonth,"2019-01");
+  assert.ok(Math.abs(short.width-52)<1e-9);
+  assert.match(serializeKeynoteClassicSvg(rendered),/min-width:52px/);
 });

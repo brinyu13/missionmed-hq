@@ -24,7 +24,23 @@ export function context(
 export const student = context("STUDENT", "principal_student");
 export const otherStudent = context("STUDENT", "principal_other_student");
 export const advisor = context("ADVISOR", "principal_advisor", { assignedDocumentIds: ["timeline_test"] });
-export const programAdmin = context("PROGRAM_ADMIN", "principal_admin");
+export const programAdmin = context("PROGRAM_ADMIN", "principal_admin", {
+  facultyGrants: [{
+    documentId: "timeline_test",
+    actions: [
+      "document:read",
+      "document:edit",
+      "version:create",
+      "review:request",
+      "review:read",
+      "review:comment",
+      "review:decide",
+      "artifact:read",
+      "audit:read",
+    ],
+    expiresAt: "2027-01-01T00:00:00.000Z",
+  }],
+});
 export const exportService = context("SERVICE", "service_export", { serviceScopes: ["artifact:create", "document:read"] });
 export const fileVaultService = context("SERVICE", "service_filevault", { serviceScopes: ["filevault:publish"] });
 

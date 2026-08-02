@@ -194,7 +194,7 @@ test("407F Advisor handlers delegate checklist, questions, pins, comments, and v
   }
   assert.match(integration,/store\.replace\(/);
   assert.match(integration,/store\.document/);
-  assert.match(integration,/render407FThemedBoard/);
+  assert.match(integration,/renderResponsiveAdvancedBoard/);
   assert.match(integration,/theme:\s*ADVISOR_SESSION_THEME_ID/);
   assert.match(integration,/audience:\s*"EVERYTHING"/);
   assert.doesNotMatch(integration,/bridge\.state\.checks|bridge\.state\.comments|state\.comments\.push/);

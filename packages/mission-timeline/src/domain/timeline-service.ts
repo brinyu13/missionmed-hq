@@ -47,12 +47,18 @@ const ARTIFACT_TYPES = new Set<ArtifactType>([
 ]);
 
 const EXPORT_SCOPES = new Set(["INTERVIEWER_SAFE", "FULL_STORY", "ADVISOR_PACKET", "PRINT", "ARCHIVE", "SOURCE", "ACCESSIBLE"]);
+const TIMELINE_DOCUMENT_SCHEMA = "d1-timeline-document-409.1";
+const CHECKPOINT_SOURCE_SCHEMAS = new Set([TIMELINE_DOCUMENT_SCHEMA, "d1-uxr-002.1"]);
 
 export class TimelineService {
   constructor(
     readonly repository: TimelineRepository,
     private readonly clock: () => Date = () => new Date(),
   ) {}
+
+  withRepository(repository: TimelineRepository): TimelineService {
+    return new TimelineService(repository, this.clock);
+  }
 
   async createDocument(context: PrincipalContext, input: CreateDocumentInput): Promise<DocumentRecord> {
     await this.require(context, "document:create", {}, "document", input.id ?? "new");
@@ -103,8 +109,11 @@ export class TimelineService {
   }
 
   async listOwnDocuments(context: PrincipalContext): Promise<DocumentRecord[]> {
-    if (context.role !== "STUDENT") throw new TimelineError("FORBIDDEN", "Student role required.", 403);
-    return this.repository.listDocumentsForOwner(context.principalId);
+    if (context.role === "STUDENT") return this.repository.listDocumentsForOwner(context.principalId);
+    if (context.role === "PROGRAM_ADMIN" || context.role === "ADVISOR" || context.role === "FACULTY") {
+      return this.repository.listAccessibleDocuments(context.principalId);
+    }
+    throw new TimelineError("FORBIDDEN", "Timeline document listing is not available.", 403);
   }
 
   async getDocument(context: PrincipalContext, documentId: string): Promise<DocumentRecord> {
@@ -129,7 +138,11 @@ export class TimelineService {
       });
     }
     const sanitized = clone(snapshot);
+    if (!CHECKPOINT_SOURCE_SCHEMAS.has(String(sanitized.schemaVersion ?? ""))) {
+      throw new TimelineError("DOCUMENT_SCHEMA_UNSUPPORTED", "Timeline document schema is not supported.", 400);
+    }
     sanitized.id = documentId;
+    sanitized.schemaVersion = TIMELINE_DOCUMENT_SCHEMA;
     sanitized.studentOwnerId = record.document.studentOwnerId;
     sanitized.programId = record.document.programId;
     sanitized.revision = baseRevision;
@@ -205,9 +218,8 @@ export class TimelineService {
 
   async assignAdvisor(context: PrincipalContext, assignment: AdvisorAssignment): Promise<AdvisorAssignment> {
     const record = await this.requireDocument(assignment.documentId);
-    if (context.role !== "PROGRAM_ADMIN" || !context.programIds.includes(record.document.programId)) {
-      throw new TimelineError("FORBIDDEN", "Program administrator scope is required.", 403);
-    }
+    await this.require(context, "review:request", this.resource(record), "document", assignment.documentId);
+    if (context.role !== "PROGRAM_ADMIN") throw new TimelineError("FORBIDDEN", "Administrator grant is required.", 403);
     if (assignment.programId !== record.document.programId) throw new TimelineError("ASSIGNMENT_PROGRAM_MISMATCH", "Program mismatch.", 400);
     const saved = await this.repository.addAssignment(assignment);
     await this.audit(context, "review:request", "assignment", assignment.documentId, "SUCCESS", "ADVISOR_ASSIGNED");

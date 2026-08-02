@@ -350,7 +350,7 @@ export function evaluateTimelineEntitlement(assertion={},{
     verifiedAt:clean(assertion.verifiedAt),
     expiresAt,
     destructiveEffects:false,
-    productionWrites:false
+    productionWrites:production&&verified
   });
 }
 
@@ -417,20 +417,23 @@ export function createLocalEntitlementAdapter({
   });
 }
 
-export function createProductionEntitlementBoundaryAdapter(){
+export function createProductionEntitlementBoundaryAdapter({assertion=null,expectedBinding=null}={}){
+  const resolvedAssertion=assertion||globalThis.D1_TIMELINE_PRODUCTION_ASSERTION||null;
+  const resolvedBinding=expectedBinding||globalThis.D1_TIMELINE_PRODUCTION_BINDING||null;
   return Object.freeze({
     id:"d1-405-production-entitlement-boundary",
     executionMode:"production",
     metadata:Object.freeze({
       executionMode:"production",
-      connected:false,
-      networkCalls:false,
+      connected:Boolean(resolvedAssertion),
+      networkCalls:Boolean(resolvedAssertion),
       wordpressWrites:false,
       matrixWrites:false,
       productionWrites:false
     }),
+    expectedBinding:resolvedBinding,
     async resolve(){
-      return{
+      return resolvedAssertion?clone(resolvedAssertion):{
         schemaVersion:TIMELINE_ENTITLEMENT_SCHEMA,
         verified:false,
         enabled:false,

@@ -17,9 +17,11 @@ import { clone } from "../core/canonical.js";
 import { TimelineError } from "../core/errors.js";
 
 export interface TimelineRepository {
+  withTransaction<T>(work: (unitOfWork: TimelineRepository) => Promise<T>): Promise<T>;
   createDocument(record: DocumentRecord): Promise<DocumentRecord>;
   getDocument(id: string): Promise<DocumentRecord | null>;
   listDocumentsForOwner(ownerPrincipalId: string): Promise<DocumentRecord[]>;
+  listAccessibleDocuments(principalId: string): Promise<DocumentRecord[]>;
   saveCheckpoint(checkpoint: CheckpointRecord): Promise<CheckpointRecord>;
   saveVersion(
     documentId: string,
@@ -67,6 +69,49 @@ export class InMemoryTimelineRepository implements TimelineRepository {
   private readonly audit: AuditEvent[] = [];
   private readonly outbox = new Map<string, OutboxEvent>();
 
+  async withTransaction<T>(work: (unitOfWork: TimelineRepository) => Promise<T>): Promise<T> {
+    const snapshot = structuredClone({
+      documents: [...this.documents.entries()],
+      versions: [...this.versions.entries()],
+      checkpoints: [...this.checkpoints.entries()],
+      assignments: this.assignments,
+      reviews: [...this.reviews.entries()],
+      comments: [...this.comments.entries()],
+      approvals: this.approvals,
+      jobs: [...this.jobs.entries()],
+      artifacts: [...this.artifacts.entries()],
+      fileVaultLinks: [...this.fileVaultLinks.entries()],
+      audit: this.audit,
+      outbox: [...this.outbox.entries()],
+    });
+    try {
+      return await work(this);
+    } catch (error) {
+      this.documents.clear();
+      for (const [key, value] of snapshot.documents) this.documents.set(key, value);
+      this.versions.clear();
+      for (const [key, value] of snapshot.versions) this.versions.set(key, value);
+      this.checkpoints.clear();
+      for (const [key, value] of snapshot.checkpoints) this.checkpoints.set(key, value);
+      this.assignments.splice(0, this.assignments.length, ...snapshot.assignments);
+      this.reviews.clear();
+      for (const [key, value] of snapshot.reviews) this.reviews.set(key, value);
+      this.comments.clear();
+      for (const [key, value] of snapshot.comments) this.comments.set(key, value);
+      this.approvals.splice(0, this.approvals.length, ...snapshot.approvals);
+      this.jobs.clear();
+      for (const [key, value] of snapshot.jobs) this.jobs.set(key, value);
+      this.artifacts.clear();
+      for (const [key, value] of snapshot.artifacts) this.artifacts.set(key, value);
+      this.fileVaultLinks.clear();
+      for (const [key, value] of snapshot.fileVaultLinks) this.fileVaultLinks.set(key, value);
+      this.audit.splice(0, this.audit.length, ...snapshot.audit);
+      this.outbox.clear();
+      for (const [key, value] of snapshot.outbox) this.outbox.set(key, value);
+      throw error;
+    }
+  }
+
   async createDocument(record: DocumentRecord): Promise<DocumentRecord> {
     if (this.documents.has(record.document.id)) throw new TimelineError("DOCUMENT_EXISTS", "Document already exists.", 409);
     this.documents.set(record.document.id, clone(record));
@@ -81,6 +126,21 @@ export class InMemoryTimelineRepository implements TimelineRepository {
   async listDocumentsForOwner(ownerPrincipalId: string): Promise<DocumentRecord[]> {
     return [...this.documents.values()]
       .filter((record) => record.document.studentOwnerId === ownerPrincipalId && record.status !== "DELETED")
+      .map(clone)
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }
+
+  async listAccessibleDocuments(principalId: string): Promise<DocumentRecord[]> {
+    const granted = new Set(
+      [...this.documents.keys()].filter((documentId) =>
+        [...this.assignments].some((assignment) => assignment.documentId === documentId && assignment.advisorPrincipalId === principalId),
+      ),
+    );
+    return [...this.documents.values()]
+      .filter((record) =>
+        record.status !== "DELETED"
+        && (record.document.studentOwnerId === principalId || granted.has(record.document.id)),
+      )
       .map(clone)
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
   }

@@ -503,7 +503,13 @@ export function buildExportScreenModel(document,state={},options={}){
   const audience=exportAudience(normalized.audience);
   const eventCount=Array.isArray(document?.events)?document.events.length:0;
   const empty=eventCount===0;
-  const hasStudentName=Boolean(String(document?.studentProfile?.fullName||"").trim());
+  let hasStudentName=false;
+  try{
+    parseStudentName(document?.studentProfile?.fullName);
+    hasStudentName=true;
+  }catch{
+    /* Incomplete or malformed profile data blocks export; it must not block app startup. */
+  }
   const theme=THEMES_BY_ID[document?.theme]||THEMES_BY_ID[DEFAULT_THEME_ID];
   const detailsComplete=audienceDetailsComplete(
     normalized.audience,
@@ -845,7 +851,10 @@ export async function refreshExportPreview({
   renderPreview,
   onState=()=>{},
   timeoutMs=EXPORT_PREVIEW_LOADING_MAX_MS,
-  timers={set:setTimeout,clear:clearTimeout}
+  timers={
+    set:(callback,delay)=>setTimeout(callback,delay),
+    clear:(timer)=>clearTimeout(timer)
+  }
 }={}){
   if(typeof renderPreview!=="function")throw new TypeError("renderPreview must be a function.");
   if(!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>EXPORT_PREVIEW_LOADING_MAX_MS){
@@ -1095,7 +1104,7 @@ export function installExportScreen(root,document,{
           {partial:result.metadata}
         );
       }
-    }catch(error){
+    }catch(_error){
       toast("Export failed — try again",{tone:"danger"});
     }finally{
       emit(reduceExportState(current,{type:"exporting",value:false}),"export-finish");

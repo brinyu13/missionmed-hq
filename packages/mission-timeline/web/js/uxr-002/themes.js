@@ -655,46 +655,18 @@ function arrowPath(arrow, radius) {
 function applyThemeToArrow(arrow, theme) {
   const evidence = resolveArrowLabelContrast(theme, arrow.categoryId);
   const next = cloneValue(arrow);
-  const fits = Number(next.label?.textWidth) <= Number(next.label?.availableInside);
-  const inside = Boolean(
-    !next.study &&
-    fits &&
-    evidence.placement === "inside"
-  );
-  const fontSize = next.condensed ? 11 : inside ? 12.5 : 11.5;
-  const shaftWidth = Number(next.width) - Number(next.headLength || 0);
   next.fill = theme.categories[next.categoryId];
-  next.leftRadius = theme.geometry.arrowCornerRadius;
-  next.path = arrowPath(next, next.leftRadius);
   next.arrowShadow = cloneValue(theme.arrowShadow);
   next.label = {
     ...next.label,
-    text: String(next.label?.fullText ?? next.label?.text ?? ""),
-    placement: inside ? "inside" : "above",
-    color: inside ? evidence.passingToken : theme.ink,
-    fontSize,
-    fontWeight: 600,
-    x: inside ? Number(next.x) + shaftWidth / 2 : Number(next.x),
-    y: inside
-      ? Number(next.centerY) + fontSize * 0.34
-      : Number(next.centerY) -
-        Number(next.openEnded ? next.shaftHeight : next.headHeight) / 2 -
-        4,
-    textAnchor: inside ? "middle" : "start",
+    color: evidence.passingToken,
     contrast: {
       threshold: TEXT_CONTRAST_THRESHOLD,
       white: evidence.candidates[0].ratio,
       primaryInk: evidence.candidates[1].ratio,
-      chosen: inside ? evidence.calculatedContrast : null,
-      boardMinimum: inside ? null : evidence.calculatedContrast
+      chosen: evidence.calculatedContrast
     },
-    reason: inside
-      ? evidence.reason
-      : next.study
-        ? "patterned-fill-requires-bare-above-label"
-        : !fits
-          ? "does-not-fit-shaft-padding"
-          : evidence.reason
+    reason: evidence.reason
   };
   return next;
 }
@@ -711,11 +683,9 @@ function applyThemeToFlag(flag, theme) {
   };
   next.plate = {
     ...next.plate,
-    shape: theme.flagPlate.shape,
     fill: theme.flagPlate.fill,
     border: theme.flagPlate.border,
-    borderWidth: theme.flagPlate.borderWidth,
-    radius: theme.geometry.flagCornerRadius
+    borderWidth: theme.flagPlate.borderWidth
   };
   next.label = {
     ...next.label,
@@ -766,7 +736,11 @@ export function applyThemeToScene(scene, themeReference) {
   };
   next.arrows = next.arrows.map((arrow) => applyThemeToArrow(arrow, theme));
   next.flags = (next.flags ?? []).map((flag) => applyThemeToFlag(flag, theme));
-  next.events = [...next.arrows, ...next.flags];
+  next.events = [
+    ...next.arrows,
+    ...next.flags,
+    ...(next.explanations??[])
+  ];
   if (next.interviewMarker) {
     next.interviewMarker = {
       ...next.interviewMarker,

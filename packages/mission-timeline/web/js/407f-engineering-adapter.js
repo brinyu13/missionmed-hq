@@ -1,4 +1,5 @@
 import {TimelineStore} from "./uxr-002/store.js";
+import {prepareTimelineProductionRuntime} from "./production/timeline-production-runtime.js";
 import {
   addBuilderExam,
   deleteBuilderExamAttempt,
@@ -24,8 +25,14 @@ import {
   computeStoryChecks
 } from "./uxr-002/review.js";
 import {
+  beginCanvasDrag,
+  commitCanvasDrag,
   createCanvasState,
-  installCanvas
+  deleteCanvasEvent,
+  installCanvas,
+  redoCanvas,
+  undoCanvas,
+  updateCanvasDrag
 } from "./uxr-002/canvas.js";
 import {
   createCanvasZoom,
@@ -68,10 +75,12 @@ import {
   createTextBlock,
   createUploadedBackground,
   installAdvancedStudio,
+  moveMediaElement,
   planModeSwitch,
   recordRecentColor,
   renderAdvancedStudio,
   renderModeDialog,
+  resizeMediaElement,
   relativeLuminanceFromRgb,
   sampleEyeDropper,
   setBackgroundDim,
@@ -116,7 +125,10 @@ import {
   normalizeExportState,
   renderExportScreen
 } from "./uxr-002/export-screen.js";
-import {createLocalExportAdapter} from "./uxr-002/export-adapter.js";
+import {
+  createD1411AKernelExportAdapter,
+  createD1411AKernelManager
+} from "./d1-411a/kernel-host.js";
 import {
   IntakeStateMachine,
   applyApprovalBatchToDocument,
@@ -718,6 +730,13 @@ function currentMonth(){
   return new Date().toISOString().slice(0,7);
 }
 
+async function sha256File(file){
+  const digest=await crypto.subtle.digest("SHA-256",await file.arrayBuffer());
+  return[...new Uint8Array(digest)]
+    .map((value)=>value.toString(16).padStart(2,"0"))
+    .join("");
+}
+
 let boardSvgInstance=0;
 
 export function namespaceBoardSvg(svg,namespace){
@@ -910,6 +929,23 @@ const CANVAS_EXPORT_AUDIENCE_OPTIONS=Object.freeze([
 
 function renderCanvasDetails(route,event,document){
   const domain=event.fields?.builderDomain||event.categoryId||"personal";
+  if(domain==="explanation"){
+    const fields=event.fields||{};
+    return `<div class="canvas407FDetails" data-canvas-details-form data-event-id="${escapeMarkup(event.id)}">
+      <div class="canvas407FDetailGrid">
+        <label class="canvas407FDetailField canvas407FDetailWide"><span>Explanation</span><textarea data-canvas-detail-field="explanationText">${escapeMarkup(fields.explanationText||event.title||"")}</textarea></label>
+        <label class="canvas407FDetailField"><span>X</span><input type="number" min="96" max="1744" data-canvas-detail-field="x" value="${Number(fields.x)||1470}"></label>
+        <label class="canvas407FDetailField"><span>Y</span><input type="number" min="80" max="904" data-canvas-detail-field="y" value="${Number(fields.y)||574}"></label>
+        <label class="canvas407FDetailField"><span>Width</span><input type="number" min="180" max="520" data-canvas-detail-field="width" value="${Number(fields.width)||300}"></label>
+        <label class="canvas407FDetailField"><span>Height</span><input type="number" min="110" max="320" data-canvas-detail-field="height" value="${Number(fields.height)||190}"></label>
+        <label class="canvas407FDetailCheck canvas407FDetailWide"><input type="checkbox" data-canvas-detail-field="leaderEnabled" ${fields.leaderEnabled!==false?"checked":""}> <span>Connect to the referenced timeline item</span></label>
+      </div>
+      <div class="canvas407FDetailActions">
+        <button type="button" class="btnD go" data-canvas-details-save>Save changes</button>
+        <button type="button" class="btnD alt" data-canvas-builder-step="7" data-event-id="${escapeMarkup(event.id)}">Open in Builder</button>
+      </div>
+    </div>`;
+  }
   const detailFields=CANVAS_DETAIL_FIELDS[domain]||[];
   const isMilestone=event.eventType==="milestone";
   const clinical=domain==="clinical";
@@ -986,15 +1022,49 @@ function renderCanvasDetails(route,event,document){
   </div>`;
 }
 
+function installLocalMatrixAppMode({store,locationObject=window.location}={}){
+  const parameters=new URLSearchParams(locationObject.search||"");
+  if(parameters.get("matrixAppMode")!=="local")return null;
+  const requested=parameters.get("returnUrl")||"/";
+  let returnUrl;
+  let returnUrlRejected=false;
+  try{
+    const candidate=new URL(requested,locationObject.href);
+    if(candidate.origin!==locationObject.origin)throw new Error("cross-origin");
+    returnUrl=`${candidate.pathname}${candidate.search}${candidate.hash}`;
+  }catch{
+    returnUrl="/";
+    returnUrlRejected=true;
+  }
+  const back=document.getElementById("matrixBack");
+  if(back){
+    back.onclick=null;
+    back.href=returnUrl;
+    back.title="Return to Matrix";
+    back.setAttribute("aria-label","Return to Matrix dashboard");
+  }
+  const runtime={
+    version:"413.0.0-rc.0",
+    mode:"MATRIX_APP_MODE",
+    sourceAuthority:"D1_407F_CURRENT_APP",
+    returnUrl,
+    returnUrlRejected,
+    sync:()=>store.adapter?.flush?.()||Promise.resolve({synced:0,pending:0}),
+    get syncState(){return store.adapter?.kind||"UNKNOWN";}
+  };
+  window.MMEDTimeline=runtime;
+  document.documentElement.dataset.matrixAppMode="local";
+  return runtime;
+}
+
 export async function boot407FEngineeringAdapter({
   bridge=window.D1_407F_TEST,
-  store=new TimelineStore()
+  store=null
 }={}){
   if(!bridge?.state||typeof bridge.renderAll!=="function"){
     throw new Error("407F bridge is unavailable");
   }
 
-  const init=await store.initialize();
   const explicitMode=String(window.D1_TIMELINE_RUNTIME_MODE||"").toLowerCase();
   const localHost=["localhost","127.0.0.1","0.0.0.0"].includes(
     String(window.location?.hostname||"").toLowerCase()
@@ -1002,8 +1072,29 @@ export async function boot407FEngineeringAdapter({
   const runtimeMode=localHost&&explicitMode!=="production"
     ?"local"
     :"production";
+  const productionRuntime=runtimeMode==="production"
+    ?await prepareTimelineProductionRuntime()
+    :null;
+  if(productionRuntime){
+    window.D1_TIMELINE_PRODUCTION_ASSERTION=productionRuntime.assertion;
+    window.D1_TIMELINE_PRODUCTION_BINDING=productionRuntime.expectedBinding;
+    window.D1_TIMELINE_AUTH_CLIENT=productionRuntime.authClient;
+  }
+  store=store||new TimelineStore({adapter:productionRuntime?.adapter||null});
+  const init=await store.initialize();
+  if(runtimeMode==="production"){
+    store.document.metadata={
+      ...(store.document.metadata||{}),
+      localOnly:false,
+      productionWrites:true,
+      authority:"timeline-server"
+    };
+  }
   const entitlementAdapter=runtimeMode==="production"
-    ?createProductionEntitlementBoundaryAdapter()
+    ?createProductionEntitlementBoundaryAdapter({
+      assertion:productionRuntime.assertion,
+      expectedBinding:productionRuntime.expectedBinding
+    })
     :window.D1_TIMELINE_ENTITLEMENT_ADAPTER||
       createLocalEntitlementAdapter({
         scenario:localEntitlementScenarioFromLocation(window.location)||
@@ -1037,20 +1128,22 @@ export async function boot407FEngineeringAdapter({
   const matrixCalendarAdapter=createUnavailableMatrixCalendarAdapter();
   const matrixCalendarState=await matrixCalendarAdapter
     .listScheduledInterviews();
-  const advancedBoardRenderer=createAdvancedBoardRenderer({
-    baseRenderer:render407FThemedBoard,
+  const kernelManager=createD1411AKernelManager({
     resolveObjectUrl:(id)=>mediaUrls.get(id)
   });
-  const renderResponsiveAdvancedBoard=(document,options={})=>
-    advancedBoardRenderer(timelineWithLorPresentation(document),{
-      ...options,
-      reducedMotion:window.matchMedia?.(
-        "(prefers-reduced-motion: reduce)"
-      )?.matches
+  const renderResponsiveAdvancedBoard=(timeline,options={})=>{
+    const surface=options.surface||"edit";
+    const editable=surface==="edit"&&store.entitlement.canMutate===true;
+    return kernelManager.render(timelineWithLorPresentation(timeline),{
+      surface,
+      audience:options.audience||"EVERYTHING",
+      interactive:surface==="edit"?editable:options.interactive!==false,
+      editable,
+      acceptsMedia:["builder","edit"].includes(surface),
+      reason:surface==="export"?"export":"preview"
     });
-  const exportAdapter=createLocalExportAdapter({
-    resolveObjectUrl:(id)=>mediaUrls.get(id)
-  });
+  };
+  const exportAdapter=createD1411AKernelExportAdapter({kernelManager});
   let exportState=normalizeExportState(store.document.exportState||{
     suggestionState:{
       advisorPaperPdfSuggestionShown:
@@ -1073,6 +1166,10 @@ export async function boot407FEngineeringAdapter({
   let unsubscribeStore=()=>{};
   let onCanvasDetailsClick=()=>{};
   let onAdvancedObjectClick=()=>{};
+  let onAdvancedObjectKeyDown=()=>{};
+  let onAdvancedPointerDown=()=>{};
+  let onAdvancedPointerMove=()=>{};
+  let onAdvancedPointerUp=()=>{};
   let onCanvasResize=()=>{};
   let on407FRendered=()=>{};
   let onAdvisorHashChange=()=>{};
@@ -1371,6 +1468,10 @@ export async function boot407FEngineeringAdapter({
     }
     document.getElementById("canvas407F")?.removeEventListener("click",onCanvasDetailsClick);
     document.getElementById("canvas407F")?.removeEventListener("click",onAdvancedObjectClick);
+    document.getElementById("canvas407F")?.removeEventListener("keydown",onAdvancedObjectKeyDown);
+    document.getElementById("canvas407F")?.removeEventListener("pointerdown",onAdvancedPointerDown);
+    document.removeEventListener("pointermove",onAdvancedPointerMove);
+    document.removeEventListener("pointerup",onAdvancedPointerUp);
     window.removeEventListener("resize",onCanvasResize);
     document.removeEventListener("d1:407f-rendered",on407FRendered);
     document.removeEventListener("d1:407f-rendered",onRouteRendered);
@@ -1397,6 +1498,10 @@ export async function boot407FEngineeringAdapter({
     document.removeEventListener("dragleave",onMediaLibraryDragLeave);
     document.removeEventListener("dragend",onMediaLibraryDragEnd);
     document.removeEventListener("drop",onMediaLibraryDrop);
+    document.removeEventListener("d1-411a:interaction",onKernelInteraction);
+    document.removeEventListener("d1-411a:gesture",onKernelGesture);
+    document.removeEventListener("d1-411a:command",onKernelCommand);
+    document.removeEventListener("d1-411a:media-drop",onKernelMediaDrop);
     document.removeEventListener("click",onSpecialtyVariantClick);
     document.removeEventListener("change",onSpecialtyVariantChange);
     document.getElementById("modalBk")?.removeEventListener(
@@ -1794,10 +1899,12 @@ export async function boot407FEngineeringAdapter({
       canvasHost&&
       !canvasHost.querySelector("[data-open-media-library]")
     ){
-      canvasHost.insertAdjacentHTML(
-        "afterbegin",
-        '<button type="button" class="btnD alt sm media407FCanvasLauncher" data-open-media-library aria-controls="mediaDrawer407F" aria-expanded="false" aria-haspopup="dialog">MEDIA</button>'
-      );
+      const toolbar=canvasHost.querySelector("[data-canvas-toolbar]");
+      const mode=toolbar?.querySelector('[data-toolbar-item="mode"]');
+      const markup='<button type="button" class="btnD alt sm media407FCanvasLauncher" data-toolbar-item="media" data-open-media-library aria-controls="mediaDrawer407F" aria-expanded="false" aria-haspopup="dialog">MEDIA</button>';
+      if(mode)mode.insertAdjacentHTML("afterend",markup);
+      else if(toolbar)toolbar.insertAdjacentHTML("afterbegin",markup);
+      else canvasHost.insertAdjacentHTML("afterbegin",markup);
     }
     queueMicrotask(()=>restoreMediaFocus(focusState));
   };
@@ -1937,6 +2044,7 @@ export async function boot407FEngineeringAdapter({
           layerIndex:existing.length+additions.length
         });
         asset.source.blobKey=id;
+        asset.source.contentSha256=await sha256File(file);
         additions.push(asset);
         blobs.push({
           key:id,
@@ -2418,6 +2526,7 @@ export async function boot407FEngineeringAdapter({
         layerIndex:mediaItems().length
       });
       asset.source.blobKey=id;
+      asset.source.contentSha256=await sha256File(file);
       asset.role="interview-program-logo-source";
       const active=activeSpecialtyVariant(store.document);
       await store.mutateWithBlobs(
@@ -2520,6 +2629,26 @@ export async function boot407FEngineeringAdapter({
     const surface=root?.matches?.("[data-builder-preview-surface]")
       ?root
       :root?.querySelector?.("[data-builder-preview-surface]");
+    const priorProxies=[...(surface?.querySelectorAll?.(
+      "[data-builder-preview-hit-proxy]"
+    )||[])];
+    const priorSources=[...(surface?.querySelectorAll?.(
+      "[data-builder-preview-proxied-source]"
+    )||[])];
+    for(const proxy of priorProxies){
+      const token=proxy.dataset.builderPreviewProxyToken;
+      const source=priorSources.find(
+        (candidate)=>candidate.dataset.builderPreviewProxyToken===token
+      );
+      if(source){
+        source.setAttribute("role","button");
+        source.setAttribute("tabindex",proxy.getAttribute("tabindex")||"-1");
+        source.setAttribute("aria-label",proxy.getAttribute("aria-label")||"Edit timeline item");
+        source.removeAttribute("data-builder-preview-proxied-source");
+        source.removeAttribute("data-builder-preview-proxy-token");
+      }
+      proxy.remove();
+    }
     if(surface?.dataset?.interactive!=="true"){
       root?.querySelectorAll?.("[data-builder-preview-hit-target]")
         .forEach((target)=>target.remove());
@@ -2536,7 +2665,61 @@ export async function boot407FEngineeringAdapter({
     );
     if(!Number.isFinite(scale)||scale<=0)return;
     const minimum=44/scale;
+    let proxySequence=0;
     for(const target of builderPreviewFocusableTargets(root)){
+      if(target.hasAttribute("data-builder-preview-hit-proxy"))continue;
+      if(
+        target.namespaceURI!=="http://www.w3.org/2000/svg"||
+        target.closest?.("foreignObject")
+      ){
+        const targetBounds=target.getBoundingClientRect?.();
+        const surfaceBounds=surface.getBoundingClientRect?.();
+        if(!targetBounds?.width||!targetBounds?.height||!surfaceBounds)continue;
+        const width=Math.max(44,targetBounds.width);
+        const height=Math.max(44,targetBounds.height);
+        const proxy=document.createElement("button");
+        proxy.type="button";
+        proxy.className="builderPreviewHitProxy";
+        proxy.setAttribute("data-builder-preview-hit-proxy","true");
+        const proxyToken=`preview-hit-${proxySequence++}`;
+        proxy.setAttribute("data-builder-preview-proxy-token",proxyToken);
+        proxy.innerHTML='<span data-hit-edge="top"></span><span data-hit-edge="right"></span><span data-hit-edge="bottom"></span><span data-hit-edge="left"></span>';
+        for(const attribute of [
+          "data-builder-preview-event",
+          "data-builder-preview-interview",
+          "data-builder-preview-retake",
+          "data-builder-preview-owner",
+          "data-owner-kind",
+          "data-owner-id",
+          "data-owner-order",
+          "data-event-id",
+          "data-retake-target"
+        ]){
+          if(target.hasAttribute(attribute)){
+            proxy.setAttribute(attribute,target.getAttribute(attribute)||"");
+          }
+        }
+        proxy.setAttribute(
+          "aria-label",
+          target.getAttribute("aria-label")||
+            target.textContent?.trim()?.replace(/\s+/g," ")||
+            "Edit timeline item"
+        );
+        proxy.setAttribute("tabindex",target.getAttribute("tabindex")||"-1");
+        proxy.style.left=`${targetBounds.left-surfaceBounds.left-(width-targetBounds.width)/2}px`;
+        proxy.style.top=`${targetBounds.top-surfaceBounds.top-(height-targetBounds.height)/2}px`;
+        proxy.style.width=`${width}px`;
+        proxy.style.height=`${height}px`;
+        proxy.style.setProperty("--effective-source-width",`${targetBounds.width}px`);
+        proxy.style.setProperty("--effective-source-height",`${targetBounds.height}px`);
+        surface.append(proxy);
+        target.setAttribute("data-builder-preview-proxied-source","true");
+        target.setAttribute("data-builder-preview-proxy-token",proxyToken);
+        target.removeAttribute("role");
+        target.removeAttribute("tabindex");
+        target.removeAttribute("aria-label");
+        continue;
+      }
       target.querySelector?.(":scope > [data-builder-preview-hit-target]")?.remove();
       let box=null;
       try{box=target.getBBox?.();}catch{box=null;}
@@ -2555,14 +2738,12 @@ export async function boot407FEngineeringAdapter({
       target.insertBefore(hit,target.firstChild);
     }
   };
-  const builderPreviewSvg=(namespace,{interactive=true}={})=>{
-    const rendered=renderResponsiveAdvancedBoard(store.document,{
-      currentMonth:currentMonth(),
+  const builderPreviewKernel=(surface,{interactive=true}={})=>
+    renderResponsiveAdvancedBoard(store.document,{
+      surface:surface==="embedded"?"builder":surface==="lightbox"?"full-preview":"home",
       audience:"INTERVIEWER_SAFE",
-      idNamespace:namespace
+      interactive
     });
-    return enhanceBuilderPreviewSvg(rendered.svg,store.document,{interactive});
-  };
   const mountBuilderPreview=(host,{
     surface="embedded",
     namespace=`d1-405-builder-${surface}`,
@@ -2582,25 +2763,22 @@ export async function boot407FEngineeringAdapter({
       host.dataset.builderPreviewSignature===signature&&
       host.querySelector("[data-builder-preview-surface]")
     )return false;
-    let svg="";
+    let rendered=null;
+    const interactive=surface!=="home"&&store.entitlement.canMutate===true;
     try{
-      svg=builderPreviewSvg(namespace,{
-        interactive:store.entitlement.canMutate===true
+      rendered=builderPreviewKernel(surface,{
+        interactive
       });
     }catch(error){
       bridge.toast(String(error?.message||error));
     }
     host.dataset.builderPreviewSignature=signature;
-    const interactive=store.entitlement.canMutate===true;
-    host.innerHTML=svg
+    host.innerHTML=rendered?.html
       ?`<div class="builderPreviewSurface" data-builder-preview-surface="${surface}" data-interactive="${interactive}" role="region" aria-label="${interactive
         ?"Interactive timeline preview. Use arrow keys to move between timeline items and Enter to edit."
         :"Timeline preview. Editing is unavailable in read-only access."
-      }">${svg}</div>`
+      }" data-presentation-kernel="D1-409H-A1">${rendered.html}</div>`
       :`<div class="builderPreviewTrueEmpty" role="status"><strong>Your timeline preview will appear here.</strong><span>Add information in Builder to create the final 16:9 artifact.</span></div>`;
-    if(interactive){
-      requestAnimationFrame(()=>updateBuilderPreviewHitTargets(host));
-    }
     return true;
   };
   const renderBuilderEmbeddedPreview=({force=false}={})=>
@@ -2609,6 +2787,14 @@ export async function boot407FEngineeringAdapter({
       namespace:"d1-405-builder-embedded",
       force
     });
+  const renderHomePreview=({force=false}={})=>{
+    if(!(store.document?.events||[]).length)return false;
+    return mountBuilderPreview(document.getElementById("boardCommand"),{
+      surface:"home",
+      namespace:"d1-405-home-preview",
+      force
+    });
+  };
   const queueBuilderEmbeddedPreview=({force=false}={})=>{
     if(builderPreviewRenderQueued&&!force)return;
     builderPreviewRenderQueued=true;
@@ -2663,11 +2849,11 @@ export async function boot407FEngineeringAdapter({
         const current=document.getElementById("builderPreviewToggle");
         (current||opener)?.focus?.();
       }));
+      setTimeout(()=>{
+        const current=document.getElementById("builderPreviewToggle");
+        (current||opener)?.focus?.();
+      },0);
     }
-    setTimeout(()=>{
-      const current=document.getElementById("builderPreviewToggle");
-      (current||opener)?.focus?.();
-    },0);
     builderPreviewOpener=null;
   };
   const focusBuilderPreviewOwner=(route)=>{
@@ -2679,6 +2865,8 @@ export async function boot407FEngineeringAdapter({
         );
       }else if(route.kind==="core-education"){
         target=document.querySelector('[data-core="school"]');
+      }else if(route.kind==="core-profile"){
+        target=document.querySelector(route.focusSelector||'[data-core="name"]');
       }else if(route.kind==="explanation"){
         target=document.querySelector(
           `[data-explanation-editor="${CSS.escape(route.ownerId)}"]`
@@ -2710,6 +2898,15 @@ export async function boot407FEngineeringAdapter({
       bridge.toast("This preview item is not connected to an editable entry.");
       return false;
     }
+    if(route.kind==="media-library"){
+      if(fromLightbox)closeBuilderPreview({restoreFocus:false});
+      bridge.go("media");
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        document.querySelector(route.focusSelector)?.focus?.();
+      }));
+      announceGlobal("Opened Media for this timeline asset");
+      return true;
+    }
     if(route.kind==="interview-target"||route.kind==="explanation"){
       store.mutate(
         route.kind==="explanation"
@@ -2720,6 +2917,10 @@ export async function boot407FEngineeringAdapter({
         },
         {history:false,material:false}
       );
+    }else if(route.kind==="core-profile"){
+      store.mutate("Open profile details",(document)=>{
+        document.builder={...(document.builder||{}),step:1};
+      },{history:false,material:false});
     }else{
       store.mutate("Open Builder entry",(document)=>{
         beginBuilderEntryEdit(document,route.eventId);
@@ -2738,6 +2939,8 @@ export async function boot407FEngineeringAdapter({
         ?"Opened interview configuration in Review & Finish"
         :route.kind==="explanation"
           ?"Opened explanation in Review & Finish"
+        :route.kind==="core-profile"
+          ?"Opened profile details in Builder"
         :`Opened ${event?.title||"timeline item"} in Builder`
     );
     return true;
@@ -2771,6 +2974,113 @@ export async function boot407FEngineeringAdapter({
     announceGlobal("Opened the retake exam date in Builder");
     return true;
   };
+  const onKernelInteraction=(event)=>{
+    const detail=event.detail||{};
+    if(!detail.surface)return;
+    const domainId=String(detail.domainId||"");
+    if(detail.surface==="edit"){
+      if(domainId){
+        const next={
+          selectedEventId:domainId,
+          toolbarFocus:false,
+          categoryMenuOpen:false,
+          contextMenu:null,
+          detailsEventId:domainId
+        };
+        canvasController?.setUiState(next);
+      }else if(detail.op==="edit-requested"){
+        if(detail.objectType==="profile"||detail.objectType==="profile-photo"){
+          activateBuilderPreviewOwner({ownerKind:"core-profile",ownerId:"profile"});
+        }else if(detail.objectType==="logo"){
+          activateBuilderPreviewOwner({ownerKind:"interview-target",ownerId:"interview-target"});
+        }else if(detail.objectType==="photo"){
+          activateBuilderPreviewOwner({ownerKind:"media-library",ownerId:"media"});
+        }else if(detail.objectType==="callout"){
+          const explanation=(store.document.events||[]).find(
+            (item)=>item?.fields?.builderDomain==="explanation"||item?.eventType==="explanation"
+          );
+          if(explanation)activateBuilderPreviewOwner({eventId:explanation.id});
+        }
+      }
+      return;
+    }
+    if(!["builder","full-preview"].includes(detail.surface))return;
+    if(store.entitlement.canMutate!==true)return;
+    if(domainId){
+      activateBuilderPreviewOwner({eventId:domainId},{fromLightbox:detail.surface==="full-preview"});
+      return;
+    }
+    if(detail.op!=="edit-requested"&&detail.op!=="select")return;
+    if(detail.objectType==="profile"||detail.objectType==="profile-photo"){
+      activateBuilderPreviewOwner(
+        {ownerKind:"core-profile",ownerId:"profile"},
+        {fromLightbox:detail.surface==="full-preview"}
+      );
+    }else if(detail.objectType==="logo"){
+      activateBuilderPreviewOwner(
+        {ownerKind:"interview-target",ownerId:"interview-target"},
+        {fromLightbox:detail.surface==="full-preview"}
+      );
+    }else if(detail.objectType==="photo"){
+      activateBuilderPreviewOwner(
+        {ownerKind:"media-library",ownerId:"media"},
+        {fromLightbox:detail.surface==="full-preview"}
+      );
+    }
+  };
+  const onKernelGesture=(event)=>{
+    const detail=event.detail||{};
+    if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
+    try{
+      let transaction=beginCanvasDrag(store.document,detail.domainId,{
+        kind:detail.kind,
+        currentMonth:currentMonth(),
+        reducedMotion:window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
+      });
+      transaction=updateCanvasDrag(transaction,detail.kind==="lane"
+        ?{targetLane:detail.targetLane}
+        :{monthDelta:detail.monthDelta});
+      const result=commitCanvasDrag(store,transaction);
+      if(result.changed){
+        syncBridgeFromStore();
+        bridge.toast(result.announcement||"Timeline updated");
+      }
+    }catch(error){
+      bridge.toast(String(error?.message||error));
+    }
+  };
+  const onKernelCommand=(event)=>{
+    const detail=event.detail||{};
+    if(detail.surface==="full-preview"&&detail.command==="close-preview"){
+      closeBuilderPreview();
+      return;
+    }
+    if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
+    let announcement="";
+    if(detail.command==="undo")announcement=undoCanvas(store).announcement;
+    else if(detail.command==="redo")announcement=redoCanvas(store).announcement;
+    else if(detail.command==="delete"){
+      announcement=deleteCanvasEvent(store,detail.domainId).announcement;
+    }else return;
+    syncBridgeFromStore();
+    canvasController?.setUiState((state)=>({
+      ...state,
+      selectedEventId:detail.command==="delete"?null:state.selectedEventId,
+      detailsEventId:detail.command==="delete"?null:state.detailsEventId,
+      liveAnnouncement:announcement
+    }));
+    announceGlobal(announcement);
+  };
+  const onKernelMediaDrop=(event)=>{
+    const detail=event.detail||{};
+    if(!["builder","edit"].includes(detail.surface))return;
+    if(store.entitlement.canMutate!==true)return;
+    commitMediaPlacement(detail.id,{x:detail.x,y:detail.y});
+  };
+  document.addEventListener("d1-411a:interaction",onKernelInteraction);
+  document.addEventListener("d1-411a:gesture",onKernelGesture);
+  document.addEventListener("d1-411a:command",onKernelCommand);
+  document.addEventListener("d1-411a:media-drop",onKernelMediaDrop);
   onBuilderPreviewInteraction=(event)=>{
     const zoomButton=event.type==="click"
       ?event.target?.closest?.("[data-builder-preview-zoom]")
@@ -2794,7 +3104,7 @@ export async function boot407FEngineeringAdapter({
     if(!attributes)return;
     if(store.entitlement.canMutate!==true)return;
     const target=event.target.closest(
-      "[data-builder-preview-event],[data-builder-preview-interview],[data-builder-preview-retake]"
+      "[data-builder-preview-event],[data-builder-preview-interview],[data-builder-preview-retake],[data-builder-preview-owner]"
     );
     if(event.type==="keydown"){
       const moves={
@@ -2830,7 +3140,7 @@ export async function boot407FEngineeringAdapter({
   };
   onBuilderPreviewFocus=(event)=>{
     const target=event.target?.closest?.(
-      "[data-builder-preview-event],[data-builder-preview-interview],[data-builder-preview-retake]"
+      "[data-builder-preview-event],[data-builder-preview-interview],[data-builder-preview-retake],[data-builder-preview-owner]"
     );
     if(!target)return;
     for(const item of builderPreviewFocusableTargets(
@@ -2919,6 +3229,7 @@ export async function boot407FEngineeringAdapter({
       layerIndex:store.document.advanced?.media?.length||0
     });
     media.source.blobKey=id;
+    media.source.contentSha256=await sha256File(file);
     await store.mutateWithBlobs(
       `Add ${kind}`,
       (document)=>document.advanced.media.push(media),
@@ -2996,12 +3307,20 @@ export async function boot407FEngineeringAdapter({
         store.mutate("Add text",(document)=>{
           document.advanced.textBlocks.push(createTextBlock({
             id,
-            text:"",
+            text:"Add your text",
             layerIndex:document.advanced.textBlocks.length
           }));
         });
         syncBridgeFromStore();
         canvasController?.setUiState({advancedSelection:{type:"text",id}});
+        queueMicrotask(()=>{
+          const escaped=globalThis.CSS?.escape?CSS.escape(id):id;
+          const field=canvasHost?.querySelector?.(
+            `[data-advanced-text-content][data-advanced-target-id="${escaped}"]`
+          );
+          field?.focus?.();
+          field?.select?.();
+        });
       }else if(["image","gif","logo"].includes(action)){
         addAdvancedMedia(action)
           .catch((error)=>bridge.toast(String(error?.message||error)));
@@ -3077,9 +3396,10 @@ export async function boot407FEngineeringAdapter({
   const renderExportPreview=(input)=>{
     const rendered=renderResponsiveAdvancedBoard(input.timeline,{
       ...input.rendererOptions,
-      currentMonth:currentMonth()
+      surface:"export",
+      interactive:false
     });
-    return`<div class="board-preview canonical-board-preview export407FBoard" role="img" aria-label="Export preview" data-theme="${escapeMarkup(input.timeline.theme||DEFAULT_THEME_ID)}">${rendered.svg}</div>`;
+    return`<div class="board-preview canonical-board-preview export407FBoard" role="img" aria-label="Export preview" data-theme="keynote-classic-409h" data-presentation-kernel="D1-409H-A1">${rendered.html}</div>`;
   };
   const queueExportRender=({focusSelector=null}={})=>{
     if(focusSelector)exportRenderFocusSelector=focusSelector;
@@ -3348,11 +3668,13 @@ export async function boot407FEngineeringAdapter({
       theme:ADVISOR_SESSION_THEME_ID,
       mode:"guided"
     };
-    const rendered=render407FThemedBoard(forced,{
+    const rendered=renderResponsiveAdvancedBoard(forced,{
+      surface:"advisor",
       currentMonth:currentMonth(),
-      audience:"EVERYTHING"
+      audience:"EVERYTHING",
+      interactive:false
     });
-    return`<div class="advisor407FBoardRender" data-theme="${ADVISOR_SESSION_THEME_ID}" data-audience="EVERYTHING">${rendered.svg}</div>`;
+    return`<div class="advisor407FBoardRender" data-theme="${ADVISOR_SESSION_THEME_ID}" data-audience="EVERYTHING">${rendered.html}</div>`;
   };
   function renderAdvisorHost(){
     const advisorHost=document.getElementById("advisor407F");
@@ -3456,6 +3778,7 @@ export async function boot407FEngineeringAdapter({
   }
   on407FRendered=()=>{
     applyEntitlementSurface();
+    if(bridge.state.view==="command")queueMicrotask(renderHomePreview);
     if(bridge.state.view==="export")queueExportRender();
     if(bridge.state.view==="advisor")queueMicrotask(renderAdvisorHost);
     if(bridge.state.view==="builder"){
@@ -3473,7 +3796,7 @@ export async function boot407FEngineeringAdapter({
     if(route.startsWith("advisor-session:"))bridge.go("advisor");
   };
   window.addEventListener("hashchange",onAdvisorHashChange);
-  const commitExamMutation=(label,mutation)=>{
+  const commitExamMutation=(label,mutation,{render=true}={})=>{
     let result=null;
     store.mutate(label,(document)=>{
       apply407FStateToDocument(bridge.state,document);
@@ -3481,8 +3804,12 @@ export async function boot407FEngineeringAdapter({
     });
     applying=true;
     applyDocumentTo407FState(store.document,bridge.state);
-    bridge.renderAll();
-    canvasController?.render();
+    if(render){
+      bridge.renderAll();
+      canvasController?.render();
+    }else{
+      queueBuilderEmbeddedPreview({force:true});
+    }
     lastState=stableState(bridge.state);
     applying=false;
     return result;
@@ -3501,7 +3828,7 @@ export async function boot407FEngineeringAdapter({
     update(recordId,changes){
       commitExamMutation("Update exam",(document)=>{
         updateBuilderExamAttempt(document,recordId,changes);
-      });
+      },{render:false});
     },
     delete(recordId){
       commitExamMutation("Delete exam",(document)=>{
@@ -3519,7 +3846,7 @@ export async function boot407FEngineeringAdapter({
       );
     }
   });
-  const commitDomainMutation=(label,mutation)=>{
+  const commitDomainMutation=(label,mutation,{render=true}={})=>{
     let result=null;
     store.mutate(label,(document)=>{
       apply407FStateToDocument(bridge.state,document);
@@ -3528,8 +3855,12 @@ export async function boot407FEngineeringAdapter({
     });
     applying=true;
     applyDocumentTo407FState(store.document,bridge.state);
-    bridge.renderAll();
-    canvasController?.render();
+    if(render){
+      bridge.renderAll();
+      canvasController?.render();
+    }else{
+      queueBuilderEmbeddedPreview({force:true});
+    }
     lastState=stableState(bridge.state);
     applying=false;
     return result;
@@ -3540,7 +3871,7 @@ export async function boot407FEngineeringAdapter({
         const builder=ensureBuilderState(document);
         builder.drafts[domain]={...builder.drafts[domain],...clone(changes||{})};
         return clone(builder.drafts[domain]);
-      });
+      },{render:false});
     },
     save(domain,entry){
       return commitDomainMutation(`Save ${domain} entry`,(document)=>{
@@ -3782,6 +4113,7 @@ export async function boot407FEngineeringAdapter({
       }));
     }
     queueBuilderEmbeddedPreview();
+    if(bridge.state.view==="canvas")canvasController?.render();
     if(store.entitlement.canMutate!==true)return;
     if(approvalReconciling)return;
     const approval=reconcileApprovalFingerprint(store.document);
@@ -3963,12 +4295,23 @@ export async function boot407FEngineeringAdapter({
         if(step>=3&&step<=6&&eventId)api.domain.edit(eventId);
         bridge.state.builder.step=step;
         bridge.go("builder");
+        if(step===7&&eventId){
+          focusBuilderPreviewOwner({
+            kind:"explanation",
+            ownerId:eventId,
+            eventId,
+            step:7,
+            stepId:"review"
+          });
+        }
       }
     };
     onAdvancedObjectClick=(event)=>{
       const media=event.target.closest?.("[data-advanced-media]");
       const text=event.target.closest?.("[data-advanced-text]");
-      const headline=event.target.closest?.("[data-board-headline]");
+      const headline=event.target.closest?.(
+        "[data-board-headline],[data-artifact-chrome='title']"
+      );
       const selection=media
         ?{type:"media",id:media.dataset.advancedMedia}
         :text
@@ -3978,8 +4321,207 @@ export async function boot407FEngineeringAdapter({
             :null;
       if(selection)canvasController?.setUiState({advancedSelection:selection});
     };
+    let advancedPointer=null;
+    const advancedSourceElement=(type,id,fallback)=>{
+      if(!fallback?.hasAttribute?.("data-canvas-effective-hit-proxy"))return fallback;
+      const escaped=globalThis.CSS?.escape?CSS.escape(id):id;
+      return canvasHost.querySelector(
+        type==="media"
+          ?`[data-advanced-media="${escaped}"][data-canvas-effective-hit-source]`
+          :`[data-advanced-text="${escaped}"][data-canvas-effective-hit-source]`
+      )||fallback;
+    };
+    const advancedObjectForTarget=(target)=>{
+      const media=target.closest?.("[data-advanced-media]");
+      if(media){
+        const id=String(media.dataset.advancedMedia||"");
+        const item=(store.document.advanced?.media||[])
+          .find((candidate)=>String(candidate.id)===id);
+        return item?{
+          type:"media",
+          id,
+          item,
+          element:advancedSourceElement("media",id,media)
+        }:null;
+      }
+      const text=target.closest?.("[data-advanced-text]");
+      if(text){
+        const id=String(text.dataset.advancedText||"");
+        const item=(store.document.advanced?.textBlocks||[])
+          .find((candidate)=>String(candidate.id)===id);
+        return item?{
+          type:"text",
+          id,
+          item,
+          element:advancedSourceElement("text",id,text)
+        }:null;
+      }
+      return null;
+    };
+    const restoreAdvancedObjectFocus=(type,id)=>queueMicrotask(()=>{
+      const escaped=globalThis.CSS?.escape?CSS.escape(id):id;
+      canvasHost.querySelector(
+        type==="media"
+          ?`[data-canvas-effective-hit-proxy][data-advanced-media="${escaped}"], [data-advanced-media="${escaped}"]`
+          :`[data-canvas-effective-hit-proxy][data-advanced-text="${escaped}"], [data-advanced-text="${escaped}"]`
+      )?.focus?.();
+    });
+    onAdvancedObjectKeyDown=(event)=>{
+      const object=advancedObjectForTarget(event.target);
+      if(!object)return;
+      const key=String(event.key||"");
+      if(key==="Enter"||key===" "){
+        event.preventDefault();
+        canvasController?.setUiState({
+          advancedSelection:{type:object.type,id:object.id}
+        });
+        announceGlobal(`${object.type==="media"?"Media":"Text"} selected`);
+        restoreAdvancedObjectFocus(object.type,object.id);
+        return;
+      }
+      if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(key))return;
+      if(store.document.layoutLock!==false)return;
+      event.preventDefault();
+      const step=event.altKey?1:8;
+      const delta={
+        ArrowLeft:{x:-step,y:0},
+        ArrowRight:{x:step,y:0},
+        ArrowUp:{x:0,y:-step},
+        ArrowDown:{x:0,y:step}
+      }[key];
+      const original=clone(object.item);
+      let next;
+      let label;
+      if(event.shiftKey&&object.type==="media"){
+        next=resizeMediaElement(original,{
+          width:Math.max(48,Number(original.width||1)+delta.x),
+          height:Math.max(48,Number(original.height||1)+delta.y),
+          shiftKey:true
+        });
+        label="Resize Media asset";
+      }else{
+        const width=Number(original.width||0);
+        const height=Number(original.height||0);
+        const x=Math.max(0,Math.min(1920-width,Number(original.x||0)+delta.x));
+        const y=Math.max(0,Math.min(1080-height,Number(original.y||0)+delta.y));
+        next=object.type==="media"
+          ?moveMediaElement(original,{x,y})
+          :{...original,x,y};
+        label=`Move Advanced ${object.type}`;
+      }
+      store.mutate(label,(document)=>{
+        const collection=object.type==="media"
+          ?document.advanced.media
+          :document.advanced.textBlocks;
+        const index=collection.findIndex(
+          (candidate)=>String(candidate.id)===object.id
+        );
+        if(index>=0)collection[index]={...collection[index],...clone(next)};
+      });
+      syncBridgeFromStore();
+      canvasController?.setUiState({
+        advancedSelection:{type:object.type,id:object.id}
+      });
+      const message=label.startsWith("Resize")
+        ?"Media resized with keyboard"
+        :`${object.type==="media"?"Media":"Text"} moved with keyboard`;
+      bridge.toast(message);
+      announceGlobal(message);
+      restoreAdvancedObjectFocus(object.type,object.id);
+    };
+    onAdvancedPointerDown=(event)=>{
+      if(event.button!==0||store.document.layoutLock!==false)return;
+      const object=advancedObjectForTarget(event.target);
+      if(!object)return;
+      const svg=object.element.closest("svg");
+      const svgBounds=svg?.getBoundingClientRect?.();
+      const objectBounds=object.element.getBoundingClientRect?.();
+      if(!svgBounds?.width||!svgBounds?.height||!objectBounds)return;
+      const resizeZone=Math.max(
+        6,
+        Math.min(18,objectBounds.width*.25,objectBounds.height*.25)
+      );
+      const resize=object.type==="media"&&(
+        event.clientX>=objectBounds.right-resizeZone&&
+        event.clientY>=objectBounds.bottom-resizeZone
+      );
+      advancedPointer={
+        ...object,
+        kind:resize?"resize":"move",
+        startX:event.clientX,
+        startY:event.clientY,
+        scaleX:1920/svgBounds.width,
+        scaleY:1080/svgBounds.height,
+        original:clone(object.item),
+        preview:clone(object.item),
+        moved:false
+      };
+      object.element.dataset.advancedDragging=advancedPointer.kind;
+      canvasController?.setUiState({advancedSelection:{type:object.type,id:object.id}});
+      event.preventDefault();
+    };
+    onAdvancedPointerMove=(event)=>{
+      if(!advancedPointer)return;
+      const dx=(event.clientX-advancedPointer.startX)*advancedPointer.scaleX;
+      const dy=(event.clientY-advancedPointer.startY)*advancedPointer.scaleY;
+      if(!advancedPointer.moved&&Math.hypot(dx,dy)<4)return;
+      advancedPointer.moved=true;
+      const original=advancedPointer.original;
+      let next;
+      if(advancedPointer.type==="media"&&advancedPointer.kind==="resize"){
+        next=resizeMediaElement(original,{
+          width:Math.max(48,Number(original.width||1)+dx),
+          height:Math.max(48,Number(original.height||1)+dy),
+          shiftKey:event.shiftKey
+        });
+        advancedPointer.element.setAttribute("width",String(next.width));
+        advancedPointer.element.setAttribute("height",String(next.height));
+      }else{
+        const width=Number(original.width||0);
+        const height=Number(original.height||0);
+        const x=Math.max(0,Math.min(1920-width,Number(original.x||0)+dx));
+        const y=Math.max(0,Math.min(1080-height,Number(original.y||0)+dy));
+        next=advancedPointer.type==="media"
+          ?moveMediaElement(original,{x,y})
+          :{...clone(original),x,y};
+        advancedPointer.element.setAttribute("x",String(next.x));
+        advancedPointer.element.setAttribute("y",String(next.y));
+      }
+      advancedPointer.preview=next;
+      event.preventDefault();
+    };
+    onAdvancedPointerUp=()=>{
+      if(!advancedPointer)return;
+      const pointer=advancedPointer;
+      advancedPointer=null;
+      delete pointer.element.dataset.advancedDragging;
+      if(!pointer.moved)return;
+      store.mutate(
+        pointer.kind==="resize"?"Resize Media asset":`Move Advanced ${pointer.type}`,
+        (document)=>{
+          const collection=pointer.type==="media"
+            ?document.advanced.media
+            :document.advanced.textBlocks;
+          const index=collection.findIndex(
+            (candidate)=>String(candidate.id)===pointer.id
+          );
+          if(index>=0)collection[index]={...collection[index],...clone(pointer.preview)};
+        }
+      );
+      syncBridgeFromStore();
+      canvasController?.setUiState({
+        advancedSelection:{type:pointer.type,id:pointer.id}
+      });
+      const message=pointer.kind==="resize"?"Media resized":`${pointer.type==="media"?"Media":"Text"} moved`;
+      bridge.toast(message);
+      announceGlobal(message);
+    };
     canvasHost.addEventListener("click",onCanvasDetailsClick);
     canvasHost.addEventListener("click",onAdvancedObjectClick);
+    canvasHost.addEventListener("keydown",onAdvancedObjectKeyDown);
+    canvasHost.addEventListener("pointerdown",onAdvancedPointerDown);
+    document.addEventListener("pointermove",onAdvancedPointerMove);
+    document.addEventListener("pointerup",onAdvancedPointerUp);
     onCanvasResize=()=>canvasController?.setResponsiveWidth(window.innerWidth);
     window.addEventListener("resize",onCanvasResize);
     mediaUrls.hydrate(store,store.document)
@@ -4005,14 +4547,16 @@ export async function boot407FEngineeringAdapter({
         return`<div class="intake407FPreviewEmpty"><strong>Accepted suggestions appear here.</strong><span>Your timeline remains unchanged until final approval.</span></div>`;
       }
       try{
-        const rendered=render407FThemedBoard({
+        const rendered=renderResponsiveAdvancedBoard({
           ...clone(store.document),
           events
         },{
+          surface:"intake",
           currentMonth:currentMonth(),
-          audience:"EVERYTHING"
+          audience:"EVERYTHING",
+          interactive:false
         });
-        return`<div class="intake407FBoardPreview">${rendered.svg}</div>`;
+        return`<div class="intake407FBoardPreview">${rendered.html}</div>`;
       }catch{
         return`<div class="intake407FPreviewEmpty"><strong>${events.length} event${events.length===1?"":"s"} ready to preview.</strong><span>The exact board will settle after approval.</span></div>`;
       }
@@ -4093,14 +4637,15 @@ export async function boot407FEngineeringAdapter({
   const applyHistory=(direction)=>{
     const entry=store[direction]();
     if(!entry)return null;
+    const message=`${direction==="undo"?"Undid":"Redid"} ${entry.label}`;
     applying=true;
     applyDocumentTo407FState(store.document,bridge.state);
     bridge.renderAll();
-    canvasController?.render();
+    canvasController?.setUiState({liveAnnouncement:message});
     reflectStoreStatus();
     lastState=stableState(bridge.state);
     applying=false;
-    announceGlobal(`${direction==="undo"?"Undid":"Redid"} ${entry.label}`);
+    announceGlobal(message);
     return entry;
   };
   api.undo=()=>applyHistory("undo");
@@ -4299,7 +4844,15 @@ export async function boot407FEngineeringAdapter({
     const active=document.querySelector("section[data-view].live");
     if(!active)return;
     const view=String(active.dataset.view||"");
-    if(view==="builder")renderM9BuilderSurfaces();
+    if(view==="builder"){
+      renderM9BuilderSurfaces();
+      requestAnimationFrame(()=>requestAnimationFrame(
+        ()=>updateBuilderPreviewHitTargets(document.getElementById("boardWizard"))
+      ));
+    }
+    if(view==="canvas")requestAnimationFrame(()=>requestAnimationFrame(
+      ()=>canvasController?.refreshEffectiveHitTargets?.()
+    ));
     if(!["builder","canvas"].includes(view))closeMediaLibrary();
     if(["builder","canvas","media"].includes(view))renderMediaLibrarySurfaces();
     if(view===lastFocusedView)return;
@@ -4345,11 +4898,17 @@ export async function boot407FEngineeringAdapter({
   api.responsive=responsiveRuntime.state;
   onRouteRendered();
 
+  const matrixAppMode=installLocalMatrixAppMode({store});
   window.D1_407F_ENGINEERING=api;
   bridge.renderAll();
   document.documentElement.classList.remove("d1-hydrating");
   document.dispatchEvent(new CustomEvent("d1:407f-engineering-ready",{
-    detail:{documentId:store.document.id,restored:init.restored,adapter:store.adapter.kind}
+    detail:{
+      documentId:store.document.id,
+      restored:init.restored,
+      adapter:store.adapter.kind,
+      mode:matrixAppMode?.mode||"DIRECT_WEB"
+    }
   }));
   return api;
 }

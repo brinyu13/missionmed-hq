@@ -112,8 +112,10 @@ test("M9 renders a readable theme-aware explanation card and leader in export",(
   assert.match(rendered.svg,/data-explanation-card="true"/);
   assert.match(rendered.svg,/data-explanation-leader="true"/);
   assert.match(rendered.svg,/Explains a brief transition/);
-  assert.match(rendered.svg,/fill="#F4F7FF"/);
-  assert.ok(contrastRatio("#F4F7FF","#111827")>=4.5);
+  assert.match(rendered.svg,/locked407F-sticky/);
+  assert.match(rendered.svg,/--kbSticky:url/);
+  assert.match(rendered.svg,/locked407F-explanationLeader/);
+  assert.ok(contrastRatio("#40370F","#F5E47B")>=4.5);
   const exportInput=buildExportPreviewInput(document,{audience:"INTERVIEWER_SAFE"});
   assert.equal(exportInput.timeline.events.length,2);
 });
@@ -241,7 +243,7 @@ test("M9 active 407F UI exposes controlled workflows and local logo reuse",async
   assert.match(adapter,/image\/png,image\/jpeg,image\/webp/);
   assert.match(adapter,/document\.advanced\.media\.push\(asset\)/);
   assert.match(adapter,/setVariantInterviewTarget/);
-  assert.match(adapter,/advancedBoardRenderer\(timelineWithLorPresentation\(document\)/);
+  assert.match(adapter,/kernelManager\.render\(timelineWithLorPresentation\(timeline\)/);
   assert.match(adapter,/panelAttributes\("coordinate"\)/);
   assert.match(adapter,/data-explanation-target-x/);
   assert.match(adapter,/data-explanation-target-y/);

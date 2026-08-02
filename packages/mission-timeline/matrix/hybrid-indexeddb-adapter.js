@@ -1,6 +1,8 @@
 import { IndexedDbAdapter } from "../web/js/persistence/indexeddb-adapter.js";
 
 const SYNC_PREFIX = "remote:";
+export const REMOTE_DOCUMENT_SCHEMA = "d1-timeline-document-409.1";
+const REMOTE_SOURCE_SCHEMAS = new Set([REMOTE_DOCUMENT_SCHEMA, "d1-uxr-002.1"]);
 
 function isoNow() {
   return new Date().toISOString();
@@ -8,6 +10,23 @@ function isoNow() {
 
 function syncId(operation, documentId, sequence) {
   return `${SYNC_PREFIX}${operation}:${documentId}:${sequence}`;
+}
+
+export function toRemoteTimelineDocument(document) {
+  if (!document || typeof document !== "object") {
+    throw Object.assign(new Error("Timeline document is required for remote sync."), {
+      code: "REMOTE_DOCUMENT_REQUIRED",
+    });
+  }
+  const snapshot = structuredClone(document);
+  const clientSchemaVersion = String(snapshot.schemaVersion || "");
+  if (!REMOTE_SOURCE_SCHEMAS.has(clientSchemaVersion)) {
+    throw Object.assign(new Error("Timeline document schema is not supported for remote sync."), {
+      code: "DOCUMENT_SCHEMA_UNSUPPORTED",
+    });
+  }
+  snapshot.schemaVersion = REMOTE_DOCUMENT_SCHEMA;
+  return snapshot;
 }
 
 export class HybridIndexedDbAdapter extends IndexedDbAdapter {
@@ -49,6 +68,11 @@ export class HybridIndexedDbAdapter extends IndexedDbAdapter {
       } else this.report("REMOTE_CONSENT_REQUIRED", { documentId: documentEntry.value.document.id, pending: 0 });
     }
     if (this.remoteSyncConsent) this.scheduleFlush();
+  }
+
+  async hydrateAuthoritative(entries) {
+    await super.atomicPut(entries);
+    this.report("SERVER_HYDRATED", { pending: (await this.pending()).length });
   }
 
   async put(store, value, key = value?.id) {
@@ -158,13 +182,14 @@ export class HybridIndexedDbAdapter extends IndexedDbAdapter {
   async syncRecord(record) {
     if (!this.remoteSyncConsent) throw Object.assign(new Error("Remote sync consent is required."), { code: "REMOTE_CONSENT_REQUIRED" });
     const stateKey = `remote-revision:${record.documentId}`;
+    const remoteDocument = toRemoteTimelineDocument(record.document);
     let remote = await super.get("settings", stateKey);
     if (!remote) {
-      const created = await this.apiClient.createDocument(record.document, this.programId);
+      const created = await this.apiClient.createDocument(remoteDocument, this.programId);
       remote = { id: stateKey, revision: created.document.revision, documentId: record.documentId, updatedAt: isoNow() };
       await super.put("settings", remote);
     }
-    const snapshot = structuredClone(record.document);
+    const snapshot = structuredClone(remoteDocument);
     snapshot.revision = remote.revision;
     if (record.operation === "VERSION") {
       const version = await this.apiClient.createVersion(record.documentId, remote.revision, snapshot, record.label);

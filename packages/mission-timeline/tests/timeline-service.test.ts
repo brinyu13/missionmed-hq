@@ -37,6 +37,47 @@ test("optimistic revision conflicts preserve the winning version", async () => {
   assert.equal((await repository.listVersions("timeline_test")).length, 1);
 });
 
+test("checkpoint accepts the browser schema only through the guarded canonical boundary", async () => {
+  const repository = new InMemoryTimelineRepository();
+  const service = new TimelineService(repository, fixedClock);
+  await service.createDocument(student, {
+    id: "timeline_schema_checkpoint",
+    programId: "program_internal_medicine",
+    title: "Mission Timeline",
+    document: document(),
+  });
+  const browserSnapshot = document({
+    id: "forged_browser_id",
+    schemaVersion: "d1-uxr-002.1",
+    studentOwnerId: otherStudent.principalId,
+    programId: "program_other",
+    browserOnlyField: { preserved: true },
+  });
+  const checkpoint = await service.saveCheckpoint(
+    student,
+    "timeline_schema_checkpoint",
+    "browser_device",
+    0,
+    browserSnapshot,
+  );
+  assert.equal(checkpoint.snapshot.schemaVersion, "d1-timeline-document-409.1");
+  assert.equal(checkpoint.snapshot.id, "timeline_schema_checkpoint");
+  assert.equal(checkpoint.snapshot.studentOwnerId, student.principalId);
+  assert.equal(checkpoint.snapshot.programId, "program_internal_medicine");
+  assert.deepEqual(checkpoint.snapshot.browserOnlyField, { preserved: true });
+
+  await assert.rejects(
+    service.saveCheckpoint(
+      student,
+      "timeline_schema_checkpoint",
+      "browser_device",
+      0,
+      document({ schemaVersion: "future-unknown.1" }),
+    ),
+    (error: { code?: string }) => error.code === "DOCUMENT_SCHEMA_UNSUPPORTED",
+  );
+});
+
 test("advisor workflow binds review and approval to exact version hash", async () => {
   const { repository, service, version } = await setupVersion();
   await service.assignAdvisor(programAdmin, {

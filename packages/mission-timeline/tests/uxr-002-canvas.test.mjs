@@ -4,7 +4,6 @@ import test from "node:test";
 
 import {
   AUTOMATIC_VERSION_TYPES,
-  CANVAS_FOUNDER_BRANCHES,
   CANVAS_TOOLBAR_ORDER,
   GUIDED_CONTEXT_CONTROL_ORDER,
   GUIDED_CONTEXT_MENU_ORDER,
@@ -685,7 +684,7 @@ test("M8 tablet and phone Canvas contracts are view-only with the exact banner a
   );
 });
 
-test("D1-405 renders N<4 canvases while preserving the named short-arrow isolation branch",() => {
+test("D1-405 renders N<4 canvases and preserves short events in the canonical artifact",() => {
   const fewerThanFour = defaultDocument();
   fewerThanFour.events = [{
     id:"two-year",
@@ -724,14 +723,14 @@ test("D1-405 renders N<4 canvases while preserving the named short-arrow isolati
       visibilityState:VISIBILITY.INTERVIEWER_SAFE
     }
   ];
-  assert.throws(
-    () => renderCanvas({
-      document:shortArrow,
-      state:createCanvasState(),
-      currentMonth:"2026-07"
-    }),
-    (error) => error.code === CANVAS_FOUNDER_BRANCHES.SHORT_ARROW && error.isolated === true
-  );
+  const shortRendered=renderCanvas({
+    document:shortArrow,
+    state:createCanvasState(),
+    currentMonth:"2026-07"
+  });
+  assert.match(shortRendered,/data-event-id="short"/);
+  assert.match(shortRendered,/data-event-id="span"/);
+  assert.doesNotMatch(shortRendered,/data-render-isolated/);
 });
 
 test("M8 install owns delegated Canvas listeners, canonical rendering, responsive updates, and clean teardown",() => {
@@ -746,7 +745,7 @@ test("M8 install owns delegated Canvas listeners, canonical rendering, responsiv
   assert.match(root.innerHTML,/Timeline visualization, 6 events; use Tab to move between events/);
   assert.deepEqual(
     [...root.listeners.keys()].sort(),
-    ["click","contextmenu","dblclick","input","keydown","pointerdown","submit","wheel"].sort()
+    ["click","contextmenu","dblclick","focusin","input","keydown","pointerdown","submit","wheel"].sort()
   );
   controller.setResponsiveWidth(900);
   assert.equal(controller.state.responsive.viewOnly,true);

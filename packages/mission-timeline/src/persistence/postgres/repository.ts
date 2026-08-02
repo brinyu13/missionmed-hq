@@ -531,6 +531,9 @@ export class PostgresTimelineRepository implements TimelineRepository {
     options: PostgresTimelineRepositoryOptions = {},
     internal: InternalRepositoryState = {},
   ) {
+    if (options.runtimeRole && !/^[a-z_][a-z0-9_]*$/.test(options.runtimeRole)) {
+      throw new TypeError("PostgreSQL runtime role is invalid.");
+    }
     this.options = {
       ...options,
       rlsClaims: options.rlsClaims
@@ -577,6 +580,9 @@ export class PostgresTimelineRepository implements TimelineRepository {
     try {
       await client.query("BEGIN");
       transactionStarted = true;
+      if (this.options.runtimeRole) {
+        await client.query(`SET LOCAL ROLE ${this.options.runtimeRole}`);
+      }
       await client.query("SELECT set_config('request.jwt.claims', $1, true)", [
         JSON.stringify(this.options.rlsClaims ?? {}),
       ]);
@@ -670,6 +676,21 @@ export class PostgresTimelineRepository implements TimelineRepository {
           ORDER BY updated_at DESC, id ASC
         `,
         [ownerPrincipalId],
+      );
+      return result.rows.map(mapDocument);
+    });
+  }
+
+  async listAccessibleDocuments(_principalId: string): Promise<DocumentRecord[]> {
+    return this.run(async (database) => {
+      const result = await database.query<DatabaseRow>(
+        `
+          SELECT ${DOCUMENT_COLUMNS}
+          FROM timeline.documents
+          WHERE status <> 'DELETED'
+            AND deleted_at IS NULL
+          ORDER BY updated_at DESC, id ASC
+        `,
       );
       return result.rows.map(mapDocument);
     });
@@ -1867,10 +1888,10 @@ export class PostgresTimelineRepository implements TimelineRepository {
     if (
       !row ||
       row.schema_complete !== true ||
-      row.schema_version !== POSTGRES_TIMELINE_SCHEMA_VERSION
+      row.schema_version !== (this.options.expectedSchemaVersion ?? POSTGRES_TIMELINE_SCHEMA_VERSION)
     ) {
       throw new TimelineError("PERSISTENCE_SCHEMA_MISMATCH", "Timeline database schema is not compatible.", 503, {
-        expectedSchemaVersion: POSTGRES_TIMELINE_SCHEMA_VERSION,
+        expectedSchemaVersion: this.options.expectedSchemaVersion ?? POSTGRES_TIMELINE_SCHEMA_VERSION,
         actualSchemaVersion: typeof row?.schema_version === "string" ? row.schema_version : null,
       });
     }

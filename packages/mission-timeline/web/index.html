@@ -1162,7 +1162,9 @@ function loadDemoIntoUser(){
 function renderBoards(){
   const homeHasEvents=state.user.events.length>0;
   if(homeHasEvents){
-    renderBoard('boardCommand',{data:state.user,scope:'safe',tag:'LATEST WORKING VERSION · INTERVIEW-SAFE'});
+    if(!window.D1_407F_ENGINEERING){
+      renderBoard('boardCommand',{data:state.user,scope:'safe',tag:'LATEST WORKING VERSION · INTERVIEW-SAFE'});
+    }
   }else{
     const homeBoard=$('#boardCommand');
     if(homeBoard)homeBoard.innerHTML='<div class="homePreviewPlaceholder" aria-hidden="true"><span></span><i></i><i></i><i></i></div>';
@@ -1363,14 +1365,23 @@ function openCatModal(k){
 }
 
 /* ============ NAV ============ */
+function syncNavigationCurrent(v){
+  $$('#rail .rtab,[data-nav]').forEach(control=>{
+    const route=control.dataset.v||control.dataset.nav;
+    if(route===v)control.setAttribute('aria-current','page');
+    else control.removeAttribute('aria-current');
+  });
+}
 function go(v){
   state.view=v;
   $$('#rail .rtab').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
   $$('section[data-view]').forEach(s=>s.classList.toggle('live',s.dataset.view===v));
+  syncNavigationCurrent(v);
   renderAll();
 }
 $$('#rail .rtab').forEach(b=>b.onclick=()=>go(b.dataset.v));
 document.addEventListener('click',e=>{const n=e.target.closest('[data-nav]');if(n)go(n.dataset.nav)});
+syncNavigationCurrent(state.view);
 $('#matrixBack').onclick=e=>{e.preventDefault();toast('Matrix connection is unavailable in this local candidate')};
 $('#homeStartOver').onclick=()=>{
   openModal('<div class="bigt" style="font-size:24px;margin-bottom:10px">Start a new timeline?</div>'
@@ -2463,7 +2474,12 @@ function domainFormData404(form,domain){
   const draft=domainDraft404(domain);const next=Object.assign({},draft);
   form.querySelectorAll('input[name],select[name]').forEach(control=>{
     if(control.type==='checkbox')next[control.name]=control.checked;
-    else if(control.matches('[data-domain-date]'))next[control.name]=canonicalExactDate404(control.dataset.dateCanonical!==undefined?control.dataset.dateCanonical:control.value);
+    else if(control.matches('[data-domain-date]')){
+      const visibleValue=String(control.value||'').trim();
+      next[control.name]=domain==='clinical'
+        ?canonicalExactDate404(visibleValue)
+        :(parseBuilderMonth(visibleValue)||visibleValue);
+    }
     else next[control.name]=String(control.dataset.dateCanonical!==undefined?control.dataset.dateCanonical:(control.value||'')).trim();
   });
   if(domain==='clinical'){
@@ -2624,6 +2640,17 @@ document.addEventListener('click',e=>{
     const form=segment.closest('[data-domain-form]');if(!form)return;
     const domain=form.dataset.domainForm;const changes={[segment.dataset.domainSegment]:segment.dataset.domainValue};
     if(domain==='research'&&segment.dataset.domainSegment==='publicationStatus'&&segment.dataset.domainValue==='Published'&&domainDraft404(domain).publicationStatus!=='Published')changes.markPublication=true;
+    state.builder.domainDrafts=state.builder.domainDrafts||{};
+    state.builder.domainDrafts[domain]=Object.assign(
+      domainDefaults404(domain),
+      state.builder.domainDrafts[domain]||{},
+      changes
+    );
+    form.querySelectorAll('[data-domain-segment="'+segment.dataset.domainSegment+'"]').forEach(button=>{
+      const selected=button.dataset.domainValue===segment.dataset.domainValue;
+      button.classList.toggle('on',selected);
+      button.setAttribute('aria-pressed',String(selected));
+    });
     state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
     runDomainAction404('updateDraft',domain,changes);return;
   }
@@ -2689,6 +2716,23 @@ document.addEventListener('input',e=>{
     queueUnlistedSchool404();
     renderHud();
     return;
+  }
+  const domainInput=e.target.closest&&e.target.closest('[data-domain-form] input[name], [data-domain-form] textarea[name]');
+  if(domainInput){
+    const form=domainInput.closest('[data-domain-form]');
+    const domain=form&&form.dataset.domainForm;
+    if(domain){
+      state.builder.domainDrafts=state.builder.domainDrafts||{};
+      const draft=state.builder.domainDrafts[domain]=Object.assign(
+        domainDefaults404(domain),
+        state.builder.domainDrafts[domain]||{}
+      );
+      draft[domainInput.name]=domainInput.type==='checkbox'
+        ?domainInput.checked
+        :String(domainInput.value||'');
+      state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
+      state.saved=false;
+    }
   }
   const input=e.target.closest&&e.target.closest('[data-typeahead-input]');
   if(!input)return;
@@ -2771,6 +2815,23 @@ document.addEventListener('d1:date-commit',e=>{
   }
 });
 document.addEventListener('change',e=>{
+  const domainControl=e.target.closest&&e.target.closest('[data-domain-form] input[name], [data-domain-form] select[name], [data-domain-form] textarea[name]');
+  if(domainControl){
+    const form=domainControl.closest('[data-domain-form]');
+    const domain=form&&form.dataset.domainForm;
+    if(domain){
+      state.builder.domainDrafts=state.builder.domainDrafts||{};
+      const draft=state.builder.domainDrafts[domain]=Object.assign(
+        domainDefaults404(domain),
+        state.builder.domainDrafts[domain]||{}
+      );
+      draft[domainControl.name]=domainControl.type==='checkbox'
+        ?domainControl.checked
+        :String(domainControl.value||'').trim();
+      state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
+      state.saved=false;
+    }
+  }
   const lorStatus=e.target.closest('[data-lor-status]');
   if(lorStatus){
     const context=lorContext404(domainDraft404('clinical').specialty);

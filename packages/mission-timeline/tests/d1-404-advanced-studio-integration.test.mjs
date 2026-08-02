@@ -104,10 +104,10 @@ test("the reused exact mode plans gate both directions and require the pre-Advan
   assert.ok(applyIndex<replaceIndex,"the approved mode result must precede shared-store replacement");
 });
 
-test("Canvas receives the themed Advanced renderer, Advanced controls, and exact mode requests",()=>{
+test("Canvas receives the protected Fable renderer, retained Advanced controls, and exact mode requests",()=>{
   assert.match(
     adapter,
-    /createAdvancedBoardRenderer\(\{\s*baseRenderer:\s*render407FThemedBoard/
+    /createD1411AKernelManager\(\{/
   );
   const canvasInstall=sourceBetween(
     adapter,

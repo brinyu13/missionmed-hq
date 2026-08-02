@@ -1,6 +1,7 @@
 import type { PrincipalContext, Role } from "../../contracts/types.js";
 
 export const POSTGRES_TIMELINE_SCHEMA_VERSION = "d1-timeline-db-413.2";
+export const POSTGRES_TIMELINE_PRODUCTION_SCHEMA_VERSION = "d1-timeline-db-411c.1";
 export const POSTGRES_TIMELINE_DOCUMENT_SCHEMA_VERSION = "d1-timeline-document-409.1";
 
 export interface PostgresQueryResult<Row = Record<string, unknown>> {
@@ -22,6 +23,9 @@ export interface PostgresPool extends PostgresQueryable {
 
 export interface PostgresRlsClaims {
   sub: string;
+  wp_user_id?: number;
+  is_wordpress_administrator?: boolean;
+  has_learndash_3893_access?: boolean;
   timeline_role: Role;
   program_ids: string[];
   service_scopes: string[];
@@ -46,6 +50,8 @@ export interface CommentBodyCodec {
 
 export interface PostgresTimelineRepositoryOptions {
   rlsClaims?: PostgresRlsClaims;
+  runtimeRole?: string;
+  expectedSchemaVersion?: string;
   commentBodyCodec?: CommentBodyCodec;
   clock?: () => Date;
 }
@@ -86,6 +92,13 @@ export function postgresClaimsFromPrincipal(
 ): PostgresRlsClaims {
   const claims: PostgresRlsClaims = {
     sub: context.principalId,
+    ...(context.wpUserId ? { wp_user_id: context.wpUserId } : {}),
+    ...(context.isWordpressAdministrator !== undefined
+      ? { is_wordpress_administrator: context.isWordpressAdministrator }
+      : {}),
+    ...(context.hasLearndash3893Access !== undefined
+      ? { has_learndash_3893_access: context.hasLearndash3893Access }
+      : {}),
     timeline_role: context.role,
     program_ids: [...context.programIds],
     service_scopes: [...context.serviceScopes],

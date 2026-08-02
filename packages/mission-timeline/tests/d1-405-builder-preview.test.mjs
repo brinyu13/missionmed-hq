@@ -104,6 +104,15 @@ test("M4 preserves canonical 1920x1080 geometry and adds stable interactive owne
     svg,
     /data-event-kind="interview-marker" data-builder-preview-interview data-owner-kind="interview-target"/
   );
+  assert.match(svg,/data-artifact-chrome="title" data-builder-preview-owner data-owner-kind="core-profile"/);
+  assert.match(svg,/data-profile-photo-slot="true" data-builder-preview-owner data-owner-kind="media-library"/);
+  assert.match(svg,/data-artifact-photo-frame="1" data-builder-preview-owner data-owner-kind="media-library"/);
+  assert.match(svg,/data-interview-destination="407f-ribbon" data-builder-preview-owner data-owner-kind="interview-target"/);
+  assert.doesNotMatch(svg,/tabindex="(?:0|-1)>/);
+  assert.match(
+    svg,
+    /data-artifact-chrome="title"[^>]*tabindex="-1">/
+  );
 });
 
 test("M11 read-only Builder preview preserves ownership without edit semantics",()=>{
@@ -259,6 +268,14 @@ test("M4 resolves exact Core, exam, domain, publication, and interview owners wi
     ownerKind:"interview-target",
     ownerId:"interview-target"
   }).step,7);
+  assert.equal(resolveBuilderPreviewOwner(timeline,{
+    ownerKind:"core-profile",
+    ownerId:"title"
+  }).focusSelector,'[data-core="name"]');
+  assert.equal(resolveBuilderPreviewOwner(timeline,{
+    ownerKind:"media-library",
+    ownerId:"photo-1"
+  }).stepId,"media");
   assert.equal(resolveBuilderPreviewOwner(timeline,{
     ownerKind:"builder-entry",
     ownerId:"missing",

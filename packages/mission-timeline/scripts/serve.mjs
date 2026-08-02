@@ -30,12 +30,22 @@ const mime = {
 };
 
 const securityHeaders = Object.freeze({
-  "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+  "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
   "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
   "referrer-policy": "no-referrer",
   "x-content-type-options": "nosniff",
   "x-frame-options": "DENY",
 });
+
+function responseSecurityHeaders(pathname) {
+  if (!pathname.startsWith("/web/presentation/d1-409h-a1/")) return securityHeaders;
+  return {
+    ...securityHeaders,
+    "content-security-policy": securityHeaders["content-security-policy"]
+      .replace("frame-ancestors 'none'","frame-ancestors 'self'"),
+    "x-frame-options": "SAMEORIGIN"
+  };
+}
 
 function sendJson(response, status, value) {
   response.writeHead(status, {
@@ -80,7 +90,7 @@ const server = createServer((request, response) => {
     return;
   }
   response.writeHead(200, {
-    ...securityHeaders,
+    ...responseSecurityHeaders(url.pathname),
     "content-type": mime[extname(target).toLowerCase()] || "application/octet-stream",
     "cache-control": "no-store",
   });

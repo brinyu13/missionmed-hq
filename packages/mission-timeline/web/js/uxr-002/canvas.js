@@ -105,7 +105,9 @@ const CATEGORY_STEP = freeze({
   personal:freeze({step:6,stepId:"personal",builderDomain:"personal"})
 });
 
-const DRAG_KINDS = new Set(["move","resize-start","resize-end","lane"]);
+const DRAG_KINDS = new Set([
+  "move","resize-start","resize-end","lane","free-move","free-resize"
+]);
 const EDITING_ACTIONS = new Set([
   "add-event",
   "undo",
@@ -121,6 +123,7 @@ function currentMonth(now = new Date()) {
 }
 
 function eventKind(event) {
+  if(event?.fields?.builderDomain==="explanation")return"explanation";
   const source = String(event?.sourceType || "").toLowerCase();
   const studyKind = String(event?.studyPeriodKind || "").toLowerCase();
   if (
@@ -433,6 +436,19 @@ export function contextMenuForEvent(event,{mode = "guided"} = {}) {
 
 export function detailsRouteForEvent(event) {
   const domain = event?.fields?.builderDomain;
+  if(domain==="explanation"){
+    return freeze({
+      kind:"explanation",
+      placement:"centered",
+      width:560,
+      eventId:String(event?.id||""),
+      entryId:String(event?.id||""),
+      step:7,
+      stepId:"review",
+      fieldsSource:"builder-step-7-explanation",
+      sameFieldsAsWizard:true
+    });
+  }
   const owner = CATEGORY_STEP[event?.categoryId] || CATEGORY_STEP.personal;
   const resolved = Object.values(CATEGORY_STEP).find((item) => item.builderDomain === domain) || owner;
   return freeze({
@@ -566,10 +582,34 @@ export function addCanvasEvent(
   };
 }
 
-function shiftedEvent(before,kind,{monthDelta = 0,targetLane = null,laneDelta = 0,currentMonth:nowMonth}) {
+function shiftedEvent(before,kind,{
+  monthDelta = 0,
+  targetLane = null,
+  laneDelta = 0,
+  pixelDeltaX = 0,
+  pixelDeltaY = 0,
+  currentMonth:nowMonth
+}) {
   const event = clone(before);
   const delta = Math.trunc(Number(monthDelta) || 0);
   const type = eventKind(event);
+
+  if(type==="explanation"){
+    const fields={...(event.fields||{})};
+    const dx=Math.round(Number(pixelDeltaX)||0);
+    const dy=Math.round(Number(pixelDeltaY)||0);
+    if(kind==="free-move"){
+      fields.x=Math.min(1744,Math.max(96,(Number(fields.x)||1470)+dx));
+      fields.y=Math.min(904,Math.max(80,(Number(fields.y)||574)+dy));
+    }else if(kind==="free-resize"){
+      fields.width=Math.min(520,Math.max(180,(Number(fields.width)||300)+dx));
+      fields.height=Math.min(320,Math.max(110,(Number(fields.height)||190)+dy));
+    }else{
+      throw new TypeError(`Unsupported explanation drag kind: ${String(kind)}`);
+    }
+    event.fields=fields;
+    return event;
+  }
 
   if (kind === "lane") {
     const lane = targetLane == null
@@ -652,6 +692,10 @@ function syncClinicalExactDates(before,event,kind){
 }
 
 export function canvasDateTooltip(event) {
+  if(eventKind(event)==="explanation"){
+    const fields=event?.fields||{};
+    return`Position ${Math.round(Number(fields.x)||0)}, ${Math.round(Number(fields.y)||0)} · ${Math.round(Number(fields.width)||0)} × ${Math.round(Number(fields.height)||0)}`;
+  }
   const start = formatMonth(event?.startDate);
   if (eventKind(event) === "milestone") return start;
   const end = event?.openEnded ? "Present" : formatMonth(event?.endDate);
@@ -683,6 +727,8 @@ export function beginCanvasDrag(
     preview:clone(before),
     monthDelta:0,
     laneDelta:0,
+    pixelDeltaX:0,
+    pixelDeltaY:0,
     targetLane:null,
     currentMonth:parseMonth(nowMonth) || currentMonth(),
     liveTooltip:canvasDateTooltip(before),
@@ -699,6 +745,8 @@ export function updateCanvasDrag(
     monthDelta = transaction?.monthDelta || 0,
     laneDelta = transaction?.laneDelta || 0,
     targetLane = transaction?.targetLane ?? null
+    ,pixelDeltaX = transaction?.pixelDeltaX || 0
+    ,pixelDeltaY = transaction?.pixelDeltaY || 0
   } = {}
 ) {
   if (!transaction?.active) throw new TypeError("Canvas drag transaction is not active.");
@@ -706,6 +754,8 @@ export function updateCanvasDrag(
     monthDelta,
     laneDelta,
     targetLane,
+    pixelDeltaX,
+    pixelDeltaY,
     currentMonth:transaction.currentMonth
   });
   return {
@@ -714,6 +764,8 @@ export function updateCanvasDrag(
     monthDelta:Math.trunc(Number(monthDelta) || 0),
     laneDelta:Math.trunc(Number(laneDelta) || 0),
     targetLane:targetLane == null ? null : normalizedLane(targetLane),
+    pixelDeltaX:Math.round(Number(pixelDeltaX)||0),
+    pixelDeltaY:Math.round(Number(pixelDeltaY)||0),
     liveTooltip:canvasDateTooltip(preview),
     axisReflow:"suppressed-until-drop",
     reflowCount:0
@@ -722,6 +774,9 @@ export function updateCanvasDrag(
 
 function dragAnnouncement(transaction) {
   const title = transaction.preview.title || "Event";
+  if(eventKind(transaction.preview)==="explanation"){
+    return`${title} ${transaction.kind==="free-resize"?"resized":"moved"}: ${canvasDateTooltip(transaction.preview)}`;
+  }
   if (transaction.kind === "lane") {
     return `${title} moved to lane ${normalizedLane(transaction.preview.lane) + 1}`;
   }
@@ -742,7 +797,11 @@ export function commitCanvasDrag(
   } = {}
 ) {
   if (!transaction?.active) throw new TypeError("Canvas drag transaction is not active.");
-  const label = transaction.kind === "lane"
+  const label = transaction.kind === "free-move"
+    ?"Move explanation"
+    :transaction.kind === "free-resize"
+      ?"Resize explanation"
+      :transaction.kind === "lane"
     ? "Move event lane"
     : transaction.kind === "move"
       ? "Move event"
@@ -750,7 +809,7 @@ export function commitCanvasDrag(
   const changed = runStoreMutation(store,label,(document) => {
     const event = assertEvent(document,transaction.eventId);
     Object.assign(event,clone(transaction.preview));
-    if (transaction.kind === "lane") {
+    if (transaction.kind === "lane"&&eventKind(event)!=="explanation") {
       const preferred = Object.fromEntries(
         document.events
           .filter((item) => eventKind(item) !== "milestone")
@@ -998,14 +1057,23 @@ export function applyCanvasKeyboard(
     };
   }
 
-  const dragKind = intent.type === "lane" ? "lane" : intent.type;
+  const explanation=eventKind(event)==="explanation";
+  const dragKind=explanation
+    ?(keyEvent?.shiftKey?"free-resize":"free-move")
+    :intent.type === "lane" ? "lane" : intent.type;
   const transaction = beginCanvasDrag(store.document,event.id,{
     kind:dragKind,
     currentMonth:nowMonth
   });
   const updated = updateCanvasDrag(transaction,{
     monthDelta:intent.monthDelta,
-    laneDelta:intent.laneDelta
+    laneDelta:intent.laneDelta,
+    pixelDeltaX:explanation&&["ArrowLeft","ArrowRight"].includes(keyEvent?.key)
+      ?(keyEvent.key==="ArrowLeft"?-16:16)
+      :0,
+    pixelDeltaY:explanation&&["ArrowUp","ArrowDown"].includes(keyEvent?.key)
+      ?(keyEvent.key==="ArrowUp"?-16:16)
+      :0
   });
   const result = commitCanvasDrag(store,updated,{onDropReflow});
   return {
@@ -1227,7 +1295,7 @@ function interactiveBoardSvg(svg,scene,state) {
       ""
     );
   }
-  let result = svg;
+  let result = String(svg || "");
   for (const event of scene.events) {
     const needle = `data-event-id="${xmlEscape(event.id)}"`;
     const selected = String(state.selectedEventId) === String(event.id);
@@ -1243,6 +1311,11 @@ function interactiveBoardSvg(svg,scene,state) {
 
 function renderSelectionHandles(event,sceneEvent,state) {
   if (!event || !sceneEvent || !isEditable(state)) return "";
+  if(sceneEvent.kind==="explanation"){
+    return `<div class="guided-explanation-handles" data-selection-handles data-event-id="${escapeHtml(event.id)}" style="--explanation-x:${Number(sceneEvent.x)||0};--explanation-y:${Number(sceneEvent.y)||0};--explanation-width:${Number(sceneEvent.width)||300};--explanation-height:${Number(sceneEvent.height)||190}">
+      <button type="button" data-drag-kind="free-resize" aria-label="Resize explanation"></button>
+    </div>`;
+  }
   if (sceneEvent.kind !== "arrow") return "";
   return `<div class="guided-arrow-handles" data-selection-handles data-event-id="${escapeHtml(event.id)}" style="--start-x:${sceneEvent.x};--end-x:${sceneEvent.x2};--center-y:${sceneEvent.centerY}">
     <button type="button" data-drag-kind="resize-start" aria-label="Adjust start month"></button>
@@ -1352,7 +1425,7 @@ export function renderCanvas({
       )
     });
     scene = rendered.scene;
-    selectedSceneEvent = scene.events.find((event) => String(event.id) === String(viewState.selectedEventId)) || null;
+    selectedSceneEvent = (scene?.events||[]).find((event) => String(event.id) === String(viewState.selectedEventId)) || null;
     const zoomStyle=viewState.zoom?.mode==="percent"
       ?`width:${1920*Number(viewState.zoom.percent||100)/100}px;max-width:none`
       :"";
@@ -1363,8 +1436,12 @@ export function renderCanvas({
         /; use Tab to move between events/g,
         ""
       );
-    board = `<div class="canvas-application" role="${editable?"application":"region"}" aria-label="${escapeHtml(canvasLabel)}" data-logical-width="1920" data-logical-height="1080" data-zoom-mode="${escapeHtml(viewState.zoom?.mode||"fit")}" data-zoom-percent="${Number(viewState.zoom?.percent||0)}" style="${zoomStyle}">
-      ${interactiveBoardSvg(rendered.svg,scene,viewState)}
+    const protectedPresentation=String(rendered.kind||"").startsWith("d1-411a-");
+    const presentation=protectedPresentation
+      ?rendered.html
+      :interactiveBoardSvg(rendered.svg,scene,viewState);
+    board = `<div class="canvas-application" role="${editable?"application":"region"}" aria-label="${escapeHtml(canvasLabel)}" data-logical-width="1920" data-logical-height="1080" data-zoom-mode="${escapeHtml(viewState.zoom?.mode||"fit")}" data-zoom-percent="${Number(viewState.zoom?.percent||0)}" data-presentation-kernel="${protectedPresentation?"D1-409H-A1":"legacy"}" style="${zoomStyle}">
+      ${presentation}
       ${renderSelectionHandles(selected,selectedSceneEvent,viewState)}
       ${renderInlineEditor(viewState,selectedSceneEvent)}
       ${viewState.drag?.active ? `<output class="canvas-date-tooltip" role="status">${escapeHtml(viewState.drag.liveTooltip)}</output>` : ""}
@@ -1489,6 +1566,125 @@ export function installCanvas(
   let versions = [];
   let destroyed = false;
   let pointer = null;
+  let effectiveHitFrame=0;
+
+  const installEffectiveHitTargets=()=>{
+    const priorProxies=[...(root.querySelectorAll?.(
+      "[data-canvas-effective-hit-proxy]"
+    )||[])];
+    const priorSources=[...(root.querySelectorAll?.(
+      "[data-canvas-effective-hit-source]"
+    )||[])];
+    const rootBounds=root.getBoundingClientRect?.();
+    const stablePairs=priorProxies.map((proxy)=>({
+      proxy,
+      source:priorSources.find(
+        (candidate)=>candidate.dataset.canvasEffectiveHitToken===
+          proxy.dataset.canvasEffectiveHitToken
+      )||null
+    }));
+    const canRefreshInPlace=
+      Boolean(rootBounds?.width&&rootBounds?.height)&&
+      stablePairs.length>0&&
+      stablePairs.length===priorSources.length&&
+      stablePairs.every(({source})=>{
+        const bounds=source?.getBoundingClientRect?.();
+        return Boolean(
+          bounds?.width&&
+          bounds?.height&&
+          (bounds.width<44||bounds.height<44)
+        );
+      });
+    if(canRefreshInPlace){
+      for(const {proxy,source} of stablePairs){
+        const targetBounds=source.getBoundingClientRect();
+        const width=Math.max(44,targetBounds.width);
+        const height=Math.max(44,targetBounds.height);
+        proxy.style.left=`${targetBounds.left-rootBounds.left-(width-targetBounds.width)/2}px`;
+        proxy.style.top=`${targetBounds.top-rootBounds.top-(height-targetBounds.height)/2}px`;
+        proxy.style.width=`${width}px`;
+        proxy.style.height=`${height}px`;
+        proxy.style.setProperty("--effective-source-width",`${targetBounds.width}px`);
+        proxy.style.setProperty("--effective-source-height",`${targetBounds.height}px`);
+      }
+      return;
+    }
+    for(const proxy of priorProxies){
+      const token=proxy.dataset.canvasEffectiveHitToken;
+      const source=priorSources.find(
+        (candidate)=>candidate.dataset.canvasEffectiveHitToken===token
+      );
+      if(source){
+        source.setAttribute("role","button");
+        source.setAttribute("tabindex",proxy.getAttribute("tabindex")||"0");
+        source.setAttribute("aria-label",proxy.getAttribute("aria-label")||"Edit timeline item");
+        source.removeAttribute("data-canvas-effective-hit-source");
+        source.removeAttribute("data-canvas-effective-hit-token");
+      }
+      proxy.remove();
+    }
+    if(!rootBounds?.width||!rootBounds?.height)return;
+    const targets=root.querySelectorAll?.(
+      "[data-canvas-event],[data-advanced-media],[data-advanced-text]"
+    )||[];
+    let proxySequence=0;
+    for(const target of targets){
+      if(
+        target.hasAttribute("data-canvas-effective-hit-proxy")||
+        target.hasAttribute("data-canvas-effective-hit-source")
+      )continue;
+      const targetBounds=target.getBoundingClientRect?.();
+      if(!targetBounds?.width||!targetBounds?.height)continue;
+      if(targetBounds.width>=44&&targetBounds.height>=44)continue;
+      const width=Math.max(44,targetBounds.width);
+      const height=Math.max(44,targetBounds.height);
+      const proxy=globalThis.document.createElement("button");
+      proxy.type="button";
+      proxy.className="canvasEffectiveHitProxy";
+      proxy.setAttribute("data-canvas-effective-hit-proxy","true");
+      const proxyToken=`canvas-hit-${proxySequence++}`;
+      proxy.setAttribute("data-canvas-effective-hit-token",proxyToken);
+      proxy.innerHTML='<span data-hit-edge="top"></span><span data-hit-edge="right"></span><span data-hit-edge="bottom"></span><span data-hit-edge="left"></span>';
+      for(const attribute of [
+        "data-canvas-event",
+        "data-event-id",
+        "data-advanced-media",
+        "data-advanced-text",
+        "data-media-kind",
+        "aria-selected"
+      ]){
+        if(target.hasAttribute(attribute)){
+          proxy.setAttribute(attribute,target.getAttribute(attribute)||"");
+        }
+      }
+      proxy.setAttribute(
+        "aria-label",
+        target.getAttribute("aria-label")||
+          target.textContent?.trim()?.replace(/\s+/g," ")||
+          "Edit timeline item"
+      );
+      proxy.setAttribute("tabindex",target.getAttribute("tabindex")||"0");
+      proxy.style.left=`${targetBounds.left-rootBounds.left-(width-targetBounds.width)/2}px`;
+      proxy.style.top=`${targetBounds.top-rootBounds.top-(height-targetBounds.height)/2}px`;
+      proxy.style.width=`${width}px`;
+      proxy.style.height=`${height}px`;
+      proxy.style.setProperty("--effective-source-width",`${targetBounds.width}px`);
+      proxy.style.setProperty("--effective-source-height",`${targetBounds.height}px`);
+      root.append(proxy);
+      target.setAttribute("data-canvas-effective-hit-source","true");
+      target.setAttribute("data-canvas-effective-hit-token",proxyToken);
+      target.removeAttribute("role");
+      target.removeAttribute("tabindex");
+      target.removeAttribute("aria-label");
+    }
+  };
+
+  const queueEffectiveHitTargets=()=>{
+    globalThis.cancelAnimationFrame?.(effectiveHitFrame);
+    effectiveHitFrame=globalThis.requestAnimationFrame?.(
+      installEffectiveHitTargets
+    )||0;
+  };
 
   const render = ({animateLayout=false}={}) => {
     if (destroyed) return "";
@@ -1515,6 +1711,7 @@ export function installCanvas(
         globalThis.setTimeout?.(()=>root.classList?.remove("layout-settling"),240);
       }
     }
+    queueEffectiveHitTargets();
     onStateChange(state);
     return root.innerHTML;
   };
@@ -1528,7 +1725,7 @@ export function installCanvas(
     render({animateLayout});
     queueMicrotask(() => {
       if (focus === "selected") {
-        root.querySelector?.(`[data-canvas-event][data-event-id="${globalThis.CSS?.escape ? CSS.escape(state.selectedEventId) : state.selectedEventId}"]`)?.focus();
+        root.querySelector?.(`[data-canvas-effective-hit-proxy][data-canvas-event][data-event-id="${globalThis.CSS?.escape ? CSS.escape(state.selectedEventId) : state.selectedEventId}"], [data-canvas-event][data-event-id="${globalThis.CSS?.escape ? CSS.escape(state.selectedEventId) : state.selectedEventId}"]`)?.focus();
       } else if (focus === "toolbar") {
         root.querySelector?.("[data-context-toolbar] button")?.focus();
       } else if (focus === "inline") {
@@ -1553,7 +1750,16 @@ export function installCanvas(
     return versions;
   };
 
-  const announceResult = (message) => setState({...state,liveAnnouncement:message});
+  const announceResult = (message) => {
+    const normalized=String(message||"");
+    setState({...state,liveAnnouncement:normalized});
+    const live=root.querySelector?.("[data-canvas-live]");
+    if(!live)return;
+    live.textContent="";
+    queueMicrotask(()=>{
+      if(!destroyed&&live.isConnected)live.textContent=normalized;
+    });
+  };
 
   const onClick = async (event) => {
     const actionTarget = event.target.closest?.("[data-canvas-action]");
@@ -1851,6 +2057,21 @@ export function installCanvas(
     }
   };
 
+  const onFocusIn = (event) => {
+    if(!isEditable(state))return;
+    const target=event.target.closest?.("[data-canvas-event]");
+    const eventId=String(target?.dataset?.eventId||"");
+    if(!eventId||eventId===String(state.selectedEventId||""))return;
+    if(!eventById(store.document,eventId))return;
+    state=selectCanvasEvent(state,eventId);
+    root.querySelectorAll?.("[data-canvas-event]").forEach((candidate)=>
+      candidate.setAttribute(
+        "aria-selected",
+        String(String(candidate.dataset?.eventId||"")===eventId)
+      )
+    );
+  };
+
   const onKeyDown = (event) => {
     if (state.toolbarFocus && trapToolbarTab(event,root)) return;
     if(trapCanvasDialogTab(event,root))return;
@@ -1951,11 +2172,18 @@ export function installCanvas(
       : event.target.closest?.("[data-canvas-event]");
     if (!target) return;
     const eventId = target.dataset.eventId;
+    const selectedEvent=eventById(store.document,eventId);
+    const application=target.closest?.(".canvas-application")||root.querySelector?.(".canvas-application");
+    const bounds=application?.getBoundingClientRect?.();
     pointer = {
       eventId,
       startX:Number(event.clientX || 0),
       startY:Number(event.clientY || 0),
-      kind:handle?.dataset.dragKind || "move",
+      kind:handle?.dataset.dragKind || (
+        eventKind(selectedEvent)==="explanation"?"free-move":"move"
+      ),
+      logicalScaleX:bounds?.width?1920/bounds.width:1,
+      logicalScaleY:bounds?.height?1080/bounds.height:1,
       transaction:null,
       moved:false
     };
@@ -1979,7 +2207,9 @@ export function installCanvas(
     if (!pointer.moved && Math.hypot(dx,dy) < touchSlop) return;
     pointer.moved = true;
     if (!pointer.transaction) {
-      pointer.kind = Math.abs(dy) > Math.abs(dx) ? "lane" : "move";
+      pointer.kind=eventKind(eventById(store.document,pointer.eventId))==="explanation"
+        ?"free-move"
+        :Math.abs(dy) > Math.abs(dx) ? "lane" : "move";
       pointer.transaction = beginCanvasDrag(store.document,pointer.eventId,{
         kind:pointer.kind,
         currentMonth:nowMonth()
@@ -1987,7 +2217,9 @@ export function installCanvas(
     }
     pointer.transaction = updateCanvasDrag(pointer.transaction,{
       monthDelta:Math.round(dx / pixelsPerMonth),
-      laneDelta:Math.round(-dy / lanePitch)
+      laneDelta:Math.round(-dy / lanePitch),
+      pixelDeltaX:dx*pointer.logicalScaleX,
+      pixelDeltaY:dy*pointer.logicalScaleY
     });
     state = {...state,drag:pointer.transaction,liveAnnouncement:pointer.transaction.liveTooltip};
     const live = root.querySelector?.("[data-canvas-live]");
@@ -2031,6 +2263,7 @@ export function installCanvas(
   root.addEventListener("contextmenu",onContextMenu);
   root.addEventListener("input",onInput);
   root.addEventListener("submit",onSubmit);
+  root.addEventListener("focusin",onFocusIn);
   root.addEventListener("keydown",onKeyDown);
   root.addEventListener("wheel",onWheel,{passive:false});
   root.addEventListener("pointerdown",onPointerDown);
@@ -2045,6 +2278,7 @@ export function installCanvas(
     get state(){return state;},
     get versions(){return versions.slice();},
     render,
+    refreshEffectiveHitTargets:queueEffectiveHitTargets,
     refreshVersions,
     setUiState(next){
       setState(typeof next === "function" ? next(state) : {...state,...next});
@@ -2054,11 +2288,13 @@ export function installCanvas(
     },
     destroy(){
       destroyed = true;
+      globalThis.cancelAnimationFrame?.(effectiveHitFrame);
       root.removeEventListener("click",onClick);
       root.removeEventListener("dblclick",onDoubleClick);
       root.removeEventListener("contextmenu",onContextMenu);
       root.removeEventListener("input",onInput);
       root.removeEventListener("submit",onSubmit);
+      root.removeEventListener("focusin",onFocusIn);
       root.removeEventListener("keydown",onKeyDown);
       root.removeEventListener("wheel",onWheel);
       root.removeEventListener("pointerdown",onPointerDown);

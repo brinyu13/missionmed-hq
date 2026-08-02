@@ -166,6 +166,55 @@ export function enhanceBuilderPreviewSvg(svg,document,{interactive=true}={}){
       ]:[])
     ].join(" "));
   }
+  const staticOrder=chronologicalTargets.length+1;
+  const interactiveOwner=(kind,id,order,label,initial=false)=>[
+    "data-builder-preview-owner",
+    `data-owner-kind="${escapeAttribute(kind)}"`,
+    `data-owner-id="${escapeAttribute(id)}"`,
+    `data-owner-order="${order}"`,
+    ...(interactive?[
+      'role="button"',
+      `aria-label="${escapeAttribute(label)}"`,
+      `tabindex="${initial?"0":"-1"}"`
+    ]:[])
+  ].join(" ");
+  const initialStatic=initialOwnerOrder<0;
+  result=result.replace(
+    'data-artifact-chrome="title"',
+    `data-artifact-chrome="title" ${interactiveOwner(
+      "core-profile","title",staticOrder,"Edit timeline title",initialStatic
+    )}`
+  );
+  result=result.replace(
+    'data-artifact-chrome="profile"',
+    `data-artifact-chrome="profile" ${interactiveOwner(
+      "core-profile","profile",staticOrder+1,"Edit profile details"
+    )}`
+  );
+  result=result.replace(
+    'data-profile-photo-slot="true"',
+    `data-profile-photo-slot="true" ${interactiveOwner(
+      "media-library","profile-photo",staticOrder+2,"Choose profile photo"
+    )}`
+  );
+  result=result.replace(
+    /data-artifact-photo-frame="([^"]+)"/g,
+    (_match,id)=>`data-artifact-photo-frame="${escapeAttribute(id)}" ${interactiveOwner(
+      "media-library",`photo-${id}`,staticOrder+3+Number(id||0),`Choose photo ${id}`
+    )}`
+  );
+  result=result.replace(
+    'data-interview-destination="407f-ribbon"',
+    `data-interview-destination="407f-ribbon" ${interactiveOwner(
+      "interview-target","interview-target",staticOrder+8,"Edit interview destination"
+    )}`
+  );
+  result=result.replace(
+    /data-advanced-media="([^"]+)"/g,
+    (_match,id)=>`data-advanced-media="${escapeAttribute(id)}" ${interactiveOwner(
+      "media-library",id,staticOrder+9,"Edit Media asset"
+    )}`
+  );
   return result;
 }
 
@@ -183,6 +232,28 @@ export function resolveBuilderPreviewOwner(document,{
       step:7,
       stepId:"review",
       focusSelector:"[data-interview-config]"
+    });
+  }
+  if(kind==="core-profile"){
+    return freeze({
+      kind,
+      ownerId:String(ownerId||"profile"),
+      eventId:null,
+      step:1,
+      stepId:"core",
+      focusSelector:String(ownerId)==="title"
+        ?'[data-core="name"]'
+        :'[data-school-search],[data-core="school"]'
+    });
+  }
+  if(kind==="media-library"){
+    return freeze({
+      kind,
+      ownerId:String(ownerId||"media"),
+      eventId:null,
+      step:null,
+      stepId:"media",
+      focusSelector:"[data-media-upload]"
     });
   }
   const event=(document?.events||[]).find(
@@ -211,7 +282,7 @@ export function resolveBuilderPreviewOwner(document,{
   const focusSelector=resolvedOwner.kind==="exam-attempt"
     ?`[data-exam-card="${escapeAttribute(resolvedOwner.id)}"]`
     :resolvedOwner.kind==="core-education"
-      ?'[data-core="school"]'
+      ?'[data-school-search],[data-core="school"]'
       :resolvedOwner.kind==="explanation"
         ?`[data-explanation-editor="${escapeAttribute(resolvedOwner.id)}"]`
         :`[data-domain-form="${escapeAttribute(route.stepId)}"]`;
@@ -236,6 +307,14 @@ export function builderPreviewTargetAttributes(target){
       eventId:""
     });
   }
+  const staticOwner=target.closest("[data-builder-preview-owner]");
+  if(staticOwner){
+    return freeze({
+      ownerKind:String(staticOwner.dataset?.ownerKind||""),
+      ownerId:String(staticOwner.dataset?.ownerId||""),
+      eventId:String(staticOwner.dataset?.eventId||"")
+    });
+  }
   const owner=target.closest(
     "[data-builder-preview-event],[data-builder-preview-interview]"
   );
@@ -250,8 +329,8 @@ export function builderPreviewTargetAttributes(target){
 export function builderPreviewFocusableTargets(root){
   return root?.querySelectorAll
     ?[...root.querySelectorAll(
-      "[data-builder-preview-event],[data-builder-preview-interview],[data-builder-preview-retake]"
-    )].sort((left,right)=>
+      "[data-builder-preview-event],[data-builder-preview-interview],[data-builder-preview-retake],[data-builder-preview-owner]"
+    )].filter((target)=>!target.hasAttribute("data-builder-preview-proxied-source")).sort((left,right)=>
       Number(left.dataset?.ownerOrder||0)-Number(right.dataset?.ownerOrder||0)
     )
     :[];

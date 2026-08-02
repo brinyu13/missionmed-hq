@@ -77,17 +77,16 @@ export function decide(
   }
 
   if (context.role === "PROGRAM_ADMIN") {
-    const programActions: TimelineAction[] = [
-      "document:read",
-      "review:read",
-      "review:comment",
-      "review:decide",
-      "artifact:read",
-      "audit:read",
-    ];
-    return sameProgram && programActions.includes(action)
-      ? { allowed: true, reason: "PROGRAM_SCOPE" }
-      : { allowed: false, reason: "PROGRAM_SCOPE_OR_ACTION_DENIED" };
+    if (!resource.documentId) return { allowed: false, reason: "ADMIN_RESOURCE_REQUIRED" };
+    const grant = context.facultyGrants.find(
+      (item) =>
+        item.documentId === resource.documentId
+        && (!resource.versionId || !item.versionId || item.versionId === resource.versionId)
+        && item.expiresAt > clock().toISOString(),
+    );
+    return grant?.actions.includes(action)
+      ? { allowed: true, reason: "ACTIVE_ADMIN_RESOURCE_GRANT" }
+      : { allowed: false, reason: "ADMIN_RESOURCE_GRANT_MISSING" };
   }
 
   if (context.role === "FACULTY" && resource.documentId) {

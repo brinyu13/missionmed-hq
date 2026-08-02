@@ -1,9 +1,15 @@
 import type { MatrixIdentity, PrincipalContext } from "../contracts/types.js";
 import { asTimelineError, TimelineError } from "../core/errors.js";
 import type { TimelineService } from "../domain/timeline-service.js";
-import type { MatrixSessionExchange } from "../identity/matrix-identity.js";
 import type { PrivateObjectStore } from "../storage/private-object-store.js";
 import type { PrivacySafeTelemetry } from "../telemetry/telemetry.js";
+
+export interface TimelineIdentityVerifier {
+  verify(token: string, requestId: string): PrincipalContext | Promise<PrincipalContext>;
+  exchange?(identity: MatrixIdentity): Promise<{ token: string; expiresAt: string }>;
+}
+
+export type TimelineServiceProvider = TimelineService | ((context: PrincipalContext) => TimelineService | Promise<TimelineService>);
 
 function json(value: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(value), {
@@ -24,11 +30,12 @@ async function body(request: Request): Promise<Record<string, unknown>> {
 
 export class TimelineHttpApi {
   constructor(
-    private readonly service: TimelineService,
-    private readonly identity: MatrixSessionExchange,
+    private readonly serviceProvider: TimelineServiceProvider,
+    private readonly identity: TimelineIdentityVerifier,
     private readonly objectStore: PrivateObjectStore,
     private readonly telemetry: PrivacySafeTelemetry,
     private readonly releaseVersion = "412.0.0-rc.0",
+    private readonly productionWrites = false,
   ) {}
 
   async handle(request: Request, trustedMatrixIdentity?: MatrixIdentity): Promise<Response> {
@@ -38,16 +45,22 @@ export class TimelineHttpApi {
     const routeClass = this.routeClass(url.pathname);
     try {
       if (url.pathname === "/v1/health" && request.method === "GET") {
-        return json({ ok: true, service: "mission-timeline", version: this.releaseVersion, productionWrites: false });
+        return json({ ok: true, service: "mission-timeline", version: this.releaseVersion, productionWrites: this.productionWrites });
       }
       if (url.pathname === "/v1/session/exchange" && request.method === "POST") {
+        if (!this.identity.exchange) throw new TimelineError("ROUTE_NOT_FOUND", "Timeline route not found.", 404);
         if (!trustedMatrixIdentity) throw new TimelineError("TRUSTED_MATRIX_CONTEXT_REQUIRED", "Trusted Matrix context is required.", 401);
         const session = await this.identity.exchange(trustedMatrixIdentity);
         return json(session, 200, { "x-request-id": requestId });
       }
-      const context = this.context(request, requestId);
-      const response = await this.dispatch(request, url, context);
-      await this.telemetry.emit("api.request", {
+      const context = await this.context(request, requestId);
+      const service = typeof this.serviceProvider === "function"
+        ? await this.serviceProvider(context)
+        : this.serviceProvider;
+      const response = await service.repository.withTransaction((repository) =>
+        this.dispatch(request, url, context, service.withRepository(repository)),
+      );
+      await this.emitTelemetry("api.request", {
         route_class: routeClass,
         method: request.method,
         status: response.status,
@@ -57,7 +70,7 @@ export class TimelineHttpApi {
       return response;
     } catch (error) {
       const timelineError = asTimelineError(error);
-      await this.telemetry.emit("api.error", {
+      await this.emitTelemetry("api.error", {
         route_class: routeClass,
         method: request.method,
         status: timelineError.status,
@@ -72,13 +85,18 @@ export class TimelineHttpApi {
     }
   }
 
-  private async dispatch(request: Request, url: URL, context: PrincipalContext): Promise<Response> {
+  private async dispatch(
+    request: Request,
+    url: URL,
+    context: PrincipalContext,
+    service: TimelineService,
+  ): Promise<Response> {
     if (url.pathname === "/v1/documents" && request.method === "GET") {
-      return json({ documents: await this.service.listOwnDocuments(context) });
+      return json({ documents: await service.listOwnDocuments(context) });
     }
     if (url.pathname === "/v1/documents" && request.method === "POST") {
       const input = await body(request);
-      const result = await this.service.createDocument(context, {
+      const result = await service.createDocument(context, {
         id: input.id as string | undefined,
         programId: String(input.programId ?? ""),
         title: String(input.title ?? ""),
@@ -89,13 +107,13 @@ export class TimelineHttpApi {
     }
     const documentMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)$/);
     if (documentMatch && request.method === "GET") {
-      const result = await this.service.getDocument(context, documentMatch[1]!);
+      const result = await service.getDocument(context, documentMatch[1]!);
       return json(result, 200, { etag: `"${result.document.revision}"` });
     }
     const checkpointMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/checkpoints\/([^/]+)$/);
     if (checkpointMatch && request.method === "PUT") {
       const input = await body(request);
-      const result = await this.service.saveCheckpoint(
+      const result = await service.saveCheckpoint(
         context,
         checkpointMatch[1]!,
         checkpointMatch[2]!,
@@ -107,7 +125,7 @@ export class TimelineHttpApi {
     const versionMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/versions$/);
     if (versionMatch && request.method === "POST") {
       const input = await body(request);
-      const result = await this.service.createVersion(
+      const result = await service.createVersion(
         context,
         versionMatch[1]!,
         Number(input.baseRevision),
@@ -119,13 +137,13 @@ export class TimelineHttpApi {
     const reviewMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/reviews$/);
     if (reviewMatch && request.method === "POST") {
       const input = await body(request);
-      return json(await this.service.requestReview(context, reviewMatch[1]!, String(input.versionId ?? "")), 201);
+      return json(await service.requestReview(context, reviewMatch[1]!, String(input.versionId ?? "")), 201);
     }
     const commentMatch = url.pathname.match(/^\/v1\/reviews\/([^/]+)\/comments$/);
     if (commentMatch && request.method === "POST") {
       const input = await body(request);
       return json(
-        await this.service.addComment(
+        await service.addComment(
           context,
           commentMatch[1]!,
           String(input.body ?? ""),
@@ -141,12 +159,12 @@ export class TimelineHttpApi {
       if (input.decision !== "APPROVED" && input.decision !== "CHANGES_REQUESTED") {
         throw new TimelineError("REVIEW_DECISION_INVALID", "Review decision is invalid.", 400);
       }
-      return json(await this.service.decideReview(context, decisionMatch[1]!, input.decision, String(input.reason ?? "")));
+      return json(await service.decideReview(context, decisionMatch[1]!, input.decision, String(input.reason ?? "")));
     }
     if (url.pathname === "/v1/exports" && request.method === "POST") {
       const input = await body(request);
       return json(
-        await this.service.createExportJob(
+        await service.createExportJob(
           context,
           String(input.documentId ?? ""),
           String(input.versionId ?? ""),
@@ -159,11 +177,11 @@ export class TimelineHttpApi {
     }
     const exportMatch = url.pathname.match(/^\/v1\/exports\/([^/]+)$/);
     if (exportMatch && request.method === "GET") {
-      return json(await this.service.getExportJob(context, exportMatch[1]!));
+      return json(await service.getExportJob(context, exportMatch[1]!));
     }
     if (url.pathname === "/v1/objects/sign" && request.method === "POST") {
       const input = await body(request);
-      const record = await this.service.getDocument(context, String(input.documentId ?? ""));
+      const record = await service.getDocument(context, String(input.documentId ?? ""));
       if (record.document.studentOwnerId !== context.principalId) throw new TimelineError("OBJECT_UPLOAD_OWNER_REQUIRED", "Student ownership is required.", 403);
       return json(
         await this.objectStore.signUpload(context, {
@@ -184,7 +202,7 @@ export class TimelineHttpApi {
     throw new TimelineError("ROUTE_NOT_FOUND", "Timeline route not found.", 404);
   }
 
-  private context(request: Request, requestId: string): PrincipalContext {
+  private async context(request: Request, requestId: string): Promise<PrincipalContext> {
     const authorization = request.headers.get("authorization") ?? "";
     if (!authorization.startsWith("Bearer ")) throw new TimelineError("SESSION_REQUIRED", "Timeline session is required.", 401);
     return this.identity.verify(authorization.slice(7), requestId);
@@ -200,5 +218,13 @@ export class TimelineHttpApi {
     if (pathname.includes("/exports")) return "exports";
     if (pathname.includes("/session")) return "session";
     return "health_or_unknown";
+  }
+
+  private async emitTelemetry(name: "api.request" | "api.error", attributes: Record<string, unknown>): Promise<void> {
+    try {
+      await this.telemetry.emit(name, attributes);
+    } catch {
+      // Telemetry is non-authoritative and may never replace the primary response.
+    }
   }
 }

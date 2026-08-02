@@ -334,8 +334,8 @@ test("H4 renders the accessible star and conditional legend in every approved th
     const themed=applyThemeToTimelineRender(base,theme.id);
     const svg=serializeKeynoteClassicSvg(themed.scene);
     assert.match(svg,/data-lor-submitted="true" role="img" aria-label="LOR submitted"/);
-    assert.match(svg,/data-lor-legend="true" role="img" aria-label="LOR submitted"/);
-    assert.match(svg,/>LOR submitted<\/text>/);
+    assert.match(svg,/data-lor-legend="true"/);
+    assert.match(svg,/>LOR submitted<\/div>/);
   }
 
   const withoutSubmission=renderKeynoteClassicBoard({

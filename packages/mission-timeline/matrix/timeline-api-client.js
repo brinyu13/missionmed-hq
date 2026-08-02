@@ -9,7 +9,7 @@ export class TimelineApiError extends Error {
 }
 
 export class TimelineApiClient {
-  constructor({ apiBase = "/api/timeline/v1", fetchImpl = globalThis.fetch.bind(globalThis), token = null } = {}) {
+  constructor({ apiBase = "/timeline/api/v1", fetchImpl = globalThis.fetch.bind(globalThis), token = null } = {}) {
     this.apiBase = apiBase.replace(/\/$/, "");
     this.fetchImpl = fetchImpl;
     this.token = token;

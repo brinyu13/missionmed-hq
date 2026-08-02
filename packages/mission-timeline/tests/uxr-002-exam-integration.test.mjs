@@ -104,7 +104,7 @@ test("M5/M6 integration persists deterministically through flat-record round tri
   assert.deepEqual(document.events,before.events);
 });
 
-test("the integrated board renders the neutral failed dot, hatched provisional period, and Set retake date chip",()=>{
+test("the integrated board preserves failed, provisional-study, and retake-action semantics in the locked 407F renderer",()=>{
   const document=defaultDocument();
   document.studentProfile.fullName="Amara Osei";
   document.events.push({
@@ -123,12 +123,16 @@ test("the integrated board renders the neutral failed dot, hatched provisional p
     score:"214",
     examDate:"2024-01"
   });
-  const {svg}=renderKeynoteClassicBoard(document,{currentMonth:"2026-07"});
-  assert.match(svg,/data-failed-attempt-dot="true"/);
+  const {scene,svg}=renderKeynoteClassicBoard(document,{currentMonth:"2026-07"});
+  const failedFlag=scene.flags.find((flag)=>flag.id==="exam-usmle-step-2-ck-attempt-1-milestone");
+  const study=scene.arrows.find((arrow)=>arrow.id==="exam-usmle-step-2-ck-attempt-1-retake-study-period");
+  assert.equal(failedFlag?.dangerDot,true);
+  assert.equal(study?.study,true);
+  assert.equal(study?.provisional,true);
+  assert.equal(study?.actionChip?.targetAttemptId,"exam-usmle-step-2-ck-attempt-2");
   assert.match(svg,/data-study="true"/);
-  assert.match(svg,/stroke-dasharray="8 6"/);
   assert.match(svg,/data-study-action-chip="exam-usmle-step-2-ck-attempt-2"/);
-  assert.match(svg,/>Set retake date<\/text>/);
+  assert.match(svg,/>Set retake date<\/span>/);
 });
 
 test("M5/M6 integration delete renumbers attempts and finalization drops an empty automatic card but keeps its provisional study period",()=>{

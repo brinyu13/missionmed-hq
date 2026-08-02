@@ -30,7 +30,7 @@ function duration(id,startDate,endDate,categoryId="work"){
   };
 }
 
-test("M8 active 407F Canvas delegates rendering to the retained adaptive board engine",()=>{
+test("M8 active 407F Canvas delegates rendering to the protected D1-411A kernel",()=>{
   assert.match(adapter,/canvasController=installCanvas\(canvasHost,store,\{/);
   assert.match(
     adapter.slice(adapter.indexOf("canvasController=installCanvas"),adapter.indexOf("api.canvas=canvasController")),
@@ -38,11 +38,11 @@ test("M8 active 407F Canvas delegates rendering to the retained adaptive board e
   );
   assert.match(
     adapter,
-    /createAdvancedBoardRenderer\(\{\s*baseRenderer:render407FThemedBoard/
+    /createD1411AKernelManager\(\{/
   );
   assert.match(
     adapter,
-    /function render407FThemedBoard\(document,options=\{\}\)\{\s*const timeline=timelineWithLorPresentation\(document\);\s*const base=renderKeynoteClassicBoard\(timeline,options\)/
+    /kernelManager\.render\(timelineWithLorPresentation\(timeline\),\{/
   );
   assert.match(index,/<div id="canvas407F" class="canvas407FHost"/);
 });
@@ -95,7 +95,11 @@ test("M8 seven overlapping events render condensed without changing the shared d
   const scene=buildKeynoteClassicScene(timeline,{currentMonth:"2027-07"});
   assert.equal(scene.laneLayout.laneCount,7);
   assert.equal(scene.laneLayout.condensed,true);
-  assert.ok(scene.arrows.every((arrow)=>arrow.shaftHeight===22));
+  assert.equal(scene.laneLayout.presentationPolicy,"407f-chronological-stair-step");
+  assert.ok(scene.arrows.every((arrow)=>arrow.shaftHeight===30));
+  assert.ok(scene.arrows.every((arrow,index)=>
+    index===0||arrow.centerY>scene.arrows[index-1].centerY
+  ));
   assert.deepEqual(timeline,before);
 });
 

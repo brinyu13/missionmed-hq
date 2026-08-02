@@ -253,18 +253,18 @@ test("scene theming is pure, board-only, and retokens canonical arrows, flags, a
   assert.equal(themed.themeApplication.shellChanged, false);
 });
 
-test("Little Journeys applies the sole arrow geometry delta and rounded-pennant signature", () => {
+test("all themes preserve the corrected 407F artifact geometry while changing surface tokens only", () => {
   const source = canonicalScene();
   const classic = applyThemeToScene(source, "keynote-classic");
   const navy = applyThemeToScene(source, "mission-navy");
   const little = applyThemeToScene(source, "little-journeys");
 
-  assert.equal(classic.arrows[0].leftRadius, 3);
-  assert.equal(navy.arrows[0].leftRadius, 3);
-  assert.equal(little.arrows[0].leftRadius, 8);
-  assert.notEqual(little.arrows[0].path, classic.arrows[0].path);
-  assert.equal(little.flags[0].plate.shape, "rounded-pennant");
-  assert.equal(little.flags[0].plate.radius, 8);
+  assert.equal(classic.arrows[0].leftRadius, 0);
+  assert.equal(navy.arrows[0].leftRadius, 0);
+  assert.equal(little.arrows[0].leftRadius, 0);
+  assert.equal(little.arrows[0].path, classic.arrows[0].path);
+  assert.equal(little.flags[0].plate.shape, classic.flags[0].plate.shape);
+  assert.equal(little.flags[0].plate.radius, classic.flags[0].plate.radius);
   assert.equal(little.theme.yearLabel.fontFamily, "Nunito, sans-serif");
   assert.equal(little.theme.headline.fontWeight, 800);
   for (const property of ["x", "x2", "width", "centerY", "headLength", "headHeight"]) {
@@ -284,7 +284,8 @@ test("Advisor Paper and Horizon retain their frozen print and editorial signatur
 
   assert.equal(horizon.theme.board.band.endPercent, 26);
   assert.equal(horizon.axis.style.endSerifHeight, 8);
-  assert.equal(horizon.flags[0].plate.shape, "inverted-plate");
+  assert.equal(horizon.theme.flagPlate.shape, "inverted-plate");
+  assert.equal(horizon.flags[0].plate.shape, source.flags[0].plate.shape);
   assert.equal(horizon.flags[0].plate.fill, "#1F232A");
   assert.equal(horizon.flags[0].label.color, "#FFFFFF");
   assert.deepEqual(horizon.headline.rule, {

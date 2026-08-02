@@ -45,6 +45,9 @@ export interface FacultyGrant {
 
 export interface PrincipalContext {
   principalId: string;
+  wpUserId?: number;
+  isWordpressAdministrator?: boolean;
+  hasLearndash3893Access?: boolean;
   role: Role;
   programIds: string[];
   assignedDocumentIds: string[];

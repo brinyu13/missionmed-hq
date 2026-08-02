@@ -81,17 +81,17 @@ test("canonical 407F exposes one Export host and removes the legacy Export Bay s
   }
 });
 
-test("407F reuses export-screen.js and the verified local Export adapter against the shared host",()=>{
+test("407F reuses export-screen.js and the verified same-kernel Export adapter against the shared host",()=>{
   assert.match(
     adapter,
     /import\s*\{[\s\S]*\binstallExportScreen\b[\s\S]*\bnormalizeExportState\b[\s\S]*\brenderExportScreen\b[\s\S]*\}\s*from\s*"\.\/uxr-002\/export-screen\.js"/
   );
   assert.match(
     adapter,
-    /import\s*\{\s*createLocalExportAdapter\s*\}\s*from\s*"\.\/uxr-002\/export-adapter\.js"/
+    /import\s*\{[\s\S]*?createD1411AKernelExportAdapter[\s\S]*?createD1411AKernelManager[\s\S]*?\}\s*from\s*"\.\/d1-411a\/kernel-host\.js"/
   );
   assert.match(adapter,/document\.getElementById\("export407F"\)/);
-  assert.match(adapter,/createLocalExportAdapter\(\{/);
+  assert.match(adapter,/createD1411AKernelExportAdapter\(\{kernelManager\}\)/);
   assert.match(adapter,/const exportDocument=timelineWithLorPresentation\(store\.document\)/);
   assert.match(adapter,/renderExportScreen\(exportDocument,\s*\{/);
   assert.match(adapter,/installExportScreen\(exportHost,\s*exportDocument,\s*\{/);

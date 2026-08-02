@@ -285,6 +285,17 @@ test("M10 non-empty timelines without a student name remain explicitly blocked b
   assert.match(html,/data-export-action disabled/);
 });
 
+test("M10 malformed student-name state blocks export without breaking application rendering",()=>{
+  const document=fixture();
+  document.studentProfile.fullName=[];
+  const model=buildExportScreenModel(document,{}, {now:fixedNow});
+  const html=renderExportScreen(document,{now:fixedNow});
+  assert.equal(model.hasStudentName,false);
+  assert.equal(model.exportActionDisabled,true);
+  assert.equal(model.filename,null);
+  assert.match(html,/Add your name in Builder before exporting\./);
+});
+
 test("M12 preview refresh exposes and enforces the at-most-400ms loading contract",async()=>{
   const states=[];
   const result=await refreshExportPreview({

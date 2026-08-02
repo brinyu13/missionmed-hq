@@ -37,7 +37,7 @@ test("M7 replaces only the retired Canvas panels with the production Canvas host
 });
 
 test("M7 installs the retained Canvas controller against the shared TimelineStore",()=>{
-  assert.match(adapter,/import \{\s*createCanvasState,\s*installCanvas\s*\} from "\.\/uxr-002\/canvas\.js"/);
+  assert.match(adapter,/import \{[\s\S]*?createCanvasState,[\s\S]*?installCanvas[\s\S]*?\} from "\.\/uxr-002\/canvas\.js"/);
   assert.match(adapter,/canvasController=installCanvas\(canvasHost,store,\{/);
   assert.match(adapter,/api\.canvas=canvasController/);
   assert.match(adapter,/applyDocumentTo407FState\(store\.document,bridge\.state\)/);

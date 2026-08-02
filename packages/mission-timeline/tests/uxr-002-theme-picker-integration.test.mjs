@@ -36,15 +36,17 @@ test("integrated picker renders exactly five live own-board theme miniatures plu
   assert.match(html,/class="theme-card active"/);
 });
 
-test("integrated picker exposes Backgrounds only in Advanced and serializes genuinely distinct theme surfaces",()=>{
+test("integrated picker exposes Backgrounds only in Advanced and keeps all theme skins on the locked 407F renderer",()=>{
   const document=populatedDocument();
   document.mode="advanced";
   const html=renderThemePicker(document,{currentMonth:"2026-07"});
   assert.match(html,/data-open-backgrounds/);
-  assert.match(html,/radialGradient/);
-  assert.match(html,/#FAF6EC/);
-  assert.match(html,/data-headline-rule="true"/);
-  assert.match(html,/font-family="Nunito, sans-serif"/);
+  assert.equal((html.match(/data-locked-407f-source-sha256=/g)||[]).length,5);
+  for(const themeId of ["keynote-classic","mission-navy","advisor-paper","horizon","little-journeys"]){
+    assert.match(html,new RegExp(`data-theme="${themeId}"`));
+  }
+  assert.match(html,/data-artifact-chrome="title"/);
+  assert.match(html,/data-artifact-language="407f-powerpoint-keynote"/);
   assert.equal((html.match(/data-select-theme=/g)||[]).length,5);
 });
 
