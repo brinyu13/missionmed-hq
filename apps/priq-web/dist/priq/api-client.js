@@ -1,8 +1,5 @@
 function authHeaders() {
-  const token = window.PRIQ_ACCESS_TOKEN || window.MM_SUPABASE_ACCESS_TOKEN || sessionStorage.getItem("priq_access_token");
-  return token
-    ? { "content-type": "application/json", "authorization": `Bearer ${token}` }
-    : { "content-type": "application/json", "x-priq-role": "founder", "x-priq-user": "local-founder" };
+  return { "content-type": "application/json" };
 }
 
 async function request(path, options = {}) {

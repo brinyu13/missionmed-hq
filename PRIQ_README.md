@@ -8,7 +8,7 @@ This branch connects the recovered frozen PRIQ presentation to the server-side M
 2. Launch from the approved MissionMed runtime so the server process inherits `OPENAI_API_KEY`. `.env.example` is documentation; a repository-local environment file is optional and is not the normal credential source.
 3. Run `npm run priq:dev` and open `http://127.0.0.1:4310`. The script enables local dev auth and remains loopback-only.
 
-The MissionMed development deployment uses `PRIQ_AUTH_MODE=supabase`. A verified Founder/Admin bearer token can be exchanged at `POST /api/auth/exchange` for an eight-hour, in-memory, HttpOnly, Secure, SameSite session. Trusted Matrix launchers may open `/auth-entry#access_token=...`; the fragment is cleared before exchange and is not sent in an HTTP request or retained by PRIQ browser code.
+The MissionMed development deployment uses `PRIQ_AUTH_MODE=supabase`. A verified Founder/Admin server-side bearer exchange can establish an eight-hour, in-memory, HttpOnly, Secure, SameSite session. Browser code does not read bearer tokens, URL fragments, session storage, or identity values. `/auth-entry` therefore fails closed until MissionMed supplies a same-origin cookie validator or a server-to-server signed POST handoff for the Railway development domain.
 
 The provider reads `process.env.OPENAI_API_KEY` on the server. Never put its value in source, frontend configuration, handoffs, screenshots, or Git. Education records or PHI additionally need `MIR_OPENAI_RESTRICTED_DATA_APPROVED=true`, which may be set only after account and MissionMed approval.
 

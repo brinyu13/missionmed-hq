@@ -1,7 +1,7 @@
 # P1-PRIQ-M0.75 development deployment
 
 Date: 2026-08-02
-Status: DEPLOYED_CLOSED_IDENTITY_MAPPING_REQUIRED
+Status: SUPERSEDED_BY_M0_075A_FOUNDER_MAPPING_AND_PROOF
 Environment: existing MissionMed `cam-dev`
 Service: isolated `priq-dev`
 Student access: OFF
@@ -57,8 +57,8 @@ This section is completed from command and deployment evidence before handoff.
 - Student-access lock proof: PASS for unauthenticated student-report request, HTTP 401 `AUTH_REQUIRED`; deterministic tests separately prove student role rejection and backend flag interlocks
 - Independent verifier: required before calling this a verified release
 
-## Exact remaining access gate
+## Superseding Founder mapping result
 
-The `cam-dev` Supabase project currently contains no explicit `priq_role` records and no active verified MissionMed admin override. Safe discovery found one historical override record, but it is not active and was not assumed to be Dr. Brian. Neither the local Git author identity nor the public GitHub identity produced an unambiguous confirmed Supabase match.
+`P1-PRIQ-M0-075A` safely resolved the exact authenticated WordPress administrator through the existing MissionMed HQ WordPress-to-Matrix-Supabase bridge. The corresponding stable Supabase subject was written directly to the `priq-dev` Railway runtime as `PRIQ_FOUNDER_USER_IDS` without printing or recording its value. No account or override was created, updated, reactivated, or enumerated.
 
-Therefore the deployed service is healthy but deliberately closed. Set `PRIQ_FOUNDER_USER_IDS` or `PRIQ_FOUNDER_EMAILS` through the Railway secret/runtime interface only after Dr. Brian identifies the exact existing Supabase account. Do not guess, create a shadow account, expose user records, or promote the expired record. Once mapped, the trusted Matrix launcher can exchange that account's bearer token at `/api/auth/exchange`; hydration still remains paused until Founder explicitly releases it.
+The superseding handoff is `P1_PRQ_M0_075A_FOUNDER_IDENTITY_MAPPING.md`. It records the successful isolated redeployment, Founder session/API proof, final student and hydration locks, real Ask PRIQ proof, browser-token removal, and the one remaining interactive cross-origin handoff blocker. Do not use this document's earlier identity-mapping-required status as current state.
