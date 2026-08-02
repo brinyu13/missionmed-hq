@@ -39,14 +39,14 @@ test('unavailable avatar provider stays honest and inactive', async () => {
   const reason = 'Avatar integration is outside Y1-Y2-CAM-V6-3401.';
   const provider = new NullAvatarProvider(reason);
 
-  assert.deepEqual(await provider.createSession(), { status: 'unavailable', reason });
-  assert.deepEqual(await provider.start(), { status: 'unavailable', reason });
-  assert.deepEqual(await provider.enqueueAudio(new Uint8Array()), { accepted: false, reason });
-  assert.deepEqual(await provider.attachAudioStream(null), { accepted: false, reason });
-  assert.deepEqual(await provider.interrupt(), { interrupted: false, reason });
-  assert.deepEqual(await provider.reconnect(), { status: 'unavailable', reason });
+  assert.deepEqual(await provider.createSession(), { status: 'unavailable', fallback: 'voice-only', reason });
+  assert.deepEqual(await provider.start(), { status: 'unavailable', fallback: 'voice-only', reason });
+  assert.deepEqual(await provider.enqueueAudio(new Uint8Array()), { accepted: false, fallback: 'voice-only', reason });
+  assert.deepEqual(await provider.attachAudioStream(null), { accepted: false, fallback: 'voice-only', reason });
+  assert.deepEqual(await provider.interrupt(), { interrupted: false, fallback: 'voice-only', reason });
+  assert.deepEqual(await provider.reconnect(), { status: 'unavailable', fallback: 'voice-only', reason });
   assert.deepEqual(await provider.stop(), { stopped: true });
-  assert.deepEqual(provider.health(), { provider: 'none', status: 'unavailable', reason });
+  assert.deepEqual(provider.health(), { provider: 'none', status: 'unavailable', available: false, fallback: 'voice-only', reason });
   assert.deepEqual(provider.usage(), { provider: 'none', sessions: 0, minutes: 0 });
   assert.deepEqual(await provider.close(), { closed: true });
   assert.equal(provider.closed, true);

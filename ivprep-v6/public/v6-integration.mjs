@@ -1,5 +1,5 @@
 import { MicController } from './mic-controller.mjs';
-import { UnavailableAvatarProvider } from './avatar-provider.mjs';
+import { LiveAvatarBrowserProvider } from './avatar-provider.mjs';
 
 const bridge = window.V6Bridge;
 if (!bridge) throw new Error('V6 integration bridge is unavailable.');
@@ -31,12 +31,29 @@ const state = {
   activeExchangeController: null,
   pendingAudio: null,
   lastError: null,
+  avatarEnabled: true,
+  avatarProviderReady: false,
+  avatarNotice: 'Checking live-avatar provider…',
+  facultyRoster: [],
+  selectedInterviewerId: 'senior-academic-pd-male',
+  alphaSessionId: null,
+  alphaSessionStarting: null,
+  alphaMode: null,
+  alphaDisabled: false,
+  usageLedger: [],
 };
 
-const avatar = new UnavailableAvatarProvider('Avatar provider implementation is reserved for Y1-Y2-CAM-V6-3402.');
+const avatar = new LiveAvatarBrowserProvider({
+  videoContainer: document.getElementById('ivtile'),
+  onState: ({ state: avatarState, reason }) => {
+    state.avatarNotice = avatarState === 'live' ? 'Live synchronized avatar connected.' : reason || `Avatar ${avatarState}.`;
+    renderAvatarState();
+    renderDiagnostics();
+  },
+});
 
 function publicError(error, fallback = 'The interviewer provider is unavailable.') {
-  const message = String(error?.message || fallback).trim();
+  const message = String(error?.message || error?.error?.message || error?.error || error?.code || fallback).trim();
   return new Error(message.slice(0, 240));
 }
 
@@ -88,8 +105,83 @@ function interruptAudio(reason = 'interrupted') {
   state.currentPlaybackSettle = null;
   state.streaming = reason;
   micController.setInterviewerSpeaking(false);
+  if (avatar.health().available) avatar.interrupt().catch(() => {});
   renderDiagnostics();
   if (settle) settle();
+}
+
+async function ensureAlphaSession() {
+  if (state.alphaSessionId) return state.alphaSessionId;
+  if (state.alphaSessionStarting) return state.alphaSessionStarting;
+  state.alphaSessionStarting = (async () => {
+    const selected = state.facultyRoster.find((record) => record.id === state.selectedInterviewerId) || state.facultyRoster[0];
+    const mode = state.avatarEnabled && state.avatarProviderReady && selected?.available ? 'avatar' : 'voice-only';
+    if (mode === 'voice-only') {
+      state.avatarNotice = state.avatarEnabled
+        ? 'Live avatar unavailable: provider authorization is missing. Continuing with the same interviewer intelligence and OpenAI voice only.'
+        : 'Avatar is off. Continuing with the same interviewer intelligence and OpenAI voice only.';
+      renderAvatarState();
+    }
+    const payload = await jsonRequest('/api/alpha-sessions/start', {
+      method: 'POST',
+      body: JSON.stringify({
+        testIdentity: 'founder-local',
+        durationMinutes: 15,
+        selectedInterviewer: selected?.id || state.selectedInterviewerId,
+        model: state.model,
+        voice: state.voiceId,
+        avatar: selected?.avatarId || null,
+        behavior: state.behaviorPresetId,
+        mode,
+      }),
+    });
+    state.alphaSessionId = payload.session.id;
+    state.alphaMode = mode;
+    if (mode === 'avatar') {
+      try {
+        await avatar.createSession({
+          alphaSessionId: state.alphaSessionId,
+          interviewerId: selected.id,
+          avatarId: selected.avatarId,
+          maxSessionDuration: Math.min(20, payload.session.durationMinutes) * 60,
+        });
+        await avatar.start();
+      } catch (error) {
+        state.avatarNotice = `Live avatar unavailable: ${publicError(error).message} Voice-only remains active.`;
+        state.alphaMode = 'voice-only';
+        renderAvatarState();
+      }
+    }
+    return state.alphaSessionId;
+  })();
+  try { return await state.alphaSessionStarting; }
+  finally { state.alphaSessionStarting = null; }
+}
+
+async function persistAlphaEvent(event) {
+  if (!state.alphaSessionId) return;
+  try {
+    await jsonRequest(`/api/alpha-sessions/${encodeURIComponent(state.alphaSessionId)}/events`, { method: 'POST', body: JSON.stringify(event) });
+  } catch (error) {
+    state.lastError = `Persistence: ${publicError(error).message}`;
+    renderDiagnostics();
+  }
+}
+
+async function endAlphaSession(terminationState = 'completed', { keepalive = false } = {}) {
+  if (!state.alphaSessionId) return;
+  const id = state.alphaSessionId;
+  state.alphaSessionId = null;
+  try {
+    if (avatar.health().state !== 'idle') await avatar.stop(terminationState);
+    await jsonRequest(`/api/alpha-sessions/${encodeURIComponent(id)}/end`, {
+      method: 'POST',
+      body: JSON.stringify({ terminationState }),
+      keepalive,
+    });
+  } catch (error) {
+    state.lastError = `Cleanup: ${publicError(error).message}`;
+  }
 }
 
 async function playBlob(blob, telemetry = {}) {
@@ -129,6 +221,23 @@ async function playBlob(blob, telemetry = {}) {
 }
 
 async function speak(text) {
+  await ensureAlphaSession();
+  if (state.alphaMode === 'avatar' && avatar.health().available) {
+    const startedAt = performance.now();
+    const response = await fetch('/api/speech', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: text, selection: { presetId: state.voicePresetId, voiceId: state.voiceId, speed: state.voiceSpeed, format: 'pcm' } }),
+    });
+    if (!response.ok) throw publicError(await response.json().catch(() => ({})), 'OpenAI Speech request failed.');
+    const result = await avatar.enqueueAudio(await response.arrayBuffer());
+    if (!result?.accepted) throw new Error(result?.reason || 'Live avatar rejected the interviewer audio.');
+    state.latencyMs = Number(response.headers.get('X-IVPrep-Latency-Ms')) || Math.round(performance.now() - startedAt);
+    state.roundTripMs = Math.round(performance.now() - startedAt);
+    state.streaming = 'complete';
+    renderDiagnostics();
+    return;
+  }
   if (state.pendingAudio?.utterance === text) {
     const pending = state.pendingAudio;
     state.pendingAudio = null;
@@ -249,6 +358,11 @@ async function onTakeComplete(take) {
   state.providerHealth = 'healthy';
   state.lastError = null;
   renderDiagnostics();
+  await persistAlphaEvent({
+    transcript: { question: take.q, answer: take.transcript || '', generatedUtterance: payload.utterance },
+    instructorRecord: payload.metadata || null,
+    modelUsage: { model: state.providerModel, observerModel: state.providerObserverModel, usage: payload.usage || null },
+  });
   return {
     utterance: payload.utterance,
     observer: payload.metadata,
@@ -363,8 +477,62 @@ function renderFounderStudios() {
   const truth = document.createElement('div');
   truth.className = 'notice';
   truth.style.marginTop = '12px';
-  truth.textContent = `Current ${state.model} · OpenAI voice ID ${state.voiceId}. “W. Clint Oxley” remains a founder-preferred display name with no verified provider-ID binding; it is not presented as this voice.`;
-  body.append(title, row, truth);
+  truth.textContent = `Current ${state.model} · OpenAI voice ID ${state.voiceId}. “W. Clint Oxley” is verified separately as LiveAvatar voice ID a33a57ab-8388-49fc-a069-dbcfd1bc5405 on the Dr Bastos Voice Agent; it is not an OpenAI Speech voice and is not presented as ${state.voiceId}.`;
+  const rosterTitle = document.createElement('div');
+  rosterTitle.className = 'pLbl';
+  rosterTitle.style.marginTop = '16px';
+  rosterTitle.textContent = 'Founder Faculty Roster · provider truth';
+  const roster = document.createElement('div');
+  roster.style.cssText = 'display:grid;gap:7px;margin-top:10px;max-height:330px;overflow:auto';
+  for (const record of state.facultyRoster) {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = `line ${record.id === state.selectedInterviewerId ? 'on' : ''}`;
+    item.style.cssText = 'width:100%;text-align:left;display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(120px,1fr) auto;gap:8px;align-items:center';
+    const status = record.available ? 'AVAILABLE · ALPHA' : record.availability === 'custom-avatar-required' ? 'CUSTOM AVATAR REQUIRED' : record.availability === 'provider-auth-required' ? 'PROVIDER AUTH REQUIRED' : 'COMING LATER';
+    item.innerHTML = `<b>${record.displayName}</b><span>${record.specialty.join(' · ')}</span><span class="chip ${record.available ? 'gn' : 'dim'}">${status}</span>`;
+    item.onclick = () => { state.selectedInterviewerId = record.id; renderFounderStudios(); };
+    roster.append(item);
+  }
+  const founderActions = document.createElement('div');
+  founderActions.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:12px';
+  const surprise = document.createElement('button');
+  surprise.className = 'btnGhost';
+  surprise.textContent = 'Surprise Me';
+  surprise.onclick = async () => {
+    try {
+      const result = await jsonRequest('/api/surprise-me', { method: 'POST', body: JSON.stringify({ specialty: 'Internal Medicine' }) });
+      state.selectedInterviewerId = result.assignment.id;
+      bridge.toast(`Assigned shortly before launch: ${result.assignment.displayName}. Future questions remain private.`);
+      renderFounderStudios();
+    } catch (error) {
+      bridge.toast(`${publicError(error).message} Voice-only fallback remains available.`);
+    }
+  };
+  const ledger = document.createElement('button');
+  ledger.className = 'btnGhost';
+  ledger.textContent = 'Refresh usage ledger';
+  ledger.onclick = async () => {
+    try {
+      const result = await jsonRequest('/api/alpha-sessions', { headers: { 'X-IVPrep-Founder': 'local-founder' } });
+      state.usageLedger = result.usage || [];
+      const minutes = state.usageLedger.reduce((sum, entry) => sum + Number(entry.estimatedMinutes || 0), 0);
+      bridge.toast(`${state.usageLedger.length} completed local alpha session(s) · ${minutes.toFixed(1)} estimated minute(s).`);
+    } catch (error) { bridge.toast(publicError(error).message); }
+  };
+  const disable = document.createElement('button');
+  disable.className = 'btnGhost';
+  disable.textContent = state.alphaDisabled ? 'Re-enable alpha starts' : 'Emergency disable new starts';
+  disable.onclick = async () => {
+    const result = await jsonRequest('/api/alpha-control/emergency-disable', {
+      method: 'POST', headers: { 'X-IVPrep-Founder': 'local-founder' }, body: JSON.stringify({ disabled: !state.alphaDisabled }),
+    });
+    state.alphaDisabled = result.disabled;
+    bridge.toast(state.alphaDisabled ? 'Emergency disable is active. New sessions are blocked.' : 'Local alpha starts re-enabled.');
+    renderFounderStudios();
+  };
+  founderActions.append(surprise, ledger, disable);
+  body.append(title, row, truth, rosterTitle, roster, founderActions);
   panel.append(body);
 }
 
@@ -403,11 +571,29 @@ function ensureRoomControls() {
   end.textContent = 'End interview';
   end.onclick = () => {
     cancelTurn('ended');
+    endAlphaSession('ended');
     if (bridge.recording) bridge.abandonTake();
     if (bridge.run.takes.length) bridge.finishRound();
     else { bridge.stopMedia(); bridge.nav('home'); }
   };
-  buttons.append(mute, interrupt, end);
+  const avatarToggle = document.createElement('button');
+  avatarToggle.className = 'btnGhost';
+  avatarToggle.textContent = state.avatarEnabled ? 'Avatar on' : 'Avatar off';
+  avatarToggle.onclick = async () => {
+    state.avatarEnabled = !state.avatarEnabled;
+    avatarToggle.textContent = state.avatarEnabled ? 'Avatar on' : 'Avatar off';
+    if (!state.avatarEnabled) {
+      await avatar.stop('founder-avatar-off').catch(() => {});
+      state.alphaMode = 'voice-only';
+      state.avatarNotice = 'Avatar is off. The interviewer intelligence and voice are unchanged.';
+    } else if (!state.avatarProviderReady) {
+      state.avatarNotice = 'Live avatar unavailable: provider authorization is missing. Voice-only remains active.';
+    } else {
+      state.avatarNotice = 'Avatar will connect for the next interview session.';
+    }
+    renderAvatarState();
+  };
+  buttons.append(mute, interrupt, avatarToggle, end);
   const typed = document.createElement('form');
   typed.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
   const input = document.createElement('textarea');
@@ -435,9 +621,24 @@ function ensureRoomControls() {
   const disclosure = document.createElement('div');
   disclosure.className = 'notice';
   disclosure.textContent = 'The interviewer voice is AI-generated. Interview text is sent to the configured OpenAI service. Browser speech recognition follows the browser implementation; the raw recording stays local to this tab.';
-  body.append(buttons, typed, disclosure);
+  const avatarState = document.createElement('div');
+  avatarState.id = 'avatar-live-state';
+  avatarState.className = 'notice';
+  avatarState.setAttribute('role', 'status');
+  avatarState.textContent = state.avatarNotice;
+  body.append(buttons, avatarState, typed, disclosure);
   panel.append(body);
   roomControls.after(panel);
+}
+
+function renderAvatarState() {
+  const notice = document.getElementById('avatar-live-state');
+  if (notice) notice.textContent = state.avatarNotice;
+  const canvas = document.getElementById('ivcv');
+  const monogram = document.getElementById('avcircle');
+  const live = avatar.health().available && Boolean(document.getElementById('live-avatar-video'));
+  if (canvas) canvas.style.visibility = live ? 'hidden' : '';
+  if (monogram) monogram.style.visibility = live ? 'hidden' : '';
 }
 
 function ensureDiagnostics() {
@@ -473,6 +674,7 @@ function downloadEvidence(filename, content, type) {
 function ensureResultsEvidence() {
   const results = document.querySelector('section[data-view="results"]');
   if (!results) return;
+  if (bridge.view === 'results' && state.alphaSessionId) endAlphaSession('completed');
   let panel = document.getElementById('frontier-results-evidence');
   if (!panel) {
     panel = document.createElement('div');
@@ -549,16 +751,24 @@ function ensureResultsEvidence() {
 
 async function loadConfiguration() {
   try {
-    const [health, models, voices] = await Promise.all([
+    const [health, models, voices, roster, avatarConfig] = await Promise.all([
       jsonRequest('/api/health'),
       jsonRequest('/api/model-studio-config'),
       jsonRequest('/api/voice-studio-config'),
+      jsonRequest('/api/faculty-roster'),
+      jsonRequest('/api/avatar-provider-config'),
     ]);
     state.openaiConfigured = Boolean(health.openaiConfigured);
     state.providerHealth = health.openaiConfigured ? 'configured' : 'not configured';
     state.models = Array.isArray(models.models) ? models.models : [];
     state.behaviors = Array.isArray(models.behaviorPresets) ? models.behaviorPresets : [];
     state.voices = Array.isArray(voices.presets) ? voices.presets : [];
+    state.facultyRoster = Array.isArray(roster.records) ? roster.records : [];
+    state.avatarProviderReady = avatarConfig.health?.configured === true || avatarConfig.health?.available === true;
+    state.alphaDisabled = Boolean(health.alpha?.disabled);
+    state.avatarNotice = state.avatarProviderReady
+      ? 'Live avatar provider is configured. It will connect only after Begin.'
+      : 'Live avatar unavailable: provider authorization is missing. Voice-only fallback will remain visible and use the same interviewer intelligence and OpenAI voice.';
     if (models.defaultModelId) state.model = models.defaultModelId;
     if (models.defaultBehaviorPresetId) state.behaviorPresetId = models.defaultBehaviorPresetId;
     if (models.observerModelId) state.observerModel = models.observerModelId;
@@ -572,6 +782,7 @@ async function loadConfiguration() {
     state.lastError = publicError(error).message;
   }
   renderFounderStudios();
+  renderAvatarState();
   renderDiagnostics();
 }
 
@@ -586,7 +797,7 @@ addEventListener('beforeunload', () => {
   cancelTurn('closed');
   bridge.stopMedia();
   micController.stop();
-  avatar.close();
+  endAlphaSession('abandoned', { keepalive: true });
 });
 
 window.V6Frontier = {

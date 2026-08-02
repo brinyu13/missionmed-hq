@@ -50,12 +50,24 @@ export const VOICE_PRESETS = Object.freeze([
 
 export const DEFAULT_VOICE_PRESET_ID = 'experienced-male-program-director';
 
-// Founder preference is preserved without inventing a provider binding. No donor
-// or authenticated provider evidence currently maps this display name to an ID.
 export const PREFERRED_FOUNDER_VOICE = Object.freeze({
   displayName: 'W. Clint Oxley',
-  providerVoiceId: null,
-  verification: 'unverified',
+  provider: 'liveavatar',
+  providerVoiceId: 'a33a57ab-8388-49fc-a069-dbcfd1bc5405',
+  verification: 'verified-authenticated-provider-ui',
+  missionMedLiteCompatible: false,
+  note: 'Verified as the LiveAvatar voice bound to the Dr Bastos Voice Agent. It is not an OpenAI Speech voice ID and is not substituted for cedar.',
+});
+
+export const DR_BASTOS_VOICE_AGENT = Object.freeze({
+  displayName: 'Dr Bastos',
+  provider: 'liveavatar',
+  providerVoiceAgentId: 'dfa595da-e6a8-4a84-b155-a2da830c4e67',
+  contextId: '4ff68f63-bf6e-4bcc-8d8d-64506c34d90d',
+  voiceId: PREFERRED_FOUNDER_VOICE.providerVoiceId,
+  verification: 'verified-authenticated-provider-ui',
+  canonicalArchitectureEligible: false,
+  reason: 'This is a LiveAvatar Voice Agent, not a custom visual avatar. Canonical V6 keeps interviewer intelligence and OpenAI Speech outside the visual avatar provider.',
 });
 
 export function requireSpeechVoiceId(value = DEFAULT_SPEECH_VOICE_ID) {

@@ -12,20 +12,20 @@ export class AvatarProvider {
 }
 
 export class NullAvatarProvider extends AvatarProvider {
-  constructor(reason = 'No live avatar provider is configured in Y1-Y2-CAM-V6-3401.') {
+  constructor(reason = 'No live avatar provider is configured. The interview can continue in visible voice-only mode.') {
     super();
     this.reason = reason;
     this.closed = false;
   }
 
-  async createSession() { return { status: 'unavailable', reason: this.reason }; }
-  async start() { return { status: 'unavailable', reason: this.reason }; }
-  async enqueueAudio() { return { accepted: false, reason: this.reason }; }
-  async attachAudioStream() { return { accepted: false, reason: this.reason }; }
-  async interrupt() { return { interrupted: false, reason: this.reason }; }
+  async createSession() { return { status: 'unavailable', fallback: 'voice-only', reason: this.reason }; }
+  async start() { return { status: 'unavailable', fallback: 'voice-only', reason: this.reason }; }
+  async enqueueAudio() { return { accepted: false, fallback: 'voice-only', reason: this.reason }; }
+  async attachAudioStream() { return { accepted: false, fallback: 'voice-only', reason: this.reason }; }
+  async interrupt() { return { interrupted: false, fallback: 'voice-only', reason: this.reason }; }
   async stop() { return { stopped: true }; }
-  async reconnect() { return { status: 'unavailable', reason: this.reason }; }
-  health() { return { provider: 'none', status: 'unavailable', reason: this.reason }; }
+  async reconnect() { return { status: 'unavailable', fallback: 'voice-only', reason: this.reason }; }
+  health() { return { provider: 'none', status: 'unavailable', available: false, fallback: 'voice-only', reason: this.reason }; }
   usage() { return { provider: 'none', sessions: 0, minutes: 0 }; }
   async close() { this.closed = true; return { closed: true }; }
 }

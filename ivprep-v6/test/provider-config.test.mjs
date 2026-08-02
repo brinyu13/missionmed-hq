@@ -13,6 +13,7 @@ import {
 import {
   DEFAULT_SPEECH_MODEL,
   DEFAULT_SPEECH_VOICE_ID,
+  DR_BASTOS_VOICE_AGENT,
   PREFERRED_FOUNDER_VOICE,
   normalizeSpeechSelection,
   requireRealtimeVoiceId,
@@ -61,10 +62,14 @@ test('speech defaults and voice selections keep exact provider IDs', () => {
   assert.throws(() => requireRealtimeVoiceId('onyx'), /Unsupported/);
 });
 
-test('founder voice display preference remains unbound until a provider ID is verified', () => {
-  assert.deepEqual(PREFERRED_FOUNDER_VOICE, {
-    displayName: 'W. Clint Oxley',
-    providerVoiceId: null,
-    verification: 'unverified',
-  });
+test('authenticated provider UI preserves Dr Bastos and W. Clint truth without binding LITE intelligence to Voice Agent', () => {
+  assert.equal(PREFERRED_FOUNDER_VOICE.displayName, 'W. Clint Oxley');
+  assert.equal(PREFERRED_FOUNDER_VOICE.provider, 'liveavatar');
+  assert.equal(PREFERRED_FOUNDER_VOICE.providerVoiceId, 'a33a57ab-8388-49fc-a069-dbcfd1bc5405');
+  assert.equal(PREFERRED_FOUNDER_VOICE.verification, 'verified-authenticated-provider-ui');
+  assert.equal(PREFERRED_FOUNDER_VOICE.missionMedLiteCompatible, false);
+  assert.equal(DR_BASTOS_VOICE_AGENT.displayName, 'Dr Bastos');
+  assert.equal(DR_BASTOS_VOICE_AGENT.providerVoiceAgentId, 'dfa595da-e6a8-4a84-b155-a2da830c4e67');
+  assert.equal(DR_BASTOS_VOICE_AGENT.voiceId, PREFERRED_FOUNDER_VOICE.providerVoiceId);
+  assert.equal(DR_BASTOS_VOICE_AGENT.canonicalArchitectureEligible, false);
 });
