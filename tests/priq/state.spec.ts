@@ -12,7 +12,7 @@ test("all ten recovery states are deterministic and ready remains fail closed", 
   assert.equal(blocked.find((state) => state.code === "VERTICAL_SLICE_READY")?.active, false);
   assert.equal(blocked.find((state) => state.code === "CREDENTIAL_BLOCKED")?.active, true);
 
-  const enabled = { ...lockedDefaults, studentPublicationEnabled: true };
+  const enabled = { ...lockedDefaults, studentPublicationEnabled: true, hydrationEnabled: true };
   const ready = deriveUiStates({
     flags: enabled, credentialConfigured: true, restrictedProviderApproved: true,
     authorizedPrivatePacket: true, audiovisualSource: true, researchInProgress: false, founderApproved: true,

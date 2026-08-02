@@ -1,4 +1,5 @@
 import type { MirProvider, MirRequest, ProviderResult } from "../../mir-core/src/index.ts";
+import { OpenAICredentialResolver, type OpenAICredentialSource, type OpenAISecretProvider } from "./runtime-key-source.ts";
 
 interface OpenAIResponse {
   id?: string;
@@ -14,28 +15,34 @@ export class ProviderConfigurationError extends Error {}
 export class OpenAIResponsesProvider implements MirProvider {
   readonly name = "openai";
   readonly restrictedDataApproved: boolean;
-  private readonly apiKey: string;
   private readonly timeoutMs: number;
-  constructor(env: NodeJS.ProcessEnv = process.env, private readonly fetcher: typeof fetch = fetch) {
-    this.apiKey = env.MIR_OPENAI_API_KEY ?? "";
+  private readonly credentials: OpenAICredentialResolver;
+  constructor(env: NodeJS.ProcessEnv = process.env, private readonly fetcher: typeof fetch = fetch, secretProvider?: OpenAISecretProvider) {
+    this.credentials = new OpenAICredentialResolver(env, secretProvider);
     this.timeoutMs = Number(env.MIR_TIMEOUT_MS ?? "45000");
     this.restrictedDataApproved = env.MIR_OPENAI_RESTRICTED_DATA_APPROVED === "true";
   }
 
   async health() {
-    return this.apiKey
-      ? { configured: true, detail: this.restrictedDataApproved ? "configured; restricted-data approval recorded" : "configured; public/internal data only" }
-      : { configured: false, detail: "MIR_OPENAI_API_KEY is missing" };
+    const credential = await this.credentials.resolve();
+    return credential.value
+      ? { configured: true, detail: "configured" }
+      : { configured: false, detail: "credential health unavailable" };
+  }
+
+  async credentialSource(): Promise<OpenAICredentialSource> {
+    return (await this.credentials.resolve()).source;
   }
 
   async invoke(request: MirRequest, model: string): Promise<ProviderResult> {
-    if (!this.apiKey) throw new ProviderConfigurationError("MIR_OPENAI_API_KEY is required; OPENAI_API_KEY is intentionally ignored.");
+    const credential = await this.credentials.resolve();
+    if (!credential.value) throw new ProviderConfigurationError("OPENAI_CREDENTIAL_HEALTH_ERROR");
     const started = Date.now();
     const wrappedInput = request.input as { payload?: unknown; reasoningEffort?: string };
     const response = await this.fetcher("https://api.openai.com/v1/responses", {
       method: "POST",
       signal: AbortSignal.timeout(this.timeoutMs),
-      headers: { "authorization": `Bearer ${this.apiKey}`, "content-type": "application/json" },
+      headers: { "authorization": `Bearer ${credential.value}`, "content-type": "application/json" },
       body: JSON.stringify({
         model,
         store: false,
@@ -57,7 +64,7 @@ export class OpenAIResponsesProvider implements MirProvider {
     return {
       provider: this.name, model, payload: JSON.parse(text),
       inputTokens: body.usage?.input_tokens ?? 0, outputTokens: body.usage?.output_tokens ?? 0,
-      latencyMs: Date.now() - started, providerRequestId: body.id,
+      latencyMs: Date.now() - started, httpStatus: response.status, providerRequestId: body.id,
     };
   }
 }

@@ -49,6 +49,7 @@ export interface ProviderResult {
   inputTokens: number;
   outputTokens: number;
   latencyMs: number;
+  httpStatus?: number;
   providerRequestId?: string;
 }
 
@@ -75,6 +76,7 @@ export interface ModelRun {
   outputTokens: number;
   costUsd: number;
   latencyMs: number;
+  httpStatusCategory?: string;
   status: "succeeded" | "failed" | "blocked";
   createdAt: string;
 }

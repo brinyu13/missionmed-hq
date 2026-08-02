@@ -1,5 +1,7 @@
 # P1-PRIQ-M0-001B private-data review
 
+> Historical 001B snapshot. The statement below that the generic credential was ignored was superseded by P1-PRIQ-M0-002A. The inherited server-side `OPENAI_API_KEY` is now the authorized local source; the private-data restrictions in this review are unchanged.
+
 ## Result
 
 PASS for the authorized local recovery boundary.

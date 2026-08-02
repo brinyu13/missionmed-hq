@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { AuditLedger, opaqueIdentifier } from "../../packages/mir-telemetry/src/index.ts";
+import { builtFrontendSecretScan } from "../../scripts/priq-frontend-scan.ts";
 
 test("audit ledger is tenant-scoped and stores metadata without source bytes", () => {
   const ledger = new AuditLedger();
@@ -19,4 +20,8 @@ test("isolated migration enables RLS, avoids open policies, and makes audit appe
   assert.doesNotMatch(sql, /USING\s*\(\s*true\s*\)/i);
   assert.match(sql, /REVOKE UPDATE, DELETE ON priq\.audit_events/);
   assert.match(sql, /^BEGIN;[\s\S]*COMMIT;\s*$/);
+});
+
+test("built frontend contains no runtime credential or authorization configuration", async () => {
+  assert.equal(await builtFrontendSecretScan(), true, "FRONTEND_SECRET_SCAN_FAILED");
 });

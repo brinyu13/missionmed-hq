@@ -22,7 +22,7 @@ export function deriveUiStates(input: {
   researchInProgress: boolean;
   founderApproved: boolean;
 }): PriqUiState[] {
-  const ready = input.credentialConfigured && input.restrictedProviderApproved && input.authorizedPrivatePacket && input.audiovisualSource && input.founderApproved && input.flags.studentPublicationEnabled && input.flags.mirEnabled;
+  const ready = input.credentialConfigured && input.restrictedProviderApproved && input.authorizedPrivatePacket && input.audiovisualSource && input.founderApproved && input.flags.studentPublicationEnabled && input.flags.hydrationEnabled && input.flags.mirEnabled;
   return [
     { code: "FOUNDATION_READY", active: true, surface: "today", label: "Foundation ready", detail: "MIR, policy, intake, evidence, and review foundations are available locally." },
     { code: "CREDENTIAL_BLOCKED", active: !input.credentialConfigured, surface: "ai", label: "OpenAI credential required", detail: "No scoped MIR credential is configured. Existing approved intelligence stays readable." },

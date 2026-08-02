@@ -1,5 +1,7 @@
 # P1-PRIQ-M0-001 full combined handoff
 
+> Historical 001 snapshot. Its credential and real-AI status sections were superseded by `P1_PRQ_M0_002_PROVIDER_ACTIVATION.md`: inherited `process.env.OPENAI_API_KEY` is authorized for the local runtime and the synthetic provider proof passed. The private-data gates below remain closed.
+
 ## Result
 
 **PARTIAL.** A locally runnable, fail-closed PRIQ/MissionMed Intelligence Runtime foundation is implemented and tested. No real model call, private Ezechiel synthesis, audiovisual analysis, or publication occurred, so this is not claimed as a complete real-AI vertical slice.

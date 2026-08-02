@@ -1,6 +1,7 @@
 import { api } from "./api-client.js";
 import { mountStateSurface } from "./state-surface.js";
 import { mountControlPanel, renderAudit } from "./control-panel.js";
+import { mountAiRuntime } from "./runtime-bindings.js";
 
 const css = document.createElement("link");
 css.rel = "stylesheet"; css.href = "/priq/recovery.css"; document.head.append(css);
@@ -13,6 +14,7 @@ async function refresh() {
     const snapshot = await api.state();
     mountStateSurface(snapshot);
     mountControlPanel(snapshot, api, refresh);
+    mountAiRuntime(snapshot, api, refresh);
     await renderAudit(api);
     document.documentElement.dataset.priqRecovery = "ready";
     window.PRIQ_RECOVERY = { snapshot, refresh, api };

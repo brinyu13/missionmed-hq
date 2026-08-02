@@ -54,7 +54,9 @@ export class MirRuntime {
         userId: request.context.userId, subjectIds: [...request.context.subjectIds], capability: request.capability,
         provider: result.provider, model: result.model, promptVersion: request.promptVersion, inputHash,
         outputHash: hash(result.payload), inputTokens: result.inputTokens, outputTokens: result.outputTokens,
-        costUsd: cost, latencyMs: result.latencyMs, status: "succeeded", createdAt: new Date().toISOString(),
+        costUsd: cost, latencyMs: result.latencyMs,
+        httpStatusCategory: result.httpStatus === undefined ? undefined : `${Math.floor(result.httpStatus / 100)}xx`,
+        status: "succeeded", createdAt: new Date().toISOString(),
       });
       return result.payload as T;
     } catch (error) {

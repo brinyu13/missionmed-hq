@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { BudgetExceeded, BudgetLedger, MirRuntime, PolicyDenied, type MirCapability, type MirContext, type MirRequest, type RouteTable } from "../../packages/mir-core/src/index.ts";
-import { ContractTestProvider, OpenAIResponsesProvider, ProviderConfigurationError } from "../../packages/mir-providers/src/index.ts";
+import { ContractTestProvider, OpenAICredentialResolver, OpenAIResponsesProvider, ProviderConfigurationError } from "../../packages/mir-providers/src/index.ts";
 
 const context: MirContext = {
   tenantId: "missionmed", userId: "founder:1", role: "founder", subjectIds: ["student:1"],
@@ -65,10 +68,31 @@ test("budget and global kill switch stop calls before provider execution", async
   assert.equal(calls, 0);
 });
 
-test("OpenAI adapter ignores generic key and requires MIR-scoped credential", async () => {
-  const provider = new OpenAIResponsesProvider({ OPENAI_API_KEY: "generic-is-not-authority" });
-  assert.deepEqual(await provider.health(), { configured: false, detail: "MIR_OPENAI_API_KEY is missing" });
+test("OpenAI adapter uses inherited runtime credential and fails closed without one", async () => {
+  const inherited = new OpenAIResponsesProvider({ OPENAI_API_KEY: "test-placeholder" });
+  assert.deepEqual(await inherited.health(), { configured: true, detail: "configured" });
+  assert.equal(await inherited.credentialSource(), "runtime_environment");
+  const provider = new OpenAIResponsesProvider({});
+  assert.deepEqual(await provider.health(), { configured: false, detail: "credential health unavailable" });
   await assert.rejects(provider.invoke(request, "gpt-5.6-sol"), ProviderConfigurationError);
+});
+
+test("OpenAI credential precedence is runtime, secret provider, explicit development file, then unavailable", async (t) => {
+  const secretProvider = { getSecret: async () => "provider-placeholder" };
+  assert.equal((await new OpenAICredentialResolver({ OPENAI_API_KEY: "runtime-placeholder" }, secretProvider).resolve()).source, "runtime_environment");
+  assert.equal((await new OpenAICredentialResolver({}, secretProvider).resolve()).source, "secret_provider");
+  const directory = await mkdtemp(join(tmpdir(), "priq-credential-test-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const path = join(directory, ".env.test");
+  await writeFile(path, "OPENAI_API_KEY=file-placeholder\n");
+  assert.equal((await new OpenAICredentialResolver({ NODE_ENV: "development", PRIQ_OPENAI_DEV_ENV_FILE: path }).resolve()).source, "development_env_file");
+  assert.equal((await new OpenAICredentialResolver({}).resolve()).source, "unavailable");
+});
+
+test("automated tests ignore inherited OpenAI credentials unless the real-AI spend gate is explicit", async () => {
+  assert.equal((await new OpenAICredentialResolver({ NODE_ENV: "test", OPENAI_API_KEY: "test-placeholder" }).resolve()).source, "unavailable");
+  assert.equal((await new OpenAICredentialResolver({ NODE_ENV: "test" }, { getSecret: async () => "provider-placeholder" }).resolve()).source, "unavailable");
+  assert.equal((await new OpenAICredentialResolver({ NODE_ENV: "test", MIR_REAL_AI_TESTS: "1", OPENAI_API_KEY: "test-placeholder" }).resolve()).source, "runtime_environment");
 });
 
 test("OpenAI adapter sends Responses structured-output contract without storage", async () => {
@@ -77,10 +101,25 @@ test("OpenAI adapter sends Responses structured-output contract without storage"
     captured = JSON.parse(String(init?.body));
     return new Response(JSON.stringify({ id: "resp_1", status: "completed", output_text: "{\"value\":\"ok\"}", usage: { input_tokens: 12, output_tokens: 4 } }), { status: 200, headers: { "content-type": "application/json" } });
   }) as typeof fetch;
-  const provider = new OpenAIResponsesProvider({ MIR_OPENAI_API_KEY: "test-placeholder", MIR_OPENAI_RESTRICTED_DATA_APPROVED: "false" }, fakeFetch);
+  const provider = new OpenAIResponsesProvider({ OPENAI_API_KEY: "test-placeholder", MIR_OPENAI_RESTRICTED_DATA_APPROVED: "false" }, fakeFetch);
   const result = await provider.invoke(request, "gpt-5.6-sol");
   assert.equal(captured?.store, false);
   assert.deepEqual(captured?.text, { format: { type: "json_schema", name: "claim", strict: true, schema: request.output.schema } });
   assert.equal(result.providerRequestId, "resp_1");
+  assert.equal(result.httpStatus, 200);
   assert.deepEqual(result.payload, { value: "ok" });
+});
+
+test("OpenAI adapter sanitizes provider failures without credential or response-message leakage", async () => {
+  const fakeFetch = (async () => new Response(JSON.stringify({
+    error: { code: "invalid_api_key", message: "Bearer test-placeholder" },
+  }), { status: 401, headers: { "content-type": "application/json" } })) as typeof fetch;
+  const provider = new OpenAIResponsesProvider({ OPENAI_API_KEY: "test-placeholder" }, fakeFetch);
+  await assert.rejects(provider.invoke(request, "gpt-5.6-sol"), (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    assert.equal(message, "OPENAI_REQUEST_FAILED:401:invalid_api_key");
+    assert.equal(message.includes("test-placeholder"), false);
+    assert.equal(message.includes("Bearer"), false);
+    return true;
+  });
 });

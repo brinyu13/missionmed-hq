@@ -1,5 +1,6 @@
 export interface FeatureFlags {
   mirEnabled: boolean;
+  hydrationEnabled: boolean;
   intakeEnabled: boolean;
   researchEnabled: boolean;
   profileEnabled: boolean;
@@ -18,18 +19,23 @@ export interface FeatureFlags {
 }
 
 export const lockedDefaults: FeatureFlags = {
-  mirEnabled: true, intakeEnabled: true, researchEnabled: true, profileEnabled: true,
+  mirEnabled: true, hydrationEnabled: false, intakeEnabled: true, researchEnabled: true, profileEnabled: true,
   studentWorkspaceEnabled: false, copilotEnabled: false, debriefEnabled: true, writebacksEnabled: false,
   liveCopilotEnabled: true, profileLabEnabled: true, weightedBirdEnabled: true,
   videoAnalysisEnabled: false, founderNoteAiUseEnabled: false, studentPublicationEnabled: false,
-  studentWorkspaceOverrideEnabled: true, humanReviewRequired: true,
+  studentWorkspaceOverrideEnabled: false, humanReviewRequired: true,
 };
 
 export class FeatureController {
   private flags: FeatureFlags;
   constructor(seed: FeatureFlags = lockedDefaults) { this.flags = { ...seed }; }
   get(): FeatureFlags { return { ...this.flags }; }
-  set<K extends keyof FeatureFlags>(key: K, value: FeatureFlags[K]): FeatureFlags { this.flags[key] = value; return this.get(); }
+  set<K extends keyof FeatureFlags>(key: K, value: FeatureFlags[K]): FeatureFlags {
+    if (key === "hydrationEnabled") throw new Error("HYDRATION_REQUIRES_FOUNDER_ACTION");
+    if (value === true && ["studentWorkspaceEnabled", "studentPublicationEnabled", "studentWorkspaceOverrideEnabled"].includes(key)) throw new Error("STUDENT_ACCESS_LOCKED_OFF");
+    this.flags[key] = value; return this.get();
+  }
+  setHydration(value: boolean): FeatureFlags { this.flags.hydrationEnabled = value; return this.get(); }
   require(key: keyof FeatureFlags): void {
     if (!this.flags[key] || !this.flags.mirEnabled && key !== "mirEnabled") throw new Error(`FEATURE_DISABLED:${key}`);
   }

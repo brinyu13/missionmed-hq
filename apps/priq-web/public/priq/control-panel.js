@@ -66,6 +66,10 @@ export function mountControlPanel(snapshot, api, refresh) {
     }
   }
   for (const [label, key] of flagMap) setSwitch(findSwitch(label), Boolean(snapshot.flags[key]));
+  for (const label of ["Student workspace", "Student workspace (global)", "Student publication", "Local individual override"]) {
+    const sw = findSwitch(label); if (!sw) continue;
+    sw.classList.add("locked"); sw.setAttribute("aria-disabled", "true"); sw.title = "M0.75 interlock: student access remains OFF";
+  }
 
   const accessRows = [...document.querySelectorAll("#v-panel .swRow")];
   const personRow = accessRows.find((row) => row.querySelector(".sl b")?.textContent === "Nadia Rahman");
@@ -99,6 +103,20 @@ export function mountControlPanel(snapshot, api, refresh) {
   }
   const providerPanel = providerRow?.closest(".panel")?.querySelector(".pBody");
   if (providerPanel) {
+    providerPanel.querySelectorAll("[data-priq-hydration]").forEach((node) => node.remove());
+    const hydrationRow = document.createElement("div"); hydrationRow.className = "swRow"; hydrationRow.dataset.priqHydration = "true";
+    const hydrationLabel = document.createElement("div"); hydrationLabel.className = "sl";
+    const title = document.createElement("b"); title.textContent = `Founder hydration — ${snapshot.hydration.enabled ? "ON" : "OFF"}`;
+    const detail = document.createElement("span"); detail.textContent = "No background hydration · student access remains OFF";
+    hydrationLabel.append(title, detail);
+    const hydrationButton = document.createElement("button"); hydrationButton.className = "btnGhost"; hydrationButton.textContent = snapshot.hydration.enabled ? "Pause" : "Hydrate";
+    hydrationButton.disabled = snapshot.access.role !== "founder";
+    hydrationButton.title = snapshot.access.role === "founder" ? "Explicit Dr. Brian action" : "Only Dr. Brian can change hydration";
+    hydrationButton.onclick = async () => {
+      try { await api.hydrate(!snapshot.hydration.enabled, snapshot.hydration.enabled ? "Dr. Brian paused M0.75 hydration" : "Dr. Brian explicitly released M0.75 hydration"); await refresh(); }
+      catch (error) { window.toast(`Hydration rejected: ${error.message}`); }
+    };
+    hydrationRow.append(hydrationLabel, hydrationButton); providerPanel.prepend(hydrationRow);
     providerPanel.querySelectorAll("[data-cue-gap]").forEach((node) => node.remove());
     const row = document.createElement("div"); row.className = "swRow"; row.dataset.cueGap = "true";
     row.innerHTML = `<div class="sl"><b>Cue-rate limit</b><span>${snapshot.settings.cueMinGapSeconds}s minimum gap · max two visible</span></div>`;

@@ -1,10 +1,10 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { extname, join, resolve } from "node:path";
-import { BudgetLedger, MirRuntime, type MirProvider, type PriqRole, type RouteTable } from "../../../packages/mir-core/src/index.ts";
-import { OpenAIResponsesProvider, UnconfiguredProvider } from "../../../packages/mir-providers/src/index.ts";
+import { BudgetExceeded, BudgetLedger, MirRuntime, PolicyDenied, type MirProvider, type MirRequest, type PriqRole, type RouteTable } from "../../../packages/mir-core/src/index.ts";
+import { OpenAIResponsesProvider, ProviderConfigurationError, UnconfiguredProvider } from "../../../packages/mir-providers/src/index.ts";
 import { AuditLedger } from "../../../packages/mir-telemetry/src/index.ts";
 import { PriqRepository, studentProjection, validateUploadManifest, type PrivateUploadManifestItem } from "./domain.ts";
 import { CueGovernor, FeatureController } from "./features.ts";
@@ -12,6 +12,9 @@ import { siblingReality } from "./integrations.ts";
 import { approvedPublicSources, PERSON_ID, PROGRAM_ID, resolveConradFischer, sourceTypeCoverage, SUBJECT_ID } from "./research.ts";
 import { developmentFixture } from "./development-fixture.ts";
 import { deriveUiStates } from "./state.ts";
+import { establishBrowserSession, exchangeBearerPrincipal, principal, PriqAuthError, type PriqPrincipal } from "./auth.ts";
+import { aiFeatureRegistry, buildAskRequest, buildCopilotRequest, buildDebriefRequest, buildFounderNoteRequest, buildProfileLabRequest, buildPublicResearchRequest } from "./ai-features.ts";
+import { buildProfileRequest, materializeClaims } from "./profile.ts";
 
 const publicRoot = process.env.PRIQ_WEB_ROOT ? resolve(process.env.PRIQ_WEB_ROOT) : join(process.cwd(), "apps/priq-web/public");
 const routesConfig = JSON.parse(readFileSync(join(process.cwd(), "config/priq/mir-routes.json"), "utf8")) as { routes: RouteTable };
@@ -39,18 +42,11 @@ const controlSettings = {
   persistence: "local in-memory provisional",
 };
 let cueGovernor = new CueGovernor(controlSettings.cueMinGapSeconds * 1_000);
-
-function principal(req: IncomingMessage): { userId: string; role: PriqRole } {
-  if (process.env.PRIQ_DEV_AUTH !== "true") throw new HttpError(503, "OIDC_NOT_CONFIGURED");
-  const remote = req.socket.remoteAddress ?? "";
-  if (!remote.includes("127.0.0.1") && remote !== "::1") throw new HttpError(403, "DEV_AUTH_LOOPBACK_ONLY");
-  const role = String(req.headers["x-priq-role"] ?? "founder") as PriqRole;
-  if (!(["founder", "admin", "coach", "student", "service"] as string[]).includes(role)) throw new HttpError(403, "INVALID_ROLE");
-  return { userId: String(req.headers["x-priq-user"] ?? "local-founder"), role };
-}
+let hydration = { enabled: false, epoch: 0, changedAt: null as string | null, changedBy: null as string | null };
 
 class HttpError extends Error { constructor(readonly status: number, message: string) { super(message); } }
 function requireRole(role: PriqRole, allowed: PriqRole[]): void { if (!allowed.includes(role)) throw new HttpError(403, "ROLE_DENIED"); }
+function requireHydration(): void { if (!flags.get().hydrationEnabled || !hydration.enabled) throw new HttpError(409, "FOUNDER_HYDRATION_REQUIRED"); }
 
 async function body<T>(req: IncomingMessage): Promise<T> {
   let raw = "";
@@ -66,14 +62,39 @@ function send(res: ServerResponse, status: number, payload: unknown): void {
   res.end(JSON.stringify(payload));
 }
 
+function authEntry(res: ServerResponse): void {
+  const nonce = randomBytes(16).toString("base64");
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PRIQ secure entry</title><style nonce="${nonce}">body{font:16px system-ui;max-width:42rem;margin:10vh auto;padding:2rem;color:#18202a}code{background:#eef2f6;padding:.15rem .3rem}#status{font-weight:650}</style></head><body><h1>PRIQ secure entry</h1><p id="status">Verifying MissionMed founder/admin access…</p><p>This development runtime is closed to students. Launch it from an authenticated MissionMed session.</p><script nonce="${nonce}">(() => { const status = document.getElementById("status"); const params = new URLSearchParams(location.hash.slice(1)); const token = params.get("access_token"); history.replaceState(null, "", location.pathname); if (!token) { status.textContent = "Authenticated MissionMed launch required."; return; } fetch("/api/auth/exchange", { method: "POST", headers: { authorization: "Bearer " + token } }).then(async response => { if (!response.ok) throw new Error((await response.json()).error || "ACCESS_DENIED"); location.replace("/"); }).catch(error => { status.textContent = "Access denied: " + error.message; }); })();</script></body></html>`;
+  res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer", "content-security-policy": `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; frame-ancestors 'none'` });
+  res.end(html);
+}
+
+async function invokeFeature(actor: PriqPrincipal, feature: string, request: MirRequest): Promise<{ output: unknown; telemetry: Record<string, unknown> }> {
+  requireHydration();
+  const output = await runtime.invoke(request);
+  const run = runtime.runs.at(-1);
+  if (!run || run.status !== "succeeded") throw new HttpError(502, "MODEL_RUN_NOT_RECORDED");
+  audit.record({ tenantId, actorId: actor.userId, action: "ai_feature.invoked", targetType: "ai_feature", targetId: feature, metadata: { modelRunId: run.id, provider: run.provider, model: run.model, costUsd: run.costUsd, latencyMs: run.latencyMs } });
+  return {
+    output,
+    telemetry: { modelRunId: run.id, provider: run.provider, model: run.model, latencyMs: run.latencyMs, inputTokens: run.inputTokens, outputTokens: run.outputTokens, estimatedCostUsd: run.costUsd, httpStatusCategory: run.httpStatusCategory ?? null },
+  };
+}
+
 async function api(req: IncomingMessage, res: ServerResponse, path: string): Promise<boolean> {
   if (!path.startsWith("/api/") && path !== "/health") return false;
-  const actor = principal(req);
   if (path === "/health" && req.method === "GET") {
     const provider = await openai.health();
-    send(res, 200, { status: provider.configured ? "degraded" : "blocked", provider, flags: flags.get(), budget: runtime.budget.snapshot(), persistence: "in-memory; migration candidate not applied", integrations: siblingReality });
+    send(res, 200, { status: "ok", provider: { configured: provider.configured }, access: "founder-admin-only", studentAccess: false, hydrationEnabled: flags.get().hydrationEnabled });
     return true;
   }
+  if (path === "/api/auth/exchange" && req.method === "POST") {
+    const actor = await exchangeBearerPrincipal(req);
+    res.setHeader("set-cookie", establishBrowserSession(actor));
+    send(res, 200, { authenticated: true, role: actor.role, studentAccess: false });
+    return true;
+  }
+  const actor = await principal(req);
   if (path === "/api/workspace" && req.method === "GET") {
     requireRole(actor.role, ["founder", "admin", "coach"]);
     send(res, 200, repository.get(SUBJECT_ID)); return true;
@@ -94,9 +115,11 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string): Pro
         authorizedPrivatePacket: false, audiovisualSource: coverage.hasAudiovisual, researchInProgress: false,
         founderApproved: workspace?.founderReviewStatus === "approved",
       }),
-      flags: flags.get(), settings: controlSettings, provider, coverage,
+      flags: flags.get(), settings: controlSettings, provider: { configured: provider.configured }, coverage,
+      access: { role: actor.role, founderAdminOnly: true, studentAccess: false },
+      hydration, aiFeatures: aiFeatureRegistry,
       runtime: { budget: runtime.budget.snapshot(), runCount: runtime.runs.length, lastLatencyMs: runtime.runs.at(-1)?.latencyMs ?? null },
-      authority: { persistence: controlSettings.persistence, productionConnected: false, migrationsApplied: false },
+      authority: { persistence: controlSettings.persistence, developmentConnected: process.env.PRIQ_ENV === "development", productionConnected: false, migrationsApplied: false },
     });
     return true;
   }
@@ -122,10 +145,60 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string): Pro
     const item = await body<PrivateUploadManifestItem>(req); const errors = validateUploadManifest(item);
     send(res, errors.length ? 422 : 200, { accepted: errors.length === 0, errors, note: "Validation does not persist file bytes." }); return true;
   }
+  if (path === "/api/ai/features" && req.method === "GET") {
+    requireRole(actor.role, ["founder", "admin"]);
+    send(res, 200, { hydration, features: aiFeatureRegistry, studentAccess: false }); return true;
+  }
+  if (path === "/api/ai/ask" && req.method === "POST") {
+    requireRole(actor.role, ["founder", "admin"]); flags.require("researchEnabled");
+    const input = await body<{ question: string }>(req);
+    if (!input.question?.trim() || input.question.length > 4_000) throw new HttpError(422, "QUESTION_REQUIRED");
+    send(res, 200, await invokeFeature(actor, "ask", buildAskRequest(actor, input.question.trim(), approvedPublicSources))); return true;
+  }
+  if (path === "/api/ai/research" && req.method === "POST") {
+    requireRole(actor.role, ["founder", "admin"]); flags.require("researchEnabled");
+    send(res, 200, await invokeFeature(actor, "public_research", buildPublicResearchRequest(actor, approvedPublicSources))); return true;
+  }
+  if (path === "/api/ai/profile" && req.method === "POST") {
+    requireRole(actor.role, ["founder", "admin"]); flags.require("profileEnabled"); requireHydration();
+    const request = buildProfileRequest({ tenantId, userId: actor.userId, role: actor.role, subjectIds: [SUBJECT_ID], dataClasses: ["public_professional"], feature: "profile", requestId: randomUUID() }, approvedPublicSources);
+    const result = await invokeFeature(actor, "profile", request);
+    const workspace = repository.get(SUBJECT_ID); if (!workspace) throw new HttpError(404, "SUBJECT_NOT_FOUND");
+    const claims = materializeClaims(result.output, approvedPublicSources, SUBJECT_ID, actor.userId);
+    repository.save({ ...workspace, claims: [...workspace.claims, ...claims], founderReviewStatus: "in_review" });
+    send(res, 200, { claimsCreated: claims.length, reviewRequired: true, studentPublished: false, telemetry: result.telemetry }); return true;
+  }
+  if (path === "/api/ai/copilot" && req.method === "POST") {
+    requireRole(actor.role, ["founder", "admin"]); flags.require("liveCopilotEnabled");
+    const input = await body<{ transcript: string; synthetic?: boolean }>(req);
+    if (!input.transcript?.trim() || input.transcript.length > 20_000) throw new HttpError(422, "TRANSCRIPT_REQUIRED");
+    send(res, 200, await invokeFeature(actor, "live_copilot", buildCopilotRequest(actor, input.transcript, input.synthetic === true))); return true;
+  }
+  if (path === "/api/ai/debrief" && req.method === "POST") {
+    requireRole(actor.role, ["founder", "admin"]); flags.require("debriefEnabled");
+    const input = await body<{ synthetic?: boolean; transcript?: string; cueIds?: string[]; founderNotes?: string[] }>(req);
+    if (!input.transcript?.trim() && !input.cueIds?.length && !input.founderNotes?.length) throw new HttpError(422, "DEBRIEF_EVIDENCE_REQUIRED");
+    send(res, 200, await invokeFeature(actor, "debrief", buildDebriefRequest(actor, { transcript: input.transcript?.slice(0, 20_000) ?? "", cueIds: input.cueIds?.slice(0, 100) ?? [], founderNotes: input.founderNotes?.slice(0, 100) ?? [] }, input.synthetic === true))); return true;
+  }
+  if (path === "/api/ai/profile-lab" && req.method === "POST") {
+    requireRole(actor.role, ["founder", "admin"]); flags.require("profileLabEnabled");
+    const input = await body<{ question: string }>(req);
+    if (!input.question?.trim() || input.question.length > 4_000) throw new HttpError(422, "LAB_QUESTION_REQUIRED");
+    send(res, 200, await invokeFeature(actor, "profile_lab", buildProfileLabRequest(actor, input.question.trim(), approvedPublicSources))); return true;
+  }
+  if (path === "/api/ai/founder-note" && req.method === "POST") {
+    requireRole(actor.role, ["founder"]); flags.require("founderNoteAiUseEnabled");
+    const input = await body<{ note: string }>(req);
+    if (!input.note?.trim() || input.note.length > 4_000) throw new HttpError(422, "FOUNDER_NOTE_REQUIRED");
+    send(res, 200, await invokeFeature(actor, "founder_note", buildFounderNoteRequest(actor, input.note.trim()))); return true;
+  }
+  if (path === "/api/ai/video-analysis" && req.method === "POST") {
+    requireRole(actor.role, ["founder", "admin"]); flags.require("videoAnalysisEnabled"); requireHydration();
+    throw new HttpError(409, "AUTHORIZED_MEDIA_ADAPTER_REQUIRED");
+  }
   if (path === "/api/student/report" && req.method === "GET") {
-    requireRole(actor.role, ["founder", "admin", "student"]);
-    if (!flags.get().studentWorkspaceEnabled && !flags.get().studentWorkspaceOverrideEnabled) throw new Error("FEATURE_DISABLED:studentWorkspaceAccess");
-    flags.require("studentPublicationEnabled");
+    requireRole(actor.role, ["founder", "admin"]);
+    if (!flags.get().studentWorkspaceEnabled || !flags.get().studentPublicationEnabled) throw new Error("FEATURE_DISABLED:studentAccessLockedOff");
     const workspace = repository.get(SUBJECT_ID); if (!workspace) throw new HttpError(404, "SUBJECT_NOT_FOUND");
     send(res, 200, studentProjection(workspace)); return true;
   }
@@ -139,10 +212,22 @@ async function api(req: IncomingMessage, res: ServerResponse, path: string): Pro
   if (path === "/api/control/flags" && req.method === "GET") {
     requireRole(actor.role, ["founder", "admin"]); send(res, 200, flags.get()); return true;
   }
+  if (path === "/api/control/hydration" && req.method === "POST") {
+    requireRole(actor.role, ["founder"]);
+    const update = await body<{ state: boolean; reason: string }>(req);
+    if (typeof update.state !== "boolean" || !update.reason?.trim()) throw new HttpError(422, "HYDRATION_REASON_REQUIRED");
+    if (update.state && !(await openai.health()).configured) throw new HttpError(503, "OPENAI_CREDENTIAL_HEALTH_ERROR");
+    hydration = { enabled: update.state, epoch: hydration.epoch + 1, changedAt: new Date().toISOString(), changedBy: actor.userId };
+    flags.setHydration(update.state);
+    audit.record({ tenantId, actorId: actor.userId, action: update.state ? "hydration.released" : "hydration.paused", targetType: "runtime", targetId: "priq-hydration", metadata: { epoch: hydration.epoch, reason: update.reason.slice(0, 180), studentAccess: false } });
+    send(res, 200, { hydration, studentAccess: false }); return true;
+  }
   if (path === "/api/control/flags" && req.method === "PATCH") {
     requireRole(actor.role, ["founder"]); const update = await body<{ key: keyof ReturnType<FeatureController["get"]>; value: boolean }>(req);
     if (!(update.key in flags.get()) || typeof update.value !== "boolean") throw new HttpError(422, "INVALID_FLAG_UPDATE");
     if (update.key === "humanReviewRequired" && update.value === false) throw new HttpError(423, "HUMAN_REVIEW_INTERLOCK");
+    if (update.key === "hydrationEnabled") throw new HttpError(423, "HYDRATION_REQUIRES_FOUNDER_ACTION");
+    if (update.value === true && ["studentWorkspaceEnabled", "studentPublicationEnabled", "studentWorkspaceOverrideEnabled"].includes(update.key)) throw new HttpError(423, "STUDENT_ACCESS_LOCKED_OFF");
     const previous = flags.get()[update.key];
     const updated = flags.set(update.key, update.value);
     audit.record({ tenantId, actorId: actor.userId, action: "feature_flag.updated", targetType: "feature_flag", targetId: update.key, metadata: { previous, enabled: update.value } });
@@ -203,17 +288,23 @@ async function staticFile(res: ServerResponse, path: string): Promise<void> {
 export const server = createServer(async (req, res) => {
   try {
     const path = new URL(req.url ?? "/", "http://local").pathname;
-    if (!await api(req, res, path)) await staticFile(res, path);
+    if (path === "/auth-entry" && req.method === "GET") authEntry(res);
+    else if (!await api(req, res, path)) { await principal(req); await staticFile(res, path); }
   } catch (error) {
-    const status = error instanceof HttpError ? error.status
+    const status = error instanceof HttpError || error instanceof PriqAuthError ? error.status
+      : error instanceof ProviderConfigurationError ? 503
+        : error instanceof BudgetExceeded ? 429
+          : error instanceof PolicyDenied ? 403
       : error instanceof Error && (error.message.startsWith("FEATURE_DISABLED:") || error.message === "STUDENT_REPORT_NOT_PUBLISHED") ? 409
         : 500;
-    send(res, status, { error: error instanceof Error ? error.message : "UNKNOWN_ERROR" });
+    const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
+    send(res, status, { error: message.startsWith("OPENAI_REQUEST_FAILED:") ? "PROVIDER_REQUEST_FAILED" : message });
   }
 });
 
 if (process.argv[1]?.endsWith("apps/priq-api/src/server.ts")) {
   const bind = process.env.PRIQ_BIND ?? "127.0.0.1";
-  if (bind !== "127.0.0.1" && bind !== "::1") throw new Error("PRIQ_BIND_MUST_BE_LOOPBACK_UNTIL_OIDC_IS_CONFIGURED");
-  server.listen(Number(process.env.PRIQ_PORT ?? "4310"), bind, () => process.stdout.write(`PRIQ local foundation: http://${bind}:${process.env.PRIQ_PORT ?? "4310"}\n`));
+  if (bind !== "127.0.0.1" && bind !== "::1" && process.env.PRIQ_AUTH_MODE !== "supabase") throw new Error("PRIQ_PUBLIC_BIND_REQUIRES_SUPABASE_AUTH");
+  const port = Number(process.env.PORT ?? process.env.PRIQ_PORT ?? "4310");
+  server.listen(port, bind, () => process.stdout.write(`PRIQ ${process.env.PRIQ_ENV ?? "local"} runtime listening on ${bind}:${port}\n`));
 }

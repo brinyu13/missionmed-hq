@@ -6,6 +6,7 @@ import { assertStoryReferences } from "../../apps/priq-api/src/integrations.ts";
 import { buildProfileRequest, materializeClaims } from "../../apps/priq-api/src/profile.ts";
 import { approvedPublicSources, PERSON_ID, resolveConradFischer, sourceTypeCoverage, SUBJECT_ID } from "../../apps/priq-api/src/research.ts";
 import { InMemoryJobQueue } from "../../packages/mir-queue/src/index.ts";
+import { aiFeatureRegistry, buildAskRequest, buildCopilotRequest, buildDebriefRequest, buildFounderNoteRequest, buildProfileLabRequest, buildPublicResearchRequest } from "../../apps/priq-api/src/ai-features.ts";
 
 test("private upload manifest validates consent, hash, bytes, type, and retention", () => {
   const errors = validateUploadManifest({
@@ -72,7 +73,12 @@ test("StoryForge references fail closed when a story is absent", () => {
 test("feature switches are backend gates and Copilot governor rate-limits cues", () => {
   const features = new FeatureController();
   assert.equal(features.get().studentWorkspaceEnabled, lockedDefaults.studentWorkspaceEnabled);
+  assert.equal(features.get().hydrationEnabled, false);
   assert.throws(() => features.require("studentWorkspaceEnabled"), /FEATURE_DISABLED/);
+  assert.throws(() => features.set("studentWorkspaceEnabled", true), /STUDENT_ACCESS_LOCKED_OFF/);
+  assert.throws(() => features.set("studentPublicationEnabled", true), /STUDENT_ACCESS_LOCKED_OFF/);
+  assert.throws(() => features.set("hydrationEnabled", true), /HYDRATION_REQUIRES_FOUNDER_ACTION/);
+  features.setHydration(true); assert.equal(features.get().hydrationEnabled, true);
   features.set("mirEnabled", false); assert.throws(() => features.require("researchEnabled"), /FEATURE_DISABLED/);
   const governor = new CueGovernor(20_000);
   assert.equal(governor.detect("Um I would begin with the patient", 100_000).length, 1);
@@ -89,4 +95,21 @@ test("queue records failure without retrying implicitly", async () => {
   const queue = new InMemoryJobQueue(); const job = queue.enqueue("profile", SUBJECT_ID, {});
   await queue.runNext({ profile: async () => { throw new Error("provider unavailable"); } });
   assert.equal(job.state, "failed"); assert.equal(job.attempts, 1); assert.equal(job.error, "provider unavailable");
+});
+
+test("M0.75 wires every declared AI surface while restricted features remain classified", () => {
+  const actor = { userId: "founder:1", role: "founder" as const };
+  const requests = [
+    buildAskRequest(actor, "What is supported?", approvedPublicSources),
+    buildPublicResearchRequest(actor, approvedPublicSources),
+    buildCopilotRequest(actor, "Synthetic interview practice", true),
+    buildDebriefRequest(actor, { cueIds: ["cue:1"] }, true),
+    buildProfileLabRequest(actor, "Separate observations and interpretations.", approvedPublicSources),
+    buildFounderNoteRequest(actor, "Private coaching observation."),
+  ];
+  assert.equal(aiFeatureRegistry.length, 8);
+  assert.ok(requests.every((request) => request.output.schema.additionalProperties === false));
+  assert.deepEqual(buildCopilotRequest(actor, "Real transcript", false).context.dataClasses, ["student_provided"]);
+  assert.deepEqual(buildFounderNoteRequest(actor, "Private").context.dataClasses, ["founder_private"]);
+  assert.equal(aiFeatureRegistry.find((feature) => feature.id === "video_analysis")?.state, "adapter-blocked");
 });
