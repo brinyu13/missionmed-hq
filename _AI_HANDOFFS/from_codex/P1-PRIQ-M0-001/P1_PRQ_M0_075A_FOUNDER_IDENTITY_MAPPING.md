@@ -16,8 +16,11 @@ Status: FOUNDER MAPPED; SERVER-SIDE DEPLOYED PROOF PASS; INTERACTIVE CROSS-ORIGI
 
 - Service: `priq-dev` only.
 - Environment: `cam-dev`.
-- Deployment: `b46f8595-4555-4b2d-bc81-f6e620bbff45`.
-- Result: SUCCESS.
+- Founder-proof deployment: `b46f8595-4555-4b2d-bc81-f6e620bbff45`, SUCCESS.
+- Browser-token-hardened successor: `40e38515-2802-4892-95ee-10928ef4cdb3`, SUCCESS.
+- Successor health: HTTP 200; provider configured; Founder/Admin-only; student access OFF; hydration OFF.
+- Successor access checks: unauthenticated root HTTP 401; `/auth-entry` fails closed and states that browser tokens and URL-fragment credentials are not accepted.
+- Successor frontend: the exact built artifact passed the credential/pattern scan; the deployed asset remains correctly protected from unauthenticated reads.
 - CAM, Matrix, WordPress, production deployments, databases, and unrelated services were not changed or restarted.
 
 ## Founder proof
