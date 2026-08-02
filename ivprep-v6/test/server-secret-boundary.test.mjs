@@ -102,6 +102,7 @@ test('health and Founder configuration responses never serialize the server API 
     assert.equal(text.includes('OPENAI_API_KEY'), false, `${path} exposed the environment variable name`);
     assert.doesNotMatch(text, /Authorization|Bearer\s+/u, `${path} exposed authorization material`);
     assert.doesNotThrow(() => JSON.parse(text));
+    assert.equal(response.headers.get('x-robots-tag'), 'noindex, nofollow, noarchive');
   }
 });
 

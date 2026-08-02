@@ -13,6 +13,12 @@ Founder Alpha adapter and roster.
 
 No production route or deployment is authorized by this directory.
 
+The 3403 release audit found no registered IV Prep private-preview route,
+product passport, deployment authority, or online founder-auth contract. The
+application therefore remains a loopback-only Founder Alpha. Server shutdown
+now closes the avatar provider independently, and sessions that reach their
+hard cap are durably entered in the usage ledger.
+
 ## Local launch
 
 Run `npm install && npm start` in this directory, then open

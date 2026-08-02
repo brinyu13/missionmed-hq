@@ -51,7 +51,21 @@ export class AlphaStore {
       if (session.state === 'active' && now >= session.hardEndsAt) {
         session.state = 'hard-cap-ended';
         session.endedAt = session.hardEndsAt;
+        session.updatedAt = session.hardEndsAt;
         session.terminationState = 'hard-cap';
+        session.usage.avatarEndedAt ||= session.hardEndsAt;
+        session.usage.estimatedMinutes = session.durationMinutes;
+        if (!this.data.usage.some((entry) => entry.sessionId === session.id)) {
+          this.data.usage.push({
+            sessionId: session.id,
+            testIdentity: session.testIdentity,
+            startedAt: session.startedAt,
+            endedAt: session.endedAt,
+            estimatedMinutes: session.durationMinutes,
+            model: session.model,
+            avatar: session.avatar,
+          });
+        }
         changed = true;
       }
     }

@@ -60,3 +60,28 @@ test('emergency disable fails closed and commercialization controls remain inact
   assert.equal(INACTIVE_COMMERCIALIZATION_CONTROLS.paidTopUps, false);
   assert.deepEqual(INACTIVE_COMMERCIALIZATION_CONTROLS.warnings, [75, 90, 100]);
 });
+
+test('fifteen-minute default, twenty-minute hard cap, concurrency, and restart usage remain durable', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'ivprep-alpha-release-'));
+  const path = join(directory, 'sessions.json');
+  let now = 10_000_000;
+  const store = new AlphaStore({ path, now: () => now });
+  const defaultSession = store.startSession({
+    testIdentity: 'synthetic-a', selectedInterviewer: 'senior-academic-pd-male', model: 'gpt-5.6-terra',
+    voice: 'cedar', avatar: VERIFIED_DEXTER_AVATAR_ID, behavior: 'direct-program-director', mode: 'voice-only',
+  });
+  const concurrent = store.startSession({
+    testIdentity: 'synthetic-b', durationMinutes: 20, selectedInterviewer: 'senior-academic-pd-male', model: 'gpt-5.6-terra',
+    voice: 'cedar', avatar: VERIFIED_DEXTER_AVATAR_ID, behavior: 'direct-program-director', mode: 'voice-only',
+  });
+  assert.equal(defaultSession.durationMinutes, 15);
+  assert.equal(concurrent.durationMinutes, 20);
+  now += 20 * 60_000;
+  assert.equal(store.getSession(defaultSession.id).terminationState, 'hard-cap');
+  assert.equal(store.getSession(concurrent.id).terminationState, 'hard-cap');
+  assert.deepEqual(store.usageLedger().map((entry) => entry.estimatedMinutes), [15, 20]);
+  const restarted = new AlphaStore({ path, now: () => now });
+  assert.equal(restarted.listSessions().length, 2);
+  assert.equal(restarted.usageLedger().length, 2);
+  assert.doesNotThrow(() => restarted.startSession({ testIdentity: 'synthetic-a' }));
+});

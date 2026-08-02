@@ -81,3 +81,18 @@ test('browser adapter wires provider media without persisting or logging credent
   assert.match(integration, /Live avatar unavailable: provider authorization is missing/);
   assert.match(integration, /The interviewer intelligence and voice are unchanged/);
 });
+
+test('server shutdown independently closes the avatar provider', async () => {
+  let closes = 0;
+  const avatarProvider = {
+    health: () => ({ configured: false, available: false, status: 'unavailable' }),
+    usage: () => ({ sessions: 0 }),
+    async close() { closes += 1; },
+  };
+  const path = join(mkdtempSync(join(tmpdir(), 'ivprep-alpha-cleanup-')), 'sessions.json');
+  const server = createIvPrepServer({ apiKey: 'unit-key', avatarProvider, alphaStore: new AlphaStore({ path }) });
+  await listen(server);
+  await new Promise((resolve) => server.close(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(closes, 1);
+});

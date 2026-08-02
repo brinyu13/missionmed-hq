@@ -71,6 +71,7 @@ function securityHeaders(extra = {}) {
     'Referrer-Policy': 'no-referrer',
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
+    'X-Robots-Tag': 'noindex, nofollow, noarchive',
     ...extra,
   };
 }
@@ -281,7 +282,7 @@ export function createIvPrepServer({
     finally { activeProviderRequests -= 1; }
   };
 
-  return createServer(async (request, response) => {
+  const server = createServer(async (request, response) => {
     const url = new URL(request.url || '/', 'http://127.0.0.1');
     const requestAbort = new AbortController();
     request.once('aborted', () => requestAbort.abort());
@@ -625,6 +626,9 @@ export function createIvPrepServer({
       if (!(error instanceof ProviderError)) console.error('[ivprep-v6] unexpected_error');
     }
   });
+  server.once('close', () => { avatarProvider.close().catch(() => {}); });
+  server.closeProviders = () => avatarProvider.close();
+  return server;
 }
 
 async function start() {
@@ -639,6 +643,12 @@ async function start() {
     server.listen(port, host, resolve);
   });
   console.log(`[ivprep-v6] listening on http://${host}:${port}`);
+  const shutdown = async () => {
+    await server.closeProviders().catch(() => {});
+    await new Promise((resolve) => server.close(resolve));
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
