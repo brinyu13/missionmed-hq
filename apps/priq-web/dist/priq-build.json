@@ -1,0 +1,6 @@
+{
+  "artifact": "PRIQ frozen UI plus local recovery adapters",
+  "frozenUiSha256": "995bf401bde780192b036cb79507a42570f66be4778a879b47303686a4a8a477",
+  "persistence": "local in-memory provisional",
+  "migrationsApplied": false
+}

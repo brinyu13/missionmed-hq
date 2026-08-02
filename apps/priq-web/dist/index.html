@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,600;0,800;0,900;1,700;1,800;1,900&family=Rajdhani:wght@500;600;700&family=Lora:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<title>PRIQ · MissionMed — Final Prototype</title>
+<style>
+/* ============ PRIQ FINAL · MISSIONMED FLAGSHIP TOKENS ============ */
+:root{
+  --bg:#0a0d14; --bg2:#0f1522; --card:#121927; --card2:#161f31; --edge:#243046; --edge2:#31405c;
+  --tx:#e9eefb; --dim:#7e8ba6; --mid:#aab8d1;
+  --em:#ffb340; --em2:#ff7a3d; --cy:#39d6ff; --vi:#8a7dff; --vi2:#6a5df0; --gd:#ffd76a; --gn:#4ade9d; --rd:#ff5470;
+  --disp:'Archivo',system-ui,sans-serif; --num:'Rajdhani',sans-serif; --voice:'Lora',Georgia,serif;
+  --accentGlow:138,125,255;
+  --rail:202px; --ai:324px; --hdr:56px; --foot:30px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--tx);font-family:var(--disp);overflow:hidden;font-size:14px}
+button{cursor:pointer;font-family:inherit;border:0;background:none;color:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--vi);outline-offset:2px;border-radius:6px}
+::selection{background:var(--vi);color:#000}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-thumb{background:var(--edge);border-radius:6px;border:2px solid var(--bg)}
+::-webkit-scrollbar-track{background:transparent}
+
+.aur{position:fixed;z-index:0;pointer-events:none;filter:blur(90px);opacity:.45;border-radius:50%;will-change:transform}
+.aur.a{width:56vw;height:56vw;left:-16vw;top:-22vw;background:radial-gradient(circle,rgba(106,93,240,.16),rgba(106,93,240,0) 65%);animation:drift1 46s ease-in-out infinite alternate}
+.aur.b{width:64vw;height:64vw;right:-22vw;bottom:-30vw;background:radial-gradient(circle,rgba(57,214,255,.09),rgba(57,214,255,0) 65%);animation:drift2 58s ease-in-out infinite alternate}
+@keyframes drift1{to{transform:translate(9vw,7vw) scale(1.12)}}
+@keyframes drift2{to{transform:translate(-8vw,-9vw) scale(1.08)}}
+.vg{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at 50% 38%,transparent 46%,rgba(3,5,9,.7))}
+@media (prefers-reduced-motion:reduce){.aur{animation:none!important}*,*:before,*:after{animation-duration:.001s!important;transition-duration:.001s!important}}
+
+/* ============ SHELL ============ */
+#shell{position:fixed;inset:0;z-index:10;display:grid;grid-template-columns:var(--rail) 1fr var(--ai);grid-template-rows:var(--hdr) 1fr var(--foot);grid-template-areas:"rail top top" "rail stage ai" "rail foot foot"}
+body.aioff #shell{grid-template-columns:var(--rail) 1fr 0px}
+#rail{grid-area:rail;background:linear-gradient(180deg,rgba(13,18,29,.96),rgba(10,13,20,.94));border-right:1px solid var(--edge);display:flex;flex-direction:column;padding:16px 12px 12px;z-index:40;overflow:hidden}
+.logo{font-weight:900;font-style:italic;font-size:22px;transform:skewX(-4deg);letter-spacing:-.01em;padding-left:8px;cursor:pointer;user-select:none}
+.logo b{color:var(--vi)}
+.logoSub{font-family:var(--num);font-size:8px;font-weight:700;letter-spacing:.22em;color:var(--dim);margin:-2px 0 0 9px;transform:skewX(-4deg);text-transform:uppercase}
+nav#mainNav{display:flex;flex-direction:column;gap:3px;margin-top:18px}
+.ntab{display:flex;align-items:center;gap:10px;font-family:var(--num);font-weight:700;font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);padding:9px 12px;border-radius:9px;transition:.16s;text-align:left;width:100%}
+.ntab svg{flex:none;opacity:.75}
+.ntab:hover{color:#fff;background:rgba(36,48,70,.55)}
+.ntab.on{color:#0d0a1f;background:linear-gradient(90deg,var(--vi),var(--vi2));clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%)}
+.ntab.live-k.on{background:linear-gradient(90deg,var(--rd),#d33d5e)}
+.railSec{font-family:var(--num);font-size:9px;font-weight:700;letter-spacing:.28em;color:#525f7c;text-transform:uppercase;margin:14px 0 6px 12px}
+.dockBtn{display:flex;align-items:center;gap:9px;font-family:var(--num);font-weight:600;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--dim);padding:6px 12px;border-radius:8px;transition:.15s;text-align:left;width:100%}
+.dockBtn:hover{color:#fff;background:rgba(36,48,70,.5)}
+.dockBtn .dot{width:7px;height:7px;border-radius:50%;flex:none}
+.dockBtn .ext{margin-left:auto;font-size:9px;color:#525f7c}
+.railFoot{margin-top:auto;display:flex;flex-direction:column;gap:6px}
+.matrix{display:flex;align-items:center;gap:8px;font-family:var(--num);font-size:10.5px;font-weight:700;letter-spacing:.16em;color:var(--dim);text-transform:uppercase;padding:7px 12px;border-radius:8px;transition:.15s}
+.matrix:hover{color:var(--cy)}
+.me{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--edge);border-radius:11px;background:rgba(15,21,34,.7)}
+.me .avc{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-family:var(--num);font-weight:700;font-size:11px;background:linear-gradient(150deg,var(--vi),var(--vi2));color:#0d0a1f}
+.me .nm{font-weight:700;font-size:12px}
+.me .rl{font-family:var(--num);font-size:9px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+
+#top{grid-area:top;display:flex;align-items:center;gap:16px;padding:0 18px;border-bottom:1px solid var(--edge);background:linear-gradient(180deg,rgba(10,13,20,.9),rgba(10,13,20,.55));backdrop-filter:blur(10px);z-index:30}
+.crumb{display:flex;align-items:baseline;gap:10px;min-width:0}
+.crumb .where{font-weight:900;font-style:italic;font-size:16px;transform:skewX(-3deg);white-space:nowrap}
+.crumb .where em{color:var(--vi);font-style:italic}
+.crumb .what{font-family:var(--voice);font-style:italic;font-size:12.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kSearch{margin-left:auto;display:flex;align-items:center;gap:8px;background:rgba(15,21,34,.85);border:1px solid var(--edge);border-radius:10px;padding:6px 12px;width:min(250px,22vw);cursor:pointer;transition:.16s}
+.kSearch:hover{border-color:var(--vi)}
+.kSearch .ph{font-size:12.5px;color:#5c6a86;flex:1;white-space:nowrap}
+.kbd{font-family:var(--num);font-size:10px;font-weight:700;color:var(--dim);border:1px solid var(--edge2);border-radius:4px;padding:1px 6px}
+.aiLight{display:flex;align-items:center;gap:8px;font-family:var(--num);font-size:10.5px;font-weight:700;letter-spacing:.14em;color:var(--vi);text-transform:uppercase;border:1px solid rgba(138,125,255,.35);background:rgba(138,125,255,.08);border-radius:999px;padding:5px 12px;cursor:pointer;white-space:nowrap}
+.aiLight .pulse{width:8px;height:8px;border-radius:50%;background:var(--vi);animation:breathe 2.6s ease-in-out infinite}
+body.killed .aiLight{color:var(--gd);border-color:rgba(255,215,106,.4);background:rgba(255,215,106,.07)}
+body.killed .aiLight .pulse{background:var(--gd);animation:none}
+@keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(138,125,255,.55);opacity:.85}50%{box-shadow:0 0 0 6px rgba(138,125,255,0);opacity:1}}
+#killBanner{display:none;position:fixed;top:var(--hdr);left:var(--rail);right:0;z-index:45;align-items:center;gap:10px;padding:7px 18px;background:linear-gradient(90deg,rgba(255,215,106,.14),rgba(255,215,106,.05));border-bottom:1px solid rgba(255,215,106,.3);font-family:var(--num);font-size:11.5px;font-weight:700;letter-spacing:.1em;color:var(--gd);text-transform:uppercase;backdrop-filter:blur(8px)}
+body.killed #killBanner{display:flex}
+body.killed .view{top:50px}
+#killBanner button{margin-left:auto;font-family:var(--num);font-size:10px;font-weight:700;letter-spacing:.12em;border:1px solid rgba(255,215,106,.4);border-radius:7px;padding:4px 12px;color:var(--gd)}
+
+#foot{grid-area:foot;display:flex;align-items:center;gap:20px;padding:0 16px;border-top:1px solid var(--edge);background:rgba(10,13,20,.9);font-family:var(--num);font-size:10px;font-weight:600;letter-spacing:.1em;color:#5c6a86;text-transform:uppercase;z-index:30;white-space:nowrap;overflow:hidden}
+#foot .glass{margin:0 auto;color:var(--dim)}
+#foot .glass b{color:var(--vi)}
+
+/* ============ AI PANEL ============ */
+#ai{grid-area:ai;border-left:1px solid var(--edge);background:linear-gradient(180deg,rgba(13,17,28,.95),rgba(10,13,20,.92));display:flex;flex-direction:column;z-index:35;min-width:0;overflow:hidden}
+body.aioff #ai{display:none}
+.aiHead{display:flex;align-items:center;gap:11px;padding:14px 16px 10px;border-bottom:1px solid rgba(36,48,70,.6)}
+.orb{width:34px;height:34px;border-radius:50%;flex:none;position:relative;background:radial-gradient(circle at 34% 30%,#c9c2ff,var(--vi) 45%,var(--vi2) 75%,#2a2170);box-shadow:0 0 18px rgba(138,125,255,.4);animation:orbBreathe 4s ease-in-out infinite}
+.orb:after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1px solid rgba(138,125,255,.3);animation:orbit 7s linear infinite}
+body.killed .orb{filter:grayscale(.7) brightness(.8);animation:none}
+@keyframes orbBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.06);box-shadow:0 0 26px rgba(138,125,255,.55)}}
+@keyframes orbit{to{transform:rotate(360deg)}}
+.aiHead .t{font-weight:900;font-style:italic;font-size:15px;transform:skewX(-3deg)}
+.aiHead .t em{color:var(--vi);font-style:italic}
+.aiHead .s{font-family:var(--num);font-size:9.5px;font-weight:700;letter-spacing:.18em;color:var(--gn);text-transform:uppercase}
+body.killed .aiHead .s{color:var(--gd)}
+.aiHide{margin-left:auto;color:var(--dim);font-size:15px;padding:4px 8px;border-radius:6px}
+.aiHide:hover{color:#fff;background:rgba(36,48,70,.5)}
+#aiStream{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:9px;min-height:0}
+.aiLine{font-size:12.5px;color:var(--mid);line-height:1.5;opacity:0;transform:translateY(5px);transition:all .4s}
+.aiLine.show{opacity:1;transform:none}
+.aiLine .lbl{display:block;font-family:var(--num);font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--vi);margin-bottom:2px}
+.aiLine.doing{color:var(--dim);font-style:italic}
+.aiLine.doing .dots:after{content:"…";animation:dotty 1.4s steps(4) infinite}
+@keyframes dotty{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"…"}}
+.aiCard{border:1px solid var(--edge);border-radius:11px;padding:10px 12px;font-size:12.5px;color:var(--mid);line-height:1.5;opacity:0;transform:translateY(5px);transition:all .4s}
+.aiCard.show{opacity:1;transform:none}
+.aiCard .tag{font-family:var(--num);font-size:9px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;display:block;margin-bottom:3px}
+.aiCard.next{border-color:rgba(138,125,255,.4);background:rgba(138,125,255,.06)}
+.aiCard.next .tag{color:var(--vi)}
+.aiCard.dont{background:rgba(15,21,34,.5)}
+.aiCard.dont .tag{color:var(--dim)}
+.aiCard .act{margin-top:8px}
+.aiCard .act button{font-family:var(--num);font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border:1px solid var(--edge2);border-radius:7px;padding:4px 11px;color:var(--mid)}
+.aiCard .act button:hover{color:#fff;border-color:var(--vi)}
+.aiAsk{display:flex;gap:8px;padding:12px 14px;border-top:1px solid rgba(36,48,70,.6)}
+.aiAsk input{flex:1;min-width:0;background:rgba(15,21,34,.9);border:1px solid var(--edge);border-radius:9px;padding:9px 12px;color:var(--tx);font-family:var(--disp);font-size:12.5px;outline:none}
+.aiAsk input:focus{border-color:var(--vi)}
+.aiAsk button{padding:0 14px;border-radius:9px;background:linear-gradient(90deg,var(--vi),var(--vi2));color:#0d0a1f;font-family:var(--num);font-weight:700;font-size:11px;letter-spacing:.12em}
+
+/* ============ STAGE ============ */
+#stage{grid-area:stage;position:relative;padding:14px 16px;min-width:0;min-height:0;z-index:20;overflow:hidden}
+.view{position:absolute;inset:14px 16px;display:none;flex-direction:column;gap:12px;min-height:0}
+.view.on{display:flex;animation:vin .35s cubic-bezier(.2,.9,.3,1.1)}
+@keyframes vin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.todayGrid>*,.grid3>*,.copGrid>*,.labGrid>*,.cpGrid>*,.colStack{min-width:0}
+.panel{background:linear-gradient(165deg,rgba(19,25,39,.92),rgba(15,20,33,.88));border:1px solid var(--edge);border-radius:14px;position:relative;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.panel:before{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(var(--accentGlow),.35),transparent)}
+.pHead{display:flex;align-items:center;gap:9px;padding:13px 16px 8px;flex:none}
+.pHead .h2{font-size:14.5px;font-weight:900;font-style:italic;transform:skewX(-3deg);letter-spacing:-.01em;white-space:nowrap}
+.pHead .h2 em{color:var(--vi);font-style:italic}
+.pHead .h2 em.emb{color:var(--em)}
+.pMore{margin-left:auto;font-family:var(--num);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);transition:.15s;white-space:nowrap}
+.pMore:hover{color:var(--vi)}
+.pBody{padding:4px 16px 14px;flex:1;overflow-y:auto;min-height:0}
+.eyebrow{font-family:var(--num);font-size:9.5px;font-weight:700;letter-spacing:.26em;color:var(--dim);text-transform:uppercase}
+.row{display:block;padding:9px 10px;border-radius:10px;cursor:pointer;transition:.15s;border:1px solid transparent}
+.row:hover{background:rgba(22,31,49,.85);border-color:var(--edge)}
+.row .tt{display:inline;font-size:13px;line-height:1.5;color:var(--tx)}
+.row .src{display:block;margin-top:3px;font-family:var(--num);font-size:9.5px;font-weight:600;letter-spacing:.06em;color:var(--dim);text-transform:uppercase}
+.kind{display:inline-block;margin:0 7px 2px 0;vertical-align:2px;font-family:var(--num);font-size:8.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border-radius:5px;padding:2px 7px}
+.kind.prog{color:var(--cy);background:rgba(57,214,255,.1);border:1px solid rgba(57,214,255,.3)}
+.kind.stu{color:var(--gn);background:rgba(74,222,157,.1);border:1px solid rgba(74,222,157,.3)}
+.kind.age{color:var(--gd);background:rgba(255,215,106,.09);border:1px solid rgba(255,215,106,.3)}
+.kind.relay{color:var(--em);background:rgba(255,179,64,.09);border:1px solid rgba(255,179,64,.3)}
+.kind.evid{color:var(--vi);background:rgba(138,125,255,.1);border:1px solid rgba(138,125,255,.32)}
+.bird{display:inline-flex;align-items:center;gap:5px;font-family:var(--num);font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;border-radius:999px;padding:3px 9px 3px 7px;border:1px solid;cursor:pointer;white-space:nowrap;flex:none}
+.bird .bd{width:7px;height:7px;border-radius:50%}
+.bird.owl{color:var(--cy);border-color:rgba(57,214,255,.4);background:rgba(57,214,255,.07)}.bird.owl .bd{background:var(--cy)}
+.bird.eagle{color:var(--em);border-color:rgba(255,179,64,.4);background:rgba(255,179,64,.07)}.bird.eagle .bd{background:var(--em)}
+.bird.dove{color:var(--gn);border-color:rgba(74,222,157,.4);background:rgba(74,222,157,.07)}.bird.dove .bd{background:var(--gn)}
+.bird.peacock{color:var(--gd);border-color:rgba(255,215,106,.42);background:rgba(255,215,106,.07)}.bird.peacock .bd{background:var(--gd)}
+.btnGo{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;font-family:var(--num);font-weight:800;font-size:11px;letter-spacing:.16em;text-transform:uppercase;clip-path:polygon(7px 0,100% 0,calc(100% - 7px) 100%,0 100%);background:linear-gradient(90deg,var(--vi),var(--vi2));color:#0d0a1f;transition:.18s;white-space:nowrap}
+.btnGo:hover{transform:scale(1.04);filter:brightness(1.12)}
+.btnGo.ember{background:linear-gradient(90deg,var(--em),var(--em2));color:#140b00}
+.btnGo:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btnGhost{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;font-family:var(--num);font-weight:700;font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--mid);border:1px solid var(--edge2);border-radius:9px;transition:.15s;white-space:nowrap}
+.btnGhost:hover{color:#fff;border-color:var(--vi)}
+.mic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--edge);color:var(--mid);transition:.16s;flex:none}
+.mic:hover{background:var(--edge2);color:#fff}
+.mic.rec{background:rgba(255,84,112,.2);color:var(--rd);animation:breathe 1.2s infinite}
+
+/* ============ TODAY ============ */
+.greetRow{display:flex;align-items:flex-end;gap:18px;flex:none;padding:2px 4px}
+.greet{font-size:clamp(22px,2.4vw,30px);font-weight:900;font-style:italic;transform:skewX(-3deg);letter-spacing:-.02em;line-height:1.05}
+.greet em{color:var(--vi);font-style:italic}
+.greetSub{font-family:var(--voice);font-style:italic;font-size:13.5px;color:var(--mid);padding-bottom:4px}
+.greetRow .btnGo{margin-left:auto;margin-bottom:2px}
+.todayGrid{flex:1;display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:12px;min-height:0}
+.colStack{display:flex;flex-direction:column;gap:12px;min-height:0}
+.sess{display:block;padding:11px 13px;border:1px solid var(--edge);border-radius:12px;background:rgba(15,21,34,.6);margin-bottom:9px}
+.sessTop{display:flex;align-items:center;gap:10px;min-width:0}
+.sess .tm{font-family:var(--num);font-weight:700;font-size:16px;color:var(--tx);flex:none}
+.sess .wh{min-width:0;flex:1;font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sessBot{display:flex;align-items:center;gap:10px;margin-top:7px}
+.sessBot span{flex:1;min-width:0;font-family:var(--num);font-size:9.5px;font-weight:600;letter-spacing:.08em;color:var(--dim);text-transform:uppercase;line-height:1.4}
+.capWrap{display:flex;align-items:center;gap:9px;background:rgba(15,21,34,.8);border:1px solid var(--edge2);border-radius:12px;padding:7px 8px 7px 14px;transition:.2s}
+.capWrap:focus-within{border-color:rgba(138,125,255,.55)}
+.capWrap input{flex:1;min-width:0;background:none;border:0;outline:none;color:var(--tx);font-family:var(--disp);font-size:13px}
+.capWrap input::placeholder{color:#5c6a86}
+.capHint{font-family:var(--voice);font-style:italic;font-size:11.5px;color:var(--dim);margin-top:8px;line-height:1.5}
+.stuCard{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:11px;cursor:pointer;transition:.15s;border:1px solid transparent}
+.stuCard:hover{background:rgba(22,31,49,.85);border-color:var(--edge)}
+.stuCard>div:not(.avp){min-width:0;flex:1}
+.avp{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-family:var(--num);font-weight:700;font-size:12.5px;flex:none;border:1px solid rgba(255,255,255,.14)}
+.stuCard .avp{width:31px;height:31px;font-size:11px}
+.stuCard .nm{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stuCard .st{font-family:var(--num);font-size:9px;font-weight:600;letter-spacing:.06em;color:var(--dim);text-transform:uppercase;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stuCard .bird{margin-left:auto}
+
+/* ============ STUDENT / PROGRAM ============ */
+.idRow{display:flex;align-items:center;gap:14px;flex:none;padding:2px 4px;flex-wrap:nowrap}
+.idRow .avp{width:44px;height:44px;font-size:15px}
+.idName{font-size:20px;font-weight:900;font-style:italic;transform:skewX(-3deg);letter-spacing:-.01em;white-space:nowrap}
+.idName em{color:var(--vi);font-style:italic}
+.idMeta{font-family:var(--num);font-size:10px;font-weight:600;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;margin-top:2px;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.ctx{display:flex;align-items:center;gap:8px;margin-left:auto;font-family:var(--num);font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--mid);text-transform:uppercase;border:1px solid var(--edge);border-radius:999px;padding:6px 13px;background:rgba(15,21,34,.6);white-space:nowrap}
+.ctx b{color:var(--em)}
+.grid3{flex:1;display:grid;grid-template-columns:1.05fr 1.2fr 1fr;gap:12px;min-height:0}
+.trait{padding:8px 10px;border-radius:10px;transition:.15s;cursor:pointer;border:1px solid transparent}
+.trait:hover{background:rgba(22,31,49,.85);border-color:var(--edge)}
+.trait .t{font-size:13px;line-height:1.45}
+.trait .m{display:flex;gap:8px;margin-top:3px;font-family:var(--num);font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--dim)}
+.tr-up{color:var(--gn)}.tr-flat{color:var(--dim)}
+.stress{border:1px solid rgba(255,215,106,.28);background:rgba(255,215,106,.05);border-radius:11px;padding:10px 13px;font-size:12.8px;line-height:1.55;color:var(--mid)}
+.stress b{color:var(--gd)}
+.stress .rx{color:var(--gn)}
+.castCard{border:1px solid var(--edge);border-radius:12px;padding:10px 13px;margin-bottom:9px;cursor:pointer;transition:.16s;background:rgba(15,21,34,.5)}
+.castCard:hover{border-color:rgba(255,179,64,.45)}
+.role{font-family:var(--num);font-size:9px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;border-radius:5px;padding:2px 8px;display:inline-block;margin-bottom:5px}
+.role.lead{color:#140b00;background:linear-gradient(90deg,var(--em),var(--em2))}
+.role.ready{color:var(--cy);border:1px solid rgba(57,214,255,.4);background:rgba(57,214,255,.08)}
+.role.ifasked{color:var(--dim);border:1px solid var(--edge2);background:rgba(126,139,166,.08)}
+.castCard h4{font-size:13.5px;margin-bottom:3px}
+.castCard .why{font-size:12.3px;color:var(--mid);line-height:1.45}
+.blind{padding:9px 12px;border-left:2px solid var(--rd);background:rgba(255,84,112,.05);border-radius:0 10px 10px 0;margin-bottom:8px;font-size:12.8px;line-height:1.5;cursor:pointer;transition:.15s}
+.blind:hover{background:rgba(255,84,112,.1)}
+.noteCard{border:1px solid var(--edge);border-radius:11px;padding:9px 12px;margin-bottom:8px;background:rgba(15,21,34,.5)}
+.noteCard .pin{font-family:var(--num);font-size:8.5px;font-weight:700;letter-spacing:.16em;color:var(--gd);text-transform:uppercase;display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.noteCard .pin .lock{color:var(--dim)}
+.noteCard .nt{font-family:var(--voice);font-style:italic;font-size:12.8px;color:var(--mid);line-height:1.5}
+.histRow{display:flex;align-items:baseline;gap:10px;padding:7px 10px;border-radius:9px;cursor:pointer;transition:.15s;font-size:12.8px}
+.histRow:hover{background:rgba(22,31,49,.85)}
+.histRow .d{font-family:var(--num);font-size:10px;font-weight:700;color:var(--dim);flex:none;width:52px;text-transform:uppercase}
+.histRow .s{color:var(--dim);margin-left:auto;font-size:11.5px;white-space:nowrap}
+.perCard{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--edge);border-radius:11px;margin-bottom:8px;cursor:pointer;transition:.15s;background:rgba(15,21,34,.5)}
+.perCard:hover{border-color:var(--edge2)}
+.perCard.sel{border-color:rgba(138,125,255,.55);background:rgba(138,125,255,.07)}
+.perCard>div:not(.avp):not(.bird){min-width:0;flex:1}
+.perCard .nm{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.perCard .rl{font-family:var(--num);font-size:8.5px;font-weight:600;letter-spacing:.07em;color:var(--dim);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.laneTag{font-family:var(--num);font-size:9px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;margin:10px 0 5px;display:flex;align-items:center;gap:8px}
+.laneTag:first-child{margin-top:2px}
+.laneTag.conf{color:var(--gn)}.laneTag.read{color:var(--gd)}.laneTag.open{color:var(--dim)}
+.claim{padding:7px 10px;border-radius:9px;cursor:pointer;transition:.15s;border-left:2px solid;margin-bottom:5px}
+.claim:hover{background:rgba(22,31,49,.9)}
+.claim.conf{border-color:rgba(74,222,157,.6)}
+.claim.read{border-color:rgba(255,215,106,.55);border-left-style:dashed}
+.claim.open{border-color:var(--edge2);border-left-style:dotted}
+.claim .t{font-size:12.8px;line-height:1.42}
+.claim .src{display:block;margin-top:2px;font-family:var(--num);font-size:9.5px;font-weight:600;letter-spacing:.05em;color:var(--dim);text-transform:uppercase}
+.qRow{display:flex;align-items:baseline;gap:10px;padding:8px 10px;border-radius:9px;font-size:12.8px;line-height:1.4;cursor:pointer;transition:.15s}
+.qRow:hover{background:rgba(22,31,49,.85)}
+.qRow .lk{margin-left:auto;flex:none;font-family:var(--num);font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--cy);white-space:nowrap}
+.glance{display:flex;align-items:center;gap:12px;border:1px solid rgba(138,125,255,.3);background:rgba(138,125,255,.05);border-radius:12px;padding:10px 13px;margin-bottom:10px;cursor:pointer;transition:.15s}
+.glance:hover{border-color:rgba(138,125,255,.55)}
+.glance .gl-t{font-family:var(--voice);font-style:italic;font-size:13px;color:var(--mid);line-height:1.45;flex:1;min-width:0}
+.flyChip{display:inline-flex;align-items:center;gap:7px;font-family:var(--num);font-size:9.5px;font-weight:700;letter-spacing:.1em;color:var(--gn);text-transform:uppercase;border:1px solid rgba(74,222,157,.35);background:rgba(74,222,157,.06);border-radius:999px;padding:5px 11px;white-space:nowrap;cursor:pointer}
+.flyChip.pred{color:var(--cy);border-color:rgba(57,214,255,.35);background:rgba(57,214,255,.06)}
+.persona{border:1px solid rgba(138,125,255,.35);background:rgba(138,125,255,.06);border-radius:12px;padding:12px 14px}
+.persona h4{font-size:14px;font-weight:900;font-style:italic;transform:skewX(-3deg)}
+.persona p{font-size:12.3px;color:var(--mid);line-height:1.5;margin:5px 0 10px}
+.sparkline{width:100%;height:46px}
+.doseWrap{display:flex;gap:3px;align-items:flex-end;height:44px;margin:6px 0 4px}
+.dose{flex:1;border-radius:4px 4px 0 0;background:linear-gradient(180deg,var(--vi),var(--vi2));opacity:.85}
+.dose.next{background:repeating-linear-gradient(45deg,rgba(138,125,255,.4),rgba(138,125,255,.4) 4px,rgba(138,125,255,.12) 4px,rgba(138,125,255,.12) 8px);border:1px dashed rgba(138,125,255,.5)}
+.doseLbl{display:flex;gap:3px;font-family:var(--num);font-size:8px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.04em}
+.doseLbl span{flex:1;text-align:center}
+
+/* ============ COPILOT ============ */
+.liveBar{display:flex;align-items:center;gap:14px;flex:none;padding:2px 4px}
+.liveDot{width:9px;height:9px;border-radius:50%;background:var(--rd);animation:breathe 1.6s infinite}
+.liveTitle{font-size:17px;font-weight:900;font-style:italic;transform:skewX(-3deg)}
+.liveTitle em{color:var(--rd);font-style:italic}
+.timer{font-family:var(--num);font-weight:700;font-size:16px;color:var(--mid)}
+.copGrid{flex:1;display:grid;grid-template-columns:1.55fr 1fr;gap:12px;min-height:0}
+#txWrap{flex:1;overflow-y:auto;min-height:0;padding:4px 16px 10px;display:flex;flex-direction:column;gap:10px}
+.turn{max-width:92%}
+.turn .who{font-family:var(--num);font-size:9px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;margin-bottom:2px}
+.turn.brian .who{color:var(--cy)}.turn.nadia .who{color:var(--em)}
+.turn .say{font-family:var(--voice);font-size:14.5px;line-height:1.55;color:var(--tx)}
+.turn.nadia{align-self:flex-end;text-align:right}
+.turn .say i{color:var(--dim)}
+.instRow{flex:none;display:flex;align-items:center;gap:14px;padding:9px 16px;border-top:1px solid var(--edge)}
+.balWrap{flex:1;min-width:0}
+.balLbl{display:flex;justify-content:space-between;font-family:var(--num);font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;margin-bottom:4px}
+.balLbl .r{color:var(--em)}
+.balBar{height:7px;border-radius:4px;background:rgba(57,214,255,.25);overflow:hidden;display:flex}
+.balBar .n{height:100%;background:linear-gradient(90deg,var(--em),var(--em2));width:50%;margin-left:auto;transition:width 1s;border-radius:0 4px 4px 0}
+.paceChip{flex:none;font-family:var(--num);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--edge2);border-radius:999px;padding:5px 12px;color:var(--mid);transition:.3s}
+.paceChip.rush{color:var(--gd);border-color:rgba(255,215,106,.4)}
+.paceChip.good{color:var(--gn);border-color:rgba(74,222,157,.4)}
+#cueWrap{flex:1;overflow-y:auto;min-height:0;padding:4px 12px 10px;display:flex;flex-direction:column;gap:9px}
+.cue{border:1px solid var(--edge);border-left:3px solid var(--vi);border-radius:11px;padding:10px 13px;background:rgba(15,21,34,.72);opacity:0;transform:translateX(14px);transition:all .45s cubic-bezier(.2,.9,.3,1.1)}
+.cue.show{opacity:1;transform:none}
+.cue.gone{opacity:.32}
+.cue .k{font-family:var(--num);font-size:8.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;margin-bottom:4px;display:flex;align-items:center;gap:7px}
+.cue.story{border-left-color:var(--em)}.cue.story .k{color:var(--em)}
+.cue.blind{border-left-color:var(--rd)}.cue.blind .k{color:var(--rd)}
+.cue.nudge{border-left-color:var(--vi)}.cue.nudge .k{color:var(--vi)}
+.cue.heads{border-left-color:var(--cy)}.cue.heads .k{color:var(--cy)}
+.cue.moment{border-left-color:var(--gn)}.cue.moment .k{color:var(--gn)}
+.cue.pred{border-left-color:var(--gd)}.cue.pred .k{color:var(--gd)}
+.cue .b{font-size:12.8px;line-height:1.45;color:var(--tx)}
+.cue .acts{display:flex;gap:7px;margin-top:8px}
+.cueBtn{font-family:var(--num);font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:5px 11px;border-radius:7px;border:1px solid var(--edge2);color:var(--mid);transition:.14s}
+.cueBtn:hover{color:#fff;border-color:var(--vi)}
+.cueBtn.go{background:linear-gradient(90deg,var(--vi),var(--vi2));border:0;color:#0d0a1f}
+.sessLog{flex:none;display:flex;align-items:center;gap:10px;padding:9px 13px;border-top:1px solid var(--edge);font-family:var(--num);font-size:10px;font-weight:700;letter-spacing:.11em;color:var(--dim);text-transform:uppercase}
+.sessLog b{color:var(--gn)}
+.demoIdle{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:20px}
+.demoIdle .big{font-size:19px;font-weight:900;font-style:italic;transform:skewX(-3deg)}
+.demoIdle .big em{color:var(--vi);font-style:italic}
+.demoIdle p{font-family:var(--voice);font-style:italic;font-size:13px;color:var(--dim);max-width:420px;line-height:1.6}
+
+/* ============ PROFILE LAB ============ */
+.labGrid{flex:1;display:grid;grid-template-columns:.85fr 1.5fr 1.05fr;gap:12px;min-height:0}
+.stepRow{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;border-radius:10px;cursor:pointer;transition:.15s;border:1px solid transparent}
+.stepRow:hover{background:rgba(22,31,49,.85)}
+.stepRow.cur{border-color:rgba(138,125,255,.5);background:rgba(138,125,255,.07)}
+.stepRow.done{opacity:.6}
+.stepRow .sn{width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-items:center;font-family:var(--num);font-weight:700;font-size:10.5px;border:1px solid var(--edge2);color:var(--dim)}
+.stepRow.cur .sn{background:linear-gradient(150deg,var(--vi),var(--vi2));color:#0d0a1f;border:0}
+.stepRow.done .sn{color:var(--gn);border-color:rgba(74,222,157,.5)}
+.stepRow b{font-size:12.8px;display:block}
+.stepRow span{font-family:var(--num);font-size:9px;font-weight:600;letter-spacing:.08em;color:var(--dim);text-transform:uppercase}
+.srcStage{border:1px solid var(--edge2);border-radius:12px;background:rgba(10,14,23,.75);padding:13px 15px;margin-bottom:10px}
+.srcStage .st-k{font-family:var(--num);font-size:9px;font-weight:800;letter-spacing:.2em;color:var(--cy);text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.srcStage .st-t{font-weight:700;font-size:14px;margin-bottom:6px}
+.srcStage .st-m{font-family:var(--voice);font-style:italic;font-size:13px;color:var(--mid);line-height:1.55;border-left:2px solid var(--edge2);padding-left:11px}
+.tsChip{display:inline-flex;align-items:center;gap:6px;font-family:var(--num);font-size:10px;font-weight:700;color:var(--cy);border:1px solid rgba(57,214,255,.35);background:rgba(57,214,255,.06);border-radius:7px;padding:3px 9px;margin:6px 6px 0 0;cursor:pointer}
+.tsChip:hover{background:rgba(57,214,255,.14)}
+.photoRow{display:flex;gap:8px;margin-top:8px}
+.photo{flex:1;border:1px solid var(--edge2);border-radius:9px;overflow:hidden;background:linear-gradient(150deg,#1b2438,#121927);min-height:74px;position:relative;cursor:pointer}
+.photo .cap{position:absolute;left:0;right:0;bottom:0;font-family:var(--num);font-size:8px;font-weight:700;letter-spacing:.06em;color:var(--dim);text-transform:uppercase;padding:4px 7px;background:rgba(5,8,14,.75)}
+.photo.hot{border-color:rgba(255,215,106,.55)}
+.photo.hot:after{content:"";position:absolute;inset:12px 18px 22px;border:1.5px dashed rgba(255,215,106,.6);border-radius:6px}
+.ladder{border:1px solid var(--edge);border-radius:12px;padding:11px 13px}
+.ladder .lrow{display:grid;grid-template-columns:98px 1fr;gap:10px;padding:6px 0;border-bottom:1px dashed rgba(36,48,70,.7);font-size:12.6px;line-height:1.5}
+.ladder .lrow:last-child{border-bottom:0}
+.ladder .lk{font-family:var(--num);font-size:9px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding-top:2px}
+.lk.ob{color:var(--cy)}.lk.po{color:var(--gd)}.lk.al{color:var(--dim)}.lk.nv{color:var(--rd)}.lk.pr{color:var(--gn)}
+.privCol .pcard{border:1px solid rgba(138,125,255,.3);background:rgba(138,125,255,.05);border-radius:12px;padding:11px 13px;margin-bottom:9px}
+.privCol .pk{font-family:var(--num);font-size:9px;font-weight:800;letter-spacing:.18em;color:var(--vi);text-transform:uppercase;display:flex;gap:8px;align-items:center;margin-bottom:5px}
+.script{font-family:var(--voice);font-style:italic;font-size:13.2px;color:var(--mid);line-height:1.6}
+.askChip{display:block;width:100%;text-align:left;font-size:12.5px;color:var(--mid);border:1px dashed var(--edge2);border-radius:9px;padding:7px 11px;margin-bottom:6px;transition:.15s}
+.askChip:hover{color:#fff;border-color:var(--vi)}
+.connRow{display:flex;gap:7px;flex-wrap:wrap}
+.connBtn{font-family:var(--num);font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--edge2);border-radius:8px;padding:6px 11px;color:var(--mid);transition:.15s}
+.connBtn:hover{color:#fff;border-color:var(--em)}
+.labNav{display:flex;gap:8px;margin-left:auto}
+
+/* ============ CONTROL PANEL ============ */
+.cpGrid{flex:1;display:grid;grid-template-columns:1.15fr 1.25fr 1fr;gap:12px;min-height:0}
+.swRow{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;transition:.15s}
+.swRow:hover{background:rgba(22,31,49,.7)}
+.swRow .sl{flex:1;min-width:0}
+.swRow .sl b{font-size:12.8px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.swRow .sl span{font-family:var(--num);font-size:8.5px;font-weight:600;letter-spacing:.07em;color:var(--dim);text-transform:uppercase}
+.sw{width:38px;height:21px;border-radius:999px;background:var(--edge);position:relative;flex:none;transition:.2s;border:1px solid var(--edge2);cursor:pointer}
+.sw:after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#8b97b3;transition:.2s}
+.sw.on{background:linear-gradient(90deg,var(--vi),var(--vi2));border-color:transparent}
+.sw.on:after{left:19px;background:#0d0a1f}
+.sw.locked{opacity:.75;cursor:not-allowed}
+.sw.locked:before{content:"🔒";position:absolute;right:-19px;top:1px;font-size:10px}
+.scopeTag{font-family:var(--num);font-size:8px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;border-radius:5px;padding:2px 6px;flex:none}
+.scopeTag.glob{color:var(--dim);border:1px solid var(--edge2)}
+.scopeTag.inh{color:var(--cy);border:1px solid rgba(57,214,255,.35)}
+.scopeTag.ovr{color:var(--em);border:1px solid rgba(255,179,64,.4)}
+.cpSec{font-family:var(--num);font-size:9px;font-weight:800;letter-spacing:.22em;color:#525f7c;text-transform:uppercase;margin:10px 0 4px 10px}
+.cpSec:first-child{margin-top:0}
+.budgetBar{height:9px;border-radius:5px;background:var(--edge);overflow:hidden;margin:8px 0 6px}
+.budgetBar div{height:100%;width:34%;background:linear-gradient(90deg,var(--gn),#2fae76);border-radius:5px}
+.killBtn{width:100%;padding:13px;font-family:var(--num);font-weight:800;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#1a0505;background:linear-gradient(90deg,#ff9d6b,var(--rd));clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);transition:.18s}
+.killBtn:hover{filter:brightness(1.1)}
+.killBtn.armed{background:linear-gradient(90deg,var(--gn),#2fae76)}
+.audRow{padding:8px 10px;border-radius:9px;font-size:11.5px;color:var(--mid);border-bottom:1px dashed rgba(36,48,70,.6);line-height:1.5}
+.audRow b{color:var(--tx)}
+.audRow .when{font-family:var(--num);font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--dim);text-transform:uppercase;display:block}
+
+/* ============ OVERLAYS ============ */
+#scrim{position:fixed;inset:0;z-index:80;background:rgba(5,7,12,.62);backdrop-filter:blur(5px);opacity:0;pointer-events:none;transition:.25s}
+#scrim.on{opacity:1;pointer-events:auto}
+.modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.97);width:min(680px,94vw);max-height:86vh;z-index:90;background:linear-gradient(180deg,#131a2e,#0e1424);border:1px solid var(--edge2);border-radius:18px;box-shadow:0 30px 90px rgba(0,0,0,.65);opacity:0;pointer-events:none;transition:.22s;display:flex;flex-direction:column;overflow:hidden}
+.modal.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.modal.wide{width:min(860px,96vw)}
+.mHead{display:flex;align-items:flex-start;gap:12px;padding:18px 22px 12px;border-bottom:1px solid var(--edge);flex:none}
+.mHead .eyebrow{margin-bottom:5px}
+.mHead h3{font-size:18px;font-weight:900;font-style:italic;transform:skewX(-3deg);line-height:1.25}
+.mHead h3 em{color:var(--vi);font-style:italic}
+.mHead h3 em.emb{color:var(--em)}
+.mX{margin-left:auto;font-size:17px;color:var(--dim);padding:4px 9px;border-radius:7px;flex:none}
+.mX:hover{color:#fff;background:rgba(36,48,70,.6)}
+.mTabs{display:flex;gap:2px;padding:0 22px;border-bottom:1px solid var(--edge);flex:none}
+.mTab{font-family:var(--num);font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);padding:10px 14px;border-bottom:2px solid transparent;transition:.15s}
+.mTab:hover{color:#fff}
+.mTab.on{color:var(--vi);border-bottom-color:var(--vi)}
+.mBody{flex:1;overflow-y:auto;padding:16px 22px;min-height:0}
+.mBody p.lead{font-size:13.8px;line-height:1.6;color:var(--tx);margin-bottom:12px}
+.mFoot{flex:none;display:flex;gap:9px;justify-content:flex-end;align-items:center;padding:12px 22px;border-top:1px solid var(--edge)}
+.mFoot .glassNote{margin-right:auto;font-family:var(--num);font-size:9px;font-weight:600;letter-spacing:.12em;color:#5c6a86;text-transform:uppercase}
+.mFoot .glassNote b{color:var(--vi)}
+.evBlock{border:1px solid var(--edge);border-radius:11px;padding:10px 13px;margin-bottom:9px;background:rgba(15,21,34,.6)}
+.evBlock .who{font-family:var(--num);font-size:10px;font-weight:700;letter-spacing:.1em;color:var(--cy);text-transform:uppercase;margin-bottom:4px}
+.evBlock .q{font-family:var(--voice);font-style:italic;font-size:13.2px;color:var(--mid);line-height:1.55;border-left:2px solid var(--edge2);padding-left:10px}
+.honesty{border:1px dashed rgba(255,215,106,.4);background:rgba(255,215,106,.05);border-radius:11px;padding:10px 13px;font-size:12.8px;color:var(--mid);line-height:1.55;margin-top:6px}
+.honesty b{color:var(--gd)}
+.mSec{font-family:var(--num);font-size:9.5px;font-weight:800;letter-spacing:.22em;color:var(--dim);text-transform:uppercase;margin:14px 0 7px}
+.gpItem{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid rgba(36,48,70,.55)}
+.gpItem:last-child{border-bottom:0}
+.gpItem .n{width:24px;height:24px;border-radius:50%;background:linear-gradient(150deg,var(--em),var(--em2));color:#140b00;font-family:var(--num);font-weight:700;font-size:11.5px;display:grid;place-items:center;flex:none;margin-top:1px}
+.gpItem b{display:block;font-size:14px;margin-bottom:1px}
+.gpItem span{font-size:12.8px;color:var(--mid);line-height:1.5}
+.specGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.specGrid .sg{border:1px solid var(--edge);border-radius:10px;padding:8px 11px}
+.specGrid .sg .k{font-family:var(--num);font-size:8.5px;font-weight:800;letter-spacing:.14em;color:var(--dim);text-transform:uppercase;display:block;margin-bottom:2px}
+.specGrid .sg .v{font-size:12.8px}
+.hitRow{display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px dashed rgba(36,48,70,.6);font-size:12.8px}
+.hitRow:last-child{border-bottom:0}
+.hitRow .hk{flex:none;font-family:var(--num);font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;width:74px}
+.hitRow .hk.hit{color:var(--gn)}.hitRow .hk.miss{color:var(--gd)}
+#pal{position:fixed;left:50%;top:16%;transform:translateX(-50%) scale(.98);width:min(560px,92vw);z-index:95;background:#10162a;border:1px solid var(--edge2);border-radius:16px;box-shadow:0 30px 90px rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:.2s;overflow:hidden}
+#pal.on{opacity:1;pointer-events:auto;transform:translateX(-50%) scale(1)}
+#pal input{width:100%;background:none;border:0;outline:none;color:var(--tx);font-family:var(--disp);font-size:16px;padding:16px 18px;border-bottom:1px solid var(--edge)}
+#palList{max-height:320px;overflow-y:auto;padding:8px}
+.palRow{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:9px;cursor:pointer;font-size:13.5px}
+.palRow:hover,.palRow.hot{background:rgba(138,125,255,.12)}
+.palRow .k{font-family:var(--num);font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);border:1px solid var(--edge);border-radius:5px;padding:2px 7px;flex:none}
+.palRow .go{margin-left:auto;color:var(--dim);font-size:11px}
+#prep{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.97);width:min(520px,92vw);z-index:92;background:linear-gradient(180deg,#131a2e,#0e1424);border:1px solid rgba(138,125,255,.4);border-radius:18px;box-shadow:0 30px 90px rgba(0,0,0,.7),0 0 60px rgba(120,105,255,.15);opacity:0;pointer-events:none;transition:.22s;padding:22px 24px}
+#prep.on{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+#prep h3{font-size:18px;font-weight:900;font-style:italic;transform:skewX(-3deg);margin-bottom:3px}
+#prep h3 em{color:var(--vi);font-style:italic}
+#prep .sub{font-family:var(--voice);font-style:italic;font-size:12.5px;color:var(--dim);margin-bottom:14px}
+.pStage{display:flex;gap:10px;align-items:baseline;padding:7px 2px;font-size:13px;color:var(--dim);opacity:.35;transition:.3s}
+.pStage.run{opacity:1;color:var(--tx)}
+.pStage.done{opacity:.8;color:var(--mid)}
+.pStage .ic{width:16px;flex:none;font-weight:700;color:var(--vi)}
+.pStage.done .ic{color:var(--gn)}
+.pStage .d{font-family:var(--num);font-size:9px;font-weight:600;letter-spacing:.06em;color:var(--dim);text-transform:uppercase;display:block}
+#prepFoot{display:flex;gap:9px;justify-content:flex-end;margin-top:14px;opacity:0;transition:.3s}
+#prepFoot.on{opacity:1}
+#preview{position:fixed;inset:0;z-index:97;background:var(--bg);display:none;flex-direction:column}
+#preview.on{display:flex}
+.pvBar{display:flex;align-items:center;gap:12px;padding:12px 22px;background:linear-gradient(90deg,rgba(255,179,64,.14),rgba(255,122,61,.06));border-bottom:1px solid rgba(255,179,64,.35);font-family:var(--num);font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--em);text-transform:uppercase;flex:none}
+.pvBar button{margin-left:auto;border:1px solid rgba(255,179,64,.45);border-radius:8px;padding:6px 14px;color:var(--em);font-family:var(--num);font-weight:700;font-size:10px;letter-spacing:.12em}
+.pvBody{flex:1;overflow:hidden;display:grid;grid-template-columns:1.3fr 1fr;gap:14px;padding:18px 26px;min-height:0;max-width:1080px;margin:0 auto;width:100%}
+.pvNote{flex:none;text-align:center;font-family:var(--num);font-size:9.5px;font-weight:600;letter-spacing:.14em;color:#5c6a86;text-transform:uppercase;padding:10px}
+#toast{position:fixed;left:50%;bottom:44px;transform:translate(-50%,14px);z-index:99;background:#151d33;border:1px solid var(--edge2);border-left:3px solid var(--gn);border-radius:11px;padding:11px 17px;font-size:13px;color:var(--tx);opacity:0;pointer-events:none;transition:.3s;box-shadow:0 14px 44px rgba(0,0,0,.5);max-width:min(540px,90vw)}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+@media(max-width:1180px){:root{--ai:280px;--rail:184px}}
+</style>
+</head>
+<body>
+<div class="aur a"></div><div class="aur b"></div><div class="vg"></div>
+
+<div id="killBanner">⚠ External AI paused by kill switch — existing intelligence is read-only · detectors still live<button onclick="killSwitch(false)">Release</button></div>
+
+<div id="shell">
+  <aside id="rail">
+    <div class="logo" onclick="go('today')">PRI<b>Q</b></div>
+    <div class="logoSub">MissionMed · Communication Intelligence</div>
+    <nav id="mainNav">
+      <button class="ntab on" data-v="today" onclick="go('today')">◷ Today</button>
+      <button class="ntab" data-v="student" onclick="go('student')">◉ Students</button>
+      <button class="ntab" data-v="program" onclick="go('program')">▤ Programs</button>
+    </nav>
+    <div class="railSec">Live</div>
+    <nav style="display:flex;flex-direction:column;gap:3px">
+      <button class="ntab live-k" data-v="copilot" onclick="go('copilot')">◎ Copilot</button>
+      <button class="ntab live-k" data-v="lab" onclick="go('lab')">✦ Profile Lab</button>
+    </nav>
+    <div class="railSec">One click away</div>
+    <button class="dockBtn" onclick="toast('Opening StoryForge in Matrix — story bank stays theirs; PRIQ only casts.')"><span class="dot" style="background:var(--em)"></span>StoryForge<span class="ext">↗</span></button>
+    <button class="dockBtn" onclick="toast('Opening Timeline in Matrix — read-only for PRIQ.')"><span class="dot" style="background:var(--cy)"></span>Timeline<span class="ext">↗</span></button>
+    <button class="dockBtn" onclick="toast('Opening RISE — the program registry lives there.')"><span class="dot" style="background:var(--gn)"></span>RISE<span class="ext">↗</span></button>
+    <button class="dockBtn" onclick="toast('Opening IV Prep On-Call — one persona is queued.')"><span class="dot" style="background:var(--gd)"></span>IV Prep<span class="ext">↗</span></button>
+    <button class="dockBtn" onclick="toast('Opening CAM in Matrix — its observations feed the student file when connected.')"><span class="dot" style="background:var(--rd)"></span>CAM<span class="ext">↗</span></button>
+    <div class="railFoot">
+      <button class="ntab" data-v="panel" onclick="go('panel')" style="font-size:11px">⛭ Control Panel</button>
+      <button class="matrix" onclick="toast('Back to the MissionMed Matrix.')">⟲ Back to Matrix</button>
+      <div class="me"><div class="avc">DB</div><div><div class="nm">Dr. Brian</div><div class="rl">Founder · Full access</div></div></div>
+    </div>
+  </aside>
+
+  <div id="top">
+    <div class="crumb"><span class="where" id="crumbWhere">To<em>day</em></span><span class="what" id="crumbWhat">What changed, what’s next, and where I can help.</span></div>
+    <div class="kSearch" onclick="openPal()" role="button" tabindex="0" onkeydown="if(event.key==='Enter')openPal()"><span class="ph">Jump to anyone, anything…</span><span class="kbd">⌘K</span></div>
+    <button class="aiLight" onclick="aiToggle()" title="Show / hide the PRIQ panel"><span class="pulse"></span><span id="aiLightTx">PRIQ · Live</span></button>
+  </div>
+
+  <div id="stage">
+
+    <!-- ============ TODAY ============ -->
+    <div class="view on" id="v-today">
+      <div class="greetRow">
+        <div>
+          <div class="greet" id="greet">Good morning, <em>Dr. Brian</em>.</div>
+          <div class="greetSub">Three students interview this week. Two things changed overnight — both handled, both worth a glance.</div>
+        </div>
+        <button class="btnGo" id="prepBtn" onclick="runPrepare()">✦ Prepare Nadia for Riverside</button>
+      </div>
+      <div class="todayGrid">
+        <div class="panel">
+          <div class="pHead"><div class="h2">While you were <em>away</em></div><button class="pMore" onclick="toast('The full intelligence log — everything PRIQ has noticed, searchable forever.')">Full log ▸</button></div>
+          <div class="pBody">
+            <div class="row" onclick="openModal('feed-okafor')"><span class="kind prog">Program</span><div class="tt">Riverside updated its faculty page overnight — <b>Dr. Okafor is now Associate Program Director.</b> I’ve started his file.</div><span class="src">Noticed 3:12 AM · confirmed against the page itself</span></div>
+            <div class="row" onclick="openModal('relay')"><span class="kind relay">Scout report</span><div class="tt"><b>Amir interviewed at Riverside on Tuesday.</b> His debrief flowed three updates into Nadia’s plan while you slept.</div><span class="src">Parallel prep · debrief → plan in under 6 hours</span></div>
+            <div class="row" onclick="openModal('feed-nadia')"><span class="kind stu">Student</span><div class="tt"><b>Nadia’s interruption recovery is holding.</b> Two restarts in last night’s practice — down from seven.</div><span class="src">From her IV Prep session, last night</span></div>
+            <div class="row" onclick="openModal('feed-aging')"><span class="kind age">Aging</span><div class="tt">Nine months since anyone confirmed how Dr. Vasquez opens interviews. <b>I’ll verify from Thursday’s debrief</b> rather than guess.</div><span class="src">Last confirmed: a student who interviewed Nov 2025</span></div>
+            <div class="row" onclick="openModal('feed-story')"><span class="kind evid">Story</span><div class="tt">StoryForge: Nadia’s new draft of <b>“The Wrong Dose”</b> is tighter. I’ve re-cast it — it ends on the fix now.</div><span class="src">StoryForge sync · 11:40 PM</span></div>
+          </div>
+        </div>
+        <div class="colStack">
+          <div class="panel" style="flex:1.25">
+            <div class="pHead"><div class="h2">To<em>day</em></div><span class="pMore">Sat · Aug 2</span></div>
+            <div class="pBody">
+              <div class="sess"><div class="sessTop"><span class="tm">2:00</span><div class="wh">Nadia Rahman</div></div><div class="sessBot"><span>Final prep before Thursday</span><button class="btnGo" data-needs-ai onclick="go('copilot')">Copilot</button></div></div>
+              <div class="sess"><div class="sessTop"><span class="tm">3:15</span><div class="wh">Profile Lab · with Nadia</div></div><div class="sessBot"><span>Teach her to read the room</span><button class="btnGhost" onclick="go('lab')">Open Lab</button></div></div>
+              <div class="sess"><div class="sessTop"><span class="tm">4:30</span><div class="wh">Omar Farouk</div></div><div class="sessBot"><span>First mock · Lakeshore</span><button class="btnGhost" onclick="toast('Omar’s room is stubbed in this prototype — one student is built out fully.')">Prep</button></div></div>
+            </div>
+          </div>
+          <div class="panel" style="flex:.9">
+            <div class="pHead"><div class="h2">Quick <em>capture</em></div></div>
+            <div class="pBody">
+              <div class="capWrap"><input id="capIn" placeholder="Pin a thought — I’ll file it…" onkeydown="if(event.key==='Enter')capSave()"><button class="mic" id="capMic" onclick="capVoice()" aria-label="Record voice note">🎙</button></div>
+              <div class="capHint">Speak or type. “Riverside coordinator was warm on the phone” becomes a pinned note on Riverside — private to you by default.</div>
+            </div>
+          </div>
+        </div>
+        <div class="colStack">
+          <div class="panel">
+            <div class="pHead"><div class="h2">Your <em>students</em></div><button class="pMore" onclick="toast('Full roster — 12 active students in the real build.')">All 12 ▸</button></div>
+            <div class="pBody">
+              <div class="stuCard" onclick="go('student')"><div class="avp" style="background:linear-gradient(150deg,#39d6ff33,#39d6ff11);color:var(--cy)">NR</div><div><div class="nm">Nadia Rahman</div><div class="st">Riverside · Thu</div></div><span class="bird owl"><span class="bd"></span>Owl</span></div>
+              <div class="stuCard" onclick="toast('Amir interviewed Tuesday — his debrief already paid forward. Room stubbed in prototype.')"><div class="avp" style="background:linear-gradient(150deg,#8a7dff33,#8a7dff11);color:var(--vi)">AH</div><div><div class="nm">Amir Hassan</div><div class="st">Riverside · done Tue ✓</div></div><span class="bird owl"><span class="bd"></span>Owl</span></div>
+              <div class="stuCard" onclick="toast('Omar’s room is stubbed in this prototype.')"><div class="avp" style="background:linear-gradient(150deg,#ffd76a33,#ffd76a11);color:var(--gd)">OF</div><div><div class="nm">Omar Farouk</div><div class="st">Lakeshore · early</div></div><span class="bird peacock"><span class="bd"></span>Peacock</span></div>
+              <div class="stuCard" onclick="toast('Priya’s room is stubbed in this prototype.')"><div class="avp" style="background:linear-gradient(150deg,#4ade9d33,#4ade9d11);color:var(--gn)">PS</div><div><div class="nm">Priya Shah</div><div class="st">Building stories</div></div><span class="bird dove"><span class="bd"></span>Dove</span></div>
+              <div class="stuCard" onclick="toast('Kwame’s room is stubbed in this prototype.')"><div class="avp" style="background:linear-gradient(150deg,#ffb34033,#ffb34011);color:var(--em)">KO</div><div><div class="nm">Kwame Osei</div><div class="st">Mercy Gen · Mon</div></div><span class="bird eagle"><span class="bd"></span>Eagle</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ STUDENT ============ -->
+    <div class="view" id="v-student">
+      <div class="idRow">
+        <div class="avp" style="background:linear-gradient(150deg,#39d6ff33,#39d6ff11);color:var(--cy)">NR</div>
+        <div>
+          <div class="idName">Dr. Nadia <em>Rahman</em></div>
+          <div class="idMeta"><span class="bird owl" onclick="openModal('bird-nadia')"><span class="bd"></span>Owl · Dove rising</span><span>Internal Medicine</span><span style="color:var(--gn)">Nearly ready</span></div>
+        </div>
+        <div class="ctx">Preparing for <b>&nbsp;Riverside · Thu 2:00</b></div>
+        <button class="btnGhost" data-needs-ai onclick="runPrepare()">↻ Refresh</button>
+        <button class="btnGo ember" onclick="openModal('gameplan')">Her gameplan</button>
+      </div>
+      <div class="grid3">
+        <div class="colStack">
+          <div class="panel" style="flex:1.55">
+            <div class="pHead"><div class="h2">How Nadia <em>communicates</em></div><button class="pMore" onclick="openModal('bird-nadia')">Why ▸</button></div>
+            <div class="pBody">
+              <div class="trait" onclick="openModal('tr-evidence')"><div class="t">Speaks in evidence — she gives you the study before the sentence.</div><div class="m"><span class="tr-flat">— steady · every mock</span></div></div>
+              <div class="trait" onclick="openModal('tr-warm')"><div class="t">Warm and precise one-on-one. Goes formal when the room grows.</div><div class="m"><span class="tr-flat">— steady</span></div></div>
+              <div class="trait" onclick="openModal('tr-hedge')"><div class="t">Says <b>“I think…”</b> too often when challenged — 11 times in her last mock.</div><div class="m"><span class="tr-up">▲ improving</span></div></div>
+              <div class="trait" onclick="openModal('tr-restart')"><div class="t">Used to start over when interrupted. Now she <b>resumes</b> — 7 restarts down to 2.</div><div class="m"><span class="tr-up">▲ her biggest win</span></div></div>
+            </div>
+          </div>
+          <div class="panel" style="flex:1">
+            <div class="pHead"><div class="h2">Under <em>stress</em></div></div>
+            <div class="pBody"><div class="stress"><b>She speeds up, hedges, and drops her gaze.</b> The reset that works: one breath, <span class="rx">answer first, reasons after.</span> You’ve watched it work twice.</div></div>
+          </div>
+        </div>
+        <div class="colStack">
+          <div class="panel" style="flex:1.6">
+            <div class="pHead"><div class="h2">Stories, <em class="emb">cast for Riverside</em></div><button class="pMore" onclick="toast('Her full bank — 11 stories — lives in StoryForge. PRIQ casts; it never rewrites.')">Bank ↗</button></div>
+            <div class="pBody">
+              <div class="castCard" onclick="openModal('cast-ledger')"><span class="role lead">Lead story</span><h4>The Night-Shift Ledger</h4><div class="why">This room loves being taught, and this is her best teachable story. Say <b>“I built”</b> — not “we had.”</div></div>
+              <div class="castCard" onclick="openModal('cast-dose')"><span class="role ready">Keep ready</span><h4>The Wrong Dose</h4><div class="why">For the judgment question. End on the protocol change, never the colleague.</div></div>
+              <div class="castCard" onclick="openModal('cast-gma')"><span class="role ifasked">Only if asked</span><h4>Grandmother’s Translator</h4><div class="why">Her journey answer. Sixty warm seconds, then hand the room back.</div></div>
+            </div>
+          </div>
+          <div class="panel" style="flex:1.1">
+            <div class="pHead"><div class="h2">Growth & <em>pressure</em></div><span class="pMore">5 mocks</span></div>
+            <div class="pBody">
+              <div class="doseWrap">
+                <div class="dose" style="height:34%" title="Level 1"></div>
+                <div class="dose" style="height:46%" title="Level 2"></div>
+                <div class="dose" style="height:58%" title="Level 3 — repeated"></div>
+                <div class="dose" style="height:72%" title="Level 3 with time pressure"></div>
+                <div class="dose next" style="height:88%" title="Recommended next"></div>
+              </div>
+              <div class="doseLbl"><span>L1</span><span>L2</span><span>L3</span><span>L3+</span><span>next</span></div>
+              <div style="font-size:12.3px;color:var(--mid);line-height:1.5;margin-top:7px">She holds steady one level higher each week. <b style="color:var(--vi)">Ready for the next dose:</b> cold interruptions + time pressure — queued for tonight’s IV Prep.</div>
+            </div>
+          </div>
+        </div>
+        <div class="colStack">
+          <div class="panel" style="flex:1">
+            <div class="pHead"><div class="h2">Blind <em>spots</em></div></div>
+            <div class="pBody">
+              <div class="blind" onclick="openModal('blind-we')">Gives away her leadership — says <b>“we”</b> about work she did alone.</div>
+              <div class="blind" onclick="openModal('blind-ask')">Never asks the interviewer anything back. One planted, honest question fixes it.</div>
+            </div>
+          </div>
+          <div class="panel" style="flex:1.15">
+            <div class="pHead"><div class="h2">Your <em>notes</em></div><button class="mic" style="width:30px;height:30px" onclick="toast('Listening… (simulated) — filed to Nadia, private to you.')" aria-label="Record note">🎙</button></div>
+            <div class="pBody">
+              <div class="noteCard" onclick="openModal('note-teach')"><div class="pin">★ Pinned <span class="lock">· Private to you · AI may use</span></div><div class="nt">She teaches beautifully the moment she forgets she’s being judged. Get her teaching by minute five.</div></div>
+              <div class="noteCard"><div class="pin"><span class="lock">Jul 21 · Private · not shown to students</span></div><div class="nt">Riverside coordinator was warm on the phone in March — POCUS elective is a live thread, only if invited.</div></div>
+            </div>
+          </div>
+          <div class="panel" style="flex:.9">
+            <div class="pHead"><div class="h2">Sess<em>ions</em></div></div>
+            <div class="pBody">
+              <div class="histRow" onclick="toast('Session replays with marked moments open in the full build.')"><span class="d">Jul 28</span>Mock 3 — strong close<span class="s">hedging down</span></div>
+              <div class="histRow" onclick="toast('Session replays open in the full build.')"><span class="d">Jul 21</span>Coaching — casting<span class="s">ledger chosen</span></div>
+              <div class="histRow" onclick="toast('Session replays open in the full build.')"><span class="d">Jul 14</span>Mock 2 — interruptions<span class="s">the turn began</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PROGRAM ============ -->
+    <div class="view" id="v-program">
+      <div class="idRow">
+        <div class="avp" style="background:linear-gradient(150deg,#8a7dff33,#8a7dff11);color:var(--vi);border-radius:12px">RM</div>
+        <div>
+          <div class="idName">Riverside <em>Medical Center</em></div>
+          <div class="idMeta"><span>Internal Medicine · Community · Unopposed</span><button class="pMore" style="margin:0" onclick="toast('RISE owns the program record — opening RISE.')">Registry in RISE ↗</button></div>
+        </div>
+        <span class="flyChip pred" onclick="openModal('predreport')">◎ Predicted 7 of 9 questions ▸</span>
+        <span class="flyChip" onclick="openModal('relay')">◉ Learned from 7 interviews</span>
+      </div>
+      <div class="grid3">
+        <div class="colStack">
+          <div class="panel" style="flex:1.4">
+            <div class="pHead"><div class="h2">The <em>room</em></div></div>
+            <div class="pBody">
+              <div class="perCard sel" onclick="openModal('person-ev')"><div class="avp" style="width:34px;height:34px;font-size:12px;background:linear-gradient(150deg,#ffb34033,#ffb34011);color:var(--em)">EV</div><div><div class="nm">Dr. Elena Vasquez</div><div class="rl">Program Director · runs the interview</div></div><span class="bird eagle" onclick="event.stopPropagation();openModal('bird-ev')"><span class="bd"></span>Eagle</span></div>
+              <div class="perCard" onclick="openModal('per-okafor')"><div class="avp" style="width:34px;height:34px;font-size:12px;background:linear-gradient(150deg,#39d6ff33,#39d6ff11);color:var(--cy)">MO</div><div><div class="nm">Dr. Marcus Okafor</div><div class="rl">Associate PD · confirmed by 2 students</div></div><span class="bird owl"><span class="bd"></span>Owl</span></div>
+              <div class="perCard" onclick="toast('Three more faculty on file — profiles open in the full build.')"><div class="avp" style="width:34px;height:34px;font-size:12px;background:rgba(36,48,70,.7);color:var(--dim)">+3</div><div><div class="nm">Faculty on file</div><div class="rl">Interview panels rotate</div></div></div>
+            </div>
+          </div>
+          <div class="panel" style="flex:1.2">
+            <div class="pHead"><div class="h2">Practice <em>persona</em></div></div>
+            <div class="pBody">
+              <div class="persona"><h4>The Engaged Interrupter</h4><p>A communication <b>style</b> built from what students actually reported — never an impersonation of a real person.</p>
+              <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btnGo" data-needs-ai onclick="toast('IV Prep configured — bounded style package sent. Nadia can practice tonight.')">Send to IV Prep</button><button class="btnGhost" onclick="openModal('mocknotes')">Mock notes</button></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="colStack">
+          <div class="panel">
+            <div class="pHead"><div class="h2">Dr. Vasquez — how she <em>runs the room</em></div></div>
+            <div class="pBody">
+              <div class="glance" onclick="openModal('person-ev')"><div class="gl-t">Fast, curious, interrupts to test your thinking. Warmer than she first reads. Wants the answer first.</div><span class="pMore" style="margin:0">Full profile ▸</span></div>
+              <div class="laneTag conf">● Confirmed — we have strong support</div>
+              <div class="claim conf" onclick="openModal('cl-journey')"><div class="t">Opens with <b>“Walk me through your journey.”</b></div><span class="src">Reported independently by 5 former MissionMed students</span></div>
+              <div class="claim conf" onclick="openModal('cl-interrupt')"><div class="t">Interrupts early — it’s how she tests thinking, not a bad sign.</div><span class="src">3 students independently · every one matched or ranked well</span></div>
+              <div class="claim conf" onclick="openModal('cl-pocus')"><div class="t">The bedside-ultrasound program is hers. She teaches it personally.</div><span class="src">Her own podcast + the program’s page</span></div>
+              <div class="laneTag read">◐ Our best current read — not yet fact</div>
+              <div class="claim read" onclick="openModal('cl-teach')"><div class="t">She rewards being taught something.</div><span class="src">2 students + her own words on air</span></div>
+              <div class="claim read" onclick="openModal('cl-thesis')"><div class="t">Wants the answer first, details after.</div><span class="src">Held loosely — one of two reports is secondhand</span></div>
+              <div class="laneTag open">○ We honestly don’t know — each has a plan</div>
+              <div class="claim open" onclick="openModal('cl-panel')"><div class="t">Who joins her in the room this year.</div><span class="src">Plan: Nadia’s gameplan works for anyone in the chair</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="colStack">
+          <div class="panel" style="flex:1.25">
+            <div class="pHead"><div class="h2">Likely <em>questions</em></div><button class="pMore" onclick="openModal('predreport')">Our record ▸</button></div>
+            <div class="pBody">
+              <div class="qRow" onclick="openModal('cl-journey')">“Walk me through your journey.”<span class="lk">Near certain</span></div>
+              <div class="qRow" onclick="openModal('cl-teach')">“Teach me something from your work.”<span class="lk">Likely</span></div>
+              <div class="qRow" onclick="openModal('q-change')">“What would you change about your ledger system?”<span class="lk">Her style</span></div>
+            </div>
+          </div>
+          <div class="panel" style="flex:1">
+            <div class="pHead"><div class="h2">For <em class="emb">Nadia</em></div><button class="pMore" onclick="go('student')">Her room ▸</button></div>
+            <div class="pBody">
+              <div class="histRow" onclick="openModal('cast-ledger')"><span class="d" style="color:var(--em)">Lead</span>The Night-Shift Ledger<span class="s">teachable</span></div>
+              <div class="histRow" onclick="openModal('cast-dose')"><span class="d" style="color:var(--cy)">Ready</span>The Wrong Dose<span class="s">judgment</span></div>
+              <div class="histRow" onclick="openModal('cast-gma')"><span class="d">If asked</span>Grandmother’s Translator<span class="s">journey</span></div>
+            </div>
+          </div>
+          <div class="panel" style="flex:.95">
+            <div class="pHead"><div class="h2">Your <em>notes</em></div></div>
+            <div class="pBody">
+              <div class="noteCard"><div class="pin">★ Pinned <span class="lock">· Private · never shown to students</span></div><div class="nt">Coordinator was warm on the phone in March. POCUS elective is a live thread — only if invited.</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ COPILOT ============ -->
+    <div class="view" id="v-copilot">
+      <div class="liveBar">
+        <span class="liveDot" id="liveDot" style="display:none"></span>
+        <div class="liveTitle" id="liveTitle">Session <em>room</em></div>
+        <span class="timer" id="timer"></span>
+        <span style="margin-left:auto"></span>
+        <button class="btnGo" id="demoBtn" data-needs-ai onclick="runDemo()">▶ Run the live demo</button>
+        <button class="btnGhost" id="endBtn" style="display:none" onclick="endDemo(true)">End session</button>
+      </div>
+      <div class="copGrid">
+        <div class="panel">
+          <div class="pHead"><div class="h2">The <em>conversation</em></div><span class="pMore">Coaching · Nadia Rahman · Riverside prep</span></div>
+          <div class="demoIdle" id="txIdle">
+            <div class="big">This room comes <em>alive</em>.</div>
+            <p>Press ▶ for a real coaching minute: PRIQ listens with you, notices what you’d notice on your best day, and hands you one useful thing at a time. It never speaks to the student.</p>
+          </div>
+          <div id="txWrap" style="display:none"></div>
+          <div class="instRow" id="instRow" style="display:none">
+            <div class="balWrap"><div class="balLbl"><span>You</span><span class="r">Nadia <b id="balPct">50%</b></span></div><div class="balBar"><div class="n" id="balN"></div></div></div>
+            <span class="paceChip" id="paceChip">Pace · settling</span>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="pHead"><div class="h2">PRIQ <em>sees</em></div><span class="pMore" id="cueCount"></span></div>
+          <div class="demoIdle" id="cueIdle"><p>Cues appear here — at most two at a time, only when they help. Use one or wave it away; every choice teaches PRIQ your coaching taste.</p></div>
+          <div id="cueWrap" style="display:none"></div>
+          <div class="sessLog" id="sessLog" style="display:none"><span id="logTxt">0 cues used</span><span style="margin-left:auto" id="logMark"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PROFILE LAB ============ -->
+    <div class="view" id="v-lab">
+      <div class="liveBar">
+        <div class="liveTitle">Profile <em style="color:var(--vi)">Lab</em></div>
+        <span style="font-family:var(--num);font-size:10.5px;font-weight:700;letter-spacing:.12em;color:var(--dim);text-transform:uppercase">Teaching Nadia to read a room · lesson prepared by PRIQ</span>
+        <div class="labNav"><button class="btnGhost" id="labPrev" onclick="labStep(-1)">← Back</button><button class="btnGo" id="labNext" onclick="labStep(1)">Next step →</button></div>
+      </div>
+      <div class="labGrid">
+        <div class="panel">
+          <div class="pHead"><div class="h2">The <em>lesson</em></div><span class="pMore" id="labProg">Step 1 of 5</span></div>
+          <div class="pBody" id="labSteps"></div>
+        </div>
+        <div class="panel">
+          <div class="pHead"><div class="h2">On the <em>shared screen</em></div><span class="pMore">What the student sees</span></div>
+          <div class="pBody" id="labStage"></div>
+        </div>
+        <div class="panel privCol">
+          <div class="pHead"><div class="h2">Only <em>you</em> see this</div><span class="pMore" style="color:var(--gd)">Private</span></div>
+          <div class="pBody" id="labPriv"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CONTROL PANEL ============ -->
+    <div class="view" id="v-panel">
+      <div class="idRow">
+        <div>
+          <div class="idName">Control <em>Panel</em></div>
+          <div class="idMeta"><span>The fuse box — every switch changes real behavior, no deployment</span></div>
+        </div>
+        <button class="btnGhost" style="margin-left:auto" onclick="openPreview()">👁 Preview as Nadia</button>
+      </div>
+      <div class="cpGrid">
+        <div class="panel">
+          <div class="pHead"><div class="h2">Swit<em>ches</em></div><span class="pMore">22 more in full build</span></div>
+          <div class="pBody" id="swList"></div>
+        </div>
+        <div class="colStack">
+          <div class="panel" style="flex:1.35">
+            <div class="pHead"><div class="h2">Access & <em>rollout</em></div></div>
+            <div class="pBody">
+              <div class="cpSec">Student workspace</div>
+              <div class="swRow"><div class="sl"><b>Everyone</b><span>Global default</span></div><span class="scopeTag glob">Global</span><div class="sw" id="swStudentGlobal" role="switch" aria-checked="false" tabindex="0" onclick="flip(this,'Student workspace (global)')" onkeydown="if(event.key==='Enter')flip(this,'Student workspace (global)')"></div></div>
+              <div class="swRow"><div class="sl"><b>Cohort · Match 2027</b><span>25% rollout · since Jul 28</span></div><span class="scopeTag inh">Cohort</span><div class="sw on" onclick="flip(this,'Cohort Match-2027 rollout')"></div></div>
+              <div class="swRow"><div class="sl"><b>Nadia Rahman</b><span>Individual override — wins over global</span></div><span class="scopeTag ovr">Override</span><div class="sw on" onclick="flip(this,'Nadia individual override')"></div></div>
+              <div class="cpSec">Visibility</div>
+              <div class="swRow"><div class="sl"><b>Founder notes</b><span>Founder only — cannot be widened</span></div><div class="sw on locked" title="Interlock: never student-visible"></div></div>
+              <div class="swRow"><div class="sl"><b>Photo & video observations</b><span>Admin only · review required</span></div><div class="sw on locked" title="Interlock: review always required"></div></div>
+              <div class="swRow"><div class="sl"><b>Gameplans</b><span>Student — after your approval</span></div><div class="sw on" onclick="flip(this,'Gameplan visibility')"></div></div>
+            </div>
+          </div>
+          <div class="panel" style="flex:1">
+            <div class="pHead"><div class="h2">AI providers & <em>budget</em></div></div>
+            <div class="pBody">
+              <div class="swRow"><div class="sl"><b>Deep reasoning route</b><span>Primary: OpenAI GPT-5 · Backup: Anthropic Opus 5</span></div><button class="btnGhost" style="padding:5px 10px" onclick="toast('Provider change re-runs this route’s evaluation gate before it activates. (Simulated.)')">Change</button></div>
+              <div class="swRow"><div class="sl"><b>Monthly budget — $86 of $250</b><span>Alerts at 60 · 80 · 95%</span></div></div>
+              <div class="budgetBar"><div></div></div>
+              <div style="font-size:11.5px;color:var(--dim);line-height:1.5">At the cap: overnight refresh pauses first, then media analysis. Reading existing intelligence never stops.</div>
+              <div style="margin-top:12px"><button class="killBtn" id="killBtn" onclick="killSwitch(true)">⏻ Emergency: pause all external AI</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="pHead"><div class="h2">Audit <em>history</em></div><span class="pMore">Every change · rollback ready</span></div>
+          <div class="pBody" id="audList">
+            <div class="audRow"><span class="when">Today 9:14 AM · Dr. Brian</span><b>Cohort rollout</b> — Match-2027 student gameplans: 10% → <b>25%</b></div>
+            <div class="audRow"><span class="when">Jul 30 · Dr. Brian</span><b>Review rule</b> — media observations: always require review (locked)</div>
+            <div class="audRow"><span class="when">Jul 28 · Dr. Brian</span><b>Nadia Rahman</b> — student workspace: off → <b>on</b> (override)</div>
+            <div class="audRow"><span class="when">Jul 25 · system</span><b>Budget alert</b> — 60% of monthly cap reached · notified</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <aside id="ai">
+    <div class="aiHead"><div class="orb"></div><div><div class="t">PRI<em>Q</em></div><div class="s" id="aiState">Watching · 14 sources</div></div><button class="aiHide" onclick="aiToggle()" aria-label="Hide panel">⨯</button></div>
+    <div id="aiStream"></div>
+    <div class="aiAsk"><input id="askIn" placeholder="Ask PRIQ anything…" onkeydown="if(event.key==='Enter')ask()"><button onclick="ask()">Ask</button></div>
+  </aside>
+
+  <div id="foot">
+    <span id="footL">PRIQ watched 14 sources today · 2 changes worth your time</span>
+    <span class="glass">Written as if they’ll read it — <b>always</b></span>
+    <span>All people synthetic · Final prototype</span>
+  </div>
+</div>
+
+<!-- overlays -->
+<div id="scrim" onclick="closeAll()"></div>
+<div class="modal" id="modal" role="dialog" aria-modal="true">
+  <div class="mHead"><div style="min-width:0"><div class="eyebrow" id="mKick">—</div><h3 id="mTitle">—</h3></div><button class="mX" onclick="closeAll()" aria-label="Close">⨯</button></div>
+  <div class="mTabs" id="mTabs" style="display:none"></div>
+  <div class="mBody" id="mBody"></div>
+  <div class="mFoot" id="mFoot"><span class="glassNote">Glass rule — <b>written as if they’ll read it</b></span><button class="btnGhost" onclick="closeAll()">Close</button></div>
+</div>
+<div id="pal"><input id="palIn" placeholder="Type a name, a program, an action…" oninput="palFilter()" onkeydown="palKey(event)"><div id="palList"></div></div>
+<div id="prep">
+  <h3>Preparing <em>Nadia</em> for Riverside</h3>
+  <div class="sub">Research was already done overnight — this is assembly, not guessing.</div>
+  <div id="prepStages"></div>
+  <div id="prepFoot"><button class="btnGhost" onclick="closeAll()">Done</button><button class="btnGo ember" onclick="closeAll();openModal('gameplan')">Review her gameplan</button></div>
+</div>
+<div id="preview">
+  <div class="pvBar">👁 Previewing as Dr. Nadia Rahman — this is exactly what she sees, resolved by the real permission rules<button onclick="closePreview()">Exit preview</button></div>
+  <div class="pvBody">
+    <div class="panel">
+      <div class="pHead"><div class="h2">Your <em class="emb">gameplan</em></div><span class="pMore" style="color:var(--gn)">Approved by Dr. Brian</span></div>
+      <div class="pBody">
+        <div style="font-family:var(--voice);font-style:italic;font-size:13.5px;color:var(--mid);margin-bottom:8px">Riverside — Thursday 2:00. Ten minutes to read. You are more ready than you feel: your restarts fell from seven to two.</div>
+        <div class="gpItem"><div class="n">1</div><div><b>Interruptions mean interest. Resume — don’t restart.</b><span>Fast follow-ups are engagement, not a verdict. Finish your thought.</span></div></div>
+        <div class="gpItem"><div class="n">2</div><div><b>Answer first. Story second.</b><span>Your first sentence answers the question. The rest is proof.</span></div></div>
+        <div class="gpItem"><div class="n">3</div><div><b>Tell the ledger as leadership.</b><span>You built it. Say “built.” Ninety seconds.</span></div></div>
+        <div class="gpItem"><div class="n">?</div><div><b>Ask your question.</b><span>You genuinely care about the bedside-ultrasound elective — ask about it.</span></div></div>
+      </div>
+    </div>
+    <div class="colStack">
+      <div class="panel" style="flex:1">
+        <div class="pHead"><div class="h2">To<em>night</em></div></div>
+        <div class="pBody"><div style="font-size:13px;color:var(--mid);line-height:1.55">One practice round with the <b style="color:var(--tx)">Engaged Interrupter</b> — 20 minutes, focus “resume under fire.” Then stop. Sleep is preparation too.</div><div style="margin-top:10px"><button class="btnGo" onclick="toast('Opening IV Prep On-Call…')">Start practice</button></div></div>
+      </div>
+      <div class="panel" style="flex:1">
+        <div class="pHead"><div class="h2">After <em>Thursday</em></div></div>
+        <div class="pBody"><div style="font-size:13px;color:var(--mid);line-height:1.55">Sixty seconds in the parking lot: tell PRIQ what happened. Your debrief makes the next candidate’s preparation smarter — Amir’s did that for you.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="pvNote">No founder notes · no interviewer dossier · no other students — the student surface is guidance, never surveillance</div>
+</div>
+<div id="toast" role="status"></div>
+<script>
+/* ================= PRIQ FINAL · JS ================= */
+var RM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+var VIEW='today', KILLED=false;
+var crumbs={
+  today:['To<em>day</em>','What changed, what’s next, and where I can help.'],
+  student:['Student · <em>Nadia Rahman</em>','One human, fully understood — and never reduced to a label.'],
+  program:['Program · <em>Riverside</em>','The room, the people, and how to reach them. The registry lives in RISE.'],
+  copilot:['Live <em>Copilot</em>','I listen with you and hand you one useful thing at a time.'],
+  lab:['Profile <em>Lab</em>','Teach the skill of reading a room — honestly.'],
+  panel:['Control <em>Panel</em>','Every switch changes real behavior. Every change is audited.']
+};
+function go(v){
+  VIEW=v;
+  document.querySelectorAll('.view').forEach(function(el){el.classList.remove('on')});
+  document.getElementById('v-'+v).classList.add('on');
+  document.querySelectorAll('.ntab').forEach(function(b){b.classList.toggle('on',b.dataset.v===v)});
+  document.getElementById('crumbWhere').innerHTML=crumbs[v][0];
+  document.getElementById('crumbWhat').textContent=crumbs[v][1];
+  aiContext(v); closeAll();
+  if(v==='lab') renderLab();
+}
+function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('on')},3600)}
+function aiToggle(){document.body.classList.toggle('aioff')}
+(function(){var h=new Date().getHours(),g=h<5?'Working late':h<12?'Good morning':h<17?'Good afternoon':'Good evening';document.getElementById('greet').innerHTML=g+', <em>Dr. Brian</em>.'})();
+
+/* ================= MODAL SYSTEM (centered, tabbed) ================= */
+function esc(s){return s}
+var MODALS = {
+'feed-okafor':{k:'Overnight · Program change',t:'Dr. Okafor is now <em>Associate PD</em>',b:'<p class="lead">Riverside’s faculty page changed at 3:12 AM. I compared it with what we had: Dr. Marcus Okafor, previously core faculty, now appears as Associate Program Director. Amir’s Tuesday debrief independently confirms he joined the panel.</p><div class="mSec">What I did</div><div class="evBlock"><div class="who">His file strengthened</div><div class="q">Two independent reports now support “observes on panels, low intervention.” Still forming — I won’t pretend two sources is certainty.</div></div><div class="honesty"><b>Honest note:</b> a new title can mean a bigger interview role this season. That’s a possibility I’ve filed as an open question — not a claim.</div>'},
+'feed-nadia':{k:'Overnight · Student growth',t:'Nadia’s recovery is <em>holding</em>',b:'<p class="lead">Interrupted five times in last night’s practice; restarted twice. Three weeks ago it was seven. The gain has now held across two different question styles — real, not luck.</p><div class="evBlock"><div class="who">From her practice · last night</div><div class="q">“—the downtime protocol assumed the outage was short. Ours weren’t.” <i>(resumed mid-sentence, unprompted)</i></div></div><div class="honesty"><b>Why it matters Thursday:</b> the person she’s most likely to face interrupts early and often. This was the riskiest mismatch. It’s closing.</div>'},
+'feed-aging':{k:'Overnight · A claim is aging',t:'Time to <em>re-verify</em> the opener',b:'<p class="lead">“She opens with the journey question” was last confirmed nine months ago, and Riverside changed its interview format this year. I won’t serve a nine-month-old claim as fresh.</p><div class="evBlock"><div class="who">The plan</div><div class="q">Thursday, ~2:47 PM: Nadia’s sixty-second debrief will confirm or retire it. Her gameplan doesn’t depend on it either way.</div></div><div class="honesty"><b>The rule:</b> old claims age in the open. Aging sends them back to research — never quietly into your coaching.</div>'},
+'feed-story':{k:'Overnight · StoryForge sync',t:'“The Wrong Dose,” <em>re-cast</em>',b:'<p class="lead">Nadia’s new draft is 40 seconds shorter and ends on the protocol change she wrote — the ending this room respects. The story itself lives in StoryForge; I only updated the casting.</p><div class="evBlock"><div class="who">Casting note</div><div class="q">Keep ready for the judgment question. Short version. End on the fix, never the colleague.</div></div>'},
+'relay':{k:'Parallel prep · the flywheel, visible',t:'Scout report: <em>Amir → Nadia</em>',b:'<p class="lead">Amir interviewed at Riverside on Tuesday. Wednesday morning, Nadia’s preparation already knew what he learned. That is the point of everything.</p><div class="mSec">What flowed through</div><div class="hitRow"><span class="hk hit">Confirmed</span><span>Dr. Okafor now joins the panel — observes quietly, takes notes. Nadia’s “if it’s someone else” plan updated itself.</span></div><div class="hitRow"><span class="hk hit">Confirmed</span><span>The journey opener survived this year’s format change — the aging flag will clear after one more report.</span></div><div class="hitRow"><span class="hk hit">New</span><span>She probed interest in the bedside-ultrasound elective. Nadia’s planted question was already honest — now it’s also strategic.</span></div><div class="honesty"><b>Consent, always:</b> Amir agreed his debrief helps the next candidate. Aggregate by default, named only by explicit choice, withdrawable anytime.</div>'},
+'predreport':{k:'Prediction report card · we keep score on ourselves',t:'Riverside: <em>7 of 9</em> predicted',b:'<p class="lead">Every debrief scores our own question predictions. Last season at Riverside, students faced nine substantive questions. We had predicted seven.</p><div class="mSec">The record</div><div class="hitRow"><span class="hk hit">Predicted ✓</span><span>“Walk me through your journey.”</span></div><div class="hitRow"><span class="hk hit">Predicted ✓</span><span>“Teach me something from your work.”</span></div><div class="hitRow"><span class="hk hit">Predicted ✓</span><span>“Tell me about improving something for your team.” (+4 more)</span></div><div class="hitRow"><span class="hk miss">Surprise</span><span>“What would you fix about your medical school?” — now in the bank, flagged “her style: institutions, not people.”</span></div><div class="hitRow"><span class="hk miss">Surprise</span><span>“Who taught you to teach?” — now in the bank; pairs beautifully with the ledger story.</span></div><div class="honesty"><b>Why we show the misses:</b> a tool that hides its errors teaches you to stop checking it. Trust compounds faster than accuracy alone.</div>'},
+'bird-nadia':{k:'Bird shorthand · never a diagnosis',t:'Nadia — <em>Owl</em>, Dove rising',b:'<p class="lead">Birds are MissionMed shorthand for how someone communicates — never who they are. Nadia leads with precision and evidence (Owl); one-on-one, her warmth carries the room (Dove).</p><div class="mSec">Situational shift</div><div class="evBlock"><div class="who">When she teaches</div><div class="q">The hedging disappears and the Dove warmth comes forward. Get her teaching by minute five.</div></div><div class="mSec">Owl meeting Eagle — Thursday</div><div class="evBlock"><div class="who">Matchup coaching</div><div class="q">Lead with the answer; keep detail in your pocket. She’ll ask for exactly as much as she wants.</div></div><div class="honesty"><b>The rule:</b> the Bird summarizes evidence; it never overrides it. One contrary mock and the label bends, not the facts.</div>'},
+'bird-ev':{k:'Bird shorthand · never a diagnosis',t:'Dr. Vasquez reads as <em>Eagle</em>, Owl beneath',b:'<p class="lead">Direct, fast, decisive — with an Owl’s appetite for detail once you earn it. Plain terms: answer first; she’ll dive as deep as you can go.</p><div class="evBlock"><div class="who">Supporting</div><div class="q">Fast redirects (3 students, independently) · detail-dives on POCUS (her podcast).</div></div><div class="evBlock"><div class="who">Contradicting — kept on purpose</div><div class="q">Her long-form mentoring warmth in ep. 41 cuts against a pure Eagle read. The label bends to the evidence.</div></div><div class="honesty"><b>Held honestly:</b> we’ve never met her. This summarizes what students consistently report plus her public professional voice — nothing else.</div>'},
+'tr-evidence':{k:'Pattern · steady',t:'She speaks in <em>evidence</em>',b:'<p class="lead">Across every mock, Nadia reaches for proof before position. A strength — and the reason “answer first” matters, so the proof lands where the listener wants it.</p><div class="evBlock"><div class="who">Mock 3 · Jul 28</div><div class="q">“Three studies looked at this — the strongest was the 2023 cohort…” <i>(before stating her view)</i></div></div>'},
+'tr-warm':{k:'Pattern · steady',t:'Warm at two, formal at <em>ten</em>',b:'<p class="lead">One-on-one she’s natural and warm. As rooms grow she turns formal and careful. Thursday is likely one-on-one — her best format. If a panel appears: talk to one face at a time.</p>'},
+'tr-hedge':{k:'Pattern · improving',t:'“I think…” under <em>pressure</em>',b:'<p class="lead">When challenged she pads: “I think maybe…” Counted honestly across mocks: 19, then 14, then 11 — falling as “answer first” takes hold.</p><div class="honesty"><b>The fix that works:</b> commit to the first sentence, then support it. She already owns the evidence; the first sentence just has to claim it.</div>'},
+'tr-restart':{k:'Pattern · her biggest win',t:'She <em>resumes</em> now',b:'<p class="lead">Interruptions used to send her back to the start — which reads as losing the thread. Three weeks of targeted practice later: seven restarts down to two, held across styles.</p><div class="evBlock"><div class="who">Last night</div><div class="q">“—the downtime protocol assumed the outage was short. Ours weren’t.” <i>(picked up exactly where she left off)</i></div></div>'},
+'blind-we':{k:'Blind spot',t:'“We” where she means <em>“I”</em>',b:'<p class="lead">She built the night-shift ledger alone — and calls it “something we did on nights.” Generous, but it gives away the story’s point in a room deciding whether <i>she</i> leads.</p><div class="evBlock"><div class="who">The cue that works · Jul 21</div><div class="q">You asked: “Whose idea was it?” She said “mine” — and the whole story changed posture. Same cue works live.</div></div>'},
+'blind-ask':{k:'Blind spot',t:'She never asks <em>back</em>',b:'<p class="lead">Three mocks, zero questions asked of the interviewer. One planted, honest question turns an interrogation into a conversation.</p><div class="honesty"><b>Ready to plant:</b> she genuinely cares about the bedside-ultrasound elective. Not a tactic — true. Let her ask about it.</div>'},
+'note-teach':{k:'Founder note · full metadata',t:'A note, <em>governed</em>',b:'<p class="lead">“She teaches beautifully the moment she forgets she’s being judged.”</p><div class="specGrid"><div class="sg"><span class="k">Source</span><span class="v">Firsthand coaching observation</span></div><div class="sg"><span class="k">Date</span><span class="v">Jul 21, 2026</span></div><div class="sg"><span class="k">Visibility</span><span class="v">Founder only</span></div><div class="sg"><span class="k">Verified</span><span class="v">Firsthand</span></div><div class="sg"><span class="k">AI may use</span><span class="v">Yes — shapes coaching cues</span></div><div class="sg"><span class="k">Shown to student</span><span class="v">Never directly</span></div></div><div class="honesty"><b>How it surfaces safely:</b> the student never sees this note — she feels it as “get her teaching early” woven into your session plan.</div>'},
+'cast-ledger':{k:'Story casting · lead',t:'The Night-Shift <em class="emb">Ledger</em>',b:'<p class="lead">Her best teachable story, for a room that loves being taught. The story is hers and lives in StoryForge — this is the casting for <i>this</i> audience.</p><div class="mSec">The casting</div><div class="evBlock"><div class="who">Open with</div><div class="q">“Our ward lost track of patients every time the power failed — so I built us a paper system that didn’t.”</div></div><div class="evBlock"><div class="who">Emphasize</div><div class="q">She built it · nurses used it for eight months · it survived whole shifts.</div></div><div class="evBlock"><div class="who">Trim</div><div class="q">The hurricane context — vivid, but it spends thirty seconds the teach needs.</div></div><div class="evBlock"><div class="who">Length · tone · ending</div><div class="q">Ninety seconds · quietly proud · end on what she’d change now — which invites the exact follow-up she’s rehearsed.</div></div><div class="honesty"><b>Per-audience, always:</b> the same story for a different room would open on the patient. Casting changes; the story never does.</div>'},
+'cast-dose':{k:'Story casting · keep ready',t:'The Wrong <em class="emb">Dose</em>',b:'<p class="lead">For the judgment question — a mistake caught, a protocol changed. Her new draft ends on the fix, which is the ending this room respects.</p><div class="evBlock"><div class="who">The one rule</div><div class="q">Never end on the colleague. End on the system that got safer because she spoke up.</div></div>'},
+'cast-gma':{k:'Story casting · only if asked',t:'Grandmother’s <em class="emb">Translator</em>',b:'<p class="lead">Her journey answer — childhood interpreting, why medicine, why communication. Warm and true. Sixty seconds, then hand the room back: it builds rapport; it doesn’t carry proof.</p>'},
+'per-okafor':{k:'Person · file forming',t:'Dr. Marcus <em>Okafor</em>',b:'<p class="lead">Associate Program Director as of this week. Two independent reports — so everything here is marked forming, and nothing is presented as settled.</p><div class="evBlock"><div class="who">Former student · 2024</div><div class="q">“There was a second person — younger, mostly took notes, barely spoke.”</div></div><div class="evBlock"><div class="who">Amir · Tuesday</div><div class="q">“Dr. Okafor sat in. Quiet. Wrote a lot. One question at the end, a kind one.”</div></div><div class="honesty"><b>Honest note:</b> quiet observation twice tells us almost nothing about how he interviews. Nadia’s plan doesn’t depend on him — by design.</div>'},
+'cl-journey':{k:'Confirmed · strong support',t:'The <em>journey</em> opener',b:'<p class="lead">“Walk me through your journey” — reported as her opener by five former MissionMed students across four seasons, and by Amir on Tuesday.</p><div class="evBlock"><div class="who">Former student · matched 2024</div><div class="q">“She started with the journey question — same as everyone said she would.”</div></div><div class="honesty"><b>But note:</b> the format changed this year, so this claim was queued for re-verification. Amir’s report is the first confirmation since — one more clears the flag.</div>'},
+'cl-interrupt':{k:'Confirmed · strong support',t:'Interruption is her <em>interest</em>',b:'<p class="lead">She interrupts early — and every interrupted student we know matched or ranked well. It’s how she tests thinking, not a warning sign.</p><div class="evBlock"><div class="who">Former student · Nov 2025</div><div class="q">“She cut me off twice in the first five minutes. I thought I was bombing. I matched there.”</div></div><div class="evBlock"><div class="who">Two more · independently</div><div class="q">Same pattern, different years, same outcome.</div></div>'},
+'cl-pocus':{k:'Confirmed · strong support',t:'The curriculum is <em>hers</em>',b:'<p class="lead">She built the bedside-ultrasound program and still teaches it personally — in her own words.</p><div class="evBlock"><div class="who">Her podcast · Mar 2025 · 12:40</div><div class="q">“If a learner can teach it back to me at the bedside, I know it’s theirs.”</div></div><div class="evBlock"><div class="who">The program’s own page</div><div class="q">Lists her as curriculum director — checked three weeks ago.</div></div>'},
+'cl-teach':{k:'Our best current read — not yet fact',t:'She rewards being <em>taught</em>',b:'<p class="lead">Students who taught her something report the strongest rapport. With her own words on air, we read her as someone who hires teachers.</p><div class="evBlock"><div class="who">Former student · 2025</div><div class="q">“I taught her the quick way to estimate the IVC — the interview changed after that.”</div></div><div class="honesty"><b>Why this is a read, not a fact:</b> two students and a podcast make a pattern, not a proof. One contrary report demotes it — and I’d tell you so.</div>'},
+'cl-thesis':{k:'Our best current read — held loosely',t:'Answer first, <em>details after</em>',b:'<p class="lead">Two reports say long wind-ups lose her. One of the two is secondhand — so this is held loosely, on purpose.</p><div class="evBlock"><div class="who">Secondhand · 2024</div><div class="q">“A friend who interviewed said she got impatient during a long wind-up.”</div></div><div class="honesty"><b>Held loosely means:</b> we coach toward it (good practice anyway), and nothing in Nadia’s plan breaks if it’s wrong.</div>'},
+'cl-panel':{k:'We honestly don’t know — with a plan',t:'Who else is in the <em>room</em>',b:'<p class="lead">Panels rotate, and this year’s pairing is unconfirmed. We say so out loud and plan for it.</p><div class="evBlock"><div class="who">Built into the gameplan</div><div class="q">All three of Nadia’s adjustments fix <i>her</i> patterns, not one interviewer’s taste — they work on whoever sits down. Okafor’s presence Tuesday makes a second chair likely.</div></div>'},
+'q-change':{k:'Predicted follow-up · her style',t:'“What would you <em>change?</em>”',b:'<p class="lead">Not a question we’ve recorded — it’s the shape of her follow-ups: she probes what you’d do differently. The ledger is cast to end on exactly this doorstep.</p><div class="honesty"><b>Labeled honestly:</b> this is pattern-extrapolation, marked “her style” — never presented as a confirmed question.</div>'},
+'person-ev':{k:'Person profile · Program Director',t:'Dr. Elena <em>Vasquez</em>',tabs:[
+  {l:'At a glance',h:'<p class="lead">Fast, curious, interrupts to test your thinking. Warmer than she first reads. Wants the answer first, then all the depth you can offer.</p><div class="specGrid"><div class="sg"><span class="k">Bird</span><span class="v">Eagle · Owl beneath</span></div><div class="sg"><span class="k">Tempo</span><span class="v">Fast, redirects early</span></div><div class="sg"><span class="k">Rewards</span><span class="v">Being taught something real</span></div><div class="sg"><span class="k">Flags</span><span class="v">Rehearsed openers</span></div></div><div class="honesty" style="margin-top:10px"><b>File freshness:</b> strong support, freshest source three weeks old, one aging claim queued for Thursday.</div>'},
+  {l:'Evidence',h:'<div class="evBlock"><div class="who">5 students · 2022–2025 + Amir Tue</div><div class="q">The journey opener — her signature.</div></div><div class="evBlock"><div class="who">3 students · independently</div><div class="q">Early interruptions; every interrupted student matched or ranked well.</div></div><div class="evBlock"><div class="who">Her podcast · Mar 2025</div><div class="q">“If a learner can teach it back to me at the bedside, it’s theirs.”</div></div>'},
+  {l:'Career arc',h:'<p class="lead">The trajectory is fact; what it means is a hypothesis — we keep those separate.</p><div class="evBlock"><div class="who">Fact</div><div class="q">Community-hospital residency → built Riverside’s bedside-ultrasound program from nothing → Program Director, 2019.</div></div><div class="evBlock"><div class="who">Possible professional theme</div><div class="q">A builder from limited resources — may appreciate resourcefulness, growth, earned opportunity.</div></div><div class="honesty"><b>Never claimed:</b> how she “must” feel about any applicant’s path. A trajectory is a conversation hypothesis, not a psychology.</div>'},
+  {l:'Media',h:'<p class="lead">Observable cues only — with alternatives, always.</p><div class="evBlock"><div class="who">Three photos · three contexts</div><div class="q">Bedside teaching set: leans in, smiles, oriented toward trainees (consistent ×3). Retreat photo: torso angled away, arms crossed, more distance.</div></div><div class="honesty"><b>Read the ladder:</b> the bedside pattern has repetition behind it → “presents warm with learners publicly.” The retreat frame is one moment → could be staging, cold, a transition, a crop. We prepare from patterns, never from a single frame.</div>'}],
+ foot:'<button class="btnGhost" onclick="openModal(\'glass-ev\')">👁 View as she would</button><button class="btnGhost" onclick="openModal(\'mocknotes\')">Mock notes</button><button class="btnGo" onclick="closeAll();go(\'lab\')">Teach this in the Lab</button>'},
+'glass-ev':{k:'Glass check · the file, as its subject would read it',t:'If Dr. Vasquez <em>read this file</em>',b:'<p class="lead">Every profile is written to survive its subject reading it. Here is hers, addressed to her:</p><div class="evBlock"><div class="who">What we say about you</div><div class="q">You open interviews by asking for the journey. You interrupt early — we tell candidates it means you’re engaged. You built the ultrasound curriculum and reward people who can teach. We believe — and label it as our read — that you prefer the answer first.</div></div><div class="evBlock"><div class="who">What we don’t say</div><div class="q">Nothing about your private life, your feelings, or your relationships. Two of our beliefs are marked “not yet fact.” One old claim was flagged stale rather than served quietly.</div></div><div class="honesty"><b>The test:</b> if any line would embarrass us in front of you, it doesn’t ship. This file passes.</div>'},
+'mocknotes':{k:'Mock-interviewer playbook',t:'How to interview <em>like this room</em>',tabs:[
+  {l:'The style',h:'<p class="lead">Fast, curious, warm underneath. Answer-first culture. Interrupt early and often — as interest, never hostility.</p><div class="specGrid"><div class="sg"><span class="k">Bird</span><span class="v">Eagle, Owl beneath</span></div><div class="sg"><span class="k">Pace</span><span class="v">Fast · redirects inside 5 min</span></div><div class="sg"><span class="k">Warmth</span><span class="v">Medium-high, earned</span></div><div class="sg"><span class="k">Formality</span><span class="v">Medium — no ceremony</span></div><div class="sg"><span class="k">Long setups</span><span class="v">Low tolerance (~20 seconds)</span></div><div class="sg"><span class="k">Escalation</span><span class="v">“Why” twice, then a teach-back</span></div></div>'},
+  {l:'Questions',h:'<div class="mSec">Open with</div><div class="hitRow"><span class="hk hit">Q</span><span>“Walk me through your journey.” (60–90s answer, then interrupt once, kindly)</span></div><div class="mSec">Core probes</div><div class="hitRow"><span class="hk hit">Q</span><span>“Teach me something from your work.” — reward structure, punish vagueness</span></div><div class="hitRow"><span class="hk hit">Q</span><span>“Tell me about improving something for your team.” → follow: “Whose idea was it?” → “What broke?”</span></div><div class="mSec">Story-specific probes (Nadia)</div><div class="hitRow"><span class="hk miss">Probe</span><span>Ledger: “Why paper and not the EMR downtime protocol?” · “What would you change now?”</span></div>'},
+  {l:'Reward & challenge',h:'<div class="mSec">Reward — visibly warm when she…</div><div class="hitRow"><span class="hk hit">✓</span><span>Resumes mid-sentence after your interruption</span></div><div class="hitRow"><span class="hk hit">✓</span><span>Says “I built / I decided” about solo work</span></div><div class="hitRow"><span class="hk hit">✓</span><span>Teaches you something with structure</span></div><div class="mSec">Challenge — press when she…</div><div class="hitRow"><span class="hk miss">✗</span><span>Opens with anything that sounds memorized (call it out gently, once)</span></div><div class="hitRow"><span class="hk miss">✗</span><span>Hedges twice in one answer (“give me the answer first”)</span></div><div class="mSec">Session craft</div><div class="hitRow"><span class="hk hit">Interrupt</span><span>when setup passes ~20 seconds, or the answer drifts abstract</span></div><div class="hitRow"><span class="hk hit">Stay silent</span><span>when she self-corrects — let her land it</span></div><div class="hitRow"><span class="hk hit">Soften</span><span>at any freeze over 5 seconds; recover, then resume pressure</span></div><div class="hitRow"><span class="hk miss">Stop</span><span>two consecutive freezes, or time</span></div>'},
+  {l:'Run & debrief',h:'<p class="lead">Ten minutes, one focus: <b>resume under fire.</b></p><div class="mSec">Debrief rubric — count honestly</div><div class="hitRow"><span class="hk hit">1</span><span>Resumes vs restarts (target: zero restarts)</span></div><div class="hitRow"><span class="hk hit">2</span><span>Hedges per answer (target: ≤1)</span></div><div class="hitRow"><span class="hk hit">3</span><span>“I” ownership on solo work (target: every time)</span></div><div class="hitRow"><span class="hk hit">4</span><span>Teach-back quality (structure → example → point)</span></div><div class="honesty" style="margin-top:8px"><b>To IV Prep:</b> the bounded style package only — pace, interruption pattern, question seeds, stop conditions. Never founder notes, never a real person’s identity.</div>'}],
+ foot:'<button class="btnGo" data-needs-ai onclick="toast(\'Sent to IV Prep — persona ready for tonight.\')">Send to IV Prep</button>'},
+'gameplan':{k:'Student gameplan · plain language · yours to approve',t:'Nadia’s <em class="emb">gameplan</em>',b:'<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><span class="scopeTag inh" style="font-size:9px">Approved · Jul 31</span><span class="scopeTag glob" style="font-size:9px">Updated by Amir’s debrief · pending your re-approval</span></div><div style="font-family:var(--voice);font-style:italic;font-size:13.5px;color:var(--mid);margin-bottom:10px">Riverside — Thursday 2:00. Ten minutes to read. You are more ready than you feel: restarts down from seven to two, and this plan works no matter who sits across the table.</div><div class="gpItem"><div class="n">1</div><div><b>Interruptions mean interest. Resume — don’t restart.</b><span>Fast follow-ups are engagement, not a verdict. Hold your place. “So — as I was saying” is allowed.</span></div></div><div class="gpItem"><div class="n">2</div><div><b>Answer first. Story second.</b><span>Your first sentence answers the question. Everything after is proof.</span></div></div><div class="gpItem"><div class="n">3</div><div><b>Tell the ledger as leadership.</b><span>You built a system nurses used for eight months. Say “built.” Ninety seconds: problem, system, result.</span></div></div><div class="gpItem"><div class="n">?</div><div><b>Ask your question.</b><span>The bedside-ultrasound elective — you actually care. Asking turns the interview into a conversation.</span></div></div><div class="honesty" style="margin-top:10px"><b>Tonight:</b> one round with the Engaged Interrupter, twenty minutes, then stop — sleep is preparation too. And don’t memorize an opener; this room can tell.</div>',
+ foot:'<button class="btnGhost" onclick="toast(\'Edit mode opens in the full build — every edit is recorded as a correction PRIQ learns from.\')">Edit</button><button class="btnGo ember" onclick="toast(\'Approved and delivered to Nadia through Matrix — she sees this page and nothing behind it.\');closeAll()">Approve & send</button>'}
+};
+var mTabState=null;
+function openModal(id){
+  var d=MODALS[id]; if(!d) return;
+  document.getElementById('mKick').textContent=d.k;
+  document.getElementById('mTitle').innerHTML=d.t;
+  var tabs=document.getElementById('mTabs'), body=document.getElementById('mBody'), foot=document.getElementById('mFoot');
+  var modal=document.getElementById('modal');
+  modal.classList.toggle('wide', !!d.tabs);
+  if(d.tabs){
+    tabs.style.display='flex'; tabs.innerHTML='';
+    d.tabs.forEach(function(t,i){
+      var b=document.createElement('button'); b.className='mTab'+(i===0?' on':''); b.textContent=t.l;
+      b.onclick=function(){ tabs.querySelectorAll('.mTab').forEach(function(x){x.classList.remove('on')}); b.classList.add('on'); body.innerHTML=t.h; body.scrollTop=0; };
+      tabs.appendChild(b);
+    });
+    body.innerHTML=d.tabs[0].h;
+  } else { tabs.style.display='none'; body.innerHTML=d.b; }
+  foot.innerHTML='<span class="glassNote">Glass rule — <b>written as if they’ll read it</b></span>'+(d.foot||'<button class="btnGhost" onclick="closeAll()">Close</button>');
+  body.scrollTop=0;
+  modal.classList.add('on'); document.getElementById('scrim').classList.add('on');
+}
+function closeAll(){
+  ['modal','pal','prep'].forEach(function(i){document.getElementById(i).classList.remove('on')});
+  document.getElementById('scrim').classList.remove('on');
+}
+document.addEventListener('keydown',function(e){
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openPal()}
+  if(e.key==='Escape'){closeAll();closePreview()}
+});
+
+/* ================= AI PANEL ================= */
+var AI={
+ today:[
+  {d:1,t:'Reading overnight changes'},
+  {l:'Noticed',t:'Riverside’s faculty page changed at 3:12 AM. Checked against what we knew — Dr. Okafor’s new title is real, and Amir’s debrief confirms it.'},
+  {next:1,g:'Work on this next',t:'Nadia’s gameplan absorbed Amir’s debrief overnight — it needs your re-approval before she sees the update. Two minutes.',a:'Review now',f:function(){openModal('gameplan')}},
+  {dont:1,g:'Don’t spend time on',t:'Re-researching Riverside faculty. Refreshed three hours ago; nothing new beyond Okafor, which is handled.'}],
+ student:[
+  {d:1,t:'Comparing her last two mocks'},
+  {l:'Found',t:'Her recovery under interruption held across two different question styles. Real, not luck.'},
+  {next:1,g:'Work on this next',t:'One pressure rep tonight at the next level — cold interruptions plus time pressure. She’s ready for the dose.',a:'Queue IV Prep',f:function(){toast('IV Prep queued — Engaged Interrupter, level up, 20 minutes.')}},
+  {dont:1,g:'Don’t spend time on',t:'Polishing her journey answer further. It’s ready — more polish will read rehearsed, and this room flags rehearsed.'}],
+ program:[
+  {d:1,t:'Re-reading the Riverside file'},
+  {l:'Status',t:'Strong support overall; freshest source three weeks old; one aging claim queued for Thursday’s debrief.'},
+  {next:1,g:'Work on this next',t:'One contradiction awaits your ruling: the format change vs the journey opener. Amir’s report leans “opener survived.”',a:'Rule on it',f:function(){openModal('cl-journey')}},
+  {dont:1,g:'Don’t spend time on',t:'Building Okafor’s profile by hand. Two sources are queued; let the file form honestly.'}],
+ copilot:[
+  {d:1,t:'Warming up the session room'},
+  {l:'Ready',t:'Her patterns, the Riverside file, and her story bank are in working memory. Press ▶ when you are.'},
+  {l:'Promise',t:'At most two cues at a time, only when they help. I never speak to the student.'}],
+ lab:[
+  {d:1,t:'Laying out the lesson'},
+  {l:'Ready',t:'Five steps, prepared from her file. Every card keeps observation, interpretation, and alternatives separate — that separation is the lesson.'},
+  {next:1,g:'Teaching tip',t:'Step 3 lands hardest if Nadia answers the photo question before you do. Let the silence work.'}],
+ panel:[
+  {d:1,t:'Checking the fuses'},
+  {l:'Status',t:'34% of monthly budget used. All review queues clear. One cohort rollout active at 25%.'},
+  {dont:1,g:'Worth knowing',t:'The kill switch pauses external AI instantly but keeps everything already learned readable. Try it — it’s reversible.'}]
+};
+var aiTimers=[];
+function aiContext(v){
+  aiTimers.forEach(clearTimeout); aiTimers=[];
+  var s=document.getElementById('aiStream'); s.innerHTML='';
+  document.getElementById('aiState').textContent = KILLED ? 'Paused · Read-only' : (v==='copilot'||v==='lab' ? 'Listening · Live room' : 'Watching · 14 sources');
+  (AI[v]||[]).forEach(function(it,i){
+    aiTimers.push(setTimeout(function(){
+      var d=document.createElement('div');
+      if(it.d){d.className='aiLine doing';d.innerHTML=it.t+'<span class="dots"></span>';}
+      else if(it.next||it.dont){d.className='aiCard '+(it.next?'next':'dont');d.innerHTML='<span class="tag">'+it.g+'</span>'+it.t+(it.a?'<div class="act"><button>'+it.a+'</button></div>':'');if(it.f){var b=d.querySelector('button');if(b)b.onclick=it.f;}}
+      else{d.className='aiLine';d.innerHTML='<span class="lbl">'+it.l+'</span>'+it.t;}
+      s.appendChild(d);
+      requestAnimationFrame(function(){requestAnimationFrame(function(){d.classList.add('show')})});
+    }, RM?0:220+i*480));
+  });
+}
+function ask(){
+  var inp=document.getElementById('askIn'),q=inp.value.trim(); if(!q)return; inp.value='';
+  var s=document.getElementById('aiStream');
+  var you=document.createElement('div');you.className='aiLine show';you.innerHTML='<span class="lbl">You asked</span>'+q.replace(/</g,'&lt;');s.appendChild(you);
+  if(KILLED){var k=document.createElement('div');k.className='aiLine show';k.innerHTML='<span class="lbl">PRIQ</span>External AI is paused by your kill switch. I can still show you everything already on file — release the switch in the Control Panel to ask new questions.';s.appendChild(k);s.scrollTop=s.scrollHeight;return}
+  var a=document.createElement('div');a.className='aiLine doing show';a.innerHTML='Thinking<span class="dots"></span>';s.appendChild(a);s.scrollTop=s.scrollHeight;
+  var ql=q.toLowerCase(),ans;
+  if(ql.indexOf('stor')>-1||ql.indexOf('ledger')>-1)ans='The Ledger leads for Riverside — she built a system, and that room loves being taught. Full casting is on her Stories panel, with the opening line written for her.';
+  else if(ql.indexOf('vasquez')>-1||ql.indexOf('riverside')>-1)ans='Fast, curious, interrupts to test thinking — warmer than she first reads. Strong support from five of our own students. Click any line in her file for the evidence.';
+  else if(ql.indexOf('nadia')>-1)ans='Nearly ready. Interruption recovery is real now. The one thing I’d still work: she says “we” about work she did alone.';
+  else ans='In the full build I answer only from the evidence file, with sources you can open. For now: ⌘K jumps anywhere, and every claim on screen opens its proof.';
+  setTimeout(function(){a.className='aiLine show';a.innerHTML='<span class="lbl">PRIQ</span>'+ans;s.scrollTop=s.scrollHeight;},RM?50:900);
+}
+
+/* ================= CAPTURE / PALETTE ================= */
+function capSave(){var i=document.getElementById('capIn');if(!i.value.trim())return;toast('Filed. I read it as a note about Riverside — pinned, private to you, and I logged that I filed it.');i.value=''}
+function capVoice(){var m=document.getElementById('capMic');m.classList.add('rec');setTimeout(function(){m.classList.remove('rec');toast('Voice note captured (simulated) — filed to Nadia Rahman, private.')},RM?200:1500)}
+var PAL=[
+ {k:'Student',t:'Nadia Rahman — open her room',f:function(){go('student')}},
+ {k:'Program',t:'Riverside Medical Center — open the file',f:function(){go('program')}},
+ {k:'Action',t:'Prepare Nadia for Riverside',f:function(){runPrepare()}},
+ {k:'Action',t:'Run the live Copilot demo',f:function(){go('copilot');setTimeout(runDemo,300)}},
+ {k:'Action',t:'Open the Profile Lab lesson',f:function(){go('lab')}},
+ {k:'Action',t:'Review Nadia’s gameplan',f:function(){openModal('gameplan')}},
+ {k:'Action',t:'Mock interviewer notes — Riverside',f:function(){openModal('mocknotes')}},
+ {k:'Action',t:'Preview as Nadia',f:function(){openPreview()}},
+ {k:'Panel',t:'Control Panel — switches & budget',f:function(){go('panel')}},
+ {k:'Open',t:'StoryForge ↗',f:function(){toast('Opening StoryForge in Matrix.')}},
+ {k:'Open',t:'Timeline ↗',f:function(){toast('Opening Timeline in Matrix.')}},
+ {k:'Open',t:'RISE ↗',f:function(){toast('Opening RISE — it owns the registry.')}},
+ {k:'Open',t:'IV Prep On-Call ↗',f:function(){toast('Opening IV Prep On-Call.')}},
+ {k:'Open',t:'CAM ↗',f:function(){toast('Opening CAM in Matrix.')}}
+];
+var palHot=0;
+function openPal(){document.getElementById('pal').classList.add('on');document.getElementById('scrim').classList.add('on');var i=document.getElementById('palIn');i.value='';palFilter();setTimeout(function(){i.focus()},60)}
+function palFilter(){var q=document.getElementById('palIn').value.toLowerCase();palHot=0;var L=document.getElementById('palList');L.innerHTML='';PAL.filter(function(p){return !q||((p.k+' '+p.t).toLowerCase().indexOf(q)>-1)}).forEach(function(p,i){var r=document.createElement('div');r.className='palRow'+(i===0?' hot':'');r.innerHTML='<span class="k">'+p.k+'</span>'+p.t+'<span class="go">↵</span>';r.onclick=function(){closeAll();p.f()};r._f=p.f;L.appendChild(r)})}
+function palKey(e){var rows=[].slice.call(document.querySelectorAll('.palRow'));if(!rows.length)return;if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();palHot=(palHot+(e.key==='ArrowDown'?1:-1)+rows.length)%rows.length;rows.forEach(function(r,i){r.classList.toggle('hot',i===palHot)});rows[palHot].scrollIntoView({block:'nearest'})}else if(e.key==='Enter'){var r=rows[palHot];if(r){closeAll();r._f()}}}
+
+/* ================= PREPARE WORKFLOW ================= */
+var PREP_STAGES=[
+ ['Reading Nadia’s file','3 mocks · 11 stories · 42 timeline events'],
+ ['Reading the Riverside file','14 claims · 1 aging · Amir’s debrief included'],
+ ['Comparing the two','3 gaps found · the riskiest one is closing'],
+ ['Casting her stories','The Ledger leads · one story stays home'],
+ ['Writing her gameplan','Plain language · three things · one honest unknown'],
+ ['Checking honesty','Every line sourced · nothing pretends to be certain']
+];
+var prepTimers=[];
+function runPrepare(){
+  if(KILLED){toast('External AI is paused by the kill switch — release it in the Control Panel to prepare.');return}
+  prepTimers.forEach(clearTimeout);prepTimers=[];
+  var box=document.getElementById('prepStages');box.innerHTML='';
+  document.getElementById('prepFoot').classList.remove('on');
+  PREP_STAGES.forEach(function(s){
+    var d=document.createElement('div');d.className='pStage';
+    d.innerHTML='<span class="ic">◌</span><div style="flex:1;min-width:0"><div>'+s[0]+'</div><span class="d">'+s[1]+'</span></div>';
+    box.appendChild(d);
+  });
+  document.getElementById('prep').classList.add('on');document.getElementById('scrim').classList.add('on');
+  var rows=[].slice.call(box.children);
+  rows.forEach(function(r,i){
+    prepTimers.push(setTimeout(function(){r.classList.add('run');r.querySelector('.ic').textContent='●'},RM?0:i*420));
+    prepTimers.push(setTimeout(function(){r.classList.remove('run');r.classList.add('done');r.querySelector('.ic').textContent='✓'},RM?0:i*420+380));
+  });
+  prepTimers.push(setTimeout(function(){document.getElementById('prepFoot').classList.add('on');toast('Assembled from evidence that already existed — nothing was invented for speed.')},RM?100:PREP_STAGES.length*420+250));
+}
+
+/* ================= CONTROL PANEL ================= */
+var SWITCHES=[
+ ['Workspaces',[['Master PRIQ','Everything',true,true],['Admin workspace','You + mentors',true,false],['Student workspace','Global — overrides below win',false,false,'swStudentGlobalMirror']]],
+ ['Intelligence',[['Program intelligence','Rooms & people',true,false],['Student intelligence','Your students',true,false],['Public-web enrichment','Professional footprint only',true,false],['Photo & video observation','Review always required',true,false],['Career-arc intelligence','Facts vs themes, separated',true,false]]],
+ ['Live',[['Live Copilot','In-session cues',true,false],['Profile Lab','Live teaching mode',true,false]]],
+ ['New this release',[['Prediction report card','We grade our own guesses',true,false],['Parallel prep relay','Debriefs pay forward in hours',true,false],['Pressure curve','Next-dose recommendations',true,false],['Mirror mode','Needs recording consent flow',false,false],['Coaching autopilot drafts','Awaiting your approval style',false,false]]]
+];
+function buildSwitches(){
+  var L=document.getElementById('swList');L.innerHTML='';
+  SWITCHES.forEach(function(g){
+    var h=document.createElement('div');h.className='cpSec';h.textContent=g[0];L.appendChild(h);
+    g[1].forEach(function(s){
+      var r=document.createElement('div');r.className='swRow';
+      r.innerHTML='<div class="sl"><b>'+s[0]+'</b><span>'+s[1]+'</span></div><div class="sw'+(s[2]?' on':'')+(s[3]?' locked':'')+'" role="switch" tabindex="0" aria-checked="'+s[2]+'"></div>';
+      var sw=r.querySelector('.sw');
+      if(!s[3]){ sw.onclick=function(){flip(sw,s[0])}; sw.onkeydown=function(e){if(e.key==='Enter')flip(sw,s[0])} }
+      else { sw.title='Locked by safety interlock'; sw.onclick=function(){toast('Locked: this safety rule can’t be switched off — it protects the honesty of everything else.')} }
+      L.appendChild(r);
+    });
+  });
+}
+function flip(sw,label){
+  if(sw.classList.contains('locked'))return;
+  sw.classList.toggle('on');
+  var on=sw.classList.contains('on');
+  sw.setAttribute('aria-checked',on);
+  var aud=document.getElementById('audList');
+  var d=document.createElement('div');d.className='audRow';
+  d.innerHTML='<span class="when">Just now · Dr. Brian</span><b>'+label+'</b> — '+(on?'off → <b>on</b>':'on → <b>off</b>')+' · rollback available';
+  aud.insertBefore(d,aud.firstChild);
+  toast(label+' is now '+(on?'ON':'OFF')+'. Background jobs '+(on?'resume':'stop')+' with it — switches change behavior, not just buttons.');
+}
+function killSwitch(state){
+  KILLED=state;
+  document.body.classList.toggle('killed',state);
+  var b=document.getElementById('killBtn');
+  if(b){b.textContent=state?'⏻ Release — resume external AI':'⏻ Emergency: pause all external AI';b.classList.toggle('armed',state)}
+  document.getElementById('aiLightTx').textContent=state?'PRIQ · Paused':'PRIQ · Live';
+  document.querySelectorAll('[data-needs-ai]').forEach(function(x){x.disabled=state});
+  document.getElementById('footL').textContent=state?'External AI paused — existing intelligence read-only · detectors still live':'PRIQ watched 14 sources today · 2 changes worth your time';
+  var aud=document.getElementById('audList');
+  var d=document.createElement('div');d.className='audRow';
+  d.innerHTML='<span class="when">Just now · Dr. Brian</span><b>Kill switch</b> — '+(state?'engaged: all external model calls halted':'released: providers restored')+'';
+  if(aud)aud.insertBefore(d,aud.firstChild);
+  aiContext(VIEW);
+  toast(state?'All external AI calls halted. Everything already learned stays readable. Detectors stay live.':'External AI restored. Queued work resumes.');
+}
+function openPreview(){document.getElementById('preview').classList.add('on')}
+function closePreview(){document.getElementById('preview').classList.remove('on')}
+
+/* ================= PROFILE LAB ================= */
+var LAB=[
+ {t:'The career arc',sub:'Facts first',
+  stage:'<div class="srcStage"><div class="st-k">◈ Source · faculty page + registry</div><div class="st-t">Where she started is not where she ended.</div><div class="st-m">Community-hospital residency → built Riverside’s bedside-ultrasound program from nothing → Program Director, 2019.</div></div><div class="ladder"><div class="lrow"><span class="lk ob">Observed</span><span>The trajectory itself — verifiable, sourced, boring in the best way.</span></div><div class="lrow"><span class="lk po">Possible read</span><span>A builder from limited resources; may value resourcefulness and earned opportunity.</span></div><div class="lrow"><span class="lk al">Alternatives</span><span>Or she simply followed openings as they came. Arcs suggest themes; they never prove psychology.</span></div><div class="lrow"><span class="lk pr">Preparation</span><span>Have a story that authentically shows building or earning — Nadia has the Ledger.</span></div></div>',
+  script:'“Look at this trajectory with me. She didn’t begin where she ended. That doesn’t tell us how she thinks — it gives us a conversation hypothesis: growth, reinvention, building something from little. Which of your stories honestly shows that?”',
+  ask:['Which of your stories shows you building something?','What would make this hypothesis wrong?'],
+  conn:[['Connect: the Ledger story','ledger'],['Add line to gameplan','gp']]},
+ {t:'Listen: the podcast',sub:'Play 12:40 – 13:22',
+  stage:'<div class="srcStage"><div class="st-k">▶ Source · “Bedside Signal” ep. 41 · Mar 2025</div><div class="st-t">The disagreement question.</div><div class="st-m">“If a learner can teach it back to me at the bedside, I know it’s theirs.”</div><span class="tsChip" onclick="toast(\'In the full build this seeks the actual player to 12:40 and plays to 13:22.\')">▶ 12:40 – 13:22</span><span class="tsChip" onclick="toast(\'Timestamped quotes stay attached to their source forever.\')">Quote at 12:47</span></div><div class="ladder"><div class="lrow"><span class="lk ob">Observed</span><span>Asked about disagreeing with a colleague: pauses about two seconds, brief smile, then answers directly. No hedging.</span></div><div class="lrow"><span class="lk po">Possible read</span><span>Comfortable with controlled disagreement.</span></div><div class="lrow"><span class="lk al">Alternatives</span><span>Edited media; a familiar host; a rehearsed answer. One interview is one data point.</span></div><div class="lrow"><span class="lk nv">Never claim</span><span>“She likes being argued with.” We don’t know that.</span></div><div class="lrow"><span class="lk pr">Preparation</span><span>Don’t avoid disagreement. State your position calmly, explain it, stay warm.</span></div></div>',
+  script:'“Watch how she takes the question — the pause, the smile, then straight at it. We are not concluding she wants you to argue. We’re preparing you to disagree calmly if it comes, which is a skill you keep for life.”',
+  ask:['What did you notice in the two seconds before her answer?','How would you disagree with her — first sentence?'],
+  conn:[['Rehearse: calm disagreement','ivp'],['Connect: The Wrong Dose','dose']]},
+ {t:'Look: three photographs',sub:'Patterns, never single frames',
+  stage:'<div class="srcStage"><div class="st-k">◫ Source · program site photo set (synthetic placeholders)</div><div class="st-t">Three photos, three contexts.</div><div class="photoRow"><div class="photo" onclick="toast(\'Bedside teaching photo 1 of 3 — she leans toward the learner.\')"><div class="cap">Bedside · 2023</div></div><div class="photo" onclick="toast(\'Bedside teaching photo 2 — same inward lean, mid-demonstration.\')"><div class="cap">Bedside · 2024</div></div><div class="photo hot" onclick="toast(\'Faculty retreat photo — the region outline marks the observable cues, and only those.\')"><div class="cap">Retreat · 2024 · region marked</div></div></div></div><div class="ladder"><div class="lrow"><span class="lk ob">Observed</span><span>Bedside set: leans in, smiles, oriented toward trainees — consistent across three photos. Retreat frame: torso angled away, arms crossed, more distance.</span></div><div class="lrow"><span class="lk po">Possible read</span><span>Presents publicly as warm and physically engaged with learners. The retreat moment: possibly less engaged — <i>possibly.</i></span></div><div class="lrow"><span class="lk al">Alternatives</span><span>Staged pose · cold room · caught mid-transition · crop distorting distance.</span></div><div class="lrow"><span class="lk nv">Never claim</span><span>Feelings about any specific colleague. Relationships. Anything from one frame.</span></div><div class="lrow"><span class="lk pr">Preparation</span><span>Expect warmth with learners — the pattern with repetition behind it. Nothing else changes.</span></div></div>',
+  script:'“Here’s the discipline: one photo never makes a claim. Patterns across photos make hypotheses — and even then we hold alternatives. Now you tell me: what differs across these three, and what would change your read?”',
+  ask:['What differs across the three photos?','Which read has repetition behind it — and which is one moment?'],
+  conn:[['This discipline → her gameplan','gp']]},
+ {t:'The answer-first pattern',sub:'Text, timestamped',
+  stage:'<div class="srcStage"><div class="st-k">❝ Source · alumni reports + podcast, side by side</div><div class="st-t">How she wants answers shaped.</div><div class="st-m">“A friend who interviewed said she got impatient during a long wind-up.” — secondhand, 2024 · held loosely, and we say so.</div></div><div class="ladder"><div class="lrow"><span class="lk ob">Observed</span><span>Two reports of impatience with long setups; her own podcast answers run thesis-first.</span></div><div class="lrow"><span class="lk po">Possible read</span><span>Answer first, details after.</span></div><div class="lrow"><span class="lk al">Alternatives</span><span>One report is secondhand. She may simply have been pressed for time that day.</span></div><div class="lrow"><span class="lk pr">Preparation</span><span>Coach answer-first anyway — it’s good practice for every room, so the plan survives even if the read is wrong.</span></div></div>',
+  script:'“Notice we’re building preparation that wins even when a read is wrong. Answer-first costs you nothing if she turns out patient — and saves you if she doesn’t. Now: ‘Tell me about disagreeing with a superior.’ First sentence only.”',
+  ask:['Give me only your first sentence.','Why does this advice survive being wrong?'],
+  conn:[['Rehearse thesis-first','ivp']]},
+ {t:'Synthesis: honest and ready',sub:'What we never did',
+  stage:'<div class="srcStage"><div class="st-k">✓ The lesson, closed</div><div class="st-t">Observation → possible reads → alternatives → preparation.</div><div class="st-m">We never mind-read. We never diagnosed. We never concluded from one frame. And Nadia walks in more prepared than anyone who did.</div></div><div class="ladder"><div class="lrow"><span class="lk ob">We know</span><span>Journey opener · early interruptions · the curriculum is hers.</span></div><div class="lrow"><span class="lk po">Our reads</span><span>Rewards teaching · answer-first — both labeled, both loosely held.</span></div><div class="lrow"><span class="lk al">Open</span><span>Who joins her Thursday. The plan works either way.</span></div><div class="lrow"><span class="lk pr">Decisions</span><span>Ledger leads as a teach · resume-don’t-restart · answer first · one honest planted question.</span></div></div>',
+  script:'“Last thing, and it’s the whole lesson: this discipline is why you can trust the file. The moment we start pretending to know the unknowable, none of it is worth anything. Walk in honest. It reads as confidence — because it is.”',
+  ask:['What’s the one thing we still don’t know — and why doesn’t it scare you?'],
+  conn:[['Send persona to IV Prep','ivp'],['Finalize her gameplan','gp']]}
+];
+var labIdx=0;
+function renderLab(){
+  var steps=document.getElementById('labSteps');steps.innerHTML='';
+  LAB.forEach(function(s,i){
+    var d=document.createElement('div');
+    d.className='stepRow'+(i===labIdx?' cur':(i<labIdx?' done':''));
+    d.innerHTML='<span class="sn">'+(i<labIdx?'✓':(i+1))+'</span><div style="min-width:0;flex:1"><b>'+s.t+'</b><span>'+s.sub+'</span></div>';
+    d.onclick=function(){labIdx=i;renderLab()};
+    steps.appendChild(d);
+  });
+  document.getElementById('labProg').textContent='Step '+(labIdx+1)+' of '+LAB.length;
+  document.getElementById('labStage').innerHTML=LAB[labIdx].stage;
+  var pv=document.getElementById('labPriv');
+  var s=LAB[labIdx];
+  var connHtml=s.conn.map(function(c){return '<button class="connBtn" onclick="labConn(\''+c[1]+'\')">'+c[0]+'</button>'}).join('');
+  pv.innerHTML='<div class="pcard"><div class="pk">✦ Teaching script · your voice</div><div class="script">'+s.script+'</div></div>'
+    +'<div class="pcard"><div class="pk">? Ask her now</div>'+s.ask.map(function(a){return '<button class="askChip" onclick="toast(\'Marked as asked — her answer becomes part of her learning record.\')">'+a+'</button>'}).join('')+'</div>'
+    +'<div class="pcard"><div class="pk">⇄ Connect</div><div class="connRow">'+connHtml+'</div></div>';
+  document.getElementById('labPrev').disabled = labIdx===0;
+  document.getElementById('labNext').textContent = labIdx===LAB.length-1 ? 'Finish lesson ✓' : 'Next step →';
+}
+function labStep(d){
+  if(d>0 && labIdx===LAB.length-1){toast('Lesson logged to Nadia’s history — the method is hers now. That was the point.');go('student');return}
+  labIdx=Math.max(0,Math.min(LAB.length-1,labIdx+d));renderLab();
+}
+function labConn(k){
+  if(k==='ledger')openModal('cast-ledger');
+  else if(k==='dose')openModal('cast-dose');
+  else if(k==='gp')toast('Line added to Nadia’s gameplan draft — awaiting your approval, as always.');
+  else if(k==='ivp')toast('Sent to IV Prep — bounded style package, never an impersonation.');
+}
+
+/* ================= COPILOT DEMO ================= */
+var demoTimers=[],demoOn=false,secs=0,cuesUsed=0,marked=false;
+var SCRIPT=[
+ {t:400,who:'brian',say:'Let’s run the teamwork question one more time. Nadia — tell me about a time you improved something for your team.'},
+ {t:3800,who:'nadia',say:'Sure. So — during my sub-internship we had, um, frequent power interruptions on the ward, and handoffs kept getting lost…'},
+ {t:6800,cue:{cls:'story',k:'Story match',b:'This is the <b>Ledger</b> — she’s circling it in the abstract. Steer her to the version she built.',act:'Open casting',fn:function(){openModal('cast-ledger')}}},
+ {t:9800,who:'nadia',say:'…so we — well, there was a system we made, with paper backups, and it helped…'},
+ {t:12300,cue:{cls:'blind',k:'Blind spot',b:'<b>“We made”</b> — she built it alone. One question fixes it: <i>whose idea was it?</i>',act:'Used it',fn:function(){logCue()}}},
+ {t:15300,who:'brian',say:'Hold on — whose idea was the paper system?'},
+ {t:18200,who:'nadia',say:'…Mine. I built it.'},
+ {t:20200,cue:{cls:'moment',k:'Moment worth keeping',b:'There it is — <b>“I built it.”</b> Mark it and play it back to her after the session.',act:'Mark moment',fn:function(){marked=true;refreshLog();toast('Moment marked — 18:07 in the session replay.')}}},
+ {t:22400,who:'nadia',say:'I built it because I watched a nurse spend forty minutes reconstructing a med list, and I—'},
+ {t:26200,who:'brian',say:'Why paper? Why not the electronic downtime protocol?'},
+ {t:29200,who:'nadia',say:'I— um, I think maybe the—',hes:true},
+ {t:31200,cue:{cls:'nudge',k:'Nudge',b:'She’s about to restart. One word from you: <b>“resume.”</b>',act:'Used it',fn:function(){logCue()}}},
+ {t:34400,who:'nadia',say:'—the downtime protocol assumed the outage was short. Ours weren’t. So the ledger had to survive a whole shift.'},
+ {t:37600,cue:{cls:'heads',k:'Heads-up',b:'That answer, at that speed, is exactly <b>Dr. Vasquez’s tempo</b>. Thursday-ready.'}},
+ {t:41200,cue:{cls:'pred',k:'Likely follow-up',b:'Her style: <b>“What would you change about it now?”</b> Worth one rehearsal tonight.',act:'Add to tonight',fn:function(){logCue()}}},
+ {t:44600,cue:{cls:'story',k:'Practice suggestion',b:'Queue <b>IV Prep</b>: Engaged Interrupter, ten minutes, focus “resume under fire.”',act:'Send to IV Prep',fn:function(){logCue();toast('IV Prep configured — waiting for Nadia tonight.')}}},
+ {t:47600,end:true}
+];
+function runDemo(){
+  if(demoOn)return;
+  if(KILLED){toast('External AI is paused — the Copilot would run in detectors-only mode. Release the kill switch for the full demo.');return}
+  demoOn=true;secs=0;cuesUsed=0;marked=false;
+  document.getElementById('txIdle').style.display='none';
+  document.getElementById('cueIdle').style.display='none';
+  document.getElementById('txWrap').style.display='flex';document.getElementById('txWrap').innerHTML='';
+  document.getElementById('cueWrap').style.display='flex';document.getElementById('cueWrap').innerHTML='';
+  document.getElementById('instRow').style.display='flex';
+  document.getElementById('sessLog').style.display='flex';refreshLog();
+  document.getElementById('liveDot').style.display='';
+  document.getElementById('liveTitle').innerHTML='LIVE · <em>Nadia Rahman</em>';
+  document.getElementById('demoBtn').style.display='none';
+  document.getElementById('endBtn').style.display='';
+  document.getElementById('aiState').textContent='Listening · Live';
+  var speed = RM ? .35 : 1;
+  var tick=setInterval(function(){secs++;var m=Math.floor(secs/60),s=secs%60;document.getElementById('timer').textContent=(m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+    var bal=Math.min(64,42+secs*0.55);document.getElementById('balN').style.width=bal+'%';document.getElementById('balPct').textContent=Math.round(bal)+'%';
+    var p=document.getElementById('paceChip');
+    if(secs<14){p.textContent='Pace · rushing';p.className='paceChip rush'}
+    else if(secs<32){p.textContent='Pace · settling';p.className='paceChip'}
+    else{p.textContent='Pace · Thursday tempo';p.className='paceChip good'}
+  },1000);demoTimers.push(tick);
+  SCRIPT.forEach(function(b){
+    var h=setTimeout(function(){
+      if(b.end){endDemo(false);return}
+      if(b.say){
+        var w=document.getElementById('txWrap');
+        var d=document.createElement('div');d.className='turn '+b.who;
+        d.innerHTML='<div class="who">'+(b.who==='brian'?'Dr. Brian':'Nadia')+'</div><div class="say">'+b.say+(b.hes?' <i>(a pause — the old restart moment)</i>':'')+'</div>';
+        w.appendChild(d);w.scrollTop=w.scrollHeight;
+      }
+      if(b.cue){
+        var c=document.getElementById('cueWrap');
+        var live=c.querySelectorAll('.cue:not(.gone)');
+        if(live.length>=2){live[0].classList.add('gone')} // governor: max 2 visible
+        var d2=document.createElement('div');d2.className='cue '+b.cue.cls;
+        var acts='<div class="acts">'+(b.cue.act?'<button class="cueBtn go">'+b.cue.act+'</button>':'')+'<button class="cueBtn">Wave away</button></div>';
+        d2.innerHTML='<div class="k">'+b.cue.k+'</div><div class="b">'+b.cue.b+'</div>'+acts;
+        var btns=d2.querySelectorAll('.cueBtn');
+        if(b.cue.act){btns[0].onclick=function(){(b.cue.fn||logCue)();d2.classList.add('gone');btns[0].textContent='✓ Done';btns[0].disabled=true}}
+        btns[btns.length-1].onclick=function(){d2.classList.add('gone');toast('Waved away — PRIQ learns your taste from every dismissal.')};
+        c.appendChild(d2);c.scrollTop=c.scrollHeight;
+        requestAnimationFrame(function(){requestAnimationFrame(function(){d2.classList.add('show')})});
+        var n=c.querySelectorAll('.cue').length;
+        document.getElementById('cueCount').textContent=n+' cue'+(n>1?'s':'')+' · two at most, on screen';
+      }
+    },b.t*speed);
+    demoTimers.push(h);
+  });
+}
+function logCue(){cuesUsed++;refreshLog()}
+function refreshLog(){document.getElementById('logTxt').innerHTML='<b>'+cuesUsed+'</b>&nbsp;cue'+(cuesUsed===1?'':'s')+' used this session';document.getElementById('logMark').textContent=marked?'1 moment marked':''}
+function endDemo(manual){
+  demoTimers.forEach(clearTimeout);demoTimers.forEach(clearInterval);demoTimers=[];
+  if(!demoOn)return;demoOn=false;
+  document.getElementById('liveDot').style.display='none';
+  document.getElementById('liveTitle').innerHTML='Session <em>logged</em>';
+  document.getElementById('endBtn').style.display='none';
+  var b=document.getElementById('demoBtn');b.style.display='';b.innerHTML='↺ Run it again';
+  document.getElementById('aiState').textContent='Watching · 14 sources';
+  toast('Session logged to Nadia’s history. Her growth chart, pressure curve, and gameplan just updated themselves.');
+}
+
+/* ================= BOOT ================= */
+buildSwitches();
+renderLab();
+aiContext('today');
+</script>
+</body>
+</html>

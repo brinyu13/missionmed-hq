@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "missionmed://priq/private-upload-manifest/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["logicalName", "expectedClass", "filename", "mediaType", "byteLength", "sha256", "subjectId", "consentBasis", "retentionUntil"],
+  "properties": {
+    "logicalName": { "type": "string", "minLength": 1 },
+    "expectedClass": { "enum": ["cv", "personal_statement", "application", "recommendation", "transcript", "storyforge_export", "audio", "video", "other"] },
+    "filename": { "type": "string", "minLength": 1 },
+    "mediaType": { "type": "string", "pattern": "^(application|audio|video|text)/" },
+    "byteLength": { "type": "integer", "minimum": 1 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "subjectId": { "type": "string", "minLength": 1 },
+    "consentBasis": { "type": "string", "minLength": 1 },
+    "retentionUntil": { "type": "string", "format": "date-time" }
+  }
+}

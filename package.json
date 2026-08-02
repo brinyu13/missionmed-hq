@@ -67,10 +67,21 @@
     "start": "node missionmed-hq/server.mjs",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/**/*.spec.ts",
-    "build": "echo build-placeholder"
+    "build": "npm run priq:build",
+    "priq:start": "tsx apps/priq-api/src/server.ts",
+    "priq:dev": "PRIQ_DEV_AUTH=true PRIQ_PORT=4310 tsx apps/priq-api/src/server.ts",
+    "priq:build": "tsx scripts/priq-build.ts",
+    "priq:preview": "PRIQ_DEV_AUTH=true PRIQ_WEB_ROOT=apps/priq-web/dist PRIQ_PORT=4312 tsx apps/priq-api/src/server.ts",
+    "priq:test": "tsx --test tests/priq/*.spec.ts",
+    "priq:a11y": "tsx scripts/priq-a11y-check.ts",
+    "priq:visual": "tsx scripts/priq-visual-check.ts",
+    "priq:check": "npm run typecheck && npm run priq:test && npm run priq:a11y && npm run priq:visual && npm run priq:build"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs"
+  "type": "commonjs",
+  "devDependencies": {
+    "@types/node": "^26.1.2"
+  }
 }

@@ -1,0 +1,15 @@
+{
+  "snapshotDate": "2026-08-02",
+  "note": "Text prices verified from official OpenAI model pages on 2026-08-02. Non-text capabilities remain disabled until their unit pricing is modeled.",
+  "routes": {
+    "reasoning_high": { "provider": "openai", "model": "gpt-5.6-sol", "reasoningEffort": "high", "inputUsdPerMillion": 5, "outputUsdPerMillion": 30 },
+    "extraction_fast": { "provider": "openai", "model": "gpt-5.6-luna", "reasoningEffort": "low", "inputUsdPerMillion": 1, "outputUsdPerMillion": 6 },
+    "multimodal_precise": { "provider": "openai", "model": "gpt-5.6-sol", "reasoningEffort": "medium", "inputUsdPerMillion": 5, "outputUsdPerMillion": 30 },
+    "live_cue_low_latency": { "provider": "openai", "model": "gpt-5.6-luna", "reasoningEffort": "none", "inputUsdPerMillion": 1, "outputUsdPerMillion": 6 },
+    "embedding_default": { "provider": "local-worker", "model": "embedding-unconfigured", "inputUsdPerMillion": 0, "outputUsdPerMillion": 0 },
+    "rerank_default": { "provider": "local-worker", "model": "cross-encoder-unconfigured", "inputUsdPerMillion": 0, "outputUsdPerMillion": 0 },
+    "speech_transcription": { "provider": "local-worker", "model": "speech-pricing-unconfigured", "inputUsdPerMillion": 0, "outputUsdPerMillion": 0 },
+    "policy_check": { "provider": "local-worker", "model": "deterministic-policy-v1", "inputUsdPerMillion": 0, "outputUsdPerMillion": 0 },
+    "batch_refresh": { "provider": "openai", "model": "gpt-5.6-terra", "reasoningEffort": "low", "inputUsdPerMillion": 2.5, "outputUsdPerMillion": 15 }
+  }
+}

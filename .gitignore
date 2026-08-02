@@ -22,6 +22,7 @@ venv/
 *.env
 .env
 .env.*
+!.env.example
 *.key
 *.pem
 *secret*
@@ -73,3 +74,8 @@ _AI_HANDOFFS/**
 *token*
 _SYSTEM/r2.env
 **/.DS_Store
+.local/
+
+# Track safe templates and required Markdown handoffs after the sensitive reassertions.
+!.env.example
+!_AI_HANDOFFS/from_codex/P1-PRIQ-M0-001/P1_PRQ_M0_PROVIDER_AND_CREDENTIAL_SETUP.md
