@@ -43,6 +43,9 @@ export class LiveAvatarBrowserProvider extends AvatarProvider {
     this.startedAt = null;
     this.reconnects = 0;
     this.attached = [];
+    this.videoReady = false;
+    this.audioReady = false;
+    this.audioPlaybackReady = false;
   }
 
   #setState(state, extra = {}) {
@@ -78,73 +81,153 @@ export class LiveAvatarBrowserProvider extends AvatarProvider {
   async start() {
     if (!this.sessionId) throw new Error('Create the avatar session before starting it.');
     this.#setState('connecting');
-    const payload = await this.#request('/api/avatar/session/start', { sessionId: this.sessionId });
-    const { Room, RoomEvent } = await import('/vendor/livekit-client.esm.mjs');
-    const room = new Room({ adaptiveStream: true, dynacast: true });
-    this.room = room;
-    room.on(RoomEvent.TrackSubscribed, (track) => {
-      if (!['video', 'audio'].includes(track.kind)) return;
-      const element = track.attach();
-      element.autoplay = true;
-      if (track.kind === 'video') {
-        element.id = 'live-avatar-video';
-        element.setAttribute('aria-label', 'Live synchronized interviewer avatar');
-        element.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;background:#070b12';
-      } else {
-        element.hidden = true;
+    const sessionId = this.sessionId;
+    try {
+      const payload = await this.#request('/api/avatar/session/start', { sessionId });
+      const { Room, RoomEvent } = await import('/vendor/livekit-client.esm.mjs');
+      const room = new Room({ adaptiveStream: true, dynacast: true });
+      this.room = room;
+      let resolveVideo;
+      const videoSubscribed = new Promise((resolve) => { resolveVideo = resolve; });
+      const removeTrack = (track) => {
+        const retained = [];
+        for (const attached of this.attached) {
+          if (attached.track !== track) { retained.push(attached); continue; }
+          try { attached.track.detach(attached.element); } catch {}
+          attached.element.remove();
+        }
+        this.attached = retained;
+        if (track.kind === 'video') {
+          this.videoReady = false;
+          this.#setState('disconnected', { reason: 'Live avatar video was interrupted. Voice-only remains available.' });
+        }
+        if (track.kind === 'audio') this.audioReady = false;
+      };
+      room.on(RoomEvent.TrackSubscribed, (track) => {
+        if (!['video', 'audio'].includes(track.kind)) return;
+        for (const existing of this.attached.filter((entry) => entry.track.kind === track.kind)) removeTrack(existing.track);
+        const element = track.attach();
+        element.autoplay = true;
+        element.playsInline = true;
+        if (track.kind === 'video') {
+          element.id = 'live-avatar-video';
+          element.setAttribute('aria-label', 'Live synchronized interviewer avatar');
+          element.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:none;z-index:2;background:#070b12';
+          this.videoReady = true;
+          resolveVideo();
+        } else {
+          element.hidden = true;
+          this.audioReady = true;
+        }
+        this.videoContainer?.append(element);
+        this.attached.push({ track, element });
+        if (this.videoReady && this.audioPlaybackReady) this.#setState('live');
+        else if (this.videoReady) this.#setState('video-ready');
+      });
+      room.on(RoomEvent.TrackUnsubscribed, removeTrack);
+      room.on(RoomEvent.Disconnected, () => {
+        for (const attached of [...this.attached]) removeTrack(attached.track);
+        this.videoReady = false;
+        this.audioReady = false;
+        this.#setState('disconnected', { reason: 'Live avatar connection was interrupted. Voice-only remains available.' });
+      });
+      room.on(RoomEvent.Reconnecting, () => this.#setState('reconnecting'));
+      room.on(RoomEvent.Reconnected, () => this.#setState(this.videoReady && this.audioPlaybackReady ? 'live' : 'connecting'));
+      if (RoomEvent.AudioPlaybackStatusChanged) {
+        room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+          this.audioPlaybackReady = room.canPlaybackAudio !== false;
+          if (!this.audioPlaybackReady) {
+            this.lastError = 'Browser audio playback requires a user gesture.';
+            this.#setState('audio-blocked', { reason: this.lastError });
+          } else if (this.videoReady) {
+            this.lastError = null;
+            this.#setState('live');
+          }
+        });
       }
-      this.videoContainer?.append(element);
-      this.attached.push({ track, element });
-      if (track.kind === 'video') this.#setState('live');
-    });
-    room.on(RoomEvent.Disconnected, () => this.#setState('disconnected'));
-    room.on(RoomEvent.Reconnecting, () => this.#setState('reconnecting'));
-    room.on(RoomEvent.Reconnected, () => this.#setState('live'));
-    await room.connect(payload.livekitUrl, payload.livekitClientToken, { autoSubscribe: true });
-    this.startedAt = Date.now();
-    return { status: this.state, sessionId: this.sessionId };
+      await room.connect(payload.livekitUrl, payload.livekitClientToken, { autoSubscribe: true });
+      if (typeof room.startAudio === 'function') await room.startAudio().catch(() => {});
+      this.audioPlaybackReady = room.canPlaybackAudio !== false;
+      await Promise.race([
+        videoSubscribed,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Live avatar video did not become ready.')), 20_000)),
+      ]);
+      if (!this.videoReady) throw new Error('Live avatar video did not become ready.');
+      this.startedAt = Date.now();
+      this.#setState(this.audioPlaybackReady ? 'live' : 'audio-blocked', this.audioPlaybackReady ? {} : { reason: 'Browser audio playback requires a user gesture.' });
+      return { status: this.state, sessionId: this.sessionId, videoReady: true, audioReady: this.audioReady, audioPlaybackReady: this.audioPlaybackReady };
+    } catch (error) {
+      this.lastError = publicError(error, 'Live avatar media could not start.').message;
+      try { await this.#request('/api/avatar/session/stop', { sessionId, reason: 'SERVER_ERROR' }); } catch {}
+      await this.#detach();
+      this.sessionId = null;
+      this.#setState('unavailable', { reason: this.lastError });
+      throw publicError(error, 'Live avatar media could not start.');
+    }
   }
 
-  async enqueueAudio(audio) {
+  async enqueueAudio(audio, { signal } = {}) {
     if (!this.sessionId) return { accepted: false, reason: 'No avatar session is active.' };
     const bytes = audio instanceof ArrayBuffer ? new Uint8Array(audio) : audio;
     if (!bytes?.byteLength) return { accepted: false, reason: 'No avatar audio was supplied.' };
     const eventId = crypto.randomUUID();
     const chunkSize = 48_000;
     let chunks = 0;
+    let finalResponse = null;
     for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      if (signal?.aborted) return { accepted: true, playbackEnded: false, reason: 'interrupted', eventId, bytes: offset, chunks, final: false };
       const chunk = bytes.subarray(offset, Math.min(bytes.length, offset + chunkSize));
       let binary = '';
       for (let binaryOffset = 0; binaryOffset < chunk.length; binaryOffset += 0x8000) {
         binary += String.fromCharCode(...chunk.subarray(binaryOffset, binaryOffset + 0x8000));
       }
       const final = offset + chunk.length >= bytes.length;
-      await this.#request('/api/avatar/session/audio', {
+      finalResponse = await this.#request('/api/avatar/session/audio', {
         sessionId: this.sessionId,
         eventId,
         final,
         pcmBase64: btoa(binary),
       });
       chunks += 1;
+      if (signal?.aborted) return { accepted: true, playbackEnded: false, reason: 'interrupted', eventId, bytes: offset + chunk.length, chunks, final };
     }
-    return { accepted: true, eventId, bytes: bytes.byteLength, chunks, final: true };
+    return { ...finalResponse, accepted: finalResponse?.accepted !== false, eventId, bytes: bytes.byteLength, chunks, final: true };
   }
 
   async attachAudioStream(stream) {
     if (!stream?.getReader) throw new TypeError('Avatar audio stream must be a readable byte stream.');
     const reader = stream.getReader();
-    let chunks = 0;
+    const buffers = [];
+    let byteLength = 0;
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      if (value?.byteLength) { await this.enqueueAudio(value); chunks += 1; }
+      if (value?.byteLength) { buffers.push(value); byteLength += value.byteLength; }
     }
-    return { accepted: true, chunks };
+    if (!byteLength) return { accepted: false, reason: 'No avatar audio was supplied.' };
+    const audio = new Uint8Array(byteLength);
+    let offset = 0;
+    for (const buffer of buffers) { audio.set(buffer, offset); offset += buffer.byteLength; }
+    const result = await this.enqueueAudio(audio);
+    return { ...result, sourceChunks: buffers.length };
   }
 
   async interrupt() {
     if (!this.sessionId) return { interrupted: false };
     return this.#request('/api/avatar/session/interrupt', { sessionId: this.sessionId });
+  }
+
+  async resumeAudio() {
+    if (!this.room) return { available: false, reason: 'No live avatar media room is connected.' };
+    if (typeof this.room.startAudio === 'function') await this.room.startAudio();
+    this.audioPlaybackReady = this.room.canPlaybackAudio !== false;
+    if (this.audioPlaybackReady && this.videoReady) {
+      this.lastError = null;
+      this.#setState('live');
+    } else {
+      this.#setState('audio-blocked', { reason: 'Browser audio playback is still blocked.' });
+    }
+    return { available: this.audioPlaybackReady && this.videoReady, audioPlaybackReady: this.audioPlaybackReady };
   }
 
   async stop(reason = 'stopped') {
@@ -158,12 +241,13 @@ export class LiveAvatarBrowserProvider extends AvatarProvider {
   async reconnect() {
     if (!this.sessionId) throw new Error('No avatar session is available to reconnect.');
     this.reconnects += 1;
-    await this.#detach();
-    return this.start();
+    const result = await this.#request('/api/avatar/session/reconnect', { sessionId: this.sessionId });
+    this.#setState(this.videoReady && this.audioPlaybackReady ? 'live' : 'reconnecting');
+    return { ...result, videoReady: this.videoReady, audioReady: this.audioReady, audioPlaybackReady: this.audioPlaybackReady };
   }
 
   health() {
-    return { provider: 'liveavatar', available: this.state === 'live', state: this.state, reconnects: this.reconnects, reason: this.lastError };
+    return { provider: 'liveavatar', available: this.state === 'live' && this.videoReady && this.audioPlaybackReady, state: this.state, videoReady: this.videoReady, audioReady: this.audioReady, audioPlaybackReady: this.audioPlaybackReady, reconnects: this.reconnects, reason: this.lastError };
   }
 
   usage() {
@@ -179,6 +263,9 @@ export class LiveAvatarBrowserProvider extends AvatarProvider {
       try { await this.room.disconnect(); } catch {}
       this.room = null;
     }
+    this.videoReady = false;
+    this.audioReady = false;
+    this.audioPlaybackReady = false;
   }
 
   async close() {

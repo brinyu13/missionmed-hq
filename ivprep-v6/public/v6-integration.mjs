@@ -24,6 +24,8 @@ const state = {
   roundTripMs: null,
   muted: false,
   paused: false,
+  interviewerSpeaking: false,
+  avatarSpeechActive: false,
   currentAudio: null,
   currentAudioUrl: null,
   currentPlaybackSettle: null,
@@ -38,6 +40,7 @@ const state = {
   selectedInterviewerId: 'senior-academic-pd-male',
   alphaSessionId: null,
   alphaSessionStarting: null,
+  alphaSessionEnding: null,
   alphaMode: null,
   alphaDisabled: false,
   usageLedger: [],
@@ -72,6 +75,14 @@ function architectureFor(modelId) {
     || (String(modelId).startsWith('gpt-realtime') ? 'native-realtime-voice' : 'responses-openai-speech');
 }
 
+function setInterviewerSpeaking(active, streaming = active ? 'streaming' : 'complete') {
+  state.interviewerSpeaking = Boolean(active);
+  state.streaming = streaming;
+  micController.setInterviewerSpeaking(Boolean(active));
+  bridge.setIvState(active ? 'speaking' : 'idle');
+  renderDiagnostics();
+}
+
 function base64Audio(base64, contentType) {
   const raw = atob(base64);
   const bytes = new Uint8Array(raw.length);
@@ -103,10 +114,9 @@ function interruptAudio(reason = 'interrupted') {
   state.currentAudioUrl = null;
   const settle = state.currentPlaybackSettle;
   state.currentPlaybackSettle = null;
-  state.streaming = reason;
-  micController.setInterviewerSpeaking(false);
-  if (avatar.health().available) avatar.interrupt().catch(() => {});
-  renderDiagnostics();
+  state.avatarSpeechActive = false;
+  setInterviewerSpeaking(false, reason);
+  if (avatar.sessionId) avatar.interrupt().catch(() => {});
   if (settle) settle();
 }
 
@@ -146,9 +156,11 @@ async function ensureAlphaSession() {
           maxSessionDuration: Math.min(20, payload.session.durationMinutes) * 60,
         });
         await avatar.start();
+        await persistAlphaEvent({ avatarStarted: true, deliveryMode: 'avatar', deliveryReason: 'live-media-ready' });
       } catch (error) {
         state.avatarNotice = `Live avatar unavailable: ${publicError(error).message} Voice-only remains active.`;
         state.alphaMode = 'voice-only';
+        await persistAlphaEvent({ deliveryMode: 'voice-only', deliveryReason: 'avatar-start-failed' });
         renderAvatarState();
       }
     }
@@ -169,19 +181,33 @@ async function persistAlphaEvent(event) {
 }
 
 async function endAlphaSession(terminationState = 'completed', { keepalive = false } = {}) {
+  if (state.alphaSessionEnding) return state.alphaSessionEnding;
   if (!state.alphaSessionId) return;
   const id = state.alphaSessionId;
-  state.alphaSessionId = null;
-  try {
-    if (avatar.health().state !== 'idle') await avatar.stop(terminationState);
-    await jsonRequest(`/api/alpha-sessions/${encodeURIComponent(id)}/end`, {
-      method: 'POST',
-      body: JSON.stringify({ terminationState }),
-      keepalive,
-    });
-  } catch (error) {
-    state.lastError = `Cleanup: ${publicError(error).message}`;
-  }
+  state.alphaSessionEnding = (async () => {
+    const errors = [];
+    let persisted = false;
+    const persistEnd = async () => {
+      await jsonRequest(`/api/alpha-sessions/${encodeURIComponent(id)}/end`, {
+        method: 'POST',
+        body: JSON.stringify({ terminationState }),
+        keepalive,
+      });
+      persisted = true;
+    };
+    if (keepalive) {
+      try { await persistEnd(); } catch (error) { errors.push(error); }
+      try { if (avatar.health().state !== 'idle') await avatar.stop(terminationState); } catch (error) { errors.push(error); }
+    } else {
+      try { if (avatar.health().state !== 'idle') await avatar.stop(terminationState); } catch (error) { errors.push(error); }
+      try { await persistEnd(); } catch (error) { errors.push(error); }
+    }
+    if (persisted && state.alphaSessionId === id) state.alphaSessionId = null;
+    if (errors.length) state.lastError = `Cleanup: ${publicError(errors[0]).message}`;
+    return { persisted, errors: errors.length };
+  })();
+  try { return await state.alphaSessionEnding; }
+  finally { state.alphaSessionEnding = null; }
 }
 
 async function playBlob(blob, telemetry = {}) {
@@ -190,11 +216,8 @@ async function playBlob(blob, telemetry = {}) {
   const audio = new Audio(url);
   state.currentAudioUrl = url;
   state.currentAudio = audio;
-  state.streaming = 'streaming';
   state.latencyMs = telemetry.latencyMs ?? state.latencyMs;
-  bridge.setIvState('speaking');
-  micController.setInterviewerSpeaking(true);
-  renderDiagnostics();
+  setInterviewerSpeaking(true, 'streaming');
   return new Promise((resolve, reject) => {
     let settled = false;
     const finish = (error, reason = 'complete') => {
@@ -205,9 +228,7 @@ async function playBlob(blob, telemetry = {}) {
         state.currentAudio = null;
         state.currentAudioUrl = null;
         state.currentPlaybackSettle = null;
-        state.streaming = reason;
-        micController.setInterviewerSpeaking(false);
-        renderDiagnostics();
+        setInterviewerSpeaking(false, reason);
       }
       if (error) reject(error); else resolve();
     };
@@ -224,19 +245,44 @@ async function speak(text) {
   await ensureAlphaSession();
   if (state.alphaMode === 'avatar' && avatar.health().available) {
     const startedAt = performance.now();
-    const response = await fetch('/api/speech', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input: text, selection: { presetId: state.voicePresetId, voiceId: state.voiceId, speed: state.voiceSpeed, format: 'pcm' } }),
-    });
-    if (!response.ok) throw publicError(await response.json().catch(() => ({})), 'OpenAI Speech request failed.');
-    const result = await avatar.enqueueAudio(await response.arrayBuffer());
-    if (!result?.accepted) throw new Error(result?.reason || 'Live avatar rejected the interviewer audio.');
-    state.latencyMs = Number(response.headers.get('X-IVPrep-Latency-Ms')) || Math.round(performance.now() - startedAt);
-    state.roundTripMs = Math.round(performance.now() - startedAt);
-    state.streaming = 'complete';
+    if (state.activeSpeechController) state.activeSpeechController.abort('superseded');
+    const controller = new AbortController();
+    state.activeSpeechController = controller;
+    state.streaming = 'generating';
+    bridge.setIvState('thinking');
     renderDiagnostics();
-    return;
+    try {
+      const response = await fetch('/api/speech', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({ input: text, selection: { presetId: state.voicePresetId, voiceId: state.voiceId, speed: state.voiceSpeed, format: 'pcm' } }),
+      });
+      if (!response.ok) throw publicError(await response.json().catch(() => ({})), 'OpenAI Speech request failed.');
+      const audio = await response.arrayBuffer();
+      if (controller.signal.aborted) return;
+      state.avatarSpeechActive = true;
+      setInterviewerSpeaking(true, 'streaming');
+      const result = await avatar.enqueueAudio(audio, { signal: controller.signal });
+      if (!result?.accepted) throw new Error(result?.reason || 'Live avatar rejected the interviewer audio.');
+      if (result.playbackEnded === false && result.reason !== 'interrupted') {
+        state.alphaMode = 'voice-only';
+        state.avatarNotice = 'Live avatar playback did not complete. Continuing with the same intelligence and OpenAI voice only.';
+        await persistAlphaEvent({ deliveryMode: 'voice-only', deliveryReason: 'avatar-playback-failed' });
+        renderAvatarState();
+        throw new Error('Live avatar playback did not complete. Continue in voice-only mode.');
+      }
+      state.latencyMs = Number(response.headers.get('X-IVPrep-Latency-Ms')) || Math.round(performance.now() - startedAt);
+      state.roundTripMs = Math.round(performance.now() - startedAt);
+      return;
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      throw error;
+    } finally {
+      if (state.activeSpeechController === controller) state.activeSpeechController = null;
+      state.avatarSpeechActive = false;
+      setInterviewerSpeaking(false, state.streaming === 'interrupted' ? 'interrupted' : 'complete');
+    }
   }
   if (state.pendingAudio?.utterance === text) {
     const pending = state.pendingAudio;
@@ -562,7 +608,7 @@ function ensureRoomControls() {
   interrupt.className = 'btnGhost';
   interrupt.textContent = 'Interrupt interviewer';
   interrupt.onclick = () => {
-    if (!state.currentAudio) return bridge.toast('The interviewer is not speaking.');
+    if (!state.interviewerSpeaking) return bridge.toast('The interviewer is not speaking.');
     interruptAudio('interrupted');
     if (!bridge.recording) bridge.beginRec();
   };
@@ -583,7 +629,10 @@ function ensureRoomControls() {
     state.avatarEnabled = !state.avatarEnabled;
     avatarToggle.textContent = state.avatarEnabled ? 'Avatar on' : 'Avatar off';
     if (!state.avatarEnabled) {
+      interruptAudio('avatar-off');
+      avatarToggle.disabled = true;
       await avatar.stop('founder-avatar-off').catch(() => {});
+      avatarToggle.disabled = false;
       state.alphaMode = 'voice-only';
       state.avatarNotice = 'Avatar is off. The interviewer intelligence and voice are unchanged.';
     } else if (!state.avatarProviderReady) {
@@ -593,7 +642,24 @@ function ensureRoomControls() {
     }
     renderAvatarState();
   };
-  buttons.append(mute, interrupt, avatarToggle, end);
+  const enableAvatarAudio = document.createElement('button');
+  enableAvatarAudio.id = 'enable-avatar-audio';
+  enableAvatarAudio.className = 'btnGhost';
+  enableAvatarAudio.textContent = 'Enable avatar audio';
+  enableAvatarAudio.hidden = true;
+  enableAvatarAudio.onclick = async () => {
+    enableAvatarAudio.disabled = true;
+    try {
+      const result = await avatar.resumeAudio();
+      if (!result.available) bridge.toast('Avatar audio is still blocked. Voice-only remains available.');
+    } catch (error) {
+      state.avatarNotice = `Avatar audio unavailable: ${publicError(error).message} Voice-only remains available.`;
+    } finally {
+      enableAvatarAudio.disabled = false;
+      renderAvatarState();
+    }
+  };
+  buttons.append(mute, interrupt, avatarToggle, enableAvatarAudio, end);
   const typed = document.createElement('form');
   typed.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
   const input = document.createElement('textarea');
@@ -607,7 +673,7 @@ function ensureRoomControls() {
   submit.textContent = 'Submit typed answer';
   typed.onsubmit = (event) => {
     event.preventDefault();
-    if (state.currentAudio) return bridge.toast('Interrupt the interviewer before submitting an answer.');
+    if (state.interviewerSpeaking) return bridge.toast('Interrupt the interviewer before submitting an answer.');
     if (!bridge.recording) {
       if (bridge.view !== 'room' || state.activeExchangeController) return bridge.toast('Wait until the interviewer finishes and the answer window reopens.');
       bridge.beginRec();
@@ -637,6 +703,10 @@ function renderAvatarState() {
   const canvas = document.getElementById('ivcv');
   const monogram = document.getElementById('avcircle');
   const live = avatar.health().available && Boolean(document.getElementById('live-avatar-video'));
+  const liveVideo = document.getElementById('live-avatar-video');
+  const enableAvatarAudio = document.getElementById('enable-avatar-audio');
+  if (enableAvatarAudio) enableAvatarAudio.hidden = avatar.health().state !== 'audio-blocked';
+  if (liveVideo) liveVideo.style.visibility = live ? 'visible' : 'hidden';
   if (canvas) canvas.style.visibility = live ? 'hidden' : '';
   if (monogram) monogram.style.visibility = live ? 'hidden' : '';
 }

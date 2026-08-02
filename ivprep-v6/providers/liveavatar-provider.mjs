@@ -8,8 +8,10 @@ import { ProviderError, providerResponseError } from './errors.mjs';
 const PROVIDER = 'liveavatar';
 const API_BASE_URL = 'https://api.liveavatar.com';
 const CONNECT_TIMEOUT_MS = 15_000;
+const PROVIDER_REQUEST_TIMEOUT_MS = 15_000;
 const KEEP_ALIVE_INTERVAL_MS = 60_000;
 const SPEECH_END_TIMEOUT_MS = 90_000;
+const STOP_RETRY_DELAYS_MS = Object.freeze([0, 100, 250]);
 const MAX_ALPHA_SESSION_SECONDS = 20 * 60;
 const DEFAULT_ALPHA_SESSION_SECONDS = 15 * 60;
 const AUDIO_SAMPLE_RATE_HZ = 24_000;
@@ -168,6 +170,7 @@ export class LiveAvatarProvider extends AvatarProvider {
   #clearTimeout;
   #randomUUID;
   #connectTimeoutMs;
+  #stopRetryDelays;
   #socket = null;
   #keepAliveTimer = null;
   #sessionToken = null;
@@ -201,6 +204,7 @@ export class LiveAvatarProvider extends AvatarProvider {
     clearTimeoutImpl = globalThis.clearTimeout,
     randomUUIDImpl = randomUUID,
     connectTimeoutMs = CONNECT_TIMEOUT_MS,
+    stopRetryDelays = STOP_RETRY_DELAYS_MS,
   } = {}) {
     super();
     if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function.');
@@ -214,6 +218,7 @@ export class LiveAvatarProvider extends AvatarProvider {
     this.#clearTimeout = clearTimeoutImpl;
     this.#randomUUID = randomUUIDImpl;
     this.#connectTimeoutMs = connectTimeoutMs;
+    this.#stopRetryDelays = [...stopRetryDelays];
     this.#state = this.#config.configured ? 'idle' : 'unavailable';
   }
 
@@ -240,9 +245,13 @@ export class LiveAvatarProvider extends AvatarProvider {
 
   async #post(path, { authorization, body, operation }) {
     let response;
+    const controller = new AbortController();
+    const timeout = this.#setTimeout(() => controller.abort(), PROVIDER_REQUEST_TIMEOUT_MS);
+    timeout?.unref?.();
     try {
       response = await this.#fetch(`${API_BASE_URL}${path}`, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'content-type': 'application/json',
           ...(authorization === 'api-key' ? { 'X-API-KEY': this.#config.apiKey } : {}),
@@ -252,6 +261,8 @@ export class LiveAvatarProvider extends AvatarProvider {
       });
     } catch (error) {
       throw normalizedError(operation, error);
+    } finally {
+      this.#clearTimeout(timeout);
     }
 
     if (!response?.ok) {
@@ -392,8 +403,9 @@ export class LiveAvatarProvider extends AvatarProvider {
           this.#state = 'connected';
           finish(resolve);
         }
-        if (event?.type === 'session.state_updated' && ['disconnected', 'failed'].includes(event.state)) {
+        if (event?.type === 'session.state_updated' && ['disconnected', 'failed', 'closing', 'closed'].includes(event.state)) {
           this.#state = 'degraded';
+          this.#settleAllSpeech({ playbackEnded: false, reason: `session-${event.state}` });
         }
         if (['agent.speak_ended', 'avatar.speak_ended'].includes(event?.type) && event.event_id) {
           this.#settleSpeech(event.event_id, { playbackEnded: true, reason: 'provider-event' });
@@ -422,6 +434,20 @@ export class LiveAvatarProvider extends AvatarProvider {
       operation: 'stop',
       body: { session_id: this.#sessionId, reason },
     });
+  }
+
+  async #stopRemoteWithRetries(reason) {
+    let lastError = null;
+    for (const delayMs of this.#stopRetryDelays) {
+      if (delayMs > 0) await new Promise((resolve) => this.#setTimeout(resolve, delayMs));
+      try {
+        await this.#safeStopRemote(reason);
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError || normalizedError('stop', new Error('Remote stop failed.'));
   }
 
   async createSession() {
@@ -619,8 +645,10 @@ export class LiveAvatarProvider extends AvatarProvider {
       throw error;
     }
     if (chunks === 0) throw invalidAudio('Audio stream did not contain any audio.');
+    const completion = this.#waitForSpeechEnd(eventId);
     this.#send({ type: 'agent.speak_end', event_id: eventId });
-    return { accepted: true, eventId, chunks, bytes, final: true };
+    const playback = await completion;
+    return { accepted: true, eventId, chunks, bytes, final: true, ...playback };
   }
 
   async interrupt() {
@@ -671,13 +699,13 @@ export class LiveAvatarProvider extends AvatarProvider {
     this.#closeSocket();
     let stopError = null;
     try {
-      await this.#safeStopRemote(providerReason);
+      await this.#stopRemoteWithRetries(providerReason);
     } catch (error) {
       stopError = normalizedError('stop', error);
     } finally {
       this.#endedAt = this.#now();
       this.#clearCredentials();
-      this.#sessionId = null;
+      if (!stopError) this.#sessionId = null;
       this.#state = stopError ? 'error' : 'stopped';
     }
     if (stopError) throw this.#recordFailure(stopError);

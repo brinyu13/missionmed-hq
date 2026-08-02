@@ -56,8 +56,9 @@ function response(data, { ok = true, status = 200 } = {}) {
   return { ok, status, async json() { return data; } };
 }
 
-function providerHarness({ stopFailure = false } = {}) {
+function providerHarness({ stopFailure = false, stopFailures = stopFailure ? Number.POSITIVE_INFINITY : 0 } = {}) {
   const calls = [];
+  let remainingStopFailures = stopFailures;
   const fetchImpl = async (url, init) => {
     const path = new URL(url).pathname;
     calls.push({ path, init });
@@ -84,7 +85,10 @@ function providerHarness({ stopFailure = false } = {}) {
       }, { status: 201 });
     }
     if (path === '/v1/sessions/stop') {
-      if (stopFailure) return response({}, { ok: false, status: 503 });
+      if (remainingStopFailures > 0) {
+        remainingStopFailures -= 1;
+        return response({}, { ok: false, status: 503 });
+      }
       return response({ code: 100, data: null });
     }
     throw new Error(`unexpected test path: ${path}`);
@@ -101,6 +105,7 @@ function providerHarness({ stopFailure = false } = {}) {
     setIntervalImpl: () => ({ unref() {} }),
     clearIntervalImpl() {},
     connectTimeoutMs: 100,
+    stopRetryDelays: [0, 0, 0],
   });
   return {
     provider,
@@ -277,7 +282,19 @@ test('reconnect replaces only the control socket and does not mint a duplicate p
   await provider.close();
 });
 
-test('remote stop failure still closes local media and returns a sanitized normalized error', async () => {
+test('transient remote stop failure is retried without creating another provider session', async () => {
+  const { provider, calls } = providerHarness({ stopFailures: 1 });
+  await provider.start();
+  const result = await provider.stop();
+
+  assert.deepEqual(result, { stopped: true, reason: 'USER_CLOSED' });
+  assert.equal(calls.filter((call) => call.path === '/v1/sessions/stop').length, 2);
+  assert.equal(calls.filter((call) => call.path === '/v1/sessions/token').length, 1);
+  assert.equal(calls.filter((call) => call.path === '/v1/sessions/start').length, 1);
+  assert.equal(provider.health().sessionId, null);
+});
+
+test('remote stop failure closes local media, preserves retry context, and returns a sanitized error', async () => {
   const { provider } = providerHarness({ stopFailure: true });
   await provider.start();
   const socket = FakeWebSocket.instances.at(-1);
@@ -299,5 +316,5 @@ test('remote stop failure still closes local media and returns a sanitized norma
   assert.equal(socket.readyState, 3);
   assert.equal(provider.health().connected, false);
   assert.equal(provider.health().fallback, 'voice-only');
-  assert.equal(provider.health().sessionId, null);
+  assert.equal(provider.health().sessionId, '77777777-7777-4777-8777-777777777777');
 });

@@ -99,6 +99,7 @@ export class AlphaStore {
       avatar: input.avatar,
       behavior: input.behavior,
       mode: input.mode,
+      deliveryEvents: [],
       transcript: [],
       instructorRecord: [],
       terminationState: null,
@@ -126,6 +127,11 @@ export class AlphaStore {
     if (event.modelUsage) session.usage.model.push({ ...event.modelUsage, timestamp });
     if (event.avatarStarted) session.usage.avatarStartedAt ||= timestamp;
     if (event.avatarEnded) session.usage.avatarEndedAt = timestamp;
+    if (event.deliveryMode === 'avatar' || event.deliveryMode === 'voice-only') {
+      session.mode = event.deliveryMode;
+      session.deliveryEvents ||= [];
+      session.deliveryEvents.push({ mode: event.deliveryMode, reason: String(event.deliveryReason || 'delivery-state').slice(0, 80), timestamp });
+    }
     if (event.replayMediaReference) session.replayMediaReferences.push(event.replayMediaReference);
     session.updatedAt = timestamp;
     session.usage.estimatedMinutes = Math.min(20, Math.max(0, (timestamp - session.startedAt) / 60_000));

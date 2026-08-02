@@ -465,6 +465,8 @@ export function createIvPrepServer({
       const sessionEndMatch = url.pathname.match(/^\/api\/alpha-sessions\/([^/]+)\/end$/u);
       if (request.method === 'POST' && sessionEndMatch) {
         const body = requireBodyObject(await readJson(request));
+        const session = alphaStore.getSession(sessionEndMatch[1]);
+        if (!session) throw new TypeError('Alpha session was not found.');
         await avatarProvider.stop({ reason: body.terminationState || 'completed' }).catch(() => {});
         sendJson(response, 200, { session: alphaStore.endSession(sessionEndMatch[1], body.terminationState || 'completed') });
         return;
