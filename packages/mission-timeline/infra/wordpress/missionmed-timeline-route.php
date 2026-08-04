@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Timeline Route
  * Description: Authenticated /timeline/ route backed by a Timeline-owned execution-private release bundle.
- * Version: 500.0.2
+ * Version: 500.0.3
  * Requires PHP: 8.1
  * Author: MissionMed
  */
@@ -32,6 +32,19 @@ function mmtlr_is_canonical_host() {
     $expected = strtolower((string) ($home['host'] ?? '')) . (!empty($home['port']) ? ':' . absint($home['port']) : '');
     $incoming = strtolower(trim((string) wp_unslash($_SERVER['HTTP_HOST'] ?? '')));
     return $expected !== '' && preg_match('/^[a-z0-9.-]+(?::[0-9]{1,5})?$/', $incoming) && hash_equals($expected, $incoming);
+}
+
+function mmtlr_mark_dynamic_route() {
+    if (headers_sent()) {
+        return;
+    }
+    setcookie('missionmed_timeline_dynamic', '1', array(
+        'expires' => 0,
+        'path' => MMTLR_BASE_PATH,
+        'secure' => is_ssl(),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ));
 }
 
 function mmtlr_error($status, $code, $message) {
@@ -190,6 +203,9 @@ function mmtlr_serve() {
     }
     if (!str_starts_with($path, MMTLR_BASE_PATH) || str_starts_with($path, MMTLR_BASE_PATH . 'api/')) {
         return;
+    }
+    if ($path === MMTLR_BASE_PATH) {
+        mmtlr_mark_dynamic_route();
     }
     $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
     if (!in_array($method, array('GET', 'HEAD', 'POST'), true)) {
