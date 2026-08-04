@@ -772,14 +772,17 @@
       ]
     },
     {
-      "id": "timeline_registered_not_installed_absent",
+      "id": "timeline_feature_off_anonymous_handoff",
       "system": "timeline_builder",
-      "deployment_phase": "REGISTERED_NOT_INSTALLED",
+      "deployment_phase": "INSTALLED_FEATURE_OFF_ACCESS_OFF",
       "url": "https://missionmedinstitute.com/timeline/",
       "method": "GET",
-      "expected_status": 404,
-      "must_not_status": [200, 302, 401, 403, 500, 501, 503],
-      "transition": "Replace this pre-install expectation with the registered feature-off and canary checks immediately after the exact sealed payload is installed."
+      "expected_status": 302,
+      "expected_headers_contains": {
+        "location": "/member-dashboard/",
+        "cache-control": "no-store"
+      },
+      "must_not_status": [200, 404, 401, 403, 500, 501, 503]
     }
   ],
   "systems": {
