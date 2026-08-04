@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Timeline Route
  * Description: Authenticated /timeline/ route backed by a Timeline-owned execution-private release bundle.
- * Version: 500.0.5
+ * Version: 500.0.6
  * Requires PHP: 8.1
  * Author: MissionMed
  */
@@ -68,6 +68,31 @@ function mmtlr_render_matrix_launch_adapter() {
 }
 add_action('wp_body_open', 'mmtlr_render_matrix_launch_adapter', 20);
 add_action('wp_footer', 'mmtlr_render_matrix_launch_adapter', 2);
+
+function mmtlr_inject_matrix_launch_html($html) {
+    if (!is_string($html) || stripos($html, '</body>') === false || str_contains($html, 'missionmed-timeline-sso/assets/matrix-launch.js')) {
+        return $html;
+    }
+    ob_start();
+    mmtlr_render_matrix_launch_adapter();
+    $markup = (string) ob_get_clean();
+    if ($markup === '') {
+        return $html;
+    }
+    $position = strripos($html, '</body>');
+    return substr_replace($html, $markup, $position, 0);
+}
+
+function mmtlr_buffer_matrix_launch_adapter() {
+    if (!function_exists('mmtl_settings') || !function_exists('mmtl_user_can_enter') || !mmtl_user_can_enter()) {
+        return;
+    }
+    $matrix_path = (string) wp_parse_url(mmtl_settings()['matrix_url'], PHP_URL_PATH);
+    if ($matrix_path !== '' && untrailingslashit(mmtlr_request_path()) === untrailingslashit($matrix_path)) {
+        ob_start('mmtlr_inject_matrix_launch_html');
+    }
+}
+add_action('template_redirect', 'mmtlr_buffer_matrix_launch_adapter', -100);
 
 function mmtlr_error($status, $code, $message) {
     while (ob_get_level() > 0) {
