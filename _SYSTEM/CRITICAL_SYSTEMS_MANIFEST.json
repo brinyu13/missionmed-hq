@@ -3,7 +3,7 @@
   "status": "ACTIVE",
   "lock_name": "MissionMed Critical Systems Contract",
   "owner": "Brian",
-  "last_updated_utc": "2026-08-04T19:27:39Z",
+  "last_updated_utc": "2026-08-04T19:46:14Z",
   "known_good": {
     "git_commit": "3f0c27aac55dbf82748b3eaba360006d4041b539",
     "git_tag": "known-good/2026-06-25-critical-auth-usce-arena-matrix",
@@ -262,6 +262,7 @@
     "wp-content/plugins/missionmed-timeline-sso/assets/matrix-launch.js",
     "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_FEATURE_OFF_PAYLOAD.tar.gz",
     "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_RUNTIME_2e775a88_FEATURE_OFF_PAYLOAD.tar.gz",
+    "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_RUNTIME_20c89a06_FEATURE_OFF_PAYLOAD.tar.gz",
     "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/kinsta/wp-content/mu-plugins/missionmed-timeline-route.php"
   ],
   "supabase_projects": {
@@ -920,10 +921,10 @@
         "repository": "brinyu13/missionmed-hq",
         "branch": "codex/d1-500-critical-registration",
         "accepted_base_commit": "49ba56dacd2cddfc2fb2241839d54a03e85bc271",
-        "sealed_source_commit": "f4eb28c6cad0deb9565fc66739e853860bd365a4",
-        "release_id": "timeline-wp-2e775a88fcdae9c8",
-        "payload_path": "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_RUNTIME_2e775a88_FEATURE_OFF_PAYLOAD.tar.gz",
-        "payload_sha256": "766a0b259479df9c9bf40a3b3caaca023dec4068f06399297ad26e659af16684"
+        "sealed_source_commit": "1bb40a26f64f4a7306fa8e4bee1ddce41e33d36b",
+        "release_id": "timeline-wp-20c89a069ef6cdd1",
+        "payload_path": "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_RUNTIME_20c89a06_FEATURE_OFF_PAYLOAD.tar.gz",
+        "payload_sha256": "1a49e74c0ddbe595e29f113e65f580888e91a620e5bdeca8e5d16e7da681f03d"
       },
       "classes": ["auth_session", "route", "redirect_handoff", "wordpress_wrapper", "matrix_runtime", "deploy_artifact", "browser_journey"],
       "registration_state": "CANDIDATE_REGISTERED_CURRENT_RELEASE_FEATURE_OFF_ACCESS_OFF",
@@ -951,9 +952,10 @@
       ],
       "release": {
         "static_id": "timeline-0c5cc515a76346d6",
-        "wordpress_id": "timeline-wp-2e775a88fcdae9c8",
-        "release_bundle_sha256": "b0075b21df299802eb26857d055a9c3276f7e10a68645a1619d6d7cf63b0a25f",
-        "payload_sha256": "766a0b259479df9c9bf40a3b3caaca023dec4068f06399297ad26e659af16684",
+        "wordpress_id": "timeline-wp-20c89a069ef6cdd1",
+        "release_bundle_sha256": "c7cc62c22b83dfeb466284b84183e11ea2ce8c13bdd33881cfcb5f3402efbc9a",
+        "route_sha256": "18acf250384350119cd7a20272fc1fa59a800a38ffb55ac0b9d6ba7aa0d12eec",
+        "payload_sha256": "1a49e74c0ddbe595e29f113e65f580888e91a620e5bdeca8e5d16e7da681f03d",
         "schema_version": "d1-timeline-db-500.1",
         "health_path": "/healthz"
       },
