@@ -55,12 +55,14 @@ for(const entry of raw.values()){
     return asset?`${quote}/timeline/_asset/${asset.alias}${quote}`:match;
   });
   for(const value of ["D1-409H_VISUAL_MASTER.css"]){
+    const singleQuoted=`'${value}'`;const doubleQuoted=`"${value}"`;
+    if(!rewritten.includes(singleQuoted)&&!rewritten.includes(doubleQuoted))continue;
     const target=posix.normalize(posix.join(posix.dirname(entry.path),value));
     const asset=byPath.get(target);
     if(!asset)throw new Error(`TIMELINE_RUNTIME_JS_ASSET_MISSING:${entry.path}:${target}`);
     rewritten=rewritten
-      .split(`'${value}'`).join(`'/timeline/_asset/${asset.alias}'`)
-      .split(`"${value}"`).join(`"/timeline/_asset/${asset.alias}"`);
+      .split(singleQuoted).join(`'/timeline/_asset/${asset.alias}'`)
+      .split(doubleQuoted).join(`"/timeline/_asset/${asset.alias}"`);
   }
   addAsset(entry.path,Buffer.from(rewritten,"utf8"),entry.contentType);
 }
