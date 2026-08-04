@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Timeline Route
  * Description: Authenticated /timeline/ route backed by a Timeline-owned execution-private release bundle.
- * Version: 500.0.0
+ * Version: 500.0.1
  * Requires PHP: 8.1
  * Author: MissionMed
  */
