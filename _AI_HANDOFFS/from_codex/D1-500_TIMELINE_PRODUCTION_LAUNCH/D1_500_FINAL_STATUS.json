@@ -1,0 +1,22 @@
+{
+  "schema_version": "d1-500-final-status.1",
+  "result": "PARTIAL",
+  "timeline_live_status": "not live",
+  "live_url": "https://missionmedinstitute.com/timeline/",
+  "progress": { "completed": 33, "total": 45, "percent": 73 },
+  "deployment_confidence_percent": 72,
+  "source_commit": "b668cc4d3eaa8075a357d35a60456fcaaaffa18c",
+  "static_release": "timeline-0c5cc515a76346d6",
+  "wordpress_release": "timeline-wp-c228658bc70bc395",
+  "production_deployment_id": null,
+  "user_rollout": "withheld",
+  "production_preserved": true,
+  "unrelated_application_impact": "NONE",
+  "blockers": [
+    "Critical Systems gate red on unrelated USCE Admin and Arena CDN hashes",
+    "Founder-only production secret installation",
+    "Railway SSH database connection unauthorized",
+    "Production canary identities not supplied",
+    "Consent wording/version not yet approved"
+  ]
+}
