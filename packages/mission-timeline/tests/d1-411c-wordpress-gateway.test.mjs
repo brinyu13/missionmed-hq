@@ -86,6 +86,7 @@ test("WordPress packaging rewrites the protected kernel export stylesheet to an 
   assert.match(runtimeBuilder, /D1-409H_VISUAL_MASTER\.css/);
   assert.match(runtimeBuilder, /TIMELINE_RUNTIME_JS_ASSET_MISSING/);
   assert.match(runtimeBuilder, /\/timeline\/_asset\/\$\{asset\.alias\}/);
+  assert.match(runtimeBuilder, /sourceCommit:manifest\.source_commit/);
 });
 
 test("Matrix launch adapter creates one eligible-only Timeline entry without changing shared Matrix source", () => {

@@ -107,7 +107,7 @@ const indexBytes=Buffer.from(indexText,"utf8");
 const index={sha256:hash(indexBytes),bytes:indexBytes.byteLength,contentType:"text/html; charset=utf-8",data:indexBytes.toString("base64")};
 
 const assetList=[...assets.values()].sort((a,b)=>a.alias.localeCompare(b.alias));
-const descriptor=JSON.stringify({sourceReleaseId:manifest.release_id,index:{sha256:index.sha256,bytes:index.bytes},assets:assetList.map(({alias,sha256,bytes,contentType})=>({alias,sha256,bytes:bytes.byteLength,contentType}))});
+const descriptor=JSON.stringify({sourceReleaseId:manifest.release_id,sourceCommit:manifest.source_commit,index:{sha256:index.sha256,bytes:index.bytes},assets:assetList.map(({alias,sha256,bytes,contentType})=>({alias,sha256,bytes:bytes.byteLength,contentType}))});
 const releaseId=`timeline-wp-${hash(Buffer.from(descriptor)).slice(0,16)}`;
 const lines=["<?php","if (!defined('ABSPATH')) { exit; }","return array(",`  'schema_version' => 'd1-500-wordpress-runtime.1',`,`  'release_id' => ${phpString(releaseId)},`,`  'source_release_id' => ${phpString(manifest.release_id)},`,`  'source_commit' => ${phpString(manifest.source_commit)},`,`  'index' => array('sha256' => ${phpString(index.sha256)}, 'bytes' => ${index.bytes}, 'content_type' => ${phpString(index.contentType)}, 'encoding' => 'base64', 'data' => ${phpString(index.data)}),`,`  'assets' => array(`];
 for(const entry of assetList){
