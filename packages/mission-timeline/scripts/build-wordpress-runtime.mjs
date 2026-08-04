@@ -49,11 +49,19 @@ for(const entry of raw.values()){
 
 for(const entry of raw.values()){
   if(!entry.path.endsWith(".js"))continue;
-  const rewritten=entry.bytes.toString("utf8").replace(/(["'])(assets\/[A-Za-z0-9._\/-]+)\1/g,(match,quote,value)=>{
+  let rewritten=entry.bytes.toString("utf8").replace(/(["'])(assets\/[A-Za-z0-9._\/-]+)\1/g,(match,quote,value)=>{
     const target=posix.normalize(posix.join(posix.dirname(entry.path),value));
     const asset=byPath.get(target);
     return asset?`${quote}/timeline/_asset/${asset.alias}${quote}`:match;
   });
+  for(const value of ["D1-409H_VISUAL_MASTER.css"]){
+    const target=posix.normalize(posix.join(posix.dirname(entry.path),value));
+    const asset=byPath.get(target);
+    if(!asset)throw new Error(`TIMELINE_RUNTIME_JS_ASSET_MISSING:${entry.path}:${target}`);
+    rewritten=rewritten
+      .split(`'${value}'`).join(`'/timeline/_asset/${asset.alias}'`)
+      .split(`"${value}"`).join(`"/timeline/_asset/${asset.alias}"`);
+  }
   addAsset(entry.path,Buffer.from(rewritten,"utf8"),entry.contentType);
 }
 

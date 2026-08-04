@@ -6,6 +6,8 @@ const pluginPath = new URL("../../../wp-content/plugins/missionmed-timeline-sso/
 const plugin = await readFile(pluginPath, "utf8");
 const routePath = new URL("../infra/wordpress/missionmed-timeline-route.php", import.meta.url);
 const route = await readFile(routePath, "utf8");
+const runtimeBuilderPath = new URL("../scripts/build-wordpress-runtime.mjs", import.meta.url);
+const runtimeBuilder = await readFile(runtimeBuilderPath, "utf8");
 
 test("Timeline WordPress gateway is default-off and product-owned", () => {
   assert.match(plugin, /'timeline_enabled'\s*=>\s*false/);
@@ -76,4 +78,10 @@ test("Kinsta route uses a Timeline-owned execution-private bundle and extensionl
   assert.equal(route.match(/status_header\(200\)/g)?.length, 2);
   assert.doesNotMatch(route, /MISSIONMED_TIMELINE_RELEASE_ROOT/);
   assert.doesNotMatch(route, /readfile\(/);
+});
+
+test("WordPress packaging rewrites the protected kernel export stylesheet to an immutable alias", () => {
+  assert.match(runtimeBuilder, /D1-409H_VISUAL_MASTER\.css/);
+  assert.match(runtimeBuilder, /TIMELINE_RUNTIME_JS_ASSET_MISSING/);
+  assert.match(runtimeBuilder, /\/timeline\/_asset\/\$\{asset\.alias\}/);
 });
