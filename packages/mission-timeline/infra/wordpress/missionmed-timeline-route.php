@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Timeline Route
  * Description: Authenticated /timeline/ route backed by a Timeline-owned execution-private release bundle.
- * Version: 500.0.1
+ * Version: 500.0.2
  * Requires PHP: 8.1
  * Author: MissionMed
  */
@@ -41,6 +41,9 @@ function mmtlr_error($status, $code, $message) {
     status_header(absint($status));
     nocache_headers();
     header('Cache-Control: no-store, private', true);
+    header('Surrogate-Control: no-store', true);
+    header('CDN-Cache-Control: no-store', true);
+    header('Cloudflare-CDN-Cache-Control: no-store', true);
     header('Content-Type: application/json; charset=utf-8', true);
     header('X-Content-Type-Options: nosniff', true);
     echo wp_json_encode(array('error' => array('code' => sanitize_key($code), 'message' => (string) $message)));
@@ -198,6 +201,11 @@ function mmtlr_serve() {
     if (!is_user_logged_in()) {
         $return_to = home_url(MMTLR_BASE_PATH);
         $login_url = function_exists('mmtl_login_url') ? mmtl_login_url($return_to) : home_url('/member-dashboard/');
+        nocache_headers();
+        header('Cache-Control: no-store, private', true);
+        header('Surrogate-Control: no-store', true);
+        header('CDN-Cache-Control: no-store', true);
+        header('Cloudflare-CDN-Cache-Control: no-store', true);
         wp_safe_redirect($login_url, 302);
         exit;
     }

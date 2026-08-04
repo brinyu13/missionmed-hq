@@ -66,6 +66,7 @@ test("anonymous entry returns through Matrix rather than the default WordPress l
   assert.match(plugin, /timeline_return_to/);
   assert.doesNotMatch(plugin, /wp_login_url/);
   assert.match(route, /mmtl_login_url\(\$return_to\)/);
+  assert.match(route, /Cloudflare-CDN-Cache-Control: no-store/);
   assert.doesNotMatch(route, /wp_login_url/);
 });
 
