@@ -9,17 +9,22 @@ packaging, PHP lint, dependency audit, and disposable PostgreSQL forced-RLS
 proof. Isolated Railway production/staging topology exists. No Timeline user
 access is enabled and no Kinsta application byte has changed.
 
-Kinsta mutation is blocked because the Critical Systems gate observed
-pre-existing live hash drift for unrelated USCE Admin and Arena CDN assets. The
-Matrix lock proves all protected live Matrix origin/public hashes match approved
-values, but no current local worktree contains every approved source byte.
-D1-500 may not silently override or reconcile those unrelated systems.
+Read-only reconciliation proves the unrelated USCE Admin and Arena failures are
+stale central-manifest pins plus central-source divergence, not unexplained
+production drift. Private origin, public CDN, and retained deployment/source
+evidence match exactly. Immutable remote Matrix commit `60e7169b...` contains
+all ten protected source bytes and passes the official local/origin/public
+guard. No Matrix override is required. Kinsta mutation remains blocked until
+the Founder approves the prepared central metadata amendment and registers
+Timeline as a protected system.
 
-One consolidated Founder intervention is required: approve a D1-500-only
-Critical Systems override limited to the isolated Timeline plugin, MU route,
-and immutable bundle; approve consent `d1-500-v1` and its text; install the named
-Railway and Kinsta secrets without exposing values; identify Founder student,
-approved-admin, eligible A/B, non-360, and expired/revoked test identities; and
+One consolidated Founder intervention is required: approve the exact
+metadata-only reconciliation and Timeline protected-system registration in
+`D1_500_CRITICAL_SYSTEMS_RECONCILIATION.md`; approve consent `d1-500-v1` and its
+text; install the named Railway and Kinsta secrets without exposing values;
+provide Founder, second eligible, non-360, and expired/revoked test personas or
+controlled fixtures (one administrator and one active 360 identity are already
+supplied only through the private task context); and
 either rename Railway database service
 `134e537e-d48b-4452-acf6-8c3af2ce03db` to
 `mission-timeline-postgres` or approve its stable ID with display name
@@ -48,6 +53,13 @@ Live entitlement authority is published LearnDash course 3893, “Mission
 Residency: 360 Match Mentorship Student Dashboard & Guidance Hub,” with Closed
 enrollment and no course-level expiration. Current LearnDash access to course
 3893 is the eligibility signal; login or generic role is insufficient.
+
+Critical Systems evidence now classifies the USCE live hash `9b6eade1...` and
+Arena live hash `7bb0ad1c...` as documented releases missing from the stale
+central manifest. Central `LIVE/` sources remain out of sync. Matrix immutable
+source commit `60e7169b...` passes ten-of-ten local/origin/public checks. The
+exact unapplied amendment is recorded in
+`D1_500_CRITICAL_SYSTEMS_RECONCILIATION.md`.
 
 ## Production architecture and targets
 
@@ -123,7 +135,8 @@ Kinsta and database backups are NOT RUN because the pre-mutation gate is red.
 NOT RUN; production access is disabled. Local harness checks pass student and
 administrator canary, non-allowlisted denial, consent required/record/withdraw,
 JWT round trip, entitlement-change rejection, and remote-sync authority.
-Production identities are not named. Founder save/reload/export, approved admin,
+One administrator and one active 360 identity are available only through opaque
+private task handles; no password is recorded. Founder save/reload/export, approved admin,
 unapproved admin denial, student denial during canary, second-user denial,
 anonymous/direct API denial, logout, switching, stale token, session expiry,
 health, logs, kill switch, and rollback remain required.
@@ -169,12 +182,14 @@ rollback rehearsal, eligible-360 activation, and monitoring.
 
 ## Known limitations and follow-ups
 
-Blocking: unrelated USCE/Arena Critical Systems hash drift; Railway SSH database
-connection unauthorized despite authenticated CLI; Founder-only secrets;
-missing production identities; consent approval; provider-default PostgreSQL
-display name. Intentional boundaries: remote storage unavailable and fail
-closed; remote File Vault/v2 disabled; local import and client export retained;
-administrators require audited resource grants.
+Blocking: Founder approval to apply the proven USCE/Arena metadata amendment and
+register Timeline; Railway SSH database connection unauthorized despite
+authenticated CLI; Founder-only secrets; remaining negative/isolation personas;
+consent approval; provider-default PostgreSQL display name. Arena's accepted
+runtime retains a separately documented credential-logging P0; D1-500 does not
+remediate or certify Arena. Intentional boundaries: remote storage unavailable
+and fail closed; remote File Vault/v2 disabled; local import and client export
+retained; administrators require audited resource grants.
 
 No Supabase, DNS, Cloudflare, StoryForge, shared Matrix asset, shared Railway
 service, LearnDash course, WooCommerce, user, production data, unrelated dirty

@@ -11,23 +11,29 @@ project, production/staging environments, API service, and PostgreSQL service
 exist. No user access is enabled and no Kinsta/WordPress application bytes have
 been changed.
 
-The Kinsta mutation gate is red because the governing Critical Systems gate
-observed pre-existing live hash drift for the unrelated USCE Admin and Arena CDN
-assets. The Matrix lock separately proves that all protected live Matrix
-origin/public hashes match its approved values, but no single current local
-worktree contains every approved source byte. D1-500 does not authorize a silent
-override or reconciliation of those unrelated systems.
+The Critical Systems reconciliation now proves that the unrelated USCE Admin
+and Arena failures are stale central-manifest pins plus central-source
+synchronization gaps, not unexplained live drift. Private origin, public CDN,
+and retained deployment/source evidence match the two live objects exactly.
+The Matrix source gap is also resolved: immutable remote commit `60e7169b...`
+contains all ten approved source bytes and passes the official local/origin/
+public guard. The production block remains because the current authorization
+permits preparation, not mutation, of the protected central manifest. Timeline
+also requires explicit Critical Systems registration before installation.
 
 One consolidated Founder intervention is required before execution can resume:
 
-1. explicitly approve a D1-500-only Critical Systems gate override for installing
-   only the isolated Timeline plugin, MU route, and immutable runtime bundle;
+1. approve the exact metadata-only USCE/Arena reconciliation and Timeline
+   protected-system registration in
+   `D1_500_CRITICAL_SYSTEMS_RECONCILIATION.md`; no global override is preferred;
 2. approve consent version `d1-500-v1` and the exact consent text in the release;
 3. install the named Railway and Kinsta/WordPress secrets without exposing their
    values to Git, terminal output, evidence, or chat;
-4. identify the Founder student persona, one approved administrator, eligible
-   students A/B, a non-360 user, and an expired/revoked user for production
-   canary testing; and
+4. provide or authorize controlled fixtures for the remaining canary personas:
+   Founder, second eligible student, non-360 student, and expired/revoked
+   student. One administrator and one active 360 test identity are now supplied
+   through the private task context and are referenced only by opaque handles;
+   no password is stored in this package; and
 5. either rename Railway PostgreSQL service `134e537e-d48b-4452-acf6-8c3af2ce03db`
    from provider default `Postgres` to reserved `mission-timeline-postgres`, or
    approve the stable service ID as the authoritative target.
