@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Timeline Route
  * Description: Authenticated /timeline/ route backed by a Timeline-owned execution-private release bundle.
- * Version: 500.0.3
+ * Version: 500.0.4
  * Requires PHP: 8.1
  * Author: MissionMed
  */
@@ -222,7 +222,7 @@ function mmtlr_serve() {
         header('Surrogate-Control: no-store', true);
         header('CDN-Cache-Control: no-store', true);
         header('Cloudflare-CDN-Cache-Control: no-store', true);
-        wp_safe_redirect($login_url, 302);
+        wp_safe_redirect($login_url, 303);
         exit;
     }
     if (!function_exists('mmtl_access_state')) {
