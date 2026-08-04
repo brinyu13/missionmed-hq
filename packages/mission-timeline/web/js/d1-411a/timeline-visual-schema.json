@@ -1,0 +1,870 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "d1-411a/timeline-visual-document/1",
+ "title": "TimelineVisualDocument (host-facing canonical) + FrozenTimelineRenderModel (kernel input)",
+ "description": "The host/TimelineStore owns product truth. The ADAPTER maps TimelineVisualDocument -> FrozenTimelineRenderModel deterministically. The protected kernel accepts ONLY the render model. Fields marked presentationOnly never round-trip to domain state.",
+ "$defs": {
+  "MediaRef": {
+   "type": "object",
+   "required": [
+    "id",
+    "src",
+    "mime",
+    "alt",
+    "contentSha256"
+   ],
+   "properties": {
+    "id": {
+     "type": "string"
+    },
+    "src": {
+     "type": "string",
+     "description": "same-origin, blob:, or data: URL; kernel performs no external fetch beyond hash verification"
+    },
+    "mime": {
+     "enum": [
+      "image/jpeg",
+      "image/png",
+      "image/webp"
+     ]
+    },
+    "alt": {
+     "type": "string"
+    },
+    "contentSha256": {
+     "type": "string",
+     "pattern": "^[0-9a-f]{64}$"
+    }
+   }
+  },
+  "RenderModel": {
+   "type": "object",
+   "required": [
+    "schemaVersion",
+    "documentId",
+    "revision",
+    "title",
+    "axisMode",
+    "events",
+    "flags",
+    "profile",
+    "sticky",
+    "logo",
+    "interview",
+    "photos"
+   ],
+   "properties": {
+    "schemaVersion": {
+     "const": "d1-409h-render-model/1"
+    },
+    "documentId": {
+     "type": "string"
+    },
+    "revision": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "title": {
+     "type": "string"
+    },
+    "axisMode": {
+     "enum": [
+      "frozen-default",
+      "adaptive"
+     ],
+     "description": "frozen-default is legal ONLY for the exact approved fixture (signature-enforced)"
+    },
+    "events": {
+     "type": "array",
+     "minItems": 1,
+     "items": {
+      "type": "object",
+      "required": [
+       "id",
+       "t",
+       "cat",
+       "sy",
+       "sm",
+       "ey",
+       "em",
+       "date",
+       "lane"
+      ],
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "t": {
+        "type": "string"
+       },
+       "cat": {
+        "enum": [
+         "work",
+         "personal",
+         "usmle",
+         "usce",
+         "res"
+        ]
+       },
+       "sy": {
+        "type": "integer"
+       },
+       "sm": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 12
+       },
+       "ey": {
+        "type": "integer"
+       },
+       "em": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 12
+       },
+       "date": {
+        "type": "string"
+       },
+       "loc": {
+        "type": "string"
+       },
+       "lp": {
+        "enum": [
+         "below",
+         "left"
+        ]
+       },
+       "lane": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 6
+       },
+       "hl": {
+        "type": "boolean"
+       }
+      }
+     }
+    },
+    "flags": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "id",
+       "d",
+       "t",
+       "year",
+       "m"
+      ],
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "d": {
+        "type": "string"
+       },
+       "t": {
+        "type": "string"
+       },
+       "year": {
+        "type": "integer"
+       },
+       "m": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 12
+       },
+       "usflag": {
+        "type": "boolean"
+       }
+      }
+     }
+    },
+    "profile": {
+     "type": "object",
+     "required": [
+      "name",
+      "visaStatus",
+      "aamc",
+      "step1",
+      "step2Ck",
+      "step2Cs",
+      "step3",
+      "usce",
+      "research",
+      "languages",
+      "hobbies"
+     ],
+     "properties": {
+      "name": {
+       "type": "string"
+      },
+      "visaStatus": {
+       "type": "string"
+      },
+      "aamc": {
+       "type": "string"
+      },
+      "step1": {
+       "type": "string"
+      },
+      "step2Ck": {
+       "type": "string"
+      },
+      "step2Cs": {
+       "type": "string"
+      },
+      "step3": {
+       "type": "string"
+      },
+      "usce": {
+       "type": "string"
+      },
+      "research": {
+       "type": "string"
+      },
+      "languages": {
+       "type": "string"
+      },
+      "hobbies": {
+       "type": "string",
+       "description": "\\n = approved manual line break"
+      },
+      "portrait": {
+       "anyOf": [
+        {
+         "$ref": "#/$defs/MediaRef"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      }
+     }
+    },
+    "sticky": {
+     "type": "object",
+     "required": [
+      "text",
+      "targetObjectId",
+      "visibility"
+     ],
+     "properties": {
+      "text": {
+       "type": "string"
+      },
+      "targetObjectId": {
+       "type": [
+        "string",
+        "null"
+       ]
+      },
+      "visibility": {
+       "enum": [
+        "show",
+        "hide"
+       ]
+      }
+     }
+    },
+    "logo": {
+     "type": "object",
+     "required": [
+      "media",
+      "visibility"
+     ],
+     "properties": {
+      "media": {
+       "anyOf": [
+        {
+         "$ref": "#/$defs/MediaRef"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "visibility": {
+       "enum": [
+        "content",
+        "placeholder",
+        "hide"
+       ]
+      }
+     }
+    },
+    "interview": {
+     "type": "object",
+     "required": [
+      "label",
+      "date",
+      "visibility"
+     ],
+     "properties": {
+      "label": {
+       "type": "string"
+      },
+      "date": {
+       "type": "string"
+      },
+      "visibility": {
+       "enum": [
+        "show",
+        "hide"
+       ]
+      }
+     }
+    },
+    "photos": {
+     "type": "array",
+     "maxItems": 5,
+     "items": {
+      "type": "object",
+      "required": [
+       "id",
+       "media",
+       "slot",
+       "style"
+      ],
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "media": {
+        "$ref": "#/$defs/MediaRef"
+       },
+       "slot": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 4
+       },
+       "style": {
+        "enum": [
+         "scrapbook",
+         "polaroid"
+        ]
+       },
+       "caption": {
+        "type": "object",
+        "required": [
+         "mode",
+         "text"
+        ],
+        "properties": {
+         "mode": {
+          "enum": [
+           "marker",
+           "type"
+          ]
+         },
+         "text": {
+          "type": "string",
+          "maxLength": 32
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "TimelineVisualDocument": {
+   "type": "object",
+   "required": [
+    "schemaVersion",
+    "timelineId",
+    "ownerId",
+    "title",
+    "student",
+    "axis",
+    "events",
+    "categories",
+    "profileFields",
+    "photos",
+    "interview",
+    "presentation"
+   ],
+   "properties": {
+    "schemaVersion": {
+     "const": "d1-411a/timeline-visual-document/1"
+    },
+    "timelineId": {
+     "type": "string"
+    },
+    "ownerId": {
+     "type": "string"
+    },
+    "revision": {
+     "type": "integer"
+    },
+    "title": {
+     "type": "string"
+    },
+    "targetSpecialty": {
+     "type": "string"
+    },
+    "student": {
+     "type": "object",
+     "properties": {
+      "displayName": {
+       "type": "string"
+      },
+      "firstName": {
+       "type": "string"
+      },
+      "lastName": {
+       "type": "string"
+      },
+      "profilePhoto": {
+       "anyOf": [
+        {
+         "$ref": "#/$defs/MediaRef"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "visaStatus": {
+       "type": "string"
+      },
+      "aamcDisplay": {
+       "type": "string",
+       "description": "protected display equivalent; host decides masking"
+      },
+      "stepScores": {
+       "type": "object",
+       "properties": {
+        "step1": {
+         "type": "string"
+        },
+        "step2Ck": {
+         "type": "string"
+        },
+        "step2Cs": {
+         "type": "string"
+        },
+        "step3": {
+         "type": "string"
+        }
+       }
+      },
+      "usceSummary": {
+       "type": "string"
+      },
+      "researchSummary": {
+       "type": "string"
+      },
+      "languages": {
+       "type": "string"
+      },
+      "hobbies": {
+       "type": "string"
+      }
+     }
+    },
+    "axis": {
+     "type": "object",
+     "properties": {
+      "startYear": {
+       "type": "integer"
+      },
+      "endYear": {
+       "type": "integer"
+      },
+      "futureEnabled": {
+       "type": "boolean",
+       "default": true
+      },
+      "adaptiveWeightingEnabled": {
+       "type": "boolean",
+       "default": true
+      },
+      "explicitYearWeights": {
+       "type": "object",
+       "description": "optional; presentation-only; reserved (kernel currently derives)"
+      },
+      "dateNormalization": {
+       "type": "string",
+       "default": "UTC-month",
+       "description": "dates resolve to month precision"
+      }
+     }
+    },
+    "events": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "id",
+       "title",
+       "categoryId",
+       "startDate"
+      ],
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "title": {
+        "type": "string"
+       },
+       "shortLabel": {
+        "type": "string"
+       },
+       "categoryId": {
+        "type": "string"
+       },
+       "startDate": {
+        "type": "string",
+        "description": "YYYY-MM or YYYY-MM-DD"
+       },
+       "endDate": {
+        "type": "string"
+       },
+       "approximateStart": {
+        "type": "boolean",
+        "default": false
+       },
+       "approximateEnd": {
+        "type": "boolean",
+        "default": false
+       },
+       "ongoing": {
+        "type": "boolean",
+        "default": false
+       },
+       "location": {
+        "type": "string"
+       },
+       "institution": {
+        "type": "string"
+       },
+       "description": {
+        "type": "string",
+        "description": "domain-owned; never rendered on the board"
+       },
+       "visibility": {
+        "enum": [
+         "visible",
+         "hidden"
+        ],
+        "default": "visible",
+        "description": "hidden events are NEVER sent to the kernel"
+       },
+       "calloutId": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "milestone": {
+        "type": "boolean",
+        "default": false,
+        "description": "true => renders as milestone flag, not arrow"
+       },
+       "presentationOverride": {
+        "type": "object",
+        "properties": {
+         "lane": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 6
+         },
+         "labelPosition": {
+          "enum": [
+           "below",
+           "left"
+          ]
+         },
+         "highlight": {
+          "type": "boolean"
+         }
+        },
+        "description": "manual override; presentation-only"
+       }
+      }
+     }
+    },
+    "milestones": {
+     "type": "array",
+     "description": "alternative to events[].milestone",
+     "items": {
+      "type": "object",
+      "required": [
+       "id",
+       "date",
+       "label"
+      ],
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "date": {
+        "type": "string"
+       },
+       "label": {
+        "type": "string"
+       },
+       "icon": {
+        "enum": [
+         "us-flag",
+         "none"
+        ],
+        "default": "none"
+       },
+       "visibility": {
+        "enum": [
+         "visible",
+         "hidden"
+        ],
+        "default": "visible"
+       }
+      }
+     }
+    },
+    "categories": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "id",
+       "label",
+       "mapsTo"
+      ],
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "label": {
+        "type": "string"
+       },
+       "shortLabel": {
+        "type": "string"
+       },
+       "color": {
+        "type": "string",
+        "description": "reserved for future configurable categories; current kernel enforces the frozen five"
+       },
+       "mapsTo": {
+        "enum": [
+         "work",
+         "personal",
+         "usmle",
+         "usce",
+         "res"
+        ]
+       },
+       "order": {
+        "type": "integer"
+       },
+       "visible": {
+        "type": "boolean",
+        "default": true
+       },
+       "arrowWordingRule": {
+        "enum": [
+         "keep",
+         "dedupe-category-term"
+        ],
+        "default": "keep"
+       }
+      }
+     }
+    },
+    "profileFields": {
+     "type": "object",
+     "description": "configurable summary strings; adapter maps into the frozen profile sheet fields"
+    },
+    "photos": {
+     "type": "array",
+     "maxItems": 5,
+     "items": {
+      "type": "object",
+      "required": [
+       "id",
+       "source"
+      ],
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "source": {
+        "$ref": "#/$defs/MediaRef"
+       },
+       "altText": {
+        "type": "string"
+       },
+       "caption": {
+        "type": "string"
+       },
+       "captionStyle": {
+        "enum": [
+         "none",
+         "marker",
+         "type"
+        ],
+        "default": "none"
+       },
+       "presentationStyle": {
+        "enum": [
+         "scrapbook",
+         "polaroid"
+        ],
+        "default": "scrapbook"
+       },
+       "focal": {
+        "type": "string",
+        "description": "reserved; kernel uses cover-fit"
+       },
+       "visibility": {
+        "enum": [
+         "visible",
+         "hidden"
+        ],
+        "default": "visible"
+       },
+       "slot": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 4,
+        "description": "optional explicit slot; else adapter assigns in order"
+       }
+      }
+     }
+    },
+    "callouts": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "required": [
+       "id",
+       "text",
+       "targetEventId"
+      ],
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "text": {
+        "type": "string"
+       },
+       "targetEventId": {
+        "type": "string"
+       },
+       "style": {
+        "enum": [
+         "sticky"
+        ],
+        "default": "sticky"
+       },
+       "visibility": {
+        "enum": [
+         "visible",
+         "hidden"
+        ],
+        "default": "visible"
+       }
+      }
+     },
+     "description": "exactly one visible sticky is supported by the frozen composition; extras are reported, not rendered"
+    },
+    "interview": {
+     "type": "object",
+     "properties": {
+      "programName": {
+       "type": "string"
+      },
+      "specialty": {
+       "type": "string"
+      },
+      "interviewDate": {
+       "type": "string"
+      },
+      "interviewDateDisplay": {
+       "type": "string"
+      },
+      "logo": {
+       "anyOf": [
+        {
+         "$ref": "#/$defs/MediaRef"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "ribbonText": {
+       "type": "string"
+      },
+      "ribbonColor": {
+       "type": "string",
+       "description": "FUTURE (theme-driven); current kernel renders the frozen neutral satin"
+      },
+      "visibility": {
+       "enum": [
+        "visible",
+        "hidden"
+       ],
+       "default": "visible"
+      }
+     }
+    },
+    "presentation": {
+     "type": "object",
+     "properties": {
+      "densityMode": {
+       "enum": [
+        "auto"
+       ],
+       "default": "auto"
+      },
+      "scaleMode": {
+       "enum": [
+        "full",
+        "fit-container"
+       ],
+       "default": "full"
+      },
+      "theme": {
+       "const": "keynote-classic-409h"
+      },
+      "photoStyleDefault": {
+       "enum": [
+        "scrapbook",
+        "polaroid"
+       ],
+       "default": "scrapbook"
+      },
+      "captionDefault": {
+       "enum": [
+        "none",
+        "marker",
+        "type"
+       ],
+       "default": "none"
+      },
+      "fontSelections": {
+       "type": "object",
+       "description": "FUTURE; frozen master ignores"
+      },
+      "manualOverrides": {
+       "type": "object",
+       "description": "per-object presentation overrides"
+      },
+      "resetToAutomatic": {
+       "type": "boolean",
+       "default": false
+      }
+     }
+    },
+    "metadata": {
+     "type": "object"
+    }
+   }
+  }
+ },
+ "notes": {
+  "fieldBehavior": "Required fields fail closed (INVALID_SCHEMA). Optional missing => documented default. Invalid values => fail closed with path. Hidden objects are never sent to the kernel (privacy law). Unknown categoryId without mapsTo => adapter error, never silent drop.",
+  "renderingConsequences": "approximate* => adapter prefixes the display date with '\u2248' (presentation-only). ongoing => endDate=axis end + '-Active' display suffix. milestone => flag object. Missing photos => empty frozen slots (composition preserved). Missing portrait/logo => approved physical placeholder states."
+ }
+}

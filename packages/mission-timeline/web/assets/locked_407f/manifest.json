@@ -1,0 +1,165 @@
+{
+  "authority": {
+    "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-DefinitiveFullProductPrototype-407F.html",
+    "sha256": "23e0f5d420b69cd90da3f04b30e5752183aff41c737860ec30fc4ccbb87beb6b"
+  },
+  "extraction": "verbatim data URLs from the locked 407F ASSETS and SPR402 objects",
+  "assets": {
+    "board": {
+      "filename": "board_texture_locked_407f.jpg",
+      "bytes": 38478,
+      "sha256": "e8b6c29b3e24bdb9de2821ccdaf781c89fe32da1303afad80dc533100f0386e4"
+    },
+    "plaque": {
+      "filename": "title_plaque_locked_407f.png",
+      "bytes": 17869,
+      "sha256": "a7e1cae26b211ba9dd65468bb3a5c135df2c251246ff55323a09523999f6657b"
+    },
+    "paper": {
+      "filename": "profile_paper_locked_407f.png",
+      "bytes": 11757,
+      "sha256": "c4ca699cbfe4400e9ff907c64970ac301ef810110e48ef206981ef9caf55acf4"
+    },
+    "sticky": {
+      "filename": "sticky_note_locked_407f.png",
+      "bytes": 27125,
+      "sha256": "77185d4debc6691227882702a8c376e624743a2d7cadcbf786569614a3289ff9"
+    },
+    "pin": {
+      "filename": "pushpin_locked_407f.png",
+      "bytes": 12197,
+      "sha256": "a9eaf374e24549bdb119f2cc3bcd893ae7f10a9eaccd7e1b674cee997f7d559a"
+    },
+    "flag": {
+      "filename": "usa_flag_locked_407f.png",
+      "bytes": 34301,
+      "sha256": "4503e3692adb195016cbeff5b994ad5d8327f4a5d122e2d5a7597f4d0e6ba7f2"
+    },
+    "key": {
+      "filename": "color_key_locked_407f.png",
+      "bytes": 5239,
+      "sha256": "85b14831dfa29313f5396868a8306348454409918faf8fb2bbb5e2d6c4aa8281"
+    }
+  },
+  "sprites": {
+    "work": {
+      "cap": {
+        "filename": "work_cap_locked_407f.png",
+        "bytes": 895,
+        "sha256": "d71776189341cdb1eb5f015aaf0502196e6e58e48fcd3d54c2a0640c8020499c"
+      },
+      "body": {
+        "filename": "work_body_locked_407f.png",
+        "bytes": 1106,
+        "sha256": "52f25bf21c30dcea1d76648e5112e8e0c919fc4e548dc9ace36f4ce36374c692"
+      },
+      "head": {
+        "filename": "work_head_locked_407f.png",
+        "bytes": 1432,
+        "sha256": "120f46effd78a4c7bd1f4561d364051f24dc52c27616595fcdadc8df4ffca4f1"
+      }
+    },
+    "usmle": {
+      "cap": {
+        "filename": "usmle_cap_locked_407f.png",
+        "bytes": 916,
+        "sha256": "7c0006573eeb58a5715cda0bc86e8265476313d6359ebe08d36243936b929feb"
+      },
+      "body": {
+        "filename": "usmle_body_locked_407f.png",
+        "bytes": 1101,
+        "sha256": "c5952478c5a2ec9b645e34c2c2829cc96c609e8a766dc50cc3375adf1a8afee1"
+      },
+      "head": {
+        "filename": "usmle_head_locked_407f.png",
+        "bytes": 1518,
+        "sha256": "a9c6e50dd6fbada322e89749c3972fb6b27185e2765eab6b48e61113727ccd52"
+      }
+    },
+    "th": {
+      "cap": {
+        "filename": "th_cap_locked_407f.png",
+        "bytes": 932,
+        "sha256": "a233aec87da03a3b276b6508ab8f2a9d29edc42a37ffaaa3d8fda5141d43ea98"
+      },
+      "body": {
+        "filename": "th_body_locked_407f.png",
+        "bytes": 1126,
+        "sha256": "5af8a21a13d93d0c4f4ff4ddd0f28819f4ee2c4534bf666a2387cff632e8dfbb"
+      },
+      "head": {
+        "filename": "th_head_locked_407f.png",
+        "bytes": 1515,
+        "sha256": "e1767fffbb1a4ed0c083557d9bd8195f7ecf9efd6787c844d0d7d2dfe3d249f2"
+      }
+    },
+    "cl": {
+      "cap": {
+        "filename": "cl_cap_locked_407f.png",
+        "bytes": 941,
+        "sha256": "871e2db8663420ec6b289a6104da19d3a8517446542931e937bf6dd77ddf8ec1"
+      },
+      "body": {
+        "filename": "cl_body_locked_407f.png",
+        "bytes": 1155,
+        "sha256": "c5f895a94a31559cc12e0afe516eedadcd7719a1872ba9628b9cf7e10e873e94"
+      },
+      "head": {
+        "filename": "cl_head_locked_407f.png",
+        "bytes": 1562,
+        "sha256": "20dfec4e55815d32f0a48c20ee00faa4bf67d6f7c9eacbc801dc85fe87364d5b"
+      }
+    },
+    "personal": {
+      "cap": {
+        "filename": "personal_cap_locked_407f.png",
+        "bytes": 912,
+        "sha256": "11ac7ca9914013ffe057b983b6db695015a23eea93d09457b22f6319082f2230"
+      },
+      "body": {
+        "filename": "personal_body_locked_407f.png",
+        "bytes": 1109,
+        "sha256": "f469db69a7e8327a0b9b855d649c3169a19836e421ccc72af558cb7f956cbc15"
+      },
+      "head": {
+        "filename": "personal_head_locked_407f.png",
+        "bytes": 1496,
+        "sha256": "83ee7c58b6bd623e7d74973a9cb34e40ae84c6385f276a0205821af737fcc5d0"
+      }
+    },
+    "res": {
+      "cap": {
+        "filename": "res_cap_locked_407f.png",
+        "bytes": 959,
+        "sha256": "52d83b52eadcd1540d2dbef5514cb031dbd58641e9dcc48479306bda2315dc02"
+      },
+      "body": {
+        "filename": "res_body_locked_407f.png",
+        "bytes": 1133,
+        "sha256": "1a6e80307fbcb68fa41bccf85ddfe481f5d8e84c4fb7a606abe860b6f05feb1f"
+      },
+      "head": {
+        "filename": "res_head_locked_407f.png",
+        "bytes": 1556,
+        "sha256": "729808d3f0c3b6fee7bda104de085f19a4558faaf2815b16f91cb8752672a2f2"
+      }
+    },
+    "axis": {
+      "body": {
+        "filename": "axis_body_locked_407f.png",
+        "bytes": 7170,
+        "sha256": "6c20f6994cc5210e49edd22ec78c099d23f42fdb8eb47782732ea346b7aed8c4"
+      }
+    },
+    "flagGray": {
+      "filename": "flagGray_locked_407f.png",
+      "bytes": 444,
+      "sha256": "748158ecac6e15b1a61c6fb98339e1dd658d766b2e6e14802b98afc5fed4fe71"
+    },
+    "flagPers": {
+      "filename": "flagPers_locked_407f.png",
+      "bytes": 455,
+      "sha256": "3b577a1bde2f82943aff3ffd12a85c1233eccea24bb1f729e30e6731bad03443"
+    }
+  }
+}

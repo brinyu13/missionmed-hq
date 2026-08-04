@@ -1,0 +1,34 @@
+.d1-407-kpi{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:6px;
+  margin-top:8px;
+}
+.d1-407-kpi span{
+  border:1px solid var(--edge2);
+  border-radius:6px;
+  padding:7px 8px;
+  font-family:var(--num);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.13em;
+  color:var(--mid);
+}
+.d1-407-kpi b{
+  display:block;
+  color:var(--paper);
+  font-family:var(--body);
+  font-size:15px;
+  letter-spacing:0;
+  margin-top:3px;
+}
+.d1-407-json-note{
+  margin-top:8px;
+  color:var(--dim);
+  font-family:var(--num);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.13em;
+  line-height:1.8;
+}
+
