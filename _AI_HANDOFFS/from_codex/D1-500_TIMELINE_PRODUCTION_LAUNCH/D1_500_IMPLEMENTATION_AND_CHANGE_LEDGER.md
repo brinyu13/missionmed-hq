@@ -1,31 +1,35 @@
 # D1-500 Implementation and Change Ledger
 
-Implemented and sealed at commit
-`b668cc4d3eaa8075a357d35a60456fcaaaffa18c`:
+Accepted product implementation remains sealed at
+`b668cc4d3eaa8075a357d35a60456fcaaaffa18c` with release identities
+`timeline-0c5cc515a76346d6` and `timeline-wp-c228658bc70bc395`.
 
-- production release identity and required health release marker;
-- execution-private WordPress runtime packaging with extensionless,
-  content-addressed assets;
-- accepted-asset authority verification and private-fixture exclusion;
-- WordPress default-off route, canary and eligible-360 rollout stages;
-- live LearnDash 3893 entitlement check;
-- explicit student remote-sync consent record and withdrawal seams;
-- immutable WordPress-user-to-Timeline-principal mapping;
-- short-lived issuer/audience/key-bound JWT exchange;
-- same-origin gateway and direct-API denial boundary;
-- persona-bound IndexedDB cache and conflict-safe hybrid persistence;
-- PostgreSQL D1-500 schema/grant hardening, forced RLS, and exact admin grants;
-- dependency-aware health, sanitized logging, kill-switch controls, and rollback
-  scripts.
+Production changes completed:
 
-Production provider changes completed:
+- Critical Systems metadata amendment and Timeline registration;
+- Kinsta and Railway provider-native backups plus logical database backup;
+- six accepted database migration/role assets and runtime-role binding;
+- Railway non-secret service configuration and PostgreSQL reference;
+- Railway provider domain;
+- exact Kinsta payload installation, plugin activation, immutable release
+  pointer, and default-off settings;
+- anonymous Matrix redirect and anonymous token-denial verification.
 
-- isolated Railway project, environments, API service, PostgreSQL service;
-- non-secret, no-deploy API configuration only.
+Defect and repair:
 
-Production provider changes not completed:
+- defect: generated Nixpacks plan ran its install stage and the configured build
+  ran a second `npm ci`, producing an `EBUSY` cache failure;
+- repair: commit `7cf30eb` removes only the duplicate install from the build
+  command; local typecheck/API build/API-only validation pass and the Railway
+  retry image built successfully.
 
-- schema migration, runtime login binding, secret installation, API deploy;
-- Kinsta backup, payload install, plugin activation, release pointer, route or
-  navigation activation;
-- canary and student rollout.
+Production changes not completed:
+
+- matching Railway/Kinsta JWT and gateway secret bindings;
+- successful API health and immutable deployment receipt;
+- principal provisioning, canary, eligible-360 activation, navigation proof,
+  and final browser/security/rollback evidence.
+
+No unrelated application, Matrix, Arena, USCE Admin, CDN, DNS, or provider
+setting was changed. A separate staged Railway `function-bun` service was
+inspected read-only and left untouched.

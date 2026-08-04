@@ -3,8 +3,9 @@
 Status: WITHHELD.
 
 The canonical eligibility source is verified as current LearnDash access to
-published course 3893 with Closed enrollment. Navigation and direct route remain
-off. No student has been exposed to the release.
+published course 3893 with Closed enrollment. The direct WordPress route is
+installed but access-off; the eligible-student navigation entry remains off. No
+student has been exposed to the release.
 
 Direct production verification on `2026-08-04` confirmed that course `3893` is
 published as “Mission Residency: 360 Match Mentorship Student Dashboard &
@@ -21,6 +22,7 @@ entitlement activation/revocation. Student activation is prohibited until the
 Founder/admin canary and rollback gate pass.
 
 The verified active 360 identity is referenced as `D1-500-STUDENT-360-01`; no
-password is stored in this package. A second eligible identity plus non-360 and
-expired/revoked personas or controlled fixtures are still required for the
+password is stored in this package. Founder-authorized controlled fixtures for a
+second eligible identity, non-360 identity, and expired/revoked identity will be
+created only after the API health gate passes and removed or restored after the
 mandatory isolation and denial proofs.

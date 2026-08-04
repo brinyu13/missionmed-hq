@@ -12,6 +12,12 @@
 - Protected-system registration commit: `b75c789`.
 - Protected-system registration review:
   `https://github.com/brinyu13/missionmed-hq/pull/22`.
+- Provider checkpoint commit: `16fe6a4`.
+- Deployment-config repair commit: `7cf30eb`.
+- Registered Critical Systems manifest SHA-256:
+  `4c7694b47e9112822f0424fc59f8705ec6bf5b5dcbb3a95b63513e6f213c88e2`.
+- Matrix runtime-lock manifest SHA-256:
+  `f80463b2ff43340aaf460e43f90c6383117b78e1c3e4c905daba34291ac045f2`.
 - Protected presentation: D1-409H-A1.
 - Protected active JavaScript SHA-256:
   `ca9a28688e7dd29f0e008b58efae85555af860b8150fa9493165faf851165bb8`.
@@ -49,3 +55,10 @@ disposable archive of that commit passed all ten local/source, origin, and
 public hashes. No Matrix override or production copy is required. Exact
 reconciliation findings and the subsequently approved amendment are in
 `D1_500_CRITICAL_SYSTEMS_RECONCILIATION.md`.
+
+Current execution lineage is accepted source `b668cc4d3eaa8075a357d35a60456fcaaaffa18c`,
+protected-system registration `b75c789`, provider checkpoint `16fe6a4`, and
+deployment-config repair `7cf30eb`, on branch
+`codex/d1-500-critical-registration` under draft review 22. The package manifest
+is regenerated after every substantive evidence change and is the controlling
+hash receipt for the final evidence set.

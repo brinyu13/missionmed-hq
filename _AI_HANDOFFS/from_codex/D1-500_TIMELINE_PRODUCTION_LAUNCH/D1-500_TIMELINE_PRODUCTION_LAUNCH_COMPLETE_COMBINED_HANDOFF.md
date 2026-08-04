@@ -1,9 +1,8 @@
 # D1-500 Timeline Production Launch Complete Combined Handoff
 
-This file contains the complete, unabridged substantive content of every D1-500 Markdown report in this package.
+Checkpoint status: PARTIAL. Timeline is installed feature-off/access-off and is not live to authorized users.
 
-
----
+This document contains the complete, unabridged substantive content of every D1-500 Markdown report in this package.
 
 <!-- SOURCE: D1_500_AUTHORITY_AND_SOURCE_MANIFEST.md -->
 
@@ -21,6 +20,12 @@ This file contains the complete, unabridged substantive content of every D1-500 
 - Protected-system registration commit: `b75c789`.
 - Protected-system registration review:
   `https://github.com/brinyu13/missionmed-hq/pull/22`.
+- Provider checkpoint commit: `16fe6a4`.
+- Deployment-config repair commit: `7cf30eb`.
+- Registered Critical Systems manifest SHA-256:
+  `4c7694b47e9112822f0424fc59f8705ec6bf5b5dcbb3a95b63513e6f213c88e2`.
+- Matrix runtime-lock manifest SHA-256:
+  `f80463b2ff43340aaf460e43f90c6383117b78e1c3e4c905daba34291ac045f2`.
 - Protected presentation: D1-409H-A1.
 - Protected active JavaScript SHA-256:
   `ca9a28688e7dd29f0e008b58efae85555af860b8150fa9493165faf851165bb8`.
@@ -59,8 +64,12 @@ public hashes. No Matrix override or production copy is required. Exact
 reconciliation findings and the subsequently approved amendment are in
 `D1_500_CRITICAL_SYSTEMS_RECONCILIATION.md`.
 
-
----
+Current execution lineage is accepted source `b668cc4d3eaa8075a357d35a60456fcaaaffa18c`,
+protected-system registration `b75c789`, provider checkpoint `16fe6a4`, and
+deployment-config repair `7cf30eb`, on branch
+`codex/d1-500-critical-registration` under draft review 22. The package manifest
+is regenerated after every substantive evidence change and is the controlling
+hash receipt for the final evidence set.
 
 <!-- SOURCE: D1_500_BACKUP_RESTORE_AND_ROLLBACK_RECEIPT.md -->
 
@@ -68,50 +77,46 @@ reconciliation findings and the subsequently approved amendment are in
 
 Local/disposable recovery proof: PASS.
 
-- PostgreSQL proof cluster: `/tmp/d1-500-pg.Y5bd9y/data`, loopback port 55412.
-- Custom-format backup:
-  `/tmp/d1-500-pg.Y5bd9y/d1_500_proof.backup`.
-- Backup SHA-256:
-  `47543f7923a487870713b42e5e2ebb7d36bb5d19f9c3f72e0e666fc3aa9cd73f`.
-- Isolated restore, schema validation, migration down-safety, and reapply: PASS.
-- Feature kill switch: WordPress `timeline_enabled=false` and
-  `rollout_stage=off`.
-- Application rollback: restore the prior immutable Railway deployment.
-- WordPress rollback: disable admission/navigation, restore the previous exact
-  `current` pointer, then verify unrelated routes.
+- Prior disposable PostgreSQL restore/down/reapply proof: PASS.
+- Feature kill switch: `timeline_enabled=false`, `rollout_stage=off`.
 - Database rollback policy: preserve successful additive hardening migrations;
-  restore only for verified corruption. Security-broadening down migration is
-  prohibited.
+  restore only for verified corruption.
 
-Production recovery checkpoint at `2026-08-04T15:21:16Z`:
+Production recovery receipts:
 
-- Kinsta Timeline-scoped pre-state snapshot: PASS at
+- Timeline-scoped Kinsta snapshot: PASS at
   `/www/theresidencyacademy_209/private/d1-500-backups/20260804T152116Z`.
-- The plugin, MU route, Matrix Timeline asset directory, Timeline settings
-  option, and Timeline plugin status are all recorded as absent with a verified
-  SHA-256 manifest and mode-restricted files.
-- Standard WP-CLI WordPress bootstrap exits with signal 139 while loading the
-  existing production MU-plugin set. A non-mutating `WPMU_PLUGIN_DIR` isolation
-  bootstrap succeeds and independently confirms the Timeline plugin and option
-  are absent. No production MU plugin was changed or disabled for web traffic.
-- Kinsta provider-native manual backup: BLOCKED because all five retained
-  manual-backup slots are occupied. No existing backup was deleted.
-- Railway provider-native volume backup: NOT RUN; provider UI authentication is
-  required.
-- Railway logical PostgreSQL backup: BLOCKED by
-  `RAILWAY_SSH_UNAUTHORIZED`; no database command or migration ran.
+- Deleted provider backup: exactly `B1-508 pre deployment 2026-07-31`, after
+  re-verifying it was the oldest manual backup, the August 4 daily backup and
+  all four newer manual backups remained, the D1-500 snapshot remained intact,
+  and matching B1-508 private recovery artifacts existed locally and remotely.
+  The deleted MyKinsta manual item is not recoverable through MyKinsta; its
+  verified private recovery sets remain.
+- Replacement provider backup: `D1-500-PRE-20260804T161859Z`, created August 4
+  at 12:19 PM EDT, expires August 18, READY with a restore control.
+- Railway provider-native PostgreSQL volume backup: created August 4 at 12:20
+  PM EDT, manual, 843 MB, READY with a restore control.
+- Logical PostgreSQL dump:
+  `/Users/brianb/MissionMed_private_backups/D1-500/20260804T162100Z/timeline-pre-migration.dump`.
+- Logical dump SHA-256:
+  `65ae8326ee7a2ba7115486187ec978494c7beae714daeb32379c2873f89436cd`.
+- Dump format: PostgreSQL 18.4 custom archive; isolated restore: PASS; temporary
+  restore database removed after validation.
 
-The scoped snapshot is not a substitute for the mandatory fresh provider-native
-Kinsta backup and Railway/PostgreSQL backups. No Timeline production payload may
-be installed until those backups are READY and their provider receipts are
-recorded.
-
-
----
+WordPress rollback is bounded to disabling Timeline admission, deactivating the
+Timeline plugin, removing its MU route, and restoring the pre-state recorded in
+the scoped snapshot. Railway has no successful application deployment to roll
+back yet. The failed deployment attempts created no serving release.
 
 <!-- SOURCE: D1_500_CRITICAL_SYSTEMS_RECONCILIATION.md -->
 
 # D1-500 Critical Systems Reconciliation
+
+Historical checkpoint note: the approval request and pre-mutation language in
+this report were satisfied by the Founder and superseded by protected-system
+registration commit `b75c789`. The resulting Critical Systems gate passes 140
+checks with 3 warnings and 0 failures; no protected application runtime was
+changed by the metadata amendment.
 
 Prepared: 2026-08-04T14:42:16Z
 Scope: read-only authority, source, private-origin, public-CDN, rollback, and
@@ -307,100 +312,109 @@ Exact authorization wording:
 > new failure or unexpected hash. The Arena pin acknowledges observed accepted
 > bytes and does not certify or waive the open Y1-CAM-4008A P0.
 
-
----
-
 <!-- SOURCE: D1_500_DEPLOYMENT_AND_RELEASE_RECEIPT.md -->
 
 # D1-500 Deployment and Release Receipt
 
-- Sealed commit: `b668cc4d3eaa8075a357d35a60456fcaaaffa18c`.
+- Accepted source commit: `b668cc4d3eaa8075a357d35a60456fcaaaffa18c`.
+- Deployment-config repair commit: `7cf30eb`.
 - Static release: `timeline-0c5cc515a76346d6`.
 - WordPress runtime: `timeline-wp-c228658bc70bc395`.
-- WordPress payload archive:
-  `artifacts/D1-500_KINSTA_FEATURE_OFF_PAYLOAD.tar.gz`.
-- Payload SHA-256:
+- WordPress payload SHA-256:
   `e0eed7020fe23028f7168676d3d45455c9ca56f1a9a723f4530d873c4fb3fb11`.
-- GitHub draft PR: `https://github.com/brinyu13/missionmed-hq/pull/21`.
-- Protected-system registration commit: `b75c789` on
-  `codex/d1-500-critical-registration`.
-- Protected-system registration draft PR:
-  `https://github.com/brinyu13/missionmed-hq/pull/22`.
 - Critical Systems gate: 140 PASS, 3 WARN, 0 FAIL.
 - Matrix immutable-source/live guard: 10 PASS, 0 FAIL.
-- Railway topology: created, access off, application not deployed.
-- Kinsta/WordPress payload: prepared, not uploaded.
-- Kinsta Timeline-scoped pre-state backup: READY at
-  `/www/theresidencyacademy_209/private/d1-500-backups/20260804T152116Z`.
-- Provider-native backup gate: BLOCKED; Kinsta manual capacity is 5/5 and
-  Railway SSH/provider UI require Founder reauthorization.
-- Production deployment identifier: NONE.
-- Live URL: NOT LIVE.
+- PostgreSQL schema: `d1-timeline-db-500.1`, migrated and verified.
+- Railway URL: `https://mission-timeline-api-production.up.railway.app`.
+- First deployment `fcd4805f-153d-48b7-8b0e-1207ecdb2cbd`: FAILED CLOSED
+  during image build because the generated Nixpacks plan performed duplicate
+  `npm ci` operations.
+- Repaired deployment `5d682cfe-ac05-42d4-8026-af9afd6eebb2`: image build
+  PASS; FAILED CLOSED at `/healthz` because the API service did not contain
+  `TIMELINE_JWT_SECRET` or `TIMELINE_GATEWAY_SECRET`.
+- Railway application state: offline; no successful deployment identifier yet.
+- Kinsta payload: installed at the exact authorized hash.
+- Kinsta settings: feature off, rollout off, no canaries, no eligible users.
+- Canonical route: `https://missionmedinstitute.com/timeline/`, installed but
+  not live to authorized users.
+- Anonymous route behavior: `302` to the approved Matrix member-dashboard
+  flow.
+- Anonymous token POST: denied `401` with `session_required`.
 
-The payload contains only the Timeline SSO plugin, its Matrix launch asset, the
-Timeline MU route, and immutable runtime release
-`timeline-wp-c228658bc70bc395`. It contains no secret value.
-
-
----
+The payload contains only the Timeline SSO plugin, Matrix launch asset, MU
+route, and immutable runtime release. No secret value is present in the
+artifact, Git history, logs, screenshots, or evidence.
 
 <!-- SOURCE: D1_500_EXECUTIVE_RELEASE_REPORT.md -->
 
 # D1-500 Executive Release Report
 
-Status as of 2026-08-04: **PARTIAL — production activation blocked at the
-pre-mutation gate**.
+Status as of 2026-08-04: **PARTIAL — production remains access-off at the
+server-secret binding gate**.
 
-The accepted Timeline Builder has been converted into a clean, deterministic,
-default-off production candidate and pushed for review. The application and
-security core pass 614 automated tests, API-only packaging, PHP lint, dependency
-audit, and a disposable PostgreSQL forced-RLS proof. The isolated Railway
-project, production/staging environments, API service, and PostgreSQL service
-exist. No user access is enabled and no Kinsta/WordPress application bytes have
-been changed.
+Audited execution progress is 35 of 45 defined work units (78%). This measure
+tracks execution work, not final acceptance: live canary and 360 rollout remain
+mandatory. Engineering confidence is 92%; confidence that this execution loop
+ends with Timeline live inside Matrix is 74%, contingent on the Founder-only
+secret bindings becoming verifiable.
 
-The Critical Systems reconciliation and protected Timeline registration are now
-applied on `codex/d1-500-critical-registration` at commit `b75c789` and pushed
-for review in draft PR 22. The full protected-systems gate passes 140 checks
-with 0 failures. Immutable Matrix commit `60e7169b...` contains all ten approved
-source bytes, and the controlling Matrix guard passes local/source/origin/public
-verification without override. The Critical Systems production block is closed.
+The accepted Timeline Builder remains sealed as static release
+`timeline-0c5cc515a76346d6` and WordPress runtime
+`timeline-wp-c228658bc70bc395`. The product and security core pass 614
+automated tests. Critical Systems passes 140 checks with zero failures and the
+controlling Matrix lock passes ten of ten checks.
 
-The mandatory pre-mutation backup/access gate is still open. A verified,
-mode-restricted Timeline-scoped Kinsta snapshot exists at
-`/www/theresidencyacademy_209/private/d1-500-backups/20260804T152116Z`, but all
-five provider-native Kinsta manual slots are occupied. Railway CLI topology
-access works, while Railway SSH requires Founder reauthorization. No provider
-backup was deleted, no database migration ran, and no Kinsta application byte
-was installed.
+Production backup, data, and feature-off installation work is complete:
 
-One consolidated Founder intervention is required before execution can resume:
+- the exact oldest Kinsta manual backup was deleted only after re-verifying the
+  inventory and its independent local and remote recovery copies;
+- replacement Kinsta backup `D1-500-PRE-20260804T161859Z` is READY with a
+  restore control and all four newer retained backups remain;
+- a Railway manual PostgreSQL volume backup is READY at 843 MB with a restore
+  control;
+- a PostgreSQL 18 custom logical dump is stored outside Git, hash-verified, and
+  passed an isolated restore;
+- all six accepted Timeline SQL assets applied successfully; production reads
+  back `d1-timeline-db-500.1`, 20 tables, 53 policies, zero missing forced-RLS
+  tables, and zero public schema/table access;
+- the exact authorized Kinsta payload SHA-256
+  `e0eed7020fe23028f7168676d3d45455c9ca56f1a9a723f4530d873c4fb3fb11`
+  is installed and active with `timeline_enabled=false`,
+  `rollout_stage=off`, an empty canary list, and eligibility unverified;
+- anonymous `/timeline/` access returns to the approved Matrix flow and an
+  anonymous token POST is denied `401`.
 
-1. reauthorize Railway CLI/SSH with `railway login`;
-2. install the named Railway and Kinsta/WordPress secrets without exposing their
-   values to Git, terminal output, evidence, or chat;
-3. authorize removal of one existing Kinsta manual backup, or increase provider
-   backup capacity, so a fresh `D1-500-PRE-<UTC>` backup can be created; and
-4. provide or authorize controlled fixtures for the remaining canary personas:
-   Founder, second eligible student, non-360 student, and expired/revoked
-   student. One administrator and one active 360 test identity are verified
-   directly in production and are referenced only by opaque handles; no
-   password is stored in this package.
+The first Railway image build failed closed because Nixpacks ran a locked
+install and the repository build command attempted a second `npm ci` against
+the active cache. The narrow config-only repair at commit `7cf30eb` retains the
+Nixpacks locked install and runs typecheck, API build, and API-only validation
+once. The retry built successfully but failed its `/healthz` gate before going
+online because the production API service lacks its two required secret
+variables. The PostgreSQL reference and all seven non-secret variables are
+installed. No API container is live and no user access is enabled.
 
-Consent version `d1-500-v1` and PostgreSQL service ID
-`134e537e-d48b-4452-acf6-8c3af2ce03db` are Founder-approved. After the remaining
-actions, the saved checkpoint resumes at provider backups, database migration,
-feature-off deployment, Kinsta install, Founder/admin canary, 360 rollout,
-independent verification, and release seal.
+One consolidated Founder-only action remains: install matching secret pairs in
+the exact server-side locations below without exposing their values:
 
+- Railway project `295b3d56-f555-4851-91f4-eb32d7dc88e1`, production API
+  service `12bfaf69-f883-42b5-a380-b6beea49f251`:
+  `TIMELINE_JWT_SECRET`, `TIMELINE_GATEWAY_SECRET`;
+- Kinsta production WordPress PHP runtime:
+  `MISSIONMED_TIMELINE_JWT_SECRET`,
+  `MISSIONMED_TIMELINE_GATEWAY_SECRET`.
 
----
+The JWT values must match each other across Railway and Kinsta, and the gateway
+values must match each other. After those four named bindings exist, resume at
+API deploy/health, then principal provisioning, Founder/admin canary,
+eligible-360 activation, browser/security verification, rollback rehearsal,
+and release seal.
 
 <!-- SOURCE: D1_500_FOUNDER_ADMIN_CANARY_REPORT.md -->
 
 # D1-500 Founder and Administrator Canary Report
 
-Status: NOT RUN; production access remains disabled.
+Status: NOT RUN; the production route is installed but feature and access remain
+disabled at the server-secret binding gate.
 
 The sealed source and local harness pass student-canary, administrator-canary,
 non-allowlisted denial, consent required/record/withdraw, JWT round trip,
@@ -413,12 +427,10 @@ evidence or Git. Required production journeys remain Founder student-persona
 create/save/reload/export, approved administrator entry, unapproved
 administrator denial, student denial during canary, second-user denial,
 anonymous/direct-API denial, logout, account switching, stale-token rejection,
-session expiry, health, logs, kill switch, and rollback. Founder, second eligible
-student, non-360, and expired/revoked personas or controlled fixtures remain
-unavailable.
-
-
----
+session expiry, health, logs, kill switch, and rollback. Controlled fixtures for
+the remaining personas are Founder-authorized; their creation is intentionally
+deferred until the API health gate passes so they exercise the real production
+authorization path.
 
 <!-- SOURCE: D1_500_IDENTITY_ENTITLEMENT_AUTHORIZATION_AND_RLS.md -->
 
@@ -457,63 +469,63 @@ Production result remains NOT RUN because the provider database migration and
 principal fixtures are blocked before secret binding and canary identity
 approval.
 
-
----
-
 <!-- SOURCE: D1_500_IMPLEMENTATION_AND_CHANGE_LEDGER.md -->
 
 # D1-500 Implementation and Change Ledger
 
-Implemented and sealed at commit
-`b668cc4d3eaa8075a357d35a60456fcaaaffa18c`:
+Accepted product implementation remains sealed at
+`b668cc4d3eaa8075a357d35a60456fcaaaffa18c` with release identities
+`timeline-0c5cc515a76346d6` and `timeline-wp-c228658bc70bc395`.
 
-- production release identity and required health release marker;
-- execution-private WordPress runtime packaging with extensionless,
-  content-addressed assets;
-- accepted-asset authority verification and private-fixture exclusion;
-- WordPress default-off route, canary and eligible-360 rollout stages;
-- live LearnDash 3893 entitlement check;
-- explicit student remote-sync consent record and withdrawal seams;
-- immutable WordPress-user-to-Timeline-principal mapping;
-- short-lived issuer/audience/key-bound JWT exchange;
-- same-origin gateway and direct-API denial boundary;
-- persona-bound IndexedDB cache and conflict-safe hybrid persistence;
-- PostgreSQL D1-500 schema/grant hardening, forced RLS, and exact admin grants;
-- dependency-aware health, sanitized logging, kill-switch controls, and rollback
-  scripts.
+Production changes completed:
 
-Production provider changes completed:
+- Critical Systems metadata amendment and Timeline registration;
+- Kinsta and Railway provider-native backups plus logical database backup;
+- six accepted database migration/role assets and runtime-role binding;
+- Railway non-secret service configuration and PostgreSQL reference;
+- Railway provider domain;
+- exact Kinsta payload installation, plugin activation, immutable release
+  pointer, and default-off settings;
+- anonymous Matrix redirect and anonymous token-denial verification.
 
-- isolated Railway project, environments, API service, PostgreSQL service;
-- non-secret, no-deploy API configuration only.
+Defect and repair:
 
-Production provider changes not completed:
+- defect: generated Nixpacks plan ran its install stage and the configured build
+  ran a second `npm ci`, producing an `EBUSY` cache failure;
+- repair: commit `7cf30eb` removes only the duplicate install from the build
+  command; local typecheck/API build/API-only validation pass and the Railway
+  retry image built successfully.
 
-- schema migration, runtime login binding, secret installation, API deploy;
-- Kinsta backup, payload install, plugin activation, release pointer, route or
-  navigation activation;
-- canary and student rollout.
+Production changes not completed:
 
+- matching Railway/Kinsta JWT and gateway secret bindings;
+- successful API health and immutable deployment receipt;
+- principal provisioning, canary, eligible-360 activation, navigation proof,
+  and final browser/security/rollback evidence.
 
----
+No unrelated application, Matrix, Arena, USCE Admin, CDN, DNS, or provider
+setting was changed. A separate staged Railway `function-bun` service was
+inspected read-only and left untouched.
 
 <!-- SOURCE: D1_500_KNOWN_LIMITATIONS_AND_FOLLOWUPS.md -->
 
 # D1-500 Known Limitations and Follow-ups
 
-Blocking:
+Blocking at the 2026-08-04T16:34:00Z checkpoint:
 
 - The approved Critical Systems amendment and Timeline registration are applied
   on `codex/d1-500-critical-registration`. The full protected-systems gate passes
   140 checks with 0 failures, and the controlling Matrix guard passes all 10
   local/source/origin/public checks. This authority blocker is closed.
-- Railway SSH database connection reports unauthorized despite an authenticated
-  CLI session. Founder provider reauthorization is required before the logical
-  backup or migration.
-- All five Kinsta manual-backup slots are occupied. Creating the mandatory fresh
-  D1-500 provider backup requires Founder authorization to remove one existing
-  manual restore point, or a provider-side capacity increase.
-- Production secret installation is Founder-only under DR-018. The required
+- Railway authorization, provider-native backup, the logical backup, isolated
+  restore proof, and all six accepted production database assets are complete.
+- Kinsta backup capacity was reconciled under the explicit Founder deletion
+  authorization. The exact oldest manual item was replaced by
+  `D1-500-PRE-20260804T161859Z`, which is READY with a restore control.
+- Production secret installation remains Founder-only under DR-018. Current
+  Railway name-only inspection proves the API service lacks
+  `TIMELINE_JWT_SECRET` and `TIMELINE_GATEWAY_SECRET`; the corresponding Kinsta
+  runtime bindings are not verifiable. The required
   names are `TIMELINE_JWT_SECRET` and `TIMELINE_GATEWAY_SECRET` on the Railway
   API service, and `MISSIONMED_TIMELINE_JWT_SECRET` and
   `MISSIONMED_TIMELINE_GATEWAY_SECRET` in the Kinsta live WordPress server-side
@@ -523,8 +535,9 @@ Blocking:
   web traffic and protected MU-plugin bytes remain unchanged. Timeline-only
   activation/configuration must use that bounded bootstrap or WordPress admin.
 - One approved administrator and one active 360 test identity are verified in
-  production. Founder, second eligible student, non-360, and expired/revoked
-  identities or controlled fixtures remain required. No password is stored in
+  production. Founder-equivalent, second eligible student, non-360, and
+  expired/revoked controlled fixtures are authorized but cannot truthfully run
+  through the production path until API health passes. No password is stored in
   this package.
 - Consent version `d1-500-v1` is Founder-approved.
 - Railway database display name remains provider default `Postgres`; stable
@@ -548,9 +561,6 @@ Unrelated state preserved:
   service, LearnDash course, WooCommerce, user, or production data mutation;
 - no unrelated dirty worktree cleanup or overwrite.
 
-
----
-
 <!-- SOURCE: D1_500_LIVE_BROWSER_AND_VISUAL_VERIFICATION.md -->
 
 # D1-500 Live Browser and Visual Verification
@@ -563,39 +573,42 @@ Sealed production bundle outside WordPress: PASS FAIL-CLOSED. Without a trusted
 WordPress identity bootstrap it renders only “Timeline could not be loaded
 safely.” This is the intended negative behavior, not a visual regression.
 
-Live canonical route `https://missionmedinstitute.com/timeline/`: NOT LIVE at
-the last verified probe. Authenticated production rendering, responsive
-journeys, browser console, navigation discoverability, logout, account switch,
-and live visual comparison remain NOT RUN.
+Live canonical route `https://missionmedinstitute.com/timeline/`: INSTALLED,
+APPLICATION NOT LIVE. Anonymous access returns `302` into the approved Matrix
+member-dashboard flow, and an anonymous token POST is denied `401` with
+`session_required`. These prove fail-closed route integration, not an
+authenticated live application. The Railway API domain has no healthy serving
+deployment.
+
+Authenticated production rendering, responsive journeys, browser console,
+navigation discoverability, logout, account switch, and live visual comparison
+remain NOT RUN.
 
 No decorative screenshots were added to the package. In-thread previews were
 used for the accepted app and fail-closed sealed runtime.
-
-
----
 
 <!-- SOURCE: D1_500_LIVE_HEALTH_AND_OPERATIONS.md -->
 
 # D1-500 Live Health and Operations
 
-Local production handler health checks: PASS, including dependency failure,
+Local production handler health tests pass, including dependency failure,
 timeout, recovery, release identity, and content-free errors.
 
-Railway PostgreSQL has been provisioned but is not migrated. Railway API is not
-deployed because required production secrets are intentionally absent.
-Production Timeline health therefore has no live endpoint and is NOT RUN.
+Production PostgreSQL is migrated and healthy at schema
+`d1-timeline-db-500.1`. The repaired Railway image passes its build gates, but
+the deployment fails closed at `/healthz` because the API service does not yet
+have the two required secret bindings. The provider domain therefore returns
+Railway's application-not-found response and must not be classified as live.
 
-The service logs structured, content-free lifecycle events. Telemetry rejects
-PII-shaped keys, URLs, tokens, unknown event types, and document content. Remote
-media/object operations return a sanitized 503 until separately authorized
-private storage exists. File Vault v2 remains disabled.
+WordPress is installed feature-off. `/timeline/` exists and anonymous traffic
+returns to the Matrix member-dashboard flow. The token endpoint is registered;
+anonymous POST is denied `401`. No Founder, administrator, or student has been
+admitted.
 
-Operational activation order is database backup/migration, API deploy and
-health, Kinsta backup/install feature-off, canary, rollback rehearsal, then
-eligible-360 activation and early monitoring.
-
-
----
+Next operational step after secret binding is an immutable API redeploy. A
+successful health response must identify service `mission-timeline`, release
+`timeline-0c5cc515a76346d6`, and schema `d1-timeline-db-500.1` before canary
+configuration changes. File Vault v2 remains disabled.
 
 <!-- SOURCE: D1_500_PRODUCTION_ARCHITECTURE_AND_TARGETS.md -->
 
@@ -630,9 +643,6 @@ Verified targets:
 Supabase, DNS, Cloudflare, StoryForge resources, and shared Railway services are
 outside this topology and were not modified.
 
-
----
-
 <!-- SOURCE: D1_500_STUDENT_ROLLOUT_REPORT.md -->
 
 # D1-500 Student Rollout Report
@@ -640,8 +650,9 @@ outside this topology and were not modified.
 Status: WITHHELD.
 
 The canonical eligibility source is verified as current LearnDash access to
-published course 3893 with Closed enrollment. Navigation and direct route remain
-off. No student has been exposed to the release.
+published course 3893 with Closed enrollment. The direct WordPress route is
+installed but access-off; the eligible-student navigation entry remains off. No
+student has been exposed to the release.
 
 Direct production verification on `2026-08-04` confirmed that course `3893` is
 published as “Mission Residency: 360 Match Mentorship Student Dashboard &
@@ -658,6 +669,7 @@ entitlement activation/revocation. Student activation is prohibited until the
 Founder/admin canary and rollback gate pass.
 
 The verified active 360 identity is referenced as `D1-500-STUDENT-360-01`; no
-password is stored in this package. A second eligible identity plus non-360 and
-expired/revoked personas or controlled fixtures are still required for the
+password is stored in this package. Founder-authorized controlled fixtures for a
+second eligible identity, non-360 identity, and expired/revoked identity will be
+created only after the API health gate passes and removed or restored after the
 mandatory isolation and denial proofs.

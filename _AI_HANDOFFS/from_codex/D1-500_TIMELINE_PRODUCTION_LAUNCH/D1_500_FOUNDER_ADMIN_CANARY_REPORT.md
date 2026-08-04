@@ -1,6 +1,7 @@
 # D1-500 Founder and Administrator Canary Report
 
-Status: NOT RUN; production access remains disabled.
+Status: NOT RUN; the production route is installed but feature and access remain
+disabled at the server-secret binding gate.
 
 The sealed source and local harness pass student-canary, administrator-canary,
 non-allowlisted denial, consent required/record/withdraw, JWT round trip,
@@ -13,6 +14,7 @@ evidence or Git. Required production journeys remain Founder student-persona
 create/save/reload/export, approved administrator entry, unapproved
 administrator denial, student denial during canary, second-user denial,
 anonymous/direct-API denial, logout, account switching, stale-token rejection,
-session expiry, health, logs, kill switch, and rollback. Founder, second eligible
-student, non-360, and expired/revoked personas or controlled fixtures remain
-unavailable.
+session expiry, health, logs, kill switch, and rollback. Controlled fixtures for
+the remaining personas are Founder-authorized; their creation is intentionally
+deferred until the API health gate passes so they exercise the real production
+authorization path.

@@ -1,22 +1,49 @@
 {
   "schema_version": "d1-500-final-status.1",
+  "checkpoint_at": "2026-08-04T16:34:00Z",
   "result": "PARTIAL",
   "timeline_live_status": "not live",
   "live_url": "https://missionmedinstitute.com/timeline/",
-  "progress": { "completed": 36, "total": 45, "percent": 80 },
+  "progress": {
+    "completed": 35,
+    "total": 45,
+    "percent": 78,
+    "measure": "execution_work_units_not_final_acceptance_gates",
+    "basis": {
+      "M0_authority_and_source": { "completed": 4, "total": 4 },
+      "M1_registration_and_worktree": { "completed": 4, "total": 4 },
+      "M2_local_production_preflight": { "completed": 10, "total": 10 },
+      "M3_platform_and_data_wiring": { "completed": 8, "total": 9 },
+      "M4_backup_restore_and_rollback": { "completed": 6, "total": 7 },
+      "M5_founder_admin_canary": { "completed": 0, "total": 3 },
+      "M6_defect_repair": { "completed": 2, "total": 2 },
+      "M7_authorized_user_activation": { "completed": 0, "total": 2 },
+      "M8_independent_final_verification": { "completed": 0, "total": 2 },
+      "M9_release_seal": { "completed": 1, "total": 2 }
+    }
+  },
   "engineering_confidence_percent": 92,
-  "live_matrix_completion_confidence_percent": 76,
+  "live_matrix_completion_confidence_percent": 74,
   "source_commit": "b668cc4d3eaa8075a357d35a60456fcaaaffa18c",
+  "registration_commit": "b75c789",
+  "provider_checkpoint_commit": "16fe6a4",
+  "deployment_config_repair_commit": "7cf30eb",
   "static_release": "timeline-0c5cc515a76346d6",
   "wordpress_release": "timeline-wp-c228658bc70bc395",
   "production_deployment_id": null,
+  "attempted_deployments": [
+    { "id": "fcd4805f-153d-48b7-8b0e-1207ecdb2cbd", "result": "FAILED_CLOSED_IMAGE_BUILD" },
+    { "id": "5d682cfe-ac05-42d4-8026-af9afd6eebb2", "result": "FAILED_CLOSED_HEALTHCHECK" }
+  ],
+  "api_state": "offline",
+  "wordpress_state": "installed_feature_off_access_off",
+  "database_state": "migrated_and_verified",
   "user_rollout": "withheld",
-  "production_preserved": true,
+  "timeline_production_mutated": true,
+  "unrelated_production_preserved": true,
   "unrelated_application_impact": "NONE",
   "blockers": [
-    "Founder Railway CLI and SSH reauthorization",
-    "Founder-only production secret installation",
-    "Kinsta manual backup capacity is 5 of 5 and removal of an existing restore point requires Founder authorization",
-    "Founder, second eligible, non-360, and expired/revoked canary personas or controlled fixtures not yet verified"
+    "Railway API service is missing TIMELINE_JWT_SECRET and TIMELINE_GATEWAY_SECRET",
+    "Kinsta WordPress PHP runtime bindings MISSIONMED_TIMELINE_JWT_SECRET and MISSIONMED_TIMELINE_GATEWAY_SECRET are not verifiable"
   ]
 }

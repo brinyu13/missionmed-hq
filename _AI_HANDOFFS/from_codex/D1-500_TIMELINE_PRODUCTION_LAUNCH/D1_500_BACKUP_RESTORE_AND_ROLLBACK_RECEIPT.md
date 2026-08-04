@@ -2,40 +2,33 @@
 
 Local/disposable recovery proof: PASS.
 
-- PostgreSQL proof cluster: `/tmp/d1-500-pg.Y5bd9y/data`, loopback port 55412.
-- Custom-format backup:
-  `/tmp/d1-500-pg.Y5bd9y/d1_500_proof.backup`.
-- Backup SHA-256:
-  `47543f7923a487870713b42e5e2ebb7d36bb5d19f9c3f72e0e666fc3aa9cd73f`.
-- Isolated restore, schema validation, migration down-safety, and reapply: PASS.
-- Feature kill switch: WordPress `timeline_enabled=false` and
-  `rollout_stage=off`.
-- Application rollback: restore the prior immutable Railway deployment.
-- WordPress rollback: disable admission/navigation, restore the previous exact
-  `current` pointer, then verify unrelated routes.
+- Prior disposable PostgreSQL restore/down/reapply proof: PASS.
+- Feature kill switch: `timeline_enabled=false`, `rollout_stage=off`.
 - Database rollback policy: preserve successful additive hardening migrations;
-  restore only for verified corruption. Security-broadening down migration is
-  prohibited.
+  restore only for verified corruption.
 
-Production recovery checkpoint at `2026-08-04T15:21:16Z`:
+Production recovery receipts:
 
-- Kinsta Timeline-scoped pre-state snapshot: PASS at
+- Timeline-scoped Kinsta snapshot: PASS at
   `/www/theresidencyacademy_209/private/d1-500-backups/20260804T152116Z`.
-- The plugin, MU route, Matrix Timeline asset directory, Timeline settings
-  option, and Timeline plugin status are all recorded as absent with a verified
-  SHA-256 manifest and mode-restricted files.
-- Standard WP-CLI WordPress bootstrap exits with signal 139 while loading the
-  existing production MU-plugin set. A non-mutating `WPMU_PLUGIN_DIR` isolation
-  bootstrap succeeds and independently confirms the Timeline plugin and option
-  are absent. No production MU plugin was changed or disabled for web traffic.
-- Kinsta provider-native manual backup: BLOCKED because all five retained
-  manual-backup slots are occupied. No existing backup was deleted.
-- Railway provider-native volume backup: NOT RUN; provider UI authentication is
-  required.
-- Railway logical PostgreSQL backup: BLOCKED by
-  `RAILWAY_SSH_UNAUTHORIZED`; no database command or migration ran.
+- Deleted provider backup: exactly `B1-508 pre deployment 2026-07-31`, after
+  re-verifying it was the oldest manual backup, the August 4 daily backup and
+  all four newer manual backups remained, the D1-500 snapshot remained intact,
+  and matching B1-508 private recovery artifacts existed locally and remotely.
+  The deleted MyKinsta manual item is not recoverable through MyKinsta; its
+  verified private recovery sets remain.
+- Replacement provider backup: `D1-500-PRE-20260804T161859Z`, created August 4
+  at 12:19 PM EDT, expires August 18, READY with a restore control.
+- Railway provider-native PostgreSQL volume backup: created August 4 at 12:20
+  PM EDT, manual, 843 MB, READY with a restore control.
+- Logical PostgreSQL dump:
+  `/Users/brianb/MissionMed_private_backups/D1-500/20260804T162100Z/timeline-pre-migration.dump`.
+- Logical dump SHA-256:
+  `65ae8326ee7a2ba7115486187ec978494c7beae714daeb32379c2873f89436cd`.
+- Dump format: PostgreSQL 18.4 custom archive; isolated restore: PASS; temporary
+  restore database removed after validation.
 
-The scoped snapshot is not a substitute for the mandatory fresh provider-native
-Kinsta backup and Railway/PostgreSQL backups. No Timeline production payload may
-be installed until those backups are READY and their provider receipts are
-recorded.
+WordPress rollback is bounded to disabling Timeline admission, deactivating the
+Timeline plugin, removing its MU route, and restoring the pre-state recorded in
+the scoped snapshot. Railway has no successful application deployment to roll
+back yet. The failed deployment attempts created no serving release.

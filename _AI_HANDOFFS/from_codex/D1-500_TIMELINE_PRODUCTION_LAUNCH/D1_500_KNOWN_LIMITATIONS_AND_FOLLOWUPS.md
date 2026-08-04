@@ -1,18 +1,20 @@
 # D1-500 Known Limitations and Follow-ups
 
-Blocking:
+Blocking at the 2026-08-04T16:34:00Z checkpoint:
 
 - The approved Critical Systems amendment and Timeline registration are applied
   on `codex/d1-500-critical-registration`. The full protected-systems gate passes
   140 checks with 0 failures, and the controlling Matrix guard passes all 10
   local/source/origin/public checks. This authority blocker is closed.
-- Railway SSH database connection reports unauthorized despite an authenticated
-  CLI session. Founder provider reauthorization is required before the logical
-  backup or migration.
-- All five Kinsta manual-backup slots are occupied. Creating the mandatory fresh
-  D1-500 provider backup requires Founder authorization to remove one existing
-  manual restore point, or a provider-side capacity increase.
-- Production secret installation is Founder-only under DR-018. The required
+- Railway authorization, provider-native backup, the logical backup, isolated
+  restore proof, and all six accepted production database assets are complete.
+- Kinsta backup capacity was reconciled under the explicit Founder deletion
+  authorization. The exact oldest manual item was replaced by
+  `D1-500-PRE-20260804T161859Z`, which is READY with a restore control.
+- Production secret installation remains Founder-only under DR-018. Current
+  Railway name-only inspection proves the API service lacks
+  `TIMELINE_JWT_SECRET` and `TIMELINE_GATEWAY_SECRET`; the corresponding Kinsta
+  runtime bindings are not verifiable. The required
   names are `TIMELINE_JWT_SECRET` and `TIMELINE_GATEWAY_SECRET` on the Railway
   API service, and `MISSIONMED_TIMELINE_JWT_SECRET` and
   `MISSIONMED_TIMELINE_GATEWAY_SECRET` in the Kinsta live WordPress server-side
@@ -22,8 +24,9 @@ Blocking:
   web traffic and protected MU-plugin bytes remain unchanged. Timeline-only
   activation/configuration must use that bounded bootstrap or WordPress admin.
 - One approved administrator and one active 360 test identity are verified in
-  production. Founder, second eligible student, non-360, and expired/revoked
-  identities or controlled fixtures remain required. No password is stored in
+  production. Founder-equivalent, second eligible student, non-360, and
+  expired/revoked controlled fixtures are authorized but cannot truthfully run
+  through the production path until API health passes. No password is stored in
   this package.
 - Consent version `d1-500-v1` is Founder-approved.
 - Railway database display name remains provider default `Postgres`; stable
