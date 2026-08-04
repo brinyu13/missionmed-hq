@@ -96,13 +96,16 @@ test("WordPress packaging rewrites the protected kernel export stylesheet to an 
 });
 
 test("Matrix launch adapter creates one eligible-only Timeline entry without changing shared Matrix source", () => {
+  const injector = route.match(/function mmtlr_inject_matrix_launch_html[\s\S]*?\n}\n\nfunction mmtlr_buffer_matrix_launch_adapter/)?.[0] ?? "";
   assert.match(route, /function mmtlr_render_matrix_launch_adapter/);
+  assert.match(route, /function mmtlr_matrix_launch_markup/);
   assert.match(route, /!mmtl_user_can_enter\(\)/);
   assert.match(route, /add_action\('wp_body_open', 'mmtlr_render_matrix_launch_adapter', 20\)/);
   assert.match(route, /add_action\('wp_footer', 'mmtlr_render_matrix_launch_adapter', 2\)/);
   assert.match(route, /function mmtlr_inject_matrix_launch_html/);
   assert.match(route, /str_contains\(\$html, 'missionmed-timeline-sso\/assets\/matrix-launch\.js'\)/);
   assert.match(route, /substr_replace\(\$html, \$markup, \$position, 0\)/);
+  assert.doesNotMatch(injector, /ob_start\(/);
   assert.match(route, /add_action\('template_redirect', 'mmtlr_buffer_matrix_launch_adapter', -100\)/);
   assert.match(plugin, /function mmtl_render_matrix_launch_adapter_fallback/);
   assert.match(plugin, /!mmtl_is_matrix_request\(\) \|\| !mmtl_user_can_enter\(\)/);

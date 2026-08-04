@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Timeline Route
  * Description: Authenticated /timeline/ route backed by a Timeline-owned execution-private release bundle.
- * Version: 500.0.6
+ * Version: 500.0.7
  * Requires PHP: 8.1
  * Author: MissionMed
  */
@@ -47,24 +47,34 @@ function mmtlr_mark_dynamic_route() {
     ));
 }
 
-function mmtlr_render_matrix_launch_adapter() {
-    static $rendered = false;
-    if ($rendered || !function_exists('mmtl_settings') || !function_exists('mmtl_user_can_enter') || !mmtl_user_can_enter()) {
-        return;
+function mmtlr_matrix_launch_markup() {
+    if (!function_exists('mmtl_settings') || !function_exists('mmtl_user_can_enter') || !mmtl_user_can_enter()) {
+        return '';
     }
     $settings = mmtl_settings();
     $matrix_path = (string) wp_parse_url($settings['matrix_url'], PHP_URL_PATH);
     if ($matrix_path === '' || untrailingslashit(mmtlr_request_path()) !== untrailingslashit($matrix_path)) {
-        return;
+        return '';
     }
-    $rendered = true;
     $config = wp_json_encode(array(
         'target' => home_url($settings['base_path']),
         'matrixPath' => $matrix_path,
     ));
     $source = plugins_url('missionmed-timeline-sso/assets/matrix-launch.js');
-    echo '<script>window.MissionMedTimelineLaunch=' . $config . ';</script>';
-    echo '<script src="' . esc_url($source) . '?ver=500.0.5"></script>';
+    return '<script>window.MissionMedTimelineLaunch=' . $config . ';</script>'
+        . '<script src="' . esc_url($source) . '?ver=500.0.7"></script>';
+}
+
+function mmtlr_render_matrix_launch_adapter() {
+    static $rendered = false;
+    if ($rendered) {
+        return;
+    }
+    $markup = mmtlr_matrix_launch_markup();
+    if ($markup !== '') {
+        $rendered = true;
+        echo $markup;
+    }
 }
 add_action('wp_body_open', 'mmtlr_render_matrix_launch_adapter', 20);
 add_action('wp_footer', 'mmtlr_render_matrix_launch_adapter', 2);
@@ -73,9 +83,7 @@ function mmtlr_inject_matrix_launch_html($html) {
     if (!is_string($html) || stripos($html, '</body>') === false || str_contains($html, 'missionmed-timeline-sso/assets/matrix-launch.js')) {
         return $html;
     }
-    ob_start();
-    mmtlr_render_matrix_launch_adapter();
-    $markup = (string) ob_get_clean();
+    $markup = mmtlr_matrix_launch_markup();
     if ($markup === '') {
         return $html;
     }
