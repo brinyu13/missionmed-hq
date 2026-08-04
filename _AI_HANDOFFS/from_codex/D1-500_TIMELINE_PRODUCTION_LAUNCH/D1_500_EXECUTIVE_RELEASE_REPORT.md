@@ -11,33 +11,36 @@ project, production/staging environments, API service, and PostgreSQL service
 exist. No user access is enabled and no Kinsta/WordPress application bytes have
 been changed.
 
-The Critical Systems reconciliation now proves that the unrelated USCE Admin
-and Arena failures are stale central-manifest pins plus central-source
-synchronization gaps, not unexplained live drift. Private origin, public CDN,
-and retained deployment/source evidence match the two live objects exactly.
-The Matrix source gap is also resolved: immutable remote commit `60e7169b...`
-contains all ten approved source bytes and passes the official local/origin/
-public guard. The production block remains because the current authorization
-permits preparation, not mutation, of the protected central manifest. Timeline
-also requires explicit Critical Systems registration before installation.
+The Critical Systems reconciliation and protected Timeline registration are now
+applied on `codex/d1-500-critical-registration` at commit `b75c789` and pushed
+for review in draft PR 22. The full protected-systems gate passes 140 checks
+with 0 failures. Immutable Matrix commit `60e7169b...` contains all ten approved
+source bytes, and the controlling Matrix guard passes local/source/origin/public
+verification without override. The Critical Systems production block is closed.
+
+The mandatory pre-mutation backup/access gate is still open. A verified,
+mode-restricted Timeline-scoped Kinsta snapshot exists at
+`/www/theresidencyacademy_209/private/d1-500-backups/20260804T152116Z`, but all
+five provider-native Kinsta manual slots are occupied. Railway CLI topology
+access works, while Railway SSH requires Founder reauthorization. No provider
+backup was deleted, no database migration ran, and no Kinsta application byte
+was installed.
 
 One consolidated Founder intervention is required before execution can resume:
 
-1. approve the exact metadata-only USCE/Arena reconciliation and Timeline
-   protected-system registration in
-   `D1_500_CRITICAL_SYSTEMS_RECONCILIATION.md`; no global override is preferred;
-2. approve consent version `d1-500-v1` and the exact consent text in the release;
-3. install the named Railway and Kinsta/WordPress secrets without exposing their
+1. reauthorize Railway CLI/SSH with `railway login`;
+2. install the named Railway and Kinsta/WordPress secrets without exposing their
    values to Git, terminal output, evidence, or chat;
+3. authorize removal of one existing Kinsta manual backup, or increase provider
+   backup capacity, so a fresh `D1-500-PRE-<UTC>` backup can be created; and
 4. provide or authorize controlled fixtures for the remaining canary personas:
    Founder, second eligible student, non-360 student, and expired/revoked
-   student. One administrator and one active 360 test identity are now supplied
-   through the private task context and are referenced only by opaque handles;
-   no password is stored in this package; and
-5. either rename Railway PostgreSQL service `134e537e-d48b-4452-acf6-8c3af2ce03db`
-   from provider default `Postgres` to reserved `mission-timeline-postgres`, or
-   approve the stable service ID as the authoritative target.
+   student. One administrator and one active 360 test identity are verified
+   directly in production and are referenced only by opaque handles; no
+   password is stored in this package.
 
-After those actions, the saved checkpoint resumes at database migration,
-feature-off deployment, Kinsta backup/install, Founder/admin canary, 360 rollout,
+Consent version `d1-500-v1` and PostgreSQL service ID
+`134e537e-d48b-4452-acf6-8c3af2ce03db` are Founder-approved. After the remaining
+actions, the saved checkpoint resumes at provider backups, database migration,
+feature-off deployment, Kinsta install, Founder/admin canary, 360 rollout,
 independent verification, and release seal.

@@ -3,8 +3,9 @@
   "result": "PARTIAL",
   "timeline_live_status": "not live",
   "live_url": "https://missionmedinstitute.com/timeline/",
-  "progress": { "completed": 35, "total": 45, "percent": 78 },
-  "deployment_confidence_percent": 79,
+  "progress": { "completed": 36, "total": 45, "percent": 80 },
+  "engineering_confidence_percent": 92,
+  "live_matrix_completion_confidence_percent": 76,
   "source_commit": "b668cc4d3eaa8075a357d35a60456fcaaaffa18c",
   "static_release": "timeline-0c5cc515a76346d6",
   "wordpress_release": "timeline-wp-c228658bc70bc395",
@@ -13,10 +14,9 @@
   "production_preserved": true,
   "unrelated_application_impact": "NONE",
   "blockers": [
-    "Founder approval required to apply the proven Critical Systems metadata reconciliation and register Timeline",
+    "Founder Railway CLI and SSH reauthorization",
     "Founder-only production secret installation",
-    "Railway SSH database connection unauthorized",
-    "Founder, second eligible, non-360, and expired/revoked canary personas not supplied",
-    "Consent wording/version not yet approved"
+    "Kinsta manual backup capacity is 5 of 5 and removal of an existing restore point requires Founder authorization",
+    "Founder, second eligible, non-360, and expired/revoked canary personas or controlled fixtures not yet verified"
   ]
 }

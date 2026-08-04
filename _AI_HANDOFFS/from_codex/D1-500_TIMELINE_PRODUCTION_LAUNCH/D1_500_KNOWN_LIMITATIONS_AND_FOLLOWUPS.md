@@ -2,20 +2,30 @@
 
 Blocking:
 
-- Critical Systems reconciliation proves stale central USCE/Arena metadata and
-  central-source divergence, not unexplained live drift. Founder approval is
-  required to apply the exact protected-manifest amendment and register
-  Timeline before Kinsta mutation. The accepted Arena runtime separately has an
-  open credential-logging P0; the proposed pin is not a safety certification.
+- The approved Critical Systems amendment and Timeline registration are applied
+  on `codex/d1-500-critical-registration`. The full protected-systems gate passes
+  140 checks with 0 failures, and the controlling Matrix guard passes all 10
+  local/source/origin/public checks. This authority blocker is closed.
 - Railway SSH database connection reports unauthorized despite an authenticated
-  CLI session. A supported provider connection method or Founder reauthorization
-  is required before migration.
-- Production secret installation is Founder-only under DR-018.
-- One approved administrator and one active 360 test identity are supplied only
-  through the private task context. Founder, second eligible student, non-360,
-  and expired/revoked identities or controlled fixtures remain required. No
-  password is stored in this package.
-- Consent version `d1-500-v1` wording awaits Founder approval.
+  CLI session. Founder provider reauthorization is required before the logical
+  backup or migration.
+- All five Kinsta manual-backup slots are occupied. Creating the mandatory fresh
+  D1-500 provider backup requires Founder authorization to remove one existing
+  manual restore point, or a provider-side capacity increase.
+- Production secret installation is Founder-only under DR-018. The required
+  names are `TIMELINE_JWT_SECRET` and `TIMELINE_GATEWAY_SECRET` on the Railway
+  API service, and `MISSIONMED_TIMELINE_JWT_SECRET` and
+  `MISSIONMED_TIMELINE_GATEWAY_SECRET` in the Kinsta live WordPress server-side
+  runtime. No value is stored in this package.
+- Standard Kinsta WP-CLI WordPress bootstrap crashes in the existing MU-plugin
+  layer with exit 139. A CLI-only `WPMU_PLUGIN_DIR` isolation bootstrap works;
+  web traffic and protected MU-plugin bytes remain unchanged. Timeline-only
+  activation/configuration must use that bounded bootstrap or WordPress admin.
+- One approved administrator and one active 360 test identity are verified in
+  production. Founder, second eligible student, non-360, and expired/revoked
+  identities or controlled fixtures remain required. No password is stored in
+  this package.
+- Consent version `d1-500-v1` is Founder-approved.
 - Railway database display name remains provider default `Postgres`; stable
   service ID is recorded.
 - The central Matrix checkout lacks the protected source files, but immutable
