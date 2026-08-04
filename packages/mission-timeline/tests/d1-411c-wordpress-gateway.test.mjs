@@ -8,6 +8,8 @@ const routePath = new URL("../infra/wordpress/missionmed-timeline-route.php", im
 const route = await readFile(routePath, "utf8");
 const runtimeBuilderPath = new URL("../scripts/build-wordpress-runtime.mjs", import.meta.url);
 const runtimeBuilder = await readFile(runtimeBuilderPath, "utf8");
+const matrixLaunchPath = new URL("../../../wp-content/plugins/missionmed-timeline-sso/assets/matrix-launch.js", import.meta.url);
+const matrixLaunch = await readFile(matrixLaunchPath, "utf8");
 
 test("Timeline WordPress gateway is default-off and product-owned", () => {
   assert.match(plugin, /'timeline_enabled'\s*=>\s*false/);
@@ -84,4 +86,14 @@ test("WordPress packaging rewrites the protected kernel export stylesheet to an 
   assert.match(runtimeBuilder, /D1-409H_VISUAL_MASTER\.css/);
   assert.match(runtimeBuilder, /TIMELINE_RUNTIME_JS_ASSET_MISSING/);
   assert.match(runtimeBuilder, /\/timeline\/_asset\/\$\{asset\.alias\}/);
+});
+
+test("Matrix launch adapter creates one eligible-only Timeline entry without changing shared Matrix source", () => {
+  assert.match(matrixLaunch, /data-missionmed-product="timeline"/);
+  assert.match(matrixLaunch, /a\.sos-nav-link\[href="#storyforge"\]/);
+  assert.match(matrixLaunch, /link\.dataset\.missionmedProduct = "timeline"/);
+  assert.match(matrixLaunch, /link\.dataset\.appId = "timeline"/);
+  assert.match(matrixLaunch, /matchPrepList\.insertBefore\(item, storyForgeItem\.nextSibling\)/);
+  assert.match(matrixLaunch, /document\.readyState === "loading"/);
+  assert.match(matrixLaunch, /window\.location\.hash === "#timeline"/);
 });

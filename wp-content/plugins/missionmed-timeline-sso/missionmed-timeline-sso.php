@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Timeline SSO
  * Description: Default-off Timeline identity, LearnDash eligibility, JWT, same-origin API gateway, and Matrix launch seam.
- * Version: 500.0.0
+ * Version: 500.0.1
  * Requires at least: 6.5
  * Requires PHP: 8.1
  * Author: MissionMed
@@ -20,7 +20,7 @@ const MMTL_CONSENT_AT_META = '_missionmed_timeline_remote_sync_consented_at';
 const MMTL_REST_NAMESPACE = 'missionmed-timeline/v1';
 const MMTL_REST_TOKEN_ROUTE = '/token';
 const MMTL_COURSE_ID = 3893;
-const MMTL_VERSION = '500.0.0';
+const MMTL_VERSION = '500.0.1';
 
 function mmtl_defaults() {
     return array(
