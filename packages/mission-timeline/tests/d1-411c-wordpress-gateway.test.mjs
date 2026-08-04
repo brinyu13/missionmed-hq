@@ -96,6 +96,10 @@ test("WordPress packaging rewrites the protected kernel export stylesheet to an 
 });
 
 test("Matrix launch adapter creates one eligible-only Timeline entry without changing shared Matrix source", () => {
+  assert.match(route, /function mmtlr_render_matrix_launch_adapter/);
+  assert.match(route, /!mmtl_user_can_enter\(\)/);
+  assert.match(route, /add_action\('wp_body_open', 'mmtlr_render_matrix_launch_adapter', 20\)/);
+  assert.match(route, /add_action\('wp_footer', 'mmtlr_render_matrix_launch_adapter', 2\)/);
   assert.match(plugin, /function mmtl_render_matrix_launch_adapter_fallback/);
   assert.match(plugin, /!mmtl_is_matrix_request\(\) \|\| !mmtl_user_can_enter\(\)/);
   assert.match(plugin, /wp_script_is\(\$handle, 'done'\)/);
