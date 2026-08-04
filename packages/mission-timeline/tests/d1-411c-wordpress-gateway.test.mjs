@@ -73,6 +73,7 @@ test("Kinsta route uses a Timeline-owned execution-private bundle and extensionl
   assert.match(route, /base64_decode/);
   assert.match(route, /hash\('sha256', \$bytes\)/);
   assert.match(route, /X-MissionMed-Timeline-Release/);
+  assert.equal(route.match(/status_header\(200\)/g)?.length, 2);
   assert.doesNotMatch(route, /MISSIONMED_TIMELINE_RELEASE_ROOT/);
   assert.doesNotMatch(route, /readfile\(/);
 });

@@ -229,6 +229,7 @@ function mmtlr_serve() {
         while (ob_get_level() > 0) {
             if (!@ob_end_clean()) break;
         }
+        status_header(200);
         mmtlr_headers($bundle, (string) $entry['content_type'], true);
         header('Content-Length: ' . strlen($bytes), true);
         if ($method !== 'HEAD') echo $bytes;
@@ -245,6 +246,7 @@ function mmtlr_serve() {
     while (ob_get_level() > 0) {
         if (!@ob_end_clean()) break;
     }
+    status_header(200);
     mmtlr_headers($bundle, (string) $entry['content_type'], false);
     header('Content-Length: ' . strlen($bytes), true);
     if ($method !== 'HEAD') echo $bytes;
