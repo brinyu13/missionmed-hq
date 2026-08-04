@@ -3,7 +3,7 @@
   "status": "ACTIVE",
   "lock_name": "MissionMed Critical Systems Contract",
   "owner": "Brian",
-  "last_updated_utc": "2026-08-04T15:04:52Z",
+  "last_updated_utc": "2026-08-04T19:27:39Z",
   "known_good": {
     "git_commit": "3f0c27aac55dbf82748b3eaba360006d4041b539",
     "git_tag": "known-good/2026-06-25-critical-auth-usce-arena-matrix",
@@ -157,7 +157,9 @@
       "active_source_roots": [
         "packages/mission-timeline/"
       ],
-      "release_state": "REGISTERED_NOT_INSTALLED_FEATURE_OFF_ACCESS_OFF",
+      "release_state": "API_DEPLOYED_HEALTHY_FEATURE_OFF_ACCESS_OFF",
+      "current_deployment_id": "d9ec6013-35e3-4f33-a75d-4ac5d936eed2",
+      "current_release_id": "timeline-0c5cc515a76346d6",
       "required_env": [
         {"name": "DATABASE_URL", "fail_if_missing": true, "must_use_role": "timeline_authenticated"},
         {"name": "TIMELINE_GATEWAY_SECRET", "fail_if_missing": true},
@@ -259,6 +261,7 @@
     "wp-content/plugins/missionmed-timeline-sso/missionmed-timeline-sso.php",
     "wp-content/plugins/missionmed-timeline-sso/assets/matrix-launch.js",
     "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_FEATURE_OFF_PAYLOAD.tar.gz",
+    "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_RUNTIME_2e775a88_FEATURE_OFF_PAYLOAD.tar.gz",
     "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/kinsta/wp-content/mu-plugins/missionmed-timeline-route.php"
   ],
   "supabase_projects": {
@@ -912,15 +915,21 @@
       "route_owner": "missionmed-timeline-route.php",
       "source_of_truth": {
         "repository": "brinyu13/missionmed-hq",
-        "branch": "codex/d1-timeline-production-500",
+        "branch": "codex/d1-500-critical-registration",
         "accepted_base_commit": "49ba56dacd2cddfc2fb2241839d54a03e85bc271",
-        "sealed_source_commit": "b668cc4d3eaa8075a357d35a60456fcaaaffa18c",
-        "release_id": "timeline-wp-c228658bc70bc395",
-        "payload_path": "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_FEATURE_OFF_PAYLOAD.tar.gz",
-        "payload_sha256": "e0eed7020fe23028f7168676d3d45455c9ca56f1a9a723f4530d873c4fb3fb11"
+        "sealed_source_commit": "f4eb28c6cad0deb9565fc66739e853860bd365a4",
+        "release_id": "timeline-wp-2e775a88fcdae9c8",
+        "payload_path": "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_RUNTIME_2e775a88_FEATURE_OFF_PAYLOAD.tar.gz",
+        "payload_sha256": "766a0b259479df9c9bf40a3b3caaca023dec4068f06399297ad26e659af16684"
       },
       "classes": ["auth_session", "route", "redirect_handoff", "wordpress_wrapper", "matrix_runtime", "deploy_artifact", "browser_journey"],
-      "registration_state": "REGISTERED_NOT_INSTALLED",
+      "registration_state": "CANDIDATE_REGISTERED_CURRENT_RELEASE_FEATURE_OFF_ACCESS_OFF",
+      "current_production": {
+        "wordpress_id": "timeline-wp-820e4fe3c525690d",
+        "release_bundle_sha256": "331f9f633871e4a51d544f139a17212ed27c69016f703d627bbc0eb07244ddb0",
+        "timeline_enabled": false,
+        "rollout_stage": "off"
+      },
       "routes_or_assets": [
         "https://missionmedinstitute.com/timeline/",
         "https://missionmedinstitute.com/timeline/api/**",
@@ -932,15 +941,16 @@
         "Railway workspace b6ab449c-1c87-46e0-95f8-3394c3ca7b14, project 295b3d56-f555-4851-91f4-eb32d7dc88e1, production environment d0705d67-83d5-4b53-942d-3862d9906529, API service 12bfaf69-f883-42b5-a380-b6beea49f251",
         "Timeline PostgreSQL service 134e537e-d48b-4452-acf6-8c3af2ce03db with schema version d1-timeline-db-500.1, non-owner runtime role timeline_authenticated, FORCE RLS, and no production seed data",
         "WordPress plugin missionmed-timeline-sso and MU route missionmed-timeline-route.php",
-        "Matrix delegated runtime lock and protected #timeline app-mode route",
+        "Timeline-owned Matrix launch adapter; #timeline is an eligible-only external handoff to /timeline/, not a Matrix app-mode route",
         "Active LearnDash access to published Closed course 3893; WordPress login or a generic role alone never establishes eligibility",
         "Consent version d1-500-v1 for secure remote saving",
         "Fresh verified Kinsta and Timeline PostgreSQL backups before production mutation"
       ],
       "release": {
         "static_id": "timeline-0c5cc515a76346d6",
-        "wordpress_id": "timeline-wp-c228658bc70bc395",
-        "payload_sha256": "e0eed7020fe23028f7168676d3d45455c9ca56f1a9a723f4530d873c4fb3fb11",
+        "wordpress_id": "timeline-wp-2e775a88fcdae9c8",
+        "release_bundle_sha256": "b0075b21df299802eb26857d055a9c3276f7e10a68645a1619d6d7cf63b0a25f",
+        "payload_sha256": "766a0b259479df9c9bf40a3b3caaca023dec4068f06399297ad26e659af16684",
         "schema_version": "d1-timeline-db-500.1",
         "health_path": "/healthz"
       },
@@ -1003,8 +1013,7 @@
         "#scheduler",
         "#filevault",
         "#messages",
-        "#storyforge",
-        "#timeline"
+        "#storyforge"
       ],
       "expected_app_mode_body_class": true,
       "manual_or_browser_plugin_required": true
