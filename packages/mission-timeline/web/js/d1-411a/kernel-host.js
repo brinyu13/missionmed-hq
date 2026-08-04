@@ -1,9 +1,7 @@
 import {projectTimelineDocument} from "./domain-visual-adapter.js";
 
-const MASTER_URL=new URL(
-  "../../presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html?defer=1",
-  import.meta.url
-).href;
+const MASTER_URL=(globalThis.D1_TIMELINE_ASSET_URLS?.["presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html"]
+  ||new URL("../../presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html",import.meta.url).href)+"?defer=1";
 const INSTANCES=new Map();
 let tokenSequence=0;
 const HostHTMLElement=typeof HTMLElement==="undefined"?class{}:HTMLElement;

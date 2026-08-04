@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Timeline SSO
  * Description: Default-off Timeline identity, LearnDash eligibility, JWT, same-origin API gateway, and Matrix launch seam.
- * Version: 0.1.0
+ * Version: 500.0.0
  * Requires at least: 6.5
  * Requires PHP: 8.1
  * Author: MissionMed
@@ -15,14 +15,21 @@ if (!defined('ABSPATH')) {
 const MMTL_OPTION = 'missionmed_timeline_settings';
 const MMTL_RATE_KEYS_OPTION = 'missionmed_timeline_rate_keys';
 const MMTL_PRINCIPAL_META = '_missionmed_timeline_principal_id';
+const MMTL_CONSENT_META = '_missionmed_timeline_remote_sync_consent';
+const MMTL_CONSENT_AT_META = '_missionmed_timeline_remote_sync_consented_at';
 const MMTL_REST_NAMESPACE = 'missionmed-timeline/v1';
 const MMTL_REST_TOKEN_ROUTE = '/token';
 const MMTL_COURSE_ID = 3893;
-const MMTL_VERSION = '0.1.0';
+const MMTL_VERSION = '500.0.0';
 
 function mmtl_defaults() {
     return array(
         'timeline_enabled' => false,
+        'rollout_stage' => 'off',
+        'canary_wp_user_ids' => array(),
+        'eligibility_verified' => false,
+        'entitlement_version' => '',
+        'consent_version' => 'd1-500-v1',
         'base_path' => '/timeline/',
         'matrix_url' => home_url('/member-dashboard/'),
         'api_origin' => '',
@@ -40,6 +47,16 @@ function mmtl_settings() {
     $stored = get_option(MMTL_OPTION, array());
     $settings = wp_parse_args(is_array($stored) ? $stored : array(), mmtl_defaults());
     $settings['timeline_enabled'] = mmtl_bool($settings['timeline_enabled']);
+    $settings['rollout_stage'] = in_array((string) ($settings['rollout_stage'] ?? 'off'), array('off', 'canary', 'eligible_360'), true)
+        ? (string) $settings['rollout_stage']
+        : 'off';
+    $settings['canary_wp_user_ids'] = array_slice(array_values(array_unique(array_filter(array_map(
+        'absint',
+        (array) ($settings['canary_wp_user_ids'] ?? array())
+    )))), 0, 10);
+    $settings['eligibility_verified'] = mmtl_bool($settings['eligibility_verified'] ?? false);
+    $settings['entitlement_version'] = sanitize_text_field((string) ($settings['entitlement_version'] ?? ''));
+    $settings['consent_version'] = sanitize_key((string) ($settings['consent_version'] ?? 'd1-500-v1'));
     $settings['base_path'] = '/' . trim((string) $settings['base_path'], '/') . '/';
     $settings['matrix_url'] = esc_url_raw((string) $settings['matrix_url']);
     $settings['api_origin'] = untrailingslashit(esc_url_raw((string) $settings['api_origin']));
@@ -60,6 +77,7 @@ function mmtl_activate() {
     $stored = get_option(MMTL_OPTION, array());
     $settings = wp_parse_args(is_array($stored) ? $stored : array(), mmtl_defaults());
     $settings['timeline_enabled'] = false;
+    $settings['rollout_stage'] = 'off';
     update_option(MMTL_OPTION, $settings, false);
     mmtl_register_rewrites();
     flush_rewrite_rules(false);
@@ -69,6 +87,7 @@ register_activation_hook(__FILE__, 'mmtl_activate');
 function mmtl_deactivate() {
     $settings = mmtl_settings();
     $settings['timeline_enabled'] = false;
+    $settings['rollout_stage'] = 'off';
     update_option(MMTL_OPTION, $settings, false);
     foreach ((array) get_option(MMTL_RATE_KEYS_OPTION, array()) as $key) {
         delete_transient((string) $key);
@@ -95,29 +114,103 @@ function mmtl_has_course_access($user_id) {
     return sfwd_lms_has_access(MMTL_COURSE_ID, absint($user_id)) === true;
 }
 
-function mmtl_access_state($user) {
+function mmtl_remote_sync_consent($user_id, $settings) {
+    $version = sanitize_key((string) ($settings['consent_version'] ?? ''));
+    $recorded_version = sanitize_key((string) get_user_meta(absint($user_id), MMTL_CONSENT_META, true));
+    $recorded_at = sanitize_text_field((string) get_user_meta(absint($user_id), MMTL_CONSENT_AT_META, true));
+    $timestamp = $recorded_at === '' ? false : strtotime($recorded_at);
+    $granted = $version !== '' && hash_equals($version, $recorded_version)
+        && $timestamp !== false && $timestamp <= time();
+    return array('granted' => $granted, 'version' => $version, 'recorded_at' => $granted ? gmdate('c', $timestamp) : '');
+}
+
+function mmtl_eligibility_state($user) {
     if (!($user instanceof WP_User) || !$user->exists()) {
         return new WP_Error('session_required', 'Your MissionMed session has ended.', array('status' => 401));
     }
     $settings = mmtl_settings();
-    if (empty($settings['timeline_enabled'])) {
+    if (empty($settings['timeline_enabled']) || $settings['rollout_stage'] === 'off') {
         return new WP_Error('timeline_disabled', 'Timeline is not enabled for this beta.', array('status' => 403));
     }
     $administrator = mmtl_is_administrator($user);
     $course_access = mmtl_has_course_access((int) $user->ID);
-    if (!$administrator && !$course_access) {
+    $canary = in_array((int) $user->ID, $settings['canary_wp_user_ids'], true);
+    if ($settings['rollout_stage'] === 'canary' && !$canary) {
+        return new WP_Error('canary_access_required', 'Timeline canary access is required.', array('status' => 403));
+    }
+    if ($settings['rollout_stage'] === 'canary' && !$administrator && empty($settings['eligibility_verified'])) {
+        return new WP_Error('eligibility_unverified', 'Timeline 360 eligibility is not verified.', array('status' => 503));
+    }
+    if ($settings['rollout_stage'] === 'canary' && !$administrator && !$course_access) {
         return new WP_Error(
             'eligibility_required',
             'Active MissionMed 360 course access is required.',
             array('status' => 403, 'course_id' => MMTL_COURSE_ID)
         );
     }
+    if ($settings['rollout_stage'] === 'eligible_360' && $administrator && !$canary) {
+        return new WP_Error('administrator_approval_required', 'Timeline administrator access is not approved.', array('status' => 403));
+    }
+    if ($settings['rollout_stage'] === 'eligible_360' && !$administrator && empty($settings['eligibility_verified'])) {
+        return new WP_Error('eligibility_unverified', 'Timeline 360 eligibility is not verified.', array('status' => 503));
+    }
+    if ($settings['rollout_stage'] === 'eligible_360' && !$administrator && !$course_access) {
+        return new WP_Error(
+            'eligibility_required',
+            'Active MissionMed 360 course access is required.',
+            array('status' => 403, 'course_id' => MMTL_COURSE_ID)
+        );
+    }
+    $consent = mmtl_remote_sync_consent((int) $user->ID, $settings);
     return array(
         'role' => $administrator ? 'PROGRAM_ADMIN' : 'STUDENT',
         'administrator' => $administrator,
         'course_access' => $course_access,
         'course_id' => MMTL_COURSE_ID,
+        'rollout_stage' => $settings['rollout_stage'],
+        'entitlement_version' => $settings['entitlement_version'],
+        'remote_sync_consent' => !$administrator && !empty($consent['granted']),
+        'remote_sync_allowed' => $administrator || !empty($consent['granted']),
+        'consent_version' => (string) $consent['version'],
+        'consented_at' => (string) $consent['recorded_at'],
     );
+}
+
+function mmtl_access_state($user) {
+    $access = mmtl_eligibility_state($user);
+    if (is_wp_error($access)) {
+        return $access;
+    }
+    if (empty($access['administrator']) && empty($access['remote_sync_consent'])) {
+        return new WP_Error('remote_sync_consent_required', 'Timeline remote-save consent is required.', array('status' => 403));
+    }
+    return $access;
+}
+
+function mmtl_record_remote_sync_consent($user_id) {
+    $user_id = absint($user_id);
+    $settings = mmtl_settings();
+    $version = sanitize_key((string) ($settings['consent_version'] ?? ''));
+    if ($user_id < 1 || $version === '') {
+        return new WP_Error('timeline_consent_configuration_invalid', 'Timeline consent is not configured.', array('status' => 503));
+    }
+    $recorded_at = gmdate('c');
+    update_user_meta($user_id, MMTL_CONSENT_META, $version);
+    update_user_meta($user_id, MMTL_CONSENT_AT_META, $recorded_at);
+    $consent = mmtl_remote_sync_consent($user_id, $settings);
+    if (empty($consent['granted'])) {
+        delete_user_meta($user_id, MMTL_CONSENT_META, $version);
+        delete_user_meta($user_id, MMTL_CONSENT_AT_META, $recorded_at);
+        return new WP_Error('timeline_consent_record_failed', 'Timeline consent could not be recorded.', array('status' => 503));
+    }
+    return $consent;
+}
+
+function mmtl_withdraw_remote_sync_consent($user_id) {
+    $user_id = absint($user_id);
+    delete_user_meta($user_id, MMTL_CONSENT_META);
+    delete_user_meta($user_id, MMTL_CONSENT_AT_META);
+    return empty(mmtl_remote_sync_consent($user_id, mmtl_settings())['granted']);
 }
 
 function mmtl_valid_uuid($value) {
@@ -195,6 +288,11 @@ function mmtl_issue_jwt($user, $access) {
         'is_wordpress_administrator' => !empty($access['administrator']),
         'has_learndash_3893_access' => !empty($access['course_access']),
         'course_id' => MMTL_COURSE_ID,
+        'timeline_rollout_stage' => (string) $access['rollout_stage'],
+        'entitlement_version' => (string) $access['entitlement_version'],
+        'timeline_remote_sync_consent' => !empty($access['remote_sync_consent']),
+        'timeline_remote_sync_allowed' => !empty($access['remote_sync_allowed']),
+        'timeline_consent_version' => (string) $access['consent_version'],
     );
     $encoded_header = mmtl_base64url_encode(wp_json_encode($header));
     $encoded_payload = mmtl_base64url_encode(wp_json_encode($payload));
@@ -229,6 +327,7 @@ function mmtl_verify_jwt($token, $expected_principal, $expected_wp_user_id, $acc
     $now = time();
     if (
         !is_array($header) || ($header['alg'] ?? '') !== 'HS256' || ($header['typ'] ?? '') !== 'JWT'
+        || !hash_equals((string) $settings['active_key_id'], (string) ($header['kid'] ?? ''))
         || !is_array($claims)
         || !hash_equals((string) $settings['issuer'], (string) ($claims['iss'] ?? ''))
         || !hash_equals((string) $settings['audience'], (string) ($claims['aud'] ?? ''))
@@ -238,6 +337,11 @@ function mmtl_verify_jwt($token, $expected_principal, $expected_wp_user_id, $acc
         || (bool) ($claims['is_wordpress_administrator'] ?? false) !== !empty($access['administrator'])
         || (bool) ($claims['has_learndash_3893_access'] ?? false) !== !empty($access['course_access'])
         || (int) ($claims['course_id'] ?? 0) !== MMTL_COURSE_ID
+        || !hash_equals((string) $access['rollout_stage'], (string) ($claims['timeline_rollout_stage'] ?? ''))
+        || !hash_equals((string) $access['entitlement_version'], (string) ($claims['entitlement_version'] ?? ''))
+        || (bool) ($claims['timeline_remote_sync_consent'] ?? false) !== !empty($access['remote_sync_consent'])
+        || (bool) ($claims['timeline_remote_sync_allowed'] ?? false) !== !empty($access['remote_sync_allowed'])
+        || !hash_equals((string) $access['consent_version'], (string) ($claims['timeline_consent_version'] ?? ''))
         || (int) ($claims['nbf'] ?? 0) > $now + 5
         || (int) ($claims['exp'] ?? 0) <= $now
         || !mmtl_valid_uuid((string) ($claims['jti'] ?? ''))
@@ -297,6 +401,11 @@ function mmtl_private_headers() {
     }
 }
 
+function mmtl_login_url($return_to) {
+    $matrix_url = mmtl_settings()['matrix_url'];
+    return add_query_arg('timeline_return_to', esc_url_raw((string) $return_to), $matrix_url);
+}
+
 function mmtl_token_permission($request) {
     if (!is_user_logged_in()) {
         return new WP_Error('session_required', 'Your MissionMed session has ended.', array('status' => 401));
@@ -348,7 +457,7 @@ function mmtl_ajax_bootstrap() {
         wp_send_json_error(array(
             'code' => 'session_required',
             'message' => 'Your MissionMed session has ended.',
-            'login_url' => wp_login_url(home_url(mmtl_settings()['base_path'])),
+            'login_url' => mmtl_login_url(home_url(mmtl_settings()['base_path'])),
         ), 401);
     }
     $user = wp_get_current_user();
@@ -368,6 +477,9 @@ function mmtl_ajax_bootstrap() {
         'matrix_url' => $settings['matrix_url'],
         'base_path' => $settings['base_path'],
         'token_ttl_seconds' => (int) $settings['token_ttl_seconds'],
+        'remote_sync_consent' => !empty($access['remote_sync_consent']),
+        'remote_sync_allowed' => !empty($access['remote_sync_allowed']),
+        'consent_version' => (string) $access['consent_version'],
         'user' => array(
             'wp_user_id' => (int) $user->ID,
             'principal_id' => $principal,

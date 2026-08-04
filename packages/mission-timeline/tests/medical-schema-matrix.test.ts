@@ -76,6 +76,23 @@ test("database migration enables RLS on every protected table and revokes public
   assert.doesNotMatch(sql, /using\s*\(\s*true\s*\)/i);
 });
 
+test("D1-500 administrator grants are single-use, exact-scope, immutable, and independently audited", async () => {
+  const migration = await readFile(new URL("database/migrations/202608040004_d1_500_grant_hardening.sql", root), "utf8");
+  const roles = await readFile(new URL("database/roles/202608040002_d1_500_runtime_roles.sql", root), "utf8");
+  assert.match(migration, /unique \(authorization_audit_id\)/i);
+  assert.match(migration, /metadata_json->>'grant_id' = new\.id/);
+  assert.match(migration, /metadata_json->'actions' = to_jsonb\(new\.actions\)/);
+  assert.match(migration, /metadata_json->>'starts_at'\)::timestamptz = new\.starts_at/);
+  assert.match(migration, /metadata_json->>'expires_at'\)::timestamptz = new\.expires_at/);
+  assert.match(migration, /grant scope is immutable/i);
+  assert.match(migration, /'ADMIN_RESOURCE_GRANT'/);
+  assert.match(migration, /d1-timeline-db-500\.1/);
+  for (const role of ["timeline_authenticated", "timeline_identity_sync", "timeline_grant_authority"]) {
+    assert.match(roles, new RegExp(`alter role ${role} nologin nosuperuser nocreatedb nocreaterole noinherit nobypassrls`, "i"));
+  }
+  assert.match(roles, /revoke update on timeline\.audit_events from timeline_grant_authority/i);
+});
+
 test("TimelineArtifact TypeScript contract preserves canonical 409 required fields", async () => {
   const types = await readFile(new URL("src/contracts/types.ts", root), "utf8");
   const required = [

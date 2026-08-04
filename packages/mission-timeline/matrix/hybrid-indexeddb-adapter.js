@@ -75,6 +75,38 @@ export class HybridIndexedDbAdapter extends IndexedDbAdapter {
     this.report("SERVER_HYDRATED", { pending: (await this.pending()).length });
   }
 
+  async reconcileAuthoritative(entries, { documentId, serverRevision, serverSnapshot } = {}) {
+    const pending = (await this.pending()).filter((record) => record.documentId === documentId);
+    const local = await super.get("documents", documentId);
+    if (!pending.length || !local?.document) {
+      await this.hydrateAuthoritative(entries);
+      return { state: "SERVER_HYDRATED", pending: 0 };
+    }
+    const remote = await super.get("settings", `remote-revision:${documentId}`);
+    if (Number(remote?.revision) === Number(serverRevision)) {
+      this.report("LOCAL_PENDING", { documentId, pending: pending.length });
+      return { state: "LOCAL_PENDING", pending: pending.length };
+    }
+    for (const record of pending) {
+      await super.put("syncRecords", {
+        ...record,
+        status: "CONFLICT",
+        errorCode: "REVISION_CONFLICT",
+        serverRevision: Number(serverRevision),
+        updatedAt: isoNow(),
+      });
+    }
+    await super.put("settings", {
+      id: `remote-conflict:${documentId}`,
+      documentId,
+      revision: Number(serverRevision),
+      serverSnapshot: structuredClone(serverSnapshot),
+      updatedAt: isoNow(),
+    });
+    this.report("CONFLICT", { documentId, pending: pending.length });
+    return { state: "CONFLICT", pending: pending.length };
+  }
+
   async put(store, value, key = value?.id) {
     const record = await super.put(store, value, key);
     if (store === "versions" && value?.documentSnapshot) {
@@ -188,15 +220,13 @@ export class HybridIndexedDbAdapter extends IndexedDbAdapter {
       const created = await this.apiClient.createDocument(remoteDocument, this.programId);
       remote = { id: stateKey, revision: created.document.revision, documentId: record.documentId, updatedAt: isoNow() };
       await super.put("settings", remote);
+      if (record.operation === "CHECKPOINT") return;
     }
     const snapshot = structuredClone(remoteDocument);
     snapshot.revision = remote.revision;
-    if (record.operation === "VERSION") {
-      const version = await this.apiClient.createVersion(record.documentId, remote.revision, snapshot, record.label);
-      remote.revision = version.revision;
-    } else {
-      await this.apiClient.checkpoint(record.documentId, this.deviceId, remote.revision, snapshot);
-    }
+    const label = record.operation === "VERSION" ? record.label : `Autosave: ${record.reason ?? "LOCAL_SAVE"}`;
+    const version = await this.apiClient.createVersion(record.documentId, remote.revision, snapshot, label);
+    remote.revision = version.revision;
     remote.updatedAt = isoNow();
     await super.put("settings", remote);
   }

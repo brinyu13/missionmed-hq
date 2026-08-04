@@ -1,9 +1,9 @@
 {
   "name": "@missionmed/mission-timeline",
-  "version": "413.0.0-rc.0",
+  "version": "500.0.0",
   "private": true,
   "type": "module",
-  "description": "Mission Timeline Builder staging-adapter candidate blocked by Matrix source authority",
+  "description": "MissionMed Timeline Builder production service and authenticated Matrix integration",
   "scripts": {
     "build": "node scripts/build-d1-404-candidate.mjs",
     "test": "node --import tsx --test tests/*.test.ts && node --test tests/*.test.mjs",
@@ -11,8 +11,8 @@
     "test:matrix-app-mode": "node web/tests/run_d1_411_matrix_app_mode.mjs",
     "build:api": "node scripts/build-api.mjs",
     "check:api-only": "node scripts/check-api-only-build.mjs",
-    "build:release": "node scripts/build-static.mjs --mode=release && node scripts/check-release.mjs",
-    "build:release:local": "node scripts/build-static.mjs --mode=local && node scripts/check-release.mjs",
+    "build:release": "node scripts/build-static.mjs --mode=release && node scripts/check-release.mjs && node scripts/build-wordpress-runtime.mjs",
+    "build:release:local": "node scripts/build-static.mjs --mode=local && node scripts/check-release.mjs && node scripts/build-wordpress-runtime.mjs",
     "release:manage": "node scripts/manage-d1-411c-release.mjs",
     "test:411c:rls": "node scripts/run-d1-411c-rls-proof.mjs",
     "start": "node dist-api/server.mjs",

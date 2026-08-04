@@ -3,10 +3,8 @@ import {uid} from "./utils.js";
 const NORMALIZED_RECORD=Symbol("normalized-medical-school-record");
 const SEARCH_TEXT_CACHE=new WeakMap();
 
-export const MEDICAL_SCHOOL_DATASET_URL=new URL(
-  "../../data/medical-schools/us-dapip-2026-07-30.json",
-  import.meta.url
-);
+export const MEDICAL_SCHOOL_DATASET_URL=globalThis.D1_TIMELINE_ASSET_URLS?.["data/medical-schools/us-dapip-2026-07-30.json"]
+  ||new URL("../../data/medical-schools/us-dapip-2026-07-30.json",import.meta.url);
 
 function clean(value){
   return String(value||"").replace(/\s+/g," ").trim();

@@ -38,7 +38,7 @@ async function currentTarget() {
 async function verifyRelease(directory) {
   const root = await realpath(directory);
   const manifest = JSON.parse(await readFile(join(root, "release-manifest.json"), "utf8"));
-  if (manifest.schema_version !== "d1-411c-release-manifest.1" || !/^timeline-[a-f0-9]{16}$/.test(manifest.release_id)) {
+  if (manifest.schema_version !== "d1-500-release-manifest.1" || !/^timeline-[a-f0-9]{16}$/.test(manifest.release_id)) {
     throw new Error("RELEASE_MANIFEST_INVALID");
   }
   for (const [path, expected] of Object.entries(manifest.files)) {
@@ -54,7 +54,7 @@ async function verifyRelease(directory) {
 
 const previous = await currentTarget();
 const receiptBase = {
-  schema_version: "d1-411c-release-operation.1",
+  schema_version: "d1-500-release-operation.1",
   action,
   mode: execute ? "EXECUTE" : "PREFLIGHT_ONLY",
   release_root: normalizedRoot,

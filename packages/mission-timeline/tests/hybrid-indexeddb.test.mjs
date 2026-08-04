@@ -52,7 +52,6 @@ test("hybrid adapter creates remote document, coalesces checkpoints, and syncs n
   const apiClient = {
     configured: true,
     async createDocument(document) { calls.push(["create", document.id]); return { document: { revision: 0 } }; },
-    async checkpoint(documentId, _deviceId, revision) { calls.push(["checkpoint", documentId, revision]); return {}; },
     async createVersion(documentId, revision, _snapshot, label) { calls.push(["version", documentId, revision, label]); return { revision: revision + 1 }; },
   };
   const adapter = new HybridIndexedDbAdapter({ name: `hybrid-sync-${Date.now()}`, apiClient, programId: "program_internal_medicine", remoteSyncConsent: true });
@@ -64,8 +63,8 @@ test("hybrid adapter creates remote document, coalesces checkpoints, and syncs n
   const result = await adapter.flush();
   assert.equal(result.pending, 0);
   assert.equal(calls.filter(([kind]) => kind === "create").length, 1);
-  assert.equal(calls.filter(([kind]) => kind === "checkpoint").length, 1);
   assert.equal(calls.filter(([kind]) => kind === "version").length, 1);
+  assert.equal(calls.find(([kind]) => kind === "version")[2], 0);
   adapter.close();
 });
 
@@ -76,10 +75,6 @@ test("hybrid adapter translates the browser schema at the remote boundary withou
     async createDocument(document) {
       calls.push(["create", structuredClone(document)]);
       return { document: { revision: 0 } };
-    },
-    async checkpoint(_documentId, _deviceId, _revision, snapshot) {
-      calls.push(["checkpoint", structuredClone(snapshot)]);
-      return {};
     },
     async createVersion(_documentId, revision, snapshot) {
       calls.push(["version", structuredClone(snapshot)]);
@@ -124,7 +119,7 @@ test("hybrid adapter translates the browser schema at the remote boundary withou
   const result = await adapter.flush();
   assert.equal(result.pending, 0);
   assert.deepEqual((await adapter.get("documents", local.id)).document, originalBrowserDocument);
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 2);
   calls.forEach(([kind, document]) => {
     assert.equal(document.schemaVersion, REMOTE_DOCUMENT_SCHEMA);
     assert.deepEqual(document.browserOnlyField, { preserved: true });
@@ -183,17 +178,40 @@ test("remote schema translation rejects a missing document and preserves already
 test("hybrid adapter keeps revision conflict for explicit recovery", async () => {
   const apiClient = {
     configured: true,
-    async createDocument() { return { document: { revision: 0 } }; },
-    async checkpoint() { const error = new Error("conflict"); error.status = 409; error.code = "REVISION_CONFLICT"; throw error; },
+    async createDocument() { throw new Error("document already exists"); },
+    async createVersion() { const error = new Error("conflict"); error.status = 409; error.code = "REVISION_CONFLICT"; throw error; },
   };
   const adapter = new HybridIndexedDbAdapter({ name: `hybrid-conflict-${Date.now()}`, apiClient, programId: "program_internal_medicine", remoteSyncConsent: true });
   await adapter.open();
   const record = localRecord();
+  await adapter.put("settings", { id: `remote-revision:${record.id}`, documentId: record.id, revision: 0, updatedAt: new Date().toISOString() });
   await adapter.atomicPut([{ store: "documents", key: record.id, value: record }]);
   const result = await adapter.flush();
   assert.equal(result.pending, 1);
   assert.equal((await adapter.pending())[0].status, "CONFLICT");
   const second = await adapter.flush();
   assert.equal(second.conflict, true);
+  adapter.close();
+});
+
+test("authoritative reload preserves pending local edits and records a divergent server snapshot", async () => {
+  const adapter = new HybridIndexedDbAdapter({
+    name: `hybrid-reconcile-${Date.now()}`,
+    apiClient: { configured: false },
+    programId: "program_internal_medicine",
+    remoteSyncConsent: true,
+  });
+  await adapter.open();
+  const local = localRecord("timeline_reconcile");
+  await adapter.put("settings", { id: `remote-revision:${local.id}`, documentId: local.id, revision: 1, updatedAt: new Date().toISOString() });
+  await adapter.atomicPut([{ store: "documents", key: local.id, value: local }]);
+  const server = { ...structuredClone(local.document), title: "Older server copy", revision: 2 };
+  const result = await adapter.reconcileAuthoritative([
+    { store: "documents", key: local.id, value: { ...local, document: server } },
+  ], { documentId: local.id, serverRevision: 2, serverSnapshot: server });
+  assert.deepEqual(result, { state: "CONFLICT", pending: 1 });
+  assert.equal((await adapter.get("documents", local.id)).document.title, "Hybrid Timeline");
+  assert.equal((await adapter.pending())[0].status, "CONFLICT");
+  assert.equal((await adapter.get("settings", `remote-conflict:${local.id}`)).serverSnapshot.title, "Older server copy");
   adapter.close();
 });

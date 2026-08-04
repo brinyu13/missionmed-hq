@@ -1,2 +1,3 @@
-dist/
-dist-api/
+/dist/
+/dist-api/
+/dist-wordpress/

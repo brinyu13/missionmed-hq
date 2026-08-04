@@ -3,7 +3,8 @@ import {inspectFile,sourceDocumentId,MAX_PAGES,IngestionFileError} from "./file-
 import {buildDocumentPage} from "./pdf-page-model.js";
 import {assessOcrRequirement} from "./ocr-adapter.js";
 
-GlobalWorkerOptions.workerSrc=new URL("../../vendor/pdfjs/pdf.worker.min.mjs",import.meta.url).href;
+GlobalWorkerOptions.workerSrc=globalThis.D1_TIMELINE_ASSET_URLS?.["vendor/pdfjs/pdf.worker.min.mjs"]
+  ||new URL("../../vendor/pdfjs/pdf.worker.min.mjs",import.meta.url).href;
 
 function errorCode(error){
   const name=String(error?.name||"");

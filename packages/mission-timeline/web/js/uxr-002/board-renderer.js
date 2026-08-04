@@ -158,7 +158,8 @@ const KEYNOTE_ASSETS=freeze({
 });
 
 function keynoteAsset(path){
-  return new URL(path,KEYNOTE_ASSET_BASE_URL).href;
+  return globalThis.D1_TIMELINE_ASSET_URLS?.[`assets/keynote_classic_402a/${path}`]
+    ||new URL(path,KEYNOTE_ASSET_BASE_URL).href;
 }
 
 function isolationError(code, message, details) {

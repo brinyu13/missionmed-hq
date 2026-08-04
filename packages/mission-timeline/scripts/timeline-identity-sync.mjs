@@ -62,7 +62,7 @@ try {
     service_scopes: ["audit:read"],
   })]);
   const version = await client.query("select timeline.schema_version() as version");
-  if (version.rows[0]?.version !== "d1-timeline-db-411c.1") throw new Error("TIMELINE_SCHEMA_VERSION_MISMATCH");
+  if (version.rows[0]?.version !== "d1-timeline-db-500.1") throw new Error("TIMELINE_SCHEMA_VERSION_MISMATCH");
 
   const principalIds = input.records.map((record) => record.timeline_principal_id);
   const wpUserIds = input.records.map((record) => record.wp_user_id);

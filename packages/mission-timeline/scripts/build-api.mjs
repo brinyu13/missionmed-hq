@@ -18,5 +18,5 @@ await build({
   sourcemap: false,
   minify: false,
   packages: "external",
-  banner: { js: "// D1-411C Timeline API-only production bundle" },
+  banner: { js: "// D1-500 Timeline API-only production bundle" },
 });

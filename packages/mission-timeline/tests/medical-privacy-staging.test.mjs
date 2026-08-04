@@ -84,7 +84,10 @@ test("hybrid browser persistence is local-only until remote sync consent is expl
   const apiClient = {
     configured: true,
     async createDocument(document) { calls.push(["create", document.id]); return { document: { revision: 0 } }; },
-    async checkpoint(documentId) { calls.push(["checkpoint", documentId]); return {}; },
+    async createVersion(documentId, revision) {
+      calls.push(["version", documentId, revision]);
+      return { revision: revision + 1 };
+    },
   };
   const adapter = new HybridIndexedDbAdapter({
     name: `hybrid-consent-${Date.now()}`,
@@ -106,6 +109,11 @@ test("hybrid browser persistence is local-only until remote sync consent is expl
   const synced = await adapter.flush();
   assert.equal(synced.pending, 0);
   assert.equal(calls.some(([kind]) => kind === "create"), true);
-  assert.equal(calls.some(([kind]) => kind === "checkpoint"), true);
+  assert.equal(calls.some(([kind]) => kind === "version"), false);
+
+  await adapter.atomicPut([{ store: "documents", key: record.id, value: { ...record, sequence: 3 } }]);
+  const versioned = await adapter.flush();
+  assert.equal(versioned.pending, 0);
+  assert.equal(calls.some(([kind]) => kind === "version"), true);
   adapter.close();
 });

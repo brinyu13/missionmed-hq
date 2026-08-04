@@ -14,11 +14,11 @@ export class TimelineEntitlementError extends Error{
   }
 }
 
-function defaultDocument(){
+function defaultDocument({id="d1-uxr-002-local-timeline"}={}){
   const now=isoNow();
   const document={
     schemaVersion:DOCUMENT_SCHEMA,
-    id:"d1-uxr-002-local-timeline",
+    id,
     title:"Timeline Builder",
     createdAt:now,
     updatedAt:now,
@@ -287,10 +287,10 @@ function migrateDocument(value){
 function stable(value){return JSON.stringify(value);}
 
 export class TimelineStore{
-  constructor({adapter=null,clock=()=>new Date(),entitlement=null}={}){
+  constructor({adapter=null,clock=()=>new Date(),entitlement=null,documentId=null}={}){
     this.adapter=adapter||window.D1_PERSISTENCE_ADAPTER||new IndexedDbAdapter({name:"missionmed-timeline-uxr-002",version:1});
     this.clock=clock;
-    this.document=defaultDocument();
+    this.document=defaultDocument({id:documentId||this.adapter.newDocumentId||"d1-uxr-002-local-timeline"});
     this.route="home";
     this.saveStatus="loading";
     this.saveError=null;
@@ -684,7 +684,7 @@ export class TimelineStore{
     const date=new Intl.DateTimeFormat("en-US",{month:"short",day:"numeric",year:"numeric"}).format(this.clock());
     const version=await this.saveVersion(`Before starting over · ${date}`,"automatic");
     const preferences=clone(this.document.preferences);
-    this.replace({...defaultDocument(),preferences},{label:"Start new timeline"});
+    this.replace({...defaultDocument({id:this.document.id}),preferences},{label:"Start new timeline"});
     await this.saveNow("START_NEW_TIMELINE");
     return version;
   }

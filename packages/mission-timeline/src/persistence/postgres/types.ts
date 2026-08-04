@@ -1,7 +1,7 @@
 import type { PrincipalContext, Role } from "../../contracts/types.js";
 
 export const POSTGRES_TIMELINE_SCHEMA_VERSION = "d1-timeline-db-413.2";
-export const POSTGRES_TIMELINE_PRODUCTION_SCHEMA_VERSION = "d1-timeline-db-411c.1";
+export const POSTGRES_TIMELINE_PRODUCTION_SCHEMA_VERSION = "d1-timeline-db-500.1";
 export const POSTGRES_TIMELINE_DOCUMENT_SCHEMA_VERSION = "d1-timeline-document-409.1";
 
 export interface PostgresQueryResult<Row = Record<string, unknown>> {
