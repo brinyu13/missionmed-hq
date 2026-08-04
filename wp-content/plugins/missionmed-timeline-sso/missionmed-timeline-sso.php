@@ -609,7 +609,7 @@ function mmtl_proxy_api_request() {
 add_action('template_redirect', 'mmtl_proxy_api_request', 0);
 
 function mmtl_user_can_enter() {
-    return is_user_logged_in() && !is_wp_error(mmtl_access_state(wp_get_current_user()));
+    return is_user_logged_in() && !is_wp_error(mmtl_eligibility_state(wp_get_current_user()));
 }
 
 function mmtl_is_matrix_request() {

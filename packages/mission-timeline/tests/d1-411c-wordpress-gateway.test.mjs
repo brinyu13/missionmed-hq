@@ -34,9 +34,11 @@ test("canary is exact-allowlist only and student entry requires verified course 
   assert.match(plugin, /function mmtl_record_remote_sync_consent/);
   assert.match(plugin, /function mmtl_withdraw_remote_sync_consent/);
   assert.match(plugin, /'remote_sync_allowed'\s*=>\s*\$administrator \|\| !empty\(\$consent\['granted'\]\)/);
+  assert.match(plugin, /function mmtl_user_can_enter\(\) \{\s*return is_user_logged_in\(\) && !is_wp_error\(mmtl_eligibility_state\(wp_get_current_user\(\)\)\);\s*\}/);
   assert.match(route, /missionmed_timeline_remote_sync_consent/);
   assert.match(route, /wp_verify_nonce/);
   assert.match(route, /Agree and open Timeline Builder/);
+  assert.match(route, /function mmtlr_render_consent\(\$user\)[\s\S]*?status_header\(200\);[\s\S]*?Cache-Control: no-store, private/);
   assert.match(plugin, /administrator_approval_required/);
   assert.match(plugin, /\$settings\['rollout_stage'\] === 'eligible_360' && !\$administrator && empty\(\$settings\['eligibility_verified'\]\)/);
   assert.match(plugin, /eligibility_unverified/);
@@ -83,7 +85,7 @@ test("Kinsta route uses a Timeline-owned execution-private bundle and extensionl
   assert.match(route, /base64_decode/);
   assert.match(route, /hash\('sha256', \$bytes\)/);
   assert.match(route, /X-MissionMed-Timeline-Release/);
-  assert.equal(route.match(/status_header\(200\)/g)?.length, 2);
+  assert.equal(route.match(/status_header\(200\)/g)?.length, 3);
   assert.doesNotMatch(route, /MISSIONMED_TIMELINE_RELEASE_ROOT/);
   assert.doesNotMatch(route, /readfile\(/);
 });

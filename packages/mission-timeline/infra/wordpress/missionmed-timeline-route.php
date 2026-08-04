@@ -239,6 +239,7 @@ function mmtlr_render_consent($user) {
     while (ob_get_level() > 0) {
         if (!@ob_end_clean()) break;
     }
+    status_header(200);
     nocache_headers();
     header('Cache-Control: no-store, private', true);
     header('Content-Type: text/html; charset=utf-8', true);
