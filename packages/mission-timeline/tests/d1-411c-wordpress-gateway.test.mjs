@@ -39,6 +39,7 @@ test("canary is exact-allowlist only and student entry requires verified course 
   assert.match(route, /wp_verify_nonce/);
   assert.match(route, /Agree and open Timeline Builder/);
   assert.match(route, /function mmtlr_render_consent\(\$user\)[\s\S]*?status_header\(200\);[\s\S]*?Cache-Control: no-store, private/);
+  assert.match(route, /function mmtlr_render_consent\(\$user\)[\s\S]*?Referrer-Policy: same-origin/);
   assert.match(plugin, /administrator_approval_required/);
   assert.match(plugin, /\$settings\['rollout_stage'\] === 'eligible_360' && !\$administrator && empty\(\$settings\['eligibility_verified'\]\)/);
   assert.match(plugin, /eligibility_unverified/);

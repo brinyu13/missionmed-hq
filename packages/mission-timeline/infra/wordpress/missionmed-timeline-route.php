@@ -244,7 +244,7 @@ function mmtlr_render_consent($user) {
     header('Cache-Control: no-store, private', true);
     header('Content-Type: text/html; charset=utf-8', true);
     header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'self'", true);
-    header('Referrer-Policy: no-referrer', true);
+    header('Referrer-Policy: same-origin', true);
     header('X-Content-Type-Options: nosniff', true);
     header('X-Robots-Tag: noindex, nofollow, noarchive', true);
     if ($method !== 'HEAD') echo $content;
