@@ -1,115 +1,389 @@
 # D1-500 Timeline Production Launch Complete Combined Handoff
 
-Checkpoint status: PARTIAL. Timeline is installed feature-off/access-off and is not live to authorized users.
+Generated: 2026-08-04T21:04:45Z.
 
-This document contains the complete, unabridged substantive content of every D1-500 Markdown report in this package.
+This handoff includes the complete substantive content of every D1-500 Markdown report. The controlling result is PARTIAL because Timeline is live and verified while one delegated Matrix metadata authority conflict remains.
 
-<!-- SOURCE: D1_500_AUTHORITY_AND_SOURCE_MANIFEST.md -->
+<!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_EXECUTIVE_RELEASE_REPORT.md -->
+# D1-500 Executive Release Report
 
+Final checkpoint: 2026-08-04T21:04:45Z.
+
+Result: **PARTIAL — Timeline Builder is live and verified for the authorized Matrix population, but the separate delegated Matrix runtime-lock manifest is stale and its required gate does not pass.** Timeline itself remains enabled because no Timeline security, identity, data-isolation, health, or rollback gate failed.
+
+Progress is 44 of 45 fixed work units (98%). The remaining unit is the governing Matrix runtime-lock reconciliation. Engineering confidence is 99%. Confidence that the application is live online in Matrix is 100% because the live route, real Matrix navigation, real active-360 launch, persistence, and production health were directly verified.
+
+## Live release
+
+- URL: `https://missionmedinstitute.com/timeline/`
+- Matrix entry: `https://missionmedinstitute.com/member-dashboard/#timeline`
+- Source commit: `296d74272b520502f35b3d2d5bf7fb9a508a1e7c`
+- Static release: `timeline-0c5cc515a76346d6`
+- WordPress runtime: `timeline-wp-0fc51f8906decb8e`
+- Railway deployment: `d9ec6013-35e3-4f33-a75d-4ac5d936eed2` (`SUCCESS`)
+- PostgreSQL schema: `d1-timeline-db-500.1`
+- Rollout: `timeline_enabled=true`, `rollout_stage=eligible_360`
+- Eligibility authority: active LearnDash course `3893` access; a generic WordPress role is insufficient.
+
+## Verified acceptance
+
+- Local release: typecheck PASS; 616/616 tests PASS; package verification 23/23; sealed-release verification 62/62.
+- Protected presentation: Founder package 28/28 hashes PASS; the accepted D1-409H-A1 integration adaptation remains unchanged.
+- Founder-equivalent canary, approved administrator, and real active-360 student journeys passed.
+- Real active-360 Matrix navigation, consent, create, save, reload, edit, logout/re-entry, and token-expiry fail-closed behavior passed.
+- Representative eligible-student export passed; second-student list/read/write isolation passed.
+- Non-360, revoked, anonymous, cross-student, and direct-Railway access were denied.
+- Synthetic users and all related WordPress, LearnDash, Timeline membership, active document, and active grant state were removed or retired; the cleanup audit remains append-only.
+- Railway health is 200/no-store and names the exact static release and schema.
+- Timeline-scoped backups, isolated PostgreSQL restore, kill switch, and scoped WordPress rollback are ready and evidenced.
+- No StoryForge, Arena, USCE Admin, DNS, CDN, or unrelated production application was modified by the Timeline release.
+
+## Governing blocker
+
+The Critical Systems report-only gate is green at 142 PASS, 3 WARN, 0 FAIL. The separately delegated Matrix runtime-lock manifest in this branch is older than documented later Matrix/StoryForge deployments and now disagrees with five live/source hashes. The live Matrix bytes are documented in later Matrix recovery evidence and the real Matrix journey works, but D1-500 is not authorized to rewrite the delegated lock or suppress its gate. Therefore the maximum truthful program result is PARTIAL until the governing lock is reconciled by an authorized Matrix record.
+
+---
+
+<!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_AUTHORITY_AND_SOURCE_MANIFEST.md -->
 # D1-500 Authority and Source Manifest
 
-- Governing authority: MissionMed Platform Constitution Revision 3, current
-  Engineering OS, MR-079, DR-016, DR-017, and DR-018.
-- Canonical repository: `https://github.com/brinyu13/missionmed-hq.git`.
-- Accepted base: `49ba56dacd2cddfc2fb2241839d54a03e85bc271`.
-- Sealed source: `b668cc4d3eaa8075a357d35a60456fcaaaffa18c`.
-- Branch: `codex/d1-timeline-production-500`.
-- Draft review: `https://github.com/brinyu13/missionmed-hq/pull/21`.
-- Protected-system registration branch:
-  `codex/d1-500-critical-registration`.
-- Protected-system registration commit: `b75c789`.
-- Protected-system registration review:
-  `https://github.com/brinyu13/missionmed-hq/pull/22`.
-- Provider checkpoint commit: `16fe6a4`.
-- Deployment-config repair commit: `7cf30eb`.
-- Registered Critical Systems manifest SHA-256:
-  `4c7694b47e9112822f0424fc59f8705ec6bf5b5dcbb3a95b63513e6f213c88e2`.
-- Matrix runtime-lock manifest SHA-256:
-  `f80463b2ff43340aaf460e43f90c6383117b78e1c3e4c905daba34291ac045f2`.
-- Protected presentation: D1-409H-A1.
-- Protected active JavaScript SHA-256:
-  `ca9a28688e7dd29f0e008b58efae85555af860b8150fa9493165faf851165bb8`.
+## Authority
+
+- Governing Constitution: MissionMed Platform v1, Revision 3.
+- Engineering guardrail: MR-079.
+- Founder authorizations consumed: M0 recovery; Critical Systems reconciliation; protected-system metadata amendment; provider backups; secret generation and server-side installation; Kinsta/WordPress/Railway deployment; synthetic fixtures; canary; eligible-360 activation; Browser and Computer Use.
+- Canonical D1-500 implementation worktree: `/Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered`.
+- Branch: `codex/d1-500-critical-registration`.
+- Accepted source base: `49ba56dacd2cddfc2fb2241839d54a03e85bc271`.
+- Final pushed source: `296d74272b520502f35b3d2d5bf7fb9a508a1e7c`.
+
+## Sealed product
+
 - Static release: `timeline-0c5cc515a76346d6`.
-- WordPress runtime: `timeline-wp-c228658bc70bc395`.
-- Static release-manifest SHA-256:
-  `11284009e537b9eee790c9f3e90b41a59f615595ca3bd501b3ab613f4275854a`.
-- WordPress runtime SHA-256:
-  `c6f34f86e72bead2feaf2c725c22736c3e2d06e53b9cf232112ee45e4bfe6abc`.
+- WordPress runtime: `timeline-wp-0fc51f8906decb8e`.
+- Payload: `artifacts/D1-500_KINSTA_RUNTIME_0FC51F89_RELEASE_PAYLOAD.tar.gz`.
+- Payload SHA-256: `57ed9146f44c5d3684a5a873782c19c2da1f1ba4fb832b5708d71ec041fb73f4`.
+- Runtime `release.php`: `e424edc9fd022dd225c84763707ef18dece073fddb433821e040bada5e25b820`.
+- MU route: `258da3f2a5edf95899f921f5d617ef4f861260ca1be24dd5a8e1c1d4c5621403`.
+- WordPress SSO plugin: `20e64ed5af824e8c265a6e9a048f3164967680ce5d752eeda519c66eec8cb6b6`.
+- Matrix launch adapter: `a13c9cd6fa5420f19cc47691c09da07e79f9813b6ee774066f0d89230c131b8c`; origin and the operational versioned public URLs (`?ver=500.0.2` and `?ver=500.0.7`) match. The unused bare URL remains an older cached object and is not injected.
 
-Two clean release builds were byte-identical. Ignored binary assets were copied
-only after verification against the accepted D1-413 asset manifest. Personal
-sample-photo fixtures were excluded. The accepted presentation files were not
-redesigned.
+## Presentation authority
 
-Live entitlement authority was verified directly on 2026-08-04: LearnDash post
-`3893`, “Mission Residency: 360 Match Mentorship Student Dashboard & Guidance
-Hub,” is published, uses Closed enrollment, and has course-level access
-expiration disabled. Active LearnDash access to that exact course is the student
-eligibility signal; WordPress login or role alone is insufficient.
+The Founder-supplied D1-409H visual master package verifies 28/28 protected hashes. The frozen HTML and CSS are unchanged. The active A1 JavaScript is the accepted integration adaptation, not an approximation or redesign. Its transition from the original frozen script must continue to be cited as accepted integration authority; the referenced `D1-411A_PROTECTED_HASH_MANIFEST.json` is absent and is recorded as a documentation gap, not a runtime mismatch.
 
-Critical Systems reconciliation completed on 2026-08-04. USCE live
-SHA-256 `9b6eade1c5e5d60044a418d6ec334958f037ba8ae948472673ad064a0862c29c`
-and Arena live SHA-256
-`7bb0ad1cf1cf9e3d1fbaa021606d98fbd0000b2b0cac3898bce6c73225a37705`
-are byte-identical between private origin, public CDN, and their retained
-deployment/source evidence. The approved metadata amendment and Timeline
-protected-system registration are applied at `b75c789`; the resulting Critical
-Systems gate passes 140 checks with 0 failures. No unauthorized live drift was
-found and no protected application runtime was changed by the amendment.
+## Authority result
 
-Matrix recovery source is immutable, remotely reachable commit
-`60e7169b544e6c93eb41f0de9717d8e61d2d49d0`. An official guard run from a
-disposable archive of that commit passed all ten local/source, origin, and
-public hashes. No Matrix override or production copy is required. Exact
-reconciliation findings and the subsequently approved amendment are in
-`D1_500_CRITICAL_SYSTEMS_RECONCILIATION.md`.
+The Critical Systems manifest now registers the live Timeline release and passes its report-only gate at 142 PASS, 3 WARN, 0 FAIL. The delegated Matrix lock remains stale relative to later documented Matrix deployments; modifying that separate lock is outside this authorization and is the sole open authority unit.
 
-Current execution lineage is accepted source `b668cc4d3eaa8075a357d35a60456fcaaaffa18c`,
-protected-system registration `b75c789`, provider checkpoint `16fe6a4`, and
-deployment-config repair `7cf30eb`, on branch
-`codex/d1-500-critical-registration` under draft review 22. The package manifest
-is regenerated after every substantive evidence change and is the controlling
-hash receipt for the final evidence set.
+---
 
-<!-- SOURCE: D1_500_BACKUP_RESTORE_AND_ROLLBACK_RECEIPT.md -->
+<!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_PRODUCTION_ARCHITECTURE_AND_TARGETS.md -->
+# D1-500 Production Architecture and Targets
 
+## Request path
+
+1. An authenticated Matrix page loads the Timeline launch adapter.
+2. The adapter shows the Timeline entry only when the server-provided eligibility state permits it.
+3. `/timeline/` checks WordPress session, feature stage, administrator allowlist or active LearnDash course 3893 access, and consent.
+4. Eligible pre-consent users receive the consent page; acceptance of `d1-500-v1` returns to the canonical route.
+5. WordPress exchanges the session for a 120-second Timeline JWT and proxies same-origin `/timeline/api/v1/**` requests.
+6. The Kinsta gateway signs requests with a server-only gateway secret; Railway rejects direct public access without it.
+7. Railway maps the immutable WordPress user ID to a Timeline principal and executes through `timeline_authenticated` with FORCE RLS.
+
+## Exact providers
+
+- Kinsta company: `60d2928a-3253-4350-89e9-8f58a0827584`.
+- Kinsta site: `abb6097b-9884-4b75-a9c7-d247728395cc`.
+- Kinsta production environment: `a23bbbca-55af-4d03-9447-1015a1e18dc8`.
+- Kinsta root: `/www/theresidencyacademy_209/public`.
+- Railway workspace: `b6ab449c-1c87-46e0-95f8-3394c3ca7b14`.
+- Railway project: `295b3d56-f555-4851-91f4-eb32d7dc88e1`.
+- Railway production environment: `d0705d67-83d5-4b53-942d-3862d9906529`.
+- API service: `12bfaf69-f883-42b5-a380-b6beea49f251`.
+- PostgreSQL service: `134e537e-d48b-4452-acf6-8c3af2ce03db`.
+
+## Routes
+
+- Matrix: `https://missionmedinstitute.com/member-dashboard/#timeline`.
+- Application: `https://missionmedinstitute.com/timeline/`.
+- Token: `https://missionmedinstitute.com/wp-json/missionmed-timeline/v1/token`.
+- Same-origin API: `https://missionmedinstitute.com/timeline/api/v1/**`.
+- Health: `https://mission-timeline-api-production.up.railway.app/healthz`.
+
+Secrets exist only in approved server-side locations. No secret value is stored in Git, payloads, screenshots, reports, or this package.
+
+---
+
+<!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_IMPLEMENTATION_AND_CHANGE_LEDGER.md -->
+# D1-500 Implementation and Change Ledger
+
+## Source changes
+
+- Added the production Railway API build, health identity, WordPress session/JWT/gateway adapter, same-origin API proxy, consent gate, LearnDash entitlement check, Matrix entry, and production release packaging.
+- Added PostgreSQL identity, grant-hardening, role, RLS, migration, backup, and rollback assets.
+- Repaired Railway build duplication without weakening typecheck or validation.
+- Repaired anonymous handoff to explicit 303/no-store behavior.
+- Repaired Matrix output injection to be nonrecursive after an experimental output-buffer build produced a blank Matrix response.
+- Changed eligible Matrix navigation to use eligibility rather than post-consent access; route/token/API still require consent.
+- Set consent GET/HEAD status explicitly to 200.
+- Changed consent-page Referrer-Policy to `same-origin`, preserving the Origin needed for the same-site POST while withholding cross-site referrer detail.
+
+## Production changes
+
+- Created Kinsta and PostgreSQL backups.
+- Applied six accepted PostgreSQL migration/role assets.
+- Deployed Railway API deployment `d9ec6013-35e3-4f33-a75d-4ac5d936eed2`.
+- Installed immutable WordPress runtime `timeline-wp-0fc51f8906decb8e`.
+- Enabled Founder/admin canary, then eligible-360 rollout after security gates passed.
+- Final settings: enabled, stage `eligible_360`, approved admin ID `85`, eligibility verified, entitlement version `learndash-course-3893-live-2026-08-04`, consent `d1-500-v1`.
+
+## Defects and disposition
+
+- Duplicate Railway install: repaired.
+- Missing provider secrets: Founder installed them server-side; no values entered evidence.
+- Blank Matrix experiment: automatically rolled back, then repaired with bounded nonrecursive injection.
+- Consent inherited 404: repaired.
+- Consent POST rejected opaque Origin: repaired.
+- Pre-consent eligible student lacked navigation entry: repaired.
+- Synthetic residue: removed from WordPress, usermeta, LearnDash activity, Timeline programs, active documents, and active grants; principals are soft-DELETED and audit/outbox history remains.
+
+No protected presentation redesign occurred.
+
+---
+
+<!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_IDENTITY_ENTITLEMENT_AUTHORIZATION_AND_RLS.md -->
+# D1-500 Identity, Entitlement, Authorization, and RLS
+
+## Identity and entitlement
+
+- Stable principal key: immutable Timeline UUID mapped to immutable WordPress user ID.
+- Student authority: active LearnDash access to published Closed course `3893`.
+- Generic login, subscriber role, direct URL possession, and client-side state are insufficient.
+- Administrator authority: WordPress administrator plus the exact approved allowlist; final allowlist contains only user ID `85`.
+- Remote persistence also requires consent version `d1-500-v1`.
+- JWT lifetime is 120 seconds. Expired tokens fail closed; reloading under a valid WordPress session performs a new exchange and restores the correct principal context.
+
+## Boundary results
+
+- Anonymous token request: 401 `session_required`.
+- Anonymous same-origin API: 401 `session_required`.
+- Direct Railway API without gateway authority: 403 `GATEWAY_REQUIRED`.
+- Non-360 and revoked personas: 403 `eligibility_required`, no Matrix entry.
+- Account switch and destroyed session: prior token/context rejected.
+- Second eligible student: first student's list/read/write targets were absent or 404.
+
+## PostgreSQL controls
+
+- Schema: `d1-timeline-db-500.1`.
+- Tables: 20.
+- RLS policies: 53.
+- FORCE RLS omissions: 0.
+- Public table privileges: 0.
+- Runtime role: `timeline_authenticated`; least-privilege service/grant roles are separate.
+- Administrator document access requires a bounded, expiring, independently audited resource grant.
+
+## Fixture cleanup
+
+Controlled WordPress IDs 1299-1303 were deleted after testing. Their posts, usermeta, LearnDash access rows, Timeline program memberships, active documents, and active grants are zero. The five Timeline principals are `DELETED`; three controlled documents are soft-`DELETED`; append-only audit and outbox evidence remains. Cleanup audit ID: `d1-500-fixture-cleanup-20260804`.
+
+---
+
+<!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_BACKUP_RESTORE_AND_ROLLBACK_RECEIPT.md -->
 # D1-500 Backup, Restore, and Rollback Receipt
 
-Local/disposable recovery proof: PASS.
+## Backups
 
-- Prior disposable PostgreSQL restore/down/reapply proof: PASS.
-- Feature kill switch: `timeline_enabled=false`, `rollout_stage=off`.
-- Database rollback policy: preserve successful additive hardening migrations;
-  restore only for verified corruption.
+- Timeline-scoped Kinsta snapshot: `/www/theresidencyacademy_209/private/d1-500-backups/20260804T152116Z`.
+- The exact oldest manual backup `B1-508 pre deployment 2026-07-31` was deleted only after the authorized inventory checks passed.
+- Replacement Kinsta backup: `D1-500-PRE-20260804T161859Z`, READY, restore control present, retained until August 18.
+- Railway PostgreSQL manual volume backup: READY, 843 MB, restore control present.
+- Logical dump: `/Users/brianb/MissionMed_private_backups/D1-500/20260804T162100Z/timeline-pre-migration.dump`.
+- Dump SHA-256: `65ae8326ee7a2ba7115486187ec978494c7beae714daeb32379c2873f89436cd`.
+- PostgreSQL 18 custom archive isolated restore: PASS; temporary restore database removed.
 
-Production recovery receipts:
+## Rollback and kill switch
 
-- Timeline-scoped Kinsta snapshot: PASS at
-  `/www/theresidencyacademy_209/private/d1-500-backups/20260804T152116Z`.
-- Deleted provider backup: exactly `B1-508 pre deployment 2026-07-31`, after
-  re-verifying it was the oldest manual backup, the August 4 daily backup and
-  all four newer manual backups remained, the D1-500 snapshot remained intact,
-  and matching B1-508 private recovery artifacts existed locally and remotely.
-  The deleted MyKinsta manual item is not recoverable through MyKinsta; its
-  verified private recovery sets remain.
-- Replacement provider backup: `D1-500-PRE-20260804T161859Z`, created August 4
-  at 12:19 PM EDT, expires August 18, READY with a restore control.
-- Railway provider-native PostgreSQL volume backup: created August 4 at 12:20
-  PM EDT, manual, 843 MB, READY with a restore control.
-- Logical PostgreSQL dump:
-  `/Users/brianb/MissionMed_private_backups/D1-500/20260804T162100Z/timeline-pre-migration.dump`.
-- Logical dump SHA-256:
-  `65ae8326ee7a2ba7115486187ec978494c7beae714daeb32379c2873f89436cd`.
-- Dump format: PostgreSQL 18.4 custom archive; isolated restore: PASS; temporary
-  restore database removed after validation.
+- Kill switch rehearsal: setting `timeline_enabled=false` and `rollout_stage=off` removed admission and returned `timeline_disabled`; exact eligible-360 settings were restored and read back.
+- WordPress scoped rollback was exercised when experimental runtime `eeb4786` caused a blank Matrix response: the previous Timeline MU route/runtime pointer was restored, PHP restarted, cache purged, and Matrix health reverified before the corrected release proceeded.
+- Current rollback target is limited to the Timeline plugin, MU route, immutable runtime pointer, Railway API deployment, and Timeline schema. It must not restore the whole Kinsta environment unless independently justified because that could affect unrelated applications.
+- API rollback: disable admission first, then stop/redeploy the exact Railway service; health must identify the restored release before re-entry.
+- Database rollback policy: preserve the successful additive schema unless verified corruption requires the provider backup or validated logical restore.
 
-WordPress rollback is bounded to disabling Timeline admission, deactivating the
-Timeline plugin, removing its MU route, and restoring the pre-state recorded in
-the scoped snapshot. Railway has no successful application deployment to roll
-back yet. The failed deployment attempts created no serving release.
+Current release pointer: `releases/timeline-wp-0fc51f8906decb8e`. Prior immutable Timeline runtimes remain available. Backup and scoped rollback readiness: PASS.
 
-<!-- SOURCE: D1_500_CRITICAL_SYSTEMS_RECONCILIATION.md -->
+---
 
+<!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_FOUNDER_ADMIN_CANARY_REPORT.md -->
+# D1-500 Founder and Administrator Canary Report
+
+Result: PASS.
+
+- Canary ran before general student activation.
+- Founder-equivalent controlled persona reached the canonical route and exercised the production identity path.
+- Approved real administrator reached the route under exact allowlist authority.
+- Unapproved administrator was denied without an audited resource grant.
+- Student access remained disabled during the initial canary stage.
+- Create, save, reload, edit, export, logout/re-entry, stale-token rejection, and account-switch invalidation were exercised across the approved and controlled personas.
+- Anonymous, second-user, and direct API denials passed.
+- Production health named the correct static release and schema.
+- Browser console critical errors: 0 in the recorded canary journeys.
+- Protected visual authority remained materially unchanged.
+- Kill switch and scoped rollback were available before student activation.
+
+The controlled administrator was removed after testing. Final approved administrator allowlist: WordPress user ID `85` only.
+
+---
+
+<!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_STUDENT_ROLLOUT_REPORT.md -->
+# D1-500 Student Rollout Report
+
+Student rollout state: **LIVE for eligible 360 students**.
+
+## Canonical eligibility
+
+- Source: production LearnDash active access to published Closed course `3893`.
+- Entitlement version: `learndash-course-3893-live-2026-08-04`.
+- Login or generic student role alone is insufficient.
+- Revocation removes route/token access and the Matrix entry.
+
+## Live journeys
+
+- Real active-360 student saw exactly one native Timeline entry in Matrix.
+- Matrix entry opened the 200 consent page, accepted `d1-500-v1`, and returned through 303 to the canonical app.
+- The real student created a controlled event, saved it remotely, reloaded in another browser, edited it, and observed the updated persisted value.
+- A representative second eligible student exported `Canary_D1_Timeline_2026-08-04.png`; the real active-student account's export button was profile-incomplete because Full name was blank, so export acceptance is based on the authorized representative eligible identity.
+- The second eligible student could not list, read, or write the first student's records.
+- Non-360, expired/revoked, anonymous, and direct-URL/direct-API personas were denied.
+- Logout/re-entry and account switching invalidated the previous principal context.
+- Token expiry changed the UI to read-only and preserved local draft state; a valid session reload re-exchanged identity.
+
+## Discoverability
+
+- Navigation entry: live at `/member-dashboard/#timeline`.
+- Direct route: live at `/timeline/` for entitled users.
+- Anonymous direct route: 303/no-store to the approved Matrix flow.
+- Operational versioned public Matrix adapter hash: `a13c9cd6fa5420f19cc47691c09da07e79f9813b6ee774066f0d89230c131b8c` (`?ver=500.0.2` and `?ver=500.0.7`). The bare URL is not the injected runtime URL.
+
+All controlled synthetic users and entitlement rows were removed after the tests. Eligible-360 activation remains enabled.
+
+---
+
+<!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_LIVE_BROWSER_AND_VISUAL_VERIFICATION.md -->
+# D1-500 Live Browser and Visual Verification
+
+Result: PASS for the live Timeline application.
+
+- Browsers: signed-in Chrome plus a separate in-app Browser profile.
+- Viewports: desktop and narrow/mobile layouts.
+- Real Matrix identity and native Timeline navigation verified.
+- Consent, route return, home, Builder, Edit Timeline, Media, Export, persistence, and reload states inspected.
+- Cross-browser persistence verified using the same real active-360 account.
+- Separate eligible-student export verified.
+- Anonymous redirect and denied-persona journeys verified outside the authenticated profiles.
+- Critical console errors in acceptance journeys: 0.
+
+The live mobile home view contains the accepted headline “Turn your medical journey into an interview-ready timeline,” Matrix return control, 360 member access badge, guided workflow, File Vault fast-start section, and the fixed bottom navigation. No material presentation regression was observed.
+
+Protected visual verification:
+
+- Founder visual package: 28/28 hashes PASS.
+- Sealed release: 62/62 hashes PASS.
+- Static release remains `timeline-0c5cc515a76346d6`.
+- No Timeline source change altered the protected HTML or CSS.
+
+Known documentation gap: the active A1 adapter references a `D1-411A_PROTECTED_HASH_MANIFEST.json` that is not present. The adapter itself is the accepted integration adaptation and matches the deployed sealed release; this gap does not change the browser verdict.
+
+---
+
+<!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_DEPLOYMENT_AND_RELEASE_RECEIPT.md -->
+# D1-500 Deployment and Release Receipt
+
+- Final source: `296d74272b520502f35b3d2d5bf7fb9a508a1e7c`.
+- Static release: `timeline-0c5cc515a76346d6`.
+- WordPress runtime: `timeline-wp-0fc51f8906decb8e`.
+- Payload SHA-256: `57ed9146f44c5d3684a5a873782c19c2da1f1ba4fb832b5708d71ec041fb73f4`.
+- Kinsta current pointer: `releases/timeline-wp-0fc51f8906decb8e`.
+- Railway deployment: `d9ec6013-35e3-4f33-a75d-4ac5d936eed2`, SUCCESS.
+- Railway image digest: `sha256:bbbc05f29891faa3c11e7df84403957347fdd860db2e480cc66c7e267eaff202`.
+- PostgreSQL deployment: `3a7f1381-74d4-4327-ac22-6a3e2483eec6`, SUCCESS.
+- Schema: `d1-timeline-db-500.1`.
+- Production option: enabled; `eligible_360`; canary IDs `[85]`; eligibility verified.
+- Canonical route: `https://missionmedinstitute.com/timeline/`.
+
+## Live byte verification
+
+- Runtime: `e424edc9fd022dd225c84763707ef18dece073fddb433821e040bada5e25b820`.
+- MU route: `258da3f2a5edf95899f921f5d617ef4f861260ca1be24dd5a8e1c1d4c5621403`.
+- Plugin: `20e64ed5af824e8c265a6e9a048f3164967680ce5d752eeda519c66eec8cb6b6`.
+- Matrix adapter origin and operational versioned public URLs: `a13c9cd6fa5420f19cc47691c09da07e79f9813b6ee774066f0d89230c131b8c`; the unused bare URL remains an older cached object.
+
+## Verification
+
+- Typecheck PASS.
+- Automated tests: 616/616 PASS (129 TypeScript, 487 JavaScript).
+- Package verification: 23/23 PASS.
+- Release hashes: 62/62 PASS.
+- Critical Systems: 142 PASS, 3 WARN, 0 FAIL.
+- Anonymous route: three consecutive 303/no-store/MISS responses.
+- Direct Railway without gateway: 403 `GATEWAY_REQUIRED`.
+
+Release payloads contain no secret value. The immutable payload is locally sealed and deployed; it is referenced by the protected manifest and final package checksum.
+
+---
+
+<!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_LIVE_HEALTH_AND_OPERATIONS.md -->
+# D1-500 Live Health and Operations
+
+Current health: PASS.
+
+- Endpoint: `https://mission-timeline-api-production.up.railway.app/healthz`.
+- HTTP: 200.
+- Cache-Control: `no-store`.
+- Service: `mission-timeline`.
+- Version: `timeline-0c5cc515a76346d6`.
+- Schema: `d1-timeline-db-500.1`.
+- Railway deployment: `d9ec6013-35e3-4f33-a75d-4ac5d936eed2`, SUCCESS.
+- Public direct data endpoint without gateway: 403 `GATEWAY_REQUIRED`.
+- Anonymous same-origin API: 401 `session_required`.
+
+Operational controls:
+
+- Admission kill switch: WordPress `missionmed_timeline_settings`.
+- Feature-off values: `timeline_enabled=false`, `rollout_stage=off`.
+- Current values: enabled, `eligible_360`.
+- Rate limit: 30 requests per 60 seconds.
+- JWT TTL: 120 seconds.
+- Kinsta current release is an atomic symlink to an immutable directory.
+- Structured server logs use request IDs and avoid password/secret output.
+- Backup and scoped rollback receipts are in the companion recovery report.
+
+The real Matrix and app journeys remained functional after fixture cleanup. No unrelated-application regression was observed.
+
+---
+
+<!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_KNOWN_LIMITATIONS_AND_FOLLOWUPS.md -->
+# D1-500 Known Limitations and Follow-ups
+
+## Blocking authority item
+
+The delegated Matrix runtime-lock manifest carried in the D1-500 branch predates later documented Matrix/StoryForge deployments. Five approved hashes do not match current live/source bytes. Later D9 Matrix recovery evidence identifies those live bytes—including Student OS `646e3598...`—as accepted, and the real Matrix journey passed, but D1-500 is not authorized to rewrite that delegated lock or suppress its gate. Required action: approve a Matrix-owned metadata-only amendment that pins the documented current source/origin/public hashes and names the immutable recovery commit/tree. Until then the overall program result remains PARTIAL even though Timeline is live.
+
+## Non-blocking documentation
+
+- The accepted A1 JavaScript adaptation references `D1-411A_PROTECTED_HASH_MANIFEST.json`, which is absent. Add the exact accepted adapter transition manifest in the next authority-maintenance release.
+- The operational versioned Matrix adapter URLs serve the sealed current bytes. The unused bare asset URL still serves an older long-lived cached object; it is not injected by the current route. A future cache-maintenance action may remove it, but it is not a launch blocker.
+- The real active-360 account had a blank Full name, so its export button was profile-incomplete. Export passed through a separate authorized eligible-student fixture that used the same production authorization and export path.
+- JWT TTL is intentionally short at 120 seconds. Expiry changes the app to read-only and preserves local work; a valid-session reload re-enters. A future release may add silent refresh only if separately authorized and tested.
+- The controlled real-student pilot record remains associated with the approved test account unless the Founder asks for deletion through the normal product flow. No synthetic account or entitlement residue remains.
+
+## Founder action required
+
+One consolidated action: authorize the Matrix owner to reconcile `_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json` to the already documented later Matrix baseline, without changing live production. After amendment, rerun all ten local/origin/public checks and require zero mismatch. Expected Founder time: under two minutes to approve the exact metadata-only record. Risk of waiting: D1-500 remains PARTIAL in governance records. Risk of proceeding without it: a false claim that the delegated protection gate is green.
+
+---
+
+<!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_CRITICAL_SYSTEMS_RECONCILIATION.md -->
 # D1-500 Critical Systems Reconciliation
 
 Historical checkpoint note: the approval request and pre-mutation language in
@@ -311,365 +585,3 @@ Exact authorization wording:
 > reviewed commit, run the Critical Systems and Matrix gates, and stop on any
 > new failure or unexpected hash. The Arena pin acknowledges observed accepted
 > bytes and does not certify or waive the open Y1-CAM-4008A P0.
-
-<!-- SOURCE: D1_500_DEPLOYMENT_AND_RELEASE_RECEIPT.md -->
-
-# D1-500 Deployment and Release Receipt
-
-- Accepted source commit: `b668cc4d3eaa8075a357d35a60456fcaaaffa18c`.
-- Deployment-config repair commit: `7cf30eb`.
-- Static release: `timeline-0c5cc515a76346d6`.
-- WordPress runtime: `timeline-wp-c228658bc70bc395`.
-- WordPress payload SHA-256:
-  `e0eed7020fe23028f7168676d3d45455c9ca56f1a9a723f4530d873c4fb3fb11`.
-- Critical Systems gate: 140 PASS, 3 WARN, 0 FAIL.
-- Matrix immutable-source/live guard: 10 PASS, 0 FAIL.
-- PostgreSQL schema: `d1-timeline-db-500.1`, migrated and verified.
-- Railway URL: `https://mission-timeline-api-production.up.railway.app`.
-- First deployment `fcd4805f-153d-48b7-8b0e-1207ecdb2cbd`: FAILED CLOSED
-  during image build because the generated Nixpacks plan performed duplicate
-  `npm ci` operations.
-- Repaired deployment `5d682cfe-ac05-42d4-8026-af9afd6eebb2`: image build
-  PASS; FAILED CLOSED at `/healthz` because the API service did not contain
-  `TIMELINE_JWT_SECRET` or `TIMELINE_GATEWAY_SECRET`.
-- Railway application state: offline; no successful deployment identifier yet.
-- Kinsta payload: installed at the exact authorized hash.
-- Kinsta settings: feature off, rollout off, no canaries, no eligible users.
-- Canonical route: `https://missionmedinstitute.com/timeline/`, installed but
-  not live to authorized users.
-- Anonymous route behavior: `302` to the approved Matrix member-dashboard
-  flow.
-- Anonymous token POST: denied `401` with `session_required`.
-
-The payload contains only the Timeline SSO plugin, Matrix launch asset, MU
-route, and immutable runtime release. No secret value is present in the
-artifact, Git history, logs, screenshots, or evidence.
-
-<!-- SOURCE: D1_500_EXECUTIVE_RELEASE_REPORT.md -->
-
-# D1-500 Executive Release Report
-
-Status as of 2026-08-04: **PARTIAL — production remains access-off at the
-server-secret binding gate**.
-
-Audited execution progress is 35 of 45 defined work units (78%). This measure
-tracks execution work, not final acceptance: live canary and 360 rollout remain
-mandatory. Engineering confidence is 92%; confidence that this execution loop
-ends with Timeline live inside Matrix is 74%, contingent on the Founder-only
-secret bindings becoming verifiable.
-
-The accepted Timeline Builder remains sealed as static release
-`timeline-0c5cc515a76346d6` and WordPress runtime
-`timeline-wp-c228658bc70bc395`. The product and security core pass 614
-automated tests. Critical Systems passes 140 checks with zero failures and the
-controlling Matrix lock passes ten of ten checks.
-
-Production backup, data, and feature-off installation work is complete:
-
-- the exact oldest Kinsta manual backup was deleted only after re-verifying the
-  inventory and its independent local and remote recovery copies;
-- replacement Kinsta backup `D1-500-PRE-20260804T161859Z` is READY with a
-  restore control and all four newer retained backups remain;
-- a Railway manual PostgreSQL volume backup is READY at 843 MB with a restore
-  control;
-- a PostgreSQL 18 custom logical dump is stored outside Git, hash-verified, and
-  passed an isolated restore;
-- all six accepted Timeline SQL assets applied successfully; production reads
-  back `d1-timeline-db-500.1`, 20 tables, 53 policies, zero missing forced-RLS
-  tables, and zero public schema/table access;
-- the exact authorized Kinsta payload SHA-256
-  `e0eed7020fe23028f7168676d3d45455c9ca56f1a9a723f4530d873c4fb3fb11`
-  is installed and active with `timeline_enabled=false`,
-  `rollout_stage=off`, an empty canary list, and eligibility unverified;
-- anonymous `/timeline/` access returns to the approved Matrix flow and an
-  anonymous token POST is denied `401`.
-
-The first Railway image build failed closed because Nixpacks ran a locked
-install and the repository build command attempted a second `npm ci` against
-the active cache. The narrow config-only repair at commit `7cf30eb` retains the
-Nixpacks locked install and runs typecheck, API build, and API-only validation
-once. The retry built successfully but failed its `/healthz` gate before going
-online because the production API service lacks its two required secret
-variables. The PostgreSQL reference and all seven non-secret variables are
-installed. No API container is live and no user access is enabled.
-
-One consolidated Founder-only action remains: install matching secret pairs in
-the exact server-side locations below without exposing their values:
-
-- Railway project `295b3d56-f555-4851-91f4-eb32d7dc88e1`, production API
-  service `12bfaf69-f883-42b5-a380-b6beea49f251`:
-  `TIMELINE_JWT_SECRET`, `TIMELINE_GATEWAY_SECRET`;
-- Kinsta production WordPress PHP runtime:
-  `MISSIONMED_TIMELINE_JWT_SECRET`,
-  `MISSIONMED_TIMELINE_GATEWAY_SECRET`.
-
-The JWT values must match each other across Railway and Kinsta, and the gateway
-values must match each other. After those four named bindings exist, resume at
-API deploy/health, then principal provisioning, Founder/admin canary,
-eligible-360 activation, browser/security verification, rollback rehearsal,
-and release seal.
-
-<!-- SOURCE: D1_500_FOUNDER_ADMIN_CANARY_REPORT.md -->
-
-# D1-500 Founder and Administrator Canary Report
-
-Status: NOT RUN; the production route is installed but feature and access remain
-disabled at the server-secret binding gate.
-
-The sealed source and local harness pass student-canary, administrator-canary,
-non-allowlisted denial, consent required/record/withdraw, JWT round trip,
-entitlement-change rejection, and remote-sync authorization checks.
-
-One administrator and one active 360 student test identity have been supplied in
-the private task context. They are represented only by opaque handles
-`D1-500-ADMIN-TEST-01` and `D1-500-STUDENT-360-01`; no password is stored in
-evidence or Git. Required production journeys remain Founder student-persona
-create/save/reload/export, approved administrator entry, unapproved
-administrator denial, student denial during canary, second-user denial,
-anonymous/direct-API denial, logout, account switching, stale-token rejection,
-session expiry, health, logs, kill switch, and rollback. Controlled fixtures for
-the remaining personas are Founder-authorized; their creation is intentionally
-deferred until the API health gate passes so they exercise the real production
-authorization path.
-
-<!-- SOURCE: D1_500_IDENTITY_ENTITLEMENT_AUTHORIZATION_AND_RLS.md -->
-
-# D1-500 Identity, Entitlement, Authorization, and RLS
-
-Identity is an immutable mapping from WordPress numeric user ID to a UUID
-Timeline principal. The browser cannot supply or change that identity. Tokens
-are short lived, bind issuer, audience, key ID, WordPress user, Timeline role,
-course access, rollout stage, entitlement version, consent version, and remote
-sync authority. Account or persona changes lock the local production client.
-
-Student authorization requires all of: authenticated WordPress session, current
-LearnDash access to course 3893, enabled rollout stage, immutable principal
-mapping, and current consent version. Administrators require explicit canary
-allowlisting and do not gain student-document access merely from the WordPress
-administrator role. Access to a student record requires a separate exact,
-time-bounded, audited resource grant.
-
-Disposable PostgreSQL proof result: PASS.
-
-- schema `d1-timeline-db-500.1`;
-- 3 safe runtime roles;
-- 0 least-privilege leaks;
-- 0 public access surfaces;
-- 0 tables without forced RLS;
-- owner read/write: PASS;
-- cross-student read/write denial: PASS;
-- absent-course-entitlement denial: PASS;
-- administrator without grant denial: PASS;
-- exact administrator read grant: PASS;
-- grant mutation, reuse, deletion, and missing-audit denial: PASS;
-- grant revocation: PASS;
-- immutable identity update denial: PASS.
-
-Production result remains NOT RUN because the provider database migration and
-principal fixtures are blocked before secret binding and canary identity
-approval.
-
-<!-- SOURCE: D1_500_IMPLEMENTATION_AND_CHANGE_LEDGER.md -->
-
-# D1-500 Implementation and Change Ledger
-
-Accepted product implementation remains sealed at
-`b668cc4d3eaa8075a357d35a60456fcaaaffa18c` with release identities
-`timeline-0c5cc515a76346d6` and `timeline-wp-c228658bc70bc395`.
-
-Production changes completed:
-
-- Critical Systems metadata amendment and Timeline registration;
-- Kinsta and Railway provider-native backups plus logical database backup;
-- six accepted database migration/role assets and runtime-role binding;
-- Railway non-secret service configuration and PostgreSQL reference;
-- Railway provider domain;
-- exact Kinsta payload installation, plugin activation, immutable release
-  pointer, and default-off settings;
-- anonymous Matrix redirect and anonymous token-denial verification.
-
-Defect and repair:
-
-- defect: generated Nixpacks plan ran its install stage and the configured build
-  ran a second `npm ci`, producing an `EBUSY` cache failure;
-- repair: commit `7cf30eb` removes only the duplicate install from the build
-  command; local typecheck/API build/API-only validation pass and the Railway
-  retry image built successfully.
-
-Production changes not completed:
-
-- matching Railway/Kinsta JWT and gateway secret bindings;
-- successful API health and immutable deployment receipt;
-- principal provisioning, canary, eligible-360 activation, navigation proof,
-  and final browser/security/rollback evidence.
-
-No unrelated application, Matrix, Arena, USCE Admin, CDN, DNS, or provider
-setting was changed. A separate staged Railway `function-bun` service was
-inspected read-only and left untouched.
-
-<!-- SOURCE: D1_500_KNOWN_LIMITATIONS_AND_FOLLOWUPS.md -->
-
-# D1-500 Known Limitations and Follow-ups
-
-Blocking at the 2026-08-04T16:34:00Z checkpoint:
-
-- The approved Critical Systems amendment and Timeline registration are applied
-  on `codex/d1-500-critical-registration`. The full protected-systems gate passes
-  140 checks with 0 failures, and the controlling Matrix guard passes all 10
-  local/source/origin/public checks. This authority blocker is closed.
-- Railway authorization, provider-native backup, the logical backup, isolated
-  restore proof, and all six accepted production database assets are complete.
-- Kinsta backup capacity was reconciled under the explicit Founder deletion
-  authorization. The exact oldest manual item was replaced by
-  `D1-500-PRE-20260804T161859Z`, which is READY with a restore control.
-- Production secret installation remains Founder-only under DR-018. Current
-  Railway name-only inspection proves the API service lacks
-  `TIMELINE_JWT_SECRET` and `TIMELINE_GATEWAY_SECRET`; the corresponding Kinsta
-  runtime bindings are not verifiable. The required
-  names are `TIMELINE_JWT_SECRET` and `TIMELINE_GATEWAY_SECRET` on the Railway
-  API service, and `MISSIONMED_TIMELINE_JWT_SECRET` and
-  `MISSIONMED_TIMELINE_GATEWAY_SECRET` in the Kinsta live WordPress server-side
-  runtime. No value is stored in this package.
-- Standard Kinsta WP-CLI WordPress bootstrap crashes in the existing MU-plugin
-  layer with exit 139. A CLI-only `WPMU_PLUGIN_DIR` isolation bootstrap works;
-  web traffic and protected MU-plugin bytes remain unchanged. Timeline-only
-  activation/configuration must use that bounded bootstrap or WordPress admin.
-- One approved administrator and one active 360 test identity are verified in
-  production. Founder-equivalent, second eligible student, non-360, and
-  expired/revoked controlled fixtures are authorized but cannot truthfully run
-  through the production path until API health passes. No password is stored in
-  this package.
-- Consent version `d1-500-v1` is Founder-approved.
-- Railway database display name remains provider default `Postgres`; stable
-  service ID is recorded.
-- The central Matrix checkout lacks the protected source files, but immutable
-  remote commit `60e7169b...` contains all ten exact bytes and passes the
-  official local/origin/public guard. This closes the recovery-byte gap without
-  authorizing a source restore or live Matrix mutation.
-
-Intentional release boundaries:
-
-- Remote object storage is unconfigured and fails closed.
-- Remote File Vault publication and File Vault v2 are disabled.
-- Accepted local import and client-side export remain available.
-- Administrator access never implies student-record access; explicit audited
-  grants are required.
-
-Unrelated state preserved:
-
-- no Supabase, DNS, Cloudflare, StoryForge, shared Matrix asset, shared Railway
-  service, LearnDash course, WooCommerce, user, or production data mutation;
-- no unrelated dirty worktree cleanup or overwrite.
-
-<!-- SOURCE: D1_500_LIVE_BROWSER_AND_VISUAL_VERIFICATION.md -->
-
-# D1-500 Live Browser and Visual Verification
-
-Local accepted presentation preview: PASS. The accepted 407F dark MissionMed
-shell, orange primary actions, Home, File Vault, timeline canvas, Builder,
-responsive behaviors, and client-side export remain present.
-
-Sealed production bundle outside WordPress: PASS FAIL-CLOSED. Without a trusted
-WordPress identity bootstrap it renders only “Timeline could not be loaded
-safely.” This is the intended negative behavior, not a visual regression.
-
-Live canonical route `https://missionmedinstitute.com/timeline/`: INSTALLED,
-APPLICATION NOT LIVE. Anonymous access returns `302` into the approved Matrix
-member-dashboard flow, and an anonymous token POST is denied `401` with
-`session_required`. These prove fail-closed route integration, not an
-authenticated live application. The Railway API domain has no healthy serving
-deployment.
-
-Authenticated production rendering, responsive journeys, browser console,
-navigation discoverability, logout, account switch, and live visual comparison
-remain NOT RUN.
-
-No decorative screenshots were added to the package. In-thread previews were
-used for the accepted app and fail-closed sealed runtime.
-
-<!-- SOURCE: D1_500_LIVE_HEALTH_AND_OPERATIONS.md -->
-
-# D1-500 Live Health and Operations
-
-Local production handler health tests pass, including dependency failure,
-timeout, recovery, release identity, and content-free errors.
-
-Production PostgreSQL is migrated and healthy at schema
-`d1-timeline-db-500.1`. The repaired Railway image passes its build gates, but
-the deployment fails closed at `/healthz` because the API service does not yet
-have the two required secret bindings. The provider domain therefore returns
-Railway's application-not-found response and must not be classified as live.
-
-WordPress is installed feature-off. `/timeline/` exists and anonymous traffic
-returns to the Matrix member-dashboard flow. The token endpoint is registered;
-anonymous POST is denied `401`. No Founder, administrator, or student has been
-admitted.
-
-Next operational step after secret binding is an immutable API redeploy. A
-successful health response must identify service `mission-timeline`, release
-`timeline-0c5cc515a76346d6`, and schema `d1-timeline-db-500.1` before canary
-configuration changes. File Vault v2 remains disabled.
-
-<!-- SOURCE: D1_500_PRODUCTION_ARCHITECTURE_AND_TARGETS.md -->
-
-# D1-500 Production Architecture and Targets
-
-The canonical route is `https://missionmedinstitute.com/timeline/` on the current
-WordPress origin. WordPress owns session, live LearnDash entitlement, consent,
-principal mapping, and short-lived JWT issuance. The same-origin gateway strips
-WordPress cookies and forwards only a bounded gateway credential and Timeline
-JWT to the isolated API. PostgreSQL owns Timeline records and forces RLS.
-
-Verified targets:
-
-- Kinsta company: `Brian's company`.
-- Kinsta site: `MissionMed Institute`.
-- Kinsta environment: `Live`.
-- Kinsta company ID: `60d2928a-3253-4350-89e9-8f58a0827584`.
-- Kinsta site ID: `abb6097b-9884-4b75-a9c7-d247728395cc`.
-- Kinsta environment ID: `a23bbbca-55af-4d03-9447-1015a1e18dc8`.
-- Kinsta public root: `/www/theresidencyacademy_209/public`.
-- Railway workspace ID: `b6ab449c-1c87-46e0-95f8-3394c3ca7b14`.
-- Railway project: `missionmed-timeline`
-  (`295b3d56-f555-4851-91f4-eb32d7dc88e1`).
-- Production environment: `d0705d67-83d5-4b53-942d-3862d9906529`.
-- Staging environment: `2dd3eedd-c029-41ad-9e03-ae4e63ff7bf8`.
-- API service: `mission-timeline-api`
-  (`12bfaf69-f883-42b5-a380-b6beea49f251`).
-- PostgreSQL service ID: `134e537e-d48b-4452-acf6-8c3af2ce03db`;
-  provider display name is currently `Postgres` pending bounded rename or
-  Founder acceptance of the stable ID.
-
-Supabase, DNS, Cloudflare, StoryForge resources, and shared Railway services are
-outside this topology and were not modified.
-
-<!-- SOURCE: D1_500_STUDENT_ROLLOUT_REPORT.md -->
-
-# D1-500 Student Rollout Report
-
-Status: WITHHELD.
-
-The canonical eligibility source is verified as current LearnDash access to
-published course 3893 with Closed enrollment. The direct WordPress route is
-installed but access-off; the eligible-student navigation entry remains off. No
-student has been exposed to the release.
-
-Direct production verification on `2026-08-04` confirmed that course `3893` is
-published as “Mission Residency: 360 Match Mentorship Student Dashboard &
-Guidance Hub,” uses Closed access, and has no course-level start, end, or expiry
-window. The approved active-student handle resolves to WordPress user ID `141`,
-and the authoritative `sfwd_lms_has_access(3893, 141)` check returns `true`.
-The approved administrator handle exists and has `manage_options`. Credentials
-were not printed, persisted, or added to evidence.
-
-Required production evidence is not yet available for eligible students A/B,
-non-360 denial, expired/revoked denial, cross-student isolation, direct-route
-behavior, persistence, export, logout/re-entry, account switching, and
-entitlement activation/revocation. Student activation is prohibited until the
-Founder/admin canary and rollback gate pass.
-
-The verified active 360 identity is referenced as `D1-500-STUDENT-360-01`; no
-password is stored in this package. Founder-authorized controlled fixtures for a
-second eligible identity, non-360 identity, and expired/revoked identity will be
-created only after the API health gate passes and removed or restored after the
-mandatory isolation and denial proofs.

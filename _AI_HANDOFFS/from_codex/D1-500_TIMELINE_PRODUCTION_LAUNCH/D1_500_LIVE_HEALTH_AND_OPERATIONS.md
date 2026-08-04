@@ -1,20 +1,26 @@
 # D1-500 Live Health and Operations
 
-Local production handler health tests pass, including dependency failure,
-timeout, recovery, release identity, and content-free errors.
+Current health: PASS.
 
-Production PostgreSQL is migrated and healthy at schema
-`d1-timeline-db-500.1`. The repaired Railway image passes its build gates, but
-the deployment fails closed at `/healthz` because the API service does not yet
-have the two required secret bindings. The provider domain therefore returns
-Railway's application-not-found response and must not be classified as live.
+- Endpoint: `https://mission-timeline-api-production.up.railway.app/healthz`.
+- HTTP: 200.
+- Cache-Control: `no-store`.
+- Service: `mission-timeline`.
+- Version: `timeline-0c5cc515a76346d6`.
+- Schema: `d1-timeline-db-500.1`.
+- Railway deployment: `d9ec6013-35e3-4f33-a75d-4ac5d936eed2`, SUCCESS.
+- Public direct data endpoint without gateway: 403 `GATEWAY_REQUIRED`.
+- Anonymous same-origin API: 401 `session_required`.
 
-WordPress is installed feature-off. `/timeline/` exists and anonymous traffic
-returns to the Matrix member-dashboard flow. The token endpoint is registered;
-anonymous POST is denied `401`. No Founder, administrator, or student has been
-admitted.
+Operational controls:
 
-Next operational step after secret binding is an immutable API redeploy. A
-successful health response must identify service `mission-timeline`, release
-`timeline-0c5cc515a76346d6`, and schema `d1-timeline-db-500.1` before canary
-configuration changes. File Vault v2 remains disabled.
+- Admission kill switch: WordPress `missionmed_timeline_settings`.
+- Feature-off values: `timeline_enabled=false`, `rollout_stage=off`.
+- Current values: enabled, `eligible_360`.
+- Rate limit: 30 requests per 60 seconds.
+- JWT TTL: 120 seconds.
+- Kinsta current release is an atomic symlink to an immutable directory.
+- Structured server logs use request IDs and avoid password/secret output.
+- Backup and scoped rollback receipts are in the companion recovery report.
+
+The real Matrix and app journeys remained functional after fixture cleanup. No unrelated-application regression was observed.

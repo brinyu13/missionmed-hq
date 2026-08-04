@@ -1,30 +1,32 @@
 # D1-500 Deployment and Release Receipt
 
-- Accepted source commit: `b668cc4d3eaa8075a357d35a60456fcaaaffa18c`.
-- Deployment-config repair commit: `7cf30eb`.
+- Final source: `296d74272b520502f35b3d2d5bf7fb9a508a1e7c`.
 - Static release: `timeline-0c5cc515a76346d6`.
-- WordPress runtime: `timeline-wp-c228658bc70bc395`.
-- WordPress payload SHA-256:
-  `e0eed7020fe23028f7168676d3d45455c9ca56f1a9a723f4530d873c4fb3fb11`.
-- Critical Systems gate: 140 PASS, 3 WARN, 0 FAIL.
-- Matrix immutable-source/live guard: 10 PASS, 0 FAIL.
-- PostgreSQL schema: `d1-timeline-db-500.1`, migrated and verified.
-- Railway URL: `https://mission-timeline-api-production.up.railway.app`.
-- First deployment `fcd4805f-153d-48b7-8b0e-1207ecdb2cbd`: FAILED CLOSED
-  during image build because the generated Nixpacks plan performed duplicate
-  `npm ci` operations.
-- Repaired deployment `5d682cfe-ac05-42d4-8026-af9afd6eebb2`: image build
-  PASS; FAILED CLOSED at `/healthz` because the API service did not contain
-  `TIMELINE_JWT_SECRET` or `TIMELINE_GATEWAY_SECRET`.
-- Railway application state: offline; no successful deployment identifier yet.
-- Kinsta payload: installed at the exact authorized hash.
-- Kinsta settings: feature off, rollout off, no canaries, no eligible users.
-- Canonical route: `https://missionmedinstitute.com/timeline/`, installed but
-  not live to authorized users.
-- Anonymous route behavior: `302` to the approved Matrix member-dashboard
-  flow.
-- Anonymous token POST: denied `401` with `session_required`.
+- WordPress runtime: `timeline-wp-0fc51f8906decb8e`.
+- Payload SHA-256: `57ed9146f44c5d3684a5a873782c19c2da1f1ba4fb832b5708d71ec041fb73f4`.
+- Kinsta current pointer: `releases/timeline-wp-0fc51f8906decb8e`.
+- Railway deployment: `d9ec6013-35e3-4f33-a75d-4ac5d936eed2`, SUCCESS.
+- Railway image digest: `sha256:bbbc05f29891faa3c11e7df84403957347fdd860db2e480cc66c7e267eaff202`.
+- PostgreSQL deployment: `3a7f1381-74d4-4327-ac22-6a3e2483eec6`, SUCCESS.
+- Schema: `d1-timeline-db-500.1`.
+- Production option: enabled; `eligible_360`; canary IDs `[85]`; eligibility verified.
+- Canonical route: `https://missionmedinstitute.com/timeline/`.
 
-The payload contains only the Timeline SSO plugin, Matrix launch asset, MU
-route, and immutable runtime release. No secret value is present in the
-artifact, Git history, logs, screenshots, or evidence.
+## Live byte verification
+
+- Runtime: `e424edc9fd022dd225c84763707ef18dece073fddb433821e040bada5e25b820`.
+- MU route: `258da3f2a5edf95899f921f5d617ef4f861260ca1be24dd5a8e1c1d4c5621403`.
+- Plugin: `20e64ed5af824e8c265a6e9a048f3164967680ce5d752eeda519c66eec8cb6b6`.
+- Matrix adapter origin and operational versioned public URLs: `a13c9cd6fa5420f19cc47691c09da07e79f9813b6ee774066f0d89230c131b8c`; the unused bare URL remains an older cached object.
+
+## Verification
+
+- Typecheck PASS.
+- Automated tests: 616/616 PASS (129 TypeScript, 487 JavaScript).
+- Package verification: 23/23 PASS.
+- Release hashes: 62/62 PASS.
+- Critical Systems: 142 PASS, 3 WARN, 0 FAIL.
+- Anonymous route: three consecutive 303/no-store/MISS responses.
+- Direct Railway without gateway: 403 `GATEWAY_REQUIRED`.
+
+Release payloads contain no secret value. The immutable payload is locally sealed and deployed; it is referenced by the protected manifest and final package checksum.

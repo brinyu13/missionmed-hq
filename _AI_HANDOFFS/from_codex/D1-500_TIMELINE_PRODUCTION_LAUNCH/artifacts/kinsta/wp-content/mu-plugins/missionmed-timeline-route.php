@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Timeline Route
  * Description: Authenticated /timeline/ route backed by a Timeline-owned execution-private release bundle.
- * Version: 500.0.0
+ * Version: 500.0.7
  * Requires PHP: 8.1
  * Author: MissionMed
  */
@@ -34,6 +34,74 @@ function mmtlr_is_canonical_host() {
     return $expected !== '' && preg_match('/^[a-z0-9.-]+(?::[0-9]{1,5})?$/', $incoming) && hash_equals($expected, $incoming);
 }
 
+function mmtlr_mark_dynamic_route() {
+    if (headers_sent()) {
+        return;
+    }
+    setcookie('missionmed_timeline_dynamic', '1', array(
+        'expires' => 0,
+        'path' => MMTLR_BASE_PATH,
+        'secure' => is_ssl(),
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ));
+}
+
+function mmtlr_matrix_launch_markup() {
+    if (!function_exists('mmtl_settings') || !function_exists('mmtl_user_can_enter') || !mmtl_user_can_enter()) {
+        return '';
+    }
+    $settings = mmtl_settings();
+    $matrix_path = (string) wp_parse_url($settings['matrix_url'], PHP_URL_PATH);
+    if ($matrix_path === '' || untrailingslashit(mmtlr_request_path()) !== untrailingslashit($matrix_path)) {
+        return '';
+    }
+    $config = wp_json_encode(array(
+        'target' => home_url($settings['base_path']),
+        'matrixPath' => $matrix_path,
+    ));
+    $source = plugins_url('missionmed-timeline-sso/assets/matrix-launch.js');
+    return '<script>window.MissionMedTimelineLaunch=' . $config . ';</script>'
+        . '<script src="' . esc_url($source) . '?ver=500.0.7"></script>';
+}
+
+function mmtlr_render_matrix_launch_adapter() {
+    static $rendered = false;
+    if ($rendered) {
+        return;
+    }
+    $markup = mmtlr_matrix_launch_markup();
+    if ($markup !== '') {
+        $rendered = true;
+        echo $markup;
+    }
+}
+add_action('wp_body_open', 'mmtlr_render_matrix_launch_adapter', 20);
+add_action('wp_footer', 'mmtlr_render_matrix_launch_adapter', 2);
+
+function mmtlr_inject_matrix_launch_html($html) {
+    if (!is_string($html) || stripos($html, '</body>') === false || str_contains($html, 'missionmed-timeline-sso/assets/matrix-launch.js')) {
+        return $html;
+    }
+    $markup = mmtlr_matrix_launch_markup();
+    if ($markup === '') {
+        return $html;
+    }
+    $position = strripos($html, '</body>');
+    return substr_replace($html, $markup, $position, 0);
+}
+
+function mmtlr_buffer_matrix_launch_adapter() {
+    if (!function_exists('mmtl_settings') || !function_exists('mmtl_user_can_enter') || !mmtl_user_can_enter()) {
+        return;
+    }
+    $matrix_path = (string) wp_parse_url(mmtl_settings()['matrix_url'], PHP_URL_PATH);
+    if ($matrix_path !== '' && untrailingslashit(mmtlr_request_path()) === untrailingslashit($matrix_path)) {
+        ob_start('mmtlr_inject_matrix_launch_html');
+    }
+}
+add_action('template_redirect', 'mmtlr_buffer_matrix_launch_adapter', -100);
+
 function mmtlr_error($status, $code, $message) {
     while (ob_get_level() > 0) {
         if (!@ob_end_clean()) break;
@@ -41,6 +109,9 @@ function mmtlr_error($status, $code, $message) {
     status_header(absint($status));
     nocache_headers();
     header('Cache-Control: no-store, private', true);
+    header('Surrogate-Control: no-store', true);
+    header('CDN-Cache-Control: no-store', true);
+    header('Cloudflare-CDN-Cache-Control: no-store', true);
     header('Content-Type: application/json; charset=utf-8', true);
     header('X-Content-Type-Options: nosniff', true);
     echo wp_json_encode(array('error' => array('code' => sanitize_key($code), 'message' => (string) $message)));
@@ -168,11 +239,12 @@ function mmtlr_render_consent($user) {
     while (ob_get_level() > 0) {
         if (!@ob_end_clean()) break;
     }
+    status_header(200);
     nocache_headers();
     header('Cache-Control: no-store, private', true);
     header('Content-Type: text/html; charset=utf-8', true);
     header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'self'", true);
-    header('Referrer-Policy: no-referrer', true);
+    header('Referrer-Policy: same-origin', true);
     header('X-Content-Type-Options: nosniff', true);
     header('X-Robots-Tag: noindex, nofollow, noarchive', true);
     if ($method !== 'HEAD') echo $content;
@@ -188,6 +260,9 @@ function mmtlr_serve() {
     if (!str_starts_with($path, MMTLR_BASE_PATH) || str_starts_with($path, MMTLR_BASE_PATH . 'api/')) {
         return;
     }
+    if ($path === MMTLR_BASE_PATH) {
+        mmtlr_mark_dynamic_route();
+    }
     $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
     if (!in_array($method, array('GET', 'HEAD', 'POST'), true)) {
         mmtlr_error(405, 'method_not_allowed', 'Timeline route method is not allowed.');
@@ -198,7 +273,12 @@ function mmtlr_serve() {
     if (!is_user_logged_in()) {
         $return_to = home_url(MMTLR_BASE_PATH);
         $login_url = function_exists('mmtl_login_url') ? mmtl_login_url($return_to) : home_url('/member-dashboard/');
-        wp_safe_redirect($login_url, 302);
+        nocache_headers();
+        header('Cache-Control: no-store, private', true);
+        header('Surrogate-Control: no-store', true);
+        header('CDN-Cache-Control: no-store', true);
+        header('Cloudflare-CDN-Cache-Control: no-store', true);
+        wp_safe_redirect($login_url, 303);
         exit;
     }
     if (!function_exists('mmtl_access_state')) {
@@ -229,6 +309,7 @@ function mmtlr_serve() {
         while (ob_get_level() > 0) {
             if (!@ob_end_clean()) break;
         }
+        status_header(200);
         mmtlr_headers($bundle, (string) $entry['content_type'], true);
         header('Content-Length: ' . strlen($bytes), true);
         if ($method !== 'HEAD') echo $bytes;
@@ -245,6 +326,7 @@ function mmtlr_serve() {
     while (ob_get_level() > 0) {
         if (!@ob_end_clean()) break;
     }
+    status_header(200);
     mmtlr_headers($bundle, (string) $entry['content_type'], false);
     header('Content-Length: ' . strlen($bytes), true);
     if ($method !== 'HEAD') echo $bytes;

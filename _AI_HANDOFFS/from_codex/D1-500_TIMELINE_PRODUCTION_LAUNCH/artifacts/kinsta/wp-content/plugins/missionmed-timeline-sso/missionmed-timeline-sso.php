@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Timeline SSO
  * Description: Default-off Timeline identity, LearnDash eligibility, JWT, same-origin API gateway, and Matrix launch seam.
- * Version: 500.0.0
+ * Version: 500.0.2
  * Requires at least: 6.5
  * Requires PHP: 8.1
  * Author: MissionMed
@@ -20,7 +20,7 @@ const MMTL_CONSENT_AT_META = '_missionmed_timeline_remote_sync_consented_at';
 const MMTL_REST_NAMESPACE = 'missionmed-timeline/v1';
 const MMTL_REST_TOKEN_ROUTE = '/token';
 const MMTL_COURSE_ID = 3893;
-const MMTL_VERSION = '500.0.0';
+const MMTL_VERSION = '500.0.2';
 
 function mmtl_defaults() {
     return array(
@@ -609,7 +609,7 @@ function mmtl_proxy_api_request() {
 add_action('template_redirect', 'mmtl_proxy_api_request', 0);
 
 function mmtl_user_can_enter() {
-    return is_user_logged_in() && !is_wp_error(mmtl_access_state(wp_get_current_user()));
+    return is_user_logged_in() && !is_wp_error(mmtl_eligibility_state(wp_get_current_user()));
 }
 
 function mmtl_is_matrix_request() {
@@ -630,6 +630,21 @@ function mmtl_enqueue_matrix_launch_adapter() {
     )) . ';', 'before');
 }
 add_action('wp_enqueue_scripts', 'mmtl_enqueue_matrix_launch_adapter', 30);
+
+function mmtl_render_matrix_launch_adapter_fallback() {
+    $handle = 'missionmed-timeline-matrix-launch';
+    if (!mmtl_is_matrix_request() || !mmtl_user_can_enter() || wp_script_is($handle, 'done')) {
+        return;
+    }
+    $config = wp_json_encode(array(
+        'target' => home_url(mmtl_settings()['base_path']),
+        'matrixPath' => (string) wp_parse_url(mmtl_settings()['matrix_url'], PHP_URL_PATH),
+    ));
+    $source = plugins_url('assets/matrix-launch.js', __FILE__);
+    echo '<script>window.MissionMedTimelineLaunch=' . $config . ';</script>';
+    echo '<script src="' . esc_url($source) . '?ver=' . esc_attr(MMTL_VERSION) . '"></script>';
+}
+add_action('wp_footer', 'mmtl_render_matrix_launch_adapter_fallback', 1);
 
 function mmtl_navigation_item($items) {
     if (!mmtl_user_can_enter()) {

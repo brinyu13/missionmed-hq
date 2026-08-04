@@ -773,12 +773,12 @@
       ]
     },
     {
-      "id": "timeline_feature_off_anonymous_handoff",
+      "id": "timeline_anonymous_matrix_handoff",
       "system": "timeline_builder",
-      "deployment_phase": "INSTALLED_FEATURE_OFF_ACCESS_OFF",
+      "deployment_phase": "ELIGIBLE_360_LIVE",
       "url": "https://missionmedinstitute.com/timeline/",
       "method": "GET",
-      "expected_status": 302,
+      "expected_status": 303,
       "expected_headers_contains": {
         "location": "/member-dashboard/",
         "cache-control": "no-store"
@@ -921,18 +921,18 @@
         "repository": "brinyu13/missionmed-hq",
         "branch": "codex/d1-500-critical-registration",
         "accepted_base_commit": "49ba56dacd2cddfc2fb2241839d54a03e85bc271",
-        "sealed_source_commit": "1bb40a26f64f4a7306fa8e4bee1ddce41e33d36b",
-        "release_id": "timeline-wp-20c89a069ef6cdd1",
-        "payload_path": "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_RUNTIME_20c89a06_FEATURE_OFF_PAYLOAD.tar.gz",
-        "payload_sha256": "1a49e74c0ddbe595e29f113e65f580888e91a620e5bdeca8e5d16e7da681f03d"
+        "sealed_source_commit": "296d74272b520502f35b3d2d5bf7fb9a508a1e7c",
+        "release_id": "timeline-wp-0fc51f8906decb8e",
+        "payload_path": "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_RUNTIME_0FC51F89_RELEASE_PAYLOAD.tar.gz",
+        "payload_sha256": "57ed9146f44c5d3684a5a873782c19c2da1f1ba4fb832b5708d71ec041fb73f4"
       },
       "classes": ["auth_session", "route", "redirect_handoff", "wordpress_wrapper", "matrix_runtime", "deploy_artifact", "browser_journey"],
-      "registration_state": "CANDIDATE_REGISTERED_CURRENT_RELEASE_FEATURE_OFF_ACCESS_OFF",
+      "registration_state": "CURRENT_RELEASE_ELIGIBLE_360_LIVE",
       "current_production": {
-        "wordpress_id": "timeline-wp-820e4fe3c525690d",
-        "release_bundle_sha256": "331f9f633871e4a51d544f139a17212ed27c69016f703d627bbc0eb07244ddb0",
-        "timeline_enabled": false,
-        "rollout_stage": "off"
+        "wordpress_id": "timeline-wp-0fc51f8906decb8e",
+        "release_bundle_sha256": "e424edc9fd022dd225c84763707ef18dece073fddb433821e040bada5e25b820",
+        "timeline_enabled": true,
+        "rollout_stage": "eligible_360"
       },
       "routes_or_assets": [
         "https://missionmedinstitute.com/timeline/",
@@ -952,19 +952,23 @@
       ],
       "release": {
         "static_id": "timeline-0c5cc515a76346d6",
-        "wordpress_id": "timeline-wp-20c89a069ef6cdd1",
-        "release_bundle_sha256": "c7cc62c22b83dfeb466284b84183e11ea2ce8c13bdd33881cfcb5f3402efbc9a",
-        "route_sha256": "18acf250384350119cd7a20272fc1fa59a800a38ffb55ac0b9d6ba7aa0d12eec",
-        "payload_sha256": "1a49e74c0ddbe595e29f113e65f580888e91a620e5bdeca8e5d16e7da681f03d",
+        "wordpress_id": "timeline-wp-0fc51f8906decb8e",
+        "release_bundle_sha256": "e424edc9fd022dd225c84763707ef18dece073fddb433821e040bada5e25b820",
+        "route_sha256": "258da3f2a5edf95899f921f5d617ef4f861260ca1be24dd5a8e1c1d4c5621403",
+        "wordpress_plugin_sha256": "20e64ed5af824e8c265a6e9a048f3164967680ce5d752eeda519c66eec8cb6b6",
+        "matrix_adapter_sha256": "a13c9cd6fa5420f19cc47691c09da07e79f9813b6ee774066f0d89230c131b8c",
+        "payload_sha256": "57ed9146f44c5d3684a5a873782c19c2da1f1ba4fb832b5708d71ec041fb73f4",
+        "railway_deployment_id": "d9ec6013-35e3-4f33-a75d-4ac5d936eed2",
         "schema_version": "d1-timeline-db-500.1",
         "health_path": "/healthz"
       },
       "feature_flag": {
         "owner": "WordPress option missionmed_timeline_settings",
-        "timeline_enabled": false,
-        "rollout_stage": "off",
-        "eligible_360_students": false,
-        "navigation_visible": false
+        "timeline_enabled": true,
+        "rollout_stage": "eligible_360",
+        "eligible_360_students": true,
+        "navigation_visible": true,
+        "approved_administrator_wp_user_ids": [85]
       },
       "consent": {"version": "d1-500-v1", "required_for_remote_save": true},
       "eligibility": {
@@ -976,8 +980,8 @@
         "generic_wordpress_role_is_sufficient": false
       },
       "planned_post_install_route_checks": [
-        "Anonymous GET /timeline/ returns 302 to the approved MissionMed Matrix/login handoff; forbid 200, 404, and 5xx",
-        "Authenticated feature-off GET /timeline/ returns 403 with timeline_disabled",
+        "Anonymous GET /timeline/ returns 303 to the approved MissionMed Matrix/login handoff with Cache-Control and Surrogate-Control no-store; forbid 200, 301, 302, 404, and 5xx",
+        "Authenticated ineligible GET /timeline/ returns 403 with eligibility_required and has no Timeline Matrix navigation entry",
         "Anonymous POST /wp-json/missionmed-timeline/v1/token returns 401 with session_required",
         "Anonymous /timeline/api/v1/** returns 401 with session_required",
         "Direct Railway /v1/** without the gateway secret returns 403 with GATEWAY_REQUIRED",

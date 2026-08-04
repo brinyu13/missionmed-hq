@@ -1,51 +1,17 @@
 # D1-500 Known Limitations and Follow-ups
 
-Blocking at the 2026-08-04T16:34:00Z checkpoint:
+## Blocking authority item
 
-- The approved Critical Systems amendment and Timeline registration are applied
-  on `codex/d1-500-critical-registration`. The full protected-systems gate passes
-  140 checks with 0 failures, and the controlling Matrix guard passes all 10
-  local/source/origin/public checks. This authority blocker is closed.
-- Railway authorization, provider-native backup, the logical backup, isolated
-  restore proof, and all six accepted production database assets are complete.
-- Kinsta backup capacity was reconciled under the explicit Founder deletion
-  authorization. The exact oldest manual item was replaced by
-  `D1-500-PRE-20260804T161859Z`, which is READY with a restore control.
-- Production secret installation remains Founder-only under DR-018. Current
-  Railway name-only inspection proves the API service lacks
-  `TIMELINE_JWT_SECRET` and `TIMELINE_GATEWAY_SECRET`; the corresponding Kinsta
-  runtime bindings are not verifiable. The required
-  names are `TIMELINE_JWT_SECRET` and `TIMELINE_GATEWAY_SECRET` on the Railway
-  API service, and `MISSIONMED_TIMELINE_JWT_SECRET` and
-  `MISSIONMED_TIMELINE_GATEWAY_SECRET` in the Kinsta live WordPress server-side
-  runtime. No value is stored in this package.
-- Standard Kinsta WP-CLI WordPress bootstrap crashes in the existing MU-plugin
-  layer with exit 139. A CLI-only `WPMU_PLUGIN_DIR` isolation bootstrap works;
-  web traffic and protected MU-plugin bytes remain unchanged. Timeline-only
-  activation/configuration must use that bounded bootstrap or WordPress admin.
-- One approved administrator and one active 360 test identity are verified in
-  production. Founder-equivalent, second eligible student, non-360, and
-  expired/revoked controlled fixtures are authorized but cannot truthfully run
-  through the production path until API health passes. No password is stored in
-  this package.
-- Consent version `d1-500-v1` is Founder-approved.
-- Railway database display name remains provider default `Postgres`; stable
-  service ID is recorded.
-- The central Matrix checkout lacks the protected source files, but immutable
-  remote commit `60e7169b...` contains all ten exact bytes and passes the
-  official local/origin/public guard. This closes the recovery-byte gap without
-  authorizing a source restore or live Matrix mutation.
+The delegated Matrix runtime-lock manifest carried in the D1-500 branch predates later documented Matrix/StoryForge deployments. Five approved hashes do not match current live/source bytes. Later D9 Matrix recovery evidence identifies those live bytes—including Student OS `646e3598...`—as accepted, and the real Matrix journey passed, but D1-500 is not authorized to rewrite that delegated lock or suppress its gate. Required action: approve a Matrix-owned metadata-only amendment that pins the documented current source/origin/public hashes and names the immutable recovery commit/tree. Until then the overall program result remains PARTIAL even though Timeline is live.
 
-Intentional release boundaries:
+## Non-blocking documentation
 
-- Remote object storage is unconfigured and fails closed.
-- Remote File Vault publication and File Vault v2 are disabled.
-- Accepted local import and client-side export remain available.
-- Administrator access never implies student-record access; explicit audited
-  grants are required.
+- The accepted A1 JavaScript adaptation references `D1-411A_PROTECTED_HASH_MANIFEST.json`, which is absent. Add the exact accepted adapter transition manifest in the next authority-maintenance release.
+- The operational versioned Matrix adapter URLs serve the sealed current bytes. The unused bare asset URL still serves an older long-lived cached object; it is not injected by the current route. A future cache-maintenance action may remove it, but it is not a launch blocker.
+- The real active-360 account had a blank Full name, so its export button was profile-incomplete. Export passed through a separate authorized eligible-student fixture that used the same production authorization and export path.
+- JWT TTL is intentionally short at 120 seconds. Expiry changes the app to read-only and preserves local work; a valid-session reload re-enters. A future release may add silent refresh only if separately authorized and tested.
+- The controlled real-student pilot record remains associated with the approved test account unless the Founder asks for deletion through the normal product flow. No synthetic account or entitlement residue remains.
 
-Unrelated state preserved:
+## Founder action required
 
-- no Supabase, DNS, Cloudflare, StoryForge, shared Matrix asset, shared Railway
-  service, LearnDash course, WooCommerce, user, or production data mutation;
-- no unrelated dirty worktree cleanup or overwrite.
+One consolidated action: authorize the Matrix owner to reconcile `_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json` to the already documented later Matrix baseline, without changing live production. After amendment, rerun all ten local/origin/public checks and require zero mismatch. Expected Founder time: under two minutes to approve the exact metadata-only record. Risk of waiting: D1-500 remains PARTIAL in governance records. Risk of proceeding without it: a false claim that the delegated protection gate is green.

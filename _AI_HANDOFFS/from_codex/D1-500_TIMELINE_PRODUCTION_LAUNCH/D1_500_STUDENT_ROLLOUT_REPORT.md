@@ -1,28 +1,30 @@
 # D1-500 Student Rollout Report
 
-Status: WITHHELD.
+Student rollout state: **LIVE for eligible 360 students**.
 
-The canonical eligibility source is verified as current LearnDash access to
-published course 3893 with Closed enrollment. The direct WordPress route is
-installed but access-off; the eligible-student navigation entry remains off. No
-student has been exposed to the release.
+## Canonical eligibility
 
-Direct production verification on `2026-08-04` confirmed that course `3893` is
-published as “Mission Residency: 360 Match Mentorship Student Dashboard &
-Guidance Hub,” uses Closed access, and has no course-level start, end, or expiry
-window. The approved active-student handle resolves to WordPress user ID `141`,
-and the authoritative `sfwd_lms_has_access(3893, 141)` check returns `true`.
-The approved administrator handle exists and has `manage_options`. Credentials
-were not printed, persisted, or added to evidence.
+- Source: production LearnDash active access to published Closed course `3893`.
+- Entitlement version: `learndash-course-3893-live-2026-08-04`.
+- Login or generic student role alone is insufficient.
+- Revocation removes route/token access and the Matrix entry.
 
-Required production evidence is not yet available for eligible students A/B,
-non-360 denial, expired/revoked denial, cross-student isolation, direct-route
-behavior, persistence, export, logout/re-entry, account switching, and
-entitlement activation/revocation. Student activation is prohibited until the
-Founder/admin canary and rollback gate pass.
+## Live journeys
 
-The verified active 360 identity is referenced as `D1-500-STUDENT-360-01`; no
-password is stored in this package. Founder-authorized controlled fixtures for a
-second eligible identity, non-360 identity, and expired/revoked identity will be
-created only after the API health gate passes and removed or restored after the
-mandatory isolation and denial proofs.
+- Real active-360 student saw exactly one native Timeline entry in Matrix.
+- Matrix entry opened the 200 consent page, accepted `d1-500-v1`, and returned through 303 to the canonical app.
+- The real student created a controlled event, saved it remotely, reloaded in another browser, edited it, and observed the updated persisted value.
+- A representative second eligible student exported `Canary_D1_Timeline_2026-08-04.png`; the real active-student account's export button was profile-incomplete because Full name was blank, so export acceptance is based on the authorized representative eligible identity.
+- The second eligible student could not list, read, or write the first student's records.
+- Non-360, expired/revoked, anonymous, and direct-URL/direct-API personas were denied.
+- Logout/re-entry and account switching invalidated the previous principal context.
+- Token expiry changed the UI to read-only and preserved local draft state; a valid session reload re-exchanged identity.
+
+## Discoverability
+
+- Navigation entry: live at `/member-dashboard/#timeline`.
+- Direct route: live at `/timeline/` for entitled users.
+- Anonymous direct route: 303/no-store to the approved Matrix flow.
+- Operational versioned public Matrix adapter hash: `a13c9cd6fa5420f19cc47691c09da07e79f9813b6ee774066f0d89230c131b8c` (`?ver=500.0.2` and `?ver=500.0.7`). The bare URL is not the injected runtime URL.
+
+All controlled synthetic users and entitlement rows were removed after the tests. Eligible-360 activation remains enabled.

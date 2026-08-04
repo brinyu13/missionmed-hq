@@ -1,23 +1,23 @@
 # D1-500 Live Browser and Visual Verification
 
-Local accepted presentation preview: PASS. The accepted 407F dark MissionMed
-shell, orange primary actions, Home, File Vault, timeline canvas, Builder,
-responsive behaviors, and client-side export remain present.
+Result: PASS for the live Timeline application.
 
-Sealed production bundle outside WordPress: PASS FAIL-CLOSED. Without a trusted
-WordPress identity bootstrap it renders only “Timeline could not be loaded
-safely.” This is the intended negative behavior, not a visual regression.
+- Browsers: signed-in Chrome plus a separate in-app Browser profile.
+- Viewports: desktop and narrow/mobile layouts.
+- Real Matrix identity and native Timeline navigation verified.
+- Consent, route return, home, Builder, Edit Timeline, Media, Export, persistence, and reload states inspected.
+- Cross-browser persistence verified using the same real active-360 account.
+- Separate eligible-student export verified.
+- Anonymous redirect and denied-persona journeys verified outside the authenticated profiles.
+- Critical console errors in acceptance journeys: 0.
 
-Live canonical route `https://missionmedinstitute.com/timeline/`: INSTALLED,
-APPLICATION NOT LIVE. Anonymous access returns `302` into the approved Matrix
-member-dashboard flow, and an anonymous token POST is denied `401` with
-`session_required`. These prove fail-closed route integration, not an
-authenticated live application. The Railway API domain has no healthy serving
-deployment.
+The live mobile home view contains the accepted headline “Turn your medical journey into an interview-ready timeline,” Matrix return control, 360 member access badge, guided workflow, File Vault fast-start section, and the fixed bottom navigation. No material presentation regression was observed.
 
-Authenticated production rendering, responsive journeys, browser console,
-navigation discoverability, logout, account switch, and live visual comparison
-remain NOT RUN.
+Protected visual verification:
 
-No decorative screenshots were added to the package. In-thread previews were
-used for the accepted app and fail-closed sealed runtime.
+- Founder visual package: 28/28 hashes PASS.
+- Sealed release: 62/62 hashes PASS.
+- Static release remains `timeline-0c5cc515a76346d6`.
+- No Timeline source change altered the protected HTML or CSS.
+
+Known documentation gap: the active A1 adapter references a `D1-411A_PROTECTED_HASH_MANIFEST.json` that is not present. The adapter itself is the accepted integration adaptation and matches the deployed sealed release; this gap does not change the browser verdict.
