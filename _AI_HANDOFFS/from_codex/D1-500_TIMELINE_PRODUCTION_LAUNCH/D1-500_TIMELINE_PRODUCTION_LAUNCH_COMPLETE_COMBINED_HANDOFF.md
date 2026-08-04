@@ -1,17 +1,17 @@
 # D1-500 Timeline Production Launch Complete Combined Handoff
 
-Generated: 2026-08-04T21:04:45Z.
+Generated: 2026-08-04T21:48:07Z.
 
-This handoff includes the complete substantive content of every D1-500 Markdown report. The controlling result is PARTIAL because Timeline is live and verified while one delegated Matrix metadata authority conflict remains.
+This handoff includes the complete substantive content of every D1-500 Markdown report. The controlling result is PASS: Timeline Builder Version 1 is live, verified for its authorized Matrix population, and all 45 release units are closed.
 
 <!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_EXECUTIVE_RELEASE_REPORT.md -->
 # D1-500 Executive Release Report
 
-Final checkpoint: 2026-08-04T21:04:45Z.
+Final checkpoint: 2026-08-04T21:48:07Z.
 
-Result: **PARTIAL — Timeline Builder is live and verified for the authorized Matrix population, but the separate delegated Matrix runtime-lock manifest is stale and its required gate does not pass.** Timeline itself remains enabled because no Timeline security, identity, data-isolation, health, or rollback gate failed.
+Result: **PASS — Timeline Builder is live, independently verified, and released to the authorized Matrix population.** The final Matrix metadata/source-custody unit is closed without changing the live Matrix runtime.
 
-Progress is 44 of 45 fixed work units (98%). The remaining unit is the governing Matrix runtime-lock reconciliation. Engineering confidence is 99%. Confidence that the application is live online in Matrix is 100% because the live route, real Matrix navigation, real active-360 launch, persistence, and production health were directly verified.
+Progress is 45 of 45 fixed work units (100%). Engineering confidence is 100%. Confidence that the application is live online in Matrix is 100% because the live route, real Matrix navigation, real active-360 launch, persistence, and production health were directly verified.
 
 ## Live release
 
@@ -38,9 +38,9 @@ Progress is 44 of 45 fixed work units (98%). The remaining unit is the governing
 - Timeline-scoped backups, isolated PostgreSQL restore, kill switch, and scoped WordPress rollback are ready and evidenced.
 - No StoryForge, Arena, USCE Admin, DNS, CDN, or unrelated production application was modified by the Timeline release.
 
-## Governing blocker
+## Governing release seal
 
-The Critical Systems report-only gate is green at 142 PASS, 3 WARN, 0 FAIL. The separately delegated Matrix runtime-lock manifest in this branch is older than documented later Matrix/StoryForge deployments and now disagrees with five live/source hashes. The live Matrix bytes are documented in later Matrix recovery evidence and the real Matrix journey works, but D1-500 is not authorized to rewrite the delegated lock or suppress its gate. Therefore the maximum truthful program result is PARTIAL until the governing lock is reconciled by an authorized Matrix record.
+Founder authorization permitted the bounded Matrix-owner metadata and source-custody closure. Governing manifest commit `9e02238b195c548b10b5343a33bd247b5de0cee4` pins immutable source commit `60e7169b544e6c93eb41f0de9717d8e61d2d49d0`, tree `291a1f4dff573e2f64635ddd069ac9275f3984ff`, and exact source references for all ten protected Matrix assets. The official Matrix guard passed 10/10 source and origin checks plus 9/9 applicable public checks with zero warnings or failures. The Critical Systems gate passed 142 checks with 3 documented warnings and 0 failures. No Matrix or unrelated production runtime was mutated by this closure.
 
 ---
 
@@ -51,11 +51,13 @@ The Critical Systems report-only gate is green at 142 PASS, 3 WARN, 0 FAIL. The 
 
 - Governing Constitution: MissionMed Platform v1, Revision 3.
 - Engineering guardrail: MR-079.
-- Founder authorizations consumed: M0 recovery; Critical Systems reconciliation; protected-system metadata amendment; provider backups; secret generation and server-side installation; Kinsta/WordPress/Railway deployment; synthetic fixtures; canary; eligible-360 activation; Browser and Computer Use.
+- Founder authorizations consumed: M0 recovery; Critical Systems reconciliation; protected-system metadata amendment; provider backups; secret generation and server-side installation; Kinsta/WordPress/Railway deployment; synthetic fixtures; canary; eligible-360 activation; Browser and Computer Use; final Matrix metadata and source-custody closure.
 - Canonical D1-500 implementation worktree: `/Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered`.
 - Branch: `codex/d1-500-critical-registration`.
 - Accepted source base: `49ba56dacd2cddfc2fb2241839d54a03e85bc271`.
 - Final pushed source: `296d74272b520502f35b3d2d5bf7fb9a508a1e7c`.
+- Governing Matrix manifest commit: `9e02238b195c548b10b5343a33bd247b5de0cee4`.
+- Immutable Matrix source custody: commit `60e7169b544e6c93eb41f0de9717d8e61d2d49d0`, tree `291a1f4dff573e2f64635ddd069ac9275f3984ff`, remotely reachable from both recorded V1 Study Schedule branches.
 
 ## Sealed product
 
@@ -74,7 +76,7 @@ The Founder-supplied D1-409H visual master package verifies 28/28 protected hash
 
 ## Authority result
 
-The Critical Systems manifest now registers the live Timeline release and passes its report-only gate at 142 PASS, 3 WARN, 0 FAIL. The delegated Matrix lock remains stale relative to later documented Matrix deployments; modifying that separate lock is outside this authorization and is the sole open authority unit.
+The Critical Systems manifest registers the live Timeline release and passes its report-only gate at 142 PASS, 3 WARN, 0 FAIL. The separately delegated Matrix runtime lock is reconciled to immutable source and exact current production delivery in governing commit `9e02238b195c548b10b5343a33bd247b5de0cee4`. Its official guard passes all ten origin checks and all nine applicable public checks with zero warnings or failures. Authority result: PASS; no open release unit remains.
 
 ---
 
@@ -137,6 +139,13 @@ Secrets exist only in approved server-side locations. No secret value is stored 
 - Installed immutable WordPress runtime `timeline-wp-0fc51f8906decb8e`.
 - Enabled Founder/admin canary, then eligible-360 rollout after security gates passed.
 - Final settings: enabled, stage `eligible_360`, approved admin ID `85`, eligibility verified, entitlement version `learndash-course-3893-live-2026-08-04`, consent `d1-500-v1`.
+
+## Final authority closure
+
+- Reconciled only `_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json` in commit `9e02238b195c548b10b5343a33bd247b5de0cee4`.
+- Updated the exact five stale Matrix metadata groups and added immutable commit/tree/path/SHA-256 custody for all ten protected assets.
+- Verified 10/10 immutable source, 10/10 private Kinsta origin, and 9/9 applicable public delivery hashes.
+- Imported no unrelated dirty-worktree change and performed no live Matrix, CDN, WordPress, Kinsta, Railway, database, or DNS mutation during closure.
 
 ## Defects and disposition
 
@@ -325,10 +334,11 @@ Known documentation gap: the active A1 adapter references a `D1-411A_PROTECTED_H
 - Package verification: 23/23 PASS.
 - Release hashes: 62/62 PASS.
 - Critical Systems: 142 PASS, 3 WARN, 0 FAIL.
+- Matrix runtime lock: 10/10 immutable-source matches, 10/10 Kinsta-origin matches, 9/9 applicable public matches, 0 WARN, 0 FAIL; governing commit `9e02238b195c548b10b5343a33bd247b5de0cee4`.
 - Anonymous route: three consecutive 303/no-store/MISS responses.
 - Direct Railway without gateway: 403 `GATEWAY_REQUIRED`.
 
-Release payloads contain no secret value. The immutable payload is locally sealed and deployed; it is referenced by the protected manifest and final package checksum.
+Release payloads contain no secret value. The immutable payload is locally sealed and deployed; it is referenced by the protected manifest and final package checksum. Final metadata closure changed no live Matrix, Timeline, or unrelated production byte.
 
 ---
 
@@ -360,14 +370,16 @@ Operational controls:
 
 The real Matrix and app journeys remained functional after fixture cleanup. No unrelated-application regression was observed.
 
+Post-authority-closure recheck at 2026-08-04T21:49Z: the anonymous canonical route returned the approved 303 Matrix handoff; Railway health returned `ok=true`, service `mission-timeline`, version `timeline-0c5cc515a76346d6`, and schema `d1-timeline-db-500.1`; Kinsta current still resolved to `releases/timeline-wp-0fc51f8906decb8e`.
+
 ---
 
 <!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_KNOWN_LIMITATIONS_AND_FOLLOWUPS.md -->
 # D1-500 Known Limitations and Follow-ups
 
-## Blocking authority item
+## Resolved release authority
 
-The delegated Matrix runtime-lock manifest carried in the D1-500 branch predates later documented Matrix/StoryForge deployments. Five approved hashes do not match current live/source bytes. Later D9 Matrix recovery evidence identifies those live bytes—including Student OS `646e3598...`—as accepted, and the real Matrix journey passed, but D1-500 is not authorized to rewrite that delegated lock or suppress its gate. Required action: approve a Matrix-owned metadata-only amendment that pins the documented current source/origin/public hashes and names the immutable recovery commit/tree. Until then the overall program result remains PARTIAL even though Timeline is live.
+The former delegated Matrix runtime-lock blocker is closed. Founder-authorized governing commit `9e02238b195c548b10b5343a33bd247b5de0cee4` binds all ten protected assets to immutable source commit `60e7169b544e6c93eb41f0de9717d8e61d2d49d0` and exact live delivery. The official guard passed with zero mismatch, warning, or override. Overall result is PASS.
 
 ## Non-blocking documentation
 
@@ -379,12 +391,14 @@ The delegated Matrix runtime-lock manifest carried in the D1-500 branch predates
 
 ## Founder action required
 
-One consolidated action: authorize the Matrix owner to reconcile `_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json` to the already documented later Matrix baseline, without changing live production. After amendment, rerun all ten local/origin/public checks and require zero mismatch. Expected Founder time: under two minutes to approve the exact metadata-only record. Risk of waiting: D1-500 remains PARTIAL in governance records. Risk of proceeding without it: a false claim that the delegated protection gate is green.
+None for Version 1 release closure. Future Version 2 product evolution follows the normal MissionMed accepted-baseline, implementation, local-verification, deployment-gate, and authorized release workflow.
 
 ---
 
 <!-- source: /Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered/_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/D1_500_CRITICAL_SYSTEMS_RECONCILIATION.md -->
 # D1-500 Critical Systems Reconciliation
+
+Final closure addendum: the later Founder authorization for Matrix metadata and source custody was applied in governing commit `9e02238b195c548b10b5343a33bd247b5de0cee4`. All ten protected Matrix assets match immutable source commit `60e7169b544e6c93eb41f0de9717d8e61d2d49d0`, private origin, and public delivery where applicable. The Matrix guard passes with zero warnings/failures and the Critical Systems gate passes 142/3/0. No live Matrix runtime mutation occurred. Any approval-request language below is retained as historical pre-authorization evidence and is superseded by this addendum.
 
 Historical checkpoint note: the approval request and pre-mutation language in
 this report were satisfied by the Founder and superseded by protected-system

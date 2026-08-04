@@ -1,5 +1,7 @@
 # D1-500 Critical Systems Reconciliation
 
+Final closure addendum: the later Founder authorization for Matrix metadata and source custody was applied in governing commit `9e02238b195c548b10b5343a33bd247b5de0cee4`. All ten protected Matrix assets match immutable source commit `60e7169b544e6c93eb41f0de9717d8e61d2d49d0`, private origin, and public delivery where applicable. The Matrix guard passes with zero warnings/failures and the Critical Systems gate passes 142/3/0. No live Matrix runtime mutation occurred. Any approval-request language below is retained as historical pre-authorization evidence and is superseded by this addendum.
+
 Historical checkpoint note: the approval request and pre-mutation language in
 this report were satisfied by the Founder and superseded by protected-system
 registration commit `b75c789`. The resulting Critical Systems gate passes 140

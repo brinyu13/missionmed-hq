@@ -24,3 +24,5 @@ Operational controls:
 - Backup and scoped rollback receipts are in the companion recovery report.
 
 The real Matrix and app journeys remained functional after fixture cleanup. No unrelated-application regression was observed.
+
+Post-authority-closure recheck at 2026-08-04T21:49Z: the anonymous canonical route returned the approved 303 Matrix handoff; Railway health returned `ok=true`, service `mission-timeline`, version `timeline-0c5cc515a76346d6`, and schema `d1-timeline-db-500.1`; Kinsta current still resolved to `releases/timeline-wp-0fc51f8906decb8e`.

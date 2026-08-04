@@ -4,11 +4,13 @@
 
 - Governing Constitution: MissionMed Platform v1, Revision 3.
 - Engineering guardrail: MR-079.
-- Founder authorizations consumed: M0 recovery; Critical Systems reconciliation; protected-system metadata amendment; provider backups; secret generation and server-side installation; Kinsta/WordPress/Railway deployment; synthetic fixtures; canary; eligible-360 activation; Browser and Computer Use.
+- Founder authorizations consumed: M0 recovery; Critical Systems reconciliation; protected-system metadata amendment; provider backups; secret generation and server-side installation; Kinsta/WordPress/Railway deployment; synthetic fixtures; canary; eligible-360 activation; Browser and Computer Use; final Matrix metadata and source-custody closure.
 - Canonical D1-500 implementation worktree: `/Users/brianb/MissionMed_worktrees/D1-500-Critical-Registered`.
 - Branch: `codex/d1-500-critical-registration`.
 - Accepted source base: `49ba56dacd2cddfc2fb2241839d54a03e85bc271`.
 - Final pushed source: `296d74272b520502f35b3d2d5bf7fb9a508a1e7c`.
+- Governing Matrix manifest commit: `9e02238b195c548b10b5343a33bd247b5de0cee4`.
+- Immutable Matrix source custody: commit `60e7169b544e6c93eb41f0de9717d8e61d2d49d0`, tree `291a1f4dff573e2f64635ddd069ac9275f3984ff`, remotely reachable from both recorded V1 Study Schedule branches.
 
 ## Sealed product
 
@@ -27,4 +29,4 @@ The Founder-supplied D1-409H visual master package verifies 28/28 protected hash
 
 ## Authority result
 
-The Critical Systems manifest now registers the live Timeline release and passes its report-only gate at 142 PASS, 3 WARN, 0 FAIL. The delegated Matrix lock remains stale relative to later documented Matrix deployments; modifying that separate lock is outside this authorization and is the sole open authority unit.
+The Critical Systems manifest registers the live Timeline release and passes its report-only gate at 142 PASS, 3 WARN, 0 FAIL. The separately delegated Matrix runtime lock is reconciled to immutable source and exact current production delivery in governing commit `9e02238b195c548b10b5343a33bd247b5de0cee4`. Its official guard passes all ten origin checks and all nine applicable public checks with zero warnings or failures. Authority result: PASS; no open release unit remains.

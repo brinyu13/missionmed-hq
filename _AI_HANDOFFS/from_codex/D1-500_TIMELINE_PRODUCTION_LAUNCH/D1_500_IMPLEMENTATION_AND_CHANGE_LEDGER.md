@@ -20,6 +20,13 @@
 - Enabled Founder/admin canary, then eligible-360 rollout after security gates passed.
 - Final settings: enabled, stage `eligible_360`, approved admin ID `85`, eligibility verified, entitlement version `learndash-course-3893-live-2026-08-04`, consent `d1-500-v1`.
 
+## Final authority closure
+
+- Reconciled only `_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json` in commit `9e02238b195c548b10b5343a33bd247b5de0cee4`.
+- Updated the exact five stale Matrix metadata groups and added immutable commit/tree/path/SHA-256 custody for all ten protected assets.
+- Verified 10/10 immutable source, 10/10 private Kinsta origin, and 9/9 applicable public delivery hashes.
+- Imported no unrelated dirty-worktree change and performed no live Matrix, CDN, WordPress, Kinsta, Railway, database, or DNS mutation during closure.
+
 ## Defects and disposition
 
 - Duplicate Railway install: repaired.

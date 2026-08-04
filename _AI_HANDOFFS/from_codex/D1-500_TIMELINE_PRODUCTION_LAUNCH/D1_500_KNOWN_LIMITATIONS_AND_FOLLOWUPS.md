@@ -1,8 +1,8 @@
 # D1-500 Known Limitations and Follow-ups
 
-## Blocking authority item
+## Resolved release authority
 
-The delegated Matrix runtime-lock manifest carried in the D1-500 branch predates later documented Matrix/StoryForge deployments. Five approved hashes do not match current live/source bytes. Later D9 Matrix recovery evidence identifies those live bytes—including Student OS `646e3598...`—as accepted, and the real Matrix journey passed, but D1-500 is not authorized to rewrite that delegated lock or suppress its gate. Required action: approve a Matrix-owned metadata-only amendment that pins the documented current source/origin/public hashes and names the immutable recovery commit/tree. Until then the overall program result remains PARTIAL even though Timeline is live.
+The former delegated Matrix runtime-lock blocker is closed. Founder-authorized governing commit `9e02238b195c548b10b5343a33bd247b5de0cee4` binds all ten protected assets to immutable source commit `60e7169b544e6c93eb41f0de9717d8e61d2d49d0` and exact live delivery. The official guard passed with zero mismatch, warning, or override. Overall result is PASS.
 
 ## Non-blocking documentation
 
@@ -14,4 +14,4 @@ The delegated Matrix runtime-lock manifest carried in the D1-500 branch predates
 
 ## Founder action required
 
-One consolidated action: authorize the Matrix owner to reconcile `_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json` to the already documented later Matrix baseline, without changing live production. After amendment, rerun all ten local/origin/public checks and require zero mismatch. Expected Founder time: under two minutes to approve the exact metadata-only record. Risk of waiting: D1-500 remains PARTIAL in governance records. Risk of proceeding without it: a false claim that the delegated protection gate is green.
+None for Version 1 release closure. Future Version 2 product evolution follows the normal MissionMed accepted-baseline, implementation, local-verification, deployment-gate, and authorized release workflow.
