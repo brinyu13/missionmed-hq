@@ -20,5 +20,7 @@ test('B1-511 production runner requires backup, SSL, default-off flags, and forc
   assert.match(source, /scope='off'/);
   assert.match(source, /relrowsecurity AND relforcerowsecurity/);
   assert.match(source, /STORYFORGE_MIGRATION_CONFIRM:-.*B1-511-APPLY/);
+  assert.match(source, /production counts changed after preflight/);
+  assert.doesNotMatch(source, /1\/0/);
   assert.match(source, /--single-transaction/);
 });

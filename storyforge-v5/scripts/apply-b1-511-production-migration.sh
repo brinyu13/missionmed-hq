@@ -153,8 +153,8 @@ fi
 
 [[ "${STORYFORGE_MIGRATION_CONFIRM:-}" = B1-511-APPLY ]] || fail 'apply confirmation is absent'
 {
-  printf '%s\n' 'BEGIN;' "SELECT pg_advisory_xact_lock(hashtextextended('missionmed.storyforge.b1-511.production-migration',0));"
-  printf "SELECT CASE WHEN (SELECT count(*) FROM public.sf_users)=%s AND (SELECT count(*) FROM public.sf_mentor_assignments WHERE active)=%s THEN 1 ELSE 1/0 END;\n" "$STORYFORGE_EXPECTED_USER_COUNT" "$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT"
+  printf '%s\n' "SELECT pg_advisory_xact_lock(hashtextextended('missionmed.storyforge.b1-511.production-migration',0));"
+  printf 'DO $b1_511_counts$ BEGIN IF (SELECT count(*) FROM public.sf_users) <> %s OR (SELECT count(*) FROM public.sf_mentor_assignments WHERE active) <> %s THEN RAISE EXCEPTION '\''B1-511 production counts changed after preflight'\''; END IF; END $b1_511_counts$;\n' "$STORYFORGE_EXPECTED_USER_COUNT" "$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT"
   sed -E -e '/^[[:space:]]*\\set[[:space:]]+ON_ERROR_STOP[[:space:]]+on[[:space:]]*$/d' -e '/^[[:space:]]*BEGIN;[[:space:]]*$/d' -e '/^[[:space:]]*COMMIT;[[:space:]]*$/d' "$migration"
   printf "INSERT INTO public.sf_schema_migrations(version,file_name,sha256,git_commit,backup_id) VALUES('%s','%s','%s','%s','%s');\n" "$MIGRATION_VERSION" "$MIGRATION_FILE" "$MIGRATION_SHA256" "$STORYFORGE_DEPLOY_GIT_COMMIT" "$STORYFORGE_DB_BACKUP_ID"
   cat <<'SQL'
@@ -171,7 +171,6 @@ BEGIN
   END IF;
 END
 $b1_511_post$;
-COMMIT;
 SQL
 } | "$psql_bin" --dbname="$database_url" -X -v ON_ERROR_STOP=1 --single-transaction
 
