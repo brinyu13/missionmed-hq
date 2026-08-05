@@ -120,10 +120,10 @@ psql_bin="$(command -v psql || true)"
 [[ -n "$psql_bin" && "$psql_bin" = /* && -x "$psql_bin" ]] || fail 'psql is unavailable'
 [[ "$($psql_bin --version | sed -E 's/^psql \(PostgreSQL\) ([0-9]+).*/\1/')" = 18 ]] \
   || fail 'PostgreSQL 18 psql is required'
-export PGDATABASE="$STORYFORGE_DATABASE_URL"
+database_url="$STORYFORGE_DATABASE_URL"
 unset STORYFORGE_DATABASE_URL PGHOST PGPORT PGUSER PGPASSWORD PGHOSTADDR PGSERVICE PGSERVICEFILE
 export PGSSLMODE=require
-psql_read=("$psql_bin" -X -v ON_ERROR_STOP=1)
+psql_read=("$psql_bin" --dbname="$database_url" -X -v ON_ERROR_STOP=1)
 
 expected_pre_ledger='20260726150000|20260726150000_b1_500_storyforge_v5_foundation.sql|93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f
 20260727170000|20260727170000_b1_502_storyforge_submit_assignment_gate.sql|95269aeb5a414656c92246ea8e798faac7f0b33d7062540b187f30b8a781315f
@@ -173,7 +173,7 @@ END
 $b1_511_post$;
 COMMIT;
 SQL
-} | "$psql_bin" -X -v ON_ERROR_STOP=1 --single-transaction
+} | "$psql_bin" --dbname="$database_url" -X -v ON_ERROR_STOP=1 --single-transaction
 
 post_ledger="$("${psql_read[@]}" -AtF '|' --set=version="$MIGRATION_VERSION" -c "SELECT version,file_name,sha256,git_commit,backup_id FROM public.sf_schema_migrations WHERE version=:'version'")"
 [[ "$post_ledger" = "$MIGRATION_VERSION|$MIGRATION_FILE|$MIGRATION_SHA256|$STORYFORGE_DEPLOY_GIT_COMMIT|$STORYFORGE_DB_BACKUP_ID" ]] \
