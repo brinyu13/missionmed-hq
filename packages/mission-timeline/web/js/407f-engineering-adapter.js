@@ -1124,6 +1124,7 @@ export async function boot407FEngineeringAdapter({
   const productionRuntime=runtimeMode==="production"
     ?await prepareTimelineProductionRuntime()
     :null;
+  const privateMediaStorageEnabled=productionRuntime?.privateMediaStorageEnabled===true;
   if(productionRuntime){
     window.D1_TIMELINE_PRODUCTION_ASSERTION=productionRuntime.assertion;
     window.D1_TIMELINE_PRODUCTION_BINDING=productionRuntime.expectedBinding;
@@ -1134,9 +1135,9 @@ export async function boot407FEngineeringAdapter({
   if(runtimeMode==="production"){
     store.document.metadata={
       ...(store.document.metadata||{}),
-      localOnly:false,
-      productionWrites:true,
-      authority:"timeline-server"
+      localOnly:!productionRuntime?.remotePersistenceAllowed,
+      productionWrites:productionRuntime?.remotePersistenceAllowed===true,
+      authority:productionRuntime?.remotePersistenceAllowed?"timeline-server":"timeline-device"
     };
   }
   const entitlementAdapter=runtimeMode==="production"
@@ -1194,7 +1195,7 @@ export async function boot407FEngineeringAdapter({
   const lorBuilderAdapter=createLocalQueuedLorBuilderAdapter();
   const mediaUrls=createObjectUrlRegistry();
   const ensureRemoteDocumentForMedia=async()=>{
-    if(!productionRuntime)return;
+    if(!privateMediaStorageEnabled)return;
     const stateKey=`remote-revision:${store.document.id}`;
     if(await store.adapter.get("settings",stateKey))return;
     await store.saveNow("PREPARE_PRIVATE_MEDIA_UPLOAD");
@@ -1209,9 +1210,9 @@ export async function boot407FEngineeringAdapter({
       name:file.name,
       type:file.type,
       size:file.size,
-      localOnly:!productionRuntime
+      localOnly:!privateMediaStorageEnabled
     };
-    if(!productionRuntime){
+    if(!privateMediaStorageEnabled){
       return{
         source:{blobKey:id,contentSha256,localOnly:true},
         blob:{key:id,blob:file,metadata},
@@ -1251,7 +1252,7 @@ export async function boot407FEngineeringAdapter({
     }
   };
   const retireDurableMediaObject=async(objectId)=>{
-    if(!productionRuntime||!objectId)return false;
+    if(!privateMediaStorageEnabled||!objectId)return false;
     await store.flushPendingSave("RETIRE_PRIVATE_MEDIA");
     const result=await store.adapter.flush();
     if(Number(result?.pending||0)>0)return false;

@@ -4,7 +4,10 @@ import test from "node:test";
 import "fake-indexeddb/auto";
 import {IDBFactory} from "fake-indexeddb";
 
-import {prepareTimelineProductionRuntime} from "../web/js/production/timeline-production-runtime.js";
+import {
+  prepareTimelineProductionRuntime,
+  productionRemotePersistenceAllowed,
+} from "../web/js/production/timeline-production-runtime.js";
 import {TimelineStore} from "../web/js/uxr-002/store.js";
 
 const principalId="9d8d7a7a-c915-4d36-a657-910ad2221001";
@@ -14,6 +17,11 @@ const token=()=>`${encode({alg:"HS256",typ:"JWT",kid:"timeline-v1"})}.${encode({
   iss:"https://missionmed.example/timeline/",aud:"mission-timeline",sub:principalId,
   wp_user_id:42,timeline_role:"STUDENT",is_wordpress_administrator:false,
   has_learndash_3893_access:true,iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+120,jti
+})}.signature`;
+const administratorToken=()=>`${encode({alg:"HS256",typ:"JWT",kid:"timeline-v1"})}.${encode({
+  iss:"https://missionmed.example/timeline/",aud:"mission-timeline",sub:principalId,
+  wp_user_id:42,timeline_role:"PROGRAM_ADMIN",is_wordpress_administrator:true,
+  has_learndash_3893_access:false,iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+120,jti
 })}.signature`;
 
 function locationObject(){
@@ -30,6 +38,35 @@ test("production bootstrap fails before IndexedDB opens when WordPress identity 
     }),/Session required/);
     assert.equal(opens,0);
   }finally{indexedDB.open=prior;}
+});
+
+test("approved administrators keep Timeline authoring device-local and never enqueue remote media or document writes",async()=>{
+  const originalIndexedDb=globalThis.indexedDB;
+  let writeRequests=0;
+  const fetchImpl=async(url,options={})=>{
+    const href=String(url);
+    if(href.includes("admin-ajax.php"))return new Response(JSON.stringify({success:true,data:{
+      nonce:"nonce",token_endpoint:"https://missionmed.example/wp-json/missionmed-timeline/v1/token",
+      api_base:"https://missionmed.example/timeline/api/v1",matrix_url:"https://missionmed.example/member-dashboard/",
+      remote_sync_allowed:true,remote_sync_consent:false,consent_version:"d1-500-v1",
+      user:{wp_user_id:42,principal_id:principalId,role:"PROGRAM_ADMIN"}
+    }}),{status:200,headers:{"content-type":"application/json"}});
+    if(href.includes("/token"))return new Response(JSON.stringify({token:administratorToken(),nonce:"next"}),{status:200,headers:{"content-type":"application/json"}});
+    if(href.endsWith("/documents")&&(options.method||"GET")==="GET")return new Response(JSON.stringify({documents:[]}),{status:200,headers:{"content-type":"application/json"}});
+    writeRequests+=1;
+    throw new Error(`unexpected administrator write ${href}`);
+  };
+  try{
+    globalThis.indexedDB=new IDBFactory();
+    const runtime=await prepareTimelineProductionRuntime({fetchImpl,locationObject:locationObject()});
+    assert.equal(productionRemotePersistenceAllowed(runtime.identity),false);
+    assert.equal(runtime.remotePersistenceAllowed,false);
+    assert.equal(runtime.privateMediaStorageEnabled,false);
+    assert.equal(runtime.adapter.remoteSyncConsent,false);
+    assert.deepEqual(await runtime.adapter.flush(),{synced:0,pending:0,consentRequired:true});
+    assert.equal(writeRequests,0);
+    runtime.adapter.close();
+  }finally{globalThis.indexedDB=originalIndexedDb;}
 });
 
 test("authenticated runtime uses a principal-and-resource scoped recovery cache and server hydration",async()=>{

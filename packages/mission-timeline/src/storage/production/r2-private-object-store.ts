@@ -265,7 +265,7 @@ export class R2PrivateObjectStore implements PrivateObjectStore {
   async signUpload(context: PrincipalContext, request: UploadRequest): Promise<SignedUpload> {
     this.assertAuthenticated(context);
     this.validateUploadRequest(request);
-    if (!["STUDENT", "PROGRAM_ADMIN", "SERVICE"].includes(context.role)) {
+    if (!["STUDENT", "SERVICE"].includes(context.role)) {
       throw new TimelineError("OBJECT_UPLOAD_ROLE_DENIED", "Object upload is not allowed for this role.", 403);
     }
     const ownerPrincipalId = context.role === "SERVICE" && request.ownerPrincipalId
@@ -450,7 +450,7 @@ export class R2PrivateObjectStore implements PrivateObjectStore {
 
   private assertMutableBy(context: PrincipalContext, record: ObjectRecord): void {
     if (context.role === "SERVICE") return;
-    if (!["STUDENT", "PROGRAM_ADMIN"].includes(context.role) || record.ownerPrincipalId !== context.principalId) {
+    if (context.role !== "STUDENT" || record.ownerPrincipalId !== context.principalId) {
       throw new TimelineError("OBJECT_ACCESS_DENIED", "Object access denied.", 403);
     }
   }

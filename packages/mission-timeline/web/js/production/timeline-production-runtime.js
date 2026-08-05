@@ -25,6 +25,10 @@ export function productionEntitlementAssertion(identity,currentUsage){
   });
 }
 
+export function productionRemotePersistenceAllowed(identity){
+  return identity?.role==="STUDENT"&&identity?.remoteSyncAllowed===true;
+}
+
 export async function prepareTimelineProductionRuntime({fetchImpl=globalThis.fetch.bind(globalThis),locationObject=globalThis.location}={}){
   let adapter=null;
   const authClient=new TimelineProductionAuthClient({
@@ -37,6 +41,7 @@ export async function prepareTimelineProductionRuntime({fetchImpl=globalThis.fet
     }
   });
   const identity=await authClient.initialize();
+  const remotePersistenceAllowed=productionRemotePersistenceAllowed(identity);
   const listing=await authClient.listDocuments();
   const documents=Array.isArray(listing?.documents)?listing.documents:[];
   const active=documents[0]||null;
@@ -58,7 +63,7 @@ export async function prepareTimelineProductionRuntime({fetchImpl=globalThis.fet
       {store:"settings",key:`remote-revision:${active.document.id}`,value:{id:`remote-revision:${active.document.id}`,revision:Number(active.document.revision||0),documentId:active.document.id,updatedAt:savedAt}}
     ],{documentId:active.document.id,serverRevision:Number(active.document.revision||0),serverSnapshot:active.document});
   }
-  if(identity.remoteSyncAllowed)adapter.setRemoteSyncConsent(true);
+  if(remotePersistenceAllowed)adapter.setRemoteSyncConsent(true);
   const assertionForClaims=(claims)=>productionEntitlementAssertion(
     {...identity,claims},documents.length
   );
@@ -67,5 +72,8 @@ export async function prepareTimelineProductionRuntime({fetchImpl=globalThis.fet
     principalId:identity.principalId,issuer:assertion.issuer,audience:assertion.audience,
     membershipVersion:assertion.membershipVersion
   });
-  return Object.freeze({adapter,authClient,identity,documents,assertion,assertionForClaims,expectedBinding});
+  return Object.freeze({
+    adapter,authClient,identity,documents,assertion,assertionForClaims,expectedBinding,
+    remotePersistenceAllowed,privateMediaStorageEnabled:remotePersistenceAllowed
+  });
 }

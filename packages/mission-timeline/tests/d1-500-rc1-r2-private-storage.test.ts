@@ -241,19 +241,14 @@ test("private signed PUT, custody confirmation, signed GET, and delete are owner
   assert.equal(r2.heads.has(pending.storageKey), false);
 });
 
-test("Founder and approved-administrator documents use the same private owner-scoped media path", async () => {
-  const { store, repository, r2 } = fixture();
+test("approved administrators remain device-local and cannot enter the student private-media custody path", async () => {
+  const { store, repository } = fixture();
   const administrator = context("principal-admin", "PROGRAM_ADMIN");
-  const signed = await store.signUpload(administrator, {
-    ...uploadRequest(),
-    mimeType: "image/gif",
-  });
-  const pending = repository.records.get(signed.objectId)!;
-  r2.accept(pending);
-  assert.equal((await store.confirmUpload(administrator, signed.objectId, signed.uploadToken)).status, "CONFIRMED");
-  assert.match((await store.signDownload(administrator, signed.objectId)).downloadUrl, /^https:\/\/private-signed\.invalid\//);
-  await store.deleteObject(administrator, signed.objectId);
-  assert.equal(repository.records.get(signed.objectId)?.status, "DELETED");
+  await assert.rejects(
+    store.signUpload(administrator, { ...uploadRequest(), mimeType: "image/gif" }),
+    hasCode("OBJECT_UPLOAD_ROLE_DENIED"),
+  );
+  assert.equal(repository.records.size, 0);
 });
 
 test("confirmation token expiry and R2 integrity mismatches fail closed", async () => {
