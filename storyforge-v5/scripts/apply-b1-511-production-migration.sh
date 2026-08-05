@@ -8,6 +8,7 @@ REPOSITORY_DIR="$(cd "$PACKAGE_DIR/.." && pwd)"
 MIGRATION_VERSION="20260805190000"
 MIGRATION_FILE="20260805190000_b1_511_workflow_taxonomy_mentor_notes.sql"
 MIGRATION_SHA256="9bae7859f5966a8e9fc2f29fe9ccb37b0e59675e830c6b7ccdaef3914532c05f"
+MIGRATION_APPLIED_GIT_COMMIT="ded8852b0fdcce991b66a57d768fb14802bb64ab"
 EXPECTED_PROJECT_ID="875e7c17-d06f-4301-a4bb-e61016f153cf"
 EXPECTED_ENVIRONMENT_ID="bcef8734-e42b-44df-8488-c2a3de68213f"
 EXPECTED_DATABASE_SERVICE_ID="a4a66362-c3ba-475a-ae21-2aa46624bafe"
@@ -136,7 +137,15 @@ expected_pre_ledger='20260726150000|20260726150000_b1_500_storyforge_v5_foundati
 20260730000100|20260730000100_b1_507b_reconciliation_state.sql|ae86a5ea104becf7dff244fa3188338f8ad13eef58190abd47522ca2e2e733d7
 20260801190000|20260801190000_b1_510i_admin_console.sql|3c4478f0cf6261e007f9738fb398b4b64669150840261b09d6223eb2120c8641'
 actual_pre_ledger="$("${psql_read[@]}" -AtF '|' -c 'SELECT version,file_name,sha256 FROM public.sf_schema_migrations ORDER BY version')"
-[[ "$actual_pre_ledger" = "$expected_pre_ledger" ]] || fail 'production migration ledger differs from the accepted ten-row baseline'
+pending_migrations=1
+if [[ "$actual_pre_ledger" != "$expected_pre_ledger" ]]; then
+  applied_row="$("${psql_read[@]}" -AtF '|' -c "SELECT version,file_name,sha256,git_commit,backup_id FROM public.sf_schema_migrations WHERE version::bigint=$MIGRATION_VERSION")"
+  expected_applied_row="$MIGRATION_VERSION|$MIGRATION_FILE|$MIGRATION_SHA256|$MIGRATION_APPLIED_GIT_COMMIT|$STORYFORGE_DB_BACKUP_ID"
+  ledger_without_b1_511="$("${psql_read[@]}" -AtF '|' -c "SELECT version,file_name,sha256 FROM public.sf_schema_migrations WHERE version::bigint<>$MIGRATION_VERSION ORDER BY version")"
+  [[ "$ledger_without_b1_511" = "$expected_pre_ledger" && "$applied_row" = "$expected_applied_row" ]] \
+    || fail 'production migration ledger differs from the accepted B1-511 state'
+  pending_migrations=0
+fi
 
 target_identity="$("${psql_read[@]}" -AtF '|' -c "SELECT current_database(),current_user,(SELECT system_identifier::text FROM pg_control_system()),coalesce((SELECT ssl::text FROM pg_stat_ssl WHERE pid=pg_backend_pid()),'false')")"
 [[ "$target_identity" = "railway|postgres|$STORYFORGE_EXPECTED_DB_SYSTEM_IDENTIFIER|true" ]] \
@@ -144,14 +153,22 @@ target_identity="$("${psql_read[@]}" -AtF '|' -c "SELECT current_database(),curr
 pre_counts="$("${psql_read[@]}" -AtF '|' -c 'SELECT (SELECT count(*) FROM public.sf_users),(SELECT count(*) FROM public.sf_mentor_assignments WHERE active)')"
 [[ "$pre_counts" = "$STORYFORGE_EXPECTED_USER_COUNT|$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT" ]] \
   || fail 'production user or assignment counts changed after backup'
+if [[ "$pending_migrations" = 0 ]]; then
+  applied_shape="$("${psql_read[@]}" -AtF '|' -c "SELECT (SELECT count(*) FROM public.sf_feature_flags WHERE key IN ('story_workflow','story_taxonomy','inline_priority','story_search','mentor_notes') AND scope='off'),(SELECT count(*) FROM pg_class WHERE relname IN ('sf_mentor_notes','sf_mentor_note_media') AND relrowsecurity AND relforcerowsecurity)")"
+  [[ "$applied_shape" = '5|2' ]] || fail 'applied B1-511 default-off or forced-RLS shape differs'
+fi
 
 if [[ "$mode" = preflight ]]; then
   printf 'B1_511_PRODUCTION_MIGRATION_PREFLIGHT_PASS\n'
-  printf 'db_system_identifier=%s\npending_migrations=1\n' "$STORYFORGE_EXPECTED_DB_SYSTEM_IDENTIFIER"
+  printf 'db_system_identifier=%s\npending_migrations=%s\n' "$STORYFORGE_EXPECTED_DB_SYSTEM_IDENTIFIER" "$pending_migrations"
   exit 0
 fi
 
 [[ "${STORYFORGE_MIGRATION_CONFIRM:-}" = B1-511-APPLY ]] || fail 'apply confirmation is absent'
+if [[ "$pending_migrations" = 0 ]]; then
+  printf 'B1_511_PRODUCTION_MIGRATION_ALREADY_APPLIED_PASS\n'
+  exit 0
+fi
 {
   printf '%s\n' "SELECT pg_advisory_xact_lock(hashtextextended('missionmed.storyforge.b1-511.production-migration',0));"
   printf 'DO $b1_511_counts$ BEGIN IF (SELECT count(*) FROM public.sf_users) <> %s OR (SELECT count(*) FROM public.sf_mentor_assignments WHERE active) <> %s THEN RAISE EXCEPTION '\''B1-511 production counts changed after preflight'\''; END IF; END $b1_511_counts$;\n' "$STORYFORGE_EXPECTED_USER_COUNT" "$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT"
@@ -174,7 +191,7 @@ $b1_511_post$;
 SQL
 } | "$psql_bin" --dbname="$database_url" -X -v ON_ERROR_STOP=1 --single-transaction
 
-post_ledger="$("${psql_read[@]}" -AtF '|' --set=version="$MIGRATION_VERSION" -c "SELECT version,file_name,sha256,git_commit,backup_id FROM public.sf_schema_migrations WHERE version=:'version'")"
+post_ledger="$("${psql_read[@]}" -AtF '|' -c "SELECT version,file_name,sha256,git_commit,backup_id FROM public.sf_schema_migrations WHERE version::bigint=$MIGRATION_VERSION")"
 [[ "$post_ledger" = "$MIGRATION_VERSION|$MIGRATION_FILE|$MIGRATION_SHA256|$STORYFORGE_DEPLOY_GIT_COMMIT|$STORYFORGE_DB_BACKUP_ID" ]] \
   || fail 'post-migration ledger receipt differs'
 printf 'B1_511_PRODUCTION_MIGRATION_APPLY_PASS\n'
