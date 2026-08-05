@@ -1,3 +1,7 @@
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import pg from 'pg';
 
 import { expect, test } from '@playwright/test';
@@ -9,6 +13,13 @@ const FLAG_KEYS = [
   'story_search',
   'mentor_notes',
 ];
+
+const packageDir = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
+const screenshotDir = path.resolve(
+  packageDir,
+  '../_AI_HANDOFFS/from_codex/B1-511_storyforge_student_mentor_workflow/screenshots',
+);
+mkdirSync(screenshotDir, { recursive: true });
 
 async function devToken(request, persona) {
   const response = await request.post(`/api/dev/session/${persona}`, { data: {} });
@@ -171,6 +182,10 @@ test('B1-511 Library keeps uninterrupted search and row-only priority controls i
   await page.goto('/');
   await page.getByRole('button', { name: 'Student · Maya' }).click();
   await page.getByRole('button', { name: 'Story Library', exact: true }).click();
+  await page.screenshot({
+    path: path.join(screenshotDir, 'student-private-library-desktop.png'),
+    fullPage: true,
+  });
   await expect(page.getByRole('option', { name: 'Sort: priority 5→1' })).toHaveCount(1);
   await expect(page.getByRole('button', { name: 'Clinical', exact: true })).toBeVisible();
   const search = page.locator('#libQ');
@@ -183,4 +198,27 @@ test('B1-511 Library keeps uninterrupted search and row-only priority controls i
   await priority.click();
   await expect(priority).toHaveAttribute('aria-pressed', 'true');
   await expect(search).toHaveValue('uninterrupted-search proof');
+  await page.screenshot({
+    path: path.join(screenshotDir, 'student-search-priority-category.png'),
+    fullPage: true,
+  });
+
+  await search.press('Escape');
+  await search.fill('');
+  await page.getByRole('button', { name: 'Clinical', exact: true }).click();
+  await page.screenshot({
+    path: path.join(screenshotDir, 'student-category-filter.png'),
+    fullPage: true,
+  });
+
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.screenshot({
+    path: path.join(screenshotDir, 'student-library-tablet-768x1024.png'),
+    fullPage: true,
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: path.join(screenshotDir, 'student-library-mobile-390x844.png'),
+    fullPage: true,
+  });
 });
