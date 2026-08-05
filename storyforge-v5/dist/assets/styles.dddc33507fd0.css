@@ -1370,3 +1370,51 @@ section[data-view].settingsPage{max-width:860px}
   .fixtureGrid{grid-template-columns:1fr}
   .userChip{display:none}
 }
+
+/* B1-511 bounded workflow additions. Every selector is component-namespaced. */
+.b1511Priority{display:inline-flex;align-items:center;gap:3px;flex:none}
+.b1511Priority>button{width:24px;height:24px;border:1px solid var(--edge2);border-radius:6px;color:var(--dim);font:700 10px var(--num);transition:border-color .15s,color .15s,background .15s}
+.b1511Priority>button:hover,.b1511Priority>button:focus-visible{border-color:var(--gd);color:#fff;outline:none}
+.b1511Priority>button.on{border-color:rgba(255,215,106,.55);background:rgba(255,215,106,.11);color:var(--gd)}
+.b1511Priority[aria-busy="true"]{opacity:.72}
+.b1511LibraryFacets{display:grid;gap:8px;margin:-6px 0 16px;padding:10px 14px;border:1px solid rgba(36,48,70,.72);border-radius:12px;background:rgba(10,13,20,.5)}
+.b1511Facet{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.b1511FacetLabel{min-width:120px;color:var(--mid);font:700 10px var(--num);letter-spacing:.1em;text-transform:uppercase}
+.b1511FacetLabel>small{display:block;color:var(--dim);font-size:8px;letter-spacing:.06em}
+.b1511Facet>button,.b1511Taxonomy>button{padding:5px 9px;border:1px solid var(--edge2);border-radius:999px;color:var(--dim);font:700 9.5px var(--num);letter-spacing:.05em;transition:.15s}
+.b1511Facet>button:hover,.b1511Facet>button:focus-visible,.b1511Taxonomy>button:hover,.b1511Taxonomy>button:focus-visible{border-color:var(--cy);color:#fff;outline:none}
+.b1511Facet>button.on,.b1511Taxonomy>button.on{border-color:rgba(57,214,255,.5);background:rgba(57,214,255,.08);color:var(--cy)}
+.b1511Taxonomy{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.b1511Taxonomy>button:disabled{cursor:default;opacity:.68}
+.b1511TaxonomyHeading{margin-top:18px}
+.b1511Search{position:relative;min-width:180px}
+.b1511Search>#libQ{width:100%;box-sizing:border-box}
+.storyforgeHeaderActions .hSearch:has(.b1511Suggestions){position:relative}
+.b1511Suggestions{position:absolute;z-index:125;top:calc(100% + 8px);left:0;right:0;min-width:280px;padding:6px;border:1px solid var(--edge2);border-radius:11px;background:#0d1320;box-shadow:0 16px 44px rgba(0,0,0,.58)}
+.b1511Suggestions[hidden]{display:none}
+.b1511Suggestions>button{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;padding:9px 10px;border-radius:7px;color:var(--tx);text-align:left;font-size:12px}
+.b1511Suggestions>button:hover,.b1511Suggestions>button[aria-selected="true"]{background:rgba(57,214,255,.09);color:#fff}
+.b1511Suggestions>button>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.b1511Suggestions>button>small{flex:none;color:var(--dim);font:700 9px var(--num);letter-spacing:.08em;text-transform:uppercase}
+.b1511Withdraw{margin-top:12px;padding-top:10px;border-top:1px solid var(--edge)}
+.b1511Withdraw>.stageHint{margin:7px 0 0}
+.b1511MentorNotes{border-color:rgba(57,214,255,.25)}
+.b1511MentorNote{padding:10px 0;border-bottom:1px solid var(--edge)}
+.b1511MentorNote:last-child{border-bottom:0}
+.b1511MentorNote>.nt{white-space:pre-wrap;color:var(--tx);font-size:12px;line-height:1.55}
+.b1511MentorNote>.nd{margin:6px 0;color:var(--dim);font:700 9px var(--num);letter-spacing:.08em;text-transform:uppercase}
+.b1511MentorComposer{margin-top:12px;padding-top:12px;border-top:1px solid rgba(57,214,255,.18)}
+.b1511MentorComposer>textarea{width:100%;box-sizing:border-box;margin:7px 0 9px;resize:vertical;background:#0f1522;border:1px solid var(--edge);border-radius:9px;color:var(--tx);font:12px/1.55 var(--body);padding:10px;outline:none}
+.b1511MentorComposer>textarea:focus{border-color:var(--cy);box-shadow:0 0 0 1px rgba(57,214,255,.3)}
+.b1511Internal{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;color:var(--mid);font-size:11px;line-height:1.4}
+.b1511Internal>input{margin-top:2px;accent-color:var(--vi)}
+
+@media(max-width:760px){
+  .b1511Priority{width:100%;justify-content:flex-start}
+  .b1511FacetLabel{width:100%}
+  .b1511Suggestions{min-width:min(280px,82vw);right:auto}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .b1511Priority>button,.b1511Facet>button,.b1511Taxonomy>button{transition:none}
+}

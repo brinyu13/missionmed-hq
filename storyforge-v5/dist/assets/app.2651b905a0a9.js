@@ -83,11 +83,27 @@ const THEMES = Object.freeze([
   { id: 'advoc', label: 'Advocacy', hue: '#5cc8ff' },
 ]);
 
+const CATEGORIES = Object.freeze([
+  { id: 'clinical', label: 'Clinical' },
+  { id: 'personal', label: 'Personal' },
+  { id: 'research', label: 'Research' },
+  { id: 'leadership', label: 'Leadership' },
+  { id: 'teaching', label: 'Teaching' },
+  { id: 'volunteer_service', label: 'Volunteer / Service' },
+  { id: 'adversity_challenge', label: 'Adversity / Challenge' },
+  { id: 'teamwork', label: 'Teamwork' },
+  { id: 'communication', label: 'Communication' },
+  { id: 'ethics_professionalism', label: 'Ethics / Professionalism' },
+  { id: 'other', label: 'Other' },
+]);
+
 const USES = Object.freeze([
-  { id: 'ps', label: 'Personal statement' },
-  { id: 'iv', label: 'Interview set' },
-  { id: 'letter', label: 'Letter conversations' },
-  { id: 'later', label: 'Someday / fellowship' },
+  { id: 'ps', label: 'Personal Statement' },
+  { id: 'iv', label: 'Interview Set' },
+  { id: 'letter', label: 'Letter of Recommendation' },
+  { id: 'myeras_experiences', label: 'MyERAS Experiences' },
+  { id: 'myeras_most_impactful', label: 'MyERAS Most Impactful' },
+  { id: 'later', label: 'Someday / Fellowship' },
 ]);
 
 const BIRDS = Object.freeze([
@@ -180,7 +196,16 @@ const SUITABILITY = Object.freeze({
 const state = {
   config: null,
   user: null,
-  capabilities: Object.freeze({ voiceCapture: false, adminConsole: false }),
+  capabilities: Object.freeze({
+    voiceCapture: false,
+    adminConsole: false,
+    submissionReview: false,
+    taxonomy: false,
+    inlinePriority: false,
+    storySearch: false,
+    mentorNotes: false,
+    mentorNotesRead: false,
+  }),
   lockout: null,
   route: 'home',
   routeId: null,
@@ -199,7 +224,9 @@ const state = {
   capturePrompt: null,
   capturePairQuestionId: null,
   promptIndex: 0,
-  library: { query: '', status: '', sort: 'new', star: '', bird: '', position: '' },
+  library: {
+    query: '', status: '', sort: 'priority', star: '', bird: '', position: '', categories: [], uses: [],
+  },
   queueBucket: 'all',
   questionFamily: 'all',
   questionQuery: '',
@@ -232,6 +259,8 @@ const state = {
     queueStatus: '',
     story: null,
   },
+  mentorNoteDraft: null,
+  mentorNoteRecording: null,
   returnFocus: null,
   busy: false,
 };
@@ -240,7 +269,16 @@ const auth = createAuthClient({
   onLockout(lockoutState, message) {
     suspendVoiceForIdentityExit();
     state.user = null;
-    state.capabilities = Object.freeze({ voiceCapture: false, adminConsole: false });
+    state.capabilities = Object.freeze({
+      voiceCapture: false,
+      adminConsole: false,
+      submissionReview: false,
+      taxonomy: false,
+      inlinePriority: false,
+      storySearch: false,
+      mentorNotes: false,
+      mentorNotesRead: false,
+    });
     state.captureRecovering = false;
     state.lockout = lockoutState || 'access_unavailable';
     renderLockout(state.lockout, message);
@@ -355,12 +393,13 @@ function normalizeStory(raw = {}) {
     prefixEnabled: Boolean(firstDefined(raw.prefixEnabled, raw.prefix_enabled, true)),
     status,
     revised: Boolean(firstDefined(raw.revised, statusRaw === 'resubmitted')),
-    studentScore: Number(firstDefined(raw.studentScore, raw.student_score, 0)) || 0,
+    studentScore: Number(firstDefined(raw.studentScore, raw.student_score, raw.priority, 0)) || 0,
     mentorScore: Number(firstDefined(raw.mentorScore, raw.mentor_score, 0)) || 0,
     reviewSuitability: String(firstDefined(raw.reviewSuitability, raw.review_suitability, '')),
     studentStar: Boolean(firstDefined(raw.studentStar, raw.student_star, false)),
     mentorStar: Boolean(firstDefined(raw.mentorStar, raw.mentor_star, false)),
     themes: asArray(raw.themes).map(String),
+    categories: asArray(firstDefined(raw.categories, raw.story_categories)).map(String),
     uses: asArray(raw.uses).map(String),
     birds: asArray(raw.birds).map(String),
     positions: asArray(raw.positions).map(String),
@@ -379,6 +418,7 @@ function normalizeStory(raw = {}) {
     reviewedByName: String(firstDefined(raw.reviewedByName, raw.reviewed_by_name, '')),
     reviewedByRole: String(firstDefined(raw.reviewedByRole, raw.reviewed_by_role, '')),
     feedback: asArray(firstDefined(raw.feedback, raw.comments)),
+    mentorNotes: asArray(firstDefined(raw.mentorNotes, raw.mentor_notes)),
     revisions,
     history: asArray(firstDefined(raw.history, raw.auditEvents, raw.audit_events)),
     reflections: asArray(raw.reflections),
@@ -478,6 +518,7 @@ const api = Object.freeze({
   createStory: (body) => auth.request('/api/stories', jsonOptions('POST', body)),
   updateStory: (id, body) => auth.request(`/api/stories/${id}`, jsonOptions('PATCH', body)),
   submitStory: (id, surface = 'workspace') => auth.request(`/api/stories/${id}/submit`, jsonOptions('POST', { surface })),
+  withdrawStory: (id, body) => auth.request(`/api/stories/${id}/withdraw`, jsonOptions('POST', body)),
   viewStory: (id, surface = 'workspace') => auth.request(`/api/stories/${id}/open`, jsonOptions('POST', { surface })),
   legacyOpenStory: (id, surface = 'workspace') => auth.request(`/api/stories/${id}/open`, jsonOptions('POST', { surface })),
   storyStatus: (id, status, surface = 'workspace') => auth.request(`/api/stories/${id}/status`, jsonOptions('POST', { status, surface })),
@@ -485,6 +526,8 @@ const api = Object.freeze({
   feedback: (id, body) => auth.request(`/api/stories/${id}/feedback`, jsonOptions('POST', body)),
   ask: (id, prompt, surface = 'workspace') => auth.request(`/api/stories/${id}/reflections`, jsonOptions('POST', { prompt, surface })),
   evaluation: (id, body) => auth.request(`/api/stories/${id}/evaluation`, jsonOptions('PATCH', body)),
+  storyPriority: (id, body) => auth.request(`/api/stories/${id}/priority`, jsonOptions('PATCH', body)),
+  storyTaxonomy: (id, body) => auth.request(`/api/stories/${id}/taxonomy`, jsonOptions('PATCH', body)),
   addReflection: (id, prompt) => auth.request(`/api/stories/${id}/reflections`, jsonOptions('POST', { prompt })),
   answerReflection: (_id, reflectionId, answer) => auth.request(`/api/reflections/${reflectionId}`, jsonOptions('PATCH', { answer, surface: 'workspace' })),
   notifications: () => auth.request('/api/notifications'),
@@ -556,6 +599,14 @@ const api = Object.freeze({
   adminQueue: (query = '') => auth.request(`/api/admin/console/queue${query ? `?${query}` : ''}`),
   adminStory: (id) => auth.request(`/api/admin/console/stories/${id}`),
   adminReview: (id, body) => auth.request(`/api/admin/console/stories/${id}/review`, jsonOptions('POST', body)),
+  adminTaxonomy: (id, body) => auth.request(`/api/admin/console/stories/${id}/taxonomy`, jsonOptions('PATCH', body)),
+  mentorNotes: (id) => auth.request(`/api/stories/${id}/mentor-notes`),
+  createMentorNote: (id, body) => auth.request(`/api/stories/${id}/mentor-notes`, jsonOptions('POST', body)),
+  updateMentorNote: (id, body) => auth.request(`/api/mentor-notes/${id}`, jsonOptions('PATCH', body)),
+  publishMentorNote: (id, body) => auth.request(`/api/mentor-notes/${id}/publish`, jsonOptions('POST', body)),
+  discardMentorNote: (id, body) => auth.request(`/api/mentor-notes/${id}/discard`, jsonOptions('POST', body)),
+  uploadMentorNoteAudio: (id, body) => auth.request(`/api/mentor-notes/${id}/audio`, { method: 'POST', body }),
+  mentorNotePlayback: (id) => auth.request(`/api/mentor-notes/${id}/playback`),
 });
 
 function isMentor() {
@@ -706,6 +757,15 @@ function storyHasUnreadMentorActivity(story) {
   ));
 }
 
+function priorityPicker(story) {
+  const value = Number(story.studentScore) || 0;
+  return `<div class="b1511Priority" role="group" aria-label="Student priority for ${attr(story.title)}" data-priority-story="${attr(story.id)}">
+    <span class="srOnly" data-priority-label>Student priority: ${value ? `${value} of 5` : 'unrated'}</span>
+    ${[1, 2, 3, 4, 5].map((priority) => `<button type="button" data-library-priority="${priority}" data-story-id="${attr(story.id)}"
+      class="${priority <= value ? 'on' : ''}" aria-pressed="${priority === value}" aria-label="Set student priority to ${priority} of 5">${priority}</button>`).join('')}
+  </div>`;
+}
+
 function storyRow(story, options = {}) {
   const quickLabel = isMentor() ? 'Quick review' : 'Quick look';
   const unread = storyHasUnreadMentorActivity(story);
@@ -713,7 +773,7 @@ function storyRow(story, options = {}) {
   const duration = story.audioDurationMs ? formatDuration(story.audioDurationMs) : '';
   return `<article class="sRow" data-story-row="${attr(story.id)}">
     <button class="starBtn ${isMentor() ? 'mentor' : ''} ${(isMentor() ? story.mentorStar : story.studentStar) ? 'on' : ''}" type="button"
-      data-toggle-star="${attr(story.id)}" aria-label="${isMentor() ? 'Toggle mentor star' : 'Toggle story star'}">★</button>
+      data-toggle-star="${attr(story.id)}" aria-label="${isMentor() ? 'Toggle mentor star' : 'Toggle story star'}" aria-pressed="${isMentor() ? story.mentorStar : story.studentStar}">★</button>
     <div class="rMain">
       <div class="rTitle">${story.prefixEnabled ? '<span class="pre">The One Where</span>' : ''}${esc(story.title)}
         ${unread ? '<span class="emberDot" title="New mentor feedback"></span>' : ''}
@@ -732,7 +792,7 @@ function storyRow(story, options = {}) {
     <div class="rMeta">
       ${birdMini(story)}
       ${story.questionCount ? `<span class="scoreTag" title="Interview questions this story answers">${story.questionCount} question${story.questionCount === 1 ? '' : 's'}</span>` : ''}
-      ${scoreDots(isMentor() ? story.studentScore : story.studentScore, 'student', 'Student score')}
+      ${options.inlinePriority && isStudent() && state.capabilities?.inlinePriority ? priorityPicker(story) : scoreDots(story.studentScore, 'student', 'Student score')}
       ${story.status === 'private' ? '' : scoreDots(story.mentorScore, 'mentor', 'Mentor score')}
       ${statusChip(story)}
       <button class="rowBtn" type="button" data-open-quick="${attr(story.id)}">${quickLabel}</button>
@@ -816,8 +876,10 @@ function renderShell() {
       </button>` : ''}
       ${isAdmin() && !canAdminReview() ? '' : `<div class="hSearch">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
-        <input id="omni" type="search" placeholder="${isMentor() || canAdminReview() ? 'Search students and stories…' : 'Search your stories…'}" autocomplete="off" aria-label="${isMentor() || canAdminReview() ? 'Search students and stories' : 'Search your stories'}">
+        <input id="omni" type="search" role="combobox" aria-autocomplete="list" placeholder="${isMentor() || canAdminReview() ? 'Search students and stories…' : 'Search your stories…'}" autocomplete="off" aria-label="${isMentor() || canAdminReview() ? 'Search students and stories' : 'Search your stories'}" aria-controls="omniSuggestions" aria-expanded="false">
         <span class="kbd">/</span>
+        <div id="omniSuggestions" class="b1511Suggestions" role="listbox" aria-label="Search suggestions" hidden></div>
+        <div id="omniSearchStatus" class="srOnly" role="status" aria-live="polite"></div>
       </div>`}
       ${isStudent() ? '<button class="btnCatch" type="button" data-open-capture>＋ <span class="bc-txt">New Story</span></button>' : ''}
     </div>`;
@@ -1029,17 +1091,38 @@ function filteredStories() {
     if (filter.star === 'mentor' && !story.mentorStar) return false;
     if (filter.bird && !story.birds.includes(filter.bird)) return false;
     if (filter.position && !story.positions.includes(filter.position)) return false;
-    if (query && !`${storyTitle(story)} ${story.text} ${story.lesson}`.toLowerCase().includes(query)) return false;
+    if (filter.categories.length && !filter.categories.every((id) => story.categories.includes(id))) return false;
+    if (filter.uses.length && !filter.uses.every((id) => story.uses.includes(id))) return false;
+    const categoryLabels = story.categories.map((id) => CATEGORIES.find((item) => item.id === id)?.label || id);
+    const useLabels = story.uses.map((id) => USES.find((item) => item.id === id)?.label || id);
+    if (query && !`${storyTitle(story)} ${story.text} ${story.lesson} ${categoryLabels.join(' ')} ${useLabels.join(' ')}`.toLowerCase().includes(query)) return false;
     return true;
   });
+  const newestThenId = (a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)) || a.id.localeCompare(b.id);
   const sorters = {
-    new: (a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)),
-    old: (a, b) => String(a.updatedAt).localeCompare(String(b.updatedAt)),
-    myscore: (a, b) => b.studentScore - a.studentScore,
-    mentorscore: (a, b) => b.mentorScore - a.mentorScore,
-    title: (a, b) => a.title.localeCompare(b.title),
+    priority: (a, b) => {
+      const left = Number(a.studentScore) || 0;
+      const right = Number(b.studentScore) || 0;
+      if (left !== right) return right - left;
+      return newestThenId(a, b);
+    },
+    new: newestThenId,
+    old: (a, b) => String(a.updatedAt).localeCompare(String(b.updatedAt)) || a.id.localeCompare(b.id),
+    myscore: (a, b) => (b.studentScore - a.studentScore) || newestThenId(a, b),
+    mentorscore: (a, b) => (b.mentorScore - a.mentorScore) || newestThenId(a, b),
+    title: (a, b) => a.title.localeCompare(b.title) || a.id.localeCompare(b.id),
   };
-  return [...stories].sort(sorters[filter.sort] || sorters.new);
+  const requestedSort = state.capabilities?.inlinePriority
+    ? filter.sort
+    : (filter.sort === 'priority' ? 'new' : filter.sort);
+  return [...stories].sort(sorters[requestedSort] || sorters.new);
+}
+
+function libraryFacetButtons(items, selected, key, label) {
+  return `<div class="b1511Facet" role="group" aria-label="${attr(label)} — selected filters must all match">
+    <span class="b1511FacetLabel">${esc(label)} <small>match all</small></span>
+    ${items.map((item) => `<button type="button" data-library-${key}="${attr(item.id)}" class="${selected.includes(item.id) ? 'on' : ''}" aria-pressed="${selected.includes(item.id)}">${esc(item.label)}</button>`).join('')}
+  </div>`;
 }
 
 function renderLibrary() {
@@ -1049,12 +1132,14 @@ function renderLibrary() {
     <div class="eyebrow">Your story library</div>
     <h1 class="h1">${state.stories.length} ${state.stories.length === 1 ? 'story' : 'stories'}, <em>none forgotten</em>.</h1>
     <div class="listBar">
-      <input type="search" id="libQ" placeholder="Search stories…" value="${attr(filter.query)}" aria-label="Search stories">
+      <div class="b1511Search"><input type="search" id="libQ" role="combobox" aria-autocomplete="list" placeholder="Search stories…" value="${attr(filter.query)}" aria-label="Search stories" autocomplete="off" aria-controls="libSearchSuggestions" aria-expanded="false">
+        <div id="libSearchSuggestions" class="b1511Suggestions" role="listbox" aria-label="Story suggestions" hidden></div></div>
       <select id="libStatus" aria-label="Filter by status">
         <option value="">Status: all</option>
         ${Object.entries(STATUS).map(([key, meta]) => `<option value="${key}" ${filter.status === key ? 'selected' : ''}>${esc(meta.label)}</option>`).join('')}
       </select>
       <select id="libSort" aria-label="Sort stories">
+        ${state.capabilities?.inlinePriority ? `<option value="priority" ${filter.sort === 'priority' ? 'selected' : ''}>Sort: priority 5→1</option>` : ''}
         <option value="new" ${filter.sort === 'new' ? 'selected' : ''}>Sort: newest</option>
         <option value="old" ${filter.sort === 'old' ? 'selected' : ''}>Oldest</option>
         <option value="myscore" ${filter.sort === 'myscore' ? 'selected' : ''}>My rating (high→low)</option>
@@ -1074,10 +1159,107 @@ function renderLibrary() {
         <option value="">Ideal for: any</option>
         ${POSITIONS.map((position) => `<option value="${position.id}" ${filter.position === position.id ? 'selected' : ''}>${esc(position.label)}</option>`).join('')}
       </select>
-      <span class="countNote">${list.length} of ${state.stories.length}</span>
+      <span class="countNote" id="libraryCount">${list.length} of ${state.stories.length}</span>
     </div>
-    <div id="libraryRows">${list.length ? list.map((story) => storyRow(story)).join('') : emptyState('No stories match.', 'Clear a filter, or capture the story this search was looking for.')}</div>
+    ${state.capabilities?.taxonomy ? `<div class="b1511LibraryFacets">
+      ${libraryFacetButtons(CATEGORIES, filter.categories, 'category', 'Categories')}
+      ${libraryFacetButtons(USES, filter.uses, 'use', 'Intended uses')}
+    </div>` : ''}
+    <div id="librarySearchStatus" class="srOnly" role="status" aria-live="polite"></div>
+    <div id="libraryRows">${list.length ? list.map((story) => storyRow(story, { inlinePriority: true })).join('') : emptyState('No stories match.', 'Clear a filter, or capture the story this search was looking for.')}</div>
   </section>`;
+}
+
+function renderLibraryRowsOnly() {
+  const rows = $('#libraryRows');
+  if (!rows) return;
+  const list = filteredStories();
+  rows.innerHTML = list.length
+    ? list.map((story) => storyRow(story, { inlinePriority: true })).join('')
+    : emptyState('No stories match.', 'Clear a filter, or capture the story this search was looking for.');
+  const count = $('#libraryCount');
+  if (count) count.textContent = `${list.length} of ${state.stories.length}`;
+  const status = $('#librarySearchStatus');
+  if (status) status.textContent = `${list.length} ${list.length === 1 ? 'story' : 'stories'} shown.`;
+}
+
+function replaceStoryInState(story) {
+  state.stories = state.stories.map((item) => item.id === story.id ? story : item);
+  if (state.storyDetail?.id === story.id) state.storyDetail = story;
+  if (state.quick?.story?.id === story.id) state.quick.story = story;
+}
+
+function syncPriorityRow(story) {
+  const row = $(`[data-story-row="${CSS.escape(story.id)}"]`, $('#libraryRows') || document);
+  if (!row) return;
+  const value = Number(story.studentScore) || 0;
+  row.querySelectorAll('[data-library-priority]').forEach((button) => {
+    const priority = Number(button.dataset.libraryPriority);
+    button.classList.toggle('on', priority <= value);
+    button.setAttribute('aria-pressed', String(priority === value));
+  });
+  const label = $('[data-priority-label]', row);
+  if (label) label.textContent = `Student priority: ${value ? `${value} of 5` : 'unrated'}`;
+}
+
+function reorderLibraryRowsStable() {
+  const rows = $('#libraryRows');
+  if (!rows) return;
+  const list = filteredStories();
+  if (!list.length) {
+    renderLibraryRowsOnly();
+    return;
+  }
+  const existing = new Map($$('[data-story-row]', rows).map((row) => [row.dataset.storyRow, row]));
+  if (existing.size !== list.length || list.some((story) => !existing.has(story.id))) {
+    renderLibraryRowsOnly();
+    return;
+  }
+  list.forEach((story) => rows.append(existing.get(story.id)));
+  const count = $('#libraryCount');
+  if (count) count.textContent = `${list.length} of ${state.stories.length}`;
+}
+
+const libraryMutationIds = new Set();
+
+async function updateLibraryPriority(storyId, priority, button) {
+  const story = state.stories.find((item) => item.id === storyId);
+  if (!story || !isStudent() || !state.capabilities?.inlinePriority || libraryMutationIds.has(storyId)) return;
+  const previous = story;
+  const optimistic = { ...story, studentScore: Number(priority) };
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
+  libraryMutationIds.add(storyId);
+  button.closest('[data-priority-story]')?.setAttribute('aria-busy', 'true');
+  replaceStoryInState(optimistic);
+  syncPriorityRow(optimistic);
+  reorderLibraryRowsStable();
+  button.focus({ preventScroll: true });
+  try {
+    const result = await api.storyPriority(storyId, {
+      priority: Number(priority),
+      expectedVersion: story.rowVersion ?? 0,
+      surface: 'library',
+    });
+    const saved = unwrapStory({ ...optimistic, ...(result?.story || result) });
+    replaceStoryInState(saved);
+    syncPriorityRow(saved);
+    reorderLibraryRowsStable();
+    button.focus({ preventScroll: true });
+    notify(`Student priority saved at ${saved.studentScore || priority} of 5.`);
+  } catch (error) {
+    replaceStoryInState(previous);
+    syncPriorityRow(previous);
+    reorderLibraryRowsStable();
+    button.focus({ preventScroll: true });
+    notify(error.status === 409
+      ? 'Priority changed elsewhere. Your prior value was restored; reopen the story to refresh.'
+      : (error.message || 'Priority was not saved. Your prior value was restored.'));
+  } finally {
+    libraryMutationIds.delete(storyId);
+    button.closest('[data-priority-story]')?.removeAttribute('aria-busy');
+    window.scrollTo(scrollX, scrollY);
+  }
 }
 
 function renderNotifications() {
@@ -3179,6 +3361,63 @@ function feedbackTime(item) {
   return firstDefined(item.createdAt, item.created_at, item.sent_at);
 }
 
+function normalizeMentorNote(raw = {}) {
+  return {
+    ...raw,
+    id: String(firstDefined(raw.id, raw.noteId, raw.note_id, '')),
+    storyId: String(firstDefined(raw.storyId, raw.story_id, '')),
+    body: String(firstDefined(raw.body, raw.transcript, raw.text, '')),
+    transcript: String(firstDefined(raw.transcript, raw.body, '')),
+    internalOnly: Boolean(firstDefined(raw.internalOnly, raw.internal_only, false)),
+    state: String(firstDefined(raw.state, raw.status, 'draft')),
+    authorName: String(firstDefined(raw.authorName, raw.author_name, raw.mentor_name, 'Reviewer')),
+    rowVersion: Number(firstDefined(raw.rowVersion, raw.row_version, 0)) || 0,
+    audioAssetId: String(firstDefined(raw.audioAssetId, raw.audio_asset_id, raw.audio?.id, '')),
+    hasAudio: Boolean(firstDefined(raw.hasAudio, raw.has_audio, raw.audioState === 'verified', raw.audioAssetId, raw.audio_asset_id, false)),
+    createdAt: isoValue(firstDefined(raw.createdAt, raw.created_at)),
+    publishedAt: isoValue(firstDefined(raw.publishedAt, raw.published_at)),
+  };
+}
+
+function canWriteMentorNotes() {
+  return Boolean(state.capabilities?.mentorNotes) && (isMentor() || canAdminReview());
+}
+
+function visibleMentorNotes(story) {
+  const notes = asArray(story.mentorNotes).map(normalizeMentorNote);
+  if (canWriteMentorNotes()) return notes;
+  return notes.filter((note) => note.state === 'published' && !note.internalOnly);
+}
+
+function mentorNotesMarkup(story) {
+  if ((!state.capabilities?.mentorNotesRead && !canWriteMentorNotes())
+      || story.status === 'private'
+      || (!canWriteMentorNotes() && !visibleMentorNotes(story).length)) return '';
+  const notes = visibleMentorNotes(story);
+  const published = notes.filter((note) => note.state === 'published');
+  const draft = canWriteMentorNotes()
+    ? normalizeMentorNote(state.mentorNoteDraft || notes.find((note) => note.state === 'draft') || {})
+    : null;
+  if (draft?.id) state.mentorNoteDraft = draft;
+  return `<div class="railCard b1511MentorNotes">
+    <div class="rLbl label-cy">Mentor notes</div>
+    <div class="b1511MentorNoteList">${published.length ? published.map((note) => `<article class="b1511MentorNote">
+      <div class="nt">${esc(note.body)}</div><div class="nd">${esc(note.authorName)} · ${esc(formatDateTime(note.publishedAt || note.createdAt))}</div>
+      ${note.hasAudio || note.audioAssetId ? `<button class="rowBtn" type="button" data-play-mentor-note="${attr(note.id)}">▶ Play mentor audio</button>` : ''}
+    </article>`).join('') : '<p class="stageHint">No published mentor notes yet.</p>'}</div>
+    ${canWriteMentorNotes() ? `<div class="b1511MentorComposer" data-mentor-note-composer>
+      <label class="fLbl" for="mentorNoteText">${draft?.id ? 'Draft transcript or text' : 'New mentor note'}</label>
+      <textarea id="mentorNoteText" rows="5" placeholder="Type feedback, or record and edit the transcript before publishing.">${esc(draft?.body || '')}</textarea>
+      <label class="b1511Internal"><input id="mentorNoteInternal" type="checkbox" ${draft?.internalOnly ? 'checked' : ''} ${draft?.id ? 'disabled' : ''}> Internal only — never visible to the student</label>
+      <div class="inlineActions">
+        <button class="rowBtn" type="button" data-save-mentor-note>${draft?.id ? 'Update draft' : 'Save draft'}</button>
+        ${globalThis.MediaRecorder ? `<button class="rowBtn" type="button" data-record-mentor-note>${state.mentorNoteRecording ? 'Stop recording' : '🎙 Record note'}</button>` : ''}
+        ${draft?.id ? `<button class="noteSend" type="button" data-publish-mentor-note ${draft.internalOnly ? 'disabled' : ''}>Publish to Student</button><button class="rowBtn" type="button" data-discard-mentor-note>Discard draft</button>` : ''}
+      </div><p class="stageHint">Only a published, non-internal note is visible to the student. Drafts remain reviewer-only.</p>
+    </div>` : ''}
+  </div>`;
+}
+
 function reflectionQuestion(item) {
   return String(firstDefined(item.prompt, item.question, item.q, 'Reflection'));
 }
@@ -3217,6 +3456,34 @@ function classificationButtons(story, scope = 'room') {
       ${POSITIONS.map((position) => `<button class="cChip ${story.positions.includes(position.id) ? 'on' : ''}" type="button"
         data-classification="${position.id}" data-kind="positions" data-scope="${scope}">${esc(position.label)}</button>`).join('')}
     </div>`;
+}
+
+function categoryButtons(story, { admin = false, readOnly = false } = {}) {
+  return `<div class="b1511Taxonomy" role="group" aria-label="Story categories">
+    ${CATEGORIES.map((category) => `<button type="button" data-${admin ? 'admin-' : ''}taxonomy="${attr(category.id)}" data-taxonomy-kind="categories"
+      class="${story.categories.includes(category.id) ? 'on' : ''}" aria-pressed="${story.categories.includes(category.id)}" ${readOnly ? 'disabled' : ''}>${esc(category.label)}</button>`).join('')}
+  </div>`;
+}
+
+function intendedUseButtons(story, { admin = false, readOnly = false } = {}) {
+  return `<div class="useBtns b1511Uses">${USES.map((use) => {
+    const suggestion = story.useSuggestions.find((item) => (
+      firstDefined(item.useKey, item.use_key) === use.id
+      && !firstDefined(item.withdrawnAt, item.withdrawn_at)
+    ));
+    return `<button class="useBtn ${story.uses.includes(use.id) ? 'on' : ''}" type="button" data-${admin ? 'admin-' : ''}taxonomy="${attr(use.id)}" data-taxonomy-kind="uses"
+      aria-pressed="${story.uses.includes(use.id)}" ${readOnly ? 'disabled' : ''}>${esc(use.label)}${!admin && suggestion && !story.uses.includes(use.id) ? `<span class="sugTag">${esc(firstDefined(suggestion.suggestedByName, suggestion.suggested_by_name, 'Mentor'))} suggests</span>` : ''}<span class="chk">✓</span></button>`;
+  }).join('')}</div>`;
+}
+
+function legacyIntendedUseButtons(story) {
+  return `<div class="useBtns">${USES.filter((use) => ['ps', 'iv', 'letter', 'later'].includes(use.id)).map((use) => {
+    const suggestion = story.useSuggestions.find((item) => (
+      firstDefined(item.useKey, item.use_key) === use.id
+      && !firstDefined(item.withdrawnAt, item.withdrawn_at)
+    ));
+    return `<button class="useBtn ${story.uses.includes(use.id) ? 'on' : ''}" type="button" data-toggle-use="${attr(use.id)}">${esc(use.label)}${suggestion && !story.uses.includes(use.id) ? `<span class="sugTag">${esc(firstDefined(suggestion.suggestedByName, suggestion.suggested_by_name, 'Mentor'))} suggests</span>` : ''}<span class="chk">✓</span></button>`;
+  }).join('')}</div>`;
 }
 
 function mappedQuestionMarkup(story, limit = Infinity) {
@@ -3377,7 +3644,13 @@ async function fetchStoryDetail(id, surface = 'workspace') {
       if (![404, 405, 501].includes(error.status)) throw error;
     }
   }
-  return unwrapStory(await api.story(id));
+  const story = unwrapStory(await api.story(id));
+  state.mentorNoteDraft = null;
+  if ((state.capabilities?.mentorNotesRead || canWriteMentorNotes()) && story.status !== 'private') {
+    const payload = await optionalRequest(`/api/stories/${id}/mentor-notes`, { notes: [] });
+    story.mentorNotes = asArray(payload?.notes).map(normalizeMentorNote);
+  }
+  return story;
 }
 
 async function openStory(id) {
@@ -3479,7 +3752,8 @@ function renderStoryRoom() {
           <div>${statusChip(story)}</div>
           <div class="stageHint">${esc(STATUS[story.status].hint)}</div>
           ${mentor ? `<div class="statusRow">${['in_review', 'changes', 'reviewed', 'approved'].map((status) => `<button type="button" data-set-status="${status}" class="${story.status === status ? `on ${STATUS[status].col}` : ''}">${esc(STATUS[status].label)}</button>`).join('')}</div>`
-            : ['private', 'changes'].includes(story.status) ? studentReviewAction(story) : ''}
+            : ['private', 'changes'].includes(story.status) ? studentReviewAction(story)
+              : story.status === 'awaiting' && state.capabilities?.submissionReview ? `<div class="b1511Withdraw"><button class="rowBtn" type="button" data-withdraw-story>Return to Private</button><p class="stageHint">This removes reviewer access until you submit the story again.</p></div>` : ''}
           ${story.reviewSuitability ? `<div class="reviewSuitability"><span class="fLbl">Reviewer classification</span><span class="cohortChip">${esc(SUITABILITY[story.reviewSuitability] || story.reviewSuitability)}</span></div>` : ''}
           <div class="tsList">${storyTimestamps(story)}</div>
         </div>
@@ -3497,25 +3771,24 @@ function renderStoryRoom() {
         </div>
 
         <div class="railCard"><div class="rLbl">Classification</div>${classificationButtons(story)}</div>
+        ${state.capabilities?.taxonomy ? `<div class="railCard"><div class="rLbl">Story categories</div>
+          <p class="stageHint">Categories describe what happened. They stay separate from themes and intended uses.</p>
+          ${categoryButtons(story, { readOnly: mentor })}
+        </div>` : ''}
         <div class="railCard">
           <div class="rLbl">Interview questions <button class="pMore" type="button" data-open-assign="${attr(story.id)}">Assign ▸</button></div>
           ${mappedQuestionMarkup(story)}
         </div>
         <div class="railCard">
-          <div class="rLbl">Where it could serve</div>
-          <div class="useBtns">${USES.map((use) => {
-            const suggestion = story.useSuggestions.find((item) => (
-              firstDefined(item.useKey, item.use_key) === use.id
-              && !firstDefined(item.withdrawnAt, item.withdrawn_at)
-            ));
-            return `<button class="useBtn ${story.uses.includes(use.id) ? 'on' : ''}" type="button" data-toggle-use="${use.id}">${esc(use.label)}${suggestion && !story.uses.includes(use.id) ? `<span class="sugTag">${esc(firstDefined(suggestion.suggestedByName, suggestion.suggested_by_name, 'Mentor'))} suggests</span>` : ''}<span class="chk">✓</span></button>`;
-          }).join('')}</div>
+          <div class="rLbl">Where this story could be used</div>
+          ${state.capabilities?.taxonomy ? intendedUseButtons(story, { readOnly: mentor }) : legacyIntendedUseButtons(story)}
         </div>
         ${story.status !== 'private' || mentor ? `<div class="railCard ${mentor ? '' : 'advPanel'}">
           <div class="rLbl label-cy">Mentor feedback</div>
           ${feedbackMarkup(story)}
           ${mentor ? `<div class="noteCompose"><textarea id="mentorFeedback" placeholder="Leave ${esc(story.studentName.split(/\s+/)[0])} feedback…"></textarea><button class="noteSend" type="button" data-send-feedback>Send feedback</button></div>` : ''}
         </div>` : ''}
+        ${mentorNotesMarkup(story)}
         <div class="railCard">
           <div class="rLbl">History</div>
           ${storyHistoryMarkup(story)}
@@ -3574,6 +3847,7 @@ function renderQuick() {
           aria-pressed="${mentor ? story.mentorStar : story.studentStar}">★ <span>${mentor ? 'Star as mentor' : 'Star this story'}</span></button>
       </div>
       <div class="drSec"><div class="dsLbl">Classification</div>${classificationButtons(story, 'quick')}</div>
+      ${state.capabilities?.taxonomy ? `<div class="drSec"><div class="dsLbl">Story categories</div>${categoryButtons(story, { readOnly: mentor })}</div>` : ''}
       <div class="drSec"><div class="dsLbl">Interview questions (${story.mappings.length}) <button class="pMore" type="button" data-open-assign="${attr(story.id)}">Assign ▸</button></div>${mappedQuestionMarkup(story, 4)}</div>
       <div class="drSec"><div class="dsLbl">${mentor ? 'Leave feedback' : 'Mentor feedback'}</div>${feedbackMarkup(story)}
         ${mentor ? `<div class="noteCompose"><textarea id="quickFeedback" placeholder="Feedback for ${esc(story.studentName.split(/\s+/)[0])}…"></textarea><button class="noteSend" type="button" data-send-feedback data-feedback-source="quick">Send feedback</button></div>` : ''}
@@ -3626,6 +3900,17 @@ async function submitCurrentStory() {
   await withBusy(() => api.submitStory(story.id, room.classList.contains('open') ? 'workspace' : 'quick'));
   await reloadStorySurface(room.classList.contains('open') ? 'workspace' : 'quick');
   notify(story.status === 'changes' ? 'Resubmitted. Your mentor will see that it needs another review.' : 'Submitted for review.');
+}
+
+async function withdrawCurrentStory() {
+  const story = state.storyDetail;
+  if (!story || !isStudent() || !state.capabilities?.submissionReview || story.status !== 'awaiting') return;
+  await withBusy(() => api.withdrawStory(story.id, {
+    expectedVersion: story.rowVersion ?? 0,
+    surface: 'workspace',
+  }));
+  await reloadStorySurface('workspace');
+  notify('Story returned to Private. Reviewer access has been removed.');
 }
 
 async function setCurrentStatus(status) {
@@ -3681,6 +3966,45 @@ async function toggleStar(id, kind = isMentor() ? 'mentor' : 'student') {
     : state.quick?.story?.id === id ? state.quick.story
       : state.stories.find((item) => item.id === id);
   if (!story) return;
+  const libraryRow = $(`[data-story-row="${CSS.escape(id)}"]`, $('#libraryRows') || document);
+  if (libraryRow && !room.classList.contains('open') && !quick.classList.contains('open')) {
+    if (libraryMutationIds.has(id)) return;
+    const field = kind === 'mentor' ? 'mentorStar' : 'studentStar';
+    const previous = story;
+    const optimistic = { ...story, [field]: !story[field] };
+    const button = $('[data-toggle-star]', libraryRow);
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    libraryMutationIds.add(id);
+    replaceStoryInState(optimistic);
+    button?.classList.toggle('on', optimistic[field]);
+    button?.setAttribute('aria-pressed', String(optimistic[field]));
+    try {
+      const result = await api.evaluation(id, {
+        [field]: optimistic[field],
+        expectedVersion: story.rowVersion ?? 0,
+        surface: 'library',
+      });
+      const saved = unwrapStory({ ...optimistic, ...(result?.story || result) });
+      replaceStoryInState(saved);
+      button?.classList.toggle('on', saved[field]);
+      button?.setAttribute('aria-pressed', String(saved[field]));
+      if (state.library.star) renderLibraryRowsOnly();
+      notify(`${kind === 'mentor' ? 'Mentor' : 'Story'} star ${saved[field] ? 'added' : 'removed'}.`);
+    } catch (error) {
+      replaceStoryInState(previous);
+      button?.classList.toggle('on', previous[field]);
+      button?.setAttribute('aria-pressed', String(previous[field]));
+      notify(error.status === 409
+        ? 'Star changed elsewhere. The previous value was restored.'
+        : (error.message || 'Star was not saved. The previous value was restored.'));
+    } finally {
+      libraryMutationIds.delete(id);
+      button?.focus({ preventScroll: true });
+      window.scrollTo(scrollX, scrollY);
+    }
+    return;
+  }
   const patch = kind === 'mentor'
     ? { storyId: id, mentorStar: !story.mentorStar }
     : { storyId: id, studentStar: !story.studentStar };
@@ -3694,6 +4018,37 @@ async function toggleClassification(kind, id) {
   const values = story[kind].includes(id) ? story[kind].filter((value) => value !== id) : [...story[kind], id];
   await updateEvaluation({ storyId: story.id, [kind]: values });
   notify('Classification saved.');
+}
+
+async function updateStoryTaxonomy(kind, id) {
+  const story = state.storyDetail || state.quick?.story;
+  if (!story || !isStudent() || !state.capabilities?.taxonomy || !['categories', 'uses'].includes(kind)) return;
+  const previous = [...story[kind]];
+  const values = previous.includes(id) ? previous.filter((value) => value !== id) : [...previous, id];
+  story[kind] = values;
+  const button = $(`[data-taxonomy="${CSS.escape(id)}"][data-taxonomy-kind="${kind}"]`);
+  button?.classList.toggle('on', values.includes(id));
+  button?.setAttribute('aria-pressed', String(values.includes(id)));
+  try {
+    const result = await api.storyTaxonomy(story.id, {
+      categories: kind === 'categories' ? values : story.categories,
+      uses: kind === 'uses' ? values : story.uses,
+      expectedVersion: story.rowVersion ?? 0,
+      surface: 'workspace',
+    });
+    const saved = unwrapStory({ ...story, ...(result?.story || result) });
+    state.storyDetail = state.storyDetail?.id === saved.id ? saved : state.storyDetail;
+    if (state.quick?.story?.id === saved.id) state.quick.story = saved;
+    state.stories = state.stories.map((item) => item.id === saved.id ? saved : item);
+    if (room.classList.contains('open')) renderStoryRoom();
+    if (quick.classList.contains('open')) renderQuick();
+    notify(kind === 'categories' ? 'Story categories saved.' : 'Intended uses saved.');
+  } catch (error) {
+    story[kind] = previous;
+    button?.classList.toggle('on', previous.includes(id));
+    button?.setAttribute('aria-pressed', String(previous.includes(id)));
+    notify(error.message || 'StoryForge could not save that classification.');
+  }
 }
 
 async function toggleUse(id) {
@@ -5511,7 +5866,7 @@ async function loadAdminQueue() {
 
 async function loadAdminStory(id) {
   const payload = await api.adminStory(id);
-  adminConsoleState().story = normalizeStory({
+  const story = normalizeStory({
     ...(payload?.story || {}),
     feedback: payload?.feedback,
     revisions: payload?.revisions,
@@ -5519,6 +5874,12 @@ async function loadAdminStory(id) {
     craft: payload?.craft,
     internalNotes: payload?.internalNotes,
   });
+  state.mentorNoteDraft = null;
+  if ((state.capabilities?.mentorNotesRead || canWriteMentorNotes()) && story.status !== 'private') {
+    const notesPayload = await optionalRequest(`/api/stories/${id}/mentor-notes`, { notes: [] });
+    story.mentorNotes = asArray(notesPayload?.notes).map(normalizeMentorNote);
+  }
+  adminConsoleState().story = story;
 }
 
 function renderAdminHome() {
@@ -5558,17 +5919,32 @@ function renderAdminStudents() {
         <option value="">All submitted work</option>
         ${['awaiting', 'in_review', 'changes', 'reviewed', 'approved', 'unscored'].map((status) => `<option value="${status}" ${admin.studentStatus === status ? 'selected' : ''}>${esc(status === 'unscored' ? 'Unscored' : STATUS[status].label)}</option>`).join('')}
       </select>
-      <button class="rowBtn pri" type="submit">Search</button><span class="countNote">${admin.students.length} results · server-authorized</span>
+      <button class="rowBtn pri" type="submit">Search</button><span class="countNote" id="adminStudentCount">${admin.students.length} results · server-authorized</span>
     </form>
-    ${admin.students.length ? admin.students.map((student) => `<article class="mStuRow">
+    <div id="adminStudentResults">${adminStudentRowsMarkup()}</div>
+    <div id="adminStudentSearchStatus" class="srOnly" role="status" aria-live="polite"></div>
+  </section>`;
+}
+
+function adminStudentRowsMarkup() {
+  const students = adminConsoleState().students;
+  return students.length ? students.map((student) => `<article class="mStuRow">
       <span class="stuAv">${esc(student.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join(''))}</span>
       <span class="rMain"><span class="rTitle">${esc(student.name)}</span><span class="rSub">${esc([student.year, student.specialty, student.cohort].filter(Boolean).join(' · '))}</span></span>
       <span class="numPair"><span class="n">${student.storyCount}</span><span class="l">Submitted</span></span>
       <span class="numPair"><span class="n">${student.awaitingReview}</span><span class="l">Awaiting</span></span>
       <span class="numPair"><span class="n metric-violet">${student.unscored}</span><span class="l">Unscored</span></span>
       <button class="rowBtn pri" type="button" data-admin-open-student="${attr(student.id)}">Open</button>
-    </article>`).join('') : emptyState('No student matches.', 'Try a different name, WordPress ID, cohort, or review filter.')}
-  </section>`;
+    </article>`).join('') : emptyState('No student matches.', 'Try a different name, WordPress ID, cohort, or review filter.');
+}
+
+function renderAdminStudentRowsOnly() {
+  const rows = $('#adminStudentResults');
+  if (rows) rows.innerHTML = adminStudentRowsMarkup();
+  const count = $('#adminStudentCount');
+  if (count) count.textContent = `${adminConsoleState().students.length} results · server-authorized`;
+  const status = $('#adminStudentSearchStatus');
+  if (status) status.textContent = `${adminConsoleState().students.length} authorized student results.`;
 }
 
 function renderAdminStudent() {
@@ -5613,6 +5989,8 @@ function renderAdminStory() {
         <div class="lessonBlock"><div class="lbl">Learning Lesson</div><div class="lessonTxt">${esc(story.lesson) || '<span class="storyEmpty">No lesson added.</span>'}</div></div></div></div>
       <div class="panel panel-spaced"><div class="pHead"><div class="h2">Story intelligence <em>read-only</em></div></div><div class="pBody">
         <div class="setRow"><div class="sTxt"><b>Bird type</b><span>${story.birds.map((id) => BIRDS.find((bird) => bird.id === id)?.label || id).join(', ') || 'Not classified'}</span></div></div>
+        <div class="setRow"><div class="sTxt"><b>Categories</b><span>${story.categories.map((id) => CATEGORIES.find((category) => category.id === id)?.label || id).join(', ') || 'Not categorized'}</span></div></div>
+        <div class="setRow"><div class="sTxt"><b>Intended uses</b><span>${story.uses.map((id) => USES.find((use) => use.id === id)?.label || id).join(', ') || 'Not marked'}</span></div></div>
         <div class="setRow"><div class="sTxt"><b>Ideal positions</b><span>${story.positions.map((id) => POSITIONS.find((position) => position.id === id)?.label || id).join(', ') || 'Not classified'}</span></div></div>
         <div class="setRow"><div class="sTxt"><b>Craft scores</b><span>${['detail', 'stakes', 'turn', 'honest', 'lesson'].map((key) => `${key}: ${craft[key] ?? '—'}`).join(' · ')}</span></div></div>
         <div class="setRow"><div class="sTxt"><b>Version provenance</b><span>${revisions.length} immutable revisions · current row ${story.rowVersion}</span></div></div>
@@ -5628,7 +6006,10 @@ function renderAdminStory() {
         <p class="stageHint">Internal notes never appear to students or mentors. Saving is version-checked and audit logged.</p>
         <button class="noteSend" type="submit">Save review</button>
       </form>
+      ${state.capabilities?.taxonomy ? `<div class="railCard b1511AdminTaxonomy"><div class="rLbl">Story categories</div>${categoryButtons(story, { admin: true })}
+        <div class="rLbl b1511TaxonomyHeading">Where this story could be used</div>${intendedUseButtons(story, { admin: true })}</div>` : ''}
       <div class="railCard"><div class="rLbl">Student-visible feedback</div>${feedbackMarkup(story)}</div>
+      ${mentorNotesMarkup(story)}
       <div class="railCard adminInternalNotes"><div class="rLbl">Internal administrator notes</div>${notes.length ? notes.map((note) => `<div class="noteItem"><div class="nt">${esc(note.body)}</div><div class="nd">${esc(firstDefined(note.adminName, note.admin_name, 'Administrator'))} · ${esc(formatDateTime(firstDefined(note.createdAt, note.created_at)))}</div></div>`).join('') : '<div class="stageHint">No internal notes.</div>'}</div>
     </aside></div>
   </section>`;
@@ -5661,6 +6042,149 @@ async function saveAdminStoryReview(form) {
   });
   renderAdminStory();
   notify('Administrator review saved and audited.', '✓');
+}
+
+async function updateAdminTaxonomy(kind, id) {
+  const story = adminConsoleState().story;
+  if (!story || !canAdminReview() || !state.capabilities?.taxonomy || !['categories', 'uses'].includes(kind)) return;
+  const previous = [...story[kind]];
+  const values = previous.includes(id) ? previous.filter((value) => value !== id) : [...previous, id];
+  story[kind] = values;
+  const button = $(`[data-admin-taxonomy="${CSS.escape(id)}"][data-taxonomy-kind="${kind}"]`);
+  button?.classList.toggle('on', values.includes(id));
+  button?.setAttribute('aria-pressed', String(values.includes(id)));
+  try {
+    const result = await api.adminTaxonomy(story.id, {
+      categories: kind === 'categories' ? values : story.categories,
+      uses: kind === 'uses' ? values : story.uses,
+      expectedVersion: story.rowVersion ?? 0,
+      surface: 'workspace',
+    });
+    adminConsoleState().story = normalizeStory({ ...story, ...(result?.story || result) });
+    renderAdminStory();
+    notify(kind === 'categories' ? 'Administrator category change saved and audited.' : 'Administrator intended-use change saved and audited.');
+  } catch (error) {
+    story[kind] = previous;
+    button?.classList.toggle('on', previous.includes(id));
+    button?.setAttribute('aria-pressed', String(previous.includes(id)));
+    notify(error.message || 'StoryForge could not save that administrator classification.');
+  }
+}
+
+function activeMentorNoteStory() {
+  return room.classList.contains('open') ? state.storyDetail : adminConsoleState().story;
+}
+
+function storeMentorNote(note) {
+  const story = activeMentorNoteStory();
+  const notes = asArray(story?.mentorNotes).map(normalizeMentorNote);
+  const incomingId = String(firstDefined(note?.id, note?.noteId, note?.note_id, ''));
+  const existing = notes.find((item) => item.id === incomingId)
+    || (state.mentorNoteDraft?.id ? normalizeMentorNote(state.mentorNoteDraft) : null);
+  const normalized = normalizeMentorNote({ ...(existing || {}), ...note, id: incomingId || existing?.id });
+  if (!story) return normalized;
+  story.mentorNotes = notes.some((item) => item.id === normalized.id)
+    ? notes.map((item) => item.id === normalized.id ? normalized : item)
+    : [...notes, normalized];
+  state.mentorNoteDraft = normalized.state === 'draft' ? normalized : null;
+  return normalized;
+}
+
+function renderActiveMentorNoteSurface() {
+  if (room.classList.contains('open')) renderStoryRoom();
+  else if (canAdminReview() && adminConsoleState().story) renderAdminStory();
+}
+
+async function saveMentorNoteDraft({ allowEmpty = false } = {}) {
+  const story = activeMentorNoteStory();
+  const field = $('#mentorNoteText');
+  const body = field?.value.trim() || '';
+  if (!story || !canWriteMentorNotes() || (!body && !allowEmpty)) return null;
+  const draft = state.mentorNoteDraft?.id ? normalizeMentorNote(state.mentorNoteDraft) : null;
+  const result = draft
+    ? await api.updateMentorNote(draft.id, { body, expectedVersion: draft.rowVersion, surface: 'workspace' })
+    : await api.createMentorNote(story.id, {
+      body,
+      internalOnly: Boolean($('#mentorNoteInternal')?.checked),
+      surface: 'workspace',
+    });
+  const saved = storeMentorNote(result?.note || result);
+  renderActiveMentorNoteSurface();
+  notify('Mentor note draft saved. It is not visible to the student.');
+  return saved;
+}
+
+async function publishMentorNote() {
+  let draft = await saveMentorNoteDraft();
+  if (!draft) return;
+  if (draft.internalOnly) {
+    notify('Internal-only notes cannot be published to the student.');
+    return;
+  }
+  const result = await api.publishMentorNote(draft.id, { expectedVersion: draft.rowVersion, surface: 'workspace' });
+  storeMentorNote(result?.note || result);
+  renderActiveMentorNoteSurface();
+  notify('Mentor note published to the student and audited.', '✓');
+}
+
+async function discardMentorNote() {
+  const draft = state.mentorNoteDraft?.id ? normalizeMentorNote(state.mentorNoteDraft) : null;
+  const story = activeMentorNoteStory();
+  if (!draft || !story || !canWriteMentorNotes()) return;
+  await api.discardMentorNote(draft.id, { expectedVersion: draft.rowVersion, surface: 'workspace' });
+  story.mentorNotes = asArray(story.mentorNotes).filter((item) => normalizeMentorNote(item).id !== draft.id);
+  state.mentorNoteDraft = null;
+  renderActiveMentorNoteSurface();
+  notify('Unpublished mentor note discarded.');
+}
+
+async function toggleMentorNoteRecording() {
+  if (!canWriteMentorNotes() || !globalThis.MediaRecorder) return;
+  if (state.mentorNoteRecording?.recorder?.state === 'recording') {
+    state.mentorNoteRecording.recorder.stop();
+    return;
+  }
+  const draft = state.mentorNoteDraft?.id ? normalizeMentorNote(state.mentorNoteDraft) : await saveMentorNoteDraft({ allowEmpty: true });
+  if (!draft) return;
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const recorder = new MediaRecorder(stream);
+  const chunks = [];
+  const startedAt = performance.now();
+  recorder.addEventListener('dataavailable', (event) => {
+    if (event.data?.size) chunks.push(event.data);
+  });
+  recorder.addEventListener('stop', async () => {
+    stream.getTracks().forEach((track) => track.stop());
+    const activeDraft = normalizeMentorNote(state.mentorNoteDraft || draft);
+    const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
+    const form = new FormData();
+    form.append('segment', blob, 'mentor-note.webm');
+    form.append('mimeType', blob.type);
+    form.append('durationMs', String(Math.max(0, Math.round(performance.now() - startedAt))));
+    form.append('expectedVersion', String(activeDraft.rowVersion));
+    try {
+      const result = await api.uploadMentorNoteAudio(activeDraft.id, form);
+      storeMentorNote(result?.note || result);
+      notify('Mentor audio transcribed. Review and edit the draft before publishing.', '✓');
+    } catch (error) {
+      notify(error.message || 'Mentor audio could not be saved. The draft remains private.');
+    } finally {
+      state.mentorNoteRecording = null;
+      renderActiveMentorNoteSurface();
+    }
+  }, { once: true });
+  state.mentorNoteRecording = { recorder, stream, startedAt };
+  recorder.start();
+  renderActiveMentorNoteSurface();
+  notify('Recording mentor note. Stop when you are finished.');
+}
+
+async function playMentorNote(id) {
+  const result = await api.mentorNotePlayback(id);
+  const url = firstDefined(result?.url, result?.playbackUrl, result?.playback_url);
+  if (!url) throw new Error('Mentor note playback is unavailable.');
+  const audio = new Audio(url);
+  await audio.play();
 }
 
 /* ========================= Routing, events, and signed boot ========================= */
@@ -5971,6 +6495,105 @@ function rerenderWithFocus(render, selector, value) {
   }
 }
 
+let searchDebounceTimer = 0;
+const searchComposing = new WeakSet();
+const searchActiveOption = new Map();
+
+function normalizedSearch(value) {
+  return String(value || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+}
+
+function storyMatchesQuery(story, query) {
+  const needle = normalizedSearch(query);
+  if (!needle) return true;
+  const categories = story.categories.map((id) => CATEGORIES.find((item) => item.id === id)?.label || id);
+  const uses = story.uses.map((id) => USES.find((item) => item.id === id)?.label || id);
+  const haystack = normalizedSearch(`${storyTitle(story)} ${story.text} ${story.lesson} ${categories.join(' ')} ${uses.join(' ')}`);
+  return needle.split(/\s+/).every((token) => haystack.includes(token));
+}
+
+function closeSearchSuggestions(inputId) {
+  const input = $(`#${CSS.escape(inputId)}`);
+  const list = $(`#${inputId === 'omni' ? 'omniSuggestions' : 'libSearchSuggestions'}`);
+  if (list) {
+    list.hidden = true;
+    list.innerHTML = '';
+  }
+  input?.setAttribute('aria-expanded', 'false');
+  input?.removeAttribute('aria-activedescendant');
+  searchActiveOption.delete(inputId);
+}
+
+function renderStorySearchSuggestions(inputId, query) {
+  const input = $(`#${CSS.escape(inputId)}`);
+  const listId = inputId === 'omni' ? 'omniSuggestions' : 'libSearchSuggestions';
+  const list = $(`#${listId}`);
+  if (!input || !list) return;
+  if (!state.capabilities?.storySearch) {
+    closeSearchSuggestions(inputId);
+    return;
+  }
+  const matches = query.trim() ? state.stories.filter((story) => storyMatchesQuery(story, query)).slice(0, 6) : [];
+  if (!matches.length) {
+    closeSearchSuggestions(inputId);
+    return;
+  }
+  list.innerHTML = matches.map((story, index) => `<button type="button" id="${listId}-${index}" role="option" aria-selected="false" data-search-story="${attr(story.id)}">
+    <span>${esc(storyTitle(story))}</span><small>${esc(CATEGORIES.find((item) => story.categories.includes(item.id))?.label || developmentState(story))}</small>
+  </button>`).join('');
+  list.hidden = false;
+  input.setAttribute('aria-expanded', 'true');
+  searchActiveOption.set(inputId, -1);
+  const status = $(`#${inputId === 'omni' ? 'omniSearchStatus' : 'librarySearchStatus'}`);
+  if (status) status.textContent = `${matches.length} story suggestions available.`;
+}
+
+function moveSearchSuggestion(input, delta) {
+  const inputId = input.id;
+  const list = $(`#${inputId === 'omni' ? 'omniSuggestions' : 'libSearchSuggestions'}`);
+  const options = list ? $$('[role="option"]', list) : [];
+  if (!options.length) return false;
+  const previous = searchActiveOption.get(inputId) ?? -1;
+  const next = Math.max(0, Math.min(options.length - 1, previous + delta));
+  options.forEach((option, index) => option.setAttribute('aria-selected', String(index === next)));
+  input.setAttribute('aria-activedescendant', options[next].id);
+  searchActiveOption.set(inputId, next);
+  options[next].scrollIntoView({ block: 'nearest' });
+  return true;
+}
+
+function scheduleStudentSearch(inputId, value) {
+  window.clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = window.setTimeout(() => {
+    renderLibraryRowsOnly();
+    renderStorySearchSuggestions(inputId, value);
+  }, 200);
+}
+
+function scheduleAdminStudentSearch(value, inputId = 'adminStudentSearch') {
+  window.clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = window.setTimeout(async () => {
+    try {
+      await loadAdminStudents();
+      if (state.route === 'students' && canAdminReview()) {
+        if ($('#adminStudentResults')) renderAdminStudentRowsOnly();
+        else renderAdminStudents();
+      }
+      if (inputId === 'omni' && state.capabilities?.storySearch) {
+        const list = $('#omniSuggestions');
+        const input = $('#omni');
+        if (list && input && value.trim()) {
+          list.innerHTML = adminConsoleState().students.slice(0, 6).map((student, index) => `<button type="button" id="omniSuggestions-${index}" role="option" aria-selected="false" data-admin-open-student="${attr(student.id)}"><span>${esc(student.name)}</span><small>${esc([student.cohort, student.specialty].filter(Boolean).join(' · '))}</small></button>`).join('');
+          list.hidden = !adminConsoleState().students.length;
+          input.setAttribute('aria-expanded', String(Boolean(adminConsoleState().students.length)));
+        }
+      }
+    } catch (error) {
+      notify(error.message || 'Search is temporarily unavailable.');
+    }
+  }, 220);
+}
+
 function overlayContaining(target) {
   return [qad, quick, capture, room, palette, teaching].find((node) => node.contains(target) && node.classList.contains('open'));
 }
@@ -6055,6 +6678,11 @@ document.addEventListener('click', async (event) => {
     if (button.matches('[data-open-story]')) {
       if (palette.classList.contains('open')) closeOverlay(palette);
       await openStory(button.dataset.openStory);
+      return;
+    }
+    if (button.matches('[data-search-story]')) {
+      closeSearchSuggestions(button.closest('.hSearch') ? 'omni' : 'libQ');
+      await openStory(button.dataset.searchStory);
       return;
     }
     if (button.matches('[data-open-notification]')) {
@@ -6148,13 +6776,40 @@ document.addEventListener('click', async (event) => {
       await submitCurrentStory();
       return;
     }
+    if (button.matches('[data-withdraw-story]')) {
+      await withdrawCurrentStory();
+      return;
+    }
     if (button.matches('[data-score]')) {
       const picker = button.closest('[data-score-scope]');
       if (picker) await handleScore(picker.dataset.scoreScope, button.dataset.score);
       return;
     }
+    if (button.matches('[data-library-priority]')) {
+      await updateLibraryPriority(button.dataset.storyId, button.dataset.libraryPriority, button);
+      return;
+    }
     if (button.matches('[data-toggle-star]')) {
       await toggleStar(button.dataset.toggleStar, button.dataset.starKind);
+      return;
+    }
+    if (button.matches('[data-library-category], [data-library-use]')) {
+      const kind = button.matches('[data-library-category]') ? 'categories' : 'uses';
+      const id = button.dataset.libraryCategory || button.dataset.libraryUse;
+      state.library[kind] = state.library[kind].includes(id)
+        ? state.library[kind].filter((value) => value !== id)
+        : [...state.library[kind], id];
+      button.classList.toggle('on', state.library[kind].includes(id));
+      button.setAttribute('aria-pressed', String(state.library[kind].includes(id)));
+      renderLibraryRowsOnly();
+      return;
+    }
+    if (button.matches('[data-taxonomy]')) {
+      await updateStoryTaxonomy(button.dataset.taxonomyKind, button.dataset.taxonomy);
+      return;
+    }
+    if (button.matches('[data-admin-taxonomy]')) {
+      await updateAdminTaxonomy(button.dataset.taxonomyKind, button.dataset.adminTaxonomy);
       return;
     }
     if (button.matches('[data-classification]')) {
@@ -6167,6 +6822,26 @@ document.addEventListener('click', async (event) => {
     }
     if (button.matches('[data-send-feedback]')) {
       await sendFeedback(button.dataset.feedbackSource || 'room');
+      return;
+    }
+    if (button.matches('[data-save-mentor-note]')) {
+      await saveMentorNoteDraft();
+      return;
+    }
+    if (button.matches('[data-publish-mentor-note]')) {
+      await publishMentorNote();
+      return;
+    }
+    if (button.matches('[data-discard-mentor-note]')) {
+      await discardMentorNote();
+      return;
+    }
+    if (button.matches('[data-record-mentor-note]')) {
+      await toggleMentorNoteRecording();
+      return;
+    }
+    if (button.matches('[data-play-mentor-note]')) {
+      await playMentorNote(button.dataset.playMentorNote);
       return;
     }
     if (button.matches('[data-send-ask]')) {
@@ -6419,6 +7094,25 @@ document.addEventListener('beforeinput', (event) => {
   }
 });
 
+document.addEventListener('compositionstart', (event) => {
+  if (['omni', 'libQ', 'adminStudentSearch'].includes(event.target.id)) searchComposing.add(event.target);
+});
+
+document.addEventListener('compositionend', (event) => {
+  const target = event.target;
+  searchComposing.delete(target);
+  if (target.id === 'omni' && canAdminReview()) {
+    adminConsoleState().studentQuery = target.value;
+    scheduleAdminStudentSearch(target.value, 'omni');
+  } else if (target.id === 'omni' || target.id === 'libQ') {
+    state.library.query = target.value;
+    scheduleStudentSearch(target.id, target.value);
+  } else if (target.id === 'adminStudentSearch') {
+    adminConsoleState().studentQuery = target.value;
+    scheduleAdminStudentSearch(target.value);
+  }
+});
+
 document.addEventListener('input', (event) => {
   const target = event.target;
   if (capture.contains(target) && ['capTitle', 'capBody', 'capLesson'].includes(target.id)) {
@@ -6427,26 +7121,31 @@ document.addEventListener('input', (event) => {
   } else if (target.id === 'omni' && canAdminReview()) {
     adminConsoleState().studentQuery = target.value;
     if (state.route !== 'students') {
-      navigate('students').then(() => {
-        const input = $('#adminStudentSearch');
-        input?.focus();
-        input?.setSelectionRange(input.value.length, input.value.length);
-      });
+      state.route = 'students';
+      state.routeId = null;
+      pushPath('students');
+      main.innerHTML = loadingView('Searching authorized students…');
     }
+    if (!searchComposing.has(target)) scheduleAdminStudentSearch(target.value, 'omni');
   } else if (target.id === 'omni' && !isMentor()) {
     state.library.query = target.value;
     if (state.route !== 'library') {
-      navigate('library').then(() => {
-        const input = $('#libQ');
-        input?.focus();
-        input?.setSelectionRange(input.value.length, input.value.length);
-      });
-    } else {
-      rerenderWithFocus(renderLibrary, '#libQ', target.value);
+      state.route = 'library';
+      state.routeId = null;
+      pushPath('library');
+      renderLibrary();
     }
+    const libraryInput = $('#libQ');
+    if (libraryInput) libraryInput.value = target.value;
+    if (!searchComposing.has(target)) scheduleStudentSearch('omni', target.value);
   } else if (target.id === 'libQ') {
     state.library.query = target.value;
-    rerenderWithFocus(renderLibrary, '#libQ', target.value);
+    const omni = $('#omni');
+    if (omni && !isMentor() && !canAdminReview()) omni.value = target.value;
+    if (!searchComposing.has(target)) scheduleStudentSearch('libQ', target.value);
+  } else if (target.id === 'adminStudentSearch') {
+    adminConsoleState().studentQuery = target.value;
+    if (!searchComposing.has(target)) scheduleAdminStudentSearch(target.value);
   } else if (target.id === 'assignSearch') {
     state.assign.query = target.value;
     rerenderWithFocus(renderAssign, '#assignSearch', target.value);
@@ -6580,6 +7279,21 @@ document.addEventListener('mousedown', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  if (['omni', 'libQ'].includes(event.target.id)) {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      if (moveSearchSuggestion(event.target, event.key === 'ArrowDown' ? 1 : -1)) event.preventDefault();
+    } else if (event.key === 'Enter') {
+      const inputId = event.target.id;
+      const list = $(`#${inputId === 'omni' ? 'omniSuggestions' : 'libSearchSuggestions'}`);
+      const option = list?.querySelector('[aria-selected="true"]');
+      if (option) {
+        event.preventDefault();
+        option.click();
+      }
+    } else if (event.key === 'Escape') {
+      closeSearchSuggestions(event.target.id);
+    }
+  }
   const seekTrack = event.target.closest?.('[data-seek-audio]');
   if (seekTrack && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
     event.preventDefault();
@@ -6736,7 +7450,16 @@ async function enterFixturePersona(persona) {
 function signOut() {
   suspendVoiceForIdentityExit();
   state.user = null;
-  state.capabilities = Object.freeze({ voiceCapture: false, adminConsole: false });
+  state.capabilities = Object.freeze({
+    voiceCapture: false,
+    adminConsole: false,
+    submissionReview: false,
+    taxonomy: false,
+    inlinePriority: false,
+    storySearch: false,
+    mentorNotes: false,
+    mentorNotesRead: false,
+  });
   state.captureRecovering = false;
   state.lockout = null;
   auth.clear();
@@ -6774,7 +7497,14 @@ async function bootstrapSession() {
   state.capabilities = Object.freeze({
     voiceCapture: Boolean(session?.capabilities?.voiceCapture),
     adminConsole: Boolean(session?.capabilities?.adminConsole),
+    submissionReview: Boolean(session?.capabilities?.submissionReview),
+    taxonomy: Boolean(session?.capabilities?.taxonomy),
+    inlinePriority: Boolean(session?.capabilities?.inlinePriority),
+    storySearch: Boolean(session?.capabilities?.storySearch),
+    mentorNotes: Boolean(session?.capabilities?.mentorNotes),
+    mentorNotesRead: Boolean(session?.capabilities?.mentorNotesRead),
   });
+  state.library.sort = state.capabilities.inlinePriority ? 'priority' : 'new';
   state.captureRecovering = false;
   state.lockout = null;
   state.selectedStudent = null;
