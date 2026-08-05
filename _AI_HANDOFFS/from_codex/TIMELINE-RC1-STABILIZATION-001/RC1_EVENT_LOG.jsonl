@@ -1,0 +1,18 @@
+{"at":"2026-08-05T20:47:18Z","event":"timeline_backup_created","scope":"wordpress_timeline_only","result":"PASS"}
+{"at":"2026-08-05T20:55:45Z","event":"railway_wrong_root_detected","deployment":"7ebb239e-77d2-4729-a58e-1a5a60778f0e","result":"ROLLBACK_TRIGGERED"}
+{"at":"2026-08-05T20:59:02Z","event":"railway_rollback_verified","deployment":"436da8cd-87bf-4c5a-bd49-b04c667a827b","result":"PASS"}
+{"at":"2026-08-05T21:00:00Z","event":"railway_package_root_deploy","deployment":"49b7bd83-95c4-418f-910d-29172225f9bd","result":"PASS"}
+{"at":"2026-08-05T21:06:00Z","event":"wordpress_rc1_pointer_cutover","release":"timeline-wp-ee40c1abc5eabe06","result":"PASS"}
+{"at":"2026-08-05T21:10:00Z","event":"r2_presigned_put_canary","result":"FAIL_SAFE","code":"SignatureDoesNotMatch"}
+{"at":"2026-08-05T21:15:00Z","event":"r2_presigning_root_cause_proven","result":"PASS"}
+{"at":"2026-08-05T21:17:00Z","event":"r2_presigning_repair_deployed","deployment":"6df4cab2-cc54-4a23-8d5f-218e0e26889a","result":"PASS"}
+{"at":"2026-08-05T21:18:00Z","event":"production_private_media_round_trip","result":"PASS","cleanup":"PASS"}
+{"at":"2026-08-05T21:20:00Z","event":"eligible_360_activation_restored","result":"PASS"}
+{"at":"2026-08-05T21:22:00Z","event":"identity_entitlement_isolation_verification","result":"PASS"}
+{"at":"2026-08-05T21:23:54Z","event":"rc1_release_seal_started","result":"PASS"}
+{"at":"2026-08-05T21:26:00Z","event":"fresh_verifier_admin_custody_gap","result":"REPAIR_REQUIRED","detail":"PROGRAM_ADMIN remote-media admission conflicted with student-only document ownership and RLS"}
+{"at":"2026-08-05T21:31:00Z","event":"administrator_custody_reconciled","source":"e685e948fd338199a3b47c4305021dde08979a1c","result":"PASS","detail":"administrator device-local; server media fail-closed; student remote path unchanged"}
+{"at":"2026-08-05T21:32:00Z","event":"final_regression","tests":"636/636","release":"62/62","package":"23/23","result":"PASS"}
+{"at":"2026-08-05T21:36:20Z","event":"final_railway_release","deployment":"075cf61c-a91b-4bb7-ba41-69bebdbb3d17","release":"timeline-c9eda9eeb7d6cf98","result":"PASS"}
+{"at":"2026-08-05T21:37:00Z","event":"final_wordpress_release","release":"timeline-wp-7230b1b928fcbad2","payload_sha256":"6d6542c13f6dfd34ec9cda8c4b3b4788e704e87833a35db84d2735aaff0def90","result":"PASS"}
+{"at":"2026-08-05T21:38:00Z","event":"critical_systems_gate","result":"PASS","unrelated_application_impact":"NONE"}

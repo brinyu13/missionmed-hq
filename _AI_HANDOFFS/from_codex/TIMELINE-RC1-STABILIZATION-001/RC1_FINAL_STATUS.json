@@ -1,0 +1,21 @@
+{
+  "schema_version": "timeline-rc1-final-status.1",
+  "result": "PASS",
+  "live": true,
+  "live_url": "https://missionmedinstitute.com/timeline/",
+  "source_commit": "e685e948fd338199a3b47c4305021dde08979a1c",
+  "static_release": "timeline-c9eda9eeb7d6cf98",
+  "wordpress_release": "timeline-wp-7230b1b928fcbad2",
+  "wordpress_payload_sha256": "6d6542c13f6dfd34ec9cda8c4b3b4788e704e87833a35db84d2735aaff0def90",
+  "railway_deployment": "075cf61c-a91b-4bb7-ba41-69bebdbb3d17",
+  "railway_image": "sha256:69068dd247f20f0aec0914acae4bc653e7bc267b0588fc1937243bff7dcea259",
+  "eligible_360": true,
+  "private_media": "PASS",
+  "identity_authorization": "PASS",
+  "data_isolation": "PASS",
+  "visual_authority": "PASS",
+  "administrator_persistence": "DEVICE_LOCAL_PASS",
+  "tests": {"unit": {"passed": 636, "failed": 0}, "browser": {"passed": 39, "failed": 0}},
+  "unrelated_application_impact": "NONE",
+  "sealed_at": "2026-08-05T21:40:00Z"
+}
