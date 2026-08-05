@@ -106,6 +106,13 @@ const USES = Object.freeze([
   { id: 'later', label: 'Someday / Fellowship' },
 ]);
 
+const LEGACY_USES = Object.freeze([
+  { id: 'ps', label: 'Personal statement' },
+  { id: 'iv', label: 'Interview set' },
+  { id: 'letter', label: 'Letter conversations' },
+  { id: 'later', label: 'Someday / fellowship' },
+]);
+
 const BIRDS = Object.freeze([
   { id: 'peacock', label: 'Peacock', emo: '🦚', hue: '#8a7dff', hint: 'Expressive, colorful, memorable in the room' },
   { id: 'dove', label: 'Dove', emo: '🕊️', hue: '#aab8d1', hint: 'Warm, empathetic, patient-centered' },
@@ -3477,7 +3484,7 @@ function intendedUseButtons(story, { admin = false, readOnly = false } = {}) {
 }
 
 function legacyIntendedUseButtons(story) {
-  return `<div class="useBtns">${USES.filter((use) => ['ps', 'iv', 'letter', 'later'].includes(use.id)).map((use) => {
+  return `<div class="useBtns">${LEGACY_USES.map((use) => {
     const suggestion = story.useSuggestions.find((item) => (
       firstDefined(item.useKey, item.use_key) === use.id
       && !firstDefined(item.withdrawnAt, item.withdrawn_at)
@@ -3780,7 +3787,7 @@ function renderStoryRoom() {
           ${mappedQuestionMarkup(story)}
         </div>
         <div class="railCard">
-          <div class="rLbl">Where this story could be used</div>
+          <div class="rLbl">${state.capabilities?.taxonomy ? 'Where this story could be used' : 'Where it could serve'}</div>
           ${state.capabilities?.taxonomy ? intendedUseButtons(story, { readOnly: mentor }) : legacyIntendedUseButtons(story)}
         </div>
         ${story.status !== 'private' || mentor ? `<div class="railCard ${mentor ? '' : 'advPanel'}">
