@@ -139,6 +139,7 @@ phase_one_migrations=(
   "20260729010000_b1_506a_voice_audit_lifecycle.sql"
   "20260730000100_b1_507b_reconciliation_state.sql"
   "20260801190000_b1_510i_admin_console.sql"
+  "20260805190000_b1_511_workflow_taxonomy_mentor_notes.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \

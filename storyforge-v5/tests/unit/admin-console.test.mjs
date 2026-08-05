@@ -6,6 +6,7 @@ import {
   adminConsoleForceOff,
   createAdminConsoleService,
   validateAdminReview,
+  validateAdminTaxonomy,
 } from '../../server/admin-console.mjs';
 
 const ADMIN = Object.freeze({
@@ -130,6 +131,29 @@ test('review validation allowlists fields and exact authority values without mut
     assert.throws(
       () => validateAdminReview(invalid),
       (error) => error.code === 'invalid_admin_review',
+    );
+  }
+});
+
+test('administrator taxonomy validation preserves exact bounded category and use contracts', () => {
+  assert.deepEqual(validateAdminTaxonomy({
+    expectedVersion: 7,
+    categories: ['clinical', 'ethics_professionalism', 'clinical'],
+    uses: ['letter', 'myeras_experiences'],
+  }), {
+    expectedVersion: 7,
+    categories: ['clinical', 'ethics_professionalism'],
+    uses: ['letter', 'myeras_experiences'],
+  });
+  for (const invalid of [
+    { expectedVersion: -1, categories: [], uses: [] },
+    { expectedVersion: 1, categories: ['theme_patient'], uses: [] },
+    { expectedVersion: 1, categories: [], uses: ['letter_conversations'] },
+    { expectedVersion: 1, categories: 'clinical', uses: [] },
+  ]) {
+    assert.throws(
+      () => validateAdminTaxonomy(invalid),
+      (error) => error.code === 'invalid_admin_taxonomy',
     );
   }
 });

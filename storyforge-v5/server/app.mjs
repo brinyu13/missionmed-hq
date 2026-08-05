@@ -16,6 +16,7 @@ import {
 } from './db.mjs';
 import { createFlagService, createPostgresFlagStore } from './flags.mjs';
 import { createAdminConsoleService } from './admin-console.mjs';
+import { createMentorNotesService } from './mentor-notes.mjs';
 import { previewImport } from './imports.mjs';
 import {
   createAudioPlayback,
@@ -198,7 +199,7 @@ export function createPhaseOneRuntime({
     emitEvent: eventWriter,
     environment,
   });
-  return Object.freeze({ flagService, recordingsService });
+  return Object.freeze({ flagService, recordingsService, transcription });
 }
 
 const defaultPhaseOneRuntime = createPhaseOneRuntime();
@@ -438,6 +439,7 @@ async function readMultipartSegment(request) {
   return {
     seq: form.get('seq'),
     durationMs: form.get('durationMs'),
+    expectedVersion: form.get('expectedVersion'),
     mimeType: String(form.get('mimeType') || segment.type || ''),
     buffer: Buffer.from(await segment.arrayBuffer()),
   };
@@ -458,7 +460,7 @@ function storyProjection(prefix = '') {
   return `${p}id, ${p}student_id, ${p}title, ${p}original_text, ${p}current_text,
     ${p}capture_type, ${p}status, ${p}student_score, ${p}mentor_score,
     ${p}review_suitability,
-    ${p}classification, ${p}starred, ${p}needs_followup, ${p}uses,
+    ${p}classification, ${p}starred, ${p}needs_followup, ${p}categories, ${p}uses,
     (SELECT count(*)::integer
        FROM public.sf_story_questions projection_pair
       WHERE projection_pair.story_id = ${p}id
@@ -575,6 +577,7 @@ async function api(request, response, url, {
   withIdentity,
   flagService,
   adminConsoleService,
+  mentorNotesService,
   recordingsService,
   signAudioPlayback,
 }) {
@@ -724,8 +727,19 @@ async function api(request, response, url, {
     }
   }
 
+  const adminStoryTaxonomy = url.pathname.match(
+    /^\/api\/admin\/console\/stories\/([a-f0-9-]+)\/taxonomy$/i,
+  );
+  if (request.method === 'PATCH' && adminStoryTaxonomy) {
+    return sendJson(response, 200, await adminConsoleService.taxonomy(
+      identity,
+      adminStoryTaxonomy[1],
+      await readJson(request),
+    ));
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/session') {
-    const [user, voiceCapture, adminConsole] = await Promise.all([
+    const [user, voiceCapture, adminConsole, mentorNotes, mentorNotesRead, b1511] = await Promise.all([
       withIdentity(identity, async (client) => {
         const result = await client.query(
           `SELECT id, wp_user_id, display_name, first_name, pronouns, role, eligible,
@@ -737,6 +751,17 @@ async function api(request, response, url, {
       }),
       flagService.voiceCapture(identity),
       adminConsoleService.capability(identity),
+      mentorNotesService.capability(identity),
+      mentorNotesService.readCapability(identity),
+      withIdentity(identity, async (client) => {
+        try {
+          const result = await client.query('SELECT public.sf_b1_511_capabilities() AS payload');
+          return result.rows[0]?.payload || {};
+        } catch (error) {
+          if (error?.code === '42883') return {};
+          throw error;
+        }
+      }),
     ]);
     if (!user) {
       const error = new Error('StoryForge profile is missing or eligibility was revoked.');
@@ -749,7 +774,16 @@ async function api(request, response, url, {
         first_name: identity.firstName,
         username: identity.username,
       },
-      capabilities: { voiceCapture, adminConsole },
+      capabilities: {
+        voiceCapture,
+        adminConsole,
+        mentorNotes,
+        mentorNotesRead: mentorNotesRead && b1511.mentorNotesRead === true,
+        submissionReview: b1511.submissionReview === true,
+        taxonomy: b1511.taxonomy === true,
+        inlinePriority: b1511.inlinePriority === true,
+        storySearch: b1511.storySearch === true,
+      },
     });
   }
 
@@ -932,7 +966,96 @@ async function api(request, response, url, {
     return sendJson(response, 200, { story });
   }
 
-  const storyAction = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/(submit|open|review)$/i);
+  const storyTaxonomy = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/taxonomy$/i);
+  if (request.method === 'PATCH' && storyTaxonomy) {
+    const id = safeUuid(storyTaxonomy[1]);
+    const body = await readJson(request);
+    const story = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        'SELECT * FROM public.sf_update_story_taxonomy($1, $2, $3::text[], $4::text[], $5)',
+        [
+          id,
+          body.expectedVersion ?? null,
+          body.categories ?? [],
+          body.uses ?? [],
+          body.surface || 'workspace',
+        ],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { story });
+  }
+
+  const storyPriority = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/priority$/i);
+  if (request.method === 'PATCH' && storyPriority) {
+    const id = safeUuid(storyPriority[1]);
+    const body = await readJson(request);
+    const story = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        'SELECT * FROM public.sf_update_story_priority($1, $2, $3::smallint, $4)',
+        [id, body.expectedVersion ?? null, body.priority ?? null, body.surface || 'library'],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { story });
+  }
+
+  const storyMentorNotes = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/mentor-notes$/i);
+  if (storyMentorNotes) {
+    if (request.method === 'GET') {
+      return sendJson(response, 200, {
+        notes: await mentorNotesService.list(identity, storyMentorNotes[1]),
+      });
+    }
+    if (request.method === 'POST') {
+      return sendJson(response, 201, {
+        note: await mentorNotesService.create(
+          identity,
+          storyMentorNotes[1],
+          await readJson(request),
+        ),
+      });
+    }
+  }
+
+  const mentorNoteRoute = url.pathname.match(
+    /^\/api\/mentor-notes\/([a-f0-9-]+)(?:\/(publish|discard|audio|playback))?$/i,
+  );
+  if (mentorNoteRoute) {
+    const noteId = mentorNoteRoute[1];
+    const action = mentorNoteRoute[2] || '';
+    if (request.method === 'PATCH' && !action) {
+      return sendJson(response, 200, {
+        note: await mentorNotesService.update(identity, noteId, await readJson(request)),
+      });
+    }
+    if (request.method === 'POST' && action === 'publish') {
+      return sendJson(response, 200, {
+        note: await mentorNotesService.publish(identity, noteId, await readJson(request)),
+      });
+    }
+    if (request.method === 'POST' && action === 'discard') {
+      return sendJson(response, 200, {
+        note: await mentorNotesService.discard(identity, noteId, await readJson(request)),
+      });
+    }
+    if (request.method === 'POST' && action === 'audio') {
+      const audio = await readMultipartSegment(request);
+      return sendJson(response, 200, {
+        note: await mentorNotesService.uploadAudio(identity, noteId, {
+          ...audio,
+          buffer: audio.buffer,
+          expectedVersion: audio.expectedVersion,
+          surface: 'workspace',
+        }),
+      });
+    }
+    if (request.method === 'GET' && action === 'playback') {
+      return sendJson(response, 200, await mentorNotesService.playback(identity, noteId));
+    }
+  }
+
+  const storyAction = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/(submit|withdraw|open|review)$/i);
   if (request.method === 'POST' && storyAction) {
     const id = safeUuid(storyAction[1]);
     const action = storyAction[2];
@@ -942,6 +1065,10 @@ async function api(request, response, url, {
         submit: {
           text: `SELECT * FROM public.sf_submit_story($1, $2)`,
           values: [id, body.surface || 'workspace'],
+        },
+        withdraw: {
+          text: `SELECT * FROM public.sf_withdraw_story($1, $2::bigint, $3)`,
+          values: [id, body.expectedVersion ?? null, body.surface || 'workspace'],
         },
         open: {
           text: `SELECT * FROM public.sf_open_story($1, $2)`,
@@ -2510,6 +2637,7 @@ export function createAppServer({
   identityTransaction = withDatabaseIdentity,
   phaseOneRuntime = defaultPhaseOneRuntime,
   adminConsoleService = null,
+  mentorNotesService = null,
   auditWriter = appendAudit,
   audioPlaybackSigner = createAudioPlayback,
   reportEvent = emitStructuredEvent,
@@ -2518,6 +2646,16 @@ export function createAppServer({
   const resolvedAdminConsoleService = adminConsoleService || createAdminConsoleService({
     withIdentity: identityTransaction,
   });
+  const resolvedMentorNotesService = mentorNotesService || createMentorNotesService({
+    withIdentity: identityTransaction,
+    storage: {
+      putRecordingSegment,
+      headAudioObject,
+      deleteRecordingObjects,
+    },
+    transcription: phaseOneRuntime.transcription || createUnavailableTranscriptionAdapter(),
+    signPlayback: audioPlaybackSigner,
+  });
   const apiRuntime = Object.freeze({
     authorizeRequest,
     auditWriter,
@@ -2525,6 +2663,7 @@ export function createAppServer({
     withIdentity: identityTransaction,
     flagService: phaseOneRuntime.flagService,
     adminConsoleService: resolvedAdminConsoleService,
+    mentorNotesService: resolvedMentorNotesService,
     recordingsService: phaseOneRuntime.recordingsService,
     signAudioPlayback: audioPlaybackSigner,
   });

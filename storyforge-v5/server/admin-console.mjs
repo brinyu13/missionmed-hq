@@ -4,6 +4,27 @@ const reviewStatuses = new Set(['in_review', 'changes', 'reviewed', 'approved'])
 const suitabilityValues = new Set(['ps_only', 'interview_only', 'both', 'neither']);
 const flagScopes = new Set(['off', 'allowlist']);
 const reviewFields = new Set(['status', 'mentorScore', 'suitability', 'studentFeedback', 'internalNote']);
+const categoryValues = new Set([
+  'clinical',
+  'personal',
+  'research',
+  'leadership',
+  'teaching',
+  'volunteer_service',
+  'adversity_challenge',
+  'teamwork',
+  'communication',
+  'ethics_professionalism',
+  'other',
+]);
+const intendedUseValues = new Set([
+  'ps',
+  'iv',
+  'letter',
+  'myeras_experiences',
+  'myeras_most_impactful',
+  'later',
+]);
 
 export class AdminConsoleError extends Error {
   constructor(code, message, status = 400) {
@@ -137,6 +158,29 @@ export function validateAdminReview(input) {
     patch[field] = body;
   }
   return { expectedVersion, patch: { ...patch } };
+}
+
+function boundedEnumArray(value, allowed, label) {
+  if (!Array.isArray(value)) {
+    throw new AdminConsoleError('invalid_admin_taxonomy', `${label} must be an array.`);
+  }
+  const normalized = [...new Set(value.map((item) => String(item || '').trim()).filter(Boolean))];
+  if (normalized.length > allowed.size || normalized.some((item) => !allowed.has(item))) {
+    throw new AdminConsoleError('invalid_admin_taxonomy', `${label} contains an unsupported value.`);
+  }
+  return normalized;
+}
+
+export function validateAdminTaxonomy(input) {
+  const version = Number(input?.expectedVersion);
+  if (!Number.isInteger(version) || version < 0) {
+    throw new AdminConsoleError('invalid_admin_taxonomy', 'Expected story version is required.');
+  }
+  return Object.freeze({
+    expectedVersion: version,
+    categories: boundedEnumArray(input?.categories, categoryValues, 'Story categories'),
+    uses: boundedEnumArray(input?.uses, intendedUseValues, 'Intended uses'),
+  });
 }
 
 function requireAdmin(identity) {
@@ -279,6 +323,21 @@ export function createAdminConsoleService({
           requireUuid(storyId, 'Story identifier'),
           review.expectedVersion,
           JSON.stringify(review.patch),
+        ],
+      );
+    },
+    taxonomy: (identity, storyId, input) => {
+      const taxonomy = validateAdminTaxonomy(input);
+      return rpc(
+        identity,
+        `SELECT public.sf_admin_update_story_taxonomy(
+           $1, $2, $3::text[], $4::text[], 'workspace'
+         ) AS payload`,
+        [
+          requireUuid(storyId, 'Story identifier'),
+          taxonomy.expectedVersion,
+          taxonomy.categories,
+          taxonomy.uses,
         ],
       );
     },

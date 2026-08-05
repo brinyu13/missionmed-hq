@@ -156,6 +156,9 @@ async function startFixture(context, fixture, options = {}) {
             }],
           };
         }
+        if (String(sql).includes('sf_b1_511_capabilities')) {
+          return { rows: [{ payload: {} }] };
+        }
         throw new Error(`Unexpected database query in route fixture: ${sql}`);
       },
     }),
@@ -241,7 +244,16 @@ test('E10 returns only the caller capability and E11 routes preserve admin servi
 
   const session = await json(await fetch(`${origin}/api/session`));
   assert.equal(session.status, 200);
-  assert.deepEqual(session.body.capabilities, { voiceCapture: true, adminConsole: false });
+  assert.deepEqual(session.body.capabilities, {
+    voiceCapture: true,
+    adminConsole: false,
+          mentorNotes: false,
+          mentorNotesRead: false,
+    submissionReview: false,
+    taxonomy: false,
+    inlinePriority: false,
+    storySearch: false,
+  });
   assert.equal(session.body.user.id, studentId);
   assert.equal(session.body.user.first_name, 'Dr');
   assert.equal(session.body.user.username, 'brinyu');
