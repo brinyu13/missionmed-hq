@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Timeline SSO
  * Description: Default-off Timeline identity, LearnDash eligibility, JWT, same-origin API gateway, and Matrix launch seam.
- * Version: 500.0.2
+ * Version: 500.0.3
  * Requires at least: 6.5
  * Requires PHP: 8.1
  * Author: MissionMed
@@ -20,7 +20,8 @@ const MMTL_CONSENT_AT_META = '_missionmed_timeline_remote_sync_consented_at';
 const MMTL_REST_NAMESPACE = 'missionmed-timeline/v1';
 const MMTL_REST_TOKEN_ROUTE = '/token';
 const MMTL_COURSE_ID = 3893;
-const MMTL_VERSION = '500.0.2';
+const MMTL_VERSION = '500.0.3';
+const MMTL_PRINCIPAL_NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 
 function mmtl_defaults() {
     return array(
@@ -217,6 +218,29 @@ function mmtl_valid_uuid($value) {
     return preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/', (string) $value) === 1;
 }
 
+function mmtl_uuid_v5($namespace, $name) {
+    $namespace_hex = str_replace('-', '', strtolower(trim((string) $namespace)));
+    if (strlen($namespace_hex) !== 32 || !ctype_xdigit($namespace_hex)) {
+        return '';
+    }
+    $hash = sha1(pack('H*', $namespace_hex) . (string) $name);
+    $time_hi = (hexdec(substr($hash, 12, 4)) & 0x0fff) | 0x5000;
+    $clock_seq = (hexdec(substr($hash, 16, 4)) & 0x3fff) | 0x8000;
+    return substr($hash, 0, 8) . '-'
+        . substr($hash, 8, 4) . '-'
+        . sprintf('%04x', $time_hi) . '-'
+        . sprintf('%04x', $clock_seq) . '-'
+        . substr($hash, 20, 12);
+}
+
+function mmtl_derived_principal_for_user($user_id) {
+    $user_id = absint($user_id);
+    if ($user_id < 1) {
+        return '';
+    }
+    return mmtl_uuid_v5(MMTL_PRINCIPAL_NAMESPACE, 'missionmedinstitute.com/timeline/wp-user/' . $user_id);
+}
+
 function mmtl_principal_for_user($user_id) {
     $user_id = absint($user_id);
     if ($user_id < 1) {
@@ -228,7 +252,10 @@ function mmtl_principal_for_user($user_id) {
             ? $existing
             : new WP_Error('timeline_identity_conflict', 'Timeline identity mapping is invalid.', array('status' => 503));
     }
-    return new WP_Error('timeline_identity_unmapped', 'Timeline identity is not provisioned.', array('status' => 503));
+    $derived = mmtl_derived_principal_for_user($user_id);
+    return mmtl_valid_uuid($derived)
+        ? $derived
+        : new WP_Error('timeline_identity_invalid', 'Timeline identity is invalid.', array('status' => 500));
 }
 
 function mmtl_secret() {
@@ -417,13 +444,13 @@ function mmtl_token_permission($request) {
     if ($nonce === '' || !wp_verify_nonce($nonce, 'wp_rest')) {
         return new WP_Error('csrf_failed', 'A valid WordPress REST nonce is required.', array('status' => 403));
     }
-    $access = mmtl_access_state(wp_get_current_user());
+    $access = mmtl_eligibility_state(wp_get_current_user());
     return is_wp_error($access) ? $access : true;
 }
 
 function mmtl_token_endpoint($request) {
     $user = wp_get_current_user();
-    $access = mmtl_access_state($user);
+    $access = mmtl_eligibility_state($user);
     if (is_wp_error($access)) {
         return $access;
     }
@@ -461,7 +488,7 @@ function mmtl_ajax_bootstrap() {
         ), 401);
     }
     $user = wp_get_current_user();
-    $access = mmtl_access_state($user);
+    $access = mmtl_eligibility_state($user);
     if (is_wp_error($access)) {
         wp_send_json_error(array('code' => $access->get_error_code(), 'message' => $access->get_error_message()), (int) ($access->get_error_data()['status'] ?? 403));
     }
@@ -479,7 +506,10 @@ function mmtl_ajax_bootstrap() {
         'token_ttl_seconds' => (int) $settings['token_ttl_seconds'],
         'remote_sync_consent' => !empty($access['remote_sync_consent']),
         'remote_sync_allowed' => !empty($access['remote_sync_allowed']),
+        'consent_required' => empty($access['administrator']) && empty($access['remote_sync_consent']),
         'consent_version' => (string) $access['consent_version'],
+        'consent_nonce' => wp_create_nonce('missionmed_timeline_remote_sync_consent'),
+        'consent_action' => home_url($settings['base_path']),
         'user' => array(
             'wp_user_id' => (int) $user->ID,
             'principal_id' => $principal,

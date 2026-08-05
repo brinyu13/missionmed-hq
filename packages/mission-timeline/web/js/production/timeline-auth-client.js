@@ -68,7 +68,10 @@ export class TimelineProductionAuthClient{
       role:String(data.user?.role||""),
       remoteSyncConsent:data.remote_sync_consent===true,
       remoteSyncAllowed:data.remote_sync_allowed===true||data.remote_sync_consent===true,
+      consentRequired:data.consent_required===true,
       consentVersion:String(data.consent_version||""),
+      consentNonce:String(data.consent_nonce||""),
+      consentAction:sameOriginUrl(data.consent_action||this.locationObject.pathname,origin),
     };
     if(!this.bootstrapState.nonce||!this.bootstrapState.principalId||!Number.isSafeInteger(this.bootstrapState.wpUserId)){
       throw new TimelineProductionAuthError("TIMELINE_BOOTSTRAP_INVALID","Timeline identity bootstrap is invalid.");

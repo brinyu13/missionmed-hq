@@ -37,9 +37,12 @@ test("canary is exact-allowlist only and student entry requires verified course 
   assert.match(plugin, /function mmtl_user_can_enter\(\) \{\s*return is_user_logged_in\(\) && !is_wp_error\(mmtl_eligibility_state\(wp_get_current_user\(\)\)\);\s*\}/);
   assert.match(route, /missionmed_timeline_remote_sync_consent/);
   assert.match(route, /wp_verify_nonce/);
-  assert.match(route, /Agree and open Timeline Builder/);
-  assert.match(route, /function mmtlr_render_consent\(\$user\)[\s\S]*?status_header\(200\);[\s\S]*?Cache-Control: no-store, private/);
-  assert.match(route, /function mmtlr_render_consent\(\$user\)[\s\S]*?Referrer-Policy: same-origin/);
+  assert.match(route, /function mmtlr_handle_consent_post\(\$user\)/);
+  assert.match(route, /timeline_remote_sync_action/);
+  assert.match(route, /mmtl_record_remote_sync_consent/);
+  assert.match(route, /mmtl_withdraw_remote_sync_consent/);
+  assert.doesNotMatch(route, /Save your Timeline securely/);
+  assert.doesNotMatch(route, /Consent version:/);
   assert.match(plugin, /administrator_approval_required/);
   assert.match(plugin, /\$settings\['rollout_stage'\] === 'eligible_360' && !\$administrator && empty\(\$settings\['eligibility_verified'\]\)/);
   assert.match(plugin, /eligibility_unverified/);
@@ -56,9 +59,11 @@ test("token route uses real permission checks, nonce, origin, no-store, and boun
   assert.match(plugin, /Cache-Control: no-store, private/);
 });
 
-test("gateway requires the immutable mapped principal and a Timeline bearer token", () => {
+test("gateway uses an immutable existing or deterministic first-use principal and a Timeline bearer token", () => {
   assert.match(plugin, /_missionmed_timeline_principal_id/);
-  assert.match(plugin, /timeline_identity_unmapped/);
+  assert.match(plugin, /function mmtl_uuid_v5/);
+  assert.match(plugin, /function mmtl_derived_principal_for_user/);
+  assert.match(plugin, /missionmedinstitute\.com\/timeline\/wp-user\//);
   assert.doesNotMatch(plugin, /add_user_meta/);
   assert.match(plugin, /mmtl_verify_jwt\(\$token, \$principal, \(int\) \$user->ID, \$access\)/);
   assert.match(plugin, /X-MissionMed-Timeline-Gateway-Secret/);
@@ -86,7 +91,7 @@ test("Kinsta route uses a Timeline-owned execution-private bundle and extensionl
   assert.match(route, /base64_decode/);
   assert.match(route, /hash\('sha256', \$bytes\)/);
   assert.match(route, /X-MissionMed-Timeline-Release/);
-  assert.equal(route.match(/status_header\(200\)/g)?.length, 3);
+  assert.equal(route.match(/status_header\(200\)/g)?.length, 2);
   assert.doesNotMatch(route, /MISSIONMED_TIMELINE_RELEASE_ROOT/);
   assert.doesNotMatch(route, /readfile\(/);
 });

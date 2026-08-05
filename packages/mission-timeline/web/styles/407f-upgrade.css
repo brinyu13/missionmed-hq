@@ -209,6 +209,97 @@
   white-space:nowrap;
 }
 
+.timelineSecureSaveCard{
+  margin-top:20px;
+  padding:18px;
+  border:1px solid rgba(57,214,255,.34);
+  border-radius:12px;
+  background:linear-gradient(135deg,rgba(57,214,255,.08),rgba(138,125,255,.07));
+}
+
+.timelineSecureSaveEyebrow{
+  margin-bottom:6px;
+  color:var(--cy);
+  font-family:var(--num);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+}
+
+.timelineSecureSaveCard h2{
+  color:var(--tx);
+  font-size:19px;
+  font-weight:800;
+}
+
+.timelineSecureSaveCard>p{
+  max-width:62ch;
+  margin-top:7px;
+  color:var(--mid);
+  font-size:13px;
+  line-height:1.55;
+}
+
+.timelineSecureSaveForm label{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  margin-top:14px;
+  color:var(--tx);
+  font-size:13px;
+  line-height:1.45;
+}
+
+.timelineSecureSaveForm label input{
+  width:18px;
+  height:18px;
+  margin-top:1px;
+  accent-color:var(--em);
+  flex:none;
+}
+
+.timelineSecureSaveActions{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:12px 18px;
+  margin-top:14px;
+}
+
+.timelineSecureSaveActions a{
+  color:var(--cy);
+  font-size:12px;
+  font-weight:700;
+  text-decoration:none;
+}
+
+.timelineSecureSaveManage{
+  margin-top:14px;
+  color:var(--mid);
+  font-size:12px;
+}
+
+.timelineSecureSaveManage summary{
+  width:max-content;
+  max-width:100%;
+  cursor:pointer;
+  color:var(--gn);
+  font-family:var(--num);
+  font-weight:700;
+  letter-spacing:.05em;
+}
+
+.timelineSecureSaveManage>div{
+  margin-top:9px;
+  padding:12px 14px;
+  border-left:2px solid var(--edge2);
+}
+
+.timelineSecureSaveManage form{
+  margin-top:6px;
+}
+
 .homeIntakeRegion h2,
 .homeTimelineRegion h2{
   color:var(--tx);

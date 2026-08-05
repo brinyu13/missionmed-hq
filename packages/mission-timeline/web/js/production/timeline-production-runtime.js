@@ -42,7 +42,9 @@ export async function prepareTimelineProductionRuntime({fetchImpl=globalThis.fet
   });
   const identity=await authClient.initialize();
   const remotePersistenceAllowed=productionRemotePersistenceAllowed(identity);
-  const listing=await authClient.listDocuments();
+  const listing=remotePersistenceAllowed
+    ?await authClient.listDocuments()
+    :{documents:[]};
   const documents=Array.isArray(listing?.documents)?listing.documents:[];
   const active=documents[0]||null;
   const newDocumentId=`timeline_${crypto.randomUUID()}`;

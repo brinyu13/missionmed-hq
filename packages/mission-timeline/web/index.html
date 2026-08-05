@@ -33,6 +33,15 @@ html.d1-hydrating #d1HydrationGate{
   font:700 12px/1.5 'Rajdhani',sans-serif;letter-spacing:.2em;
   text-transform:uppercase
 }
+#d1HydrationGate.d1Recovery{padding:24px;text-align:left;text-transform:none}
+.d1RecoveryPanel{width:min(680px,100%);padding:36px;border:1px solid #31405c;border-radius:16px;background:linear-gradient(160deg,#141b2b,#0d1422);box-shadow:0 24px 80px rgba(0,0,0,.5)}
+.d1RecoveryEyebrow{margin-bottom:12px;color:#ffb340;font:700 11px/1.4 'Rajdhani',sans-serif;letter-spacing:.16em;text-transform:uppercase}
+.d1RecoveryPanel h1{margin:0;color:#f4f7ff;font:800 italic clamp(25px,4vw,38px)/1.15 'Archivo',system-ui,sans-serif;letter-spacing:-.02em}
+.d1RecoveryPanel>p:not(.d1RecoveryEyebrow){max-width:52ch;margin:16px 0 0;color:#a9b7d0;font:500 15px/1.6 'Archivo',system-ui,sans-serif}
+.d1RecoveryActions{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
+.d1RecoveryActions button,.d1RecoveryActions a{display:inline-flex;min-height:44px;align-items:center;justify-content:center;padding:0 20px;border:1px solid #31405c;border-radius:6px;font:800 13px/1 'Archivo',system-ui,sans-serif;text-decoration:none}
+.d1RecoveryActions button{background:linear-gradient(90deg,#ffb340,#ff7a3d);color:#10131c}
+.d1RecoveryActions a{color:#39d6ff}
 body{background:
   radial-gradient(ellipse at 18% 12%,rgba(57,214,255,.16),transparent 34%),
   radial-gradient(ellipse at 88% 18%,rgba(255,122,61,.14),transparent 34%),

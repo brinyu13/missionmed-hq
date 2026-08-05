@@ -59,7 +59,9 @@ test("M12 conceals prototype state until canonical hydration completes",()=>{
     adapter,
     /window\.D1_407F_ENGINEERING=api;\s*bridge\.renderAll\(\);\s*document\.documentElement\.classList\.remove\("d1-hydrating"\)/
   );
-  assert.match(adapter,/Timeline could not be loaded safely\./);
+  assert.match(adapter,/Your Timeline needs a fresh connection\./);
+  assert.match(adapter,/retry\.textContent="Retry"/);
+  assert.match(adapter,/back\.textContent="Return to Matrix"/);
 });
 
 test("M12 re-arms exit persistence after a BFCache restore",()=>{

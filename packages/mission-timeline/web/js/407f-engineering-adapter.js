@@ -717,6 +717,46 @@ function escapeMarkup(value){
   })[character]);
 }
 
+export function productionPrivacyControlMarkup(identity){
+  if(identity?.role!=="STUDENT")return"";
+  const action=escapeMarkup(identity.consentAction);
+  const nonce=escapeMarkup(identity.consentNonce);
+  if(identity.remoteSyncConsent!==true){
+    return`<aside class="timelineSecureSaveCard" data-timeline-privacy-control role="region" aria-labelledby="timelineSecureSaveTitle">
+      <p class="timelineSecureSaveEyebrow">Secure access across devices</p>
+      <h2 id="timelineSecureSaveTitle">Keep your Timeline with you.</h2>
+      <p>Your work is already safe on this device. Turn on secure saving when you want to reopen it on your other authorized MissionMed devices.</p>
+      <form method="post" action="${action}" class="timelineSecureSaveForm">
+        <input type="hidden" name="_wpnonce" value="${nonce}">
+        <input type="hidden" name="timeline_remote_sync_action" value="grant">
+        <label><input required type="checkbox" name="timeline_remote_sync_consent" value="grant"> <span>I agree to securely save my Timeline in my private MissionMed account.</span></label>
+        <div class="timelineSecureSaveActions">
+          <button type="submit" class="btnD go">TURN ON SECURE SAVING ▸</button>
+          <a href="${escapeMarkup(identity.matrixUrl)}">Not now — return to Matrix</a>
+        </div>
+      </form>
+    </aside>`;
+  }
+  return`<details class="timelineSecureSaveManage" data-timeline-privacy-control>
+    <summary>Secure saving is on · Privacy settings</summary>
+    <div>
+      <p>Your Timeline is available on your authorized MissionMed devices. Turning this off keeps this device copy and stops remote saving.</p>
+      <form method="post" action="${action}">
+        <input type="hidden" name="_wpnonce" value="${nonce}">
+        <input type="hidden" name="timeline_remote_sync_action" value="withdraw">
+        <button type="submit" class="homeTertiary">Turn off secure saving</button>
+      </form>
+    </div>
+  </details>`;
+}
+
+function installProductionPrivacyControl(identity){
+  if(identity?.role!=="STUDENT")return;
+  const host=document.querySelector(".homeBuildRegion>.pi");
+  if(!host||host.querySelector("[data-timeline-privacy-control]"))return;
+  host.insertAdjacentHTML("beforeend",productionPrivacyControlMarkup(identity));
+}
+
 function persistedIntakeState(state){
   const value=clone(state);
   if(value.stage==="done"){
@@ -5032,6 +5072,9 @@ export async function boot407FEngineeringAdapter({
     ));
     if(!["builder","canvas"].includes(view))closeMediaLibrary();
     if(["builder","canvas","media"].includes(view))renderMediaLibrarySurfaces();
+    if(view==="command"&&productionRuntime){
+      installProductionPrivacyControl(productionRuntime.identity);
+    }
     if(view===lastFocusedView)return;
     cancelAnimationFrame(routeFocusFrame);
     routeFocusFrame=requestAnimationFrame(()=>{
@@ -5094,7 +5137,33 @@ if(typeof window!=="undefined"){
   boot407FEngineeringAdapter().catch((error)=>{
     console.error("407F engineering adapter failed",error);
     const gate=document.getElementById("d1HydrationGate");
-    if(gate)gate.textContent="Timeline could not be loaded safely.";
+    if(gate){
+      gate.textContent="";
+      gate.classList.add("d1Recovery");
+      const panel=document.createElement("section");
+      panel.className="d1RecoveryPanel";
+      panel.setAttribute("role","alert");
+      const eyebrow=document.createElement("p");
+      eyebrow.className="d1RecoveryEyebrow";
+      eyebrow.textContent="MissionMed Timeline Builder";
+      const title=document.createElement("h1");
+      title.textContent="Your Timeline needs a fresh connection.";
+      const detail=document.createElement("p");
+      detail.textContent="Your work on this device is still safe. Try again, or return to Matrix and reopen Timeline Builder.";
+      const actions=document.createElement("div");
+      actions.className="d1RecoveryActions";
+      const retry=document.createElement("button");
+      retry.type="button";
+      retry.textContent="Retry";
+      retry.addEventListener("click",()=>window.location.reload(),{once:true});
+      const back=document.createElement("a");
+      back.href=new URL("/member-dashboard/",window.location.origin).href;
+      back.textContent="Return to Matrix";
+      actions.append(retry,back);
+      panel.append(eyebrow,title,detail,actions);
+      gate.append(panel);
+      gate.dataset.errorCode=String(error?.code||"TIMELINE_BOOTSTRAP_FAILED");
+    }
     document.dispatchEvent(new CustomEvent("d1:407f-engineering-error",{
       detail:{message:String(error?.message||error)}
     }));

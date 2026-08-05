@@ -39,6 +39,7 @@ file("database/migrations/202608020003_d1_411c_identity_and_admin_grants.sql");
 file("database/roles/202608020001_d1_411c_runtime_roles.sql");
 file("database/migrations/202608040004_d1_500_grant_hardening.sql");
 file("database/roles/202608040002_d1_500_runtime_roles.sql");
+file("database/migrations/20260805223000_rc1_first_use_identity_provisioning.sql");
 
 const claims = (principalId, wpUserId, role, extra = {}) => JSON.stringify({
   sub: principalId,
@@ -59,6 +60,11 @@ const studentAClaims = claims("student_a", 410001, "STUDENT");
 const studentBClaims = claims("student_b", 410002, "STUDENT");
 const studentDeniedClaims = claims("student_a", 410001, "STUDENT", { has_learndash_3893_access: false });
 const grantAuthorityClaims = claims("service_export", 410009, "SERVICE", { service_scopes: ["audit:read"] });
+const firstUsePrincipalId = "bce24766-0392-58f4-95ce-6655d2d952df";
+const firstUseClaims = claims(firstUsePrincipalId, 410101, "STUDENT", { program_ids: [] });
+const firstUseIneligibleClaims = claims("ba0c7a54-8354-51ef-91d2-253b75978cc8", 410102, "STUDENT", {
+  program_ids: [], has_learndash_3893_access: false,
+});
 
 function affectedRows(claimSet, statement, role = "timeline_authenticated", persist = false) {
   return Number(sql(`begin; set local role ${role}; select set_config('request.jwt.claims','${claimSet}',true); with affected as (${statement} returning 1) select count(*) from affected; ${persist ? "commit" : "rollback"};`).stdout.split("\n").at(-1));
@@ -70,6 +76,51 @@ const studentBCross = Number(sql(`begin; set local role timeline_authenticated; 
 const deniedWithoutEntitlement = visibleDocuments(studentDeniedClaims);
 const studentAOwnUpdate = affectedRows(studentAClaims, "update timeline.documents set status=status where id='document_a'");
 const studentBCrossUpdate = affectedRows(studentBClaims, "update timeline.documents set status=status where id='document_a'");
+
+sql(`
+  begin;
+  set local role timeline_identity_sync;
+  select set_config('request.jwt.claims','${firstUseClaims}',true);
+  insert into timeline.principals (id, matrix_wp_user_id, wp_user_id, role, status)
+  values ('${firstUsePrincipalId}', 410101, 410101, 'STUDENT', 'ACTIVE');
+  insert into timeline.principal_programs (principal_id, program_id)
+  values ('${firstUsePrincipalId}', 'missionmed-360:3893');
+  insert into timeline.audit_events (id, actor_id, action, resource_type, resource_id, outcome, request_id, metadata_json)
+  values ('audit_rc1_first_use', '${firstUsePrincipalId}', 'PRINCIPAL_PROVISIONED_FIRST_USE', 'PRINCIPAL', '${firstUsePrincipalId}', 'SUCCESS', 'request_rc1_first_use', '{}'::jsonb);
+  commit;
+`);
+const firstUseAuthenticatedVisibility = Number(sql(`
+  begin;
+  set local role timeline_authenticated;
+  select set_config('request.jwt.claims','${firstUseClaims}',true);
+  select
+    (select count(*) from timeline.principals where id='${firstUsePrincipalId}')
+    + (select count(*) from timeline.principal_programs where principal_id='${firstUsePrincipalId}');
+  rollback;
+`).stdout.split("\n").at(-1));
+const firstUseAuditCount = Number(sql(`
+  begin;
+  set local role timeline_authenticated;
+  select set_config('request.jwt.claims','${firstUseClaims}',true);
+  select count(*) from timeline.audit_events where id='audit_rc1_first_use';
+  rollback;
+`).stdout.split("\n").at(-1));
+const firstUseIneligibleAttempt = sql(`
+  begin;
+  set local role timeline_identity_sync;
+  select set_config('request.jwt.claims','${firstUseIneligibleClaims}',true);
+  insert into timeline.principals (id, matrix_wp_user_id, wp_user_id, role, status)
+  values ('ba0c7a54-8354-51ef-91d2-253b75978cc8', 410102, 410102, 'STUDENT', 'ACTIVE');
+  rollback;
+`, { allowFailure: true });
+const firstUseCrossSubjectAttempt = sql(`
+  begin;
+  set local role timeline_identity_sync;
+  select set_config('request.jwt.claims','${firstUseClaims}',true);
+  insert into timeline.principals (id, matrix_wp_user_id, wp_user_id, role, status)
+  values ('6bd1f3c3-6174-5afd-ac97-02e9a0ad2680', 410103, 410103, 'STUDENT', 'ACTIVE');
+  rollback;
+`, { allowFailure: true });
 
 const ordinaryAdminGrantAttempt = sql(`
   begin;
@@ -260,6 +311,10 @@ const result = {
   cross_student_target_visible_documents: studentBCross,
   cross_student_updated_documents: studentBCrossUpdate,
   student_without_learndash_3893_visible_documents: deniedWithoutEntitlement,
+  first_use_authenticated_identity_rows: firstUseAuthenticatedVisibility,
+  first_use_audit_rows: firstUseAuditCount,
+  first_use_ineligible_rejected: firstUseIneligibleAttempt.status !== 0,
+  first_use_cross_subject_rejected: firstUseCrossSubjectAttempt.status !== 0,
   ordinary_session_grant_rejected: ordinaryAdminGrantAttempt.status !== 0,
   missing_audit_grant_rejected: missingAuditGrantAttempt.status !== 0,
   authority_without_scope_rejected: authorityWithoutScopeAttempt.status !== 0,
@@ -286,6 +341,10 @@ const pass = result.schema_version === "d1-timeline-db-500.1"
   && result.cross_student_target_visible_documents === 0
   && result.cross_student_updated_documents === 0
   && result.student_without_learndash_3893_visible_documents === 0
+  && result.first_use_authenticated_identity_rows === 2
+  && result.first_use_audit_rows === 1
+  && result.first_use_ineligible_rejected
+  && result.first_use_cross_subject_rejected
   && result.ordinary_session_grant_rejected
   && result.missing_audit_grant_rejected
   && result.authority_without_scope_rejected

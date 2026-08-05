@@ -69,6 +69,37 @@ test("approved administrators keep Timeline authoring device-local and never enq
   }finally{globalThis.indexedDB=originalIndexedDb;}
 });
 
+test("eligible first-use students open the accepted Timeline locally before granting secure saving",async()=>{
+  const originalIndexedDb=globalThis.indexedDB;
+  const requests=[];
+  const fetchImpl=async(url,options={})=>{
+    const href=String(url);
+    requests.push({href,method:options.method||"GET"});
+    if(href.includes("admin-ajax.php"))return new Response(JSON.stringify({success:true,data:{
+      nonce:"nonce",token_endpoint:"https://missionmed.example/wp-json/missionmed-timeline/v1/token",
+      api_base:"https://missionmed.example/timeline/api/v1",matrix_url:"https://missionmed.example/member-dashboard/",
+      remote_sync_allowed:false,remote_sync_consent:false,consent_required:true,consent_version:"d1-500-v1",
+      consent_nonce:"consent-nonce",consent_action:"https://missionmed.example/timeline/",
+      user:{wp_user_id:42,principal_id:principalId,role:"STUDENT"}
+    }}),{status:200,headers:{"content-type":"application/json"}});
+    if(href.includes("/token"))return new Response(JSON.stringify({token:token(),nonce:"next"}),{status:200,headers:{"content-type":"application/json"}});
+    throw new Error(`unexpected first-use remote request ${href}`);
+  };
+  try{
+    globalThis.indexedDB=new IDBFactory();
+    const runtime=await prepareTimelineProductionRuntime({fetchImpl,locationObject:locationObject()});
+    assert.equal(runtime.identity.consentRequired,true);
+    assert.equal(runtime.identity.consentNonce,"consent-nonce");
+    assert.equal(runtime.identity.consentAction,"https://missionmed.example/timeline/");
+    assert.equal(runtime.remotePersistenceAllowed,false);
+    assert.equal(runtime.privateMediaStorageEnabled,false);
+    assert.equal(runtime.adapter.remoteSyncConsent,false);
+    assert.deepEqual(requests.map(({method})=>method),["GET","POST"]);
+    assert.equal(requests.some(({href})=>href.endsWith("/documents")),false);
+    runtime.adapter.close();
+  }finally{globalThis.indexedDB=originalIndexedDb;}
+});
+
 test("authenticated runtime uses a principal-and-resource scoped recovery cache and server hydration",async()=>{
   const requests=[];
   let issuedToken="";

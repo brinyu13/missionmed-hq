@@ -54,7 +54,7 @@ require dirname(__DIR__, 4) . '/wp-content/plugins/missionmed-timeline-sso/missi
 $GLOBALS['mmtl_options'][MMTL_OPTION] = array(
     'timeline_enabled' => true,
     'rollout_stage' => 'canary',
-    'canary_wp_user_ids' => array(101, 201),
+    'canary_wp_user_ids' => array(101, 104, 201),
     'eligibility_verified' => true,
     'entitlement_version' => 'course-3893-live-1',
     'consent_version' => 'd1-500-v1',
@@ -71,14 +71,22 @@ $GLOBALS['mmtl_user_meta'][201] = array(
 );
 
 $student = new WP_User(101, false);
+$first_use_student = new WP_User(104, false);
 $admin = new WP_User(201, true);
 $denied = new WP_User(102, false);
+$GLOBALS['mmtl_course_access'][104] = true;
 $student_access = mmtl_access_state($student);
+$first_use_access = mmtl_eligibility_state($first_use_student);
 $admin_access = mmtl_access_state($admin);
 $denied_access = mmtl_access_state($denied);
+$first_use_principal = mmtl_principal_for_user(104);
+$first_use_principal_repeat = mmtl_principal_for_user(104);
 
 $checks = array(
     'student_canary' => !is_wp_error($student_access) && $student_access['role'] === 'STUDENT' && $student_access['remote_sync_consent'] === true,
+    'first_use_principal_is_valid' => !is_wp_error($first_use_principal) && mmtl_valid_uuid($first_use_principal),
+    'first_use_principal_is_stable' => $first_use_principal === $first_use_principal_repeat,
+    'first_use_principal_does_not_write_meta' => get_user_meta(104, MMTL_PRINCIPAL_META, true) === '',
     'admin_canary' => !is_wp_error($admin_access) && $admin_access['role'] === 'PROGRAM_ADMIN' && $admin_access['remote_sync_consent'] === false && $admin_access['remote_sync_allowed'] === true,
     'nonallowlisted_denied' => is_wp_error($denied_access) && $denied_access->get_error_code() === 'canary_access_required',
 );
@@ -100,6 +108,9 @@ $issued = mmtl_issue_jwt($student, $student_access);
 $verified = mmtl_verify_jwt($issued['token'], $issued['principal_id'], 101, $student_access);
 $checks['jwt_round_trip'] = is_array($verified) && $verified['timeline_role'] === 'STUDENT' && $verified['timeline_remote_sync_consent'] === true;
 $checks['jwt_remote_sync_allowed'] = is_array($verified) && $verified['timeline_remote_sync_allowed'] === true;
+$first_use_issued = mmtl_issue_jwt($first_use_student, $first_use_access);
+$checks['first_use_jwt_issued'] = !is_wp_error($first_use_issued) && $first_use_issued['principal_id'] === $first_use_principal;
+$checks['first_use_jwt_is_local_only'] = !is_wp_error($first_use_issued) && json_decode((string) mmtl_base64url_decode(explode('.', $first_use_issued['token'])[1]), true)['timeline_remote_sync_allowed'] === false;
 $changed_access = $student_access;
 $changed_access['entitlement_version'] = 'revoked';
 $checks['entitlement_change_rejects_token'] = is_wp_error(mmtl_verify_jwt($issued['token'], $issued['principal_id'], 101, $changed_access));
