@@ -36,3 +36,16 @@ The rollback mechanism was exercised during RC1 after a wrong-root upload: deplo
 ## Reactivation
 
 After rollback validation, restore the exact backed-up admission option only after health, access, direct-API denial, and identity tests pass. The accepted final policy is `timeline_enabled=true`, `rollout_stage=eligible_360`, one approved administrator canary ID, verified entitlement, and consent version `d1-500-v1`.
+
+## Recovery 002 receipts and rollback targets
+
+- Pre-recovery Kinsta snapshot: `/www/theresidencyacademy_209/private/timeline-rc1-recovery-backups/20260805T224704Z`.
+- Pre-consent-hotfix Kinsta snapshot: `/www/theresidencyacademy_209/private/timeline-rc1-recovery-backups/20260805T231723Z-consent`.
+- Railway PostgreSQL snapshot: `TIMELINE-RC1-RECOVERY-PRE-20260805T224704Z`, ID `e445676e-3929-4946-b56b-4ec544a49e24`, non-expiring at creation.
+- Current Kinsta pointer: `releases/timeline-wp-7619ed467ec95270`.
+- Previous working recovery pointer: `releases/timeline-wp-da5bf0b8b16bb3c7`.
+- Current Railway deployment: `b0c3401a-c482-4aac-9580-8e0067554289`; immediately prior recovery deployment: `acdc8597-b42b-4afd-82cf-876526b5a31f`.
+- Pre-font-packaging Kinsta snapshot: `/www/theresidencyacademy_209/private/timeline-rc1-recovery-backups/20260805T233504Z-font-assets`; checksum verified and pointer preserved.
+- Current font-fixed Kinsta pointer: `releases/timeline-wp-01b09664228a865a`; immediate rollback pointer: `releases/timeline-wp-7619ed467ec95270`.
+
+Immediate containment remains the Timeline feature/access kill switch. Application rollback does not drop the schema or delete documents/media. After rollback, verify `/healthz`, `403 GATEWAY_REQUIRED`, anonymous denial, eligible access, and unchanged unrelated applications before restoring the eligible-360 gate.

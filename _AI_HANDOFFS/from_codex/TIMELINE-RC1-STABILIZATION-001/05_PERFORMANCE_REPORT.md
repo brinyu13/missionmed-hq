@@ -34,3 +34,7 @@ RC1 avoids unchanged preview rebuilds by comparing a presentation signature befo
 ## Session renewal
 
 Production issued two distinct JWTs, both authorized the Timeline API with `200`, TTL was 120 seconds, and the renewed token expiry exceeded 90 seconds. The browser client schedules background refresh 30 seconds before expiry.
+
+## Recovery 002 performance and session evidence
+
+The repaired clean Incognito session remained authenticated beyond the former 120-second token window, retained remote hydration, and displayed `SAVED & SYNCED`. A post-deployment refresh briefly displayed truthful `SAVING…` during reconciliation, then settled to `SAVED & SYNCED` with the protected preview rendered. Sequential principal-directory reads add only the latency of three small indexed authorization queries on a connection that cannot execute them concurrently; they remove the pg 9 incompatibility without changing payloads or extra round trips outside the existing transaction.

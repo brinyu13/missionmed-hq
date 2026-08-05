@@ -34,3 +34,7 @@ Provider inspection showed current R2-period cost of approximately $0.03 and an 
 - WordPress CLI exits `139` after option writes on this Kinsta environment: every write was independently read back before continuing.
 
 Unrelated application impact: **NONE**.
+
+## Recovery 002 blast radius
+
+Recovery touched only the Timeline SSO plugin, Timeline frontend auth/adapter code, Timeline identity directory, one Timeline-only migration, Timeline tests, the immutable Timeline WordPress release pointer, and the Timeline Railway API service. PostgreSQL schema version stayed `d1-timeline-db-500.1`. No live Matrix runtime, shared login policy, WordPress core, DNS, CDN, R2 public access, avatar data, StoryForge, Arena, USCE, File Vault, Supabase, or unrelated Railway service changed. The final query-serialization repair changes only execution order of three reads inside an existing authorization transaction.

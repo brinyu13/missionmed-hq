@@ -16,3 +16,14 @@
 {"at":"2026-08-05T21:36:20Z","event":"final_railway_release","deployment":"075cf61c-a91b-4bb7-ba41-69bebdbb3d17","release":"timeline-c9eda9eeb7d6cf98","result":"PASS"}
 {"at":"2026-08-05T21:37:00Z","event":"final_wordpress_release","release":"timeline-wp-7230b1b928fcbad2","payload_sha256":"6d6542c13f6dfd34ec9cda8c4b3b4788e704e87833a35db84d2735aaff0def90","result":"PASS"}
 {"at":"2026-08-05T21:38:00Z","event":"critical_systems_gate","result":"PASS","unrelated_application_impact":"NONE"}
+{"at":"2026-08-05T22:47:04Z","event":"recovery_backup_created","scope":"timeline_wordpress_and_postgresql","result":"PASS"}
+{"at":"2026-08-05T22:54:25Z","event":"first_use_identity_recovery_deployed","deployment":"acdc8597-b42b-4afd-82cf-876526b5a31f","result":"PASS"}
+{"at":"2026-08-05T23:18:00Z","event":"contextual_consent_ajax_recovery_deployed","release":"timeline-wp-7619ed467ec95270","result":"PASS"}
+{"at":"2026-08-05T23:20:00Z","event":"clean_browser_consent_and_hydration","state":"SAVED & SYNCED","result":"PASS"}
+{"at":"2026-08-05T23:26:07Z","event":"postgres_client_query_serialization_deployed","deployment":"b0c3401a-c482-4aac-9580-8e0067554289","result":"PASS"}
+{"at":"2026-08-05T23:27:18Z","event":"post_deploy_refresh_and_renewal","state":"SAVED & SYNCED","result":"PASS"}
+{"at":"2026-08-05T23:33:00Z","event":"independent_font_404_finding","result":"REPAIR_REQUIRED","count":4}
+{"at":"2026-08-05T23:35:04Z","event":"font_packaging_backup_created","path":"/www/theresidencyacademy_209/private/timeline-rc1-recovery-backups/20260805T233504Z-font-assets","result":"PASS"}
+{"at":"2026-08-05T23:35:45Z","event":"font_asset_packaging_repair_deployed","release":"timeline-wp-01b09664228a865a","result":"PASS"}
+{"at":"2026-08-05T23:39:00Z","event":"fresh_independent_verification","console_errors":0,"failed_network_requests":0,"font_assets":"5/5 200","state":"SAVED & SYNCED","result":"PASS"}
+{"at":"2026-08-05T23:40:00Z","event":"reopened_release_sealed","gates":"50/50","result":"PASS","unrelated_application_impact":"NONE"}

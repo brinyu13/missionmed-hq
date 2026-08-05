@@ -28,3 +28,23 @@ Final production certification:
 - Approved administrator custody: production runtime retains `remotePersistenceAllowed=false`, queues zero remote writes, and direct server media signing returns `OBJECT_UPLOAD_ROLE_DENIED` before repository access.
 
 The production page's authenticated visual re-navigation could not be repeated through the browser-control extension after it began returning a local client-side block, and the Founder was actively using Chrome. The shipped WordPress payload was hash-verified, the exact same static RC1 payload passed the local browser suite and screenshot verification, and authenticated server/API canaries passed. No product or origin error was inferred from the local extension condition.
+
+## Reopened recovery regression
+
+- Authoritative suite: **644/644 PASS** (`138` TypeScript + `506` MJS), zero failures.
+- Typecheck: PASS.
+- API build/API-only boundary: PASS; `dist-api/server.mjs` contained zero forbidden frontend matches.
+- First-use eligible student: PASS; principal and course-3893 program membership created once and audited.
+- Ineligible first use: PASS; no principal insert.
+- Concurrent-query guard: PASS; maximum in-flight queries on the checked-out client equals `1`.
+- Clean real-browser consent grant: PASS; progress state, reload, existing timeline hydration, and `SAVED & SYNCED`.
+- Existing consent, refresh, re-entry, and renewal: PASS.
+- Consent withdrawal: PASS; local-safe mode returned and remote data was preserved. Authorized test metadata was restored afterward.
+- Anonymous: `303` through the Matrix/member-dashboard return flow.
+- Non-360/revoked fixture: denied with `eligibility_required`; fixture deleted.
+- Direct API: `403 GATEWAY_REQUIRED`.
+- Two real student owners: own document visible; cross-owner document count `0` in both directions.
+- Stale local-profile conflict: safe `SYNC CONFLICT — REVIEW`, with neither side overwritten. Clean profile: normal hydration.
+- Current API deployment: health PASS and post-refresh logs contain no pg concurrent-query warning.
+- WordPress font packaging: five inline font URLs rewritten to immutable aliases; no `/timeline/assets/fonts/` or `./assets/fonts/` reference remains in the runtime index.
+- Font payload build: `timeline-wp-01b09664228a865a`, 61 accepted assets, index SHA-256 `676a241e6f060193d101500f8758b78f156a806b0dbee9d45ec7d68664dae93a`.

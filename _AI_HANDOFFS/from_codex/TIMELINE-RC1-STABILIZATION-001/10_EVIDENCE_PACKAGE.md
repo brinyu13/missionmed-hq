@@ -25,3 +25,16 @@ Credential hygiene:
 - The first provider token was revoked after an unexpected UI exposure; only the replacement was installed.
 
 The package manifest must be validated with `shasum -a 256 -c PACKAGE_MANIFEST.sha256` after the last content change.
+
+## Recovery 002 final receipts
+
+- Source: `d43af9800ee49407a5cfe43bd2f44b131475867a`.
+- Kinsta release: `timeline-wp-01b09664228a865a`, SHA-256 `52a299e814bd6b054e337b8d450f1d987c570739fe4fd9ffebc0d4de2bbd7186`.
+- Static release: `timeline-f5f8ad51fd48010b`.
+- Railway: `b0c3401a-c482-4aac-9580-8e0067554289`, image `sha256:fb5493c8fc87b6764d202d84f13b7103fea3172552047e4bd0d4dab2b0c9dd22`.
+- Health: `200`, `timeline-c9eda9eeb7d6cf98`, `d1-timeline-db-500.1`.
+- Direct API denial: `403 GATEWAY_REQUIRED`.
+- Tests: `644/644`, typecheck PASS, API-only build PASS.
+- Browser truth: clean Incognito grant/hydration/refresh/renewal `SAVED & SYNCED`; administrator PASS; non-360/revoked/anonymous/direct-API denied; two-owner RLS isolation PASS.
+- Backups: both Kinsta snapshots and Railway snapshot listed in `09_ROLLBACK_PROCEDURE.md`.
+- Credential hygiene: no supplied password, JWT, cookie, gateway secret, R2 key, database URL, signed URL, or nonce value is recorded.

@@ -23,3 +23,11 @@ Production/browser boundary evidence:
 - A final external-Chrome attempt was blocked locally by a browser client/extension condition before the application loaded. This is recorded as a verification-tool limitation, not a successful live visual journey.
 
 Separate native Safari, Edge, and Firefox production automation was not available in this run. No browser-specific presentation code was introduced. Standards-based Fetch, IndexedDB, object URLs, Web Crypto-compatible SHA-256 input, and CSS/DOM behavior remain covered by the existing compatibility contracts. This is a follow-up verification opportunity, not a detected production defect.
+
+## Fresh production journey after recovery 002
+
+A fresh Incognito Chrome context reproduced the Founder’s route rather than relying on a harness. Anonymous `/timeline/` returned through Matrix/member-dashboard login. The active-360 identity saw the Timeline navigation, premium Home, `360 MEMBER ACCESS`, contextual secure-saving explanation, and no internal consent-version-dominated page. Consent grant used the authenticated AJAX seam, reloaded once, hydrated the existing timeline, rendered the accepted 407F preview, and settled at `SAVED & SYNCED`. Refresh after the final Railway cutover again settled at `SAVED & SYNCED`; the session remained active beyond the former expiry window. No raw safe-load failure, stack trace, token, or claim appeared.
+
+The current live preview shows the accepted dark navy/orange Timeline shell, Home onboarding, secure-saving privacy link, five-route navigation, and existing protected timeline preview. A stale non-clean browser profile independently produced the intended conflict-review state instead of overwriting remote data; it is not the clean-profile outcome.
+
+The initial independent clean-profile pass found four font 404 console errors. That result was correctly held at PARTIAL. Runtime `timeline-wp-01b09664228a865a` replaces the relative inline stylesheet URLs with authenticated immutable asset aliases without changing font files or CSS declarations. Final independent console/network disposition is recorded in `12_INDEPENDENT_VERIFIER_REPORT.md`.

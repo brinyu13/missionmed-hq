@@ -15,3 +15,15 @@
 | P1 found by independent verification | Approved administrators could enter an impossible remote-media path | Client/store admitted `PROGRAM_ADMIN`, but domain document creation and `media_owner_write` RLS are student-only. The first database custody insert would fail. | Fixed in `e685e94`: administrator authoring/media remains durable on-device, remote sync is not queued, and server media signing rejects admin before any custody write. |
 
 No remaining verified P0 or P1 Timeline production defect is open. Separate native Safari, Edge, and Firefox production automation is a follow-up verification improvement, not evidence of a current defect.
+
+## Reopened failure recovery 002
+
+| Priority | Production defect | Verified cause | Final disposition |
+|---|---|---|---|
+| P0 | Consent completed, then `TIMELINE COULD NOT BE LOADED SAFELY` | Eligible LearnDash 3893 users without a pre-seeded `timeline.principals` row could receive a valid gateway identity but could not resolve an immutable Timeline principal. | Fixed by deterministic, RLS-scoped first-use provisioning plus audit event and migration policies. |
+| P0 | Technical consent page displaced premium onboarding | Consent was implemented as a route-blocking pre-application screen. | Fixed by a contextual secure-saving card inside the accepted Home surface; the internal version remains stored but is not dominant UI. |
+| P0 | Contextual consent click returned `csrf_failed` | The route POST boundary rejected the real browser submission even though nonce/form ownership appeared correct. | Fixed through the authenticated same-origin WordPress AJAX action, retaining nonce, origin, login, eligibility, role, confirmation, grant, and withdrawal checks. |
+| P1 | PostgreSQL client deprecation warning during identity resolution | Three reads were started with `Promise.all` on one checked-out transaction client. | Fixed by sequential reads inside the same transaction/RLS claim context; overlap regression test added. |
+| P1 | Four production font requests returned `404` on every refresh | WordPress packaging rewrote HTML `src`/`href` and standalone CSS URLs, but not relative `url()` references inside the inline index stylesheet. | Fixed by scoped inline-style rewriting to immutable `_asset` aliases; dynamic JavaScript `url()` strings are deliberately excluded. |
+
+No reopened P0 or P1 remains open.
