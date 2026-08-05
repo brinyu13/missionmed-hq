@@ -82,13 +82,21 @@ for(const entry of raw.values()){
 
 const indexSource=raw.get("index.html");
 if(!indexSource)throw new Error("TIMELINE_RUNTIME_INDEX_MISSING");
-let indexText=indexSource.bytes.toString("utf8").replace(/(src|href)=(['"])(\.\/[^'"]+)\2/g,(match,attribute,quote,value)=>{
+let indexText=indexSource.bytes.toString("utf8").replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/g,(match,_quote,value)=>{
+  if(/^(?:data:|https?:|#|\/)/i.test(value))return match;
+  const clean=value.split(/[?#]/,1)[0].replace(/^\.\//,"");
+  const target=posix.normalize(clean);
+  const asset=byPath.get(target);
+  if(!asset)throw new Error(`TIMELINE_RUNTIME_INDEX_CSS_ASSET_MISSING:${target}`);
+  return `url("/timeline/_asset/${asset.alias}")`;
+}).replace(/(src|href)=(['"])(\.\/[^'"]+)\2/g,(match,attribute,quote,value)=>{
   const path=posix.normalize(value.slice(2));
   const asset=byPath.get(path);
   if(!asset)throw new Error(`TIMELINE_RUNTIME_INDEX_ASSET_MISSING:${path}`);
   return `${attribute}=${quote}./_asset/${asset.alias}${quote}`;
 });
 if(/(?:src|href)=(['"])\.\/(?:assets|styles)\//.test(indexText))throw new Error("TIMELINE_RUNTIME_EXTENSION_PATH_REMAINS");
+if(/url\(\s*["']?\.\/(?:assets|styles)\//.test(indexText))throw new Error("TIMELINE_RUNTIME_INDEX_CSS_PATH_REMAINS");
 const runtimeKeys=[
   "vendor/pdfjs/pdf.worker.min.mjs",
   "data/medical-schools/us-dapip-2026-07-30.json",

@@ -99,6 +99,8 @@ test("Kinsta route uses a Timeline-owned execution-private bundle and extensionl
 test("WordPress packaging rewrites the protected kernel export stylesheet to an immutable alias", () => {
   assert.match(runtimeBuilder, /D1-409H_VISUAL_MASTER\.css/);
   assert.match(runtimeBuilder, /TIMELINE_RUNTIME_JS_ASSET_MISSING/);
+  assert.match(runtimeBuilder, /TIMELINE_RUNTIME_INDEX_CSS_ASSET_MISSING/);
+  assert.match(runtimeBuilder, /TIMELINE_RUNTIME_INDEX_CSS_PATH_REMAINS/);
   assert.match(runtimeBuilder, /\/timeline\/_asset\/\$\{asset\.alias\}/);
   assert.match(runtimeBuilder, /sourceCommit:manifest\.source_commit/);
 });
