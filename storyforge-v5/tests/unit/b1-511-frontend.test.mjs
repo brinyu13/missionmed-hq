@@ -37,6 +37,11 @@ test('B1-511 frontend preserves exact category and intended-use authority', () =
     ['later', 'Someday / Fellowship'],
   ]) assert.match(source, new RegExp(`id: '${id}', label: '${label.replace('/', '\\/')}'`));
 
+  for (const legacyLabel of [
+    'Personal statement', 'Interview set', 'Letter conversations', 'Someday / fellowship',
+  ]) assert.match(source, new RegExp(`label: '${legacyLabel.replace('/', '\\/')}'`));
+  assert.match(source, /state\.capabilities\?\.taxonomy \? 'Where this story could be used' : 'Where it could serve'/);
+
   assert.match(source, /themes: asArray\(raw\.themes\)/);
   assert.match(source, /categories: asArray\(firstDefined\(raw\.categories, raw\.story_categories\)\)/);
 });
