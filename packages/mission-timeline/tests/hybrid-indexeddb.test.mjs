@@ -44,7 +44,117 @@ test("hybrid adapter saves locally without queuing remote work before consent", 
   const result = await adapter.flush();
   assert.equal(result.consentRequired, true);
   assert.equal(states.includes("REMOTE_CONSENT_REQUIRED"), true);
+  assert.equal(states.includes("LOCAL_SAVED"), true);
+  assert.equal(adapter.getSyncStatus().state, "LOCAL_ONLY");
   adapter.close();
+});
+
+test("local save remains pending until the remote acknowledgement completes", async () => {
+  const statuses = [];
+  let acknowledgeRemote;
+  let reportSyncing;
+  const remoteAcknowledgement = new Promise((resolve) => { acknowledgeRemote = resolve; });
+  const syncing = new Promise((resolve) => { reportSyncing = resolve; });
+  const apiClient = {
+    configured: true,
+    async createDocument() {
+      await remoteAcknowledgement;
+      return { document: { revision: 0 } };
+    },
+  };
+  const adapter = new HybridIndexedDbAdapter({
+    name: `hybrid-ack-${Date.now()}`,
+    apiClient,
+    programId: "program_internal_medicine",
+    remoteSyncConsent: true,
+    onStatus: (status) => {
+      statuses.push(status);
+      if(status.syncState==="SYNCING")reportSyncing();
+    },
+  });
+  await adapter.open();
+  const record = localRecord("timeline_ack");
+  await adapter.atomicPut([{ store: "documents", key: record.id, value: record }]);
+  assert.deepEqual(
+    statuses.filter(({ state }) => ["LOCAL_SAVED", "SYNC_PENDING"].includes(state)).map(({ state, syncState }) => [state, syncState]),
+    [["LOCAL_SAVED", "LOCAL_SAVED"], ["SYNC_PENDING", "SYNC_PENDING"]],
+  );
+  assert.equal(adapter.getSyncStatus().state, "SYNC_PENDING");
+
+  const flushing = adapter.flush();
+  await syncing;
+  assert.equal(adapter.getSyncStatus().state, "SYNCING");
+  assert.equal(statuses.some(({ syncState }) => syncState === "SYNCED"), false);
+
+  acknowledgeRemote();
+  assert.deepEqual(await flushing, { synced: 1, pending: 0 });
+  assert.equal(adapter.getSyncStatus().state, "SYNCED");
+  assert.equal(statuses.at(-1).syncState, "SYNCED");
+  adapter.close();
+});
+
+test("twenty rapid local edits coalesce to one acknowledged remote checkpoint", async () => {
+  let versionCalls = 0;
+  const apiClient = {
+    configured: true,
+    async createVersion(_documentId, revision, snapshot) {
+      versionCalls += 1;
+      assert.equal(snapshot.title, "Rapid edit 20");
+      return { revision: revision + 1 };
+    },
+  };
+  const adapter = new HybridIndexedDbAdapter({
+    name: `hybrid-coalesce-20-${Date.now()}`,
+    apiClient,
+    programId: "program_internal_medicine",
+    remoteSyncConsent: true,
+  });
+  await adapter.open();
+  const record = localRecord("timeline_coalesce_20");
+  await adapter.put("settings", {
+    id: `remote-revision:${record.id}`,
+    documentId: record.id,
+    revision: 7,
+    updatedAt: new Date().toISOString(),
+  });
+  for (let sequence = 1; sequence <= 20; sequence += 1) {
+    const value = structuredClone(record);
+    value.sequence = sequence;
+    value.document.title = `Rapid edit ${sequence}`;
+    await adapter.atomicPut([{ store: "documents", key: value.id, value }]);
+  }
+  assert.equal((await adapter.pending()).length, 20);
+  assert.equal(adapter.getSyncStatus().state, "SYNC_PENDING");
+  assert.deepEqual(await adapter.flush(), { synced: 1, pending: 0 });
+  assert.equal(versionCalls, 1);
+  assert.equal(adapter.getSyncStatus().state, "SYNCED");
+  assert.equal((await adapter.get("documents", record.id)).document.title, "Rapid edit 20");
+  adapter.close();
+});
+
+test("configured remote sync reports OFFLINE while queued work remains local", async (t) => {
+  const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: { onLine: false },
+  });
+  t.after(() => {
+    if (navigatorDescriptor) Object.defineProperty(globalThis, "navigator", navigatorDescriptor);
+    else delete globalThis.navigator;
+  });
+  const adapter = new HybridIndexedDbAdapter({
+    name: `hybrid-offline-${Date.now()}`,
+    apiClient: { configured: true },
+    programId: "program_internal_medicine",
+    remoteSyncConsent: true,
+  });
+  await adapter.open();
+  t.after(() => adapter.close());
+  const record = localRecord("timeline_offline");
+  await adapter.atomicPut([{ store: "documents", key: record.id, value: record }]);
+  assert.deepEqual(await adapter.flush(), { synced: 0, pending: 1 });
+  assert.equal(adapter.getSyncStatus().state, "OFFLINE");
+  assert.equal((await adapter.pending()).length, 1);
 });
 
 test("hybrid adapter creates remote document, coalesces checkpoints, and syncs named version", async () => {
@@ -157,6 +267,10 @@ test("hybrid adapter leaves unsupported schemas queued as explicit errors withou
   const [record] = await adapter.pending();
   assert.equal(record.status, "ERROR");
   assert.equal(record.errorCode, "DOCUMENT_SCHEMA_UNSUPPORTED");
+  assert.equal(adapter.getSyncStatus().state, "ERROR");
+  const second = await adapter.flush();
+  assert.equal(second.pending, 1);
+  assert.equal(adapter.getSyncStatus().state, "ERROR");
   adapter.close();
 });
 
@@ -189,8 +303,10 @@ test("hybrid adapter keeps revision conflict for explicit recovery", async () =>
   const result = await adapter.flush();
   assert.equal(result.pending, 1);
   assert.equal((await adapter.pending())[0].status, "CONFLICT");
+  assert.equal(adapter.getSyncStatus().state, "CONFLICT");
   const second = await adapter.flush();
   assert.equal(second.conflict, true);
+  assert.equal(adapter.getSyncStatus().state, "CONFLICT");
   adapter.close();
 });
 

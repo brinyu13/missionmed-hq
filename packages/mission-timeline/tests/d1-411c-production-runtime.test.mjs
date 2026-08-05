@@ -34,6 +34,7 @@ test("production bootstrap fails before IndexedDB opens when WordPress identity 
 
 test("authenticated runtime uses a principal-and-resource scoped recovery cache and server hydration",async()=>{
   const requests=[];
+  let issuedToken="";
   const document={id:"timeline_server_1",schemaVersion:"d1-timeline-document-409.1",studentOwnerId:principalId,programId:"missionmed-360:3893",title:"Server timeline",theme:"keynote",revision:2,events:[],metadata:{}};
   const fetchImpl=async(url,options={})=>{
     requests.push({url:String(url),method:options.method||"GET",headers:options.headers||{},body:options.body});
@@ -43,7 +44,10 @@ test("authenticated runtime uses a principal-and-resource scoped recovery cache 
       remote_sync_consent:true,consent_version:"d1-500-v1",
       user:{wp_user_id:42,principal_id:principalId,role:"STUDENT"}
     }}),{status:200,headers:{"content-type":"application/json"}});
-    if(String(url).includes("/token"))return new Response(JSON.stringify({token:token(),nonce:"next"}),{status:200,headers:{"content-type":"application/json"}});
+    if(String(url).includes("/token")){
+      issuedToken=token();
+      return new Response(JSON.stringify({token:issuedToken,nonce:"next"}),{status:200,headers:{"content-type":"application/json"}});
+    }
     if(String(url).endsWith("/documents"))return new Response(JSON.stringify({documents:[{document,updatedAt:new Date().toISOString()}]}),{status:200,headers:{"content-type":"application/json"}});
     if(String(url).endsWith("/documents/timeline_server_1/versions"))return new Response(JSON.stringify({revision:3}),{status:201,headers:{"content-type":"application/json"}});
     throw new Error(`unexpected request ${url}`);
@@ -60,7 +64,7 @@ test("authenticated runtime uses a principal-and-resource scoped recovery cache 
   assert.deepEqual(flushed,{synced:1,pending:0});
   const versionRequest=requests.find(({url})=>url.endsWith("/documents/timeline_server_1/versions"));
   assert.equal(versionRequest.method,"POST");
-  assert.equal(versionRequest.headers.authorization,`Bearer ${token()}`);
+  assert.equal(versionRequest.headers.authorization,`Bearer ${issuedToken}`);
   assert.equal(JSON.parse(versionRequest.body).baseRevision,2);
   assert.equal((await runtime.adapter.get("settings","remote-revision:timeline_server_1")).revision,3);
   assert.deepEqual(requests.map(({method})=>method),["GET","POST","GET","POST"]);

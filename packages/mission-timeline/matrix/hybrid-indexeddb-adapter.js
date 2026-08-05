@@ -3,6 +3,16 @@ import { IndexedDbAdapter } from "../web/js/persistence/indexeddb-adapter.js";
 const SYNC_PREFIX = "remote:";
 export const REMOTE_DOCUMENT_SCHEMA = "d1-timeline-document-409.1";
 const REMOTE_SOURCE_SCHEMAS = new Set([REMOTE_DOCUMENT_SCHEMA, "d1-uxr-002.1"]);
+const OBSERVABLE_SYNC_STATES = new Set([
+  "LOCAL_SAVED",
+  "SYNC_PENDING",
+  "SYNCING",
+  "SYNCED",
+  "CONFLICT",
+  "ERROR",
+  "OFFLINE",
+  "LOCAL_ONLY",
+]);
 
 function isoNow() {
   return new Date().toISOString();
@@ -10,6 +20,14 @@ function isoNow() {
 
 function syncId(operation, documentId, sequence) {
   return `${SYNC_PREFIX}${operation}:${documentId}:${sequence}`;
+}
+
+function observableSyncState(eventState, detail, currentState) {
+  if (OBSERVABLE_SYNC_STATES.has(eventState)) return eventState;
+  if (eventState === "LOCAL_PENDING") return "SYNC_PENDING";
+  if (eventState === "SERVER_HYDRATED") return Number(detail.pending ?? 0) > 0 ? "SYNC_PENDING" : "SYNCED";
+  if (eventState === "REMOTE_CONSENT_REQUIRED") return "LOCAL_ONLY";
+  return currentState;
 }
 
 export function toRemoteTimelineDocument(document) {
@@ -40,6 +58,12 @@ export class HybridIndexedDbAdapter extends IndexedDbAdapter {
     this.remoteSyncConsent = remoteSyncConsent === true;
     this.flushing = null;
     this.flushTimer = null;
+    this.syncStatus = Object.freeze({
+      state: "LOCAL_ONLY",
+      event: "INITIAL",
+      at: isoNow(),
+      pending: 0,
+    });
     this.onlineHandler = () => this.flush().catch(() => {});
   }
 
@@ -57,6 +81,10 @@ export class HybridIndexedDbAdapter extends IndexedDbAdapter {
     const documentEntry = entries.find((entry) => entry.store === "documents");
     const checkpointEntry = entries.find((entry) => entry.store === "checkpoints");
     if (documentEntry?.value?.document) {
+      this.report("LOCAL_SAVED", {
+        documentId: documentEntry.value.document.id,
+        pending: (await this.pending()).length,
+      });
       if (this.remoteSyncConsent) {
         await this.enqueue({
           operation: "CHECKPOINT",
@@ -138,7 +166,11 @@ export class HybridIndexedDbAdapter extends IndexedDbAdapter {
       createdAt: isoNow(),
       updatedAt: isoNow(),
     });
-    this.report("SYNC_PENDING", { documentId: operation.documentId });
+    this.report("SYNC_PENDING", {
+      documentId: operation.documentId,
+      pending: (await this.pending()).length,
+    });
+    return id;
   }
 
   pending() {
@@ -170,13 +202,14 @@ export class HybridIndexedDbAdapter extends IndexedDbAdapter {
       return { synced: 0, pending: 0 };
     }
     if (!this.apiClient?.configured || globalThis.navigator?.onLine === false) {
-      this.report("LOCAL_ONLY", { pending: records.length });
+      this.report(globalThis.navigator?.onLine === false ? "OFFLINE" : "LOCAL_ONLY", { pending: records.length });
       return { synced: 0, pending: records.length };
     }
     if (records.some((record) => record.status === "CONFLICT")) {
       this.report("CONFLICT", { pending: records.length });
       return { synced: 0, pending: records.length, conflict: true };
     }
+    this.report("SYNCING", { pending: records.length });
     const ordered = records.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
     const latestCheckpoint = new Map();
     ordered.forEach((record) => {
@@ -207,7 +240,14 @@ export class HybridIndexedDbAdapter extends IndexedDbAdapter {
     }
     const remaining = await this.pending();
     const pending = remaining.length;
-    this.report(remaining.some((record) => record.status === "CONFLICT") ? "CONFLICT" : pending ? "SYNC_PENDING" : "SYNCED", { pending });
+    const finalState = remaining.some((record) => record.status === "CONFLICT")
+      ? "CONFLICT"
+      : remaining.some((record) => record.status === "ERROR")
+        ? "ERROR"
+        : pending
+          ? "SYNC_PENDING"
+          : "SYNCED";
+    this.report(finalState, { pending });
     return { synced, pending };
   }
 
@@ -232,8 +272,16 @@ export class HybridIndexedDbAdapter extends IndexedDbAdapter {
   }
 
   report(syncState, detail = {}) {
-    this.onStatus({ state: syncState, at: isoNow(), ...detail });
-    globalThis.dispatchEvent?.(new CustomEvent("mission-timeline-sync", { detail: { state: syncState, ...detail } }));
+    const at = isoNow();
+    const state = observableSyncState(syncState, detail, this.syncStatus.state);
+    this.syncStatus = Object.freeze({ state, event: syncState, at, ...detail });
+    const statusEvent = { state: syncState, syncState: state, at, ...detail };
+    this.onStatus(statusEvent);
+    globalThis.dispatchEvent?.(new CustomEvent("mission-timeline-sync", { detail: statusEvent }));
+  }
+
+  getSyncStatus() {
+    return structuredClone(this.syncStatus);
   }
 
   setRemoteSyncConsent(consent) {

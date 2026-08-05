@@ -30,6 +30,7 @@ const ALLOWED_MIME = new Set([
   "image/png",
   "image/jpeg",
   "image/webp",
+  "image/gif",
   "text/html",
   "text/plain",
 ]);

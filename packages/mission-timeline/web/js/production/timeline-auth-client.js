@@ -16,6 +16,15 @@ function jwtPayload(token){
   }catch{throw new TimelineProductionAuthError("TOKEN_PAYLOAD_INVALID","Timeline session token is invalid.",401);}
 }
 
+function signedPrivateObjectUrl(value){
+  const url=new URL(String(value||""));
+  if(
+    url.protocol!=="https:"||
+    !url.hostname.endsWith(".r2.cloudflarestorage.com")
+  )throw new TimelineProductionAuthError("PRIVATE_OBJECT_URL_INVALID","Timeline private-media authorization is invalid.");
+  return url.href;
+}
+
 const AUTHORITY_REVOCATION_CODES=new Set([
   "session_required","eligibility_required","eligibility_unverified","timeline_disabled",
   "canary_access_required","administrator_approval_required","remote_sync_consent_required",
@@ -26,7 +35,7 @@ const isAuthorityRevocation=(code)=>AUTHORITY_REVOCATION_CODES.has(String(code||
 export class TimelineProductionAuthClient{
   constructor({fetchImpl=globalThis.fetch.bind(globalThis),locationObject=globalThis.location,documentObject=globalThis.document,onAccountSwitch=()=>{}}={}){
     this.fetchImpl=fetchImpl;this.locationObject=locationObject;this.documentObject=documentObject;this.onAccountSwitch=onAccountSwitch;
-    this.bootstrapState=null;this.token="";this.claims=null;this.refreshing=null;this.refreshTimer=null;this.locked=false;
+    this.bootstrapState=null;this.token="";this.claims=null;this.refreshing=null;this.refreshTimer=null;this.locked=false;this.claimListeners=new Set();
     this.visibilityHandler=()=>{
       if(this.documentObject?.visibilityState==="visible")this.refreshToken().catch(()=>{});
     };
@@ -101,7 +110,16 @@ export class TimelineProductionAuthClient{
     this.bootstrapState.nonce=String(payload.nonce||this.bootstrapState.nonce);
     this.token=nextToken;this.claims=nextClaims;
     this.scheduleRefresh();
+    for(const listener of this.claimListeners){
+      try{listener(Object.freeze({...nextClaims}));}catch{}
+    }
     return nextToken;
+  }
+
+  subscribeClaims(listener){
+    if(typeof listener!=="function")throw new TypeError("Timeline claims listener must be a function.");
+    this.claimListeners.add(listener);
+    return()=>this.claimListeners.delete(listener);
   }
 
   async validToken(){
@@ -143,6 +161,7 @@ export class TimelineProductionAuthClient{
 
   close(){
     clearTimeout(this.refreshTimer);this.refreshTimer=null;
+    this.claimListeners.clear();
     this.documentObject?.removeEventListener?.("visibilitychange",this.visibilityHandler);
   }
 
@@ -150,4 +169,43 @@ export class TimelineProductionAuthClient{
   createDocument(document,programId){return this.request("/documents",{method:"POST",body:{id:document.id,programId,title:document.title,theme:document.theme,document}});}
   checkpoint(documentId,deviceId,baseRevision,snapshot){return this.request(`/documents/${encodeURIComponent(documentId)}/checkpoints/${encodeURIComponent(deviceId)}`,{method:"PUT",body:{baseRevision,snapshot}});}
   createVersion(documentId,baseRevision,snapshot,label){return this.request(`/documents/${encodeURIComponent(documentId)}/versions`,{method:"POST",body:{baseRevision,snapshot,label}});}
+  signObjectUpload(documentId,{mimeType,byteSize,sha256,objectClass="MEDIA"}={}){
+    return this.request("/objects/sign",{method:"POST",body:{documentId,objectClass,mimeType,byteSize,sha256}});
+  }
+  async uploadSignedObject(grant,blob){
+    const uploadUrl=signedPrivateObjectUrl(grant?.uploadUrl);
+    if(Date.parse(String(grant?.expiresAt||""))<=Date.now()){
+      throw new TimelineProductionAuthError("OBJECT_UPLOAD_EXPIRED","Timeline private-media authorization expired.",401);
+    }
+    const headers=new Headers();
+    for(const [name,value] of Object.entries(grant?.requiredHeaders||{})){
+      if(String(name).toLowerCase()==="content-length")continue;
+      headers.set(name,String(value));
+    }
+    const response=await this.fetchImpl(uploadUrl,{
+      method:"PUT",mode:"cors",credentials:"omit",cache:"no-store",headers,body:blob,
+      signal:AbortSignal.timeout(60_000)
+    });
+    if(!response.ok)throw new TimelineProductionAuthError("OBJECT_UPLOAD_FAILED","Timeline media could not be uploaded.",response.status);
+    return true;
+  }
+  confirmObjectUpload(objectId,uploadToken){
+    return this.request(`/objects/${encodeURIComponent(objectId)}/confirm`,{method:"POST",body:{uploadToken}});
+  }
+  signObjectDownload(objectId){
+    return this.request(`/objects/${encodeURIComponent(objectId)}/download`,{method:"POST"});
+  }
+  async downloadPrivateObject(objectId){
+    const grant=await this.signObjectDownload(objectId);
+    const downloadUrl=signedPrivateObjectUrl(grant?.downloadUrl);
+    if(Date.parse(String(grant?.expiresAt||""))<=Date.now()){
+      throw new TimelineProductionAuthError("OBJECT_DOWNLOAD_EXPIRED","Timeline private-media authorization expired.",401);
+    }
+    const response=await this.fetchImpl(downloadUrl,{method:"GET",mode:"cors",credentials:"omit",cache:"no-store",signal:AbortSignal.timeout(60_000)});
+    if(!response.ok)throw new TimelineProductionAuthError("OBJECT_DOWNLOAD_FAILED","Timeline media could not be loaded.",response.status);
+    return response.blob();
+  }
+  deleteObject(objectId){
+    return this.request(`/objects/${encodeURIComponent(objectId)}`,{method:"DELETE"});
+  }
 }

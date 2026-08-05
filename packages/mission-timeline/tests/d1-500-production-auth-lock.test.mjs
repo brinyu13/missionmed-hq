@@ -102,6 +102,75 @@ test("an ordinary resource 403 does not destroy a valid session",async()=>{
   client.close();
 });
 
+test("concurrent near-expiry callers share one refresh and publish the renewed claims",async()=>{
+  let tokenCalls=0;
+  let apiCalls=0;
+  const renewed=[];
+  const client=new TimelineProductionAuthClient({locationObject,documentObject:null,fetchImpl:async(url)=>{
+    if(String(url).includes("admin-ajax.php"))return bootstrap();
+    if(String(url).includes("/token")){
+      tokenCalls+=1;
+      await new Promise((resolve)=>setTimeout(resolve,5));
+      return tokenResponse();
+    }
+    apiCalls+=1;
+    return new Response(JSON.stringify({documents:[]}),{status:200,headers:{"content-type":"application/json"}});
+  }});
+  await client.initialize();
+  const unsubscribe=client.subscribeClaims((claims)=>renewed.push(claims));
+  client.claims={...client.claims,exp:Math.floor(Date.now()/1000)+1};
+  await Promise.all(Array.from({length:25},()=>client.listDocuments()));
+  assert.equal(tokenCalls,2,"initialize plus exactly one shared renewal");
+  assert.equal(apiCalls,25);
+  assert.equal(renewed.length,1);
+  assert.ok(Number(renewed[0].exp)*1000>Date.now());
+  unsubscribe();
+  client.close();
+});
+
+test("private media uses authenticated API grants and direct private R2 transfers without bearer leakage",async()=>{
+  const calls=[];
+  const objectId="object_11111111-1111-4111-8111-111111111111";
+  const expiresAt=new Date(Date.now()+60_000).toISOString();
+  const r2Origin="https://0123456789abcdef.r2.cloudflarestorage.com";
+  const client=new TimelineProductionAuthClient({locationObject,documentObject:null,fetchImpl:async(url,options={})=>{
+    calls.push({url:String(url),options});
+    if(String(url).includes("admin-ajax.php"))return bootstrap();
+    if(String(url).includes("/token"))return tokenResponse();
+    if(String(url).endsWith("/objects/sign"))return new Response(JSON.stringify({
+      objectId,uploadUrl:`${r2Origin}/private-upload`,uploadToken:"one-time-token",expiresAt,
+      requiredHeaders:{"content-type":"image/png","content-length":"3"}
+    }),{status:201,headers:{"content-type":"application/json"}});
+    if(String(url).includes("/confirm"))return new Response(JSON.stringify({id:objectId,status:"CONFIRMED"}),{status:200,headers:{"content-type":"application/json"}});
+    if(String(url).includes("/download"))return new Response(JSON.stringify({downloadUrl:`${r2Origin}/private-download`,expiresAt}),{status:200,headers:{"content-type":"application/json"}});
+    if(String(url)===`${r2Origin}/private-upload`)return new Response(null,{status:200});
+    if(String(url)===`${r2Origin}/private-download`)return new Response(new Uint8Array([1,2,3]),{status:200,headers:{"content-type":"image/png"}});
+    return new Response(null,{status:204});
+  }});
+  await client.initialize();
+  const grant=await client.signObjectUpload("timeline_test",{mimeType:"image/png",byteSize:3,sha256:"a".repeat(64)});
+  await client.uploadSignedObject(grant,new Blob([new Uint8Array([1,2,3])],{type:"image/png"}));
+  await client.confirmObjectUpload(grant.objectId,grant.uploadToken);
+  const downloaded=await client.downloadPrivateObject(grant.objectId);
+  assert.equal(downloaded.size,3);
+  await client.deleteObject(grant.objectId);
+  const directCalls=calls.filter(({url})=>url.startsWith(r2Origin));
+  assert.equal(directCalls.length,2);
+  assert.equal(directCalls.every(({options})=>options.credentials==="omit"),true);
+  assert.equal(directCalls.every(({options})=>!new Headers(options.headers).has("authorization")),true);
+  assert.equal(new Headers(directCalls[0].options.headers).has("content-length"),false);
+  client.close();
+});
+
+test("private media rejects a signed transfer URL outside the private R2 endpoint",async()=>{
+  const client=new TimelineProductionAuthClient({locationObject,documentObject:null,fetchImpl:async()=>new Response(null,{status:200})});
+  await assert.rejects(
+    client.uploadSignedObject({uploadUrl:"https://public.example/upload",expiresAt:new Date(Date.now()+60_000).toISOString()},new Blob(["x"])),
+    (error)=>error.code==="PRIVATE_OBJECT_URL_INVALID"
+  );
+  client.close();
+});
+
 for(const [code,status] of [
   ["canary_access_required",403],
   ["administrator_approval_required",403],

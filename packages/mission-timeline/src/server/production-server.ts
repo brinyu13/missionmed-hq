@@ -11,6 +11,7 @@ import { WordPressTimelineJwtVerifier } from "../identity/wordpress-timeline-jwt
 import { PostgresTimelineRepository } from "../persistence/postgres/repository.js";
 import { POSTGRES_TIMELINE_PRODUCTION_SCHEMA_VERSION, postgresClaimsFromPrincipal } from "../persistence/postgres/types.js";
 import type { PrivateObjectStore, SignedDownload, SignedUpload, UploadRequest } from "../storage/private-object-store.js";
+import { createR2PrivateObjectStoreFromEnvironment } from "../storage/production/index.js";
 import { PrivacySafeTelemetry, type TelemetryEvent, type TelemetrySink } from "../telemetry/telemetry.js";
 import { createTimelineProductionHttpHandler } from "./production-http-handler.js";
 
@@ -68,7 +69,12 @@ const identity = new WordPressTimelineJwtVerifier({
   principalDirectory: directory,
 });
 const telemetry = new PrivacySafeTelemetry(new ConsoleTelemetrySink(), process.env.TIMELINE_ENVIRONMENT?.trim() || "production");
-const objectStore = new UnconfiguredPrivateObjectStore();
+const objectStore: PrivateObjectStore = createR2PrivateObjectStoreFromEnvironment({
+  env: process.env,
+  pool,
+  runtimeRole,
+  tokenSecret: gatewaySecret,
+}) ?? new UnconfiguredPrivateObjectStore();
 const serviceProvider = (context: PrincipalContext) => new TimelineService(new PostgresTimelineRepository(pool, {
   rlsClaims: postgresClaimsFromPrincipal(context),
   runtimeRole,

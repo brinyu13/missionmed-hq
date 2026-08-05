@@ -182,7 +182,7 @@ function mmtlr_headers($bundle, $content_type, $immutable) {
     header('Surrogate-Control: no-store', true);
     header('CDN-Cache-Control: no-store', true);
     header('Content-Type: ' . $content_type, true);
-    header('Content-Security-Policy: default-src \'self\'; script-src \'self\' \'unsafe-inline\'; style-src \'self\' \'unsafe-inline\'; img-src \'self\' data: blob:; font-src \'self\'; connect-src \'self\'; frame-src \'self\'; object-src \'none\'; base-uri \'self\'; frame-ancestors \'self\'; form-action \'self\'', true);
+    header('Content-Security-Policy: default-src \'self\'; script-src \'self\' \'unsafe-inline\'; style-src \'self\' \'unsafe-inline\'; img-src \'self\' data: blob:; font-src \'self\'; connect-src \'self\' blob: https://eeaaf73d1670b47a162d251ca67e7cfa.r2.cloudflarestorage.com; frame-src \'self\'; object-src \'none\'; base-uri \'self\'; frame-ancestors \'self\'; form-action \'self\'', true);
     header('Referrer-Policy: no-referrer', true);
     header('X-Content-Type-Options: nosniff', true);
     header('X-Frame-Options: SAMEORIGIN', true);

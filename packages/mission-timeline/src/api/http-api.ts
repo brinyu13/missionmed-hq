@@ -18,6 +18,10 @@ function json(value: unknown, status = 200, headers: Record<string, string> = {}
   });
 }
 
+function empty(status = 204, headers: Record<string, string> = {}): Response {
+  return new Response(null, { status, headers: { "cache-control": "no-store", ...headers } });
+}
+
 async function body(request: Request): Promise<Record<string, unknown>> {
   const contentLength = Number(request.headers.get("content-length") ?? 0);
   if (contentLength > 2 * 1024 * 1024) throw new TimelineError("REQUEST_TOO_LARGE", "Request is too large.", 413);
@@ -198,6 +202,15 @@ export class TimelineHttpApi {
     if (confirmMatch && request.method === "POST") {
       const input = await body(request);
       return json(await this.objectStore.confirmUpload(context, confirmMatch[1]!, String(input.uploadToken ?? "")));
+    }
+    const downloadMatch = url.pathname.match(/^\/v1\/objects\/([^/]+)\/download$/);
+    if (downloadMatch && request.method === "POST") {
+      return json(await this.objectStore.signDownload(context, downloadMatch[1]!));
+    }
+    const objectMatch = url.pathname.match(/^\/v1\/objects\/([^/]+)$/);
+    if (objectMatch && request.method === "DELETE") {
+      await this.objectStore.deleteObject(context, objectMatch[1]!);
+      return empty();
     }
     throw new TimelineError("ROUTE_NOT_FOUND", "Timeline route not found.", 404);
   }

@@ -12,6 +12,34 @@ function escapeAttribute(value){
   })[character]);
 }
 
+const FAIL_SOFT_MEDIA_CODES=new Set(["ASSET_LOAD_FAILED","MEDIA_HASH_MISMATCH"]);
+
+export function omitFailedMediaFromKernelModel(model,path){
+  const normalized=String(path||"");
+  const photo=normalized.match(/^photos\[(\d+)\]\.media$/);
+  if(photo){
+    const index=Number(photo[1]);
+    if(!Array.isArray(model?.photos)||index<0||index>=model.photos.length){
+      return{model,omitted:false,warning:""};
+    }
+    const next=structuredClone(model);
+    next.photos.splice(index,1);
+    return{model:next,omitted:true,warning:`MEDIA_OMITTED:${normalized}`};
+  }
+  if(normalized==="profile.portrait"&&model?.profile?.portrait){
+    const next=structuredClone(model);
+    next.profile.portrait=null;
+    return{model:next,omitted:true,warning:`MEDIA_OMITTED:${normalized}`};
+  }
+  if(normalized==="logo.media"&&model?.logo?.media){
+    const next=structuredClone(model);
+    next.logo.media=null;
+    next.logo.visibility=next.interview?.visibility==="show"?"placeholder":"hide";
+    return{model:next,omitted:true,warning:`MEDIA_OMITTED:${normalized}`};
+  }
+  return{model,omitted:false,warning:""};
+}
+
 function monthIndex(year,month){return Number(year)*12+(Number(month)||1)-1;}
 
 class D1411AKernelElement extends HostHTMLElement{
@@ -56,9 +84,11 @@ class D1411AKernelElement extends HostHTMLElement{
     this.shadowRoot.innerHTML=`<style>
       :host{display:block;position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:#c8d8e1}
       iframe{display:block;width:100%;height:100%;border:0;background:#c8d8e1}
-      output{position:absolute;inset:0;display:grid;place-items:center;background:#c8d8e1;color:#19334f;font:700 12px/1.5 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase}
-      :host([data-ready="true"]) output{display:none}
-    </style><iframe title="${escapeAttribute(this._record.label)}" src="${escapeAttribute(MASTER_URL)}"></iframe><output role="status">Loading canonical timeline…</output>`;
+      output[data-loading]{position:absolute;inset:0;display:grid;place-items:center;background:#c8d8e1;color:#19334f;font:700 12px/1.5 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase}
+      :host([data-ready="true"]) output[data-loading]{display:none}
+      output[data-media-warning]{position:absolute;right:12px;bottom:12px;z-index:1100;max-width:min(420px,calc(100% - 24px));padding:8px 10px;border:1px solid rgba(25,51,79,.22);border-radius:8px;background:rgba(255,255,255,.94);color:#19334f;font:700 11px/1.35 system-ui,sans-serif;box-shadow:0 4px 16px rgba(25,51,79,.12)}
+      output[data-media-warning][hidden]{display:none}
+    </style><iframe title="${escapeAttribute(this._record.label)}" src="${escapeAttribute(MASTER_URL)}"></iframe><output data-loading role="status">Loading canonical timeline…</output><output data-media-warning role="status" hidden></output>`;
     const iframe=this.shadowRoot.querySelector("iframe");
     await new Promise((resolve,reject)=>{
       iframe.addEventListener("load",resolve,{once:true});
@@ -68,10 +98,25 @@ class D1411AKernelElement extends HostHTMLElement{
     const K=child?.D1409H;
     if(!K||K.kernelId!=="D1-409H-A1")throw new Error("Protected D1-409H-A1 kernel was not loaded.");
     await K.ready();
-    const response=await K.rerender(this._record.projection.model,{
-      renderId:this._record.renderId,
-      reason:this._record.reason
-    });
+    let kernelModel=this._record.projection.model;
+    let response=null;
+    const failSoftWarnings=[];
+    for(let attempt=0;attempt<8;attempt+=1){
+      try{
+        response=await K.rerender(kernelModel,{
+          renderId:this._record.renderId,
+          reason:this._record.reason
+        });
+        break;
+      }catch(error){
+        if(!FAIL_SOFT_MEDIA_CODES.has(String(error?.code||"")))throw error;
+        const omission=omitFailedMediaFromKernelModel(kernelModel,error?.path);
+        if(!omission.omitted)throw error;
+        kernelModel=omission.model;
+        failSoftWarnings.push(omission.warning);
+      }
+    }
+    if(!response)throw new Error("Timeline media recovery exceeded the safe omission limit.");
     await K.whenStable(this._record.renderId);
     if(!this.isConnected){K.destroy?.();return;}
     this._kernel=K;
@@ -79,8 +124,14 @@ class D1411AKernelElement extends HostHTMLElement{
     this.dataset.fingerprint=response.fingerprint;
     this.dataset.renderId=this._record.renderId;
     this.dataset.protectedKernel=K.kernelId;
-    this.dataset.projectionWarnings=JSON.stringify(this._record.projection.warnings||[]);
+    const projectionWarnings=[...(this._record.projection.warnings||[]),...failSoftWarnings];
+    this.dataset.projectionWarnings=JSON.stringify(projectionWarnings);
     this.dataset.projectionDropped=JSON.stringify(this._record.projection.dropped||[]);
+    if(failSoftWarnings.length){
+      const warning=this.shadowRoot.querySelector("[data-media-warning]");
+      warning.hidden=false;
+      warning.textContent=`${failSoftWarnings.length} unavailable media asset${failSoftWarnings.length===1?" was":"s were"} omitted. Your timeline remains available; re-add the affected media to restore it.`;
+    }
     this.resize();
     this._installChildInteractions(iframe);
     this._resizeObserver=new ResizeObserver(()=>this.resize());
@@ -92,7 +143,7 @@ class D1411AKernelElement extends HostHTMLElement{
         surface:this._record.surface,
         renderId:this._record.renderId,
         fingerprint:response.fingerprint,
-        warnings:this._record.projection.warnings,
+        warnings:projectionWarnings,
         dropped:this._record.projection.dropped
       }
     }));
