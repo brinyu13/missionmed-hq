@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed Timeline SSO
  * Description: Default-off Timeline identity, LearnDash eligibility, JWT, same-origin API gateway, and Matrix launch seam.
- * Version: 500.0.3
+ * Version: 500.0.4
  * Requires at least: 6.5
  * Requires PHP: 8.1
  * Author: MissionMed
@@ -20,7 +20,7 @@ const MMTL_CONSENT_AT_META = '_missionmed_timeline_remote_sync_consented_at';
 const MMTL_REST_NAMESPACE = 'missionmed-timeline/v1';
 const MMTL_REST_TOKEN_ROUTE = '/token';
 const MMTL_COURSE_ID = 3893;
-const MMTL_VERSION = '500.0.3';
+const MMTL_VERSION = '500.0.4';
 const MMTL_PRINCIPAL_NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 
 function mmtl_defaults() {
@@ -510,6 +510,7 @@ function mmtl_ajax_bootstrap() {
         'consent_version' => (string) $access['consent_version'],
         'consent_nonce' => wp_create_nonce('missionmed_timeline_remote_sync_consent'),
         'consent_action' => home_url($settings['base_path']),
+        'consent_endpoint' => admin_url('admin-ajax.php'),
         'user' => array(
             'wp_user_id' => (int) $user->ID,
             'principal_id' => $principal,
@@ -519,6 +520,47 @@ function mmtl_ajax_bootstrap() {
 }
 add_action('wp_ajax_missionmed_timeline_bootstrap', 'mmtl_ajax_bootstrap');
 add_action('wp_ajax_nopriv_missionmed_timeline_bootstrap', 'mmtl_ajax_bootstrap');
+
+function mmtl_ajax_consent() {
+    mmtl_private_headers();
+    if (!is_user_logged_in()) {
+        wp_send_json_error(array('code' => 'session_required', 'message' => 'Your MissionMed session has ended.'), 401);
+    }
+    if (!mmtl_verify_origin_header($_SERVER['HTTP_ORIGIN'] ?? '')) {
+        wp_send_json_error(array('code' => 'csrf_failed', 'message' => 'A valid MissionMed consent request is required.'), 403);
+    }
+    $nonce = sanitize_text_field((string) wp_unslash($_POST['_wpnonce'] ?? ''));
+    if (!wp_verify_nonce($nonce, 'missionmed_timeline_remote_sync_consent')) {
+        wp_send_json_error(array('code' => 'csrf_failed', 'message' => 'A valid MissionMed consent request is required.'), 403);
+    }
+    $user = wp_get_current_user();
+    $eligibility = mmtl_eligibility_state($user);
+    if (is_wp_error($eligibility)) {
+        wp_send_json_error(array('code' => $eligibility->get_error_code(), 'message' => $eligibility->get_error_message()), (int) ($eligibility->get_error_data()['status'] ?? 403));
+    }
+    if (!empty($eligibility['administrator'])) {
+        wp_send_json_error(array('code' => 'timeline_consent_not_applicable', 'message' => 'Administrator consent is not required.'), 400);
+    }
+    $action = sanitize_key((string) wp_unslash($_POST['timeline_remote_sync_action'] ?? ''));
+    if ($action === 'grant') {
+        if ((string) wp_unslash($_POST['timeline_remote_sync_consent'] ?? '') !== 'grant') {
+            wp_send_json_error(array('code' => 'timeline_consent_confirmation_required', 'message' => 'Confirm remote save to continue.'), 400);
+        }
+        $recorded = mmtl_record_remote_sync_consent((int) $user->ID);
+        if (is_wp_error($recorded)) {
+            wp_send_json_error(array('code' => $recorded->get_error_code(), 'message' => $recorded->get_error_message()), (int) ($recorded->get_error_data()['status'] ?? 503));
+        }
+        wp_send_json_success(array('remote_sync_consent' => true));
+    }
+    if ($action === 'withdraw') {
+        if (!mmtl_withdraw_remote_sync_consent((int) $user->ID)) {
+            wp_send_json_error(array('code' => 'timeline_consent_withdrawal_failed', 'message' => 'Secure saving could not be turned off.'), 503);
+        }
+        wp_send_json_success(array('remote_sync_consent' => false));
+    }
+    wp_send_json_error(array('code' => 'timeline_consent_action_invalid', 'message' => 'Choose a valid secure-saving action.'), 400);
+}
+add_action('wp_ajax_missionmed_timeline_consent', 'mmtl_ajax_consent');
 
 function mmtl_register_rewrites() {
     add_rewrite_rule('^timeline/api/(v1(?:/.*)?)$', 'index.php?missionmed_timeline_api=$matches[1]', 'top');

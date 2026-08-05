@@ -8,11 +8,14 @@ test("first-use consent is contextual, premium, private, and does not expose its
   const markup=productionPrivacyControlMarkup({
     role:"STUDENT",remoteSyncConsent:false,
     consentAction:"https://missionmed.example/timeline/",consentNonce:"nonce-value",
+    consentEndpoint:"https://missionmed.example/wp-admin/admin-ajax.php",
     matrixUrl:"https://missionmed.example/member-dashboard/",
   });
   assert.match(markup,/Keep your Timeline with you\./);
   assert.match(markup,/Your work is already safe on this device\./);
   assert.match(markup,/timeline_remote_sync_action" value="grant/);
+  assert.match(markup,/data-consent-endpoint="https:\/\/missionmed\.example\/wp-admin\/admin-ajax\.php"/);
+  assert.match(markup,/name="action" value="missionmed_timeline_consent"/);
   assert.match(markup,/required type="checkbox"/);
   assert.match(markup,/TURN ON SECURE SAVING/);
   assert.match(markup,/Not now — return to Matrix/);
@@ -39,4 +42,15 @@ test("boot failures preserve local-work truth and offer Retry plus Return to Mat
   assert.match(adapter,/back\.textContent="Return to Matrix"/);
   assert.match(adapter,/gate\.dataset\.errorCode/);
   assert.match(index,/#d1HydrationGate\.d1Recovery/);
+});
+
+test("contextual consent submits through the authenticated same-origin AJAX seam",async()=>{
+  const adapter=await readFile(new URL("../web/js/407f-engineering-adapter.js",import.meta.url),"utf8");
+  const plugin=await readFile(new URL("../../../wp-content/plugins/missionmed-timeline-sso/missionmed-timeline-sso.php",import.meta.url),"utf8");
+  assert.match(adapter,/new FormData\(form\)/);
+  assert.match(adapter,/credentials:"same-origin"/);
+  assert.match(adapter,/payload\?\.success!==true/);
+  assert.match(plugin,/function mmtl_ajax_consent\(\)/);
+  assert.match(plugin,/wp_ajax_missionmed_timeline_consent/);
+  assert.match(plugin,/wp_verify_nonce\(\$nonce, 'missionmed_timeline_remote_sync_consent'\)/);
 });

@@ -720,13 +720,15 @@ function escapeMarkup(value){
 export function productionPrivacyControlMarkup(identity){
   if(identity?.role!=="STUDENT")return"";
   const action=escapeMarkup(identity.consentAction);
+  const endpoint=escapeMarkup(identity.consentEndpoint||identity.consentAction);
   const nonce=escapeMarkup(identity.consentNonce);
   if(identity.remoteSyncConsent!==true){
     return`<aside class="timelineSecureSaveCard" data-timeline-privacy-control role="region" aria-labelledby="timelineSecureSaveTitle">
       <p class="timelineSecureSaveEyebrow">Secure access across devices</p>
       <h2 id="timelineSecureSaveTitle">Keep your Timeline with you.</h2>
       <p>Your work is already safe on this device. Turn on secure saving when you want to reopen it on your other authorized MissionMed devices.</p>
-      <form method="post" action="${action}" class="timelineSecureSaveForm">
+      <form method="post" action="${action}" data-consent-endpoint="${endpoint}" class="timelineSecureSaveForm">
+        <input type="hidden" name="action" value="missionmed_timeline_consent">
         <input type="hidden" name="_wpnonce" value="${nonce}">
         <input type="hidden" name="timeline_remote_sync_action" value="grant">
         <label><input required type="checkbox" name="timeline_remote_sync_consent" value="grant"> <span>I agree to securely save my Timeline in my private MissionMed account.</span></label>
@@ -734,6 +736,7 @@ export function productionPrivacyControlMarkup(identity){
           <button type="submit" class="btnD go">TURN ON SECURE SAVING ▸</button>
           <a href="${escapeMarkup(identity.matrixUrl)}">Not now — return to Matrix</a>
         </div>
+        <p class="timelineSecureSaveStatus" data-consent-status role="status" aria-live="polite"></p>
       </form>
     </aside>`;
   }
@@ -741,10 +744,12 @@ export function productionPrivacyControlMarkup(identity){
     <summary>Secure saving is on · Privacy settings</summary>
     <div>
       <p>Your Timeline is available on your authorized MissionMed devices. Turning this off keeps this device copy and stops remote saving.</p>
-      <form method="post" action="${action}">
+      <form method="post" action="${action}" data-consent-endpoint="${endpoint}">
+        <input type="hidden" name="action" value="missionmed_timeline_consent">
         <input type="hidden" name="_wpnonce" value="${nonce}">
         <input type="hidden" name="timeline_remote_sync_action" value="withdraw">
         <button type="submit" class="homeTertiary">Turn off secure saving</button>
+        <p class="timelineSecureSaveStatus" data-consent-status role="status" aria-live="polite"></p>
       </form>
     </div>
   </details>`;
@@ -755,6 +760,30 @@ function installProductionPrivacyControl(identity){
   const host=document.querySelector(".homeBuildRegion>.pi");
   if(!host||host.querySelector("[data-timeline-privacy-control]"))return;
   host.insertAdjacentHTML("beforeend",productionPrivacyControlMarkup(identity));
+  const form=host.querySelector("[data-timeline-privacy-control] form");
+  if(!form)return;
+  form.addEventListener("submit",async(event)=>{
+    event.preventDefault();
+    if(form.dataset.submitting==="true")return;
+    const button=form.querySelector('button[type="submit"]');
+    const status=form.querySelector("[data-consent-status]");
+    form.dataset.submitting="true";
+    if(button)button.disabled=true;
+    if(status)status.textContent="Updating secure saving…";
+    try{
+      const response=await fetch(form.dataset.consentEndpoint||form.action,{
+        method:"POST",credentials:"same-origin",cache:"no-store",
+        headers:{accept:"application/json"},body:new FormData(form),signal:AbortSignal.timeout(20_000)
+      });
+      const payload=await response.json().catch(()=>({}));
+      if(!response.ok||payload?.success!==true)throw new Error(String(payload?.data?.code||"TIMELINE_CONSENT_UPDATE_FAILED"));
+      location.reload();
+    }catch(error){
+      form.dataset.submitting="false";
+      if(button)button.disabled=false;
+      if(status)status.textContent="Secure saving could not be updated. Try again.";
+    }
+  });
 }
 
 function persistedIntakeState(state){

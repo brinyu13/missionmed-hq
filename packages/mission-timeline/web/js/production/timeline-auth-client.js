@@ -72,6 +72,7 @@ export class TimelineProductionAuthClient{
       consentVersion:String(data.consent_version||""),
       consentNonce:String(data.consent_nonce||""),
       consentAction:sameOriginUrl(data.consent_action||this.locationObject.pathname,origin),
+      consentEndpoint:sameOriginUrl(data.consent_endpoint||"/wp-admin/admin-ajax.php",origin),
     };
     if(!this.bootstrapState.nonce||!this.bootstrapState.principalId||!Number.isSafeInteger(this.bootstrapState.wpUserId)){
       throw new TimelineProductionAuthError("TIMELINE_BOOTSTRAP_INVALID","Timeline identity bootstrap is invalid.");
