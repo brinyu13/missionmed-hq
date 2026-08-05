@@ -82,14 +82,14 @@ for(const entry of raw.values()){
 
 const indexSource=raw.get("index.html");
 if(!indexSource)throw new Error("TIMELINE_RUNTIME_INDEX_MISSING");
-let indexText=indexSource.bytes.toString("utf8").replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/g,(match,_quote,value)=>{
+let indexText=indexSource.bytes.toString("utf8").replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,(styleBlock)=>styleBlock.replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/g,(match,_quote,value)=>{
   if(/^(?:data:|https?:|#|\/)/i.test(value))return match;
   const clean=value.split(/[?#]/,1)[0].replace(/^\.\//,"");
   const target=posix.normalize(clean);
   const asset=byPath.get(target);
   if(!asset)throw new Error(`TIMELINE_RUNTIME_INDEX_CSS_ASSET_MISSING:${target}`);
   return `url("/timeline/_asset/${asset.alias}")`;
-}).replace(/(src|href)=(['"])(\.\/[^'"]+)\2/g,(match,attribute,quote,value)=>{
+})).replace(/(src|href)=(['"])(\.\/[^'"]+)\2/g,(match,attribute,quote,value)=>{
   const path=posix.normalize(value.slice(2));
   const asset=byPath.get(path);
   if(!asset)throw new Error(`TIMELINE_RUNTIME_INDEX_ASSET_MISSING:${path}`);
