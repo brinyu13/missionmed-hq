@@ -1,0 +1,136 @@
+--- PROPOSED MISSIONMED OS PATCH FOR B1-511 AUTHORITY REGISTRATION ---
+--- Apply to MissionMed OS main branch at 343d2fa ---
+--- Sole writer: Codex (Builder) or Brian (Founder) ---
+--- Date: 2026-08-05 ---
+
+=== FILE 1: NEW FILE ===
+=== decisions/DR-021_storyforge_b1_511_founder_authorized_product_enhancement.md ===
+
+Copy the complete contents of MOS-AUTH-B1-511_DECISION_RECORD.md from this
+handoff packet to:
+
+  decisions/DR-021_storyforge_b1_511_founder_authorized_product_enhancement.md
+
+
+=== FILE 2: missions.json ===
+=== Insert new mission entry after the B1-503 entry (line ~654) ===
+
+--- a/missions.json
++++ b/missions.json
+@@ after the B1-503 closing brace and comma @@
++    {
++      "id": "B1-511",
++      "title": "StoryForge Founder-authorized bounded product enhancement",
++      "product": "storyforge",
++      "owner": "brian",
++      "builder": "codex-task-continuation",
++      "verifier": "independent-verification-required-before-non-founder-expansion",
++      "state": "active",
++      "gate": "DR-021 authorizes 14 bounded StoryForge product enhancements under B1-511 and B1-511A with limited DR-014 supersession. Every DR-014 privacy, identity, RLS, rollback, and canonical-product protection is preserved. Platform Summit constraint is binding. Custody OPTION 2 temporary exception is active; remote custody must precede production deployment.",
++      "worktree": "/Users/brianb/MissionMed_worktrees/B1-StoryForge-502",
++      "branch": "b1-502-storyforge-production-deployment",
++      "track": "local",
++      "demo": false,
++      "issue": null,
++      "packets": [
++        "/Users/brianb/MissionMed_OS/decisions/DR-021_storyforge_b1_511_founder_authorized_product_enhancement.md",
++        "/Users/brianb/MissionMed_OS/decisions/DR-014_storyforge_b1_503_product_conformance_recovery.md",
++        "/Users/brianb/MissionMed_OS/PRODUCT_PASSPORTS/storyforge.md",
++        "/Users/brianb/MissionMed_worktrees/B1-StoryForge-502/_AI_HANDOFFS/from_cowork/MOS-AUTH-STORYFORGE-B1-511/MOS-AUTH-B1-511_COMPLETE_COMBINED_HANDOFF.md"
++      ],
++      "next_action": "Resume the existing B1-511 worktree at exact HEAD 0271dd7b232db58cda2a81a2132b6a508b7da48a; establish custody backup per OPTION 2; complete B1-511 bounded implementation under B1-511A stop lines; follow staged deployment sequence.",
++      "updated_at": "2026-08-05T00:00:00-04:00"
++    },
+
+
+=== FILE 3: authority_index.json ===
+=== Insert new entry after the B1_503_DR_014 entry (after line ~265) ===
+
+--- a/authority_index.json
++++ b/authority_index.json
+@@ after the B1_503_DR_014 closing brace and comma @@
++    {
++      "id": "B1_511_DR_021",
++      "title": "StoryForge B1-511 Founder-authorized bounded product enhancement",
++      "path": "decisions/DR-021_storyforge_b1_511_founder_authorized_product_enhancement.md",
++      "level": 1,
++      "scope_tags": [
++        "b1",
++        "storyforge",
++        "product_enhancement",
++        "matrix",
++        "wordpress",
++        "kinsta",
++        "railway",
++        "postgresql",
++        "auth",
++        "mentor",
++        "voice_notes",
++        "submission",
++        "categories",
++        "priority",
++        "search",
++        "production",
++        "rollback"
++      ],
++      "status": "active",
++      "successor": null,
++      "ratified_by": "Brian",
++      "governed_by": "MMOS_006",
++      "limited_supersession_of": "B1_503_DR_014",
++      "preserves": [
++        "B1_502M_DR_011",
++        "B1_502M_DR_012",
++        "B1_502M_DR_013",
++        "B1_503_DR_014"
++      ],
++      "custody_state": "LOCAL_ONLY_OPTION_2_TEMPORARY_EXCEPTION",
++      "precedence_note": "Founder-authorized bounded product enhancement with limited DR-014 supersession. B1-511 extends StoryForge with 14 bounded features while preserving all DR-014 privacy, identity, RLS, rollback, and canonical-product protections. Platform Summit constraint is binding. Custody OPTION 2 temporary exception is active."
++    },
+
+
+=== FILE 4: PRODUCT_PASSPORTS/storyforge.md ===
+=== Targeted edits (not a full rewrite) ===
+
+--- a/PRODUCT_PASSPORTS/storyforge.md (line 1)
++++ b/PRODUCT_PASSPORTS/storyforge.md (line 1)
+-Status: FOUNDER-ONLY PRODUCTION LIVE. INFRASTRUCTURE HEALTHY. B1-503 PRODUCT-CONFORMANCE RECOVERY IN PROGRESS; NO B1-503 PRODUCTION MUTATION UNTIL DR-014 GATES PASS.
++Status: FOUNDER-ONLY PRODUCTION LIVE. INFRASTRUCTURE HEALTHY. B1-503 PRODUCT-CONFORMANCE RECOVERY IN PROGRESS. B1-511 FOUNDER-AUTHORIZED BOUNDED PRODUCT ENHANCEMENT ACTIVE UNDER DR-021; NO B1-511 PRODUCTION MUTATION UNTIL DR-021 AND DR-014 GATES PASS.
+
+--- a/PRODUCT_PASSPORTS/storyforge.md (line 8)
++++ b/PRODUCT_PASSPORTS/storyforge.md (line 8)
+-Mission ID: B1-503
++Mission ID: B1-503, B1-511
+
+--- a/PRODUCT_PASSPORTS/storyforge.md (after line 31 "Product-conformance recovery authority")
++++ b/PRODUCT_PASSPORTS/storyforge.md
++- B1-511 bounded product enhancement authority: `decisions/DR-021_storyforge_b1_511_founder_authorized_product_enhancement.md`
++- B1-511 authority packet: `_AI_HANDOFFS/from_cowork/MOS-AUTH-STORYFORGE-B1-511/`
+
+--- a/PRODUCT_PASSPORTS/storyforge.md (before "## Terminal State")
++++ b/PRODUCT_PASSPORTS/storyforge.md
++## B1-511 Bounded Enhancement Scope
++
++DR-021 authorizes 14 bounded product enhancements: Founder administrator-console access, canonical single release, explicit student submission, bounded categories and filters, corrected intended-use labels, priority sorting, inline priority editing, library rerender elimination, search-input repair, extended review workflow, mentor text and voice notes, internal notes privacy, and B1-511A integrity requirements.
++
++Limited supersession of DR-014 applies only to the 14 enumerated feature domains. All DR-014 privacy, identity, RLS, rollback, audit, and canonical-product protections remain active. Platform Summit constraint is binding.
++
++Custody: OPTION 2 temporary exception. Remote custody required before production deployment.
++
+
+--- a/PRODUCT_PASSPORTS/storyforge.md (Terminal State section)
++++ b/PRODUCT_PASSPORTS/storyforge.md
+-This passport records a live exact-Founder student pilot with healthy infrastructure and a materially nonconforming product presentation under active B1-503 recovery. No B1-503 production mutation is permitted until the canonical conformance, security, fresh restore, exact release, feature-off, negative-access, and authenticated Founder gates pass. It must be updated with the B1-503 candidate commit, Railway deployment, Kinsta pointer, runtime hashes, restore identifiers, terminal conformance matrix, and rollback outcome.
++This passport records a live exact-Founder student pilot with healthy infrastructure, a materially nonconforming product presentation under active B1-503 recovery, and B1-511 bounded product enhancement authority. No B1-511 production mutation is permitted until the B1-511A differential proof, all DR-014 gates, and all DR-021 gates pass. Custody must transition from OPTION 2 to remote before production deployment. It must be updated with the B1-511 candidate commit, custody state, deployment state, and per-feature rollback evidence.
+
+
+=== FILE 5: CURRENT.md ===
+=== REGENERATE — DO NOT HAND-EDIT ===
+
+Run: python3 tools/mmos_status.py
+
+This will regenerate CURRENT.md from the updated missions.json with B1-511
+appearing in active missions and next actions.
+
+
+=== END OF PROPOSED PATCH ===

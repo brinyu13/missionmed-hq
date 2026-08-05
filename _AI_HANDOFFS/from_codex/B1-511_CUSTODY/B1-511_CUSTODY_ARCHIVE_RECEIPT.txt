@@ -1,0 +1,45 @@
+B1-511 STORYFORGE LOCAL CUSTODY RECEIPT
+
+Custody authority: DR-021 OPTION 2 temporary local-only custody exception
+Created UTC: 2026-08-05T22:06:33Z
+Repository: /Users/brianb/MissionMed_worktrees/B1-StoryForge-502
+Branch: codex/b1-503-storyforge-product-recovery
+HEAD: 0271dd7b232db58cda2a81a2132b6a508b7da48a
+HEAD tree: 1f59adef7915dd63b4c8de231f1ba96af54128b7
+
+Pre-archive worktree state:
+- Tracked files: clean
+- Expected untracked authority packet only: _AI_HANDOFFS/from_cowork/MOS-AUTH-STORYFORGE-B1-511/
+- Unrelated changes: none
+
+Deterministic source archive:
+Path: /Users/brianb/MissionMed_private_backups/B1-511/CUSTODY-20260805T220633Z/B1-StoryForge-502-0271dd7b-source.tar
+Format: git archive tar of exact HEAD
+Embedded commit ID: 0271dd7b232db58cda2a81a2132b6a508b7da48a
+SHA-256: 0aaa74ec1dd61c35680fbb613c6b6e094b53b09d1e452b3753794af907f2d015
+Size: 46458880 bytes
+Mode: 0600 (-rw-------)
+
+Complete-history Git bundle:
+Path: /Users/brianb/MissionMed_private_backups/B1-511/CUSTODY-20260805T220633Z/B1-StoryForge-502-0271dd7b.bundle
+Bundled ref: 0271dd7b232db58cda2a81a2132b6a508b7da48a HEAD
+Bundle verification: PASS; complete history
+SHA-256: 96bd9311f3de95a250bd6ecc9ba0ab1fbad0e0e627cf85001f6d93e10cfa8fb5
+Size: 35204372 bytes
+Mode: 0600 (-rw-------)
+
+Remote custody state at receipt creation:
+Upstream: origin/codex/b1-503-storyforge-product-recovery
+Remote ref: refs/heads/codex/b1-503-storyforge-product-recovery
+Remote commit: 6c51c29c18bf7c4795e2a5d9c26482886471d20b
+Divergence (remote-only, local-only): 0, 47
+Fast-forward relationship: remote commit is an ancestor of local HEAD
+
+Custody verdict:
+LOCAL CUSTODY ESTABLISHED. Local B1-511 implementation is authorized under the
+temporary OPTION 2 exception. Production deployment remains prohibited until
+remote custody is established by an exact safe branch push or a later explicit
+Founder ruling.
+
+No production, remote branch, database, WordPress, Kinsta, Railway, R2, or
+provider mutation occurred while creating this receipt.
