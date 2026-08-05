@@ -212,8 +212,20 @@ export class PostgresProductionMediaRepository implements ProductionMediaReposit
 export type R2Presigner = (
   client: S3Client,
   command: PutObjectCommand | GetObjectCommand,
-  options: { expiresIn: number },
+  options: {
+    expiresIn: number;
+    signableHeaders?: Set<string>;
+    unhoistableHeaders?: Set<string>;
+  },
 ) => Promise<string>;
+
+const R2_UPLOAD_SIGNABLE_HEADERS = new Set(["content-type"]);
+const R2_UPLOAD_UNHOISTABLE_HEADERS = new Set([
+  "x-amz-checksum-sha256",
+  "x-amz-meta-object-id",
+  "x-amz-meta-expected-sha256",
+  "x-amz-meta-object-class",
+]);
 
 export interface R2PrivateObjectStoreOptions {
   client: S3Client;
@@ -290,7 +302,11 @@ export class R2PrivateObjectStore implements PrivateObjectStore {
     });
     let uploadUrl: string;
     try {
-      uploadUrl = await this.presign(this.options.client, command, { expiresIn: this.signedUrlSeconds });
+      uploadUrl = await this.presign(this.options.client, command, {
+        expiresIn: this.signedUrlSeconds,
+        signableHeaders: R2_UPLOAD_SIGNABLE_HEADERS,
+        unhoistableHeaders: R2_UPLOAD_UNHOISTABLE_HEADERS,
+      });
     } catch (error) {
       throw this.storageUnavailable(error);
     }

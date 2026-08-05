@@ -140,6 +140,11 @@ function fixture(clock = new MutableClock()) {
   const repository = new MemoryMediaRepository();
   const r2 = new FakeR2();
   const signedCommands: Array<PutObjectCommand | GetObjectCommand> = [];
+  const signedOptions: Array<{
+    expiresIn: number;
+    signableHeaders?: Set<string>;
+    unhoistableHeaders?: Set<string>;
+  }> = [];
   const store = new R2PrivateObjectStore({
     client: r2.client,
     repository,
@@ -151,10 +156,11 @@ function fixture(clock = new MutableClock()) {
     clock: clock.now,
     presign: async (_client, command, options) => {
       signedCommands.push(command);
+      signedOptions.push(options);
       return `https://private-signed.invalid/grant?ttl=${options.expiresIn}`;
     },
   });
-  return { store, repository, r2, signedCommands, clock };
+  return { store, repository, r2, signedCommands, signedOptions, clock };
 }
 
 function uploadRequest() {
@@ -200,7 +206,7 @@ test("R2 configuration is all-or-none, private-endpoint only, and region auto", 
 });
 
 test("private signed PUT, custody confirmation, signed GET, and delete are owner scoped", async () => {
-  const { store, repository, r2, signedCommands } = fixture();
+  const { store, repository, r2, signedCommands, signedOptions } = fixture();
   const student = context("principal-student-a");
   const signed = await store.signUpload(student, uploadRequest());
   const pending = repository.records.get(signed.objectId)!;
@@ -213,6 +219,13 @@ test("private signed PUT, custody confirmation, signed GET, and delete are owner
   assert.doesNotMatch(pending.storageKey, /principal-student-a|timeline_test_document/);
   assert.equal(signed.requiredHeaders["x-amz-checksum-sha256"], Buffer.from(uploadRequest().sha256, "hex").toString("base64"));
   assert.ok(signedCommands[0] instanceof PutObjectCommand);
+  assert.deepEqual([...signedOptions[0]!.signableHeaders!], ["content-type"]);
+  assert.deepEqual([...signedOptions[0]!.unhoistableHeaders!], [
+    "x-amz-checksum-sha256",
+    "x-amz-meta-object-id",
+    "x-amz-meta-expected-sha256",
+    "x-amz-meta-object-class",
+  ]);
 
   r2.accept(pending);
   const confirmed = await store.confirmUpload(student, signed.objectId, signed.uploadToken);
