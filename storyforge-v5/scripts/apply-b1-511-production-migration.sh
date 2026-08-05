@@ -163,7 +163,7 @@ BEGIN
   IF (SELECT count(*) FROM public.sf_feature_flags WHERE key IN ('story_workflow','story_taxonomy','inline_priority','story_search','mentor_notes') AND scope='off') <> 5 THEN
     RAISE EXCEPTION 'B1-511 feature flags are not all default-off';
   END IF;
-  IF to_regclass('public.sf_mentor_notes') IS NULL OR to_regclass('public.sf_mentor_note_audio') IS NULL THEN
+  IF to_regclass('public.sf_mentor_notes') IS NULL OR to_regclass('public.sf_mentor_note_media') IS NULL THEN
     RAISE EXCEPTION 'B1-511 mentor-note tables are absent';
   END IF;
   IF NOT (SELECT relrowsecurity AND relforcerowsecurity FROM pg_class WHERE oid='public.sf_mentor_notes'::regclass) THEN

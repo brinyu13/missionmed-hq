@@ -18,6 +18,8 @@ test('B1-511 production runner requires backup, SSL, default-off flags, and forc
   assert.match(source, /provider backup is not locked and non-expiring/);
   assert.match(source, /railway\|postgres\|\$STORYFORGE_EXPECTED_DB_SYSTEM_IDENTIFIER\|true/);
   assert.match(source, /scope='off'/);
+  assert.match(source, /sf_mentor_note_media/);
+  assert.doesNotMatch(source, /sf_mentor_note_audio'/);
   assert.match(source, /relrowsecurity AND relforcerowsecurity/);
   assert.match(source, /STORYFORGE_MIGRATION_CONFIRM:-.*B1-511-APPLY/);
   assert.match(source, /production counts changed after preflight/);
