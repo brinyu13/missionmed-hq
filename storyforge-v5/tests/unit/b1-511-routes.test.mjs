@@ -67,10 +67,12 @@ async function fixture(context) {
       }
       calls.push(['query', identity, sql, values]);
       if (String(sql).includes('sf_update_story_taxonomy')) {
-        return { rows: [{ id: STORY, row_version: 2, categories: values[2], uses: values[3] }] };
+        return { rows: [{ story: {
+          id: STORY, rowVersion: 2, categories: values[2], uses: values[3],
+        } }] };
       }
       if (String(sql).includes('sf_update_story_priority')) {
-        return { rows: [{ id: STORY, row_version: 2, student_score: values[2] }] };
+        return { rows: [{ story: { id: STORY, rowVersion: 2, priority: values[2] } }] };
       }
       if (String(sql).includes('sf_withdraw_story')) {
         return { rows: [{ id: STORY, row_version: 3, status: 'private' }] };
@@ -121,7 +123,7 @@ test('student taxonomy and priority routes preserve row-versioned bounded RPC ow
     body: JSON.stringify({ expectedVersion: 2, priority: 5, surface: 'library' }),
   }));
   assert.equal(priority.status, 200);
-  assert.equal(priority.body.story.student_score, 5);
+  assert.equal(priority.body.story.priority, 5);
 
   const withdrawn = await json(await fetch(`${origin}/api/stories/${STORY}/withdraw`, {
     method: 'POST',

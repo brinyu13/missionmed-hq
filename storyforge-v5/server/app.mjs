@@ -972,7 +972,7 @@ async function api(request, response, url, {
     const body = await readJson(request);
     const story = await withIdentity(identity, async (client) => {
       const result = await client.query(
-        'SELECT * FROM public.sf_update_story_taxonomy($1, $2, $3::text[], $4::text[], $5)',
+        'SELECT public.sf_update_story_taxonomy($1, $2, $3::text[], $4::text[], $5) AS story',
         [
           id,
           body.expectedVersion ?? null,
@@ -981,7 +981,7 @@ async function api(request, response, url, {
           body.surface || 'workspace',
         ],
       );
-      return result.rows[0];
+      return result.rows[0]?.story;
     });
     return sendJson(response, 200, { story });
   }
@@ -992,10 +992,10 @@ async function api(request, response, url, {
     const body = await readJson(request);
     const story = await withIdentity(identity, async (client) => {
       const result = await client.query(
-        'SELECT * FROM public.sf_update_story_priority($1, $2, $3::smallint, $4)',
+        'SELECT public.sf_update_story_priority($1, $2, $3::smallint, $4) AS story',
         [id, body.expectedVersion ?? null, body.priority ?? null, body.surface || 'library'],
       );
-      return result.rows[0];
+      return result.rows[0]?.story;
     });
     return sendJson(response, 200, { story });
   }
