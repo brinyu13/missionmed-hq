@@ -151,31 +151,31 @@ export class PostgresTimelinePrincipalDirectory implements TimelinePrincipalDire
     const row = principalResult.rows[0];
     if (!row) return null;
 
-    const [programResult, assignmentResult, grantResult] = await Promise.all([
-      database.query<TextRow>(
-        `select program_id as value from timeline.principal_programs where principal_id = $1 order by program_id`,
-        [principalId],
-      ),
-      database.query<TextRow>(
-        `select distinct document_id as value
-         from timeline.advisor_assignments
-         where advisor_principal_id = $1
-           and starts_at <= $2::timestamptz
-           and (ends_at is null or ends_at > $2::timestamptz)
-         order by document_id`,
-        [principalId, at],
-      ),
-      database.query<GrantRow>(
-        `select document_id, actions, expires_at
-         from timeline.admin_resource_grants
-         where administrator_principal_id = $1
-           and starts_at <= $2::timestamptz
-           and expires_at > $2::timestamptz
-           and revoked_at is null
-         order by document_id, expires_at`,
-        [principalId, at],
-      ),
-    ]);
+    // A checked-out pg Client supports one query at a time. Keep these reads
+    // sequential so first-use identity resolution remains compatible with pg 9.
+    const programResult = await database.query<TextRow>(
+      `select program_id as value from timeline.principal_programs where principal_id = $1 order by program_id`,
+      [principalId],
+    );
+    const assignmentResult = await database.query<TextRow>(
+      `select distinct document_id as value
+       from timeline.advisor_assignments
+       where advisor_principal_id = $1
+         and starts_at <= $2::timestamptz
+         and (ends_at is null or ends_at > $2::timestamptz)
+       order by document_id`,
+      [principalId, at],
+    );
+    const grantResult = await database.query<GrantRow>(
+      `select document_id, actions, expires_at
+       from timeline.admin_resource_grants
+       where administrator_principal_id = $1
+         and starts_at <= $2::timestamptz
+         and expires_at > $2::timestamptz
+         and revoked_at is null
+       order by document_id, expires_at`,
+      [principalId, at],
+    );
 
     const resourceGrants: FacultyGrant[] = grantResult.rows.map((grant) => ({
       documentId: grant.document_id,

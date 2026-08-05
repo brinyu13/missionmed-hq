@@ -30,6 +30,22 @@ class FirstUseClient {
   release(){this.released=true;}
 }
 
+class ConcurrentQueryGuardClient extends FirstUseClient {
+  inFlight=0;
+  maxInFlight=0;
+
+  override async query<T=unknown>(sql:string,parameters?:unknown[]){
+    this.inFlight+=1;
+    this.maxInFlight=Math.max(this.maxInFlight,this.inFlight);
+    try{
+      await new Promise<void>((resolve)=>setImmediate(resolve));
+      return await super.query<T>(sql,parameters);
+    }finally{
+      this.inFlight-=1;
+    }
+  }
+}
+
 test("missing eligible student principals are provisioned under the isolated role then re-read under authenticated RLS",async()=>{
   const client=new FirstUseClient();
   const directory=new PostgresTimelinePrincipalDirectory({connect:async()=>client} as never);
@@ -60,5 +76,18 @@ test("first-use provisioning remains fail-closed for an ineligible student",asyn
   assert.equal(resolved,null);
   assert.equal(client.principalExists,false);
   assert.equal(client.calls.some(({sql})=>sql.startsWith("insert into timeline.principals")),false);
+  assert.equal(client.calls.at(-1)?.sql,"COMMIT");
+});
+
+test("principal reads never overlap queries on one checked-out PostgreSQL client",async()=>{
+  const client=new ConcurrentQueryGuardClient();
+  client.principalExists=true;
+  client.programExists=true;
+  const directory=new PostgresTimelinePrincipalDirectory({connect:async()=>client} as never);
+  const resolved=await directory.resolve(principalId,143,"STUDENT",{
+    isWordpressAdministrator:false,hasLearndash3893Access:true,
+  },"2026-08-05T23:30:00.000Z");
+  assert.equal(resolved?.principalId,principalId);
+  assert.equal(client.maxInFlight,1);
   assert.equal(client.calls.at(-1)?.sql,"COMMIT");
 });
