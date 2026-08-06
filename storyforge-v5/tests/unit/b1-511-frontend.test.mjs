@@ -88,3 +88,10 @@ test('all new frontend capabilities default closed', () => {
     assert.match(source, new RegExp(`${capability}: Boolean\\(session\\?\\.capabilities\\?\\.${capability}\\)`));
   }
 });
+
+test('assignment-independent submission uses the signed B1-511 capability in the sole renderer', () => {
+  const action = functionSource('studentReviewAction');
+  assert.match(action, /!state\.capabilities\?\.submissionReview && !story\.mentorReviewAvailable/);
+  assert.match(action, /data-submit-story/);
+  assert.match(action, /Submit for review/);
+});

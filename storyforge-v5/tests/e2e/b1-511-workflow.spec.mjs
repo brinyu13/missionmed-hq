@@ -222,3 +222,16 @@ test('B1-511 Library keeps uninterrupted search and row-only priority controls i
     fullPage: true,
   });
 });
+
+test('B1-511 sole renderer offers submission to an eligible student without a mentor assignment', async ({ page, request }) => {
+  const student = await devToken(request, 'studentOther');
+  await createStory(request, student, 'B1-511 assignment-independent UI canary');
+
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Second student · privacy boundary' }).click();
+  await page.getByRole('button', { name: 'Story Library', exact: true }).click();
+  const row = page.locator('[data-story-row]').filter({ hasText: 'B1-511 assignment-independent UI canary' });
+  await row.getByRole('button', { name: 'Open story' }).click();
+  await expect(page.getByRole('button', { name: 'Submit for review' })).toBeVisible();
+  await expect(page.getByText('Mentor review unavailable', { exact: true })).toHaveCount(0);
+});
