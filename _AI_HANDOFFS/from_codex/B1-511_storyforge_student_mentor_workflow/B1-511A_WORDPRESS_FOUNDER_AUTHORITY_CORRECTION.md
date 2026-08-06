@@ -44,3 +44,23 @@ administrator console continues to expose submitted stories only.
 The browser test proves that the Founder student identity starts in Student
 View, retains capture, switches to Administrator View, cannot obtain private
 stories, and switches back without changing its persisted role.
+
+## Production verification
+
+Production source `4876212cbcb874fb3769e97b969a6b627ba3a6ab` is live as
+frontend release `v-f31264f9b7bbcb93` and Railway deployment
+`3b9b72c2-6e5f-4f85-8bb6-413d08100306`.
+
+An ephemeral token issued by the real production WordPress plugin for exact
+WordPress user `1` proved, without printing or retaining the token:
+
+- username `brinyu` and WordPress `manage_options=true`;
+- signed base role `student`;
+- API session HTTP `200`, role `student`, `wordpress_admin=true`;
+- administrator-console capability `true`;
+- administrator home HTTP `200`;
+- stories HTTP `200`, exactly `7` owned stories.
+
+The browser's currently signed WordPress user `107` (`Brian_test`) also loaded
+Administrator View from the same canonical release. The production receipt
+contains hashes, backups, rollout incident disclosure, and rollback inputs.
