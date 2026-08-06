@@ -25,9 +25,9 @@ define( 'MMSFR_MAX_BODY_BYTES', 6291456 );
 define( 'MMSFR_MAX_RESPONSE_BYTES', 33554432 );
 define( 'MMSFR_TIMEOUT_SECONDS', 9 );
 // BEGIN GENERATED STORYFORGE RELEASE ID.
-define( 'MMSFR_RELEASE_ID', 'v-f31264f9b7bbcb93' );
-define( 'MMSFR_RELEASE_PHP_SHA256', '864589774a7146975903dc2f9e9adf4884620c6b293c97efc31734b98443321b' );
-define( 'MMSFR_RELEASE_PHP_SIZE', 1073554 );
+define( 'MMSFR_RELEASE_ID', 'v-d45ca5e899878fea' );
+define( 'MMSFR_RELEASE_PHP_SHA256', '805ec783704f8be8a9ce4d7fbc593e046391464a5d0ce081ab185f87eb400ef6' );
+define( 'MMSFR_RELEASE_PHP_SIZE', 1074420 );
 // END GENERATED STORYFORGE RELEASE ID.
 
 /**
@@ -38,10 +38,10 @@ define( 'MMSFR_RELEASE_PHP_SIZE', 1073554 );
 function mmsfr_asset_manifest() {
 	return array(
 		// BEGIN GENERATED STORYFORGE ASSET MANIFEST.
-		'assets/app.539dc28b543d.js' => array(
-			'alias' => '539dc28b543d',
-			'sha256' => '539dc28b543d3e87226eaab575957d8932f1f4ee60f51a61deb7644045836ec2',
-			'size' => 360910,
+		'assets/app.217f4d2d0f5f.js' => array(
+			'alias' => '217f4d2d0f5f',
+			'sha256' => '217f4d2d0f5f3f4c95f83403efc2fd35681a87718afe8fffd25c791897e08b9c',
+			'size' => 361435,
 			'type' => 'text/javascript; charset=utf-8',
 			'cache' => 'immutable',
 		),
@@ -129,16 +129,16 @@ function mmsfr_asset_manifest() {
 			'type' => 'image/png',
 			'cache' => 'immutable',
 		),
-		'assets/styles.dddc33507fd0.css' => array(
-			'alias' => 'dddc33507fd0',
-			'sha256' => 'dddc33507fd06073e5063f81c678e10f977a9dcd07d397b194f3222f3000f518',
-			'size' => 116340,
+		'assets/styles.409bdc5b96d7.css' => array(
+			'alias' => '409bdc5b96d7',
+			'sha256' => '409bdc5b96d7dadad4d9eda1f4c0a01a2ee8d561745f4b2439850423eee0e18c',
+			'size' => 116424,
 			'type' => 'text/css; charset=utf-8',
 			'cache' => 'immutable',
 		),
 		'index.html' => array(
-			'alias' => '82f1657c39e3',
-			'sha256' => '82f1657c39e3fcfc6da0c3acbe0ae8d4cb586ce2110f45fc4793d7faaa1daab0',
+			'alias' => 'a781895575af',
+			'sha256' => 'a781895575afd34e68266a78f0e026d3d0802bc00bcd98741d0898b6143b766f',
 			'size' => 1669,
 			'type' => 'text/html; charset=utf-8',
 			'cache' => 'html',
