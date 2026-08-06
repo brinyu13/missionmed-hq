@@ -98,6 +98,13 @@ test("Founder Media renders one draggable library with keyboard-equivalent place
   assert.doesNotMatch(html,/cloud|upload anywhere|server/i);
 });
 
+test("production Media truthfully describes private cross-device persistence",()=>{
+  const html=mediaLibraryMarkup([],{durableOnline:true});
+  assert.match(html,/PRIVATE MEDIA/);
+  assert.match(html,/securely synced across your authorized devices/);
+  assert.doesNotMatch(html,/stored only on this device/);
+});
+
 test("Founder Media keyboard nudges can position a placed asset without new records or blobs",()=>{
   const asset=createMediaLibraryAsset({
     id:"nudge-asset",

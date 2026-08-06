@@ -126,7 +126,8 @@ export function removeMediaLibraryAsset(media,id){
 export function mediaLibraryMarkup(media,{
   resolveObjectUrl=()=>null,
   compact=false,
-  reducedMotion=false
+  reducedMotion=false,
+  durableOnline=false
 }={}){
   const helpId=compact?"media407FDrawerDragHelp":"media407FPageDragHelp";
   const items=(media||[]).filter((item)=>item?.type==="media");
@@ -160,9 +161,11 @@ export function mediaLibraryMarkup(media,{
     <p class="sr-only" id="${helpId}">Drag an asset onto the timeline, or use its Place on timeline button for keyboard placement at the timeline center.</p>
     <div class="media407FToolbar">
       <div>
-        <p>LOCAL MEDIA</p>
+        <p>${durableOnline?"PRIVATE MEDIA":"LOCAL MEDIA"}</p>
         <h2>${compact?"Drag onto the timeline":"Your timeline assets"}</h2>
-        <span class="media407FFormatHint">PNG, JPG, WEBP, or GIF · stored only on this device</span>
+        <span class="media407FFormatHint">${durableOnline
+          ?"PNG, JPG, WEBP, or GIF · securely synced across your authorized devices"
+          :"PNG, JPG, WEBP, or GIF · stored only on this device"}</span>
       </div>
       <label class="btnD go sm media407FUpload">
         UPLOAD

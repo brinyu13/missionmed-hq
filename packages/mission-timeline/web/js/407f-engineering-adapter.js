@@ -2125,17 +2125,25 @@ export async function boot407FEngineeringAdapter({
     )?.matches;
     const page=document.getElementById("media407F");
     const drawer=document.getElementById("mediaDrawer407FContent");
+    const mediaBadge=document.querySelector(".media407FLocalBadge");
+    if(mediaBadge){
+      mediaBadge.textContent=privateMediaStorageEnabled
+        ?"PRIVATE · SECURELY SYNCED"
+        :"LOCAL DEVICE ONLY";
+    }
     if(page){
       page.innerHTML=mediaLibraryMarkup(mediaItems(),{
         resolveObjectUrl:(id)=>mediaUrls.get(id),
-        reducedMotion
+        reducedMotion,
+        durableOnline:privateMediaStorageEnabled
       });
     }
     if(drawer){
       drawer.innerHTML=mediaLibraryMarkup(mediaItems(),{
         resolveObjectUrl:(id)=>mediaUrls.get(id),
         compact:true,
-        reducedMotion
+        reducedMotion,
+        durableOnline:privateMediaStorageEnabled
       });
     }
     const canvasHost=document.getElementById("canvas407F");
