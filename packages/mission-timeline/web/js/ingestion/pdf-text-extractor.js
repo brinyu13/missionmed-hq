@@ -2,6 +2,7 @@ import {getDocument,GlobalWorkerOptions,PasswordResponses} from "../../vendor/pd
 import {inspectFile,sourceDocumentId,MAX_PAGES,IngestionFileError} from "./file-inspector.js";
 import {buildDocumentPage} from "./pdf-page-model.js";
 import {assessOcrRequirement} from "./ocr-adapter.js";
+import {readPdfTextContent} from "./pdf-text-stream-reader.js";
 
 GlobalWorkerOptions.workerSrc=globalThis.D1_TIMELINE_ASSET_URLS?.["vendor/pdfjs/pdf.worker.min.mjs"]
   ||new URL("../../vendor/pdfjs/pdf.worker.min.mjs",import.meta.url).href;
@@ -42,7 +43,7 @@ export async function extractPdf(file,{onStatus=()=>{},password=null}={}){
     for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++){
       onStatus("EXTRACTING",{message:"Reading page "+pageNumber+" of "+pdf.numPages,pageNumber,pageCount:pdf.numPages});
       const page=await pdf.getPage(pageNumber);
-      const textContent=await page.getTextContent({includeMarkedContent:false,disableNormalization:false});
+      const textContent=await readPdfTextContent(page,{includeMarkedContent:false,disableNormalization:false});
       pages.push(buildDocumentPage({sourceDocumentId:id,pageNumber,textContent,viewport:page.getViewport({scale:1})}));
       page.cleanup();
     }
