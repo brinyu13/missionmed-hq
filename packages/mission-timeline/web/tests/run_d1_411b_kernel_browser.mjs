@@ -452,7 +452,70 @@ for(const persona of personas){
     return{viewport:"390x844",ratio:+(box.width/box.height).toFixed(4),reducedMotion:motion};
   });
 
-  await runCheck(persona,"13 · same-DOM PNG/PDF export and fresh browser errors",async()=>{
+  await runCheck(persona,"13 · Advanced manual axis and fixed-six color key",async()=>{
+    if(!persona.writable)return"read-only persona has no Advanced presentation controls";
+    await navigate(page,"canvas");
+    await page.evaluate(()=>{
+      const api=window.D1_407F_ENGINEERING;
+      const document=api.store.snapshot();
+      document.mode="advanced";
+      document.advanced={...(document.advanced||{}),enteredBefore:true};
+      api.store.replace(document,{label:"Enter Advanced presentation proof",history:false});
+      api.applyDocument();
+    });
+    const mode=page.locator("[data-axis-override-mode]");
+    await mode.waitFor({state:"visible"});
+    await mode.selectOption("manual");
+    await page.waitForFunction(()=>window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis?.mode==="manual");
+    await page.locator('[data-axis-override-field="startYear"]').fill("2008");
+    await page.locator('[data-axis-override-field="startYear"]').press("Tab");
+    await page.waitForFunction(()=>window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis?.startYear===2008);
+    let evidence=await kernelEvidence(await kernel(page,"edit"));
+    const axisLabels=await evidence.frame.locator("#axis .yseg span").allTextContents();
+    assert(axisLabels[0]==="2008",`manual axis did not render 2008: ${axisLabels.join(",")}`);
+    const education=page.locator('[data-category-key-id="education"]');
+    const fittedLabel="Medical training milestones 2026";
+    await education.locator('[data-category-key-field="label"]').fill(fittedLabel);
+    await education.locator('[data-category-key-field="label"]').press("Tab");
+    await education.locator('[data-category-key-field="color"]').fill("#123abc");
+    await education.locator('[data-category-key-field="color"]').press("Tab");
+    await page.waitForFunction(()=>window.D1_407F_ENGINEERING.store.document.presentationOverrides?.categoryKey?.[0]?.color==="#123ABC");
+    const advancedHost=await kernel(page,"edit");
+    evidence=await kernelEvidence(advancedHost);
+    const key=await evidence.frame.locator("#key").evaluate((node)=>({
+      rows:node.querySelectorAll(".row").length,
+      labels:[...node.querySelectorAll(".row span")].map((item)=>item.textContent),
+      colors:[...node.querySelectorAll(".row .sw")].map((item)=>getComputedStyle(item).backgroundColor),
+      sizes:[...node.querySelectorAll(".row span")].map((item)=>getComputedStyle(item).fontSize)
+    }));
+    assert(key.rows===6,`expected six key rows, received ${key.rows}`);
+    assert(key.labels[0]===fittedLabel,`category label not rendered: ${key.labels[0]}`);
+    assert(key.colors[0]==="rgb(18, 58, 188)",`category color not rendered: ${key.colors[0]}`);
+    assert(key.sizes[0]==="16px",`long category label did not use deterministic fit: ${key.sizes[0]}`);
+    if(captureDir&&persona.id==="administrator"){
+      await page.screenshot({path:`${captureDir}/D1-411A_ADVANCED_CONTROLS.png`,fullPage:true});
+      await advancedHost.screenshot({path:`${captureDir}/D1-411A_MANUAL_AXIS_COLOR_KEY_ARTIFACT.png`});
+    }
+    await page.locator("[data-category-key-reset]").click();
+    await page.locator("[data-axis-override-reset]").click();
+    await page.waitForFunction(()=>!window.D1_407F_ENGINEERING.store.document.presentationOverrides?.categoryKey&&!window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis);
+    evidence=await kernelEvidence(await kernel(page,"edit"));
+    assert(await evidence.frame.locator("#key .row").count()===5,"reset did not restore accepted five-row key");
+    await mode.selectOption("manual");
+    await page.locator('[data-axis-override-field="startYear"]').fill("2008");
+    await page.locator('[data-axis-override-field="startYear"]').press("Tab");
+    await education.locator('[data-category-key-field="label"]').fill(fittedLabel);
+    await education.locator('[data-category-key-field="label"]').press("Tab");
+    await education.locator('[data-category-key-field="color"]').fill("#123abc");
+    await education.locator('[data-category-key-field="color"]').press("Tab");
+    await page.waitForFunction(()=>
+      window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis?.startYear===2008&&
+      window.D1_407F_ENGINEERING.store.document.presentationOverrides?.categoryKey?.[0]?.color==="#123ABC"
+    );
+    return{manualAxisStart:2008,fixedCategoryOrder:6,resetRows:5,customStateRestoredForExport:true};
+  });
+
+  await runCheck(persona,"14 · same-DOM PNG/PDF export and fresh browser errors",async()=>{
     await navigate(page,"export");
     const host=await kernel(page,"export");
     const fingerprint=await host.getAttribute("data-fingerprint");
@@ -518,8 +581,8 @@ const summary={
   appUrl,
   generatedAt:new Date().toISOString(),
   personas:personas.map(({id})=>id),
-  workflowsPerPersona:13,
-  expected:personas.length*13,
+  workflowsPerPersona:14,
+  expected:personas.length*14,
   passed:checks.length-failed.length,
   failed:failed.length,
   checks

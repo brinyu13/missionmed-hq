@@ -18,6 +18,7 @@ const CATEGORY_LABELS=Object.freeze({
   personal:"Personal (Not on CV)"
 });
 
+const CATEGORY_IDS=Object.freeze(Object.keys(CATEGORY_MAP));
 export class DomainVisualProjectionError extends Error{
   constructor(code,message,path=""){
     super(message);
@@ -170,7 +171,7 @@ export function projectTimelineDocument(document,{
     });
   });
 
-  const categories=Object.keys(CATEGORY_MAP).map((id,index)=>({
+  const categories=CATEGORY_IDS.map((id,index)=>({
     id,
     label:CATEGORY_LABELS[id],
     shortLabel:id==="education"?"Medical Degree":undefined,
@@ -179,6 +180,28 @@ export function projectTimelineDocument(document,{
     visible:true,
     arrowWordingRule:"keep"
   }));
+
+  const presentationState=document.presentationOverrides&&
+    typeof document.presentationOverrides==="object"
+    ?clone(document.presentationOverrides)
+    :{};
+  const axisOverride=Object.hasOwn(presentationState,"axis")
+    ?clone(presentationState.axis)
+    :null;
+  const categoryKeyOverride=Object.hasOwn(presentationState,"categoryKey")
+    ?(Array.isArray(presentationState.categoryKey)
+      ?presentationState.categoryKey.map((item,index)=>{
+      const id=item?.id;
+      return{
+        id,
+        mapsTo:CATEGORY_MAP[id],
+        order:item?.order??index,
+        label:clean(item?.label),
+        color:clean(item?.color)
+      };
+    })
+      :clone(presentationState.categoryKey))
+    :null;
 
   const media=mediaCollections(document);
   const profileMedia=media.find((item)=>
@@ -298,6 +321,8 @@ export function projectTimelineDocument(document,{
       photoStyleDefault:"scrapbook",
       captionDefault:"none",
       manualOverrides:clone(document.presentationOverrides||{}),
+      axisOverride,
+      categoryKeyOverride,
       resetToAutomatic:false
     },
     metadata:{

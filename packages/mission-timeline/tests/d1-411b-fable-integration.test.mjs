@@ -39,11 +39,11 @@ function timeline(){
   };
 }
 
-test("D1-411B keeps the protected Fable presentation files byte-identical",async()=>{
+test("D1-411B matches the Founder-authorized D1-411A protected presentation hashes",async()=>{
   const files={
     "D1-409H_FINAL_VISUAL_MASTER.html":"bb471c57223c4a8d6c44d2398cc3c2a0da4467b61e7a2d779323c5be38e52c24",
     "D1-409H_VISUAL_MASTER.css":"4efd5088696a93914d5f6c3b7e14e98426239453b16712f152eb5bfe68598ef7",
-    "D1-409H_VISUAL_MASTER.js":"ca9a28688e7dd29f0e008b58efae85555af860b8150fa9493165faf851165bb8"
+    "D1-409H_VISUAL_MASTER.js":"ed46fdf21588554aaaadbeaebacd81321177d45ad357c7e8cb8570a20786cb32"
   };
   for(const [name,expected] of Object.entries(files)){
     const bytes=await readFile(new URL(`presentation/d1-409h-a1/${name}`,webRoot));

@@ -84,10 +84,14 @@ import {
   recordRecentColor,
   renderAdvancedStudio,
   renderModeDialog,
+  resetAxisPresentationOverride,
+  resetCategoryKeyPresentationOverride,
   resizeMediaElement,
   relativeLuminanceFromRgb,
   sampleEyeDropper,
   setBackgroundDim,
+  setAxisPresentationOverride,
+  setCategoryKeyPresentationOverride,
   setLayoutLock,
   setMediaAspectLock,
   updateTextBlockContent,
@@ -3867,7 +3871,45 @@ export async function boot407FEngineeringAdapter({
     syncBridgeFromStore();
     canvasController?.setUiState({advancedSelection:target});
   };
+  const applyPresentationControlResult=(result)=>{
+    if(result?.error){
+      bridge.toast(result.error);
+      setTimeout(()=>canvasController?.render(),0);
+      return false;
+    }
+    if(!result?.changed)return false;
+    // Do not replace the control subtree from inside its own change/blur
+    // dispatch. Safari and Chromium can otherwise attempt to continue a
+    // native input event against a node the render just detached.
+    setTimeout(()=>{
+      store.replace(result.document,{label:result.mutation?.label||"Change timeline presentation"});
+      syncBridgeFromStore();
+    },0);
+    return true;
+  };
   const advancedHooks=()=>({
+    onAxisMode:(mode)=>{
+      const result=mode==="manual"
+        ?setAxisPresentationOverride(store.document,{})
+        :resetAxisPresentationOverride(store.document);
+      applyPresentationControlResult(result);
+    },
+    onAxisChange:(changes)=>{
+      applyPresentationControlResult(
+        setAxisPresentationOverride(store.document,changes)
+      );
+    },
+    onAxisReset:()=>{
+      applyPresentationControlResult(resetAxisPresentationOverride(store.document));
+    },
+    onCategoryKeyChange:(id,changes)=>{
+      applyPresentationControlResult(
+        setCategoryKeyPresentationOverride(store.document,id,changes)
+      );
+    },
+    onCategoryKeyReset:()=>{
+      applyPresentationControlResult(resetCategoryKeyPresentationOverride(store.document));
+    },
     onSelectObject:(target)=>{
       if(!target)return;
       canvasController?.setUiState({advancedSelection:target,advancedTextEdit:null});

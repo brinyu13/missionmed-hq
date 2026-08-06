@@ -16,6 +16,8 @@ const LANE_MAX = 6;
    presentationOverride.lane always wins. If no lane clears, the adapter
    keeps the last band lane and lets the kernel's collision law fail closed. */
 const BANDS = { work:[0,5], usmle:[1], usce:[2,3,4], res:[6], personal:[6,5,3,2] };
+const CATEGORY_KEY_IDS=['education','exams','clinical','work','research','personal'];
+const HEX_COLOR=/^#[0-9A-F]{6}$/i;
 
 class AdapterError extends Error {
   constructor(code, message, path){ super(message); this.name='AdapterError'; this.code=code; this.path=path; }
@@ -45,13 +47,40 @@ function toRenderModel(doc){
     if(!c.mapsTo) throw new AdapterError('INVALID_CATEGORY','category '+c.id+' has no mapsTo', 'categories');
     catMap[c.id]=c;
   });
+  const presentation=doc.presentation||{};
+  let axisOverride;
+  if(presentation.axisOverride!=null){
+    const axis=presentation.axisOverride;
+    if(axis?.mode!=='manual')
+      throw new AdapterError('INVALID_AXIS_OVERRIDE','axis override mode must be manual','presentation.axisOverride.mode');
+    const startYear=Number(axis.startYear),endYear=Number(axis.endYear);
+    if(!Number.isInteger(startYear)||!Number.isInteger(endYear)||startYear<1900||endYear>2200||startYear>endYear||endYear-startYear>30)
+      throw new AdapterError('INVALID_AXIS_OVERRIDE','manual axis requires a 1900–2200 ordered range of at most 31 years','presentation.axisOverride');
+    axisOverride={mode:'manual',startYear,endYear,includeFuture:axis.includeFuture!==false};
+  }
+  let categoryKey;
+  if(presentation.categoryKeyOverride!=null){
+    const supplied=presentation.categoryKeyOverride;
+    if(!Array.isArray(supplied)||supplied.length!==CATEGORY_KEY_IDS.length)
+      throw new AdapterError('INVALID_CATEGORY_KEY','category key must contain exactly six entries','presentation.categoryKeyOverride');
+    categoryKey=supplied.map((item,index)=>{
+      const id=CATEGORY_KEY_IDS[index];
+      if(item?.id!==id||Number(item?.order)!==index)
+        throw new AdapterError('INVALID_CATEGORY_KEY','category key IDs and order are fixed','presentation.categoryKeyOverride['+index+']');
+      if(!item.label||String(item.label).length>32||!HEX_COLOR.test(String(item.color||'')))
+        throw new AdapterError('INVALID_CATEGORY_KEY','category label/color is invalid','presentation.categoryKeyOverride['+index+']');
+      if(item.mapsTo!==undefined&&item.mapsTo!==catMap[id]?.mapsTo)
+        throw new AdapterError('INVALID_CATEGORY_KEY','category mapping cannot be changed','presentation.categoryKeyOverride['+index+'].mapsTo');
+      return{id,label:String(item.label),color:String(item.color).toUpperCase(),mapsTo:catMap[id].mapsTo,order:index};
+    });
+  }
 
   /* ---- events (visible only; hidden NEVER reach the kernel) ---- */
   const vis=(doc.events||[]).filter(e=>(e.visibility||'visible')==='visible');
   const nowEnd = (()=>{ // ongoing events end at the last explicit year in the doc
     let maxY=0; vis.forEach(e=>{ const s=parseYM(e.startDate,'events'); maxY=Math.max(maxY,s.y);
       if(e.endDate){ const q=parseYM(e.endDate,'events'); maxY=Math.max(maxY,q.y); }});
-    return {y:maxY, m:12};
+    return axisOverride?{y:axisOverride.endYear,m:12}:{y:maxY, m:12};
   })();
 
   const arrows=[], flags=[];
@@ -72,7 +101,7 @@ function toRenderModel(doc){
       const re=new RegExp('\\s*'+cat.shortLabel.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\s*$','i');
       const ded=label.replace(re,'').trim(); if(ded) label=ded;
     }
-    arrows.push({ id:ev.id, t:label, cat:cat.mapsTo, sy:s.y, sm:s.m, ey:e.y, em:e.m,
+    arrows.push({ id:ev.id, t:label, cat:cat.mapsTo, ...(categoryKey?{categoryId:ev.categoryId}:{}), sy:s.y, sm:s.m, ey:e.y, em:e.m,
       date: displayDate(ev,s,e),
       loc: ev.location||ev.institution||undefined,
       lp: (ev.presentationOverride&&ev.presentationOverride.labelPosition)||(cat.mapsTo==='work'?'below':(ev.location||ev.institution)?'left':undefined),
@@ -151,6 +180,8 @@ function toRenderModel(doc){
   const model={ schemaVersion:'d1-409h-render-model/1',
     documentId: doc.timelineId, revision: doc.revision||0,
     title: doc.title, axisMode:'adaptive',
+    ...(axisOverride?{axisOverride}:{}),
+    ...(categoryKey?{categoryKey}:{}),
     events: arrows, flags, profile, sticky, logo, interview, photos };
   return { model, warnings, dropped: [] };
 }

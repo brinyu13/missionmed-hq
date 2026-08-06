@@ -15,6 +15,17 @@ export const MAX_MEDIA_BYTES=20*1024*1024;
 export const DEFAULT_BACKGROUND_DIM=20;
 export const MIN_BACKGROUND_DIM=0;
 export const MAX_BACKGROUND_DIM=60;
+export const PRESENTATION_CATEGORY_IDS=freezeDeep([
+  "education","exams","clinical","work","research","personal"
+]);
+export const PRESENTATION_CATEGORY_DEFAULTS=freezeDeep([
+  {id:"education",label:"Medical Education",color:"#2C6E8F"},
+  {id:"exams",label:"USMLE Studies",color:"#3A78C9"},
+  {id:"clinical",label:"US Clinical Experience",color:"#C8641C"},
+  {id:"work",label:"Work Experience",color:"#3F9B52"},
+  {id:"research",label:"Research",color:"#C9A227"},
+  {id:"personal",label:"Personal (Not on CV)",color:"#8A5BBF"}
+]);
 
 export const ADVANCED_ENTRY_DIALOG=freezeDeep({
   id:"advanced-studio-entry",
@@ -255,6 +266,100 @@ export function normalizeAdvancedStudioDocument(document={}){
     advancedDialogSeen:!!next.preferences?.advancedDialogSeen
   };
   return next;
+}
+
+function eventYearRange(document={}){
+  const years=(document.events||[]).flatMap((event)=>[
+    Number(String(event.startDate||event.fields?.rotationStartDate||"").slice(0,4)),
+    Number(String(event.endDate||event.fields?.rotationEndDate||event.startDate||"").slice(0,4))
+  ]).filter(Number.isInteger);
+  const current=new Date().getUTCFullYear();
+  return{
+    startYear:years.length?Math.min(...years):current-1,
+    endYear:years.length?Math.max(...years):current+1
+  };
+}
+
+export function effectiveAxisOverride(document={}){
+  const value=document.presentationOverrides?.axis;
+  if(value?.mode!=="manual")return null;
+  const startYear=Number(value.startYear),endYear=Number(value.endYear);
+  if(!Number.isInteger(startYear)||!Number.isInteger(endYear)||startYear<1900||endYear>2200||startYear>endYear||endYear-startYear>30)return null;
+  return{mode:"manual",startYear,endYear,includeFuture:value.includeFuture!==false};
+}
+
+export function setAxisPresentationOverride(document={},changes={}){
+  const next=normalizeAdvancedStudioDocument(document);
+  if(next.mode!==ADVANCED_MODE)return{document:next,changed:false,error:"Axis editing is available in Advanced Studio."};
+  const fallback=eventYearRange(next);
+  const prior=effectiveAxisOverride(next)||{mode:"manual",...fallback,includeFuture:true};
+  const candidate={...prior,...changes,mode:"manual"};
+  candidate.startYear=Number(candidate.startYear);
+  candidate.endYear=Number(candidate.endYear);
+  if(!Number.isInteger(candidate.startYear)||!Number.isInteger(candidate.endYear)||candidate.startYear<1900||candidate.endYear>2200||candidate.startYear>candidate.endYear||candidate.endYear-candidate.startYear>30){
+    return{document:next,changed:false,error:"Choose a 1900–2200 ordered axis range of no more than 31 years."};
+  }
+  const required=eventYearRange(next);
+  if(candidate.startYear>required.startYear||candidate.endYear<required.endYear){
+    return{document:next,changed:false,error:`Axis must include all visible dates (${required.startYear}–${required.endYear}).`};
+  }
+  next.presentationOverrides={...(next.presentationOverrides||{}),axis:{
+    mode:"manual",startYear:candidate.startYear,endYear:candidate.endYear,
+    includeFuture:candidate.includeFuture!==false
+  }};
+  return{document:next,changed:true,mutation:{label:"Change year axis",history:true,undoSteps:1}};
+}
+
+export function resetAxisPresentationOverride(document={}){
+  const next=normalizeAdvancedStudioDocument(document);
+  if(!next.presentationOverrides?.axis)return{document:next,changed:false};
+  next.presentationOverrides={...(next.presentationOverrides||{})};
+  delete next.presentationOverrides.axis;
+  return{document:next,changed:true,mutation:{label:"Reset year axis",history:true,undoSteps:1}};
+}
+
+export function effectiveCategoryKey(document={}){
+  const stored=new Map((document.categories||[]).map((item)=>[item?.id,item]));
+  const explicit=Array.isArray(document.presentationOverrides?.categoryKey)
+    ?new Map(document.presentationOverrides.categoryKey.map((item)=>[item?.id,item]))
+    :new Map();
+  return PRESENTATION_CATEGORY_DEFAULTS.map((fallback,index)=>{
+    const value=explicit.get(fallback.id)||stored.get(fallback.id)||fallback;
+    return{
+      id:fallback.id,
+      order:index,
+      label:String(value.label||fallback.label).trim().slice(0,32)||fallback.label,
+      color:normalizeHex(value.color)||fallback.color
+    };
+  });
+}
+
+export function setCategoryKeyPresentationOverride(document={},id,changes={}){
+  const next=normalizeAdvancedStudioDocument(document);
+  if(next.mode!==ADVANCED_MODE)return{document:next,changed:false,error:"Color-key editing is available in Advanced Studio."};
+  if(!PRESENTATION_CATEGORY_IDS.includes(id))return{document:next,changed:false,error:"Unknown category."};
+  const key=effectiveCategoryKey(next);
+  const entry=key.find((item)=>item.id===id);
+  if(Object.hasOwn(changes,"label")){
+    const label=String(changes.label||"").trim();
+    if(!label||label.length>32)return{document:next,changed:false,error:"Category labels must be 1–32 characters."};
+    entry.label=label;
+  }
+  if(Object.hasOwn(changes,"color")){
+    const color=normalizeHex(changes.color);
+    if(!color)return{document:next,changed:false,error:"Enter a six-digit hex color."};
+    entry.color=color;
+  }
+  next.presentationOverrides={...(next.presentationOverrides||{}),categoryKey:key};
+  return{document:next,changed:true,mutation:{label:"Change color key",history:true,undoSteps:1}};
+}
+
+export function resetCategoryKeyPresentationOverride(document={}){
+  const next=normalizeAdvancedStudioDocument(document);
+  if(!next.presentationOverrides?.categoryKey)return{document:next,changed:false};
+  next.presentationOverrides={...(next.presentationOverrides||{})};
+  delete next.presentationOverrides.categoryKey;
+  return{document:next,changed:true,mutation:{label:"Reset color key",history:true,undoSteps:1}};
 }
 
 export function planModeSwitch(document,targetMode,{clock=()=>new Date()}={}){
@@ -1189,10 +1294,35 @@ export function renderBackgroundPanel(document={},{
   </section>`;
 }
 
+export function renderAdvancedPresentationControls(document={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  if(state.mode!==ADVANCED_MODE)return"";
+  const automatic=eventYearRange(state);
+  const axis=effectiveAxisOverride(state);
+  const key=effectiveCategoryKey(state);
+  const customKey=Array.isArray(state.presentationOverrides?.categoryKey);
+  return`<section class="advanced-presentation-controls" aria-label="Timeline presentation" data-advanced-presentation-controls>
+    <div class="advanced-presentation-heading"><div><strong>Year axis &amp; color key</strong><span>Presentation only. Timeline dates and category IDs do not change.</span></div></div>
+    <fieldset class="advanced-axis-controls">
+      <legend>Year axis</legend>
+      <label><span>Mode</span><select data-axis-override-mode><option value="automatic"${axis?"":" selected"}>Automatic</option><option value="manual"${axis?" selected":""}>Manual range</option></select></label>
+      <label><span>Start year</span><input type="number" min="1900" max="2200" step="1" value="${axis?.startYear??automatic.startYear}" data-axis-override-field="startYear" ${axis?"":"disabled"}></label>
+      <label><span>End year</span><input type="number" min="1900" max="2200" step="1" value="${axis?.endYear??automatic.endYear}" data-axis-override-field="endYear" ${axis?"":"disabled"}></label>
+      <label class="advanced-axis-future"><input type="checkbox" data-axis-override-field="includeFuture" ${axis?.includeFuture!==false?"checked":""} ${axis?"":"disabled"}><span>Include FUTURE</span></label>
+      <button type="button" class="button secondary compact" data-axis-override-reset ${axis?"":"disabled"}>Reset automatic axis</button>
+    </fieldset>
+    <fieldset class="advanced-category-key-controls">
+      <legend>Color key — fixed six-category order</legend>
+      <div class="advanced-category-key-grid">${key.map((item)=>`<div class="advanced-category-key-row" data-category-key-id="${item.id}"><span class="advanced-category-key-id">${escapeHtml(item.id)}</span><label><span class="sr-only">${escapeHtml(item.id)} label</span><input type="text" maxlength="32" value="${escapeHtml(item.label)}" data-category-key-field="label"></label><label class="advanced-category-key-color"><span class="sr-only">${escapeHtml(item.id)} color</span><input type="color" value="${item.color}" data-category-key-field="color"><code>${item.color}</code></label></div>`).join("")}</div>
+      <button type="button" class="button secondary compact" data-category-key-reset ${customKey?"":"disabled"}>Reset color key</button>
+    </fieldset>
+  </section>`;
+}
+
 export function renderAdvancedStudio(document={},options={}){
   const state=normalizeAdvancedStudioDocument(document);
   if(state.mode!==ADVANCED_MODE)return"";
-  return`${renderInsertStrip(state)}<div class="advanced-editor-workspace">${renderAdvancedAssetRail(state,options.selection)}<div class="advanced-editor-panels">${options.backgroundOpen?renderBackgroundPanel(state,options):""}${renderAdvancedSelectionControls(state,options)}</div></div>`;
+  return`${renderInsertStrip(state)}${renderAdvancedPresentationControls(state)}<div class="advanced-editor-workspace">${renderAdvancedAssetRail(state,options.selection)}<div class="advanced-editor-panels">${options.backgroundOpen?renderBackgroundPanel(state,options):""}${renderAdvancedSelectionControls(state,options)}</div></div>`;
 }
 
 /*
@@ -1213,6 +1343,14 @@ export function installAdvancedStudio(root,hooks={}){
     target:delegatedTarget(control)
   });
   const click=(event)=>{
+    if(closest(event.target,"[data-axis-override-reset]")){
+      hooks.onAxisReset?.(event);
+      return;
+    }
+    if(closest(event.target,"[data-category-key-reset]")){
+      hooks.onCategoryKeyReset?.(event);
+      return;
+    }
     const selectObject=closest(event.target,"[data-advanced-select-object]");
     if(selectObject){
       hooks.onSelectObject?.(delegatedTarget(selectObject),event);
@@ -1276,6 +1414,26 @@ export function installAdvancedStudio(root,hooks={}){
     }
   };
   const change=(event)=>{
+    const axisMode=closest(event.target,"[data-axis-override-mode]");
+    if(axisMode){
+      hooks.onAxisMode?.(String(axisMode.value||"automatic"),event);
+      return;
+    }
+    const axisField=closest(event.target,"[data-axis-override-field]");
+    if(axisField){
+      const field=String(axisField.dataset.axisOverrideField||"");
+      const value=field==="includeFuture"?!!axisField.checked:Number(axisField.value);
+      hooks.onAxisChange?.({[field]:value},event);
+      return;
+    }
+    const categoryField=closest(event.target,"[data-category-key-field]");
+    if(categoryField){
+      const row=categoryField.closest("[data-category-key-id]");
+      const id=String(row?.dataset?.categoryKeyId||"");
+      const field=String(categoryField.dataset.categoryKeyField||"");
+      hooks.onCategoryKeyChange?.(id,{[field]:String(categoryField.value||"")},event);
+      return;
+    }
     const upload=closest(event.target,"[data-background-upload]");
     if(upload){
       hooks.onBackgroundUpload?.(upload.files?.[0]||null,event);
