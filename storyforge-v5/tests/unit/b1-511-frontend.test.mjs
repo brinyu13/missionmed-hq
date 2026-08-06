@@ -106,3 +106,14 @@ test('dual-access Founder accounts receive an explicit Student and Administrator
   assert.match(source, /state\.activeRole = nextRole/);
   assert.match(source, /state\.activeRole = user\.role/);
 });
+
+test('published mentor audio mounts private native playback controls in its own note', () => {
+  assert.match(source, /data-mentor-note-player="\$\{attr\(note\.id\)\}"/);
+  const playback = functionSource('playMentorNote');
+  assert.match(playback, /playbackUrls\(\{ url \}\)/);
+  assert.match(playback, /closest\('\.b1511MentorNote'\)/);
+  assert.match(playback, /document\.createElement\('audio'\)/);
+  assert.match(playback, /audio\.controls = true/);
+  assert.match(playback, /host\.replaceChildren\(audio\)/);
+  assert.match(source, /playMentorNote\(button\.dataset\.playMentorNote, button\)/);
+});

@@ -1403,6 +1403,8 @@ section[data-view].settingsPage{max-width:860px}
 .b1511MentorNote:last-child{border-bottom:0}
 .b1511MentorNote>.nt{white-space:pre-wrap;color:var(--tx);font-size:12px;line-height:1.55}
 .b1511MentorNote>.nd{margin:6px 0;color:var(--dim);font:700 9px var(--num);letter-spacing:.08em;text-transform:uppercase}
+.b1511MentorAudio{margin-top:8px}
+.b1511MentorAudio audio{display:block;width:100%}
 .b1511MentorComposer{margin-top:12px;padding-top:12px;border-top:1px solid rgba(57,214,255,.18)}
 .b1511MentorComposer>textarea{width:100%;box-sizing:border-box;margin:7px 0 9px;resize:vertical;background:#0f1522;border:1px solid var(--edge);border-radius:9px;color:var(--tx);font:12px/1.55 var(--body);padding:10px;outline:none}
 .b1511MentorComposer>textarea:focus{border-color:var(--cy);box-shadow:0 0 0 1px rgba(57,214,255,.3)}

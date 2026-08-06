@@ -3426,7 +3426,7 @@ function mentorNotesMarkup(story) {
     <div class="rLbl label-cy">Mentor notes</div>
     <div class="b1511MentorNoteList">${published.length ? published.map((note) => `<article class="b1511MentorNote">
       <div class="nt">${esc(note.body)}</div><div class="nd">${esc(note.authorName)} · ${esc(formatDateTime(note.publishedAt || note.createdAt))}</div>
-      ${note.hasAudio || note.audioAssetId ? `<button class="rowBtn" type="button" data-play-mentor-note="${attr(note.id)}">▶ Play mentor audio</button>` : ''}
+      ${note.hasAudio || note.audioAssetId ? `<button class="rowBtn" type="button" data-play-mentor-note="${attr(note.id)}">▶ Play mentor audio</button><div class="b1511MentorAudio" data-mentor-note-player="${attr(note.id)}"></div>` : ''}
     </article>`).join('') : '<p class="stageHint">No published mentor notes yet.</p>'}</div>
     ${canWriteMentorNotes() ? `<div class="b1511MentorComposer" data-mentor-note-composer>
       <label class="fLbl" for="mentorNoteText">${draft?.id ? 'Draft transcript or text' : 'New mentor note'}</label>
@@ -6202,11 +6202,19 @@ async function toggleMentorNoteRecording() {
   notify('Recording mentor note. Stop when you are finished.');
 }
 
-async function playMentorNote(id) {
+async function playMentorNote(id, button) {
   const result = await api.mentorNotePlayback(id);
   const url = firstDefined(result?.url, result?.playbackUrl, result?.playback_url);
   if (!url) throw new Error('Mentor note playback is unavailable.');
-  const audio = new Audio(url);
+  const [playbackUrl] = playbackUrls({ url });
+  const host = button?.closest('.b1511MentorNote')?.querySelector(`[data-mentor-note-player="${CSS.escape(id)}"]`);
+  if (!host) throw new Error('Mentor note playback controls are unavailable.');
+  const audio = document.createElement('audio');
+  audio.controls = true;
+  audio.preload = 'metadata';
+  audio.setAttribute('aria-label', 'Mentor note audio');
+  audio.src = playbackUrl;
+  host.replaceChildren(audio);
   await audio.play();
 }
 
@@ -6879,7 +6887,7 @@ document.addEventListener('click', async (event) => {
       return;
     }
     if (button.matches('[data-play-mentor-note]')) {
-      await playMentorNote(button.dataset.playMentorNote);
+      await playMentorNote(button.dataset.playMentorNote, button);
       return;
     }
     if (button.matches('[data-send-ask]')) {
