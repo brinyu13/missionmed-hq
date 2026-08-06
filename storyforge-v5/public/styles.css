@@ -1420,3 +1420,27 @@ section[data-view].settingsPage{max-width:860px}
 @media(prefers-reduced-motion:reduce){
   .b1511Priority>button,.b1511Facet>button,.b1511Taxonomy>button{transition:none}
 }
+
+/* B1-512 completion guidance: additive, intent-scoped, and non-color-dependent. */
+.b1512CompletionSummary{display:flex;align-items:flex-start;gap:12px;margin:4px 0 20px;padding:14px 16px;border:1px solid rgba(255,107,112,.58);border-left:4px solid #ff6b70;border-radius:11px;background:rgba(134,33,45,.16);color:#f7dadd;font-size:13px;line-height:1.5}
+.b1512CompletionSummary:focus{outline:2px solid #ff9ba0;outline-offset:3px}
+.b1512CompletionSummary[data-complete="true"]{border-color:rgba(74,222,157,.48);border-left-color:#4ade9d;background:rgba(33,116,82,.13);color:#c9f8e1}
+.b1512CompletionSummary small{display:block;margin-top:4px;color:inherit;font:700 10px var(--num);letter-spacing:.06em;text-transform:uppercase}
+.b1512IncompleteIcon{display:grid;place-items:center;flex:0 0 24px;height:24px;border:2px solid currentColor;border-radius:50%;font:800 13px var(--num)}
+.b1512CompletionField{border-radius:12px}
+.b1512CompletionField.b1512Incomplete{padding:12px;border:2px solid #ff6b70;background:rgba(134,33,45,.13);box-shadow:0 0 0 3px rgba(255,107,112,.08)}
+.b1512CompletionField.b1512Incomplete.lessonBlock{border-left-width:4px}
+.b1512CompletionField.b1512Incomplete textarea{outline:none}
+.b1512CompletionField.b1512Incomplete textarea:focus{box-shadow:0 0 0 3px rgba(255,155,160,.3)}
+.b1512IncompleteHelp{display:flex;align-items:flex-start;gap:7px;margin:9px 0 0;color:#ffb7ba;font:700 11px/1.45 var(--body)}
+.b1512IncompleteHelp::before{content:"!";display:grid;place-items:center;flex:0 0 17px;height:17px;border:1px solid currentColor;border-radius:50%;font:800 10px var(--num)}
+.b1512IncompleteHelp[hidden]{display:none}
+
+@media(max-width:640px){
+  .b1512CompletionSummary{margin-bottom:14px;padding:12px;font-size:12px}
+  .b1512CompletionField.b1512Incomplete{padding:9px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .b1512CompletionSummary,.b1512CompletionField{scroll-behavior:auto}
+}

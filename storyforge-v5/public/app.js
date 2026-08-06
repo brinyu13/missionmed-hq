@@ -225,6 +225,7 @@ const state = {
   intelligence: null,
   selectedStudent: null,
   storyDetail: null,
+  storyCompletionIntent: null,
   storyHistoryExpanded: false,
   workshop: null,
   workshopFocusPairId: null,
@@ -727,7 +728,8 @@ function studentReviewAction(story) {
     return `<button class="noteSend" type="button" disabled>Mentor review unavailable</button>
       <div class="stageHint">Mentor review is not enabled yet. Your private story remains editable.</div>`;
   }
-  return `<button class="noteSend" type="button" data-submit-story>${story.status === 'changes' ? 'Resubmit for review' : 'Submit for review'}</button>`;
+  return `<button class="noteSend" type="button" data-submit-story>${story.status === 'changes' ? 'Resubmit for review' : 'Submit for review'}</button>
+    <div class="stageHint">Submitting makes this story available to an authorized reviewer. It stays private until you choose Submit for review.</div>`;
 }
 
 function scoreDots(value, owner = 'student', label = 'Score') {
@@ -758,6 +760,81 @@ function developmentState(story) {
   if (told && story.lesson) return 'Complete';
   if (told || story.lesson) return 'In progress';
   return 'Draft';
+}
+
+function storyCompletionMissing(story, intent = 'finish', values = {}) {
+  const text = String(firstDefined(values.text, story?.text, '')).trim();
+  const lesson = String(firstDefined(values.lesson, story?.lesson, '')).trim();
+  if (intent === 'submit') {
+    return text.length >= 3 ? [] : [{
+      id: 'text',
+      message: 'Add at least a few words to the Working version before submitting for review.',
+    }];
+  }
+  const missing = [];
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+  if (wordCount < 40) missing.push({
+    id: 'text',
+    message: `Add enough of the story to preserve what happened (${wordCount} of 40 words).`,
+  });
+  if (!lesson) missing.push({
+    id: 'lesson',
+    message: 'Add the Learning Lesson: one or two honest sentences about what this story taught you.',
+  });
+  return missing;
+}
+
+function updateStoryCompletionGuidance(form, { focusFirst = false } = {}) {
+  const intent = state.storyCompletionIntent;
+  if (!form || !intent || !state.storyDetail) return;
+  const missing = storyCompletionMissing(state.storyDetail, intent, {
+    text: $('#storyEditText', form)?.value,
+    lesson: $('#storyLesson', form)?.value,
+  });
+  if (intent === 'submit'
+      && String(state.storyDetail.text || '').trim().length < 3
+      && String($('#storyEditText', form)?.value || '').trim().length >= 3) {
+    missing.push({
+      id: 'text',
+      message: 'Save the Working version before submitting so StoryForge reviews the durable story you intended.',
+    });
+  }
+  const missingIds = new Set(missing.map((item) => item.id));
+  for (const id of ['text', 'lesson']) {
+    const field = form.querySelector(`[data-completion-field="${id}"]`);
+    const input = id === 'text' ? $('#storyEditText', form) : $('#storyLesson', form);
+    const helper = form.querySelector(`[data-completion-help="${id}"]`);
+    const item = missing.find((entry) => entry.id === id);
+    field?.classList.toggle('b1512Incomplete', missingIds.has(id));
+    if (input) {
+      if (missingIds.has(id)) {
+        if (intent === 'submit') input.setAttribute('aria-invalid', 'true');
+        else input.removeAttribute('aria-invalid');
+        input.setAttribute('aria-describedby', `completion-help-${id}`);
+      } else {
+        input.removeAttribute('aria-invalid');
+        input.removeAttribute('aria-describedby');
+      }
+    }
+    if (helper) {
+      helper.hidden = !missingIds.has(id);
+      helper.textContent = item?.message || '';
+    }
+  }
+  const summary = $('[data-completion-summary]', room);
+  if (summary) {
+    summary.dataset.complete = String(missing.length === 0);
+    summary.querySelector('[data-completion-count]').textContent = missing.length
+      ? `${missing.length} ${missing.length === 1 ? 'item needs' : 'items need'} your attention.`
+      : 'Everything required here is complete.';
+  }
+  if (focusFirst && missing.length) {
+    const first = missing[0].id === 'text' ? $('#storyEditText', form) : $('#storyLesson', form);
+    window.requestAnimationFrame(() => {
+      first?.focus({ preventScroll: true });
+      first?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+    });
+  }
 }
 
 function storyTitle(story) {
@@ -923,6 +1000,7 @@ function clearOverlays() {
     node.innerHTML = '';
   });
   state.storyDetail = null;
+  state.storyCompletionIntent = null;
   state.quick = null;
   state.assign = null;
   state.workshop = null;
@@ -1072,7 +1150,7 @@ function renderHome() {
         <div class="pHead"><div class="h2">Unfinished <em>stories</em></div><button class="pMore" type="button" data-nav="library">Story Library ▸</button></div>
         <div class="pBody">
           <p class="stageHint">Started, but not fully told yet. Finish the telling and add what it taught you.</p>
-          ${unfinished.length ? unfinished.map((story) => `<button class="shortItem" type="button" data-open-story="${attr(story.id)}">
+          ${unfinished.length ? unfinished.map((story) => `<button class="shortItem" type="button" data-open-story="${attr(story.id)}" data-completion-guidance="finish">
             <span class="si">${story.prefixEnabled ? '<span class="pre">The One Where </span>' : ''}${esc(story.title)}</span>
             <span class="sd">${esc(developmentState(story))} · ${esc(ago(story.updatedAt || story.createdAt))}</span>
             <span class="rowBtn pri">Finish it</span>
@@ -2000,7 +2078,10 @@ function closeOverlay(node) {
   }
   node.classList.remove('open');
   node.innerHTML = '';
-  if (node === room) state.storyDetail = null;
+  if (node === room) {
+    state.storyDetail = null;
+    state.storyCompletionIntent = null;
+  }
   if (node === quick) state.quick = null;
   if (node === qad) state.assign = null;
   const focus = state.returnFocus;
@@ -3676,17 +3757,20 @@ async function fetchStoryDetail(id, surface = 'workspace') {
   return story;
 }
 
-async function openStory(id) {
+async function openStory(id, completionIntent = null) {
   state.returnFocus = document.activeElement;
+  state.storyCompletionIntent = completionIntent;
   room.innerHTML = `<div class="roomSheet">${loadingView('Opening the complete story workspace…')}</div>`;
   room.classList.add('open');
   try {
     state.storyDetail = await fetchStoryDetail(id, 'workspace');
-    state.storyTab = state.storyDetail.revised ? 'working' : 'original';
+    state.storyTab = completionIntent ? 'working' : state.storyDetail.revised ? 'working' : 'original';
     state.storyHistoryExpanded = false;
     renderStoryRoom();
     room.scrollTop = 0;
+    updateStoryCompletionGuidance($('#storyEditForm', room), { focusFirst: Boolean(completionIntent) });
   } catch (error) {
+    state.storyCompletionIntent = null;
     closeOverlay(room);
     notify(error.message);
   }
@@ -3713,6 +3797,11 @@ function renderStoryRoom() {
   const originalTab = state.storyTab !== 'working';
   const title = originalTab ? story.originalTitle : story.title;
   const text = originalTab ? story.originalText : story.text;
+  const completionMissing = state.storyCompletionIntent
+    ? storyCompletionMissing(story, state.storyCompletionIntent)
+    : [];
+  const incompleteText = completionMissing.some((item) => item.id === 'text');
+  const incompleteLesson = completionMissing.some((item) => item.id === 'lesson');
 
   room.innerHTML = `<div class="roomSheet" role="dialog" aria-modal="true" aria-labelledby="roomStoryTitle">
     <div class="roomTop">
@@ -3732,6 +3821,10 @@ function renderStoryRoom() {
       <span class="flex-spacer"></span>
       <button class="rowBtn" type="button" data-open-assign="${attr(story.id)}">Assign interview questions</button>
     </div>
+    ${state.storyCompletionIntent ? `<div class="b1512CompletionSummary" role="status" aria-live="polite" tabindex="-1" data-completion-summary data-complete="${completionMissing.length === 0}">
+      <span class="b1512IncompleteIcon" aria-hidden="true">!</span>
+      <span><strong>Please complete the items highlighted below.</strong> This will help you and your mentor understand and develop your story.<small data-completion-count>${completionMissing.length ? `${completionMissing.length} ${completionMissing.length === 1 ? 'item needs' : 'items need'} your attention.` : 'Everything required here is complete.'}</small></span>
+    </div>` : ''}
     <div class="roomGrid">
       <div>
         ${audioMarkup(story)}
@@ -3742,11 +3835,15 @@ function renderStoryRoom() {
         ${!mentor && !originalTab ? `<form id="storyEditForm">
           <label class="srOnly" for="storyEditTitle">Story title</label>
           <input class="roomTitle roomTitleInput" id="storyEditTitle" value="${attr(story.title)}" required>
-          <label class="srOnly" for="storyEditText">Working version</label>
-          <textarea class="storyProse storyProseEdit" id="storyEditText" data-empty="${text ? 'false' : 'true'}" placeholder="Tell it like you’d tell a trusted friend. Don’t polish it — just get it down.">${esc(text)}</textarea>
+          <div class="b1512CompletionField ${incompleteText ? 'b1512Incomplete' : ''}" data-completion-field="text">
+            <label class="srOnly" for="storyEditText">Working version</label>
+            <textarea class="storyProse storyProseEdit" id="storyEditText" data-empty="${text ? 'false' : 'true'}" ${incompleteText ? `${state.storyCompletionIntent === 'submit' ? 'aria-invalid="true" ' : ''}aria-describedby="completion-help-text"` : ''} placeholder="Tell it like you’d tell a trusted friend. Don’t polish it — just get it down.">${esc(text)}</textarea>
+            <p class="b1512IncompleteHelp" id="completion-help-text" data-completion-help="text" ${incompleteText ? '' : 'hidden'}>${esc(completionMissing.find((item) => item.id === 'text')?.message || '')}</p>
+          </div>
           <div class="origNote">Edit freely here. The original telling stays untouched, always. Edits after mentor feedback are flagged for re-review.</div>
-          <div class="lessonBlock"><label class="lbl" for="storyLesson">What this story taught you — the takeaway that travels with it</label>
-            <textarea class="lessonTxt lessonEdit" id="storyLesson" placeholder="One or two honest sentences. What did this leave you with?">${esc(story.lesson)}</textarea>
+          <div class="lessonBlock b1512CompletionField ${incompleteLesson ? 'b1512Incomplete' : ''}" data-completion-field="lesson"><label class="lbl" for="storyLesson">What this story taught you — the takeaway that travels with it</label>
+            <textarea class="lessonTxt lessonEdit" id="storyLesson" ${incompleteLesson ? 'aria-describedby="completion-help-lesson"' : ''} placeholder="One or two honest sentences. What did this leave you with?">${esc(story.lesson)}</textarea>
+            <p class="b1512IncompleteHelp" id="completion-help-lesson" data-completion-help="lesson" ${incompleteLesson ? '' : 'hidden'}>${esc(completionMissing.find((item) => item.id === 'lesson')?.message || '')}</p>
           </div>
           <div class="inlineActions"><button class="btnSave" type="submit">Save working version</button><span class="saveState">Durable only after StoryForge confirms the save.</span></div>
         </form>` : `
@@ -3918,9 +4015,38 @@ async function saveStoryEdit(form) {
 }
 
 async function submitCurrentStory() {
-  const story = state.storyDetail || state.quick?.story;
+  const story = quick.classList.contains('open') ? state.quick?.story : state.storyDetail;
   if (!story) return;
+  const missing = storyCompletionMissing(story, 'submit');
+  if (missing.length) {
+    if (quick.classList.contains('open')) {
+      const id = story.id;
+      closeOverlay(quick);
+      await openStory(id, 'submit');
+      notify('Please complete the highlighted Working version before submitting for review.');
+      return;
+    }
+    const existingForm = $('#storyEditForm', room);
+    const unsaved = existingForm ? {
+      title: $('#storyEditTitle', existingForm)?.value,
+      text: $('#storyEditText', existingForm)?.value,
+      lesson: $('#storyLesson', existingForm)?.value,
+    } : null;
+    state.storyCompletionIntent = 'submit';
+    state.storyTab = 'working';
+    renderStoryRoom();
+    const nextForm = $('#storyEditForm', room);
+    if (unsaved && nextForm) {
+      $('#storyEditTitle', nextForm).value = unsaved.title;
+      $('#storyEditText', nextForm).value = unsaved.text;
+      $('#storyLesson', nextForm).value = unsaved.lesson;
+    }
+    updateStoryCompletionGuidance(nextForm, { focusFirst: true });
+    notify('Please complete the highlighted Working version before submitting for review.');
+    return;
+  }
   await withBusy(() => api.submitStory(story.id, room.classList.contains('open') ? 'workspace' : 'quick'));
+  state.storyCompletionIntent = null;
   await reloadStorySurface(room.classList.contains('open') ? 'workspace' : 'quick');
   notify(story.status === 'changes' ? 'Resubmitted. Your mentor will see that it needs another review.' : 'Submitted for review.');
 }
@@ -6723,7 +6849,7 @@ document.addEventListener('click', async (event) => {
     }
     if (button.matches('[data-open-story]')) {
       if (palette.classList.contains('open')) closeOverlay(palette);
-      await openStory(button.dataset.openStory);
+      await openStory(button.dataset.openStory, button.dataset.completionGuidance || null);
       return;
     }
     if (button.matches('[data-search-story]')) {
@@ -7161,7 +7287,9 @@ document.addEventListener('compositionend', (event) => {
 
 document.addEventListener('input', (event) => {
   const target = event.target;
-  if (capture.contains(target) && ['capTitle', 'capBody', 'capLesson'].includes(target.id)) {
+  if (room.contains(target) && ['storyEditText', 'storyLesson'].includes(target.id) && state.storyCompletionIntent) {
+    updateStoryCompletionGuidance(target.form);
+  } else if (capture.contains(target) && ['capTitle', 'capBody', 'capLesson'].includes(target.id)) {
     if (target.id === 'capBody') trackVoiceTextEdit(target.value);
     scheduleCaptureDraftSave();
   } else if (target.id === 'omni' && canAdminReview()) {
