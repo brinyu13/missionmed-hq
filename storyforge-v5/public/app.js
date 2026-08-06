@@ -30,6 +30,7 @@ const VOICE_SEGMENT_PLAN = Object.freeze([4000, 15000]);
 const VOICE_MAX_DURATION_SECONDS = 20 * 60;
 const FIXTURE_PERSONAS = new Set([
   'student',
+  'founderStudent',
   'studentOther',
   'mentor',
   'mentorTwo',
@@ -203,6 +204,7 @@ const SUITABILITY = Object.freeze({
 const state = {
   config: null,
   user: null,
+  activeRole: null,
   capabilities: Object.freeze({
     voiceCapture: false,
     adminConsole: false,
@@ -617,15 +619,15 @@ const api = Object.freeze({
 });
 
 function isMentor() {
-  return state.user?.role === 'mentor';
+  return roleName() === 'mentor';
 }
 
 function isAdmin() {
-  return state.user?.role === 'admin';
+  return roleName() === 'admin';
 }
 
 function isStudent() {
-  return state.user?.role === 'student';
+  return roleName() === 'student';
 }
 
 function canAdminReview() {
@@ -637,13 +639,30 @@ function canGovernQuestions() {
 }
 
 function roleName() {
-  if (isAdmin()) return 'admin';
-  return isMentor() ? 'mentor' : 'student';
+  return state.activeRole || state.user?.role || 'student';
 }
 
 function viewLabel() {
   if (isAdmin()) return canAdminReview() ? 'Administrator View' : 'Question Governance';
   return isMentor() ? 'Mentor View' : 'Student View';
+}
+
+function canSwitchAdministratorView() {
+  return state.user?.role === 'student' && state.capabilities?.adminConsole === true;
+}
+
+function roleSwitchMarkup() {
+  if (!canSwitchAdministratorView()) {
+    return `<div class="roleSwitch roleReadOnly">
+      <div class="rsLbl">Viewing as</div>
+      <span class="on">• ${viewLabel()}</span>
+    </div>`;
+  }
+  return `<div class="roleSwitch" aria-label="StoryForge view">
+    <div class="rsLbl">Viewing as</div>
+    <button type="button" class="${isStudent() ? 'on' : ''}" data-switch-view="student" aria-pressed="${isStudent()}">Student View</button>
+    <button type="button" class="${isAdmin() ? 'on' : ''}" data-switch-view="admin" aria-pressed="${isAdmin()}">Administrator View</button>
+  </div>`;
 }
 
 function firstName(user = state.user) {
@@ -859,10 +878,7 @@ function renderShell() {
     ${isMentor() ? '<button type="button" class="rtab" data-open-teaching>Teaching Mode</button>' : ''}
     <div class="railFoot">
       <a class="rtab matrixAnchor" href="${attr(matrixHref())}">↩ Back to Matrix</a>
-      <div class="roleSwitch roleReadOnly">
-        <div class="rsLbl">Viewing as</div>
-        <span class="on">• ${viewLabel()}</span>
-      </div>
+      ${roleSwitchMarkup()}
       <div class="signedIdentity">${esc(state.user.display_name)}${state.user.cohort ? ` · ${esc(state.user.cohort)}` : ''}</div>
       ${state.config?.devAuth ? '<button class="rowBtn fixtureChange" type="button" data-change-fixture>Change fixture identity</button>' : ''}
     </div>`;
@@ -1309,7 +1325,7 @@ function renderSettings() {
     </div>
     <div class="panel panel-spaced"><div class="pBody pbody-top">
       <div class="setRow"><div class="sTxt"><b>Signed in as</b><span>${esc(state.user.display_name)} · ${esc(state.user.role)}${state.user.cohort ? ` · ${esc(state.user.cohort)}` : ''}</span></div></div>
-      <div class="setRow"><div class="sTxt"><b>View access</b><span>Your ${isMentor() ? 'Mentor' : 'Student'} View comes from your signed MissionMed role. It cannot be changed in the browser.</span></div><span class="rolePill roleReadOnly">${isMentor() ? 'Mentor View' : 'Student View'}</span></div>
+      <div class="setRow"><div class="sTxt"><b>View access</b><span>${canSwitchAdministratorView() ? 'WordPress grants this account both Student and Administrator views. Use the signed view control in the sidebar.' : `Your ${viewLabel()} comes from your signed MissionMed role.`}</span></div><span class="rolePill roleReadOnly">${viewLabel()}</span></div>
       <div class="setRow"><div class="sTxt"><b>Time zone</b><span>Dates and times are shown in ${esc(timeZone)}. Authoritative UTC timestamps are preserved underneath.</span></div></div>
       <div class="setRow"><div class="sTxt"><b>Reduced motion</b><span>StoryForge follows your system setting automatically. Currently: ${reducedMotion ? 'ON — ambient animation is paused' : 'OFF — the ambient background is animated'}.</span></div></div>
       <div class="setRow"><div class="sTxt"><b>Back to Matrix</b><span>Return to the MissionMed Matrix hub.</span></div><a class="rowBtn" href="${attr(matrixHref())}">Go</a></div>
@@ -5883,7 +5899,7 @@ async function loadAdminStory(id) {
   });
   state.mentorNoteDraft = null;
   if ((state.capabilities?.mentorNotesRead || canWriteMentorNotes()) && story.status !== 'private') {
-    const notesPayload = await optionalRequest(`/api/stories/${id}/mentor-notes`, { notes: [] });
+    const notesPayload = await optionalRequest(`/api/stories/${id}/mentor-notes?reviewer=1`, { notes: [] });
     story.mentorNotes = asArray(notesPayload?.notes).map(normalizeMentorNote);
   }
   adminConsoleState().story = story;
@@ -6616,6 +6632,21 @@ document.addEventListener('click', async (event) => {
   const button = target.closest('button, a');
   if (!button) return;
   try {
+    if (button.matches('[data-switch-view]')) {
+      const nextRole = button.dataset.switchView;
+      if (
+        (nextRole === 'student' && state.user?.role === 'student')
+        || (nextRole === 'admin' && canSwitchAdministratorView())
+      ) {
+        state.activeRole = nextRole;
+        state.route = 'home';
+        state.routeId = null;
+        clearOverlays();
+        pushPath('home', null, true);
+        await renderRoute();
+      }
+      return;
+    }
     if (button.matches('[data-nav]')) {
       event.preventDefault();
       await navigate(button.dataset.nav, button.dataset.navId || null);
@@ -7381,6 +7412,7 @@ function renderLogin(errorMessage = '') {
   hideApplicationChrome();
   const fixtureButtons = state.config?.devAuth ? `<div class="fixtureGrid">
     <button class="gateBtn" type="button" data-fixture-persona="student">Student · Maya</button>
+    <button class="gateBtn" type="button" data-fixture-persona="founderStudent">Founder · Student + Admin</button>
     <button class="gateBtn" type="button" data-fixture-persona="studentOther">Second student · privacy boundary</button>
     <button class="gateBtn" type="button" data-fixture-persona="mentor">Mentor · Dr. Chen</button>
     <button class="gateBtn" type="button" data-fixture-persona="mentorTwo">Second mentor · Dr. Rivera</button>
@@ -7501,6 +7533,7 @@ async function bootstrapSession() {
   const session = await api.session();
   const { user } = session;
   state.user = user;
+  state.activeRole = user.role;
   state.capabilities = Object.freeze({
     voiceCapture: Boolean(session?.capabilities?.voiceCapture),
     adminConsole: Boolean(session?.capabilities?.adminConsole),

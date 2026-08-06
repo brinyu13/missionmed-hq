@@ -17,16 +17,20 @@ const STUDENT = Object.freeze({
   role: 'student',
   eligible: true,
 });
+const FOUNDER_STUDENT = Object.freeze({
+  ...STUDENT,
+  wordpressAdmin: true,
+});
 const STORY = '22222222-2222-4222-8222-222222222222';
 const NOTE = '33333333-3333-4333-8333-333333333333';
 
 function fixture({ query } = {}) {
   const calls = [];
   const objects = new Map();
-  const withIdentity = async (identity, operation) => operation({
+  const withIdentity = async (identity, operation, options = {}) => operation({
     async query(text, values = []) {
-      calls.push({ identity, text, values });
-      if (query) return query({ identity, text, values, calls });
+      calls.push({ identity, text, values, options });
+      if (query) return query({ identity, text, values, options, calls });
       if (text.includes('sf_mentor_notes_enabled')) return { rows: [{ enabled: true }] };
       return { rows: [{ payload: { id: NOTE, rowVersion: 1 } }] };
     },
@@ -78,6 +82,20 @@ test('student may list published notes through RLS but cannot create reviewer no
       && error.code === 'mentor_note_reviewer_required'
       && error.status === 403,
   );
+});
+
+test('a signed WordPress administrator may review without losing the student ownership role', async () => {
+  const fake = fixture();
+  const service = createMentorNotesService({
+    ...fake,
+    signPlayback: async () => ({ playbackUrl: 'https://private.invalid', expiresIn: 300 }),
+    environment: { STORYFORGE_MENTOR_NOTES_FORCE_OFF: '0' },
+  });
+  assert.equal(await service.capability(FOUNDER_STUDENT), true);
+  const created = await service.create(FOUNDER_STUDENT, STORY, { body: 'Founder review' });
+  assert.equal(created.id, NOTE);
+  assert.equal(FOUNDER_STUDENT.role, 'student');
+  assert.ok(fake.calls.every(({ options }) => options.adminMode === true));
 });
 
 test('reviewer mutations are force-off and database-capability gated', async () => {

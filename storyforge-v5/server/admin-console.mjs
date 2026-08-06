@@ -184,7 +184,11 @@ export function validateAdminTaxonomy(input) {
 }
 
 function requireAdmin(identity) {
-  if (identity?.role !== 'admin' || identity?.eligible !== true || !uuidPattern.test(String(identity?.sub || ''))) {
+  if (
+    (identity?.role !== 'admin' && identity?.wordpressAdmin !== true)
+    || identity?.eligible !== true
+    || !uuidPattern.test(String(identity?.sub || ''))
+  ) {
     throw new AdminConsoleError('admin_required', 'An eligible administrator account is required.', 403);
   }
 }
@@ -205,11 +209,20 @@ export function createAdminConsoleService({
 } = {}) {
   requireFunction(withIdentity, 'withIdentity');
 
+  function withAdminIdentity(identity, operation) {
+    return identity?.role === 'admin'
+      ? withIdentity(identity, operation)
+      : withIdentity(identity, operation, { adminMode: true });
+  }
+
   async function capability(identity) {
     if (adminConsoleForceOff(environment)) return false;
-    if (identity?.role !== 'admin' || identity?.eligible !== true) return false;
+    if (
+      (identity?.role !== 'admin' && identity?.wordpressAdmin !== true)
+      || identity?.eligible !== true
+    ) return false;
     try {
-      return withIdentity(identity, async (client) => {
+      return withAdminIdentity(identity, async (client) => {
         const result = await client.query('SELECT public.sf_admin_console_enabled() AS enabled');
         return result.rows[0]?.enabled === true;
       });
@@ -232,7 +245,7 @@ export function createAdminConsoleService({
   async function rpc(identity, sql, values) {
     await requireEnabled(identity);
     try {
-      return await withIdentity(identity, async (client) => {
+      return await withAdminIdentity(identity, async (client) => {
         const result = await client.query(sql, values);
         return result.rows[0]?.payload ?? null;
       });
@@ -243,7 +256,7 @@ export function createAdminConsoleService({
 
   async function getFlag(identity) {
     requireAdmin(identity);
-    return withIdentity(identity, async (client) => {
+    return withAdminIdentity(identity, async (client) => {
       const result = await client.query(
         `SELECT key, scope, allowlist, cohorts, updated_by, updated_at
            FROM public.sf_feature_flags
@@ -256,7 +269,7 @@ export function createAdminConsoleService({
   async function updateFlag(identity, input) {
     requireAdmin(identity);
     const next = validateFlagMutation(input);
-    return withIdentity(identity, async (client) => {
+    return withAdminIdentity(identity, async (client) => {
       const result = await client.query(
         'SELECT public.sf_admin_set_console_flag($1, $2::uuid[]) AS payload',
         [next.scope, next.allowlist],

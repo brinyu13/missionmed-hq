@@ -199,3 +199,9 @@ test('the routing hotfix does not carry legacy demo or voice-scope behavior', as
   assert.doesNotMatch(`${plugin}\n${launch}`, /voice_capture|STORYFORGE_VOICE|sf_feature_flags/);
   assert.equal(path.basename(packageDir), 'storyforge-v5');
 });
+
+test('the signed bootstrap carries native WordPress administrator authority independently of the ownership role', async () => {
+  const plugin = await readFile(pluginFile, 'utf8');
+  assert.match(plugin, /'app_role'\s*=>\s*\(string\) \$access\['role'\]/);
+  assert.match(plugin, /'wordpress_admin'\s*=>\s*user_can\(\$user, 'manage_options'\)/);
+});

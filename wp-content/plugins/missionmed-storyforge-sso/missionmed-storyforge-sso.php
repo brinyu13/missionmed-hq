@@ -346,6 +346,7 @@ function mmsf_issue_jwt($user, $access) {
         'first_name' => (string) $user->first_name,
         'username' => (string) $user->user_login,
         'app_role' => (string) $access['role'],
+        'wordpress_admin' => user_can($user, 'manage_options'),
         'storyforge_eligible' => true,
     );
     if ($access['cohort'] !== '') {

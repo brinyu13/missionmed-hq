@@ -19,15 +19,19 @@ const STUDENT = Object.freeze({
   role: 'student',
   eligible: true,
 });
+const FOUNDER_STUDENT = Object.freeze({
+  ...STUDENT,
+  wordpressAdmin: true,
+});
 
 function store(handler) {
   const calls = [];
   return {
     calls,
-    withIdentity: async (identity, operation) => operation({
+    withIdentity: async (identity, operation, options = {}) => operation({
       async query(text, values = []) {
-        calls.push({ identity, text, values });
-        return handler({ identity, text, values, calls });
+        calls.push({ identity, text, values, options });
+        return handler({ identity, text, values, options, calls });
       },
     }),
   };
@@ -93,6 +97,21 @@ test('bounded RPC methods validate roles, limits, cursors, filters, and identifi
 
   assert.deepEqual(await service.home(ADMIN, { limit: 8 }), { ok: true });
   assert.match(fake.calls.at(-1).text, /sf_admin_home/);
+});
+
+test('a signed WordPress administrator keeps a student role and enters only bounded admin transactions', async () => {
+  const fake = store(({ text }) => {
+    if (text.includes('sf_admin_console_enabled')) return { rows: [{ enabled: true }] };
+    return { rows: [{ payload: { ok: true } }] };
+  });
+  const service = createAdminConsoleService({
+    withIdentity: fake.withIdentity,
+    environment: { STORYFORGE_ADMIN_CONSOLE_FORCE_OFF: '0' },
+  });
+  assert.equal(await service.capability(FOUNDER_STUDENT), true);
+  assert.deepEqual(await service.home(FOUNDER_STUDENT), { ok: true });
+  assert.equal(FOUNDER_STUDENT.role, 'student');
+  assert.ok(fake.calls.every(({ options }) => options.adminMode === true));
 });
 
 test('review validation allowlists fields and exact authority values without mutating input', () => {

@@ -12,6 +12,14 @@ export const fixtureIdentities = Object.freeze({
     first_name: 'Maya',
     app_role: 'student',
   }),
+  founderStudent: Object.freeze({
+    sub: '11111111-1111-4111-8111-111111111111',
+    wp_user_id: 1101,
+    name: 'Maya Student',
+    first_name: 'Maya',
+    app_role: 'student',
+    wordpress_admin: true,
+  }),
   studentOther: Object.freeze({
     sub: '22222222-2222-4222-8222-222222222222',
     wp_user_id: 1102,
@@ -46,6 +54,7 @@ export const fixtureIdentities = Object.freeze({
     name: 'Program Admin',
     first_name: 'Program Admin',
     app_role: 'admin',
+    wordpress_admin: true,
   }),
 });
 
@@ -123,6 +132,7 @@ export async function verifyToken(token, options = {}) {
     name: String(claims.name || ''),
     firstName: typeof claims.first_name === 'string' ? claims.first_name : '',
     username: typeof claims.username === 'string' ? claims.username : '',
+    wordpressAdmin: claims.wordpress_admin === true,
     issuer: String(claims.iss || ''),
   });
 }

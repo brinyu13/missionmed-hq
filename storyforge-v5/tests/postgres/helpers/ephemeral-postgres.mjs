@@ -32,6 +32,7 @@ const phaseOneMigrations = [
   '20260730000100_b1_507b_reconciliation_state.sql',
   '20260801190000_b1_510i_admin_console.sql',
   '20260805190000_b1_511_workflow_taxonomy_mentor_notes.sql',
+  '20260806130000_b1_511a_wordpress_admin_authority.sql',
 ];
 
 function commandPath(name) {
@@ -187,6 +188,8 @@ export async function withIdentity(client, {
   role,
   wpUserId,
   eligible = true,
+  wordpressAdmin = false,
+  adminMode = false,
 }, operation) {
   await client.query('BEGIN');
   try {
@@ -196,8 +199,17 @@ export async function withIdentity(client, {
          set_config('request.jwt.claim.sub', $1, true),
          set_config('request.jwt.claim.app_role', $2, true),
          set_config('request.jwt.claim.storyforge_eligible', $3, true),
-         set_config('request.jwt.claim.wp_user_id', $4, true)`,
-      [sub, role, eligible ? 'true' : 'false', String(wpUserId)],
+         set_config('request.jwt.claim.wp_user_id', $4, true),
+         set_config('request.jwt.claim.wordpress_admin', $5, true),
+         set_config('request.jwt.claim.admin_mode', $6, true)`,
+      [
+        sub,
+        role,
+        eligible ? 'true' : 'false',
+        String(wpUserId),
+        wordpressAdmin ? 'true' : 'false',
+        adminMode ? 'true' : 'false',
+      ],
     );
     const value = await operation(client);
     await client.query('COMMIT');

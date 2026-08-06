@@ -15,7 +15,12 @@ export async function healthCheck() {
   return result.rows[0];
 }
 
-export async function withIdentity(identity, operation) {
+export async function withIdentity(identity, operation, { adminMode = false } = {}) {
+  if (adminMode && identity?.wordpressAdmin !== true) {
+    const error = new Error('Signed WordPress administrator authority is required.');
+    error.code = 'admin_required';
+    throw error;
+  }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -25,12 +30,16 @@ export async function withIdentity(identity, operation) {
          set_config('request.jwt.claim.sub', $1, true),
          set_config('request.jwt.claim.app_role', $2, true),
          set_config('request.jwt.claim.storyforge_eligible', $3, true),
-         set_config('request.jwt.claim.wp_user_id', $4, true)`,
+         set_config('request.jwt.claim.wp_user_id', $4, true),
+         set_config('request.jwt.claim.wordpress_admin', $5, true),
+         set_config('request.jwt.claim.admin_mode', $6, true)`,
       [
         identity.sub,
         identity.role,
         identity.eligible ? 'true' : 'false',
         String(identity.wpUserId),
+        identity.wordpressAdmin ? 'true' : 'false',
+        adminMode ? 'true' : 'false',
       ],
     );
     const value = await operation(client);

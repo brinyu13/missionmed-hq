@@ -95,3 +95,14 @@ test('assignment-independent submission uses the signed B1-511 capability in the
   assert.match(action, /data-submit-story/);
   assert.match(action, /Submit for review/);
 });
+
+test('dual-access Founder accounts receive an explicit Student and Administrator view switch', () => {
+  const switcher = functionSource('roleSwitchMarkup');
+  assert.match(switcher, /data-switch-view="student"/);
+  assert.match(switcher, /data-switch-view="admin"/);
+  assert.match(switcher, /Administrator View/);
+  assert.match(functionSource('canSwitchAdministratorView'), /state\.user\?\.role === 'student'/);
+  assert.match(functionSource('canSwitchAdministratorView'), /state\.capabilities\?\.adminConsole === true/);
+  assert.match(source, /state\.activeRole = nextRole/);
+  assert.match(source, /state\.activeRole = user\.role/);
+});

@@ -21,6 +21,10 @@ const admin = Object.freeze({
   role: 'admin',
   eligible: true,
 });
+const founderStudent = Object.freeze({
+  ...student,
+  wordpressAdmin: true,
+});
 const appSource = readFileSync(new URL('../../server/app.mjs', import.meta.url), 'utf8');
 
 function flag(overrides = {}) {
@@ -231,6 +235,15 @@ test('admin mutations validate UUIDs and exact configured cohorts', async () => 
     }),
     (error) => error.code === 'eligible_all_locked' && error.status === 403,
   );
+});
+
+test('signed WordPress administrator authority grants release controls without changing student voice identity', async () => {
+  const fixture = storeFixture();
+  const service = createFlagService({ store: fixture.store, environment: {} });
+  const result = await service.getAdminFeatures(founderStudent);
+  assert.equal(result.flag.scope, 'off');
+  assert.equal(evaluateVoiceCapability(flag({ scope: 'eligible_all' }), founderStudent), true);
+  assert.equal(fixture.calls.denials.length, 0);
 });
 
 test('Founder-authorized eligible-all activation remains student-only', async () => {

@@ -739,7 +739,7 @@ async function api(request, response, url, {
   }
 
   if (request.method === 'GET' && url.pathname === '/api/session') {
-    const [user, voiceCapture, adminConsole, mentorNotes, mentorNotesRead, b1511] = await Promise.all([
+    const [user, voiceCapture, adminConsole, mentorNotes, mentorNotesRead, b1511, adminB1511] = await Promise.all([
       withIdentity(identity, async (client) => {
         const result = await client.query(
           `SELECT id, wp_user_id, display_name, first_name, pronouns, role, eligible,
@@ -762,6 +762,17 @@ async function api(request, response, url, {
           throw error;
         }
       }),
+      identity.wordpressAdmin === true && identity.role !== 'admin'
+        ? withIdentity(identity, async (client) => {
+          try {
+            const result = await client.query('SELECT public.sf_b1_511_capabilities() AS payload');
+            return result.rows[0]?.payload || {};
+          } catch (error) {
+            if (error?.code === '42883') return {};
+            throw error;
+          }
+        }, { adminMode: true })
+        : Promise.resolve({}),
     ]);
     if (!user) {
       const error = new Error('StoryForge profile is missing or eligibility was revoked.');
@@ -773,6 +784,7 @@ async function api(request, response, url, {
         ...user,
         first_name: identity.firstName,
         username: identity.username,
+        wordpress_admin: identity.wordpressAdmin,
       },
       capabilities: {
         voiceCapture,
@@ -780,7 +792,7 @@ async function api(request, response, url, {
         mentorNotes,
         mentorNotesRead: mentorNotesRead && b1511.mentorNotesRead === true,
         submissionReview: b1511.submissionReview === true,
-        taxonomy: b1511.taxonomy === true,
+        taxonomy: b1511.taxonomy === true || adminB1511.taxonomy === true,
         inlinePriority: b1511.inlinePriority === true,
         storySearch: b1511.storySearch === true,
       },
@@ -1004,7 +1016,9 @@ async function api(request, response, url, {
   if (storyMentorNotes) {
     if (request.method === 'GET') {
       return sendJson(response, 200, {
-        notes: await mentorNotesService.list(identity, storyMentorNotes[1]),
+        notes: await mentorNotesService.list(identity, storyMentorNotes[1], {
+          reviewer: url.searchParams.get('reviewer') === '1',
+        }),
       });
     }
     if (request.method === 'POST') {
@@ -1784,7 +1798,7 @@ async function api(request, response, url, {
         [safeUuid(questionApproval[1]), body.surface || 'library'],
       );
       return result.rows[0];
-    });
+    }, identity.wordpressAdmin === true && identity.role !== 'admin' ? { adminMode: true } : undefined);
     return sendJson(response, 200, { question });
   }
 

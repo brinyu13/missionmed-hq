@@ -42,7 +42,7 @@ function requireUuid(value, label) {
 
 function requireReviewer(identity) {
   if (
-    !['admin', 'mentor'].includes(identity?.role)
+    (!['admin', 'mentor'].includes(identity?.role) && identity?.wordpressAdmin !== true)
     || identity?.eligible !== true
     || !uuidPattern.test(String(identity?.sub || ''))
   ) {
@@ -157,9 +157,16 @@ export function createMentorNotesService({
   );
   requireFunction(signPlayback, 'signPlayback');
 
-  async function rpc(identity, sql, values) {
+  function withReviewerIdentity(identity, operation) {
+    return identity?.wordpressAdmin === true && identity?.role !== 'admin'
+      ? withIdentity(identity, operation, { adminMode: true })
+      : withIdentity(identity, operation);
+  }
+
+  async function rpc(identity, sql, values, { reviewer = false } = {}) {
     try {
-      return await withIdentity(identity, async (client) => {
+      const transaction = reviewer ? withReviewerIdentity : withIdentity;
+      return await transaction(identity, async (client) => {
         const result = await client.query(sql, values);
         return result.rows[0]?.payload ?? null;
       });
@@ -183,8 +190,17 @@ export function createMentorNotesService({
   }
 
   async function capability(identity) {
-    if (!['admin', 'mentor'].includes(identity?.role)) return false;
-    return databaseEnabled(identity);
+    if (!['admin', 'mentor'].includes(identity?.role) && identity?.wordpressAdmin !== true) return false;
+    if (mentorNotesForceOff(environment) || identity?.eligible !== true) return false;
+    try {
+      return await withReviewerIdentity(identity, async (client) => {
+        const result = await client.query('SELECT public.sf_mentor_notes_enabled() AS enabled');
+        return result.rows[0]?.enabled === true;
+      });
+    } catch (error) {
+      if (['42501', '42883', '42P01'].includes(error?.code)) return false;
+      throw error;
+    }
   }
 
   async function readCapability(identity) {
@@ -212,12 +228,14 @@ export function createMentorNotesService({
     }
   }
 
-  async function list(identity, storyId) {
-    await requireReadable(identity);
+  async function list(identity, storyId, { reviewer = false } = {}) {
+    if (reviewer) await requireEnabled(identity);
+    else await requireReadable(identity);
     return rpc(
       identity,
       'SELECT public.sf_list_mentor_notes($1) AS payload',
       [requireUuid(storyId, 'Story identifier')],
+      { reviewer },
     );
   }
 
@@ -232,6 +250,7 @@ export function createMentorNotesService({
         input.internalOnly === true,
         surface(input.surface),
       ],
+      { reviewer: true },
     );
   }
 
@@ -246,6 +265,7 @@ export function createMentorNotesService({
         boundedBody(input.body),
         surface(input.surface),
       ],
+      { reviewer: true },
     );
   }
 
@@ -259,6 +279,7 @@ export function createMentorNotesService({
         expectedVersion(input.expectedVersion),
         surface(input.surface),
       ],
+      { reviewer: true },
     );
   }
 
@@ -272,6 +293,7 @@ export function createMentorNotesService({
         expectedVersion(input.expectedVersion),
         surface(input.surface),
       ],
+      { reviewer: true },
     );
     if (note?.objectKey) {
       await deleteAudio({ objectKeys: [note.objectKey] });
@@ -279,6 +301,7 @@ export function createMentorNotesService({
         identity,
         'SELECT public.sf_complete_mentor_note_audio_delete($1, $2) AS payload',
         [note.noteId || note.id, note.objectKey],
+        { reviewer: true },
       );
     }
     return { ...note, objectKey: undefined };
@@ -302,12 +325,14 @@ export function createMentorNotesService({
       identity,
       'SELECT public.sf_prepare_mentor_note_audio($1, $2, $3, $4, $5) AS payload',
       [id, version, mimeType, buffer.byteLength, surface(input.surface)],
+      { reviewer: true },
     );
     const objectKey = `storyforge-mentor-notes/${allocation.authorId}/${allocation.studentId}/${allocation.storyId}/${id}/${randomUUID()}.${extension}`;
     await rpc(
       identity,
       'SELECT public.sf_begin_mentor_note_audio($1, $2, $3, $4, $5, $6) AS payload',
       [id, version, objectKey, mimeType, buffer.byteLength, surface(input.surface)],
+      { reviewer: true },
     );
 
     try {
@@ -347,12 +372,14 @@ export function createMentorNotesService({
           transcript.modelId,
           surface(input.surface),
         ],
+        { reviewer: true },
       );
     } catch (cause) {
       const failed = await rpc(
         identity,
         'SELECT public.sf_fail_mentor_note_audio($1, $2, $3, $4) AS payload',
         [id, objectKey, 'upload_or_transcribe', surface(input.surface)],
+        { reviewer: true },
       ).catch(() => null);
       const deleted = await deleteAudio({ objectKeys: [objectKey] })
         .then(() => true)
@@ -362,6 +389,7 @@ export function createMentorNotesService({
           identity,
           'SELECT public.sf_complete_mentor_note_audio_delete($1, $2) AS payload',
           [failed.noteId || id, failed.objectKey],
+          { reviewer: true },
         ).catch(() => null);
       }
       if (cause instanceof MentorNotesError) throw cause;
@@ -380,10 +408,12 @@ export function createMentorNotesService({
 
   async function playback(identity, noteId) {
     await requireReadable(identity);
+    const reviewer = identity?.wordpressAdmin === true && identity?.role !== 'admin';
     const audio = await rpc(
       identity,
       'SELECT public.sf_get_mentor_note_audio($1) AS payload',
       [requireUuid(noteId, 'Mentor note identifier')],
+      { reviewer },
     );
     if (!audio?.objectKey) {
       throw new MentorNotesError('mentor_note_audio_not_found', 'Mentor-note audio not found.', 404);

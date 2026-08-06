@@ -27,12 +27,23 @@ async function token(claims = {}, expiration = '5m', signingKey = key) {
 }
 
 test('accepts a signed, purpose-bound, eligible identity', async () => {
-  const identity = await verifyToken(await token({ first_name: ' Dr ', username: 'brinyu' }), { key, issuer, audience });
+  const identity = await verifyToken(await token({
+    first_name: ' Dr ',
+    username: 'brinyu',
+    wordpress_admin: true,
+  }), { key, issuer, audience });
   assert.equal(identity.sub, '11111111-1111-4111-8111-111111111111');
   assert.equal(identity.role, 'student');
   assert.equal(identity.eligible, true);
   assert.equal(identity.firstName, ' Dr ');
   assert.equal(identity.username, 'brinyu');
+  assert.equal(identity.wordpressAdmin, true);
+});
+
+test('WordPress administrator authority requires the exact signed boolean claim', async () => {
+  assert.equal((await verifyToken(await token(), { key, issuer, audience })).wordpressAdmin, false);
+  assert.equal((await verifyToken(await token({ wordpress_admin: 'true' }), { key, issuer, audience })).wordpressAdmin, false);
+  assert.equal((await verifyToken(await token({ wordpress_admin: true }), { key, issuer, audience })).wordpressAdmin, true);
 });
 
 test('preserves the signed WordPress first_name exactly and treats absence as blank', async () => {

@@ -169,6 +169,12 @@ export function createPostgresFlagStore({
   requireFunction(withServiceTransaction, 'withServiceTransaction');
   requireFunction(appendAudit, 'appendAudit');
 
+  function withAdminIdentity(identity, operation) {
+    return identity?.role === 'admin'
+      ? withIdentity(identity, operation)
+      : withIdentity(identity, operation, { adminMode: true });
+  }
+
   async function readVoiceFlag() {
     return withServiceTransaction(async (client) => {
       const result = await client.query(
@@ -212,7 +218,7 @@ export function createPostgresFlagStore({
         503,
       );
     }
-    return withIdentity(identity, async (client) => {
+    return withAdminIdentity(identity, async (client) => {
       const flagResult = await client.query(
         `SELECT key, scope, allowlist, cohorts, updated_by, updated_at
            FROM public.sf_feature_flags
@@ -245,7 +251,7 @@ export function createPostgresFlagStore({
   }
 
   async function updateVoiceFlag(identity, next) {
-    return withIdentity(identity, async (client) => {
+    return withAdminIdentity(identity, async (client) => {
       const locked = await client.query(
         `SELECT key, scope, allowlist, cohorts, updated_by, updated_at
            FROM public.sf_feature_flags
@@ -315,7 +321,7 @@ export function createPostgresFlagStore({
         503,
       );
     }
-    const errors = await withIdentity(identity, async (client) => {
+    const errors = await withAdminIdentity(identity, async (client) => {
       try {
         return await readVoiceErrorSummary(identity, client);
       } catch (cause) {
@@ -349,7 +355,7 @@ export function createPostgresFlagStore({
     let reconciliation = null;
     if (typeof readReconciliationReport === 'function') {
       try {
-        const rows = await withIdentity(identity, (client) => (
+        const rows = await withAdminIdentity(identity, (client) => (
           readReconciliationReport(identity, client)
         ));
         const requiredCounts = [
@@ -499,7 +505,10 @@ export function createFlagService({
   }
 
   async function requireAdmin(identity, surface) {
-    if (identity?.role === 'admin' && identity?.eligible === true) return;
+    if (
+      (identity?.role === 'admin' || identity?.wordpressAdmin === true)
+      && identity?.eligible === true
+    ) return;
     await store.auditAdminDenial(identity, surface);
     emit('unauthorized_denied', {
       studentId: identity?.sub,
