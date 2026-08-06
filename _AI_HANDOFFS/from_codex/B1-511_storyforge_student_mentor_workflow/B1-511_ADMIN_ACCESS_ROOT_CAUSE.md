@@ -1,36 +1,47 @@
 # B1-511 Administrator Access Root Cause
 
-## Finding
+## Corrected finding (B1-511A, 2026-08-06)
 
-The Founder identity was not missing and was not converted into a student. The
-existing signed identity for WordPress user `107` mapped to StoryForge UUID
-`56bb6d8a-4957-4ba6-abe1-7f77046061c8` with role `admin`. The practical defect
-was that the already bounded administrator-console capability did not provide a
-clear, persistent administrator landing path in the sole V5 renderer.
+The earlier identity attribution in this receipt was wrong. WordPress user `1`,
+username `brinyu`, is the Founder and has WordPress `manage_options`. Its
+StoryForge UUID is `09c3b822-75e7-4f3f-bd3f-58afc0865a78`. Its persisted
+StoryForge role correctly remains `student`, because that identity owns the
+Founder's seven existing stories and student voice workflow. WordPress user
+`107`, username `Brian_test`, maps to StoryForge UUID
+`56bb6d8a-4957-4ba6-abe1-7f77046061c8` with role `admin` and remains an
+additional administrator.
 
-## Repair
+The actual defect was an authority-boundary error: the StoryForge application
+treated its persisted product role as the only source of administrator
+authority and did not carry the signed WordPress `manage_options` capability
+through the bootstrap token. That hid Administrator View from `brinyu` even
+though WordPress authoritatively grants the Founder global administration.
 
-- `storyforge-v5/public/app.js` now renders the existing administrator
-  capability as `Administrator View` with persistent `Admin Home`, `Students`,
-  `Review Queue`, and `Release Controls` navigation.
-- `storyforge-v5/server/admin-console.mjs` extends only submitted-story search,
-  queue, review, and taxonomy projections.
-- `storyforge-v5/server/app.mjs` keeps the existing authenticated routes and
-  delegates to the bounded admin service.
+## Corrected repair
+
+- WordPress signs a strict `wordpress_admin` claim directly from
+  `user_can($user, 'manage_options')`.
+- The API verifies that claim and selects bounded administrator mode only for
+  administrator operations. Browser input cannot create that mode.
+- PostgreSQL preserves the persisted base role while deriving an effective
+  administrator role only when both the signed WordPress claim and the
+  server-selected administrator mode are present.
+- `storyforge-v5/public/app.js` gives `brinyu` an explicit Student View /
+  Administrator View switch. Student View remains the default and keeps all
+  existing stories, recording, transcription, and ownership paths unchanged.
+- `Brian_test` remains an additional administrator.
 - Private and archived stories are omitted server-side. The UI cannot obtain
   them and merely explains the enforced boundary.
 
-## Production evidence
+## Superseded production evidence
 
-At deployment `7b5a73e6-280f-4b7c-ac47-efd56c82a565`, a fresh 60-second token
-for the existing Founder identity returned HTTP 200 from
-`GET /api/admin/console/home`. No secret or token was printed or retained.
-The payload contained only submitted-story metrics and returned zero private
-records. A fresh authenticated Founder browser session was not available in
-this run, so visual Founder acceptance remains a production-canary gate; it was
-not fabricated from the API result.
+Deployment `7b5a73e6-280f-4b7c-ac47-efd56c82a565` proved the bounded admin API
+using WordPress user `107` (`Brian_test`); it did not prove Founder `brinyu`
+administrator access. The B1-511A receipt records the corrected live canary.
 
 ## Blast radius
 
-No WordPress user data, role, LearnDash enrollment, identity UUID, JWT contract,
-route, or protected `missionmed-hub` asset changed.
+No WordPress user profile, stored WordPress role, LearnDash enrollment,
+StoryForge UUID, persisted StoryForge role, story ownership, route, or protected
+`missionmed-hub` asset changed. The JWT contract changed additively by one
+server-signed Boolean authority claim.

@@ -30,8 +30,14 @@ human perceptual audio canary. No authority was invented to bypass that gate.
   `/Users/brianb/MissionMed_private_backups/B1-511/CUSTODY-20260805T220633Z/B1-StoryForge-502-0271dd7b.bundle`
   SHA-256 `96bd9311...` (full value retained in the custody receipt)
 
-The Founder identity remains WordPress user `107`, username `brinyu`,
-StoryForge UUID `56bb6d8a-4957-4ba6-abe1-7f77046061c8`, role `admin`.
+**B1-511A correction (2026-08-06):** The Founder identity is WordPress user
+`1`, username `brinyu`, StoryForge UUID
+`09c3b822-75e7-4f3f-bd3f-58afc0865a78`. Its persisted StoryForge role remains
+`student` to preserve its seven owned stories and student workflow. WordPress
+user `107`, username `Brian_test`, StoryForge UUID
+`56bb6d8a-4957-4ba6-abe1-7f77046061c8`, remains an additional administrator.
+The earlier sentence identifying WordPress user `107` as `brinyu` was false and
+is superseded by this correction and the B1-511A receipt.
 
 ## 2. What was implemented
 
