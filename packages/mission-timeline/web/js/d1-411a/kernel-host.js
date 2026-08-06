@@ -198,12 +198,18 @@ class D1411AKernelElement extends HostHTMLElement{
         });
         break;
       }catch(error){
-        if(String(error?.code||"")==="TEXT_FIT_UNRESOLVED"&&layoutRetryCount<1){
+        if(String(error?.code||"")==="TEXT_FIT_UNRESOLVED"&&layoutRetryCount<2){
           layoutRetryCount+=1;
-          K.resize({scale:1});
+          // The protected renderer measures its profile card against the
+          // composited 1920×1080 board. Reapply the host fit before retrying:
+          // a persistent canvas can receive this update while its parent is
+          // still settling after a direct-manipulation gesture.
+          this.resize();
           const childWindow=this.shadowRoot?.querySelector("iframe")?.contentWindow;
           await new Promise((resolve)=>{
-            if(childWindow?.requestAnimationFrame)childWindow.requestAnimationFrame(()=>resolve());
+            if(childWindow?.requestAnimationFrame){
+              childWindow.requestAnimationFrame(()=>childWindow.requestAnimationFrame(resolve));
+            }
             else setTimeout(resolve,0);
           });
           continue;
@@ -878,7 +884,12 @@ export function createD1411AKernelManager({resolveObjectUrl=()=>null}={}){
     reason="preview"
   }={})=>{
     const projection=ensureProjection(document,audience);
-    if(!projection.model.events.length&&!projection.model.flags.length){
+    // The protected D1-409H renderer requires at least one arrow event. A
+    // flags-only audience projection is valid domain data, but cannot be
+    // handed to that renderer without producing its fatal `events[] required`
+    // schema error. Use the established empty-state boundary whenever no
+    // arrow is visible.
+    if(!projection.model.events.length){
       return{
         kind:"d1-411a-empty",
         html:'<div class="d1411AEmpty" role="status"><strong>No timeline events are visible for this audience.</strong><span>Add an event or change its visibility in Builder.</span></div>',

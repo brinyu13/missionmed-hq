@@ -124,15 +124,16 @@ test("D1-411B empty audience state does not invoke a fallback renderer",()=>{
   assert.match(rendered.html,/No timeline events are visible for this audience/);
 });
 
-test("D1-411B milestone-only timelines render their canonical flag",()=>{
+test("D1-411B fails soft before the protected kernel for a milestone-only timeline",()=>{
   const manager=createD1411AKernelManager();
   const document=timeline();
   document.events=document.events.filter((event)=>event.eventType==="milestone");
   const rendered=manager.render(document,{surface:"edit",audience:"EVERYTHING"});
   assert.equal(rendered.projection.model.events.length,0);
   assert.equal(rendered.projection.model.flags.length,1);
-  assert.equal(rendered.kind,"d1-411a-kernel");
-  assert.match(rendered.html,/d1-timeline-kernel/);
+  assert.equal(rendered.kind,"d1-411a-empty");
+  assert.doesNotMatch(rendered.html,/d1-timeline-kernel/);
+  assert.match(rendered.html,/No timeline events are visible for this audience/);
 });
 
 test("D1-411B active application routes five product surfaces and export through the same kernel",async()=>{
