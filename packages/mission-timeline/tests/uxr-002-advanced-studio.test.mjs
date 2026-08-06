@@ -28,6 +28,7 @@ import {
   buildInsertStripModel,
   changeMediaZOrder,
   chooseBackgroundScrim,
+  constrainAdvancedObjectToBoard,
   createFlatColorBackground,
   createMediaElement,
   createPresetBackground,
@@ -46,6 +47,7 @@ import {
   relativeLuminanceFromRgb,
   renderAdvancedStudio,
   renderAdvancedSelectionControls,
+  renderAdvancedAssetRail,
   renderBackgroundPanel,
   renderColorPicker,
   renderInsertStrip,
@@ -55,6 +57,7 @@ import {
   scrimCss,
   setBackgroundDim,
   setLayoutLock,
+  setMediaAspectLock,
   studioVisibility,
   updateTextBlockContent,
   validateBackgroundPresetCatalog,
@@ -393,7 +396,7 @@ test("logos drop top-right at 120px and media exposes no rotation",()=>{
   assert.equal(logo.placement,"top-right-board-margin");
   assert.equal(logo.aspectLocked,true);
   assert.equal(logo.resizeHandles,"corners");
-  assert.deepEqual(logo.contextActions,["bring-forward","send-backward","delete"]);
+  assert.deepEqual(logo.contextActions,["bring-forward","send-backward","duplicate","delete"]);
   assert.equal("rotation" in logo,false);
   assert.equal(JSON.stringify(logo).toLowerCase().includes("rotate"),false);
 });
@@ -558,7 +561,7 @@ test("selected text, headline, and media expose only their frozen runtime contro
   assert.equal(buildAdvancedSelectionModel(documentFixture(),{type:"text",id:"text-1"}),null);
   const textModel=buildAdvancedSelectionModel(advanced,{type:"text",id:"text-1"});
   assert.deepEqual(textModel.target,{type:"text",id:"text-1"});
-  assert.deepEqual(textModel.actions,["bring-forward","send-backward","delete"]);
+  assert.deepEqual(textModel.actions,["bring-forward","send-backward","duplicate","delete"]);
   assert.equal(textModel.editableText,true);
   assert.deepEqual(textModel.typography,{
     font:"Georgia",
@@ -575,7 +578,8 @@ test("selected text, headline, and media expose only their frozen runtime contro
   });
   assert.ok(textHtml.includes("data-advanced-selection-controls"));
   assert.equal((textHtml.match(/data-advanced-action=/g)||[]).length,5);
-  assert.equal((textHtml.match(/data-advanced-object-action=/g)||[]).length,3);
+  assert.equal((textHtml.match(/data-advanced-object-action=/g)||[]).length,4);
+  assert.ok(textHtml.includes("data-advanced-asset-rail"));
   assert.ok(textHtml.includes("A &lt;careful&gt; journey"));
   assert.ok(textHtml.includes('data-advanced-typography-field="font"'));
   assert.ok(textHtml.includes('data-advanced-typography-field="size"'));
@@ -590,7 +594,8 @@ test("selected text, headline, and media expose only their frozen runtime contro
   const mediaHtml=renderAdvancedSelectionControls(advanced,{
     selection:{type:"media",id:"media-1"}
   });
-  assert.equal((mediaHtml.match(/data-advanced-object-action=/g)||[]).length,3);
+  assert.equal((mediaHtml.match(/data-advanced-object-action=/g)||[]).length,4);
+  assert.ok(mediaHtml.includes("data-advanced-aspect-lock"));
   assert.equal(mediaHtml.includes("data-advanced-typography-controls"),false);
 
   const headlineHtml=renderAdvancedSelectionControls(advanced,{
@@ -655,6 +660,25 @@ test("free-text edits and selected object actions are pure, Advanced-only, and r
     "send-backward"
   );
   assert.deepEqual(mediaBackward.document.advanced.media.map(({id})=>id),["media-b","media-a"]);
+  const duplicated=applyAdvancedObjectAction(
+    advanced,
+    {type:"media",id:"media-a"},
+    "duplicate",
+    {duplicateId:"media-copy",duplicateOffset:24}
+  );
+  assert.equal(duplicated.changed,true);
+  assert.deepEqual(duplicated.selection,{type:"media",id:"media-copy"});
+  assert.equal(duplicated.document.advanced.media.length,3);
+  assert.equal(duplicated.document.advanced.media[2].source.name,firstMedia.source.name);
+  assert.equal(duplicated.document.advanced.media[2].x,firstMedia.x+24);
+  assert.throws(
+    ()=>applyAdvancedObjectAction(
+      advanced,
+      {type:"media",id:"media-a"},
+      "duplicate"
+    ),
+    /unique duplicate object ID/
+  );
   const deleted=applyAdvancedObjectAction(
     mediaBackward.document,
     {type:"media",id:"media-b"},
@@ -672,6 +696,37 @@ test("free-text edits and selected object actions are pure, Advanced-only, and r
   assert.throws(
     ()=>applyAdvancedObjectAction(advanced,{type:"headline",id:"headline"},"delete"),
     /selected media or text/
+  );
+});
+
+test("Advanced asset rail, explicit proportion lock, and board collision guard are durable pure controls",()=>{
+  const media=createMediaElement({
+    id:"media-rail",
+    kind:"image",
+    file:png("rail.png"),
+    naturalWidth:800,
+    naturalHeight:400
+  });
+  const text=createTextBlock({id:"text-rail",text:"Interview arc"});
+  const advanced=documentFixture({
+    mode:"advanced",
+    advanced:{media:[media],textBlocks:[text]}
+  });
+  const rail=renderAdvancedAssetRail(advanced,{type:"text",id:"text-rail"});
+  assert.match(rail,/data-advanced-asset-rail/);
+  assert.equal((rail.match(/data-advanced-select-object/g)||[]).length,2);
+  assert.match(rail,/data-advanced-target-id="text-rail" aria-pressed="true"/);
+
+  const unlocked=setMediaAspectLock(advanced,{type:"media",id:"media-rail"},false);
+  assert.equal(unlocked.advanced.media[0].aspectLocked,false);
+  assert.equal(unlocked.advanced.media[0].resizeGesture,"free-aspect");
+  assert.equal(advanced.advanced.media[0].aspectLocked,true);
+  const relocked=setMediaAspectLock(unlocked,"media-rail",true);
+  assert.equal(relocked.advanced.media[0].aspectLocked,true);
+
+  assert.deepEqual(
+    constrainAdvancedObjectToBoard({x:1900,y:-20,width:400,height:20}),
+    {x:1520,y:0,width:400,height:48}
   );
 });
 
@@ -775,6 +830,7 @@ test("install hook delegates actions without owning store, persistence, or netwo
   };
   const calls=[];
   const dispose=installAdvancedStudio(root,{
+    onSelectObject:(value)=>calls.push(["select-object",value]),
     onAction:(value)=>calls.push(["action",value]),
     onObjectAction:(action,value)=>calls.push(["object-action",action,value]),
     onTypography:(patch,value)=>calls.push(["typography",patch,value]),
@@ -784,6 +840,7 @@ test("install hook delegates actions without owning store, persistence, or netwo
     onColor:(value)=>calls.push(["color",value]),
     onBackgroundUpload:(value)=>calls.push(["upload",value.name]),
     onLayoutLock:(value)=>calls.push(["lock",value]),
+    onAspectLock:(value,target)=>calls.push(["aspect-lock",value,target]),
     onHex:(value)=>calls.push(["hex",value]),
     onBackgroundDim:(value)=>calls.push(["dim",value]),
     onEyeDropper:()=>calls.push(["eyedropper"]),
@@ -795,6 +852,10 @@ test("install hook delegates actions without owning store, persistence, or netwo
     ...properties,
     closest(query){return query===selector?this:null;}
   });
+  listeners.get("click")({target:target("[data-advanced-select-object]",{
+    advancedTargetType:"text",
+    advancedTargetId:"text-1"
+  })});
   listeners.get("click")({target:target("[data-advanced-action]",{advancedAction:"image"})});
   listeners.get("click")({target:target("[data-advanced-object-action]",{
     advancedObjectAction:"bring-forward",
@@ -822,6 +883,10 @@ test("install hook delegates actions without owning store, persistence, or netwo
     files:[png("background.png")]
   })});
   listeners.get("change")({target:target("[data-layout-lock]",{},{checked:false})});
+  listeners.get("change")({target:target("[data-advanced-aspect-lock]",{
+    advancedTargetType:"media",
+    advancedTargetId:"media-1"
+  },{checked:false})});
   listeners.get("change")({target:target("[data-advanced-hex]",{},{value:"#123abc"})});
   listeners.get("change")({target:target("[data-advanced-typography-field]",{
     advancedTypographyField:"font",
@@ -844,6 +909,7 @@ test("install hook delegates actions without owning store, persistence, or netwo
   },{value:"Edited"})});
   listeners.get("input")({target:target("[data-background-dim]",{},{value:"75"})});
   assert.deepEqual(calls,[
+    ["select-object",{type:"text",id:"text-1"}],
     ["action","image"],
     ["object-action","bring-forward",{type:"media",id:"media-1"}],
     ["typography",{alignment:"right"},{type:"text",id:"text-1"}],
@@ -856,6 +922,7 @@ test("install hook delegates actions without owning store, persistence, or netwo
     ["secondary"],
     ["upload","background.png"],
     ["lock",false],
+    ["aspect-lock",false,{type:"media",id:"media-1"}],
     ["hex","#123ABC"],
     ["typography",{font:"Georgia"},{type:"text",id:"text-1"}],
     ["typography",{size:42},{type:"headline",id:"headline"}],

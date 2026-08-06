@@ -1,4 +1,4 @@
-export const MAX_FILE_BYTES=12*1024*1024;
+export const MAX_FILE_BYTES=20*1024*1024;
 export const MAX_PAGES=80;
 
 export class IngestionFileError extends Error{

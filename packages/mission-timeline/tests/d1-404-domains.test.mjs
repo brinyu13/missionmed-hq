@@ -178,12 +178,12 @@ test("Published research exposes the six approved author positions and defaults 
   );
 });
 
-test("Personal offers exactly 12 icons and only interviewer-safe or advisor-only visibility",()=>{
-  const icons=literal("PERSONAL_ICONS_404","function personalMarkup404");
-  assert.equal(icons.length,12);
+test("Personal offers the RC1 icon family and only interviewer-safe or advisor-only visibility",()=>{
+  const icons=literal("PERSONAL_ICONS_404","function personalCountryMode404");
+  assert.equal(icons.length,20);
   assert.deepEqual(
     icons.map(([name])=>name),
-    ["heart","home","plane","baby","ring","star","flag","globe","shield","sun","book","sparkle"]
+    ["heart","home","plane","baby","ring","star","flag","globe","shield","sun","book","sparkle","graduation","certificate","hospital","memorial","award","research","career","family"]
   );
 
   const personal=sourceBetween("function personalMarkup404(","function domainStepMarkup404(");

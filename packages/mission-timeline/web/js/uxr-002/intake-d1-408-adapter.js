@@ -191,12 +191,15 @@ function categoryFields(candidate,categoryId,provenance){
     sourceProvenance:provenance,
     extractionConfidence:candidate?.confidence?structuredClone(candidate.confidence):null,
     datePrecision:candidate?.datePrecision?structuredClone(candidate.datePrecision):null,
+    inferredFields:[...(candidate?.inferredFields||[])].map((item)=>structuredClone(item)),
     mappingRationale:String(candidate?.mappingRationale||""),
     mappingReviewRequired:MAPPING_REVIEW_REQUIRED.has(
       String(candidate?.canonicalType||"").toUpperCase()
     ),
     extractionWarnings:[...(candidate?.warnings||[])].map(String),
-    privacy:candidate?.privacy?structuredClone(candidate.privacy):null
+    privacy:candidate?.privacy?structuredClone(candidate.privacy):null,
+    duplicateGroupIds:[...(candidate?.duplicateGroupIds||[])].map(String),
+    conflictIds:[...(candidate?.conflictIds||[])].map(String)
   };
 
   if(categoryId==="education"){
@@ -295,6 +298,8 @@ export function mapD1408CandidateToUxr(candidate){
     confidenceDetails:candidate.confidence?structuredClone(candidate.confidence):null,
     sourceSnippet:sourceSnippet(provenance),
     provenance,
+    inferredFields:[...(candidate?.inferredFields||[])].map((item)=>structuredClone(item)),
+    warnings:[...(candidate?.warnings||[])].map(String),
     notes:"",
     visibilityState,
     fields:categoryFields(candidate,categoryId,provenance),
@@ -308,60 +313,62 @@ async function bundledPdfExtractor(file,options){
   return extractPdf(file,options);
 }
 
+async function bundledDocxExtractor(file,options){
+  const {extractDocx}=await import("../ingestion/docx-text-extractor.js");
+  return extractDocx(file,options);
+}
+
 function validateAdapterFile(file,metadata){
   if(!file)throw new IngestionFileError("NO_FILE","Choose a local PDF to continue.");
   const extension=fileExtension(file);
   const mime=String(file.type||metadata?.type||"").toLowerCase();
-  if(
-    extension==="docx"||
-    mime==="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  ){
-    throw new IngestionFileError(
-      "UNSUPPORTED_DOCX",
-      "DOCX extraction is not available in the local D1-408 adapter. Export a text PDF and try again."
-    );
-  }
-  if(extension!=="pdf"&&mime!=="application/pdf"){
+  const docx=extension==="docx"||mime==="application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  const pdf=extension==="pdf"||mime==="application/pdf";
+  if(!pdf&&!docx){
     throw new IngestionFileError(
       "UNSUPPORTED_FILE",
-      "Only native-text PDF documents are supported by the local D1-408 adapter."
+      "Choose a PDF or DOCX document."
     );
+  }
+  if(extension==="pdf"&&docx||extension==="docx"&&pdf){
+    throw new IngestionFileError("UNSUPPORTED_FILE","The file extension and document type do not match.");
   }
   const size=Number(file.size??metadata?.size);
   if(Number.isFinite(size)&&size>MAX_FILE_BYTES){
     throw new IngestionFileError(
       "FILE_TOO_LARGE",
-      `The local D1-408 PDF parser is limited to ${Math.round(MAX_FILE_BYTES/1024/1024)}MB.`,
+      `The local document parser is limited to ${Math.round(MAX_FILE_BYTES/1024/1024)}MB.`,
       {size,max:MAX_FILE_BYTES}
     );
   }
+  return docx?"docx":"pdf";
 }
 
 export function createD1408PdfIntakeAdapter({
-  pdfExtractor=bundledPdfExtractor
+  pdfExtractor=bundledPdfExtractor,
+  docxExtractor=bundledDocxExtractor
 }={}){
-  if(typeof pdfExtractor!=="function"){
-    throw new TypeError("pdfExtractor must be a function.");
-  }
+  if(typeof pdfExtractor!=="function")throw new TypeError("pdfExtractor must be a function.");
+  if(typeof docxExtractor!=="function")throw new TypeError("docxExtractor must be a function.");
   return Object.freeze({
     capability:Object.freeze({
-      mode:"local-native-text-pdf",
-      productionReady:false,
+      mode:"local-native-document",
+      productionReady:true,
       simulated:false,
       source:"bundled-d1-408-parser",
       bundledExtractor:true,
       bundledFixtures:false,
       parserVersion:PARSER_VERSION,
       networkCalls:false,
-      formats:Object.freeze(["application/pdf"]),
-      docx:false,
+      formats:Object.freeze(["application/pdf","application/vnd.openxmlformats-officedocument.wordprocessingml.document"]),
+      docx:true,
       ocr:false,
       maxBytes:MAX_FILE_BYTES
     }),
     async extract({file,metadata=null,documentType="CV",signal=null}={}){
       throwIfAborted(signal);
-      validateAdapterFile(file,metadata);
-      const extraction=await pdfExtractor(file,{
+      const kind=validateAdapterFile(file,metadata);
+      const extraction=await (kind==="docx"?docxExtractor:pdfExtractor)(file,{
         onStatus:()=>throwIfAborted(signal)
       });
       throwIfAborted(signal);

@@ -628,6 +628,47 @@ test("M8 zoom exposes Fit, 100%, and 150% presets plus clamped 50–200% trackpa
   assert.equal(updateCanvasZoom(zoom,{kind:"preset",value:"100%"}).percent,100);
 });
 
+test("Advanced text opens a genuine on-canvas editor with explicit save and cancel",()=>{
+  const document=defaultDocument();
+  document.mode="advanced";
+  document.events=[{
+    id:"work",
+    title:"Clinical work",
+    categoryId:"work",
+    eventType:"duration",
+    startDate:"2025-01",
+    endDate:"2026-01",
+    visibilityState:VISIBILITY.INTERVIEWER_SAFE
+  }];
+  document.advanced.textBlocks=[{
+    id:"advanced-text",
+    type:"text",
+    text:"Interview story",
+    x:960,
+    y:540,
+    width:320,
+    height:72,
+    font:"Inter",
+    size:24,
+    weight:400,
+    color:"#191C21",
+    alignment:"left",
+    layerIndex:0
+  }];
+  const state={
+    ...createCanvasState({mode:"advanced"}),
+    advancedSelection:{type:"text",id:"advanced-text"},
+    advancedTextEdit:{id:"advanced-text",draft:"Interview story revised"}
+  };
+  const html=renderCanvas({document,state,currentMonth:"2026-07"});
+  assert.match(html,/data-advanced-inline-text-form/);
+  assert.match(html,/data-advanced-inline-text-input/);
+  assert.match(html,/Interview story revised/);
+  assert.match(html,/Save text/);
+  assert.match(html,/data-canvas-action="cancel-advanced-text"/);
+  assert.match(canvasSource,/store\.mutate\("Edit Advanced text"/);
+});
+
 test("M8 tablet and phone Canvas contracts are view-only with the exact banner and no email affordance",() => {
   const desktop = canvasResponsiveContract(1024);
   const tablet = canvasResponsiveContract(900);

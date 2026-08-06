@@ -91,7 +91,7 @@ export const CATEGORY_REVIEW_FIELDS=Object.freeze({
   ]),
   personal:Object.freeze([
     {key:"when",label:"When",type:"select",options:["One date","A period"]},
-    {key:"icon",label:"Icon",type:"select",options:["heart","home","plane","baby","ring","star","flag","globe","shield","sun","book","sparkle"]},
+    {key:"icon",label:"Icon",type:"select",options:["heart","home","plane","baby","ring","star","flag","globe","shield","sun","book","sparkle","graduation","certificate","hospital","memorial","award","research","career","family"]},
     {key:"visibility",label:"Visibility",type:"select",options:["Show everyone","Advisor only"]}
   ])
 });
@@ -204,11 +204,16 @@ function normalizeCandidate(value,index,existingEvents){
     openEnded:!!value?.openEnded,
     eventType:value?.eventType==="milestone"?"milestone":"duration",
     confidence:confidenceLevel(value),
+    confidenceDetails:value?.confidenceDetails&&typeof value.confidenceDetails==="object"?clone(value.confidenceDetails):null,
     sourceSnippet:String(value?.sourceSnippet??value?.sourceExcerpt??value?.provenance?.[0]?.sourceExcerpt??"").trim(),
+    provenance:Array.isArray(value?.provenance)?clone(value.provenance):[],
+    inferredFields:Array.isArray(value?.inferredFields)?clone(value.inferredFields):[],
+    warnings:Array.isArray(value?.warnings)?value.warnings.map(String):[],
     notes:String(value?.notes||""),
     visibilityState:value?.visibilityState||value?.visibilityRecommendation||VISIBILITY.INTERVIEWER_SAFE,
     fields:value?.fields&&typeof value.fields==="object"?clone(value.fields):{},
     decision:normalizedDecision(value?.decision),
+    reviewLater:value?.reviewLater===true,
     expanded:!!value?.expanded,
     extractionId:value?.extractionId||value?.id||null
   };
@@ -295,7 +300,7 @@ export function createIntakeState({file=null,candidates=[],existingEvents=[]}={}
     detectedType:acceptedFile?detectDocumentType(acceptedFile):"CV",
     consent:false,
     fileError:file&&!validated?.valid?INTAKE_COPY.fileError:null,
-    extraction:{statusIndex:0,completed:false,errorCode:null},
+    extraction:{statusIndex:0,completed:false,errorCode:null,errorMessage:null,sourceDocument:null,parser:null},
     candidates:(candidates||[]).map((candidate,index)=>normalizeCandidate(candidate,index,existingEvents)),
     filter:"all",
     failure:null,
@@ -337,7 +342,7 @@ export function acceptedCount(state){
 
 export function highConfidenceCount(state){
   return(state?.candidates||[]).filter((candidate)=>
-    candidate.decision==="undecided"&&candidate.confidence==="high"&&!candidate.duplicate
+    candidate.decision==="undecided"&&!candidate.reviewLater&&candidate.confidence==="high"&&!candidate.duplicate
   ).length;
 }
 
@@ -362,7 +367,7 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       state.failure=null;
       state.candidates=[];
       state.consent=false;
-      state.extraction={statusIndex:0,completed:false,errorCode:null};
+      state.extraction={statusIndex:0,completed:false,errorCode:null,errorMessage:null,sourceDocument:null,parser:null};
       state.approval={inFlight:false,applied:false,versionSaved:false,versionName:null,fileName:null,errorCode:null,appliedCount:0};
       if(!validation.valid){
         state.file=null;
@@ -388,7 +393,7 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       state.stage=INTAKE_STAGES.EXTRACTION;
       state.progressIndex=1;
       state.failure=null;
-      state.extraction={statusIndex:0,completed:false,errorCode:null};
+      state.extraction={...state.extraction,statusIndex:0,completed:false,errorCode:null,errorMessage:null};
       return state;
     case"ROTATE_STATUS":
       if(state.stage===INTAKE_STAGES.EXTRACTION&&!state.failure){
@@ -403,6 +408,8 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       state.filter="all";
       state.failure=null;
       state.extraction.completed=true;
+      state.extraction.sourceDocument=action.sourceDocument?clone(action.sourceDocument):null;
+      state.extraction.parser=action.parser?clone(action.parser):null;
       return state;
     case"EXTRACTION_UNREADABLE":
       state.stage=INTAKE_STAGES.EXTRACTION;
@@ -420,7 +427,8 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       state.stage=INTAKE_STAGES.UPLOAD;
       state.progressIndex=0;
       state.failure=null;
-      state.extraction={statusIndex:0,completed:false,errorCode:action.errorCode||null};
+      state.fileError=action.errorMessage||null;
+      state.extraction={...state.extraction,statusIndex:0,completed:false,errorCode:action.errorCode||null,errorMessage:action.errorMessage||null};
       return state;
     case"SET_FILTER":
       if(INTAKE_FILTERS.includes(action.filter))state.filter=action.filter;
@@ -463,15 +471,22 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       const candidate=state.candidates.find(({id})=>id===action.id);
       if(!candidate)return state;
       const decision=normalizedDecision(action.decision);
+      if(action.decision==="deferred"){
+        candidate.decision="undecided";
+        candidate.reviewLater=true;
+        candidate.expanded=false;
+        return state;
+      }
       if(decision==="accepted"&&candidate.duplicate)throw new Error("Resolve the duplicate with Merge or Add anyway.");
       if(decision==="merge"&&!candidate.duplicate)throw new Error("Merge is available only for duplicate candidates.");
       candidate.decision=decision;
+      candidate.reviewLater=false;
       candidate.expanded=false;
       return state;
     }
     case"ACCEPT_HIGH_CONFIDENCE":
       for(const candidate of state.candidates){
-        if(candidate.decision==="undecided"&&candidate.confidence==="high"&&!candidate.duplicate){
+        if(candidate.decision==="undecided"&&!candidate.reviewLater&&candidate.confidence==="high"&&!candidate.duplicate){
           candidate.decision="accepted";
           candidate.expanded=false;
         }
@@ -488,7 +503,7 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       state.file=null;
       state.consent=false;
       state.failure=null;
-      state.extraction={statusIndex:0,completed:false,errorCode:null};
+      state.extraction={statusIndex:0,completed:false,errorCode:null,errorMessage:null,sourceDocument:null,parser:null};
       return state;
     case"APPROVAL_STARTED":
       state.approval.inFlight=true;
@@ -801,14 +816,14 @@ export class IntakeStateMachine{
       }
       const candidates=Array.isArray(response)?response:(response?.candidates||[]);
       if(!candidates.length)return this.dispatch({type:"EXTRACTION_EMPTY"});
-      return this.dispatch({type:"EXTRACTION_SUCCEEDED",candidates});
+      return this.dispatch({type:"EXTRACTION_SUCCEEDED",candidates,sourceDocument:response?.sourceDocument||null,parser:response?.parser||null});
     }catch(error){
       if(error?.name==="AbortError"||run!==this.runSequence)return this.snapshot();
       const code=String(error?.code||"").toLowerCase();
       if(["unreadable","scanned_no_text","scanned-no-text"].includes(code)){
         return this.dispatch({type:"EXTRACTION_UNREADABLE"});
       }
-      this.dispatch({type:"EXTRACTION_ABORTED",errorCode:String(error?.code||"ADAPTER_ERROR")});
+      this.dispatch({type:"EXTRACTION_ABORTED",errorCode:String(error?.code||"ADAPTER_ERROR"),errorMessage:String(error?.message||"The document could not be read safely.")});
       throw error;
     }finally{
       if(run===this.runSequence)this.abortController=null;
@@ -888,7 +903,7 @@ function uploadMarkup(state){
       <span>PDF or DOCX · up to 20MB</span>
     </label>
     ${state.file?`<div class="intake-file-row"><span>${escapeHtml(state.file.name)}</span><span class="status-chip">Looks like: ${escapeHtml(state.detectedType)}</span><button type="button" class="button tertiary" data-intake-action="change-type">Change</button></div>`:""}
-    ${state.fileError?`<p class="field-error" role="alert">${INTAKE_COPY.fileError}</p>`:""}
+    ${state.fileError?`<p class="field-error" role="alert">${escapeHtml(state.fileError)}</p>`:""}
     <p class="secondary-body">${INTAKE_COPY.privacy}</p>
     <label class="intake-consent"><input type="checkbox" data-intake-consent${state.consent?" checked":""}> <span>${INTAKE_COPY.consent}</span></label>
     <button type="button" class="button primary" data-intake-action="read"${ready?"":" disabled"}>${INTAKE_COPY.read}</button>
@@ -973,6 +988,41 @@ function candidateMonthField(candidate,field,label,value){
   </div>`;
 }
 
+function candidateSource(candidate){
+  const provenance=candidate.provenance?.[0]||candidate.fields?.sourceProvenance?.[0]||null;
+  if(!provenance)return null;
+  const section=String(provenance.section||"").replaceAll("_"," ");
+  const locator=Number.isFinite(Number(provenance.pageNumber))&&Number(provenance.pageNumber)>0
+    ?`Page ${Number(provenance.pageNumber)}`
+    :section
+      ?`Section: ${section}`
+      :"Document text";
+  return{fileName:String(provenance.fileName||provenance.sourceDocumentName||"Source document"),locator,section};
+}
+
+function candidateEvidenceMarkup(candidate){
+  const source=candidateSource(candidate);
+  const details=candidate.confidenceDetails||candidate.fields?.extractionConfidence||null;
+  const inferred=candidate.inferredFields?.length?candidate.inferredFields:candidate.fields?.inferredFields||[];
+  const warnings=[...new Set([...(candidate.warnings||[]),...(candidate.fields?.extractionWarnings||[])].map(String).filter(Boolean))];
+  const relation=[];
+  if(candidate.duplicate)relation.push("Duplicate review required");
+  if(candidate.fields?.conflictIds?.length)relation.push("Source conflict review required");
+  const confidenceReasons=Array.isArray(details?.summary)?details.summary:[];
+  const dateStatus=inferred.length
+    ?`Inferred values: ${inferred.map((item)=>String(item.field||"date")).join(", ")}`
+    :"Extracted dates are explicit in the source";
+  return`<div class="candidate-evidence" aria-label="Extraction evidence">
+    ${source?`<p class="secondary-body"><strong>${escapeHtml(source.fileName)}</strong> · ${escapeHtml(source.locator)}</p>`:""}
+    <p class="secondary-body">Extracted dates: ${escapeHtml(candidate.startDate||"Needs review")}${candidate.openEnded?" – ongoing":candidate.endDate?` – ${escapeHtml(candidate.endDate)}`:""} · ${escapeHtml(dateStatus)}</p>
+    ${relation.map((item)=>`<p class="duplicate-banner">${escapeHtml(item)}</p>`).join("")}
+    ${confidenceReasons.length||warnings.length?`<details class="source-snippet confidence-review"><summary>Why ${escapeHtml(candidate.confidence)} confidence?</summary>
+      ${confidenceReasons.length?`<p>${escapeHtml(confidenceReasons.join(" · "))}</p>`:""}
+      ${warnings.length?`<p>Review notes: ${escapeHtml(warnings.join(" · "))}</p>`:""}
+    </details>`:""}
+  </div>`;
+}
+
 function candidateMarkup(candidate){
   const positive=positiveDecision(candidate.decision);
   if(positive){
@@ -986,6 +1036,12 @@ function candidateMarkup(candidate){
     return`<article class="candidate-row rejected" data-candidate-card="${escapeHtml(candidate.id)}">
       <span>Rejected</span><strong>${escapeHtml(candidate.title)}</strong>
       <button type="button" class="button tertiary small" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-action="undecided">Restore</button>
+    </article>`;
+  }
+  if(candidate.reviewLater){
+    return`<article class="candidate-row" data-candidate-card="${escapeHtml(candidate.id)}">
+      <span class="status-badge">Review later</span><strong>${escapeHtml(candidate.title)}</strong>
+      <button type="button" class="button tertiary small" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-action="undecided">Review now</button>
     </article>`;
   }
   const confidenceLabel=candidate.confidence[0].toUpperCase()+candidate.confidence.slice(1);
@@ -1002,12 +1058,14 @@ function candidateMarkup(candidate){
     <details class="source-snippet" title="${escapeHtml(candidate.sourceSnippet)}">
       <summary>“${escapeHtml(candidate.sourceSnippet)}”</summary>
     </details>
+    ${candidateEvidenceMarkup(candidate)}
     ${candidate.expanded?expandedFields(candidate):""}
     <div class="candidate-actions">
       ${candidate.duplicate?`<button type="button" class="button primary small" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-action="merge">Merge</button>
       <button type="button" class="button secondary small" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-action="add-anyway">Add anyway</button>`:`<button type="button" class="button primary small" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-action="accepted">Accept</button>`}
       <button type="button" class="button secondary small" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-action="edit">Edit</button>
       <button type="button" class="button tertiary small" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-action="rejected">Reject</button>
+      <button type="button" class="button tertiary small" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-action="deferred">Review later</button>
     </div>
   </article>`;
 }

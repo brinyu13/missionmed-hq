@@ -123,6 +123,32 @@ export function removeMediaLibraryAsset(media,id){
   return deleteMediaElement(media,id);
 }
 
+export function replaceMediaLibraryAsset(media,id,replacement){
+  let changed=false;
+  const items=(media||[]).map((item)=>{
+    if(String(item.id)!==String(id))return item;
+    const width=Number(item.width)||Number(replacement?.width)||480;
+    const naturalAspect=Number(replacement?.naturalAspect)||
+      Number(item.naturalAspect)||16/9;
+    changed=true;
+    return{
+      ...replacement,
+      id:item.id,
+      x:item.x,
+      y:item.y,
+      width,
+      height:width/naturalAspect,
+      layerIndex:item.layerIndex,
+      placed:item.placed,
+      guidedVisible:item.guidedVisible,
+      libraryAsset:item.libraryAsset,
+      libraryAddedAt:item.libraryAddedAt,
+      placement:item.placement
+    };
+  });
+  return{changed,media:items};
+}
+
 export function mediaLibraryMarkup(media,{
   resolveObjectUrl=()=>null,
   compact=false,
@@ -148,6 +174,8 @@ export function mediaLibraryMarkup(media,{
       <div class="media407FActions">
         ${placed?"":`<button type="button" data-media-place="${escapeHtml(item.id)}" aria-describedby="${helpId}">Place on timeline</button>`}
         ${placed?`<button type="button" data-media-unplace="${escapeHtml(item.id)}">Remove from timeline</button>`:""}
+        <button type="button" data-media-replace="${escapeHtml(item.id)}">Replace asset</button>
+        <button type="button" data-media-delete="${escapeHtml(item.id)}">Delete asset</button>
         ${placed?`<div class="media407FNudges" role="group" aria-label="Position ${escapeHtml(name)}">
           <button type="button" data-media-nudge="left" data-media-id="${escapeHtml(item.id)}" aria-label="Move ${escapeHtml(name)} left">←</button>
           <button type="button" data-media-nudge="up" data-media-id="${escapeHtml(item.id)}" aria-label="Move ${escapeHtml(name)} up">↑</button>

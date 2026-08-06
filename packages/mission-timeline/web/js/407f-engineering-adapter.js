@@ -56,11 +56,14 @@ import {
   monthFieldMarkup
 } from "./uxr-002/month-field.js";
 import {
+  MEDIA_LIBRARY_ACCEPT,
   createMediaLibraryAsset,
   mediaKindForFile,
   mediaLibraryMarkup,
   nudgeMediaLibraryAsset,
   placeMediaLibraryAsset,
+  removeMediaLibraryAsset,
+  replaceMediaLibraryAsset,
   unplaceMediaLibraryAsset
 } from "./uxr-002/media-library.js";
 import {assignStableLanes} from "./uxr-002/adaptive-layout.js";
@@ -69,6 +72,7 @@ import {
   applyAdvancedObjectAction,
   applyAdvancedTypography,
   applyModeSwitch,
+  constrainAdvancedObjectToBoard,
   createFlatColorBackground,
   createMediaElement,
   createPresetBackground,
@@ -85,6 +89,7 @@ import {
   sampleEyeDropper,
   setBackgroundDim,
   setLayoutLock,
+  setMediaAspectLock,
   updateTextBlockContent,
   validateBackgroundUpload,
   validateMediaUpload
@@ -880,15 +885,23 @@ function createObjectUrlRegistry(){
       const advanced=document?.advanced||{};
       const objects=[
         advanced.background?.kind==="upload"
-          ?{id:advanced.background.mediaId,objectId:advanced.background.source?.objectId}
+          ?{
+            id:advanced.background.mediaId,
+            blobKey:advanced.background.source?.blobKey,
+            objectId:advanced.background.source?.objectId
+          }
           :null,
-        ...(advanced.media||[]).map((item)=>({id:item.id,objectId:item.source?.objectId}))
+        ...(advanced.media||[]).map((item)=>({
+          id:item.id,
+          blobKey:item.source?.blobKey,
+          objectId:item.source?.objectId
+        }))
       ].filter((item)=>item?.id);
       let changed=false;
-      for(const {id,objectId} of objects){
+      for(const {id,blobKey,objectId} of objects){
         if(urls.has(String(id)))continue;
         try{
-          let blob=await store.adapter.getBlob(String(id));
+          let blob=await store.adapter.getBlob(String(blobKey||id));
           if(!blob&&objectId&&typeof remoteLoader==="function"){
             blob=await remoteLoader(String(objectId));
             if(blob)await store.adapter.putBlob(String(id),blob,{
@@ -1312,6 +1325,7 @@ export async function boot407FEngineeringAdapter({
       throw new Error("Timeline must finish syncing before media can be uploaded.");
     }
   };
+  const MAX_PRODUCTION_MEDIA_BYTES=15*1024*1024;
   const prepareMediaPersistence=async(file,{id,kind,contentSha256})=>{
     const metadata={
       kind,
@@ -1322,10 +1336,21 @@ export async function boot407FEngineeringAdapter({
     };
     if(!privateMediaStorageEnabled){
       return{
-        source:{blobKey:id,contentSha256,localOnly:true},
+        source:{
+          name:file.name,
+          type:file.type,
+          size:file.size,
+          blobKey:id,
+          contentSha256,
+          localOnly:true,
+          url:null
+        },
         blob:{key:id,blob:file,metadata},
         rollback:async()=>{}
       };
+    }
+    if(file.size>MAX_PRODUCTION_MEDIA_BYTES){
+      throw new TypeError("Timeline media must be 15 MB or smaller for secure syncing.");
     }
     await ensureRemoteDocumentForMedia();
     let objectId="";
@@ -1344,7 +1369,12 @@ export async function boot407FEngineeringAdapter({
         throw new Error("Timeline media upload could not be confirmed.");
       }
       return{
-        source:productionMediaSource(objectId,contentSha256),
+        source:{
+          name:file.name,
+          type:file.type,
+          size:file.size,
+          ...productionMediaSource(objectId,contentSha256)
+        },
         blob:{
           key:id,
           blob:file,
@@ -1359,14 +1389,64 @@ export async function boot407FEngineeringAdapter({
       throw error;
     }
   };
-  const retireDurableMediaObject=async(objectId)=>{
+  const mediaRetirementKey=(objectId)=>
+    `private-media-retirement:${store.document.id}:${String(objectId)}`;
+  const mediaObjectIdsInDocument=(timeline)=>new Set([
+    timeline?.advanced?.background?.kind==="upload"
+      ?timeline.advanced.background.source?.objectId
+      :null,
+    ...(timeline?.advanced?.media||[]).map((item)=>item.source?.objectId)
+  ].filter(Boolean).map(String));
+  const queueDurableMediaRetirement=async(objectId)=>{
     if(!privateMediaStorageEnabled||!objectId)return false;
-    await store.flushPendingSave("RETIRE_PRIVATE_MEDIA");
-    const result=await store.adapter.flush();
-    if(Number(result?.pending||0)>0)return false;
-    await productionRuntime.authClient.deleteObject(String(objectId));
+    const id=mediaRetirementKey(objectId);
+    await store.adapter.put("settings",{
+      id,
+      documentId:store.document.id,
+      objectId:String(objectId),
+      createdAt:new Date().toISOString(),
+      reason:"USER_MEDIA_REPLACEMENT_OR_DELETION"
+    });
     return true;
   };
+  const cancelDurableMediaRetirement=async(objectId)=>{
+    if(!privateMediaStorageEnabled||!objectId)return;
+    await store.adapter.delete("settings",mediaRetirementKey(objectId));
+  };
+  const processDurableMediaRetirements=async()=>{
+    if(!privateMediaStorageEnabled)return{deleted:0,pending:0};
+    const prefix=`private-media-retirement:${store.document.id}:`;
+    const records=await store.adapter.list(
+      "settings",
+      (record)=>String(record?.id||"").startsWith(prefix)
+    );
+    const referenced=mediaObjectIdsInDocument(store.document);
+    const eligible=records.filter(({objectId})=>!referenced.has(String(objectId)));
+    if(!eligible.length)return{deleted:0,pending:records.length};
+    await store.flushPendingSave("RETIRE_PRIVATE_MEDIA");
+    const result=await store.adapter.flush();
+    if(Number(result?.pending||0)>0){
+      return{deleted:0,pending:records.length};
+    }
+    let deleted=0;
+    for(const record of eligible){
+      await productionRuntime.authClient.deleteObject(String(record.objectId));
+      await store.adapter.delete("settings",record.id);
+      deleted+=1;
+    }
+    return{deleted,pending:records.length-deleted};
+  };
+  const retireDurableMediaObject=async(objectId)=>{
+    if(!privateMediaStorageEnabled||!objectId)return false;
+    await queueDurableMediaRetirement(objectId);
+    const result=await processDurableMediaRetirements();
+    return result.deleted>0;
+  };
+  queueMicrotask(()=>{
+    processDurableMediaRetirements().catch(()=>{
+      console.warn("Timeline private-media cleanup remains queued for a later synced session.");
+    });
+  });
   const matrixCalendarAdapter=createUnavailableMatrixCalendarAdapter();
   const matrixCalendarState=await matrixCalendarAdapter
     .listScheduledInterviews();
@@ -2082,13 +2162,17 @@ export async function boot407FEngineeringAdapter({
     if(!root)return null;
     const card=active.closest?.("[data-media-asset]");
     const action=active.closest?.(
-      "[data-media-place], [data-media-unplace], [data-media-nudge], [data-media-upload]"
+      "[data-media-place], [data-media-unplace], [data-media-replace], [data-media-delete], [data-media-nudge], [data-media-upload]"
     );
     return{
       rootId:root.id,
       assetId:card?.dataset.mediaAsset||null,
       action:action?.hasAttribute("data-media-nudge")
         ?`nudge-${action.dataset.mediaNudge}`
+        :action?.hasAttribute("data-media-delete")
+          ?"delete"
+          :action?.hasAttribute("data-media-replace")
+            ?"replace"
         :action?.hasAttribute("data-media-unplace")
         ?"unplace"
         :action?.hasAttribute("data-media-place")
@@ -2111,6 +2195,10 @@ export async function boot407FEngineeringAdapter({
       target=card?.querySelector(
         state.action?.startsWith("nudge-")
           ?`[data-media-nudge="${CSS.escape(state.action.slice(6))}"]`
+          :state.action==="delete"
+            ?"[data-media-delete]"
+            :state.action==="replace"
+              ?"[data-media-replace]"
           :state.action==="unplace"
             ?"[data-media-unplace], [data-media-place]"
             :"[data-media-place], [data-media-unplace]"
@@ -2205,6 +2293,132 @@ export async function boot407FEngineeringAdapter({
       y:Math.max(0,Math.min(1080,(event.clientY-bounds.top)/bounds.height*1080))
     };
   };
+  const replaceMediaLibraryItem=async(id)=>{
+    const current=mediaItems().find((item)=>String(item.id)===String(id));
+    if(!current)throw new Error("The Media asset is no longer available.");
+    const file=await chooseLocalFile(MEDIA_LIBRARY_ACCEPT.join(","));
+    if(!file)return false;
+    const metrics=await imageMetrics(file,{kind:mediaKindForFile(file)});
+    const replacement=createMediaLibraryAsset({
+      id:current.id,
+      file,
+      naturalWidth:metrics.width,
+      naturalHeight:metrics.height,
+      layerIndex:current.layerIndex
+    });
+    const contentSha256=await sha256File(file);
+    const persistence=await prepareMediaPersistence(file,{
+      id:current.id,
+      kind:"media-library",
+      contentSha256
+    });
+    replacement.source=persistence.source;
+    const priorObjectId=current.source?.objectId;
+    if(priorObjectId)await queueDurableMediaRetirement(priorObjectId);
+    try{
+      await store.mutateWithBlobs(
+        "Replace Media asset",
+        (document)=>{
+          const result=replaceMediaLibraryAsset(
+            document.advanced.media,
+            current.id,
+            replacement
+          );
+          if(!result.changed)throw new Error("The Media asset is no longer available.");
+          document.advanced.media=result.media;
+        },
+        {blobs:[persistence.blob],reason:"REPLACE_MEDIA_ASSET"}
+      );
+    }catch(error){
+      if(priorObjectId)await cancelDurableMediaRetirement(priorObjectId);
+      await persistence.rollback();
+      throw error;
+    }
+    mediaUrls.set(current.id,file);
+    syncBridgeFromStore();
+    renderMediaLibrarySurfaces();
+    let cleanupComplete=true;
+    if(priorObjectId){
+      cleanupComplete=await retireDurableMediaObject(priorObjectId);
+    }
+    const message=cleanupComplete
+      ?"Media asset replaced"
+      :"Media asset replaced; prior-file cleanup will retry after sync";
+    bridge.toast(message);
+    announceGlobal(message);
+    return true;
+  };
+  const deleteMediaLibraryItem=async(id)=>{
+    const current=mediaItems().find((item)=>String(item.id)===String(id));
+    if(!current)throw new Error("The Media asset is no longer available.");
+    const priorObjectId=current.source?.objectId;
+    if(priorObjectId)await queueDurableMediaRetirement(priorObjectId);
+    try{
+      await store.mutateWithBlobs(
+        "Delete Media asset",
+        (document)=>{
+          document.advanced.media=removeMediaLibraryAsset(
+            document.advanced.media,
+            current.id
+          );
+        },
+        {blobs:[],reason:"DELETE_MEDIA_ASSET"}
+      );
+    }catch(error){
+      if(priorObjectId)await cancelDurableMediaRetirement(priorObjectId);
+      throw error;
+    }
+    mediaUrls.revoke(current.id);
+    await store.adapter.deleteBlob(String(current.id)).catch(()=>{});
+    syncBridgeFromStore();
+    renderMediaLibrarySurfaces();
+    let cleanupComplete=true;
+    if(priorObjectId){
+      cleanupComplete=await retireDurableMediaObject(priorObjectId);
+    }
+    const message=cleanupComplete
+      ?"Media asset permanently deleted"
+      :"Media asset removed; private-file deletion will retry after sync";
+    bridge.toast(message);
+    announceGlobal(message);
+    return true;
+  };
+  const openDeleteMediaLibraryDialog=(id)=>{
+    const current=mediaItems().find((item)=>String(item.id)===String(id));
+    if(!current)return;
+    const name=escapeMarkup(current.source?.name||"this asset");
+    const dialog=openStandardModal(`<section class="export407FSuggestionDialog" role="dialog" aria-modal="true" aria-labelledby="media407FDeleteTitle" data-media-delete-dialog>
+      <p class="k">PERMANENT MEDIA DELETION</p>
+      <h2 id="media407FDeleteTitle">Delete ${name}?</h2>
+      <p>This removes the asset from every Timeline placement and permanently deletes its private stored file after the updated timeline is safely synced.</p>
+      <div class="export407FDialogActions">
+        <button type="button" class="btnD alt" data-media-delete-cancel>Cancel</button>
+        <button type="button" class="btnD go" data-media-delete-confirm>Delete asset</button>
+      </div>
+    </section>`,"[data-media-delete-dialog]");
+    dialog?.querySelector("[data-media-delete-cancel]")?.addEventListener(
+      "click",
+      ()=>closeStandardModal(),
+      {once:true}
+    );
+    dialog?.querySelector("[data-media-delete-confirm]")?.addEventListener(
+      "click",
+      async()=>{
+        const confirm=dialog.querySelector("[data-media-delete-confirm]");
+        confirm.disabled=true;
+        try{
+          await deleteMediaLibraryItem(id);
+          closeStandardModal({restoreFocus:false});
+        }catch(error){
+          confirm.disabled=false;
+          const message=String(error?.message||error);
+          bridge.toast(message);
+          announceGlobal(`Media could not be deleted: ${message}`);
+        }
+      },
+      {once:true}
+    );
+  };
   onMediaLibraryClick=(event)=>{
     const open=event.target.closest?.("[data-open-media-library]");
     if(open){
@@ -2221,6 +2435,23 @@ export async function boot407FEngineeringAdapter({
     if(place){
       event.preventDefault();
       commitMediaPlacement(place.dataset.mediaPlace);
+      return;
+    }
+    const replace=event.target.closest?.("[data-media-replace]");
+    if(replace){
+      event.preventDefault();
+      replaceMediaLibraryItem(replace.dataset.mediaReplace)
+        .catch((error)=>{
+          const message=String(error?.message||error);
+          bridge.toast(message);
+          announceGlobal(`Media could not be replaced: ${message}`);
+        });
+      return;
+    }
+    const remove=event.target.closest?.("[data-media-delete]");
+    if(remove){
+      event.preventDefault();
+      openDeleteMediaLibraryDialog(remove.dataset.mediaDelete);
       return;
     }
     const unplace=event.target.closest?.("[data-media-unplace]");
@@ -2301,7 +2532,7 @@ export async function boot407FEngineeringAdapter({
         const persistence=await prepareMediaPersistence(file,{
           id,kind:"media-library",contentSha256
         });
-        Object.assign(asset.source,persistence.source);
+        asset.source=persistence.source;
         additions.push(asset);
         blobs.push(persistence.blob);
         rollbacks.push(persistence.rollback);
@@ -2469,7 +2700,59 @@ export async function boot407FEngineeringAdapter({
       ${asset?'<button type="button" class="homeTertiary" data-interview-logo-remove>Remove from this interview timeline</button>':""}
     </section>`;
   };
+  const renderBuilderPersistenceActions=()=>{
+    const continueButton=document.getElementById("builderContinue");
+    const footer=continueButton?.closest?.(".builderFooter");
+    if(!continueButton||!footer)return;
+    const step=Math.max(1,Math.min(7,Number(store.document.builder?.step)||1));
+    if(step<7)continueButton.textContent="SAVE AND CONTINUE →";
+    let finish=footer.querySelector("[data-builder-finish-later]");
+    if(!finish){
+      finish=document.createElement("button");
+      finish.type="button";
+      finish.className="homeTertiary builderFinishLater";
+      finish.dataset.builderFinishLater="true";
+      footer.insertBefore(finish,continueButton);
+    }
+    finish.textContent="SAVE AND FINISH LATER";
+    finish.hidden=step===7;
+  };
+  const renderHomeCompletionStatus=()=>{
+    const host=document.querySelector(".homeBuildRegion .pi");
+    if(!host)return;
+    const summary=buildCompletenessSummary(store.document);
+    const complete=summary.filter(({state})=>state==="complete");
+    const pending=summary.filter(({state})=>state!=="complete"&&state!=="skipped");
+    const next=pending[0]||null;
+    const resumeStep=Math.max(1,Math.min(7,Number(store.document.builder?.step)||1));
+    const resumeLabel=summary.find(({step})=>step===resumeStep)?.label||"Builder";
+    const updated=new Date(store.document.updatedAt||Date.now());
+    const savedLabel=Number.isNaN(updated.getTime())
+      ?"Saved recently"
+      :`Last saved ${new Intl.DateTimeFormat("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}).format(updated)}`;
+    const remoteState=String(remoteSyncStatus?.syncState||remoteSyncStatus?.state||"").toUpperCase();
+    const syncLabel=store.saveStatus==="error"
+      ?"Save needs attention"
+      :store.saveStatus==="saving"||remoteState.includes("PENDING")
+        ?"Saving securely…"
+        :productionRuntime?.remotePersistenceAllowed
+          ?"Saved and securely synced"
+          :"Saved on this device";
+    let panel=document.getElementById("homeCompletion407F");
+    if(!panel){
+      panel=document.createElement("section");
+      panel.id="homeCompletion407F";
+      panel.className="homeCompletion407F";
+      panel.setAttribute("aria-label","Timeline progress");
+      host.querySelector(".homeJourneyStrip")?.before(panel);
+    }
+    panel.innerHTML=`<div><strong>${complete.length} of ${summary.length} sections complete</strong><span>${escapeMarkup(syncLabel)} · ${escapeMarkup(savedLabel)}</span></div>
+      <p>${complete.length?`Completed: ${escapeMarkup(complete.map(({label})=>label).join(", "))}.`:"Your first section is ready to begin."}</p>
+      <p>${pending.length?`Still to review: ${escapeMarkup(pending.map(({label})=>label).join(", "))}. Next recommended: ${escapeMarkup(next.label)}.`:"All guided sections are ready for final review."}</p>
+      <button type="button" class="btnD go sm" data-home-resume-builder>${pending.length?`RESUME ${escapeMarkup(resumeLabel.toUpperCase())} →`:"REVIEW TIMELINE →"}</button>`;
+  };
   renderM9BuilderSurfaces=()=>{
+    renderBuilderPersistenceActions();
     const explanationHost=document.getElementById("explanationBuilder407F");
     const interviewHost=document.getElementById("interviewConfig407F");
     if(!explanationHost||!interviewHost)return;
@@ -2573,12 +2856,44 @@ export async function boot407FEngineeringAdapter({
     if(bridge.state.view==="export")queueExportRender();
     if(focusSelector)queueMicrotask(()=>document.querySelector(focusSelector)?.focus());
   };
-  onM9BuilderClick=(event)=>{
+  onM9BuilderClick=async(event)=>{
+    const resume=event.target.closest?.("[data-home-resume-builder]");
+    if(resume){
+      const pending=buildCompletenessSummary(store.document).some(
+        ({state})=>state!=="complete"&&state!=="skipped"
+      );
+      bridge.go(pending?"builder":"canvas");
+      return;
+    }
+    const finishLater=event.target.closest?.("[data-builder-finish-later]");
+    if(finishLater){
+      finishLater.disabled=true;
+      finishLater.textContent="SAVING…";
+      try{
+        await store.saveNow("BUILDER_FINISH_LATER");
+        const result=await store.adapter?.flush?.();
+        if(Number(result?.pending||0)>0)throw new Error("Timeline is still syncing.");
+        bridge.go("command");
+        bridge.toast("Progress saved. Resume anytime from Home.");
+        announceGlobal("Progress saved and Home opened");
+      }catch(error){
+        finishLater.disabled=false;
+        finishLater.textContent="RETRY SAVE AND FINISH LATER";
+        bridge.toast(String(error?.message||error));
+      }
+      return;
+    }
     if(
       event.target.closest?.('[data-builder-step="7"]')||
       event.target.closest?.("#builderContinue")
     ){
       queueMicrotask(renderM9BuilderSurfaces);
+    }
+    if(event.target.closest?.("#builderContinue")){
+      store.saveNow("BUILDER_SAVE_AND_CONTINUE")
+        .then(()=>store.adapter?.flush?.())
+        .then(()=>announceGlobal("Progress saved"))
+        .catch((error)=>bridge.toast(String(error?.message||error)));
     }
     const create=event.target.closest?.("[data-explanation-create]");
     if(create){
@@ -2780,7 +3095,7 @@ export async function boot407FEngineeringAdapter({
         id,kind:"interview-program-logo",contentSha256
       });
       rollbackUpload=persistence.rollback;
-      Object.assign(asset.source,persistence.source);
+      asset.source=persistence.source;
       asset.role="interview-program-logo-source";
       const active=activeSpecialtyVariant(store.document);
       await store.mutateWithBlobs(
@@ -2812,6 +3127,7 @@ export async function boot407FEngineeringAdapter({
   document.addEventListener("click",onM9BuilderClick);
   document.addEventListener("change",onM9BuilderChange);
   renderM9BuilderSurfaces();
+  renderHomeCompletionStatus();
   const previewBackgroundInert=(active)=>{
     for(const element of [
       document.querySelector("header"),
@@ -2996,11 +3312,9 @@ export async function boot407FEngineeringAdapter({
   }={})=>{
     if(!host)return false;
     const signature=[
+      namespace,
       surface,
-      store.document?.id,
-      store.document?.updatedAt,
-      store.document?.theme,
-      store.document?.mode,
+      timelineRenderSignature(store.document),
       store.entitlement.canMutate
     ].join("|");
     if(
@@ -3471,7 +3785,7 @@ export async function boot407FEngineeringAdapter({
     });
     const contentSha256=await sha256File(file);
     const persistence=await prepareMediaPersistence(file,{id,kind,contentSha256});
-    Object.assign(media.source,persistence.source);
+    media.source=persistence.source;
     try{
       await store.mutateWithBlobs(
         `Add ${kind}`,
@@ -3499,7 +3813,7 @@ export async function boot407FEngineeringAdapter({
     const persistence=await prepareMediaPersistence(file,{
       id,kind:"background",contentSha256
     });
-    Object.assign(background.source,persistence.source);
+    background.source=persistence.source;
     try{
       await store.mutateWithBlobs(
         "Change background",
@@ -3554,6 +3868,18 @@ export async function boot407FEngineeringAdapter({
     canvasController?.setUiState({advancedSelection:target});
   };
   const advancedHooks=()=>({
+    onSelectObject:(target)=>{
+      if(!target)return;
+      canvasController?.setUiState({advancedSelection:target,advancedTextEdit:null});
+      queueMicrotask(()=>{
+        const escaped=globalThis.CSS?.escape?CSS.escape(target.id):target.id;
+        canvasHost?.querySelector(
+          target.type==="media"
+            ?`[data-advanced-media="${escaped}"]`
+            :`[data-advanced-text="${escaped}"]`
+        )?.focus?.();
+      });
+    },
     onAction:(action)=>{
       if(action==="background"){
         canvasController?.setUiState((state)=>({
@@ -3590,16 +3916,50 @@ export async function boot407FEngineeringAdapter({
           (item)=>String(item.id)===String(target.id)
         )?.source?.objectId
         :null;
-      const result=applyAdvancedObjectAction(store.document,target,action);
+      const result=applyAdvancedObjectAction(store.document,target,action,{
+        duplicateId:action==="duplicate"
+          ?uid(`advanced-${target?.type||"object"}`)
+          :""
+      });
       if(!result.changed)return;
       store.replace(result.document,{label:result.mutation.label});
       syncBridgeFromStore();
       canvasController?.setUiState({advancedSelection:result.selection});
+      if(action==="duplicate"&&target?.type==="media"&&result.selection?.id){
+        const duplicateId=result.selection.id;
+        const source=(store.document.advanced?.media||[]).find(
+          (item)=>String(item.id)===String(target.id)
+        );
+        Promise.resolve(store.adapter.getBlob(String(
+          source?.source?.blobKey||target.id
+        )))
+          .then((blob)=>blob||(
+            source?.source?.objectId&&productionRuntime
+              ?productionRuntime.authClient.downloadPrivateObject(source.source.objectId)
+              :null
+          ))
+          .then((blob)=>{
+            if(!blob)return;
+            mediaUrls.set(duplicateId,blob);
+            canvasController?.render();
+          })
+          .catch(()=>{
+            announceGlobal("The duplicated asset will reload after its private source is available.");
+          });
+      }
       if(priorObjectId){
         mediaUrls.revoke(target.id);
         retireDurableMediaObject(priorObjectId)
           .catch((error)=>bridge.toast(String(error?.message||error)));
       }
+    },
+    onAspectLock:(locked,target)=>{
+      if(target?.type!=="media")return;
+      const result=setMediaAspectLock(store.document,target,locked);
+      store.replace(result,{label:locked?"Lock Media proportions":"Unlock Media proportions"});
+      syncBridgeFromStore();
+      canvasController?.setUiState({advancedSelection:target});
+      announceGlobal(locked?"Media proportions locked":"Media proportions unlocked");
     },
     onTypography:(changes,target)=>applyTypographyChange(changes,target),
     onTextContent:(text,target)=>{
@@ -4056,7 +4416,10 @@ export async function boot407FEngineeringAdapter({
   }
   on407FRendered=()=>{
     applyEntitlementSurface();
-    if(bridge.state.view==="command")queueMicrotask(renderHomePreview);
+    if(bridge.state.view==="command")queueMicrotask(()=>{
+      renderHomePreview();
+      renderHomeCompletionStatus();
+    });
     if(bridge.state.view==="export")queueExportRender();
     if(bridge.state.view==="advisor")queueMicrotask(renderAdvisorHost);
     if(bridge.state.view==="builder"){
@@ -4468,6 +4831,7 @@ export async function boot407FEngineeringAdapter({
       save.setAttribute("aria-label",save.textContent);
       save.removeAttribute("title");
     }
+    if(bridge.state.view==="command")renderHomeCompletionStatus();
   };
   let lastStoreRenderSignature=timelineRenderSignature(store.document);
   unsubscribeStore=store.subscribe(()=>{
@@ -4504,9 +4868,26 @@ export async function boot407FEngineeringAdapter({
 
   const canvasHost=document.getElementById("canvas407F");
   if(canvasHost){
-    const syncCanvasDocument=()=>{
+    const syncCanvasDocument=(canvasState)=>{
       if(canvasSyncing)return;
       canvasSyncing=true;
+      if(canvasState?.zoom&&store.entitlement.canMutate===true){
+        const zoomPreference=canvasState.zoom.mode==="fit"
+          ?"fit"
+          :Number(canvasState.zoom.percent||100);
+        if(store.document.preferences?.canvasZoom!==zoomPreference){
+          store.mutate(
+            "Set editor zoom",
+            (document)=>{
+              document.preferences={
+                ...(document.preferences||{}),
+                canvasZoom:zoomPreference
+              };
+            },
+            {history:false,material:false}
+          );
+        }
+      }
       syncBridgeFromStore();
       reflectStoreStatus();
       queueMicrotask(()=>api.dateControls.install(canvasHost));
@@ -4516,7 +4897,8 @@ export async function boot407FEngineeringAdapter({
       state:{
         ...createCanvasState({
           viewportWidth:window.innerWidth,
-          mode:store.document.mode
+          mode:store.document.mode,
+          zoom:store.document.preferences?.canvasZoom||"fit"
         }),
         entitlementEditable:store.entitlement.canMutate===true
       },
@@ -4695,7 +5077,24 @@ export async function boot407FEngineeringAdapter({
           :headline
             ?{type:"headline",id:"headline"}
             :null;
-      if(selection)canvasController?.setUiState({advancedSelection:selection});
+      if(selection){
+        if(selection.type==="text"&&Number(event.detail)>=2){
+          const block=(store.document.advanced?.textBlocks||[]).find(
+            (item)=>String(item.id)===String(selection.id)
+          );
+          canvasController?.setUiState({
+            advancedSelection:selection,
+            advancedTextEdit:{id:selection.id,draft:String(block?.text||"")}
+          });
+          queueMicrotask(()=>{
+            const field=canvasHost.querySelector("[data-advanced-inline-text-input]");
+            field?.focus?.();
+            field?.select?.();
+          });
+        }else{
+          canvasController?.setUiState({advancedSelection:selection,advancedTextEdit:null});
+        }
+      }
     };
     let advancedPointer=null;
     const advancedSourceElement=(type,id,fallback)=>{
@@ -4748,11 +5147,24 @@ export async function boot407FEngineeringAdapter({
       const key=String(event.key||"");
       if(key==="Enter"||key===" "){
         event.preventDefault();
-        canvasController?.setUiState({
-          advancedSelection:{type:object.type,id:object.id}
-        });
-        announceGlobal(`${object.type==="media"?"Media":"Text"} selected`);
-        restoreAdvancedObjectFocus(object.type,object.id);
+        if(key==="Enter"&&object.type==="text"){
+          canvasController?.setUiState({
+            advancedSelection:{type:object.type,id:object.id},
+            advancedTextEdit:{id:object.id,draft:String(object.item.text||"")}
+          });
+          queueMicrotask(()=>{
+            const field=canvasHost.querySelector("[data-advanced-inline-text-input]");
+            field?.focus?.();
+            field?.select?.();
+          });
+          announceGlobal("Text editing opened");
+        }else{
+          canvasController?.setUiState({
+            advancedSelection:{type:object.type,id:object.id}
+          });
+          announceGlobal(`${object.type==="media"?"Media":"Text"} selected`);
+          restoreAdvancedObjectFocus(object.type,object.id);
+        }
         return;
       }
       if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(key))return;
@@ -4769,20 +5181,20 @@ export async function boot407FEngineeringAdapter({
       let next;
       let label;
       if(event.shiftKey&&object.type==="media"){
-        next=resizeMediaElement(original,{
+        next=constrainAdvancedObjectToBoard(resizeMediaElement(original,{
           width:Math.max(48,Number(original.width||1)+delta.x),
           height:Math.max(48,Number(original.height||1)+delta.y),
-          shiftKey:true
-        });
+          shiftKey:original.aspectLocked===false
+        }));
         label="Resize Media asset";
       }else{
         const width=Number(original.width||0);
         const height=Number(original.height||0);
         const x=Math.max(0,Math.min(1920-width,Number(original.x||0)+delta.x));
         const y=Math.max(0,Math.min(1080-height,Number(original.y||0)+delta.y));
-        next=object.type==="media"
+        next=constrainAdvancedObjectToBoard(object.type==="media"
           ?moveMediaElement(original,{x,y})
-          :{...original,x,y};
+          :{...original,x,y});
         label=`Move Advanced ${object.type}`;
       }
       store.mutate(label,(document)=>{
@@ -4845,11 +5257,14 @@ export async function boot407FEngineeringAdapter({
       const original=advancedPointer.original;
       let next;
       if(advancedPointer.type==="media"&&advancedPointer.kind==="resize"){
-        next=resizeMediaElement(original,{
+        const freeAspect=original.aspectLocked===false
+          ?!event.shiftKey
+          :event.shiftKey;
+        next=constrainAdvancedObjectToBoard(resizeMediaElement(original,{
           width:Math.max(48,Number(original.width||1)+dx),
           height:Math.max(48,Number(original.height||1)+dy),
-          shiftKey:event.shiftKey
-        });
+          shiftKey:freeAspect
+        }));
         advancedPointer.element.setAttribute("width",String(next.width));
         advancedPointer.element.setAttribute("height",String(next.height));
       }else{
@@ -4857,9 +5272,9 @@ export async function boot407FEngineeringAdapter({
         const height=Number(original.height||0);
         const x=Math.max(0,Math.min(1920-width,Number(original.x||0)+dx));
         const y=Math.max(0,Math.min(1080-height,Number(original.y||0)+dy));
-        next=advancedPointer.type==="media"
+        next=constrainAdvancedObjectToBoard(advancedPointer.type==="media"
           ?moveMediaElement(original,{x,y})
-          :{...clone(original),x,y};
+          :{...clone(original),x,y});
         advancedPointer.element.setAttribute("x",String(next.x));
         advancedPointer.element.setAttribute("y",String(next.y));
       }

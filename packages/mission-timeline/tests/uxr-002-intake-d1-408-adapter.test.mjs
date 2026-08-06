@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {deflateRawSync} from "node:zlib";
 
 import {
   createD1408PdfIntakeAdapter,
@@ -9,8 +10,10 @@ import {
 import {MAX_FILE_BYTES} from "../web/js/ingestion/file-inspector.js";
 import {
   INTAKE_STAGES,
-  IntakeStateMachine
+  IntakeStateMachine,
+  renderIntake
 } from "../web/js/uxr-002/intake.js";
+import {extractDocx} from "../web/js/ingestion/docx-text-extractor.js";
 
 function nativeTextExtraction(){
   const sourceDocumentId="src-synthetic-adapter";
@@ -56,18 +59,39 @@ function pdfFile(overrides={}){
   };
 }
 
-test("D1-408 adapter capability is truthful and local-only",()=>{
+function storedDocx(lines,{compressed=false}={}){
+  const encoder=new TextEncoder();
+  const name=encoder.encode("word/document.xml");
+  const xml=encoder.encode(`<w:document xmlns:w="urn:test"><w:body>${lines.map((line)=>`<w:p><w:r><w:t>${line}</w:t></w:r></w:p>`).join("")}</w:body></w:document>`);
+  const content=compressed?new Uint8Array(deflateRawSync(xml)):xml;
+  const bytes=new Uint8Array(30+name.length+content.length+46+name.length+22);
+  const view=new DataView(bytes.buffer);
+  const table=Uint32Array.from({length:256},(_value,index)=>{let crc=index;for(let bit=0;bit<8;bit++)crc=crc&1?0xedb88320^(crc>>>1):crc>>>1;return crc>>>0;});
+  let checksum=0xffffffff;for(const byte of xml)checksum=table[(checksum^byte)&0xff]^(checksum>>>8);checksum=(checksum^0xffffffff)>>>0;
+  let offset=0;
+  view.setUint32(offset,0x04034b50,true);view.setUint16(offset+4,20,true);view.setUint16(offset+8,compressed?8:0,true);view.setUint32(offset+14,checksum,true);view.setUint32(offset+18,content.length,true);view.setUint32(offset+22,xml.length,true);view.setUint16(offset+26,name.length,true);
+  bytes.set(name,offset+30);bytes.set(content,offset+30+name.length);const centralOffset=offset+30+name.length+content.length;offset=centralOffset;
+  view.setUint32(offset,0x02014b50,true);view.setUint16(offset+4,20,true);view.setUint16(offset+6,20,true);view.setUint16(offset+10,compressed?8:0,true);view.setUint32(offset+16,checksum,true);view.setUint32(offset+20,content.length,true);view.setUint32(offset+24,xml.length,true);view.setUint16(offset+28,name.length,true);view.setUint32(offset+42,0,true);bytes.set(name,offset+46);
+  const centralSize=46+name.length;offset+=centralSize;
+  view.setUint32(offset,0x06054b50,true);view.setUint16(offset+8,1,true);view.setUint16(offset+10,1,true);view.setUint32(offset+12,centralSize,true);view.setUint32(offset+16,centralOffset,true);
+  return{
+    name:"synthetic_cv.docx",type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",size:bytes.length,
+    arrayBuffer:async()=>bytes.buffer.slice(0)
+  };
+}
+
+test("D1-408 adapter capability truthfully exposes the production local PDF and DOCX parser",()=>{
   assert.deepEqual(D1_408_PDF_INTAKE_ADAPTER_CAPABILITY,{
-    mode:"local-native-text-pdf",
-    productionReady:false,
+    mode:"local-native-document",
+    productionReady:true,
     simulated:false,
     source:"bundled-d1-408-parser",
     bundledExtractor:true,
     bundledFixtures:false,
     parserVersion:"408.1.0",
     networkCalls:false,
-    formats:["application/pdf"],
-    docx:false,
+    formats:["application/pdf","application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+    docx:true,
     ocr:false,
     maxBytes:MAX_FILE_BYTES
   });
@@ -220,7 +244,7 @@ test("HIGH maps to bulk-acceptable high only when the complete D1-408 safety gat
   assert.equal(ambiguous.fields.mappingReviewRequired,true);
 });
 
-test("DOCX and files above the inherited 12MB parser limit are rejected before extraction",async()=>{
+test("native DOCX text is parsed locally and the visible 20MB policy is enforced consistently",async()=>{
   let extractionCalls=0;
   const adapter=createD1408PdfIntakeAdapter({
     pdfExtractor:async()=>{
@@ -229,16 +253,23 @@ test("DOCX and files above the inherited 12MB parser limit are rejected before e
     }
   });
 
-  await assert.rejects(
-    adapter.extract({
-      file:pdfFile({
-        name:"synthetic.docx",
-        type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      }),
-      documentType:"CV"
-    }),
-    (error)=>error.code==="UNSUPPORTED_DOCX"&&/not available/.test(error.message)
-  );
+  const docx=storedDocx([
+    "CURRICULUM VITAE","CLINICAL EXPERIENCE","Internal Medicine USCE Observership",
+    "Starlight Hospital","June 2021 - August 2021"
+  ]);
+  const extracted=await extractDocx(docx);
+  assert.equal(extracted.extractionMethod,"DOCX_OOXML_TEXT");
+  assert.equal(extracted.pageCount,null);
+  assert.match(extracted.text,/Internal Medicine USCE Observership/);
+  const compressed=await extractDocx(storedDocx(["CURRICULUM VITAE","EDUCATION","May 2017 | Medical Degree | Meridian Medical School"],{compressed:true}));
+  assert.match(compressed.text,/Meridian Medical School/);
+  const docxResult=await adapter.extract({file:docx,documentType:"CV"});
+  assert.equal(docxResult.readable,true);
+  assert.equal(docxResult.candidates.length,1);
+  assert.equal(docxResult.candidates[0].title,"Internal Medicine USCE Observership");
+  assert.equal(docxResult.candidates[0].startDate,"2021-06");
+  assert.equal(docxResult.candidates[0].provenance[0].pageNumber,null);
+  assert.equal(docxResult.candidates[0].provenance[0].section,"experiences");
   await assert.rejects(
     adapter.extract({
       file:pdfFile({size:MAX_FILE_BYTES+1}),
@@ -247,6 +278,27 @@ test("DOCX and files above the inherited 12MB parser limit are rejected before e
     (error)=>error.code==="FILE_TOO_LARGE"&&error.details.max===MAX_FILE_BYTES
   );
   assert.equal(extractionCalls,0);
+});
+
+test("review cards expose source custody, date inference, confidence rationale, and Review later",async()=>{
+  const adapter=createD1408PdfIntakeAdapter({pdfExtractor:async()=>nativeTextExtraction()});
+  const machine=new IntakeStateMachine({adapter});
+  machine.receiveFile(pdfFile());machine.setConsent(true);await machine.startExtraction();
+  const candidate=machine.state.candidates[0];
+  candidate.inferredFields=[{field:"endDate",reason:"Month inferred"}];
+  let html=renderIntake(machine.state);
+  assert.match(html,/synthetic_cv\.pdf/);
+  assert.match(html,/Page 1/);
+  assert.match(html,/Extracted dates: 2021-06 – 2021-08/);
+  assert.match(html,/Inferred values: endDate/);
+  assert.match(html,/Why high confidence\?/);
+  assert.match(html,/Review later/);
+  machine.decideCandidate(candidate.id,"deferred");
+  assert.equal(machine.state.candidates[0].decision,"undecided");
+  assert.equal(machine.state.candidates[0].reviewLater,true);
+  assert.equal(machine.acceptAllHighConfidence().candidates[0].reviewLater,true,"bulk acceptance must skip deferred review");
+  html=renderIntake(machine.state);
+  assert.match(html,/Review now/);
 });
 
 test("OCR-required extraction returns the Intake unreadable outcome without candidates",async()=>{

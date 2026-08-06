@@ -25,6 +25,7 @@ const WORKFLOW_SYSTEM_TO_BUILDER=Object.freeze({
 const BUILDER_TO_WORKFLOW_TYPE=Object.freeze({
   "USMLE:step-1":"usmle-step-1",
   "USMLE:step-2-ck":"usmle-step-2-ck",
+  "USMLE:step-2-cs":"usmle-step-2-cs",
   "USMLE:step-3":"usmle-step-3",
   "COMLEX-USA:level-1":"comlex-level-1",
   "COMLEX-USA:level-2-ce":"comlex-level-2-ce",

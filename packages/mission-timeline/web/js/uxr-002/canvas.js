@@ -286,6 +286,7 @@ export function createCanvasState({
     commentsOpen:false,
     activeAdvisorPinId:null,
     advancedSelection:null,
+    advancedTextEdit:null,
     contextMenu:null,
     inlineEdit:null,
     toolbarFocus:false,
@@ -1278,6 +1279,21 @@ function renderInlineEditor(state,sceneEvent) {
   </form>`;
 }
 
+function renderAdvancedTextEditor(document,state){
+  const edit=state?.advancedTextEdit;
+  if(!edit||state?.mode!=="advanced")return"";
+  const block=(document?.advanced?.textBlocks||[]).find(
+    (item)=>String(item.id)===String(edit.id)
+  );
+  if(!block)return"";
+  const left=Math.max(0,Math.min(100,Number(block.x||0)/1920*100));
+  const top=Math.max(0,Math.min(100,Number(block.y||0)/1080*100));
+  return`<form class="canvas-advanced-text-editor" data-advanced-inline-text-form data-advanced-target-id="${escapeHtml(block.id)}" style="--advanced-text-left:${left}%;--advanced-text-top:${top}%">
+    <label><span class="sr-only">Edit selected text</span><textarea data-advanced-inline-text-input rows="3">${escapeHtml(edit.draft)}</textarea></label>
+    <div><button type="submit">Save text</button><button type="button" data-canvas-action="cancel-advanced-text">Cancel</button></div>
+  </form>`;
+}
+
 function xmlEscape(value) {
   return String(value ?? "").replace(/[&<>"']/g,(character) => ({
     "&":"&amp;",
@@ -1444,6 +1460,7 @@ export function renderCanvas({
       ${presentation}
       ${renderSelectionHandles(selected,selectedSceneEvent,viewState)}
       ${renderInlineEditor(viewState,selectedSceneEvent)}
+      ${renderAdvancedTextEditor(document,viewState)}
       ${viewState.drag?.active ? `<output class="canvas-date-tooltip" role="status">${escapeHtml(viewState.drag.liveTooltip)}</output>` : ""}
     </div>`;
   }
@@ -1730,6 +1747,10 @@ export function installCanvas(
         root.querySelector?.("[data-context-toolbar] button")?.focus();
       } else if (focus === "inline") {
         root.querySelector?.("[data-inline-label-input]")?.focus();
+      } else if (focus === "advanced-text") {
+        const input=root.querySelector?.("[data-advanced-inline-text-input]");
+        input?.focus();
+        input?.select?.();
       } else if (focus === "history") {
         root.querySelector?.(".history-slide-over button")?.focus();
       } else if (focus === "details") {
@@ -1964,6 +1985,8 @@ export function installCanvas(
     } else if (action === "guided") {
       if (store.document?.mode === "advanced") onGuided({state,document:store.document});
       else announceResult("Guided Mode selected");
+    } else if (action === "cancel-advanced-text") {
+      setState({...state,advancedTextEdit:null,liveAnnouncement:"Text edit canceled"});
     } else if (action === "open-builder") {
       onOpenBuilder();
     } else if (action === "details") {
@@ -2029,6 +2052,15 @@ export function installCanvas(
     if (event.target.matches?.("[data-inline-label-input]")) {
       state = updateInlineLabelDraft(state,event.target.value);
       onStateChange(state);
+    } else if(event.target.matches?.("[data-advanced-inline-text-input]")){
+      state={
+        ...state,
+        advancedTextEdit:{
+          ...state.advancedTextEdit,
+          draft:String(event.target.value??"")
+        }
+      };
+      onStateChange(state);
     } else if (event.target.name === "versionName") {
       state = {...state,historyName:event.target.value};
       onStateChange(state);
@@ -2044,6 +2076,21 @@ export function installCanvas(
       event.preventDefault();
       const result = commitInlineLabelEdit(store,state);
       setState(result.state,{focus:"selected"});
+    } else if(event.target.matches?.("[data-advanced-inline-text-form]")){
+      event.preventDefault();
+      const edit=state.advancedTextEdit;
+      if(!edit)return;
+      const changed=store.mutate("Edit Advanced text",(document)=>{
+        const block=(document.advanced?.textBlocks||[]).find(
+          (item)=>String(item.id)===String(edit.id)
+        );
+        if(block)block.text=String(edit.draft??"");
+      });
+      setState({
+        ...state,
+        advancedTextEdit:null,
+        liveAnnouncement:changed?"Text updated":"Text unchanged"
+      });
     } else if (event.target.matches?.("[data-history-name-form]")) {
       event.preventDefault();
       const version = await saveManualCanvasVersion(store,state.historyName,{now:now()});
@@ -2128,6 +2175,13 @@ export function installCanvas(
       if (event.key === "Escape") {
         event.preventDefault();
         setState(cancelInlineLabelEdit(state),{focus:"selected"});
+      }
+      return;
+    }
+    if(event.target.matches?.("[data-advanced-inline-text-input]")){
+      if(event.key==="Escape"){
+        event.preventDefault();
+        setState({...state,advancedTextEdit:null,liveAnnouncement:"Text edit canceled"});
       }
       return;
     }

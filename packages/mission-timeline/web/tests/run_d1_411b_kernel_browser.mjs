@@ -1,5 +1,5 @@
 import {createRequire} from "node:module";
-import {existsSync,mkdirSync,statSync} from "node:fs";
+import {existsSync,mkdirSync,readFileSync,statSync} from "node:fs";
 
 const require=createRequire(import.meta.url);
 const playwrightRuntime=process.env.CODEX_PLAYWRIGHT_RUNTIME||
@@ -136,7 +136,12 @@ async function kernelEvidence(host){
     photos:board.querySelectorAll(".photoTile[data-object-id]").length,
     axis:board.querySelectorAll("#axis").length,
     hitTargets:board.querySelectorAll("[data-d1-411a-hit]").length,
-    diagnostics:board.ownerDocument.defaultView.D1409H.diagnostics()
+    diagnostics:board.ownerDocument.defaultView.D1409H.diagnostics(),
+    visualModel:JSON.stringify((()=>{
+      const snapshot=board.ownerDocument.defaultView.D1409H.getSnapshot();
+      if(snapshot)delete snapshot.revision;
+      return snapshot;
+    })())
   }));
   return{host:hostData,child,frame};
 }
@@ -205,7 +210,11 @@ for(const persona of personas){
       const evidence=await kernelEvidence(await kernel(page,"builder"));
       assert(evidence.child.arrows===count,`expected ${count} arrows, received ${evidence.child.arrows}`);
       assert(evidence.child.axis===1,"adaptive axis is missing or duplicated");
-      rendered.push({count,fingerprint:evidence.host.fingerprint});
+      const collisionWarnings=(evidence.child.diagnostics.warnings||[]).filter((warning)=>
+        /COLLISION|OUT_OF_BOUNDS|TEXT_FIT/i.test(String(warning))
+      );
+      assert(collisionWarnings.length===0,`dense render warnings: ${collisionWarnings.join(", ")}`);
+      rendered.push({count,fingerprint:evidence.host.fingerprint,collisionWarnings:0});
     }
     if(persona.writable)await seed(page,7);
     return rendered;
@@ -213,20 +222,27 @@ for(const persona of personas){
 
   await runCheck(persona,"4 · five-surface single-kernel parity",async()=>{
     const fingerprints=[];
+    const visualModels=[];
     await navigate(page,"command");
     let surfaceHost=await kernel(page,"home");
-    fingerprints.push((await kernelEvidence(surfaceHost)).host.fingerprint);
+    let surfaceEvidence=await kernelEvidence(surfaceHost);
+    fingerprints.push(surfaceEvidence.host.fingerprint);
+    visualModels.push(surfaceEvidence.child.visualModel);
     if(captureDir&&persona.id==="administrator"){
       await page.screenshot({path:`${captureDir}/D1-411B_HOME.png`,fullPage:true});
       await surfaceHost.screenshot({path:`${captureDir}/D1-411B_HOME_ARTIFACT.png`});
     }
     await navigate(page,"builder");
     surfaceHost=await kernel(page,"builder");
-    fingerprints.push((await kernelEvidence(surfaceHost)).host.fingerprint);
+    surfaceEvidence=await kernelEvidence(surfaceHost);
+    fingerprints.push(surfaceEvidence.host.fingerprint);
+    visualModels.push(surfaceEvidence.child.visualModel);
     if(captureDir&&persona.id==="administrator")await page.screenshot({path:`${captureDir}/D1-411B_BUILDER.png`,fullPage:true});
     await page.locator("#builderPreviewToggle").click();
     surfaceHost=await kernel(page,"full-preview");
-    fingerprints.push((await kernelEvidence(surfaceHost)).host.fingerprint);
+    surfaceEvidence=await kernelEvidence(surfaceHost);
+    fingerprints.push(surfaceEvidence.host.fingerprint);
+    visualModels.push(surfaceEvidence.child.visualModel);
     if(captureDir&&persona.id==="administrator"){
       await page.screenshot({path:`${captureDir}/D1-411B_FULL_PREVIEW.png`,fullPage:true});
       await surfaceHost.screenshot({path:`${captureDir}/D1-411B_FULL_PREVIEW_ARTIFACT.png`});
@@ -234,19 +250,45 @@ for(const persona of personas){
     await page.locator("[data-builder-preview-close]").click();
     await navigate(page,"canvas");
     surfaceHost=await kernel(page,"edit");
-    fingerprints.push((await kernelEvidence(surfaceHost)).host.fingerprint);
+    surfaceEvidence=await kernelEvidence(surfaceHost);
+    fingerprints.push(surfaceEvidence.host.fingerprint);
+    visualModels.push(surfaceEvidence.child.visualModel);
     if(captureDir&&persona.id==="administrator")await page.screenshot({path:`${captureDir}/D1-411B_EDIT_TIMELINE.png`,fullPage:true});
     await navigate(page,"export");
     surfaceHost=await kernel(page,"export");
-    fingerprints.push((await kernelEvidence(surfaceHost)).host.fingerprint);
-    if(captureDir&&persona.id==="administrator")await page.screenshot({path:`${captureDir}/D1-411B_EXPORT.png`,fullPage:true});
-    assert(new Set(fingerprints).size===1,`surface fingerprints diverged: ${fingerprints.join(", ")}`);
-    return{surfaces:5,fingerprint:fingerprints[0]};
+    surfaceEvidence=await kernelEvidence(surfaceHost);
+    fingerprints.push(surfaceEvidence.host.fingerprint);
+    visualModels.push(surfaceEvidence.child.visualModel);
+    if(captureDir&&persona.id==="administrator"){
+      await page.screenshot({path:`${captureDir}/D1-411B_EXPORT.png`,fullPage:true});
+      await surfaceHost.screenshot({path:`${captureDir}/D1-411B_EXPORT_ARTIFACT.png`});
+    }
+    assert(new Set(visualModels).size===1,"surface presentation models diverged");
+    return{surfaces:5,presentationModels:new Set(visualModels).size,fingerprints:[...new Set(fingerprints)]};
   });
 
   await runCheck(persona,"5 · hydration, rerender, and lifecycle stability",async()=>{
     await navigate(page,"builder");
-    const before=(await kernelEvidence(await kernel(page,"builder"))).host.fingerprint;
+    const initialHost=await kernel(page,"builder");
+    const before=(await kernelEvidence(initialHost)).host.fingerprint;
+    const nonvisualProbe=await page.evaluate((writable)=>{
+      window.__d1411PreviewBefore=document.querySelector('d1-timeline-kernel[data-surface="builder"]');
+      try{
+        window.D1_407F_ENGINEERING.store.mutate(
+          "Nonvisual save-status probe",
+          (document)=>{document.metadata.nonvisualSaveProbe=(document.metadata.nonvisualSaveProbe||0)+1;},
+          {history:false,material:false}
+        );
+        return{mutated:true,error:""};
+      }catch(error){
+        return{mutated:false,error:String(error?.code||error?.name||error)};
+      }
+    },persona.writable);
+    if(persona.writable)assert(nonvisualProbe.mutated,"writable nonvisual probe was rejected");
+    else assert(!nonvisualProbe.mutated&&/ENTITLEMENT|TimelineEntitlementError/i.test(nonvisualProbe.error),"read-only nonvisual probe did not fail closed");
+    await page.waitForTimeout(120);
+    assert(await page.evaluate(()=>window.__d1411PreviewBefore===document.querySelector('d1-timeline-kernel[data-surface="builder"]')),"nonvisual save replaced the last-good preview");
+    assert(await initialHost.evaluate((element)=>element.dataset.ready==="true"&&element.shadowRoot?.querySelector("[data-loading]")?.checkVisibility()===false),"nonvisual save exposed the loading replacement");
     await page.evaluate(()=>{window.D1_407F_ENGINEERING.applyDocument();window.D1_407F_ENGINEERING.applyDocument();});
     const afterEvidence=await kernelEvidence(await kernel(page,"builder"));
     assert(afterEvidence.host.fingerprint===before,"unchanged document fingerprint changed");
@@ -415,33 +457,56 @@ for(const persona of personas){
     const host=await kernel(page,"export");
     const fingerprint=await host.getAttribute("data-fingerprint");
     const button=page.locator("[data-export-action]");
+    const exportDurations={};
     if(!persona.writable){
       assert(await button.isDisabled(),"read-only Export action is enabled");
     }else{
+      const pngStarted=performance.now();
       const [png]=await Promise.all([
         page.waitForEvent("download",{timeout:30000}),
         button.click()
       ]);
+      exportDurations.pngMs=+(performance.now()-pngStarted).toFixed(1);
       assert(png.suggestedFilename().endsWith(".png"),`unexpected PNG filename: ${png.suggestedFilename()}`);
       const pngPath=await png.path();
       assert(pngPath&&statSync(pngPath).size>1000,"PNG export is empty");
+      if(captureDir&&persona.id==="administrator")await png.saveAs(`${captureDir}/D1-411B_EXPORT_1920x1080.png`);
       if(persona.id==="administrator"){
         await page.locator('[name="export-format"][value="pdf-letter-landscape"]').check();
         const suggestion=page.locator("[data-export-suggestion-dismiss]");
         if(await suggestion.count())await suggestion.click();
+        const letterStarted=performance.now();
         const [pdf]=await Promise.all([
           page.waitForEvent("download",{timeout:60000}),
           page.locator("[data-export-action]").click()
         ]);
+        exportDurations.letterPdfMs=+(performance.now()-letterStarted).toFixed(1);
         assert(pdf.suggestedFilename().endsWith(".pdf"),`unexpected PDF filename: ${pdf.suggestedFilename()}`);
         const pdfPath=await pdf.path();
         assert(pdfPath&&statSync(pdfPath).size>1000,"PDF export is empty");
+        const letterBytes=readFileSync(pdfPath).toString("latin1");
+        assert(letterBytes.includes("/MediaBox [0 0 792 612]"),"Letter export is not a true Letter landscape page");
+        assert(letterBytes.includes("792 0 0 445.5 0 83.25 cm"),"Letter export stretched the canonical 16:9 board");
+        if(captureDir)await pdf.saveAs(`${captureDir}/D1-411B_EXPORT_LETTER.pdf`);
+        await page.locator('[name="export-format"][value="pdf-a4-landscape"]').check();
+        const a4Started=performance.now();
+        const [a4]=await Promise.all([
+          page.waitForEvent("download",{timeout:60000}),
+          page.locator("[data-export-action]").click()
+        ]);
+        exportDurations.a4PdfMs=+(performance.now()-a4Started).toFixed(1);
+        const a4Path=await a4.path();
+        assert(a4Path&&statSync(a4Path).size>1000,"A4 PDF export is empty");
+        const a4Bytes=readFileSync(a4Path).toString("latin1");
+        assert(a4Bytes.includes("/MediaBox [0 0 841.89 595.28]"),"A4 export is not a true A4 landscape page");
+        assert(/841\.89 0 0 473\.56312\d* 0 60\.85843\d* cm/.test(a4Bytes),"A4 export stretched the canonical 16:9 board");
+        if(captureDir)await a4.saveAs(`${captureDir}/D1-411B_EXPORT_A4.pdf`);
       }
       const currentExportHost=await kernel(page,"export");
       assert(await currentExportHost.getAttribute("data-protected-kernel")==="D1-409H-A1","Export preview left the protected kernel after download");
     }
     assert(browserErrors.length===0,browserErrors.join("\n"));
-    return persona.writable?{fingerprint,downloads:persona.id==="administrator"?["png","pdf"]:["png"],browserErrors:0}:{fingerprint,downloads:[],browserErrors:0};
+    return persona.writable?{fingerprint,downloads:persona.id==="administrator"?["png","letter-pdf","a4-pdf"]:["png"],durations:exportDurations,browserErrors:0}:{fingerprint,downloads:[],browserErrors:0};
   });
 
   await context.close();

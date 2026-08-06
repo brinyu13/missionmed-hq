@@ -195,6 +195,10 @@ fieldset.field{border:0;padding:0;margin:0}
 .segmented-field{display:grid;gap:7px;border:0;padding:0;margin:0}
 .segmented-field>legend{font-size:13px;font-weight:600;margin-bottom:7px}
 .typeahead-field{position:relative}
+.typeahead-input-wrap{position:relative}
+.typeahead-input-wrap.has-toggle input{padding-right:42px}
+.typeahead-toggle{position:absolute;top:50%;right:4px;translate:0 -50%;width:36px;min-height:36px;border:0;border-radius:7px;background:transparent;color:var(--shell-muted);font-size:22px;line-height:1;cursor:pointer}
+.typeahead-toggle:hover,.typeahead-toggle:focus-visible{background:var(--shell-surface-2);color:var(--shell-ink)}
 .typeahead-options{position:absolute;z-index:75;top:calc(100% + 4px);left:0;right:0;max-height:288px;overflow:auto;margin:0;padding:5px;list-style:none;border:1px solid var(--shell-border);border-radius:10px;background:var(--shell-surface);box-shadow:var(--card-shadow)}
 .typeahead-options li{margin:0}
 .typeahead-options button{width:100%;min-height:40px;border:0;border-radius:7px;background:transparent;padding:8px 10px;text-align:left}
@@ -219,6 +223,8 @@ fieldset.field{border:0;padding:0;margin:0}
 .exam-primary-row,.exam-secondary-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
 .exam-primary-row{padding:14px;border-radius:10px;background:var(--shell-surface-2)}
 .exam-primary-row .segmented-field>legend,.score-field>label{font-size:14px;font-weight:650}
+.exam-secondary-row .segmented{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}
+.exam-secondary-row .segmented label,.exam-secondary-row .segmented label span{width:100%}
 .score-field input{min-height:48px;font-size:18px;font-weight:650;font-variant-numeric:tabular-nums}
 .step-helper,.entry-list-empty{margin:0;color:var(--ink-secondary)}
 .entry-card>h2{margin:0}
@@ -232,7 +238,8 @@ fieldset.field{border:0;padding:0;margin:0}
 .personal-icons{display:grid;grid-template-columns:repeat(6,44px);gap:8px}
 .personal-icons label{position:relative}
 .personal-icons input{position:absolute;opacity:0}
-.personal-icons span[aria-hidden]{width:44px;height:44px;display:grid;place-items:center;border:1px solid var(--shell-border-strong);border-radius:9px;background:var(--shell-surface);font-size:18px}
+.personal-icons span[aria-hidden]{width:44px;height:44px;display:grid;place-items:center;border:1px solid var(--shell-border-strong);border-radius:9px;background:linear-gradient(145deg,#fff,#eef1f3);font-size:18px;filter:drop-shadow(0 1px 1px rgba(25,28,33,.18))}
+.icon-picker[data-icon-style="monochrome"] .personal-icons span[aria-hidden]{background:#fff;color:#191c21;text-shadow:0 0 0 #191c21;filter:drop-shadow(0 1px 0 rgba(25,28,33,.28))}
 .personal-icons input:checked+span{border-color:var(--accent-gold);background:#FAF5E9;box-shadow:inset 0 0 0 1px var(--accent-gold)}
 .personal-icons input:focus-visible+span{outline:2px solid var(--focus-ring);outline-offset:2px}
 .skip-step{justify-self:start}

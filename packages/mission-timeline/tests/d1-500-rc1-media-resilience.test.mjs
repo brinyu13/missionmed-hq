@@ -116,3 +116,22 @@ test("RC1 adapter binds production Matrix return and preserves last-good preview
   assert.match(adapter,/USE LATEST SAVED COPY/);
   assert.match(adapter,/store\.adapter\.resolveConflict/);
 });
+
+test("RC1 visible Media workflow replaces transient source state and retires only unreferenced durable objects",async()=>{
+  const adapter=await readFile(
+    new URL("../web/js/407f-engineering-adapter.js",import.meta.url),
+    "utf8"
+  );
+  assert.match(adapter,/asset\.source=persistence\.source/);
+  assert.doesNotMatch(adapter,/Object\.assign\(asset\.source,persistence\.source\)/);
+  assert.match(adapter,/media\.source=persistence\.source/);
+  assert.match(adapter,/background\.source=persistence\.source/);
+  assert.match(adapter,/MAX_PRODUCTION_MEDIA_BYTES=15\*1024\*1024/);
+  assert.match(adapter,/data-media-delete-confirm/);
+  assert.match(adapter,/replaceMediaLibraryItem/);
+  assert.match(adapter,/deleteMediaLibraryItem/);
+  assert.match(adapter,/private-media-retirement:/);
+  assert.match(adapter,/!referenced\.has\(String\(objectId\)\)/);
+  assert.match(adapter,/flushPendingSave\("RETIRE_PRIVATE_MEDIA"\)/);
+  assert.match(adapter,/private-file deletion will retry after sync/);
+});

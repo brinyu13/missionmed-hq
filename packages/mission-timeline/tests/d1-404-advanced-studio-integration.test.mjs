@@ -50,6 +50,7 @@ test("407F reuses the existing Advanced Studio state/actions and Advanced board 
     "applyAdvancedObjectAction",
     "applyAdvancedTypography",
     "applyModeSwitch",
+    "constrainAdvancedObjectToBoard",
     "createFlatColorBackground",
     "createMediaElement",
     "createPresetBackground",
@@ -62,6 +63,7 @@ test("407F reuses the existing Advanced Studio state/actions and Advanced board 
     "sampleEyeDropper",
     "setBackgroundDim",
     "setLayoutLock",
+    "setMediaAspectLock",
     "updateTextBlockContent"
   ]){
     assert.match(adapter,new RegExp(`\\b${name}\\b`),name);
@@ -122,6 +124,10 @@ test("Canvas receives the protected Fable renderer, retained Advanced controls, 
   assert.match(canvasInstall,/onAdvanced:\s*\(\)\s*=>\s*requestCanvasMode\("advanced"\)/);
   assert.match(canvasInstall,/onGuided:\s*\(\)\s*=>\s*requestCanvasMode\("guided"\)/);
   assert.match(adapter,/installAdvancedStudio\(canvasHost,\s*advancedHooks\(\)\)/);
+  assert.match(adapter,/zoom:store\.document\.preferences\?\.canvasZoom\|\|"fit"/);
+  assert.match(adapter,/canvasZoom:zoomPreference/);
+  assert.match(adapter,/Number\(event\.detail\)>=2/);
+  assert.match(adapter,/data-advanced-inline-text-input/);
 });
 
 test("all Advanced controls delegate through shared-store hooks and preserve Guided isolation",()=>{
@@ -131,6 +137,7 @@ test("all Advanced controls delegate through shared-store hooks and preserve Gui
     "const canvasHost="
   );
   for(const hook of [
+    "onSelectObject",
     "onAction",
     "onObjectAction",
     "onTypography",
@@ -142,7 +149,8 @@ test("all Advanced controls delegate through shared-store hooks and preserve Gui
     "onColor",
     "onHex",
     "onEyeDropper",
-    "onLayoutLock"
+    "onLayoutLock",
+    "onAspectLock"
   ]){
     assert.match(hooks,new RegExp(`\\b${hook}\\s*:`),hook);
   }
@@ -164,7 +172,7 @@ test("407F CSS styles Advanced surfaces without applying Advanced mode to the sh
   for(const match of css.matchAll(/([^{}]+)\{/g)){
     const selector=match[1].trim();
     if(/@(?:media|supports|keyframes)/.test(selector))continue;
-    if(/advanced-(?:insert|background|selection|typography|object|text|color|mode)|layout-lock/.test(selector)){
+    if(/advanced-(?:insert|asset|editor|background|selection|typography|object|aspect|text|color|mode)|layout-lock/.test(selector)){
       selectors.push(...selector.split(",").map((item)=>item.trim()));
     }
   }
@@ -179,6 +187,7 @@ test("407F CSS styles Advanced surfaces without applying Advanced mode to the sh
 
   for(const surface of [
     "advanced-insert-strip",
+    "advanced-asset-rail",
     "advanced-background-panel",
     "advanced-selection-controls",
     "advanced-typography-controls",

@@ -12,6 +12,8 @@ if(manifest.schema_version!=="d1-500-release-manifest.1"||manifest.canonical_pat
 const hash=(bytes)=>createHash("sha256").update(bytes).digest("hex");
 const phpString=(value)=>`'${String(value).replace(/\\/g,"\\\\").replace(/'/g,"\\'")}'`;
 const raw=new Map();
+const protectedStylesheetPath="presentation/d1-409h-a1/D1-409H_VISUAL_MASTER.css";
+let protectedCaptureStylesheetAsset=null;
 for(const [path,entry] of Object.entries(manifest.files)){
   const bytes=await readFile(join(dist,path));
   if(bytes.byteLength!==entry.bytes||hash(bytes)!==entry.sha256)throw new Error(`TIMELINE_RELEASE_HASH_MISMATCH:${path}`);
@@ -34,7 +36,7 @@ for(const entry of raw.values()){
 
 for(const entry of raw.values()){
   if(!entry.path.endsWith(".css"))continue;
-  const rewritten=entry.bytes.toString("utf8").replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/g,(match,_quote,value)=>{
+  const rewriteStylesheet=(selfContained=false)=>entry.bytes.toString("utf8").replace(/url\(\s*(["']?)([^"')]+)\1\s*\)/g,(match,_quote,value)=>{
     if(/^(?:data:|https?:|#|\/)/i.test(value))return match;
     const clean=value.split(/[?#]/,1)[0];
     const target=posix.normalize(posix.join(posix.dirname(entry.path),clean));
@@ -42,9 +44,19 @@ for(const entry of raw.values()){
     if(!source)throw new Error(`TIMELINE_RUNTIME_CSS_SOURCE_MISSING:${entry.path}:${target}`);
     const asset=[...assets.values()].find((candidate)=>candidate.path===target);
     if(!asset)throw new Error(`TIMELINE_RUNTIME_CSS_ASSET_MISSING:${entry.path}:${target}`);
+    if(selfContained){
+      return `url("data:${source.contentType};base64,${source.bytes.toString("base64")}")`;
+    }
     return `url("/timeline/_asset/${asset.alias}")`;
   });
-  addAsset(entry.path,Buffer.from(rewritten,"utf8"),entry.contentType);
+  addAsset(entry.path,Buffer.from(rewriteStylesheet(),"utf8"),entry.contentType);
+  if(entry.path===protectedStylesheetPath){
+    protectedCaptureStylesheetAsset=addAsset(
+      `${entry.path}.capture`,
+      Buffer.from(rewriteStylesheet(true),"utf8"),
+      entry.contentType
+    );
+  }
 }
 
 for(const entry of raw.values()){
@@ -58,7 +70,9 @@ for(const entry of raw.values()){
     const singleQuoted=`'${value}'`;const doubleQuoted=`"${value}"`;
     if(!rewritten.includes(singleQuoted)&&!rewritten.includes(doubleQuoted))continue;
     const target=posix.normalize(posix.join(posix.dirname(entry.path),value));
-    const asset=byPath.get(target);
+    const asset=target===protectedStylesheetPath
+      ?protectedCaptureStylesheetAsset
+      :byPath.get(target);
     if(!asset)throw new Error(`TIMELINE_RUNTIME_JS_ASSET_MISSING:${entry.path}:${target}`);
     rewritten=rewritten
       .split(singleQuoted).join(`'/timeline/_asset/${asset.alias}'`)

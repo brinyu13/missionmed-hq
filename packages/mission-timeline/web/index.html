@@ -793,6 +793,19 @@ const CATS={
   res:{n:'Research Experience',c:'#d4b636'}
 };
 const COUNTRIES=["Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria","Burkina Faso","Burundi","Cabo Verde","Cambodia","Cameroon","Canada","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo","Costa Rica","Croatia","Cuba","Cyprus","Czechia","DR Congo","Denmark","Djibouti","Dominica","Dominican Republic","Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Fiji","Finland","France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Israel","Italy","Ivory Coast","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kiribati","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania","Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique","Myanmar","Namibia","Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria","North Korea","North Macedonia","Norway","Oman","Pakistan","Palau","Palestine","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia","Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Timor-Leste","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Tuvalu","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"];
+let COUNTRY_CODES_BY_NAME_404=null;
+function countryCodesByName404(){
+  if(COUNTRY_CODES_BY_NAME_404)return COUNTRY_CODES_BY_NAME_404;
+  const map=new Map();const names=typeof Intl.DisplayNames==='function'?new Intl.DisplayNames(['en'],{type:'region'}):null;
+  if(names)for(let first=65;first<=90;first++)for(let second=65;second<=90;second++){
+    const code=String.fromCharCode(first,second);const name=names.of(code);
+    if(name&&name!==code&&!/unknown region/i.test(name))map.set(String(name).toLocaleLowerCase(),code);
+  }
+  map.set('ivory coast','CI');map.set('dr congo','CD');map.set('congo','CG');map.set('south korea','KR');map.set('north korea','KP');map.set('russia','RU');map.set('taiwan','TW');map.set('vatican city','VA');
+  COUNTRY_CODES_BY_NAME_404=map;return map;
+}
+function countryCodeForName404(value){return countryCodesByName404().get(String(value||'').trim().toLocaleLowerCase())||''}
+function countryFlag404(code){const value=String(code||'').trim().toUpperCase();return /^[A-Z]{2}$/.test(value)?String.fromCodePoint.apply(String,[].map.call(value,ch=>127397+ch.charCodeAt(0))):''}
 
 function demoEvents(){return [
   {id:'d1',t:'Medical Degree',cat:'usmle',mile:true,s:'2017-05',e:null,vis:'safe',loc:'',origin:'demo'},
@@ -1451,7 +1464,7 @@ const legacyDemoClear=$('#ctlDemoClear');if(legacyDemoClear)legacyDemoClear.oncl
 /* ============ D1-404 BUILDER ============ */
 const BUILDER_STEPS_404=[
   {title:'Core Info',purpose:'Who you are and where you trained.'},
-  {title:'Exams',purpose:'Your exam story — scores and results first, dates second.'},
+  {title:'Exams',purpose:'Your exam story — preparation, exam date, then result.'},
   {title:'US Clinical Rotations',purpose:"One rotation at a time. We'll fill in what we can."},
   {title:'Work Experience',purpose:'Clinical or not, US or abroad — work belongs on the story.'},
   {title:'Research',purpose:'Projects, posters, and papers — with your author position.'},
@@ -1750,6 +1763,7 @@ const EXAM_SYSTEMS_404={
   USMLE:[
     {id:'step-1',label:'Step 1',passFailOnly:true},
     {id:'step-2-ck',label:'Step 2 CK',passFailOnly:false},
+    {id:'step-2-cs',label:'Step 2 CS',passFailOnly:true,historical:true},
     {id:'step-3',label:'Step 3',passFailOnly:false}
   ],
   'COMLEX-USA':[
@@ -1933,17 +1947,17 @@ function examCard404(record){
   const scoreRequired=!definition.passFailOnly&&['Passed','Failed'].includes(record.result);
   const title=attempt>1?definition.label+' — '+examOrdinal404(attempt)+' attempt':definition.label;
   const headingId='exam-card-title-'+record.id;
-  const resultButtons=['Passed','Failed','Awaiting result'].map(result=>'<button type="button" class="builderSegment'+(record.result===result?' on':'')+'" data-exam-result="'+esc(result)+'" aria-pressed="'+String(record.result===result)+'">'+esc(result)+'</button>').join('');
+  const resultButtons=['Passed','Failed','Awaiting result'].map(result=>'<button type="button" class="builderSegment'+(record.result===result?' on':'')+'" data-exam-result="'+esc(result)+'" aria-pressed="'+String(record.result===result)+'">'+esc(result==='Awaiting result'?'Awaiting results':result)+'</button>').join('');
   return '<article class="builderExamCard'+(record.automatic?' automatic':'')+'" data-exam-card="'+esc(record.id)+'" aria-labelledby="'+esc(headingId)+'">'
     +'<div class="builderExamCardHead"><div><span class="builderExamSystem">'+esc(record.system)+'</span><h2 id="'+esc(headingId)+'">'+esc(title)+'</h2></div>'
     +(record.automatic?'<span class="builderAutoBadge">ADDED AUTOMATICALLY</span>':'')
     +'<button type="button" class="homeTertiary builderExamDelete" data-exam-delete="'+esc(record.id)+'" aria-label="Delete '+esc(title)+'">Delete</button></div>'
     +'<div class="builderExamPrimary">'
+    +dateControlMarkup404({precision:'month',id:'exam-study-'+record.id,label:'Started studying',optional:true,value:record.studyStartDate||'',inputAttributes:{'data-exam-field':'studyStartDate'},error:examError404(record,'studyStartDate'),errorAttributes:{'data-exam-error':'studyStartDate'}})
+    +dateControlMarkup404({precision:'month',id:'exam-date-'+record.id,label:record.result==='Awaiting result'?'Exam date (taken)':'Exam date',value:record.examDate||'',required:true,inputAttributes:{'data-exam-field':'examDate'},error:examError404(record,'examDate'),errorAttributes:{'data-exam-error':'examDate'}})
+    +'</div><div class="builderExamSecondary">'
     +'<fieldset class="builderField"><legend>Result</legend><div class="builderSegments" role="group" aria-label="Result">'+resultButtons+'</div><small data-exam-error="result">'+esc(examError404(record,'result'))+'</small></fieldset>'
     +(definition.passFailOnly?'':'<label class="builderField builderScore"><span>Score'+(scoreRequired?' <b aria-hidden="true">*</b>':'')+'</span><input type="text" inputmode="numeric" maxlength="3" data-exam-field="score" value="'+esc(record.score||'')+'"'+(scoreRequired?' required aria-required="true"':'')+'><small data-exam-error="score">'+esc(examError404(record,'score'))+'</small></label>')
-    +'</div><div class="builderExamSecondary">'
-    +dateControlMarkup404({precision:'month',id:'exam-date-'+record.id,label:record.result==='Awaiting result'?'Exam date (taken)':'Exam date',value:record.examDate||'',required:true,inputAttributes:{'data-exam-field':'examDate'},error:examError404(record,'examDate'),errorAttributes:{'data-exam-error':'examDate'}})
-    +dateControlMarkup404({precision:'month',id:'exam-study-'+record.id,label:'Started studying',optional:true,value:record.studyStartDate||'',inputAttributes:{'data-exam-field':'studyStartDate'},error:examError404(record,'studyStartDate'),errorAttributes:{'data-exam-error':'studyStartDate'}})
     +'</div>'
     +(definition.passFailOnly?'':'<label class="builderToggle"><input type="checkbox" data-exam-score-visible aria-label="Show '+esc(title)+' score on timeline"'+(record.showScoreOnTimeline?' checked':'')+(record.result==='Failed'?' disabled':'')+'> <span>Show score on timeline</span></label>')
     +(record.automatic?'<p class="builderExamNote">Created automatically after the previous failed attempt.</p>':'')
@@ -1969,7 +1983,7 @@ function domainDefaults404(domain){
   if(domain==='clinical')return{institution:'',institutionShortName:'',specialty:'',specialtyId:'',rotationType:'',city:'',state:'',startDate:'',endDate:'',rotationStartDate:'',rotationEndDate:'',rotationDatePrecision:'unknown',current:false,preceptor:'',lorStatus:'not-requested',lorTargetSpecialtyId:'',notes:''};
   if(domain==='work')return{role:'',organization:'',country:'',city:'',kind:'',startDate:'',endDate:'',current:false,description:''};
   if(domain==='research')return{projectTitle:'',institution:'',institutionShortName:'',role:'',roleOther:'',startDate:'',endDate:'',ongoing:false,publicationStatus:'Not published',journal:'',publicationYear:'',authorPosition:'',doiOrPmid:'',markPublication:false};
-  return{happened:'',whenKind:'One date',startDate:'',endDate:'',icon:'star',visibilityState:'INTERVIEWER_SAFE'};
+  return{happened:'',whenKind:'One date',startDate:'',endDate:'',ongoing:false,fromCountry:'',fromCountryCode:'',toCountry:'',toCountryCode:'',icon:'star',iconStyle:'Color',visibilityState:'INTERVIEWER_SAFE'};
 }
 function domainDraft404(domain){
   return Object.assign(domainDefaults404(domain),(state.builder.domainDrafts&&state.builder.domainDrafts[domain])||{});
@@ -1999,7 +2013,7 @@ function domainTypeahead404(label,name,value,provider,options){
   options=options||{};const required=options.required?' <b aria-hidden="true">*</b>':'';
   const listId='builderTypeahead-'+provider+'-'+name;
   return '<label class="builderField builderTypeahead" data-domain-typeahead data-typeahead-provider="'+provider+'" data-allow-free-text="'+String(options.allowFreeText!==false)+'"><span>'+label+required+'</span>'
-    +'<input type="text" name="'+name+'" value="'+esc(value||'')+'" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="'+listId+'" data-typeahead-input'+(options.required?' required aria-required="true"':'')+'>'
+    +'<span class="builderTypeaheadInput"><input type="text" name="'+name+'" value="'+esc(value||'')+'" autocomplete="off" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="'+listId+'" data-typeahead-input'+(options.required?' required aria-required="true"':'')+'><button type="button" data-typeahead-toggle404 aria-label="Show '+esc(String(label).replace(/<[^>]+>/g,''))+' choices">⌄</button></span>'
     +'<ul id="'+listId+'" class="builderTypeaheadList" role="listbox" hidden></ul><small data-domain-error="'+name+'"></small></label>';
 }
 function domainSelect404(label,name,value,options,required){
@@ -2088,6 +2102,7 @@ function clinicalMarkup404(draft){
   return domainTypeahead404('Institution','institution',draft.institution,'clinicalInstitutions')
     +'<small class="builderHint domainTypeaheadHint">Type 2+ characters; choose a match or keep your text as written.</small>'
     +domainTypeahead404('Specialty','specialty',draft.specialty,'specialties',{required:true,allowFreeText:false})
+    +'<small class="builderHint domainTypeaheadHint">Start typing to find another specialty.</small>'
     +domainSelect404('Rotation type','rotationType',draft.rotationType,['Elective','Sub-internship','Observership','Externship','Clerkship (core)','Other'])
     +'<div class="builderDomainGrid">'+domainField404('City','city',draft.city)+domainField404('State','state',draft.state)+'</div>'
     +'<div class="builderDomainGrid">'+domainDateControl404('clinical','Start','rotationStartDate',draft.rotationStartDate,{precision:'day',required:true,help:startHelp})+(draft.current?'':domainDateControl404('clinical','End','rotationEndDate',draft.rotationEndDate,{precision:'day',required:true,help:endHelp}))+'</div>'
@@ -2120,12 +2135,21 @@ function researchMarkup404(draft){
       +domainField404('DOI or PMID <em>Optional</em>','doiOrPmid',draft.doiOrPmid)
       +'<label class="builderToggle"><input type="checkbox" name="markPublication" data-domain-toggle="markPublication"'+(draft.markPublication?' checked':'')+'> <span>Mark the publication on the timeline</span></label></div>':'');
 }
-const PERSONAL_ICONS_404=[['heart','♥'],['home','⌂'],['plane','✈'],['baby','●'],['ring','◯'],['star','★'],['flag','⚑'],['globe','◎'],['shield','⬟'],['sun','☀'],['book','▤'],['sparkle','✦']];
+const PERSONAL_PRESETS_404=['Medical school graduation','Other graduation','ECFMG certification','Moved to the United States','Moved to another country','Became a U.S. citizen','Received permanent residency / green card','Married','Engaged','Pregnancy','Birth of first child','Birth of another child','Divorce or separation','Serious illness','Hospitalization','Death of a loved one','Passed an exam','Failed an exam','Major career transition','Started residency','Completed residency','Started fellowship','Completed fellowship','Major award','Major research milestone'];
+const PERSONAL_ICONS_404=[['heart','❤️','♥'],['home','🏠','⌂'],['plane','✈️','✈'],['baby','👶','●'],['ring','💍','◯'],['star','🌟','★'],['flag','🚩','⚑'],['globe','🌍','◎'],['shield','🛡️','⬟'],['sun','☀️','☀'],['book','📘','▤'],['sparkle','✨','✦'],['graduation','🎓','◇'],['certificate','📜','▱'],['hospital','🏥','✚'],['memorial','🕯️','†'],['award','🏆','◆'],['research','🔬','⌕'],['career','💼','▣'],['family','👨‍👩‍👧','◉']];
+function personalCountryMode404(value){const label=String(value||'').trim().toLocaleLowerCase();return label.startsWith('moved to ')?'from-to':(label.includes('citizen')||label.includes('permanent residency')||label.includes('green card')?'to':'none')}
 function personalMarkup404(draft){
-  return domainField404('What happened','happened',draft.happened,{required:true,placeholder:'e.g., Moved to the US · Became a parent · Military service'})
-    +domainSegments404('When','whenKind',['One date','A period'],draft.whenKind||'One date')
-    +'<div class="builderDomainGrid">'+domainDateControl404('personal',draft.whenKind==='A period'?'Start':'Date','startDate',draft.startDate)+(draft.whenKind==='A period'?domainDateControl404('personal','End','endDate',draft.endDate):'')+'</div>'
-    +'<fieldset class="builderField"><legend>Icon</legend><div class="builderIconGrid">'+PERSONAL_ICONS_404.map(item=>'<button type="button" class="'+(draft.icon===item[0]?'on':'')+'" data-domain-segment="icon" data-domain-value="'+item[0]+'" aria-label="'+item[0]+'" aria-pressed="'+String(draft.icon===item[0])+'">'+item[1]+'</button>').join('')+'</div></fieldset>'
+  const range=['Date range','A period'].includes(draft.whenKind);const countryMode=personalCountryMode404(draft.happened);const monochrome=draft.iconStyle==='Monochrome';
+  return domainField404('What happened','happened',draft.happened,{required:true,placeholder:'Search common events or enter your own',list:'personalPresets404'})
+    +'<datalist id="personalPresets404">'+PERSONAL_PRESETS_404.map(item=>'<option value="'+esc(item)+'"></option>').join('')+'</datalist><small class="builderHint">Choose a common event or enter your own.</small>'
+    +(countryMode==='from-to'?domainTypeahead404('From country','fromCountry',draft.fromCountry,'countries',{allowFreeText:false}):'')
+    +(countryMode!=='none'?domainTypeahead404(countryMode==='from-to'?'To country':'Country','toCountry',draft.toCountry,'countries',{required:true,allowFreeText:false}):'')
+    +(countryMode!=='none'&&(draft.fromCountryCode||draft.toCountryCode)?'<small class="builderHint" aria-label="Selected countries">'+(draft.fromCountryCode?countryFlag404(draft.fromCountryCode)+' '+esc(draft.fromCountry):'')+(draft.fromCountryCode&&draft.toCountryCode?' → ':'')+(draft.toCountryCode?countryFlag404(draft.toCountryCode)+' '+esc(draft.toCountry):'')+'</small>':'')
+    +domainSegments404('When','whenKind',['One date','Date range'],range?'Date range':'One date')
+    +'<div class="builderDomainGrid">'+domainDateControl404('personal',range?'Start':'Date','startDate',draft.startDate)+(range&&!draft.ongoing?domainDateControl404('personal','End','endDate',draft.endDate):'')+'</div>'
+    +(range?'<label class="builderToggle"><input type="checkbox" name="ongoing" data-domain-toggle="ongoing"'+(draft.ongoing?' checked':'')+'> <span>Ongoing</span></label>':'')
+    +domainSegments404('Icon style','iconStyle',['Color','Monochrome'],draft.iconStyle||'Color')
+    +'<fieldset class="builderField"><legend>Icon</legend><div class="builderIconGrid" data-icon-style="'+(monochrome?'monochrome':'color')+'">'+PERSONAL_ICONS_404.map(item=>'<button type="button" class="'+(draft.icon===item[0]?'on':'')+'" data-domain-segment="icon" data-domain-value="'+item[0]+'" aria-label="'+item[0]+'" aria-pressed="'+String(draft.icon===item[0])+'">'+(monochrome?item[2]:item[1])+'</button>').join('')+'</div></fieldset>'
     +domainSegments404('Visibility','visibilityState',[{label:'Show everyone',value:'INTERVIEWER_SAFE'},{label:'Advisor only',value:'ADVISOR_ONLY'}],draft.visibilityState||'INTERVIEWER_SAFE');
 }
 function domainStepMarkup404(step){
@@ -2417,6 +2441,7 @@ function typeaheadMatches404(provider,query){
     if(typeahead&&typeof typeahead.rankSpecialties==='function'){
       matches=typeahead.rankSpecialties(matches,{query:query});
     }
+    if(!needle)matches=matches.filter(item=>item.pinned===true);
   }
   return matches.slice(0,provider==='specialties'?12:8);
 }
@@ -2443,7 +2468,7 @@ function paintTypeahead404(field){
   if(!rows.length){list.hidden=true;list.innerHTML='';input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');return}
   let active=Number(field.dataset.activeIndex);if(!Number.isInteger(active)||active<0||active>=rows.length)active=0;
   field.dataset.activeIndex=String(active);
-  list.innerHTML=rows.map((row,index)=>'<li role="option" data-typeahead-choice="'+index+'" id="'+list.id+'-option-'+index+'" aria-selected="'+String(index===active)+'">'+esc(row.label)+(row.pinned?'<span class="builderTypeaheadPinned">COMMON</span>':'')+'</li>').join('');
+  list.innerHTML=rows.map((row,index)=>'<li role="option" data-typeahead-choice="'+index+'" id="'+list.id+'-option-'+index+'" aria-selected="'+String(index===active)+'">'+esc(row.label)+'</li>').join('');
   list.hidden=false;input.setAttribute('aria-expanded','true');input.setAttribute('aria-activedescendant',list.id+'-option-'+active);
 }
 function moveTypeahead404(field,delta){
@@ -2473,6 +2498,10 @@ function commitTypeahead404(field,index){
     changes.specialtyId=row.specialtyId||
       (typeahead&&typeof typeahead.normalizeSpecialtyId==='function'
         ?typeahead.normalizeSpecialtyId(value):'');
+  }
+  if(name==='fromCountry'||name==='toCountry'){
+    const code=countryCodeForName404(value);
+    changes[name+'Code']=code;
   }
   state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
   closeTypeahead404(field);typeaheadCommitting404=true;
@@ -2519,7 +2548,10 @@ function domainErrors404(domain,entry){
   }
   if(domain==='work')required.push(['role','Required.'],['organization','Required.'],['country','Required.'],['kind','Required.']);
   if(domain==='research')required.push(['projectTitle','Required.']);
-  if(domain==='personal')required.push(['happened','Required.']);
+  if(domain==='personal'){
+    required.push(['happened','Required.']);
+    if(personalCountryMode404(entry.happened)!=='none')required.push(['toCountry','Required.']);
+  }
   required.forEach(item=>{if(!String(entry[item[0]]||'').trim())errors[item[0]]=item[1]});
   if(domain!=='clinical'&&entry.startDate&&!parseBuilderMonth(entry.startDate))errors.startDate="Enter a month and year, like 'Jun 2023'.";
   if(domain!=='clinical'&&entry.endDate&&!parseBuilderMonth(entry.endDate))errors.endDate="Enter a month and year, like 'Jun 2023'.";
@@ -2554,6 +2586,12 @@ document.addEventListener('click',e=>{
   }
   const typeaheadChoice=e.target.closest('[data-typeahead-choice]');
   if(typeaheadChoice){commitTypeahead404(typeaheadChoice.closest('[data-domain-typeahead]'),typeaheadChoice.dataset.typeaheadChoice);return}
+  const typeaheadToggle=e.target.closest('[data-typeahead-toggle404]');
+  if(typeaheadToggle){
+    const field=typeaheadToggle.closest('[data-domain-typeahead]');const input=field&&field.querySelector('[data-typeahead-input]');
+    if(input){input.focus();paintTypeahead404(field)}
+    return;
+  }
   const reviewJump=e.target.closest('[data-review-step]');
   if(reviewJump){
     const step=Number(reviewJump.dataset.reviewStep)||1;
@@ -2661,7 +2699,9 @@ document.addEventListener('click',e=>{
       button.setAttribute('aria-pressed',String(selected));
     });
     state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
-    runDomainAction404('updateDraft',domain,changes);return;
+    runDomainAction404('updateDraft',domain,changes);
+    if(domain==='personal')renderBuilder404();
+    return;
   }
   const lorChoice=e.target.closest('[data-lor-choice]');
   if(lorChoice){
@@ -2839,6 +2879,11 @@ document.addEventListener('change',e=>{
         :String(domainControl.value||'').trim();
       state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
       state.saved=false;
+      if(domain==='personal'&&['happened','ongoing'].includes(domainControl.name)){
+        runDomainAction404('updateDraft','personal',{[domainControl.name]:draft[domainControl.name]});
+        renderBuilder404();
+        return;
+      }
     }
   }
   const lorStatus=e.target.closest('[data-lor-status]');

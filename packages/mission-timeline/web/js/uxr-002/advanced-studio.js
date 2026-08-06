@@ -590,7 +590,12 @@ export function validateBackgroundPresetCatalog(catalog=ADVANCED_BACKGROUND_PRES
 }
 
 export const MEDIA_KINDS=freezeDeep(["image","gif","logo"]);
-export const MEDIA_CONTEXT_ACTIONS=freezeDeep(["bring-forward","send-backward","delete"]);
+export const MEDIA_CONTEXT_ACTIONS=freezeDeep([
+  "bring-forward",
+  "send-backward",
+  "duplicate",
+  "delete"
+]);
 
 export function validateMediaUpload(file,{kind="image"}={}){
   const normalizedKind=String(kind).toLowerCase();
@@ -684,6 +689,42 @@ export function resizeMediaElement(element,{width,height,shiftKey=false}={}){
   next.aspectLocked=!shiftKey;
   next.resizeGesture=shiftKey?"free-aspect":"locked-aspect";
   return next;
+}
+
+export function constrainAdvancedObjectToBoard(element,{
+  boardWidth=1920,
+  boardHeight=1080,
+  minimumSize=48
+}={}){
+  const next=clone(element||{});
+  const maxWidth=Math.max(minimumSize,finite(boardWidth,1920));
+  const maxHeight=Math.max(minimumSize,finite(boardHeight,1080));
+  next.width=Math.min(maxWidth,Math.max(minimumSize,positive(next.width,minimumSize)));
+  next.height=Math.min(maxHeight,Math.max(minimumSize,positive(next.height,minimumSize)));
+  next.x=Math.max(0,Math.min(
+    maxWidth-next.width,
+    finite(next.x,0)
+  ));
+  next.y=Math.max(0,Math.min(
+    maxHeight-next.height,
+    finite(next.y,0)
+  ));
+  return next;
+}
+
+export function setMediaAspectLock(document,target,locked){
+  const state=normalizeAdvancedStudioDocument(document);
+  if(state.mode!==ADVANCED_MODE){
+    throw new Error("Media ratio controls are available only in Advanced Studio.");
+  }
+  const id=typeof target==="string"?target:target?.id;
+  const item=state.advanced.media.find(
+    (candidate)=>String(candidate.id)===String(id)
+  );
+  if(!item)throw new Error("Media element not found.");
+  item.aspectLocked=!!locked;
+  item.resizeGesture=item.aspectLocked?"locked-aspect":"free-aspect";
+  return state;
 }
 
 export function changeMediaZOrder(media,id,direction){
@@ -803,7 +844,10 @@ export function updateTextBlockContent(document,target,text){
   return state;
 }
 
-export function applyAdvancedObjectAction(document,target,action){
+export function applyAdvancedObjectAction(document,target,action,{
+  duplicateId="",
+  duplicateOffset=24
+}={}){
   const state=normalizeAdvancedStudioDocument(document);
   if(state.mode!==ADVANCED_MODE)throw new Error("Advanced object actions are available only in Advanced Studio.");
   const type=target?.type;
@@ -814,18 +858,38 @@ export function applyAdvancedObjectAction(document,target,action){
   const id=String(target?.id||"");
   const index=items.findIndex((item)=>String(item.id)===id);
   if(index<0)throw new Error(type==="media"?"Media element not found.":"Text block not found.");
-  const changed=action==="delete"||
+  const changed=action==="delete"||action==="duplicate"||
     action==="bring-forward"&&index<items.length-1||
     action==="send-backward"&&index>0;
   if(!changed){
     return{document:state,changed:false,mutation:null,selection:clone(target)};
   }
-  state.advanced[key]=action==="delete"
-    ?deleteMediaElement(items,id)
-    :changeMediaZOrder(items,id,action);
+  let nextSelection=clone(target);
+  if(action==="duplicate"){
+    const nextId=String(duplicateId||"").trim();
+    if(!nextId)throw new TypeError("A unique duplicate object ID is required.");
+    if(items.some((item)=>String(item.id)===nextId)){
+      throw new Error("The duplicate object ID already exists.");
+    }
+    const source=items[index];
+    const duplicate=constrainAdvancedObjectToBoard({
+      ...clone(source),
+      id:nextId,
+      x:finite(source.x,0)+finite(duplicateOffset,24),
+      y:finite(source.y,0)+finite(duplicateOffset,24),
+      layerIndex:items.length
+    });
+    state.advanced[key]=[...items,duplicate];
+    nextSelection={type,id:nextId};
+  }else{
+    state.advanced[key]=action==="delete"
+      ?deleteMediaElement(items,id)
+      :changeMediaZOrder(items,id,action);
+  }
   const actionLabel={
     "bring-forward":"Bring",
     "send-backward":"Send",
+    duplicate:"Duplicate",
     delete:"Delete"
   }[action];
   return{
@@ -836,7 +900,7 @@ export function applyAdvancedObjectAction(document,target,action){
       history:true,
       undoSteps:1
     },
-    selection:action==="delete"?null:clone(target)
+    selection:action==="delete"?null:nextSelection
   };
 }
 
@@ -1015,8 +1079,37 @@ function objectActionLabel(action){
   return{
     "bring-forward":"Bring forward",
     "send-backward":"Send backward",
+    duplicate:"Duplicate",
     delete:"Delete"
   }[action]||action;
+}
+
+export function renderAdvancedAssetRail(document={},selection=null){
+  const state=normalizeAdvancedStudioDocument(document);
+  if(state.mode!==ADVANCED_MODE)return"";
+  const items=[
+    ...state.advanced.media.map((item)=>({
+      type:"media",
+      id:String(item.id),
+      label:String(item.source?.name||item.kind||"Media asset"),
+      detail:String(item.kind||"media").toUpperCase()
+    })),
+    ...state.advanced.textBlocks.map((item,index)=>({
+      type:"text",
+      id:String(item.id),
+      label:String(item.text||`Text ${index+1}`),
+      detail:"TEXT"
+    }))
+  ];
+  return`<aside class="advanced-asset-rail" aria-label="Timeline assets" data-advanced-asset-rail>
+    <div class="advanced-asset-rail-heading"><strong>Assets</strong><span>${items.length}</span></div>
+    ${items.length
+      ?`<div class="advanced-asset-rail-list">${items.map((item)=>{
+        const selected=selection?.type===item.type&&String(selection?.id)===item.id;
+        return`<button type="button" data-advanced-select-object data-advanced-target-type="${item.type}" data-advanced-target-id="${escapeHtml(item.id)}" aria-pressed="${String(selected)}"><span>${escapeHtml(item.label)}</span><small>${item.detail}</small></button>`;
+      }).join("")}</div>`
+      :'<p class="advanced-asset-rail-empty">Add an image or text block to begin.</p>'}
+  </aside>`;
 }
 
 export function renderAdvancedSelectionControls(document={},{
@@ -1031,8 +1124,11 @@ export function renderAdvancedSelectionControls(document={},{
   const actions=model.actions.length
     ?`<div class="advanced-object-actions" role="toolbar" aria-label="Selected ${escapeHtml(model.target.type)} actions" data-advanced-object-actions${target}>${model.actions.map((action)=>`<button type="button" class="button secondary compact" data-advanced-object-action="${escapeHtml(action)}"${target}>${escapeHtml(objectActionLabel(action))}</button>`).join("")}</div>`
     :"";
+  const aspectLock=model.target.type==="media"
+    ?`<label class="advanced-aspect-lock"><input type="checkbox" data-advanced-aspect-lock${target} ${model.element.aspectLocked!==false?"checked":""}><span>Lock proportions</span></label>`
+    :"";
   if(!model.typography){
-    return`<section class="advanced-selection-controls" data-advanced-selection-controls${target}>${actions}</section>`;
+    return`<section class="advanced-selection-controls" data-advanced-selection-controls${target}>${actions}${aspectLock}</section>`;
   }
   const typography=model.typography;
   const textContent=model.editableText
@@ -1096,7 +1192,7 @@ export function renderBackgroundPanel(document={},{
 export function renderAdvancedStudio(document={},options={}){
   const state=normalizeAdvancedStudioDocument(document);
   if(state.mode!==ADVANCED_MODE)return"";
-  return`${renderInsertStrip(state)}${options.backgroundOpen?renderBackgroundPanel(state,options):""}${renderAdvancedSelectionControls(state,options)}`;
+  return`${renderInsertStrip(state)}<div class="advanced-editor-workspace">${renderAdvancedAssetRail(state,options.selection)}<div class="advanced-editor-panels">${options.backgroundOpen?renderBackgroundPanel(state,options):""}${renderAdvancedSelectionControls(state,options)}</div></div>`;
 }
 
 /*
@@ -1117,6 +1213,11 @@ export function installAdvancedStudio(root,hooks={}){
     target:delegatedTarget(control)
   });
   const click=(event)=>{
+    const selectObject=closest(event.target,"[data-advanced-select-object]");
+    if(selectObject){
+      hooks.onSelectObject?.(delegatedTarget(selectObject),event);
+      return;
+    }
     const action=closest(event.target,"[data-advanced-action]");
     if(action){
       hooks.onAction?.(action.dataset.advancedAction,event);
@@ -1183,6 +1284,15 @@ export function installAdvancedStudio(root,hooks={}){
     const lock=closest(event.target,"[data-layout-lock]");
     if(lock){
       hooks.onLayoutLock?.(!!lock.checked,event);
+      return;
+    }
+    const aspectLock=closest(event.target,"[data-advanced-aspect-lock]");
+    if(aspectLock){
+      hooks.onAspectLock?.(
+        !!aspectLock.checked,
+        delegatedTarget(aspectLock),
+        event
+      );
       return;
     }
     const typography=closest(event.target,"[data-advanced-typography-field]");

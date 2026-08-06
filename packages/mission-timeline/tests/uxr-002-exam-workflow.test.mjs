@@ -61,6 +61,7 @@ test("the canonical systems and supported chip exam types preserve frozen termin
     [
       {id:"usmle-step-1",systemId:"usmle",label:"Step 1"},
       {id:"usmle-step-2-ck",systemId:"usmle",label:"Step 2 CK"},
+      {id:"usmle-step-2-cs",systemId:"usmle",label:"Step 2 CS"},
       {id:"usmle-step-3",systemId:"usmle",label:"Step 3"},
       {id:"comlex-level-1",systemId:"comlex",label:"Level 1"},
       {id:"comlex-level-2-ce",systemId:"comlex",label:"Level 2-CE"},
@@ -85,7 +86,7 @@ test("USMLE and COMLEX activate independently and can both be active",()=>{
   assert.equal(initial.activeSystems.usmle,false,"selection must not mutate caller state");
   assert.deepEqual(
     availableExamChips(usmle).map(({label})=>label),
-    ["+ Add Step 1","+ Add Step 2 CK","+ Add Step 3"]
+    ["+ Add Step 1","+ Add Step 2 CK","+ Add Step 2 CS","+ Add Step 3"]
   );
 
   const both=setExamSystemActive(usmle,EXAM_SYSTEM_IDS.COMLEX,true);
@@ -95,6 +96,7 @@ test("USMLE and COMLEX activate independently and can both be active",()=>{
     [
       "+ Add Step 1",
       "+ Add Step 2 CK",
+      "+ Add Step 2 CS",
       "+ Add Step 3",
       "+ Add Level 1",
       "+ Add Level 2-CE",
@@ -132,14 +134,14 @@ test("only selected, supported exam chips add cards and no card is duplicated",(
   assert.equal(addExam(state,"usmle-step-2-ck").exams.length,1);
 });
 
-test("score and result metadata are primary and ordered above secondary date fields",()=>{
+test("exam metadata preserves study-to-exam-to-result chronology",()=>{
   assert.deepEqual(
     EXAM_CARD_FIELD_ORDER.map(({id,row,priority})=>({id,row,priority})),
     [
-      {id:"result",row:1,priority:"primary"},
-      {id:"score",row:1,priority:"primary"},
-      {id:"examDate",row:2,priority:"secondary"},
-      {id:"studyPeriodStart",row:2,priority:"secondary"}
+      {id:"studyPeriodStart",row:1,priority:"secondary"},
+      {id:"examDate",row:1,priority:"secondary"},
+      {id:"result",row:2,priority:"primary"},
+      {id:"score",row:2,priority:"primary"}
     ]
   );
 
@@ -153,6 +155,10 @@ test("score and result metadata are primary and ordered above secondary date fie
   assert.equal(passFail.score.visible,false);
   assert.equal(passFail.fieldOrder.find(({id})=>id==="score").hidden,true);
   assert.equal(passFail.score.range,null);
+
+  const historical=examCardMetadata("usmle-step-2-cs",EXAM_RESULTS.PASSED);
+  assert.equal(historical.score.visible,false);
+  assert.equal(historical.score.range,null);
 });
 
 test("scored pass/fail results require exact scores while valid nonnumeric result states remain supported",()=>{

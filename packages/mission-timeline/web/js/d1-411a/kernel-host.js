@@ -1,4 +1,5 @@
 import {projectTimelineDocument} from "./domain-visual-adapter.js";
+import {buildImagePdf,canvasJpegPage} from "../export/pdf-writer.js";
 
 const MASTER_URL=(globalThis.D1_TIMELINE_ASSET_URLS?.["presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html"]
   ||new URL("../../presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html",import.meta.url).href)+"?defer=1";
@@ -13,6 +14,26 @@ function escapeAttribute(value){
 }
 
 const FAIL_SOFT_MEDIA_CODES=new Set(["ASSET_LOAD_FAILED","MEDIA_HASH_MISMATCH"]);
+
+export function exportPdfPageDimensions(output={}){
+  if(output?.page?.name==="A4")return Object.freeze({pageWidth:841.89,pageHeight:595.28});
+  return Object.freeze({pageWidth:792,pageHeight:612});
+}
+
+async function pngBlobCanvas(blob){
+  const bitmap=await createImageBitmap(blob);
+  try{
+    const canvas=document.createElement("canvas");
+    canvas.width=bitmap.width;
+    canvas.height=bitmap.height;
+    const context=canvas.getContext("2d",{alpha:false});
+    if(!context)throw new Error("PDF canvas rendering is unavailable.");
+    context.drawImage(bitmap,0,0);
+    return canvas;
+  }finally{
+    bitmap.close?.();
+  }
+}
 
 export function omitFailedMediaFromKernelModel(model,path){
   const normalized=String(path||"");
@@ -594,11 +615,26 @@ export function createD1411AKernelExportAdapter({kernelManager}={}){
         ?2
         :Number(output.width||1920)>1920?2:1;
       let result=await element.exportBoard({
-        format,
-        pixelRatio,
-        pageWidth:792,
-        pageHeight:445.5
+        format:format==="pdf"?"png":format,
+        pixelRatio
       });
+      if(format==="pdf"){
+        const page=exportPdfPageDimensions(output);
+        const canvas=await pngBlobCanvas(result.blob);
+        const blob=await buildImagePdf([
+          await canvasJpegPage(canvas,page)
+        ],{
+          title:String(request?.renderInput?.timeline?.title||"Mission Timeline"),
+          author:"MissionMed Timeline Builder"
+        });
+        result={
+          ...result,
+          format:"pdf",
+          blob,
+          pageWidth:page.pageWidth,
+          pageHeight:page.pageHeight
+        };
+      }
       if(
         result.fingerprint!==expectedFingerprint||
         result.renderId!==expectedRenderId
