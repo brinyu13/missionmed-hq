@@ -14,7 +14,7 @@ const routeFile = path.join(
   'missionmed-storyforge-route.php',
 );
 
-test('WordPress gateway narrowly admits Phase 1 multipart upload and audio DELETE', async (t) => {
+test('WordPress gateway narrowly admits Phase 1 and mentor-note multipart uploads plus audio DELETE', async (t) => {
   const temporary = await mkdtemp(path.join(os.tmpdir(), 'storyforge-gateway-phase1.'));
   t.after(async () => {
     await rm(temporary, { recursive: true, force: true });
@@ -30,6 +30,9 @@ test('WordPress gateway narrowly admits Phase 1 multipart upload and audio DELET
     "  'upload_exact' => mmsfr_is_recording_segment_upload_path('/storyforge/api/recordings/' . $uuid . '/segments'),",
     "  'upload_near_miss' => mmsfr_is_recording_segment_upload_path('/storyforge/api/recordings/' . $uuid . '/finish'),",
     "  'upload_bad_uuid' => mmsfr_is_recording_segment_upload_path('/storyforge/api/recordings/not-a-uuid/segments'),",
+    "  'mentor_upload_exact' => mmsfr_is_mentor_note_audio_upload_path('/storyforge/api/mentor-notes/' . $uuid . '/audio'),",
+    "  'mentor_upload_near_miss' => mmsfr_is_mentor_note_audio_upload_path('/storyforge/api/mentor-notes/' . $uuid . '/playback'),",
+    "  'mentor_upload_bad_uuid' => mmsfr_is_mentor_note_audio_upload_path('/storyforge/api/mentor-notes/not-a-uuid/audio'),",
     "  'delete_exact' => mmsfr_is_audio_delete_path('/storyforge/api/audio/' . $uuid),",
     "  'delete_near_miss' => mmsfr_is_audio_delete_path('/storyforge/api/audio/' . $uuid . '/playback'),",
     "  'multipart_webkit' => mmsfr_is_bounded_multipart_content_type('multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW'),",
@@ -51,6 +54,9 @@ test('WordPress gateway narrowly admits Phase 1 multipart upload and audio DELET
     upload_exact: true,
     upload_near_miss: false,
     upload_bad_uuid: false,
+    mentor_upload_exact: true,
+    mentor_upload_near_miss: false,
+    mentor_upload_bad_uuid: false,
     delete_exact: true,
     delete_near_miss: false,
     multipart_webkit: true,
@@ -67,11 +73,13 @@ test('WordPress gateway source preserves the bounded body and fail-closed contro
   ));
   assert.match(source, /MMSFR_MAX_BODY_BYTES', 6291456/);
   assert.match(source, /mmsfr_is_recording_segment_upload_path/);
+  assert.match(source, /mmsfr_is_mentor_note_audio_upload_path/);
   assert.match(source, /mmsfr_is_audio_delete_path/);
   assert.match(source, /mmsfr_is_bounded_multipart_content_type/);
   assert.match(source, /is_uploaded_file/);
   assert.match(source, /mmsfr_segment_multipart_request/);
-  assert.match(source, /accepts multipart audio only on this route/);
+  assert.match(source, /mmsfr_mentor_note_multipart_request/);
+  assert.match(source, /accepts bounded multipart audio only on this route/);
   assert.match(source, /'redirection'\s*=>\s*0/);
   assert.match(source, /'reject_unsafe_urls'/);
   assert.match(source, /mmsfr_feature_enabled\(\)/);
@@ -110,4 +118,36 @@ test('WordPress gateway reconstructs a binary-safe multipart body without client
   const closing = Buffer.from('--fixed-boundary--\r\n');
   assert.deepEqual(body.subarray(-closing.length), closing);
   assert.equal(body.includes(Buffer.from('client-file-name')), false);
+});
+
+test('WordPress gateway reconstructs the exact mentor-note multipart contract', async (t) => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), 'storyforge-gateway-mentor-body.'));
+  t.after(async () => {
+    await rm(temporary, { recursive: true, force: true });
+  });
+  const probeFile = path.join(temporary, 'probe.php');
+  await writeFile(probeFile, [
+    '<?php',
+    "define( 'ABSPATH', __DIR__ );",
+    'function add_action() {}',
+    'require $argv[1];',
+    '$bytes = "mentor\\x00voice";',
+    "$body = mmsfr_build_mentor_note_multipart_body(array('durationMs' => '7100', 'expectedVersion' => '0', 'mimeType' => 'audio/webm'), $bytes, 'audio/webm', 'fixed-mentor-boundary');",
+    'echo base64_encode($body);',
+    '',
+  ].join('\n'));
+  const result = spawnSync(
+    process.env.STORYFORGE_TEST_PHP || 'php',
+    [probeFile, routeFile],
+    { encoding: 'utf8' },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const body = Buffer.from(result.stdout, 'base64');
+  assert.ok(body.includes(Buffer.from('name="durationMs"\r\n\r\n7100\r\n')));
+  assert.ok(body.includes(Buffer.from('name="expectedVersion"\r\n\r\n0\r\n')));
+  assert.ok(body.includes(Buffer.from('name="mimeType"\r\n\r\naudio/webm\r\n')));
+  assert.ok(body.includes(Buffer.from('name="segment"; filename="segment"\r\n')));
+  assert.ok(body.includes(Buffer.from('mentor\x00voice')));
+  const closing = Buffer.from('--fixed-mentor-boundary--\r\n');
+  assert.deepEqual(body.subarray(-closing.length), closing);
 });

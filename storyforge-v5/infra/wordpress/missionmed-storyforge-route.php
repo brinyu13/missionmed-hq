@@ -859,6 +859,19 @@ function mmsfr_is_recording_segment_upload_path( $path ) {
 }
 
 /**
+ * Return whether a path is the exact B1-511 mentor-note audio upload route.
+ *
+ * @param string $path Request path.
+ * @return bool
+ */
+function mmsfr_is_mentor_note_audio_upload_path( $path ) {
+	return 1 === preg_match(
+		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/mentor-notes/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/audio$#i',
+		$path
+	);
+}
+
+/**
  * Return whether a path is the exact Phase 1 audio deletion route.
  *
  * @param string $path Request path.
@@ -901,6 +914,30 @@ function mmsfr_is_bounded_multipart_content_type( $content_type ) {
 function mmsfr_build_segment_multipart_body( $fields, $bytes, $mime_type, $boundary ) {
 	$body = '';
 	foreach ( array( 'seq', 'durationMs' ) as $name ) {
+		$body .= '--' . $boundary . "\r\n";
+		$body .= 'Content-Disposition: form-data; name="' . $name . "\"\r\n\r\n";
+		$body .= $fields[ $name ] . "\r\n";
+	}
+	$body .= '--' . $boundary . "\r\n";
+	$body .= "Content-Disposition: form-data; name=\"segment\"; filename=\"segment\"\r\n";
+	$body .= 'Content-Type: ' . $mime_type . "\r\n\r\n";
+	$body .= $bytes . "\r\n";
+	$body .= '--' . $boundary . "--\r\n";
+	return $body;
+}
+
+/**
+ * Rebuild the exact B1-511 mentor-note audio form for the upstream API.
+ *
+ * @param array  $fields    Validated scalar fields.
+ * @param string $bytes     Validated audio bytes.
+ * @param string $mime_type Validated audio MIME type.
+ * @param string $boundary  New upstream multipart boundary.
+ * @return string
+ */
+function mmsfr_build_mentor_note_multipart_body( $fields, $bytes, $mime_type, $boundary ) {
+	$body = '';
+	foreach ( array( 'durationMs', 'expectedVersion', 'mimeType' ) as $name ) {
 		$body .= '--' . $boundary . "\r\n";
 		$body .= 'Content-Disposition: form-data; name="' . $name . "\"\r\n\r\n";
 		$body .= $fields[ $name ] . "\r\n";
@@ -987,6 +1024,89 @@ function mmsfr_segment_multipart_request() {
 }
 
 /**
+ * Read and validate the one exact multipart shape used by B1-511 mentor audio.
+ *
+ * @return array{body:string,content_type:string}
+ */
+function mmsfr_mentor_note_multipart_request() {
+	$field_names = array_keys( $_POST );
+	$file_names  = array_keys( $_FILES );
+	sort( $field_names );
+	sort( $file_names );
+	if (
+		array( 'durationMs', 'expectedVersion', 'mimeType' ) !== $field_names
+		|| array( 'segment' ) !== $file_names
+	) {
+		mmsfr_send_error( 400, 'invalid_multipart', 'The mentor audio form is invalid.' );
+	}
+	$duration         = $_POST['durationMs'];
+	$expected_version = $_POST['expectedVersion'];
+	$declared_mime    = strtolower( trim( (string) $_POST['mimeType'] ) );
+	if (
+		! is_string( $duration )
+		|| ! is_string( $expected_version )
+		|| ! is_string( $_POST['mimeType'] )
+		|| 1 !== preg_match( '/^[1-9][0-9]{0,6}$/', $duration )
+		|| 1 !== preg_match( '/^(?:0|[1-9][0-9]{0,18})$/', $expected_version )
+		|| 1 !== preg_match( '#^audio/(?:webm|mp4|ogg|wav)(?:\s*;\s*codecs=[A-Za-z0-9._-]+)?$#', $declared_mime )
+	) {
+		mmsfr_send_error( 400, 'invalid_multipart', 'The mentor audio form is invalid.' );
+	}
+	$file = $_FILES['segment'];
+	if (
+		! is_array( $file )
+		|| UPLOAD_ERR_OK !== ( $file['error'] ?? null )
+		|| ! is_int( $file['size'] ?? null )
+		|| ! is_string( $file['tmp_name'] ?? null )
+		|| ! is_string( $file['type'] ?? null )
+	) {
+		mmsfr_send_error( 400, 'invalid_multipart', 'The mentor audio upload is invalid.' );
+	}
+	if ( $file['size'] <= 0 ) {
+		mmsfr_send_error( 400, 'invalid_audio_size', 'Mentor audio is required.' );
+	}
+	if ( $file['size'] > MMSFR_MAX_BODY_BYTES ) {
+		mmsfr_send_error( 413, 'request_too_large', 'Request exceeds the 6 MB limit.' );
+	}
+	$mime_type = strtolower( trim( $file['type'] ) );
+	if (
+		1 !== preg_match( '#^audio/(?:webm|mp4|ogg|wav)(?:\s*;\s*codecs=[A-Za-z0-9._-]+)?$#', $mime_type )
+		|| $declared_mime !== $mime_type
+	) {
+		mmsfr_send_error( 400, 'invalid_multipart', 'The mentor audio type is invalid.' );
+	}
+	if ( ! is_uploaded_file( $file['tmp_name'] ) || ! is_readable( $file['tmp_name'] ) ) {
+		mmsfr_send_error( 400, 'invalid_multipart', 'The mentor audio upload is invalid.' );
+	}
+	$bytes = file_get_contents( $file['tmp_name'] );
+	if ( ! is_string( $bytes ) || strlen( $bytes ) !== $file['size'] ) {
+		mmsfr_send_error( 400, 'invalid_multipart', 'The mentor audio upload is invalid.' );
+	}
+	try {
+		$boundary = 'mmsfr-' . bin2hex( random_bytes( 18 ) );
+	} catch ( Exception $error ) {
+		mmsfr_send_error( 503, 'origin_unavailable', 'StoryForge is temporarily unavailable.' );
+	}
+	$body = mmsfr_build_mentor_note_multipart_body(
+		array(
+			'durationMs'     => $duration,
+			'expectedVersion' => $expected_version,
+			'mimeType'       => $declared_mime,
+		),
+		$bytes,
+		$mime_type,
+		$boundary
+	);
+	if ( strlen( $body ) > MMSFR_MAX_BODY_BYTES ) {
+		mmsfr_send_error( 413, 'request_too_large', 'Request exceeds the 6 MB limit.' );
+	}
+	return array(
+		'body'         => $body,
+		'content_type' => 'multipart/form-data; boundary=' . $boundary,
+	);
+}
+
+/**
  * Proxy a strict StoryForge API or health request to the pinned origin.
  *
  * @param string $path Request path.
@@ -1051,24 +1171,28 @@ function mmsfr_proxy_request( $path ) {
 			mmsfr_send_error( 403, 'origin_not_allowed', 'This origin is not allowed to call StoryForge.' );
 		}
 	}
-	$is_segment_upload = 'POST' === $method && mmsfr_is_recording_segment_upload_path( $path );
+	$is_segment_upload     = 'POST' === $method && mmsfr_is_recording_segment_upload_path( $path );
+	$is_mentor_audio_upload = 'POST' === $method && mmsfr_is_mentor_note_audio_upload_path( $path );
+	$is_audio_upload       = $is_segment_upload || $is_mentor_audio_upload;
 	if ( in_array( $method, array( 'POST', 'PATCH' ), true ) ) {
 		$content_type = $headers['content-type'] ?? '';
 		$is_json           = 1 === preg_match( '#^application/json(?:\s*;|$)#i', $content_type );
-		$is_multipart      = $is_segment_upload && mmsfr_is_bounded_multipart_content_type( $content_type );
-		if ( ( $is_segment_upload && ! $is_multipart ) || ( ! $is_segment_upload && ! $is_json ) ) {
+		$is_multipart      = $is_audio_upload && mmsfr_is_bounded_multipart_content_type( $content_type );
+		if ( ( $is_audio_upload && ! $is_multipart ) || ( ! $is_audio_upload && ! $is_json ) ) {
 			mmsfr_send_error(
 				415,
 				'unsupported_content_type',
-				$is_segment_upload
-					? 'StoryForge accepts multipart audio only on this route.'
+				$is_audio_upload
+					? 'StoryForge accepts bounded multipart audio only on this route.'
 					: 'StoryForge accepts JSON requests only.'
 			);
 		}
 	}
 	$request_body = '';
-	if ( $is_segment_upload && isset( $is_multipart ) && $is_multipart ) {
-		$multipart              = mmsfr_segment_multipart_request();
+	if ( $is_audio_upload && isset( $is_multipart ) && $is_multipart ) {
+		$multipart              = $is_mentor_audio_upload
+			? mmsfr_mentor_note_multipart_request()
+			: mmsfr_segment_multipart_request();
 		$request_body           = $multipart['body'];
 		$headers['content-type'] = $multipart['content_type'];
 	} elseif ( in_array( $method, array( 'POST', 'PATCH' ), true ) ) {
