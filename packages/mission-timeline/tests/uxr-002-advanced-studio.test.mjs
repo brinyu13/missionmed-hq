@@ -55,6 +55,7 @@ import {
   resizeMediaElement,
   sampleEyeDropper,
   scrimCss,
+  snapAdvancedObjectToBoard,
   setBackgroundDim,
   setLayoutLock,
   setMediaAspectLock,
@@ -427,6 +428,24 @@ test("media moves freely and corner resizing is aspect-locked unless Shift is he
   assert.equal(free.resizeGesture,"free-aspect");
 });
 
+test("movable Advanced objects snap only to board edges and centers within a bounded threshold",()=>{
+  const center=snapAdvancedObjectToBoard({x:795,y:449,width:320,height:180});
+  assert.equal(center.element.x,800);
+  assert.equal(center.element.y,450);
+  assert.deepEqual(center.guides,{
+    vertical:{position:960,target:"horizontal-center"},
+    horizontal:{position:540,target:"vertical-center"}
+  });
+  const edges=snapAdvancedObjectToBoard({x:7,y:889,width:320,height:180});
+  assert.equal(edges.element.x,0);
+  assert.equal(edges.element.y,900);
+  assert.equal(edges.guides.vertical.target,"left-edge");
+  assert.equal(edges.guides.horizontal.target,"bottom-edge");
+  const outside=snapAdvancedObjectToBoard({x:50,y:70,width:320,height:180});
+  assert.deepEqual(outside.guides,{vertical:null,horizontal:null});
+  assert.equal("rotation" in center.element,false);
+});
+
 test("media z-order moves one layer at a time and delete compacts layer indexes",()=>{
   const media=[
     {id:"a",layerIndex:0},
@@ -577,7 +596,10 @@ test("selected text, headline, and media expose only their frozen runtime contro
     environment:{}
   });
   assert.ok(textHtml.includes("data-advanced-selection-controls"));
-  assert.equal((textHtml.match(/data-advanced-action=/g)||[]).length,5);
+  // Five frozen insert-strip actions remain exact; the persistent Uploads
+  // panel contributes the three visual upload tiles required by the editor
+  // steer without adding selection-specific mutations.
+  assert.equal((textHtml.match(/data-advanced-action=/g)||[]).length,8);
   assert.equal((textHtml.match(/data-advanced-object-action=/g)||[]).length,4);
   assert.ok(textHtml.includes("data-advanced-asset-rail"));
   assert.ok(textHtml.includes("A &lt;careful&gt; journey"));
@@ -716,6 +738,15 @@ test("Advanced asset rail, explicit proportion lock, and board collision guard a
   assert.match(rail,/data-advanced-asset-rail/);
   assert.equal((rail.match(/data-advanced-select-object/g)||[]).length,2);
   assert.match(rail,/data-advanced-target-id="text-rail" aria-pressed="true"/);
+  assert.match(rail,/data-media-asset="media-rail"/);
+  assert.match(rail,/data-advanced-drag-asset/);
+  const unplaced=structuredClone(advanced);
+  unplaced.advanced.media[0].placed=false;
+  const uploads=renderAdvancedAssetRail(unplaced,null,{activePanel:"uploads"});
+  assert.match(uploads,/Upload image/);
+  assert.match(uploads,/Upload GIF/);
+  assert.match(uploads,/Upload logo/);
+  assert.match(uploads,/data-media-place="media-rail"/);
 
   const unlocked=setMediaAspectLock(advanced,{type:"media",id:"media-rail"},false);
   assert.equal(unlocked.advanced.media[0].aspectLocked,false);

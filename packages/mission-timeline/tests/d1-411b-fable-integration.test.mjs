@@ -98,6 +98,22 @@ test("D1-411B one kernel manager reuses an identical projection across surfaces"
   assert.match(builder.html,/data-surface="builder"/);
 });
 
+test("D1-411B assigns distinct render revisions to rapid mutations sharing updatedAt",()=>{
+  const manager=createD1411AKernelManager();
+  const first=timeline();
+  first.updatedAt="2031-04-05T12:00:00.000Z";
+  const second=structuredClone(first);
+  second.events[0].title="Medical Degree — updated immediately";
+  const before=manager.render(first,{surface:"edit",audience:"EVERYTHING"});
+  const after=manager.render(second,{surface:"edit",audience:"EVERYTHING"});
+  assert.notEqual(before.projection.model.revision,after.projection.model.revision);
+  assert.notEqual(
+    before.html.match(/data-kernel-token="([^"]+)/)?.[1],
+    undefined
+  );
+  assert.equal(after.projection.model.events[0].t,"Medical Degree — updated immediately");
+});
+
 test("D1-411B empty audience state does not invoke a fallback renderer",()=>{
   const manager=createD1411AKernelManager();
   const document=timeline();
@@ -106,6 +122,17 @@ test("D1-411B empty audience state does not invoke a fallback renderer",()=>{
   assert.equal(rendered.kind,"d1-411a-empty");
   assert.doesNotMatch(rendered.html,/d1-timeline-kernel/);
   assert.match(rendered.html,/No timeline events are visible for this audience/);
+});
+
+test("D1-411B milestone-only timelines render their canonical flag",()=>{
+  const manager=createD1411AKernelManager();
+  const document=timeline();
+  document.events=document.events.filter((event)=>event.eventType==="milestone");
+  const rendered=manager.render(document,{surface:"edit",audience:"EVERYTHING"});
+  assert.equal(rendered.projection.model.events.length,0);
+  assert.equal(rendered.projection.model.flags.length,1);
+  assert.equal(rendered.kind,"d1-411a-kernel");
+  assert.match(rendered.html,/d1-timeline-kernel/);
 });
 
 test("D1-411B active application routes five product surfaces and export through the same kernel",async()=>{
@@ -126,6 +153,33 @@ test("D1-411B kernel host destroys discarded kernels and exports from committed 
   assert.match(source,/format:format==="pdf"\?"png":format/);
   assert.match(source,/buildImagePdf\(\[/);
   assert.doesNotMatch(source,/serializeKeynoteClassicSvg|renderKeynoteClassicBoard/);
+});
+
+test("D1-411B direct presentation editor exposes only implemented handles and persists through the adapter",async()=>{
+  const host=await readFile(new URL("js/d1-411a/kernel-host.js",webRoot),"utf8");
+  const adapter=await readFile(new URL("js/407f-engineering-adapter.js",webRoot),"utf8");
+  assert.match(host,/_applyPresentationOverrides\(childDocument,record\)/);
+  assert.match(host,/for\(const handle of \["w","e"\]\)/);
+  assert.match(host,/marker\.dataset\.handle="se"/);
+  assert.match(host,/data-axis-boundary-index/);
+  assert.match(host,/new CustomEvent\("d1-411a:presentation-gesture"/);
+  assert.match(adapter,/addEventListener\("d1-411a:presentation-gesture",onKernelPresentationGesture\)/);
+  assert.match(adapter,/setAxisSegmentWeights\(range\.document,detail\.segmentWeights\)/);
+  assert.match(adapter,/setColorKeyGeometryPresentationOverride\(store\.document,detail\.geometry\|\|\{\}\)/);
+  assert.match(adapter,/selectedEventId:null,detailsEventId:null,advancedSelection:selection/);
+});
+
+test("D1-411B Advanced object pointer contract shows transient snap guides without rotation",async()=>{
+  const adapter=await readFile(new URL("js/407f-engineering-adapter.js",webRoot),"utf8");
+  const styles=await readFile(new URL("styles/407f-upgrade.css",webRoot),"utf8");
+  assert.match(adapter,/snapAdvancedObjectToBoard\(next,\{/);
+  assert.match(adapter,/dataset\.advancedAlignmentGuides="true"/);
+  assert.match(adapter,/dataset\.advancedAlignmentGuide="vertical"/);
+  assert.match(adapter,/dataset\.advancedAlignmentGuide="horizontal"/);
+  assert.match(adapter,/clearAdvancedAlignmentGuides\(pointer\.svg\)/);
+  assert.match(adapter,/addEventListener\("pointercancel",onAdvancedPointerUp\)/);
+  assert.match(styles,/\[data-advanced-alignment-guide\]/);
+  assert.doesNotMatch(adapter,/advancedPointer[^\n]{0,120}rotat/i);
 });
 
 test("D1-411B server keeps top-level framing denied and allows only the protected same-origin kernel",async()=>{

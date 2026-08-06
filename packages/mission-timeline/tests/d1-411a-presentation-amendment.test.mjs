@@ -7,12 +7,16 @@ const {projectTimelineDocument}=await import(
 );
 const {
   effectiveAxisOverride,
+  effectiveColorKeyGeometry,
   effectiveCategoryKey,
   renderAdvancedPresentationControls,
   resetAxisPresentationOverride,
+  resetColorKeyGeometryPresentationOverride,
   resetCategoryKeyPresentationOverride,
   setAxisPresentationOverride,
-  setCategoryKeyPresentationOverride
+  setAxisSegmentWeights,
+  setCategoryKeyPresentationOverride,
+  setColorKeyGeometryPresentationOverride
 }=await import("../web/js/uxr-002/advanced-studio.js?d1-411a-presentation-amendment");
 const {migrateDocument}=await import("../web/js/uxr-002/store.js?d1-411a-presentation-amendment");
 
@@ -75,6 +79,21 @@ test("D1-411A ongoing events extend to the explicit manual axis end",()=>{
   assert.match(ongoing.date,/Active$/);
 });
 
+test("D1-411A direct axis resizing preserves ordered segments and persists safe relative weights",()=>{
+  const manual=setAxisPresentationOverride(timeline(),{
+    startYear:2018,endYear:2026,includeFuture:true
+  }).document;
+  const ids=["2018","2019","2020","2021","2022","2023","2024","2025","2026","FUTURE"];
+  const result=setAxisSegmentWeights(manual,ids.map((id,index)=>({
+    id,weight:index===3?1.5:index===4?0.5:1
+  })));
+  assert.equal(result.changed,true);
+  assert.deepEqual(effectiveAxisOverride(result.document).segmentWeights,result.document.presentationOverrides.axis.segmentWeights);
+  assert.equal(setAxisSegmentWeights(manual,[{id:"2020",weight:1}]).changed,false);
+  assert.equal(setAxisSegmentWeights(manual,ids.map((id)=>({id,weight:.1}))).changed,false);
+  assert.deepEqual(effectiveCategoryKey(result.document).map(({id})=>id),IDS);
+});
+
 test("D1-411A category override keeps the exact six IDs/order and resets atomically",()=>{
   let source=timeline();
   source=setCategoryKeyPresentationOverride(source,"education",{
@@ -88,6 +107,18 @@ test("D1-411A category override keeps the exact six IDs/order and resets atomica
   assert.deepEqual(model.categoryKey.map(({id,order})=>[id,order]),IDS.map((id,index)=>[id,index]));
   assert.equal(model.events[0].categoryId,"education");
   assert.equal(resetCategoryKeyPresentationOverride(source).document.presentationOverrides.categoryKey,undefined);
+});
+
+test("D1-411A Color Key geometry is board-bounded, persistent, and independently resettable",()=>{
+  const changed=setColorKeyGeometryPresentationOverride(timeline(),{
+    x:1880,y:1060,width:500,height:400
+  });
+  assert.equal(changed.changed,true);
+  assert.deepEqual(effectiveColorKeyGeometry(changed.document),{
+    x:1420,y:680,width:500,height:400
+  });
+  assert.equal(changed.document.presentationOverrides.categoryKey,undefined);
+  assert.equal(resetColorKeyGeometryPresentationOverride(changed.document).document.presentationOverrides.colorKeyGeometry,undefined);
 });
 
 test("D1-411A malformed, duplicated, extra, or reordered overrides fail closed",()=>{
@@ -126,6 +157,7 @@ test("D1-411A store migration preserves explicit presentation overrides exactly"
 test("D1-411A Advanced UI exposes axis and six key controls only in Advanced mode",()=>{
   const advanced=renderAdvancedPresentationControls(timeline());
   assert.match(advanced,/data-axis-override-mode/);
+  assert.match(advanced,/data-color-key-geometry-field="width"/);
   assert.equal((advanced.match(/data-category-key-id=/g)||[]).length,6);
   assert.deepEqual(
     [...advanced.matchAll(/data-category-key-id="([^"]+)"/g)].map((match)=>match[1]),

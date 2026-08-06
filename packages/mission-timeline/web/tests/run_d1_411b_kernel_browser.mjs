@@ -115,6 +115,13 @@ async function kernel(page,surface,{visible=true}={}){
   },{surface,visible},{timeout:12000});
   const state=await locator.evaluate((element)=>({...element.dataset}));
   assert(state.ready==="true"&&state.protectedKernel==="D1-409H-A1",`kernel ${surface} failed: ${JSON.stringify(state)}`);
+  if(state.interactive==="true"){
+    await page.waitForFunction(({surface,visible})=>{
+      const candidates=[...document.querySelectorAll(`d1-timeline-kernel[data-surface="${surface}"]`)];
+      const element=candidates.find((node)=>!visible||!!(node.offsetWidth||node.offsetHeight));
+      return element?.dataset.interactionsReady==="true";
+    },{surface,visible},{timeout:12000});
+  }
   return locator;
 }
 
@@ -312,7 +319,7 @@ for(const persona of personas){
     }
     await hits.first().waitFor({state:"visible",timeout:1200});
     assert(await hits.count()>=7,"Builder interaction proxies are missing");
-    await hits.first().click();
+    await evidence.frame.locator('[data-d1-411a-hit][data-source-object-id="ev-d1-411b-browser-0"]').click();
     await page.waitForTimeout(150);
     const after=await page.evaluate(()=>JSON.stringify(window.D1_407F_ENGINEERING.store.document.events.map(
       ({id,title,categoryId,startDate,endDate})=>({id,title,categoryId,startDate,endDate})
@@ -346,12 +353,16 @@ for(const persona of personas){
     await navigate(page,"canvas");
     const evidence=await kernelEvidence(await kernel(page,"edit"));
     const hits=evidence.frame.locator("[data-d1-411a-hit]");
+    const hitLayerCount=await evidence.frame.locator("[data-d1-411a-hit-layer]").count();
     if(!persona.writable){
+      assert(hitLayerCount===0,`read-only Edit Timeline exposed ${hitLayerCount} interaction overlays`);
       assert(await hits.count()===0,"read-only Edit Timeline exposed proxies");
       assert(await page.locator('[data-screen="canvas"][data-view-only="true"]').count()===1,"read-only Canvas contract missing");
       return"read-only Canvas blocks selection and mutation";
     }
-    await hits.first().click();
+    assert(hitLayerCount===1,`Edit Timeline accumulated ${hitLayerCount} interaction overlays`);
+    await evidence.frame.locator('[data-d1-411a-hit][data-source-object-id="ev-d1-411b-browser-0"]').click();
+    await page.locator('[data-protected-context-toolbar] [data-canvas-action="details"]').click();
     const sheet=page.locator("[data-details-sheet]");
     await sheet.waitFor({state:"visible"});
     const eventId=await sheet.getAttribute("data-event-id");
@@ -373,18 +384,18 @@ for(const persona of personas){
       return"read-only dates and history unchanged";
     }
     const before=await page.evaluate(()=>window.D1_407F_ENGINEERING.store.document.events[0].startDate);
-    let hit=evidence.frame.locator("[data-d1-411a-hit]").first();
+    let hit=evidence.frame.locator('[data-d1-411a-hit][data-source-object-id="ev-d1-411b-browser-0"]');
     await hit.focus();
     await hit.press("Shift+ArrowRight");
     await page.waitForFunction((before)=>window.D1_407F_ENGINEERING.store.document.events[0].startDate!==before,before);
     const moved=await page.evaluate(()=>window.D1_407F_ENGINEERING.store.document.events[0].startDate);
     evidence=await kernelEvidence(await kernel(page,"edit"));
-    hit=evidence.frame.locator("[data-d1-411a-hit]").first();
+    hit=evidence.frame.locator('[data-d1-411a-hit][data-source-object-id="ev-d1-411b-browser-0"]');
     await hit.focus();
     await hit.press("Meta+z");
     await page.waitForFunction((before)=>window.D1_407F_ENGINEERING.store.document.events[0].startDate===before,before);
     evidence=await kernelEvidence(await kernel(page,"edit"));
-    hit=evidence.frame.locator("[data-d1-411a-hit]").first();
+    hit=evidence.frame.locator('[data-d1-411a-hit][data-source-object-id="ev-d1-411b-browser-0"]');
     await hit.focus();
     await hit.press("Meta+Shift+z");
     await page.waitForFunction((moved)=>window.D1_407F_ENGINEERING.store.document.events[0].startDate===moved,moved);
@@ -454,6 +465,7 @@ for(const persona of personas){
 
   await runCheck(persona,"13 · Advanced manual axis and fixed-six color key",async()=>{
     if(!persona.writable)return"read-only persona has no Advanced presentation controls";
+    await page.setViewportSize({width:1440,height:1000});
     await navigate(page,"canvas");
     await page.evaluate(()=>{
       const api=window.D1_407F_ENGINEERING;
@@ -463,6 +475,9 @@ for(const persona of personas){
       api.store.replace(document,{label:"Enter Advanced presentation proof",history:false});
       api.applyDocument();
     });
+    await page.locator('[data-advanced-panel="timeline"]').click();
+    await page.locator('[data-advanced-target-type="axis"]').click();
+    assert((await page.locator("[data-protected-context-toolbar]:visible").textContent()).includes("Year axis"),"axis rail selection left a stale event toolbar");
     const mode=page.locator("[data-axis-override-mode]");
     await mode.waitFor({state:"visible"});
     await mode.selectOption("manual");
@@ -473,13 +488,22 @@ for(const persona of personas){
     let evidence=await kernelEvidence(await kernel(page,"edit"));
     const axisLabels=await evidence.frame.locator("#axis .yseg span").allTextContents();
     assert(axisLabels[0]==="2008",`manual axis did not render 2008: ${axisLabels.join(",")}`);
-    const education=page.locator('[data-category-key-id="education"]');
+    await page.locator('[data-advanced-panel="timeline"]').click();
+    await page.locator('[data-advanced-target-type="color-key"]').click();
+    assert((await page.locator("[data-protected-context-toolbar]:visible").textContent()).includes("Color key"),"Color Key rail selection left a stale event toolbar");
+    let education=page.locator('[data-category-key-id="education"]');
     const fittedLabel="Medical training milestones 2026";
     await education.locator('[data-category-key-field="label"]').fill(fittedLabel);
     await education.locator('[data-category-key-field="label"]').press("Tab");
     await education.locator('[data-category-key-field="color"]').fill("#123abc");
     await education.locator('[data-category-key-field="color"]').press("Tab");
     await page.waitForFunction(()=>window.D1_407F_ENGINEERING.store.document.presentationOverrides?.categoryKey?.[0]?.color==="#123ABC");
+    await page.waitForFunction((label)=>{
+      const host=[...document.querySelectorAll('d1-timeline-kernel[data-surface="edit"]')]
+        .find((node)=>node.offsetWidth||node.offsetHeight);
+      return host?.shadowRoot?.querySelector("iframe")?.contentDocument
+        ?.querySelector("#key .row span")?.textContent===label;
+    },fittedLabel);
     const advancedHost=await kernel(page,"edit");
     evidence=await kernelEvidence(advancedHost);
     const key=await evidence.frame.locator("#key").evaluate((node)=>({
@@ -492,11 +516,14 @@ for(const persona of personas){
     assert(key.labels[0]===fittedLabel,`category label not rendered: ${key.labels[0]}`);
     assert(key.colors[0]==="rgb(18, 58, 188)",`category color not rendered: ${key.colors[0]}`);
     assert(key.sizes[0]==="16px",`long category label did not use deterministic fit: ${key.sizes[0]}`);
+    assert((await page.locator("[data-protected-context-toolbar]:visible").textContent()).includes("Color key"),"Color Key presentation mutation restored a stale event toolbar");
     if(captureDir&&persona.id==="administrator"){
       await page.screenshot({path:`${captureDir}/D1-411A_ADVANCED_CONTROLS.png`,fullPage:true});
       await advancedHost.screenshot({path:`${captureDir}/D1-411A_MANUAL_AXIS_COLOR_KEY_ARTIFACT.png`});
     }
     await page.locator("[data-category-key-reset]").click();
+    await page.locator('[data-advanced-panel="timeline"]').click();
+    await page.locator('[data-advanced-target-type="axis"]').click();
     await page.locator("[data-axis-override-reset]").click();
     await page.waitForFunction(()=>!window.D1_407F_ENGINEERING.store.document.presentationOverrides?.categoryKey&&!window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis);
     evidence=await kernelEvidence(await kernel(page,"edit"));
@@ -504,6 +531,9 @@ for(const persona of personas){
     await mode.selectOption("manual");
     await page.locator('[data-axis-override-field="startYear"]').fill("2008");
     await page.locator('[data-axis-override-field="startYear"]').press("Tab");
+    await page.locator('[data-advanced-panel="timeline"]').click();
+    await page.locator('[data-advanced-target-type="color-key"]').click();
+    education=page.locator('[data-category-key-id="education"]');
     await education.locator('[data-category-key-field="label"]').fill(fittedLabel);
     await education.locator('[data-category-key-field="label"]').press("Tab");
     await education.locator('[data-category-key-field="color"]').fill("#123abc");
@@ -512,7 +542,72 @@ for(const persona of personas){
       window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis?.startYear===2008&&
       window.D1_407F_ENGINEERING.store.document.presentationOverrides?.categoryKey?.[0]?.color==="#123ABC"
     );
-    return{manualAxisStart:2008,fixedCategoryOrder:6,resetRows:5,customStateRestoredForExport:true};
+    evidence=await kernelEvidence(await kernel(page,"edit"));
+    const axisHit=evidence.frame.locator('[data-source-object-id="year-axis"]');
+    await axisHit.click({position:{x:24,y:24}});
+    assert((await page.locator("[data-protected-context-toolbar]:visible").textContent()).includes("Year axis"),"axis selection left a stale event toolbar");
+    const boundary=axisHit.locator('[data-axis-boundary-index="0"]');
+    const boundaryBox=await boundary.boundingBox();
+    assert(boundaryBox,"axis boundary handle is unavailable");
+    await page.evaluate(()=>{
+      window.__d1411aPresentationGestures=[];
+      document.addEventListener("d1-411a:presentation-gesture",(event)=>window.__d1411aPresentationGestures.push(event.detail),{once:true});
+    });
+    await page.mouse.move(boundaryBox.x+boundaryBox.width/2,boundaryBox.y+boundaryBox.height/2);
+    await page.mouse.down();
+    assert(await (await kernel(page,"edit")).evaluate((element)=>element._gesture?.kind==="axis-boundary"),"axis boundary pointerdown did not begin a gesture");
+    await page.mouse.move(boundaryBox.x+boundaryBox.width/2+32,boundaryBox.y+boundaryBox.height/2,{steps:4});
+    assert(await (await kernel(page,"edit")).evaluate((element)=>Array.isArray(element._gesture?.segmentWeights)),"axis boundary pointermove did not preview weights");
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    const axisGestureEvidence=await page.evaluate(()=>({
+      gestures:window.__d1411aPresentationGestures,
+      axis:window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis
+    }));
+    assert(Array.isArray(axisGestureEvidence.axis?.segmentWeights),`direct axis-boundary drag did not persist segment weights: ${JSON.stringify(axisGestureEvidence)}`);
+    evidence=await kernelEvidence(await kernel(page,"edit"));
+    const keyHit=evidence.frame.locator('[data-source-object-id="color-key"]');
+    await keyHit.click({position:{x:80,y:80}});
+    assert((await page.locator("[data-protected-context-toolbar]:visible").textContent()).includes("Color key"),"Color Key selection left a stale event toolbar");
+    const keyBox=await keyHit.boundingBox();
+    assert(keyBox,"Color Key hit target is unavailable");
+    await page.mouse.move(keyBox.x+80,keyBox.y+80);
+    await page.mouse.down();
+    await page.mouse.move(keyBox.x+112,keyBox.y+100,{steps:4});
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    assert(await page.evaluate(()=>Number(window.D1_407F_ENGINEERING.store.document.presentationOverrides?.colorKeyGeometry?.x)>18),"direct Color Key drag did not persist geometry");
+    evidence=await kernelEvidence(await kernel(page,"edit"));
+    const resizeHandle=evidence.frame.locator('[data-source-object-id="color-key"] [data-handle="se"]');
+    const resizeBox=await resizeHandle.boundingBox();
+    assert(resizeBox,"Color Key resize handle is unavailable");
+    const resizeHitProbe=await resizeHandle.evaluate((node)=>{
+      const bounds=node.getBoundingClientRect();
+      const target=node.ownerDocument.elementFromPoint(bounds.left+bounds.width/2,bounds.top+bounds.height/2);
+      return{tag:target?.tagName||null,handle:target?.dataset?.handle||null,source:target?.closest?.("[data-d1-411a-hit]")?.dataset?.sourceObjectId||null};
+    });
+    await page.evaluate(()=>{
+      window.__d1411aPresentationGestures=[];
+      document.addEventListener("d1-411a:presentation-gesture",(event)=>window.__d1411aPresentationGestures.push(event.detail),{once:true});
+    });
+    await page.mouse.move(resizeBox.x+resizeBox.width/2,resizeBox.y+resizeBox.height/2);
+    await page.mouse.down();
+    const resizeGesture=await (await kernel(page,"edit")).evaluate((element)=>element._gesture&&({kind:element._gesture.kind,startX:element._gesture.startX,startY:element._gesture.startY}));
+    assert(resizeGesture?.kind==="color-key-resize",`Color Key resize handle did not begin a resize gesture: ${JSON.stringify({resizeGesture,resizeHitProbe})}`);
+    await page.mouse.move(resizeBox.x+resizeBox.width/2+30,resizeBox.y+resizeBox.height/2+20,{steps:4});
+    assert(await (await kernel(page,"edit")).evaluate((element)=>Number(element._gesture?.nextGeometry?.width)>416),"Color Key pointermove did not preview a wider geometry");
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    const colorKeyResizeEvidence=await page.evaluate(()=>({
+      gestures:window.__d1411aPresentationGestures,
+      geometry:window.D1_407F_ENGINEERING.store.document.presentationOverrides?.colorKeyGeometry
+    }));
+    assert(Number(colorKeyResizeEvidence.geometry?.width)>416,`direct Color Key resize did not persist width: ${JSON.stringify(colorKeyResizeEvidence)}`);
+    return{
+      manualAxisStart:2008,fixedCategoryOrder:6,resetRows:5,
+      directAxisWeights:true,directColorKeyMoveResize:true,staleEventToolbarCleared:true,
+      customStateRestoredForExport:true
+    };
   });
 
   await runCheck(persona,"14 · same-DOM PNG/PDF export and fresh browser errors",async()=>{

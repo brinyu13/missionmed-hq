@@ -258,8 +258,11 @@ function intakeCapability() {
   });
 }
 
-function canvasCapability(tier) {
-  if (tier.id === "tablet") {
+function canvasCapability(tier,viewportWidth) {
+  // A maximized 13-inch Retina Chrome window exposes 983 CSS px after browser
+  // chrome. Preserve the established 900 px tablet contract while keeping the
+  // actual desktop editing surface usable from 960 px upward.
+  if (tier.id === "tablet" && viewportWidth < 960) {
     return freezeDeep({
       functional:true,
       contentMode:"view-only",
@@ -359,7 +362,7 @@ export function buildResponsiveModel({
       home:homeCapability(tier),
       builder:builderCapability(tier),
       intake:intakeCapability(),
-      canvas:canvasCapability(tier),
+      canvas:canvasCapability(tier,viewport.width),
       media:intakeCapability(),
       export:exportCapability(tier)
     }),

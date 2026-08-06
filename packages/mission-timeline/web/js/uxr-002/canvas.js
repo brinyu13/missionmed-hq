@@ -188,7 +188,10 @@ function control(id,label,extra = {}) {
 
 export function canvasResponsiveContract(viewportWidth = 1440) {
   const width = Number.isFinite(Number(viewportWidth)) ? Number(viewportWidth) : 1440;
-  if (width >= 1024) {
+  // A maximized 13-inch Retina Chrome window exposes 983 CSS px after the
+  // browser frame. Keep that real desktop usable without opening editing on
+  // the established 900 px tablet contract.
+  if (width >= 960) {
     return freeze({
       range:"desktop",
       viewOnly:false,
@@ -287,6 +290,8 @@ export function createCanvasState({
     activeAdvisorPinId:null,
     advancedSelection:null,
     advancedTextEdit:null,
+    advancedPanel:"elements",
+    advancedAssetQuery:"",
     contextMenu:null,
     inlineEdit:null,
     toolbarFocus:false,
@@ -1261,6 +1266,25 @@ export function renderContextualToolbar(event,sceneEvent,state) {
   </div>`.replaceAll("<button ","<button tabindex=\"" + focusable + "\" ");
 }
 
+function renderProtectedSelectionToolbar(event,advancedSelection,state){
+  if(!isEditable(state))return"";
+  const labels={
+    axis:"Year axis",
+    "color-key":"Color key",
+    headline:"Timeline title",
+    profile:"Profile card",
+    portrait:"Portrait"
+  };
+  const label=labels[advancedSelection?.type];
+  if(label){
+    return`<div class="canvas-protected-context-toolbar" data-protected-context-toolbar role="toolbar" aria-label="${escapeHtml(label)} controls"><strong>${escapeHtml(label)}</strong><span>Selected · edit in the left panel</span></div>`;
+  }
+  if(event){
+    return`<div class="canvas-protected-context-toolbar" data-protected-context-toolbar role="toolbar" aria-label="${escapeHtml(event.title||"Event")} controls"><strong>${escapeHtml(event.title||"Untitled event")}</strong><button type="button" data-canvas-action="details">Details</button><button type="button" data-canvas-action="duplicate">Duplicate</button><button type="button" data-canvas-action="delete" aria-label="Delete">⌫</button></div>`;
+  }
+  return"";
+}
+
 export function renderCanvasContextMenu(event,state) {
   if (!event || !state.contextMenu || state.contextMenu.eventId !== String(event.id)) return "";
   const items = contextMenuForEvent(event,{mode:"guided"});
@@ -1429,6 +1453,7 @@ export function renderCanvas({
   let board = emptyBoardMarkup(viewState);
   let scene = null;
   let selectedSceneEvent = null;
+  let usingProtectedPresentation=false;
 
   if ((document?.events || []).length) {
     const rendered = renderBoard(document,{
@@ -1453,6 +1478,7 @@ export function renderCanvas({
         ""
       );
     const protectedPresentation=String(rendered.kind||"").startsWith("d1-411a-");
+    usingProtectedPresentation=protectedPresentation;
     const presentation=protectedPresentation
       ?rendered.html
       :interactiveBoardSvg(rendered.svg,scene,viewState);
@@ -1475,6 +1501,8 @@ export function renderCanvas({
     ? String(renderAdvanced(document,{
       backgroundOpen:!!viewState.backgroundOpen,
       activeTab:viewState.backgroundTab,
+      activePanel:viewState.advancedPanel,
+      query:viewState.advancedAssetQuery,
       selection:viewState.advancedSelection
     }) || "")
     : "";
@@ -1493,6 +1521,7 @@ export function renderCanvas({
       ${board}
       ${commentMarkup}
       ${renderContextualToolbar(selected,selectedSceneEvent,viewState)}
+      ${usingProtectedPresentation?renderProtectedSelectionToolbar(selected,viewState.advancedSelection,viewState):""}
       ${renderCanvasContextMenu(selected,viewState)}
     </div>
     <div class="sr-only" aria-live="polite" aria-atomic="true" data-canvas-live>${escapeHtml(viewState.liveAnnouncement)}</div>
@@ -1584,6 +1613,85 @@ export function installCanvas(
   let destroyed = false;
   let pointer = null;
   let effectiveHitFrame=0;
+
+  const copyElementAttributes=(target,source)=>{
+    if(!target?.attributes||!source?.attributes)return;
+    for(const attribute of [...target.attributes]){
+      if(!source.hasAttribute(attribute.name))target.removeAttribute(attribute.name);
+    }
+    for(const attribute of [...source.attributes]){
+      target.setAttribute(attribute.name,attribute.value);
+    }
+  };
+
+  const patchPersistentCanvas=(markup)=>{
+    if(
+      !globalThis.document?.createElement||
+      !root.querySelector||
+      !root.replaceChildren
+    )return false;
+    const currentScreen=root.querySelector(":scope > .canvas-screen");
+    if(!currentScreen)return false;
+    const template=globalThis.document.createElement("template");
+    template.innerHTML=markup;
+    const nextScreen=template.content.firstElementChild;
+    if(!nextScreen?.matches?.(".canvas-screen"))return false;
+    if(currentScreen.dataset.mode!==nextScreen.dataset.mode)return false;
+    const currentStage=currentScreen.querySelector(":scope > .canvas-stage");
+    const nextStage=nextScreen.querySelector(":scope > .canvas-stage");
+    const currentApplication=currentStage?.querySelector(":scope > .canvas-application");
+    const nextApplication=nextStage?.querySelector(":scope > .canvas-application");
+    const currentKernel=currentApplication?.querySelector(":scope > d1-timeline-kernel");
+    const nextKernel=nextApplication?.querySelector(":scope > d1-timeline-kernel");
+    if(
+      !currentStage||!nextStage||!currentApplication||!nextApplication||
+      !currentKernel||!nextKernel||
+      currentKernel.dataset.kernelToken!==nextKernel.dataset.kernelToken
+    )return false;
+
+    copyElementAttributes(currentScreen,nextScreen);
+    copyElementAttributes(currentStage,nextStage);
+    copyElementAttributes(currentApplication,nextApplication);
+
+    for(const child of [...currentApplication.children]){
+      if(child!==currentKernel)child.remove();
+    }
+    for(const child of [...nextApplication.children]){
+      if(child!==nextKernel)currentApplication.append(child);
+    }
+
+    for(const child of [...currentStage.children]){
+      if(child!==currentApplication)child.remove();
+    }
+    for(const child of [...nextStage.children]){
+      if(child!==nextApplication)currentStage.append(child);
+    }
+
+    const nextStageIndex=[...nextScreen.children].indexOf(nextStage);
+    for(const child of [...currentScreen.children]){
+      if(child!==currentStage)child.remove();
+    }
+    [...nextScreen.children].forEach((child,index)=>{
+      if(child===nextStage)return;
+      if(index<nextStageIndex)currentScreen.insertBefore(child,currentStage);
+      else currentScreen.append(child);
+    });
+    Promise.resolve(currentKernel.updateProjection?.()).catch((error)=>{
+      currentKernel.dataset.error=String(error?.code||error?.message||error);
+      currentKernel.dataset.errorMessage=String(error?.message||error);
+      currentKernel.dispatchEvent?.(new CustomEvent("d1-411a:error",{
+        bubbles:true,
+        composed:true,
+        detail:{surface:currentKernel.dataset.surface,error}
+      }));
+      console.error(
+        "Persistent Timeline canvas update failed",
+        currentKernel.dataset.lastFailureContext||"",
+        error
+      );
+    });
+    return true;
+  };
 
   const installEffectiveHitTargets=()=>{
     const priorProxies=[...(root.querySelectorAll?.(
@@ -1718,7 +1826,9 @@ export function installCanvas(
       renderCommentLayer,
       renderDetails
     });
-    const commit=()=>{root.innerHTML=markup;};
+    const commit=()=>{
+      if(!patchPersistentCanvas(markup))root.innerHTML=markup;
+    };
     if(animateLayout&&typeof globalThis.document?.startViewTransition==="function"){
       globalThis.document.startViewTransition(commit);
     }else{
@@ -1951,6 +2061,9 @@ export function installCanvas(
       announceResult(undoCanvas(store).announcement);
     } else if (action === "redo") {
       announceResult(redoCanvas(store).announcement);
+    } else if (action === "duplicate"&&state.selectedEventId) {
+      const result=duplicateCanvasEvent(store,state.selectedEventId);
+      setState({...state,selectedEventId:result.event.id,liveAnnouncement:result.announcement});
     } else if (action === "theme") {
       const opening=!state.themeOpen;
       setState(

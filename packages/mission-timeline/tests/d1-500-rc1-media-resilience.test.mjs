@@ -99,6 +99,10 @@ test("RC1 presentation rerender signature ignores non-visual timestamps and save
     timelineRenderSignature({...document,events:[{id:"one",title:"Updated title"}]}),
     before
   );
+  assert.notEqual(
+    timelineRenderSignature({...document,presentationOverrides:{axis:{mode:"manual",startYear:2020,endYear:2028,includeFuture:true}}}),
+    before
+  );
 });
 
 test("RC1 adapter binds production Matrix return and preserves last-good previews",async()=>{

@@ -223,7 +223,10 @@ test("D1-406 recovery wiring preserves 407F visuals while closing keyboard and t
 
   assert.match(adapter,/data-toolbar-item="media"/);
   assert.match(adapter,/mode\.insertAdjacentHTML\("afterend",markup\)/);
-  assert.match(adapter,/text:"Add your text"/);
+  assert.match(
+    adapter,
+    /const text=action==="symbol"[\s\S]*?:"Add your text";/
+  );
   assert.match(adapter,/onAdvancedObjectKeyDown=\(event\)=>/);
   assert.match(adapter,/canvasController\?\.setUiState\(\{liveAnnouncement:message\}\)/);
   assert.match(advancedBoard,/data-advanced-media=.*role="button" tabindex="0"/s);

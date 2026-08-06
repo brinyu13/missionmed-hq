@@ -256,7 +256,10 @@ test("Founder Media uses one local persistence collection and one drag/drop seam
   assert.match(index,/data-open-media-library/);
   assert.match(adapter,/document\.advanced\.media\.push\(\.\.\.additions\)/);
   assert.match(adapter,/application\/x-missionmed-media-id/);
-  assert.match(adapter,/closest\?\.\("#boardWizard, #canvas407F"\)/);
+  assert.match(
+    adapter,
+    /closest\?\.\("#boardWizard, #canvas407F \.canvas-application"\)/
+  );
   assert.match(adapter,/store\.mutateWithBlobs/);
   assert.match(adapter,/store\.adapter\.deleteBlob/);
   assert.match(adapter,/private-media-retirement:/);

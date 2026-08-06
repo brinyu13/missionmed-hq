@@ -26,6 +26,10 @@ export const PRESENTATION_CATEGORY_DEFAULTS=freezeDeep([
   {id:"research",label:"Research",color:"#C9A227"},
   {id:"personal",label:"Personal (Not on CV)",color:"#8A5BBF"}
 ]);
+export const COLOR_KEY_GEOMETRY_DEFAULT=freezeDeep({x:18,y:300,width:416,height:322});
+export const COLOR_KEY_GEOMETRY_LIMITS=freezeDeep({
+  boardWidth:1920,boardHeight:1080,minWidth:300,minHeight:240,maxWidth:760,maxHeight:720
+});
 
 export const ADVANCED_ENTRY_DIALOG=freezeDeep({
   id:"advanced-studio-entry",
@@ -65,6 +69,54 @@ export const ADVANCED_INSERT_STRIP=freezeDeep([
   {kind:"divider",id:"advanced-insert-divider"},
   {kind:"toggle",id:"layout-lock",label:"Layout lock"}
 ]);
+
+export const ADVANCED_EDITOR_PANELS=freezeDeep([
+  {id:"elements",label:"Elements",icon:"◇"},
+  {id:"uploads",label:"Uploads",icon:"↑"},
+  {id:"photos",label:"Photos",icon:"▧"},
+  {id:"logos",label:"Logos",icon:"◆"},
+  {id:"text",label:"Text",icon:"T"},
+  {id:"backgrounds",label:"Backgrounds",icon:"▨"},
+  {id:"brand",label:"Brand",icon:"M"},
+  {id:"shapes",label:"Shapes",icon:"●"},
+  {id:"icons",label:"Icons",icon:"✦"},
+  {id:"flags",label:"Flags",icon:"⚑"},
+  {id:"timeline",label:"Timeline",icon:"↔"}
+]);
+
+const VISUAL_INSERT_ASSETS=freezeDeep({
+  elements:[
+    {id:"image",label:"Image",symbol:"▧",action:"image"},
+    {id:"text",label:"Text",symbol:"T",action:"text"},
+    {id:"background",label:"Background",symbol:"▨",action:"background"}
+  ],
+  uploads:[
+    {id:"image",label:"Upload image",symbol:"▧",action:"image"},
+    {id:"gif",label:"Upload GIF",symbol:"GIF",action:"gif"},
+    {id:"logo",label:"Upload logo",symbol:"◆",action:"logo"}
+  ],
+  photos:[{id:"photo",label:"Upload photo",symbol:"▧",action:"image"}],
+  logos:[{id:"logo",label:"Upload logo",symbol:"◆",action:"logo"}],
+  text:[
+    {id:"heading",label:"Add a heading",symbol:"H",action:"symbol",value:"Add a heading"},
+    {id:"body",label:"Add body text",symbol:"T",action:"symbol",value:"Add body text"}
+  ],
+  brand:[{id:"missionmed",label:"MissionMed logo",symbol:"MM",action:"logo"}],
+  shapes:[
+    {id:"circle",label:"Circle",symbol:"●",action:"symbol",value:"●"},
+    {id:"square",label:"Square",symbol:"■",action:"symbol",value:"■"},
+    {id:"line",label:"Divider",symbol:"━",action:"symbol",value:"━━━━━━━━"}
+  ],
+  icons:[
+    {id:"star",label:"Star",symbol:"★",action:"symbol",value:"★"},
+    {id:"heart",label:"Heart",symbol:"♥",action:"symbol",value:"♥"},
+    {id:"sparkle",label:"Sparkle",symbol:"✦",action:"symbol",value:"✦"}
+  ],
+  flags:[
+    {id:"us",label:"United States",symbol:"🇺🇸",action:"symbol",value:"🇺🇸"},
+    {id:"milestone",label:"Milestone flag",symbol:"⚑",action:"symbol",value:"⚑"}
+  ]
+});
 
 export const BACKGROUND_TABS=freezeDeep(["Presets","Upload","Color"]);
 
@@ -285,7 +337,19 @@ export function effectiveAxisOverride(document={}){
   if(value?.mode!=="manual")return null;
   const startYear=Number(value.startYear),endYear=Number(value.endYear);
   if(!Number.isInteger(startYear)||!Number.isInteger(endYear)||startYear<1900||endYear>2200||startYear>endYear||endYear-startYear>30)return null;
-  return{mode:"manual",startYear,endYear,includeFuture:value.includeFuture!==false};
+  const result={mode:"manual",startYear,endYear,includeFuture:value.includeFuture!==false};
+  const ids=[];
+  for(let year=startYear;year<=endYear;year+=1)ids.push(String(year));
+  if(result.includeFuture)ids.push("FUTURE");
+  if(Array.isArray(value.segmentWeights)&&value.segmentWeights.length===ids.length){
+    const weights=value.segmentWeights.map((item,index)=>({
+      id:String(item?.id||""),weight:Number(item?.weight)
+    }));
+    if(weights.every((item,index)=>item.id===ids[index]&&Number.isFinite(item.weight)&&item.weight>=.25&&item.weight<=8)){
+      result.segmentWeights=weights;
+    }
+  }
+  return result;
 }
 
 export function setAxisPresentationOverride(document={},changes={}){
@@ -305,9 +369,32 @@ export function setAxisPresentationOverride(document={},changes={}){
   }
   next.presentationOverrides={...(next.presentationOverrides||{}),axis:{
     mode:"manual",startYear:candidate.startYear,endYear:candidate.endYear,
-    includeFuture:candidate.includeFuture!==false
+    includeFuture:candidate.includeFuture!==false,
+    ...(Array.isArray(candidate.segmentWeights)?{segmentWeights:clone(candidate.segmentWeights)}:{})
   }};
   return{document:next,changed:true,mutation:{label:"Change year axis",history:true,undoSteps:1}};
+}
+
+export function setAxisSegmentWeights(document={},segmentWeights=[]){
+  const next=normalizeAdvancedStudioDocument(document);
+  if(next.mode!==ADVANCED_MODE)return{document:next,changed:false,error:"Axis editing is available in Advanced Studio."};
+  const prior=effectiveAxisOverride(next);
+  if(!prior)return{document:next,changed:false,error:"Choose a manual year range before resizing year segments."};
+  const ids=[];
+  for(let year=prior.startYear;year<=prior.endYear;year+=1)ids.push(String(year));
+  if(prior.includeFuture)ids.push("FUTURE");
+  const normalized=safeArray(segmentWeights).map((item)=>({
+    id:String(item?.id||""),weight:Number(item?.weight)
+  }));
+  if(normalized.length!==ids.length||!normalized.every((item,index)=>
+    item.id===ids[index]&&Number.isFinite(item.weight)&&item.weight>=.25&&item.weight<=8
+  )){
+    return{document:next,changed:false,error:"Year-segment widths must preserve the current ordered axis and remain within safe bounds."};
+  }
+  next.presentationOverrides={...(next.presentationOverrides||{}),axis:{
+    ...prior,segmentWeights:normalized
+  }};
+  return{document:next,changed:true,mutation:{label:"Resize year axis segments",history:true,undoSteps:1}};
 }
 
 export function resetAxisPresentationOverride(document={}){
@@ -360,6 +447,39 @@ export function resetCategoryKeyPresentationOverride(document={}){
   next.presentationOverrides={...(next.presentationOverrides||{})};
   delete next.presentationOverrides.categoryKey;
   return{document:next,changed:true,mutation:{label:"Reset color key",history:true,undoSteps:1}};
+}
+
+function clampColorKeyGeometry(value={}){
+  const limits=COLOR_KEY_GEOMETRY_LIMITS;
+  const source={...COLOR_KEY_GEOMETRY_DEFAULT,...value};
+  const width=Math.min(limits.maxWidth,Math.max(limits.minWidth,Number(source.width)||COLOR_KEY_GEOMETRY_DEFAULT.width));
+  const height=Math.min(limits.maxHeight,Math.max(limits.minHeight,Number(source.height)||COLOR_KEY_GEOMETRY_DEFAULT.height));
+  const x=Math.min(limits.boardWidth-width,Math.max(0,Number(source.x)||0));
+  const y=Math.min(limits.boardHeight-height,Math.max(0,Number(source.y)||0));
+  return{x:Math.round(x),y:Math.round(y),width:Math.round(width),height:Math.round(height)};
+}
+
+export function effectiveColorKeyGeometry(document={}){
+  const value=document.presentationOverrides?.colorKeyGeometry;
+  if(!value||typeof value!=="object")return null;
+  return clampColorKeyGeometry(value);
+}
+
+export function setColorKeyGeometryPresentationOverride(document={},changes={}){
+  const next=normalizeAdvancedStudioDocument(document);
+  if(next.mode!==ADVANCED_MODE)return{document:next,changed:false,error:"Color-key placement is available in Advanced Studio."};
+  const prior=effectiveColorKeyGeometry(next)||COLOR_KEY_GEOMETRY_DEFAULT;
+  next.presentationOverrides={...(next.presentationOverrides||{}),
+    colorKeyGeometry:clampColorKeyGeometry({...prior,...changes})};
+  return{document:next,changed:true,mutation:{label:"Move or resize color key",history:true,undoSteps:1}};
+}
+
+export function resetColorKeyGeometryPresentationOverride(document={}){
+  const next=normalizeAdvancedStudioDocument(document);
+  if(!next.presentationOverrides?.colorKeyGeometry)return{document:next,changed:false};
+  next.presentationOverrides={...(next.presentationOverrides||{})};
+  delete next.presentationOverrides.colorKeyGeometry;
+  return{document:next,changed:true,mutation:{label:"Reset color-key position",history:true,undoSteps:1}};
 }
 
 export function planModeSwitch(document,targetMode,{clock=()=>new Date()}={}){
@@ -785,6 +905,49 @@ export function moveMediaElement(element,{x,y}={}){
   return{...clone(element),x:finite(x,element?.x||0),y:finite(y,element?.y||0)};
 }
 
+export function snapAdvancedObjectToBoard(element,{
+  boardWidth=1920,
+  boardHeight=1080,
+  threshold=12,
+  visualBounds=null
+}={}){
+  const next=clone(element||{});
+  const bounds=visualBounds&&typeof visualBounds==="object"
+    ?{
+      x:finite(visualBounds.x,finite(next.x,0)),
+      y:finite(visualBounds.y,finite(next.y,0)),
+      width:positive(visualBounds.width,positive(next.width,1)),
+      height:positive(visualBounds.height,positive(next.height,1))
+    }
+    :{
+      x:finite(next.x,0),y:finite(next.y,0),
+      width:positive(next.width,1),height:positive(next.height,1)
+    };
+  const limit=Math.max(0,finite(threshold,12));
+  const nearest=(candidates)=>candidates
+    .filter(({delta})=>Math.abs(delta)<=limit)
+    .sort((left,right)=>Math.abs(left.delta)-Math.abs(right.delta))[0]||null;
+  const vertical=nearest([
+    {delta:-bounds.x,position:0,target:"left-edge"},
+    {delta:boardWidth/2-(bounds.x+bounds.width/2),position:boardWidth/2,target:"horizontal-center"},
+    {delta:boardWidth-(bounds.x+bounds.width),position:boardWidth,target:"right-edge"}
+  ]);
+  const horizontal=nearest([
+    {delta:-bounds.y,position:0,target:"top-edge"},
+    {delta:boardHeight/2-(bounds.y+bounds.height/2),position:boardHeight/2,target:"vertical-center"},
+    {delta:boardHeight-(bounds.y+bounds.height),position:boardHeight,target:"bottom-edge"}
+  ]);
+  if(vertical)next.x=finite(next.x,0)+vertical.delta;
+  if(horizontal)next.y=finite(next.y,0)+horizontal.delta;
+  return{
+    element:next,
+    guides:{
+      vertical:vertical?{position:vertical.position,target:vertical.target}:null,
+      horizontal:horizontal?{position:horizontal.position,target:horizontal.target}:null
+    }
+  };
+}
+
 export function resizeMediaElement(element,{width,height,shiftKey=false}={}){
   const next=clone(element);
   const nextWidth=positive(width,next.width||1);
@@ -1189,32 +1352,70 @@ function objectActionLabel(action){
   }[action]||action;
 }
 
-export function renderAdvancedAssetRail(document={},selection=null){
+function advancedAssetItems(state,panel){
+  const media=state.advanced.media.map((item)=>({
+    type:"media",
+    id:String(item.id),
+    label:String(item.source?.name||item.kind||"Media asset"),
+    detail:String(item.kind||"media").toUpperCase(),
+    kind:String(item.kind||"image"),
+    placed:item.placed!==false
+  }));
+  const text=state.advanced.textBlocks.map((item,index)=>({
+    type:"text",
+    id:String(item.id),
+    label:String(item.text||`Text ${index+1}`),
+    detail:"TEXT",
+    kind:"text"
+  }));
+  if(panel==="uploads")return[...media,...text];
+  if(panel==="photos")return media.filter(({kind})=>kind==="image");
+  if(panel==="logos")return media.filter(({kind})=>kind==="logo");
+  if(panel==="text")return text;
+  if(panel==="elements")return[...media.slice(-6),...text.slice(-4)];
+  return[];
+}
+
+function insertAssetTile(item){
+  return`<button type="button" class="advanced-visual-asset" data-advanced-action="${escapeHtml(item.action)}"${item.value?` data-advanced-symbol="${escapeHtml(item.value)}"`:""} aria-label="${escapeHtml(item.label)}"><span class="advanced-visual-asset-preview" aria-hidden="true">${escapeHtml(item.symbol)}</span><span>${escapeHtml(item.label)}</span></button>`;
+}
+
+export function renderAdvancedToolRail(activePanel="elements"){
+  return`<nav class="advanced-tool-rail" aria-label="Editor tools" data-advanced-tool-rail>${ADVANCED_EDITOR_PANELS.map((panel)=>`<button type="button" data-advanced-panel="${panel.id}" aria-pressed="${String(panel.id===activePanel)}" title="${escapeHtml(panel.label)}"><span aria-hidden="true">${escapeHtml(panel.icon)}</span><small>${escapeHtml(panel.label)}</small></button>`).join("")}</nav>`;
+}
+
+export function renderAdvancedAssetRail(document={},selection=null,{
+  activePanel="elements",
+  query="",
+  resolveObjectUrl=()=>null
+}={}){
   const state=normalizeAdvancedStudioDocument(document);
   if(state.mode!==ADVANCED_MODE)return"";
-  const items=[
-    ...state.advanced.media.map((item)=>({
-      type:"media",
-      id:String(item.id),
-      label:String(item.source?.name||item.kind||"Media asset"),
-      detail:String(item.kind||"media").toUpperCase()
-    })),
-    ...state.advanced.textBlocks.map((item,index)=>({
-      type:"text",
-      id:String(item.id),
-      label:String(item.text||`Text ${index+1}`),
-      detail:"TEXT"
-    }))
-  ];
-  return`<aside class="advanced-asset-rail" aria-label="Timeline assets" data-advanced-asset-rail>
-    <div class="advanced-asset-rail-heading"><strong>Assets</strong><span>${items.length}</span></div>
+  const normalizedQuery=String(query||"").trim().toLowerCase();
+  const items=advancedAssetItems(state,activePanel).filter((item)=>
+    !normalizedQuery||`${item.label} ${item.detail}`.toLowerCase().includes(normalizedQuery)
+  );
+  const inserts=(VISUAL_INSERT_ASSETS[activePanel]||[]).filter((item)=>
+    !normalizedQuery||item.label.toLowerCase().includes(normalizedQuery)
+  );
+  return`<section class="advanced-asset-rail" aria-label="${escapeHtml(activePanel)} assets" data-advanced-asset-rail>
+    <div class="advanced-asset-rail-heading"><strong>${escapeHtml(activePanel)}</strong><span>${items.length+inserts.length}</span></div>
+    <label class="advanced-asset-search"><span class="sr-only">Search ${escapeHtml(activePanel)}</span><input type="search" placeholder="Search ${escapeHtml(activePanel)}" value="${escapeHtml(query)}" data-advanced-asset-search></label>
+    ${inserts.length?`<div class="advanced-visual-asset-grid">${inserts.map(insertAssetTile).join("")}</div>`:""}
     ${items.length
-      ?`<div class="advanced-asset-rail-list">${items.map((item)=>{
+      ?`<div class="advanced-asset-rail-list advanced-visual-asset-grid">${items.map((item)=>{
         const selected=selection?.type===item.type&&String(selection?.id)===item.id;
-        return`<button type="button" data-advanced-select-object data-advanced-target-type="${item.type}" data-advanced-target-id="${escapeHtml(item.id)}" aria-pressed="${String(selected)}"><span>${escapeHtml(item.label)}</span><small>${item.detail}</small></button>`;
+        const url=item.type==="media"?resolveObjectUrl(item.id):"";
+        const preview=url
+          ?`<img src="${escapeHtml(url)}" alt="">`
+          :`<span class="advanced-visual-asset-preview" aria-hidden="true">${item.type==="text"?"T":"▧"}</span>`;
+        const mediaAttributes=item.type==="media"
+          ?` draggable="true" data-advanced-drag-asset data-media-asset="${escapeHtml(item.id)}"${item.placed===false?` data-media-place="${escapeHtml(item.id)}"`:""}`
+          :"";
+        return`<button type="button"${mediaAttributes} data-advanced-select-object data-advanced-target-type="${item.type}" data-advanced-target-id="${escapeHtml(item.id)}" aria-pressed="${String(selected)}">${preview}<span>${escapeHtml(item.label)}</span><small>${item.detail}</small></button>`;
       }).join("")}</div>`
-      :'<p class="advanced-asset-rail-empty">Add an image or text block to begin.</p>'}
-  </aside>`;
+      :(!inserts.length?'<p class="advanced-asset-rail-empty">No matching assets.</p>':"")}
+  </section>`;
 }
 
 export function renderAdvancedSelectionControls(document={},{
@@ -1301,6 +1502,15 @@ export function renderAdvancedPresentationControls(document={}){
   const axis=effectiveAxisOverride(state);
   const key=effectiveCategoryKey(state);
   const customKey=Array.isArray(state.presentationOverrides?.categoryKey);
+  const keyGeometry=effectiveColorKeyGeometry(state)||COLOR_KEY_GEOMETRY_DEFAULT;
+  const customKeyGeometry=!!effectiveColorKeyGeometry(state);
+  const segmentWeights=axis?.segmentWeights||(()=>{
+    if(!axis)return[];
+    const items=[];
+    for(let year=axis.startYear;year<=axis.endYear;year+=1)items.push({id:String(year),weight:1});
+    if(axis.includeFuture)items.push({id:"FUTURE",weight:1});
+    return items;
+  })();
   return`<section class="advanced-presentation-controls" aria-label="Timeline presentation" data-advanced-presentation-controls>
     <div class="advanced-presentation-heading"><div><strong>Year axis &amp; color key</strong><span>Presentation only. Timeline dates and category IDs do not change.</span></div></div>
     <fieldset class="advanced-axis-controls">
@@ -1310,19 +1520,68 @@ export function renderAdvancedPresentationControls(document={}){
       <label><span>End year</span><input type="number" min="1900" max="2200" step="1" value="${axis?.endYear??automatic.endYear}" data-axis-override-field="endYear" ${axis?"":"disabled"}></label>
       <label class="advanced-axis-future"><input type="checkbox" data-axis-override-field="includeFuture" ${axis?.includeFuture!==false?"checked":""} ${axis?"":"disabled"}><span>Include FUTURE</span></label>
       <button type="button" class="button secondary compact" data-axis-override-reset ${axis?"":"disabled"}>Reset automatic axis</button>
+      ${axis?`<div class="advanced-axis-weight-grid" aria-label="Relative year widths">${segmentWeights.map((item)=>`<label><span>${escapeHtml(item.id)}</span><input type="number" min="0.25" max="8" step="0.05" value="${Number(item.weight).toFixed(2)}" data-axis-segment-weight="${escapeHtml(item.id)}"></label>`).join("")}</div><button type="button" class="button secondary compact" data-axis-weight-reset ${axis.segmentWeights?"":"disabled"}>Equalize year widths</button>`:""}
     </fieldset>
     <fieldset class="advanced-category-key-controls">
       <legend>Color key — fixed six-category order</legend>
       <div class="advanced-category-key-grid">${key.map((item)=>`<div class="advanced-category-key-row" data-category-key-id="${item.id}"><span class="advanced-category-key-id">${escapeHtml(item.id)}</span><label><span class="sr-only">${escapeHtml(item.id)} label</span><input type="text" maxlength="32" value="${escapeHtml(item.label)}" data-category-key-field="label"></label><label class="advanced-category-key-color"><span class="sr-only">${escapeHtml(item.id)} color</span><input type="color" value="${item.color}" data-category-key-field="color"><code>${item.color}</code></label></div>`).join("")}</div>
       <button type="button" class="button secondary compact" data-category-key-reset ${customKey?"":"disabled"}>Reset color key</button>
+      <div class="advanced-color-key-geometry" aria-label="Color key position and size">${["x","y","width","height"].map((field)=>`<label><span>${field[0].toUpperCase()+field.slice(1)}</span><input type="number" min="0" max="${field==="x"?1620:field==="y"?840:field==="width"?760:720}" step="1" value="${keyGeometry[field]}" data-color-key-geometry-field="${field}"></label>`).join("")}</div>
+      <button type="button" class="button secondary compact" data-color-key-geometry-reset ${customKeyGeometry?"":"disabled"}>Reset position &amp; size</button>
     </fieldset>
   </section>`;
+}
+
+function renderTimelineAssetPanel(selection){
+  const items=[
+    {type:"axis",id:"axis",label:"Year axis",symbol:"2024 ↔ 2027"},
+    {type:"color-key",id:"color-key",label:"Color key",symbol:"● ● ●"},
+    {type:"profile",id:"profile",label:"Profile card",symbol:"▤"},
+    {type:"portrait",id:"portrait",label:"Portrait",symbol:"◉"},
+    {type:"event",id:"events",label:"Event arrows",symbol:"➜"},
+    {type:"flag",id:"flags",label:"Milestone flags",symbol:"⚑"}
+  ];
+  return`<section class="advanced-asset-rail" data-advanced-asset-rail aria-label="Timeline-specific assets"><div class="advanced-asset-rail-heading"><strong>Timeline</strong><span>${items.length}</span></div><div class="advanced-visual-asset-grid">${items.map((item)=>`<button type="button" class="advanced-visual-asset" data-advanced-select-object data-advanced-target-type="${item.type}" data-advanced-target-id="${item.id}" aria-pressed="${String(selection?.type===item.type)}"><span class="advanced-visual-asset-preview" aria-hidden="true">${item.symbol}</span><span>${item.label}</span></button>`).join("")}</div></section>`;
+}
+
+function renderContextualPresentationControls(document,selection){
+  if(!["axis","color-key"].includes(selection?.type))return"";
+  const full=renderAdvancedPresentationControls(document);
+  if(selection.type==="axis"){
+    const fieldset=full.match(/<fieldset class="advanced-axis-controls">[\s\S]*?<\/fieldset>/)?.[0]||"";
+    return`<section class="advanced-context-panel" data-advanced-context="axis"><header><strong>Year axis</strong><span>Presentation range</span></header>${fieldset}<p>Use the start and end controls to expand or contract the authorized overall range.</p></section>`;
+  }
+  const fieldset=full.match(/<fieldset class="advanced-category-key-controls">[\s\S]*?<\/fieldset>/)?.[0]||"";
+  return`<section class="advanced-context-panel" data-advanced-context="color-key"><header><strong>Color key</strong><span>Fixed six-category identity and order</span></header>${fieldset}<div class="advanced-palette-presets" role="group" aria-label="Harmonious color palettes"><button type="button" data-category-key-palette="missionmed">MissionMed</button><button type="button" data-category-key-palette="coastal">Coastal</button><button type="button" data-category-key-palette="heritage">Heritage</button></div></section>`;
 }
 
 export function renderAdvancedStudio(document={},options={}){
   const state=normalizeAdvancedStudioDocument(document);
   if(state.mode!==ADVANCED_MODE)return"";
-  return`${renderInsertStrip(state)}${renderAdvancedPresentationControls(state)}<div class="advanced-editor-workspace">${renderAdvancedAssetRail(state,options.selection)}<div class="advanced-editor-panels">${options.backgroundOpen?renderBackgroundPanel(state,options):""}${renderAdvancedSelectionControls(state,options)}</div></div>`;
+  const requestedPanel=options.backgroundOpen?"backgrounds":options.activePanel;
+  const activePanel=ADVANCED_EDITOR_PANELS.some(({id})=>id===requestedPanel)
+    ?requestedPanel
+    :"elements";
+  const contextual=renderContextualPresentationControls(state,options.selection)||
+    (["media","text","headline"].includes(options.selection?.type)
+      ?renderAdvancedSelectionControls(state,options)
+      :"");
+  let panel=contextual;
+  if(panel&&["media","text","headline"].includes(options.selection?.type)){
+    panel+=renderAdvancedAssetRail(state,options.selection,{
+      activePanel:"uploads",
+      query:options.query,
+      resolveObjectUrl:options.resolveObjectUrl
+    });
+  }
+  if(!panel&&activePanel==="backgrounds")panel=renderBackgroundPanel(state,{...options,activeTab:options.activeTab||"Presets"});
+  if(!panel&&activePanel==="timeline")panel=renderTimelineAssetPanel(options.selection);
+  if(!panel)panel=renderAdvancedAssetRail(state,options.selection,{
+    activePanel,
+    query:options.query,
+    resolveObjectUrl:options.resolveObjectUrl
+  });
+  return`<aside class="advanced-editor-sidebar" data-advanced-editor-sidebar>${renderAdvancedToolRail(activePanel)}<div class="advanced-content-panel" data-advanced-content-panel>${panel}</div><div class="advanced-legacy-insert-contract" hidden aria-hidden="true">${renderInsertStrip(state)}</div></aside>`;
 }
 
 /*
@@ -1335,7 +1594,7 @@ export function installAdvancedStudio(root,hooks={}){
   const closest=(target,selector)=>target?.closest?.(selector)||null;
   const delegatedTarget=(control)=>{
     const type=String(control?.dataset?.advancedTargetType||"");
-    if(!["media","text","headline"].includes(type))return null;
+    if(!["media","text","headline","axis","color-key","profile","portrait","event","flag"].includes(type))return null;
     return{type,id:String(control?.dataset?.advancedTargetId||type)};
   };
   const colorContext=(control)=>({
@@ -1343,12 +1602,30 @@ export function installAdvancedStudio(root,hooks={}){
     target:delegatedTarget(control)
   });
   const click=(event)=>{
+    const panel=closest(event.target,"[data-advanced-panel]");
+    if(panel){
+      hooks.onPanel?.(String(panel.dataset.advancedPanel||"elements"),event);
+      return;
+    }
+    const palette=closest(event.target,"[data-category-key-palette]");
+    if(palette){
+      hooks.onCategoryKeyPalette?.(String(palette.dataset.categoryKeyPalette||""),event);
+      return;
+    }
     if(closest(event.target,"[data-axis-override-reset]")){
       hooks.onAxisReset?.(event);
       return;
     }
+    if(closest(event.target,"[data-axis-weight-reset]")){
+      hooks.onAxisWeightReset?.(event);
+      return;
+    }
     if(closest(event.target,"[data-category-key-reset]")){
       hooks.onCategoryKeyReset?.(event);
+      return;
+    }
+    if(closest(event.target,"[data-color-key-geometry-reset]")){
+      hooks.onColorKeyGeometryReset?.(event);
       return;
     }
     const selectObject=closest(event.target,"[data-advanced-select-object]");
@@ -1358,7 +1635,7 @@ export function installAdvancedStudio(root,hooks={}){
     }
     const action=closest(event.target,"[data-advanced-action]");
     if(action){
-      hooks.onAction?.(action.dataset.advancedAction,event);
+      hooks.onAction?.(action.dataset.advancedAction,event,action);
       return;
     }
     const objectAction=closest(event.target,"[data-advanced-object-action]");
@@ -1426,12 +1703,22 @@ export function installAdvancedStudio(root,hooks={}){
       hooks.onAxisChange?.({[field]:value},event);
       return;
     }
+    const axisWeight=closest(event.target,"[data-axis-segment-weight]");
+    if(axisWeight){
+      hooks.onAxisWeightChange?.(String(axisWeight.dataset.axisSegmentWeight||""),Number(axisWeight.value),event);
+      return;
+    }
     const categoryField=closest(event.target,"[data-category-key-field]");
     if(categoryField){
       const row=categoryField.closest("[data-category-key-id]");
       const id=String(row?.dataset?.categoryKeyId||"");
       const field=String(categoryField.dataset.categoryKeyField||"");
       hooks.onCategoryKeyChange?.(id,{[field]:String(categoryField.value||"")},event);
+      return;
+    }
+    const colorKeyGeometry=closest(event.target,"[data-color-key-geometry-field]");
+    if(colorKeyGeometry){
+      hooks.onColorKeyGeometryChange?.({[String(colorKeyGeometry.dataset.colorKeyGeometryField||"")]:Number(colorKeyGeometry.value)},event);
       return;
     }
     const upload=closest(event.target,"[data-background-upload]");
@@ -1472,6 +1759,11 @@ export function installAdvancedStudio(root,hooks={}){
     }
   };
   const input=(event)=>{
+    const search=closest(event.target,"[data-advanced-asset-search]");
+    if(search){
+      hooks.onAssetSearch?.(String(search.value||""),event);
+      return;
+    }
     const text=closest(event.target,"[data-advanced-text-content]");
     if(text){
       hooks.onTextContent?.(String(text.value??""),delegatedTarget(text),event);

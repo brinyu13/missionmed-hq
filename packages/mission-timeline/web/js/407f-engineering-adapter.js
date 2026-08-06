@@ -85,13 +85,17 @@ import {
   renderAdvancedStudio,
   renderModeDialog,
   resetAxisPresentationOverride,
+  resetColorKeyGeometryPresentationOverride,
   resetCategoryKeyPresentationOverride,
   resizeMediaElement,
   relativeLuminanceFromRgb,
   sampleEyeDropper,
+  snapAdvancedObjectToBoard,
   setBackgroundDim,
   setAxisPresentationOverride,
+  setAxisSegmentWeights,
   setCategoryKeyPresentationOverride,
+  setColorKeyGeometryPresentationOverride,
   setLayoutLock,
   setMediaAspectLock,
   updateTextBlockContent,
@@ -965,6 +969,7 @@ export function timelineRenderSignature(document){
     studentProfile:document?.studentProfile||null,
     events:document?.events||[],
     advanced:document?.advanced||null,
+    presentationOverrides:document?.presentationOverrides||null,
     interview:document?.metadata?.interview||null,
     specialties:document?.specialties||document?.specialtyVariants||null
   });
@@ -1801,6 +1806,8 @@ export async function boot407FEngineeringAdapter({
     document.getElementById("canvas407F")?.removeEventListener("pointerdown",onAdvancedPointerDown);
     document.removeEventListener("pointermove",onAdvancedPointerMove);
     document.removeEventListener("pointerup",onAdvancedPointerUp);
+    document.removeEventListener("pointercancel",onAdvancedPointerUp);
+    document.querySelectorAll("[data-advanced-alignment-guides]").forEach((node)=>node.remove());
     window.removeEventListener("resize",onCanvasResize);
     document.removeEventListener("d1:407f-rendered",on407FRendered);
     document.removeEventListener("d1:407f-rendered",onRouteRendered);
@@ -1829,6 +1836,7 @@ export async function boot407FEngineeringAdapter({
     document.removeEventListener("drop",onMediaLibraryDrop);
     document.removeEventListener("d1-411a:interaction",onKernelInteraction);
     document.removeEventListener("d1-411a:gesture",onKernelGesture);
+    document.removeEventListener("d1-411a:presentation-gesture",onKernelPresentationGesture);
     document.removeEventListener("d1-411a:command",onKernelCommand);
     document.removeEventListener("d1-411a:media-drop",onKernelMediaDrop);
     document.removeEventListener("click",onSpecialtyVariantClick);
@@ -2119,9 +2127,15 @@ export async function boot407FEngineeringAdapter({
       announceGlobal(`${result.active.name} is now active`);
     });
   };
-  const syncBridgeFromStore=()=>{
+  const syncBridgeStateFromStore=()=>{
     applying=true;
     applyDocumentTo407FState(store.document,bridge.state);
+    lastState=stableState(bridge.state);
+    applying=false;
+  };
+  const syncBridgeFromStore=()=>{
+    syncBridgeStateFromStore();
+    applying=true;
     bridge.renderAll();
     renderSpecialtyVariantBar();
     renderM9BuilderSurfaces();
@@ -2282,7 +2296,7 @@ export async function boot407FEngineeringAdapter({
       if(placed)document.advanced.media=result.media;
     });
     if(!placed)return false;
-    syncBridgeFromStore();
+    syncBridgeStateFromStore();
     renderMediaLibrarySurfaces();
     bridge.toast("Media placed on timeline");
     announceGlobal("Media placed on timeline");
@@ -2579,7 +2593,7 @@ export async function boot407FEngineeringAdapter({
     event.dataTransfer.setData("text/plain",card.dataset.mediaAsset);
   };
   onMediaLibraryDragOver=(event)=>{
-    const target=event.target.closest?.("#boardWizard, #canvas407F");
+    const target=event.target.closest?.("#boardWizard, #canvas407F .canvas-application");
     if(!target||!event.dataTransfer)return;
     const types=[...(event.dataTransfer.types||[])];
     if(!types.includes("application/x-missionmed-media-id"))return;
@@ -2592,13 +2606,13 @@ export async function boot407FEngineeringAdapter({
       .forEach((target)=>target.removeAttribute("data-media-drop-active"));
   };
   onMediaLibraryDragLeave=(event)=>{
-    const target=event.target.closest?.("#boardWizard, #canvas407F");
+    const target=event.target.closest?.("#boardWizard, #canvas407F .canvas-application");
     if(!target||target.contains(event.relatedTarget))return;
     target.removeAttribute("data-media-drop-active");
   };
   onMediaLibraryDragEnd=clearMediaDropTargets;
   onMediaLibraryDrop=(event)=>{
-    const target=event.target.closest?.("#boardWizard, #canvas407F");
+    const target=event.target.closest?.("#boardWizard, #canvas407F .canvas-application");
     if(!target||!event.dataTransfer)return;
     const id=event.dataTransfer.getData("application/x-missionmed-media-id");
     clearMediaDropTargets();
@@ -3555,10 +3569,30 @@ export async function boot407FEngineeringAdapter({
           toolbarFocus:false,
           categoryMenuOpen:false,
           contextMenu:null,
-          detailsEventId:domainId
+          detailsEventId:detail.op==="edit-requested"?domainId:null,
+          advancedSelection:null
         };
         canvasController?.setUiState(next);
-      }else if(detail.op==="edit-requested"){
+      }else{
+        const selectionByObject={
+          "year-axis":{type:"axis",id:"axis"},
+          "color-key":{type:"color-key",id:"color-key"},
+          "title-plaque":{type:"headline",id:"headline"},
+          "profile-sheet":{type:"profile",id:"profile"},
+          "profile-photo-well":{type:"portrait",id:"portrait"}
+        };
+        const selection=selectionByObject[String(detail.objectId||"")]||null;
+        if(detail.op==="select"){
+          canvasController?.setUiState({
+            selectedEventId:null,
+            detailsEventId:null,
+            advancedSelection:selection,
+            advancedPanel:selection?.type==="axis"||selection?.type==="color-key"
+              ?"timeline"
+              :"elements"
+          });
+        }
+        if(detail.op==="edit-requested"){
         if(detail.objectType==="profile"||detail.objectType==="profile-photo"){
           activateBuilderPreviewOwner({ownerKind:"core-profile",ownerId:"profile"});
         }else if(detail.objectType==="logo"){
@@ -3570,6 +3604,7 @@ export async function boot407FEngineeringAdapter({
             (item)=>item?.fields?.builderDomain==="explanation"||item?.eventType==="explanation"
           );
           if(explanation)activateBuilderPreviewOwner({eventId:explanation.id});
+        }
         }
       }
       return;
@@ -3612,12 +3647,40 @@ export async function boot407FEngineeringAdapter({
         :{monthDelta:detail.monthDelta});
       const result=commitCanvasDrag(store,transaction);
       if(result.changed){
-        syncBridgeFromStore();
+        syncBridgeStateFromStore();
         bridge.toast(result.announcement||"Timeline updated");
       }
     }catch(error){
       bridge.toast(String(error?.message||error));
     }
+  };
+  const onKernelPresentationGesture=(event)=>{
+    const detail=event.detail||{};
+    if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
+    let result=null;
+    if(detail.kind==="axis-boundary"){
+      const range=setAxisPresentationOverride(store.document,{
+        startYear:Number(detail.startYear),endYear:Number(detail.endYear),
+        includeFuture:detail.includeFuture!==false
+      });
+      result=range.changed
+        ?setAxisSegmentWeights(range.document,detail.segmentWeights)
+        :range;
+    }else if(detail.kind==="color-key-move"||detail.kind==="color-key-resize"){
+      result=setColorKeyGeometryPresentationOverride(store.document,detail.geometry||{});
+    }
+    if(!result)return;
+    if(result.error){bridge.toast(result.error);return;}
+    if(!result.changed)return;
+    store.replace(result.document,{label:result.mutation?.label||"Change timeline presentation"});
+    syncBridgeStateFromStore();
+    const selection=detail.kind==="axis-boundary"
+      ?{type:"axis",id:"axis"}
+      :{type:"color-key",id:"color-key"};
+    canvasController?.setUiState({
+      selectedEventId:null,detailsEventId:null,advancedSelection:selection,advancedPanel:"timeline"
+    });
+    bridge.toast(detail.kind==="axis-boundary"?"Year widths updated":"Color key updated");
   };
   const onKernelCommand=(event)=>{
     const detail=event.detail||{};
@@ -3632,7 +3695,7 @@ export async function boot407FEngineeringAdapter({
     else if(detail.command==="delete"){
       announcement=deleteCanvasEvent(store,detail.domainId).announcement;
     }else return;
-    syncBridgeFromStore();
+    syncBridgeStateFromStore();
     canvasController?.setUiState((state)=>({
       ...state,
       selectedEventId:detail.command==="delete"?null:state.selectedEventId,
@@ -3649,6 +3712,7 @@ export async function boot407FEngineeringAdapter({
   };
   document.addEventListener("d1-411a:interaction",onKernelInteraction);
   document.addEventListener("d1-411a:gesture",onKernelGesture);
+  document.addEventListener("d1-411a:presentation-gesture",onKernelPresentationGesture);
   document.addEventListener("d1-411a:command",onKernelCommand);
   document.addEventListener("d1-411a:media-drop",onKernelMediaDrop);
   onBuilderPreviewInteraction=(event)=>{
@@ -3801,7 +3865,7 @@ export async function boot407FEngineeringAdapter({
       throw error;
     }
     mediaUrls.set(id,file);
-    syncBridgeFromStore();
+    syncBridgeStateFromStore();
     canvasController?.setUiState({advancedSelection:{type:"media",id}});
   };
   const addAdvancedBackground=async(file)=>{
@@ -3829,7 +3893,7 @@ export async function boot407FEngineeringAdapter({
       throw error;
     }
     mediaUrls.set(id,file);
-    syncBridgeFromStore();
+    syncBridgeStateFromStore();
     if(priorObjectId){
       retireDurableMediaObject(priorObjectId)
         .catch((error)=>bridge.toast(String(error?.message||error)));
@@ -3868,7 +3932,7 @@ export async function boot407FEngineeringAdapter({
       );
     }
     store.replace(result,{label:"Change Advanced typography"});
-    syncBridgeFromStore();
+    syncBridgeStateFromStore();
     canvasController?.setUiState({advancedSelection:target});
   };
   const applyPresentationControlResult=(result)=>{
@@ -3881,9 +3945,16 @@ export async function boot407FEngineeringAdapter({
     // Do not replace the control subtree from inside its own change/blur
     // dispatch. Safari and Chromium can otherwise attempt to continue a
     // native input event against a node the render just detached.
+    const presentationSelection=canvasController?.state?.advancedSelection;
     setTimeout(()=>{
       store.replace(result.document,{label:result.mutation?.label||"Change timeline presentation"});
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
+      if(["axis","color-key"].includes(presentationSelection?.type)){
+        canvasController?.setUiState({
+          selectedEventId:null,detailsEventId:null,
+          advancedSelection:presentationSelection,advancedPanel:"timeline"
+        });
+      }
     },0);
     return true;
   };
@@ -3902,6 +3973,20 @@ export async function boot407FEngineeringAdapter({
     onAxisReset:()=>{
       applyPresentationControlResult(resetAxisPresentationOverride(store.document));
     },
+    onAxisWeightChange:(id,weight)=>{
+      const axis=store.document.presentationOverrides?.axis;
+      if(axis?.mode!=="manual")return;
+      const ids=[];
+      for(let year=Number(axis.startYear);year<=Number(axis.endYear);year+=1)ids.push(String(year));
+      if(axis.includeFuture!==false)ids.push("FUTURE");
+      const prior=new Map((axis.segmentWeights||[]).map((item)=>[String(item.id),Number(item.weight)]));
+      applyPresentationControlResult(setAxisSegmentWeights(store.document,ids.map((segmentId)=>({
+        id:segmentId,weight:segmentId===id?weight:(prior.get(segmentId)||1)
+      }))));
+    },
+    onAxisWeightReset:()=>{
+      applyPresentationControlResult(setAxisPresentationOverride(store.document,{segmentWeights:null}));
+    },
     onCategoryKeyChange:(id,changes)=>{
       applyPresentationControlResult(
         setCategoryKeyPresentationOverride(store.document,id,changes)
@@ -3910,34 +3995,96 @@ export async function boot407FEngineeringAdapter({
     onCategoryKeyReset:()=>{
       applyPresentationControlResult(resetCategoryKeyPresentationOverride(store.document));
     },
-    onSelectObject:(target)=>{
-      if(!target)return;
-      canvasController?.setUiState({advancedSelection:target,advancedTextEdit:null});
-      queueMicrotask(()=>{
-        const escaped=globalThis.CSS?.escape?CSS.escape(target.id):target.id;
-        canvasHost?.querySelector(
-          target.type==="media"
-            ?`[data-advanced-media="${escaped}"]`
-            :`[data-advanced-text="${escaped}"]`
-        )?.focus?.();
+    onColorKeyGeometryChange:(changes)=>{
+      applyPresentationControlResult(
+        setColorKeyGeometryPresentationOverride(store.document,changes)
+      );
+    },
+    onColorKeyGeometryReset:()=>{
+      applyPresentationControlResult(
+        resetColorKeyGeometryPresentationOverride(store.document)
+      );
+    },
+    onPanel:(advancedPanel)=>{
+      canvasController?.setUiState({
+        advancedPanel,
+        advancedAssetQuery:"",
+        advancedSelection:null,
+        advancedTextEdit:null,
+        backgroundOpen:advancedPanel==="backgrounds"
       });
     },
-    onAction:(action)=>{
+    onAssetSearch:(advancedAssetQuery)=>{
+      canvasController?.setUiState({advancedAssetQuery});
+      queueMicrotask(()=>{
+        const field=canvasHost?.querySelector?.("[data-advanced-asset-search]");
+        field?.focus?.();
+        field?.setSelectionRange?.(field.value.length,field.value.length);
+      });
+    },
+    onCategoryKeyPalette:(paletteId)=>{
+      const palettes={
+        missionmed:["#2C6E8F","#3A78C9","#C8641C","#3F9B52","#C9A227","#8A5BBF"],
+        coastal:["#1F6F8B","#4C8CCB","#D4772B","#4F8A6A","#D1A93B","#7656A7"],
+        heritage:["#315B6E","#466F9E","#A95E2A","#4D7A4B","#A4872E","#74518A"]
+      };
+      const colors=palettes[paletteId];
+      if(!colors)return;
+      const ids=["education","exams","clinical","work","research","personal"];
+      let next=store.document;
+      ids.forEach((id,index)=>{
+        const result=setCategoryKeyPresentationOverride(next,id,{color:colors[index]});
+        if(result.changed)next=result.document;
+      });
+      store.replace(next,{label:"Apply color key palette"});
+      syncBridgeStateFromStore();
+      canvasController?.setUiState({
+        selectedEventId:null,detailsEventId:null,
+        advancedSelection:{type:"color-key",id:"color-key"}
+      });
+    },
+    onSelectObject:(target)=>{
+      if(!target)return;
+      canvasController?.setUiState({
+        selectedEventId:null,detailsEventId:null,advancedSelection:target,advancedTextEdit:null
+      });
+      queueMicrotask(()=>{
+        const protectedObjectId={
+          axis:"year-axis",
+          "color-key":"color-key",
+          headline:"title-plaque",
+          profile:"profile-sheet",
+          portrait:"profile-photo-well"
+        }[target.type]||null;
+        const kernel=canvasHost?.querySelector?.(
+          'd1-timeline-kernel[data-surface="edit"]'
+        );
+        if(protectedObjectId)kernel?.selectObject?.(protectedObjectId);
+        const escaped=globalThis.CSS?.escape?CSS.escape(target.id):target.id;
+        const selector=target.type==="media"
+          ?`[data-advanced-media="${escaped}"]`
+          :target.type==="text"
+            ?`[data-advanced-text="${escaped}"]`
+            :`[data-advanced-canonical="${target.type}"]`;
+        canvasHost?.querySelector(selector)?.focus?.();
+      });
+    },
+    onAction:(action,_event,control)=>{
       if(action==="background"){
-        canvasController?.setUiState((state)=>({
-          ...state,
-          backgroundOpen:!state.backgroundOpen
-        }));
-      }else if(action==="text"){
+        canvasController?.setUiState({advancedPanel:"backgrounds",backgroundOpen:true,advancedSelection:null});
+      }else if(action==="text"||action==="symbol"){
         const id=uid("advanced-text");
+        const text=action==="symbol"
+          ?String(control?.dataset?.advancedSymbol||"Add your text")
+          :"Add your text";
         store.mutate("Add text",(document)=>{
           document.advanced.textBlocks.push(createTextBlock({
             id,
-            text:"Add your text",
+            text,
             layerIndex:document.advanced.textBlocks.length
           }));
         });
-        syncBridgeFromStore();
+        syncBridgeStateFromStore();
         canvasController?.setUiState({advancedSelection:{type:"text",id}});
         queueMicrotask(()=>{
           const escaped=globalThis.CSS?.escape?CSS.escape(id):id;
@@ -3965,7 +4112,7 @@ export async function boot407FEngineeringAdapter({
       });
       if(!result.changed)return;
       store.replace(result.document,{label:result.mutation.label});
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
       canvasController?.setUiState({advancedSelection:result.selection});
       if(action==="duplicate"&&target?.type==="media"&&result.selection?.id){
         const duplicateId=result.selection.id;
@@ -3999,7 +4146,7 @@ export async function boot407FEngineeringAdapter({
       if(target?.type!=="media")return;
       const result=setMediaAspectLock(store.document,target,locked);
       store.replace(result,{label:locked?"Lock Media proportions":"Unlock Media proportions"});
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
       canvasController?.setUiState({advancedSelection:target});
       announceGlobal(locked?"Media proportions locked":"Media proportions unlocked");
     },
@@ -4007,7 +4154,7 @@ export async function boot407FEngineeringAdapter({
     onTextContent:(text,target)=>{
       const result=updateTextBlockContent(store.document,target,text);
       store.replace(result,{label:"Edit Advanced text"});
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
       canvasController?.setUiState({advancedSelection:target});
     },
     onBackgroundTab:(backgroundTab)=>canvasController?.setUiState({backgroundTab}),
@@ -4016,7 +4163,7 @@ export async function boot407FEngineeringAdapter({
       store.mutate("Change background",(document)=>{
         document.advanced.background=createPresetBackground(presetId);
       });
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
       if(priorObjectId){
         retireDurableMediaObject(priorObjectId)
           .catch((error)=>bridge.toast(String(error?.message||error)));
@@ -4030,7 +4177,7 @@ export async function boot407FEngineeringAdapter({
       store.mutate("Adjust background readability",(document)=>{
         document.advanced.background=setBackgroundDim(document.advanced.background,dim);
       });
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
     },
     onColor:(color)=>{
       if(!color)return;
@@ -4042,7 +4189,7 @@ export async function boot407FEngineeringAdapter({
           color
         );
       });
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
       if(priorObjectId){
         retireDurableMediaObject(priorObjectId)
           .catch((error)=>bridge.toast(String(error?.message||error)));
@@ -4070,7 +4217,7 @@ export async function boot407FEngineeringAdapter({
       if(!result.changed)return;
       if(result.effects?.rerunAutoArrange)autoArrange(result.document);
       store.replace(result.document,{label:result.mutation.label});
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
     }
   });
   const renderExportPreview=(input)=>{
@@ -4930,7 +5077,10 @@ export async function boot407FEngineeringAdapter({
           );
         }
       }
-      syncBridgeFromStore();
+      // Canvas-only UI state (selection, panels, zoom and transient gestures)
+      // must not ask the legacy bridge to rebuild the active route. Canonical
+      // document mutations already synchronize through their owning hooks and
+      // the store subscription below.
       reflectStoreStatus();
       queueMicrotask(()=>api.dateControls.install(canvasHost));
       canvasSyncing=false;
@@ -4948,7 +5098,8 @@ export async function boot407FEngineeringAdapter({
       renderTheme:(document)=>renderThemePicker(document),
       renderAdvanced:(document,options)=>renderAdvancedStudio(document,{
         ...options,
-        themeSwatches:THEMES_BY_ID[document.theme]
+        themeSwatches:THEMES_BY_ID[document.theme],
+        resolveObjectUrl:(id)=>mediaUrls.get(id)
       }),
       renderCommentLayer:(document,state)=>renderStudentCommentLayer(document,{
         visible:state.commentsOpen,
@@ -4980,7 +5131,7 @@ export async function boot407FEngineeringAdapter({
         store.mutate("Change theme",(document)=>{
           document.theme=themeId;
         });
-        syncBridgeFromStore();
+        syncBridgeStateFromStore();
         bridge.toast("Theme applied");
       },
       onDropReflow:syncCanvasDocument,
@@ -5139,6 +5290,37 @@ export async function boot407FEngineeringAdapter({
       }
     };
     let advancedPointer=null;
+    const clearAdvancedAlignmentGuides=(svg=null)=>{
+      const scope=svg||canvasHost;
+      scope?.querySelectorAll?.("[data-advanced-alignment-guides]")
+        .forEach((node)=>node.remove());
+    };
+    const showAdvancedAlignmentGuides=(svg,guides={})=>{
+      clearAdvancedAlignmentGuides(svg);
+      if(!svg||(!guides.vertical&&!guides.horizontal))return;
+      const layer=document.createElementNS("http://www.w3.org/2000/svg","g");
+      layer.dataset.advancedAlignmentGuides="true";
+      layer.setAttribute("aria-hidden","true");
+      if(guides.vertical){
+        const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+        line.dataset.advancedAlignmentGuide="vertical";
+        line.setAttribute("x1",String(guides.vertical.position));
+        line.setAttribute("x2",String(guides.vertical.position));
+        line.setAttribute("y1","0");
+        line.setAttribute("y2","1080");
+        layer.append(line);
+      }
+      if(guides.horizontal){
+        const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+        line.dataset.advancedAlignmentGuide="horizontal";
+        line.setAttribute("x1","0");
+        line.setAttribute("x2","1920");
+        line.setAttribute("y1",String(guides.horizontal.position));
+        line.setAttribute("y2",String(guides.horizontal.position));
+        layer.append(line);
+      }
+      svg.append(layer);
+    };
     const advancedSourceElement=(type,id,fallback)=>{
       if(!fallback?.hasAttribute?.("data-canvas-effective-hit-proxy"))return fallback;
       const escaped=globalThis.CSS?.escape?CSS.escape(id):id;
@@ -5248,7 +5430,7 @@ export async function boot407FEngineeringAdapter({
         );
         if(index>=0)collection[index]={...collection[index],...clone(next)};
       });
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
       canvasController?.setUiState({
         advancedSelection:{type:object.type,id:object.id}
       });
@@ -5267,6 +5449,17 @@ export async function boot407FEngineeringAdapter({
       const svgBounds=svg?.getBoundingClientRect?.();
       const objectBounds=object.element.getBoundingClientRect?.();
       if(!svgBounds?.width||!svgBounds?.height||!objectBounds)return;
+      clearAdvancedAlignmentGuides(svg);
+      let modelBounds={
+        x:Number(object.item.x||0),y:Number(object.item.y||0),
+        width:Number(object.item.width||1),height:Number(object.item.height||1)
+      };
+      try{
+        const box=object.element.getBBox?.();
+        if(box&&Number.isFinite(box.x)&&Number.isFinite(box.y)&&box.width>0&&box.height>0){
+          modelBounds={x:box.x,y:box.y,width:box.width,height:box.height};
+        }
+      }catch{}
       const resizeZone=Math.max(
         6,
         Math.min(18,objectBounds.width*.25,objectBounds.height*.25)
@@ -5282,6 +5475,11 @@ export async function boot407FEngineeringAdapter({
         startY:event.clientY,
         scaleX:1920/svgBounds.width,
         scaleY:1080/svgBounds.height,
+        svg,
+        visualOffsetX:modelBounds.x-Number(object.item.x||0),
+        visualOffsetY:modelBounds.y-Number(object.item.y||0),
+        visualWidth:modelBounds.width,
+        visualHeight:modelBounds.height,
         original:clone(object.item),
         preview:clone(object.item),
         moved:false
@@ -5317,17 +5515,38 @@ export async function boot407FEngineeringAdapter({
         next=constrainAdvancedObjectToBoard(advancedPointer.type==="media"
           ?moveMediaElement(original,{x,y})
           :{...clone(original),x,y});
+        const snapped=snapAdvancedObjectToBoard(next,{
+          threshold:12,
+          visualBounds:{
+            x:Number(next.x||0)+advancedPointer.visualOffsetX,
+            y:Number(next.y||0)+advancedPointer.visualOffsetY,
+            width:advancedPointer.visualWidth,
+            height:advancedPointer.visualHeight
+          }
+        });
+        next=constrainAdvancedObjectToBoard(snapped.element);
+        showAdvancedAlignmentGuides(advancedPointer.svg,snapped.guides);
         advancedPointer.element.setAttribute("x",String(next.x));
         advancedPointer.element.setAttribute("y",String(next.y));
       }
       advancedPointer.preview=next;
       event.preventDefault();
     };
-    onAdvancedPointerUp=()=>{
+    onAdvancedPointerUp=(event)=>{
       if(!advancedPointer)return;
       const pointer=advancedPointer;
       advancedPointer=null;
+      clearAdvancedAlignmentGuides(pointer.svg);
       delete pointer.element.dataset.advancedDragging;
+      if(event?.type==="pointercancel"){
+        pointer.element.setAttribute("x",String(pointer.original.x));
+        pointer.element.setAttribute("y",String(pointer.original.y));
+        if(pointer.type==="media"){
+          pointer.element.setAttribute("width",String(pointer.original.width));
+          pointer.element.setAttribute("height",String(pointer.original.height));
+        }
+        return;
+      }
       if(!pointer.moved)return;
       store.mutate(
         pointer.kind==="resize"?"Resize Media asset":`Move Advanced ${pointer.type}`,
@@ -5341,7 +5560,7 @@ export async function boot407FEngineeringAdapter({
           if(index>=0)collection[index]={...collection[index],...clone(pointer.preview)};
         }
       );
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
       canvasController?.setUiState({
         advancedSelection:{type:pointer.type,id:pointer.id}
       });
@@ -5355,6 +5574,7 @@ export async function boot407FEngineeringAdapter({
     canvasHost.addEventListener("pointerdown",onAdvancedPointerDown);
     document.addEventListener("pointermove",onAdvancedPointerMove);
     document.addEventListener("pointerup",onAdvancedPointerUp);
+    document.addEventListener("pointercancel",onAdvancedPointerUp);
     onCanvasResize=()=>canvasController?.setResponsiveWidth(window.innerWidth);
     window.addEventListener("resize",onCanvasResize);
     mediaUrls.hydrate(store,store.document,{

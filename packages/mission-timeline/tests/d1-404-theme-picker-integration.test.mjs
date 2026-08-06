@@ -116,7 +116,8 @@ test("theme selection mutates the shared TimelineStore document and then synchro
     /store\.mutate\("Change theme",\s*\(document\)\s*=>\s*\{\s*document\.theme=themeId;\s*\}\)/
   );
   const selection=sourceBetween(canvasInstall,"onSelectTheme:","onDropReflow:");
-  assert.match(selection,/syncBridgeFromStore\(\)/);
+  assert.match(selection,/syncBridgeStateFromStore\(\)/);
+  assert.doesNotMatch(selection,/syncBridgeFromStore\(\)/);
   assert.doesNotMatch(selection,/documentElement|document\.body|classList|dataset|style\./);
 });
 

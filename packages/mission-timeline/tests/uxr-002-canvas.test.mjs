@@ -507,6 +507,8 @@ test("M8 add-event popover contains the shared six-category dataset and adds one
   assert.equal(result.changed,true);
   assert.equal(added.categoryId,"research");
   assert.equal(added.startDate,"2023-08");
+  assert.equal(added.endDate,null);
+  assert.equal(added.eventType,"milestone");
   assert.equal(added.sourceType,"canvas-guided");
   assert.equal(added.fields.builderDomain,"research");
   assert.equal(result.detailsRoute.step,5);
@@ -671,9 +673,12 @@ test("Advanced text opens a genuine on-canvas editor with explicit save and canc
 
 test("M8 tablet and phone Canvas contracts are view-only with the exact banner and no email affordance",() => {
   const desktop = canvasResponsiveContract(1024);
+  const retinaChromeDesktop = canvasResponsiveContract(983);
   const tablet = canvasResponsiveContract(900);
   const phone = canvasResponsiveContract(500);
   assert.equal(desktop.editing,true);
+  assert.equal(retinaChromeDesktop.editing,true);
+  assert.equal(retinaChromeDesktop.range,"desktop");
   assert.deepEqual(
     {
       range:tablet.range,
