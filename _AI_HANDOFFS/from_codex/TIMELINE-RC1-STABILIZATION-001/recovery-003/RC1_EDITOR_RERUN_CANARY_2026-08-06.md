@@ -36,7 +36,12 @@ Status: LIVE CANDIDATE INSTALLED; PARTIAL PRODUCTION CANARY.
 - Authenticated Advanced Studio rendered the approved canvas-first interaction shell and asset rail without a fatal render alert.
 - Anonymous direct-route access returned through the approved Matrix/member-dashboard sign-in path.
 - The active 360 session also loaded the new asset and returned the safe no-visible-events state instead of the former `events[] required` fatal failure.
+- The authorized administrator test identity reached the live Timeline route with `ADMINISTRATOR ACCESS`, unlimited entitlement, and the new immutable asset; no fatal render alert occurred.
+- The authorized active-360 test identity reached Matrix with a visible Timeline entry, then the direct Timeline route with `360 MEMBER ACCESS` and the same new immutable asset.
+- Logout followed by administrator login and a return login to the active-360 identity produced the correct new access context. The active-360 session did not retain administrator access.
 
 ## Preserved blocker
 
 An existing `SYNC CONFLICT — REVIEW` banner was present in the pre-existing concurrent browser state before this rerun and remains unresolved. No conflict copy was chosen, no local document was overwritten, and no user data was modified. This is not counted as a passing save/reload or student workflow. Continue the remaining live journeys from a clean or intentionally reconciled test state.
+
+The conflict was also preserved when the active-360 account entered Edit Timeline after the account-switch check. The access context stayed student-only, and the app used the safe empty-state boundary rather than a fatal renderer replacement. The existing conflict nonetheless prevents production mutations for media, save/reload, and durable-retrieval journeys without a clean controlled fixture or an explicitly selected test-copy resolution.
