@@ -331,3 +331,58 @@ test("authoritative reload preserves pending local edits and records a divergent
   assert.equal((await adapter.get("settings", `remote-conflict:${local.id}`)).serverSnapshot.title, "Older server copy");
   adapter.close();
 });
+
+test("conflict recovery can preserve the local copy and save it on top of the server revision", async () => {
+  let savedSnapshot = null;
+  const adapter = new HybridIndexedDbAdapter({
+    name: `hybrid-reconcile-local-${Date.now()}`,
+    apiClient: {
+      configured: true,
+      async createVersion(_documentId, revision, snapshot) {
+        savedSnapshot = structuredClone(snapshot);
+        assert.equal(revision, 2);
+        return { revision: 3 };
+      },
+    },
+    programId: "program_internal_medicine",
+    remoteSyncConsent: true,
+  });
+  await adapter.open();
+  const local = localRecord("timeline_reconcile_local");
+  local.document.title = "Unsynced local title";
+  await adapter.put("settings", { id: `remote-revision:${local.id}`, documentId: local.id, revision: 1, updatedAt: new Date().toISOString() });
+  await adapter.atomicPut([{ store: "documents", key: local.id, value: local }]);
+  const server = { ...structuredClone(local.document), title: "Newer server title", revision: 2 };
+  await adapter.reconcileAuthoritative([], { documentId: local.id, serverRevision: 2, serverSnapshot: server });
+  const result = await adapter.resolveConflict(local.id, "KEEP_LOCAL");
+  assert.equal(result.pending, 0);
+  assert.equal(savedSnapshot.title, "Unsynced local title");
+  assert.equal(savedSnapshot.revision, 2);
+  assert.equal(await adapter.get("settings", `remote-conflict:${local.id}`), undefined);
+  const recovery = await adapter.get("versions", result.recoveryVersionId);
+  assert.equal(recovery.documentSnapshot.title, "Newer server title");
+  adapter.close();
+});
+
+test("conflict recovery can use the server copy while retaining the local copy as a recovery version", async () => {
+  const adapter = new HybridIndexedDbAdapter({
+    name: `hybrid-reconcile-server-${Date.now()}`,
+    apiClient: { configured: true },
+    programId: "program_internal_medicine",
+    remoteSyncConsent: true,
+  });
+  await adapter.open();
+  const local = localRecord("timeline_reconcile_server");
+  local.document.title = "Unsynced local title";
+  await adapter.put("settings", { id: `remote-revision:${local.id}`, documentId: local.id, revision: 1, updatedAt: new Date().toISOString() });
+  await adapter.atomicPut([{ store: "documents", key: local.id, value: local }]);
+  const server = { ...structuredClone(local.document), title: "Authoritative server title", revision: 2 };
+  await adapter.reconcileAuthoritative([], { documentId: local.id, serverRevision: 2, serverSnapshot: server });
+  const result = await adapter.resolveConflict(local.id, "USE_SERVER");
+  assert.equal(result.pending, 0);
+  assert.equal((await adapter.get("documents", local.id)).document.title, "Authoritative server title");
+  assert.equal((await adapter.pending()).length, 0);
+  const recovery = await adapter.get("versions", result.recoveryVersionId);
+  assert.equal(recovery.documentSnapshot.title, "Unsynced local title");
+  adapter.close();
+});

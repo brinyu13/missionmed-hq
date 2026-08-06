@@ -111,4 +111,8 @@ test("RC1 adapter binds production Matrix return and preserves last-good preview
   assert.match(adapter,/locationObject\.assign\(target\.href\)/);
   assert.match(adapter,/host\.replaceChildren\(\.\.\.next\.childNodes\)/);
   assert.match(adapter,/host\.dataset\.builderPreviewError="true"/);
+  assert.match(adapter,/openSyncConflictRecovery/);
+  assert.match(adapter,/KEEP THIS COPY &amp; SYNC/);
+  assert.match(adapter,/USE LATEST SAVED COPY/);
+  assert.match(adapter,/store\.adapter\.resolveConflict/);
 });

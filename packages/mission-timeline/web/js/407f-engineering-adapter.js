@@ -1280,6 +1280,8 @@ export async function boot407FEngineeringAdapter({
   store.setEntitlement(entitlement);
   let unsubscribeAuthClaims=()=>{};
   let reflectStoreStatus=()=>{};
+  let syncConflictDialog=null;
+  let closeSyncConflictDialog=()=>{};
   let remoteSyncStatus=productionRuntime?.adapter?.getSyncStatus?.()||null;
   const onRemoteSyncStatus=(event)=>{
     remoteSyncStatus=event?.detail||productionRuntime?.adapter?.getSyncStatus?.()||null;
@@ -1700,6 +1702,7 @@ export async function boot407FEngineeringAdapter({
     advisorCleanup();
     clearTimeout(advisorHighlightTimer);
     intakeCleanup();
+    closeSyncConflictDialog();
     mediaUrls.revokeAll();
     unsubscribeStore();
     unsubscribeAuthClaims();
@@ -4359,6 +4362,65 @@ export async function boot407FEngineeringAdapter({
       };
     }
   });
+  closeSyncConflictDialog=()=>{
+    if(!syncConflictDialog)return;
+    if(typeof syncConflictDialog.close==="function"&&syncConflictDialog.open){
+      syncConflictDialog.close();
+    }
+    syncConflictDialog.remove();
+    syncConflictDialog=null;
+  };
+  const openSyncConflictRecovery=async()=>{
+    const conflict=await store.adapter?.getConflict?.(store.document.id);
+    if(!conflict){
+      await store.adapter?.flush?.();
+      return;
+    }
+    closeSyncConflictDialog();
+    const dialog=document.createElement("dialog");
+    dialog.id="timelineSyncConflictRecovery";
+    dialog.setAttribute("aria-labelledby","timelineSyncConflictTitle");
+    dialog.style.cssText="max-width:620px;width:calc(100% - 32px);border:1px solid rgba(100,220,255,.35);border-radius:14px;background:#111827;color:#f8fafc;padding:0;box-shadow:0 24px 80px rgba(0,0,0,.65)";
+    dialog.innerHTML=`<div style="padding:24px">
+      <p style="margin:0 0 8px;color:#6ee7f9;font:700 11px/1.3 var(--num);letter-spacing:.16em">SAVE CONFLICT RECOVERY</p>
+      <h2 id="timelineSyncConflictTitle" style="margin:0 0 12px;font-size:24px">Choose which Timeline to continue with.</h2>
+      <p style="margin:0 0 12px;line-height:1.55;color:#cbd5e1">Another tab or device saved a newer version while this copy still had unsynced changes. Both copies will be preserved in History.</p>
+      <p data-conflict-status role="status" aria-live="polite" style="min-height:22px;margin:0 0 18px;color:#fbbf24"></p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button type="button" class="btnD go" data-conflict-strategy="KEEP_LOCAL">KEEP THIS COPY &amp; SYNC</button>
+        <button type="button" class="btnD alt" data-conflict-strategy="USE_SERVER">USE LATEST SAVED COPY</button>
+        <button type="button" class="btnD alt" data-conflict-cancel>CANCEL</button>
+      </div>
+    </div>`;
+    const status=dialog.querySelector("[data-conflict-status]");
+    const buttons=[...dialog.querySelectorAll("button")];
+    dialog.querySelector("[data-conflict-cancel]").onclick=closeSyncConflictDialog;
+    dialog.querySelectorAll("[data-conflict-strategy]").forEach((button)=>{
+      button.onclick=async()=>{
+        buttons.forEach((item)=>{item.disabled=true;});
+        status.textContent="Preserving both copies and completing recovery…";
+        try{
+          const result=await store.adapter.resolveConflict(
+            store.document.id,
+            button.dataset.conflictStrategy
+          );
+          if(Number(result?.pending||0)>0){
+            throw new Error("Timeline recovery is still syncing. Please try again.");
+          }
+          status.textContent="Recovery complete. Reloading the saved Timeline…";
+          window.location.reload();
+        }catch(error){
+          status.textContent=String(error?.message||error);
+          buttons.forEach((item)=>{item.disabled=false;});
+        }
+      };
+    });
+    document.body.append(dialog);
+    syncConflictDialog=dialog;
+    if(typeof dialog.showModal==="function")dialog.showModal();
+    else dialog.setAttribute("open","");
+    dialog.querySelector("[data-conflict-strategy]")?.focus();
+  };
   reflectStoreStatus=()=>{
     const save=document.getElementById("hudSave");
     if(!save)return;
@@ -4377,6 +4439,26 @@ export async function boot407FEngineeringAdapter({
     }else{
       save.textContent="SAVED JUST NOW";
       save.className="saveState isSaved";
+    }
+    const recoverable=productionRuntime&&remoteState==="CONFLICT"&&
+      typeof store.adapter?.resolveConflict==="function";
+    save.onclick=recoverable?()=>{openSyncConflictRecovery().catch(()=>{});}:null;
+    save.onkeydown=recoverable?(event)=>{
+      if(event.key==="Enter"||event.key===" "){
+        event.preventDefault();
+        openSyncConflictRecovery().catch(()=>{});
+      }
+    }:null;
+    if(recoverable){
+      save.setAttribute("role","button");
+      save.setAttribute("tabindex","0");
+      save.setAttribute("aria-label","Review and resolve Timeline save conflict");
+      save.title="Review and resolve the Timeline save conflict";
+    }else{
+      save.setAttribute("role","status");
+      save.removeAttribute("tabindex");
+      save.setAttribute("aria-label",save.textContent);
+      save.removeAttribute("title");
     }
   };
   let lastStoreRenderSignature=timelineRenderSignature(store.document);

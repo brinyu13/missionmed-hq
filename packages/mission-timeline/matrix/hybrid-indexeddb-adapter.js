@@ -135,6 +135,80 @@ export class HybridIndexedDbAdapter extends IndexedDbAdapter {
     return { state: "CONFLICT", pending: pending.length };
   }
 
+  async getConflict(documentId) {
+    const conflict = await super.get("settings", `remote-conflict:${documentId}`);
+    if (!conflict?.serverSnapshot) return null;
+    const local = await super.get("documents", documentId);
+    if (!local?.document) return null;
+    return structuredClone({
+      documentId,
+      serverRevision: Number(conflict.revision),
+      localDocument: local.document,
+      serverDocument: conflict.serverSnapshot,
+      detectedAt: conflict.updatedAt,
+    });
+  }
+
+  async resolveConflict(documentId, strategy) {
+    if (!["KEEP_LOCAL", "USE_SERVER"].includes(strategy)) {
+      throw Object.assign(new Error("Choose a valid Timeline conflict recovery option."), {
+        code: "CONFLICT_STRATEGY_INVALID",
+      });
+    }
+    const conflict = await this.getConflict(documentId);
+    if (!conflict) {
+      throw Object.assign(new Error("The Timeline conflict is no longer available."), {
+        code: "CONFLICT_NOT_FOUND",
+      });
+    }
+    const now = isoNow();
+    const pending = (await this.pending()).filter((record) => record.documentId === documentId);
+    const recoveryDocument = strategy === "KEEP_LOCAL" ? conflict.serverDocument : conflict.localDocument;
+    const recoveryId = `conflict-recovery:${documentId}:${Date.now()}`;
+    await super.put("versions", {
+      id: recoveryId,
+      documentId,
+      name: strategy === "KEEP_LOCAL"
+        ? "Conflict recovery · server copy"
+        : "Conflict recovery · local copy",
+      kind: "conflict-recovery",
+      createdAt: now,
+      eventCount: Array.isArray(recoveryDocument.events) ? recoveryDocument.events.length : 0,
+      documentSnapshot: structuredClone(recoveryDocument),
+    });
+    for (const record of pending) await super.delete("syncRecords", record.id);
+    await super.put("settings", {
+      id: `remote-revision:${documentId}`,
+      documentId,
+      revision: conflict.serverRevision,
+      updatedAt: now,
+    });
+    await super.delete("settings", `remote-conflict:${documentId}`);
+    if (strategy === "USE_SERVER") {
+      const existing = await super.get("documents", documentId);
+      await super.put("documents", {
+        ...existing,
+        id: documentId,
+        document: structuredClone(conflict.serverDocument),
+        schemaVersion: conflict.serverDocument.schemaVersion,
+        savedAt: now,
+        sequence: Number(conflict.serverDocument.revision || conflict.serverRevision),
+        reason: "CONFLICT_USE_SERVER",
+      });
+      this.report("SYNCED", { documentId, pending: 0, resolution: strategy });
+      return { strategy, pending: 0, recoveryVersionId: recoveryId };
+    }
+    await this.enqueue({
+      operation: "CHECKPOINT",
+      documentId,
+      document: structuredClone(conflict.localDocument),
+      sequence: Date.now(),
+      reason: "CONFLICT_KEEP_LOCAL",
+    });
+    const result = await this.flush();
+    return { strategy, ...result, recoveryVersionId: recoveryId };
+  }
+
   async put(store, value, key = value?.id) {
     const record = await super.put(store, value, key);
     if (store === "versions" && value?.documentSnapshot) {
