@@ -876,7 +876,7 @@ function createObjectUrlRegistry(){
       if(prior)URL.revokeObjectURL(prior);
       urls.delete(key);
     },
-    async hydrate(store,document,{remoteLoader=null}={}){
+    async hydrate(store,document,{remoteLoader=null,onError=()=>{}}={}){
       const advanced=document?.advanced||{};
       const objects=[
         advanced.background?.kind==="upload"
@@ -887,17 +887,21 @@ function createObjectUrlRegistry(){
       let changed=false;
       for(const {id,objectId} of objects){
         if(urls.has(String(id)))continue;
-        let blob=await store.adapter.getBlob(String(id));
-        if(!blob&&objectId&&typeof remoteLoader==="function"){
-          blob=await remoteLoader(String(objectId));
-          if(blob)await store.adapter.putBlob(String(id),blob,{
-            kind:"private-media-cache",
-            objectId:String(objectId),
-            localOnly:false,
-            cachedAt:new Date().toISOString()
-          });
+        try{
+          let blob=await store.adapter.getBlob(String(id));
+          if(!blob&&objectId&&typeof remoteLoader==="function"){
+            blob=await remoteLoader(String(objectId));
+            if(blob)await store.adapter.putBlob(String(id),blob,{
+              kind:"private-media-cache",
+              objectId:String(objectId),
+              localOnly:false,
+              cachedAt:new Date().toISOString()
+            });
+          }
+          if(blob){this.set(id,blob);changed=true;}
+        }catch(error){
+          onError(error,{id:String(id),objectId:String(objectId||"")});
         }
-        if(blob){this.set(id,blob);changed=true;}
       }
       return changed;
     },
@@ -936,14 +940,17 @@ export function remoteSyncPresentation(state){
 }
 
 export function timelineRenderSignature(document){
-  return [
-    document?.id,
-    document?.updatedAt,
-    document?.theme,
-    document?.mode,
-    document?.events?.length,
-    document?.advanced?.media?.length
-  ].map((value)=>String(value??"")).join("|");
+  return JSON.stringify({
+    id:document?.id||"",
+    theme:document?.theme||"",
+    mode:document?.mode||"",
+    title:document?.title||"",
+    studentProfile:document?.studentProfile||null,
+    events:document?.events||[],
+    advanced:document?.advanced||null,
+    interview:document?.metadata?.interview||null,
+    specialties:document?.specialties||document?.specialtyVariants||null
+  });
 }
 
 const MAX_IMAGE_DIMENSION=8192;
@@ -1173,6 +1180,36 @@ function installLocalMatrixAppMode({store,locationObject=window.location}={}){
   window.MMEDTimeline=runtime;
   document.documentElement.dataset.matrixAppMode="local";
   return runtime;
+}
+
+export function installProductionMatrixReturn({store,productionRuntime,locationObject=window.location}={}){
+  const back=document.getElementById("matrixBack");
+  const matrixUrl=productionRuntime?.authClient?.bootstrapState?.matrixUrl;
+  if(!back||!matrixUrl)return null;
+  const target=new URL(matrixUrl,locationObject.href);
+  if(target.origin!==locationObject.origin)throw new Error("Timeline Matrix return target must be same-origin.");
+  back.href=target.href;
+  back.title="Return to Matrix";
+  back.setAttribute("aria-label","Save and return to Matrix dashboard");
+  back.onclick=async(event)=>{
+    event.preventDefault();
+    if(back.dataset.returning==="true")return;
+    back.dataset.returning="true";
+    back.setAttribute("aria-disabled","true");
+    try{
+      await store.flushPendingSave("RETURN_TO_MATRIX");
+      const result=await store.adapter?.flush?.();
+      if(Number(result?.pending||0)>0){
+        throw new Error("Timeline is still syncing. Try returning to Matrix again in a moment.");
+      }
+      locationObject.assign(target.href);
+    }catch(error){
+      back.dataset.returning="false";
+      back.removeAttribute("aria-disabled");
+      window.D1_407F_TEST?.toast?.(String(error?.message||error));
+    }
+  };
+  return Object.freeze({mode:"MATRIX_PRODUCTION",returnUrl:target.href});
 }
 
 export async function boot407FEngineeringAdapter({
@@ -2969,13 +3006,20 @@ export async function boot407FEngineeringAdapter({
     }catch(error){
       bridge.toast(String(error?.message||error));
     }
+    if(!rendered?.html&&host.querySelector("[data-builder-preview-surface]")){
+      host.dataset.builderPreviewError="true";
+      return false;
+    }
     host.dataset.builderPreviewSignature=signature;
-    host.innerHTML=rendered?.html
+    delete host.dataset.builderPreviewError;
+    const next=document.createElement("div");
+    next.innerHTML=rendered?.html
       ?`<div class="builderPreviewSurface" data-builder-preview-surface="${surface}" data-interactive="${interactive}" role="region" aria-label="${interactive
         ?"Interactive timeline preview. Use arrow keys to move between timeline items and Enter to edit."
         :"Timeline preview. Editing is unavailable in read-only access."
       }" data-presentation-kernel="D1-409H-A1">${rendered.html}</div>`
       :`<div class="builderPreviewTrueEmpty" role="status"><strong>Your timeline preview will appear here.</strong><span>Add information in Builder to create the final 16:9 artifact.</span></div>`;
+    host.replaceChildren(...next.childNodes);
     return true;
   };
   const renderBuilderEmbeddedPreview=({force=false}={})=>
@@ -4769,7 +4813,11 @@ export async function boot407FEngineeringAdapter({
     mediaUrls.hydrate(store,store.document,{
       remoteLoader:productionRuntime
         ?(objectId)=>productionRuntime.authClient.downloadPrivateObject(objectId)
-        :null
+        :null,
+      onError:(error,{id})=>{
+        console.warn("Timeline media hydration omitted one asset",{id,error});
+        announceGlobal("One media asset could not be loaded. The rest of your timeline remains available.");
+      }
     })
       .then((changed)=>{
         if(changed)canvasController?.render();
@@ -5147,7 +5195,9 @@ export async function boot407FEngineeringAdapter({
   api.responsive=responsiveRuntime.state;
   onRouteRendered();
 
-  const matrixAppMode=installLocalMatrixAppMode({store});
+  const matrixAppMode=runtimeMode==="production"
+    ?installProductionMatrixReturn({store,productionRuntime})
+    :installLocalMatrixAppMode({store});
   window.D1_407F_ENGINEERING=api;
   bridge.renderAll();
   document.documentElement.classList.remove("d1-hydrating");

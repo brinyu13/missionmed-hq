@@ -292,7 +292,6 @@ export class R2PrivateObjectStore implements PrivateObjectStore {
       Bucket: this.options.bucket,
       Key: record.storageKey,
       ContentType: record.mimeType,
-      ContentLength: record.expectedBytes,
       ChecksumSHA256: checksum,
       Metadata: {
         "object-id": record.id,

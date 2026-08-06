@@ -171,6 +171,22 @@ test("private media rejects a signed transfer URL outside the private R2 endpoin
   client.close();
 });
 
+test("private media reports a bounded network error without leaking the signed URL",async()=>{
+  const client=new TimelineProductionAuthClient({
+    locationObject,
+    documentObject:null,
+    fetchImpl:async()=>{throw new TypeError("Failed to fetch https://signed-secret.invalid");}
+  });
+  await assert.rejects(
+    client.uploadSignedObject({
+      uploadUrl:"https://0123456789abcdef.r2.cloudflarestorage.com/private-upload",
+      expiresAt:new Date(Date.now()+60_000).toISOString()
+    },new Blob(["x"],{type:"image/png"})),
+    (error)=>error.code==="OBJECT_UPLOAD_NETWORK_FAILED"&&
+      !error.message.includes("signed-secret")
+  );
+});
+
 for(const [code,status] of [
   ["canary_access_required",403],
   ["administrator_approval_required",403],

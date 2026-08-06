@@ -186,10 +186,19 @@ export class TimelineProductionAuthClient{
       if(String(name).toLowerCase()==="content-length")continue;
       headers.set(name,String(value));
     }
-    const response=await this.fetchImpl(uploadUrl,{
-      method:"PUT",mode:"cors",credentials:"omit",cache:"no-store",headers,body:blob,
-      signal:AbortSignal.timeout(60_000)
-    });
+    let response;
+    try{
+      response=await this.fetchImpl(uploadUrl,{
+        method:"PUT",mode:"cors",credentials:"omit",cache:"no-store",headers,body:blob,
+        signal:AbortSignal.timeout(60_000)
+      });
+    }catch(error){
+      throw new TimelineProductionAuthError(
+        "OBJECT_UPLOAD_NETWORK_FAILED",
+        "Timeline media could not reach private storage. Your timeline was not changed.",
+        0
+      );
+    }
     if(!response.ok)throw new TimelineProductionAuthError("OBJECT_UPLOAD_FAILED","Timeline media could not be uploaded.",response.status);
     return true;
   }

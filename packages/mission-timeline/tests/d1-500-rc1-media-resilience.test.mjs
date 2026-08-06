@@ -86,7 +86,7 @@ test("RC1 save status distinguishes local durability from remote acknowledgement
   assert.equal(remoteSyncPresentation("CONFLICT").className,"isError");
 });
 
-test("RC1 presentation rerender signature ignores save-status-only emissions",()=>{
+test("RC1 presentation rerender signature ignores non-visual timestamps and save status",()=>{
   const document={
     id:"timeline-rc1",updatedAt:"2026-08-05T12:00:00.000Z",
     theme:"keynote-classic",mode:"guided",events:[{id:"one"}],advanced:{media:[]}
@@ -94,5 +94,21 @@ test("RC1 presentation rerender signature ignores save-status-only emissions",()
   const before=timelineRenderSignature(document);
   const after=timelineRenderSignature({...document,saveStatus:"SYNCING"});
   assert.equal(after,before);
-  assert.notEqual(timelineRenderSignature({...document,updatedAt:"2026-08-05T12:00:01.000Z"}),before);
+  assert.equal(timelineRenderSignature({...document,updatedAt:"2026-08-05T12:00:01.000Z"}),before);
+  assert.notEqual(
+    timelineRenderSignature({...document,events:[{id:"one",title:"Updated title"}]}),
+    before
+  );
+});
+
+test("RC1 adapter binds production Matrix return and preserves last-good previews",async()=>{
+  const adapter=await readFile(
+    new URL("../web/js/407f-engineering-adapter.js",import.meta.url),
+    "utf8"
+  );
+  assert.match(adapter,/installProductionMatrixReturn/);
+  assert.match(adapter,/flushPendingSave\("RETURN_TO_MATRIX"\)/);
+  assert.match(adapter,/locationObject\.assign\(target\.href\)/);
+  assert.match(adapter,/host\.replaceChildren\(\.\.\.next\.childNodes\)/);
+  assert.match(adapter,/host\.dataset\.builderPreviewError="true"/);
 });

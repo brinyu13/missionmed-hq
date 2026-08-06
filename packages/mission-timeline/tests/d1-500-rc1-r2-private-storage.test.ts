@@ -219,6 +219,11 @@ test("private signed PUT, custody confirmation, signed GET, and delete are owner
   assert.doesNotMatch(pending.storageKey, /principal-student-a|timeline_test_document/);
   assert.equal(signed.requiredHeaders["x-amz-checksum-sha256"], Buffer.from(uploadRequest().sha256, "hex").toString("base64"));
   assert.ok(signedCommands[0] instanceof PutObjectCommand);
+  assert.equal(
+    (signedCommands[0] as PutObjectCommand).input.ContentLength,
+    undefined,
+    "browser uploads must not sign the forbidden Content-Length header",
+  );
   assert.deepEqual([...signedOptions[0]!.signableHeaders!], ["content-type"]);
   assert.deepEqual([...signedOptions[0]!.unhoistableHeaders!], [
     "x-amz-checksum-sha256",
