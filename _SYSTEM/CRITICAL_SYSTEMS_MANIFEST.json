@@ -39,9 +39,9 @@
       "environment_id": "bcef8734-e42b-44df-8488-c2a3de68213f",
       "environment": "production",
       "database_service_id": "a4a66362-c3ba-475a-ae21-2aa46624bafe",
-      "current_deployment_id": "7ce159b6-226a-4e77-8335-e5e5d06519c3",
-      "current_product_commit": "97ebf2433849343acd521547e558a9713c579eb0",
-      "current_release_id": "v-a9a076957973d7d4",
+      "current_deployment_id": "d0756a3d-2284-46bc-ba1c-e2f75b3cd41c",
+      "current_product_commit": "8ca5d60fffcbb479fc5ced4689702fd4a7defb58",
+      "current_release_id": "v-10688bb24bca7965",
       "current_replica_count": 1,
       "candidate_product_commit": "97ebf2433849343acd521547e558a9713c579eb0",
       "candidate_release_id": "v-a9a076957973d7d4",
@@ -99,24 +99,24 @@
       "production_entrypoint": "public/wp-content/mu-plugins/missionmed-storyforge-route.php",
       "asset_source": "storyforge-v5/dist",
       "generated_release_bundle": "storyforge-v5/infra/wordpress/missionmed-storyforge-runtime/release.php",
-      "generated_release_id": "v-a790ce4e3168384f",
-      "generated_release_bundle_sha256": "01c6871355683ee87ce9e648480bb226ce0d393ef05cae77700943e086552f2f",
-      "generated_release_bundle_size": 872672,
-      "route_sha256": "2837cde673a9bb66d334c903053926c51cddf1582f6d52b698ab20e4964b616a",
-      "route_size": 37413,
-      "exact_product_commit": "1bb6e8b917d6993c4af08e9ff2408313835f123d",
-      "exact_product_commit_state": "production_founder_voice_active_learning_lesson_hotfix",
+      "generated_release_id": "v-10688bb24bca7965",
+      "generated_release_bundle_sha256": "1d89394ab98284f5e99376000663e55db6bacef9d94e8697ef062784222b3c10",
+      "generated_release_bundle_size": 1146741,
+      "route_sha256": "02339448018c0bbede96a90de0ececb364d02a0d50f39d8a8011ad243ee81d7b",
+      "route_size": 42807,
+      "exact_product_commit": "8ca5d60fffcbb479fc5ced4689702fd4a7defb58",
+      "exact_product_commit_state": "production_b1_512_core_private_media_force_off",
       "production_active": true,
-      "active_release_target": "releases/1bb6e8b917d6993c4af08e9ff2408313835f123d",
+      "active_release_target": "releases/8ca5d60fffcbb479fc5ced4689702fd4a7defb58",
       "voice_production_active": true,
       "candidate": {
-        "exact_product_commit": "1bb6e8b917d6993c4af08e9ff2408313835f123d",
-        "release_id": "v-a790ce4e3168384f",
-        "route_sha256": "2837cde673a9bb66d334c903053926c51cddf1582f6d52b698ab20e4964b616a",
-        "route_size": 37413,
-        "release_bundle_sha256": "01c6871355683ee87ce9e648480bb226ce0d393ef05cae77700943e086552f2f",
-        "release_bundle_size": 872672,
-        "deployment_state": "production_founder_voice_active_learning_lesson_hotfix"
+        "exact_product_commit": "8ca5d60fffcbb479fc5ced4689702fd4a7defb58",
+        "release_id": "v-10688bb24bca7965",
+        "route_sha256": "02339448018c0bbede96a90de0ececb364d02a0d50f39d8a8011ad243ee81d7b",
+        "route_size": 42807,
+        "release_bundle_sha256": "1d89394ab98284f5e99376000663e55db6bacef9d94e8697ef062784222b3c10",
+        "release_bundle_size": 1146741,
+        "deployment_state": "production_b1_512_core_private_media_force_off"
       },
       "production_release_root": "public/wp-content/mu-plugins/missionmed-storyforge-runtime/releases",
       "production_release_shape": "public/wp-content/mu-plugins/missionmed-storyforge-runtime/releases/<exact-product-commit>/release.php",
@@ -287,25 +287,25 @@
       "id": "storyforge_v5_index",
       "system": "storyforge_v5",
       "url": "https://missionmedinstitute.com/storyforge/",
-      "approved_sha256": "a781895575afd34e68266a78f0e026d3d0802bc00bcd98741d0898b6143b766f",
+      "approved_sha256": "e720fca216d488e966230cfd5d98da400e83e6fd38a1bb40699539d8cc18f8b2",
       "required_markers": [
         "StoryForge V5 · MissionMed",
         "Dr Brian's IV Prep On-Call",
         "Opening your private story workspace"
       ],
-      "local_source_note": "Current accepted B1-511A production asset from immutable release v-d45ca5e899878fea and exact committed source 752d408f32c7becc9d10712e163ab86693998edc; live bytes independently verified after the Founder playback PASS."
+      "local_source_note": "B1-512 core production asset from immutable release v-10688bb24bca7965 and exact committed source 8ca5d60fffcbb479fc5ced4689702fd4a7defb58; live bytes independently verified after the bounded B1-512C cutover."
     },
     {
       "id": "storyforge_v5_app_bundle",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/217f4d2d0f5f",
-      "approved_sha256": "217f4d2d0f5f3f4c95f83403efc2fd35681a87718afe8fffd25c791897e08b9c",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/cbe2999f0c70",
+      "approved_sha256": "cbe2999f0c70cd31617d4c1ee2f1f35ed71c1d166723509eb4c060fbfb6c46a5",
       "required_markers": [
         "Back to Matrix",
         "Mentor review unavailable",
         "StoryForge could not open safely"
       ],
-      "local_source_note": "Current accepted B1-511A production asset from immutable release v-d45ca5e899878fea and exact committed source 752d408f32c7becc9d10712e163ab86693998edc; live bytes independently verified after the Founder playback PASS."
+      "local_source_note": "B1-512 core production asset from immutable release v-10688bb24bca7965 and exact committed source 8ca5d60fffcbb479fc5ced4689702fd4a7defb58; live bytes independently verified after the bounded B1-512C cutover."
     },
     {
       "id": "storyforge_v5_auth_bundle",
@@ -323,15 +323,15 @@
     {
       "id": "storyforge_v5_styles",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/409bdc5b96d7",
-      "approved_sha256": "409bdc5b96d7dadad4d9eda1f4c0a01a2ee8d561745f4b2439850423eee0e18c",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/5e18315007aa",
+      "approved_sha256": "5e18315007aafd2e16a1f5749842320c13386546bb677011789785979202c597",
       "required_markers": [
         ".homeGrid",
         ".wsGrid",
         "prefers-reduced-motion"
       ],
-      "local_source_path": "storyforge-v5/dist/assets/styles.409bdc5b96d7.css",
-      "local_source_note": "Current accepted B1-511A production asset from immutable release v-d45ca5e899878fea and exact committed source 752d408f32c7becc9d10712e163ab86693998edc; live bytes independently verified after the Founder playback PASS."
+      "local_source_path": "storyforge-v5/dist/assets/styles.5e18315007aa.css",
+      "local_source_note": "B1-512 core production asset from immutable release v-10688bb24bca7965 and exact committed source 8ca5d60fffcbb479fc5ced4689702fd4a7defb58; live bytes independently verified after the bounded B1-512C cutover."
     },
     {
       "id": "storyforge_v5_font_archivo_normal",
@@ -554,7 +554,7 @@
     {
       "id": "storyforge_app_extensionless_alias",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/217f4d2d0f5f",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/cbe2999f0c70",
       "method": "GET",
       "expected_status": 200,
       "expected_headers": {
