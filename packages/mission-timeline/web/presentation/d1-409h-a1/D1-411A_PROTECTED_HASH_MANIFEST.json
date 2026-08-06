@@ -1,0 +1,115 @@
+{
+  "schemaVersion": "d1-411a-protected-hash-transition/1",
+  "record": "TIMELINE-RC1-D1-411A-PRESENTATION-CONTRACT-AMENDMENT",
+  "authority": {
+    "issuer": "Founder",
+    "authorizedDate": "2026-08-06",
+    "scope": "Manual year-axis range/mode overrides and six-ID/order-preserving color-key label/color overrides only",
+    "prohibited": "No other presentation redesign"
+  },
+  "sourceCustody": {
+    "amendmentImplementationCommit": "81be24dfa6b4472e15fd889eb235c566e7593740",
+    "implementationParentCommit": "7f5cc0813b54b843ddfe1c4d86ac18bb896be83e",
+    "acceptedLiveSourceBeforeAmendment": "aaec3d580e81e3fccf21bd73c3254cf780faa814",
+    "acceptedProtectedIntegrationBeforeAmendment": "ca9a28688e7dd29f0e008b58efae85555af860b8150fa9493165faf851165bb8",
+    "originalProtectedPackageReference": "4b2f539bcfe482045332c989458360722136a98ca568a13bd6451e50f2e10e60"
+  },
+  "protectedFiles": [
+    {
+      "path": "D1-409H_FINAL_VISUAL_MASTER.html",
+      "beforeSha256": "bb471c57223c4a8d6c44d2398cc3c2a0da4467b61e7a2d779323c5be38e52c24",
+      "afterSha256": "bb471c57223c4a8d6c44d2398cc3c2a0da4467b61e7a2d779323c5be38e52c24",
+      "status": "UNCHANGED"
+    },
+    {
+      "path": "D1-409H_VISUAL_MASTER.css",
+      "beforeSha256": "4efd5088696a93914d5f6c3b7e14e98426239453b16712f152eb5bfe68598ef7",
+      "afterSha256": "4efd5088696a93914d5f6c3b7e14e98426239453b16712f152eb5bfe68598ef7",
+      "status": "UNCHANGED"
+    },
+    {
+      "path": "D1-409H_VISUAL_MASTER.js",
+      "beforeSha256": "ca9a28688e7dd29f0e008b58efae85555af860b8150fa9493165faf851165bb8",
+      "afterSha256": "ed46fdf21588554aaaadbeaebacd81321177d45ad357c7e8cb8570a20786cb32",
+      "status": "FOUNDER_AUTHORIZED_BOUNDED_AMENDMENT"
+    }
+  ],
+  "categoryContract": {
+    "idsInOrder": [
+      "education",
+      "exams",
+      "clinical",
+      "work",
+      "research",
+      "personal"
+    ],
+    "renderMapping": {
+      "education": "work",
+      "exams": "usmle",
+      "clinical": "usce",
+      "work": "work",
+      "research": "res",
+      "personal": "personal"
+    },
+    "mutableFields": [
+      "label",
+      "color"
+    ],
+    "immutableFields": [
+      "id",
+      "order",
+      "renderMapping"
+    ]
+  },
+  "axisContract": {
+    "mode": "manual",
+    "minimumYear": 1900,
+    "maximumYear": 2200,
+    "maximumInclusiveSpanYears": 31,
+    "mustContainAllVisibleObjects": true,
+    "ongoingEventsEndAtManualAxisEnd": true
+  },
+  "changedFilesAtImplementationCommit": [
+    "packages/mission-timeline/tests/d1-411a-presentation-amendment.test.mjs",
+    "packages/mission-timeline/tests/d1-411b-fable-integration.test.mjs",
+    "packages/mission-timeline/web/js/407f-engineering-adapter.js",
+    "packages/mission-timeline/web/js/d1-411a/domain-visual-adapter.js",
+    "packages/mission-timeline/web/js/d1-411a/presentation-kernel-adapter.js",
+    "packages/mission-timeline/web/js/d1-411a/timeline-visual-schema.json",
+    "packages/mission-timeline/web/js/uxr-002/advanced-studio.js",
+    "packages/mission-timeline/web/presentation/d1-409h-a1/D1-409H_VISUAL_MASTER.js",
+    "packages/mission-timeline/web/presentation/d1-409h-a1/PROTECTED_HASHES.sha256",
+    "packages/mission-timeline/web/styles/407f-upgrade.css",
+    "packages/mission-timeline/web/tests/run_d1_411b_kernel_browser.mjs",
+    "packages/mission-timeline/web/tests/run_d1_500_rc1_csp_media_fail_soft.mjs"
+  ],
+  "verifiedInvariants": [
+    "Documents without overrides preserve the accepted adaptive model and five-row key",
+    "The fixed six IDs and order cannot be changed or remapped",
+    "Malformed presentation overrides fail closed before DOM mutation",
+    "Manual axis ranges contain all visible events and milestones",
+    "Screen, PNG, Letter PDF, and A4 PDF use the same protected DOM renderer",
+    "Reset restores the accepted automatic axis and protected five-row key",
+    "No Matrix, WordPress, Railway, database, route, SSO, CDN, DNS, or unrelated application source changed"
+  ],
+  "localVerification": {
+    "typeScriptAndServiceTests": 138,
+    "nodeContractTests": 532,
+    "browserJourneys": 42,
+    "browserPersonas": [
+      "administrator",
+      "eligible-360",
+      "removed-read-only"
+    ],
+    "browserErrors": 0,
+    "cspMediaFailSoft": "PASS",
+    "pngOpenedAndInspected": true,
+    "letterPdfOpenedAndInspected": true,
+    "a4PdfOpenedAndInspected": true
+  },
+  "rollback": {
+    "wordpressRelease": "timeline-wp-7311f6a96acee7cf",
+    "sourceCommit": "aaec3d580e81e3fccf21bd73c3254cf780faa814",
+    "productionMutationRequiredToAuthorizeThisRecord": false
+  }
+}
