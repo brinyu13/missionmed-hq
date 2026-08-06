@@ -704,7 +704,7 @@ function statusChip(story) {
 }
 
 function studentReviewAction(story) {
-  if (!story.mentorReviewAvailable) {
+  if (!state.capabilities?.submissionReview && !story.mentorReviewAvailable) {
     return `<button class="noteSend" type="button" disabled>Mentor review unavailable</button>
       <div class="stageHint">Mentor review is not enabled yet. Your private story remains editable.</div>`;
   }
