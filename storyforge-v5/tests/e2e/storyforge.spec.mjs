@@ -632,9 +632,11 @@ test('canonical dark backgrounds persist on the authenticated profile and respec
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const aurora = page.getByRole('button', { name: /Aurora/ });
   await aurora.click();
+  await expect(page.locator('body')).toHaveAttribute('data-background', 'ember');
+  await page.getByRole('button', { name: 'Preview', exact: true }).first().click();
   await expect(page.locator('body')).toHaveAttribute('data-background', 'aurora');
   expect(await page.locator('.aur.a').evaluate((node) => getComputedStyle(node).animationName)).toBe('none');
-  await expect(page.getByRole('button', { name: /Aurora/ })).toBeFocused();
+  await page.getByRole('button', { name: 'Save environment' }).click();
 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Your account' })).toBeVisible();
@@ -642,7 +644,9 @@ test('canonical dark backgrounds persist on the authenticated profile and respec
   await expect(page.getByRole('button', { name: /Aurora/ })).toHaveClass(/\bon\b/);
 
   await page.getByRole('button', { name: /Emberlight/ }).click();
+  await page.getByRole('button', { name: 'Preview', exact: true }).first().click();
   await expect(page.locator('body')).toHaveAttribute('data-background', 'ember');
+  await page.getByRole('button', { name: 'Save environment' }).click();
 });
 
 test('mobile keeps a real Back to Matrix path and Settings route visible', async ({ page }) => {

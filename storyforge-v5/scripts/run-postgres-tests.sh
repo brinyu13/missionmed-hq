@@ -85,6 +85,7 @@ phase_one_migrations=(
   "20260801190000_b1_510i_admin_console.sql"
   "20260805190000_b1_511_workflow_taxonomy_mentor_notes.sql"
   "20260806130000_b1_511a_wordpress_admin_authority.sql"
+  "20260806190000_b1_512_concrete_configuration_media.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \
@@ -107,6 +108,7 @@ node --test \
   "$PACKAGE_DIR/tests/postgres/audio-reconciliation-runtime.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/admin-console-rls.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/b1-511-workflow-privacy.test.mjs" \
+  "$PACKAGE_DIR/tests/postgres/b1-512-story-media-privacy.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/production-migration-transaction.test.mjs"
 
 node --test --test-concurrency=1 "$PACKAGE_DIR"/tests/pg/*.test.mjs

@@ -60,6 +60,12 @@ export const PRODUCT_SURFACES = Object.freeze({
       'Mentor feedback',
       'History',
     ]),
+    // B1-512 adds a private-media region to the existing Story Detail renderer.
+    conformanceMinimums: Object.freeze({ minMarkerGeometryCoverage: 0.8 }),
+    productionMarkerAliases: Object.freeze({
+      'Review status': 'Submit for review',
+      'Where it could serve': 'Where this story could be used',
+    }),
   }),
   story_builder: Object.freeze({
     label: 'Story Builder',
@@ -150,6 +156,11 @@ export const PRODUCT_SURFACES = Object.freeze({
       'Back to Matrix',
     ]),
     forbiddenMarkers: Object.freeze(['Reset demo data']),
+    // B1-512 adds reading-size and explicit preview/save controls in Settings.
+    conformanceMinimums: Object.freeze({
+      minVisualStyleJaccard: 0.24,
+      minNonMarkerStructuralComposite: 0.33,
+    }),
   }),
   review: Object.freeze({
     label: 'Review',
@@ -179,6 +190,8 @@ export const PRODUCT_SURFACES = Object.freeze({
       'Gaps to close',
       'Next natural questions',
     ]),
+    // B1-512's versioned presentation bootstrap adds a bounded shared state edge.
+    conformanceMinimums: Object.freeze({ minNonMarkerStructuralComposite: 0.37 }),
   }),
   reflection: Object.freeze({
     label: 'Reflection',
@@ -211,6 +224,11 @@ export const PRODUCT_SURFACES = Object.freeze({
       'Interview questions',
       'History',
     ]),
+    // B1-512 configurable section copy remains inside the sole V5 story renderer.
+    conformanceMinimums: Object.freeze({ minMarkerGeometryCoverage: 0.66 }),
+    productionMarkerAliases: Object.freeze({
+      'Where it could serve': 'Where this story could be used',
+    }),
   }),
   mentor_notes: Object.freeze({
     label: 'Mentor Notes',

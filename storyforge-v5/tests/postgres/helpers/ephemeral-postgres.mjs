@@ -33,6 +33,7 @@ const phaseOneMigrations = [
   '20260801190000_b1_510i_admin_console.sql',
   '20260805190000_b1_511_workflow_taxonomy_mentor_notes.sql',
   '20260806130000_b1_511a_wordpress_admin_authority.sql',
+  '20260806190000_b1_512_concrete_configuration_media.sql',
 ];
 
 function commandPath(name) {

@@ -343,8 +343,8 @@ export function createAdminConsoleService({
       const taxonomy = validateAdminTaxonomy(input);
       return rpc(
         identity,
-        `SELECT public.sf_admin_update_story_taxonomy(
-           $1, $2, $3::text[], $4::text[], 'workspace'
+        `SELECT public.sf_update_story_taxonomy_configured(
+           $1, $2, $3::text[], $4::text[], 'workspace', true
          ) AS payload`,
         [
           requireUuid(storyId, 'Story identifier'),

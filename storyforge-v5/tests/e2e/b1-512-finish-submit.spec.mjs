@@ -114,7 +114,7 @@ test('normal Story Detail stays normal while invalid submission uses the same Wo
   await row.getByRole('button', { name: 'Open story' }).click();
 
   await expect(page.locator('[data-completion-summary]')).toHaveCount(0);
-  await expect(page.getByText('Submitting makes this story available to an authorized reviewer.', { exact: false })).toBeVisible();
+  await expect(page.getByText('Submitting makes this story available to an authorized reviewer.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Submit for review' }).click();
 
   await expect(page.getByRole('tab', { name: 'Working version' })).toHaveAttribute('aria-selected', 'true');

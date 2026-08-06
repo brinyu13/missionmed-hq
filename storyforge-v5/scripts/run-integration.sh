@@ -141,6 +141,7 @@ phase_one_migrations=(
   "20260801190000_b1_510i_admin_console.sql"
   "20260805190000_b1_511_workflow_taxonomy_mentor_notes.sql"
   "20260806130000_b1_511a_wordpress_admin_authority.sql"
+  "20260806190000_b1_512_concrete_configuration_media.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \
@@ -261,6 +262,8 @@ export STORYFORGE_JWT_AUDIENCE="storyforge"
 export STORYFORGE_TOKEN_REFRESH_SKEW_SECONDS=1
 unset STORYFORGE_DEV_AUTH STORYFORGE_DEV_JWT_SECRET
 export STORYFORGE_ADMIN_CONSOLE_FORCE_OFF=0
+export STORYFORGE_CONTENT_DISPLAY_FORCE_OFF=0
+export STORYFORGE_STORY_MEDIA_FORCE_OFF=0
 
 node "$PACKAGE_DIR/server/app.mjs" >"$SF_TMP/server.log" 2>&1 &
 SF_SERVER_PID=$!

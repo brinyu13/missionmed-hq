@@ -148,6 +148,21 @@ const BACKGROUNDS = Object.freeze([
   { id: 'static', name: 'Static Dark', ico: '■', desc: 'A flat, still dark background. No motion at all.', prev: '#0b0e14' },
 ]);
 
+const BUNDLED_PRESENTATION = Object.freeze({
+  taxonomy: Object.freeze({
+    categories: Object.freeze(CATEGORIES.map((entry, index) => Object.freeze({ ...entry, sortOrder: (index + 1) * 10, state: 'active', builtin: true }))),
+    intendedUses: Object.freeze(USES.map((entry, index) => Object.freeze({ ...entry, sortOrder: (index + 1) * 10, state: 'active', builtin: true }))),
+  }),
+  sections: Object.freeze({
+    storyCategories: Object.freeze({ title: 'Story categories', helper: 'Categories describe what happened. They stay separate from themes and intended uses.', mode: 'visible_optional' }),
+    intendedUses: Object.freeze({ title: 'Where this story could be used', helper: 'Choose every application context where this story may help.', mode: 'visible_optional' }),
+    workingVersion: Object.freeze({ title: 'Working version', helper: 'Edit freely here. The original telling stays untouched, always.', mode: 'visible_optional' }),
+    learningLesson: Object.freeze({ title: 'Learning Lesson', helper: 'What this story taught you — the takeaway that travels with it.', mode: 'visible_optional' }),
+    reviewSubmission: Object.freeze({ title: 'Submit for review', helper: 'Submitting makes this story available to an authorized reviewer.', mode: 'visible_optional' }),
+  }),
+  navigation: Object.freeze({ interviewPrepVisible: false }),
+});
+
 const MEMORY_PROMPTS = Object.freeze([
   'Was there a moment this week when a patient surprised you?',
   'What almost went wrong on your last rotation?',
@@ -203,6 +218,7 @@ const SUITABILITY = Object.freeze({
 
 const state = {
   config: null,
+  presentation: BUNDLED_PRESENTATION,
   user: null,
   activeRole: null,
   capabilities: Object.freeze({
@@ -214,6 +230,7 @@ const state = {
     storySearch: false,
     mentorNotes: false,
     mentorNotesRead: false,
+    storyMedia: false,
   }),
   lockout: null,
   route: 'home',
@@ -226,6 +243,12 @@ const state = {
   selectedStudent: null,
   storyDetail: null,
   storyCompletionIntent: null,
+  settingsPreview: {
+    selectedBackground: null,
+    previewBackground: null,
+    selectedTextSize: null,
+    previewTextSize: null,
+  },
   storyHistoryExpanded: false,
   workshop: null,
   workshopFocusPairId: null,
@@ -257,6 +280,10 @@ const state = {
   adminFeatureError: '',
   adminConsoleFeatureError: '',
   adminHealthError: '',
+  adminContentDisplay: null,
+  adminContentDraft: null,
+  adminContentError: '',
+  adminContentPreviewing: false,
   adminConsole: {
     home: null,
     students: [],
@@ -271,6 +298,7 @@ const state = {
   },
   mentorNoteDraft: null,
   mentorNoteRecording: null,
+  storyMediaUpload: null,
   returnFocus: null,
   busy: false,
 };
@@ -288,6 +316,7 @@ const auth = createAuthClient({
       storySearch: false,
       mentorNotes: false,
       mentorNotesRead: false,
+      storyMedia: false,
     });
     state.captureRecovering = false;
     state.lockout = lockoutState || 'access_unavailable';
@@ -429,6 +458,7 @@ function normalizeStory(raw = {}) {
     reviewedByRole: String(firstDefined(raw.reviewedByRole, raw.reviewed_by_role, '')),
     feedback: asArray(firstDefined(raw.feedback, raw.comments)),
     mentorNotes: asArray(firstDefined(raw.mentorNotes, raw.mentor_notes)),
+    media: asArray(firstDefined(raw.media, raw.storyMedia, raw.story_media)),
     revisions,
     history: asArray(firstDefined(raw.history, raw.auditEvents, raw.audit_events)),
     reflections: asArray(raw.reflections),
@@ -522,6 +552,11 @@ async function optionalRequest(path, fallback) {
 const api = Object.freeze({
   config: () => auth.publicRequest('api/config'),
   session: () => auth.request('/api/session'),
+  presentation: () => auth.request('/api/presentation'),
+  adminContentDisplay: () => auth.request('/api/admin/console/content-display'),
+  validateContentDisplay: (body) => auth.request('/api/admin/console/content-display/validate', jsonOptions('POST', body)),
+  publishContentDisplay: (body) => auth.request('/api/admin/console/content-display/publish', jsonOptions('POST', body)),
+  restoreContentDisplay: (body) => auth.request('/api/admin/console/content-display/restore-defaults', jsonOptions('POST', body)),
   fixture: (persona) => auth.request(`/api/dev/session/${persona}`, jsonOptions('POST', {})),
   stories: () => auth.request('/api/stories'),
   story: (id) => auth.request(`/api/stories/${id}`),
@@ -538,12 +573,19 @@ const api = Object.freeze({
   evaluation: (id, body) => auth.request(`/api/stories/${id}/evaluation`, jsonOptions('PATCH', body)),
   storyPriority: (id, body) => auth.request(`/api/stories/${id}/priority`, jsonOptions('PATCH', body)),
   storyTaxonomy: (id, body) => auth.request(`/api/stories/${id}/taxonomy`, jsonOptions('PATCH', body)),
+  storyMedia: (id) => auth.request(`/api/stories/${id}/media`),
+  allocateStoryMedia: (id, body) => auth.request(`/api/stories/${id}/media`, jsonOptions('POST', body)),
+  verifyStoryMedia: (id, body) => auth.request(`/api/story-media/${id}/verify`, jsonOptions('POST', body)),
+  storyMediaPlayback: (id) => auth.request(`/api/story-media/${id}/playback`),
+  updateStoryMedia: (id, body) => auth.request(`/api/story-media/${id}`, jsonOptions('PATCH', body)),
+  removeStoryMedia: (id) => auth.request(`/api/story-media/${id}`, { method: 'DELETE' }),
   addReflection: (id, prompt) => auth.request(`/api/stories/${id}/reflections`, jsonOptions('POST', { prompt })),
   answerReflection: (_id, reflectionId, answer) => auth.request(`/api/reflections/${reflectionId}`, jsonOptions('PATCH', { answer, surface: 'workspace' })),
   notifications: () => auth.request('/api/notifications'),
   readNotification: (id) => auth.request(`/api/notifications/${id}/read`, jsonOptions('POST', {})),
   readAllNotifications: () => auth.request('/api/notifications/read-all', jsonOptions('POST', {})),
   preference: (background) => auth.request('/api/preferences/background', jsonOptions('PATCH', { background })),
+  textSizePreference: (textSize) => auth.request('/api/preferences/text-size', jsonOptions('PATCH', { textSize })),
   questions: (studentId = '') => auth.request(`/api/questions${studentId ? `?studentId=${encodeURIComponent(studentId)}` : ''}`),
   createQuestion: (body) => auth.request('/api/questions', jsonOptions('POST', body)),
   approveQuestion: (id, surface = 'library') => auth.request(`/api/questions/${id}/approve`, jsonOptions('POST', { surface })),
@@ -681,13 +723,28 @@ function matrixHref() {
 }
 
 function activeBackground() {
+  const preferred = state.settingsPreview.previewBackground || state.user?.background_preference;
+  return BACKGROUNDS.some(({ id }) => id === preferred) ? preferred : 'ember';
+}
+
+function savedBackground() {
   const preferred = state.user?.background_preference;
   return BACKGROUNDS.some(({ id }) => id === preferred) ? preferred : 'ember';
+}
+
+function savedTextSize() {
+  const value = state.user?.reading_size_preference;
+  return ['standard', 'large', 'extra_large'].includes(value) ? value : 'standard';
+}
+
+function activeTextSize() {
+  return state.settingsPreview.previewTextSize || savedTextSize();
 }
 
 function applyEnvironment() {
   document.body.dataset.role = isMentor() || isAdmin() ? 'advisor' : 'student';
   document.body.dataset.background = activeBackground();
+  document.body.dataset.textSize = activeTextSize();
   document.body.classList.toggle('is-booting', !state.user);
 }
 
@@ -766,10 +823,26 @@ function storyCompletionMissing(story, intent = 'finish', values = {}) {
   const text = String(firstDefined(values.text, story?.text, '')).trim();
   const lesson = String(firstDefined(values.lesson, story?.lesson, '')).trim();
   if (intent === 'submit') {
-    return text.length >= 3 ? [] : [{
+    const section = (key) => typeof presentationSection === 'function'
+      ? presentationSection(key)
+      : { mode: 'visible_optional' };
+    const missing = text.length >= 3 ? [] : [{
       id: 'text',
       message: 'Add at least a few words to the Working version before submitting for review.',
     }];
+    if (section('learningLesson').mode === 'visible_required' && !lesson) missing.push({
+      id: 'lesson',
+      message: 'Add the required Learning Lesson before submitting for review.',
+    });
+    if (section('storyCategories').mode === 'visible_required' && !(Array.isArray(story?.categories) ? story.categories : []).length) missing.push({
+      id: 'categories',
+      message: 'Choose at least one required story category before submitting for review.',
+    });
+    if (section('intendedUses').mode === 'visible_required' && !(Array.isArray(story?.uses) ? story.uses : []).length) missing.push({
+      id: 'uses',
+      message: 'Choose at least one required intended use before submitting for review.',
+    });
+    return missing;
   }
   const missing = [];
   const wordCount = text.split(/\s+/).filter(Boolean).length;
@@ -944,10 +1017,38 @@ function railNavButton([route, label, icon]) {
   </button>`;
 }
 
+function interviewPrepVisible() {
+  return state.presentation?.navigation?.interviewPrepVisible === true;
+}
+
+function presentationSection(key) {
+  return state.presentation?.sections?.[key] || BUNDLED_PRESENTATION.sections[key];
+}
+
+function presentationSectionVisible(key) {
+  return presentationSection(key)?.mode !== 'hidden';
+}
+
+function presentationTaxonomy(key, { includeSelected = [] } = {}) {
+  const configured = asArray(state.presentation?.taxonomy?.[key]);
+  const fallback = BUNDLED_PRESENTATION.taxonomy[key] || [];
+  const selected = new Set(asArray(includeSelected).map(String));
+  return (configured.length ? configured : fallback)
+    .filter((entry) => entry?.state === 'active' || selected.has(String(entry?.id)))
+    .sort((left, right) => Number(left.sortOrder || 0) - Number(right.sortOrder || 0));
+}
+
+function presentationTaxonomyLabel(key, id) {
+  return asArray(state.presentation?.taxonomy?.[key]).find((entry) => entry.id === id)?.label
+    || BUNDLED_PRESENTATION.taxonomy[key]?.find((entry) => entry.id === id)?.label
+    || id;
+}
+
 function renderShell() {
   if (!state.user) return;
   applyEnvironment();
-  const nav = canAdminReview() ? ADMIN_CONSOLE_NAV : NAV[roleName()];
+  const nav = (canAdminReview() ? ADMIN_CONSOLE_NAV : NAV[roleName()])
+    .filter(([route]) => route !== 'prep' || interviewPrepVisible() || isAdmin());
   rail.innerHTML = `
     <div class="logo" aria-label="StoryForge">Story<b>Forge</b></div><div class="logoSub">MissionMed</div>
     ${isStudent() ? '<button class="railCta" type="button" data-open-capture>＋ <span class="rct">New Story</span></button>' : ''}
@@ -1173,7 +1274,7 @@ function renderHome() {
           </div>
         </div>
         <div class="panel">
-          <div class="pHead"><div class="h2">Where your stories <em>stand</em></div><button class="pMore" type="button" data-nav="prep">Interview Prep ▸</button></div>
+          <div class="pHead"><div class="h2">Where your stories <em>stand</em></div>${interviewPrepVisible() ? '<button class="pMore" type="button" data-nav="prep">Interview Prep ▸</button>' : ''}</div>
           <div class="pBody"><div class="classChips">
             ${Object.entries(STATUS).filter(([key]) => counts[key]).map(([key, meta]) => `<button class="cChip" type="button" data-library-status="${key}" title="${attr(meta.hint)}"><b>${counts[key]}</b> ${esc(meta.label)}</button>`).join('') || '<span class="stageHint">Your first story will appear here.</span>'}
           </div></div>
@@ -1194,8 +1295,8 @@ function filteredStories() {
     if (filter.position && !story.positions.includes(filter.position)) return false;
     if (filter.categories.length && !filter.categories.every((id) => story.categories.includes(id))) return false;
     if (filter.uses.length && !filter.uses.every((id) => story.uses.includes(id))) return false;
-    const categoryLabels = story.categories.map((id) => CATEGORIES.find((item) => item.id === id)?.label || id);
-    const useLabels = story.uses.map((id) => USES.find((item) => item.id === id)?.label || id);
+    const categoryLabels = story.categories.map((id) => presentationTaxonomyLabel('categories', id));
+    const useLabels = story.uses.map((id) => presentationTaxonomyLabel('intendedUses', id));
     if (query && !`${storyTitle(story)} ${story.text} ${story.lesson} ${categoryLabels.join(' ')} ${useLabels.join(' ')}`.toLowerCase().includes(query)) return false;
     return true;
   });
@@ -1263,8 +1364,8 @@ function renderLibrary() {
       <span class="countNote" id="libraryCount">${list.length} of ${state.stories.length}</span>
     </div>
     ${state.capabilities?.taxonomy ? `<div class="b1511LibraryFacets">
-      ${libraryFacetButtons(CATEGORIES, filter.categories, 'category', 'Categories')}
-      ${libraryFacetButtons(USES, filter.uses, 'use', 'Intended uses')}
+      ${libraryFacetButtons(presentationTaxonomy('categories', { includeSelected: filter.categories }), filter.categories, 'category', 'Categories')}
+      ${libraryFacetButtons(presentationTaxonomy('intendedUses', { includeSelected: filter.uses }), filter.uses, 'use', 'Intended uses')}
     </div>` : ''}
     <div id="librarySearchStatus" class="srOnly" role="status" aria-live="polite"></div>
     <div id="libraryRows">${list.length ? list.map((story) => storyRow(story, { inlinePriority: true })).join('') : emptyState('No stories match.', 'Clear a filter, or capture the story this search was looking for.')}</div>
@@ -1384,21 +1485,40 @@ function renderNotifications() {
 function renderSettings() {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const selectedBackground = state.settingsPreview.selectedBackground || savedBackground();
+  const selectedTextSize = state.settingsPreview.selectedTextSize || savedTextSize();
   main.innerHTML = `<section data-view="settings" class="live settingsPage">
     <div class="eyebrow">Settings</div>
     <h1 class="h1">Your <em>account</em></h1>
     <div class="panel panel-spaced">
         <div class="pHead"><div class="h2">Background <em>environment</em></div></div>
       <div class="pBody">
-        <p class="stageHint">Choose the visual atmosphere behind your workspace. Your choice follows your signed-in account.</p>
+        <p class="stageHint">Choose an environment, preview it safely, then save it to your signed-in account.</p>
+        <div class="b1512PreferenceState" role="status" aria-live="polite">
+          <span>Selected: <strong>${esc(BACKGROUNDS.find(({ id }) => id === selectedBackground)?.name || 'Emberlight')}</strong></span>
+          <span>Saved: <strong>${esc(BACKGROUNDS.find(({ id }) => id === savedBackground())?.name || 'Emberlight')}</strong></span>
+          <span>Preview: <strong>${state.settingsPreview.previewBackground ? 'Active' : 'Off'}</strong></span>
+        </div>
         <div class="bgGrid">
-          ${BACKGROUNDS.map((background) => `<button class="bgCard bg-${background.id} ${activeBackground() === background.id ? 'on' : ''}" type="button"
-            data-background="${background.id}">
+          ${BACKGROUNDS.map((background) => `<button class="bgCard bg-${background.id} ${selectedBackground === background.id ? 'on' : ''}" type="button"
+            data-select-background="${background.id}" aria-pressed="${selectedBackground === background.id}">
             <span class="bgPrev"></span>
-            <span class="bgMeta"><span class="bgName"><span>${background.ico}</span>${esc(background.name)}${activeBackground() === background.id ? '<span class="onTag">Active</span>' : ''}</span>
+            <span class="bgMeta"><span class="bgName"><span>${background.ico}</span>${esc(background.name)}${savedBackground() === background.id ? '<span class="onTag">Saved</span>' : ''}${state.settingsPreview.previewBackground === background.id ? '<span class="onTag preview">Preview</span>' : ''}</span>
               <span class="bgDesc">${esc(background.desc)}</span></span>
           </button>`).join('')}
         </div>
+        <div class="inlineActions b1512PreferenceActions"><button class="rowBtn" type="button" data-preview-background>Preview</button><button class="rowBtn pri" type="button" data-save-background>Save environment</button><button class="rowBtn" type="button" data-cancel-background>Cancel preview</button></div>
+      </div>
+    </div>
+    <div class="panel panel-spaced">
+      <div class="pHead"><div class="h2">Global <em>text size</em></div></div>
+      <div class="pBody">
+        <p class="stageHint">Adjust StoryForge reading and control text without changing browser zoom.</p>
+        <div class="b1512TextSizeOptions" role="group" aria-label="StoryForge text size">
+          ${[['standard', 'Standard'], ['large', 'Large'], ['extra_large', 'Extra Large']].map(([id, label]) => `<button class="rowBtn ${selectedTextSize === id ? 'pri' : ''}" type="button" data-select-text-size="${id}" aria-pressed="${selectedTextSize === id}">${label}${savedTextSize() === id ? ' · Saved' : ''}</button>`).join('')}
+        </div>
+        <div class="b1512TextPreview" aria-live="polite"><strong>Preview reading sample</strong><span>Stories, forms, dialogs, tables, navigation, and controls use the same saved preference.</span></div>
+        <div class="inlineActions b1512PreferenceActions"><button class="rowBtn" type="button" data-preview-text-size>Preview</button><button class="rowBtn pri" type="button" data-save-text-size>Save text size</button><button class="rowBtn" type="button" data-cancel-text-size>Cancel preview</button></div>
       </div>
     </div>
     <div class="panel panel-spaced"><div class="pBody pbody-top">
@@ -1421,6 +1541,162 @@ function voiceScopeLabel(scope) {
   })[scope] || 'Off';
 }
 
+function cloneContentDisplay(payload = BUNDLED_PRESENTATION) {
+  return JSON.parse(JSON.stringify(payload));
+}
+
+function contentDisplayDraft() {
+  if (!state.adminContentDraft) {
+    state.adminContentDraft = cloneContentDisplay(state.adminContentDisplay?.configuration?.payload || BUNDLED_PRESENTATION);
+  }
+  return state.adminContentDraft;
+}
+
+function renderTaxonomyConfiguration(key, title) {
+  const entries = asArray(contentDisplayDraft().taxonomy?.[key]);
+  return `<fieldset class="b1512ConfigGroup"><legend>${esc(title)}</legend>
+    <p class="stageHint">Stable identifiers are preserved. Hidden and retired values remain readable on existing stories.</p>
+    <div class="b1512ConfigRows" data-config-list="${attr(key)}">
+      ${entries.map((entry, index) => `<div class="b1512ConfigRow" data-config-tax-row="${attr(key)}" data-config-tax-id="${attr(entry.id)}">
+        <label><span class="srOnly">${esc(title)} label</span><input data-config-tax-label value="${attr(entry.label)}" maxlength="80" required></label>
+        <label><span class="srOnly">${esc(title)} state</span><select data-config-tax-state>
+          ${[['active', 'Visible'], ['hidden', 'Hidden'], ['retired', 'Retired']].map(([value, label]) => `<option value="${value}" ${entry.state === value ? 'selected' : ''}>${label}</option>`).join('')}
+        </select></label>
+        <span class="b1512StableId" title="Stable identifier">${esc(entry.id)}</span>
+        <div class="b1512OrderButtons"><button type="button" class="rowBtn" data-config-move="-1" data-config-kind="${attr(key)}" data-config-id="${attr(entry.id)}" ${index === 0 ? 'disabled' : ''} aria-label="Move ${attr(entry.label)} up">↑</button><button type="button" class="rowBtn" data-config-move="1" data-config-kind="${attr(key)}" data-config-id="${attr(entry.id)}" ${index === entries.length - 1 ? 'disabled' : ''} aria-label="Move ${attr(entry.label)} down">↓</button></div>
+      </div>`).join('')}
+    </div>
+    <button class="rowBtn" type="button" data-config-add="${attr(key)}">+ Add ${esc(title.toLowerCase().replace(/s$/, ''))}</button>
+  </fieldset>`;
+}
+
+function renderSectionConfiguration() {
+  const labels = {
+    storyCategories: 'Story categories',
+    intendedUses: 'Intended uses',
+    workingVersion: 'Working version',
+    learningLesson: 'Learning Lesson',
+    reviewSubmission: 'Submit for review',
+  };
+  return `<fieldset class="b1512ConfigGroup"><legend>Story sections</legend>
+    <p class="stageHint">Edit bounded plain-text labels and choose whether each existing section is optional, required for submission, or hidden.</p>
+    <div class="b1512SectionRows">${Object.entries(contentDisplayDraft().sections || {}).map(([key, section]) => `<div class="b1512SectionRow" data-config-section="${attr(key)}">
+      <strong>${esc(labels[key] || key)}</strong>
+      <label>Title<input data-config-section-title value="${attr(section.title)}" maxlength="80" required></label>
+      <label>Helper text<textarea data-config-section-helper maxlength="400" rows="2">${esc(section.helper)}</textarea></label>
+      <label>Display<select data-config-section-mode>
+        <option value="visible_optional" ${section.mode === 'visible_optional' ? 'selected' : ''}>Visible · optional</option>
+        <option value="visible_required" ${section.mode === 'visible_required' ? 'selected' : ''}>Visible · required for submission</option>
+        <option value="hidden" ${section.mode === 'hidden' ? 'selected' : ''}>Hidden</option>
+      </select></label>
+    </div>`).join('')}</div>
+  </fieldset>`;
+}
+
+function renderContentDisplayControls() {
+  const config = state.adminContentDisplay?.configuration || null;
+  const unavailable = !config;
+  return `<div class="panel panel-spaced b1512ContentDisplay" data-content-display-admin>
+    <div class="pHead"><div class="h2">Content &amp; <em>Display</em></div><span class="rolePill">Version ${Number(config?.rowVersion || 0)}</span></div>
+    <div class="pBody">
+      <p class="stageHint">Bounded StoryForge labels, taxonomy, section visibility, and navigation only. This surface cannot accept HTML, CSS, scripts, or arbitrary application code.</p>
+      ${state.adminContentError ? `<div class="releaseError" role="alert">${esc(state.adminContentError)}</div>` : ''}
+      ${unavailable ? `<div class="setRow"><div class="sTxt"><b>Configuration unavailable</b><span>No change can be previewed or published.</span></div><button class="rowBtn" type="button" data-admin-release-reload>Retry</button></div>` : `<form id="contentDisplayForm">
+        ${renderTaxonomyConfiguration('categories', 'Story categories')}
+        ${renderTaxonomyConfiguration('intendedUses', 'Intended uses')}
+        ${renderSectionConfiguration()}
+        <fieldset class="b1512ConfigGroup"><legend>Navigation</legend><label class="b1512Check"><input type="checkbox" data-config-interview-prep ${contentDisplayDraft().navigation?.interviewPrepVisible ? 'checked' : ''}> Show Interview Prep to eligible students</label></fieldset>
+        <div class="b1512ConfigActions">
+          <button class="rowBtn" type="button" data-config-preview>Preview in this signed browser</button>
+          <button class="rowBtn pri" type="submit">Publish configuration</button>
+          <button class="rowBtn" type="button" data-config-cancel-preview ${state.adminContentPreviewing ? '' : 'disabled'}>Cancel preview</button>
+          <button class="rowBtn danger" type="button" data-config-restore-defaults>Restore defaults</button>
+        </div>
+        <p class="stageHint" aria-live="polite">${state.adminContentPreviewing ? 'Preview is active only in this signed browser. Nothing has been published.' : `Published ${esc(formatDateTime(config.updatedAt))}.`}</p>
+      </form>`}
+    </div>
+  </div>`;
+}
+
+function syncContentDisplayDraft(form = $('#contentDisplayForm')) {
+  if (!form) return contentDisplayDraft();
+  const draft = contentDisplayDraft();
+  for (const row of $$('[data-config-tax-row]', form)) {
+    const key = row.dataset.configTaxRow;
+    const entry = asArray(draft.taxonomy?.[key]).find((item) => item.id === row.dataset.configTaxId);
+    if (!entry) continue;
+    entry.label = $('[data-config-tax-label]', row)?.value || '';
+    entry.state = $('[data-config-tax-state]', row)?.value || 'active';
+  }
+  for (const row of $$('[data-config-section]', form)) {
+    const section = draft.sections?.[row.dataset.configSection];
+    if (!section) continue;
+    section.title = $('[data-config-section-title]', row)?.value || '';
+    section.helper = $('[data-config-section-helper]', row)?.value || '';
+    section.mode = $('[data-config-section-mode]', row)?.value || 'visible_optional';
+  }
+  draft.navigation.interviewPrepVisible = Boolean($('[data-config-interview-prep]', form)?.checked);
+  return draft;
+}
+
+async function previewContentDisplay() {
+  const payload = syncContentDisplayDraft();
+  const validated = await withBusy(() => api.validateContentDisplay({ payload }));
+  state.adminContentDraft = cloneContentDisplay(validated.payload);
+  state.presentation = cloneContentDisplay(validated.payload);
+  state.adminContentPreviewing = true;
+  state.adminContentError = '';
+  renderShell();
+  renderAdminReleaseControls();
+  notify('Content & Display preview is active in this signed browser only.', '✓');
+}
+
+async function publishContentDisplay(form) {
+  const payload = syncContentDisplayDraft(form);
+  state.adminContentError = '';
+  try {
+    await api.validateContentDisplay({ payload });
+    const result = await withBusy(() => api.publishContentDisplay({
+      payload,
+      expectedVersion: state.adminContentDisplay.configuration.rowVersion,
+    }));
+    state.adminContentDisplay = result;
+    state.adminContentDraft = cloneContentDisplay(result.configuration.payload);
+    state.presentation = cloneContentDisplay(result.configuration.payload);
+    state.adminContentPreviewing = false;
+    renderShell();
+    renderAdminReleaseControls();
+    notify('Content & Display published and audited.', '✓');
+  } catch (error) {
+    state.adminContentError = error.code === 'content_display_conflict'
+      ? 'This configuration changed in another session. Reload before publishing.'
+      : (error.message || 'Content & Display could not be published.');
+    renderAdminReleaseControls();
+  }
+}
+
+async function restoreContentDisplayDefaults() {
+  if (!window.confirm('Restore the original StoryForge Content & Display defaults? This creates a new audited version.')) return;
+  state.adminContentError = '';
+  try {
+    const result = await withBusy(() => api.restoreContentDisplay({
+      expectedVersion: state.adminContentDisplay.configuration.rowVersion,
+    }));
+    state.adminContentDisplay = result;
+    state.adminContentDraft = cloneContentDisplay(result.configuration.payload);
+    state.presentation = cloneContentDisplay(result.configuration.payload);
+    state.adminContentPreviewing = false;
+    renderShell();
+    renderAdminReleaseControls();
+    notify('Content & Display defaults restored and audited.', '✓');
+  } catch (error) {
+    state.adminContentError = error.code === 'content_display_conflict'
+      ? 'This configuration changed in another session. Reload before restoring defaults.'
+      : (error.message || 'Defaults could not be restored.');
+    renderAdminReleaseControls();
+  }
+}
+
 function renderAdminReleaseControls() {
   const feature = state.adminFeatures || {};
   const flag = feature.flag || null;
@@ -1431,6 +1707,7 @@ function renderAdminReleaseControls() {
   main.innerHTML = `<section data-view="settings" class="live settingsPage">
     <div class="eyebrow">Administration</div>
     <h1 class="h1">Release <em>Controls</em></h1>
+    ${renderContentDisplayControls()}
     <div class="panel panel-spaced">
       <div class="pHead"><div class="h2">Administrator workspace <em>Founder pilot</em></div></div>
       <div class="pBody">
@@ -1508,10 +1785,11 @@ function renderAdminReleaseControls() {
 }
 
 async function loadAdminReleaseControls() {
-  const [features, health, adminConsole] = await Promise.allSettled([
+  const [features, health, adminConsole, contentDisplay] = await Promise.allSettled([
     api.adminFeatures(),
     api.adminVoiceHealth(),
     api.adminConsoleFlag(),
+    api.adminContentDisplay(),
   ]);
   if (features.status === 'fulfilled') {
     state.adminFeatures = features.value;
@@ -1537,6 +1815,17 @@ async function loadAdminReleaseControls() {
   } else {
     state.adminConsoleFeature = null;
     state.adminConsoleFeatureError = adminConsole.reason?.message || 'Administrator workspace controls are unavailable.';
+  }
+  if (contentDisplay.status === 'fulfilled') {
+    state.adminContentDisplay = contentDisplay.value;
+    if (!state.adminContentPreviewing) {
+      state.adminContentDraft = cloneContentDisplay(contentDisplay.value?.configuration?.payload || BUNDLED_PRESENTATION);
+      state.presentation = cloneContentDisplay(contentDisplay.value?.configuration?.payload || BUNDLED_PRESENTATION);
+    }
+    state.adminContentError = '';
+  } else {
+    state.adminContentDisplay = null;
+    state.adminContentError = contentDisplay.reason?.message || 'Content & Display is temporarily unavailable.';
   }
 }
 
@@ -3564,13 +3853,13 @@ function classificationButtons(story, scope = 'room') {
 
 function categoryButtons(story, { admin = false, readOnly = false } = {}) {
   return `<div class="b1511Taxonomy" role="group" aria-label="Story categories">
-    ${CATEGORIES.map((category) => `<button type="button" data-${admin ? 'admin-' : ''}taxonomy="${attr(category.id)}" data-taxonomy-kind="categories"
+    ${presentationTaxonomy('categories', { includeSelected: story.categories }).map((category) => `<button type="button" data-${admin ? 'admin-' : ''}taxonomy="${attr(category.id)}" data-taxonomy-kind="categories"
       class="${story.categories.includes(category.id) ? 'on' : ''}" aria-pressed="${story.categories.includes(category.id)}" ${readOnly ? 'disabled' : ''}>${esc(category.label)}</button>`).join('')}
   </div>`;
 }
 
 function intendedUseButtons(story, { admin = false, readOnly = false } = {}) {
-  return `<div class="useBtns b1511Uses">${USES.map((use) => {
+  return `<div class="useBtns b1511Uses">${presentationTaxonomy('intendedUses', { includeSelected: story.uses }).map((use) => {
     const suggestion = story.useSuggestions.find((item) => (
       firstDefined(item.useKey, item.use_key) === use.id
       && !firstDefined(item.withdrawnAt, item.withdrawn_at)
@@ -3754,6 +4043,10 @@ async function fetchStoryDetail(id, surface = 'workspace') {
     const payload = await optionalRequest(`/api/stories/${id}/mentor-notes`, { notes: [] });
     story.mentorNotes = asArray(payload?.notes).map(normalizeMentorNote);
   }
+  if (state.capabilities?.storyMedia) {
+    const payload = await api.storyMedia(id);
+    story.media = asArray(payload?.media);
+  }
   return story;
 }
 
@@ -3790,6 +4083,146 @@ async function reloadStorySurface(surface = 'room') {
   }
 }
 
+function normalizeStoryMedia(raw = {}) {
+  return {
+    ...raw,
+    id: String(firstDefined(raw.id, raw.mediaId, raw.media_id, '')),
+    kind: String(firstDefined(raw.kind, raw.media_kind, 'photo')),
+    mimeType: String(firstDefined(raw.mimeType, raw.mime_type, '')),
+    byteSize: Number(firstDefined(raw.byteSize, raw.byte_size, 0)) || 0,
+    durationMs: Number(firstDefined(raw.durationMs, raw.duration_ms, 0)) || 0,
+    caption: String(firstDefined(raw.caption, '')),
+    sortOrder: Number(firstDefined(raw.sortOrder, raw.sort_order, 0)) || 0,
+    rowVersion: Number(firstDefined(raw.rowVersion, raw.row_version, 0)) || 0,
+    createdAt: isoValue(firstDefined(raw.createdAt, raw.created_at)),
+  };
+}
+
+function storyMediaMarkup(story) {
+  if (!state.capabilities?.storyMedia) return '';
+  const media = asArray(story.media).map(normalizeStoryMedia);
+  return `<section class="b1512StoryMedia" aria-labelledby="storyMediaTitle">
+    <div class="b1512MediaHead"><div><div class="lbl" id="storyMediaTitle">Photos &amp; short videos</div><p class="stageHint">Private media stays with this story. Photos: JPEG, PNG, WebP up to 5 MB. Videos: MP4 or WebM up to 50 MB and 60 seconds.</p></div><span class="rolePill">${media.length}/12</span></div>
+    ${media.length ? `<div class="b1512MediaGrid">${media.map((item, index) => `<article class="b1512MediaCard" data-story-media-card="${attr(item.id)}">
+      <button class="b1512MediaPreview" type="button" data-story-media-open="${attr(item.id)}" data-story-media-kind="${attr(item.kind)}" aria-label="Open ${item.kind === 'photo' ? 'photo' : 'video'}${item.caption ? `: ${attr(item.caption)}` : ''}"><span>Loading private ${esc(item.kind)}…</span></button>
+      <div class="b1512MediaMeta"><span>${item.kind === 'photo' ? 'Photo' : `Video · ${formatDuration(item.durationMs)}`} · ${esc(formatDate(item.createdAt))}</span>
+      ${isStudent() ? `<form data-story-media-meta="${attr(item.id)}"><label class="srOnly" for="media-caption-${attr(item.id)}">Photo or video description</label><input id="media-caption-${attr(item.id)}" value="${attr(item.caption)}" maxlength="240" placeholder="Add a short description"><input type="hidden" name="rowVersion" value="${item.rowVersion}"><input type="hidden" name="sortOrder" value="${item.sortOrder}"><div class="inlineActions"><button class="rowBtn" type="submit">Save description</button><button class="rowBtn" type="button" data-story-media-move="-1" data-story-media-id="${attr(item.id)}" ${index === 0 ? 'disabled' : ''}>Move earlier</button><button class="rowBtn" type="button" data-story-media-move="1" data-story-media-id="${attr(item.id)}" ${index === media.length - 1 ? 'disabled' : ''}>Move later</button><button class="rowBtn danger" type="button" data-story-media-remove="${attr(item.id)}">Remove</button></div></form>` : `<p>${esc(item.caption || 'No description provided.')}</p>`}</div>
+    </article>`).join('')}</div>` : '<p class="storyEmpty">No photos or videos attached yet.</p>'}
+    ${isStudent() && media.length < 12 ? `<form id="storyMediaUploadForm" class="b1512MediaUpload"><label class="rowBtn" for="storyMediaFile">Choose photo or short video</label><input id="storyMediaFile" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" required><label for="storyMediaCaption">Description <span>optional</span></label><input id="storyMediaCaption" maxlength="240" placeholder="What should you remember about this media?"><div class="b1512UploadProgress" data-story-media-progress hidden><i></i><span>Preparing private upload…</span></div><div class="inlineActions"><button class="rowBtn pri" type="submit">Attach privately</button><button class="rowBtn" type="button" data-story-media-cancel hidden>Cancel upload</button><button class="rowBtn" type="submit" data-story-media-retry hidden>Retry</button></div></form>` : ''}
+  </section>`;
+}
+
+async function hydrateStoryMedia() {
+  for (const button of $$('[data-story-media-open]', room)) {
+    const id = button.dataset.storyMediaOpen;
+    try {
+      const result = await api.storyMediaPlayback(id);
+      const [url] = playbackUrls(result);
+      button.dataset.storyMediaUrl = url;
+      if (button.dataset.storyMediaKind === 'photo') {
+        button.innerHTML = `<img src="${attr(url)}" alt="${attr(button.getAttribute('aria-label') || 'Story photo')}">`;
+      } else {
+        button.innerHTML = '<span class="b1512VideoMark">▶</span><span>Play private video</span>';
+      }
+    } catch {
+      button.innerHTML = '<span>Private preview unavailable · select to retry</span>';
+    }
+  }
+}
+
+function storyMediaVideoDuration(file) {
+  if (!String(file?.type || '').startsWith('video/')) return Promise.resolve(null);
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    const url = URL.createObjectURL(file);
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(url);
+      const durationMs = Math.round(video.duration * 1000);
+      if (!Number.isFinite(durationMs) || durationMs < 1 || durationMs > 60_000) reject(new Error('Videos must be 60 seconds or shorter.'));
+      else resolve(durationMs);
+    };
+    video.onerror = () => { URL.revokeObjectURL(url); reject(new Error('StoryForge could not read this video.')); };
+    video.src = url;
+  });
+}
+
+function putStoryMedia(uploadUrl, file, progress, mediaId) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    state.storyMediaUpload = { xhr, mediaId };
+    xhr.open('PUT', uploadUrl);
+    xhr.setRequestHeader('Content-Type', file.type);
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable || !progress) return;
+      const percent = Math.round((event.loaded / event.total) * 100);
+      $('i', progress).style.width = `${percent}%`;
+      $('span', progress).textContent = `Uploading privately… ${percent}%`;
+    };
+    xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('Private media upload did not complete.'));
+    xhr.onerror = () => reject(new Error('Private media upload was interrupted.'));
+    xhr.onabort = () => reject(Object.assign(new Error('Private media upload canceled.'), { code: 'upload_canceled' }));
+    xhr.send(file);
+  });
+}
+
+async function uploadStoryMedia(form) {
+  const file = $('#storyMediaFile', form)?.files?.[0];
+  if (!file || !state.storyDetail) return;
+  const progress = $('[data-story-media-progress]', form);
+  progress.hidden = false;
+  $('[data-story-media-cancel]', form).hidden = false;
+  $('[data-story-media-retry]', form).hidden = true;
+  let mediaId = null;
+  try {
+    const durationMs = await storyMediaVideoDuration(file);
+    const allocation = await api.allocateStoryMedia(state.storyDetail.id, {
+      mimeType: file.type,
+      byteSize: file.size,
+      caption: $('#storyMediaCaption', form)?.value || '',
+    });
+    mediaId = allocation.media.id;
+    await putStoryMedia(allocation.upload.uploadUrl, file, progress, mediaId);
+    $('span', progress).textContent = 'Verifying private media…';
+    await api.verifyStoryMedia(mediaId, { durationMs });
+    state.storyMediaUpload = null;
+    await reloadStorySurface('workspace');
+    notify('Private story media attached.', '✓');
+  } catch (error) {
+    if (mediaId) await api.removeStoryMedia(mediaId).catch(() => {});
+    state.storyMediaUpload = null;
+    $('span', progress).textContent = error.message || 'Private media upload failed.';
+    $('[data-story-media-cancel]', form).hidden = true;
+    $('[data-story-media-retry]', form).hidden = false;
+    if (error.code !== 'upload_canceled') notify(error.message || 'Private media upload failed.');
+  }
+}
+
+async function saveStoryMediaMetadata(form) {
+  const id = form.dataset.storyMediaMeta;
+  await api.updateStoryMedia(id, {
+    caption: $('input:not([type="hidden"])', form)?.value || '',
+    expectedVersion: Number($('[name="rowVersion"]', form)?.value),
+    sortOrder: Number($('[name="sortOrder"]', form)?.value),
+  });
+  await reloadStorySurface('workspace');
+  notify('Media description saved.', '✓');
+}
+
+async function moveStoryMedia(id, delta) {
+  const media = asArray(state.storyDetail?.media).map(normalizeStoryMedia)
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.createdAt.localeCompare(right.createdAt));
+  const index = media.findIndex((item) => item.id === id);
+  const destination = index + Number(delta);
+  if (index < 0 || destination < 0 || destination >= media.length) return;
+  const current = media[index];
+  const neighbor = media[destination];
+  await api.updateStoryMedia(current.id, { caption: current.caption, expectedVersion: current.rowVersion, sortOrder: neighbor.sortOrder });
+  await api.updateStoryMedia(neighbor.id, { caption: neighbor.caption, expectedVersion: neighbor.rowVersion, sortOrder: current.sortOrder });
+  await reloadStorySurface('workspace');
+  notify('Media order saved.', '✓');
+}
+
 function renderStoryRoom() {
   const story = state.storyDetail;
   if (!story) return;
@@ -3802,6 +4235,8 @@ function renderStoryRoom() {
     : [];
   const incompleteText = completionMissing.some((item) => item.id === 'text');
   const incompleteLesson = completionMissing.some((item) => item.id === 'lesson');
+  const incompleteCategories = completionMissing.some((item) => item.id === 'categories');
+  const incompleteUses = completionMissing.some((item) => item.id === 'uses');
 
   room.innerHTML = `<div class="roomSheet" role="dialog" aria-modal="true" aria-labelledby="roomStoryTitle">
     <div class="roomTop">
@@ -3835,24 +4270,26 @@ function renderStoryRoom() {
         ${!mentor && !originalTab ? `<form id="storyEditForm">
           <label class="srOnly" for="storyEditTitle">Story title</label>
           <input class="roomTitle roomTitleInput" id="storyEditTitle" value="${attr(story.title)}" required>
-          <div class="b1512CompletionField ${incompleteText ? 'b1512Incomplete' : ''}" data-completion-field="text">
-            <label class="srOnly" for="storyEditText">Working version</label>
+          ${presentationSectionVisible('workingVersion') ? `<div class="b1512CompletionField ${incompleteText ? 'b1512Incomplete' : ''}" data-completion-field="text">
+            <label class="lbl" for="storyEditText">${esc(presentationSection('workingVersion').title)}</label>
             <textarea class="storyProse storyProseEdit" id="storyEditText" data-empty="${text ? 'false' : 'true'}" ${incompleteText ? `${state.storyCompletionIntent === 'submit' ? 'aria-invalid="true" ' : ''}aria-describedby="completion-help-text"` : ''} placeholder="Tell it like you’d tell a trusted friend. Don’t polish it — just get it down.">${esc(text)}</textarea>
             <p class="b1512IncompleteHelp" id="completion-help-text" data-completion-help="text" ${incompleteText ? '' : 'hidden'}>${esc(completionMissing.find((item) => item.id === 'text')?.message || '')}</p>
           </div>
-          <div class="origNote">Edit freely here. The original telling stays untouched, always. Edits after mentor feedback are flagged for re-review.</div>
-          <div class="lessonBlock b1512CompletionField ${incompleteLesson ? 'b1512Incomplete' : ''}" data-completion-field="lesson"><label class="lbl" for="storyLesson">What this story taught you — the takeaway that travels with it</label>
+          <div class="origNote">${esc(presentationSection('workingVersion').helper)}</div>` : `<input type="hidden" id="storyEditText" value="${attr(text)}">`}
+          ${presentationSectionVisible('learningLesson') ? `<div class="lessonBlock b1512CompletionField ${incompleteLesson ? 'b1512Incomplete' : ''}" data-completion-field="lesson"><label class="lbl" for="storyLesson">${esc(presentationSection('learningLesson').title)}</label>
+            <p class="stageHint">${esc(presentationSection('learningLesson').helper)}</p>
             <textarea class="lessonTxt lessonEdit" id="storyLesson" ${incompleteLesson ? 'aria-describedby="completion-help-lesson"' : ''} placeholder="One or two honest sentences. What did this leave you with?">${esc(story.lesson)}</textarea>
             <p class="b1512IncompleteHelp" id="completion-help-lesson" data-completion-help="lesson" ${incompleteLesson ? '' : 'hidden'}>${esc(completionMissing.find((item) => item.id === 'lesson')?.message || '')}</p>
-          </div>
+          </div>` : '<input type="hidden" id="storyLesson" value="">'}
           <div class="inlineActions"><button class="btnSave" type="submit">Save working version</button><span class="saveState">Durable only after StoryForge confirms the save.</span></div>
         </form>` : `
           <div class="storyProse" data-empty="${text ? 'false' : 'true'}">${text ? esc(text) : '<span class="storyEmpty">No telling has been written yet.</span>'}</div>
           <div class="origNote">${originalTab ? '🔒 Preserved exactly as first told — your authentic voice, kept safe' : `${mentor ? `${esc(story.studentName.split(/\s+/)[0])}’s` : 'Your'} editable working copy — the original stays untouched`}</div>
-          <div class="lessonBlock"><div class="lbl">What this story taught ${mentor ? 'the student' : 'you'} — the takeaway that travels with it</div>
+          ${presentationSectionVisible('learningLesson') ? `<div class="lessonBlock"><div class="lbl">${esc(presentationSection('learningLesson').title)}</div>
             <div class="lessonTxt">${story.lesson ? esc(story.lesson) : '<span class="storyEmpty">No lesson added yet.</span>'}</div>
-          </div>`}
+          </div>` : ''}`}
 
+        ${storyMediaMarkup(story)}
         <div class="reflBlock">
           <div class="eyebrow">Reflection</div>
           ${story.reflections.length ? story.reflections.map((reflection) => `<div class="reflQ ${reflectionFromMentor(reflection) ? 'fromMentor' : ''}">
@@ -3867,16 +4304,16 @@ function renderStoryRoom() {
       </div>
 
       <aside>
-        <div class="railCard ${mentor ? 'advPanel' : ''}">
-          <div class="rLbl">Review status</div>
+        ${presentationSectionVisible('reviewSubmission') ? `<div class="railCard ${mentor ? 'advPanel' : ''}">
+          <div class="rLbl">${esc(presentationSection('reviewSubmission').title)}</div>
           <div>${statusChip(story)}</div>
-          <div class="stageHint">${esc(STATUS[story.status].hint)}</div>
+          <div class="stageHint">${esc(presentationSection('reviewSubmission').helper || STATUS[story.status].hint)}</div>
           ${mentor ? `<div class="statusRow">${['in_review', 'changes', 'reviewed', 'approved'].map((status) => `<button type="button" data-set-status="${status}" class="${story.status === status ? `on ${STATUS[status].col}` : ''}">${esc(STATUS[status].label)}</button>`).join('')}</div>`
             : ['private', 'changes'].includes(story.status) ? studentReviewAction(story)
               : story.status === 'awaiting' && state.capabilities?.submissionReview ? `<div class="b1511Withdraw"><button class="rowBtn" type="button" data-withdraw-story>Return to Private</button><p class="stageHint">This removes reviewer access until you submit the story again.</p></div>` : ''}
           ${story.reviewSuitability ? `<div class="reviewSuitability"><span class="fLbl">Reviewer classification</span><span class="cohortChip">${esc(SUITABILITY[story.reviewSuitability] || story.reviewSuitability)}</span></div>` : ''}
           <div class="tsList">${storyTimestamps(story)}</div>
-        </div>
+        </div>` : ''}
 
         <div class="railCard">
           <div class="rLbl">Scores</div>
@@ -3891,18 +4328,21 @@ function renderStoryRoom() {
         </div>
 
         <div class="railCard"><div class="rLbl">Classification</div>${classificationButtons(story)}</div>
-        ${state.capabilities?.taxonomy ? `<div class="railCard"><div class="rLbl">Story categories</div>
-          <p class="stageHint">Categories describe what happened. They stay separate from themes and intended uses.</p>
+        ${state.capabilities?.taxonomy && presentationSectionVisible('storyCategories') ? `<div class="railCard b1512CompletionField ${incompleteCategories ? 'b1512Incomplete' : ''}" data-completion-field="categories"><div class="rLbl">${esc(presentationSection('storyCategories').title)}</div>
+          <p class="stageHint">${esc(presentationSection('storyCategories').helper)}</p>
           ${categoryButtons(story, { readOnly: mentor })}
+          <p class="b1512IncompleteHelp" data-completion-help="categories" ${incompleteCategories ? '' : 'hidden'}>${esc(completionMissing.find((item) => item.id === 'categories')?.message || '')}</p>
         </div>` : ''}
         <div class="railCard">
           <div class="rLbl">Interview questions <button class="pMore" type="button" data-open-assign="${attr(story.id)}">Assign ▸</button></div>
           ${mappedQuestionMarkup(story)}
         </div>
-        <div class="railCard">
-          <div class="rLbl">${state.capabilities?.taxonomy ? 'Where this story could be used' : 'Where it could serve'}</div>
+        ${presentationSectionVisible('intendedUses') ? `<div class="railCard b1512CompletionField ${incompleteUses ? 'b1512Incomplete' : ''}" data-completion-field="uses">
+          <div class="rLbl">${esc(presentationSection('intendedUses').title)}</div>
+          <p class="stageHint">${esc(presentationSection('intendedUses').helper)}</p>
           ${state.capabilities?.taxonomy ? intendedUseButtons(story, { readOnly: mentor }) : legacyIntendedUseButtons(story)}
-        </div>
+          <p class="b1512IncompleteHelp" data-completion-help="uses" ${incompleteUses ? '' : 'hidden'}>${esc(completionMissing.find((item) => item.id === 'uses')?.message || '')}</p>
+        </div>` : ''}
         ${story.status !== 'private' || mentor ? `<div class="railCard ${mentor ? '' : 'advPanel'}">
           <div class="rLbl label-cy">Mentor feedback</div>
           ${feedbackMarkup(story)}
@@ -3916,6 +4356,7 @@ function renderStoryRoom() {
       </aside>
     </div>
   </div>`;
+  void hydrateStoryMedia();
 }
 
 async function openQuick(id) {
@@ -6138,8 +6579,8 @@ function renderAdminStory() {
         <div class="lessonBlock"><div class="lbl">Learning Lesson</div><div class="lessonTxt">${esc(story.lesson) || '<span class="storyEmpty">No lesson added.</span>'}</div></div></div></div>
       <div class="panel panel-spaced"><div class="pHead"><div class="h2">Story intelligence <em>read-only</em></div></div><div class="pBody">
         <div class="setRow"><div class="sTxt"><b>Bird type</b><span>${story.birds.map((id) => BIRDS.find((bird) => bird.id === id)?.label || id).join(', ') || 'Not classified'}</span></div></div>
-        <div class="setRow"><div class="sTxt"><b>Categories</b><span>${story.categories.map((id) => CATEGORIES.find((category) => category.id === id)?.label || id).join(', ') || 'Not categorized'}</span></div></div>
-        <div class="setRow"><div class="sTxt"><b>Intended uses</b><span>${story.uses.map((id) => USES.find((use) => use.id === id)?.label || id).join(', ') || 'Not marked'}</span></div></div>
+        <div class="setRow"><div class="sTxt"><b>Categories</b><span>${story.categories.map((id) => presentationTaxonomyLabel('categories', id)).join(', ') || 'Not categorized'}</span></div></div>
+        <div class="setRow"><div class="sTxt"><b>Intended uses</b><span>${story.uses.map((id) => presentationTaxonomyLabel('intendedUses', id)).join(', ') || 'Not marked'}</span></div></div>
         <div class="setRow"><div class="sTxt"><b>Ideal positions</b><span>${story.positions.map((id) => POSITIONS.find((position) => position.id === id)?.label || id).join(', ') || 'Not classified'}</span></div></div>
         <div class="setRow"><div class="sTxt"><b>Craft scores</b><span>${['detail', 'stakes', 'turn', 'honest', 'lesson'].map((key) => `${key}: ${craft[key] ?? '—'}`).join(' · ')}</span></div></div>
         <div class="setRow"><div class="sTxt"><b>Version provenance</b><span>${revisions.length} immutable revisions · current row ${story.rowVersion}</span></div></div>
@@ -6505,16 +6946,73 @@ async function renderRoute() {
   await navigate('home', null, { replace: true });
 }
 
-async function changeBackground(id) {
+function selectBackground(id) {
   if (!BACKGROUNDS.some((background) => background.id === id)) return;
-  const result = await withBusy(() => api.preference(id));
-  state.user.background_preference = firstDefined(result?.backgroundPreference, result?.background_preference, id);
+  state.settingsPreview.selectedBackground = id;
+  renderSettings();
+  $(`[data-select-background="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+}
+
+function previewBackground() {
+  const id = state.settingsPreview.selectedBackground || savedBackground();
+  state.settingsPreview.previewBackground = id;
   applyEnvironment();
   renderSettings();
-  window.setTimeout(() => {
-    $(`button[data-background="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
-  }, 0);
-  notify(`${BACKGROUNDS.find((background) => background.id === id).name} selected.`);
+  notify(`${BACKGROUNDS.find((background) => background.id === id).name} preview is active. Save to keep it.`);
+}
+
+async function saveBackgroundPreference() {
+  const id = state.settingsPreview.selectedBackground || savedBackground();
+  const result = await withBusy(() => api.preference(id));
+  if (!result) return;
+  state.user.background_preference = firstDefined(result?.backgroundPreference, result?.background_preference, id);
+  state.settingsPreview.previewBackground = null;
+  state.settingsPreview.selectedBackground = null;
+  applyEnvironment();
+  renderSettings();
+  notify(`${BACKGROUNDS.find((background) => background.id === id).name} saved.`, '✓');
+}
+
+function cancelBackgroundPreview() {
+  state.settingsPreview.previewBackground = null;
+  state.settingsPreview.selectedBackground = savedBackground();
+  applyEnvironment();
+  renderSettings();
+  notify('Environment preview canceled. Your saved environment is restored.');
+}
+
+function selectTextSize(id) {
+  if (!['standard', 'large', 'extra_large'].includes(id)) return;
+  state.settingsPreview.selectedTextSize = id;
+  renderSettings();
+  $(`[data-select-text-size="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+}
+
+function previewTextSize() {
+  state.settingsPreview.previewTextSize = state.settingsPreview.selectedTextSize || savedTextSize();
+  applyEnvironment();
+  renderSettings();
+  notify('Text-size preview is active. Save to keep it.');
+}
+
+async function saveTextSizePreference() {
+  const id = state.settingsPreview.selectedTextSize || savedTextSize();
+  const result = await withBusy(() => api.textSizePreference(id));
+  if (!result) return;
+  state.user.reading_size_preference = firstDefined(result?.textSize, result?.reading_size_preference, id);
+  state.settingsPreview.previewTextSize = null;
+  state.settingsPreview.selectedTextSize = null;
+  applyEnvironment();
+  renderSettings();
+  notify('Text-size preference saved.', '✓');
+}
+
+function cancelTextSizePreview() {
+  state.settingsPreview.previewTextSize = null;
+  state.settingsPreview.selectedTextSize = savedTextSize();
+  applyEnvironment();
+  renderSettings();
+  notify('Text-size preview canceled. Your saved size is restored.');
 }
 
 async function openNotification(id, storyId) {
@@ -6663,8 +7161,8 @@ function normalizedSearch(value) {
 function storyMatchesQuery(story, query) {
   const needle = normalizedSearch(query);
   if (!needle) return true;
-  const categories = story.categories.map((id) => CATEGORIES.find((item) => item.id === id)?.label || id);
-  const uses = story.uses.map((id) => USES.find((item) => item.id === id)?.label || id);
+  const categories = story.categories.map((id) => presentationTaxonomyLabel('categories', id));
+  const uses = story.uses.map((id) => presentationTaxonomyLabel('intendedUses', id));
   const haystack = normalizedSearch(`${storyTitle(story)} ${story.text} ${story.lesson} ${categories.join(' ')} ${uses.join(' ')}`);
   return needle.split(/\s+/).every((token) => haystack.includes(token));
 }
@@ -6696,7 +7194,7 @@ function renderStorySearchSuggestions(inputId, query) {
     return;
   }
   list.innerHTML = matches.map((story, index) => `<button type="button" id="${listId}-${index}" role="option" aria-selected="false" data-search-story="${attr(story.id)}">
-    <span>${esc(storyTitle(story))}</span><small>${esc(CATEGORIES.find((item) => story.categories.includes(item.id))?.label || developmentState(story))}</small>
+    <span>${esc(storyTitle(story))}</span><small>${esc(story.categories[0] ? presentationTaxonomyLabel('categories', story.categories[0]) : developmentState(story))}</small>
   </button>`).join('');
   list.hidden = false;
   input.setAttribute('aria-expanded', 'true');
@@ -6865,8 +7363,107 @@ document.addEventListener('click', async (event) => {
       await readAllNotifications();
       return;
     }
-    if (button.matches('[data-background]')) {
-      await changeBackground(button.dataset.background);
+    if (button.matches('[data-select-background]')) {
+      selectBackground(button.dataset.selectBackground);
+      return;
+    }
+    if (button.matches('[data-preview-background]')) {
+      previewBackground();
+      return;
+    }
+    if (button.matches('[data-save-background]')) {
+      await saveBackgroundPreference();
+      return;
+    }
+    if (button.matches('[data-cancel-background]')) {
+      cancelBackgroundPreview();
+      return;
+    }
+    if (button.matches('[data-select-text-size]')) {
+      selectTextSize(button.dataset.selectTextSize);
+      return;
+    }
+    if (button.matches('[data-preview-text-size]')) {
+      previewTextSize();
+      return;
+    }
+    if (button.matches('[data-save-text-size]')) {
+      await saveTextSizePreference();
+      return;
+    }
+    if (button.matches('[data-cancel-text-size]')) {
+      cancelTextSizePreview();
+      return;
+    }
+    if (button.matches('[data-config-add]')) {
+      const draft = syncContentDisplayDraft();
+      const key = button.dataset.configAdd;
+      const entries = draft.taxonomy?.[key];
+      if (!Array.isArray(entries)) return;
+      const id = crypto.randomUUID();
+      entries.push({ id, label: 'New value', sortOrder: (entries.length + 1) * 10, state: 'active', builtin: false });
+      renderAdminReleaseControls();
+      $(`[data-config-tax-id="${CSS.escape(id)}"] [data-config-tax-label]`)?.select();
+      return;
+    }
+    if (button.matches('[data-config-move]')) {
+      const draft = syncContentDisplayDraft();
+      const entries = draft.taxonomy?.[button.dataset.configKind];
+      const index = asArray(entries).findIndex((entry) => entry.id === button.dataset.configId);
+      const destination = index + Number(button.dataset.configMove);
+      if (index < 0 || destination < 0 || destination >= entries.length) return;
+      [entries[index], entries[destination]] = [entries[destination], entries[index]];
+      entries.forEach((entry, order) => { entry.sortOrder = (order + 1) * 10; });
+      renderAdminReleaseControls();
+      $(`[data-config-id="${CSS.escape(button.dataset.configId)}"][data-config-move="${attr(button.dataset.configMove)}"]`)?.focus({ preventScroll: true });
+      return;
+    }
+    if (button.matches('[data-config-preview]')) {
+      await previewContentDisplay();
+      return;
+    }
+    if (button.matches('[data-config-cancel-preview]')) {
+      state.presentation = cloneContentDisplay(state.adminContentDisplay?.configuration?.payload || BUNDLED_PRESENTATION);
+      state.adminContentDraft = cloneContentDisplay(state.adminContentDisplay?.configuration?.payload || BUNDLED_PRESENTATION);
+      state.adminContentPreviewing = false;
+      renderShell();
+      renderAdminReleaseControls();
+      notify('Content & Display preview canceled.');
+      return;
+    }
+    if (button.matches('[data-config-restore-defaults]')) {
+      await restoreContentDisplayDefaults();
+      return;
+    }
+    if (button.matches('[data-story-media-open]')) {
+      const result = await api.storyMediaPlayback(button.dataset.storyMediaOpen);
+      const [url] = playbackUrls(result);
+      if (button.dataset.storyMediaKind === 'video') {
+        const video = document.createElement('video');
+        video.controls = true;
+        video.preload = 'metadata';
+        video.src = url;
+        video.setAttribute('aria-label', button.getAttribute('aria-label') || 'Private story video');
+        button.replaceWith(video);
+        await video.play();
+      } else {
+        window.open(url, '_blank', 'noopener,noreferrer');
+      }
+      return;
+    }
+    if (button.matches('[data-story-media-cancel]')) {
+      state.storyMediaUpload?.xhr?.abort();
+      return;
+    }
+    if (button.matches('[data-story-media-move]')) {
+      await moveStoryMedia(button.dataset.storyMediaId, button.dataset.storyMediaMove);
+      return;
+    }
+    if (button.matches('[data-story-media-remove]')) {
+      if (!window.confirm('Remove this private photo or video from the story?')) return;
+      await withBusy(() => api.removeStoryMedia(button.dataset.storyMediaRemove));
+      await reloadStorySurface('workspace');
+      notify('Private story media removed.', '✓');
       return;
     }
     if (button.matches('[data-admin-release-reload]')) {
@@ -7236,6 +7833,18 @@ document.addEventListener('submit', async (event) => {
     if (event.target.id === 'adminConsoleFeatureForm') {
       event.preventDefault();
       await saveAdminConsoleReleaseControl(event.target);
+    }
+    if (event.target.id === 'contentDisplayForm') {
+      event.preventDefault();
+      await publishContentDisplay(event.target);
+    }
+    if (event.target.id === 'storyMediaUploadForm') {
+      event.preventDefault();
+      await uploadStoryMedia(event.target);
+    }
+    if (event.target.matches('[data-story-media-meta]')) {
+      event.preventDefault();
+      await saveStoryMediaMetadata(event.target);
     }
     if (event.target.id === 'adminStudentSearchForm') {
       event.preventDefault();
@@ -7634,6 +8243,7 @@ function signOut() {
     storySearch: false,
     mentorNotes: false,
     mentorNotesRead: false,
+    storyMedia: false,
   });
   state.captureRecovering = false;
   state.lockout = null;
@@ -7669,6 +8279,12 @@ async function bootstrapSession() {
   const session = await api.session();
   const { user } = session;
   state.user = user;
+  const presentation = await api.presentation().catch(() => null);
+  state.presentation = presentation?.configuration?.payload || BUNDLED_PRESENTATION;
+  state.settingsPreview.selectedBackground = null;
+  state.settingsPreview.previewBackground = null;
+  state.settingsPreview.selectedTextSize = null;
+  state.settingsPreview.previewTextSize = null;
   state.activeRole = user.role;
   state.capabilities = Object.freeze({
     voiceCapture: Boolean(session?.capabilities?.voiceCapture),
@@ -7679,6 +8295,7 @@ async function bootstrapSession() {
     storySearch: Boolean(session?.capabilities?.storySearch),
     mentorNotes: Boolean(session?.capabilities?.mentorNotes),
     mentorNotesRead: Boolean(session?.capabilities?.mentorNotesRead),
+    storyMedia: Boolean(session?.capabilities?.storyMedia),
   });
   state.library.sort = state.capabilities.inlinePriority ? 'priority' : 'new';
   state.captureRecovering = false;
@@ -7691,6 +8308,11 @@ async function bootstrapSession() {
     ? ['home', 'students', 'student', 'queue', 'story', 'qlib', 'settings']
     : ['qlib', 'settings']);
   const allowedRoutes = isAdmin() ? adminRoutes : isMentor() ? mentorRoutes : studentRoutes;
+  if (!isAdmin() && !interviewPrepVisible() && ['prep', 'qshop', 'qlib'].includes(state.route)) {
+    state.route = 'home';
+    state.routeId = null;
+    pushPath('home', null, true);
+  }
   if (!allowedRoutes.has(state.route)) {
     state.route = isAdmin() && !canAdminReview() ? 'qlib' : 'home';
     state.routeId = null;

@@ -79,6 +79,28 @@ async function login(page, personaLabel) {
     .toBeVisible();
 }
 
+async function enableInterviewPrep(request, studentToken) {
+  const current = await request.get('/api/presentation', {
+    headers: authHeaders(studentToken),
+  });
+  expect(current.ok(), 'read Content & Display configuration').toBeTruthy();
+  const configuration = (await current.json()).configuration;
+  if (configuration.payload.navigation.interviewPrepVisible) return;
+  const admin = await devToken(request, 'admin');
+  const published = await request.post('/api/admin/console/content-display/publish', {
+    headers: authHeaders(admin),
+    data: {
+      expectedVersion: Number(configuration.version),
+      payload: {
+        ...configuration.payload,
+        navigation: { interviewPrepVisible: true },
+      },
+    },
+  });
+  expect(published.ok(), 'enable Interview Prep through versioned administrator configuration')
+    .toBeTruthy();
+}
+
 test('[B1-503] version zero remains a real concurrency token for stories and durable drafts', async ({
   request,
 }) => {
@@ -237,6 +259,9 @@ test('[B1-503] readiness requires the preferred pair itself to be confirmed and 
   const intelligencePayload = await intelligence.json();
 
   await login(page, 'Student · Maya');
+  await expect(page.getByRole('button', { name: /Interview Prep/ })).toHaveCount(0);
+  await enableInterviewPrep(request, student);
+  await page.reload();
   await page.getByRole('button', { name: /Interview Prep/ }).first().click();
   const prepRow = page.locator('.qiRow').filter({ hasText: question.text });
   await expect(

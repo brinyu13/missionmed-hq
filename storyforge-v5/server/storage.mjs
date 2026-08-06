@@ -13,6 +13,13 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config, isAudioConfigured } from './config.mjs';
 
 const allowedTypes = new Set(['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav']);
+const storyMediaTypes = Object.freeze({
+  'image/jpeg': { extension: 'jpg', kind: 'photo', maximum: 5 * 1024 * 1024 },
+  'image/png': { extension: 'png', kind: 'photo', maximum: 5 * 1024 * 1024 },
+  'image/webp': { extension: 'webp', kind: 'photo', maximum: 5 * 1024 * 1024 },
+  'video/mp4': { extension: 'mp4', kind: 'video', maximum: 50 * 1024 * 1024 },
+  'video/webm': { extension: 'webm', kind: 'video', maximum: 50 * 1024 * 1024 },
+});
 const legacyAudioExtension = /\.(?:webm|m4a|mp4|ogg|wav)$/i;
 let client;
 
@@ -127,6 +134,88 @@ export async function createAudioPlayback({ objectKey }) {
     playbackUrl,
     expiresIn: config.r2.signedUrlTtlSeconds,
   };
+}
+
+export function storyMediaSpec(contentType, byteSize) {
+  const normalizedType = String(contentType || '').toLowerCase();
+  const spec = storyMediaTypes[normalizedType];
+  if (!spec) {
+    const error = new Error('Use a JPEG, PNG, WebP, MP4, or WebM file.');
+    error.code = 'unsupported_story_media_format';
+    throw error;
+  }
+  if (!Number.isInteger(byteSize) || byteSize < 1 || byteSize > spec.maximum) {
+    const error = new Error(spec.kind === 'photo' ? 'Photos must be 5 MB or smaller.' : 'Videos must be 50 MB or smaller.');
+    error.code = 'invalid_story_media_size';
+    throw error;
+  }
+  return Object.freeze({ ...spec, contentType: normalizedType, byteSize });
+}
+
+export async function createStoryMediaUpload({ studentId, storyId, mediaId, contentType, byteSize }) {
+  const spec = storyMediaSpec(contentType, byteSize);
+  const objectKey = `storyforge-media/pending/${studentId}/${storyId}/${mediaId}.${spec.extension}`;
+  const command = new PutObjectCommand({
+    Bucket: config.r2.bucket,
+    Key: objectKey,
+    ContentType: spec.contentType,
+    ContentLength: spec.byteSize,
+    Metadata: { student: studentId, story: storyId, media: mediaId, kind: spec.kind },
+  });
+  return {
+    objectKey,
+    uploadUrl: await getSignedUrl(storageClient(), command, { expiresIn: config.r2.signedUrlTtlSeconds }),
+    expiresIn: config.r2.signedUrlTtlSeconds,
+    kind: spec.kind,
+  };
+}
+
+function validStoryMediaSignature(contentType, bytes) {
+  const hex = Buffer.from(bytes).toString('hex');
+  if (contentType === 'image/jpeg') return hex.startsWith('ffd8ff');
+  if (contentType === 'image/png') return hex.startsWith('89504e470d0a1a0a');
+  if (contentType === 'image/webp') return hex.startsWith('52494646') && hex.slice(16, 24) === '57454250';
+  if (contentType === 'video/mp4') return hex.slice(8, 16) === '66747970';
+  if (contentType === 'video/webm') return hex.startsWith('1a45dfa3');
+  return false;
+}
+
+export async function verifyStoryMediaUpload({ objectKey, expectedType, expectedSize }) {
+  const spec = storyMediaSpec(expectedType, expectedSize);
+  const metadata = await storageClient().send(new HeadObjectCommand({ Bucket: config.r2.bucket, Key: objectKey }));
+  const actualType = String(metadata.ContentType || '').toLowerCase();
+  const actualSize = Number(metadata.ContentLength);
+  if (actualType !== spec.contentType || actualSize !== spec.byteSize) {
+    const error = new Error('Uploaded media metadata does not match the signed request.');
+    error.code = 'story_media_verification_failed';
+    throw error;
+  }
+  const object = await storageClient().send(new GetObjectCommand({
+    Bucket: config.r2.bucket,
+    Key: objectKey,
+    Range: 'bytes=0-31',
+  }));
+  const bytes = await object.Body.transformToByteArray();
+  if (!validStoryMediaSignature(spec.contentType, bytes)) {
+    const error = new Error('The uploaded file content does not match its approved media type.');
+    error.code = 'story_media_signature_mismatch';
+    throw error;
+  }
+  return { ...spec, etag: String(metadata.ETag || '').replaceAll('"', '') };
+}
+
+export async function promoteStoryMediaObject({ objectKey, studentId, storyId, mediaId, contentType }) {
+  const spec = storyMediaSpec(contentType, 1);
+  const targetObjectKey = `storyforge-media/${studentId}/${storyId}/${mediaId}.${spec.extension}`;
+  await storageClient().send(new CopyObjectCommand({
+    Bucket: config.r2.bucket,
+    CopySource: `${config.r2.bucket}/${encodeURIComponent(objectKey).replaceAll('%2F', '/')}`,
+    Key: targetObjectKey,
+    ContentType: spec.contentType,
+    MetadataDirective: 'REPLACE',
+    Metadata: { student: studentId, story: storyId, media: mediaId, kind: spec.kind },
+  }));
+  return { targetObjectKey };
 }
 
 export async function copyAudioObject({ sourceKey, targetKey, contentType }) {

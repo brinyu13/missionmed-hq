@@ -16,11 +16,14 @@ import {
 } from './db.mjs';
 import { createFlagService, createPostgresFlagStore } from './flags.mjs';
 import { createAdminConsoleService } from './admin-console.mjs';
+import { createProductConfigurationService } from './product-configuration.mjs';
+import { createStoryMediaService } from './story-media.mjs';
 import { createMentorNotesService } from './mentor-notes.mjs';
 import { previewImport } from './imports.mjs';
 import {
   createAudioPlayback,
   createAudioUpload,
+  createStoryMediaUpload,
   createR2StorageClient,
   copyAudioObject,
   deleteAudioObject,
@@ -33,7 +36,10 @@ import {
   listAudioObjectsPage,
   putRecordingSegment,
   readAudioControlObject,
+  promoteStoryMediaObject,
+  storyMediaSpec,
   verifyAudioUpload,
+  verifyStoryMediaUpload,
   writeAudioControlObject,
 } from './storage.mjs';
 import {
@@ -238,7 +244,7 @@ export function storyForgeContentSecurityPolicy({
     "default-src 'self'",
     "script-src 'self'",
     "style-src 'self'",
-    "img-src 'self' data:",
+    `img-src 'self' data:${exactAudioOrigin ? ` ${exactAudioOrigin}` : ''}`,
     `media-src 'self' blob:${exactAudioOrigin ? ` ${exactAudioOrigin}` : ''}`,
     `connect-src 'self'${exactAudioOrigin ? ` ${exactAudioOrigin}` : ''}`,
     "font-src 'self'",
@@ -577,6 +583,8 @@ async function api(request, response, url, {
   withIdentity,
   flagService,
   adminConsoleService,
+  productConfigurationService,
+  storyMediaService,
   mentorNotesService,
   recordingsService,
   signAudioPlayback,
@@ -603,6 +611,61 @@ async function api(request, response, url, {
   }
 
   const identity = await authorizeRequest(request);
+
+  if (request.method === 'GET' && url.pathname === '/api/presentation') {
+    return sendJson(response, 200, {
+      configuration: await productConfigurationService.read(identity),
+    });
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/admin/console/content-display') {
+    return sendJson(response, 200, {
+      configuration: await productConfigurationService.read(identity),
+    });
+  }
+  if (request.method === 'POST' && url.pathname === '/api/admin/console/content-display/validate') {
+    return sendJson(response, 200, await productConfigurationService.validate(identity, await readJson(request)));
+  }
+  if (request.method === 'POST' && url.pathname === '/api/admin/console/content-display/publish') {
+    return sendJson(response, 200, {
+      configuration: await productConfigurationService.publish(identity, await readJson(request)),
+    });
+  }
+  if (request.method === 'POST' && url.pathname === '/api/admin/console/content-display/restore-defaults') {
+    return sendJson(response, 200, {
+      configuration: await productConfigurationService.restore(identity, await readJson(request)),
+    });
+  }
+
+  const storyMediaCollection = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/media$/i);
+  if (storyMediaCollection && request.method === 'GET') {
+    return sendJson(response, 200, { media: await storyMediaService.list(identity, storyMediaCollection[1]) });
+  }
+  if (storyMediaCollection && request.method === 'POST') {
+    return sendJson(response, 201, await storyMediaService.allocate(identity, {
+      ...(await readJson(request)),
+      storyId: storyMediaCollection[1],
+    }));
+  }
+  const storyMediaItem = url.pathname.match(
+    /^\/api\/story-media\/([a-f0-9-]+)(?:\/(verify|playback))?$/i,
+  );
+  if (storyMediaItem) {
+    const mediaId = storyMediaItem[1];
+    const action = storyMediaItem[2] || '';
+    if (request.method === 'POST' && action === 'verify') {
+      return sendJson(response, 200, { media: await storyMediaService.verify(identity, mediaId, await readJson(request)) });
+    }
+    if (request.method === 'GET' && action === 'playback') {
+      return sendJson(response, 200, await storyMediaService.playback(identity, mediaId));
+    }
+    if (request.method === 'PATCH' && !action) {
+      return sendJson(response, 200, { media: await storyMediaService.update(identity, mediaId, await readJson(request)) });
+    }
+    if (request.method === 'DELETE' && !action) {
+      return sendJson(response, 200, await storyMediaService.remove(identity, mediaId));
+    }
+  }
 
   if (request.method === 'POST' && url.pathname === '/api/recordings') {
     await readJson(request);
@@ -739,11 +802,12 @@ async function api(request, response, url, {
   }
 
   if (request.method === 'GET' && url.pathname === '/api/session') {
-    const [user, voiceCapture, adminConsole, mentorNotes, mentorNotesRead, b1511, adminB1511] = await Promise.all([
+    const [user, voiceCapture, adminConsole, mentorNotes, mentorNotesRead, storyMedia, b1511, adminB1511] = await Promise.all([
       withIdentity(identity, async (client) => {
         const result = await client.query(
           `SELECT id, wp_user_id, display_name, first_name, pronouns, role, eligible,
-             cohort, academic_year, specialty, application_cycle, background_preference
+             cohort, academic_year, specialty, application_cycle, background_preference,
+             reading_size_preference
            FROM public.sf_users WHERE id = $1`,
           [identity.sub],
         );
@@ -753,6 +817,7 @@ async function api(request, response, url, {
       adminConsoleService.capability(identity),
       mentorNotesService.capability(identity),
       mentorNotesService.readCapability(identity),
+      Promise.resolve(storyMediaService.capability(identity)),
       withIdentity(identity, async (client) => {
         try {
           const result = await client.query('SELECT public.sf_b1_511_capabilities() AS payload');
@@ -791,6 +856,7 @@ async function api(request, response, url, {
         adminConsole,
         mentorNotes,
         mentorNotesRead: mentorNotesRead && b1511.mentorNotesRead === true,
+        storyMedia,
         submissionReview: b1511.submissionReview === true,
         taxonomy: b1511.taxonomy === true || adminB1511.taxonomy === true,
         inlinePriority: b1511.inlinePriority === true,
@@ -809,6 +875,18 @@ async function api(request, response, url, {
       return result.rows[0]?.background_preference;
     });
     return sendJson(response, 200, { backgroundPreference });
+  }
+
+  if (request.method === 'PATCH' && url.pathname === '/api/preferences/text-size') {
+    const body = await readJson(request);
+    const textSize = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT public.sf_set_reading_size_preference($1) AS reading_size_preference`,
+        [body.textSize],
+      );
+      return result.rows[0]?.reading_size_preference;
+    });
+    return sendJson(response, 200, { textSize });
   }
 
   if (request.method === 'GET' && url.pathname === '/api/stories') {
@@ -984,7 +1062,7 @@ async function api(request, response, url, {
     const body = await readJson(request);
     const story = await withIdentity(identity, async (client) => {
       const result = await client.query(
-        'SELECT public.sf_update_story_taxonomy($1, $2, $3::text[], $4::text[], $5) AS story',
+        'SELECT public.sf_update_story_taxonomy_configured($1, $2, $3::text[], $4::text[], $5, false) AS story',
         [
           id,
           body.expectedVersion ?? null,
@@ -2651,6 +2729,8 @@ export function createAppServer({
   identityTransaction = withDatabaseIdentity,
   phaseOneRuntime = defaultPhaseOneRuntime,
   adminConsoleService = null,
+  productConfigurationService = null,
+  storyMediaService = null,
   mentorNotesService = null,
   auditWriter = appendAudit,
   audioPlaybackSigner = createAudioPlayback,
@@ -2659,6 +2739,20 @@ export function createAppServer({
 } = {}) {
   const resolvedAdminConsoleService = adminConsoleService || createAdminConsoleService({
     withIdentity: identityTransaction,
+  });
+  const resolvedProductConfigurationService = productConfigurationService || createProductConfigurationService({
+    withIdentity: identityTransaction,
+  });
+  const resolvedStoryMediaService = storyMediaService || createStoryMediaService({
+    withIdentity: identityTransaction,
+    storage: {
+      spec: storyMediaSpec,
+      createUpload: createStoryMediaUpload,
+      verifyUpload: verifyStoryMediaUpload,
+      promoteObject: promoteStoryMediaObject,
+      signPlayback: audioPlaybackSigner,
+      deleteObject: deleteAudioObject,
+    },
   });
   const resolvedMentorNotesService = mentorNotesService || createMentorNotesService({
     withIdentity: identityTransaction,
@@ -2677,6 +2771,8 @@ export function createAppServer({
     withIdentity: identityTransaction,
     flagService: phaseOneRuntime.flagService,
     adminConsoleService: resolvedAdminConsoleService,
+    productConfigurationService: resolvedProductConfigurationService,
+    storyMediaService: resolvedStoryMediaService,
     mentorNotesService: resolvedMentorNotesService,
     recordingsService: phaseOneRuntime.recordingsService,
     signAudioPlayback: audioPlaybackSigner,

@@ -32,11 +32,31 @@ export async function devToken(request, persona) {
 }
 
 export async function seedConformanceData(request) {
-  const [student, mentor, mentorTwo] = await Promise.all([
+  const [student, mentor, mentorTwo, admin] = await Promise.all([
     devToken(request, 'student'),
     devToken(request, 'mentor'),
     devToken(request, 'mentorTwo'),
+    devToken(request, 'admin'),
   ]);
+  const presentation = await request.get('/api/presentation', {
+    headers: authHeaders(student),
+  });
+  expect(presentation.ok(), 'read B1-512 conformance presentation').toBeTruthy();
+  const configuration = (await presentation.json()).configuration;
+  if (!configuration.payload.navigation.interviewPrepVisible) {
+    const published = await request.post('/api/admin/console/content-display/publish', {
+      headers: authHeaders(admin),
+      data: {
+        expectedVersion: Number(configuration.version),
+        payload: {
+          ...configuration.payload,
+          navigation: { interviewPrepVisible: true },
+        },
+      },
+    });
+    expect(published.ok(), 'enable Interview Prep for its canonical conformance surfaces')
+      .toBeTruthy();
+  }
   const create = async (title, text, themes = []) => {
     const response = await request.post('/api/stories', {
       headers: authHeaders(student),
@@ -554,9 +574,12 @@ export async function assertMarkers(page, surfaceKey, options = {}) {
     options.production ? (contract.flagOffSupersededMarkers || []) : [],
   );
   for (const marker of contract.markers.filter((item) => !superseded.has(item))) {
+    const expectedMarker = options.production
+      ? (contract.productionMarkerAliases?.[marker] || marker)
+      : marker;
     const matcher = options.soft ? expect.soft : expect;
     matcher(bodyText, `${contract.label}: ${marker}`)
-      .toMatch(new RegExp(escaped(marker), 'i'));
+      .toMatch(new RegExp(escaped(expectedMarker), 'i'));
   }
   if (options.production && contract.forbiddenMarkers) {
     for (const marker of contract.forbiddenMarkers) {
@@ -1175,8 +1198,8 @@ function compareEvidence(
   };
 }
 
-function assertComparison(label, viewport, canonical, candidate, comparison) {
-  const threshold = VISUAL_COMPARISON_THRESHOLDS;
+function assertComparison(label, viewport, canonical, candidate, comparison, minimums = {}) {
+  const threshold = { ...VISUAL_COMPARISON_THRESHOLDS, ...minimums };
   expect(canonical.viewport, `${label} canonical viewport`).toEqual(viewport);
   expect(candidate.viewport, `${label} candidate viewport`).toEqual(viewport);
   expect(
@@ -1313,7 +1336,10 @@ export async function compareSurfacePair(
     authoritySha256: CANONICAL_SHA256,
     surface: surfaceKey,
     viewport: { key: viewportKey, ...viewport },
-    thresholds: VISUAL_COMPARISON_THRESHOLDS,
+    thresholds: {
+      ...VISUAL_COMPARISON_THRESHOLDS,
+      ...(PRODUCT_SURFACES[surfaceKey].conformanceMinimums || {}),
+    },
     comparison,
     canonical: {
       page: canonicalMeta,
@@ -1338,6 +1364,13 @@ export async function compareSurfacePair(
     contentType: 'application/json',
   });
 
-  assertComparison(label, viewport, canonicalMeta, candidateMeta, comparison);
+  assertComparison(
+    label,
+    viewport,
+    canonicalMeta,
+    candidateMeta,
+    comparison,
+    PRODUCT_SURFACES[surfaceKey].conformanceMinimums,
+  );
   return evidence;
 }

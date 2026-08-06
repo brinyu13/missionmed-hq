@@ -327,7 +327,7 @@ function mmsfr_send_security_headers( $cache_control, $private = false ) {
 	$audio_origin = mmsfr_audio_origin();
 	$audio_source = '' !== $audio_origin ? ' ' . $audio_origin : '';
 	header(
-		"Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:" . $audio_source . "; connect-src 'self'" . $audio_source . "; font-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
+		"Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:" . $audio_source . "; media-src 'self' blob:" . $audio_source . "; connect-src 'self'" . $audio_source . "; font-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
 		true
 	);
 	header( 'Referrer-Policy: no-referrer', true );
@@ -885,6 +885,19 @@ function mmsfr_is_audio_delete_path( $path ) {
 }
 
 /**
+ * Return whether a path is the exact B1-512 private story-media deletion route.
+ *
+ * @param string $path Request path.
+ * @return bool
+ */
+function mmsfr_is_story_media_delete_path( $path ) {
+	return 1 === preg_match(
+		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/story-media/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$#i',
+		$path
+	);
+}
+
+/**
  * Accept the browser-generated multipart content type only when it contains
  * one bounded RFC-compatible boundary and no additional parameters.
  *
@@ -1114,11 +1127,13 @@ function mmsfr_mentor_note_multipart_request() {
 function mmsfr_proxy_request( $path ) {
 	$method       = mmsfr_request_method();
 	$is_audio_delete = 'DELETE' === $method && mmsfr_is_audio_delete_path( $path );
+	$is_story_media_delete = 'DELETE' === $method && mmsfr_is_story_media_delete_path( $path );
+	$is_privacy_delete = $is_audio_delete || $is_story_media_delete;
 	$allowed      = array( 'GET', 'POST', 'PATCH' );
 	$health_path  = MMSFR_BASE_PATH . 'healthz';
 	$is_health    = $path === $health_path;
 	$health_allow = array( 'GET' );
-	if ( ! in_array( $method, $is_health ? $health_allow : $allowed, true ) && ! $is_audio_delete ) {
+	if ( ! in_array( $method, $is_health ? $health_allow : $allowed, true ) && ! $is_privacy_delete ) {
 		if ( ! headers_sent() ) {
 			header( 'Allow: ' . implode( ', ', $is_health ? $health_allow : $allowed ), true );
 		}
