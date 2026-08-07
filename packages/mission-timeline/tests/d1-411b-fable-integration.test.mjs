@@ -10,6 +10,14 @@ const {projectTimelineDocument}=await import(
 const {createD1411AKernelManager}=await import(
   "../web/js/d1-411a/kernel-host.js?d1-411b-contract"
 );
+const {
+  createAdvancedElement,
+  createTextBlock,
+  groupAdvancedObjects,
+  ungroupAdvancedObjects,
+  setAdvancedObjectLock,
+  ADVANCED_BUILT_IN_ASSETS
+}=await import("../web/js/uxr-002/advanced-studio.js?rc1-editor-ux-004");
 
 const webRoot=new URL("../web/",import.meta.url);
 
@@ -181,6 +189,33 @@ test("D1-411B Advanced object pointer contract shows transient snap guides witho
   assert.match(adapter,/addEventListener\("pointercancel",onAdvancedPointerUp\)/);
   assert.match(styles,/\[data-advanced-alignment-guide\]/);
   assert.doesNotMatch(adapter,/advancedPointer[^\n]{0,120}rotat/i);
+});
+
+test("RC1 editor asset rail uses real local vector objects and supports durable grouping",()=>{
+  const document=timeline();
+  document.mode="advanced";
+  document.advanced={
+    media:[],
+    textBlocks:[createTextBlock({id:"caption",text:"Caption",x:250,y:240,width:220,height:60})],
+    elements:[createAdvancedElement({id:"callout",kind:"callout",x:180,y:180,width:360,height:150})],
+    groups:[]
+  };
+  assert.ok(ADVANCED_BUILT_IN_ASSETS.shapes.some(({kind})=>kind==="callout"));
+  assert.ok(ADVANCED_BUILT_IN_ASSETS.icons.some(({kind})=>kind==="hospital"));
+  assert.ok(ADVANCED_BUILT_IN_ASSETS.flags.some(({kind})=>kind==="country-flag"));
+  const grouped=groupAdvancedObjects(document,[
+    {type:"element",id:"callout"},
+    {type:"text",id:"caption"}
+  ],{id:"caption-group"});
+  assert.equal(grouped.changed,true);
+  assert.equal(grouped.document.advanced.groups[0].children.length,2);
+  assert.equal(grouped.document.advanced.elements[0].groupId,"caption-group");
+  const locked=setAdvancedObjectLock(grouped.document,{type:"group",id:"caption-group"},true);
+  assert.equal(locked.advanced.groups[0].locked,true);
+  const ungrouped=ungroupAdvancedObjects(locked,"caption-group");
+  assert.equal(ungrouped.changed,true);
+  assert.equal(ungrouped.document.advanced.groups.length,0);
+  assert.equal("groupId" in ungrouped.document.advanced.elements[0],false);
 });
 
 test("D1-411B server keeps top-level framing denied and allows only the protected same-origin kernel",async()=>{

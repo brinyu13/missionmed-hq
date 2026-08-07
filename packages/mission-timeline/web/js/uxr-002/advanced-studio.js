@@ -1,4 +1,5 @@
 import {dateLabel,escapeHtml} from "./utils.js";
+import {browserCountryRows} from "./datasets.js";
 
 const freezeDeep=(value)=>{
   if(!value||typeof value!=="object"||Object.isFrozen(value))return value;
@@ -84,9 +85,21 @@ export const ADVANCED_EDITOR_PANELS=freezeDeep([
   {id:"timeline",label:"Timeline",icon:"↔"}
 ]);
 
-const VISUAL_INSERT_ASSETS=freezeDeep({
+/*
+ * RC1 intentionally keeps this library local, vector-first, and export-safe.
+ * It is a starter system rather than a third-party clip-art catalogue: every
+ * tile creates a real SVG element in the Timeline document and is therefore
+ * movable, resizeable, groupable, undoable, and serialised by the same board
+ * renderer as uploaded media.
+ */
+export const ADVANCED_BUILT_IN_ASSETS=freezeDeep({
   elements:[
-    {id:"image",label:"Image",symbol:"▧",action:"image"},
+    {id:"rectangle",label:"Rectangle",symbol:"▭",kind:"rectangle"},
+    {id:"rounded-rectangle",label:"Rounded rectangle",symbol:"▰",kind:"rounded-rectangle"},
+    {id:"circle",label:"Circle",symbol:"●",kind:"circle"},
+    {id:"callout",label:"Callout",symbol:"▱",kind:"callout"},
+    {id:"arrow-right",label:"Arrow",symbol:"→",kind:"arrow-right"},
+    {id:"milestone",label:"Milestone pointer",symbol:"◆",kind:"milestone"},
     {id:"text",label:"Text",symbol:"T",action:"text"},
     {id:"background",label:"Background",symbol:"▨",action:"background"}
   ],
@@ -103,20 +116,40 @@ const VISUAL_INSERT_ASSETS=freezeDeep({
   ],
   brand:[{id:"missionmed",label:"MissionMed logo",symbol:"MM",action:"logo"}],
   shapes:[
-    {id:"circle",label:"Circle",symbol:"●",action:"symbol",value:"●"},
-    {id:"square",label:"Square",symbol:"■",action:"symbol",value:"■"},
-    {id:"line",label:"Divider",symbol:"━",action:"symbol",value:"━━━━━━━━"}
+    {id:"rectangle",label:"Rectangle",symbol:"▭",kind:"rectangle"},
+    {id:"rounded-rectangle",label:"Rounded rectangle",symbol:"▰",kind:"rounded-rectangle"},
+    {id:"circle",label:"Circle",symbol:"●",kind:"circle"},
+    {id:"line",label:"Divider",symbol:"━",kind:"line"},
+    {id:"badge",label:"Badge",symbol:"⬟",kind:"badge"},
+    {id:"label",label:"Label",symbol:"▱",kind:"label"},
+    {id:"callout",label:"Callout",symbol:"▱",kind:"callout"},
+    {id:"frame",label:"Frame",symbol:"□",kind:"frame"}
   ],
   icons:[
-    {id:"star",label:"Star",symbol:"★",action:"symbol",value:"★"},
-    {id:"heart",label:"Heart",symbol:"♥",action:"symbol",value:"♥"},
-    {id:"sparkle",label:"Sparkle",symbol:"✦",action:"symbol",value:"✦"}
+    {id:"hospital",label:"Hospital",symbol:"✚",kind:"hospital"},
+    {id:"stethoscope",label:"Stethoscope",symbol:"⚕",kind:"stethoscope"},
+    {id:"medicine",label:"Medicine",symbol:"✦",kind:"medicine"},
+    {id:"research",label:"Research",symbol:"⌕",kind:"research"},
+    {id:"microscope",label:"Microscope",symbol:"⌬",kind:"microscope"},
+    {id:"graduation",label:"Graduation",symbol:"⌂",kind:"graduation"},
+    {id:"certification",label:"Certification",symbol:"◈",kind:"certification"},
+    {id:"award",label:"Award",symbol:"★",kind:"award"},
+    {id:"marriage",label:"Marriage",symbol:"♡",kind:"marriage"},
+    {id:"baby",label:"Baby",symbol:"●",kind:"baby"},
+    {id:"family",label:"Family",symbol:"♧",kind:"family"},
+    {id:"home",label:"Home",symbol:"⌂",kind:"home"},
+    {id:"travel",label:"Travel",symbol:"✈",kind:"travel"},
+    {id:"relocation",label:"Relocation",symbol:"↔",kind:"relocation"},
+    {id:"citizenship",label:"Citizenship",symbol:"◎",kind:"citizenship"},
+    {id:"remembrance",label:"Remembrance",symbol:"✦",kind:"remembrance"}
   ],
   flags:[
-    {id:"us",label:"United States",symbol:"🇺🇸",action:"symbol",value:"🇺🇸"},
-    {id:"milestone",label:"Milestone flag",symbol:"⚑",action:"symbol",value:"⚑"}
+    {id:"country-flag",label:"Country flag",symbol:"⚑",kind:"country-flag"},
+    {id:"milestone-flag",label:"Milestone flag",symbol:"⚑",kind:"milestone-flag"}
   ]
 });
+/* Backwards-compatible exported name used by focused RC1 tests. */
+const VISUAL_INSERT_ASSETS=ADVANCED_BUILT_IN_ASSETS;
 
 export const BACKGROUND_TABS=freezeDeep(["Presets","Upload","Color"]);
 
@@ -270,6 +303,8 @@ const DEFAULT_ADVANCED_STATE=freezeDeep({
   },
   media:[],
   textBlocks:[],
+  elements:[],
+  groups:[],
   recentColors:[],
   gifStillNoticeSeen:false
 });
@@ -300,6 +335,8 @@ export function advancedStudioState(document={}){
     },
     media:clone(safeArray(source.media)),
     textBlocks:clone(safeArray(source.textBlocks)),
+    elements:clone(safeArray(source.elements)),
+    groups:clone(safeArray(source.groups)),
     headlineTypography:source.headlineTypography&&typeof source.headlineTypography==="object"
       ?clone(source.headlineTypography)
       :null,
@@ -1086,6 +1123,146 @@ export function createTextBlock({
   };
 }
 
+const ADVANCED_ELEMENT_KINDS=freezeDeep([
+  "rectangle","rounded-rectangle","circle","line","badge","label","callout","frame",
+  "arrow-right","arrow-curved","arrow-thin","arrow-thick","arrow-double","milestone",
+  "ribbon","pin","marker","separator","shadow",
+  "hospital","stethoscope","medicine","research","microscope","graduation","certification","award",
+  "marriage","pregnancy","baby","family","home","travel","relocation","citizenship","green-card","remembrance",
+  "country-flag","milestone-flag"
+]);
+
+function defaultElementGeometry(kind){
+  if(["line","separator"].includes(kind))return{width:300,height:18};
+  if(["arrow-right","arrow-curved","arrow-thin","arrow-thick","arrow-double"].includes(kind))return{width:220,height:96};
+  if(["circle","badge","pin","marker","hospital","stethoscope","medicine","research","microscope","graduation","certification","award","marriage","pregnancy","baby","family","home","travel","relocation","citizenship","green-card","remembrance","country-flag","milestone-flag"].includes(kind))return{width:112,height:112};
+  return{width:200,height:104};
+}
+
+export function createAdvancedElement({
+  id,
+  kind="rectangle",
+  x=860,
+  y=480,
+  width,
+  height,
+  fill="#2C6E8F",
+  stroke="#17324A",
+  label="",
+  countryCode="US",
+  layerIndex=0
+}={}){
+  const normalizedKind=String(kind||"");
+  if(!ADVANCED_ELEMENT_KINDS.includes(normalizedKind))throw new RangeError("Unsupported Timeline asset.");
+  const defaults=defaultElementGeometry(normalizedKind);
+  return{
+    id:String(id||""),
+    type:"element",
+    kind:normalizedKind,
+    x:finite(x,860),
+    y:finite(y,480),
+    width:positive(width,defaults.width),
+    height:positive(height,defaults.height),
+    fill:normalizeHex(fill)||"#2C6E8F",
+    stroke:normalizeHex(stroke)||"#17324A",
+    label:String(label||""),
+    countryCode:String(countryCode||"US").toUpperCase().slice(0,2),
+    aspectLocked:true,
+    locked:false,
+    layerIndex:Math.trunc(finite(layerIndex,0)),
+    resizeHandles:8,
+    contextActions:clone(MEDIA_CONTEXT_ACTIONS)
+  };
+}
+
+function advancedCollectionName(type){
+  return type==="media"?"media":type==="text"?"textBlocks":type==="element"?"elements":null;
+}
+
+export function advancedObjectByTarget(document={},target={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  const type=String(target?.type||"");
+  const id=String(target?.id||"");
+  if(type==="group")return state.advanced.groups.find((item)=>String(item.id)===id)||null;
+  const collection=advancedCollectionName(type);
+  return collection?state.advanced[collection].find((item)=>String(item.id)===id)||null:null;
+}
+
+function targetKey(target){return`${String(target?.type||"")}:${String(target?.id||"")}`;}
+
+function itemTargets(state){
+  return["media","text","element"].flatMap((type)=>state.advanced[advancedCollectionName(type)].map((item)=>({type,id:String(item.id),item})));
+}
+
+export function advancedGroupBounds(document={},groupId){
+  const state=normalizeAdvancedStudioDocument(document);
+  const group=state.advanced.groups.find((item)=>String(item.id)===String(groupId));
+  if(!group)return null;
+  const keyed=new Map(itemTargets(state).map((entry)=>[targetKey(entry),entry.item]));
+  const children=(group.children||[]).map((child)=>keyed.get(String(child))).filter(Boolean);
+  if(!children.length)return null;
+  const left=Math.min(...children.map((item)=>finite(item.x,0)));
+  const top=Math.min(...children.map((item)=>finite(item.y,0)));
+  const right=Math.max(...children.map((item)=>finite(item.x,0)+positive(item.width,1)));
+  const bottom=Math.max(...children.map((item)=>finite(item.y,0)+positive(item.height,1)));
+  return{x:left,y:top,width:right-left,height:bottom-top};
+}
+
+export function groupAdvancedObjects(document={},targets=[],{id=""}={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  if(state.mode!==ADVANCED_MODE)throw new Error("Grouping is available only in Advanced Studio.");
+  const selected=[...new Map(safeArray(targets).map((target)=>[targetKey(target),target])).values()]
+    .filter((target)=>advancedCollectionName(target?.type));
+  if(selected.length<2)throw new TypeError("Select at least two objects to group.");
+  const entries=itemTargets(state);
+  const keys=new Set(entries.map((entry)=>targetKey(entry)));
+  if(!selected.every((target)=>keys.has(targetKey(target))))throw new Error("A selected object is no longer available.");
+  const groupId=String(id||"").trim();
+  if(!groupId||state.advanced.groups.some((group)=>String(group.id)===groupId))throw new TypeError("A unique group ID is required.");
+  const children=selected.map(targetKey);
+  for(const entry of entries){
+    if(children.includes(targetKey(entry)))entry.item.groupId=groupId;
+  }
+  state.advanced.groups.push({id:groupId,type:"group",children,aspectLocked:true,locked:false});
+  return{document:state,selection:{type:"group",id:groupId},changed:true};
+}
+
+export function ungroupAdvancedObjects(document={},groupId){
+  const state=normalizeAdvancedStudioDocument(document);
+  const index=state.advanced.groups.findIndex((group)=>String(group.id)===String(groupId));
+  if(index<0)return{document:state,selection:null,changed:false};
+  const group=state.advanced.groups[index];
+  const children=new Set(group.children||[]);
+  for(const entry of itemTargets(state)){
+    if(children.has(targetKey(entry)))delete entry.item.groupId;
+  }
+  state.advanced.groups.splice(index,1);
+  return{document:state,selection:null,changed:true};
+}
+
+export function setAdvancedObjectLock(document={},target={},locked){
+  const state=normalizeAdvancedStudioDocument(document);
+  const item=advancedObjectByTarget(state,target);
+  if(!item)throw new Error("Advanced object not found.");
+  const collection=target.type==="group"?state.advanced.groups:state.advanced[advancedCollectionName(target.type)];
+  const index=collection.findIndex((candidate)=>String(candidate.id)===String(target.id));
+  collection[index]={...collection[index],locked:!!locked};
+  return state;
+}
+
+// Object locking and proportion locking are intentionally independent.  A
+// student may keep an image's aspect ratio while still moving it, or lock the
+// object in place without changing its resize behavior.
+export function setAdvancedObjectAspectLock(document={},target={},aspectLocked){
+  const state=normalizeAdvancedStudioDocument(document);
+  const item=advancedObjectByTarget(state,target);
+  if(!item)throw new Error("Advanced object not found.");
+  const collection=target.type==="group"?state.advanced.groups:state.advanced[advancedCollectionName(target.type)];
+  const index=collection.findIndex((candidate)=>String(candidate.id)===String(target.id));
+  collection[index]={...collection[index],aspectLocked:!!aspectLocked};
+  return state;
+}
+
 export function applyAdvancedTypography(document,target,typography){
   const state=normalizeAdvancedStudioDocument(document);
   if(state.mode!==ADVANCED_MODE)throw new Error("Typography controls are available only in Advanced Studio.");
@@ -1119,9 +1296,9 @@ export function applyAdvancedObjectAction(document,target,action,{
   const state=normalizeAdvancedStudioDocument(document);
   if(state.mode!==ADVANCED_MODE)throw new Error("Advanced object actions are available only in Advanced Studio.");
   const type=target?.type;
-  if(type!=="media"&&type!=="text")throw new TypeError("A selected media or text target is required.");
+  if(type!=="media"&&type!=="text"&&type!=="element")throw new TypeError("A selected media, text, or Timeline asset is required.");
   if(!MEDIA_CONTEXT_ACTIONS.includes(action))throw new RangeError("Unsupported Advanced object action.");
-  const key=type==="media"?"media":"textBlocks";
+  const key=type==="media"?"media":type==="text"?"textBlocks":"elements";
   const items=state.advanced[key];
   const id=String(target?.id||"");
   const index=items.findIndex((item)=>String(item.id)===id);
@@ -1328,6 +1505,26 @@ export function buildAdvancedSelectionModel(document={},selection={}){
       typography:normalizedTypographyValue(element)
     }:null;
   }
+  if(type==="element"){
+    const element=state.advanced.elements.find((item)=>String(item.id)===id);
+    return element?{
+      target:{type,id},
+      element:clone(element),
+      actions:clone(MEDIA_CONTEXT_ACTIONS),
+      editableText:false,
+      typography:null
+    }:null;
+  }
+  if(type==="group"){
+    const group=state.advanced.groups.find((item)=>String(item.id)===id);
+    return group?{
+      target:{type,id},
+      element:clone(group),
+      actions:["duplicate","delete","ungroup"],
+      editableText:false,
+      typography:null
+    }:null;
+  }
   if(type==="headline"){
     const typography=state.advanced.headlineTypography||
       selection.typography||
@@ -1348,7 +1545,8 @@ function objectActionLabel(action){
     "bring-forward":"Bring forward",
     "send-backward":"Send backward",
     duplicate:"Duplicate",
-    delete:"Delete"
+    delete:"Delete",
+    ungroup:"Ungroup"
   }[action]||action;
 }
 
@@ -1368,16 +1566,24 @@ function advancedAssetItems(state,panel){
     detail:"TEXT",
     kind:"text"
   }));
-  if(panel==="uploads")return[...media,...text];
+  const elements=state.advanced.elements.map((item,index)=>({
+    type:"element",
+    id:String(item.id),
+    label:String(item.label||item.kind||`Asset ${index+1}`),
+    detail:"ELEMENT",
+    kind:String(item.kind||"element")
+  }));
+  if(panel==="uploads")return[...media,...text,...elements];
   if(panel==="photos")return media.filter(({kind})=>kind==="image");
   if(panel==="logos")return media.filter(({kind})=>kind==="logo");
   if(panel==="text")return text;
-  if(panel==="elements")return[...media.slice(-6),...text.slice(-4)];
+  if(panel==="elements")return[...media.slice(-6),...text.slice(-4),...elements.slice(-8)];
   return[];
 }
 
 function insertAssetTile(item){
-  return`<button type="button" class="advanced-visual-asset" data-advanced-action="${escapeHtml(item.action)}"${item.value?` data-advanced-symbol="${escapeHtml(item.value)}"`:""} aria-label="${escapeHtml(item.label)}"><span class="advanced-visual-asset-preview" aria-hidden="true">${escapeHtml(item.symbol)}</span><span>${escapeHtml(item.label)}</span></button>`;
+  const action=item.action||"asset";
+  return`<button type="button" draggable="true" class="advanced-visual-asset" data-advanced-insert-asset data-advanced-action="${escapeHtml(action)}"${item.kind?` data-advanced-kind="${escapeHtml(item.kind)}"`:""}${item.value?` data-advanced-symbol="${escapeHtml(item.value)}"`:""} aria-label="${escapeHtml(item.label)}"><span class="advanced-visual-asset-preview" aria-hidden="true">${escapeHtml(item.symbol)}</span><span>${escapeHtml(item.label)}</span></button>`;
 }
 
 export function renderAdvancedToolRail(activePanel="elements"){
@@ -1395,7 +1601,16 @@ export function renderAdvancedAssetRail(document={},selection=null,{
   const items=advancedAssetItems(state,activePanel).filter((item)=>
     !normalizedQuery||`${item.label} ${item.detail}`.toLowerCase().includes(normalizedQuery)
   );
-  const inserts=(VISUAL_INSERT_ASSETS[activePanel]||[]).filter((item)=>
+  const countryFlags=activePanel==="flags"
+    ?browserCountryRows().map((country)=>({
+      id:`flag-${country.code.toLowerCase()}`,
+      label:country.label,
+      symbol:String.fromCodePoint(...[...country.code].map((character)=>127397+character.charCodeAt(0))),
+      kind:"country-flag",
+      value:country.code
+    }))
+    :[];
+  const inserts=[...(VISUAL_INSERT_ASSETS[activePanel]||[]),...countryFlags].filter((item)=>
     !normalizedQuery||item.label.toLowerCase().includes(normalizedQuery)
   );
   return`<section class="advanced-asset-rail" aria-label="${escapeHtml(activePanel)} assets" data-advanced-asset-rail>
@@ -1409,10 +1624,11 @@ export function renderAdvancedAssetRail(document={},selection=null,{
         const preview=url
           ?`<img src="${escapeHtml(url)}" alt="">`
           :`<span class="advanced-visual-asset-preview" aria-hidden="true">${item.type==="text"?"T":"▧"}</span>`;
+        const dragAttributes=` draggable="true" data-advanced-drag-object`;
         const mediaAttributes=item.type==="media"
-          ?` draggable="true" data-advanced-drag-asset data-media-asset="${escapeHtml(item.id)}"${item.placed===false?` data-media-place="${escapeHtml(item.id)}"`:""}`
+          ?` data-media-asset="${escapeHtml(item.id)}"${item.placed===false?` data-media-place="${escapeHtml(item.id)}"`:""}`
           :"";
-        return`<button type="button"${mediaAttributes} data-advanced-select-object data-advanced-target-type="${item.type}" data-advanced-target-id="${escapeHtml(item.id)}" aria-pressed="${String(selected)}">${preview}<span>${escapeHtml(item.label)}</span><small>${item.detail}</small></button>`;
+        return`<button type="button"${dragAttributes}${mediaAttributes} data-advanced-select-object data-advanced-target-type="${item.type}" data-advanced-target-id="${escapeHtml(item.id)}" aria-pressed="${String(selected)}">${preview}<span>${escapeHtml(item.label)}</span><small>${item.detail}</small></button>`;
       }).join("")}</div>`
       :(!inserts.length?'<p class="advanced-asset-rail-empty">No matching assets.</p>':"")}
   </section>`;
@@ -1424,17 +1640,23 @@ export function renderAdvancedSelectionControls(document={},{
   environment=globalThis
 }={}){
   const state=normalizeAdvancedStudioDocument(document);
+  if(selection?.type==="multi"){
+    const members=safeArray(selection.members).filter((item)=>advancedCollectionName(item?.type));
+    if(members.length<2)return"";
+    return`<section class="advanced-selection-controls" data-advanced-selection-controls data-advanced-multi-selection><strong>${members.length} objects selected</strong><div class="advanced-object-actions" role="toolbar" aria-label="Selected objects actions"><button type="button" class="button secondary compact" data-advanced-group-members="${escapeHtml(encodeURIComponent(JSON.stringify(members)))}">Group</button><button type="button" class="button secondary compact" data-advanced-clear-selection>Clear selection</button></div></section>`;
+  }
   const model=buildAdvancedSelectionModel(state,selection);
   if(!model)return"";
   const target=targetAttributes(model.target);
   const actions=model.actions.length
     ?`<div class="advanced-object-actions" role="toolbar" aria-label="Selected ${escapeHtml(model.target.type)} actions" data-advanced-object-actions${target}>${model.actions.map((action)=>`<button type="button" class="button secondary compact" data-advanced-object-action="${escapeHtml(action)}"${target}>${escapeHtml(objectActionLabel(action))}</button>`).join("")}</div>`
     :"";
-  const aspectLock=model.target.type==="media"
+  const aspectLock=["media","element","group"].includes(model.target.type)
     ?`<label class="advanced-aspect-lock"><input type="checkbox" data-advanced-aspect-lock${target} ${model.element.aspectLocked!==false?"checked":""}><span>Lock proportions</span></label>`
     :"";
+  const objectLock=`<button type="button" class="button secondary compact" data-advanced-object-action="${model.element.locked?"unlock":"lock"}"${target}>${model.element.locked?"Unlock":"Lock"}</button>`;
   if(!model.typography){
-    return`<section class="advanced-selection-controls" data-advanced-selection-controls${target}>${actions}${aspectLock}</section>`;
+    return`<section class="advanced-selection-controls" data-advanced-selection-controls${target}>${actions}${objectLock}${aspectLock}</section>`;
   }
   const typography=model.typography;
   const textContent=model.editableText
@@ -1452,7 +1674,7 @@ export function renderAdvancedSelectionControls(document={},{
     value:typography.color
   });
   return`<section class="advanced-selection-controls" data-advanced-selection-controls${target}>
-    ${actions}
+    ${actions}${objectLock}
     <fieldset class="advanced-typography-controls" data-advanced-typography-controls${target}>
       <legend>Typography</legend>
       ${textContent}
@@ -1594,7 +1816,7 @@ export function installAdvancedStudio(root,hooks={}){
   const closest=(target,selector)=>target?.closest?.(selector)||null;
   const delegatedTarget=(control)=>{
     const type=String(control?.dataset?.advancedTargetType||"");
-    if(!["media","text","headline","axis","color-key","profile","portrait","event","flag"].includes(type))return null;
+    if(!["media","text","element","group","headline","axis","color-key","profile","portrait","event","flag"].includes(type))return null;
     return{type,id:String(control?.dataset?.advancedTargetId||type)};
   };
   const colorContext=(control)=>({
@@ -1610,6 +1832,15 @@ export function installAdvancedStudio(root,hooks={}){
     const palette=closest(event.target,"[data-category-key-palette]");
     if(palette){
       hooks.onCategoryKeyPalette?.(String(palette.dataset.categoryKeyPalette||""),event);
+      return;
+    }
+    const group=closest(event.target,"[data-advanced-group-members]");
+    if(group){
+      try{hooks.onGroup?.(JSON.parse(decodeURIComponent(group.dataset.advancedGroupMembers||"")),event);}catch{}
+      return;
+    }
+    if(closest(event.target,"[data-advanced-clear-selection]")){
+      hooks.onClearSelection?.(event);
       return;
     }
     if(closest(event.target,"[data-axis-override-reset]")){
@@ -1772,12 +2003,38 @@ export function installAdvancedStudio(root,hooks={}){
     const dim=closest(event.target,"[data-background-dim]");
     if(dim)hooks.onBackgroundDim?.(normalizeDim(dim.value),event);
   };
+  const dragstart=(event)=>{
+    const insert=closest(event.target,"[data-advanced-insert-asset]");
+    if(insert){
+      const payload={
+        kind:"insert",
+        action:String(insert.dataset.advancedAction||"asset"),
+        assetKind:String(insert.dataset.advancedKind||""),
+        symbol:String(insert.dataset.advancedSymbol||"")
+      };
+      event.dataTransfer?.setData?.("application/x-missionmed-timeline-asset",JSON.stringify(payload));
+      event.dataTransfer?.setData?.("text/plain",payload.assetKind||payload.action);
+      event.dataTransfer.effectAllowed="copy";
+      hooks.onDragStart?.(payload,event);
+      return;
+    }
+    const object=closest(event.target,"[data-advanced-drag-object]");
+    if(object){
+      const target=delegatedTarget(object);
+      if(!target)return;
+      event.dataTransfer?.setData?.("application/x-missionmed-timeline-asset",JSON.stringify({kind:"object",target}));
+      event.dataTransfer.effectAllowed="move";
+      hooks.onDragStart?.({kind:"object",target},event);
+    }
+  };
   root.addEventListener("click",click);
   root.addEventListener("change",change);
   root.addEventListener("input",input);
+  root.addEventListener("dragstart",dragstart);
   return()=>{
     root.removeEventListener("click",click);
     root.removeEventListener("change",change);
     root.removeEventListener("input",input);
+    root.removeEventListener("dragstart",dragstart);
   };
 }

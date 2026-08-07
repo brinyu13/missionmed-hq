@@ -94,6 +94,8 @@ class D1411AKernelElement extends HostHTMLElement{
     this._hitLayer=null;
     this._hitSources=[];
     this._selectedObjectId=null;
+    this._advancedOverlayCleanup=()=>{};
+    this.selectAdvancedObject=()=>{};
     this.attachShadow({mode:"open"});
   }
 
@@ -124,6 +126,9 @@ class D1411AKernelElement extends HostHTMLElement{
     this._resizeObserver?.disconnect();
     this._resizeObserver=null;
     for(const cleanup of this._childCleanup.splice(0))cleanup();
+    this._advancedOverlayCleanup();
+    this._advancedOverlayCleanup=()=>{};
+    this.selectAdvancedObject=()=>{};
     this._kernel?.destroy?.();
     this._kernel=null;
     delete this.dataset.interactionsReady;
@@ -235,7 +240,10 @@ class D1411AKernelElement extends HostHTMLElement{
     if(!response)throw new Error("Timeline media recovery exceeded the safe omission limit.");
     await K.whenStable(record.renderId);
     const childDocument=this.shadowRoot?.querySelector("iframe")?.contentDocument;
-    if(childDocument)this._applyPresentationOverrides(childDocument,record);
+    if(childDocument){
+      this._applyPresentationOverrides(childDocument,record);
+      this._applyAdvancedOverlay(childDocument,record);
+    }
     delete this.dataset.error;
     delete this.dataset.errorMessage;
     delete this.dataset.lastFailureContext;
@@ -319,6 +327,34 @@ class D1411AKernelElement extends HostHTMLElement{
     };
     childDocument.addEventListener("d1-409h:interaction",interaction);
     this._childCleanup.push(()=>childDocument.removeEventListener("d1-409h:interaction",interaction));
+    // Native rail drag events do not bubble across the protected iframe
+    // boundary.  Forward just the typed Timeline asset payload, mapped to
+    // board coordinates, so the host can make one durable insertion on drop.
+    const advancedDrop=(event)=>{
+      let payload=null;
+      try{payload=JSON.parse(event.dataTransfer?.getData?.("application/x-missionmed-timeline-asset")||"");}catch{}
+      if(payload?.kind!=="insert"||this._record?.editable!==true)return;
+      const board=childDocument.getElementById("board");
+      const bounds=board?.getBoundingClientRect?.();
+      if(!bounds?.width||!bounds?.height)return;
+      event.preventDefault();
+      if(event.type==="dragover"){
+        if(event.dataTransfer)event.dataTransfer.dropEffect="copy";
+        return;
+      }
+      this.dispatchEvent(new CustomEvent("d1-411a:advanced-drop",{
+        bubbles:true,composed:true,
+        detail:{
+          surface:this._record.surface,payload,
+          x:clamp((event.clientX-bounds.left)*1920/bounds.width,0,1840),
+          y:clamp((event.clientY-bounds.top)*1080/bounds.height,0,1000)
+        }
+      }));
+    };
+    childDocument.addEventListener("dragover",advancedDrop);
+    childDocument.addEventListener("drop",advancedDrop);
+    this._childCleanup.push(()=>childDocument.removeEventListener("dragover",advancedDrop));
+    this._childCleanup.push(()=>childDocument.removeEventListener("drop",advancedDrop));
 
     const objects=[...childDocument.querySelectorAll(INTERACTIVE_OBJECT_SELECTOR)];
     if(this._record.interactive){
@@ -597,6 +633,244 @@ class D1411AKernelElement extends HostHTMLElement{
       key.style.width=`${width}px`;
       key.style.height=`${height}px`;
     }
+  }
+
+  _applyAdvancedOverlay(childDocument,record=this._record){
+    this._advancedOverlayCleanup();
+    this._advancedOverlayCleanup=()=>{};
+    this.selectAdvancedObject=()=>{};
+    childDocument.getElementById("d1411a-advanced-overlay")?.remove();
+    const advanced=record?.document?.mode==="advanced"?record.document.advanced:null;
+    if(!advanced)return;
+    const items=[
+      ...(Array.isArray(advanced.textBlocks)?advanced.textBlocks:[]).map((item)=>({type:"text",...item})),
+      ...(Array.isArray(advanced.elements)?advanced.elements:[]).map((item)=>({type:"element",...item}))
+    ].filter((item)=>item&&item.id);
+    const groups=new Map((Array.isArray(advanced.groups)?advanced.groups:[]).map((group)=>[String(group.id),group]));
+    if(!items.length)return;
+    const board=childDocument.getElementById("board");
+    if(!board)return;
+    const style=childDocument.createElement("style");
+    style.textContent=`#d1411a-advanced-overlay{position:absolute;inset:0;z-index:900;pointer-events:none}#d1411a-advanced-overlay .d1411aAdvanced{box-sizing:border-box;position:absolute;pointer-events:auto;touch-action:none;cursor:move;user-select:none}#d1411a-advanced-overlay .d1411aAdvanced[data-selected="true"]{outline:3px solid #39d6ff;outline-offset:2px;box-shadow:0 0 0 1px rgba(7,17,31,.85),0 0 14px rgba(57,214,255,.52)}#d1411a-advanced-overlay .d1411aAdvancedText{background:transparent;border:0;color:#191c21;font:400 24px/1.2 Inter,sans-serif;min-width:32px;white-space:pre-wrap}#d1411a-advanced-overlay .d1411aAdvancedElement{align-items:center;border:3px solid #17324a;display:flex;justify-content:center;overflow:visible}#d1411a-advanced-overlay .kind-circle{border-radius:50%}.d1411aHandle{background:#fff;border:2px solid #18799e;border-radius:50%;height:11px;padding:0;position:absolute;width:11px;z-index:2}.d1411aHandle[data-handle="nw"]{left:-8px;top:-8px}.d1411aHandle[data-handle="n"]{left:calc(50% - 6px);top:-8px}.d1411aHandle[data-handle="ne"]{right:-8px;top:-8px}.d1411aHandle[data-handle="e"]{right:-8px;top:calc(50% - 6px)}.d1411aHandle[data-handle="se"]{bottom:-8px;right:-8px}.d1411aHandle[data-handle="s"]{bottom:-8px;left:calc(50% - 6px)}.d1411aHandle[data-handle="sw"]{bottom:-8px;left:-8px}.d1411aHandle[data-handle="w"]{left:-8px;top:calc(50% - 6px)}.d1411aGroupBox{box-sizing:border-box;border:3px dashed #39d6ff;pointer-events:auto;position:absolute;z-index:3}.d1411aGroupBox .d1411aHandle{position:absolute}`;
+    childDocument.head.append(style);
+    const overlay=childDocument.createElement("div");
+    overlay.id="d1411a-advanced-overlay";
+    const makeElement=(item)=>{
+      const node=childDocument.createElement(item.type==="text"?"div":"div");
+      const width=Math.max(32,finite(item.width,160));
+      const height=Math.max(24,finite(item.height,item.type==="text"?48:96));
+      node.className=item.type==="text"?"d1411aAdvanced d1411aAdvancedText":"d1411aAdvanced d1411aAdvancedElement";
+      node.dataset.advancedType=item.type;
+      node.dataset.advancedId=String(item.id);
+      node.dataset.advancedKind=String(item.kind||"");
+      node.dataset.groupId=String(item.groupId||"");
+      node.dataset.aspectLocked=String(item.aspectLocked!==false);
+      node.dataset.locked=String(item.locked===true);
+      node.style.left=`${finite(item.x,0)}px`;
+      node.style.top=`${finite(item.y,0)}px`;
+      node.style.width=`${width}px`;
+      node.style.height=`${height}px`;
+      node.tabIndex=0;
+      node.setAttribute("role","button");
+      node.setAttribute("aria-label",`${item.label||item.text||item.kind||"Timeline asset"}; select to move or resize`);
+      if(item.type==="text"){
+        node.textContent=String(item.text||"");
+        node.style.fontFamily=String(item.font||"Inter");
+        node.style.fontSize=`${Math.max(10,finite(item.size,24))}px`;
+        node.style.fontWeight=String(finite(item.weight,400));
+        node.style.color=String(item.color||"#191c21");
+        node.style.textAlign=String(item.alignment||"left");
+      }else{
+        node.style.background=String(item.fill||"#2C6E8F");
+        node.style.borderColor=String(item.stroke||"#17324A");
+        if(["circle","badge","pin","marker","milestone","milestone-flag"].includes(item.kind))node.classList.add("kind-circle");
+        const glyph={
+          "arrow-right":"→","arrow-curved":"↪","arrow-thin":"⟶","arrow-thick":"➜","arrow-double":"↔",
+          milestone:"◆",ribbon:"▰",pin:"●",marker:"◆",separator:"",shadow:"",
+          hospital:"✚",stethoscope:"⚕",medicine:"✦",research:"⌕",microscope:"⌬",graduation:"◆",certification:"◈",award:"★",
+          marriage:"♡",pregnancy:"●",baby:"●",family:"♧",home:"⌂",travel:"✈",relocation:"↔",citizenship:"◎","green-card":"▣",remembrance:"✦",
+          "milestone-flag":"⚑"
+        };
+        node.textContent=item.kind==="country-flag"
+          ?(/^[A-Z]{2}$/.test(String(item.countryCode||""))?String.fromCodePoint(...[...String(item.countryCode).toUpperCase()].map((character)=>127397+character.charCodeAt(0))):"⚑")
+          :(item.label||glyph[item.kind]||"");
+      }
+      return node;
+    };
+    for(const item of items.sort((left,right)=>finite(left.layerIndex)-finite(right.layerIndex))){overlay.append(makeElement(item));}
+    board.append(overlay);
+    let selected=null;
+    let selectedNodes=new Set();
+    let gesture=null;
+    let frame=0;
+    const nodeFor=(type,id)=>overlay.querySelector(`[data-advanced-type="${CSS.escape(type)}"][data-advanced-id="${CSS.escape(id)}"]`);
+    const membersForGroup=(groupId)=>[...overlay.querySelectorAll(`.d1411aAdvanced[data-group-id="${CSS.escape(String(groupId))}"]`)];
+    const boundsForNodes=(nodes)=>{
+      if(!nodes.length)return null;
+      const values=nodes.map(geometry);
+      const x=Math.min(...values.map((value)=>value.x));
+      const y=Math.min(...values.map((value)=>value.y));
+      const right=Math.max(...values.map((value)=>value.x+value.width));
+      const bottom=Math.max(...values.map((value)=>value.y+value.height));
+      return{x,y,width:right-x,height:bottom-y};
+    };
+    const addHandles=(host)=>{
+      if(!record.editable)return;
+      for(const handle of ["nw","n","ne","e","se","s","sw","w"]){
+        const control=childDocument.createElement("button");
+        control.type="button";control.className="d1411aHandle";control.dataset.handle=handle;control.setAttribute("aria-label",`Resize ${handle}`);host.append(control);
+      }
+    };
+    let selectedGroupId=null;
+    const clearGroupBox=()=>overlay.querySelector(".d1411aGroupBox")?.remove();
+    const showGroupBox=(groupId)=>{
+      clearGroupBox();
+      const nodes=membersForGroup(groupId);
+      const bounds=boundsForNodes(nodes);
+      if(!bounds)return null;
+      const box=childDocument.createElement("div");
+      box.className="d1411aGroupBox";
+      box.dataset.groupId=String(groupId);
+      Object.assign(box.style,{left:`${bounds.x}px`,top:`${bounds.y}px`,width:`${bounds.width}px`,height:`${bounds.height}px`});
+      addHandles(box);overlay.append(box);
+      return box;
+    };
+    const markSelected=(node,{announce=true,add=false}={})=>{
+      overlay.querySelectorAll(".d1411aHandle").forEach((control)=>control.remove());
+      clearGroupBox();selectedGroupId=null;
+      if(add&&node){
+        if(selectedNodes.has(node))selectedNodes.delete(node);
+        else selectedNodes.add(node);
+      }else selectedNodes=new Set(node?[node]:[]);
+      overlay.querySelectorAll(".d1411aAdvanced").forEach((candidate)=>candidate.dataset.selected=String(selectedNodes.has(candidate)));
+      selected=selectedNodes.size===1?[...selectedNodes][0]:null;
+      if(selected&&record.editable){
+        for(const handle of ["nw","n","ne","e","se","s","sw","w"]){
+          const control=childDocument.createElement("button");
+          control.type="button";control.className="d1411aHandle";control.dataset.handle=handle;control.setAttribute("aria-label",`Resize ${handle}`);selected.append(control);
+        }
+      }
+      if(announce){
+        const members=[...selectedNodes].map((candidate)=>({type:candidate.dataset.advancedType,id:candidate.dataset.advancedId}));
+        this.dispatchEvent(new CustomEvent("d1-411a:advanced-select",{bubbles:true,composed:true,detail:members.length>1?{surface:record.surface,type:"multi",members}:{surface:record.surface,type:selected?.dataset.advancedType||null,id:selected?.dataset.advancedId||null}}));
+      }
+    };
+    const markGroup=(groupId,{announce=true}={})=>{
+      overlay.querySelectorAll(".d1411aHandle").forEach((control)=>control.remove());
+      selectedGroupId=String(groupId);
+      selectedNodes=new Set(membersForGroup(selectedGroupId));
+      overlay.querySelectorAll(".d1411aAdvanced").forEach((candidate)=>candidate.dataset.selected=String(selectedNodes.has(candidate)));
+      selected=null;
+      showGroupBox(selectedGroupId);
+      if(announce)this.dispatchEvent(new CustomEvent("d1-411a:advanced-select",{bubbles:true,composed:true,detail:{surface:record.surface,type:"group",id:selectedGroupId}}));
+    };
+    const select=(node)=>markSelected(node);
+    this.selectAdvancedObject=(type,id)=>type==="group"?markGroup(id,{announce:false}):markSelected(nodeFor(type,id),{announce:false});
+    const geometry=(node)=>({x:cssNumber(node.style.left),y:cssNumber(node.style.top),width:cssNumber(node.style.width,1),height:cssNumber(node.style.height,1)});
+    const update=()=>{
+      frame=0;
+      if(!gesture)return;
+      const dx=gesture.pendingX-gesture.startX,dy=gesture.pendingY-gesture.startY;
+      const next={...gesture.original};
+      if(gesture.kind==="move"){
+        next.x=clamp(next.x+dx,0,1920-next.width);next.y=clamp(next.y+dy,0,1080-next.height);
+      }else{
+        const horizontal=gesture.handle.includes("w")?-1:gesture.handle.includes("e")?1:0;
+        const vertical=gesture.handle.includes("n")?-1:gesture.handle.includes("s")?1:0;
+        if(horizontal<0){next.x+=dx;next.width-=dx;}else if(horizontal>0)next.width+=dx;
+        if(vertical<0){next.y+=dy;next.height-=dy;}else if(vertical>0)next.height+=dy;
+        next.width=Math.max(32,next.width);next.height=Math.max(24,next.height);
+        if(gesture.aspectLocked!==false&&horizontal&&vertical){
+          const aspect=gesture.original.width/gesture.original.height||1;
+          next.height=next.width/aspect;
+        }
+        next.x=clamp(next.x,0,1920-next.width);next.y=clamp(next.y,0,1080-next.height);
+      }
+      gesture.preview=next;
+      if(gesture.type==="group"){
+        const scaleX=next.width/Math.max(1,gesture.original.width);
+        const scaleY=next.height/Math.max(1,gesture.original.height);
+        for(const member of gesture.members){
+          const item=member.original;
+          member.node.style.left=`${next.x+(item.x-gesture.original.x)*scaleX}px`;
+          member.node.style.top=`${next.y+(item.y-gesture.original.y)*scaleY}px`;
+          member.node.style.width=`${Math.max(32,item.width*scaleX)}px`;
+          member.node.style.height=`${Math.max(24,item.height*scaleY)}px`;
+        }
+        const box=overlay.querySelector(".d1411aGroupBox");
+        if(box)Object.assign(box.style,{left:`${next.x}px`,top:`${next.y}px`,width:`${next.width}px`,height:`${next.height}px`});
+      }else{
+        gesture.node.style.left=`${next.x}px`;gesture.node.style.top=`${next.y}px`;gesture.node.style.width=`${next.width}px`;gesture.node.style.height=`${next.height}px`;
+      }
+    };
+    const down=(event)=>{
+      const node=event.target.closest?.(".d1411aAdvanced");
+      const groupControl=event.target.closest?.(".d1411aGroupBox");
+      if(!node&&!groupControl)return;
+      if(groupControl){
+        const groupId=groupControl.dataset.groupId;
+        const group=groups.get(String(groupId));
+        if(!group||!record.editable||group.locked===true||event.button!==0)return;
+        markGroup(groupId);
+        const boardBounds=board.getBoundingClientRect();
+        const handle=event.target.closest(".d1411aHandle")?.dataset.handle||"";
+        const members=membersForGroup(groupId).map((member)=>({node:member,original:geometry(member)}));
+        const original=boundsForNodes(members.map((member)=>member.node));
+        gesture={type:"group",id:String(groupId),kind:handle?"resize":"move",handle,original,preview:{...original},members,aspectLocked:group.aspectLocked!==false,startX:(event.clientX-boardBounds.left)/(boardBounds.width/1920),startY:(event.clientY-boardBounds.top)/(boardBounds.height/1080),pendingX:0,pendingY:0};
+        gesture.pendingX=gesture.startX;gesture.pendingY=gesture.startY;
+        groupControl.setPointerCapture?.(event.pointerId);event.preventDefault();return;
+      }
+      if(event.target.closest(".d1411aHandle"))event.stopPropagation();
+      if(node.dataset.groupId&&!event.shiftKey&&!event.metaKey){
+        const groupId=node.dataset.groupId;
+        const group=groups.get(String(groupId));
+        if(!group||!record.editable||group.locked===true||event.button!==0)return;
+        markGroup(groupId);
+        const boardBounds=board.getBoundingClientRect();
+        const members=membersForGroup(groupId).map((member)=>({node:member,original:geometry(member)}));
+        const original=boundsForNodes(members.map((member)=>member.node));
+        gesture={type:"group",id:String(groupId),kind:"move",handle:"",original,preview:{...original},members,aspectLocked:group.aspectLocked!==false,startX:(event.clientX-boardBounds.left)/(boardBounds.width/1920),startY:(event.clientY-boardBounds.top)/(boardBounds.height/1080),pendingX:0,pendingY:0};
+        gesture.pendingX=gesture.startX;gesture.pendingY=gesture.startY;
+        node.setPointerCapture?.(event.pointerId);event.preventDefault();return;
+      }
+      markSelected(node,{add:!!(event.shiftKey||event.metaKey)});
+      if(selectedNodes.size!==1)return;
+      if(!record.editable||node.dataset.locked==="true"||event.button!==0)return;
+      const boardBounds=board.getBoundingClientRect();
+      const handle=event.target.closest(".d1411aHandle")?.dataset.handle||"";
+      gesture={node,type:node.dataset.advancedType,id:node.dataset.advancedId,kind:handle?"resize":"move",handle,aspectLocked:node.dataset.aspectLocked==="true",original:geometry(node),preview:geometry(node),startX:(event.clientX-boardBounds.left)/(boardBounds.width/1920),startY:(event.clientY-boardBounds.top)/(boardBounds.height/1080),pendingX:0,pendingY:0};
+      gesture.pendingX=gesture.startX;gesture.pendingY=gesture.startY;
+      node.setPointerCapture?.(event.pointerId);event.preventDefault();
+    };
+    const move=(event)=>{
+      if(!gesture)return;
+      const bounds=board.getBoundingClientRect();
+      gesture.pendingX=(event.clientX-bounds.left)/(bounds.width/1920);gesture.pendingY=(event.clientY-bounds.top)/(bounds.height/1080);
+      if(!frame)frame=childDocument.defaultView.requestAnimationFrame(update);
+      event.preventDefault();
+    };
+    const up=(event)=>{
+      if(!gesture)return;
+      if(frame){childDocument.defaultView.cancelAnimationFrame(frame);frame=0;update();}
+      const current=gesture;gesture=null;
+      const changed=JSON.stringify(current.preview)!==JSON.stringify(current.original);
+      if(changed)this.dispatchEvent(new CustomEvent("d1-411a:advanced-gesture",{bubbles:true,composed:true,detail:{surface:record.surface,type:current.type,id:current.id,kind:current.kind,geometry:current.preview}}));
+      event.preventDefault();
+    };
+    const dblclick=(event)=>{
+      const node=event.target.closest?.(".d1411aAdvancedText");
+      if(!node||!record.editable)return;
+      node.contentEditable="true";node.focus();
+      const range=childDocument.createRange();range.selectNodeContents(node);childDocument.defaultView.getSelection()?.removeAllRanges();childDocument.defaultView.getSelection()?.addRange(range);
+    };
+    const blur=(event)=>{
+      const node=event.target.closest?.(".d1411aAdvancedText[contenteditable]");
+      if(!node)return;
+      node.contentEditable="false";
+      this.dispatchEvent(new CustomEvent("d1-411a:advanced-text",{bubbles:true,composed:true,detail:{surface:record.surface,id:node.dataset.advancedId,text:node.textContent||""}}));
+    };
+    overlay.addEventListener("pointerdown",down);childDocument.addEventListener("pointermove",move);childDocument.addEventListener("pointerup",up);childDocument.addEventListener("pointercancel",up);overlay.addEventListener("dblclick",dblclick);overlay.addEventListener("focusout",blur);
+    this._advancedOverlayCleanup=()=>{if(frame)childDocument.defaultView.cancelAnimationFrame(frame);overlay.removeEventListener("pointerdown",down);childDocument.removeEventListener("pointermove",move);childDocument.removeEventListener("pointerup",up);childDocument.removeEventListener("pointercancel",up);overlay.removeEventListener("dblclick",dblclick);overlay.removeEventListener("focusout",blur);this.selectAdvancedObject=()=>{};style.remove();overlay.remove();};
   }
 
   _pointMonth(event,childDocument){
@@ -909,6 +1183,7 @@ export function createD1411AKernelManager({resolveObjectUrl=()=>null}={}){
     }
     const renderId=`${surface}-${projection.model.documentId}-${projection.model.revision}`;
     INSTANCES.set(token,{
+      document:structuredClone(document),
       projection,
       surface,
       interactive:!!interactive,

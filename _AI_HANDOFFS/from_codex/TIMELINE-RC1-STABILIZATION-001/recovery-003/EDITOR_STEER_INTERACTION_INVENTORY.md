@@ -48,3 +48,32 @@ Status: local implementation contract; not approved for production deployment.
 ## Deployment boundary
 
 The editor correction remains local until the Founder visually reviews the candidate. Existing production RC1 remains unchanged.
+
+## 2026-08-07 bounded implementation checkpoint
+
+### Canva behavior directly operated
+
+The authenticated Canva design was operated in Chrome, then restored with undo. Confirmed: selection/deselection, live drag, corner resize, inline text edit, visual-asset click insertion, visual-asset drag insertion, duplicate, lock/unlock, rail switching, and viewport zoom. This report uses those observed behaviors as an interaction reference only; it does not copy or reverse-engineer Canva code.
+
+### Implemented locally and browser-smoke-tested
+
+- The protected Timeline board stays mounted while Advanced Studio elements/text use a local interaction overlay.
+- Element selection shows eight resize handles; pointer moves are rendered locally through requestAnimationFrame and persist only at gesture completion.
+- Asset click insertion creates a durable `advanced.elements` record and selects it after the host settles.
+- The visual rail provides local vector shapes, arrows, timeline decoration, medical/personal icons, a dynamic country-flag data source, backgrounds, and text. Basic assets are not placeholder tiles.
+- Object lock and aspect lock are separate persisted state fields.
+- The document model has durable multi-object group membership, group lock/aspect state, and group transform handling.
+- The host forwards typed native asset drops across the protected iframe boundary without touching frozen D1-409H presentation files.
+
+### Checks run
+
+- `npm --prefix packages/mission-timeline run typecheck` — PASS.
+- `node --test packages/mission-timeline/tests/d1-411b-fable-integration.test.mjs` — 14/14 PASS.
+- Local Chrome smoke test — Advanced Studio loaded with no kernel failure; selection with eight handles, click-insert, and direct pointer drag were observed.
+
+### Still required before any production claim
+
+- Complete real-browser proof of cross-frame rail drag/drop, multi-select/group/ungroup gesture paths, group resize, text-in-canvas edit, lock/aspect persistence, snapping, axis/key/profile behavior, export fidelity, reload persistence, and all production canary journeys.
+- Immutable package, Timeline-only backup, production canary, rollback verification, and independent browser verification.
+
+Production was not mutated in this checkpoint.

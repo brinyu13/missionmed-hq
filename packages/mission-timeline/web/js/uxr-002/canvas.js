@@ -1750,7 +1750,7 @@ export function installCanvas(
     }
     if(!rootBounds?.width||!rootBounds?.height)return;
     const targets=root.querySelectorAll?.(
-      "[data-canvas-event],[data-advanced-media],[data-advanced-text]"
+      "[data-canvas-event],[data-advanced-media],[data-advanced-text],[data-advanced-element]"
     )||[];
     let proxySequence=0;
     for(const target of targets){
@@ -1775,6 +1775,7 @@ export function installCanvas(
         "data-event-id",
         "data-advanced-media",
         "data-advanced-text",
+        "data-advanced-element",
         "data-media-kind",
         "aria-selected"
       ]){
