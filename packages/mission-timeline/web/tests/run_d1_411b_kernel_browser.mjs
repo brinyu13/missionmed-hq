@@ -186,7 +186,8 @@ for(const persona of personas){
       canMutate:window.D1_407F_ENGINEERING.store.entitlement.canMutate,
       labels:[...document.querySelectorAll("#rail [data-v]")].map((node)=>node.textContent.trim()),
       current:document.querySelectorAll('#rail [aria-current="page"]').length,
-      duplicateIds:[...document.querySelectorAll("[id]")].map((node)=>node.id).filter((id,index,all)=>all.indexOf(id)!==index)
+      duplicateIds:[...document.querySelectorAll("[id]")].map((node)=>node.id).filter((id,index,all)=>all.indexOf(id)!==index),
+      profile:{...window.D1_407F_ENGINEERING.store.document.studentProfile}
     }));
     assert(result.access===persona.expectedAccess,`expected ${persona.expectedAccess}, received ${result.access}`);
     assert(result.canMutate===persona.writable,`mutation capability mismatch: ${result.canMutate}`);

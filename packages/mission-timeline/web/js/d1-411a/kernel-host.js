@@ -1,5 +1,6 @@
 import {projectTimelineDocument} from "./domain-visual-adapter.js";
 import {buildImagePdf,canvasJpegPage} from "../export/pdf-writer.js";
+import {ADVANCED_BACKGROUND_PRESETS} from "../uxr-002/advanced-studio.js";
 
 const MASTER_URL=(globalThis.D1_TIMELINE_ASSET_URLS?.["presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html"]
   ||new URL("../../presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html",import.meta.url).href)+"?defer=1";
@@ -14,6 +15,16 @@ function escapeAttribute(value){
 }
 
 const FAIL_SOFT_MEDIA_CODES=new Set(["ASSET_LOAD_FAILED","MEDIA_HASH_MISMATCH"]);
+
+function advancedBackgroundCss(background,resolveObjectUrl=()=>null){
+  if(background?.kind==="color"&&/^#[0-9a-f]{6}$/i.test(String(background.color||"")))return background.color;
+  if(background?.kind==="preset")return ADVANCED_BACKGROUND_PRESETS.find(({id})=>id===background.preset)?.css||null;
+  if(background?.kind==="upload"){
+    const url=resolveObjectUrl(background.mediaId,background);
+    if(typeof url==="string"&&url)return`url("${url.replace(/["\\]/g,"\\$&")}") center / cover no-repeat`;
+  }
+  return null;
+}
 
 export function exportPdfPageDimensions(output={}){
   if(output?.page?.name==="A4")return Object.freeze({pageWidth:841.89,pageHeight:595.28});
@@ -195,7 +206,7 @@ class D1411AKernelElement extends HostHTMLElement{
     let response=null;
     const failSoftWarnings=[];
     let layoutRetryCount=0;
-    for(let attempt=0;attempt<9;attempt+=1){
+    for(let attempt=0;attempt<13;attempt+=1){
       try{
         response=await K.rerender(kernelModel,{
           renderId:record.renderId,
@@ -203,7 +214,7 @@ class D1411AKernelElement extends HostHTMLElement{
         });
         break;
       }catch(error){
-        if(String(error?.code||"")==="TEXT_FIT_UNRESOLVED"&&layoutRetryCount<2){
+        if(String(error?.code||"")==="TEXT_FIT_UNRESOLVED"&&layoutRetryCount<4){
           layoutRetryCount+=1;
           // The protected renderer measures its profile card against the
           // composited 1920×1080 board. Reapply the host fit before retrying:
@@ -547,6 +558,12 @@ class D1411AKernelElement extends HostHTMLElement{
         marker.dataset.handle="se";
         marker.setAttribute("aria-hidden","true");
         hit.append(marker);
+      }else if(source.matches("#profile[data-object-id]")){
+        const marker=childDocument.createElement("span");
+        marker.className="d1411AHandle";
+        marker.dataset.handle="se";
+        marker.setAttribute("aria-hidden","true");
+        hit.append(marker);
       }else if(source.matches("#axis[data-object-id]")){
         const segments=[...source.querySelectorAll(".yseg")];
         const sourceBounds=source.getBoundingClientRect();
@@ -633,9 +650,20 @@ class D1411AKernelElement extends HostHTMLElement{
       key.style.width=`${width}px`;
       key.style.height=`${height}px`;
     }
+    const profile=childDocument.getElementById("profile");
+    const profileGeometry=overrides.profileGeometry;
+    if(profile&&profileGeometry&&typeof profileGeometry==="object"){
+      const width=clamp(finite(profileGeometry.width,566),360,900);
+      const height=clamp(finite(profileGeometry.height,428),272,680);
+      profile.style.left=`${clamp(finite(profileGeometry.x,18),0,1920-width)}px`;
+      profile.style.top=`${clamp(finite(profileGeometry.y,634),0,1080-height)}px`;
+      profile.style.width=`${width}px`;
+      profile.style.height=`${height}px`;
+    }
   }
 
   _applyAdvancedOverlay(childDocument,record=this._record){
+    const retainedAdvancedSelection=this._advancedSelection||null;
     this._advancedOverlayCleanup();
     this._advancedOverlayCleanup=()=>{};
     this.selectAdvancedObject=()=>{};
@@ -647,14 +675,19 @@ class D1411AKernelElement extends HostHTMLElement{
       ...(Array.isArray(advanced.elements)?advanced.elements:[]).map((item)=>({type:"element",...item}))
     ].filter((item)=>item&&item.id);
     const groups=new Map((Array.isArray(advanced.groups)?advanced.groups:[]).map((group)=>[String(group.id),group]));
-    if(!items.length)return;
     const board=childDocument.getElementById("board");
     if(!board)return;
+    const background=advancedBackgroundCss(advanced.background,record.resolveObjectUrl);
+    if(background)board.style.background=background;
+    if(!items.length)return;
     const style=childDocument.createElement("style");
-    style.textContent=`#d1411a-advanced-overlay{position:absolute;inset:0;z-index:900;pointer-events:none}#d1411a-advanced-overlay .d1411aAdvanced{box-sizing:border-box;position:absolute;pointer-events:auto;touch-action:none;cursor:move;user-select:none}#d1411a-advanced-overlay .d1411aAdvanced[data-selected="true"]{outline:3px solid #39d6ff;outline-offset:2px;box-shadow:0 0 0 1px rgba(7,17,31,.85),0 0 14px rgba(57,214,255,.52)}#d1411a-advanced-overlay .d1411aAdvancedText{background:transparent;border:0;color:#191c21;font:400 24px/1.2 Inter,sans-serif;min-width:32px;white-space:pre-wrap}#d1411a-advanced-overlay .d1411aAdvancedElement{align-items:center;border:3px solid #17324a;display:flex;justify-content:center;overflow:visible}#d1411a-advanced-overlay .kind-circle{border-radius:50%}.d1411aHandle{background:#fff;border:2px solid #18799e;border-radius:50%;height:11px;padding:0;position:absolute;width:11px;z-index:2}.d1411aHandle[data-handle="nw"]{left:-8px;top:-8px}.d1411aHandle[data-handle="n"]{left:calc(50% - 6px);top:-8px}.d1411aHandle[data-handle="ne"]{right:-8px;top:-8px}.d1411aHandle[data-handle="e"]{right:-8px;top:calc(50% - 6px)}.d1411aHandle[data-handle="se"]{bottom:-8px;right:-8px}.d1411aHandle[data-handle="s"]{bottom:-8px;left:calc(50% - 6px)}.d1411aHandle[data-handle="sw"]{bottom:-8px;left:-8px}.d1411aHandle[data-handle="w"]{left:-8px;top:calc(50% - 6px)}.d1411aGroupBox{box-sizing:border-box;border:3px dashed #39d6ff;pointer-events:auto;position:absolute;z-index:3}.d1411aGroupBox .d1411aHandle{position:absolute}`;
-    childDocument.head.append(style);
+    style.textContent=`#d1411a-advanced-overlay{position:absolute;inset:0;z-index:900;pointer-events:none}#d1411a-advanced-overlay .d1411aAdvanced{box-sizing:border-box;position:absolute;pointer-events:auto;touch-action:none;cursor:move;user-select:none}#d1411a-advanced-overlay .d1411aAdvanced[data-selected="true"]{outline:3px solid #39d6ff;outline-offset:2px;box-shadow:0 0 0 1px rgba(7,17,31,.85),0 0 14px rgba(57,214,255,.52)}#d1411a-advanced-overlay .d1411aAdvancedText{background:transparent;border:0;color:#191c21;font:400 24px/1.2 Inter,sans-serif;min-width:32px;white-space:pre-wrap}#d1411a-advanced-overlay .d1411aAdvancedText[contenteditable="true"]{cursor:text;outline:3px solid #ffad42;user-select:text;white-space:pre-wrap}#d1411a-advanced-overlay .d1411aAdvancedElement{align-items:center;border:3px solid #17324a;display:flex;justify-content:center;overflow:visible}#d1411a-advanced-overlay .kind-circle{border-radius:50%}.d1411aHandle{background:#fff;border:2px solid #18799e;border-radius:50%;height:11px;padding:0;position:absolute;width:11px;z-index:2}.d1411aHandle[data-handle="nw"]{left:-8px;top:-8px}.d1411aHandle[data-handle="n"]{left:calc(50% - 6px);top:-8px}.d1411aHandle[data-handle="ne"]{right:-8px;top:-8px}.d1411aHandle[data-handle="e"]{right:-8px;top:calc(50% - 6px)}.d1411aHandle[data-handle="se"]{bottom:-8px;right:-8px}.d1411aHandle[data-handle="s"]{bottom:-8px;left:calc(50% - 6px)}.d1411aHandle[data-handle="sw"]{bottom:-8px;left:-8px}.d1411aHandle[data-handle="w"]{left:-8px;top:calc(50% - 6px)}.d1411aGroupBox{box-sizing:border-box;border:3px dashed #39d6ff;pointer-events:auto;position:absolute;z-index:3}.d1411aGroupBox .d1411aHandle{position:absolute}.d1411aSnapGuide{background:#ff7a45;box-shadow:0 0 0 1px rgba(255,255,255,.9);pointer-events:none;position:absolute;z-index:4}.d1411aSnapGuide[data-axis="x"]{bottom:0;top:0;width:2px}.d1411aSnapGuide[data-axis="y"]{height:2px;left:0;right:0}`;
     const overlay=childDocument.createElement("div");
     overlay.id="d1411a-advanced-overlay";
+    // D1-409H exports a clone of #board rather than the child document head.
+    // Keep the Timeline-owned overlay rules inside the cloned boundary so
+    // Advanced objects preserve absolute geometry in PNG/PDF artifacts.
+    overlay.append(style);
     const makeElement=(item)=>{
       const node=childDocument.createElement(item.type==="text"?"div":"div");
       const width=Math.max(32,finite(item.width,160));
@@ -691,9 +724,16 @@ class D1411AKernelElement extends HostHTMLElement{
           marriage:"♡",pregnancy:"●",baby:"●",family:"♧",home:"⌂",travel:"✈",relocation:"↔",citizenship:"◎","green-card":"▣",remembrance:"✦",
           "milestone-flag":"⚑"
         };
-        node.textContent=item.kind==="country-flag"
-          ?(/^[A-Z]{2}$/.test(String(item.countryCode||""))?String.fromCodePoint(...[...String(item.countryCode).toUpperCase()].map((character)=>127397+character.charCodeAt(0))):"⚑")
-          :(item.label||glyph[item.kind]||"");
+        if(item.kind==="missionmed-wordmark"){
+          node.style.background="#0B1320";
+          node.style.borderColor="#2B3A50";
+          node.style.borderRadius="14px";
+          node.innerHTML='<strong style="color:#f5f7fa;font:italic 800 32px/1 Inter,Arial,sans-serif">MissionMed</strong><strong style="color:#ff9f36;font:italic 900 32px/1 Inter,Arial,sans-serif">//</strong>';
+        }else{
+          node.textContent=item.kind==="country-flag"
+            ?(/^[A-Z]{2}$/.test(String(item.countryCode||""))?String.fromCodePoint(...[...String(item.countryCode).toUpperCase()].map((character)=>127397+character.charCodeAt(0))):"⚑")
+            :(item.label||glyph[item.kind]||"");
+        }
       }
       return node;
     };
@@ -750,10 +790,12 @@ class D1411AKernelElement extends HostHTMLElement{
           control.type="button";control.className="d1411aHandle";control.dataset.handle=handle;control.setAttribute("aria-label",`Resize ${handle}`);selected.append(control);
         }
       }
+      const members=[...selectedNodes].map((candidate)=>({type:candidate.dataset.advancedType,id:candidate.dataset.advancedId}));
+      this._advancedSelection=members.length>1?{type:"multi",members}:members[0]||null;
       if(announce){
-        const members=[...selectedNodes].map((candidate)=>({type:candidate.dataset.advancedType,id:candidate.dataset.advancedId}));
         this.dispatchEvent(new CustomEvent("d1-411a:advanced-select",{bubbles:true,composed:true,detail:members.length>1?{surface:record.surface,type:"multi",members}:{surface:record.surface,type:selected?.dataset.advancedType||null,id:selected?.dataset.advancedId||null}}));
       }
+      return selectedNodes.size>0;
     };
     const markGroup=(groupId,{announce=true}={})=>{
       overlay.querySelectorAll(".d1411aHandle").forEach((control)=>control.remove());
@@ -761,12 +803,41 @@ class D1411AKernelElement extends HostHTMLElement{
       selectedNodes=new Set(membersForGroup(selectedGroupId));
       overlay.querySelectorAll(".d1411aAdvanced").forEach((candidate)=>candidate.dataset.selected=String(selectedNodes.has(candidate)));
       selected=null;
-      showGroupBox(selectedGroupId);
+      const box=showGroupBox(selectedGroupId);
+      this._advancedSelection={type:"group",id:selectedGroupId};
       if(announce)this.dispatchEvent(new CustomEvent("d1-411a:advanced-select",{bubbles:true,composed:true,detail:{surface:record.surface,type:"group",id:selectedGroupId}}));
+      return!!box;
     };
     const select=(node)=>markSelected(node);
     this.selectAdvancedObject=(type,id)=>type==="group"?markGroup(id,{announce:false}):markSelected(nodeFor(type,id),{announce:false});
     const geometry=(node)=>({x:cssNumber(node.style.left),y:cssNumber(node.style.top),width:cssNumber(node.style.width,1),height:cssNumber(node.style.height,1)});
+    const clearSnapGuides=()=>overlay.querySelectorAll(".d1411aSnapGuide").forEach((guide)=>guide.remove());
+    const showSnapGuides=(guides)=>{
+      clearSnapGuides();
+      for(const [axis,value] of Object.entries(guides)){
+        if(!Number.isFinite(value))continue;
+        const guide=childDocument.createElement("div");
+        guide.className="d1411aSnapGuide";guide.dataset.axis=axis;
+        guide.style[axis==="x"?"left":"top"]=`${value}px`;
+        overlay.append(guide);
+      }
+    };
+    const snapMove=(next,currentGesture)=>{
+      if(currentGesture.snapDisabled)return{geometry:next,guides:{}};
+      const excluded=new Set(currentGesture.type==="group"
+        ?currentGesture.members.map((member)=>member.node)
+        :[currentGesture.node]);
+      const others=[...overlay.querySelectorAll(".d1411aAdvanced")]
+        .filter((candidate)=>!excluded.has(candidate)).map(geometry);
+      const xTargets=[0,960,1920,...others.flatMap((item)=>[item.x,item.x+item.width/2,item.x+item.width])];
+      const yTargets=[0,540,1080,...others.flatMap((item)=>[item.y,item.y+item.height/2,item.y+item.height])];
+      const xAnchors=[next.x,next.x+next.width/2,next.x+next.width];
+      const yAnchors=[next.y,next.y+next.height/2,next.y+next.height];
+      let bestX=null,bestY=null;
+      for(const target of xTargets)for(const anchor of xAnchors){const distance=Math.abs(target-anchor);if(distance<=12&&(!bestX||distance<bestX.distance))bestX={distance,delta:target-anchor,target};}
+      for(const target of yTargets)for(const anchor of yAnchors){const distance=Math.abs(target-anchor);if(distance<=12&&(!bestY||distance<bestY.distance))bestY={distance,delta:target-anchor,target};}
+      return{geometry:{...next,x:next.x+(bestX?.delta||0),y:next.y+(bestY?.delta||0)},guides:{x:bestX?.target,y:bestY?.target}};
+    };
     const update=()=>{
       frame=0;
       if(!gesture)return;
@@ -774,7 +845,11 @@ class D1411AKernelElement extends HostHTMLElement{
       const next={...gesture.original};
       if(gesture.kind==="move"){
         next.x=clamp(next.x+dx,0,1920-next.width);next.y=clamp(next.y+dy,0,1080-next.height);
+        const snapped=snapMove(next,gesture);
+        Object.assign(next,snapped.geometry);
+        showSnapGuides(snapped.guides);
       }else{
+        clearSnapGuides();
         const horizontal=gesture.handle.includes("w")?-1:gesture.handle.includes("e")?1:0;
         const vertical=gesture.handle.includes("n")?-1:gesture.handle.includes("s")?1:0;
         if(horizontal<0){next.x+=dx;next.width-=dx;}else if(horizontal>0)next.width+=dx;
@@ -803,10 +878,36 @@ class D1411AKernelElement extends HostHTMLElement{
         gesture.node.style.left=`${next.x}px`;gesture.node.style.top=`${next.y}px`;gesture.node.style.width=`${next.width}px`;gesture.node.style.height=`${next.height}px`;
       }
     };
+    const beginTextEdit=(node)=>{
+      if(!node||!record.editable||node.dataset.locked==="true")return false;
+      this.dispatchEvent(new CustomEvent("d1-411a:advanced-text-editing",{
+        bubbles:true,composed:true,
+        detail:{surface:record.surface,id:node.dataset.advancedId}
+      }));
+      overlay.querySelectorAll(".d1411aHandle").forEach((control)=>control.remove());
+      node.contentEditable="true";
+      node.setAttribute("role","textbox");
+      node.setAttribute("aria-multiline","true");
+      node.focus();
+      const range=childDocument.createRange();
+      range.selectNodeContents(node);
+      const selection=childDocument.defaultView.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      return true;
+    };
     const down=(event)=>{
       const node=event.target.closest?.(".d1411aAdvanced");
       const groupControl=event.target.closest?.(".d1411aGroupBox");
       if(!node&&!groupControl)return;
+      if(node?.isContentEditable)return;
+      if(node?.classList.contains("d1411aAdvancedText")&&event.detail>=2){
+        if(beginTextEdit(node)){
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        return;
+      }
       if(groupControl){
         const groupId=groupControl.dataset.groupId;
         const group=groups.get(String(groupId));
@@ -846,6 +947,7 @@ class D1411AKernelElement extends HostHTMLElement{
       if(!gesture)return;
       const bounds=board.getBoundingClientRect();
       gesture.pendingX=(event.clientX-bounds.left)/(bounds.width/1920);gesture.pendingY=(event.clientY-bounds.top)/(bounds.height/1080);
+      gesture.snapDisabled=!!event.altKey;
       if(!frame)frame=childDocument.defaultView.requestAnimationFrame(update);
       event.preventDefault();
     };
@@ -853,23 +955,35 @@ class D1411AKernelElement extends HostHTMLElement{
       if(!gesture)return;
       if(frame){childDocument.defaultView.cancelAnimationFrame(frame);frame=0;update();}
       const current=gesture;gesture=null;
+      clearSnapGuides();
       const changed=JSON.stringify(current.preview)!==JSON.stringify(current.original);
       if(changed)this.dispatchEvent(new CustomEvent("d1-411a:advanced-gesture",{bubbles:true,composed:true,detail:{surface:record.surface,type:current.type,id:current.id,kind:current.kind,geometry:current.preview}}));
       event.preventDefault();
     };
     const dblclick=(event)=>{
-      const node=event.target.closest?.(".d1411aAdvancedText");
-      if(!node||!record.editable)return;
-      node.contentEditable="true";node.focus();
-      const range=childDocument.createRange();range.selectNodeContents(node);childDocument.defaultView.getSelection()?.removeAllRanges();childDocument.defaultView.getSelection()?.addRange(range);
+      const node=event.target.closest?.(".d1411aAdvancedText")
+        ||childDocument.elementFromPoint?.(event.clientX,event.clientY)?.closest?.(".d1411aAdvancedText")
+        ||[...overlay.querySelectorAll(".d1411aAdvancedText")].reverse().find((candidate)=>{
+          const bounds=candidate.getBoundingClientRect();
+          return event.clientX>=bounds.left&&event.clientX<=bounds.right
+            &&event.clientY>=bounds.top&&event.clientY<=bounds.bottom;
+        });
+      if(beginTextEdit(node)){
+        event.preventDefault();
+        event.stopPropagation();
+      }
     };
     const blur=(event)=>{
       const node=event.target.closest?.(".d1411aAdvancedText[contenteditable]");
       if(!node)return;
       node.contentEditable="false";
+      node.setAttribute("role","button");
+      node.removeAttribute("aria-multiline");
       this.dispatchEvent(new CustomEvent("d1-411a:advanced-text",{bubbles:true,composed:true,detail:{surface:record.surface,id:node.dataset.advancedId,text:node.textContent||""}}));
     };
     overlay.addEventListener("pointerdown",down);childDocument.addEventListener("pointermove",move);childDocument.addEventListener("pointerup",up);childDocument.addEventListener("pointercancel",up);overlay.addEventListener("dblclick",dblclick);overlay.addEventListener("focusout",blur);
+    if(retainedAdvancedSelection?.type==="group")markGroup(retainedAdvancedSelection.id,{announce:false});
+    else if(retainedAdvancedSelection?.type&&retainedAdvancedSelection?.id)markSelected(nodeFor(retainedAdvancedSelection.type,retainedAdvancedSelection.id),{announce:false});
     this._advancedOverlayCleanup=()=>{if(frame)childDocument.defaultView.cancelAnimationFrame(frame);overlay.removeEventListener("pointerdown",down);childDocument.removeEventListener("pointermove",move);childDocument.removeEventListener("pointerup",up);childDocument.removeEventListener("pointercancel",up);overlay.removeEventListener("dblclick",dblclick);overlay.removeEventListener("focusout",blur);this.selectAdvancedObject=()=>{};style.remove();overlay.remove();};
   }
 
@@ -930,6 +1044,28 @@ class D1411AKernelElement extends HostHTMLElement{
         key
       };
       (proxy||key).setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+      return;
+    }
+    if(sourceId==="profile-sheet"){
+      const profile=childDocument.getElementById("profile");
+      if(!profile)return;
+      const bounds=profile.getBoundingClientRect();
+      const geometry={
+        x:(bounds.left-boardBounds.left)/scale,
+        y:(bounds.top-boardBounds.top)/scale,
+        width:bounds.width/scale,
+        height:bounds.height/scale
+      };
+      const resizeEdge=28*scale;
+      const resizeFromCorner=bounds.right-event.clientX<=resizeEdge&&bounds.bottom-event.clientY<=resizeEdge;
+      this.selectObject("profile-sheet");
+      this._gesture={
+        pointerId:event.pointerId,
+        kind:event.target.closest?.('[data-handle="se"]')||resizeFromCorner?"profile-card-resize":"profile-card-move",
+        startX:event.clientX,startY:event.clientY,scale,geometry,profile
+      };
+      (proxy||profile).setPointerCapture?.(event.pointerId);
       event.preventDefault();
       return;
     }
@@ -1001,6 +1137,24 @@ class D1411AKernelElement extends HostHTMLElement{
       gesture.key.style.top=`${geometry.y}px`;
       gesture.key.style.width=`${geometry.width}px`;
       gesture.key.style.height=`${geometry.height}px`;
+    }else if(this._gesture.kind.startsWith("profile-card-")){
+      const gesture=this._gesture;
+      const dx=(event.clientX-gesture.startX)/gesture.scale;
+      const dy=(event.clientY-gesture.startY)/gesture.scale;
+      let geometry;
+      if(gesture.kind==="profile-card-resize"){
+        const aspect=gesture.geometry.width/gesture.geometry.height||1;
+        const width=clamp(gesture.geometry.width+dx,360,900);
+        geometry={...gesture.geometry,width,height:width/aspect};
+      }else{
+        geometry={...gesture.geometry,x:gesture.geometry.x+dx,y:gesture.geometry.y+dy};
+      }
+      geometry.width=clamp(geometry.width,360,900);
+      geometry.height=clamp(geometry.height,272,680);
+      geometry.x=clamp(geometry.x,0,1920-geometry.width);
+      geometry.y=clamp(geometry.y,0,1080-geometry.height);
+      gesture.nextGeometry=geometry;
+      Object.assign(gesture.profile.style,{left:`${geometry.x}px`,top:`${geometry.y}px`,width:`${geometry.width}px`,height:`${geometry.height}px`});
     }
     event.preventDefault();
   }
@@ -1027,6 +1181,14 @@ class D1411AKernelElement extends HostHTMLElement{
       return;
     }
     if(gesture.kind.startsWith("color-key-")){
+      this.dispatchEvent(new CustomEvent("d1-411a:presentation-gesture",{
+        bubbles:true,composed:true,
+        detail:{surface:this._record.surface,kind:gesture.kind,geometry:gesture.nextGeometry}
+      }));
+      this._refreshHits(childDocument);
+      return;
+    }
+    if(gesture.kind.startsWith("profile-card-")){
       this.dispatchEvent(new CustomEvent("d1-411a:presentation-gesture",{
         bubbles:true,composed:true,
         detail:{surface:this._record.surface,kind:gesture.kind,geometry:gesture.nextGeometry}
@@ -1184,6 +1346,7 @@ export function createD1411AKernelManager({resolveObjectUrl=()=>null}={}){
     const renderId=`${surface}-${projection.model.documentId}-${projection.model.revision}`;
     INSTANCES.set(token,{
       document:structuredClone(document),
+      resolveObjectUrl,
       projection,
       surface,
       interactive:!!interactive,

@@ -29,6 +29,19 @@ export class DomainVisualProjectionError extends Error{
 }
 
 function clean(value){return String(value??"").trim();}
+
+function profileVisaDisplay(value){
+  const display=clean(value);
+  if(display.length<=18)return display;
+  const words=display.split(/\s+/);
+  let first="";
+  while(words.length){
+    const candidate=[first,words[0]].filter(Boolean).join(" ");
+    if(first&&candidate.length>18)break;
+    first=candidate;words.shift();
+  }
+  return words.length?`${first}\n${words.join(" ")}`:display;
+}
 function clone(value){return value==null?value:structuredClone(value);}
 
 function stableId(prefix,value,index){
@@ -279,7 +292,7 @@ export function projectTimelineDocument(document,{
     student:{
       displayName:clean(profile.fullName),
       profilePhoto:mediaRef(profileMedia,resolveObjectUrl,warnings,"student.profilePhoto"),
-      visaStatus:clean(profile.currentUsWorkAuthorization||profile.visaStatus),
+      visaStatus:profileVisaDisplay(profile.currentUsWorkAuthorization||profile.visaStatus),
       aamcDisplay:clean(profile.aamcDisplay||profile.aamcId),
       stepScores:{
         step1:examValue(document,"step-1"),

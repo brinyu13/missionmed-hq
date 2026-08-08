@@ -600,7 +600,9 @@ test("selected text, headline, and media expose only their frozen runtime contro
   // panel contributes the three visual upload tiles required by the editor
   // steer without adding selection-specific mutations.
   assert.equal((textHtml.match(/data-advanced-action=/g)||[]).length,8);
-  assert.equal((textHtml.match(/data-advanced-object-action=/g)||[]).length,4);
+  // The original four layer/duplicate/delete actions plus the RC1-required
+  // per-object lock control are all real document mutations.
+  assert.equal((textHtml.match(/data-advanced-object-action=/g)||[]).length,5);
   assert.ok(textHtml.includes("data-advanced-asset-rail"));
   assert.ok(textHtml.includes("A &lt;careful&gt; journey"));
   assert.ok(textHtml.includes('data-advanced-typography-field="font"'));
@@ -616,7 +618,7 @@ test("selected text, headline, and media expose only their frozen runtime contro
   const mediaHtml=renderAdvancedSelectionControls(advanced,{
     selection:{type:"media",id:"media-1"}
   });
-  assert.equal((mediaHtml.match(/data-advanced-object-action=/g)||[]).length,4);
+  assert.equal((mediaHtml.match(/data-advanced-object-action=/g)||[]).length,5);
   assert.ok(mediaHtml.includes("data-advanced-aspect-lock"));
   assert.equal(mediaHtml.includes("data-advanced-typography-controls"),false);
 
@@ -633,6 +635,7 @@ test("selected text, headline, and media expose only their frozen runtime contro
     },
     environment:{}
   });
+  assert.equal(headlineHtml.includes('data-advanced-object-action="lock"'),false);
   assert.equal(headlineHtml.includes("data-advanced-text-content"),false);
   assert.equal(headlineHtml.includes("data-advanced-object-action="),false);
   assert.ok(headlineHtml.includes('value="42"'));
@@ -717,7 +720,7 @@ test("free-text edits and selected object actions are pure, Advanced-only, and r
   );
   assert.throws(
     ()=>applyAdvancedObjectAction(advanced,{type:"headline",id:"headline"},"delete"),
-    /selected media or text/
+    /selected media, text, or Timeline asset/
   );
 });
 
@@ -739,7 +742,8 @@ test("Advanced asset rail, explicit proportion lock, and board collision guard a
   assert.equal((rail.match(/data-advanced-select-object/g)||[]).length,2);
   assert.match(rail,/data-advanced-target-id="text-rail" aria-pressed="true"/);
   assert.match(rail,/data-media-asset="media-rail"/);
-  assert.match(rail,/data-advanced-drag-asset/);
+  assert.match(rail,/draggable="true" class="advanced-visual-asset" data-advanced-insert-asset/);
+  assert.match(rail,/data-advanced-drag-object/);
   const unplaced=structuredClone(advanced);
   unplaced.advanced.media[0].placed=false;
   const uploads=renderAdvancedAssetRail(unplaced,null,{activePanel:"uploads"});
@@ -962,7 +966,7 @@ test("install hook delegates actions without owning store, persistence, or netwo
     ["dim",60]
   ]);
   dispose();
-  assert.deepEqual(removed.map(({type})=>type),["click","change","input"]);
+  assert.deepEqual(removed.map(({type})=>type),["click","change","input","dragstart"]);
 });
 
 test("capability contract is truthful: local descriptors and adapters, no generated/proprietary assets or network",()=>{

@@ -39,7 +39,8 @@ test("Advanced rendering composes local background, media, text, and headline ty
     visible:true,
     backgroundKind:"upload",
     mediaCount:1,
-    textCount:1
+    textCount:1,
+    elementCount:0
   });
 });
 

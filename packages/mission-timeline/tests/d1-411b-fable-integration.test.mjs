@@ -74,6 +74,15 @@ test("D1-411B domain adapter maps TimelineDocument into the exact Fable render s
   assert.deepEqual(projected.model.flags.map(({id})=>id),["fl-step-2"]);
 });
 
+test("D1-411B preserves long visa values while fitting the protected profile photo exclusion",()=>{
+  const document=timeline();
+  document.studentProfile.currentUsWorkAuthorization="Permanent Resident / Green Card";
+  const projection=projectTimelineDocument(document,{revision:1,audience:"EVERYTHING"});
+  assert.equal(projection.visualDocument.student.visaStatus,"Permanent Resident\n/ Green Card");
+  assert.equal(projection.model.profile.visaStatus,"Permanent Resident\n/ Green Card");
+  assert.equal(document.studentProfile.currentUsWorkAuthorization,"Permanent Resident / Green Card");
+});
+
 test("D1-411B audience projection never sends advisor-only events to interviewer-safe rendering",()=>{
   const projected=projectTimelineDocument(timeline(),{audience:"INTERVIEWER_SAFE"});
   assert.equal(projected.model.events.some(({id})=>id==="ev-rotation"),false);
@@ -220,6 +229,48 @@ test("RC1 editor asset rail uses real local vector objects and supports durable 
   assert.equal(ungrouped.changed,true);
   assert.equal(ungrouped.document.advanced.groups.length,0);
   assert.equal("groupId" in ungrouped.document.advanced.elements[0],false);
+});
+
+test("RC1 Brand library inserts an app-owned wordmark instead of a fake upload control",()=>{
+  const wordmark=ADVANCED_BUILT_IN_ASSETS.brand.find(({id})=>id==="missionmed");
+  assert.deepEqual(wordmark,{
+    id:"missionmed",
+    label:"MissionMed wordmark",
+    symbol:"MM",
+    kind:"missionmed-wordmark"
+  });
+  const object=createAdvancedElement({id:"brand-proof",kind:wordmark.kind,label:wordmark.label});
+  assert.equal(object.kind,"missionmed-wordmark");
+  assert.equal(object.width,320);
+  assert.equal(object.height,88);
+});
+
+test("RC1 rail pointer bridge targets the protected shadow iframe and uses the declared asset action",async()=>{
+  const adapter=await readFile(new URL("../web/js/407f-engineering-adapter.js",import.meta.url),"utf8");
+  assert.match(adapter,/dataset\.advancedAction\|\|"asset"/);
+  assert.match(adapter,/shadowRoot\s*\?\.querySelector\?\.\("iframe"\)/);
+  assert.match(adapter,/railAsset\.setPointerCapture\?\.\(event\.pointerId\)/);
+  assert.doesNotMatch(adapter,/dataset\.advancedInsertAsset\|\|"asset"/);
+});
+
+test("RC1 protected text overlay enters direct edit before selection reconciliation",async()=>{
+  const host=await readFile(new URL("../web/js/d1-411a/kernel-host.js",import.meta.url),"utf8");
+  assert.match(host,/const beginTextEdit=\(node\)=>/);
+  assert.match(host,/event\.detail>=2/);
+  assert.match(host,/contentEditable="true"/);
+  assert.match(host,/role","textbox"/);
+  assert.match(host,/d1-411a:advanced-text-editing/);
+  assert.match(host,/const snapMove=\(next,currentGesture\)=>/);
+  assert.match(host,/d1411aSnapGuide/);
+  assert.match(host,/profile-card-move/);
+  assert.match(host,/profile-card-resize/);
+  assert.match(host,/profileGeometry/);
+  assert.match(host,/layoutRetryCount<4/);
+  assert.match(host,/advancedBackgroundCss\(advanced\.background,record\.resolveObjectUrl\)/);
+  assert.match(host,/if\(background\)board\.style\.background=background/);
+  assert.match(host,/item\.kind==="missionmed-wordmark"/);
+  assert.match(host,/overlay\.append\(style\)/);
+  assert.doesNotMatch(host,/childDocument\.head\.append\(style\)/);
 });
 
 test("D1-411B server keeps top-level framing denied and allows only the protected same-origin kernel",async()=>{

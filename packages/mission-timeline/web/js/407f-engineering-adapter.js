@@ -1513,8 +1513,10 @@ export async function boot407FEngineeringAdapter({
   let onAdvancedRailNativeDragEnd=()=>{};
   let onKernelAdvancedSelect=()=>{};
   let onKernelAdvancedGesture=()=>{};
+  let onKernelAdvancedTextEditing=()=>{};
   let onKernelAdvancedText=()=>{};
   let onKernelAdvancedDrop=()=>{};
+  let advancedTextSelectionTimer=null;
   let onCanvasResize=()=>{};
   let on407FRendered=()=>{};
   let onAdvisorHashChange=()=>{};
@@ -1860,10 +1862,12 @@ export async function boot407FEngineeringAdapter({
     document.removeEventListener("d1-411a:presentation-gesture",onKernelPresentationGesture);
     document.removeEventListener("d1-411a:advanced-select",onKernelAdvancedSelect);
     document.removeEventListener("d1-411a:advanced-gesture",onKernelAdvancedGesture);
+    document.removeEventListener("d1-411a:advanced-text-editing",onKernelAdvancedTextEditing);
     document.removeEventListener("d1-411a:advanced-text",onKernelAdvancedText);
     document.removeEventListener("d1-411a:advanced-drop",onKernelAdvancedDrop);
     document.removeEventListener("d1-411a:command",onKernelCommand);
     document.removeEventListener("d1-411a:media-drop",onKernelMediaDrop);
+    clearTimeout(advancedTextSelectionTimer);
     document.removeEventListener("click",onSpecialtyVariantClick);
     document.removeEventListener("change",onSpecialtyVariantChange);
     document.getElementById("modalBk")?.removeEventListener(
@@ -3693,6 +3697,17 @@ export async function boot407FEngineeringAdapter({
         :range;
     }else if(detail.kind==="color-key-move"||detail.kind==="color-key-resize"){
       result=setColorKeyGeometryPresentationOverride(store.document,detail.geometry||{});
+    }else if(detail.kind==="profile-card-move"||detail.kind==="profile-card-resize"){
+      const geometry=detail.geometry||{};
+      const document=clone(store.document);
+      const width=Math.max(360,Math.min(900,Number(geometry.width)||566));
+      const height=Math.max(272,Math.min(680,Number(geometry.height)||428));
+      document.presentationOverrides={...(document.presentationOverrides||{}),profileGeometry:{
+        x:Math.max(0,Math.min(1920-width,Number(geometry.x)||0)),
+        y:Math.max(0,Math.min(1080-height,Number(geometry.y)||0)),
+        width,height
+      }};
+      result={document,changed:true,mutation:{label:"Change profile card presentation"}};
     }
     if(!result)return;
     if(result.error){bridge.toast(result.error);return;}
@@ -3701,15 +3716,23 @@ export async function boot407FEngineeringAdapter({
     syncBridgeStateFromStore();
     const selection=detail.kind==="axis-boundary"
       ?{type:"axis",id:"axis"}
-      :{type:"color-key",id:"color-key"};
+      :detail.kind.startsWith("profile-card-")
+        ?{type:"profile",id:"profile"}
+        :{type:"color-key",id:"color-key"};
     canvasController?.setUiState({
       selectedEventId:null,detailsEventId:null,advancedSelection:selection,advancedPanel:"timeline"
     });
     bridge.toast(detail.kind==="axis-boundary"?"Year widths updated":"Color key updated");
   };
+  const reselectAdvancedKernel=(type,id,attempt=0)=>{
+    const kernel=canvasHost?.querySelector?.('d1-timeline-kernel[data-surface="edit"]');
+    if(kernel?.selectAdvancedObject?.(type,id))return;
+    if(attempt<12)setTimeout(()=>reselectAdvancedKernel(type,id,attempt+1),80);
+  };
   onKernelAdvancedSelect=(event)=>{
     const detail=event.detail||{};
     if(detail.surface!=="edit"||!detail.type)return;
+    clearTimeout(advancedTextSelectionTimer);
     if(detail.type==="multi"){
       const members=(Array.isArray(detail.members)?detail.members:[])
         .filter((member)=>["media","text","element"].includes(member?.type)&&member?.id);
@@ -3721,13 +3744,20 @@ export async function boot407FEngineeringAdapter({
       return;
     }
     if(!detail.id)return;
-    canvasController?.setUiState({
-      selectedEventId:null,
-      detailsEventId:null,
-      advancedSelection:{type:String(detail.type),id:String(detail.id)},
-      advancedTextEdit:null
-    });
-    setTimeout(()=>canvasHost?.querySelector?.('d1-timeline-kernel[data-surface="edit"]')?.selectAdvancedObject?.(detail.type,detail.id),180);
+    const reconcileSelection=()=>{
+      canvasController?.setUiState({
+        selectedEventId:null,
+        detailsEventId:null,
+        advancedSelection:{type:String(detail.type),id:String(detail.id)},
+        advancedTextEdit:null
+      });
+      reselectAdvancedKernel(detail.type,detail.id);
+    };
+    if(detail.type==="text"){
+      advancedTextSelectionTimer=setTimeout(reconcileSelection,500);
+      return;
+    }
+    reconcileSelection();
   };
   onKernelAdvancedGesture=(event)=>{
     const detail=event.detail||{};
@@ -3753,7 +3783,7 @@ export async function boot407FEngineeringAdapter({
       });
       syncBridgeStateFromStore();
       canvasController?.setUiState({advancedSelection:{type:"group",id:String(detail.id)}});
-      setTimeout(()=>canvasHost?.querySelector?.('d1-timeline-kernel[data-surface="edit"]')?.selectAdvancedObject?.("group",detail.id),180);
+      reselectAdvancedKernel("group",detail.id);
       return;
     }
     const collection=detail.type==="text"
@@ -3774,9 +3804,10 @@ export async function boot407FEngineeringAdapter({
     });
     syncBridgeStateFromStore();
     canvasController?.setUiState({advancedSelection:{type:detail.type,id:String(detail.id)}});
-    setTimeout(()=>canvasHost?.querySelector?.('d1-timeline-kernel[data-surface="edit"]')?.selectAdvancedObject?.(detail.type,detail.id),180);
+    reselectAdvancedKernel(detail.type,detail.id);
   };
   onKernelAdvancedText=(event)=>{
+    clearTimeout(advancedTextSelectionTimer);
     const detail=event.detail||{};
     if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
     const text=String(detail.text||"");
@@ -3786,6 +3817,10 @@ export async function boot407FEngineeringAdapter({
     });
     syncBridgeStateFromStore();
     canvasController?.setUiState({advancedSelection:{type:"text",id:String(detail.id)}});
+  };
+  onKernelAdvancedTextEditing=(event)=>{
+    const detail=event.detail||{};
+    if(detail.surface==="edit")clearTimeout(advancedTextSelectionTimer);
   };
   onKernelAdvancedDrop=(event)=>{
     const detail=event.detail||{};
@@ -3825,6 +3860,7 @@ export async function boot407FEngineeringAdapter({
   document.addEventListener("d1-411a:presentation-gesture",onKernelPresentationGesture);
   document.addEventListener("d1-411a:advanced-select",onKernelAdvancedSelect);
   document.addEventListener("d1-411a:advanced-gesture",onKernelAdvancedGesture);
+  document.addEventListener("d1-411a:advanced-text-editing",onKernelAdvancedTextEditing);
   document.addEventListener("d1-411a:advanced-text",onKernelAdvancedText);
   document.addEventListener("d1-411a:advanced-drop",onKernelAdvancedDrop);
   document.addEventListener("d1-411a:command",onKernelCommand);
@@ -4211,7 +4247,7 @@ export async function boot407FEngineeringAdapter({
         store.replace(result.document,{label:"Group Timeline objects"});
         syncBridgeStateFromStore();
         canvasController?.setUiState({advancedSelection:result.selection,advancedTextEdit:null});
-        setTimeout(()=>canvasHost?.querySelector?.('d1-timeline-kernel[data-surface="edit"]')?.selectAdvancedObject?.("group",result.selection.id),180);
+        reselectAdvancedKernel("group",result.selection.id);
         announceGlobal("Objects grouped");
       }catch(error){bridge.toast(String(error?.message||error));}
     },
@@ -4233,7 +4269,7 @@ export async function boot407FEngineeringAdapter({
         });
         syncBridgeStateFromStore();
         canvasController?.setUiState({advancedSelection:{type:"text",id}});
-        setTimeout(()=>canvasHost?.querySelector?.('d1-timeline-kernel[data-surface="edit"]')?.selectAdvancedObject?.("text",id),180);
+        reselectAdvancedKernel("text",id);
         queueMicrotask(()=>{
           const escaped=globalThis.CSS?.escape?CSS.escape(id):id;
           const field=canvasHost?.querySelector?.(
@@ -4807,6 +4843,12 @@ export async function boot407FEngineeringAdapter({
     }
     if(["builder","canvas","media"].includes(bridge.state.view)){
       queueMicrotask(renderMediaLibrarySurfaces);
+    }
+    if(bridge.state.view==="canvas"){
+      const selection=canvasController?.state?.advancedSelection;
+      if(selection?.type&&selection.type!=="multi"&&selection.id){
+        reselectAdvancedKernel(selection.type,selection.id);
+      }
     }
     requestAnimationFrame(applyEntitlementSurface);
   };
@@ -5498,6 +5540,10 @@ export async function boot407FEngineeringAdapter({
     let advancedPointer=null;
     let railPointer=null;
     let nativeRailDrag=null;
+    const advancedEditIframe=()=>canvasHost
+      ?.querySelector?.('d1-timeline-kernel[data-surface="edit"]')
+      ?.shadowRoot
+      ?.querySelector?.("iframe");
     const clearAdvancedDirectSelection=()=>document.querySelectorAll?.("[data-advanced-direct-selection]").forEach((node)=>node.remove());
     const showAdvancedDirectSelection=(target)=>queueMicrotask(()=>{
       clearAdvancedDirectSelection();
@@ -5716,12 +5762,14 @@ export async function boot407FEngineeringAdapter({
         document.body.append(ghost);
         railPointer={
           startX:event.clientX,startY:event.clientY,moved:false,ghost,
+          source:railAsset,pointerId:event.pointerId,
           payload:{
-            kind:"insert",action:String(railAsset.dataset.advancedInsertAsset||"asset"),
+            kind:"insert",action:String(railAsset.dataset.advancedAction||"asset"),
             assetKind:String(railAsset.dataset.advancedKind||"rectangle"),
             symbol:String(railAsset.dataset.advancedSymbol||"")
           }
         };
+        railAsset.setPointerCapture?.(event.pointerId);
         event.preventDefault();
         return;
       }
@@ -5841,8 +5889,9 @@ export async function boot407FEngineeringAdapter({
       if(railPointer){
         const pending=railPointer;
         railPointer=null;
+        pending.source?.releasePointerCapture?.(pending.pointerId);
         pending.ghost.remove();
-        const iframe=canvasHost?.querySelector?.('d1-timeline-kernel[data-surface="edit"] iframe');
+        const iframe=advancedEditIframe();
         const bounds=iframe?.getBoundingClientRect?.();
         if(pending.moved&&bounds&&event.clientX>=bounds.left&&event.clientX<=bounds.right&&event.clientY>=bounds.top&&event.clientY<=bounds.bottom){
           advancedHooks().onAssetDrop(pending.payload,{
@@ -5921,7 +5970,7 @@ export async function boot407FEngineeringAdapter({
       const tile=event.target.closest?.("[data-advanced-insert-asset]");
       if(!tile||store.entitlement.canMutate!==true)return;
       nativeRailDrag={
-        action:String(tile.dataset.advancedInsertAsset||"asset"),
+        action:String(tile.dataset.advancedAction||"asset"),
         assetKind:String(tile.dataset.advancedKind||"rectangle"),
         symbol:String(tile.dataset.advancedSymbol||"")
       };
@@ -5930,7 +5979,7 @@ export async function boot407FEngineeringAdapter({
       const pending=nativeRailDrag;
       nativeRailDrag=null;
       if(!pending||event.dataTransfer?.dropEffect!=="none")return;
-      const iframe=canvasHost?.querySelector?.('d1-timeline-kernel[data-surface="edit"] iframe');
+      const iframe=advancedEditIframe();
       const bounds=iframe?.getBoundingClientRect?.();
       if(!bounds||event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom)return;
       advancedHooks().onAssetDrop({kind:"insert",...pending},{

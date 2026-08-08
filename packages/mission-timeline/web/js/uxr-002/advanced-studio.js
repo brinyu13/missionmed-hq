@@ -114,7 +114,7 @@ export const ADVANCED_BUILT_IN_ASSETS=freezeDeep({
     {id:"heading",label:"Add a heading",symbol:"H",action:"symbol",value:"Add a heading"},
     {id:"body",label:"Add body text",symbol:"T",action:"symbol",value:"Add body text"}
   ],
-  brand:[{id:"missionmed",label:"MissionMed logo",symbol:"MM",action:"logo"}],
+  brand:[{id:"missionmed",label:"MissionMed wordmark",symbol:"MM",kind:"missionmed-wordmark"}],
   shapes:[
     {id:"rectangle",label:"Rectangle",symbol:"▭",kind:"rectangle"},
     {id:"rounded-rectangle",label:"Rounded rectangle",symbol:"▰",kind:"rounded-rectangle"},
@@ -1129,10 +1129,11 @@ const ADVANCED_ELEMENT_KINDS=freezeDeep([
   "ribbon","pin","marker","separator","shadow",
   "hospital","stethoscope","medicine","research","microscope","graduation","certification","award",
   "marriage","pregnancy","baby","family","home","travel","relocation","citizenship","green-card","remembrance",
-  "country-flag","milestone-flag"
+  "country-flag","milestone-flag","missionmed-wordmark"
 ]);
 
 function defaultElementGeometry(kind){
+  if(kind==="missionmed-wordmark")return{width:320,height:88};
   if(["line","separator"].includes(kind))return{width:300,height:18};
   if(["arrow-right","arrow-curved","arrow-thin","arrow-thick","arrow-double"].includes(kind))return{width:220,height:96};
   if(["circle","badge","pin","marker","hospital","stethoscope","medicine","research","microscope","graduation","certification","award","marriage","pregnancy","baby","family","home","travel","relocation","citizenship","green-card","remembrance","country-flag","milestone-flag"].includes(kind))return{width:112,height:112};
@@ -1654,7 +1655,9 @@ export function renderAdvancedSelectionControls(document={},{
   const aspectLock=["media","element","group"].includes(model.target.type)
     ?`<label class="advanced-aspect-lock"><input type="checkbox" data-advanced-aspect-lock${target} ${model.element.aspectLocked!==false?"checked":""}><span>Lock proportions</span></label>`
     :"";
-  const objectLock=`<button type="button" class="button secondary compact" data-advanced-object-action="${model.element.locked?"unlock":"lock"}"${target}>${model.element.locked?"Unlock":"Lock"}</button>`;
+  const objectLock=["media","text","element","group"].includes(model.target.type)
+    ?`<button type="button" class="button secondary compact" data-advanced-object-action="${model.element.locked?"unlock":"lock"}"${target}>${model.element.locked?"Unlock":"Lock"}</button>`
+    :"";
   if(!model.typography){
     return`<section class="advanced-selection-controls" data-advanced-selection-controls${target}>${actions}${objectLock}${aspectLock}</section>`;
   }
