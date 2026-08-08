@@ -16,6 +16,7 @@ const {
   groupAdvancedObjects,
   ungroupAdvancedObjects,
   setAdvancedObjectLock,
+  setAdvancedObjectAspectLock,
   ADVANCED_BUILT_IN_ASSETS
 }=await import("../web/js/uxr-002/advanced-studio.js?rc1-editor-ux-004");
 
@@ -212,6 +213,9 @@ test("RC1 editor asset rail uses real local vector objects and supports durable 
   assert.equal(grouped.document.advanced.elements[0].groupId,"caption-group");
   const locked=setAdvancedObjectLock(grouped.document,{type:"group",id:"caption-group"},true);
   assert.equal(locked.advanced.groups[0].locked,true);
+  const proportionsUnlocked=setAdvancedObjectAspectLock(locked,{type:"group",id:"caption-group"},false);
+  assert.equal(proportionsUnlocked.advanced.groups[0].locked,true);
+  assert.equal(proportionsUnlocked.advanced.groups[0].aspectLocked,false);
   const ungrouped=ungroupAdvancedObjects(locked,"caption-group");
   assert.equal(ungrouped.changed,true);
   assert.equal(ungrouped.document.advanced.groups.length,0);

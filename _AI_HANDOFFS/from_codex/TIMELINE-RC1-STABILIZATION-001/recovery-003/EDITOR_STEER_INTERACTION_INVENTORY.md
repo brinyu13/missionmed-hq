@@ -77,3 +77,13 @@ The authenticated Canva design was operated in Chrome, then restored with undo. 
 - Immutable package, Timeline-only backup, production canary, rollback verification, and independent browser verification.
 
 Production was not mutated in this checkpoint.
+
+## Continuation checkpoint — local Chrome
+
+- Direct selection of an inserted element shows eight handles and its contextual controls: layer ordering, duplicate, delete, individual lock, and a visibly checked `Lock proportions` control.
+- A physical browser pointer-drag moved the selected object without a blank-board replacement; the selection remained visible after the committed mutation.
+- A corner resize was exercised on a proportion-locked element. The document state retained `aspectLocked: true`.
+- FIT to 150% zoom was exercised. The same advanced overlay remained mounted (`1 → 1`) and no `LOADING CANONICAL TIMELINE` replacement appeared.
+- The aspect-lock model test now confirms that changing proportions does not accidentally change the independent object/group lock state.
+
+These are local candidate checks only. Group UI, rail drag/drop, persistence/reload, export, and production canary remain open.

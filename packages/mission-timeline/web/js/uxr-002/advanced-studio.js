@@ -1784,12 +1784,13 @@ export function renderAdvancedStudio(document={},options={}){
   const activePanel=ADVANCED_EDITOR_PANELS.some(({id})=>id===requestedPanel)
     ?requestedPanel
     :"elements";
+  const hasObjectContext=["media","text","element","group","multi","headline"].includes(options.selection?.type);
   const contextual=renderContextualPresentationControls(state,options.selection)||
-    (["media","text","headline"].includes(options.selection?.type)
+    (hasObjectContext
       ?renderAdvancedSelectionControls(state,options)
       :"");
   let panel=contextual;
-  if(panel&&["media","text","headline"].includes(options.selection?.type)){
+  if(panel&&hasObjectContext){
     panel+=renderAdvancedAssetRail(state,options.selection,{
       activePanel:"uploads",
       query:options.query,
