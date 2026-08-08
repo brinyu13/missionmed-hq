@@ -481,3 +481,23 @@ No unrelated Matrix or application mutation was observed. Unrelated application 
 ## Final truth
 
 Premium onboarding is restored; consent is contextual; first-use identity is deterministic and audited; existing consent does not recur; withdrawal remains available; existing timelines hydrate; protected rendering, fail-soft media, editing, autosave, persistence, export, refresh, renewal, direct-API denial, entitlement denial, and two-owner isolation are covered by live evidence and the authoritative regression suite. No unrelated application impact was observed or introduced.
+
+---
+
+# Timeline RC1 Editor UX 004 Production Closure
+
+## Result
+
+**PASS.** Fixed-denominator RC1 completion is **50/50 (100%)**. The bounded Advanced Studio acceptance is **32/32**, and live PNG, Letter PDF, and A4 PDF exports were downloaded, opened, and visually inspected.
+
+The final source is `b209f11ab19ce94b376d7964dddaef74adbec488`; static release `timeline-32337cedee6cd0a4`; WordPress release `timeline-wp-456f911ff8e0a207`; active payload SHA-256 `7eecc6c70fcbed113eeedb1fca86b3b85d506ed7177ec02fbf41956eb6ae4675`; API release `timeline-c9eda9eeb7d6cf98`; schema `d1-timeline-db-500.1`; live URL `https://missionmedinstitute.com/timeline/`.
+
+Canva was directly operated and studied. Live production acceptance passed for smooth drag/resize, aspect lock/unlock, real grouping and ungrouping, grouped text-plus-shape manipulation, direct text editing, click-to-add, physical rail-to-canvas drag/drop, populated shapes/arrows/icons/flags/backgrounds, snapping/guides, layers, object lock/unlock, zoom without remount, year-axis manipulation, Color Key/profile-card manipulation, undo/redo, save/reload persistence, and export fidelity.
+
+The only post-deployment defect found was five-second object-URL revocation racing Chrome's native save dialog. Commit `b209f11` extends that bounded lifetime to five minutes; the focused protected-kernel/export suite passed **18/18**. Live export artifacts and hashes are recorded in `recovery-003/editor-ux-004/RC1_EDITOR_UX_004_PRODUCTION_CLOSURE.md` and its `export-artifacts/` directory.
+
+Rollout stage is `eligible_360`, governed by LearnDash course `3893` (`learndash-course-3893-live-2026-08-04`). Founder, approved administrator, eligible student, non-360 denial, revoked-360 denial, anonymous denial, direct-API denial, logout/context invalidation, and synthetic-fixture cleanup pass. The current API health endpoint returns HTTP `200`, release `timeline-c9eda9eeb7d6cf98`, schema `d1-timeline-db-500.1`.
+
+Provider backup `TIMELINE-RC1-EDITOR-UX-004-PRE-20260808T161951Z` and scoped snapshot `/www/theresidencyacademy_209/private/timeline-rc1-recovery-backups/20260808T170309Z-export-save-hotfix` are verified. Immediate rollback is `timeline-wp-05a4b831501cfc59`, SHA-256 `36871e450640d22f47f96663abe3fe8fa5f4f71a11102672af3041ec855fa8fa`. Homepage, StoryForge, and Arena remain HTTP `200`; unrelated application impact is **NONE**.
+
+Variable user-managed Color Key categories remain the approved post-RC1 enhancement. No remaining bounded editor finding is a production release blocker.
