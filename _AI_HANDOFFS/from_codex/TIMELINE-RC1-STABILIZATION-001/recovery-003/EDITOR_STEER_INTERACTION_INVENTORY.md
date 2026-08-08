@@ -87,3 +87,8 @@ Production was not mutated in this checkpoint.
 - The aspect-lock model test now confirms that changing proportions does not accidentally change the independent object/group lock state.
 
 These are local candidate checks only. Group UI, rail drag/drop, persistence/reload, export, and production canary remain open.
+
+## Continuation checkpoint — persistence and rail drag
+
+- Click-to-add was exercised in Chrome and then reloaded through the real Edit Timeline route: element count was `6 → 7 → 7`. The inserted asset survived reload.
+- The physical rail-to-canvas drag journey remains **FAIL / open** in the current Chrome automation path (`6 → 6`). A native `dragend` fallback has been added for protected-frame handoff, but it is not credited until the journey produces a visible inserted object in a real browser.

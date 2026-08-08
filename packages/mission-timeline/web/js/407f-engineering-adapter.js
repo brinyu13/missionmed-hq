@@ -1509,6 +1509,8 @@ export async function boot407FEngineeringAdapter({
   let onAdvancedPointerUp=()=>{};
   let onAdvancedRailDragOver=()=>{};
   let onAdvancedRailDrop=()=>{};
+  let onAdvancedRailNativeDragStart=()=>{};
+  let onAdvancedRailNativeDragEnd=()=>{};
   let onKernelAdvancedSelect=()=>{};
   let onKernelAdvancedGesture=()=>{};
   let onKernelAdvancedText=()=>{};
@@ -1815,11 +1817,16 @@ export async function boot407FEngineeringAdapter({
     document.getElementById("canvas407F")?.removeEventListener("click",onCanvasDetailsClick);
     document.getElementById("canvas407F")?.removeEventListener("click",onAdvancedObjectClick);
     document.getElementById("canvas407F")?.removeEventListener("keydown",onAdvancedObjectKeyDown);
-    document.getElementById("canvas407F")?.removeEventListener("pointerdown",onAdvancedPointerDown);
-    document.getElementById("canvas407F")?.removeEventListener("dragover",onAdvancedRailDragOver);
-    document.getElementById("canvas407F")?.removeEventListener("drop",onAdvancedRailDrop);
+    canvasHost?.removeEventListener("pointerdown",onAdvancedPointerDown);
+    canvasHost?.removeEventListener("mousedown",onAdvancedPointerDown);
+    canvasHost?.removeEventListener("dragover",onAdvancedRailDragOver);
+    canvasHost?.removeEventListener("drop",onAdvancedRailDrop);
+    canvasHost?.removeEventListener("dragstart",onAdvancedRailNativeDragStart);
+    document.removeEventListener("dragend",onAdvancedRailNativeDragEnd);
     document.removeEventListener("pointermove",onAdvancedPointerMove);
+    document.removeEventListener("mousemove",onAdvancedPointerMove);
     document.removeEventListener("pointerup",onAdvancedPointerUp);
+    document.removeEventListener("mouseup",onAdvancedPointerUp);
     document.removeEventListener("pointercancel",onAdvancedPointerUp);
     document.querySelectorAll("[data-advanced-alignment-guides]").forEach((node)=>node.remove());
     window.removeEventListener("resize",onCanvasResize);
@@ -5490,6 +5497,7 @@ export async function boot407FEngineeringAdapter({
     };
     let advancedPointer=null;
     let railPointer=null;
+    let nativeRailDrag=null;
     const clearAdvancedDirectSelection=()=>document.querySelectorAll?.("[data-advanced-direct-selection]").forEach((node)=>node.remove());
     const showAdvancedDirectSelection=(target)=>queueMicrotask(()=>{
       clearAdvancedDirectSelection();
@@ -5697,7 +5705,7 @@ export async function boot407FEngineeringAdapter({
       restoreAdvancedObjectFocus(object.type,object.id);
     };
     onAdvancedPointerDown=(event)=>{
-      if(event.button!==0)return;
+      if(event.button!==0||railPointer||advancedPointer)return;
       const railAsset=event.target.closest?.("[data-advanced-insert-asset]");
       if(railAsset&&store.entitlement.canMutate===true){
         const ghost=document.createElement("div");
@@ -5909,14 +5917,41 @@ export async function boot407FEngineeringAdapter({
       advancedHooks().onAssetDrop(payload,{x,y});
       bridge.toast("Asset added to Timeline");
     };
+    onAdvancedRailNativeDragStart=(event)=>{
+      const tile=event.target.closest?.("[data-advanced-insert-asset]");
+      if(!tile||store.entitlement.canMutate!==true)return;
+      nativeRailDrag={
+        action:String(tile.dataset.advancedInsertAsset||"asset"),
+        assetKind:String(tile.dataset.advancedKind||"rectangle"),
+        symbol:String(tile.dataset.advancedSymbol||"")
+      };
+    };
+    onAdvancedRailNativeDragEnd=(event)=>{
+      const pending=nativeRailDrag;
+      nativeRailDrag=null;
+      if(!pending||event.dataTransfer?.dropEffect!=="none")return;
+      const iframe=canvasHost?.querySelector?.('d1-timeline-kernel[data-surface="edit"] iframe');
+      const bounds=iframe?.getBoundingClientRect?.();
+      if(!bounds||event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom)return;
+      advancedHooks().onAssetDrop({kind:"insert",...pending},{
+        x:Math.max(0,Math.min(1840,(event.clientX-bounds.left)*1920/bounds.width)),
+        y:Math.max(0,Math.min(1000,(event.clientY-bounds.top)*1080/bounds.height))
+      });
+      bridge.toast("Asset added to Timeline");
+    };
     canvasHost.addEventListener("click",onCanvasDetailsClick);
     canvasHost.addEventListener("click",onAdvancedObjectClick);
     canvasHost.addEventListener("keydown",onAdvancedObjectKeyDown);
     canvasHost.addEventListener("pointerdown",onAdvancedPointerDown);
+    canvasHost.addEventListener("mousedown",onAdvancedPointerDown);
     canvasHost.addEventListener("dragover",onAdvancedRailDragOver);
     canvasHost.addEventListener("drop",onAdvancedRailDrop);
+    canvasHost.addEventListener("dragstart",onAdvancedRailNativeDragStart);
+    document.addEventListener("dragend",onAdvancedRailNativeDragEnd);
     document.addEventListener("pointermove",onAdvancedPointerMove);
+    document.addEventListener("mousemove",onAdvancedPointerMove);
     document.addEventListener("pointerup",onAdvancedPointerUp);
+    document.addEventListener("mouseup",onAdvancedPointerUp);
     document.addEventListener("pointercancel",onAdvancedPointerUp);
     onCanvasResize=()=>canvasController?.setResponsiveWidth(window.innerWidth);
     window.addEventListener("resize",onCanvasResize);
