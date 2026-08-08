@@ -1407,12 +1407,16 @@ export function createD1411AKernelManager({resolveObjectUrl=()=>null}={}){
 
 export function createD1411AKernelExportAdapter({kernelManager}={}){
   if(!kernelManager)throw new TypeError("A D1-411A kernel manager is required.");
+  // Native "ask where to save" dialogs pause the page while the user chooses a
+  // destination. Keep the object URL alive for that bounded dialog; revoking it
+  // after five seconds made Chrome disable Save for larger exports.
+  const downloadUrlLifetimeMs=5*60*1000;
   const download=(blob,filename)=>{
     const url=URL.createObjectURL(blob);
     const anchor=document.createElement("a");
     anchor.href=url;anchor.download=filename;anchor.hidden=true;
     document.body.append(anchor);anchor.click();anchor.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    setTimeout(()=>URL.revokeObjectURL(url),downloadUrlLifetimeMs);
     return{downloaded:true,verification:"browser-download-dispatched"};
   };
   return{
