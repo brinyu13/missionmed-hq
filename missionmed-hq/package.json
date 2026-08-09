@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node server.mjs"
+    "start": "node server.mjs",
+    "test:lor": "node --test tests/lor-studio/*.test.mjs",
+    "check:lor": "node --check server.mjs && node --check lor-studio/http/runtime.mjs && node --check public/lor-studio/production-adapter.js"
   },
   "engines": {
     "node": ">=20"

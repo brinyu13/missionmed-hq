@@ -67,7 +67,11 @@
     "start": "node missionmed-hq/server.mjs",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/**/*.spec.ts",
-    "build": "echo build-placeholder"
+    "build": "echo build-placeholder",
+    "lor:materialize": "node missionmed-hq/scripts/lor-studio/materialize-frozen-prototype.mjs",
+    "lor:test": "node --test missionmed-hq/tests/lor-studio/*.test.mjs",
+    "lor:check": "node --check missionmed-hq/server.mjs && node --check missionmed-hq/lor-studio/http/runtime.mjs && node --check missionmed-hq/public/lor-studio/production-adapter.js",
+    "lor:artifacts": "node missionmed-hq/scripts/lor-studio/verify-artifacts.mjs"
   },
   "keywords": [],
   "author": "",

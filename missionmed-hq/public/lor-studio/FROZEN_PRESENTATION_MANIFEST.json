@@ -1,0 +1,11 @@
+{
+  "sourceName": "F2-LOR-1003-functional-prototype.html",
+  "sourceSha256": "8560559341895f2973c51bdf7d7ba28ba7a9890d70c6bc6eb5976fc67371e037",
+  "sourceBytes": 332807,
+  "outputSha256": "7c1ff4f162a9764a530113766ff5e0c9e762d31e31a8f0572c910220f1fc4401",
+  "outputBytes": 333650,
+  "adapterVersion": 5,
+  "securityTransforms": [
+    "toast_text_only"
+  ]
+}

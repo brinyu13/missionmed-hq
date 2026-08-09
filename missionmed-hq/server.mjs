@@ -41,6 +41,11 @@ import {
   handleGmailCommsReviewWriteRoute,
   isGmailCommsReviewWritePath,
 } from './routes/gmail-comms-review-write.mjs';
+import {
+  createLorStudioRuntime,
+  createUnavailableLorEntitlementResolver,
+  isLorStudioRequestPath,
+} from './lor-studio/http/runtime.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -211,6 +216,17 @@ const STARTUP_VALIDATION = buildEnvValidation();
 const SESSION_KEY = buildSessionKey(SESSION_SECRET);
 assertStartupConfiguration();
 
+const LOR_STUDIO_RUNTIME = createLorStudioRuntime({
+  publicDirectory: path.join(PUBLIC_DIR, 'lor-studio'),
+  flags: {
+    enabled: envFlag('MMHQ_LOR_STUDIO_ENABLED', false),
+    killSwitch: envFlag('MMHQ_LOR_STUDIO_KILL_SWITCH', true),
+    requireCanary: envFlag('MMHQ_LOR_STUDIO_REQUIRE_CANARY', true),
+  },
+  entitlementResolver: createUnavailableLorEntitlementResolver('exact_learndash_360_contract_unverified'),
+  validateCsrf,
+});
+
 const server = http.createServer(async (request, response) => {
   const startedAt = Date.now();
   let pathname = '/';
@@ -260,6 +276,15 @@ const server = http.createServer(async (request, response) => {
         response.writeHead(500);
         response.end('FAILED TO LOAD EMAIL UI');
       }
+      return;
+    }
+
+    if (isLorStudioRequestPath(pathname)) {
+      const session = authenticateApiRequest(request);
+      await LOR_STUDIO_RUNTIME.handle(request, response, {
+        pathname,
+        searchParams: url.searchParams,
+      }, { session });
       return;
     }
 
