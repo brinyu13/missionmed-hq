@@ -333,6 +333,7 @@ test("RC1 protected text overlay enters direct edit before selection reconciliat
   assert.match(host,/advancedBackgroundCss\(advanced\.background,record\.resolveObjectUrl\)/);
   assert.match(host,/if\(background\)board\.style\.background=background/);
   assert.match(host,/item\.kind==="missionmed-wordmark"/);
+  assert.match(host,/#d1411a-advanced-overlay\{position:absolute;inset:0;z-index:1001/);
   assert.match(host,/overlay\.append\(style\)/);
   assert.doesNotMatch(host,/childDocument\.head\.append\(style\)/);
 });
