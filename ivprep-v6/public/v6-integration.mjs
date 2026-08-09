@@ -1,10 +1,21 @@
 import { MicController } from './mic-controller.mjs';
 import { LiveAvatarBrowserProvider } from './avatar-provider.mjs';
+import { OpenAIRealtimeRail, RAIL_IDS } from './conversation-rail.mjs';
 
 const bridge = window.V6Bridge;
 if (!bridge) throw new Error('V6 integration bridge is unavailable.');
 
 const state = {
+  railId: RAIL_IDS.RESPONSES_SPEECH,
+  railStatus: 'available',
+  railConfigs: [],
+  railConnectionMs: null,
+  railFirstAudioMs: null,
+  railFloorToResponseMs: null,
+  railAnswerEndToResponseMs: null,
+  railInterruptionMs: null,
+  continuousCompletedTurn: null,
+  continuousAlreadySpoken: null,
   model: 'gpt-5.6-terra',
   providerModel: null,
   architecture: 'responses-openai-speech',
@@ -45,6 +56,8 @@ const state = {
   alphaDisabled: false,
   usageLedger: [],
 };
+
+let continuousRail = null;
 
 const avatar = new LiveAvatarBrowserProvider({
   videoContainer: document.getElementById('ivtile'),
@@ -125,9 +138,12 @@ async function ensureAlphaSession() {
   if (state.alphaSessionStarting) return state.alphaSessionStarting;
   state.alphaSessionStarting = (async () => {
     const selected = state.facultyRoster.find((record) => record.id === state.selectedInterviewerId) || state.facultyRoster[0];
-    const mode = state.avatarEnabled && state.avatarProviderReady && selected?.available ? 'avatar' : 'voice-only';
+    const continuousDirectAudio = state.railId === RAIL_IDS.OPENAI_REALTIME;
+    const mode = !continuousDirectAudio && state.avatarEnabled && state.avatarProviderReady && selected?.available ? 'avatar' : 'voice-only';
     if (mode === 'voice-only') {
-      state.avatarNotice = state.avatarEnabled
+      state.avatarNotice = continuousDirectAudio
+        ? 'Continuous Conversation is using direct OpenAI Realtime audio. LiveAvatar is visibly off for this experimental rail to prevent duplicate or unsynchronized audio.'
+        : state.avatarEnabled
         ? 'Live avatar unavailable: provider authorization is missing. Continuing with the same interviewer intelligence and OpenAI voice only.'
         : 'Avatar is off. Continuing with the same interviewer intelligence and OpenAI voice only.';
       renderAvatarState();
@@ -187,6 +203,7 @@ async function endAlphaSession(terminationState = 'completed', { keepalive = fal
   state.alphaSessionEnding = (async () => {
     const errors = [];
     let persisted = false;
+    try { await closeContinuousRail(); } catch (error) { errors.push(error); }
     const persistEnd = async () => {
       await jsonRequest(`/api/alpha-sessions/${encodeURIComponent(id)}/end`, {
         method: 'POST',
@@ -241,7 +258,110 @@ async function playBlob(blob, telemetry = {}) {
   });
 }
 
+function continuousSessionContext() {
+  const context = bridge.context();
+  return {
+    interviewType: context.selection?.type || 'residency practice',
+    specialty: context.selection?.specialty || context.selection?.spec || 'not specified',
+    programContext: context.selection?.program || 'general',
+    interviewer: context.interviewer,
+    questionPlan: context.questions,
+    authorizedApplicantContext: {
+      priorities: context.priorities,
+      stories: context.stories,
+      timeline: context.timeline,
+    },
+    sessionRules: {
+      durationSeconds: 120,
+      thoughtfulPausesAllowed: true,
+      exactFallbackRail: 'Responses + OpenAI Speech',
+    },
+  };
+}
+
+function createContinuousRail() {
+  return new OpenAIRealtimeRail({
+    onState: (event) => {
+      state.railStatus = event.status || state.railStatus;
+      if (event.connectedMs != null) state.railConnectionMs = event.connectedMs;
+      if (event.firstAudioMs != null) state.railFirstAudioMs = event.firstAudioMs;
+      if (event.timings?.firstAudioMs != null) state.railFirstAudioMs = event.timings.firstAudioMs;
+      if (event.timings?.floorToResponseMs != null) state.railFloorToResponseMs = event.timings.floorToResponseMs;
+      if (event.interruptionLatencyMs != null) state.railInterruptionMs = event.interruptionLatencyMs;
+      if (event.status === 'responding' && micController.detector.lastSpeechAtMs != null) {
+        state.railAnswerEndToResponseMs = Math.max(0, Math.round(performance.now() - micController.detector.lastSpeechAtMs));
+      }
+      if (event.status === 'speaking' || event.status === 'responding') setInterviewerSpeaking(true, 'streaming');
+      if (['listening', 'floor-yield-detected'].includes(event.status)) {
+        setInterviewerSpeaking(false, event.status);
+        if (bridge.recording) bridge.setIvState('listen');
+      }
+      renderDiagnostics();
+      renderRailFallbackOffer();
+    },
+    onTurn: (turn) => {
+      state.continuousCompletedTurn = turn;
+      state.continuousAlreadySpoken = turn.utterance;
+      state.railFirstAudioMs = turn.timings?.firstAudioMs ?? state.railFirstAudioMs;
+      state.railFloorToResponseMs = turn.timings?.floorToResponseMs ?? state.railFloorToResponseMs;
+      if (bridge.view === 'room' && bridge.recording) {
+        bridge.setTypedTranscript(turn.applicant);
+        bridge.endTake();
+      }
+    },
+    onError: (error) => {
+      state.railStatus = 'failed';
+      state.providerHealth = 'degraded';
+      state.lastError = publicError(error, 'Continuous Conversation unavailable.').message;
+      setInterviewerSpeaking(false, 'error');
+      bridge.setIvState('error');
+      bridge.toast('Continuous Conversation unavailable. Continue using High-Intelligence Voice is ready.');
+      renderDiagnostics();
+      renderRailFallbackOffer();
+    },
+  });
+}
+
+async function ensureContinuousRail() {
+  if (state.railId !== RAIL_IDS.OPENAI_REALTIME) return null;
+  if (continuousRail?.health().connected) return continuousRail;
+  if (!bridge.media?.stream || !bridge.media.mic) throw new Error('Grant microphone access before starting Continuous Conversation.');
+  await ensureAlphaSession();
+  continuousRail = createContinuousRail();
+  await continuousRail.start({
+    stream: bridge.media.stream,
+    alphaSessionId: state.alphaSessionId,
+    model: 'gpt-realtime-2.1',
+    voiceId: state.voiceId,
+    speed: Math.min(1.5, Math.max(0.25, state.voiceSpeed)),
+    behaviorPresetId: state.behaviorPresetId,
+    context: continuousSessionContext(),
+    reasoningEffort: 'low',
+  });
+  state.providerModel = 'gpt-realtime-2.1';
+  state.providerHealth = 'healthy';
+  return continuousRail;
+}
+
+async function closeContinuousRail() {
+  const rail = continuousRail;
+  continuousRail = null;
+  if (rail) await rail.close().catch(() => {});
+  if (state.railId === RAIL_IDS.OPENAI_REALTIME && state.railStatus !== 'failed') state.railStatus = 'closed';
+}
+
 async function speak(text) {
+  if (state.railId === RAIL_IDS.OPENAI_REALTIME) {
+    const rail = await ensureContinuousRail();
+    if (state.continuousAlreadySpoken === text) {
+      state.continuousAlreadySpoken = null;
+      if (!bridge.recording && bridge.view === 'room') bridge.beginRec();
+      return;
+    }
+    rail.requestOpening(text);
+    if (!bridge.recording && bridge.view === 'room') bridge.beginRec();
+    return;
+  }
   await ensureAlphaSession();
   if (state.alphaMode === 'avatar' && avatar.health().available) {
     const startedAt = performance.now();
@@ -363,7 +483,33 @@ async function onTakeComplete(take) {
   state.activeExchangeController = controller;
   let payload;
   try {
-    if (state.architecture === 'native-realtime-voice') {
+    if (state.railId === RAIL_IDS.OPENAI_REALTIME) {
+      const completed = state.continuousCompletedTurn;
+      if (!completed?.utterance || !completed?.applicant) throw new Error('Continuous Conversation did not produce a complete transcript pair.');
+      state.continuousCompletedTurn = null;
+      const observer = await jsonRequest('/api/interviewer-observe', {
+        method: 'POST',
+        signal: controller.signal,
+        body: JSON.stringify({
+          observerModel: state.observerModel,
+          context: { ...context, latestApplicantAnswer: completed.applicant },
+          utterance: completed.utterance,
+        }),
+      });
+      payload = {
+        model: 'gpt-realtime-2.1',
+        observerModel: observer.providerModel || state.observerModel,
+        voiceId: state.voiceId,
+        utterance: completed.utterance,
+        metadata: observer.metadata,
+        timings: {
+          ...completed.timings,
+          observerMs: observer.latencyMs,
+          totalMs: (completed.timings?.floorToResponseMs || 0) + (observer.latencyMs || 0),
+        },
+        usage: { interviewer: completed.usage, observer: observer.usage },
+      };
+    } else if (state.architecture === 'native-realtime-voice') {
       payload = await jsonRequest('/api/realtime-turn', {
         method: 'POST',
         signal: controller.signal,
@@ -407,7 +553,7 @@ async function onTakeComplete(take) {
   await persistAlphaEvent({
     transcript: { question: take.q, answer: take.transcript || '', generatedUtterance: payload.utterance },
     instructorRecord: payload.metadata || null,
-    modelUsage: { model: state.providerModel, observerModel: state.providerObserverModel, usage: payload.usage || null },
+    modelUsage: { railId: state.railId, model: state.providerModel, observerModel: state.providerObserverModel, usage: payload.usage || null, timings: payload.timings || null },
   });
   return {
     utterance: payload.utterance,
@@ -428,6 +574,7 @@ function cancelTurn(reason = 'cancelled') {
   if (state.activeExchangeController) state.activeExchangeController.abort(reason);
   state.activeExchangeController = null;
   state.pendingAudio = null;
+  if (continuousRail) closeContinuousRail();
   interruptAudio(reason);
 }
 
@@ -436,10 +583,16 @@ const micController = new MicController({
   silenceMs: 5000,
   onTurnComplete: () => {
     if (!bridge.recording || state.paused) return;
+    if (state.railId === RAIL_IDS.OPENAI_REALTIME) return;
     bridge.toast('Five seconds of genuine silence: answer complete.');
     bridge.endTake();
   },
   onBargeIn: () => {
+    if (state.railId === RAIL_IDS.OPENAI_REALTIME) {
+      continuousRail?.interrupt({ automatic: false });
+      bridge.toast('Interviewer stopped. The floor is yours.');
+      return;
+    }
     interruptAudio('interrupted');
     bridge.toast('Interviewer stopped. The floor is yours.');
     if (!bridge.recording && bridge.view === 'room') bridge.beginRec();
@@ -491,13 +644,45 @@ function renderFounderStudios() {
   body.className = 'pPad';
   const title = document.createElement('div');
   title.className = 'pLbl';
-  title.textContent = 'Founder Model + Voice Studio · exact provider IDs';
+  title.textContent = 'Founder Conversation Rail + Model + Voice Studio · exact provider IDs';
   const row = document.createElement('div');
   row.style.cssText = 'display:flex;gap:12px;flex-wrap:wrap;margin-top:14px';
+  const railSelect = document.createElement('select');
+  for (const rail of state.railConfigs) {
+    option(railSelect, rail.id, `${rail.label} · ${rail.status}${rail.model ? ` · ${rail.model}` : ''}`, rail.id === state.railId);
+    railSelect.lastElementChild.disabled = rail.status === 'unavailable';
+  }
+  if (!state.railConfigs.length) option(railSelect, state.railId, `${state.railId} · configuration unavailable`, true);
+  railSelect.onchange = () => {
+    if (state.alphaSessionId || continuousRail?.health().connected) {
+      bridge.toast('Conversation Rail is fixed during an active interview. End or abandon this session before switching.');
+      setTimeout(renderFounderStudios, 0);
+      return;
+    }
+    state.railId = railSelect.value;
+    state.railStatus = state.railConfigs.find((rail) => rail.id === state.railId)?.status || 'unavailable';
+    if (state.railId === RAIL_IDS.OPENAI_REALTIME) {
+      state.model = 'gpt-realtime-2.1';
+      state.architecture = 'native-realtime-voice';
+    } else if (state.railId === RAIL_IDS.RESPONSES_SPEECH) {
+      state.model = state.models.some((model) => model.id === 'gpt-5.6-terra') ? 'gpt-5.6-terra' : state.model;
+      state.architecture = architectureFor(state.model);
+    }
+    renderDiagnostics();
+    setTimeout(renderFounderStudios, 0);
+  };
   const modelSelect = document.createElement('select');
-  for (const model of state.models) option(modelSelect, model.id, `${model.id} · ${model.architecture}`, model.id === state.model);
+  const railModels = state.railId === RAIL_IDS.OPENAI_REALTIME
+    ? state.models.filter((model) => model.id === 'gpt-realtime-2.1')
+    : state.models.filter((model) => model.architecture === 'responses-openai-speech' && ['gpt-5.6-terra', 'gpt-5.6-sol'].includes(model.id));
+  for (const model of railModels) option(modelSelect, model.id, `${model.id} · ${model.architecture}`, model.id === state.model);
   if (!state.models.length) option(modelSelect, state.model, `${state.model} · configuration unavailable`, true);
   modelSelect.onchange = () => {
+    if (state.alphaSessionId || continuousRail?.health().connected) {
+      bridge.toast('Interviewer model is fixed during an active interview. End or abandon this session before switching.');
+      setTimeout(renderFounderStudios, 0);
+      return;
+    }
     state.model = modelSelect.value;
     state.architecture = architectureFor(state.model);
     renderDiagnostics();
@@ -507,6 +692,11 @@ function renderFounderStudios() {
   for (const voice of state.voices) option(voiceSelect, voice.id, `${voice.displayName} · ${voice.providerVoiceId}`, voice.id === state.voicePresetId);
   if (!state.voices.length) option(voiceSelect, state.voicePresetId, `${state.voiceId} · exact OpenAI voice ID`, true);
   voiceSelect.onchange = () => {
+    if (state.alphaSessionId || continuousRail?.health().connected) {
+      bridge.toast('Voice is fixed during an active interview. End or abandon this session before switching.');
+      setTimeout(renderFounderStudios, 0);
+      return;
+    }
     const voice = state.voices.find((candidate) => candidate.id === voiceSelect.value);
     if (!voice) return;
     state.voicePresetId = voice.id;
@@ -518,12 +708,21 @@ function renderFounderStudios() {
   const behaviorSelect = document.createElement('select');
   for (const behavior of state.behaviors) option(behaviorSelect, behavior.id, behavior.label, behavior.id === state.behaviorPresetId);
   if (!state.behaviors.length) option(behaviorSelect, state.behaviorPresetId, state.behaviorPresetId, true);
-  behaviorSelect.onchange = () => { state.behaviorPresetId = behaviorSelect.value; renderDiagnostics(); setTimeout(renderFounderStudios, 0); };
-  row.append(studioField('Interviewer model', modelSelect), studioField('Voice preset', voiceSelect), studioField('Behavior', behaviorSelect));
+  behaviorSelect.onchange = () => {
+    if (state.alphaSessionId || continuousRail?.health().connected) {
+      bridge.toast('Interviewer behavior is fixed during an active interview. End or abandon this session before switching.');
+      setTimeout(renderFounderStudios, 0);
+      return;
+    }
+    state.behaviorPresetId = behaviorSelect.value;
+    renderDiagnostics();
+    setTimeout(renderFounderStudios, 0);
+  };
+  row.append(studioField('Conversation rail', railSelect), studioField('Interviewer model', modelSelect), studioField('Voice preset', voiceSelect), studioField('Behavior', behaviorSelect));
   const truth = document.createElement('div');
   truth.className = 'notice';
   truth.style.marginTop = '12px';
-  truth.textContent = `Current ${state.model} · OpenAI voice ID ${state.voiceId}. “W. Clint Oxley” is verified separately as LiveAvatar voice ID a33a57ab-8388-49fc-a069-dbcfd1bc5405 on the Dr Bastos Voice Agent; it is not an OpenAI Speech voice and is not presented as ${state.voiceId}.`;
+  truth.textContent = `Current rail ${state.railId} · ${state.model} · OpenAI voice ID ${state.voiceId}. Realtime uses provider semantic VAD at low eagerness; fallback retains MissionMed’s five-second silence rule. GPT-Live remains unavailable unless authenticated API discovery proves otherwise. “W. Clint Oxley” is verified separately as LiveAvatar voice ID a33a57ab-8388-49fc-a069-dbcfd1bc5405 on the Dr Bastos Voice Agent; it is not an OpenAI voice and is not presented as ${state.voiceId}.`;
   const rosterTitle = document.createElement('div');
   rosterTitle.className = 'pLbl';
   rosterTitle.style.marginTop = '16px';
@@ -582,6 +781,12 @@ function renderFounderStudios() {
   panel.append(body);
 }
 
+function renderRailFallbackOffer() {
+  const button = document.getElementById('continuous-rail-fallback');
+  if (!button) return;
+  button.hidden = !(state.railId === RAIL_IDS.OPENAI_REALTIME && state.railStatus === 'failed');
+}
+
 function ensureRoomControls() {
   if (document.getElementById('frontier-room-controls')) return;
   const roomControls = document.getElementById('roomctl');
@@ -609,8 +814,26 @@ function ensureRoomControls() {
   interrupt.textContent = 'Interrupt interviewer';
   interrupt.onclick = () => {
     if (!state.interviewerSpeaking) return bridge.toast('The interviewer is not speaking.');
-    interruptAudio('interrupted');
+    if (state.railId === RAIL_IDS.OPENAI_REALTIME) continuousRail?.interrupt({ automatic: false });
+    else interruptAudio('interrupted');
     if (!bridge.recording) bridge.beginRec();
+  };
+  const railFallback = document.createElement('button');
+  railFallback.id = 'continuous-rail-fallback';
+  railFallback.className = 'btnHero';
+  railFallback.textContent = 'Continue using High-Intelligence Voice';
+  railFallback.hidden = true;
+  railFallback.onclick = async () => {
+    await closeContinuousRail();
+    state.railId = RAIL_IDS.RESPONSES_SPEECH;
+    state.railStatus = 'available';
+    state.model = 'gpt-5.6-terra';
+    state.architecture = 'responses-openai-speech';
+    state.lastError = null;
+    state.providerHealth = 'configured';
+    bridge.toast('High-Intelligence Voice is active. Existing transcript and interview context were preserved.');
+    renderRailFallbackOffer();
+    renderDiagnostics();
   };
   const end = document.createElement('button');
   end.className = 'btnGhost';
@@ -659,7 +882,7 @@ function ensureRoomControls() {
       renderAvatarState();
     }
   };
-  buttons.append(mute, interrupt, avatarToggle, enableAvatarAudio, end);
+  buttons.append(mute, interrupt, railFallback, avatarToggle, enableAvatarAudio, end);
   const typed = document.createElement('form');
   typed.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
   const input = document.createElement('textarea');
@@ -678,15 +901,24 @@ function ensureRoomControls() {
       if (bridge.view !== 'room' || state.activeExchangeController) return bridge.toast('Wait until the interviewer finishes and the answer window reopens.');
       bridge.beginRec();
     }
-    const answer = bridge.setTypedTranscript(input.value);
+    const answer = String(input.value || '').trim();
     if (!answer) return bridge.toast('Type an answer first.');
+    if (state.railId === RAIL_IDS.OPENAI_REALTIME) {
+      try {
+        continuousRail?.submitText(answer);
+        input.value = '';
+        bridge.toast('Typed answer sent to Continuous Conversation.');
+      } catch (error) { bridge.toast(publicError(error).message); }
+      return;
+    }
+    bridge.setTypedTranscript(answer);
     bridge.endTake();
     input.value = '';
   };
   typed.append(input, submit);
   const disclosure = document.createElement('div');
   disclosure.className = 'notice';
-  disclosure.textContent = 'The interviewer voice is AI-generated. Interview text is sent to the configured OpenAI service. Browser speech recognition follows the browser implementation; the raw recording stays local to this tab.';
+  disclosure.textContent = 'The interviewer voice is AI-generated. Continuous Conversation streams microphone audio to the configured OpenAI Realtime service; High-Intelligence Voice sends completed interview text. Browser speech recognition follows the browser implementation. The local replay recording remains in this tab.';
   const avatarState = document.createElement('div');
   avatarState.id = 'avatar-live-state';
   avatarState.className = 'notice';
@@ -727,7 +959,7 @@ function ensureDiagnostics() {
 function renderDiagnostics() {
   const diagnostic = ensureDiagnostics();
   if (!diagnostic || diagnostic.hidden) return;
-  diagnostic.textContent = `MODEL ${state.model}${state.providerModel && state.providerModel !== state.model ? ` · PROVIDER MODEL ${state.providerModel}` : ''} · VOICE ${state.voiceId} · AVATAR ${avatar.health().state} · LATENCY ${state.latencyMs ?? '—'} ms · ROUND TRIP ${state.roundTripMs ?? '—'} ms · STREAM ${state.streaming} · PROVIDER ${state.providerHealth}`;
+  diagnostic.textContent = `RAIL ${state.railId} · RAIL STATE ${state.railStatus} · MODEL ${state.model}${state.providerModel && state.providerModel !== state.model ? ` · PROVIDER MODEL ${state.providerModel}` : ''} · VOICE ${state.voiceId} · AVATAR ${avatar.health().state} · CONNECT ${state.railConnectionMs ?? '—'} ms · FIRST AUDIO ${state.railFirstAudioMs ?? state.latencyMs ?? '—'} ms · ANSWER END→RESPONSE ${state.railAnswerEndToResponseMs ?? '—'} ms · FLOOR→RESPONSE ${state.railFloorToResponseMs ?? '—'} ms · INTERRUPT ${state.railInterruptionMs ?? '—'} ms · ROUND TRIP ${state.roundTripMs ?? '—'} ms · STREAM ${state.streaming} · PROVIDER ${state.providerHealth}`;
 }
 
 function downloadEvidence(filename, content, type) {
@@ -821,12 +1053,13 @@ function ensureResultsEvidence() {
 
 async function loadConfiguration() {
   try {
-    const [health, models, voices, roster, avatarConfig] = await Promise.all([
+    const [health, models, voices, roster, avatarConfig, railConfig] = await Promise.all([
       jsonRequest('/api/health'),
       jsonRequest('/api/model-studio-config'),
       jsonRequest('/api/voice-studio-config'),
       jsonRequest('/api/faculty-roster'),
       jsonRequest('/api/avatar-provider-config'),
+      jsonRequest('/api/conversation-rail-config'),
     ]);
     state.openaiConfigured = Boolean(health.openaiConfigured);
     state.providerHealth = health.openaiConfigured ? 'configured' : 'not configured';
@@ -834,6 +1067,9 @@ async function loadConfiguration() {
     state.behaviors = Array.isArray(models.behaviorPresets) ? models.behaviorPresets : [];
     state.voices = Array.isArray(voices.presets) ? voices.presets : [];
     state.facultyRoster = Array.isArray(roster.records) ? roster.records : [];
+    state.railConfigs = Array.isArray(railConfig.rails) ? railConfig.rails : [];
+    state.railId = railConfig.defaultRailId || RAIL_IDS.RESPONSES_SPEECH;
+    state.railStatus = state.railConfigs.find((rail) => rail.id === state.railId)?.status || 'unavailable';
     state.avatarProviderReady = avatarConfig.health?.configured === true || avatarConfig.health?.available === true;
     state.alphaDisabled = Boolean(health.alpha?.disabled);
     state.avatarNotice = state.avatarProviderReady
@@ -879,7 +1115,7 @@ window.V6Frontier = {
   cancelTurn,
   onTakeComplete,
   renderFounderStudios,
-  health: () => ({ openai: state.providerHealth, avatar: avatar.health() }),
+  health: () => ({ openai: state.providerHealth, avatar: avatar.health(), rail: continuousRail?.health() || { railId: state.railId, status: state.railStatus } }),
 };
 
 loadConfiguration();

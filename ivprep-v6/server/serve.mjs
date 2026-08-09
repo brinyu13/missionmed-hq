@@ -2,6 +2,7 @@ import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, extname, isAbsolute, join, normalize, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { WebSocketServer } from 'ws';
 
 import {
   DEFAULT_INTERVIEWER_MODEL,
@@ -18,6 +19,8 @@ import { createAvatarProviderFromEnv } from '../providers/liveavatar-provider.mj
 import { ProviderError, publicProviderError } from '../providers/errors.mjs';
 import { discoverOpenAIModels } from '../providers/openai-model-discovery.mjs';
 import { createOpenAIRealtimeTurn } from '../providers/openai-realtime.mjs';
+import { OpenAIContinuousRealtimeRail } from '../providers/openai-continuous-realtime.mjs';
+import { publicConversationRailConfig } from '../providers/conversation-rail.mjs';
 import {
   createInterviewerExchange,
   observeInterviewerUtterance,
@@ -41,6 +44,10 @@ const DEFAULT_DISCOVERY_TTL_MS = 5 * 60 * 1000;
 const LOOPBACK_HOSTS = Object.freeze(new Set(['127.0.0.1', '::1', 'localhost']));
 const MAX_REQUESTS_PER_MINUTE = 120;
 const MAX_CONCURRENT_PROVIDER_REQUESTS = 2;
+const MAX_RAIL_CONTROL_BYTES = 64 * 1024;
+const RAIL_RATE_WINDOW_MS = 1_000;
+const MAX_RAIL_MESSAGES_PER_WINDOW = 80;
+const MAX_RAIL_AUDIO_BYTES_PER_WINDOW = 256 * 1024;
 
 const CONTENT_TYPES = Object.freeze({
   '.css': 'text/css; charset=utf-8',
@@ -269,6 +276,7 @@ export function createIvPrepServer({
   interviewerObserver = observeInterviewerUtterance,
   speechProvider = createOpenAISpeech,
   realtimeTurnProvider = createOpenAIRealtimeTurn,
+  continuousRailFactory = (options) => new OpenAIContinuousRealtimeRail(options),
   alphaStore = new AlphaStore({ path: process.env.IVPREP_ALPHA_DATA_PATH || join(APP_ROOT, '.alpha-data', 'sessions.json') }),
 } = {}) {
   const configured = typeof apiKey === 'string' && Boolean(apiKey.trim());
@@ -276,6 +284,7 @@ export function createIvPrepServer({
   const getDiscovery = createDiscoveryCache({ apiKey, fetchImpl, modelDiscovery, ttlMs: discoveryTtlMs });
   const rateLimit = createRateLimiter();
   let activeProviderRequests = 0;
+  const realtimeRails = new Map();
   const withProviderSlot = async (operation) => {
     if (activeProviderRequests >= MAX_CONCURRENT_PROVIDER_REQUESTS) {
       throw new ProviderError('Founder Alpha provider concurrency limit reached.', {
@@ -317,6 +326,14 @@ export function createIvPrepServer({
       if (request.method === 'GET' && url.pathname === '/api/model-studio-config') {
         const discovery = await getDiscovery();
         sendJson(response, 200, publicModelStudioConfig(discovery));
+        return;
+      }
+
+      if (request.method === 'GET' && url.pathname === '/api/conversation-rail-config') {
+        const discovery = await getDiscovery();
+        sendJson(response, 200, publicConversationRailConfig({
+          realtimeAvailable: discovery.models.some((model) => model.id === 'gpt-realtime-2.1'),
+        }));
         return;
       }
 
@@ -476,6 +493,7 @@ export function createIvPrepServer({
         const body = requireBodyObject(await readJson(request));
         const session = alphaStore.getSession(sessionEndMatch[1]);
         if (!session) throw new TypeError('Alpha session was not found.');
+        await closeRealtimeRail(session.id, 'alpha-session-ended');
         await avatarProvider.stop({ reason: body.terminationState || 'completed' }).catch(() => {});
         sendJson(response, 200, { session: alphaStore.endSession(sessionEndMatch[1], body.terminationState || 'completed') });
         return;
@@ -485,7 +503,10 @@ export function createIvPrepServer({
         requireFounderLocalHeader(request);
         const body = requireBodyObject(await readJson(request));
         const disabled = alphaStore.setDisabled(body.disabled !== false);
-        if (disabled) await avatarProvider.stop({ reason: 'USER_CLOSED' }).catch(() => {});
+        if (disabled) {
+          await closeAllRealtimeRails('emergency-disable');
+          await avatarProvider.stop({ reason: 'USER_CLOSED' }).catch(() => {});
+        }
         sendJson(response, 200, { disabled });
         return;
       }
@@ -637,8 +658,149 @@ export function createIvPrepServer({
       if (!(error instanceof ProviderError)) console.error('[ivprep-v6] unexpected_error');
     }
   });
-  server.once('close', () => { avatarProvider.close().catch(() => {}); });
-  server.closeProviders = () => avatarProvider.close();
+  const railSocketServer = new WebSocketServer({ noServer: true, maxPayload: MAX_RAIL_CONTROL_BYTES });
+
+  function safeRailSend(client, event) {
+    if (client.readyState === 1) client.send(JSON.stringify(event));
+  }
+
+  async function closeRealtimeRail(alphaSessionId, reason = 'closed') {
+    const record = realtimeRails.get(alphaSessionId);
+    if (!record) return false;
+    realtimeRails.delete(alphaSessionId);
+    clearTimeout(record.hardCapTimer);
+    await record.rail.close().catch(() => {});
+    if (record.client.readyState < 2) record.client.close(1000, reason.slice(0, 80));
+    return true;
+  }
+
+  async function closeAllRealtimeRails(reason = 'server-close') {
+    await Promise.all([...realtimeRails.keys()].map((id) => closeRealtimeRail(id, reason)));
+  }
+
+  server.on('upgrade', (request, socket, head) => {
+    try {
+      const url = new URL(request.url || '/', 'http://127.0.0.1');
+      const origin = new URL(String(request.headers.origin || ''));
+      const host = String(request.headers.host || '').toLowerCase();
+      const hostName = host.startsWith('[') ? host.slice(1, host.indexOf(']')) : host.split(':')[0];
+      if (url.pathname !== '/api/conversation-rail' || origin.protocol !== 'http:' || origin.host.toLowerCase() !== host || !LOOPBACK_HOSTS.has(hostName)) throw new Error('invalid upgrade');
+    } catch {
+      socket.destroy();
+      return;
+    }
+    railSocketServer.handleUpgrade(request, socket, head, (client) => railSocketServer.emit('connection', client, request));
+  });
+
+  railSocketServer.on('connection', (client) => {
+    let alphaSessionId = null;
+    let operation = Promise.resolve();
+    let railRateWindowStartedAt = Date.now();
+    let railMessagesInWindow = 0;
+    let railAudioBytesInWindow = 0;
+    const accountRailFrame = (bytes, isBinary) => {
+      const now = Date.now();
+      if (now - railRateWindowStartedAt >= RAIL_RATE_WINDOW_MS) {
+        railRateWindowStartedAt = now;
+        railMessagesInWindow = 0;
+        railAudioBytesInWindow = 0;
+      }
+      railMessagesInWindow += 1;
+      if (isBinary) railAudioBytesInWindow += bytes;
+      if (railMessagesInWindow > MAX_RAIL_MESSAGES_PER_WINDOW || railAudioBytesInWindow > MAX_RAIL_AUDIO_BYTES_PER_WINDOW) {
+        throw new ProviderError('Continuous Conversation relay rate exceeded.', {
+          code: 'continuous_rail_rate_limited', status: 429, provider: 'missionmed', retryable: true,
+          publicMessage: 'Continuous Conversation audio arrived too quickly. Reconnect the interview.',
+        });
+      }
+    };
+    const fail = (error) => {
+      const safe = publicProviderError(error);
+      safeRailSend(client, { type: 'rail_error', code: safe.code, message: safe.error, retryable: safe.retryable });
+    };
+    const cleanup = async (reason) => {
+      if (alphaSessionId) await closeRealtimeRail(alphaSessionId, reason);
+    };
+
+    client.on('message', (raw, isBinary) => {
+      operation = operation.then(async () => {
+        accountRailFrame(raw.length, isBinary);
+        if (isBinary) {
+          if (!alphaSessionId) throw new TypeError('Continuous Conversation must start before audio is sent.');
+          const record = realtimeRails.get(alphaSessionId);
+          if (!record) throw new TypeError('Continuous Conversation session is not active.');
+          record.rail.appendInputAudio(raw);
+          return;
+        }
+        const text = raw.toString();
+        if (text.length > MAX_RAIL_CONTROL_BYTES) throw new TypeError('Continuous Conversation control event is too large.');
+        let event;
+        try { event = JSON.parse(text); } catch { throw new TypeError('Continuous Conversation control event must be JSON.'); }
+        if (!event || typeof event !== 'object' || Array.isArray(event)) throw new TypeError('Continuous Conversation control event is invalid.');
+
+        if (event.type === 'start') {
+          if (alphaSessionId) throw new TypeError('Continuous Conversation is already started.');
+          const session = alphaStore.getSession(String(event.alphaSessionId || ''));
+          if (!session || session.state !== 'active') throw new TypeError('An active alpha session is required.');
+          if (session.model !== 'gpt-realtime-2.1' || event.model !== 'gpt-realtime-2.1') throw new TypeError('Continuous Conversation requires exact model gpt-realtime-2.1.');
+          if (realtimeRails.has(session.id)) throw new ProviderError('This alpha session already owns a Continuous Conversation rail.', {
+            code: 'continuous_rail_already_active', status: 409, provider: 'missionmed', publicMessage: 'Continuous Conversation is already active for this interview.',
+          });
+          alphaSessionId = session.id;
+          const rail = continuousRailFactory({
+            apiKey,
+            onEvent: (providerEvent) => safeRailSend(client, { type: 'rail_event', event: providerEvent }),
+          });
+          const remainingMs = Math.max(1, session.hardEndsAt - Date.now());
+          const hardCapTimer = setTimeout(() => closeRealtimeRail(session.id, 'alpha-hard-cap'), remainingMs);
+          hardCapTimer.unref?.();
+          realtimeRails.set(session.id, { rail, client, hardCapTimer });
+          try {
+            const health = await rail.start({
+              model: event.model,
+              voiceId: event.voiceId,
+              speed: event.speed,
+              behaviorPresetId: event.behaviorPresetId,
+              context: event.context,
+              reasoningEffort: event.reasoningEffort || 'low',
+            });
+            safeRailSend(client, { type: 'rail_ready', health });
+          } catch (error) {
+            await closeRealtimeRail(session.id, 'provider-start-failed');
+            throw error;
+          }
+          return;
+        }
+
+        if (!alphaSessionId) throw new TypeError('Continuous Conversation is not started.');
+        const record = realtimeRails.get(alphaSessionId);
+        if (!record) throw new TypeError('Continuous Conversation session is not active.');
+        if (event.type === 'opening') record.rail.requestOpening(event.utterance);
+        else if (event.type === 'input_text') record.rail.appendInputText(event.text);
+        else if (event.type === 'interrupt') safeRailSend(client, {
+          type: 'rail_interrupted',
+          result: record.rail.interrupt({ itemId: event.itemId, playedMs: event.playedMs, cancel: event.cancel !== false }),
+        });
+        else if (event.type === 'close') await closeRealtimeRail(alphaSessionId, 'client-close');
+        else throw new TypeError('Unsupported Continuous Conversation control event.');
+      }).catch((error) => {
+        fail(error);
+        if (error?.code === 'continuous_rail_rate_limited' && client.readyState < 2) client.close(1008, 'rail-rate-limited');
+      });
+    });
+    client.on('close', () => { operation = operation.then(() => cleanup('browser-disconnected')).catch(() => {}); });
+    client.on('error', () => { operation = operation.then(() => cleanup('browser-error')).catch(() => {}); });
+  });
+
+  server.once('close', () => {
+    closeAllRealtimeRails('server-close').catch(() => {});
+    railSocketServer.close();
+    avatarProvider.close().catch(() => {});
+  });
+  server.closeProviders = async () => {
+    await closeAllRealtimeRails('server-close');
+    await avatarProvider.close();
+  };
   return server;
 }
 

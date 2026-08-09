@@ -92,6 +92,7 @@ test('health and Founder configuration responses never serialize the server API 
   for (const path of [
     '/api/health',
     '/api/model-studio-config',
+    '/api/conversation-rail-config',
     '/api/voice-studio-config',
     '/api/avatar-provider-config',
   ]) {

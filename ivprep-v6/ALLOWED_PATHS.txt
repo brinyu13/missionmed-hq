@@ -3,3 +3,4 @@ _AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3401/**
 _AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3402/**
 _AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3403/**
 _AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3404/**
+_AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3410/**

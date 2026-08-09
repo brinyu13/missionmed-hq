@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 const html = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
 const integration = await readFile(new URL('../public/v6-integration.mjs', import.meta.url), 'utf8');
+const continuousRail = await readFile(new URL('../public/conversation-rail.mjs', import.meta.url), 'utf8');
 
 test('turn completion is single-entry and stale callbacks are rejected', () => {
   assert.match(html, /function endTake\(\)\{if\(!REC\|\|TURN_FINALIZING\)return;/);
@@ -35,13 +36,15 @@ test('a no-transcript failure reopens a clean protected answer window for typed 
   assert.match(html, /if\(!take\.transcript\).*RUN\.takes\.pop\(\)/s);
   assert.match(html, /No usable transcript was captured\. The protected answer window is open again/);
   assert.match(integration, /if \(!bridge\.recording\) \{\s*if \(bridge\.view !== 'room' \|\| state\.activeExchangeController\)/);
-  assert.match(integration, /bridge\.beginRec\(\);\s*\}\s*const answer = bridge\.setTypedTranscript/);
+  assert.match(integration, /if \(state\.railId === RAIL_IDS\.OPENAI_REALTIME\)[\s\S]*continuousRail\?\.submitText\(answer\)/);
+  assert.match(integration, /bridge\.setTypedTranscript\(answer\);\s*bridge\.endTake\(\)/);
 });
 
 test('student-facing copy distinguishes observation from inference and discloses provider boundaries', () => {
   assert.doesNotMatch(html, /media never leaves this tab|body language is read|Hands suggest intention|read deliberate silence as confidence|silence is a power move|Their personality · the bird read|Personality read:/);
-  assert.match(html, /raw recording stays local to this tab/);
-  assert.match(html, /interview text may be sent to the configured OpenAI service/);
+  assert.match(html, /Continuous Conversation streams microphone audio to OpenAI Realtime/);
+  assert.match(html, /High-Intelligence Voice sends completed interview text/);
+  assert.match(html, /local replay recording stays in this tab/);
   assert.match(html, /browser speech recognition follows the browser implementation/);
   assert.match(html, /do not infer trust or intent from hand position/);
 });
@@ -52,4 +55,18 @@ test('interactive selectors and question ordering have keyboard-operable control
   assert.match(html, /function moveQ\(i,delta\)/);
   assert.match(html, /aria-label="Move question /);
   assert.match(html, /aria-label="Switch active role"/);
+});
+
+test('continuous PCM scheduling drains before turn settlement and rejects stale audio', () => {
+  assert.match(continuousRail, /this\.pendingSchedules \+= 1/);
+  assert.match(continuousRail, /generation !== this\.playbackGeneration/);
+  assert.match(continuousRail, /if \(!this\.outputDone \|\| this\.pendingSchedules \|\| this\.sources\.size\) return/);
+  assert.match(continuousRail, /this\.playbackGeneration \+= 1/);
+});
+
+test('founder rail, model, voice, and behavior selections are immutable during an active interview', () => {
+  assert.match(integration, /Conversation Rail is fixed during an active interview/);
+  assert.match(integration, /Interviewer model is fixed during an active interview/);
+  assert.match(integration, /Voice is fixed during an active interview/);
+  assert.match(integration, /Interviewer behavior is fixed during an active interview/);
 });

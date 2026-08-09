@@ -54,3 +54,34 @@ Git. It contains transcripts and instructor records, not merely metadata. The
 runtime enforces one active interview per test identity, a 120-second beta
 default and hard cap, a usage ledger, and emergency disable. This local role
 gate is not authentication and does not authorize a private deployment.
+
+## 3410 experimental conversation rail
+
+The founder-only Conversation Rail control now exposes two application-owned
+paths without changing the accepted interview screens:
+
+- `CONTINUOUS CONVERSATION` uses one long-lived, server-authenticated
+  `gpt-realtime-2.1` session with 24 kHz PCM audio, `semantic_vad` at low
+  eagerness, `gpt-4o-mini-transcribe`, provider interruption, and OpenAI
+  Realtime voices. Browser code connects only to the same-origin IV Prep relay;
+  it never receives an OpenAI credential.
+- `HIGH-INTELLIGENCE FALLBACK` keeps the proven Responses + OpenAI Speech path
+  with `gpt-5.6-terra` or `gpt-5.6-sol`, typed recovery, local five-second
+  silence completion, observer, results, and evidence unchanged.
+
+`GPT-Live` is shown as unavailable (`provider_api_not_available`) rather than
+being simulated. Rail selection is locked during an active interview, and a
+Realtime failure offers an explicit visible return to the fallback rail for a
+new interview. The fallback remains the default while founder naturalness
+testing continues.
+
+For the 3410 founder build, run:
+
+```sh
+HOST=127.0.0.1 PORT=8320 npm start
+```
+
+Then open `http://127.0.0.1:8320/`. The authenticated synthetic checks are
+`npm run probe:continuous-relay` and `npm run probe:continuous-pauses`; neither
+prints provider credentials. The pause probe is deliberately advisory because
+synthetic TTS does not replace real founder microphone evaluation.
