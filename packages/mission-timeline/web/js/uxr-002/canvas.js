@@ -1678,17 +1678,16 @@ export function installCanvas(
     });
     Promise.resolve(currentKernel.updateProjection?.()).catch((error)=>{
       currentKernel.dataset.error=String(error?.code||error?.message||error);
-      currentKernel.dataset.errorMessage=String(error?.message||error);
+      currentKernel.dataset.errorMessage="We could not apply that layout change. Your last working timeline is still available.";
       currentKernel.dispatchEvent?.(new CustomEvent("d1-411a:error",{
         bubbles:true,
         composed:true,
         detail:{surface:currentKernel.dataset.surface,error}
       }));
-      console.error(
-        "Persistent Timeline canvas update failed",
-        currentKernel.dataset.lastFailureContext||"",
-        error
-      );
+      console.error("Timeline canvas update unavailable",{
+        surface:currentKernel.dataset.surface,
+        code:String(error?.code||"RENDER_UNAVAILABLE")
+      });
     });
     return true;
   };
@@ -1986,7 +1985,7 @@ export function installCanvas(
       return;
     }
     if (zoomTarget) {
-      setState({...state,zoom:updateCanvasZoom(state.zoom,{kind:"preset",value:zoomTarget.dataset.canvasZoom})});
+      setState({...state,zoom:updateCanvasZoom(state.zoom,{kind:"preset",value:zoomTarget.dataset.canvasZoom}),addEventOpen:false,themeOpen:false});
       return;
     }
     if (restoreTarget) {
@@ -2050,14 +2049,14 @@ export function installCanvas(
         event.target.closest?.(".canvas-stage") &&
         !event.target.closest?.("[data-context-toolbar],.canvas-context-menu")
       ) {
-        setState(deselectCanvas(state));
+        setState({...deselectCanvas(state),addEventOpen:false,themeOpen:false,categoryMenuOpen:false,contextMenu:null});
       }
       return;
     }
     if (EDITING_ACTIONS.has(action)) assertEditable(state);
 
     if (action === "add-event") {
-      setState({...state,addEventOpen:!state.addEventOpen,contextMenu:null});
+      setState({...state,addEventOpen:!state.addEventOpen,themeOpen:false,contextMenu:null});
     } else if (action === "undo") {
       announceResult(undoCanvas(store).announcement);
     } else if (action === "redo") {
@@ -2068,7 +2067,7 @@ export function installCanvas(
     } else if (action === "theme") {
       const opening=!state.themeOpen;
       setState(
-        {...state,themeOpen:opening},
+        {...state,themeOpen:opening,addEventOpen:false,contextMenu:null},
         {focus:opening&&isEditable(state)?"theme-picker":"theme-trigger"}
       );
       onTheme({state,document:store.document});

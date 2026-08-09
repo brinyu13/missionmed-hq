@@ -574,7 +574,7 @@ for(const persona of personas){
     assert(keyBox,"Color Key hit target is unavailable");
     await page.mouse.move(keyBox.x+80,keyBox.y+80);
     await page.mouse.down();
-    await page.mouse.move(keyBox.x+112,keyBox.y+100,{steps:4});
+    await page.mouse.move(keyBox.x+112,keyBox.y+80,{steps:4});
     await page.mouse.up();
     await page.waitForTimeout(400);
     assert(await page.evaluate(()=>Number(window.D1_407F_ENGINEERING.store.document.presentationOverrides?.colorKeyGeometry?.x)>18),"direct Color Key drag did not persist geometry");
@@ -595,7 +595,7 @@ for(const persona of personas){
     await page.mouse.down();
     const resizeGesture=await (await kernel(page,"edit")).evaluate((element)=>element._gesture&&({kind:element._gesture.kind,startX:element._gesture.startX,startY:element._gesture.startY}));
     assert(resizeGesture?.kind==="color-key-resize",`Color Key resize handle did not begin a resize gesture: ${JSON.stringify({resizeGesture,resizeHitProbe})}`);
-    await page.mouse.move(resizeBox.x+resizeBox.width/2+30,resizeBox.y+resizeBox.height/2+20,{steps:4});
+    await page.mouse.move(resizeBox.x+resizeBox.width/2+30,resizeBox.y+resizeBox.height/2,{steps:4});
     assert(await (await kernel(page,"edit")).evaluate((element)=>Number(element._gesture?.nextGeometry?.width)>416),"Color Key pointermove did not preview a wider geometry");
     await page.mouse.up();
     await page.waitForTimeout(400);

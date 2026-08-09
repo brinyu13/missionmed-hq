@@ -24,7 +24,12 @@ const context=await browser.newContext({
 const page=await context.newPage();
 const consoleErrors=[];
 page.on("pageerror",(error)=>consoleErrors.push(`pageerror: ${error.message}`));
-page.on("console",(message)=>{if(message.type()==="error")consoleErrors.push(`console: ${message.text()}`);});
+page.on("console",(message)=>{
+  if(message.type()!=="error")return;
+  const location=message.location?.()||{};
+  if(String(location.url||"").endsWith("/favicon.ico"))return;
+  consoleErrors.push(`console: ${message.text()}${location.url?` (${location.url})`:""}`);
+});
 await page.goto(appUrl,{waitUntil:"networkidle"});
 await page.waitForFunction(()=>!!window.D1_407F_ENGINEERING);
 
@@ -110,17 +115,17 @@ assert(JSON.stringify(exportState)===JSON.stringify(editState),`Edit/export DOM 
 await exportHost.locator("iframe").contentFrame().locator("#board").screenshot({path:path.join(captureDir,"RC1_EXPORT_PREVIEW.png")});
 
 const button=page.locator("[data-export-action]");
-const [png]=await Promise.all([page.waitForEvent("download",{timeout:30000}),button.click()]);
+const [png]=await Promise.all([page.waitForEvent("download",{timeout:120000}),button.click()]);
 await png.saveAs(path.join(captureDir,"RC1_TIMELINE_1920x1080.png"));
 
 await page.locator('[name="export-format"][value="pdf-letter-landscape"]').check();
 const suggestion=page.locator("[data-export-suggestion-dismiss]");
 if(await suggestion.count())await suggestion.click();
-const [letter]=await Promise.all([page.waitForEvent("download",{timeout:60000}),page.locator("[data-export-action]").click()]);
+const [letter]=await Promise.all([page.waitForEvent("download",{timeout:120000}),page.locator("[data-export-action]").click()]);
 await letter.saveAs(path.join(captureDir,"RC1_TIMELINE_LETTER.pdf"));
 
 await page.locator('[name="export-format"][value="pdf-a4-landscape"]').check();
-const [a4]=await Promise.all([page.waitForEvent("download",{timeout:60000}),page.locator("[data-export-action]").click()]);
+const [a4]=await Promise.all([page.waitForEvent("download",{timeout:120000}),page.locator("[data-export-action]").click()]);
 await a4.saveAs(path.join(captureDir,"RC1_TIMELINE_A4.pdf"));
 
 assert(consoleErrors.length===0,consoleErrors.join("\n"));

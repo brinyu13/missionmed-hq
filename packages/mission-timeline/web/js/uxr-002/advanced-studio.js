@@ -97,9 +97,14 @@ export const ADVANCED_BUILT_IN_ASSETS=freezeDeep({
     {id:"rectangle",label:"Rectangle",symbol:"▭",kind:"rectangle"},
     {id:"rounded-rectangle",label:"Rounded rectangle",symbol:"▰",kind:"rounded-rectangle"},
     {id:"circle",label:"Circle",symbol:"●",kind:"circle"},
+    {id:"frame",label:"Photo frame",symbol:"□",kind:"frame"},
     {id:"callout",label:"Callout",symbol:"▱",kind:"callout"},
-    {id:"arrow-right",label:"Arrow",symbol:"→",kind:"arrow-right"},
+    {id:"arrow-right",label:"Right arrow",symbol:"→",kind:"arrow-right"},
+    {id:"arrow-curved",label:"Curved arrow",symbol:"↪",kind:"arrow-curved"},
     {id:"milestone",label:"Milestone pointer",symbol:"◆",kind:"milestone"},
+    {id:"hospital",label:"Hospital",symbol:"✚",kind:"hospital"},
+    {id:"research",label:"Research",symbol:"⌕",kind:"research"},
+    {id:"graduation",label:"Graduation",symbol:"◆",kind:"graduation"},
     {id:"text",label:"Text",symbol:"T",action:"text"},
     {id:"background",label:"Background",symbol:"▨",action:"background"}
   ],
@@ -119,11 +124,23 @@ export const ADVANCED_BUILT_IN_ASSETS=freezeDeep({
     {id:"rectangle",label:"Rectangle",symbol:"▭",kind:"rectangle"},
     {id:"rounded-rectangle",label:"Rounded rectangle",symbol:"▰",kind:"rounded-rectangle"},
     {id:"circle",label:"Circle",symbol:"●",kind:"circle"},
-    {id:"line",label:"Divider",symbol:"━",kind:"line"},
+    {id:"line",label:"Line",symbol:"━",kind:"line"},
+    {id:"divider",label:"Divider",symbol:"╍",kind:"line"},
+    {id:"separator",label:"Separator",symbol:"─",kind:"separator"},
     {id:"badge",label:"Badge",symbol:"⬟",kind:"badge"},
     {id:"label",label:"Label",symbol:"▱",kind:"label"},
     {id:"callout",label:"Callout",symbol:"▱",kind:"callout"},
-    {id:"frame",label:"Frame",symbol:"□",kind:"frame"}
+    {id:"frame",label:"Frame",symbol:"□",kind:"frame"},
+    {id:"arrow-right",label:"Right arrow",symbol:"→",kind:"arrow-right"},
+    {id:"arrow-curved",label:"Curved arrow",symbol:"↪",kind:"arrow-curved"},
+    {id:"arrow-thin",label:"Thin arrow",symbol:"⟶",kind:"arrow-thin"},
+    {id:"arrow-thick",label:"Thick arrow",symbol:"➜",kind:"arrow-thick"},
+    {id:"arrow-double",label:"Double arrow",symbol:"↔",kind:"arrow-double"},
+    {id:"milestone",label:"Milestone pointer",symbol:"◆",kind:"milestone"},
+    {id:"ribbon",label:"Ribbon",symbol:"▰",kind:"ribbon"},
+    {id:"pin",label:"Pin",symbol:"●",kind:"pin"},
+    {id:"marker",label:"Marker",symbol:"◆",kind:"marker"},
+    {id:"shadow",label:"Soft shadow",symbol:"▰",kind:"shadow"}
   ],
   icons:[
     {id:"hospital",label:"Hospital",symbol:"✚",kind:"hospital"},
@@ -135,13 +152,25 @@ export const ADVANCED_BUILT_IN_ASSETS=freezeDeep({
     {id:"certification",label:"Certification",symbol:"◈",kind:"certification"},
     {id:"award",label:"Award",symbol:"★",kind:"award"},
     {id:"marriage",label:"Marriage",symbol:"♡",kind:"marriage"},
+    {id:"pregnancy",label:"Pregnancy",symbol:"◉",kind:"pregnancy"},
     {id:"baby",label:"Baby",symbol:"●",kind:"baby"},
     {id:"family",label:"Family",symbol:"♧",kind:"family"},
     {id:"home",label:"Home",symbol:"⌂",kind:"home"},
     {id:"travel",label:"Travel",symbol:"✈",kind:"travel"},
     {id:"relocation",label:"Relocation",symbol:"↔",kind:"relocation"},
     {id:"citizenship",label:"Citizenship",symbol:"◎",kind:"citizenship"},
-    {id:"remembrance",label:"Remembrance",symbol:"✦",kind:"remembrance"}
+    {id:"green-card",label:"Green card",symbol:"▣",kind:"green-card"},
+    {id:"remembrance",label:"Remembrance",symbol:"✦",kind:"remembrance"},
+    {id:"calendar",label:"Calendar",symbol:"▦",kind:"calendar"},
+    {id:"book",label:"Study",symbol:"▤",kind:"book"},
+    {id:"interview",label:"Interview",symbol:"◫",kind:"interview"},
+    {id:"community",label:"Community",symbol:"◉",kind:"community"},
+    {id:"leadership",label:"Leadership",symbol:"♛",kind:"leadership"},
+    {id:"presentation",label:"Presentation",symbol:"▥",kind:"presentation"},
+    {id:"computer",label:"Technology",symbol:"▣",kind:"computer"},
+    {id:"heart",label:"Wellbeing",symbol:"♥",kind:"heart"},
+    {id:"globe",label:"International",symbol:"◎",kind:"globe"},
+    {id:"language",label:"Language",symbol:"A",kind:"language"}
   ],
   flags:[
     {id:"country-flag",label:"Country flag",symbol:"⚑",kind:"country-flag"},
@@ -1129,6 +1158,7 @@ const ADVANCED_ELEMENT_KINDS=freezeDeep([
   "ribbon","pin","marker","separator","shadow",
   "hospital","stethoscope","medicine","research","microscope","graduation","certification","award",
   "marriage","pregnancy","baby","family","home","travel","relocation","citizenship","green-card","remembrance",
+  "calendar","book","interview","community","leadership","presentation","computer","heart","globe","language",
   "country-flag","milestone-flag","missionmed-wordmark"
 ]);
 
@@ -1136,7 +1166,7 @@ function defaultElementGeometry(kind){
   if(kind==="missionmed-wordmark")return{width:320,height:88};
   if(["line","separator"].includes(kind))return{width:300,height:18};
   if(["arrow-right","arrow-curved","arrow-thin","arrow-thick","arrow-double"].includes(kind))return{width:220,height:96};
-  if(["circle","badge","pin","marker","hospital","stethoscope","medicine","research","microscope","graduation","certification","award","marriage","pregnancy","baby","family","home","travel","relocation","citizenship","green-card","remembrance","country-flag","milestone-flag"].includes(kind))return{width:112,height:112};
+  if(["circle","badge","pin","marker","hospital","stethoscope","medicine","research","microscope","graduation","certification","award","marriage","pregnancy","baby","family","home","travel","relocation","citizenship","green-card","remembrance","calendar","book","interview","community","leadership","presentation","computer","heart","globe","language","country-flag","milestone-flag"].includes(kind))return{width:112,height:112};
   return{width:200,height:104};
 }
 

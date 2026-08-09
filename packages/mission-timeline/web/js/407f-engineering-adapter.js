@@ -1516,6 +1516,7 @@ export async function boot407FEngineeringAdapter({
   let onKernelAdvancedTextEditing=()=>{};
   let onKernelAdvancedText=()=>{};
   let onKernelAdvancedDrop=()=>{};
+  let onKernelRejected=()=>{};
   let advancedTextSelectionTimer=null;
   let onCanvasResize=()=>{};
   let on407FRendered=()=>{};
@@ -1865,6 +1866,7 @@ export async function boot407FEngineeringAdapter({
     document.removeEventListener("d1-411a:advanced-text-editing",onKernelAdvancedTextEditing);
     document.removeEventListener("d1-411a:advanced-text",onKernelAdvancedText);
     document.removeEventListener("d1-411a:advanced-drop",onKernelAdvancedDrop);
+    document.removeEventListener("d1-411a:rejected",onKernelRejected);
     document.removeEventListener("d1-411a:command",onKernelCommand);
     document.removeEventListener("d1-411a:media-drop",onKernelMediaDrop);
     clearTimeout(advancedTextSelectionTimer);
@@ -3683,6 +3685,34 @@ export async function boot407FEngineeringAdapter({
       bridge.toast(String(error?.message||error));
     }
   };
+  const normalizeFurnitureGeometry=(value,fallback)=>{
+    const source=value&&typeof value==="object"?value:{};
+    return{
+      x:Number.isFinite(Number(source.x))?Number(source.x):fallback.x,
+      y:Number.isFinite(Number(source.y))?Number(source.y):fallback.y,
+      width:Number.isFinite(Number(source.width))?Number(source.width):fallback.width,
+      height:Number.isFinite(Number(source.height))?Number(source.height):fallback.height
+    };
+  };
+  const furnitureOverlaps=(first,second,gap=12)=>!(
+    first.x+first.width+gap<=second.x||
+    second.x+second.width+gap<=first.x||
+    first.y+first.height+gap<=second.y||
+    second.y+second.height+gap<=first.y
+  );
+  const furnitureGeometryFor=(document,key)=>normalizeFurnitureGeometry(
+    document?.presentationOverrides?.[key],
+    key==="colorKeyGeometry"
+      ?{x:18,y:300,width:416,height:322}
+      :{x:18,y:634,width:566,height:428}
+  );
+  const rejectFurnitureCollision=(selection)=>{
+    canvasController?.render?.();
+    canvasController?.setUiState({
+      selectedEventId:null,detailsEventId:null,advancedSelection:selection,advancedPanel:"timeline"
+    });
+    bridge.toast("Keep the Color Key and profile card separate so your Timeline stays readable.");
+  };
   const onKernelPresentationGesture=(event)=>{
     const detail=event.detail||{};
     if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
@@ -3697,6 +3727,12 @@ export async function boot407FEngineeringAdapter({
         :range;
     }else if(detail.kind==="color-key-move"||detail.kind==="color-key-resize"){
       result=setColorKeyGeometryPresentationOverride(store.document,detail.geometry||{});
+      const nextKey=furnitureGeometryFor(result.document,"colorKeyGeometry");
+      const profile=furnitureGeometryFor(store.document,"profileGeometry");
+      if(furnitureOverlaps(nextKey,profile)){
+        rejectFurnitureCollision({type:"color-key",id:"color-key"});
+        return;
+      }
     }else if(detail.kind==="profile-card-move"||detail.kind==="profile-card-resize"){
       const geometry=detail.geometry||{};
       const document=clone(store.document);
@@ -3708,6 +3744,12 @@ export async function boot407FEngineeringAdapter({
         width,height
       }};
       result={document,changed:true,mutation:{label:"Change profile card presentation"}};
+      const key=furnitureGeometryFor(store.document,"colorKeyGeometry");
+      const nextProfile=furnitureGeometryFor(document,"profileGeometry");
+      if(furnitureOverlaps(key,nextProfile)){
+        rejectFurnitureCollision({type:"profile",id:"profile"});
+        return;
+      }
     }
     if(!result)return;
     if(result.error){bridge.toast(result.error);return;}
@@ -3827,6 +3869,16 @@ export async function boot407FEngineeringAdapter({
     if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
     advancedHooks().onAssetDrop(detail.payload,{x:detail.x,y:detail.y});
   };
+  onKernelRejected=(event)=>{
+    const detail=event.detail||{};
+    if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
+    if(Number(kernelManager.projection()?.model?.revision)!==Number(detail.revision))return;
+    const entry=store.undo();
+    if(entry)syncBridgeStateFromStore();
+    const message=String(detail.message||"We kept your last working layout.");
+    canvasController?.setUiState((state)=>({...state,liveAnnouncement:message}));
+    bridge.toast(message);
+  };
   const onKernelCommand=(event)=>{
     const detail=event.detail||{};
     if(detail.surface==="full-preview"&&detail.command==="close-preview"){
@@ -3863,6 +3915,7 @@ export async function boot407FEngineeringAdapter({
   document.addEventListener("d1-411a:advanced-text-editing",onKernelAdvancedTextEditing);
   document.addEventListener("d1-411a:advanced-text",onKernelAdvancedText);
   document.addEventListener("d1-411a:advanced-drop",onKernelAdvancedDrop);
+  document.addEventListener("d1-411a:rejected",onKernelRejected);
   document.addEventListener("d1-411a:command",onKernelCommand);
   document.addEventListener("d1-411a:media-drop",onKernelMediaDrop);
   onBuilderPreviewInteraction=(event)=>{
@@ -4167,9 +4220,18 @@ export async function boot407FEngineeringAdapter({
       applyPresentationControlResult(resetCategoryKeyPresentationOverride(store.document));
     },
     onColorKeyGeometryChange:(changes)=>{
-      applyPresentationControlResult(
-        setColorKeyGeometryPresentationOverride(store.document,changes)
-      );
+      const candidate=setColorKeyGeometryPresentationOverride(store.document,changes);
+      if(
+        candidate.changed&&
+        furnitureOverlaps(
+          furnitureGeometryFor(candidate.document,"colorKeyGeometry"),
+          furnitureGeometryFor(store.document,"profileGeometry")
+        )
+      ){
+        rejectFurnitureCollision({type:"color-key",id:"color-key"});
+        return;
+      }
+      applyPresentationControlResult(candidate);
     },
     onColorKeyGeometryReset:()=>{
       applyPresentationControlResult(

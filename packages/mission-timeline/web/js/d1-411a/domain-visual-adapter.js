@@ -30,6 +30,50 @@ export class DomainVisualProjectionError extends Error{
 
 function clean(value){return String(value??"").trim();}
 
+function validYearMonth(value){
+  const match=/^(\d{4})-(\d{2})$/.exec(clean(value));
+  if(!match)return null;
+  const year=Number(match[1]);
+  const month=Number(match[2]);
+  if(year<1900||year>2200||month<1||month>12)return null;
+  return{year,month,index:year*12+month-1};
+}
+
+function sanitizeFurniturePresentation(overrides,warnings){
+  const next=clone(overrides||{});
+  const normalize=(value,fallback)=>{
+    const source=value&&typeof value==="object"?value:{};
+    return{
+      x:Number.isFinite(Number(source.x))?Number(source.x):fallback.x,
+      y:Number.isFinite(Number(source.y))?Number(source.y):fallback.y,
+      width:Number.isFinite(Number(source.width))?Number(source.width):fallback.width,
+      height:Number.isFinite(Number(source.height))?Number(source.height):fallback.height
+    };
+  };
+  const gap=12;
+  const overlaps=(first,second)=>!(
+    first.x+first.width+gap<=second.x||
+    second.x+second.width+gap<=first.x||
+    first.y+first.height+gap<=second.y||
+    second.y+second.height+gap<=first.y
+  );
+  const key=normalize(next.colorKeyGeometry,{x:18,y:300,width:416,height:322});
+  const profile=normalize(next.profileGeometry,{x:18,y:634,width:566,height:428});
+  if(!overlaps(key,profile))return next;
+  const raisedKey={...key,y:Math.max(0,profile.y-gap-key.height)};
+  if(!overlaps(raisedKey,profile))next.colorKeyGeometry=raisedKey;
+  else{
+    const loweredProfile={...profile,y:Math.min(1080-profile.height,key.y+key.height+gap)};
+    if(!overlaps(key,loweredProfile))next.profileGeometry=loweredProfile;
+    else{
+      next.colorKeyGeometry={x:18,y:300,width:416,height:322};
+      next.profileGeometry={x:18,y:634,width:566,height:428};
+    }
+  }
+  warnings.push("PRESENTATION_FURNITURE_COLLISION_REPAIRED");
+  return next;
+}
+
 function profileVisaDisplay(value){
   const display=clean(value);
   if(display.length<=18)return display;
@@ -140,29 +184,39 @@ export function projectTimelineDocument(document,{
     const milestone=event?.eventType==="milestone"||event?.mile===true;
     const visualId=stableId(milestone?"fl":"ev",domainId,index);
     if(visualToDomain.has(visualId)){
-      throw new DomainVisualProjectionError(
-        "DUPLICATE_VISUAL_ID",
-        `Two timeline events resolve to ${visualId}.`,
-        `events[${index}].id`
-      );
+      warnings.push(`EVENT_HIDDEN_DUPLICATE_ID:${domainId}`);
+      dropped.push({id:domainId,reason:"duplicate-visual-id"});
+      return;
     }
-    visualToDomain.set(visualId,domainId);
-    domainToVisual.set(domainId,visualId);
     const categoryId=clean(event?.categoryId)||"personal";
     if(!CATEGORY_MAP[categoryId]){
-      throw new DomainVisualProjectionError(
-        "UNSUPPORTED_CATEGORY",
-        `Unsupported domain category ${categoryId}.`,
-        `events[${index}].categoryId`
-      );
+      warnings.push(`EVENT_HIDDEN_UNSUPPORTED_CATEGORY:${domainId}`);
+      dropped.push({id:domainId,reason:"unsupported-category"});
+      return;
     }
     const startDate=clean(event?.fields?.rotationStartDate||event?.startDate);
-    if(!startDate){
-      warnings.push(`EVENT_WITHOUT_DATE_HIDDEN:${domainId}`);
-      dropped.push({id:domainId,reason:"missing-start-date"});
+    const parsedStart=validYearMonth(startDate);
+    if(!parsedStart){
+      warnings.push(`EVENT_HIDDEN_INVALID_START_DATE:${domainId}`);
+      dropped.push({id:domainId,reason:"invalid-start-date"});
       return;
     }
     const exactEnd=clean(event?.fields?.rotationEndDate||event?.endDate);
+    const parsedEnd=milestone||event?.openEnded===true||event?.fields?.ongoing===true
+      ?parsedStart
+      :validYearMonth(exactEnd||startDate);
+    if(!parsedEnd){
+      warnings.push(`EVENT_HIDDEN_INVALID_END_DATE:${domainId}`);
+      dropped.push({id:domainId,reason:"invalid-end-date"});
+      return;
+    }
+    if(!milestone&&parsedEnd.index<parsedStart.index){
+      warnings.push(`EVENT_HIDDEN_END_BEFORE_START:${domainId}`);
+      dropped.push({id:domainId,reason:"end-before-start"});
+      return;
+    }
+    visualToDomain.set(visualId,domainId);
+    domainToVisual.set(domainId,visualId);
     const visible=audienceVisible(event,audience)&&
       event?.fields?.hiddenInActiveVariant!==true;
     events.push({
@@ -196,7 +250,7 @@ export function projectTimelineDocument(document,{
 
   const presentationState=document.presentationOverrides&&
     typeof document.presentationOverrides==="object"
-    ?clone(document.presentationOverrides)
+    ?sanitizeFurniturePresentation(document.presentationOverrides,warnings)
     :{};
   const axisOverride=Object.hasOwn(presentationState,"axis")
     ?clone(presentationState.axis)
@@ -333,7 +387,7 @@ export function projectTimelineDocument(document,{
       theme:"keynote-classic-409h",
       photoStyleDefault:"scrapbook",
       captionDefault:"none",
-      manualOverrides:clone(document.presentationOverrides||{}),
+      manualOverrides:clone(presentationState),
       axisOverride,
       categoryKeyOverride,
       resetToAutomatic:false

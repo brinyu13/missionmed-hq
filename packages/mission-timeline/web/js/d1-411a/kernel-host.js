@@ -15,6 +15,9 @@ function escapeAttribute(value){
 }
 
 const FAIL_SOFT_MEDIA_CODES=new Set(["ASSET_LOAD_FAILED","MEDIA_HASH_MISMATCH"]);
+const FAIL_SOFT_LAYOUT_CODES=new Set(["OBJECT_COLLISION_UNRESOLVED"]);
+const LAYOUT_RECOVERY_MESSAGE="Those items are too close together. We kept your last layout so you can move one and try again.";
+const INITIAL_LAYOUT_RECOVERY_MESSAGE="Some items overlap. Your timeline is still available; move an item slightly to improve the layout.";
 
 function advancedBackgroundCss(background,resolveObjectUrl=()=>null){
   if(background?.kind==="color"&&/^#[0-9a-f]{6}$/i.test(String(background.color||"")))return background.color;
@@ -107,6 +110,8 @@ class D1411AKernelElement extends HostHTMLElement{
     this._selectedObjectId=null;
     this._advancedOverlayCleanup=()=>{};
     this.selectAdvancedObject=()=>{};
+    this._lastGoodRecord=null;
+    this._lastGoodRender=null;
     this.attachShadow({mode:"open"});
   }
 
@@ -162,11 +167,11 @@ class D1411AKernelElement extends HostHTMLElement{
     this.shadowRoot.innerHTML=`<style>
       :host{display:block;position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:#c8d8e1}
       iframe{display:block;width:100%;height:100%;border:0;background:#c8d8e1}
-      output[data-loading]{position:absolute;inset:0;display:grid;place-items:center;background:#c8d8e1;color:#19334f;font:700 12px/1.5 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase}
+      output[data-loading]{position:absolute;inset:0;display:grid;place-items:center;background:#c8d8e1;color:#19334f;font:700 13px/1.5 system-ui,sans-serif;letter-spacing:.03em}
       :host([data-ready="true"]) output[data-loading]{display:none}
-      output[data-media-warning]{position:absolute;right:12px;bottom:12px;z-index:1100;max-width:min(420px,calc(100% - 24px));padding:8px 10px;border:1px solid rgba(25,51,79,.22);border-radius:8px;background:rgba(255,255,255,.94);color:#19334f;font:700 11px/1.35 system-ui,sans-serif;box-shadow:0 4px 16px rgba(25,51,79,.12)}
-      output[data-media-warning][hidden]{display:none}
-    </style><iframe title="${escapeAttribute(record.label)}" src="${escapeAttribute(MASTER_URL)}"></iframe><output data-loading role="status">Loading canonical timeline…</output><output data-media-warning role="status" hidden></output>`;
+      output[data-render-warning]{position:absolute;right:12px;bottom:12px;z-index:1100;max-width:min(460px,calc(100% - 24px));padding:10px 12px;border:1px solid rgba(25,51,79,.22);border-radius:8px;background:rgba(255,255,255,.96);color:#19334f;font:700 12px/1.4 system-ui,sans-serif;box-shadow:0 4px 16px rgba(25,51,79,.12)}
+      output[data-render-warning][hidden]{display:none}
+    </style><iframe title="${escapeAttribute(record.label)}" src="${escapeAttribute(MASTER_URL)}"></iframe><output data-loading role="status">Preparing your timeline…</output><output data-render-warning role="status" hidden></output>`;
     const iframe=this.shadowRoot.querySelector("iframe");
     await new Promise((resolve,reject)=>{
       iframe.addEventListener("load",resolve,{once:true});
@@ -181,12 +186,14 @@ class D1411AKernelElement extends HostHTMLElement{
     K.resize({scale:1});
     await K.ready();
     this._kernel=K;
-    const rendered=await this._renderRecord(record);
+    const rendered=await this._renderRecord(record,{allowExistingLayoutRecovery:true});
     if(!this.isConnected){K.destroy?.();return;}
     this.resize();
     this._installChildInteractions(iframe);
     this.dataset.interactionsReady="true";
     this.dataset.ready="true";
+    this._lastGoodRecord=record;
+    this._lastGoodRender=rendered;
     this._resizeObserver=new ResizeObserver(()=>{
       if(!this._isRenderable())return;
       this.resize();
@@ -199,13 +206,14 @@ class D1411AKernelElement extends HostHTMLElement{
     this._dispatchReady(rendered,record);
   }
 
-  async _renderRecord(record=this._record){
+  async _renderRecord(record=this._record,{allowExistingLayoutRecovery=false}={}){
     const K=this._kernel;
     if(!K||!record)throw new Error("D1-411A kernel projection is unavailable.");
     let kernelModel=record.projection.model;
     let response=null;
     const failSoftWarnings=[];
     let layoutRetryCount=0;
+    let recoveredExistingLayout=false;
     for(let attempt=0;attempt<13;attempt+=1){
       try{
         response=await K.rerender(kernelModel,{
@@ -230,6 +238,20 @@ class D1411AKernelElement extends HostHTMLElement{
           });
           continue;
         }
+        if(
+          FAIL_SOFT_LAYOUT_CODES.has(String(error?.code||""))&&
+          allowExistingLayoutRecovery&&
+          !this._lastGoodRecord
+        ){
+          response=await K.rerender(kernelModel,{
+            renderId:record.renderId,
+            reason:"existing-layout-recovery",
+            options:{collisionPolicy:"warn"}
+          });
+          recoveredExistingLayout=true;
+          failSoftWarnings.push("EXISTING_LAYOUT_OVERLAP_RECOVERED");
+          break;
+        }
         if(!FAIL_SOFT_MEDIA_CODES.has(String(error?.code||""))){
           this.dataset.lastFailureContext=JSON.stringify({
             surface:record.surface,
@@ -253,6 +275,7 @@ class D1411AKernelElement extends HostHTMLElement{
     const childDocument=this.shadowRoot?.querySelector("iframe")?.contentDocument;
     if(childDocument){
       this._applyPresentationOverrides(childDocument,record);
+      this._fitProtectedFurnitureText(childDocument);
       this._applyAdvancedOverlay(childDocument,record);
     }
     delete this.dataset.error;
@@ -267,14 +290,23 @@ class D1411AKernelElement extends HostHTMLElement{
     this.dataset.projectionWarnings=JSON.stringify(projectionWarnings);
     this.dataset.projectionDropped=JSON.stringify(record.projection.dropped||[]);
     if(failSoftWarnings.length){
-      const warning=this.shadowRoot.querySelector("[data-media-warning]");
+      const warning=this.shadowRoot.querySelector("[data-render-warning]");
       warning.hidden=false;
-      warning.textContent=`${failSoftWarnings.length} unavailable media asset${failSoftWarnings.length===1?" was":"s were"} omitted. Your timeline remains available; re-add the affected media to restore it.`;
+      warning.textContent=recoveredExistingLayout
+        ?INITIAL_LAYOUT_RECOVERY_MESSAGE
+        :`${failSoftWarnings.length} unavailable media asset${failSoftWarnings.length===1?" was":"s were"} omitted. Your timeline remains available; re-add the affected media to restore it.`;
     }else{
-      const warning=this.shadowRoot.querySelector("[data-media-warning]");
+      const warning=this.shadowRoot.querySelector("[data-render-warning]");
       if(warning){warning.hidden=true;warning.textContent="";}
     }
-    return{response,projectionWarnings};
+    return{response,projectionWarnings,recoveredExistingLayout};
+  }
+
+  _showRenderWarning(message){
+    const warning=this.shadowRoot?.querySelector?.("[data-render-warning]");
+    if(!warning)return;
+    warning.hidden=false;
+    warning.textContent=String(message||"");
   }
 
   _dispatchReady({response,projectionWarnings},record=this._record){
@@ -305,20 +337,57 @@ class D1411AKernelElement extends HostHTMLElement{
         this._record=next;
         return this.diagnostics();
       }
-      for(const cleanup of this._childCleanup.splice(0))cleanup();
-      this.dataset.interactionsReady="false";
-      this._hitLayer=null;
-      this._hitSources=[];
-      this._gesture=null;
-      this._record=next;
-      const rendered=await this._renderRecord(next);
-      const iframe=this.shadowRoot.querySelector("iframe");
-      this.resize();
-      if(iframe)this._installChildInteractions(iframe);
-      this.dataset.interactionsReady="true";
-      this.dataset.ready="true";
-      this._dispatchReady(rendered,next);
-      return this.diagnostics();
+      const previous=this._record;
+      try{
+        const rendered=await this._renderRecord(next);
+        for(const cleanup of this._childCleanup.splice(0))cleanup();
+        this.dataset.interactionsReady="false";
+        this._hitLayer=null;
+        this._hitSources=[];
+        this._gesture=null;
+        this._record=next;
+        const iframe=this.shadowRoot.querySelector("iframe");
+        this.resize();
+        if(iframe)this._installChildInteractions(iframe);
+        this.dataset.interactionsReady="true";
+        this.dataset.ready="true";
+        this._lastGoodRecord=next;
+        this._lastGoodRender=rendered;
+        this._dispatchReady(rendered,next);
+        return this.diagnostics();
+      }catch(error){
+        if(!previous||!FAIL_SOFT_LAYOUT_CODES.has(String(error?.code||"")))throw error;
+        for(const cleanup of this._childCleanup.splice(0))cleanup();
+        this._record=previous;
+        this._hitLayer=null;
+        this._hitSources=[];
+        this._gesture=null;
+        const iframe=this.shadowRoot.querySelector("iframe");
+        const childDocument=iframe?.contentDocument;
+        if(childDocument){
+          this._applyPresentationOverrides(childDocument,previous);
+          this._fitProtectedFurnitureText(childDocument);
+          this._applyAdvancedOverlay(childDocument,previous);
+        }
+        this.resize();
+        if(iframe)this._installChildInteractions(iframe);
+        this.dataset.interactionsReady="true";
+        this.dataset.ready="true";
+        delete this.dataset.error;
+        delete this.dataset.errorMessage;
+        this._showRenderWarning(LAYOUT_RECOVERY_MESSAGE);
+        this.dispatchEvent(new CustomEvent("d1-411a:rejected",{
+          bubbles:true,
+          composed:true,
+          detail:{
+            surface:next.surface,
+            code:"LAYOUT_OVERLAP_REJECTED",
+            revision:next.projection.model.revision,
+            message:LAYOUT_RECOVERY_MESSAGE
+          }
+        }));
+        return this.diagnostics();
+      }
     };
     this._updatePromise=this._updatePromise.catch(()=>{}).then(apply);
     return this._updatePromise;
@@ -371,7 +440,7 @@ class D1411AKernelElement extends HostHTMLElement{
     if(this._record.interactive){
       const focusStyle=childDocument.createElement("style");
       focusStyle.dataset.hostAccessibility="d1-411b";
-      focusStyle.textContent='.d1411AHitLayer{position:absolute;inset:0;z-index:1000;pointer-events:none}.d1411AHit{position:absolute;z-index:1;border:0;padding:0;background:transparent;color:transparent;pointer-events:auto}.d1411AHit:focus-visible{outline:3px solid #191c21;outline-offset:2px;background:rgba(255,255,255,.08)}.d1411AHit[aria-selected="true"]{z-index:2;outline:3px solid #7c3aed;outline-offset:3px;background:rgba(124,58,237,.04)}.d1411AHandle{display:none;position:absolute;width:16px;height:16px;border:2px solid #fff;border-radius:2px;background:#7c3aed;box-shadow:0 0 0 1px #7c3aed;transform:translate(-50%,-50%);pointer-events:auto}.d1411AHit[aria-selected="true"] .d1411AHandle{display:block}.d1411AHandle[data-handle="se"]{left:calc(100% - 10px);top:calc(100% - 10px);cursor:nwse-resize}.d1411AAxisBoundary{position:absolute;top:0;bottom:0;width:16px;transform:translateX(-50%);pointer-events:auto;cursor:col-resize}.d1411AAxisBoundary::after{content:"";position:absolute;left:7px;top:7px;bottom:7px;width:2px;background:#7c3aed;box-shadow:0 0 0 1px #fff;opacity:0}.d1411AHit[aria-selected="true"] .d1411AAxisBoundary::after{opacity:1}';
+      focusStyle.textContent='.d1411AHitLayer{position:absolute;inset:0;z-index:1000;pointer-events:none}.d1411AHit{position:absolute;z-index:1;border:0;padding:0;background:transparent;color:transparent;pointer-events:auto;touch-action:none}.d1411AHit:hover{background:rgba(124,58,237,.035);outline:1px solid rgba(124,58,237,.5)}.d1411AHit:focus-visible{outline:3px solid #191c21;outline-offset:2px;background:rgba(255,255,255,.08)}.d1411AHit[aria-selected="true"]{z-index:2;outline:3px solid #7c3aed;outline-offset:3px;background:rgba(124,58,237,.04)}.d1411AHandle{display:none;position:absolute;width:16px;height:16px;border:2px solid #fff;border-radius:50%;background:#7c3aed;box-shadow:0 0 0 1px #7c3aed;transform:translate(-50%,-50%);pointer-events:auto}.d1411AHit[aria-selected="true"] .d1411AHandle{display:block}.d1411AHandle[data-handle="w"]{left:0;top:50%;cursor:ew-resize}.d1411AHandle[data-handle="e"]{left:100%;top:50%;cursor:ew-resize}.d1411AHandle[data-handle="se"]{left:100%;top:100%;cursor:nwse-resize}.d1411AInteractionGuide{position:absolute;z-index:4;pointer-events:none;background:#ff4fa3;box-shadow:0 0 0 1px rgba(255,255,255,.9)}.d1411AInteractionGuide[data-axis="x"]{top:0;bottom:0;width:2px}.d1411AInteractionGuide[data-axis="y"]{left:0;right:0;height:2px}.d1411AAxisBoundary{position:absolute;top:0;bottom:0;width:16px;transform:translateX(-50%);pointer-events:auto;cursor:col-resize}.d1411AAxisBoundary::after{content:"";position:absolute;left:7px;top:7px;bottom:7px;width:2px;background:#7c3aed;box-shadow:0 0 0 1px #fff;opacity:0}.d1411AHit[aria-selected="true"] .d1411AAxisBoundary::after{opacity:1}';
       childDocument.head.append(focusStyle);
       this._childCleanup.push(()=>focusStyle.remove());
       const board=childDocument.getElementById("board");
@@ -662,6 +731,19 @@ class D1411AKernelElement extends HostHTMLElement{
     }
   }
 
+  _fitProtectedFurnitureText(childDocument){
+    const title=childDocument.querySelector("#title span");
+    if(!title)return;
+    title.style.whiteSpace="nowrap";
+    title.style.lineHeight="1";
+    let size=34;
+    title.style.fontSize=`${size}px`;
+    while(size>18&&title.scrollWidth>540){
+      size-=1;
+      title.style.fontSize=`${size}px`;
+    }
+  }
+
   _applyAdvancedOverlay(childDocument,record=this._record){
     const retainedAdvancedSelection=this._advancedSelection||null;
     this._advancedOverlayCleanup();
@@ -717,11 +799,25 @@ class D1411AKernelElement extends HostHTMLElement{
         node.style.background=String(item.fill||"#2C6E8F");
         node.style.borderColor=String(item.stroke||"#17324A");
         if(["circle","badge","pin","marker","milestone","milestone-flag"].includes(item.kind))node.classList.add("kind-circle");
+        if(item.kind==="rounded-rectangle")node.style.borderRadius="18px";
+        if(["line","separator"].includes(item.kind)){
+          node.style.borderWidth="0";
+          node.style.height="6px";
+          node.style.marginTop="6px";
+        }
+        if(item.kind==="frame")node.style.background="transparent";
+        if(item.kind==="shadow"){
+          node.style.background="rgba(23,50,74,.14)";
+          node.style.border="0";
+          node.style.borderRadius="18px";
+          node.style.boxShadow="0 18px 32px rgba(11,19,32,.28)";
+        }
         const glyph={
           "arrow-right":"→","arrow-curved":"↪","arrow-thin":"⟶","arrow-thick":"➜","arrow-double":"↔",
           milestone:"◆",ribbon:"▰",pin:"●",marker:"◆",separator:"",shadow:"",
           hospital:"✚",stethoscope:"⚕",medicine:"✦",research:"⌕",microscope:"⌬",graduation:"◆",certification:"◈",award:"★",
           marriage:"♡",pregnancy:"●",baby:"●",family:"♧",home:"⌂",travel:"✈",relocation:"↔",citizenship:"◎","green-card":"▣",remembrance:"✦",
+          calendar:"▦",book:"▤",interview:"◫",community:"◉",leadership:"♛",presentation:"▥",computer:"▣",heart:"♥",globe:"◎",language:"A",
           "milestone-flag":"⚑"
         };
         if(item.kind==="missionmed-wordmark"){
@@ -732,7 +828,7 @@ class D1411AKernelElement extends HostHTMLElement{
         }else{
           node.textContent=item.kind==="country-flag"
             ?(/^[A-Z]{2}$/.test(String(item.countryCode||""))?String.fromCodePoint(...[...String(item.countryCode).toUpperCase()].map((character)=>127397+character.charCodeAt(0))):"⚑")
-            :(item.label||glyph[item.kind]||"");
+            :(glyph[item.kind]||(["label","callout"].includes(item.kind)?item.label:"")||"");
         }
       }
       return node;
@@ -878,22 +974,41 @@ class D1411AKernelElement extends HostHTMLElement{
         gesture.node.style.left=`${next.x}px`;gesture.node.style.top=`${next.y}px`;gesture.node.style.width=`${next.width}px`;gesture.node.style.height=`${next.height}px`;
       }
     };
-    const beginTextEdit=(node)=>{
+    const placeTextCaret=(node,event)=>{
+      const selection=childDocument.defaultView.getSelection?.();
+      if(!selection)return;
+      let range=null;
+      if(event&&childDocument.caretPositionFromPoint){
+        const position=childDocument.caretPositionFromPoint(event.clientX,event.clientY);
+        if(position){
+          range=childDocument.createRange();
+          range.setStart(position.offsetNode,position.offset);
+          range.collapse(true);
+        }
+      }else if(event&&childDocument.caretRangeFromPoint){
+        range=childDocument.caretRangeFromPoint(event.clientX,event.clientY);
+      }
+      if(!range){
+        range=childDocument.createRange();
+        range.selectNodeContents(node);
+        range.collapse(false);
+      }
+      selection.removeAllRanges();
+      selection.addRange(range);
+    };
+    const beginTextEdit=(node,event=null)=>{
       if(!node||!record.editable||node.dataset.locked==="true")return false;
       this.dispatchEvent(new CustomEvent("d1-411a:advanced-text-editing",{
         bubbles:true,composed:true,
         detail:{surface:record.surface,id:node.dataset.advancedId}
       }));
       overlay.querySelectorAll(".d1411aHandle").forEach((control)=>control.remove());
+      node.dataset.editingOriginal=node.textContent||"";
       node.contentEditable="true";
       node.setAttribute("role","textbox");
       node.setAttribute("aria-multiline","true");
       node.focus();
-      const range=childDocument.createRange();
-      range.selectNodeContents(node);
-      const selection=childDocument.defaultView.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
+      placeTextCaret(node,event);
       return true;
     };
     const down=(event)=>{
@@ -902,7 +1017,7 @@ class D1411AKernelElement extends HostHTMLElement{
       if(!node&&!groupControl)return;
       if(node?.isContentEditable)return;
       if(node?.classList.contains("d1411aAdvancedText")&&event.detail>=2){
-        if(beginTextEdit(node)){
+        if(beginTextEdit(node,event)){
           event.preventDefault();
           event.stopPropagation();
         }
@@ -968,7 +1083,7 @@ class D1411AKernelElement extends HostHTMLElement{
           return event.clientX>=bounds.left&&event.clientX<=bounds.right
             &&event.clientY>=bounds.top&&event.clientY<=bounds.bottom;
         });
-      if(beginTextEdit(node)){
+      if(beginTextEdit(node,event)){
         event.preventDefault();
         event.stopPropagation();
       }
@@ -979,12 +1094,32 @@ class D1411AKernelElement extends HostHTMLElement{
       node.contentEditable="false";
       node.setAttribute("role","button");
       node.removeAttribute("aria-multiline");
+      delete node.dataset.editingOriginal;
       this.dispatchEvent(new CustomEvent("d1-411a:advanced-text",{bubbles:true,composed:true,detail:{surface:record.surface,id:node.dataset.advancedId,text:node.textContent||""}}));
     };
-    overlay.addEventListener("pointerdown",down);childDocument.addEventListener("pointermove",move);childDocument.addEventListener("pointerup",up);childDocument.addEventListener("pointercancel",up);overlay.addEventListener("dblclick",dblclick);overlay.addEventListener("focusout",blur);
+    const input=(event)=>{
+      const node=event.target.closest?.(".d1411aAdvancedText[contenteditable]");
+      if(!node)return;
+      const selector=`[data-advanced-text-content][data-advanced-target-id="${CSS.escape(node.dataset.advancedId)}"]`;
+      const panelInput=this.ownerDocument?.querySelector?.(selector);
+      if(panelInput)panelInput.value=node.textContent||"";
+    };
+    const keydown=(event)=>{
+      const node=event.target.closest?.(".d1411aAdvancedText[contenteditable]");
+      if(!node)return;
+      if(event.key==="Escape"){
+        event.preventDefault();
+        node.textContent=node.dataset.editingOriginal||"";
+        node.blur();
+      }else if((event.metaKey||event.ctrlKey)&&event.key==="Enter"){
+        event.preventDefault();
+        node.blur();
+      }
+    };
+    overlay.addEventListener("pointerdown",down);childDocument.addEventListener("pointermove",move);childDocument.addEventListener("pointerup",up);childDocument.addEventListener("pointercancel",up);overlay.addEventListener("dblclick",dblclick);overlay.addEventListener("focusout",blur);overlay.addEventListener("input",input);overlay.addEventListener("keydown",keydown);
     if(retainedAdvancedSelection?.type==="group")markGroup(retainedAdvancedSelection.id,{announce:false});
     else if(retainedAdvancedSelection?.type&&retainedAdvancedSelection?.id)markSelected(nodeFor(retainedAdvancedSelection.type,retainedAdvancedSelection.id),{announce:false});
-    this._advancedOverlayCleanup=()=>{if(frame)childDocument.defaultView.cancelAnimationFrame(frame);overlay.removeEventListener("pointerdown",down);childDocument.removeEventListener("pointermove",move);childDocument.removeEventListener("pointerup",up);childDocument.removeEventListener("pointercancel",up);overlay.removeEventListener("dblclick",dblclick);overlay.removeEventListener("focusout",blur);this.selectAdvancedObject=()=>{};style.remove();overlay.remove();};
+    this._advancedOverlayCleanup=()=>{if(frame)childDocument.defaultView.cancelAnimationFrame(frame);overlay.removeEventListener("pointerdown",down);childDocument.removeEventListener("pointermove",move);childDocument.removeEventListener("pointerup",up);childDocument.removeEventListener("pointercancel",up);overlay.removeEventListener("dblclick",dblclick);overlay.removeEventListener("focusout",blur);overlay.removeEventListener("input",input);overlay.removeEventListener("keydown",keydown);this.selectAdvancedObject=()=>{};style.remove();overlay.remove();};
   }
 
   _pointMonth(event,childDocument){
@@ -1079,9 +1214,10 @@ class D1411AKernelElement extends HostHTMLElement{
     if(!domainId||!modelEvent)return;
     const bounds=node.getBoundingClientRect();
     const edge=18*scale;
-    const kind=event.clientX-bounds.left<=edge
+    const handle=event.target.closest?.("[data-handle]")?.dataset.handle||"";
+    const kind=handle==="w"||event.clientX-bounds.left<=edge
       ?"resize-start"
-      :bounds.right-event.clientX<=edge
+      :handle==="e"||bounds.right-event.clientX<=edge
         ?"resize-end"
         :"move";
     this._gesture={
@@ -1091,8 +1227,13 @@ class D1411AKernelElement extends HostHTMLElement{
       kind,
       startX:event.clientX,
       startY:event.clientY,
+      scale,
       startMonth:this._pointMonth(event,childDocument),
-      startLane:modelEvent.lane
+      startLane:modelEvent.lane,
+      node,
+      originalTransform:node.style.transform||"",
+      originalLeft:node.style.left||"",
+      originalWidth:node.style.width||""
     };
     (proxy||node).setPointerCapture?.(event.pointerId);
     event.preventDefault();
@@ -1155,6 +1296,33 @@ class D1411AKernelElement extends HostHTMLElement{
       geometry.y=clamp(geometry.y,0,1080-geometry.height);
       gesture.nextGeometry=geometry;
       Object.assign(gesture.profile.style,{left:`${geometry.x}px`,top:`${geometry.y}px`,width:`${geometry.width}px`,height:`${geometry.height}px`});
+    }else if(this._gesture.node){
+      const gesture=this._gesture;
+      const dx=(event.clientX-gesture.startX)/gesture.scale;
+      const dy=(event.clientY-gesture.startY)/gesture.scale;
+      gesture.previewDx=dx;
+      gesture.previewDy=dy;
+      this._hitLayer?.querySelectorAll?.(".d1411AInteractionGuide").forEach((guide)=>guide.remove());
+      if(gesture.kind==="move"){
+        gesture.node.style.transform=`translate(${dx}px, ${dy}px)`;
+        const bounds=gesture.node.getBoundingClientRect();
+        const board=childDocument.getElementById("board").getBoundingClientRect();
+        const center=(bounds.left+bounds.right)/2;
+        const boardCenter=(board.left+board.right)/2;
+        if(Math.abs(center-boardCenter)<=12*gesture.scale&&this._hitLayer){
+          const guide=childDocument.createElement("span");
+          guide.className="d1411AInteractionGuide";
+          guide.dataset.axis="x";
+          guide.style.left="960px";
+          this._hitLayer.append(guide);
+        }
+      }else{
+        const baseLeft=cssNumber(gesture.originalLeft);
+        const baseWidth=cssNumber(gesture.originalWidth,gesture.node.getBoundingClientRect().width/gesture.scale);
+        const width=Math.max(88,baseWidth+(gesture.kind==="resize-start"?-dx:dx));
+        gesture.node.style.width=`${width}px`;
+        if(gesture.kind==="resize-start")gesture.node.style.left=`${baseLeft+dx}px`;
+      }
     }
     event.preventDefault();
   }
@@ -1163,9 +1331,25 @@ class D1411AKernelElement extends HostHTMLElement{
     const gesture=this._gesture;
     if(!gesture||event.pointerId!==gesture.pointerId)return;
     this._gesture=null;
+    this._hitLayer?.querySelectorAll?.(".d1411AInteractionGuide").forEach((guide)=>guide.remove());
+    if(event.type==="pointercancel"){
+      if(gesture.node){
+        gesture.node.style.transform=gesture.originalTransform;
+        gesture.node.style.left=gesture.originalLeft;
+        gesture.node.style.width=gesture.originalWidth;
+      }
+      return;
+    }
     const dx=(gesture.lastX??event.clientX)-gesture.startX;
     const dy=(gesture.lastY??event.clientY)-gesture.startY;
-    if(Math.hypot(dx,dy)<5)return;
+    if(Math.hypot(dx,dy)<5){
+      if(gesture.node){
+        gesture.node.style.transform=gesture.originalTransform;
+        gesture.node.style.left=gesture.originalLeft;
+        gesture.node.style.width=gesture.originalWidth;
+      }
+      return;
+    }
     if(gesture.kind==="axis-boundary"){
       const numeric=gesture.ids.filter((id)=>/^\d{4}$/.test(id)).map(Number);
       this.dispatchEvent(new CustomEvent("d1-411a:presentation-gesture",{
@@ -1258,9 +1442,9 @@ class D1411AKernelElement extends HostHTMLElement{
   _fail(error){
     this.dataset.ready="false";
     this.dataset.error=String(error?.code||error?.message||error);
-    this.dataset.errorMessage=String(error?.message||error);
+    this.dataset.errorMessage="We could not display your timeline. Your saved information is still safe.";
     if(this.shadowRoot){
-      this.shadowRoot.innerHTML=`<output role="alert">Timeline could not be rendered safely: ${escapeAttribute(error?.message||error)}</output>`;
+      this.shadowRoot.innerHTML='<output role="alert"><strong>We could not display your timeline.</strong><span>Your saved information is still safe. Refresh this page, or contact support if the problem continues.</span></output>';
     }
     this.dispatchEvent(new CustomEvent("d1-411a:error",{
       bubbles:true,composed:true,detail:{surface:this._record?.surface,error}

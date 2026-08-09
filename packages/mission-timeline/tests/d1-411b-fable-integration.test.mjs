@@ -74,6 +74,39 @@ test("D1-411B domain adapter maps TimelineDocument into the exact Fable render s
   assert.deepEqual(projected.model.flags.map(({id})=>id),["fl-step-2"]);
 });
 
+test("D1-411B hides one invalid event without blanking the remaining timeline",()=>{
+  const document=timeline();
+  document.events.splice(1,0,{
+    id:"invalid-range",title:"Needs a date correction",categoryId:"work",
+    eventType:"duration",startDate:"2026-12",endDate:"2026-01",
+    visibilityState:"INTERVIEWER_SAFE",fields:{}
+  });
+  const projected=projectTimelineDocument(document,{revision:8,audience:"EVERYTHING"});
+  assert.equal(projected.model.events.some(({id})=>id==="ev-invalid-range"),false);
+  assert.equal(projected.model.events.length,3);
+  assert.ok(projected.warnings.includes("EVENT_HIDDEN_END_BEFORE_START:invalid-range"));
+  assert.deepEqual(
+    projected.dropped.find(({id})=>id==="invalid-range"),
+    {id:"invalid-range",reason:"end-before-start"}
+  );
+  assert.equal(document.events[1].endDate,"2026-01");
+});
+
+test("D1-411B repairs a persisted furniture collision without mutating source data",()=>{
+  const document=timeline();
+  document.presentationOverrides={
+    colorKeyGeometry:{x:113,y:340,width:496,height:378},
+    profileGeometry:{x:177.442,y:652,width:566,height:428}
+  };
+  const projected=projectTimelineDocument(document,{revision:9,audience:"EVERYTHING"});
+  const key=projected.visualDocument.presentation.manualOverrides.colorKeyGeometry;
+  const profile=projected.visualDocument.presentation.manualOverrides.profileGeometry;
+  assert.ok(key.y+key.height+12<=profile.y||profile.y+profile.height+12<=key.y);
+  assert.ok(projected.warnings.includes("PRESENTATION_FURNITURE_COLLISION_REPAIRED"));
+  assert.equal(document.presentationOverrides.colorKeyGeometry.y,340);
+  assert.equal(document.presentationOverrides.profileGeometry.y,652);
+});
+
 test("D1-411B preserves long visa values while fitting the protected profile photo exclusion",()=>{
   const document=timeline();
   document.studentProfile.currentUsWorkAuthorization="Permanent Resident / Green Card";
@@ -187,6 +220,11 @@ test("D1-411B direct presentation editor exposes only implemented handles and pe
   assert.match(adapter,/addEventListener\("d1-411a:presentation-gesture",onKernelPresentationGesture\)/);
   assert.match(adapter,/setAxisSegmentWeights\(range\.document,detail\.segmentWeights\)/);
   assert.match(adapter,/setColorKeyGeometryPresentationOverride\(store\.document,detail\.geometry\|\|\{\}\)/);
+  assert.match(adapter,/const furnitureOverlaps=/);
+  assert.match(adapter,/rejectFurnitureCollision\(\{type:"color-key",id:"color-key"\}\)/);
+  assert.match(adapter,/rejectFurnitureCollision\(\{type:"profile",id:"profile"\}\)/);
+  assert.match(adapter,/Keep the Color Key and profile card separate/);
+  assert.match(adapter,/onColorKeyGeometryChange:\(changes\)=>\{[\s\S]*?furnitureOverlaps/);
   assert.match(adapter,/selectedEventId:null,detailsEventId:null,advancedSelection:selection/);
 });
 
@@ -215,6 +253,11 @@ test("RC1 editor asset rail uses real local vector objects and supports durable 
   assert.ok(ADVANCED_BUILT_IN_ASSETS.shapes.some(({kind})=>kind==="callout"));
   assert.ok(ADVANCED_BUILT_IN_ASSETS.icons.some(({kind})=>kind==="hospital"));
   assert.ok(ADVANCED_BUILT_IN_ASSETS.flags.some(({kind})=>kind==="country-flag"));
+  assert.ok(ADVANCED_BUILT_IN_ASSETS.shapes.length>=20,"starter shape and arrow library is too sparse");
+  assert.ok(ADVANCED_BUILT_IN_ASSETS.icons.length>=20,"starter event icon library is too sparse");
+  for(const asset of [...ADVANCED_BUILT_IN_ASSETS.shapes,...ADVANCED_BUILT_IN_ASSETS.icons]){
+    assert.doesNotThrow(()=>createAdvancedElement({id:`proof-${asset.id}`,kind:asset.kind}));
+  }
   const grouped=groupAdvancedObjects(document,[
     {type:"element",id:"callout"},
     {type:"text",id:"caption"}
@@ -257,7 +300,8 @@ test("RC1 rail pointer bridge targets the protected shadow iframe and uses the d
 
 test("RC1 protected text overlay enters direct edit before selection reconciliation",async()=>{
   const host=await readFile(new URL("../web/js/d1-411a/kernel-host.js",import.meta.url),"utf8");
-  assert.match(host,/const beginTextEdit=\(node\)=>/);
+  assert.match(host,/const beginTextEdit=\(node,event=null\)=>/);
+  assert.match(host,/const placeTextCaret=\(node,event\)=>/);
   assert.match(host,/event\.detail>=2/);
   assert.match(host,/contentEditable="true"/);
   assert.match(host,/role","textbox"/);
@@ -267,6 +311,8 @@ test("RC1 protected text overlay enters direct edit before selection reconciliat
   assert.match(host,/profile-card-move/);
   assert.match(host,/profile-card-resize/);
   assert.match(host,/profileGeometry/);
+  assert.match(host,/_fitProtectedFurnitureText\(childDocument\)/);
+  assert.match(host,/title\.scrollWidth>540/);
   assert.match(host,/layoutRetryCount<4/);
   assert.match(host,/advancedBackgroundCss\(advanced\.background,record\.resolveObjectUrl\)/);
   assert.match(host,/if\(background\)board\.style\.background=background/);
