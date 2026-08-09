@@ -7,7 +7,7 @@ globalThis.window=globalThis;
 const {projectTimelineDocument}=await import(
   "../web/js/d1-411a/domain-visual-adapter.js?d1-411b-contract"
 );
-const {createD1411AKernelManager}=await import(
+const {createD1411AKernelManager,protectedCollisionPairs,isExistingCollisionRecovery}=await import(
   "../web/js/d1-411a/kernel-host.js?d1-411b-contract"
 );
 const {
@@ -105,6 +105,22 @@ test("D1-411B repairs a persisted furniture collision without mutating source da
   assert.ok(projected.warnings.includes("PRESENTATION_FURNITURE_COLLISION_REPAIRED"));
   assert.equal(document.presentationOverrides.colorKeyGeometry.y,340);
   assert.equal(document.presentationOverrides.profileGeometry.y,652);
+});
+
+test("D1-411B permits bounded recovery from a persisted protected collision",()=>{
+  const previous=["COLLISIONS_ALLOWED_BY_POLICY:ev-clinical~key,ev-clinical~profile"];
+  assert.deepEqual(
+    [...protectedCollisionPairs(previous)],
+    ["ev-clinical~key","ev-clinical~profile"]
+  );
+  assert.equal(
+    isExistingCollisionRecovery(previous,new Error("furniture collisions: ev-clinical~key")),
+    true
+  );
+  assert.equal(
+    isExistingCollisionRecovery(previous,new Error("furniture collisions: ev-other~key")),
+    false
+  );
 });
 
 test("D1-411B preserves long visa values while fitting the protected profile photo exclusion",()=>{

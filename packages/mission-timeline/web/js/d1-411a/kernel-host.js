@@ -19,6 +19,29 @@ const FAIL_SOFT_LAYOUT_CODES=new Set(["OBJECT_COLLISION_UNRESOLVED"]);
 const LAYOUT_RECOVERY_MESSAGE="Those items are too close together. We kept your last layout so you can move one and try again.";
 const INITIAL_LAYOUT_RECOVERY_MESSAGE="Some items overlap. Your timeline is still available; move an item slightly to improve the layout.";
 
+export function protectedCollisionPairs(value){
+  const entries=Array.isArray(value)?value:[value];
+  const pairs=new Set();
+  for(const entry of entries){
+    const text=String(entry?.message||entry||"");
+    for(const marker of ["COLLISIONS_ALLOWED_BY_POLICY:","furniture collisions:"]){
+      const index=text.indexOf(marker);
+      if(index<0)continue;
+      text.slice(index+marker.length).trim().split(",").forEach((pair)=>{
+        const normalized=pair.trim();
+        if(/^[^\s,~]+~[^\s,~]+$/.test(normalized))pairs.add(normalized);
+      });
+    }
+  }
+  return pairs;
+}
+
+export function isExistingCollisionRecovery(previousWarnings,nextError){
+  const previous=protectedCollisionPairs(previousWarnings);
+  const next=protectedCollisionPairs(nextError);
+  return previous.size>0&&next.size>0&&[...next].every((pair)=>previous.has(pair));
+}
+
 function advancedBackgroundCss(background,resolveObjectUrl=()=>null){
   if(background?.kind==="color"&&/^#[0-9a-f]{6}$/i.test(String(background.color||"")))return background.color;
   if(background?.kind==="preset")return ADVANCED_BACKGROUND_PRESETS.find(({id})=>id===background.preset)?.css||null;
@@ -240,8 +263,7 @@ class D1411AKernelElement extends HostHTMLElement{
         }
         if(
           FAIL_SOFT_LAYOUT_CODES.has(String(error?.code||""))&&
-          allowExistingLayoutRecovery&&
-          !this._lastGoodRecord
+          allowExistingLayoutRecovery
         ){
           response=await K.rerender(kernelModel,{
             renderId:record.renderId,
@@ -357,6 +379,24 @@ class D1411AKernelElement extends HostHTMLElement{
         return this.diagnostics();
       }catch(error){
         if(!previous||!FAIL_SOFT_LAYOUT_CODES.has(String(error?.code||"")))throw error;
+        if(isExistingCollisionRecovery(this._lastGoodRender?.response?.warnings,error)){
+          const rendered=await this._renderRecord(next,{allowExistingLayoutRecovery:true});
+          for(const cleanup of this._childCleanup.splice(0))cleanup();
+          this.dataset.interactionsReady="false";
+          this._hitLayer=null;
+          this._hitSources=[];
+          this._gesture=null;
+          this._record=next;
+          const iframe=this.shadowRoot.querySelector("iframe");
+          this.resize();
+          if(iframe)this._installChildInteractions(iframe);
+          this.dataset.interactionsReady="true";
+          this.dataset.ready="true";
+          this._lastGoodRecord=next;
+          this._lastGoodRender=rendered;
+          this._dispatchReady(rendered,next);
+          return this.diagnostics();
+        }
         for(const cleanup of this._childCleanup.splice(0))cleanup();
         this._record=previous;
         this._hitLayer=null;
