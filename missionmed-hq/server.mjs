@@ -10,37 +10,9 @@ import { fileURLToPath } from 'node:url';
 import { analyzeSafTranscript } from './saf_analyzer.mjs';
 import { selectDbocQuestion } from './question_selector.mjs';
 import { buildDeliveryInsights, computeDeliveryMetricsFromWav, computeDeliveryMetricsSafeFallback } from './worker_metrics.mjs';
-import {
-  createUscePublicIntakeAdminControlledTest,
-  getUsceAdminPublicIntakeAction,
-  getUscePublicIntakeAdminList,
-  handleUscePublicRoute,
-  isUsceAdminPublicIntakeControlledTestPath,
-  isUsceAdminPublicIntakeListPath,
-  updateUscePublicIntakeAdminNote,
-  updateUscePublicIntakeAdminStatus,
-} from './routes/usce-public-intake.mjs';
-import {
-  handleUsceAdminOfferRoute,
-  handleUsceOfferPortalPublicRoute,
-  isUsceAdminOfferPath,
-} from './routes/usce-offer-portal.mjs';
-import {
-  handleUsceStudentStatusRoute,
-  isUsceStudentStatusPath,
-} from './routes/usce-status-tracker.mjs';
-import {
-  handleGmailMetadataProofRoute,
-  isGmailMetadataProofPath,
-} from './routes/gmail-metadata-proof.mjs';
-import {
-  handleGmailSyncPreviewRoute,
-  isGmailSyncPreviewPath,
-} from './routes/gmail-sync-preview.mjs';
-import {
-  handleGmailCommsReviewWriteRoute,
-  isGmailCommsReviewWritePath,
-} from './routes/gmail-comms-review-write.mjs';
+import { handleUscePublicRoute } from './routes/usce-public-intake.mjs';
+import { handleSchedulerApiRoute } from './lib/scheduler/routes.mjs';
+import { readSessionFromHeaders } from './lib/auth/session-token.mjs';
 import {
   createLorStudioRuntime,
   createUnavailableLorEntitlementResolver,
@@ -60,9 +32,6 @@ const INTERNAL_REQUEST_ORIGIN = 'http://internal.invalid';
 const WORDPRESS_AUTH_REDIRECT_ACTION = 'mmac_hq_auth_redirect';
 const MMC_PRIVATE_ROUTE_PREFIX = '/mmc-private';
 const MMC_PRIVATE_INDEX_PATH = `${MMC_PRIVATE_ROUTE_PREFIX}/index.html`;
-const USCE_ADMIN_AUTH_RELAY_PATH = '/api/usce/admin/auth/relay';
-const USCE_ADMIN_CDN_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html';
-const USCE_STUDENT_AUTH_AUDIENCE = 'usce_student';
 const RUNTIME_ENV = String(process.env.NODE_ENV || 'development').trim().toLowerCase() || 'development';
 const IS_PRODUCTION = RUNTIME_ENV === 'production';
 
@@ -140,6 +109,16 @@ const CONFIG = {
   wpAllowedRoles: splitCsv(envValue('MMHQ_ALLOWED_WP_ROLES', 'administrator')),
   mmcPrivateAllowedRoles: splitCsv(envValue('MMHQ_MMC_PRIVATE_ALLOWED_WP_ROLES', 'administrator')),
   mmcPrivateAllowedEmails: splitCsv(envValue('MMHQ_MMC_PRIVATE_ALLOWED_WP_EMAILS', '')),
+  mmcPersistenceEnabled: envFlag('MMHQ_MMC_PERSISTENCE_ENABLED', false),
+  mmcSupabaseUrl: sanitizeServiceUrl(envValue('MMHQ_MMC_SUPABASE_URL', '')),
+  mmcSupabaseAnonKey: String(envValue('MMHQ_MMC_SUPABASE_ANON_KEY', '')).trim(),
+  mmcSupabaseJwtSecret: String(envValue('MMHQ_MMC_SUPABASE_JWT_SECRET', '')).trim(),
+  mmcAllowedSupabaseProjectRef: String(envValue('MMHQ_MMC_ALLOWED_SUPABASE_PROJECT_REF', 'avpdetdkpwmqqxtvomix')).trim().toLowerCase(),
+  drillsOnCallCourseIds: splitCsv(envValue('MMHQ_DRILLS_ON_CALL_COURSE_IDS', envValue('MMHQ_DRILLS_ON_CALL_COURSE_ID', '')))
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && value > 0),
+  drillsOnCallCourseName: String(envValue('MMHQ_DRILLS_ON_CALL_COURSE_NAME', 'Dr J, Drills On-Call')).trim() || 'Dr J, Drills On-Call',
+  drillsOnCallProductUrl: String(envValue('MMHQ_DRILLS_ON_CALL_PRODUCT_URL', 'https://missionmedinstitute.com/product/dr-j-drills-on-call/')).trim() || 'https://missionmedinstitute.com/product/dr-j-drills-on-call/',
   stripeSecretKey: envValue('MMHQ_STRIPE_SECRET_KEY', ''),
   stripeConnectClientId: envValue('MMHQ_STRIPE_CONNECT_CLIENT_ID', ''),
   stripeConnectRedirectUri: sanitizeServiceUrl(envValue('MMHQ_STRIPE_CONNECT_REDIRECT_URI', '')),
@@ -149,6 +128,14 @@ const CONFIG = {
   supabaseAnonKey: envValue('MMHQ_SUPABASE_ANON_KEY', ''),
   supabaseServiceRoleKey: envValue('MMHQ_SUPABASE_SERVICE_ROLE_KEY', ''),
   supabaseLegacyKeysPresent: hasConfiguredEnv('MMHQ_SUPABASE_SERVICE_ROLE_KEY') || hasConfiguredEnv('MMHQ_SUPABASE_ANON_KEY'),
+  arenaTrialHashSalt: String(envValue('MMHQ_ARENA_TRIAL_HASH_SALT', '')).trim(),
+  arenaTrialDeviceCookie: String(envValue('MMHQ_ARENA_TRIAL_COOKIE', 'mm_arena_trial_device')).trim() || 'mm_arena_trial_device',
+  arenaGateEnabled: envFlag('MMHQ_ARENA_GATE_ENABLED', true),
+  turnstileSecretKey: String(envValue('MMHQ_TURNSTILE_SECRET_KEY', '') || envValue('TURNSTILE_SECRET_KEY', '')).trim(),
+  turnstileVerifyUrl: sanitizeServiceUrl(envValue('MMHQ_TURNSTILE_VERIFY_URL', 'https://challenges.cloudflare.com/turnstile/v0/siteverify'), { allowLocalhost: false }),
+  arenaRateLimitWindowMs: Math.max(10_000, Number(envValue('MMHQ_ARENA_RATE_LIMIT_WINDOW_MS', '60000')) || 60_000),
+  arenaAccessStateRateLimit: Math.max(10, Number(envValue('MMHQ_ARENA_ACCESS_STATE_RATE_LIMIT', '90')) || 90),
+  arenaMutationRateLimit: Math.max(5, Number(envValue('MMHQ_ARENA_MUTATION_RATE_LIMIT', '30')) || 30),
   cieBase: sanitizeServiceUrl(envValue('MMHQ_CIE_BASE', '')),
   mediaUploadBase: sanitizeServiceUrl(envValue('MMHQ_MEDIA_UPLOAD_BASE', '')) || sanitizeServiceUrl(envValue('MMHQ_CIE_BASE', '')),
   mediaPipelineBase: sanitizeServiceUrl(envValue('MMHQ_MEDIA_PIPELINE_BASE', 'http://127.0.0.1:8001')),
@@ -165,10 +152,71 @@ const CONFIG = {
 
 const AUTH_ALLOWED_SUPABASE_PROJECT = 'fglyvdykwgbuivikqoah';
 const AUTH_FORBIDDEN_SUPABASE_PROJECT = 'plgndqcplokwiuimwhzh';
+const MMC_STAGING_SUPABASE_PROJECT = 'avpdetdkpwmqqxtvomix';
+const MMC_FORBIDDEN_SUPABASE_PROJECTS = new Set([
+  AUTH_ALLOWED_SUPABASE_PROJECT,
+  AUTH_FORBIDDEN_SUPABASE_PROJECT,
+]);
 const AUTH_BOOTSTRAP_PASSWORD_SALT = String(envValue('MMHQ_SUPABASE_PASSWORD_SALT', 'missionmed-bootstrap-salt')).trim() || 'missionmed-bootstrap-salt';
 const AUTH_HANDOFF_SECRET = String(envValue('MMHQ_HANDOFF_SECRET', '')).trim();
 const AUTH_HANDOFF_MAX_CLOCK_SKEW_SECONDS = 300;
 const AUTH_WORDPRESS_COOKIE_PREFIXES = ['wordpress_logged_in_', 'wordpress_sec_'];
+const ARENA_TIME_ZONE = 'America/New_York';
+const ARENA_BETA_SOURCE = 'arena_beta_trial';
+const ARENA_ACCESS_TIERS = Object.freeze({
+  ADMIN: 'ADMIN_FULL_ACCESS',
+  FULL: 'FULL_ACCESS',
+  FREE_TRIAL: 'FREE_TRIAL',
+  NO_ACCESS: 'NO_ACCESS',
+  EXPIRED_TRIAL: 'EXPIRED_TRIAL',
+});
+const ARENA_FREE_TRIAL_LIMITS = Object.freeze({
+  drills_per_day: 1,
+  stat_rounds_per_day: 3,
+});
+const ARENA_OPEN_MODES = new Set(['stat', 'stat_v3_lab']);
+const ARENA_DRILLS_ON_CALL_MODES = new Set(['daily_rounds', 'daily', 'drills', 'daily_drills_v3']);
+const ARENA_MODE_USAGE_TYPES = Object.freeze({
+  daily_rounds: 'drills',
+  daily: 'drills',
+  drills: 'drills',
+  daily_drills_v3: 'drills',
+});
+const ARENA_PRO_LOCKED_MODES = Object.freeze([
+  'iv_on_call',
+  'tournamed',
+  'usce_on_call',
+  'pimpin_rounds',
+]);
+const ARENA_FULL_ACCESS_TIERS = new Set([
+  '360',
+  '360_elite',
+  '360_match',
+  '360_match_mentorship',
+  'full_arena_access',
+  'mission_residency',
+  'missionmed_360',
+  'missionmed_360_match',
+  'missionmed_360_match_mentorship',
+  'missionmed_full_access',
+  'match_mentorship',
+  'mission_residency_360',
+  'arena_pro',
+  'arena_full',
+  'arena_membership',
+  'arena_pro_membership',
+  'arena_paid_membership',
+  'arena_unlimited',
+]);
+const ARENA_ADMIN_ROLE_MARKERS = new Set([
+  'administrator',
+  'super_admin',
+  'manage_options',
+  'missionmed_admin',
+  'missionmed_operator',
+  'arena_admin',
+]);
+const ARENA_RATE_LIMIT_BUCKETS = new Map();
 
 const HQ_CACHE = new Map();
 const HQ_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -254,6 +302,7 @@ const server = http.createServer(async (request, response) => {
         return;
       }
     }
+
 
     if (isMmcPrivatePath(pathname)) {
       await handleMmcPrivateMount(request, response, pathname);
@@ -979,26 +1028,6 @@ function resolveAuthSessionFinalRedirect(rawFinal = '', request = null) {
   }
 }
 
-function withAuthSessionHandoffFragment(finalRedirect = '', handoffToken = '') {
-  const base = String(finalRedirect || '').trim();
-  const token = String(handoffToken || '').trim();
-  if (!base || !token) {
-    return base;
-  }
-
-  try {
-    const target = new URL(base);
-    const hash = String(target.hash || '').replace(/^#/u, '');
-    const params = new URLSearchParams(hash);
-    params.set('mmhq_handoff_token', token);
-    const nextHash = params.toString();
-    target.hash = nextHash ? `#${nextHash}` : '';
-    return target.toString();
-  } catch {
-    return base;
-  }
-}
-
 function isLocalhostHostname(hostname = '') {
   return LOCALHOST_HOSTNAMES.has(String(hostname || '').trim().toLowerCase());
 }
@@ -1049,22 +1078,19 @@ function createEncryptedSession(payload) {
 }
 
 function readEncryptedSession(token) {
-  const payload = readEncryptedPayloadToken(token);
-
-  if (!payload?.expiresAt || Number.isNaN(new Date(payload.expiresAt).getTime())) {
-    console.warn('[CONFIG WARNING]', 'removed fatal error');
-  }
-
-  if (new Date(payload.expiresAt).getTime() <= Date.now()) {
-    console.warn('[CONFIG WARNING]', 'removed fatal error');
-  }
-
-  return payload;
+  return readSessionFromHeaders({
+    headers: { authorization: `Bearer ${String(token || '')}` },
+    key: SESSION_KEY,
+    cookieName: CONFIG.sessionCookieName,
+    now: Date.now,
+  });
 }
 
 function createSessionRecord(user, authContext = {}, authSource) {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + CONFIG.sessionTtlSeconds * 1000);
+  const audience = normalizeAuthAudience(authContext.audience || '');
+  const apiScope = String(authContext.apiScope || (audience === 'arena' ? 'arena' : 'hq')).trim() || 'hq';
 
   return {
     version: 1,
@@ -1072,30 +1098,21 @@ function createSessionRecord(user, authContext = {}, authSource) {
     expiresAt: expiresAt.toISOString(),
     csrfToken: base64UrlEncode(randomBytes(18)),
     authSource,
+    audience,
+    apiScope,
     wpAuthorization: String(authContext.wpAuthorization || '').trim(),
     user,
   };
 }
 
 function readSessionFromRequest(request) {
-  const bearerToken = extractBearerToken(request.headers.authorization || request.headers.Authorization || '');
-  if (bearerToken) {
-    try {
-      return readEncryptedSession(bearerToken);
-    } catch {
-      return null;
-    }
-  }
-
-  const cookies = parseCookies(request.headers.cookie || '');
-  const token = cookies[CONFIG.sessionCookieName];
-
-  if (!token) {
-    return null;
-  }
-
   try {
-    return readEncryptedSession(token);
+    return readSessionFromHeaders({
+      headers: request.headers,
+      key: SESSION_KEY,
+      cookieName: CONFIG.sessionCookieName,
+      now: Date.now,
+    });
   } catch {
     return null;
   }
@@ -1134,37 +1151,6 @@ function buildWordPressAuthRedirectUrl(returnTo = '') {
   }
 
   return target.toString();
-}
-
-function resolveExactCdnTarget(rawTarget = '', fallback = '') {
-  const candidate = String(rawTarget || '').trim() || fallback;
-
-  try {
-    const target = new URL(candidate, fallback);
-    const allowed = new URL(fallback);
-    if (target.origin !== allowed.origin || target.pathname !== allowed.pathname) {
-      return fallback;
-    }
-    target.hash = '';
-    return target.toString();
-  } catch {
-    return fallback;
-  }
-}
-
-function resolveUsceAdminAuthTarget(rawTarget = '') {
-  return resolveExactCdnTarget(rawTarget, USCE_ADMIN_CDN_URL);
-}
-
-function buildUsceAdminAuthRelayUrl(request = null, target = '') {
-  const hqBase = getHqBaseForRequest(request);
-  if (!hqBase) {
-    return '';
-  }
-
-  const relay = new URL(USCE_ADMIN_AUTH_RELAY_PATH, hqBase);
-  relay.searchParams.set('target', resolveUsceAdminAuthTarget(target));
-  return relay.toString();
 }
 
 function getLoginHints(request = null) {
@@ -1208,6 +1194,8 @@ function buildSessionPayload(session = null, request = null) {
     sessionPersistent: Boolean(SESSION_SECRET),
     csrfToken: session.csrfToken,
     expiresAt: session.expiresAt,
+    audience: session.audience || '',
+    apiScope: session.apiScope || 'hq',
     user: {
       id: session.user.id,
       dbocUserId: session.supabaseUserId || session.user.id,
@@ -1217,6 +1205,7 @@ function buildSessionPayload(session = null, request = null) {
       roles: session.user.roles,
       scope: session.user.scope,
       authSource: session.authSource,
+      apiScope: session.apiScope || 'hq',
     },
     accessToken,
     authMode: buildAuthDebugSnapshot(session, request),
@@ -1782,7 +1771,7 @@ function requireAuthenticatedApiSession(request, response, session, authHeaders 
       error: 'authentication_required',
       message: 'MissionMed HQ requires a valid WordPress token exchange before protected routes can load.',
       login: getLoginHints(request),
-    }, authHeaders);
+    });
     return false;
   }
 
@@ -1790,7 +1779,7 @@ function requireAuthenticatedApiSession(request, response, session, authHeaders 
     sendJson(response, 403, {
       error: 'csrf_validation_failed',
       message: 'Missing or invalid CSRF token.',
-    }, authHeaders);
+    });
     return false;
   }
 
@@ -1809,19 +1798,6 @@ const USCE_KNOWN_ROUTE_PATTERNS = [
   /^\/api\/usce\/offers\/[^/]+\/send$/u,
   /^\/api\/usce\/offers\/[^/]+\/revoke$/u,
   /^\/api\/usce\/offers\/[^/]+\/onboard$/u,
-  /^\/api\/usce\/admin\/public-intake-requests$/u,
-  /^\/api\/usce\/admin\/public-intake-requests\/controlled-test$/u,
-  /^\/api\/usce\/admin\/public-intake-requests\/[^/]+\/status$/u,
-  /^\/api\/usce\/admin\/public-intake-requests\/[^/]+\/admin-note$/u,
-  /^\/api\/usce\/admin\/intake-requests\/[^/]+\/offer-draft$/u,
-  /^\/api\/usce\/admin\/offers\/[^/]+$/u,
-  /^\/api\/usce\/admin\/offers\/[^/]+\/message-preview$/u,
-  /^\/api\/usce\/admin\/offers\/[^/]+\/send$/u,
-  /^\/api\/usce\/admin\/offers\/[^/]+\/comms$/u,
-  /^\/api\/usce\/admin\/offers\/[^/]+\/payment$/u,
-  /^\/api\/usce\/admin\/offers\/[^/]+\/paperwork$/u,
-  /^\/api\/usce\/admin\/offers\/[^/]+\/learndash$/u,
-  /^\/api\/usce\/admin\/offers\/[^/]+\/token$/u,
   /^\/api\/usce\/programs$/u,
   /^\/api\/usce\/programs\/[^/]+$/u,
   /^\/api\/usce\/portal\/[^/]+$/u,
@@ -1861,14 +1837,6 @@ function requireUsceUserSession(request, response, session, authHeaders) {
     return false;
   }
 
-  if (CONFIG.authRequired && !isAuthorizedWordPressUser(normalizeWordPressIdentityUser(session.user || {}))) {
-    sendJson(response, 403, {
-      error: 'hq_role_required',
-      message: 'This Railway session is valid for learner auth bootstrap but is not authorized for protected USCE APIs.',
-    }, authHeaders);
-    return false;
-  }
-
   if (isMutationMethod(request.method) && !validateCsrf(request, session)) {
     sendJson(response, 403, {
       error: 'csrf_validation_failed',
@@ -1883,36 +1851,6 @@ function requireUsceUserSession(request, response, session, authHeaders) {
 async function handleUsceRoute(request, response, url, context) {
   const { pathname } = url;
   const { session, authHeaders } = context;
-
-  if (pathname === USCE_ADMIN_AUTH_RELAY_PATH) {
-    if (request.method !== 'GET') {
-      sendMethodNotAllowed(response, ['GET']);
-      return true;
-    }
-
-    const relayTarget = resolveUsceAdminAuthTarget(url.searchParams.get('target'));
-    const handoffToken = String(url.searchParams.get('token') || '').trim();
-
-    if (!handoffToken) {
-      const relayReturnTo = buildUsceAdminAuthRelayUrl(request, relayTarget);
-      const redirectUrl = buildWordPressAuthRedirectUrl(relayReturnTo);
-
-      if (!redirectUrl) {
-        sendJson(response, 503, {
-          error: 'wordpress_login_not_configured',
-          message: 'WordPress login redirect is not configured yet. Set MMHQ_WP_BASE.',
-          login: getLoginHints(request),
-        }, authHeaders);
-        return true;
-      }
-
-      sendRedirect(response, redirectUrl);
-      return true;
-    }
-
-    sendRedirect(response, withAuthSessionHandoffFragment(relayTarget, handoffToken));
-    return true;
-  }
 
   if (!isKnownUsceRoute(pathname)) {
     return false;
@@ -1929,63 +1867,6 @@ async function handleUsceRoute(request, response, url, context) {
   }
 
   if (!requireUsceUserSession(request, response, session, authHeaders)) {
-    return true;
-  }
-
-  if (isUsceAdminOfferPath(pathname)) {
-    return handleUsceAdminOfferRoute(request, response, url, { session, authHeaders });
-  }
-
-  if (isUsceAdminPublicIntakeListPath(pathname)) {
-    if (request.method !== 'GET') {
-      sendMethodNotAllowed(response, ['GET']);
-      return true;
-    }
-
-    sendRoutePayload(response, await getUscePublicIntakeAdminList(url.searchParams), authHeaders);
-    return true;
-  }
-
-  if (isUsceAdminPublicIntakeControlledTestPath(pathname)) {
-    if (request.method !== 'POST') {
-      sendMethodNotAllowed(response, ['POST']);
-      return true;
-    }
-
-    const payload = await readJsonBody(request);
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      sendJson(response, 400, {
-        error: 'invalid_json',
-        message: 'USCE controlled intake test creation requires a JSON object payload.',
-      }, authHeaders);
-      return true;
-    }
-
-    sendRoutePayload(response, await createUscePublicIntakeAdminControlledTest(request, payload), authHeaders);
-    return true;
-  }
-
-  const adminPublicIntakeAction = getUsceAdminPublicIntakeAction(pathname);
-  if (adminPublicIntakeAction) {
-    if (request.method !== 'PATCH') {
-      sendMethodNotAllowed(response, ['PATCH']);
-      return true;
-    }
-
-    const payload = await readJsonBody(request);
-    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      sendJson(response, 400, {
-        error: 'invalid_json',
-        message: 'USCE admin action requires a JSON object payload.',
-      }, authHeaders);
-      return true;
-    }
-
-    const result = adminPublicIntakeAction.action === 'status'
-      ? await updateUscePublicIntakeAdminStatus(adminPublicIntakeAction.requestId, payload)
-      : await updateUscePublicIntakeAdminNote(adminPublicIntakeAction.requestId, payload);
-
-    sendRoutePayload(response, result, authHeaders);
     return true;
   }
 
@@ -2029,13 +1910,6 @@ async function handleApiRoute(request, response, url, context) {
 
   if (pathname.startsWith('/api/usce/public/')) {
     const handled = await handleUscePublicRoute(request, response, url);
-    if (handled) {
-      return;
-    }
-  }
-
-  if (pathname.startsWith('/api/usce/offer/')) {
-    const handled = await handleUsceOfferPortalPublicRoute(request, response, url);
     if (handled) {
       return;
     }
@@ -2091,9 +1965,10 @@ async function handleApiRoute(request, response, url, context) {
   if (pathname === '/api/auth/session') {
     const handoffToken = String(searchParams.get('token') || '').trim();
     const finalRedirect = resolveAuthSessionFinalRedirect(searchParams.get('final'), request);
+    const audience = normalizeAuthAudience(searchParams.get('audience') || searchParams.get('aud') || '');
 
     if (handoffToken) {
-      const exchange = await exchangeWordPressAuth({ token: handoffToken }, request);
+      const exchange = await exchangeWordPressAuth({ token: handoffToken, audience }, request);
       if (!exchange.ok || !exchange.session) {
         sendJson(response, exchange.status || 401, {
           error: 'auth_exchange_failed',
@@ -2103,7 +1978,8 @@ async function handleApiRoute(request, response, url, context) {
         return;
       }
 
-      const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(exchange.session);
+      const schedulerSession = await hydrateSchedulerEntitlementSession(exchange.session, request, audience);
+      const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(schedulerSession);
       if (!bootstrap.ok) {
         sendJson(response, bootstrap.status || 502, {
           error: bootstrap.error || 'supabase_bootstrap_failed',
@@ -2112,7 +1988,7 @@ async function handleApiRoute(request, response, url, context) {
         return;
       }
 
-      const hydratedSession = bootstrap.session || exchange.session;
+      const hydratedSession = bootstrap.session || schedulerSession;
       const responseHeaders = {
         ...authHeaders,
         'Set-Cookie': buildSessionCookie(request, hydratedSession),
@@ -2128,6 +2004,20 @@ async function handleApiRoute(request, response, url, context) {
         200,
         buildSessionPayload(hydratedSession, request),
         responseHeaders,
+      );
+      return;
+    }
+
+    if (isSchedulerAuthAudience(audience) && session) {
+      const schedulerSession = await hydrateSchedulerEntitlementSession(session, request, audience);
+      sendJson(
+        response,
+        200,
+        buildSessionPayload(schedulerSession, request),
+        {
+          ...authHeaders,
+          'Set-Cookie': buildSessionCookie(request, schedulerSession),
+        },
       );
       return;
     }
@@ -2283,13 +2173,28 @@ async function handleApiRoute(request, response, url, context) {
       return;
     }
 
+    const audience = normalizeAuthAudience(payload?.audience || payload?.authAudience || payload?.mode || '');
+    let sessionForPayload = exchange.session;
+    if (isSchedulerAuthAudience(audience)) {
+      sessionForPayload = await hydrateSchedulerEntitlementSession(exchange.session, request, audience);
+      const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(sessionForPayload);
+      if (!bootstrap.ok) {
+        sendJson(response, bootstrap.status || 502, {
+          error: bootstrap.error || 'supabase_bootstrap_failed',
+          message: bootstrap.message || 'Supabase bootstrap failed.',
+        }, authHeaders);
+        return;
+      }
+      sessionForPayload = bootstrap.session || sessionForPayload;
+    }
+
     sendJson(
       response,
       200,
-      buildSessionPayload(exchange.session, request),
+      buildSessionPayload(sessionForPayload, request),
       {
         ...authHeaders,
-        'Set-Cookie': buildSessionCookie(request, exchange.session),
+        'Set-Cookie': buildSessionCookie(request, sessionForPayload),
       },
     );
     return;
@@ -2302,7 +2207,8 @@ async function handleApiRoute(request, response, url, context) {
     }
 
     const authSession = session || readSessionFromRequest(request);
-    const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(authSession);
+    const schedulerSession = await hydrateSchedulerEntitlementSession(authSession, request, authSession?.audience || authSession?.authAudience || '');
+    const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(schedulerSession);
     if (!bootstrap.ok) {
       sendJson(response, bootstrap.status || 502, {
         error: bootstrap.error || 'supabase_bootstrap_failed',
@@ -2313,7 +2219,7 @@ async function handleApiRoute(request, response, url, context) {
 
     sendJson(response, 200, bootstrap.payload || {}, {
       ...authHeaders,
-      'Set-Cookie': buildSessionCookie(request, bootstrap.session || authSession),
+      'Set-Cookie': buildSessionCookie(request, bootstrap.session || schedulerSession || authSession),
     });
     return;
   }
@@ -2370,16 +2276,25 @@ async function handleApiRoute(request, response, url, context) {
   }
 
   if (pathname.startsWith('/api/usce/')) {
-    if (isUsceStudentStatusPath(pathname)) {
-      await handleUsceStudentStatusRoute(request, response, url, {
-        session,
-        authHeaders,
-        login: getLoginHints(request, USCE_STUDENT_AUTH_AUDIENCE),
-      });
+    const handled = await handleUsceRoute(request, response, url, { session, authHeaders });
+    if (handled) {
       return;
     }
+  }
 
-    const handled = await handleUsceRoute(request, response, url, { session, authHeaders });
+  if (pathname.startsWith('/api/scheduler/')) {
+    const schedulerSession = await hydrateSchedulerEntitlementSession(session, request, 'scheduler');
+    const schedulerAuthHeaders = schedulerSession && schedulerSession !== session
+      ? { ...authHeaders, 'Set-Cookie': buildSessionCookie(request, schedulerSession) }
+      : authHeaders;
+    const handled = await handleSchedulerApiRoute(request, response, url, {
+      session: schedulerSession,
+      authHeaders: schedulerAuthHeaders,
+      sendJson,
+      sendMethodNotAllowed,
+      readJsonBody,
+      validateCsrf,
+    });
     if (handled) {
       return;
     }
@@ -2389,25 +2304,31 @@ async function handleApiRoute(request, response, url, context) {
     return;
   }
 
-  if (isGmailMetadataProofPath(pathname)) {
-    await handleGmailMetadataProofRoute(request, response, url, { session, authHeaders });
+  if (isArenaOnlySession(session) && !pathname.startsWith('/api/arena/')) {
+    sendJson(response, 403, {
+      error: 'arena_scope_only',
+      message: 'This MissionMed session is scoped to Arena access.',
+    }, authHeaders);
     return;
   }
 
-  if (isGmailSyncPreviewPath(pathname)) {
-    await handleGmailSyncPreviewRoute(request, response, url, { session, authHeaders });
-    return;
-  }
-
-  if (isGmailCommsReviewWritePath(pathname)) {
-    await handleGmailCommsReviewWriteRoute(request, response, url, { session, authHeaders });
-    return;
+  if (pathname.startsWith('/api/arena/')) {
+    const handled = await handleArenaRoute(request, response, url, { session, authHeaders });
+    if (handled) {
+      return;
+    }
   }
 
   if (pathname.startsWith('/api/dboc/')) {
     await handleDbocRoute(request, response, url, session);
     return;
   }
+
+  if (pathname === '/api/mmc/persistence') {
+    await handleMmcPersistenceRoute(request, response, url, { session, authHeaders });
+    return;
+  }
+
 
   if (pathname === '/api/bootstrap') {
     sendRoutePayload(response, {
@@ -2859,20 +2780,6 @@ async function handleApiRoute(request, response, url, context) {
   });
 }
 
-// SPA frontend routes — these are client-side routes that all resolve to index.html.
-// Matches the locked navigation structure: Home, Payments, Students, MedMail, Leads,
-// Media Engine, Studio, Settings (MR-HQ-001).
-const SPA_FRONTEND_ROUTES = new Set([
-  '/hq/email',
-  '/studio',
-  '/media-engine',
-  '/medmail',
-  '/leads',
-  '/payments',
-  '/students',
-  '/settings',
-  '/hq',
-]);
 
 function isMmcPrivatePath(pathname = '') {
   const normalized = String(pathname || '/').replace(/\/+$/u, '') || '/';
@@ -2941,6 +2848,1049 @@ async function handleMmcPrivateMount(request, response, pathname) {
   response.setHeader('X-Robots-Tag', 'noindex, nofollow');
   await serveStatic(response, resolveMmcPrivateStaticPath(pathname));
 }
+
+function getMmcPersistenceConfig() {
+  if (!CONFIG.mmcPersistenceEnabled) {
+    return {
+      ok: false,
+      status: 503,
+      code: 'mmc_persistence_disabled',
+      message: 'MMC persistence is disabled. Set MMHQ_MMC_PERSISTENCE_ENABLED=true for staging integration.',
+    };
+  }
+
+  const projectRef = getSupabaseProjectRef(CONFIG.mmcSupabaseUrl);
+  if (!CONFIG.mmcSupabaseUrl || !projectRef) {
+    return {
+      ok: false,
+      status: 503,
+      code: 'mmc_supabase_url_missing',
+      message: 'MMHQ_MMC_SUPABASE_URL is required for MMC persistence.',
+    };
+  }
+
+  if (MMC_FORBIDDEN_SUPABASE_PROJECTS.has(projectRef)) {
+    return {
+      ok: false,
+      status: 403,
+      code: 'mmc_supabase_project_forbidden',
+      message: 'MMC persistence refused a forbidden production Supabase project.',
+    };
+  }
+
+  const allowedProjectRef = CONFIG.mmcAllowedSupabaseProjectRef || MMC_STAGING_SUPABASE_PROJECT;
+  if (projectRef !== allowedProjectRef) {
+    return {
+      ok: false,
+      status: 403,
+      code: 'mmc_supabase_project_mismatch',
+      message: `MMC persistence expected project ${allowedProjectRef} but received ${projectRef}.`,
+    };
+  }
+
+  if (!CONFIG.mmcSupabaseAnonKey) {
+    return {
+      ok: false,
+      status: 503,
+      code: 'mmc_supabase_anon_key_missing',
+      message: 'MMHQ_MMC_SUPABASE_ANON_KEY is required for RLS-scoped MMC persistence.',
+    };
+  }
+
+  if (!CONFIG.mmcSupabaseJwtSecret) {
+    return {
+      ok: false,
+      status: 503,
+      code: 'mmc_supabase_jwt_secret_missing',
+      message: 'MMHQ_MMC_SUPABASE_JWT_SECRET is required to mint RLS-scoped MMC JWT claims.',
+    };
+  }
+
+  return {
+    ok: true,
+    supabaseUrl: CONFIG.mmcSupabaseUrl,
+    anonKey: CONFIG.mmcSupabaseAnonKey,
+    jwtSecret: CONFIG.mmcSupabaseJwtSecret,
+    projectRef,
+  };
+}
+
+function stableUuidFromString(value = '') {
+  const hash = createHash('sha256').update(String(value || '')).digest();
+  hash[6] = (hash[6] & 0x0f) | 0x40;
+  hash[8] = (hash[8] & 0x3f) | 0x80;
+  const hex = hash.subarray(0, 16).toString('hex');
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20, 32),
+  ].join('-');
+}
+
+function resolveMmcRoleForSession(session = null) {
+  const user = normalizeWordPressUser(session?.user || {});
+  const roles = Array.isArray(user.roles) ? user.roles : [];
+  if (user.capabilities?.manage_options || roles.includes('administrator')) {
+    return 'admin';
+  }
+
+  if (roles.some((role) => ['admin', 'hq_admin', 'hq_operator', 'operator'].includes(role))) {
+    return 'admin';
+  }
+
+  return 'mentor';
+}
+
+function buildMmcPrincipal(session = null) {
+  const user = normalizeWordPressUser(session?.user || {});
+  const identityKey = user.id
+    ? `wp:${user.id}`
+    : user.email
+      ? `wp-email:${user.email.toLowerCase()}`
+      : `wp-login:${user.login || 'unknown'}`;
+  return {
+    id: stableUuidFromString(identityKey),
+    authSource: 'wordpress_hq',
+    authSubjectId: stableUuidFromString(identityKey),
+    displayName: user.displayName || user.login || 'MMC Mentor',
+    email: user.email || '',
+    role: resolveMmcRoleForSession(session),
+    wpUserId: user.id || null,
+    wpLogin: user.login || '',
+  };
+}
+
+function signMmcSupabaseJwt(principal, config) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = {
+    alg: 'HS256',
+    typ: 'JWT',
+  };
+  const payload = {
+    aud: 'authenticated',
+    exp: now + 600,
+    iat: now,
+    sub: principal.id,
+    role: 'authenticated',
+    email: principal.email || undefined,
+    app_metadata: {
+      mmc_role: principal.role,
+      mm_role: principal.role,
+      auth_source: principal.authSource,
+    },
+  };
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const signature = createHmac('sha256', config.jwtSecret)
+    .update(`${encodedHeader}.${encodedPayload}`)
+    .digest();
+  return `${encodedHeader}.${encodedPayload}.${base64UrlEncode(signature)}`;
+}
+
+function buildMmcSupabaseHeaders(config, jwt, { includeContentType = false, prefer = '' } = {}) {
+  const headers = {
+    Accept: 'application/json',
+    apikey: config.anonKey,
+    Authorization: `Bearer ${jwt}`,
+    'Accept-Profile': 'mmc',
+  };
+
+  if (includeContentType) {
+    headers['Content-Type'] = 'application/json';
+    headers['Content-Profile'] = 'mmc';
+  }
+
+  if (prefer) {
+    headers.Prefer = prefer;
+  }
+
+  return headers;
+}
+
+async function fetchMmcSupabase(config, jwt, tablePath, options = {}) {
+  return fetchJson(`${config.supabaseUrl}/rest/v1/${tablePath}`, {
+    method: options.method || 'GET',
+    headers: buildMmcSupabaseHeaders(config, jwt, {
+      includeContentType: Boolean(options.body),
+      prefer: options.prefer || '',
+    }),
+    body: options.body,
+    timeoutMs: options.timeoutMs || 8000,
+  });
+}
+
+function jsonArraySourceRef(localId, domain) {
+  return [{
+    system: 'mmc-private-runtime',
+    local_id: String(localId || ''),
+    domain: String(domain || ''),
+  }];
+}
+
+function compactObject(value = {}) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined),
+  );
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function sanitizeMmcLocalId(value = '') {
+  return String(value || '').trim().replace(/[^\w:.-]/gu, '-').slice(0, 120);
+}
+
+function collectMmcStudentIds(state = {}) {
+  const ids = new Set();
+  for (const domain of ['assignments', 'goals', 'tasks', 'promises', 'memory', 'sessions', 'sessionArtifacts', 'openLoops', 'intelligenceSnapshots']) {
+    for (const record of asArray(state[domain])) {
+      const id = sanitizeMmcLocalId(record?.studentId);
+      if (id) ids.add(id);
+    }
+  }
+  return [...ids];
+}
+
+function mmcDateOrNull(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw === 'TBD' || raw === 'Student' || raw === 'Queued') {
+    return null;
+  }
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function mmcDateOnlyOrNull(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw === 'TBD') {
+    return null;
+  }
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed.toISOString().slice(0, 10);
+}
+
+function normalizeMmcActionStatus(status = '') {
+  const value = String(status || '').trim().toLowerCase();
+  if (value === 'complete' || value === 'completed') return 'completed';
+  if (value === 'in_progress') return 'in_progress';
+  if (value === 'blocked') return 'blocked';
+  if (value === 'canceled') return 'canceled';
+  if (value === 'archived') return 'archived';
+  return 'open';
+}
+
+function normalizeMmcSessionStatus(status = '') {
+  const value = String(status || '').trim().toLowerCase();
+  if (value === 'active') return 'in_session';
+  if (value === 'complete' || value === 'completed') return 'completed';
+  if (value === 'post-session' || value === 'post_session') return 'post_session';
+  if (value === 'canceled') return 'canceled';
+  if (value === 'archived') return 'archived';
+  if (value === 'prep') return 'prep';
+  return 'planned';
+}
+
+function normalizeMmcProgressState(goal = {}) {
+  if (String(goal.velocity || '').toLowerCase().includes('risk')) return 'at_risk';
+  const progress = Number(goal.progress || 0);
+  if (progress >= 100) return 'complete';
+  if (progress > 0) return 'progressing';
+  return 'not_started';
+}
+
+function actionTypeForTask(task = {}) {
+  const type = String(task.type || '').toLowerCase();
+  if (type.includes('promise')) return 'promise';
+  if (type.includes('follow')) return 'follow_up';
+  if (type.includes('deadline')) return 'deadline';
+  if (type.includes('prep')) return 'prep';
+  if (type.includes('review')) return 'review';
+  return 'task';
+}
+
+async function selectMmcRows(context, table, query = 'select=*') {
+  const result = await fetchMmcSupabase(context.config, context.jwt, `${table}?${query}`);
+  if (!result.ok) {
+    throw new Error(result.error || `MMC ${table} select failed.`);
+  }
+  return Array.isArray(result.data) ? result.data : [];
+}
+
+async function insertMmcRow(context, table, payload) {
+  const result = await fetchMmcSupabase(context.config, context.jwt, table, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    prefer: 'return=representation',
+  });
+  if (!result.ok) {
+    throw new Error(result.error || `MMC ${table} insert failed.`);
+  }
+  return Array.isArray(result.data) ? result.data[0] : result.data;
+}
+
+async function updateMmcRow(context, table, id, payload) {
+  const result = await fetchMmcSupabase(context.config, context.jwt, `${table}?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+    prefer: 'return=representation',
+  });
+  if (!result.ok) {
+    throw new Error(result.error || `MMC ${table} update failed.`);
+  }
+  return Array.isArray(result.data) ? result.data[0] : result.data;
+}
+
+function stripMmcCreateOnlyFields(payload = {}) {
+  const next = { ...payload };
+  delete next.created_by_principal_id;
+  return next;
+}
+
+function mapRowsByLocalId(rows = []) {
+  const map = new Map();
+  for (const row of rows) {
+    const localId = String(row?.metadata?.local_id || '').trim();
+    if (localId) {
+      map.set(localId, row);
+    }
+  }
+  return map;
+}
+
+async function upsertMmcRowByLocalId(context, table, existingByLocalId, localId, payload) {
+  const existing = existingByLocalId.get(localId);
+  if (existing?.id) {
+    return updateMmcRow(context, table, existing.id, stripMmcCreateOnlyFields(payload));
+  }
+  const inserted = await insertMmcRow(context, table, payload);
+  if (inserted?.id) {
+    existingByLocalId.set(localId, inserted);
+  }
+  return inserted;
+}
+
+function scopedMmcMentorQuery(mentorId, query = 'select=*') {
+  return `mentor_id=eq.${encodeURIComponent(mentorId)}&deleted_at=is.null&archived_at=is.null&${query}`;
+}
+
+function buildMmcPersistenceContext(session, config) {
+  const principal = buildMmcPrincipal(session);
+  return {
+    config,
+    principal,
+    jwt: signMmcSupabaseJwt(principal, config),
+  };
+}
+
+async function findMmcMentor(context) {
+  const existing = await selectMmcRows(
+    context,
+    'mentors',
+    `auth_subject_id=eq.${encodeURIComponent(context.principal.authSubjectId)}&status=eq.active&deleted_at=is.null&select=*&limit=1`,
+  );
+  if (existing[0]) {
+    return existing[0];
+  }
+
+  return null;
+}
+
+async function ensureMmcMentor(context) {
+  const existing = await findMmcMentor(context);
+  if (existing) {
+    return existing;
+  }
+
+  if (context.principal.role !== 'admin') {
+    throw new Error('MMC mentor principal is not seeded for this authorized mentor.');
+  }
+  return insertMmcRow(context, 'mentors', {
+    auth_source: context.principal.authSource,
+    auth_subject_id: context.principal.authSubjectId,
+    display_name: context.principal.displayName,
+    role: 'admin',
+    status: 'active',
+    last_verified_at: new Date().toISOString(),
+    visibility: 'mentor_admin',
+    sensitivity: 'standard',
+    review_status: 'verified',
+    provenance: { source: 'MMC-021 private route bootstrap' },
+    metadata: {
+      wp_user_id: context.principal.wpUserId,
+      wp_login: context.principal.wpLogin,
+      mmc_runtime: 'MMC-021',
+    },
+    created_by_principal_id: context.principal.id,
+  });
+}
+
+async function ensureMmcSubjectRef(context, studentId, student = {}) {
+  const localId = sanitizeMmcLocalId(studentId);
+  const rows = await selectMmcRows(
+    context,
+    'identity_references',
+    `primary_anchor_type=eq.mmc_fixture_student&primary_anchor_hash=eq.${encodeURIComponent(localId)}&deleted_at=is.null&select=*&limit=1`,
+  );
+  if (rows[0]) {
+    return rows[0];
+  }
+  if (context.principal.role !== 'admin') {
+    throw new Error(`MMC subject reference is not seeded for ${localId}.`);
+  }
+  return insertMmcRow(context, 'identity_references', {
+    reference_status: 'unverified',
+    primary_anchor_type: 'mmc_fixture_student',
+    primary_anchor_hash: localId,
+    confidence: 0,
+    visibility: 'mentor_admin',
+    sensitivity: 'standard',
+    review_status: 'unreviewed',
+    source_refs: jsonArraySourceRef(localId, 'fixture-student'),
+    provenance: { source: 'MMC-021 fixture-safe subject reference' },
+    metadata: {
+      student_id: localId,
+      student_name: student.name || null,
+      canonical_student_identity: false,
+      mmc_runtime: 'MMC-021',
+    },
+    created_by_principal_id: context.principal.id,
+  });
+}
+
+async function ensureMmcAssignment(context, mentor, subjectRef, studentId) {
+  const rows = await selectMmcRows(
+    context,
+    'mentor_assignments',
+    `mentor_id=eq.${encodeURIComponent(mentor.id)}&subject_ref_id=eq.${encodeURIComponent(subjectRef.id)}&status=eq.active&revoked_at=is.null&deleted_at=is.null&select=*&limit=1`,
+  );
+  if (rows[0]) {
+    return rows[0];
+  }
+  if (context.principal.role !== 'admin') {
+    throw new Error(`MMC assignment is not seeded for ${sanitizeMmcLocalId(studentId)}.`);
+  }
+  return insertMmcRow(context, 'mentor_assignments', {
+    mentor_id: mentor.id,
+    subject_ref_id: subjectRef.id,
+    assignment_scope: 'coaching',
+    status: 'active',
+    granted_by_principal_id: context.principal.id,
+    grant_reason: 'MMC-021 staging/private-route fixture assignment',
+    visibility: 'mentor_admin',
+    sensitivity: 'standard',
+    review_status: 'verified',
+    source_refs: jsonArraySourceRef(studentId, 'mentor-assignment'),
+    provenance: { source: 'MMC-021 private route bootstrap' },
+    metadata: {
+      student_id: sanitizeMmcLocalId(studentId),
+      canonical_student_identity: false,
+      mmc_runtime: 'MMC-021',
+    },
+    created_by_principal_id: context.principal.id,
+  });
+}
+
+async function buildMmcReferenceMaps(context, state = {}) {
+  const mentor = await ensureMmcMentor(context);
+  const studentsById = new Map(asArray(state.students).map((student) => [String(student.id || ''), student]));
+  const subjectRefs = new Map();
+  const assignments = new Map();
+  const studentIds = collectMmcStudentIds(state);
+
+  for (const studentId of studentIds) {
+    const subjectRef = await ensureMmcSubjectRef(context, studentId, studentsById.get(studentId) || {});
+    const assignment = await ensureMmcAssignment(context, mentor, subjectRef, studentId);
+    subjectRefs.set(studentId, subjectRef);
+    assignments.set(studentId, assignment);
+  }
+
+  return { mentor, subjectRefs, assignments };
+}
+
+function getMmcReferenceForStudent(referenceMaps, studentId) {
+  const localId = sanitizeMmcLocalId(studentId);
+  const subjectRef = referenceMaps.subjectRefs.get(localId);
+  const assignment = referenceMaps.assignments.get(localId);
+  if (!subjectRef || !assignment) {
+    return null;
+  }
+  return { subjectRef, assignment };
+}
+
+function buildMmcCommonRow(context, reference, record, domain, extraMetadata = {}) {
+  const localId = sanitizeMmcLocalId(record.id || `${domain}-${record.studentId}`);
+  return {
+    mentor_id: reference.assignment.mentor_id,
+    assignment_id: reference.assignment.id,
+    subject_ref_id: reference.subjectRef.id,
+    visibility: extraMetadata.visibility || 'mentor_admin',
+    sensitivity: extraMetadata.sensitivity || 'standard',
+    review_status: extraMetadata.review_status || 'reviewed',
+    source_refs: jsonArraySourceRef(localId, domain),
+    provenance: {
+      source: 'MMC-021 private mount persistence',
+      local_domain: domain,
+    },
+    metadata: compactObject({
+      ...extraMetadata.metadata,
+      local_id: localId,
+      local_domain: domain,
+      student_id: sanitizeMmcLocalId(record.studentId),
+      mmc_runtime: 'MMC-021',
+    }),
+    updated_by_principal_id: context.principal.id,
+    created_by_principal_id: context.principal.id,
+  };
+}
+
+function buildMmcMemoryRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'mentor_memory', {
+      sensitivity: record.sensitive ? 'sensitive' : 'standard',
+      metadata: {
+        title: record.title || null,
+        category: record.category || null,
+        source: record.source || null,
+      },
+    }),
+    memory_type: record.category || 'coaching',
+    memory_text: record.content || record.title || 'MMC mentor memory',
+    confidence: record.verified === false ? 0.5 : 1,
+    last_confirmed_at: mmcDateOrNull(record.createdAt),
+  };
+}
+
+function buildMmcPrivateNoteRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'private_notes', {
+      visibility: 'mentor_private',
+      sensitivity: record.sensitive ? 'highly_sensitive' : 'sensitive',
+      metadata: {
+        title: record.title || 'Private Mentor Note',
+        category: record.category || 'private-note',
+        source: record.source || null,
+      },
+    }),
+    note_type: 'mentor_private',
+    note_body: record.content || record.title || 'MMC private note',
+  };
+}
+
+function buildMmcActionRow(context, reference, record, domain) {
+  const isPromise = domain === 'promise' || actionTypeForTask(record) === 'promise';
+  return {
+    ...buildMmcCommonRow(context, reference, record, domain === 'promise' ? 'promise' : 'task', {
+      metadata: {
+        local_type: record.type || null,
+        dueLabel: record.dueLabel || null,
+        priority: record.priority || null,
+        promiseId: record.promiseId || null,
+        taskId: record.taskId || null,
+        sourceSessionId: record.sourceSessionId || null,
+        madeAt: record.madeAt || null,
+      },
+    }),
+    owner_type: record.owner || record.promisor || 'mentor',
+    action_type: isPromise ? 'promise' : actionTypeForTask(record),
+    title: record.title || 'MMC action item',
+    details: record.details || null,
+    due_at: mmcDateOrNull(record.dueAt),
+    status: normalizeMmcActionStatus(record.status),
+    closed_at: normalizeMmcActionStatus(record.status) === 'completed' ? mmcDateOrNull(record.completedAt || record.updatedAt || new Date().toISOString()) : null,
+    closed_by_principal_id: normalizeMmcActionStatus(record.status) === 'completed' ? context.principal.id : null,
+  };
+}
+
+function buildMmcGoalRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'goal', {
+      metadata: {
+        milestone: record.milestone || null,
+        progress: Number(record.progress || 0),
+        velocity: record.velocity || null,
+        readinessInputs: asArray(record.readinessInputs),
+      },
+    }),
+    goal_type: 'coaching',
+    title: record.title || 'MMC coaching goal',
+    description: record.milestone || null,
+    target_date: mmcDateOnlyOrNull(record.targetDate),
+    status: record.status === 'complete' ? 'achieved' : 'active',
+    progress_state: normalizeMmcProgressState(record),
+    milestone_json: asArray(record.readinessInputs).map((item) => ({ label: item })),
+  };
+}
+
+function buildMmcSessionRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'coaching_session', {
+      metadata: {
+        title: record.title || null,
+        capturedItemIds: asArray(record.capturedItemIds),
+        studentVisible: Boolean(record.studentVisible),
+      },
+    }),
+    session_status: normalizeMmcSessionStatus(record.status),
+    started_at: mmcDateOrNull(record.startedAt),
+    ended_at: mmcDateOrNull(record.endedAt),
+    session_focus: record.title || 'MMC-owned advising session',
+    post_session_summary: record.summary || null,
+    prep_summary: record.privateNotes || null,
+    source_type: 'manual_mmc',
+  };
+}
+
+function buildMmcArtifactRow(context, reference, record, sessionIdByLocalId) {
+  const mappedSessionId = sessionIdByLocalId.get(String(record.sessionId || '').trim()) || null;
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'session_artifact', {
+      visibility: record.visibility === 'mentor' ? 'mentor_private' : 'mentor_admin',
+      metadata: {
+        localSessionId: record.sessionId || null,
+        type: record.type || null,
+      },
+    }),
+    session_id: mappedSessionId,
+    artifact_type: record.type || 'post_session_summary',
+    title: record.title || 'MMC session artifact',
+    content_body: record.content || record.summary || null,
+  };
+}
+
+function buildMmcOpenLoopRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'open_loop', {
+      sensitivity: record.severity === 'critical' ? 'sensitive' : 'standard',
+      metadata: {
+        type: record.type || null,
+        detail: record.detail || null,
+      },
+    }),
+    loop_type: record.type || 'coaching',
+    summary: record.title || record.summary || 'MMC open loop',
+    severity: ['low', 'medium', 'high', 'critical'].includes(String(record.severity || '').toLowerCase())
+      ? String(record.severity).toLowerCase()
+      : 'medium',
+    status: record.status === 'resolved' ? 'resolved' : 'open',
+  };
+}
+
+function buildMmcSnapshotRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'intelligence_snapshot', {
+      metadata: {
+        snapshotType: record.snapshotType || 'student_briefing',
+      },
+    }),
+    snapshot_type: record.snapshotType || 'student_briefing',
+    summary_json: record.summary || record,
+    confidence: Number(record.confidenceScore || 1),
+    generated_at: new Date().toISOString(),
+  };
+}
+
+async function saveMmcPersistenceState(context, state = {}, request = null) {
+  const referenceMaps = await buildMmcReferenceMaps(context, state);
+  const existing = {
+    mentor_memory: mapRowsByLocalId(await selectMmcRows(context, 'mentor_memory', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    private_notes: mapRowsByLocalId(await selectMmcRows(context, 'private_notes', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    action_items: mapRowsByLocalId(await selectMmcRows(context, 'action_items', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    goals: mapRowsByLocalId(await selectMmcRows(context, 'goals', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    coaching_sessions: mapRowsByLocalId(await selectMmcRows(context, 'coaching_sessions', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    session_artifacts: mapRowsByLocalId(await selectMmcRows(context, 'session_artifacts', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    open_loops: mapRowsByLocalId(await selectMmcRows(context, 'open_loops', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    intelligence_snapshots: mapRowsByLocalId(await selectMmcRows(context, 'intelligence_snapshots', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+  };
+  const sessionIdByLocalId = new Map();
+  let writeCount = 0;
+
+  for (const record of asArray(state.memory).filter((item) => item?.category !== 'private-note')) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'mentor_memory', existing.mentor_memory, sanitizeMmcLocalId(record.id), buildMmcMemoryRow(context, reference, record));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.memory).filter((item) => item?.category === 'private-note')) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'private_notes', existing.private_notes, sanitizeMmcLocalId(record.id), buildMmcPrivateNoteRow(context, reference, record));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.tasks)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'action_items', existing.action_items, sanitizeMmcLocalId(record.id), buildMmcActionRow(context, reference, record, 'task'));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.promises)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'action_items', existing.action_items, sanitizeMmcLocalId(record.id), buildMmcActionRow(context, reference, record, 'promise'));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.goals)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'goals', existing.goals, sanitizeMmcLocalId(record.id), buildMmcGoalRow(context, reference, record));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.sessions)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    const saved = await upsertMmcRowByLocalId(context, 'coaching_sessions', existing.coaching_sessions, sanitizeMmcLocalId(record.id), buildMmcSessionRow(context, reference, record));
+    if (saved?.id) sessionIdByLocalId.set(String(record.id || '').trim(), saved.id);
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.sessionArtifacts)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'session_artifacts', existing.session_artifacts, sanitizeMmcLocalId(record.id), buildMmcArtifactRow(context, reference, record, sessionIdByLocalId));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.openLoops)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'open_loops', existing.open_loops, sanitizeMmcLocalId(record.id), buildMmcOpenLoopRow(context, reference, record));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.intelligenceSnapshots)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'intelligence_snapshots', existing.intelligence_snapshots, sanitizeMmcLocalId(record.id), buildMmcSnapshotRow(context, reference, record));
+    writeCount += 1;
+  }
+
+  await insertMmcRow(context, 'audit_events', {
+    actor_principal_id: context.principal.id,
+    actor_role: context.principal.role,
+    action: 'mmc021_persistence_sync',
+    object_schema: 'mmc',
+    object_table: 'multiple',
+    reason: 'MMC-021 private mount persistence sync',
+    request_id: request?.headers?.['x-request-id'] || null,
+    user_agent_hash: request?.headers?.['user-agent']
+      ? createHash('sha256').update(String(request.headers['user-agent'])).digest('hex')
+      : null,
+    metadata: {
+      write_count: writeCount,
+      project_ref: context.config.projectRef,
+      runtime: 'MMC-021',
+    },
+  });
+
+  return {
+    ok: true,
+    writeCount,
+    state: await loadMmcPersistenceState(context),
+  };
+}
+
+function mapMmcMemoryRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    category: row.metadata?.category || row.memory_type || 'coaching',
+    title: row.metadata?.title || row.memory_type || 'Mentor Memory',
+    content: row.memory_text || '',
+    sensitive: row.sensitivity !== 'standard',
+    verified: row.review_status === 'verified' || row.review_status === 'reviewed',
+    source: row.metadata?.source || 'mmc-schema',
+    createdAt: String(row.created_at || '').slice(0, 10),
+  };
+}
+
+function mapMmcPrivateNoteRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    category: 'private-note',
+    title: row.metadata?.title || 'Private Mentor Note',
+    content: row.note_body || '',
+    sensitive: row.sensitivity !== 'standard',
+    verified: row.review_status === 'verified' || row.review_status === 'reviewed',
+    source: row.metadata?.source || 'mmc-schema-private-note',
+    createdAt: String(row.created_at || '').slice(0, 10),
+  };
+}
+
+function mapMmcActionRow(row) {
+  const isPromise = row.metadata?.local_domain === 'promise' || row.action_type === 'promise';
+  const common = {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    owner: row.owner_type || 'mentor',
+    type: row.metadata?.local_type || (isPromise ? 'Promise' : row.action_type || 'Task'),
+    title: row.title || 'MMC action item',
+    dueLabel: row.metadata?.dueLabel || 'Queued',
+    dueAt: row.due_at ? String(row.due_at).slice(0, 10) : 'TBD',
+    status: row.status === 'completed' ? 'complete' : row.status || 'open',
+    priority: row.metadata?.priority || 'normal',
+    promiseId: row.metadata?.promiseId || null,
+    sourceSessionId: row.metadata?.sourceSessionId || null,
+  };
+  if (!isPromise) {
+    return { kind: 'task', record: common };
+  }
+  return {
+    kind: 'promise',
+    record: {
+      id: common.id,
+      taskId: row.metadata?.taskId || common.promiseId || null,
+      studentId: common.studentId,
+      promisor: row.owner_type || 'mentor',
+      title: common.title,
+      madeAt: row.metadata?.madeAt || String(row.created_at || '').slice(0, 10),
+      dueLabel: common.dueLabel,
+      status: common.status,
+    },
+  };
+}
+
+function mapMmcGoalRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    title: row.title || 'MMC coaching goal',
+    milestone: row.metadata?.milestone || row.description || '',
+    targetDate: row.target_date || 'TBD',
+    progress: Number(row.metadata?.progress || 0),
+    velocity: row.metadata?.velocity || row.progress_state || 'Needs mentor definition',
+    readinessInputs: asArray(row.metadata?.readinessInputs).length
+      ? row.metadata.readinessInputs
+      : asArray(row.milestone_json).map((item) => item.label).filter(Boolean),
+  };
+}
+
+function mapMmcSessionRow(row) {
+  const status = row.session_status === 'completed'
+    ? 'complete'
+    : row.session_status === 'in_session'
+      ? 'active'
+      : row.session_status || 'planned';
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    mentorId: row.mentor_id || '',
+    status,
+    startedAt: row.started_at || '',
+    endedAt: row.ended_at || null,
+    title: row.metadata?.title || row.session_focus || 'MMC-owned advising session',
+    summary: row.post_session_summary || '',
+    privateNotes: row.prep_summary || '',
+    capturedItemIds: asArray(row.metadata?.capturedItemIds),
+    studentVisible: Boolean(row.metadata?.studentVisible),
+  };
+}
+
+function mapMmcArtifactRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    sessionId: row.metadata?.localSessionId || row.session_id || null,
+    studentId: row.metadata?.student_id || '',
+    type: row.metadata?.type || row.artifact_type || 'summary',
+    title: row.title || 'MMC session artifact',
+    visibility: row.visibility === 'mentor_private' ? 'mentor' : row.visibility,
+    createdAt: String(row.created_at || '').slice(0, 10),
+  };
+}
+
+function mapMmcOpenLoopRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    title: row.summary || 'MMC open loop',
+    type: row.metadata?.type || row.loop_type || 'coaching',
+    status: row.status || 'open',
+    severity: row.severity || 'medium',
+    detail: row.metadata?.detail || '',
+  };
+}
+
+function mapMmcSnapshotRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    snapshotType: row.snapshot_type || 'student_briefing',
+    summary: row.summary_json || {},
+    confidenceScore: Number(row.confidence || 0),
+    generatedAt: row.generated_at || row.created_at || null,
+  };
+}
+
+async function loadMmcPersistenceState(context) {
+  const mentor = await findMmcMentor(context);
+  if (!mentor) {
+    return emptyMmcPersistenceState();
+  }
+
+  const [
+    memoryRows,
+    privateNoteRows,
+    actionRows,
+    goalRows,
+    sessionRows,
+    artifactRows,
+    openLoopRows,
+    snapshotRows,
+  ] = await Promise.all([
+    selectMmcRows(context, 'mentor_memory', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'private_notes', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'action_items', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'goals', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'coaching_sessions', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'session_artifacts', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'open_loops', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'intelligence_snapshots', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+  ]);
+  const actionMapped = actionRows.map(mapMmcActionRow);
+  return {
+    memory: [
+      ...memoryRows.map(mapMmcMemoryRow),
+      ...privateNoteRows.map(mapMmcPrivateNoteRow),
+    ].filter((record) => record.studentId),
+    tasks: actionMapped.filter((item) => item.kind === 'task').map((item) => item.record).filter((record) => record.studentId),
+    promises: actionMapped.filter((item) => item.kind === 'promise').map((item) => item.record).filter((record) => record.studentId),
+    goals: goalRows.map(mapMmcGoalRow).filter((record) => record.studentId),
+    sessions: sessionRows.map(mapMmcSessionRow).filter((record) => record.studentId),
+    sessionArtifacts: artifactRows.map(mapMmcArtifactRow).filter((record) => record.studentId),
+    openLoops: openLoopRows.map(mapMmcOpenLoopRow).filter((record) => record.studentId),
+    intelligenceSnapshots: snapshotRows.map(mapMmcSnapshotRow).filter((record) => record.studentId),
+  };
+}
+
+function emptyMmcPersistenceState() {
+  return {
+    memory: [],
+    tasks: [],
+    promises: [],
+    goals: [],
+    sessions: [],
+    sessionArtifacts: [],
+    openLoops: [],
+    intelligenceSnapshots: [],
+  };
+}
+
+function responseForMmcPersistenceUnavailable(response, configStatus, extraHeaders = {}) {
+  sendJson(response, configStatus.status || 503, {
+    ok: false,
+    status: 'UNVERIFIED',
+    mode: 'fixture-memory-fallback',
+    error: configStatus.code,
+    message: configStatus.message,
+    localStorageFallback: false,
+    persistedDomains: [],
+  }, extraHeaders);
+}
+
+async function handleMmcPersistenceRoute(request, response, url, { session, authHeaders }) {
+  if (!['GET', 'POST'].includes(request.method)) {
+    sendMethodNotAllowed(response, ['GET', 'POST']);
+    return;
+  }
+
+  if (!isAuthorizedMmcPrivateSession(session)) {
+    sendJson(response, 403, {
+      ok: false,
+      error: 'mmc_private_forbidden',
+      message: 'MMC persistence requires the private MMC route-specific authorization model.',
+    }, authHeaders);
+    return;
+  }
+
+  const configStatus = getMmcPersistenceConfig();
+  if (!configStatus.ok) {
+    responseForMmcPersistenceUnavailable(response, configStatus, authHeaders);
+    return;
+  }
+
+  const context = buildMmcPersistenceContext(session, configStatus);
+  try {
+    if (request.method === 'GET') {
+      const state = await loadMmcPersistenceState(context);
+      sendJson(response, 200, {
+        ok: true,
+        status: 'VERIFIED',
+        mode: 'mmc-schema',
+        projectRef: configStatus.projectRef,
+        csrfToken: session?.csrfToken || '',
+        localStorageFallback: false,
+        persistedDomains: [
+          'mmc.mentor_memory',
+          'mmc.private_notes',
+          'mmc.action_items',
+          'mmc.goals',
+          'mmc.coaching_sessions',
+          'mmc.session_artifacts',
+          'mmc.open_loops',
+          'mmc.intelligence_snapshots',
+        ],
+        state,
+      }, authHeaders);
+      return;
+    }
+
+    const payload = await readJsonBody(request);
+    const saved = await saveMmcPersistenceState(context, payload?.state || {}, request);
+    sendJson(response, 200, {
+      ok: true,
+      status: 'VERIFIED',
+      mode: 'mmc-schema',
+      projectRef: configStatus.projectRef,
+      writeCount: saved.writeCount,
+      localStorageFallback: false,
+      persistedDomains: [
+        'mmc.mentor_memory',
+        'mmc.private_notes',
+        'mmc.action_items',
+        'mmc.goals',
+        'mmc.coaching_sessions',
+        'mmc.session_artifacts',
+        'mmc.open_loops',
+        'mmc.intelligence_snapshots',
+      ],
+      state: saved.state,
+    }, authHeaders);
+  } catch (error) {
+    sendJson(response, 502, {
+      ok: false,
+      status: 'CONFLICT',
+      mode: 'fixture-memory-fallback',
+      error: 'mmc_persistence_failed',
+      message: error instanceof Error ? error.message : 'MMC persistence request failed.',
+      localStorageFallback: false,
+    }, authHeaders);
+  }
+}
+
+// SPA frontend routes — these are client-side routes that all resolve to index.html.
+// Matches the locked navigation structure: Home, Payments, Students, MedMail, Leads,
+// Media Engine, Studio, Settings (MR-HQ-001).
+const SPA_FRONTEND_ROUTES = new Set([
+  '/hq/email',
+  '/studio',
+  '/media-engine',
+  '/medmail',
+  '/leads',
+  '/payments',
+  '/students',
+  '/settings',
+  '/hq',
+]);
 
 function isSpaRoute(pathname) {
   const normalized = pathname.replace(/\/+$/u, '') || '/';
@@ -6469,6 +7419,297 @@ async function fetchWordPressUserFromCookieHeader(cookieHeader = '') {
   };
 }
 
+async function hydrateSchedulerEntitlementSession(authSession = null, request = null, audience = '') {
+  if (!authSession || !authSession.user) {
+    return authSession;
+  }
+
+  const normalizedAudience = normalizeAuthAudience(audience || authSession.audience || authSession.authAudience || authSession.auth_audience || '');
+  if (!isSchedulerAuthAudience(normalizedAudience)) {
+    return authSession;
+  }
+
+  const existingFacts = authSession.schedulerEntitlements || authSession.user?.schedulerEntitlements || {};
+  const cookieHeader = getRequestCookieHeader(request);
+  if (!hasWordPressSessionCookie(cookieHeader) && Object.keys(existingFacts || {}).length) {
+    return authSession;
+  }
+
+  const resolved = await resolveSchedulerEntitlementFactsFromWordPress(authSession, cookieHeader);
+  const facts = mergeSchedulerEntitlementFacts(existingFacts, resolved);
+
+  return {
+    ...authSession,
+    schedulerEntitlements: facts,
+    user: {
+      ...authSession.user,
+      schedulerEntitlements: facts,
+    },
+  };
+}
+
+async function resolveSchedulerEntitlementFactsFromWordPress(authSession = null, cookieHeader = '') {
+  const checkedAt = new Date().toISOString();
+  const wpUserId = Number(authSession?.user?.id || authSession?.wpUserId || 0) || null;
+  const unavailable = (reason, detail = '') => ({
+    source: 'wordpress_cookie',
+    configured: false,
+    unavailable: true,
+    reason,
+    detail,
+    checked_at: checkedAt,
+    wp_user_id: wpUserId,
+    course_ids: [],
+    learndash_course_ids: [],
+    product_ids: [],
+    woocommerce_product_ids: [],
+    tier_keys: [],
+    division_keys: [],
+  });
+
+  if (!CONFIG.wpBase) {
+    return unavailable('wordpress_base_missing', 'MMHQ_WP_BASE is not configured.');
+  }
+
+  if (!hasWordPressSessionCookie(cookieHeader)) {
+    return unavailable('wordpress_session_cookie_missing', 'A WordPress session cookie is required for live Scheduler entitlement facts.');
+  }
+
+  const schedulerEntitlementResponse = await fetchWordPressCurrentUserJson('/wp-json/missionmed-scheduler/v1/entitlements/me', cookieHeader);
+  if (isMatchingSchedulerEntitlementResponse(schedulerEntitlementResponse, wpUserId)) {
+    return normalizeSchedulerEntitlementEndpointFacts(schedulerEntitlementResponse, {
+      checkedAt,
+      wpUserId,
+      source: 'wordpress_cookie_scheduler_endpoint',
+      mode: 'cookie-authenticated Scheduler entitlement endpoint',
+    });
+  }
+
+  let [coursesResponse, profileResponse] = await Promise.all([
+    fetchWordPressCurrentUserJson('/wp-json/mmed/v1/courses', cookieHeader),
+    fetchWordPressCurrentUserJson('/wp-json/mmed/v1/user/profile', cookieHeader),
+  ]);
+  let source = 'wordpress_cookie';
+  let sourceDetail = 'cookie-authenticated Matrix REST';
+
+  if (wpUserId && !hasUsableSchedulerEntitlementFacts(coursesResponse, profileResponse)) {
+    const serviceEntitlementResponse = await fetchWordPressCurrentUserJsonWithServiceAuth(`/wp-json/missionmed-scheduler/v1/entitlements/me?wp_user_id=${encodeURIComponent(String(wpUserId))}`);
+    if (isMatchingSchedulerEntitlementResponse(serviceEntitlementResponse, wpUserId)) {
+      return normalizeSchedulerEntitlementEndpointFacts(serviceEntitlementResponse, {
+        checkedAt,
+        wpUserId,
+        source: 'wordpress_service_scheduler_endpoint',
+        mode: 'service-authenticated Scheduler entitlement endpoint with matching WordPress user id',
+      });
+    }
+
+    const serviceProfileResponse = await fetchWordPressCurrentUserJsonWithServiceAuth('/wp-json/mmed/v1/user/profile');
+    const serviceProfileUserId = Number(serviceProfileResponse.data?.id || 0) || null;
+    if (serviceProfileResponse.ok && serviceProfileUserId === wpUserId) {
+      const serviceCoursesResponse = await fetchWordPressCurrentUserJsonWithServiceAuth('/wp-json/mmed/v1/courses');
+      profileResponse = serviceProfileResponse;
+      coursesResponse = serviceCoursesResponse.ok ? serviceCoursesResponse : coursesResponse;
+      source = 'wordpress_service_self_verified';
+      sourceDetail = 'service-authenticated Matrix REST with matching WordPress user id';
+    }
+  }
+
+  const courseIds = coursesResponse.ok
+    ? uniquePositiveIntegerStrings((coursesResponse.data?.courses || []).map((course) => course?.id || course?.course_id))
+    : [];
+  const profile = profileResponse.ok && profileResponse.data && typeof profileResponse.data === 'object'
+    ? profileResponse.data
+    : {};
+
+  const tierKeys = uniqueTextTokens([
+    profile.program_tier,
+    profile.tier,
+    profile.membership_tier,
+  ]);
+  const divisionKeys = uniqueTextTokens([
+    profile.division,
+    profile.primary_division,
+    profile.program_division,
+  ]);
+
+  return {
+    source,
+    configured: Boolean(courseIds.length || tierKeys.length || divisionKeys.length),
+    unavailable: false,
+    checked_at: checkedAt,
+    wp_user_id: wpUserId,
+    course_ids: courseIds,
+    learndash_course_ids: courseIds,
+    product_ids: [],
+    woocommerce_product_ids: [],
+    tier_keys: tierKeys,
+    division_keys: divisionKeys,
+    source_details: {
+      mode: sourceDetail,
+      courses: coursesResponse.ok ? 'mmed/v1/courses' : coursesResponse.error || 'courses_unavailable',
+      profile: profileResponse.ok ? 'mmed/v1/user/profile' : profileResponse.error || 'profile_unavailable',
+      product_ids: 'not_available_from_current_wordpress_rest_bridge',
+    },
+  };
+}
+
+function isMatchingSchedulerEntitlementResponse(response = {}, wpUserId = null) {
+  if (!response.ok || !response.data || typeof response.data !== 'object') {
+    return false;
+  }
+  const responseUserId = Number(response.data.wordpress_user_id || response.data.wp_user_id || response.data.user_id || 0) || null;
+  return Boolean(wpUserId && responseUserId === Number(wpUserId));
+}
+
+function normalizeSchedulerEntitlementEndpointFacts(response = {}, { checkedAt, wpUserId, source, mode } = {}) {
+  const data = response.data || {};
+  const courseIds = uniquePositiveIntegerStrings([
+    data.course_ids,
+    data.courseIds,
+    data.learndash_course_ids,
+    data.learndashCourseIds,
+  ]);
+  const productIds = uniquePositiveIntegerStrings([
+    data.product_ids,
+    data.productIds,
+    data.woocommerce_product_ids,
+    data.woocommerceProductIds,
+  ]);
+  const tierKeys = uniqueTextTokens([data.tier_keys, data.tierKeys]);
+  const divisionKeys = uniqueTextTokens([data.division_keys, data.divisionKeys]);
+  return {
+    source,
+    configured: Boolean(courseIds.length || productIds.length || tierKeys.length || divisionKeys.length),
+    unavailable: false,
+    checked_at: checkedAt || new Date().toISOString(),
+    wp_user_id: wpUserId,
+    course_ids: courseIds,
+    learndash_course_ids: courseIds,
+    product_ids: productIds,
+    woocommerce_product_ids: productIds,
+    tier_keys: tierKeys,
+    division_keys: divisionKeys,
+    source_details: {
+      mode,
+      endpoint: 'missionmed-scheduler/v1/entitlements/me',
+      learndash_available: data.source_flags?.learndash_available ?? null,
+      woocommerce_available: data.source_flags?.woocommerce_available ?? null,
+      matrix_available: data.source_flags?.matrix_available ?? null,
+      exam_prep_status: data.mapping?.exam_prep_status || 'unknown',
+    },
+  };
+}
+
+async function fetchWordPressCurrentUserJson(pathname = '', cookieHeader = '') {
+  const response = await fetchJson(`${CONFIG.wpBase}${pathname}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Cookie: cookieHeader,
+    },
+    timeoutMs: 8_000,
+  });
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status || 502,
+      error: response.error || 'wordpress_rest_unavailable',
+    };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    data: response.data || {},
+  };
+}
+
+async function fetchWordPressCurrentUserJsonWithServiceAuth(pathname = '') {
+  const headers = getWordPressServiceHeaders();
+  if (!headers || !Object.keys(headers).length) {
+    return {
+      ok: false,
+      status: 503,
+      error: 'wordpress_service_credentials_missing',
+    };
+  }
+
+  const response = await fetchJson(`${CONFIG.wpBase}${pathname}`, {
+    method: 'GET',
+    headers: {
+      ...headers,
+      Accept: 'application/json',
+    },
+    timeoutMs: 8_000,
+  });
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status || 502,
+      error: response.error || 'wordpress_service_rest_unavailable',
+    };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    data: response.data || {},
+  };
+}
+
+function hasUsableSchedulerEntitlementFacts(coursesResponse = {}, profileResponse = {}) {
+  const courseIds = coursesResponse.ok
+    ? uniquePositiveIntegerStrings((coursesResponse.data?.courses || []).map((course) => course?.id || course?.course_id))
+    : [];
+  const profile = profileResponse.ok && profileResponse.data && typeof profileResponse.data === 'object'
+    ? profileResponse.data
+    : {};
+  const tierKeys = uniqueTextTokens([profile.program_tier, profile.tier, profile.membership_tier]);
+  const divisionKeys = uniqueTextTokens([profile.division, profile.primary_division, profile.program_division]);
+  return Boolean(courseIds.length || tierKeys.length || divisionKeys.length);
+}
+
+function mergeSchedulerEntitlementFacts(existing = {}, resolved = {}) {
+  const base = existing && typeof existing === 'object' && !Array.isArray(existing) ? existing : {};
+  const next = resolved && typeof resolved === 'object' && !Array.isArray(resolved) ? resolved : {};
+  return {
+    ...base,
+    ...next,
+    course_ids: uniquePositiveIntegerStrings([base.course_ids, base.courseIds, base.learndash_course_ids, base.learndashCourseIds, next.course_ids, next.courseIds, next.learndash_course_ids, next.learndashCourseIds]),
+    learndash_course_ids: uniquePositiveIntegerStrings([base.learndash_course_ids, base.learndashCourseIds, base.course_ids, base.courseIds, next.learndash_course_ids, next.learndashCourseIds, next.course_ids, next.courseIds]),
+    product_ids: uniquePositiveIntegerStrings([base.product_ids, base.productIds, base.woocommerce_product_ids, base.woocommerceProductIds, next.product_ids, next.productIds, next.woocommerce_product_ids, next.woocommerceProductIds]),
+    woocommerce_product_ids: uniquePositiveIntegerStrings([base.woocommerce_product_ids, base.woocommerceProductIds, base.product_ids, base.productIds, next.woocommerce_product_ids, next.woocommerceProductIds, next.product_ids, next.productIds]),
+    tier_keys: uniqueTextTokens([base.tier_keys, base.tierKeys, next.tier_keys, next.tierKeys]),
+    division_keys: uniqueTextTokens([base.division_keys, base.divisionKeys, next.division_keys, next.divisionKeys]),
+  };
+}
+
+function uniquePositiveIntegerStrings(values = []) {
+  return [...new Set(flattenValues(values)
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .map((value) => String(Math.trunc(value))))];
+}
+
+function uniqueTextTokens(values = []) {
+  return [...new Set(flattenValues(values)
+    .map((value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/gu, '_'))
+    .filter(Boolean))];
+}
+
+function flattenValues(values = []) {
+  return (Array.isArray(values) ? values : [values])
+    .flat(Infinity)
+    .flatMap((value) => {
+      if (typeof value === 'string' && value.includes(',')) {
+        return value.split(',');
+      }
+      return [value];
+    });
+}
+
 function normalizeWordPressIdentityUser(user = {}, fallback = {}) {
   const normalized = normalizeWordPressUser(user);
   return {
@@ -6486,6 +7727,60 @@ function toCanonicalIdentity(wordPressUser, source = 'wp_cookie') {
     roles: Array.isArray(user.roles) ? user.roles : [],
     source,
     issued_at: new Date().toISOString(),
+  };
+}
+
+function normalizeWordPressCourseAccess(raw = {}) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const result = {};
+  Object.entries(raw).forEach(([key, value]) => {
+    const safeKey = String(key || '').trim();
+    if (!safeKey) return;
+    if (value === true || value === false) {
+      result[safeKey] = { enrolled: value === true };
+      return;
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+    const courseIds = Array.isArray(value.course_ids)
+      ? value.course_ids
+      : (Array.isArray(value.courseIds) ? value.courseIds : [value.course_id || value.courseId]);
+    result[safeKey] = {
+      enrolled: value.enrolled === true || value.has_access === true || value.hasAccess === true,
+      course_id: Number(value.course_id || value.courseId || 0) || null,
+      course_ids: courseIds.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0),
+      course_title: String(value.course_title || value.courseTitle || value.title || '').trim(),
+      source: String(value.source || '').trim(),
+    };
+  });
+  return result;
+}
+
+function sessionHasDrillsOnCallCourseAccess(session = null) {
+  const user = session?.user || {};
+  const access = user.courseAccess || user.course_access || {};
+  const entry = access.drills_on_call || access.drillsOnCall || access.dr_j_drills_on_call || access[CONFIG.drillsOnCallCourseName];
+  if (!entry) return { has_access: false, source: 'learn_dash_course_access_missing' };
+  if (entry === true) return { has_access: true, source: 'wordpress_handoff.course_access.drills_on_call' };
+  if (typeof entry !== 'object' || Array.isArray(entry)) return { has_access: false, source: 'learn_dash_course_access_invalid' };
+  const enrolled = entry.enrolled === true || entry.has_access === true || entry.hasAccess === true;
+  const courseIds = Array.isArray(entry.course_ids)
+    ? entry.course_ids.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0)
+    : [];
+  const courseId = Number(entry.course_id || entry.courseId || 0);
+  if (Number.isInteger(courseId) && courseId > 0 && !courseIds.includes(courseId)) courseIds.push(courseId);
+  const configuredIds = CONFIG.drillsOnCallCourseIds || [];
+  const idMatches = configuredIds.length === 0 || courseIds.some((course) => configuredIds.includes(course));
+  if (enrolled && idMatches) {
+    return {
+      has_access: true,
+      source: String(entry.source || 'wordpress_handoff.course_access.drills_on_call').trim(),
+      course_id: courseIds[0] || null,
+    };
+  }
+  return {
+    has_access: false,
+    source: enrolled ? 'learn_dash_course_id_mismatch' : 'learn_dash_course_not_enrolled',
+    course_id: courseIds[0] || null,
   };
 }
 
@@ -6953,6 +8248,7 @@ function parseWordPressHandoffToken(wpToken = '') {
     display_name: payload?.display_name || payload?.name,
     email: payload?.email,
     roles: Array.isArray(payload?.roles) ? payload.roles : [],
+    course_access: payload?.course_access || payload?.courseAccess || {},
   });
 
   if (!Number(wpUser.id || 0) || !String(wpUser.email || '').trim()) {
@@ -6961,15 +8257,6 @@ function parseWordPressHandoffToken(wpToken = '') {
       recognized: true,
       status: 401,
       error: 'handoff_identity_invalid',
-    };
-  }
-
-  if (!isAuthorizedWordPressUser(wpUser)) {
-    return {
-      ok: false,
-      recognized: true,
-      status: 403,
-      error: 'This WordPress account is not authorized for MissionMed HQ.',
     };
   }
 
@@ -6984,11 +8271,20 @@ function parseWordPressHandoffToken(wpToken = '') {
 async function exchangeWordPressAuth(payload = {}, request = null) {
   const cookieHeader = getRequestCookieHeader(request);
   const wpToken = String(payload.wpToken || payload.token || payload.bearerToken || '').trim();
+  const audience = normalizeAuthAudience(payload?.audience || payload?.authAudience || payload?.mode || '');
 
   if (wpToken) {
     const handoff = parseWordPressHandoffToken(wpToken);
     if (handoff.ok && handoff.user) {
       const wpUser = handoff.user;
+      const grant = resolveWordPressSessionGrant(wpUser, audience);
+      if (!grant.ok) {
+        return {
+          ok: false,
+          status: 403,
+          error: 'This WordPress account is not authorized for MissionMed HQ.',
+        };
+      }
       return {
         ok: true,
         status: 200,
@@ -6999,12 +8295,15 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
             displayName: wpUser.displayName,
             email: wpUser.email,
             roles: wpUser.roles,
+            courseAccess: wpUser.courseAccess,
             scope: wpUser.scope || resolveOperatorScope(wpUser),
           },
           {
             wpAuthorization: getWordPressServiceAuthorization(),
+            audience: grant.audience,
+            apiScope: grant.apiScope,
           },
-          'wordpress-handoff',
+          `wordpress-handoff${grant.authSourceSuffix}`,
         ),
       };
     }
@@ -7029,7 +8328,8 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
     }
 
     const wpUser = normalizeWordPressIdentityUser(cookieValidation.user || {});
-    if (!isAuthorizedWordPressUser(wpUser)) {
+    const grant = resolveWordPressSessionGrant(wpUser, audience);
+    if (!grant.ok) {
       return {
         ok: false,
         status: 403,
@@ -7047,12 +8347,15 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
           displayName: wpUser.displayName,
           email: wpUser.email,
           roles: wpUser.roles,
+          courseAccess: wpUser.courseAccess,
           scope: wpUser.scope || resolveOperatorScope(wpUser),
         },
         {
           wpAuthorization: getWordPressServiceAuthorization(),
+          audience: grant.audience,
+          apiScope: grant.apiScope,
         },
-        'wordpress-cookie',
+        `wordpress-cookie${grant.authSourceSuffix}`,
       ),
     };
   }
@@ -7109,7 +8412,8 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
   }
 
   const wpUser = normalizeWordPressUser(exchange.data?.user || {});
-  if (!isAuthorizedWordPressUser(wpUser)) {
+  const grant = resolveWordPressSessionGrant(wpUser, audience);
+  if (!grant.ok) {
     return {
       ok: false,
       status: 403,
@@ -7127,12 +8431,15 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
         displayName: wpUser.displayName,
         email: wpUser.email,
         roles: wpUser.roles,
+        courseAccess: wpUser.courseAccess,
         scope: wpUser.scope || resolveOperatorScope(wpUser),
       },
       {
         wpAuthorization: `Bearer ${issuedToken}`,
+        audience: grant.audience,
+        apiScope: grant.apiScope,
       },
-      'wordpress-token',
+      `wordpress-token${grant.authSourceSuffix}`,
     ),
   };
 }
@@ -7275,6 +8582,7 @@ function normalizeWordPressUser(user) {
     email: String(user?.email || '').trim(),
     roles: Array.isArray(user?.roles) ? user.roles.map((role) => String(role).toLowerCase()) : [],
     capabilities: user?.capabilities || user?.extra_capabilities || {},
+    courseAccess: normalizeWordPressCourseAccess(user?.courseAccess || user?.course_access || {}),
     scope: user?.scope || null,
   };
 }
@@ -7286,6 +8594,64 @@ function isAuthorizedWordPressUser(user) {
   }
 
   return Boolean(user.capabilities?.manage_options);
+}
+
+function normalizeAuthAudience(audience = '') {
+  return String(audience || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/gu, '-');
+}
+
+function isSchedulerAuthAudience(audience = '') {
+  return ['scheduler', 'missionmed-scheduler', 'matrix-scheduler'].includes(normalizeAuthAudience(audience));
+}
+
+function isArenaEligibleWordPressUser(user) {
+  return Boolean(Number(user?.id || 0) && String(user?.email || '').trim());
+}
+
+function isSchedulerEligibleWordPressUser(user) {
+  return Boolean(Number(user?.id || 0) && String(user?.email || '').trim());
+}
+
+function resolveWordPressSessionGrant(user, audience = '') {
+  const normalizedAudience = normalizeAuthAudience(audience);
+  if (isAuthorizedWordPressUser(user)) {
+    return {
+      ok: true,
+      apiScope: 'hq',
+      audience: normalizedAudience,
+      authSourceSuffix: '',
+    };
+  }
+
+  if (normalizedAudience === 'arena' && isArenaEligibleWordPressUser(user)) {
+    return {
+      ok: true,
+      apiScope: 'arena',
+      audience: 'arena',
+      authSourceSuffix: '-arena',
+    };
+  }
+
+  if (isSchedulerAuthAudience(normalizedAudience) && isSchedulerEligibleWordPressUser(user)) {
+    return {
+      ok: true,
+      apiScope: 'scheduler',
+      audience: normalizedAudience,
+      authSourceSuffix: '-scheduler',
+    };
+  }
+
+  return {
+    ok: false,
+    apiScope: '',
+    audience: normalizedAudience,
+    authSourceSuffix: '',
+  };
+}
+
+function isArenaOnlySession(session = null) {
+  return String(session?.apiScope || '').trim().toLowerCase() === 'arena'
+    || (String(session?.audience || '').trim().toLowerCase() === 'arena' && !isAuthorizedWordPressUser(session?.user || {}));
 }
 
 function resolveOperatorScope(user) {
@@ -10865,6 +12231,957 @@ async function fetchSupabaseTable(path, options = {}) {
     body: options.body,
     timeoutMs: options.timeoutMs || 7000,
   });
+}
+
+function normalizeArenaMode(value = '') {
+  const safe = String(value || '').trim().toLowerCase().replace(/-/gu, '_');
+  if (safe === 'qstat') return 'stat';
+  if (safe === 'daily_round' || safe === 'dailyrounds') return 'daily_rounds';
+  if (safe === 'daily_drills' || safe === 'drills_v3') return 'daily_drills_v3';
+  if (safe === 'statv3' || safe === 'stat_v3') return 'stat_v3_lab';
+  if (safe === 'iv_oncall' || safe === 'ivoncall') return 'iv_on_call';
+  if (safe === 'usceoncall') return 'usce_on_call';
+  if (safe === 'pimpin' || safe === 'pimpin_round') return 'pimpin_rounds';
+  return safe;
+}
+
+function getArenaTodayDateKey(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: ARENA_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now).reduce((accumulator, part) => {
+    if (part.type !== 'literal') accumulator[part.type] = part.value;
+    return accumulator;
+  }, {});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function arenaHashSalt() {
+  return CONFIG.arenaTrialHashSalt || SESSION_SECRET || 'missionmed-arena-trial-salt';
+}
+
+function hashArenaValue(value = '') {
+  const safe = String(value || '').trim();
+  if (!safe) return '';
+  return createHash('sha256')
+    .update(`${arenaHashSalt()}:${safe}`)
+    .digest('hex');
+}
+
+function hashArenaEmail(email = '') {
+  const safe = String(email || '').trim().toLowerCase();
+  return safe ? hashArenaValue(`email:${safe}`) : '';
+}
+
+function getArenaClientIp(request) {
+  const direct = String(request.headers['cf-connecting-ip'] || '').trim();
+  if (direct) return direct;
+  const forwarded = String(request.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  if (forwarded) return forwarded;
+  return String(request.socket?.remoteAddress || '').trim();
+}
+
+function getArenaUserAgent(request) {
+  return String(request.headers['user-agent'] || '').trim().slice(0, 1000);
+}
+
+function buildArenaFingerprintHashes(request) {
+  const ipHash = hashArenaValue(`ip:${getArenaClientIp(request)}`);
+  const userAgentHash = hashArenaValue(`ua:${getArenaUserAgent(request)}`);
+  const fingerprintHash = ipHash && userAgentHash ? hashArenaValue(`fp:${ipHash}:${userAgentHash}`) : '';
+  return {
+    ip_hash: ipHash,
+    user_agent_hash: userAgentHash,
+    request_fingerprint_hash: fingerprintHash,
+  };
+}
+
+function normalizeArenaRoleList(session = null) {
+  const roles = Array.isArray(session?.user?.roles) ? session.user.roles : [];
+  return roles
+    .map((role) => String(role || '').trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function resolveArenaAdminAuthority(session = null) {
+  const roles = normalizeArenaRoleList(session);
+  const matchedRole = roles.find((role) => ARENA_ADMIN_ROLE_MARKERS.has(role));
+  if (matchedRole) {
+    return {
+      is_admin: true,
+      admin_source: `wordpress_role:${matchedRole}`,
+    };
+  }
+
+  const scope = session?.user?.scope || {};
+  if (scope && scope.is_all === true && String(scope.operator || '').trim().toLowerCase() === 'brian') {
+    return {
+      is_admin: true,
+      admin_source: 'hq_operator_scope:brian',
+    };
+  }
+
+  return {
+    is_admin: false,
+    admin_source: '',
+  };
+}
+
+function getArenaIdentity(session = null) {
+  const wpUserId = Number(session?.user?.id || 0) || null;
+  const email = String(session?.user?.email || '').trim().toLowerCase();
+  return {
+    user_id: wpUserId ? `wp:${wpUserId}` : '',
+    wp_user_id: wpUserId,
+    supabase_uid: String(session?.supabaseUserId || '').trim(),
+    email,
+    email_hash: hashArenaEmail(email),
+  };
+}
+
+async function resolveArenaSupabaseUid(identity) {
+  if (identity.supabase_uid) return identity.supabase_uid;
+  const email = String(identity.email || '').trim().toLowerCase();
+  const adminToken = CONFIG.supabaseServiceRoleKey || CONFIG.supabaseKey;
+  if (!email || !CONFIG.supabaseUrl || !adminToken) return '';
+  const lookup = await findSupabaseAuthUserByEmail(email, adminToken);
+  if (lookup.ok && lookup.user?.id) return String(lookup.user.id).trim();
+  return '';
+}
+
+function buildArenaIdentityOrFilter(identity) {
+  const clauses = [];
+  if (identity.wp_user_id) clauses.push(`wp_user_id.eq.${Number(identity.wp_user_id)}`);
+  if (identity.supabase_uid) clauses.push(`supabase_uid.eq.${identity.supabase_uid}`);
+  if (identity.email_hash) clauses.push(`email_hash.eq.${identity.email_hash}`);
+  return clauses.join(',');
+}
+
+function isMissingArenaTable(result) {
+  const message = String(result?.error || result?.data?.message || result?.data?.hint || '').toLowerCase();
+  return result && !result.ok && (
+    result.status === 404 ||
+    result.status === 400 ||
+    message.includes('does not exist') ||
+    message.includes('schema cache') ||
+    message.includes('not found')
+  );
+}
+
+async function fetchArenaRows(table, params, options = {}) {
+  const query = params instanceof URLSearchParams ? params.toString() : String(params || '');
+  const pathWithQuery = query ? `${table}?${query}` : table;
+  const result = await fetchSupabaseTable(pathWithQuery, {
+    headers: options.headers || {},
+    timeoutMs: options.timeoutMs || 6500,
+  });
+  if (!result.ok) {
+    if (isMissingArenaTable(result)) {
+      return { ok: true, missing_table: true, rows: [] };
+    }
+    return { ok: false, status: result.status, error: result.error || 'arena_table_fetch_failed', rows: [] };
+  }
+  return {
+    ok: true,
+    missing_table: false,
+    rows: Array.isArray(result.data) ? result.data : [],
+  };
+}
+
+async function insertArenaRow(table, row) {
+  const result = await fetchSupabaseTable(table, {
+    method: 'POST',
+    headers: {
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify(row || {}),
+    timeoutMs: 6500,
+  });
+  if (!result.ok) {
+    return {
+      ok: false,
+      status: result.status || 500,
+      error: result.error || `${table}_insert_failed`,
+    };
+  }
+  return {
+    ok: true,
+    row: Array.isArray(result.data) ? result.data[0] : result.data,
+  };
+}
+
+function rowExpiresInFuture(row, fieldName) {
+  const raw = String(row?.[fieldName] || '').trim();
+  if (!raw) return true;
+  const ms = Date.parse(raw);
+  return Number.isFinite(ms) && ms > Date.now();
+}
+
+function hasFullAccessEntitlement(row = {}) {
+  const status = String(row.status || row.entitlement_status || '').trim().toLowerCase();
+  if (status && !['active', 'granted', 'current'].includes(status)) return false;
+  if (!rowExpiresInFuture(row, 'expires_at')) return false;
+  const rawTier = String(row.access_tier || row.entitlement_tier || row.grant_type || '').trim().toLowerCase();
+  if (rawTier === ARENA_ACCESS_TIERS.ADMIN.toLowerCase() || rawTier === 'admin_full_access') return false;
+  if (rawTier === ARENA_ACCESS_TIERS.FULL.toLowerCase() || rawTier === 'full_access') return true;
+  return ARENA_FULL_ACCESS_TIERS.has(rawTier);
+}
+
+function isIgnoredArenaAdminEntitlement(row = {}) {
+  const status = String(row.status || row.entitlement_status || '').trim().toLowerCase();
+  if (status && !['active', 'granted', 'current'].includes(status)) return false;
+  if (!rowExpiresInFuture(row, 'expires_at')) return false;
+  const rawTier = String(row.access_tier || row.entitlement_tier || row.grant_type || '').trim().toLowerCase();
+  return rawTier === ARENA_ACCESS_TIERS.ADMIN.toLowerCase() || rawTier === 'admin_full_access';
+}
+
+async function findArenaExplicitEntitlements(identity) {
+  const orFilter = buildArenaIdentityOrFilter(identity);
+  if (!orFilter) return { rows: [], missing_table: false };
+  const params = new URLSearchParams();
+  params.set('select', '*');
+  params.set('or', `(${orFilter})`);
+  params.set('order', 'created_at.desc');
+  params.set('limit', '25');
+  const result = await fetchArenaRows('arena_access_entitlements', params);
+  return {
+    rows: result.rows || [],
+    missing_table: !!result.missing_table,
+    error: result.ok ? '' : result.error,
+  };
+}
+
+async function findArenaTrialClaims(identity) {
+  const orFilter = buildArenaIdentityOrFilter(identity);
+  if (!orFilter) return { rows: [], missing_table: false };
+  const params = new URLSearchParams();
+  params.set('select', '*');
+  params.set('or', `(${orFilter})`);
+  params.set('order', 'created_at.desc');
+  params.set('limit', '10');
+  const result = await fetchArenaRows('arena_trial_claims', params);
+  return {
+    rows: result.rows || [],
+    missing_table: !!result.missing_table,
+    error: result.ok ? '' : result.error,
+  };
+}
+
+async function findArenaStudentProfile(identity) {
+  if (!identity.supabase_uid) return { row: null, missing_table: false };
+  const params = new URLSearchParams();
+  params.set('select', 'user_id,enrollment_tier,enrollment_status,enrollment_verified_at,enrollment_grace_expires_at');
+  params.set('user_id', `eq.${identity.supabase_uid}`);
+  params.set('limit', '1');
+  const result = await fetchArenaRows('student_profiles', params);
+  return {
+    row: (result.rows || [])[0] || null,
+    missing_table: !!result.missing_table,
+    error: result.ok ? '' : result.error,
+  };
+}
+
+function studentProfileHasFullAccess(profile = null) {
+  if (!profile || typeof profile !== 'object') return false;
+  const status = String(profile.enrollment_status || '').trim().toLowerCase();
+  const graceMs = Date.parse(String(profile.enrollment_grace_expires_at || ''));
+  const hasGrace = Number.isFinite(graceMs) && graceMs > Date.now();
+  if (status !== 'active' && !hasGrace) return false;
+  const tiers = Array.isArray(profile.enrollment_tier)
+    ? profile.enrollment_tier
+    : String(profile.enrollment_tier || '').split(',');
+  return tiers
+    .map((tier) => String(tier || '').trim().toLowerCase())
+    .some((tier) => ARENA_FULL_ACCESS_TIERS.has(tier));
+}
+
+async function countArenaUsage(identity, usageType, dateKey) {
+  const orFilter = buildArenaIdentityOrFilter(identity);
+  if (!orFilter || !usageType || !dateKey) return { count: 0, missing_table: false };
+  const params = new URLSearchParams();
+  params.set('select', 'id');
+  params.set('or', `(${orFilter})`);
+  params.set('usage_type', `eq.${usageType}`);
+  params.set('usage_date', `eq.${dateKey}`);
+  params.set('action', 'in.(started,completed)');
+  params.set('limit', '500');
+  const result = await fetchArenaRows('arena_usage_ledger', params);
+  return {
+    count: (result.rows || []).length,
+    missing_table: !!result.missing_table,
+    error: result.ok ? '' : result.error,
+  };
+}
+
+async function consumeArenaTrialUsage({
+  identity,
+  usageType,
+  dateKey,
+  mode,
+  action,
+  limit,
+  idempotencyKey = '',
+  metadata = {},
+}) {
+  const payload = {
+    p_supabase_uid: identity?.supabase_uid || null,
+    p_wp_user_id: identity?.wp_user_id ? Number(identity.wp_user_id) : null,
+    p_email_hash: identity?.email_hash || null,
+    p_usage_date: dateKey,
+    p_timezone: ARENA_TIME_ZONE,
+    p_mode: mode,
+    p_usage_type: usageType,
+    p_action: action,
+    p_limit: Number(limit || 0),
+    p_idempotency_key: String(idempotencyKey || '').trim() || null,
+    p_metadata: metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {},
+  };
+  const result = await fetchSupabaseRpc('arena_consume_trial_usage', payload);
+  if (!result.ok) {
+    return {
+      ok: false,
+      status: result.status || 500,
+      error: result.error || 'arena_usage_consume_failed',
+    };
+  }
+  const data = result.data && typeof result.data === 'object' && !Array.isArray(result.data)
+    ? result.data
+    : {};
+  return {
+    ok: true,
+    allowed: data.allowed === true,
+    consumed: data.consumed === true,
+    reason: String(data.reason || '').trim(),
+    current_count: Number(data.current_count || 0),
+    limit: Number(data.limit || limit || 0),
+    row_id: String(data.row_id || '').trim(),
+  };
+}
+
+function buildArenaAccessContract({
+  tier,
+  identity,
+  admin = {},
+  trial = null,
+  drillsOnCall = {},
+  todayDrillsUsed = 0,
+  todayStatRoundsUsed = 0,
+  source = '',
+  warnings = [],
+}) {
+  const isAdmin = tier === ARENA_ACCESS_TIERS.ADMIN;
+  const isFull = tier === ARENA_ACCESS_TIERS.FULL || isAdmin;
+  const hasDrillsOnCall = isAdmin || drillsOnCall.has_access === true;
+  const isTrial = tier === ARENA_ACCESS_TIERS.FREE_TRIAL;
+  const lockedModes = [];
+  if (!hasDrillsOnCall) lockedModes.push(...ARENA_DRILLS_ON_CALL_MODES);
+  if (!isFull) lockedModes.push(...ARENA_PRO_LOCKED_MODES);
+  const allowedModes = isAdmin
+    ? ['all']
+    : [
+      ...ARENA_OPEN_MODES,
+      ...(hasDrillsOnCall ? ARENA_DRILLS_ON_CALL_MODES : []),
+      ...(isFull ? ARENA_PRO_LOCKED_MODES : []),
+    ];
+  const limits = isTrial
+    ? { ...ARENA_FREE_TRIAL_LIMITS }
+    : { drills_per_day: null, stat_rounds_per_day: null };
+
+  return {
+    access_tier: tier,
+    user_id: identity.user_id || '',
+    wp_user_id: identity.wp_user_id ? String(identity.wp_user_id) : '',
+    supabase_uid: identity.supabase_uid || '',
+    is_admin: !!isAdmin,
+    admin_source: admin.admin_source || '',
+    trial_started_at: trial?.trial_started_at || '',
+    trial_expires_at: trial?.trial_expires_at || '',
+    today_drills_used: Number(todayDrillsUsed || 0),
+    today_stat_rounds_used: Number(todayStatRoundsUsed || 0),
+    drills_on_call_access: !!hasDrillsOnCall,
+    drills_on_call_source: isAdmin ? admin.admin_source || 'admin_full_access' : String(drillsOnCall.source || '').trim(),
+    drills_on_call_course_id: drillsOnCall.course_id ? String(drillsOnCall.course_id) : '',
+    drills_on_call_course_name: CONFIG.drillsOnCallCourseName,
+    drills_on_call_product_url: CONFIG.drillsOnCallProductUrl,
+    limits,
+    allowed_modes: allowedModes,
+    locked_modes: Array.from(new Set(lockedModes)),
+    day_boundary_timezone: ARENA_TIME_ZONE,
+    source,
+    warnings,
+  };
+}
+
+async function resolveArenaAccessState(session, request) {
+  const identity = getArenaIdentity(session);
+  identity.supabase_uid = await resolveArenaSupabaseUid(identity);
+  const warnings = [];
+  const admin = resolveArenaAdminAuthority(session);
+  const drillsOnCall = admin.is_admin
+    ? { has_access: true, source: admin.admin_source }
+    : sessionHasDrillsOnCallCourseAccess(session);
+  const today = getArenaTodayDateKey();
+  const [drillUsage, statUsage] = await Promise.all([
+    countArenaUsage(identity, 'drills', today),
+    countArenaUsage(identity, 'stat', today),
+  ]);
+
+  if (drillUsage.missing_table || statUsage.missing_table) warnings.push('arena_usage_ledger_missing');
+
+  if (admin.is_admin) {
+    return buildArenaAccessContract({
+      tier: ARENA_ACCESS_TIERS.ADMIN,
+      identity,
+      admin,
+      drillsOnCall,
+      todayDrillsUsed: drillUsage.count,
+      todayStatRoundsUsed: statUsage.count,
+      source: admin.admin_source,
+      warnings,
+    });
+  }
+
+  if (!CONFIG.arenaGateEnabled) {
+    return buildArenaAccessContract({
+      tier: ARENA_ACCESS_TIERS.FULL,
+      identity,
+      admin,
+      drillsOnCall: { has_access: true, source: 'arena_gate_disabled_env' },
+      todayDrillsUsed: drillUsage.count,
+      todayStatRoundsUsed: statUsage.count,
+      source: 'arena_gate_disabled_env',
+      warnings: [...warnings, 'arena_gate_disabled'],
+    });
+  }
+
+  const [entitlements, studentProfile, trialClaims] = await Promise.all([
+    findArenaExplicitEntitlements(identity),
+    findArenaStudentProfile(identity),
+    findArenaTrialClaims(identity),
+  ]);
+
+  if (entitlements.missing_table) warnings.push('arena_access_entitlements_missing');
+  if (studentProfile.missing_table) warnings.push('student_profiles_missing');
+  if (trialClaims.missing_table) warnings.push('arena_trial_claims_missing');
+  if ((entitlements.rows || []).some(isIgnoredArenaAdminEntitlement)) {
+    warnings.push('admin_entitlement_rows_ignored_server_session_required');
+  }
+
+  const fullAccessRow = (entitlements.rows || []).find(hasFullAccessEntitlement);
+  if (fullAccessRow) {
+    return buildArenaAccessContract({
+      tier: ARENA_ACCESS_TIERS.FULL,
+      identity,
+      admin,
+      drillsOnCall,
+      todayDrillsUsed: drillUsage.count,
+      todayStatRoundsUsed: statUsage.count,
+      source: String(fullAccessRow.source || fullAccessRow.grant_type || 'arena_access_entitlements'),
+      warnings,
+    });
+  }
+
+  if (studentProfileHasFullAccess(studentProfile.row)) {
+    return buildArenaAccessContract({
+      tier: ARENA_ACCESS_TIERS.FULL,
+      identity,
+      admin,
+      drillsOnCall,
+      todayDrillsUsed: drillUsage.count,
+      todayStatRoundsUsed: statUsage.count,
+      source: 'student_profiles.enrollment_tier',
+      warnings,
+    });
+  }
+
+  const trialRow = (trialClaims.rows || []).find((row) => {
+    const status = String(row.status || '').trim().toLowerCase();
+    return (!status || ['active', 'started'].includes(status)) && rowExpiresInFuture(row, 'trial_expires_at');
+  }) || null;
+
+  if (trialRow) {
+    return buildArenaAccessContract({
+      tier: ARENA_ACCESS_TIERS.FREE_TRIAL,
+      identity,
+      admin,
+      trial: trialRow,
+      drillsOnCall,
+      todayDrillsUsed: drillUsage.count,
+      todayStatRoundsUsed: statUsage.count,
+      source: 'arena_trial_claims',
+      warnings,
+    });
+  }
+
+  const expiredTrial = (trialClaims.rows || []).find((row) => String(row.trial_expires_at || '').trim()) || null;
+  if (expiredTrial) {
+    return buildArenaAccessContract({
+      tier: ARENA_ACCESS_TIERS.EXPIRED_TRIAL,
+      identity,
+      admin,
+      trial: expiredTrial,
+      drillsOnCall,
+      todayDrillsUsed: drillUsage.count,
+      todayStatRoundsUsed: statUsage.count,
+      source: 'arena_trial_claims.expired',
+      warnings,
+    });
+  }
+
+  return buildArenaAccessContract({
+    tier: ARENA_ACCESS_TIERS.NO_ACCESS,
+    identity,
+    admin,
+    drillsOnCall,
+    todayDrillsUsed: drillUsage.count,
+    todayStatRoundsUsed: statUsage.count,
+    source: 'no_entitlement_found',
+    warnings,
+  });
+}
+
+function evaluateArenaModeAccess(accessState, mode) {
+  const normalizedMode = normalizeArenaMode(mode);
+  const tier = String(accessState?.access_tier || ARENA_ACCESS_TIERS.NO_ACCESS);
+  if (!normalizedMode) {
+    return { allowed: false, mode: normalizedMode, reason: 'arena_mode_required' };
+  }
+  if (ARENA_OPEN_MODES.has(normalizedMode)) {
+    return { allowed: true, mode: normalizedMode, reason: 'stat_open_access' };
+  }
+  if (ARENA_DRILLS_ON_CALL_MODES.has(normalizedMode)) {
+    if (accessState?.drills_on_call_access === true) {
+      return { allowed: true, mode: normalizedMode, reason: 'drills_on_call_enrolled' };
+    }
+    return {
+      allowed: false,
+      mode: normalizedMode,
+      reason: 'drills_on_call_enrollment_required',
+    };
+  }
+  if (tier === ARENA_ACCESS_TIERS.ADMIN || tier === ARENA_ACCESS_TIERS.FULL) {
+    return { allowed: true, mode: normalizedMode, reason: 'full_access' };
+  }
+  if (ARENA_PRO_LOCKED_MODES.includes(normalizedMode)) {
+    return { allowed: false, mode: normalizedMode, reason: 'arena_pro_mode_locked' };
+  }
+  if (tier === ARENA_ACCESS_TIERS.EXPIRED_TRIAL) {
+    return { allowed: false, mode: normalizedMode, reason: 'trial_expired' };
+  }
+  return { allowed: true, mode: normalizedMode, reason: 'open_access' };
+}
+
+function arenaRateLimitKey(request, session, routeKey) {
+  const identity = getArenaIdentity(session);
+  const subject = identity.wp_user_id || identity.supabase_uid || hashArenaValue(`ip:${getArenaClientIp(request)}`);
+  return `${routeKey}:${subject}`;
+}
+
+function checkArenaRateLimit(request, session, routeKey, limit) {
+  const key = arenaRateLimitKey(request, session, routeKey);
+  const now = Date.now();
+  const windowMs = CONFIG.arenaRateLimitWindowMs;
+  const bucket = ARENA_RATE_LIMIT_BUCKETS.get(key) || [];
+  const fresh = bucket.filter((timestamp) => now - timestamp < windowMs);
+  fresh.push(now);
+  ARENA_RATE_LIMIT_BUCKETS.set(key, fresh);
+  if (fresh.length > limit) {
+    return {
+      allowed: false,
+      retry_after_seconds: Math.ceil(windowMs / 1000),
+    };
+  }
+  return { allowed: true, retry_after_seconds: 0 };
+}
+
+function requireArenaRateLimit(request, response, session, authHeaders, routeKey, limit) {
+  const rate = checkArenaRateLimit(request, session, routeKey, limit);
+  if (rate.allowed) return true;
+  sendJson(response, 429, {
+    error: 'rate_limited',
+    message: 'Too many Arena access requests. Please wait a moment and try again.',
+    retry_after_seconds: rate.retry_after_seconds,
+  }, {
+    ...authHeaders,
+    'Retry-After': String(rate.retry_after_seconds),
+  });
+  return false;
+}
+
+async function handleArenaAccessStateRoute(request, response, session, authHeaders) {
+  if (request.method !== 'GET') {
+    sendMethodNotAllowed(response, ['GET']);
+    return true;
+  }
+  if (!requireArenaRateLimit(request, response, session, authHeaders, 'access-state', CONFIG.arenaAccessStateRateLimit)) {
+    return true;
+  }
+  const accessState = await resolveArenaAccessState(session, request);
+  sendJson(response, 200, accessState, authHeaders);
+  return true;
+}
+
+async function handleArenaUsageCheckRoute(request, response, session, authHeaders) {
+  if (request.method !== 'POST') {
+    sendMethodNotAllowed(response, ['POST']);
+    return true;
+  }
+  if (!requireArenaRateLimit(request, response, session, authHeaders, 'usage-check', CONFIG.arenaMutationRateLimit)) {
+    return true;
+  }
+  let payload = {};
+  try {
+    payload = await readJsonBody(request);
+  } catch (error) {
+    sendJson(response, 400, { error: 'invalid_body', message: 'Invalid JSON body.' }, authHeaders);
+    return true;
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    sendJson(response, 400, { error: 'invalid_body', message: 'Invalid JSON body.' }, authHeaders);
+    return true;
+  }
+  const mode = normalizeArenaMode(payload.mode || payload.arena_mode || '');
+  if (!mode) {
+    sendJson(response, 400, { error: 'arena_mode_required', message: 'Arena mode is required.' }, authHeaders);
+    return true;
+  }
+  const accessState = await resolveArenaAccessState(session, request);
+  const decision = evaluateArenaModeAccess(accessState, mode);
+  sendJson(response, decision.allowed ? 200 : 403, {
+    allowed: decision.allowed,
+    reason: decision.reason,
+    mode: decision.mode,
+    access_state: accessState,
+  }, authHeaders);
+  return true;
+}
+
+async function handleArenaUsageRecordRoute(request, response, session, authHeaders) {
+  if (request.method !== 'POST') {
+    sendMethodNotAllowed(response, ['POST']);
+    return true;
+  }
+  if (!requireArenaRateLimit(request, response, session, authHeaders, 'usage-record', CONFIG.arenaMutationRateLimit)) {
+    return true;
+  }
+  let payload = {};
+  try {
+    payload = await readJsonBody(request);
+  } catch {
+    sendJson(response, 400, { error: 'invalid_body', message: 'Invalid JSON body.' }, authHeaders);
+    return true;
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    sendJson(response, 400, { error: 'invalid_body', message: 'Invalid JSON body.' }, authHeaders);
+    return true;
+  }
+
+  const mode = normalizeArenaMode(payload.mode || payload.arena_mode || '');
+  if (!mode) {
+    sendJson(response, 400, { error: 'arena_mode_required', message: 'Arena mode is required.' }, authHeaders);
+    return true;
+  }
+  const action = String(payload.action || 'started').trim().toLowerCase();
+  if (!['started', 'completed'].includes(action)) {
+    sendJson(response, 400, { error: 'invalid_usage_action', message: 'Usage action must be started or completed.' }, authHeaders);
+    return true;
+  }
+
+  const accessState = await resolveArenaAccessState(session, request);
+  const decision = evaluateArenaModeAccess(accessState, mode);
+  const usageType = ARENA_MODE_USAGE_TYPES[decision.mode];
+  const deniedReason = String(decision.reason || '').trim();
+  const canResolveTrialIdempotency = accessState.access_tier === ARENA_ACCESS_TIERS.FREE_TRIAL
+    && usageType
+    && String(payload.idempotency_key || '').trim()
+    && ['daily_drill_limit_reached', 'daily_stat_limit_reached'].includes(deniedReason);
+  if (!decision.allowed && !canResolveTrialIdempotency) {
+    sendJson(response, 403, {
+      allowed: false,
+      error: 'arena_access_denied',
+      reason: decision.reason,
+      mode: decision.mode,
+      access_state: accessState,
+    }, authHeaders);
+    return true;
+  }
+
+  if (!usageType || decision.reason !== 'trial_quota_available' || accessState.access_tier !== ARENA_ACCESS_TIERS.FREE_TRIAL) {
+    sendJson(response, 200, {
+      allowed: true,
+      consumed: false,
+      reason: decision.reason,
+      mode: decision.mode,
+      access_state: accessState,
+    }, authHeaders);
+    return true;
+  }
+
+  const identity = getArenaIdentity(session);
+  identity.supabase_uid = accessState.supabase_uid || await resolveArenaSupabaseUid(identity);
+  const today = getArenaTodayDateKey();
+  const limit = usageType === 'stat'
+    ? ARENA_FREE_TRIAL_LIMITS.stat_rounds_per_day
+    : ARENA_FREE_TRIAL_LIMITS.drills_per_day;
+  const consume = await consumeArenaTrialUsage({
+    identity,
+    usageType,
+    dateKey: today,
+    mode: decision.mode,
+    action,
+    limit,
+    idempotencyKey: payload.idempotency_key,
+    metadata: {
+      source: 'arena_beta_gate',
+      user_agent_hash: hashArenaValue(`ua:${getArenaUserAgent(request)}`) || null,
+      recorded_at: new Date().toISOString(),
+    },
+  });
+  if (!consume.ok) {
+    sendJson(response, consume.status || 500, {
+      allowed: false,
+      error: 'arena_usage_record_failed',
+      message: 'Arena usage could not be recorded. Please try again.',
+      detail: consume.error,
+    }, authHeaders);
+    return true;
+  }
+
+  if (!consume.allowed && consume.reason === 'duplicate_usage_key') {
+    const freshState = await resolveArenaAccessState(session, request);
+    sendJson(response, 200, {
+      allowed: true,
+      consumed: false,
+      reason: 'duplicate_usage_key',
+      mode: decision.mode,
+      quota: {
+        current_count: consume.current_count,
+        limit: consume.limit || limit,
+      },
+      access_state: freshState,
+    }, authHeaders);
+    return true;
+  }
+
+  if (!consume.allowed) {
+    const freshState = await resolveArenaAccessState(session, request);
+    sendJson(response, 403, {
+      allowed: false,
+      error: 'arena_trial_quota_exceeded',
+      reason: consume.reason || (usageType === 'stat' ? 'daily_stat_limit_reached' : 'daily_drill_limit_reached'),
+      mode: decision.mode,
+      quota: {
+        current_count: consume.current_count,
+        limit: consume.limit || limit,
+      },
+      access_state: freshState,
+    }, authHeaders);
+    return true;
+  }
+
+  const freshState = await resolveArenaAccessState(session, request);
+  sendJson(response, 200, {
+    allowed: true,
+    consumed: consume.consumed,
+    reason: consume.reason || 'usage_recorded',
+    mode: decision.mode,
+    quota: {
+      current_count: consume.current_count,
+      limit: consume.limit || limit,
+    },
+    access_state: freshState,
+  }, authHeaders);
+  return true;
+}
+
+async function verifyTurnstileToken(token, request) {
+  const safeToken = String(token || '').trim();
+  if (!CONFIG.turnstileSecretKey) {
+    return {
+      ok: false,
+      status: 503,
+      error: 'turnstile_not_configured',
+      message: 'Cloudflare Turnstile is not configured for Arena trial creation.',
+    };
+  }
+  if (!safeToken) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'turnstile_token_missing',
+      message: 'Turnstile verification is required before starting a trial.',
+    };
+  }
+  const body = new URLSearchParams();
+  body.set('secret', CONFIG.turnstileSecretKey);
+  body.set('response', safeToken);
+  const remoteIp = getArenaClientIp(request);
+  if (remoteIp) body.set('remoteip', remoteIp);
+  const result = await fetchJson(CONFIG.turnstileVerifyUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+    },
+    body: body.toString(),
+    timeoutMs: 6500,
+  });
+  if (!result.ok || result.data?.success !== true) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'turnstile_verification_failed',
+      message: 'Turnstile verification failed. Please retry.',
+    };
+  }
+  return { ok: true, status: 200 };
+}
+
+function readArenaTrialCookieHash(request) {
+  const cookies = parseCookies(request.headers.cookie || '');
+  const raw = String(cookies[CONFIG.arenaTrialDeviceCookie] || '').trim();
+  return raw ? hashArenaValue(`trial_device:${raw}`) : '';
+}
+
+function buildArenaTrialCookie(request, rawValue) {
+  return serializeCookie(CONFIG.arenaTrialDeviceCookie, rawValue, {
+    httpOnly: true,
+    maxAge: 60 * 60 * 24 * 400,
+    path: '/',
+    sameSite: 'Lax',
+    secure: shouldUseSecureCookies(request),
+  });
+}
+
+async function findArenaTrialAbuseClaim(cookieHash, fingerprintHash) {
+  const clauses = [];
+  if (cookieHash) clauses.push(`first_party_trial_cookie_id_hash.eq.${cookieHash}`);
+  if (fingerprintHash) clauses.push(`request_fingerprint_hash.eq.${fingerprintHash}`);
+  if (!clauses.length) return { found: false, missing_table: false };
+  const params = new URLSearchParams();
+  params.set('select', 'id,status,created_at,trial_expires_at,first_party_trial_cookie_id_hash,request_fingerprint_hash');
+  params.set('or', `(${clauses.join(',')})`);
+  params.set('order', 'created_at.desc');
+  params.set('limit', '5');
+  const result = await fetchArenaRows('arena_trial_claims', params);
+  if (result.missing_table) return { found: false, missing_table: true };
+  const found = (result.rows || []).some((row) => {
+    const createdMs = Date.parse(String(row.created_at || ''));
+    const recent = Number.isFinite(createdMs) && (Date.now() - createdMs) < 1000 * 60 * 60 * 24 * 45;
+    return recent || rowExpiresInFuture(row, 'trial_expires_at');
+  });
+  return { found, missing_table: false };
+}
+
+async function handleArenaTrialStartRoute(request, response, session, authHeaders) {
+  if (request.method !== 'POST') {
+    sendMethodNotAllowed(response, ['POST']);
+    return true;
+  }
+  if (!requireArenaRateLimit(request, response, session, authHeaders, 'trial-start', CONFIG.arenaMutationRateLimit)) {
+    return true;
+  }
+  let payload = {};
+  try {
+    payload = await readJsonBody(request);
+  } catch {
+    sendJson(response, 400, { error: 'invalid_body', message: 'Invalid JSON body.' }, authHeaders);
+    return true;
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    sendJson(response, 400, { error: 'invalid_body', message: 'Invalid JSON body.' }, authHeaders);
+    return true;
+  }
+
+  const turnstile = await verifyTurnstileToken(payload.turnstile_token || payload['cf-turnstile-response'], request);
+  if (!turnstile.ok) {
+    sendJson(response, turnstile.status || 403, {
+      error: turnstile.error,
+      message: turnstile.message,
+    }, authHeaders);
+    return true;
+  }
+
+  const identity = getArenaIdentity(session);
+  identity.supabase_uid = await resolveArenaSupabaseUid(identity);
+  if (!identity.wp_user_id && !identity.supabase_uid) {
+    sendJson(response, 401, {
+      error: 'arena_trial_identity_required',
+      message: 'An authenticated MissionMed account is required before starting a trial.',
+    }, authHeaders);
+    return true;
+  }
+
+  const existingCookieHash = readArenaTrialCookieHash(request);
+  const newCookieValue = base64UrlEncode(randomBytes(24));
+  const cookieHash = existingCookieHash || hashArenaValue(`trial_device:${newCookieValue}`);
+  const fingerprint = buildArenaFingerprintHashes(request);
+  const duplicate = await findArenaTrialAbuseClaim(cookieHash, fingerprint.request_fingerprint_hash);
+  if (duplicate.found) {
+    sendJson(response, 409, {
+      error: 'arena_trial_duplicate_device_or_network',
+      message: 'It looks like a trial was already started on this device or network. If this is wrong, contact MissionMed support.',
+    }, {
+      ...authHeaders,
+      'Set-Cookie': buildArenaTrialCookie(request, existingCookieHash ? String(parseCookies(request.headers.cookie || '')[CONFIG.arenaTrialDeviceCookie] || '') : newCookieValue),
+    });
+    return true;
+  }
+
+  const now = new Date();
+  const expires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const insert = await insertArenaRow('arena_trial_claims', {
+    supabase_uid: identity.supabase_uid || null,
+    wp_user_id: identity.wp_user_id || null,
+    email_hash: identity.email_hash || null,
+    trial_started_at: now.toISOString(),
+    trial_expires_at: expires.toISOString(),
+    first_seen_ip_hash: fingerprint.ip_hash || null,
+    first_seen_user_agent_hash: fingerprint.user_agent_hash || null,
+    request_fingerprint_hash: fingerprint.request_fingerprint_hash || null,
+    first_party_trial_cookie_id_hash: cookieHash || null,
+    status: 'active',
+    source: ARENA_BETA_SOURCE,
+  });
+
+  if (!insert.ok) {
+    sendJson(response, insert.status || 500, {
+      error: 'arena_trial_create_failed',
+      message: 'Arena trial could not be created. Please contact MissionMed support.',
+      detail: insert.error,
+    }, authHeaders);
+    return true;
+  }
+
+  const accessState = await resolveArenaAccessState(session, request);
+  sendJson(response, 201, {
+    created: true,
+    access_state: accessState,
+  }, {
+    ...authHeaders,
+    'Set-Cookie': buildArenaTrialCookie(request, existingCookieHash ? String(parseCookies(request.headers.cookie || '')[CONFIG.arenaTrialDeviceCookie] || '') : newCookieValue),
+  });
+  return true;
+}
+
+async function handleArenaRoute(request, response, url, context) {
+  const { pathname } = url;
+  const { session, authHeaders } = context;
+  if (pathname === '/api/arena/access-state') {
+    return handleArenaAccessStateRoute(request, response, session, authHeaders);
+  }
+  if (pathname === '/api/arena/trial/start') {
+    return handleArenaTrialStartRoute(request, response, session, authHeaders);
+  }
+  if (pathname === '/api/arena/usage/check-start') {
+    return handleArenaUsageCheckRoute(request, response, session, authHeaders);
+  }
+  if (pathname === '/api/arena/usage/record') {
+    return handleArenaUsageRecordRoute(request, response, session, authHeaders);
+  }
+  return false;
 }
 
 async function fetchUnifiedListPage(page = 1, pageSize = 200, filters = {}) {
