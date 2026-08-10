@@ -31,6 +31,13 @@ function bytesFromBase64(value) {
   return bytes;
 }
 
+export function continuousTurnReadiness({ outputDone, pendingSchedules, activeSources, opening, assistant, applicant } = {}) {
+  if (!outputDone || pendingSchedules > 0 || activeSources > 0) return 'draining';
+  if (opening) return 'opening-complete';
+  if (!String(assistant || '').trim() || !String(applicant || '').trim()) return 'waiting-for-transcript-pair';
+  return 'turn-complete';
+}
+
 export class ResponsesSpeechRail {
   constructor() { this.id = RAIL_IDS.RESPONSES_SPEECH; }
   health() { return { railId: this.id, status: 'available', connected: false, fallbackEligible: false }; }
@@ -206,6 +213,7 @@ export class OpenAIRealtimeRail {
     } else if (event.type === 'input_transcript_done') {
       const transcript = String(event.transcript || '').trim();
       if (transcript) this.inputSegments.push(transcript);
+      this.#settleWhenDrained();
     } else if (event.type === 'response_started') {
       this.currentResponseId = event.responseId;
       this.responseStartedAt = performance.now();
@@ -217,6 +225,7 @@ export class OpenAIRealtimeRail {
       this.currentAssistant += event.delta || '';
     } else if (event.type === 'assistant_transcript_done') {
       this.currentAssistant = event.transcript || this.currentAssistant;
+      this.#settleWhenDrained();
     } else if (event.type === 'audio_delta') {
       if (this.firstAudioAt === null) this.firstAudioAt = performance.now();
       this.currentItemId = event.itemId || this.currentItemId;
@@ -286,16 +295,24 @@ export class OpenAIRealtimeRail {
   }
 
   #settleWhenDrained() {
-    if (!this.outputDone || this.pendingSchedules || this.sources.size) return;
     const assistant = this.currentAssistant.trim();
     const applicant = this.inputSegments.join(' ').trim();
+    const opening = this.openingPending && !applicant;
+    const readiness = continuousTurnReadiness({
+      outputDone: this.outputDone,
+      pendingSchedules: this.pendingSchedules,
+      activeSources: this.sources.size,
+      opening,
+      assistant,
+      applicant,
+    });
+    if (readiness === 'draining' || readiness === 'waiting-for-transcript-pair') return;
     const timings = {
       connectionMs: this.connectedAt == null ? null : Math.round(this.connectedAt - this.startedAt),
       firstAudioMs: this.firstAudioAt == null || this.responseStartedAt == null ? null : Math.round(this.firstAudioAt - this.responseStartedAt),
       floorToResponseMs: this.lastSpeechStoppedAt == null || this.responseStartedAt == null ? null : Math.round(this.responseStartedAt - this.lastSpeechStoppedAt),
       interruptionMs: this.interruptionDetectedAt == null || this.interruptionCancelledAt == null ? null : Math.round(this.interruptionCancelledAt - this.interruptionDetectedAt),
     };
-    const opening = this.openingPending && !applicant;
     this.openingPending = false;
     this.currentAssistant = '';
     this.currentResponseId = null;
@@ -305,11 +322,10 @@ export class OpenAIRealtimeRail {
     this.responseStartedAt = null;
     this.responseAudioStartTime = null;
     this.nextPlayTime = 0;
-    if (opening) {
+    if (readiness === 'opening-complete') {
       this.onState({ status: 'listening', openingComplete: true, timings });
       return;
     }
-    if (!assistant || !applicant) return;
     this.inputSegments = [];
     this.onTurn({ applicant, utterance: assistant, timings, usage: this.responseUsage });
     this.responseUsage = null;

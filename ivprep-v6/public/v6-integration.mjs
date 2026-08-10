@@ -35,6 +35,7 @@ const state = {
   roundTripMs: null,
   muted: false,
   paused: false,
+  typedFallbackOpen: false,
   interviewerSpeaking: false,
   avatarSpeechActive: false,
   currentAudio: null,
@@ -94,6 +95,7 @@ function setInterviewerSpeaking(active, streaming = active ? 'streaming' : 'comp
   micController.setInterviewerSpeaking(Boolean(active));
   bridge.setIvState(active ? 'speaking' : 'idle');
   renderDiagnostics();
+  renderFocusRoom();
 }
 
 function base64Audio(base64, contentType) {
@@ -785,6 +787,69 @@ function renderRailFallbackOffer() {
   const button = document.getElementById('continuous-rail-fallback');
   if (!button) return;
   button.hidden = !(state.railId === RAIL_IDS.OPENAI_REALTIME && state.railStatus === 'failed');
+  renderFocusRoom();
+}
+
+function ensureFocusRoomStyle() {
+  if (document.getElementById('frontier-focus-room-style')) return;
+  const style = document.createElement('style');
+  style.id = 'frontier-focus-room-style';
+  style.textContent = `
+    body.frontier-focus-room #side,
+    body.frontier-focus-room #topbar,
+    body.frontier-focus-room section[data-view="room"] > .platbar,
+    body.frontier-focus-room section[data-view="room"] > .roundtop,
+    body.frontier-focus-room #mtop,
+    body.frontier-focus-room #mbot,
+    body.frontier-focus-room #coachlane,
+    body.frontier-focus-room #laneticker,
+    body.frontier-focus-room #safstrip,
+    body.frontier-focus-room #teledrawer,
+    body.frontier-focus-room #roomctl { display:none !important; }
+    body.frontier-focus-room main { left:0; top:0; }
+    body.frontier-focus-room section[data-view="room"] { max-width:980px; padding:18px 20px 96px; }
+    body.frontier-focus-room #meetwrap { max-width:920px; margin:0 auto; border-radius:18px; }
+    body.frontier-focus-room #roomstage { height:min(72vh,680px); min-height:420px; }
+    body.frontier-focus-room #frontier-room-controls { max-width:920px; margin:12px auto 0; border:0; background:transparent; }
+    body.frontier-focus-room #frontier-room-controls:before { display:none; }
+    body.frontier-focus-room #frontier-room-controls .pPad { padding:4px 0; }
+    body.frontier-focus-room #frontier-room-buttons { justify-content:center; }
+    body.frontier-focus-room #frontier-avatar-toggle,
+    body.frontier-focus-room #enable-avatar-audio,
+    body.frontier-focus-room #frontier-disclosure,
+    body.frontier-focus-room #frontier-typed-fallback { display:none !important; }
+    body.frontier-focus-room #frontier-typed-fallback.typed-open { display:flex !important; margin-top:10px; }
+    body.frontier-focus-room #frontier-room-status { display:block; text-align:center; font-size:14px; color:var(--mid); margin:2px 0 12px; }
+    body.frontier-focus-room #avatar-live-state { display:none; }
+    @media (max-width:700px) {
+      body.frontier-focus-room section[data-view="room"] { padding:10px 10px 86px; }
+      body.frontier-focus-room #roomstage { height:62vh; min-height:360px; }
+    }
+  `;
+  document.head.append(style);
+}
+
+function renderFocusRoom() {
+  ensureFocusRoomStyle();
+  const focused = bridge.role === 'student' && bridge.view === 'room' && state.railId === RAIL_IDS.OPENAI_REALTIME;
+  document.body.classList.toggle('frontier-focus-room', focused);
+  const status = document.getElementById('frontier-room-status');
+  if (status) {
+    status.hidden = !focused;
+    status.textContent = state.railStatus === 'failed'
+      ? 'The interviewer connection needs attention.'
+      : state.interviewerSpeaking || ['responding', 'speaking'].includes(state.railStatus)
+      ? 'Interviewer speaking — you can interrupt naturally.'
+      : state.railStatus === 'floor-yield-detected'
+      ? 'Thinking…'
+      : 'Listening — pause naturally. The interviewer will respond when you finish.';
+  }
+  const interrupt = document.getElementById('frontier-interrupt');
+  if (interrupt) interrupt.hidden = focused && !state.interviewerSpeaking;
+  const typeButton = document.getElementById('frontier-type-instead');
+  if (typeButton) typeButton.hidden = !focused;
+  const typed = document.getElementById('frontier-typed-fallback');
+  if (typed) typed.classList.toggle('typed-open', !focused || state.typedFallbackOpen);
 }
 
 function ensureRoomControls() {
@@ -799,8 +864,10 @@ function ensureRoomControls() {
   body.className = 'pPad';
   body.style.cssText = 'display:grid;gap:10px';
   const buttons = document.createElement('div');
+  buttons.id = 'frontier-room-buttons';
   buttons.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
   const mute = document.createElement('button');
+  mute.id = 'frontier-mute';
   mute.className = 'btnGhost';
   mute.textContent = 'Mute microphone';
   mute.onclick = () => {
@@ -810,6 +877,7 @@ function ensureRoomControls() {
     mute.textContent = state.muted ? 'Unmute microphone' : 'Mute microphone';
   };
   const interrupt = document.createElement('button');
+  interrupt.id = 'frontier-interrupt';
   interrupt.className = 'btnGhost';
   interrupt.textContent = 'Interrupt interviewer';
   interrupt.onclick = () => {
@@ -836,6 +904,7 @@ function ensureRoomControls() {
     renderDiagnostics();
   };
   const end = document.createElement('button');
+  end.id = 'frontier-end';
   end.className = 'btnGhost';
   end.textContent = 'End interview';
   end.onclick = () => {
@@ -846,6 +915,7 @@ function ensureRoomControls() {
     else { bridge.stopMedia(); bridge.nav('home'); }
   };
   const avatarToggle = document.createElement('button');
+  avatarToggle.id = 'frontier-avatar-toggle';
   avatarToggle.className = 'btnGhost';
   avatarToggle.textContent = state.avatarEnabled ? 'Avatar on' : 'Avatar off';
   avatarToggle.onclick = async () => {
@@ -882,8 +952,20 @@ function ensureRoomControls() {
       renderAvatarState();
     }
   };
-  buttons.append(mute, interrupt, railFallback, avatarToggle, enableAvatarAudio, end);
+  const typeInstead = document.createElement('button');
+  typeInstead.id = 'frontier-type-instead';
+  typeInstead.className = 'btnGhost';
+  typeInstead.textContent = 'Type instead';
+  typeInstead.onclick = () => {
+    const form = document.getElementById('frontier-typed-fallback');
+    state.typedFallbackOpen = !state.typedFallbackOpen;
+    renderFocusRoom();
+    if (state.typedFallbackOpen) form?.querySelector('textarea')?.focus();
+  };
+  buttons.append(mute, interrupt, typeInstead, railFallback, avatarToggle, enableAvatarAudio, end);
   const typed = document.createElement('form');
+  typed.id = 'frontier-typed-fallback';
+  typed.className = 'typed-open';
   typed.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
   const input = document.createElement('textarea');
   input.rows = 2;
@@ -907,6 +989,8 @@ function ensureRoomControls() {
       try {
         continuousRail?.submitText(answer);
         input.value = '';
+        state.typedFallbackOpen = false;
+        renderFocusRoom();
         bridge.toast('Typed answer sent to Continuous Conversation.');
       } catch (error) { bridge.toast(publicError(error).message); }
       return;
@@ -917,6 +1001,7 @@ function ensureRoomControls() {
   };
   typed.append(input, submit);
   const disclosure = document.createElement('div');
+  disclosure.id = 'frontier-disclosure';
   disclosure.className = 'notice';
   disclosure.textContent = 'The interviewer voice is AI-generated. Continuous Conversation streams microphone audio to the configured OpenAI Realtime service; High-Intelligence Voice sends completed interview text. Browser speech recognition follows the browser implementation. The local replay recording remains in this tab.';
   const avatarState = document.createElement('div');
@@ -924,9 +1009,15 @@ function ensureRoomControls() {
   avatarState.className = 'notice';
   avatarState.setAttribute('role', 'status');
   avatarState.textContent = state.avatarNotice;
-  body.append(buttons, avatarState, typed, disclosure);
+  const focusStatus = document.createElement('div');
+  focusStatus.id = 'frontier-room-status';
+  focusStatus.setAttribute('role', 'status');
+  focusStatus.setAttribute('aria-live', 'polite');
+  focusStatus.hidden = true;
+  body.append(focusStatus, buttons, avatarState, typed, disclosure);
   panel.append(body);
   roomControls.after(panel);
+  renderFocusRoom();
 }
 
 function renderAvatarState() {
@@ -1098,6 +1189,7 @@ setInterval(() => {
   ensureDiagnostics();
   ensureResultsEvidence();
   renderDiagnostics();
+  renderFocusRoom();
 }, 500);
 addEventListener('beforeunload', () => {
   cancelTurn('closed');

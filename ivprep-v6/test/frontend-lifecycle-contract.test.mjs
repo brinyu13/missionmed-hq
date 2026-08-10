@@ -60,7 +60,8 @@ test('interactive selectors and question ordering have keyboard-operable control
 test('continuous PCM scheduling drains before turn settlement and rejects stale audio', () => {
   assert.match(continuousRail, /this\.pendingSchedules \+= 1/);
   assert.match(continuousRail, /generation !== this\.playbackGeneration/);
-  assert.match(continuousRail, /if \(!this\.outputDone \|\| this\.pendingSchedules \|\| this\.sources\.size\) return/);
+  assert.match(continuousRail, /continuousTurnReadiness\(\{/);
+  assert.match(continuousRail, /if \(readiness === 'draining' \|\| readiness === 'waiting-for-transcript-pair'\) return/);
   assert.match(continuousRail, /this\.playbackGeneration \+= 1/);
 });
 
@@ -69,4 +70,13 @@ test('founder rail, model, voice, and behavior selections are immutable during a
   assert.match(integration, /Interviewer model is fixed during an active interview/);
   assert.match(integration, /Voice is fixed during an active interview/);
   assert.match(integration, /Interviewer behavior is fixed during an active interview/);
+});
+
+test('continuous room removes legacy manual-turn and coaching clutter while keeping essential controls', () => {
+  assert.match(integration, /body\.frontier-focus-room #roomctl \{ display:none !important; \}/);
+  assert.match(integration, /body\.frontier-focus-room #teledrawer/);
+  assert.match(integration, /body\.frontier-focus-room #side/);
+  assert.match(integration, /Listening — pause naturally\. The interviewer will respond when you finish\./);
+  assert.match(integration, /typeInstead\.textContent = 'Type instead'/);
+  assert.match(integration, /end\.id = 'frontier-end'/);
 });

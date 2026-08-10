@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import WebSocket from 'ws';
 
 import { CONVERSATION_RAIL_IDS, publicConversationRailConfig } from '../providers/conversation-rail.mjs';
+import { continuousTurnReadiness } from '../public/conversation-rail.mjs';
 import { AlphaStore } from '../persistence/alpha-store.mjs';
 import { createIvPrepServer } from '../server/serve.mjs';
 
@@ -44,6 +45,13 @@ test('same-origin relay bounds frame rate and audio bytes', () => {
   assert.match(serverSource, /MAX_RAIL_AUDIO_BYTES_PER_WINDOW = 256 \* 1024/);
   assert.match(serverSource, /continuous_rail_rate_limited/);
   assert.match(serverSource, /client\.close\(1008, 'rail-rate-limited'\)/);
+});
+
+test('continuous turn assembly waits for late transcript events instead of discarding the response', () => {
+  assert.equal(continuousTurnReadiness({ outputDone: true, pendingSchedules: 0, activeSources: 0, assistant: 'Follow-up?', applicant: '' }), 'waiting-for-transcript-pair');
+  assert.equal(continuousTurnReadiness({ outputDone: true, pendingSchedules: 0, activeSources: 0, assistant: '', applicant: 'Answer' }), 'waiting-for-transcript-pair');
+  assert.equal(continuousTurnReadiness({ outputDone: true, pendingSchedules: 0, activeSources: 0, assistant: 'Follow-up?', applicant: 'Answer' }), 'turn-complete');
+  assert.equal(continuousTurnReadiness({ outputDone: true, pendingSchedules: 0, activeSources: 0, opening: true, assistant: 'Opening question', applicant: '' }), 'opening-complete');
 });
 
 test('same-origin rail relay owns one alpha session and closes on alpha end', async (t) => {
