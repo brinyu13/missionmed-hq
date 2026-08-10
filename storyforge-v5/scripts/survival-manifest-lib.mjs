@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-export const SURVIVAL_SCHEMA = 'missionmed.storyforge.survival-manifest.v1';
+export const SURVIVAL_SCHEMA = 'missionmed.storyforge.survival-manifest.v2';
 
 export function sha256(value) {
   const marker = value === null ? 'null:' : `value:${String(value)}`;
@@ -34,68 +34,162 @@ export function sortedSetHash(values) {
   return { count: normalized.length, hash: sha256(canonicalJson(normalized)) };
 }
 
-export function childSummary(rows, { idKey = 'id' } = {}) {
-  const normalized = [...(rows || [])]
-    .map((row) => canonicalize(row))
-    .sort((left, right) => String(left?.[idKey] ?? canonicalJson(left)).localeCompare(String(right?.[idKey] ?? canonicalJson(right))));
-  return {
-    count: normalized.length,
-    idsHash: sha256(canonicalJson(normalized.map((row) => row?.[idKey] ?? null))),
-    rowsHash: sha256(canonicalJson(normalized)),
-  };
+export function childSummary(rows, { key = (row) => row.id } = {}) {
+  const entries = [...(rows || [])]
+    .map((row) => [String(key(row)), rowHash(row)])
+    .sort(([left], [right]) => left.localeCompare(right));
+  return { count: entries.length, rows: Object.fromEntries(entries) };
 }
 
-function stableStory(story) {
-  const { generatedAt: _generatedAt, ...rest } = story || {};
-  return canonicalize(rest);
+function difference(differences, { storyId = null, table = null, rowKey = null, field, before = null, after = null, reason = 'changed' }) {
+  differences.push({
+    storyId,
+    table,
+    rowKey,
+    field,
+    reason,
+    beforeHash: before == null ? null : rowHash(before),
+    afterHash: after == null ? null : rowHash(after),
+  });
 }
 
-const EXACT_FIELDS = Object.freeze([
-  'ownerId', 'ownerWordPressBindingHash', 'titleHash', 'originalHash',
-  'workingHash', 'lessonHash', 'studentPriority', 'categories', 'intendedUses',
-  'review', 'visibility', 'submission', 'timestamps', 'rowVersion',
-  'transcripts', 'audioAssets', 'children',
-]);
+function compareExact(differences, context, before, after) {
+  if (canonicalJson(before) !== canonicalJson(after)) difference(differences, { ...context, before, after });
+}
 
-function compareValue(differences, storyId, field, before, after) {
-  if (canonicalJson(before) !== canonicalJson(after)) {
-    differences.push({ storyId, field, beforeHash: rowHash(before), afterHash: rowHash(after) });
+function compareRowSet(differences, { storyId, table }, before = { count: 0, rows: {} }, after = { count: 0, rows: {} }) {
+  if (Number(after.count) < Number(before.count)) {
+    difference(differences, { storyId, table, field: 'count', reason: 'count_decreased', before: before.count, after: after.count });
+  }
+  for (const [rowKey, beforeHash] of Object.entries(before.rows || {}).sort()) {
+    const afterHash = after.rows?.[rowKey];
+    if (afterHash == null) {
+      difference(differences, { storyId, table, rowKey, field: 'row', reason: 'row_missing', before: beforeHash });
+    } else if (beforeHash !== afterHash) {
+      difference(differences, { storyId, table, rowKey, field: 'row', reason: 'row_mutated', before: beforeHash, after: afterHash });
+    }
   }
 }
 
-export function compareSurvivalManifests(pre, post) {
+function validateObjectSet(differences, storyId, phase, objectSet = { count: 0, rows: {} }) {
+  for (const [rowKey, item] of Object.entries(objectSet.rows || {}).sort()) {
+    const valid = item?.required !== true || (
+      item.exists === true
+      && Number(item.actualSize) === Number(item.recordedSize)
+    );
+    if (!valid) {
+      difference(differences, {
+        storyId,
+        table: 'objects',
+        rowKey,
+        field: phase,
+        reason: 'object_verification_failed',
+        before: { recordedSize: item?.recordedSize, exists: item?.exists },
+        after: { actualSize: item?.actualSize },
+      });
+    }
+  }
+}
+
+function compareObjects(differences, storyId, before, after) {
+  validateObjectSet(differences, storyId, 'pre', before);
+  validateObjectSet(differences, storyId, 'post', after);
+  if (Number(after?.count || 0) < Number(before?.count || 0)) {
+    difference(differences, { storyId, table: 'objects', field: 'count', reason: 'count_decreased', before: before?.count, after: after?.count });
+  }
+  for (const [rowKey, item] of Object.entries(before?.rows || {}).sort()) {
+    const next = after?.rows?.[rowKey];
+    if (!next) {
+      difference(differences, { storyId, table: 'objects', rowKey, field: 'row', reason: 'row_missing', before: item });
+      continue;
+    }
+    for (const field of ['rowHash', 'objectKeyHash', 'recordedSize', 'required']) {
+      compareExact(differences, { storyId, table: 'objects', rowKey, field }, item[field], next[field]);
+    }
+  }
+}
+
+function compareLedger(differences, pre, post, expectedLedgerAdditions) {
+  const expected = new Map(expectedLedgerAdditions || []);
+  for (const [version, beforeHash] of Object.entries(pre?.rows || {}).sort()) {
+    compareExact(differences, { table: 'migration_ledger', rowKey: version, field: 'row' }, beforeHash, post?.rows?.[version] ?? null);
+  }
+  for (const [version, afterHash] of Object.entries(post?.rows || {}).sort()) {
+    if (pre?.rows?.[version] != null) continue;
+    if (expected.get(version) !== afterHash) {
+      difference(differences, { table: 'migration_ledger', rowKey: version, field: 'addition', reason: 'unexpected_ledger_addition', after: afterHash });
+    }
+  }
+  for (const [version, expectedHash] of expected.entries()) {
+    if (post?.rows?.[version] !== expectedHash) {
+      difference(differences, { table: 'migration_ledger', rowKey: version, field: 'expected_addition', reason: 'expected_ledger_addition_missing', before: expectedHash, after: post?.rows?.[version] ?? null });
+    }
+  }
+}
+
+export function compareSurvivalManifests(pre, post, { expectedLedgerAdditions = [] } = {}) {
   const differences = [];
   if (pre?.schema !== SURVIVAL_SCHEMA || post?.schema !== SURVIVAL_SCHEMA) {
-    return { pass: false, differences: [{ storyId: null, field: 'schema', beforeHash: rowHash(pre?.schema), afterHash: rowHash(post?.schema) }] };
+    difference(differences, { field: 'schema', before: pre?.schema, after: post?.schema });
+    return { pass: false, differences };
   }
+  compareExact(differences, { field: 'databaseSystemHash' }, pre.capture?.databaseSystemHash, post.capture?.databaseSystemHash);
+  for (const [phase, manifest] of [['pre', pre], ['post', post]]) {
+    compareExact(differences, { field: `${phase}.fullVisibility` }, true, manifest.capture?.fullVisibility);
+    compareExact(differences, { field: `${phase}.objectVerification` }, 'required_pass', manifest.capture?.objectVerification);
+  }
+
+  for (const table of new Set([...Object.keys(pre.global || {}), ...Object.keys(post.global || {})])) {
+    const before = pre.global?.[table] || { count: 0, idsHash: sha256(canonicalJson([])) };
+    const after = post.global?.[table] || { count: 0, idsHash: sha256(canonicalJson([])) };
+    if (table === 'sf_users' || table === 'sf_stories') {
+      compareExact(differences, { table, field: 'global' }, before, after);
+    } else if (Number(after.count) < Number(before.count)) {
+      difference(differences, { table, field: 'global.count', reason: 'count_decreased', before: before.count, after: after.count });
+    }
+  }
+
   const preStories = pre.stories || {};
   const postStories = post.stories || {};
   for (const storyId of Object.keys(preStories).sort()) {
-    const before = stableStory(preStories[storyId]);
-    const after = postStories[storyId] ? stableStory(postStories[storyId]) : null;
+    const before = preStories[storyId];
+    const after = postStories[storyId];
     if (!after) {
-      differences.push({ storyId, field: 'story_missing', beforeHash: rowHash(before), afterHash: null });
+      difference(differences, { storyId, field: 'story', reason: 'story_missing', before });
       continue;
     }
-    for (const field of EXACT_FIELDS) compareValue(differences, storyId, field, before[field], after[field]);
+    for (const field of ['owner', 'core', 'review', 'submission', 'transcripts']) {
+      compareExact(differences, { storyId, field }, before[field], after[field]);
+    }
+    const preVisibility = before.visibility?.columnPresent ? before.visibility.value : null;
+    const postVisibility = after.visibility?.columnPresent ? after.visibility.value : null;
+    compareExact(differences, { storyId, field: 'visibility' }, preVisibility, postVisibility);
+    if (Number(after.v2Assertions?.generatedVersionRows || 0) !== 0) {
+      difference(differences, { storyId, table: 'sf_story_versions', field: 'generatedVersionRows', reason: 'historical_version_synthesized', before: 0, after: after.v2Assertions?.generatedVersionRows });
+    }
+    for (const table of new Set([...Object.keys(before.children || {}), ...Object.keys(after.children || {})])) {
+      compareRowSet(differences, { storyId, table }, before.children?.[table], after.children?.[table]);
+    }
+    compareObjects(differences, storyId, before.audio, after.audio);
   }
   for (const storyId of Object.keys(postStories).sort()) {
-    if (!preStories[storyId]) {
-      differences.push({ storyId, field: 'unexpected_story_added', beforeHash: null, afterHash: rowHash(postStories[storyId]) });
-    }
+    if (!preStories[storyId]) difference(differences, { storyId, field: 'story', reason: 'unexpected_story_added', after: postStories[storyId] });
   }
-  compareValue(differences, null, 'globals', pre.globals || {}, post.globals || {});
+  compareLedger(differences, pre.ledger, post.ledger, expectedLedgerAdditions);
   return { pass: differences.length === 0, differences };
 }
 
 export function safeDifferenceReport(result) {
   return {
-    schema: 'missionmed.storyforge.survival-comparison.v1',
+    schema: 'missionmed.storyforge.survival-comparison.v2',
     pass: Boolean(result?.pass),
     differenceCount: result?.differences?.length || 0,
-    differences: (result?.differences || []).map(({ storyId, field, beforeHash, afterHash }) => ({
+    differences: (result?.differences || []).map(({ storyId, table, rowKey, field, reason, beforeHash, afterHash }) => ({
       storyId,
+      table,
+      rowKey,
       field,
+      reason,
       beforeHash,
       afterHash,
     })),
