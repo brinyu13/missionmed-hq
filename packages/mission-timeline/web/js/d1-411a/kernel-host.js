@@ -785,6 +785,7 @@ class D1411AKernelElement extends HostHTMLElement{
   }
 
   _applyAdvancedOverlay(childDocument,record=this._record){
+    if(this._advancedTextEditing===true&&childDocument.activeElement?.matches?.(".d1411aAdvancedText[contenteditable=\"true\"]"))return;
     const retainedAdvancedSelection=this._advancedSelection||null;
     this._advancedOverlayCleanup();
     this._advancedOverlayCleanup=()=>{};
@@ -793,6 +794,7 @@ class D1411AKernelElement extends HostHTMLElement{
     const advanced=record?.document?.mode==="advanced"?record.document.advanced:null;
     if(!advanced)return;
     const items=[
+      ...(Array.isArray(advanced.media)?advanced.media:[]).filter((item)=>item?.placed!==false).map((item)=>({type:"media",...item})),
       ...(Array.isArray(advanced.textBlocks)?advanced.textBlocks:[]).map((item)=>({type:"text",...item})),
       ...(Array.isArray(advanced.elements)?advanced.elements:[]).map((item)=>({type:"element",...item}))
     ].filter((item)=>item&&item.id);
@@ -801,9 +803,10 @@ class D1411AKernelElement extends HostHTMLElement{
     if(!board)return;
     const background=advancedBackgroundCss(advanced.background,record.resolveObjectUrl);
     if(background)board.style.background=background;
+    else board.style.removeProperty("background");
     if(!items.length)return;
     const style=childDocument.createElement("style");
-    style.textContent=`#d1411a-advanced-overlay{position:absolute;inset:0;z-index:1001;pointer-events:none}#d1411a-advanced-overlay .d1411aAdvanced{box-sizing:border-box;position:absolute;pointer-events:auto;touch-action:none;cursor:move;user-select:none}#d1411a-advanced-overlay .d1411aAdvanced[data-selected="true"]{outline:3px solid #39d6ff;outline-offset:2px;box-shadow:0 0 0 1px rgba(7,17,31,.85),0 0 14px rgba(57,214,255,.52)}#d1411a-advanced-overlay .d1411aAdvancedText{background:transparent;border:0;color:#191c21;font:400 24px/1.2 Inter,sans-serif;min-width:32px;white-space:pre-wrap}#d1411a-advanced-overlay .d1411aAdvancedText[contenteditable="true"]{cursor:text;outline:3px solid #ffad42;user-select:text;white-space:pre-wrap}#d1411a-advanced-overlay .d1411aAdvancedElement{align-items:center;border:3px solid #17324a;display:flex;justify-content:center;overflow:visible}#d1411a-advanced-overlay .kind-circle{border-radius:50%}.d1411aHandle{background:#fff;border:2px solid #18799e;border-radius:50%;height:11px;padding:0;position:absolute;width:11px;z-index:2}.d1411aHandle[data-handle="nw"]{left:-8px;top:-8px}.d1411aHandle[data-handle="n"]{left:calc(50% - 6px);top:-8px}.d1411aHandle[data-handle="ne"]{right:-8px;top:-8px}.d1411aHandle[data-handle="e"]{right:-8px;top:calc(50% - 6px)}.d1411aHandle[data-handle="se"]{bottom:-8px;right:-8px}.d1411aHandle[data-handle="s"]{bottom:-8px;left:calc(50% - 6px)}.d1411aHandle[data-handle="sw"]{bottom:-8px;left:-8px}.d1411aHandle[data-handle="w"]{left:-8px;top:calc(50% - 6px)}.d1411aGroupBox{box-sizing:border-box;border:3px dashed #39d6ff;pointer-events:auto;position:absolute;z-index:3}.d1411aGroupBox .d1411aHandle{position:absolute}.d1411aSnapGuide{background:#ff7a45;box-shadow:0 0 0 1px rgba(255,255,255,.9);pointer-events:none;position:absolute;z-index:4}.d1411aSnapGuide[data-axis="x"]{bottom:0;top:0;width:2px}.d1411aSnapGuide[data-axis="y"]{height:2px;left:0;right:0}`;
+    style.textContent=`#d1411a-advanced-overlay{position:absolute;inset:0;z-index:1001;pointer-events:none}#d1411a-advanced-overlay .d1411aAdvanced{box-sizing:border-box;position:absolute;pointer-events:auto;touch-action:none;cursor:move;user-select:none}#d1411a-advanced-overlay .d1411aAdvanced[data-selected="true"]{outline:3px solid #39d6ff;outline-offset:2px;box-shadow:0 0 0 1px rgba(7,17,31,.85),0 0 14px rgba(57,214,255,.52)}#d1411a-advanced-overlay .d1411aAdvancedText{background:transparent;border:0;color:#191c21;display:flex;font:400 24px/1.2 Inter,sans-serif;min-width:32px;overflow:hidden;overflow-wrap:anywhere;white-space:pre-wrap}#d1411a-advanced-overlay .d1411aAdvancedText[data-overflow="true"]{outline:3px dashed #c03d2e}#d1411a-advanced-overlay .d1411aAdvancedText[contenteditable="true"]{cursor:text;display:block;outline:3px solid #ffad42;overflow:auto;user-select:text;white-space:pre-wrap}#d1411a-advanced-overlay .d1411aAdvancedElement{align-items:center;border:3px solid #17324a;display:flex;justify-content:center;overflow:visible}#d1411a-advanced-overlay .d1411aAdvancedMedia{background:rgba(11,19,32,.12);border:0;overflow:hidden}#d1411a-advanced-overlay .d1411aAdvancedMedia img{display:block;height:100%;max-width:none;pointer-events:none;transform-origin:center;width:100%}#d1411a-advanced-overlay .kind-circle{border-radius:50%}.d1411aHandle{appearance:none;background:radial-gradient(circle,#fff 0 5px,#18799e 6px 8px,transparent 9px);border:0;height:28px;margin:0;padding:0;position:absolute;width:28px;z-index:2}.d1411aHandle[data-handle="nw"]{left:-15px;top:-15px}.d1411aHandle[data-handle="n"]{left:calc(50% - 14px);top:-15px}.d1411aHandle[data-handle="ne"]{right:-15px;top:-15px}.d1411aHandle[data-handle="e"]{right:-15px;top:calc(50% - 14px)}.d1411aHandle[data-handle="se"]{bottom:-15px;right:-15px}.d1411aHandle[data-handle="s"]{bottom:-15px;left:calc(50% - 14px)}.d1411aHandle[data-handle="sw"]{bottom:-15px;left:-15px}.d1411aHandle[data-handle="w"]{left:-15px;top:calc(50% - 14px)}.d1411aGroupBox{box-sizing:border-box;border:3px dashed #39d6ff;pointer-events:none;position:absolute;z-index:10000}.d1411aGroupBox:focus-visible{outline:4px solid #fff;outline-offset:3px}.d1411aGroupBox .d1411aHandle{pointer-events:auto;position:absolute}.d1411aSnapGuide{background:#ff7a45;box-shadow:0 0 0 1px rgba(255,255,255,.9);pointer-events:none;position:absolute;z-index:4}.d1411aSnapGuide[data-axis="x"]{bottom:0;top:0;width:2px}.d1411aSnapGuide[data-axis="y"]{height:2px;left:0;right:0}.d1411aMarquee{background:rgba(57,214,255,.12);border:2px solid #39d6ff;box-sizing:border-box;pointer-events:none;position:absolute;z-index:5}`;
     const overlay=childDocument.createElement("div");
     overlay.id="d1411a-advanced-overlay";
     // D1-409H exports a clone of #board rather than the child document head.
@@ -814,7 +817,11 @@ class D1411AKernelElement extends HostHTMLElement{
       const node=childDocument.createElement(item.type==="text"?"div":"div");
       const width=Math.max(32,finite(item.width,160));
       const height=Math.max(24,finite(item.height,item.type==="text"?48:96));
-      node.className=item.type==="text"?"d1411aAdvanced d1411aAdvancedText":"d1411aAdvanced d1411aAdvancedElement";
+      node.className=item.type==="text"
+        ?"d1411aAdvanced d1411aAdvancedText"
+        :item.type==="media"
+          ?"d1411aAdvanced d1411aAdvancedMedia"
+          :"d1411aAdvanced d1411aAdvancedElement";
       node.dataset.advancedType=item.type;
       node.dataset.advancedId=String(item.id);
       node.dataset.advancedKind=String(item.kind||"");
@@ -825,6 +832,7 @@ class D1411AKernelElement extends HostHTMLElement{
       node.style.top=`${finite(item.y,0)}px`;
       node.style.width=`${width}px`;
       node.style.height=`${height}px`;
+      node.style.zIndex=String(Math.trunc(finite(item.zIndex,finite(item.layerIndex,0))));
       node.tabIndex=0;
       node.setAttribute("role","button");
       node.setAttribute("aria-label",`${item.label||item.text||item.kind||"Timeline asset"}; select to move or resize`);
@@ -835,6 +843,25 @@ class D1411AKernelElement extends HostHTMLElement{
         node.style.fontWeight=String(finite(item.weight,400));
         node.style.color=String(item.color||"#191c21");
         node.style.textAlign=String(item.alignment||"left");
+        node.style.lineHeight=String(clamp(finite(item.lineHeight,1.2),.8,2));
+        node.style.justifyContent=item.verticalAlign==="top"?"flex-start":item.verticalAlign==="bottom"?"flex-end":"center";
+        node.dataset.fitMode=item.fitMode==="fixed"?"fixed":"auto";
+        node.dataset.requestedFontSize=String(Math.max(10,finite(item.size,24)));
+        node.dataset.minFontSize=String(clamp(finite(item.minFontSize,10),8,72));
+      }else if(item.type==="media"){
+        const url=record.resolveObjectUrl?.(item.id,item)||null;
+        if(url){
+          const image=childDocument.createElement("img");
+          image.src=url;
+          image.alt=String(item.altText||item.source?.name||"");
+          image.style.objectFit=item.fit==="contain"?"contain":"cover";
+          image.style.objectPosition=`${clamp(finite(item.crop?.x,50),0,100)}% ${clamp(finite(item.crop?.y,50),0,100)}%`;
+          image.style.transform=`scale(${clamp(finite(item.crop?.zoom,1),1,4)})`;
+          node.append(image);
+        }else{
+          node.dataset.mediaUnavailable="true";
+          node.setAttribute("aria-label",`${item.source?.name||"Media asset"}; temporarily unavailable`);
+        }
       }else{
         node.style.background=String(item.fill||"#2C6E8F");
         node.style.borderColor=String(item.stroke||"#17324A");
@@ -873,12 +900,31 @@ class D1411AKernelElement extends HostHTMLElement{
       }
       return node;
     };
-    for(const item of items.sort((left,right)=>finite(left.layerIndex)-finite(right.layerIndex))){overlay.append(makeElement(item));}
+    const fitTextNode=(node)=>{
+      if(!node?.classList?.contains("d1411aAdvancedText")||node.isContentEditable)return;
+      const requested=Math.max(10,finite(node.dataset.requestedFontSize,24));
+      const minimum=clamp(finite(node.dataset.minFontSize,10),8,requested);
+      let size=requested;
+      node.style.fontSize=`${size}px`;
+      if(node.dataset.fitMode==="auto"){
+        while(size>minimum&&(node.scrollWidth>node.clientWidth+1||node.scrollHeight>node.clientHeight+1)){
+          size=Math.max(minimum,size-1);
+          node.style.fontSize=`${size}px`;
+        }
+      }
+      const overflow=node.scrollWidth>node.clientWidth+1||node.scrollHeight>node.clientHeight+1;
+      node.dataset.overflow=String(overflow);
+      node.title=overflow?"Text does not fit. Resize the text box or choose Auto fit text.":"";
+    };
+    for(const item of items.sort((left,right)=>finite(left.zIndex,finite(left.layerIndex))-finite(right.zIndex,finite(right.layerIndex))))overlay.append(makeElement(item));
     board.append(overlay);
+    overlay.querySelectorAll(".d1411aAdvancedText").forEach(fitTextNode);
     let selected=null;
     let selectedNodes=new Set();
     let gesture=null;
+    let marquee=null;
     let frame=0;
+    let lastTextPointer={id:"",at:0};
     const nodeFor=(type,id)=>overlay.querySelector(`[data-advanced-type="${CSS.escape(type)}"][data-advanced-id="${CSS.escape(id)}"]`);
     const membersForGroup=(groupId)=>[...overlay.querySelectorAll(`.d1411aAdvanced[data-group-id="${CSS.escape(String(groupId))}"]`)];
     const boundsForNodes=(nodes)=>{
@@ -898,6 +944,12 @@ class D1411AKernelElement extends HostHTMLElement{
       }
     };
     let selectedGroupId=null;
+    const eventHasPoint=(event)=>Number.isFinite(event?.clientX)&&Number.isFinite(event?.clientY);
+    const elementsAtEvent=(event)=>eventHasPoint(event)?childDocument.elementsFromPoint(event.clientX,event.clientY):[];
+    const capturePointer=(node,event)=>{
+      if(!node||!Number.isFinite(event?.pointerId))return;
+      try{node.setPointerCapture?.(event.pointerId);}catch{}
+    };
     const clearGroupBox=()=>overlay.querySelector(".d1411aGroupBox")?.remove();
     const showGroupBox=(groupId)=>{
       clearGroupBox();
@@ -907,6 +959,9 @@ class D1411AKernelElement extends HostHTMLElement{
       const box=childDocument.createElement("div");
       box.className="d1411aGroupBox";
       box.dataset.groupId=String(groupId);
+      box.tabIndex=0;
+      box.setAttribute("role","group");
+      box.setAttribute("aria-label","Selected Timeline group; use arrow keys to move, or Delete to remove");
       Object.assign(box.style,{left:`${bounds.x}px`,top:`${bounds.y}px`,width:`${bounds.width}px`,height:`${bounds.height}px`});
       addHandles(box);overlay.append(box);
       return box;
@@ -960,19 +1015,23 @@ class D1411AKernelElement extends HostHTMLElement{
     };
     const snapMove=(next,currentGesture)=>{
       if(currentGesture.snapDisabled)return{geometry:next,guides:{}};
-      const excluded=new Set(currentGesture.type==="group"
-        ?currentGesture.members.map((member)=>member.node)
-        :[currentGesture.node]);
-      const others=[...overlay.querySelectorAll(".d1411aAdvanced")]
-        .filter((candidate)=>!excluded.has(candidate)).map(geometry);
-      const xTargets=[0,960,1920,...others.flatMap((item)=>[item.x,item.x+item.width/2,item.x+item.width])];
-      const yTargets=[0,540,1080,...others.flatMap((item)=>[item.y,item.y+item.height/2,item.y+item.height])];
+      const xTargets=currentGesture.snapTargets?.x||[0,960,1920];
+      const yTargets=currentGesture.snapTargets?.y||[0,540,1080];
       const xAnchors=[next.x,next.x+next.width/2,next.x+next.width];
       const yAnchors=[next.y,next.y+next.height/2,next.y+next.height];
       let bestX=null,bestY=null;
       for(const target of xTargets)for(const anchor of xAnchors){const distance=Math.abs(target-anchor);if(distance<=12&&(!bestX||distance<bestX.distance))bestX={distance,delta:target-anchor,target};}
       for(const target of yTargets)for(const anchor of yAnchors){const distance=Math.abs(target-anchor);if(distance<=12&&(!bestY||distance<bestY.distance))bestY={distance,delta:target-anchor,target};}
       return{geometry:{...next,x:next.x+(bestX?.delta||0),y:next.y+(bestY?.delta||0)},guides:{x:bestX?.target,y:bestY?.target}};
+    };
+    const cacheSnapTargets=(excludedNodes=[])=>{
+      const excluded=new Set(excludedNodes);
+      const others=[...overlay.querySelectorAll(".d1411aAdvanced")]
+        .filter((candidate)=>!excluded.has(candidate)).map(geometry);
+      return{
+        x:[0,960,1920,...others.flatMap((item)=>[item.x,item.x+item.width/2,item.x+item.width])],
+        y:[0,540,1080,...others.flatMap((item)=>[item.y,item.y+item.height/2,item.y+item.height])]
+      };
     };
     const update=()=>{
       frame=0;
@@ -1007,11 +1066,13 @@ class D1411AKernelElement extends HostHTMLElement{
           member.node.style.top=`${next.y+(item.y-gesture.original.y)*scaleY}px`;
           member.node.style.width=`${Math.max(32,item.width*scaleX)}px`;
           member.node.style.height=`${Math.max(24,item.height*scaleY)}px`;
+          fitTextNode(member.node);
         }
         const box=overlay.querySelector(".d1411aGroupBox");
         if(box)Object.assign(box.style,{left:`${next.x}px`,top:`${next.y}px`,width:`${next.width}px`,height:`${next.height}px`});
       }else{
         gesture.node.style.left=`${next.x}px`;gesture.node.style.top=`${next.y}px`;gesture.node.style.width=`${next.width}px`;gesture.node.style.height=`${next.height}px`;
+        fitTextNode(gesture.node);
       }
     };
     const placeTextCaret=(node,event)=>{
@@ -1037,7 +1098,14 @@ class D1411AKernelElement extends HostHTMLElement{
       selection.addRange(range);
     };
     const beginTextEdit=(node,event=null)=>{
+      if(node&&(!node.isConnected||!overlay.contains(node))){
+        const id=String(node.dataset?.advancedId||"");
+        const currentOverlay=childDocument.getElementById("d1411a-advanced-overlay")||overlay;
+        node=[...currentOverlay.querySelectorAll(".d1411aAdvancedText")]
+          .find((candidate)=>String(candidate.dataset.advancedId)===id)||null;
+      }
       if(!node||!record.editable||node.dataset.locked==="true")return false;
+      this._advancedTextEditing=true;
       this.dispatchEvent(new CustomEvent("d1-411a:advanced-text-editing",{
         bubbles:true,composed:true,
         detail:{surface:record.surface,id:node.dataset.advancedId}
@@ -1056,8 +1124,25 @@ class D1411AKernelElement extends HostHTMLElement{
       const groupControl=event.target.closest?.(".d1411aGroupBox");
       if(!node&&!groupControl)return;
       if(node?.isContentEditable)return;
-      if(node?.classList.contains("d1411aAdvancedText")&&event.detail>=2){
-        if(beginTextEdit(node,event)){
+      // The group selection box sits above its children after the first
+      // pointerdown. Resolve the child under the second pointer so a natural
+      // double-click can still enter text editing without ungrouping.
+      const textNode=node?.classList.contains("d1411aAdvancedText")
+        ?node
+        :groupControl
+          ?elementsAtEvent(event)
+            .find((candidate)=>candidate.classList?.contains("d1411aAdvancedText"))
+          :null;
+      const textPointer=!!textNode&&event.button===0;
+      const now=childDocument.defaultView.performance.now();
+      const repeatedTextPointer=textPointer&&
+        lastTextPointer.id===String(textNode.dataset.advancedId)&&
+        now-lastTextPointer.at<=900;
+      if(textPointer)lastTextPointer={id:String(textNode.dataset.advancedId),at:now};
+      else lastTextPointer={id:"",at:0};
+      if(textPointer&&(event.detail>=2||repeatedTextPointer)){
+        lastTextPointer={id:"",at:0};
+        if(beginTextEdit(textNode,event)){
           event.preventDefault();
           event.stopPropagation();
         }
@@ -1072,9 +1157,9 @@ class D1411AKernelElement extends HostHTMLElement{
         const handle=event.target.closest(".d1411aHandle")?.dataset.handle||"";
         const members=membersForGroup(groupId).map((member)=>({node:member,original:geometry(member)}));
         const original=boundsForNodes(members.map((member)=>member.node));
-        gesture={type:"group",id:String(groupId),kind:handle?"resize":"move",handle,original,preview:{...original},members,aspectLocked:group.aspectLocked!==false,startX:(event.clientX-boardBounds.left)/(boardBounds.width/1920),startY:(event.clientY-boardBounds.top)/(boardBounds.height/1080),pendingX:0,pendingY:0};
+        gesture={type:"group",id:String(groupId),kind:handle?"resize":"move",handle,original,preview:{...original},members,aspectLocked:group.aspectLocked!==false,snapTargets:cacheSnapTargets(members.map((member)=>member.node)),startX:(event.clientX-boardBounds.left)/(boardBounds.width/1920),startY:(event.clientY-boardBounds.top)/(boardBounds.height/1080),pendingX:0,pendingY:0};
         gesture.pendingX=gesture.startX;gesture.pendingY=gesture.startY;
-        groupControl.setPointerCapture?.(event.pointerId);event.preventDefault();return;
+        capturePointer(groupControl,event);event.preventDefault();return;
       }
       if(event.target.closest(".d1411aHandle"))event.stopPropagation();
       if(node.dataset.groupId&&!event.shiftKey&&!event.metaKey){
@@ -1085,23 +1170,31 @@ class D1411AKernelElement extends HostHTMLElement{
         const boardBounds=board.getBoundingClientRect();
         const members=membersForGroup(groupId).map((member)=>({node:member,original:geometry(member)}));
         const original=boundsForNodes(members.map((member)=>member.node));
-        gesture={type:"group",id:String(groupId),kind:"move",handle:"",original,preview:{...original},members,aspectLocked:group.aspectLocked!==false,startX:(event.clientX-boardBounds.left)/(boardBounds.width/1920),startY:(event.clientY-boardBounds.top)/(boardBounds.height/1080),pendingX:0,pendingY:0};
+        gesture={type:"group",id:String(groupId),kind:"move",handle:"",original,preview:{...original},members,aspectLocked:group.aspectLocked!==false,snapTargets:cacheSnapTargets(members.map((member)=>member.node)),startX:(event.clientX-boardBounds.left)/(boardBounds.width/1920),startY:(event.clientY-boardBounds.top)/(boardBounds.height/1080),pendingX:0,pendingY:0};
         gesture.pendingX=gesture.startX;gesture.pendingY=gesture.startY;
-        node.setPointerCapture?.(event.pointerId);event.preventDefault();return;
+        capturePointer(node,event);event.preventDefault();return;
       }
       markSelected(node,{add:!!(event.shiftKey||event.metaKey)});
       if(selectedNodes.size!==1)return;
       if(!record.editable||node.dataset.locked==="true"||event.button!==0)return;
       const boardBounds=board.getBoundingClientRect();
       const handle=event.target.closest(".d1411aHandle")?.dataset.handle||"";
-      gesture={node,type:node.dataset.advancedType,id:node.dataset.advancedId,kind:handle?"resize":"move",handle,aspectLocked:node.dataset.aspectLocked==="true",original:geometry(node),preview:geometry(node),startX:(event.clientX-boardBounds.left)/(boardBounds.width/1920),startY:(event.clientY-boardBounds.top)/(boardBounds.height/1080),pendingX:0,pendingY:0};
+      gesture={node,type:node.dataset.advancedType,id:node.dataset.advancedId,kind:handle?"resize":"move",handle,aspectLocked:node.dataset.aspectLocked==="true",original:geometry(node),preview:geometry(node),snapTargets:cacheSnapTargets([node]),startX:(event.clientX-boardBounds.left)/(boardBounds.width/1920),startY:(event.clientY-boardBounds.top)/(boardBounds.height/1080),pendingX:0,pendingY:0};
       gesture.pendingX=gesture.startX;gesture.pendingY=gesture.startY;
-      node.setPointerCapture?.(event.pointerId);event.preventDefault();
+      capturePointer(node,event);event.preventDefault();
     };
     const move=(event)=>{
       if(!gesture)return;
       const bounds=board.getBoundingClientRect();
       gesture.pendingX=(event.clientX-bounds.left)/(bounds.width/1920);gesture.pendingY=(event.clientY-bounds.top)/(bounds.height/1080);
+      const distance=Math.hypot(
+        gesture.pendingX-gesture.startX,
+        gesture.pendingY-gesture.startY
+      );
+      if(distance<3){
+        event.preventDefault();
+        return;
+      }
       gesture.snapDisabled=!!event.altKey;
       if(!frame)frame=childDocument.defaultView.requestAnimationFrame(update);
       event.preventDefault();
@@ -1117,7 +1210,7 @@ class D1411AKernelElement extends HostHTMLElement{
     };
     const dblclick=(event)=>{
       const node=event.target.closest?.(".d1411aAdvancedText")
-        ||childDocument.elementFromPoint?.(event.clientX,event.clientY)?.closest?.(".d1411aAdvancedText")
+        ||(eventHasPoint(event)?childDocument.elementFromPoint?.(event.clientX,event.clientY)?.closest?.(".d1411aAdvancedText"):null)
         ||[...overlay.querySelectorAll(".d1411aAdvancedText")].reverse().find((candidate)=>{
           const bounds=candidate.getBoundingClientRect();
           return event.clientX>=bounds.left&&event.clientX<=bounds.right
@@ -1131,6 +1224,7 @@ class D1411AKernelElement extends HostHTMLElement{
     const blur=(event)=>{
       const node=event.target.closest?.(".d1411aAdvancedText[contenteditable]");
       if(!node)return;
+      this._advancedTextEditing=false;
       node.contentEditable="false";
       node.setAttribute("role","button");
       node.removeAttribute("aria-multiline");
@@ -1146,20 +1240,80 @@ class D1411AKernelElement extends HostHTMLElement{
     };
     const keydown=(event)=>{
       const node=event.target.closest?.(".d1411aAdvancedText[contenteditable]");
-      if(!node)return;
-      if(event.key==="Escape"){
+      if(node&&event.key==="Escape"){
         event.preventDefault();
         node.textContent=node.dataset.editingOriginal||"";
         node.blur();
-      }else if((event.metaKey||event.ctrlKey)&&event.key==="Enter"){
+        return;
+      }else if(node&&(event.metaKey||event.ctrlKey)&&event.key==="Enter"){
         event.preventDefault();
         node.blur();
+        return;
       }
+      if(node)return;
+      const targetNode=event.target.closest?.(".d1411aAdvanced");
+      const groupBox=event.target.closest?.(".d1411aGroupBox");
+      if(!targetNode&&!groupBox)return;
+      if(event.key==="Escape"){
+        event.preventDefault();markSelected(null);return;
+      }
+      if(targetNode?.classList.contains("d1411aAdvancedText")&&["Enter"," "].includes(event.key)){
+        event.preventDefault();beginTextEdit(targetNode);return;
+      }
+      const selectedTarget=groupBox
+        ?{type:"group",id:groupBox.dataset.groupId}
+        :{type:targetNode.dataset.advancedType,id:targetNode.dataset.advancedId};
+      if(["Delete","Backspace"].includes(event.key)||((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="d")){
+        event.preventDefault();
+        this.dispatchEvent(new CustomEvent("d1-411a:advanced-command",{bubbles:true,composed:true,detail:{surface:record.surface,command:(event.metaKey||event.ctrlKey)?"duplicate":"delete",target:selectedTarget}}));
+        return;
+      }
+      if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(event.key))return;
+      event.preventDefault();
+      const amount=event.shiftKey?10:1;
+      const dx=event.key==="ArrowLeft"?-amount:event.key==="ArrowRight"?amount:0;
+      const dy=event.key==="ArrowUp"?-amount:event.key==="ArrowDown"?amount:0;
+      const current=groupBox?geometry(groupBox):geometry(targetNode);
+      const next={...current,x:clamp(current.x+dx,0,1920-current.width),y:clamp(current.y+dy,0,1080-current.height)};
+      this.dispatchEvent(new CustomEvent("d1-411a:advanced-gesture",{bubbles:true,composed:true,detail:{surface:record.surface,type:selectedTarget.type,id:selectedTarget.id,kind:"move",geometry:next,input:"keyboard"}}));
     };
-    overlay.addEventListener("pointerdown",down);childDocument.addEventListener("pointermove",move);childDocument.addEventListener("pointerup",up);childDocument.addEventListener("pointercancel",up);overlay.addEventListener("dblclick",dblclick);overlay.addEventListener("focusout",blur);overlay.addEventListener("input",input);overlay.addEventListener("keydown",keydown);
+    const backgroundDown=(event)=>{
+      if(event.button!==0||!record.editable||event.target!==board)return;
+      markSelected(null);
+      const bounds=board.getBoundingClientRect();
+      const x=clamp((event.clientX-bounds.left)/(bounds.width/1920),0,1920);
+      const y=clamp((event.clientY-bounds.top)/(bounds.height/1080),0,1080);
+      const box=childDocument.createElement("div");
+      box.className="d1411aMarquee";box.style.left=`${x}px`;box.style.top=`${y}px`;box.style.width="0px";box.style.height="0px";overlay.append(box);
+      marquee={startX:x,startY:y,x,y,box};
+    };
+    const marqueeMove=(event)=>{
+      if(!marquee)return;
+      const bounds=board.getBoundingClientRect();
+      marquee.x=clamp((event.clientX-bounds.left)/(bounds.width/1920),0,1920);
+      marquee.y=clamp((event.clientY-bounds.top)/(bounds.height/1080),0,1080);
+      Object.assign(marquee.box.style,{left:`${Math.min(marquee.startX,marquee.x)}px`,top:`${Math.min(marquee.startY,marquee.y)}px`,width:`${Math.abs(marquee.x-marquee.startX)}px`,height:`${Math.abs(marquee.y-marquee.startY)}px`});
+      event.preventDefault();
+    };
+    const marqueeUp=()=>{
+      if(!marquee)return;
+      const left=Math.min(marquee.startX,marquee.x),right=Math.max(marquee.startX,marquee.x),top=Math.min(marquee.startY,marquee.y),bottom=Math.max(marquee.startY,marquee.y);
+      const chosen=[...overlay.querySelectorAll(".d1411aAdvanced")].filter((candidate)=>{const value=geometry(candidate);return value.x>=left&&value.y>=top&&value.x+value.width<=right&&value.y+value.height<=bottom;});
+      marquee.box.remove();marquee=null;
+      selectedNodes=new Set(chosen);
+      overlay.querySelectorAll(".d1411aAdvanced").forEach((candidate)=>candidate.dataset.selected=String(selectedNodes.has(candidate)));
+      const members=chosen.map((candidate)=>({type:candidate.dataset.advancedType,id:candidate.dataset.advancedId}));
+      this._advancedSelection=members.length>1?{type:"multi",members}:members[0]||null;
+      this.dispatchEvent(new CustomEvent("d1-411a:advanced-select",{bubbles:true,composed:true,detail:members.length>1?{surface:record.surface,type:"multi",members}:{surface:record.surface,type:members[0]?.type||null,id:members[0]?.id||null}}));
+    };
+    overlay.querySelectorAll(".d1411aAdvancedText").forEach((node)=>node.addEventListener("dblclick",dblclick));
+    overlay.addEventListener("pointerdown",down);childDocument.addEventListener("pointerdown",backgroundDown);childDocument.addEventListener("pointermove",move);childDocument.addEventListener("pointermove",marqueeMove);childDocument.addEventListener("pointerup",up);childDocument.addEventListener("pointerup",marqueeUp);childDocument.addEventListener("pointercancel",up);childDocument.addEventListener("pointercancel",marqueeUp);childDocument.addEventListener("dblclick",dblclick,true);overlay.addEventListener("focusout",blur);overlay.addEventListener("input",input);overlay.addEventListener("keydown",keydown);
     if(retainedAdvancedSelection?.type==="group")markGroup(retainedAdvancedSelection.id,{announce:false});
-    else if(retainedAdvancedSelection?.type&&retainedAdvancedSelection?.id)markSelected(nodeFor(retainedAdvancedSelection.type,retainedAdvancedSelection.id),{announce:false});
-    this._advancedOverlayCleanup=()=>{if(frame)childDocument.defaultView.cancelAnimationFrame(frame);overlay.removeEventListener("pointerdown",down);childDocument.removeEventListener("pointermove",move);childDocument.removeEventListener("pointerup",up);childDocument.removeEventListener("pointercancel",up);overlay.removeEventListener("dblclick",dblclick);overlay.removeEventListener("focusout",blur);overlay.removeEventListener("input",input);overlay.removeEventListener("keydown",keydown);this.selectAdvancedObject=()=>{};style.remove();overlay.remove();};
+    else if(retainedAdvancedSelection?.type==="multi"){
+      selectedNodes=new Set((retainedAdvancedSelection.members||[]).map((member)=>nodeFor(member.type,member.id)).filter(Boolean));
+      overlay.querySelectorAll(".d1411aAdvanced").forEach((candidate)=>candidate.dataset.selected=String(selectedNodes.has(candidate)));
+    }else if(retainedAdvancedSelection?.type&&retainedAdvancedSelection?.id)markSelected(nodeFor(retainedAdvancedSelection.type,retainedAdvancedSelection.id),{announce:false});
+    this._advancedOverlayCleanup=()=>{if(frame)childDocument.defaultView.cancelAnimationFrame(frame);marquee?.box?.remove();overlay.removeEventListener("pointerdown",down);childDocument.removeEventListener("pointerdown",backgroundDown);childDocument.removeEventListener("pointermove",move);childDocument.removeEventListener("pointermove",marqueeMove);childDocument.removeEventListener("pointerup",up);childDocument.removeEventListener("pointerup",marqueeUp);childDocument.removeEventListener("pointercancel",up);childDocument.removeEventListener("pointercancel",marqueeUp);childDocument.removeEventListener("dblclick",dblclick,true);overlay.removeEventListener("focusout",blur);overlay.removeEventListener("input",input);overlay.removeEventListener("keydown",keydown);this.selectAdvancedObject=()=>{};style.remove();overlay.remove();};
   }
 
   _pointMonth(event,childDocument){
@@ -1484,7 +1638,14 @@ class D1411AKernelElement extends HostHTMLElement{
     this.dataset.error=String(error?.code||error?.message||error);
     this.dataset.errorMessage="We could not display your timeline. Your saved information is still safe.";
     if(this.shadowRoot){
-      this.shadowRoot.innerHTML='<output role="alert"><strong>We could not display your timeline.</strong><span>Your saved information is still safe. Refresh this page, or contact support if the problem continues.</span></output>';
+      const retained=this.shadowRoot.querySelector("iframe");
+      if(retained){
+        let alert=this.shadowRoot.querySelector("[data-last-good-alert]");
+        if(!alert){alert=this.ownerDocument.createElement("output");alert.dataset.lastGoodAlert="true";alert.setAttribute("role","alert");this.shadowRoot.append(alert);}
+        alert.innerHTML='<strong>We kept your last working timeline visible.</strong><span>That change could not be displayed. Try adjusting the selected item or undo the last change.</span>';
+      }else{
+        this.shadowRoot.innerHTML='<output role="alert"><strong>We could not display your timeline.</strong><span>Your saved information is still safe. Refresh this page, or contact support if the problem continues.</span></output>';
+      }
     }
     this.dispatchEvent(new CustomEvent("d1-411a:error",{
       bubbles:true,composed:true,detail:{surface:this._record?.surface,error}

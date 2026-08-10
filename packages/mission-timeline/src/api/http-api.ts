@@ -1,6 +1,7 @@
 import type { MatrixIdentity, PrincipalContext } from "../contracts/types.js";
 import { asTimelineError, TimelineError } from "../core/errors.js";
 import type { TimelineService } from "../domain/timeline-service.js";
+import { CvIntelligenceService } from "../intelligence/cv-intelligence-service.js";
 import type { PrivateObjectStore } from "../storage/private-object-store.js";
 import type { PrivacySafeTelemetry } from "../telemetry/telemetry.js";
 
@@ -40,6 +41,7 @@ export class TimelineHttpApi {
     private readonly telemetry: PrivacySafeTelemetry,
     private readonly releaseVersion = "412.0.0-rc.0",
     private readonly productionWrites = false,
+    private readonly cvIntelligence = new CvIntelligenceService(),
   ) {}
 
   async handle(request: Request, trustedMatrixIdentity?: MatrixIdentity): Promise<Response> {
@@ -61,9 +63,13 @@ export class TimelineHttpApi {
       const service = typeof this.serviceProvider === "function"
         ? await this.serviceProvider(context)
         : this.serviceProvider;
-      const response = await service.repository.withTransaction((repository) =>
-        this.dispatch(request, url, context, service.withRepository(repository)),
-      );
+      // Semantic analysis is a read-only, bounded provider call and must not hold a
+      // PostgreSQL transaction or pool connection while waiting on the provider.
+      const response = routeClass === "intake"
+        ? await this.dispatch(request, url, context, service)
+        : await service.repository.withTransaction((repository) =>
+          this.dispatch(request, url, context, service.withRepository(repository)),
+        );
       await this.emitTelemetry("api.request", {
         route_class: routeClass,
         method: request.method,
@@ -113,6 +119,19 @@ export class TimelineHttpApi {
     if (documentMatch && request.method === "GET") {
       const result = await service.getDocument(context, documentMatch[1]!);
       return json(result, 200, { etag: `"${result.document.revision}"` });
+    }
+    const cvAnalyzeMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/intake\/analyze$/);
+    if (cvAnalyzeMatch && request.method === "POST") {
+      const input = await body(request);
+      const record = await service.getDocument(context, cvAnalyzeMatch[1]!);
+      if (record.document.studentOwnerId !== context.principalId || context.role !== "STUDENT") {
+        throw new TimelineError("CV_ANALYSIS_OWNER_REQUIRED", "Student ownership is required for CV analysis.", 403);
+      }
+      const source = input.source && typeof input.source === "object" && !Array.isArray(input.source)
+        ? input.source as Record<string, unknown>
+        : {};
+      const sourceObject = await this.objectStore.getAuthorizedObject(context, String(source.objectId ?? ""));
+      return json(await this.cvIntelligence.analyze(context, record.document, sourceObject, input), 200);
     }
     const checkpointMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/checkpoints\/([^/]+)$/);
     if (checkpointMatch && request.method === "PUT") {
@@ -226,6 +245,7 @@ export class TimelineHttpApi {
     if (pathname.includes("/reviews")) return "reviews";
     if (pathname.includes("/versions")) return "versions";
     if (pathname.includes("/checkpoints")) return "checkpoints";
+    if (pathname.includes("/intake/")) return "intake";
     if (pathname.includes("/documents")) return "documents";
     if (pathname.includes("/objects")) return "objects";
     if (pathname.includes("/exports")) return "exports";

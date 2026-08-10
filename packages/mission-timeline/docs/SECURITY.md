@@ -27,6 +27,14 @@ The proposed database migration repeats these boundaries with RLS. It revokes pu
 - Downloads are private and short-lived.
 - Service-created export objects retain the student as owner.
 
+## CV intelligence and File Vault sources
+
+- Remote CV intelligence is optional and server-only. It starts only after the student accepts the configured consent version and the service verifies that the confirmed private `SOURCE` object belongs to the same principal and Timeline document.
+- Provider requests contain bounded source blocks and a minimal existing-event summary, never browser credentials, session tokens, signed object URLs, object keys, or storage capabilities. The provider request disables response storage and requires a strict JSON schema.
+- Every candidate field must cite a verified source block and supported excerpt. Deterministic post-validation rejects unsupported facts, invalid taxonomy, unbound excerpts, and unsafe bulk acceptance. Provider failure falls back to a clearly labeled limited local parser and never fabricates candidates.
+- Configure all four server-only values together: `TIMELINE_AI_PROVIDER`, `TIMELINE_AI_API_KEY`, `TIMELINE_AI_MODEL`, and `TIMELINE_AI_CONSENT_VERSION`. A partial configuration stops service startup; no values may be exposed to the browser, logs, artifacts, or evidence.
+- Timeline's File Vault gateway is read-only and same-origin. It rechecks WordPress nonce, Origin, Timeline entitlement/consent, immutable principal mapping, current owner, and confirmed current version. It exposes only storage-opaque metadata; it never exposes bytes, signed URLs, object keys, comments, or cross-owner records. A missing or unhealthy File Vault V1 contract fails closed and preserves local upload.
+
 ## Export privacy
 
 The server projects the document by explicit visibility state before rendering. Raw PDF pages, source blocks, extraction candidates, human review actions, local persistence metadata, and recovery metadata are removed. Interviewer-safe output includes only interviewer-safe events/media. Official rendering requires approval of the exact immutable version and hash at queue time and again immediately before render.

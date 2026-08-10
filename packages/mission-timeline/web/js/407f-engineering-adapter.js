@@ -104,6 +104,8 @@ import {
   setAdvancedObjectAspectLock,
   setMediaAspectLock,
   ungroupAdvancedObjects,
+  updateMediaPresentation,
+  updateTextContainerPresentation,
   updateTextBlockContent,
   validateBackgroundUpload,
   validateMediaUpload
@@ -154,7 +156,10 @@ import {
   installIntake,
   renderIntake
 } from "./uxr-002/intake.js";
-import {createD1408PdfIntakeAdapter} from "./uxr-002/intake-d1-408-adapter.js";
+import {
+  createD1408PdfIntakeAdapter,
+  createProductionCvIntakeAdapter
+} from "./uxr-002/intake-d1-408-adapter.js";
 import {
   queryFileVaultSource,
   renderFileVaultSourceChooser,
@@ -1516,6 +1521,7 @@ export async function boot407FEngineeringAdapter({
   let onKernelAdvancedTextEditing=()=>{};
   let onKernelAdvancedText=()=>{};
   let onKernelAdvancedDrop=()=>{};
+  let onKernelAdvancedCommand=()=>{};
   let onKernelRejected=()=>{};
   let advancedTextSelectionTimer=null;
   let onCanvasResize=()=>{};
@@ -1866,6 +1872,7 @@ export async function boot407FEngineeringAdapter({
     document.removeEventListener("d1-411a:advanced-text-editing",onKernelAdvancedTextEditing);
     document.removeEventListener("d1-411a:advanced-text",onKernelAdvancedText);
     document.removeEventListener("d1-411a:advanced-drop",onKernelAdvancedDrop);
+    document.removeEventListener("d1-411a:advanced-command",onKernelAdvancedCommand);
     document.removeEventListener("d1-411a:rejected",onKernelRejected);
     document.removeEventListener("d1-411a:command",onKernelCommand);
     document.removeEventListener("d1-411a:media-drop",onKernelMediaDrop);
@@ -3795,8 +3802,13 @@ export async function boot407FEngineeringAdapter({
       });
       reselectAdvancedKernel(detail.type,detail.id);
     };
-    if(detail.type==="text"){
-      advancedTextSelectionTimer=setTimeout(reconcileSelection,500);
+    // Text inside a composition reports the enclosing group on the first
+    // click. Defer inspector reconciliation long enough for the protected
+    // kernel to receive a second click and enter contenteditable mode. The
+    // advanced-text-editing event cancels this timer, so the live text node is
+    // never replaced between the two clicks.
+    if(detail.type==="text"||detail.type==="group"){
+      advancedTextSelectionTimer=setTimeout(reconcileSelection,900);
       return;
     }
     reconcileSelection();
@@ -3869,6 +3881,12 @@ export async function boot407FEngineeringAdapter({
     if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
     advancedHooks().onAssetDrop(detail.payload,{x:detail.x,y:detail.y});
   };
+  onKernelAdvancedCommand=(event)=>{
+    const detail=event.detail||{};
+    if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
+    if(!["duplicate","delete"].includes(detail.command)||!detail.target)return;
+    advancedHooks().onObjectAction(detail.command,detail.target);
+  };
   onKernelRejected=(event)=>{
     const detail=event.detail||{};
     if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
@@ -3915,6 +3933,7 @@ export async function boot407FEngineeringAdapter({
   document.addEventListener("d1-411a:advanced-text-editing",onKernelAdvancedTextEditing);
   document.addEventListener("d1-411a:advanced-text",onKernelAdvancedText);
   document.addEventListener("d1-411a:advanced-drop",onKernelAdvancedDrop);
+  document.addEventListener("d1-411a:advanced-command",onKernelAdvancedCommand);
   document.addEventListener("d1-411a:rejected",onKernelRejected);
   document.addEventListener("d1-411a:command",onKernelCommand);
   document.addEventListener("d1-411a:media-drop",onKernelMediaDrop);
@@ -4438,7 +4457,25 @@ export async function boot407FEngineeringAdapter({
       canvasController?.setUiState({advancedSelection:target});
       announceGlobal(locked?"Media proportions locked":"Media proportions unlocked");
     },
+    onMediaPresentation:(changes,target)=>{
+      try{
+        const next=updateMediaPresentation(store.document,target,changes);
+        store.replace(next,{label:"Adjust media presentation"});
+        syncBridgeStateFromStore();
+        canvasController?.setUiState({advancedSelection:target});
+        reselectAdvancedKernel("media",target.id);
+      }catch(error){bridge.toast(String(error?.message||error));}
+    },
     onTypography:(changes,target)=>applyTypographyChange(changes,target),
+    onTextLayout:(changes,target)=>{
+      try{
+        const next=updateTextContainerPresentation(store.document,target,changes);
+        store.replace(next,{label:"Adjust text layout"});
+        syncBridgeStateFromStore();
+        canvasController?.setUiState({advancedSelection:target});
+        reselectAdvancedKernel("text",target.id);
+      }catch(error){bridge.toast(String(error?.message||error));}
+    },
     onTextContent:(text,target)=>{
       const result=updateTextBlockContent(store.document,target,text);
       store.replace(result,{label:"Edit Advanced text"});
@@ -5354,23 +5391,6 @@ export async function boot407FEngineeringAdapter({
     const syncCanvasDocument=(canvasState)=>{
       if(canvasSyncing)return;
       canvasSyncing=true;
-      if(canvasState?.zoom&&store.entitlement.canMutate===true){
-        const zoomPreference=canvasState.zoom.mode==="fit"
-          ?"fit"
-          :Number(canvasState.zoom.percent||100);
-        if(store.document.preferences?.canvasZoom!==zoomPreference){
-          store.mutate(
-            "Set editor zoom",
-            (document)=>{
-              document.preferences={
-                ...(document.preferences||{}),
-                canvasZoom:zoomPreference
-              };
-            },
-            {history:false,material:false}
-          );
-        }
-      }
       // Canvas-only UI state (selection, panels, zoom and transient gestures)
       // must not ask the legacy bridge to rebuild the active route. Canonical
       // document mutations already synchronize through their owning hooks and
@@ -6085,7 +6105,19 @@ export async function boot407FEngineeringAdapter({
   onAdvisorHashChange();
   const intakeHost=document.getElementById("intake407F");
   if(intakeHost){
-    const intakeAdapter=window.D1_TIMELINE_INTAKE_ADAPTER||createD1408PdfIntakeAdapter();
+    const localIntakeAdapter=createD1408PdfIntakeAdapter();
+    const intakeAdapter=window.D1_TIMELINE_INTAKE_ADAPTER||(
+      productionRuntime&&privateMediaStorageEnabled
+        ?createProductionCvIntakeAdapter({
+          localAdapter:localIntakeAdapter,
+          apiClient:productionRuntime.authClient,
+          documentId:store.document.id,
+          existingEvents:()=>clone(store.document.events||[]),
+          consentVersion:"d1-ux-007-ai-v1",
+          ensureRemoteDocument:ensureRemoteDocumentForMedia
+        })
+        :localIntakeAdapter
+    );
     window.D1_TIMELINE_INTAKE_ADAPTER=intakeAdapter;
     const renderIntakePreview=(previewEvents)=>{
       const replacementIds=new Set((previewEvents||[]).map(({id})=>String(id)));

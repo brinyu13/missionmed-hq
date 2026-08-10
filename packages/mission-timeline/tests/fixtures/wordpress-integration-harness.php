@@ -40,6 +40,7 @@ function wp_parse_args($args, $defaults) { return array_merge($defaults, $args);
 function absint($value) { return abs((int) $value); }
 function sanitize_key($value) { return preg_replace('/[^a-z0-9_-]/', '', strtolower((string) $value)); }
 function sanitize_text_field($value) { return trim((string) $value); }
+function sanitize_file_name($value) { return basename(trim((string) $value)); }
 function esc_url_raw($value) { return (string) $value; }
 function untrailingslashit($value) { return rtrim((string) $value, '/'); }
 function apply_filters($name, $value) { return $value; }
@@ -114,6 +115,33 @@ $checks['first_use_jwt_is_local_only'] = !is_wp_error($first_use_issued) && json
 $changed_access = $student_access;
 $changed_access['entitlement_version'] = 'revoked';
 $checks['entitlement_change_rejects_token'] = is_wp_error(mmtl_verify_jwt($issued['token'], $issued['principal_id'], 101, $changed_access));
+
+$vault_record = array(
+    'id' => '11111111-1111-4111-8111-111111111111',
+    'owner_id' => 101,
+    'current_version_id' => '22222222-2222-4222-8222-222222222222',
+    'document_type' => 'cv',
+    'original_filename' => 'CV.pdf',
+    'updated_at' => '2026-08-10T12:00:00Z',
+    'r2_key' => 'must-not-escape',
+    'versions' => array(array(
+        'id' => '22222222-2222-4222-8222-222222222222',
+        'mime_type' => 'application/pdf',
+        'file_size' => 4096,
+        'upload_confirmed' => true,
+        'r2_key' => 'must-not-escape',
+    )),
+);
+$vault_descriptor = mmtl_filevault_source_descriptor($vault_record, 101, true);
+$checks['filevault_source_owner_bound'] = is_array($vault_descriptor)
+    && $vault_descriptor['id'] === $vault_record['id']
+    && $vault_descriptor['versionId'] === $vault_record['current_version_id'];
+$checks['filevault_source_storage_opaque'] = is_array($vault_descriptor)
+    && !isset($vault_descriptor['r2_key'])
+    && !isset($vault_descriptor['url']);
+$checks['filevault_source_cross_owner_denied'] = mmtl_filevault_source_descriptor($vault_record, 102, true) === null;
+$vault_record['versions'][0]['upload_confirmed'] = false;
+$checks['filevault_source_unconfirmed_denied'] = mmtl_filevault_source_descriptor($vault_record, 101, true) === null;
 
 $pass = !in_array(false, $checks, true);
 echo json_encode(array('pass' => $pass, 'checks' => $checks)) . "\n";

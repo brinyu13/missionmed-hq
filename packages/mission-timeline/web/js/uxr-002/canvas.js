@@ -234,7 +234,7 @@ export function createCanvasZoom(value = "fit") {
   if (String(value).toLowerCase() === "fit") {
     return freeze({mode:"fit",percent:null,label:"Fit",snappingIndicator:false});
   }
-  const percent = Math.min(200,Math.max(50,Math.round(Number(value) || 100)));
+  const percent = Math.min(400,Math.max(25,Math.round(Number(value) || 100)));
   return freeze({
     mode:"percent",
     percent,
@@ -248,17 +248,19 @@ export function updateCanvasZoom(zoom,change) {
   if (change?.kind === "preset") {
     const preset = String(change.value).toLowerCase();
     if (preset === "fit") return createCanvasZoom("fit");
-    if (preset === "100" || preset === "100%") return createCanvasZoom(100);
-    if (preset === "150" || preset === "150%") return createCanvasZoom(150);
-    throw new TypeError("Canvas zoom preset must be Fit, 100%, or 150%.");
+    if(preset==="in")return updateCanvasZoom(zoom,{kind:"step",delta:10});
+    if(preset==="out")return updateCanvasZoom(zoom,{kind:"step",delta:-10});
+    const numeric=Number.parseFloat(preset);
+    if(Number.isFinite(numeric))return createCanvasZoom(numeric);
+    throw new TypeError("Canvas zoom must be Fit or a percentage.");
   }
-  if (change?.kind !== "trackpad") {
-    throw new TypeError("Canvas zoom change must be a preset or trackpad change.");
+  if (!["trackpad","step","direct"].includes(change?.kind)) {
+    throw new TypeError("Canvas zoom change must be a preset, percentage, step, or trackpad change.");
   }
   const requested = change.percent == null
     ? prior + Number(change.delta || 0)
     : Number(change.percent);
-  const percent = Math.min(200,Math.max(50,Math.round(requested)));
+  const percent = Math.min(400,Math.max(25,Math.round(requested)));
   const crossed100 = (prior < 100 && percent >= 100) || (prior > 100 && percent <= 100);
   return freeze({
     mode:"percent",
@@ -297,6 +299,7 @@ export function createCanvasState({
     toolbarFocus:false,
     drag:null,
     zoom:createCanvasZoom(zoom),
+    viewport:{x:0,y:0,panning:false},
     liveAnnouncement:"",
     responsive:canvasResponsiveContract(viewportWidth)
   };
@@ -1172,13 +1175,12 @@ function renderModeSwitch(state,disabled) {
 }
 
 function renderZoom(zoom) {
-  const active = zoom?.mode === "fit" ? "fit" : String(zoom?.percent);
+  const value=zoom?.mode==="fit"?100:Number(zoom?.percent||100);
   return `<div class="canvas-zoom" role="group" aria-label="Timeline zoom">
-    ${[
-      ["fit","Fit"],
-      ["100","100%"],
-      ["150","150%"]
-    ].map(([value,label]) => `<button type="button" data-canvas-zoom="${value}" aria-pressed="${active === value}">${label}</button>`).join("")}
+    <button type="button" data-canvas-zoom="out" aria-label="Zoom out">−</button>
+    <label><span class="sr-only">Zoom percentage</span><input type="number" min="25" max="400" step="5" value="${value}" data-canvas-zoom-percent aria-label="Zoom percentage"><span aria-hidden="true">%</span></label>
+    <button type="button" data-canvas-zoom="in" aria-label="Zoom in">+</button>
+    <button type="button" data-canvas-zoom="fit" aria-pressed="${zoom?.mode==="fit"}">Fit</button>
     ${zoom?.snappingIndicator ? '<span class="zoom-snap-indicator" role="status">100%</span>' : ""}
   </div>`;
 }
@@ -1612,6 +1614,7 @@ export function installCanvas(
   let versions = [];
   let destroyed = false;
   let pointer = null;
+  let panPointer = null;
   let effectiveHitFrame=0;
 
   const copyElementAttributes=(target,source)=>{
@@ -2161,6 +2164,11 @@ export function installCanvas(
   };
 
   const onInput = (event) => {
+    if(event.target.matches?.("[data-canvas-zoom-percent]")){
+      const value=Number(event.target.value);
+      if(Number.isFinite(value))setState({...state,zoom:updateCanvasZoom(state.zoom,{kind:"direct",percent:value}),liveAnnouncement:`Zoom ${Math.min(400,Math.max(25,Math.round(value)))} percent`});
+      return;
+    }
     if(!isEditable(state))return;
     if (event.target.matches?.("[data-inline-label-input]")) {
       state = updateInlineLabelDraft(state,event.target.value);
@@ -2332,6 +2340,13 @@ export function installCanvas(
   };
 
   const onPointerDown = (event) => {
+    const stage=event.target.closest?.(".canvas-stage");
+    if(stage&&event.button===1){
+      panPointer={stage,startX:event.clientX,startY:event.clientY,scrollLeft:stage.scrollLeft,scrollTop:stage.scrollTop};
+      stage.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+      return;
+    }
     if (!isEditable(state) || event.button !== 0) return;
     const handle = event.target.closest?.("[data-drag-kind]");
     const target = handle
@@ -2363,6 +2378,12 @@ export function installCanvas(
   };
 
   const onPointerMove = (event) => {
+    if(panPointer){
+      panPointer.stage.scrollLeft=panPointer.scrollLeft-(event.clientX-panPointer.startX);
+      panPointer.stage.scrollTop=panPointer.scrollTop-(event.clientY-panPointer.startY);
+      event.preventDefault();
+      return;
+    }
     if (!pointer) return;
     if(!isEditable(state)){
       pointer=null;
@@ -2407,6 +2428,7 @@ export function installCanvas(
   };
 
   const onPointerUp = () => {
+    if(panPointer){panPointer=null;return;}
     if (!pointer) return;
     if(!isEditable(state)){
       pointer=null;

@@ -280,11 +280,11 @@ export function projectTimelineDocument(document,{
     item?.role==="interview-program-logo"||
     item?.role==="interview-program-logo-source"
   );
-  const visiblePhotos=media
+  const visiblePhotoCandidates=media
     .filter((item)=>item?.type==="media"&&item?.placed!==false&&
-      item!==profileMedia&&item!==logoMedia)
-    .slice(0,5);
-  if(media.filter((item)=>item?.type==="media"&&item?.placed!==false).length>5){
+      item!==profileMedia&&item!==logoMedia&&document.mode!=="advanced");
+  const visiblePhotos=visiblePhotoCandidates.slice(0,5);
+  if(visiblePhotoCandidates.length>5){
     warnings.push("EXTRA_PHOTOS_REPORTED");
   }
   const photos=[];

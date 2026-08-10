@@ -1,3 +1,5 @@
+import {createAuthenticatedFileVaultSourceAdapter} from "../uxr-002/filevault-source.js";
+
 export class TimelineProductionAuthError extends Error{
   constructor(code,message,status=0){super(message);this.name="TimelineProductionAuthError";this.code=code;this.status=status;}
 }
@@ -33,9 +35,10 @@ const AUTHORITY_REVOCATION_CODES=new Set([
 const isAuthorityRevocation=(code)=>AUTHORITY_REVOCATION_CODES.has(String(code||"").toLowerCase());
 
 export class TimelineProductionAuthClient{
-  constructor({fetchImpl=globalThis.fetch.bind(globalThis),locationObject=globalThis.location,documentObject=globalThis.document,onAccountSwitch=()=>{}}={}){
-    this.fetchImpl=fetchImpl;this.locationObject=locationObject;this.documentObject=documentObject;this.onAccountSwitch=onAccountSwitch;
+  constructor({fetchImpl=globalThis.fetch.bind(globalThis),locationObject=globalThis.location,documentObject=globalThis.document,globalObject=globalThis,onAccountSwitch=()=>{}}={}){
+    this.fetchImpl=fetchImpl;this.locationObject=locationObject;this.documentObject=documentObject;this.globalObject=globalObject;this.onAccountSwitch=onAccountSwitch;
     this.bootstrapState=null;this.token="";this.claims=null;this.refreshing=null;this.refreshTimer=null;this.locked=false;this.claimListeners=new Set();
+    this.fileVaultSourceAdapter=null;
     this.visibilityHandler=()=>{
       if(this.documentObject?.visibilityState==="visible")this.refreshToken().catch(()=>{});
     };
@@ -61,6 +64,7 @@ export class TimelineProductionAuthClient{
     this.bootstrapState={
       nonce:String(data.nonce||""),
       tokenEndpoint:sameOriginUrl(data.token_endpoint,origin),
+      fileVaultSourceEndpoint:sameOriginUrl(data.file_vault_source_endpoint||"/wp-json/missionmed-timeline/v1/file-vault/sources",origin).replace(/\/$/,""),
       apiBase:sameOriginUrl(data.api_base,origin).replace(/\/$/,""),
       matrixUrl:sameOriginUrl(data.matrix_url,origin),
       principalId:String(data.user?.principal_id||"").toLowerCase(),
@@ -78,6 +82,10 @@ export class TimelineProductionAuthClient{
       throw new TimelineProductionAuthError("TIMELINE_BOOTSTRAP_INVALID","Timeline identity bootstrap is invalid.");
     }
     await this.refreshToken();
+    this.fileVaultSourceAdapter=createAuthenticatedFileVaultSourceAdapter({
+      request:(suffix="")=>this.requestFileVaultSource(suffix)
+    });
+    if(this.globalObject)this.globalObject.MISSIONMED_FILEVAULT_SOURCE_ADAPTER=this.fileVaultSourceAdapter;
     return Object.freeze({...this.bootstrapState,claims:{...this.claims}});
   }
 
@@ -133,19 +141,47 @@ export class TimelineProductionAuthClient{
     return this.token;
   }
 
-  async request(path,{method="GET",body,headers={},retry=true}={}){
+  async request(path,{method="GET",body,headers={},retry=true,timeoutMs=20_000}={}){
     const token=await this.validToken();
     const response=await this.fetchImpl(`${this.bootstrapState.apiBase}${path}`,{
       method,credentials:"same-origin",cache:"no-store",
       headers:{accept:"application/json",authorization:`Bearer ${token}`,...(body===undefined?{}:{"content-type":"application/json"}),...headers},
-      body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(20_000)
+      body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(timeoutMs)
     });
-    if(response.status===401&&retry){await this.refreshToken();return this.request(path,{method,body,headers,retry:false});}
+    if(response.status===401&&retry){await this.refreshToken();return this.request(path,{method,body,headers,retry:false,timeoutMs});}
     const payload=await response.json().catch(()=>({}));
     const errorCode=payload?.error?.code||"TIMELINE_API_ERROR";
     if(response.status===401)this.lock("api_session_invalid");
     else if(isAuthorityRevocation(errorCode))this.lock(`api_${String(errorCode).toLowerCase()}`);
     if(!response.ok)throw new TimelineProductionAuthError(errorCode,payload?.error?.message||"Timeline request failed.",response.status);
+    return payload;
+  }
+
+  async requestFileVaultSource(suffix="",{retry=true}={}){
+    await this.validToken();
+    const endpoint=new URL(`${this.bootstrapState.fileVaultSourceEndpoint}${String(suffix||"")}`);
+    if(endpoint.origin!==this.locationObject.origin){
+      throw new TimelineProductionAuthError("CROSS_ORIGIN_CONFIGURATION","File Vault source configuration is invalid.");
+    }
+    const response=await this.fetchImpl(endpoint,{
+      method:"GET",credentials:"same-origin",cache:"no-store",
+      headers:{accept:"application/json","x-wp-nonce":this.bootstrapState.nonce},
+      signal:AbortSignal.timeout(20_000)
+    });
+    const payload=await response.json().catch(()=>({}));
+    const code=String(payload?.code||payload?.error?.code||"TIMELINE_FILEVAULT_ERROR");
+    if(retry&&(response.status===401||code.toLowerCase()==="csrf_failed")){
+      await this.refreshToken();
+      return this.requestFileVaultSource(suffix,{retry:false});
+    }
+    if(response.status===401||isAuthorityRevocation(code))this.lock(`filevault_${code.toLowerCase()}`);
+    if(!response.ok){
+      throw new TimelineProductionAuthError(
+        code,
+        payload?.message||payload?.error?.message||"File Vault is temporarily unavailable. You can still upload a CV from this device.",
+        response.status
+      );
+    }
     return payload;
   }
 
@@ -167,12 +203,19 @@ export class TimelineProductionAuthClient{
     clearTimeout(this.refreshTimer);this.refreshTimer=null;
     this.claimListeners.clear();
     this.documentObject?.removeEventListener?.("visibilitychange",this.visibilityHandler);
+    if(this.globalObject?.MISSIONMED_FILEVAULT_SOURCE_ADAPTER===this.fileVaultSourceAdapter){
+      delete this.globalObject.MISSIONMED_FILEVAULT_SOURCE_ADAPTER;
+    }
+    this.fileVaultSourceAdapter=null;
   }
 
   listDocuments(){return this.request("/documents");}
   createDocument(document,programId){return this.request("/documents",{method:"POST",body:{id:document.id,programId,title:document.title,theme:document.theme,document}});}
   checkpoint(documentId,deviceId,baseRevision,snapshot){return this.request(`/documents/${encodeURIComponent(documentId)}/checkpoints/${encodeURIComponent(deviceId)}`,{method:"PUT",body:{baseRevision,snapshot}});}
   createVersion(documentId,baseRevision,snapshot,label){return this.request(`/documents/${encodeURIComponent(documentId)}/versions`,{method:"POST",body:{baseRevision,snapshot,label}});}
+  analyzeCv(documentId,input){
+    return this.request(`/documents/${encodeURIComponent(documentId)}/intake/analyze`,{method:"POST",body:input,timeoutMs:65_000});
+  }
   signObjectUpload(documentId,{mimeType,byteSize,sha256,objectClass="MEDIA"}={}){
     return this.request("/objects/sign",{method:"POST",body:{documentId,objectClass,mimeType,byteSize,sha256}});
   }

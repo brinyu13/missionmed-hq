@@ -151,6 +151,20 @@ test("D1-411B media projection fails closed without a SHA-256-bound supported im
   assert.deepEqual(projected.dropped,[{id:"photo-unverified",reason:"unverified-media"}]);
 });
 
+test("007 Advanced media stays in the direct-manipulation overlay instead of a duplicate protected photo slot",()=>{
+  const document=timeline();
+  document.mode="advanced";
+  document.advanced.media=[{
+    id:"photo-direct",type:"media",placed:true,x:420,y:180,width:360,height:240,
+    source:{src:"https://example.invalid/private/photo.png",type:"image/png",contentSha256:"a".repeat(64),name:"photo.png"}
+  }];
+  const advanced=projectTimelineDocument(document,{audience:"EVERYTHING"});
+  assert.equal(advanced.model.photos.length,0);
+  document.mode="guided";
+  const guided=projectTimelineDocument(document,{audience:"EVERYTHING"});
+  assert.equal(guided.model.photos.length,1);
+});
+
 test("D1-411B one kernel manager reuses an identical projection across surfaces",()=>{
   const manager=createD1411AKernelManager();
   const document=timeline();
@@ -223,6 +237,16 @@ test("D1-411B kernel host destroys discarded kernels and exports from committed 
   assert.match(source,/format:format==="pdf"\?"png":format/);
   assert.match(source,/buildImagePdf\(\[/);
   assert.doesNotMatch(source,/serializeKeynoteClassicSvg|renderKeynoteClassicBoard/);
+});
+
+test("007 kernel overlay owns media geometry, keyboard commands, marquee selection, and last-good fail-soft",async()=>{
+  const source=await readFile(new URL("js/d1-411a/kernel-host.js",webRoot),"utf8");
+  assert.match(source,/advanced\.media/);
+  assert.match(source,/d1411aAdvancedMedia/);
+  assert.match(source,/record\.resolveObjectUrl\?\.\(item\.id,item\)/);
+  assert.match(source,/new CustomEvent\("d1-411a:advanced-command"/);
+  assert.match(source,/className="d1411aMarquee"/);
+  assert.match(source,/We kept your last working timeline visible/);
 });
 
 test("D1-411B direct presentation editor exposes only implemented handles and persists through the adapter",async()=>{

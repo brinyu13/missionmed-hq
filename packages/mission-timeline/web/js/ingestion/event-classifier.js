@@ -47,6 +47,17 @@ export function classifyEvent(record,dateRange){
     const type=/graduat/.test(String(record.title||"").toLowerCase())?"GRADUATION":"MEDICAL_DEGREE";
     return result(type,"usmle","milestone","Medical degree or graduation wording detected.",common);
   }
+  if(
+    record.section==="honors"||
+    /\b(?:award|honou?r|distinction|prize|scholarship|dean'?s list|valedictorian|cum laude)\b/.test(text)
+  )return result("AWARD_HONOR","education",hasRange?"duration":"milestone","Award or honor wording detected.",common);
+  if(
+    record.section==="education"||
+    /\b(?:bachelor(?:'s)?|master(?:'s)?|doctorate|ph\.?d\.?|b\.?s\.?|b\.?a\.?|m\.?s\.?|university|college|secondary school)\b/.test(text)
+  )return result("EDUCATION","education",hasRange?"duration":"milestone","Education wording or an education source section was detected.",common);
+  if(record.section==="research"&&/\b(?:research|fellow|investigator|laboratory|study)\b/.test(text)){
+    return result("RESEARCH_EXPERIENCE","res",hasRange?"duration":"milestone","Research-section context was detected and takes precedence over ambiguous fellowship wording.",common);
+  }
   if(/\bfellow(?:ship)?\b/.test(text))return result("RESIDENCY_FELLOWSHIP","work",hasRange?"duration":"milestone","Fellowship training wording detected.",common);
   if(/\bresiden(?:cy|t)\b/.test(text))return result("RESIDENCY_FELLOWSHIP","work",hasRange?"duration":"milestone","Residency training wording detected.",common);
   if(/\bintern(?:ship)?\b|\bhouse officer\b/.test(text))return result("INTERNSHIP_HOUSE_OFFICER","work",hasRange?"duration":"milestone","Internship or house-officer wording detected.",common);
@@ -63,6 +74,7 @@ export function classifyEvent(record,dateRange){
   if(/\bresearch\b/.test(text))return result("RESEARCH_EXPERIENCE","res",hasRange?"duration":"milestone","Research wording detected.",common);
   if(/\bvolunteer|community service\b/.test(text))return result("VOLUNTEER_EXPERIENCE",/\bclinic|clinical|hospital\b/.test(text)?"cl":"work",hasRange?"duration":"milestone","Volunteer wording detected.",common);
   if(/\bleadership|president|chair|coordinator\b/.test(text))return result("LEADERSHIP","work",hasRange?"duration":"milestone","Leadership wording detected.",common);
+  if(/\b(?:certification|certificate|certified)\b/.test(text))return result("CERTIFICATION","education",hasRange?"duration":"milestone","General certification wording detected.",common);
   if(/\b(?:pregnan(?:t|cy)|parental(?: leave)?|maternity|paternity|daughter|son|child(?:care)?|baby|family (?:transition|reasons?|care|caregiving|responsibilit(?:y|ies)|circumstances?)|spouse|husband|wife|caregiver|in-laws?)\b/.test(text)||record.section==="personal")return result("PERSONAL_NOT_ON_CV","personal",hasRange?"duration":"milestone","Personal or family context detected.",common);
   if(["work","experiences"].includes(record.section)||/\b(work|employment|driver|scribe|medical officer|physician|assistant)\b/.test(text))return result("WORK_EXPERIENCE","work",hasRange?"duration":"milestone","Work section or employment wording detected.",common);
   return result("UNCLASSIFIED","work",hasRange?"duration":"milestone","No canonical taxonomy rule was strong enough.",{...common,warnings:["Category needs human review"]});

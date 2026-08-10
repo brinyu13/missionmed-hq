@@ -35,8 +35,11 @@ const CATEGORY_BY_LEGACY_ID=Object.freeze({
 });
 
 const CATEGORY_BY_CANONICAL_TYPE=Object.freeze({
+  EDUCATION:"education",
   MEDICAL_DEGREE:"education",
   GRADUATION:"education",
+  AWARD_HONOR:"education",
+  CERTIFICATION:"education",
   STEP_1:"exams",
   STEP_2_CK:"exams",
   STEP_3:"exams",
@@ -308,6 +311,50 @@ export function mapD1408CandidateToUxr(candidate){
   };
 }
 
+export function mapCvIntelligenceCandidateToUxr(candidate,{sourceDocument=null,sourceBlocks=[]}={}){
+  if(!candidate||typeof candidate!=="object")throw new TypeError("A CV intelligence candidate is required.");
+  const blocks=new Map((sourceBlocks||[]).map((block)=>[String(block.id),block]));
+  const provenance=(candidate.evidence||[]).flatMap((evidence,evidenceIndex)=>{
+    const ids=Array.isArray(evidence?.sourceBlockIds)?evidence.sourceBlockIds:[];
+    return ids.map((blockId,blockIndex)=>{
+      const block=blocks.get(String(blockId))||{};
+      return{
+        id:`${String(candidate.id)}:${evidenceIndex}:${blockIndex}`,
+        sourceDocumentId:String(sourceDocument?.id||sourceDocument?.objectId||""),
+        fileName:String(sourceDocument?.fileName||sourceDocument?.name||""),
+        documentType:String(sourceDocument?.effectiveType||sourceDocument?.userDeclaredType||"CV"),
+        detectedDocumentType:String(sourceDocument?.detectedType||""),
+        userDeclaredType:String(sourceDocument?.userDeclaredType||""),
+        pageNumber:Number(block.pageNumber)||null,
+        pageId:String(block.pageId||""),
+        section:String(block.section||""),
+        sourceBlockId:String(blockId),
+        sourceExcerpt:String(evidence?.excerpt||""),
+        extractionMethod:"SERVER_AI_EVIDENCE_BOUND",
+        parserVersion:String(sourceDocument?.parserVersion||PARSER_VERSION)
+      };
+    });
+  });
+  return mapD1408CandidateToUxr({
+    ...candidate,
+    provenance,
+    dateRange:{openEnded:candidate.openEnded===true},
+    visibilityRecommendation:UXR_VISIBILITY.ADVISOR_ONLY,
+    originalExtraction:{
+      title:String(candidate.title||""),
+      location:String(candidate.location||""),
+      description:"",
+      rawText:provenance.map((item)=>item.sourceExcerpt).filter(Boolean).join("\n")
+    },
+    mappingRationale:String(candidate.classificationReason||"Evidence-bound server analysis"),
+    privacy:{reviewRequired:true},
+    warnings:[...(candidate.warnings||[]),...(candidate.uncertainty||[])],
+    inferredFields:(candidate.evidence||[])
+      .filter((item)=>item.support==="INFERRED")
+      .map((item)=>({field:item.field,reason:item.reason,uncertainty:item.uncertainty||null}))
+  });
+}
+
 async function bundledPdfExtractor(file,options){
   const {extractPdf}=await import("../ingestion/pdf-text-extractor.js");
   return extractPdf(file,options);
@@ -425,6 +472,13 @@ export function createD1408PdfIntakeAdapter({
         outcome:candidates.length?"ready-for-review":"empty",
         candidates,
         sourceDocument,
+        sourceBlocks:sectionResult.blocks.map((block)=>({
+          id:String(block.id),
+          pageId:String(block.pageId||""),
+          pageNumber:Number(block.pageNumber)||null,
+          section:String(block.section||"unknown"),
+          text:String(block.text||"")
+        })),
         parser:{
           version:PARSER_VERSION,
           detectedType:detection.detectedType,
@@ -435,6 +489,116 @@ export function createD1408PdfIntakeAdapter({
           networkCalls:false
         }
       };
+    }
+  });
+}
+
+export function createProductionCvIntakeAdapter({
+  localAdapter=createD1408PdfIntakeAdapter(),
+  apiClient,
+  documentId,
+  existingEvents=()=>[],
+  consentVersion="d1-ux-007-ai-v1",
+  ensureRemoteDocument=async()=>{}
+}={}){
+  if(typeof localAdapter?.extract!=="function")throw new TypeError("A local intake adapter is required.");
+  if(!apiClient||typeof apiClient.analyzeCv!=="function")return localAdapter;
+  const confirmedSources=new Map();
+  let activeSourceObjectId="";
+  const deleteObject=async(objectId)=>{
+    if(objectId&&typeof apiClient.deleteObject==="function")await apiClient.deleteObject(objectId).catch(()=>{});
+  };
+  return Object.freeze({
+    capability:Object.freeze({
+      ...localAdapter.capability,
+      mode:"server-ai-with-local-limited-fallback",
+      source:"timeline-owned-server-ai",
+      networkCalls:true
+    }),
+    async extract(input={}){
+      const local=await localAdapter.extract(input);
+      if(local?.readable!==true||!local?.sourceDocument?.sha256||!local?.sourceBlocks?.length)return local;
+      const file=input.file;
+      const source=local.sourceDocument;
+      const sha256=String(source.sha256).toLowerCase();
+      let objectId=confirmedSources.get(sha256)||"";
+      let created=false;
+      try{
+        await ensureRemoteDocument();
+        if(!objectId){
+          const grant=await apiClient.signObjectUpload(String(documentId),{
+            mimeType:String(source.mimeType),
+            byteSize:Number(source.fileSize),
+            sha256,
+            objectClass:"SOURCE"
+          });
+          objectId=String(grant?.objectId||"");
+          if(!objectId)throw new Error("Timeline source authorization did not return an object ID.");
+          created=true;
+          await apiClient.uploadSignedObject(grant,file);
+          const confirmed=await apiClient.confirmObjectUpload(objectId,grant.uploadToken);
+          if(String(confirmed?.status||"")!=="CONFIRMED")throw new Error("Timeline source upload could not be confirmed.");
+          confirmedSources.set(sha256,objectId);
+        }
+        const eventSummary=(typeof existingEvents==="function"?existingEvents():existingEvents||[]).map((event)=>({
+          id:String(event.id),
+          title:String(event.title||""),
+          categoryId:String(event.categoryId||""),
+          startDate:String(event.startDate||""),
+          endDate:event.endDate?String(event.endDate):null,
+          organization:String(event.siteName||event.fields?.institution||event.fields?.organization||"")||null
+        }));
+        const analysis=await apiClient.analyzeCv(String(documentId),{
+          source:{objectId,sha256,mimeType:String(source.mimeType)},
+          blocks:local.sourceBlocks.map((block)=>({
+            id:String(block.id),pageNumber:block.pageNumber||null,
+            section:block.section||null,text:String(block.text||"")
+          })),
+          documentType:String(source.effectiveType||"CV")==="MYERAS"?"MYERAS":String(source.effectiveType||"CV")==="RESUME"?"RESUME":"CV",
+          existingEvents:eventSummary,
+          consentVersion:String(consentVersion),
+          idempotencyKey:`cv_${sha256.slice(0,32)}`
+        });
+        if(analysis?.mode!=="SERVER_AI"||!Array.isArray(analysis.candidates)||!analysis.candidates.length){
+          if(created){await deleteObject(objectId);confirmedSources.delete(sha256);}
+          return{
+            ...local,
+            parser:{...local.parser,intelligenceMode:"LOCAL_LIMITED",fallbackReason:analysis?.fallbackReason||"AI_EMPTY"}
+          };
+        }
+        activeSourceObjectId=objectId;
+        return{
+          ...local,
+          candidates:analysis.candidates.map((candidate)=>mapCvIntelligenceCandidateToUxr(candidate,{
+            sourceDocument:{...source,objectId},sourceBlocks:local.sourceBlocks
+          })),
+          sourceDocument:{...source,objectId,custody:"TIMELINE_PRIVATE_SOURCE",analysisId:analysis.analysisId},
+          parser:{
+            ...local.parser,
+            intelligenceMode:"SERVER_AI",
+            analysisId:analysis.analysisId,
+            provider:analysis.provider,
+            model:analysis.model,
+            schemaVersion:analysis.schemaVersion,
+            promptVersion:analysis.promptVersion,
+            rejectedCandidateCount:Number(analysis.rejectedCandidateCount)||0,
+            qualitySuggestions:Array.isArray(analysis.qualitySuggestions)?analysis.qualitySuggestions:[],
+            unresolvedQuestions:Array.isArray(analysis.unresolvedQuestions)?analysis.unresolvedQuestions:[]
+          }
+        };
+      }catch(error){
+        if(created){await deleteObject(objectId);confirmedSources.delete(sha256);}
+        return{
+          ...local,
+          parser:{...local.parser,intelligenceMode:"LOCAL_LIMITED",fallbackReason:String(error?.code||"PROVIDER_UNAVAILABLE")}
+        };
+      }
+    },
+    async deleteSource(){
+      const objectId=activeSourceObjectId;
+      activeSourceObjectId="";
+      for(const [hash,id] of confirmedSources.entries())if(id===objectId)confirmedSources.delete(hash);
+      await deleteObject(objectId);
     }
   });
 }

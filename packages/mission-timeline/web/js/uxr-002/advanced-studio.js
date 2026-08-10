@@ -887,6 +887,9 @@ export const MEDIA_CONTEXT_ACTIONS=freezeDeep([
   "duplicate",
   "delete"
 ]);
+export const MEDIA_FIT_MODES=freezeDeep(["cover","contain"]);
+export const TEXT_FIT_MODES=freezeDeep(["auto","fixed"]);
+export const TEXT_VERTICAL_ALIGNMENTS=freezeDeep(["top","center","bottom"]);
 
 export function validateMediaUpload(file,{kind="image"}={}){
   const normalizedKind=String(kind).toLowerCase();
@@ -959,12 +962,40 @@ export function createMediaElement({
     height,
     naturalAspect,
     aspectLocked:true,
+    locked:false,
+    placed:true,
+    fit:"cover",
+    crop:{x:50,y:50,zoom:1},
     layerIndex:Math.trunc(finite(layerIndex,0)),
+    zIndex:Math.trunc(finite(layerIndex,0)),
     placement:isLogo?"top-right-board-margin":"board-center",
     resizeHandles:"corners",
     horizontalMonthSnapping:false,
     contextActions:clone(MEDIA_CONTEXT_ACTIONS)
   };
+}
+
+function normalizeMediaCrop(value={}){
+  const source=value&&typeof value==="object"?value:{};
+  return{
+    x:Math.min(100,Math.max(0,finite(source.x,50))),
+    y:Math.min(100,Math.max(0,finite(source.y,50))),
+    zoom:Math.min(4,Math.max(1,finite(source.zoom,1)))
+  };
+}
+
+export function updateMediaPresentation(document,target,changes={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  const id=typeof target==="string"?target:target?.id;
+  const item=state.advanced.media.find((candidate)=>String(candidate.id)===String(id));
+  if(!item)throw new Error("Media element not found.");
+  if(Object.hasOwn(changes,"fit")){
+    const fit=String(changes.fit||"");
+    if(!MEDIA_FIT_MODES.includes(fit))throw new TypeError("Media fit must be cover or contain.");
+    item.fit=fit;
+  }
+  if(Object.hasOwn(changes,"crop"))item.crop=normalizeMediaCrop({...item.crop,...changes.crop});
+  return state;
 }
 
 export function moveMediaElement(element,{x,y}={}){
@@ -1133,6 +1164,10 @@ export function createTextBlock({
   alignment="left",
   width=320,
   height=72,
+  fitMode="auto",
+  minFontSize=10,
+  lineHeight=1.2,
+  verticalAlign="center",
   layerIndex=0
 }={}){
   const typography=validateTypography({font,size,weight,color,alignment});
@@ -1146,10 +1181,38 @@ export function createTextBlock({
     width:positive(width,320),
     height:positive(height,72),
     ...typography.value,
+    fitMode:TEXT_FIT_MODES.includes(fitMode)?fitMode:"auto",
+    minFontSize:Math.min(72,Math.max(8,finite(minFontSize,10))),
+    lineHeight:Math.min(2,Math.max(.8,finite(lineHeight,1.2))),
+    verticalAlign:TEXT_VERTICAL_ALIGNMENTS.includes(verticalAlign)?verticalAlign:"center",
+    overflow:"clip",
+    locked:false,
+    aspectLocked:false,
     resizeHandles:8,
     layerIndex:Math.trunc(finite(layerIndex,0)),
+    zIndex:Math.trunc(finite(layerIndex,0)),
     contextActions:clone(MEDIA_CONTEXT_ACTIONS)
   };
+}
+
+export function updateTextContainerPresentation(document,target,changes={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  const id=typeof target==="string"?target:target?.id;
+  const block=state.advanced.textBlocks.find((item)=>String(item.id)===String(id));
+  if(!block)throw new Error("Text block not found.");
+  if(Object.hasOwn(changes,"fitMode")){
+    const mode=String(changes.fitMode||"");
+    if(!TEXT_FIT_MODES.includes(mode))throw new TypeError("Text fit mode must be auto or fixed.");
+    block.fitMode=mode;
+  }
+  if(Object.hasOwn(changes,"minFontSize"))block.minFontSize=Math.min(72,Math.max(8,finite(changes.minFontSize,10)));
+  if(Object.hasOwn(changes,"lineHeight"))block.lineHeight=Math.min(2,Math.max(.8,finite(changes.lineHeight,1.2)));
+  if(Object.hasOwn(changes,"verticalAlign")){
+    const alignment=String(changes.verticalAlign||"");
+    if(!TEXT_VERTICAL_ALIGNMENTS.includes(alignment))throw new TypeError("Unsupported vertical text alignment.");
+    block.verticalAlign=alignment;
+  }
+  return state;
 }
 
 const ADVANCED_ELEMENT_KINDS=freezeDeep([
@@ -1201,6 +1264,7 @@ export function createAdvancedElement({
     aspectLocked:true,
     locked:false,
     layerIndex:Math.trunc(finite(layerIndex,0)),
+    zIndex:Math.trunc(finite(layerIndex,0)),
     resizeHandles:8,
     contextActions:clone(MEDIA_CONTEXT_ACTIONS)
   };
@@ -1220,6 +1284,7 @@ export function advancedObjectByTarget(document={},target={}){
 }
 
 function targetKey(target){return`${String(target?.type||"")}:${String(target?.id||"")}`;}
+function childTargetKey(child){return typeof child==="string"?child:targetKey(child);}
 
 function itemTargets(state){
   return["media","text","element"].flatMap((type)=>state.advanced[advancedCollectionName(type)].map((item)=>({type,id:String(item.id),item})));
@@ -1230,7 +1295,7 @@ export function advancedGroupBounds(document={},groupId){
   const group=state.advanced.groups.find((item)=>String(item.id)===String(groupId));
   if(!group)return null;
   const keyed=new Map(itemTargets(state).map((entry)=>[targetKey(entry),entry.item]));
-  const children=(group.children||[]).map((child)=>keyed.get(String(child))).filter(Boolean);
+  const children=(group.children||[]).map((child)=>keyed.get(childTargetKey(child))).filter(Boolean);
   if(!children.length)return null;
   const left=Math.min(...children.map((item)=>finite(item.x,0)));
   const top=Math.min(...children.map((item)=>finite(item.y,0)));
@@ -1263,7 +1328,7 @@ export function ungroupAdvancedObjects(document={},groupId){
   const index=state.advanced.groups.findIndex((group)=>String(group.id)===String(groupId));
   if(index<0)return{document:state,selection:null,changed:false};
   const group=state.advanced.groups[index];
-  const children=new Set(group.children||[]);
+  const children=new Set((group.children||[]).map(childTargetKey));
   for(const entry of itemTargets(state)){
     if(children.has(targetKey(entry)))delete entry.item.groupId;
   }
@@ -1327,6 +1392,39 @@ export function applyAdvancedObjectAction(document,target,action,{
   const state=normalizeAdvancedStudioDocument(document);
   if(state.mode!==ADVANCED_MODE)throw new Error("Advanced object actions are available only in Advanced Studio.");
   const type=target?.type;
+  if(type==="group"){
+    const groupIndex=state.advanced.groups.findIndex((group)=>String(group.id)===String(target?.id||""));
+    if(groupIndex<0)throw new Error("Advanced group not found.");
+    if(!["duplicate","delete"].includes(action))throw new RangeError("Unsupported Advanced group action.");
+    const group=state.advanced.groups[groupIndex];
+    const children=new Set((group.children||[]).map(childTargetKey));
+    if(action==="delete"){
+      for(const collection of ["media","textBlocks","elements"]){
+        const childType={media:"media",textBlocks:"text",elements:"element"}[collection];
+        state.advanced[collection]=state.advanced[collection].filter((item)=>!children.has(targetKey({type:item.type||childType,id:item.id})));
+      }
+      state.advanced.groups.splice(groupIndex,1);
+      return{document:state,changed:true,mutation:{label:"Delete group",history:true,undoSteps:1},selection:null};
+    }
+    const nextGroupId=String(duplicateId||"").trim();
+    if(!nextGroupId||state.advanced.groups.some((candidate)=>String(candidate.id)===nextGroupId))throw new TypeError("A unique duplicate group ID is required.");
+    const nextChildren=[];
+    let childIndex=0;
+    for(const collection of ["media","textBlocks","elements"]){
+      const additions=[];
+      for(const item of state.advanced[collection]){
+        const childType=item.type||({media:"media",textBlocks:"text",elements:"element"}[collection]);
+        if(!children.has(targetKey({type:childType,id:item.id})))continue;
+        childIndex+=1;
+        const id=`${nextGroupId}-${childType}-${childIndex}`;
+        additions.push({...clone(item),id,groupId:nextGroupId,x:finite(item.x,0)+finite(duplicateOffset,24),y:finite(item.y,0)+finite(duplicateOffset,24)});
+        nextChildren.push(targetKey({type:childType,id}));
+      }
+      state.advanced[collection].push(...additions);
+    }
+    state.advanced.groups.push({...clone(group),id:nextGroupId,children:nextChildren,locked:false});
+    return{document:state,changed:true,mutation:{label:"Duplicate group",history:true,undoSteps:1},selection:{type:"group",id:nextGroupId}};
+  }
   if(type!=="media"&&type!=="text"&&type!=="element")throw new TypeError("A selected media, text, or Timeline asset is required.");
   if(!MEDIA_CONTEXT_ACTIONS.includes(action))throw new RangeError("Unsupported Advanced object action.");
   const key=type==="media"?"media":type==="text"?"textBlocks":"elements";
@@ -1334,9 +1432,11 @@ export function applyAdvancedObjectAction(document,target,action,{
   const id=String(target?.id||"");
   const index=items.findIndex((item)=>String(item.id)===id);
   if(index<0)throw new Error(type==="media"?"Media element not found.":"Text block not found.");
+  const scene=itemTargets(state).sort((left,right)=>finite(left.item.zIndex,finite(left.item.layerIndex,0))-finite(right.item.zIndex,finite(right.item.layerIndex,0)));
+  const sceneIndex=scene.findIndex((entry)=>entry.type===type&&String(entry.id)===id);
   const changed=action==="delete"||action==="duplicate"||
-    action==="bring-forward"&&index<items.length-1||
-    action==="send-backward"&&index>0;
+    action==="bring-forward"&&sceneIndex<scene.length-1||
+    action==="send-backward"&&sceneIndex>0;
   if(!changed){
     return{document:state,changed:false,mutation:null,selection:clone(target)};
   }
@@ -1353,14 +1453,24 @@ export function applyAdvancedObjectAction(document,target,action,{
       id:nextId,
       x:finite(source.x,0)+finite(duplicateOffset,24),
       y:finite(source.y,0)+finite(duplicateOffset,24),
-      layerIndex:items.length
+      layerIndex:items.length,
+      zIndex:scene.length
     });
     state.advanced[key]=[...items,duplicate];
     nextSelection={type,id:nextId};
   }else{
-    state.advanced[key]=action==="delete"
-      ?deleteMediaElement(items,id)
-      :changeMediaZOrder(items,id,action);
+    if(action==="delete"){
+      state.advanced[key]=deleteMediaElement(items,id);
+      const removed=targetKey({type,id});
+      state.advanced.groups=state.advanced.groups.map((group)=>({...group,children:(group.children||[]).filter((child)=>childTargetKey(child)!==removed)})).filter((group)=>(group.children||[]).length>1);
+    }else{
+      const targetScene=action==="bring-forward"?sceneIndex+1:sceneIndex-1;
+      [scene[sceneIndex],scene[targetScene]]=[scene[targetScene],scene[sceneIndex]];
+      scene.forEach((entry,zIndex)=>{entry.item.zIndex=zIndex;});
+      for(const collection of ["media","textBlocks","elements"]){
+        state.advanced[collection].sort((left,right)=>finite(left.zIndex,finite(left.layerIndex,0))-finite(right.zIndex,finite(right.layerIndex,0))).forEach((item,layerIndex)=>{item.layerIndex=layerIndex;});
+      }
+    }
   }
   const actionLabel={
     "bring-forward":"Bring",
@@ -1688,8 +1798,11 @@ export function renderAdvancedSelectionControls(document={},{
   const objectLock=["media","text","element","group"].includes(model.target.type)
     ?`<button type="button" class="button secondary compact" data-advanced-object-action="${model.element.locked?"unlock":"lock"}"${target}>${model.element.locked?"Unlock":"Lock"}</button>`
     :"";
+  const mediaPresentation=model.target.type==="media"
+    ?`<fieldset class="advanced-media-presentation" data-advanced-media-presentation${target}><legend>Image placement</legend><label><span>Fit</span><select data-advanced-media-fit${target}><option value="cover"${model.element.fit!=="contain"?" selected":""}>Crop to frame</option><option value="contain"${model.element.fit==="contain"?" selected":""}>Fit inside frame</option></select></label><label><span>Crop horizontal</span><input type="range" min="0" max="100" step="1" value="${Number(model.element.crop?.x??50)}" data-advanced-media-crop="x"${target}></label><label><span>Crop vertical</span><input type="range" min="0" max="100" step="1" value="${Number(model.element.crop?.y??50)}" data-advanced-media-crop="y"${target}></label><label><span>Crop zoom</span><input type="range" min="1" max="4" step="0.05" value="${Number(model.element.crop?.zoom??1)}" data-advanced-media-crop="zoom"${target}></label></fieldset>`
+    :"";
   if(!model.typography){
-    return`<section class="advanced-selection-controls" data-advanced-selection-controls${target}>${actions}${objectLock}${aspectLock}</section>`;
+    return`<section class="advanced-selection-controls" data-advanced-selection-controls${target}>${actions}${objectLock}${aspectLock}${mediaPresentation}</section>`;
   }
   const typography=model.typography;
   const textContent=model.editableText
@@ -1698,6 +1811,9 @@ export function renderAdvancedSelectionControls(document={},{
   const fontOptions=FREE_TEXT_FONTS.map((font)=>`<option value="${font}"${font===typography.font?" selected":""}>${font}</option>`).join("");
   const weightOptions=FREE_TEXT_WEIGHTS.map((weight)=>`<option value="${weight}"${weight===typography.weight?" selected":""}>${weight}</option>`).join("");
   const alignments=FREE_TEXT_ALIGNMENTS.map(({id,label})=>`<button type="button" class="button secondary compact" data-advanced-alignment="${id}" aria-pressed="${String(id===typography.alignment)}"${target}>${label}</button>`).join("");
+  const textLayout=model.editableText
+    ?`<label><span>Text fit</span><select data-advanced-text-layout="fitMode"${target}><option value="auto"${model.element.fitMode!=="fixed"?" selected":""}>Auto fit text</option><option value="fixed"${model.element.fitMode==="fixed"?" selected":""}>Fixed font size</option></select></label><label><span>Vertical alignment</span><select data-advanced-text-layout="verticalAlign"${target}>${TEXT_VERTICAL_ALIGNMENTS.map((alignment)=>`<option value="${alignment}"${model.element.verticalAlign===alignment?" selected":""}>${alignment[0].toUpperCase()+alignment.slice(1)}</option>`).join("")}</select></label><label><span>Minimum readable size</span><input type="number" min="8" max="72" step="1" value="${Number(model.element.minFontSize??10)}" data-advanced-text-layout="minFontSize"${target}></label>`
+    :"";
   const colorPicker=renderColorPicker({
     themeSwatches,
     recentColors:state.advanced.recentColors,
@@ -1714,6 +1830,7 @@ export function renderAdvancedSelectionControls(document={},{
       <label><span>Font</span><select data-advanced-typography-field="font"${target}>${fontOptions}</select></label>
       <label><span>Size</span><input type="number" min="${FREE_TEXT_SIZE.min}" max="${FREE_TEXT_SIZE.max}" step="1" value="${typography.size}" data-advanced-typography-field="size"${target}></label>
       <label><span>Weight</span><select data-advanced-typography-field="weight"${target}>${weightOptions}</select></label>
+      ${textLayout}
       <div role="group" aria-label="Text alignment" data-advanced-alignments>${alignments}</div>
       ${colorPicker}
     </fieldset>
@@ -2003,6 +2120,22 @@ export function installAdvancedStudio(root,hooks={}){
         delegatedTarget(aspectLock),
         event
       );
+      return;
+    }
+    const mediaFit=closest(event.target,"[data-advanced-media-fit]");
+    if(mediaFit){
+      hooks.onMediaPresentation?.({fit:String(mediaFit.value||"cover")},delegatedTarget(mediaFit),event);
+      return;
+    }
+    const mediaCrop=closest(event.target,"[data-advanced-media-crop]");
+    if(mediaCrop){
+      hooks.onMediaPresentation?.({crop:{[String(mediaCrop.dataset.advancedMediaCrop||"x")]:Number(mediaCrop.value)}},delegatedTarget(mediaCrop),event);
+      return;
+    }
+    const textLayout=closest(event.target,"[data-advanced-text-layout]");
+    if(textLayout){
+      const field=String(textLayout.dataset.advancedTextLayout||"");
+      hooks.onTextLayout?.({[field]:field==="minFontSize"?Number(textLayout.value):String(textLayout.value||"")},delegatedTarget(textLayout),event);
       return;
     }
     const typography=closest(event.target,"[data-advanced-typography-field]");

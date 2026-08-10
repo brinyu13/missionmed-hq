@@ -21,8 +21,8 @@ export const MAX_DOCUMENT_BYTES=20*1024*1024;
 
 export const INTAKE_COPY=Object.freeze({
   uploadTitle:"Add your document",
-  privacy:"Your document is processed for extraction and can be deleted afterward. Nothing appears on your timeline until you approve it.",
-  consent:"I understand I'll review every suggestion before it lands on my timeline.",
+  privacy:"Your document is stored privately and, when secure AI review is available, its extracted text is sent to MissionMed's approved AI processor to suggest events. You can delete the source afterward. Nothing appears on your timeline until you approve it.",
+  consent:"I consent to secure AI-assisted extraction and understand I'll review every suggestion before it lands on my timeline.",
   read:"Read my document →",
   reviewSubline:"Accept what's right, fix what's close, reject what's wrong. Nothing lands until you decide.",
   emptyAccepted:"Nothing accepted yet",

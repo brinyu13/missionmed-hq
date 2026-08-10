@@ -125,7 +125,8 @@ test("Canvas receives the protected Fable renderer, retained Advanced controls, 
   assert.match(canvasInstall,/onGuided:\s*\(\)\s*=>\s*requestCanvasMode\("guided"\)/);
   assert.match(adapter,/installAdvancedStudio\(canvasHost,\s*advancedHooks\(\)\)/);
   assert.match(adapter,/zoom:store\.document\.preferences\?\.canvasZoom\|\|"fit"/);
-  assert.match(adapter,/canvasZoom:zoomPreference/);
+  assert.doesNotMatch(adapter,/canvasZoom:zoomPreference/);
+  assert.doesNotMatch(adapter,/Set editor zoom/);
   assert.match(adapter,/Number\(event\.detail\)>=2/);
   assert.match(adapter,/data-advanced-inline-text-input/);
 });

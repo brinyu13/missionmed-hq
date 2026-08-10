@@ -281,6 +281,9 @@ fieldset.field{border:0;padding:0;margin:0}
 .canvas-mode-switch,.canvas-zoom{display:inline-flex;gap:2px;padding:2px;border:1px solid var(--shell-border-strong);border-radius:9px;background:var(--shell-surface-2)}
 .canvas-mode-switch button,.canvas-zoom button{border:0;background:transparent}
 .canvas-mode-switch button[aria-pressed="true"],.canvas-zoom button[aria-pressed="true"]{background:var(--shell-surface);box-shadow:0 1px 3px rgba(20,18,12,.12)}
+.canvas-zoom label{display:flex;align-items:center;gap:2px;border-radius:7px;background:var(--shell-surface);padding:0 5px}
+.canvas-zoom input{width:52px;min-height:28px;border:0;background:transparent;color:var(--ink-primary);font:600 12px/1 var(--font-body);text-align:right}
+.canvas-zoom input:focus-visible{outline:2px solid var(--focus-ring);outline-offset:1px}
 .toolbar-divider{height:24px;width:1px;background:var(--shell-border)}
 .toolbar-spacer{flex:1}
 .canvas-stage,.board-stage{position:relative;flex:1;min-height:0;background:#EFEDE8;display:grid;place-items:center;padding:24px;overflow:auto}

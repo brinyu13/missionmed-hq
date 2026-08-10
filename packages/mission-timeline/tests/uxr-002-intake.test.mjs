@@ -98,8 +98,8 @@ test("the pure upload state gates extraction on both file and consent without mu
 
   const uploadHtml=renderIntake(withFile);
   assert.match(uploadHtml,/>Add your document<\/h1>/);
-  assert.match(uploadHtml,/Your document is processed for extraction and can be deleted afterward\. Nothing appears on your timeline until you approve it\./);
-  assert.match(uploadHtml,/I understand I'll review every suggestion before it lands on my timeline\./);
+  assert.match(uploadHtml,/stored privately.*approved AI processor.*Nothing appears on your timeline until you approve it\./);
+  assert.match(uploadHtml,/I consent to secure AI-assisted extraction/);
   assert.match(uploadHtml,/data-intake-action="read" disabled>Read my document →<\/button>/);
   assert.match(uploadHtml,/Looks like: CV/);
 

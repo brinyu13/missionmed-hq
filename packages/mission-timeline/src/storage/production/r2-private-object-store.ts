@@ -39,6 +39,7 @@ const OBJECT_CLASSES = new Set<ObjectRecord["objectClass"]>([
 
 const ALLOWED_MIME = new Set([
   "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/json",
   "application/zip",
   "image/png",
@@ -412,6 +413,11 @@ export class R2PrivateObjectStore implements PrivateObjectStore {
       "Use an authenticated object operation.",
       401,
     );
+  }
+
+  async getAuthorizedObject(context: PrincipalContext, objectId: string): Promise<ObjectRecord | null> {
+    this.assertAuthenticated(context);
+    return this.options.repository.getAuthorized(context, objectId);
   }
 
   async deleteObject(context: PrincipalContext, objectId: string): Promise<void> {

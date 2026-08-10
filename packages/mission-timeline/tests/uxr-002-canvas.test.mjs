@@ -615,7 +615,7 @@ test("M8 History supports manual and all four automatic version actions, restore
   assert.equal(await store.adapter.get("versions",manual.id),null);
 });
 
-test("M8 zoom exposes Fit, 100%, and 150% presets plus clamped 50–200% trackpad state and the 100% crossing indicator",() => {
+test("007 zoom exposes Fit, direct percentage, +/- steps, and clamped 25–400% trackpad state",() => {
   let zoom = createCanvasState().zoom;
   assert.deepEqual(zoom,{mode:"fit",percent:null,label:"Fit",snappingIndicator:false});
   zoom = updateCanvasZoom(zoom,{kind:"preset",value:"150"});
@@ -624,10 +624,12 @@ test("M8 zoom exposes Fit, 100%, and 150% presets plus clamped 50–200% trackpa
   assert.equal(zoom.percent,90);
   assert.equal(zoom.snappingIndicator,true);
   zoom = updateCanvasZoom(zoom,{kind:"trackpad",percent:500});
-  assert.equal(zoom.percent,200);
+  assert.equal(zoom.percent,400);
   zoom = updateCanvasZoom(zoom,{kind:"trackpad",percent:-10});
-  assert.equal(zoom.percent,50);
+  assert.equal(zoom.percent,25);
   assert.equal(updateCanvasZoom(zoom,{kind:"preset",value:"100%"}).percent,100);
+  assert.equal(updateCanvasZoom(zoom,{kind:"preset",value:"in"}).percent,35);
+  assert.equal(updateCanvasZoom(zoom,{kind:"direct",percent:137}).percent,137);
 });
 
 test("Advanced text opens a genuine on-canvas editor with explicit save and cancel",()=>{

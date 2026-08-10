@@ -61,6 +61,8 @@ import {
   setMediaAspectLock,
   studioVisibility,
   updateTextBlockContent,
+  updateMediaPresentation,
+  updateTextContainerPresentation,
   validateBackgroundPresetCatalog,
   validateBackgroundUpload,
   validateMediaUpload,
@@ -669,22 +671,18 @@ test("free-text edits and selected object actions are pure, Advanced-only, and r
 
   const textForward=applyAdvancedObjectAction(advanced,{type:"text",id:"text-a"},"bring-forward");
   assert.equal(textForward.changed,true);
-  assert.deepEqual(textForward.document.advanced.textBlocks.map(({id,layerIndex})=>({id,layerIndex})),[
-    {id:"text-b",layerIndex:0},
-    {id:"text-a",layerIndex:1}
-  ]);
+  assert.ok(textForward.document.advanced.textBlocks.find(({id})=>id==="text-a").zIndex>
+    textForward.document.advanced.media.find(({id})=>id==="media-b").zIndex);
   assert.deepEqual(textForward.selection,{type:"text",id:"text-a"});
-  assert.equal(
-    applyAdvancedObjectAction(textForward.document,{type:"text",id:"text-a"},"bring-forward").changed,
-    false
-  );
+  assert.equal(applyAdvancedObjectAction(textForward.document,{type:"text",id:"text-a"},"bring-forward").changed,true);
 
   const mediaBackward=applyAdvancedObjectAction(
     advanced,
     {type:"media",id:"media-b"},
     "send-backward"
   );
-  assert.deepEqual(mediaBackward.document.advanced.media.map(({id})=>id),["media-b","media-a"]);
+  assert.ok(mediaBackward.document.advanced.media.find(({id})=>id==="media-b").zIndex<
+    mediaBackward.document.advanced.textBlocks.find(({id})=>id==="text-a").zIndex);
   const duplicated=applyAdvancedObjectAction(
     advanced,
     {type:"media",id:"media-a"},
@@ -985,4 +983,53 @@ test("capability contract is truthful: local descriptors and adapters, no genera
     png:"first-frame",
     pdf:"first-frame"
   });
+});
+
+test("007 media presentation stores bounded crop geometry without object URLs",()=>{
+  const file={name:"portrait.png",type:"image/png",size:1024};
+  const media=createMediaElement({id:"media-1",file,naturalWidth:800,naturalHeight:600});
+  const source=documentFixture({mode:"advanced",advanced:{media:[media]}});
+  const updated=updateMediaPresentation(source,{type:"media",id:"media-1"},{fit:"contain",crop:{x:-20,y:140,zoom:9}});
+  assert.deepEqual(updated.advanced.media[0].crop,{x:0,y:100,zoom:4});
+  assert.equal(updated.advanced.media[0].fit,"contain");
+  assert.equal(updated.advanced.media[0].source.url,null);
+});
+
+test("007 text containers preserve explicit auto-fit and readable layout fields",()=>{
+  const text=createTextBlock({id:"text-1",text:"A long interview-ready label"});
+  const source=documentFixture({mode:"advanced",advanced:{textBlocks:[text]}});
+  const updated=updateTextContainerPresentation(source,{type:"text",id:"text-1"},{fitMode:"fixed",minFontSize:4,lineHeight:3,verticalAlign:"bottom"});
+  assert.equal(updated.advanced.textBlocks[0].fitMode,"fixed");
+  assert.equal(updated.advanced.textBlocks[0].minFontSize,8);
+  assert.equal(updated.advanced.textBlocks[0].lineHeight,2);
+  assert.equal(updated.advanced.textBlocks[0].verticalAlign,"bottom");
+});
+
+test("007 group duplicate and delete are real document operations",()=>{
+  const source=documentFixture({mode:"advanced",advanced:{
+    textBlocks:[createTextBlock({id:"text-1",text:"Research",x:100,y:100})],
+    elements:[{id:"shape-1",type:"element",kind:"rectangle",x:80,y:80,width:260,height:120,fill:"#2C6E8F",stroke:"#17324A",groupId:"group-1",layerIndex:0}],
+    groups:[{id:"group-1",type:"group",children:[{type:"element",id:"shape-1"},{type:"text",id:"text-1"}],aspectLocked:true,locked:false}]
+  }});
+  source.advanced.textBlocks[0].groupId="group-1";
+  const duplicated=applyAdvancedObjectAction(source,{type:"group",id:"group-1"},"duplicate",{duplicateId:"group-copy"});
+  assert.equal(duplicated.changed,true);
+  assert.equal(duplicated.document.advanced.groups.length,2);
+  assert.equal(duplicated.document.advanced.groups[1].children.length,2);
+  assert.equal(duplicated.document.advanced.textBlocks.length,2);
+  assert.equal(duplicated.document.advanced.elements.length,2);
+  const removed=applyAdvancedObjectAction(duplicated.document,{type:"group",id:"group-copy"},"delete");
+  assert.equal(removed.document.advanced.groups.length,1);
+  assert.equal(removed.document.advanced.textBlocks.length,1);
+  assert.equal(removed.document.advanced.elements.length,1);
+});
+
+test("007 heterogeneous layer actions share one z-order",()=>{
+  const source=documentFixture({mode:"advanced",advanced:{
+    textBlocks:[createTextBlock({id:"text-1",text:"Above",layerIndex:1})],
+    elements:[{id:"shape-1",type:"element",kind:"rectangle",x:80,y:80,width:260,height:120,fill:"#2C6E8F",stroke:"#17324A",layerIndex:0}]
+  }});
+  const result=applyAdvancedObjectAction(source,{type:"element",id:"shape-1"},"bring-forward");
+  assert.equal(result.changed,true);
+  assert.ok(result.document.advanced.elements[0].zIndex>result.document.advanced.textBlocks[0].zIndex);
 });

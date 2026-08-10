@@ -25,5 +25,9 @@ test("WordPress canary, consent, and JWT seams execute in a bounded harness", ()
     first_use_jwt_issued: true,
     first_use_jwt_is_local_only: true,
     entitlement_change_rejects_token: true,
+    filevault_source_owner_bound: true,
+    filevault_source_storage_opaque: true,
+    filevault_source_cross_owner_denied: true,
+    filevault_source_unconfirmed_denied: true,
   });
 });

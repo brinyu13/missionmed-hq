@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
+import {readFile} from "node:fs/promises";
 import test from "node:test";
 
 import {
   FILE_VAULT_SOURCE_KIND,
   FILE_VAULT_SOURCE_UNAVAILABLE,
+  createAuthenticatedFileVaultSourceAdapter,
   createUnavailableFileVaultSourceAdapter,
   normalizeFileVaultSourceDocument,
   queryFileVaultSource,
@@ -11,6 +13,8 @@ import {
   resolveFileVaultSourceAdapter,
   selectFileVaultSourceDocument
 } from "../web/js/uxr-002/filevault-source.js";
+
+const plugin=await readFile(new URL("../../../wp-content/plugins/missionmed-timeline-sso/missionmed-timeline-sso.php",import.meta.url),"utf8");
 
 test("D1-405 File Vault source fails closed without fabricating documents",async()=>{
   const adapter=createUnavailableFileVaultSourceAdapter();
@@ -60,6 +64,10 @@ test("D1-405 File Vault source normalizes metadata-only rows and searches throug
   assert.deepEqual(recent.documents[0],{
     id:"cv-1",
     name:"MyERAS.pdf",
+    provider:"missionmed-filevault-v1",
+    documentType:"other",
+    versionId:"",
+    mimeType:"application/pdf",
     fileType:"application/pdf",
     updatedAt:"Jul 29, 2026",
     sizeBytes:null
@@ -70,6 +78,41 @@ test("D1-405 File Vault source normalizes metadata-only rows and searches throug
   assert.equal(search.documents[0].name,"CV.docx");
   assert.equal((await selectFileVaultSourceDocument(adapter,"cv-2")).id,"cv-2");
   assert.deepEqual(calls,[["recent"],["search","CV"],["select","cv-2"]]);
+});
+
+test("D1-405 authenticated adapter uses only the bounded source routes",async()=>{
+  const calls=[];
+  const id="11111111-1111-4111-8111-111111111111";
+  const adapter=createAuthenticatedFileVaultSourceAdapter({request:async(suffix)=>{
+    calls.push(suffix);
+    return suffix.startsWith("/")
+      ?{document:{id,name:"CV.pdf",provider:"missionmed-filevault-v1",documentType:"cv",versionId:"22222222-2222-4222-8222-222222222222"}}
+      :{documents:[{id,name:"CV.pdf"}]};
+  }});
+  assert.equal(adapter.connected,true);
+  assert.equal(adapter.provider,"missionmed-filevault-v1");
+  assert.equal((await adapter.listRecent()).length,1);
+  assert.equal((await adapter.search(" my cv ")).length,1);
+  assert.equal((await adapter.select(id)).versionId,"22222222-2222-4222-8222-222222222222");
+  await assert.rejects(()=>adapter.select("not-a-vault-id"),(error)=>error.code===FILE_VAULT_SOURCE_UNAVAILABLE);
+  assert.deepEqual(calls,["","?query=my%20cv",`/${id}`]);
+});
+
+test("D1-405 Timeline gateway is read-only, nonce-bound, entitled, and owner-filtered",()=>{
+  assert.match(plugin,/MMTL_REST_FILEVAULT_SOURCES_ROUTE = '\/file-vault\/sources'/);
+  assert.match(plugin,/function mmtl_filevault_source_permission/);
+  assert.match(plugin,/wp_verify_nonce\(\$nonce, 'wp_rest'\)/);
+  assert.match(plugin,/mmtl_access_state\(\$user\)/);
+  assert.match(plugin,/mmtl_principal_for_user\(\(int\) \$user->ID\)/);
+  assert.match(plugin,/rest_do_request\(\$request\)/);
+  assert.match(plugin,/absint\(\$record\['owner_id'\] \?\? 0\) !== absint\(\$owner_id\)/);
+  assert.match(plugin,/provider' => 'missionmed-filevault-v1'/);
+  assert.match(plugin,/current_version_id/);
+  assert.match(plugin,/upload_confirmed/);
+  assert.match(plugin,/File Vault is temporarily unavailable\. You can still upload a CV from this device\./);
+  assert.doesNotMatch(plugin,/MMTL_REST_FILEVAULT_SOURCES_ROUTE[\s\S]{0,120}WP_REST_Server::CREATABLE/);
+  const descriptor=plugin.match(/function mmtl_filevault_source_descriptor[\s\S]*?\n}/)?.[0]||"";
+  assert.doesNotMatch(descriptor,/r2_key|signed|url|contents|note_to_advisor/);
 });
 
 test("D1-405 File Vault chooser is accessible, searchable, recent-first, and truthful",()=>{

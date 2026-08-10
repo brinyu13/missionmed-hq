@@ -42,6 +42,30 @@ export function resolveFileVaultSourceAdapter(candidate){
   return createUnavailableFileVaultSourceAdapter();
 }
 
+export function createAuthenticatedFileVaultSourceAdapter({request}={}){
+  if(typeof request!=="function")return createUnavailableFileVaultSourceAdapter();
+  const load=async(query="")=>{
+    const normalized=String(query||"").trim();
+    const payload=await request(normalized?`?query=${encodeURIComponent(normalized)}`:"");
+    return Array.isArray(payload?.documents)?payload.documents:[];
+  };
+  return Object.freeze({
+    kind:SOURCE_KIND,
+    connected:true,
+    provider:"missionmed-filevault-v1",
+    async listRecent(){return load();},
+    async search(query){return load(query);},
+    async select(documentId){
+      const id=String(documentId||"").trim();
+      if(!/^[0-9a-fA-F-]{8,64}$/.test(id)){
+        throw stableUnavailableError("That File Vault document is not available.");
+      }
+      const payload=await request(`/${encodeURIComponent(id)}`);
+      return payload?.document||null;
+    }
+  });
+}
+
 export function normalizeFileVaultSourceDocument(record){
   const id=String(record?.id||"").trim();
   const name=String(record?.name||"").trim();
@@ -49,7 +73,11 @@ export function normalizeFileVaultSourceDocument(record){
   return Object.freeze({
     id,
     name,
-    fileType:String(record?.fileType||record?.mimeType||"Document"),
+    provider:String(record?.provider||"missionmed-filevault-v1"),
+    documentType:String(record?.documentType||"other"),
+    versionId:String(record?.versionId||""),
+    mimeType:String(record?.mimeType||""),
+    fileType:String(record?.fileType||record?.mimeType||record?.documentType||"Document"),
     updatedAt:String(record?.updatedAt||""),
     sizeBytes:Number.isFinite(Number(record?.sizeBytes))
       ?Math.max(0,Number(record.sizeBytes))

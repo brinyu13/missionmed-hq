@@ -102,6 +102,36 @@ test("an ordinary resource 403 does not destroy a valid session",async()=>{
   client.close();
 });
 
+test("File Vault source adapter is same-origin, nonce-bound, metadata-only, and removed on close",async()=>{
+  const calls=[];
+  const globalObject={};
+  const id="11111111-1111-4111-8111-111111111111";
+  const client=new TimelineProductionAuthClient({locationObject,documentObject:null,globalObject,fetchImpl:async(url,options={})=>{
+    calls.push({url:String(url),options});
+    if(String(url).includes("admin-ajax.php"))return bootstrap();
+    if(String(url).includes("/token"))return tokenResponse();
+    if(String(url).endsWith(`/file-vault/sources/${id}`))return new Response(JSON.stringify({document:{
+      id,name:"CV.pdf",provider:"missionmed-filevault-v1",documentType:"cv",
+      versionId:"22222222-2222-4222-8222-222222222222",mimeType:"application/pdf"
+    }}),{status:200,headers:{"content-type":"application/json"}});
+    if(String(url).includes("/file-vault/sources"))return new Response(JSON.stringify({documents:[{id,name:"CV.pdf"}]}),{status:200,headers:{"content-type":"application/json"}});
+    throw new Error(`Unexpected request ${String(url)}`);
+  }});
+  await client.initialize();
+  const adapter=globalObject.MISSIONMED_FILEVAULT_SOURCE_ADAPTER;
+  assert.equal(adapter.connected,true);
+  assert.equal((await adapter.search("CV"))[0].id,id);
+  assert.equal((await adapter.select(id)).versionId,"22222222-2222-4222-8222-222222222222");
+  const sourceCalls=calls.filter(({url})=>url.includes("/file-vault/sources"));
+  assert.equal(sourceCalls.length,2);
+  assert.equal(sourceCalls.every(({url})=>url.startsWith(locationObject.origin)),true);
+  assert.equal(sourceCalls.every(({options})=>options.credentials==="same-origin"&&options.cache==="no-store"),true);
+  assert.equal(sourceCalls.every(({options})=>new Headers(options.headers).get("x-wp-nonce")==="next"),true);
+  assert.equal(sourceCalls.every(({options})=>!new Headers(options.headers).has("authorization")),true);
+  client.close();
+  assert.equal("MISSIONMED_FILEVAULT_SOURCE_ADAPTER" in globalObject,false);
+});
+
 test("concurrent near-expiry callers share one refresh and publish the renewed claims",async()=>{
   let tokenCalls=0;
   let apiCalls=0;

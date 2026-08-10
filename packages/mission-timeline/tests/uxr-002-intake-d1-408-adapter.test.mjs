@@ -4,8 +4,10 @@ import {deflateRawSync} from "node:zlib";
 
 import {
   createD1408PdfIntakeAdapter,
+  createProductionCvIntakeAdapter,
   D1_408_PDF_INTAKE_ADAPTER_CAPABILITY,
-  mapD1408CandidateToUxr
+  mapD1408CandidateToUxr,
+  mapCvIntelligenceCandidateToUxr
 } from "../web/js/uxr-002/intake-d1-408-adapter.js";
 import {MAX_FILE_BYTES} from "../web/js/ingestion/file-inspector.js";
 import {
@@ -336,4 +338,72 @@ test("an aborted Intake request never starts or returns extraction",async()=>{
     (error)=>error.name==="AbortError"
   );
   assert.equal(extractionCalls,0);
+});
+
+test("production CV adapter uploads a private SOURCE and maps evidence-bound AI candidates into human review",async()=>{
+  const file=pdfFile();
+  const localAdapter={
+    capability:createD1408PdfIntakeAdapter().capability,
+    async extract(){
+      return{
+        readable:true,outcome:"ready-for-review",
+        candidates:[],
+        sourceDocument:{
+          id:"source-local",fileName:file.name,fileSize:file.size,mimeType:file.type,
+          sha256:"a".repeat(64),effectiveType:"CV",userDeclaredType:"CV",parserVersion:"408.1.0"
+        },
+        sourceBlocks:[{id:"award-block",pageId:"page-1",pageNumber:1,section:"honors",text:"2019 Dean's Award for Clinical Excellence"}],
+        parser:{version:"408.1.0"}
+      };
+    }
+  };
+  const calls=[];
+  const apiClient={
+    async signObjectUpload(documentId,input){calls.push(["sign",documentId,input]);return{objectId:"object-source",uploadToken:"upload-token"};},
+    async uploadSignedObject(grant,blob){calls.push(["upload",grant.objectId,blob.name]);},
+    async confirmObjectUpload(objectId){calls.push(["confirm",objectId]);return{status:"CONFIRMED"};},
+    async analyzeCv(documentId,input){
+      calls.push(["analyze",documentId,input]);
+      return{
+        mode:"SERVER_AI",analysisId:"analysis-1",provider:"openai",model:"approved-model",
+        schemaVersion:"schema-1",promptVersion:"prompt-1",rejectedCandidateCount:0,
+        candidates:[{
+          id:"award-1",canonicalType:"AWARD_HONOR",categoryId:"education",timelineKind:"milestone",
+          title:"Dean's Award for Clinical Excellence",organization:null,location:null,startDate:"2019-01",endDate:null,
+          openEnded:false,confidence:{score:98,level:"HIGH",reasons:["Explicit evidence"]},safeToBulkAccept:true,
+          evidence:[{field:"title",sourceBlockIds:["award-block"],excerpt:"2019 Dean's Award for Clinical Excellence",support:"EXPLICIT",reason:"Explicit",uncertainty:null}],
+          classificationReason:"Explicit award",warnings:[],uncertainty:[]
+        }],qualitySuggestions:[],unresolvedQuestions:[]
+      };
+    },
+    async deleteObject(){throw new Error("successful AI source must be retained");}
+  };
+  const adapter=createProductionCvIntakeAdapter({
+    localAdapter,apiClient,documentId:"timeline-1",existingEvents:()=>[],consentVersion:"d1-ux-007-ai-v1"
+  });
+  const result=await adapter.extract({file,documentType:"CV"});
+  assert.equal(result.parser.intelligenceMode,"SERVER_AI");
+  assert.equal(result.sourceDocument.objectId,"object-source");
+  assert.equal(result.candidates[0].categoryId,"education");
+  assert.equal(result.candidates[0].confidence,"high");
+  assert.equal(result.candidates[0].provenance[0].sourceBlockId,"award-block");
+  assert.equal(calls.filter(([kind])=>kind==="upload").length,1);
+  assert.equal(calls.find(([kind])=>kind==="analyze")[2].consentVersion,"d1-ux-007-ai-v1");
+});
+
+test("CV intelligence mapping is conservative when evidence is inferred",()=>{
+  const mapped=mapCvIntelligenceCandidateToUxr({
+    id:"candidate-1",canonicalType:"RESEARCH_EXPERIENCE",categoryId:"res",timelineKind:"duration",
+    title:"Research fellow",organization:"Mission Lab",location:null,startDate:"2020-01",endDate:"2021-01",
+    openEnded:false,confidence:{score:70,level:"MEDIUM",reasons:["Inference"]},safeToBulkAccept:false,
+    evidence:[{field:"title",sourceBlockIds:["block-1"],excerpt:"Research fellow",support:"INFERRED",reason:"Section context",uncertainty:"Role could vary"}],
+    classificationReason:"Research section",warnings:[],uncertainty:["Role could vary"]
+  },{
+    sourceDocument:{id:"source-1",fileName:"cv.pdf",effectiveType:"CV",parserVersion:"408.1.0"},
+    sourceBlocks:[{id:"block-1",pageNumber:2,section:"research",text:"Research fellow"}]
+  });
+  assert.equal(mapped.categoryId,"research");
+  assert.equal(mapped.confidence,"medium");
+  assert.equal(mapped.visibilityState,"ADVISOR_ONLY");
+  assert.equal(mapped.inferredFields[0].field,"title");
 });

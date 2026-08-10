@@ -50,6 +50,17 @@ paths:
       responses:
         "201": { description: Immutable named version created }
         "409": { description: Revision conflict }
+  /documents/{documentId}/intake/analyze:
+    post:
+      description: Owner-only, consent-bound CV intelligence over a confirmed private SOURCE object and bounded locally extracted source blocks. Provider output is schema-validated and evidence-bound before returning human-review candidates; an unavailable provider fails soft without fabricating candidates.
+      parameters:
+        - $ref: "#/components/parameters/documentId"
+      responses:
+        "200": { description: Evidence-bound analysis or explicit LOCAL_LIMITED result }
+        "400": { description: Invalid source, evidence, consent, or bounded request }
+        "403": { description: Document or SOURCE ownership denied }
+        "409": { description: SOURCE version, integrity, or consent conflict }
+        "503": { description: Configured intelligence provider unavailable }
   /documents/{documentId}/reviews:
     post:
       parameters:

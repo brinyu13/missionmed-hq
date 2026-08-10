@@ -19,6 +19,7 @@ const MMTL_CONSENT_META = '_missionmed_timeline_remote_sync_consent';
 const MMTL_CONSENT_AT_META = '_missionmed_timeline_remote_sync_consented_at';
 const MMTL_REST_NAMESPACE = 'missionmed-timeline/v1';
 const MMTL_REST_TOKEN_ROUTE = '/token';
+const MMTL_REST_FILEVAULT_SOURCES_ROUTE = '/file-vault/sources';
 const MMTL_COURSE_ID = 3893;
 const MMTL_VERSION = '500.0.4';
 const MMTL_PRINCIPAL_NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
@@ -469,11 +470,185 @@ function mmtl_token_endpoint($request) {
     return $response;
 }
 
+/**
+ * Restrict File Vault source reads to the same active Timeline authority used
+ * by remote persistence. This endpoint never accepts a user or owner override.
+ */
+function mmtl_filevault_source_permission($request) {
+    if (!is_user_logged_in()) {
+        return new WP_Error('session_required', 'Your MissionMed session has ended.', array('status' => 401));
+    }
+    if (!mmtl_verify_origin_header($request->get_header('origin'))) {
+        return new WP_Error('origin_not_allowed', 'This origin may not read Timeline source documents.', array('status' => 403));
+    }
+    $nonce = trim((string) $request->get_header('x-wp-nonce'));
+    if ($nonce === '' || !wp_verify_nonce($nonce, 'wp_rest')) {
+        return new WP_Error('csrf_failed', 'A valid WordPress REST nonce is required.', array('status' => 403));
+    }
+    $user = wp_get_current_user();
+    $access = mmtl_access_state($user);
+    if (is_wp_error($access)) {
+        return $access;
+    }
+    $principal = mmtl_principal_for_user((int) $user->ID);
+    return is_wp_error($principal) ? $principal : true;
+}
+
+function mmtl_filevault_source_response($data, $status = 200) {
+    $response = new WP_REST_Response($data, absint($status));
+    $response->header('Cache-Control', 'no-store, private');
+    $response->header('Pragma', 'no-cache');
+    return $response;
+}
+
+function mmtl_filevault_source_error($code, $message, $status) {
+    return new WP_Error(sanitize_key($code), (string) $message, array('status' => absint($status)));
+}
+
+/**
+ * Dispatch the already-registered File Vault V1 read contract without
+ * exposing its storage implementation or accepting cross-user parameters.
+ */
+function mmtl_filevault_source_dispatch($path, $params = array()) {
+    $routes = rest_get_server()->get_routes();
+    if (!isset($routes['/mmed/v1/files'])) {
+        return mmtl_filevault_source_error(
+            'timeline_filevault_unavailable',
+            'File Vault is temporarily unavailable. You can still upload a CV from this device.',
+            503
+        );
+    }
+    $request = new WP_REST_Request('GET', $path);
+    foreach ($params as $key => $value) {
+        $request->set_param(sanitize_key($key), sanitize_text_field((string) $value));
+    }
+    $response = rest_do_request($request);
+    if (is_wp_error($response)) {
+        return mmtl_filevault_source_error(
+            'timeline_filevault_unavailable',
+            'File Vault is temporarily unavailable. You can still upload a CV from this device.',
+            503
+        );
+    }
+    $status = (int) $response->get_status();
+    if ($status < 200 || $status >= 300) {
+        return mmtl_filevault_source_error(
+            $status === 404 ? 'timeline_filevault_source_not_found' : 'timeline_filevault_unavailable',
+            $status === 404
+                ? 'That File Vault document is not available.'
+                : 'File Vault is temporarily unavailable. You can still upload a CV from this device.',
+            $status === 404 ? 404 : 503
+        );
+    }
+    $data = $response->get_data();
+    return is_array($data) ? $data : array();
+}
+
+function mmtl_filevault_source_allowed_type($value) {
+    return in_array(sanitize_key((string) $value), array(
+        'cv',
+        'personal_statement',
+        'certificate',
+        'application',
+        'other',
+    ), true);
+}
+
+/**
+ * Return a storage-opaque descriptor. Signed URLs, object keys, document
+ * contents, comments, advisor notes, and unrelated metadata are never copied.
+ */
+function mmtl_filevault_source_descriptor($record, $owner_id, $require_version = false) {
+    if (!is_array($record) || absint($record['owner_id'] ?? 0) !== absint($owner_id)) {
+        return null;
+    }
+    $id = sanitize_text_field((string) ($record['id'] ?? ''));
+    $version_id = sanitize_text_field((string) ($record['current_version_id'] ?? ''));
+    $document_type = sanitize_key((string) ($record['document_type'] ?? ''));
+    if (!preg_match('/^[0-9a-fA-F-]{8,64}$/', $id) || !mmtl_filevault_source_allowed_type($document_type)) {
+        return null;
+    }
+    $version = null;
+    foreach ((array) ($record['versions'] ?? array()) as $candidate) {
+        if (is_array($candidate) && hash_equals($version_id, sanitize_text_field((string) ($candidate['id'] ?? '')))) {
+            $version = $candidate;
+            break;
+        }
+    }
+    if ($require_version && ($version_id === '' || !is_array($version) || empty($version['upload_confirmed']))) {
+        return null;
+    }
+    $name = sanitize_file_name((string) ($record['original_filename'] ?? ''));
+    if ($name === '') {
+        $name = sanitize_text_field((string) ($record['display_name'] ?? $record['canonical_name'] ?? 'MissionMed document'));
+    }
+    return array(
+        'id' => $id,
+        'name' => $name,
+        'provider' => 'missionmed-filevault-v1',
+        'documentType' => $document_type,
+        'versionId' => $version_id,
+        'mimeType' => sanitize_text_field((string) ($version['mime_type'] ?? '')),
+        'sizeBytes' => isset($version['file_size']) ? absint($version['file_size']) : null,
+        'updatedAt' => sanitize_text_field((string) ($record['updated_at'] ?? '')),
+    );
+}
+
+function mmtl_filevault_sources_endpoint($request) {
+    $upstream = mmtl_filevault_source_dispatch('/mmed/v1/files');
+    if (is_wp_error($upstream)) {
+        return $upstream;
+    }
+    $owner_id = get_current_user_id();
+    $query = trim(sanitize_text_field((string) $request->get_param('query')));
+    $query = function_exists('mb_substr') ? mb_substr($query, 0, 80) : substr($query, 0, 80);
+    $documents = array();
+    foreach ((array) ($upstream['files'] ?? array()) as $record) {
+        $descriptor = mmtl_filevault_source_descriptor($record, $owner_id, false);
+        if ($descriptor === null || ($query !== '' && stripos($descriptor['name'], $query) === false)) {
+            continue;
+        }
+        $documents[] = $descriptor;
+        if (count($documents) >= 20) {
+            break;
+        }
+    }
+    return mmtl_filevault_source_response(array('documents' => $documents));
+}
+
+function mmtl_filevault_source_endpoint($request) {
+    $id = sanitize_text_field((string) $request['id']);
+    if (!preg_match('/^[0-9a-fA-F-]{8,64}$/', $id)) {
+        return mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404);
+    }
+    $upstream = mmtl_filevault_source_dispatch('/mmed/v1/files/' . rawurlencode($id));
+    if (is_wp_error($upstream)) {
+        return $upstream;
+    }
+    $descriptor = mmtl_filevault_source_descriptor($upstream, get_current_user_id(), true);
+    return $descriptor === null
+        ? mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404)
+        : mmtl_filevault_source_response(array('document' => $descriptor));
+}
+
 function mmtl_register_rest_routes() {
     register_rest_route(MMTL_REST_NAMESPACE, MMTL_REST_TOKEN_ROUTE, array(
         'methods' => WP_REST_Server::CREATABLE,
         'callback' => 'mmtl_token_endpoint',
         'permission_callback' => 'mmtl_token_permission',
+    ));
+    register_rest_route(MMTL_REST_NAMESPACE, MMTL_REST_FILEVAULT_SOURCES_ROUTE, array(
+        'methods' => WP_REST_Server::READABLE,
+        'callback' => 'mmtl_filevault_sources_endpoint',
+        'permission_callback' => 'mmtl_filevault_source_permission',
+        'args' => array(
+            'query' => array('sanitize_callback' => 'sanitize_text_field'),
+        ),
+    ));
+    register_rest_route(MMTL_REST_NAMESPACE, MMTL_REST_FILEVAULT_SOURCES_ROUTE . '/(?P<id>[0-9a-fA-F-]{8,64})', array(
+        'methods' => WP_REST_Server::READABLE,
+        'callback' => 'mmtl_filevault_source_endpoint',
+        'permission_callback' => 'mmtl_filevault_source_permission',
     ));
 }
 add_action('rest_api_init', 'mmtl_register_rest_routes');
@@ -500,6 +675,7 @@ function mmtl_ajax_bootstrap() {
     wp_send_json_success(array(
         'nonce' => wp_create_nonce('wp_rest'),
         'token_endpoint' => rest_url(MMTL_REST_NAMESPACE . MMTL_REST_TOKEN_ROUTE),
+        'file_vault_source_endpoint' => rest_url(MMTL_REST_NAMESPACE . MMTL_REST_FILEVAULT_SOURCES_ROUTE),
         'api_base' => home_url($settings['base_path'] . 'api/v1'),
         'matrix_url' => $settings['matrix_url'],
         'base_path' => $settings['base_path'],

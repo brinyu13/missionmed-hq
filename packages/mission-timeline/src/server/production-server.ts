@@ -6,6 +6,8 @@ import { TimelineHttpApi } from "../api/http-api.js";
 import type { ObjectRecord, PrincipalContext } from "../contracts/types.js";
 import { TimelineError } from "../core/errors.js";
 import { TimelineService } from "../domain/timeline-service.js";
+import { CvIntelligenceService } from "../intelligence/cv-intelligence-service.js";
+import { OpenAiCvIntelligenceProvider } from "../intelligence/openai-cv-intelligence.js";
 import { PostgresTimelinePrincipalDirectory } from "../identity/postgres-principal-directory.js";
 import { WordPressTimelineJwtVerifier } from "../identity/wordpress-timeline-jwt.js";
 import { PostgresTimelineRepository } from "../persistence/postgres/repository.js";
@@ -38,6 +40,7 @@ class UnconfiguredPrivateObjectStore implements PrivateObjectStore {
   async signDownload(_context: PrincipalContext, _objectId: string): Promise<SignedDownload> { return this.unavailable(); }
   async putServiceObject(_context: PrincipalContext, _request: UploadRequest, _bytes: Uint8Array): Promise<ObjectRecord> { return this.unavailable(); }
   async getObject(_objectId: string): Promise<ObjectRecord | null> { return this.unavailable(); }
+  async getAuthorizedObject(_context: PrincipalContext, _objectId: string): Promise<ObjectRecord | null> { return this.unavailable(); }
   async deleteObject(_context: PrincipalContext, _objectId: string): Promise<void> { return this.unavailable(); }
 }
 
@@ -75,12 +78,24 @@ const objectStore: PrivateObjectStore = createR2PrivateObjectStoreFromEnvironmen
   runtimeRole,
   tokenSecret: gatewaySecret,
 }) ?? new UnconfiguredPrivateObjectStore();
+const aiProviderName = process.env.TIMELINE_AI_PROVIDER?.trim().toLowerCase() ?? "";
+const aiApiKey = process.env.TIMELINE_AI_API_KEY?.trim() ?? "";
+const aiModel = process.env.TIMELINE_AI_MODEL?.trim() ?? "";
+const aiConsentVersion = process.env.TIMELINE_AI_CONSENT_VERSION?.trim() ?? "";
+if ([aiProviderName, aiApiKey, aiModel, aiConsentVersion].some(Boolean) && ![aiProviderName, aiApiKey, aiModel, aiConsentVersion].every(Boolean)) {
+  throw new Error("TIMELINE_AI_CONFIGURATION_INCOMPLETE");
+}
+if (aiProviderName && aiProviderName !== "openai") throw new Error("TIMELINE_AI_PROVIDER_UNSUPPORTED");
+const cvIntelligence = new CvIntelligenceService({
+  provider: aiProviderName === "openai" ? new OpenAiCvIntelligenceProvider({ apiKey: aiApiKey, model: aiModel }) : null,
+  expectedConsentVersion: aiProviderName ? aiConsentVersion : null,
+});
 const serviceProvider = (context: PrincipalContext) => new TimelineService(new PostgresTimelineRepository(pool, {
   rlsClaims: postgresClaimsFromPrincipal(context),
   runtimeRole,
   expectedSchemaVersion: POSTGRES_TIMELINE_PRODUCTION_SCHEMA_VERSION,
 }));
-const api = new TimelineHttpApi(serviceProvider, identity, objectStore, telemetry, RELEASE_VERSION, true);
+const api = new TimelineHttpApi(serviceProvider, identity, objectStore, telemetry, RELEASE_VERSION, true, cvIntelligence);
 
 await new PostgresTimelineRepository(pool, { expectedSchemaVersion: POSTGRES_TIMELINE_PRODUCTION_SCHEMA_VERSION }).initialize();
 const productionSchema = await pool.query("select to_regclass('timeline.admin_resource_grants') is not null as admin_grants_ready");
