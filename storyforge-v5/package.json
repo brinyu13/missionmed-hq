@@ -17,6 +17,8 @@
     "scan:secrets": "node scripts/scan-bundle-secrets.mjs",
     "sync:identities": "node scripts/storyforge-identity-sync.mjs",
     "score:transcription-bakeoff": "node scripts/score-transcription-bakeoff.mjs",
+    "survival:capture": "node scripts/sf-survival-manifest.mjs capture",
+    "survival:compare": "node scripts/sf-survival-manifest.mjs compare",
     "test": "node --test tests/unit/*.test.mjs",
     "test:postgres": "bash scripts/run-postgres-tests.sh",
     "test:e2e": "bash scripts/run-e2e.sh",
