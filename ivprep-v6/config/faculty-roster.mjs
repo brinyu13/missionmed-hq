@@ -39,7 +39,7 @@ export const FACULTY_ROSTER = Object.freeze([
     alphaProductionStatus: 'founder-alpha-only',
     lockedVoiceTargetId: LIVE_INTERVIEWER_TARGET.voiceId,
     lockedVoiceTargetName: LIVE_INTERVIEWER_TARGET.voiceDisplayName,
-    founderOnlyNotes: 'Founder-locked provider stock avatar. OpenAI voice ID cedar is the truthful audible voice in the current LITE supplied-PCM path. Exact W. Clint compatibility with Dexter requires fresh authenticated provider proof.',
+    founderOnlyNotes: 'Founder-locked provider stock avatar. Authenticated provider metadata confirms the exact Dexter and W. Clint records, but LITE exposes no provider voice selector. OpenAI cedar remains the truthful audible supplied-PCM voice.',
     warmth: 45,
     pressure: 68,
   }),

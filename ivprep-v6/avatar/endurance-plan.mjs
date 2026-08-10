@@ -17,7 +17,7 @@ export function createAvatarEndurancePlan(durationSeconds = MIN_AVATAR_ENDURANCE
   const intervalSeconds = Math.max(60, Math.floor((duration - 30) / utterances.length));
   return Object.freeze({
     durationSeconds: duration,
-    mode: 'sandbox-only-liveavatar-transport-endurance',
+    mode: 'single-authorized-production-avatar-transport-endurance',
     finalAcceptance: false,
     checkpoints: Object.freeze({
       interruptAtSeconds: Math.floor(duration / 3),

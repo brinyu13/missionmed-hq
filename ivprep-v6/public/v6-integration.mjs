@@ -16,6 +16,8 @@ const state = {
   railAnswerEndToResponseMs: null,
   railInterruptionMs: null,
   avatarInterruptAckMs: null,
+  lastAvatarCleanup: null,
+  avatarReconnectEvidence: [],
   continuousCompletedTurn: null,
   continuousAlreadySpoken: null,
   model: 'gpt-5.6-terra',
@@ -241,6 +243,7 @@ async function endAlphaSession(terminationState = 'completed', { keepalive = fal
   state.alphaSessionEnding = (async () => {
     const errors = [];
     let persisted = false;
+    let avatarCleanup = { requested: false, acknowledged: true, state: 'not-required' };
     try { await closeContinuousRail(); } catch (error) { errors.push(error); }
     const persistEnd = async () => {
       const result = await jsonRequest(`/api/alpha-sessions/${encodeURIComponent(id)}/end`, {
@@ -249,8 +252,9 @@ async function endAlphaSession(terminationState = 'completed', { keepalive = fal
         keepalive,
       });
       persisted = true;
-      if (result.avatarCleanup?.acknowledged && avatar.sessionId) avatar.acknowledgeServerCleanup();
-      if (result.avatarCleanup?.requested && !result.avatarCleanup?.acknowledged) {
+      if (result.avatarCleanup) avatarCleanup = result.avatarCleanup;
+      if (avatarCleanup.acknowledged && avatar.sessionId) avatar.acknowledgeServerCleanup();
+      if (avatarCleanup.requested && !avatarCleanup.acknowledged) {
         errors.push(new Error('Remote avatar cleanup is unconfirmed; server ownership was retained for retry.'));
       }
     };
@@ -259,15 +263,27 @@ async function endAlphaSession(terminationState = 'completed', { keepalive = fal
       // The alpha-end endpoint owns remote provider cleanup on unload; this call only releases local media.
       try { if (avatar.health().state !== 'idle') await avatar.stop(terminationState); } catch {}
     } else {
-      try { if (avatar.health().state !== 'idle') await avatar.stop(terminationState); } catch (error) { errors.push(error); }
+      try {
+        if (avatar.health().state !== 'idle') {
+          const stopped = await avatar.stop(terminationState);
+          if (stopped?.cleanup) avatarCleanup = stopped.cleanup;
+        }
+      } catch (error) { errors.push(error); }
       try { await persistEnd(); } catch (error) { errors.push(error); }
     }
-    if (persisted && state.alphaSessionId === id) {
+    if (!keepalive && avatarCleanup.requested && !avatarCleanup.acknowledged && avatar.sessionId) {
+      try {
+        const retried = await avatar.stop('cleanup-retry');
+        if (retried?.cleanup) avatarCleanup = retried.cleanup;
+      } catch (error) { errors.push(error); }
+    }
+    state.lastAvatarCleanup = avatarCleanup;
+    if (persisted && avatarCleanup.acknowledged && state.alphaSessionId === id) {
       state.alphaSessionId = null;
       state.founderHarness = false;
     }
     if (errors.length) state.lastError = `Cleanup: ${publicError(errors[0]).message}`;
-    return { persisted, errors: errors.length };
+    return { persisted, errors: errors.length, avatarCleanup };
   })();
   try { return await state.alphaSessionEnding; }
   finally { state.alphaSessionEnding = null; }
@@ -820,7 +836,7 @@ function renderFounderStudios() {
   const truth = document.createElement('div');
   truth.className = 'notice';
   truth.style.marginTop = '12px';
-  truth.textContent = `Selected rail: ${state.railId} · model: ${state.model}. Audible interviewer: ${state.audibleVoiceTruth}. Audio authority: ${state.audioAuthority}. Locked target: Dexter Doctor Sitting + W. Clint Oxley (a33a57ab-8388-49fc-a069-dbcfd1bc5405). W. Clint is not presented as active until authenticated evidence proves the exact Dexter-compatible provider path. Realtime remains direct audio until the unified V6 ticket supplies its accepted output-audio sink.`;
+  truth.textContent = `Selected rail: ${state.railId} · model: ${state.model}. Audible interviewer: ${state.audibleVoiceTruth}. Audio authority: ${state.audioAuthority}. Locked visual: Dexter Doctor Sitting (bd43ce31-7425-4379-8407-60f029548e61). Locked voice metadata: W. Clint Oxley (a33a57ab-8388-49fc-a069-dbcfd1bc5405). Authenticated evidence confirms both records, but LITE exposes no W. Clint voice selector; supplied OpenAI cedar PCM remains the audible voice. Realtime remains direct audio until the unified V6 ticket supplies its accepted output-audio sink.`;
   const rosterTitle = document.createElement('div');
   rosterTitle.className = 'pLbl';
   rosterTitle.style.marginTop = '16px';
@@ -832,7 +848,15 @@ function renderFounderStudios() {
     item.type = 'button';
     item.className = `line ${record.id === state.selectedInterviewerId ? 'on' : ''}`;
     item.style.cssText = 'width:100%;text-align:left;display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(120px,1fr) auto;gap:8px;align-items:center';
-    const status = record.available ? 'AVAILABLE · ALPHA' : record.availability === 'custom-avatar-required' ? 'CUSTOM AVATAR REQUIRED' : record.availability === 'provider-auth-required' ? 'PROVIDER AUTH REQUIRED' : 'COMING LATER';
+    const status = record.available
+      ? 'AVAILABLE · ALPHA'
+      : record.avatarId && state.avatarTarget?.liveSessionBlock === 'insufficient-credits'
+      ? 'PROVIDER CREDITS REQUIRED'
+      : record.availability === 'custom-avatar-required'
+      ? 'CUSTOM AVATAR REQUIRED'
+      : record.availability === 'provider-auth-required'
+      ? 'PROVIDER AUTH REQUIRED'
+      : 'COMING LATER';
     item.innerHTML = `<b>${record.displayName}</b><span>${record.specialty.join(' · ')}</span><span class="chip ${record.available ? 'gn' : 'dim'}">${status}</span>`;
     item.onclick = () => { state.selectedInterviewerId = record.id; renderFounderStudios(); };
     roster.append(item);
@@ -966,8 +990,46 @@ function renderFocusRoom() {
   if (start) start.hidden = !focused || state.interviewStarted;
   const typeButton = document.getElementById('frontier-type-instead');
   if (typeButton) typeButton.hidden = !focused || !state.interviewStarted;
+  const reconnect = document.getElementById('founder-test-reconnect');
+  if (reconnect) reconnect.hidden = !state.founderHarness || state.alphaMode !== 'avatar' || !avatar.sessionId;
   const typed = document.getElementById('frontier-typed-fallback');
   if (typed) typed.classList.toggle('typed-open', !focused || state.typedFallbackOpen);
+}
+
+function founderAvatarEvidence() {
+  return {
+    evidenceVersion: 1,
+    capturedAt: new Date().toISOString(),
+    target: {
+      provider: state.avatarTarget?.provider || 'liveavatar',
+      avatarId: state.avatarTarget?.avatarId || null,
+      avatarDisplayName: state.avatarTarget?.avatarDisplayName || null,
+      voiceId: state.avatarTarget?.voiceId || null,
+      voiceDisplayName: state.avatarTarget?.voiceDisplayName || null,
+      authenticatedAvatarVerified: Boolean(state.avatarTarget?.authenticatedAvatarVerified),
+      authenticatedVoiceVerified: Boolean(state.avatarTarget?.authenticatedVoiceVerified),
+      lockedVoiceCompatible: Boolean(state.avatarTarget?.lockedVoiceCompatible),
+    },
+    delivery: {
+      railId: state.railId,
+      model: state.model,
+      audibleVoiceTruth: state.audibleVoiceTruth,
+      audioAuthority: state.audioAuthority,
+      avatarMode: state.alphaMode,
+    },
+    media: avatar.health(),
+    usage: avatar.usage(),
+    audioAuthorityEvidence: interviewerAudio.evidence(),
+    interruption: { controlAcknowledgementMs: state.avatarInterruptAckMs },
+    reconnects: state.avatarReconnectEvidence,
+    cleanup: state.lastAvatarCleanup,
+    limitations: {
+      renderedFrameIsMeasured: true,
+      audioTrackPlaybackIsMeasured: true,
+      visualLipSyncRequiresHumanObservation: true,
+      visibleMouthStopRequiresHumanObservation: true,
+    },
+  };
 }
 
 function ensureRoomControls() {
@@ -1030,6 +1092,42 @@ function ensureRoomControls() {
     else interruptAudio('interrupted');
     if (!bridge.recording) bridge.beginRec();
   };
+  const reconnect = document.createElement('button');
+  reconnect.id = 'founder-test-reconnect';
+  reconnect.className = 'btnGhost';
+  reconnect.textContent = 'TEST RECONNECT';
+  reconnect.hidden = true;
+  reconnect.onclick = async () => {
+    reconnect.disabled = true;
+    reconnect.textContent = 'Reconnecting…';
+    const startedAt = performance.now();
+    try {
+      const result = await avatar.reconnect();
+      const record = { at: new Date().toISOString(), success: Boolean(result.reconnected), mediaReady: avatar.health().available, elapsedMs: Math.round(performance.now() - startedAt) };
+      state.avatarReconnectEvidence.push(record);
+      bridge.toast(record.mediaReady ? 'LiveAvatar control reconnected; synchronized media remains ready.' : 'LiveAvatar control reconnected, but media readiness was not restored.');
+    } catch (error) {
+      state.avatarReconnectEvidence.push({ at: new Date().toISOString(), success: false, mediaReady: false, elapsedMs: Math.round(performance.now() - startedAt) });
+      state.avatarNotice = `Avatar reconnect failed — continuing with voice. ${publicError(error).message}`;
+      state.alphaMode = 'voice-only';
+      state.audioAuthority = 'browser-openai-speech';
+      renderAvatarState();
+      bridge.toast(state.avatarNotice);
+    } finally {
+      reconnect.disabled = false;
+      reconnect.textContent = 'TEST RECONNECT';
+      renderDiagnostics();
+    }
+  };
+  const evidence = document.createElement('button');
+  evidence.id = 'founder-export-avatar-evidence';
+  evidence.className = 'btnGhost';
+  evidence.textContent = 'Export avatar evidence';
+  evidence.onclick = () => downloadEvidence(
+    `Y1-Y2-CAM-V6-3430-avatar-evidence-${Date.now()}.json`,
+    JSON.stringify(founderAvatarEvidence(), null, 2),
+    'application/json;charset=utf-8',
+  );
   const railFallback = document.createElement('button');
   railFallback.id = 'continuous-rail-fallback';
   railFallback.className = 'btnHero';
@@ -1052,18 +1150,33 @@ function ensureRoomControls() {
   end.className = 'btnGhost';
   end.textContent = 'End interview';
   end.onclick = async () => {
+    const exportFounderCleanupEvidence = state.founderHarness;
     end.disabled = true;
     end.textContent = 'Ending…';
     state.interviewStarted = false;
     state.typedFallbackOpen = false;
     cancelTurn('ended');
     if (bridge.recording) bridge.abandonTake();
-    await endAlphaSession('ended').catch(() => {});
-    state.founderHarness = false;
+    const outcome = await endAlphaSession('ended').catch((error) => ({ persisted: false, errors: 1, avatarCleanup: { requested: true, acknowledged: false, state: 'unconfirmed' }, error }));
     bridge.stopMedia();
-    bridge.toast('Session ended — camera and microphone released.');
-    if (bridge.run.takes.length) bridge.finishRound();
-    else bridge.nav('home');
+    if (outcome.avatarCleanup?.acknowledged) {
+      if (exportFounderCleanupEvidence) {
+        downloadEvidence(
+          `Y1-Y2-CAM-V6-3430-avatar-evidence-final-${Date.now()}.json`,
+          JSON.stringify(founderAvatarEvidence(), null, 2),
+          'application/json;charset=utf-8',
+        );
+      }
+      state.founderHarness = false;
+      bridge.toast('Session ended — provider cleanup acknowledged; camera and microphone released.');
+      if (bridge.run.takes.length) bridge.finishRound();
+      else bridge.nav('home');
+    } else {
+      state.founderHarness = true;
+      state.avatarNotice = 'Camera and microphone released. Remote avatar cleanup is unconfirmed — click End interview to retry.';
+      renderAvatarState();
+      bridge.toast(state.avatarNotice);
+    }
     end.disabled = false;
     end.textContent = 'End interview';
   };
@@ -1115,7 +1228,7 @@ function ensureRoomControls() {
     renderFocusRoom();
     if (state.typedFallbackOpen) form?.querySelector('textarea')?.focus();
   };
-  buttons.append(start, mute, interrupt, typeInstead, railFallback, avatarToggle, enableAvatarAudio, end);
+  buttons.append(start, mute, interrupt, reconnect, evidence, typeInstead, railFallback, avatarToggle, enableAvatarAudio, end);
   const typed = document.createElement('form');
   typed.id = 'frontier-typed-fallback';
   typed.className = 'typed-open';
@@ -1204,14 +1317,14 @@ function ensureDiagnostics() {
     diagnostic.style.cssText = 'margin:10px auto 0;max-width:860px';
     document.getElementById('frontier-room-controls')?.after(diagnostic);
   }
-  diagnostic.hidden = bridge.role !== 'admin';
+  diagnostic.hidden = bridge.role !== 'admin' && !state.founderHarness;
   return diagnostic;
 }
 
 function renderDiagnostics() {
   const diagnostic = ensureDiagnostics();
   if (!diagnostic || diagnostic.hidden) return;
-  diagnostic.textContent = `RAIL ${state.railId} · RAIL STATE ${state.railStatus} · MODEL ${state.model}${state.providerModel && state.providerModel !== state.model ? ` · PROVIDER MODEL ${state.providerModel}` : ''} · AUDIBLE ${state.audibleVoiceTruth} · AUDIO AUTHORITY ${state.audioAuthority} · AVATAR ${avatar.health().state} · FIRST FRAME ${avatar.health().firstFrameMs ?? '—'} ms · AUDIO TRACK ${avatar.health().firstAudioTrackMs ?? '—'} ms · CONNECT ${state.railConnectionMs ?? '—'} ms · FIRST AUDIO ${state.railFirstAudioMs ?? state.latencyMs ?? '—'} ms · ANSWER END→RESPONSE ${state.railAnswerEndToResponseMs ?? '—'} ms · FLOOR→RESPONSE ${state.railFloorToResponseMs ?? '—'} ms · RAIL INTERRUPT ${state.railInterruptionMs ?? '—'} ms · AVATAR INTERRUPT ACK ${state.avatarInterruptAckMs ?? '—'} ms · ROUND TRIP ${state.roundTripMs ?? '—'} ms · STREAM ${state.streaming} · PROVIDER ${state.providerHealth}`;
+  diagnostic.textContent = `RAIL ${state.railId} · RAIL STATE ${state.railStatus} · MODEL ${state.model}${state.providerModel && state.providerModel !== state.model ? ` · PROVIDER MODEL ${state.providerModel}` : ''} · AUDIBLE ${state.audibleVoiceTruth} · AUDIO AUTHORITY ${state.audioAuthority} · AVATAR ${avatar.health().state} · VIDEO TRACK ${avatar.health().firstVideoTrackMs ?? '—'} ms · FIRST RENDERED FRAME ${avatar.health().firstFrameMs ?? '—'} ms · AUDIO TRACK ${avatar.health().firstAudioTrackMs ?? '—'} ms · AUDIO ELEMENT PLAYING ${avatar.health().firstAudioPlaybackMs ?? '—'} ms · CONNECT ${state.railConnectionMs ?? '—'} ms · RAIL FIRST AUDIO ${state.railFirstAudioMs ?? state.latencyMs ?? '—'} ms · ANSWER END→RESPONSE ${state.railAnswerEndToResponseMs ?? '—'} ms · FLOOR→RESPONSE ${state.railFloorToResponseMs ?? '—'} ms · RAIL INTERRUPT ${state.railInterruptionMs ?? '—'} ms · AVATAR CONTROL ACK ${state.avatarInterruptAckMs ?? '—'} ms · ROUND TRIP ${state.roundTripMs ?? '—'} ms · STREAM ${state.streaming} · PROVIDER ${state.providerHealth}`;
 }
 
 function downloadEvidence(filename, content, type) {
@@ -1329,7 +1442,9 @@ async function loadConfiguration() {
     );
     state.alphaDisabled = Boolean(health.alpha?.disabled);
     state.avatarNotice = state.avatarProviderReady
-      ? 'Dexter LiveAvatar transport is configured. Exact W. Clint compatibility still requires authenticated provider evidence before that voice can be presented as active.'
+      ? 'Dexter LiveAvatar transport is authenticated. W. Clint metadata is verified, but LITE cannot select that voice; synchronized supplied OpenAI cedar PCM is the configured audible path.'
+      : avatarConfig.target?.liveSessionBlock === 'insufficient-credits'
+      ? 'Authenticated Dexter session cannot start: LiveAvatar reports insufficient credits. Voice-only OpenAI cedar remains available.'
       : 'Avatar unavailable — continuing with voice. LiveAvatar authorization or the exact approved LiveKit origin is missing.';
     if (models.defaultModelId) state.model = models.defaultModelId;
     if (models.defaultBehaviorPresetId) state.behaviorPresetId = models.defaultBehaviorPresetId;

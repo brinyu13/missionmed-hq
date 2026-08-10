@@ -40,6 +40,7 @@ export function publicLiveInterviewerTarget({
   authenticatedAvatarVerified = false,
   authenticatedVoiceVerified = false,
   lockedVoiceCompatible = false,
+  liveSessionBlock = null,
 } = {}) {
   return Object.freeze({
     ...LIVE_INTERVIEWER_TARGET,
@@ -48,6 +49,7 @@ export function publicLiveInterviewerTarget({
     authenticatedAvatarVerified: Boolean(authenticatedAvatarVerified),
     authenticatedVoiceVerified: Boolean(authenticatedVoiceVerified),
     lockedVoiceCompatible: Boolean(lockedVoiceCompatible),
+    liveSessionBlock: typeof liveSessionBlock === 'string' ? liveSessionBlock : null,
     ready: Boolean(
       hasServerAuthorization
       && hasApprovedLiveKitOrigin

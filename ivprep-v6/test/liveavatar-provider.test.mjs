@@ -14,7 +14,7 @@ import {
 const TEST_ENV = Object.freeze({
   LIVEAVATAR_API_KEY: 'unit-test-api-key',
   LIVEAVATAR_AVATAR_ID: 'bd43ce31-7425-4379-8407-60f029548e61',
-  LIVEAVATAR_SANDBOX: 'true',
+  LIVEAVATAR_SANDBOX: 'false',
   LIVEAVATAR_MAX_SESSION_SECONDS: '120',
 });
 
@@ -56,7 +56,11 @@ function response(data, { ok = true, status = 200 } = {}) {
   return { ok, status, async json() { return data; } };
 }
 
-function providerHarness({ stopFailure = false, stopFailures = stopFailure ? Number.POSITIVE_INFINITY : 0 } = {}) {
+function providerHarness({
+  stopFailure = false,
+  stopFailures = stopFailure ? Number.POSITIVE_INFINITY : 0,
+  startData = null,
+} = {}) {
   const calls = [];
   let remainingStopFailures = stopFailures;
   let mintedSessions = 0;
@@ -80,7 +84,7 @@ function providerHarness({ stopFailure = false, stopFailures = stopFailure ? Num
     if (path === '/v1/sessions/start') {
       return response({
         code: 100,
-        data: {
+        data: startData || {
           session_id: currentSessionId,
           livekit_url: 'wss://unit.test/livekit',
           livekit_client_token: 'unit-test-client-token',
@@ -120,11 +124,11 @@ function providerHarness({ stopFailure = false, stopFailures = stopFailure ? Num
   };
 }
 
-test('environment configuration is fail-closed, sandboxed, and capped at two beta minutes', () => {
+test('environment configuration is fail-closed, uses the locked production avatar, and is capped at two beta minutes', () => {
   const empty = liveAvatarConfigFromEnv({});
   assert.equal(empty.configured, false);
   assert.equal(empty.avatarId, TEST_ENV.LIVEAVATAR_AVATAR_ID);
-  assert.equal(empty.sandbox, true);
+  assert.equal(empty.sandbox, false);
   assert.match(empty.unavailableReason, /voice-only/i);
 
   const capped = liveAvatarConfigFromEnv({ ...TEST_ENV, LIVEAVATAR_MAX_SESSION_SECONDS: '99999' });
@@ -174,7 +178,7 @@ test('LITE session uses the authenticated API contract and keeps control credent
     mode: 'LITE',
     sessionId: '77777777-7777-4777-8777-777777777777',
     avatarId: TEST_ENV.LIVEAVATAR_AVATAR_ID,
-    sandbox: true,
+    sandbox: false,
     maxSessionDuration: 120,
   });
   assert.equal(started.status, 'connected');
@@ -191,7 +195,7 @@ test('LITE session uses the authenticated API contract and keeps control credent
   assert.deepEqual(tokenBody, {
     mode: 'LITE',
     avatar_id: TEST_ENV.LIVEAVATAR_AVATAR_ID,
-    is_sandbox: true,
+    is_sandbox: false,
     video_settings: { quality: 'high', encoding: 'H264' },
     max_session_duration: 120,
   });
@@ -209,6 +213,30 @@ test('LITE session uses the authenticated API contract and keeps control credent
     session_id: '77777777-7777-4777-8777-777777777777',
     reason: 'USER_CLOSED',
   });
+  await provider.close();
+});
+
+test('insufficient credits remain a fixed public condition and an unstarted token is not stopped as active media', async () => {
+  const paths = [];
+  const provider = new LiveAvatarProvider({
+    env: TEST_ENV,
+    WebSocketImpl: FakeWebSocket,
+    fetchImpl: async (url) => {
+      const path = new URL(url).pathname;
+      paths.push(path);
+      if (path === '/v1/sessions/token') return response({
+        code: 1000,
+        data: { session_id: '77777777-7777-4777-8777-777777777777', session_token: 'unit-test-session-token' },
+      });
+      if (path === '/v1/sessions/start') return response({ code: 4033, data: null, message: 'not exposed' }, { ok: false, status: 403 });
+      throw new Error(`unexpected test path: ${path}`);
+    },
+  });
+  await assert.rejects(provider.start(), (error) => (
+    error.code === 'liveavatar_insufficient_credits'
+    && /insufficient credits/i.test(error.publicMessage)
+  ));
+  assert.deepEqual(paths, ['/v1/sessions/token', '/v1/sessions/start']);
   await provider.close();
 });
 
@@ -301,7 +329,7 @@ test('interrupt invalidates an utterance ID so stale audio cannot resume after b
   await provider.close();
 });
 
-test('only an explicit sandbox endurance harness may raise the provider duration above the product cap', async () => {
+test('only the explicit production-avatar endurance harness may raise duration above the product cap', async () => {
   const endurance = new LiveAvatarProvider({
     env: TEST_ENV,
     fetchImpl: async () => response({ code: 100, data: {} }),
@@ -312,10 +340,10 @@ test('only an explicit sandbox endurance harness may raise the provider duration
   assert.equal(endurance.health().configured, true);
   await endurance.close();
   assert.throws(() => new LiveAvatarProvider({
-    env: { ...TEST_ENV, LIVEAVATAR_SANDBOX: 'false' },
+    env: { ...TEST_ENV, LIVEAVATAR_SANDBOX: 'true' },
     enduranceHarness: true,
     enduranceDurationSeconds: 600,
-  }), /sandbox mode/);
+  }), /production mode/);
   assert.throws(() => new LiveAvatarProvider({
     env: TEST_ENV,
     enduranceHarness: true,
@@ -365,6 +393,40 @@ test('transient remote stop failure is retried without creating another provider
   assert.equal(calls.filter((call) => call.path === '/v1/sessions/token').length, 1);
   assert.equal(calls.filter((call) => call.path === '/v1/sessions/start').length, 1);
   assert.equal(provider.health().sessionId, null);
+});
+
+test('remote stop is acknowledged before the local control socket is closed', async () => {
+  const { provider, calls } = providerHarness();
+  await provider.start();
+  const socket = FakeWebSocket.instances.at(-1);
+  let socketOpenAtStop = false;
+  const originalFetch = calls;
+  assert.ok(originalFetch);
+  const stopPromise = provider.stop({ reason: 'USER_CLOSED' });
+  socketOpenAtStop = socket.readyState === 1;
+  await stopPromise;
+  assert.equal(socketOpenAtStop, true);
+  assert.equal(socket.readyState, 3);
+});
+
+test('provider-success start with malformed media data is remotely stopped before ownership is cleared', async () => {
+  const { provider, calls } = providerHarness({
+    startData: {
+      session_id: '77777777-7777-4777-8777-777777777777',
+      livekit_url: 'wss://unit.test/livekit',
+      // Deliberately omit the client token and control URL after provider success.
+    },
+  });
+
+  await assert.rejects(
+    provider.start(),
+    (error) => error instanceof ProviderError
+      && error.code === 'liveavatar_start_failed'
+      && /omitted required LITE session data/.test(error.cause?.message || ''),
+  );
+  assert.equal(calls.filter((call) => call.path === '/v1/sessions/stop').length, 1);
+  assert.equal(provider.health().sessionId, null);
+  await provider.close();
 });
 
 test('two sequential sessions mint independent provider sessions and clean local transport between runs', async () => {

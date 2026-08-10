@@ -55,10 +55,10 @@ export const PREFERRED_FOUNDER_VOICE = Object.freeze({
   provider: 'liveavatar',
   providerVoiceId: LIVE_INTERVIEWER_TARGET.voiceId,
   verification: 'verified-authenticated-provider-ui',
-  currentAuthenticatedVerification: 'blocked-on-liveavatar-auth',
+  currentAuthenticatedVerification: 'verified-current-provider-metadata-lite-incompatible',
   missionMedLiteCompatible: false,
-  audibleSelectionContract: 'LiveAvatar may be selected only after authenticated evidence proves this exact voice can drive Dexter while MissionMed retains Conversation Rail intelligence.',
-  note: 'This is not an OpenAI Speech voice ID and is never substituted for cedar. The current LITE supplied-PCM path audibly uses the supplied OpenAI voice.',
+  audibleSelectionContract: 'Current authenticated evidence confirms the voice record, but LITE exposes no provider voice-selection field while MissionMed retains Conversation Rail intelligence.',
+  note: 'This is not an OpenAI Speech voice ID and is never substituted for cedar. The authenticated LITE path audibly uses MissionMed-supplied OpenAI cedar PCM.',
 });
 
 export const DR_BASTOS_VOICE_AGENT = Object.freeze({

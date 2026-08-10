@@ -35,6 +35,7 @@ import {
   INACTIVE_COMMERCIALIZATION_CONTROLS,
 } from '../persistence/alpha-store.mjs';
 import { LIVE_INTERVIEWER_TARGET, publicLiveInterviewerTarget } from '../avatar/live-interviewer-target.mjs';
+import { validatedLiveAvatarLiveKitOrigin } from '../avatar/livekit-origin.mjs';
 
 const MODULE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = normalize(join(MODULE_DIRECTORY, '..'));
@@ -92,11 +93,8 @@ function securityHeaders(extra = {}) {
 function configuredLiveKitOrigin() {
   const raw = String(process.env.LIVEAVATAR_LIVEKIT_ORIGIN || '').trim();
   if (!raw) return null;
-  try {
-    const url = new URL(raw);
-    if (url.protocol !== 'wss:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) return null;
-    return url.origin;
-  } catch { return null; }
+  try { return validatedLiveAvatarLiveKitOrigin(raw); }
+  catch { return null; }
 }
 
 function sendJson(response, status, body) {
@@ -282,6 +280,7 @@ export function createIvPrepServer({
 } = {}) {
   const configured = typeof apiKey === 'string' && Boolean(apiKey.trim());
   const liveAvatarConfigured = avatarProvider.health().configured === true || avatarProvider.health().available === true;
+  const liveAvatarMediaConfigured = liveAvatarConfigured && Boolean(configuredLiveKitOrigin());
   const getDiscovery = createDiscoveryCache({ apiKey, fetchImpl, modelDiscovery, ttlMs: discoveryTtlMs });
   const rateLimit = createRateLimiter();
   let activeProviderRequests = 0;
@@ -368,12 +367,19 @@ export function createIvPrepServer({
       }
 
       if (request.method === 'GET' && url.pathname === '/api/avatar-provider-config') {
+        const liveSessionBlock = process.env.LIVEAVATAR_START_BLOCK === 'insufficient-credits'
+          ? 'insufficient-credits'
+          : null;
         sendJson(response, 200, {
           health: publicAvatarHealth(avatarProvider),
           usage: publicAvatarUsage(avatarProvider),
           target: publicLiveInterviewerTarget({
             hasServerAuthorization: liveAvatarConfigured,
             hasApprovedLiveKitOrigin: Boolean(configuredLiveKitOrigin()),
+            authenticatedAvatarVerified: process.env.LIVEAVATAR_AUTHENTICATED_AVATAR_VERIFIED === 'true',
+            authenticatedVoiceVerified: process.env.LIVEAVATAR_AUTHENTICATED_VOICE_VERIFIED === 'true',
+            lockedVoiceCompatible: process.env.LIVEAVATAR_LOCKED_VOICE_COMPATIBLE === 'true',
+            liveSessionBlock,
           }),
         });
         return;
@@ -412,7 +418,7 @@ export function createIvPrepServer({
             code: 'liveavatar_media_unavailable', status: 503, provider: 'liveavatar', publicMessage: 'Live avatar is unavailable. Continue in visible voice-only mode.',
           });
         }
-        const actualLiveKitOrigin = new URL(started.media.url).origin;
+        const actualLiveKitOrigin = validatedLiveAvatarLiveKitOrigin(started.media.url);
         const allowedLiveKitOrigin = configuredLiveKitOrigin();
         if (!allowedLiveKitOrigin || actualLiveKitOrigin !== allowedLiveKitOrigin) {
           requireAcknowledgedCleanup(await requestAvatarCleanup('SERVER_ERROR'));
@@ -452,7 +458,7 @@ export function createIvPrepServer({
         const body = requireBodyObject(await readJson(request));
         requireAvatarOwner(body);
         const reconnected = await avatarProvider.reconnect();
-        const actualLiveKitOrigin = new URL(reconnected.media?.url).origin;
+        const actualLiveKitOrigin = validatedLiveAvatarLiveKitOrigin(reconnected.media?.url);
         const allowedLiveKitOrigin = configuredLiveKitOrigin();
         if (!allowedLiveKitOrigin || actualLiveKitOrigin !== allowedLiveKitOrigin) {
           requireAcknowledgedCleanup(await requestAvatarCleanup('SERVER_ERROR'));
@@ -480,7 +486,7 @@ export function createIvPrepServer({
 
       if (request.method === 'GET' && url.pathname === '/api/faculty-roster') {
         sendJson(response, 200, {
-          records: publicFacultyRoster({ liveAvatarConfigured, openaiConfigured: configured }),
+          records: publicFacultyRoster({ liveAvatarConfigured: liveAvatarMediaConfigured, openaiConfigured: configured }),
           priorProviderProvenance: {
             provider: 'liveavatar', mode: 'LITE', avatarIdSource: 'GET /v1/avatars/public',
             currentAuthenticatedVerification: false,
@@ -491,7 +497,7 @@ export function createIvPrepServer({
 
       if (request.method === 'POST' && url.pathname === '/api/surprise-me') {
         const body = requireBodyObject(await readJson(request));
-        const assignment = surpriseAssignment({ specialty: body.specialty, liveAvatarConfigured, openaiConfigured: configured });
+        const assignment = surpriseAssignment({ specialty: body.specialty, liveAvatarConfigured: liveAvatarMediaConfigured, openaiConfigured: configured });
         if (!assignment) {
           sendJson(response, 409, { error: 'No licensed, provider-ready alpha interviewer matches this selection.', code: 'no_eligible_interviewer' });
           return;
@@ -513,7 +519,7 @@ export function createIvPrepServer({
       if (request.method === 'POST' && url.pathname === '/api/alpha-sessions/start') {
         const body = requireBodyObject(await readJson(request));
         const mode = body.mode === 'avatar' ? 'avatar' : 'voice-only';
-        if (mode === 'avatar' && !liveAvatarConfigured) {
+        if (mode === 'avatar' && !liveAvatarMediaConfigured) {
           throw new ProviderError('LiveAvatar configuration is missing.', {
             code: 'avatar_provider_unavailable', status: 503, provider: 'liveavatar', publicMessage: 'Live avatar is unavailable. Choose the visible voice-only fallback or ask the founder to configure LiveAvatar.',
           });
@@ -872,7 +878,7 @@ export function createIvPrepServer({
   return server;
 }
 
-async function start() {
+export async function startIvPrepServer() {
   loadLocalEnvironment();
   const host = requireLocalAlphaHost(process.env.HOST || '127.0.0.1');
   if (!LOOPBACK_HOSTS.has(host)) throw new TypeError('HOST must remain loopback-only for the unauthenticated Founder Alpha.');
@@ -893,7 +899,7 @@ async function start() {
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
-  start().catch(() => {
+  startIvPrepServer().catch(() => {
     console.error('[ivprep-v6] failed_to_start');
     process.exitCode = 1;
   });

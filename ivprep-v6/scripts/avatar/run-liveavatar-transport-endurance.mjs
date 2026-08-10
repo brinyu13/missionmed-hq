@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 
 import { createAvatarEndurancePlan } from '../../avatar/endurance-plan.mjs';
+import { validatedLiveAvatarLiveKitOrigin } from '../../avatar/livekit-origin.mjs';
 import { LIVE_INTERVIEWER_TARGET } from '../../avatar/live-interviewer-target.mjs';
 import { loadLocalEnvironment } from '../../config/load-environment.mjs';
 import { LiveAvatarProvider } from '../../providers/liveavatar-provider.mjs';
@@ -16,7 +17,6 @@ const plan = createAvatarEndurancePlan(durationSeconds);
 const presence = Object.freeze({
   liveAvatarAuth: Boolean(String(process.env.LIVEAVATAR_API_KEY || '').trim()),
   openaiAuth: Boolean(String(process.env.OPENAI_API_KEY || '').trim()),
-  approvedLiveKitOrigin: Boolean(String(process.env.LIVEAVATAR_LIVEKIT_ORIGIN || '').trim()),
 });
 
 if (!Object.values(presence).every(Boolean)) {
@@ -45,8 +45,7 @@ if (!Object.values(presence).every(Boolean)) {
     if (started.status !== 'connected' || started.avatarId !== LIVE_INTERVIEWER_TARGET.avatarId) {
       throw new Error('locked-avatar-session-not-connected');
     }
-    const actualOrigin = new URL(started.media.url).origin;
-    if (actualOrigin !== new URL(process.env.LIVEAVATAR_LIVEKIT_ORIGIN).origin) throw new Error('provider-origin-mismatch');
+    validatedLiveAvatarLiveKitOrigin(started.media.url);
 
     for (let index = 0; index < plan.utterances.length; index += 1) {
       const checkpoint = plan.utterances[index];

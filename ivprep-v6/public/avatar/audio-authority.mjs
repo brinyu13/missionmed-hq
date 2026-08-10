@@ -34,4 +34,13 @@ export class InterviewerAudioAuthority {
   health() {
     return { active: this.active ? { ...this.active } : null, completedStreams: this.history.length, duplicateAudioPrevented: true };
   }
+
+  evidence() {
+    return {
+      activeAuthority: this.active?.authority || null,
+      completedStreams: this.history.length,
+      duplicateAudioPrevented: true,
+      history: this.history.map(({ authority, startedAt, endedAt, reason }) => ({ authority, startedAt, endedAt, reason })),
+    };
+  }
 }

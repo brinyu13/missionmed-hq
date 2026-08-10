@@ -20,6 +20,8 @@ test('live media attachment is unmirrored, inline, and removed when unsubscribed
   assert.match(browserProvider, /transform:none/);
   assert.match(browserProvider, /RoomEvent\.TrackUnsubscribed/);
   assert.match(browserProvider, /track\.detach\(attached\.element\)/);
+  assert.match(browserProvider, /requestVideoFrameCallback\(markRenderedFrame\)/);
+  assert.match(browserProvider, /firstVideoTrackMs/);
 });
 
 test('browser reconnect and playback results preserve the server provider contract', () => {
@@ -47,6 +49,8 @@ test('avatar speech participates in microphone barge-in and shared speaking guar
 
 test('durable alpha completion is attempted independently from avatar cleanup', () => {
   assert.match(integration, /const persistEnd = async \(\) =>/);
-  assert.match(integration, /try \{ if \(avatar\.health\(\)\.state !== 'idle'\) await avatar\.stop\(terminationState\); \} catch \(error\) \{ errors\.push\(error\); \}\s*try \{ await persistEnd\(\); \} catch/);
+  assert.match(integration, /const stopped = await avatar\.stop\(terminationState\)/);
+  assert.match(integration, /try \{ await persistEnd\(\); \} catch \(error\) \{ errors\.push\(error\); \}/);
+  assert.match(integration, /avatarCleanup\.requested && !avatarCleanup\.acknowledged[\s\S]*await avatar\.stop\('cleanup-retry'\)/);
   assert.match(integration, /if \(keepalive\) \{\s*try \{ await persistEnd\(\); \} catch/);
 });

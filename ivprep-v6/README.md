@@ -33,15 +33,20 @@ any mismatched `LIVEAVATAR_AVATAR_ID` override fails closed. MissionMed retains
 interviewer intelligence and conversation state; LiveAvatar is a media
 provider, never the conversation brain.
 
-`LIVEAVATAR_API_KEY` is currently required to start live video and must remain
-server-side. Without it, the UI visibly reports `Avatar unavailable —
-continuing with voice` and preserves the interview, transcript, and OpenAI
-Speech behavior. The Founder-locked voice target is `W. Clint Oxley`, exact ID
+`LIVEAVATAR_API_KEY` is required to start live video and must remain
+server-side. Current authenticated metadata verifies the exact Dexter record as
+active and non-expired. The Founder-locked voice target is `W. Clint Oxley`, exact ID
 `a33a57ab-8388-49fc-a069-dbcfd1bc5405`. Previous authenticated metadata bound
-that voice to the `Dr Bastos` Voice Agent; current Dexter compatibility cannot
-be claimed until fresh authenticated provider evidence exists. The existing
-LITE supplied-PCM path truthfully sounds like the supplied OpenAI `cedar`
-voice. It never relabels `cedar` as W. Clint.
+that voice to the `Dr Bastos` Voice Agent, and fresh authenticated metadata now
+verifies the exact W. Clint record. LITE exposes no provider voice selector:
+the audible identity is the PCM MissionMed supplies. The current path therefore
+truthfully sounds like OpenAI `cedar` and never relabels it as W. Clint.
+
+The current Founder account accepts a production LITE token for Dexter but
+returns provider code `4033` (`Insufficient credits for session`) before media
+start. LiveAvatar's current sandbox cannot substitute because it permits only
+the Wayne avatar, not Dexter. The UI therefore labels Dexter `PROVIDER CREDITS
+REQUIRED` and keeps the interview on the visible cedar voice-only fallback.
 
 Open `http://127.0.0.1:8343/` and click **TEST LIVE INTERVIEWER** for the
 Founder journey. It selects `Dexter · MissionMed AI Faculty`, preserves the
@@ -71,19 +76,22 @@ reconnect is attempted, and provider failure retries the already-generated
 utterance once through voice-only playback after stopping avatar media.
 
 The server loads an ignored `ivprep-v6/.env.local` without overriding values
-already supplied by its parent process. After a founder creates a LiveAvatar
-API key and saves it there, `npm run probe:liveavatar-origin` starts and closes
-one bounded LITE session and prints only the exact LiveKit origin needed for
-`LIVEAVATAR_LIVEKIT_ORIGIN`; it never prints provider credentials or scoped
-session tokens.
+already supplied by its parent process. `npm run start:founder-authenticated`
+verifies both locked records, starts one bounded production Dexter session,
+derives and validates the provider-returned `*.livekit.cloud` signaling origin
+only in process memory, requires acknowledged cleanup of that bootstrap
+session, and then starts the local server. It never prints provider URLs,
+credentials, session IDs, or scoped tokens. If the provider reports
+insufficient credits before media start, it starts the truthful authenticated
+voice-only Founder build instead.
 
-The normal product hard cap remains 120 seconds. The separately authorized
-sandbox-only transport endurance runner is
+The normal product hard cap remains 120 seconds. Dexter is unavailable in
+sandbox, so the separately authorized single production transport endurance runner is
 `npm run probe:avatar-transport-endurance -- --minutes=10` (10–15 minutes
 only). It uses the LITE supplied-PCM path, tests control reconnect and
 late-audio rejection, sanitizes output, and explicitly does **not** constitute
 browser video, lip-sync, or W. Clint acceptance. Do not spend the single long
-provider session until authenticated target compatibility is established.
+provider session until short live media acceptance succeeds.
 
 Local session evidence is stored under `.alpha-data/`, which is ignored by
 Git. It contains transcripts and instructor records, not merely metadata. The

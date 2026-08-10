@@ -79,18 +79,18 @@ function readLiveAvatarConfig(env = process.env, { enduranceHarness = false, end
   const avatarIdValid = UUID_PATTERN.test(avatarId);
   const requestedEnduranceDuration = Number.parseInt(enduranceDurationSeconds, 10);
   if (enduranceHarness && (
-    !parseBoolean(env.LIVEAVATAR_SANDBOX, true)
+    parseBoolean(env.LIVEAVATAR_SANDBOX, false)
     || !Number.isInteger(requestedEnduranceDuration)
     || requestedEnduranceDuration < MIN_AVATAR_ENDURANCE_SECONDS
     || requestedEnduranceDuration > MAX_AVATAR_ENDURANCE_SECONDS
   )) {
-    throw new TypeError('The LiveAvatar endurance harness requires sandbox mode and an explicit 600–900 second duration.');
+    throw new TypeError('The locked Dexter endurance harness requires production mode and an explicit 600–900 second duration.');
   }
   const config = Object.freeze({
     apiKey,
     avatarId,
     avatarIdValid,
-    sandbox: parseBoolean(env.LIVEAVATAR_SANDBOX, true),
+    sandbox: parseBoolean(env.LIVEAVATAR_SANDBOX, false),
     maxSessionDuration: enduranceHarness
       ? requestedEnduranceDuration
       : parseDuration(env.LIVEAVATAR_MAX_SESSION_SECONDS),
@@ -302,7 +302,18 @@ export class LiveAvatarProvider extends AvatarProvider {
 
     if (!response?.ok) {
       const error = providerResponseError(PROVIDER, response, operation);
+      try {
+        const payload = await response.json();
+        if (payload?.code === 4033) {
+          error.code = 'liveavatar_insufficient_credits';
+          error.retryable = false;
+          error.publicMessage = 'LiveAvatar has insufficient credits to start Dexter. Continue in voice-only mode.';
+        }
+      } catch {}
       error.publicMessage = 'The live avatar is unavailable. Continue in voice-only mode.';
+      if (error.code === 'liveavatar_insufficient_credits') {
+        error.publicMessage = 'LiveAvatar has insufficient credits to start Dexter. Continue in voice-only mode.';
+      }
       throw error;
     }
 
@@ -571,12 +582,17 @@ export class LiveAvatarProvider extends AvatarProvider {
     if (!this.#sessionToken) await this.createSession();
 
     this.#state = 'starting';
+    let providerSessionStarted = false;
     try {
       const payload = await this.#post('/v1/sessions/start', {
         authorization: 'session',
         operation: 'start',
       });
       const data = readResponseData(payload, 'start');
+      // A provider-success response means a billable remote session may exist even
+      // when its media payload is malformed. Preserve ownership until stop is acked.
+      providerSessionStarted = true;
+      if (data.session_id) this.#sessionId = data.session_id;
       if (!data.session_id || !data.livekit_url || !data.livekit_client_token || !data.ws_url) {
         throw normalizedError('start', new Error('Provider response omitted required LITE session data.'), { retryable: false });
       }
@@ -591,8 +607,20 @@ export class LiveAvatarProvider extends AvatarProvider {
       this.#lastError = null;
       return this.#startResult();
     } catch (error) {
+      if (providerSessionStarted) {
+        try {
+          await this.#stopRemoteWithRetries('SERVER_ERROR');
+          this.#sessionId = null;
+        }
+        catch (cleanupError) {
+          this.#closeSocket();
+          this.#clearCredentials();
+          throw this.#recordFailure(normalizedError('stop', cleanupError));
+        }
+      } else {
+        this.#sessionId = null;
+      }
       this.#closeSocket();
-      try { await this.#safeStopRemote('SERVER_ERROR'); } catch {}
       this.#clearCredentials();
       throw this.#recordFailure(error);
     }
@@ -760,13 +788,13 @@ export class LiveAvatarProvider extends AvatarProvider {
     this.#settleAllSpeech({ playbackEnded: false, reason: 'stopped' });
     this.#openSpeechEvents.clear();
     this.#cancelledSpeechEvents.clear();
-    this.#closeSocket();
     let stopError = null;
     try {
       await this.#stopRemoteWithRetries(providerReason);
     } catch (error) {
       stopError = normalizedError('stop', error);
     } finally {
+      this.#closeSocket();
       this.#endedAt = this.#now();
       this.#clearCredentials();
       if (!stopError) this.#sessionId = null;

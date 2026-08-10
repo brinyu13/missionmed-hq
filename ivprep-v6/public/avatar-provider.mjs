@@ -48,9 +48,12 @@ export class LiveAvatarBrowserProvider extends AvatarProvider {
     this.lastError = null;
     this.startedAt = null;
     this.connectStartedAt = null;
+    this.firstVideoTrackMs = null;
     this.firstFrameMs = null;
     this.firstAudioTrackMs = null;
+    this.firstAudioPlaybackMs = null;
     this.reconnects = 0;
+    this.sessionsStarted = 0;
     this.attached = [];
     this.videoReady = false;
     this.audioReady = false;
@@ -99,8 +102,10 @@ export class LiveAvatarBrowserProvider extends AvatarProvider {
     if (!this.sessionId) throw new Error('Create the avatar session before starting it.');
     this.#setState('connecting');
     this.connectStartedAt = performance.now();
+    this.firstVideoTrackMs = null;
     this.firstFrameMs = null;
     this.firstAudioTrackMs = null;
+    this.firstAudioPlaybackMs = null;
     const sessionId = this.sessionId;
     try {
       const payload = await this.#request('/api/avatar/session/start', { sessionId, alphaSessionId: this.alphaSessionId });
@@ -143,15 +148,28 @@ export class LiveAvatarBrowserProvider extends AvatarProvider {
           element.id = 'live-avatar-video';
           element.setAttribute('aria-label', 'Live synchronized interviewer avatar');
           element.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:none;z-index:2;background:#070b12';
-          this.videoReady = true;
-          this.firstFrameMs ??= Math.round(performance.now() - this.connectStartedAt);
+          this.firstVideoTrackMs ??= Math.round(performance.now() - this.connectStartedAt);
         } else {
           element.hidden = true;
           this.audioReady = true;
           this.firstAudioTrackMs ??= Math.round(performance.now() - this.connectStartedAt);
+          element.addEventListener('playing', () => {
+            this.firstAudioPlaybackMs ??= Math.round(performance.now() - this.connectStartedAt);
+            publishMediaState();
+          }, { once: true });
         }
         this.videoContainer?.append(element);
         this.attached.push({ track, element });
+        if (track.kind === 'video') {
+          const markRenderedFrame = () => {
+            if (!this.attached.some((entry) => entry.track === track)) return;
+            this.videoReady = true;
+            this.firstFrameMs ??= Math.round(performance.now() - this.connectStartedAt);
+            publishMediaState();
+          };
+          element.addEventListener('playing', markRenderedFrame, { once: true });
+          if (typeof element.requestVideoFrameCallback === 'function') element.requestVideoFrameCallback(markRenderedFrame);
+        }
         publishMediaState();
       });
       room.on(RoomEvent.TrackUnsubscribed, removeTrack);
@@ -193,8 +211,9 @@ export class LiveAvatarBrowserProvider extends AvatarProvider {
       ]);
       if (!this.videoReady || !this.audioReady || !this.audioPlaybackReady) throw new Error('Live avatar synchronized audio and video did not become ready.');
       this.startedAt = Date.now();
+      this.sessionsStarted += 1;
       this.#setState('live');
-      return { status: this.state, sessionId: this.sessionId, videoReady: true, audioReady: true, audioPlaybackReady: true, firstFrameMs: this.firstFrameMs, firstAudioTrackMs: this.firstAudioTrackMs };
+      return { status: this.state, sessionId: this.sessionId, videoReady: true, audioReady: true, audioPlaybackReady: true, firstVideoTrackMs: this.firstVideoTrackMs, firstFrameMs: this.firstFrameMs, firstAudioTrackMs: this.firstAudioTrackMs, firstAudioPlaybackMs: this.firstAudioPlaybackMs };
     } catch (error) {
       this.lastError = publicError(error, 'Live avatar media could not start.').message;
       try { await this.#request('/api/avatar/session/stop', { sessionId, alphaSessionId: this.alphaSessionId, reason: 'SERVER_ERROR' }); } catch {}
@@ -364,11 +383,11 @@ export class LiveAvatarBrowserProvider extends AvatarProvider {
   }
 
   health() {
-    return { provider: 'liveavatar', available: this.state === 'live' && liveMediaReady(this), state: this.state, videoReady: this.videoReady, audioReady: this.audioReady, audioPlaybackReady: this.audioPlaybackReady, firstFrameMs: this.firstFrameMs, firstAudioTrackMs: this.firstAudioTrackMs, reconnects: this.reconnects, reason: this.lastError };
+    return { provider: 'liveavatar', available: this.state === 'live' && liveMediaReady(this), state: this.state, videoReady: this.videoReady, audioReady: this.audioReady, audioPlaybackReady: this.audioPlaybackReady, firstVideoTrackMs: this.firstVideoTrackMs, firstFrameMs: this.firstFrameMs, firstAudioTrackMs: this.firstAudioTrackMs, firstAudioPlaybackMs: this.firstAudioPlaybackMs, reconnects: this.reconnects, sessionsStarted: this.sessionsStarted, reason: this.lastError };
   }
 
   usage() {
-    return { provider: 'liveavatar', sessions: this.startedAt ? 1 : 0, minutes: this.startedAt ? Math.max(0, (Date.now() - this.startedAt) / 60_000) : 0 };
+    return { provider: 'liveavatar', sessions: this.sessionsStarted, minutes: this.startedAt ? Math.max(0, (Date.now() - this.startedAt) / 60_000) : 0 };
   }
 
   async #detach() {

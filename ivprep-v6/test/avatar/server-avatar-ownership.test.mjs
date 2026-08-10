@@ -35,12 +35,12 @@ function fakeAvatarProvider({ stopFailures = 0 } = {}) {
       calls.push(['start']);
       return {
         provider: 'liveavatar', status: 'connected', sessionId, avatarId: LIVE_INTERVIEWER_TARGET.avatarId,
-        maxSessionDuration: 120, media: { url: 'wss://unit.test', clientToken: 'scoped-client-token' },
+        maxSessionDuration: 120, media: { url: 'wss://unit-signal.livekit.cloud', clientToken: 'scoped-client-token' },
       };
     },
     async enqueueAudio(_audio, options) { calls.push(['audio', options]); return { accepted: true, eventId: options.eventId, final: options.final }; },
     async interrupt(options) { calls.push(['interrupt', options]); return { interrupted: true, eventId: options.eventId }; },
-    async reconnect() { calls.push(['reconnect']); return { status: 'connected', sessionId, reconnected: true, media: { url: 'wss://unit.test', clientToken: 'scoped-client-token' } }; },
+    async reconnect() { calls.push(['reconnect']); return { status: 'connected', sessionId, reconnected: true, media: { url: 'wss://unit-signal.livekit.cloud', clientToken: 'scoped-client-token' } }; },
     async stop(options) {
       calls.push(['stop', options]);
       if (stopFailures > 0) { stopFailures -= 1; throw new Error('sanitized fake stop failure'); }
@@ -53,7 +53,7 @@ function fakeAvatarProvider({ stopFailures = 0 } = {}) {
 
 test('avatar control is bound to one active avatar-mode alpha session and carries cancellation event IDs', async (t) => {
   const previousOrigin = process.env.LIVEAVATAR_LIVEKIT_ORIGIN;
-  process.env.LIVEAVATAR_LIVEKIT_ORIGIN = 'wss://unit.test';
+  process.env.LIVEAVATAR_LIVEKIT_ORIGIN = 'wss://unit-signal.livekit.cloud';
   t.after(() => {
     if (previousOrigin === undefined) delete process.env.LIVEAVATAR_LIVEKIT_ORIGIN;
     else process.env.LIVEAVATAR_LIVEKIT_ORIGIN = previousOrigin;
@@ -103,7 +103,7 @@ test('avatar control is bound to one active avatar-mode alpha session and carrie
 
 test('unacknowledged remote stop retains ownership so cleanup can be retried', async (t) => {
   const previousOrigin = process.env.LIVEAVATAR_LIVEKIT_ORIGIN;
-  process.env.LIVEAVATAR_LIVEKIT_ORIGIN = 'wss://unit.test';
+  process.env.LIVEAVATAR_LIVEKIT_ORIGIN = 'wss://unit-signal.livekit.cloud';
   t.after(() => {
     if (previousOrigin === undefined) delete process.env.LIVEAVATAR_LIVEKIT_ORIGIN;
     else process.env.LIVEAVATAR_LIVEKIT_ORIGIN = previousOrigin;
