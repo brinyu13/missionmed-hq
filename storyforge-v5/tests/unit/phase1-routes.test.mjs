@@ -250,6 +250,8 @@ test('E10 returns only the caller capability and E11 routes preserve admin servi
           mentorNotes: false,
           mentorNotesRead: false,
     storyMedia: false,
+    visibilityConsent: false,
+    activityTracking: false,
     submissionReview: false,
     taxonomy: false,
     inlinePriority: false,

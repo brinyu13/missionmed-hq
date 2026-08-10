@@ -19,6 +19,8 @@ import { createAdminConsoleService } from './admin-console.mjs';
 import { createProductConfigurationService } from './product-configuration.mjs';
 import { createStoryMediaService } from './story-media.mjs';
 import { createMentorNotesService } from './mentor-notes.mjs';
+import { createVisibilityService } from './visibility.mjs';
+import { createActivityService } from './activity.mjs';
 import { previewImport } from './imports.mjs';
 import {
   createAudioPlayback,
@@ -496,7 +498,8 @@ function storyProjection(prefix = '') {
     ${p}submitted_at, ${p}last_submitted_at, ${p}opened_at,
     ${p}reviewed_at, ${p}approved_at, ${p}student_updated_at,
     ${p}status_changed_at, ${p}feedback_sent_at, ${p}feedback_opened_at,
-    ${p}student_responded_at, ${p}archived_at, ${p}created_at, ${p}updated_at`;
+    ${p}student_responded_at, ${p}visibility, ${p}visibility_changed_at,
+    ${p}archived_at, ${p}created_at, ${p}updated_at`;
 }
 
 async function requireDatabaseRole(client, roles) {
@@ -586,6 +589,8 @@ async function api(request, response, url, {
   productConfigurationService,
   storyMediaService,
   mentorNotesService,
+  visibilityService,
+  activityService,
   recordingsService,
   signAudioPlayback,
 }) {
@@ -611,6 +616,42 @@ async function api(request, response, url, {
   }
 
   const identity = await authorizeRequest(request);
+
+  if (request.method === 'GET' && url.pathname === '/api/consent') {
+    return sendJson(response, 200, await visibilityService.read(identity));
+  }
+  if (request.method === 'POST' && url.pathname === '/api/consent') {
+    return sendJson(response, 201, await visibilityService.decide(identity, await readJson(request)));
+  }
+  if (request.method === 'POST' && url.pathname === '/api/activity/heartbeat') {
+    const payload = await activityService.heartbeat(identity, await readJson(request));
+    return sendJson(response, payload.accepted === true ? 200 : 202, payload);
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/admin/features/visibility_consent') {
+    return sendJson(response, 200, { flag: await visibilityService.getFlag(identity) });
+  }
+  if (request.method === 'POST' && url.pathname === '/api/admin/features/visibility_consent') {
+    return sendJson(response, 200, {
+      flag: await visibilityService.updateFlag(identity, await readJson(request)),
+    });
+  }
+  if (request.method === 'GET' && url.pathname === '/api/admin/features/activity_tracking') {
+    return sendJson(response, 200, { flag: await activityService.getFlag(identity) });
+  }
+  if (request.method === 'POST' && url.pathname === '/api/admin/features/activity_tracking') {
+    return sendJson(response, 200, {
+      flag: await activityService.updateFlag(identity, await readJson(request)),
+    });
+  }
+  const adminActivityRoute = url.pathname.match(
+    /^\/api\/admin\/console\/activity\/([a-f0-9-]+)$/i,
+  );
+  if (request.method === 'GET' && adminActivityRoute) {
+    return sendJson(response, 200, {
+      activity: await activityService.adminRead(identity, adminActivityRoute[1]),
+    });
+  }
 
   if (request.method === 'GET' && url.pathname === '/api/presentation') {
     return sendJson(response, 200, {
@@ -802,7 +843,10 @@ async function api(request, response, url, {
   }
 
   if (request.method === 'GET' && url.pathname === '/api/session') {
-    const [user, voiceCapture, adminConsole, mentorNotes, mentorNotesRead, storyMedia, b1511, adminB1511] = await Promise.all([
+    const [
+      user, voiceCapture, adminConsole, mentorNotes, mentorNotesRead, storyMedia,
+      mentorship, activityTracking, b1511, adminB1511,
+    ] = await Promise.all([
       withIdentity(identity, async (client) => {
         const result = await client.query(
           `SELECT id, wp_user_id, display_name, first_name, pronouns, role, eligible,
@@ -818,6 +862,8 @@ async function api(request, response, url, {
       mentorNotesService.capability(identity),
       mentorNotesService.readCapability(identity),
       Promise.resolve(storyMediaService.capability(identity)),
+      visibilityService.read(identity),
+      activityService.capability(identity),
       withIdentity(identity, async (client) => {
         try {
           const result = await client.query('SELECT public.sf_b1_511_capabilities() AS payload');
@@ -857,10 +903,16 @@ async function api(request, response, url, {
         mentorNotes,
         mentorNotesRead: mentorNotesRead && b1511.mentorNotesRead === true,
         storyMedia,
+        visibilityConsent: mentorship.enabled === true,
+        activityTracking,
         submissionReview: b1511.submissionReview === true,
         taxonomy: b1511.taxonomy === true || adminB1511.taxonomy === true,
         inlinePriority: b1511.inlinePriority === true,
         storySearch: b1511.storySearch === true,
+      },
+      mentorship: {
+        policy: mentorship.policy,
+        consent: mentorship.consent,
       },
     });
   }
@@ -924,6 +976,18 @@ async function api(request, response, url, {
       return result.rows[0];
     });
     return sendJson(response, 201, { story });
+  }
+
+  const storyVisibilityRoute = url.pathname.match(
+    /^\/api\/stories\/([a-f0-9-]+)\/visibility$/i,
+  );
+  if (request.method === 'POST' && storyVisibilityRoute) {
+    const story = await visibilityService.setStoryVisibility(
+      identity,
+      storyVisibilityRoute[1],
+      await readJson(request),
+    );
+    return sendJson(response, 200, { story });
   }
 
   const storyRoute = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)$/i);
@@ -2732,6 +2796,8 @@ export function createAppServer({
   productConfigurationService = null,
   storyMediaService = null,
   mentorNotesService = null,
+  visibilityService = null,
+  activityService = null,
   auditWriter = appendAudit,
   audioPlaybackSigner = createAudioPlayback,
   reportEvent = emitStructuredEvent,
@@ -2764,6 +2830,12 @@ export function createAppServer({
     transcription: phaseOneRuntime.transcription || createUnavailableTranscriptionAdapter(),
     signPlayback: audioPlaybackSigner,
   });
+  const resolvedVisibilityService = visibilityService || createVisibilityService({
+    withIdentity: identityTransaction,
+  });
+  const resolvedActivityService = activityService || createActivityService({
+    withIdentity: identityTransaction,
+  });
   const apiRuntime = Object.freeze({
     authorizeRequest,
     auditWriter,
@@ -2774,6 +2846,8 @@ export function createAppServer({
     productConfigurationService: resolvedProductConfigurationService,
     storyMediaService: resolvedStoryMediaService,
     mentorNotesService: resolvedMentorNotesService,
+    visibilityService: resolvedVisibilityService,
+    activityService: resolvedActivityService,
     recordingsService: phaseOneRuntime.recordingsService,
     signAudioPlayback: audioPlaybackSigner,
   });
