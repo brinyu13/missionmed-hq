@@ -12,6 +12,7 @@ export const CONVERSATION_RAILS = Object.freeze([
     model: 'gpt-realtime-2.1',
     architecture: 'continuous-realtime-speech-to-speech',
     status: 'experimental',
+    maturity: 'experimental',
   }),
   Object.freeze({
     id: CONVERSATION_RAIL_IDS.RESPONSES_SPEECH,
@@ -42,7 +43,7 @@ export function publicConversationRailConfig({ realtimeAvailable = false } = {})
     rails: CONVERSATION_RAILS.map((rail) => ({
       ...rail,
       status: rail.id === CONVERSATION_RAIL_IDS.OPENAI_REALTIME
-        ? (realtimeAvailable ? 'experimental' : 'unavailable')
+        ? (realtimeAvailable ? 'founder-alpha-default' : 'unavailable')
         : rail.status,
       reason: rail.id === CONVERSATION_RAIL_IDS.OPENAI_REALTIME && !realtimeAvailable
         ? 'authenticated_model_unavailable'

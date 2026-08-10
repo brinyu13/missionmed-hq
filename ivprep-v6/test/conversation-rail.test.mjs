@@ -33,7 +33,8 @@ async function listen(server) {
 test('rail catalog makes authenticated Realtime the Founder Alpha default and fails back explicitly when unavailable', () => {
   const config = publicConversationRailConfig({ realtimeAvailable: true });
   assert.equal(config.defaultRailId, CONVERSATION_RAIL_IDS.OPENAI_REALTIME);
-  assert.equal(config.rails.find((rail) => rail.id === CONVERSATION_RAIL_IDS.OPENAI_REALTIME).status, 'experimental');
+  assert.equal(config.rails.find((rail) => rail.id === CONVERSATION_RAIL_IDS.OPENAI_REALTIME).status, 'founder-alpha-default');
+  assert.equal(config.rails.find((rail) => rail.id === CONVERSATION_RAIL_IDS.OPENAI_REALTIME).maturity, 'experimental');
   assert.equal(publicConversationRailConfig({ realtimeAvailable: false }).defaultRailId, CONVERSATION_RAIL_IDS.RESPONSES_SPEECH);
   assert.deepEqual(config.rails.find((rail) => rail.id === CONVERSATION_RAIL_IDS.GPT_LIVE), {
     id: 'gpt-live', label: 'FUTURE — GPT-Live', provider: 'openai', model: null,
