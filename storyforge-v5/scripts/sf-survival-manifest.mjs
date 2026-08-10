@@ -67,6 +67,13 @@ const GLOBAL_SPECS = Object.freeze([
   ['sf_feedback', ['id']], ['sf_story_reflections', ['id']], ['sf_audit_events', ['id']],
 ]);
 
+// V2 version rows are intentionally not part of the protected V1 child-row
+// projection. Their only permitted migration-time state is asserted separately
+// by generatedVersionRows in buildStory().
+const ASSERTION_ONLY_STORY_RELATIONSHIPS = Object.freeze([
+  'sf_story_versions',
+]);
+
 function parseArgs(argv) {
   const [command, ...rest] = argv;
   const values = { command, expectedLedgerAddition: [] };
@@ -171,7 +178,10 @@ async function assertFullVisibility(client, inventory) {
 }
 
 async function assertClassifiedStoryForeignKeys(client, inventory) {
-  const classified = new Set(DIRECT_SPECS.map(([table]) => table));
+  const classified = new Set([
+    ...DIRECT_SPECS.map(([table]) => table),
+    ...ASSERTION_ONLY_STORY_RELATIONSHIPS,
+  ]);
   const result = await client.query(
     `SELECT DISTINCT source.relname AS table_name
        FROM pg_constraint fk
