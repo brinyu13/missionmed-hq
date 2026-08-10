@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { verifyLockedLiveAvatarAssets } from '../../avatar/asset-verification.mjs';
 import { validatedLiveAvatarLiveKitOrigin } from '../../avatar/livekit-origin.mjs';
 import { LIVE_INTERVIEWER_TARGET } from '../../avatar/live-interviewer-target.mjs';
+import { liveAvatarModeStartupDecision, resolveLiveAvatarProviderMode } from '../../avatar/liveavatar-modes.mjs';
 import { loadLocalEnvironment } from '../../config/load-environment.mjs';
 import { publicProviderError } from '../../providers/errors.mjs';
 import { createAvatarProviderFromEnv } from '../../providers/liveavatar-provider.mjs';
@@ -11,6 +12,8 @@ import { startIvPrepServer } from '../../server/serve.mjs';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 loadLocalEnvironment({ path: `${root}.env` });
 loadLocalEnvironment({ path: `${root}.env.local` });
+const providerMode = resolveLiveAvatarProviderMode(process.env.LIVEAVATAR_MODE || 'lite');
+const modeStartup = liveAvatarModeStartupDecision(providerMode);
 
 let startupStage = 'metadata-verification';
 
@@ -22,6 +25,22 @@ async function bootstrap() {
   process.env.LIVEAVATAR_AUTHENTICATED_AVATAR_VERIFIED = 'true';
   process.env.LIVEAVATAR_AUTHENTICATED_VOICE_VERIFIED = 'true';
   process.env.LIVEAVATAR_LOCKED_VOICE_COMPATIBLE = 'false';
+
+  if (!modeStartup.bootstrapProvider) {
+    process.env.LIVEAVATAR_START_BLOCK = modeStartup.block;
+    console.log(JSON.stringify({
+      provider: 'liveavatar',
+      providerMode,
+      authenticatedTargetsVerified: true,
+      lockedAvatarVerified: true,
+      lockedVoiceMetadataVerified: true,
+      lockedProviderVoiceCompatible: false,
+      modeImplemented: false,
+      liveSessionBlocked: modeStartup.block,
+      fallback: modeStartup.fallback,
+    }));
+    return;
+  }
 
   const provider = createAvatarProviderFromEnv();
   let cleanupAcknowledged = false;
@@ -49,10 +68,11 @@ async function bootstrap() {
 
   console.log(JSON.stringify({
     provider: 'liveavatar',
+    providerMode,
     authenticatedTargetsVerified: true,
     lockedAvatarVerified: true,
     lockedVoiceMetadataVerified: true,
-    lockedVoiceLiteCompatible: false,
+    lockedProviderVoiceCompatible: false,
     livekitOriginValidated: true,
     bootstrapCleanupAcknowledged: cleanupAcknowledged,
   }));
@@ -75,10 +95,11 @@ try {
     process.env.LIVEAVATAR_START_BLOCK = 'insufficient-credits';
     console.log(JSON.stringify({
       provider: 'liveavatar',
+      providerMode,
       authenticatedTargetsVerified: true,
       lockedAvatarVerified: true,
       lockedVoiceMetadataVerified: true,
-      lockedVoiceLiteCompatible: false,
+      lockedProviderVoiceCompatible: false,
       livekitOriginValidated: false,
       liveSessionBlocked: 'insufficient-credits',
       fallback: 'voice-only',

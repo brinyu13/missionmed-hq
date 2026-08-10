@@ -9,6 +9,7 @@ export class AvatarProvider {
   async interrupt() { throw new Error('AvatarProvider.interrupt not implemented'); }
   async stop() { throw new Error('AvatarProvider.stop not implemented'); }
   async reconnect() { throw new Error('AvatarProvider.reconnect not implemented'); }
+  capabilities() { return {}; }
   health() { return { available: false, state: 'unconfigured' }; }
   usage() { return { sessions: 0, seconds: 0 }; }
   async close() {}
@@ -28,6 +29,7 @@ export class UnavailableAvatarProvider extends AvatarProvider {
   async stop() { return { stopped: true }; }
   async reconnect() { return { available: false, reason: this.reason }; }
   health() { return { available: false, state: 'not-implemented', reason: this.reason }; }
+  capabilities() { return {}; }
 }
 
 function publicError(payload, fallback) {
@@ -58,6 +60,9 @@ export class LiveAvatarBrowserProvider extends AvatarProvider {
     this.videoReady = false;
     this.audioReady = false;
     this.audioPlaybackReady = false;
+    this.providerMode = null;
+    this.deliveryProfileId = null;
+    this.providerCapabilities = Object.freeze({});
   }
 
   #setState(state, extra = {}) {
@@ -88,6 +93,12 @@ export class LiveAvatarBrowserProvider extends AvatarProvider {
     try {
       await this.configure(configuration);
       const payload = await this.#request('/api/avatar/session/create', configuration);
+      if (!payload.deliveryProfileId || payload.capabilities?.supportsRealtimeVideo !== true) {
+        throw new Error('The server did not provide a supported avatar delivery profile.');
+      }
+      this.providerMode = payload.mode || null;
+      this.deliveryProfileId = payload.deliveryProfileId;
+      this.providerCapabilities = Object.freeze({ ...payload.capabilities });
       this.sessionId = payload.sessionId;
       this.#setState('created');
       return { sessionId: this.sessionId, status: 'created' };
@@ -109,6 +120,8 @@ export class LiveAvatarBrowserProvider extends AvatarProvider {
     const sessionId = this.sessionId;
     try {
       const payload = await this.#request('/api/avatar/session/start', { sessionId, alphaSessionId: this.alphaSessionId });
+      if (payload.deliveryProfileId !== this.deliveryProfileId) throw new Error('The avatar delivery profile changed during the active session.');
+      if (this.providerCapabilities.mediaTransport !== 'livekit') throw new Error('The active avatar media transport is not implemented in this browser adapter.');
       const { Room, RoomEvent } = await import('/vendor/livekit-client.esm.mjs');
       const room = new Room({ adaptiveStream: true, dynacast: true });
       this.room = room;
@@ -243,6 +256,7 @@ export class LiveAvatarBrowserProvider extends AvatarProvider {
   }
 
   async enqueueAudio(audio, { signal, eventId = crypto.randomUUID() } = {}) {
+    if (this.providerCapabilities.supportsSuppliedAudio !== true) return { accepted: false, reason: 'The active avatar delivery profile does not accept supplied audio.' };
     if (!this.sessionId) return { accepted: false, reason: 'No avatar session is active.' };
     const bytes = audio instanceof ArrayBuffer ? new Uint8Array(audio) : audio;
     if (!bytes?.byteLength) return { accepted: false, reason: 'No avatar audio was supplied.' };
@@ -383,11 +397,13 @@ export class LiveAvatarBrowserProvider extends AvatarProvider {
   }
 
   health() {
-    return { provider: 'liveavatar', available: this.state === 'live' && liveMediaReady(this), state: this.state, videoReady: this.videoReady, audioReady: this.audioReady, audioPlaybackReady: this.audioPlaybackReady, firstVideoTrackMs: this.firstVideoTrackMs, firstFrameMs: this.firstFrameMs, firstAudioTrackMs: this.firstAudioTrackMs, firstAudioPlaybackMs: this.firstAudioPlaybackMs, reconnects: this.reconnects, sessionsStarted: this.sessionsStarted, reason: this.lastError };
+    return { provider: 'liveavatar', mode: this.providerMode, deliveryProfileId: this.deliveryProfileId, capabilities: this.capabilities(), available: this.state === 'live' && liveMediaReady(this), state: this.state, videoReady: this.videoReady, audioReady: this.audioReady, audioPlaybackReady: this.audioPlaybackReady, firstVideoTrackMs: this.firstVideoTrackMs, firstFrameMs: this.firstFrameMs, firstAudioTrackMs: this.firstAudioTrackMs, firstAudioPlaybackMs: this.firstAudioPlaybackMs, reconnects: this.reconnects, sessionsStarted: this.sessionsStarted, reason: this.lastError };
   }
 
+  capabilities() { return this.providerCapabilities; }
+
   usage() {
-    return { provider: 'liveavatar', sessions: this.sessionsStarted, minutes: this.startedAt ? Math.max(0, (Date.now() - this.startedAt) / 60_000) : 0 };
+    return { provider: 'liveavatar', mode: this.providerMode, deliveryProfileId: this.deliveryProfileId, sessions: this.sessionsStarted, minutes: this.startedAt ? Math.max(0, (Date.now() - this.startedAt) / 60_000) : 0 };
   }
 
   async #detach() {

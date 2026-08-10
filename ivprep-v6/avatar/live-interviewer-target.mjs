@@ -1,3 +1,5 @@
+import { LIVEAVATAR_PROVIDER_MODES } from './liveavatar-modes.mjs';
+
 export const LIVE_INTERVIEWER_TARGET = Object.freeze({
   provider: 'liveavatar',
   avatarId: 'bd43ce31-7425-4379-8407-60f029548e61',
@@ -11,7 +13,7 @@ export const LIVE_INTERVIEWER_TARGET = Object.freeze({
 export const LIVE_INTERVIEWER_DELIVERY_PROFILES = Object.freeze({
   LITE_PCM: Object.freeze({
     id: 'liveavatar-lite-supplied-pcm',
-    mode: 'LITE',
+    mode: LIVEAVATAR_PROVIDER_MODES.LITE,
     audioAuthority: 'liveavatar-livekit',
     audioInput: Object.freeze({ encoding: 'pcm_s16le', sampleRateHz: 24_000, channels: 1 }),
     providerVoiceSelectionSupported: false,

@@ -4,6 +4,7 @@ import WebSocket from 'ws';
 
 import { LIVE_INTERVIEWER_TARGET, resolveLockedAvatarId } from '../avatar/live-interviewer-target.mjs';
 import { MAX_AVATAR_ENDURANCE_SECONDS, MIN_AVATAR_ENDURANCE_SECONDS } from '../avatar/endurance-plan.mjs';
+import { LIVEAVATAR_PROVIDER_MODES, liveAvatarModeProfile, publicLiveAvatarModeProfile } from '../avatar/liveavatar-modes.mjs';
 import { AvatarProvider, NullAvatarProvider } from './avatar-provider.mjs';
 import { ProviderError, providerResponseError } from './errors.mjs';
 
@@ -58,6 +59,9 @@ function normalizeStopReason(reason) {
 }
 
 function unavailableReason(config) {
+  if (!config.modeProfile.implemented) {
+    return config.modeProfile.blockedReason;
+  }
   if (!config.apiKey && !config.avatarId) {
     return 'LiveAvatar is not configured. The interview can continue in visible voice-only mode.';
   }
@@ -77,8 +81,11 @@ function readLiveAvatarConfig(env = process.env, { enduranceHarness = false, end
   const apiKey = String(env.LIVEAVATAR_API_KEY || '').trim();
   const avatarId = resolveLockedAvatarId(env.LIVEAVATAR_AVATAR_ID);
   const avatarIdValid = UUID_PATTERN.test(avatarId);
+  const modeProfile = liveAvatarModeProfile(env.LIVEAVATAR_MODE || LIVEAVATAR_PROVIDER_MODES.LITE);
   const requestedEnduranceDuration = Number.parseInt(enduranceDurationSeconds, 10);
   if (enduranceHarness && (
+    modeProfile.providerMode !== LIVEAVATAR_PROVIDER_MODES.LITE
+    ||
     parseBoolean(env.LIVEAVATAR_SANDBOX, false)
     || !Number.isInteger(requestedEnduranceDuration)
     || requestedEnduranceDuration < MIN_AVATAR_ENDURANCE_SECONDS
@@ -90,6 +97,8 @@ function readLiveAvatarConfig(env = process.env, { enduranceHarness = false, end
     apiKey,
     avatarId,
     avatarIdValid,
+    mode: modeProfile.providerMode,
+    modeProfile,
     sandbox: parseBoolean(env.LIVEAVATAR_SANDBOX, false),
     maxSessionDuration: enduranceHarness
       ? requestedEnduranceDuration
@@ -101,7 +110,7 @@ function readLiveAvatarConfig(env = process.env, { enduranceHarness = false, end
 
   return Object.freeze({
     ...config,
-    configured: Boolean(apiKey && avatarIdValid),
+    configured: Boolean(apiKey && avatarIdValid && modeProfile.implemented),
     unavailableReason: unavailableReason(config),
   });
 }
@@ -113,6 +122,8 @@ export function liveAvatarConfigFromEnv(env = process.env) {
     hasServerAuthorization: Boolean(config.apiKey),
     avatarId: config.avatarId || null,
     avatarIdValid: config.avatarIdValid,
+    mode: config.mode,
+    deliveryProfile: publicLiveAvatarModeProfile(config.mode),
     sandbox: config.sandbox,
     maxSessionDuration: config.maxSessionDuration,
     videoQuality: config.videoQuality,
@@ -246,6 +257,14 @@ export class LiveAvatarProvider extends AvatarProvider {
     return {
       provider: PROVIDER,
       status: 'unavailable',
+      mode: this.#config.mode,
+      deliveryProfileId: this.#config.modeProfile.id,
+      capabilityVersion: this.#config.modeProfile.capabilityVersion,
+      implemented: this.#config.modeProfile.implemented,
+      blockedReason: this.#config.modeProfile.blockedReason || null,
+      intelligenceOwner: this.#config.modeProfile.intelligenceOwner,
+      capabilities: this.capabilities(),
+      providerAdvertisedCapabilities: this.#config.modeProfile.providerAdvertisedCapabilities,
       fallback: 'voice-only',
       reason: this.#config.unavailableReason,
     };
@@ -258,12 +277,24 @@ export class LiveAvatarProvider extends AvatarProvider {
     return {
       provider: PROVIDER,
       status: 'configured',
+      mode: this.#config.mode,
+      deliveryProfileId: this.#config.modeProfile.id,
+      capabilityVersion: this.#config.modeProfile.capabilityVersion,
+      implemented: this.#config.modeProfile.implemented,
+      blockedReason: this.#config.modeProfile.blockedReason || null,
+      intelligenceOwner: this.#config.modeProfile.intelligenceOwner,
+      capabilities: this.capabilities(),
+      providerAdvertisedCapabilities: this.#config.modeProfile.providerAdvertisedCapabilities,
       avatarId: LIVE_INTERVIEWER_TARGET.avatarId,
       voiceTargetId: LIVE_INTERVIEWER_TARGET.voiceId,
       voiceSelectionApplied: false,
       audioAuthority: 'liveavatar-livekit',
       intelligenceOwner: 'conversation-rail',
     };
+  }
+
+  capabilities() {
+    return this.#config.modeProfile.capabilities;
   }
 
   #assertOpen(operation) {
@@ -429,7 +460,7 @@ export class LiveAvatarProvider extends AvatarProvider {
 
   async #connectControlSocket() {
     if (!this.#controlSocketUrl) {
-      throw normalizedError('connect', new Error('Provider omitted the LITE control socket URL.'), { retryable: false });
+      throw normalizedError('connect', new Error(`Provider omitted the ${this.#config.mode} control socket URL.`), { retryable: false });
     }
 
     this.#closeSocket();
@@ -522,7 +553,9 @@ export class LiveAvatarProvider extends AvatarProvider {
       return {
         provider: PROVIDER,
         status: 'created',
-        mode: 'LITE',
+        mode: this.#config.mode,
+        deliveryProfileId: this.#config.modeProfile.id,
+        capabilities: this.capabilities(),
         sessionId: this.#sessionId,
         avatarId: this.#config.avatarId,
         sandbox: this.#config.sandbox,
@@ -536,7 +569,7 @@ export class LiveAvatarProvider extends AvatarProvider {
         authorization: 'api-key',
         operation: 'create_session',
         body: {
-          mode: 'LITE',
+          mode: this.#config.mode,
           avatar_id: this.#config.avatarId,
           is_sandbox: this.#config.sandbox,
           video_settings: {
@@ -562,7 +595,9 @@ export class LiveAvatarProvider extends AvatarProvider {
       return {
         provider: PROVIDER,
         status: 'created',
-        mode: 'LITE',
+        mode: this.#config.mode,
+        deliveryProfileId: this.#config.modeProfile.id,
+        capabilities: this.capabilities(),
         sessionId: this.#sessionId,
         avatarId: this.#config.avatarId,
         sandbox: this.#config.sandbox,
@@ -594,7 +629,7 @@ export class LiveAvatarProvider extends AvatarProvider {
       providerSessionStarted = true;
       if (data.session_id) this.#sessionId = data.session_id;
       if (!data.session_id || !data.livekit_url || !data.livekit_client_token || !data.ws_url) {
-        throw normalizedError('start', new Error('Provider response omitted required LITE session data.'), { retryable: false });
+        throw normalizedError('start', new Error(`Provider response omitted required ${this.#config.mode} session data.`), { retryable: false });
       }
       this.#sessionId = data.session_id;
       this.#lastSessionId = data.session_id;
@@ -630,7 +665,9 @@ export class LiveAvatarProvider extends AvatarProvider {
     return {
       provider: PROVIDER,
       status: 'connected',
-      mode: 'LITE',
+      mode: this.#config.mode,
+      deliveryProfileId: this.#config.modeProfile.id,
+      capabilities: this.capabilities(),
       sessionId: this.#sessionId,
       avatarId: this.#config.avatarId,
       sandbox: this.#config.sandbox,
@@ -652,7 +689,7 @@ export class LiveAvatarProvider extends AvatarProvider {
     const format = options.format || 'pcm_s16le';
     const sampleRateHz = options.sampleRateHz || AUDIO_SAMPLE_RATE_HZ;
     if (format !== 'pcm_s16le' || sampleRateHz !== AUDIO_SAMPLE_RATE_HZ) {
-      throw invalidAudio('LiveAvatar LITE requires mono signed 16-bit PCM at 24 kHz.');
+      throw invalidAudio(`LiveAvatar ${this.#config.mode} supplied audio requires mono signed 16-bit PCM at 24 kHz.`);
     }
     if (!Buffer.isBuffer(audio) && !(audio instanceof Uint8Array)) {
       throw invalidAudio('Audio must be a Buffer or Uint8Array.');
@@ -811,7 +848,14 @@ export class LiveAvatarProvider extends AvatarProvider {
       status: this.#state,
       configured: this.#config.configured,
       available: this.#state === 'connected' && this.#socket?.readyState === 1,
-      mode: 'LITE',
+      mode: this.#config.mode,
+      deliveryProfileId: this.#config.modeProfile.id,
+      capabilityVersion: this.#config.modeProfile.capabilityVersion,
+      implemented: this.#config.modeProfile.implemented,
+      blockedReason: this.#config.modeProfile.blockedReason || null,
+      intelligenceOwner: this.#config.modeProfile.intelligenceOwner,
+      capabilities: this.capabilities(),
+      providerAdvertisedCapabilities: this.#config.modeProfile.providerAdvertisedCapabilities,
       avatarId: this.#config.avatarId || null,
       sessionId: this.#sessionId,
       connected: this.#state === 'connected' && this.#socket?.readyState === 1,
@@ -830,6 +874,8 @@ export class LiveAvatarProvider extends AvatarProvider {
       : Math.max(0, end - this.#startedAt) / 60_000;
     return {
       provider: PROVIDER,
+      mode: this.#config.mode,
+      usageClass: this.#config.modeProfile.usageClass,
       sessions: this.#sessionCount,
       active: this.#state === 'connected' || this.#state === 'degraded',
       sessionId: this.#sessionId || this.#lastSessionId,
@@ -865,7 +911,18 @@ export class LiveAvatarProvider extends AvatarProvider {
 
 export function createAvatarProviderFromEnv(options = {}) {
   const config = readLiveAvatarConfig(options.env || process.env);
-  if (!config.configured) return new NullAvatarProvider(config.unavailableReason);
+  if (!config.configured) return new NullAvatarProvider(config.unavailableReason, {
+    provider: PROVIDER,
+    mode: config.mode,
+    deliveryProfileId: config.modeProfile.id,
+    capabilityVersion: config.modeProfile.capabilityVersion,
+    implemented: config.modeProfile.implemented,
+    blockedReason: config.modeProfile.blockedReason || null,
+    intelligenceOwner: config.modeProfile.intelligenceOwner,
+    capabilities: config.modeProfile.capabilities,
+    providerAdvertisedCapabilities: config.modeProfile.providerAdvertisedCapabilities,
+    usageClass: config.modeProfile.usageClass,
+  });
   return new LiveAvatarProvider(options);
 }
 

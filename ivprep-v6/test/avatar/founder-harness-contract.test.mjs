@@ -14,16 +14,22 @@ test('Founder journey has an obvious entry, exact Dexter identity, and no simula
   assert.match(index, /founderLive=window\.V6Frontier\?\.state\?\.founderHarness===true/);
   assert.match(index, /if\(founderLive\)\{ivSet\(false,false\);toast\('Connecting the selected live interviewer\. No simulated participant state is shown\.'/);
   assert.match(index, /if\(!founderLive&&talk&&RUN\.qi===0\)/);
+  assert.match(integration, /Continuous Conversation streams microphone audio to OpenAI Realtime[\s\S]*Continuous Conversation uses live audio/);
 });
 
 test('Founder preflight exposes actual audible voice and audio authority without relabeling W. Clint', () => {
   assert.match(integration, /Audible interviewer: \$\{state\.audibleVoiceTruth\}/);
   assert.match(integration, /Audio authority: \$\{state\.audioAuthority\}/);
-  assert.match(integration, /Authenticated evidence confirms both records, but LITE exposes no W\. Clint voice selector/);
+  assert.match(integration, /Active avatar delivery: LiveAvatar · \$\{state\.avatarProviderMode/);
+  assert.match(integration, /The active profile does not select a provider voice; supplied OpenAI cedar PCM remains audible/);
   assert.match(integration, /bd43ce31-7425-4379-8407-60f029548e61/);
   assert.match(integration, /a33a57ab-8388-49fc-a069-dbcfd1bc5405/);
   assert.match(integration, /PROVIDER CREDITS REQUIRED/);
-  assert.match(integration, /synchronized supplied OpenAI cedar PCM is the configured audible path/);
+  assert.match(integration, /AVATAR DELIVERY LIVEAVATAR \$\{state\.avatarProviderMode/);
+  assert.match(integration, /IMPLEMENTED \$\{state\.avatarProfileImplemented \? 'YES' : 'NO'\}/);
+  assert.match(integration, /deliveryProfileId: state\.avatarDeliveryProfileId/);
+  assert.match(integration, /providerAdvertisedCapabilities: state\.avatarProviderAdvertisedCapabilities/);
+  assert.match(integration, /This delivery profile is recognized but disabled/);
   assert.match(integration, /AI interviewer using a provider stock avatar; not a real physician/);
 });
 

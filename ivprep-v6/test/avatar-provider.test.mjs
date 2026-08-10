@@ -48,8 +48,8 @@ test('unavailable avatar provider stays honest and inactive', async () => {
   assert.deepEqual(await provider.interrupt(), { interrupted: false, fallback: 'voice-only', reason });
   assert.deepEqual(await provider.reconnect(), { status: 'unavailable', fallback: 'voice-only', reason });
   assert.deepEqual(await provider.stop(), { stopped: true });
-  assert.deepEqual(provider.health(), { provider: 'none', status: 'unavailable', available: false, fallback: 'voice-only', reason });
-  assert.deepEqual(provider.usage(), { provider: 'none', sessions: 0, minutes: 0 });
+  assert.deepEqual(provider.health(), { provider: 'none', status: 'unavailable', available: false, configured: false, mode: null, deliveryProfileId: null, capabilityVersion: null, implemented: false, blockedReason: null, intelligenceOwner: null, capabilities: {}, providerAdvertisedCapabilities: {}, fallback: 'voice-only', reason });
+  assert.deepEqual(provider.usage(), { provider: 'none', mode: null, usageClass: null, sessions: 0, minutes: 0 });
   assert.deepEqual(await provider.close(), { closed: true });
   assert.equal(provider.closed, true);
 });

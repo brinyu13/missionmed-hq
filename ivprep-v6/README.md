@@ -33,6 +33,38 @@ any mismatched `LIVEAVATAR_AVATAR_ID` override fails closed. MissionMed retains
 interviewer intelligence and conversation state; LiveAvatar is a media
 provider, never the conversation brain.
 
+### LiveAvatar operating mode
+
+`LIVEAVATAR_MODE=lite` is the 3430 default for development, Founder testing,
+integration testing, and initial acceptance. Configuration is normalized to
+the provider's exact API value `LITE`; `LIVEAVATAR_MODE=full` is recognized as
+the exact value `FULL` but currently fails closed to voice-only because its
+MissionMed Conversation Rail bridge has not been implemented or tested.
+Unknown values are rejected. LiveAvatar Embed is not accepted as a mode: the
+current provider documents it as a separate hosted `/v2/embeddings` surface.
+
+The application-owned delivery-profile registry exposes capabilities instead
+of making the Interview Room branch on provider mode. The enabled
+`liveavatar-lite-supplied-pcm` adapter reports supplied PCM, interrupt,
+realtime video, reconnect, and LiveKit transport support; provider voice,
+provider-agent ownership, and an application listening-control method are
+false. Provider-documented capabilities are recorded separately from adapter
+capabilities. `FULL` is a future, disabled profile: LiveAvatar documents voice,
+agent, interrupt, listening, and realtime-video capabilities, while every
+operational adapter capability remains false until a mode driver exists. It
+cannot be enabled until an authenticated custom-LLM or utterance bridge proves that
+MissionMed retains interview intelligence, transcript, results, evidence, and
+turn control. Usage records include a separate mode-specific usage class;
+pricing is not hard-coded into the application.
+
+Founder diagnostics and evidence show the exact active provider mode and
+delivery-profile ID. Ordinary interview status copy remains provider-neutral.
+An unsupported `FULL` selection starts this Founder launcher in an explicit
+`unsupported-mode` voice-only state and makes no LiveAvatar session request.
+Changing the registered delivery profile later does not change the
+Conversation Rail, Faculty Roster, Interview Room, transcript, results,
+analytics, or student workflow contracts.
+
 `LIVEAVATAR_API_KEY` is required to start live video and must remain
 server-side. Current authenticated metadata verifies the exact Dexter record as
 active and non-expired. The Founder-locked voice target is `W. Clint Oxley`, exact ID
@@ -48,8 +80,10 @@ start. LiveAvatar's current sandbox cannot substitute because it permits only
 the Wayne avatar, not Dexter. The UI therefore labels Dexter `PROVIDER CREDITS
 REQUIRED` and keeps the interview on the visible cedar voice-only fallback.
 
-Open `http://127.0.0.1:8343/` and click **TEST LIVE INTERVIEWER** for the
-Founder journey. It selects `Dexter · MissionMed AI Faculty`, preserves the
+For the isolated 3430 Founder build, run
+`LIVEAVATAR_MODE=lite PORT=8344 npm run start:founder-authenticated`, then open
+`http://127.0.0.1:8344/` and click **TEST LIVE INTERVIEWER**. It selects
+`Dexter · MissionMed AI Faculty`, preserves the
 normal camera/microphone permission and station checks, exposes Conversation
 Rail selection, and shows the actual audible voice and audio authority before
 Start. It does not use the prototype's randomized join/camera/small-talk chain.

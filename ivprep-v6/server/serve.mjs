@@ -111,6 +111,13 @@ function publicAvatarHealth(provider) {
     available: Boolean(health.available),
     connected: Boolean(health.connected),
     mode: health.mode || null,
+    deliveryProfileId: health.deliveryProfileId || null,
+    capabilityVersion: health.capabilityVersion || null,
+    implemented: health.implemented === true,
+    blockedReason: health.blockedReason || null,
+    intelligenceOwner: health.intelligenceOwner || null,
+    capabilities: health.capabilities && typeof health.capabilities === 'object' ? health.capabilities : {},
+    providerAdvertisedCapabilities: health.providerAdvertisedCapabilities && typeof health.providerAdvertisedCapabilities === 'object' ? health.providerAdvertisedCapabilities : {},
     avatarId: health.avatarId || null,
     fallback: health.fallback || null,
     reason: health.reason || null,
@@ -367,8 +374,8 @@ export function createIvPrepServer({
       }
 
       if (request.method === 'GET' && url.pathname === '/api/avatar-provider-config') {
-        const liveSessionBlock = process.env.LIVEAVATAR_START_BLOCK === 'insufficient-credits'
-          ? 'insufficient-credits'
+        const liveSessionBlock = ['insufficient-credits', 'unsupported-mode'].includes(process.env.LIVEAVATAR_START_BLOCK)
+          ? process.env.LIVEAVATAR_START_BLOCK
           : null;
         sendJson(response, 200, {
           health: publicAvatarHealth(avatarProvider),
@@ -387,6 +394,9 @@ export function createIvPrepServer({
 
       if (request.method === 'POST' && url.pathname === '/api/avatar/session/create') {
         const body = requireBodyObject(await readJson(request));
+        if (Object.hasOwn(body, 'providerMode') || Object.hasOwn(body, 'deliveryProfileId')) {
+          throw new TypeError('Avatar provider mode is server configuration and cannot be selected by the browser.');
+        }
         const health = avatarProvider.health();
         if (!liveAvatarConfigured) {
           throw new ProviderError('LiveAvatar server authorization is unavailable.', {
@@ -405,7 +415,7 @@ export function createIvPrepServer({
         if (health.avatarId !== LIVE_INTERVIEWER_TARGET.avatarId) throw new TypeError('Server avatar configuration does not match the Founder-locked Dexter asset.');
         const created = await avatarProvider.createSession();
         avatarOwnerAlphaSessionId = alphaSession.id;
-        sendJson(response, 201, { sessionId: created.sessionId, status: created.status, avatarId: created.avatarId, mode: created.mode, maxSessionDuration: created.maxSessionDuration });
+        sendJson(response, 201, { sessionId: created.sessionId, status: created.status, avatarId: created.avatarId, mode: created.mode, deliveryProfileId: created.deliveryProfileId, capabilities: created.capabilities, maxSessionDuration: created.maxSessionDuration });
         return;
       }
 
@@ -432,6 +442,9 @@ export function createIvPrepServer({
           livekitUrl: started.media.url,
           livekitClientToken: started.media.clientToken,
           maxSessionDuration: started.maxSessionDuration,
+          mode: started.mode,
+          deliveryProfileId: started.deliveryProfileId,
+          capabilities: started.capabilities,
         });
         return;
       }
@@ -439,6 +452,7 @@ export function createIvPrepServer({
       if (request.method === 'POST' && url.pathname === '/api/avatar/session/audio') {
         const body = requireBodyObject(await readJson(request));
         requireAvatarOwner(body);
+        if (avatarProvider.capabilities().supportsSuppliedAudio !== true) throw new TypeError('The active avatar delivery profile does not accept supplied audio.');
         if (typeof body.pcmBase64 !== 'string' || body.pcmBase64.length > 1_100_000) throw new TypeError('A bounded Base64 PCM payload is required.');
         sendJson(response, 200, await avatarProvider.enqueueAudio(Buffer.from(body.pcmBase64, 'base64'), {
           eventId: typeof body.eventId === 'string' ? body.eventId : undefined,
@@ -488,7 +502,7 @@ export function createIvPrepServer({
         sendJson(response, 200, {
           records: publicFacultyRoster({ liveAvatarConfigured: liveAvatarMediaConfigured, openaiConfigured: configured }),
           priorProviderProvenance: {
-            provider: 'liveavatar', mode: 'LITE', avatarIdSource: 'GET /v1/avatars/public',
+            provider: 'liveavatar', mode: avatarProvider.health().mode || null, avatarIdSource: 'GET /v1/avatars/public',
             currentAuthenticatedVerification: false,
           },
         });

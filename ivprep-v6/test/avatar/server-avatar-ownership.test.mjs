@@ -19,22 +19,26 @@ async function listen(server) {
 function fakeAvatarProvider({ stopFailures = 0 } = {}) {
   const calls = [];
   let sessionId = null;
+  const capabilities = Object.freeze({ supportsSuppliedAudio: true, supportsRealtimeVideo: true, mediaTransport: 'livekit' });
   return {
     calls,
+    capabilities: () => capabilities,
     health: () => ({
       provider: 'liveavatar', configured: true, available: Boolean(sessionId), connected: Boolean(sessionId),
-      status: sessionId ? 'connected' : 'idle', mode: 'LITE', avatarId: LIVE_INTERVIEWER_TARGET.avatarId, sessionId,
+      status: sessionId ? 'connected' : 'idle', mode: 'LITE', deliveryProfileId: 'liveavatar-lite-supplied-pcm',
+      implemented: true, blockedReason: null, intelligenceOwner: 'conversation-rail', capabilities,
+      providerAdvertisedCapabilities: capabilities, avatarId: LIVE_INTERVIEWER_TARGET.avatarId, sessionId,
     }),
     usage: () => ({ provider: 'liveavatar', sessions: sessionId ? 1 : 0, sessionId }),
     async createSession() {
       sessionId = '77777777-7777-4777-8777-777777777777';
       calls.push(['create']);
-      return { sessionId, status: 'created', avatarId: LIVE_INTERVIEWER_TARGET.avatarId, mode: 'LITE', maxSessionDuration: 120 };
+      return { sessionId, status: 'created', avatarId: LIVE_INTERVIEWER_TARGET.avatarId, mode: 'LITE', deliveryProfileId: 'liveavatar-lite-supplied-pcm', capabilities, maxSessionDuration: 120 };
     },
     async start() {
       calls.push(['start']);
       return {
-        provider: 'liveavatar', status: 'connected', sessionId, avatarId: LIVE_INTERVIEWER_TARGET.avatarId,
+        provider: 'liveavatar', status: 'connected', sessionId, avatarId: LIVE_INTERVIEWER_TARGET.avatarId, mode: 'LITE', deliveryProfileId: 'liveavatar-lite-supplied-pcm', capabilities,
         maxSessionDuration: 120, media: { url: 'wss://unit-signal.livekit.cloud', clientToken: 'scoped-client-token' },
       };
     },
@@ -76,6 +80,21 @@ test('avatar control is bound to one active avatar-mode alpha session and carrie
   });
   assert.equal(alphaResponse.status, 201);
   const alphaSessionId = (await alphaResponse.json()).session.id;
+
+  const publicConfig = await (await fetch(`${base}/api/avatar-provider-config`)).json();
+  assert.equal(publicConfig.health.mode, 'LITE');
+  assert.equal(publicConfig.health.deliveryProfileId, 'liveavatar-lite-supplied-pcm');
+  assert.equal(publicConfig.health.intelligenceOwner, 'conversation-rail');
+  assert.equal(publicConfig.health.implemented, true);
+  assert.equal(publicConfig.health.blockedReason, null);
+  assert.equal(publicConfig.health.capabilities.supportsSuppliedAudio, true);
+
+  const clientModeOverride = await post('/api/avatar/session/create', {
+    alphaSessionId,
+    avatarId: LIVE_INTERVIEWER_TARGET.avatarId,
+    providerMode: 'FULL',
+  });
+  assert.equal(clientModeOverride.status, 400);
 
   const createdResponse = await post('/api/avatar/session/create', { alphaSessionId, avatarId: LIVE_INTERVIEWER_TARGET.avatarId });
   assert.equal(createdResponse.status, 201);

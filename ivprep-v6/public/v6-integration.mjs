@@ -6,6 +6,14 @@ import { InterviewerAudioAuthority } from './avatar/audio-authority.mjs';
 const bridge = window.V6Bridge;
 if (!bridge) throw new Error('V6 integration bridge is unavailable.');
 
+const splashFoot = document.querySelector('.splashFoot');
+if (splashFoot) {
+  splashFoot.innerHTML = splashFoot.innerHTML.replace(
+    'Continuous Conversation streams microphone audio to OpenAI Realtime',
+    'Continuous Conversation uses live audio',
+  );
+}
+
 const state = {
   railId: RAIL_IDS.RESPONSES_SPEECH,
   railStatus: 'available',
@@ -63,6 +71,12 @@ const state = {
   usageLedger: [],
   founderHarness: false,
   avatarTarget: null,
+  avatarProviderMode: null,
+  avatarDeliveryProfileId: null,
+  avatarProfileImplemented: false,
+  avatarProfileBlockedReason: null,
+  avatarCapabilities: {},
+  avatarProviderAdvertisedCapabilities: {},
   audioAuthority: 'browser-openai-speech',
   audibleVoiceTruth: 'OpenAI Speech · cedar',
 };
@@ -80,7 +94,7 @@ const avatar = new LiveAvatarBrowserProvider({
       state.audibleVoiceTruth = `OpenAI Speech · ${state.voiceId}`;
     }
     state.avatarNotice = avatarState === 'live'
-      ? 'Live synchronized avatar audio + video connected. LiveKit is the only audible interviewer stream.'
+      ? 'Live interviewer audio and video connected.'
       : reason || `Avatar ${avatarState}.`;
     renderAvatarState();
     renderDiagnostics();
@@ -178,7 +192,7 @@ async function ensureAlphaSession() {
         ? `OpenAI Realtime · ${state.voiceId}`
         : `OpenAI Speech · ${state.voiceId}`;
       state.avatarNotice = continuousDirectAudio
-        ? 'Continuous Conversation is using direct OpenAI Realtime audio. LiveAvatar is visibly off for this experimental rail to prevent duplicate or unsynchronized audio.'
+        ? 'Continuous voice mode is active. The interviewer video is off to preserve one synchronized audio stream.'
         : state.avatarEnabled
         ? 'Live avatar unavailable: provider authorization is missing. Continuing with the same interviewer intelligence and OpenAI voice only.'
         : 'Avatar is off. Continuing with the same interviewer intelligence and OpenAI voice only.';
@@ -209,7 +223,7 @@ async function ensureAlphaSession() {
         });
         await avatar.start();
         state.audioAuthority = 'liveavatar-livekit';
-        state.audibleVoiceTruth = `Supplied OpenAI Speech · ${state.voiceId} · synchronized by LiveAvatar LITE`;
+        state.audibleVoiceTruth = `Supplied OpenAI Speech · ${state.voiceId} · synchronized by LiveAvatar ${state.avatarProviderMode || 'configured mode'}`;
         await persistAlphaEvent({ avatarStarted: true, deliveryMode: 'avatar', deliveryReason: 'live-media-ready' });
       } catch (error) {
         state.avatarNotice = `Live avatar unavailable: ${publicError(error).message} Voice-only remains active.`;
@@ -836,7 +850,12 @@ function renderFounderStudios() {
   const truth = document.createElement('div');
   truth.className = 'notice';
   truth.style.marginTop = '12px';
-  truth.textContent = `Selected rail: ${state.railId} · model: ${state.model}. Audible interviewer: ${state.audibleVoiceTruth}. Audio authority: ${state.audioAuthority}. Locked visual: Dexter Doctor Sitting (bd43ce31-7425-4379-8407-60f029548e61). Locked voice metadata: W. Clint Oxley (a33a57ab-8388-49fc-a069-dbcfd1bc5405). Authenticated evidence confirms both records, but LITE exposes no W. Clint voice selector; supplied OpenAI cedar PCM remains the audible voice. Realtime remains direct audio until the unified V6 ticket supplies its accepted output-audio sink.`;
+  const providerVoiceTruth = !state.avatarProfileImplemented
+    ? `This delivery profile is recognized but disabled: ${state.avatarProfileBlockedReason || 'no compatible MissionMed adapter is implemented'}.`
+    : state.avatarCapabilities.supportsProviderVoice === true
+    ? 'Provider voice selection is supported by this profile but is not applied until separately verified.'
+    : 'The active profile does not select a provider voice; supplied OpenAI cedar PCM remains audible.';
+  truth.textContent = `Selected rail: ${state.railId} · model: ${state.model}. Active avatar delivery: LiveAvatar · ${state.avatarProviderMode || 'unavailable'} · ${state.avatarDeliveryProfileId || 'no active profile'}. Audible interviewer: ${state.audibleVoiceTruth}. Audio authority: ${state.audioAuthority}. Locked visual: Dexter Doctor Sitting (bd43ce31-7425-4379-8407-60f029548e61). Locked voice metadata: W. Clint Oxley (a33a57ab-8388-49fc-a069-dbcfd1bc5405). ${providerVoiceTruth} Realtime remains direct audio until the unified V6 ticket supplies its accepted output-audio sink.`;
   const rosterTitle = document.createElement('div');
   rosterTitle.className = 'pLbl';
   rosterTitle.style.marginTop = '16px';
@@ -1016,6 +1035,12 @@ function founderAvatarEvidence() {
       audibleVoiceTruth: state.audibleVoiceTruth,
       audioAuthority: state.audioAuthority,
       avatarMode: state.alphaMode,
+      providerMode: state.avatarProviderMode,
+      deliveryProfileId: state.avatarDeliveryProfileId,
+      implemented: state.avatarProfileImplemented,
+      blockedReason: state.avatarProfileBlockedReason,
+      capabilities: state.avatarCapabilities,
+      providerAdvertisedCapabilities: state.avatarProviderAdvertisedCapabilities,
     },
     media: avatar.health(),
     usage: avatar.usage(),
@@ -1269,7 +1294,7 @@ function ensureRoomControls() {
   const disclosure = document.createElement('div');
   disclosure.id = 'frontier-disclosure';
   disclosure.className = 'notice';
-  disclosure.textContent = 'AI interviewer using a provider stock avatar; not a real physician. Exactly one audible interviewer stream is active, while transcript authority remains independent from playback. Continuous Conversation streams microphone audio to OpenAI Realtime; High-Intelligence Voice sends completed interview text. Local replay remains in this tab.';
+  disclosure.textContent = 'AI interviewer using a provider stock avatar; not a real physician. Exactly one audible interviewer stream is active, while transcript authority remains independent from playback. Continuous Conversation uses live audio; High-Intelligence Voice sends completed interview text. Local replay remains in this tab.';
   const avatarState = document.createElement('div');
   avatarState.id = 'avatar-live-state';
   avatarState.className = 'notice';
@@ -1324,7 +1349,7 @@ function ensureDiagnostics() {
 function renderDiagnostics() {
   const diagnostic = ensureDiagnostics();
   if (!diagnostic || diagnostic.hidden) return;
-  diagnostic.textContent = `RAIL ${state.railId} · RAIL STATE ${state.railStatus} · MODEL ${state.model}${state.providerModel && state.providerModel !== state.model ? ` · PROVIDER MODEL ${state.providerModel}` : ''} · AUDIBLE ${state.audibleVoiceTruth} · AUDIO AUTHORITY ${state.audioAuthority} · AVATAR ${avatar.health().state} · VIDEO TRACK ${avatar.health().firstVideoTrackMs ?? '—'} ms · FIRST RENDERED FRAME ${avatar.health().firstFrameMs ?? '—'} ms · AUDIO TRACK ${avatar.health().firstAudioTrackMs ?? '—'} ms · AUDIO ELEMENT PLAYING ${avatar.health().firstAudioPlaybackMs ?? '—'} ms · CONNECT ${state.railConnectionMs ?? '—'} ms · RAIL FIRST AUDIO ${state.railFirstAudioMs ?? state.latencyMs ?? '—'} ms · ANSWER END→RESPONSE ${state.railAnswerEndToResponseMs ?? '—'} ms · FLOOR→RESPONSE ${state.railFloorToResponseMs ?? '—'} ms · RAIL INTERRUPT ${state.railInterruptionMs ?? '—'} ms · AVATAR CONTROL ACK ${state.avatarInterruptAckMs ?? '—'} ms · ROUND TRIP ${state.roundTripMs ?? '—'} ms · STREAM ${state.streaming} · PROVIDER ${state.providerHealth}`;
+  diagnostic.textContent = `RAIL ${state.railId} · RAIL STATE ${state.railStatus} · MODEL ${state.model}${state.providerModel && state.providerModel !== state.model ? ` · PROVIDER MODEL ${state.providerModel}` : ''} · AVATAR DELIVERY LIVEAVATAR ${state.avatarProviderMode || 'UNAVAILABLE'} · PROFILE ${state.avatarDeliveryProfileId || 'NONE'} · IMPLEMENTED ${state.avatarProfileImplemented ? 'YES' : 'NO'}${state.avatarProfileBlockedReason ? ` · MODE BLOCK ${state.avatarProfileBlockedReason}` : ''} · AUDIBLE ${state.audibleVoiceTruth} · AUDIO AUTHORITY ${state.audioAuthority} · AVATAR ${avatar.health().state} · VIDEO TRACK ${avatar.health().firstVideoTrackMs ?? '—'} ms · FIRST RENDERED FRAME ${avatar.health().firstFrameMs ?? '—'} ms · AUDIO TRACK ${avatar.health().firstAudioTrackMs ?? '—'} ms · AUDIO ELEMENT PLAYING ${avatar.health().firstAudioPlaybackMs ?? '—'} ms · CONNECT ${state.railConnectionMs ?? '—'} ms · RAIL FIRST AUDIO ${state.railFirstAudioMs ?? state.latencyMs ?? '—'} ms · ANSWER END→RESPONSE ${state.railAnswerEndToResponseMs ?? '—'} ms · FLOOR→RESPONSE ${state.railFloorToResponseMs ?? '—'} ms · RAIL INTERRUPT ${state.railInterruptionMs ?? '—'} ms · AVATAR CONTROL ACK ${state.avatarInterruptAckMs ?? '—'} ms · ROUND TRIP ${state.roundTripMs ?? '—'} ms · STREAM ${state.streaming} · PROVIDER ${state.providerHealth}`;
 }
 
 function downloadEvidence(filename, content, type) {
@@ -1436,16 +1461,32 @@ async function loadConfiguration() {
     state.railId = railConfig.defaultRailId || RAIL_IDS.RESPONSES_SPEECH;
     state.railStatus = state.railConfigs.find((rail) => rail.id === state.railId)?.status || 'unavailable';
     state.avatarTarget = avatarConfig.target || null;
+    state.avatarProviderMode = avatarConfig.health?.mode || null;
+    state.avatarDeliveryProfileId = avatarConfig.health?.deliveryProfileId || null;
+    state.avatarProfileImplemented = avatarConfig.health?.implemented === true;
+    state.avatarProfileBlockedReason = avatarConfig.health?.blockedReason || null;
+    state.avatarCapabilities = avatarConfig.health?.capabilities && typeof avatarConfig.health.capabilities === 'object'
+      ? Object.freeze({ ...avatarConfig.health.capabilities })
+      : Object.freeze({});
+    state.avatarProviderAdvertisedCapabilities = avatarConfig.health?.providerAdvertisedCapabilities && typeof avatarConfig.health.providerAdvertisedCapabilities === 'object'
+      ? Object.freeze({ ...avatarConfig.health.providerAdvertisedCapabilities })
+      : Object.freeze({});
     state.avatarProviderReady = Boolean(
       (avatarConfig.health?.configured === true || avatarConfig.health?.available === true)
+      && state.avatarProfileImplemented
       && avatarConfig.target?.hasApprovedLiveKitOrigin
+      && avatarConfig.health?.intelligenceOwner === 'conversation-rail'
+      && state.avatarCapabilities.supportsSuppliedAudio === true
+      && state.avatarCapabilities.supportsRealtimeVideo === true
     );
     state.alphaDisabled = Boolean(health.alpha?.disabled);
     state.avatarNotice = state.avatarProviderReady
-      ? 'Dexter LiveAvatar transport is authenticated. W. Clint metadata is verified, but LITE cannot select that voice; synchronized supplied OpenAI cedar PCM is the configured audible path.'
+      ? 'The live interviewer is configured. The selected supplied voice is the audible path.'
       : avatarConfig.target?.liveSessionBlock === 'insufficient-credits'
-      ? 'Authenticated Dexter session cannot start: LiveAvatar reports insufficient credits. Voice-only OpenAI cedar remains available.'
-      : 'Avatar unavailable — continuing with voice. LiveAvatar authorization or the exact approved LiveKit origin is missing.';
+      ? 'The live interviewer cannot start because provider usage is unavailable. Voice-only interviewing remains available.'
+      : avatarConfig.target?.liveSessionBlock === 'unsupported-mode'
+      ? 'This interviewer delivery mode is not enabled. Voice-only interviewing remains available.'
+      : 'Live interviewer unavailable — continuing with voice.';
     if (models.defaultModelId) state.model = models.defaultModelId;
     if (models.defaultBehaviorPresetId) state.behaviorPresetId = models.defaultBehaviorPresetId;
     if (models.observerModelId) state.observerModel = models.observerModelId;

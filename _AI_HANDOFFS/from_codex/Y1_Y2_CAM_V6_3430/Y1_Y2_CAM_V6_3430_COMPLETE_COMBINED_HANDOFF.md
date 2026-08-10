@@ -79,6 +79,54 @@ Primary provider references:
 - `https://docs.liveavatar.com/api-reference/sessions/start-session`
 - `https://docs.liveavatar.com/docs/sandbox-mode`
 
+## Founder mode steer and switch contract
+
+- Default configuration: `LIVEAVATAR_MODE=lite`.
+- Exact provider session value: `LITE`.
+- Enabled delivery profile: `liveavatar-lite-supplied-pcm`.
+- The only other current session value documented and accepted by the
+  configuration parser is `FULL`, selected with `LIVEAVATAR_MODE=full`.
+- LiveAvatar Embed is a separate hosted `/v2/embeddings` integration surface,
+  not a valid `LIVEAVATAR_MODE` value. No `EMBED` session mode was invented.
+- Unknown mode values fail server startup; `FULL` is recognized but returns a
+  truthful `unsupported-mode` voice-only provider and makes no session request
+  until a compatible mode driver is implemented.
+
+Sanitized capability metadata is server-owned and immutable for an active
+session:
+
+| Capability | LITE adapter operational | FULL provider-documented / adapter operational |
+|---|---:|---:|
+| Supplied audio | true — PCM16/24 kHz/mono | unverified / false |
+| Provider voice | false | true / false |
+| Provider agent | false | true / false |
+| Interrupt protocol | true | true / false |
+| Listening control | provider documents true; adapter method false | true / false |
+| Realtime video | true | true / false |
+| Reconnect | true | unverified / false |
+| MissionMed Conversation Rail ownership | true | blocked until custom-LLM/utterance bridge proof |
+| Implementation/test status | implemented and unit/integration tested | not implemented; not live-tested |
+| Usage class | `liveavatar-lite-session-minute` | `liveavatar-full-session-minute` |
+
+`capabilities` means operational in the current MissionMed adapter.
+`providerAdvertisedCapabilities` separately records current provider
+documentation and never enables runtime behavior. Neither represents observed
+perceptual quality. Lip-sync, visible mouth-stop latency, motion naturalness,
+drift, and endurance still require live Founder observation.
+
+Mode switching is behind the existing `AvatarProvider` lifecycle. Mode/profile
+selection is server environment configuration, never a browser/session-body
+override. The stable product contract remains configure, create, start,
+capabilities, audio/stream delivery, interrupt, reconnect, health, usage, stop,
+and close. The Interview Room, Conversation Rail, personas, Faculty Roster,
+transcript, results, evidence, analytics, and student workflows do not require
+redesign. A future FULL driver must normalize its media/control events and
+prove MissionMed-owned intelligence before it can be marked implemented.
+
+FULL and Embed were not implemented or tested in this run. LITE remains the
+strongest accepted architecture because it directly preserves the required
+MissionMed Conversation Rail → supplied audio → synchronized avatar flow.
+
 ## Authenticated session gate
 
 Observed current flow, with all opaque values retained only in memory:
@@ -149,6 +197,8 @@ URL: `http://127.0.0.1:8344/`
 The process is loopback-only. Its current public state is:
 
 - server authorization configured: true;
+- default provider mode: exact `LITE` from `LIVEAVATAR_MODE=lite`;
+- active delivery profile: `liveavatar-lite-supplied-pcm`;
 - exact Dexter authenticated metadata verified: true;
 - exact W. Clint authenticated metadata verified: true;
 - locked W. Clint LITE compatibility: false;
@@ -160,12 +210,17 @@ Fresh in-app browser verification confirmed:
 
 - obvious splash CTA `TEST LIVE INTERVIEWER`;
 - Founder Studio rail/model/voice/behavior controls;
+- Founder-only truth displays `LiveAvatar · LITE · liveavatar-lite-supplied-pcm`;
+- Founder diagnostics/evidence separate the profile's implemented/block state,
+  operational capabilities, and provider-advertised capabilities;
 - exact Dexter and W. Clint IDs visible;
 - explicit cedar audible voice and browser audio authority;
 - explicit LITE voice-selector limitation;
 - Dexter roster status `PROVIDER CREDITS REQUIRED`;
 - normal Camera + Mic → Station → Room journey remains reachable;
 - no fake Dexter video is presented.
+- ordinary Student entry shows no `LITE`, LiveAvatar, LiveKit, provider UUID, or
+  delivery-profile terminology.
 
 ## Exact Founder steps
 
@@ -208,7 +263,7 @@ Fresh in-app browser verification confirmed:
 ## Verification and regression
 
 - `npm run check`: PASS.
-- `npm test`: 92/92 PASS.
+- `npm test`: 97/97 PASS.
 - `git diff --check`: PASS.
 - Authenticated exact-target probe: PASS for both locked metadata records.
 - In-app Founder fallback journey: PASS.
