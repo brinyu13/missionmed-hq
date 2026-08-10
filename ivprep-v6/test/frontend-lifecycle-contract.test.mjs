@@ -78,5 +78,10 @@ test('continuous room removes legacy manual-turn and coaching clutter while keep
   assert.match(integration, /body\.frontier-focus-room #side/);
   assert.match(integration, /Listening — pause naturally\. The interviewer will respond when you finish\./);
   assert.match(integration, /typeInstead\.textContent = 'Type instead'/);
+  assert.match(integration, /start\.textContent = 'Start Interview'/);
+  assert.match(integration, /\? 'Ready when you are\.'/);
+  assert.match(integration, /recordingBadge\.innerHTML = '<i><\/i>STANDBY'/);
+  assert.match(integration, /#frontier-start\[hidden\]/);
+  assert.match(integration, /#continuous-rail-fallback:not\(\[hidden\]\)/);
   assert.match(integration, /end\.id = 'frontier-end'/);
 });

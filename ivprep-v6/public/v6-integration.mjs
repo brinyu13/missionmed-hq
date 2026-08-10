@@ -36,6 +36,7 @@ const state = {
   muted: false,
   paused: false,
   typedFallbackOpen: false,
+  interviewStarted: false,
   interviewerSpeaking: false,
   avatarSpeechActive: false,
   currentAudio: null,
@@ -354,6 +355,8 @@ async function closeContinuousRail() {
 
 async function speak(text) {
   if (state.railId === RAIL_IDS.OPENAI_REALTIME) {
+    state.interviewStarted = true;
+    renderFocusRoom();
     const rail = await ensureContinuousRail();
     if (state.continuousAlreadySpoken === text) {
       state.continuousAlreadySpoken = null;
@@ -819,6 +822,11 @@ function ensureFocusRoomStyle() {
     body.frontier-focus-room #frontier-disclosure,
     body.frontier-focus-room #frontier-typed-fallback { display:none !important; }
     body.frontier-focus-room #frontier-typed-fallback.typed-open { display:flex !important; margin-top:10px; }
+    body.frontier-focus-room #frontier-start[hidden],
+    body.frontier-focus-room #frontier-interrupt[hidden],
+    body.frontier-focus-room #frontier-type-instead[hidden] { display:none !important; }
+    body.frontier-focus-room #continuous-rail-fallback { display:none !important; }
+    body.frontier-focus-room #continuous-rail-fallback:not([hidden]) { display:inline-flex !important; }
     body.frontier-focus-room #frontier-room-status { display:block; text-align:center; font-size:14px; color:var(--mid); margin:2px 0 12px; }
     body.frontier-focus-room #avatar-live-state { display:none; }
     @media (max-width:700px) {
@@ -833,10 +841,17 @@ function renderFocusRoom() {
   ensureFocusRoomStyle();
   const focused = bridge.role === 'student' && bridge.view === 'room' && state.railId === RAIL_IDS.OPENAI_REALTIME;
   document.body.classList.toggle('frontier-focus-room', focused);
+  const recordingBadge = document.getElementById('recb');
+  if (focused && !state.interviewStarted && recordingBadge) {
+    recordingBadge.classList.remove('hot');
+    recordingBadge.innerHTML = '<i></i>STANDBY';
+  }
   const status = document.getElementById('frontier-room-status');
   if (status) {
     status.hidden = !focused;
-    status.textContent = state.railStatus === 'failed'
+    status.textContent = !state.interviewStarted
+      ? 'Ready when you are.'
+      : state.railStatus === 'failed'
       ? 'The interviewer connection needs attention.'
       : state.interviewerSpeaking || ['responding', 'speaking'].includes(state.railStatus)
       ? 'Interviewer speaking — you can interrupt naturally.'
@@ -846,8 +861,10 @@ function renderFocusRoom() {
   }
   const interrupt = document.getElementById('frontier-interrupt');
   if (interrupt) interrupt.hidden = focused && !state.interviewerSpeaking;
+  const start = document.getElementById('frontier-start');
+  if (start) start.hidden = !focused || state.interviewStarted;
   const typeButton = document.getElementById('frontier-type-instead');
-  if (typeButton) typeButton.hidden = !focused;
+  if (typeButton) typeButton.hidden = !focused || !state.interviewStarted;
   const typed = document.getElementById('frontier-typed-fallback');
   if (typed) typed.classList.toggle('typed-open', !focused || state.typedFallbackOpen);
 }
@@ -866,6 +883,18 @@ function ensureRoomControls() {
   const buttons = document.createElement('div');
   buttons.id = 'frontier-room-buttons';
   buttons.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap';
+  const start = document.createElement('button');
+  start.id = 'frontier-start';
+  start.className = 'btnHero';
+  start.textContent = 'Start Interview';
+  start.onclick = () => {
+    if (state.interviewStarted || bridge.view !== 'room') return;
+    if (!bridge.build?.length) return bridge.startInterview();
+    state.interviewStarted = true;
+    state.typedFallbackOpen = false;
+    renderFocusRoom();
+    bridge.startInterview();
+  };
   const mute = document.createElement('button');
   mute.id = 'frontier-mute';
   mute.className = 'btnGhost';
@@ -908,6 +937,8 @@ function ensureRoomControls() {
   end.className = 'btnGhost';
   end.textContent = 'End interview';
   end.onclick = () => {
+    state.interviewStarted = false;
+    state.typedFallbackOpen = false;
     cancelTurn('ended');
     endAlphaSession('ended');
     if (bridge.recording) bridge.abandonTake();
@@ -962,7 +993,7 @@ function ensureRoomControls() {
     renderFocusRoom();
     if (state.typedFallbackOpen) form?.querySelector('textarea')?.focus();
   };
-  buttons.append(mute, interrupt, typeInstead, railFallback, avatarToggle, enableAvatarAudio, end);
+  buttons.append(start, mute, interrupt, typeInstead, railFallback, avatarToggle, enableAvatarAudio, end);
   const typed = document.createElement('form');
   typed.id = 'frontier-typed-fallback';
   typed.className = 'typed-open';
