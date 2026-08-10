@@ -19,6 +19,7 @@
     "score:transcription-bakeoff": "node scripts/score-transcription-bakeoff.mjs",
     "survival:capture": "node scripts/sf-survival-manifest.mjs capture",
     "survival:compare": "node scripts/sf-survival-manifest.mjs compare",
+    "seed:inspiration": "node scripts/seed-inspiration-prompts.mjs",
     "test": "node --test tests/unit/*.test.mjs",
     "test:postgres": "bash scripts/run-postgres-tests.sh",
     "test:e2e": "bash scripts/run-e2e.sh",

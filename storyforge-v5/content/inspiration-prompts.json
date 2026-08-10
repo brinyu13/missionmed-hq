@@ -1,0 +1,1588 @@
+{
+ "version": "b1-513-draft-1",
+ "meta": {
+  "product": "MissionMed StoryForge — Inspiration wizard",
+  "authorship": "All question text is MissionMed-original. Method-level structures adapted from sources documented in RESEARCH_NOTES.md (Smithsonian territory mapping, Baylor probe design, McAdams scene scaffold, Crovitz cue-word logic, Fisher-Geiselman context reinstatement). No third-party question banks reproduced.",
+  "safety": "Every emotional prompt is an invitation with an explicit exit. No prompt demands trauma, grief, discrimination, or medical-error disclosure. Patient-related prompts require de-identification in the prompt text. No diagnostic or therapeutic framing.",
+  "img_note": "Prompts avoid US-centric cultural anchors and assume no particular family structure, religion, or country of training.",
+  "recommended_flow": "R4 candidate (not in the shipped R3 flow): open each session with one low-stakes recent-moment warm-up to induce episodic specificity (Madore & Schacter). The shipped R3 flow implements the light-first principle through the energy step's guidance copy and the 'Prefer lighter questions' de-escalation control."
+ },
+ "dimensions": {
+  "who": [
+   {
+    "id": "you",
+    "label": "You"
+   },
+   {
+    "id": "family",
+    "label": "Family"
+   },
+   {
+    "id": "someone_else",
+    "label": "Someone Else"
+   }
+  ],
+  "whoDetail": [
+   {
+    "id": "parents",
+    "label": "Parents",
+    "parent": "family"
+   },
+   {
+    "id": "siblings",
+    "label": "Siblings",
+    "parent": "family"
+   },
+   {
+    "id": "spouse_partner",
+    "label": "Spouse / Partner",
+    "parent": "family"
+   },
+   {
+    "id": "relatives",
+    "label": "Extended Family",
+    "parent": "family"
+   },
+   {
+    "id": "friend",
+    "label": "A Friend",
+    "parent": "someone_else"
+   },
+   {
+    "id": "faculty_mentor",
+    "label": "A Teacher / Mentor",
+    "parent": "someone_else"
+   },
+   {
+    "id": "colleague_teammate",
+    "label": "A Colleague / Teammate",
+    "parent": "someone_else"
+   },
+   {
+    "id": "patient_clinical",
+    "label": "A Patient (shared respectfully)",
+    "parent": "someone_else"
+   }
+  ],
+  "domain": [
+   {
+    "id": "personal",
+    "label": "Personal Life"
+   },
+   {
+    "id": "academic",
+    "label": "School & Studies"
+   },
+   {
+    "id": "medical_clinical",
+    "label": "Medicine & Clinical Life"
+   }
+  ],
+  "energy": [
+   {
+    "id": "serious",
+    "label": "Serious & Meaningful"
+   },
+   {
+    "id": "light",
+    "label": "Fun & Lighthearted"
+   },
+   {
+    "id": "moving",
+    "label": "Emotional & Moving"
+   }
+  ]
+ },
+ "prompts": [
+  {
+   "id": "q-001",
+   "text": "What's a dish you could eat a hundred times and never get tired of? Take me back to the last time you had it — where were you, and who made it?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "food",
+   "followUp": "What does that dish taste like when it's made exactly right?",
+   "interviewUse": "Food memories carry culture, family, and place — warm 'tell me about yourself' material that makes an applicant instantly relatable."
+  },
+  {
+   "id": "q-002",
+   "text": "What did you and your friends do for fun when you were about twelve? Describe one afternoon you can still picture.",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "childhood_play",
+   "followUp": "What could you see and hear in that scene?",
+   "interviewUse": "Childhood play reveals curiosity, teamwork, and inventiveness long before medicine — evidence of lifelong traits, not resume claims."
+  },
+  {
+   "id": "q-003",
+   "text": "Tell me about a time you got completely, hopelessly lost — in a city, a building, anywhere. What happened next?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "travel",
+   "followUp": "Who or what finally got you un-lost?",
+   "interviewUse": "A getting-lost story shows problem-solving and humor under mild stress — a low-stakes adaptability example interviewers remember."
+  },
+  {
+   "id": "q-004",
+   "text": "Tell me about a time laughter completely took over a room you were in. What set it off, and who lost it first?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "humor",
+   "followUp": "What did that moment change about how that group felt together afterward?",
+   "interviewUse": "Shared-laughter stories humanize an applicant and show the relationships they build — useful for 'what do you do outside medicine?'"
+  },
+  {
+   "id": "q-005",
+   "text": "Tell me about a small embarrassing moment you can laugh about now. What exactly happened, and who saw it?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "embarrassment",
+   "followUp": "When did it turn from mortifying to funny?",
+   "interviewUse": "Self-deprecating stories demonstrate humility and perspective — a natural answer to questions about not taking yourself too seriously."
+  },
+  {
+   "id": "q-006",
+   "text": "What's a hobby or skill you picked up purely because it looked fun? Tell me about one of your first clumsy attempts at it.",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "hobbies",
+   "followUp": "What kept you coming back after that first attempt?",
+   "interviewUse": "Hobby-origin stories show intrinsic motivation and tolerance for being a beginner — strong material for wellness and balance questions."
+  },
+  {
+   "id": "q-007",
+   "text": "Tell me about a time you changed your mind about something you'd been sure of. What was the moment that shifted it?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "changed_opinion",
+   "followUp": "What did it feel like to admit the change — to yourself or out loud?",
+   "interviewUse": "A changed-mind story is direct evidence of open-mindedness and growth — ideal for questions about feedback, bias, or learning."
+  },
+  {
+   "id": "q-008",
+   "text": "What's a promise you once made to yourself? Where were you when you made it, and what was going on around you?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "identity",
+   "followUp": "How is that promise doing today?",
+   "interviewUse": "Anchors motivation in a specific scene rather than an abstract 'passion' claim — strong personal statement spine."
+  },
+  {
+   "id": "q-009",
+   "text": "Tell me about a first job or the first money you ever earned. What did the work actually feel like on an ordinary day?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "first_jobs",
+   "followUp": "What's one thing that job taught you that you still use?",
+   "interviewUse": "First-job stories show work ethic and respect for every role on a team — relatable to interviewers from any background."
+  },
+  {
+   "id": "q-010",
+   "text": "Tell me about a time you had to start over somewhere new — a city, a school, a country. What did the first week actually look like?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "migration",
+   "followUp": "What was the first small thing that made the new place feel manageable?",
+   "interviewUse": "Starting-over stories reframe an IMG's move as demonstrated adaptability and courage — central to 'why should we bet on you?'"
+  },
+  {
+   "id": "q-011",
+   "text": "Tell me about a time you did something that scared you a little — nothing dramatic, just outside your comfort zone. What made you go through with it?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "courage",
+   "followUp": "What did you learn about yourself on the other side of it?",
+   "interviewUse": "Everyday-courage stories answer 'tell me about a risk you took' without inflated drama — credible and specific."
+  },
+  {
+   "id": "q-012",
+   "text": "Tell me about a small act of kindness from a stranger that you still remember. What exactly did they do? Share only what feels comfortable.",
+   "who": [
+    "you",
+    "someone_else"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "kindness",
+   "followUp": "Have you ever caught yourself passing that same kindness on?",
+   "interviewUse": "Received-kindness stories reveal what an applicant values in how people treat each other — the root of their care philosophy."
+  },
+  {
+   "id": "q-013",
+   "text": "Is there an object you've kept for years that most people would overlook — a pen, a ticket, a worn-out shirt? What's the story behind it? Skip freely if nothing comes to mind.",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "objects",
+   "followUp": "Where is it right now?",
+   "interviewUse": "Object stories compress a relationship or era into one concrete image — vivid personal statement openers."
+  },
+  {
+   "id": "q-014",
+   "text": "Tell me about a goodbye that mattered to you — leaving a home, a send-off, a last day somewhere. What do you remember about that day? Only go where you're glad to go.",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "migration",
+   "followUp": "What did you carry with you from that place — literally or otherwise?",
+   "interviewUse": "Goodbye stories show what an applicant loves and what they were willing to leave to pursue medicine — motivation with real cost."
+  },
+  {
+   "id": "q-015",
+   "text": "Tell me about a moment when you felt truly at home somewhere. What was happening around you that made it feel that way?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "home",
+   "followUp": "Have you felt an echo of that feeling anywhere since?",
+   "interviewUse": "Belonging stories tell programs what environment brings out this applicant's best — useful for 'why our program?' authenticity."
+  },
+  {
+   "id": "q-016",
+   "text": "What class did you love that had nothing to do with medicine? Tell me about one session of it you still remember.",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "learning_for_joy",
+   "followUp": "Does anything from that class sneak into how you think today?",
+   "interviewUse": "Non-medical intellectual joy shows breadth and genuine curiosity — refreshing 'tell me something not on your CV' material."
+  },
+  {
+   "id": "q-017",
+   "text": "Did you have a study ritual or a lucky routine before big exams — the snacks, the seat, the playlist? Walk me through the night before one exam.",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "exams",
+   "followUp": "Where did that ritual come from?",
+   "interviewUse": "Ritual stories are disarming icebreakers that also show self-knowledge about how you manage pressure."
+  },
+  {
+   "id": "q-018",
+   "text": "What's the funniest thing that ever happened in a lecture, lab, or study group you were part of? Tell it like you'd tell a friend.",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "humor",
+   "followUp": "What made that group of people able to laugh together?",
+   "interviewUse": "Classroom humor shows camaraderie and morale-building — soft evidence of being good to train alongside."
+  },
+  {
+   "id": "q-019",
+   "text": "Tell me about a subject that fought you before it finally clicked. What were you doing at the moment it clicked?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "resilience",
+   "followUp": "What did you change about how you were studying?",
+   "interviewUse": "A click-moment story turns academic struggle into a concrete learning-how-to-learn narrative — perfect for resilience questions."
+  },
+  {
+   "id": "q-020",
+   "text": "Tell me about an exam, match cycle, or project that didn't go the way you wanted. What did the following week look like, hour by hour if you can?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "failure",
+   "followUp": "Looking back, what did that week start in you?",
+   "interviewUse": "Focusing on the week after a setback — not the setback itself — yields the recovery detail 'tell me about a failure' answers usually lack."
+  },
+  {
+   "id": "q-021",
+   "text": "Tell me about a time you taught something to a classmate or a junior. Walk me through how you actually explained it.",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "teaching",
+   "followUp": "What did watching them get it feel like?",
+   "interviewUse": "Teaching stories are prime residency material — programs want residents who can teach interns and students."
+  },
+  {
+   "id": "q-022",
+   "text": "Take me back to the day you found out you'd gotten into medical school. Where were you standing, and who did you tell first?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "milestones",
+   "followUp": "What did the person you told first say?",
+   "interviewUse": "An admission-day scene grounds 'why medicine' in a real moment with real people instead of an abstract calling."
+  },
+  {
+   "id": "q-023",
+   "text": "Was there a moment during your studies when you first thought, 'I can actually do this'? What had just happened?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "self_belief",
+   "followUp": "Who, if anyone, helped you believe it?",
+   "interviewUse": "Earned-confidence stories answer 'what are your strengths' with evidence instead of adjectives."
+  },
+  {
+   "id": "q-024",
+   "text": "Tell me about a piece of feedback — kind or hard — that stayed with you. Choose one you're comfortable sharing. What did you do with it?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "moving",
+    "serious"
+   ],
+   "territory": "feedback",
+   "followUp": "If you met that person today, what would you tell them?",
+   "interviewUse": "Feedback stories directly answer 'tell me about a time you received difficult feedback' — a standard behavioral question."
+  },
+  {
+   "id": "q-025",
+   "text": "What's a small, oddly satisfying task in clinical work that you secretly enjoy — a perfect suture, a clean handover, a tidy note? When did you first notice you liked it?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "ordinary_clinical",
+   "followUp": "What does doing it well feel like in the moment?",
+   "interviewUse": "Joy in small clinical craft signals conscientiousness and genuine fit — fresh material for 'why this specialty?'"
+  },
+  {
+   "id": "q-026",
+   "text": "Tell me about a moment of unexpected, harmless humor on a ward or in a clinic — the kind that made the whole team smile. No names needed.",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "humor",
+   "followUp": "What did that moment do for the rest of the shift?",
+   "interviewUse": "Ward-humor stories show emotional intelligence about morale — how teams stay human under load."
+  },
+  {
+   "id": "q-027",
+   "text": "What was the very first clinical skill you ever practiced — on a mannequin, an orange, a willing classmate? Describe that first fumbling attempt.",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "firsts",
+   "followUp": "When did that skill finally become automatic?",
+   "interviewUse": "First-skill stories chart growth from novice to competent — humble, concrete evidence of trainability."
+  },
+  {
+   "id": "q-028",
+   "text": "Tell me about an ordinary shift you can still replay in detail — nothing dramatic happened, but it stuck with you. What made it stick?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "ordinary_clinical",
+   "followUp": "Walk me through one hour of it — what could you see and hear?",
+   "interviewUse": "Ordinary-shift stories show what an applicant actually notices and values at work — deeper than any peak-event answer."
+  },
+  {
+   "id": "q-029",
+   "text": "Tell me about a time you spoke up with a question or a concern in a clinical setting. What made it hard, and what happened after you said it?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "speaking_up",
+   "followUp": "What would you tell a junior about when to speak up?",
+   "interviewUse": "Speaking-up stories hit patient-safety and professionalism competencies — a high-value behavioral answer."
+  },
+  {
+   "id": "q-030",
+   "text": "Tell me about a routine task that taught you something no textbook had — taking a history, wheeling a patient to imaging, writing discharge notes. What was the lesson hiding in it?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "being_taught",
+   "followUp": "How did that change how you do the task now?",
+   "interviewUse": "Lessons-from-routine stories show reflective practice — exactly what 'what kind of learner are you?' probes."
+  },
+  {
+   "id": "q-031",
+   "text": "Tell me about a time you and a colleague read the same situation differently. How did the two of you work through it?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "conflict",
+   "followUp": "What do you understand now about their point of view?",
+   "interviewUse": "A disagreement-resolved story answers conflict questions with collaboration rather than victory — the tone programs want."
+  },
+  {
+   "id": "q-032",
+   "text": "Tell me about a patient interaction that lasted five minutes but stayed with you much longer. What was said — or not said? Keep all details private, and share only what feels right.",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "patients",
+   "followUp": "What do you think the patient took from those five minutes?",
+   "interviewUse": "Brief-encounter stories show attentiveness and presence — the humanism programs look for, without requiring a dramatic case."
+  },
+  {
+   "id": "q-033",
+   "text": "Was there a moment in your training when you felt genuinely useful to a patient or a family, even in a small way? What exactly did you do?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "helping",
+   "followUp": "What did that moment tell you about the kind of doctor you're becoming?",
+   "interviewUse": "Feeling-useful stories give a grounded answer to 'what has been meaningful in your training so far?'"
+  },
+  {
+   "id": "q-034",
+   "text": "Tell me about a thank-you you received that you didn't expect. What had you done — and why do you think it mattered to them?",
+   "who": [
+    "you"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "gratitude",
+   "followUp": "Where were you when you realized it had mattered?",
+   "interviewUse": "Unexpected-thanks stories reveal impact the applicant didn't engineer — authentic evidence of character in action."
+  },
+  {
+   "id": "q-035",
+   "text": "What's the story about you that gets retold at every family gathering — the one you'll never live down? Tell it the way it gets told, dramatic pauses and all.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "siblings",
+    "relatives"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "family_lore",
+   "followUp": "How accurate is their version, honestly?",
+   "interviewUse": "Family-lore stories are instantly likable and show an applicant who can be the punchline — warmth interviewers remember."
+  },
+  {
+   "id": "q-036",
+   "text": "What dish means 'family' to you? Who makes it best, and what does the kitchen look and smell like while they do?",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "relatives",
+    "spouse_partner"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "food",
+   "followUp": "Have you ever tried to make it yourself? How did that go?",
+   "interviewUse": "Family-food scenes carry culture and belonging in sensory detail — rich, non-clichéd background material."
+  },
+  {
+   "id": "q-037",
+   "text": "Tell me about a family celebration you can picture in full color — the sounds, the food, who was in the room. Pick one specific year.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "siblings",
+    "relatives",
+    "spouse_partner"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "celebration",
+   "followUp": "What part of that celebration would you want to recreate wherever you end up living?",
+   "interviewUse": "Celebration scenes let IMG applicants share culture on their own terms — vivid answers to 'tell me about your background.'"
+  },
+  {
+   "id": "q-038",
+   "text": "What's a phrase or saying someone in your family repeats constantly? Tell me about the last time you heard it — and the first time you caught yourself saying it.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "relatives",
+    "spouse_partner"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "language",
+   "followUp": "What does that saying actually mean to your family?",
+   "interviewUse": "Inherited sayings compress family values into one quotable line — memorable personal statement texture."
+  },
+  {
+   "id": "q-039",
+   "text": "Tell me about a rule or value your family held that you didn't understand as a child but do now. What changed your view?",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "relatives"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "family_values",
+   "followUp": "Is there a specific moment when you saw the rule's point?",
+   "interviewUse": "Reappraised-rule stories show maturation and perspective-taking — growth demonstrated across years, not claimed."
+  },
+  {
+   "id": "q-040",
+   "text": "Tell me about a time you watched a parent or relative work hard at something. What exactly did their effort look like, up close?",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "relatives"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "work_ethic",
+   "followUp": "What did you absorb from watching, without them ever saying it?",
+   "interviewUse": "Witnessed-work stories explain an applicant's work ethic through inheritance — more credible than self-description."
+  },
+  {
+   "id": "q-041",
+   "text": "Tell me about a disagreement with someone in your family where, looking back, you were both partly right. How did it end?",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "siblings",
+    "spouse_partner"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "conflict",
+   "followUp": "What did the repair between you look like?",
+   "interviewUse": "Both-partly-right stories show nuanced conflict handling — a fresher answer to conflict questions than workplace examples."
+  },
+  {
+   "id": "q-042",
+   "text": "What's something your family saved for, worked toward, or gave up so that something else could happen? Tell me about the day it finally came together.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "relatives"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "sacrifice",
+   "followUp": "How was that day marked — quietly or with a celebration?",
+   "interviewUse": "Family-sacrifice stories give weight to an applicant's motivation without melodrama — stakes interviewers instinctively respect."
+  },
+  {
+   "id": "q-043",
+   "text": "Tell me about a moment when you suddenly saw a parent or grandparent as a person with their own story — not just your parent. What prompted it? Share at whatever depth feels right.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "relatives"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "seeing_anew",
+   "followUp": "What did you ask them — or wish you'd asked?",
+   "interviewUse": "Seeing-a-parent-anew stories demonstrate empathy's real mechanism: recognizing a full person — the same skill patients need from doctors."
+  },
+  {
+   "id": "q-044",
+   "text": "Tell me about a time a sibling, partner, or relative showed up for you before you asked. What exactly did they do?",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "siblings",
+    "spouse_partner",
+    "relatives"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "helping",
+   "followUp": "How did you thank them — or how do you still mean to?",
+   "interviewUse": "Being-helped stories show an applicant who can receive support gracefully — a teamwork trait rarely evidenced in interviews."
+  },
+  {
+   "id": "q-045",
+   "text": "Is there a tradition, recipe, or skill from your family that you hope to pass on? Tell me about the time you learned it yourself.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "relatives",
+    "spouse_partner"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "tradition",
+   "followUp": "Who do you imagine teaching it to?",
+   "interviewUse": "Tradition-keeping stories show continuity and gratitude — grounding for values questions and cultural identity."
+  },
+  {
+   "id": "q-046",
+   "text": "When you were growing up, how did schoolwork actually get done in your house — alone at a kitchen table, next to a sibling, squeezed around chores or a job? Take me to one specific evening.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "siblings",
+    "relatives"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "family_lore",
+   "followUp": "What does that evening explain about how you study or work today?",
+   "interviewUse": "Concrete study-context memories turn 'tell me about yourself' into a vivid, honest picture of self-discipline and circumstance — strong material for first-generation and IMG narratives."
+  },
+  {
+   "id": "q-047",
+   "text": "What happened at your house when exam results came out — good or bad? Describe one results day you remember clearly.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "siblings"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "exams",
+   "followUp": "Who took results most seriously — and who kept things light?",
+   "interviewUse": "Results-day scenes show family dynamics around achievement — context that makes an applicant's drive legible."
+  },
+  {
+   "id": "q-048",
+   "text": "What did education mean in your family? Don't tell me in general — tell me about one moment that showed you.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "relatives"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "education_values",
+   "followUp": "Who in the family shaped that meaning most?",
+   "interviewUse": "One-scene answers to 'why do you value education' beat abstract claims — direct personal statement material."
+  },
+  {
+   "id": "q-049",
+   "text": "Tell me about something a family member taught you patiently — driving, a language, a craft, a trade. Walk me through one actual lesson.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "siblings",
+    "relatives",
+    "spouse_partner"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "being_taught",
+   "followUp": "What did their patience teach you, separate from the skill itself?",
+   "interviewUse": "Being-taught stories reveal what good teaching feels like from the inside — the model an applicant will bring to teaching interns."
+  },
+  {
+   "id": "q-050",
+   "text": "Was there a time your family's plans for you and your own plans didn't quite match? Tell me about one conversation from that period — only if you're comfortable.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "relatives"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "conflict",
+   "followUp": "Where did that conversation land, in the end?",
+   "interviewUse": "Diverging-plans stories show independent judgment held with respect — nuanced material for autonomy and values questions."
+  },
+  {
+   "id": "q-051",
+   "text": "Who in your family was a 'first' — first to finish school, first to leave home, first in medicine? Tell me a story about them, or about the moment you became a first yourself.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "siblings",
+    "relatives"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "milestones",
+   "followUp": "What did that first make possible for the people who came after?",
+   "interviewUse": "First-in-family stories carry earned pride and stakes — among the most memorable backgrounds an interviewer hears."
+  },
+  {
+   "id": "q-052",
+   "text": "Take me back to the moment you told your family you wanted to be a doctor. Who reacted in a way you didn't expect?",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "siblings",
+    "relatives",
+    "spouse_partner"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "career_choice",
+   "followUp": "Whose opinion mattered most to you that day — and did it change anything?",
+   "interviewUse": "The announcement scene grounds 'why medicine' in family reality — specific, warm, and impossible to fake."
+  },
+  {
+   "id": "q-053",
+   "text": "What was the go-to home remedy in your family? Tell me about a time it was confidently deployed — and whether it worked.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "relatives"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "home_remedies",
+   "followUp": "What do you say now when someone at home reaches for that remedy?",
+   "interviewUse": "Home-remedy stories bridge family culture and medicine with humor — great texture for cultural-humility conversations."
+  },
+  {
+   "id": "q-054",
+   "text": "Who was the 'medical hotline' in your household — the person everyone called first about a fever or a rash? Tell me about one time they were summoned.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "relatives"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "family_lore",
+   "followUp": "Has that role started passing to you? How does that feel?",
+   "interviewUse": "The family-hotline story shows how trust in a medical person actually works — and often marks the applicant's first taste of that role."
+  },
+  {
+   "id": "q-055",
+   "text": "Tell me about a time your family navigated a health system anywhere in the world — an appointment, a pharmacy counter, a clinic queue. What did you notice about how it worked, or didn't?",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "relatives",
+    "siblings",
+    "spouse_partner"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "health_system",
+   "followUp": "What would you fix first about that experience, if you could?",
+   "interviewUse": "System-navigation stories show a patient's-eye view of healthcare — strong material for systems-based-practice and advocacy questions."
+  },
+  {
+   "id": "q-056",
+   "text": "Did watching anyone in your family give or receive care shape how you think about medicine? Tell me one small, specific scene — as big or as small as you like.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "relatives",
+    "spouse_partner"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "caregiving",
+   "followUp": "What from that scene do you carry into clinical rooms now?",
+   "interviewUse": "Witnessed-care scenes connect biography to bedside manner — 'why medicine' with an origin the applicant actually lived."
+  },
+  {
+   "id": "q-057",
+   "text": "Was there a doctor, nurse, or healer who treated someone in your family with unusual care? What did they do that stuck with you? Share only what feels comfortable.",
+   "who": [
+    "family",
+    "someone_else"
+   ],
+   "whoDetail": [
+    "parents",
+    "relatives"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "role_models",
+   "followUp": "Have you ever caught yourself doing what they did?",
+   "interviewUse": "A remembered clinician's specific behaviors become the applicant's professional standard — concrete role-model material."
+  },
+  {
+   "id": "q-058",
+   "text": "Tell me about a time you helped look after someone at home — even just bringing tea, translating at an appointment, or sitting with them. What do you remember actually doing? Skip freely if you'd rather.",
+   "who": [
+    "family"
+   ],
+   "whoDetail": [
+    "parents",
+    "siblings",
+    "relatives",
+    "spouse_partner"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "caregiving",
+   "followUp": "What did that person need most that had nothing to do with medicine?",
+   "interviewUse": "Small-caregiving stories show service before any title — humble, credible evidence of a caring disposition."
+  },
+  {
+   "id": "q-059",
+   "text": "Tell me about a friend who can make you laugh with a single look. How did the two of you meet in the first place?",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "friend"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "friendship",
+   "followUp": "When did that friendship get tested — and what kept it standing?",
+   "interviewUse": "Friendship-origin stories show how an applicant builds bonds — the raw material of team chemistry."
+  },
+  {
+   "id": "q-060",
+   "text": "Tell me about the best meal you've ever shared with a friend — where were you, and what made it unforgettable?",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "friend"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "food",
+   "followUp": "What changed between the two of you — or in you — after that meal?",
+   "interviewUse": "Shared-meal scenes combine warmth, place, and relationship in one image — effortless small-talk-to-substance material."
+  },
+  {
+   "id": "q-061",
+   "text": "Tell me about a time you and a total stranger ended up laughing together — on a bus, in a queue, in a waiting room. What happened?",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "friend"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "humor",
+   "followUp": "What made it easy to connect with them in that moment?",
+   "interviewUse": "Stranger-connection stories show approachability across differences — the everyday version of rapport with patients."
+  },
+  {
+   "id": "q-062",
+   "text": "Tell me about a friend who is very different from you — background, beliefs, temperament. What's one thing they've changed about how you see the world?",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "friend"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "changed_opinion",
+   "followUp": "What moment first showed you how differently they saw things?",
+   "interviewUse": "Different-friend stories evidence genuine openness to other perspectives — the lived version of cultural humility."
+  },
+  {
+   "id": "q-063",
+   "text": "Tell me about a time you and a friend misunderstood each other and had to repair it. What did the repair actually look like?",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "friend"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "misunderstanding",
+   "followUp": "Who moved first — and what did they say?",
+   "interviewUse": "Repair stories are conflict-resolution answers with heart: they show accountability and the mechanics of rebuilding trust."
+  },
+  {
+   "id": "q-064",
+   "text": "Tell me about someone you met while traveling or settling somewhere new who left a mark on you. What did they say or do?",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "friend"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "travel",
+   "followUp": "Do they know the effect they had on you?",
+   "interviewUse": "Encounter stories show what an applicant learns from people unlike themselves — worldliness without name-dropping countries."
+  },
+  {
+   "id": "q-065",
+   "text": "Tell me about a time a friend trusted you with something important — a task, a confidence, someone they loved. What did you do with that trust? Keep their privacy; change any details you need to.",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "friend"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "trust",
+   "followUp": "What did being trusted like that ask of you?",
+   "interviewUse": "Being-trusted stories evidence reliability and discretion — the same currency clinical teams and patients trade in."
+  },
+  {
+   "id": "q-066",
+   "text": "Who once showed you kindness when they had nothing to gain from it? Tell me exactly what they did.",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "friend",
+    "faculty_mentor",
+    "colleague_teammate"
+   ],
+   "domain": [
+    "personal"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "kindness",
+   "followUp": "Did you ever get to tell them what it meant?",
+   "interviewUse": "Uncalculated-kindness stories define the applicant's ethical north star through someone else's example — humble and vivid."
+  },
+  {
+   "id": "q-067",
+   "text": "Tell me about the most memorable teacher you ever had — not the best, the most memorable. What was a typical class with them like?",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "faculty_mentor"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "role_models",
+   "followUp": "What would they say if they saw you now?",
+   "interviewUse": "Memorable-teacher stories are charming and safe openers that still reveal what captures this applicant's attention."
+  },
+  {
+   "id": "q-068",
+   "text": "Tell me about a study partner or lab mate who made a hard course bearable. What was your routine together?",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "friend",
+    "colleague_teammate"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "study_life",
+   "followUp": "What did each of you bring that the other lacked?",
+   "interviewUse": "Study-partnership stories are ready-made teamwork answers with genuine texture — complementary strengths in action."
+  },
+  {
+   "id": "q-069",
+   "text": "Tell me about a mentor who pushed you harder than you liked at the time. What's one moment when their standard changed your work?",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "faculty_mentor"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "mentorship",
+   "followUp": "When did you stop resenting the push — and what changed?",
+   "interviewUse": "Hard-mentor stories answer 'how do you handle demanding supervisors' with gratitude instead of grievance."
+  },
+  {
+   "id": "q-070",
+   "text": "Tell me about a time you noticed a classmate struggling. What did you do — or what do you wish you'd done?",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "friend",
+    "colleague_teammate"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "noticing_others",
+   "followUp": "What made you notice when others didn't?",
+   "interviewUse": "Noticing-struggle stories show peer support and honest self-appraisal — strong for teamwork and professionalism questions."
+  },
+  {
+   "id": "q-071",
+   "text": "Tell me about a teacher who ran their classroom in a way you'd copy today. What exactly did they do differently?",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "faculty_mentor"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "teaching",
+   "followUp": "Have you tried their method on anyone yet?",
+   "interviewUse": "Teaching-method stories show an applicant already thinking like an educator — direct evidence for resident-as-teacher roles."
+  },
+  {
+   "id": "q-072",
+   "text": "Did anyone ever believe in you before you had proof they should? Tell me about the moment you found out they did.",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "faculty_mentor",
+    "friend"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "self_belief",
+   "followUp": "What did their belief let you attempt?",
+   "interviewUse": "Believed-in stories explain confidence with humility — motivation rooted in relationship, not ego."
+  },
+  {
+   "id": "q-073",
+   "text": "Think of a teacher or mentor who shaped you. Which single moment with them would you most want to thank them for? Take me to that moment. (If this touches on loss, it's completely fine to skip or pick another question.)",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "faculty_mentor"
+   ],
+   "domain": [
+    "academic"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "gratitude",
+   "followUp": "What do you do today, almost without thinking, that traces straight back to them?",
+   "interviewUse": "The unsent-update format surfaces a specific formative moment plus felt gratitude — a warm, complete anecdote."
+  },
+  {
+   "id": "q-074",
+   "text": "Tell me about a colleague whose small habits made every shift better — the one with snacks, the one who knew everyone's name, the one who never lost the plot. What did they actually do?",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "colleague_teammate"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "teamwork",
+   "followUp": "Which of their habits have you quietly adopted?",
+   "interviewUse": "Team-glue stories show the applicant understands what actually holds teams together — micro-behaviors, not slogans."
+  },
+  {
+   "id": "q-075",
+   "text": "Tell me about a lighthearted exchange with a patient that brightened a heavy day — no identifying details, just the moment.",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "patient_clinical"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "light"
+   ],
+   "territory": "patients",
+   "followUp": "What let that moment of lightness happen between you?",
+   "interviewUse": "Patient-humor moments show rapport and humanity at the bedside — proof the applicant sees people, not cases."
+  },
+  {
+   "id": "q-076",
+   "text": "Tell me about a senior clinician you watched handle a difficult conversation well. What exactly did they say or do that you filed away?",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "faculty_mentor"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "role_models",
+   "followUp": "Have you had a chance to use what you filed away?",
+   "interviewUse": "Observed-communication stories answer 'how would you deliver difficult news' with a concrete learned model."
+  },
+  {
+   "id": "q-077",
+   "text": "Tell me about a time a nurse, technician, or other non-physician colleague taught you something important. What was it, and how did they teach it?",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "colleague_teammate"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "being_taught",
+   "followUp": "How did that change how you treat the whole team?",
+   "interviewUse": "Learning-from-the-team stories signal interprofessional respect — a trait residency programs screen for explicitly."
+  },
+  {
+   "id": "q-078",
+   "text": "Tell me about a time your team disagreed about a plan and had to land the decision anyway. What role did you actually play?",
+   "who": [
+    "someone_else",
+    "you"
+   ],
+   "whoDetail": [
+    "colleague_teammate"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "serious"
+   ],
+   "territory": "conflict",
+   "followUp": "Looking back, did the team land in the right place?",
+   "interviewUse": "Team-decision stories give an honest, role-specific answer to conflict and teamwork behavioral questions."
+  },
+  {
+   "id": "q-079",
+   "text": "Tell me about a patient who surprised you — their resilience, their humor, their questions. What did they do that you didn't expect? No identifying details, please.",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "patient_clinical"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "surprise",
+   "followUp": "What assumption of yours did they quietly retire?",
+   "interviewUse": "Surprised-by-a-patient stories show humility and updating in real time — clinical open-mindedness, evidenced."
+  },
+  {
+   "id": "q-080",
+   "text": "Tell me about a moment you watched a colleague show real courage or compassion when nobody required it of them. What did they do?",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "colleague_teammate",
+    "faculty_mentor"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "compassion",
+   "followUp": "Did they ever know you noticed?",
+   "interviewUse": "Witnessed-courage stories let an applicant define excellence through others — generous, observant, and quotable."
+  },
+  {
+   "id": "q-081",
+   "text": "Was there a patient or family who taught you something about what good care really means? Tell me one small scene you're comfortable sharing, with details changed.",
+   "who": [
+    "someone_else"
+   ],
+   "whoDetail": [
+    "patient_clinical"
+   ],
+   "domain": [
+    "medical_clinical"
+   ],
+   "energy": [
+    "moving"
+   ],
+   "territory": "patients",
+   "followUp": "What does 'good care' mean to you now, in one sentence you'd stand behind?",
+   "interviewUse": "Patient-as-teacher stories close the loop between experience and philosophy of care — capstone personal statement material."
+  }
+ ]
+}
