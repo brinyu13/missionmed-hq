@@ -564,6 +564,7 @@ async function onTakeComplete(take) {
     utterance: payload.utterance,
     observer: payload.metadata,
     provider: 'openai',
+    railId: state.railId,
     model: state.model,
     providerModel: state.providerModel,
     providerObserverModel: state.providerObserverModel,

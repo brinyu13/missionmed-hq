@@ -2395,7 +2395,8 @@ function endTake(){if(!REC||TURN_FINALIZING)return;TURN_FINALIZING=true;REC=fals
     take.latency=frontierTurn.latency||null;
     const nextIndex=RUN.qi+1,planExhausted=nextIndex>=BUILD.length;
     take.generatedUtterance=frontierTurn.utterance;
-    if(planExhausted&&!frontierTurn.terminated&&!frontierTurn.final){fail(new Error('The interviewer did not return a valid closing utterance. Retry the final turn.'));return}
+    const continuousCanExtend=frontierTurn.railId==='openai-realtime-continuous';
+    if(planExhausted&&!continuousCanExtend&&!frontierTurn.terminated&&!frontierTurn.final){fail(new Error('The interviewer did not return a valid closing utterance. Retry the final turn.'));return}
     if(frontierTurn.terminated||frontierTurn.final){RUN.termination={terminated:!!frontierTurn.terminated,reason:frontierTurn.terminationReason||null,observer:frontierTurn.observer||null};
      $('#qprogchip').textContent=frontierTurn.terminated?'INTERVIEW ENDED':'INTERVIEW COMPLETE';$('#capchip').textContent='FINAL';typeQ(frontierTurn.utterance);setIvState('speaking');IVANIM='asking';
      $('#roundbtn').style.display='none';$('#nextqbtn').style.display='none';

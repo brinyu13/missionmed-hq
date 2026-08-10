@@ -27,8 +27,10 @@ test('metrics-only history never labels its action as Replay', () => {
   assert.match(html, /last\.blobUrl\?'▶ Replay':'Evidence \/ Results'/);
 });
 
-test('plan exhaustion fails closed unless the provider returns a real closing utterance', () => {
-  assert.match(html, /if\(planExhausted&&!frontierTurn\.terminated&&!frontierTurn\.final\)\{fail\(new Error\('The interviewer did not return a valid closing utterance\./);
+test('fallback plan exhaustion fails closed while continuous conversation may extend until the server hard cap', () => {
+  assert.match(html, /const continuousCanExtend=frontierTurn\.railId==='openai-realtime-continuous'/);
+  assert.match(html, /if\(planExhausted&&!continuousCanExtend&&!frontierTurn\.terminated&&!frontierTurn\.final\)\{fail\(new Error\('The interviewer did not return a valid closing utterance\./);
+  assert.match(integration, /railId: state\.railId/);
   assert.doesNotMatch(html, /setTimeout\(nextQ/);
 });
 
