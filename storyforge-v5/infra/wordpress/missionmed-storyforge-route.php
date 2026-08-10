@@ -792,6 +792,8 @@ function mmsfr_incoming_header( $name ) {
 		'authorization' => array( 'HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION' ),
 		'content-type'  => array( 'CONTENT_TYPE', 'HTTP_CONTENT_TYPE' ),
 		'origin'        => array( 'HTTP_ORIGIN' ),
+		'x-postmark-signature' => array( 'HTTP_X_POSTMARK_SIGNATURE' ),
+		'x-storyforge-webhook-signature' => array( 'HTTP_X_STORYFORGE_WEBHOOK_SIGNATURE' ),
 	);
 	foreach ( $server_keys[ $name ] ?? array() as $key ) {
 		if ( isset( $_SERVER[ $key ] ) && is_scalar( $_SERVER[ $key ] ) ) {
@@ -893,6 +895,47 @@ function mmsfr_is_audio_delete_path( $path ) {
 function mmsfr_is_story_media_delete_path( $path ) {
 	return 1 === preg_match(
 		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/story-media/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$#i',
+		$path
+	);
+}
+
+/**
+ * Return whether a path is one exact unauthenticated guest-contribution API route.
+ *
+ * The opaque 256-bit invitation token is the only guest credential.  This
+ * gateway exception is deliberately narrower than the authenticated API tree;
+ * the Railway service still validates expiry, revocation, rate limits, and the
+ * hashed token before returning any invitation data.
+ *
+ * @param string $path Request path.
+ * @return bool
+ */
+function mmsfr_is_guest_contribution_path( $path ) {
+	return 1 === preg_match(
+		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/requests/guest/[A-Za-z0-9_-]{43}(?:/contributions)?$#',
+		$path
+	);
+}
+
+/**
+ * Return whether a path is the exact provider-webhook ingress route.
+ *
+ * @param string $path Request path.
+ * @return bool
+ */
+function mmsfr_is_postmark_webhook_path( $path ) {
+	return $path === MMSFR_BASE_PATH . 'api/webhooks/postmark';
+}
+
+/**
+ * Return whether DELETE targets one bounded Inspiration preference resource.
+ *
+ * @param string $path Request path.
+ * @return bool
+ */
+function mmsfr_is_inspiration_delete_path( $path ) {
+	return 1 === preg_match(
+		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/inspiration/(?:save-later|favorites|pins)/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$#i',
 		$path
 	);
 }
@@ -1128,12 +1171,18 @@ function mmsfr_proxy_request( $path ) {
 	$method       = mmsfr_request_method();
 	$is_audio_delete = 'DELETE' === $method && mmsfr_is_audio_delete_path( $path );
 	$is_story_media_delete = 'DELETE' === $method && mmsfr_is_story_media_delete_path( $path );
+	$is_inspiration_delete = 'DELETE' === $method && mmsfr_is_inspiration_delete_path( $path );
 	$is_privacy_delete = $is_audio_delete || $is_story_media_delete;
+	$is_bounded_delete = $is_privacy_delete || $is_inspiration_delete;
+	$is_guest = mmsfr_is_guest_contribution_path( $path )
+		&& in_array( $method, array( 'GET', 'POST' ), true );
+	$is_postmark_webhook = 'POST' === $method && mmsfr_is_postmark_webhook_path( $path );
+	$is_anonymous_ingress = $is_guest || $is_postmark_webhook;
 	$allowed      = array( 'GET', 'POST', 'PATCH' );
 	$health_path  = MMSFR_BASE_PATH . 'healthz';
 	$is_health    = $path === $health_path;
 	$health_allow = array( 'GET' );
-	if ( ! in_array( $method, $is_health ? $health_allow : $allowed, true ) && ! $is_privacy_delete ) {
+	if ( ! in_array( $method, $is_health ? $health_allow : $allowed, true ) && ! $is_bounded_delete ) {
 		if ( ! headers_sent() ) {
 			header( 'Allow: ' . implode( ', ', $is_health ? $health_allow : $allowed ), true );
 		}
@@ -1155,13 +1204,13 @@ function mmsfr_proxy_request( $path ) {
 	$target_path = substr( $path, strlen( $canonical ) );
 	$target_url  = $origin . $target_path . mmsfr_query_suffix();
 	$headers     = array();
-	foreach ( array( 'accept', 'authorization', 'content-type', 'origin' ) as $name ) {
+	foreach ( array( 'accept', 'authorization', 'content-type', 'origin', 'x-postmark-signature', 'x-storyforge-webhook-signature' ) as $name ) {
 		$value = mmsfr_incoming_header( $name );
 		if ( '' !== $value ) {
 			$headers[ $name ] = $value;
 		}
 	}
-	if ( ! $is_health && ! $is_public_config ) {
+	if ( ! $is_health && ! $is_public_config && ! $is_anonymous_ingress ) {
 		$authorization = $headers['authorization'] ?? '';
 		if ( 1 !== preg_match( '/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/', $authorization ) ) {
 			mmsfr_send_error( 401, 'auth_required', 'A valid StoryForge session is required.' );

@@ -35,6 +35,14 @@ test('WordPress gateway narrowly admits Phase 1 and mentor-note multipart upload
     "  'mentor_upload_bad_uuid' => mmsfr_is_mentor_note_audio_upload_path('/storyforge/api/mentor-notes/not-a-uuid/audio'),",
     "  'delete_exact' => mmsfr_is_audio_delete_path('/storyforge/api/audio/' . $uuid),",
     "  'delete_near_miss' => mmsfr_is_audio_delete_path('/storyforge/api/audio/' . $uuid . '/playback'),",
+    "  'guest_view_exact' => mmsfr_is_guest_contribution_path('/storyforge/api/requests/guest/' . str_repeat('A', 43)),",
+    "  'guest_contribute_exact' => mmsfr_is_guest_contribution_path('/storyforge/api/requests/guest/' . str_repeat('A', 43) . '/contributions'),",
+    "  'guest_short_token' => mmsfr_is_guest_contribution_path('/storyforge/api/requests/guest/' . str_repeat('A', 42)),",
+    "  'guest_extra_path' => mmsfr_is_guest_contribution_path('/storyforge/api/requests/guest/' . str_repeat('A', 43) . '/admin'),",
+    "  'webhook_exact' => mmsfr_is_postmark_webhook_path('/storyforge/api/webhooks/postmark'),",
+    "  'webhook_near_miss' => mmsfr_is_postmark_webhook_path('/storyforge/api/webhooks/postmark/extra'),",
+    "  'inspiration_delete_exact' => mmsfr_is_inspiration_delete_path('/storyforge/api/inspiration/favorites/' . $uuid),",
+    "  'inspiration_delete_near_miss' => mmsfr_is_inspiration_delete_path('/storyforge/api/inspiration/favorites/' . $uuid . '/all'),",
     "  'multipart_webkit' => mmsfr_is_bounded_multipart_content_type('multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW'),",
     "  'multipart_quoted' => mmsfr_is_bounded_multipart_content_type('multipart/form-data; boundary=\"safe-boundary.123\"'),",
     "  'multipart_missing_boundary' => mmsfr_is_bounded_multipart_content_type('multipart/form-data'),",
@@ -59,6 +67,14 @@ test('WordPress gateway narrowly admits Phase 1 and mentor-note multipart upload
     mentor_upload_bad_uuid: false,
     delete_exact: true,
     delete_near_miss: false,
+    guest_view_exact: true,
+    guest_contribute_exact: true,
+    guest_short_token: false,
+    guest_extra_path: false,
+    webhook_exact: true,
+    webhook_near_miss: false,
+    inspiration_delete_exact: true,
+    inspiration_delete_near_miss: false,
     multipart_webkit: true,
     multipart_quoted: true,
     multipart_missing_boundary: false,
@@ -75,6 +91,11 @@ test('WordPress gateway source preserves the bounded body and fail-closed contro
   assert.match(source, /mmsfr_is_recording_segment_upload_path/);
   assert.match(source, /mmsfr_is_mentor_note_audio_upload_path/);
   assert.match(source, /mmsfr_is_audio_delete_path/);
+  assert.match(source, /mmsfr_is_guest_contribution_path/);
+  assert.match(source, /mmsfr_is_postmark_webhook_path/);
+  assert.match(source, /mmsfr_is_inspiration_delete_path/);
+  assert.match(source, /x-postmark-signature/);
+  assert.match(source, /x-storyforge-webhook-signature/);
   assert.match(source, /mmsfr_is_bounded_multipart_content_type/);
   assert.match(source, /is_uploaded_file/);
   assert.match(source, /mmsfr_segment_multipart_request/);
