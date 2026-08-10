@@ -59,14 +59,20 @@ function response(data, { ok = true, status = 200 } = {}) {
 function providerHarness({ stopFailure = false, stopFailures = stopFailure ? Number.POSITIVE_INFINITY : 0 } = {}) {
   const calls = [];
   let remainingStopFailures = stopFailures;
+  let mintedSessions = 0;
+  let currentSessionId = null;
   const fetchImpl = async (url, init) => {
     const path = new URL(url).pathname;
     calls.push({ path, init });
     if (path === '/v1/sessions/token') {
+      mintedSessions += 1;
+      currentSessionId = mintedSessions === 1
+        ? '77777777-7777-4777-8777-777777777777'
+        : `88888888-8888-4888-8888-${String(mintedSessions).padStart(12, '0')}`;
       return response({
         code: 100,
         data: {
-          session_id: '77777777-7777-4777-8777-777777777777',
+          session_id: currentSessionId,
           session_token: 'unit-test-session-token',
         },
       });
@@ -75,7 +81,7 @@ function providerHarness({ stopFailure = false, stopFailures = stopFailure ? Num
       return response({
         code: 100,
         data: {
-          session_id: '77777777-7777-4777-8777-777777777777',
+          session_id: currentSessionId,
           livekit_url: 'wss://unit.test/livekit',
           livekit_client_token: 'unit-test-client-token',
           livekit_agent_token: 'must-not-be-retained',
@@ -117,6 +123,7 @@ function providerHarness({ stopFailure = false, stopFailures = stopFailure ? Num
 test('environment configuration is fail-closed, sandboxed, and capped at two beta minutes', () => {
   const empty = liveAvatarConfigFromEnv({});
   assert.equal(empty.configured, false);
+  assert.equal(empty.avatarId, TEST_ENV.LIVEAVATAR_AVATAR_ID);
   assert.equal(empty.sandbox, true);
   assert.match(empty.unavailableReason, /voice-only/i);
 
@@ -126,6 +133,15 @@ test('environment configuration is fail-closed, sandboxed, and capped at two bet
   assert.equal(Object.hasOwn(capped, 'apiKey'), false);
   assert.equal(capped.maxSessionDuration, 120);
   assert.equal(capped.videoEncoding, 'H264');
+  assert.equal(capped.lockedVoiceTargetId, 'a33a57ab-8388-49fc-a069-dbcfd1bc5405');
+  assert.equal(capped.lockedVoiceCompatibility, 'unverified-until-authenticated-provider-proof');
+  const keyOnly = liveAvatarConfigFromEnv({ LIVEAVATAR_API_KEY: 'present' });
+  assert.equal(keyOnly.configured, true);
+  assert.equal(keyOnly.avatarId, TEST_ENV.LIVEAVATAR_AVATAR_ID);
+  assert.throws(() => liveAvatarConfigFromEnv({
+    LIVEAVATAR_API_KEY: 'present',
+    LIVEAVATAR_AVATAR_ID: '11111111-1111-4111-8111-111111111111',
+  }), /Founder-locked Dexter/);
 });
 
 test('factory selects a truthful inactive provider without complete server configuration', async () => {
@@ -136,6 +152,19 @@ test('factory selects a truthful inactive provider without complete server confi
 
 test('LITE session uses the authenticated API contract and keeps control credentials out of diagnostics', async () => {
   const { provider, calls } = providerHarness();
+  assert.deepEqual(await provider.configure(), {
+    provider: 'liveavatar',
+    status: 'configured',
+    avatarId: TEST_ENV.LIVEAVATAR_AVATAR_ID,
+    voiceTargetId: 'a33a57ab-8388-49fc-a069-dbcfd1bc5405',
+    voiceSelectionApplied: false,
+    audioAuthority: 'liveavatar-livekit',
+    intelligenceOwner: 'conversation-rail',
+  });
+  await assert.rejects(
+    provider.configure({ avatarId: '11111111-1111-4111-8111-111111111111' }),
+    /Founder-locked Dexter/,
+  );
   const created = await provider.createSession();
   const started = await provider.start();
 
@@ -207,7 +236,7 @@ test('finished 24 kHz PCM is sent as synchronized speak/speak_end and can be int
     { type: 'agent.speak_end', event_id: '99999999-9999-4999-8999-999999999999' },
   ]);
 
-  assert.deepEqual(await provider.interrupt(), { interrupted: true });
+  assert.deepEqual(await provider.interrupt(), { interrupted: true, eventId: null, cancelledEvents: 0 });
   assert.deepEqual(socket.sent.at(-1), { type: 'agent.interrupt' });
   advance(90_000);
   assert.deepEqual(provider.usage(), {
@@ -248,6 +277,50 @@ test('async PCM streams preserve one utterance event and close it once', async (
   ]);
   assert.equal(new Set(socket.sent.map((event) => event.event_id)).size, 1);
   await provider.close();
+});
+
+test('interrupt invalidates an utterance ID so stale audio cannot resume after barge-in', async () => {
+  const { provider } = providerHarness();
+  await provider.start();
+  const pcm = Buffer.alloc(4_800, 3);
+  const eventId = '88888888-8888-4888-8888-888888888888';
+
+  const first = await provider.enqueueAudio(pcm, { eventId, final: false });
+  assert.equal(first.accepted, true);
+  assert.deepEqual(await provider.interrupt({ eventId }), {
+    interrupted: true,
+    eventId,
+    cancelledEvents: 1,
+  });
+  await assert.rejects(
+    provider.enqueueAudio(pcm, { eventId, final: true }),
+    (error) => error instanceof ProviderError && error.code === 'liveavatar_audio_cancelled',
+  );
+  const sent = FakeWebSocket.instances.at(-1).sent;
+  assert.deepEqual(sent.map((event) => event.type), ['agent.speak', 'agent.interrupt']);
+  await provider.close();
+});
+
+test('only an explicit sandbox endurance harness may raise the provider duration above the product cap', async () => {
+  const endurance = new LiveAvatarProvider({
+    env: TEST_ENV,
+    fetchImpl: async () => response({ code: 100, data: {} }),
+    WebSocketImpl: FakeWebSocket,
+    enduranceHarness: true,
+    enduranceDurationSeconds: 600,
+  });
+  assert.equal(endurance.health().configured, true);
+  await endurance.close();
+  assert.throws(() => new LiveAvatarProvider({
+    env: { ...TEST_ENV, LIVEAVATAR_SANDBOX: 'false' },
+    enduranceHarness: true,
+    enduranceDurationSeconds: 600,
+  }), /sandbox mode/);
+  assert.throws(() => new LiveAvatarProvider({
+    env: TEST_ENV,
+    enduranceHarness: true,
+    enduranceDurationSeconds: 901,
+  }), /600–900/);
 });
 
 test('audio contract rejects wrong formats and unsafe packet sizes before socket transmission', async () => {
@@ -292,6 +365,27 @@ test('transient remote stop failure is retried without creating another provider
   assert.equal(calls.filter((call) => call.path === '/v1/sessions/token').length, 1);
   assert.equal(calls.filter((call) => call.path === '/v1/sessions/start').length, 1);
   assert.equal(provider.health().sessionId, null);
+});
+
+test('two sequential sessions mint independent provider sessions and clean local transport between runs', async () => {
+  const { provider, calls } = providerHarness();
+  await provider.start();
+  const firstSessionId = provider.health().sessionId;
+  const firstSocket = FakeWebSocket.instances.at(-1);
+  await provider.stop({ reason: 'completed' });
+  assert.equal(firstSocket.readyState, 3);
+  assert.equal(provider.health().sessionId, null);
+
+  await provider.start();
+  const secondSessionId = provider.health().sessionId;
+  const secondSocket = FakeWebSocket.instances.at(-1);
+  assert.notEqual(secondSocket, firstSocket);
+  assert.notEqual(secondSessionId, firstSessionId);
+  assert.equal(calls.filter((call) => call.path === '/v1/sessions/token').length, 2);
+  assert.equal(calls.filter((call) => call.path === '/v1/sessions/start').length, 2);
+  assert.equal(provider.usage().sessions, 2);
+  await provider.close();
+  assert.equal(secondSocket.readyState, 3);
 });
 
 test('remote stop failure closes local media, preserves retry context, and returns a sanitized error', async () => {

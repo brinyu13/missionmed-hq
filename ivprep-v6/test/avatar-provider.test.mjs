@@ -7,6 +7,7 @@ import {
 } from '../providers/avatar-provider.mjs';
 
 const REQUIRED_METHODS = [
+  'configure',
   'createSession',
   'start',
   'enqueueAudio',
@@ -28,7 +29,7 @@ test('AvatarProvider exposes the complete future-provider contract', () => {
 
 test('abstract avatar operations fail explicitly rather than pretending success', async () => {
   const provider = new AvatarProvider();
-  for (const method of ['createSession', 'start', 'enqueueAudio', 'attachAudioStream', 'interrupt', 'stop', 'reconnect', 'close']) {
+  for (const method of ['configure', 'createSession', 'start', 'enqueueAudio', 'attachAudioStream', 'interrupt', 'stop', 'reconnect', 'close']) {
     await assert.rejects(provider[method](), /not implemented/);
   }
   assert.throws(() => provider.health(), /not implemented/);
@@ -39,6 +40,7 @@ test('unavailable avatar provider stays honest and inactive', async () => {
   const reason = 'Avatar integration is outside Y1-Y2-CAM-V6-3401.';
   const provider = new NullAvatarProvider(reason);
 
+  assert.deepEqual(await provider.configure(), { status: 'unavailable', fallback: 'voice-only', reason });
   assert.deepEqual(await provider.createSession(), { status: 'unavailable', fallback: 'voice-only', reason });
   assert.deepEqual(await provider.start(), { status: 'unavailable', fallback: 'voice-only', reason });
   assert.deepEqual(await provider.enqueueAudio(new Uint8Array()), { accepted: false, fallback: 'voice-only', reason });

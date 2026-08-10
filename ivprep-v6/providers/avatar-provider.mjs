@@ -1,4 +1,5 @@
 export class AvatarProvider {
+  async configure() { throw new Error('AvatarProvider.configure is not implemented.'); }
   async createSession() { throw new Error('AvatarProvider.createSession is not implemented.'); }
   async start() { throw new Error('AvatarProvider.start is not implemented.'); }
   async enqueueAudio() { throw new Error('AvatarProvider.enqueueAudio is not implemented.'); }
@@ -18,6 +19,7 @@ export class NullAvatarProvider extends AvatarProvider {
     this.closed = false;
   }
 
+  async configure() { return { status: 'unavailable', fallback: 'voice-only', reason: this.reason }; }
   async createSession() { return { status: 'unavailable', fallback: 'voice-only', reason: this.reason }; }
   async start() { return { status: 'unavailable', fallback: 'voice-only', reason: this.reason }; }
   async enqueueAudio() { return { accepted: false, fallback: 'voice-only', reason: this.reason }; }

@@ -1,5 +1,7 @@
-export const VERIFIED_DEXTER_AVATAR_ID = 'bd43ce31-7425-4379-8407-60f029548e61';
-export const VERIFIED_DEXTER_AVATAR_NAME = 'Dexter Doctor Sitting';
+import { LIVE_INTERVIEWER_TARGET } from '../avatar/live-interviewer-target.mjs';
+
+export const VERIFIED_DEXTER_AVATAR_ID = LIVE_INTERVIEWER_TARGET.avatarId;
+export const VERIFIED_DEXTER_AVATAR_NAME = LIVE_INTERVIEWER_TARGET.avatarDisplayName;
 export const DEFAULT_OPENAI_VOICE_ID = 'cedar';
 
 const placeholder = (id, displayName, role, sex, overrides = {}) => Object.freeze({
@@ -29,13 +31,15 @@ const placeholder = (id, displayName, role, sex, overrides = {}) => Object.freez
 });
 
 export const FACULTY_ROSTER = Object.freeze([
-  placeholder('senior-academic-pd-male', 'Senior Academic Program Director — Male', 'Senior Academic Program Director', 'male', {
+  placeholder('senior-academic-pd-male', LIVE_INTERVIEWER_TARGET.participantDisplayName, 'AI Interviewer', 'male', {
     avatarId: VERIFIED_DEXTER_AVATAR_ID,
     avatarDisplayName: VERIFIED_DEXTER_AVATAR_NAME,
     availability: 'provider-auth-required',
     licensingConsentStatus: 'provider-stock-active',
     alphaProductionStatus: 'founder-alpha-only',
-    founderOnlyNotes: 'Provider stock avatar verified active through GET /v1/avatars/public. OpenAI voice ID cedar is canonical. W. Clint Oxley is separately verified as a LiveAvatar Voice Agent voice and is not compatible with the locked LITE audio path.',
+    lockedVoiceTargetId: LIVE_INTERVIEWER_TARGET.voiceId,
+    lockedVoiceTargetName: LIVE_INTERVIEWER_TARGET.voiceDisplayName,
+    founderOnlyNotes: 'Founder-locked provider stock avatar. OpenAI voice ID cedar is the truthful audible voice in the current LITE supplied-PCM path. Exact W. Clint compatibility with Dexter requires fresh authenticated provider proof.',
     warmth: 45,
     pressure: 68,
   }),

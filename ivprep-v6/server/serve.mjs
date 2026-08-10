@@ -34,6 +34,7 @@ import {
   AlphaStore,
   INACTIVE_COMMERCIALIZATION_CONTROLS,
 } from '../persistence/alpha-store.mjs';
+import { LIVE_INTERVIEWER_TARGET, publicLiveInterviewerTarget } from '../avatar/live-interviewer-target.mjs';
 
 const MODULE_DIRECTORY = dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = normalize(join(MODULE_DIRECTORY, '..'));
@@ -285,6 +286,30 @@ export function createIvPrepServer({
   const rateLimit = createRateLimiter();
   let activeProviderRequests = 0;
   const realtimeRails = new Map();
+  let avatarOwnerAlphaSessionId = null;
+  const requireAvatarOwner = (body) => {
+    if (typeof body.alphaSessionId !== 'string' || !body.alphaSessionId) throw new TypeError('An active interview session identifier is required.');
+    if (typeof body.sessionId !== 'string' || !body.sessionId) throw new TypeError('An avatar session identifier is required.');
+    if (body.alphaSessionId !== avatarOwnerAlphaSessionId) throw new TypeError('Avatar session does not belong to this interview.');
+    if (body.sessionId !== avatarProvider.health().sessionId) throw new TypeError('Avatar session does not match the active server session.');
+  };
+  const requestAvatarCleanup = async (reason) => {
+    if (!avatarOwnerAlphaSessionId) return { requested: false, acknowledged: true, state: 'not-required' };
+    try {
+      const stopped = await avatarProvider.stop({ reason });
+      avatarOwnerAlphaSessionId = null;
+      return { requested: true, acknowledged: true, state: 'acknowledged', stopped: stopped?.stopped === true };
+    } catch {
+      return { requested: true, acknowledged: false, state: 'unconfirmed' };
+    }
+  };
+  const requireAcknowledgedCleanup = (cleanup) => {
+    if (cleanup.acknowledged) return cleanup;
+    throw new ProviderError('LiveAvatar remote cleanup was not acknowledged; ownership is retained for retry.', {
+      code: 'liveavatar_cleanup_unconfirmed', status: 503, provider: 'liveavatar', retryable: true,
+      publicMessage: 'The interview is safe, but remote avatar cleanup is unconfirmed. Retry ending the avatar session.',
+    });
+  };
   const withProviderSlot = async (operation) => {
     if (activeProviderRequests >= MAX_CONCURRENT_PROVIDER_REQUESTS) {
       throw new ProviderError('Founder Alpha provider concurrency limit reached.', {
@@ -343,7 +368,14 @@ export function createIvPrepServer({
       }
 
       if (request.method === 'GET' && url.pathname === '/api/avatar-provider-config') {
-        sendJson(response, 200, { health: publicAvatarHealth(avatarProvider), usage: publicAvatarUsage(avatarProvider) });
+        sendJson(response, 200, {
+          health: publicAvatarHealth(avatarProvider),
+          usage: publicAvatarUsage(avatarProvider),
+          target: publicLiveInterviewerTarget({
+            hasServerAuthorization: liveAvatarConfigured,
+            hasApprovedLiveKitOrigin: Boolean(configuredLiveKitOrigin()),
+          }),
+        });
         return;
       }
 
@@ -355,15 +387,25 @@ export function createIvPrepServer({
             code: 'liveavatar_not_configured', status: 503, provider: 'liveavatar', publicMessage: 'Live avatar is unavailable. Continue in visible voice-only mode.',
           });
         }
-        if (body.avatarId && body.avatarId !== health.avatarId) throw new TypeError('Requested avatar does not match the verified server configuration.');
+        if (typeof body.alphaSessionId !== 'string' || !body.alphaSessionId) throw new TypeError('An active interview session identifier is required.');
+        const alphaSession = alphaStore.getSession(body.alphaSessionId);
+        if (!alphaSession || alphaSession.state !== 'active' || alphaSession.mode !== 'avatar') throw new TypeError('An active avatar-mode interview session is required.');
+        if (avatarOwnerAlphaSessionId && avatarOwnerAlphaSessionId !== alphaSession.id) {
+          throw new ProviderError('Another interview already owns the LiveAvatar session.', {
+            code: 'liveavatar_session_owned', status: 409, provider: 'liveavatar', publicMessage: 'Another local interview is using the live avatar. Continue in voice-only mode.',
+          });
+        }
+        if (body.avatarId && body.avatarId !== LIVE_INTERVIEWER_TARGET.avatarId) throw new TypeError('Requested avatar does not match the Founder-locked Dexter asset.');
+        if (health.avatarId !== LIVE_INTERVIEWER_TARGET.avatarId) throw new TypeError('Server avatar configuration does not match the Founder-locked Dexter asset.');
         const created = await avatarProvider.createSession();
+        avatarOwnerAlphaSessionId = alphaSession.id;
         sendJson(response, 201, { sessionId: created.sessionId, status: created.status, avatarId: created.avatarId, mode: created.mode, maxSessionDuration: created.maxSessionDuration });
         return;
       }
 
       if (request.method === 'POST' && url.pathname === '/api/avatar/session/start') {
         const body = requireBodyObject(await readJson(request));
-        if (body.sessionId && body.sessionId !== avatarProvider.health().sessionId) throw new TypeError('Avatar session does not match the active server session.');
+        requireAvatarOwner(body);
         const started = await avatarProvider.start();
         if (started.status !== 'connected' || !started.media?.url || !started.media?.clientToken) {
           throw new ProviderError('LiveAvatar did not establish a media session.', {
@@ -373,7 +415,7 @@ export function createIvPrepServer({
         const actualLiveKitOrigin = new URL(started.media.url).origin;
         const allowedLiveKitOrigin = configuredLiveKitOrigin();
         if (!allowedLiveKitOrigin || actualLiveKitOrigin !== allowedLiveKitOrigin) {
-          await avatarProvider.stop({ reason: 'SERVER_ERROR' }).catch(() => {});
+          requireAcknowledgedCleanup(await requestAvatarCleanup('SERVER_ERROR'));
           throw new ProviderError('LiveKit signaling origin is not approved for this alpha.', {
             code: 'liveavatar_livekit_origin_unapproved', status: 503, provider: 'liveavatar', publicMessage: 'Live avatar media origin is not approved. Continue in visible voice-only mode.',
           });
@@ -390,7 +432,7 @@ export function createIvPrepServer({
 
       if (request.method === 'POST' && url.pathname === '/api/avatar/session/audio') {
         const body = requireBodyObject(await readJson(request));
-        if (body.sessionId !== avatarProvider.health().sessionId) throw new TypeError('Avatar session does not match the active server session.');
+        requireAvatarOwner(body);
         if (typeof body.pcmBase64 !== 'string' || body.pcmBase64.length > 1_100_000) throw new TypeError('A bounded Base64 PCM payload is required.');
         sendJson(response, 200, await avatarProvider.enqueueAudio(Buffer.from(body.pcmBase64, 'base64'), {
           eventId: typeof body.eventId === 'string' ? body.eventId : undefined,
@@ -401,29 +443,48 @@ export function createIvPrepServer({
 
       if (request.method === 'POST' && url.pathname === '/api/avatar/session/interrupt') {
         const body = requireBodyObject(await readJson(request));
-        if (body.sessionId !== avatarProvider.health().sessionId) throw new TypeError('Avatar session does not match the active server session.');
-        sendJson(response, 200, await avatarProvider.interrupt());
+        requireAvatarOwner(body);
+        sendJson(response, 200, await avatarProvider.interrupt({ eventId: typeof body.eventId === 'string' ? body.eventId : undefined }));
         return;
       }
 
       if (request.method === 'POST' && url.pathname === '/api/avatar/session/reconnect') {
         const body = requireBodyObject(await readJson(request));
-        if (body.sessionId !== avatarProvider.health().sessionId) throw new TypeError('Avatar session does not match the active server session.');
-        sendJson(response, 200, await avatarProvider.reconnect());
+        requireAvatarOwner(body);
+        const reconnected = await avatarProvider.reconnect();
+        const actualLiveKitOrigin = new URL(reconnected.media?.url).origin;
+        const allowedLiveKitOrigin = configuredLiveKitOrigin();
+        if (!allowedLiveKitOrigin || actualLiveKitOrigin !== allowedLiveKitOrigin) {
+          requireAcknowledgedCleanup(await requestAvatarCleanup('SERVER_ERROR'));
+          throw new ProviderError('LiveKit signaling origin is not approved for this alpha.', {
+            code: 'liveavatar_livekit_origin_unapproved', status: 503, provider: 'liveavatar', publicMessage: 'Live avatar media origin is not approved. Continue in visible voice-only mode.',
+          });
+        }
+        sendJson(response, 200, {
+          sessionId: reconnected.sessionId,
+          status: reconnected.status,
+          reconnected: true,
+          livekitUrl: reconnected.media.url,
+          livekitClientToken: reconnected.media.clientToken,
+        });
         return;
       }
 
       if (request.method === 'POST' && url.pathname === '/api/avatar/session/stop') {
         const body = requireBodyObject(await readJson(request));
-        if (body.sessionId && body.sessionId !== avatarProvider.health().sessionId) throw new TypeError('Avatar session does not match the active server session.');
-        sendJson(response, 200, await avatarProvider.stop({ reason: body.reason || 'USER_CLOSED' }));
+        requireAvatarOwner(body);
+        const cleanup = requireAcknowledgedCleanup(await requestAvatarCleanup(body.reason || 'USER_CLOSED'));
+        sendJson(response, 200, { stopped: cleanup.stopped, cleanup });
         return;
       }
 
       if (request.method === 'GET' && url.pathname === '/api/faculty-roster') {
         sendJson(response, 200, {
           records: publicFacultyRoster({ liveAvatarConfigured, openaiConfigured: configured }),
-          verifiedProvider: { provider: 'liveavatar', mode: 'LITE', avatarIdSource: 'GET /v1/avatars/public' },
+          priorProviderProvenance: {
+            provider: 'liveavatar', mode: 'LITE', avatarIdSource: 'GET /v1/avatars/public',
+            currentAuthenticatedVerification: false,
+          },
         });
         return;
       }
@@ -494,8 +555,14 @@ export function createIvPrepServer({
         const session = alphaStore.getSession(sessionEndMatch[1]);
         if (!session) throw new TypeError('Alpha session was not found.');
         await closeRealtimeRail(session.id, 'alpha-session-ended');
-        await avatarProvider.stop({ reason: body.terminationState || 'completed' }).catch(() => {});
-        sendJson(response, 200, { session: alphaStore.endSession(sessionEndMatch[1], body.terminationState || 'completed') });
+        let avatarCleanup = { requested: false, acknowledged: true, state: 'not-required' };
+        if (avatarOwnerAlphaSessionId === session.id) {
+          avatarCleanup = await requestAvatarCleanup(body.terminationState || 'completed');
+        }
+        sendJson(response, 200, {
+          session: alphaStore.endSession(sessionEndMatch[1], body.terminationState || 'completed'),
+          avatarCleanup,
+        });
         return;
       }
 
@@ -503,11 +570,12 @@ export function createIvPrepServer({
         requireFounderLocalHeader(request);
         const body = requireBodyObject(await readJson(request));
         const disabled = alphaStore.setDisabled(body.disabled !== false);
+        let avatarCleanup = { requested: false, acknowledged: true, state: 'not-required' };
         if (disabled) {
           await closeAllRealtimeRails('emergency-disable');
-          await avatarProvider.stop({ reason: 'USER_CLOSED' }).catch(() => {});
+          avatarCleanup = await requestAvatarCleanup('USER_CLOSED');
         }
-        sendJson(response, 200, { disabled });
+        sendJson(response, 200, { disabled, avatarCleanup });
         return;
       }
 

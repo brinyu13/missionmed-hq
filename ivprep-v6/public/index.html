@@ -603,6 +603,7 @@ textarea.note:focus{outline:0;border-color:var(--gd)}
  <div class="splashMark">IV PREP<br>ON-CALL</div>
  <div class="splashSub" style="letter-spacing:.3em">V6 · Record · Read · Coach · Keep · Progress</div>
  <div style="display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;justify-content:center">
+  <button class="btnHero" id="test-live-interviewer" onclick="testLiveInterviewer()">TEST LIVE INTERVIEWER</button>
   <button class="btnHero" onclick="enterApp('student')">Enter As Student ▸</button>
   <button class="btnGhost" onclick="enterApp('visitor')">I'm New · Show Me The Program</button>
   <button class="btnGhost" onclick="enterApp('coach')">Dr Brian · Coaching Desk</button>
@@ -1554,6 +1555,7 @@ const QLIB=[
  {cat:'closer',q:'Do you have any questions for me?',strat:'Notebook protocol · never end on "no"'}];
 const CATS=[['all','ALL'],['classic','⭐ CLASSIC'],['behavioral','🧭 BEHAVIORAL'],['cv','📄 CV'],['program','🏥 PROGRAM'],['specialty','🩺 SPECIALTY'],['ethics','⚖ ETHICS'],['conflict','⚡ PRESSURE'],['leadership','🎖 LEADERSHIP'],['research','🔬 RESEARCH'],['redflag','🚩 RED FLAG'],['ifneg','🌪 IF-NEG'],['ifpos','✨ IF-POS'],['rapid','⏱ RAPID'],['stress','🌪 STRESS'],['closer','🎖 CLOSER']];
 const CAST=[
+ {id:'dexter',name:'Dexter · MissionMed AI Faculty',init:'DX',hue:'#39d6ff',kind:'LIVEAVATAR TARGET',line:'Provider stock avatar · AI interviewer · not a real physician',bird:'🦉 Composed',future:true},
  {id:'brian',name:'Dr Brian',init:'DB',hue:'#ffd76a',kind:'PRE-RECORDED · REAL FACULTY',line:'Real prompt videos · asks, then listens',bird:'—',clip:true},
  {id:'drj',name:'Dr J',init:'DJ',hue:'#ffd76a',kind:'PRE-RECORDED · REAL FACULTY',line:'MissionMed faculty · real prompt videos',bird:'—',clip:true},
  {id:'chen',name:'Friendly Faculty',init:'FF',hue:'#39d6ff',kind:'SIM PERSONA',line:'Warm · lets you find your feet',bird:'🕊 Dove'},
@@ -1892,7 +1894,8 @@ function renderCast(){const g=$('#castGrid');g.innerHTML='';
   b.onclick=()=>{SEL.cast=c.id;renderCast();renderCastEffect();sfx('click')};
   g.appendChild(b)})}
 function renderCastEffect(){const c=persona();
- const m={brian:'Dr Brian’s pre-recorded prompts play, then he listens. Your results afterward compare this take against his own recurring marks.',
+ const m={dexter:'Provider stock avatar driven by MissionMed AI interviewer dialogue. This participant is not a real physician; live media appears only after provider authentication and synchronized audio + video are both ready.',
+  brian:'Dr Brian’s pre-recorded prompts play, then he listens. Your results afterward compare this take against his own recurring marks.',
   drj:'Dr J’s real prompt videos. Same laws: asks once, listens, never interrupts.',
   chen:'A warm room. Follow-ups arrive gently; the dove ear listens for empathy in your prove-it — your Grandmother’s Clinic story lands best here.',
   poker:'Nothing comes back. The owl holds '+(2+SEL.silence)+' seconds of silence after your answers — steadiness is the drill.',
@@ -2319,15 +2322,17 @@ function startInterview(){if(countdownOn)return;
  const wc=WAITCOPY[PLAT]||WAITCOPY.zoom;$('#ms1').textContent=wc[0].replace('{IV}',ivName());$('#ms2').textContent=wc[1];
  const talk=Math.random()<.7&&PLAT!=='inperson';
  const chain=[];
- if(sc==='present'){chain.push([250,()=>{ivSet(true,true);toast(ivName()+' is already in the room.')}])}
+ const founderLive=window.V6Frontier?.state?.founderHarness===true;
+ if(founderLive){ivSet(false,false);toast('Connecting the selected live interviewer. No simulated participant state is shown.');}
+ else if(sc==='present'){chain.push([250,()=>{ivSet(true,true);toast(ivName()+' is already in the room.')}])}
  else if(sc==='waiting'){ivSet(false,false);chain.push([1500+Math.random()*1300,()=>{ivSet(true,true);sfx('join');toast(ivName()+' joined.')}])}
  else if(sc==='joins'){ivSet(false,false);chain.push([900,()=>{ivSet(true,true);sfx('join');toast(ivName()+' joined.')}])}
  else{ivSet(false,false);chain.push([900,()=>{ivSet(true,false);sfx('join');toast(ivName()+' joined · camera off.')}]);
   chain.push([1600,()=>{ivSet(true,true);toast(ivName()+' turned their camera on.')}])}
- if(talk&&RUN.qi===0){const line=SMALLTALK[persona().id]||SMALLTALK.chen;
+ if(!founderLive&&talk&&RUN.qi===0){const line=SMALLTALK[persona().id]||SMALLTALK.chen;
   chain.push([700,()=>{$('#qprogchip').textContent='SMALL TALK';setIvState('ask');typeQ(line)}]);
   chain.push([Math.max(1700,line.length*11+900),()=>{}])}
- chain.push([500,()=>askQ()]);
+ chain.push([founderLive?0:500,()=>askQ()]);
  if(PLAT==='teams')toast('Meeting started. A recording notice is shown to participants (simulated — exactly where Teams shows it).');
  let t=0;chain.forEach(([d,f])=>{t+=d;setTimeout(safe(f),RM?60:t)})}
 function currentQ(){return BUILD[RUN.qi]}
@@ -3068,8 +3073,19 @@ function regAdd(){const name=($('#regName').value||'').trim(),line=($('#regLine'
  CAST.push({id:'reg'+(++REGN),name,init:name.split(/\s+/).map(w=>w[0]).join('').replace(/[^A-Za-z]/g,'').slice(0,2).toUpperCase()||'IV',
   hue:'#39d6ff',kind,line:line||'Custom persona',bird,custom:true,clip:kind.includes('REAL'),future:kind.includes('AI')});
  $('#regName').value='';$('#regLine').value='';
- renderRegistry();sfx('win');
- toast('“'+name+'” is live in the registry. Open any student’s interviewer selection — the new seat is already there. Data in, zero redesign.')}
+  renderRegistry();sfx('win');
+  toast('“'+name+'” is live in the registry. Open any student’s interviewer selection — the new seat is already there. Data in, zero redesign.')}
+
+function prepareLiveInterviewerTest(){
+ enterApp('student');SEL.cast='dexter';SEL.program='general';SEL.diff='standard';SEL.len='quick';
+ BUILD=[qOf('Tell me about yourself.'),{q:'— adaptive follow-up from your answer —',cat:'followup',cap:90,strat:'Conversation memory',folo:true}];
+ RUN.qi=0;RUN.memory=[];RUN.followupsUsed=0;RUN.challenged=false;
+ startTakePrep();goFlow('perm');
+}
+function testLiveInterviewer(){
+ enterApp('admin');nav('registry');
+ toast('Select the Conversation Rail, confirm the audible voice, then click TEST LIVE INTERVIEWER in Founder Studio.');
+}
 
 /* ================================================================
    KEYS · BOOT · VALIDATE
@@ -3091,7 +3107,7 @@ startTakePrep();
 window.V6Bridge={
  get role(){return ROLE},get view(){return VIEW},get media(){return MEDIA},get audio(){return AUD},get speech(){return SPEECH},
  get run(){return RUN},get result(){return RUN.active||[...REPS].reverse()[0]||null},get build(){return BUILD},get selection(){return SEL},get recording(){return REC},get turnSpoken(){return TURN_SPOKEN},
- persona,currentQ,toast,setIvState,typeQ,ivSet,endTake,beginRec,nextQ,finishRound,speechStart,speechStop,stopMedia,renderRegistry,abandonTake,startInterview,nav,
+ persona,currentQ,toast,setIvState,typeQ,ivSet,endTake,beginRec,nextQ,finishRound,speechStart,speechStop,stopMedia,renderRegistry,abandonTake,startInterview,nav,prepareLiveInterviewerTest,
  setTypedTranscript(text){const clean=String(text||'').trim();SPEECH.txt=clean;SPEECH.finalTxt=clean;SPEECH.marks=clean?[[Math.max(.1,recT),clean]]:[];TURN_SPOKEN=!!clean;return clean},
  setMuted(muted){if(MEDIA.stream)MEDIA.stream.getAudioTracks().forEach(t=>t.enabled=!muted);setIvState(muted?'muted':(REC?'listen':'idle'))},
  context(){return {role:ROLE,view:VIEW,selection:{...SEL},interviewer:persona(),questions:BUILD.map(q=>({q:q.q,cat:q.cat,strat:q.strat||null})),

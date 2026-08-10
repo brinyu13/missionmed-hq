@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 
 import WebSocket from 'ws';
 
+import { LIVE_INTERVIEWER_TARGET, resolveLockedAvatarId } from '../avatar/live-interviewer-target.mjs';
+import { MAX_AVATAR_ENDURANCE_SECONDS, MIN_AVATAR_ENDURANCE_SECONDS } from '../avatar/endurance-plan.mjs';
 import { AvatarProvider, NullAvatarProvider } from './avatar-provider.mjs';
 import { ProviderError, providerResponseError } from './errors.mjs';
 
@@ -40,10 +42,10 @@ function parseBoolean(value, fallback) {
   return fallback;
 }
 
-function parseDuration(value) {
+function parseDuration(value, maximum = MAX_ALPHA_SESSION_SECONDS) {
   const parsed = Number.parseInt(value || '', 10);
   if (!Number.isFinite(parsed)) return DEFAULT_ALPHA_SESSION_SECONDS;
-  return Math.max(1, Math.min(parsed, MAX_ALPHA_SESSION_SECONDS));
+  return Math.max(1, Math.min(parsed, maximum));
 }
 
 function normalizeStopReason(reason) {
@@ -71,23 +73,35 @@ function unavailableReason(config) {
   return null;
 }
 
-function readLiveAvatarConfig(env = process.env) {
+function readLiveAvatarConfig(env = process.env, { enduranceHarness = false, enduranceDurationSeconds } = {}) {
   const apiKey = String(env.LIVEAVATAR_API_KEY || '').trim();
-  const avatarId = String(env.LIVEAVATAR_AVATAR_ID || '').trim();
+  const avatarId = resolveLockedAvatarId(env.LIVEAVATAR_AVATAR_ID);
   const avatarIdValid = UUID_PATTERN.test(avatarId);
+  const requestedEnduranceDuration = Number.parseInt(enduranceDurationSeconds, 10);
+  if (enduranceHarness && (
+    !parseBoolean(env.LIVEAVATAR_SANDBOX, true)
+    || !Number.isInteger(requestedEnduranceDuration)
+    || requestedEnduranceDuration < MIN_AVATAR_ENDURANCE_SECONDS
+    || requestedEnduranceDuration > MAX_AVATAR_ENDURANCE_SECONDS
+  )) {
+    throw new TypeError('The LiveAvatar endurance harness requires sandbox mode and an explicit 600–900 second duration.');
+  }
   const config = Object.freeze({
     apiKey,
     avatarId,
     avatarIdValid,
     sandbox: parseBoolean(env.LIVEAVATAR_SANDBOX, true),
-    maxSessionDuration: parseDuration(env.LIVEAVATAR_MAX_SESSION_SECONDS),
+    maxSessionDuration: enduranceHarness
+      ? requestedEnduranceDuration
+      : parseDuration(env.LIVEAVATAR_MAX_SESSION_SECONDS),
+    enduranceHarness: Boolean(enduranceHarness),
     videoQuality: 'high',
     videoEncoding: 'H264',
   });
 
   return Object.freeze({
     ...config,
-    configured: Boolean(apiKey && avatarId && avatarIdValid),
+    configured: Boolean(apiKey && avatarIdValid),
     unavailableReason: unavailableReason(config),
   });
 }
@@ -103,6 +117,8 @@ export function liveAvatarConfigFromEnv(env = process.env) {
     maxSessionDuration: config.maxSessionDuration,
     videoQuality: config.videoQuality,
     videoEncoding: config.videoEncoding,
+    lockedVoiceTargetId: LIVE_INTERVIEWER_TARGET.voiceId,
+    lockedVoiceCompatibility: 'unverified-until-authenticated-provider-proof',
     unavailableReason: config.unavailableReason,
   });
 }
@@ -191,6 +207,8 @@ export class LiveAvatarProvider extends AvatarProvider {
   #interruptions = 0;
   #reconnects = 0;
   #speechWaiters = new Map();
+  #openSpeechEvents = new Set();
+  #cancelledSpeechEvents = new Set();
   #closed = false;
 
   constructor({
@@ -205,10 +223,12 @@ export class LiveAvatarProvider extends AvatarProvider {
     randomUUIDImpl = randomUUID,
     connectTimeoutMs = CONNECT_TIMEOUT_MS,
     stopRetryDelays = STOP_RETRY_DELAYS_MS,
+    enduranceHarness = false,
+    enduranceDurationSeconds,
   } = {}) {
     super();
     if (typeof fetchImpl !== 'function') throw new TypeError('fetchImpl must be a function.');
-    this.#config = readLiveAvatarConfig(env);
+    this.#config = readLiveAvatarConfig(env, { enduranceHarness, enduranceDurationSeconds });
     this.#fetch = fetchImpl;
     this.#WebSocket = WebSocketImpl;
     this.#now = now;
@@ -228,6 +248,21 @@ export class LiveAvatarProvider extends AvatarProvider {
       status: 'unavailable',
       fallback: 'voice-only',
       reason: this.#config.unavailableReason,
+    };
+  }
+
+  async configure({ avatarId = LIVE_INTERVIEWER_TARGET.avatarId } = {}) {
+    this.#assertOpen('configure');
+    resolveLockedAvatarId(avatarId);
+    if (!this.#config.configured) return this.#unavailableResult();
+    return {
+      provider: PROVIDER,
+      status: 'configured',
+      avatarId: LIVE_INTERVIEWER_TARGET.avatarId,
+      voiceTargetId: LIVE_INTERVIEWER_TARGET.voiceId,
+      voiceSelectionApplied: false,
+      audioAuthority: 'liveavatar-livekit',
+      intelligenceOwner: 'conversation-rail',
     };
   }
 
@@ -324,6 +359,25 @@ export class LiveAvatarProvider extends AvatarProvider {
     this.#controlSocketUrl = null;
     this.#livekitUrl = null;
     this.#livekitClientToken = null;
+  }
+
+  #cancelSpeechEvent(eventId, reason = 'interrupted') {
+    if (!eventId) return;
+    this.#cancelledSpeechEvents.add(eventId);
+    this.#openSpeechEvents.delete(eventId);
+    this.#settleSpeech(eventId, { playbackEnded: false, reason });
+  }
+
+  #assertSpeechEventActive(eventId) {
+    if (this.#cancelledSpeechEvents.has(eventId)) {
+      throw new ProviderError('LiveAvatar audio arrived after the utterance was cancelled.', {
+        code: 'liveavatar_audio_cancelled',
+        status: 409,
+        provider: PROVIDER,
+        retryable: false,
+        publicMessage: 'Avatar speech was interrupted.',
+      });
+    }
   }
 
   #recordFailure(error) {
@@ -492,6 +546,8 @@ export class LiveAvatarProvider extends AvatarProvider {
       this.#endedAt = null;
       this.#state = 'created';
       this.#lastError = null;
+      this.#openSpeechEvents.clear();
+      this.#cancelledSpeechEvents.clear();
       return {
         provider: PROVIDER,
         status: 'created',
@@ -584,6 +640,7 @@ export class LiveAvatarProvider extends AvatarProvider {
   }
 
   #sendAudioChunk(audio, { eventId, format, sampleRateHz }) {
+    this.#assertSpeechEventActive(eventId);
     const chunk = this.#validateAudio(audio, { format, sampleRateHz });
     this.#send({
       type: 'agent.speak',
@@ -593,6 +650,7 @@ export class LiveAvatarProvider extends AvatarProvider {
     this.#audioBytes += chunk.byteLength;
     this.#audioChunks += 1;
     this.#audioSeconds += chunk.byteLength / (AUDIO_SAMPLE_RATE_HZ * AUDIO_BYTES_PER_SAMPLE);
+    this.#openSpeechEvents.add(eventId);
     return chunk.byteLength;
   }
 
@@ -608,6 +666,7 @@ export class LiveAvatarProvider extends AvatarProvider {
       const completion = this.#waitForSpeechEnd(eventId);
       this.#send({ type: 'agent.speak_end', event_id: eventId });
       playback = await completion;
+      this.#openSpeechEvents.delete(eventId);
     }
     return { accepted: true, eventId, bytes, final: options.final !== false, ...playback };
   }
@@ -640,6 +699,7 @@ export class LiveAvatarProvider extends AvatarProvider {
       }
     } catch (error) {
       if (chunks > 0) {
+        this.#cancelSpeechEvent(eventId, 'aborted');
         try { this.#send({ type: 'agent.interrupt' }); } catch {}
       }
       throw error;
@@ -648,18 +708,20 @@ export class LiveAvatarProvider extends AvatarProvider {
     const completion = this.#waitForSpeechEnd(eventId);
     this.#send({ type: 'agent.speak_end', event_id: eventId });
     const playback = await completion;
+    this.#openSpeechEvents.delete(eventId);
     return { accepted: true, eventId, chunks, bytes, final: true, ...playback };
   }
 
-  async interrupt() {
+  async interrupt({ eventId } = {}) {
     this.#assertOpen('interrupt');
     if (!this.#config.configured) {
       return { interrupted: false, ...this.#unavailableResult() };
     }
+    const cancelled = eventId ? [eventId] : [...this.#openSpeechEvents];
+    for (const id of cancelled) this.#cancelSpeechEvent(id);
     this.#send({ type: 'agent.interrupt' });
-    this.#settleAllSpeech({ playbackEnded: false, reason: 'interrupted' });
     this.#interruptions += 1;
-    return { interrupted: true };
+    return { interrupted: true, eventId: eventId || null, cancelledEvents: cancelled.length };
   }
 
   async reconnect() {
@@ -680,7 +742,7 @@ export class LiveAvatarProvider extends AvatarProvider {
       await this.#connectControlSocket();
       this.#reconnects += 1;
       this.#lastError = null;
-      return { provider: PROVIDER, status: 'connected', sessionId: this.#sessionId, reconnected: true };
+      return { ...this.#startResult(), reconnected: true };
     } catch (error) {
       throw this.#recordFailure(error);
     }
@@ -696,6 +758,8 @@ export class LiveAvatarProvider extends AvatarProvider {
     const providerReason = normalizeStopReason(reason);
     this.#state = 'stopping';
     this.#settleAllSpeech({ playbackEnded: false, reason: 'stopped' });
+    this.#openSpeechEvents.clear();
+    this.#cancelledSpeechEvents.clear();
     this.#closeSocket();
     let stopError = null;
     try {

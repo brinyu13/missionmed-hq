@@ -8,11 +8,12 @@
   },
   "scripts": {
     "start": "node server/serve.mjs",
-    "check": "node --check server/serve.mjs && node --check providers/avatar-provider.mjs && node --check providers/conversation-rail.mjs && node --check providers/openai-continuous-realtime.mjs && node --check providers/liveavatar-provider.mjs && node --check providers/errors.mjs && node --check providers/openai-model-discovery.mjs && node --check providers/openai-realtime.mjs && node --check providers/openai-responses.mjs && node --check providers/openai-speech.mjs && node --check config/models.mjs && node --check config/voices.mjs && node --check config/faculty-roster.mjs && node --check config/load-environment.mjs && node --check persistence/alpha-store.mjs && node --check public/avatar-provider.mjs && node --check public/conversation-rail.mjs && node --check public/v6-integration.mjs && node --check scripts/probe-continuous-pauses.mjs && node --check scripts/probe-continuous-relay.mjs && node --check scripts/probe-liveavatar-origin.mjs",
+    "check": "node --check server/serve.mjs && node --check providers/avatar-provider.mjs && node --check providers/conversation-rail.mjs && node --check providers/openai-continuous-realtime.mjs && node --check providers/liveavatar-provider.mjs && node --check providers/errors.mjs && node --check providers/openai-model-discovery.mjs && node --check providers/openai-realtime.mjs && node --check providers/openai-responses.mjs && node --check providers/openai-speech.mjs && node --check config/models.mjs && node --check config/voices.mjs && node --check config/faculty-roster.mjs && node --check config/load-environment.mjs && node --check persistence/alpha-store.mjs && node --check public/avatar-provider.mjs && node --check public/avatar/media-readiness.mjs && node --check public/conversation-rail.mjs && node --check public/v6-integration.mjs && node --check scripts/probe-continuous-pauses.mjs && node --check scripts/probe-continuous-relay.mjs && node --check scripts/probe-liveavatar-origin.mjs && node --check scripts/avatar/run-liveavatar-transport-endurance.mjs",
     "probe:continuous-pauses": "node scripts/probe-continuous-pauses.mjs",
     "probe:continuous-relay": "node scripts/probe-continuous-relay.mjs",
     "probe:liveavatar-origin": "node scripts/probe-liveavatar-origin.mjs",
-    "test": "node --test test/*.test.mjs"
+    "probe:avatar-transport-endurance": "node scripts/avatar/run-liveavatar-transport-endurance.mjs",
+    "test": "node --test test/*.test.mjs test/avatar/*.test.mjs"
   },
   "dependencies": {
     "livekit-client": "^2.21.0",

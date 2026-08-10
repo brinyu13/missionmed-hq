@@ -1,6 +1,7 @@
 import { MicController } from './mic-controller.mjs';
 import { LiveAvatarBrowserProvider } from './avatar-provider.mjs';
 import { OpenAIRealtimeRail, RAIL_IDS } from './conversation-rail.mjs';
+import { InterviewerAudioAuthority } from './avatar/audio-authority.mjs';
 
 const bridge = window.V6Bridge;
 if (!bridge) throw new Error('V6 integration bridge is unavailable.');
@@ -14,6 +15,7 @@ const state = {
   railFloorToResponseMs: null,
   railAnswerEndToResponseMs: null,
   railInterruptionMs: null,
+  avatarInterruptAckMs: null,
   continuousCompletedTurn: null,
   continuousAlreadySpoken: null,
   model: 'gpt-5.6-terra',
@@ -57,14 +59,27 @@ const state = {
   alphaMode: null,
   alphaDisabled: false,
   usageLedger: [],
+  founderHarness: false,
+  avatarTarget: null,
+  audioAuthority: 'browser-openai-speech',
+  audibleVoiceTruth: 'OpenAI Speech · cedar',
 };
 
 let continuousRail = null;
+const interviewerAudio = new InterviewerAudioAuthority();
 
 const avatar = new LiveAvatarBrowserProvider({
   videoContainer: document.getElementById('ivtile'),
   onState: ({ state: avatarState, reason }) => {
-    state.avatarNotice = avatarState === 'live' ? 'Live synchronized avatar connected.' : reason || `Avatar ${avatarState}.`;
+    if (['degraded', 'disconnected', 'unavailable', 'cleanup-unconfirmed'].includes(avatarState)) {
+      interviewerAudio.interrupt();
+      state.alphaMode = 'voice-only';
+      state.audioAuthority = 'browser-openai-speech';
+      state.audibleVoiceTruth = `OpenAI Speech · ${state.voiceId}`;
+    }
+    state.avatarNotice = avatarState === 'live'
+      ? 'Live synchronized avatar audio + video connected. LiveKit is the only audible interviewer stream.'
+      : reason || `Avatar ${avatarState}.`;
     renderAvatarState();
     renderDiagnostics();
   },
@@ -103,18 +118,20 @@ function base64Audio(base64, contentType) {
   const raw = atob(base64);
   const bytes = new Uint8Array(raw.length);
   for (let index = 0; index < raw.length; index += 1) bytes[index] = raw.charCodeAt(index);
-  if (String(contentType).startsWith('audio/pcm')) {
-    const wav = new ArrayBuffer(44 + bytes.length);
-    const view = new DataView(wav);
-    const write = (offset, value) => [...value].forEach((character, index) => view.setUint8(offset + index, character.charCodeAt(0)));
-    write(0, 'RIFF'); view.setUint32(4, 36 + bytes.length, true); write(8, 'WAVE'); write(12, 'fmt ');
-    view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
-    view.setUint32(24, 24000, true); view.setUint32(28, 48000, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
-    write(36, 'data'); view.setUint32(40, bytes.length, true);
-    new Uint8Array(wav, 44).set(bytes);
-    return new Blob([wav], { type: 'audio/wav' });
-  }
+  if (String(contentType).startsWith('audio/pcm')) return pcm16WavBlob(bytes);
   return new Blob([bytes], { type: contentType || 'audio/wav' });
+}
+
+function pcm16WavBlob(bytes) {
+  const wav = new ArrayBuffer(44 + bytes.length);
+  const view = new DataView(wav);
+  const write = (offset, value) => [...value].forEach((character, index) => view.setUint8(offset + index, character.charCodeAt(0)));
+  write(0, 'RIFF'); view.setUint32(4, 36 + bytes.length, true); write(8, 'WAVE'); write(12, 'fmt ');
+  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, 24000, true); view.setUint32(28, 48000, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+  write(36, 'data'); view.setUint32(40, bytes.length, true);
+  new Uint8Array(wav, 44).set(bytes);
+  return new Blob([wav], { type: 'audio/wav' });
 }
 
 function interruptAudio(reason = 'interrupted') {
@@ -131,9 +148,19 @@ function interruptAudio(reason = 'interrupted') {
   const settle = state.currentPlaybackSettle;
   state.currentPlaybackSettle = null;
   state.avatarSpeechActive = false;
+  interviewerAudio.interrupt();
   setInterviewerSpeaking(false, reason);
-  if (avatar.sessionId) avatar.interrupt().catch(() => {});
+  let avatarInterruption = Promise.resolve({ interrupted: false });
+  if (avatar.sessionId) {
+    const interruptedAt = performance.now();
+    avatarInterruption = avatar.interrupt().then((result) => {
+      state.avatarInterruptAckMs = Math.round(performance.now() - interruptedAt);
+      renderDiagnostics();
+      return result;
+    }).catch(() => ({ interrupted: false }));
+  }
   if (settle) settle();
+  return avatarInterruption;
 }
 
 async function ensureAlphaSession() {
@@ -144,6 +171,10 @@ async function ensureAlphaSession() {
     const continuousDirectAudio = state.railId === RAIL_IDS.OPENAI_REALTIME;
     const mode = !continuousDirectAudio && state.avatarEnabled && state.avatarProviderReady && selected?.available ? 'avatar' : 'voice-only';
     if (mode === 'voice-only') {
+      state.audioAuthority = continuousDirectAudio ? 'openai-realtime-direct' : 'browser-openai-speech';
+      state.audibleVoiceTruth = continuousDirectAudio
+        ? `OpenAI Realtime · ${state.voiceId}`
+        : `OpenAI Speech · ${state.voiceId}`;
       state.avatarNotice = continuousDirectAudio
         ? 'Continuous Conversation is using direct OpenAI Realtime audio. LiveAvatar is visibly off for this experimental rail to prevent duplicate or unsynchronized audio.'
         : state.avatarEnabled
@@ -175,10 +206,14 @@ async function ensureAlphaSession() {
           maxSessionDuration: Math.min(2, payload.session.durationMinutes) * 60,
         });
         await avatar.start();
+        state.audioAuthority = 'liveavatar-livekit';
+        state.audibleVoiceTruth = `Supplied OpenAI Speech · ${state.voiceId} · synchronized by LiveAvatar LITE`;
         await persistAlphaEvent({ avatarStarted: true, deliveryMode: 'avatar', deliveryReason: 'live-media-ready' });
       } catch (error) {
         state.avatarNotice = `Live avatar unavailable: ${publicError(error).message} Voice-only remains active.`;
         state.alphaMode = 'voice-only';
+        state.audioAuthority = 'browser-openai-speech';
+        state.audibleVoiceTruth = `OpenAI Speech · ${state.voiceId}`;
         await persistAlphaEvent({ deliveryMode: 'voice-only', deliveryReason: 'avatar-start-failed' });
         renderAvatarState();
       }
@@ -208,21 +243,29 @@ async function endAlphaSession(terminationState = 'completed', { keepalive = fal
     let persisted = false;
     try { await closeContinuousRail(); } catch (error) { errors.push(error); }
     const persistEnd = async () => {
-      await jsonRequest(`/api/alpha-sessions/${encodeURIComponent(id)}/end`, {
+      const result = await jsonRequest(`/api/alpha-sessions/${encodeURIComponent(id)}/end`, {
         method: 'POST',
         body: JSON.stringify({ terminationState }),
         keepalive,
       });
       persisted = true;
+      if (result.avatarCleanup?.acknowledged && avatar.sessionId) avatar.acknowledgeServerCleanup();
+      if (result.avatarCleanup?.requested && !result.avatarCleanup?.acknowledged) {
+        errors.push(new Error('Remote avatar cleanup is unconfirmed; server ownership was retained for retry.'));
+      }
     };
     if (keepalive) {
       try { await persistEnd(); } catch (error) { errors.push(error); }
-      try { if (avatar.health().state !== 'idle') await avatar.stop(terminationState); } catch (error) { errors.push(error); }
+      // The alpha-end endpoint owns remote provider cleanup on unload; this call only releases local media.
+      try { if (avatar.health().state !== 'idle') await avatar.stop(terminationState); } catch {}
     } else {
       try { if (avatar.health().state !== 'idle') await avatar.stop(terminationState); } catch (error) { errors.push(error); }
       try { await persistEnd(); } catch (error) { errors.push(error); }
     }
-    if (persisted && state.alphaSessionId === id) state.alphaSessionId = null;
+    if (persisted && state.alphaSessionId === id) {
+      state.alphaSessionId = null;
+      state.founderHarness = false;
+    }
     if (errors.length) state.lastError = `Cleanup: ${publicError(errors[0]).message}`;
     return { persisted, errors: errors.length };
   })();
@@ -231,7 +274,9 @@ async function endAlphaSession(terminationState = 'completed', { keepalive = fal
 }
 
 async function playBlob(blob, telemetry = {}) {
-  interruptAudio('loading');
+  await interruptAudio('loading');
+  const utteranceId = crypto.randomUUID();
+  interviewerAudio.begin({ authority: 'browser-openai-speech', utteranceId });
   const url = URL.createObjectURL(blob);
   const audio = new Audio(url);
   state.currentAudioUrl = url;
@@ -250,6 +295,7 @@ async function playBlob(blob, telemetry = {}) {
         state.currentPlaybackSettle = null;
         setInterviewerSpeaking(false, reason);
       }
+      interviewerAudio.finish({ reason });
       if (error) reject(error); else resolve();
     };
     state.currentPlaybackSettle = () => finish(null, state.streaming);
@@ -294,8 +340,12 @@ function createContinuousRail() {
       if (event.status === 'responding' && micController.detector.lastSpeechAtMs != null) {
         state.railAnswerEndToResponseMs = Math.max(0, Math.round(performance.now() - micController.detector.lastSpeechAtMs));
       }
-      if (event.status === 'speaking' || event.status === 'responding') setInterviewerSpeaking(true, 'streaming');
+      if (event.status === 'speaking' || event.status === 'responding') {
+        if (!interviewerAudio.health().active) interviewerAudio.begin({ authority: 'openai-realtime-direct', utteranceId: crypto.randomUUID() });
+        setInterviewerSpeaking(true, 'streaming');
+      }
       if (['listening', 'floor-yield-detected'].includes(event.status)) {
+        interviewerAudio.finish({ reason: event.status });
         setInterviewerSpeaking(false, event.status);
         if (bridge.recording) bridge.setIvState('listen');
       }
@@ -313,6 +363,7 @@ function createContinuousRail() {
       }
     },
     onError: (error) => {
+      interviewerAudio.interrupt();
       state.railStatus = 'failed';
       state.providerHealth = 'degraded';
       state.lastError = publicError(error, 'Continuous Conversation unavailable.').message;
@@ -350,6 +401,7 @@ async function closeContinuousRail() {
   const rail = continuousRail;
   continuousRail = null;
   if (rail) await rail.close().catch(() => {});
+  interviewerAudio.interrupt();
   if (state.railId === RAIL_IDS.OPENAI_REALTIME && state.railStatus !== 'failed') state.railStatus = 'closed';
 }
 
@@ -370,12 +422,16 @@ async function speak(text) {
   await ensureAlphaSession();
   if (state.alphaMode === 'avatar' && avatar.health().available) {
     const startedAt = performance.now();
-    if (state.activeSpeechController) state.activeSpeechController.abort('superseded');
+    if (state.activeSpeechController || state.avatarSpeechActive || interviewerAudio.health().active) {
+      await interruptAudio('superseded');
+    }
     const controller = new AbortController();
     state.activeSpeechController = controller;
     state.streaming = 'generating';
     bridge.setIvState('thinking');
     renderDiagnostics();
+    let generatedPcm = null;
+    let fallBackToVoice = false;
     try {
       const response = await fetch('/api/speech', {
         method: 'POST',
@@ -385,13 +441,17 @@ async function speak(text) {
       });
       if (!response.ok) throw publicError(await response.json().catch(() => ({})), 'OpenAI Speech request failed.');
       const audio = await response.arrayBuffer();
+      generatedPcm = new Uint8Array(audio);
       if (controller.signal.aborted) return;
       state.avatarSpeechActive = true;
+      interviewerAudio.begin({ authority: 'liveavatar-livekit', utteranceId: crypto.randomUUID() });
       setInterviewerSpeaking(true, 'streaming');
       const result = await avatar.enqueueAudio(audio, { signal: controller.signal });
       if (!result?.accepted) throw new Error(result?.reason || 'Live avatar rejected the interviewer audio.');
       if (result.playbackEnded === false && result.reason !== 'interrupted') {
         state.alphaMode = 'voice-only';
+        state.audioAuthority = 'browser-openai-speech';
+        state.audibleVoiceTruth = `OpenAI Speech · ${state.voiceId}`;
         state.avatarNotice = 'Live avatar playback did not complete. Continuing with the same intelligence and OpenAI voice only.';
         await persistAlphaEvent({ deliveryMode: 'voice-only', deliveryReason: 'avatar-playback-failed' });
         renderAvatarState();
@@ -402,12 +462,29 @@ async function speak(text) {
       return;
     } catch (error) {
       if (controller.signal.aborted) return;
-      throw error;
+      await avatar.interrupt().catch(() => {});
+      await avatar.stop('provider-failure').catch(() => {});
+      state.alphaMode = 'voice-only';
+      state.audioAuthority = 'browser-openai-speech';
+      state.audibleVoiceTruth = `OpenAI Speech · ${state.voiceId}`;
+      state.avatarNotice = `Avatar unavailable — continuing with voice. ${publicError(error).message}`;
+      await persistAlphaEvent({ deliveryMode: 'voice-only', deliveryReason: 'avatar-utterance-failed' });
+      if (generatedPcm?.byteLength) {
+        state.pendingAudio = {
+          utterance: text,
+          blob: pcm16WavBlob(generatedPcm),
+          latencyMs: Math.round(performance.now() - startedAt),
+        };
+      }
+      fallBackToVoice = true;
+      renderAvatarState();
     } finally {
       if (state.activeSpeechController === controller) state.activeSpeechController = null;
       state.avatarSpeechActive = false;
+      interviewerAudio.finish({ reason: state.streaming === 'interrupted' ? 'interrupted' : 'complete' });
       setInterviewerSpeaking(false, state.streaming === 'interrupted' ? 'interrupted' : 'complete');
     }
+    if (!fallBackToVoice) return;
   }
   if (state.pendingAudio?.utterance === text) {
     const pending = state.pendingAudio;
@@ -634,6 +711,22 @@ function studioField(label, select) {
   return wrap;
 }
 
+function openFounderHarness() {
+  if (state.alphaSessionId || continuousRail?.health().connected) {
+    bridge.toast('End the active interview before starting a new Founder test.');
+    return;
+  }
+  state.founderHarness = true;
+  state.selectedInterviewerId = 'senior-academic-pd-male';
+  state.avatarEnabled = true;
+  state.avatarNotice = state.avatarProviderReady
+    ? 'Founder preflight: Dexter target selected. Start is gated on synchronized provider audio + video.'
+    : 'Avatar unavailable — continuing with voice. LiveAvatar server authorization is missing.';
+  bridge.prepareLiveInterviewerTest();
+  renderAvatarState();
+  renderDiagnostics();
+}
+
 function renderFounderStudios() {
   if (bridge.role !== 'admin') return;
   let panel = document.getElementById('frontier-studios');
@@ -727,7 +820,7 @@ function renderFounderStudios() {
   const truth = document.createElement('div');
   truth.className = 'notice';
   truth.style.marginTop = '12px';
-  truth.textContent = `Current rail ${state.railId} · ${state.model} · OpenAI voice ID ${state.voiceId}. Realtime uses provider semantic VAD at low eagerness; fallback retains MissionMed’s five-second silence rule. GPT-Live remains unavailable unless authenticated API discovery proves otherwise. “W. Clint Oxley” is verified separately as LiveAvatar voice ID a33a57ab-8388-49fc-a069-dbcfd1bc5405 on the Dr Bastos Voice Agent; it is not an OpenAI voice and is not presented as ${state.voiceId}.`;
+  truth.textContent = `Selected rail: ${state.railId} · model: ${state.model}. Audible interviewer: ${state.audibleVoiceTruth}. Audio authority: ${state.audioAuthority}. Locked target: Dexter Doctor Sitting + W. Clint Oxley (a33a57ab-8388-49fc-a069-dbcfd1bc5405). W. Clint is not presented as active until authenticated evidence proves the exact Dexter-compatible provider path. Realtime remains direct audio until the unified V6 ticket supplies its accepted output-audio sink.`;
   const rosterTitle = document.createElement('div');
   rosterTitle.className = 'pLbl';
   rosterTitle.style.marginTop = '16px';
@@ -759,6 +852,11 @@ function renderFounderStudios() {
       bridge.toast(`${publicError(error).message} Voice-only fallback remains available.`);
     }
   };
+  const testLive = document.createElement('button');
+  testLive.id = 'founder-test-live-interviewer';
+  testLive.className = 'btnHero';
+  testLive.textContent = 'TEST LIVE INTERVIEWER';
+  testLive.onclick = () => openFounderHarness();
   const ledger = document.createElement('button');
   ledger.className = 'btnGhost';
   ledger.textContent = 'Refresh usage ledger';
@@ -781,7 +879,7 @@ function renderFounderStudios() {
     bridge.toast(state.alphaDisabled ? 'Emergency disable is active. New sessions are blocked.' : 'Local alpha starts re-enabled.');
     renderFounderStudios();
   };
-  founderActions.append(surprise, ledger, disable);
+  founderActions.append(testLive, surprise, ledger, disable);
   body.append(title, row, truth, rosterTitle, roster, founderActions);
   panel.append(body);
 }
@@ -818,8 +916,6 @@ function ensureFocusRoomStyle() {
     body.frontier-focus-room #frontier-room-controls .pPad { padding:4px 0; }
     body.frontier-focus-room #frontier-room-buttons { justify-content:center; }
     body.frontier-focus-room #frontier-avatar-toggle,
-    body.frontier-focus-room #enable-avatar-audio,
-    body.frontier-focus-room #frontier-disclosure,
     body.frontier-focus-room #frontier-typed-fallback { display:none !important; }
     body.frontier-focus-room #frontier-typed-fallback.typed-open { display:flex !important; margin-top:10px; }
     body.frontier-focus-room #frontier-start[hidden],
@@ -828,7 +924,8 @@ function ensureFocusRoomStyle() {
     body.frontier-focus-room #continuous-rail-fallback { display:none !important; }
     body.frontier-focus-room #continuous-rail-fallback:not([hidden]) { display:inline-flex !important; }
     body.frontier-focus-room #frontier-room-status { display:block; text-align:center; font-size:14px; color:var(--mid); margin:2px 0 12px; }
-    body.frontier-focus-room #avatar-live-state { display:none; }
+    body.frontier-focus-room #avatar-live-state,
+    body.frontier-focus-room #frontier-disclosure { display:block; max-width:920px; margin:8px auto 0; }
     @media (max-width:700px) {
       body.frontier-focus-room section[data-view="room"] { padding:10px 10px 86px; }
       body.frontier-focus-room #roomstage { height:62vh; min-height:360px; }
@@ -839,7 +936,7 @@ function ensureFocusRoomStyle() {
 
 function renderFocusRoom() {
   ensureFocusRoomStyle();
-  const focused = bridge.role === 'student' && bridge.view === 'room' && state.railId === RAIL_IDS.OPENAI_REALTIME;
+  const focused = bridge.role === 'student' && bridge.view === 'room' && (state.founderHarness || state.railId === RAIL_IDS.OPENAI_REALTIME);
   document.body.classList.toggle('frontier-focus-room', focused);
   const recordingBadge = document.getElementById('recb');
   if (focused && !state.interviewStarted && recordingBadge) {
@@ -850,7 +947,7 @@ function renderFocusRoom() {
   if (status) {
     status.hidden = !focused;
     status.textContent = !state.interviewStarted
-      ? 'Ready when you are.'
+      ? (!state.founderHarness ? 'Ready when you are.' : `${state.avatarNotice} Audible interviewer: ${state.audibleVoiceTruth}.`)
       : state.railStatus === 'failed'
       ? 'The interviewer connection needs attention.'
       : state.interviewerSpeaking || ['responding', 'speaking'].includes(state.railStatus)
@@ -860,7 +957,11 @@ function renderFocusRoom() {
       : 'Listening — pause naturally. The interviewer will respond when you finish.';
   }
   const interrupt = document.getElementById('frontier-interrupt');
-  if (interrupt) interrupt.hidden = focused && !state.interviewerSpeaking;
+  if (interrupt) {
+    interrupt.hidden = false;
+    interrupt.disabled = !state.interviewerSpeaking;
+    interrupt.setAttribute('aria-disabled', String(!state.interviewerSpeaking));
+  }
   const start = document.getElementById('frontier-start');
   if (start) start.hidden = !focused || state.interviewStarted;
   const typeButton = document.getElementById('frontier-type-instead');
@@ -887,13 +988,27 @@ function ensureRoomControls() {
   start.id = 'frontier-start';
   start.className = 'btnHero';
   start.textContent = 'Start Interview';
-  start.onclick = () => {
+  start.onclick = async () => {
     if (state.interviewStarted || bridge.view !== 'room') return;
     if (!bridge.build?.length) return bridge.startInterview();
-    state.interviewStarted = true;
-    state.typedFallbackOpen = false;
-    renderFocusRoom();
-    bridge.startInterview();
+    start.disabled = true;
+    start.textContent = 'Connecting interviewer…';
+    try {
+      await ensureAlphaSession();
+      state.interviewStarted = true;
+      state.typedFallbackOpen = false;
+      renderFocusRoom();
+      bridge.startInterview();
+    } catch (error) {
+      state.avatarNotice = `Avatar unavailable — continuing with voice. ${publicError(error).message}`;
+      state.alphaMode = 'voice-only';
+      state.audioAuthority = state.railId === RAIL_IDS.OPENAI_REALTIME ? 'openai-realtime-direct' : 'browser-openai-speech';
+      renderAvatarState();
+      bridge.toast(state.avatarNotice);
+    } finally {
+      start.disabled = false;
+      start.textContent = 'Start Interview';
+    }
   };
   const mute = document.createElement('button');
   mute.id = 'frontier-mute';
@@ -936,14 +1051,21 @@ function ensureRoomControls() {
   end.id = 'frontier-end';
   end.className = 'btnGhost';
   end.textContent = 'End interview';
-  end.onclick = () => {
+  end.onclick = async () => {
+    end.disabled = true;
+    end.textContent = 'Ending…';
     state.interviewStarted = false;
     state.typedFallbackOpen = false;
     cancelTurn('ended');
-    endAlphaSession('ended');
     if (bridge.recording) bridge.abandonTake();
+    await endAlphaSession('ended').catch(() => {});
+    state.founderHarness = false;
+    bridge.stopMedia();
+    bridge.toast('Session ended — camera and microphone released.');
     if (bridge.run.takes.length) bridge.finishRound();
-    else { bridge.stopMedia(); bridge.nav('home'); }
+    else bridge.nav('home');
+    end.disabled = false;
+    end.textContent = 'End interview';
   };
   const avatarToggle = document.createElement('button');
   avatarToggle.id = 'frontier-avatar-toggle';
@@ -1034,11 +1156,12 @@ function ensureRoomControls() {
   const disclosure = document.createElement('div');
   disclosure.id = 'frontier-disclosure';
   disclosure.className = 'notice';
-  disclosure.textContent = 'The interviewer voice is AI-generated. Continuous Conversation streams microphone audio to the configured OpenAI Realtime service; High-Intelligence Voice sends completed interview text. Browser speech recognition follows the browser implementation. The local replay recording remains in this tab.';
+  disclosure.textContent = 'AI interviewer using a provider stock avatar; not a real physician. Exactly one audible interviewer stream is active, while transcript authority remains independent from playback. Continuous Conversation streams microphone audio to OpenAI Realtime; High-Intelligence Voice sends completed interview text. Local replay remains in this tab.';
   const avatarState = document.createElement('div');
   avatarState.id = 'avatar-live-state';
   avatarState.className = 'notice';
   avatarState.setAttribute('role', 'status');
+  avatarState.setAttribute('aria-live', 'polite');
   avatarState.textContent = state.avatarNotice;
   const focusStatus = document.createElement('div');
   focusStatus.id = 'frontier-room-status';
@@ -1063,6 +1186,13 @@ function renderAvatarState() {
   if (liveVideo) liveVideo.style.visibility = live ? 'visible' : 'hidden';
   if (canvas) canvas.style.visibility = live ? 'hidden' : '';
   if (monogram) monogram.style.visibility = live ? 'hidden' : '';
+  if (state.founderHarness) {
+    const participantName = state.avatarTarget?.participantDisplayName || 'Dexter · MissionMed AI Faculty';
+    const tileName = document.getElementById('ivtilename');
+    const panelName = document.getElementById('ivpanelname');
+    if (tileName) { tileName.textContent = participantName; tileName.style.display = 'block'; }
+    if (panelName) panelName.textContent = participantName;
+  }
 }
 
 function ensureDiagnostics() {
@@ -1081,7 +1211,7 @@ function ensureDiagnostics() {
 function renderDiagnostics() {
   const diagnostic = ensureDiagnostics();
   if (!diagnostic || diagnostic.hidden) return;
-  diagnostic.textContent = `RAIL ${state.railId} · RAIL STATE ${state.railStatus} · MODEL ${state.model}${state.providerModel && state.providerModel !== state.model ? ` · PROVIDER MODEL ${state.providerModel}` : ''} · VOICE ${state.voiceId} · AVATAR ${avatar.health().state} · CONNECT ${state.railConnectionMs ?? '—'} ms · FIRST AUDIO ${state.railFirstAudioMs ?? state.latencyMs ?? '—'} ms · ANSWER END→RESPONSE ${state.railAnswerEndToResponseMs ?? '—'} ms · FLOOR→RESPONSE ${state.railFloorToResponseMs ?? '—'} ms · INTERRUPT ${state.railInterruptionMs ?? '—'} ms · ROUND TRIP ${state.roundTripMs ?? '—'} ms · STREAM ${state.streaming} · PROVIDER ${state.providerHealth}`;
+  diagnostic.textContent = `RAIL ${state.railId} · RAIL STATE ${state.railStatus} · MODEL ${state.model}${state.providerModel && state.providerModel !== state.model ? ` · PROVIDER MODEL ${state.providerModel}` : ''} · AUDIBLE ${state.audibleVoiceTruth} · AUDIO AUTHORITY ${state.audioAuthority} · AVATAR ${avatar.health().state} · FIRST FRAME ${avatar.health().firstFrameMs ?? '—'} ms · AUDIO TRACK ${avatar.health().firstAudioTrackMs ?? '—'} ms · CONNECT ${state.railConnectionMs ?? '—'} ms · FIRST AUDIO ${state.railFirstAudioMs ?? state.latencyMs ?? '—'} ms · ANSWER END→RESPONSE ${state.railAnswerEndToResponseMs ?? '—'} ms · FLOOR→RESPONSE ${state.railFloorToResponseMs ?? '—'} ms · RAIL INTERRUPT ${state.railInterruptionMs ?? '—'} ms · AVATAR INTERRUPT ACK ${state.avatarInterruptAckMs ?? '—'} ms · ROUND TRIP ${state.roundTripMs ?? '—'} ms · STREAM ${state.streaming} · PROVIDER ${state.providerHealth}`;
 }
 
 function downloadEvidence(filename, content, type) {
@@ -1192,11 +1322,15 @@ async function loadConfiguration() {
     state.railConfigs = Array.isArray(railConfig.rails) ? railConfig.rails : [];
     state.railId = railConfig.defaultRailId || RAIL_IDS.RESPONSES_SPEECH;
     state.railStatus = state.railConfigs.find((rail) => rail.id === state.railId)?.status || 'unavailable';
-    state.avatarProviderReady = avatarConfig.health?.configured === true || avatarConfig.health?.available === true;
+    state.avatarTarget = avatarConfig.target || null;
+    state.avatarProviderReady = Boolean(
+      (avatarConfig.health?.configured === true || avatarConfig.health?.available === true)
+      && avatarConfig.target?.hasApprovedLiveKitOrigin
+    );
     state.alphaDisabled = Boolean(health.alpha?.disabled);
     state.avatarNotice = state.avatarProviderReady
-      ? 'Live avatar provider is configured. It will connect only after Begin.'
-      : 'Live avatar unavailable: provider authorization is missing. Voice-only fallback will remain visible and use the same interviewer intelligence and OpenAI voice.';
+      ? 'Dexter LiveAvatar transport is configured. Exact W. Clint compatibility still requires authenticated provider evidence before that voice can be presented as active.'
+      : 'Avatar unavailable — continuing with voice. LiveAvatar authorization or the exact approved LiveKit origin is missing.';
     if (models.defaultModelId) state.model = models.defaultModelId;
     if (models.defaultBehaviorPresetId) state.behaviorPresetId = models.defaultBehaviorPresetId;
     if (models.observerModelId) state.observerModel = models.observerModelId;
@@ -1237,6 +1371,7 @@ window.V6Frontier = {
   interrupt: interruptAudio,
   cancelTurn,
   onTakeComplete,
+  openFounderHarness,
   renderFounderStudios,
   health: () => ({ openai: state.providerHealth, avatar: avatar.health(), rail: continuousRail?.health() || { railId: state.railId, status: state.railStatus } }),
 };

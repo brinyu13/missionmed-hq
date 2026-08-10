@@ -58,7 +58,10 @@ test('server-owned alpha routes persist, enforce one active identity, and emerge
   const disabled = await fetch(`${base}/api/alpha-control/emergency-disable`, {
     method: 'POST', headers: { ...jsonHeaders, 'X-IVPrep-Founder': 'local-founder' }, body: JSON.stringify({ disabled: true }),
   });
-  assert.deepEqual(await disabled.json(), { disabled: true });
+  assert.deepEqual(await disabled.json(), {
+    disabled: true,
+    avatarCleanup: { requested: false, acknowledged: true, state: 'not-required' },
+  });
   const blocked = await fetch(`${base}/api/alpha-sessions/start`, { method: 'POST', headers: jsonHeaders, body: JSON.stringify({ ...input, testIdentity: 'blocked-smoke' }) });
   assert.equal(blocked.status, 503);
 

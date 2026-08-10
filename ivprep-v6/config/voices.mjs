@@ -51,12 +51,14 @@ export const VOICE_PRESETS = Object.freeze([
 export const DEFAULT_VOICE_PRESET_ID = 'experienced-male-program-director';
 
 export const PREFERRED_FOUNDER_VOICE = Object.freeze({
-  displayName: 'W. Clint Oxley',
+  displayName: LIVE_INTERVIEWER_TARGET.voiceDisplayName,
   provider: 'liveavatar',
-  providerVoiceId: 'a33a57ab-8388-49fc-a069-dbcfd1bc5405',
+  providerVoiceId: LIVE_INTERVIEWER_TARGET.voiceId,
   verification: 'verified-authenticated-provider-ui',
+  currentAuthenticatedVerification: 'blocked-on-liveavatar-auth',
   missionMedLiteCompatible: false,
-  note: 'Verified as the LiveAvatar voice bound to the Dr Bastos Voice Agent. It is not an OpenAI Speech voice ID and is not substituted for cedar.',
+  audibleSelectionContract: 'LiveAvatar may be selected only after authenticated evidence proves this exact voice can drive Dexter while MissionMed retains Conversation Rail intelligence.',
+  note: 'This is not an OpenAI Speech voice ID and is never substituted for cedar. The current LITE supplied-PCM path audibly uses the supplied OpenAI voice.',
 });
 
 export const DR_BASTOS_VOICE_AGENT = Object.freeze({
@@ -115,3 +117,4 @@ export function publicVoiceStudioConfig({ configured = false } = {}) {
     preferredFounderVoice: PREFERRED_FOUNDER_VOICE,
   };
 }
+import { LIVE_INTERVIEWER_TARGET } from '../avatar/live-interviewer-target.mjs';
