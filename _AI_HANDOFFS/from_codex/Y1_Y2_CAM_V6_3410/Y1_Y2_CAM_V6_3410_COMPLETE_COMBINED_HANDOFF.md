@@ -11,7 +11,7 @@ The experimental continuous rail is implemented, authenticated, selectable, and 
 - Repository: `/Users/brianb/MissionMed`
 - Worktree: `/Users/brianb/MissionMed_worktrees/Y1-Y2-CAM-V6-3410`
 - Branch: `codex/y1-y2-cam-v6-3410-continuous-conversation`
-- Implementation commit: `ebb8584` (`feat(ivprep): add experimental continuous conversation rail`)
+- Implementation commits: `ebb8584` (`feat(ivprep): add experimental continuous conversation rail`) and `4f7b69a` (`fix(ivprep): restore realtime follow-ups and focus room`)
 - Accepted inherited baseline: Y1-Y2-CAM-V6-3404
 - Baseline commit: `0ce0f1d2b08965ede4c717b7833535552c39e9ff`
 - Rollback tag: `y1-y2-cam-v6-3410-inherited-3404`
@@ -115,8 +115,8 @@ Provider-only capability timing measured one 786 ms first-audio run, 161 ms to d
 ## Tests and probes
 
 - Syntax checks: pass.
-- Automated suite: **65/65 pass**, 0 fail.
-- New rail/lifecycle contracts: 8 added and passing.
+- Automated suite: **67/67 pass**, 0 fail.
+- New rail/lifecycle contracts: 10 added and passing.
 - Dependency audit: 0 vulnerabilities.
 - Actual same-origin authenticated relay: pass.
 - Repeated authenticated relay launch: two consecutive launches pass; four total successful relay probes in this run, including a final post-repair run.
@@ -129,7 +129,16 @@ Provider-only capability timing measured one 786 ms first-audio run, 161 ms to d
 - Allowed-path check: pass.
 - Frozen baseline hash: unchanged.
 - Rollback tag resolution: exact inherited baseline.
-- Browser acceptance: not run because the browser-control sandbox blocked localhost by URL policy before app load. This was not treated as an application or microphone failure and was not bypassed.
+- Chrome acceptance: the founder's actual loopback tab loaded with retained camera/microphone permission. The repaired focused room was directly observed in Chrome. A typed Realtime answer produced and durably persisted a contextual model-generated follow-up plus its separate instructor record. A fresh spoken-microphone repetition after the repair remains founder acceptance, not an automated claim.
+
+## Founder feedback repair — 2026-08-10
+
+Founder Chrome evidence exposed two material defects after the original handoff:
+
+1. Realtime could finish response audio before the input transcription completion event arrived. The browser cleared its assistant state before the transcript pair was complete, producing the visible false failure `Continuous Conversation did not produce a complete transcript pair` instead of advancing the interview. Turn settlement now waits for both transcript halves and retries when either late transcript-completion event arrives.
+2. The Realtime room retained the V6 meeting chrome, coaching telemetry, manual `Done Answering` control, duplicate interruption controls, and permanent navigation. Student Realtime mode now uses a bounded focus presentation: interviewer stage, self-view, one plain-language state, mute, contextual interrupt, optional typed fallback, explicit fallback only on provider failure, and end interview. The underlying fallback room and V6 flow remain unchanged.
+
+Direct Chrome evidence after the repair showed the focused room without the permanent sidebar, top progress bar, meeting toolbar, live-signal drawer, `Done Answering`, or `Abandon Take`. The durable session ledger recorded the founder-test answer and the contextual follow-up `Give me a concrete example...`, with exact model `gpt-realtime-2.1` and a separate `FOLLOW_UP` instructor record. This proves follow-up generation/persistence for that tested turn; it does not promote the experimental rail or prove repeated natural-microphone stability.
 
 ## Failures and fixes during the ticket
 
@@ -140,6 +149,8 @@ Provider-only capability timing measured one 786 ms first-audio run, 161 ms to d
 5. Browser automation could not navigate to localhost due the controlling Browser Use URL policy. No workaround was attempted.
 6. Fresh verification found an asynchronous PCM scheduling race that could settle a turn before delayed audio was scheduled. Fixed with a serialized queue, pending-schedule drain gate, and generation-based stale-audio rejection.
 7. Fresh verification found that model, voice, and behavior controls were still mutable during an active session even though the rail was locked. All four selections are now locked until the interview ends or is abandoned.
+8. Founder Chrome testing found a late input-transcription ordering race that discarded an otherwise valid follow-up. Fixed with transcript-pair-aware settlement and regression coverage.
+9. Founder feedback found the Realtime interview room cognitively overwhelming. The student Realtime room now suppresses legacy meeting/coaching/manual-turn controls and keeps only essential conversation controls.
 
 ## Security and Platform-v1 observations
 
@@ -153,7 +164,7 @@ Provider-only capability timing measured one 786 ms first-audio run, 161 ms to d
 
 ## Fresh Verifier
 
-Independent verdict: **REALTIME 2.1 NEEDS ANOTHER ITERATION**. The verifier confirmed exact authority/rollback, additive fallback-default architecture, loopback binding, exact runtime rail truth, cross-origin WebSocket rejection, protected fallback/microphone/persistence hashes, allowed paths, secret safety, and both late lifecycle repairs. Its inspection suite passed 64/64 before the final relay-rate contract was added; supervisor closeout passed 65/65.
+Independent verdict: **REALTIME 2.1 NEEDS ANOTHER ITERATION**. The verifier confirmed exact authority/rollback, additive fallback-default architecture, loopback binding, exact runtime rail truth, cross-origin WebSocket rejection, protected fallback/microphone/persistence hashes, allowed paths, secret safety, and both late lifecycle repairs. Its original inspection suite passed 64/64 before the final relay-rate contract was added; supervisor closeout after founder-feedback repair passed 67/67.
 
 Remaining limitations from independent review are the variable semantic-VAD pause behavior, unobserved real-Chrome microphone/speaker quality and end-to-end interruption latency, and the absence of exact partial-assistant/interruption-boundary reconstruction in exported evidence. None justify promoting the experimental rail.
 
