@@ -1,0 +1,332 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://missionmedinstitute.com/schemas/rise/source-access-decision.v1.json",
+  "title": "RISE Source Access Decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "decisionId",
+    "domain",
+    "sourceType",
+    "reviewedAt",
+    "reviewedBy",
+    "termsUrl",
+    "termsStatus",
+    "robotsUrl",
+    "robotsStatus",
+    "accessControlsStatus",
+    "researchDecision",
+    "storageDecision",
+    "derivationDecision",
+    "automationDecision",
+    "collectionMode",
+    "requestsPerMinute",
+    "maxConcurrency",
+    "respectRetryAfter",
+    "decisionAuthority",
+    "allowedPaths",
+    "prohibitedActions",
+    "evidence",
+    "expiresAt"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "rise.source.access.decision.v1"
+    },
+    "decisionId": {
+      "type": "string",
+      "pattern": "^rise_sad_[a-z0-9._-]+$"
+    },
+    "domain": {
+      "type": "string",
+      "pattern": "^[a-z0-9.-]+$"
+    },
+    "sourceType": {
+      "enum": [
+        "OFFICIAL_RESIDENCY_PROGRAM_PAGE",
+        "OFFICIAL_HOSPITAL_OR_INSTITUTION_PAGE",
+        "OFFICIAL_FACULTY_OR_LEADERSHIP_PAGE",
+        "OFFICIAL_RESIDENT_ROSTER_PAGE"
+      ]
+    },
+    "reviewedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reviewedBy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "termsUrl": {
+      "type": ["string", "null"],
+      "format": "uri"
+    },
+    "termsStatus": {
+      "enum": [
+        "EXPLICITLY_PERMITS_REQUESTED_OPERATIONS",
+        "RESTRICTS_PLANNED_USE",
+        "NO_TERMS_FOUND_REQUIRES_MANUAL_REVIEW",
+        "AMBIGUOUS_REQUIRES_MANUAL_REVIEW"
+      ]
+    },
+    "robotsUrl": {
+      "type": ["string", "null"],
+      "format": "uri"
+    },
+    "robotsStatus": {
+      "enum": [
+        "ALLOWS_REVIEWED_PATHS",
+        "DISALLOWS_REVIEWED_PATHS",
+        "NO_ROBOTS_FILE_REQUIRES_MANUAL_REVIEW",
+        "AMBIGUOUS_REQUIRES_MANUAL_REVIEW"
+      ]
+    },
+    "accessControlsStatus": {
+      "enum": [
+        "PUBLIC_NO_BYPASS",
+        "LOGIN_REQUIRED_DENY",
+        "PAYWALL_OR_CAPTCHA_DENY",
+        "TECHNICAL_CONTROL_DENY"
+      ]
+    },
+    "researchDecision": {
+      "enum": [
+        "ALLOW_MINIMAL_FACT_RESEARCH",
+        "DENY",
+        "MANUAL_REVIEW_REQUIRED"
+      ]
+    },
+    "storageDecision": {
+      "enum": [
+        "ALLOW_MINIMAL_DISCRETE_FACT_STORAGE",
+        "DENY",
+        "MANUAL_REVIEW_REQUIRED"
+      ]
+    },
+    "derivationDecision": {
+      "enum": [
+        "ALLOW_PROVENANCE_BOUND_DERIVATION",
+        "DENY",
+        "MANUAL_REVIEW_REQUIRED"
+      ]
+    },
+    "automationDecision": {
+      "enum": [
+        "ALLOW_BOUNDED_AUTOMATION",
+        "DENY",
+        "MANUAL_REVIEW_REQUIRED"
+      ]
+    },
+    "collectionMode": {
+      "enum": [
+        "HUMAN_REVIEW_ONLY",
+        "BOUNDED_AUTOMATION"
+      ]
+    },
+    "requestsPerMinute": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "maxConcurrency": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2
+    },
+    "respectRetryAfter": {
+      "const": true
+    },
+    "decisionAuthority": {
+      "enum": [
+        "EXPLICIT_SITE_TERMS",
+        "NAMED_HUMAN_SOURCE_RIGHTS_APPROVAL"
+      ]
+    },
+    "allowedPaths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^/"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "prohibitedActions": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "RAW_HTML_ARCHIVE",
+          "IMAGE_DOWNLOAD",
+          "EXPRESSIVE_TEXT_COPY",
+          "AUTHENTICATION_BYPASS",
+          "ACCESS_CONTROL_BYPASS",
+          "BULK_SITE_MIRROR",
+          "STUDENT_DISPLAY",
+          "RAW_REDISTRIBUTION"
+        ]
+      },
+      "contains": {
+        "const": "RAW_HTML_ARCHIVE"
+      },
+      "minItems": 6,
+      "uniqueItems": true
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "url",
+          "locator",
+          "retrievedAt"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "locator": {
+            "type": "string",
+            "minLength": 1
+          },
+          "retrievedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "privacyDecisionId": {
+      "type": "string",
+      "pattern": "^rise_priv_[a-z0-9._-]+$"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "researchDecision": {
+            "const": "ALLOW_MINIMAL_FACT_RESEARCH"
+          }
+        },
+        "required": [
+          "researchDecision"
+        ]
+      },
+      "then": {
+        "required": [
+          "termsUrl",
+          "robotsUrl"
+        ],
+        "properties": {
+          "termsStatus": {
+            "const": "EXPLICITLY_PERMITS_REQUESTED_OPERATIONS"
+          },
+          "robotsStatus": {
+            "const": "ALLOWS_REVIEWED_PATHS"
+          },
+          "accessControlsStatus": {
+            "const": "PUBLIC_NO_BYPASS"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "storageDecision": {
+            "const": "ALLOW_MINIMAL_DISCRETE_FACT_STORAGE"
+          }
+        },
+        "required": ["storageDecision"]
+      },
+      "then": {
+        "required": ["termsUrl", "robotsUrl"],
+        "properties": {
+          "termsStatus": {
+            "const": "EXPLICITLY_PERMITS_REQUESTED_OPERATIONS"
+          },
+          "accessControlsStatus": {
+            "const": "PUBLIC_NO_BYPASS"
+          },
+          "robotsStatus": {
+            "const": "ALLOWS_REVIEWED_PATHS"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "derivationDecision": {
+            "const": "ALLOW_PROVENANCE_BOUND_DERIVATION"
+          }
+        },
+        "required": ["derivationDecision"]
+      },
+      "then": {
+        "required": ["termsUrl", "robotsUrl"],
+        "properties": {
+          "termsStatus": {
+            "const": "EXPLICITLY_PERMITS_REQUESTED_OPERATIONS"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "automationDecision": {
+            "const": "ALLOW_BOUNDED_AUTOMATION"
+          }
+        },
+        "required": ["automationDecision"]
+      },
+      "then": {
+        "required": ["termsUrl", "robotsUrl"],
+        "properties": {
+          "termsStatus": {
+            "const": "EXPLICITLY_PERMITS_REQUESTED_OPERATIONS"
+          },
+          "robotsStatus": {
+            "const": "ALLOWS_REVIEWED_PATHS"
+          },
+          "collectionMode": {
+            "const": "BOUNDED_AUTOMATION"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "collectionMode": {
+            "const": "HUMAN_REVIEW_ONLY"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "sourceType": {
+            "const": "OFFICIAL_RESIDENT_ROSTER_PAGE"
+          }
+        },
+        "required": [
+          "sourceType"
+        ]
+      },
+      "then": {
+        "required": [
+          "privacyDecisionId"
+        ]
+      }
+    }
+  ]
+}

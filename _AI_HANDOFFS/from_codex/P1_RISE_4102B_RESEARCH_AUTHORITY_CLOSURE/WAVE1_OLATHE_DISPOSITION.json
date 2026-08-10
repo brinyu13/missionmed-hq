@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "rise.research.olathe.disposition.v1",
+  "dispositionId": "rise_source_resolution_1401900001_2026-07-15",
+  "status": "ACCEPTED_FOR_IDENTITY_CONTINUITY_SOURCE_PAYLOAD_QUARANTINED",
+  "canonicalRiseProgramId": "rise_prg_31141a27-b249-5eae-8259-dd3fe679c4f2",
+  "retainedAlias": "RISE-IM-0683",
+  "quarantinedAlias": "RISE-IM-0682",
+  "programSpecialtyId": "rise_ps_54ba473a-9b30-5dc0-8f3f-0bd2bdb17d14",
+  "browseMembershipId": "rise_bm_17a10138-722d-51b0-baf8-52a67320ce7d",
+  "normalizedExternalIdentifierObservation": {
+    "namespace": "ACGME_PROGRAM_ID_AS_REPORTED_BY_FREIDA",
+    "value": "1401900001",
+    "use": "IDENTITY_DISPOSITION_REFERENCE_ONLY",
+    "activeProgramEvidence": false
+  },
+  "sourcePayloadPolicy": {
+    "retainedFreidaObservationMayPopulateFacts": false,
+    "quarantinedFreidaObservationMayPopulateFacts": false,
+    "quarantinedAliasMayBecomeActive": false,
+    "firstPartyReverificationRequired": true
+  },
+  "independentCorroboration": {
+    "sourceType": "AAMC_GENERAL_PUBLIC_MATERIAL",
+    "accessMode": "MANUAL_REFERENCE_ONLY",
+    "url": "https://systems.aamc.org/eras/erasstats/par/display.cfm?spec_cd=140",
+    "reviewedAt": "2026-08-10",
+    "permittedUse": "Corroborate that a single Olathe Internal Medicine program entry is listed; do not ingest the page as a dataset."
+  },
+  "rationale": "The historical duplicate disposition is technically coherent and no contrary identity evidence exists. Source-rights uncertainty is isolated from canonical identity continuity."
+}

@@ -1,0 +1,176 @@
+{
+  "schemaVersion": "rise.research.authority.v1",
+  "releaseId": "rise_research_authority_2026-08-10_567ee6099af7",
+  "ticket": "P1-RISE-4102B",
+  "generatedAt": "2026-08-10T11:24:33Z",
+  "effectiveDate": "2026-08-10",
+  "immutable": true,
+  "result": "RESEARCH_AUTHORITY_UNBLOCKED",
+  "scope": "W1-IMFM-001_OFFLINE_RESEARCH_ONLY",
+  "activationStatus": "ACTIVE_ON_SATISFIED_CUSTODY_AND_VALIDATION_CONDITIONS",
+  "resumeAuthorized": true,
+  "productionAuthorized": false,
+  "studentDisplayAuthorized": false,
+  "restrictedSourceRightsApproved": false,
+  "publicFirstPartyResearchLaneAuthorized": true,
+  "maximumRecordState": "PUBLICATION_CANDIDATE_REQUIRES_HUMAN_REVIEW",
+  "activationConditions": [
+    "Every package artifact is committed on codex/p1-rise-4102b-research-authority.",
+    "The remote branch head equals the local release commit.",
+    "SHA256SUMS verification passes.",
+    "validate_research_authority.mjs returns PASS without --preflight."
+  ],
+  "acceptance": {
+    "acceptedBy": "Brian",
+    "acceptedRole": "Founder",
+    "acceptanceDate": "2026-08-10",
+    "acceptanceMode": "PROSPECTIVE_CONDITIONAL_FOUNDER_DIRECTIVE",
+    "threadEvidence": "Current P1-RISE-4102B Founder directive in this Codex task.",
+    "acceptedScope": "A source-separated offline W1-IMFM-001 release satisfying every user-specified validation gate and making no production mutation.",
+    "exactBytesPreinspectedByFounder": false,
+    "interpretation": "The Founder prospectively authorized the bounded release class and its objective gates; this record does not represent later visual inspection or signature of the exact bytes.",
+    "conditionedOn": [
+      "Identity counts and collisions pass.",
+      "Restricted-source permissions remain false.",
+      "Per-domain source decisions fail closed.",
+      "Release custody is committed and pushed.",
+      "Independent adversarial findings are repaired and revalidated."
+    ]
+  },
+  "authority": {
+    "founderDirective": {
+      "authorityType": "CURRENT_FOUNDER_DIRECTIVE_IN_THREAD",
+      "directive": "Clear every legitimately resolvable blocker and authorize P1-RISE-4102 to resume W1-IMFM-001 when validation passes.",
+      "scope": "Offline, source-separated, verifiable IM/FM research; no production mutation or student publication."
+    },
+    "riseOwnershipEvidence": {
+      "record": "/Users/brianb/MissionMed_OS/decisions/DR-023_f2_lor_1009_authority_unblock_and_bounded_production_release.md",
+      "sha256": "c5d977259b0b2f54ed688fe6d780f182bdd06f78e5a5c1f4ef732a7cc74fdab5",
+      "statement": "RISE owns residency-program intelligence.",
+      "line": 212
+    },
+    "architectureAuthority": {
+      "record": "/Users/brianb/MissionMed_worktrees/MM-PLAT-000-platform-bootstrap-e850386/MISSIONMED_PLATFORM/docs/ADR/MM-FABLE-ADR-001_missionmed_platform_architecture.md",
+      "sha256": "50bff490faab9c089840c1db87cc3b7b92e721a3d4992bab24e1950035439f00"
+    },
+    "constitutionRevision3": {
+      "record": "/Users/brianb/MissionMed/MissionMed_Platform_v1_Governing_Constitution_Revision_3.docx",
+      "sha256": "aea2be8e5e75495b2dee63f48de6c9ea63883c90c4b6f1d7ab4daa1989c232ce",
+      "treatment": "Applied as Founder-directed governing principles for this bounded run; not represented as globally ratified MissionMed OS authority."
+    }
+  },
+  "repository": {
+    "url": "https://github.com/brinyu13/missionmed-hq.git",
+    "researchAuthorityBranch": "codex/p1-rise-4102b-research-authority",
+    "baseBranch": "p1-rise-4000",
+    "baseCommit": "e8503866bce9cb941dd8f2dc38f39e62bd21e316",
+    "historicalIdentityBranch": "codex/p1-rise-4006",
+    "historicalIdentityHead": "365bd8eba38a9dc9058367e1d888a45850c34149",
+    "historicalEvidenceCommit": "46467b1568aafc0093f1e63f8098118266e7c818",
+    "productionCandidateBranch": "codex/p1-rise-4006-production",
+    "productionCandidateLocalHead": "2d0fc6b986ab1cc010e521c54b7b42ec916c1e32",
+    "productionCandidateRemoteHeadObserved": "ad0fae528d9d174fb01a7717af41923323074183",
+    "mergeBase": "9c1fa72e6b056db8fe0e17031fcaa688f78569"
+  },
+  "canonicalIdentity": {
+    "authorityClass": "IMMUTABLE_IDENTITY_CONTINUITY_SIDECAR",
+    "researchSchemaVersion": "rise.research.identity.v1",
+    "canonicalContract": "programs.ndjson.id == rise_program_id",
+    "sourceReleaseId": "rise_registry_2026-07-09_f51f0643a2d9",
+    "sourceReleaseActivationStatus": "offline_shadow_only",
+    "sourceReleaseManifestSha256": "85ef67906ad462e0a609dfa28c1e8479bc9fe287d8a05be0084969ea26fce3c8",
+    "sourceValidationSha256": "28f32301cc0ec6cccd6a06d444bdf7dbc72963e4ca85c420e19cec73e4704216",
+    "identityPackageManifestSha256": "76ad89e258fa6a6b4f52e64e9dba071b421dcacabdfa9139b56333e6949b3865",
+    "identityImplementationSha256": "3c880fbc4f2842b8d8561d13dca3c7d6eccba27023a09fff46dafbb142332344",
+    "identityImplementationGitBlob": "2b8509621c09ba771ed1ea61eb3b462414e9a502",
+    "useRestriction": "NON_EVIDENTIARY_ROUTING_ONLY",
+    "programFactsActivated": false,
+    "sourcePayloadActivated": false
+  },
+  "wave1": {
+    "waveId": "W1-IMFM-001",
+    "memberships": 1649,
+    "exactDesignationPrograms": 1504,
+    "relatedCombinedMemberships": 145,
+    "internalMedicineMemberships": 828,
+    "familyMedicineMemberships": 821,
+    "uniqueCanonicalProgramIds": 1649,
+    "unresolvedActiveAliases": 0,
+    "canonicalIdCollisions": 0,
+    "externalIdCollisionsInPinnedSource": 0,
+    "orphanRecordsInPinnedSource": 0,
+    "sanitizedIdentityFile": "WAVE1_RESEARCH_IDENTITY.ndjson",
+    "sanitizedIdentitySha256": "78644bac033a3b511b3f7e5d4e637f9e57e13f8198bddabf81468cbe15bdda55"
+  },
+  "olathe": {
+    "disposition": "ACCEPTED_FOR_IDENTITY_CONTINUITY_SOURCE_PAYLOAD_QUARANTINED",
+    "canonicalRiseProgramId": "rise_prg_31141a27-b249-5eae-8259-dd3fe679c4f2",
+    "retainedAlias": "RISE-IM-0683",
+    "quarantinedAlias": "RISE-IM-0682",
+    "dispositionFile": "WAVE1_OLATHE_DISPOSITION.json",
+    "dispositionSha256": "68742c07f25148b3e4eda37c53d8ca49acd55fb30bdcd7892970a21de309fc40"
+  },
+  "sourceAuthority": {
+    "policyFile": "SOURCE_USE_POLICY.json",
+    "policySha256": "85e3920f24b0191b5b015c31ea0cd0f88a7ae44068adbf7d4d4fc016dded42f7",
+    "sourceAccessDecisionSchemaFile": "SOURCE_ACCESS_DECISION_SCHEMA.json",
+    "sourceAccessDecisionSchemaSha256": "c1b92face43df2c5e882f7440efba19407091c7358a5010f6c1427b6457d9712",
+    "privacyCollectionDecisionSchemaFile": "PRIVACY_COLLECTION_DECISION_SCHEMA.json",
+    "privacyCollectionDecisionSchemaSha256": "fb66c308fc4b304119f0ee2ef6d7a01d709e6f0cf2d9c94912980e02807f0abb",
+    "sourceAccessDecisionValidatorFile": "validate_source_access_decision.mjs",
+    "sourceAccessDecisionValidatorSha256": "18280b2c81679898f83b531d244d3c5040cf05f763d8dfbb8c7db609285d6bc8",
+    "privacyCollectionDecisionValidatorFile": "validate_privacy_collection_decision.mjs",
+    "privacyCollectionDecisionValidatorSha256": "bd28938acdf93ed03e555c78c95e432c2a05f0c316c50d2262cfd76ddbc777ef",
+    "defaultState": "DO_NOT_USE",
+    "publicFirstPartyResearchAuthorized": false,
+    "conditionalPublicFirstPartyResearchAuthorized": true,
+    "unconditionalPublicDomainAuthorization": false,
+    "domainAccessDecisionRequired": true,
+    "residentRosterPrecollectionPrivacyApprovalRequired": true,
+    "freidaFactsAuthorized": false,
+    "residencyExplorerAuthorized": false,
+    "studentDisplayAuthorized": false,
+    "rawRedistributionAuthorized": false,
+    "productionUseAuthorized": false
+  },
+  "resume": {
+    "thread": "P1-RISE-4102",
+    "wave": "W1-IMFM-001",
+    "resumeAuthorized": true,
+    "authorizedWork": "Create per-domain decisions and research only exact official public first-party paths those decisions allow; resident-roster work additionally requires a named privacy decision.",
+    "outputMaturity": "PUBLICATION_CANDIDATE_REQUIRES_HUMAN_REVIEW",
+    "joinRule": "Strict legacyAlias equality join to WAVE1_RESEARCH_IDENTITY.ndjson; never join by name or fuzzy matching."
+  },
+  "exclusions": {
+    "productionMutation": true,
+    "productionDeployment": true,
+    "studentFacingPublication": true,
+    "inheritedFreidaFactUse": true,
+    "residencyExplorerUse": true,
+    "restrictedReportIngestion": true,
+    "canonicalIdRegeneration": true,
+    "liveGoogleMutation": true,
+    "inheritedProgramNames": true,
+    "inheritedProgramUrls": true,
+    "inheritedExternalIdentifiers": true,
+    "inheritedClaims": true,
+    "inheritedSourceDocuments": true,
+    "inheritedDiscoveryHints": true
+  },
+  "nonBlockingExternalActions": [
+    "Written AMA permission or counsel approval for any broader FREIDA reuse.",
+    "Written AAMC authorization for Residency Explorer use.",
+    "Source-specific permission or legal review before ACGME, NRMP, ABFM, or ABIM report ingestion or student display.",
+    "Formal MissionMed OS product/passport registration and additive production schema reconciliation before production activation."
+  ],
+  "validation": {
+    "requiredValidator": "validate_research_authority.mjs",
+    "expectedResult": "PASS",
+    "sourceReleaseValidationResult": "PASS",
+    "productionMutationPerformed": false,
+    "preexistingUntrackedRootsPreserved": [
+      "_AI_HANDOFFS/from_codex/P1_RISE_4102A_CANONICAL_IDENTITY_UNBLOCK/",
+      "outputs/"
+    ]
+  }
+}

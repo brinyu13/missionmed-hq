@@ -1,0 +1,386 @@
+{
+  "schemaVersion": "rise.source.use.policy.v1",
+  "policyId": "P1-RISE-4102B-SOURCE-USE-POLICY",
+  "effectiveDate": "2026-08-10",
+  "scope": "Offline IM/FM program-intelligence research under W1-IMFM-001",
+  "legalNotice": "Operational governance policy based on the evidence reviewed on 2026-08-10; not legal advice and not a substitute for written source-owner permission.",
+  "defaultState": "DO_NOT_USE",
+  "failClosedScope": [
+    "field",
+    "record",
+    "source",
+    "program"
+  ],
+  "releaseWideRules": {
+    "productionMutationAllowed": false,
+    "studentDisplayAuthorized": false,
+    "rawPageArchiveAllowed": false,
+    "authenticationBypassAllowed": false,
+    "robotsOrAccessControlBypassAllowed": false,
+    "sourceLaunderingAllowed": false,
+    "citationRequiredForEveryAcceptedFact": true,
+    "retrievalDateRequiredForEveryAcceptedFact": true,
+    "firstPartyIdentityVerificationRequired": true,
+    "unverifiedValueDisposition": "LEAVE_BLANK",
+    "researchOutputMaturity": "PUBLICATION_CANDIDATE_REQUIRES_HUMAN_REVIEW",
+    "sourceAccessDecisionRequiredForConditionalPublicSources": true,
+    "residentRosterPrecollectionPrivacyApprovalRequired": true,
+    "operationSpecificSourcePermissionsRequired": true,
+    "expiredSourceDecisionsAllowed": false
+  },
+  "sourceClasses": [
+    {
+      "source_type": "MISSIONMED_GENERATED_CANONICAL_IDENTITY",
+      "owner": "MissionMed RISE",
+      "access_class": "INTERNAL_GENERATED_ROUTING_METADATA",
+      "state": "AUTHORIZED_INTERNAL",
+      "research_allowed": true,
+      "internal_storage_allowed": true,
+      "student_display_allowed": false,
+      "raw_redistribution_allowed": false,
+      "derived_data_allowed": true,
+      "reverification_required": true,
+      "citation_required": false,
+      "allowed_scope": "Exact legacyAlias-to-riseProgramId, programSpecialtyId, and browseMembershipId joins only; no program facts.",
+      "conditions": [
+        "Treat opaque IDs and aliases as non-evidentiary routing metadata.",
+        "Do not infer any program fact from an ID, alias, membership, or deterministic seed.",
+        "Independently verify every factual association from an authorized source."
+      ],
+      "authority": [
+        "Current Founder directive P1-RISE-4102B",
+        "DR-023 dated 2026-08-09: RISE owns residency-program intelligence",
+        "Hash-pinned 4102A identity validation"
+      ],
+      "notes": "Use of the identity sidecar does not activate the inherited registry payload."
+    },
+    {
+      "source_type": "INHERITED_FREIDA_PAYLOAD",
+      "owner": "American Medical Association / FREIDA",
+      "access_class": "LICENSE_RESTRICTED",
+      "state": "LICENSE_RESTRICTED",
+      "research_allowed": false,
+      "internal_storage_allowed": true,
+      "internal_storage_scope": "PRESERVE_EXISTING_IMMUTABLE_QUARANTINE_ONLY",
+      "student_display_allowed": false,
+      "raw_redistribution_allowed": false,
+      "derived_data_allowed": false,
+      "reverification_required": true,
+      "citation_required": true,
+      "discovery_hint_allowed": false,
+      "conditions": [
+        "Do not copy, activate, enrich, display, or derive factual outputs from the inherited payload.",
+        "Do not expose names, external identifiers, statistics, text, or URLs from the payload as evidence.",
+        "Written AMA permission or counsel approval is required before any broader reuse."
+      ],
+      "authority": [
+        "AMA Terms of Use reviewed 2026-08-10",
+        "FREIDA About FREIDA provenance reviewed 2026-08-10",
+        "Historical release sourceRightsApproved=false"
+      ],
+      "notes": "Inherited names, URLs, identifiers, and neighboring workbook cells are excluded even as discovery inputs. This policy makes no claim that MissionMed has broader FREIDA reuse rights."
+    },
+    {
+      "source_type": "RESIDENCY_EXPLORER",
+      "owner": "Association of American Medical Colleges",
+      "access_class": "WRITTEN_AUTHORIZATION_REQUIRED",
+      "state": "DO_NOT_USE",
+      "research_allowed": false,
+      "internal_storage_allowed": false,
+      "student_display_allowed": false,
+      "raw_redistribution_allowed": false,
+      "derived_data_allowed": false,
+      "reverification_required": true,
+      "citation_required": true,
+      "conditions": [
+        "Do not manually or automatically extract Residency Explorer material.",
+        "An authenticated AAMC session does not create reuse rights.",
+        "Written AAMC authorization is required before use."
+      ],
+      "authority": [
+        "Residency Explorer Terms and Conditions updated 2026-04-08"
+      ],
+      "notes": "The inherited release contains zero Residency Explorer material cells."
+    },
+    {
+      "source_type": "OFFICIAL_RESIDENCY_PROGRAM_PAGE",
+      "owner": "Individual residency program or sponsoring institution",
+      "access_class": "PUBLIC_FIRST_PARTY_CONDITIONAL",
+      "state": "CONDITIONAL_DOMAIN_DECISION_REQUIRED",
+      "research_allowed": false,
+      "conditional_research_allowed": true,
+      "internal_storage_allowed": false,
+      "conditional_internal_storage_allowed": true,
+      "internal_storage_scope": "MINIMAL_DISCRETE_FACTS_AND_PROVENANCE_ONLY",
+      "student_display_allowed": false,
+      "raw_redistribution_allowed": false,
+      "derived_data_allowed": false,
+      "conditional_derived_data_allowed": true,
+      "reverification_required": true,
+      "citation_required": true,
+      "conditions": [
+        "A conforming, hash-pinned SOURCE_ACCESS_DECISION must return ALLOW_MINIMAL_FACT_RESEARCH for the exact domain before access or storage.",
+        "Research, storage, derivation, and automation are independently decided; one permission never implies another.",
+        "The unexpired decision must pass validate_source_access_decision.mjs before use.",
+        "Check the domain's current terms, robots directives, and access controls before collection.",
+        "Use normal public access only; no login, paywall, CAPTCHA, or technical-control bypass.",
+        "Store discrete facts, source URL, page title, evidence locator, and retrieval date; do not archive raw HTML or expressive page text.",
+        "Keep all outputs at PUBLICATION_CANDIDATE until a separate display review."
+      ],
+      "authority": [
+        "Current Founder directive P1-RISE-4102B",
+        "U.S. Copyright Office facts guidance reviewed 2026-08-10",
+        "Per-domain terms review required"
+      ],
+      "notes": "No universal first-party-site license is asserted."
+    },
+    {
+      "source_type": "OFFICIAL_HOSPITAL_OR_INSTITUTION_PAGE",
+      "owner": "Individual hospital, health system, or institution",
+      "access_class": "PUBLIC_FIRST_PARTY_CONDITIONAL",
+      "state": "CONDITIONAL_DOMAIN_DECISION_REQUIRED",
+      "research_allowed": false,
+      "conditional_research_allowed": true,
+      "internal_storage_allowed": false,
+      "conditional_internal_storage_allowed": true,
+      "internal_storage_scope": "MINIMAL_DISCRETE_FACTS_AND_PROVENANCE_ONLY",
+      "student_display_allowed": false,
+      "raw_redistribution_allowed": false,
+      "derived_data_allowed": false,
+      "conditional_derived_data_allowed": true,
+      "reverification_required": true,
+      "citation_required": true,
+      "conditions": [
+        "A conforming, hash-pinned SOURCE_ACCESS_DECISION must return ALLOW_MINIMAL_FACT_RESEARCH for the exact domain before access or storage.",
+        "Research, storage, derivation, and automation are independently decided; one permission never implies another.",
+        "The unexpired decision must pass validate_source_access_decision.mjs before use.",
+        "Apply the same per-domain access, minimization, provenance, and publication-candidate controls as official program pages."
+      ],
+      "authority": [
+        "Current Founder directive P1-RISE-4102B",
+        "Per-domain terms review required"
+      ],
+      "notes": "Official institutional pages may independently verify program, benefit, curriculum, visa, facility, and leadership facts when explicitly stated."
+    },
+    {
+      "source_type": "OFFICIAL_FACULTY_OR_LEADERSHIP_PAGE",
+      "owner": "Individual program, hospital, or institution",
+      "access_class": "PUBLIC_FIRST_PARTY_PRIVACY_MINIMIZED",
+      "state": "CONDITIONAL_DOMAIN_AND_PRIVACY_DECISION_REQUIRED",
+      "research_allowed": false,
+      "conditional_research_allowed": true,
+      "internal_storage_allowed": false,
+      "conditional_internal_storage_allowed": true,
+      "internal_storage_scope": "PUBLIC_PROFESSIONAL_ROLE_AND_OFFICIAL_BUSINESS_CONTACT_ONLY",
+      "student_display_allowed": false,
+      "raw_redistribution_allowed": false,
+      "derived_data_allowed": false,
+      "conditional_derived_data_allowed": true,
+      "reverification_required": true,
+      "citation_required": true,
+      "conditions": [
+        "A conforming, hash-pinned SOURCE_ACCESS_DECISION must allow the exact domain before access or storage.",
+        "Research, storage, derivation, and automation are independently decided; one permission never implies another.",
+        "The unexpired decision must pass validate_source_access_decision.mjs before use.",
+        "Do not collect personal contact details, sensitive attributes, photos, or biography text.",
+        "Apply per-domain terms and the official-page controls."
+      ],
+      "authority": [
+        "Current Founder directive P1-RISE-4102B",
+        "MissionMed minimization and privacy principles"
+      ],
+      "notes": "Student display requires a separate privacy and publication review."
+    },
+    {
+      "source_type": "OFFICIAL_RESIDENT_ROSTER_PAGE",
+      "owner": "Individual program, hospital, or institution",
+      "access_class": "PUBLIC_FIRST_PARTY_PRIVACY_REVIEW",
+      "state": "PRIVACY_APPROVAL_REQUIRED",
+      "research_allowed": false,
+      "conditional_research_allowed": true,
+      "internal_storage_allowed": false,
+      "conditional_internal_storage_allowed": true,
+      "internal_storage_scope": "MINIMIZED_PUBLIC_PROFESSIONAL_ROSTER_FACTS_ONLY_AFTER_APPROVAL",
+      "student_display_allowed": false,
+      "raw_redistribution_allowed": false,
+      "derived_data_allowed": false,
+      "conditional_derived_data_allowed": true,
+      "reverification_required": true,
+      "citation_required": true,
+      "conditions": [
+        "Before collection, a named MissionMed data controller must approve purpose, access, retention, deletion, purpose expiry, and audit rules in a hash-pinned privacy decision.",
+        "A conforming, hash-pinned SOURCE_ACCESS_DECISION must separately allow the exact domain.",
+        "Research, storage, derivation, and automation are independently decided; one permission never implies another.",
+        "Both unexpired decisions must pass their executable validators before collection.",
+        "Do not download photos or copy biography text.",
+        "Do not infer nationality, race, ethnicity, visa status, religion, or other sensitive attributes.",
+        "Any aggregate representation metric requires explicit method, denominator, coverage, and separate privacy review."
+      ],
+      "authority": [
+        "Current Founder directive P1-RISE-4102B",
+        "MissionMed minimization and privacy principles"
+      ],
+      "notes": "No resident-roster collection is authorized until both domain-access and pre-collection privacy approvals exist."
+    },
+    {
+      "source_type": "AAMC_GENERAL_PUBLIC_MATERIAL",
+      "owner": "Association of American Medical Colleges",
+      "access_class": "MANUAL_REFERENCE_ONLY",
+      "state": "MANUAL_REVIEW",
+      "research_allowed": false,
+      "manual_reference_allowed": true,
+      "research_scope": "MANUAL_POLICY_REFERENCE_AND_CITATION_ONLY",
+      "internal_storage_allowed": true,
+      "internal_storage_scope": "MINIMAL_CITATION_RECORD_ONLY",
+      "student_display_allowed": false,
+      "raw_redistribution_allowed": false,
+      "derived_data_allowed": false,
+      "reverification_required": true,
+      "citation_required": true,
+      "conditions": [
+        "No automated collection or blanket database ingestion.",
+        "Do not treat general AAMC materials as permission to use Residency Explorer."
+      ],
+      "authority": [
+        "AAMC Website Terms and Conditions updated 2026-05-01"
+      ],
+      "notes": "A source-specific written grant controls if later obtained."
+    },
+    {
+      "source_type": "ACGME_PUBLIC_SITE_OR_REPORT",
+      "owner": "Accreditation Council for Graduate Medical Education",
+      "access_class": "MANUAL_REFERENCE_ONLY",
+      "state": "LICENSE_RESTRICTED",
+      "research_allowed": false,
+      "manual_reference_allowed": true,
+      "research_scope": "MANUAL_REFERENCE_CHECK_ONLY",
+      "internal_storage_allowed": true,
+      "internal_storage_scope": "MINIMAL_CITATION_RECORD_ONLY",
+      "student_display_allowed": false,
+      "raw_redistribution_allowed": false,
+      "derived_data_allowed": false,
+      "reverification_required": true,
+      "citation_required": true,
+      "conditions": [
+        "Do not bulk ingest Program Finder or publications.",
+        "Written license or source-specific approval is required for republication or database use."
+      ],
+      "authority": [
+        "ACGME Terms of Use reviewed 2026-08-10",
+        "ACGME Publication/Document Usage reviewed 2026-08-10"
+      ],
+      "notes": "External IDs inherited from FREIDA are not independently ACGME-verified."
+    },
+    {
+      "source_type": "NRMP_PUBLIC_REPORT_OR_DATA",
+      "owner": "National Resident Matching Program",
+      "access_class": "PERMISSION_OR_LICENSE_REQUIRED",
+      "state": "LICENSE_RESTRICTED",
+      "research_allowed": false,
+      "manual_reference_allowed": true,
+      "research_scope": "MANUAL_POLICY_REFERENCE_ONLY",
+      "internal_storage_allowed": true,
+      "internal_storage_scope": "MINIMAL_CITATION_RECORD_ONLY",
+      "student_display_allowed": false,
+      "raw_redistribution_allowed": false,
+      "derived_data_allowed": false,
+      "reverification_required": true,
+      "citation_required": true,
+      "conditions": [
+        "Do not ingest or quote published-report data without required permission.",
+        "Do not access or use restricted R3 or unpublished data without an executed license."
+      ],
+      "authority": [
+        "NRMP Match Data request and licensing page reviewed 2026-08-10"
+      ],
+      "notes": "Manual policy context is distinct from program-level data ingestion."
+    },
+    {
+      "source_type": "ABFM_REPORT_OR_DATA",
+      "owner": "American Board of Family Medicine",
+      "access_class": "WRITTEN_PERMISSION_REQUIRED",
+      "state": "LICENSE_RESTRICTED",
+      "research_allowed": false,
+      "manual_reference_allowed": true,
+      "research_scope": "MANUAL_REFERENCE_ONLY",
+      "internal_storage_allowed": true,
+      "internal_storage_scope": "MINIMAL_CITATION_RECORD_ONLY",
+      "student_display_allowed": false,
+      "raw_redistribution_allowed": false,
+      "derived_data_allowed": false,
+      "reverification_required": true,
+      "citation_required": true,
+      "conditions": [
+        "No scraping, database extraction, derivative dataset, or commercial exploitation.",
+        "Written permission is required before program-level pass-rate ingestion."
+      ],
+      "authority": [
+        "ABFM Terms of Use updated 2024-03-14"
+      ],
+      "notes": "Manual review does not authorize storage of report values."
+    },
+    {
+      "source_type": "ABIM_REPORT_OR_DATA",
+      "owner": "American Board of Internal Medicine",
+      "access_class": "MANUAL_REVIEW_REQUIRED",
+      "state": "MANUAL_REVIEW",
+      "research_allowed": false,
+      "manual_reference_allowed": true,
+      "research_scope": "MANUAL_REFERENCE_ONLY",
+      "internal_storage_allowed": false,
+      "student_display_allowed": false,
+      "raw_redistribution_allowed": false,
+      "derived_data_allowed": false,
+      "reverification_required": true,
+      "citation_required": true,
+      "conditions": [
+        "No affirmative commercial-reuse license was located in this review.",
+        "Complete source-specific permission review before storing or displaying program pass-rate values."
+      ],
+      "authority": [
+        "ABIM Data and Reports page reviewed 2026-08-10"
+      ],
+      "notes": "Public posting alone is not treated as a database reuse license."
+    },
+    {
+      "source_type": "MISSIONMED_INTERNAL_RECORD",
+      "owner": "MissionMed or the applicable data subject/source owner",
+      "access_class": "OWNER_AND_CONSENT_SPECIFIC",
+      "state": "MANUAL_REVIEW",
+      "research_allowed": false,
+      "internal_storage_allowed": false,
+      "student_display_allowed": false,
+      "raw_redistribution_allowed": false,
+      "derived_data_allowed": false,
+      "reverification_required": true,
+      "citation_required": true,
+      "conditions": [
+        "Require a named data owner, purpose, consent or other authority, and retention rule before use."
+      ],
+      "authority": [
+        "MissionMed ownership, consent, privacy, and auditability principles"
+      ],
+      "notes": "This release does not authorize alumni, ACTN, interview, or user data."
+    },
+    {
+      "source_type": "UNOFFICIAL_AGGREGATOR_OR_BLOG",
+      "owner": "Unknown or third party",
+      "access_class": "NON_AUTHORITATIVE",
+      "state": "DO_NOT_USE",
+      "research_allowed": false,
+      "internal_storage_allowed": false,
+      "student_display_allowed": false,
+      "raw_redistribution_allowed": false,
+      "derived_data_allowed": false,
+      "reverification_required": true,
+      "citation_required": true,
+      "conditions": [
+        "May not serve as factual authority or resolve a conflict."
+      ],
+      "authority": [
+        "P1-RISE-4102B source-priority and zero-fabrication rules"
+      ],
+      "notes": "Use an authorized first-party replacement source or leave the field blank."
+    }
+  ]
+}

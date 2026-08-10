@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://missionmedinstitute.com/schemas/rise/privacy-collection-decision.v1.json",
+  "title": "RISE Privacy Collection Decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "decisionId",
+    "dataClass",
+    "decision",
+    "controller",
+    "approvedBy",
+    "approvedAt",
+    "purpose",
+    "allowedFields",
+    "prohibitedFields",
+    "accessRoles",
+    "retentionDays",
+    "deletionProcedure",
+    "purposeExpiresAt",
+    "auditLogLocation",
+    "studentDisplayAllowed",
+    "sensitiveInferenceAllowed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "rise.privacy.collection.decision.v1"
+    },
+    "decisionId": {
+      "type": "string",
+      "pattern": "^rise_priv_[a-z0-9._-]+$"
+    },
+    "dataClass": {
+      "const": "PUBLIC_RESIDENT_ROSTER"
+    },
+    "decision": {
+      "enum": [
+        "APPROVED",
+        "DENIED"
+      ]
+    },
+    "controller": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approvedBy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approvedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "purpose": {
+      "const": "RESIDENCY_PROGRAM_ROSTER_RESEARCH"
+    },
+    "allowedFields": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "public_display_name",
+          "training_year",
+          "official_role",
+          "medical_school",
+          "medical_degree",
+          "official_profile_url"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "prohibitedFields": {
+      "const": [
+        "personal_email",
+        "personal_phone",
+        "home_address",
+        "photo",
+        "biography_text",
+        "date_of_birth",
+        "race",
+        "ethnicity",
+        "nationality",
+        "citizenship",
+        "visa_status",
+        "religion",
+        "disability",
+        "sexual_orientation",
+        "gender_identity",
+        "family_status"
+      ]
+    },
+    "accessRoles": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "RISE_RESEARCHER",
+          "RISE_PRIVACY_REVIEWER"
+        ]
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "retentionDays": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 90
+    },
+    "deletionProcedure": {
+      "type": "string",
+      "minLength": 1
+    },
+    "purposeExpiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "auditLogLocation": {
+      "type": "string",
+      "minLength": 1
+    },
+    "studentDisplayAllowed": {
+      "const": false
+    },
+    "sensitiveInferenceAllowed": {
+      "const": false
+    }
+  }
+}
