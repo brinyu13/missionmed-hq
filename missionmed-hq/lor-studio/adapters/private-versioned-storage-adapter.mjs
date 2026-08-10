@@ -37,6 +37,28 @@ const PUT_FIELDS = new Set([
 ]);
 const GET_FIELDS = new Set(['caseId', 'contentClass', 'objectId', 'purpose', 'versionId']);
 
+/**
+ * @typedef {object} PrivateVersionedStorageDriver
+ * @property {boolean} [privateOnly]
+ * @property {boolean} [immutableVersions]
+ * @property {boolean} [serverOnly]
+ * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} putImmutable
+ * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} getImmutable
+ */
+
+/**
+ * @typedef {object} StorageCapabilityProvider
+ * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} resolveStorageCapability
+ */
+
+/**
+ * @typedef {object} PrivateStorageAdapterOptions
+ * @property {Record<string, unknown> | null} [binding]
+ * @property {PrivateVersionedStorageDriver | null} [driver]
+ * @property {StorageCapabilityProvider | null} [capabilityProvider]
+ * @property {() => Date | string | number} [clock]
+ */
+
 function canonicalObjectKey(request) {
   return `cases/${encodeURIComponent(request.caseId)}/${request.contentClass}/${encodeURIComponent(request.objectId)}`;
 }
@@ -284,6 +306,7 @@ function safeReceipt({ operation, request, result, checksum, binding, capability
 }
 
 export class PrivateVersionedStorageAdapter extends PrivateStoragePort {
+  /** @param {PrivateStorageAdapterOptions} [options] */
   constructor({ binding, driver, capabilityProvider, clock } = {}) {
     super();
     this.binding = assertBinding(binding);

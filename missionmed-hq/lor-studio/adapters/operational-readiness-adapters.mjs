@@ -101,6 +101,59 @@ const SAFE_METADATA_ENUMS = Object.freeze({
   state: new Set(DEPENDENCY_STATES),
 });
 
+/**
+ * @typedef {object} DependencyProbeResult
+ * @property {string} [state]
+ * @property {string} [errorCode]
+ */
+
+/** @typedef {{probe: () => Promise<DependencyProbeResult | null | undefined>}} DependencyProbe */
+
+/**
+ * @typedef {object} HealthAdapterOptions
+ * @property {Record<string, DependencyProbe>} [dependencies]
+ * @property {{enabled?: boolean, killSwitch?: boolean, requireCanary?: boolean}} [flags]
+ * @property {() => Date | string | number} [clock]
+ */
+
+/**
+ * @typedef {object} OperationalMetadataSink
+ * @property {(event: Record<string, unknown>) => Promise<{accepted?: boolean, metadataOnly?: boolean} | null | undefined>} writeMetadataEvent
+ */
+
+/**
+ * @typedef {object} OperationalLoggerOptions
+ * @property {OperationalMetadataSink | null} [sink]
+ * @property {() => Date | string | number} [clock]
+ */
+
+/**
+ * @typedef {object} OperationalLogRequest
+ * @property {string} [eventType]
+ * @property {string} [outcome]
+ * @property {string} [correlationId]
+ * @property {string} [caseId]
+ * @property {Record<string, string>} [metadata]
+ */
+
+/**
+ * @typedef {object} BackupCheckResult
+ * @property {boolean} [passed]
+ * @property {string} [errorCode]
+ */
+
+/**
+ * @typedef {object} BackupChecker
+ * @property {(request: {check: string, syntheticOnly: true, metadataOnly: true}) => Promise<BackupCheckResult | null | undefined>} runCheck
+ */
+
+/**
+ * @typedef {object} BackupAdapterOptions
+ * @property {Record<string, unknown> | null} [binding]
+ * @property {BackupChecker | null} [checker]
+ * @property {() => Date | string | number} [clock]
+ */
+
 function mapDependencyErrorCode(rawCode, state) {
   const normalized = typeof rawCode === 'string' ? rawCode.trim().toUpperCase() : '';
   if (!normalized) return state === 'ready' ? '' : 'DEPENDENCY_UNAVAILABLE';
@@ -117,6 +170,7 @@ function safeProbeResult(raw) {
 }
 
 export class DependencyAwareMetadataHealthAdapter {
+  /** @param {HealthAdapterOptions} [options] */
   constructor({ dependencies, flags, clock = () => new Date() } = {}) {
     if (!dependencies || typeof dependencies !== 'object' || Array.isArray(dependencies)) {
       throw new IntegrationDisabledError('lor_health', 'DEPENDENCY_PROBES_REQUIRED');
@@ -193,6 +247,7 @@ function safeMetadata(metadata) {
 }
 
 export class AllowlistedOperationalLogger {
+  /** @param {OperationalLoggerOptions} [options] */
   constructor({ sink, clock = () => new Date() } = {}) {
     if (!sink || typeof sink.writeMetadataEvent !== 'function') {
       throw new IntegrationDisabledError('lor_operational_logging', 'METADATA_SINK_REQUIRED');
@@ -203,6 +258,7 @@ export class AllowlistedOperationalLogger {
     Object.freeze(this);
   }
 
+  /** @param {OperationalLogRequest} [request] */
   async log({ eventType, outcome, correlationId, caseId = '', metadata = {} } = {}) {
     if (!SAFE_EVENT_TYPES.has(eventType)) throw new ValidationError('Operational event type is not allowlisted');
     if (!SAFE_OUTCOMES.has(outcome)) throw new ValidationError('Operational event outcome is not allowlisted');
@@ -244,6 +300,7 @@ function assertBackupBinding(binding) {
 }
 
 export class BackupRestoreCheckAdapter {
+  /** @param {BackupAdapterOptions} [options] */
   constructor({ binding, checker, clock = () => new Date() } = {}) {
     assertBackupBinding(binding);
     if (!checker || typeof checker.runCheck !== 'function') {

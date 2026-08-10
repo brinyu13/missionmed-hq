@@ -3,6 +3,31 @@ import { assertNonEmptyString, deepFreeze, sha256, toIso } from './value-utils.j
 
 export const APPLICANT_VARIANT_LIMITS = deepFreeze({ minimum: 3, maximum: 5 });
 
+/**
+ * @typedef {{ id: string, contentHash: string }} ApplicantEvidenceReference
+ */
+
+/**
+ * @typedef {{ text: string, evidenceReferenceIds: string[] }} ApplicantClaim
+ */
+
+/**
+ * @typedef {{
+ *   id: string,
+ *   angle: string,
+ *   text: string,
+ *   evidenceReferences: ApplicantEvidenceReference[],
+ *   claims: ApplicantClaim[],
+ * }} ApplicantVariant
+ */
+
+/**
+ * @param {{
+ *   caseId?: string,
+ *   variants?: ApplicantVariant[],
+ *   createdAt?: Date | string | number,
+ * }} [options]
+ */
 export function createApplicantVariantSet({ caseId, variants, createdAt = new Date() } = {}) {
   assertNonEmptyString(caseId, 'caseId');
   if (!Array.isArray(variants) || variants.length < APPLICANT_VARIANT_LIMITS.minimum || variants.length > APPLICANT_VARIANT_LIMITS.maximum) {

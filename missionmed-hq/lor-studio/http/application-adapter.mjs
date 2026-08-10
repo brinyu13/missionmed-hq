@@ -9,17 +9,58 @@ const SAFE_ERROR_MESSAGES = Object.freeze({
   VALIDATION_FAILED: 'The request payload is invalid.',
 });
 
+/** @typedef {Record<string, unknown> & { get?: (name: string) => unknown }} ApplicationHeaders */
+/** @typedef {import('node:stream').Readable & { method?: string, headers?: ApplicationHeaders }} ApplicationRequest */
+
+/**
+ * @typedef {object} RecommendationCaseServiceContract
+ * @property {(input: { caseId: unknown, actor: unknown, idempotencyKey: string }) => Promise<unknown>} createCase
+ * @property {(input: { caseId: unknown, actor: unknown }) => Promise<unknown>} getCaseProjection
+ * @property {(input: { caseId: unknown, actor: unknown }) => Promise<unknown>} resumeBuilder
+ * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, stepId: unknown, stepData: unknown }) => Promise<unknown>} autosaveBuilder
+ * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, stepId: unknown }) => Promise<unknown>} completeBuilderStep
+ */
+
+/**
+ * @typedef {object} RecommendationCaseRepositoryContract
+ * @property {boolean} [isDurable]
+ * @property {string} [durability]
+ */
+
+/**
+ * @typedef {object} LorApplicationAdapterOptions
+ * @property {RecommendationCaseServiceContract} [caseService]
+ * @property {RecommendationCaseRepositoryContract} [repository]
+ * @property {boolean} [providersReady]
+ * @property {boolean} [allAcceptedFunctionsOperational]
+ * @property {boolean} [allowNonDurableForTests]
+ */
+
+/**
+ * @typedef {object} LorApplicationContract
+ * @property {(context?: unknown) => Promise<Record<string, unknown>>} getBootstrap
+ * @property {(input: { request: ApplicationRequest, url: URL, actor: unknown }) => Promise<{ status: number, body: unknown }>} handleRequest
+ */
+
+/**
+ * @param {ApplicationRequest} request
+ * @param {string} name
+ */
 function header(request, name) {
   if (typeof request?.headers?.get === 'function') return String(request.headers.get(name) || '').trim();
   return String(request?.headers?.[name.toLowerCase()] || request?.headers?.[name] || '').trim();
 }
 
+/** @param {string} message */
+function validationError(message) {
+  return Object.assign(new Error(message), { code: 'VALIDATION_FAILED' });
+}
+
+/** @param {ApplicationRequest} request */
 async function readJsonBody(request) {
   const contentType = header(request, 'content-type').toLowerCase();
   if (!contentType.startsWith('application/json')) {
-    const error = new Error('JSON content type is required.');
-    error.code = 'VALIDATION_FAILED';
-    throw error;
+    throw validationError('JSON content type is required.');
   }
   const chunks = [];
   let bytes = 0;
@@ -27,9 +68,7 @@ async function readJsonBody(request) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     bytes += buffer.length;
     if (bytes > 256_000) {
-      const error = new Error('Request is too large.');
-      error.code = 'VALIDATION_FAILED';
-      throw error;
+      throw validationError('Request is too large.');
     }
     chunks.push(buffer);
   }
@@ -37,33 +76,30 @@ async function readJsonBody(request) {
   try {
     payload = JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch {
-    const error = new Error('Malformed JSON.');
-    error.code = 'VALIDATION_FAILED';
-    throw error;
+    throw validationError('Malformed JSON.');
   }
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    const error = new Error('JSON object is required.');
-    error.code = 'VALIDATION_FAILED';
-    throw error;
+    throw validationError('JSON object is required.');
   }
   return payload;
 }
 
+/**
+ * @param {Record<string, unknown>} payload
+ * @param {string[]} allowed
+ */
 function assertExactKeys(payload, allowed) {
   const unexpected = Object.keys(payload).filter((key) => !allowed.includes(key));
   if (unexpected.length) {
-    const error = new Error('Unexpected request fields.');
-    error.code = 'VALIDATION_FAILED';
-    throw error;
+    throw validationError('Unexpected request fields.');
   }
 }
 
+/** @param {ApplicationRequest} request */
 function idempotencyKey(request) {
   const value = header(request, 'idempotency-key');
   if (!value || value.length > 200) {
-    const error = new Error('A bounded Idempotency-Key header is required.');
-    error.code = 'VALIDATION_FAILED';
-    throw error;
+    throw validationError('A bounded Idempotency-Key header is required.');
   }
   return value;
 }
@@ -111,6 +147,10 @@ function routeCase(pathname) {
   };
 }
 
+/**
+ * @param {LorApplicationAdapterOptions} [options]
+ * @returns {Readonly<LorApplicationContract>}
+ */
 export function createLorApplicationAdapter({
   caseService,
   repository,
@@ -145,6 +185,7 @@ export function createLorApplicationAdapter({
     };
   }
 
+  /** @param {{ request: ApplicationRequest, url: URL, actor: unknown }} input */
   async function handleRequest({ request, url, actor }) {
     try {
       const method = String(request.method || 'GET').toUpperCase();

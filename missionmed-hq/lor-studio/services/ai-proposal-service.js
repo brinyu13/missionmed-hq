@@ -4,6 +4,25 @@ import { createAiProposalProvenance } from '../domain/provenance.js';
 import { assertNonEmptyString, deepFreeze, sha256 } from '../domain/value-utils.js';
 import { assertPort } from './ports.js';
 
+/**
+ * @typedef {{
+ *   caseId: string,
+ *   provider: string,
+ *   model: string,
+ *   templateVersion: string,
+ *   evidenceReferences: Array<{ id: string, contentHash: string }>,
+ *   output: string,
+ *   generatedAt?: Date | string | number,
+ *   id?: string,
+ *   idFactory?: () => string,
+ * }} AiProposalProvenanceInput
+ */
+
+/**
+ * @type {(input: AiProposalProvenanceInput) => ReturnType<typeof createAiProposalProvenance>}
+ */
+const buildAiProposalProvenance = createAiProposalProvenance;
+
 export class AiProposalService {
   constructor({ provider, fallbackProvider = null, clock = () => new Date() }) {
     this.provider = assertPort(provider, ['generateProposal'], 'provider');
@@ -79,7 +98,7 @@ export class AiProposalService {
       claims: response.claims,
       evidenceReferences,
     });
-    const provenance = createAiProposalProvenance({
+    const provenance = buildAiProposalProvenance({
       caseId,
       provider: response.provider,
       model: response.model,

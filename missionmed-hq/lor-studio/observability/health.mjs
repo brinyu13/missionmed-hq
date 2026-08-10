@@ -1,7 +1,22 @@
 const DEPENDENCY_STATES = new Set(['ready', 'degraded', 'unavailable', 'disabled', 'unknown']);
 
+/**
+ * @typedef {{
+ *   state?: string,
+ *   required?: boolean,
+ *   errorCode?: string,
+ *   durable?: boolean,
+ * }} HealthDependencyInput
+ */
+
+/**
+ * @typedef {{ enabled?: boolean, killSwitch?: boolean }} HealthFlags
+ */
+
 function dependency(value = {}) {
-  const state = DEPENDENCY_STATES.has(value.state) ? value.state : 'unknown';
+  const state = typeof value.state === 'string' && DEPENDENCY_STATES.has(value.state)
+    ? value.state
+    : 'unknown';
   return Object.freeze({
     state,
     required: value.required === true,
@@ -9,6 +24,18 @@ function dependency(value = {}) {
   });
 }
 
+/**
+ * @param {{
+ *   flags?: HealthFlags,
+ *   storage?: HealthDependencyInput,
+ *   entitlement?: HealthDependencyInput,
+ *   aiProvider?: HealthDependencyInput,
+ *   documentProvider?: HealthDependencyInput,
+ *   emailProvider?: HealthDependencyInput,
+ *   auditSink?: HealthDependencyInput,
+ *   at?: Date | string | number,
+ * }} [options]
+ */
 export function createLorStudioHealthSnapshot({
   flags = {},
   storage = {},

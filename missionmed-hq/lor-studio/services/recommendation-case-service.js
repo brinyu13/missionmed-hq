@@ -15,6 +15,41 @@ import {
 import { createMetadataServiceEvent } from './metadata-events.js';
 import { assertPort } from './ports.js';
 
+/**
+ * @typedef {{
+ *   eventId: string,
+ *   eventType: string,
+ *   caseId: string,
+ *   actorId: string,
+ *   actorRole: string,
+ *   correlationId: string,
+ *   outcome?: string,
+ *   revision?: number | null,
+ *   occurredAt?: Date | string | number,
+ *   idFactory?: () => string,
+ * }} MetadataServiceEventInput
+ */
+
+/**
+ * @typedef {{
+ *   id: string,
+ *   studentId: string,
+ *   actorId?: string,
+ *   now?: Date | string | number,
+ *   idFactory?: () => string,
+ * }} RecommendationCaseInput
+ */
+
+/**
+ * @type {(input: MetadataServiceEventInput) => ReturnType<typeof createMetadataServiceEvent>}
+ */
+const buildMetadataServiceEvent = createMetadataServiceEvent;
+
+/**
+ * @type {(input: RecommendationCaseInput) => ReturnType<typeof createRecommendationCase>}
+ */
+const buildRecommendationCase = createRecommendationCase;
+
 function assertStudentActor(actor) {
   if (!actor || actor.role !== 'student' || typeof actor.id !== 'string' || actor.id.length === 0) {
     throw new AuthorizationDeniedError('STUDENT_ACTOR_REQUIRED');
@@ -74,7 +109,7 @@ export class RecommendationCaseService {
 
   #buildEvent({ eventType, caseRecord, actor, idempotencyKey, outcome = 'success' }) {
     const correlationId = sha256(idempotencyKey).slice(0, 32);
-    return createMetadataServiceEvent({
+    return buildMetadataServiceEvent({
       eventId: `event_${sha256(`${caseRecord.id}:${eventType}:${idempotencyKey}`).slice(0, 32)}`,
       eventType,
       caseId: caseRecord.id,
@@ -132,7 +167,7 @@ export class RecommendationCaseService {
     });
     if (!decision.allowed) throw new AuthorizationDeniedError(decision.reasonCode);
     const metadata = requestMetadata('case.create', caseId, actor.id, idempotencyKey, {});
-    const caseRecord = createRecommendationCase({
+    const caseRecord = buildRecommendationCase({
       id: caseId,
       studentId: actor.id,
       actorId: actor.id,

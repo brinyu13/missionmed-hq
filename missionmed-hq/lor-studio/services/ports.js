@@ -111,7 +111,9 @@ export class EmailPort extends RequiredPort {
 }
 
 export class PrivateStoragePort extends RequiredPort {
+  /** @returns {Promise<unknown>} */
   async put() { return this.notImplemented('put'); }
+  /** @returns {Promise<unknown>} */
   async get() { return this.notImplemented('get'); }
 }
 

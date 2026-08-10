@@ -66,12 +66,30 @@ function safeMetadata(metadata = {}) {
   return output;
 }
 
+/**
+ * @typedef {{
+ *   id?: string,
+ *   role?: string,
+ * }} AuditActor
+ */
+
+/**
+ * @param {{
+ *   type?: string,
+ *   actor?: AuditActor,
+ *   caseId?: string,
+ *   targetId?: string,
+ *   outcome?: string,
+ *   metadata?: Record<string, string | number | boolean>,
+ *   at?: Date | string | number,
+ * }} [options]
+ */
 export function createAuditEvent({ type, actor, caseId, targetId = '', outcome, metadata = {}, at = new Date() } = {}) {
-  if (!EVENT_TYPES.has(type)) throw new Error('Audit event type is not allowlisted.');
-  if (!ACTOR_ROLES.has(actor?.role)) throw new Error('Audit actor role is not allowlisted.');
+  if (typeof type !== 'string' || !EVENT_TYPES.has(type)) throw new Error('Audit event type is not allowlisted.');
+  if (typeof actor?.role !== 'string' || !ACTOR_ROLES.has(actor.role)) throw new Error('Audit actor role is not allowlisted.');
   if (!actor?.id) throw new Error('Audit actor id is required.');
   if (!caseId) throw new Error('Audit case id is required.');
-  if (!OUTCOMES.has(outcome)) throw new Error('Audit outcome is not allowlisted.');
+  if (typeof outcome !== 'string' || !OUTCOMES.has(outcome)) throw new Error('Audit outcome is not allowlisted.');
   const timestamp = at instanceof Date ? at.toISOString() : new Date(at).toISOString();
   return Object.freeze({
     schemaVersion: 1,

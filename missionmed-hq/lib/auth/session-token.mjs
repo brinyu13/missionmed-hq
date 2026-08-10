@@ -7,7 +7,30 @@ const GCM_IV_BYTES = 12;
 const GCM_TAG_BYTES = 16;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/u;
 
+/**
+ * @typedef {object} DecodeSessionTokenOptions
+ * @property {string | null} [token]
+ * @property {Uint8Array | null} [key]
+ * @property {number | Date | (() => number | Date)} [now]
+ */
+
+/**
+ * @typedef {object} SelectSessionCredentialOptions
+ * @property {string | string[] | null} [authorizationHeader]
+ * @property {string | string[] | null} [cookieHeader]
+ * @property {string | null} [cookieName]
+ */
+
+/**
+ * @typedef {object} ReadSessionFromHeadersOptions
+ * @property {import('node:http').IncomingHttpHeaders} [headers]
+ * @property {Uint8Array | null} [key]
+ * @property {string | null} [cookieName]
+ * @property {number | Date | (() => number | Date)} [now]
+ */
+
 export class SessionTokenError extends Error {
+  /** @param {string} code */
   constructor(code) {
     super('Session token validation failed.');
     this.name = 'SessionTokenError';
@@ -83,6 +106,7 @@ function parseCookies(cookieHeader) {
   return cookies;
 }
 
+/** @param {DecodeSessionTokenOptions} [options] */
 export function decodeSessionToken({ token, key, now = Date.now } = {}) {
   const sessionKey = normalizeKey(key);
   const parts = String(token || '').split('.');
@@ -130,6 +154,7 @@ export function decodeSessionToken({ token, key, now = Date.now } = {}) {
   return Object.freeze({ ...payload });
 }
 
+/** @param {SelectSessionCredentialOptions} [options] */
 export function selectSessionCredential({ authorizationHeader, cookieHeader, cookieName } = {}) {
   const authorization = String(authorizationHeader || '').trim();
   if (/^Bearer\b/iu.test(authorization)) {
@@ -149,6 +174,7 @@ export function selectSessionCredential({ authorizationHeader, cookieHeader, coo
   return Object.freeze({ source: 'cookie', token });
 }
 
+/** @param {ReadSessionFromHeadersOptions} [options] */
 export function readSessionFromHeaders({ headers = {}, key, cookieName, now = Date.now } = {}) {
   const credential = selectSessionCredential({
     authorizationHeader: headers.authorization ?? headers.Authorization,

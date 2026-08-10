@@ -25,6 +25,43 @@ const ALLOWED_OPERATIONS = new Set([
 const AUTHORITY_PATTERN = /^privacy-authority:[A-Za-z0-9_.:-]{1,120}$/u;
 const AUDIT_REF_PATTERN = /^(?:event_)?[a-f0-9]{64}$/u;
 
+/**
+ * @typedef {object} AdministrativeGrantInput
+ * @property {string} [grantId]
+ * @property {string} [granteeId]
+ * @property {string} [caseId]
+ * @property {string} [operation]
+ * @property {string} [purpose]
+ * @property {string} [privacyAuthority]
+ * @property {Date | string | number} [issuedAt]
+ * @property {Date | string | number} [expiresAt]
+ * @property {string} [auditEventRef]
+ */
+
+/**
+ * @typedef {object} AdministrativeGrantDriver
+ * @property {boolean} [appendOnly]
+ * @property {(grant: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} appendGrant
+ * @property {(revocation: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} appendRevocation
+ * @property {(request: {grantId: string}) => Promise<Record<string, unknown> | null | undefined>} readGrantWithRevocation
+ */
+
+/**
+ * @typedef {object} AdministrativeGrantRepositoryOptions
+ * @property {Record<string, unknown> | null} [binding]
+ * @property {AdministrativeGrantDriver | null} [driver]
+ * @property {() => Date | string | number} [clock]
+ */
+
+/**
+ * @typedef {object} ActiveAdministrativeGrantRequest
+ * @property {string} [grantId]
+ * @property {string} [granteeId]
+ * @property {string} [caseId]
+ * @property {string} [operation]
+ * @property {string} [purpose]
+ */
+
 function assertBinding(binding) {
   if (
     !binding
@@ -61,6 +98,7 @@ function hashGrant(unsigned) {
   return sha256(canonicalize(unsigned));
 }
 
+/** @param {AdministrativeGrantInput} [input] */
 export function createAdministrativeGrant({
   grantId,
   granteeId,
@@ -154,6 +192,7 @@ function validateRevocation(revocation, grant) {
 }
 
 export class ImmutableAdministrativeGrantRepository {
+  /** @param {AdministrativeGrantRepositoryOptions} [options] */
   constructor({ binding, driver, clock = () => new Date() } = {}) {
     assertBinding(binding);
     this.driver = assertDriver(driver);
@@ -216,6 +255,7 @@ export class ImmutableAdministrativeGrantRepository {
     });
   }
 
+  /** @param {ActiveAdministrativeGrantRequest} [request] */
   async getActiveGrant({ grantId, granteeId, caseId, operation, purpose } = {}) {
     const aggregate = await this.#readAggregate(grantId);
     const { grant, revocation } = aggregate;

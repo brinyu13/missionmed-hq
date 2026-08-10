@@ -3,6 +3,50 @@ import { currentWaiverState } from '../domain/receipts.js';
 const PRIVATE_CLASSES = new Set(['waived_faculty_private', 'faculty_private']);
 const STUDENT_VISIBLE_CLASS = 'nonwaived_student_visible';
 
+/**
+ * @typedef {{ id?: string, role?: string }} ArtifactActor
+ */
+
+/**
+ * @typedef {{
+ *   id?: string,
+ *   studentId?: string,
+ *   faculty?: { facultyId?: string | null, verifiedAt?: string | null },
+ *   waiverReceipts?: Array<Record<string, unknown>>,
+ * }} ArtifactCaseRecord
+ */
+
+/**
+ * @typedef {{
+ *   caseId?: string,
+ *   sha256?: string,
+ *   mimeType?: string,
+ *   privacyClass?: string,
+ * }} ArtifactMetadata
+ */
+
+/**
+ * @typedef {{
+ *   caseId?: string,
+ *   granteeId?: string,
+ *   canReadProtectedArtifacts?: boolean,
+ *   purpose?: string,
+ *   writtenAuthorizationReceiptId?: string,
+ *   auditReceiptId?: string,
+ *   revokedAt?: Date | string | null,
+ *   expiresAt?: Date | string | number,
+ * }} AdminPrivacyGrant
+ */
+
+/**
+ * @typedef {{
+ *   objectKey?: string,
+ *   versionId?: string,
+ *   private?: boolean,
+ *   encrypted?: boolean,
+ * }} PrivateStorageReceipt
+ */
+
 function deny(error) {
   return Object.freeze({ allowed: false, error });
 }
@@ -15,6 +59,14 @@ function resolveWaiverState(caseRecord) {
   }
 }
 
+/**
+ * @param {{
+ *   actor: ArtifactActor,
+ *   caseRecord: ArtifactCaseRecord,
+ *   privacyGrant: AdminPrivacyGrant | null,
+ *   now: Date | string | number,
+ * }} options
+ */
 function validAdminPrivacyGrant({ actor, caseRecord, privacyGrant, now }) {
   const expiresAt = Date.parse(String(privacyGrant?.expiresAt || ''));
   const nowMs = now instanceof Date ? now.getTime() : Number(now);
@@ -33,6 +85,15 @@ function validAdminPrivacyGrant({ actor, caseRecord, privacyGrant, now }) {
     && expiresAt > nowMs;
 }
 
+/**
+ * @param {{
+ *   actor?: ArtifactActor,
+ *   artifact?: ArtifactMetadata,
+ *   caseRecord?: ArtifactCaseRecord,
+ *   privacyGrant?: AdminPrivacyGrant | null,
+ *   now?: Date | string | number,
+ * }} [options]
+ */
 export function authorizeArtifactAccess({
   actor,
   artifact,
@@ -74,6 +135,14 @@ export function authorizeArtifactAccess({
   return deny('artifact_role_forbidden');
 }
 
+/**
+ * @param {{
+ *   artifact?: ArtifactMetadata,
+ *   storageReceipt?: PrivateStorageReceipt,
+ *   caseRecord?: ArtifactCaseRecord,
+ *   now?: Date,
+ * }} [options]
+ */
 export function buildWriterDepotRecord({ artifact, storageReceipt, caseRecord, now = new Date() } = {}) {
   if (!artifact?.sha256 || !artifact?.mimeType || !artifact?.privacyClass || !artifact?.caseId) {
     throw new Error('Complete artifact metadata is required.');

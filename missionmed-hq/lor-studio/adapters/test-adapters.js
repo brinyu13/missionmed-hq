@@ -27,6 +27,13 @@ export class MetadataOnlyEventBuffer extends MetadataEventSinkPort {
 }
 
 export class StaticOtpTestAdapter extends OtpPort {
+  /**
+   * @param {{
+   *   acceptedCode?: string,
+   *   principalId?: string,
+   *   clock?: () => Date,
+   * }} [options]
+   */
   constructor({
     acceptedCode = '123456',
     principalId,

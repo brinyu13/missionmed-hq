@@ -20,6 +20,31 @@ const FORBIDDEN_REQUEST_FIELDS = new Set([
   'tier',
 ]);
 
+/**
+ * @typedef {object} AuthenticatedSubjectProvider
+ * @property {() => Promise<Record<string, unknown> | null | undefined>} getAuthenticatedSubject
+ */
+
+/**
+ * @typedef {object} VerifiedEntitlementProducer
+ * @property {(request: {wordpressSubject: string, producerContract: string}) => Promise<Record<string, unknown> | null | undefined>} readVerifiedEntitlement
+ */
+
+/**
+ * @typedef {object} LorAdmissionReader
+ * @property {(request: {wordpressSubject: string}) => Promise<Record<string, unknown> | null | undefined>} readAdmission
+ */
+
+/**
+ * @typedef {object} WordPressEntitlementOptions
+ * @property {Record<string, unknown> | null} [binding]
+ * @property {AuthenticatedSubjectProvider | null} [authenticatedSubjectProvider]
+ * @property {VerifiedEntitlementProducer | null} [entitlementProducer]
+ * @property {LorAdmissionReader | null} [lorAdmissionReader]
+ * @property {() => Date | string | number} [clock]
+ * @property {number} [maximumAgeMs]
+ */
+
 function denied(studentId, reasonCode, { available = true, sourceVerified = true, revoked = null } = {}) {
   return deepFreeze({
     available,
@@ -167,6 +192,7 @@ function admissionDenial(record, subject, nowMs, maximumAgeMs) {
 }
 
 export class WordPressEntitlementConsumer extends EntitlementPort {
+  /** @param {WordPressEntitlementOptions} [options] */
   constructor({
     binding,
     authenticatedSubjectProvider,

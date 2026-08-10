@@ -27,6 +27,29 @@ const ATOMIC_COMMIT_RECEIPT_SCHEMA = 'missionmed.lor.atomic-commit-receipt.v1';
 const ACTOR_ROLES = new Set(['student', 'faculty', 'mentor', 'admin', 'founder', 'support', 'service']);
 const HUMAN_ROLES = new Set(['student', 'faculty', 'mentor', 'admin', 'founder', 'support']);
 
+/**
+ * @typedef {object} AtomicRlsCaseDriver
+ * @property {boolean} [atomicStateAndAudit]
+ * @property {boolean} [rlsEnforced]
+ * @property {boolean} [serverOnly]
+ * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} selectCase
+ * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} executeAtomicCaseCommand
+ */
+
+/**
+ * @typedef {object} ServerScopeRequest
+ * @property {string} caseId
+ * @property {string} operation
+ * @property {string} [resourceStudentId]
+ */
+
+/**
+ * @typedef {object} DurableRepositoryOptions
+ * @property {Record<string, unknown> | null} [binding]
+ * @property {AtomicRlsCaseDriver | null} [driver]
+ * @property {((request: ServerScopeRequest) => Promise<Record<string, unknown> | null | undefined>) | null} [scopeProvider]
+ */
+
 function assertSha256(value, fieldName) {
   if (!/^[a-f0-9]{64}$/u.test(value ?? '')) {
     throw new ValidationError(`${fieldName} must be a SHA-256 digest`, { fieldName });
@@ -257,6 +280,7 @@ function throwDriverFailure(result, command) {
 }
 
 export class SupabaseDurableRecommendationCaseRepository extends RecommendationCaseRepositoryPort {
+  /** @param {DurableRepositoryOptions} [options] */
   constructor({ binding, driver, scopeProvider } = {}) {
     super();
     this.binding = assertBinding(binding);

@@ -261,7 +261,16 @@ export function assertRecommendationCase(record) {
   return record;
 }
 
-function mutateRecommendationCase(record, {
+/**
+ * @typedef {{
+ *   actorId: string,
+ *   eventType: string,
+ *   changes: Record<string, unknown>,
+ *   now?: Date | string | number,
+ * }} RecommendationCaseMutation
+ */
+
+function mutateRecommendationCase(record, /** @type {RecommendationCaseMutation} */ {
   actorId,
   eventType,
   changes,

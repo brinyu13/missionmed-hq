@@ -41,6 +41,10 @@ const FACULTY_ACTIONS = new Set([
 ]);
 const OPERATIONAL_ROLES = new Set(['admin', 'founder', 'support']);
 
+/**
+ * @param {Record<string, unknown> | null | undefined} record
+ * @param {{ studentId?: string, requireCanary?: boolean }} [options]
+ */
 export function evaluateStudentEntitlement(record, {
   studentId,
   requireCanary = false,

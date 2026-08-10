@@ -63,9 +63,16 @@
     "xml-name-validator": "^5.0.0",
     "xmlchars": "^2.2.0"
   },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "20.19.43",
+    "eslint": "9.39.5",
+    "globals": "17.9.0"
+  },
   "scripts": {
     "start": "node missionmed-hq/server.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --project missionmed-hq/lor-studio/tsconfig.json",
+    "lint": "eslint --config missionmed-hq/lor-studio/eslint.config.mjs --no-cache --max-warnings 0 \"missionmed-hq/lor-studio/{adapters,audit,documents,domain,http,observability,repositories,security,services}/**/*.{js,mjs}\" missionmed-hq/public/lor-studio/production-adapter.js missionmed-hq/lib/auth/session-token.mjs \"missionmed-hq/scripts/lor-studio/**/*.mjs\" \"missionmed-hq/tests/lor-studio/**/*.test.mjs\" missionmed-hq/tests/auth/session-token.test.mjs",
     "test": "npm run lor:test",
     "build": "npm run lor:materialize && npm run lor:check && node --test missionmed-hq/tests/lor-studio/http-runtime.test.mjs missionmed-hq/tests/lor-studio/frontend-adapter.test.mjs",
     "lor:materialize": "node missionmed-hq/scripts/lor-studio/materialize-frozen-prototype.mjs",

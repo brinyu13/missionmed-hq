@@ -95,6 +95,46 @@ const NORMALIZED_RESERVED_ROLE_FIELDS = new Set(
   [...RESERVED_ROLE_FIELDS].map((field) => field.replace(/[^A-Za-z0-9]/gu, '').toLowerCase()),
 );
 
+/**
+ * @typedef {object} ProductionBootstrapLoader
+ * @property {string} [source]
+ * @property {boolean} [fixtureBacked]
+ * @property {(request: {mode: 'production', caseId: string}) => Promise<Record<string, unknown> | null | undefined>} load
+ */
+
+/**
+ * @typedef {object} ProductionDependencyHealth
+ * @property {boolean} [metadataOnly]
+ * @property {() => Promise<Record<string, unknown> | null | undefined>} snapshot
+ */
+
+/**
+ * @typedef {object} ProductionProjectionLoader
+ * @property {string} [source]
+ * @property {boolean} [fixtureBacked]
+ * @property {(binding: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} loadProductionProjection
+ */
+
+/**
+ * @typedef {object} ProductionProjectionUi
+ * @property {string} [presentationIsolation]
+ * @property {boolean} [usesLocalStorage]
+ * @property {boolean} [canRevealPrototype]
+ * @property {(request: {reasonCode: string, revealPrototype: false}) => Promise<unknown>} block
+ * @property {(projection: unknown, context: Record<string, unknown>) => Promise<unknown>} renderProductionProjection
+ */
+
+/**
+ * @typedef {object} ProductionHydrationOptions
+ * @property {ProductionBootstrapLoader | null} [bootstrapLoader]
+ * @property {ProductionDependencyHealth | null} [dependencyHealth]
+ * @property {ProductionProjectionLoader | null} [projectionLoader]
+ * @property {ProductionProjectionUi | null} [ui]
+ * @property {() => Date | string | number} [clock]
+ */
+
+/** @typedef {{caseId?: string}} ProductionHydrationRequest */
+
 function projectionPathAllowed(actorRole, path) {
   const joined = path.join('.');
   const allowed = {
@@ -613,6 +653,7 @@ function assertProductionProjection(envelope, binding, nowMs) {
 }
 
 export class ProductionHydrationAdapter {
+  /** @param {ProductionHydrationOptions} [options] */
   constructor({ bootstrapLoader, dependencyHealth, projectionLoader, ui, clock } = {}) {
     this.bootstrapLoader = assertDependency(bootstrapLoader, 'load', 'bootstrap_loader');
     this.dependencyHealth = assertDependency(dependencyHealth, 'snapshot', 'dependency_health');
@@ -638,6 +679,7 @@ export class ProductionHydrationAdapter {
     Object.freeze(this);
   }
 
+  /** @param {ProductionHydrationRequest} [request] */
   async hydrate({ caseId } = {}) {
     assertNonEmptyString(caseId, 'caseId', { maxLength: 200 });
     await this.ui.block({ reasonCode: 'HYDRATION_PENDING', revealPrototype: false });

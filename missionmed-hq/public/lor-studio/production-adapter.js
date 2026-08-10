@@ -16,10 +16,10 @@
       if (element === gate || element.tagName === 'SCRIPT') continue;
       if (blocked) {
         element.setAttribute('aria-hidden', 'true');
-        element.inert = true;
+        if (element instanceof HTMLElement) element.inert = true;
       } else {
         element.removeAttribute('aria-hidden');
-        element.inert = false;
+        if (element instanceof HTMLElement) element.inert = false;
       }
     }
   }
@@ -32,9 +32,9 @@
     if (!actions) return;
     const control = href ? document.createElement('a') : document.createElement('button');
     control.textContent = label;
-    if (href) {
+    if (control instanceof HTMLAnchorElement) {
       control.href = href;
-    } else {
+    } else if (control instanceof HTMLButtonElement) {
       control.type = 'button';
       control.addEventListener('click', handler);
     }
@@ -68,13 +68,17 @@
     badge.className = 'lor-fidelity-badge';
     badge.textContent = 'Synthetic fidelity fixture — not live data';
     document.body.appendChild(badge);
-    window.__LOR_STUDIO_RUNTIME__ = Object.freeze({ mode: 'synthetic_fixture', operational: false });
+    Object.assign(window, {
+      __LOR_STUDIO_RUNTIME__: Object.freeze({ mode: 'synthetic_fixture', operational: false }),
+    });
   }
 
   function blockUnhydratedLiveRuntime() {
-    window.__LOR_STUDIO_RUNTIME__ = Object.freeze({
-      mode: 'blocked_unhydrated',
-      operational: false,
+    Object.assign(window, {
+      __LOR_STUDIO_RUNTIME__: Object.freeze({
+        mode: 'blocked_unhydrated',
+        operational: false,
+      }),
     });
     showState({
       heading: 'LOR Studio is not yet available',
@@ -168,6 +172,7 @@
     const modal = document.getElementById('modal');
     if (!modal) return;
     modal.tabIndex = -1;
+    /** @type {HTMLElement | null} */
     let returnFocus = null;
     let wasOpen = modal.classList.contains('open');
 
@@ -182,13 +187,17 @@
     }
 
     document.addEventListener('click', (event) => {
-      const trigger = event.target?.closest?.('button, a[href], [tabindex]:not([tabindex="-1"])');
-      if (trigger && !modal.contains(trigger) && !modal.classList.contains('open')) returnFocus = trigger;
+      if (!(event.target instanceof Element)) return;
+      const trigger = event.target.closest('button, a[href], [tabindex]:not([tabindex="-1"])');
+      if (trigger instanceof HTMLElement && !modal.contains(trigger) && !modal.classList.contains('open')) {
+        returnFocus = trigger;
+      }
     }, true);
 
     modal.addEventListener('keydown', (event) => {
       if (event.key !== 'Tab' || !modal.classList.contains('open')) return;
       const focusable = [...modal.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+        .filter((element) => element instanceof HTMLElement)
         .filter((element) => !element.inert && element.getAttribute('aria-hidden') !== 'true');
       if (!focusable.length) {
         event.preventDefault();
@@ -211,7 +220,8 @@
       if (isOpen && !wasOpen) labelDialog();
       if (isOpen && !wasOpen && !modal.contains(document.activeElement)) {
         const first = modal.querySelector('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
-        (first || modal).focus();
+        if (first instanceof HTMLElement) first.focus();
+        else modal.focus();
       }
       if (!isOpen && wasOpen && returnFocus?.isConnected) {
         queueMicrotask(() => returnFocus?.focus());

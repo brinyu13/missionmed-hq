@@ -14,6 +14,77 @@ const ASSET_CONTENT_TYPES = Object.freeze({
 const SAFE_ASSETS = new Set(['index.html', 'production-adapter.css', 'production-adapter.js']);
 const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+/**
+ * @typedef {object} LorStudioFlags
+ * @property {boolean} enabled
+ * @property {boolean} killSwitch
+ * @property {boolean} requireCanary
+ */
+
+/**
+ * @typedef {object} LorSession
+ * @property {{ id?: string | number | null }} [user]
+ * @property {string} [issuedAt]
+ * @property {string} [expiresAt]
+ * @property {string} [csrfToken]
+ */
+
+/**
+ * @typedef {object} LorEntitlementProjection
+ * @property {boolean} [available]
+ * @property {boolean} [sourceVerified]
+ * @property {boolean} [revoked]
+ * @property {boolean} [active]
+ * @property {string} [tier]
+ * @property {boolean} [lorEnabled]
+ * @property {boolean} [canaryEnabled]
+ * @property {boolean} [canaryConsented]
+ * @property {string | number | null} [studentId]
+ * @property {string | number | null} [actorId]
+ * @property {string} [role]
+ */
+
+/** @typedef {{ ok: false, status: number, error: string, message: string }} LorAccessFailure */
+/** @typedef {{ ok: true, subject: string, session: LorSession }} LorFreshSession */
+/** @typedef {{ id: string, role: string }} LorActor */
+/** @typedef {{ studentId: string, active: true, tier: 'tier3_360', lorEnabled: true, revoked: false, canaryEnabled: boolean, canaryConsented: boolean }} LorAcceptedEntitlement */
+/** @typedef {{ ok: true, actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement> }} LorEntitlementAccess */
+/** @typedef {{ ok: true, actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement>, session: LorSession }} LorAccessGrant */
+
+/**
+ * @typedef {object} LorEntitlementResolver
+ * @property {(input: { subject: string, session: LorSession, request: import('node:http').IncomingMessage }) => Promise<LorEntitlementProjection>} resolve
+ */
+
+/**
+ * @typedef {object} LorApplicationBootstrap
+ * @property {boolean} [operational]
+ * @property {string} [runtimeMode]
+ * @property {string} [storageMode]
+ * @property {boolean} [providersReady]
+ * @property {Record<string, unknown>} [capabilities]
+ */
+
+/**
+ * @typedef {object} LorApplicationContract
+ * @property {(input: { actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement>, session: LorSession }) => Promise<LorApplicationBootstrap>} [getBootstrap]
+ * @property {(input: { request: import('node:http').IncomingMessage, url: URL, actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement>, session: LorSession }) => Promise<{ status?: number, body?: unknown }>} [handleRequest]
+ */
+
+/**
+ * @typedef {object} LorStudioRuntimeOptions
+ * @property {string} [publicDirectory]
+ * @property {LorStudioFlags} [flags]
+ * @property {LorEntitlementResolver} [entitlementResolver]
+ * @property {LorApplicationContract | null} [application]
+ * @property {(request: import('node:http').IncomingMessage, session: LorSession | null) => boolean} [validateCsrf]
+ * @property {() => Date | number} [clock]
+ */
+
+/**
+ * @param {unknown} value
+ * @param {boolean} fallback
+ */
 function asBoolean(value, fallback) {
   if (typeof value === 'boolean') return value;
   const normalized = String(value ?? '').trim().toLowerCase();
@@ -22,6 +93,10 @@ function asBoolean(value, fallback) {
   return fallback;
 }
 
+/**
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [environment]
+ * @returns {Readonly<LorStudioFlags>}
+ */
 export function resolveLorStudioFlags(environment = process.env) {
   return Object.freeze({
     enabled: asBoolean(environment.MMHQ_LOR_STUDIO_ENABLED, false),
@@ -38,6 +113,7 @@ export function isLorStudioRequestPath(pathname = '') {
     || value.startsWith(`${LOR_STUDIO_API_PREFIX}/`);
 }
 
+/** @returns {Readonly<LorEntitlementResolver>} */
 export function createUnavailableLorEntitlementResolver(reason = 'exact_entitlement_contract_unverified') {
   return Object.freeze({
     async resolve() {
@@ -51,10 +127,22 @@ export function createUnavailableLorEntitlementResolver(reason = 'exact_entitlem
   });
 }
 
+/**
+ * @param {number} status
+ * @param {string} error
+ * @param {string} message
+ * @param {Record<string, unknown>} [extra]
+ * @returns {LorAccessFailure & Record<string, unknown>}
+ */
 function accessFailure(status, error, message, extra = {}) {
   return { ok: false, status, error, message, ...extra };
 }
 
+/**
+ * @param {LorSession | null | undefined} session
+ * @param {Date | number} [now]
+ * @returns {LorAccessFailure | LorFreshSession}
+ */
 export function validateFreshLorSession(session, now = new Date()) {
   if (!session || typeof session !== 'object') {
     return accessFailure(401, 'authentication_required', 'A fresh MissionMed session is required.');
@@ -84,6 +172,11 @@ export function validateFreshLorSession(session, now = new Date()) {
   };
 }
 
+/**
+ * @param {LorEntitlementProjection | null | undefined} entitlement
+ * @param {{ requireCanary?: boolean }} [options]
+ * @returns {LorAccessFailure | LorEntitlementAccess}
+ */
 export function evaluateLorEntitlement(entitlement, { requireCanary = true } = {}) {
   if (!entitlement || entitlement.available !== true || entitlement.sourceVerified !== true) {
     return accessFailure(
@@ -135,6 +228,7 @@ export function evaluateLorEntitlement(entitlement, { requireCanary = true } = {
   };
 }
 
+/** @param {string} contentType */
 function commonHeaders(contentType) {
   return {
     'Cache-Control': 'no-store, max-age=0',
@@ -151,6 +245,12 @@ function commonHeaders(contentType) {
   };
 }
 
+/**
+ * @param {import('node:http').ServerResponse} response
+ * @param {number} status
+ * @param {unknown} payload
+ * @param {Record<string, string>} [extraHeaders]
+ */
 function sendJson(response, status, payload, extraHeaders = {}) {
   response.writeHead(status, {
     ...commonHeaders('application/json; charset=utf-8'),
@@ -168,6 +268,10 @@ function escapeHtml(value = '') {
     .replaceAll("'", '&#39;');
 }
 
+/**
+ * @param {import('node:http').ServerResponse} response
+ * @param {LorAccessFailure} failure
+ */
 function sendAccessPage(response, failure) {
   const login = failure.status === 401
     ? '<p><a href="/api/auth/start?final=%2Flor-studio%2F">Sign in through MissionMed</a></p>'
@@ -177,6 +281,12 @@ function sendAccessPage(response, failure) {
   response.end(html);
 }
 
+/**
+ * @param {import('node:http').IncomingMessage} request
+ * @param {import('node:http').ServerResponse} response
+ * @param {string} pathname
+ * @param {string} publicDirectory
+ */
 async function serveProtectedAsset(request, response, pathname, publicDirectory) {
   if (!['GET', 'HEAD'].includes(String(request.method || 'GET').toUpperCase())) {
     sendJson(response, 405, { error: 'method_not_allowed', allowed: ['GET', 'HEAD'] }, { Allow: 'GET, HEAD' });
@@ -215,6 +325,10 @@ async function serveProtectedAsset(request, response, pathname, publicDirectory)
   }
 }
 
+/**
+ * @param {LorApplicationBootstrap | null | undefined} payload
+ * @returns {LorApplicationBootstrap | null}
+ */
 function normalizeApplicationBootstrap(payload) {
   if (!payload || typeof payload !== 'object') return null;
   const operational = payload.operational === true
@@ -230,6 +344,7 @@ function normalizeApplicationBootstrap(payload) {
   };
 }
 
+/** @param {LorStudioRuntimeOptions} [options] */
 export function createLorStudioRuntime({
   publicDirectory,
   flags = resolveLorStudioFlags(),
@@ -243,9 +358,14 @@ export function createLorStudioRuntime({
     throw new Error('LOR Studio entitlementResolver.resolve is required.');
   }
 
+  /**
+   * @param {import('node:http').IncomingMessage} request
+   * @param {LorSession | null} session
+   * @returns {Promise<LorAccessFailure | LorAccessGrant>}
+   */
   async function authorize(request, session) {
     const freshSession = validateFreshLorSession(session, clock());
-    if (!freshSession.ok) return freshSession;
+    if (freshSession.ok === false) return freshSession;
 
     if (flags.enabled !== true) {
       return accessFailure(404, 'lor_feature_disabled', 'LOR Studio is not enabled in this environment.');
@@ -266,7 +386,7 @@ export function createLorStudioRuntime({
     }
 
     const evaluated = evaluateLorEntitlement(entitlement, { requireCanary: flags.requireCanary !== false });
-    if (!evaluated.ok) return evaluated;
+    if (evaluated.ok === false) return evaluated;
     if (String(evaluated.actor.id) !== String(freshSession.subject)) {
       return accessFailure(
         403,
@@ -278,6 +398,12 @@ export function createLorStudioRuntime({
     return { ...evaluated, session: freshSession.session };
   }
 
+  /**
+   * @param {import('node:http').IncomingMessage} request
+   * @param {import('node:http').ServerResponse} response
+   * @param {URL} url
+   * @param {LorSession | null} session
+   */
   async function handleApi(request, response, url, session) {
     if (request.method === 'OPTIONS') {
       response.writeHead(204, {
@@ -289,7 +415,7 @@ export function createLorStudioRuntime({
     }
 
     const access = await authorize(request, session);
-    if (!access.ok) {
+    if (access.ok === false) {
       sendJson(response, access.status, { error: access.error, message: access.message });
       return;
     }
@@ -375,6 +501,12 @@ export function createLorStudioRuntime({
     sendJson(response, status, result?.body ?? result ?? {});
   }
 
+  /**
+   * @param {import('node:http').IncomingMessage} request
+   * @param {import('node:http').ServerResponse} response
+   * @param {URL} url
+   * @param {{ session?: LorSession | null }} [context]
+   */
   async function handle(request, response, url, { session = null } = {}) {
     if (!isLorStudioRequestPath(url?.pathname)) return false;
 
@@ -384,7 +516,7 @@ export function createLorStudioRuntime({
     }
 
     const access = await authorize(request, session);
-    if (!access.ok) {
+    if (access.ok === false) {
       sendAccessPage(response, access);
       return true;
     }

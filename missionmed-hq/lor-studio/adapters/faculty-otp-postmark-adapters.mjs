@@ -18,6 +18,56 @@ const OTP_PROVIDER_PROOF_INVALID = 'BOUND_PROVIDER_PROOF_INVALID';
 const POSTMARK_TRANSPORT_UNAVAILABLE = 'DELIVERY_TRANSPORT_UNAVAILABLE';
 const POSTMARK_PROVIDER_PROOF_INVALID = 'BOUND_DELIVERY_PROOF_INVALID';
 
+/**
+ * @typedef {object} OtpProviderProof
+ * @property {boolean} [verified]
+ * @property {boolean} [consumed]
+ * @property {boolean} [revoked]
+ * @property {string} [schemaVersion]
+ * @property {string} [challengeId]
+ * @property {string} [invitationId]
+ * @property {string} [recipientEmailHash]
+ * @property {string} [principalId]
+ * @property {string} [proofId]
+ * @property {string} [verifiedAt]
+ * @property {string} [expiresAt]
+ */
+
+/**
+ * @typedef {object} OtpChallengeRepository
+ * @property {(request: {challengeId: string, code: string, invitationId: string, recipientEmailHash: string}) => Promise<OtpProviderProof | null | undefined>} verifyAndConsumeOnce
+ */
+
+/**
+ * @typedef {object} OtpAdapterOptions
+ * @property {Record<string, unknown> | null} [binding]
+ * @property {OtpChallengeRepository | null} [challengeRepository]
+ * @property {() => Date | string | number} [clock]
+ */
+
+/**
+ * @typedef {object} PostmarkProviderResult
+ * @property {boolean} [accepted]
+ * @property {string} [invitationId]
+ * @property {string} [recipientEmailHash]
+ * @property {string} [invitationPath]
+ * @property {string} [templateAlias]
+ * @property {string} [messageId]
+ * @property {string} [acceptedAt]
+ */
+
+/**
+ * @typedef {object} PostmarkTransport
+ * @property {(request: Record<string, unknown>) => Promise<PostmarkProviderResult | null | undefined>} sendBoundInvitation
+ */
+
+/**
+ * @typedef {object} PostmarkAdapterOptions
+ * @property {Record<string, unknown> | null} [binding]
+ * @property {PostmarkTransport | null} [transport]
+ * @property {() => Date | string | number} [clock]
+ */
+
 function assertExactKeys(value, allowed, fieldName) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new ValidationError(`${fieldName} must be an object`);
@@ -124,6 +174,7 @@ function deniedOtpProof({ challengeId, invitationId, recipientEmailHash, status 
 }
 
 export class RecipientBoundOtpAdapter extends OtpPort {
+  /** @param {OtpAdapterOptions} [options] */
   constructor({ binding, challengeRepository, clock } = {}) {
     super();
     this.otpBinding = assertOtpBinding(binding);
@@ -235,6 +286,7 @@ export class RecipientBoundOtpAdapter extends OtpPort {
 }
 
 export class PostmarkFacultyInvitationAdapter extends EmailPort {
+  /** @param {PostmarkAdapterOptions} [options] */
   constructor({ binding, transport, clock } = {}) {
     super();
     this.deliveryBinding = assertPostmarkBinding(binding);
