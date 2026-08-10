@@ -1,12 +1,16 @@
 # F2-LOR-1011 Pause / Resume Checkpoint
 
-Status: `PAUSED_FOR_TEMPORARY_SERIALIZATION_YIELD`
+Current status: `BINDING_FAILED_CLOSED_E12 / ROOT_CAUSE_UNRESOLVED / DR_038_LOCAL_DRAFT`
+
+Historical serialization status: `PAUSED_FOR_TEMPORARY_SERIALIZATION_YIELD`
 
 Date: 2026-08-10
 
 Mission: F2-LOR-1011
 
 Founder directive: temporarily yield the shared MissionMed OS sole-writer surface without abandoning, resetting, reverting, discarding, or restarting LOR work.
+
+> Current control, 2026-08-10: the serialization yield was completed without loss and is preserved below as historical custody evidence. Since that checkpoint, DR-037 reached canonical `PUSHED_FILED / INDEPENDENTLY_VERIFIED` at `c7018902b0bf69ab7c27d643c9d0f132e9099c2d`. Its sole authorized wrapper ran once and returned `FAIL F2_LOR_1011_BRANCH_BINDING_PROBE E12` after approximately 0.9 seconds with empty wrapper stderr. It was not retried and no subsequent provider command ran. E12 preserves the data-less persistent child identity but does not reveal whether the health pair was failed, nonterminal, or unrecognized. Binding remains `FAIL / UNRESOLVED`; DR-037 authority is exhausted and early-expired. DR-038 is a local `LOCAL_DRAFT / NOT_VERIFIED` candidate only. All connection, migration, Storage, Railway binding, deployment, Matrix, production, user, email, and data gates remain closed.
 
 ## Checkpoint outcome
 
@@ -66,9 +70,17 @@ Other bounded evidence:
 - Postmark remained unauthenticated and unbound.
 - Matrix, migrations, staging deployment, production, email, users, and protected data remained closed.
 
-## Exact resume point
+## Current exact resume point
 
-Resume only after a new Founder instruction:
+1. Re-read canonical MissionMed OS authority through DR-037 and the current F2-LOR-1011 mission, passport, and authority index.
+2. Preserve DR-037's canonical authority PASS separately from its one runtime result: `FAILED_E12 / EXHAUSTED / EARLY_EXPIRED`; do not retry it or infer the hidden provider status.
+3. Finish the exact DR-038 additive authority package, obtain a fresh precommit PASS, commit and push only that reviewed package, then obtain a distinct fresh post-push `INDEPENDENTLY_VERIFIED` verdict.
+4. Only after DR-038 is externally `PUSHED_FILED / INDEPENDENTLY_VERIFIED`, run exactly its one fixed-output sanitized branch-health diagnostic wrapper once. Do not run any direct Supabase child command.
+5. Stop after the fixed diagnostic result for a new fresh independent resource-binding review. No result advances connection, migration, Storage, Railway binding, deployment, Matrix, production, users, email, or data by implication.
+
+## Historical exact resume point at serialization yield
+
+The following steps are retained as the exact historical resume protocol that led to DR-034 branch creation and DR-037. They are superseded by the current exact resume point above and must not be replayed:
 
 1. Re-read the latest MissionMed OS `BOOT.md`, generated `CURRENT.md`, F2-LOR-1011 mission record, LOR passport, authority index, DR-032, DR-033, and DR-034 from canonical `main`.
 2. Resolve DR-034 filing from canonical Git and verification from a fresh verifier lifecycle; do not infer one axis from the other.
