@@ -6,8 +6,8 @@ const bridge = window.V6Bridge;
 if (!bridge) throw new Error('V6 integration bridge is unavailable.');
 
 const state = {
-  railId: RAIL_IDS.RESPONSES_SPEECH,
-  railStatus: 'available',
+  railId: RAIL_IDS.OPENAI_REALTIME,
+  railStatus: 'checking',
   railConfigs: [],
   railConnectionMs: null,
   railFirstAudioMs: null,
@@ -16,9 +16,9 @@ const state = {
   railInterruptionMs: null,
   continuousCompletedTurn: null,
   continuousAlreadySpoken: null,
-  model: 'gpt-5.6-terra',
+  model: 'gpt-realtime-2.1',
   providerModel: null,
-  architecture: 'responses-openai-speech',
+  architecture: 'native-realtime-voice',
   observerModel: 'gpt-5.6-luna',
   providerObserverModel: null,
   behaviorPresetId: 'direct-program-director',
@@ -1198,7 +1198,8 @@ async function loadConfiguration() {
     state.avatarNotice = state.avatarProviderReady
       ? 'Live avatar provider is configured. It will connect only after Begin.'
       : 'Live avatar unavailable: provider authorization is missing. Voice-only fallback will remain visible and use the same interviewer intelligence and OpenAI voice.';
-    if (models.defaultModelId) state.model = models.defaultModelId;
+    if (state.railId === RAIL_IDS.OPENAI_REALTIME) state.model = 'gpt-realtime-2.1';
+    else if (models.defaultModelId) state.model = models.defaultModelId;
     if (models.defaultBehaviorPresetId) state.behaviorPresetId = models.defaultBehaviorPresetId;
     if (models.observerModelId) state.observerModel = models.observerModelId;
     if (voices.defaultPresetId) state.voicePresetId = voices.defaultPresetId;

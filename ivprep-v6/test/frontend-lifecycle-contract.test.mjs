@@ -74,6 +74,13 @@ test('founder rail, model, voice, and behavior selections are immutable during a
   assert.match(integration, /Interviewer behavior is fixed during an active interview/);
 });
 
+test('authenticated Continuous Conversation is the Founder Alpha client default without removing the explicit fallback', () => {
+  assert.match(integration, /railId: RAIL_IDS\.OPENAI_REALTIME/);
+  assert.match(integration, /model: 'gpt-realtime-2\.1'/);
+  assert.match(integration, /if \(state\.railId === RAIL_IDS\.OPENAI_REALTIME\) state\.model = 'gpt-realtime-2\.1'/);
+  assert.match(integration, /state\.railId = RAIL_IDS\.RESPONSES_SPEECH/);
+});
+
 test('continuous room removes legacy manual-turn and coaching clutter while keeping essential controls', () => {
   assert.match(integration, /body\.frontier-focus-room #roomctl \{ display:none !important; \}/);
   assert.match(integration, /body\.frontier-focus-room #teledrawer/);

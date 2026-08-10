@@ -2,9 +2,9 @@
 
 ## Status
 
-**REALTIME 2.1 NEEDS ANOTHER ITERATION**
+**REALTIME 2.1 FOUNDER ALPHA DEFAULT**
 
-The experimental continuous rail is implemented, authenticated, selectable, and safe to founder-test. It is not promoted. The existing Responses + Speech rail remains the default because identical synthetic unfinished-pause trials produced materially variable Realtime decisions.
+The continuous rail is implemented, authenticated, and founder-accepted through a successful spoken-microphone trial that directly validated interruption, contextual understanding, and follow-up timing and quality. Continuous Conversation is now the Founder Alpha default whenever authenticated Realtime capability is available. Responses + Speech remains the explicit fallback and becomes the default only when Realtime is unavailable. This is not a production-readiness claim.
 
 ## Authority
 
@@ -115,7 +115,7 @@ Provider-only capability timing measured one 786 ms first-audio run, 161 ms to d
 ## Tests and probes
 
 - Syntax checks: pass.
-- Automated suite: **67/67 pass**, 0 fail.
+- Automated suite: **68/68 pass**, 0 fail.
 - New rail/lifecycle contracts: 10 added and passing.
 - Dependency audit: 0 vulnerabilities.
 - Actual same-origin authenticated relay: pass.
@@ -123,7 +123,7 @@ Provider-only capability timing measured one 786 ms first-audio run, 161 ms to d
 - Actual provider streaming: exact model/voice, transcript delta, audio delta, cancellation, and session end observed.
 - Synthetic 2/5/8 second pause suite: completed; variable/promotion-blocking result documented above.
 - Persistence restart: three synthetic completed sessions before restart and the same three after restart.
-- Health/config: OpenAI configured; default and hard maximum both 2 minutes; fallback default; Realtime experimental; GPT-Live unavailable.
+- Health/config: OpenAI configured; default and hard maximum both 2 minutes; authenticated Realtime is the Founder Alpha default; Responses + Speech is the explicit unavailable/error fallback; GPT-Live unavailable.
 - Secret literal scan: key present in process only; exact literal absent from repository content.
 - Browser assets: no credential/Authorization markers.
 - Allowed-path check: pass.
@@ -140,7 +140,7 @@ Founder Chrome evidence exposed two material defects after the original handoff:
 3. The focus presentation initially hid the legacy container that also owned `Begin Interview`, leaving the ready room with no launch action. Commit `ccffdc9` adds an explicit focused `Start Interview` action, a truthful `Ready when you are` state, and hides that action as soon as the interview starts. Direct Chrome verification observed the button in the ready room, clicked it, observed the protected 120-second Realtime answer window open, and confirmed the start action disappeared after activation.
 4. The first successful founder spoken-microphone trial validated natural turn timing, contextual understanding, and follow-up quality across two completed turns, but stopped at 69.662 seconds. Durable evidence proved this was not the 120-second cap: the model had generated another contextual follow-up, while the fixed V6 question plan had exhausted and rejected that non-closing utterance. Commit `23a45e1` carries the explicit rail identity with each turn and allows only Continuous Conversation to append genuine contextual follow-ups until the server-owned beta cap; Responses + Speech retains the prior fail-closed plan-exhaustion rule.
 
-Direct Chrome evidence after the repair showed the focused room without the permanent sidebar, top progress bar, meeting toolbar, live-signal drawer, `Done Answering`, or `Abandon Take`. The durable session ledger recorded the founder-test answer and the contextual follow-up `Give me a concrete example...`, with exact model `gpt-realtime-2.1` and a separate `FOLLOW_UP` instructor record. This proves follow-up generation/persistence for that tested turn; it does not promote the experimental rail or prove repeated natural-microphone stability.
+Direct Chrome evidence after the repair showed the focused room without the permanent sidebar, top progress bar, meeting toolbar, live-signal drawer, `Done Answering`, or `Abandon Take`. The durable session ledger recorded the founder-test answer and the contextual follow-up `Give me a concrete example...`, with exact model `gpt-realtime-2.1` and a separate `FOLLOW_UP` instructor record. This proved follow-up generation/persistence for that tested turn; the later successful spoken-microphone trial supplied the founder acceptance used for the Alpha-default decision.
 
 ## Failures and fixes during the ticket
 
@@ -166,9 +166,9 @@ Direct Chrome evidence after the repair showed the focused room without the perm
 
 ## Fresh Verifier
 
-Independent verdict: **REALTIME 2.1 NEEDS ANOTHER ITERATION**. The verifier confirmed exact authority/rollback, additive fallback-default architecture, loopback binding, exact runtime rail truth, cross-origin WebSocket rejection, protected fallback/microphone/persistence hashes, allowed paths, secret safety, and both late lifecycle repairs. Its original inspection suite passed 64/64 before the final relay-rate contract was added; supervisor closeout after founder-feedback repair passed 67/67.
+Historical independent verdict before founder spoken acceptance: **REALTIME 2.1 NEEDS ANOTHER ITERATION**. The verifier confirmed exact authority/rollback, additive fallback architecture, loopback binding, exact runtime rail truth, cross-origin WebSocket rejection, protected fallback/microphone/persistence hashes, allowed paths, secret safety, and both late lifecycle repairs. Its original inspection suite passed 64/64 before the final relay-rate contract was added; supervisor closeout after Founder Alpha default promotion passed 68/68.
 
-Remaining limitations from independent review are the variable semantic-VAD pause behavior, unobserved real-Chrome microphone/speaker quality and end-to-end interruption latency, and the absence of exact partial-assistant/interruption-boundary reconstruction in exported evidence. None justify promoting the experimental rail.
+Remaining limitations are the variable synthetic semantic-VAD pause behavior, the absence of exact partial-assistant/interruption-boundary reconstruction in exported evidence, and interviewer replies that still feel more robotic than a natural physician. The founder directly accepted the system behavior in Chrome but did not promote it beyond Founder Alpha.
 
 ## Launch
 
@@ -179,8 +179,8 @@ HOST=127.0.0.1 PORT=8320 npm start
 
 Open `http://127.0.0.1:8320/` in Google Chrome. The strongest build was left running there at closeout.
 
-## Promotion recommendation and exact next step
+## Founder decision and exact next step
 
-**REALTIME 2.1 NEEDS ANOTHER ITERATION**
+**REALTIME 2.1 FOUNDER ALPHA DEFAULT**
 
-Keep Responses + Speech as default. Founder should enter admin mode, select `CONTINUOUS CONVERSATION`, and run the real-world panel in Chrome—especially repeated 2/5/8 second unfinished clauses, `let me think`, false endings, interruption, background noise, and quiet breathing—while recording founder diagnostics. Only reconsider promotion if repeated natural-microphone trials are materially more stable than the synthetic evidence.
+Use Continuous Conversation by default whenever authenticated Realtime capability is available. Keep Responses + Speech as the explicit fallback and automatic configuration default when Realtime is unavailable. The next bounded iteration is human realism: make interviewer replies more naturally physician-like and less robotic without changing the accepted full-duplex rail, turn detection, interruption behavior, context, or fallback boundary.

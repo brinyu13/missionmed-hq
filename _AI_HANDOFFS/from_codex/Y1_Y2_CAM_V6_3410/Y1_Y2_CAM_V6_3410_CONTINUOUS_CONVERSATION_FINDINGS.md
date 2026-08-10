@@ -2,9 +2,9 @@
 
 ## Verdict
 
-`gpt-realtime-2.1` is authenticated and the additive continuous rail works end to end through the IV Prep server relay, but semantic turn-taking is not yet reliable enough to replace the existing Responses + Speech default. Repeat synthetic trials produced materially different decisions for the same unfinished pauses.
+`gpt-realtime-2.1` is authenticated and the additive continuous rail works end to end through the IV Prep server relay. Repeat synthetic trials produced materially different decisions for the same unfinished pauses, but the later founder spoken-microphone trial directly validated interruption, contextual understanding, and follow-up timing and quality.
 
-Recommendation: **REALTIME 2.1 NEEDS ANOTHER ITERATION**.
+Current founder decision: **REALTIME 2.1 FOUNDER ALPHA DEFAULT**. Responses + Speech remains the explicit fallback. This does not claim production readiness, and human-realism prompting remains the next bounded iteration.
 
 ## Authority and isolation
 

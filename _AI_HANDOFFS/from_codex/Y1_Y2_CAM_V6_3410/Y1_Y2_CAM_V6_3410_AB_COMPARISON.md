@@ -42,6 +42,6 @@ That relay probe passed four launches total, including a two-launch repeated-ses
 
 ## Recommendation
 
-**REALTIME 2.1 NEEDS ANOTHER ITERATION**
+Historical pre-founder verdict: **REALTIME 2.1 NEEDS ANOTHER ITERATION**
 
-Keep Responses + Speech as the alpha default. Continue founder A/B testing of Realtime as an explicit experiment, concentrating on real-microphone unfinished clauses, `let me think`, false endings, background noise, and acceptable answer-end latency. Promotion requires stable repeated pause behavior, not one favorable run.
+This recommendation was superseded after the founder's successful spoken-microphone trial directly validated interruption, contextual understanding, and follow-up timing and quality. The accepted Founder Alpha default is now Continuous Conversation when authenticated Realtime is available; Responses + Speech remains the explicit fallback. The synthetic evidence above remains valid historical evidence and the default decision is not a production-readiness claim.

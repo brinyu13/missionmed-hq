@@ -55,7 +55,7 @@ runtime enforces one active interview per test identity, a 120-second beta
 default and hard cap, a usage ledger, and emergency disable. This local role
 gate is not authentication and does not authorize a private deployment.
 
-## 3410 experimental conversation rail
+## 3410 Founder Alpha conversation rail
 
 The founder-only Conversation Rail control now exposes two application-owned
 paths without changing the accepted interview screens:
@@ -72,8 +72,10 @@ paths without changing the accepted interview screens:
 `GPT-Live` is shown as unavailable (`provider_api_not_available`) rather than
 being simulated. Rail selection is locked during an active interview, and a
 Realtime failure offers an explicit visible return to the fallback rail for a
-new interview. The fallback remains the default while founder naturalness
-testing continues.
+new interview. After successful founder spoken-microphone acceptance,
+Continuous Conversation is the Founder Alpha default whenever authenticated
+Realtime capability is available. High-Intelligence Voice becomes the explicit
+default only when Realtime is unavailable; this is not a production promotion.
 
 For the 3410 founder build, run:
 

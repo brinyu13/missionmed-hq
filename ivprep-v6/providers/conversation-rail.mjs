@@ -35,7 +35,9 @@ export const CONVERSATION_RAILS = Object.freeze([
 export function publicConversationRailConfig({ realtimeAvailable = false } = {}) {
   return {
     founderOnly: true,
-    defaultRailId: CONVERSATION_RAIL_IDS.RESPONSES_SPEECH,
+    defaultRailId: realtimeAvailable
+      ? CONVERSATION_RAIL_IDS.OPENAI_REALTIME
+      : CONVERSATION_RAIL_IDS.RESPONSES_SPEECH,
     experimentalRailId: CONVERSATION_RAIL_IDS.OPENAI_REALTIME,
     rails: CONVERSATION_RAILS.map((rail) => ({
       ...rail,
