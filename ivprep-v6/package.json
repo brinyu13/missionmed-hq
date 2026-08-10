@@ -8,13 +8,19 @@
   },
   "scripts": {
     "start": "node server/serve.mjs",
-    "check": "node --check server/serve.mjs && node --check providers/avatar-provider.mjs && node --check providers/conversation-rail.mjs && node --check providers/openai-continuous-realtime.mjs && node --check providers/liveavatar-provider.mjs && node --check providers/errors.mjs && node --check providers/openai-model-discovery.mjs && node --check providers/openai-realtime.mjs && node --check providers/openai-responses.mjs && node --check providers/openai-speech.mjs && node --check config/models.mjs && node --check config/voices.mjs && node --check config/faculty-roster.mjs && node --check config/load-environment.mjs && node --check persistence/alpha-store.mjs && node --check public/avatar-provider.mjs && node --check public/conversation-rail.mjs && node --check public/v6-integration.mjs && node --check scripts/probe-continuous-pauses.mjs && node --check scripts/probe-continuous-relay.mjs && node --check scripts/probe-liveavatar-origin.mjs",
+    "check": "node --check server/serve.mjs && node --check providers/avatar-provider.mjs && node --check providers/conversation-rail.mjs && node --check providers/openai-continuous-realtime.mjs && node --check providers/liveavatar-provider.mjs && node --check providers/errors.mjs && node --check providers/openai-model-discovery.mjs && node --check providers/openai-realtime.mjs && node --check providers/openai-responses.mjs && node --check providers/openai-speech.mjs && node --check config/models.mjs && node --check config/voices.mjs && node --check config/faculty-roster.mjs && node --check config/load-environment.mjs && node --check persistence/alpha-store.mjs && node --check public/avatar-provider.mjs && node --check public/conversation-rail.mjs && node --check public/v6-integration.mjs && node --check scripts/probe-continuous-pauses.mjs && node --check scripts/probe-continuous-relay.mjs && node --check scripts/probe-liveavatar-origin.mjs && npm run check:analytics",
+    "check:analytics": "node scripts/analytics/check-syntax.mjs",
+    "analytics:assets": "node scripts/analytics/fetch-mediapipe-assets.mjs",
+    "analytics:validate": "node scripts/analytics/score-ground-truth.mjs",
+    "analytics:privacy": "node scripts/analytics/privacy-probe.mjs",
+    "analytics:performance": "node scripts/analytics/performance-probe.mjs --duration-seconds=900",
     "probe:continuous-pauses": "node scripts/probe-continuous-pauses.mjs",
     "probe:continuous-relay": "node scripts/probe-continuous-relay.mjs",
     "probe:liveavatar-origin": "node scripts/probe-liveavatar-origin.mjs",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test --test-concurrency=1 test/*.test.mjs test/analytics/*.test.mjs"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "1.0.1",
     "livekit-client": "^2.21.0",
     "ws": "^8.18.3"
   }

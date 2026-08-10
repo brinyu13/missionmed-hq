@@ -1,0 +1,28 @@
+.ca-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ca-title h1{margin:0}
+.ca-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:14px;margin-top:16px}
+.ca-stack{display:grid;gap:12px}
+.ca-preview{width:100%;aspect-ratio:16/9;background:#060a12;border:1px solid rgba(57,214,255,.2);border-radius:11px;object-fit:contain}
+.ca-actions{display:flex;gap:8px;flex-wrap:wrap}
+.ca-actions button{min-height:44px}
+.ca-status{padding:10px 12px;border-radius:9px;background:rgba(57,214,255,.06);border:1px solid rgba(57,214,255,.15);font-size:12px;color:var(--mid);line-height:1.55}
+.ca-steps{margin:0;padding-left:22px;display:grid;gap:7px;font-size:12px;color:var(--dim)}
+.ca-steps li[aria-current="step"]{color:var(--gd);font-weight:700}
+.ca-diagnostics{white-space:pre-wrap;font:11px/1.55 var(--num);max-height:220px;overflow:auto;background:#070b12;border:1px solid var(--line);border-radius:8px;padding:10px}
+.ca-result{margin:14px 0;border-color:rgba(57,214,255,.3)}
+.ca-result-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+.ca-event-list{display:grid;gap:7px}
+.ca-event{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:12px;color:var(--mid)}
+.ca-event:first-child{border-top:0}
+.ca-event-time{font-family:var(--num);font-size:10px;color:var(--cy);white-space:nowrap}
+.ca-event button{margin-left:auto}
+.ca-privacy{font:10px/1.55 var(--num);letter-spacing:.06em;color:var(--dim);margin-top:10px}
+.ca-error{border-color:rgba(255,93,115,.4);color:#ff9baa}
+.ca-hidden{display:none!important}
+@media(max-width:1024px){.ca-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.ca-actions{display:grid}.ca-actions button{width:100%}.ca-event{align-items:flex-start;flex-wrap:wrap}.ca-event button{margin-left:0;width:100%}}
+@media(prefers-reduced-motion:reduce){#analytics-test *{animation:none!important;transition:none!important}}
+.ca-analytics-active #coachlane,
+.ca-analytics-active #laneticker,
+.ca-analytics-active #teledrawer,
+.ca-analytics-active #pipovl{display:none!important}

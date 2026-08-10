@@ -5,6 +5,7 @@
 <title>MissionMed IV Prep On-Call · V6</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,600;0,800;0,900;1,700;1,800;1,900&family=Rajdhani:wght@500;600;700&family=Lora:ital,wght@0,400;0,500;1,400;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/analytics/analytics.css">
 <style>
 /* ==========================================================================
    MISSIONMED IV PREP ON-CALL · V6
@@ -1099,6 +1100,7 @@ textarea.note:focus{outline:0;border-color:var(--gd)}
   <span style="flex:1"></span>
   <span class="chip dim" title="No confidence, warmth or likability scores exist here — only observable signals and Dr Brian's judgment">Machines measure · humans coach</span>
  </div>
+ <div id="communication-results-anchor"></div>
  <div class="readGrid">
   <div><!-- LEFT: replay + evidence -->
    <div class="panel"><div class="pPad">
@@ -1392,6 +1394,18 @@ textarea.note:focus{outline:0;border-color:var(--gd)}
  </div></div>
 </section>
 
+<!-- ============ ADMIN · COMMUNICATION ANALYTICS FOUNDER TEST ============ -->
+<section data-view="analytics-test" id="analytics-test" aria-labelledby="analytics-test-title">
+ <div class="ca-title">
+  <h1 class="bigt" id="analytics-test-title">Test communication <em>analytics.</em></h1>
+  <span class="adminband">FOUNDER LOCAL TEST</span>
+  <span class="chip vi">LOCAL ALPHA</span>
+ </div>
+ <p class="sub">Run a guided camera-and-microphone check. This surface reports observable signals and engine health—not a grade, diagnosis, or coaching verdict.</p>
+ <div class="notice" style="margin-top:14px">LOCAL BROWSER ANALYSIS · RAW CAMERA FRAMES ARE NOT RETAINED OR SENT BY ANALYTICS · OPTIONAL REPLAY STAYS IN THIS TAB</div>
+ <div id="communication-analytics-test-root" data-state="idle"></div>
+</section>
+
 <!-- ============ ADMIN · INTERVIEWER REGISTRY ============ -->
 <section data-view="registry">
  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><div class="bigt">Interviewer <em>registry.</em></div><span class="chip cy">OPS · LIVE DEMO</span></div>
@@ -1596,7 +1610,9 @@ let BRIAN_ORDER='Tomorrow · same question · 60 seconds only: say the outcome i
 let DEBRIEF_PENDING=true;
 /* demo-local persistence of new reps (metadata only) */
 try{const m=localStorage.getItem('ivp6_reps');if(m){JSON.parse(m).forEach(r=>{if(!REPS.some(x=>x.id===r.id))REPS.push({...r,blobUrl:null})})}}catch(e){}
-function persistMeta(){try{localStorage.setItem('ivp6_reps',JSON.stringify(REPS.filter(r=>!r.seed).map(r=>({...r,blobUrl:undefined,levels:(r.levels||[]).slice(0,400)}))))}catch(e){}}
+function persistentCommunicationAnalytics(value){const projected=analyticsCall('persistentEnvelopes',value);return Array.isArray(projected)?projected:[]}
+function persistentRep(r){const analytics=persistentCommunicationAnalytics(r.communicationAnalytics);return {...r,blobUrl:undefined,levels:(r.levels||[]).slice(0,400),communicationAnalytics:analytics,communicationAnalyticsReplayMediaId:null}}
+function persistMeta(){try{localStorage.setItem('ivp6_reps',JSON.stringify(REPS.filter(r=>!r.seed).map(persistentRep)))}catch(e){}}
 
 /* ================================================================
    ROUTER · sidebar · roles · flow rail
@@ -1608,11 +1624,16 @@ const NAVDEF={
   ['YOUR MATERIALS',null],['stories','📖','Your Stories'],['myfile','📄','Your File'],['programs','🏥','Program Intel']],
  visitor:[['WELCOME',null],['vhome','⌂','The Program']],
  coach:[['COACHING',null],['desk','🗂','Review Desk'],['mstudent','👤','Priya Sharma'],['mtrends','📈','Trends']],
- admin:[['OPERATIONS',null],['ops','⚙','Operations'],['registry','🎭','Interviewer Registry']]};
+ admin:[['FOUNDER TESTS',null],['analytics-test','◉','Test Communication Analytics'],['OPERATIONS',null],['ops','⚙','Operations'],['registry','🎭','Interviewer Registry']]};
 const FLOWSTEPS=['build','wizard','meet','perm','station','room','selfrate','results'];
 const FLOWNAMES={build:'NEW INTERVIEW',wizard:'BUILD',meet:'MEET THEM',perm:'CAMERA + MIC',station:'STATION',room:'THE ROOM',selfrate:'YOU FIRST',results:'YOUR RESULTS'};
-const CRUMBS={home:'HOME',vhome:'THE PROGRAM',build:'NEW INTERVIEW',wizard:'NEW INTERVIEW · CUSTOM',meet:'MEET YOUR INTERVIEWER',perm:'CAMERA + MIC',station:'STATION CHECK',room:'THE ROOM',selfrate:'YOU FIRST',results:'YOUR RESULTS',vault:'INTERVIEW VAULT',stories:'YOUR STORIES',myfile:'YOUR FILE',programs:'PROGRAM INTEL',desk:'REVIEW DESK',mstudent:'STUDENT FILE',mreview:'REP REVIEW',mtrends:'TRENDS',ops:'OPERATIONS',registry:'INTERVIEWER REGISTRY'};
+const CRUMBS={home:'HOME',vhome:'THE PROGRAM',build:'NEW INTERVIEW',wizard:'NEW INTERVIEW · CUSTOM',meet:'MEET YOUR INTERVIEWER',perm:'CAMERA + MIC',station:'STATION CHECK',room:'THE ROOM',selfrate:'YOU FIRST',results:'YOUR RESULTS',vault:'INTERVIEW VAULT',stories:'YOUR STORIES',myfile:'YOUR FILE',programs:'PROGRAM INTEL',desk:'REVIEW DESK',mstudent:'STUDENT FILE',mreview:'REP REVIEW',mtrends:'TRENDS',ops:'OPERATIONS','analytics-test':'TEST COMMUNICATION ANALYTICS',registry:'INTERVIEWER REGISTRY'};
 let ROLE='student',VIEW='home',INFLOW=false;
+function analyticsCall(method,...args){try{const api=window.V6CommunicationAnalytics;return api&&typeof api[method]==='function'?api[method](...args):null}catch(e){console.warn('[3420R] optional analytics unavailable');return null}}
+function has3420R(rep){const value=rep&&rep.communicationAnalytics;return Boolean(rep&&rep.communicationAnalyticsAttempted)||(Array.isArray(value)?value:[value]).some(entry=>entry&&entry.schema==='missionmed.ivprep.analytics.session.v1')}
+function frontierSafeTake(take){return take&&take.communicationAnalyticsAttempted?{...take,pauses:null,longest:null}:take}
+function revokeLocalBlobUrl(url){if(typeof url==='string'&&url.startsWith('blob:')){try{URL.revokeObjectURL(url)}catch(e){}}}
+function revokeRunMedia(run){const kept=new Set(REPS.map(rep=>rep.blobUrl).filter(Boolean));const urls=new Set([...(run.takes||[]).map(take=>take.blobUrl),run.active?.blobUrl].filter(Boolean));urls.forEach(url=>{if(!kept.has(url))revokeLocalBlobUrl(url)})}
 function enterApp(role){$('#splash').classList.add('gone');$('#app').classList.add('on');setRole(role)}
 function setRole(r){ROLE=r;document.body.dataset.role=r==='visitor'?'student':r;$('#roleMenu').classList.remove('open');
  const RD={student:['PS','Priya Sharma','Student · Session J'],visitor:['?','Visitor','Not yet enrolled'],coach:['DB','Dr Brian','Coaching Desk'],admin:['MM','MissionMed Ops','Operations']}[r];
@@ -1624,6 +1645,7 @@ function renderSideNav(){const n=$('#sideNav');n.innerHTML='';
  NAVDEF[ROLE].forEach(item=>{
   if(item[1]===null){const h=document.createElement('div');h.className='navHead';h.textContent=item[0];n.appendChild(h);return}
   const [v,ico,lbl]=item;const b=document.createElement('button');b.className='navItem'+(navOn(v)?' on':'');b.dataset.nav=v;
+  b.setAttribute('aria-label',lbl);b.title=lbl;
   let badge='';
   if(v==='debrief'&&DEBRIEF_PENDING)badge='<span class="nBadge">1</span>';
   if(v==='desk'){const c=QUEUE.filter(q=>!q.done).length;if(c)badge='<span class="nBadge">'+c+'</span>'}
@@ -1635,8 +1657,10 @@ function navOn(v){if(v===VIEW)return true;
  if(v==='results'&&VIEW==='results'&&!INFLOW)return true;
  if(v==='desk'&&VIEW==='mreview')return true;
  return false}
-function show(v){if(VIEW==='room'&&v!=='room'){SEQTOK++;if(window.V6Frontier&&window.V6Frontier.cancelTurn)window.V6Frontier.cancelTurn('navigation');stopMedia()}
+function show(v){if(v==='analytics-test'&&ROLE!=='admin')v=ROLE==='student'?'home':ROLE==='coach'?'desk':'vhome';
+ if(VIEW==='room'&&v!=='room'){SEQTOK++;if(window.V6Frontier&&window.V6Frontier.cancelTurn)window.V6Frontier.cancelTurn('navigation');stopMedia()}
  VIEW=v;$$('section[data-view]').forEach(s=>s.classList.toggle('live',s.dataset.view===v));
+ analyticsCall('onViewChange',v,ROLE);
  $('#mainel').scrollTop=0;$('#crumb').textContent=CRUMBS[v]||v.toUpperCase();renderSideNav();
  if(v==='home')renderHome();if(v==='vhome')renderVisitor();if(v==='build')renderBuildHub();
  if(v==='wizard')renderWizard();if(v==='meet')renderMeet();if(v==='perm')permAutopilot();
@@ -1686,10 +1710,10 @@ function renderHome(){
   $('#recentCard').innerHTML=
    '<div style="display:flex;gap:13px;align-items:center;flex-wrap:wrap">'
    +'<div style="flex:1;min-width:200px"><div style="font-weight:700;font-size:14px">'+esc(last.q)+'</div>'
-   +'<div style="font-size:11.5px;color:var(--dim);margin-top:3px">'+esc(last.iv||'')+' · '+(last.plat||'').toUpperCase()+' · '+last.pauses+' real pauses · '+(last.ratio*100|0)+'% speaking</div>'
+   +'<div style="font-size:11.5px;color:var(--dim);margin-top:3px">'+esc(last.iv||'')+' · '+(last.plat||'').toUpperCase()+' · '+(has3420R(last)?'communication analytics status in Results':last.pauses+' real pauses · '+(last.ratio*100|0)+'% speaking')+'</div>'
    +(last.note?'<div class="brian" style="font-size:12px;margin-top:8px;max-width:460px">'+esc(last.note)+'<span class="who">Dr Brian · on this rep</span></div>':'')
    +'</div>'
-   +segbarHTML(last,110)
+   +(has3420R(last)?'':segbarHTML(last,110))
    +'<div style="display:flex;flex-direction:column;gap:7px">'
    +'<button class="btnPri" onclick="'+(last.blobUrl?'replayRep(\''+last.id+'\')':'openLastResults()')+'">'+(last.blobUrl?'▶ Replay':'Evidence / Results')+'</button>'
    +'<button class="btnGhost" onclick="openLastResults()">Full results ▸</button></div></div>'}
@@ -1733,7 +1757,7 @@ function renderVisitor(){renderProg('#progVisitor',true)}
    ================================================================ */
 let BUILD=[];
 let SEL={cast:'chen',hunger:2,silence:2,program:'general',diff:'standard',len:'standard'};
-const RUN={qi:0,takes:[],rating:null,active:null,memory:[],termination:null,reset(){this.qi=0;this.takes=[];this.rating=null;this.memory=[];this.followupsUsed=0;this.termination=null}};
+const RUN={qi:0,takes:[],rating:null,active:null,memory:[],termination:null,reset(){revokeRunMedia(this);analyticsCall('resetSession');this.qi=0;this.takes=[];this.rating=null;this.active=null;this.memory=[];this.followupsUsed=0;this.termination=null}};
 function renderBuildHub(){
  const el=$('#buildShortcuts');el.innerHTML='';
  [['Re-run tonight’s mission','startMission()'],
@@ -1999,8 +2023,8 @@ function renderMeet(){const p=persona();
 /* ================================================================
    MEDIA ENGINE (REAL) · permissions · station check · speech
    ================================================================ */
-const MEDIA={stream:null,cam:false,mic:false,sim:false,AC:null,analyser:null,data:null,rec:null,chunks:[]};
-let REC=false,recT=0,countdownOn=false,TURN_SPOKEN=false,TURN_FINALIZING=false;
+const MEDIA={stream:null,cam:false,mic:false,sim:false,AC:null,analyser:null,data:null,rec:null,recEpoch:0,chunks:[]};
+let REC=false,recT=0,countdownOn=false,TURN_SPOKEN=false,TURN_FINALIZING=false,ANALYTICS_ANSWER_ID=null;
 function permUI(){const cam=MEDIA.cam,mic=MEDIA.mic,sim=MEDIA.sim;
  $('#permstate').innerHTML='STATUS · CAMERA <b class="'+(cam?'ok':'bad')+'">'+(cam?'GRANTED':'OFF')+'</b> · MIC <b class="'+(mic?'ok':'bad')+'">'+(mic?'GRANTED':'OFF')+'</b> · MODE <b class="'+(sim?'simb':'ok')+'">'+(sim?'SIMULATION':(cam?'FULL':(mic?'MIC ONLY':'UNDECIDED')))+'</b>';
  $('#permnext').disabled=!(cam||mic||sim);
@@ -2009,7 +2033,7 @@ function permUI(){const cam=MEDIA.cam,mic=MEDIA.mic,sim=MEDIA.sim;
  const lt=$('#lumarealtag');if(lt){lt.textContent=cam?'REAL':'SIM';lt.className=cam?'real':'sim'}
  const mw=$('#meetwrap');if(mw)mw.classList.toggle('nocam',!cam)}
 async function reqMedia(wantCam,wantMic){try{
-  if(MEDIA.stream)MEDIA.stream.getTracks().forEach(t=>t.stop());
+  if(MEDIA.stream)MEDIA.stream.getTracks().forEach(t=>t.stop());MEDIA.stream=null;MEDIA.cam=false;MEDIA.mic=false;
   const st=await navigator.mediaDevices.getUserMedia({video:wantCam?{width:1280,height:720}:false,
    audio:wantMic?{echoCancellation:true,noiseSuppression:true,autoGainControl:true}:false});
   MEDIA.stream=st;st.getTracks().forEach(tr=>tr.onended=()=>{MEDIA.cam=st.getVideoTracks().some(t=>t.readyState==='live');MEDIA.mic=st.getAudioTracks().some(t=>t.readyState==='live');
@@ -2024,12 +2048,15 @@ async function reqMedia(wantCam,wantMic){try{
   const rv=document.getElementById('roomvid');if(rv){rv.srcObject=st;rv.style.display='none'} /* self lives in the PIP, never full-stage — the room belongs to them */
   const ss=$('#stationsim');if(ss)ss.style.display=MEDIA.cam?'none':'block';
   permUI();const pd=$('#permdenied');if(pd)pd.style.display='none';
- toast(MEDIA.cam?'Camera and mic live. This is your real preview.':'Mic live. Real level and pause meters armed.');
+ toast(MEDIA.cam?'Camera and mic live. This is your real preview.':'Mic live. Real level and pause meters armed.');return {cam:MEDIA.cam,mic:MEDIA.mic};
  }catch(e){permUI();
   const pd=$('#permdenied');if(pd)pd.style.display='block';
-  toast('Permission blocked ('+(e.name||'error')+'). The recovery steps are on screen; nothing is lost.')}}
+  toast('Permission blocked ('+(e.name||'error')+'). The recovery steps are on screen; nothing is lost.');return {cam:false,mic:false}}}
 function stopMedia(){speechStop();
- if(MEDIA.rec&&MEDIA.rec.state!=='inactive'){try{MEDIA.rec.onstop=null;MEDIA.rec.stop()}catch(e){}}
+ document.body.classList.remove('ca-analytics-active');
+ analyticsCall('abandonAnswer','media_stopped');
+ analyticsCall('releaseRuntime');
+ const recorder=MEDIA.rec;MEDIA.recEpoch++;MEDIA.rec=null;if(recorder){recorder.ondataavailable=null;recorder.onstop=null;recorder.onerror=null;if(recorder.state!=='inactive'){try{recorder.stop()}catch(e){}}}
  if(MEDIA.stream)MEDIA.stream.getTracks().forEach(t=>t.stop());
  MEDIA.stream=null;MEDIA.cam=false;MEDIA.mic=false;MEDIA.rec=null;MEDIA.chunks=[];MEDIA.analyser=null;MEDIA.data=null;
  if(MEDIA.AC&&MEDIA.AC.state!=='closed'){try{MEDIA.AC.close()}catch(e){}}MEDIA.AC=null;permUI()}
@@ -2355,14 +2382,19 @@ function beginRec(){REC=true;TURN_FINALIZING=false;recT=0;AUD.pauses=0;AUD.longe
  const mr=$('#mrec');if(mr)mr.innerHTML='<span class="mrecdot"><i></i>Recording</span>';
  $('#roundbtn').style.display='inline-flex';$('#roundbtn').innerHTML='■ Done Answering';$('#roundbtn').onclick=endTake;
  const nb=$('#nextqbtn');nb.style.display='inline-flex';nb.innerHTML='✕ Abandon Take';nb.onclick=abandonTake;
- if(MEDIA.stream&&window.MediaRecorder){try{MEDIA.rec=new MediaRecorder(MEDIA.stream);
-  MEDIA.rec.ondataavailable=e=>{if(e.data.size)MEDIA.chunks.push(e.data)};MEDIA.rec.start(250)}catch(e){MEDIA.rec=null}}
+ let analyticsMediaStartedAt=null;
+ if(MEDIA.stream&&window.MediaRecorder){try{const recorder=new MediaRecorder(MEDIA.stream),recorderEpoch=++MEDIA.recEpoch;MEDIA.rec=recorder;
+  recorder.ondataavailable=e=>{if(MEDIA.rec===recorder&&MEDIA.recEpoch===recorderEpoch&&e.data.size)MEDIA.chunks.push(e.data)};recorder.start(250);analyticsMediaStartedAt=performance.now()}catch(e){MEDIA.rec=null}}
+ ANALYTICS_ANSWER_ID='answer-'+(RUN.qi+1)+'-'+(RUN.takes.length+1)+'-'+Math.round(performance.now());
+ const analyticsStarted=analyticsCall('beginAnswer',{answerId:ANALYTICS_ANSWER_ID,mediaId:ANALYTICS_ANSWER_ID,mediaStartedAt:analyticsMediaStartedAt});document.body.classList.toggle('ca-analytics-active',Boolean(analyticsStarted));
  if(SPEECH.api&&(MEDIA.mic))speechStart('answer');
  toast('Protected window open. Nothing judges you mid-answer.')}
 function abandonTake(){REC=false;TURN_FINALIZING=false;SEQTOK++;countdownOn=false;$('#dcount').style.display='none';clearInterval(TYPT);TYPT=null;
+ document.body.classList.remove('ca-analytics-active');
  if(window.V6Frontier&&window.V6Frontier.cancelTurn)window.V6Frontier.cancelTurn('abandoned');
+ analyticsCall('abandonAnswer','abandoned');ANALYTICS_ANSWER_ID=null;
  speechStop();
- if(MEDIA.rec&&MEDIA.rec.state!=='inactive'){try{MEDIA.rec.onstop=null;MEDIA.rec.stop()}catch(e){}}
+ const recorder=MEDIA.rec;MEDIA.recEpoch++;MEDIA.rec=null;if(recorder){recorder.ondataavailable=null;recorder.onstop=null;recorder.onerror=null;if(recorder.state!=='inactive'){try{recorder.stop()}catch(e){}}}
  MEDIA.chunks=[];$('#meetwrap').classList.remove('recg');setIvState('idle');
  $('#recb').classList.remove('hot');$('#recb').innerHTML='<i></i>ABANDONED · NOTHING KEPT';
  const mr=$('#mrec');if(mr)mr.innerHTML='';
@@ -2375,7 +2407,10 @@ function endTake(){if(!REC||TURN_FINALIZING)return;TURN_FINALIZING=true;REC=fals
  LASTCAP=performance.now();ASKT0=null;
  const q=currentQ(),turnToken=SEQTOK,questionIndex=RUN.qi;
  const transcript=SPEECH.on||SPEECH.finalTxt?SPEECH.txt:'';const marks=SPEECH.marks.slice();speechStop();
- let blobUrl=null;const fin=()=>{if(SEQTOK!==turnToken||RUN.qi!==questionIndex||VIEW!=='room')return;
+ const analyticsEndAt=performance.now();const communicationAnalyticsAttempted=Boolean(window.V6CommunicationAnalytics);analyticsCall('prepareEnd',analyticsEndAt);
+ let communicationAnalytics=null;
+ let blobUrl=null;const fin=()=>{if(SEQTOK!==turnToken||RUN.qi!==questionIndex||VIEW!=='room'){if(blobUrl)URL.revokeObjectURL(blobUrl);blobUrl=null;analyticsCall('abandonAnswer','stale_take');ANALYTICS_ANSWER_ID=null;return}
+  communicationAnalytics=analyticsCall('endAnswer',{transcript,mediaAvailable:Boolean(blobUrl),endAt:analyticsEndAt});ANALYTICS_ANSWER_ID=null;
   const pv=PSAMP.length>4?sd(PSAMP):0;
   const words=transcript?transcript.split(/\s+/).filter(Boolean).length:0;
   const take={q:q.q,cat:q.cat,folo:!!q.folo,gen:q.gen||null,dur:recT,pauses:AUD.pauses,longest:AUD.longest,
@@ -2386,9 +2421,10 @@ function endTake(){if(!REC||TURN_FINALIZING)return;TURN_FINALIZING=true;REC=fals
    transcript,words,wpm:(words&&recT>5)?Math.round(words/(recT/60)):null,
    fillers:transcript?fillerCount(transcript):null,
    storyAt:marks.length?storyStartFrom(marks,recT):null,
+   communicationAnalytics,communicationAnalyticsAttempted,
    real:{mic:MEDIA.mic,cam:MEDIA.cam,speech:!!transcript}};
   RUN.takes.push(take);
-  RUN.memory.push({q:q.q,cat:q.cat,dur:recT,pauses:AUD.pauses,transcript});
+  RUN.memory.push({q:q.q,cat:q.cat,dur:recT,pauses:communicationAnalyticsAttempted?null:AUD.pauses,transcript});
   const proceed=frontierTurn=>{if(SEQTOK!==turnToken||RUN.qi!==questionIndex||VIEW!=='room')return;
    if(frontierTurn&&frontierTurn.utterance){
    take.observer=frontierTurn.observer||null;take.provider=frontierTurn.provider||null;take.model=frontierTurn.model||null;take.providerModel=frontierTurn.providerModel||null;take.providerObserverModel=frontierTurn.providerObserverModel||null;take.voice=frontierTurn.voice||null;
@@ -2419,12 +2455,12 @@ function endTake(){if(!REC||TURN_FINALIZING)return;TURN_FINALIZING=true;REC=fals
     if(RUN.memory.length&&RUN.memory[RUN.memory.length-1].q===take.q&&!RUN.memory[RUN.memory.length-1].transcript)RUN.memory.pop();
     toast('No usable transcript was captured. The protected answer window is open again; speak or use the typed-answer fallback.');beginRec();return}
    $('#roundbtn').style.display='none';const nb=$('#nextqbtn');nb.style.display='inline-flex';nb.innerHTML='Retry Interviewer ▸';
-   nb.onclick=()=>{nb.style.display='none';setIvState('thinking');window.V6Frontier.onTakeComplete(take).then(proceed).catch(fail)};
+   nb.onclick=()=>{nb.style.display='none';setIvState('thinking');window.V6Frontier.onTakeComplete(frontierSafeTake(take)).then(proceed).catch(fail)};
    toast('Interviewer unavailable: '+esc(error&&error.message?error.message:'provider error')+'. No fallback question was substituted.')};
   if(window.V6Frontier&&window.V6Frontier.onTakeComplete){setIvState('thinking');IVANIM='thinking';
-   window.V6Frontier.onTakeComplete(take).then(proceed).catch(fail)}
+   window.V6Frontier.onTakeComplete(frontierSafeTake(take)).then(proceed).catch(fail)}
   else fail(new Error('frontier runtime not loaded'))};
- if(MEDIA.rec&&MEDIA.rec.state!=='inactive'){MEDIA.rec.onstop=()=>{if(MEDIA.chunks.length){blobUrl=URL.createObjectURL(new Blob(MEDIA.chunks,{type:MEDIA.chunks[0].type||'video/webm'}))}fin()};MEDIA.rec.stop()}
+ if(MEDIA.rec&&MEDIA.rec.state!=='inactive'){const recorder=MEDIA.rec,recorderEpoch=MEDIA.recEpoch;let settled=false;const settle=useChunks=>{if(settled||MEDIA.rec!==recorder||MEDIA.recEpoch!==recorderEpoch)return;settled=true;recorder.ondataavailable=null;recorder.onstop=null;recorder.onerror=null;MEDIA.rec=null;if(useChunks&&MEDIA.chunks.length){blobUrl=URL.createObjectURL(new Blob(MEDIA.chunks,{type:MEDIA.chunks[0].type||'video/webm'}))}else MEDIA.chunks=[];fin()};recorder.onstop=()=>settle(true);recorder.onerror=()=>settle(false);try{recorder.stop();setTimeout(()=>settle(false),2000)}catch(e){settle(false)}}
  else fin()}
 function nextQ(){RUN.qi++;countdownOn=true;SEQTOK++;
  $('#recb').innerHTML='<i></i>STANDBY';$('#roundbtn').style.display='none';
@@ -2570,13 +2606,16 @@ function reveal(){if(!RUN.rating)return;
  const pitch=T.length?(T.reduce((a,t)=>a+t.pitch,0)/T.length|0):0;
  const pvar=T.length?(T.reduce((a,t)=>a+(t.pvar||0),0)/T.length|0):0;
  const main=T.find(t=>!t.folo)||T[0]||{};
+ const replayTake=(main.blobUrl&&main.communicationAnalytics?main:null)||T.find(t=>t.blobUrl&&t.communicationAnalytics)||T.find(t=>t.blobUrl)||null;
  const st=safTimes(main.saf);
  RUN.active={id:'EP'+String(Date.now()).slice(-5),ts:Date.now(),day:'Tonight',iv:ivName(),plat:PLAT,
   q:main.q||'—',cat:main.cat,takes:T.length,dur,pauses,longest,ratio,pitch,pvar,
   s1:st[1]!==undefined?Math.round(st[1]):null,s2:st[2]!==undefined?Math.round(st[2]):null,close:st[3]!==undefined?Math.round(st[3]):null,
-  saf:main.saf||[],levels:main.levels||[],blobUrl:(T.find(t=>t.blobUrl)||{}).blobUrl||null,
+  saf:main.saf||[],levels:main.levels||[],blobUrl:replayTake?.blobUrl||null,
   sig:main.sig||{},move:main.move,framePct:main.framePct,
   transcript:main.transcript||'',wpm:main.wpm,fillers:main.fillers,storyAt:main.storyAt,
+  communicationAnalytics:T.map(t=>t.communicationAnalytics).filter(Boolean),communicationAnalyticsAttempted:T.some(t=>t.communicationAnalyticsAttempted),
+  communicationAnalyticsReplayMediaId:replayTake?.communicationAnalytics?.answerId||null,
   frontierTurns:T.map(t=>({question:t.q,answer:t.transcript||'',generatedUtterance:t.generatedUtterance||null,model:t.model||null,providerModel:t.providerModel||null,providerObserverModel:t.providerObserverModel||null,voice:t.voice||null,provider:t.provider||null,
    latency:t.latency||null,observer:t.observer||null})),
   rating:RUN.rating,real:{mic:MEDIA.mic,cam:MEDIA.cam,speech:!!(main.transcript)},
@@ -2634,7 +2673,8 @@ function renderResults(rep){
  renderStoryRead(rep);
  renderPriRead(rep);
  const o=orderText(rep);$('#orderT').textContent=o.t;$('#orderD').textContent=o.d;
- $('#bmarks').innerHTML=(rep.bookmarks||[]).map(b=>'<button type="button" class="bmark" onclick="seekPB('+b+')">🔖 '+fmtT(b)+'</button>').join('')}
+ $('#bmarks').innerHTML=(rep.bookmarks||[]).map(b=>'<button type="button" class="bmark" onclick="seekPB('+b+')">🔖 '+fmtT(b)+'</button>').join('');
+ analyticsCall('renderStudentResults',rep)}
 function renderChecks(rep){const S=rep.sig||{},mic=rep.real&&rep.real.mic,cam=rep.real&&rep.real.cam;
  const list=[];const add=(cond,ok,name)=>{if(cond)list.push([!!ok,name])};
  add(mic,rep.ratio>=.5&&rep.ratio<=.88,'SPEAKING RATIO 50–88%');
@@ -2681,10 +2721,10 @@ function renderStoryRead(rep){const el=$('#storyRead');
 function renderPriRead(rep){const el=$('#priRead');const S=rep.sig||{};
  const rows=PRI.map(p=>{
   let ev=null;
-  if(p.n===1&&S.first!==null&&S.first!==undefined)ev=S.first>=.4&&S.first<=4;
+  if(!has3420R(rep)&&p.n===1&&S.first!==null&&S.first!==undefined)ev=S.first>=.4&&S.first<=4;
   /* P2 (hands in frame) needs hand tracking — no fake evidence, per the honesty law */
   if(p.n===3&&rep.s2!==null&&rep.s2!==undefined)ev=rep.s2<=30;
-  return '<div class="line"><span class="chip '+(ev===true?'gn':ev===false?'rd':'dim')+'" style="min-width:96px;justify-content:center">'+(ev===true?'✓ evidence':ev===false?'✗ not tonight':'no signal')+'</span><span>'+esc(p.t)+(p.n===2?' <span class="sim">NEEDS HAND TRACKING · JUDGED LIVE AT THE MOCK</span>':'')+'</span></div>'});
+  return '<div class="line"><span class="chip '+(ev===true?'gn':ev===false?'rd':'dim')+'" style="min-width:96px;justify-content:center">'+(ev===true?'✓ evidence':ev===false?'✗ not tonight':'no signal')+'</span><span>'+esc(p.t)+(p.n===1&&has3420R(rep)?' <span class="sim">NOT STUDENT-VALIDATED</span>':p.n===2?' <span class="sim">FOUNDER EXPERIMENTAL · JUDGED LIVE AT THE MOCK</span>':'')+'</span></div>'});
  el.innerHTML=rows.join('')}
 function orderText(rep){
  if(rep.s2===null||rep.s2===undefined){
@@ -2699,7 +2739,7 @@ function addBookmark(){if(!RUN.active){toast('Bookmarks live on a finished round
  $('#bmarks').innerHTML=RUN.active.bookmarks.map(b=>'<button type="button" class="bmark" onclick="seekPB('+b+')">🔖 '+fmtT(b)+'</button>').join('');
  toast('Moment bookmarked at '+fmtT(t)+'. It travels with the rep — into the Vault, and to Dr Brian if shared.')}
 function seekPB(t){const pb=$('#playback');if(pb&&pb.style.display!=='none'){pb.currentTime=t;pb.play()}}
-function runAgain(){RUN.reset();goFlow('room');startTakePrep();toast('Same build, fresh take. Nothing from the last one was lost — it just wasn’t saved yet.')}
+function runAgain(){RUN.reset();goFlow('room');startTakePrep();toast('Same build, fresh take. Unsaved tab-only media from the prior run was cleared.')}
 function showLastResults(){const r=[...REPS].reverse()[0];
  if(!r){$('#calline').textContent='No interviews yet';return}
  const pseudo={...r,sig:r.sig||{first:r.seed?0.8:null,avg:.3,peak:.6,volvar:.1,cmy:null},levels:r.levels||[],saf:r.saf||[],
@@ -2713,7 +2753,7 @@ function saveRep(withOrder){if(!RUN.active){toast('Nothing to save yet — recor
  if(withOrder){const o=orderText(rep);rep.order=o.t;BRIAN_ORDER=null /* her own order replaces the standing one visually */;
   rep.orderD=o.d}
  if(rep.s2!==null&&rep.s2!==undefined&&rep.s2<=30)PRI[2].ev=Math.min(PRI[2].need,PRI[2].ev+1);
- if(rep.sig&&rep.sig.first!==null&&rep.sig.first!==undefined&&rep.sig.first>=.4)PRI[0].ev=Math.min(PRI[0].need,PRI[0].ev+1);
+ if(!has3420R(rep)&&rep.sig&&rep.sig.first!==null&&rep.sig.first!==undefined&&rep.sig.first>=.4)PRI[0].ev=Math.min(PRI[0].need,PRI[0].ev+1);
  REPS.push(rep);persistMeta();
  const kid=rep.id;RUN.active=null;RUN.reset();
  $$('.rateBtn').forEach(b=>b.classList.remove('on'));$('#revealbtn').disabled=true;
@@ -2756,7 +2796,7 @@ function renderVault(){const el=$('#vaultlist');el.innerHTML='';
   toast(r.shared?r.id+' now visible on Dr Brian’s desk. Revocable any time — his note comes back right here.':r.id+' returned to private. His copy is revoked.');renderVault();renderSideNav()});
  $$('#vaultlist [data-open]').forEach(b=>b.onclick=()=>replayRep(b.dataset.open));
  $$('#vaultlist [data-del]').forEach(b=>b.onclick=()=>{const i=REPS.findIndex(x=>x.id===b.dataset.del);
-  if(i>-1){toast(REPS[i].id+' deleted for real. The media is gone.');REPS.splice(i,1);persistMeta();renderVault()}});
+  if(i>-1){revokeLocalBlobUrl(REPS[i].blobUrl);toast(REPS[i].id+' deleted for real. The media is gone.');REPS.splice(i,1);persistMeta();renderVault()}});
  renderGhost()}
 function renderGhost(){const pick=$('#ghostpick');pick.innerHTML='';
  REPS.forEach(r=>{const b=document.createElement('button');b.className='chip '+(GSEL.A===r.id?'vi':GSEL.B===r.id?'cy':'');
@@ -2764,17 +2804,19 @@ function renderGhost(){const pick=$('#ghostpick');pick.innerHTML='';
   b.onclick=()=>{if(GSEL.A===r.id)GSEL.A=null;else if(GSEL.B===r.id)GSEL.B=null;else if(!GSEL.A)GSEL.A=r.id;else GSEL.B=r.id;renderGhost()};
   pick.appendChild(b)});
  const A=REPS.find(r=>r.id===GSEL.A),B=REPS.find(r=>r.id===GSEL.B);
- drawEnvTo('gcA',A?A.levels:[],'#8a7dff');drawEnvTo('gcB',B?B.levels:[],'#39d6ff');
+ const bounded3420R=Boolean((A&&has3420R(A))||(B&&has3420R(B)));
+ drawEnvTo('gcA',A&&!bounded3420R?A.levels:[],'#8a7dff');drawEnvTo('gcB',B&&!bounded3420R?B.levels:[],'#39d6ff');
  $('#glA').textContent=A?('PAST · '+A.id+' · '+(A.day||'')+' · '+(A.rating||'')):'PAST · SELECT A REP';
  $('#glB').textContent=B?('PRESENT · '+B.id+' · '+(B.day||'')+' · '+(B.rating||'')):'PRESENT · SELECT A REP';
- $('#gdelta').textContent=(A&&B)?('REAL DELTAS · SPEAKING '+(A.ratio*100|0)+'% → '+(B.ratio*100|0)+'% · PAUSES '+A.pauses+' → '+B.pauses+' · LONGEST '+(A.longest||0).toFixed(1)+'s → '+(B.longest||0).toFixed(1)+'s'+(A.s2&&B.s2?' · CLOCK '+A.s2+'s → '+B.s2+'s':'')):'SELECT A PAST AND A PRESENT REP (TAP CHIPS)';
+ $('#gdelta').textContent=(A&&B)?(bounded3420R?'3420R ATTEMPTED · LEGACY SPEAKING/PAUSE COMPARISON WITHHELD':('REAL DELTAS · SPEAKING '+(A.ratio*100|0)+'% → '+(B.ratio*100|0)+'% · PAUSES '+A.pauses+' → '+B.pauses+' · LONGEST '+(A.longest||0).toFixed(1)+'s → '+(B.longest||0).toFixed(1)+'s'+(A.s2&&B.s2?' · CLOCK '+A.s2+'s → '+B.s2+'s':''))):'SELECT A PAST AND A PRESENT REP (TAP CHIPS)';
  const gv=$('#gverdict');
- if(A&&B){gv.style.display='block';
+ if(A&&B&&!bounded3420R){gv.style.display='block';
   const dp=B.pauses-A.pauses,dl=(B.longest||0)-(A.longest||0),dr=B.ratio-A.ratio;
   gv.textContent='THE VERDICT: '+((B.s2&&A.s2&&B.s2<A.s2)?'THE CLOCK IS COMING DOWN. THAT IS THE WEEK, WORKING.':
    dp>0||dl>.5?'PRESENT-YOU HAS MORE DETECTED SILENCE. REVIEW WHETHER THE PLACEMENT HELPS.':
    dr>.08?'PRESENT-YOU FILLS MORE OF THE ROOM. WATCH THAT THE PAUSES SURVIVE IT.':
    'SAME SHAPE, MORE HOURS. CONSISTENCY IS ALSO A RESULT.')}
+ else if(A&&B&&bounded3420R){gv.style.display='block';gv.textContent='NO LEGACY VERDICT · OPEN EACH REP FOR ITS COMMUNICATION ANALYTICS STATUS.'}
  else gv.style.display='none'}
 function drawEnvTo(id,L,col){const c=document.getElementById(id);if(!c)return;const[W,H]=sizeC(c);const x=c.getContext('2d');x.clearRect(0,0,W,H);
  if(!L||L.length<3){x.font='700 10px Rajdhani';x.fillStyle='#7d8ba6';x.textAlign='center';x.fillText('LEVEL ENVELOPE APPEARS HERE (SEEDED REPS ARE METRICS-ONLY)',W/2,H/2);x.textAlign='left';return}
@@ -2992,7 +3034,10 @@ function renderMReview(){const r=mrRep();
  $('#mrSelf').textContent='Her call: '+(r.rating||'—');
  const v=$('#mrVideo'),nv=$('#mrNoVideo');
  if(r.blobUrl){v.src=r.blobUrl;v.style.display='block';nv.style.display='none'}else{v.style.display='none';nv.style.display='block'}
- $('#mrEvidence').innerHTML=
+ $('#mrEvidence').innerHTML=has3420R(r)?
+  '<div class="lensrow"><span>Communication analytics</span><b class="good">3420R ATTEMPTED · LEGACY SIGNALS WITHHELD</b></div>'
+  +(r.s2?'<div class="lensrow"><span>Her clock (S1+S2) <span class="real">HER TAPS</span></span><b class="'+(r.s2<=30?'good':'warm')+'">'+r.s2+'s · target 30</b></div>':'')
+  +'<div class="lensrow"><span>Her self-rating</span><b class="warm">'+(r.rating||'—').toUpperCase()+'</b></div>':
   '<div class="lensrow"><span>Duration</span><b>'+fmtT(r.dur)+'</b></div>'
   +'<div class="lensrow"><span>Speaking ratio <span class="real">REAL</span></span><b>'+(r.ratio*100|0)+'%</b></div>'
   +'<div class="lensrow"><span>Pauses / longest <span class="real">REAL</span></span><b>'+r.pauses+' / '+(r.longest||0).toFixed(1)+'s</b></div>'
@@ -3023,7 +3068,7 @@ function assignOrder(btn){const r=mrRep();
  if(btn){const old=btn.textContent;btn.textContent='ASSIGNED ✓ · LIVE ON HER HOME';btn.disabled=true;
   setTimeout(()=>{btn.textContent=old;btn.disabled=false},2000)}
  toast('Order assigned. It now leads her Home screen. One order, never ten.')}
-function renderTrends(){const shared=REPS.filter(r=>r.shared);
+function renderTrends(){const shared=REPS.filter(r=>r.shared&&!has3420R(r));
  const draw=(id,fn,color)=>{const c=document.getElementById(id);if(!c)return;const[W,H]=sizeC(c);const x=c.getContext('2d');x.clearRect(0,0,W,H);
   if(!shared.length){x.font='700 11px Rajdhani';x.fillStyle='#7d8ba6';x.fillText('AWAITING SHARED REPS',14,H/2);return}
   x.beginPath();shared.forEach((r,i)=>{const px=24+(W-48)*(shared.length===1?.5:i/(shared.length-1));
@@ -3091,18 +3136,19 @@ startTakePrep();
 window.V6Bridge={
  get role(){return ROLE},get view(){return VIEW},get media(){return MEDIA},get audio(){return AUD},get speech(){return SPEECH},
  get run(){return RUN},get result(){return RUN.active||[...REPS].reverse()[0]||null},get build(){return BUILD},get selection(){return SEL},get recording(){return REC},get turnSpoken(){return TURN_SPOKEN},
- persona,currentQ,toast,setIvState,typeQ,ivSet,endTake,beginRec,nextQ,finishRound,speechStart,speechStop,stopMedia,renderRegistry,abandonTake,startInterview,nav,
+ persona,currentQ,toast,setIvState,typeQ,ivSet,endTake,beginRec,nextQ,finishRound,speechStart,speechStop,stopMedia,requestMedia:reqMedia,renderRegistry,abandonTake,startInterview,nav,
  setTypedTranscript(text){const clean=String(text||'').trim();SPEECH.txt=clean;SPEECH.finalTxt=clean;SPEECH.marks=clean?[[Math.max(.1,recT),clean]]:[];TURN_SPOKEN=!!clean;return clean},
  setMuted(muted){if(MEDIA.stream)MEDIA.stream.getAudioTracks().forEach(t=>t.enabled=!muted);setIvState(muted?'muted':(REC?'listen':'idle'))},
  context(){return {role:ROLE,view:VIEW,selection:{...SEL},interviewer:persona(),questions:BUILD.map(q=>({q:q.q,cat:q.cat,strat:q.strat||null})),
   memory:RUN.memory.map(m=>({...m})),priorities:PRI.map(p=>({title:p.t,why:p.why})),stories:SFSTORIES.map(s=>({title:s.t,status:s.status,note:s.note})),timeline:TIMELINE.map(t=>t.slice())}}
 };
 (function validate(){
- const views=['home','vhome','build','wizard','meet','perm','station','room','selfrate','results','vault','stories','myfile','programs','desk','mstudent','mreview','mtrends','ops','registry'];
+ const views=['home','vhome','build','wizard','meet','perm','station','room','selfrate','results','vault','stories','myfile','programs','desk','mstudent','mreview','mtrends','ops','analytics-test','registry'];
  const missing=views.filter(v=>!document.querySelector('section[data-view="'+v+'"]'));
  console.log('MissionMed IV Prep On-Call V6 ·',views.length,'views ·',missing.length?('MISSING: '+missing):'all present',
   '· media:',navigator.mediaDevices?'ok':'none','· speech:',SPEECH.api?'ok':'absent')})();
 </script>
 <script type="module" src="/v6-integration.mjs"></script>
+<script type="module" src="/analytics/index.mjs"></script>
 </body>
 </html>

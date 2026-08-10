@@ -57,6 +57,9 @@ const CONTENT_TYPES = Object.freeze({
   '.mjs': 'text/javascript; charset=utf-8',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
+  '.task': 'application/octet-stream',
+  '.tflite': 'application/octet-stream',
+  '.wasm': 'application/wasm',
   '.webp': 'image/webp',
 });
 
@@ -77,7 +80,7 @@ function securityHeaders(extra = {}) {
   const liveKitOrigin = configuredLiveKitOrigin();
   return {
     'Cache-Control': 'no-store',
-    'Content-Security-Policy': `default-src 'self'; connect-src 'self'${liveKitOrigin ? ` ${liveKitOrigin}` : ''}; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
+    'Content-Security-Policy': `default-src 'self'; connect-src 'self'${liveKitOrigin ? ` ${liveKitOrigin}` : ''}; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Permissions-Policy': 'camera=(self), microphone=(self)',
     'Referrer-Policy': 'no-referrer',
@@ -808,7 +811,7 @@ async function start() {
   loadLocalEnvironment();
   const host = requireLocalAlphaHost(process.env.HOST || '127.0.0.1');
   if (!LOOPBACK_HOSTS.has(host)) throw new TypeError('HOST must remain loopback-only for the unauthenticated Founder Alpha.');
-  const port = Number(process.env.PORT || 8343);
+  const port = Number(process.env.PORT || 8420);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new TypeError('PORT must be an integer between 1 and 65535.');
   const server = createIvPrepServer();
   await new Promise((resolve, reject) => {

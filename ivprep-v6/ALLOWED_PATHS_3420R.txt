@@ -1,0 +1,80 @@
+# Y1-Y2-CAM-V6-3420R exact path and protected-baseline record
+# Authority: DR-035 at canonical MissionMed OS commit d291b53d958862ee66cc8e4a0722b4cd3e6662ed
+# Product baseline: 89685d03e275adb2980e8f5f1ced9ef90153668f
+# Expected branch: codex/y1-y2-cam-v6-3420r-communication-analytics-aaa
+
+[WRITE_PATH_FAMILIES]
+ivprep-v6/analytics/**
+ivprep-v6/public/analytics/**
+ivprep-v6/test/analytics/**
+ivprep-v6/scripts/analytics/**
+ivprep-v6/fixtures/analytics/**
+ivprep-v6/public/vendor/mediapipe/**
+_AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3420R/**
+
+[BOUNDED_INTEGRATION_SEAMS]
+ivprep-v6/public/index.html
+ivprep-v6/public/v6-integration.mjs
+ivprep-v6/persistence/alpha-store.mjs
+ivprep-v6/server/serve.mjs
+ivprep-v6/package.json
+ivprep-v6/package-lock.json
+ivprep-v6/README.md
+ivprep-v6/ALLOWED_PATHS_3420R.txt
+
+[ADDITIVE_ANALYTICS_TEST_AND_PROBE_PATTERNS]
+ivprep-v6/test/*analytics*.test.mjs
+ivprep-v6/test/*multimodal*.test.mjs
+ivprep-v6/test/*vision*.test.mjs
+ivprep-v6/test/*audio-signal*.test.mjs
+ivprep-v6/scripts/*analytics*.mjs
+ivprep-v6/scripts/*multimodal*.mjs
+ivprep-v6/scripts/*performance*.mjs
+
+[READ_ONLY_PROTECTED_SHA256]
+3053cf7747a1c27c3ca77ec669849b437f4e2d2d00a754c4cff89ecd5dffd5d4  ivprep-v6/baseline/IV Prep OnCall_V6.html
+908fe06310e758ec4a699eaa48cea0c59d4ec147e86257a114029e8435c06ad3  ivprep-v6/BASELINE_AUTHORITY.md
+28bb7dbbb2695526e1d29009b4cfeb16b3b0355ec328bee4822f230910705b6b  ivprep-v6/config/load-environment.mjs
+94bae35aade44325ba5cecc2aebbfdf1415100e2a07d8e3613b5c27c2ec7a8b3  ivprep-v6/config/models.mjs
+a231db21ff5dbaffe7a70515076ae2434900046d5d7f9d35ce9d2d67a5687b4a  ivprep-v6/config/voices.mjs
+f21cfd5f1e40972d9698806352302263062c4526f6096cd085af7b32892c8db7  ivprep-v6/config/faculty-roster.mjs
+dc1c2c535fa022c9535521bbcad9e3fbc7d12428371c0238efb8b3d90cfac7c2  ivprep-v6/providers/conversation-rail.mjs
+fb824d650fe877556d0bc8891375e5e748849ac8d720fd96579301d033bd8ef3  ivprep-v6/providers/openai-continuous-realtime.mjs
+7ac4afb29127c3ceb062e1700c44b7d13361cb0d4a08719a6caed4d5a4089a79  ivprep-v6/providers/openai-model-discovery.mjs
+43cfd1e0349ca318c80500a13552a5c0c7cb7744399b66e5c2597a71b747f208  ivprep-v6/providers/openai-realtime.mjs
+5948f93fb58f539f5c81ada4ee086be6c98318a5d4b444fc09e54376011bb5e8  ivprep-v6/providers/openai-responses.mjs
+3bc57152859eed15580f426ba3c5449577eaf0f801bef5c0d366d86898f0d940  ivprep-v6/providers/openai-speech.mjs
+a5510a395b4530bc7c0535d47e997f9ef6c052006bfee67b0a7026599e7db7ab  ivprep-v6/providers/avatar-provider.mjs
+c07e15c035fc98f42c80dfd1d5dfe518d890386cb4a7d3df7a67f6d6fc1b7f94  ivprep-v6/providers/liveavatar-provider.mjs
+421fab0ec679371d2af97f54828604638f3396d9637fadafed278548a8b9b8ce  ivprep-v6/providers/errors.mjs
+59362b61602c98fb69a1c5846f4ef54dd5f0e2fa291d3b22cc293f5260a224ea  ivprep-v6/public/conversation-rail.mjs
+3e75ffc509ccd05f0ded4307bf6090b30b169ef1eefe22b267d746ef6da58ae1  ivprep-v6/public/avatar-provider.mjs
+e97e1c4fdb283aaa073df9ded441d3908e6099891ec5a091e850201d22ce8676  ivprep-v6/public/mic-controller.mjs
+1b07aa27d395bdadf302e1c60188b81f2e0461b328de978f93104222ad076e98  ivprep-v6/test/avatar-activation-contract.test.mjs
+9fadcd3f8e8c0a617c04ad1e84f147fd7816152fa4c6b91e88078aa1a3d251d1  ivprep-v6/test/avatar-provider.test.mjs
+f3e16eabd7798000abb253eb8cb8a5973d2edb7b7ec96f673aa84d26c68ccd1f  ivprep-v6/test/continuous-realtime-provider.test.mjs
+5bda719a60e5495dc5d8b552359e71585360831bf7d5b82b19d0510f401580f8  ivprep-v6/test/conversation-rail.test.mjs
+ed37ad233cd5ca08560c4eb03376ca57440fe3a9d432974402e325e431b2446a  ivprep-v6/test/environment-loader.test.mjs
+7308db4fca60c0faa69becc723b6e1d3a8c07bfedf0b8a83610e0b534533c64c  ivprep-v6/test/faculty-persistence.test.mjs
+9907b172cc794b3c3855fa0b7f338060e15fea7a26161f28bda7642b0d497716  ivprep-v6/test/frontend-lifecycle-contract.test.mjs
+dce7237243e610a01b128b16a535bdebc28b2bdc3e30648f4ad1b60f2337853e  ivprep-v6/test/liveavatar-provider.test.mjs
+dd54e75e936411db31e327fe193358913bbc1d07e254765fec00924a77a1fe25  ivprep-v6/test/mic-controller.test.mjs
+a9651fa41068d6ab565062202e8ab1c44a4bd4adf08495a15b316281a64096c6  ivprep-v6/test/model-discovery.test.mjs
+49d130dc7ad880a2dcfe645374866b4e97c303c708e249c2cad4f405720c6aa3  ivprep-v6/test/observer-order.test.mjs
+b093a9aef6bbdb23f6125a6784abeae98366c680a8c4ea4c40d117cbd78be041  ivprep-v6/test/provider-config.test.mjs
+52eb4ad670f935877393e04a9fafa0c340b21fefa8c59b1f6ef52d5abc5484ae  ivprep-v6/test/server-alpha-control.test.mjs
+e8d26489d7a421f88c36f90085d85d4d3f006c9e04ca9bc7ec342a68858fef92  ivprep-v6/test/server-secret-boundary.test.mjs
+
+[BOUNDED_INTEGRATION_SEAM_BASELINE_SHA256]
+e695313d3529d77ea2662d27a4de9022f455fd39064359cb2f2ed6c989374ef6  ivprep-v6/public/index.html
+542cb73b513c8f667d9ac9cd2a0ea4621b05c9d9bf8e86d2587f7fb158cd2fcd  ivprep-v6/public/v6-integration.mjs
+3efcdc96c88854fd773704a3bf1f13850226e34f093b5348fce3106d006606c5  ivprep-v6/persistence/alpha-store.mjs
+9c561428d5c885cba278e74a38f8928e3eb4e8d84431a9af4230167936881def  ivprep-v6/server/serve.mjs
+2c0ab1f3e6c18a746e9a239dd51fb0fd86b9d99cf8e17356fe5b9100d340f981  ivprep-v6/package.json
+df03cf36b06e9290582241d33c480fbfc9042f4fac1d0afa0f6888adbb75fff4  ivprep-v6/package-lock.json
+9921ac9286c309b447808aae4c1511d73ee6dc52c37049ce967f5f63e192a3ad  ivprep-v6/README.md
+
+[PROHIBITED]
+All paths not listed above are read-only. Never inspect or modify .env*, .alpha-data/**,
+the frozen baseline, excluded 3410/3410A or 3430 lanes, providers, identity, deployment,
+production, shared systems, secrets, credentials, real student data, or canonical V6.
