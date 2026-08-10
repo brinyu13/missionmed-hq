@@ -1,0 +1,214 @@
+{
+  "axe": {
+    "home": [],
+    "library": [],
+    "storyroom-thirty": [],
+    "inspiration-question": [],
+    "settings": [
+      {
+        "id": "skip-link",
+        "impact": "moderate",
+        "help": "The skip-link target should exist and be focusable",
+        "nodes": [
+          {
+            "target": ".setRow:nth-child(5) > a[href$=\"#matrix-prototype\"]",
+            "html": "<a class=\"rowBtn\" href=\"#matrix-prototype\">Go</a>",
+            "failure": "Fix any of the following:\n  No skip link target"
+          }
+        ],
+        "count": 1
+      }
+    ],
+    "admin-directory": [],
+    "admin-story-review": [],
+    "consent-modal": []
+  },
+  "keyboard": {
+    "versionTabs": {
+      "tabRolesPresent": {
+        "role": "tablist",
+        "tabs": [
+          {
+            "sel": "false",
+            "ti": 0,
+            "txt": "Original telling"
+          },
+          {
+            "sel": "false",
+            "ti": 0,
+            "txt": "Full Story"
+          },
+          {
+            "sel": "true",
+            "ti": 0,
+            "txt": "30-Second Version"
+          },
+          {
+            "sel": "false",
+            "ti": 0,
+            "txt": "NNQ Setup Version"
+          }
+        ]
+      },
+      "afterArrowRight": "original",
+      "enterActivatesNnq": "true",
+      "focusAfterActivation": "BODY.motion-enabled"
+    },
+    "inspirationQuestionVisible": true,
+    "stars": {
+      "starRoles": {
+        "role": "radiogroup",
+        "labelledby": "b1513StarsLabel",
+        "stars": [
+          {
+            "checked": "false",
+            "ti": 0
+          },
+          {
+            "checked": "false",
+            "ti": 0
+          },
+          {
+            "checked": "false",
+            "ti": 0
+          },
+          {
+            "checked": "false",
+            "ti": 0
+          },
+          {
+            "checked": "false",
+            "ti": 0
+          }
+        ]
+      },
+      "afterArrowRight": "3",
+      "afterSpaceScore": "3/5",
+      "liveRegion": {
+        "ariaLive": "polite",
+        "text": "Mentor score set to 3/5 — audited."
+      }
+    },
+    "liveRegions": [
+      {
+        "id": "omniSearchStatus",
+        "cls": "srOnly",
+        "live": "polite",
+        "role": "status"
+      },
+      {
+        "id": null,
+        "cls": "stageHint",
+        "live": "polite",
+        "role": null
+      },
+      {
+        "id": "toast",
+        "cls": "show",
+        "live": "polite",
+        "role": "status"
+      }
+    ],
+    "consent": {
+      "visible": true,
+      "initialFocus": {
+        "tag": "H1",
+        "id": "b1513ConsentTitle"
+      },
+      "dialogAttrs": {
+        "role": "dialog",
+        "modal": "true",
+        "labelledby": "b1513ConsentTitle"
+      },
+      "escapeDismissed": false,
+      "tabPath": [
+        {
+          "inDialog": true,
+          "el": "INPUT."
+        },
+        {
+          "inDialog": true,
+          "el": "BUTTON.rowBtn"
+        },
+        {
+          "inDialog": false,
+          "el": "BODY.motion-enabled"
+        },
+        {
+          "inDialog": false,
+          "el": "A.skip-link"
+        },
+        {
+          "inDialog": false,
+          "el": "BUTTON.railCta"
+        },
+        {
+          "inDialog": false,
+          "el": "BUTTON.rtab on"
+        },
+        {
+          "inDialog": false,
+          "el": "BUTTON.rtab "
+        },
+        {
+          "inDialog": false,
+          "el": "BUTTON.rtab "
+        },
+        {
+          "inDialog": false,
+          "el": "BUTTON.rtab "
+        },
+        {
+          "inDialog": false,
+          "el": "BUTTON.rtab "
+        },
+        {
+          "inDialog": false,
+          "el": "A.rtab matrixAnchor"
+        },
+        {
+          "inDialog": false,
+          "el": "BUTTON.rowBtn fixtureChange"
+        },
+        {
+          "inDialog": false,
+          "el": "A.storyforgeMatrixBack"
+        },
+        {
+          "inDialog": false,
+          "el": "INPUT#omni."
+        }
+      ],
+      "focusEscapes": true,
+      "backgroundInert": false,
+      "acceptEnabledAfterCheck": true
+    }
+  },
+  "overflow": {
+    "home": {
+      "scrollW": 390,
+      "innerW": 390
+    },
+    "library": {
+      "scrollW": 390,
+      "innerW": 390
+    },
+    "inspiration": {
+      "scrollW": 390,
+      "innerW": 390
+    },
+    "inspiration-question": {
+      "scrollW": 390,
+      "innerW": 390
+    },
+    "storyroom": {
+      "scrollW": 390,
+      "innerW": 390
+    },
+    "storyroom-thirty": {
+      "scrollW": 390,
+      "innerW": 390
+    }
+  },
+  "errors": []
+}

@@ -1,0 +1,152 @@
+/* ============================================================================
+ * B1-513R ADDITIVE STYLES — namespaced b1513r*, StoryForge navy/orange only.
+ * Cyan appears solely as a restrained admin-state accent (.b1513rAdminBadge).
+ * ========================================================================== */
+
+/* ---------- Avatar identity frames ---------- */
+.b1513rHead { border-radius: 50%; border: 1.5px solid var(--edge2); box-shadow: 0 2px 10px rgba(0,0,0,.35); background: #101624; flex: none; }
+.b1513rHead-sm { width: 30px; height: 30px; }
+.b1513rHead-md { width: 40px; height: 40px; }
+.b1513rHead-lg { width: 58px; height: 58px; }
+.b1513rHead-xl { width: 86px; height: 86px; border-width: 2px; }
+.b1513rHeadFallback { display: inline-flex; align-items: center; justify-content: center; }
+.b1513rHeadFallback.b1513rHead-md { width: 40px; height: 40px; }
+.b1513rHeadFallback.b1513rHead-lg { width: 58px; height: 58px; font-size: 18px; }
+.b1513rIdentity { display: inline-flex; align-items: center; gap: 9px; }
+.b1513rIdName { display: flex; flex-direction: column; line-height: 1.15; }
+.b1513rIdName b { color: var(--tx); font-size: 13px; }
+.b1513rIdName small { color: var(--dim); font-size: 10.5px; }
+.b1513rSignedIdentity { display: flex; }
+.b1513rFullBody { width: 74px; height: auto; border-radius: 12px; border: 1px solid var(--edge); }
+
+/* ---------- refined Library rows ---------- */
+.b1513rRow { flex-direction: column; align-items: stretch; gap: 0; }
+.b1513rRowMain { display: flex; align-items: center; gap: 12px; width: 100%; }
+.b1513rRowFacts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.b1513rFact { font-size: 11.5px; color: var(--mid); font-family: var(--num); letter-spacing: .04em; }
+.b1513rFact.ok { color: var(--gn); }
+.b1513rFact.dim { color: var(--dim); }
+.b1513rRowActions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+.b1513rRowMoreArea { border-top: 1px dashed var(--edge); margin-top: 10px; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.b1513rRowSecondary { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--mid); align-items: center; }
+.b1513rRowSecondary b { color: var(--dim); font-family: var(--num); text-transform: uppercase; letter-spacing: .06em; font-size: 10px; margin-right: 4px; }
+.b1513rMentorScore { color: var(--gd); }
+.b1513rPriority { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.b1513rPriorityLbl { font-family: var(--num); text-transform: uppercase; letter-spacing: .07em; font-size: 9.5px; color: var(--dim); }
+.b1513rPriorityBtns { display: inline-flex; gap: 2px; }
+.b1513rPriorityBtns button { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--edge); background: transparent; color: var(--dim); font-family: var(--num); font-size: 11px; cursor: pointer; }
+.b1513rPriorityBtns button.on { background: linear-gradient(90deg, var(--em), var(--em2)); color: #140b00; border-color: transparent; }
+.b1513rPriorityBtns button:focus-visible { outline: 2px solid var(--cy); outline-offset: 1px; }
+.b1513rPriorityHint { font-size: 10px; color: var(--dim); }
+
+/* ---------- save-state triad ---------- */
+.b1513rSaveState.saving { color: var(--gd); }
+.b1513rSaveState.saved { color: var(--gn); }
+.b1513rSaveState.error { color: var(--rd, #ff5470); }
+.b1513rTimeMe { margin: 6px 0; }
+
+/* ---------- Inspiration browse ---------- */
+.b1513rInspHero { display: flex; gap: 18px; align-items: flex-start; margin-bottom: 14px; }
+.b1513rInspBody { flex: none; margin-top: 6px; }
+.b1513rHowPanel { margin-top: 10px; max-width: 760px; }
+.b1513rInspModes { margin-bottom: 14px; }
+.b1513rBrowseBar input[type="search"] { min-width: 260px; }
+.b1513rBrowseFilters { margin: 4px 0 14px; align-items: center; }
+.b1513rFilterSep { color: var(--edge2); margin: 0 4px; }
+.b1513rFavFilter.on { color: var(--gd); border-color: rgba(255,215,106,.5); }
+.b1513rPromptGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.b1513rPromptCard { background: var(--card); border: 1px solid var(--edge); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.b1513rPromptCard.open { grid-column: 1 / -1; border-color: var(--em); }
+.b1513rPromptTop { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; }
+.b1513rPromptText { font-family: var(--voice); font-size: 15.5px; line-height: 1.5; color: var(--tx); margin: 0; }
+.b1513rPromptMeta { font-size: 11px; color: var(--dim); text-transform: capitalize; }
+.b1513rPromptActions { margin-top: auto; }
+.b1513rFav { font-size: 17px; }
+.b1513rPromptAnswer { display: flex; flex-direction: column; gap: 8px; }
+.b1513rSubjectRow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--mid); margin: 8px 0; }
+
+/* ---------- Request a Story ---------- */
+.b1513rReqGrid { align-items: start; }
+.b1513rCandidate { border: 1px solid var(--edge); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; background: var(--card2); display: flex; flex-direction: column; gap: 8px; }
+.b1513rCandidate.favorite { border-color: rgba(255,215,106,.45); }
+.b1513rCandidate.promoted { border-color: rgba(74,222,157,.4); }
+.b1513rCandTop { display: flex; gap: 10px; align-items: center; }
+.b1513rCandWho { flex: 1; line-height: 1.3; }
+.b1513rCandWho small { display: block; color: var(--dim); font-size: 11px; }
+.b1513rCandPrompt { font-size: 11.5px; color: var(--dim); }
+.b1513rCandBody { font-family: var(--voice); font-size: 14px; line-height: 1.6; color: var(--tx); }
+.b1513rInviteRow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--edge); padding: 10px 0; }
+.b1513rInviteRow:first-child { border-top: none; }
+.b1513rInviteForm .pBody { display: flex; flex-direction: column; gap: 10px; max-width: 640px; }
+.b1513rInviteForm input, .b1513rInviteForm textarea { background: rgba(15,21,34,.9); border: 1px solid var(--edge); border-radius: 8px; color: var(--tx); padding: 9px 12px; font-size: 14px; width: 100%; }
+.b1513rRelMore { margin-top: 2px; }
+.b1513rEmailBody { white-space: pre-wrap; font-family: var(--voice); font-size: 13px; color: var(--mid); background: rgba(15,21,34,.9); border: 1px solid var(--edge); border-radius: 8px; padding: 12px; line-height: 1.55; }
+.b1513rNewInviteBtn { font-size: 12px; }
+
+/* ---------- guest contributor page ---------- */
+body.b1513rGuestMode #rail, body.b1513rGuestMode #hdr, body.b1513rGuestMode #advBanner { visibility: hidden; }
+#teach .b1513rGuestPage { position: fixed; inset: 0; z-index: 320; overflow: auto; background: radial-gradient(circle at 30% 10%, rgba(255,150,60,.12), transparent 50%), #0a0d14; display: flex; flex-direction: column; align-items: center; padding: 20px 16px 40px; }
+.b1513rGuestPreviewBar { width: 100%; max-width: 560px; display: flex; gap: 10px; align-items: center; justify-content: space-between; font-size: 12px; color: var(--cy); border: 1px dashed rgba(57,214,255,.4); border-radius: 10px; padding: 8px 12px; margin-bottom: 18px; }
+.b1513rGuestCard { width: 100%; max-width: 560px; background: var(--card); border: 1px solid var(--edge2); border-radius: 18px; padding: 30px 26px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 14px; }
+.b1513rGuestCard h1 { font-family: var(--disp); font-size: 30px; margin: 0; }
+.b1513rGuestCard h2.b1513rGuestQ { font-family: var(--voice); font-weight: 500; font-size: 22px; line-height: 1.45; margin: 0; }
+.b1513rGuestCard p { font-size: 16px; color: var(--mid); line-height: 1.55; margin: 0; }
+.b1513rGuestBig { font-size: 19px !important; color: var(--tx) !important; }
+.b1513rGuestNote { font-family: var(--voice); font-style: italic; color: var(--gd) !important; }
+.b1513rGuestSmall { font-size: 12.5px !important; color: var(--dim) !important; }
+.b1513rGuestHint { font-size: 14px !important; color: var(--dim) !important; }
+.b1513rGuestPrimary { width: 100%; padding: 18px; font-size: 19px; font-weight: 700; letter-spacing: .04em; border: none; border-radius: 14px; background: linear-gradient(90deg, var(--em), var(--em2)); color: #140b00; cursor: pointer; }
+.b1513rGuestPrimary:focus-visible, .b1513rGuestSecondary:focus-visible { outline: 3px solid var(--cy); outline-offset: 2px; }
+.b1513rGuestSecondary { width: 100%; padding: 13px; font-size: 14px; letter-spacing: .05em; border: 1px solid var(--edge2); border-radius: 12px; background: transparent; color: var(--tx); cursor: pointer; }
+.b1513rGuestBack { background: none; border: none; color: var(--dim); font-size: 13px; cursor: pointer; margin-top: 4px; }
+.b1513rGuestQTag { font-family: var(--num); text-transform: uppercase; letter-spacing: .1em; font-size: 10.5px; color: var(--em); }
+.b1513rGuestAnotherQ { background: none; border: none; color: var(--cy); font-size: 13px; cursor: pointer; }
+.b1513rGuestTextarea { width: 100%; min-height: 150px; background: rgba(15,21,34,.9); border: 1px solid var(--edge); border-radius: 12px; color: var(--tx); padding: 14px; font-family: var(--voice); font-size: 16px; line-height: 1.6; }
+.b1513rGuestRec { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+.b1513rGuestRecLight { display: flex; gap: 8px; align-items: center; justify-content: center; color: var(--em); font-size: 14px; }
+.b1513rGuestRecLight .rdot { width: 10px; height: 10px; border-radius: 50%; background: #ff5470; animation: b1513rPulse 1.4s infinite; }
+@keyframes b1513rPulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .b1513rGuestRecLight .rdot { animation: none; } }
+.b1513rGuestTranscript { width: 100%; min-height: 120px; max-height: 220px; overflow: auto; text-align: left; background: rgba(15,21,34,.9); border: 1px solid var(--edge); border-radius: 12px; color: var(--tx); padding: 14px; font-family: var(--voice); font-size: 16px; line-height: 1.6; }
+.b1513rCaret { display: inline-block; width: 2px; height: 1em; background: var(--em); vertical-align: text-bottom; margin-left: 2px; }
+.b1513rGuestThanks h1 { color: var(--gn); }
+.b1513rGuestVideo { border-color: rgba(255,179,64,.45); }
+.b1513rGuestFoot { margin-top: 20px; font-size: 11px; color: var(--dim); }
+
+/* ---------- admin mirror ---------- */
+.b1513rAdminBadge { display: inline-block; font-family: var(--num); text-transform: uppercase; letter-spacing: .08em; font-size: 9.5px; color: var(--cy); border: 1px solid rgba(57,214,255,.35); border-radius: 999px; padding: 1.5px 8px; vertical-align: middle; margin-left: 6px; }
+.b1513rBucket .pHead { align-items: baseline; gap: 12px; }
+.b1513rQuietStats { display: flex; gap: 8px; color: var(--dim); font-size: 12px; font-family: var(--num); letter-spacing: .05em; margin: 18px 2px; }
+.b1513rStudentCard .rTitle { font-size: 15px; }
+.b1513rDirFilters { margin: 4px 0 14px; }
+.b1513rWorkspaceHead { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 8px 0 14px; }
+.b1513rWorkspaceHead > div { flex: 1; min-width: 240px; }
+.b1513rMentorRail { border-color: rgba(57,214,255,.28); }
+.b1513rMentorRail textarea { width: 100%; background: rgba(15,21,34,.9); border: 1px solid var(--edge); border-radius: 8px; color: var(--tx); padding: 9px 12px; font-size: 13.5px; }
+.b1513rSplitNote { margin: 10px 0 16px; }
+
+/* ---------- settings groups ---------- */
+.b1513rSettingsGroup { font-family: var(--num); text-transform: uppercase; letter-spacing: .12em; font-size: 11px; color: var(--em); margin: 22px 2px 8px; }
+
+/* ---------- responsive & text-size ---------- */
+.b1513rPromptText, .b1513rCandBody, .b1513rGuestQ, .b1513rGuestTextarea, .b1513rGuestTranscript { font-size: calc(1em + var(--b1512-reading-add, 0px)); }
+@media (max-width: 900px) {
+  .b1513rInspHero { flex-direction: column; }
+  .b1513rInspBody { display: none; }
+  .b1513rReqGrid { grid-template-columns: 1fr; }
+  .b1513rRowMain { flex-wrap: wrap; }
+  .b1513rRowActions { width: 100%; justify-content: flex-start; margin-left: 0; }
+}
+@media (max-width: 640px) {
+  .b1513rGuestCard { padding: 22px 16px; }
+  .b1513rGuestCard h1 { font-size: 24px; }
+  .b1513rPromptGrid { grid-template-columns: 1fr; }
+}
+
+/* ---------- ADMIN MIRROR LAW: StoryForge navy/orange shell in Administrator
+ * View. The advisor cyan accent swap is neutralized back to the ember accent;
+ * cyan remains only in the restrained .b1513rAdminBadge and thin rail border. */
+body[data-role="advisor"] { --accent: var(--em); --accent2: var(--em2); --accentGlow: 255, 179, 64; }
+body[data-role="advisor"] #advBanner:not(.show) { display: none; }
+body[data-role="advisor"]:has(#advBanner:not(.show)) main { top: var(--hdr); }
+.b1513rMentorRail .noteSend { background: linear-gradient(90deg, var(--em), var(--em2)); color: #140b00; }

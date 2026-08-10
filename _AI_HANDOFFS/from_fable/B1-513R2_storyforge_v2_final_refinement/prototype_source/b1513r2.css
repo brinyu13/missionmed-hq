@@ -1,0 +1,230 @@
+/* ============================================================================
+ * B1-513R2 ADDITIVE STYLES — namespaced (b1513r2*) plus two governed global
+ * layers: [data-theme="light"] token override (§31) and environment energy
+ * (§28–30). Nothing here rewrites production selectors.
+ * ========================================================================== */
+
+/* ---------- §31 LIGHT THEME — warm paper & ink, a real StoryForge design ---------- */
+body[data-theme="light"]{
+  --bg:#f3eee4; --bg2:#ece5d6; --card:#faf6ec; --card2:#f1ead9; --edge:#d9cead; --edge2:#c9bb95;
+  --tx:#241d12; --dim:#7a6f58; --mid:#4e4433;
+  --em:#b25f00; --em2:#c14b10; --cy:#0a7fa8; --vi:#5c4bcc; --gd:#8a6a00; --gn:#0e7d4d; --rd:#c22743;
+  --accent:var(--em); --accent2:var(--em2); --accentGlow:178,95,0;
+}
+body[data-theme="light"][data-role="advisor"]{--accent:#0a7fa8;--accent2:#256bd7;--accentGlow:10,127,168}
+body[data-theme="light"] ::selection{background:var(--em);color:#fff}
+body[data-theme="light"] .vg{background:radial-gradient(ellipse at 50% 40%,transparent 55%,rgba(120,96,50,.14) 100%)}
+body[data-theme="light"] .aur{opacity:.34;mix-blend-mode:multiply}
+body[data-theme="light"] .aur.a{background:radial-gradient(circle,rgba(193,75,16,.20),rgba(193,75,16,0) 65%)}
+body[data-theme="light"] .aur.b{background:radial-gradient(circle,rgba(92,75,204,.16),rgba(92,75,204,0) 65%)}
+body[data-theme="light"] .aur.c{background:radial-gradient(circle,rgba(10,127,168,.12),rgba(10,127,168,0) 65%)}
+body[data-theme="light"] #bgfx{opacity:.5;filter:saturate(.8) contrast(1.05)}
+body[data-theme="light"] img.b1513rHead,
+body[data-theme="light"] .b1513rFullBody{filter:none;border-color:var(--edge2)}
+body[data-theme="light"] ::-webkit-scrollbar-thumb{border-color:var(--bg)}
+
+/* Light structural paint: production shell surfaces carry hard-coded night
+ * gradients, repainted here as warm paper. (At Codex time the light theme
+ * becomes a first-class token pass in styles.css rather than an override.) */
+body[data-theme="light"] header,
+body[data-theme="light"] #hdr{background:linear-gradient(180deg,rgba(250,246,236,.97),rgba(245,240,229,.88));border-bottom-color:var(--edge)}
+body[data-theme="light"] #rail{background:linear-gradient(180deg,rgba(248,243,232,.98),rgba(241,235,222,.97));border-right-color:var(--edge)}
+body[data-theme="light"] .panel{background:linear-gradient(165deg,rgba(251,247,238,.96),rgba(244,238,226,.93))}
+body[data-theme="light"] .railCard{background:linear-gradient(168deg,var(--card),#efe7d3)}
+body[data-theme="light"] .listBar{background:linear-gradient(90deg,rgba(251,247,238,.95),rgba(244,237,224,.8))}
+body[data-theme="light"] .sRow{background:linear-gradient(168deg,rgba(251,247,238,.94),rgba(244,237,224,.88))}
+body[data-theme="light"] .sRow:hover{box-shadow:0 8px 24px rgba(120,96,50,.18)}
+body[data-theme="light"] .nRow{background:rgba(251,247,238,.85)}
+body[data-theme="light"] .nRow .nTxt,body[data-theme="light"] .nRow .nWhen{color:var(--mid)}
+body[data-theme="light"] .nRow.unread .nTxt{color:var(--tx)}
+body[data-theme="light"] .voiceTabs{background:rgba(240,233,218,.92)}
+body[data-theme="light"] .hSearch{background:rgba(251,247,238,.92)}
+body[data-theme="light"] .h1,
+body[data-theme="light"] .introProduct{text-shadow:none}
+body[data-theme="light"] .roomSheet{background:linear-gradient(175deg,#f8f3e8,#f1ead9 40%)}
+body[data-theme="light"] #room{background:rgba(96,80,48,.35)}
+body[data-theme="light"] .drawerWrap{background:rgba(96,80,48,.4)}
+body[data-theme="light"] .backBtn:hover{color:#000}
+body[data-theme="light"] .b1513rHead,
+body[data-theme="light"] .b1513rHeadFallback{background:#fffdf6}
+body[data-theme="light"] .b1513rEmailBody,
+body[data-theme="light"] .b1513rInviteForm input,
+body[data-theme="light"] .b1513rInviteForm textarea{background:#fffdf6}
+body[data-theme="light"] #teach .b1513rGuestPage{background:radial-gradient(circle at 30% 10%,rgba(193,75,16,.09),transparent 50%),#f3eee4}
+body[data-theme="light"] input,
+body[data-theme="light"] select,
+body[data-theme="light"] textarea{background-color:#fffdf6 !important;color:var(--tx) !important;border-color:var(--edge2)}
+body[data-theme="light"] .storyforgeIntro:before{background:radial-gradient(circle,rgba(178,95,0,.12),rgba(92,75,204,.06) 42%,transparent 70%)}
+
+/* ---------- §28 richer brand header (both themes) ---------- */
+.storyforgeBrandTitle b{
+  background:linear-gradient(100deg,var(--em) 0%,var(--gd) 45%,var(--em2) 100%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+body[data-role="advisor"] .storyforgeBrandTitle b{
+  background:linear-gradient(100deg,var(--em) 0%,var(--gd) 55%,var(--cy) 115%);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+}
+.storyforgeBrand{position:relative;padding-left:14px}
+.storyforgeBrand::before{content:'';position:absolute;left:0;top:6%;bottom:6%;width:3px;border-radius:3px;
+  background:linear-gradient(180deg,var(--em),var(--em2) 60%,transparent)}
+.storyforgeBrandSub{letter-spacing:.22em}
+
+/* ---------- §26 page introductions ---------- */
+.b1513r2Intro{margin:.35rem 0 1rem;max-width:70ch;color:var(--mid);font-size:.95rem;line-height:1.5}
+.b1513r2Intro .b1513r2IntroHow{display:block;margin-top:.3rem;color:var(--dim);font-size:.86rem}
+
+/* ---------- §7 Inspiration list layout + LIST|GRID ---------- */
+.b1513r2LayoutSeg{display:inline-flex;border:1px solid var(--edge);border-radius:9px;overflow:hidden}
+.b1513r2LayoutSeg button{padding:.42rem .7rem;font-family:var(--num);font-weight:600;font-size:.72rem;letter-spacing:.08em;color:var(--dim)}
+.b1513r2LayoutSeg button.on{background:var(--card2);color:var(--accent)}
+.b1513r2QList{display:flex;flex-direction:column;gap:.55rem}
+.b1513r2QRow{background:var(--card);border:1px solid var(--edge);border-radius:14px;padding:.75rem .95rem}
+.b1513r2QRow.open{border-color:var(--accent2);box-shadow:0 0 0 1px rgba(var(--accentGlow),.25)}
+.b1513r2QRowMain{display:flex;align-items:center;gap:.8rem}
+.b1513r2QText{flex:1;min-width:0}
+.b1513r2QRow .b1513rPromptText{font-size:1.02rem;line-height:1.45;margin:0}
+.b1513r2QMeta{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.3rem}
+.b1513r2QTag{font-family:var(--num);font-size:.68rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--dim)}
+.b1513r2Rec{font-family:var(--num);font-size:.7rem;font-weight:700;letter-spacing:.05em;color:var(--gd);
+  border:1px solid color-mix(in srgb,var(--gd) 45%,transparent);border-radius:99px;padding:.08rem .5rem;white-space:nowrap}
+.b1513r2Answered{font-family:var(--num);font-size:.7rem;font-weight:700;color:var(--gn);
+  border:1px solid color-mix(in srgb,var(--gn) 45%,transparent);border-radius:99px;padding:.08rem .5rem;cursor:pointer;white-space:nowrap}
+.b1513r2PromptCtl{display:inline-flex;align-items:center;gap:.15rem}
+.b1513r2PinBtn{font-size:.95rem;opacity:.4;padding:.25rem;border-radius:8px;filter:grayscale(1)}
+.b1513r2PinBtn.on{opacity:1;filter:none}
+.b1513r2PinBtn:hover{opacity:.85}
+.b1513r2QRow .b1513rPromptAnswer{margin-top:.7rem;border-top:1px dashed var(--edge);padding-top:.7rem}
+
+/* ---------- §8 MY PINNED QUESTIONS ---------- */
+.b1513r2Pinned{margin-bottom:1rem;border-color:color-mix(in srgb,var(--accent) 35%,var(--edge))}
+.b1513r2PinItem{display:flex;align-items:center;gap:.6rem;padding:.5rem .35rem;border-bottom:1px solid var(--edge)}
+.b1513r2PinItem:last-child{border-bottom:0}
+.b1513r2PinItem.dragging{opacity:.45}
+.b1513r2PinItem.b1513r2DropTarget{box-shadow:inset 0 2px 0 var(--accent)}
+.b1513r2PinHandle{cursor:grab;color:var(--dim);font-size:.95rem;user-select:none}
+.b1513r2PinNo{font-family:var(--num);font-weight:700;color:var(--accent);min-width:1.2rem;text-align:center}
+.b1513r2PinText{flex:1;min-width:0;font-size:.95rem;line-height:1.4}
+.b1513r2PinActions{display:inline-flex;gap:.3rem;align-items:center;flex-wrap:wrap}
+
+/* ---------- §9 Home: Dr Brian Recommends ---------- */
+.b1513r2HomeRecs{display:flex;flex-direction:column;gap:.45rem;margin-top:.6rem}
+.b1513r2HomeRecHead{font-size:.85rem;color:var(--gd)}
+.b1513r2HomeRecHead span{color:var(--dim);font-size:.78rem;margin-left:.3rem}
+.b1513r2HomeRec{text-align:left;border:1px solid color-mix(in srgb,var(--gd) 40%,var(--edge));border-radius:12px;
+  background:color-mix(in srgb,var(--gd) 7%,var(--card));padding:.55rem .8rem;font-size:.9rem;line-height:1.4;color:var(--tx)}
+.b1513r2HomeRec span{display:block;font-family:var(--num);font-size:.7rem;font-weight:700;letter-spacing:.08em;color:var(--accent);margin-top:.25rem}
+.b1513r2HomeRec:hover{border-color:var(--gd)}
+
+/* ---------- §11 Request a Story process strip ---------- */
+.b1513r2Process{display:flex;align-items:stretch;gap:.5rem;margin:0 0 1.1rem;flex-wrap:wrap}
+.b1513r2Step{flex:1;min-width:170px;background:var(--card);border:1px solid var(--edge);border-radius:14px;padding:.7rem .8rem;
+  display:flex;flex-direction:column;gap:.25rem;font-size:.82rem;color:var(--dim);line-height:1.4}
+.b1513r2Step b{color:var(--tx);font-size:.88rem}
+.b1513r2StepNo{font-family:var(--num);font-weight:700;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);
+  width:1.5rem;height:1.5rem;border-radius:50%;display:grid;place-items:center;font-size:.8rem}
+.b1513r2StepArrow{align-self:center;color:var(--dim)}
+@media (max-width:900px){.b1513r2StepArrow{display:none}}
+
+/* ---------- §12 preview-before-send ---------- */
+.b1513r2PreviewGrid{align-items:start}
+.b1513r2EmailMetaRow{display:flex;gap:.7rem;align-items:baseline;padding:.3rem 0;border-bottom:1px dashed var(--edge);font-size:.9rem}
+.b1513r2EmailMetaRow .fLbl{min-width:4.2rem;margin:0}
+.b1513r2EmailPaper{margin-top:.9rem;background:var(--card2);border:1px solid var(--edge2);border-radius:14px;padding:1rem 1.1rem}
+.b1513r2EmailIdentity{margin-bottom:.7rem}
+.b1513r2ConfirmRow{margin-top:.6rem}
+.b1513r2ConfirmSend{font-size:1rem;padding:.7rem 1.2rem;background:linear-gradient(90deg,var(--em),var(--em2));color:#1c0d02}
+.b1513r2RelHint{margin:.3rem 0 .8rem}
+
+/* ---------- §14 truthful lifecycle / §16 guest orientation ---------- */
+.b1513r2JourneyLine{font-family:var(--voice);font-style:italic;color:var(--mid);margin:.5rem 0}
+.b1513r2GuestHow{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin:.7rem 0;font-size:.82rem;color:var(--dim)}
+.b1513r2GuestHow b{color:var(--accent);font-family:var(--num);margin-right:.25rem}
+.b1513r2Overdue{color:var(--rd);font-weight:600}
+
+/* ---------- §18–22 admin scale ---------- */
+.b1513r2SessionChip{margin-left:.45rem}
+.b1513r2DirBar{flex-wrap:wrap}
+.b1513r2DirBar .releaseSelect{max-width:15rem}
+.b1513r2SavedViews{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem}
+.b1513r2SavedViews .fLbl{margin:0}
+.b1513r2Pager{display:flex;align-items:center;gap:.8rem;justify-content:center;padding:.8rem 0}
+.b1513r2HomeCounts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;margin:0 0 1rem}
+.b1513r2Count{background:var(--card);border:1px solid var(--edge);border-radius:14px;padding:.7rem .5rem;display:flex;flex-direction:column;gap:.15rem;align-items:center}
+.b1513r2Count .n{font-family:var(--num);font-weight:700;font-size:1.7rem;color:var(--tx)}
+.b1513r2Count .l{font-family:var(--num);font-size:.7rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--dim)}
+.b1513r2Count.accent{border-color:color-mix(in srgb,var(--accent) 50%,var(--edge))}
+.b1513r2Count.accent .n{color:var(--accent)}
+.b1513r2Count:hover{border-color:var(--accent2)}
+.b1513r2NudgeRow{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-top:.7rem;padding-top:.7rem;border-top:1px dashed var(--edge)}
+.b1513r2NudgeRow .fLbl{margin:0}
+
+/* ---------- §25 Content Studio tabs + §10 bulk import ---------- */
+.b1513r2CsTabs{margin-bottom:1rem;flex-wrap:wrap}
+.b1513r2AddForm{margin-top:.8rem;border:1px dashed var(--edge2);border-radius:12px;padding:.8rem}
+.b1513r2AddDims{display:flex;gap:.8rem;flex-wrap:wrap;margin:.6rem 0;font-size:.82rem;color:var(--dim)}
+.b1513r2AddDims label{display:flex;flex-direction:column;gap:.25rem}
+.b1513r2AddDims select,.b1513r2AddDims input{background:var(--card2);border:1px solid var(--edge);color:var(--tx);border-radius:8px;padding:.35rem .5rem}
+.b1513r2RecCheck{display:inline-flex;align-items:center;gap:.35rem;color:var(--gd);font-size:.8rem}
+.b1513r2Import{margin-top:.8rem;border:1px dashed var(--edge2);border-radius:12px;padding:.8rem}
+.b1513r2Import textarea{width:100%;background:var(--card2);border:1px solid var(--edge);border-radius:10px;color:var(--tx);
+  font-family:ui-monospace,Menlo,monospace;font-size:.78rem;padding:.6rem;margin:.5rem 0}
+.b1513r2FileBtn{display:inline-flex;align-items:center;cursor:pointer}
+.b1513r2ImportSummary{display:flex;gap:.5rem;align-items:center;margin:.5rem 0;flex-wrap:wrap}
+.b1513r2ImportRows{display:flex;flex-direction:column;gap:.3rem;max-height:16rem;overflow:auto}
+.b1513r2ImportRow{display:flex;gap:.6rem;align-items:center;font-size:.82rem;padding:.35rem .5rem;border-radius:8px;background:var(--card2)}
+.b1513r2ImportRow.bad{opacity:.75}
+.b1513r2ImportLine{font-family:var(--num);color:var(--dim);min-width:3.4rem}
+.b1513r2ImportText{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.b1513r2Imported{outline:1px dashed color-mix(in srgb,var(--gd) 45%,transparent);outline-offset:2px}
+
+/* ---------- §31 theme cards in Settings ---------- */
+.b1513r2ThemeRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.6rem}
+.b1513r2ThemeCard{text-align:left;background:var(--card2);border:1px solid var(--edge);border-radius:14px;padding:.75rem .85rem;
+  display:flex;flex-direction:column;gap:.3rem;color:var(--dim);font-size:.8rem;line-height:1.4}
+.b1513r2ThemeCard b{color:var(--tx);font-size:.95rem}
+.b1513r2ThemeCard.on{border-color:var(--accent);box-shadow:0 0 0 1px rgba(var(--accentGlow),.3)}
+
+/* ---------- §28–30 environments: energy labels + obviously-animated set ---------- */
+.bgCard{position:relative}
+.bgCard::after{position:absolute;top:.4rem;right:.4rem;font-family:var(--num);font-size:.58rem;font-weight:700;
+  letter-spacing:.1em;color:var(--dim);border:1px solid var(--edge);border-radius:99px;padding:.06rem .4rem;background:var(--card)}
+.bgCard.bg-ember::after,.bgCard.bg-aurora::after,.bgCard.bg-emberstorm::after,.bgCard.bg-lumen::after{content:'ENERGETIC';color:var(--em);border-color:color-mix(in srgb,var(--em) 40%,transparent)}
+.bgCard.bg-constellation::after,.bgCard.bg-tide::after,.bgCard.bg-meridian::after{content:'SUBTLE'}
+.bgCard.bg-static::after{content:'STILL'}
+
+/* Energetic environments are CSS-driven so they run wherever the canvas engine
+ * doesn’t: slow, large, low-frequency motion only — no strobe, no flicker. */
+@keyframes b1513r2Sweep{0%{background-position:0% 60%}50%{background-position:100% 40%}100%{background-position:0% 60%}}
+@keyframes b1513r2Rise{0%{transform:translateY(4vh) scale(1)}50%{transform:translateY(-3vh) scale(1.06)}100%{transform:translateY(4vh) scale(1)}}
+body.motion-enabled[data-background="aurora"] #bgfx{
+  background:linear-gradient(115deg,rgba(74,222,157,.20),transparent 42%),linear-gradient(245deg,rgba(57,214,255,.22),transparent 52%),linear-gradient(25deg,rgba(138,125,255,.14),transparent 60%);
+  background-size:220% 220%;animation:b1513r2Sweep 26s ease-in-out infinite}
+body.motion-enabled[data-background="emberstorm"] #bgfx{
+  background:radial-gradient(circle at 28% 85%,rgba(255,150,60,.34),transparent 50%),radial-gradient(circle at 78% 18%,rgba(255,84,112,.18),transparent 55%),radial-gradient(circle at 55% 55%,rgba(255,215,106,.12),transparent 45%);
+  background-size:190% 190%;animation:b1513r2Sweep 17s ease-in-out infinite}
+body.motion-enabled[data-background="emberstorm"] .aur{opacity:.8;animation-duration:16s}
+body.motion-enabled[data-background="emberstorm"] .aur.a{animation-name:b1513r2Rise;animation-duration:13s}
+body.motion-enabled[data-background="lumen"] #bgfx{
+  background:linear-gradient(60deg,rgba(255,215,106,.20),transparent 45%),linear-gradient(300deg,rgba(138,125,255,.22),transparent 50%),linear-gradient(180deg,transparent 55%,rgba(255,122,61,.12));
+  background-size:240% 240%;animation:b1513r2Sweep 21s ease-in-out infinite}
+body.motion-enabled[data-background="lumen"] .aur{opacity:.72;animation-duration:20s}
+body.motion-enabled[data-background="tide"] #bgfx{
+  background:linear-gradient(180deg,transparent 30%,rgba(57,214,255,.13) 45%,transparent 60%,rgba(90,141,255,.11) 78%,transparent 92%);
+  background-size:100% 340%;animation:b1513r2Sweep 60s ease-in-out infinite}
+body.motion-enabled[data-background="meridian"] #bgfx{
+  background:repeating-linear-gradient(175deg,transparent 0 18px,rgba(57,214,255,.07) 18px 19px)}
+@media (prefers-reduced-motion: reduce){
+  body[data-background] #bgfx,.b1513r2HomeRec,.aur{animation:none !important}
+}
+body[data-theme="light"].motion-enabled[data-background="emberstorm"] #bgfx,
+body[data-theme="light"].motion-enabled[data-background="aurora"] #bgfx,
+body[data-theme="light"].motion-enabled[data-background="lumen"] #bgfx{opacity:.45;mix-blend-mode:multiply}
+
+/* ---------- small shared bits ---------- */
+.b1513r2Compact .b1513rRowFacts{font-size:.78rem}
+@media (max-width:760px){
+  .b1513r2QRowMain{flex-wrap:wrap}
+  .b1513r2PinItem{flex-wrap:wrap}
+  .b1513r2HomeCounts{grid-template-columns:repeat(2,1fr)}
+}
