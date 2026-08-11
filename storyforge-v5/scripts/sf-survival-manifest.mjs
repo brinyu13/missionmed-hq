@@ -9,6 +9,7 @@ import {
   canonicalJson,
   childSummary,
   compareSurvivalManifests,
+  resolvedAudioObjectKeys,
   rowHash,
   safeDifferenceReport,
   sha256,
@@ -195,17 +196,31 @@ async function assertClassifiedStoryForeignKeys(client, inventory) {
   if (unclassified.length) throw new Error(`Unclassified StoryForge story relationship: ${unclassified.sort().join(',')}`);
 }
 
-async function objectEvidence(rows, requireObjectHead, type) {
+async function objectEvidence(rows, requireObjectHead, type, recordingSessions = []) {
   const entries = [];
+  const sessionByAsset = new Map(recordingSessions
+    .filter((row) => row.assembled_asset_id)
+    .map((row) => [String(row.assembled_asset_id), row]));
   for (const row of rows.sort((left, right) => String(left.id).localeCompare(String(right.id)))) {
     const required = row.state === 'verified';
     let exists = null;
     let actualSize = null;
+    let resolvedObjectKeyHashes = [];
     if (required) {
       if (!requireObjectHead) throw new Error('Active permanent media requires --require-object-head');
-      const head = await headAudioObject({ objectKey: row.object_key });
+      const objectKeys = type === 'story_audio'
+        ? resolvedAudioObjectKeys({
+          objectKey: row.object_key,
+          contentType: row.content_type,
+          assemblyExecutor: process.env.STORYFORGE_ASSEMBLY_EXECUTOR,
+          segmentCount: sessionByAsset.get(String(row.id))?.segment_count,
+        })
+        : [row.object_key];
+      const heads = [];
+      for (const objectKey of objectKeys) heads.push(await headAudioObject({ objectKey }));
       exists = true;
-      actualSize = Number(head.byteSize);
+      actualSize = heads.reduce((total, head) => total + Number(head.byteSize), 0);
+      resolvedObjectKeyHashes = objectKeys.map((objectKey) => sha256(objectKey)).sort();
       if (actualSize !== Number(row.byte_size)) throw new Error(`Permanent media size mismatch for ${type}:${row.id}`);
     }
     entries.push([`${type}:${row.id}`, {
@@ -215,6 +230,7 @@ async function objectEvidence(rows, requireObjectHead, type) {
       required,
       exists,
       actualSize,
+      resolvedObjectKeyHashes,
     }]);
   }
   return entries;
@@ -279,7 +295,12 @@ async function buildStory(client, inventory, story, requireObjectHead) {
   transcriptRows.sort((left, right) => left.id.localeCompare(right.id));
 
   const objectEntries = [
-    ...await objectEvidence(raw.sf_audio_assets || [], requireObjectHead, 'story_audio'),
+    ...await objectEvidence(
+      raw.sf_audio_assets || [],
+      requireObjectHead,
+      'story_audio',
+      raw.sf_recording_sessions || [],
+    ),
     ...await objectEvidence(raw.sf_mentor_note_media || [], requireObjectHead, 'mentor_audio'),
     ...await objectEvidence(raw.sf_story_media || [], requireObjectHead, 'story_media'),
   ].sort(([left], [right]) => left.localeCompare(right));

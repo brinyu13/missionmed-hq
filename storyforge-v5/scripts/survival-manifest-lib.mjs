@@ -2,6 +2,39 @@ import { createHash } from 'node:crypto';
 
 export const SURVIVAL_SCHEMA = 'missionmed.storyforge.survival-manifest.v2';
 
+const AUDIO_EXTENSIONS = Object.freeze({
+  'audio/webm': 'webm',
+  'audio/mp4': 'm4a',
+  'audio/ogg': 'ogg',
+  'audio/wav': 'wav',
+});
+
+export function resolvedAudioObjectKeys({
+  objectKey,
+  contentType,
+  assemblyExecutor,
+  segmentCount = 0,
+}) {
+  const baseKey = String(objectKey || '');
+  if (!baseKey) throw new Error('Permanent audio object key is absent');
+  if (/\.(?:webm|m4a|ogg|wav)$/i.test(baseKey)) return [baseKey];
+  const extension = AUDIO_EXTENSIONS[String(contentType || '')];
+  if (!extension) throw new Error('Permanent audio content type is unsupported');
+  const executor = String(assemblyExecutor || '').trim().toLowerCase();
+  if (executor === 'concat') return [`${baseKey}.${extension}`];
+  if (executor === 'copy') {
+    const count = Number(segmentCount);
+    if (!Number.isInteger(count) || count < 1 || count > 200) {
+      throw new Error('Permanent audio segment manifest is invalid');
+    }
+    return Array.from(
+      { length: count },
+      (_, index) => `${baseKey}/seg-${String(index).padStart(5, '0')}.${extension}`,
+    );
+  }
+  throw new Error('STORYFORGE_ASSEMBLY_EXECUTOR must be concat or copy for permanent audio verification');
+}
+
 export function sha256(value) {
   const marker = value === null ? 'null:' : `value:${String(value)}`;
   return createHash('sha256').update(marker, 'utf8').digest('hex');
@@ -103,7 +136,7 @@ function compareObjects(differences, storyId, before, after) {
       difference(differences, { storyId, table: 'objects', rowKey, field: 'row', reason: 'row_missing', before: item });
       continue;
     }
-    for (const field of ['rowHash', 'objectKeyHash', 'recordedSize', 'required']) {
+    for (const field of ['rowHash', 'objectKeyHash', 'resolvedObjectKeyHashes', 'recordedSize', 'required']) {
       compareExact(differences, { storyId, table: 'objects', rowKey, field }, item[field], next[field]);
     }
   }

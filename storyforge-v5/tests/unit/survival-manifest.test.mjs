@@ -4,6 +4,7 @@ import {
   SURVIVAL_SCHEMA,
   childSummary,
   compareSurvivalManifests,
+  resolvedAudioObjectKeys,
   safeDifferenceReport,
   sha256,
   sortedSetHash,
@@ -159,4 +160,32 @@ test('NULL differs from empty and Unicode, CRLF, sets, and rows hash determinist
   assert.notEqual(sha256('line\r\n'), sha256('line\n'));
   assert.deepEqual(sortedSetHash(['b', 'a', 'a']), sortedSetHash(['a', 'b']));
   assert.deepEqual(childSummary([{ id: 'b' }, { id: 'a' }]), childSummary([{ id: 'a' }, { id: 'b' }]));
+});
+
+test('permanent audio verification follows the canonical runtime playback keys', () => {
+  assert.deepEqual(resolvedAudioObjectKeys({
+    objectKey: 'storyforge-audio/student/story/asset',
+    contentType: 'audio/webm',
+    assemblyExecutor: 'concat',
+  }), ['storyforge-audio/student/story/asset.webm']);
+  assert.deepEqual(resolvedAudioObjectKeys({
+    objectKey: 'storyforge-audio/student/story/asset',
+    contentType: 'audio/ogg',
+    assemblyExecutor: 'copy',
+    segmentCount: 2,
+  }), [
+    'storyforge-audio/student/story/asset/seg-00000.ogg',
+    'storyforge-audio/student/story/asset/seg-00001.ogg',
+  ]);
+  assert.deepEqual(resolvedAudioObjectKeys({
+    objectKey: 'storyforge-audio/student/story/legacy.webm',
+    contentType: 'audio/webm',
+    assemblyExecutor: '',
+  }), ['storyforge-audio/student/story/legacy.webm']);
+  assert.throws(() => resolvedAudioObjectKeys({
+    objectKey: 'storyforge-audio/student/story/asset',
+    contentType: 'audio/webm',
+    assemblyExecutor: 'copy',
+    segmentCount: 0,
+  }), /segment manifest/);
 });
