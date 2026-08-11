@@ -4644,6 +4644,7 @@ function renderStoryRoom() {
   const workingTab = state.storyTab === 'working';
   const title = originalTab ? story.originalTitle : story.title;
   const text = versionTab ? selectedVersion?.body || '' : originalTab ? story.originalText : story.text;
+  const versionWords = versionTab ? text.trim().split(/\s+/).filter(Boolean).length : 0;
   const completionMissing = state.storyCompletionIntent
     ? storyCompletionMissing(story, state.storyCompletionIntent)
     : [];
@@ -4683,10 +4684,11 @@ function renderStoryRoom() {
           <button type="button" role="tab" class="${workingTab ? 'on' : ''}" aria-selected="${workingTab}" data-story-tab="working">Full Story <span class="srOnly">— Working version</span></button>
           ${state.capabilities?.storyVersions ? `<button type="button" role="tab" class="${versionTab === 'thirty_second' ? 'on' : ''}" aria-selected="${versionTab === 'thirty_second'}" data-story-tab="thirty_second">30-Second Version</button><button type="button" role="tab" class="${versionTab === 'nnq_setup' ? 'on' : ''}" aria-selected="${versionTab === 'nnq_setup'}" data-story-tab="nnq_setup">NNQ Setup</button>` : ''}
         </div>
-        ${versionTab ? `<form id="storyVersionForm" data-version-key="${attr(versionTab)}" data-row-version="${attr(selectedVersion?.rowVersion || 0)}">
-          <div class="b1514VersionIntro"><div><span class="eyebrow">Purposeful telling</span><h2>${versionTab === 'thirty_second' ? '30-Second Version' : 'NNQ Setup'}</h2><p>${versionTab === 'thirty_second' ? 'Shape the essential moment for a concise interview response.' : 'Set up the story so it can answer a natural next question.'}</p></div>${selectedVersion ? `<span class="cohortChip">Saved ${esc(formatDateTime(selectedVersion.updatedAt))}</span>` : '<span class="cohortChip">Not started</span>'}</div>
+        ${versionTab ? `<form id="storyVersionForm" data-version-key="${attr(versionTab)}" data-row-version="${attr(selectedVersion?.rowVersion || 0)}" data-save-mode="save">
+          <div class="b1514VersionIntro"><div><span class="eyebrow">Purposeful telling</span><h2>${versionTab === 'thirty_second' ? '30-Second Version' : 'NNQ Setup'}</h2><p>${versionTab === 'thirty_second' ? 'Shape the essential moment for a concise interview response. Aim for about 75–90 spoken words (≈30 seconds).' : 'Set up the story so it naturally ends on a question you want the interviewer to ask.'}</p></div>${selectedVersion ? `<span class="cohortChip">Started ${esc(formatDate(selectedVersion.createdAt))} · ${selectedVersion.source === 'voice' ? '🎙 voice' : '⌨ typed'} · saved ${esc(formatDateTime(selectedVersion.updatedAt))}</span>` : '<span class="cohortChip">Not started — type it, or tell it out loud</span>'}</div>
           ${mentor ? `<div class="storyProse" data-empty="${text ? 'false' : 'true'}">${text ? esc(text) : '<span class="storyEmpty">This purposeful version has not been written yet.</span>'}</div>` : `<label class="srOnly" for="storyVersionText">${versionTab === 'thirty_second' ? '30-Second Version' : 'NNQ Setup'}</label><textarea class="storyProse storyProseEdit b1514VersionEditor" id="storyVersionText" maxlength="20000" placeholder="Keep the same truth. Shape this telling for its purpose.">${esc(text)}</textarea><div class="inlineActions"><button class="btnSave" type="submit">Save this version</button>${state.capabilities?.voiceCapture ? '<button class="rowBtn" type="button" data-version-voice>🎙 Speak instead of type</button>' : ''}${selectedVersion ? '<button class="rowBtn" type="button" data-version-mode="append">Append</button><button class="rowBtn" type="button" data-version-mode="retell">Retell from scratch</button>' : ''}<span class="saveState" data-version-voice-status>Every saved change remains in version history.</span></div>${selectedVersion?.audioAssetId ? `<div class="b1514VersionAudio"><button class="rowBtn" type="button" data-version-audio="${attr(selectedVersion.audioAssetId)}">▶ Play original telling</button><div data-version-audio-host></div></div>` : ''}`}
-          ${selectedVersion?.history?.length ? `<details class="b1514VersionHistory"><summary>Earlier tellings (${selectedVersion.history.length})</summary>${selectedVersion.history.map((revision) => `<article><p>${esc(revision.body)}</p><div class="inlineActions"><small>${esc(formatDateTime(revision.savedAt))}</small>${!mentor ? `<button class="rowBtn" type="button" data-version-restore="${attr(revision.id)}">Restore this telling</button>` : ''}</div></article>`).join('')}</details>` : ''}
+          ${!mentor ? `<div class="b1514VersionCount" data-version-word-count aria-live="polite">${versionWords ? `≈ ${versionWords} words${versionTab === 'thirty_second' ? ` · ${versionWords <= 95 ? 'inside' : 'over'} the ~30-second target` : ''}` : ''}</div><div class="origNote">Append adds to what’s here. Retell starts fresh — your previous telling is kept in this version’s history and can be restored.</div>` : ''}
+          ${selectedVersion?.history?.length ? `<details class="b1514VersionHistory"><summary>Earlier tellings (${selectedVersion.history.length})</summary>${selectedVersion.history.map((revision) => `<article><p>${esc(revision.body)}</p><div class="inlineActions"><small>${esc(formatDateTime(revision.savedAt))} · ${revision.source === 'voice' ? '🎙 voice' : '⌨ typed'}</small>${revision.audioAssetId ? `<button class="rowBtn" type="button" data-version-audio="${attr(revision.audioAssetId)}">▶ Play original telling</button><div data-version-audio-host></div>` : ''}${!mentor ? `<button class="rowBtn" type="button" data-version-restore="${attr(revision.id)}">Restore this telling</button>` : ''}</div></article>`).join('')}</details>` : ''}
         </form>` : !mentor && workingTab ? `<form id="storyEditForm">
           <label class="srOnly" for="storyEditTitle">Story title</label>
           <input class="roomTitle roomTitleInput" id="storyEditTitle" value="${attr(story.title)}" required>
@@ -7600,11 +7602,12 @@ async function cancelPurposefulVersionVoice() {
   }
 }
 
-async function playPurposefulVersionAudio(assetId) {
+async function playPurposefulVersionAudio(assetId, button = null) {
   const result = await api.audioPlayback(assetId);
   const [url] = playbackUrls(result || {});
   if (!url) throw new Error('Original telling playback is unavailable.');
-  const host = $('[data-version-audio-host]');
+  const host = button?.parentElement?.querySelector('[data-version-audio-host]')
+    || $('[data-version-audio-host]');
   if (!host) return;
   const audio = document.createElement('audio');
   audio.controls = true;
@@ -8063,7 +8066,7 @@ document.addEventListener('click', async (event) => {
       return;
     }
     if (button.matches('[data-version-audio]')) {
-      await playPurposefulVersionAudio(button.dataset.versionAudio);
+      await playPurposefulVersionAudio(button.dataset.versionAudio, button);
       return;
     }
     if (button.matches('[data-nav]')) {
@@ -8778,7 +8781,14 @@ document.addEventListener('compositionend', (event) => {
 
 document.addEventListener('input', (event) => {
   const target = event.target;
-  if (room.contains(target) && ['storyEditText', 'storyLesson'].includes(target.id) && state.storyCompletionIntent) {
+  if (target.id === 'storyVersionText') {
+    const words = target.value.trim().split(/\s+/).filter(Boolean).length;
+    const counter = $('[data-version-word-count]', target.form);
+    const key = target.form?.dataset.versionKey;
+    if (counter) counter.textContent = words
+      ? `≈ ${words} words${key === 'thirty_second' ? ` · ${words <= 95 ? 'inside' : 'over'} the ~30-second target` : ''}`
+      : '';
+  } else if (room.contains(target) && ['storyEditText', 'storyLesson'].includes(target.id) && state.storyCompletionIntent) {
     updateStoryCompletionGuidance(target.form);
   } else if (capture.contains(target) && ['capTitle', 'capBody', 'capLesson'].includes(target.id)) {
     if (target.id === 'capBody') trackVoiceTextEdit(target.value);
@@ -8958,6 +8968,20 @@ document.addEventListener('mousedown', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+  const storyTab = event.target.closest?.('[data-story-tab]');
+  if (storyTab && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+    const tabs = $$('[data-story-tab]', storyTab.closest('[role="tablist"]'));
+    const index = tabs.indexOf(storyTab);
+    const next = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? tabs.length - 1
+        : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    event.preventDefault();
+    tabs[next]?.focus();
+    tabs[next]?.click();
+    return;
+  }
   if (['omni', 'libQ'].includes(event.target.id)) {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       if (moveSearchSuggestion(event.target, event.key === 'ArrowDown' ? 1 : -1)) event.preventDefault();

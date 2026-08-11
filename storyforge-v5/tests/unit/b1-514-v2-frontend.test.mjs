@@ -79,3 +79,15 @@ test('B1-514 mounts four purposeful tellings and governed student-only destinati
   assert.match(styles, /\.b1514PromptCard/);
   assert.match(styles, /\.b1514Invitation/);
 });
+
+test('B1-514 purposeful tellings preserve append-retell semantics, original audio, and keyboard access', () => {
+  assert.match(app, /Append mode — add to the telling, then save/);
+  assert.match(app, /Start a fresh retelling\? Your current telling will remain in version history/);
+  assert.match(app, /event\.target\.dataset\.saveMode \|\| 'save'/);
+  assert.match(app, /Transcript ready to edit\. Original voice will be preserved when you save/);
+  assert.match(app, /data-version-audio=/);
+  assert.match(app, /Earlier tellings \(/);
+  assert.match(app, /inside' : 'over'\} the ~30-second target/);
+  assert.match(app, /storyTab && \['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
+  assert.match(app, /void cancelPurposefulVersionVoice\(\)/);
+});
