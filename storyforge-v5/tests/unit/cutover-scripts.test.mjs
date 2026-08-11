@@ -128,6 +128,20 @@ test('browser harnesses pin PostgreSQL 18 and the exact forward-only migration o
     '20260729000200_b1_506_feature_flags.sql',
     '20260729010000_b1_506a_voice_audit_lifecycle.sql',
     '20260730000100_b1_507b_reconciliation_state.sql',
+    '20260801190000_b1_510i_admin_console.sql',
+    '20260805190000_b1_511_workflow_taxonomy_mentor_notes.sql',
+    '20260806130000_b1_511a_wordpress_admin_authority.sql',
+    '20260806190000_b1_512_concrete_configuration_media.sql',
+    '20260810190000_b1_514_v2_r1_visibility_consent_activity.sql',
+    '20260810200000_b1_514_v2_r2_story_versions_provenance.sql',
+    '20260810210000_b1_514_v2_r3_inspiration.sql',
+    '20260810220000_b1_514_v2_ra_requests_guest.sql',
+    '20260810230000_b1_514_v2_preferences_environments.sql',
+    '20260810240000_b1_514_v2_ra_lifecycle_completion.sql',
+    '20260810250000_b1_514_v21_authored_segment_writes.sql',
+    '20260810260000_b1_514_guest_voice_contributions.sql',
+    '20260810270000_b1_514_request_delivery_attempts.sql',
+    '20260810280000_b1_514_guest_voice_cleanup_recovery.sql',
   ];
 
   for (const harness of postgresHarnesses) {
