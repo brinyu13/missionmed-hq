@@ -249,7 +249,7 @@ if [[ "$STUDENT_ACCESS" != "allowed:student" ]]; then
   echo "Eligible student entitlement check failed: $STUDENT_ACCESS" >&2
   exit 1
 fi
-if [[ "$INELIGIBLE_ACCESS" != "eligibility_required" ]]; then
+if [[ "$INELIGIBLE_ACCESS" != "eligibility_revoked" ]]; then
   echo "Ineligible student denial check failed: $INELIGIBLE_ACCESS" >&2
   exit 1
 fi

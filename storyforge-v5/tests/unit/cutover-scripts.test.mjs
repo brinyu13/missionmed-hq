@@ -189,7 +189,7 @@ test('integration fixtures exercise eligible-all students and preserve nonstuden
     'both WordPress and WPCLI must evaluate the same local entitlement contract',
   );
   assert.match(integration, /if \[\[ "\$STUDENT_ACCESS" != "allowed:student" \]\]/);
-  assert.match(integration, /if \[\[ "\$INELIGIBLE_ACCESS" != "eligibility_required" \]\]/);
+  assert.match(integration, /if \[\[ "\$INELIGIBLE_ACCESS" != "eligibility_revoked" \]\]/);
   assert.match(integration, /for denied_state in "\$SECOND_ADMIN_ACCESS" "\$MENTOR_ACCESS"/);
   assert.match(integration, /STUDENT_NAV=.*\$STUDENT_ID/);
   assert.match(integration, /DENIED_NAV=.*\$INELIGIBLE_ID/);
