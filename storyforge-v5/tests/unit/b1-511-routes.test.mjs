@@ -20,7 +20,12 @@ const NOTE = '33333333-3333-4333-8333-333333333333';
 
 function runtime() {
   return Object.freeze({
-    transcription: { available: false },
+    transcription: {
+      available: false,
+      async transcribeSegment() {
+        throw new Error('transcription unavailable in route fixture');
+      },
+    },
     flagService: {
       voiceCapture: async () => false,
     },

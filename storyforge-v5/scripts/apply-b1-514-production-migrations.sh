@@ -28,6 +28,8 @@ MIGRATIONS=(
   20260810230000_b1_514_v2_preferences_environments.sql
   20260810240000_b1_514_v2_ra_lifecycle_completion.sql
   20260810250000_b1_514_v21_authored_segment_writes.sql
+  20260810260000_b1_514_guest_voice_contributions.sql
+  20260810270000_b1_514_request_delivery_attempts.sql
 )
 
 fail(){ printf 'Refusing B1-514 production migration: %s\n' "$*" >&2; exit 1; }
@@ -36,7 +38,7 @@ sha256_stream(){ if command -v sha256sum >/dev/null 2>&1; then sha256sum|awk '{p
 
 [[ $# = 1 ]] || fail 'usage: apply-b1-514-production-migrations.sh preflight|apply'
 mode="$1"; [[ "$mode" = preflight || "$mode" = apply ]] || fail 'mode must be preflight or apply'
-required=(STORYFORGE_DATABASE_URL STORYFORGE_DEPLOY_GIT_COMMIT STORYFORGE_DB_BACKUP_ID STORYFORGE_DB_BACKUP_PATH STORYFORGE_DB_BACKUP_SHA256 STORYFORGE_EXPECTED_DB_SYSTEM_IDENTIFIER STORYFORGE_EXPECTED_USER_COUNT STORYFORGE_EXPECTED_STORY_COUNT STORYFORGE_SURVIVAL_PRE_MANIFEST)
+required=(STORYFORGE_DATABASE_URL STORYFORGE_DEPLOY_GIT_COMMIT STORYFORGE_DB_BACKUP_ID STORYFORGE_DB_BACKUP_PATH STORYFORGE_DB_BACKUP_SHA256 STORYFORGE_EXPECTED_DB_SYSTEM_IDENTIFIER STORYFORGE_EXPECTED_USER_COUNT STORYFORGE_EXPECTED_STORY_COUNT STORYFORGE_SURVIVAL_PRE_MANIFEST STORYFORGE_SURVIVAL_POST_MANIFEST STORYFORGE_SURVIVAL_COMPARE_REPORT STORYFORGE_SURVIVAL_EVIDENCE_ROOT)
 for name in "${required[@]}"; do [[ -n "${!name:-}" ]] || fail "$name is required"; done
 [[ "$STORYFORGE_DEPLOY_GIT_COMMIT" =~ ^[a-f0-9]{40}$ ]] || fail 'deploy commit is invalid'
 [[ "$STORYFORGE_DB_BACKUP_SHA256" =~ ^[a-f0-9]{64}$ ]] || fail 'backup hash is invalid'
@@ -92,20 +94,47 @@ for migration in "${MIGRATIONS[@]}"; do
 done
 if [[ "$mode" = preflight ]]; then printf 'B1_514_PRODUCTION_MIGRATION_PREFLIGHT_PASS\ntrain_sha256=%s\npending=%s\n' "$train_hash" "$pending"; exit 0; fi
 [[ "${STORYFORGE_MIGRATION_CONFIRM:-}" = B1-514-APPLY ]] || fail 'apply confirmation is absent'
-if [[ "$pending" = 0 ]]; then printf 'B1_514_PRODUCTION_MIGRATION_ALREADY_APPLIED_PASS\n'; exit 0; fi
-[[ "$pending" = "${#MIGRATIONS[@]}" ]] || fail 'partial V2 migration train is not accepted'
-{
-  printf '%s\n' "SELECT pg_advisory_xact_lock(hashtextextended('missionmed.storyforge.b1-514.production-migration',0));"
-  for migration in "${MIGRATIONS[@]}"; do
-    path="$PACKAGE_DIR/infra/postgres/migrations/$migration"; version="${migration%%_*}"; hash="$(sha256_file "$path")"
-    sed -E -e '/^[[:space:]]*\\set /d' -e '/^[[:space:]]*BEGIN;[[:space:]]*$/d' -e '/^[[:space:]]*COMMIT;[[:space:]]*$/d' "$path"
-    printf "INSERT INTO public.sf_schema_migrations(version,file_name,sha256,git_commit,backup_id) VALUES('%s','%s','%s','%s','%s');\n" "$version" "$migration" "$hash" "$STORYFORGE_DEPLOY_GIT_COMMIT" "$STORYFORGE_DB_BACKUP_ID"
-  done
-} | "$psql_bin" --dbname="$database_url" -X -v ON_ERROR_STOP=1 --single-transaction
+if [[ "$pending" != 0 ]]; then
+  [[ "$pending" = "${#MIGRATIONS[@]}" ]] || fail 'partial V2 migration train is not accepted'
+  {
+    printf '%s\n' "SELECT pg_advisory_xact_lock(hashtextextended('missionmed.storyforge.b1-514.production-migration',0));"
+    for migration in "${MIGRATIONS[@]}"; do
+      path="$PACKAGE_DIR/infra/postgres/migrations/$migration"; version="${migration%%_*}"; hash="$(sha256_file "$path")"
+      sed -E -e '/^[[:space:]]*\\set /d' -e '/^[[:space:]]*BEGIN;[[:space:]]*$/d' -e '/^[[:space:]]*COMMIT;[[:space:]]*$/d' "$path"
+      printf "INSERT INTO public.sf_schema_migrations(version,file_name,sha256,git_commit,backup_id) VALUES('%s','%s','%s','%s','%s');\n" "$version" "$migration" "$hash" "$STORYFORGE_DEPLOY_GIT_COMMIT" "$STORYFORGE_DB_BACKUP_ID"
+    done
+  } | "$psql_bin" --dbname="$database_url" -X -v ON_ERROR_STOP=1 --single-transaction
+fi
+# Governed libraries are independently idempotent. They are always rerun and
+# verified, including after a previous seed interruption or an already-applied
+# migration train; a ledger-only success can never bypass these checks.
 STORYFORGE_DATABASE_URL="$database_url" node "$PACKAGE_DIR/scripts/seed-inspiration-prompts.mjs"
 STORYFORGE_DATABASE_URL="$database_url" node "$PACKAGE_DIR/scripts/seed-contributor-prompts.mjs"
 post_counts="$("${psql_read[@]}" -AtF '|' -c 'SELECT (SELECT count(*) FROM public.sf_users),(SELECT count(*) FROM public.sf_stories),(SELECT count(*) FROM public.sf_inspiration_prompts),(SELECT count(*) FROM public.sf_contributor_prompts)')"
 [[ "$post_counts" = "$STORYFORGE_EXPECTED_USER_COUNT|$STORYFORGE_EXPECTED_STORY_COUNT|81|48" ]] || fail 'post-migration protected or governed counts differ'
 historical_widening="$("${psql_read[@]}" -Atc "SELECT count(*) FROM public.sf_stories WHERE visibility IS NOT NULL")"
 [[ "$historical_widening" = 0 ]] || fail 'historical stories were assigned a visibility value'
+# Capture and compare the POST state before any release pointer or feature flag
+# can move. The comparator permits only the exact migration-ledger additions;
+# every protected V1 story, child row, transcript hash, and verified object must
+# survive unchanged.
+STORYFORGE_SURVIVAL_DATABASE_URL="$database_url" node "$PACKAGE_DIR/scripts/sf-survival-manifest.mjs" capture \
+  --phase post --release B1-514 --candidate-sha256 "$train_hash" \
+  --output "$STORYFORGE_SURVIVAL_POST_MANIFEST" --require-object-head
+ledger_args=()
+for migration in "${MIGRATIONS[@]}"; do
+  version="${migration%%_*}"; hash="$(sha256_file "$PACKAGE_DIR/infra/postgres/migrations/$migration")"
+  ledger_hash="$(node --input-type=module - "$PACKAGE_DIR" "$version" "$migration" "$hash" <<'NODE'
+import { pathToFileURL } from 'node:url';
+const [packageDir,version,file_name,sha256]=process.argv.slice(2);
+const { rowHash } = await import(pathToFileURL(`${packageDir}/scripts/survival-manifest-lib.mjs`).href);
+process.stdout.write(rowHash({version,file_name,sha256}));
+NODE
+)"
+  ledger_args+=(--expected-ledger-addition "$version:$ledger_hash")
+done
+node "$PACKAGE_DIR/scripts/sf-survival-manifest.mjs" compare \
+  --pre "$STORYFORGE_SURVIVAL_PRE_MANIFEST" \
+  --post "$STORYFORGE_SURVIVAL_POST_MANIFEST" \
+  --output "$STORYFORGE_SURVIVAL_COMPARE_REPORT" "${ledger_args[@]}"
 printf 'B1_514_PRODUCTION_MIGRATION_APPLY_PASS\ntrain_sha256=%s\n' "$train_hash"

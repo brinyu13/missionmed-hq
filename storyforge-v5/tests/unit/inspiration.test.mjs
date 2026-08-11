@@ -71,3 +71,21 @@ test('save is bounded and remove remains owner scoped', async () => {
   assert.match(captured.sql, /sf_inspiration_remove_saved/);
   await assert.rejects(() => subject.save(identity, { promptText: 'x', draft: '' }), /cannot be saved/);
 });
+
+test('browse returns self-scoped answered state and a pinned projection from one authorized query', async () => {
+  let observedSql = '';
+  const subject = service({ query: async (sql) => {
+    observedSql = sql;
+    return { rows: [{
+      ...rows[0],
+      favorite: true,
+      pin_position: 0,
+      answered_story_id: '66666666-6666-4666-8666-666666666666',
+    }] };
+  } });
+  const result = await subject.browse(identity, { layout: 'grid' });
+  assert.equal(result.prompts[0].answeredStoryId, '66666666-6666-4666-8666-666666666666');
+  assert.deepEqual(result.pinned, result.prompts);
+  assert.match(observedSql, /story\.student_id=public\.sf_actor_id\(\)/);
+  assert.match(observedSql, /story\.origin->>'inspirationPromptId'/);
+});

@@ -27,6 +27,11 @@ const ADMIN = {
   role: 'admin',
   wpUserId: 3101,
 };
+const FOUNDER_ADMIN = {
+  ...STUDENT,
+  wordpressAdmin: true,
+  adminMode: true,
+};
 const migrationName = '20260810190000_b1_514_v2_r1_visibility_consent_activity.sql';
 
 test('B1-514 R1 preserves historical rows and enforces consent, visibility, activity, and RLS', async () => {
@@ -184,6 +189,30 @@ test('B1-514 R1 preserves historical rows and enforces consent, visibility, acti
        SET scope = 'eligible_all', updated_at = now()
        WHERE key = 'admin_console'`,
     );
+    const submittedStory = await client.query(
+      `INSERT INTO public.sf_stories
+         (student_id, title, original_text, current_text, status)
+       VALUES ($1, 'Submitted story', 'Submitted original', 'Submitted current', 'awaiting')
+       RETURNING id`,
+      [OTHER_STUDENT.sub],
+    );
+    const playbackAssets = await client.query(
+      `INSERT INTO public.sf_audio_assets
+         (story_id, student_id, object_key, content_type, state)
+       VALUES
+         ($1, $2, 'b1-514/admin-submitted', 'audio/webm', 'verified'),
+         ($3, $4, 'b1-514/admin-private', 'audio/webm', 'verified')
+       RETURNING id, story_id`,
+      [submittedStory.rows[0].id, OTHER_STUDENT.sub, before.id, STUDENT.sub],
+    );
+    await withIdentity(client, FOUNDER_ADMIN, async (identityClient) => {
+      const readable = await identityClient.query(
+        `SELECT story_id FROM public.sf_audio_assets
+         WHERE id = ANY($1::uuid[]) ORDER BY story_id`,
+        [playbackAssets.rows.map((row) => row.id)],
+      );
+      assert.deepEqual(readable.rows.map((row) => row.story_id), [submittedStory.rows[0].id]);
+    });
     await withIdentity(client, ADMIN, async (identityClient) => {
       const flag = await identityClient.query(
         `SELECT public.sf_admin_set_b1_514_feature_flag(

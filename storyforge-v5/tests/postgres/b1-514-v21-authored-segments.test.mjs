@@ -6,6 +6,7 @@ import {
   migrationSql,
   startEphemeralStoryForgeDatabase,
   withIdentity,
+  withRole,
 } from './helpers/ephemeral-postgres.mjs';
 
 const STUDENT = {
@@ -114,6 +115,43 @@ test('canonical Full Story and published mentor content append exact provenance'
     assert.equal(spoken.recording_id, recordingId);
     assert.ok(spoken.audio_asset_id);
     assert.equal(spoken.author_id, STUDENT.sub);
+
+    const purposefulRecording = (await client.query(
+      `INSERT INTO public.sf_recording_sessions(student_id,state,mime_type,total_duration_ms,segment_count)
+       VALUES($1,'assembled','audio/webm',3500,1) RETURNING id`,
+      [STUDENT.sub],
+    )).rows[0];
+    await client.query(
+      "UPDATE public.sf_feature_flags SET scope='eligible_all' WHERE key='story_versions'",
+    );
+    const purposefulAttachment = await withIdentity(client, STUDENT, async (identityClient) => (
+      identityClient.query(
+        "SELECT * FROM public.sf_attach_version_recording($1,$2,'audio/webm')",
+        [audioStory.id, purposefulRecording.id],
+      )
+    ));
+    await withRole(client, 'storyforge_app', async (serviceClient) => serviceClient.query(
+      'SELECT public.sf_voice_asset_mark_verified($1,4,$2)',
+      [purposefulAttachment.rows[0].asset_id, 'a'.repeat(64)],
+    ));
+    await withIdentity(client, STUDENT, async (identityClient) => identityClient.query(
+      `SELECT public.sf_save_story_version(
+        $1,'thirty_second','Purposeful spoken telling','save','voice',0,$2,$3
+      )`,
+      [audioStory.id, purposefulRecording.id, purposefulAttachment.rows[0].asset_id],
+    ));
+    const audioStoryProvenance = await client.query(
+      `SELECT source_entity_type,count(*)::integer AS count
+       FROM public.sf_authored_segments
+       WHERE story_id=$1
+       GROUP BY source_entity_type
+       ORDER BY source_entity_type`,
+      [audioStory.id],
+    );
+    assert.deepEqual(audioStoryProvenance.rows, [
+      { source_entity_type: 'story', count: 1 },
+      { source_entity_type: 'story_version', count: 1 },
+    ]);
 
     await client.query(
       `UPDATE public.sf_feature_flags SET scope='eligible_all'

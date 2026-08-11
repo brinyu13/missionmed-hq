@@ -912,7 +912,23 @@ function mmsfr_is_story_media_delete_path( $path ) {
  */
 function mmsfr_is_guest_contribution_path( $path ) {
 	return 1 === preg_match(
-		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/requests/guest/[A-Za-z0-9_-]{43}(?:/(?:contributions|started))?$#',
+		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/requests/guest/[A-Za-z0-9_-]{43}(?:/(?:contributions|started|voice(?:/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:/(?:segments|retry|finish))?)?))?$#i',
+		$path
+	);
+}
+
+/** Return whether POST targets one exact guest-voice segment upload. */
+function mmsfr_is_guest_voice_segment_upload_path( $path ) {
+	return 1 === preg_match(
+		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/requests/guest/[A-Za-z0-9_-]{43}/voice/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/segments$#i',
+		$path
+	);
+}
+
+/** Return whether DELETE targets one exact guest-voice recording. */
+function mmsfr_is_guest_voice_delete_path( $path ) {
+	return 1 === preg_match(
+		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/requests/guest/[A-Za-z0-9_-]{43}/voice/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$#i',
 		$path
 	);
 }
@@ -1186,11 +1202,12 @@ function mmsfr_proxy_request( $path ) {
 	$is_story_media_delete = 'DELETE' === $method && mmsfr_is_story_media_delete_path( $path );
 	$is_inspiration_delete = 'DELETE' === $method && mmsfr_is_inspiration_delete_path( $path );
 	$is_saved_view_delete = 'DELETE' === $method && mmsfr_is_admin_saved_view_delete_path( $path );
+	$is_guest_voice_delete = 'DELETE' === $method && mmsfr_is_guest_voice_delete_path( $path );
 	$is_inspiration_put = 'PUT' === $method && mmsfr_is_inspiration_put_path( $path );
 	$is_privacy_delete = $is_audio_delete || $is_story_media_delete;
-	$is_bounded_delete = $is_privacy_delete || $is_inspiration_delete || $is_saved_view_delete;
+	$is_bounded_delete = $is_privacy_delete || $is_inspiration_delete || $is_saved_view_delete || $is_guest_voice_delete;
 	$is_guest = mmsfr_is_guest_contribution_path( $path )
-		&& in_array( $method, array( 'GET', 'POST' ), true );
+		&& in_array( $method, array( 'GET', 'POST', 'DELETE' ), true );
 	$is_postmark_webhook = 'POST' === $method && mmsfr_is_postmark_webhook_path( $path );
 	$is_anonymous_ingress = $is_guest || $is_postmark_webhook;
 	$allowed      = array( 'GET', 'POST', 'PATCH' );
@@ -1251,8 +1268,9 @@ function mmsfr_proxy_request( $path ) {
 		}
 	}
 	$is_segment_upload     = 'POST' === $method && mmsfr_is_recording_segment_upload_path( $path );
+	$is_guest_voice_segment_upload = 'POST' === $method && mmsfr_is_guest_voice_segment_upload_path( $path );
 	$is_mentor_audio_upload = 'POST' === $method && mmsfr_is_mentor_note_audio_upload_path( $path );
-	$is_audio_upload       = $is_segment_upload || $is_mentor_audio_upload;
+	$is_audio_upload       = $is_segment_upload || $is_guest_voice_segment_upload || $is_mentor_audio_upload;
 	if ( in_array( $method, array( 'POST', 'PATCH', 'PUT' ), true ) ) {
 		$content_type = $headers['content-type'] ?? '';
 		$is_json           = 1 === preg_match( '#^application/json(?:\s*;|$)#i', $content_type );

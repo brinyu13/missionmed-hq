@@ -38,6 +38,10 @@ test('WordPress gateway narrowly admits Phase 1 and mentor-note multipart upload
     "  'guest_view_exact' => mmsfr_is_guest_contribution_path('/storyforge/api/requests/guest/' . str_repeat('A', 43)),",
     "  'guest_contribute_exact' => mmsfr_is_guest_contribution_path('/storyforge/api/requests/guest/' . str_repeat('A', 43) . '/contributions'),",
     "  'guest_started_exact' => mmsfr_is_guest_contribution_path('/storyforge/api/requests/guest/' . str_repeat('A', 43) . '/started'),",
+    "  'guest_voice_open_exact' => mmsfr_is_guest_contribution_path('/storyforge/api/requests/guest/' . str_repeat('A', 43) . '/voice'),",
+    "  'guest_voice_segment_exact' => mmsfr_is_guest_voice_segment_upload_path('/storyforge/api/requests/guest/' . str_repeat('A', 43) . '/voice/' . $uuid . '/segments'),",
+    "  'guest_voice_delete_exact' => mmsfr_is_guest_voice_delete_path('/storyforge/api/requests/guest/' . str_repeat('A', 43) . '/voice/' . $uuid),",
+    "  'guest_voice_near_miss' => mmsfr_is_guest_contribution_path('/storyforge/api/requests/guest/' . str_repeat('A', 43) . '/voice/' . $uuid . '/admin'),",
     "  'guest_short_token' => mmsfr_is_guest_contribution_path('/storyforge/api/requests/guest/' . str_repeat('A', 42)),",
     "  'guest_extra_path' => mmsfr_is_guest_contribution_path('/storyforge/api/requests/guest/' . str_repeat('A', 43) . '/admin'),",
     "  'webhook_exact' => mmsfr_is_postmark_webhook_path('/storyforge/api/webhooks/postmark'),",
@@ -75,6 +79,10 @@ test('WordPress gateway narrowly admits Phase 1 and mentor-note multipart upload
     guest_view_exact: true,
     guest_contribute_exact: true,
     guest_started_exact: true,
+    guest_voice_open_exact: true,
+    guest_voice_segment_exact: true,
+    guest_voice_delete_exact: true,
+    guest_voice_near_miss: false,
     guest_short_token: false,
     guest_extra_path: false,
     webhook_exact: true,
@@ -102,6 +110,8 @@ test('WordPress gateway source preserves the bounded body and fail-closed contro
   assert.match(source, /mmsfr_is_mentor_note_audio_upload_path/);
   assert.match(source, /mmsfr_is_audio_delete_path/);
   assert.match(source, /mmsfr_is_guest_contribution_path/);
+  assert.match(source, /mmsfr_is_guest_voice_segment_upload_path/);
+  assert.match(source, /mmsfr_is_guest_voice_delete_path/);
   assert.match(source, /mmsfr_is_postmark_webhook_path/);
   assert.match(source, /mmsfr_is_inspiration_delete_path/);
   assert.match(source, /mmsfr_is_inspiration_put_path/);

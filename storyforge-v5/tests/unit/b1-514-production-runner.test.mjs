@@ -9,6 +9,8 @@ test('B1-514 runner binds the clean commit, fresh backup, PRE manifest, PG18, TL
     'STORYFORGE_DB_BACKUP_ID',
     'STORYFORGE_DB_BACKUP_SHA256',
     'STORYFORGE_SURVIVAL_PRE_MANIFEST',
+    'STORYFORGE_SURVIVAL_POST_MANIFEST',
+    'STORYFORGE_SURVIVAL_COMPARE_REPORT',
     "manifest?.capture?.phase!=='pre'",
     'candidateSha256',
     'Git worktree is not clean',
@@ -16,14 +18,17 @@ test('B1-514 runner binds the clean commit, fresh backup, PRE manifest, PG18, TL
     'PGSSLMODE=require',
     'accepted baseline ledger differs',
     '--single-transaction',
+    'sf-survival-manifest.mjs" capture',
+    'sf-survival-manifest.mjs" compare',
   ]) assert.ok(source.includes(marker), marker);
 });
 
-test('B1-514 runner applies only the seven additive V2 migrations and seeds exact governed libraries', () => {
-  assert.equal((source.match(/20260810\d+_b1_514_v(?:2|21)_[a-z0-9_]+\.sql/g) || []).filter((value, index, all) => all.indexOf(value) === index).length, 7);
+test('B1-514 runner applies only the nine additive V2 migrations and seeds exact governed libraries', () => {
+  assert.equal((source.match(/20260810\d+_b1_514_[a-z0-9_]+\.sql/g) || []).filter((value, index, all) => all.indexOf(value) === index).length, 9);
   assert.match(source, /seed-inspiration-prompts\.mjs/);
   assert.match(source, /seed-contributor-prompts\.mjs/);
   assert.match(source, /\|81\|48/);
   assert.match(source, /visibility IS NOT NULL/);
   assert.match(source, /B1-514-APPLY/);
+  assert.doesNotMatch(source, /ALREADY_APPLIED_PASS[^]*exit 0/);
 });

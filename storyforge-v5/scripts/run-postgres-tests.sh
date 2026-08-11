@@ -113,6 +113,8 @@ node --test \
   "$PACKAGE_DIR/tests/postgres/b1-514-v2-domains-rls.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/b1-514-request-lifecycle.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/b1-514-v21-authored-segments.test.mjs" \
+  "$PACKAGE_DIR/tests/postgres/b1-514-guest-voice.test.mjs" \
+  "$PACKAGE_DIR/tests/postgres/b1-514-delivery-attempts.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/production-migration-transaction.test.mjs"
 
 node --test --test-concurrency=1 "$PACKAGE_DIR"/tests/pg/*.test.mjs

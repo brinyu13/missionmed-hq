@@ -308,17 +308,37 @@ export function createInspirationService({ withIdentity, environment = process.e
                   prompt.domain_ids,prompt.energy_ids,prompt.territory,prompt.follow_up,
                   prompt.interview_use,prompt.state,prompt.recommended,
                   (favorite.prompt_id IS NOT NULL) AS favorite,
-                  pin.position AS pin_position
+                  pin.position AS pin_position,
+                  answered.id AS answered_story_id
              FROM public.sf_inspiration_prompts prompt
              LEFT JOIN public.sf_inspiration_favorites favorite
                ON favorite.prompt_id=prompt.id AND favorite.student_id=public.sf_actor_id()
              LEFT JOIN public.sf_inspiration_pins pin
                ON pin.prompt_id=prompt.id AND pin.student_id=public.sf_actor_id()
+             LEFT JOIN LATERAL (
+               SELECT story.id
+               FROM public.sf_stories story
+               WHERE story.student_id=public.sf_actor_id()
+                 AND story.archived_at IS NULL
+                 AND story.origin->>'inspirationPromptId'=prompt.id::text
+               ORDER BY story.created_at DESC,story.id DESC
+               LIMIT 1
+             ) answered ON true
             WHERE prompt.state='active' AND ($1='' OR prompt.text ILIKE '%'||$1||'%' OR prompt.territory ILIKE '%'||$1||'%')
             ORDER BY pin.position NULLS LAST,prompt.recommended DESC,prompt.sort_order,prompt.id
             LIMIT 200`, [search],
         );
-        return { layout, prompts: result.rows.map((row) => ({ ...safePrompt(row), favorite: row.favorite, pinPosition: row.pin_position })) };
+        const prompts = result.rows.map((row) => ({
+          ...safePrompt(row),
+          favorite: row.favorite,
+          pinPosition: row.pin_position,
+          answeredStoryId: row.answered_story_id || null,
+        }));
+        return {
+          layout,
+          prompts,
+          pinned: prompts.filter((prompt) => prompt.pinPosition != null),
+        };
       });
     },
     async save(identity, input = {}) {

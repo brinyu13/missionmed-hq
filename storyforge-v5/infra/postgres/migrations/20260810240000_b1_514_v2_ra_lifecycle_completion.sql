@@ -119,7 +119,7 @@ DECLARE
 BEGIN
   IF p_relationship NOT IN (
     'parent','sibling','spouse_partner','grandparent','cousin','best_friend',
-    'childhood_friend','medical_school_friend','faculty','mentor','coworker',
+    'childhood_friend','medschool_friend','faculty','mentor','coworker',
     'supervisor','teammate'
   ) THEN
     RAISE EXCEPTION 'invalid invitation relationship' USING ERRCODE = '22023';
@@ -161,7 +161,7 @@ DECLARE
 BEGIN
   IF p_relationship NOT IN (
     'parent','sibling','spouse_partner','grandparent','cousin','best_friend',
-    'childhood_friend','medical_school_friend','faculty','mentor','coworker',
+    'childhood_friend','medschool_friend','faculty','mentor','coworker',
     'supervisor','teammate'
   ) THEN
     RAISE EXCEPTION 'invalid invitation relationship' USING ERRCODE = '22023';

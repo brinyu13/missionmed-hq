@@ -135,6 +135,13 @@ test('B1-514 V2 domains remain additive, owner-scoped, forced-RLS, and default c
         (error) => error?.code === '42501',
       );
     }
+    await assert.rejects(
+      withRole(client, 'storyforge_app', (serviceClient) => serviceClient.query(
+        `INSERT INTO public.sf_version_audio_cleanup_intents(asset_id,object_key)
+         VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','forbidden-direct-write')`,
+      )),
+      (error) => error?.code === '42501',
+    );
 
     await assert.rejects(
       withIdentity(client, ADMIN, async (identityClient) => identityClient.query(
@@ -274,6 +281,28 @@ test('B1-514 V2 domains remain additive, owner-scoped, forced-RLS, and default c
       assert.equal(saved.rows[0].payload.source, 'voice');
       assert.equal(saved.rows[0].payload.recordingId, recording.rows[0].id);
       assert.equal(saved.rows[0].payload.audioAssetId, ownAudio.rows[0].asset_id);
+      const earlier = await identityClient.query(
+        `SELECT id,body FROM public.sf_story_version_revisions
+         WHERE version_id=$1 ORDER BY saved_at,id LIMIT 1`,
+        [saved.rows[0].payload.id],
+      );
+      assert.equal(earlier.rows[0].body, 'Exact concise telling');
+      const restored = await identityClient.query(
+        `SELECT public.sf_restore_story_version(
+          $1,'thirty_second',$2,$3
+        ) AS payload`,
+        [historical.rows[0].id, earlier.rows[0].id, saved.rows[0].payload.rowVersion],
+      );
+      assert.equal(restored.rows[0].payload.body, 'Exact concise telling');
+      assert.match(restored.rows[0].payload.auditEventId, /^\d+$/);
+      const restoreProvenance = await identityClient.query(
+        `SELECT source_entity_type,source_entity_id,body_hash
+         FROM public.sf_authored_segments
+         WHERE story_version_id=$1 AND source_entity_id=$2`,
+        [saved.rows[0].payload.id, earlier.rows[0].id],
+      );
+      assert.equal(restoreProvenance.rowCount, 1);
+      assert.equal(restoreProvenance.rows[0].source_entity_type, 'story_version');
       await assert.rejects(
         identityClient.query('SELECT * FROM public.sf_retire_story_audio($1)', [ownAudio.rows[0].asset_id]),
         (error) => error?.code === '23503',

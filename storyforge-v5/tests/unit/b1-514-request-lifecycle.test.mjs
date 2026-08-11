@@ -24,7 +24,7 @@ const invitation = {
   preview_event_id: '9007199254740993',
 };
 
-function makeService({ identityQuery, serviceQuery, environment = {}, postmark } = {}) {
+function makeService({ identityQuery, serviceQuery, environment = {}, postmark, signPlayback } = {}) {
   return createRequestsService({
     environment: {
       STORYFORGE_REQUEST_A_STORY_FORCE_OFF: '0',
@@ -39,6 +39,7 @@ function makeService({ identityQuery, serviceQuery, environment = {}, postmark }
     postmark: postmark || {
       send: async () => ({ accepted: true, dryRun: false, providerMessageId: 'provider-1' }),
     },
+    signPlayback,
     withIdentity: async (_identity, operation) => operation({ query: identityQuery }),
     withServiceTransaction: async (operation) => operation({
       query: serviceQuery || (async () => ({ rows: [] })),
@@ -78,21 +79,73 @@ test('draft update and preview use versioned SECURITY DEFINER contracts and prev
   assert.ok(calls.some(({ sql }) => sql.includes('sf_request_preview')));
 });
 
-test('send and reminder always prepare in PostgreSQL before provider acceptance and finalize through versioned RPCs', async () => {
-  const calls = [];
+test('guest links fail closed unless the configured public URL is canonical HTTPS StoryForge', async () => {
+  for (const environment of [
+    { STORYFORGE_PUBLIC_URL: '', STORYFORGE_PUBLIC_ORIGIN: '' },
+    { STORYFORGE_PUBLIC_URL: 'http://missionmedinstitute.com/storyforge' },
+    { STORYFORGE_PUBLIC_URL: 'https://evil.example/storyforge', STORYFORGE_PUBLIC_ORIGIN: 'https://missionmedinstitute.com' },
+    { STORYFORGE_PUBLIC_URL: 'https://missionmedinstitute.com/not-storyforge' },
+  ]) {
+    const subject = makeService({
+      environment,
+      identityQuery: async (sql) => {
+        if (sql.includes('sf_story_feature_enabled')) return { rows: [{ enabled: true }] };
+        throw new Error(`unexpected SQL: ${sql}`);
+      },
+    });
+    await assert.rejects(
+      () => subject.preview(identity, invitationId, { expectedVersion: 0 }),
+      (error) => error instanceof RequestsError
+        && error.code === 'guest_public_url_unavailable'
+        && error.status === 503,
+    );
+  }
+});
+
+test('send and reminder commit a unique reservation before the one provider call and finalize through service-only RPCs', async () => {
+  const sequence = [];
   const deliveries = [];
+  let reserveCount = 0;
   const subject = makeService({
     identityQuery: async (sql, values) => {
-      calls.push({ sql, values });
       if (sql.includes('sf_story_feature_enabled')) return { rows: [{ enabled: true }] };
-      if (sql.includes('sf_request_prepare_send')) return { rows: [{ payload: invitation }] };
-      if (sql.includes('sf_request_mark_sent')) return { rows: [{ payload: { ...invitation, status: 'sent', row_version: '1' } }] };
-      if (sql.includes('sf_request_prepare_reminder')) return { rows: [{ payload: { ...invitation, status: 'sent', row_version: '1' } }] };
-      if (sql.includes('sf_request_mark_reminded')) return { rows: [{ payload: { ...invitation, status: 'sent', reminders_sent: 1, row_version: '2' } }] };
+      if (sql.includes('sf_request_reserve_delivery')) {
+        reserveCount += 1;
+        sequence.push({ step: 'reserve', values });
+        return { rows: [{ payload: {
+          ...invitation,
+          status: reserveCount === 1 ? 'draft' : 'sent',
+          row_version: String(reserveCount === 1 ? 1 : 3),
+          delivery_state: 'reserved',
+          delivery_created: true,
+          delivery_attempt_id: reserveCount === 1
+            ? '33333333-3333-4333-8333-333333333333'
+            : '44444444-4444-4444-8444-444444444444',
+          delivery_ordinal: reserveCount === 1 ? 0 : 1,
+        } }] };
+      }
+      throw new Error(`unexpected SQL: ${sql}`);
+    },
+    serviceQuery: async (sql, values) => {
+      if (sql.includes('sf_request_claim_delivery_attempt')) {
+        sequence.push({ step: 'claim', values });
+        return { rows: [{ payload: { claimed: true, state: 'dispatching' } }] };
+      }
+      if (sql.includes('sf_request_accept_delivery')) {
+        sequence.push({ step: 'accept', values });
+        const reminder = values[1] === 'provider-2';
+        return { rows: [{ payload: {
+          ...invitation,
+          status: 'sent',
+          reminders_sent: reminder ? 1 : 0,
+          row_version: String(reminder ? 4 : 2),
+        } }] };
+      }
       throw new Error(`unexpected SQL: ${sql}`);
     },
     postmark: {
       send: async (delivery) => {
+        sequence.push({ step: 'provider' });
         deliveries.push(delivery);
         return { accepted: true, dryRun: false, providerMessageId: `provider-${deliveries.length}` };
       },
@@ -101,14 +154,19 @@ test('send and reminder always prepare in PostgreSQL before provider acceptance 
 
   const sent = await subject.send(identity, invitationId, { expectedVersion: 0 });
   assert.equal(sent.invitation.status, 'sent');
-  const reminded = await subject.remind(identity, invitationId, { expectedVersion: 1 });
+  const reminded = await subject.remind(identity, invitationId, { expectedVersion: 2 });
   assert.equal(reminded.invitation.remindersSent, 1);
   assert.deepEqual(
-    calls.filter(({ sql }) => sql.includes('sf_request_')).map(({ sql }) => sql.match(/sf_request_[a-z_]+/)?.[0]),
-    ['sf_request_prepare_send', 'sf_request_mark_sent', 'sf_request_prepare_reminder', 'sf_request_mark_reminded'],
+    sequence.map(({ step }) => step),
+    ['reserve', 'claim', 'provider', 'accept', 'reserve', 'claim', 'provider', 'accept'],
   );
+  assert.equal(sequence[0].values[3].length, 64);
+  assert.equal(sequence[4].values[3].length, 64);
+  assert.equal(sequence.some(({ values }) => JSON.stringify(values || []).includes('/guest/')), false);
   assert.equal(deliveries[0].metadata.purpose, 'initial');
   assert.equal(deliveries[1].metadata.purpose, 'reminder');
+  assert.equal(deliveries[0].metadata.storyforgeDeliveryAttemptId, '33333333-3333-4333-8333-333333333333');
+  assert.equal(Object.hasOwn(deliveries[0].metadata, 'token'), false);
   assert.match(deliveries[1].subject, /^Reminder:/);
 });
 

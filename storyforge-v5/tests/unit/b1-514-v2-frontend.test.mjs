@@ -91,3 +91,24 @@ test('B1-514 purposeful tellings preserve append-retell semantics, original audi
   assert.match(app, /storyTab && \['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/);
   assert.match(app, /void cancelPurposefulVersionVoice\(\)/);
 });
+
+test('Administrator review reuses authorized story telling and signed-audio surfaces without exposing private work', () => {
+  assert.match(app, /async function loadAdminStory\(id\)[\s\S]*api\.storyVersions\(id\)/);
+  assert.match(app, /function renderAdminStory\(\)[\s\S]*renderStoryRoom\(\{ adminStory: story \}\)/);
+  assert.match(app, /function renderStoryRoom\(\{ adminStory = null \} = \{\}\)[\s\S]*audioMarkup\(story\)/);
+  assert.doesNotMatch(app, /function adminStoryTellingsMarkup/);
+  assert.match(app, /if \(isAdmin\(\) && adminConsoleState\(\)\.story\) renderAdminStory\(\)/);
+  assert.match(app, /Private and archived stories are intentionally absent/);
+});
+
+test('Administrator scale controls expose bounded paging, session filtering, and saved-view deletion', () => {
+  for (const marker of [
+    'data-admin-student-page',
+    'data-admin-queue-page',
+    'id="adminQueueSession"',
+    'data-admin-delete-view',
+  ]) assert.match(app, new RegExp(marker.replaceAll('.', '\\.')));
+  assert.ok(app.includes('api.adminDeleteView(id)'));
+  assert.match(app, /admin\.studentPage\*25>=admin\.studentTotal/);
+  assert.match(styles, /\.b1514AdminPager/);
+});

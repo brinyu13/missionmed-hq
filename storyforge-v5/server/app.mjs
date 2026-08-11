@@ -24,6 +24,10 @@ import { createActivityService } from './activity.mjs';
 import { createStoryVersionsService } from './story-versions.mjs';
 import { createInspirationService } from './inspiration.mjs';
 import { createRequestsService } from './requests.mjs';
+import {
+  createGuestVoiceAssemblyExecutor,
+  createGuestVoiceService,
+} from './guest-voice.mjs';
 import { createStoryFollowupService } from './story-followup.mjs';
 import { createAvatarIdentityService } from './avatar-identity.mjs';
 import { createPostmarkService } from './postmark.mjs';
@@ -605,6 +609,7 @@ async function api(request, response, url, {
   storyVersionsService,
   inspirationService,
   requestsService,
+  guestVoiceService,
   storyFollowupService,
   avatarIdentityService,
   postmarkService,
@@ -653,6 +658,48 @@ async function api(request, response, url, {
     return sendJson(response, 200, await requestsService.guestStarted(guestRequestRoute[1], {
       ip: request.socket?.remoteAddress || 'gateway',
     }));
+  }
+
+  const guestVoiceRoute = url.pathname.match(
+    /^\/api\/requests\/guest\/([A-Za-z0-9_-]{43})\/voice(?:\/([a-f0-9-]{36})(?:\/(segments|retry|finish))?)?$/i,
+  );
+  if (guestVoiceRoute) {
+    const token = guestVoiceRoute[1];
+    const recordingId = guestVoiceRoute[2] || '';
+    const action = guestVoiceRoute[3] || '';
+    const requestContext = { ip: request.socket?.remoteAddress || 'gateway' };
+    if (request.method === 'POST' && !recordingId) {
+      return sendJson(response, 201, await guestVoiceService.open(token, requestContext));
+    }
+    if (request.method === 'GET' && recordingId && !action) {
+      return sendJson(response, 200, await guestVoiceService.status(token, recordingId, requestContext));
+    }
+    if (request.method === 'POST' && recordingId && action === 'segments') {
+      const segment = await guestVoiceService.addSegment(
+        token,
+        recordingId,
+        await readMultipartSegment(request),
+        requestContext,
+      );
+      return sendJson(response, segment?.created === false ? 200 : 201, segment);
+    }
+    if (request.method === 'POST' && recordingId && action === 'retry') {
+      const body = await readJson(request);
+      return sendJson(response, 202, await guestVoiceService.retryTranscription(token, recordingId, body.seq));
+    }
+    if (request.method === 'POST' && recordingId && action === 'finish') {
+      return sendJson(response, 201, {
+        contribution: await guestVoiceService.finish(
+          token,
+          recordingId,
+          await readJson(request),
+          requestContext,
+        ),
+      });
+    }
+    if (request.method === 'DELETE' && recordingId && !action) {
+      return sendJson(response, 200, await guestVoiceService.cancel(token, recordingId));
+    }
   }
 
   if (request.method === 'POST' && url.pathname === '/api/webhooks/postmark') {
@@ -750,6 +797,15 @@ async function api(request, response, url, {
   }
   if (request.method === 'GET' && url.pathname === '/api/requests/contributions') {
     return sendJson(response, 200, { contributions: await requestsService.listContributions(identity) });
+  }
+  const contributionAudioRoute = url.pathname.match(
+    /^\/api\/requests\/contributions\/([a-f0-9-]+)\/audio$/i,
+  );
+  if (request.method === 'GET' && contributionAudioRoute) {
+    return sendJson(response, 200, await requestsService.contributionPlayback(
+      identity,
+      contributionAudioRoute[1],
+    ));
   }
   const contributionRoute = url.pathname.match(
     /^\/api\/requests\/contributions\/([a-f0-9-]+)\/(state|promote)$/i,
@@ -3057,6 +3113,7 @@ export function createAppServer({
   storyVersionsService = null,
   inspirationService = null,
   requestsService = null,
+  guestVoiceService = null,
   storyFollowupService = null,
   avatarIdentityService = null,
   postmarkService = null,
@@ -3109,6 +3166,26 @@ export function createAppServer({
     withIdentity: identityTransaction,
     withServiceTransaction,
     postmark: resolvedPostmarkService,
+    signPlayback: audioPlaybackSigner,
+  });
+  const resolvedGuestVoiceAssembly = createGuestVoiceAssemblyExecutor({
+    withServiceTransaction,
+    storage: { getRecordingSegment, putRecordingSegment },
+  });
+  const resolvedGuestVoiceService = guestVoiceService || createGuestVoiceService({
+    withServiceTransaction,
+    storage: {
+      putRecordingSegment,
+      getRecordingSegment,
+      deleteRecordingObjects,
+      copyAudioObject,
+      headAudioObject,
+      deleteAudioObject,
+      deleteRecordingPrefix,
+    },
+    transcription: phaseOneRuntime.transcription || createUnavailableTranscriptionAdapter(),
+    assembly: resolvedGuestVoiceAssembly,
+    emitEvent: reportEvent,
   });
   const resolvedStoryFollowupService = storyFollowupService || createStoryFollowupService();
   const resolvedAvatarIdentityService = avatarIdentityService || createAvatarIdentityService({
@@ -3129,6 +3206,7 @@ export function createAppServer({
     storyVersionsService: resolvedStoryVersionsService,
     inspirationService: resolvedInspirationService,
     requestsService: resolvedRequestsService,
+    guestVoiceService: resolvedGuestVoiceService,
     storyFollowupService: resolvedStoryFollowupService,
     avatarIdentityService: resolvedAvatarIdentityService,
     postmarkService: resolvedPostmarkService,
@@ -3217,6 +3295,7 @@ async function start() {
     withIdentity: withDatabaseIdentity,
     withServiceTransaction,
     postmark: postmarkService,
+    signPlayback: createAudioPlayback,
   });
   const server = createAppServer({ phaseOneRuntime, postmarkService, requestsService });
   const requestExpiryTimer = setInterval(() => {

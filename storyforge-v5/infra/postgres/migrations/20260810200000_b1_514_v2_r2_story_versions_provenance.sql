@@ -355,8 +355,7 @@ ALTER TABLE public.sf_version_audio_cleanup_intents FORCE ROW LEVEL SECURITY;
 CREATE POLICY sf_version_audio_cleanup_service
 ON public.sf_version_audio_cleanup_intents
 FOR ALL TO storyforge_app USING (true) WITH CHECK (true);
-REVOKE ALL ON public.sf_version_audio_cleanup_intents FROM PUBLIC, anon, authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.sf_version_audio_cleanup_intents TO storyforge_app;
+REVOKE ALL ON public.sf_version_audio_cleanup_intents FROM PUBLIC, anon, authenticated, storyforge_app;
 
 CREATE OR REPLACE FUNCTION public.sf_claim_version_audio_cleanup(p_limit integer DEFAULT 20)
 RETURNS TABLE (
@@ -713,7 +712,7 @@ BEGIN
   ) VALUES (
     v_after.story_id, v_after.id,
     CASE WHEN v_after.source='voice' THEN 'student_spoken' ELSE 'student_typed' END,
-    'story_version_restore', p_revision_id,
+    'story_version', p_revision_id,
     encode(digest(convert_to(v_after.body,'UTF8'),'sha256'),'hex'),
     v_after.recording_id, v_after.audio_asset_id, public.sf_actor_id()
   );

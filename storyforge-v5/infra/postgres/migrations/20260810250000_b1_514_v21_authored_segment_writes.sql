@@ -83,7 +83,12 @@ BEGIN
   FROM public.sf_stories story
   WHERE story.id = NEW.story_id
     AND story.student_id = NEW.student_id
-    AND story.capture_type = 'audio';
+    AND story.capture_type = 'audio'
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.sf_story_originals original
+      WHERE original.story_id = story.id
+    );
 
   IF NOT FOUND OR length(trim(coalesce(v_story.original_text, ''))) = 0 THEN
     RETURN NEW;

@@ -221,12 +221,42 @@ SET search_path = public, pg_temp
 AS $$
   SELECT public.sf_has_live_identity()
     AND (
-      p_student_id = public.sf_actor_id()
+      (
+        p_student_id = public.sf_actor_id()
+        AND public.sf_actor_role() = 'student'
+      )
       OR (
         p_archived_at IS NULL
         AND
         public.sf_actor_role() = 'mentor'
         AND public.sf_is_assigned(p_student_id)
+        AND (
+          p_status <> 'private'
+          OR (
+            coalesce(p_visibility, 'private') = 'mentor_visible'
+            AND EXISTS (
+              SELECT 1
+              FROM public.sf_feature_flags flag
+              JOIN public.sf_users student ON student.id = p_student_id
+              WHERE flag.key = 'visibility_consent'
+                AND student.role = 'student'
+                AND student.eligible
+                AND (
+                  flag.scope = 'eligible_all'
+                  OR (flag.scope = 'allowlist' AND student.id = ANY(flag.allowlist))
+                  OR (
+                    flag.scope = 'cohort'
+                    AND student.cohort IS NOT NULL
+                    AND student.cohort = ANY(flag.cohorts)
+                  )
+                )
+            )
+          )
+        )
+      )
+      OR (
+        p_archived_at IS NULL
+        AND public.sf_admin_console_enabled()
         AND (
           p_status <> 'private'
           OR (

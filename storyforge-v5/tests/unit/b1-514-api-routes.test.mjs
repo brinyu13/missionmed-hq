@@ -53,6 +53,16 @@ async function withServer(options, operation) {
       remind: async () => ({ dryRun: true, reminder: true }),
       reinvite: async () => ({ status: 'draft', reinvited: true }),
       revoke: async () => ({ status: 'revoked' }),
+      listContributions: async () => [],
+      contributionPlayback: async (_identity, id) => ({ contributionId: id, playbackUrl: 'https://audio.example.test/file' }),
+    },
+    guestVoiceService: {
+      open: async () => ({ recordingId: '33333333-3333-4333-8333-333333333333' }),
+      status: async (_token, recordingId) => ({ recordingId, state: 'recording' }),
+      addSegment: async (_token, recordingId, segment) => ({ recordingId, seq: Number(segment.seq), created: true }),
+      retryTranscription: async (_token, recordingId, seq) => ({ recordingId, seq: Number(seq), queued: true }),
+      finish: async () => ({ id: '55555555-5555-4555-8555-555555555555', kind: 'voice' }),
+      cancel: async (_token, recordingId) => ({ recordingId, state: 'cancelled' }),
     },
     postmarkService: { verifyWebhook: () => true },
     phaseOneRuntime: {
@@ -93,6 +103,34 @@ test('guest contribution routes are token-bounded and bypass JWT only on exact p
     });
     assert.equal(started.status, 200);
     assert.equal((await started.json()).status, 'started');
+  });
+  assert.equal(authorizeCalls, 0);
+});
+
+test('guest voice routes stay token-bounded and preserve the existing multipart segment contract', async () => {
+  let authorizeCalls = 0;
+  await withServer({ authorizeRequest: async () => { authorizeCalls += 1; throw new Error('unexpected auth'); } }, async (origin) => {
+    const opened = await fetch(`${origin}/api/requests/guest/${token}/voice`, { method: 'POST' });
+    assert.equal(opened.status, 201);
+    const recordingId = (await opened.json()).recordingId;
+    const form = new FormData();
+    form.set('seq', '0');
+    form.set('durationMs', '1000');
+    form.set('mimeType', 'audio/webm');
+    form.set('segment', new Blob([Buffer.from('voice')], { type: 'audio/webm' }), 'segment.webm');
+    const uploaded = await fetch(`${origin}/api/requests/guest/${token}/voice/${recordingId}/segments`, {
+      method: 'POST', body: form,
+    });
+    assert.equal(uploaded.status, 201);
+    assert.equal((await uploaded.json()).seq, 0);
+    assert.equal((await fetch(`${origin}/api/requests/guest/${token}/voice/${recordingId}`)).status, 200);
+    const finished = await fetch(`${origin}/api/requests/guest/${token}/voice/${recordingId}/finish`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ promptId: '22222222-2222-4222-8222-222222222222' }),
+    });
+    assert.equal(finished.status, 201);
+    assert.equal((await finished.json()).contribution.kind, 'voice');
+    assert.equal((await fetch(`${origin}/api/requests/guest/${token}/voice/${recordingId}`, { method: 'DELETE' })).status, 200);
   });
   assert.equal(authorizeCalls, 0);
 });
@@ -153,5 +191,8 @@ test('authenticated V2 version, Inspiration, and request routes delegate to boun
       });
       assert.equal(response.status, 200, operation);
     }
+    const contributionAudio = await fetch(`${origin}/api/requests/contributions/${storyId}/audio`);
+    assert.equal(contributionAudio.status, 200);
+    assert.equal((await contributionAudio.json()).contributionId, storyId);
   });
 });
