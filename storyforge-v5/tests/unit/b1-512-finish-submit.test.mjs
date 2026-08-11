@@ -63,5 +63,5 @@ test('guidance never leaks to the next overlay and draft save remains available'
   assert.match(functionSource('clearOverlays'), /state\.storyCompletionIntent = null/);
   assert.match(functionSource('closeOverlay'), /state\.storyCompletionIntent = null/);
   assert.match(source, /<button class="btnSave" type="submit">Save working version<\/button>/);
-  assert.match(functionSource('studentReviewAction'), /Submitting makes this story available to an authorized reviewer/);
+  assert.match(functionSource('studentReviewAction'), /Submitting is a separate, explicit request for formal review/);
 });

@@ -40,8 +40,8 @@ const FIXTURE_PERSONAS = new Set([
 
 const STATUS = Object.freeze({
   private: {
-    label: 'Private',
-    hint: 'Only you can see this. Submit it when you want feedback.',
+    label: 'Draft',
+    hint: 'Not submitted for formal review. Story visibility is controlled separately.',
     col: 'st-private',
   },
   awaiting: {
@@ -917,10 +917,10 @@ function statusChip(story) {
 function studentReviewAction(story) {
   if (!state.capabilities?.submissionReview && !story.mentorReviewAvailable) {
     return `<button class="noteSend" type="button" disabled>Mentor review unavailable</button>
-      <div class="stageHint">Mentor review is not enabled yet. Your private story remains editable.</div>`;
+      <div class="stageHint">Mentor review is not enabled yet. This story remains editable, and its visibility setting is unchanged.</div>`;
   }
   return `<button class="noteSend" type="button" data-submit-story>${story.status === 'changes' ? 'Resubmit for review' : 'Submit for review'}</button>
-    <div class="stageHint">Submitting makes this story available to an authorized reviewer. It stays private until you choose Submit for review.</div>`;
+    <div class="stageHint">Submitting is a separate, explicit request for formal review. It does not change this story’s visibility setting.</div>`;
 }
 
 function scoreDots(value, owner = 'student', label = 'Score') {
@@ -1983,9 +1983,9 @@ function visibilityCard(story, mentor) {
     <div>${visibilityChip(story)}</div>
     <div class="statusRow b1513VisibilityRow" role="group" aria-label="Story visibility">
       <button type="button" data-set-story-visibility="mentor_visible" class="${isPrivate ? '' : 'on b1513VisMentor'}" aria-pressed="${!isPrivate}">Mentor Visible</button>
-      <button type="button" data-set-story-visibility="private" class="${isPrivate ? 'on b1513VisPrivate' : ''}" aria-pressed="${isPrivate}" ${submitted ? 'disabled title="Submitted stories stay visible to your reviewer. Use Return to Private to withdraw first."' : ''}>Private — visible only to me</button>
+      <button type="button" data-set-story-visibility="private" class="${isPrivate ? 'on b1513VisPrivate' : ''}" aria-pressed="${isPrivate}" ${submitted ? 'disabled title="Withdraw from review before making this story Private."' : ''}>Private — visible only to me</button>
     </div>
-    <div class="stageHint">${isPrivate ? 'Only you can open this story. It is never listed for your mentor and is not reviewed.' : 'Your mentor can see this story to guide you. “Submit for review” below is still a separate, explicit ask.'}${submitted && !isPrivate ? ' While submitted, use “Return to Private” to withdraw reviewer access first.' : ''}</div>
+    <div class="stageHint">${isPrivate ? 'Only you can open this story. It is never listed for your mentor and is not reviewed.' : 'Your mentor can see this story to guide you. “Submit for review” below is still a separate, explicit ask.'}${submitted && !isPrivate ? ' While submitted, withdraw from review before changing Visibility to Private.' : ''}</div>
     <div class="stageHint b1513VisAudit">Visibility changes are logged to this story’s history.</div>
   </div>`;
 }
@@ -2839,7 +2839,7 @@ async function openCapture({
     <div class="capActions">
       <button class="btnSave" type="submit">Save story</button>
       <span class="capNote" id="captureDraftStatus">${restored ? 'Draft restored from your account.' : 'Draft changes save to your account as you type.'}</span>
-      <span class="privNote">🔒 Only you can see it</span>
+      <span class="privNote">${v2FeatureOn('visibility') && state.v2.consent?.accepted ? '👁 New story begins Mentor Visible' : '🔒 New story begins Private — only you'}</span>
     </div>
   </form>`;
   capture.classList.add('open');
@@ -4230,7 +4230,9 @@ async function saveCapture(form) {
       notify(`Saved and paired. “${storyTitle(created)}” now appears in this Question Workshop.`);
     } else {
       renderHome();
-      notify(`Saved. “${storyTitle(created)}” is private until you submit it for review.`);
+      notify(v2FeatureOn('visibility') && storyVisibility(created) === 'mentor_visible'
+        ? `Saved. “${storyTitle(created)}” is Mentor Visible and has not been submitted for review.`
+        : `Saved. “${storyTitle(created)}” is Private — only you — and has not been submitted for review.`);
     }
   } finally {
     captureSaveInFlight = false;
@@ -4882,7 +4884,7 @@ function renderStoryRoom({ adminStory = null } = {}) {
           <div class="stageHint">${esc(presentationSection('reviewSubmission').helper || STATUS[story.status].hint)}</div>
           ${mentor ? `<div class="statusRow">${['in_review', 'changes', 'reviewed', 'approved'].map((status) => `<button type="button" data-set-status="${status}" class="${story.status === status ? `on ${STATUS[status].col}` : ''}">${esc(STATUS[status].label)}</button>`).join('')}</div>`
             : ['private', 'changes'].includes(story.status) ? studentReviewAction(story)
-              : story.status === 'awaiting' && state.capabilities?.submissionReview ? `<div class="b1511Withdraw"><button class="rowBtn" type="button" data-withdraw-story>Return to Private</button><p class="stageHint">This removes reviewer access until you submit the story again.</p></div>` : ''}
+              : story.status === 'awaiting' && state.capabilities?.submissionReview ? `<div class="b1511Withdraw"><button class="rowBtn" type="button" data-withdraw-story>Withdraw from review</button><p class="stageHint">This removes the story from the review queue. Its Visibility setting remains unchanged.</p></div>` : ''}
           ${story.reviewSuitability ? `<div class="reviewSuitability"><span class="fLbl">Reviewer classification</span><span class="cohortChip">${esc(SUITABILITY[story.reviewSuitability] || story.reviewSuitability)}</span></div>` : ''}
           <div class="tsList">${storyTimestamps(story)}</div>
         </div>` : ''}
@@ -7158,7 +7160,7 @@ function renderAdminStudent() {
       <p class="stageHint">${esc([student.year, student.specialty, student.cohort, student.cycle].filter(Boolean).join(' · '))}</p></div></div>
     <div class="privacyBoundary" role="note">Private and archived stories are intentionally absent. This workspace cannot enumerate or open them.</div>
     ${adminConsoleState().directoryDetail ? `<div class="forgeStats b1514DirectoryStats"><div class="fstat"><div class="n">${Number(adminConsoleState().directoryDetail.submittedStories || 0)}</div><div class="l">Submitted</div></div><div class="fstat"><div class="n">${Number(adminConsoleState().directoryDetail.awaitingReview || 0)}</div><div class="l">Awaiting</div></div><div class="fstat"><div class="n">${Number(adminConsoleState().directoryDetail.privateStoryCount || 0)}</div><div class="l">Private count only</div></div></div>${adminConsoleState().directoryDetail.activity ? `<div class="railCard"><div class="rLbl">Activity boundary</div><p>${esc(adminConsoleState().directoryDetail.activity.label || 'No recent session signal.')}</p><small>Content, keystrokes, drafts, and private story text are never tracked.</small></div>` : ''}${state.capabilities?.reviewCheck ? `<div class="inlineActions"><button class="rowBtn" type="button" data-review-check-preview="${attr(student.id)}">Preview Review Check</button><button class="rowBtn pri" type="button" data-review-check-send="${attr(student.id)}">Send Review Check</button></div>` : ''}` : ''}
-    ${student.stories.length ? student.stories.map((story) => adminStoryRow({ ...story, studentName: student.name }, { showStudent: false })).join('') : emptyState('No submitted stories.', 'Private work remains private until the student submits it.')}
+    ${student.stories.length ? student.stories.map((story) => adminStoryRow({ ...story, studentName: student.name }, { showStudent: false })).join('') : emptyState('No submitted stories.', 'Unsubmitted work remains outside the review queue. Visibility stays under student control.')}
   </section>`;
 }
 

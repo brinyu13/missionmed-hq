@@ -19,6 +19,13 @@ test('B1-514 visibility is private-safe and does not infer from review status', 
   assert.match(app, /Historical V1 stories are never silently widened/);
   assert.match(app, /Mentor visibility and formal submission are separate choices/);
   assert.match(app, /\/api\/stories\/\$\{id\}\/visibility/);
+  assert.match(app, /label: 'Draft'/);
+  assert.match(app, /Story visibility is controlled separately/);
+  assert.match(app, /New story begins Mentor Visible/);
+  assert.match(app, /is Mentor Visible and has not been submitted for review/);
+  assert.match(app, /Withdraw from review/);
+  assert.doesNotMatch(app, /private until you submit it for review/i);
+  assert.doesNotMatch(app, /Return to Private/);
 });
 
 test('B1-514 recommendations require real API data and the enabled flag', () => {
