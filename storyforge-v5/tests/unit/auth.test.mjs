@@ -59,6 +59,29 @@ test('preserves the signed WordPress first_name exactly and treats absence as bl
   assert.equal(malformed.username, '');
 });
 
+test('preserves only signed canonical Avatar Studio identity claims', async () => {
+  const activeAvatarId = '55555555-5555-4555-8555-555555555555';
+  const identity = await verifyToken(await token({
+    avatar_snapshot: {
+      avatar_thumbnail_url: '/matrix/avatar/headshot.webp',
+      avatar_url: '/matrix/avatar/full.webp',
+      active_avatar_id: activeAvatarId,
+    },
+  }), { key, issuer, audience });
+  assert.equal(identity.avatarThumbnailUrl, '/matrix/avatar/headshot.webp');
+  assert.equal(identity.avatarUrl, '/matrix/avatar/full.webp');
+  assert.equal(identity.activeAvatarId, activeAvatarId);
+
+  const malformed = await verifyToken(await token({
+    avatar_thumbnail_url: {},
+    avatar_url: 42,
+    active_avatar_id: 'not-an-avatar-id',
+  }), { key, issuer, audience });
+  assert.equal(malformed.avatarThumbnailUrl, '');
+  assert.equal(malformed.avatarUrl, '');
+  assert.equal(malformed.activeAvatarId, '');
+});
+
 test('rejects an expired JWT', async () => {
   await assert.rejects(
     verifyToken(await token({}, '-10s'), { key, issuer, audience }),

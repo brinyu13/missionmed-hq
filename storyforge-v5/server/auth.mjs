@@ -3,6 +3,26 @@ import { config } from './config.mjs';
 
 const encoder = new TextEncoder();
 const allowedRoles = new Set(['student', 'mentor', 'admin']);
+const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+
+function signedText(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function signedAvatarClaims(claims) {
+  const snapshot = claims?.avatar_snapshot && typeof claims.avatar_snapshot === 'object'
+    && !Array.isArray(claims.avatar_snapshot)
+    ? claims.avatar_snapshot
+    : {};
+  const activeAvatarId = signedText(claims?.active_avatar_id)
+    || signedText(snapshot.active_avatar_id);
+  return Object.freeze({
+    avatarThumbnailUrl: signedText(claims?.avatar_thumbnail_url)
+      || signedText(snapshot.avatar_thumbnail_url),
+    avatarUrl: signedText(claims?.avatar_url) || signedText(snapshot.avatar_url),
+    activeAvatarId: uuidPattern.test(activeAvatarId) ? activeAvatarId : '',
+  });
+}
 
 export const fixtureIdentities = Object.freeze({
   student: Object.freeze({
@@ -107,12 +127,12 @@ export async function verifyToken(token, options = {}) {
     error.code = 'eligibility_required';
     throw error;
   }
-  if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(String(claims.sub || ''))) {
+  if (!uuidPattern.test(String(claims.sub || ''))) {
     const error = new Error('The signed StoryForge subject is invalid.');
     error.code = 'invalid_subject_claim';
     throw error;
   }
-  if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(String(claims.jti || ''))) {
+  if (!uuidPattern.test(String(claims.jti || ''))) {
     const error = new Error('The signed StoryForge token identifier is invalid.');
     error.code = 'invalid_token_identifier_claim';
     throw error;
@@ -123,6 +143,7 @@ export async function verifyToken(token, options = {}) {
     error.code = 'invalid_wp_user_id_claim';
     throw error;
   }
+  const avatar = signedAvatarClaims(claims);
   return Object.freeze({
     sub: String(claims.sub),
     role,
@@ -133,6 +154,9 @@ export async function verifyToken(token, options = {}) {
     firstName: typeof claims.first_name === 'string' ? claims.first_name : '',
     username: typeof claims.username === 'string' ? claims.username : '',
     wordpressAdmin: claims.wordpress_admin === true,
+    avatarThumbnailUrl: avatar.avatarThumbnailUrl,
+    avatarUrl: avatar.avatarUrl,
+    activeAvatarId: avatar.activeAvatarId,
     issuer: String(claims.iss || ''),
   });
 }
