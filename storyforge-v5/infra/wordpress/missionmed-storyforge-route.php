@@ -912,7 +912,7 @@ function mmsfr_is_story_media_delete_path( $path ) {
  */
 function mmsfr_is_guest_contribution_path( $path ) {
 	return 1 === preg_match(
-		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/requests/guest/[A-Za-z0-9_-]{43}(?:/contributions)?$#',
+		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/requests/guest/[A-Za-z0-9_-]{43}(?:/(?:contributions|started))?$#',
 		$path
 	);
 }

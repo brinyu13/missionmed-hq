@@ -25,6 +25,7 @@ import { createStoryVersionsService } from './story-versions.mjs';
 import { createInspirationService } from './inspiration.mjs';
 import { createRequestsService } from './requests.mjs';
 import { createStoryFollowupService } from './story-followup.mjs';
+import { createAvatarIdentityService } from './avatar-identity.mjs';
 import { createPostmarkService } from './postmark.mjs';
 import { previewImport } from './imports.mjs';
 import {
@@ -605,6 +606,7 @@ async function api(request, response, url, {
   inspirationService,
   requestsService,
   storyFollowupService,
+  avatarIdentityService,
   postmarkService,
   recordingsService,
   signAudioPlayback,
@@ -631,7 +633,7 @@ async function api(request, response, url, {
   }
 
   const guestRequestRoute = url.pathname.match(
-    /^\/api\/requests\/guest\/([A-Za-z0-9_-]{43})(?:\/(contributions))?$/,
+    /^\/api\/requests\/guest\/([A-Za-z0-9_-]{43})(?:\/(contributions|started))?$/,
   );
   if (guestRequestRoute && request.method === 'GET' && !guestRequestRoute[2]) {
     return sendJson(response, 200, await requestsService.guestView(guestRequestRoute[1], {
@@ -646,6 +648,11 @@ async function api(request, response, url, {
         { ip: request.socket?.remoteAddress || 'gateway' },
       ),
     });
+  }
+  if (guestRequestRoute && request.method === 'POST' && guestRequestRoute[2] === 'started') {
+    return sendJson(response, 200, await requestsService.guestStarted(guestRequestRoute[1], {
+      ip: request.socket?.remoteAddress || 'gateway',
+    }));
   }
 
   if (request.method === 'POST' && url.pathname === '/api/webhooks/postmark') {
@@ -754,11 +761,14 @@ async function api(request, response, url, {
       : await requestsService.setContributionState(identity, contributionRoute[1], body.state);
     return sendJson(response, 200, result);
   }
-  const invitationRoute = url.pathname.match(/^\/api\/requests\/([a-f0-9-]+)\/(send|revoke)$/i);
+  const invitationRoute = url.pathname.match(
+    /^\/api\/requests\/([a-f0-9-]+)\/(update|preview|send|remind|reinvite|revoke)$/i,
+  );
   if (request.method === 'POST' && invitationRoute) {
-    const result = invitationRoute[2] === 'send'
-      ? await requestsService.send(identity, invitationRoute[1], await readJson(request))
-      : await requestsService.revoke(identity, invitationRoute[1]);
+    const operation = invitationRoute[2];
+    const result = operation === 'revoke'
+      ? await requestsService.revoke(identity, invitationRoute[1])
+      : await requestsService[operation](identity, invitationRoute[1], await readJson(request));
     return sendJson(response, 200, result);
   }
 
@@ -1026,7 +1036,7 @@ async function api(request, response, url, {
     const [
       user, voiceCapture, adminConsole, mentorNotes, mentorNotesRead, storyMedia,
       mentorship, activityTracking, storyVersions, inspiration, inspirationAdmin,
-      adminV2, requestAStory, storyFollowup,
+      adminV2, requestAStory, storyFollowup, avatarIdentity,
       b1511, adminB1511,
     ] = await Promise.all([
       withIdentity(identity, async (client) => {
@@ -1052,6 +1062,7 @@ async function api(request, response, url, {
       adminConsoleService.v2Capabilities(identity),
       requestsService.capability(identity),
       storyFollowupService.capability(identity),
+      avatarIdentityService.resolve(identity),
       withIdentity(identity, async (client) => {
         try {
           const result = await client.query('SELECT public.sf_b1_511_capabilities() AS payload');
@@ -1110,6 +1121,7 @@ async function api(request, response, url, {
         policy: mentorship.policy,
         consent: mentorship.consent,
       },
+      avatarIdentity,
     });
   }
 
@@ -3046,6 +3058,7 @@ export function createAppServer({
   inspirationService = null,
   requestsService = null,
   storyFollowupService = null,
+  avatarIdentityService = null,
   postmarkService = null,
   auditWriter = appendAudit,
   audioPlaybackSigner = createAudioPlayback,
@@ -3098,6 +3111,9 @@ export function createAppServer({
     postmark: resolvedPostmarkService,
   });
   const resolvedStoryFollowupService = storyFollowupService || createStoryFollowupService();
+  const resolvedAvatarIdentityService = avatarIdentityService || createAvatarIdentityService({
+    withIdentity: identityTransaction,
+  });
   const apiRuntime = Object.freeze({
     authorizeRequest,
     auditWriter,
@@ -3114,6 +3130,7 @@ export function createAppServer({
     inspirationService: resolvedInspirationService,
     requestsService: resolvedRequestsService,
     storyFollowupService: resolvedStoryFollowupService,
+    avatarIdentityService: resolvedAvatarIdentityService,
     postmarkService: resolvedPostmarkService,
     recordingsService: phaseOneRuntime.recordingsService,
     signAudioPlayback: audioPlaybackSigner,
@@ -3177,6 +3194,7 @@ async function start() {
   await phaseOneRuntime.recordingsService.recoverPendingTranscriptions();
   await phaseOneRuntime.recordingsService.recoverPendingAssemblies();
   await phaseOneRuntime.recordingsService.recoverPendingAudioAssets();
+  await phaseOneRuntime.recordingsService.recoverOrphanVersionAudio();
   const sweeps = phaseOneRuntime.recordingsService.startSweeps();
   const r2Client = isAudioConfigured()
     ? createR2StorageClient(config.r2)
@@ -3194,13 +3212,24 @@ async function start() {
   const reconciliationScheduler = startReconciliationScheduler(
     reconciliationService,
   );
-  const server = createAppServer({ phaseOneRuntime });
+  const postmarkService = createPostmarkService();
+  const requestsService = createRequestsService({
+    withIdentity: withDatabaseIdentity,
+    withServiceTransaction,
+    postmark: postmarkService,
+  });
+  const server = createAppServer({ phaseOneRuntime, postmarkService, requestsService });
+  const requestExpiryTimer = setInterval(() => {
+    requestsService.expireDue(100).catch(() => {});
+  }, 10 * 60 * 1000);
+  requestExpiryTimer.unref?.();
   server.listen(config.port, config.host, () => {
     console.log(`StoryForge V5 listening on ${config.host}:${config.port}`);
   });
   const shutdown = async () => {
     sweeps.stop();
     reconciliationScheduler.stop();
+    clearInterval(requestExpiryTimer);
     server.close();
     await closePool();
   };

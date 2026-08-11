@@ -42,11 +42,16 @@ async function withServer(options, operation) {
     requestsService: {
       capability: async () => false,
       guestView: async (guestToken) => ({ guestToken }),
+      guestStarted: async () => ({ status: 'started' }),
       contribute: async (_token, body) => ({ transcriptLength: body.transcript.length }),
       processWebhook: async () => ({ accepted: true }),
       list: async () => [],
       create: async () => ({ id: 'invitation' }),
+      update: async () => ({ status: 'draft' }),
+      preview: async () => ({ preview: { subject: 'Preview' } }),
       send: async () => ({ dryRun: true }),
+      remind: async () => ({ dryRun: true, reminder: true }),
+      reinvite: async () => ({ status: 'draft', reinvited: true }),
       revoke: async () => ({ status: 'revoked' }),
     },
     postmarkService: { verifyWebhook: () => true },
@@ -83,6 +88,11 @@ test('guest contribution routes are token-bounded and bypass JWT only on exact p
     });
     assert.equal(contribution.status, 201);
     assert.equal((await contribution.json()).contribution.transcriptLength, 7);
+    const started = await fetch(`${origin}/api/requests/guest/${token}/started`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    assert.equal(started.status, 200);
+    assert.equal((await started.json()).status, 'started');
   });
   assert.equal(authorizeCalls, 0);
 });
@@ -136,5 +146,12 @@ test('authenticated V2 version, Inspiration, and request routes delegate to boun
     });
     assert.equal(invitation.status, 201);
     assert.equal((await invitation.json()).invitation.id, 'invitation');
+
+    for (const operation of ['update', 'preview', 'send', 'remind', 'reinvite', 'revoke']) {
+      const response = await fetch(`${origin}/api/requests/${storyId}/${operation}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+      });
+      assert.equal(response.status, 200, operation);
+    }
   });
 });

@@ -19,8 +19,8 @@ test('B1-514 runner binds the clean commit, fresh backup, PRE manifest, PG18, TL
   ]) assert.ok(source.includes(marker), marker);
 });
 
-test('B1-514 runner applies only the five additive V2 migrations and seeds exact governed libraries', () => {
-  assert.equal((source.match(/20260810\d+_b1_514_v2_[a-z0-9_]+\.sql/g) || []).filter((value, index, all) => all.indexOf(value) === index).length, 5);
+test('B1-514 runner applies only the seven additive V2 migrations and seeds exact governed libraries', () => {
+  assert.equal((source.match(/20260810\d+_b1_514_v(?:2|21)_[a-z0-9_]+\.sql/g) || []).filter((value, index, all) => all.indexOf(value) === index).length, 7);
   assert.match(source, /seed-inspiration-prompts\.mjs/);
   assert.match(source, /seed-contributor-prompts\.mjs/);
   assert.match(source, /\|81\|48/);

@@ -59,7 +59,7 @@ test('canonical Full Story and published mentor content append exact provenance'
        FROM public.sf_authored_segments WHERE story_id=$1 ORDER BY created_at,id`,
       [typedStory.id],
     );
-    assert.deepEqual(typed.rows, [
+    const expectedTyped = [
       {
         source_role: 'student_typed',
         source_entity_type: 'story',
@@ -78,7 +78,10 @@ test('canonical Full Story and published mentor content append exact provenance'
         audio_asset_id: null,
         author_id: STUDENT.sub,
       },
-    ]);
+    ];
+    typed.rows.sort((left, right) => left.body_hash.localeCompare(right.body_hash));
+    expectedTyped.sort((left, right) => left.body_hash.localeCompare(right.body_hash));
+    assert.deepEqual(typed.rows, expectedTyped);
 
     let audioStory;
     let recordingId;

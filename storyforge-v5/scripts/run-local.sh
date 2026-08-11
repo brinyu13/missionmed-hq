@@ -105,6 +105,8 @@ phase_one_migrations=(
   "20260810210000_b1_514_v2_r3_inspiration.sql"
   "20260810220000_b1_514_v2_ra_requests_guest.sql"
   "20260810230000_b1_514_v2_preferences_environments.sql"
+  "20260810240000_b1_514_v2_ra_lifecycle_completion.sql"
+  "20260810250000_b1_514_v21_authored_segment_writes.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \
