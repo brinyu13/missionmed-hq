@@ -164,6 +164,37 @@ test('scalable admin methods delegate only to bounded R1 RPC seams', async () =>
   assert.ok(fake.calls.every(({ options }) => options.adminMode === true));
 });
 
+test('administrator Story Room preserves canonical visibility beside legacy detail payload', async () => {
+  const storyId = '44444444-4444-4444-8444-444444444444';
+  const fake = runtime(({ text }) => {
+    if (text.includes('sf_admin_story_detail')) {
+      return {
+        rows: [{
+          payload: {
+            id: storyId,
+            status: 'awaiting',
+            visibility: 'mentor_visible',
+          },
+        }],
+      };
+    }
+    return { rows: [{ payload: { ok: true } }] };
+  });
+  const service = createAdminConsoleService({
+    withIdentity: fake.withIdentity,
+    environment: enabledEnvironment(),
+  });
+
+  const story = await service.story(FOUNDER, storyId);
+
+  assert.equal(story.visibility, 'mentor_visible');
+  const detailQuery = fake.calls.find(({ text }) => text.includes('sf_admin_story_detail'));
+  assert.match(detailQuery.text, /jsonb_build_object\('visibility', story\.visibility\)/);
+  assert.match(detailQuery.text, /LEFT JOIN public\.sf_stories story ON story\.id = \$1/);
+  assert.deepEqual(detailQuery.values, [storyId]);
+  assert.equal(detailQuery.options.adminMode, true);
+});
+
 test('default-off surfaces avoid database work and missing RPCs fail truthfully', async () => {
   const closed = runtime();
   const closedService = createAdminConsoleService({

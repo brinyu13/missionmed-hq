@@ -602,7 +602,15 @@ export function createAdminConsoleService({
     },
     story: (identity, storyId) => rpc(
       identity,
-      'SELECT public.sf_admin_story_detail($1) AS payload',
+      `WITH detail AS (
+         SELECT public.sf_admin_story_detail($1) AS payload
+       )
+       SELECT CASE
+         WHEN detail.payload IS NULL THEN NULL
+         ELSE detail.payload || jsonb_build_object('visibility', story.visibility)
+       END AS payload
+       FROM detail
+       LEFT JOIN public.sf_stories story ON story.id = $1`,
       [requireUuid(storyId, 'Story identifier')],
     ),
     review: (identity, storyId, input) => reviewStory(identity, storyId, input),
