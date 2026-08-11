@@ -2,18 +2,22 @@
 
 ## Current disposition
 
-**FOUNDER MULTIMODAL ANALYTICS TEST READY --- HARDENING REMAINS**
+**MULTIMODAL ANALYTICS FOUNDER ACCEPTED — READY FOR 3440**
 
-The implementation, Founder live ground-truth cockpit, deterministic validation,
-bounded student projection, privacy guard, and packaging are pushed and
-independently verified. A short real-device Chrome diagnostic exercised the
-local camera/microphone path and cleanup. It is not a substitute for human
-Founder usefulness acceptance or uninterrupted 10--15 minute real-WASM
-endurance. Safari, responsive, and accessibility acceptance also remain open.
+Founder accepted the current 3420R implementation as the integration donor for
+unified IV Prep On-Call after a complete 2:05 real-device Chrome run. The
+implementation, live ground-truth cockpit, live and playback overlays,
+deterministic validation, bounded student projection, privacy guard, and
+packaging are pushed and verified.
 
-This package is a clean Founder-test candidate for the isolated 3420R lane. It
-does not claim AAA completion, canonical V6 integration, or production
-deployment.
+This is `GUIDED REAL-DEVICE TECHNICAL PASS — READY FOR UNIFIED INTEGRATION`.
+It does not claim production, deployment, broad-student activation,
+cross-browser acceptance, or uninterrupted 10--15 minute real-WASM endurance.
+Founder directed that those hardening items not hold 3420R open.
+
+Torso/posture is **NOT EXERCISED UNDER REPRESENTATIVE POSTURE — DEFER TO NORMAL
+ADMIN CANARY HARDENING** because the Founder was lying down/outside normal
+seated interview posture. It is not verified.
 
 ## Authority, baseline, and immutable source identity
 
@@ -23,16 +27,23 @@ deployment.
 - Canonical authority commit:
   `d291b53d958862ee66cc8e4a0722b4cd3e6662ed`
 - Product baseline: `89685d03e275adb2980e8f5f1ced9ef90153668f`
-- Pushed Founder-test implementation commit:
+- Founder-accepted implementation donor commit:
+  `e24a68bc5e90b126c2c08ab30011aa2cf6fab7a9`
+- Earlier cockpit diagnostic commit:
   `4c92d299a186ce0c7825b4054a9a8ecc3b9e79aa`
 - Worktree:
   `/Users/brianb/MissionMed_worktrees/Y1-Y2-CAM-V6-3420R`
 - Branch: `codex/y1-y2-cam-v6-3420r-communication-analytics-aaa`
 - Exact path/protected hash record: `ivprep-v6/ALLOWED_PATHS_3420R.txt`
+- Immutable donor locator:
+  `https://github.com/brinyu13/missionmed-hq.git` commit
+  `e24a68bc5e90b126c2c08ab30011aa2cf6fab7a9`, subtree `ivprep-v6/**`
+- Convenience checkout only, not immutable copy evidence:
+  `/Users/brianb/MissionMed_worktrees/Y1-Y2-CAM-V6-3420R/ivprep-v6`
 
-Any later commit that records human acceptance/endurance evidence must name its
-own immutable hash separately; this document does not pretend a commit can
-embed its own resulting hash.
+The text-only closeout commit containing these handoffs is reported externally
+after commit; this document does not pretend a commit can embed its own
+resulting hash.
 
 ## Delivered scope
 
@@ -62,7 +73,8 @@ embed its own resulting hash.
   overlay.
 - Raw visual geometry is rendered only inside the Holistic worker to a
   transient `OffscreenCanvas`; only a derived overlay `ImageBitmap` reaches the
-  Founder consumer and is closed immediately after drawing.
+  currently authorized transient display consumer and is closed immediately
+  after drawing.
 
 ### Synchronization, evidence, and replay
 
@@ -76,6 +88,22 @@ embed its own resulting hash.
   close current state instead of leaving frozen evidence.
 - Optional replay is off by default, tab-local only, and revoked on clear, page
   hide, deletion, reset, stale completion, and unsaved-run replacement.
+
+### Live and playback overlay display
+
+- Local-alpha Admin master and student-permission booleans default fail-closed.
+- Authorized role/surface preferences independently control Face and
+  Body/Hands display without changing analytics collection or results.
+- The live controller stays registered to the student camera element and
+  follows its mirror/layout transform.
+- Supported in-app playback runs same-origin local workers at no more than
+  4 FPS, returns no geometry to the main thread, and draws only transient
+  derived bitmaps.
+- Source, seek, layer, visibility, safety, frame, epoch, and lifecycle changes
+  clear stale pixels and invalidate old work. Worker rendering and canvas blit
+  faults are display-only and never suppress valid analytics geometry.
+- Overlay frames, raw coordinates, landmarks, and biometric/media payloads are
+  never added to events or persistence.
 
 ## Runtime architecture
 
@@ -192,11 +220,11 @@ pacing-change analysis.
 
 ## Independent automated verification
 
-The pushed candidate passed:
+Accepted donor `e24a68bc5e90b126c2c08ab30011aa2cf6fab7a9` passed:
 
-- `npm run check`: 27 analytics modules.
-- `npm test`: 166/166 total tests.
-- `npm run analytics:validate`: 99/99 analytics checks.
+- `npm run check`: 30 analytics modules.
+- `npm test`: 217/217 total tests.
+- `npm run analytics:validate`: 150/150 analytics checks.
 - Fixture execution: 5/5 sealed files and 25/25 cases.
 - Exact student-safe allowlist: three event types.
 - Manifest SHA-256:
@@ -211,7 +239,7 @@ The pushed candidate passed:
 - `git diff --check`: PASS before handoff refresh.
 
 Synthetic 900-second performance passed with 7,200 frames, 89 events, a
-70,005-byte envelope, and 26 ms injected visual-inference p95. This proves
+70,065-byte envelope, and 26 ms injected visual-inference p95. This proves
 bounded deterministic processing, not real camera/WASM performance.
 
 ## Browser and device evidence
@@ -224,7 +252,10 @@ Holistic and FaceDetector were ready with no initialization errors, both worker
 egress attempts were blocked, and page observation recorded zero external
 resource requests. This is not a full endurance network trace.
 
-### Short Chrome diagnostic on the pushed commit
+### Earlier short Chrome diagnostic on predecessor commit
+
+This diagnostic ran on
+`4c92d299a186ce0c7825b4054a9a8ecc3b9e79aa`:
 
 - Real camera, microphone, FaceDetector, and Holistic initialized.
 - `FACE COUNT 1`; exactly-one-person guard ready.
@@ -245,6 +276,43 @@ This is evidence of real local pipeline operation and cleanup for a short
 diagnostic. It is not human movement/speech accuracy or usefulness acceptance,
 multi-face acceptance, replay acceptance, or real endurance evidence.
 
+### Founder-accepted full guided Chrome run
+
+The Founder completed the full 125.003-second guided sequence on accepted
+donor `e24a68bc5e90b126c2c08ab30011aa2cf6fab7a9` with local replay, Face, and
+Body/Hands display enabled.
+
+- Result: 43 timestamped events; exact 3 student-safe and 40 Founder
+  Experimental.
+- Microphone: 100.0% coverage / 2,501 frames; -50.88 dBFS captured level;
+  0.00% digital clipping.
+- Camera/person safety: 97.5% camera coverage / 975 frames; 97.0%
+  exactly-one-person coverage / 970 safe samples.
+- Face/head: 99.8% safe-frame face presence; 94.2% camera-facing proxy; four
+  head-turn episodes totaling 4.76 seconds; one 379 ms facial-movement episode.
+- Brief absence: one 777 ms face-absence interval (0.6%) with safe recovery;
+  zero multi-face intervals and zero safety triggers.
+- Hands: 29.5% safe-frame presence and two right-hand motion episodes totaling
+  1.13 seconds.
+- Audio experimental observations: 46.2% level activity, 21 silence episodes
+  totaling 54.1 seconds, and 27.37 dB captured-energy IQR. No pause purpose,
+  intent, WPM, or F0 conclusion was made.
+- Performance: 74.9 ms full visual-pipeline p95; run-wide cockpit p95
+  0/0.75/0.25/1.5 ms for overlay blit/audio/timeline/full frame.
+- Privacy: raw analytics audio/frames/landmarks retained `NO`; optional replay
+  tab-memory only; two attempts blocked; external analytics calls `NO`.
+- Replay: `Watch 0:49` landed at 49.975559 seconds with ready state 4, exact
+  Blob media, and no error. Face OFF/body ON, face ON/body OFF, and both ON
+  were exercised and restored.
+- Cleanup: completion receipt confirmed camera, microphone, and local WASM
+  workers released.
+
+Founder accepted microphone and camera coverage, one-person detection, face
+visibility, camera-facing proxy, recovery after brief absence, hand-motion
+detection, audio capture, replay, timestamp seeking, live and playback overlay,
+independent Face and Body/Hands visibility, cleanup, and privacy behavior.
+No screenshot containing the Founder's face is committed.
+
 ## Specialist and independent verdicts
 
 - Authority/seam review: fresh DR-035 routing resolved; frozen and protected
@@ -258,8 +326,9 @@ multi-face acceptance, replay acceptance, or real endurance evidence.
 - Independent final matrix: automated validation, dependency, vendor custody,
   and 32/32 protected checks passed.
 
-These verdicts support a pushed Founder-test candidate only. They do not
-replace the unresolved human and endurance gates.
+These verdicts and the Founder decision support the accepted integration donor.
+They do not convert deferred endurance/cross-browser/accessibility work into
+completed evidence or authorize deployment.
 
 ## 3410A/3430 overlap contract
 
@@ -290,6 +359,17 @@ New isolated families:
 - `ivprep-v6/public/vendor/mediapipe/**`
 - `_AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3420R/**`
 
+Exact overlay donor modules inside `public/analytics/**` include:
+
+- `overlay-policy.mjs`
+- `overlay-ui.mjs`
+- `playback-overlay.mjs`
+
+The exact product/test delta from predecessor `4c92d299…` to accepted donor
+`e24a68b…`, excluding the four handoff documents, is the 15-path list in
+`Y1_Y2_CAM_V6_3420R_INTEGRATION_CONTRACT.md`. That list—not the current dirty
+checkout—is the reconciliation inventory.
+
 Bounded modified seams:
 
 - `ivprep-v6/public/index.html`
@@ -300,9 +380,18 @@ Bounded modified seams:
 - `ivprep-v6/ALLOWED_PATHS_3420R.txt` (authority/path record)
 
 For unified reconciliation, take isolated families first, then deliberately
-reconcile the host/server/package seams. Preserve canonical 3410A/3430 logic,
-re-resolve authority, and rerun every gate. Do not promote an experimental
-registry entry without a new authority-backed held-out validation package.
+re-express the required behavior in 3440's current AAA host. At committed 3440
+baseline `fb2c99d084b746e38a011e7c9551b502a53e9710`, the primary analytics/video
+integration touchpoints are `ivprep-v6/public/aaa/index.html`,
+`ivprep-v6/public/aaa/app.mjs`,
+`ivprep-v6/public/aaa/styles.css`, `ivprep-v6/public/aaa/api-client.mjs`, and
+`ivprep-v6/server/hq-mount.mjs`. The donor's `ivprep-v6/public/index.html` and
+`ivprep-v6/server/serve.mjs` are behavioral references, not direct 3440 copy
+targets. This is not an exhaustive AAA runtime inventory; existing modules such
+as `ivprep-v6/public/aaa/fixtures.mjs` remain 3440-owned and must be preserved.
+Preserve canonical 3410A/3430 logic, re-resolve authority, and rerun every gate.
+Do not promote an experimental registry entry without a new authority-backed
+held-out validation package.
 
 ## Reproduction
 
@@ -333,28 +422,21 @@ HOST=127.0.0.1 PORT=8420 npm start
 Open `http://127.0.0.1:8420/`, then MissionMed Ops -> Test Communication
 Analytics.
 
-## Human functional acceptance protocol
+## Founder acceptance decision
 
-Use the immutable pushed candidate and record observed mismatches rather than
-inferring success:
+Founder disposition is final for this donor:
 
-1. Select Guided functional sequence -- 2:05.
-2. Complete baseline; natural speech; sentence, 3--5 second silence, resume;
-   left, right, and both-hand gestures; gentle lean, upright, head left/right,
-   center; smile, relax, brows; and slow/fast plus quiet/normal delivery.
-3. Confirm each live instrument and timestamp reacts and recovers as expected,
-   with no score, gaze, emotion, or intentional-pause claim.
-4. Introduce one additional consenting person; verify visible multi-face
-   status, suppression of person-specific analytics/overlay, and recovery when
-   the person leaves.
-5. Test one run with replay off and one with replay on. Verify exact-take
-   playback/seek and full Clear/device release.
-6. Record an explicit Founder useful/not-useful disposition and all failures.
+`GUIDED REAL-DEVICE TECHNICAL PASS — READY FOR UNIFIED INTEGRATION`.
+
+Torso/posture is deliberately not included in verified behavior. It is
+`NOT EXERCISED UNDER REPRESENTATIVE POSTURE — DEFER TO NORMAL ADMIN CANARY
+HARDENING` and does not hold 3420R open.
 
 ## Real-WASM endurance protocol
 
-Only after functional acceptance, select 10:00 or 15:00 endurance and keep the
-tab visible while speaking/moving naturally. A complete receipt requires:
+For normal admin-canary/3440 hardening—not as a new 3420R acceptance gate—select
+10:00 or 15:00 endurance and keep the tab visible while speaking/moving
+naturally. A complete receipt requires:
 
 - session-clock target reached;
 - no instrumentation interruption;
@@ -367,7 +449,7 @@ Capture CPU, browser heap, FPS and full-pipeline/cockpit latency, main-thread
 long tasks, audio drops/continuity, thermal behavior, external network activity,
 cleanup, and Continuous Conversation latency. DR-035 provides no numeric
 CPU/heap/thermal ceiling; report observed values as `MEASURED` and preserve
-acceptability as `UNRESOLVED` until explicit Founder judgment.
+product thresholds as `UNRESOLVED`. This does not reopen 3420R.
 
 ## Rollback
 
@@ -377,23 +459,74 @@ reconciliation baseline. No analytics migration, alpha-store record, remote
 service, deployment, or production state must be reversed. Existing saved reps
 without 3420R fields remain compatible.
 
-## Unresolved limitations and exact next action
+## Required 3440 product contract
 
-Unresolved:
+### Authenticated overlay policy
 
-- full seven-step human movement/speech ground truth and usefulness signoff;
-- controlled multi-face suppression/recovery;
-- replay-on exact-take playback and seek;
-- uninterrupted real 10--15 minute camera/WASM CPU, heap, thermal, network,
-  FPS/latency, continuity, cleanup, and 3410-impact evidence;
+The browser-local alpha booleans are not the final product architecture. 3440
+must provide authenticated, server-authoritative application policy so Admin
+can globally enable/disable overlays and allow/prohibit student use. When
+allowed, an authorized student can show/hide overlays during their own live
+interview and their own supported playback. Face and Body/Hands remain
+independent. Missing/invalid policy or media ownership fails closed. Do not
+persist unnecessary raw biometric/media data merely to render overlays.
+
+Current 3440 database/durable-state and ordinary-student authority are closed.
+Any interim authenticated process-memory canary policy must be fail-closed and
+labeled reset-on-restart, never durable shared production policy.
+
+### Conversation and voice findings
+
+Founder reported unacceptable interviewer response latency and a robotic
+audible voice. The visible five-second silence rule contributes materially;
+Continuous Conversation entered High-Intelligence Voice fallback, adding
+latency. The exact provider error, rail/voice ID, and acoustic cause were not
+captured. These are Founder product findings, not 3420R analytics defects.
+
+After 3440's mutation gate reopens, capture safe rail errors and answer-end to
+first-audible timing, then run repeated analytics-on/off and voice-preset A/B
+tests before changing VAD eagerness, silence completion, observer ordering,
+speech buffering, or voice selection.
+
+### Video priority and swap
+
+MissionMed-native interview mode must default to student video as the large
+primary surface and interviewer as the smaller inset. Provide an obvious,
+accessible `SWAP` control so either can be primary. Explicit Zoom, Webex, or
+Microsoft Teams simulation preserves its corresponding simulated layout. The
+analytics overlay must remain correctly registered to student video in either
+priority state. `SWAP` changes layout only; it must not exchange participant
+identity, `srcObject`, analytics source, or overlay ownership. Pass the student
+camera element explicitly to analytics instead of inferring it from whichever
+tile is visually primary.
+
+The current 3440 AAA room is voice-only with a synthetic student preview. This
+is a required integration contract, not a claim that 3440 video, swap,
+authenticated overlay policy, or playback is already implemented.
+
+## Accepted deferrals and exact terminal action
+
+Deferred without holding 3420R open:
+
+- representative seated torso/posture canary;
+- controlled second-person human canary;
+- uninterrupted 10/15-minute real-camera/WASM CPU, heap, thermal, network,
+  FPS/latency, continuity, cleanup, and conversation-impact evidence;
 - Safari, responsive, keyboard, screen-reader, zoom, contrast, and broader
   accessibility acceptance.
 
-**Exact next action:** keep the pushed commit immutable, perform and record the
-human functional protocol, then run one uninterrupted 10:00 or 15:00 endurance
-mode and record its receipt and system observations. Repair only an observed
-in-scope 3420R failure, rerun the complete automated matrix, and append truthful
-evidence to these four handoffs for the later unified V6 reconciliation ticket.
+Current 3440 custody names predecessor donor `4c92d299…`, not accepted donor
+`e24a68b…`. Before copying any exact new donor bytes, 3440 must obtain an
+additive accepted-source/integration record naming `e24a68b…` and the exact
+15-path delta. Independently authored 3440 reconciliation code may proceed only
+under a fresh 3440 gate; it is not donor-byte equality and cannot bypass
+accepted-source authority.
 
-Do not merge, deploy, touch protected lanes, or promote Founder-experimental
-metrics under this handoff.
+**Exact terminal action:** commit and push this text-only closeout, then stop
+3420R product implementation. The implementation donor remains immutable at
+`e24a68bc5e90b126c2c08ab30011aa2cf6fab7a9`. The containing handoff commit is
+reported in the final custody response because a Git commit cannot embed its
+own resulting hash.
+
+Do not merge, deploy, touch 3410/3410A, 3430, 3440, 3451, canonical V6, or
+production, and do not promote Founder-experimental metrics under this handoff.
