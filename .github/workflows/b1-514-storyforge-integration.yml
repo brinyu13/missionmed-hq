@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      TARGET_SHA: e5936288b88247f4bc04d4a2e323ac2404073f60
+      TARGET_SHA: 78875a28c4f889e87ef6998959740f2b9308822f
       STORYFORGE_PG_BIN: /usr/lib/postgresql/18/bin
 
     steps:
@@ -55,7 +55,7 @@ jobs:
           printf 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$VERSION_CODENAME" \
             | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
           sudo apt-get update
-          sudo apt-get install --yes postgresql-18 postgresql-client-18
+          sudo apt-get install --yes postgresql-18 postgresql-client-18 ripgrep
           "$STORYFORGE_PG_BIN/postgres" --version
           "$STORYFORGE_PG_BIN/psql" --version
 
@@ -69,6 +69,7 @@ jobs:
           set -euo pipefail
           docker compose version
           google-chrome --version
+          rg --version
 
       - name: Run exact StoryForge integration suite
         shell: bash
