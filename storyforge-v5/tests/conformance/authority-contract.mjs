@@ -156,10 +156,11 @@ export const PRODUCT_SURFACES = Object.freeze({
       'Back to Matrix',
     ]),
     forbiddenMarkers: Object.freeze(['Reset demo data']),
-    // B1-512 adds reading-size and explicit preview/save controls in Settings.
+    // B1-512 adds reading-size controls; B1-514 adds the approved first-class
+    // theme and energetic-environment cards without replacing the V5 shell.
     conformanceMinimums: Object.freeze({
-      minVisualStyleJaccard: 0.24,
-      minNonMarkerStructuralComposite: 0.33,
+      minVisualStyleJaccard: 0.22,
+      minNonMarkerStructuralComposite: 0.30,
     }),
   }),
   review: Object.freeze({

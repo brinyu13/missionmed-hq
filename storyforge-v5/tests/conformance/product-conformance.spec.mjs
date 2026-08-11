@@ -93,7 +93,9 @@ for (const viewport of CONFORMANCE_VIEWPORTS) {
             );
             expect(geometry.width, 'canonical settings content width')
               .toBeLessThanOrEqual(900);
-            expect(geometry.cardWidths.length).toBe(6);
+            // B1-514 adds the two Founder-approved Ember Storm and Lumen Drift
+            // environments to the six canonical V5 choices.
+            expect(geometry.cardWidths.length).toBe(8);
             expect(
               geometry.cardWidths.every((width) => width >= 190),
               'background cards retain the canonical readable grid',
