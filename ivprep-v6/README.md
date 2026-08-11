@@ -87,3 +87,32 @@ Then open `http://127.0.0.1:8320/`. The authenticated synthetic checks are
 `npm run probe:continuous-relay` and `npm run probe:continuous-pauses`; neither
 prints provider credentials. The pause probe is deliberately advisory because
 synthetic TTS does not replace real founder microphone evaluation.
+
+## 3451 AAA UX/product prototype
+
+The founder-review prototype is an additive visual/product lane at
+`/aaa/index.html`. It does not replace or restyle the accepted live V6 at `/`.
+The prototype includes the complete student journey—assignment, Instant
+Interview, interview designer, explicit Start Interview control, room,
+results, transcript-word Vault search, mentor review, application-aware prep,
+program prep, one-question-at-a-time debrief, and a local admin playbook.
+
+Prototype fixtures are synthetic and remain in browser memory. The prototype
+does not claim a provider call, live media replay, account persistence, mentor
+delivery, production analytics, or cross-product hydration. Its room links
+directly to the preserved 3410 V6 whenever the founder wants to test the real
+continuous `gpt-realtime-2.1` conversation rail.
+
+Launch both surfaces from this isolated worktree:
+
+```sh
+HOST=127.0.0.1 PORT=8351 npm start
+```
+
+Then open:
+
+- AAA founder prototype: `http://127.0.0.1:8351/aaa/index.html`
+- accepted live V6/Realtime rail: `http://127.0.0.1:8351/`
+
+The server remains loopback-only. This is a founder approval artifact, not a
+private preview or production deployment.
