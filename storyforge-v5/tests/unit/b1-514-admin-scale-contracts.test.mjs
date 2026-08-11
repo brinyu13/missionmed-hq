@@ -171,8 +171,11 @@ test('administrator Story Room preserves canonical visibility beside legacy deta
       return {
         rows: [{
           payload: {
-            id: storyId,
-            status: 'awaiting',
+            story: {
+              id: storyId,
+              status: 'awaiting',
+              visibility: 'mentor_visible',
+            },
             visibility: 'mentor_visible',
           },
         }],
@@ -188,8 +191,10 @@ test('administrator Story Room preserves canonical visibility beside legacy deta
   const story = await service.story(FOUNDER, storyId);
 
   assert.equal(story.visibility, 'mentor_visible');
+  assert.equal(story.story.visibility, 'mentor_visible');
   const detailQuery = fake.calls.find(({ text }) => text.includes('sf_admin_story_detail'));
   assert.match(detailQuery.text, /jsonb_build_object\('visibility', story\.visibility\)/);
+  assert.match(detailQuery.text, /detail\.payload -> 'story'/);
   assert.match(detailQuery.text, /LEFT JOIN public\.sf_stories story ON story\.id = \$1/);
   assert.deepEqual(detailQuery.values, [storyId]);
   assert.equal(detailQuery.options.adminMode, true);

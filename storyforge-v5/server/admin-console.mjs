@@ -607,7 +607,11 @@ export function createAdminConsoleService({
        )
        SELECT CASE
          WHEN detail.payload IS NULL THEN NULL
-         ELSE detail.payload || jsonb_build_object('visibility', story.visibility)
+         ELSE detail.payload || jsonb_build_object(
+           'visibility', story.visibility,
+           'story', coalesce(detail.payload -> 'story', '{}'::jsonb)
+             || jsonb_build_object('visibility', story.visibility)
+         )
        END AS payload
        FROM detail
        LEFT JOIN public.sf_stories story ON story.id = $1`,
