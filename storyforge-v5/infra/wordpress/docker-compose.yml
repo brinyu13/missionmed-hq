@@ -40,6 +40,8 @@ services:
         define('WP_ENVIRONMENT_TYPE', 'local');
         define('MISSIONMED_STORYFORGE_LOCAL_FIXTURES', true);
         define('STORYFORGE_JWT_SECRET', 'b1-501-local-wordpress-signing-secret-32-bytes');
+        define('MISSIONMED_STORYFORGE_GATEWAY_SHARED_SECRET', 'b1-514-local-gateway-signing-secret-32-bytes');
+        define('MISSIONMED_STORYFORGE_POSTMARK_WEBHOOK_SECRET', 'b1-514-local-postmark-webhook-secret-32-bytes');
         define('MISSIONMED_STORYFORGE_ROUTE_ENABLED', getenv('STORYFORGE_ROUTE_ENABLED') !== '0');
         define('MISSIONMED_STORYFORGE_ORIGIN', 'http://host.docker.internal:' . (getenv('STORYFORGE_INTEGRATION_APP_PORT') ?: '4180'));
     volumes:

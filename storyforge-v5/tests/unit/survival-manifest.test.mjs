@@ -33,7 +33,16 @@ function story(overrides = {}) {
       },
     },
     children: { sf_story_revisions: revision },
-    v2Assertions: { generatedVersionRows: 0 },
+    v2Assertions: {
+      generatedVersionRows: 0,
+      generatedRelationshipRows: {
+        sf_story_versions: 0,
+        sf_story_version_revisions: 0,
+        sf_authored_segments: 0,
+        sf_inspiration_events: 0,
+        sf_story_contributions: 0,
+      },
+    },
     ...overrides,
   };
 }
@@ -81,6 +90,12 @@ test('story loss, owner drift, core mutation, transcript loss, and synthesized v
     postManifest(story({ core: { ...story().core, workingHash: sha256('changed') } })),
     postManifest(story({ transcripts: childSummary([]) })),
     postManifest(story({ v2Assertions: { generatedVersionRows: 1 } })),
+    postManifest(story({
+      v2Assertions: {
+        generatedVersionRows: 0,
+        generatedRelationshipRows: { sf_authored_segments: 1 },
+      },
+    })),
   ]) assert.equal(compareSurvivalManifests(manifest(), changed).pass, false);
 });
 

@@ -26,6 +26,8 @@ const migrations = [
   '20260810240000_b1_514_v2_ra_lifecycle_completion.sql',
   '20260810250000_b1_514_v21_authored_segment_writes.sql',
   '20260810260000_b1_514_guest_voice_contributions.sql',
+  '20260810270000_b1_514_request_delivery_attempts.sql',
+  '20260810280000_b1_514_guest_voice_cleanup_recovery.sql',
 ];
 
 async function service(client, sql, values = []) {
@@ -78,6 +80,21 @@ test('guest voice is token-scoped, capped, idempotent, and preserves audio throu
     const tokenHash = 'a'.repeat(64);
     const active = await invitation(client, tokenHash);
 
+    const guestView = (await service(
+      client,
+      'SELECT public.sf_guest_view($1) AS payload',
+      [tokenHash],
+    )).rows[0].payload;
+    assert.equal(guestView.id, active.id);
+    assert.equal(guestView.first_name, null);
+    assert.equal(guestView.display_name, 'Maya Student');
+    assert.equal(Object.hasOwn(guestView, 'email'), false);
+    assert.equal(Object.hasOwn(guestView, 'token_hash'), false);
+    await assert.rejects(
+      service(client, 'SELECT first_name FROM public.sf_users WHERE id=$1', [STUDENT.sub]),
+      (error) => error.code === '42501',
+    );
+
     await assert.rejects(
       service(client, 'SELECT public.sf_guest_voice_open($1)', [tokenHash]),
       (error) => error.code === 'P0002',
@@ -127,9 +144,17 @@ test('guest voice is token-scoped, capped, idempotent, and preserves audio throu
       [recordingId],
     )).rows[0].count, 1);
 
-    const contributionId = '55555555-5555-4555-8555-555555555555';
-    const assetId = '66666666-6666-4666-8666-666666666666';
-    const objectKey = `storyforge-contribution-audio/${STUDENT.sub}/${active.id}/${contributionId}/${assetId}.webm`;
+    const contributionId = prepared.contributionId;
+    const assetId = prepared.assetId;
+    const objectKey = prepared.objectKey;
+    assert.match(contributionId, /^[a-f0-9-]{36}$/);
+    assert.match(assetId, /^[a-f0-9-]{36}$/);
+    assert.equal(objectKey, `storyforge-contribution-audio/${STUDENT.sub}/${active.id}/${contributionId}/${assetId}.webm`);
+    assert.deepEqual((await client.query(
+      `SELECT cleanup_kind,state,object_locator FROM public.sf_guest_voice_cleanup_intents
+       WHERE session_id=$1 ORDER BY cleanup_kind`,
+      [recordingId],
+    )).rows, [{ cleanup_kind: 'permanent_object', state: 'intended', object_locator: objectKey }]);
     const completed = (await service(
       client,
       `SELECT public.sf_guest_voice_complete(
@@ -144,6 +169,11 @@ test('guest voice is token-scoped, capped, idempotent, and preserves audio throu
       [assetId],
     )).rows[0];
     assert.deepEqual(assetBefore, { object_key: objectKey, state: 'verified' });
+    assert.equal((await client.query(
+      `SELECT state FROM public.sf_guest_voice_cleanup_intents
+       WHERE session_id=$1 AND cleanup_kind='permanent_object'`,
+      [recordingId],
+    )).rows[0].state, 'resolved');
     const playback = (await withIdentity(client, STUDENT, (identityClient) => identityClient.query(
       'SELECT public.sf_contribution_audio_playback_claim($1) AS payload',
       [contributionId],
@@ -176,6 +206,42 @@ test('guest voice is token-scoped, capped, idempotent, and preserves audio throu
       'SELECT count(*)::integer AS count FROM public.sf_story_contributions WHERE invitation_id=$1',
       [active.id],
     )).rows[0].count, 1);
+    const retryPrepared = (await service(
+      client,
+      'SELECT public.sf_guest_voice_prepare_finish($1,$2,$3) AS payload',
+      [tokenHash, recordingId, promptId],
+    )).rows[0].payload;
+    assert.equal(retryPrepared.existing, true);
+    assert.equal(retryPrepared.contributionId, contributionId);
+    assert.equal(retryPrepared.assetId, assetId);
+    assert.equal(retryPrepared.objectKey, objectKey);
+    assert.equal(retryPrepared.transcript, 'Reviewed guest memory.');
+
+    const cleanupClaim = await service(
+      client,
+      'SELECT * FROM public.sf_claim_guest_voice_cleanup(20)',
+    );
+    assert.deepEqual(cleanupClaim.rows.map((row) => row.cleanup_kind), ['transient_prefix']);
+    assert.equal(cleanupClaim.rows[0].object_locator, `storyforge-rec/${STUDENT.sub}/${recordingId}/`);
+    await service(
+      client,
+      'SELECT public.sf_complete_guest_voice_cleanup($1,true,NULL)',
+      [cleanupClaim.rows[0].intent_id],
+    );
+    assert.ok((await client.query(
+      'SELECT purged_at FROM public.sf_guest_voice_sessions WHERE id=$1',
+      [recordingId],
+    )).rows[0].purged_at);
+    assert.equal((await client.query(
+      "SELECT count(*)::integer AS count FROM public.sf_guest_voice_events WHERE session_id=$1 AND event_type='storage_purged'",
+      [recordingId],
+    )).rows[0].count, 1);
+    await assert.rejects(
+      service(client, `INSERT INTO public.sf_guest_voice_cleanup_intents(
+        session_id,cleanup_kind,object_locator
+      ) VALUES($1,'transient_prefix',$2)`, [recordingId, `storyforge-rec/${STUDENT.sub}/${recordingId}/`]),
+      (error) => error.code === '42501',
+    );
 
     const promoted = (await withIdentity(client, STUDENT, async (identityClient) => identityClient.query(
       "SELECT public.sf_request_promote($1,'A contributed memory') AS payload",
@@ -233,6 +299,61 @@ test('guest voice is token-scoped, capped, idempotent, and preserves audio throu
         (error) => error.code === 'P0002',
       );
     }
+
+    const revokeHash = '7'.repeat(64);
+    const revokeInvitation = await invitation(client, revokeHash);
+    const revokeSession = (await service(
+      client,
+      'SELECT public.sf_guest_voice_open($1) AS payload',
+      [revokeHash],
+    )).rows[0].payload;
+    await withIdentity(client, STUDENT, (identityClient) => identityClient.query(
+      'SELECT public.sf_request_revoke($1)',
+      [revokeInvitation.id],
+    ));
+    assert.deepEqual((await client.query(
+      'SELECT state,purged_at FROM public.sf_guest_voice_sessions WHERE id=$1',
+      [revokeSession.recordingId],
+    )).rows[0], { state: 'cancelled', purged_at: null });
+    const revokeCleanup = await service(client, 'SELECT * FROM public.sf_claim_guest_voice_cleanup(20)');
+    assert.equal(revokeCleanup.rows.length, 1);
+    assert.equal(revokeCleanup.rows[0].cleanup_kind, 'transient_prefix');
+    await service(
+      client,
+      "SELECT public.sf_complete_guest_voice_cleanup($1,false,'object_delete_failed')",
+      [revokeCleanup.rows[0].intent_id],
+    );
+    const retriedCleanup = await service(client, 'SELECT * FROM public.sf_claim_guest_voice_cleanup(20)');
+    assert.equal(retriedCleanup.rows[0].intent_id, revokeCleanup.rows[0].intent_id);
+    await service(
+      client,
+      'SELECT public.sf_complete_guest_voice_cleanup($1,true,NULL)',
+      [retriedCleanup.rows[0].intent_id],
+    );
+
+    const abandonedHash = '6'.repeat(64);
+    await invitation(client, abandonedHash);
+    const abandonedSession = (await service(
+      client,
+      'SELECT public.sf_guest_voice_open($1) AS payload',
+      [abandonedHash],
+    )).rows[0].payload;
+    await client.query(
+      "UPDATE public.sf_guest_voice_sessions SET updated_at=now()-interval '25 hours' WHERE id=$1",
+      [abandonedSession.recordingId],
+    );
+    const abandonedCleanup = await service(client, 'SELECT * FROM public.sf_claim_guest_voice_cleanup(20)');
+    assert.equal(abandonedCleanup.rows.length, 1);
+    assert.equal(abandonedCleanup.rows[0].session_id, abandonedSession.recordingId);
+    assert.equal((await client.query(
+      'SELECT state FROM public.sf_guest_voice_sessions WHERE id=$1',
+      [abandonedSession.recordingId],
+    )).rows[0].state, 'failed');
+    await service(
+      client,
+      'SELECT public.sf_complete_guest_voice_cleanup($1,true,NULL)',
+      [abandonedCleanup.rows[0].intent_id],
+    );
 
     const bounded = await invitation(client, '9'.repeat(64));
     const boundedSession = (await service(

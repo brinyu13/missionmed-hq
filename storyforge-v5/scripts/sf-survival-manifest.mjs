@@ -72,7 +72,11 @@ const GLOBAL_SPECS = Object.freeze([
 // projection. Their only permitted migration-time state is asserted separately
 // by generatedVersionRows in buildStory().
 const ASSERTION_ONLY_STORY_RELATIONSHIPS = Object.freeze([
-  'sf_story_versions',
+  ['sf_story_versions', 'story_id'],
+  ['sf_story_version_revisions', 'story_id'],
+  ['sf_authored_segments', 'story_id'],
+  ['sf_inspiration_events', 'story_id'],
+  ['sf_story_contributions', 'promoted_story_id'],
 ]);
 
 function parseArgs(argv) {
@@ -181,7 +185,7 @@ async function assertFullVisibility(client, inventory) {
 async function assertClassifiedStoryForeignKeys(client, inventory) {
   const classified = new Set([
     ...DIRECT_SPECS.map(([table]) => table),
-    ...ASSERTION_ONLY_STORY_RELATIONSHIPS,
+    ...ASSERTION_ONLY_STORY_RELATIONSHIPS.map(([table]) => table),
   ]);
   const result = await client.query(
     `SELECT DISTINCT source.relname AS table_name
@@ -304,9 +308,13 @@ async function buildStory(client, inventory, story, requireObjectHead) {
     ...await objectEvidence(raw.sf_mentor_note_media || [], requireObjectHead, 'mentor_audio'),
     ...await objectEvidence(raw.sf_story_media || [], requireObjectHead, 'story_media'),
   ].sort(([left], [right]) => left.localeCompare(right));
-  const generatedVersionRows = inventory.has('sf_story_versions')
-    ? Number((await client.query('SELECT count(*)::text AS count FROM public.sf_story_versions WHERE story_id = $1', [story.id])).rows[0].count)
-    : 0;
+  const generatedRelationshipRows = {};
+  for (const [table, link] of ASSERTION_ONLY_STORY_RELATIONSHIPS) {
+    generatedRelationshipRows[table] = inventory.has(table)
+      ? Number((await client.query(`SELECT count(*)::text AS count FROM public."${table}" WHERE "${link}" = $1`, [story.id])).rows[0].count)
+      : 0;
+  }
+  const generatedVersionRows = generatedRelationshipRows.sf_story_versions;
   return {
     owner: { studentId: story.student_id, wpBindingHash: sha256(story.wp_user_id) },
     core: storyCore(story),
@@ -320,7 +328,7 @@ async function buildStory(client, inventory, story, requireObjectHead) {
     transcripts: childSummary(transcriptRows, { key: (row) => row.id }),
     audio: { count: objectEntries.length, rows: Object.fromEntries(objectEntries) },
     children,
-    v2Assertions: { generatedVersionRows },
+    v2Assertions: { generatedVersionRows, generatedRelationshipRows },
   };
 }
 

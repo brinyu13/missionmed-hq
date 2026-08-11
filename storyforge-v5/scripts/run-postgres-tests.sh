@@ -87,6 +87,27 @@ phase_one_migrations=(
   "20260806130000_b1_511a_wordpress_admin_authority.sql"
   "20260806190000_b1_512_concrete_configuration_media.sql"
 )
+b1_514_migrations=(
+  "20260810190000_b1_514_v2_r1_visibility_consent_activity.sql"
+  "20260810200000_b1_514_v2_r2_story_versions_provenance.sql"
+  "20260810210000_b1_514_v2_r3_inspiration.sql"
+  "20260810220000_b1_514_v2_ra_requests_guest.sql"
+  "20260810230000_b1_514_v2_preferences_environments.sql"
+  "20260810240000_b1_514_v2_ra_lifecycle_completion.sql"
+  "20260810250000_b1_514_v21_authored_segment_writes.sql"
+  "20260810260000_b1_514_guest_voice_contributions.sql"
+  "20260810270000_b1_514_request_delivery_attempts.sql"
+  "20260810280000_b1_514_guest_voice_cleanup_recovery.sql"
+)
+discovered_b1_514_migrations=()
+while IFS= read -r migration; do
+  discovered_b1_514_migrations+=("$migration")
+done < <(
+  find "$PACKAGE_DIR/infra/postgres/migrations" -maxdepth 1 -type f \
+    -name '20260810*_b1_514_*.sql' -exec basename {} \; | sort
+)
+[[ "${discovered_b1_514_migrations[*]}" = "${b1_514_migrations[*]}" ]] \
+  || fail "B1-514 migration train differs from the exact ordered allowlist"
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \
     -f "$PACKAGE_DIR/infra/postgres/migrations/$migration"
@@ -96,6 +117,15 @@ for migration in "${phase_one_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \
     -f "$PACKAGE_DIR/infra/postgres/migrations/$migration"
 done
+for migration in "${b1_514_migrations[@]}"; do
+  "$PSQL_BIN" "${PSQL_ARGS[@]}" \
+    -f "$PACKAGE_DIR/infra/postgres/migrations/$migration"
+done
+
+STORYFORGE_DATABASE_URL="postgresql://postgres@127.0.0.1:$SF_PG_PORT/storyforge?sslmode=disable" \
+  node "$PACKAGE_DIR/scripts/seed-inspiration-prompts.mjs"
+STORYFORGE_DATABASE_URL="postgresql://postgres@127.0.0.1:$SF_PG_PORT/storyforge?sslmode=disable" \
+  node "$PACKAGE_DIR/scripts/seed-contributor-prompts.mjs"
 
 "$PSQL_BIN" "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/tests/postgres/authorization_matrix.sql"
 "$PSQL_BIN" "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/tests/postgres/b1_503_conformance_matrix.sql"

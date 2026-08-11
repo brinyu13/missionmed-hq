@@ -65,6 +65,7 @@ async function withServer(options, operation) {
       cancel: async (_token, recordingId) => ({ recordingId, state: 'cancelled' }),
     },
     postmarkService: { verifyWebhook: () => true },
+    gatewayIngressVerifier: () => 'a'.repeat(64),
     phaseOneRuntime: {
       flagService: {},
       transcription: { transcribeSegment: async () => ({ text: '' }) },

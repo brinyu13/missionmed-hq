@@ -262,7 +262,11 @@ test('guest contribution cap maps to a fixed safe 429 and playback returns only 
     postmark: { send: async () => ({ accepted: true }) },
   });
   await assert.rejects(
-    () => capped.contribute(rawToken, { promptId: contributionId, transcript: 'A memory.' }),
+    () => capped.contribute(
+      rawToken,
+      { promptId: contributionId, transcript: 'A memory.' },
+      { ip: 'a'.repeat(64) },
+    ),
     (error) => error instanceof RequestsError
       && error.code === 'invitation_complete'
       && error.status === 429

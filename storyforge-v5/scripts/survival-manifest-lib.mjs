@@ -200,6 +200,11 @@ export function compareSurvivalManifests(pre, post, { expectedLedgerAdditions = 
     if (Number(after.v2Assertions?.generatedVersionRows || 0) !== 0) {
       difference(differences, { storyId, table: 'sf_story_versions', field: 'generatedVersionRows', reason: 'historical_version_synthesized', before: 0, after: after.v2Assertions?.generatedVersionRows });
     }
+    for (const [table, count] of Object.entries(after.v2Assertions?.generatedRelationshipRows || {}).sort()) {
+      if (Number(count) !== 0) {
+        difference(differences, { storyId, table, field: 'generatedRelationshipRows', reason: 'historical_v2_relationship_synthesized', before: 0, after: count });
+      }
+    }
     for (const table of new Set([...Object.keys(before.children || {}), ...Object.keys(after.children || {})])) {
       compareRowSet(differences, { storyId, table }, before.children?.[table], after.children?.[table]);
     }

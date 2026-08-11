@@ -116,8 +116,14 @@ test('WordPress gateway source preserves the bounded body and fail-closed contro
   assert.match(source, /mmsfr_is_inspiration_delete_path/);
   assert.match(source, /mmsfr_is_inspiration_put_path/);
   assert.match(source, /mmsfr_is_admin_saved_view_delete_path/);
-  assert.match(source, /x-postmark-signature/);
+  assert.match(source, /MISSIONMED_STORYFORGE_POSTMARK_WEBHOOK_SECRET/);
+  assert.match(source, /x-storyforge-webhook-token/);
   assert.match(source, /x-storyforge-webhook-signature/);
+  assert.doesNotMatch(source, /HTTP_X_STORYFORGE_WEBHOOK_SIGNATURE/);
+  assert.match(source, /MISSIONMED_STORYFORGE_GATEWAY_SHARED_SECRET/);
+  assert.match(source, /x-storyforge-client-pseudonym/);
+  assert.match(source, /x-storyforge-gateway-timestamp/);
+  assert.match(source, /x-storyforge-gateway-signature/);
   assert.match(source, /mmsfr_is_bounded_multipart_content_type/);
   assert.match(source, /is_uploaded_file/);
   assert.match(source, /mmsfr_segment_multipart_request/);
@@ -128,6 +134,36 @@ test('WordPress gateway source preserves the bounded body and fail-closed contro
   assert.match(source, /mmsfr_feature_enabled\(\)/);
   assert.match(source, /mmsfr_wordpress_origin\(\)/);
   assert.doesNotMatch(source, /array\(\s*'GET',\s*'POST',\s*'PATCH',\s*'DELETE'\s*\)/);
+});
+
+test('WordPress gateway converts the exact Postmark custom token into a body-bound Railway HMAC', async (t) => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), 'storyforge-postmark-gateway.'));
+  t.after(async () => {
+    await rm(temporary, { recursive: true, force: true });
+  });
+  const probeFile = path.join(temporary, 'probe.php');
+  await writeFile(probeFile, [
+    '<?php',
+    "define( 'ABSPATH', __DIR__ );",
+    "define( 'MISSIONMED_STORYFORGE_POSTMARK_WEBHOOK_SECRET', str_repeat('s', 32) );",
+    'function add_action() {}',
+    'function wp_unslash($value) { return $value; }',
+    "$_SERVER['HTTP_X_STORYFORGE_WEBHOOK_TOKEN'] = str_repeat('s', 32);",
+    'require $argv[1];',
+    '$body = "{\\\"RecordType\\\":\\\"Delivery\\\"}";',
+    '$headers = mmsfr_postmark_webhook_headers($body);',
+    "echo json_encode(array('signature' => $headers['x-storyforge-webhook-signature'], 'expected' => hash_hmac('sha256', $body, str_repeat('s', 32))));",
+    '',
+  ].join('\n'));
+  const result = spawnSync(
+    process.env.STORYFORGE_TEST_PHP || 'php',
+    [probeFile, routeFile],
+    { encoding: 'utf8' },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  const payload = JSON.parse(result.stdout);
+  assert.match(payload.signature, /^[a-f0-9]{64}$/);
+  assert.equal(payload.signature, payload.expected);
 });
 
 test('WordPress gateway reconstructs a binary-safe multipart body without client metadata', async (t) => {

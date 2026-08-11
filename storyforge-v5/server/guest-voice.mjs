@@ -1,7 +1,8 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { createOptionAAssemblyExecutor } from './assembly/executors.mjs';
 
 const tokenPattern = /^[A-Za-z0-9_-]{43}$/;
+const pseudonymPattern = /^[a-f0-9]{64}$/;
 const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const mimeExtensions = Object.freeze({
   'audio/webm': 'webm',
@@ -181,6 +182,7 @@ export function createGuestVoiceService({
   requireFunction(emitEvent, 'emitEvent');
 
   const pending = new Map();
+  let cleanupRunning = null;
 
   function enabled() {
     return !forceOff(environment.STORYFORGE_REQUEST_A_STORY_FORCE_OFF)
@@ -215,13 +217,22 @@ export function createGuestVoiceService({
   }
 
   async function rateLimit(client, tokenHash, ip) {
+    const pseudonym = String(ip || '').trim().toLowerCase();
+    if (!pseudonymPattern.test(pseudonym)) {
+      throw new GuestVoiceError(
+        'gateway_ingress_required',
+        'StoryForge guest access is unavailable.',
+        401,
+      );
+    }
     const bucket = new Date(Math.floor(now().getTime() / 900_000) * 900_000).toISOString();
-    // Railway sees the WordPress gateway address, not a trustworthy client IP.
-    // Token-scoped throttling remains exact here; a shared proxy address must
-    // never become a cross-invitation global throttle.
-    for (const scope of [sha256(`token:${tokenHash}`)]) {
+    const scopes = [
+      [sha256(`token:${tokenHash}`), 120],
+      [sha256(`client:${pseudonym}`), 240],
+    ];
+    for (const [scope, limit] of scopes) {
       const result = await client.query('SELECT public.sf_guest_rate_hit($1,$2) AS attempts', [scope, bucket]);
-      if (Number(result.rows[0]?.attempts || 0) > 20) {
+      if (Number(result.rows[0]?.attempts || 0) > limit) {
         throw new GuestVoiceError('guest_rate_limited', 'Please wait before trying again.', 429);
       }
     }
@@ -283,9 +294,57 @@ export function createGuestVoiceService({
     await (pending.get(recordingId) || Promise.resolve());
   }
 
+  async function recoverGuestVoiceCleanup() {
+    if (cleanupRunning) return cleanupRunning;
+    cleanupRunning = (async () => {
+      const candidates = await transaction(async (client) => (
+        await client.query('SELECT * FROM public.sf_claim_guest_voice_cleanup($1)', [20])
+      ).rows);
+      let deleted = 0;
+      let failed = 0;
+      for (const candidate of candidates) {
+        try {
+          if (candidate.cleanup_kind === 'transient_prefix') {
+            await deleteRecordingPrefix({ prefix: candidate.object_locator });
+          } else if (candidate.cleanup_kind === 'permanent_object') {
+            await deleteAudioObject({ objectKey: candidate.object_locator });
+          } else {
+            throw new GuestVoiceError('guest_voice_cleanup_invalid', 'Private audio cleanup is unavailable.', 503);
+          }
+          await transaction((client) => client.query(
+            'SELECT public.sf_complete_guest_voice_cleanup($1,true,NULL)',
+            [candidate.intent_id],
+          ));
+          deleted += 1;
+        } catch {
+          failed += 1;
+          await transaction((client) => client.query(
+            "SELECT public.sf_complete_guest_voice_cleanup($1,false,'object_delete_failed')",
+            [candidate.intent_id],
+          )).catch(() => {});
+        }
+      }
+      if (deleted || failed) emit('guest_voice_cleanup_completed', { deleted, failed });
+      return { scanned: candidates.length, deleted, failed };
+    })();
+    try {
+      return await cleanupRunning;
+    } finally {
+      cleanupRunning = null;
+    }
+  }
+
+  // Cleanup authority is durable in PostgreSQL. The unreferenced timer lets a
+  // fresh process resume abandoned/revoked work without requiring guest traffic.
+  const cleanupTimer = setInterval(() => {
+    recoverGuestVoiceCleanup().catch(() => {});
+  }, 10 * 60 * 1000);
+  cleanupTimer.unref?.();
+
   return Object.freeze({
     available: enabled,
     caps: Object.freeze({ maxDurationMs, maxAssetBytes, maxSegmentBytes, maxSegments }),
+    recoverCleanup: recoverGuestVoiceCleanup,
 
     async open(tokenValue, { ip } = {}) {
       requireEnabled();
@@ -385,6 +444,17 @@ export function createGuestVoiceService({
           [tokenHash, recordingId, promptId],
         )).rows[0]?.payload;
       });
+      if (prepared.existing === true) {
+        return {
+          contributionId: prepared.contributionId,
+          assetId: prepared.assetId,
+          kind: 'voice',
+          state: prepared.state,
+          existing: true,
+          transcript: prepared.transcript,
+          providerTranscript: prepared.providerTranscript,
+        };
+      }
       const transcript = String(input.transcript ?? prepared.providerTranscript).trim();
       if (!transcript || transcript.length > 20_000) {
         throw new GuestVoiceError('invalid_contribution', 'Review the transcript before sharing.');
@@ -404,17 +474,19 @@ export function createGuestVoiceService({
       ) {
         throw new GuestVoiceError('guest_voice_assembly_failed', 'The recording could not be prepared.', 503);
       }
-      const contributionId = randomUUID();
-      const assetId = randomUUID();
-      const targetKey = `storyforge-contribution-audio/${prepared.studentId}/${prepared.invitationId}/${contributionId}/${assetId}.${mimeExtensions[prepared.mimeType]}`;
-      let copied = false;
+      const contributionId = uuid(prepared.contributionId, 'Contribution');
+      const assetId = uuid(prepared.assetId, 'Audio asset');
+      const targetKey = String(prepared.objectKey || '');
+      const expectedTarget = `storyforge-contribution-audio/${prepared.studentId}/${prepared.invitationId}/${contributionId}/${assetId}.${mimeExtensions[prepared.mimeType]}`;
+      if (targetKey !== expectedTarget) {
+        throw new GuestVoiceError('invalid_guest_voice_request', 'The recording request is invalid.');
+      }
       try {
         await copyAudioObject({
           sourceKey: assembled.artifactKey,
           targetKey,
           contentType: prepared.mimeType,
         });
-        copied = true;
         const head = await headAudioObject({ objectKey: targetKey });
         if (
           head.contentType !== prepared.mimeType
@@ -432,16 +504,16 @@ export function createGuestVoiceService({
             assembled.checksumSha256,
           ],
         ).then((result) => result.rows[0]?.payload));
-        await deleteRecordingPrefix({
-          prefix: `storyforge-rec/${prepared.studentId}/${recordingId}/`,
-        }).catch(() => emit('guest_voice_cleanup_failed', {
-          recordingId,
-          errorCategory: 'storage',
+        await recoverGuestVoiceCleanup().catch(() => emit('guest_voice_cleanup_failed', {
+          recordingId, errorCategory: 'storage',
         }));
         emit('guest_voice_contribution_completed', { recordingId, contributionId, assetId });
         return { ...completed, transcript, providerTranscript: prepared.providerTranscript };
       } catch (error) {
-        if (copied) await deleteAudioObject({ objectKey: targetKey }).catch(() => {});
+        // Never delete the permanent target on an ambiguous transaction result.
+        // The durable cleanup worker first proves that no verified asset refers
+        // to it, so a committed contribution survives a lost database ACK.
+        recoverGuestVoiceCleanup().catch(() => {});
         throw error;
       }
     },
@@ -454,9 +526,9 @@ export function createGuestVoiceService({
         'SELECT public.sf_guest_voice_cancel($1,$2) AS payload',
         [tokenHash, recordingId],
       ).then((response) => response.rows[0]?.payload));
-      await deleteRecordingPrefix({
-        prefix: `storyforge-rec/${result.studentId}/${recordingId}/`,
-      });
+      await recoverGuestVoiceCleanup().catch(() => emit('guest_voice_cleanup_failed', {
+        recordingId, errorCategory: 'storage',
+      }));
       pending.delete(recordingId);
       emit('guest_voice_recording_cancelled', { recordingId });
       return { recordingId, state: result.state };

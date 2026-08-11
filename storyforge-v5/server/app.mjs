@@ -31,6 +31,7 @@ import {
 import { createStoryFollowupService } from './story-followup.mjs';
 import { createAvatarIdentityService } from './avatar-identity.mjs';
 import { createPostmarkService } from './postmark.mjs';
+import { createGatewayIngressVerifier } from './gateway-ingress.mjs';
 import { previewImport } from './imports.mjs';
 import {
   createAudioPlayback,
@@ -613,6 +614,7 @@ async function api(request, response, url, {
   storyFollowupService,
   avatarIdentityService,
   postmarkService,
+  verifyGatewayIngress,
   recordingsService,
   signAudioPlayback,
 }) {
@@ -640,9 +642,12 @@ async function api(request, response, url, {
   const guestRequestRoute = url.pathname.match(
     /^\/api\/requests\/guest\/([A-Za-z0-9_-]{43})(?:\/(contributions|started))?$/,
   );
+  const guestPseudonym = guestRequestRoute
+    ? verifyGatewayIngress(request, url.pathname)
+    : null;
   if (guestRequestRoute && request.method === 'GET' && !guestRequestRoute[2]) {
     return sendJson(response, 200, await requestsService.guestView(guestRequestRoute[1], {
-      ip: request.socket?.remoteAddress || 'gateway',
+      ip: guestPseudonym,
     }));
   }
   if (guestRequestRoute && request.method === 'POST' && guestRequestRoute[2] === 'contributions') {
@@ -650,13 +655,13 @@ async function api(request, response, url, {
       contribution: await requestsService.contribute(
         guestRequestRoute[1],
         await readJson(request),
-        { ip: request.socket?.remoteAddress || 'gateway' },
+        { ip: guestPseudonym },
       ),
     });
   }
   if (guestRequestRoute && request.method === 'POST' && guestRequestRoute[2] === 'started') {
     return sendJson(response, 200, await requestsService.guestStarted(guestRequestRoute[1], {
-      ip: request.socket?.remoteAddress || 'gateway',
+      ip: guestPseudonym,
     }));
   }
 
@@ -667,7 +672,7 @@ async function api(request, response, url, {
     const token = guestVoiceRoute[1];
     const recordingId = guestVoiceRoute[2] || '';
     const action = guestVoiceRoute[3] || '';
-    const requestContext = { ip: request.socket?.remoteAddress || 'gateway' };
+    const requestContext = { ip: verifyGatewayIngress(request, url.pathname) };
     if (request.method === 'POST' && !recordingId) {
       return sendJson(response, 201, await guestVoiceService.open(token, requestContext));
     }
@@ -3117,6 +3122,7 @@ export function createAppServer({
   storyFollowupService = null,
   avatarIdentityService = null,
   postmarkService = null,
+  gatewayIngressVerifier = null,
   auditWriter = appendAudit,
   audioPlaybackSigner = createAudioPlayback,
   reportEvent = emitStructuredEvent,
@@ -3162,6 +3168,7 @@ export function createAppServer({
     withIdentity: identityTransaction,
   });
   const resolvedPostmarkService = postmarkService || createPostmarkService();
+  const resolvedGatewayIngressVerifier = gatewayIngressVerifier || createGatewayIngressVerifier();
   const resolvedRequestsService = requestsService || createRequestsService({
     withIdentity: identityTransaction,
     withServiceTransaction,
@@ -3210,6 +3217,7 @@ export function createAppServer({
     storyFollowupService: resolvedStoryFollowupService,
     avatarIdentityService: resolvedAvatarIdentityService,
     postmarkService: resolvedPostmarkService,
+    verifyGatewayIngress: resolvedGatewayIngressVerifier,
     recordingsService: phaseOneRuntime.recordingsService,
     signAudioPlayback: audioPlaybackSigner,
   });

@@ -792,8 +792,7 @@ function mmsfr_incoming_header( $name ) {
 		'authorization' => array( 'HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION' ),
 		'content-type'  => array( 'CONTENT_TYPE', 'HTTP_CONTENT_TYPE' ),
 		'origin'        => array( 'HTTP_ORIGIN' ),
-		'x-postmark-signature' => array( 'HTTP_X_POSTMARK_SIGNATURE' ),
-		'x-storyforge-webhook-signature' => array( 'HTTP_X_STORYFORGE_WEBHOOK_SIGNATURE' ),
+		'x-storyforge-webhook-token' => array( 'HTTP_X_STORYFORGE_WEBHOOK_TOKEN' ),
 	);
 	foreach ( $server_keys[ $name ] ?? array() as $key ) {
 		if ( isset( $_SERVER[ $key ] ) && is_scalar( $_SERVER[ $key ] ) ) {
@@ -818,6 +817,70 @@ function mmsfr_incoming_header( $name ) {
 		}
 	}
 	return '';
+}
+
+/**
+ * Build authenticated, privacy-safe guest ingress headers for Railway.
+ *
+ * The raw client address never leaves WordPress. The shared secret is supplied
+ * through wp-config.php and the matching Railway environment; it is never
+ * stored in this plugin or sent to the browser.
+ *
+ * @param string $method HTTP method.
+ * @param string $target_path Railway path.
+ * @return array<string,string>
+ */
+function mmsfr_guest_ingress_headers( $method, $target_path ) {
+	$secret = defined( 'MISSIONMED_STORYFORGE_GATEWAY_SHARED_SECRET' )
+		? (string) MISSIONMED_STORYFORGE_GATEWAY_SHARED_SECRET
+		: '';
+	if ( strlen( $secret ) < 32 ) {
+		mmsfr_send_error( 503, 'gateway_ingress_unavailable', 'StoryForge guest access is unavailable.' );
+	}
+	$candidates = array(
+		isset( $_SERVER['HTTP_CF_CONNECTING_IP'] ) ? (string) wp_unslash( $_SERVER['HTTP_CF_CONNECTING_IP'] ) : '',
+		isset( $_SERVER['REMOTE_ADDR'] ) ? (string) wp_unslash( $_SERVER['REMOTE_ADDR'] ) : '',
+	);
+	$client_address = '';
+	foreach ( $candidates as $candidate ) {
+		$candidate = trim( $candidate );
+		if ( false !== filter_var( $candidate, FILTER_VALIDATE_IP ) ) {
+			$client_address = $candidate;
+			break;
+		}
+	}
+	if ( '' === $client_address ) {
+		mmsfr_send_error( 503, 'gateway_client_unavailable', 'StoryForge guest access is unavailable.' );
+	}
+	$pseudonym = hash_hmac( 'sha256', $client_address, $secret );
+	$timestamp = (string) time();
+	$canonical = strtoupper( $method ) . "\n" . $target_path . "\n" . $timestamp . "\n" . $pseudonym;
+	return array(
+		'x-storyforge-client-pseudonym' => $pseudonym,
+		'x-storyforge-gateway-timestamp' => $timestamp,
+		'x-storyforge-gateway-signature' => hash_hmac( 'sha256', $canonical, $secret ),
+	);
+}
+
+/**
+ * Authenticate one native Postmark custom header, then replace it with the
+ * body-bound HMAC consumed by the private Railway handler. Postmark supports
+ * custom webhook headers but does not generate HMAC webhook signatures.
+ *
+ * @param string $request_body Exact JSON bytes received from Postmark.
+ * @return array<string,string>
+ */
+function mmsfr_postmark_webhook_headers( $request_body ) {
+	$secret = defined( 'MISSIONMED_STORYFORGE_POSTMARK_WEBHOOK_SECRET' )
+		? (string) MISSIONMED_STORYFORGE_POSTMARK_WEBHOOK_SECRET
+		: '';
+	$provided = mmsfr_incoming_header( 'x-storyforge-webhook-token' );
+	if ( strlen( $secret ) < 32 || strlen( $provided ) < 32 || ! hash_equals( $secret, $provided ) ) {
+		mmsfr_send_error( 401, 'webhook_auth_required', 'StoryForge webhook authentication failed.' );
+	}
+	return array(
+		'x-storyforge-webhook-signature' => hash_hmac( 'sha256', $request_body, $secret ),
+	);
 }
 
 /**
@@ -1236,11 +1299,14 @@ function mmsfr_proxy_request( $path ) {
 	$target_path = substr( $path, strlen( $canonical ) );
 	$target_url  = $origin . $target_path . mmsfr_query_suffix();
 	$headers     = array();
-	foreach ( array( 'accept', 'authorization', 'content-type', 'origin', 'x-postmark-signature', 'x-storyforge-webhook-signature' ) as $name ) {
+	foreach ( array( 'accept', 'authorization', 'content-type', 'origin', 'x-storyforge-webhook-token' ) as $name ) {
 		$value = mmsfr_incoming_header( $name );
 		if ( '' !== $value ) {
 			$headers[ $name ] = $value;
 		}
+	}
+	if ( $is_guest ) {
+		$headers = array_merge( $headers, mmsfr_guest_ingress_headers( $method, $target_path ) );
 	}
 	if ( ! $is_health && ! $is_public_config && ! $is_anonymous_ingress ) {
 		$authorization = $headers['authorization'] ?? '';
@@ -1294,6 +1360,10 @@ function mmsfr_proxy_request( $path ) {
 		$headers['content-type'] = $multipart['content_type'];
 	} elseif ( in_array( $method, array( 'POST', 'PATCH', 'PUT' ), true ) ) {
 		$request_body = mmsfr_request_body();
+	}
+	if ( $is_postmark_webhook ) {
+		unset( $headers['x-storyforge-webhook-token'] );
+		$headers = array_merge( $headers, mmsfr_postmark_webhook_headers( $request_body ) );
 	}
 
 	$local_fixture = 'http' === (string) wp_parse_url( $origin, PHP_URL_SCHEME );

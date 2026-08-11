@@ -30,6 +30,7 @@ MIGRATIONS=(
   20260810250000_b1_514_v21_authored_segment_writes.sql
   20260810260000_b1_514_guest_voice_contributions.sql
   20260810270000_b1_514_request_delivery_attempts.sql
+  20260810280000_b1_514_guest_voice_cleanup_recovery.sql
 )
 
 fail(){ printf 'Refusing B1-514 production migration: %s\n' "$*" >&2; exit 1; }

@@ -10070,6 +10070,7 @@ async function bootstrapSession() {
   state.v2.consent = session?.mentorship?.consent || null;
   state.v2.consentDeferredThisSession = false;
   state.v2.homeRecommendations = [];
+  state.v2.inspiration.layout = user?.inspiration_layout === 'grid' ? 'grid' : 'list';
   const presentation = await api.presentation().catch(() => null);
   state.presentation = presentation?.configuration?.payload || BUNDLED_PRESENTATION;
   state.settingsPreview.selectedBackground = null;
