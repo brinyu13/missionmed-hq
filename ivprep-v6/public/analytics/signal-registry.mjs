@@ -34,6 +34,7 @@ const DEFINITIONS = Object.freeze({
   sustained_head_turn_episode: { family: 'face', maturity: MATURITY.FOUNDER_EXPERIMENTAL, label: 'Sustained head-turn episode' },
   facial_movement_episode: { family: 'face', maturity: MATURITY.FOUNDER_EXPERIMENTAL, label: 'Facial movement episode' },
   framing_center: { family: 'framing', maturity: MATURITY.FOUNDER_EXPERIMENTAL, label: 'Face position in frame' },
+  bystanders_excluded: { family: 'system', maturity: MATURITY.FOUNDER_EXPERIMENTAL, label: 'Bystanders excluded while the primary lock remained active' },
   multiple_faces_detected: { family: 'system', maturity: MATURITY.FOUNDER_EXPERIMENTAL, label: 'Multiple-face safety stop' },
   observation_gap: { family: 'system', maturity: MATURITY.FOUNDER_EXPERIMENTAL, label: 'Analysis coverage gap' },
   pitch_zero_crossing: { family: 'voice', maturity: MATURITY.REJECTED, label: 'Legacy zero-crossing pitch' },

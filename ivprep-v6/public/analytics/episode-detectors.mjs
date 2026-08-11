@@ -54,6 +54,9 @@ export class VisionEpisodeAnalyzer {
     this.multiFaceFrames = 0;
     this.multiFaceProtectionUnavailableFrames = 0;
     this.personSpecificFrames = 0;
+    this.bystanderFrames = 0;
+    this.maximumBystanderCount = 0;
+    this.primaryLockDiagnostic = null;
     this.facingFrames = 0;
     this.centeredFrames = 0;
     this.priorHands = { left: null, right: null };
@@ -96,7 +99,7 @@ export class VisionEpisodeAnalyzer {
     this.lastAtMs = Math.max(this.lastAtMs ?? this.startedAtMs ?? 0, Math.round(endMs));
   }
 
-  ingest({ atMs, geometry, inferenceMs = null, expectedFrameMs = 125 }) {
+  ingest({ atMs, geometry, primaryLock = null, inferenceMs = null, expectedFrameMs = 125 }) {
     if (this.startedAtMs === null) throw new TypeError('Vision analyzer has not begun.');
     if (!Number.isFinite(atMs) || atMs < this.startedAtMs || (this.lastAtMs !== null && atMs < this.lastAtMs)) throw new TypeError('Vision frame timestamps must be finite and monotonic.');
     const time = Math.round(atMs);
@@ -114,8 +117,28 @@ export class VisionEpisodeAnalyzer {
     this.analyzableFrames += 1;
     const multiFace = Number.isFinite(geometry.faceCount) && geometry.faceCount > 1;
     if (multiFace) this.multiFaceFrames += 1;
-    if (geometry.faceCount === null) this.multiFaceProtectionUnavailableFrames += 1;
-    const suppressPerson = multiFace || geometry.faceCount !== 1;
+    if (geometry.faceCount === null || !primaryLock) this.multiFaceProtectionUnavailableFrames += 1;
+    const bystanderCount = Math.max(0, Math.round(Number(primaryLock?.bystanderCount) || 0));
+    if (bystanderCount > 0) this.bystanderFrames += 1;
+    this.maximumBystanderCount = Math.max(this.maximumBystanderCount, bystanderCount);
+    if (primaryLock && typeof primaryLock === 'object') this.primaryLockDiagnostic = {
+      state: String(primaryLock.state || 'SEARCHING'),
+      zoneStatus: String(primaryLock.zoneStatus || 'empty'),
+      continuity: String(primaryLock.continuity || 'searching'),
+      bystanderCount,
+      excludedDurationMs: Math.max(0, Math.round(Number(primaryLock.excludedDurationMs) || 0)),
+      reacquisitionCount: Math.max(0, Math.round(Number(primaryLock.reacquisitionCount) || 0)),
+      withheldIntervals: (Array.isArray(primaryLock.withheldIntervals) ? primaryLock.withheldIntervals : []).slice(0, 64).map((interval) => ({
+        startMs: Math.max(0, Math.round(Number(interval?.startMs) || 0)),
+        endMs: Math.max(0, Math.round(Number(interval?.endMs) || 0)),
+        reason: String(interval?.reason || 'primary_unavailable').slice(0, 80),
+        ...(interval?.open === true ? { open: true } : {}),
+      })),
+      withheldIntervalsTruncated: primaryLock.withheldIntervalsTruncated === true,
+    };
+    const primaryAssociated = geometry.primaryAssociated === true
+      || (geometry.primaryAssociated === undefined && geometry.faceCount === 1);
+    const suppressPerson = !primaryAssociated;
     if (!suppressPerson) this.personSpecificFrames += 1;
 
     const face = geometry.face || {};
@@ -199,14 +222,20 @@ export class VisionEpisodeAnalyzer {
       coverage: Number(coverage.toFixed(4)),
       frameCount: this.frames,
       analyzableFrames: this.analyzableFrames,
-      facePresenceRatio: this.analyzableFrames ? this.faceFrames / this.analyzableFrames : null,
-      torsoPresenceRatio: this.analyzableFrames ? this.poseFrames / this.analyzableFrames : null,
-      handPresenceRatio: this.analyzableFrames ? this.handFrames / this.analyzableFrames : null,
+      facePresenceRatio: this.personSpecificFrames ? this.faceFrames / this.personSpecificFrames : null,
+      torsoPresenceRatio: this.personSpecificFrames ? this.poseFrames / this.personSpecificFrames : null,
+      handPresenceRatio: this.personSpecificFrames ? this.handFrames / this.personSpecificFrames : null,
       cameraFacingRatio: this.faceFrames ? this.facingFrames / this.faceFrames : null,
       framingCenteredRatio: this.faceFrames ? this.centeredFrames / this.faceFrames : null,
       multipleFacesDetected: this.multiFaceFrames > 0,
+      bystanderFrames: this.bystanderFrames,
+      maximumBystanderCount: this.maximumBystanderCount,
       multiFaceProtectionAvailable: this.frames > 0 && this.multiFaceProtectionUnavailableFrames === 0,
-      personSpecificAvailable: this.personSpecificFrames > 0 && this.multiFaceProtectionUnavailableFrames === 0 && this.multiFaceFrames === 0,
+      personSpecificAvailable: this.personSpecificFrames > 0 && this.multiFaceProtectionUnavailableFrames === 0,
+      primaryLock: this.primaryLockDiagnostic ? Object.freeze({
+        ...this.primaryLockDiagnostic,
+        withheldIntervals: Object.freeze(this.primaryLockDiagnostic.withheldIntervals.map((interval) => Object.freeze({ ...interval }))),
+      }) : null,
       headOrientationProxy: { yawDeg: averageHead('yaw'), pitchDeg: averageHead('pitch'), rollDeg: averageHead('roll') },
       gestureZones: this.gestureZones,
       episodes,

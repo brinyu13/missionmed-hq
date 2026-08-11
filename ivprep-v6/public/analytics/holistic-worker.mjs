@@ -6,10 +6,15 @@ let ready = false;
 let generation = 0;
 let activeAnswerEpoch = 0;
 let overlayEnabled = false;
+let faceOverlayEnabled = true;
+let bodyHandsOverlayEnabled = true;
 let overlayCanvas = null;
 let overlayContext = null;
+let inferenceCanvas = null;
+let inferenceContext = null;
 let priorFaceCategories = null;
 let priorFaceAtMs = null;
+let priorPrimaryTrackId = null;
 const originalFetch = self.fetch.bind(self);
 
 function sameOriginUrl(value) {
@@ -58,6 +63,58 @@ function overlaySurface(width, height) {
   return overlayContext ? { canvas: overlayCanvas, context: overlayContext } : null;
 }
 
+function normalizedRoi(value) {
+  if (![value?.left, value?.top, value?.width, value?.height].every(Number.isFinite)) return null;
+  const left = Math.max(0, Math.min(1, value.left));
+  const top = Math.max(0, Math.min(1, value.top));
+  const width = Math.max(0, Math.min(1 - left, value.width));
+  const height = Math.max(0, Math.min(1 - top, value.height));
+  return width > 0 && height > 0 ? Object.freeze({ left, top, width, height }) : null;
+}
+
+function primaryInferenceSurface(bitmap, roi) {
+  if (typeof OffscreenCanvas !== 'function') return null;
+  const width = Math.max(1, Math.round(bitmap.width * roi.width));
+  const height = Math.max(1, Math.round(bitmap.height * roi.height));
+  if (!inferenceCanvas || inferenceCanvas.width !== width || inferenceCanvas.height !== height) {
+    inferenceCanvas = new OffscreenCanvas(width, height);
+    inferenceContext = inferenceCanvas.getContext('2d', { alpha: false });
+  }
+  if (!inferenceContext) return null;
+  inferenceContext.clearRect(0, 0, width, height);
+  inferenceContext.drawImage(
+    bitmap,
+    roi.left * bitmap.width,
+    roi.top * bitmap.height,
+    roi.width * bitmap.width,
+    roi.height * bitmap.height,
+    0,
+    0,
+    width,
+    height,
+  );
+  return inferenceCanvas;
+}
+
+function remapLandmarkSets(sets, roi) {
+  if (!Array.isArray(sets)) return sets;
+  return sets.map((landmarks) => Array.isArray(landmarks) ? landmarks.map((point) => ({
+    ...point,
+    x: Number.isFinite(point?.x) ? roi.left + point.x * roi.width : point?.x,
+    y: Number.isFinite(point?.y) ? roi.top + point.y * roi.height : point?.y,
+  })) : landmarks);
+}
+
+function remapPrimaryResult(result, roi) {
+  return {
+    ...result,
+    faceLandmarks: remapLandmarkSets(result?.faceLandmarks, roi),
+    poseLandmarks: remapLandmarkSets(result?.poseLandmarks, roi),
+    leftHandLandmarks: remapLandmarkSets(result?.leftHandLandmarks, roi),
+    rightHandLandmarks: remapLandmarkSets(result?.rightHandLandmarks, roi),
+  };
+}
+
 function drawConnections(context, landmarks, connections, color, width, respectVisibility = false) {
   if (!Array.isArray(landmarks) || !Array.isArray(connections)) return 0;
   let count = 0;
@@ -91,8 +148,8 @@ function drawPoints(context, landmarks, color, radius, respectVisibility = false
   return count;
 }
 
-function renderOverlay(result, geometry, faceCount, width, height) {
-  if (!overlayEnabled || faceCount !== 1) return { bitmap: null, primitiveCount: 0 };
+function renderOverlay(result, geometry, width, height) {
+  if (!overlayEnabled || geometry?.primaryAssociated !== true) return { bitmap: null, primitiveCount: 0 };
   const surface = overlaySurface(width, height);
   if (!surface) return { bitmap: null, primitiveCount: 0 };
   const { canvas, context } = surface;
@@ -102,16 +159,20 @@ function renderOverlay(result, geometry, faceCount, width, height) {
   const leftHand = result?.leftHandLandmarks?.[0];
   const rightHand = result?.rightHandLandmarks?.[0];
   let primitiveCount = 0;
-  primitiveCount += drawConnections(context, face, visionModule?.HolisticLandmarker?.FACE_LANDMARKS_TESSELATION, 'rgba(72,220,255,.32)', 0.7);
-  primitiveCount += drawConnections(context, face, visionModule?.HolisticLandmarker?.FACE_LANDMARKS_CONTOURS, 'rgba(94,255,208,.95)', 1.2);
-  primitiveCount += drawConnections(context, pose, visionModule?.HolisticLandmarker?.POSE_CONNECTIONS, 'rgba(94,255,208,.92)', 2, true);
-  primitiveCount += drawPoints(context, pose, 'rgba(220,255,247,.98)', 2, true);
-  primitiveCount += drawConnections(context, leftHand, visionModule?.HolisticLandmarker?.HAND_CONNECTIONS, 'rgba(65,214,255,.98)', 1.5);
-  primitiveCount += drawPoints(context, leftHand, 'rgba(65,214,255,.98)', 1.8);
-  primitiveCount += drawConnections(context, rightHand, visionModule?.HolisticLandmarker?.HAND_CONNECTIONS, 'rgba(195,115,255,.98)', 1.5);
-  primitiveCount += drawPoints(context, rightHand, 'rgba(220,175,255,.98)', 1.8);
+  if (faceOverlayEnabled) {
+    primitiveCount += drawConnections(context, face, visionModule?.HolisticLandmarker?.FACE_LANDMARKS_TESSELATION, 'rgba(72,220,255,.32)', 0.7);
+    primitiveCount += drawConnections(context, face, visionModule?.HolisticLandmarker?.FACE_LANDMARKS_CONTOURS, 'rgba(94,255,208,.95)', 1.2);
+  }
+  if (bodyHandsOverlayEnabled) {
+    primitiveCount += drawConnections(context, pose, visionModule?.HolisticLandmarker?.POSE_CONNECTIONS, 'rgba(94,255,208,.92)', 2, true);
+    primitiveCount += drawPoints(context, pose, 'rgba(220,255,247,.98)', 2, true);
+    primitiveCount += drawConnections(context, leftHand, visionModule?.HolisticLandmarker?.HAND_CONNECTIONS, 'rgba(65,214,255,.98)', 1.5);
+    primitiveCount += drawPoints(context, leftHand, 'rgba(65,214,255,.98)', 1.8);
+    primitiveCount += drawConnections(context, rightHand, visionModule?.HolisticLandmarker?.HAND_CONNECTIONS, 'rgba(195,115,255,.98)', 1.5);
+    primitiveCount += drawPoints(context, rightHand, 'rgba(220,175,255,.98)', 1.8);
+  }
   const box = geometry?.face?.box;
-  if (box) {
+  if (faceOverlayEnabled && box) {
     context.strokeStyle = 'rgba(94,255,208,.98)';
     context.lineWidth = 1.5;
     context.strokeRect(box.left * canvas.width, box.top * canvas.height, box.width * canvas.width, box.height * canvas.height);
@@ -139,6 +200,8 @@ async function initialize(message) {
   generation = message.generation;
   activeAnswerEpoch = message.answerEpoch;
   overlayEnabled = Boolean(message.overlayEnabled);
+  faceOverlayEnabled = message.faceOverlayEnabled !== false;
+  bodyHandsOverlayEnabled = message.bodyHandsOverlayEnabled !== false;
   visionModule = await import(message.bundleUrl);
   holistic = await createHolistic(visionModule, message.wasmRoot, message.holisticModelUrl);
   ready = true;
@@ -152,15 +215,36 @@ async function analyze(message) {
   try {
     if (!ready || message.generation !== generation || message.answerEpoch !== activeAnswerEpoch) return;
     const faceCount = Number.isFinite(message.faceCount) ? Math.max(0, Math.round(message.faceCount)) : null;
-    const result = holistic.detectForVideo(bitmap, message.timestampMs);
-    const derived = deriveCompactGeometry(result, { faceCount });
+    const roi = message.primaryUsable === true ? normalizedRoi(message.primaryRoi) : null;
+    const inferenceSurface = roi ? primaryInferenceSurface(bitmap, roi) : null;
+    let result = null;
+    if (inferenceSurface) {
+      if (message.primaryTrackId !== priorPrimaryTrackId) {
+        priorFaceCategories = null;
+        priorFaceAtMs = null;
+      }
+      priorPrimaryTrackId = message.primaryTrackId;
+      result = remapPrimaryResult(holistic.detectForVideo(inferenceSurface, message.timestampMs), roi);
+      inferenceContext?.clearRect?.(0, 0, inferenceCanvas.width, inferenceCanvas.height);
+    } else {
+      priorFaceCategories = null;
+      priorFaceAtMs = null;
+      priorPrimaryTrackId = null;
+    }
+    const derived = deriveCompactGeometry(result || {}, { faceCount });
     const faceCategories = result?.faceBlendshapes?.[0]?.categories || null;
     const movementRatePerSecond = facialMovementRate(faceCategories, priorFaceCategories, message.timestampMs - priorFaceAtMs);
     priorFaceCategories = Array.isArray(faceCategories) ? faceCategories.map((category) => ({ categoryName: category.categoryName, score: category.score })) : null;
-    priorFaceAtMs = message.timestampMs;
-    const geometry = Object.freeze({ ...derived, face: Object.freeze({ ...derived.face, movementRatePerSecond }) });
+    priorFaceAtMs = result ? message.timestampMs : null;
+    const geometry = Object.freeze({
+      ...derived,
+      primaryAssociated: Boolean(result),
+      primaryLockState: typeof message.primaryLock?.state === 'string' ? message.primaryLock.state : 'SEARCHING',
+      bystanderCount: Math.max(0, Math.round(Number(message.primaryLock?.bystanderCount) || 0)),
+      face: Object.freeze({ ...derived.face, movementRatePerSecond }),
+    });
     assertCompactGeometry(geometry);
-    const overlay = renderOverlay(result, geometry, faceCount, bitmap.width, bitmap.height);
+    const overlay = renderOverlay(result, geometry, bitmap.width, bitmap.height);
     overlayBitmap = overlay.bitmap;
     const response = {
       type: 'geometry',
@@ -173,6 +257,7 @@ async function analyze(message) {
       holisticInferenceMs: Number((performance.now() - startedAt).toFixed(2)),
       faceInferenceMs: Number.isFinite(message.faceInferenceMs) ? message.faceInferenceMs : null,
       geometry,
+      primaryLock: message.primaryLock || null,
       overlayRequested: overlayEnabled,
       overlayRendered: Boolean(overlayBitmap),
       overlayPrimitiveCount: overlay.primitiveCount,
@@ -184,6 +269,7 @@ async function analyze(message) {
     overlayBitmap?.close?.();
     self.postMessage({ type: 'frame-error', generation, answerEpoch: message.answerEpoch, visionEpoch: message.visionEpoch, frameId: message.frameId, timestampMs: message.timestampMs, expectedFrameMs: message.expectedFrameMs, message: String(error?.message || error).slice(0, 180) });
   } finally {
+    if (inferenceCanvas) inferenceContext?.clearRect?.(0, 0, inferenceCanvas.width, inferenceCanvas.height);
     bitmap?.close?.();
   }
 }
@@ -197,8 +283,12 @@ async function shutdown(message) {
   if (overlayCanvas) overlayContext?.clearRect?.(0, 0, overlayCanvas.width, overlayCanvas.height);
   overlayCanvas = null;
   overlayContext = null;
+  if (inferenceCanvas) inferenceContext?.clearRect?.(0, 0, inferenceCanvas.width, inferenceCanvas.height);
+  inferenceCanvas = null;
+  inferenceContext = null;
   priorFaceCategories = null;
   priorFaceAtMs = null;
+  priorPrimaryTrackId = null;
   self.postMessage({ type: 'closed', generation });
   self.close();
 }
@@ -208,12 +298,16 @@ function resetTemporalState(message) {
   activeAnswerEpoch = message.answerEpoch;
   priorFaceCategories = null;
   priorFaceAtMs = null;
+  priorPrimaryTrackId = null;
+  if (inferenceCanvas) inferenceContext?.clearRect?.(0, 0, inferenceCanvas.width, inferenceCanvas.height);
   if (ready) self.postMessage({ type: 'ready', generation, answerEpoch: activeAnswerEpoch });
 }
 
 function configureInstrumentation(message) {
   if (message.generation !== generation) return;
   overlayEnabled = Boolean(message.overlayEnabled);
+  faceOverlayEnabled = message.faceOverlayEnabled !== false;
+  bodyHandsOverlayEnabled = message.bodyHandsOverlayEnabled !== false;
 }
 
 self.onmessage = (event) => {

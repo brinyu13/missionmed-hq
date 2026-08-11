@@ -5,7 +5,7 @@ const VENDOR_ROOT = '/vendor/mediapipe/tasks-vision/1.0.1';
 const HOLISTIC_MODEL = '/vendor/mediapipe/models/holistic_landmarker/float16/1/holistic_landmarker.task';
 const FACE_MODEL = '/vendor/mediapipe/models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite';
 const FACE_WORKER = '/analytics/face-detector-worker.mjs';
-const WORKER_REVISION = '3420r-founder-instrumentation-9';
+const WORKER_REVISION = '3440-primary-interviewee-lock-1';
 const FACE_INITIALIZATION_TIMEOUT_MS = 10_000;
 const HOLISTIC_FRAME_TIMEOUT_MIN_MS = 1_000;
 const HOLISTIC_FRAME_TIMEOUT_MAX_MS = 5_000;
@@ -65,7 +65,12 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.workerErrors = [];
     this.blockedEgressAttempts = 0;
     this.overlayEnabled = false;
+    this.faceOverlayEnabled = true;
+    this.bodyHandsOverlayEnabled = true;
     this.overlayConsumer = null;
+    this.lastPrimaryLock = null;
+    this.visionSourceMode = 'camera';
+    this.visionVideo = null;
     this.hiddenAt = null;
     this.visionDisconnectedAt = null;
     this.audioDisconnectedAt = null;
@@ -78,9 +83,17 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     return this.session;
   }
 
-  setInstrumentation({ overlayEnabled = false } = {}) {
+  setInstrumentation({ overlayEnabled = false, faceOverlayEnabled = true, bodyHandsOverlayEnabled = true } = {}) {
     this.overlayEnabled = Boolean(overlayEnabled);
-    this.worker?.postMessage?.({ type: 'instrumentation', generation: this.generation, overlayEnabled: this.overlayEnabled });
+    this.faceOverlayEnabled = Boolean(faceOverlayEnabled);
+    this.bodyHandsOverlayEnabled = Boolean(bodyHandsOverlayEnabled);
+    this.worker?.postMessage?.({
+      type: 'instrumentation',
+      generation: this.generation,
+      overlayEnabled: this.overlayEnabled,
+      faceOverlayEnabled: this.faceOverlayEnabled,
+      bodyHandsOverlayEnabled: this.bodyHandsOverlayEnabled,
+    });
   }
 
   setOverlayConsumer(consumer = null) {
@@ -90,6 +103,8 @@ export class BrowserAnalyticsPipeline extends EventTarget {
 
   beginAnswer({ answerId = null, mediaId = null, mediaStartedAt = null, videoElement = null } = {}) {
     if (this.answer) this.abandonAnswer('superseded');
+    this.visionSourceMode = 'camera';
+    this.visionVideo = null;
     this.answerEpoch += 1;
     this.visionEpoch += 1;
     this.answerSealed = false;
@@ -117,6 +132,52 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     }
     this.dispatch('state', { state: 'running', hasMic, hasCamera, ...this.answer });
     return this.answer;
+  }
+
+  beginPlayback({ videoElement = null } = {}) {
+    if (!videoElement || !Number.isFinite(videoElement.readyState)) throw new TypeError('A playback video element is required.');
+    if (this.answer) this.abandonAnswer('playback_superseded');
+    this.answerEpoch += 1;
+    this.visionEpoch += 1;
+    this.answerSealed = false;
+    this.sealedEndAt = null;
+    this.session = new AnalyticsSession({ sessionId: randomId('communication-playback'), now: this.now });
+    this.visionSourceMode = 'playback';
+    this.visionVideo = videoElement;
+    this.answer = this.session.beginAnswer({ answerId: randomId('playback'), hasMic: false, hasCamera: true });
+    this.hiddenAt = document.hidden ? this.answer.startedAtMs : null;
+    this.visionDisconnectedAt = null;
+    this.audioDisconnectedAt = null;
+    try {
+      this.startVision(videoElement);
+    } catch (error) {
+      this.stopSampling({ terminateWorker: true });
+      this.session.abandonAnswer();
+      this.answer = null;
+      this.session = null;
+      this.visionSourceMode = 'camera';
+      this.visionVideo = null;
+      throw error;
+    }
+    this.dispatch('state', { state: 'running', hasMic: false, hasCamera: true, ephemeralPlayback: true, ...this.answer });
+    return this.answer;
+  }
+
+  endPlayback(reason = 'playback_stopped') {
+    if (this.visionSourceMode !== 'playback' || !this.answer) return false;
+    this.stopSampling({ terminateWorker: false });
+    this.session.abandonAnswer();
+    this.answer = null;
+    this.session = null;
+    this.answerSealed = false;
+    this.sealedEndAt = null;
+    this.hiddenAt = null;
+    this.visionDisconnectedAt = null;
+    this.audioDisconnectedAt = null;
+    this.visionSourceMode = 'camera';
+    this.visionVideo = null;
+    this.dispatch('state', { state: 'idle', reason, ephemeralPlayback: true });
+    return true;
   }
 
   startAudio() {
@@ -162,6 +223,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
   }
 
   startVision(video) {
+    this.visionVideo = video;
     this.frameInFlight = false;
     this.workerErrors = [];
     let generation = this.generation;
@@ -181,6 +243,8 @@ export class BrowserAnalyticsPipeline extends EventTarget {
         wasmRoot: `${VENDOR_ROOT}/wasm`,
         holisticModelUrl: HOLISTIC_MODEL,
         overlayEnabled: this.overlayEnabled,
+        faceOverlayEnabled: this.faceOverlayEnabled,
+        bodyHandsOverlayEnabled: this.bodyHandsOverlayEnabled,
       });
     } else this.worker.postMessage({ type: 'reset', generation, answerEpoch });
     if (!this.faceWorker) {
@@ -204,8 +268,8 @@ export class BrowserAnalyticsPipeline extends EventTarget {
       const delay = Math.round(1_000 / this.targetFps);
       this.visionTimer = setTimeout(async () => {
         if (!this.answer || this.answerSealed || generation !== this.generation || answerEpoch !== this.answerEpoch) return;
-        if (!this.cameraMediaIsLive()) {
-          this.markVisionUnavailable('camera_disconnected');
+        if (!this.visionSourceIsLive(video)) {
+          this.markVisionUnavailable(this.visionSourceMode === 'playback' ? 'playback_stopped' : 'camera_disconnected');
           return;
         }
         const faceSafetySettled = this.faceWorkerReady || !this.faceWorker;
@@ -221,12 +285,12 @@ export class BrowserAnalyticsPipeline extends EventTarget {
             const captureStartedAt = this.now();
             const frameDimensions = visionFrameDimensions(video.videoWidth, video.videoHeight);
             bitmap = await createImageBitmap(video, { resizeWidth: frameDimensions.width, resizeHeight: frameDimensions.height, resizeQuality: 'medium' });
-            if (!this.visionCaptureIsCurrent({ generation, answerEpoch, visionEpoch, captureSequence })) {
+            if (!this.visionCaptureIsCurrent({ generation, answerEpoch, visionEpoch, captureSequence, video })) {
               closeOverlayBitmap(bitmap);
               bitmap = null;
               if (captureSequence === this.visionCaptureSequence) this.frameInFlight = false;
-              if (!this.cameraMediaIsLive()) {
-                this.markVisionUnavailable('camera_disconnected');
+              if (!this.visionSourceIsLive(video)) {
+                this.markVisionUnavailable(this.visionSourceMode === 'playback' ? 'playback_stopped' : 'camera_disconnected');
                 return;
               }
             } else {
@@ -234,14 +298,14 @@ export class BrowserAnalyticsPipeline extends EventTarget {
               const frameId = ++this.frameId;
               if (this.faceWorkerReady && this.faceWorker) {
                 faceBitmap = await createImageBitmap(bitmap);
-                if (!this.visionCaptureIsCurrent({ generation, answerEpoch, visionEpoch, captureSequence })) {
+                if (!this.visionCaptureIsCurrent({ generation, answerEpoch, visionEpoch, captureSequence, video })) {
                   closeOverlayBitmap(faceBitmap);
                   faceBitmap = null;
                   closeOverlayBitmap(bitmap);
                   bitmap = null;
                   if (captureSequence === this.visionCaptureSequence) this.frameInFlight = false;
-                  if (!this.cameraMediaIsLive()) {
-                    this.markVisionUnavailable('camera_disconnected');
+                  if (!this.visionSourceIsLive(video)) {
+                    this.markVisionUnavailable(this.visionSourceMode === 'playback' ? 'playback_stopped' : 'camera_disconnected');
                     return;
                   }
                 } else {
@@ -298,10 +362,20 @@ export class BrowserAnalyticsPipeline extends EventTarget {
       && media.stream?.getVideoTracks?.().some((track) => track.readyState === 'live' && track.enabled && track.muted !== true));
   }
 
-  visionCaptureIsCurrent({ generation, answerEpoch, visionEpoch, captureSequence }) {
+  visionSourceIsLive(video = this.visionVideo) {
+    if (this.visionSourceMode === 'playback') return Boolean(video
+      && video === this.visionVideo
+      && Number.isFinite(video.readyState)
+      && video.readyState >= 2
+      && video.paused !== true
+      && video.ended !== true);
+    return this.cameraMediaIsLive();
+  }
+
+  visionCaptureIsCurrent({ generation, answerEpoch, visionEpoch, captureSequence, video = this.visionVideo }) {
     return Boolean(this.visionCaptureOwnsSlot({ generation, answerEpoch, visionEpoch, captureSequence })
       && !document.hidden
-      && this.cameraMediaIsLive());
+      && this.visionSourceIsLive(video));
   }
 
   visionCaptureOwnsSlot({ generation, answerEpoch, visionEpoch, captureSequence }) {
@@ -313,7 +387,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
       && captureSequence === this.visionCaptureSequence);
   }
 
-  forwardPendingVision(faceCount, generation, answerEpoch, visionEpoch, frameId, timestampMs, faceInferenceMs = null) {
+  forwardPendingVision(faceCount, generation, answerEpoch, visionEpoch, frameId, timestampMs, faceInferenceMs = null, primary = {}) {
     const pending = this.pendingVisionFrame;
     if (!pending || pending.generation !== generation || pending.answerEpoch !== answerEpoch || pending.visionEpoch !== visionEpoch || pending.frameId !== frameId || pending.timestampMs !== timestampMs) return false;
     clearTimeout(this.faceFrameTimer);
@@ -331,6 +405,10 @@ export class BrowserAnalyticsPipeline extends EventTarget {
         expectedFrameMs: pending.expectedFrameMs,
         faceCount: Number.isFinite(faceCount) ? Math.max(0, Math.round(faceCount)) : null,
         faceInferenceMs: Number.isFinite(faceInferenceMs) ? faceInferenceMs : null,
+        primaryTrackId: typeof primary.primaryTrackId === 'string' ? primary.primaryTrackId : null,
+        primaryUsable: primary.primaryUsable === true,
+        primaryRoi: primary.primaryRoi || null,
+        primaryLock: primary.primaryLock || null,
         bitmap: pending.bitmap,
       }, [pending.bitmap]);
       this.armVisionFrameWatchdog(this.inFlightVision);
@@ -389,7 +467,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
   onFaceWorkerMessage(message, generation) {
     if (generation !== this.generation || message.generation !== generation) return;
     if (message.type !== 'init-error' && message.answerEpoch !== undefined && message.answerEpoch !== this.answerEpoch) return;
-    if (['face-count', 'frame-error'].includes(message.type) && message.visionEpoch !== this.visionEpoch) return;
+    if (['primary-lock', 'frame-error'].includes(message.type) && message.visionEpoch !== this.visionEpoch) return;
     if (message.type === 'egress-blocked') {
       this.blockedEgressAttempts += Math.max(1, Number(message.count) || 1);
       this.dispatch('state', { state: 'privacy-guard', blockedEgressAttempts: this.blockedEgressAttempts });
@@ -403,8 +481,15 @@ export class BrowserAnalyticsPipeline extends EventTarget {
       this.dispatch('state', { state: 'vision-ready', multiFaceProtection: true });
       return;
     }
-    if (message.type === 'face-count') {
-      this.forwardPendingVision(message.faceCount, generation, message.answerEpoch, message.visionEpoch, message.frameId, message.timestampMs, message.faceInferenceMs);
+    if (message.type === 'primary-lock') {
+      this.lastPrimaryLock = message.primaryLock || null;
+      this.dispatch('state', { state: 'primary-lock', atMs: message.timestampMs, primaryLock: this.lastPrimaryLock });
+      this.forwardPendingVision(message.faceCount, generation, message.answerEpoch, message.visionEpoch, message.frameId, message.timestampMs, message.faceInferenceMs, message);
+      return;
+    }
+    if (message.type === 'primary-selection-restarted') {
+      this.lastPrimaryLock = message.primaryLock || null;
+      this.dispatch('state', { state: 'primary-lock', atMs: message.timestampMs, primaryLock: this.lastPrimaryLock });
       return;
     }
     if (message.type === 'frame-error') {
@@ -459,13 +544,26 @@ export class BrowserAnalyticsPipeline extends EventTarget {
         return;
       }
       try {
-        this.session.ingestVision({ atMs: message.timestampMs, geometry: message.geometry, inferenceMs: pipelineMs, expectedFrameMs: message.expectedFrameMs });
+        this.session.ingestVision({
+          atMs: message.timestampMs,
+          geometry: message.geometry,
+          primaryLock: message.primaryLock || null,
+          inferenceMs: pipelineMs,
+          expectedFrameMs: message.expectedFrameMs,
+        });
         if (pipelineMs > 180) this.targetFps = Math.max(2, this.targetFps - 2);
         else if (pipelineMs < 70 && this.targetFps < 8) this.targetFps += 1;
         const live = this.visionLiveState();
-        if (bitmap && message.overlayRendered && this.overlayEnabled && this.overlayConsumer) this.overlayConsumer({ bitmap, geometry: message.geometry, atMs: message.timestampMs, primitiveCount: message.overlayPrimitiveCount, pipelineMs });
+        if (bitmap && message.overlayRendered && this.overlayEnabled && this.overlayConsumer) this.overlayConsumer({
+          bitmap,
+          geometry: message.geometry,
+          primaryLock: message.primaryLock || null,
+          atMs: message.timestampMs,
+          primitiveCount: message.overlayPrimitiveCount,
+          pipelineMs,
+        });
         this.dispatch('diagnostic', {
-          modality: 'vision', atMs: message.timestampMs, geometry: message.geometry, live,
+          modality: 'vision', atMs: message.timestampMs, geometry: message.geometry, primaryLock: message.primaryLock || null, live,
           overlayRequested: Boolean(message.overlayRequested), overlayRendered: Boolean(message.overlayRendered),
           overlayPrimitiveCount: Number.isFinite(message.overlayPrimitiveCount) ? message.overlayPrimitiveCount : 0,
           inferenceMs: pipelineMs,
@@ -537,7 +635,15 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.clearVisionFrameWatchdog();
     this.inFlightVision = null;
     this.frameInFlight = false;
+    this.resetEphemeralVisionState();
     this.dispatch('state', { state: 'partial', subsystem, atMs, message: reason });
+  }
+
+  resetEphemeralVisionState() {
+    const message = { type: 'reset', generation: this.generation, answerEpoch: this.answerEpoch };
+    try { this.worker?.postMessage?.(message); } catch {}
+    try { this.faceWorker?.postMessage?.(message); } catch {}
+    this.lastPrimaryLock = null;
   }
 
   markVisionUnavailable(reason) {
@@ -572,7 +678,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.faceWorkerReady = false;
     this.multiFaceProtection = false;
     const pending = this.pendingVisionFrame;
-    if (pending) this.forwardPendingVision(null, pending.generation, pending.answerEpoch, pending.visionEpoch, pending.frameId, pending.timestampMs, null);
+    if (pending) this.forwardPendingVision(null, pending.generation, pending.answerEpoch, pending.visionEpoch, pending.frameId, pending.timestampMs, null, { primaryLock: null });
     this.dispatch('state', {
       state: 'partial', subsystem: 'multi-face-protection',
       atMs: this.answer ? this.session.clock.sessionMs() : null,
@@ -610,6 +716,18 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     return endAt;
   }
 
+  reselectPrimary() {
+    if (!this.answer || this.answerSealed || !this.faceWorker) return false;
+    const timestampMs = this.session.clock.sessionMs();
+    this.faceWorker.postMessage({
+      type: 'reselect-primary',
+      generation: this.generation,
+      answerEpoch: this.answerEpoch,
+      timestampMs,
+    });
+    return true;
+  }
+
   endAnswer({ transcript = '', mediaAvailable = false, endAt = undefined } = {}) {
     if (!this.answer) return null;
     if (!this.answerSealed) this.prepareEnd(endAt ?? this.now());
@@ -643,6 +761,8 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.hiddenAt = null;
     this.audioDisconnectedAt = null;
     this.visionDisconnectedAt = null;
+    this.visionSourceMode = 'camera';
+    this.visionVideo = null;
     this.dispatch('state', { state: 'idle', reason });
     return true;
   }
@@ -657,6 +777,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.inFlightVision = null;
     this.frameInFlight = false;
     this.visionEpoch += 1;
+    if (!terminateWorker) this.resetEphemeralVisionState();
     if (terminateWorker && (this.worker || this.faceWorker)) {
       clearTimeout(this.faceInitTimer);
       this.faceInitTimer = null;
@@ -668,6 +789,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
       this.workerReady = false;
       this.faceWorkerReady = false;
       this.multiFaceProtection = null;
+      this.lastPrimaryLock = null;
     }
   }
 
@@ -683,6 +805,9 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.audioDisconnectedAt = null;
     this.workerErrors = [];
     this.blockedEgressAttempts = 0;
+    this.lastPrimaryLock = null;
+    this.visionSourceMode = 'camera';
+    this.visionVideo = null;
   }
 
   destroy() {
@@ -707,6 +832,8 @@ export class BrowserAnalyticsPipeline extends EventTarget {
       faceWorkerReady: this.faceWorkerReady,
       faceDetectorStatus: this.faceDetectorStatus(),
       multiFaceProtection: this.multiFaceProtection,
+      primaryLock: this.lastPrimaryLock,
+      visionSourceMode: this.visionSourceMode,
       targetFps: this.targetFps,
       droppedFrames: this.droppedFrames,
       workerErrors: [...this.workerErrors],

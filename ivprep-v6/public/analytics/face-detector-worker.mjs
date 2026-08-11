@@ -1,4 +1,11 @@
+import {
+  PrimaryIntervieweeLock,
+  faceDetectionCandidates,
+  primaryLockDiagnostic,
+} from './primary-interviewee-lock.mjs';
+
 let detector = null;
+let primaryLock = null;
 let ready = false;
 let generation = 0;
 let activeAnswerEpoch = 0;
@@ -37,6 +44,7 @@ async function initialize(message) {
     minDetectionConfidence: 0.5,
     minSuppressionThreshold: 0.3,
   });
+  primaryLock = new PrimaryIntervieweeLock();
   ready = true;
   self.postMessage({ type: 'ready', generation, answerEpoch: activeAnswerEpoch });
 }
@@ -47,8 +55,25 @@ function analyze(message) {
   try {
     if (!ready || message.generation !== generation || message.answerEpoch !== activeAnswerEpoch) return;
     const result = detector.detectForVideo(bitmap, message.timestampMs);
-    const faceCount = Array.isArray(result?.detections) ? result.detections.length : null;
-    self.postMessage({ type: 'face-count', generation, answerEpoch: message.answerEpoch, visionEpoch: message.visionEpoch, frameId: message.frameId, timestampMs: message.timestampMs, faceCount, faceInferenceMs: Number((performance.now() - startedAt).toFixed(2)) });
+    const detections = Array.isArray(result?.detections) ? result.detections : [];
+    const lock = primaryLock.update({
+      atMs: message.timestampMs,
+      candidates: faceDetectionCandidates(detections, bitmap.width, bitmap.height),
+    });
+    self.postMessage({
+      type: 'primary-lock',
+      generation,
+      answerEpoch: message.answerEpoch,
+      visionEpoch: message.visionEpoch,
+      frameId: message.frameId,
+      timestampMs: message.timestampMs,
+      faceCount: lock.faceCount,
+      primaryTrackId: lock.primaryTrackId,
+      primaryUsable: lock.primaryUsable,
+      primaryRoi: lock.primaryRoi,
+      primaryLock: primaryLockDiagnostic(lock),
+      faceInferenceMs: Number((performance.now() - startedAt).toFixed(2)),
+    });
   } catch (error) {
     self.postMessage({ type: 'frame-error', generation, answerEpoch: message.answerEpoch, visionEpoch: message.visionEpoch, frameId: message.frameId, timestampMs: message.timestampMs, message: String(error?.message || error).slice(0, 1_000) });
   } finally {
@@ -59,7 +84,20 @@ function analyze(message) {
 function reset(message) {
   if (message.generation !== generation) return;
   activeAnswerEpoch = message.answerEpoch;
+  primaryLock?.reset();
   if (ready) self.postMessage({ type: 'ready', generation, answerEpoch: activeAnswerEpoch });
+}
+
+function reselectPrimary(message) {
+  if (message.generation !== generation || message.answerEpoch !== activeAnswerEpoch || !primaryLock) return;
+  const lock = primaryLock.restartSelection(message.timestampMs);
+  self.postMessage({
+    type: 'primary-selection-restarted',
+    generation,
+    answerEpoch: activeAnswerEpoch,
+    timestampMs: message.timestampMs,
+    primaryLock: primaryLockDiagnostic(lock),
+  });
 }
 
 function shutdown(message) {
@@ -67,6 +105,8 @@ function shutdown(message) {
   ready = false;
   try { detector?.close?.(); } catch {}
   detector = null;
+  primaryLock?.reset();
+  primaryLock = null;
   self.postMessage({ type: 'closed', generation });
   self.close();
 }
@@ -76,5 +116,6 @@ self.onmessage = (event) => {
   if (message.type === 'init') initialize(message).catch((error) => self.postMessage({ type: 'init-error', generation: message.generation, answerEpoch: activeAnswerEpoch, message: String(error?.message || error).slice(0, 1_000) }));
   if (message.type === 'frame') analyze(message);
   if (message.type === 'reset') reset(message);
+  if (message.type === 'reselect-primary') reselectPrimary(message);
   if (message.type === 'shutdown') shutdown(message);
 };

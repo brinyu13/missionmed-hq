@@ -160,24 +160,22 @@ export class AnalyticsSession {
     }
 
     if (vision) {
-      const unavailableBecauseMultiFace = vision.multipleFacesDetected;
       const personSpecificAvailable = vision.personSpecificAvailable;
       const visionQuality = quality({
         coverage: vision.coverage,
         sampleCount: vision.analyzableFrames,
-        available: personSpecificAvailable && !unavailableBecauseMultiFace && vision.coverage > 0,
+        available: personSpecificAvailable && vision.coverage > 0,
         limitations: [
           ...(vision.coverage < 0.8 ? ['insufficient_visual_coverage'] : []),
-          ...(unavailableBecauseMultiFace ? ['multiple_faces_person_specific_signals_suppressed'] : []),
           ...(!vision.multiFaceProtectionAvailable ? ['multi_face_protection_unavailable'] : []),
           ...(vision.trackingGapDetected ? ['visual_tracking_gap'] : []),
           ...(vision.timelineTruncated ? ['visual_episode_timeline_capped'] : []),
         ],
       });
       if (vision.timelineTruncated || vision.trackingGapDetected) visionQuality.reliability = 'low';
-      if (vision.multipleFacesDetected) add({
-        family: 'system', metric: 'multiple_faces_detected', source: SOURCE.faceDetector,
-        observation: { value: true, unit: null, qualifiers: ['person_specific_analysis_suppressed'] },
+      if (vision.maximumBystanderCount > 0) add({
+        family: 'system', metric: 'bystanders_excluded', source: SOURCE.faceDetector,
+        observation: { value: vision.maximumBystanderCount, unit: 'people', qualifiers: ['primary_lock_maintained', 'founder_diagnostic_only', 'no_student_penalty'] },
         eventQuality: quality({ coverage: vision.coverage, sampleCount: vision.analyzableFrames, provenance: 'observed' }),
       });
       if (personSpecificAvailable) {
@@ -212,7 +210,7 @@ export class AnalyticsSession {
         });
       } else add({
         family: 'system', metric: 'observation_gap', source: SOURCE.system,
-        observation: { value: unavailableBecauseMultiFace ? 'multiple_faces' : 'multi_face_protection_unavailable', unit: null, qualifiers: ['person_specific_visual_signals_suppressed'] },
+        observation: { value: vision.primaryLock?.state === 'PRIMARY_SELECTION_REQUIRED' ? 'primary_selection_required' : 'primary_lock_unavailable', unit: null, qualifiers: ['person_specific_visual_signals_withheld'] },
         eventQuality: quality({ available: false, limitations: ['person_specific_visual_signals_suppressed'], provenance: 'unresolved' }),
       });
       for (const episode of vision.episodes.filter((item) => item.metric === 'observation_gap')) add({
@@ -259,6 +257,12 @@ export class AnalyticsSession {
         camera: Object.freeze({ available: active.hasCamera, coverage: vision?.coverage ?? 0, frameCount: vision?.frameCount ?? 0, analyzableFrames: vision?.analyzableFrames ?? 0 }),
       }),
       performance: Object.freeze({ visualInferenceP95Ms: finite(vision?.inferenceP95Ms, 2) }),
+      founderDiagnostics: Object.freeze({
+        primaryIntervieweeLock: vision?.primaryLock ? Object.freeze({
+          ...vision.primaryLock,
+          maximumBystanderCount: Math.max(0, Math.round(Number(vision.maximumBystanderCount) || 0)),
+        }) : null,
+      }),
       events: Object.freeze(events),
       studentEvents: Object.freeze(studentEvents),
       privacy: Object.freeze({ rawAudioStored: false, rawFramesStored: false, rawLandmarksStored: false, externalAnalyticsCalls: false, blockedExternalAttemptCount: Math.max(0, Math.round(Number(blockedExternalAttemptCount) || 0)) }),

@@ -1,11 +1,12 @@
 # Y1-Y2-CAM-V6-3440 exact changed-path manifest
-# Authority: DR-051 and DR-052 at MissionMed OS commit defdac3e67b249d56995eb74c70aeed571823602
+# Authority: DR-051/DR-052 plus DR-056 at MissionMed OS commit b98d3fef02dcfd825e11c8561825f5af5dbd0e25
 # Rollback anchor: 9c1fa72e6b056db8b6fe0e17031fcaa688f78569
-# Product lease epoch: 2
-# Product lease binding: 886ce1044fcff63acd7dbee54adf3bc5a67d7b03ff8ca4e14fac7a30ae83ff45
+# Product lease epoch: 3
+# Product lease binding: 39969379c3a217ba9ff66bb198f13a4e95b090c61596a22caf2f383a62331634
 # Inventory: cumulative exact changed-path inventory through the current 3440 follow-up candidate
 
 _AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3440/LOCAL_INTEGRATION_RECEIPT.md
+_AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3440/PRIMARY_INTERVIEWEE_LOCK_LOCAL_RECEIPT.md
 _AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3440/PRODUCTION_GATES.md
 ivprep-v6/.gitattributes
 ivprep-v6/.gitignore
@@ -68,6 +69,7 @@ ivprep-v6/public/analytics/holistic-worker.mjs
 ivprep-v6/public/analytics/index.mjs
 ivprep-v6/public/analytics/privacy-probe-page.mjs
 ivprep-v6/public/analytics/privacy-probe.html
+ivprep-v6/public/analytics/primary-interviewee-lock.mjs
 ivprep-v6/public/analytics/results-projection.mjs
 ivprep-v6/public/analytics/session-clock.mjs
 ivprep-v6/public/analytics/signal-registry.mjs
@@ -139,6 +141,7 @@ ivprep-v6/test/analytics/fixture-seal.test.mjs
 ivprep-v6/test/analytics/founder-cockpit.test.mjs
 ivprep-v6/test/analytics/performance-bound.test.mjs
 ivprep-v6/test/analytics/privacy-lifecycle.test.mjs
+ivprep-v6/test/analytics/primary-interviewee-lock.test.mjs
 ivprep-v6/test/analytics/results-projection.test.mjs
 ivprep-v6/test/analytics/session-clock.test.mjs
 ivprep-v6/test/analytics/signal-registry.test.mjs

@@ -36,6 +36,11 @@ const FOUNDER_INSTRUMENTATION_CONTROLS = Object.freeze([
   Object.freeze(['communication-analytics-show-timeline', ' Synchronized timeline', 'communication-analytics-timeline']),
 ]);
 
+const FOUNDER_OVERLAY_LAYER_CONTROLS = Object.freeze([
+  Object.freeze(['communication-analytics-show-face-overlay', ' Face overlay']),
+  Object.freeze(['communication-analytics-show-body-hands-overlay', ' Body + hands overlay']),
+]);
+
 export function founderRunPlan(modeId = 'guided') {
   return FOUNDER_RUN_MODES[modeId] || FOUNDER_RUN_MODES.guided;
 }
@@ -127,9 +132,357 @@ const TIMING_BUCKET_COUNT = Math.floor(TIMING_BUCKET_MAX_MS / TIMING_BUCKET_WIDT
 export const FOUNDER_DIAGNOSTIC_CONTRACT = Object.freeze({
   clock: 'Every diagnostic detail must include finite, non-negative atMs on the analytics session clock before it can enter the synchronized live timeline.',
   audio: Object.freeze(['modality', 'atMs', 'available', 'rmsDb|rms', 'peak', 'clippingFraction|clippedFraction', 'speaking', 'pauseInProgressMs', 'frameCount']),
-  vision: Object.freeze(['modality', 'atMs', 'geometry', 'geometry.faceCount', 'live', 'overlayRendered', 'overlayPrimitiveCount', 'inferenceMs', 'targetFps', 'droppedFrames']),
-  overlay: 'The Holistic worker renders actual current-frame MediaPipe geometry to a transient transparent ImageBitmap. Raw coordinates never cross the worker boundary. The bitmap is delivered only to the Founder overlay consumer, drawn synchronously, then closed. Missing, stale, multi-face, or unprotected input clears the overlay.',
+  vision: Object.freeze(['modality', 'atMs', 'geometry', 'geometry.faceCount', 'geometry.primaryAssociated', 'primaryLock', 'live', 'overlayRendered', 'overlayPrimitiveCount', 'inferenceMs', 'targetFps', 'droppedFrames']),
+  overlay: 'The dedicated same-session workers may transiently transfer a padded primary ROI and render current-frame MediaPipe geometry to a transparent ImageBitmap. Raw frames, crops, coordinates, and anonymous track identifiers are never persisted or sent over a network. The bitmap is drawn only on the student video surface, then closed. Missing, stale, or unassociated primary input clears the overlay.',
 });
+
+export function studentSurfaceOverlayContract({
+  studentSurfaceId = 'communication-analytics-preview',
+  overlaySurfaceId = 'communication-analytics-overlay',
+  layoutMode = 'native',
+  studentPrimary = true,
+  mirrored = false,
+  playback = false,
+} = {}) {
+  const mode = String(layoutMode || 'native').toLowerCase();
+  if (!['native', 'zoom', 'webex', 'teams'].includes(mode)) throw new TypeError('Unknown interview layout mode.');
+  const studentId = String(studentSurfaceId || '').trim();
+  const overlayId = String(overlaySurfaceId || '').trim();
+  if (!studentId || !overlayId || studentId === overlayId) throw new TypeError('Student and overlay surfaces must be distinct and named.');
+  return Object.freeze({
+    studentSurfaceId: studentId,
+    overlaySurfaceId: overlayId,
+    layoutMode: mode,
+    studentLayoutRole: studentPrimary ? 'primary' : 'inset',
+    anchor: 'student-video',
+    mirrorTransform: mirrored ? 'scaleX(-1)' : 'none',
+    playback: Boolean(playback),
+    remainsStudentAnchored: true,
+  });
+}
+
+export function studentOverlayDrawRect(bitmapWidth, bitmapHeight, surfaceWidth, surfaceHeight) {
+  if (![bitmapWidth, bitmapHeight, surfaceWidth, surfaceHeight].every((value) => Number.isFinite(value) && value > 0)) return null;
+  const scale = Math.max(surfaceWidth / bitmapWidth, surfaceHeight / bitmapHeight);
+  const width = bitmapWidth * scale;
+  const height = bitmapHeight * scale;
+  return Object.freeze({ width, height, left: (surfaceWidth - width) / 2, top: (surfaceHeight - height) / 2 });
+}
+
+function interviewLayoutMode(meetwrap) {
+  for (const mode of ['zoom', 'webex', 'teams']) if (meetwrap?.classList?.contains?.(`mp-${mode}`)) return mode;
+  return 'native';
+}
+
+export class StudentSurfaceOverlayController {
+  constructor({ pipeline, playbackPipeline, documentRef = globalThis.document, scheduleMicrotask = (callback) => queueMicrotask(callback) } = {}) {
+    if (!pipeline || !playbackPipeline) throw new TypeError('Live and playback analytics pipelines are required.');
+    this.pipeline = pipeline;
+    this.playbackPipeline = playbackPipeline;
+    this.document = documentRef;
+    this.scheduleMicrotask = scheduleMicrotask;
+    this.policy = Object.freeze({ authorized: false, enabled: false, face: false, bodyHands: false, studentPrimary: true });
+    this.view = null;
+    this.role = null;
+    this.mode = null;
+    this.video = null;
+    this.stage = null;
+    this.overlay = null;
+    this.controls = null;
+    this.playbackWrapper = null;
+    this.playbackParent = null;
+    this.playbackNextSibling = null;
+    this.layoutObserver = null;
+    this.boundPlaybackStart = () => this.startPlayback();
+    this.boundPlaybackStop = () => this.stopPlayback('playback_paused');
+    this.boundPlaybackSeeking = () => this.stopPlayback('playback_seek');
+    this.boundPlaybackSeeked = () => {
+      this.stopPlayback('playback_seeked');
+      if (this.video?.paused === false && this.video?.ended !== true) this.startPlayback();
+    };
+    this.pipeline.setOverlayConsumer?.((payload) => this.consumeOverlay(payload, 'live'));
+    this.playbackPipeline.setOverlayConsumer?.((payload) => this.consumeOverlay(payload, 'playback'));
+    this.applyInstrumentation();
+  }
+
+  configure({ authorized = false, enabled = false, face = true, bodyHands = true, studentPrimary = true } = {}) {
+    this.policy = Object.freeze({
+      authorized: authorized === true,
+      enabled: authorized === true && enabled === true,
+      face: authorized === true && enabled === true && face === true,
+      bodyHands: authorized === true && enabled === true && bodyHands === true,
+      studentPrimary: studentPrimary !== false,
+    });
+    this.applyInstrumentation();
+    this.routeSurface();
+    return this.snapshot();
+  }
+
+  snapshot() {
+    return Object.freeze({
+      active: this.policy.enabled,
+      face: this.policy.face,
+      bodyHands: this.policy.bodyHands,
+      view: this.view,
+      surface: this.mode,
+      studentLayoutRole: this.overlay?.dataset?.studentLayoutRole || 'inset',
+    });
+  }
+
+  applyInstrumentation() {
+    const options = {
+      overlayEnabled: this.policy.enabled && (this.policy.face || this.policy.bodyHands),
+      faceOverlayEnabled: this.policy.face,
+      bodyHandsOverlayEnabled: this.policy.bodyHands,
+    };
+    this.pipeline.setInstrumentation?.(options);
+    this.playbackPipeline.setInstrumentation?.(options);
+    if (!options.overlayEnabled) this.clearOverlay();
+  }
+
+  onViewChange(view, role) {
+    this.view = String(view || '');
+    this.role = String(role || '');
+    this.routeSurface();
+  }
+
+  routeSurface() {
+    if (!this.policy.enabled) {
+      this.unbindSurface();
+      return;
+    }
+    if (this.view === 'room') {
+      this.bindLiveSurface();
+      return;
+    }
+    if (this.view === 'results') {
+      this.unbindSurface();
+      this.scheduleMicrotask(() => {
+        if (this.policy.enabled && this.view === 'results') this.bindPlaybackSurface();
+      });
+      return;
+    }
+    this.unbindSurface();
+  }
+
+  createOverlay(stage, id) {
+    const overlay = this.document.createElement('canvas');
+    overlay.id = id;
+    overlay.className = 'ca-student-surface-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.dataset.overlayLayer = 'student-analytics';
+    stage.append(overlay);
+    return overlay;
+  }
+
+  createControls(stage, includeSwap) {
+    const controls = this.document.createElement('div');
+    controls.className = 'ca-student-overlay-controls';
+    controls.setAttribute('role', 'group');
+    controls.setAttribute('aria-label', 'Student tracking overlay controls');
+    const button = (label, key, pressed) => {
+      const control = this.document.createElement('button');
+      control.type = 'button';
+      control.textContent = label;
+      control.dataset.overlayControl = key;
+      control.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+      control.addEventListener('click', (event) => {
+        event.stopPropagation?.();
+        if (key === 'swap') this.toggleStudentPrimary();
+        else this.toggleOverlayPart(key);
+      });
+      controls.append(control);
+    };
+    button('Face', 'face', this.policy.face);
+    button('Body / Hands', 'bodyHands', this.policy.bodyHands);
+    if (includeSwap) button('Swap student / interviewer', 'swap', this.policy.studentPrimary);
+    stage.append(controls);
+    return controls;
+  }
+
+  bindLiveSurface() {
+    const video = this.document.getElementById('pipvid');
+    const stage = this.document.getElementById('selfpip');
+    const room = this.document.getElementById('roomstage');
+    if (!video || !stage || !room) {
+      this.unbindSurface();
+      return false;
+    }
+    if (this.mode === 'live' && this.video === video && this.stage === stage) {
+      this.syncSurfaceContract();
+      return true;
+    }
+    this.unbindSurface();
+    this.mode = 'live';
+    this.video = video;
+    this.stage = stage;
+    room.classList.toggle('ca-student-primary', this.policy.studentPrimary);
+    this.overlay = this.createOverlay(stage, 'communication-analytics-student-live-overlay');
+    this.controls = this.createControls(stage, true);
+    this.observeLayout([this.document.getElementById('meetwrap'), room, stage, video]);
+    this.syncSurfaceContract();
+    return true;
+  }
+
+  bindPlaybackSurface() {
+    const video = this.document.getElementById('playback');
+    if (!video || !video.parentNode) return false;
+    if (this.mode === 'playback' && this.video === video) {
+      this.syncSurfaceContract();
+      return true;
+    }
+    this.unbindSurface();
+    const parent = video.parentNode;
+    const nextSibling = video.nextSibling;
+    const wrapper = this.document.createElement('div');
+    wrapper.className = 'ca-student-playback-stage';
+    parent.insertBefore(wrapper, video);
+    wrapper.append(video);
+    this.mode = 'playback';
+    this.video = video;
+    this.stage = wrapper;
+    this.playbackWrapper = wrapper;
+    this.playbackParent = parent;
+    this.playbackNextSibling = nextSibling;
+    this.overlay = this.createOverlay(wrapper, 'communication-analytics-student-playback-overlay');
+    this.controls = this.createControls(wrapper, false);
+    for (const event of ['play', 'playing']) video.addEventListener(event, this.boundPlaybackStart);
+    for (const event of ['pause', 'ended', 'emptied']) video.addEventListener(event, this.boundPlaybackStop);
+    video.addEventListener('seeking', this.boundPlaybackSeeking);
+    video.addEventListener('seeked', this.boundPlaybackSeeked);
+    this.observeLayout([video, wrapper]);
+    this.syncSurfaceContract();
+    if (video.paused === false && video.ended !== true) this.startPlayback();
+    return true;
+  }
+
+  observeLayout(nodes) {
+    const Observer = this.document?.defaultView?.MutationObserver || globalThis.MutationObserver;
+    if (typeof Observer !== 'function') return;
+    this.layoutObserver = new Observer(() => this.syncSurfaceContract());
+    for (const node of nodes.filter(Boolean)) this.layoutObserver.observe(node, { attributes: true, attributeFilter: ['class', 'style'] });
+  }
+
+  syncSurfaceContract() {
+    if (!this.overlay || !this.video) return null;
+    const meetwrap = this.document.getElementById('meetwrap');
+    const room = this.document.getElementById('roomstage');
+    const transform = String(this.video.style?.transform || this.document.defaultView?.getComputedStyle?.(this.video)?.transform || 'none');
+    const contract = studentSurfaceOverlayContract({
+      studentSurfaceId: this.video.id,
+      overlaySurfaceId: this.overlay.id,
+      layoutMode: interviewLayoutMode(meetwrap),
+      studentPrimary: this.mode === 'playback' || room?.classList?.contains?.('ca-student-primary'),
+      mirrored: transform.includes('scaleX(-1)') || /^matrix\(-1,/u.test(transform),
+      playback: this.mode === 'playback',
+    });
+    this.overlay.dataset.anchorSurface = contract.studentSurfaceId;
+    this.overlay.dataset.layoutMode = contract.layoutMode;
+    this.overlay.dataset.studentLayoutRole = contract.studentLayoutRole;
+    this.overlay.dataset.playback = String(contract.playback);
+    this.overlay.style.transform = contract.mirrorTransform;
+    this.overlay.style.transformOrigin = 'center';
+    this.controls?.querySelector?.('[data-overlay-control="swap"]')?.setAttribute?.('aria-pressed', contract.studentLayoutRole === 'primary' ? 'true' : 'false');
+    return contract;
+  }
+
+  toggleOverlayPart(key) {
+    if (!['face', 'bodyHands'].includes(key)) return false;
+    this.policy = Object.freeze({ ...this.policy, [key]: !this.policy[key] });
+    this.controls?.querySelector?.(`[data-overlay-control="${key}"]`)?.setAttribute?.('aria-pressed', this.policy[key] ? 'true' : 'false');
+    this.applyInstrumentation();
+    return true;
+  }
+
+  toggleStudentPrimary() {
+    if (this.mode !== 'live') return false;
+    const room = this.document.getElementById('roomstage');
+    if (!room) return false;
+    const primary = !room.classList.contains('ca-student-primary');
+    room.classList.toggle('ca-student-primary', primary);
+    this.policy = Object.freeze({ ...this.policy, studentPrimary: primary });
+    this.syncSurfaceContract();
+    return true;
+  }
+
+  startPlayback() {
+    if (this.mode !== 'playback' || !this.policy.enabled || !this.video || this.video.paused === true || this.video.ended === true) return false;
+    if (this.playbackPipeline.diagnostics?.().active) return true;
+    try {
+      this.playbackPipeline.beginPlayback({ videoElement: this.video });
+      return true;
+    } catch {
+      this.clearOverlay();
+      return false;
+    }
+  }
+
+  stopPlayback(reason = 'playback_stopped') {
+    this.clearOverlay();
+    return this.playbackPipeline.endPlayback?.(reason) || false;
+  }
+
+  consumeOverlay({ bitmap } = {}, source) {
+    if (!this.policy.enabled || source !== this.mode || !bitmap || !this.overlay || !this.video) {
+      this.clearOverlay();
+      return false;
+    }
+    const width = Math.max(1, Math.round(this.video.clientWidth || this.video.videoWidth || this.stage?.clientWidth || 1));
+    const height = Math.max(1, Math.round(this.video.clientHeight || this.video.videoHeight || this.stage?.clientHeight || 1));
+    const bitmapWidth = Number(bitmap.width);
+    const bitmapHeight = Number(bitmap.height);
+    const rect = studentOverlayDrawRect(bitmapWidth, bitmapHeight, width, height);
+    const context = this.overlay.getContext?.('2d');
+    if (!context || !rect) {
+      this.clearOverlay();
+      return false;
+    }
+    this.overlay.width = width;
+    this.overlay.height = height;
+    context.clearRect(0, 0, width, height);
+    context.drawImage(bitmap, rect.left, rect.top, rect.width, rect.height);
+    this.syncSurfaceContract();
+    return true;
+  }
+
+  clearOverlay() {
+    const context = this.overlay?.getContext?.('2d');
+    if (context) context.clearRect(0, 0, this.overlay.width || 0, this.overlay.height || 0);
+  }
+
+  unbindSurface() {
+    this.stopPlayback('surface_unbound');
+    if (this.video && this.mode === 'playback') {
+      for (const event of ['play', 'playing']) this.video.removeEventListener(event, this.boundPlaybackStart);
+      for (const event of ['pause', 'ended', 'emptied']) this.video.removeEventListener(event, this.boundPlaybackStop);
+      this.video.removeEventListener('seeking', this.boundPlaybackSeeking);
+      this.video.removeEventListener('seeked', this.boundPlaybackSeeked);
+    }
+    this.layoutObserver?.disconnect?.();
+    this.layoutObserver = null;
+    this.overlay?.remove?.();
+    this.controls?.remove?.();
+    if (this.playbackWrapper && this.video && this.playbackParent) {
+      this.playbackParent.insertBefore(this.video, this.playbackNextSibling || this.playbackWrapper);
+      this.playbackWrapper.remove?.();
+    }
+    if (this.mode === 'live') this.document.getElementById('roomstage')?.classList?.remove?.('ca-student-primary');
+    this.mode = null;
+    this.video = null;
+    this.stage = null;
+    this.overlay = null;
+    this.controls = null;
+    this.playbackWrapper = null;
+    this.playbackParent = null;
+    this.playbackNextSibling = null;
+  }
+
+  destroy() {
+    this.unbindSurface();
+    this.pipeline.setOverlayConsumer?.(null);
+    this.playbackPipeline.setOverlayConsumer?.(null);
+  }
+}
 
 export function founderDiagnosticAtMs(detail) {
   return Number.isFinite(detail?.atMs) && detail.atMs >= 0 ? Math.round(detail.atMs) : null;
@@ -252,7 +605,9 @@ export function founderFaceProtectionStatus(detail = {}, diagnostics = {}) {
   const capabilityReady = detectorStatus === 'ready'
     && diagnostics?.multiFaceProtection === true
     && diagnostics?.faceWorkerReady !== false;
-  const guardReady = capabilityReady && faceCount === 1;
+  const primaryLock = detail?.primaryLock || diagnostics?.primaryLock || null;
+  const primaryAssociated = detail?.geometry?.primaryAssociated === true;
+  const guardReady = capabilityReady && primaryLock?.state === 'PRIMARY_LOCKED' && primaryAssociated;
   let label;
   if (detectorStatus === 'unavailable') {
     label = 'FACE DETECTOR UNAVAILABLE · FACE COUNT UNKNOWN · PERSON-SPECIFIC ANALYTICS + OVERLAY SUPPRESSED';
@@ -264,17 +619,25 @@ export function founderFaceProtectionStatus(detail = {}, diagnostics = {}) {
     label = 'FACE DETECTOR READY · FACE COUNT UNKNOWN · PERSON-SPECIFIC ANALYTICS + OVERLAY SUPPRESSED';
   } else if (faceCount === 0) {
     label = 'FACE DETECTOR READY · FACE COUNT 0 · NO PERSON DETECTED · PERSON-SPECIFIC ANALYTICS + OVERLAY SUPPRESSED';
-  } else if (faceCount === 1) {
-    label = 'FACE COUNT 1 · EXACTLY-ONE-PERSON GUARD READY';
+  } else if (guardReady && faceCount > 1) {
+    label = `PRIMARY INTERVIEWEE LOCKED · ${faceCount - 1} BYSTANDER${faceCount - 1 === 1 ? '' : 'S'} EXCLUDED · PERSON-SPECIFIC ANALYTICS CONTINUE`;
+  } else if (guardReady) {
+    label = 'PRIMARY INTERVIEWEE LOCKED · NO BYSTANDER PRESENT';
+  } else if (primaryLock?.state === 'PRIMARY_SELECTION_REQUIRED') {
+    label = 'PRIMARY SELECTION REQUIRED · USE LOCK TO ME / RESELECT PRIMARY · PERSON-SPECIFIC ANALYTICS WITHHELD';
+  } else if (['PRIMARY_TEMPORARILY_OCCLUDED', 'REACQUIRING'].includes(primaryLock?.state)) {
+    label = `${primaryLock.state.replaceAll('_', ' ')} · CONTINUITY RETAINED · PERSON-SPECIFIC ANALYTICS TEMPORARILY WITHHELD`;
   } else {
-    label = `FACE DETECTOR READY · FACE COUNT 2+ (${faceCount} DETECTED) · MULTIPLE PEOPLE DETECTED · PERSON-SPECIFIC ANALYTICS + OVERLAY SUPPRESSED`;
+    label = `PRIMARY INTERVIEWEE ${primaryLock?.state?.replaceAll?.('_', ' ') || 'SEARCHING'} · PERSON-SPECIFIC ANALYTICS WITHHELD UNTIL LOCKED`;
   }
-  return Object.freeze({ detectorStatus, faceCount, capabilityReady, guardReady, suppressed: !guardReady, label });
+  return Object.freeze({ detectorStatus, faceCount, capabilityReady, guardReady, primaryLock, suppressed: !guardReady, label });
 }
 
 export function founderOverlayGeometry(detail, { multiFaceProtection = false } = {}) {
   const geometry = detail?.modality === 'vision' ? detail.geometry : null;
-  if (!multiFaceProtection || !geometry || geometry.faceCount !== 1) return null;
+  const associated = geometry?.primaryAssociated === true
+    || (geometry?.primaryAssociated === undefined && !detail?.primaryLock && geometry?.faceCount === 1);
+  if (!multiFaceProtection || !geometry || !associated) return null;
   return geometry;
 }
 
@@ -494,6 +857,7 @@ export class FounderAnalyticsSurface {
     this.overlayError = null;
     this.lastOverlayPrimitiveCount = 0;
     this.lastTrackingSummary = '';
+    this.lastPrimaryLock = null;
     this.pipeline.addEventListener('diagnostic', (event) => {
       this.consumeDiagnostic(event.detail || {});
     });
@@ -517,6 +881,11 @@ export class FounderAnalyticsSurface {
     overlay.id = 'communication-analytics-overlay';
     overlay.className = 'ca-tracking-overlay';
     overlay.setAttribute('aria-hidden', 'true');
+    preview.dataset.interviewParticipant = 'student';
+    previewStage.dataset.interviewLayout = 'native';
+    previewStage.dataset.studentLayoutRole = 'primary';
+    overlay.dataset.anchorSurface = preview.id;
+    overlay.dataset.overlayLayer = 'student-analytics';
     previewStage.append(preview, overlay);
     media.append(previewStage);
     const status = element('div', 'ca-status', 'Connect camera and microphone to begin. Nothing is measured while idle.');
@@ -540,7 +909,19 @@ export class FounderAnalyticsSurface {
     finish.id = 'communication-analytics-finish';
     finish.disabled = true;
     finish.addEventListener('click', () => this.finish('manual'));
-    actions.append(connect, start, finish);
+    const reselect = element('button', 'btnGhost', 'LOCK TO ME / RESELECT PRIMARY');
+    reselect.type = 'button';
+    reselect.id = 'communication-analytics-reselect-primary';
+    reselect.disabled = true;
+    reselect.setAttribute('aria-label', 'Restart primary interviewee selection from the central strike zone');
+    reselect.addEventListener('click', () => {
+      if (!this.pipeline.reselectPrimary?.()) return;
+      this.lastPrimaryLock = Object.freeze({ state: 'SEARCHING', selectionRequired: false, continuity: 'explicit_selection_restart' });
+      this.setStatus('running', 'PRIMARY RESELECTION STARTED · Center yourself in the camera. Person-specific analytics remain withheld until the lock is stable.', { announce: true });
+      this.updatePrimarySelectionControl();
+      this.scheduleInstrumentationRender();
+    });
+    actions.append(connect, start, reselect, finish);
     media.append(actions);
 
     const controls = element('div', 'ca-stack');
@@ -666,6 +1047,12 @@ export class FounderAnalyticsSurface {
       }
       control.disabled = Boolean(locked);
     }
+    for (const [id] of FOUNDER_OVERLAY_LAYER_CONTROLS) {
+      const control = document.getElementById(id);
+      if (!control) continue;
+      if (locked) control.checked = true;
+      control.disabled = Boolean(locked);
+    }
     if (locked) this.configureOverlay(true);
     this.scheduleInstrumentationRender();
   }
@@ -699,6 +1086,12 @@ export class FounderAnalyticsSurface {
     rawControl.input.setAttribute('aria-controls', 'communication-analytics-diagnostics');
     rawControl.input.addEventListener('change', () => this.renderDiagnostics());
     toggles.append(rawControl.label);
+    for (const [id, label] of FOUNDER_OVERLAY_LAYER_CONTROLS) {
+      const control = toggleControl(id, label, true);
+      control.input.setAttribute('aria-controls', 'communication-analytics-overlay');
+      control.input.addEventListener('change', () => this.configureOverlay());
+      toggles.append(control.label);
+    }
     cockpit.append(toggles);
 
     const tracking = element('div', 'ca-tracking-status');
@@ -715,7 +1108,7 @@ export class FounderAnalyticsSurface {
     gauges.setAttribute('aria-labelledby', 'communication-analytics-gauges-title');
     const gaugesTitle = element('h3', '', 'Head + posture proxies');
     gaugesTitle.id = 'communication-analytics-gauges-title';
-    gauges.append(gaugesTitle, element('p', 'ca-instrument-note', 'Camera-relative geometric proxies; unavailable whenever exactly-one-person protection is not ready.'));
+    gauges.append(gaugesTitle, element('p', 'ca-instrument-note', 'Camera-relative geometric proxies for the locked primary interviewee only; bystanders are excluded and never become a student penalty.'));
     gauges.append(
       gauge('communication-analytics-yaw-gauge', 'Head yaw proxy', -45, 45),
       gauge('communication-analytics-pitch-gauge', 'Head pitch proxy', -30, 30),
@@ -775,14 +1168,31 @@ export class FounderAnalyticsSurface {
     return cockpit;
   }
 
-  configureOverlay(enabled) {
+  configureOverlay(enabled = document.getElementById('communication-analytics-show-overlay')?.checked !== false) {
     const overlay = document.getElementById('communication-analytics-overlay');
     overlay?.classList.toggle('ca-hidden', !enabled);
-    try { this.pipeline.setInstrumentation?.({ overlayEnabled: Boolean(enabled) }); } catch {}
+    const faceOverlayEnabled = document.getElementById('communication-analytics-show-face-overlay')?.checked !== false;
+    const bodyHandsOverlayEnabled = document.getElementById('communication-analytics-show-body-hands-overlay')?.checked !== false;
+    try { this.pipeline.setInstrumentation?.({ overlayEnabled: Boolean(enabled), faceOverlayEnabled, bodyHandsOverlayEnabled }); } catch {}
     if (!enabled) this.clearOverlay();
   }
 
+  updatePrimarySelectionControl() {
+    const control = globalThis.document?.getElementById?.('communication-analytics-reselect-primary');
+    if (!control) return;
+    const cameraReady = this.bridge ? this.cameraIsLive() : true;
+    control.disabled = this.state !== 'running' || !cameraReady;
+    control.classList?.toggle?.('ca-selection-required', this.lastPrimaryLock?.state === 'PRIMARY_SELECTION_REQUIRED');
+    control.textContent = this.lastPrimaryLock?.state === 'PRIMARY_SELECTION_REQUIRED'
+      ? 'LOCK TO ME / RESELECT PRIMARY — REQUIRED'
+      : 'LOCK TO ME / RESELECT PRIMARY';
+  }
+
   consumePipelineState(detail) {
+    if (detail?.state === 'primary-lock') {
+      this.lastPrimaryLock = detail.primaryLock || null;
+      this.updatePrimarySelectionControl();
+    }
     if (detail?.state === 'partial') {
       const atMs = founderDiagnosticAtMs(detail);
       if (['vision', 'multi-face-protection', 'all'].includes(detail?.subsystem)) {
@@ -803,6 +1213,8 @@ export class FounderAnalyticsSurface {
       this.clearOverlay();
       if (this.overlayExpiryTimer) clearTimeout(this.overlayExpiryTimer);
       this.overlayExpiryTimer = null;
+      this.lastPrimaryLock = null;
+      this.updatePrimarySelectionControl();
     }
     this.renderDiagnostics();
     this.scheduleInstrumentationRender();
@@ -845,6 +1257,8 @@ export class FounderAnalyticsSurface {
     }
 
     if (modality === 'vision') {
+      this.lastPrimaryLock = detail.primaryLock || this.lastPrimaryLock;
+      this.updatePrimarySelectionControl();
       const freshness = founderVisionDiagnosticFreshness(detail);
       if (!freshness.fresh) {
         if (this.overlayExpiryTimer) clearTimeout(this.overlayExpiryTimer);
@@ -903,10 +1317,10 @@ export class FounderAnalyticsSurface {
     this.scheduleInstrumentationRender();
   }
 
-  consumeOverlay({ bitmap, geometry, atMs, primitiveCount = 0, pipelineMs = null } = {}) {
+  consumeOverlay({ bitmap, geometry, primaryLock = null, atMs, primitiveCount = 0, pipelineMs = null } = {}) {
     const diagnostics = this.pipeline.diagnostics();
     const enabled = document.getElementById('communication-analytics-show-overlay')?.checked !== false;
-    const detail = { modality: 'vision', geometry };
+    const detail = { modality: 'vision', geometry, primaryLock };
     const protection = founderFaceProtectionStatus(detail, diagnostics);
     const protectedGeometry = founderOverlayGeometry(detail, { multiFaceProtection: protection.guardReady });
     const freshness = founderVisionDiagnosticFreshness({ atMs, inferenceMs: pipelineMs });
@@ -1285,6 +1699,7 @@ export class FounderAnalyticsSurface {
     this.overlayError = null;
     this.lastOverlayPrimitiveCount = 0;
     this.lastTrackingSummary = '';
+    this.lastPrimaryLock = null;
     this.instrumentationCosts = this.newInstrumentationCosts();
     this.clearOverlay();
     for (const id of ['communication-analytics-audio-waveform', 'communication-analytics-live-timeline']) {
@@ -1528,6 +1943,11 @@ export class FounderAnalyticsSurface {
     if (energyVariation && Number.isFinite(energyVariation.observation?.value)) {
       pad.append(element('div', 'ca-status', `FOUNDER EXPERIMENTAL · energy_variation_db ${Number(energyVariation.observation.value).toFixed(2)} dB IQR across this answer · captured energy only · delivery quality not inferred · never included in student projection.`));
     }
+    const primaryLock = result?.founderDiagnostics?.primaryIntervieweeLock;
+    if (primaryLock) {
+      const intervals = (primaryLock.withheldIntervals || []).map((interval) => `${formatDuration(interval.startMs)}–${formatDuration(interval.endMs)} ${interval.reason}`).join(' · ') || 'NONE';
+      pad.append(element('div', 'ca-status', `FOUNDER DIAGNOSTIC ONLY · PRIMARY ${primaryLock.state} · MAXIMUM BYSTANDERS ${primaryLock.maximumBystanderCount ?? 0} · EXACT WITHHELD ${primaryLock.excludedDurationMs ?? 0} ms · REACQUISITIONS ${primaryLock.reacquisitionCount ?? 0} · INTERVALS ${intervals} · NO STUDENT PENALTY.`));
+    }
     const list = element('div', 'ca-event-list');
     for (const event of (result?.events || [])) {
       const row = element('div', 'ca-event');
@@ -1548,7 +1968,7 @@ export class FounderAnalyticsSurface {
     }
     pad.append(list);
     const cockpitPerformance = this.completedInstrumentationPerformance;
-    pad.append(element('div', 'ca-privacy', `PRIVACY RECEIPT · analytics raw audio/frames/landmarks retained: NO · optional local replay: ${this.replayUrl ? 'YES — TAB MEMORY ONLY' : 'NO'} · external analytics egress: BLOCKED BY SAME-ORIGIN WORKER GUARD + CSP · full visual pipeline p95 (includes worker rendering): ${result?.performance?.visualInferenceP95Ms ?? 'UNRESOLVED'} ms · Founder cockpit run-wide p95 (0.25 ms histogram) overlay blit/audio/timeline/frame: ${cockpitPerformance?.overlay?.p95Ms ?? 'UNRESOLVED'}/${cockpitPerformance?.audio?.p95Ms ?? 'UNRESOLVED'}/${cockpitPerformance?.timeline?.p95Ms ?? 'UNRESOLVED'}/${cockpitPerformance?.frame?.p95Ms ?? 'UNRESOLVED'} ms`));
+    pad.append(element('div', 'ca-privacy', `PRIVACY RECEIPT · analytics raw audio/frames/crops/landmarks/anonymous track identifiers retained: NO · transient worker ROI transfer: SAME-SESSION MEMORY ONLY · optional local replay: ${this.replayUrl ? 'YES — TAB MEMORY ONLY' : 'NO'} · external analytics egress: BLOCKED BY SAME-ORIGIN WORKER GUARD + CSP · full visual pipeline p95 (includes worker rendering): ${result?.performance?.visualInferenceP95Ms ?? 'UNRESOLVED'} ms · Founder cockpit run-wide p95 (0.25 ms histogram) overlay blit/audio/timeline/frame: ${cockpitPerformance?.overlay?.p95Ms ?? 'UNRESOLVED'}/${cockpitPerformance?.audio?.p95Ms ?? 'UNRESOLVED'}/${cockpitPerformance?.timeline?.p95Ms ?? 'UNRESOLVED'}/${cockpitPerformance?.frame?.p95Ms ?? 'UNRESOLVED'} ms`));
     if (this.replayUrl) {
       const replay = element('video', 'ca-preview');
       replay.id = 'communication-analytics-founder-replay';
@@ -1622,6 +2042,7 @@ export class FounderAnalyticsSurface {
       status.setAttribute('aria-live', state === 'running' && !announce ? 'off' : 'polite');
     }
     this.updateStartAvailability();
+    this.updatePrimarySelectionControl();
     this.scheduleInstrumentationRender();
   }
 
@@ -1647,6 +2068,7 @@ export class FounderAnalyticsSurface {
       : protection.detectorStatus === 'initializing' ? 'WAITING FOR FACE DETECTOR' : diagnostics.workerReady ? 'COLLECTING' : 'UNAVAILABLE';
     box.textContent = [
       `Engine · active ${diagnostics.active} · vision ${this.visionUnavailableReason ? 'UNAVAILABLE' : diagnostics.workerReady ? 'READY' : 'WAITING/UNAVAILABLE'} · ${protection.label} · target ${diagnostics.targetFps} FPS · dropped ${diagnostics.droppedFrames}`,
+      `Primary lock · state ${protection.primaryLock?.state || 'UNAVAILABLE'} · zone ${protection.primaryLock?.zoneStatus || 'UNAVAILABLE'} · continuity ${protection.primaryLock?.continuity || 'UNAVAILABLE'} · bystanders excluded ${protection.primaryLock?.bystanderCount ?? 'UNAVAILABLE'} · exact withheld ${protection.primaryLock?.excludedDurationMs ?? 'UNAVAILABLE'} ms · reacquisitions ${protection.primaryLock?.reacquisitionCount ?? 'UNAVAILABLE'}`,
       `Voice · level ${voiceDb === null ? 'UNAVAILABLE' : voiceDb.toFixed(1) + ' dBFS'} · clipping ${clipped === null ? 'UNAVAILABLE' : (clipped * 100).toFixed(1) + '%'} · detected speech ${audio.speaking ?? 'UNAVAILABLE'} · silence in progress ${Number.isFinite(audio.pauseInProgressMs) ? (audio.pauseInProgressMs / 1000).toFixed(1) + 's' : 'UNAVAILABLE'} · bounded live energy variation ${energyVariation === null ? 'UNAVAILABLE' : energyVariation.toFixed(1) + ' dB IQR'} (last 180 level frames; captured energy only; FOUNDER EXPERIMENTAL) · PITCH UNAVAILABLE WITHOUT VALIDATED F0 INPUT · WPM UNAVAILABLE WITHOUT VALIDATED TRANSCRIPT`,
       `Body · torso ${geometry?.pose?.torsoPresent ?? 'UNAVAILABLE'} · lateral lean ${geometry?.pose?.lateralLeanDeg ?? 'UNAVAILABLE'}° · left hand ${geometry?.hands?.left?.present ?? 'UNAVAILABLE'} (${geometry?.hands?.left?.zone ?? 'UNAVAILABLE'}) · right hand ${geometry?.hands?.right?.present ?? 'UNAVAILABLE'} (${geometry?.hands?.right?.zone ?? 'UNAVAILABLE'})`,
       `Face · present ${geometry?.face?.present ?? 'UNAVAILABLE'} · head yaw/pitch/roll ${geometry?.face?.yawProxyDeg ?? 'UNAVAILABLE'}/${geometry?.face?.pitchProxyDeg ?? 'UNAVAILABLE'}/${geometry?.face?.rollProxyDeg ?? 'UNAVAILABLE'}° · movement rate ${geometry?.face?.movementRatePerSecond ?? 'UNAVAILABLE'} score-change/s · full pipeline ${vision.inferenceMs ?? 'UNAVAILABLE'} ms (face ${vision.faceInferenceMs ?? 'UNAVAILABLE'} ms · Holistic ${vision.holisticInferenceMs ?? 'UNAVAILABLE'} ms) · overlay ${this.visionStale ? 'UNAVAILABLE/STALE' : this.overlayError ? `FAILED (${this.overlayError})` : vision.overlayRequested ? (vision.overlayRendered ? `RENDERED (${vision.overlayPrimitiveCount ?? this.lastOverlayPrimitiveCount ?? 0} transient worker-drawn primitives)` : 'UNAVAILABLE') : 'OFF'}`,
@@ -1660,22 +2082,24 @@ export class FounderAnalyticsSurface {
 
 export function initializeAnalyticsUi(bridge) {
   const pipeline = new BrowserAnalyticsPipeline({ bridge });
+  const playbackPipeline = new BrowserAnalyticsPipeline({ bridge });
   const founderPipeline = new BrowserAnalyticsPipeline({ bridge });
   const root = document.getElementById('communication-analytics-test-root');
   const founder = root ? new FounderAnalyticsSurface({ root, pipeline: founderPipeline, bridge }) : null;
+  const studentOverlay = new StudentSurfaceOverlayController({ pipeline, playbackPipeline });
   const api = Object.freeze({
     beginAnswer: (options) => pipeline.beginAnswer(options),
     prepareEnd: (endAt) => pipeline.prepareEnd(endAt),
     endAnswer: (options) => pipeline.endAnswer(options),
     abandonAnswer: (reason) => pipeline.abandonAnswer(reason),
     renderStudentResults: renderStudentAnalytics,
-    onViewChange: (view, role) => founder?.onViewChange(view, role),
+    onViewChange: (view, role) => { studentOverlay.onViewChange(view, role);founder?.onViewChange(view, role); },
     diagnostics: () => pipeline.diagnostics(),
     persistentEnvelopes: (value) => persistentAnalyticsEnvelopes(value),
-    resetSession: () => pipeline.resetSession(),
-    releaseRuntime: () => pipeline.resetSession(),
-    destroy: () => { founder?.clear({ render: false });founderPipeline.destroy();pipeline.destroy(); },
+    resetSession: () => { playbackPipeline.endPlayback('session_reset');pipeline.resetSession(); },
+    releaseRuntime: () => { playbackPipeline.endPlayback('runtime_released');pipeline.resetSession(); },
+    destroy: () => { studentOverlay.destroy();founder?.clear({ render: false });founderPipeline.destroy();playbackPipeline.destroy();pipeline.destroy(); },
   });
-  window.addEventListener('pagehide', () => { founder?.clear({ render: false });founderPipeline.destroy();pipeline.destroy(); }, { once: true });
+  window.addEventListener('pagehide', () => { studentOverlay.destroy();founder?.clear({ render: false });founderPipeline.destroy();playbackPipeline.destroy();pipeline.destroy(); }, { once: true });
   return api;
 }

@@ -21,21 +21,31 @@ test('worker installs same-origin egress guards before importing MediaPipe',asyn
   }
 });
 
-test('FaceDetector and Holistic use isolated workers and join only bounded face count',async()=>{
+test('FaceDetector and Holistic use isolated workers and join only ephemeral primary-lock evidence',async()=>{
   const pipeline=await read('public/analytics/browser-pipeline.mjs');
   const holistic=await read('public/analytics/holistic-worker.mjs');
   const face=await read('public/analytics/face-detector-worker.mjs');
   assert.match(pipeline,/new Worker\(`\/analytics\/holistic-worker\.mjs\?v=\$\{WORKER_REVISION\}`/u);
   assert.match(pipeline,/new Worker\(`\$\{FACE_WORKER\}\?v=\$\{WORKER_REVISION\}`/u);
-  assert.match(face,/type: 'face-count'[\s\S]{0,180}faceCount/u);
+  assert.match(face,/type: 'primary-lock'[\s\S]{0,260}faceCount[\s\S]{0,260}primaryRoi/u);
+  assert.match(face,/primaryLockDiagnostic\(lock\)/u);
   assert.doesNotMatch(face,/postMessage\([\s\S]{0,120}(?:landmarks|detections):/iu);
   assert.match(holistic,/new OffscreenCanvas\(width, height\)/u);
+  assert.match(holistic,/holistic\.detectForVideo\(inferenceSurface, message\.timestampMs\)/u);
+  assert.match(holistic,/remapPrimaryResult\(/u);
+  assert.match(holistic,/primaryAssociated: Boolean\(result\)/u);
+  assert.match(holistic,/if \(faceOverlayEnabled\)[\s\S]{0,900}if \(bodyHandsOverlayEnabled\)/u);
   assert.match(holistic,/canvas\.transferToImageBitmap\(\)/u);
   assert.match(holistic,/self\.postMessage\(response, overlayBitmap \? \[overlayBitmap\] : \[\]\)/u);
   assert.doesNotMatch(holistic,/Float32Array|overlayVectors|connectionVectors/iu);
   assert.doesNotMatch(pipeline,/overlayVectors|ArrayBuffer\.isView/iu);
-  assert.match(pipeline,/this\.overlayConsumer\(\{ bitmap, geometry:/u);
+  assert.match(pipeline,/this\.overlayConsumer\(\{[\s\S]{0,120}bitmap,[\s\S]{0,120}geometry,[\s\S]{0,120}primaryLock:/u);
   assert.match(pipeline,/finally \{\s*closeOverlayBitmap\(bitmap\);/u);
+  assert.match(holistic,/inferenceContext\?\.clearRect\?\./u);
+  assert.match(pipeline,/invalidateVision[\s\S]{0,500}this\.resetEphemeralVisionState\(\)/u);
+  assert.match(pipeline,/if \(!terminateWorker\) this\.resetEphemeralVisionState\(\)/u);
+  assert.match(face,/primaryLock\?\.reset\(\)/u);
+  assert.match(holistic,/priorPrimaryTrackId = null/u);
 });
 
 test('server keeps analytics same-origin with explicit worker and WASM policy',async()=>{

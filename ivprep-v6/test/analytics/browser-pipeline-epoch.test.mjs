@@ -157,12 +157,16 @@ test('same-frame FaceDetector result is joined before Holistic inference',()=>{
   pipeline.worker={postMessage(message,transfer){posted.push({message,transfer})},terminate(){}};
   pipeline.pendingVisionFrame={bitmap,generation:pipeline.generation,answerEpoch:pipeline.answerEpoch,visionEpoch:pipeline.visionEpoch,frameId:7,timestampMs:125,expectedFrameMs:125,captureStartedAt:0};
   pipeline.frameInFlight=true;
-  now=20;pipeline.onFaceWorkerMessage({type:'face-count',generation:pipeline.generation,answerEpoch:pipeline.answerEpoch,visionEpoch:pipeline.visionEpoch,frameId:7,timestampMs:125,faceCount:1,faceInferenceMs:18},pipeline.generation);
+  const lock={state:'PRIMARY_LOCKED',zoneStatus:'primary_inside',continuity:'locked',bystanderCount:0,excludedDurationMs:0,reacquisitionCount:0,selectionRequired:false,withheldIntervals:[]};
+  now=20;pipeline.onFaceWorkerMessage({type:'primary-lock',generation:pipeline.generation,answerEpoch:pipeline.answerEpoch,visionEpoch:pipeline.visionEpoch,frameId:7,timestampMs:125,faceCount:1,primaryTrackId:'primary-1',primaryUsable:true,primaryRoi:{left:.1,top:.1,width:.8,height:.8},primaryLock:lock,faceInferenceMs:18},pipeline.generation);
   assert.equal(posted.length,1);
   assert.equal(posted[0].message.faceCount,1);
   assert.equal(posted[0].message.frameId,7);
   assert.equal(posted[0].message.timestampMs,125);
   assert.equal(posted[0].message.faceInferenceMs,18);
+  assert.equal(posted[0].message.primaryTrackId,'primary-1');
+  assert.equal(posted[0].message.primaryUsable,true);
+  assert.deepEqual(posted[0].message.primaryLock,lock);
   assert.deepEqual(posted[0].transfer,[bitmap]);
   assert.equal(pipeline.pendingVisionFrame,null);
   pipeline.destroy();
@@ -189,11 +193,16 @@ test('face timeout disables the safety worker and cannot queue another face fram
 test('hidden or disconnected vision invalidates every older reply and closes its overlay',()=>{
   let now=0;const pipeline=new BrowserAnalyticsPipeline({bridge:{media:{}},now:()=>now});
   pipeline.beginAnswer({answerId:'a'});
+  const resets=[];
+  pipeline.worker={postMessage:(message)=>resets.push(['holistic',message]),terminate(){}};
+  pipeline.faceWorker={postMessage:(message)=>resets.push(['face',message]),terminate(){}};
   const oldVisionEpoch=pipeline.visionEpoch;let closed=0;let diagnostics=0;
   pipeline.addEventListener('diagnostic',()=>{diagnostics+=1});
   pipeline.inFlightVision={generation:pipeline.generation,answerEpoch:pipeline.answerEpoch,visionEpoch:oldVisionEpoch,frameId:9,timestampMs:100,captureStartedAt:0};
   pipeline.frameInFlight=true;
   pipeline.invalidateVision('document_hidden');
+  assert.deepEqual(resets.map(([worker,message])=>[worker,message.type,message.answerEpoch]),[['holistic','reset',pipeline.answerEpoch],['face','reset',pipeline.answerEpoch]]);
+  assert.equal(pipeline.diagnostics().primaryLock,null);
   now=200;pipeline.onWorkerMessage({
     type:'geometry',generation:pipeline.generation,answerEpoch:pipeline.answerEpoch,visionEpoch:oldVisionEpoch,frameId:9,timestampMs:100,expectedFrameMs:125,
     geometry:{faceCount:1,face:{present:false},pose:{torsoPresent:false},hands:{}},overlayBitmap:{close(){closed+=1}},overlayRendered:true,
@@ -516,17 +525,69 @@ test('Holistic-ready startup waits for FaceDetector protection before the first 
     assert.ok(faceFrame);
     assert.equal(holisticWorker.messages.some((message)=>message.type==='frame'),false);
 
-    pipeline.onFaceWorkerMessage({...faceFrame,type:'face-count',faceCount:1,faceInferenceMs:5},pipeline.generation);
+    const primaryLock={state:'PRIMARY_LOCKED',zoneStatus:'primary_inside',continuity:'locked',bystanderCount:0,excludedDurationMs:0,reacquisitionCount:0,selectionRequired:false,withheldIntervals:[]};
+    pipeline.onFaceWorkerMessage({...faceFrame,type:'primary-lock',faceCount:1,primaryTrackId:'primary-1',primaryUsable:true,primaryRoi:{left:.1,top:.1,width:.8,height:.8},primaryLock,faceInferenceMs:5},pipeline.generation);
     const holisticFrame=holisticWorker.messages.find((message)=>message.type==='frame');
     assert.equal(holisticFrame.faceCount,1);
     pipeline.onWorkerMessage({
       type:'geometry',generation:pipeline.generation,answerEpoch:pipeline.answerEpoch,visionEpoch:holisticFrame.visionEpoch,
       frameId:holisticFrame.frameId,timestampMs:holisticFrame.timestampMs,expectedFrameMs:holisticFrame.expectedFrameMs,
-      geometry:{faceCount:1,face:{present:true,yawProxyDeg:0,pitchProxyDeg:0,rollProxyDeg:0,movementRatePerSecond:0},pose:{torsoPresent:false},hands:{}},
+      geometry:{faceCount:1,primaryAssociated:true,face:{present:true,yawProxyDeg:0,pitchProxyDeg:0,rollProxyDeg:0,movementRatePerSecond:0},pose:{torsoPresent:false},hands:{}},
+      primaryLock,
       overlayRendered:false,
     },pipeline.generation);
     assert.equal(pipeline.session.vision.multiFaceProtectionUnavailableFrames,0);
     assert.equal(pipeline.session.vision.personSpecificFrames,1);
+  }finally{
+    pipeline.destroy();
+    if(priorWorker===undefined)delete globalThis.Worker;else globalThis.Worker=priorWorker;
+    if(priorCreateImageBitmap===undefined)delete globalThis.createImageBitmap;else globalThis.createImageBitmap=priorCreateImageBitmap;
+    globalThis.setTimeout=priorSetTimeout;
+    globalThis.clearTimeout=priorClearTimeout;
+  }
+});
+
+test('G: playback uses the same FaceDetector-to-primary-ROI worker path and leaves no result session',async()=>{
+  const priorWorker=globalThis.Worker;
+  const priorCreateImageBitmap=globalThis.createImageBitmap;
+  const priorSetTimeout=globalThis.setTimeout;
+  const priorClearTimeout=globalThis.clearTimeout;
+  const scheduled=[];const workers=[];const captureSources=[];
+  globalThis.setTimeout=(callback,delay)=>{scheduled.push({callback,delay});return scheduled.length};
+  globalThis.clearTimeout=()=>{};
+  globalThis.Worker=class FakeWorker{
+    constructor(_url,options={}){this.name=options.name;this.messages=[];workers.push(this)}
+    postMessage(message){this.messages.push(message)}
+    terminate(){}
+  };
+  globalThis.createImageBitmap=async(source)=>{captureSources.push(source);return {width:480,height:270,close(){}}};
+  const video={readyState:4,paused:false,ended:false,videoWidth:640,videoHeight:360};
+  const pipeline=new BrowserAnalyticsPipeline({bridge:{media:{}},now:()=>0});
+  try{
+    pipeline.setInstrumentation({overlayEnabled:true,faceOverlayEnabled:true,bodyHandsOverlayEnabled:false});
+    pipeline.beginPlayback({videoElement:video});
+    assert.equal(pipeline.diagnostics().visionSourceMode,'playback');
+    pipeline.workerReady=true;
+    pipeline.onFaceWorkerMessage({type:'ready',generation:pipeline.generation,answerEpoch:pipeline.answerEpoch},pipeline.generation);
+    const captureIndex=scheduled.findIndex((item)=>item.delay===125);
+    await scheduled.splice(captureIndex,1)[0].callback();
+    assert.equal(captureSources[0],video);
+    const faceWorker=workers.find((worker)=>worker.name?.includes('face-safety'));
+    const holisticWorker=workers.find((worker)=>worker.name?.startsWith('communication-analytics-'));
+    const faceFrame=faceWorker.messages.find((message)=>message.type==='frame');
+    const primaryLock={state:'PRIMARY_LOCKED',zoneStatus:'primary_inside',continuity:'locked_bystander_excluded',bystanderCount:1,excludedDurationMs:0,reacquisitionCount:0,selectionRequired:false,withheldIntervals:[]};
+    pipeline.onFaceWorkerMessage({...faceFrame,type:'primary-lock',faceCount:2,primaryTrackId:'primary-1',primaryUsable:true,primaryRoi:{left:.1,top:.05,width:.8,height:.9},primaryLock,faceInferenceMs:4},pipeline.generation);
+    const holisticFrame=holisticWorker.messages.find((message)=>message.type==='frame');
+    assert.equal(holisticFrame.faceCount,2);
+    assert.equal(holisticFrame.primaryTrackId,'primary-1');
+    assert.equal(holisticFrame.primaryUsable,true);
+    assert.equal(holisticFrame.bodyHandsOverlayEnabled,undefined);
+    assert.deepEqual(holisticFrame.primaryLock,primaryLock);
+    video.paused=true;
+    assert.equal(pipeline.endPlayback('playback_paused'),true);
+    assert.equal(pipeline.diagnostics().active,false);
+    assert.equal(pipeline.diagnostics().visionSourceMode,'camera');
+    assert.equal(pipeline.session,null);
   }finally{
     pipeline.destroy();
     if(priorWorker===undefined)delete globalThis.Worker;else globalThis.Worker=priorWorker;

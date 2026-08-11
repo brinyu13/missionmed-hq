@@ -21,6 +21,8 @@ function compact(overrides = {}) {
   };
 }
 
+const primaryLock=(overrides={})=>({state:'PRIMARY_LOCKED',zoneStatus:'primary_inside',continuity:'locked',bystanderCount:0,excludedDurationMs:0,reacquisitionCount:0,selectionRequired:false,withheldIntervals:[],...overrides});
+
 test('derives bounded geometry without raw landmarks', () => {
   const value = deriveCompactGeometry(sourceResult(), { faceCount: 1 });
   assert.equal(value.face.present, true);
@@ -49,6 +51,21 @@ test('multi-face and unresolved face protection fail closed', () => {
     const result=analyzer.finish(1_000);
     assert.equal(result.personSpecificAvailable,false);
   }
+});
+
+test('locked primary geometry remains analyzable when a bystander is present',()=>{
+  const analyzer=new VisionEpisodeAnalyzer();analyzer.begin(0);
+  for(let at=0;at<1_000;at+=125)analyzer.ingest({
+    atMs:at,
+    geometry:compact({faceCount:2,primaryAssociated:true}),
+    primaryLock:primaryLock({bystanderCount:1,continuity:'locked_bystander_excluded'}),
+  });
+  const result=analyzer.finish(1_000);
+  assert.equal(result.personSpecificAvailable,true);
+  assert.equal(result.facePresenceRatio,1);
+  assert.equal(result.maximumBystanderCount,1);
+  assert.equal(result.bystanderFrames,8);
+  assert.equal(result.primaryLock.bystanderCount,1);
 });
 
 test('static facial geometry is not facial movement and gaps break episodes', () => {

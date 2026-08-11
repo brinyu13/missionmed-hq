@@ -8,6 +8,7 @@ import {
   FOUNDER_RUN_MODES,
   FOUNDER_TIMELINE_LEVEL_CAPACITY,
   FounderAnalyticsSurface,
+  StudentSurfaceOverlayController,
   appendFounderTimelineTransition,
   boundedFounderHistory,
   createFounderTimingAccumulator,
@@ -26,6 +27,8 @@ import {
   founderScalePresentation,
   founderVisionDiagnosticFreshness,
   recordFounderTiming,
+  studentSurfaceOverlayContract,
+  studentOverlayDrawRect,
 } from '../../public/analytics/ui.mjs';
 
 const ROOT = new URL('../../', import.meta.url);
@@ -187,18 +190,22 @@ test('Founder completed-run cleanup releases owned media and the local WASM sess
   assert.equal(preview.srcObject, null);
 });
 
-test('Founder face safety distinguishes zero, one, multiple, unknown, and unavailable', () => {
+test('Founder primary lock distinguishes searching, locked with bystanders, unknown, and unavailable', () => {
   const ready = { faceDetectorStatus: 'ready', faceWorkerReady: true, multiFaceProtection: true };
-  const detail = (faceCount) => ({ modality: 'vision', geometry: { faceCount } });
+  const detail = (faceCount, state='SEARCHING', bystanderCount=0, primaryAssociated=false) => ({
+    modality: 'vision',
+    geometry: { faceCount, primaryAssociated },
+    primaryLock: { state, bystanderCount, zoneStatus:'primary_inside', continuity: primaryAssociated?'locked':'searching', selectionRequired:false },
+  });
   const zero = founderFaceProtectionStatus(detail(0), ready);
   assert.equal(zero.guardReady, false);
   assert.match(zero.label, /FACE COUNT 0.*NO PERSON DETECTED.*SUPPRESSED/u);
-  const one = founderFaceProtectionStatus(detail(1), ready);
+  const one = founderFaceProtectionStatus(detail(1,'PRIMARY_LOCKED',0,true), ready);
   assert.equal(one.guardReady, true);
-  assert.equal(one.label, 'FACE COUNT 1 · EXACTLY-ONE-PERSON GUARD READY');
-  const multiple = founderFaceProtectionStatus(detail(3), ready);
-  assert.equal(multiple.guardReady, false);
-  assert.match(multiple.label, /FACE COUNT 2\+ \(3 DETECTED\).*MULTIPLE PEOPLE.*SUPPRESSED/u);
+  assert.equal(one.label, 'PRIMARY INTERVIEWEE LOCKED · NO BYSTANDER PRESENT');
+  const multiple = founderFaceProtectionStatus(detail(3,'PRIMARY_LOCKED',2,true), ready);
+  assert.equal(multiple.guardReady, true);
+  assert.match(multiple.label, /PRIMARY INTERVIEWEE LOCKED · 2 BYSTANDERS EXCLUDED · PERSON-SPECIFIC ANALYTICS CONTINUE/u);
   const unknown = founderFaceProtectionStatus(detail(null), ready);
   assert.equal(unknown.faceCount, null);
   assert.match(unknown.label, /FACE COUNT UNKNOWN.*SUPPRESSED/u);
@@ -210,11 +217,11 @@ test('Founder face safety distinguishes zero, one, multiple, unknown, and unavai
   assert.match(initializing.label, /INITIALIZING.*PENDING GUARD/u);
 });
 
-test('Founder live tracking status prints the finite face count and suppression state', () => {
+test('Founder live tracking status keeps the primary active while bystanders are excluded', () => {
   const surface = Object.create(FounderAnalyticsSurface.prototype);
   surface.state = 'running';
   surface.visionUnavailableReason = null;
-  surface.lastDiagnostic = { vision: { geometry: { faceCount: 2 }, live: {} } };
+  surface.lastDiagnostic = { vision: { geometry: { faceCount: 2, primaryAssociated:true }, primaryLock:{state:'PRIMARY_LOCKED',bystanderCount:1,continuity:'locked_bystander_excluded'}, live: {} } };
   surface.lastTrackingSummary = '';
   const status = { textContent: '' };
   const priorDocument = globalThis.document;
@@ -226,8 +233,8 @@ test('Founder live tracking status prints the finite face count and suppression 
   } finally {
     if (priorDocument === undefined) delete globalThis.document; else globalThis.document = priorDocument;
   }
-  assert.match(status.textContent, /FACE COUNT 2\+ \(2 DETECTED\).*PERSON-SPECIFIC ANALYTICS \+ OVERLAY SUPPRESSED/u);
-  assert.doesNotMatch(status.textContent, /EXACTLY-ONE-PERSON GUARD READY/u);
+  assert.match(status.textContent, /PRIMARY INTERVIEWEE LOCKED · 1 BYSTANDER EXCLUDED · PERSON-SPECIFIC ANALYTICS CONTINUE/u);
+  assert.doesNotMatch(status.textContent, /SUPPRESSED/u);
 });
 
 test('Founder live energy variation is a bounded experimental IQR', () => {
@@ -331,8 +338,9 @@ test('a late vision result cannot redraw or reopen stale rows, while a later fre
   surface.clearOverlay = () => {};
   surface.renderDiagnostics = () => {};
   surface.scheduleInstrumentationRender = () => {};
-  const geometry = { faceCount: 1, face: { present: true }, pose: { torsoPresent: false }, hands: {} };
-  surface.consumeDiagnostic({ modality: 'vision', atMs: 250, inferenceMs: 1_500, geometry, overlayRendered: true });
+  const geometry = { faceCount: 1, primaryAssociated:true, face: { present: true }, pose: { torsoPresent: false }, hands: {} };
+  const primaryLock={state:'PRIMARY_LOCKED',bystanderCount:0,selectionRequired:false};
+  surface.consumeDiagnostic({ modality: 'vision', atMs: 250, inferenceMs: 1_500, geometry, primaryLock, overlayRendered: true });
   assert.equal(surface.timelineStates.get('visionAvailable'), false);
   assert.equal(surface.timelineStates.get('face'), false);
   assert.match(surface.visionUnavailableReason, /stale/u);
@@ -340,7 +348,7 @@ test('a late vision result cannot redraw or reopen stale rows, while a later fre
   const priorDocument = globalThis.document;
   globalThis.document = { getElementById: () => null };
   try {
-    surface.consumeDiagnostic({ modality: 'vision', atMs: 2_000, inferenceMs: 50, geometry, live: {}, overlayRendered: false });
+    surface.consumeDiagnostic({ modality: 'vision', atMs: 2_000, inferenceMs: 50, geometry, primaryLock, live: {}, overlayRendered: false });
   } finally {
     if (priorDocument === undefined) delete globalThis.document; else globalThis.document = priorDocument;
   }
@@ -355,7 +363,7 @@ test('a late vision result cannot redraw or reopen stale rows, while a later fre
   surface.clearOverlay = () => { clears += 1; };
   globalThis.document = { getElementById: () => ({ checked: true }) };
   try {
-    surface.consumeOverlay({ bitmap: {}, geometry, atMs: 250, pipelineMs: 1_500 });
+    surface.consumeOverlay({ bitmap: {}, geometry, primaryLock, atMs: 250, pipelineMs: 1_500 });
   } finally {
     if (priorDocument === undefined) delete globalThis.document; else globalThis.document = priorDocument;
   }
@@ -378,14 +386,15 @@ test('a near-stale vision result receives only its remaining live-display budget
   surface.clearOverlay = () => {};
   surface.renderDiagnostics = () => {};
   surface.scheduleInstrumentationRender = () => {};
-  const geometry = { faceCount: 1, face: { present: true }, pose: { torsoPresent: false }, hands: {} };
+  const geometry = { faceCount: 1, primaryAssociated:true, face: { present: true }, pose: { torsoPresent: false }, hands: {} };
+  const primaryLock={state:'PRIMARY_LOCKED',bystanderCount:0,selectionRequired:false};
   const priorDocument = globalThis.document;
   const priorSetTimeout = globalThis.setTimeout;
   let scheduledDelay = null;
   globalThis.document = { getElementById: () => ({ checked: true }) };
   globalThis.setTimeout = (_callback, delay) => { scheduledDelay = delay;return 1; };
   try {
-    surface.consumeDiagnostic({ modality: 'vision', atMs: 2_000, inferenceMs: 900, geometry, live: {}, overlayRendered: true });
+    surface.consumeDiagnostic({ modality: 'vision', atMs: 2_000, inferenceMs: 900, geometry, primaryLock, live: {}, overlayRendered: true });
   } finally {
     if (priorDocument === undefined) delete globalThis.document; else globalThis.document = priorDocument;
     globalThis.setTimeout = priorSetTimeout;
@@ -393,7 +402,7 @@ test('a near-stale vision result receives only its remaining live-display budget
   assert.equal(scheduledDelay, 100);
 });
 
-test('fresh zero or multi-face counts remain explicit for one second, then expire to unknown', () => {
+test('fresh bystander exclusion remains explicit for one second, then expires to unknown', () => {
   const surface = Object.create(FounderAnalyticsSurface.prototype);
   surface.state = 'running';
   surface.pipeline = { diagnostics: () => ({ faceDetectorStatus: 'ready', faceWorkerReady: true, multiFaceProtection: true }) };
@@ -415,11 +424,11 @@ test('fresh zero or multi-face counts remain explicit for one second, then expir
   globalThis.document = { getElementById: () => ({ checked: true }) };
   globalThis.setTimeout = (callback, delay) => { expiry = callback;scheduledDelay = delay;return 1; };
   try {
-    surface.consumeDiagnostic({ modality: 'vision', atMs: 2_000, inferenceMs: 50, geometry: { faceCount: 2, face: { present: true }, pose: {}, hands: {} }, live: {}, overlayRendered: false });
+    surface.consumeDiagnostic({ modality: 'vision', atMs: 2_000, inferenceMs: 50, geometry: { faceCount: 2, primaryAssociated:true, face: { present: true }, pose: {}, hands: {} }, primaryLock:{state:'PRIMARY_LOCKED',bystanderCount:1,continuity:'locked_bystander_excluded',selectionRequired:false}, live: {}, overlayRendered: false });
     assert.equal(surface.visionDiagnosticStale, false);
     assert.equal(surface.visionUnavailableReason, null);
     assert.equal(scheduledDelay, 950);
-    assert.match(founderFaceProtectionStatus(surface.lastDiagnostic.vision, surface.pipeline.diagnostics()).label, /FACE COUNT 2\+.*SUPPRESSED/u);
+    assert.match(founderFaceProtectionStatus(surface.lastDiagnostic.vision, surface.pipeline.diagnostics()).label, /1 BYSTANDER EXCLUDED.*ANALYTICS CONTINUE/u);
     expiry();
   } finally {
     if (priorDocument === undefined) delete globalThis.document; else globalThis.document = priorDocument;
@@ -442,15 +451,106 @@ test('Founder scale copy preserves actual out-of-range values while bounding onl
   });
 });
 
-test('Founder person-specific geometry fails closed without exactly-one-person protection', () => {
-  const geometry = { faceCount: 1, face: { present: true }, pose: {}, hands: {} };
-  const detail = { modality: 'vision', geometry };
+test('Founder person-specific geometry fails closed without primary association and accepts bystanders with the same primary', () => {
+  const geometry = { faceCount: 1, primaryAssociated:true, face: { present: true }, pose: {}, hands: {} };
+  const detail = { modality: 'vision', geometry, primaryLock:{state:'PRIMARY_LOCKED'} };
   assert.equal(founderOverlayGeometry(detail), null);
   assert.equal(founderOverlayGeometry(detail, { multiFaceProtection: false }), null);
-  assert.equal(founderOverlayGeometry({ ...detail, geometry: { ...geometry, faceCount: 0 } }, { multiFaceProtection: true }), null);
-  assert.equal(founderOverlayGeometry({ ...detail, geometry: { ...geometry, faceCount: 2 } }, { multiFaceProtection: true }), null);
+  assert.equal(founderOverlayGeometry({ ...detail, geometry: { ...geometry, faceCount: 0, primaryAssociated:false } }, { multiFaceProtection: true }), null);
+  const bystanderGeometry={...geometry,faceCount:2};
+  assert.equal(founderOverlayGeometry({ ...detail, geometry: bystanderGeometry }, { multiFaceProtection: true }), bystanderGeometry);
   assert.equal(founderOverlayGeometry({ modality: 'audio', geometry }, { multiFaceProtection: true }), null);
   assert.equal(founderOverlayGeometry(detail, { multiFaceProtection: true }), geometry);
+});
+
+test('G/H: the operational overlay stays on the actual student surface through swap, mirror, playback, and independent toggles',()=>{
+  class FakeNode{
+    constructor(tag='div'){
+      this.tagName=tag.toUpperCase();this.children=[];this.parentNode=null;this.style={};this.dataset={};this.attributes=new Map();this.listeners=new Map();this._classes=new Set();this._className='';
+      this.clientWidth=640;this.clientHeight=360;this.videoWidth=640;this.videoHeight=360;this.readyState=4;this.paused=true;this.ended=false;this.width=0;this.height=0;
+      this.context={clears:0,draws:[],clearRect:()=>{this.context.clears+=1},drawImage:(...args)=>this.context.draws.push(args)};
+      this.classList={add:(...names)=>{names.forEach((name)=>this._classes.add(name));this._className=[...this._classes].join(' ')},remove:(...names)=>{names.forEach((name)=>this._classes.delete(name));this._className=[...this._classes].join(' ')},contains:(name)=>this._classes.has(name),toggle:(name,force)=>{const next=force===undefined?!this._classes.has(name):Boolean(force);if(next)this._classes.add(name);else this._classes.delete(name);this._className=[...this._classes].join(' ');return next}};
+    }
+    set className(value){this._className=String(value);this._classes=new Set(this._className.split(/\s+/u).filter(Boolean))}
+    get className(){return this._className}
+    get nextSibling(){if(!this.parentNode)return null;const index=this.parentNode.children.indexOf(this);return this.parentNode.children[index+1]||null}
+    append(...nodes){for(const node of nodes){node.remove?.();node.parentNode=this;this.children.push(node)}}
+    insertBefore(node,reference){node.remove?.();node.parentNode=this;const index=reference?this.children.indexOf(reference):-1;if(index<0)this.children.push(node);else this.children.splice(index,0,node)}
+    remove(){if(!this.parentNode)return;const index=this.parentNode.children.indexOf(this);if(index>=0)this.parentNode.children.splice(index,1);this.parentNode=null}
+    setAttribute(name,value){this.attributes.set(name,String(value))}
+    getAttribute(name){return this.attributes.get(name)??null}
+    addEventListener(type,listener){const items=this.listeners.get(type)||[];items.push(listener);this.listeners.set(type,items)}
+    removeEventListener(type,listener){this.listeners.set(type,(this.listeners.get(type)||[]).filter((item)=>item!==listener))}
+    dispatch(type){for(const listener of this.listeners.get(type)||[])listener({type,stopPropagation(){}})}
+    querySelector(selector){const match=/^\[data-overlay-control="([^"]+)"\]$/u.exec(selector);if(match&&this.dataset.overlayControl===match[1])return this;for(const child of this.children){const found=child.querySelector?.(selector);if(found)return found}return null}
+    getContext(type){return this.tagName==='CANVAS'&&type==='2d'?this.context:null}
+  }
+  const nodes=new Map();
+  const register=(id,tag='div')=>{const node=new FakeNode(tag);node.id=id;nodes.set(id,node);return node};
+  const documentRef={createElement:(tag)=>new FakeNode(tag),getElementById:(id)=>nodes.get(id)||null,defaultView:{getComputedStyle:(node)=>({transform:node.style.transform||'none'})}};
+  const meetwrap=register('meetwrap');meetwrap.classList.add('mp-zoom');
+  const room=register('roomstage');const self=register('selfpip');const live=register('pipvid','video');live.style.transform='scaleX(-1)';
+  meetwrap.append(room);room.append(self);self.append(live);
+  const resultPanel=new FakeNode('div');const playback=register('playback','video');resultPanel.append(playback);
+  const pipeline=()=>({
+    active:false,instrumentation:[],consumer:null,starts:[],stops:[],
+    setInstrumentation(options){this.instrumentation.push(options)},setOverlayConsumer(consumer){this.consumer=consumer},diagnostics(){return{active:this.active}},
+    beginPlayback(options){this.active=true;this.starts.push(options)},endPlayback(reason){const prior=this.active;this.active=false;this.stops.push(reason);return prior},
+  });
+  const livePipeline=pipeline();const playbackPipeline=pipeline();
+  const controller=new StudentSurfaceOverlayController({pipeline:livePipeline,playbackPipeline,documentRef,scheduleMicrotask:(callback)=>callback()});
+  controller.onViewChange('room','admin');
+  assert.equal(controller.mode,null);
+  const denied=controller.configure({authorized:false,enabled:true,face:true,bodyHands:true});
+  assert.equal(denied.active,false);
+  assert.equal(controller.mode,null);
+  const policy=controller.configure({authorized:true,enabled:true,face:true,bodyHands:false,studentPrimary:true});
+  assert.equal(policy.active,true);
+  assert.equal(room.classList.contains('ca-student-primary'),true);
+  assert.equal(controller.overlay.parentNode,self);
+  assert.deepEqual(controller.overlay.dataset,{overlayLayer:'student-analytics',anchorSurface:'pipvid',layoutMode:'zoom',studentLayoutRole:'primary',playback:'false'});
+  assert.equal(controller.overlay.style.transform,'scaleX(-1)');
+  assert.deepEqual(livePipeline.instrumentation.at(-1),{overlayEnabled:true,faceOverlayEnabled:true,bodyHandsOverlayEnabled:false});
+  controller.toggleOverlayPart('bodyHands');
+  assert.deepEqual(livePipeline.instrumentation.at(-1),{overlayEnabled:true,faceOverlayEnabled:true,bodyHandsOverlayEnabled:true});
+  const bitmap={width:480,height:270};
+  assert.equal(controller.consumeOverlay({bitmap},'live'),true);
+  assert.equal(controller.overlay.context.draws.length,1);
+  const liveOverlay=controller.overlay;
+  assert.equal(controller.toggleStudentPrimary(),true);
+  assert.equal(room.classList.contains('ca-student-primary'),false);
+  assert.equal(controller.overlay,liveOverlay);
+  assert.equal(controller.overlay.dataset.studentLayoutRole,'inset');
+  live.style.transform='scaleX(1)';controller.syncSurfaceContract();
+  assert.equal(controller.overlay.style.transform,'none');
+
+  controller.onViewChange('results','student');
+  assert.equal(controller.mode,'playback');
+  assert.equal(playback.parentNode,controller.playbackWrapper);
+  assert.equal(controller.overlay.dataset.anchorSurface,'playback');
+  assert.equal(controller.overlay.dataset.playback,'true');
+  playback.paused=false;playback.dispatch('play');
+  assert.equal(playbackPipeline.starts.length,1);
+  assert.equal(playbackPipeline.starts[0].videoElement,playback);
+  assert.equal(controller.consumeOverlay({bitmap},'playback'),true);
+  playback.dispatch('seeking');
+  assert.equal(playbackPipeline.active,false);
+  playback.dispatch('seeked');
+  assert.equal(playbackPipeline.starts.length,2);
+  assert.equal(playbackPipeline.active,true);
+  playback.paused=true;playback.dispatch('pause');
+  assert.equal(playbackPipeline.active,false);
+  assert.ok(playbackPipeline.stops.includes('playback_paused'));
+  controller.destroy();
+  assert.equal(playback.parentNode,resultPanel);
+  assert.equal(livePipeline.consumer,null);
+  assert.equal(playbackPipeline.consumer,null);
+});
+
+test('student overlay geometry cover-fits worker bitmaps without exposing coordinates',()=>{
+  assert.deepEqual(studentOverlayDrawRect(480,270,480,270),{width:480,height:270,left:0,top:0});
+  assert.deepEqual(studentOverlayDrawRect(360,270,480,270),{width:480,height:360,left:0,top:-45});
+  assert.equal(studentSurfaceOverlayContract({layoutMode:'teams',playback:true}).remainsStudentAnchored,true);
 });
 
 test('Founder overlay letterboxes to the same source aspect as the contain-fit preview', () => {
@@ -467,12 +567,14 @@ test('Founder cockpit is default-on, accessible, and does not enter the student 
   assert.match(source, /this\.timer = setInterval\(\(\) => this\.tickRun\(runEpoch\), 250\)/u);
   assert.match(source, /this\.lockFounderInstrumentation\(plan\.endurance\)/u);
   assert.match(source, /clearInterval\(this\.timer\)/u);
-  for (const id of ['show-overlay', 'show-gauges', 'show-audio', 'show-timeline']) {
+  for (const id of ['show-overlay', 'show-gauges', 'show-audio', 'show-timeline', 'show-face-overlay', 'show-body-hands-overlay']) {
     assert.match(source, new RegExp(`\\['communication-analytics-${id}'`, 'u'));
   }
   assert.match(source, /function toggleControl\(id, text, checked = true\)/u);
   assert.match(source, /overlay\.id = 'communication-analytics-overlay'/u);
   assert.match(source, /overlay\.setAttribute\('aria-hidden', 'true'\)/u);
+  assert.match(source, /overlay\.dataset\.anchorSurface = preview\.id/u);
+  assert.match(source, /LOCK TO ME \/ RESELECT PRIMARY/u);
   assert.match(source, /tracking\.setAttribute\('role', 'status'\)/u);
   assert.match(source, /audioCanvas\.setAttribute\('role', 'img'\)/u);
   assert.match(source, /timelineCanvas\.setAttribute\('role', 'img'\)/u);
@@ -480,6 +582,8 @@ test('Founder cockpit is default-on, accessible, and does not enter the student 
   assert.match(source, /TRANSCRIPT REQUIRED — UNAVAILABLE IN LIVE COCKPIT/u);
   assert.match(source, /energy_variation_db.*FOUNDER EXPERIMENTAL/su);
   assert.match(source, /Engine · active \$\{diagnostics\.active\}[\s\S]*\$\{protection\.label\}/u);
+  const publicApi = source.slice(source.indexOf('export function initializeAnalyticsUi'));
+  assert.doesNotMatch(publicApi, /configureStudentOverlay/u);
   const studentRenderer = source.slice(source.indexOf('export function renderStudentAnalytics'), source.indexOf('class FounderAnalyticsSurface'));
   assert.doesNotMatch(studentRenderer, /founder-cockpit|tracking-overlay|live-timeline/iu);
   assert.doesNotMatch(studentRenderer, /energy_variation_db/iu);
@@ -489,7 +593,7 @@ test('Founder cockpit is default-on, accessible, and does not enter the student 
 
 test('overlay consumes only a transient worker-rendered bitmap and never landmark coordinates', async () => {
   const source = await read('public/analytics/ui.mjs');
-  assert.match(source, /pipeline\.setInstrumentation\?\.\(\{ overlayEnabled: Boolean\(enabled\) \}\)/u);
+  assert.match(source, /pipeline\.setInstrumentation\?\.\(\{ overlayEnabled: Boolean\(enabled\), faceOverlayEnabled, bodyHandsOverlayEnabled \}\)/u);
   assert.match(source, /pipeline\.setOverlayConsumer\?\.\(\(payload\) => this\.consumeOverlay\(payload\)\)/u);
   assert.match(source, /this\.drawOverlayBitmap\(bitmap\)/u);
   assert.match(source, /context\.drawImage\(bitmap, rect\.left, rect\.top, rect\.width, rect\.height\)/u);
@@ -548,6 +652,9 @@ test('Founder cockpit stylesheet layers the real canvas over preview and remains
   const css = await read('public/analytics/analytics.css');
   assert.match(css, /\.ca-preview-stage\{position:relative/u);
   assert.match(css, /\.ca-tracking-overlay\{position:absolute;inset:0;width:100%;height:100%;pointer-events:none/u);
+  assert.match(css, /\.ca-student-surface-overlay\{position:absolute;inset:0;width:100%;height:100%;pointer-events:none/u);
+  assert.match(css, /\.roomstage\.ca-student-primary #selfpip\{inset:4%!important/u);
+  assert.match(css, /\.roomstage\.ca-student-primary #ivtile\{inset:auto 14px 14px auto/u);
   assert.match(css, /\.ca-instrument-grid\{display:grid/u);
   assert.match(css, /\.ca-run-config\{display:grid/u);
   assert.match(css, /\.ca-run-(?:complete|limited)/u);
