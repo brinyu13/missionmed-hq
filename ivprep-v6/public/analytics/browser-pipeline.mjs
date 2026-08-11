@@ -5,7 +5,7 @@ const VENDOR_ROOT = '/vendor/mediapipe/tasks-vision/1.0.1';
 const HOLISTIC_MODEL = '/vendor/mediapipe/models/holistic_landmarker/float16/1/holistic_landmarker.task';
 const FACE_MODEL = '/vendor/mediapipe/models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite';
 const FACE_WORKER = '/analytics/face-detector-worker.mjs';
-const WORKER_REVISION = '3420r-founder-instrumentation-9';
+const WORKER_REVISION = '3420r-founder-instrumentation-11';
 const FACE_INITIALIZATION_TIMEOUT_MS = 10_000;
 const HOLISTIC_FRAME_TIMEOUT_MIN_MS = 1_000;
 const HOLISTIC_FRAME_TIMEOUT_MAX_MS = 5_000;
@@ -30,6 +30,42 @@ export function visionFrameDimensions(sourceWidth, sourceHeight, maximumWidth = 
     width: Math.max(1, Math.round(sourceWidth * scale)),
     height: Math.max(1, Math.round(sourceHeight * scale)),
   });
+}
+
+export function normalizeOverlayInstrumentation({ overlayEnabled = false, faceEnabled = true, bodyEnabled = true } = {}) {
+  return Object.freeze({
+    overlayEnabled: Boolean(overlayEnabled),
+    faceEnabled: Boolean(faceEnabled),
+    bodyEnabled: Boolean(bodyEnabled),
+  });
+}
+
+const OVERLAY_FRAME_STATUSES = new Set(['not-requested', 'rendered', 'unavailable', 'error']);
+const OVERLAY_UNAVAILABLE_REASONS = new Set([
+  'display_disabled',
+  'face_count_not_one',
+  'render_surface_unavailable',
+  'no_renderable_primitives',
+  'render_failed',
+  'bitmap_transfer_failed',
+  'layer_mask_changed',
+]);
+const OVERLAY_ERROR_CODES = new Set(['overlay_render_failed', 'overlay_bitmap_transfer_failed']);
+
+export function normalizeOverlayFrameMetadata(message = {}) {
+  const overlayRendered = Boolean(message.overlayRendered);
+  const fallbackStatus = overlayRendered
+    ? 'rendered'
+    : message.overlayRequested === false ? 'not-requested' : 'unavailable';
+  const overlayStatus = OVERLAY_FRAME_STATUSES.has(message.overlayStatus) ? message.overlayStatus : fallbackStatus;
+  const overlayUnavailableReason = OVERLAY_UNAVAILABLE_REASONS.has(message.overlayUnavailableReason)
+    ? message.overlayUnavailableReason
+    : overlayStatus === 'not-requested' ? 'display_disabled' : overlayStatus === 'unavailable' ? 'no_renderable_primitives' : null;
+  const overlayErrorCode = OVERLAY_ERROR_CODES.has(message.overlayErrorCode) ? message.overlayErrorCode : null;
+  const overlayErrorMessage = overlayErrorCode && typeof message.overlayErrorMessage === 'string'
+    ? message.overlayErrorMessage.slice(0, 180)
+    : null;
+  return Object.freeze({ overlayStatus, overlayUnavailableReason, overlayErrorCode, overlayErrorMessage });
 }
 
 export class BrowserAnalyticsPipeline extends EventTarget {
@@ -65,7 +101,11 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.workerErrors = [];
     this.blockedEgressAttempts = 0;
     this.overlayEnabled = false;
+    this.overlayFaceEnabled = true;
+    this.overlayBodyEnabled = true;
     this.overlayConsumer = null;
+    this.overlayDisplayErrorActive = false;
+    this.overlayRendererErrorActive = false;
     this.hiddenAt = null;
     this.visionDisconnectedAt = null;
     this.audioDisconnectedAt = null;
@@ -78,14 +118,41 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     return this.session;
   }
 
-  setInstrumentation({ overlayEnabled = false } = {}) {
-    this.overlayEnabled = Boolean(overlayEnabled);
-    this.worker?.postMessage?.({ type: 'instrumentation', generation: this.generation, overlayEnabled: this.overlayEnabled });
+  setInstrumentation(options = {}) {
+    const mask = normalizeOverlayInstrumentation(options);
+    const changed = mask.overlayEnabled !== this.overlayEnabled
+      || mask.faceEnabled !== this.overlayFaceEnabled
+      || mask.bodyEnabled !== this.overlayBodyEnabled;
+    this.overlayEnabled = mask.overlayEnabled;
+    this.overlayFaceEnabled = mask.faceEnabled;
+    this.overlayBodyEnabled = mask.bodyEnabled;
+    if (!mask.overlayEnabled || (!mask.faceEnabled && !mask.bodyEnabled)) this.overlayRendererErrorActive = false;
+    if (changed) this.worker?.postMessage?.({ type: 'instrumentation', generation: this.generation, ...mask });
   }
 
   setOverlayConsumer(consumer = null) {
     if (consumer !== null && typeof consumer !== 'function') throw new TypeError('Overlay consumer must be a function or null.');
     this.overlayConsumer = consumer;
+    this.overlayDisplayErrorActive = false;
+  }
+
+  notifyOverlayConsumer(payload = {}) {
+    if (!this.overlayEnabled || !this.overlayConsumer) return false;
+    try {
+      this.overlayConsumer(payload);
+      this.overlayDisplayErrorActive = false;
+      return true;
+    } catch (error) {
+      if (!this.overlayDisplayErrorActive) {
+        this.overlayDisplayErrorActive = true;
+        this.recordWorkerError(`overlay display: ${error?.message || error}`);
+        this.dispatch('state', {
+          state: 'partial', subsystem: 'overlay-display', atMs: Number.isFinite(payload.atMs) ? payload.atMs : null,
+          message: 'Overlay display is unavailable; analytics continued.',
+        });
+      }
+      return false;
+    }
   }
 
   beginAnswer({ answerId = null, mediaId = null, mediaStartedAt = null, videoElement = null } = {}) {
@@ -181,6 +248,8 @@ export class BrowserAnalyticsPipeline extends EventTarget {
         wasmRoot: `${VENDOR_ROOT}/wasm`,
         holisticModelUrl: HOLISTIC_MODEL,
         overlayEnabled: this.overlayEnabled,
+        faceEnabled: this.overlayFaceEnabled,
+        bodyEnabled: this.overlayBodyEnabled,
       });
     } else this.worker.postMessage({ type: 'reset', generation, answerEpoch });
     if (!this.faceWorker) {
@@ -463,17 +532,46 @@ export class BrowserAnalyticsPipeline extends EventTarget {
         if (pipelineMs > 180) this.targetFps = Math.max(2, this.targetFps - 2);
         else if (pipelineMs < 70 && this.targetFps < 8) this.targetFps += 1;
         const live = this.visionLiveState();
-        if (bitmap && message.overlayRendered && this.overlayEnabled && this.overlayConsumer) this.overlayConsumer({ bitmap, geometry: message.geometry, atMs: message.timestampMs, primitiveCount: message.overlayPrimitiveCount, pipelineMs });
+        const overlayMaskPresent = typeof message.overlayLayers?.face === 'boolean' && typeof message.overlayLayers?.body === 'boolean';
+        const overlayMaskMatches = message.overlayLayers?.face === this.overlayFaceEnabled
+          && message.overlayLayers?.body === this.overlayBodyEnabled;
+        const overlayRequestMatches = Boolean(message.overlayRequested) === Boolean(this.overlayEnabled && (this.overlayFaceEnabled || this.overlayBodyEnabled));
+        const overlayConfigurationMatches = overlayMaskMatches && overlayRequestMatches;
+        const overlayMetadata = overlayMaskPresent && !overlayConfigurationMatches
+          ? Object.freeze({ overlayStatus: 'unavailable', overlayUnavailableReason: 'layer_mask_changed', overlayErrorCode: null, overlayErrorMessage: null })
+          : normalizeOverlayFrameMetadata(message);
+        const overlayDisplayEligible = Boolean(bitmap
+          && message.overlayRendered
+          && overlayConfigurationMatches
+          && overlayMetadata.overlayStatus === 'rendered');
+        this.notifyOverlayConsumer({
+          bitmap: overlayDisplayEligible ? bitmap : null,
+          geometry: message.geometry,
+          atMs: message.timestampMs,
+          primitiveCount: message.overlayPrimitiveCount,
+          pipelineMs,
+          ...overlayMetadata,
+        });
+        if (overlayMetadata.overlayStatus === 'error') {
+          if (!this.overlayRendererErrorActive) this.dispatch('state', {
+            state: 'partial', subsystem: 'overlay-display', atMs: message.timestampMs,
+            message: 'Local overlay rendering is unavailable; analytics continued.',
+            ...overlayMetadata,
+          });
+          this.overlayRendererErrorActive = true;
+        } else if (overlayMetadata.overlayStatus === 'rendered') this.overlayRendererErrorActive = false;
         this.dispatch('diagnostic', {
           modality: 'vision', atMs: message.timestampMs, geometry: message.geometry, live,
-          overlayRequested: Boolean(message.overlayRequested), overlayRendered: Boolean(message.overlayRendered),
+          overlayRequested: Boolean(message.overlayRequested), overlayRendered: overlayDisplayEligible,
           overlayPrimitiveCount: Number.isFinite(message.overlayPrimitiveCount) ? message.overlayPrimitiveCount : 0,
+          ...overlayMetadata,
           inferenceMs: pipelineMs,
           faceInferenceMs: Number.isFinite(message.faceInferenceMs) ? message.faceInferenceMs : null,
           holisticInferenceMs: Number.isFinite(message.holisticInferenceMs) ? message.holisticInferenceMs : null,
           targetFps: this.targetFps, droppedFrames: this.droppedFrames,
         });
       } catch (error) {
+        this.notifyOverlayConsumer({ bitmap: null, geometry: null, atMs: message.timestampMs, primitiveCount: 0, pipelineMs });
         this.recordWorkerError(`vision frame rejected: ${error?.message || error}`);
         this.dispatch('state', {
           state: 'partial', subsystem: 'vision',
@@ -499,6 +597,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
       this.inFlightVision = null;
       this.frameInFlight = false;
       this.recordWorkerError(message.message);
+      this.notifyOverlayConsumer({ bitmap: null, geometry: null, atMs: message.timestampMs, primitiveCount: 0, pipelineMs });
       this.dispatch('diagnostic', { modality: 'vision', atMs: message.timestampMs, geometry: null, live: null, overlayRequested: this.overlayEnabled, overlayRendered: false, overlayPrimitiveCount: 0, inferenceMs: pipelineMs, targetFps: this.targetFps, droppedFrames: this.droppedFrames });
       if (this.answer && !this.answerSealed && Number.isFinite(message.timestampMs)) this.session.ingestVision({
         atMs: message.timestampMs,
@@ -537,6 +636,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.clearVisionFrameWatchdog();
     this.inFlightVision = null;
     this.frameInFlight = false;
+    this.notifyOverlayConsumer({ bitmap: null, geometry: null, atMs, primitiveCount: 0, pipelineMs: null });
     this.dispatch('state', { state: 'partial', subsystem, atMs, message: reason });
   }
 
@@ -683,6 +783,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.audioDisconnectedAt = null;
     this.workerErrors = [];
     this.blockedEgressAttempts = 0;
+    this.overlayRendererErrorActive = false;
   }
 
   destroy() {
@@ -714,6 +815,8 @@ export class BrowserAnalyticsPipeline extends EventTarget {
       audioFrameCount: this.session?.audio?.validFrames || 0,
       visualFrameCount: this.session?.vision?.analyzableFrames || 0,
       networkPolicy: 'same-origin-only-worker-guard-and-csp',
+      overlayLayers: Object.freeze({ enabled: this.overlayEnabled, face: this.overlayFaceEnabled, body: this.overlayBodyEnabled }),
+      overlayRendererErrorActive: this.overlayRendererErrorActive,
     });
   }
 

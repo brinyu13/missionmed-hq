@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { AnalyticsSession } from '../../analytics/analytics-session.mjs';
 import {
   FOUNDER_DIAGNOSTIC_CONTRACT,
   FOUNDER_ENDURANCE_STARTUP_ALLOWANCE_MS,
@@ -19,6 +20,7 @@ import {
   founderOverlayGeometry,
   founderOverlayDrawRect,
   founderPauseTimelineTransition,
+  founderPostRunReport,
   founderRunClock,
   founderRunPlan,
   founderRunProgress,
@@ -30,6 +32,18 @@ import {
 
 const ROOT = new URL('../../', import.meta.url);
 const read = (path) => readFile(new URL(path, ROOT), 'utf8');
+
+function reportEvent(metric, value, {
+  startMs = 0, endMs = 10_000, unit = null, input = 'camera',
+  reliability = 'high', coverage = 0.9, sampleCount = 72,
+  limitations = [], qualifiers = [], maturity = 'FOUNDER_EXPERIMENTAL',
+} = {}) {
+  return {
+    metric, startMs, endMs, durationMs: endMs - startMs,
+    source: { input }, observation: { value, unit, qualifiers },
+    quality: { reliability, coverage, sampleCount, limitations }, maturity,
+  };
+}
 
 test('Founder offers truthful guided and real-WASM endurance run plans', () => {
   assert.equal(founderRunPlan('guided').targetDurationMs, 125_000);
@@ -117,6 +131,68 @@ test('Founder records one visual interruption when a first frame is followed by 
   assert.match(receipt.incompleteReasons.join(' '), /1 instrumentation interruption.*minimum 590 required/u);
 });
 
+test('Founder endurance latches one canvas blit interruption while analytics and later overlay frames continue', () => {
+  const surface = Object.create(FounderAnalyticsSurface.prototype);
+  surface.state = 'running';
+  surface.activeRunPlan = founderRunPlan('endurance-10');
+  surface.pipeline = {
+    diagnostics: () => ({ faceDetectorStatus: 'ready', faceWorkerReady: true, multiFaceProtection: true }),
+    session: { clock: { sessionMs: () => 275 } },
+  };
+  surface.runInterrupted = false;
+  surface.runInterruptionCount = 0;
+  surface.runInterruptions = [];
+  surface.runOpenInterruptions = new Set();
+  surface.runVisualFrameCount = 590;
+  surface.timelineLatestAtMs = 200;
+  surface.lastOverlayPrimitiveCount = 0;
+  let drawShouldFail = true;
+  let drawCount = 0;
+  let clearCount = 0;
+  surface.drawOverlayBitmap = () => {
+    drawCount += 1;
+    if (drawShouldFail) throw new Error('synthetic founder canvas blit failure');
+  };
+  surface.clearOverlay = () => { clearCount += 1; };
+  const geometry = { faceCount: 1, face: { present: true }, pose: {}, hands: {} };
+  const priorDocument = globalThis.document;
+  globalThis.document = { getElementById: () => ({ checked: true }) };
+  try {
+    assert.doesNotThrow(() => surface.consumeOverlay({ bitmap: {}, geometry, atMs: 250.4, pipelineMs: 25 }));
+    assert.doesNotThrow(() => surface.consumeOverlay({ bitmap: {}, geometry, atMs: 260, pipelineMs: 25 }));
+    drawShouldFail = false;
+    assert.doesNotThrow(() => surface.consumeOverlay({ bitmap: {}, geometry, atMs: 300, primitiveCount: 12, pipelineMs: 25 }));
+  } finally {
+    if (priorDocument === undefined) delete globalThis.document;
+    else globalThis.document = priorDocument;
+  }
+
+  assert.equal(drawCount, 3);
+  assert.equal(clearCount, 2);
+  assert.equal(surface.state, 'running');
+  assert.equal(surface.runVisualFrameCount, 590, 'display-only failure must not alter analytics coverage');
+  assert.equal(surface.runInterrupted, true);
+  assert.equal(surface.runInterruptionCount, 1);
+  assert.equal(surface.runInterruptions.length, 1);
+  assert.deepEqual(surface.runInterruptions[0], {
+    atMs: 250,
+    subsystem: 'overlay-display',
+    message: 'Founder overlay canvas drawing failed; analytics continued.',
+  });
+  assert.equal(Number.isFinite(surface.runInterruptions[0].atMs), true);
+  assert.equal(surface.runOpenInterruptions.has('overlay-display'), true);
+  assert.equal(surface.overlayError, null, 'a later successful draw clears the display error only');
+  assert.equal(surface.lastOverlayPrimitiveCount, 12);
+
+  const receipt = founderRunReceipt({
+    modeId: 'endurance-10', elapsedMs: 600_000,
+    interrupted: surface.runInterrupted, interruptionCount: surface.runInterruptionCount,
+    visualFrameCount: surface.runVisualFrameCount, firstVisualAtMs: 10_000, lastVisualAtMs: 599_000,
+  });
+  assert.equal(receipt.targetCompleted, false);
+  assert.match(receipt.incompleteReasons.join(' '), /1 instrumentation interruption recorded/u);
+});
+
 test('Founder treats a fresh-timestamped frame error as an interruption, never visual coverage', () => {
   const surface = Object.create(FounderAnalyticsSurface.prototype);
   surface.state = 'running';
@@ -165,6 +241,87 @@ test('Founder endurance tick auto-finishes only at the selected session-clock ta
   assert.deepEqual(reasons, ['target_elapsed']);
   surface.tickRun(3, 700_000);
   assert.deepEqual(reasons, ['target_elapsed']);
+});
+
+test('Founder endurance lock forces both overlay layers before running state and restores local preferences afterward', () => {
+  const surface = Object.create(FounderAnalyticsSurface.prototype);
+  const controls = new Map();
+  const targets = new Map();
+  for (const id of ['communication-analytics-show-overlay', 'communication-analytics-show-gauges', 'communication-analytics-show-audio', 'communication-analytics-show-timeline', 'communication-analytics-show-face-overlay', 'communication-analytics-show-body-overlay']) controls.set(id, { checked: false, disabled: false });
+  for (const id of ['communication-analytics-overlay', 'communication-analytics-gauges', 'communication-analytics-audio', 'communication-analytics-timeline']) targets.set(id, { classList: { remove() {}, toggle() {} } });
+  controls.set('communication-analytics-founder-overlay-policy-status', { textContent: '' });
+  surface.founderInstrumentationLocked = false;
+  surface.overlaySettings = {
+    policy: () => ({ masterEnabled: true }),
+    preferences: () => ({ founderLiveFace: false, founderLiveBody: false }),
+  };
+  const applied = [];
+  surface.pipeline = { setInstrumentation: (layers) => applied.push(layers) };
+  surface.clearOverlay = () => {};
+  surface.scheduleInstrumentationRender = () => {};
+  const priorDocument = globalThis.document;
+  globalThis.document = { getElementById: (id) => controls.get(id) || targets.get(id) || null };
+  try {
+    surface.lockFounderInstrumentation(true);
+    assert.equal(surface.founderInstrumentationLocked, true);
+    assert.equal(controls.get('communication-analytics-show-overlay').disabled, true);
+    assert.equal(controls.get('communication-analytics-show-face-overlay').checked, true);
+    assert.equal(controls.get('communication-analytics-show-face-overlay').disabled, true);
+    assert.equal(controls.get('communication-analytics-show-body-overlay').checked, true);
+    assert.deepEqual(applied.at(-1), { overlayEnabled: true, faceEnabled: true, bodyEnabled: true });
+    surface.lockFounderInstrumentation(false);
+    assert.equal(surface.founderInstrumentationLocked, false);
+    assert.equal(controls.get('communication-analytics-show-face-overlay').checked, false);
+    assert.equal(controls.get('communication-analytics-show-body-overlay').checked, false);
+  } finally {
+    if (priorDocument === undefined) delete globalThis.document; else globalThis.document = priorDocument;
+  }
+});
+
+test('Founder endurance cannot start with local overlay master off and a mid-run disable latches an interruption', () => {
+  const surface = Object.create(FounderAnalyticsSurface.prototype);
+  const controls = new Map([
+    ['communication-analytics-start', { disabled: false, textContent: '' }],
+    ['communication-analytics-run-mode', { disabled: false }],
+    ['communication-analytics-replay', { disabled: false, checked: true }],
+    ['communication-analytics-show-overlay', { checked: true }],
+  ]);
+  surface.selectedRunModeId = 'endurance-10';
+  surface.state = 'ready';
+  surface.cameraIsLive = () => true;
+  surface.microphoneIsLive = () => true;
+  surface.overlaySettings = { policy: () => ({ masterEnabled: false }) };
+  surface.updateStartAvailability = FounderAnalyticsSurface.prototype.updateStartAvailability;
+  const priorDocument = globalThis.document;
+  globalThis.document = { getElementById: (id) => controls.get(id) || null };
+  try {
+    surface.updateStartAvailability();
+    assert.equal(controls.get('communication-analytics-start').disabled, true);
+    surface.overlaySettings = { policy: () => ({ masterEnabled: true }) };
+    surface.updateStartAvailability();
+    assert.equal(controls.get('communication-analytics-start').disabled, false);
+
+    surface.state = 'running';
+    surface.activeRunPlan = founderRunPlan('endurance-10');
+    surface.overlaySettings = { policy: () => ({ masterEnabled: false }) };
+    surface.pipeline = { session: { clock: { sessionMs: () => 12_500 } } };
+    surface.runInterrupted = false;
+    surface.runInterruptionCount = 0;
+    surface.runInterruptions = [];
+    surface.runOpenInterruptions = new Set();
+    surface.syncFounderOverlayControls = () => {};
+    surface.configureOverlay = () => {};
+    surface.updateStartAvailability = () => {};
+    surface.handleOverlaySettingsChange();
+    assert.equal(surface.runInterrupted, true);
+    assert.equal(surface.runInterruptionCount, 1);
+    assert.deepEqual(surface.runInterruptions[0], {
+      subsystem: 'overlay-display', atMs: 12_500,
+      message: 'Local overlay policy was disabled during the endurance run.',
+    });
+  } finally {
+    if (priorDocument === undefined) delete globalThis.document; else globalThis.document = priorDocument;
+  }
 });
 
 test('Founder completed-run cleanup releases owned media and the local WASM session', () => {
@@ -235,6 +392,128 @@ test('Founder live energy variation is a bounded experimental IQR', () => {
   assert.equal(founderEnergyVariationDb([{ db: -30 }, { db: -30 }, { db: -30 }]), null);
   const history = [{ db: -160 }, ...Array.from({ length: 180 }, () => ({ db: -30 }))];
   assert.equal(founderEnergyVariationDb(history), 0);
+});
+
+test('Founder post-run report gives an immediate factual multimodal summary while retaining exact partial safety coverage', () => {
+  const result = {
+    startedAtMs: 0, endedAtMs: 10_000, durationMs: 10_000,
+    modalities: {
+      mic: { available: true, coverage: 0.96, frameCount: 200 },
+      camera: { available: true, coverage: 0.9, frameCount: 80, analyzableFrames: 72, personSpecificCoverage: 0.75, personSpecificSampleCount: 60 },
+    },
+    performance: { visualInferenceP95Ms: 72.5 },
+    privacy: { rawAudioStored: false, rawFramesStored: false, rawLandmarksStored: false, externalAnalyticsCalls: false, blockedExternalAttemptCount: 2 },
+    events: [
+      reportEvent('answer_duration_ms', 10_000, { input: 'clock', unit: 'ms', maturity: 'VALIDATED_STUDENT_SAFE', coverage: 1, sampleCount: 2 }),
+      reportEvent('captured_level_dbfs', -42.68, { input: 'mic', unit: 'dBFS', maturity: 'VALIDATED_STUDENT_SAFE', coverage: 0.96, sampleCount: 200 }),
+      reportEvent('digital_clipping_fraction', 0, { input: 'mic', unit: 'fraction', maturity: 'VALIDATED_STUDENT_SAFE', coverage: 0.96, sampleCount: 200 }),
+      reportEvent('speech_active_ratio', 0.55, { input: 'mic', unit: 'fraction', reliability: 'unavailable', limitations: ['voice_activity_ground_truth_not_validated'] }),
+      reportEvent('energy_variation_db', 22.35, { input: 'mic', unit: 'dB' }),
+      reportEvent('pause_episode', 3_000, { input: 'mic', startMs: 1_000, endMs: 4_000, unit: 'ms', reliability: 'unavailable', limitations: ['voice_activity_ground_truth_not_validated'] }),
+      reportEvent('hand_presence', 0.6, { unit: 'fraction' }),
+      reportEvent('hand_motion_episode', { hands: 'left', leftZone: 'chest', rightZone: null }, { startMs: 2_000, endMs: 3_000 }),
+      reportEvent('gesture_zone', { left: { chest: 12 }, right: { lower: 4 } }, { unit: 'frame_counts' }),
+      reportEvent('torso_presence', 0.8, { unit: 'fraction' }),
+      reportEvent('lateral_torso_lean', { degrees: 18, direction: 'right' }, { startMs: 3_000, endMs: 4_000, unit: 'degrees' }),
+      reportEvent('face_presence', 0.8, { unit: 'fraction' }),
+      reportEvent('head_orientation_proxy', { yawDeg: 1.5, pitchDeg: -2, rollDeg: 0.5 }, { unit: 'degrees' }),
+      reportEvent('camera_facing_proxy', 0.7, { unit: 'fraction' }),
+      reportEvent('sustained_head_turn_episode', { facing: false, yawProxyDeg: 25 }, { startMs: 5_000, endMs: 6_000 }),
+      reportEvent('facial_movement_episode', 1.1, { startMs: 6_000, endMs: 6_500, unit: 'score_change_per_second' }),
+      reportEvent('framing_center', 0.75, { unit: 'fraction' }),
+      reportEvent('multiple_faces_detected', true, { startMs: 7_000, endMs: 7_600, input: 'camera', qualifiers: ['affected_interval_suppressed', 'no_identity_selection'] }),
+      reportEvent('observation_gap', 'multiple_face_frames_excluded', { startMs: 7_000, endMs: 7_600, input: 'system', reliability: 'unavailable', coverage: 0, sampleCount: 0, limitations: ['person_specific_visual_signals_suppressed'] }),
+      reportEvent('observation_gap', 'face_absence', { startMs: 8_000, endMs: 8_500, input: 'system', reliability: 'unavailable', coverage: 0, sampleCount: 0 }),
+    ],
+  };
+  const report = founderPostRunReport(result, {
+    cockpitPerformance: { overlay: { p95Ms: 0.25 }, audio: { p95Ms: 0.5 }, timeline: { p95Ms: 0.25 }, frame: { p95Ms: 1.5 } },
+  });
+  assert.equal(report.heading, 'Founder multimodal analytics report');
+  assert.equal(report.suppression.partial, true);
+  assert.equal(report.suppression.affectedDurationMs, 600);
+  assert.equal(report.suppression.affectedRatio, 0.06);
+  assert.match(report.suppression.summary, /Safe exactly-one-person sample evidence remains available.*600 ms \(6\.0%\).*other gaps and exact safe coverage are reported separately/u);
+  assert.match(report.coverage.find((item) => item.label === 'Camera').text, /exactly-one-person coverage 75\.0%.*60 exactly-one-person samples/u);
+  assert.equal(report.coverage.find((item) => item.label === 'Camera').status, 'LIMITED EXACTLY-ONE-PERSON COVERAGE');
+  assert.equal(report.sections.find((section) => section.id === 'gestures').items[0].label, 'Hand visible in exactly-one-person analyzable frames');
+  assert.equal(report.sections.find((section) => section.id === 'posture').items[0].label, 'Torso visible in exactly-one-person analyzable frames');
+  assert.equal(report.sections.find((section) => section.id === 'head').items[0].label, 'Face visible in exactly-one-person analyzable frames');
+  const voice = report.sections.find((section) => section.id === 'voice');
+  assert.match(voice.items.find((item) => item.label === 'Digital clipping').value, /^0\.00%/u);
+  assert.match(voice.items.find((item) => item.label === 'Words per minute').value, /UNAVAILABLE.*WPM/u);
+  assert.match(voice.items.find((item) => item.label === 'Pitch \/ F0').value, /UNAVAILABLE.*F0/u);
+  const pauses = report.sections.find((section) => section.id === 'pauses');
+  assert.match(pauses.items[0].value, /1 TIMESTAMPED EPISODE · 3\.00 s/u);
+  assert.match(pauses.items[0].meta, /analysis-path coverage.*quality sample count/u);
+  const framing = report.sections.find((section) => section.id === 'framing');
+  assert.match(framing.items.find((item) => item.label === 'Face absent / out of view').value, /1 TIMESTAMPED INTERVAL · 500 ms.*5\.0% OF RUN/u);
+  assert.match(framing.items.find((item) => item.label === 'Multiple-face frames excluded').value, /600 ms.*6\.0% OF RUN/u);
+  const performance = report.sections.find((section) => section.id === 'performance-privacy');
+  assert.match(performance.items.find((item) => item.label === 'Raw analytics retention').value, /AUDIO NO · FRAMES NO · LANDMARKS NO/u);
+  assert.match(performance.items.find((item) => item.label === 'External analytics calls').meta, /^2 blocked external attempts/u);
+  const serialized = JSON.stringify(report);
+  assert.doesNotMatch(serialized, /emotion|identity|strength|eye contact|communication quality/iu);
+});
+
+test('Founder post-run report distinguishes explicit zero events from unavailable observations and bounds legacy whole-result suppression claims', () => {
+  const zero = founderPostRunReport({
+    startedAtMs: 0, endedAtMs: 5_000, durationMs: 5_000,
+    modalities: { mic: { available: true, coverage: 1, frameCount: 100 }, camera: { available: false, coverage: 0, frameCount: 0, analyzableFrames: 0 } },
+    events: [
+      reportEvent('answer_duration_ms', 5_000, { endMs: 5_000, input: 'clock', unit: 'ms' }),
+      reportEvent('digital_clipping_fraction', 0, { endMs: 5_000, input: 'mic', unit: 'fraction' }),
+      reportEvent('speech_active_ratio', 0.5, { endMs: 5_000, input: 'mic', unit: 'fraction', reliability: 'unavailable' }),
+      reportEvent('observation_gap', 'camera_unavailable', { endMs: 5_000, input: 'system', reliability: 'unavailable', coverage: 0, sampleCount: 0 }),
+    ],
+  });
+  assert.match(zero.sections.find((section) => section.id === 'pauses').items[0].value, /0 QUALIFYING EPISODES RECORDED/u);
+  assert.equal(zero.sections.find((section) => section.id === 'gestures').items[0].value, 'UNAVAILABLE — VISUAL OBSERVATION NOT AVAILABLE');
+  assert.match(zero.overview.join(' '), /0 qualifying pause episodes recorded.*Hand-movement observation unavailable/u);
+
+  const withheld = founderPostRunReport({
+    startedAtMs: 0, endedAtMs: 5_000, durationMs: 5_000,
+    modalities: { mic: { available: false, coverage: 0, frameCount: 0 }, camera: { available: true, coverage: 0.9, frameCount: 40, analyzableFrames: 36, personSpecificCoverage: 0, personSpecificSampleCount: 0 } },
+    events: [
+      reportEvent('multiple_faces_detected', true, { endMs: 5_000, qualifiers: ['affected_interval_suppressed'] }),
+      reportEvent('observation_gap', 'multiple_faces', { endMs: 5_000, input: 'system', reliability: 'unavailable', coverage: 0, sampleCount: 0, qualifiers: ['person_specific_visual_signals_suppressed'] }),
+    ],
+  });
+  assert.equal(withheld.suppression.partial, false);
+  assert.equal(withheld.suppression.affectedRatio, 1);
+  assert.equal(withheld.coverage.find((item) => item.label === 'Camera').status, 'NO EXACTLY-ONE-PERSON COVERAGE');
+  assert.match(withheld.suppression.summary, /5\.00 s \(100\.0%\).*does not prove that another person was present throughout.*Safe-interval person-specific values were not emitted/u);
+
+  const untrackable = founderPostRunReport({
+    startedAtMs: 0, endedAtMs: 5_000, durationMs: 5_000,
+    modalities: { mic: { available: false, coverage: 0, frameCount: 0 }, camera: { available: true, coverage: 1, frameCount: 40, analyzableFrames: 40, personSpecificCoverage: 1, personSpecificSampleCount: 40 } },
+    events: [
+      reportEvent('hand_presence', 0, { unit: 'fraction' }),
+      reportEvent('gesture_zone', { left: {}, right: {} }, { unit: 'frame_counts' }),
+      reportEvent('torso_presence', 0, { unit: 'fraction' }),
+      reportEvent('face_presence', 0, { unit: 'fraction' }),
+    ],
+  });
+  assert.equal(untrackable.sections.find((section) => section.id === 'gestures').items.find((item) => item.label === 'Hand movement').value, 'NO OBSERVATION AVAILABLE');
+  assert.equal(untrackable.sections.find((section) => section.id === 'posture').items.find((item) => item.label === 'Lateral torso lean').value, 'NO OBSERVATION AVAILABLE');
+  assert.equal(untrackable.sections.find((section) => section.id === 'head').items.find((item) => item.label === 'Sustained head turn').value, 'NO OBSERVATION AVAILABLE');
+  assert.equal(untrackable.sections.find((section) => section.id === 'facial').items.find((item) => item.label === 'Facial movement').value, 'NO OBSERVATION AVAILABLE');
+  assert.match(untrackable.overview.join(' '), /Hand-movement observation unavailable.*Posture-movement observation unavailable.*Head-turn observation unavailable.*Facial-movement observation unavailable/u);
+});
+
+test('Founder report withholds experimental transcript rate, filler, and unvalidated F0 values', () => {
+  let now = 0;
+  const session = new AnalyticsSession({ sessionId: 'founder-transcript-boundary', now: () => now, wallClock: () => 0 });
+  session.beginAnswer({ answerId: 'answer-1' });
+  now = 6_000;
+  const result = session.endAnswer({ transcript: 'one two three four five six seven eight nine um' });
+  assert.equal(result.events.some((event) => event.metric === 'word_rate_wpm'), true);
+  assert.equal(result.events.some((event) => event.metric === 'filler_token_count'), true);
+  const report = founderPostRunReport({ ...result, events: [...result.events, reportEvent('fundamental_frequency_hz', 180, { input: 'mic', unit: 'Hz' })] });
+  const voice = report.sections.find((section) => section.id === 'voice');
+  assert.match(voice.items.find((item) => item.label === 'Words per minute').value, /UNAVAILABLE.*WPM/u);
+  assert.match(voice.items.find((item) => item.label === 'Transcript-derived filler tokens').value, /UNAVAILABLE.*TRANSCRIPT/u);
+  assert.match(voice.items.find((item) => item.label === 'Pitch \/ F0').value, /UNAVAILABLE.*F0/u);
 });
 
 test('Founder timeline accepts only finite non-negative session-clock timestamps', () => {
@@ -464,12 +743,14 @@ test('Founder cockpit is default-on, accessible, and does not enter the student 
   assert.match(source, /runMode\.id = 'communication-analytics-run-mode'/u);
   for (const mode of ['guided', 'endurance-10', 'endurance-15']) assert.match(source, new RegExp(`'${mode}'`, 'u'));
   assert.match(source, /plan\.requiresCamera && !this\.cameraIsLive\(\)/u);
+  assert.match(source, /plan\.endurance && this\.overlaySettings\?\.policy\?\.\(\)\.masterEnabled === false/u);
   assert.match(source, /this\.timer = setInterval\(\(\) => this\.tickRun\(runEpoch\), 250\)/u);
   assert.match(source, /this\.lockFounderInstrumentation\(plan\.endurance\)/u);
   assert.match(source, /clearInterval\(this\.timer\)/u);
   for (const id of ['show-overlay', 'show-gauges', 'show-audio', 'show-timeline']) {
     assert.match(source, new RegExp(`\\['communication-analytics-${id}'`, 'u'));
   }
+  for (const id of ['communication-analytics-show-face-overlay', 'communication-analytics-show-body-overlay']) assert.match(source, new RegExp(id, 'u'));
   assert.match(source, /function toggleControl\(id, text, checked = true\)/u);
   assert.match(source, /overlay\.id = 'communication-analytics-overlay'/u);
   assert.match(source, /overlay\.setAttribute\('aria-hidden', 'true'\)/u);
@@ -489,7 +770,7 @@ test('Founder cockpit is default-on, accessible, and does not enter the student 
 
 test('overlay consumes only a transient worker-rendered bitmap and never landmark coordinates', async () => {
   const source = await read('public/analytics/ui.mjs');
-  assert.match(source, /pipeline\.setInstrumentation\?\.\(\{ overlayEnabled: Boolean\(enabled\) \}\)/u);
+  assert.match(source, /pipeline\.setInstrumentation\?\.\(\{ overlayEnabled, faceEnabled, bodyEnabled \}\)/u);
   assert.match(source, /pipeline\.setOverlayConsumer\?\.\(\(payload\) => this\.consumeOverlay\(payload\)\)/u);
   assert.match(source, /this\.drawOverlayBitmap\(bitmap\)/u);
   assert.match(source, /context\.drawImage\(bitmap, rect\.left, rect\.top, rect\.width, rect\.height\)/u);
@@ -551,6 +832,25 @@ test('Founder cockpit stylesheet layers the real canvas over preview and remains
   assert.match(css, /\.ca-instrument-grid\{display:grid/u);
   assert.match(css, /\.ca-run-config\{display:grid/u);
   assert.match(css, /\.ca-run-(?:complete|limited)/u);
-  assert.ok(css.includes('@media(max-width:1024px){.ca-grid{grid-template-columns:1fr}.ca-instrument-grid{grid-template-columns:1fr}'));
+  assert.match(css, /\.ca-toggle\{[^}]*min-height:44px/u);
+  assert.match(css, /\.ca-founder-report\{display:grid/u);
+  assert.match(css, /\.ca-report-grid\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/u);
+  assert.ok(css.includes('@media(max-width:1024px){.ca-grid{grid-template-columns:1fr}.ca-instrument-grid,.ca-report-grid{grid-template-columns:1fr}'));
+  assert.match(css, /@media\(max-width:600px\).*\.ca-report-coverage,.ca-founder-overview\{grid-template-columns:1fr\}.*\.ca-report-details\{grid-template-columns:1fr\}/u);
   assert.match(css, /@media\(prefers-reduced-motion:reduce\)/u);
+});
+
+test('Founder result renders the multimodal report synchronously above the complete timestamped catalog without changing student output', async () => {
+  const source = await read('public/analytics/ui.mjs');
+  const founderResult = source.slice(source.indexOf('  renderFounderResult(result) {'), source.indexOf('\n  clear({ render = true }'));
+  assert.ok(founderResult.indexOf('founderPostRunReport(result') < founderResult.indexOf("'Full timestamped evidence catalog'"));
+  assert.ok(founderResult.indexOf('renderFounderPostRunReport(report)') < founderResult.indexOf('for (const event of (result?.events || []))'));
+  for (const title of ['Voice / Delivery', 'Silence / Pauses', 'Gesture / Hands', 'Posture / Body', 'Head / Camera-facing', 'Facial movement', 'Framing / Tracking safety', 'Performance / Privacy']) {
+    assert.match(source, new RegExp(title.replace('/', '\\/'), 'u'));
+  }
+  for (const reason of ['face_absence', 'multiple_face_frames_excluded', 'multi_face_protection_unavailable']) assert.match(source, new RegExp(`'${reason}'`, 'u'));
+  assert.match(source, /region\.setAttribute\('aria-labelledby', 'communication-analytics-founder-report-overview'\)/u);
+  assert.match(source, /card\.setAttribute\('aria-labelledby', titleId\)/u);
+  const studentRenderer = source.slice(source.indexOf('export function renderStudentAnalytics'), source.indexOf('export class FounderAnalyticsSurface'));
+  assert.doesNotMatch(studentRenderer, /founderPostRunReport|Founder multimodal analytics report|ca-founder-report/u);
 });

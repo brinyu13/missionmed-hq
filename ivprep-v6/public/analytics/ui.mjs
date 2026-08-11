@@ -1,4 +1,6 @@
 import { BrowserAnalyticsPipeline } from './browser-pipeline.mjs';
+import { LocalOverlaySettings } from './overlay-policy.mjs';
+import { OverlayUiController, overlayRenderStatusCopy } from './overlay-ui.mjs';
 import { describeStudentEvent, formatDuration, persistentAnalyticsEnvelopes, studentResultProjection } from './results-projection.mjs';
 
 const GUIDED_STEPS = Object.freeze([
@@ -34,6 +36,11 @@ const FOUNDER_INSTRUMENTATION_CONTROLS = Object.freeze([
   Object.freeze(['communication-analytics-show-gauges', ' Head + posture gauges', 'communication-analytics-gauges']),
   Object.freeze(['communication-analytics-show-audio', ' Audio instruments', 'communication-analytics-audio']),
   Object.freeze(['communication-analytics-show-timeline', ' Synchronized timeline', 'communication-analytics-timeline']),
+]);
+
+const FOUNDER_OVERLAY_LAYER_CONTROLS = Object.freeze([
+  Object.freeze(['communication-analytics-show-face-overlay', ' Face overlay', 'founderLiveFace']),
+  Object.freeze(['communication-analytics-show-body-overlay', ' Body + hands overlay', 'founderLiveBody']),
 ]);
 
 export function founderRunPlan(modeId = 'guided') {
@@ -402,6 +409,441 @@ function setUnsafeLegacyVisibility(hidden) {
   document.querySelector('#noplayback')?.classList.toggle('ca-hidden', hidden);
 }
 
+const FOUNDER_VISUAL_METRICS = Object.freeze(new Set([
+  'hand_presence', 'hand_motion_episode', 'gesture_zone',
+  'torso_presence', 'lateral_torso_lean', 'body_sway_episode',
+  'face_presence', 'head_orientation_proxy', 'camera_facing_proxy',
+  'sustained_head_turn_episode', 'facial_movement_episode', 'framing_center',
+]));
+
+function founderReportEvents(result) {
+  return Array.isArray(result?.events) ? result.events.filter((event) => event && typeof event.metric === 'string') : [];
+}
+
+function founderReportPercent(value, decimals = 1) {
+  return Number.isFinite(value) && value >= 0 && value <= 1 ? `${(value * 100).toFixed(decimals)}%` : 'UNAVAILABLE';
+}
+
+function founderReportDuration(milliseconds) {
+  if (!Number.isFinite(milliseconds) || milliseconds < 0) return 'UNAVAILABLE';
+  if (milliseconds < 1_000) return `${Math.round(milliseconds)} ms`;
+  return `${(milliseconds / 1_000).toFixed(milliseconds < 10_000 ? 2 : 1)} s`;
+}
+
+function founderReportNumber(value, decimals = 2) {
+  return Number.isFinite(value) ? Number(value).toFixed(decimals) : 'UNAVAILABLE';
+}
+
+function founderReportValuePresent(event) {
+  return event?.observation && event.observation.value !== null && event.observation.value !== undefined;
+}
+
+function founderReportEventMeta(event) {
+  if (!event) return 'No timestamped observation recorded.';
+  const reliability = event.quality?.reliability || 'unavailable';
+  const coverage = founderReportPercent(event.quality?.coverage);
+  const samples = Number.isFinite(event.quality?.sampleCount) ? Math.max(0, Math.round(event.quality.sampleCount)) : null;
+  return `Reliability ${reliability} · analysis-path coverage ${coverage}${samples === null ? '' : ` · quality sample count ${samples}`}.`;
+}
+
+function founderReportHumanize(value) {
+  return String(value ?? '').replaceAll('_', ' ').trim();
+}
+
+function founderReportUniqueLimitations(events, additions = []) {
+  const values = [];
+  for (const event of events) {
+    for (const limitation of event?.quality?.limitations || []) values.push(founderReportHumanize(limitation));
+  }
+  for (const addition of additions) if (addition) values.push(String(addition));
+  return [...new Set(values)].slice(0, 12);
+}
+
+function founderReportUnionDuration(events, result) {
+  const runStart = Number.isFinite(result?.startedAtMs) ? result.startedAtMs : 0;
+  const runEnd = Number.isFinite(result?.endedAtMs)
+    ? result.endedAtMs
+    : runStart + (Number.isFinite(result?.durationMs) ? Math.max(0, result.durationMs) : 0);
+  const intervals = events.map((event) => ({
+    start: Math.max(runStart, Number(event?.startMs)),
+    end: Math.min(runEnd, Number(event?.endMs)),
+  })).filter((interval) => Number.isFinite(interval.start) && Number.isFinite(interval.end) && interval.end > interval.start)
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+  let total = 0;
+  let active = null;
+  for (const interval of intervals) {
+    if (!active || interval.start > active.end) {
+      if (active) total += active.end - active.start;
+      active = { ...interval };
+    } else active.end = Math.max(active.end, interval.end);
+  }
+  if (active) total += active.end - active.start;
+  return Math.round(total);
+}
+
+function founderReportMetric(events, metric) {
+  return events.find((event) => event.metric === metric) || null;
+}
+
+function founderReportMetrics(events, metrics) {
+  const names = new Set(metrics);
+  return events.filter((event) => names.has(event.metric));
+}
+
+function founderReportItem(label, event, formatter, unavailable = 'NO OBSERVATION RECORDED') {
+  if (!event || !founderReportValuePresent(event)) return Object.freeze({ label, value: unavailable, meta: founderReportEventMeta(event) });
+  return Object.freeze({ label, value: formatter(event.observation.value, event), meta: founderReportEventMeta(event) });
+}
+
+function founderReportEpisodeItem(label, events, { sourceObserved = false } = {}) {
+  if (!events.length) return Object.freeze({
+    label,
+    value: sourceObserved ? '0 QUALIFYING EPISODES RECORDED' : 'NO OBSERVATION AVAILABLE',
+    meta: sourceObserved ? 'Zero recorded events is not proof that no movement or silence occurred.' : 'The required measurement path did not emit a usable observation.',
+  });
+  const durationMs = founderReportUnionDuration(events, {
+    startedAtMs: Math.min(...events.map((event) => event.startMs)),
+    endedAtMs: Math.max(...events.map((event) => event.endMs)),
+  });
+  return Object.freeze({
+    label,
+    value: `${events.length} TIMESTAMPED EPISODE${events.length === 1 ? '' : 'S'} · ${founderReportDuration(durationMs)} UNION DURATION`,
+    meta: `${founderReportEventMeta(events[0])} Overlapping event time is counted once.`,
+  });
+}
+
+function founderReportIntervalItem(label, events, result, { sourceObserved = false } = {}) {
+  if (!events.length) return Object.freeze({
+    label,
+    value: sourceObserved ? '0 TIMESTAMPED INTERVALS RECORDED' : 'NO OBSERVATION AVAILABLE',
+    meta: sourceObserved ? 'Zero is an explicit event count for this completed run.' : 'The required measurement path did not emit a usable observation.',
+  });
+  const durationMs = founderReportUnionDuration(events, result);
+  const ratio = Number.isFinite(result?.durationMs) && result.durationMs > 0 ? durationMs / result.durationMs : null;
+  return Object.freeze({
+    label,
+    value: `${events.length} TIMESTAMPED INTERVAL${events.length === 1 ? '' : 'S'} · ${founderReportDuration(durationMs)} UNION DURATION${ratio === null ? '' : ` · ${founderReportPercent(ratio)} OF RUN`}`,
+    meta: 'Intervals use the analytics session clock; overlapping time is counted once.',
+  });
+}
+
+function founderReportReliabilityLabel(events, sourceObserved = false) {
+  const observed = events.filter(founderReportValuePresent);
+  if (!observed.length) return sourceObserved ? 'NO QUALIFYING EPISODE RECORDED' : 'UNAVAILABLE';
+  const reliabilities = new Set(observed.map((event) => event.quality?.reliability || 'unavailable'));
+  return reliabilities.has('unavailable') || reliabilities.has('low') ? 'OBSERVED · LIMITED RELIABILITY' : 'OBSERVED';
+}
+
+function founderReportCoverageEntry(label, modality, events) {
+  const available = modality?.available === true;
+  const coverage = Number.isFinite(modality?.coverage) && modality.coverage >= 0 && modality.coverage <= 1 ? modality.coverage : null;
+  const frames = Number.isFinite(modality?.frameCount) ? Math.max(0, Math.round(modality.frameCount)) : null;
+  const analyzable = Number.isFinite(modality?.analyzableFrames) ? Math.max(0, Math.round(modality.analyzableFrames)) : null;
+  const personSpecificCoverage = Number.isFinite(modality?.personSpecificCoverage) && modality.personSpecificCoverage >= 0 && modality.personSpecificCoverage <= 1 ? modality.personSpecificCoverage : null;
+  const personSpecificSamples = Number.isFinite(modality?.personSpecificSampleCount) ? Math.max(0, Math.round(modality.personSpecificSampleCount)) : null;
+  const reliabilityCounts = { high: 0, medium: 0, low: 0, unavailable: 0 };
+  for (const event of events) reliabilityCounts[event.quality?.reliability] = (reliabilityCounts[event.quality?.reliability] || 0) + 1;
+  const reliability = Object.entries(reliabilityCounts).filter(([, count]) => count > 0).map(([key, count]) => `${key} ${count}`).join(' · ') || 'no event reliability records';
+  const status = !available
+    ? 'UNAVAILABLE'
+    : personSpecificCoverage === 0
+      ? 'NO EXACTLY-ONE-PERSON COVERAGE'
+      : personSpecificCoverage !== null && personSpecificCoverage < 0.8
+        ? 'LIMITED EXACTLY-ONE-PERSON COVERAGE'
+        : coverage === 0
+          ? 'NO ANALYZABLE OBSERVATION'
+          : coverage !== null && coverage < 0.8
+            ? 'LIMITED COVERAGE'
+            : 'OBSERVED';
+  return Object.freeze({
+    label,
+    status,
+    text: `${available ? 'Input available' : 'Input unavailable'} · analysis coverage ${founderReportPercent(coverage)} · ${frames === null ? 'frame count unavailable' : `${frames} frames`}${analyzable === null ? '' : ` · ${analyzable} analyzable`}${personSpecificCoverage === null ? '' : ` · exactly-one-person coverage ${founderReportPercent(personSpecificCoverage)}`}${personSpecificSamples === null ? '' : ` · ${personSpecificSamples} exactly-one-person samples`} · reliability records: ${reliability}.`,
+  });
+}
+
+function founderReportHeadOrientation(value) {
+  if (!value || typeof value !== 'object') return 'UNAVAILABLE';
+  const axis = (name) => Number.isFinite(value[name]) ? `${Number(value[name]).toFixed(1)}°` : 'UNAVAILABLE';
+  return `YAW ${axis('yawDeg')} · PITCH ${axis('pitchDeg')} · ROLL ${axis('rollDeg')}`;
+}
+
+function founderReportGestureZones(value) {
+  if (!value || typeof value !== 'object') return 'UNAVAILABLE';
+  const side = (name) => {
+    const entries = Object.entries(value[name] || {}).filter(([, count]) => Number.isFinite(count) && count >= 0);
+    if (!entries.length) return `${name} 0 categorized frames`;
+    return `${name} ${entries.map(([zone, count]) => `${founderReportHumanize(zone)} ${Math.round(count)} frames`).join(', ')}`;
+  };
+  return `${side('left')} · ${side('right')}`.toUpperCase();
+}
+
+function founderReportEpisodeBreakdown(events, key) {
+  const counts = new Map();
+  for (const event of events) {
+    const value = event.observation?.value;
+    const name = value && typeof value === 'object' ? value[key] : null;
+    if (typeof name === 'string' && name) counts.set(name, (counts.get(name) || 0) + 1);
+  }
+  return counts.size ? [...counts].map(([name, count]) => `${founderReportHumanize(name)} ${count}`).join(' · ').toUpperCase() : 'NO LABELED EPISODE BREAKDOWN';
+}
+
+function founderReportPositiveFraction(event) {
+  return founderReportValuePresent(event)
+    && Number.isFinite(event.observation.value)
+    && event.observation.value > 0
+    && event.quality?.reliability !== 'unavailable';
+}
+
+function founderReportPositiveCounts(event) {
+  if (!founderReportValuePresent(event) || event.quality?.reliability === 'unavailable') return false;
+  const stack = [event.observation.value];
+  while (stack.length) {
+    const value = stack.pop();
+    if (Number.isFinite(value) && value > 0) return true;
+    if (value && typeof value === 'object') stack.push(...Object.values(value));
+  }
+  return false;
+}
+
+function founderVisualSuppression(result, events) {
+  const durationMs = Number.isFinite(result?.durationMs) ? Math.max(0, Math.round(result.durationMs)) : null;
+  const camera = result?.modalities?.camera || {};
+  const visualEvents = events.filter((event) => FOUNDER_VISUAL_METRICS.has(event.metric));
+  const triggers = events.filter((event) => event.metric === 'multiple_faces_detected');
+  const safetyGaps = events.filter((event) => event.metric === 'observation_gap' && (
+    ['multiple_faces', 'multiple_face_frames_excluded'].includes(event.observation?.value)
+    || event.observation?.qualifiers?.includes?.('multiple_face_interval_suppressed')
+  ));
+  const explicitDuration = [camera.personSpecificSuppressedDurationMs, camera.safetySuppressedDurationMs, camera.multiFaceSuppressedDurationMs]
+    .find((value) => Number.isFinite(value) && value >= 0);
+  const timestampedSafetyEvents = safetyGaps.length ? safetyGaps : triggers.filter((event) => event.observation?.qualifiers?.includes?.('affected_interval_suppressed'));
+  const affectedDurationMs = explicitDuration === undefined ? founderReportUnionDuration(timestampedSafetyEvents, result) : Math.round(explicitDuration);
+  const affectedRatio = durationMs && Number.isFinite(affectedDurationMs) && affectedDurationMs <= durationMs ? affectedDurationMs / durationMs : null;
+  const triggered = triggers.length > 0 || safetyGaps.length > 0 || affectedDurationMs > 0;
+  if (!triggered) return Object.freeze({ triggered: false, partial: false, affectedDurationMs: 0, affectedRatio: 0, summary: 'No multiple-face safety suppression event was recorded.' });
+  const partial = visualEvents.length > 0 && affectedRatio !== null && affectedRatio > 0 && affectedRatio < 1;
+  let summary;
+  if (partial) {
+    summary = `Safe exactly-one-person sample evidence remains available. Multiple-face-excluded intervals total ${founderReportDuration(affectedDurationMs)} (${founderReportPercent(affectedRatio)}) across ${timestampedSafetyEvents.length} timestamped interval${timestampedSafetyEvents.length === 1 ? '' : 's'}; other gaps and exact safe coverage are reported separately.`;
+  } else if (affectedRatio !== null && affectedRatio > 0) {
+    summary = `Person-specific visual result coverage was suppressed for ${founderReportDuration(affectedDurationMs)} (${founderReportPercent(affectedRatio)}) after a multiple-face safety trigger. The envelope does not prove that another person was present throughout that result-suppression window.`;
+  } else {
+    summary = 'A multiple-face safety trigger was recorded, but this envelope does not expose an exact affected interval; person-specific visual coverage is unavailable.';
+  }
+  if (!visualEvents.length) summary += ' Safe-interval person-specific values were not emitted by this envelope.';
+  return Object.freeze({ triggered: true, partial, affectedDurationMs, affectedRatio, intervalCount: timestampedSafetyEvents.length, triggerCount: triggers.length, summary });
+}
+
+/**
+ * Creates a synchronous, display-only Founder report from a sealed analytics result.
+ * It summarizes only emitted observations and never changes the student projection.
+ */
+export function founderPostRunReport(result, { cockpitPerformance = null, localReplayRetained = false } = {}) {
+  const events = founderReportEvents(result);
+  const metrics = (names) => founderReportMetrics(events, names);
+  const metric = (name) => founderReportMetric(events, name);
+  const mic = result?.modalities?.mic || {};
+  const camera = result?.modalities?.camera || {};
+  const micEvents = events.filter((event) => event.source?.input === 'mic');
+  const cameraEvents = events.filter((event) => event.source?.input === 'camera');
+  const audioObserved = mic.available === true && (Number(mic.frameCount) > 0 || micEvents.length > 0);
+  const visualObserved = camera.available === true && (Number(camera.analyzableFrames) > 0 || cameraEvents.length > 0);
+  const suppression = founderVisualSuppression(result, events);
+  const visualGaps = events.filter((event) => {
+    if (event.metric !== 'observation_gap' || event.observation?.qualifiers?.includes?.('audio')) return false;
+    const reason = String(event.observation?.value || '');
+    return /camera|vision|visual|face|document_hidden|multi_face/u.test(reason)
+      || event.observation?.qualifiers?.includes?.('vision')
+      || event.observation?.qualifiers?.includes?.('person_specific_visual_signals_suppressed');
+  });
+  const faceAbsenceGaps = visualGaps.filter((event) => event.observation?.value === 'face_absence');
+  const multipleFaceGaps = visualGaps.filter((event) => ['multiple_faces', 'multiple_face_frames_excluded'].includes(event.observation?.value));
+  const protectionGaps = visualGaps.filter((event) => event.observation?.value === 'multi_face_protection_unavailable');
+
+  const duration = metric('answer_duration_ms');
+  const level = metric('captured_level_dbfs');
+  const clipping = metric('digital_clipping_fraction');
+  const responseStart = metric('response_start_latency_ms');
+  const speechRatio = metric('speech_active_ratio');
+  const energy = metric('energy_variation_db');
+  // The current transcript and pitch paths have no validation contract. Keep
+  // their Founder report values unavailable even when experimental events are
+  // present in the raw catalog below.
+  const wordRate = null;
+  const filler = null;
+  const pitch = null;
+  const pauses = metrics(['pause_episode']);
+  const handMotion = metrics(['hand_motion_episode']);
+  const leans = metrics(['lateral_torso_lean']);
+  const sways = metrics(['body_sway_episode']);
+  const headTurns = metrics(['sustained_head_turn_episode']);
+  const faceMoves = metrics(['facial_movement_episode']);
+  const handTrackable = founderReportPositiveFraction(metric('hand_presence')) || founderReportPositiveCounts(metric('gesture_zone'));
+  const torsoTrackable = founderReportPositiveFraction(metric('torso_presence'));
+  const faceTrackable = founderReportPositiveFraction(metric('face_presence'));
+
+  const voiceEvents = metrics(['answer_duration_ms', 'captured_level_dbfs', 'digital_clipping_fraction', 'response_start_latency_ms', 'speech_active_ratio', 'energy_variation_db', 'word_rate_wpm', 'filler_token_count']);
+  const gestureEvents = metrics(['hand_presence', 'hand_motion_episode', 'gesture_zone']);
+  const postureEvents = metrics(['torso_presence', 'lateral_torso_lean', 'body_sway_episode']);
+  const headEvents = metrics(['face_presence', 'head_orientation_proxy', 'camera_facing_proxy', 'sustained_head_turn_episode']);
+  const facialEvents = metrics(['face_presence', 'facial_movement_episode']);
+  const framingEvents = [...metrics(['framing_center', 'multiple_faces_detected']), ...visualGaps];
+
+  const sections = [
+    Object.freeze({
+      id: 'voice', title: 'Voice / Delivery', status: founderReportReliabilityLabel(voiceEvents, audioObserved),
+      items: Object.freeze([
+        founderReportItem('Answer duration', duration, (value) => `${founderReportDuration(value)} · SESSION CLOCK`),
+        founderReportItem('Captured microphone level', level, (value) => `${founderReportNumber(value)} dBFS · DEVICE CAPTURE, NOT CALIBRATED LOUDNESS`, audioObserved ? 'NO USABLE LEVEL OBSERVATION' : 'UNAVAILABLE — MICROPHONE OBSERVATION NOT AVAILABLE'),
+        founderReportItem('Digital clipping', clipping, (value) => `${founderReportPercent(value, 2)} OF ANALYZED DIGITAL SAMPLES`, audioObserved ? 'NO CLIPPING OBSERVATION RECORDED' : 'UNAVAILABLE — MICROPHONE OBSERVATION NOT AVAILABLE'),
+        founderReportItem('Detected speech-active time', speechRatio, (value) => `${founderReportPercent(value)} · LEVEL-ACTIVITY ESTIMATE ONLY`, audioObserved ? 'NO SPEECH-ACTIVITY OBSERVATION RECORDED' : 'UNAVAILABLE — MICROPHONE OBSERVATION NOT AVAILABLE'),
+        founderReportItem('Detected speech start', responseStart, (value) => `${founderReportDuration(value)} AFTER RUN START · LEVEL-ACTIVITY ESTIMATE ONLY`, audioObserved ? 'NO QUALIFYING START OBSERVATION RECORDED' : 'UNAVAILABLE — MICROPHONE OBSERVATION NOT AVAILABLE'),
+        founderReportItem('Captured energy variation', energy, (value) => `${founderReportNumber(value)} dB IQR · CAPTURED ENERGY ONLY`),
+        founderReportItem('Words per minute', wordRate, (value) => `${Math.round(value)} WPM · TRANSCRIPT-DERIVED`, 'UNAVAILABLE — NO TRANSCRIPT-DERIVED WPM OBSERVATION'),
+        founderReportItem('Pitch / F0', pitch, (value, event) => `${founderReportNumber(value)} ${event.observation?.unit || ''}`.trim(), 'UNAVAILABLE — NO VALIDATED F0 OBSERVATION'),
+        founderReportItem('Transcript-derived filler tokens', filler, (value) => `${Math.max(0, Math.round(value))} TOKENS`, 'UNAVAILABLE — NO TRANSCRIPT-DERIVED OBSERVATION'),
+      ]),
+      limitations: Object.freeze(founderReportUniqueLimitations(voiceEvents, ['Delivery interpretation is not produced.'])),
+    }),
+    Object.freeze({
+      id: 'pauses', title: 'Silence / Pauses', status: founderReportReliabilityLabel(pauses, audioObserved),
+      items: Object.freeze([
+        founderReportEpisodeItem('Detected silence between speech', pauses, { sourceObserved: audioObserved }),
+        Object.freeze({ label: 'Purpose', value: 'NOT DETERMINED', meta: 'Pause events represent detected silence only.' }),
+      ]),
+      limitations: Object.freeze(founderReportUniqueLimitations(pauses, ['Voice-activity ground truth is not validated; quiet speech and startup noise can be ambiguous.'])),
+    }),
+    Object.freeze({
+      id: 'gestures', title: 'Gesture / Hands', status: founderReportReliabilityLabel(gestureEvents, visualObserved && handTrackable),
+      items: Object.freeze([
+        founderReportItem('Hand visible in exactly-one-person analyzable frames', metric('hand_presence'), (value) => founderReportPercent(value), visualObserved ? 'NO PERSON-SPECIFIC HAND OBSERVATION EMITTED' : 'UNAVAILABLE — VISUAL OBSERVATION NOT AVAILABLE'),
+        founderReportEpisodeItem('Hand movement', handMotion, { sourceObserved: handTrackable }),
+        Object.freeze({ label: 'Movement channels', value: founderReportEpisodeBreakdown(handMotion, 'hands'), meta: 'Left and right are MediaPipe anatomical channels; no gesture meaning is assigned.' }),
+        founderReportItem('Observed hand zones', metric('gesture_zone'), founderReportGestureZones, visualObserved ? 'NO HAND-ZONE OBSERVATION EMITTED' : 'UNAVAILABLE — VISUAL OBSERVATION NOT AVAILABLE'),
+      ]),
+      limitations: Object.freeze(founderReportUniqueLimitations(gestureEvents, suppression.triggered ? [suppression.summary] : [])),
+    }),
+    Object.freeze({
+      id: 'posture', title: 'Posture / Body', status: founderReportReliabilityLabel(postureEvents, visualObserved && torsoTrackable),
+      items: Object.freeze([
+        founderReportItem('Torso visible in exactly-one-person analyzable frames', metric('torso_presence'), (value) => founderReportPercent(value), visualObserved ? 'NO PERSON-SPECIFIC TORSO OBSERVATION EMITTED' : 'UNAVAILABLE — VISUAL OBSERVATION NOT AVAILABLE'),
+        founderReportEpisodeItem('Lateral torso lean', leans, { sourceObserved: torsoTrackable }),
+        founderReportEpisodeItem('Body sway', sways, { sourceObserved: torsoTrackable }),
+      ]),
+      limitations: Object.freeze(founderReportUniqueLimitations(postureEvents, suppression.triggered ? [suppression.summary] : ['Camera-relative geometry only.'])),
+    }),
+    Object.freeze({
+      id: 'head', title: 'Head / Camera-facing', status: founderReportReliabilityLabel(headEvents, visualObserved && faceTrackable),
+      items: Object.freeze([
+        founderReportItem('Face visible in exactly-one-person analyzable frames', metric('face_presence'), (value) => founderReportPercent(value), visualObserved ? 'NO PERSON-SPECIFIC FACE OBSERVATION EMITTED' : 'UNAVAILABLE — VISUAL OBSERVATION NOT AVAILABLE'),
+        founderReportItem('Average head orientation proxy', metric('head_orientation_proxy'), founderReportHeadOrientation, visualObserved ? 'NO HEAD-ORIENTATION OBSERVATION EMITTED' : 'UNAVAILABLE — VISUAL OBSERVATION NOT AVAILABLE'),
+        founderReportItem('Camera-facing head position', metric('camera_facing_proxy'), (value) => `${founderReportPercent(value)} OF FACE-VISIBLE ANALYZABLE FRAMES`, visualObserved ? 'NO CAMERA-FACING OBSERVATION EMITTED' : 'UNAVAILABLE — VISUAL OBSERVATION NOT AVAILABLE'),
+        founderReportEpisodeItem('Sustained head turn', headTurns, { sourceObserved: faceTrackable }),
+      ]),
+      limitations: Object.freeze(founderReportUniqueLimitations(headEvents, [suppression.triggered ? suppression.summary : null, 'Head orientation is camera-relative; visual attention is not measured.'])),
+    }),
+    Object.freeze({
+      id: 'facial', title: 'Facial movement', status: founderReportReliabilityLabel(facialEvents, visualObserved && faceTrackable),
+      items: Object.freeze([
+        founderReportEpisodeItem('Facial movement', faceMoves, { sourceObserved: faceTrackable }),
+        ...(faceMoves.length ? [Object.freeze({ label: 'Recorded movement rates', value: faceMoves.map((event) => `${founderReportNumber(event.observation?.value)} score-change/s`).join(' · '), meta: 'Geometry change only; no expression category is assigned.' })] : []),
+      ]),
+      limitations: Object.freeze(founderReportUniqueLimitations(facialEvents, [suppression.triggered ? suppression.summary : null, 'Movement is reported without interpreting expression or internal state.'])),
+    }),
+    Object.freeze({
+      id: 'framing', title: 'Framing / Tracking safety', status: suppression.triggered ? 'SAFETY SUPPRESSION RECORDED' : founderReportReliabilityLabel(framingEvents, visualObserved),
+      items: Object.freeze([
+        founderReportItem('Face centered in frame', metric('framing_center'), (value) => `${founderReportPercent(value)} OF FACE-VISIBLE ANALYZABLE FRAMES`, visualObserved ? 'NO PERSON-SPECIFIC FRAMING OBSERVATION EMITTED' : 'UNAVAILABLE — VISUAL OBSERVATION NOT AVAILABLE'),
+        founderReportIntervalItem('Face absent / out of view', faceAbsenceGaps, result, { sourceObserved: visualObserved }),
+        founderReportIntervalItem('Multiple-face frames excluded', multipleFaceGaps, result, { sourceObserved: visualObserved }),
+        founderReportIntervalItem('Face-protection unavailable', protectionGaps, result, { sourceObserved: visualObserved }),
+        Object.freeze({ label: 'Exactly-one-person safety', value: suppression.summary, meta: `${suppression.triggerCount || 0} safety trigger event${suppression.triggerCount === 1 ? '' : 's'} · ${suppression.intervalCount || 0} timestamped suppression interval${suppression.intervalCount === 1 ? '' : 's'}.` }),
+      ]),
+      limitations: Object.freeze(founderReportUniqueLimitations(framingEvents)),
+    }),
+    Object.freeze({
+      id: 'performance-privacy', title: 'Performance / Privacy', status: 'FACTUAL RECEIPT',
+      items: Object.freeze([
+        Object.freeze({ label: 'Full visual pipeline p95', value: Number.isFinite(result?.performance?.visualInferenceP95Ms) ? `${founderReportNumber(result.performance.visualInferenceP95Ms, 2)} ms` : 'UNAVAILABLE', meta: 'Includes local worker inference and rendering.' }),
+        Object.freeze({ label: 'Founder cockpit run-wide p95', value: `OVERLAY BLIT ${cockpitPerformance?.overlay?.p95Ms ?? 'UNAVAILABLE'} ms · AUDIO ${cockpitPerformance?.audio?.p95Ms ?? 'UNAVAILABLE'} ms · TIMELINE ${cockpitPerformance?.timeline?.p95Ms ?? 'UNAVAILABLE'} ms · FRAME ${cockpitPerformance?.frame?.p95Ms ?? 'UNAVAILABLE'} ms`, meta: 'Fixed-memory 0.25 ms histogram.' }),
+        Object.freeze({ label: 'Raw analytics retention', value: `AUDIO ${result?.privacy?.rawAudioStored === false ? 'NO' : result?.privacy?.rawAudioStored === true ? 'YES' : 'UNRESOLVED'} · FRAMES ${result?.privacy?.rawFramesStored === false ? 'NO' : result?.privacy?.rawFramesStored === true ? 'YES' : 'UNRESOLVED'} · LANDMARKS ${result?.privacy?.rawLandmarksStored === false ? 'NO' : result?.privacy?.rawLandmarksStored === true ? 'YES' : 'UNRESOLVED'}`, meta: `Optional local replay: ${localReplayRetained ? 'YES — TAB MEMORY ONLY' : 'NO'}.` }),
+        Object.freeze({ label: 'External analytics calls', value: result?.privacy?.externalAnalyticsCalls === false ? 'NO' : result?.privacy?.externalAnalyticsCalls === true ? 'YES' : 'UNRESOLVED', meta: `${Number.isFinite(result?.privacy?.blockedExternalAttemptCount) ? Math.max(0, Math.round(result.privacy.blockedExternalAttemptCount)) : 'UNRESOLVED'} blocked external attempt${result?.privacy?.blockedExternalAttemptCount === 1 ? '' : 's'} recorded.` }),
+      ]),
+      limitations: Object.freeze([]),
+    }),
+  ];
+
+  const overview = [
+    `Run duration ${founderReportDuration(result?.durationMs)}.`,
+    level && founderReportValuePresent(level) ? `Captured level ${founderReportNumber(level.observation.value)} dBFS.` : 'Captured level unavailable.',
+    clipping && founderReportValuePresent(clipping) ? `Digital clipping ${founderReportPercent(clipping.observation.value, 2)}.` : 'Digital clipping observation unavailable.',
+    pauses.length ? `${pauses.length} timestamped pause episode${pauses.length === 1 ? '' : 's'} detected.` : audioObserved ? '0 qualifying pause episodes recorded.' : 'Pause observation unavailable.',
+    handMotion.length ? `${handMotion.length} timestamped hand-movement episode${handMotion.length === 1 ? '' : 's'} detected.` : handTrackable ? '0 qualifying hand-movement episodes recorded.' : 'Hand-movement observation unavailable.',
+    leans.length || sways.length ? `${leans.length} lean and ${sways.length} sway episode${leans.length + sways.length === 1 ? '' : 's'} detected.` : torsoTrackable ? '0 qualifying lean or sway episodes recorded.' : 'Posture-movement observation unavailable.',
+    headTurns.length ? `${headTurns.length} timestamped sustained head-turn episode${headTurns.length === 1 ? '' : 's'} detected.` : faceTrackable ? '0 qualifying sustained head-turn episodes recorded.' : 'Head-turn observation unavailable.',
+    faceMoves.length ? `${faceMoves.length} timestamped facial-movement episode${faceMoves.length === 1 ? '' : 's'} detected.` : faceTrackable ? '0 qualifying facial-movement episodes recorded.' : 'Facial-movement observation unavailable.',
+    ...(suppression.triggered ? [suppression.summary] : []),
+  ];
+
+  return Object.freeze({
+    heading: 'Founder multimodal analytics report',
+    note: 'Founder-only factual instrumentation. Values below describe emitted observations and limitations; they do not create a communication rating or change the student result.',
+    overview: Object.freeze(overview),
+    coverage: Object.freeze([
+      founderReportCoverageEntry('Microphone', mic, micEvents),
+      founderReportCoverageEntry('Camera', camera, cameraEvents),
+    ]),
+    sections: Object.freeze(sections),
+    suppression,
+    eventCount: events.length,
+  });
+}
+
+function renderFounderPostRunReport(report) {
+  const region = element('section', 'ca-founder-report');
+  region.setAttribute('aria-labelledby', 'communication-analytics-founder-report-overview');
+  const overviewTitle = element('h3', '', 'What was detected');
+  overviewTitle.id = 'communication-analytics-founder-report-overview';
+  region.append(overviewTitle, element('p', 'ca-founder-report-note', report.note));
+  const overview = element('ul', 'ca-founder-overview');
+  for (const item of report.overview) overview.append(element('li', '', item));
+  region.append(overview);
+
+  const coverageTitle = element('h3', '', 'Coverage and reliability');
+  const coverage = element('div', 'ca-report-coverage');
+  for (const entry of report.coverage) {
+    const card = element('section', 'ca-report-coverage-card');
+    card.append(element('h4', '', entry.label), element('span', 'ca-report-state', entry.status), element('p', '', entry.text));
+    coverage.append(card);
+  }
+  region.append(coverageTitle, coverage);
+
+  const sectionGrid = element('div', 'ca-report-grid');
+  for (const section of report.sections) {
+    const card = element('section', 'ca-report-card');
+    const titleId = `communication-analytics-founder-report-${section.id}`;
+    card.setAttribute('aria-labelledby', titleId);
+    const head = element('div', 'ca-report-card-head');
+    const title = element('h3', '', section.title);
+    title.id = titleId;
+    head.append(title, element('span', 'ca-report-state', section.status));
+    card.append(head);
+    const details = element('dl', 'ca-report-details');
+    for (const item of section.items) {
+      details.append(element('dt', '', item.label));
+      const value = element('dd');
+      value.append(element('strong', '', item.value), element('small', '', item.meta));
+      details.append(value);
+    }
+    card.append(details);
+    if (section.limitations.length) card.append(element('p', 'ca-report-limitations', `Limitations · ${section.limitations.join(' · ')}`));
+    sectionGrid.append(card);
+  }
+  region.append(sectionGrid);
+  return region;
+}
+
 export function renderStudentAnalytics(result) {
   const anchor = document.getElementById('communication-results-anchor');
   if (!anchor) return;
@@ -450,10 +892,12 @@ export function renderStudentAnalytics(result) {
 }
 
 export class FounderAnalyticsSurface {
-  constructor({ root, pipeline, bridge }) {
+  constructor({ root, pipeline, bridge, overlaySettings = null, overlayUi = null }) {
     this.root = root;
     this.pipeline = pipeline;
     this.bridge = bridge;
+    this.overlaySettings = overlaySettings;
+    this.overlayUi = overlayUi;
     this.state = 'idle';
     this.stepIndex = 0;
     this.startedAt = null;
@@ -494,6 +938,9 @@ export class FounderAnalyticsSurface {
     this.overlayError = null;
     this.lastOverlayPrimitiveCount = 0;
     this.lastTrackingSummary = '';
+    this.founderInstrumentationLocked = false;
+    this.onOverlaySettingsChange = () => this.handleOverlaySettingsChange();
+    this.overlaySettings?.addEventListener?.('change', this.onOverlaySettingsChange);
     this.pipeline.addEventListener('diagnostic', (event) => {
       this.consumeDiagnostic(event.detail || {});
     });
@@ -607,7 +1054,7 @@ export class FounderAnalyticsSurface {
     if (title) title.textContent = plan.endurance ? 'Endurance hold' : 'Guided test steps';
     const note = document.getElementById('communication-analytics-run-mode-note');
     if (note) note.textContent = plan.endurance
-      ? `${formatDuration(plan.targetDurationMs)} session-clock target · live camera required to exercise real MediaPipe WASM · cockpit overlay, gauges, audio, and timeline lock on · local replay is disabled to keep the endurance path bounded · keep this tab visible · Finish test remains available for an explicitly early result.`
+      ? `${formatDuration(plan.targetDurationMs)} session-clock target · live camera and the local overlay master are required to exercise real MediaPipe WASM with the full cockpit · overlay, gauges, audio, and timeline lock on · local replay is disabled to keep the endurance path bounded · keep this tab visible · Finish test remains available for an explicitly early result.`
       : `${formatDuration(plan.targetDurationMs)} guided functional sequence · Next and Skip remain available · automatic finish follows the final step.`;
     const steps = document.getElementById('communication-analytics-steps');
     if (steps) {
@@ -644,7 +1091,8 @@ export class FounderAnalyticsSurface {
     const replay = document.getElementById('communication-analytics-replay');
     const transitioning = ['requesting', 'running', 'finalizing'].includes(this.state);
     const anyMedia = this.cameraIsLive() || this.microphoneIsLive();
-    const canStart = ['ready', 'partial'].includes(this.state) && anyMedia && (!plan.requiresCamera || this.cameraIsLive());
+    const overlayPolicyReady = !plan.endurance || this.overlaySettings?.policy?.().masterEnabled !== false;
+    const canStart = ['ready', 'partial'].includes(this.state) && anyMedia && (!plan.requiresCamera || this.cameraIsLive()) && overlayPolicyReady;
     if (start) {
       start.textContent = plan.startLabel;
       start.disabled = !canStart;
@@ -657,6 +1105,7 @@ export class FounderAnalyticsSurface {
   }
 
   lockFounderInstrumentation(locked) {
+    this.founderInstrumentationLocked = Boolean(locked);
     for (const [id, , targetId] of FOUNDER_INSTRUMENTATION_CONTROLS) {
       const control = document.getElementById(id);
       if (!control) continue;
@@ -666,8 +1115,31 @@ export class FounderAnalyticsSurface {
       }
       control.disabled = Boolean(locked);
     }
+    for (const [id] of FOUNDER_OVERLAY_LAYER_CONTROLS) {
+      const control = document.getElementById(id);
+      if (!control) continue;
+      if (locked) control.checked = true;
+      control.disabled = Boolean(locked) || this.overlaySettings?.policy?.().masterEnabled === false;
+    }
     if (locked) this.configureOverlay(true);
+    else this.syncFounderOverlayControls();
     this.scheduleInstrumentationRender();
+  }
+
+  syncFounderOverlayControls() {
+    const preferences = this.overlaySettings?.preferences?.() || { founderLiveFace: true, founderLiveBody: true };
+    const policyEnabled = this.overlaySettings?.policy?.().masterEnabled !== false;
+    const locked = this.founderInstrumentationLocked;
+    for (const [id, , preferenceKey] of FOUNDER_OVERLAY_LAYER_CONTROLS) {
+      const control = document.getElementById(id);
+      if (!control) continue;
+      control.checked = locked ? true : preferences[preferenceKey] !== false;
+      control.disabled = locked || !policyEnabled;
+    }
+    const master = document.getElementById('communication-analytics-show-overlay');
+    if (master) master.disabled = locked || !policyEnabled;
+    const status = document.getElementById('communication-analytics-founder-overlay-policy-status');
+    if (status) status.textContent = `${policyEnabled ? 'LOCAL OVERLAY POLICY ON' : 'LOCAL OVERLAY POLICY OFF'} · LOCAL ALPHA · THIS BROWSER ONLY · NOT AUTHENTICATED OR SHARED`;
   }
 
   buildFounderCockpit() {
@@ -678,7 +1150,7 @@ export class FounderAnalyticsSurface {
     const heading = element('h2', 'pLbl', 'Live Founder instrumentation');
     heading.id = 'communication-analytics-cockpit-title';
     const badges = element('div', 'ca-badges');
-    badges.append(element('span', 'real', 'FOUNDER ONLY'), element('span', 'sim', 'LOCAL DERIVED SIGNALS'));
+    badges.append(element('span', 'real', 'FOUNDER ONLY'), element('span', 'sim', 'LOCAL DERIVED SIGNALS'), element('span', 'sim', 'THIS BROWSER ONLY'));
     head.append(heading, badges);
     cockpit.append(head);
     cockpit.append(element('p', 'ca-cockpit-note', 'Live engineering visibility only. These instruments are not a communication score and do not change the student result.'));
@@ -695,11 +1167,28 @@ export class FounderAnalyticsSurface {
       });
       toggles.append(control.label);
     }
+    const founderPreferences = this.overlaySettings?.preferences?.() || { founderLiveFace: true, founderLiveBody: true };
+    for (const [id, label, preferenceKey] of FOUNDER_OVERLAY_LAYER_CONTROLS) {
+      const control = toggleControl(id, label, founderPreferences[preferenceKey] !== false);
+      control.input.dataset.overlayPreference = preferenceKey;
+      control.input.setAttribute('aria-controls', 'communication-analytics-overlay');
+      control.input.addEventListener('change', () => {
+        try { this.overlaySettings?.updatePreferences?.({ [preferenceKey]: control.input.checked }, { role: this.bridge.role }); } catch {}
+        this.configureOverlay(document.getElementById('communication-analytics-show-overlay')?.checked !== false);
+      });
+      toggles.append(control.label);
+    }
     const rawControl = toggleControl('communication-analytics-show-diagnostics', ' Raw diagnostics', false);
     rawControl.input.setAttribute('aria-controls', 'communication-analytics-diagnostics');
     rawControl.input.addEventListener('change', () => this.renderDiagnostics());
     toggles.append(rawControl.label);
     cockpit.append(toggles);
+
+    const overlayPolicyStatus = element('p', 'ca-overlay-status', 'LOCAL ALPHA · THIS BROWSER ONLY · NOT AUTHENTICATED OR SHARED');
+    overlayPolicyStatus.id = 'communication-analytics-founder-overlay-policy-status';
+    overlayPolicyStatus.setAttribute('role', 'status');
+    overlayPolicyStatus.setAttribute('aria-live', 'polite');
+    cockpit.append(overlayPolicyStatus);
 
     const tracking = element('div', 'ca-tracking-status');
     tracking.id = 'communication-analytics-tracking-status';
@@ -777,9 +1266,29 @@ export class FounderAnalyticsSurface {
 
   configureOverlay(enabled) {
     const overlay = document.getElementById('communication-analytics-overlay');
-    overlay?.classList.toggle('ca-hidden', !enabled);
-    try { this.pipeline.setInstrumentation?.({ overlayEnabled: Boolean(enabled) }); } catch {}
-    if (!enabled) this.clearOverlay();
+    const policyEnabled = this.overlaySettings?.policy?.().masterEnabled !== false;
+    const faceEnabled = policyEnabled && document.getElementById('communication-analytics-show-face-overlay')?.checked !== false;
+    const bodyEnabled = policyEnabled && document.getElementById('communication-analytics-show-body-overlay')?.checked !== false;
+    const overlayEnabled = Boolean(enabled && policyEnabled && (faceEnabled || bodyEnabled));
+    overlay?.classList.toggle('ca-hidden', !overlayEnabled);
+    try { this.pipeline.setInstrumentation?.({ overlayEnabled, faceEnabled, bodyEnabled }); } catch {}
+    if (!overlayEnabled) this.clearOverlay();
+    this.syncFounderOverlayControls();
+  }
+
+  handleOverlaySettingsChange() {
+    const policyEnabled = this.overlaySettings?.policy?.().masterEnabled !== false;
+    if (this.state === 'running' && this.activeRunPlan?.endurance && !policyEnabled) {
+      let atMs = null;
+      try { atMs = this.pipeline?.session?.clock?.sessionMs?.() ?? null; } catch {}
+      this.recordRunInterruption({
+        subsystem: 'overlay-display', atMs,
+        message: 'Local overlay policy was disabled during the endurance run.',
+      });
+    }
+    this.syncFounderOverlayControls();
+    this.configureOverlay(document.getElementById('communication-analytics-show-overlay')?.checked !== false);
+    this.updateStartAvailability();
   }
 
   consumePipelineState(detail) {
@@ -903,14 +1412,28 @@ export class FounderAnalyticsSurface {
     this.scheduleInstrumentationRender();
   }
 
-  consumeOverlay({ bitmap, geometry, atMs, primitiveCount = 0, pipelineMs = null } = {}) {
+  consumeOverlay({
+    bitmap,
+    geometry,
+    atMs,
+    primitiveCount = 0,
+    pipelineMs = null,
+    overlayStatus = bitmap ? 'rendered' : 'unavailable',
+    overlayUnavailableReason = bitmap ? null : 'overlay_bitmap_unavailable',
+  } = {}) {
     const diagnostics = this.pipeline.diagnostics();
     const enabled = document.getElementById('communication-analytics-show-overlay')?.checked !== false;
     const detail = { modality: 'vision', geometry };
     const protection = founderFaceProtectionStatus(detail, diagnostics);
     const protectedGeometry = founderOverlayGeometry(detail, { multiFaceProtection: protection.guardReady });
     const freshness = founderVisionDiagnosticFreshness({ atMs, inferenceMs: pipelineMs });
-    if (this.state !== 'running' || !enabled || !bitmap || !protectedGeometry || !freshness.fresh) {
+    if (overlayStatus === 'error') {
+      this.overlayError = overlayRenderStatusCopy({ overlayStatus, overlayUnavailableReason });
+      this.clearOverlay();
+      return;
+    }
+    this.overlayError = null;
+    if (this.state !== 'running' || !enabled || overlayStatus !== 'rendered' || !bitmap || !protectedGeometry || !freshness.fresh) {
       this.clearOverlay();
       return;
     }
@@ -920,6 +1443,18 @@ export class FounderAnalyticsSurface {
       this.lastOverlayPrimitiveCount = Number.isFinite(primitiveCount) ? primitiveCount : 0;
     } catch (error) {
       this.overlayError = String(error?.message || error).slice(0, 300);
+      let interruptionAtMs = founderDiagnosticAtMs({ atMs });
+      if (interruptionAtMs === null) {
+        try {
+          interruptionAtMs = founderDiagnosticAtMs({ atMs: this.pipeline?.session?.clock?.sessionMs?.() });
+        } catch {}
+      }
+      if (interruptionAtMs === null) interruptionAtMs = founderDiagnosticAtMs({ atMs: this.timelineLatestAtMs });
+      this.recordRunInterruption({
+        subsystem: 'overlay-display',
+        atMs: interruptionAtMs ?? 0,
+        message: 'Founder overlay canvas drawing failed; analytics continued.',
+      });
       this.clearOverlay();
     }
   }
@@ -1335,6 +1870,11 @@ export class FounderAnalyticsSurface {
       document.getElementById('communication-analytics-status')?.focus();
       return;
     }
+    if (plan.endurance && this.overlaySettings?.policy?.().masterEnabled === false) {
+      this.setStatus('partial', `${plan.label} requires the local overlay master to be ON so the full Founder cockpit instrumentation is actually exercised. Enable it in Admin Ops or choose the guided functional sequence.`);
+      document.getElementById('communication-analytics-status')?.focus();
+      return;
+    }
     this.pipeline.resetSession();
     this.completedInstrumentationPerformance = null;
     this.completedRunReceipt = null;
@@ -1518,16 +2058,22 @@ export class FounderAnalyticsSurface {
     const panel = element('div', 'panel ca-result');
     panel.id = 'communication-analytics-founder-result';
     panel.tabIndex = -1;
+    panel.setAttribute('role', 'region');
+    panel.setAttribute('aria-labelledby', 'communication-analytics-founder-result-title');
     const pad = element('div', 'pPad');
-    pad.append(element('h2', 'pLbl', 'Synchronized evidence and validation catalog'));
+    const cockpitPerformance = this.completedInstrumentationPerformance;
+    const report = founderPostRunReport(result, { cockpitPerformance, localReplayRetained: Boolean(this.replayUrl) });
+    const reportTitle = element('h2', 'pLbl', report.heading);
+    reportTitle.id = 'communication-analytics-founder-result-title';
+    pad.append(reportTitle);
     const studentSafe = result?.studentEvents?.length || 0;
     const experimental = result?.events?.filter((event) => event.maturity === 'FOUNDER_EXPERIMENTAL').length || 0;
     pad.append(element('div', 'ca-status', `${studentSafe} validated student-safe observations · ${experimental} Founder-only experimental observations · ${result?.events?.length || 0} total timestamped events.`));
     if (runReceipt) pad.append(element('div', `ca-run-receipt ${runReceipt.targetCompleted && this.completedRunCleanup ? 'ca-run-complete' : 'ca-run-limited'}`, `${runReceipt.summary} · ${this.completedRunCleanup ? 'CAMERA, MICROPHONE, AND LOCAL WASM WORKERS RELEASED' : 'AUTOMATIC CLEANUP INCOMPLETE — USE CLEAR TEST + RELEASE DEVICES'}`));
-    const energyVariation = result?.events?.find((event) => event.metric === 'energy_variation_db');
-    if (energyVariation && Number.isFinite(energyVariation.observation?.value)) {
-      pad.append(element('div', 'ca-status', `FOUNDER EXPERIMENTAL · energy_variation_db ${Number(energyVariation.observation.value).toFixed(2)} dB IQR across this answer · captured energy only · delivery quality not inferred · never included in student projection.`));
-    }
+    pad.append(renderFounderPostRunReport(report));
+    const catalogTitle = element('h3', 'ca-catalog-title', 'Full timestamped evidence catalog');
+    catalogTitle.id = 'communication-analytics-founder-catalog-title';
+    pad.append(catalogTitle, element('p', 'ca-founder-report-note', 'Complete event-level evidence follows the summary. Times use the synchronized media/session clock when available.'));
     const list = element('div', 'ca-event-list');
     for (const event of (result?.events || [])) {
       const row = element('div', 'ca-event');
@@ -1546,8 +2092,8 @@ export class FounderAnalyticsSurface {
       }
       list.append(row);
     }
+    if (!result?.events?.length) list.append(element('div', 'ca-status', 'NO TIMESTAMPED EVENTS WERE EMITTED FOR THIS RUN.'));
     pad.append(list);
-    const cockpitPerformance = this.completedInstrumentationPerformance;
     pad.append(element('div', 'ca-privacy', `PRIVACY RECEIPT · analytics raw audio/frames/landmarks retained: NO · optional local replay: ${this.replayUrl ? 'YES — TAB MEMORY ONLY' : 'NO'} · external analytics egress: BLOCKED BY SAME-ORIGIN WORKER GUARD + CSP · full visual pipeline p95 (includes worker rendering): ${result?.performance?.visualInferenceP95Ms ?? 'UNRESOLVED'} ms · Founder cockpit run-wide p95 (0.25 ms histogram) overlay blit/audio/timeline/frame: ${cockpitPerformance?.overlay?.p95Ms ?? 'UNRESOLVED'}/${cockpitPerformance?.audio?.p95Ms ?? 'UNRESOLVED'}/${cockpitPerformance?.timeline?.p95Ms ?? 'UNRESOLVED'}/${cockpitPerformance?.frame?.p95Ms ?? 'UNRESOLVED'} ms`));
     if (this.replayUrl) {
       const replay = element('video', 'ca-preview');
@@ -1573,11 +2119,13 @@ export class FounderAnalyticsSurface {
     pad.append(actions);
     panel.append(pad);
     this.root.append(panel);
+    this.overlayUi?.scheduleSync?.();
     panel.focus();
     for (const id of ['communication-analytics-finish', 'communication-analytics-next', 'communication-analytics-skip']) document.getElementById(id)?.setAttribute('disabled', '');
   }
 
   clear({ render = true } = {}) {
+    this.overlayUi?.scheduleSync?.();
     this.connectEpoch += 1;
     this.runEpoch += 1;
     clearInterval(this.timer);
@@ -1610,6 +2158,11 @@ export class FounderAnalyticsSurface {
   onViewChange(view, role) {
     if (view === 'analytics-test' && role === 'admin') return;
     if (this.ownsMedia || this.state !== 'idle' || this.replayUrl) this.clear();
+  }
+
+  destroy() {
+    this.clear({ render: false });
+    this.overlaySettings?.removeEventListener?.('change', this.onOverlaySettingsChange);
   }
 
   setStatus(state, message, { announce = false } = {}) {
@@ -1661,21 +2214,23 @@ export class FounderAnalyticsSurface {
 export function initializeAnalyticsUi(bridge) {
   const pipeline = new BrowserAnalyticsPipeline({ bridge });
   const founderPipeline = new BrowserAnalyticsPipeline({ bridge });
+  const overlaySettings = new LocalOverlaySettings();
+  const overlayUi = new OverlayUiController({ bridge, pipeline, settings: overlaySettings });
   const root = document.getElementById('communication-analytics-test-root');
-  const founder = root ? new FounderAnalyticsSurface({ root, pipeline: founderPipeline, bridge }) : null;
+  const founder = root ? new FounderAnalyticsSurface({ root, pipeline: founderPipeline, bridge, overlaySettings, overlayUi }) : null;
   const api = Object.freeze({
-    beginAnswer: (options) => pipeline.beginAnswer(options),
-    prepareEnd: (endAt) => pipeline.prepareEnd(endAt),
-    endAnswer: (options) => pipeline.endAnswer(options),
-    abandonAnswer: (reason) => pipeline.abandonAnswer(reason),
+    beginAnswer: (options) => { overlayUi.beforeBeginAnswer();return pipeline.beginAnswer(options); },
+    prepareEnd: (endAt) => { overlayUi.clearMainOverlay();return pipeline.prepareEnd(endAt); },
+    endAnswer: (options) => { const result = pipeline.endAnswer(options);overlayUi.clearMainOverlay();return result; },
+    abandonAnswer: (reason) => { const result = pipeline.abandonAnswer(reason);overlayUi.clearMainOverlay();return result; },
     renderStudentResults: renderStudentAnalytics,
-    onViewChange: (view, role) => founder?.onViewChange(view, role),
+    onViewChange: (view, role) => { overlayUi.onViewChange(view, role);founder?.onViewChange(view, role); },
     diagnostics: () => pipeline.diagnostics(),
     persistentEnvelopes: (value) => persistentAnalyticsEnvelopes(value),
-    resetSession: () => pipeline.resetSession(),
-    releaseRuntime: () => pipeline.resetSession(),
-    destroy: () => { founder?.clear({ render: false });founderPipeline.destroy();pipeline.destroy(); },
+    resetSession: () => { overlayUi.clearMainOverlay();return pipeline.resetSession(); },
+    releaseRuntime: () => { overlayUi.clearMainOverlay();return pipeline.resetSession(); },
+    destroy: () => { founder?.destroy();overlayUi.destroy();founderPipeline.destroy();pipeline.destroy(); },
   });
-  window.addEventListener('pagehide', () => { founder?.clear({ render: false });founderPipeline.destroy();pipeline.destroy(); }, { once: true });
+  window.addEventListener('pagehide', () => { founder?.destroy();overlayUi.destroy();founderPipeline.destroy();pipeline.destroy(); }, { once: true });
   return api;
 }

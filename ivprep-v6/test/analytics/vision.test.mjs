@@ -51,6 +51,84 @@ test('multi-face and unresolved face protection fail closed', () => {
   }
 });
 
+test('temporary face absence preserves safe single-face summaries and records its exact interval', () => {
+  const analyzer=new VisionEpisodeAnalyzer();analyzer.begin(0);
+  for(const atMs of [0,125,250])analyzer.ingest({atMs,geometry:compact()});
+  for(const atMs of [375,500])analyzer.ingest({atMs,geometry:compact({faceCount:0})});
+  for(const atMs of [625,750,875])analyzer.ingest({atMs,geometry:compact()});
+  const result=analyzer.finish(1_000);
+  assert.equal(result.personSpecificAvailable,true);
+  assert.equal(result.multipleFacesDetected,false);
+  assert.equal(result.personSpecificSampleCount,6);
+  assert.equal(result.faceAbsenceSampleCount,2);
+  assert.equal(result.facePresenceRatio,1);
+  assert.deepEqual(result.episodes.find((event)=>event.value==='face_absence'),{metric:'observation_gap',startMs:375,endMs:625,value:'face_absence'});
+});
+
+test('one multi-face frame is excluded without becoming a sustained multi-face episode', () => {
+  const analyzer=new VisionEpisodeAnalyzer();analyzer.begin(0);
+  for(const atMs of [0,125])analyzer.ingest({atMs,geometry:compact()});
+  analyzer.ingest({atMs:250,geometry:compact({faceCount:2})});
+  for(const atMs of [375,500,625])analyzer.ingest({atMs,geometry:compact()});
+  const result=analyzer.finish(750);
+  assert.equal(result.personSpecificAvailable,true);
+  assert.equal(result.multipleFacesDetected,false);
+  assert.equal(result.multipleFaceSampleCount,1);
+  assert.equal(result.personSpecificSampleCount,5);
+  assert.deepEqual(result.multiFaceEpisodes,[]);
+  assert.deepEqual(result.episodes.find((event)=>event.value==='multiple_face_frames_excluded'),{metric:'observation_gap',startMs:250,endMs:375,value:'multiple_face_frames_excluded'});
+});
+
+test('sustained multiple faces emit one bounded episode while safe intervals recover', () => {
+  const analyzer=new VisionEpisodeAnalyzer();analyzer.begin(0);
+  for(const atMs of [0,125])analyzer.ingest({atMs,geometry:compact()});
+  for(const atMs of [250,375,500,625,750])analyzer.ingest({atMs,geometry:compact({faceCount:2})});
+  for(const atMs of [875,1_000])analyzer.ingest({atMs,geometry:compact()});
+  const result=analyzer.finish(1_125);
+  assert.equal(result.personSpecificAvailable,true);
+  assert.equal(result.multipleFacesDetected,true);
+  assert.deepEqual(result.multiFaceEpisodes,[{startMs:250,endMs:875,sampleCount:5,maximumFaceCount:2}]);
+  assert.deepEqual(result.episodes.find((event)=>event.value==='multiple_face_frames_excluded'),{metric:'observation_gap',startMs:250,endMs:875,value:'multiple_face_frames_excluded'});
+});
+
+test('face-guard interruptions cannot be bridged into person or multi-face episodes', () => {
+  const person=new VisionEpisodeAnalyzer();person.begin(0);
+  for(const atMs of [0,125,250,375])person.ingest({atMs,geometry:compact({pose:{...compact().pose,lateralLeanDeg:20}})});
+  person.ingest({atMs:500,geometry:compact({faceCount:0})});
+  for(const atMs of [625,750,875,1_000])person.ingest({atMs,geometry:compact({pose:{...compact().pose,lateralLeanDeg:20}})});
+  assert.equal(person.finish(1_125).episodes.some((event)=>event.metric==='lateral_torso_lean'),false);
+
+  const multiple=new VisionEpisodeAnalyzer();multiple.begin(0);
+  for(const atMs of [0,125,250])multiple.ingest({atMs,geometry:compact({faceCount:2})});
+  multiple.ingest({atMs:375,geometry:compact({faceCount:0})});
+  for(const atMs of [500,625,750])multiple.ingest({atMs,geometry:compact({faceCount:2})});
+  multiple.ingest({atMs:875,geometry:compact()});
+  const result=multiple.finish(1_000);
+  assert.equal(result.multipleFacesDetected,false);
+  assert.equal(result.multiFaceEpisodes.length,0);
+  assert.deepEqual(result.episodes.filter((event)=>event.metric==='observation_gap').map((event)=>[event.startMs,event.endMs,event.value]),[
+    [0,375,'multiple_face_frames_excluded'],
+    [375,500,'face_absence'],
+    [500,875,'multiple_face_frames_excluded'],
+  ]);
+});
+
+test('a visual tracking gap resets multi-face hysteresis', () => {
+  const analyzer=new VisionEpisodeAnalyzer();analyzer.begin(0);
+  for(const atMs of [0,250])analyzer.ingest({atMs,expectedFrameMs:125,geometry:compact({faceCount:2})});
+  analyzer.ingest({atMs:1_000,expectedFrameMs:125,geometry:compact({faceCount:2})});
+  analyzer.ingest({atMs:1_250,expectedFrameMs:125,geometry:compact()});
+  const result=analyzer.finish(1_375);
+  assert.equal(result.multipleFacesDetected,false);
+  assert.deepEqual(result.multiFaceEpisodes,[]);
+  assert.equal(result.trackingGapDetected,true);
+  assert.deepEqual(result.episodes.filter((event)=>event.metric==='observation_gap').map((event)=>[event.startMs,event.endMs,event.value]),[
+    [0,250,'multiple_face_frames_excluded'],
+    [250,1_000,'visual_tracking_gap'],
+    [1_000,1_250,'multiple_face_frames_excluded'],
+  ]);
+});
+
 test('static facial geometry is not facial movement and gaps break episodes', () => {
   const analyzer=new VisionEpisodeAnalyzer();analyzer.begin(0);
   for(let at=0;at<=1_000;at+=125)analyzer.ingest({atMs:at,geometry:compact()});

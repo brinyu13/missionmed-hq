@@ -3,6 +3,9 @@ function distance(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
+const MULTI_FACE_EPISODE_MINIMUM_MS = 500;
+const MAX_FACE_GUARD_EPISODES = 50;
+
 class EpisodeTracker {
   constructor({ metric, minimumMs = 500, releaseMs = 300 } = {}) {
     this.metric = metric;
@@ -51,6 +54,7 @@ export class VisionEpisodeAnalyzer {
     this.faceFrames = 0;
     this.poseFrames = 0;
     this.handFrames = 0;
+    this.faceAbsenceFrames = 0;
     this.multiFaceFrames = 0;
     this.multiFaceProtectionUnavailableFrames = 0;
     this.personSpecificFrames = 0;
@@ -71,6 +75,11 @@ export class VisionEpisodeAnalyzer {
     this.swayChanges = [];
     this.gaps = [];
     this.droppedGaps = 0;
+    this.trackingGapCount = 0;
+    this.activeFaceGuardGap = null;
+    this.activeMultiFaceCandidate = null;
+    this.multiFaceEpisodes = [];
+    this.droppedMultiFaceEpisodes = 0;
     this.inferenceMs = [];
     this.cadenceMs = [];
     this.headSamples = [];
@@ -83,16 +92,85 @@ export class VisionEpisodeAnalyzer {
     this.startedAtMs = Math.round(startedAtMs);
   }
 
-  gap(startMs, endMs, reason) {
-    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) throw new TypeError('Vision gap timestamps must be finite.');
-    if (endMs <= startMs) return;
-    for (const tracker of Object.values(this.trackers)) tracker.close(tracker.lastTrueAt ?? startMs, 'tracking_gap');
+  breakPersonSpecificContinuity(atMs, reason) {
+    for (const tracker of Object.values(this.trackers)) tracker.close(tracker.lastTrueAt ?? atMs, reason);
     this.priorHands = { left: null, right: null };
     this.lastPoseCenterX = null;
     this.lastPoseDirection = 0;
     this.swayChanges = [];
-    if (this.gaps.length < 50) this.gaps.push({ metric: 'observation_gap', startMs, endMs, value: reason });
+  }
+
+  appendGap(startMs, endMs, reason) {
+    if (endMs <= startMs) return;
+    if (this.gaps.length < MAX_FACE_GUARD_EPISODES) this.gaps.push({ metric: 'observation_gap', startMs, endMs, value: reason });
     else this.droppedGaps += 1;
+  }
+
+  closeFaceGuardGap(endMs) {
+    const active = this.activeFaceGuardGap;
+    if (!active) return;
+    this.appendGap(active.startMs, endMs, active.reason);
+    this.activeFaceGuardGap = null;
+  }
+
+  closeMultiFaceCandidate(endMs) {
+    const candidate = this.activeMultiFaceCandidate;
+    if (!candidate) return;
+    if (candidate.lastAtMs - candidate.startMs >= MULTI_FACE_EPISODE_MINIMUM_MS) {
+      const episode = {
+        startMs: candidate.startMs,
+        endMs: Math.max(candidate.lastAtMs, endMs),
+        sampleCount: candidate.sampleCount,
+        maximumFaceCount: candidate.maximumFaceCount,
+      };
+      if (this.multiFaceEpisodes.length < MAX_FACE_GUARD_EPISODES) this.multiFaceEpisodes.push(episode);
+      else this.droppedMultiFaceEpisodes += 1;
+    }
+    this.activeMultiFaceCandidate = null;
+  }
+
+  updateFaceGuard(atMs, faceCount) {
+    const safe = faceCount === 1;
+    const reason = safe
+      ? null
+      : faceCount === 0
+        ? 'face_absence'
+        : Number.isFinite(faceCount) && faceCount > 1
+          ? 'multiple_face_frames_excluded'
+          : 'multi_face_protection_unavailable';
+
+    if (safe) {
+      this.closeFaceGuardGap(atMs);
+      this.closeMultiFaceCandidate(atMs);
+      return true;
+    }
+
+    this.breakPersonSpecificContinuity(atMs, reason);
+    if (!this.activeFaceGuardGap || this.activeFaceGuardGap.reason !== reason) {
+      this.closeFaceGuardGap(atMs);
+      this.activeFaceGuardGap = { startMs: atMs, reason };
+    }
+
+    if (reason === 'multiple_face_frames_excluded') {
+      if (!this.activeMultiFaceCandidate) {
+        this.activeMultiFaceCandidate = { startMs: atMs, lastAtMs: atMs, sampleCount: 1, maximumFaceCount: Math.round(faceCount) };
+      } else {
+        this.activeMultiFaceCandidate.lastAtMs = atMs;
+        this.activeMultiFaceCandidate.sampleCount += 1;
+        this.activeMultiFaceCandidate.maximumFaceCount = Math.max(this.activeMultiFaceCandidate.maximumFaceCount, Math.round(faceCount));
+      }
+    } else this.closeMultiFaceCandidate(atMs);
+    return false;
+  }
+
+  gap(startMs, endMs, reason) {
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) throw new TypeError('Vision gap timestamps must be finite.');
+    if (endMs <= startMs) return;
+    this.breakPersonSpecificContinuity(startMs, 'tracking_gap');
+    this.closeFaceGuardGap(startMs);
+    this.closeMultiFaceCandidate(startMs);
+    this.appendGap(startMs, endMs, reason);
+    this.trackingGapCount += 1;
     this.lastAtMs = Math.max(this.lastAtMs ?? this.startedAtMs ?? 0, Math.round(endMs));
   }
 
@@ -110,22 +188,22 @@ export class VisionEpisodeAnalyzer {
     this.lastAtMs = time;
     this.frames += 1;
     if (Number.isFinite(inferenceMs)) this.inferenceMs.push(inferenceMs);
-    if (!geometry) return;
-    this.analyzableFrames += 1;
-    const multiFace = Number.isFinite(geometry.faceCount) && geometry.faceCount > 1;
-    if (multiFace) this.multiFaceFrames += 1;
-    if (geometry.faceCount === null) this.multiFaceProtectionUnavailableFrames += 1;
-    const suppressPerson = multiFace || geometry.faceCount !== 1;
-    if (!suppressPerson) this.personSpecificFrames += 1;
+    const faceCount = geometry?.faceCount;
+    if (geometry) this.analyzableFrames += 1;
+    if (faceCount === 0) this.faceAbsenceFrames += 1;
+    else if (Number.isFinite(faceCount) && faceCount > 1) this.multiFaceFrames += 1;
+    else if (faceCount !== 1) this.multiFaceProtectionUnavailableFrames += 1;
+    if (!this.updateFaceGuard(time, faceCount)) return;
+    this.personSpecificFrames += 1;
 
     const face = geometry.face || {};
     const pose = geometry.pose || {};
     const hands = geometry.hands || {};
-    if (!suppressPerson && face.present) this.faceFrames += 1;
-    if (!suppressPerson && pose.torsoPresent) this.poseFrames += 1;
-    if (!suppressPerson && (hands.left?.present || hands.right?.present)) this.handFrames += 1;
+    if (face.present) this.faceFrames += 1;
+    if (pose.torsoPresent) this.poseFrames += 1;
+    if (hands.left?.present || hands.right?.present) this.handFrames += 1;
 
-    if (!suppressPerson && face.present) {
+    if (face.present) {
       this.headSamples.push({ yaw: face.yawProxyDeg, pitch: face.pitchProxyDeg, roll: face.rollProxyDeg });
       const facing = Math.abs(face.yawProxyDeg || 0) <= 20 && Math.abs(face.pitchProxyDeg || 0) <= 15 && Math.abs(face.rollProxyDeg || 0) <= 15;
       if (facing) this.facingFrames += 1;
@@ -139,7 +217,7 @@ export class VisionEpisodeAnalyzer {
       this.trackers.faceMove.update(time, false);
     }
 
-    if (!suppressPerson && pose.torsoPresent) {
+    if (pose.torsoPresent) {
       const lean = Number(pose.lateralLeanDeg) || 0;
       this.trackers.lean.update(time, Math.abs(lean) >= 12, { degrees: lean, direction: lean < 0 ? 'left' : 'right' });
       if (this.lastPoseCenterX !== null) {
@@ -164,8 +242,8 @@ export class VisionEpisodeAnalyzer {
       const seconds = prior ? Math.max((time - prior.atMs) / 1_000, 0.001) : null;
       const shoulderScale = Math.max(Number(pose.shoulderWidth) || 0.2, 0.05);
       const speed = moved !== null && seconds ? moved / seconds / shoulderScale : null;
-      if (!suppressPerson && speed !== null && speed >= 1.4) movingSides.push(side);
-      if (!suppressPerson && hands[side]?.present && hands[side].zone) {
+      if (speed !== null && speed >= 1.4) movingSides.push(side);
+      if (hands[side]?.present && hands[side].zone) {
         const zone = hands[side].zone;
         this.gestureZones[side][zone] = (this.gestureZones[side][zone] || 0) + 1;
       }
@@ -183,10 +261,13 @@ export class VisionEpisodeAnalyzer {
     const sortedCadence = [...this.cadenceMs].sort((a, b) => a - b);
     const representativeCadence = sortedCadence.length ? sortedCadence[Math.floor(sortedCadence.length / 2)] : 125;
     if (this.lastAtMs !== null && end - this.lastAtMs > Math.max(500, representativeCadence * 1.75)) this.gap(this.lastAtMs, end, 'visual_trailing_gap');
+    this.closeFaceGuardGap(end);
+    this.closeMultiFaceCandidate(end);
     for (const tracker of Object.values(this.trackers)) tracker.close(tracker.lastTrueAt ?? end, 'answer_end');
     const durationMs = end - (this.startedAtMs ?? end);
     const expectedFrames = Math.max(1, durationMs / representativeCadence);
     const coverage = Math.min(1, this.analyzableFrames / expectedFrames);
+    const personSpecificCoverage = Math.min(1, this.personSpecificFrames / expectedFrames);
     const episodes = Object.values(this.trackers).flatMap((tracker) => tracker.episodes).concat(this.gaps).sort((a, b) => a.startMs - b.startMs);
     const sortedInference = [...this.inferenceMs].sort((a, b) => a - b);
     const droppedEpisodes = Object.values(this.trackers).reduce((sum, tracker) => sum + tracker.droppedEpisodes, 0);
@@ -199,21 +280,27 @@ export class VisionEpisodeAnalyzer {
       coverage: Number(coverage.toFixed(4)),
       frameCount: this.frames,
       analyzableFrames: this.analyzableFrames,
-      facePresenceRatio: this.analyzableFrames ? this.faceFrames / this.analyzableFrames : null,
-      torsoPresenceRatio: this.analyzableFrames ? this.poseFrames / this.analyzableFrames : null,
-      handPresenceRatio: this.analyzableFrames ? this.handFrames / this.analyzableFrames : null,
+      personSpecificCoverage: Number(personSpecificCoverage.toFixed(4)),
+      personSpecificSampleCount: this.personSpecificFrames,
+      faceAbsenceSampleCount: this.faceAbsenceFrames,
+      multipleFaceSampleCount: this.multiFaceFrames,
+      unprotectedSampleCount: this.multiFaceProtectionUnavailableFrames,
+      facePresenceRatio: this.personSpecificFrames ? this.faceFrames / this.personSpecificFrames : null,
+      torsoPresenceRatio: this.personSpecificFrames ? this.poseFrames / this.personSpecificFrames : null,
+      handPresenceRatio: this.personSpecificFrames ? this.handFrames / this.personSpecificFrames : null,
       cameraFacingRatio: this.faceFrames ? this.facingFrames / this.faceFrames : null,
       framingCenteredRatio: this.faceFrames ? this.centeredFrames / this.faceFrames : null,
-      multipleFacesDetected: this.multiFaceFrames > 0,
+      multipleFacesDetected: this.multiFaceEpisodes.length > 0 || this.droppedMultiFaceEpisodes > 0,
       multiFaceProtectionAvailable: this.frames > 0 && this.multiFaceProtectionUnavailableFrames === 0,
-      personSpecificAvailable: this.personSpecificFrames > 0 && this.multiFaceProtectionUnavailableFrames === 0 && this.multiFaceFrames === 0,
+      personSpecificAvailable: this.personSpecificFrames > 0,
       headOrientationProxy: { yawDeg: averageHead('yaw'), pitchDeg: averageHead('pitch'), rollDeg: averageHead('roll') },
       gestureZones: this.gestureZones,
+      multiFaceEpisodes: this.multiFaceEpisodes.map((episode) => ({ ...episode })),
       episodes,
-      droppedEpisodes,
+      droppedEpisodes: droppedEpisodes + this.droppedMultiFaceEpisodes,
       droppedGaps: this.droppedGaps,
-      timelineTruncated: droppedEpisodes > 0 || this.droppedGaps > 0,
-      trackingGapDetected: this.gaps.length > 0 || this.droppedGaps > 0,
+      timelineTruncated: droppedEpisodes > 0 || this.droppedMultiFaceEpisodes > 0 || this.droppedGaps > 0,
+      trackingGapDetected: this.trackingGapCount > 0,
       inferenceP95Ms: sortedInference.length ? sortedInference[Math.max(0, Math.ceil(sortedInference.length * 0.95) - 1)] : null,
     };
     this.reset();

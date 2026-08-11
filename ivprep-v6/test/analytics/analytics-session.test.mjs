@@ -40,7 +40,7 @@ test('transcript injection affects counts only and never survives result JSON', 
   assert.equal(result.events.filter((event)=>event.maturity==='VALIDATED_STUDENT_SAFE').some((event)=>event.source.input==='transcript'),false);
 });
 
-test('multiple faces suppress every person-specific metric', () => {
+test('whole-run sustained multiple faces suppress every person-specific metric', () => {
   let now=0;const session=new AnalyticsSession({sessionId:'s',now:()=>now,wallClock:()=>0});
   session.beginAnswer({answerId:'a',hasCamera:true});
   for(let at=0;at<1_000;at+=125)session.ingestVision({atMs:at,geometry:compact(2),inferenceMs:10});
@@ -49,9 +49,67 @@ test('multiple faces suppress every person-specific metric', () => {
   const safety=result.events.find((event)=>event.metric==='multiple_faces_detected');
   assert.equal(safety.source.engine,'mediapipe-face-detector-local');
   assert.equal(safety.source.modelVersion,'blaze_face_short_range.float16.latest');
+  assert.deepEqual([safety.startMs,safety.endMs,safety.quality.sampleCount],[0,1_000,8]);
+  assert.deepEqual(safety.observation.qualifiers,['affected_interval_suppressed','no_identity_selection']);
+  const gap=result.events.find((event)=>event.metric==='observation_gap'&&event.observation.value==='multiple_face_frames_excluded');
+  assert.deepEqual([gap.startMs,gap.endMs],[0,1_000]);
   for(const metric of ['face_presence','torso_presence','hand_presence','camera_facing_proxy','framing_center','head_orientation_proxy','gesture_zone']) {
     assert.equal(result.events.some((event)=>event.metric===metric),false,metric);
   }
+});
+
+test('temporary face absence is a bounded gap and does not erase safe visual analytics', () => {
+  let now=0;const session=new AnalyticsSession({sessionId:'absence',now:()=>now,wallClock:()=>0});
+  session.beginAnswer({answerId:'a',hasCamera:true});
+  for(const atMs of [0,125,250])session.ingestVision({atMs,geometry:compact(1),inferenceMs:10});
+  for(const atMs of [375,500])session.ingestVision({atMs,geometry:compact(0),inferenceMs:10});
+  for(const atMs of [625,750,875])session.ingestVision({atMs,geometry:compact(1),inferenceMs:10});
+  now=1_000;const result=session.endAnswer();
+  assert.equal(result.events.some((event)=>event.metric==='multiple_faces_detected'),false);
+  const face=result.events.find((event)=>event.metric==='face_presence');
+  assert.equal(face.observation.value,1);
+  assert.equal(face.quality.sampleCount,6);
+  assert.equal(face.quality.coverage,.75);
+  assert.ok(face.quality.limitations.includes('face_absence_intervals_excluded'));
+  assert.equal(result.modalities.camera.personSpecificCoverage,.75);
+  assert.equal(result.modalities.camera.personSpecificSampleCount,6);
+  assert.doesNotThrow(()=>serializeAnalyticsEnvelope(result));
+  const gap=result.events.find((event)=>event.metric==='observation_gap'&&event.observation.value==='face_absence');
+  assert.deepEqual([gap.startMs,gap.endMs,gap.observation.qualifiers],[375,625,['vision']]);
+});
+
+test('isolated multi-face detection excludes one interval without suppressing the report', () => {
+  let now=0;const session=new AnalyticsSession({sessionId:'spike',now:()=>now,wallClock:()=>0});
+  session.beginAnswer({answerId:'a',hasCamera:true});
+  for(const atMs of [0,125])session.ingestVision({atMs,geometry:compact(1)});
+  session.ingestVision({atMs:250,geometry:compact(2)});
+  for(const atMs of [375,500,625])session.ingestVision({atMs,geometry:compact(1)});
+  now=750;const result=session.endAnswer();
+  assert.equal(result.events.some((event)=>event.metric==='multiple_faces_detected'),false);
+  const face=result.events.find((event)=>event.metric==='face_presence');
+  assert.equal(face.quality.sampleCount,5);
+  assert.equal(face.quality.reliability,'medium');
+  assert.ok(face.quality.limitations.includes('multiple_face_intervals_excluded'));
+  assert.ok(face.quality.limitations.includes('identity_continuity_not_established'));
+  const gap=result.events.find((event)=>event.metric==='observation_gap'&&event.observation.value==='multiple_face_frames_excluded');
+  assert.deepEqual([gap.startMs,gap.endMs],[250,375]);
+});
+
+test('sustained multi-face interval emits safety evidence and safe recovery analytics', () => {
+  let now=0;const session=new AnalyticsSession({sessionId:'recovery',now:()=>now,wallClock:()=>0});
+  session.beginAnswer({answerId:'a',hasCamera:true});
+  for(const atMs of [0,125])session.ingestVision({atMs,geometry:compact(1)});
+  for(const atMs of [250,375,500,625,750])session.ingestVision({atMs,geometry:compact(2)});
+  for(const atMs of [875,1_000])session.ingestVision({atMs,geometry:compact(1)});
+  now=1_125;const result=session.endAnswer();
+  const safety=result.events.find((event)=>event.metric==='multiple_faces_detected');
+  assert.deepEqual([safety.startMs,safety.endMs,safety.quality.sampleCount],[250,875,5]);
+  const face=result.events.find((event)=>event.metric==='face_presence');
+  assert.ok(face);
+  assert.equal(face.quality.sampleCount,4);
+  assert.ok(face.quality.limitations.includes('sustained_multiple_faces_detected'));
+  const gap=result.events.find((event)=>event.metric==='observation_gap'&&event.observation.value==='multiple_face_frames_excluded');
+  assert.deepEqual([gap.startMs,gap.endMs],[250,875]);
 });
 
 test('abandon clears state and a new answer can begin', () => {

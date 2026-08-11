@@ -6,11 +6,19 @@ let ready = false;
 let generation = 0;
 let activeAnswerEpoch = 0;
 let overlayEnabled = false;
+let overlayFaceEnabled = true;
+let overlayBodyEnabled = true;
+let responseMode = 'analytics';
 let overlayCanvas = null;
 let overlayContext = null;
 let priorFaceCategories = null;
 let priorFaceAtMs = null;
 const originalFetch = self.fetch.bind(self);
+
+const OVERLAY_ERROR_MESSAGES = Object.freeze({
+  overlay_render_failed: 'Local overlay rendering failed for this frame.',
+  overlay_bitmap_transfer_failed: 'Local overlay frame transfer failed.',
+});
 
 function sameOriginUrl(value) {
   const url = new URL(value instanceof Request ? value.url : value, self.location.href);
@@ -92,9 +100,8 @@ function drawPoints(context, landmarks, color, radius, respectVisibility = false
 }
 
 function renderOverlay(result, geometry, faceCount, width, height) {
-  if (!overlayEnabled || faceCount !== 1) return { bitmap: null, primitiveCount: 0 };
   const surface = overlaySurface(width, height);
-  if (!surface) return { bitmap: null, primitiveCount: 0 };
+  if (!surface) return { bitmap: null, primitiveCount: 0, unavailableReason: 'render_surface_unavailable' };
   const { canvas, context } = surface;
   context.clearRect(0, 0, canvas.width, canvas.height);
   const face = result?.faceLandmarks?.[0];
@@ -102,43 +109,110 @@ function renderOverlay(result, geometry, faceCount, width, height) {
   const leftHand = result?.leftHandLandmarks?.[0];
   const rightHand = result?.rightHandLandmarks?.[0];
   let primitiveCount = 0;
-  primitiveCount += drawConnections(context, face, visionModule?.HolisticLandmarker?.FACE_LANDMARKS_TESSELATION, 'rgba(72,220,255,.32)', 0.7);
-  primitiveCount += drawConnections(context, face, visionModule?.HolisticLandmarker?.FACE_LANDMARKS_CONTOURS, 'rgba(94,255,208,.95)', 1.2);
-  primitiveCount += drawConnections(context, pose, visionModule?.HolisticLandmarker?.POSE_CONNECTIONS, 'rgba(94,255,208,.92)', 2, true);
-  primitiveCount += drawPoints(context, pose, 'rgba(220,255,247,.98)', 2, true);
-  primitiveCount += drawConnections(context, leftHand, visionModule?.HolisticLandmarker?.HAND_CONNECTIONS, 'rgba(65,214,255,.98)', 1.5);
-  primitiveCount += drawPoints(context, leftHand, 'rgba(65,214,255,.98)', 1.8);
-  primitiveCount += drawConnections(context, rightHand, visionModule?.HolisticLandmarker?.HAND_CONNECTIONS, 'rgba(195,115,255,.98)', 1.5);
-  primitiveCount += drawPoints(context, rightHand, 'rgba(220,175,255,.98)', 1.8);
-  const box = geometry?.face?.box;
-  if (box) {
-    context.strokeStyle = 'rgba(94,255,208,.98)';
-    context.lineWidth = 1.5;
-    context.strokeRect(box.left * canvas.width, box.top * canvas.height, box.width * canvas.width, box.height * canvas.height);
-    const centerX = box.centerX * canvas.width;
-    const centerY = box.centerY * canvas.height;
-    const yaw = Math.max(-1, Math.min(1, (geometry.face.yawProxyDeg || 0) / 45));
-    const pitch = Math.max(-1, Math.min(1, (geometry.face.pitchProxyDeg || 0) / 35));
-    context.strokeStyle = 'rgba(255,209,102,.98)';
-    context.beginPath();
-    context.moveTo(centerX, centerY);
-    context.lineTo(centerX + yaw * 34, centerY + pitch * 25);
-    context.stroke();
-    context.fillStyle = 'rgba(255,209,102,.98)';
-    context.beginPath();
-    context.arc(centerX, centerY, 2.5, 0, Math.PI * 2);
-    context.fill();
-    primitiveCount += 3;
+  if (overlayFaceEnabled) {
+    primitiveCount += drawConnections(context, face, visionModule?.HolisticLandmarker?.FACE_LANDMARKS_TESSELATION, 'rgba(72,220,255,.32)', 0.7);
+    primitiveCount += drawConnections(context, face, visionModule?.HolisticLandmarker?.FACE_LANDMARKS_CONTOURS, 'rgba(94,255,208,.95)', 1.2);
+    const box = geometry?.face?.box;
+    if (box) {
+      context.strokeStyle = 'rgba(94,255,208,.98)';
+      context.lineWidth = 1.5;
+      context.strokeRect(box.left * canvas.width, box.top * canvas.height, box.width * canvas.width, box.height * canvas.height);
+      const centerX = box.centerX * canvas.width;
+      const centerY = box.centerY * canvas.height;
+      const yaw = Math.max(-1, Math.min(1, (geometry.face.yawProxyDeg || 0) / 45));
+      const pitch = Math.max(-1, Math.min(1, (geometry.face.pitchProxyDeg || 0) / 35));
+      context.strokeStyle = 'rgba(255,209,102,.98)';
+      context.beginPath();
+      context.moveTo(centerX, centerY);
+      context.lineTo(centerX + yaw * 34, centerY + pitch * 25);
+      context.stroke();
+      context.fillStyle = 'rgba(255,209,102,.98)';
+      context.beginPath();
+      context.arc(centerX, centerY, 2.5, 0, Math.PI * 2);
+      context.fill();
+      primitiveCount += 3;
+    }
+  }
+  if (overlayBodyEnabled) {
+    primitiveCount += drawConnections(context, pose, visionModule?.HolisticLandmarker?.POSE_CONNECTIONS, 'rgba(94,255,208,.92)', 2, true);
+    primitiveCount += drawPoints(context, pose, 'rgba(220,255,247,.98)', 2, true);
+    primitiveCount += drawConnections(context, leftHand, visionModule?.HolisticLandmarker?.HAND_CONNECTIONS, 'rgba(65,214,255,.98)', 1.5);
+    primitiveCount += drawPoints(context, leftHand, 'rgba(65,214,255,.98)', 1.8);
+    primitiveCount += drawConnections(context, rightHand, visionModule?.HolisticLandmarker?.HAND_CONNECTIONS, 'rgba(195,115,255,.98)', 1.5);
+    primitiveCount += drawPoints(context, rightHand, 'rgba(220,175,255,.98)', 1.8);
   }
   return primitiveCount > 0
-    ? { bitmap: canvas.transferToImageBitmap(), primitiveCount }
-    : { bitmap: null, primitiveCount: 0 };
+    ? { bitmap: canvas.transferToImageBitmap(), primitiveCount, unavailableReason: null }
+    : { bitmap: null, primitiveCount: 0, unavailableReason: 'no_renderable_primitives' };
+}
+
+function overlayResult(result, geometry, faceCount, width, height) {
+  const requested = overlayEnabled && (overlayFaceEnabled || overlayBodyEnabled);
+  if (!requested) return Object.freeze({
+    bitmap: null,
+    primitiveCount: 0,
+    status: 'not-requested',
+    unavailableReason: 'display_disabled',
+    errorCode: null,
+  });
+  if (faceCount !== 1) return Object.freeze({
+    bitmap: null,
+    primitiveCount: 0,
+    status: 'unavailable',
+    unavailableReason: 'face_count_not_one',
+    errorCode: null,
+  });
+  try {
+    const rendered = renderOverlay(result, geometry, faceCount, width, height);
+    return Object.freeze({
+      bitmap: rendered.bitmap,
+      primitiveCount: rendered.primitiveCount,
+      status: rendered.bitmap ? 'rendered' : 'unavailable',
+      unavailableReason: rendered.bitmap ? null : rendered.unavailableReason,
+      errorCode: null,
+    });
+  } catch {
+    return Object.freeze({
+      bitmap: null,
+      primitiveCount: 0,
+      status: 'error',
+      unavailableReason: 'render_failed',
+      errorCode: 'overlay_render_failed',
+    });
+  }
+}
+
+function postGeometryResponse(response, bitmap) {
+  if (!bitmap) {
+    self.postMessage(response);
+    return true;
+  }
+  try {
+    self.postMessage(response, [bitmap]);
+    return true;
+  } catch {
+    try { bitmap?.close?.(); } catch {}
+    self.postMessage({
+      ...response,
+      overlayBitmap: null,
+      overlayRendered: false,
+      overlayPrimitiveCount: 0,
+      overlayStatus: 'error',
+      overlayUnavailableReason: 'bitmap_transfer_failed',
+      overlayErrorCode: 'overlay_bitmap_transfer_failed',
+      overlayErrorMessage: OVERLAY_ERROR_MESSAGES.overlay_bitmap_transfer_failed,
+    });
+    return false;
+  }
 }
 
 async function initialize(message) {
   generation = message.generation;
   activeAnswerEpoch = message.answerEpoch;
   overlayEnabled = Boolean(message.overlayEnabled);
+  overlayFaceEnabled = message.faceEnabled === undefined ? true : Boolean(message.faceEnabled);
+  overlayBodyEnabled = message.bodyEnabled === undefined ? true : Boolean(message.bodyEnabled);
+  responseMode = message.responseMode === 'overlay-only' ? 'overlay-only' : 'analytics';
   visionModule = await import(message.bundleUrl);
   holistic = await createHolistic(visionModule, message.wasmRoot, message.holisticModelUrl);
   ready = true;
@@ -160,7 +234,7 @@ async function analyze(message) {
     priorFaceAtMs = message.timestampMs;
     const geometry = Object.freeze({ ...derived, face: Object.freeze({ ...derived.face, movementRatePerSecond }) });
     assertCompactGeometry(geometry);
-    const overlay = renderOverlay(result, geometry, faceCount, bitmap.width, bitmap.height);
+    const overlay = overlayResult(result, geometry, faceCount, bitmap.width, bitmap.height);
     overlayBitmap = overlay.bitmap;
     const response = {
       type: 'geometry',
@@ -172,13 +246,19 @@ async function analyze(message) {
       expectedFrameMs: message.expectedFrameMs,
       holisticInferenceMs: Number((performance.now() - startedAt).toFixed(2)),
       faceInferenceMs: Number.isFinite(message.faceInferenceMs) ? message.faceInferenceMs : null,
-      geometry,
-      overlayRequested: overlayEnabled,
+      faceCount,
+      overlayRequested: overlayEnabled && (overlayFaceEnabled || overlayBodyEnabled),
+      overlayLayers: Object.freeze({ face: overlayFaceEnabled, body: overlayBodyEnabled }),
       overlayRendered: Boolean(overlayBitmap),
       overlayPrimitiveCount: overlay.primitiveCount,
+      overlayStatus: overlay.status,
+      overlayUnavailableReason: overlay.unavailableReason,
+      overlayErrorCode: overlay.errorCode,
+      overlayErrorMessage: overlay.errorCode ? OVERLAY_ERROR_MESSAGES[overlay.errorCode] : null,
       overlayBitmap,
     };
-    self.postMessage(response, overlayBitmap ? [overlayBitmap] : []);
+    if (responseMode !== 'overlay-only') response.geometry = geometry;
+    postGeometryResponse(response, overlayBitmap);
     overlayBitmap = null;
   } catch (error) {
     overlayBitmap?.close?.();
@@ -199,6 +279,7 @@ async function shutdown(message) {
   overlayContext = null;
   priorFaceCategories = null;
   priorFaceAtMs = null;
+  responseMode = 'analytics';
   self.postMessage({ type: 'closed', generation });
   self.close();
 }
@@ -214,6 +295,8 @@ function resetTemporalState(message) {
 function configureInstrumentation(message) {
   if (message.generation !== generation) return;
   overlayEnabled = Boolean(message.overlayEnabled);
+  overlayFaceEnabled = message.faceEnabled === undefined ? true : Boolean(message.faceEnabled);
+  overlayBodyEnabled = message.bodyEnabled === undefined ? true : Boolean(message.bodyEnabled);
 }
 
 self.onmessage = (event) => {

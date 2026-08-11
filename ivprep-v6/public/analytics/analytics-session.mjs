@@ -160,25 +160,27 @@ export class AnalyticsSession {
     }
 
     if (vision) {
-      const unavailableBecauseMultiFace = vision.multipleFacesDetected;
       const personSpecificAvailable = vision.personSpecificAvailable;
       const visionQuality = quality({
-        coverage: vision.coverage,
-        sampleCount: vision.analyzableFrames,
-        available: personSpecificAvailable && !unavailableBecauseMultiFace && vision.coverage > 0,
+        coverage: vision.personSpecificCoverage,
+        sampleCount: vision.personSpecificSampleCount,
+        available: personSpecificAvailable && vision.personSpecificCoverage > 0,
         limitations: [
-          ...(vision.coverage < 0.8 ? ['insufficient_visual_coverage'] : []),
-          ...(unavailableBecauseMultiFace ? ['multiple_faces_person_specific_signals_suppressed'] : []),
-          ...(!vision.multiFaceProtectionAvailable ? ['multi_face_protection_unavailable'] : []),
+          ...(vision.personSpecificCoverage < 0.8 ? ['insufficient_safe_person_specific_coverage'] : []),
+          ...(vision.faceAbsenceSampleCount > 0 ? ['face_absence_intervals_excluded'] : []),
+          ...(vision.multipleFaceSampleCount > 0 ? ['multiple_face_intervals_excluded'] : []),
+          ...(vision.multipleFacesDetected ? ['sustained_multiple_faces_detected'] : []),
+          ...(!vision.multiFaceProtectionAvailable ? ['unprotected_intervals_excluded'] : []),
+          ...((vision.faceAbsenceSampleCount > 0 || vision.multipleFaceSampleCount > 0 || !vision.multiFaceProtectionAvailable) ? ['identity_continuity_not_established'] : []),
           ...(vision.trackingGapDetected ? ['visual_tracking_gap'] : []),
           ...(vision.timelineTruncated ? ['visual_episode_timeline_capped'] : []),
         ],
       });
       if (vision.timelineTruncated || vision.trackingGapDetected) visionQuality.reliability = 'low';
-      if (vision.multipleFacesDetected) add({
-        family: 'system', metric: 'multiple_faces_detected', source: SOURCE.faceDetector,
-        observation: { value: true, unit: null, qualifiers: ['person_specific_analysis_suppressed'] },
-        eventQuality: quality({ coverage: vision.coverage, sampleCount: vision.analyzableFrames, provenance: 'observed' }),
+      for (const episode of vision.multiFaceEpisodes) add({
+        family: 'system', metric: 'multiple_faces_detected', startMs: episode.startMs, endMs: episode.endMs, source: SOURCE.faceDetector,
+        observation: { value: true, unit: null, qualifiers: ['affected_interval_suppressed', 'no_identity_selection'] },
+        eventQuality: quality({ coverage: vision.coverage, sampleCount: episode.sampleCount, provenance: 'observed', limitations: ['sustained_face_count_above_one'] }),
       });
       if (personSpecificAvailable) {
         for (const [metric, value] of [
@@ -210,14 +212,16 @@ export class AnalyticsSession {
           observation: { value: episode.value, unit: episode.metric === 'lateral_torso_lean' || episode.metric === 'sustained_head_turn_episode' ? 'degrees' : episode.metric === 'facial_movement_episode' ? 'score_change_per_second' : null, qualifiers: episode.reason ? [episode.reason] : [] },
           eventQuality: visionQuality,
         });
-      } else add({
+      }
+      const visualGaps = vision.episodes.filter((item) => item.metric === 'observation_gap');
+      if (!personSpecificAvailable && visualGaps.length === 0) add({
         family: 'system', metric: 'observation_gap', source: SOURCE.system,
-        observation: { value: unavailableBecauseMultiFace ? 'multiple_faces' : 'multi_face_protection_unavailable', unit: null, qualifiers: ['person_specific_visual_signals_suppressed'] },
-        eventQuality: quality({ available: false, limitations: ['person_specific_visual_signals_suppressed'], provenance: 'unresolved' }),
+        observation: { value: 'no_safe_single_face_samples', unit: null, qualifiers: ['person_specific_visual_signals_suppressed'] },
+        eventQuality: quality({ available: false, limitations: ['no_safe_single_face_samples'], provenance: 'unresolved' }),
       });
-      for (const episode of vision.episodes.filter((item) => item.metric === 'observation_gap')) add({
+      for (const episode of visualGaps) add({
         family: 'system', metric: 'observation_gap', startMs: episode.startMs, endMs: episode.endMs, source: SOURCE.system,
-        observation: { value: episode.value, unit: null, qualifiers: episode.reason ? [episode.reason] : [] },
+        observation: { value: episode.value, unit: null, qualifiers: ['vision', ...(episode.reason ? [episode.reason] : [])] },
         eventQuality: quality({ available: false, limitations: [String(episode.value)], provenance: 'unresolved' }),
       });
     } else add({
@@ -256,7 +260,14 @@ export class AnalyticsSession {
       mediaTimelineDurationMs: mediaAvailable ? Math.max(0, ended.endedAtMs - evidenceOriginMs) : null,
       modalities: Object.freeze({
         mic: Object.freeze({ available: active.hasMic, coverage: audio?.coverage ?? 0, frameCount: audio?.frameCount ?? 0 }),
-        camera: Object.freeze({ available: active.hasCamera, coverage: vision?.coverage ?? 0, frameCount: vision?.frameCount ?? 0, analyzableFrames: vision?.analyzableFrames ?? 0 }),
+        camera: Object.freeze({
+          available: active.hasCamera,
+          coverage: vision?.coverage ?? 0,
+          frameCount: vision?.frameCount ?? 0,
+          analyzableFrames: vision?.analyzableFrames ?? 0,
+          personSpecificCoverage: vision?.personSpecificCoverage ?? 0,
+          personSpecificSampleCount: vision?.personSpecificSampleCount ?? 0,
+        }),
       }),
       performance: Object.freeze({ visualInferenceP95Ms: finite(vision?.inferenceP95Ms, 2) }),
       events: Object.freeze(events),

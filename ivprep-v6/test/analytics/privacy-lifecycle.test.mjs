@@ -31,10 +31,12 @@ test('FaceDetector and Holistic use isolated workers and join only bounded face 
   assert.doesNotMatch(face,/postMessage\([\s\S]{0,120}(?:landmarks|detections):/iu);
   assert.match(holistic,/new OffscreenCanvas\(width, height\)/u);
   assert.match(holistic,/canvas\.transferToImageBitmap\(\)/u);
-  assert.match(holistic,/self\.postMessage\(response, overlayBitmap \? \[overlayBitmap\] : \[\]\)/u);
+  assert.match(holistic,/function postGeometryResponse\(response, bitmap\)[\s\S]{0,220}self\.postMessage\(response, \[bitmap\]\)/u);
+  assert.match(holistic,/overlayStatus: 'error'[\s\S]{0,180}overlayErrorCode: 'overlay_bitmap_transfer_failed'/u);
   assert.doesNotMatch(holistic,/Float32Array|overlayVectors|connectionVectors/iu);
   assert.doesNotMatch(pipeline,/overlayVectors|ArrayBuffer\.isView/iu);
-  assert.match(pipeline,/this\.overlayConsumer\(\{ bitmap, geometry:/u);
+  assert.match(pipeline,/this\.notifyOverlayConsumer\(\{\s*bitmap:/u);
+  assert.match(holistic,/if \(responseMode !== 'overlay-only'\) response\.geometry = geometry/u);
   assert.match(pipeline,/finally \{\s*closeOverlayBitmap\(bitmap\);/u);
 });
 
