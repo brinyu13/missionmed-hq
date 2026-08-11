@@ -1,52 +1,56 @@
-# B1-514 Test and Verification Results
+# B1-514 Final Test Results
 
-Verdict: **LOCAL RELEASE CANDIDATE PASS; EXTERNAL PRODUCTION GATES OPEN**
+## Final sealed-candidate gates
 
 | Gate | Result |
 | --- | --- |
-| Unit | `399/399 PASS` at final HEAD |
-| PostgreSQL Node integration | `27/27 PASS` at final HEAD |
-| PostgreSQL low-level/RLS/survival | `136/136 PASS` at final HEAD |
-| SQL authorization/conformance matrices | PASS |
-| Survival focused unit | `11/11 PASS` |
-| Survival PostgreSQL 18 CLI | `6/6 PASS` |
-| Browser E2E | `61/61` unaffected full run plus `11/11` final voice block; `72/72` scenarios passed in aggregate |
-| Conformance/accessibility/responsive | `72/72 PASS` |
-| Deterministic release build | PASS; `v-206e7e944a5e8cf5` |
-| API-only build | PASS |
-| Secret scan | PASS |
-| `npm audit` | `0 vulnerabilities` in `storyforge-v5` |
-| `git diff --check` | PASS |
-| Critical Systems enforced gate | PASS with zero failures; one expected browser-journey warning |
-| Docker WordPress integration | EXTERNAL BLOCKER: local Docker/OrbStack socket unavailable; no destructive runtime troubleshooting attempted |
+| Unit suite | **407/407 PASS** |
+| PostgreSQL Node suite | **27/27 PASS** |
+| PostgreSQL low-level/RLS/survival | **136/136 PASS** |
+| PostgreSQL combined automated count | **163/163 PASS** |
+| Legacy authorization matrix | **PASS sentinel** |
+| Legacy B1-503 conformance matrix | **PASS sentinel** |
+| Enabled B1-514 browser acceptance | **5/5 PASS** |
+| Complete browser E2E | **77/77 PASS** |
+| Conformance/accessibility/responsive | **72/72 PASS** |
+| Deterministic release build and provenance | **PASS** |
+| API-only build | **PASS** |
+| Bundle secret scan | **PASS** |
+| `npm audit --audit-level=high` | **0 vulnerabilities** |
+| `git diff --check` | **PASS** |
+| Critical Systems enforce gate | **zero FAIL; one expected browser-journey WARN** |
 
-The final verifier-only commit does not change frontend, API, gateway, migration, or release bytes. The release build after that commit reproduced the same release ID and asset hashes.
+## Exact V1 survival rehearsal
 
-## Fresh production read-only evidence
+A fresh production PostgreSQL 18 dump was restored into one isolated cluster. The same database/system identity was captured before and after the exact final ten-migration train plus the deterministic 81 Inspiration and 48 Contributor seeds. Real read-only R2 HEAD verification was required for active permanent objects.
 
-- Railway project/environment/application/database IDs exactly match DR-043.
-- Current Railway application deployment `d0756a3d-2284-46bc-ba1c-e2f75b3cd41c` is `SUCCESS`.
-- Production PostgreSQL: version `18.4`, system identifier `7667256745042145332`, `441` users, `48` stories, `13` ledger rows ending `20260806190000`, `8` story-audio assets, `20` recording sessions, `1` mentor note, and `1` mentor-note media row.
-- Live public hashes exactly match the accepted B1-512C manifest: index `e720fca...`, app `cbe2999f...`, styles `5e183150...`, and logo `f091d62a...`.
+- Dump SHA-256: `97be5226f07e5712f3634a0f5fd946851e1e173ca6c20d5b39e9492ab5224f82`
+- Baseline: `441` users, `48` stories, `13` ledger rows
+- Post-migration: `441` users, `48` stories, `23` ledger rows, `81` Inspiration prompts, `48` Contributor prompts
+- Historical non-NULL visibility rows after migration: `0`
+- PRE SHA-256: `8c4b288f969147c01979ea0b7702dd5fc3e6e347d7f009595941fb85ca107c36`
+- POST SHA-256: `25e7d09a7aef5d417c1411abf8a083ddc6a5fb6da2618e8166fba8bd2497da19`
+- Compare SHA-256: `80d3753f5fece75fac54cb839994344ebd86804d901efe9bcc7db70a359a6602`
+- Verdict: **`PASS STORYFORGE_V1_SURVIVAL`**, `differenceCount=0`
+- Private artifacts: `/Users/brianb/MissionMed_private_backups/B1-514.0yK3dM/B1-514-SEALED-{PRE,POST,COMPARE}.json`, all mode `0600` under a `0700` root
 
-## Fresh PG18 recovery rehearsal
+## Browser acceptance IDs
 
-- Custom dump: `574468` bytes, mode `0600`, SHA-256 `97be5226f07e5712f3634a0f5fd946851e1e173ca6c20d5b39e9492ab5224f82`.
-- Dumped by PostgreSQL `18.4`; `pg_restore --list` passed.
-- Isolated PostgreSQL `18.4` restore completed with empty stderr and matched `441|48|13|8|20|1|1|0` for users, stories, ledger, audio, recordings, mentor notes, mentor media, and pending mentor-media deletion intents.
-- The complete nine-migration train applied atomically to a second isolated restored database.
-- Post-rehearsal vector: `441 users | 48 stories | 22 ledger rows | 81 Inspiration prompts | 48 contributor prompts | 0 historical visibility values | 0 generated story versions | 0 invitations | 0 contributions`.
-- The isolated server was stopped after verification.
+- `B1-514-E2E-01`: consent, non-retroactive privacy, truthful HUD, real recommendation.
+- `B1-514-E2E-02`: purposeful versions/history, real Inspiration prompt, Grid preference across reload.
+- `B1-514-E2E-03`: student invitation draft/preview and signed token guest text contribution.
+- `B1-514-E2E-04`: published mentor transcript plus original-audio play/pause/resume.
+- `B1-514-E2E-05`: Dark/Light/Auto and Ember Storm/Lumen Drift persistence.
 
-## Live PRE survival evidence
+## Unexpected failures and their resolutions
 
-- Artifact is private (`0600`) and outside the repository/web root.
-- SHA-256: `bad1f7557bf4152c175c32b50d06304f5377b2ba4ad8ade62758ae68eafe2a69`.
-- Full-table authority: PASS.
-- Database-system binding: PASS.
-- Stories: `48/48` inventoried.
-- Permanent object HEAD verification: `9/9 PASS` (`8` StoryForge audio plus `1` mentor audio).
-- Candidate migration-train binding: `9c960a15...`.
-- Guarded production migration preflight: PASS, `pending=9`.
-- No production migration or POST manifest was executed.
+1. Enabled browser execution found that Inspiration Grid persisted in PostgreSQL but reset to List on reload. `bootstrapSession()` now hydrates `user.inspiration_layout`; the reload assertion passes.
+2. Enabled guest execution found `storyforge_app` could not read `sf_users`. A narrow `sf_guest_view(text)` projection replaced the direct table join; direct `sf_users` access remains denied.
+3. Initial final release generation correctly stopped at terminal provenance because newly generated bytes were not yet committed. Generated bytes were committed, rebuilt from clean commit `0d1db33`, and terminal provenance passed.
+4. The first conformance invocation resolved host PostgreSQL 16 and stopped. The authoritative PostgreSQL 18 binary path was supplied; the complete 72-scenario gate then passed.
+5. Docker-backed WordPress integration remains unexecuted because the approved local container runtime is unavailable and steering prohibits container-runtime troubleshooting. This is an external evidence gate, not a converted pass.
+
+## Production mutation statement
+
+No production database write, Railway deployment, Kinsta upload/pointer change, WordPress option change, R2 write/delete, Postmark call, feature-flag change, or live-canary write occurred.
 

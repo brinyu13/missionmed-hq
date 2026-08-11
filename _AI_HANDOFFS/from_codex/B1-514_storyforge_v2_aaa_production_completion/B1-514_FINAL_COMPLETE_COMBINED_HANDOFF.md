@@ -2,77 +2,72 @@
 
 ## Verdict
 
-**LOCAL IMPLEMENTATION COMPLETE — PRODUCTION CUTOVER BLOCKED ON EXTERNAL GATES**
+**LOCAL IMPLEMENTATION COMPLETE — PRODUCTION CUTOVER STOP-SAFE ON EXTERNAL GATES**
 
-B1-514 has a complete, sealed, locally release-buildable StoryForge V2 candidate. The production migration, deployment, activation, and live-canary stages did not run because binding DR-042 requires all applicable integration, Postmark, recovery-point, survival, and authenticated-canary gates to pass first. Local implementation P0/P1 findings are resolved; the remaining gates require an external healthy WordPress container runner, Postmark production facts/credential, provider-native backup actions, and authenticated production sessions.
+The StoryForge V2 candidate is implemented, hardened, deterministic, and fully verified across all locally available gates. It is not represented as live. Binding production GO still requires a healthy WordPress integration runner, verified Postmark account facts and controlled canary, fresh provider-native recovery points, and the staged authenticated production canary ladder.
 
 ## Authority and custody
 
-- MissionMed OS authority: DR-042 and DR-043.
-- Canonical worktree: `/Users/brianb/MissionMed_worktrees/B1-StoryForge-502`.
+- MissionMed OS: DR-042 and DR-043.
+- Worktree: `/Users/brianb/MissionMed_worktrees/B1-StoryForge-502`.
 - Branch: `codex/b1-503-storyforge-product-recovery`.
-- Final candidate HEAD at handoff creation: `2738f9737573c7ef1d5331bdfd6db1c56d73cccf` plus this evidence-only handoff commit.
-- Candidate release: `v-206e7e944a5e8cf5`.
-- Candidate migration-train SHA-256: `9c960a15e818a2c3de50354d632644c7025074618ca7e31c65f4834f5fc90c54`.
-- Branch was pushed normally; no PR was opened and no force/history rewrite occurred.
+- Hardening commit: `3a1d7ccfa73e5cd8f8cf358383a0b245215c13d2`.
+- Release commit: `0d1db330713a94051301ec94d4c7c7dc96a1486c`.
+- Release: `v-06c677f9362ced63`.
+- Migration train: `3c3f02099c3d47a549582c417cab9e27e68c6f48bbf4f854838a63285f9e25a1`.
 
-## Product result
+## Product and engineering result
 
-The single existing StoryForge renderer now contains the approved V2 and DR-040 refinements without redesign or parallel authority. Presentation stays in `public/app.js` and `public/styles.css`; authenticated state, authorization, persistence, storage, provider, and audit behaviors remain server/database owned. The nine migrations are additive, forced-RLS, bounded-RPC, default-off, and preserve NULL historical visibility.
+- Approved R1/R2/R3 StoryForge V2 behavior remains in the sole renderer.
+- Versioned mentorship consent is private-safe and non-retroactive.
+- Purposeful story versions preserve immutable history and typed/voice provenance.
+- Inspiration is real-data-only, active-only, user-scoped, and preference-persistent.
+- Request-a-Story has durable preview/send reservation, truthful lifecycle, text and voice contribution, original audio preservation, cleanup/retry safety, and private promotion.
+- Mentor feedback preserves readable transcript plus authorized original-audio playback; internal notes stay private.
+- Admin scale, appearance, environments, accessibility, reduced motion, and Matrix identity boundaries remain intact.
+- Postmark ingress now matches the real provider boundary: native configurable custom header at WordPress, body-bound private HMAC from WordPress to Railway.
+- Guest rate limiting uses a WordPress-signed one-way client pseudonym plus token scope; raw IPs never reach Railway or PostgreSQL.
 
-Implementation details, migration list, release hashes, and the resolved survival-verifier issue are in `B1-514_IMPLEMENTATION_HANDOFF.md`.
+## Verification
 
-## Verification totals
+- Unit: **407/407**.
+- PostgreSQL: **163/163**, plus both legacy SQL matrix sentinels.
+- Enabled V2 browser: **5/5**.
+- Complete browser: **77/77**.
+- Conformance/accessibility/responsive: **72/72**.
+- Deterministic release/provenance, API-only, secret scan, dependency audit, diff check: **PASS**.
+- Critical Systems: **zero FAIL**, one expected browser-journey warning.
+- Sealed isolated V1 survival: **PASS**, zero differences across `441` users, `48` stories, all protected children/transcripts, and verified permanent objects.
 
-- Unit: `399/399 PASS`.
-- PostgreSQL Node: `27/27 PASS`.
-- PostgreSQL low-level/RLS/survival: `136/136 PASS` plus all SQL matrices.
-- Browser: all `72/72` scenarios passed in aggregate (`61/61` full unaffected run and `11/11` final voice block).
-- Conformance/accessibility/responsive: `72/72 PASS`.
-- Survival focused: unit `11/11`, PG18 CLI `6/6`.
-- Deterministic release, API-only, secret scan, npm audit, diff check, and Critical Systems: PASS.
-- Local Docker WordPress integration: not executed successfully because the authorized host container runtime is unavailable.
+Full commands, hashes, defects found and repaired, and acceptance mappings are in `B1-514_TEST_RESULTS.md` and `B1-514_ACCEPTANCE_TRACEABILITY.md`.
 
-## Zero-loss evidence
+## Exact survival evidence
 
-A fresh production PG18 dump (`97be5226...`) restored cleanly in isolation. The exact nine-migration train plus deterministic 81-prompt and 48-contributor-prompt seeds passed against a second isolated restored database without changing the `441` users, `48` stories, or any historical visibility. The production PRE manifest (`bad1f755...`) used full-table authority and verified every one of 48 stories and every one of nine permanent R2 objects. The guarded live migration preflight passed with `pending=9`.
-
-No POST manifest exists because no production migration was authorized to execute after external gates remained open.
+- Final train SHA-256: `3c3f02099c3d47a549582c417cab9e27e68c6f48bbf4f854838a63285f9e25a1`.
+- PRE: `8c4b288f969147c01979ea0b7702dd5fc3e6e347d7f009595941fb85ca107c36`.
+- POST: `25e7d09a7aef5d417c1411abf8a083ddc6a5fb6da2618e8166fba8bd2497da19`.
+- Compare: `80d3753f5fece75fac54cb839994344ebd86804d901efe9bcc7db70a359a6602`.
+- Literal result: `PASS STORYFORGE_V1_SURVIVAL`; `differenceCount=0`.
+- Historical visibility widening: `0` rows.
 
 ## Live production remains unchanged
 
 - Source: `8ca5d60fffcbb479fc5ced4689702fd4a7defb58`.
 - Release: `v-10688bb24bca7965`.
-- Railway deployment: `d0756a3d-2284-46bc-ba1c-e2f75b3cd41c` (`SUCCESS`).
+- Railway: `d0756a3d-2284-46bc-ba1c-e2f75b3cd41c`.
 - Kinsta pointer: `releases/8ca5d60fffcbb479fc5ced4689702fd4a7defb58`.
-- Prior Railway rollback deployment: `17615414-9422-453a-9eb8-7d1b36f462a6`.
-- Live public hashes remain byte-identical to the B1-512C Critical Systems manifest.
+- Prior Railway rollback: `17615414-9422-453a-9eb8-7d1b36f462a6`.
 
-## Remaining gates and owners
+## Remaining external gates
 
-| Gate | Owner/input | Smallest action |
-| --- | --- | --- |
-| Healthy WordPress integration runner | External infrastructure | Run `npm run test:integration` with the approved healthy container runtime and require full pass |
-| Postmark sender/webhook contract | Founder/provider credential | Supply verified identities/token/webhook path; perform dry-run and one non-private controlled canary |
-| Fresh Railway backup | Railway authenticated operator | Create/lock/read back provider-native DB backup immediately before cutover |
-| Fresh MyKinsta and private Kinsta snapshot | Kinsta authenticated operator | Create backup, verify Restore, capture exact StoryForge pointer/route snapshot |
-| Authenticated staged canaries | Founder plus controlled identities | Execute Founder, admin, two eligible, ineligible, anonymous, mentor, guest, and privacy rungs after deployment |
+1. Healthy-container `npm run test:integration` on this exact commit.
+2. Verified Postmark sender/Reply-To/token/custom-header configuration and controlled non-private canary.
+3. Fresh Railway, MyKinsta, and private Kinsta recovery points.
+4. Default-off deployment followed by Founder/admin/student/mentor/guest/privacy canaries and runged activation.
 
-## Shortest safe path
+No external gate was weakened, simulated, or converted into a pass. Detailed commands and variable names are in `B1-514_PRODUCTION_PREFLIGHT_AND_BLOCKERS.md`.
 
-1. Clear the healthy-container gateway suite.
-2. Prove and configure Postmark in dry-run; complete the bounded non-private canary.
-3. Create fresh provider-native recovery points.
-4. Freeze StoryForge writes; recapture PRE if live state changed.
-5. Apply the nine guarded migrations; generate POST and require `PASS STORYFORGE_V1_SURVIVAL`.
-6. Deploy the exact sealed Railway and immutable Kinsta bytes default-off.
-7. Run Critical Systems and staged authenticated canaries.
-8. Activate feature rungs only after each preceding gate passes; retain Story Media photo/video off.
-9. Seal production receipts or execute the preverified feature-off/pointer/deployment rollback.
+## Final safety statement
 
-Estimated active engineering time after external inputs are available: approximately `4–8 hours`, excluding provider/Founder waiting and any defect found by the external integration or live canaries.
-
-## No-go reason
-
-Deploying now would violate DR-042 by converting unverified external requirements into assumptions. The candidate is ready for the remaining production preflight, but production readiness is not claimed beyond those gates.
+No production database write, deployment, frontend pointer change, WordPress option mutation, R2 mutation, Postmark send, feature activation, pull request, force push, or history rewrite occurred. Production users continue to receive the prior canonical release.
 
