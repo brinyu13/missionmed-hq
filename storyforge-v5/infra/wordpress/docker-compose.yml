@@ -18,6 +18,8 @@ services:
 
   wordpress:
     image: wordpress:6.8.2-php8.3-apache
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy

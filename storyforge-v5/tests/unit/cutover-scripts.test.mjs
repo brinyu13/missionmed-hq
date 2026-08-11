@@ -188,6 +188,11 @@ test('integration fixtures exercise eligible-all students and preserve nonstuden
     2,
     'both WordPress and WPCLI must evaluate the same local entitlement contract',
   );
+  assert.match(
+    compose,
+    /wordpress:\n[\s\S]*?extra_hosts:\n\s+- "host\.docker\.internal:host-gateway"/,
+    'the hosted Linux fixture must resolve the host-side StoryForge origin',
+  );
   assert.match(integration, /if \[\[ "\$STUDENT_ACCESS" != "allowed:student" \]\]/);
   assert.match(integration, /if \[\[ "\$INELIGIBLE_ACCESS" != "eligibility_revoked" \]\]/);
   assert.match(integration, /for denied_state in "\$SECOND_ADMIN_ACCESS" "\$MENTOR_ACCESS"/);
