@@ -1,9 +1,11 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const allowedWho = new Set(['you', 'family', 'someone_else']);
 const allowedDomain = new Set(['personal', 'academic', 'medical_clinical']);
 const allowedEnergy = new Set(['serious', 'light', 'moving']);
+const allowedWhoDetail = new Set(['parents', 'siblings', 'spouse_partner', 'relatives', 'friend', 'faculty_mentor', 'colleague_teammate', 'patient_clinical']);
+const allowedPromptStates = new Set(['active', 'retired']);
 const allowedReasons = new Set(['skip', 'another', 'lighter']);
 const eventTypes = new Set(['shown', 'answered', 'skipped', 'promoted']);
 
@@ -83,8 +85,147 @@ function safePrompt(row) {
   };
 }
 
+function exactKeys(value, allowed, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new InspirationError('invalid_inspiration_prompt', `${label} is required.`);
+  }
+  const unknown = Object.keys(value).filter((key) => !allowed.has(key));
+  if (unknown.length) throw new InspirationError('invalid_inspiration_prompt', `${label} contains unsupported fields.`);
+}
+
+function plainText(value, label, minimum, maximum) {
+  const text = String(value ?? '').trim();
+  const unsafe = /[<>\u0000-\u001f\u007f]/u.test(text)
+    || /(?:javascript|data)\s*:/iu.test(text)
+    || /\bon[a-z]+\s*=/iu.test(text);
+  if (text.length < minimum || text.length > maximum || unsafe) {
+    throw new InspirationError('invalid_inspiration_prompt', `${label} must be safe plain text between ${minimum} and ${maximum} characters.`);
+  }
+  return text;
+}
+
+function dimensionList(value, allowed, label, { allowEmpty = false } = {}) {
+  if (!Array.isArray(value) || (!allowEmpty && !value.length)) {
+    throw new InspirationError('invalid_inspiration_prompt', `${label} requires at least one governed value.`);
+  }
+  const normalized = [...new Set(value.map((item) => String(item || '').trim()))];
+  if (normalized.some((item) => !allowed.has(item))) {
+    throw new InspirationError('invalid_inspiration_prompt', `${label} contains an unsupported value.`);
+  }
+  return normalized;
+}
+
+const adminPromptFields = new Set([
+  'id', 'libraryKey', 'text', 'who', 'whoDetail', 'domain', 'energy', 'territory',
+  'followUp', 'interviewUse', 'state', 'recommended', 'sortOrder', 'expectedVersion',
+]);
+
+export function validateAdminPromptDraft(input = {}, { bulk = false } = {}) {
+  exactKeys(input, adminPromptFields, 'Inspiration prompt');
+  const id = input.id == null || input.id === '' ? null : uuid(input.id, 'Prompt identifier');
+  const libraryKey = input.libraryKey == null || input.libraryKey === '' ? null : String(input.libraryKey).trim();
+  if (libraryKey != null && !/^q-[0-9]{3}$/u.test(libraryKey)) {
+    throw new InspirationError('invalid_inspiration_prompt', 'Prompt library key is invalid.');
+  }
+  if (id && !libraryKey) throw new InspirationError('invalid_inspiration_prompt', 'An existing prompt requires its stable library key.');
+  if (bulk && id) throw new InspirationError('invalid_bulk_import', 'Bulk import never accepts client-supplied prompt identifiers.');
+  const state = String(input.state || 'active').trim();
+  if (!allowedPromptStates.has(state)) throw new InspirationError('invalid_inspiration_prompt', 'Prompt state is invalid.');
+  if (typeof input.recommended !== 'boolean') throw new InspirationError('invalid_inspiration_prompt', 'Recommended must be true or false.');
+  const sortOrder = Number(input.sortOrder);
+  if (!Number.isInteger(sortOrder) || sortOrder < 1 || sortOrder > 100000) {
+    throw new InspirationError('invalid_inspiration_prompt', 'Prompt order must be an integer between 1 and 100000.');
+  }
+  const expectedVersion = input.expectedVersion == null || input.expectedVersion === ''
+    ? null
+    : Number(input.expectedVersion);
+  if ((id || libraryKey) && (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0)) {
+    throw new InspirationError('invalid_inspiration_prompt', 'Existing prompts require an expected version.');
+  }
+  if (!id && !bulk && libraryKey) {
+    throw new InspirationError('invalid_inspiration_prompt', 'Stable prompt identity must be supplied together.');
+  }
+  const territory = plainText(input.territory, 'Prompt territory', 1, 64).toLowerCase().replaceAll(' ', '_');
+  if (!/^[a-z][a-z0-9_]{0,63}$/u.test(territory)) {
+    throw new InspirationError('invalid_inspiration_prompt', 'Prompt territory is invalid.');
+  }
+  return Object.freeze({
+    id,
+    libraryKey,
+    text: plainText(input.text, 'Prompt question', 10, 400),
+    who: Object.freeze(dimensionList(input.who, allowedWho, 'Who dimensions')),
+    whoDetail: Object.freeze(dimensionList(input.whoDetail, allowedWhoDetail, 'Relationship dimensions', { allowEmpty: true })),
+    domain: Object.freeze(dimensionList(input.domain, allowedDomain, 'Domain dimensions')),
+    energy: Object.freeze(dimensionList(input.energy, allowedEnergy, 'Energy dimensions')),
+    territory,
+    followUp: plainText(input.followUp, 'Prompt follow-up', 3, 400),
+    interviewUse: plainText(input.interviewUse, 'Interview-use guidance', 3, 1000),
+    state,
+    recommended: input.recommended,
+    sortOrder,
+    expectedVersion,
+  });
+}
+
+export function parseInspirationBulkCsv(csv) {
+  const source = String(csv ?? '');
+  if (!source.trim() || source.length > 500_000) throw new InspirationError('invalid_bulk_import', 'Bulk import CSV is empty or too large.');
+  const rows = [];
+  let row = [];
+  let field = '';
+  let quoted = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (quoted) {
+      if (character === '"' && source[index + 1] === '"') { field += '"'; index += 1; }
+      else if (character === '"') quoted = false;
+      else field += character;
+    } else if (character === '"') {
+      if (field) throw new InspirationError('invalid_bulk_import', 'A quoted CSV field must begin at the start of a field.');
+      quoted = true;
+    } else if (character === ',') {
+      row.push(field); field = '';
+    } else if (character === '\n') {
+      row.push(field.replace(/\r$/u, '')); rows.push(row); row = []; field = '';
+    } else field += character;
+  }
+  if (quoted) throw new InspirationError('invalid_bulk_import', 'Bulk import CSV contains an unterminated quoted field.');
+  if (field || row.length) { row.push(field.replace(/\r$/u, '')); rows.push(row); }
+  const nonblank = rows.filter((values) => values.some((value) => value.trim()));
+  if (nonblank.length < 2 || nonblank.length > 101) throw new InspirationError('invalid_bulk_import', 'Bulk import requires a header and between 1 and 100 prompt rows.');
+  const headers = nonblank.shift().map((value) => value.replace(/^\uFEFF/u, '').trim());
+  const required = ['libraryKey', 'text', 'who', 'whoDetail', 'domain', 'energy', 'territory', 'followUp', 'interviewUse', 'state', 'recommended', 'sortOrder', 'expectedVersion'];
+  if (headers.length !== required.length || headers.some((value, index) => value !== required[index])) {
+    throw new InspirationError('invalid_bulk_import', `Bulk import headers must be exactly: ${required.join(',')}.`);
+  }
+  return nonblank.map((values, index) => {
+    if (values.length !== headers.length) throw new InspirationError('invalid_bulk_import', `Bulk import row ${index + 2} has the wrong number of fields.`);
+    const entry = Object.fromEntries(headers.map((header, column) => [header, values[column].trim()]));
+    if (!['true', 'false'].includes(entry.recommended.toLowerCase())) {
+      throw new InspirationError('invalid_bulk_import', `Bulk import row ${index + 2} has an invalid recommended value.`);
+    }
+    return validateAdminPromptDraft({
+      ...entry,
+      id: null,
+      who: entry.who.split('|').map((item) => item.trim()).filter(Boolean),
+      whoDetail: entry.whoDetail.split('|').map((item) => item.trim()).filter(Boolean),
+      domain: entry.domain.split('|').map((item) => item.trim()).filter(Boolean),
+      energy: entry.energy.split('|').map((item) => item.trim()).filter(Boolean),
+      recommended: entry.recommended.toLowerCase() === 'true',
+    }, { bulk: true });
+  });
+}
+
 export function createInspirationService({ withIdentity, environment = process.env } = {}) {
   if (typeof withIdentity !== 'function') throw new TypeError('withIdentity must be supplied.');
+  const withAdmin = (identity, operation) => identity?.role === 'admin'
+    ? withIdentity(identity, operation)
+    : withIdentity(identity, operation, { adminMode: true });
+  function adminIdentity(identity) {
+    return identity?.eligible === true
+      && uuidPattern.test(String(identity?.sub || ''))
+      && (identity?.role === 'admin' || identity?.wordpressAdmin === true);
+  }
   async function capability(identity) {
     if (disabled(environment.STORYFORGE_INSPIRATION_FORCE_OFF) || identity?.eligible !== true || identity?.role !== 'student') return false;
     try {
@@ -99,6 +240,23 @@ export function createInspirationService({ withIdentity, environment = process.e
   }
   async function requireEnabled(identity) {
     if (!await capability(identity)) throw new InspirationError('inspiration_disabled', 'Inspiration is unavailable.', 403);
+  }
+  async function adminCapability(identity) {
+    if (disabled(environment.STORYFORGE_INSPIRATION_ADMIN_FORCE_OFF) || !adminIdentity(identity)) return false;
+    try {
+      return await withAdmin(identity, async (client) => {
+        const result = await client.query("SELECT public.sf_story_feature_enabled('inspiration_admin', ARRAY['admin']) AS enabled");
+        return result.rows[0]?.enabled === true;
+      });
+    } catch (error) {
+      if (['42501', '42883', '42P01'].includes(error?.code)) return false;
+      throw error;
+    }
+  }
+  async function requireAdminEnabled(identity) {
+    if (!await adminCapability(identity)) {
+      throw new InspirationError('inspiration_admin_disabled', 'Inspiration Content Studio is unavailable.', 403);
+    }
   }
   async function transaction(identity, operation) {
     try { return await withIdentity(identity, operation); }
@@ -122,6 +280,7 @@ export function createInspirationService({ withIdentity, environment = process.e
   }
   return Object.freeze({
     capability,
+    adminCapability,
     async next(identity, rawInput) {
       await requireEnabled(identity);
       const input = pathInput(rawInput);
@@ -215,6 +374,145 @@ export function createInspirationService({ withIdentity, environment = process.e
         await client.query('INSERT INTO public.sf_inspiration_pins(student_id,prompt_id,position) VALUES(public.sf_actor_id(),$1,$2)', [promptId, value]);
         return { pinned: true, position: value };
       });
+    },
+    async setPins(identity, promptIds = []) {
+      await requireEnabled(identity);
+      if (!Array.isArray(promptIds) || promptIds.length > 100) {
+        throw new InspirationError('invalid_pin_order', 'Pinned prompt order is invalid.');
+      }
+      const ids = promptIds.map((promptId) => uuid(promptId, 'Prompt identifier'));
+      if (new Set(ids).size !== ids.length) throw new InspirationError('invalid_pin_order', 'Pinned prompts must be unique.');
+      return transaction(identity, async (client) => {
+        await client.query('DELETE FROM public.sf_inspiration_pins WHERE student_id=public.sf_actor_id()');
+        for (const [position, promptId] of ids.entries()) {
+          await client.query(
+            'INSERT INTO public.sf_inspiration_pins(student_id,prompt_id,position) VALUES(public.sf_actor_id(),$1,$2)',
+            [promptId, position],
+          );
+        }
+        return { promptIds: ids };
+      });
+    },
+    async setLayout(identity, layout) {
+      await requireEnabled(identity);
+      if (!['list', 'grid'].includes(layout)) throw new InspirationError('invalid_layout', 'Inspiration layout is invalid.');
+      return transaction(identity, async (client) => {
+        const result = await client.query(
+          'UPDATE public.sf_users SET inspiration_layout=$1 WHERE id=public.sf_actor_id() RETURNING inspiration_layout',
+          [layout],
+        );
+        if (!result.rows[0]) throw Object.assign(new Error('not found'), { code: 'P0002' });
+        return { layout: result.rows[0].inspiration_layout };
+      });
+    },
+    async adminList(identity, { query = '', state = '', who = '', domain = '', energy = '' } = {}) {
+      await requireAdminEnabled(identity);
+      const search = String(query || '').trim().slice(0, 120);
+      const promptState = state ? optionalChoice(state, allowedPromptStates, 'Prompt state') : '';
+      const whoId = who ? optionalChoice(who, allowedWho, 'Who choice') : '';
+      const domainId = domain ? optionalChoice(domain, allowedDomain, 'Domain choice') : '';
+      const energyId = energy ? optionalChoice(energy, allowedEnergy, 'Energy choice') : '';
+      return withAdmin(identity, async (client) => {
+        const result = await client.query(
+          `SELECT id,library_key,text,who_ids,who_detail_ids,domain_ids,energy_ids,territory,
+                  follow_up,interview_use,state,recommended,imported,sort_order,row_version,
+                  created_at,updated_at
+             FROM public.sf_inspiration_prompts
+            WHERE ($1='' OR text ILIKE '%'||$1||'%' OR territory ILIKE '%'||$1||'%' OR library_key=$1)
+              AND ($2='' OR state=$2)
+              AND ($3='' OR $3=ANY(who_ids))
+              AND ($4='' OR $4=ANY(domain_ids))
+              AND ($5='' OR $5=ANY(energy_ids))
+            ORDER BY sort_order,id
+            LIMIT 500`,
+          [search, promptState, whoId, domainId, energyId],
+        );
+        return { prompts: result.rows.map((row) => ({
+          ...safePrompt(row),
+          state: row.state,
+          imported: row.imported === true,
+          sortOrder: row.sort_order,
+          rowVersion: Number(row.row_version),
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        })) };
+      });
+    },
+    async adminValidate(identity, input = {}) {
+      await requireAdminEnabled(identity);
+      return { draft: validateAdminPromptDraft(input.prompt || input) };
+    },
+    async adminPublish(identity, input = {}) {
+      await requireAdminEnabled(identity);
+      const prompt = validateAdminPromptDraft(input.prompt || input);
+      const publishPayload = prompt.id ? prompt : { ...prompt, id: randomUUID() };
+      try {
+        return await withAdmin(identity, async (client) => {
+          const result = await client.query(
+            'SELECT public.sf_admin_publish_inspiration_prompt($1::jsonb) AS prompt',
+            [JSON.stringify(publishPayload)],
+          );
+          return { prompt: result.rows[0]?.prompt || null };
+        });
+      } catch (error) {
+        if (error?.code === '40001') throw new InspirationError('inspiration_prompt_conflict', 'This prompt changed. Reload before publishing.', 409, { cause: error });
+        if (error?.code === '42501') throw new InspirationError('inspiration_admin_disabled', 'Inspiration Content Studio is unavailable.', 403, { cause: error });
+        throw error;
+      }
+    },
+    async adminHistory(identity, promptId) {
+      await requireAdminEnabled(identity);
+      return withAdmin(identity, async (client) => {
+        const result = await client.query(
+          `SELECT history.id,history.prompt_id,history.row_version,history.snapshot,
+                  history.actor_id,history.created_at
+             FROM public.sf_inspiration_prompt_history history
+            WHERE history.prompt_id=$1
+            ORDER BY history.row_version DESC,history.id DESC
+            LIMIT 200`,
+          [uuid(promptId, 'Prompt identifier')],
+        );
+        return { history: result.rows.map((row) => ({
+          id: String(row.id),
+          promptId: row.prompt_id,
+          rowVersion: Number(row.row_version),
+          snapshot: row.snapshot,
+          actorId: row.actor_id,
+          createdAt: row.created_at,
+        })) };
+      });
+    },
+    async adminParseBulk(identity, input = {}) {
+      await requireAdminEnabled(identity);
+      const prompts = parseInspirationBulkCsv(input.csv);
+      return { prompts, count: prompts.length, persisted: false };
+    },
+    async adminCommitBulk(identity, input = {}) {
+      await requireAdminEnabled(identity);
+      if (!Array.isArray(input.prompts) || !input.prompts.length || input.prompts.length > 100) {
+        throw new InspirationError('invalid_bulk_import', 'Bulk import requires between 1 and 100 prompts.');
+      }
+      const prompts = input.prompts.map((prompt) => {
+        const normalized = validateAdminPromptDraft({ ...prompt, id: null }, { bulk: true });
+        return normalized.libraryKey ? normalized : { ...normalized, serverId: randomUUID() };
+      });
+      const keys = prompts.map((prompt) => prompt.libraryKey).filter(Boolean);
+      if (new Set(keys).size !== keys.length) throw new InspirationError('invalid_bulk_import', 'Bulk import contains duplicate stable keys.');
+      const orders = prompts.map((prompt) => prompt.sortOrder);
+      if (new Set(orders).size !== orders.length) throw new InspirationError('invalid_bulk_import', 'Bulk import contains duplicate prompt ordering.');
+      try {
+        return await withAdmin(identity, async (client) => {
+          const result = await client.query(
+            'SELECT public.sf_admin_publish_inspiration_bulk($1::jsonb) AS result',
+            [JSON.stringify(prompts)],
+          );
+          return result.rows[0]?.result || { prompts: [] };
+        });
+      } catch (error) {
+        if (error?.code === '40001') throw new InspirationError('inspiration_prompt_conflict', 'The prompt bank changed. Reload before importing.', 409, { cause: error });
+        if (error?.code === '42501') throw new InspirationError('inspiration_admin_disabled', 'Inspiration Content Studio is unavailable.', 403, { cause: error });
+        throw error;
+      }
     },
     async event(identity, promptId, sessionId, type, detail) {
       await requireEnabled(identity);
