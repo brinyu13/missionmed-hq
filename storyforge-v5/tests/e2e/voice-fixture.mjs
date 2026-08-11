@@ -21,6 +21,14 @@ export async function resetVoiceFixture() {
     await client.query('BEGIN');
     try {
       await client.query(
+        `DELETE FROM public.sf_authored_segments
+          WHERE recording_id IN (
+            SELECT id FROM public.sf_recording_sessions
+            WHERE student_id IN ($1, $2)
+          )`,
+        [STUDENT_ID, OTHER_STUDENT_ID],
+      );
+      await client.query(
         `DELETE FROM public.sf_recording_segments
           WHERE session_id IN (
             SELECT id FROM public.sf_recording_sessions
