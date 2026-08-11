@@ -872,6 +872,61 @@ export function createPostgresRecordingStore({
     }
   }
 
+  async function attachVersionRecording(identity, recordingId, storyId) {
+    return withIdentity(identity, async (client) => {
+      const locked = await client.query(
+        `SELECT id,student_id,story_id,state,mime_type,total_duration_ms,segment_count,assembled_asset_id
+           FROM public.sf_recording_sessions
+          WHERE id=$1 AND student_id=$2 FOR UPDATE`,
+        [recordingId, identity.sub],
+      );
+      const session = locked.rows[0];
+      if (!session) throw recordingAccessDenied();
+      const owned = await client.query(
+        `SELECT id FROM public.sf_stories
+          WHERE id=$1 AND student_id=$2 AND archived_at IS NULL FOR SHARE`,
+        [storyId, identity.sub],
+      );
+      if (!owned.rowCount) throw recordingAccessDenied();
+      if (!['assembled', 'attached'].includes(session.state)) {
+        if (session.state === 'finishing') {
+          const error = new RecordingError('voice_assembly_pending', 'Your recording is still being prepared.', 409);
+          error.retryAfterMs = 2_000;
+          throw error;
+        }
+        throw stateConflict();
+      }
+      const transcript = await client.query(
+        `SELECT string_agg(segment.transcript,' ' ORDER BY segment.seq) AS transcript,
+                count(*)::integer AS segment_count
+           FROM public.sf_recording_segments segment
+          WHERE segment.session_id=$1 AND segment.transcribe_state='transcribed'
+         HAVING count(*)=$2`,
+        [recordingId, Number(session.segment_count || 0)],
+      );
+      if (typeof transcript.rows[0]?.transcript !== 'string') throw stateConflict();
+      let attachment;
+      if (session.state === 'attached') {
+        if (session.story_id !== storyId) throw recordingAccessDenied();
+        attachment = (await attachedStory(client, session, identity.sub)).attachment;
+      } else {
+        const attached = await client.query('SELECT * FROM public.sf_attach_recording($1,$2,$3)', [storyId, recordingId, session.mime_type]);
+        const asset = attached.rows[0];
+        attachment = {
+          assetId: asset.asset_id,
+          recordingId,
+          studentId: identity.sub,
+          storyId,
+          objectKey: asset.target_object_key,
+          contentType: session.mime_type,
+          segmentCount: Number(session.segment_count || 0),
+          state: 'pending',
+        };
+      }
+      return { transcript: transcript.rows[0].transcript, attachment };
+    });
+  }
+
   async function retryCandidates(identity, recordingId, requestedSeq) {
     return withIdentity(identity, async (client) => {
       const sessionResult = await client.query(
@@ -1288,6 +1343,7 @@ export function createPostgresRecordingStore({
   return Object.freeze({
     acceptSegment,
     attachRecording,
+    attachVersionRecording,
     auditRecordingDenial,
     checkAudioReferences,
     cancelSession,
@@ -2519,6 +2575,32 @@ export function createRecordingsService({
     return attached;
   }
 
+  async function saveRecordingVersion(identity, recordingIdValue, storyIdValue) {
+    assertStudent(identity);
+    if (typeof store.attachVersionRecording !== 'function') {
+      throw new RecordingError('voice_version_unavailable', 'Purposeful voice versions are unavailable.', 503);
+    }
+    const recordingId = safeUuid(recordingIdValue);
+    const storyId = safeUuid(storyIdValue);
+    const attached = await withAuditedRecordingAccess(
+      identity,
+      recordingId,
+      'story_version',
+      () => store.attachVersionRecording(identity, recordingId, storyId),
+    );
+    if (attached.attachment.state === 'pending') {
+      await finalizeAttachment(attached.attachment);
+      attached.attachment.state = 'verified';
+    }
+    releaseTranscriptionSessionWhenIdle(recordingId);
+    return {
+      transcript: attached.transcript,
+      recordingId,
+      audioAssetId: attached.attachment.assetId,
+      durationMs: attached.attachment.durationMs || null,
+    };
+  }
+
   async function recoverPendingAudioAssets() {
     if (!assemblyOption) return { scanned: 0, verified: 0, failed: 0, blocked: true };
     const candidates = await store.pendingAudioAssets();
@@ -2602,6 +2684,7 @@ export function createRecordingsService({
     runMaintenance,
     runSweeps,
     saveRecordingStory,
+    saveRecordingVersion,
     startSweeps,
     waitForTranscriptionIdle: queue.waitForIdle,
   });

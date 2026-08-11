@@ -940,6 +940,19 @@ function mmsfr_is_inspiration_delete_path( $path ) {
 	);
 }
 
+/** Return whether a write targets the one bounded Inspiration pin-order route. */
+function mmsfr_is_inspiration_put_path( $path ) {
+	return $path === MMSFR_BASE_PATH . 'api/inspiration/pins';
+}
+
+/** Return whether DELETE targets one administrator-owned saved view. */
+function mmsfr_is_admin_saved_view_delete_path( $path ) {
+	return 1 === preg_match(
+		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/admin/console/saved-views/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$#i',
+		$path
+	);
+}
+
 /**
  * Accept the browser-generated multipart content type only when it contains
  * one bounded RFC-compatible boundary and no additional parameters.
@@ -1172,8 +1185,10 @@ function mmsfr_proxy_request( $path ) {
 	$is_audio_delete = 'DELETE' === $method && mmsfr_is_audio_delete_path( $path );
 	$is_story_media_delete = 'DELETE' === $method && mmsfr_is_story_media_delete_path( $path );
 	$is_inspiration_delete = 'DELETE' === $method && mmsfr_is_inspiration_delete_path( $path );
+	$is_saved_view_delete = 'DELETE' === $method && mmsfr_is_admin_saved_view_delete_path( $path );
+	$is_inspiration_put = 'PUT' === $method && mmsfr_is_inspiration_put_path( $path );
 	$is_privacy_delete = $is_audio_delete || $is_story_media_delete;
-	$is_bounded_delete = $is_privacy_delete || $is_inspiration_delete;
+	$is_bounded_delete = $is_privacy_delete || $is_inspiration_delete || $is_saved_view_delete;
 	$is_guest = mmsfr_is_guest_contribution_path( $path )
 		&& in_array( $method, array( 'GET', 'POST' ), true );
 	$is_postmark_webhook = 'POST' === $method && mmsfr_is_postmark_webhook_path( $path );
@@ -1182,7 +1197,7 @@ function mmsfr_proxy_request( $path ) {
 	$health_path  = MMSFR_BASE_PATH . 'healthz';
 	$is_health    = $path === $health_path;
 	$health_allow = array( 'GET' );
-	if ( ! in_array( $method, $is_health ? $health_allow : $allowed, true ) && ! $is_bounded_delete ) {
+	if ( ! in_array( $method, $is_health ? $health_allow : $allowed, true ) && ! $is_bounded_delete && ! $is_inspiration_put ) {
 		if ( ! headers_sent() ) {
 			header( 'Allow: ' . implode( ', ', $is_health ? $health_allow : $allowed ), true );
 		}
@@ -1238,7 +1253,7 @@ function mmsfr_proxy_request( $path ) {
 	$is_segment_upload     = 'POST' === $method && mmsfr_is_recording_segment_upload_path( $path );
 	$is_mentor_audio_upload = 'POST' === $method && mmsfr_is_mentor_note_audio_upload_path( $path );
 	$is_audio_upload       = $is_segment_upload || $is_mentor_audio_upload;
-	if ( in_array( $method, array( 'POST', 'PATCH' ), true ) ) {
+	if ( in_array( $method, array( 'POST', 'PATCH', 'PUT' ), true ) ) {
 		$content_type = $headers['content-type'] ?? '';
 		$is_json           = 1 === preg_match( '#^application/json(?:\s*;|$)#i', $content_type );
 		$is_multipart      = $is_audio_upload && mmsfr_is_bounded_multipart_content_type( $content_type );
@@ -1259,7 +1274,7 @@ function mmsfr_proxy_request( $path ) {
 			: mmsfr_segment_multipart_request();
 		$request_body           = $multipart['body'];
 		$headers['content-type'] = $multipart['content_type'];
-	} elseif ( in_array( $method, array( 'POST', 'PATCH' ), true ) ) {
+	} elseif ( in_array( $method, array( 'POST', 'PATCH', 'PUT' ), true ) ) {
 		$request_body = mmsfr_request_body();
 	}
 

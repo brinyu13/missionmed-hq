@@ -299,6 +299,46 @@ test('E1 opens an idempotent default-off-gated session with the binding caps', a
   ]);
 });
 
+test('B1-514 purposeful-version attachment preserves transcript and exact audio provenance', async () => {
+  const storyId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  const calls = [];
+  const store = storeFixture({
+    async attachVersionRecording(passedIdentity, passedRecordingId, passedStoryId) {
+      calls.push({ passedIdentity, passedRecordingId, passedStoryId });
+      return {
+        transcript: 'An editable purposeful telling.',
+        attachment: {
+          assetId,
+          recordingId,
+          studentId,
+          storyId,
+          objectKey: `storyforge-audio/${studentId}/story/${assetId}`,
+          contentType: 'audio/webm',
+          segmentCount: 1,
+          state: 'verified',
+        },
+      };
+    },
+  });
+  const { service } = serviceFixture({ store });
+  const result = await service.saveRecordingVersion(student, recordingId, storyId);
+  assert.deepEqual(calls, [{ passedIdentity: student, passedRecordingId: recordingId, passedStoryId: storyId }]);
+  assert.deepEqual(result, {
+    transcript: 'An editable purposeful telling.',
+    recordingId,
+    audioAssetId: assetId,
+    durationMs: null,
+  });
+});
+
+test('B1-514 purposeful-version attachment fails closed when its bounded store seam is absent', async () => {
+  const { service } = serviceFixture();
+  await assert.rejects(
+    service.saveRecordingVersion(student, recordingId, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd'),
+    (error) => error instanceof RecordingError && error.code === 'voice_version_unavailable' && error.status === 503,
+  );
+});
+
 test('E2 stores a deterministic private segment and completes queued transcription', async () => {
   let completed;
   const store = storeFixture({

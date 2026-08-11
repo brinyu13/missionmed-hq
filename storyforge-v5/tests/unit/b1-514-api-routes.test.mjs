@@ -50,6 +50,18 @@ async function withServer(options, operation) {
       revoke: async () => ({ status: 'revoked' }),
     },
     postmarkService: { verifyWebhook: () => true },
+    phaseOneRuntime: {
+      flagService: {},
+      transcription: { transcribeSegment: async () => ({ text: '' }) },
+      recordingsService: {
+        saveRecordingVersion: async (_identity, recordingId, storyId) => ({
+          recordingId,
+          storyId,
+          audioAssetId: '44444444-4444-4444-8444-444444444444',
+          transcript: 'Voice telling',
+        }),
+      },
+    },
     ...options,
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -106,6 +118,18 @@ test('authenticated V2 version, Inspiration, and request routes delegate to boun
     });
     assert.equal(version.status, 200);
     assert.equal((await version.json()).version.key, 'thirty_second');
+
+    const recordingId = '33333333-3333-4333-8333-333333333333';
+    const attached = await fetch(`${origin}/api/stories/${storyId}/version-recordings/${recordingId}/attach`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    assert.equal(attached.status, 200);
+    assert.deepEqual(await attached.json(), {
+      recordingId,
+      storyId,
+      audioAssetId: '44444444-4444-4444-8444-444444444444',
+      transcript: 'Voice telling',
+    });
 
     const invitation = await fetch(`${origin}/api/requests`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',

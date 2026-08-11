@@ -1202,6 +1202,17 @@ async function api(request, response, url, {
   if (request.method === 'GET' && storyVersionsRoute) {
     return sendJson(response, 200, await storyVersionsService.list(identity, storyVersionsRoute[1]));
   }
+  const versionRecordingRoute = url.pathname.match(
+    /^\/api\/stories\/([a-f0-9-]+)\/version-recordings\/([a-f0-9-]+)\/attach$/i,
+  );
+  if (request.method === 'POST' && versionRecordingRoute) {
+    await readJson(request);
+    return sendJson(response, 200, await recordingsService.saveRecordingVersion(
+      identity,
+      versionRecordingRoute[2],
+      versionRecordingRoute[1],
+    ));
+  }
   const storyVersionRoute = url.pathname.match(
     /^\/api\/stories\/([a-f0-9-]+)\/versions\/(thirty_second|nnq_setup)$/i,
   );

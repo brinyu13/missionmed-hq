@@ -209,6 +209,7 @@ const ADMIN_CONSOLE_NAV = Object.freeze([
   ['home', 'Admin Home', '⌂'],
   ['students', 'Students', '◎'],
   ['queue', 'Review Queue', '◫'],
+  ['content', 'Content Studio', '✦'],
   ['qlib', 'Question Library', '◇'],
   ['settings', 'Release Controls', '⚙'],
 ]);
@@ -239,6 +240,11 @@ const state = {
     inspiration: false,
     requestAStory: false,
     activityTracking: false,
+    inspirationAdmin: false,
+    adminDirectory: false,
+    reviewCheck: false,
+    adminReviewControls: false,
+    storyFollowup: false,
   }),
   lockout: null,
   route: 'home',
@@ -251,6 +257,7 @@ const state = {
   selectedStudent: null,
   storyDetail: null,
   storyVersions: [],
+  versionVoice: null,
   storyCompletionIntent: null,
   settingsPreview: {
     selectedBackground: null,
@@ -299,10 +306,21 @@ const state = {
     studentsCursor: null,
     studentQuery: '',
     studentStatus: '',
+    studentFilter: 'all',
+    studentSession: '',
+    studentSort: 'attention',
+    studentPage: 1,
+    savedViews: [],
     selectedStudent: null,
     queue: [],
     queueCursor: null,
     queueStatus: '',
+    queueQuery: '',
+    queueSession: '',
+    queueSort: 'oldest',
+    queuePage: 1,
+    directoryDetail: null,
+    contentPrompts: [],
     story: null,
   },
   mentorNoteDraft: null,
@@ -340,6 +358,11 @@ const auth = createAuthClient({
       inspiration: false,
       requestAStory: false,
       activityTracking: false,
+      inspirationAdmin: false,
+      adminDirectory: false,
+      reviewCheck: false,
+      adminReviewControls: false,
+      storyFollowup: false,
     });
     state.v2.session = null;
     state.v2.consent = null;
@@ -620,10 +643,13 @@ const api = Object.freeze({
   storyVersions: (id) => auth.request(`/api/stories/${id}/versions`),
   saveStoryVersion: (id, key, body) => auth.request(`/api/stories/${id}/versions/${key}`, jsonOptions('PATCH', body)),
   restoreStoryVersion: (id, body) => auth.request(`/api/stories/${id}/version-restore`, jsonOptions('POST', body)),
+  attachVersionRecording: (storyId, recordingId) => auth.request(`/api/stories/${storyId}/version-recordings/${recordingId}/attach`, jsonOptions('POST', {})),
   inspirationBrowse: (query = '', layout = 'list') => auth.request(`/api/inspiration/browse?query=${encodeURIComponent(query)}&layout=${encodeURIComponent(layout)}`),
   inspirationNext: (body) => auth.request('/api/inspiration/next', jsonOptions('POST', body)),
   inspirationFavorite: (id, enabled) => auth.request(`/api/inspiration/favorites/${id}`, { method: enabled ? 'POST' : 'DELETE', ...(enabled ? { body: '{}' } : {}) }),
   inspirationPin: (id, position) => auth.request(`/api/inspiration/pins/${id}`, position == null ? { method: 'DELETE' } : jsonOptions('POST', { position })),
+  inspirationPins: (promptIds) => auth.request('/api/inspiration/pins', jsonOptions('PUT', { promptIds })),
+  inspirationLayout: (layout) => auth.request('/api/preferences/inspiration-layout', jsonOptions('PATCH', { layout })),
   inspirationSave: (body) => auth.request('/api/inspiration/save-later', jsonOptions('POST', body)),
   requests: () => auth.request('/api/requests'),
   contributions: () => auth.request('/api/requests/contributions'),
@@ -699,6 +725,18 @@ const api = Object.freeze({
   adminStudents: (query = '') => auth.request(`/api/admin/console/students${query ? `?${query}` : ''}`),
   adminStudent: (id, query = '') => auth.request(`/api/admin/console/students/${id}${query ? `?${query}` : ''}`),
   adminQueue: (query = '') => auth.request(`/api/admin/console/queue${query ? `?${query}` : ''}`),
+  adminDirectory: (query = '') => auth.request(`/api/admin/console/directory${query ? `?${query}` : ''}`),
+  adminDirectoryStudent: (id) => auth.request(`/api/admin/console/directory/${id}`),
+  adminSavedViews: () => auth.request('/api/admin/console/saved-views'),
+  adminSaveView: (body) => auth.request('/api/admin/console/saved-views', jsonOptions('POST', body)),
+  adminDeleteView: (id) => auth.request(`/api/admin/console/saved-views/${id}`, { method: 'DELETE' }),
+  adminReviewCheck: (body) => auth.request('/api/admin/console/review-check', jsonOptions('POST', body)),
+  adminInspiration: (query = '') => auth.request(`/api/admin/console/inspiration${query ? `?${query}` : ''}`),
+  adminInspirationValidate: (body) => auth.request('/api/admin/console/inspiration/validate', jsonOptions('POST', body)),
+  adminInspirationPublish: (body) => auth.request('/api/admin/console/inspiration/publish', jsonOptions('POST', body)),
+  adminInspirationHistory: (id) => auth.request(`/api/admin/console/inspiration/${id}/history`),
+  adminInspirationBulkParse: (csv) => auth.request('/api/admin/console/inspiration/bulk/parse', jsonOptions('POST', { csv })),
+  adminInspirationBulkCommit: (prompts) => auth.request('/api/admin/console/inspiration/bulk/commit', jsonOptions('POST', { prompts })),
   adminStory: (id) => auth.request(`/api/admin/console/stories/${id}`),
   adminReview: (id, body) => auth.request(`/api/admin/console/stories/${id}/review`, jsonOptions('POST', body)),
   adminTaxonomy: (id, body) => auth.request(`/api/admin/console/stories/${id}/taxonomy`, jsonOptions('PATCH', body)),
@@ -1075,6 +1113,7 @@ function routeTitle(route = state.route) {
     students: 'Students',
     student: 'Student Workspace',
     queue: 'Review Queue',
+    content: 'Content Studio',
     activity: 'My Activity',
     student: isAdmin() ? 'Student Account' : 'Student Workspace',
     story: isAdmin() ? 'Story Review' : 'StoryForge',
@@ -1130,6 +1169,7 @@ function renderShell() {
       (route !== 'prep' || interviewPrepVisible() || isAdmin())
       && (route !== 'inspiration' || state.capabilities?.inspiration === true)
       && (route !== 'requests' || state.capabilities?.requestAStory === true)
+      && (route !== 'content' || state.capabilities?.inspirationAdmin === true)
     ));
   rail.innerHTML = `
     <div class="logo" aria-label="StoryForge">Story<b>Forge</b></div><div class="logoSub">MissionMed</div>
@@ -2188,8 +2228,13 @@ async function saveAdminConsoleReleaseControl(form) {
     state.adminConsoleFeature = result;
     const session = await api.session();
     state.capabilities = Object.freeze({
+      ...state.capabilities,
       voiceCapture: Boolean(session?.capabilities?.voiceCapture),
       adminConsole: Boolean(session?.capabilities?.adminConsole),
+      inspirationAdmin: Boolean(session?.capabilities?.inspirationAdmin),
+      adminDirectory: Boolean(session?.capabilities?.adminDirectory),
+      reviewCheck: Boolean(session?.capabilities?.reviewCheck),
+      adminReviewControls: Boolean(session?.capabilities?.adminReviewControls),
     });
     await loadAdminReleaseControls();
     renderShell();
@@ -3021,6 +3066,7 @@ function stopVoicePolling() {
 }
 
 function suspendVoiceForIdentityExit() {
+  void cancelPurposefulVersionVoice();
   stopVoicePolling();
   releaseVoiceWakeLock();
   if (voiceState.visibilityHandler) {
@@ -4639,7 +4685,7 @@ function renderStoryRoom() {
         </div>
         ${versionTab ? `<form id="storyVersionForm" data-version-key="${attr(versionTab)}" data-row-version="${attr(selectedVersion?.rowVersion || 0)}">
           <div class="b1514VersionIntro"><div><span class="eyebrow">Purposeful telling</span><h2>${versionTab === 'thirty_second' ? '30-Second Version' : 'NNQ Setup'}</h2><p>${versionTab === 'thirty_second' ? 'Shape the essential moment for a concise interview response.' : 'Set up the story so it can answer a natural next question.'}</p></div>${selectedVersion ? `<span class="cohortChip">Saved ${esc(formatDateTime(selectedVersion.updatedAt))}</span>` : '<span class="cohortChip">Not started</span>'}</div>
-          ${mentor ? `<div class="storyProse" data-empty="${text ? 'false' : 'true'}">${text ? esc(text) : '<span class="storyEmpty">This purposeful version has not been written yet.</span>'}</div>` : `<label class="srOnly" for="storyVersionText">${versionTab === 'thirty_second' ? '30-Second Version' : 'NNQ Setup'}</label><textarea class="storyProse storyProseEdit b1514VersionEditor" id="storyVersionText" maxlength="20000" placeholder="Keep the same truth. Shape this telling for its purpose.">${esc(text)}</textarea><div class="inlineActions"><button class="btnSave" type="submit">Save this version</button>${selectedVersion ? '<button class="rowBtn" type="button" data-version-mode="append">Append</button><button class="rowBtn" type="button" data-version-mode="retell">Retell from scratch</button>' : ''}<span class="saveState">Every saved change remains in version history.</span></div>`}
+          ${mentor ? `<div class="storyProse" data-empty="${text ? 'false' : 'true'}">${text ? esc(text) : '<span class="storyEmpty">This purposeful version has not been written yet.</span>'}</div>` : `<label class="srOnly" for="storyVersionText">${versionTab === 'thirty_second' ? '30-Second Version' : 'NNQ Setup'}</label><textarea class="storyProse storyProseEdit b1514VersionEditor" id="storyVersionText" maxlength="20000" placeholder="Keep the same truth. Shape this telling for its purpose.">${esc(text)}</textarea><div class="inlineActions"><button class="btnSave" type="submit">Save this version</button>${state.capabilities?.voiceCapture ? '<button class="rowBtn" type="button" data-version-voice>🎙 Speak instead of type</button>' : ''}${selectedVersion ? '<button class="rowBtn" type="button" data-version-mode="append">Append</button><button class="rowBtn" type="button" data-version-mode="retell">Retell from scratch</button>' : ''}<span class="saveState" data-version-voice-status>Every saved change remains in version history.</span></div>${selectedVersion?.audioAssetId ? `<div class="b1514VersionAudio"><button class="rowBtn" type="button" data-version-audio="${attr(selectedVersion.audioAssetId)}">▶ Play original telling</button><div data-version-audio-host></div></div>` : ''}`}
           ${selectedVersion?.history?.length ? `<details class="b1514VersionHistory"><summary>Earlier tellings (${selectedVersion.history.length})</summary>${selectedVersion.history.map((revision) => `<article><p>${esc(revision.body)}</p><div class="inlineActions"><small>${esc(formatDateTime(revision.savedAt))}</small>${!mentor ? `<button class="rowBtn" type="button" data-version-restore="${attr(revision.id)}">Restore this telling</button>` : ''}</div></article>`).join('')}</details>` : ''}
         </form>` : !mentor && workingTab ? `<form id="storyEditForm">
           <label class="srOnly" for="storyEditTitle">Story title</label>
@@ -6802,31 +6848,62 @@ async function loadAdminHome() {
 
 async function loadAdminStudents() {
   const admin = adminConsoleState();
-  const payload = await api.adminStudents(adminQuery({
+  const payload = state.capabilities?.adminDirectory
+    ? await api.adminDirectory(adminQuery({
+      q: admin.studentQuery,
+      filter: admin.studentFilter,
+      session: admin.studentSession,
+      sort: admin.studentSort,
+      page: admin.studentPage,
+      pageSize: 25,
+    }))
+    : await api.adminStudents(adminQuery({
     q: admin.studentQuery,
     status: admin.studentStatus,
     limit: 25,
-  }));
+    }));
   admin.students = asArray(payload?.students).map(normalizeStudent);
   admin.studentsCursor = payload?.nextCursor || null;
+  admin.studentTotal = Number(payload?.total || admin.students.length);
+  if (state.capabilities?.adminDirectory) {
+    const views = await api.adminSavedViews().catch(() => ({ views: [] }));
+    admin.savedViews = asArray(views?.views);
+  }
 }
 
 async function loadAdminStudent(id) {
-  const payload = await api.adminStudent(id);
+  const [payload, directory] = await Promise.all([
+    api.adminStudent(id),
+    state.capabilities?.adminDirectory
+      ? api.adminDirectoryStudent(id).catch(() => null)
+      : Promise.resolve(null),
+  ]);
   adminConsoleState().selectedStudent = {
     ...normalizeStudent(payload?.student || { id }),
     stories: asArray(payload?.stories).map(normalizeStory),
   };
+  adminConsoleState().directoryDetail = directory?.student || null;
 }
 
 async function loadAdminQueue() {
   const admin = adminConsoleState();
   const payload = await api.adminQueue(adminQuery({
+    q: admin.queueQuery,
     status: admin.queueStatus,
-    limit: 25,
+    session: admin.queueSession,
+    sort: admin.queueSort,
+    page: admin.queuePage,
+    pageSize: state.capabilities?.adminDirectory ? 25 : '',
+    limit: state.capabilities?.adminDirectory ? '' : 25,
   }));
   admin.queue = asArray(payload?.stories).map(normalizeStory);
   admin.queueCursor = payload?.nextCursor || null;
+}
+
+async function loadAdminContent() {
+  if (!state.capabilities?.inspirationAdmin) return;
+  const payload = await api.adminInspiration();
+  adminConsoleState().contentPrompts = asArray(payload?.prompts);
 }
 
 async function loadAdminStory(id) {
@@ -6880,12 +6957,13 @@ function renderAdminStudents() {
       <label class="srOnly" for="adminStudentSearch">Search students</label>
       <input id="adminStudentSearch" type="search" placeholder="Name, WordPress ID, cohort…" value="${attr(admin.studentQuery)}" autocomplete="off">
       <label class="srOnly" for="adminStudentStatus">Review status</label>
-      <select id="adminStudentStatus">
+      <select id="adminStudentStatus" ${state.capabilities?.adminDirectory ? 'hidden' : ''}>
         <option value="">All submitted work</option>
         ${['awaiting', 'in_review', 'changes', 'reviewed', 'approved', 'unscored'].map((status) => `<option value="${status}" ${admin.studentStatus === status ? 'selected' : ''}>${esc(status === 'unscored' ? 'Unscored' : STATUS[status].label)}</option>`).join('')}
-      </select>
+      </select>${state.capabilities?.adminDirectory ? `<select id="adminStudentFilter" aria-label="Attention filter">${[['all','All students'],['awaiting','Awaiting review'],['needs_review','Needs review'],['never_active','Never active'],['never_started','Never started'],['needs_nudge','Needs a nudge'],['inactive_7','Inactive 7+ days'],['inactive_30','Inactive 30+ days']].map(([value,label])=>`<option value="${value}" ${admin.studentFilter===value?'selected':''}>${label}</option>`).join('')}</select><select id="adminStudentSession" aria-label="Session filter"><option value="">Any session</option><option value="active" ${admin.studentSession==='active'?'selected':''}>Active now</option><option value="idle" ${admin.studentSession==='idle'?'selected':''}>Idle</option><option value="offline" ${admin.studentSession==='offline'?'selected':''}>Offline</option></select><select id="adminStudentSort" aria-label="Sort students">${[['attention','Needs attention'],['name','Name'],['recent','Most recent'],['quiet','Quietest'],['stories','Story count']].map(([value,label])=>`<option value="${value}" ${admin.studentSort===value?'selected':''}>${label}</option>`).join('')}</select>` : ''}
       <button class="rowBtn pri" type="submit">Search</button><span class="countNote" id="adminStudentCount">${admin.students.length} results · server-authorized</span>
     </form>
+    ${state.capabilities?.adminDirectory ? `<div class="b1514SavedViews"><label for="adminSavedView">Saved view</label><select id="adminSavedView"><option value="">Choose a saved view</option>${admin.savedViews.map((view)=>`<option value="${attr(view.id)}">${esc(view.label)}</option>`).join('')}</select><button class="rowBtn" type="button" data-admin-save-view>Save current view</button></div>` : ''}
     <div id="adminStudentResults">${adminStudentRowsMarkup()}</div>
     <div id="adminStudentSearchStatus" class="srOnly" role="status" aria-live="polite"></div>
   </section>`;
@@ -6921,6 +6999,7 @@ function renderAdminStudent() {
       <div class="eyebrow">Administrator · submitted StoryForge account</div><h1 class="h1">${esc(student.first)} <em>${esc(student.name.split(/\s+/).slice(1).join(' '))}</em></h1>
       <p class="stageHint">${esc([student.year, student.specialty, student.cohort, student.cycle].filter(Boolean).join(' · '))}</p></div></div>
     <div class="privacyBoundary" role="note">Private and archived stories are intentionally absent. This workspace cannot enumerate or open them.</div>
+    ${adminConsoleState().directoryDetail ? `<div class="forgeStats b1514DirectoryStats"><div class="fstat"><div class="n">${Number(adminConsoleState().directoryDetail.submittedStories || 0)}</div><div class="l">Submitted</div></div><div class="fstat"><div class="n">${Number(adminConsoleState().directoryDetail.awaitingReview || 0)}</div><div class="l">Awaiting</div></div><div class="fstat"><div class="n">${Number(adminConsoleState().directoryDetail.privateStoryCount || 0)}</div><div class="l">Private count only</div></div></div>${adminConsoleState().directoryDetail.activity ? `<div class="railCard"><div class="rLbl">Activity boundary</div><p>${esc(adminConsoleState().directoryDetail.activity.label || 'No recent session signal.')}</p><small>Content, keystrokes, drafts, and private story text are never tracked.</small></div>` : ''}${state.capabilities?.reviewCheck ? `<div class="inlineActions"><button class="rowBtn" type="button" data-review-check-preview="${attr(student.id)}">Preview Review Check</button><button class="rowBtn pri" type="button" data-review-check-send="${attr(student.id)}">Send Review Check</button></div>` : ''}` : ''}
     ${student.stories.length ? student.stories.map((story) => adminStoryRow({ ...story, studentName: student.name }, { showStudent: false })).join('') : emptyState('No submitted stories.', 'Private work remains private until the student submits it.')}
   </section>`;
 }
@@ -6929,12 +7008,39 @@ function renderAdminQueue() {
   const admin = adminConsoleState();
   main.innerHTML = `<section data-view="admin-queue" class="live">
     <div class="eyebrow">Administrator · Review Queue</div><h1 class="h1">Submitted stories, <em>bounded and auditable</em>.</h1>
-    <div class="listBar"><label class="srOnly" for="adminQueueStatus">Review status</label><select id="adminQueueStatus">
+    <div class="listBar">${state.capabilities?.adminDirectory ? '<label class="srOnly" for="adminQueueSearch">Search queue</label><input id="adminQueueSearch" type="search" placeholder="Student or story…" value="'+attr(admin.queueQuery)+'">' : ''}<label class="srOnly" for="adminQueueStatus">Review status</label><select id="adminQueueStatus">
       <option value="">All submitted stories</option>
       ${['awaiting', 'in_review', 'changes', 'reviewed', 'approved', 'unscored'].map((status) => `<option value="${status}" ${admin.queueStatus === status ? 'selected' : ''}>${esc(status === 'unscored' ? 'Unscored' : STATUS[status].label)}</option>`).join('')}
-    </select><span class="countNote">${admin.queue.length} results · private stories excluded</span></div>
+    </select>${state.capabilities?.adminDirectory ? `<select id="adminQueueSort" aria-label="Queue order"><option value="oldest" ${admin.queueSort==='oldest'?'selected':''}>Oldest awaiting</option><option value="newest" ${admin.queueSort==='newest'?'selected':''}>Newest</option><option value="updated" ${admin.queueSort==='updated'?'selected':''}>Recently updated</option><option value="student" ${admin.queueSort==='student'?'selected':''}>Student</option></select><button class="rowBtn pri" type="button" data-admin-queue-search>Apply</button>` : ''}<span class="countNote">${admin.queue.length} results · private stories excluded</span></div>
     ${admin.queue.length ? admin.queue.map((story) => adminStoryRow(story)).join('') : emptyState('Nothing in this queue.', 'Choose another review state.')}
   </section>`;
+}
+
+function renderAdminContent() {
+  const prompts = adminConsoleState().contentPrompts;
+  main.innerHTML = `<section data-view="admin-content" class="live b1514ContentStudio"><div class="eyebrow">Administrator · Content Studio</div><h1 class="h1">Govern <em>Inspiration</em>.</h1><p class="greetSub">Validate one prompt or import a reviewed CSV. Bulk imports always land retired and require explicit publication.</p>
+    <form id="adminInspirationForm" class="railCard"><label>Prompt question<textarea id="adminPromptText" maxlength="400" required></textarea></label><div class="b1514FieldGrid"><label>Territory<input id="adminPromptTerritory" value="clinical_growth" required></label><label>Order<input id="adminPromptOrder" type="number" min="1" max="100000" value="100" required></label></div><label>Follow-up<input id="adminPromptFollowup" value="What changed because of that moment?" required></label><label>Interview use<input id="adminPromptUse" value="Shows reflection and growth." required></label><div class="inlineActions"><button class="rowBtn" type="button" data-admin-prompt-validate>Validate</button><button class="btnSave" type="submit">Publish active prompt</button></div></form>
+    <form id="adminInspirationBulkForm" class="railCard"><label>Governed CSV<textarea id="adminPromptCsv" rows="6" placeholder="Paste the exact 13-column governed CSV"></textarea></label><div class="inlineActions"><button class="rowBtn" type="submit">Parse safely</button></div></form>
+    <div class="panel panel-spaced"><div class="pHead"><div class="h2">Prompt bank <em>${prompts.length}</em></div></div><div class="pBody">${prompts.map((prompt)=>`<article class="mStuRow"><span class="rMain"><span class="rTitle">${esc(prompt.key)} · ${esc(prompt.text)}</span><span class="rSub">${esc(prompt.territory)} · version ${Number(prompt.rowVersion||0)}</span></span><span class="cohortChip">${esc(prompt.state)}</span><button class="rowBtn" type="button" data-admin-prompt-history="${attr(prompt.id)}">History</button></article>`).join('')||'<div class="stageHint">No prompts match.</div>'}</div></div></section>`;
+}
+
+function adminInspirationDraft(form) {
+  return {
+    id: null,
+    libraryKey: null,
+    text: $('#adminPromptText', form)?.value.trim() || '',
+    who: ['you'],
+    whoDetail: [],
+    domain: ['personal'],
+    energy: ['serious'],
+    territory: $('#adminPromptTerritory', form)?.value.trim() || '',
+    followUp: $('#adminPromptFollowup', form)?.value.trim() || '',
+    interviewUse: $('#adminPromptUse', form)?.value.trim() || '',
+    state: 'active',
+    recommended: false,
+    sortOrder: Number($('#adminPromptOrder', form)?.value || 0),
+    expectedVersion: null,
+  };
 }
 
 function renderAdminStory() {
@@ -7190,6 +7296,11 @@ async function renderRoute() {
         renderAdminQueue();
         return;
       }
+      if (state.route === 'content' && state.capabilities?.inspirationAdmin) {
+        await loadAdminContent();
+        renderAdminContent();
+        return;
+      }
       if (state.route === 'story' && state.routeId) {
         await loadAdminStory(state.routeId);
         renderAdminStory();
@@ -7410,16 +7521,114 @@ async function saveThemePreference(theme) {
   notify(theme === 'auto' ? 'Auto theme on — StoryForge follows your device.' : `${theme === 'light' ? 'Light' : 'Dark'} theme saved.`, '✓');
 }
 
+async function togglePurposefulVersionVoice(button) {
+  if (state.versionVoice?.recorder?.state === 'recording') {
+    const current = state.versionVoice;
+    const stopped = new Promise((resolve) => current.recorder.addEventListener('stop', resolve, { once: true }));
+    current.recorder.stop();
+    await stopped;
+    current.stream.getTracks().forEach((track) => track.stop());
+    const durationMs = Math.max(1, Date.now() - current.startedAt);
+    const blob = new Blob(current.chunks, { type: current.mimeType });
+    if (!blob.size) throw new Error('No voice recording was captured.');
+    const form = new FormData();
+    form.set('seq', '0');
+    form.set('durationMs', String(durationMs));
+    form.set('segment', blob, voiceFileName(0, current.mimeType));
+    button.disabled = true;
+    button.textContent = 'Preparing transcript…';
+    await api.uploadRecordingSegment(current.recordingId, form);
+    await api.finishRecording(current.recordingId, durationMs);
+    let assembled = false;
+    for (let attempt = 0; attempt < 46; attempt += 1) {
+      const payload = await api.recording(current.recordingId);
+      const status = recordingState(payload);
+      if (['assembled', 'attached'].includes(status)) { assembled = true; break; }
+      if (status === 'failed') throw new Error('StoryForge could not prepare this recording. Your typed version is unchanged.');
+      await voiceDelay(2_000);
+    }
+    if (!assembled) throw new Error('Your recording is still safe, but preparation is taking longer than expected. Try again shortly.');
+    const attached = await api.attachVersionRecording(state.storyDetail.id, current.recordingId);
+    const field = $('#storyVersionText');
+    if (field) {
+      const transcript = String(attached?.transcript || '');
+      const form = field.closest('#storyVersionForm');
+      field.value = form?.dataset.saveMode === 'append' && field.value.trim()
+        ? `${field.value.trimEnd()}\n\n${transcript}`
+        : transcript;
+    }
+    state.versionVoice = {
+      recordingId: current.recordingId,
+      audioAssetId: String(attached?.audioAssetId || ''),
+      transcript: String(attached?.transcript || ''),
+    };
+    button.disabled = false;
+    button.textContent = '🎙 Record again';
+    const status = $('[data-version-voice-status]');
+    if (status) status.textContent = 'Transcript ready to edit. Original voice will be preserved when you save.';
+    return;
+  }
+  const recording = await api.createRecording();
+  const recordingId = String(firstDefined(recording?.recordingId, recording?.recording_id, recording?.recording?.id, ''));
+  if (!recordingId) throw new Error('StoryForge could not open a private recording session.');
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  const mimeType = supportedVoiceMimeType();
+  if (!mimeType) { stream.getTracks().forEach((track) => track.stop()); throw new Error('No supported recording format is available.'); }
+  const chunks = [];
+  const mediaRecorder = new MediaRecorder(stream, { mimeType });
+  mediaRecorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
+  state.versionVoice = { recorder: mediaRecorder, stream, chunks, mimeType, recordingId, startedAt: Date.now() };
+  mediaRecorder.start();
+  button.textContent = '■ Stop and transcribe';
+  const status = $('[data-version-voice-status]');
+  if (status) status.textContent = 'Recording this purposeful telling. You can edit the transcript before saving.';
+  window.setTimeout(() => {
+    if (state.versionVoice?.recordingId === recordingId && state.versionVoice?.recorder?.state === 'recording') button.click();
+  }, 10 * 60_000);
+}
+
+async function cancelPurposefulVersionVoice() {
+  const current = state.versionVoice;
+  state.versionVoice = null;
+  if (!current) return;
+  if (current.recorder?.state === 'recording') current.recorder.stop();
+  current.stream?.getTracks().forEach((track) => track.stop());
+  if (current.audioAssetId) {
+    await api.deleteAudio(current.audioAssetId).catch(() => {});
+  } else if (current.recordingId) {
+    await api.cancelRecording(current.recordingId).catch(() => {});
+  }
+}
+
+async function playPurposefulVersionAudio(assetId) {
+  const result = await api.audioPlayback(assetId);
+  const [url] = playbackUrls(result || {});
+  if (!url) throw new Error('Original telling playback is unavailable.');
+  const host = $('[data-version-audio-host]');
+  if (!host) return;
+  const audio = document.createElement('audio');
+  audio.controls = true;
+  audio.preload = 'metadata';
+  audio.src = url;
+  audio.setAttribute('aria-label', 'Original purposeful telling');
+  host.replaceChildren(audio);
+  await audio.play();
+}
+
 async function savePurposefulVersion(form, mode = 'save') {
   const key = form.dataset.versionKey;
   const current = state.storyVersions.find((version) => version.key === key);
   const field = $('#storyVersionText', form);
-  const body = mode === 'retell' ? '' : field?.value || '';
+  const body = field?.value || '';
+  const voice = state.versionVoice?.recordingId && state.versionVoice?.audioAssetId
+    ? state.versionVoice
+    : null;
   const result = await withBusy(() => api.saveStoryVersion(state.storyDetail.id, key, {
     body,
     mode,
-    source: 'typed',
+    source: voice ? 'voice' : 'typed',
     expectedVersion: Number(current?.rowVersion || 0),
+    ...(voice ? { recordingId: voice.recordingId, audioAssetId: voice.audioAssetId } : {}),
   }));
   const version = result?.version || result;
   if (mode === 'retell') {
@@ -7427,6 +7636,8 @@ async function savePurposefulVersion(form, mode = 'save') {
   }
   await reloadStorySurface('workspace');
   state.storyTab = key;
+  state.versionVoice = null;
+  form.dataset.saveMode = 'save';
   renderStoryRoom();
   notify(mode === 'retell' ? 'A fresh telling is ready.' : 'Purposeful version saved.', '✓');
 }
@@ -7748,6 +7959,7 @@ document.addEventListener('click', async (event) => {
     }
     if (button.matches('[data-inspiration-layout]')) {
       state.v2.inspiration.layout = button.dataset.inspirationLayout;
+      await api.inspirationLayout(state.v2.inspiration.layout);
       await loadInspiration();
       renderInspiration();
       return;
@@ -7806,6 +8018,54 @@ document.addEventListener('click', async (event) => {
       if (result?.storyId) await openStory(result.storyId);
       return;
     }
+    if (button.matches('[data-review-check-preview]')) {
+      const result = await api.adminReviewCheck({ studentId: button.dataset.reviewCheckPreview, preview: true });
+      notify(result?.message || 'Review Check preview is ready. No notification was sent.');
+      return;
+    }
+    if (button.matches('[data-review-check-send]')) {
+      const result = await api.adminReviewCheck({ studentId: button.dataset.reviewCheckSend, preview: false });
+      notify(result?.message || 'Review Check sent.', '✓');
+      return;
+    }
+    if (button.matches('[data-admin-save-view]')) {
+      const admin = adminConsoleState();
+      const label = window.prompt('Name this private administrator view:');
+      if (!label) return;
+      await api.adminSaveView({ label, state: { filter: admin.studentFilter, session: admin.studentSession, sort: admin.studentSort } });
+      await loadAdminStudents();
+      renderAdminStudents();
+      notify('Administrator view saved.', '✓');
+      return;
+    }
+    if (button.matches('[data-admin-queue-search]')) {
+      const admin = adminConsoleState();
+      admin.queueQuery = $('#adminQueueSearch')?.value.trim() || '';
+      admin.queueSort = $('#adminQueueSort')?.value || 'oldest';
+      admin.queuePage = 1;
+      await loadAdminQueue();
+      renderAdminQueue();
+      return;
+    }
+    if (button.matches('[data-admin-prompt-validate]')) {
+      const draft = adminInspirationDraft($('#adminInspirationForm'));
+      await api.adminInspirationValidate({ prompt: draft });
+      notify('Prompt is valid plain text and ready to publish.', '✓');
+      return;
+    }
+    if (button.matches('[data-admin-prompt-history]')) {
+      const result = await api.adminInspirationHistory(button.dataset.adminPromptHistory);
+      notify(`${asArray(result?.history).length} immutable prompt revisions found.`);
+      return;
+    }
+    if (button.matches('[data-version-voice]')) {
+      await togglePurposefulVersionVoice(button);
+      return;
+    }
+    if (button.matches('[data-version-audio]')) {
+      await playPurposefulVersionAudio(button.dataset.versionAudio);
+      return;
+    }
     if (button.matches('[data-nav]')) {
       event.preventDefault();
       await navigate(button.dataset.nav, button.dataset.navId || null);
@@ -7815,6 +8075,7 @@ document.addEventListener('click', async (event) => {
       event.preventDefault();
       const overlay = overlayContaining(button);
       if (overlay === capture && captureSaveInFlight) return;
+      if (overlay === room) await cancelPurposefulVersionVoice();
       closeOverlay(overlay);
       if (button.closest('#qad') && quick.classList.contains('open')) renderQuick();
       if (button.closest('#qad') && room.classList.contains('open')) renderStoryRoom();
@@ -8060,13 +8321,31 @@ document.addEventListener('click', async (event) => {
       return;
     }
     if (button.matches('[data-story-tab]')) {
+      await cancelPurposefulVersionVoice();
       state.storyTab = button.dataset.storyTab;
       renderStoryRoom();
       return;
     }
     if (button.matches('[data-version-mode]')) {
       const form = button.closest('#storyVersionForm');
-      if (form) await savePurposefulVersion(form, button.dataset.versionMode);
+      const field = $('#storyVersionText', form);
+      if (!form || !field) return;
+      if (button.dataset.versionMode === 'append') {
+        form.dataset.saveMode = 'append';
+        field.value = `${field.value.trimEnd()}${field.value.trim() ? '\n\n' : ''}`;
+        field.focus();
+        field.setSelectionRange(field.value.length, field.value.length);
+        const status = $('[data-version-voice-status]', form);
+        if (status) status.textContent = 'Append mode — add to the telling, then save. The prior version remains in history.';
+      } else {
+        if (!window.confirm('Start a fresh retelling? Your current telling will remain in version history and can be restored.')) return;
+        await cancelPurposefulVersionVoice();
+        form.dataset.saveMode = 'retell';
+        field.value = '';
+        field.focus();
+        const status = $('[data-version-voice-status]', form);
+        if (status) status.textContent = 'Fresh retelling ready. Your previous telling is preserved until you save this one.';
+      }
       return;
     }
     if (button.matches('[data-version-restore]')) {
@@ -8378,7 +8657,7 @@ document.addEventListener('submit', async (event) => {
     }
     if (event.target.id === 'storyVersionForm') {
       event.preventDefault();
-      await savePurposefulVersion(event.target);
+      await savePurposefulVersion(event.target, event.target.dataset.saveMode || 'save');
     }
     if (event.target.id === 'inspirationSearchForm') {
       event.preventDefault();
@@ -8432,8 +8711,30 @@ document.addEventListener('submit', async (event) => {
       const admin = adminConsoleState();
       admin.studentQuery = $('#adminStudentSearch', event.target)?.value.trim() || '';
       admin.studentStatus = $('#adminStudentStatus', event.target)?.value || '';
+      admin.studentFilter = $('#adminStudentFilter', event.target)?.value || 'all';
+      admin.studentSession = $('#adminStudentSession', event.target)?.value || '';
+      admin.studentSort = $('#adminStudentSort', event.target)?.value || 'attention';
+      admin.studentPage = 1;
       await loadAdminStudents();
       renderAdminStudents();
+    }
+    if (event.target.id === 'adminInspirationForm') {
+      event.preventDefault();
+      await api.adminInspirationPublish({ prompt: adminInspirationDraft(event.target) });
+      event.target.reset();
+      await loadAdminContent();
+      renderAdminContent();
+      notify('Inspiration prompt published with immutable history.', '✓');
+    }
+    if (event.target.id === 'adminInspirationBulkForm') {
+      event.preventDefault();
+      const parsed = await api.adminInspirationBulkParse($('#adminPromptCsv', event.target)?.value || '');
+      if (!asArray(parsed?.prompts).length) throw new Error('No governed prompts were parsed.');
+      if (!window.confirm(`${parsed.count} prompts passed validation. Import them as retired drafts?`)) return;
+      await api.adminInspirationBulkCommit(parsed.prompts);
+      await loadAdminContent();
+      renderAdminContent();
+      notify(`${parsed.count} prompts imported as retired drafts.`, '✓');
     }
     if (event.target.id === 'adminStoryReviewForm') {
       event.preventDefault();
@@ -8607,6 +8908,17 @@ document.addEventListener('change', async (event) => {
       adminConsoleState().queueStatus = target.value;
       await loadAdminQueue();
       renderAdminQueue();
+    } else if (target.id === 'adminSavedView') {
+      const view = adminConsoleState().savedViews.find((item) => item.id === target.value);
+      if (view) {
+        const admin = adminConsoleState();
+        admin.studentFilter = view.state?.filter || 'all';
+        admin.studentSession = view.state?.session || '';
+        admin.studentSort = view.state?.sort || 'attention';
+        admin.studentPage = 1;
+        await loadAdminStudents();
+        renderAdminStudents();
+      }
     } else if (target.id === 'activityStudent') {
       mentorState().activityFilters.student = target.value;
       await reloadActivityView();
@@ -8908,6 +9220,11 @@ function signOut() {
     inspiration: false,
     requestAStory: false,
     activityTracking: false,
+    inspirationAdmin: false,
+    adminDirectory: false,
+    reviewCheck: false,
+    adminReviewControls: false,
+    storyFollowup: false,
   });
   state.captureRecovering = false;
   state.lockout = null;
@@ -9071,6 +9388,11 @@ async function bootstrapSession() {
     storyVersions: Boolean(session?.capabilities?.storyVersions),
     requestAStory: Boolean(session?.capabilities?.requestAStory),
     activityTracking: Boolean(session?.capabilities?.activityTracking),
+    inspirationAdmin: Boolean(session?.capabilities?.inspirationAdmin),
+    adminDirectory: Boolean(session?.capabilities?.adminDirectory),
+    reviewCheck: Boolean(session?.capabilities?.reviewCheck),
+    adminReviewControls: Boolean(session?.capabilities?.adminReviewControls),
+    storyFollowup: false,
   });
   state.library.sort = state.capabilities.inlinePriority ? 'priority' : 'new';
   state.captureRecovering = false;
@@ -9080,7 +9402,7 @@ async function bootstrapSession() {
   const studentRoutes = new Set(['home', 'library', 'inspiration', 'requests', 'notifications', 'settings', 'prep', 'qshop', 'qlib', 'story']);
   const mentorRoutes = new Set(['home', 'students', 'student', 'queue', 'activity', 'settings', 'prep', 'qshop', 'qlib', 'story']);
   const adminRoutes = new Set(canAdminReview()
-    ? ['home', 'students', 'student', 'queue', 'story', 'qlib', 'settings']
+    ? ['home', 'students', 'student', 'queue', 'story', 'content', 'qlib', 'settings']
     : ['qlib', 'settings']);
   const allowedRoutes = isAdmin() ? adminRoutes : isMentor() ? mentorRoutes : studentRoutes;
   if (!isAdmin() && !interviewPrepVisible() && ['prep', 'qshop', 'qlib'].includes(state.route)) {
