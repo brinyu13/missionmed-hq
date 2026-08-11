@@ -15,8 +15,8 @@ Implementation, static, regression, scope, secret, protected-file, rollback, loc
 - Accepted baseline: `75c7d1a2cf96568f6520e7ca9af281c11e402104`
 - Rollback tag: `y1-y2-cam-v6-3451-inherited-3410`
 - Rollback resolves to: `75c7d1a2cf96568f6520e7ca9af281c11e402104`
-- Final implementation commit: recorded in the custody annotation immediately following the accepted implementation commit
-- Final pushed branch HEAD: recorded by the final push and closeout response
+- Accepted implementation commit: `0f45098794360d038dd11211496f6b4eb43bb298`
+- Final pushed branch HEAD: the handoff-only custody successor to the accepted implementation commit; its exact remote SHA is recorded in the closeout response because a commit cannot self-embed its own identity
 - Upstream before closeout: none
 - Production mutation: none
 
