@@ -1,0 +1,88 @@
+name: B1-514 StoryForge integration gate
+
+on:
+  push:
+    branches:
+      - codex/b1-503-storyforge-product-recovery
+    paths:
+      - .github/workflows/b1-514-storyforge-integration.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: b1-514-storyforge-integration
+  cancel-in-progress: false
+
+jobs:
+  integration:
+    name: Exact WordPress and Matrix integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      TARGET_SHA: bd21a33b182be1f6c43402d4ca09e94e277545fa
+      STORYFORGE_PG_BIN: /usr/lib/postgresql/18/bin
+
+    steps:
+      - name: Check out the exact sealed source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_SHA }}
+          fetch-depth: 0
+
+      - name: Assert exact clean source
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          test -z "$(git status --short)"
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: storyforge-v5/package-lock.json
+
+      - name: Install PostgreSQL 18 client and server
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo install -d -m 0755 /usr/share/postgresql-common/pgdg
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo gpg --dearmor --yes -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg
+          . /etc/os-release
+          printf 'deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt %s-pgdg main\n' "$VERSION_CODENAME" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-18 postgresql-client-18
+          "$STORYFORGE_PG_BIN/postgres" --version
+          "$STORYFORGE_PG_BIN/psql" --version
+
+      - name: Install exact StoryForge dependencies
+        shell: bash
+        run: npm ci --prefix storyforge-v5
+
+      - name: Verify hosted integration prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose version
+          google-chrome --version
+
+      - name: Run exact StoryForge integration suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          STORYFORGE_EXPECTED_COMMIT="$TARGET_SHA" \
+          STORYFORGE_PG_BIN="$STORYFORGE_PG_BIN" \
+          npm run test:integration --prefix storyforge-v5
+
+      - name: Upload bounded integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b1-514-storyforge-integration-${{ github.run_id }}
+          path: storyforge-v5/.local/integration-evidence/**
+          if-no-files-found: warn
+          retention-days: 7
