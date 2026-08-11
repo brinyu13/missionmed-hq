@@ -12,11 +12,30 @@ test('pipeline reuses bridge media and never opens a second capture or storage p
 });
 
 test('worker installs same-origin egress guards before importing MediaPipe',async()=>{
-  const source=await read('public/analytics/holistic-worker.mjs');
-  assert.ok(source.indexOf('self.fetch =')>=0);
-  assert.ok(source.indexOf('self.fetch =')<source.indexOf('await import(message.bundleUrl)'));
-  assert.match(source,/XMLHttpRequest/u);
-  assert.match(source,/url\.origin !== self\.location\.origin/u);
+  for(const path of ['public/analytics/holistic-worker.mjs','public/analytics/face-detector-worker.mjs']){
+    const source=await read(path);
+    assert.ok(source.indexOf('self.fetch =')>=0);
+    assert.ok(source.indexOf('self.fetch =')<source.indexOf('await import(message.bundleUrl)'));
+    assert.match(source,/XMLHttpRequest/u);
+    assert.match(source,/url\.origin !== self\.location\.origin/u);
+  }
+});
+
+test('FaceDetector and Holistic use isolated workers and join only bounded face count',async()=>{
+  const pipeline=await read('public/analytics/browser-pipeline.mjs');
+  const holistic=await read('public/analytics/holistic-worker.mjs');
+  const face=await read('public/analytics/face-detector-worker.mjs');
+  assert.match(pipeline,/new Worker\(`\/analytics\/holistic-worker\.mjs\?v=\$\{WORKER_REVISION\}`/u);
+  assert.match(pipeline,/new Worker\(`\$\{FACE_WORKER\}\?v=\$\{WORKER_REVISION\}`/u);
+  assert.match(face,/type: 'face-count'[\s\S]{0,180}faceCount/u);
+  assert.doesNotMatch(face,/postMessage\([\s\S]{0,120}(?:landmarks|detections):/iu);
+  assert.match(holistic,/new OffscreenCanvas\(width, height\)/u);
+  assert.match(holistic,/canvas\.transferToImageBitmap\(\)/u);
+  assert.match(holistic,/self\.postMessage\(response, overlayBitmap \? \[overlayBitmap\] : \[\]\)/u);
+  assert.doesNotMatch(holistic,/Float32Array|overlayVectors|connectionVectors/iu);
+  assert.doesNotMatch(pipeline,/overlayVectors|ArrayBuffer\.isView/iu);
+  assert.match(pipeline,/this\.overlayConsumer\(\{ bitmap, geometry:/u);
+  assert.match(pipeline,/finally \{\s*closeOverlayBitmap\(bitmap\);/u);
 });
 
 test('server keeps analytics same-origin with explicit worker and WASM policy',async()=>{
@@ -49,7 +68,7 @@ test('Founder failure and replay lifecycle release state instead of trapping dev
 });
 
 test('only the vendored dependency contains the blocked Google metrics endpoint',async()=>{
-  const firstParty=await Promise.all(['public/analytics/holistic-worker.mjs','public/analytics/browser-pipeline.mjs','public/analytics/ui.mjs'].map(read));
+  const firstParty=await Promise.all(['public/analytics/holistic-worker.mjs','public/analytics/face-detector-worker.mjs','public/analytics/browser-pipeline.mjs','public/analytics/ui.mjs'].map(read));
   assert.equal(firstParty.join('\n').includes('odml.pa.googleapis.com'),false);
   const vendor=await read('public/vendor/mediapipe/tasks-vision/1.0.1/vision_bundle.mjs');
   assert.equal(vendor.includes('https://odml.pa.googleapis.com/v1/log'),true);

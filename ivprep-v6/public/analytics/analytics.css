@@ -3,12 +3,53 @@
 .ca-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:14px;margin-top:16px}
 .ca-stack{display:grid;gap:12px}
 .ca-preview{width:100%;aspect-ratio:16/9;background:#060a12;border:1px solid rgba(57,214,255,.2);border-radius:11px;object-fit:contain}
+.ca-preview-stage{position:relative;width:100%;overflow:hidden;border-radius:11px;background:#060a12}
+.ca-preview-stage .ca-preview{display:block}
+.ca-tracking-overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;border-radius:11px}
 .ca-actions{display:flex;gap:8px;flex-wrap:wrap}
 .ca-actions button{min-height:44px}
 .ca-status{padding:10px 12px;border-radius:9px;background:rgba(57,214,255,.06);border:1px solid rgba(57,214,255,.15);font-size:12px;color:var(--mid);line-height:1.55}
+.ca-run-config{display:grid;gap:7px;padding:11px 12px;border:1px solid rgba(57,214,255,.2);border-radius:9px;background:rgba(57,214,255,.045)}
+.ca-run-config label{font:700 11px/1.3 var(--disp);letter-spacing:.06em;text-transform:uppercase;color:var(--gd)}
+.ca-run-config select{width:100%;min-height:42px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#070b12;color:var(--mid);font:12px/1.35 var(--num)}
+.ca-run-config select:focus{outline:2px solid var(--cy);outline-offset:2px}
+.ca-run-receipt{margin:10px 0;padding:11px 12px;border-radius:9px;font:700 11px/1.55 var(--num);letter-spacing:.035em}
+.ca-run-complete{border:1px solid rgba(94,255,208,.35);background:rgba(94,255,208,.075);color:#a7ffe2}
+.ca-run-limited{border:1px solid rgba(255,209,102,.38);background:rgba(255,209,102,.07);color:#ffe4a3}
 .ca-steps{margin:0;padding-left:22px;display:grid;gap:7px;font-size:12px;color:var(--dim)}
 .ca-steps li[aria-current="step"]{color:var(--gd);font-weight:700}
 .ca-diagnostics{white-space:pre-wrap;font:11px/1.55 var(--num);max-height:220px;overflow:auto;background:#070b12;border:1px solid var(--line);border-radius:8px;padding:10px}
+.ca-cockpit{display:grid;gap:12px;margin:14px 0;padding:14px;border:1px solid rgba(57,214,255,.28);border-radius:12px;background:linear-gradient(180deg,rgba(57,214,255,.045),rgba(7,11,18,.72))}
+.ca-cockpit-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ca-cockpit-head h2{margin:0}
+.ca-badges{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.ca-cockpit-note,.ca-instrument-note,.ca-timeline-status{margin:0;color:var(--dim);font-size:11px;line-height:1.5}
+.ca-instrument-toggles{display:flex;gap:8px;flex-wrap:wrap}
+.ca-toggle{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:6px 10px;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.025);font:10px/1.3 var(--num);letter-spacing:.03em;color:var(--mid);cursor:pointer}
+.ca-toggle:focus-within{outline:2px solid var(--cy);outline-offset:2px}
+.ca-toggle input{accent-color:var(--cy)}
+.ca-tracking-status{padding:9px 11px;border:1px solid rgba(57,214,255,.18);border-radius:8px;background:#070b12;font:10px/1.5 var(--num);color:var(--mid)}
+.ca-instrument-grid{display:grid;grid-template-columns:minmax(260px,.75fr) minmax(320px,1.25fr);gap:10px}
+.ca-instrument{min-width:0;padding:12px;border:1px solid var(--line);border-radius:10px;background:rgba(5,9,15,.75)}
+.ca-instrument h3{margin:0 0 4px;font:700 12px/1.3 var(--disp);letter-spacing:.05em;text-transform:uppercase;color:var(--gd)}
+.ca-instrument-wide{grid-column:1/-1}
+.ca-gauge,.ca-meter-row{display:grid;gap:5px;margin-top:10px}
+.ca-gauge-head{display:flex;justify-content:space-between;gap:10px;font:10px/1.35 var(--num);color:var(--mid)}
+.ca-gauge-value{color:var(--cy);text-align:right}
+.ca-gauge-track{position:relative;height:8px;border-radius:999px;background:linear-gradient(90deg,rgba(255,93,115,.5),rgba(57,214,255,.22) 50%,rgba(255,93,115,.5));border:1px solid rgba(255,255,255,.08)}
+.ca-gauge-center{position:absolute;top:-3px;bottom:-3px;left:50%;width:1px;background:rgba(255,255,255,.35)}
+.ca-gauge-marker{position:absolute;top:50%;left:var(--ca-gauge-position,50%);width:10px;height:10px;border:2px solid #061019;border-radius:50%;background:var(--cy);box-shadow:0 0 0 2px rgba(57,214,255,.28);transform:translate(-50%,-50%)}
+.ca-unavailable{opacity:.48}
+.ca-unavailable .ca-gauge-marker{display:none}
+.ca-signal-canvas,.ca-timeline-canvas{display:block;width:100%;height:112px;margin-top:9px;border:1px solid rgba(57,214,255,.14);border-radius:7px;background:#070b12}
+.ca-timeline-canvas{height:280px}
+.ca-meter-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.ca-meter{display:block;width:100%;height:9px;accent-color:var(--cy)}
+.ca-meter.ca-unavailable{visibility:hidden}
+.ca-delivery-status{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:5px 10px;margin:12px 0 0;font:10px/1.4 var(--num)}
+.ca-delivery-status dt{color:var(--dim)}
+.ca-delivery-status dd{margin:0;color:var(--mid);text-align:right;overflow-wrap:anywhere}
+.ca-timeline-status{margin-top:7px;font-family:var(--num);letter-spacing:.035em}
 .ca-result{margin:14px 0;border-color:rgba(57,214,255,.3)}
 .ca-result-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px}
 .ca-event-list{display:grid;gap:7px}
@@ -19,8 +60,8 @@
 .ca-privacy{font:10px/1.55 var(--num);letter-spacing:.06em;color:var(--dim);margin-top:10px}
 .ca-error{border-color:rgba(255,93,115,.4);color:#ff9baa}
 .ca-hidden{display:none!important}
-@media(max-width:1024px){.ca-grid{grid-template-columns:1fr}}
-@media(max-width:600px){.ca-actions{display:grid}.ca-actions button{width:100%}.ca-event{align-items:flex-start;flex-wrap:wrap}.ca-event button{margin-left:0;width:100%}}
+@media(max-width:1024px){.ca-grid{grid-template-columns:1fr}.ca-instrument-grid{grid-template-columns:1fr}.ca-instrument-wide{grid-column:auto}}
+@media(max-width:600px){.ca-actions{display:grid}.ca-actions button{width:100%}.ca-event{align-items:flex-start;flex-wrap:wrap}.ca-event button{margin-left:0;width:100%}.ca-instrument-toggles{display:grid}.ca-toggle{border-radius:8px}.ca-meter-grid{grid-template-columns:1fr}.ca-delivery-status{grid-template-columns:1fr}.ca-delivery-status dd{text-align:left;margin-bottom:5px}.ca-timeline-canvas{height:320px}}
 @media(prefers-reduced-motion:reduce){#analytics-test *{animation:none!important;transition:none!important}}
 .ca-analytics-active #coachlane,
 .ca-analytics-active #laneticker,
