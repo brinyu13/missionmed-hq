@@ -145,6 +145,8 @@ const BACKGROUNDS = Object.freeze([
   { id: 'constellation', name: 'Night Constellation', ico: '✦', desc: 'A quiet star field with faint constellations tracing themselves.', prev: 'radial-gradient(1.5px 1.5px at 20% 30%,#fff,transparent),radial-gradient(1px 1px at 70% 60%,#9fd8ff,transparent),radial-gradient(1.5px 1.5px at 45% 75%,#fff,transparent),#080b13' },
   { id: 'tide', name: 'Deep Tide', ico: '〰', desc: 'Soft light currents moving slowly through deep water.', prev: 'linear-gradient(180deg,transparent 30%,rgba(57,214,255,.16) 45%,transparent 60%,rgba(90,141,255,.14) 78%,transparent 92%),#090d15' },
   { id: 'meridian', name: 'Meridian', ico: '▤', desc: 'Restrained geometric contour lines gliding with a soft glow.', prev: 'repeating-linear-gradient(175deg,transparent 0 18px,rgba(57,214,255,.09) 18px 19px),#0a0d14' },
+  { id: 'emberstorm', name: 'Ember Storm', ico: '🌋', desc: 'Energetic — the signature embers turned up: rolling warm light in constant, obvious motion.', prev: 'radial-gradient(circle at 28% 85%,rgba(255,150,60,.5),transparent 50%),radial-gradient(circle at 78% 18%,rgba(255,84,112,.3),transparent 55%),#0a0d14' },
+  { id: 'lumen', name: 'Lumen Drift', ico: '💫', desc: 'Energetic — broad ribbons of gold and violet light, always slowly moving.', prev: 'linear-gradient(60deg,rgba(255,215,106,.3),transparent 45%),linear-gradient(300deg,rgba(138,125,255,.34),transparent 50%),#0a0d14' },
   { id: 'static', name: 'Static Dark', ico: '■', desc: 'A flat, still dark background. No motion at all.', prev: '#0b0e14' },
 ]);
 
@@ -183,6 +185,8 @@ const NAV = Object.freeze({
   student: [
     ['home', 'Home', '⌂'],
     ['library', 'Story Library', '▤'],
+    ['inspiration', 'Inspiration', '✦'],
+    ['requests', 'Request a Story', '↗'],
     ['prep', 'Interview Prep', '◇'],
     ['notifications', 'Notifications', '●'],
     ['settings', 'Settings', '⚙'],
@@ -231,6 +235,9 @@ const state = {
     mentorNotes: false,
     mentorNotesRead: false,
     storyMedia: false,
+    storyVersions: false,
+    inspiration: false,
+    requestAStory: false,
   }),
   lockout: null,
   route: 'home',
@@ -242,6 +249,7 @@ const state = {
   intelligence: null,
   selectedStudent: null,
   storyDetail: null,
+  storyVersions: [],
   storyCompletionIntent: null,
   settingsPreview: {
     selectedBackground: null,
@@ -299,6 +307,15 @@ const state = {
   mentorNoteDraft: null,
   mentorNoteRecording: null,
   storyMediaUpload: null,
+  v2: {
+    session: null,
+    consent: null,
+    consentDeferredThisSession: false,
+    homeRecommendations: [],
+    inspiration: { prompts: [], layout: 'list', query: '', sessionId: null },
+    invitations: [],
+    contributions: [],
+  },
   returnFocus: null,
   busy: false,
 };
@@ -317,7 +334,14 @@ const auth = createAuthClient({
       mentorNotes: false,
       mentorNotesRead: false,
       storyMedia: false,
+      storyVersions: false,
+      inspiration: false,
+      requestAStory: false,
     });
+    state.v2.session = null;
+    state.v2.consent = null;
+    state.v2.consentDeferredThisSession = false;
+    state.v2.homeRecommendations = [];
     state.captureRecovering = false;
     state.lockout = lockoutState || 'access_unavailable';
     renderLockout(state.lockout, message);
@@ -430,6 +454,9 @@ function normalizeStory(raw = {}) {
     originalTitle: String(firstDefined(raw.original?.title, raw.original_title, raw.originalTitle, revisions[0]?.title_snapshot, raw.title, 'Untitled story')),
     lesson: String(firstDefined(raw.lesson, '')),
     prefixEnabled: Boolean(firstDefined(raw.prefixEnabled, raw.prefix_enabled, true)),
+    visibility: ['private', 'mentor_visible'].includes(firstDefined(raw.visibility, raw.visibility_state))
+      ? firstDefined(raw.visibility, raw.visibility_state)
+      : null,
     status,
     revised: Boolean(firstDefined(raw.revised, statusRaw === 'resubmitted')),
     studentScore: Number(firstDefined(raw.studentScore, raw.student_score, raw.priority, 0)) || 0,
@@ -584,8 +611,27 @@ const api = Object.freeze({
   notifications: () => auth.request('/api/notifications'),
   readNotification: (id) => auth.request(`/api/notifications/${id}/read`, jsonOptions('POST', {})),
   readAllNotifications: () => auth.request('/api/notifications/read-all', jsonOptions('POST', {})),
+  consent: () => auth.request('/api/consent'),
+  decideConsent: (decision) => auth.request('/api/consent', jsonOptions('POST', { decision })),
+  storyVisibility: (id, visibility, expectedVersion) => auth.request(`/api/stories/${id}/visibility`, jsonOptions('POST', { visibility, expectedVersion })),
+  storyVersions: (id) => auth.request(`/api/stories/${id}/versions`),
+  saveStoryVersion: (id, key, body) => auth.request(`/api/stories/${id}/versions/${key}`, jsonOptions('PATCH', body)),
+  restoreStoryVersion: (id, body) => auth.request(`/api/stories/${id}/version-restore`, jsonOptions('POST', body)),
+  inspirationBrowse: (query = '', layout = 'list') => auth.request(`/api/inspiration/browse?query=${encodeURIComponent(query)}&layout=${encodeURIComponent(layout)}`),
+  inspirationNext: (body) => auth.request('/api/inspiration/next', jsonOptions('POST', body)),
+  inspirationFavorite: (id, enabled) => auth.request(`/api/inspiration/favorites/${id}`, { method: enabled ? 'POST' : 'DELETE', ...(enabled ? { body: '{}' } : {}) }),
+  inspirationPin: (id, position) => auth.request(`/api/inspiration/pins/${id}`, position == null ? { method: 'DELETE' } : jsonOptions('POST', { position })),
+  inspirationSave: (body) => auth.request('/api/inspiration/save-later', jsonOptions('POST', body)),
+  requests: () => auth.request('/api/requests'),
+  contributions: () => auth.request('/api/requests/contributions'),
+  contributionState: (id, state) => auth.request(`/api/requests/contributions/${id}/state`, jsonOptions('POST', { state })),
+  promoteContribution: (id, title) => auth.request(`/api/requests/contributions/${id}/promote`, jsonOptions('POST', { title })),
+  createRequest: (body) => auth.request('/api/requests', jsonOptions('POST', body)),
+  sendRequest: (id, expectedVersion) => auth.request(`/api/requests/${id}/send`, jsonOptions('POST', { expectedVersion })),
+  revokeRequest: (id) => auth.request(`/api/requests/${id}/revoke`, jsonOptions('POST', {})),
   preference: (background) => auth.request('/api/preferences/background', jsonOptions('PATCH', { background })),
   textSizePreference: (textSize) => auth.request('/api/preferences/text-size', jsonOptions('PATCH', { textSize })),
+  themePreference: (theme) => auth.request('/api/preferences/theme', jsonOptions('PATCH', { theme })),
   questions: (studentId = '') => auth.request(`/api/questions${studentId ? `?studentId=${encodeURIComponent(studentId)}` : ''}`),
   createQuestion: (body) => auth.request('/api/questions', jsonOptions('POST', body)),
   approveQuestion: (id, surface = 'library') => auth.request(`/api/questions/${id}/approve`, jsonOptions('POST', { surface })),
@@ -741,11 +787,38 @@ function activeTextSize() {
   return state.settingsPreview.previewTextSize || savedTextSize();
 }
 
+function savedTheme() {
+  const value = state.user?.theme_preference;
+  return ['dark', 'light', 'auto'].includes(value) ? value : 'dark';
+}
+
+function applyTheme() {
+  const preference = savedTheme();
+  const resolved = preference === 'auto'
+    ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+    : preference;
+  document.body.dataset.themePref = preference;
+  document.body.dataset.theme = resolved;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute(
+    'content',
+    resolved === 'light' ? '#f4efe6' : '#0a0d14',
+  );
+}
+
 function applyEnvironment() {
   document.body.dataset.role = isMentor() || isAdmin() ? 'advisor' : 'student';
   document.body.dataset.background = activeBackground();
   document.body.dataset.textSize = activeTextSize();
+  applyTheme();
   document.body.classList.toggle('is-booting', !state.user);
+}
+
+function v2FeatureOn(key) {
+  return state.v2.session?.features?.[key] === true;
+}
+
+function storyVisibility(story) {
+  return story?.visibility === 'mentor_visible' ? 'mentor_visible' : 'private';
 }
 
 function setMotionEnergy(energy = 'low') {
@@ -971,6 +1044,7 @@ function storyRow(story, options = {}) {
       ${options.inlinePriority && isStudent() && state.capabilities?.inlinePriority ? priorityPicker(story) : scoreDots(story.studentScore, 'student', 'Student score')}
       ${story.status === 'private' ? '' : scoreDots(story.mentorScore, 'mentor', 'Mentor score')}
       ${statusChip(story)}
+      ${visibilityChip(story)}
       <button class="rowBtn" type="button" data-open-quick="${attr(story.id)}">${quickLabel}</button>
       <button class="rowBtn pri" type="button" data-open-story="${attr(story.id)}">${isMentor() ? 'Full review' : 'Open story'}</button>
     </div>
@@ -1048,7 +1122,11 @@ function renderShell() {
   if (!state.user) return;
   applyEnvironment();
   const nav = (canAdminReview() ? ADMIN_CONSOLE_NAV : NAV[roleName()])
-    .filter(([route]) => route !== 'prep' || interviewPrepVisible() || isAdmin());
+    .filter(([route]) => (
+      (route !== 'prep' || interviewPrepVisible() || isAdmin())
+      && (route !== 'inspiration' || state.capabilities?.inspiration === true)
+      && (route !== 'requests' || state.capabilities?.requestAStory === true)
+    ));
   rail.innerHTML = `
     <div class="logo" aria-label="StoryForge">Story<b>Forge</b></div><div class="logoSub">MissionMed</div>
     ${isStudent() ? '<button class="railCta" type="button" data-open-capture>＋ <span class="rct">New Story</span></button>' : ''}
@@ -1150,6 +1228,77 @@ async function loadNotifications() {
   return state.notifications;
 }
 
+async function loadHomeRecommendations() {
+  state.v2.homeRecommendations = [];
+  if (!isStudent() || !v2FeatureOn('inspiration')) return [];
+  try {
+    const payload = await api.inspirationBrowse();
+    const recommended = asArray(payload?.prompts).filter((prompt) => (
+      prompt?.recommended === true
+      && typeof prompt?.id === 'string'
+      && typeof prompt?.text === 'string'
+      && prompt.text.trim()
+    ));
+    const unanswered = recommended.filter((prompt) => !firstDefined(prompt.answeredStoryId, prompt.answered_story_id));
+    state.v2.homeRecommendations = (unanswered.length ? unanswered : recommended).slice(0, 2);
+  } catch {
+    state.v2.homeRecommendations = [];
+  }
+  return state.v2.homeRecommendations;
+}
+
+async function loadInspiration() {
+  if (!state.capabilities?.inspiration) return [];
+  const payload = await api.inspirationBrowse(
+    state.v2.inspiration.query,
+    state.v2.inspiration.layout,
+  );
+  state.v2.inspiration.prompts = asArray(payload?.prompts);
+  state.v2.inspiration.layout = payload?.layout === 'grid' ? 'grid' : 'list';
+  return state.v2.inspiration.prompts;
+}
+
+async function loadRequests() {
+  if (!state.capabilities?.requestAStory) return [];
+  const [payload, contributionPayload] = await Promise.all([api.requests(), api.contributions()]);
+  state.v2.invitations = asArray(payload?.invitations);
+  state.v2.contributions = asArray(contributionPayload?.contributions);
+  return state.v2.invitations;
+}
+
+function renderInspiration() {
+  const context = state.v2.inspiration;
+  main.innerHTML = `<section class="page b1514Inspiration" aria-labelledby="inspirationTitle">
+    <div class="pageHead"><div><div class="eyebrow">Find the story hiding in plain sight</div><h1 class="h1" id="inspirationTitle">Inspiration</h1><p>Browse prompts, save what sparks something, or begin a story in your own words.</p></div></div>
+    <form id="inspirationSearchForm" class="b1514Toolbar" role="search">
+      <label class="srOnly" for="inspirationSearch">Search prompts</label><input id="inspirationSearch" type="search" value="${attr(context.query)}" placeholder="Search moments, people, or themes…">
+      <button class="rowBtn pri" type="submit">Search</button>
+      <button class="rowBtn ${context.layout === 'list' ? 'on' : ''}" type="button" data-inspiration-layout="list" aria-pressed="${context.layout === 'list'}">List</button>
+      <button class="rowBtn ${context.layout === 'grid' ? 'on' : ''}" type="button" data-inspiration-layout="grid" aria-pressed="${context.layout === 'grid'}">Grid</button>
+    </form>
+    <div class="b1514PromptList ${context.layout === 'grid' ? 'grid' : ''}">${context.prompts.length ? context.prompts.map((prompt) => `<article class="b1514PromptCard">
+      <div class="eyebrow">${esc(prompt.territory || 'Story prompt')}</div><h2>“${esc(prompt.text)}”</h2>${prompt.followUp ? `<p>${esc(prompt.followUp)}</p>` : ''}
+      <div class="inlineActions"><button class="rowBtn pri" type="button" data-inspiration-answer="${attr(prompt.id)}">Answer this</button><button class="rowBtn" type="button" data-inspiration-favorite="${attr(prompt.id)}" data-enabled="${prompt.favorite ? '0' : '1'}" aria-pressed="${Boolean(prompt.favorite)}">${prompt.favorite ? '★ Favorited' : '☆ Favorite'}</button><button class="rowBtn" type="button" data-inspiration-pin="${attr(prompt.id)}" data-position="${prompt.pinPosition == null ? '0' : ''}">${prompt.pinPosition == null ? 'Pin' : 'Unpin'}</button></div>
+    </article>`).join('') : '<div class="emptyState"><h2>No prompts found.</h2><p>Try a broader word or clear the search.</p></div>'}</div>
+  </section>`;
+}
+
+function renderRequests() {
+  const invitations = state.v2.invitations;
+  main.innerHTML = `<section class="page b1514Requests" aria-labelledby="requestsTitle">
+    <div class="pageHead"><div><div class="eyebrow">Invite someone who remembers you differently</div><h1 class="h1" id="requestsTitle">Request a Story</h1><p>Your guest receives one private, expiring link. Their contribution returns only to your StoryForge workspace.</p></div></div>
+    <form id="requestStoryForm" class="railCard b1514RequestForm">
+      <label for="requestFirstName">First name</label><input id="requestFirstName" maxlength="100" required>
+      <label for="requestRelationship">Relationship</label><select id="requestRelationship" required><option value="">Choose one</option><option value="parent">Parent</option><option value="sibling">Sibling</option><option value="spouse_partner">Spouse or partner</option><option value="best_friend">Best friend</option><option value="mentor">Mentor</option><option value="faculty">Faculty</option><option value="coworker">Coworker</option><option value="supervisor">Supervisor</option><option value="teammate">Teammate</option></select>
+      <label for="requestEmail">Email</label><input id="requestEmail" type="email" autocomplete="off" required>
+      <label for="requestMessage">Personal note <span>optional</span></label><textarea id="requestMessage" maxlength="2000"></textarea>
+      <div class="inlineActions"><button class="btnSave" type="submit">Create private invitation</button></div>
+    </form>
+    <section class="b1514InvitationList" aria-label="Your invitations"><h2 class="h2">Invitations</h2>${invitations.length ? invitations.map((item) => `<article class="b1514Invitation"><div><strong>${esc(item.recipientFirstName)}</strong><span>${esc(item.relationship)} · ${esc(item.maskedEmail)}</span><small>${esc(item.status)} · expires ${esc(formatDate(item.expiresAt))}</small></div><div class="inlineActions">${item.status === 'draft' ? `<button class="rowBtn pri" type="button" data-request-send="${attr(item.id)}" data-version="${attr(item.rowVersion)}">Send</button>` : ''}${!['revoked', 'expired'].includes(item.status) ? `<button class="rowBtn danger" type="button" data-request-revoke="${attr(item.id)}">Revoke</button>` : ''}</div></article>`).join('') : '<div class="emptyState"><p>No invitations yet.</p></div>'}</section>
+    <section class="b1514InvitationList" aria-label="Returned stories"><h2 class="h2">Stories shared with you</h2>${state.v2.contributions.length ? state.v2.contributions.map((item) => `<article class="b1514Contribution"><div class="eyebrow">From ${esc(item.contributor_first_name)} · ${esc(item.relationship_id)}</div><p>${esc(item.transcript)}</p><div class="inlineActions">${item.state !== 'promoted' ? `<button class="rowBtn pri" type="button" data-contribution-promote="${attr(item.id)}">Bring into StoryForge</button><button class="rowBtn" type="button" data-contribution-state="${attr(item.id)}" data-state="${item.state === 'favorite' ? 'new' : 'favorite'}">${item.state === 'favorite' ? 'Unfavorite' : 'Favorite'}</button><button class="rowBtn" type="button" data-contribution-state="${attr(item.id)}" data-state="archived">Archive</button>` : `<span class="cohortChip">Private StoryForge story created</span>`}</div></article>`).join('') : '<div class="emptyState"><p>Guest contributions will appear here privately.</p></div>'}</section>
+  </section>`;
+}
+
 async function loadQuestions() {
   const studentId = isMentor()
     ? firstDefined(
@@ -1211,13 +1360,49 @@ function notificationRead(notification) {
   return Boolean(firstDefined(notification.read, notification.read_at, false));
 }
 
+function homeRecommendationsMarkup() {
+  const recommendations = asArray(state.v2.homeRecommendations);
+  if (!v2FeatureOn('inspiration') || !recommendations.length) return '';
+  return `<section class="b1513r3Recommends" aria-labelledby="b1513r3RecTitle">
+    <div class="b1513r3RecHeader"><div class="b1513r3RecIdentity"><span class="b1513r3RecSeal" aria-hidden="true">✦</span><div class="b1513r3RecTitle" id="b1513r3RecTitle">Dr Brian <em>Recommends</em><span class="b1513r3RecSub">Questions chosen to help this cohort uncover stories worth remembering.</span></div></div></div>
+    <div class="b1513r3RecList">${recommendations.map((prompt) => `<button class="b1513r3Rec" type="button" data-recommend-prompt="${attr(prompt.text)}"><span class="b1513r3RecQuestion">“${esc(prompt.text)}”</span><span class="b1513r3RecAction">Answer →</span></button>`).join('')}</div>
+  </section>`;
+}
+
+function homeStatusHudMarkup() {
+  const stories = asArray(state.stories);
+  const total = stories.length;
+  const visibilityEnabled = v2FeatureOn('visibility');
+  const privateCount = visibilityEnabled ? stories.filter((story) => storyVisibility(story) === 'private').length : 0;
+  const mentorVisible = visibilityEnabled ? stories.filter((story) => storyVisibility(story) === 'mentor_visible').length : 0;
+  const complete = stories.filter((story) => developmentState(story) === 'Complete').length;
+  const statusCounts = Object.fromEntries(Object.keys(STATUS).map((key) => [key, 0]));
+  stories.forEach((story) => { statusCounts[story.status] = (statusCounts[story.status] || 0) + 1; });
+  const percent = total ? Math.round((complete / total) * 100) : 0;
+  const changes = statusCounts.changes || 0;
+  const awaiting = (statusCounts.awaiting || 0) + (statusCounts.in_review || 0);
+  const actionText = changes
+    ? `<strong>${changes} ${changes === 1 ? 'story needs' : 'stories need'} your response.</strong> Open the filtered Library to continue.`
+    : awaiting
+      ? `<strong>${awaiting} ${awaiting === 1 ? 'story is' : 'stories are'} with your mentor.</strong> You can keep developing your other stories while review continues.`
+      : '<strong>Your forge is ready.</strong> Capture a new moment or keep shaping an unfinished story.';
+  const actionStatus = changes ? 'changes' : awaiting ? 'awaiting' : '';
+  return `<section class="b1513r3Hud" aria-labelledby="b1513r3HudTitle">
+    <div class="b1513r3HudHead"><div><div class="eyebrow">Your StoryForge · live status</div><h2 class="h2" id="b1513r3HudTitle">Where your stories <em>stand</em></h2><p>A clear view of progress, review, and who can see each story.</p></div><div class="b1513r3HudTotal"><strong>${total}</strong><span>${total === 1 ? 'story' : 'stories'}<br>in your forge</span></div></div>
+    <div class="b1513r3HudGrid ${visibilityEnabled ? '' : 'withoutPrivacy'}">
+      <div class="b1513r3HudBlock"><span class="b1513r3HudLabel">Development progress</span><div class="b1513r3Progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}" aria-label="${percent}% of stories complete"><span style="width:${percent}%"></span></div><div class="b1513r3HudStatline"><span><b>${complete}</b> complete</span><span>${percent}% of your library</span></div></div>
+      <div class="b1513r3HudBlock"><span class="b1513r3HudLabel">Review pipeline</span><div class="b1513r3HudChips">${Object.entries(STATUS).filter(([key]) => statusCounts[key]).map(([key, meta]) => `<button class="b1513r3HudChip ${key === 'changes' ? 'attn' : ''}" type="button" data-library-status="${attr(key)}" title="${attr(meta.hint)}"><b>${statusCounts[key]}</b> ${esc(meta.label)}</button>`).join('') || '<span class="stageHint">No stories in review yet.</span>'}</div></div>
+      ${visibilityEnabled ? `<div class="b1513r3HudBlock"><span class="b1513r3HudLabel">Privacy at a glance</span><div class="b1513r3PrivacySplit"><div class="b1513r3PrivacyStat"><strong>${mentorVisible}</strong><span>Mentor Visible</span></div><div class="b1513r3PrivacyStat"><strong>${privateCount}</strong><span>Private — only me</span></div></div></div>` : ''}
+    </div>
+    <div class="b1513r3HudAction"><span>${actionText}</span><button class="rowBtn pri" type="button" ${actionStatus ? `data-library-status="${actionStatus}"` : 'data-nav="library"'}>Open Story Library →</button></div>
+  </section>`;
+}
+
 function renderHome() {
   const unfinished = state.stories
     .filter((story) => developmentState(story) !== 'Complete')
     .slice(0, 4);
   const latest = state.notifications.slice(0, 3);
-  const counts = Object.fromEntries(Object.keys(STATUS).map((key) => [key, 0]));
-  state.stories.forEach((story) => { counts[story.status] = (counts[story.status] || 0) + 1; });
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const voiceEnabled = Boolean(state.capabilities?.voiceCapture);
@@ -1244,6 +1429,7 @@ function renderHome() {
         <span class="tag">Memory prompt</span><span id="promptTxt">${esc(MEMORY_PROMPTS[state.promptIndex])}</span><span aria-hidden="true">↻</span>
       </button>
       <button class="rowBtn" type="button" data-capture-prompt="${attr(MEMORY_PROMPTS[state.promptIndex])}">Write about this</button>
+      ${homeRecommendationsMarkup()}
     </div>
 
     <div class="homeGrid">
@@ -1273,14 +1459,9 @@ function renderHome() {
             </button>`).join('') : '<div class="storyEmpty">Feedback will appear here the moment your mentor reviews a story.</div>'}
           </div>
         </div>
-        <div class="panel">
-          <div class="pHead"><div class="h2">Where your stories <em>stand</em></div>${interviewPrepVisible() ? '<button class="pMore" type="button" data-nav="prep">Interview Prep ▸</button>' : ''}</div>
-          <div class="pBody"><div class="classChips">
-            ${Object.entries(STATUS).filter(([key]) => counts[key]).map(([key, meta]) => `<button class="cChip" type="button" data-library-status="${key}" title="${attr(meta.hint)}"><b>${counts[key]}</b> ${esc(meta.label)}</button>`).join('') || '<span class="stageHint">Your first story will appear here.</span>'}
-          </div></div>
-        </div>
       </div>
     </div>
+    ${homeStatusHudMarkup()}
   </section>`;
 }
 
@@ -1482,6 +1663,167 @@ function renderNotifications() {
   </section>`;
 }
 
+function themeSettingsMarkup() {
+  const preference = savedTheme();
+  const card = (value, label, hint) => `<button class="b1513r2ThemeCard ${preference === value ? 'on' : ''}" type="button" data-theme-preference="${value}" aria-pressed="${preference === value}"><b>${label}</b><span>${hint}</span></button>`;
+  return `<div class="panel panel-spaced">
+    <div class="pHead"><div class="h2">Dark / <em>Light</em></div></div>
+    <div class="pBody">
+      <div class="b1513r2ThemeRow" role="group" aria-label="Theme">
+        ${card('dark', '🌙 Dark', 'The StoryForge night studio — default.')}
+        ${card('light', '☀ Light', 'Warm paper & ink. A real StoryForge design, not a white flip.')}
+        ${card('auto', '⚙ Auto', 'Follows your device — light by day, dark by night.')}
+      </div>
+      <p class="stageHint">Your environment, text size, and reduced-motion choices apply in both themes.</p>
+    </div>
+  </div>`;
+}
+
+function privacySettingsMarkup() {
+  if (!isStudent() || !v2FeatureOn('visibility')) return '';
+  const consent = state.v2.consent;
+  const accepted = Boolean(consent?.accepted);
+  return `<div class="panel panel-spaced b1513PrivacyPanel">
+    <div class="pHead"><div class="h2">Mentorship &amp; <em>privacy</em></div></div>
+    <div class="pBody">
+      <div class="setRow"><div class="sTxt"><b>Mentorship visibility</b><span>${accepted
+        ? `You agreed on ${esc(formatDateTime(firstDefined(consent.acceptedAt, consent.accepted_at)))} (policy ${esc(firstDefined(consent.policyVersion, consent.policy_version, ''))}). New stories start Mentor Visible; any story can be made Private — visible only to me.`
+        : 'You haven’t agreed yet. New stories remain private-safe until you choose otherwise.'}</span></div>
+        <span class="rolePill ${accepted ? '' : 'roleReadOnly'}">${accepted ? 'Agreed' : 'Not agreed'}</span></div>
+      <div class="setRow"><div class="sTxt"><b>Policy</b><span>Re-read the plain-language mentorship visibility policy at any time.</span></div>
+        <button class="rowBtn" type="button" data-review-mentorship-policy>${accepted ? 'Review policy' : 'Read & decide'}</button></div>
+      <div class="setRow"><div class="sTxt"><b>Per-story control</b><span>Each story’s Visibility card switches between Mentor Visible and Private — visible only to me. Changes are logged to that story’s history.</span></div></div>
+    </div>
+  </div>`;
+}
+
+function consentNode() {
+  let node = document.getElementById('b1513Consent');
+  if (!node) {
+    node = document.createElement('div');
+    node.id = 'b1513Consent';
+    document.body.appendChild(node);
+  }
+  return node;
+}
+
+function closeConsent() {
+  const node = document.getElementById('b1513Consent');
+  if (node) {
+    node.className = '';
+    node.replaceChildren();
+  }
+  if (state.returnFocus?.isConnected) state.returnFocus.focus({ preventScroll: true });
+  state.returnFocus = null;
+}
+
+async function showConsent() {
+  const payload = await api.consent().catch(() => null);
+  const policy = payload?.policy;
+  if (!payload?.enabled || !policy?.version || !policy?.updated) return;
+  state.v2.consent = payload.consent || state.v2.consent;
+  const accepted = Boolean(state.v2.consent?.accepted);
+  const node = consentNode();
+  const policyBody = [
+    'StoryForge is your private story workspace inside MissionMed mentorship. Your authorized MissionMed mentor (Dr Brian) may look at mentor-visible work to guide you — the way a coach reviews practice film — even before you formally submit a story for review.',
+    'After you agree, new stories start as Mentor Visible. You stay in control: any individual story can be switched to Private — visible only to me at any time, and Private stories are never opened, listed, or reviewed by anyone but you.',
+    'Submitting a story is still a separate, explicit action that means “please review this story now.”',
+    'Nothing here is ever public. Other students can never see your work. Every visibility change is logged to your story history, and you can re-read this policy any time in Settings.',
+  ];
+  const policyFacts = [
+    'After agreement, new stories begin Mentor Visible.',
+    'Every story retains a Private — only me control.',
+    'Private stories are never listed, opened, or reviewed by a mentor.',
+    'Historical V1 stories remain Private unless you explicitly change them.',
+    'Nothing is public, and no student can see another student’s work.',
+    'Changes are logged, and this policy remains available in Settings.',
+  ];
+  const promises = [
+    ['⌂', 'Your workspace', 'Stories begin in a protected workspace owned by you.'],
+    ['◇', 'Your mentor', 'After you agree, new stories begin Mentor Visible.'],
+    ['◉', 'Your control', 'Every new story can be changed to Private — only me.'],
+    ['✓', 'Review is separate', 'Visibility never means submitted for formal review.'],
+  ];
+  const requiredFacts = [
+    ...policyFacts,
+    'Before you agree, new stories remain private-safe.',
+    'After you agree, only new stories default to Mentor Visible.',
+    'Historical V1 stories are never silently widened.',
+    'Private means visible only to you — not mentors, admins, or other students.',
+    'You can override each story to Private — only me.',
+    'Mentor visibility and formal submission are separate choices.',
+  ].filter((fact, index, all) => all.indexOf(fact) === index);
+  state.returnFocus = document.activeElement;
+  node.className = 'b1513ConsentOpen';
+  node.innerHTML = `<div class="b1513ConsentScrim"></div><div class="b1513ConsentSheet b1513r3ConsentSheet" role="dialog" aria-modal="true" aria-labelledby="b1513ConsentTitle">
+    <div class="b1513r3ConsentHero"><div class="eyebrow">MissionMed mentorship · one-time choice</div><h1 class="h1" id="b1513ConsentTitle">Your stories. <em>Your choice.</em></h1><p>Choose how new stories begin. You stay in control of every story, every time.</p></div>
+    <div class="b1513r3ConsentBody"><div class="b1513r3ConsentPromises" role="list">${promises.map(([icon, title, body]) => `<div class="b1513r3Promise" role="listitem"><span class="b1513r3PromiseIcon" aria-hidden="true">${icon}</span><b>${title}</b><span>${body}</span></div>`).join('')}</div>
+      <div class="b1513r3ConsentPlain"><div class="b1513r3ConsentCopy"><div class="rLbl">The plain-language policy</div><h2 class="h2">Mentorship visibility</h2>${policyBody.map((paragraph) => `<p class="b1513ConsentPara">${esc(paragraph)}</p>`).join('')}</div><div class="b1513r3ConsentFacts">${requiredFacts.map((fact) => `<div class="b1513r3ConsentFact"><span aria-hidden="true">✓</span>${esc(fact)}</div>`).join('')}</div></div>
+      <div class="b1513r3Choice">${accepted ? `<div class="inlineActions"><button class="rowBtn pri" type="button" data-close-mentorship-policy>Close</button><span class="stageHint">You agreed on ${esc(formatDateTime(firstDefined(state.v2.consent.acceptedAt, state.v2.consent.accepted_at)))} · receipt ${esc(firstDefined(state.v2.consent.auditId, state.v2.consent.audit_id, ''))}</span></div>` : `<label class="b1513ConsentCheck b1513r3ConsentCheck"><input type="checkbox" data-consent-confirm> <span>I understand: after I agree, <b>new stories</b> begin Mentor Visible, and I can make any story <b>Private — only me</b> at any time.</span></label><div class="b1513r3ConsentActions"><button class="noteSend" type="button" data-consent-decision="accept" disabled>Agree and continue</button><button class="rowBtn" type="button" data-consent-decision="defer">Not now — keep everything private</button></div><p class="stageHint">“Not now” changes nothing: your work stays private until you choose otherwise. You can decide later in Settings.</p>`}<div class="b1513r3PolicyMeta">Policy ${esc(policy.version)} · updated ${esc(policy.updated)} · always available in Settings → Mentorship &amp; privacy.</div></div>
+    </div></div>`;
+  const heading = node.querySelector('#b1513ConsentTitle');
+  if (heading) {
+    heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
+  }
+}
+
+async function maybeShowConsent() {
+  if (!isStudent() || !v2FeatureOn('visibility')) return;
+  if (state.v2.consent?.accepted || state.v2.consentDeferredThisSession) return;
+  await showConsent();
+}
+
+async function decideConsent(decision) {
+  const result = await withBusy(() => api.decideConsent(decision));
+  if (!result) return;
+  state.v2.consent = result.consent || state.v2.consent;
+  if (decision === 'accept') {
+    notify(`Thank you. Mentorship visibility is on — receipt ${firstDefined(result.receipt?.auditId, result.receipt?.audit_id, 'recorded')}.`, '✓');
+  } else {
+    state.v2.consentDeferredThisSession = true;
+    notify('No change made — everything stays private. You can agree later in Settings.');
+  }
+  closeConsent();
+  await renderRoute();
+}
+
+function visibilityChip(story) {
+  if (!v2FeatureOn('visibility') || !story) return '';
+  return storyVisibility(story) === 'private'
+    ? '<span class="stChip b1513VisPrivate" title="Private — visible only to you. Not listed for or openable by any mentor.">🔒 Private · only you</span>'
+    : '<span class="stChip b1513VisMentor" title="Your mentor can see this story for guidance. Submitting is still a separate action.">👁 Mentor visible</span>';
+}
+
+function visibilityCard(story, mentor) {
+  if (!v2FeatureOn('visibility') || !story) return '';
+  const isPrivate = storyVisibility(story) === 'private';
+  const submitted = story.status !== 'private';
+  if (mentor) {
+    return `<div class="railCard b1513VisibilityCard"><div class="rLbl">Visibility</div><div>${visibilityChip(story)}</div><div class="stageHint">${isPrivate ? 'This story is private to the student.' : 'The student made this story mentor-visible for guidance.'}</div></div>`;
+  }
+  return `<div class="railCard b1513VisibilityCard"><div class="rLbl">Visibility</div>
+    <div>${visibilityChip(story)}</div>
+    <div class="statusRow b1513VisibilityRow" role="group" aria-label="Story visibility">
+      <button type="button" data-set-story-visibility="mentor_visible" class="${isPrivate ? '' : 'on b1513VisMentor'}" aria-pressed="${!isPrivate}">Mentor Visible</button>
+      <button type="button" data-set-story-visibility="private" class="${isPrivate ? 'on b1513VisPrivate' : ''}" aria-pressed="${isPrivate}" ${submitted ? 'disabled title="Submitted stories stay visible to your reviewer. Use Return to Private to withdraw first."' : ''}>Private — visible only to me</button>
+    </div>
+    <div class="stageHint">${isPrivate ? 'Only you can open this story. It is never listed for your mentor and is not reviewed.' : 'Your mentor can see this story to guide you. “Submit for review” below is still a separate, explicit ask.'}${submitted && !isPrivate ? ' While submitted, use “Return to Private” to withdraw reviewer access first.' : ''}</div>
+    <div class="stageHint b1513VisAudit">Visibility changes are logged to this story’s history.</div>
+  </div>`;
+}
+
+async function setStoryVisibility(visibility) {
+  const story = state.storyDetail;
+  if (!story || !['private', 'mentor_visible'].includes(visibility)) return;
+  const result = await withBusy(() => api.storyVisibility(story.id, visibility, story.rowVersion));
+  if (!result) return;
+  state.storyDetail = unwrapStory(result);
+  replaceStoryInState(state.storyDetail);
+  renderStoryRoom();
+  notify(visibility === 'private' ? 'This story is now Private — visible only to you. Logged.' : 'This story is now Mentor Visible. Logged.', '✓');
+}
+
 function renderSettings() {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -1490,6 +1832,7 @@ function renderSettings() {
   main.innerHTML = `<section data-view="settings" class="live settingsPage">
     <div class="eyebrow">Settings</div>
     <h1 class="h1">Your <em>account</em></h1>
+    ${themeSettingsMarkup()}
     <div class="panel panel-spaced">
         <div class="pHead"><div class="h2">Background <em>environment</em></div></div>
       <div class="pBody">
@@ -1521,6 +1864,7 @@ function renderSettings() {
         <div class="inlineActions b1512PreferenceActions"><button class="rowBtn" type="button" data-preview-text-size>Preview</button><button class="rowBtn pri" type="button" data-save-text-size>Save text size</button><button class="rowBtn" type="button" data-cancel-text-size>Cancel preview</button></div>
       </div>
     </div>
+    ${privacySettingsMarkup()}
     <div class="panel panel-spaced"><div class="pBody pbody-top">
       <div class="setRow"><div class="sTxt"><b>Signed in as</b><span>${esc(state.user.display_name)} · ${esc(state.user.role)}${state.user.cohort ? ` · ${esc(state.user.cohort)}` : ''}</span></div></div>
       <div class="setRow"><div class="sTxt"><b>View access</b><span>${canSwitchAdministratorView() ? 'WordPress grants this account both Student and Administrator views. Use the signed view control in the sidebar.' : `Your ${viewLabel()} comes from your signed MissionMed role.`}</span></div><span class="rolePill roleReadOnly">${viewLabel()}</span></div>
@@ -3783,8 +4127,11 @@ function visibleMentorNotes(story) {
 }
 
 function mentorNotesMarkup(story) {
+  const unavailableToWriter = v2FeatureOn('visibility')
+    ? storyVisibility(story) === 'private'
+    : story.status === 'private';
   if ((!state.capabilities?.mentorNotesRead && !canWriteMentorNotes())
-      || story.status === 'private'
+      || (canWriteMentorNotes() && unavailableToWriter)
       || (!canWriteMentorNotes() && !visibleMentorNotes(story).length)) return '';
   const notes = visibleMentorNotes(story);
   const published = notes.filter((note) => note.state === 'published');
@@ -3792,23 +4139,30 @@ function mentorNotesMarkup(story) {
     ? normalizeMentorNote(state.mentorNoteDraft || notes.find((note) => note.state === 'draft') || {})
     : null;
   if (draft?.id) state.mentorNoteDraft = draft;
-  return `<div class="railCard b1511MentorNotes">
-    <div class="rLbl label-cy">Mentor notes</div>
-    <div class="b1511MentorNoteList">${published.length ? published.map((note) => `<article class="b1511MentorNote">
-      <div class="nt">${esc(note.body)}</div><div class="nd">${esc(note.authorName)} · ${esc(formatDateTime(note.publishedAt || note.createdAt))}</div>
-      ${note.hasAudio || note.audioAssetId ? `<button class="rowBtn" type="button" data-play-mentor-note="${attr(note.id)}">▶ Play mentor audio</button><div class="b1511MentorAudio" data-mentor-note-player="${attr(note.id)}"></div>` : ''}
-    </article>`).join('') : '<p class="stageHint">No published mentor notes yet.</p>'}</div>
-    ${canWriteMentorNotes() ? `<div class="b1511MentorComposer" data-mentor-note-composer>
-      <label class="fLbl" for="mentorNoteText">${draft?.id ? 'Draft transcript or text' : 'New mentor note'}</label>
-      <textarea id="mentorNoteText" rows="5" placeholder="Type feedback, or record and edit the transcript before publishing.">${esc(draft?.body || '')}</textarea>
-      <label class="b1511Internal"><input id="mentorNoteInternal" type="checkbox" ${draft?.internalOnly ? 'checked' : ''} ${draft?.id ? 'disabled' : ''}> Internal only — never visible to the student</label>
+  const recordingState = state.mentorNoteRecording?.recorder?.state || '';
+  const isRecording = recordingState === 'recording';
+  const isPaused = recordingState === 'paused';
+  const adminWriter = canWriteMentorNotes() && canAdminReview();
+  return `<section class="railCard b1511MentorNotes b1513r3Feedback" aria-labelledby="b1513r3FeedbackTitle">
+    <div class="b1513r3FeedbackHeader"><div><div class="rLbl label-cy" id="b1513r3FeedbackTitle">Mentor feedback</div><p>${canWriteMentorNotes() ? 'Type feedback or speak instead of typing. Review the transcript before publishing it to the student.' : 'Your mentor’s words stay readable here, with the original voice recording whenever one was shared.'}</p></div><span class="b1513r3FeedbackBadge">Transcript + original voice</span></div>
+    <div class="b1511MentorNoteList">${published.length ? published.map((note) => `<article class="b1511MentorNote b1513r3FeedbackNote ${note.internalOnly ? 'internal' : ''}">
+      <div class="b1513r3FeedbackKind"><span aria-hidden="true">${note.internalOnly ? '◆' : '▤'}</span>${note.internalOnly ? 'Private admin note · never shown to student' : 'Readable transcript'}</div>
+      <div class="b1513r3Transcript">${esc(note.body)}</div><div class="b1513r3FeedbackMeta">${esc(note.authorName)} · ${esc(formatDateTime(note.publishedAt || note.createdAt))}</div>
+      ${!note.internalOnly && (note.hasAudio || note.audioAssetId) ? `<div class="b1513r3AudioRow"><button class="rowBtn pri" type="button" data-play-mentor-note="${attr(note.id)}">▶ Listen to original voice</button><span class="b1513r3AudioPromise"><b>Original mentor recording</b><br>Authorized playback for this student only.</span><div class="b1511MentorAudio" data-mentor-note-player="${attr(note.id)}"></div></div>` : ''}
+    </article>`).join('') : '<div class="storyEmpty">No published mentor feedback yet.</div>'}</div>
+    ${canWriteMentorNotes() ? `<div class="b1511MentorComposer b1513r3Composer" data-mentor-note-composer>
+      <div class="b1513r3ComposerTop"><div class="b1513r3ComposerTitle">Speak instead of type<span>Your recording becomes an editable transcript; the original audio stays attached.</span></div><span class="b1513r3RecordState ${isRecording ? 'recording' : ''}" aria-live="polite"><i></i>${isRecording ? 'Recording now' : isPaused ? 'Recording paused' : draft?.hasAudio ? 'Audio captured · transcript ready' : 'Ready'}</span></div>
+      <label class="fLbl" for="mentorNoteText">${draft?.id ? 'Editable transcript or typed feedback' : 'Student-facing feedback'}</label>
+      <textarea id="mentorNoteText" rows="6" placeholder="Type feedback, or record and edit the transcript before publishing.">${esc(draft?.body || '')}</textarea>
+      <div class="b1513r3TranscriptHint"><span aria-hidden="true">✎</span><span>Transcription is a draft. Correct names or clinical terminology here before the student sees it.</span></div>
+      ${adminWriter ? `<label class="b1513r3Internal"><input id="mentorNoteInternal" type="checkbox" ${draft?.internalOnly ? 'checked' : ''} ${draft?.id ? 'disabled' : ''}><span><b>Private admin note</b>Never visible to the student and never eligible for student audio playback.</span></label>` : ''}
       <div class="inlineActions">
         <button class="rowBtn" type="button" data-save-mentor-note>${draft?.id ? 'Update draft' : 'Save draft'}</button>
-        ${globalThis.MediaRecorder ? `<button class="rowBtn" type="button" data-record-mentor-note>${state.mentorNoteRecording ? 'Stop recording' : '🎙 Record note'}</button>` : ''}
-        ${draft?.id ? `<button class="noteSend" type="button" data-publish-mentor-note ${draft.internalOnly ? 'disabled' : ''}>Publish to Student</button><button class="rowBtn" type="button" data-discard-mentor-note>Discard draft</button>` : ''}
-      </div><p class="stageHint">Only a published, non-internal note is visible to the student. Drafts remain reviewer-only.</p>
+        ${globalThis.MediaRecorder ? `<button class="rowBtn ${isRecording ? 'danger' : ''}" type="button" data-record-mentor-note>${isRecording || isPaused ? '■ Stop & transcribe' : '🎙 Record feedback'}</button>${isRecording ? '<button class="rowBtn" type="button" data-pause-mentor-note>Ⅱ Pause</button>' : ''}${isPaused ? '<button class="rowBtn" type="button" data-resume-mentor-note>▶ Resume</button>' : ''}` : ''}
+        ${draft?.id ? `<button class="noteSend" type="button" data-publish-mentor-note ${draft.internalOnly ? 'disabled' : ''}>Publish transcript + audio</button><button class="rowBtn" type="button" data-discard-mentor-note>Discard draft</button>` : ''}
+      </div><div class="b1513r3PublishLaw"><b>Publication boundary:</b> only a published, student-facing note appears for the student. Drafts remain reviewer-only. Private admin notes remain admin-only.</div>
     </div>` : ''}
-  </div>`;
+  </section>`;
 }
 
 function reflectionQuestion(item) {
@@ -4047,6 +4401,11 @@ async function fetchStoryDetail(id, surface = 'workspace') {
     const payload = await api.storyMedia(id);
     story.media = asArray(payload?.media);
   }
+  state.storyVersions = [];
+  if (state.capabilities?.storyVersions) {
+    const payload = await api.storyVersions(id);
+    state.storyVersions = asArray(payload?.versions);
+  }
   return story;
 }
 
@@ -4227,9 +4586,14 @@ function renderStoryRoom() {
   const story = state.storyDetail;
   if (!story) return;
   const mentor = isMentor();
-  const originalTab = state.storyTab !== 'working';
+  const versionTab = ['thirty_second', 'nnq_setup'].includes(state.storyTab) ? state.storyTab : null;
+  const selectedVersion = versionTab
+    ? state.storyVersions.find((version) => version.key === versionTab) || null
+    : null;
+  const originalTab = state.storyTab === 'original';
+  const workingTab = state.storyTab === 'working';
   const title = originalTab ? story.originalTitle : story.title;
-  const text = originalTab ? story.originalText : story.text;
+  const text = versionTab ? selectedVersion?.body || '' : originalTab ? story.originalText : story.text;
   const completionMissing = state.storyCompletionIntent
     ? storyCompletionMissing(story, state.storyCompletionIntent)
     : [];
@@ -4250,6 +4614,7 @@ function renderStoryRoom() {
     </div>
     <div class="roomMeta">
       ${statusChip(story)}
+      ${visibilityChip(story)}
       ${scoreDots(story.studentScore, 'student', mentor ? 'Student’s own rating' : 'My rating')}
       ${story.status === 'private' ? '' : scoreDots(story.mentorScore, 'mentor', story.reviewedByRole === 'admin' ? 'Administrator score' : 'Mentor score')}
       ${birdMini(story)}
@@ -4265,9 +4630,14 @@ function renderStoryRoom() {
         ${audioMarkup(story)}
         <div class="voiceTabs" role="tablist" aria-label="Story versions">
           <button type="button" role="tab" class="${originalTab ? 'on' : ''}" aria-selected="${originalTab}" data-story-tab="original">Original telling</button>
-          <button type="button" role="tab" class="${!originalTab ? 'on' : ''}" aria-selected="${!originalTab}" data-story-tab="working">Working version</button>
+          <button type="button" role="tab" class="${workingTab ? 'on' : ''}" aria-selected="${workingTab}" data-story-tab="working">Full Story</button>
+          ${state.capabilities?.storyVersions ? `<button type="button" role="tab" class="${versionTab === 'thirty_second' ? 'on' : ''}" aria-selected="${versionTab === 'thirty_second'}" data-story-tab="thirty_second">30-Second Version</button><button type="button" role="tab" class="${versionTab === 'nnq_setup' ? 'on' : ''}" aria-selected="${versionTab === 'nnq_setup'}" data-story-tab="nnq_setup">NNQ Setup</button>` : ''}
         </div>
-        ${!mentor && !originalTab ? `<form id="storyEditForm">
+        ${versionTab ? `<form id="storyVersionForm" data-version-key="${attr(versionTab)}" data-row-version="${attr(selectedVersion?.rowVersion || 0)}">
+          <div class="b1514VersionIntro"><div><span class="eyebrow">Purposeful telling</span><h2>${versionTab === 'thirty_second' ? '30-Second Version' : 'NNQ Setup'}</h2><p>${versionTab === 'thirty_second' ? 'Shape the essential moment for a concise interview response.' : 'Set up the story so it can answer a natural next question.'}</p></div>${selectedVersion ? `<span class="cohortChip">Saved ${esc(formatDateTime(selectedVersion.updatedAt))}</span>` : '<span class="cohortChip">Not started</span>'}</div>
+          ${mentor ? `<div class="storyProse" data-empty="${text ? 'false' : 'true'}">${text ? esc(text) : '<span class="storyEmpty">This purposeful version has not been written yet.</span>'}</div>` : `<label class="srOnly" for="storyVersionText">${versionTab === 'thirty_second' ? '30-Second Version' : 'NNQ Setup'}</label><textarea class="storyProse storyProseEdit b1514VersionEditor" id="storyVersionText" maxlength="20000" placeholder="Keep the same truth. Shape this telling for its purpose.">${esc(text)}</textarea><div class="inlineActions"><button class="btnSave" type="submit">Save this version</button>${selectedVersion ? '<button class="rowBtn" type="button" data-version-mode="append">Append</button><button class="rowBtn" type="button" data-version-mode="retell">Retell from scratch</button>' : ''}<span class="saveState">Every saved change remains in version history.</span></div>`}
+          ${selectedVersion?.history?.length ? `<details class="b1514VersionHistory"><summary>Earlier tellings (${selectedVersion.history.length})</summary>${selectedVersion.history.map((revision) => `<article><p>${esc(revision.body)}</p><div class="inlineActions"><small>${esc(formatDateTime(revision.savedAt))}</small>${!mentor ? `<button class="rowBtn" type="button" data-version-restore="${attr(revision.id)}">Restore this telling</button>` : ''}</div></article>`).join('')}</details>` : ''}
+        </form>` : !mentor && workingTab ? `<form id="storyEditForm">
           <label class="srOnly" for="storyEditTitle">Story title</label>
           <input class="roomTitle roomTitleInput" id="storyEditTitle" value="${attr(story.title)}" required>
           ${presentationSectionVisible('workingVersion') ? `<div class="b1512CompletionField ${incompleteText ? 'b1512Incomplete' : ''}" data-completion-field="text">
@@ -4304,6 +4674,7 @@ function renderStoryRoom() {
       </div>
 
       <aside>
+        ${visibilityCard(story, mentor)}
         ${presentationSectionVisible('reviewSubmission') ? `<div class="railCard ${mentor ? 'advPanel' : ''}">
           <div class="rLbl">${esc(presentationSection('reviewSubmission').title)}</div>
           <div>${statusChip(story)}</div>
@@ -6730,7 +7101,7 @@ async function discardMentorNote() {
 
 async function toggleMentorNoteRecording() {
   if (!canWriteMentorNotes() || !globalThis.MediaRecorder) return;
-  if (state.mentorNoteRecording?.recorder?.state === 'recording') {
+  if (['recording', 'paused'].includes(state.mentorNoteRecording?.recorder?.state)) {
     state.mentorNoteRecording.recorder.stop();
     return;
   }
@@ -6837,7 +7208,7 @@ async function renderRoute() {
 
   if (!isMentor()) {
     if (state.route === 'home') {
-      await Promise.all([loadStories(), loadNotifications()]);
+      await Promise.all([loadStories(), loadNotifications(), loadHomeRecommendations()]);
       renderShell();
       renderHome();
       return;
@@ -6846,6 +7217,16 @@ async function renderRoute() {
       await Promise.all([loadStories(), loadNotifications().catch(() => [])]);
       renderShell();
       renderLibrary();
+      return;
+    }
+    if (state.route === 'inspiration' && state.capabilities?.inspiration) {
+      await loadInspiration();
+      renderInspiration();
+      return;
+    }
+    if (state.route === 'requests' && state.capabilities?.requestAStory) {
+      await loadRequests();
+      renderRequests();
       return;
     }
     if (state.route === 'notifications') {
@@ -7013,6 +7394,64 @@ function cancelTextSizePreview() {
   applyEnvironment();
   renderSettings();
   notify('Text-size preview canceled. Your saved size is restored.');
+}
+
+async function saveThemePreference(theme) {
+  if (!['dark', 'light', 'auto'].includes(theme)) return;
+  const result = await withBusy(() => api.themePreference(theme));
+  if (!result) return;
+  state.user.theme_preference = firstDefined(result?.themePreference, result?.theme_preference, theme);
+  applyTheme();
+  renderSettings();
+  notify(theme === 'auto' ? 'Auto theme on — StoryForge follows your device.' : `${theme === 'light' ? 'Light' : 'Dark'} theme saved.`, '✓');
+}
+
+async function savePurposefulVersion(form, mode = 'save') {
+  const key = form.dataset.versionKey;
+  const current = state.storyVersions.find((version) => version.key === key);
+  const field = $('#storyVersionText', form);
+  const body = mode === 'retell' ? '' : field?.value || '';
+  const result = await withBusy(() => api.saveStoryVersion(state.storyDetail.id, key, {
+    body,
+    mode,
+    source: 'typed',
+    expectedVersion: Number(current?.rowVersion || 0),
+  }));
+  const version = result?.version || result;
+  if (mode === 'retell') {
+    state.storyVersions = state.storyVersions.map((item) => item.key === key ? version : item);
+  }
+  await reloadStorySurface('workspace');
+  state.storyTab = key;
+  renderStoryRoom();
+  notify(mode === 'retell' ? 'A fresh telling is ready.' : 'Purposeful version saved.', '✓');
+}
+
+async function restorePurposefulVersion(revisionId) {
+  const key = state.storyTab;
+  const current = state.storyVersions.find((version) => version.key === key);
+  await withBusy(() => api.restoreStoryVersion(state.storyDetail.id, {
+    versionKey: key,
+    revisionId,
+    expectedVersion: Number(current?.rowVersion || 0),
+  }));
+  await reloadStorySurface('workspace');
+  state.storyTab = key;
+  renderStoryRoom();
+  notify('Earlier telling restored. The replaced version remains in history.', '✓');
+}
+
+async function createStoryRequest(form) {
+  await withBusy(() => api.createRequest({
+    recipientFirstName: $('#requestFirstName', form)?.value || '',
+    relationship: $('#requestRelationship', form)?.value || '',
+    email: $('#requestEmail', form)?.value || '',
+    personalMessage: $('#requestMessage', form)?.value || '',
+  }));
+  form.reset();
+  await loadRequests();
+  renderRequests();
+  notify('Private invitation created. Review it, then send when ready.', '✓');
 }
 
 async function openNotification(id, storyId) {
@@ -7279,6 +7718,90 @@ document.addEventListener('click', async (event) => {
       }
       return;
     }
+    if (button.matches('[data-consent-decision]')) {
+      await decideConsent(button.dataset.consentDecision);
+      return;
+    }
+    if (button.matches('[data-close-mentorship-policy]')) {
+      closeConsent();
+      return;
+    }
+    if (button.matches('[data-review-mentorship-policy]')) {
+      await showConsent();
+      return;
+    }
+    if (button.matches('[data-set-story-visibility]') && !button.disabled) {
+      await setStoryVisibility(button.dataset.setStoryVisibility);
+      return;
+    }
+    if (button.matches('[data-theme-preference]')) {
+      await saveThemePreference(button.dataset.themePreference);
+      return;
+    }
+    if (button.matches('[data-recommend-prompt]')) {
+      await openCapture({ prompt: button.dataset.recommendPrompt });
+      return;
+    }
+    if (button.matches('[data-inspiration-layout]')) {
+      state.v2.inspiration.layout = button.dataset.inspirationLayout;
+      await loadInspiration();
+      renderInspiration();
+      return;
+    }
+    if (button.matches('[data-inspiration-answer]')) {
+      const prompt = state.v2.inspiration.prompts.find((item) => item.id === button.dataset.inspirationAnswer);
+      if (prompt) await openCapture({ prompt: prompt.text });
+      return;
+    }
+    if (button.matches('[data-inspiration-favorite]')) {
+      await api.inspirationFavorite(button.dataset.inspirationFavorite, button.dataset.enabled === '1');
+      await loadInspiration();
+      renderInspiration();
+      return;
+    }
+    if (button.matches('[data-inspiration-pin]')) {
+      await api.inspirationPin(
+        button.dataset.inspirationPin,
+        button.dataset.position === '' ? null : Number(button.dataset.position),
+      );
+      await loadInspiration();
+      renderInspiration();
+      return;
+    }
+    if (button.matches('[data-request-send]')) {
+      await withBusy(() => api.sendRequest(button.dataset.requestSend, Number(button.dataset.version || 0)));
+      await loadRequests();
+      renderRequests();
+      notify('Invitation sent through the private StoryForge delivery path.', '✓');
+      return;
+    }
+    if (button.matches('[data-request-revoke]')) {
+      await withBusy(() => api.revokeRequest(button.dataset.requestRevoke));
+      await loadRequests();
+      renderRequests();
+      notify('Invitation revoked. Its guest link no longer works.', '✓');
+      return;
+    }
+    if (button.matches('[data-contribution-state]')) {
+      await withBusy(() => api.contributionState(
+        button.dataset.contributionState,
+        button.dataset.state,
+      ));
+      await loadRequests();
+      renderRequests();
+      return;
+    }
+    if (button.matches('[data-contribution-promote]')) {
+      const result = await withBusy(() => api.promoteContribution(
+        button.dataset.contributionPromote,
+        '',
+      ));
+      await Promise.all([loadRequests(), loadStories()]);
+      renderRequests();
+      notify('A new private story was created from this contribution.', '✓');
+      if (result?.storyId) await openStory(result.storyId);
+      return;
+    }
     if (button.matches('[data-nav]')) {
       event.preventDefault();
       await navigate(button.dataset.nav, button.dataset.navId || null);
@@ -7537,6 +8060,15 @@ document.addEventListener('click', async (event) => {
       renderStoryRoom();
       return;
     }
+    if (button.matches('[data-version-mode]')) {
+      const form = button.closest('#storyVersionForm');
+      if (form) await savePurposefulVersion(form, button.dataset.versionMode);
+      return;
+    }
+    if (button.matches('[data-version-restore]')) {
+      await restorePurposefulVersion(button.dataset.versionRestore);
+      return;
+    }
     if (button.matches('[data-set-status]')) {
       await setCurrentStatus(button.dataset.setStatus);
       return;
@@ -7607,6 +8139,24 @@ document.addEventListener('click', async (event) => {
     }
     if (button.matches('[data-record-mentor-note]')) {
       await toggleMentorNoteRecording();
+      return;
+    }
+    if (button.matches('[data-pause-mentor-note]')) {
+      const activeRecorder = state.mentorNoteRecording?.recorder;
+      if (activeRecorder?.state === 'recording') {
+        activeRecorder.pause();
+        renderActiveMentorNoteSurface();
+        notify('Mentor recording paused.');
+      }
+      return;
+    }
+    if (button.matches('[data-resume-mentor-note]')) {
+      const activeRecorder = state.mentorNoteRecording?.recorder;
+      if (activeRecorder?.state === 'paused') {
+        activeRecorder.resume();
+        renderActiveMentorNoteSurface();
+        notify('Mentor recording resumed.');
+      }
       return;
     }
     if (button.matches('[data-play-mentor-note]')) {
@@ -7822,6 +8372,33 @@ document.addEventListener('submit', async (event) => {
       event.preventDefault();
       await saveStoryEdit(event.target);
     }
+    if (event.target.id === 'storyVersionForm') {
+      event.preventDefault();
+      await savePurposefulVersion(event.target);
+    }
+    if (event.target.id === 'inspirationSearchForm') {
+      event.preventDefault();
+      state.v2.inspiration.query = $('#inspirationSearch', event.target)?.value.trim() || '';
+      await loadInspiration();
+      renderInspiration();
+    }
+    if (event.target.id === 'requestStoryForm') {
+      event.preventDefault();
+      await createStoryRequest(event.target);
+    }
+    if (event.target.id === 'guestContributionForm') {
+      event.preventDefault();
+      const form = event.target;
+      await guestJson(`${form.dataset.guestBase}api/requests/guest/${form.dataset.guestToken}/contributions`, {
+        method: 'POST',
+        body: JSON.stringify({
+          promptId: $('#guestPrompt', form)?.value || '',
+          transcript: $('#guestStory', form)?.value || '',
+          kind: 'text',
+        }),
+      });
+      form.innerHTML = '<div class="emptyState"><h2>Story shared privately.</h2><p>Thank you. You may close this page now.</p></div>';
+    }
     if (event.target.id === 'questionAddForm') {
       event.preventDefault();
       await createCustomQuestion(event.target);
@@ -7962,7 +8539,10 @@ document.addEventListener('focusin', (event) => {
 document.addEventListener('change', async (event) => {
   const target = event.target;
   try {
-    if (target.id === 'libStatus') {
+    if (target.matches?.('[data-consent-confirm]')) {
+      const accept = document.querySelector('[data-consent-decision="accept"]');
+      if (accept) accept.disabled = !target.checked;
+    } else if (target.id === 'libStatus') {
       state.library.status = target.value;
       renderLibrary();
     } else if (target.id === 'libSort') {
@@ -8089,6 +8669,32 @@ document.addEventListener('keydown', (event) => {
         : current + (event.key === 'ArrowRight' ? 5 : -5);
     seekAudioReplay(seekTrack.dataset.seekAudio, target);
     return;
+  }
+  const consentOverlay = document.getElementById('b1513Consent');
+  if (consentOverlay?.classList.contains('b1513ConsentOpen')) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      if (consentOverlay.querySelector('[data-close-mentorship-policy]')) closeConsent();
+      return;
+    }
+    if (event.key === 'Tab') {
+      const focusable = $$('button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])', consentOverlay)
+        .filter((item) => item.offsetParent !== null);
+      if (!focusable.length) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+      return;
+    }
   }
   const openOverlay = [qad, quick, capture, room, palette, teaching].find((node) => node.classList.contains('open'));
   const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
@@ -8223,6 +8829,55 @@ function renderStartupFailure(message = '') {
   }
 }
 
+function guestRoute() {
+  const match = location.pathname.match(/^(.*\/storyforge\/)guest\/([A-Za-z0-9_-]{43})\/?$/);
+  return match ? { basePath: match[1], token: match[2] } : null;
+}
+
+async function guestJson(pathname, options = {}) {
+  const response = await fetch(new URL(pathname, location.origin), {
+    ...options,
+    credentials: 'omit',
+    cache: 'no-store',
+    headers: { Accept: 'application/json', ...(options.body ? { 'Content-Type': 'application/json' } : {}) },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(payload?.error?.message || 'This private invitation is unavailable.');
+    error.code = payload?.error?.code || 'invitation_not_found';
+    throw error;
+  }
+  return payload;
+}
+
+function renderGuestContribution(invitation, route) {
+  hideApplicationChrome();
+  document.body.classList.remove('is-booting');
+  const prompts = asArray(invitation.prompts);
+  main.innerHTML = `<section class="storyforgeGuest" aria-labelledby="guestTitle">
+    <div class="logo" aria-label="StoryForge">Story<b>Forge</b></div><div class="eyebrow">A private invitation from ${esc(invitation.student?.firstName || 'a MissionMed student')}</div>
+    <h1 class="h1" id="guestTitle">Help them remember a story only you can tell.</h1>
+    ${invitation.personalMessage ? `<blockquote>${esc(invitation.personalMessage)}</blockquote>` : ''}
+    <div class="b1513ConsentCopy"><p>Your contribution is private to the student who invited you. It does not give you Matrix access. The link expires automatically and can be revoked.</p><small>Privacy notice ${esc(invitation.disclosureVersion)} · expires ${esc(formatDate(invitation.expiresAt))}</small></div>
+    <form id="guestContributionForm" data-guest-base="${attr(route.basePath)}" data-guest-token="${attr(route.token)}">
+      <label for="guestPrompt">Choose a memory prompt</label><select id="guestPrompt" required><option value="">Choose one</option>${prompts.map((prompt) => `<option value="${attr(prompt.id)}">${esc(prompt.text)}</option>`).join('')}</select>
+      <label for="guestStory">Share the story in your own words</label><textarea id="guestStory" maxlength="20000" required placeholder="Tell it naturally. The student can shape it later without changing your original contribution."></textarea>
+      <div class="inlineActions"><button class="btnSave" type="submit">Share privately</button></div>
+    </form>
+  </section>`;
+}
+
+async function initGuest(route) {
+  try {
+    const invitation = await guestJson(`${route.basePath}api/requests/guest/${route.token}`);
+    renderGuestContribution(invitation, route);
+  } catch (error) {
+    hideApplicationChrome();
+    document.body.classList.remove('is-booting');
+    main.innerHTML = gateMarkup({ eyebrow: 'Private invitation', heading: 'This invitation is unavailable.', message: error.message, action: '' });
+  }
+}
+
 async function enterFixturePersona(persona) {
   if (!FIXTURE_PERSONAS.has(persona)) throw new Error('Unknown local fixture identity.');
   const { token } = await api.fixture(persona);
@@ -8244,6 +8899,9 @@ function signOut() {
     mentorNotes: false,
     mentorNotesRead: false,
     storyMedia: false,
+    storyVersions: false,
+    inspiration: false,
+    requestAStory: false,
   });
   state.captureRecovering = false;
   state.lockout = null;
@@ -8279,6 +8937,15 @@ async function bootstrapSession() {
   const session = await api.session();
   const { user } = session;
   state.user = user;
+  state.v2.session = Object.freeze({
+    features: Object.freeze({
+      visibility: session?.capabilities?.visibilityConsent === true,
+      inspiration: session?.capabilities?.inspiration === true,
+    }),
+  });
+  state.v2.consent = session?.mentorship?.consent || null;
+  state.v2.consentDeferredThisSession = false;
+  state.v2.homeRecommendations = [];
   const presentation = await api.presentation().catch(() => null);
   state.presentation = presentation?.configuration?.payload || BUNDLED_PRESENTATION;
   state.settingsPreview.selectedBackground = null;
@@ -8296,13 +8963,17 @@ async function bootstrapSession() {
     mentorNotes: Boolean(session?.capabilities?.mentorNotes),
     mentorNotesRead: Boolean(session?.capabilities?.mentorNotesRead),
     storyMedia: Boolean(session?.capabilities?.storyMedia),
+    visibilityConsent: Boolean(session?.capabilities?.visibilityConsent),
+    inspiration: Boolean(session?.capabilities?.inspiration),
+    storyVersions: Boolean(session?.capabilities?.storyVersions),
+    requestAStory: Boolean(session?.capabilities?.requestAStory),
   });
   state.library.sort = state.capabilities.inlinePriority ? 'priority' : 'new';
   state.captureRecovering = false;
   state.lockout = null;
   state.selectedStudent = null;
   parseRoute();
-  const studentRoutes = new Set(['home', 'library', 'notifications', 'settings', 'prep', 'qshop', 'qlib', 'story']);
+  const studentRoutes = new Set(['home', 'library', 'inspiration', 'requests', 'notifications', 'settings', 'prep', 'qshop', 'qlib', 'story']);
   const mentorRoutes = new Set(['home', 'students', 'student', 'queue', 'activity', 'settings', 'prep', 'qshop', 'qlib', 'story']);
   const adminRoutes = new Set(canAdminReview()
     ? ['home', 'students', 'student', 'queue', 'story', 'qlib', 'settings']
@@ -8319,11 +8990,17 @@ async function bootstrapSession() {
     pushPath(state.route, null, true);
   }
   await renderRoute();
+  await maybeShowConsent();
   await recoverVoiceDraftOnBoot();
   announceVoiceHintOnBoot();
 }
 
 async function init() {
+  const guest = guestRoute();
+  if (guest) {
+    await initGuest(guest);
+    return;
+  }
   hideApplicationChrome();
   setMotionEnergy('active');
   main.innerHTML = `<section class="storyforgeIntro" role="status" aria-live="polite">
@@ -8461,6 +9138,14 @@ function startEnvironmentEngine() {
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
+}
+
+try {
+  matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+    if (savedTheme() === 'auto') applyTheme();
+  });
+} catch {
+  // Older engines resolve AUTO on the next environment pass.
 }
 
 init();
