@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      TARGET_SHA: 8ff285e2bc44bf55684d2030648ab21bcba80c72
+      TARGET_SHA: e5936288b88247f4bc04d4a2e323ac2404073f60
       STORYFORGE_PG_BIN: /usr/lib/postgresql/18/bin
 
     steps:
