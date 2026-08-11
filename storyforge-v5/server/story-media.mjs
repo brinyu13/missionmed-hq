@@ -56,7 +56,7 @@ export function createStoryMediaService({
   async function query(identity, text, values = []) {
     try {
       return await withIdentity(identity, async (client) => client.query(text, values), {
-        adminMode: identity?.role === 'admin' || identity?.wordpressAdmin === true,
+        adminMode: identity?.role === 'admin',
       });
     } catch (error) {
       throw databaseError(error);

@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { test, expect } from '@playwright/test';
 
@@ -14,6 +14,15 @@ const assetAliases = JSON.parse(process.env.STORYFORGE_INTEGRATION_ASSET_ALIASES
 const indexAlias = process.env.STORYFORGE_INTEGRATION_INDEX_ALIAS || '';
 const distDir = process.env.STORYFORGE_INTEGRATION_DIST_DIR || '';
 const productCommit = process.env.STORYFORGE_INTEGRATION_PRODUCT_COMMIT || '';
+
+async function filesUnder(root, relative = '') {
+  const entries = await readdir(path.join(root, relative), { withFileTypes: true });
+  const files = await Promise.all(entries.map((entry) => {
+    const child = path.posix.join(relative, entry.name);
+    return entry.isDirectory() ? filesUnder(root, child) : [child];
+  }));
+  return files.flat().sort();
+}
 
 function wp(...args) {
   return execFileSync(
@@ -44,10 +53,9 @@ test('anonymous login returns to the exact mounted deep link and obtains a real 
   await expect(page).toHaveURL(/\/storyforge\/library\?filter=mine&sort=updated$/);
   await expect(page.getByText('Your story library', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: /\d+ stories, none forgotten\./i })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Back to Matrix/i })).toHaveAttribute(
-    'href',
-    `${integrationBaseUrl}/member-dashboard/`,
-  );
+  for (const backLink of [page.locator('a.matrixAnchor'), page.locator('a.storyforgeMatrixBack')]) {
+    await expect(backLink).toHaveAttribute('href', `${integrationBaseUrl}/member-dashboard/`);
+  }
 });
 
 test('Matrix navigation and dashboard tile are server-gated and StoryForge wins route precedence', async ({ page, request }) => {
@@ -66,9 +74,9 @@ test('Matrix navigation and dashboard tile are server-gated and StoryForge wins 
   await page.locator('[data-integration-probe="storyforge"]').click();
   await expect(page).toHaveURL(/\/storyforge\/$/);
 
-  await page.goto('/storyforge/prep/workshop');
-  await expect(page.locator('#main').getByText('Interview Prep', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Become difficult to surprise.' })).toBeVisible();
+  await page.goto('/storyforge/settings');
+  await expect(page.locator('#main').getByText('Settings', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your account' })).toBeVisible();
 
   const appRoute = await request.get('/storyforge/library');
   expect(appRoute.status()).toBe(200);
@@ -158,7 +166,8 @@ test('the WordPress gateway is exact, manifest-bound, and fail-closed', async ({
   const legacyExtensionAsset = await request.get(`/storyforge/assets/app.${appAlias}.js`);
   expect(legacyExtensionAsset.status()).toBe(404);
 
-  expect(Object.keys(assetAliases)).toHaveLength(13);
+  const manifestPaths = Object.values(assetAliases).map(({ path: assetPath }) => assetPath).sort();
+  expect(manifestPaths).toEqual(await filesUnder(distDir, 'assets'));
   for (const [alias, entry] of Object.entries(assetAliases)) {
     const expected = await readFile(path.join(distDir, entry.path));
     const aliased = await request.get(`/storyforge/_asset/${alias}`);

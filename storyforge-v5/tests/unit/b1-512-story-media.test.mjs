@@ -50,6 +50,31 @@ test('story media service rejects non-students for mutation and keeps signed rea
   assert.match(server, /Cache-Control', 'no-store, private'/);
 });
 
+test('dual-access Founder reads owned private media in student mode while application admins use admin mode', async () => {
+  const adminModes = [];
+  const fakeStorage = {
+    spec: storyMediaSpec,
+    createUpload: async () => ({}),
+    verifyUpload: async () => ({}),
+    promoteObject: async () => ({}),
+    signPlayback: async () => ({}),
+    deleteObject: async () => {},
+  };
+  const service = createStoryMediaService({
+    environment: { STORYFORGE_STORY_MEDIA_FORCE_OFF: '0' },
+    withIdentity: async (_identity, operation, options) => {
+      adminModes.push(options?.adminMode);
+      return operation({ query: async () => ({ rows: [{ media: [] }] }) });
+    },
+    storage: fakeStorage,
+  });
+
+  await service.list({ eligible: true, role: 'student', wordpressAdmin: true }, crypto.randomUUID());
+  await service.list({ eligible: true, role: 'admin', wordpressAdmin: true }, crypto.randomUUID());
+
+  assert.deepEqual(adminModes, [false, true]);
+});
+
 test('private media UI provides upload progress, cancel, retry, caption, reorder, remove, and signed refresh', () => {
   for (const marker of [
     'storyMediaUploadForm', 'data-story-media-progress', 'data-story-media-cancel',
