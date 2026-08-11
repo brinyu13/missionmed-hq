@@ -302,6 +302,7 @@ test('E1 opens an idempotent default-off-gated session with the binding caps', a
 test('B1-514 purposeful-version attachment preserves transcript and exact audio provenance', async () => {
   const storyId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
   const calls = [];
+  const flagCalls = [];
   const store = storeFixture({
     async attachVersionRecording(passedIdentity, passedRecordingId, passedStoryId) {
       calls.push({ passedIdentity, passedRecordingId, passedStoryId });
@@ -320,8 +321,9 @@ test('B1-514 purposeful-version attachment preserves transcript and exact audio 
       };
     },
   });
-  const { service } = serviceFixture({ store });
+  const { service } = serviceFixture({ store, flagAssert: async (passedIdentity) => flagCalls.push(passedIdentity) });
   const result = await service.saveRecordingVersion(student, recordingId, storyId);
+  assert.deepEqual(flagCalls, [student]);
   assert.deepEqual(calls, [{ passedIdentity: student, passedRecordingId: recordingId, passedStoryId: storyId }]);
   assert.deepEqual(result, {
     transcript: 'An editable purposeful telling.',
@@ -1041,6 +1043,12 @@ test('10-minute maintenance retries pending durable audio while legacy reconcili
       verified: 0,
       failed: 0,
     },
+    orphanVersionAudio: {
+      scanned: 0,
+      deleted: 0,
+      failed: 0,
+      blocked: true,
+    },
     transcriptions: { queued: 0 },
     audioReconciliation: { retired: true },
   });
@@ -1115,6 +1123,64 @@ test('pending-audio recovery retries a fresh asset and terminally fails an hour-
     `storyforge-rec/${studentId}/${recordingId}/`,
     `storyforge-rec/${studentId}/99999999-9999-4999-8999-999999999999/`,
   ]);
+});
+
+test('purposeful-version orphan cleanup resolves durable intents only after private object deletion', async () => {
+  const intentId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+  const completions = [];
+  const store = storeFixture({
+    async claimVersionAudioCleanup() {
+      return [{
+        intentId,
+        assetId,
+        objectKey: `storyforge-audio/${studentId}/dddddddd-dddd-4ddd-8ddd-dddddddddddd/${assetId}`,
+        contentType: 'audio/webm',
+        segmentCount: 1,
+      }];
+    },
+    async completeVersionAudioCleanup(...args) {
+      completions.push(args);
+    },
+  });
+  const { service, calls } = serviceFixture({ store });
+  assert.deepEqual(await service.recoverOrphanVersionAudio(), {
+    scanned: 1,
+    deleted: 1,
+    failed: 0,
+  });
+  assert.equal(calls.deletedAssets.length, 1);
+  assert.deepEqual(completions, [[intentId, true, null]]);
+});
+
+test('purposeful-version orphan cleanup preserves a retryable durable intent when storage fails', async () => {
+  const intentId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+  const completions = [];
+  const store = storeFixture({
+    async claimVersionAudioCleanup() {
+      return [{
+        intentId,
+        assetId,
+        objectKey: `storyforge-audio/${studentId}/dddddddd-dddd-4ddd-8ddd-dddddddddddd/${assetId}`,
+      }];
+    },
+    async completeVersionAudioCleanup(...args) {
+      completions.push(args);
+    },
+  });
+  const { service } = serviceFixture({
+    store,
+    storageOverrides: {
+      async deleteAudioAssetObject() {
+        throw new Error('private storage unavailable');
+      },
+    },
+  });
+  assert.deepEqual(await service.recoverOrphanVersionAudio(), {
+    scanned: 1,
+    deleted: 0,
+    failed: 1,
+  });
+  assert.deepEqual(completions, [[intentId, false, 'object_delete_failed']]);
 });
 
 test('E7 Option A copies, HEAD-verifies, checksums, finalizes, and purges temp audio', async () => {

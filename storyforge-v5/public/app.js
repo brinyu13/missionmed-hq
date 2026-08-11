@@ -1215,6 +1215,7 @@ function renderShell() {
 }
 
 function clearOverlays() {
+  void cancelPurposefulVersionVoice();
   stopAudioPlayback();
   activeAudioAssemblyPrompt?.interrupt();
   if (captureSaveInFlight) captureSaveInterrupted = true;
@@ -7570,17 +7571,24 @@ async function togglePurposefulVersionVoice(button) {
     if (status) status.textContent = 'Transcript ready to edit. Original voice will be preserved when you save.';
     return;
   }
+  if (state.versionVoice) await cancelPurposefulVersionVoice();
   const recording = await api.createRecording();
   const recordingId = String(firstDefined(recording?.recordingId, recording?.recording_id, recording?.recording?.id, ''));
   if (!recordingId) throw new Error('StoryForge could not open a private recording session.');
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-  const mimeType = supportedVoiceMimeType();
-  if (!mimeType) { stream.getTracks().forEach((track) => track.stop()); throw new Error('No supported recording format is available.'); }
-  const chunks = [];
-  const mediaRecorder = new MediaRecorder(stream, { mimeType });
-  mediaRecorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
-  state.versionVoice = { recorder: mediaRecorder, stream, chunks, mimeType, recordingId, startedAt: Date.now() };
-  mediaRecorder.start();
+  state.versionVoice = { recordingId };
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    const mimeType = supportedVoiceMimeType();
+    if (!mimeType) { stream.getTracks().forEach((track) => track.stop()); throw new Error('No supported recording format is available.'); }
+    const chunks = [];
+    const mediaRecorder = new MediaRecorder(stream, { mimeType });
+    mediaRecorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
+    state.versionVoice = { recorder: mediaRecorder, stream, chunks, mimeType, recordingId, startedAt: Date.now() };
+    mediaRecorder.start();
+  } catch (error) {
+    await cancelPurposefulVersionVoice();
+    throw error;
+  }
   button.textContent = '■ Stop and transcribe';
   const status = $('[data-version-voice-status]');
   if (status) status.textContent = 'Recording this purposeful telling. You can edit the transcript before saving.';
@@ -8961,6 +8969,7 @@ document.addEventListener('mousedown', (event) => {
   for (const node of [qad, quick, capture, room, palette]) {
     if (node.classList.contains('open') && event.target === node) {
       if (node === capture && captureSaveInFlight) return;
+      if (node === room) void cancelPurposefulVersionVoice();
       closeOverlay(node);
       break;
     }
@@ -9042,6 +9051,7 @@ document.addEventListener('keydown', (event) => {
     if (openOverlay) {
       event.preventDefault();
       if (openOverlay === capture && captureSaveInFlight) return;
+      if (openOverlay === room) void cancelPurposefulVersionVoice();
       closeOverlay(openOverlay);
     }
     return;

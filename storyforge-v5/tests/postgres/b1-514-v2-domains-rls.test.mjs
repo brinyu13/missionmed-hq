@@ -10,6 +10,7 @@ import {
 
 const STUDENT = { sub: '11111111-1111-4111-8111-111111111111', role: 'student', wpUserId: 1101 };
 const OTHER = { sub: '22222222-2222-4222-8222-222222222222', role: 'student', wpUserId: 1102 };
+const MENTOR = { sub: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', role: 'mentor', wpUserId: 2101 };
 const ADMIN = { sub: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', role: 'admin', wpUserId: 3101, wordpressAdmin: true, adminMode: true };
 const migrations = [
   '20260810190000_b1_514_v2_r1_visibility_consent_activity.sql',
@@ -158,8 +159,19 @@ test('B1-514 V2 domains remain additive, owner-scoped, forced-RLS, and default c
       )),
       (error) => error?.code === 'P0002',
     );
+    await assert.rejects(
+      withIdentity(client, MENTOR, async (identityClient) => identityClient.query(
+        'SELECT public.sf_list_story_versions($1)',
+        [historical.rows[0].id],
+      )),
+      (error) => error?.code === 'P0002',
+    );
     await client.query("UPDATE public.sf_feature_flags SET scope='eligible_all' WHERE key='visibility_consent'");
     await withIdentity(client, ADMIN, async (identityClient) => {
+      const visible = await identityClient.query('SELECT public.sf_list_story_versions($1) AS payload', [historical.rows[0].id]);
+      assert.equal(visible.rows[0].payload.versions.length, 1);
+    });
+    await withIdentity(client, MENTOR, async (identityClient) => {
       const visible = await identityClient.query('SELECT public.sf_list_story_versions($1) AS payload', [historical.rows[0].id]);
       assert.equal(visible.rows[0].payload.versions.length, 1);
     });
@@ -174,16 +186,40 @@ test('B1-514 V2 domains remain additive, owner-scoped, forced-RLS, and default c
        VALUES($1,$2,'attached',$3) RETURNING id`,
       [OTHER.sub, historical.rows[0].id, otherAudio.rows[0].id],
     );
-    const ownAudio = await client.query(
-      `INSERT INTO public.sf_audio_assets(story_id,student_id,object_key,content_type,state)
-       VALUES($1,$2,'b1-514/own-audio','audio/webm','verified') RETURNING id`,
-      [historical.rows[0].id, STUDENT.sub],
-    );
     const recording = await client.query(
-      `INSERT INTO public.sf_recording_sessions(student_id,story_id,state,assembled_asset_id)
-       VALUES($1,$2,'attached',$3) RETURNING id`,
-      [STUDENT.sub, historical.rows[0].id, ownAudio.rows[0].id],
+      `INSERT INTO public.sf_recording_sessions(student_id,state,mime_type,total_duration_ms,segment_count)
+       VALUES($1,'assembled','audio/webm',4200,1) RETURNING id`,
+      [STUDENT.sub],
     );
+    await client.query(
+      `INSERT INTO public.sf_recording_segments(
+         session_id,seq,object_key,mime_type,byte_size,duration_ms,transcribe_state,transcript
+       ) VALUES($1,0,$2,'audio/webm',4,4200,'transcribed','Verified spoken telling')`,
+      [recording.rows[0].id, `storyforge-rec/${STUDENT.sub}/${recording.rows[0].id}/seg-00000.webm`],
+    );
+    const originalCount = Number((await client.query(
+      'SELECT count(*) AS count FROM public.sf_story_originals WHERE story_id=$1',
+      [historical.rows[0].id],
+    )).rows[0].count);
+    const ownAudio = await withIdentity(client, STUDENT, async (identityClient) => identityClient.query(
+      'SELECT * FROM public.sf_attach_version_recording($1,$2,$3)',
+      [historical.rows[0].id, recording.rows[0].id, 'audio/webm'],
+    ));
+    assert.match(ownAudio.rows[0].target_object_key, new RegExp(`^storyforge-audio/${STUDENT.sub}/${historical.rows[0].id}/`));
+    assert.equal(Number((await client.query(
+      'SELECT count(*) AS count FROM public.sf_story_originals WHERE story_id=$1',
+      [historical.rows[0].id],
+    )).rows[0].count), originalCount);
+    assert.deepEqual((await client.query(
+      'SELECT capture_type,original_text,current_text,row_version FROM public.sf_stories WHERE id=$1',
+      [historical.rows[0].id],
+    )).rows[0], {
+      capture_type: 'text', original_text: 'Exact original', current_text: 'Exact current', row_version: '0',
+    });
+    await withRole(client, 'storyforge_app', async (serviceClient) => serviceClient.query(
+      'SELECT public.sf_voice_asset_mark_verified($1,4,$2)',
+      [ownAudio.rows[0].asset_id, 'a'.repeat(64)],
+    ));
     const protectedCounts = async () => (await client.query(
       `SELECT
          (SELECT count(*)::integer FROM public.sf_story_versions) AS versions,
@@ -233,11 +269,15 @@ test('B1-514 V2 domains remain additive, owner-scoped, forced-RLS, and default c
     await withIdentity(client, STUDENT, async (identityClient) => {
       const saved = await identityClient.query(
         `SELECT public.sf_save_story_version($1,'thirty_second','Verified spoken telling','save','voice',0,$2,$3) AS payload`,
-        [historical.rows[0].id, recording.rows[0].id, ownAudio.rows[0].id],
+        [historical.rows[0].id, recording.rows[0].id, ownAudio.rows[0].asset_id],
       );
       assert.equal(saved.rows[0].payload.source, 'voice');
       assert.equal(saved.rows[0].payload.recordingId, recording.rows[0].id);
-      assert.equal(saved.rows[0].payload.audioAssetId, ownAudio.rows[0].id);
+      assert.equal(saved.rows[0].payload.audioAssetId, ownAudio.rows[0].asset_id);
+      await assert.rejects(
+        identityClient.query('SELECT * FROM public.sf_retire_story_audio($1)', [ownAudio.rows[0].asset_id]),
+        (error) => error?.code === '23503',
+      );
     });
     await withRole(client, 'storyforge_app', async (serviceClient) => {
       assert.equal((await serviceClient.query('SELECT id FROM public.sf_story_invitations WHERE id=$1', [invitationId])).rowCount, 1);

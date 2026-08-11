@@ -910,7 +910,7 @@ export function createPostgresRecordingStore({
         if (session.story_id !== storyId) throw recordingAccessDenied();
         attachment = (await attachedStory(client, session, identity.sub)).attachment;
       } else {
-        const attached = await client.query('SELECT * FROM public.sf_attach_recording($1,$2,$3)', [storyId, recordingId, session.mime_type]);
+        const attached = await client.query('SELECT * FROM public.sf_attach_version_recording($1,$2,$3)', [storyId, recordingId, session.mime_type]);
         const asset = attached.rows[0];
         attachment = {
           assetId: asset.asset_id,
@@ -1202,6 +1202,32 @@ export function createPostgresRecordingStore({
     });
   }
 
+  async function claimVersionAudioCleanup(limit = 20) {
+    return withServiceTransaction(async (client) => {
+      const result = await client.query(
+        'SELECT * FROM public.sf_claim_version_audio_cleanup($1)',
+        [limit],
+      );
+      return result.rows.map((row) => ({
+        intentId: row.intent_id,
+        assetId: row.asset_id,
+        objectKey: row.object_key,
+        contentType: row.content_type,
+        segmentCount: Number(row.segment_count || 0),
+      }));
+    });
+  }
+
+  async function completeVersionAudioCleanup(intentId, succeeded, errorCategory = null) {
+    return withServiceTransaction(async (client) => {
+      await client.query(
+        'SELECT public.sf_complete_version_audio_cleanup($1,$2,$3)',
+        [intentId, succeeded === true, errorCategory],
+      );
+      return true;
+    });
+  }
+
   async function checkAudioReferences(objectKeys) {
     return withServiceTransaction(async (client) => {
       const result = await client.query(
@@ -1346,9 +1372,11 @@ export function createPostgresRecordingStore({
     attachVersionRecording,
     auditRecordingDenial,
     checkAudioReferences,
+    claimVersionAudioCleanup,
     cancelSession,
     claimTranscription,
     completeTranscription,
+    completeVersionAudioCleanup,
     deleteAudio,
     failTranscription,
     findActiveSession,
@@ -2393,10 +2421,12 @@ export function createRecordingsService({
     const [
       sessions,
       pendingAudioAssets,
+      orphanVersionAudio,
       transcriptions,
     ] = await Promise.allSettled([
       runSweeps(),
       recoverPendingAudioAssets(),
+      recoverOrphanVersionAudio(),
       recoverPendingTranscriptions(),
     ]);
     return {
@@ -2405,6 +2435,9 @@ export function createRecordingsService({
         : { failed: true },
       pendingAudioAssets: pendingAudioAssets.status === 'fulfilled'
         ? pendingAudioAssets.value
+        : { failed: true },
+      orphanVersionAudio: orphanVersionAudio.status === 'fulfilled'
+        ? orphanVersionAudio.value
         : { failed: true },
       transcriptions: transcriptions.status === 'fulfilled'
         ? transcriptions.value
@@ -2577,6 +2610,7 @@ export function createRecordingsService({
 
   async function saveRecordingVersion(identity, recordingIdValue, storyIdValue) {
     assertStudent(identity);
+    await flagService.assertVoiceEnabled(identity);
     if (typeof store.attachVersionRecording !== 'function') {
       throw new RecordingError('voice_version_unavailable', 'Purposeful voice versions are unavailable.', 503);
     }
@@ -2630,6 +2664,43 @@ export function createRecordingsService({
     return { scanned: candidates.length, verified, failed };
   }
 
+  async function recoverOrphanVersionAudio() {
+    if (
+      typeof store.claimVersionAudioCleanup !== 'function'
+      || typeof store.completeVersionAudioCleanup !== 'function'
+    ) {
+      return { scanned: 0, deleted: 0, failed: 0, blocked: true };
+    }
+    const candidates = await store.claimVersionAudioCleanup(20);
+    let deleted = 0;
+    let failed = 0;
+    for (const candidate of candidates) {
+      try {
+        await segmentStorage.deleteAudioAsset({
+          asset: { objectKey: candidate.objectKey },
+        });
+        await store.completeVersionAudioCleanup(candidate.intentId, true, null);
+        deleted += 1;
+        emit('version_audio_orphan_deleted', {
+          assetId: candidate.assetId,
+        });
+      } catch {
+        failed += 1;
+        try {
+          await store.completeVersionAudioCleanup(
+            candidate.intentId,
+            false,
+            'object_delete_failed',
+          );
+        } catch {
+          // The durable intent remains the recovery authority. A later sweep
+          // retries it; no private identifier or storage detail is logged.
+        }
+      }
+    }
+    return { scanned: candidates.length, deleted, failed };
+  }
+
   async function playbackKeys(asset) {
     const objectKey = String(asset?.object_key || asset?.objectKey || '');
     if (/\.(?:webm|m4a|mp4|ogg|wav)$/i.test(objectKey)) return [objectKey];
@@ -2678,6 +2749,7 @@ export function createRecordingsService({
     playbackKeys,
     recoverPendingAssemblies,
     recoverPendingAudioAssets,
+    recoverOrphanVersionAudio,
     recoverPendingTranscriptions,
     retryTranscription,
     runWeeklyAudioReconciliation,

@@ -124,7 +124,26 @@ AS $$
             )
             AND (
               story.status <> 'private'
-              OR coalesce(story.visibility, 'private') = 'mentor_visible'
+              OR (
+                coalesce(story.visibility, 'private') = 'mentor_visible'
+                AND EXISTS (
+                  SELECT 1
+                  FROM public.sf_feature_flags flag
+                  JOIN public.sf_users student ON student.id = story.student_id
+                  WHERE flag.key = 'visibility_consent'
+                    AND student.role = 'student'
+                    AND student.eligible
+                    AND (
+                      flag.scope = 'eligible_all'
+                      OR (flag.scope = 'allowlist' AND student.id = ANY(flag.allowlist))
+                      OR (
+                        flag.scope = 'cohort'
+                        AND student.cohort IS NOT NULL
+                        AND student.cohort = ANY(flag.cohorts)
+                      )
+                    )
+                )
+              )
             )
           )
           OR (
@@ -177,6 +196,275 @@ REVOKE ALL ON public.sf_authored_segments FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.sf_story_versions TO authenticated;
 GRANT SELECT ON public.sf_story_version_revisions TO authenticated;
 GRANT SELECT ON public.sf_authored_segments TO authenticated;
+
+-- Purposeful-version voice uses the proven recorder/assembly/storage pipeline,
+-- but must not call sf_attach_recording: that older RPC owns the immutable
+-- first-audio-original transition. This bounded sink associates one assembled
+-- recording with an existing owned story without changing capture_type,
+-- sf_story_originals, story text, visibility, submission, or row_version.
+CREATE OR REPLACE FUNCTION public.sf_attach_version_recording(
+  p_story_id uuid,
+  p_session_id uuid,
+  p_content_type text
+)
+RETURNS TABLE (asset_id uuid, target_object_key text)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_story public.sf_stories;
+  v_session public.sf_recording_sessions;
+  v_existing_key text;
+  v_asset_id uuid := gen_random_uuid();
+  v_key text;
+BEGIN
+  IF NOT public.sf_story_versions_enabled()
+    OR NOT public.sf_has_live_identity(ARRAY['student']) THEN
+    RAISE EXCEPTION 'story versions are unavailable' USING ERRCODE='42501';
+  END IF;
+  IF p_content_type NOT IN ('audio/webm','audio/mp4','audio/ogg','audio/wav') THEN
+    RAISE EXCEPTION 'audio content type not permitted' USING ERRCODE='22023';
+  END IF;
+
+  SELECT * INTO v_story
+  FROM public.sf_stories story
+  WHERE story.id=p_story_id
+    AND story.student_id=public.sf_actor_id()
+    AND story.archived_at IS NULL
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'story not found' USING ERRCODE='P0002'; END IF;
+
+  SELECT * INTO v_session
+  FROM public.sf_recording_sessions session
+  WHERE session.id=p_session_id AND session.student_id=public.sf_actor_id()
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'recording session not found' USING ERRCODE='P0002'; END IF;
+
+  IF v_session.state='attached' THEN
+    IF v_session.story_id=p_story_id AND v_session.assembled_asset_id IS NOT NULL THEN
+      SELECT object_key INTO v_existing_key
+      FROM public.sf_audio_assets
+      WHERE id=v_session.assembled_asset_id
+        AND story_id=p_story_id
+        AND student_id=public.sf_actor_id()
+        AND state IN ('pending','uploaded','verified');
+      IF v_existing_key IS NULL THEN
+        RAISE EXCEPTION 'recording attachment is unavailable' USING ERRCODE='P0002';
+      END IF;
+      RETURN QUERY SELECT v_session.assembled_asset_id,v_existing_key;
+      RETURN;
+    END IF;
+    RAISE EXCEPTION 'recording already attached elsewhere' USING ERRCODE='42501';
+  END IF;
+  IF v_session.state<>'assembled' OR v_session.story_id IS NOT NULL OR v_session.assembled_asset_id IS NOT NULL THEN
+    RAISE EXCEPTION 'recording is not ready to attach' USING ERRCODE='23514';
+  END IF;
+
+  v_key := 'storyforge-audio/' || v_story.student_id || '/' || v_story.id || '/' || v_asset_id;
+  INSERT INTO public.sf_audio_assets(id,story_id,student_id,object_key,content_type,state)
+  VALUES(v_asset_id,p_story_id,v_story.student_id,v_key,p_content_type,'pending');
+  UPDATE public.sf_recording_sessions
+  SET state='attached',story_id=p_story_id,assembled_asset_id=v_asset_id,updated_at=now()
+  WHERE id=p_session_id;
+  PERFORM public.sf_append_voice_audit(
+    'audio_attached','recording_session',p_session_id,'quick',
+    public.sf_actor_id(),p_story_id,
+    jsonb_build_object('state','assembled'),
+    jsonb_build_object('state','attached')
+  );
+  RETURN QUERY SELECT v_asset_id,v_key;
+END
+$$;
+
+REVOKE ALL ON FUNCTION public.sf_attach_version_recording(uuid,uuid,text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.sf_attach_version_recording(uuid,uuid,text) TO authenticated;
+
+-- A verified purposeful-version asset may be retired only before any current
+-- version, immutable revision, or authored-segment provenance references it.
+-- This closes the ambiguous-save race without weakening the student's ability
+-- to discard an attached-but-unsaved recording.
+CREATE OR REPLACE FUNCTION public.sf_retire_story_audio(p_asset_id uuid)
+RETURNS TABLE (object_key text, story_id uuid, changed boolean)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_asset public.sf_audio_assets;
+BEGIN
+  IF NOT public.sf_has_live_identity(ARRAY['student']) THEN
+    RAISE EXCEPTION 'eligible student identity required' USING ERRCODE='42501';
+  END IF;
+  SELECT * INTO v_asset
+  FROM public.sf_audio_assets asset
+  WHERE asset.id=p_asset_id AND asset.student_id=public.sf_actor_id()
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'audio asset not found' USING ERRCODE='P0002'; END IF;
+  IF v_asset.state='retired' THEN
+    RETURN QUERY SELECT v_asset.object_key,v_asset.story_id,false;
+    RETURN;
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.sf_story_originals WHERE audio_asset_id=p_asset_id)
+    OR EXISTS (SELECT 1 FROM public.sf_story_versions WHERE audio_asset_id=p_asset_id)
+    OR EXISTS (SELECT 1 FROM public.sf_story_version_revisions WHERE audio_asset_id=p_asset_id)
+    OR EXISTS (SELECT 1 FROM public.sf_authored_segments WHERE audio_asset_id=p_asset_id) THEN
+    RAISE EXCEPTION 'audio asset is preserved by story version history' USING ERRCODE='23503';
+  END IF;
+  PERFORM public.sf_append_voice_audit(
+    'audio_deleted','audio_asset',p_asset_id,'library',
+    public.sf_actor_id(),v_asset.story_id,
+    jsonb_build_object('state',v_asset.state),
+    jsonb_build_object('state','retired')
+  );
+  UPDATE public.sf_audio_assets SET state='retired' WHERE id=p_asset_id;
+  DELETE FROM public.sf_recording_segments segment
+  USING public.sf_recording_sessions session
+  WHERE session.assembled_asset_id=p_asset_id AND segment.session_id=session.id;
+  UPDATE public.sf_recording_sessions
+  SET segment_count=0,updated_at=now()
+  WHERE assembled_asset_id=p_asset_id;
+  RETURN QUERY SELECT v_asset.object_key,v_asset.story_id,true;
+END
+$$;
+
+-- Purposeful-version audio is finalized before the version body is committed.
+-- A durable, service-only intent closes the narrow crash window without ever
+-- retiring audio that became referenced by an Original, version, revision, or
+-- authored provenance segment. Claiming first retires the unreferenced asset,
+-- so a concurrent late save cannot create a dangling reference after deletion.
+CREATE TABLE public.sf_version_audio_cleanup_intents (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  asset_id uuid NOT NULL UNIQUE REFERENCES public.sf_audio_assets(id) ON DELETE RESTRICT,
+  object_key text NOT NULL,
+  state text NOT NULL DEFAULT 'intended'
+    CHECK (state IN ('intended','resolved','failed')),
+  attempts integer NOT NULL DEFAULT 0 CHECK (attempts BETWEEN 0 AND 3),
+  last_error_category text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  resolved_at timestamptz,
+  CHECK (
+    (state='intended' AND resolved_at IS NULL)
+    OR (state IN ('resolved','failed') AND resolved_at IS NOT NULL)
+  )
+);
+
+ALTER TABLE public.sf_version_audio_cleanup_intents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sf_version_audio_cleanup_intents FORCE ROW LEVEL SECURITY;
+CREATE POLICY sf_version_audio_cleanup_service
+ON public.sf_version_audio_cleanup_intents
+FOR ALL TO storyforge_app USING (true) WITH CHECK (true);
+REVOKE ALL ON public.sf_version_audio_cleanup_intents FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.sf_version_audio_cleanup_intents TO storyforge_app;
+
+CREATE OR REPLACE FUNCTION public.sf_claim_version_audio_cleanup(p_limit integer DEFAULT 20)
+RETURNS TABLE (
+  intent_id uuid,
+  asset_id uuid,
+  object_key text,
+  content_type text,
+  segment_count integer
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_limit integer := greatest(1, least(coalesce(p_limit,20),100));
+  v_claimed integer := 0;
+  candidate record;
+BEGIN
+  -- Retry durable intents first. Their assets were already made unavailable
+  -- before the original object deletion attempt.
+  FOR candidate IN
+    SELECT intent.id AS intent_id, asset.id AS asset_id, intent.object_key,
+           asset.content_type, session.segment_count
+    FROM public.sf_version_audio_cleanup_intents intent
+    JOIN public.sf_audio_assets asset ON asset.id=intent.asset_id
+    JOIN public.sf_recording_sessions session ON session.assembled_asset_id=asset.id
+    WHERE intent.state='intended' AND intent.attempts < 3
+    ORDER BY intent.created_at
+    FOR UPDATE OF intent SKIP LOCKED
+    LIMIT v_limit
+  LOOP
+    UPDATE public.sf_version_audio_cleanup_intents
+    SET attempts=attempts+1, updated_at=now()
+    WHERE id=candidate.intent_id;
+    intent_id := candidate.intent_id;
+    asset_id := candidate.asset_id;
+    object_key := candidate.object_key;
+    content_type := candidate.content_type;
+    segment_count := candidate.segment_count;
+    v_claimed := v_claimed+1;
+    RETURN NEXT;
+  END LOOP;
+
+  IF v_claimed >= v_limit THEN RETURN; END IF;
+
+  FOR candidate IN
+    SELECT asset.id AS asset_id, asset.object_key, asset.content_type,
+           session.segment_count
+    FROM public.sf_audio_assets asset
+    JOIN public.sf_recording_sessions session
+      ON session.assembled_asset_id=asset.id AND session.state='attached'
+    WHERE asset.state='verified'
+      AND asset.verified_at < now() - interval '24 hours'
+      AND NOT EXISTS (SELECT 1 FROM public.sf_story_originals original WHERE original.audio_asset_id=asset.id)
+      AND NOT EXISTS (SELECT 1 FROM public.sf_story_versions version WHERE version.audio_asset_id=asset.id)
+      AND NOT EXISTS (SELECT 1 FROM public.sf_story_version_revisions revision WHERE revision.audio_asset_id=asset.id)
+      AND NOT EXISTS (SELECT 1 FROM public.sf_authored_segments segment WHERE segment.audio_asset_id=asset.id)
+      AND NOT EXISTS (SELECT 1 FROM public.sf_version_audio_cleanup_intents intent WHERE intent.asset_id=asset.id)
+    ORDER BY asset.verified_at, asset.id
+    FOR UPDATE OF asset SKIP LOCKED
+    LIMIT (v_limit-v_claimed)
+  LOOP
+    INSERT INTO public.sf_version_audio_cleanup_intents(asset_id,object_key,attempts)
+    VALUES(candidate.asset_id,candidate.object_key,1)
+    RETURNING id INTO intent_id;
+    UPDATE public.sf_audio_assets SET state='retired' WHERE id=candidate.asset_id;
+    asset_id := candidate.asset_id;
+    object_key := candidate.object_key;
+    content_type := candidate.content_type;
+    segment_count := candidate.segment_count;
+    RETURN NEXT;
+  END LOOP;
+END
+$$;
+
+CREATE OR REPLACE FUNCTION public.sf_complete_version_audio_cleanup(
+  p_intent_id uuid,
+  p_succeeded boolean,
+  p_error_category text DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF p_error_category IS NOT NULL AND p_error_category !~ '^[a-z_]{1,48}$' THEN
+    RAISE EXCEPTION 'invalid cleanup error category' USING ERRCODE='22023';
+  END IF;
+  UPDATE public.sf_version_audio_cleanup_intents
+  SET state=CASE WHEN p_succeeded THEN 'resolved' WHEN attempts>=3 THEN 'failed' ELSE 'intended' END,
+      last_error_category=CASE WHEN p_succeeded THEN NULL ELSE coalesce(p_error_category,'object_delete_failed') END,
+      resolved_at=CASE WHEN p_succeeded OR attempts>=3 THEN now() ELSE NULL END,
+      updated_at=now()
+  WHERE id=p_intent_id AND state='intended';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'cleanup intent not found' USING ERRCODE='P0002';
+  END IF;
+END
+$$;
+
+REVOKE ALL ON FUNCTION public.sf_claim_version_audio_cleanup(integer) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.sf_complete_version_audio_cleanup(uuid,boolean,text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.sf_claim_version_audio_cleanup(integer) TO storyforge_app;
+GRANT EXECUTE ON FUNCTION public.sf_complete_version_audio_cleanup(uuid,boolean,text) TO storyforge_app;
+
+REVOKE ALL ON FUNCTION public.sf_retire_story_audio(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.sf_retire_story_audio(uuid) TO authenticated;
 
 INSERT INTO public.sf_feature_flags (key, scope, allowlist, cohorts, updated_by)
 SELECT feature.key, 'off', ARRAY[]::uuid[], ARRAY[]::text[], founder.updated_by
