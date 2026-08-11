@@ -25,6 +25,12 @@ const intendedUseValues = new Set([
   'myeras_most_impactful',
   'later',
 ]);
+const directoryFilters = new Set([
+  'all', 'awaiting', 'needs_review', 'never_active', 'never_started',
+  'needs_nudge', 'progressing', 'changes', 'warnings', 'inactive_7', 'inactive_30',
+]);
+const directorySorts = new Set(['attention', 'name', 'recent', 'quiet', 'stories']);
+const queueSorts = new Set(['oldest', 'newest', 'updated', 'student']);
 
 export class AdminConsoleError extends Error {
   constructor(code, message, status = 400) {
@@ -41,6 +47,22 @@ function explicitlyDisabled(value) {
 
 export function adminConsoleForceOff(environment = process.env) {
   return explicitlyDisabled(environment.STORYFORGE_ADMIN_CONSOLE_FORCE_OFF);
+}
+
+export function adminDirectoryForceOff(environment = process.env) {
+  return explicitlyDisabled(environment.STORYFORGE_ADMIN_DIRECTORY_FORCE_OFF);
+}
+
+export function reviewCheckForceOff(environment = process.env) {
+  return explicitlyDisabled(environment.STORYFORGE_REVIEW_CHECK_FORCE_OFF);
+}
+
+export function adminReviewControlsForceOff(environment = process.env) {
+  return explicitlyDisabled(environment.STORYFORGE_ADMIN_REVIEW_CONTROLS_FORCE_OFF);
+}
+
+function activityForceOffForAdmin(environment = process.env) {
+  return explicitlyDisabled(environment.STORYFORGE_ACTIVITY_FORCE_OFF);
 }
 
 function requireFunction(value, name) {
@@ -63,6 +85,119 @@ function boundedLimit(value, fallback = 25) {
     throw new AdminConsoleError('invalid_admin_limit', 'Administrator page limit must be between 1 and 50.');
   }
   return limit;
+}
+
+function clampedPageSize(value, fallback) {
+  if (value == null || value === '') return fallback;
+  const size = Number(value);
+  if (!Number.isInteger(size) || size < 1) {
+    throw new AdminConsoleError('invalid_admin_page', 'Administrator page size must be a positive integer.');
+  }
+  return Math.min(size, 50);
+}
+
+function boundedPage(value) {
+  if (value == null || value === '') return 1;
+  const page = Number(value);
+  if (!Number.isInteger(page) || page < 1 || page > 1_000_000) {
+    throw new AdminConsoleError('invalid_admin_page', 'Administrator page must be a positive bounded integer.');
+  }
+  return page;
+}
+
+function boundedText(value, max, code, label) {
+  const text = String(value || '').trim();
+  if (text.length > max || /[\u0000-\u001f\u007f]/.test(text)) {
+    throw new AdminConsoleError(code, `${label} is not valid.`);
+  }
+  return text;
+}
+
+function exactObject(input, allowed, code, message) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new AdminConsoleError(code, message);
+  }
+  if (Object.keys(input).some((key) => !allowed.has(key))) {
+    throw new AdminConsoleError(code, 'Unsupported fields are not accepted.');
+  }
+}
+
+export function validateDirectoryQuery(query = {}) {
+  const filter = String(query.filter || 'all').trim();
+  const sort = String(query.sort || 'attention').trim();
+  if (!directoryFilters.has(filter)) {
+    throw new AdminConsoleError('invalid_admin_filter', 'Directory filter is not recognized.');
+  }
+  if (!directorySorts.has(sort)) {
+    throw new AdminConsoleError('invalid_admin_sort', 'Directory sort is not recognized.');
+  }
+  return Object.freeze({
+    q: boundedText(query.q, 120, 'invalid_admin_search', 'Directory search'),
+    filter,
+    session: boundedText(query.session, 80, 'invalid_admin_session', 'Directory session'),
+    sort,
+    page: boundedPage(query.page),
+    pageSize: clampedPageSize(query.pageSize, 25),
+  });
+}
+
+export function validateQueueQuery(query = {}) {
+  const sort = String(query.sort || 'oldest').trim();
+  if (!queueSorts.has(sort)) {
+    throw new AdminConsoleError('invalid_admin_sort', 'Review queue sort is not recognized.');
+  }
+  return Object.freeze({
+    q: boundedText(query.q, 120, 'invalid_admin_search', 'Review queue search'),
+    status: optionalStatus(query.status),
+    session: boundedText(query.session, 80, 'invalid_admin_session', 'Review queue session'),
+    sort,
+    page: boundedPage(query.page),
+    pageSize: clampedPageSize(query.pageSize, 20),
+  });
+}
+
+export function validateSavedView(input) {
+  exactObject(
+    input,
+    new Set(['label', 'state']),
+    'invalid_admin_saved_view',
+    'A saved-view definition is required.',
+  );
+  exactObject(
+    input.state,
+    new Set(['filter', 'session', 'sort']),
+    'invalid_admin_saved_view',
+    'Saved-view filter state is required.',
+  );
+  const label = boundedText(input.label, 80, 'invalid_admin_saved_view', 'Saved-view label');
+  if (!label) {
+    throw new AdminConsoleError('invalid_admin_saved_view', 'Saved-view label is required.');
+  }
+  const directory = validateDirectoryQuery({ ...input.state, page: 1, pageSize: 25 });
+  return Object.freeze({
+    label,
+    state: Object.freeze({
+      filter: directory.filter,
+      session: directory.session,
+      sort: directory.sort,
+    }),
+  });
+}
+
+export function validateReviewCheck(input) {
+  exactObject(
+    input,
+    new Set(['studentId', 'preview']),
+    'invalid_review_check',
+    'Review Check input is required.',
+  );
+  if (Object.hasOwn(input, 'preview') && typeof input.preview !== 'boolean') {
+    throw new AdminConsoleError('invalid_review_check', 'Review Check preview must be a boolean.');
+  }
+  return Object.freeze({
+    studentId: requireUuid(input.studentId, 'Student identifier'),
+    preview: input.preview === true,
+  });
 }
 
 function optionalTimestamp(value, label) {
@@ -200,6 +335,16 @@ function translateDatabaseError(error) {
   if (error?.code === '42501') {
     throw new AdminConsoleError('admin_console_disabled', 'The administrator console is not enabled.', 403);
   }
+  if (error?.code === 'P0002') {
+    throw new AdminConsoleError('not_found', 'The requested administrator resource was not found.', 404);
+  }
+  if (['42883', '42P01'].includes(error?.code)) {
+    throw new AdminConsoleError(
+      'admin_v2_unavailable',
+      'This administrator capability is not available in the current release.',
+      503,
+    );
+  }
   throw error;
 }
 
@@ -252,6 +397,33 @@ export function createAdminConsoleService({
     } catch (error) {
       return translateDatabaseError(error);
     }
+  }
+
+  async function surfaceRpc(identity, forceOff, code, message, sql, values) {
+    if (forceOff(environment)) {
+      throw new AdminConsoleError(code, message, 403);
+    }
+    return rpc(identity, sql, values);
+  }
+
+  function reviewStory(identity, storyId, input, requireDirectControls = false) {
+    if (requireDirectControls && adminReviewControlsForceOff(environment)) {
+      throw new AdminConsoleError(
+        'admin_review_controls_force_off',
+        'Direct administrator review controls are disabled by the runtime kill switch.',
+        403,
+      );
+    }
+    const review = validateAdminReview(input);
+    return rpc(
+      identity,
+      `SELECT public.sf_admin_review_story($1, $2, $3::jsonb, 'workspace') AS payload`,
+      [
+        requireUuid(storyId, 'Story identifier'),
+        review.expectedVersion,
+        JSON.stringify(review.patch),
+      ],
+    );
   }
 
   async function getFlag(identity) {
@@ -311,6 +483,52 @@ export function createAdminConsoleService({
         boundedLimit(query.limit),
       ],
     ),
+    directory: (identity, query = {}) => {
+      const value = validateDirectoryQuery(query);
+      return surfaceRpc(
+        identity,
+        adminDirectoryForceOff,
+        'admin_directory_force_off',
+        'The StoryForge student directory is disabled by the runtime kill switch.',
+        'SELECT public.sf_admin_directory($1, $2, $3, $4, $5, $6) AS payload',
+        [value.q, value.filter, value.session, value.sort, value.page, value.pageSize],
+      );
+    },
+    directoryStudent: (identity, studentId) => surfaceRpc(
+      identity,
+      adminDirectoryForceOff,
+      'admin_directory_force_off',
+      'The StoryForge student directory is disabled by the runtime kill switch.',
+      'SELECT public.sf_admin_directory_student($1) AS payload',
+      [requireUuid(studentId, 'Student identifier')],
+    ),
+    savedViews: (identity) => surfaceRpc(
+      identity,
+      adminDirectoryForceOff,
+      'admin_directory_force_off',
+      'The StoryForge student directory is disabled by the runtime kill switch.',
+      'SELECT public.sf_admin_saved_views() AS payload',
+      [],
+    ),
+    saveView: (identity, input) => {
+      const view = validateSavedView(input);
+      return surfaceRpc(
+        identity,
+        adminDirectoryForceOff,
+        'admin_directory_force_off',
+        'The StoryForge student directory is disabled by the runtime kill switch.',
+        'SELECT public.sf_admin_save_view($1, $2::jsonb) AS payload',
+        [view.label, JSON.stringify(view.state)],
+      );
+    },
+    deleteView: (identity, viewId) => surfaceRpc(
+      identity,
+      adminDirectoryForceOff,
+      'admin_directory_force_off',
+      'The StoryForge student directory is disabled by the runtime kill switch.',
+      'SELECT public.sf_admin_delete_saved_view($1) AS payload',
+      [requireUuid(viewId, 'Saved-view identifier')],
+    ),
     queue: (identity, query = {}) => rpc(
       identity,
       'SELECT public.sf_admin_review_queue($1, $2, $3, $4, $5) AS payload',
@@ -322,23 +540,40 @@ export function createAdminConsoleService({
         boundedLimit(query.limit),
       ],
     ),
+    queueScaled: (identity, query = {}) => {
+      const value = validateQueueQuery(query);
+      return rpc(
+        identity,
+        'SELECT public.sf_admin_review_queue_scaled($1, $2, $3, $4, $5, $6) AS payload',
+        [value.q, value.status, value.session, value.sort, value.page, value.pageSize],
+      );
+    },
+    activity: (identity, studentId) => surfaceRpc(
+      identity,
+      activityForceOffForAdmin,
+      'activity_force_off',
+      'Activity tracking is disabled by the runtime kill switch.',
+      'SELECT public.sf_admin_activity_for_student($1) AS payload',
+      [requireUuid(studentId, 'Student identifier')],
+    ),
+    reviewCheck: (identity, input) => {
+      const check = validateReviewCheck(input);
+      return surfaceRpc(
+        identity,
+        reviewCheckForceOff,
+        'review_check_force_off',
+        'Review Check is disabled by the runtime kill switch.',
+        'SELECT public.sf_record_review_check($1, $2) AS payload',
+        [check.studentId, check.preview],
+      );
+    },
     story: (identity, storyId) => rpc(
       identity,
       'SELECT public.sf_admin_story_detail($1) AS payload',
       [requireUuid(storyId, 'Story identifier')],
     ),
-    review: (identity, storyId, input) => {
-      const review = validateAdminReview(input);
-      return rpc(
-        identity,
-        `SELECT public.sf_admin_review_story($1, $2, $3::jsonb, 'workspace') AS payload`,
-        [
-          requireUuid(storyId, 'Story identifier'),
-          review.expectedVersion,
-          JSON.stringify(review.patch),
-        ],
-      );
-    },
+    review: (identity, storyId, input) => reviewStory(identity, storyId, input),
+    directReview: (identity, storyId, input) => reviewStory(identity, storyId, input, true),
     taxonomy: (identity, storyId, input) => {
       const taxonomy = validateAdminTaxonomy(input);
       return rpc(
