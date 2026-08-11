@@ -24,7 +24,7 @@ test('B1-514 visibility is private-safe and does not infer from review status', 
 test('B1-514 recommendations require real API data and the enabled flag', () => {
   const loader = app.match(/async function loadHomeRecommendations\(\) \{[\s\S]*?\n\}/)?.[0] || '';
   assert.match(app, /if \(!isStudent\(\) \|\| !v2FeatureOn\('inspiration'\)\) return \[\]/);
-  assert.match(app, /auth\.request\('\/api\/inspiration\/browse'\)/);
+  assert.match(app, /auth\.request\(`\/api\/inspiration\/browse\?query=/);
   assert.match(app, /prompt\?\.recommended === true/);
   assert.doesNotMatch(loader, /R2_QUEUE_SEED|FIXTURE_PERSONA_KEY|FIXTURE_PERSONAS/);
 });
@@ -57,4 +57,24 @@ test('B1-514 adds first-class theme and energetic environment controls', () => {
   assert.match(styles, /data-background="emberstorm"/);
   assert.match(styles, /data-background="lumen"/);
   assert.doesNotMatch(styles, /body\[data-theme="light"\][^{]*\{[^}]*!important/s);
+});
+
+test('B1-514 mounts four purposeful tellings and governed student-only destinations in the sole renderer', () => {
+  for (const marker of [
+    'Original telling',
+    'Full Story',
+    '30-Second Version',
+    'NNQ Setup',
+    'data-version-restore',
+    "['inspiration', 'Inspiration'",
+    "['requests', 'Request a Story'",
+    'Private invitation created',
+    'guestRoute',
+    'credentials: \'omit\'',
+  ]) assert.match(app, new RegExp(marker.replaceAll('[', '\\[')));
+  assert.match(app, /state\.capabilities\?\.storyVersions/);
+  assert.match(app, /state\.capabilities\?\.requestAStory/);
+  assert.match(styles, /\.b1514VersionEditor/);
+  assert.match(styles, /\.b1514PromptCard/);
+  assert.match(styles, /\.b1514Invitation/);
 });

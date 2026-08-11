@@ -199,6 +199,15 @@ export function createInspirationService({ withIdentity, environment = process.e
     },
     async setPin(identity, promptId, position) {
       await requireEnabled(identity);
+      if (position == null) {
+        return transaction(identity, async (client) => {
+          await client.query(
+            'DELETE FROM public.sf_inspiration_pins WHERE student_id=public.sf_actor_id() AND prompt_id=$1',
+            [uuid(promptId, 'Prompt identifier')],
+          );
+          return { pinned: false, position: null };
+        });
+      }
       const value = Number(position);
       if (!Number.isInteger(value) || value < 0 || value > 99) throw new InspirationError('invalid_pin_position', 'Pinned position is invalid.');
       return transaction(identity, async (client) => {

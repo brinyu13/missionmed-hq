@@ -21,6 +21,10 @@ import { createStoryMediaService } from './story-media.mjs';
 import { createMentorNotesService } from './mentor-notes.mjs';
 import { createVisibilityService } from './visibility.mjs';
 import { createActivityService } from './activity.mjs';
+import { createStoryVersionsService } from './story-versions.mjs';
+import { createInspirationService } from './inspiration.mjs';
+import { createRequestsService } from './requests.mjs';
+import { createPostmarkService } from './postmark.mjs';
 import { previewImport } from './imports.mjs';
 import {
   createAudioPlayback,
@@ -380,21 +384,26 @@ export function publicError(error) {
   };
 }
 
-async function readJson(request) {
+async function readBody(request, limit = jsonLimit) {
   const chunks = [];
   let total = 0;
   for await (const chunk of request) {
     total += chunk.length;
-    if (total > jsonLimit) {
+    if (total > limit) {
       const error = new Error('Request exceeds the 8 MB limit.');
       error.code = 'request_too_large';
       throw error;
     }
     chunks.push(chunk);
   }
-  if (!chunks.length) return {};
+  return Buffer.concat(chunks);
+}
+
+async function readJson(request) {
+  const body = await readBody(request);
+  if (!body.length) return {};
   try {
-    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    return JSON.parse(body.toString('utf8'));
   } catch {
     const error = new Error('Request body must be valid JSON.');
     error.code = 'invalid_json';
@@ -591,6 +600,10 @@ async function api(request, response, url, {
   mentorNotesService,
   visibilityService,
   activityService,
+  storyVersionsService,
+  inspirationService,
+  requestsService,
+  postmarkService,
   recordingsService,
   signAudioPlayback,
 }) {
@@ -615,6 +628,44 @@ async function api(request, response, url, {
     return sendJson(response, 200, { token, fixture: true });
   }
 
+  const guestRequestRoute = url.pathname.match(
+    /^\/api\/requests\/guest\/([A-Za-z0-9_-]{43})(?:\/(contributions))?$/,
+  );
+  if (guestRequestRoute && request.method === 'GET' && !guestRequestRoute[2]) {
+    return sendJson(response, 200, await requestsService.guestView(guestRequestRoute[1], {
+      ip: request.socket?.remoteAddress || 'gateway',
+    }));
+  }
+  if (guestRequestRoute && request.method === 'POST' && guestRequestRoute[2] === 'contributions') {
+    return sendJson(response, 201, {
+      contribution: await requestsService.contribute(
+        guestRequestRoute[1],
+        await readJson(request),
+        { ip: request.socket?.remoteAddress || 'gateway' },
+      ),
+    });
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/webhooks/postmark') {
+    const rawBody = await readBody(request, jsonLimit);
+    const signature = String(request.headers['x-storyforge-webhook-signature'] || '');
+    if (!postmarkService.verifyWebhook(rawBody, signature)) {
+      const error = new Error('Webhook signature is invalid.');
+      error.code = 'webhook_signature_invalid';
+      error.status = 401;
+      throw error;
+    }
+    let payload;
+    try {
+      payload = JSON.parse(rawBody.toString('utf8'));
+    } catch {
+      const error = new Error('Webhook body is invalid.');
+      error.code = 'invalid_json';
+      throw error;
+    }
+    return sendJson(response, 200, await requestsService.processWebhook(payload));
+  }
+
   const identity = await authorizeRequest(request);
 
   if (request.method === 'GET' && url.pathname === '/api/consent') {
@@ -626,6 +677,71 @@ async function api(request, response, url, {
   if (request.method === 'POST' && url.pathname === '/api/activity/heartbeat') {
     const payload = await activityService.heartbeat(identity, await readJson(request));
     return sendJson(response, payload.accepted === true ? 200 : 202, payload);
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/inspiration/browse') {
+    return sendJson(response, 200, await inspirationService.browse(identity, {
+      query: url.searchParams.get('query') || '',
+      layout: url.searchParams.get('layout') || 'list',
+    }));
+  }
+  if (request.method === 'POST' && url.pathname === '/api/inspiration/next') {
+    return sendJson(response, 200, await inspirationService.next(identity, await readJson(request)));
+  }
+  if (request.method === 'POST' && url.pathname === '/api/inspiration/save-later') {
+    return sendJson(response, 201, { saved: await inspirationService.save(identity, await readJson(request)) });
+  }
+  const inspirationSavedRoute = url.pathname.match(/^\/api\/inspiration\/save-later\/([a-f0-9-]+)$/i);
+  if (request.method === 'DELETE' && inspirationSavedRoute) {
+    return sendJson(response, 200, await inspirationService.removeSaved(identity, inspirationSavedRoute[1]));
+  }
+  const inspirationFavoriteRoute = url.pathname.match(/^\/api\/inspiration\/favorites\/([a-f0-9-]+)$/i);
+  if (inspirationFavoriteRoute && ['POST', 'DELETE'].includes(request.method)) {
+    return sendJson(response, 200, await inspirationService.setFavorite(
+      identity, inspirationFavoriteRoute[1], request.method === 'POST',
+    ));
+  }
+  const inspirationPinRoute = url.pathname.match(/^\/api\/inspiration\/pins\/([a-f0-9-]+)$/i);
+  if (inspirationPinRoute && ['POST', 'DELETE'].includes(request.method)) {
+    return sendJson(response, 200, await inspirationService.setPin(
+      identity,
+      inspirationPinRoute[1],
+      request.method === 'POST' ? (await readJson(request)).position : null,
+    ));
+  }
+  const inspirationEventRoute = url.pathname.match(/^\/api\/inspiration\/([a-f0-9-]+)\/events$/i);
+  if (request.method === 'POST' && inspirationEventRoute) {
+    const body = await readJson(request);
+    return sendJson(response, 201, await inspirationService.event(
+      identity, inspirationEventRoute[1], body.sessionId, body.type, body.detail || {},
+    ));
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/requests') {
+    return sendJson(response, 200, { invitations: await requestsService.list(identity) });
+  }
+  if (request.method === 'POST' && url.pathname === '/api/requests') {
+    return sendJson(response, 201, { invitation: await requestsService.create(identity, await readJson(request)) });
+  }
+  if (request.method === 'GET' && url.pathname === '/api/requests/contributions') {
+    return sendJson(response, 200, { contributions: await requestsService.listContributions(identity) });
+  }
+  const contributionRoute = url.pathname.match(
+    /^\/api\/requests\/contributions\/([a-f0-9-]+)\/(state|promote)$/i,
+  );
+  if (request.method === 'POST' && contributionRoute) {
+    const body = await readJson(request);
+    const result = contributionRoute[2] === 'promote'
+      ? await requestsService.promote(identity, contributionRoute[1], body)
+      : await requestsService.setContributionState(identity, contributionRoute[1], body.state);
+    return sendJson(response, 200, result);
+  }
+  const invitationRoute = url.pathname.match(/^\/api\/requests\/([a-f0-9-]+)\/(send|revoke)$/i);
+  if (request.method === 'POST' && invitationRoute) {
+    const result = invitationRoute[2] === 'send'
+      ? await requestsService.send(identity, invitationRoute[1], await readJson(request))
+      : await requestsService.revoke(identity, invitationRoute[1]);
+    return sendJson(response, 200, result);
   }
 
   if (request.method === 'GET' && url.pathname === '/api/admin/features/visibility_consent') {
@@ -845,13 +961,14 @@ async function api(request, response, url, {
   if (request.method === 'GET' && url.pathname === '/api/session') {
     const [
       user, voiceCapture, adminConsole, mentorNotes, mentorNotesRead, storyMedia,
-      mentorship, activityTracking, b1511, adminB1511,
+      mentorship, activityTracking, storyVersions, inspiration, requestAStory,
+      b1511, adminB1511,
     ] = await Promise.all([
       withIdentity(identity, async (client) => {
         const result = await client.query(
           `SELECT id, wp_user_id, display_name, first_name, pronouns, role, eligible,
              cohort, academic_year, specialty, application_cycle, background_preference,
-             reading_size_preference
+             reading_size_preference, theme_preference, inspiration_layout
            FROM public.sf_users WHERE id = $1`,
           [identity.sub],
         );
@@ -864,6 +981,9 @@ async function api(request, response, url, {
       Promise.resolve(storyMediaService.capability(identity)),
       visibilityService.read(identity),
       activityService.capability(identity),
+      storyVersionsService.capability(identity),
+      inspirationService.capability(identity),
+      requestsService.capability(identity),
       withIdentity(identity, async (client) => {
         try {
           const result = await client.query('SELECT public.sf_b1_511_capabilities() AS payload');
@@ -905,6 +1025,9 @@ async function api(request, response, url, {
         storyMedia,
         visibilityConsent: mentorship.enabled === true,
         activityTracking,
+        storyVersions,
+        inspiration,
+        requestAStory,
         submissionReview: b1511.submissionReview === true,
         taxonomy: b1511.taxonomy === true || adminB1511.taxonomy === true,
         inlinePriority: b1511.inlinePriority === true,
@@ -939,6 +1062,18 @@ async function api(request, response, url, {
       return result.rows[0]?.reading_size_preference;
     });
     return sendJson(response, 200, { textSize });
+  }
+
+  if (request.method === 'PATCH' && url.pathname === '/api/preferences/theme') {
+    const body = await readJson(request);
+    const themePreference = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        'SELECT public.sf_set_theme_preference($1) AS theme_preference',
+        [body.theme],
+      );
+      return result.rows[0]?.theme_preference;
+    });
+    return sendJson(response, 200, { themePreference });
   }
 
   if (request.method === 'GET' && url.pathname === '/api/stories') {
@@ -988,6 +1123,31 @@ async function api(request, response, url, {
       await readJson(request),
     );
     return sendJson(response, 200, { story });
+  }
+
+  const storyVersionsRoute = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/versions$/i);
+  if (request.method === 'GET' && storyVersionsRoute) {
+    return sendJson(response, 200, await storyVersionsService.list(identity, storyVersionsRoute[1]));
+  }
+  const storyVersionRoute = url.pathname.match(
+    /^\/api\/stories\/([a-f0-9-]+)\/versions\/(thirty_second|nnq_setup)$/i,
+  );
+  if (request.method === 'PATCH' && storyVersionRoute) {
+    return sendJson(response, 200, {
+      version: await storyVersionsService.save(
+        identity, storyVersionRoute[1], storyVersionRoute[2], await readJson(request),
+      ),
+    });
+  }
+  const storyVersionRestoreRoute = url.pathname.match(
+    /^\/api\/stories\/([a-f0-9-]+)\/version-restore$/i,
+  );
+  if (request.method === 'POST' && storyVersionRestoreRoute) {
+    return sendJson(response, 200, {
+      version: await storyVersionsService.restore(
+        identity, storyVersionRestoreRoute[1], await readJson(request),
+      ),
+    });
   }
 
   const storyRoute = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)$/i);
@@ -2798,6 +2958,10 @@ export function createAppServer({
   mentorNotesService = null,
   visibilityService = null,
   activityService = null,
+  storyVersionsService = null,
+  inspirationService = null,
+  requestsService = null,
+  postmarkService = null,
   auditWriter = appendAudit,
   audioPlaybackSigner = createAudioPlayback,
   reportEvent = emitStructuredEvent,
@@ -2836,6 +3000,18 @@ export function createAppServer({
   const resolvedActivityService = activityService || createActivityService({
     withIdentity: identityTransaction,
   });
+  const resolvedStoryVersionsService = storyVersionsService || createStoryVersionsService({
+    withIdentity: identityTransaction,
+  });
+  const resolvedInspirationService = inspirationService || createInspirationService({
+    withIdentity: identityTransaction,
+  });
+  const resolvedPostmarkService = postmarkService || createPostmarkService();
+  const resolvedRequestsService = requestsService || createRequestsService({
+    withIdentity: identityTransaction,
+    withServiceTransaction,
+    postmark: resolvedPostmarkService,
+  });
   const apiRuntime = Object.freeze({
     authorizeRequest,
     auditWriter,
@@ -2848,6 +3024,10 @@ export function createAppServer({
     mentorNotesService: resolvedMentorNotesService,
     visibilityService: resolvedVisibilityService,
     activityService: resolvedActivityService,
+    storyVersionsService: resolvedStoryVersionsService,
+    inspirationService: resolvedInspirationService,
+    requestsService: resolvedRequestsService,
+    postmarkService: resolvedPostmarkService,
     recordingsService: phaseOneRuntime.recordingsService,
     signAudioPlayback: audioPlaybackSigner,
   });

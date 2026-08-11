@@ -22,3 +22,21 @@ test('student create validates governed relationship and never returns raw email
 test('guest token errors are uniform and malformed tokens never reach storage',async()=>{let calls=0;const subject=service({serviceQuery:async(sql)=>{calls+=1;if(sql.includes("key='guest_contributions'"))return{rows:[{enabled:true}]};return{rows:[]};}});await assert.rejects(()=>subject.guestView('not-a-token'),(error)=>error.code==='invitation_not_found'&&error.status===404);assert.equal(calls,1);});
 
 test('guest contribution enforces 20k transcript bound before database mutation',async()=>{const subject=service();await assert.rejects(()=>subject.contribute('A'.repeat(43),{promptId,transcript:'x'.repeat(20001)}),(error)=>error.code==='invalid_contribution');});
+
+test('provider webhooks are idempotent and cannot demote a completed invitation', async () => {
+  const queries = [];
+  const subject = service({
+    serviceQuery: async (sql, values) => {
+      queries.push({ sql, values });
+      if (sql.includes('WHERE provider_message_id')) return { rows: [{ id: promptId, status: 'story_shared' }] };
+      if (sql.includes('INSERT INTO public.sf_story_invitation_events')) return { rows: [{ id: '1' }], rowCount: 1 };
+      return { rows: [], rowCount: 1 };
+    },
+  });
+  assert.deepEqual(await subject.processWebhook({
+    RecordType: 'Delivery', MessageID: 'provider-1', DeliveredAt: '2026-08-10T12:00:00Z',
+  }), { accepted: true });
+  const update = queries.find(({ sql }) => sql.includes('delivered_at=coalesce'));
+  assert.match(update.sql, /CASE WHEN status='sent' THEN 'delivered' ELSE status END/);
+  assert.equal(JSON.stringify(queries).includes('@'), false);
+});

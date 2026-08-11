@@ -185,6 +185,8 @@ const NAV = Object.freeze({
   student: [
     ['home', 'Home', '⌂'],
     ['library', 'Story Library', '▤'],
+    ['inspiration', 'Inspiration', '✦'],
+    ['requests', 'Request a Story', '↗'],
     ['prep', 'Interview Prep', '◇'],
     ['notifications', 'Notifications', '●'],
     ['settings', 'Settings', '⚙'],
@@ -233,6 +235,9 @@ const state = {
     mentorNotes: false,
     mentorNotesRead: false,
     storyMedia: false,
+    storyVersions: false,
+    inspiration: false,
+    requestAStory: false,
   }),
   lockout: null,
   route: 'home',
@@ -244,6 +249,7 @@ const state = {
   intelligence: null,
   selectedStudent: null,
   storyDetail: null,
+  storyVersions: [],
   storyCompletionIntent: null,
   settingsPreview: {
     selectedBackground: null,
@@ -306,6 +312,9 @@ const state = {
     consent: null,
     consentDeferredThisSession: false,
     homeRecommendations: [],
+    inspiration: { prompts: [], layout: 'list', query: '', sessionId: null },
+    invitations: [],
+    contributions: [],
   },
   returnFocus: null,
   busy: false,
@@ -325,6 +334,9 @@ const auth = createAuthClient({
       mentorNotes: false,
       mentorNotesRead: false,
       storyMedia: false,
+      storyVersions: false,
+      inspiration: false,
+      requestAStory: false,
     });
     state.v2.session = null;
     state.v2.consent = null;
@@ -602,10 +614,24 @@ const api = Object.freeze({
   consent: () => auth.request('/api/consent'),
   decideConsent: (decision) => auth.request('/api/consent', jsonOptions('POST', { decision })),
   storyVisibility: (id, visibility, expectedVersion) => auth.request(`/api/stories/${id}/visibility`, jsonOptions('POST', { visibility, expectedVersion })),
-  inspirationBrowse: () => auth.request('/api/inspiration/browse'),
+  storyVersions: (id) => auth.request(`/api/stories/${id}/versions`),
+  saveStoryVersion: (id, key, body) => auth.request(`/api/stories/${id}/versions/${key}`, jsonOptions('PATCH', body)),
+  restoreStoryVersion: (id, body) => auth.request(`/api/stories/${id}/version-restore`, jsonOptions('POST', body)),
+  inspirationBrowse: (query = '', layout = 'list') => auth.request(`/api/inspiration/browse?query=${encodeURIComponent(query)}&layout=${encodeURIComponent(layout)}`),
+  inspirationNext: (body) => auth.request('/api/inspiration/next', jsonOptions('POST', body)),
+  inspirationFavorite: (id, enabled) => auth.request(`/api/inspiration/favorites/${id}`, { method: enabled ? 'POST' : 'DELETE', ...(enabled ? { body: '{}' } : {}) }),
+  inspirationPin: (id, position) => auth.request(`/api/inspiration/pins/${id}`, position == null ? { method: 'DELETE' } : jsonOptions('POST', { position })),
+  inspirationSave: (body) => auth.request('/api/inspiration/save-later', jsonOptions('POST', body)),
+  requests: () => auth.request('/api/requests'),
+  contributions: () => auth.request('/api/requests/contributions'),
+  contributionState: (id, state) => auth.request(`/api/requests/contributions/${id}/state`, jsonOptions('POST', { state })),
+  promoteContribution: (id, title) => auth.request(`/api/requests/contributions/${id}/promote`, jsonOptions('POST', { title })),
+  createRequest: (body) => auth.request('/api/requests', jsonOptions('POST', body)),
+  sendRequest: (id, expectedVersion) => auth.request(`/api/requests/${id}/send`, jsonOptions('POST', { expectedVersion })),
+  revokeRequest: (id) => auth.request(`/api/requests/${id}/revoke`, jsonOptions('POST', {})),
   preference: (background) => auth.request('/api/preferences/background', jsonOptions('PATCH', { background })),
   textSizePreference: (textSize) => auth.request('/api/preferences/text-size', jsonOptions('PATCH', { textSize })),
-  themePreference: (theme) => auth.request('/api/preferences/theme', jsonOptions('POST', { theme })),
+  themePreference: (theme) => auth.request('/api/preferences/theme', jsonOptions('PATCH', { theme })),
   questions: (studentId = '') => auth.request(`/api/questions${studentId ? `?studentId=${encodeURIComponent(studentId)}` : ''}`),
   createQuestion: (body) => auth.request('/api/questions', jsonOptions('POST', body)),
   approveQuestion: (id, surface = 'library') => auth.request(`/api/questions/${id}/approve`, jsonOptions('POST', { surface })),
@@ -1096,7 +1122,11 @@ function renderShell() {
   if (!state.user) return;
   applyEnvironment();
   const nav = (canAdminReview() ? ADMIN_CONSOLE_NAV : NAV[roleName()])
-    .filter(([route]) => route !== 'prep' || interviewPrepVisible() || isAdmin());
+    .filter(([route]) => (
+      (route !== 'prep' || interviewPrepVisible() || isAdmin())
+      && (route !== 'inspiration' || state.capabilities?.inspiration === true)
+      && (route !== 'requests' || state.capabilities?.requestAStory === true)
+    ));
   rail.innerHTML = `
     <div class="logo" aria-label="StoryForge">Story<b>Forge</b></div><div class="logoSub">MissionMed</div>
     ${isStudent() ? '<button class="railCta" type="button" data-open-capture>＋ <span class="rct">New Story</span></button>' : ''}
@@ -1215,6 +1245,58 @@ async function loadHomeRecommendations() {
     state.v2.homeRecommendations = [];
   }
   return state.v2.homeRecommendations;
+}
+
+async function loadInspiration() {
+  if (!state.capabilities?.inspiration) return [];
+  const payload = await api.inspirationBrowse(
+    state.v2.inspiration.query,
+    state.v2.inspiration.layout,
+  );
+  state.v2.inspiration.prompts = asArray(payload?.prompts);
+  state.v2.inspiration.layout = payload?.layout === 'grid' ? 'grid' : 'list';
+  return state.v2.inspiration.prompts;
+}
+
+async function loadRequests() {
+  if (!state.capabilities?.requestAStory) return [];
+  const [payload, contributionPayload] = await Promise.all([api.requests(), api.contributions()]);
+  state.v2.invitations = asArray(payload?.invitations);
+  state.v2.contributions = asArray(contributionPayload?.contributions);
+  return state.v2.invitations;
+}
+
+function renderInspiration() {
+  const context = state.v2.inspiration;
+  main.innerHTML = `<section class="page b1514Inspiration" aria-labelledby="inspirationTitle">
+    <div class="pageHead"><div><div class="eyebrow">Find the story hiding in plain sight</div><h1 class="h1" id="inspirationTitle">Inspiration</h1><p>Browse prompts, save what sparks something, or begin a story in your own words.</p></div></div>
+    <form id="inspirationSearchForm" class="b1514Toolbar" role="search">
+      <label class="srOnly" for="inspirationSearch">Search prompts</label><input id="inspirationSearch" type="search" value="${attr(context.query)}" placeholder="Search moments, people, or themes…">
+      <button class="rowBtn pri" type="submit">Search</button>
+      <button class="rowBtn ${context.layout === 'list' ? 'on' : ''}" type="button" data-inspiration-layout="list" aria-pressed="${context.layout === 'list'}">List</button>
+      <button class="rowBtn ${context.layout === 'grid' ? 'on' : ''}" type="button" data-inspiration-layout="grid" aria-pressed="${context.layout === 'grid'}">Grid</button>
+    </form>
+    <div class="b1514PromptList ${context.layout === 'grid' ? 'grid' : ''}">${context.prompts.length ? context.prompts.map((prompt) => `<article class="b1514PromptCard">
+      <div class="eyebrow">${esc(prompt.territory || 'Story prompt')}</div><h2>“${esc(prompt.text)}”</h2>${prompt.followUp ? `<p>${esc(prompt.followUp)}</p>` : ''}
+      <div class="inlineActions"><button class="rowBtn pri" type="button" data-inspiration-answer="${attr(prompt.id)}">Answer this</button><button class="rowBtn" type="button" data-inspiration-favorite="${attr(prompt.id)}" data-enabled="${prompt.favorite ? '0' : '1'}" aria-pressed="${Boolean(prompt.favorite)}">${prompt.favorite ? '★ Favorited' : '☆ Favorite'}</button><button class="rowBtn" type="button" data-inspiration-pin="${attr(prompt.id)}" data-position="${prompt.pinPosition == null ? '0' : ''}">${prompt.pinPosition == null ? 'Pin' : 'Unpin'}</button></div>
+    </article>`).join('') : '<div class="emptyState"><h2>No prompts found.</h2><p>Try a broader word or clear the search.</p></div>'}</div>
+  </section>`;
+}
+
+function renderRequests() {
+  const invitations = state.v2.invitations;
+  main.innerHTML = `<section class="page b1514Requests" aria-labelledby="requestsTitle">
+    <div class="pageHead"><div><div class="eyebrow">Invite someone who remembers you differently</div><h1 class="h1" id="requestsTitle">Request a Story</h1><p>Your guest receives one private, expiring link. Their contribution returns only to your StoryForge workspace.</p></div></div>
+    <form id="requestStoryForm" class="railCard b1514RequestForm">
+      <label for="requestFirstName">First name</label><input id="requestFirstName" maxlength="100" required>
+      <label for="requestRelationship">Relationship</label><select id="requestRelationship" required><option value="">Choose one</option><option value="parent">Parent</option><option value="sibling">Sibling</option><option value="spouse_partner">Spouse or partner</option><option value="best_friend">Best friend</option><option value="mentor">Mentor</option><option value="faculty">Faculty</option><option value="coworker">Coworker</option><option value="supervisor">Supervisor</option><option value="teammate">Teammate</option></select>
+      <label for="requestEmail">Email</label><input id="requestEmail" type="email" autocomplete="off" required>
+      <label for="requestMessage">Personal note <span>optional</span></label><textarea id="requestMessage" maxlength="2000"></textarea>
+      <div class="inlineActions"><button class="btnSave" type="submit">Create private invitation</button></div>
+    </form>
+    <section class="b1514InvitationList" aria-label="Your invitations"><h2 class="h2">Invitations</h2>${invitations.length ? invitations.map((item) => `<article class="b1514Invitation"><div><strong>${esc(item.recipientFirstName)}</strong><span>${esc(item.relationship)} · ${esc(item.maskedEmail)}</span><small>${esc(item.status)} · expires ${esc(formatDate(item.expiresAt))}</small></div><div class="inlineActions">${item.status === 'draft' ? `<button class="rowBtn pri" type="button" data-request-send="${attr(item.id)}" data-version="${attr(item.rowVersion)}">Send</button>` : ''}${!['revoked', 'expired'].includes(item.status) ? `<button class="rowBtn danger" type="button" data-request-revoke="${attr(item.id)}">Revoke</button>` : ''}</div></article>`).join('') : '<div class="emptyState"><p>No invitations yet.</p></div>'}</section>
+    <section class="b1514InvitationList" aria-label="Returned stories"><h2 class="h2">Stories shared with you</h2>${state.v2.contributions.length ? state.v2.contributions.map((item) => `<article class="b1514Contribution"><div class="eyebrow">From ${esc(item.contributor_first_name)} · ${esc(item.relationship_id)}</div><p>${esc(item.transcript)}</p><div class="inlineActions">${item.state !== 'promoted' ? `<button class="rowBtn pri" type="button" data-contribution-promote="${attr(item.id)}">Bring into StoryForge</button><button class="rowBtn" type="button" data-contribution-state="${attr(item.id)}" data-state="${item.state === 'favorite' ? 'new' : 'favorite'}">${item.state === 'favorite' ? 'Unfavorite' : 'Favorite'}</button><button class="rowBtn" type="button" data-contribution-state="${attr(item.id)}" data-state="archived">Archive</button>` : `<span class="cohortChip">Private StoryForge story created</span>`}</div></article>`).join('') : '<div class="emptyState"><p>Guest contributions will appear here privately.</p></div>'}</section>
+  </section>`;
 }
 
 async function loadQuestions() {
@@ -4319,6 +4401,11 @@ async function fetchStoryDetail(id, surface = 'workspace') {
     const payload = await api.storyMedia(id);
     story.media = asArray(payload?.media);
   }
+  state.storyVersions = [];
+  if (state.capabilities?.storyVersions) {
+    const payload = await api.storyVersions(id);
+    state.storyVersions = asArray(payload?.versions);
+  }
   return story;
 }
 
@@ -4499,9 +4586,14 @@ function renderStoryRoom() {
   const story = state.storyDetail;
   if (!story) return;
   const mentor = isMentor();
-  const originalTab = state.storyTab !== 'working';
+  const versionTab = ['thirty_second', 'nnq_setup'].includes(state.storyTab) ? state.storyTab : null;
+  const selectedVersion = versionTab
+    ? state.storyVersions.find((version) => version.key === versionTab) || null
+    : null;
+  const originalTab = state.storyTab === 'original';
+  const workingTab = state.storyTab === 'working';
   const title = originalTab ? story.originalTitle : story.title;
-  const text = originalTab ? story.originalText : story.text;
+  const text = versionTab ? selectedVersion?.body || '' : originalTab ? story.originalText : story.text;
   const completionMissing = state.storyCompletionIntent
     ? storyCompletionMissing(story, state.storyCompletionIntent)
     : [];
@@ -4538,9 +4630,14 @@ function renderStoryRoom() {
         ${audioMarkup(story)}
         <div class="voiceTabs" role="tablist" aria-label="Story versions">
           <button type="button" role="tab" class="${originalTab ? 'on' : ''}" aria-selected="${originalTab}" data-story-tab="original">Original telling</button>
-          <button type="button" role="tab" class="${!originalTab ? 'on' : ''}" aria-selected="${!originalTab}" data-story-tab="working">Working version</button>
+          <button type="button" role="tab" class="${workingTab ? 'on' : ''}" aria-selected="${workingTab}" data-story-tab="working">Full Story</button>
+          ${state.capabilities?.storyVersions ? `<button type="button" role="tab" class="${versionTab === 'thirty_second' ? 'on' : ''}" aria-selected="${versionTab === 'thirty_second'}" data-story-tab="thirty_second">30-Second Version</button><button type="button" role="tab" class="${versionTab === 'nnq_setup' ? 'on' : ''}" aria-selected="${versionTab === 'nnq_setup'}" data-story-tab="nnq_setup">NNQ Setup</button>` : ''}
         </div>
-        ${!mentor && !originalTab ? `<form id="storyEditForm">
+        ${versionTab ? `<form id="storyVersionForm" data-version-key="${attr(versionTab)}" data-row-version="${attr(selectedVersion?.rowVersion || 0)}">
+          <div class="b1514VersionIntro"><div><span class="eyebrow">Purposeful telling</span><h2>${versionTab === 'thirty_second' ? '30-Second Version' : 'NNQ Setup'}</h2><p>${versionTab === 'thirty_second' ? 'Shape the essential moment for a concise interview response.' : 'Set up the story so it can answer a natural next question.'}</p></div>${selectedVersion ? `<span class="cohortChip">Saved ${esc(formatDateTime(selectedVersion.updatedAt))}</span>` : '<span class="cohortChip">Not started</span>'}</div>
+          ${mentor ? `<div class="storyProse" data-empty="${text ? 'false' : 'true'}">${text ? esc(text) : '<span class="storyEmpty">This purposeful version has not been written yet.</span>'}</div>` : `<label class="srOnly" for="storyVersionText">${versionTab === 'thirty_second' ? '30-Second Version' : 'NNQ Setup'}</label><textarea class="storyProse storyProseEdit b1514VersionEditor" id="storyVersionText" maxlength="20000" placeholder="Keep the same truth. Shape this telling for its purpose.">${esc(text)}</textarea><div class="inlineActions"><button class="btnSave" type="submit">Save this version</button>${selectedVersion ? '<button class="rowBtn" type="button" data-version-mode="append">Append</button><button class="rowBtn" type="button" data-version-mode="retell">Retell from scratch</button>' : ''}<span class="saveState">Every saved change remains in version history.</span></div>`}
+          ${selectedVersion?.history?.length ? `<details class="b1514VersionHistory"><summary>Earlier tellings (${selectedVersion.history.length})</summary>${selectedVersion.history.map((revision) => `<article><p>${esc(revision.body)}</p><div class="inlineActions"><small>${esc(formatDateTime(revision.savedAt))}</small>${!mentor ? `<button class="rowBtn" type="button" data-version-restore="${attr(revision.id)}">Restore this telling</button>` : ''}</div></article>`).join('')}</details>` : ''}
+        </form>` : !mentor && workingTab ? `<form id="storyEditForm">
           <label class="srOnly" for="storyEditTitle">Story title</label>
           <input class="roomTitle roomTitleInput" id="storyEditTitle" value="${attr(story.title)}" required>
           ${presentationSectionVisible('workingVersion') ? `<div class="b1512CompletionField ${incompleteText ? 'b1512Incomplete' : ''}" data-completion-field="text">
@@ -7122,6 +7219,16 @@ async function renderRoute() {
       renderLibrary();
       return;
     }
+    if (state.route === 'inspiration' && state.capabilities?.inspiration) {
+      await loadInspiration();
+      renderInspiration();
+      return;
+    }
+    if (state.route === 'requests' && state.capabilities?.requestAStory) {
+      await loadRequests();
+      renderRequests();
+      return;
+    }
     if (state.route === 'notifications') {
       await loadNotifications();
       renderShell();
@@ -7297,6 +7404,54 @@ async function saveThemePreference(theme) {
   applyTheme();
   renderSettings();
   notify(theme === 'auto' ? 'Auto theme on — StoryForge follows your device.' : `${theme === 'light' ? 'Light' : 'Dark'} theme saved.`, '✓');
+}
+
+async function savePurposefulVersion(form, mode = 'save') {
+  const key = form.dataset.versionKey;
+  const current = state.storyVersions.find((version) => version.key === key);
+  const field = $('#storyVersionText', form);
+  const body = mode === 'retell' ? '' : field?.value || '';
+  const result = await withBusy(() => api.saveStoryVersion(state.storyDetail.id, key, {
+    body,
+    mode,
+    source: 'typed',
+    expectedVersion: Number(current?.rowVersion || 0),
+  }));
+  const version = result?.version || result;
+  if (mode === 'retell') {
+    state.storyVersions = state.storyVersions.map((item) => item.key === key ? version : item);
+  }
+  await reloadStorySurface('workspace');
+  state.storyTab = key;
+  renderStoryRoom();
+  notify(mode === 'retell' ? 'A fresh telling is ready.' : 'Purposeful version saved.', '✓');
+}
+
+async function restorePurposefulVersion(revisionId) {
+  const key = state.storyTab;
+  const current = state.storyVersions.find((version) => version.key === key);
+  await withBusy(() => api.restoreStoryVersion(state.storyDetail.id, {
+    versionKey: key,
+    revisionId,
+    expectedVersion: Number(current?.rowVersion || 0),
+  }));
+  await reloadStorySurface('workspace');
+  state.storyTab = key;
+  renderStoryRoom();
+  notify('Earlier telling restored. The replaced version remains in history.', '✓');
+}
+
+async function createStoryRequest(form) {
+  await withBusy(() => api.createRequest({
+    recipientFirstName: $('#requestFirstName', form)?.value || '',
+    relationship: $('#requestRelationship', form)?.value || '',
+    email: $('#requestEmail', form)?.value || '',
+    personalMessage: $('#requestMessage', form)?.value || '',
+  }));
+  form.reset();
+  await loadRequests();
+  renderRequests();
+  notify('Private invitation created. Review it, then send when ready.', '✓');
 }
 
 async function openNotification(id, storyId) {
@@ -7587,6 +7742,66 @@ document.addEventListener('click', async (event) => {
       await openCapture({ prompt: button.dataset.recommendPrompt });
       return;
     }
+    if (button.matches('[data-inspiration-layout]')) {
+      state.v2.inspiration.layout = button.dataset.inspirationLayout;
+      await loadInspiration();
+      renderInspiration();
+      return;
+    }
+    if (button.matches('[data-inspiration-answer]')) {
+      const prompt = state.v2.inspiration.prompts.find((item) => item.id === button.dataset.inspirationAnswer);
+      if (prompt) await openCapture({ prompt: prompt.text });
+      return;
+    }
+    if (button.matches('[data-inspiration-favorite]')) {
+      await api.inspirationFavorite(button.dataset.inspirationFavorite, button.dataset.enabled === '1');
+      await loadInspiration();
+      renderInspiration();
+      return;
+    }
+    if (button.matches('[data-inspiration-pin]')) {
+      await api.inspirationPin(
+        button.dataset.inspirationPin,
+        button.dataset.position === '' ? null : Number(button.dataset.position),
+      );
+      await loadInspiration();
+      renderInspiration();
+      return;
+    }
+    if (button.matches('[data-request-send]')) {
+      await withBusy(() => api.sendRequest(button.dataset.requestSend, Number(button.dataset.version || 0)));
+      await loadRequests();
+      renderRequests();
+      notify('Invitation sent through the private StoryForge delivery path.', '✓');
+      return;
+    }
+    if (button.matches('[data-request-revoke]')) {
+      await withBusy(() => api.revokeRequest(button.dataset.requestRevoke));
+      await loadRequests();
+      renderRequests();
+      notify('Invitation revoked. Its guest link no longer works.', '✓');
+      return;
+    }
+    if (button.matches('[data-contribution-state]')) {
+      await withBusy(() => api.contributionState(
+        button.dataset.contributionState,
+        button.dataset.state,
+      ));
+      await loadRequests();
+      renderRequests();
+      return;
+    }
+    if (button.matches('[data-contribution-promote]')) {
+      const result = await withBusy(() => api.promoteContribution(
+        button.dataset.contributionPromote,
+        '',
+      ));
+      await Promise.all([loadRequests(), loadStories()]);
+      renderRequests();
+      notify('A new private story was created from this contribution.', '✓');
+      if (result?.storyId) await openStory(result.storyId);
+      return;
+    }
     if (button.matches('[data-nav]')) {
       event.preventDefault();
       await navigate(button.dataset.nav, button.dataset.navId || null);
@@ -7843,6 +8058,15 @@ document.addEventListener('click', async (event) => {
     if (button.matches('[data-story-tab]')) {
       state.storyTab = button.dataset.storyTab;
       renderStoryRoom();
+      return;
+    }
+    if (button.matches('[data-version-mode]')) {
+      const form = button.closest('#storyVersionForm');
+      if (form) await savePurposefulVersion(form, button.dataset.versionMode);
+      return;
+    }
+    if (button.matches('[data-version-restore]')) {
+      await restorePurposefulVersion(button.dataset.versionRestore);
       return;
     }
     if (button.matches('[data-set-status]')) {
@@ -8147,6 +8371,33 @@ document.addEventListener('submit', async (event) => {
     if (event.target.id === 'storyEditForm') {
       event.preventDefault();
       await saveStoryEdit(event.target);
+    }
+    if (event.target.id === 'storyVersionForm') {
+      event.preventDefault();
+      await savePurposefulVersion(event.target);
+    }
+    if (event.target.id === 'inspirationSearchForm') {
+      event.preventDefault();
+      state.v2.inspiration.query = $('#inspirationSearch', event.target)?.value.trim() || '';
+      await loadInspiration();
+      renderInspiration();
+    }
+    if (event.target.id === 'requestStoryForm') {
+      event.preventDefault();
+      await createStoryRequest(event.target);
+    }
+    if (event.target.id === 'guestContributionForm') {
+      event.preventDefault();
+      const form = event.target;
+      await guestJson(`${form.dataset.guestBase}api/requests/guest/${form.dataset.guestToken}/contributions`, {
+        method: 'POST',
+        body: JSON.stringify({
+          promptId: $('#guestPrompt', form)?.value || '',
+          transcript: $('#guestStory', form)?.value || '',
+          kind: 'text',
+        }),
+      });
+      form.innerHTML = '<div class="emptyState"><h2>Story shared privately.</h2><p>Thank you. You may close this page now.</p></div>';
     }
     if (event.target.id === 'questionAddForm') {
       event.preventDefault();
@@ -8578,6 +8829,55 @@ function renderStartupFailure(message = '') {
   }
 }
 
+function guestRoute() {
+  const match = location.pathname.match(/^(.*\/storyforge\/)guest\/([A-Za-z0-9_-]{43})\/?$/);
+  return match ? { basePath: match[1], token: match[2] } : null;
+}
+
+async function guestJson(pathname, options = {}) {
+  const response = await fetch(new URL(pathname, location.origin), {
+    ...options,
+    credentials: 'omit',
+    cache: 'no-store',
+    headers: { Accept: 'application/json', ...(options.body ? { 'Content-Type': 'application/json' } : {}) },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(payload?.error?.message || 'This private invitation is unavailable.');
+    error.code = payload?.error?.code || 'invitation_not_found';
+    throw error;
+  }
+  return payload;
+}
+
+function renderGuestContribution(invitation, route) {
+  hideApplicationChrome();
+  document.body.classList.remove('is-booting');
+  const prompts = asArray(invitation.prompts);
+  main.innerHTML = `<section class="storyforgeGuest" aria-labelledby="guestTitle">
+    <div class="logo" aria-label="StoryForge">Story<b>Forge</b></div><div class="eyebrow">A private invitation from ${esc(invitation.student?.firstName || 'a MissionMed student')}</div>
+    <h1 class="h1" id="guestTitle">Help them remember a story only you can tell.</h1>
+    ${invitation.personalMessage ? `<blockquote>${esc(invitation.personalMessage)}</blockquote>` : ''}
+    <div class="b1513ConsentCopy"><p>Your contribution is private to the student who invited you. It does not give you Matrix access. The link expires automatically and can be revoked.</p><small>Privacy notice ${esc(invitation.disclosureVersion)} · expires ${esc(formatDate(invitation.expiresAt))}</small></div>
+    <form id="guestContributionForm" data-guest-base="${attr(route.basePath)}" data-guest-token="${attr(route.token)}">
+      <label for="guestPrompt">Choose a memory prompt</label><select id="guestPrompt" required><option value="">Choose one</option>${prompts.map((prompt) => `<option value="${attr(prompt.id)}">${esc(prompt.text)}</option>`).join('')}</select>
+      <label for="guestStory">Share the story in your own words</label><textarea id="guestStory" maxlength="20000" required placeholder="Tell it naturally. The student can shape it later without changing your original contribution."></textarea>
+      <div class="inlineActions"><button class="btnSave" type="submit">Share privately</button></div>
+    </form>
+  </section>`;
+}
+
+async function initGuest(route) {
+  try {
+    const invitation = await guestJson(`${route.basePath}api/requests/guest/${route.token}`);
+    renderGuestContribution(invitation, route);
+  } catch (error) {
+    hideApplicationChrome();
+    document.body.classList.remove('is-booting');
+    main.innerHTML = gateMarkup({ eyebrow: 'Private invitation', heading: 'This invitation is unavailable.', message: error.message, action: '' });
+  }
+}
+
 async function enterFixturePersona(persona) {
   if (!FIXTURE_PERSONAS.has(persona)) throw new Error('Unknown local fixture identity.');
   const { token } = await api.fixture(persona);
@@ -8599,6 +8899,9 @@ function signOut() {
     mentorNotes: false,
     mentorNotesRead: false,
     storyMedia: false,
+    storyVersions: false,
+    inspiration: false,
+    requestAStory: false,
   });
   state.captureRecovering = false;
   state.lockout = null;
@@ -8662,13 +8965,15 @@ async function bootstrapSession() {
     storyMedia: Boolean(session?.capabilities?.storyMedia),
     visibilityConsent: Boolean(session?.capabilities?.visibilityConsent),
     inspiration: Boolean(session?.capabilities?.inspiration),
+    storyVersions: Boolean(session?.capabilities?.storyVersions),
+    requestAStory: Boolean(session?.capabilities?.requestAStory),
   });
   state.library.sort = state.capabilities.inlinePriority ? 'priority' : 'new';
   state.captureRecovering = false;
   state.lockout = null;
   state.selectedStudent = null;
   parseRoute();
-  const studentRoutes = new Set(['home', 'library', 'notifications', 'settings', 'prep', 'qshop', 'qlib', 'story']);
+  const studentRoutes = new Set(['home', 'library', 'inspiration', 'requests', 'notifications', 'settings', 'prep', 'qshop', 'qlib', 'story']);
   const mentorRoutes = new Set(['home', 'students', 'student', 'queue', 'activity', 'settings', 'prep', 'qshop', 'qlib', 'story']);
   const adminRoutes = new Set(canAdminReview()
     ? ['home', 'students', 'student', 'queue', 'story', 'qlib', 'settings']
@@ -8691,6 +8996,11 @@ async function bootstrapSession() {
 }
 
 async function init() {
+  const guest = guestRoute();
+  if (guest) {
+    await initGuest(guest);
+    return;
+  }
   hideApplicationChrome();
   setMotionEnergy('active');
   main.innerHTML = `<section class="storyforgeIntro" role="status" aria-live="polite">

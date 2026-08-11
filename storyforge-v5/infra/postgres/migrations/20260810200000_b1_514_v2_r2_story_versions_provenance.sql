@@ -338,6 +338,7 @@ BEGIN
   SELECT public.sf_append_audit(
     'story.version_edited', 'story_version', v_after.id, 'workspace',
     v_story.student_id, v_story.id,
+    NULL,
     CASE WHEN v_before.id IS NULL THEN NULL ELSE jsonb_build_object('key', v_before.version_key, 'rowVersion', v_before.row_version) END,
     jsonb_build_object('key', v_after.version_key, 'rowVersion', v_after.row_version, 'mode', p_mode)
   ) INTO v_audit_id;
@@ -410,6 +411,7 @@ BEGIN
   SELECT public.sf_append_audit(
     'story.version_restored', 'story_version', v_after.id, 'workspace',
     v_story.student_id, v_story.id,
+    NULL,
     jsonb_build_object('key', v_before.version_key, 'rowVersion', v_before.row_version),
     jsonb_build_object('key', v_after.version_key, 'rowVersion', v_after.row_version, 'revisionId', p_revision_id)
   ) INTO v_audit_id;
