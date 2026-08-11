@@ -4802,7 +4802,7 @@ function renderStoryRoom({ adminStory = null } = {}) {
   const incompleteCategories = completionMissing.some((item) => item.id === 'categories');
   const incompleteUses = completionMissing.some((item) => item.id === 'uses');
 
-  host.innerHTML = `<div class="roomSheet ${adminReviewer ? 'adminStoryReview live' : ''}" ${adminReviewer ? 'role="region"' : 'role="dialog" aria-modal="true"'} aria-labelledby="roomStoryTitle">
+  host.innerHTML = `<div class="roomSheet ${adminReviewer ? 'adminStoryReview live' : ''}" ${adminReviewer ? 'role="region" data-view="admin-story"' : 'role="dialog" aria-modal="true"'} aria-labelledby="roomStoryTitle">
     <div class="roomTop">
       ${adminReviewer ? `<button class="backBtn" type="button" data-nav="student" data-nav-id="${attr(story.studentId)}">‹ ${esc(story.studentName)}’s submitted stories</button>` : `<button class="backBtn" type="button" data-close-overlay>‹ ${mentor ? `${esc(story.studentName)}’s stories` : 'Your library'}</button>`}
       <span class="eyebrow">Captured ${esc(formatDate(story.createdAt))}${story.captureType === 'audio' ? ' · from a voice note' : ''} · ${esc(developmentState(story))}</span>
@@ -7077,7 +7077,7 @@ async function loadAdminStory(id) {
     const notesPayload = await optionalRequest(`/api/stories/${id}/mentor-notes?reviewer=1`, { notes: [] });
     story.mentorNotes = asArray(notesPayload?.notes).map(normalizeMentorNote);
   }
-  state.storyVersions = asArray(versionsPayload?.versions).map(normalizeStoryVersion);
+  state.storyVersions = asArray(versionsPayload?.versions);
   state.storyTab = 'working';
   adminConsoleState().story = story;
 }
