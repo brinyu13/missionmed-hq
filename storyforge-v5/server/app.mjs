@@ -24,6 +24,7 @@ import { createActivityService } from './activity.mjs';
 import { createStoryVersionsService } from './story-versions.mjs';
 import { createInspirationService } from './inspiration.mjs';
 import { createRequestsService } from './requests.mjs';
+import { createStoryFollowupService } from './story-followup.mjs';
 import { createPostmarkService } from './postmark.mjs';
 import { previewImport } from './imports.mjs';
 import {
@@ -603,6 +604,7 @@ async function api(request, response, url, {
   storyVersionsService,
   inspirationService,
   requestsService,
+  storyFollowupService,
   postmarkService,
   recordingsService,
   signAudioPlayback,
@@ -668,6 +670,10 @@ async function api(request, response, url, {
 
   const identity = await authorizeRequest(request);
 
+  if (request.method === 'POST' && url.pathname === '/api/story-followup') {
+    return sendJson(response, 503, await storyFollowupService.ask(identity, await readJson(request)));
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/consent') {
     return sendJson(response, 200, await visibilityService.read(identity));
   }
@@ -707,6 +713,18 @@ async function api(request, response, url, {
       identity,
       inspirationPinRoute[1],
       request.method === 'POST' ? (await readJson(request)).position : null,
+    ));
+  }
+  if (request.method === 'PUT' && url.pathname === '/api/inspiration/pins') {
+    return sendJson(response, 200, await inspirationService.setPins(
+      identity,
+      (await readJson(request)).promptIds,
+    ));
+  }
+  if (request.method === 'PATCH' && url.pathname === '/api/preferences/inspiration-layout') {
+    return sendJson(response, 200, await inspirationService.setLayout(
+      identity,
+      (await readJson(request)).layout,
     ));
   }
   const inspirationEventRoute = url.pathname.match(/^\/api\/inspiration\/([a-f0-9-]+)\/events$/i);
@@ -910,6 +928,50 @@ async function api(request, response, url, {
     ));
   }
 
+  if (request.method === 'GET' && url.pathname === '/api/admin/console/directory') {
+    return sendJson(response, 200, await adminConsoleService.directory(
+      identity,
+      Object.fromEntries(url.searchParams),
+    ));
+  }
+  const adminDirectoryStudentRoute = url.pathname.match(/^\/api\/admin\/console\/directory\/([a-f0-9-]+)$/i);
+  if (request.method === 'GET' && adminDirectoryStudentRoute) {
+    return sendJson(response, 200, await adminConsoleService.directoryStudent(identity, adminDirectoryStudentRoute[1]));
+  }
+  if (request.method === 'GET' && url.pathname === '/api/admin/console/saved-views') {
+    return sendJson(response, 200, await adminConsoleService.savedViews(identity));
+  }
+  if (request.method === 'POST' && url.pathname === '/api/admin/console/saved-views') {
+    return sendJson(response, 201, await adminConsoleService.saveView(identity, await readJson(request)));
+  }
+  const adminSavedViewRoute = url.pathname.match(/^\/api\/admin\/console\/saved-views\/([a-f0-9-]+)$/i);
+  if (request.method === 'DELETE' && adminSavedViewRoute) {
+    return sendJson(response, 200, await adminConsoleService.deleteView(identity, adminSavedViewRoute[1]));
+  }
+  if (request.method === 'POST' && url.pathname === '/api/admin/console/review-check') {
+    return sendJson(response, 200, await adminConsoleService.reviewCheck(identity, await readJson(request)));
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/admin/console/inspiration') {
+    return sendJson(response, 200, await inspirationService.adminList(identity, Object.fromEntries(url.searchParams)));
+  }
+  if (request.method === 'POST' && url.pathname === '/api/admin/console/inspiration/validate') {
+    return sendJson(response, 200, await inspirationService.adminValidate(identity, await readJson(request)));
+  }
+  if (request.method === 'POST' && url.pathname === '/api/admin/console/inspiration/publish') {
+    return sendJson(response, 200, await inspirationService.adminPublish(identity, await readJson(request)));
+  }
+  if (request.method === 'POST' && url.pathname === '/api/admin/console/inspiration/bulk/parse') {
+    return sendJson(response, 200, await inspirationService.adminParseBulk(identity, await readJson(request)));
+  }
+  if (request.method === 'POST' && url.pathname === '/api/admin/console/inspiration/bulk/commit') {
+    return sendJson(response, 201, await inspirationService.adminCommitBulk(identity, await readJson(request)));
+  }
+  const adminInspirationHistoryRoute = url.pathname.match(/^\/api\/admin\/console\/inspiration\/([a-f0-9-]+)\/history$/i);
+  if (request.method === 'GET' && adminInspirationHistoryRoute) {
+    return sendJson(response, 200, await inspirationService.adminHistory(identity, adminInspirationHistoryRoute[1]));
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/admin/console/students') {
     return sendJson(response, 200, await adminConsoleService.students(
       identity,
@@ -927,9 +989,11 @@ async function api(request, response, url, {
   }
 
   if (request.method === 'GET' && url.pathname === '/api/admin/console/queue') {
-    return sendJson(response, 200, await adminConsoleService.queue(
+    const query = Object.fromEntries(url.searchParams);
+    const scaled = ['q', 'session', 'sort', 'page', 'pageSize'].some((key) => url.searchParams.has(key));
+    return sendJson(response, 200, await adminConsoleService[scaled ? 'queueScaled' : 'queue'](
       identity,
-      Object.fromEntries(url.searchParams),
+      query,
     ));
   }
 
@@ -961,7 +1025,8 @@ async function api(request, response, url, {
   if (request.method === 'GET' && url.pathname === '/api/session') {
     const [
       user, voiceCapture, adminConsole, mentorNotes, mentorNotesRead, storyMedia,
-      mentorship, activityTracking, storyVersions, inspiration, requestAStory,
+      mentorship, activityTracking, storyVersions, inspiration, inspirationAdmin,
+      adminV2, requestAStory, storyFollowup,
       b1511, adminB1511,
     ] = await Promise.all([
       withIdentity(identity, async (client) => {
@@ -983,7 +1048,10 @@ async function api(request, response, url, {
       activityService.capability(identity),
       storyVersionsService.capability(identity),
       inspirationService.capability(identity),
+      inspirationService.adminCapability(identity),
+      adminConsoleService.v2Capabilities(identity),
       requestsService.capability(identity),
+      storyFollowupService.capability(identity),
       withIdentity(identity, async (client) => {
         try {
           const result = await client.query('SELECT public.sf_b1_511_capabilities() AS payload');
@@ -1027,7 +1095,12 @@ async function api(request, response, url, {
         activityTracking,
         storyVersions,
         inspiration,
+        inspirationAdmin,
+        adminDirectory: adminV2.directory === true,
+        reviewCheck: adminV2.reviewCheck === true,
+        adminReviewControls: adminV2.reviewControls === true,
         requestAStory,
+        storyFollowup,
         submissionReview: b1511.submissionReview === true,
         taxonomy: b1511.taxonomy === true || adminB1511.taxonomy === true,
         inlinePriority: b1511.inlinePriority === true,
@@ -2961,6 +3034,7 @@ export function createAppServer({
   storyVersionsService = null,
   inspirationService = null,
   requestsService = null,
+  storyFollowupService = null,
   postmarkService = null,
   auditWriter = appendAudit,
   audioPlaybackSigner = createAudioPlayback,
@@ -3012,6 +3086,7 @@ export function createAppServer({
     withServiceTransaction,
     postmark: resolvedPostmarkService,
   });
+  const resolvedStoryFollowupService = storyFollowupService || createStoryFollowupService();
   const apiRuntime = Object.freeze({
     authorizeRequest,
     auditWriter,
@@ -3027,6 +3102,7 @@ export function createAppServer({
     storyVersionsService: resolvedStoryVersionsService,
     inspirationService: resolvedInspirationService,
     requestsService: resolvedRequestsService,
+    storyFollowupService: resolvedStoryFollowupService,
     postmarkService: resolvedPostmarkService,
     recordingsService: phaseOneRuntime.recordingsService,
     signAudioPlayback: audioPlaybackSigner,

@@ -272,10 +272,8 @@ export function createInspirationService({ withIdentity, environment = process.e
     const forbidden = ['answer', 'draft', 'text', 'transcript', 'body'].some((key) => Object.hasOwn(dimensions, key));
     if (forbidden) throw new InspirationError('private_event_content', 'Private content cannot enter Inspiration analytics.');
     await client.query(
-      `INSERT INTO public.sf_inspiration_events
-        (student_id,prompt_id,session_id,event_type,dimensions,reason,input_source,length_bucket,story_id)
-       VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$9)`,
-      [identity.sub, promptId, sessionId, type, JSON.stringify(dimensions), detail.reason || null, detail.inputSource || null, detail.lengthBucket || null, detail.storyId || null],
+      'SELECT public.sf_inspiration_record_event($1,$2,$3,$4::jsonb,$5,$6,$7,$8) AS payload',
+      [promptId, sessionId, type, JSON.stringify(dimensions), detail.reason || null, detail.inputSource || null, detail.lengthBucket || null, detail.storyId || null],
     );
   }
   return Object.freeze({
@@ -332,47 +330,52 @@ export function createInspirationService({ withIdentity, environment = process.e
       if (promptText.length < 3 || promptText.length > 2000 || draft.length > 20000) throw new InspirationError('invalid_saved_inspiration', 'This Inspiration item cannot be saved.');
       return transaction(identity, async (client) => {
         const result = await client.query(
-          `INSERT INTO public.sf_inspiration_saved(student_id,prompt_id,prompt_text_snapshot,draft,kind,source)
-           VALUES(public.sf_actor_id(),$1,$2,$3,$4,$5)
-           RETURNING id,prompt_id,prompt_text_snapshot,draft,kind,source,created_at,updated_at`,
+          'SELECT public.sf_inspiration_save($1,$2,$3,$4,$5) AS payload',
           [promptId, promptText, draft, kind, input.source || 'typed'],
         );
-        return result.rows[0];
+        return result.rows[0]?.payload;
       });
     },
     async removeSaved(identity, savedId) {
       await requireEnabled(identity);
       return transaction(identity, async (client) => {
-        const result = await client.query('DELETE FROM public.sf_inspiration_saved WHERE id=$1 AND student_id=public.sf_actor_id() RETURNING id', [uuid(savedId, 'Saved item identifier')]);
-        if (!result.rowCount) throw Object.assign(new Error('not found'), { code: 'P0002' });
-        return { removed: true };
+        const result = await client.query('SELECT public.sf_inspiration_remove_saved($1) AS payload', [uuid(savedId, 'Saved item identifier')]);
+        return result.rows[0]?.payload;
       });
     },
     async setFavorite(identity, promptId, enabled) {
       await requireEnabled(identity);
       return transaction(identity, async (client) => {
-        if (enabled) await client.query('INSERT INTO public.sf_inspiration_favorites(student_id,prompt_id) VALUES(public.sf_actor_id(),$1) ON CONFLICT DO NOTHING', [uuid(promptId, 'Prompt identifier')]);
-        else await client.query('DELETE FROM public.sf_inspiration_favorites WHERE student_id=public.sf_actor_id() AND prompt_id=$1', [uuid(promptId, 'Prompt identifier')]);
-        return { favorite: enabled === true };
+        const result = await client.query('SELECT public.sf_inspiration_set_favorite($1,$2) AS payload', [uuid(promptId, 'Prompt identifier'), enabled === true]);
+        return result.rows[0]?.payload;
       });
     },
     async setPin(identity, promptId, position) {
       await requireEnabled(identity);
       if (position == null) {
         return transaction(identity, async (client) => {
-          await client.query(
-            'DELETE FROM public.sf_inspiration_pins WHERE student_id=public.sf_actor_id() AND prompt_id=$1',
-            [uuid(promptId, 'Prompt identifier')],
-          );
+          const id = uuid(promptId, 'Prompt identifier');
+          const current = await client.query('SELECT prompt_id FROM public.sf_inspiration_pins WHERE student_id=public.sf_actor_id() AND prompt_id<>$1 ORDER BY position,prompt_id', [id]);
+          await client.query('SELECT public.sf_inspiration_set_pins($1::uuid[]) AS payload', [current.rows.map((row) => row.prompt_id)]);
           return { pinned: false, position: null };
         });
       }
       const value = Number(position);
       if (!Number.isInteger(value) || value < 0 || value > 99) throw new InspirationError('invalid_pin_position', 'Pinned position is invalid.');
       return transaction(identity, async (client) => {
-        await client.query('DELETE FROM public.sf_inspiration_pins WHERE student_id=public.sf_actor_id() AND (prompt_id=$1 OR position=$2)', [uuid(promptId, 'Prompt identifier'), value]);
-        await client.query('INSERT INTO public.sf_inspiration_pins(student_id,prompt_id,position) VALUES(public.sf_actor_id(),$1,$2)', [promptId, value]);
-        return { pinned: true, position: value };
+        const id = uuid(promptId, 'Prompt identifier');
+        const active = await client.query("SELECT id FROM public.sf_inspiration_prompts WHERE id=$1 AND state='active'", [id]);
+        if (!active.rowCount) throw Object.assign(new Error('not found'), { code: 'P0002' });
+        const current = await client.query(
+          `SELECT prompt_id FROM public.sf_inspiration_pins
+            WHERE student_id=public.sf_actor_id()
+            ORDER BY position,prompt_id`,
+        );
+        const ordered = current.rows.map((row) => row.prompt_id).filter((item) => item !== id);
+        const nextPosition = Math.min(value, ordered.length);
+        ordered.splice(nextPosition, 0, id);
+        await client.query('SELECT public.sf_inspiration_set_pins($1::uuid[]) AS payload', [ordered]);
+        return { pinned: true, position: nextPosition };
       });
     },
     async setPins(identity, promptIds = []) {
@@ -383,26 +386,16 @@ export function createInspirationService({ withIdentity, environment = process.e
       const ids = promptIds.map((promptId) => uuid(promptId, 'Prompt identifier'));
       if (new Set(ids).size !== ids.length) throw new InspirationError('invalid_pin_order', 'Pinned prompts must be unique.');
       return transaction(identity, async (client) => {
-        await client.query('DELETE FROM public.sf_inspiration_pins WHERE student_id=public.sf_actor_id()');
-        for (const [position, promptId] of ids.entries()) {
-          await client.query(
-            'INSERT INTO public.sf_inspiration_pins(student_id,prompt_id,position) VALUES(public.sf_actor_id(),$1,$2)',
-            [promptId, position],
-          );
-        }
-        return { promptIds: ids };
+        const result = await client.query('SELECT public.sf_inspiration_set_pins($1::uuid[]) AS payload', [ids]);
+        return result.rows[0]?.payload;
       });
     },
     async setLayout(identity, layout) {
       await requireEnabled(identity);
       if (!['list', 'grid'].includes(layout)) throw new InspirationError('invalid_layout', 'Inspiration layout is invalid.');
       return transaction(identity, async (client) => {
-        const result = await client.query(
-          'UPDATE public.sf_users SET inspiration_layout=$1 WHERE id=public.sf_actor_id() RETURNING inspiration_layout',
-          [layout],
-        );
-        if (!result.rows[0]) throw Object.assign(new Error('not found'), { code: 'P0002' });
-        return { layout: result.rows[0].inspiration_layout };
+        const result = await client.query('SELECT public.sf_inspiration_set_layout($1) AS payload', [layout]);
+        return result.rows[0]?.payload;
       });
     },
     async adminList(identity, { query = '', state = '', who = '', domain = '', energy = '' } = {}) {
@@ -494,7 +487,13 @@ export function createInspirationService({ withIdentity, environment = process.e
       }
       const prompts = input.prompts.map((prompt) => {
         const normalized = validateAdminPromptDraft({ ...prompt, id: null }, { bulk: true });
-        return normalized.libraryKey ? normalized : { ...normalized, serverId: randomUUID() };
+        return {
+          ...normalized,
+          id: null,
+          serverId: randomUUID(),
+          state: 'retired',
+          imported: true,
+        };
       });
       const keys = prompts.map((prompt) => prompt.libraryKey).filter(Boolean);
       if (new Set(keys).size !== keys.length) throw new InspirationError('invalid_bulk_import', 'Bulk import contains duplicate stable keys.');

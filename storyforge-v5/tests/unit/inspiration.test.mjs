@@ -46,7 +46,7 @@ test('next records only content-free dimensions', async () => {
   } });
   const result = await subject.next(identity, { who: 'you', domain: 'personal', energy: 'light', sessionId, excludeIds: [] });
   assert.equal(result.prompt.id, promptId);
-  const event = calls.find((call) => call.sql.includes('sf_inspiration_events'));
+  const event = calls.find((call) => call.sql.includes('sf_inspiration_record_event'));
   assert.ok(event);
   assert.doesNotMatch(JSON.stringify(event.values), /A prompt long enough/);
 });
@@ -62,11 +62,12 @@ test('save is bounded and remove remains owner scoped', async () => {
   let captured;
   const subject = service({ query: async (sql, values) => {
     captured = { sql, values };
-    return { rows: [{ id: 'saved' }], rowCount: 1 };
+    if (sql.includes('sf_inspiration_save')) return { rows: [{ payload: { id: 'saved' } }], rowCount: 1 };
+    return { rows: [{ payload: { removed: true } }], rowCount: 1 };
   } });
   await subject.save(identity, { promptId, promptText: 'A safe prompt snapshot', draft: 'draft', kind: 'saved' });
-  assert.match(captured.sql, /sf_inspiration_saved/);
+  assert.match(captured.sql, /sf_inspiration_save/);
   await subject.removeSaved(identity, '55555555-5555-4555-8555-555555555555');
-  assert.match(captured.sql, /student_id=public\.sf_actor_id/);
+  assert.match(captured.sql, /sf_inspiration_remove_saved/);
   await assert.rejects(() => subject.save(identity, { promptText: 'x', draft: '' }), /cannot be saved/);
 });

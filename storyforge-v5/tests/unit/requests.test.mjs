@@ -13,11 +13,11 @@ test('Postmark uses triple gating and never treats send acceptance as delivery',
 
 test('canonical contributor library is stable, unique, and complete',async()=>{const source=JSON.parse(await readFile(new URL('../../content/contributor-prompts.json',import.meta.url),'utf8'));const first=normalizeContributorLibrary(source);assert.equal(first.length,48);assert.equal(new Set(first.map((item)=>item.id)).size,48);assert.equal(new Set(first.flatMap((item)=>item.relationships)).size,13);assert.deepEqual(first,normalizeContributorLibrary(source));});
 
-function service({environment={},identityQuery,serviceQuery,postmark}={}){const env={STORYFORGE_REQUEST_A_STORY_FORCE_OFF:'0',STORYFORGE_GUEST_CONTRIBUTIONS_FORCE_OFF:'0',STORYFORGE_GUEST_DISCLOSURE_VERSION:'founder-v1',STORYFORGE_PUBLIC_URL:'https://example.test/storyforge',...environment};return createRequestsService({environment:env,postmark:postmark||{send:async()=>({accepted:true,dryRun:false,providerMessageId:'provider-1'})},withIdentity:async(_identity,operation)=>operation({query:identityQuery|| (async(sql)=>sql.includes('sf_story_feature_enabled')?{rows:[{enabled:true}]}:{rows:[],rowCount:1})}),withServiceTransaction:async(operation)=>operation({query:serviceQuery|| (async(sql)=>sql.includes("key='guest_contributions'")?{rows:[{enabled:true}]}:{rows:[],rowCount:1})})});}
+function service({environment={},identityQuery,serviceQuery,postmark}={}){const env={STORYFORGE_REQUEST_A_STORY_FORCE_OFF:'0',STORYFORGE_GUEST_FORCE_OFF:'0',STORYFORGE_GUEST_CONTRIBUTIONS_FORCE_OFF:'0',STORYFORGE_GUEST_DISCLOSURE_VERSION:'founder-v1',STORYFORGE_PUBLIC_URL:'https://example.test/storyforge',...environment};return createRequestsService({environment:env,postmark:postmark||{send:async()=>({accepted:true,dryRun:false,providerMessageId:'provider-1'})},withIdentity:async(_identity,operation)=>operation({query:identityQuery|| (async(sql)=>sql.includes('sf_story_feature_enabled')?{rows:[{enabled:true}]}:{rows:[],rowCount:1})}),withServiceTransaction:async(operation)=>operation({query:serviceQuery|| (async(sql)=>sql.includes("key='guest_contributions'")?{rows:[{enabled:true}]}:{rows:[],rowCount:1})})});}
 
 test('Request a Story defaults closed and remains student-only',async()=>{assert.equal(await service({environment:{STORYFORGE_REQUEST_A_STORY_FORCE_OFF:'1'}}).capability(identity),false);assert.equal(await service().capability(identity),true);assert.equal(await service().capability({...identity,role:'mentor'}),false);});
 
-test('student create validates governed relationship and never returns raw email',async()=>{let inserted;const subject=service({identityQuery:async(sql,values)=>{if(sql.includes('sf_story_feature_enabled'))return{rows:[{enabled:true}]};if(sql.includes('INSERT INTO public.sf_story_invitations')){inserted=values;return{rows:[{id:promptId,contributor_first_name:'Sam',relationship_id:'parent',email:'sam@example.com',status:'draft',personal_message:'Hello',disclosure_version:'founder-v1',reminders_sent:0,row_version:'0'}]};}return{rows:[]};}});const result=await subject.create(identity,{recipientFirstName:'Sam',relationship:'parent',email:'sam@example.com',personalMessage:'Hello'});assert.equal(result.maskedEmail,'s***@example.com');assert.equal(JSON.stringify(result).includes('sam@example.com'),false);assert.equal(inserted[1],'parent');await assert.rejects(()=>subject.create(identity,{recipientFirstName:'Sam',relationship:'stranger',email:'sam@example.com'}),RequestsError);});
+test('student create validates governed relationship and never returns raw email',async()=>{let inserted;const subject=service({identityQuery:async(sql,values)=>{if(sql.includes('sf_story_feature_enabled'))return{rows:[{enabled:true}]};if(sql.includes('sf_request_create')){inserted=values;return{rows:[{payload:{id:promptId,contributor_first_name:'Sam',relationship_id:'parent',email:'sam@example.com',status:'draft',personal_message:'Hello',disclosure_version:'founder-v1',reminders_sent:0,row_version:'0'}}]};}return{rows:[]};}});const result=await subject.create(identity,{recipientFirstName:'Sam',relationship:'parent',email:'sam@example.com',personalMessage:'Hello'});assert.equal(result.maskedEmail,'s***@example.com');assert.equal(JSON.stringify(result).includes('sam@example.com'),false);assert.equal(inserted[1],'parent');await assert.rejects(()=>subject.create(identity,{recipientFirstName:'Sam',relationship:'stranger',email:'sam@example.com'}),RequestsError);});
 
 test('guest token errors are uniform and malformed tokens never reach storage',async()=>{let calls=0;const subject=service({serviceQuery:async(sql)=>{calls+=1;if(sql.includes("key='guest_contributions'"))return{rows:[{enabled:true}]};return{rows:[]};}});await assert.rejects(()=>subject.guestView('not-a-token'),(error)=>error.code==='invitation_not_found'&&error.status===404);assert.equal(calls,1);});
 
@@ -28,15 +28,14 @@ test('provider webhooks are idempotent and cannot demote a completed invitation'
   const subject = service({
     serviceQuery: async (sql, values) => {
       queries.push({ sql, values });
-      if (sql.includes('WHERE provider_message_id')) return { rows: [{ id: promptId, status: 'story_shared' }] };
-      if (sql.includes('INSERT INTO public.sf_story_invitation_events')) return { rows: [{ id: '1' }], rowCount: 1 };
+      if (sql.includes('sf_request_provider_event')) return { rows: [{ payload: { accepted: true } }] };
       return { rows: [], rowCount: 1 };
     },
   });
   assert.deepEqual(await subject.processWebhook({
     RecordType: 'Delivery', MessageID: 'provider-1', DeliveredAt: '2026-08-10T12:00:00Z',
   }), { accepted: true });
-  const update = queries.find(({ sql }) => sql.includes('delivered_at=coalesce'));
-  assert.match(update.sql, /CASE WHEN status='sent' THEN 'delivered' ELSE status END/);
+  const update = queries.find(({ sql }) => sql.includes('sf_request_provider_event'));
+  assert.match(update.sql, /sf_request_provider_event/);
   assert.equal(JSON.stringify(queries).includes('@'), false);
 });

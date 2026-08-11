@@ -131,58 +131,37 @@ FOR SELECT TO authenticated USING (
 );
 
 CREATE POLICY sf_story_invitations_owner ON public.sf_story_invitations
-FOR ALL TO authenticated
+FOR SELECT TO authenticated
 USING (
-  student_id = public.sf_actor_id()
-  AND public.sf_story_feature_enabled('request_a_story', ARRAY['student'])
-)
-WITH CHECK (
   student_id = public.sf_actor_id()
   AND public.sf_story_feature_enabled('request_a_story', ARRAY['student'])
 );
 CREATE POLICY sf_story_invitations_service ON public.sf_story_invitations
 FOR SELECT TO storyforge_app USING (true);
-CREATE POLICY sf_story_invitations_service_update ON public.sf_story_invitations
-FOR UPDATE TO storyforge_app USING (true) WITH CHECK (true);
 
 CREATE POLICY sf_story_invitation_events_owner_read ON public.sf_story_invitation_events
 FOR SELECT TO authenticated USING (EXISTS (
   SELECT 1 FROM public.sf_story_invitations invitation
   WHERE invitation.id=invitation_id AND invitation.student_id=public.sf_actor_id()
 ));
-CREATE POLICY sf_story_invitation_events_owner_insert ON public.sf_story_invitation_events
-FOR INSERT TO authenticated WITH CHECK (EXISTS (
-  SELECT 1 FROM public.sf_story_invitations invitation
-  WHERE invitation.id=invitation_id AND invitation.student_id=public.sf_actor_id()
-));
-CREATE POLICY sf_story_invitation_events_service ON public.sf_story_invitation_events
-FOR ALL TO storyforge_app USING (true) WITH CHECK (true);
+CREATE POLICY sf_story_invitation_events_service_read ON public.sf_story_invitation_events
+FOR SELECT TO storyforge_app USING (true);
 
 CREATE POLICY sf_story_contributions_owner ON public.sf_story_contributions
 FOR SELECT TO authenticated USING (EXISTS (
   SELECT 1 FROM public.sf_story_invitations invitation
   WHERE invitation.id=invitation_id AND invitation.student_id=public.sf_actor_id()
 ));
-CREATE POLICY sf_story_contributions_owner_update ON public.sf_story_contributions
-FOR UPDATE TO authenticated USING (EXISTS (
-  SELECT 1 FROM public.sf_story_invitations invitation
-  WHERE invitation.id=invitation_id AND invitation.student_id=public.sf_actor_id()
-)) WITH CHECK (EXISTS (
-  SELECT 1 FROM public.sf_story_invitations invitation
-  WHERE invitation.id=invitation_id AND invitation.student_id=public.sf_actor_id()
-));
-CREATE POLICY sf_story_contributions_service ON public.sf_story_contributions
-FOR ALL TO storyforge_app USING (true) WITH CHECK (true);
+CREATE POLICY sf_story_contributions_service_read ON public.sf_story_contributions
+FOR SELECT TO storyforge_app USING (true);
 
 CREATE POLICY sf_contribution_audio_owner_read ON public.sf_contribution_audio_assets
 FOR SELECT TO authenticated USING (EXISTS (
   SELECT 1 FROM public.sf_story_invitations invitation
   WHERE invitation.id=invitation_id AND invitation.student_id=public.sf_actor_id()
 ));
-CREATE POLICY sf_contribution_audio_service ON public.sf_contribution_audio_assets
-FOR ALL TO storyforge_app USING (true) WITH CHECK (true);
-CREATE POLICY sf_guest_rate_service ON public.sf_guest_rate_limits
-FOR ALL TO storyforge_app USING (true) WITH CHECK (true);
+CREATE POLICY sf_contribution_audio_service_read ON public.sf_contribution_audio_assets
+FOR SELECT TO storyforge_app USING (true);
 
 REVOKE ALL ON public.sf_contributor_prompts FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.sf_story_invitations FROM PUBLIC, anon, authenticated;
@@ -191,15 +170,135 @@ REVOKE ALL ON public.sf_story_contributions FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.sf_contribution_audio_assets FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.sf_guest_rate_limits FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.sf_contributor_prompts TO authenticated, storyforge_app;
-GRANT SELECT, INSERT, UPDATE ON public.sf_story_invitations TO authenticated;
-GRANT SELECT, INSERT ON public.sf_story_invitation_events TO authenticated;
-GRANT SELECT, UPDATE ON public.sf_story_contributions TO authenticated;
+GRANT SELECT ON public.sf_story_invitations TO authenticated;
+GRANT SELECT ON public.sf_story_invitation_events TO authenticated;
+GRANT SELECT ON public.sf_story_contributions TO authenticated;
 GRANT SELECT ON public.sf_contribution_audio_assets TO authenticated;
-GRANT SELECT, UPDATE ON public.sf_story_invitations TO storyforge_app;
-GRANT SELECT, INSERT ON public.sf_story_invitation_events TO storyforge_app;
-GRANT SELECT, INSERT, UPDATE ON public.sf_story_contributions TO storyforge_app;
-GRANT SELECT, INSERT, UPDATE ON public.sf_contribution_audio_assets TO storyforge_app;
-GRANT SELECT, INSERT, UPDATE ON public.sf_guest_rate_limits TO storyforge_app;
+GRANT SELECT ON public.sf_story_invitations, public.sf_story_invitation_events,
+  public.sf_story_contributions, public.sf_contribution_audio_assets,
+  public.sf_guest_rate_limits TO storyforge_app;
+
+CREATE OR REPLACE FUNCTION public.sf_request_assert_student()
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v_actor uuid:=public.sf_actor_id();
+BEGIN
+  IF v_actor IS NULL OR public.sf_actor_role()<>'student'
+     OR NOT public.sf_story_feature_enabled('request_a_story',ARRAY['student']) THEN
+    RAISE EXCEPTION 'request a story disabled' USING ERRCODE='42501';
+  END IF;
+  RETURN v_actor;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.sf_request_create(p_first text,p_relationship text,p_email text,p_message text,p_disclosure text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v_actor uuid:=public.sf_request_assert_student(); v_row public.sf_story_invitations;
+BEGIN
+  INSERT INTO public.sf_story_invitations(student_id,contributor_first_name,relationship_id,email,personal_message,disclosure_version)
+  VALUES(v_actor,p_first,p_relationship,p_email,p_message,p_disclosure) RETURNING * INTO v_row;
+  INSERT INTO public.sf_story_invitation_events(invitation_id,event_type) VALUES(v_row.id,'created');
+  RETURN to_jsonb(v_row);
+END $$;
+
+CREATE OR REPLACE FUNCTION public.sf_request_mark_sent(p_id uuid,p_expected bigint,p_token_hash text,p_provider_id text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v_actor uuid:=public.sf_request_assert_student(); v_row public.sf_story_invitations;
+BEGIN
+  UPDATE public.sf_story_invitations SET token_hash=p_token_hash,status='sent',provider_message_id=p_provider_id,
+    sent_at=now(),row_version=row_version+1,updated_at=now()
+  WHERE id=p_id AND student_id=v_actor AND status='draft' AND row_version=p_expected RETURNING * INTO v_row;
+  IF NOT FOUND THEN RAISE EXCEPTION 'invitation conflict' USING ERRCODE='40001'; END IF;
+  INSERT INTO public.sf_story_invitation_events(invitation_id,event_type) VALUES(v_row.id,'sent');
+  RETURN to_jsonb(v_row);
+END $$;
+
+CREATE OR REPLACE FUNCTION public.sf_request_revoke(p_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v_actor uuid:=public.sf_request_assert_student(); v_row public.sf_story_invitations;
+BEGIN
+  UPDATE public.sf_story_invitations SET status='revoked',revoked_at=now(),token_hash=NULL,
+    row_version=row_version+1,updated_at=now() WHERE id=p_id AND student_id=v_actor AND revoked_at IS NULL RETURNING * INTO v_row;
+  IF NOT FOUND THEN RAISE EXCEPTION 'invitation not found' USING ERRCODE='P0002'; END IF;
+  INSERT INTO public.sf_story_invitation_events(invitation_id,event_type) VALUES(v_row.id,'revoked');
+  RETURN to_jsonb(v_row);
+END $$;
+
+CREATE OR REPLACE FUNCTION public.sf_request_set_contribution_state(p_id uuid,p_state text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v_actor uuid:=public.sf_request_assert_student(); v_row public.sf_story_contributions;
+BEGIN
+  UPDATE public.sf_story_contributions c SET state=p_state,updated_at=now() FROM public.sf_story_invitations i
+  WHERE c.id=p_id AND i.id=c.invitation_id AND i.student_id=v_actor AND c.state<>'promoted' RETURNING c.* INTO v_row;
+  IF NOT FOUND THEN RAISE EXCEPTION 'contribution not found' USING ERRCODE='P0002'; END IF;
+  RETURN jsonb_build_object('id',v_row.id,'state',v_row.state);
+END $$;
+
+CREATE OR REPLACE FUNCTION public.sf_request_promote(p_id uuid,p_title text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v_actor uuid:=public.sf_request_assert_student(); v_contribution record; v_story record;
+BEGIN
+  SELECT c.*,i.contributor_first_name,i.relationship_id INTO v_contribution FROM public.sf_story_contributions c
+  JOIN public.sf_story_invitations i ON i.id=c.invitation_id WHERE c.id=p_id AND i.student_id=v_actor FOR UPDATE OF c;
+  IF NOT FOUND THEN RAISE EXCEPTION 'contribution not found' USING ERRCODE='P0002'; END IF;
+  IF v_contribution.state='promoted' THEN RETURN jsonb_build_object('storyId',v_contribution.promoted_story_id,'existing',true); END IF;
+  SELECT * INTO v_story FROM public.sf_create_story_v5(jsonb_build_object('title',p_title,'text',v_contribution.transcript,'captureType','imported','prefixEnabled',false),'library');
+  UPDATE public.sf_stories SET visibility='private',visibility_changed_at=NULL,
+    origin=jsonb_build_object('type','contribution','contributionId',v_contribution.id::text,'relationship',v_contribution.relationship_id,'contributorFirstName',v_contribution.contributor_first_name),updated_at=now() WHERE id=v_story.id;
+  UPDATE public.sf_story_contributions SET state='promoted',promoted_story_id=v_story.id,promoted_at=now(),updated_at=now() WHERE id=v_contribution.id;
+  INSERT INTO public.sf_authored_segments(story_id,source_role,source_entity_type,source_entity_id,body_hash,author_id)
+  VALUES(v_story.id,'guest_contributor','contribution',v_contribution.id,encode(digest(convert_to(v_contribution.transcript,'UTF8'),'sha256'),'hex'),v_actor);
+  RETURN jsonb_build_object('storyId',v_story.id,'existing',false,'visibility','private');
+END $$;
+
+CREATE OR REPLACE FUNCTION public.sf_guest_rate_hit(p_scope_hash text,p_bucket timestamptz)
+RETURNS integer LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v_attempts integer;
+BEGIN
+  INSERT INTO public.sf_guest_rate_limits(scope_hash,bucket_started_at,attempts) VALUES(p_scope_hash,p_bucket,1)
+  ON CONFLICT(scope_hash,bucket_started_at) DO UPDATE SET attempts=sf_guest_rate_limits.attempts+1,updated_at=now() RETURNING attempts INTO v_attempts;
+  RETURN v_attempts;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.sf_guest_mark_visited(p_id uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+BEGIN
+  UPDATE public.sf_story_invitations SET link_visited_at=coalesce(link_visited_at,now()),status=CASE WHEN status IN('sent','delivered') THEN 'link_visited' ELSE status END,updated_at=now() WHERE id=p_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'invitation not found' USING ERRCODE='P0002'; END IF;
+  INSERT INTO public.sf_story_invitation_events(invitation_id,event_type) SELECT p_id,'link_visited'
+  WHERE NOT EXISTS(SELECT 1 FROM public.sf_story_invitation_events WHERE invitation_id=p_id AND event_type='link_visited');
+END $$;
+
+CREATE OR REPLACE FUNCTION public.sf_guest_contribute(p_invitation uuid,p_kind text,p_transcript text,p_prompt uuid,p_snapshot text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v_row public.sf_story_contributions;
+BEGIN
+  IF (SELECT count(*) FROM public.sf_story_contributions WHERE invitation_id=p_invitation)>=3 THEN RAISE EXCEPTION 'invitation complete' USING ERRCODE='P0003'; END IF;
+  INSERT INTO public.sf_story_contributions(invitation_id,kind,transcript,prompt_id,prompt_text_snapshot)
+  VALUES(p_invitation,p_kind,p_transcript,p_prompt,p_snapshot) RETURNING * INTO v_row;
+  UPDATE public.sf_story_invitations SET status='story_shared',started_at=coalesce(started_at,now()),contributed_at=now(),updated_at=now() WHERE id=p_invitation;
+  INSERT INTO public.sf_story_invitation_events(invitation_id,event_type) VALUES(p_invitation,'story_shared');
+  RETURN jsonb_build_object('id',v_row.id,'kind',v_row.kind,'state',v_row.state,'submitted_at',v_row.submitted_at);
+END $$;
+
+CREATE OR REPLACE FUNCTION public.sf_request_provider_event(p_message_id text,p_type text,p_event_id text,p_occurred timestamptz,p_reason text)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v_invitation public.sf_story_invitations; v_inserted bigint;
+BEGIN
+  SELECT * INTO v_invitation FROM public.sf_story_invitations WHERE provider_message_id=p_message_id FOR UPDATE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('accepted',true); END IF;
+  INSERT INTO public.sf_story_invitation_events(invitation_id,event_type,provider_event_id,detail,created_at)
+  VALUES(v_invitation.id,p_type,p_event_id,'{}',p_occurred) ON CONFLICT(provider_event_id) DO NOTHING RETURNING id INTO v_inserted;
+  IF v_inserted IS NULL THEN RETURN jsonb_build_object('accepted',true,'duplicate',true); END IF;
+  IF p_type='delivered' THEN UPDATE public.sf_story_invitations SET delivered_at=coalesce(delivered_at,p_occurred),status=CASE WHEN status='sent' THEN 'delivered' ELSE status END,updated_at=now() WHERE id=v_invitation.id;
+  ELSIF p_type='opened_approximate' THEN UPDATE public.sf_story_invitations SET opened_at=coalesce(opened_at,p_occurred),updated_at=now() WHERE id=v_invitation.id;
+  ELSE UPDATE public.sf_story_invitations SET bounced_at=coalesce(bounced_at,p_occurred),bounce_reason=coalesce(bounce_reason,p_reason),status=CASE WHEN status IN('sent','delivered') THEN 'bounced' ELSE status END,updated_at=now() WHERE id=v_invitation.id; END IF;
+  RETURN jsonb_build_object('accepted',true);
+END $$;
+
+REVOKE ALL ON FUNCTION public.sf_request_assert_student() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.sf_request_create(text,text,text,text,text), public.sf_request_mark_sent(uuid,bigint,text,text), public.sf_request_revoke(uuid), public.sf_request_set_contribution_state(uuid,text), public.sf_request_promote(uuid,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.sf_request_create(text,text,text,text,text), public.sf_request_mark_sent(uuid,bigint,text,text), public.sf_request_revoke(uuid), public.sf_request_set_contribution_state(uuid,text), public.sf_request_promote(uuid,text) TO authenticated;
+REVOKE ALL ON FUNCTION public.sf_guest_rate_hit(text,timestamptz), public.sf_guest_mark_visited(uuid), public.sf_guest_contribute(uuid,text,text,uuid,text), public.sf_request_provider_event(text,text,text,timestamptz,text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.sf_guest_rate_hit(text,timestamptz), public.sf_guest_mark_visited(uuid), public.sf_guest_contribute(uuid,text,text,uuid,text), public.sf_request_provider_event(text,text,text,timestamptz,text) TO storyforge_app;
 
 INSERT INTO public.sf_feature_flags (key, scope, allowlist, cohorts, updated_by)
 SELECT feature.key, 'off', ARRAY[]::uuid[], ARRAY[]::text[], founder.updated_by

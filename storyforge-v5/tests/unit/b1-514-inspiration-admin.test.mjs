@@ -119,14 +119,16 @@ test('new single and bulk prompts receive server-generated UUIDs before bounded 
   assert.match(rpcPayloads[1].serverId, /^[a-f0-9-]{36}$/);
 });
 
-test('pin order replaces only the signed student pins and layout stays enum bounded', async () => {
-  const observed = subject({ query: async (sql) => {
-    if (sql.includes('UPDATE public.sf_users')) return { rows: [{ inspiration_layout: 'grid' }] };
+test('pin order mutates only through bounded RPCs and layout stays enum bounded', async () => {
+  const observed = subject({ query: async (sql, values) => {
+    if (sql.includes('sf_inspiration_set_layout')) return { rows: [{ payload: { layout: values[0] } }] };
+    if (sql.includes('sf_inspiration_set_pins')) return { rows: [{ payload: { promptIds: values[0] } }] };
     return { rows: [], rowCount: 1 };
   } });
   const student = { sub: studentId, role: 'student', eligible: true };
   await observed.service.setPins(student, [promptId]);
-  assert.equal(observed.calls.some((call) => call.sql.includes('DELETE FROM public.sf_inspiration_pins WHERE student_id=public.sf_actor_id()')), true);
+  assert.equal(observed.calls.some((call) => call.sql.includes('sf_inspiration_set_pins')), true);
+  assert.equal(observed.calls.some((call) => /\b(?:INSERT|UPDATE|DELETE)\b/u.test(call.sql)), false);
   assert.equal((await observed.service.setLayout(student, 'grid')).layout, 'grid');
   await assert.rejects(() => observed.service.setPins(student, [promptId, promptId]), /unique/);
   await assert.rejects(() => observed.service.setLayout(student, 'gallery'), /invalid/);

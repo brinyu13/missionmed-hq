@@ -72,6 +72,32 @@ CREATE TABLE public.sf_activity_counters (
   CHECK (first_at >= available_from)
 );
 
+CREATE TABLE public.sf_admin_saved_views (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_id uuid NOT NULL REFERENCES public.sf_users(id) ON DELETE RESTRICT,
+  label text NOT NULL CHECK (length(btrim(label)) BETWEEN 1 AND 80),
+  state jsonb NOT NULL CHECK (
+    jsonb_typeof(state) = 'object'
+    AND state - ARRAY['filter','session','sort'] = '{}'::jsonb
+  ),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (admin_id, label)
+);
+
+CREATE TABLE public.sf_review_checks (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id uuid NOT NULL REFERENCES public.sf_users(id) ON DELETE RESTRICT,
+  sent_by uuid NOT NULL REFERENCES public.sf_users(id) ON DELETE RESTRICT,
+  body text NOT NULL CHECK (length(btrim(body)) BETWEEN 1 AND 2000),
+  notification_id uuid NOT NULL UNIQUE REFERENCES public.sf_notifications(id) ON DELETE RESTRICT,
+  audit_event_id bigint NOT NULL UNIQUE REFERENCES public.sf_audit_events(id) ON DELETE RESTRICT,
+  sent_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX sf_review_checks_student_sent_idx
+  ON public.sf_review_checks (student_id, sent_at DESC, id DESC);
+
 ALTER TABLE public.sf_mentorship_consent ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sf_mentorship_consent FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.sf_activity_config ENABLE ROW LEVEL SECURITY;
@@ -80,6 +106,10 @@ ALTER TABLE public.sf_activity_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sf_activity_sessions FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.sf_activity_counters ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sf_activity_counters FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.sf_admin_saved_views ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sf_admin_saved_views FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.sf_review_checks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sf_review_checks FORCE ROW LEVEL SECURITY;
 
 CREATE POLICY sf_mentorship_consent_owner_read
 ON public.sf_mentorship_consent
@@ -92,13 +122,19 @@ USING (
 REVOKE ALL ON TABLE public.sf_mentorship_consent,
   public.sf_activity_config,
   public.sf_activity_sessions,
-  public.sf_activity_counters
+  public.sf_activity_counters,
+  public.sf_admin_saved_views,
+  public.sf_review_checks
   FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON TABLE public.sf_mentorship_consent TO authenticated;
 
 INSERT INTO public.sf_feature_flags (key, scope, allowlist, cohorts, updated_by)
 SELECT feature.key, 'off', '{}'::uuid[], '{}'::text[], founder.updated_by
-FROM (VALUES ('visibility_consent'), ('activity_tracking')) AS feature(key)
+FROM (VALUES
+  ('visibility_consent'), ('activity_tracking'), ('admin_directory'),
+  ('review_check'), ('admin_review_controls'), ('library_refined_rows'),
+  ('admin_mirror'), ('avatar_identity')
+) AS feature(key)
 CROSS JOIN (
   SELECT updated_by
   FROM public.sf_feature_flags
@@ -589,7 +625,11 @@ DECLARE
 BEGIN
   PERFORM public.sf_admin_assert_enabled();
 
-  IF p_key NOT IN ('visibility_consent', 'activity_tracking') THEN
+  IF p_key NOT IN (
+    'visibility_consent', 'activity_tracking', 'admin_directory',
+    'review_check', 'admin_review_controls', 'library_refined_rows',
+    'admin_mirror', 'avatar_identity'
+  ) THEN
     RAISE EXCEPTION 'unsupported B1-514 feature flag' USING ERRCODE = '22023';
   END IF;
   IF p_scope NOT IN ('off', 'allowlist', 'cohort', 'eligible_all') THEN
@@ -672,6 +712,220 @@ BEGIN
   );
 END
 $$;
+
+CREATE OR REPLACE FUNCTION public.sf_b1_514_admin_feature_enabled(
+  p_key text,
+  p_student_id uuid DEFAULT NULL
+)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_enabled boolean;
+BEGIN
+  PERFORM public.sf_admin_assert_enabled();
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.sf_feature_flags flag
+    LEFT JOIN public.sf_users student ON student.id = p_student_id
+    WHERE flag.key = p_key
+      AND (
+        (p_student_id IS NULL AND flag.scope <> 'off')
+        OR flag.scope = 'eligible_all'
+        OR (flag.scope = 'allowlist' AND p_student_id = ANY(flag.allowlist))
+        OR (
+          flag.scope = 'cohort'
+          AND student.cohort IS NOT NULL
+          AND student.cohort = ANY(flag.cohorts)
+        )
+      )
+  ) INTO v_enabled;
+  RETURN v_enabled;
+END
+$$;
+
+CREATE OR REPLACE FUNCTION public.sf_admin_directory(
+  p_query text DEFAULT '',
+  p_filter text DEFAULT 'all',
+  p_session text DEFAULT '',
+  p_sort text DEFAULT 'attention',
+  p_page integer DEFAULT 1,
+  p_page_size integer DEFAULT 25
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE v_payload jsonb;
+BEGIN
+  IF NOT public.sf_b1_514_admin_feature_enabled('admin_directory') THEN
+    RAISE EXCEPTION 'administrator directory is disabled' USING ERRCODE='42501';
+  END IF;
+  IF p_filter NOT IN ('all','awaiting','needs_review','never_active','never_started','needs_nudge','progressing','changes','warnings','inactive_7','inactive_30')
+    OR p_sort NOT IN ('attention','name','recent','quiet','stories')
+    OR p_page < 1 OR p_page > 1000000 OR p_page_size < 1 OR p_page_size > 50
+    OR length(p_query) > 120 OR length(p_session) > 80 THEN
+    RAISE EXCEPTION 'invalid administrator directory query' USING ERRCODE='22023';
+  END IF;
+
+  WITH population AS (
+    SELECT student.id,student.wp_user_id,student.display_name,student.first_name,
+      student.cohort,student.academic_year,student.specialty,student.application_cycle,
+      count(story.id)::integer AS story_count,
+      count(story.id) FILTER (WHERE story.status='private' AND coalesce(story.visibility,'private')='private')::integer AS private_count,
+      count(story.id) FILTER (WHERE story.visibility='mentor_visible')::integer AS mentor_visible_count,
+      count(story.id) FILTER (WHERE story.status='awaiting')::integer AS awaiting_count,
+      count(story.id) FILTER (WHERE story.status='in_review')::integer AS in_review_count,
+      count(story.id) FILTER (WHERE story.status='changes')::integer AS changes_count,
+      count(story.id) FILTER (WHERE story.status='reviewed')::integer AS reviewed_count,
+      count(story.id) FILTER (WHERE story.status='approved')::integer AS approved_count,
+      max(story.updated_at) AS last_story_at,
+      (SELECT max(session.last_beat_at) FROM public.sf_activity_sessions session WHERE session.user_id=student.id) AS last_activity_at,
+      (SELECT max(checks.sent_at) FROM public.sf_review_checks checks WHERE checks.student_id=student.id) AS last_review_check_at
+    FROM public.sf_users student
+    LEFT JOIN public.sf_stories story ON story.student_id=student.id AND story.archived_at IS NULL
+    WHERE student.role='student' AND student.eligible
+      AND (p_query='' OR student.display_name ILIKE '%'||p_query||'%' OR coalesce(student.first_name,'') ILIKE '%'||p_query||'%' OR student.wp_user_id::text=p_query)
+      AND (p_session='' OR coalesce(student.cohort,'')=p_session)
+    GROUP BY student.id
+  ), filtered AS (
+    SELECT * FROM population
+    WHERE p_filter='all'
+      OR (p_filter IN ('awaiting','needs_review') AND awaiting_count>0)
+      OR (p_filter IN ('never_active','never_started') AND last_activity_at IS NULL AND story_count=0)
+      OR (p_filter='needs_nudge' AND coalesce(last_activity_at,last_story_at) < now()-interval '7 days')
+      OR (p_filter='progressing' AND coalesce(last_activity_at,last_story_at) >= now()-interval '7 days')
+      OR (p_filter='changes' AND changes_count>0)
+      OR (p_filter='warnings' AND (story_count=0 OR coalesce(last_activity_at,last_story_at) < now()-interval '30 days'))
+      OR (p_filter='inactive_7' AND coalesce(last_activity_at,last_story_at) < now()-interval '7 days')
+      OR (p_filter='inactive_30' AND coalesce(last_activity_at,last_story_at) < now()-interval '30 days')
+  ), ranked AS (
+    SELECT *,count(*) OVER()::integer AS total
+    FROM filtered
+    ORDER BY
+      CASE WHEN p_sort='attention' THEN awaiting_count+changes_count END DESC,
+      CASE WHEN p_sort='name' THEN lower(display_name) END ASC,
+      CASE WHEN p_sort='recent' THEN coalesce(last_activity_at,last_story_at) END DESC NULLS LAST,
+      CASE WHEN p_sort='quiet' THEN coalesce(last_activity_at,last_story_at) END ASC NULLS FIRST,
+      CASE WHEN p_sort='stories' THEN story_count END DESC,
+      lower(display_name),id
+    OFFSET (p_page-1)*p_page_size LIMIT p_page_size
+  )
+  SELECT jsonb_build_object(
+    'students',coalesce(jsonb_agg(jsonb_build_object(
+      'id',id,'wpUserId',wp_user_id,'displayName',display_name,'firstName',first_name,
+      'cohort',cohort,'academicYear',academic_year,'specialty',specialty,'applicationCycle',application_cycle,
+      'storyCount',story_count,'privateCount',private_count,'mentorVisibleCount',mentor_visible_count,
+      'awaitingReview',awaiting_count,'inReview',in_review_count,'changesRequested',changes_count,
+      'reviewed',reviewed_count,'approved',approved_count,'lastStoryAt',last_story_at,
+      'lastActivityAt',last_activity_at,'lastReviewCheckAt',last_review_check_at
+    )), '[]'::jsonb),
+    'total',coalesce(max(total),0),'page',p_page,'pageSize',p_page_size,
+    'boundaries',jsonb_build_object('activityFrom',(SELECT activated_at FROM public.sf_activity_config WHERE key='activity_tracking'))
+  ) INTO v_payload FROM ranked;
+  RETURN v_payload;
+END
+$$;
+
+CREATE OR REPLACE FUNCTION public.sf_admin_directory_student(p_student_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE v_payload jsonb;
+BEGIN
+  IF NOT public.sf_b1_514_admin_feature_enabled('admin_directory',p_student_id) THEN
+    RAISE EXCEPTION 'student not found' USING ERRCODE='P0002';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.sf_users WHERE id=p_student_id AND role='student' AND eligible) THEN
+    RAISE EXCEPTION 'student not found' USING ERRCODE='P0002';
+  END IF;
+  SELECT jsonb_build_object(
+    'student',jsonb_build_object('id',student.id,'wpUserId',student.wp_user_id,'displayName',student.display_name,'firstName',student.first_name,'cohort',student.cohort,'academicYear',student.academic_year,'specialty',student.specialty,'applicationCycle',student.application_cycle),
+    'counts',jsonb_build_object(
+      'total',(SELECT count(*) FROM public.sf_stories s WHERE s.student_id=student.id AND s.archived_at IS NULL),
+      'private',(SELECT count(*) FROM public.sf_stories s WHERE s.student_id=student.id AND s.archived_at IS NULL AND s.status='private' AND coalesce(s.visibility,'private')='private'),
+      'mentorVisible',(SELECT count(*) FROM public.sf_stories s WHERE s.student_id=student.id AND s.archived_at IS NULL AND s.visibility='mentor_visible'),
+      'awaiting',(SELECT count(*) FROM public.sf_stories s WHERE s.student_id=student.id AND s.status='awaiting' AND s.archived_at IS NULL),
+      'approved',(SELECT count(*) FROM public.sf_stories s WHERE s.student_id=student.id AND s.status='approved' AND s.archived_at IS NULL)
+    ),
+    'stories',coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'title',s.title,'status',s.status,'visibility',s.visibility,'mentorScore',s.mentor_score,'reviewSuitability',s.review_suitability,'rowVersion',s.row_version,'updatedAt',s.updated_at) ORDER BY s.updated_at DESC,s.id DESC) FROM public.sf_stories s WHERE s.student_id=student.id AND s.archived_at IS NULL AND (s.status<>'private' OR (s.visibility='mentor_visible' AND public.sf_b1_514_admin_feature_enabled('visibility_consent',student.id)))),'[]'::jsonb),
+    'activity',jsonb_build_object('availableFrom',(SELECT activated_at FROM public.sf_activity_config WHERE key='activity_tracking'),'lastActivityAt',(SELECT max(last_beat_at) FROM public.sf_activity_sessions WHERE user_id=student.id)),
+    'reviewChecks',coalesce((SELECT jsonb_agg(jsonb_build_object('id',c.id,'body',c.body,'sentAt',c.sent_at,'notificationId',c.notification_id,'auditEventId',c.audit_event_id::text) ORDER BY c.sent_at DESC,c.id DESC) FROM public.sf_review_checks c WHERE c.student_id=student.id),'[]'::jsonb)
+  ) INTO v_payload FROM public.sf_users student WHERE student.id=p_student_id;
+  RETURN v_payload;
+END
+$$;
+
+CREATE OR REPLACE FUNCTION public.sf_admin_saved_views()
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS $$
+BEGIN
+  IF NOT public.sf_b1_514_admin_feature_enabled('admin_directory') THEN RAISE EXCEPTION 'directory disabled' USING ERRCODE='42501'; END IF;
+  RETURN jsonb_build_object('views',coalesce((SELECT jsonb_agg(jsonb_build_object('id',id,'label',label,'state',state,'createdAt',created_at,'updatedAt',updated_at) ORDER BY updated_at DESC,id DESC) FROM public.sf_admin_saved_views WHERE admin_id=public.sf_actor_id()),'[]'::jsonb));
+END $$;
+
+CREATE OR REPLACE FUNCTION public.sf_admin_save_view(p_label text,p_state jsonb)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v_view public.sf_admin_saved_views;
+BEGIN
+  IF NOT public.sf_b1_514_admin_feature_enabled('admin_directory') OR length(btrim(p_label)) NOT BETWEEN 1 AND 80 OR jsonb_typeof(p_state)<>'object' OR p_state-ARRAY['filter','session','sort']<>'{}'::jsonb THEN RAISE EXCEPTION 'invalid saved view' USING ERRCODE='22023'; END IF;
+  INSERT INTO public.sf_admin_saved_views(admin_id,label,state) VALUES(public.sf_actor_id(),btrim(p_label),p_state) ON CONFLICT(admin_id,label) DO UPDATE SET state=excluded.state,updated_at=now() RETURNING * INTO v_view;
+  RETURN jsonb_build_object('id',v_view.id,'label',v_view.label,'state',v_view.state,'createdAt',v_view.created_at,'updatedAt',v_view.updated_at);
+END $$;
+
+CREATE OR REPLACE FUNCTION public.sf_admin_delete_saved_view(p_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+BEGIN
+  IF NOT public.sf_b1_514_admin_feature_enabled('admin_directory') THEN RAISE EXCEPTION 'directory disabled' USING ERRCODE='42501'; END IF;
+  DELETE FROM public.sf_admin_saved_views WHERE id=p_id AND admin_id=public.sf_actor_id();
+  IF NOT FOUND THEN RAISE EXCEPTION 'saved view not found' USING ERRCODE='P0002'; END IF;
+  RETURN jsonb_build_object('deleted',true,'id',p_id);
+END $$;
+
+CREATE OR REPLACE FUNCTION public.sf_admin_review_queue_scaled(p_query text,p_status text,p_session text,p_sort text,p_page integer,p_page_size integer)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v_payload jsonb;
+BEGIN
+  PERFORM public.sf_admin_assert_enabled();
+  IF p_sort NOT IN ('oldest','newest','updated','student') OR p_page<1 OR p_page_size<1 OR p_page_size>50 OR length(p_query)>120 OR length(p_session)>80 THEN RAISE EXCEPTION 'invalid scaled queue query' USING ERRCODE='22023'; END IF;
+  WITH matching AS (
+    SELECT s.*,u.display_name AS student_name,u.cohort AS student_cohort,count(*) OVER()::integer AS total
+    FROM public.sf_stories s JOIN public.sf_users u ON u.id=s.student_id
+    WHERE s.status<>'private' AND s.archived_at IS NULL
+      AND (coalesce(p_query,'')='' OR s.title ILIKE '%'||p_query||'%' OR u.display_name ILIKE '%'||p_query||'%')
+      AND (p_status IS NULL OR p_status='' OR s.status=p_status OR (p_status='unscored' AND s.mentor_score IS NULL))
+      AND (coalesce(p_session,'')='' OR coalesce(u.cohort,'')=p_session)
+    ORDER BY CASE WHEN p_sort='oldest' THEN coalesce(s.last_submitted_at,s.updated_at) END ASC,CASE WHEN p_sort='newest' THEN coalesce(s.last_submitted_at,s.updated_at) END DESC,CASE WHEN p_sort='updated' THEN s.updated_at END DESC,CASE WHEN p_sort='student' THEN lower(u.display_name) END ASC,s.id
+    OFFSET (p_page-1)*p_page_size LIMIT p_page_size
+  ) SELECT jsonb_build_object('stories',coalesce(jsonb_agg(jsonb_build_object('id',id,'title',title,'studentId',student_id,'studentName',student_name,'cohort',student_cohort,'status',status,'mentorScore',mentor_score,'reviewSuitability',review_suitability,'rowVersion',row_version,'revised',revised,'updatedAt',updated_at,'submittedAt',coalesce(last_submitted_at,submitted_at))),'[]'::jsonb),'total',coalesce(max(total),0),'page',p_page,'pageSize',p_page_size) INTO v_payload FROM matching;
+  RETURN v_payload;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.sf_record_review_check(p_student_id uuid,p_preview boolean)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$
+DECLARE v_name text;v_body text;v_notification public.sf_notifications;v_audit bigint;v_check public.sf_review_checks;v_stamp text;
+BEGIN
+  IF NOT public.sf_b1_514_admin_feature_enabled('review_check',p_student_id) THEN RAISE EXCEPTION 'review check disabled' USING ERRCODE='42501'; END IF;
+  SELECT display_name INTO v_name FROM public.sf_users WHERE id=p_student_id AND role='student' AND eligible;
+  IF NOT FOUND THEN RAISE EXCEPTION 'student not found' USING ERRCODE='P0002'; END IF;
+  v_stamp:=to_char(now(),'Mon FMDD, YYYY at FMHH12:MI AM TZ');
+  IF NOT EXISTS(SELECT 1 FROM public.sf_stories WHERE student_id=p_student_id AND status<>'private' AND archived_at IS NULL) THEN v_body:='Dr Brian checked StoryForge for work to review on '||v_stamp||', but no stories had been submitted. When you''re ready, submit a story so your mentor can review it.';
+  ELSIF EXISTS(SELECT 1 FROM public.sf_stories WHERE student_id=p_student_id AND status IN('reviewed','approved') AND archived_at IS NULL) THEN v_body:='Dr Brian checked StoryForge on '||v_stamp||' and reviewed your submitted work. Open your stories to see the latest feedback.';
+  ELSE v_body:='Dr Brian checked StoryForge on '||v_stamp||'. Your submitted work is in the review queue — feedback will land in your notifications.'; END IF;
+  IF p_preview THEN RETURN jsonb_build_object('preview',true,'studentId',p_student_id,'studentName',v_name,'body',v_body,'sent',false); END IF;
+  IF EXISTS(SELECT 1 FROM public.sf_review_checks WHERE student_id=p_student_id AND sent_at>now()-interval '24 hours') THEN RAISE EXCEPTION 'A Review Check was already sent to this student in the last 24 hours.' USING ERRCODE='P0003'; END IF;
+  SELECT * INTO v_notification FROM public.sf_emit_notification(p_student_id,public.sf_actor_id(),NULL,NULL,'review_check','system','StoryForge Review Check',v_body,'/notifications');
+  v_audit:=public.sf_append_audit('admin.review_check_sent','student',p_student_id,'system',p_student_id,NULL,NULL,NULL,jsonb_build_object('notificationId',v_notification.id),NULL,'admin_only');
+  INSERT INTO public.sf_review_checks(student_id,sent_by,body,notification_id,audit_event_id) VALUES(p_student_id,public.sf_actor_id(),v_body,v_notification.id,v_audit) RETURNING * INTO v_check;
+  RETURN jsonb_build_object('id',v_check.id,'studentId',v_check.student_id,'sentAt',v_check.sent_at,'sentBy',v_check.sent_by,'body',v_check.body,'status','recorded','notificationId',v_check.notification_id,'auditEventId',v_check.audit_event_id::text);
+END $$;
 
 -- New stories get a mentor-visible default only for a currently enabled
 -- student whose latest decision affirmatively accepts the current policy.
@@ -914,6 +1168,14 @@ REVOKE ALL ON FUNCTION public.sf_set_story_visibility(uuid, text, bigint) FROM P
 REVOKE ALL ON FUNCTION public.sf_activity_heartbeat(uuid, text, bigint) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.sf_admin_activity_for_student(uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.sf_admin_set_b1_514_feature_flag(text, text, uuid[], text[]) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.sf_b1_514_admin_feature_enabled(text, uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.sf_admin_directory(text, text, text, text, integer, integer) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.sf_admin_directory_student(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.sf_admin_saved_views() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.sf_admin_save_view(text, jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.sf_admin_delete_saved_view(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.sf_admin_review_queue_scaled(text, text, text, text, integer, integer) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.sf_record_review_check(uuid, boolean) FROM PUBLIC, anon;
 
 GRANT EXECUTE ON FUNCTION public.sf_visibility_consent_enabled() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.sf_activity_tracking_enabled() TO authenticated;
@@ -925,19 +1187,35 @@ GRANT EXECUTE ON FUNCTION public.sf_set_story_visibility(uuid, text, bigint) TO 
 GRANT EXECUTE ON FUNCTION public.sf_activity_heartbeat(uuid, text, bigint) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.sf_admin_activity_for_student(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.sf_admin_set_b1_514_feature_flag(text, text, uuid[], text[]) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.sf_b1_514_admin_feature_enabled(text, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.sf_admin_directory(text, text, text, text, integer, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.sf_admin_directory_student(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.sf_admin_saved_views() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.sf_admin_save_view(text, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.sf_admin_delete_saved_view(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.sf_admin_review_queue_scaled(text, text, text, text, integer, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.sf_record_review_check(uuid, boolean) TO authenticated;
 
 DO $$
 BEGIN
   IF (
     SELECT count(*)
     FROM public.sf_feature_flags
-    WHERE key IN ('visibility_consent', 'activity_tracking')
-  ) <> 2 THEN
+    WHERE key IN (
+      'visibility_consent', 'activity_tracking', 'admin_directory',
+      'review_check', 'admin_review_controls', 'library_refined_rows',
+      'admin_mirror', 'avatar_identity'
+    )
+  ) <> 8 THEN
     RAISE EXCEPTION 'B1-514 R1 feature flags were not seeded exactly once';
   END IF;
   IF EXISTS (
     SELECT 1 FROM public.sf_feature_flags
-    WHERE key IN ('visibility_consent', 'activity_tracking')
+    WHERE key IN (
+      'visibility_consent', 'activity_tracking', 'admin_directory',
+      'review_check', 'admin_review_controls', 'library_refined_rows',
+      'admin_mirror', 'avatar_identity'
+    )
       AND (
         scope <> 'off'
         OR cardinality(allowlist) <> 0

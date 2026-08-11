@@ -75,11 +75,12 @@ test('B1-514 R1 preserves historical rows and enforces consent, visibility, acti
        FROM pg_class
        WHERE relname IN (
          'sf_mentorship_consent', 'sf_activity_config',
-         'sf_activity_sessions', 'sf_activity_counters'
+         'sf_activity_sessions', 'sf_activity_counters',
+         'sf_admin_saved_views', 'sf_review_checks'
        )
        ORDER BY relname`,
     );
-    assert.equal(posture.rowCount, 4);
+    assert.equal(posture.rowCount, 6);
     assert.ok(posture.rows.every((row) => row.relrowsecurity && row.relforcerowsecurity));
 
     await client.query(
@@ -191,7 +192,54 @@ test('B1-514 R1 preserves historical rows and enforces consent, visibility, acti
       );
       assert.equal(flag.rows[0].payload.scope, 'eligible_all');
       assert.equal(typeof flag.rows[0].payload.auditId, 'string');
+      for (const key of ['admin_directory', 'review_check']) {
+        const enabled = await identityClient.query(
+          `SELECT public.sf_admin_set_b1_514_feature_flag(
+            $1, 'eligible_all', '{}'::uuid[], '{}'::text[]
+          ) AS payload`,
+          [key],
+        );
+        assert.equal(enabled.rows[0].payload.scope, 'eligible_all');
+      }
+
+      const directory = await identityClient.query(
+        `SELECT public.sf_admin_directory('', 'all', '', 'name', 1, 25) AS payload`,
+      );
+      assert.ok(directory.rows[0].payload.students.some((student) => student.id === STUDENT.sub));
+      const detail = await identityClient.query(
+        'SELECT public.sf_admin_directory_student($1) AS payload',
+        [STUDENT.sub],
+      );
+      assert.equal(detail.rows[0].payload.student.id, STUDENT.sub);
+      assert.ok(!JSON.stringify(detail.rows[0].payload.stories).includes('Historical exact story'));
+
+      const saved = await identityClient.query(
+        `SELECT public.sf_admin_save_view('Needs attention','{"filter":"needs_review","session":"","sort":"attention"}'::jsonb) AS payload`,
+      );
+      const views = await identityClient.query('SELECT public.sf_admin_saved_views() AS payload');
+      assert.equal(views.rows[0].payload.views.length, 1);
+      await identityClient.query('SELECT public.sf_admin_delete_saved_view($1)', [saved.rows[0].payload.id]);
+
+      const preview = await identityClient.query(
+        'SELECT public.sf_record_review_check($1,true) AS payload',
+        [STUDENT.sub],
+      );
+      assert.equal(preview.rows[0].payload.sent, false);
+      assert.match(preview.rows[0].payload.body, /no stories had been submitted/);
+      const sent = await identityClient.query(
+        'SELECT public.sf_record_review_check($1,false) AS payload',
+        [STUDENT.sub],
+      );
+      assert.equal(sent.rows[0].payload.status, 'recorded');
+      assert.match(sent.rows[0].payload.auditEventId, /^\d+$/);
     });
+    await assert.rejects(
+      withIdentity(client, ADMIN, async (identityClient) => identityClient.query(
+        'SELECT public.sf_record_review_check($1,false)',
+        [STUDENT.sub],
+      )),
+      (error) => error.code === 'P0003',
+    );
 
     const sessionId = crypto.randomUUID();
     let firstActiveMs;

@@ -338,6 +338,13 @@ function translateDatabaseError(error) {
   if (error?.code === 'P0002') {
     throw new AdminConsoleError('not_found', 'The requested administrator resource was not found.', 404);
   }
+  if (error?.code === 'P0003') {
+    throw new AdminConsoleError(
+      'review_check_rate_limited',
+      'A Review Check was already sent to this student in the last 24 hours.',
+      429,
+    );
+  }
   if (['42883', '42P01'].includes(error?.code)) {
     throw new AdminConsoleError(
       'admin_v2_unavailable',
@@ -385,6 +392,31 @@ export function createAdminConsoleService({
     if (!await capability(identity)) {
       throw new AdminConsoleError('admin_console_disabled', 'The administrator console is not enabled.', 403);
     }
+  }
+
+  async function v2Capabilities(identity) {
+    if (!await capability(identity)) {
+      return { directory: false, reviewCheck: false, reviewControls: false };
+    }
+    return withAdminIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT
+           public.sf_story_feature_enabled('admin_directory', ARRAY['admin']) AS directory,
+           public.sf_story_feature_enabled('review_check', ARRAY['admin']) AS review_check,
+           public.sf_story_feature_enabled('admin_review_controls', ARRAY['admin']) AS review_controls`,
+      );
+      const row = result.rows[0] || {};
+      return {
+        directory: !adminDirectoryForceOff(environment) && row.directory === true,
+        reviewCheck: !reviewCheckForceOff(environment) && row.review_check === true,
+        reviewControls: !adminReviewControlsForceOff(environment) && row.review_controls === true,
+      };
+    }).catch((error) => {
+      if (['42501', '42883', '42P01'].includes(error?.code)) {
+        return { directory: false, reviewCheck: false, reviewControls: false };
+      }
+      throw error;
+    });
   }
 
   async function rpc(identity, sql, values) {
@@ -455,6 +487,7 @@ export function createAdminConsoleService({
 
   return Object.freeze({
     capability,
+    v2Capabilities,
     getFlag,
     updateFlag,
     home: (identity, query = {}) => rpc(

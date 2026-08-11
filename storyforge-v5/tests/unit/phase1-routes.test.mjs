@@ -254,7 +254,12 @@ test('E10 returns only the caller capability and E11 routes preserve admin servi
     activityTracking: false,
     storyVersions: false,
     inspiration: false,
+    inspirationAdmin: false,
+    adminDirectory: false,
+    reviewCheck: false,
+    adminReviewControls: false,
     requestAStory: false,
+    storyFollowup: false,
     submissionReview: false,
     taxonomy: false,
     inlinePriority: false,
@@ -292,6 +297,7 @@ test('administrator console routes delegate only through the bounded admin servi
   const calls = [];
   const service = {
     capability: async (identity) => identity.role === 'admin',
+    v2Capabilities: async () => ({ directory: false, reviewCheck: false, reviewControls: false }),
     getFlag: async (identity) => ({ key: 'admin_console', scope: identity.role === 'admin' ? 'allowlist' : 'off', allowlist: [adminId], cohorts: [] }),
     updateFlag: async (identity, body) => ({ key: 'admin_console', ...body, actor: identity.sub }),
     home: async (identity, query) => (calls.push(['home', identity, query]), { metrics: {} }),

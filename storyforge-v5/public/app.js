@@ -238,6 +238,7 @@ const state = {
     storyVersions: false,
     inspiration: false,
     requestAStory: false,
+    activityTracking: false,
   }),
   lockout: null,
   route: 'home',
@@ -323,6 +324,7 @@ const state = {
 const auth = createAuthClient({
   onLockout(lockoutState, message) {
     suspendVoiceForIdentityExit();
+    stopActivityBeacon();
     state.user = null;
     state.capabilities = Object.freeze({
       voiceCapture: false,
@@ -337,6 +339,7 @@ const auth = createAuthClient({
       storyVersions: false,
       inspiration: false,
       requestAStory: false,
+      activityTracking: false,
     });
     state.v2.session = null;
     state.v2.consent = null;
@@ -629,6 +632,7 @@ const api = Object.freeze({
   createRequest: (body) => auth.request('/api/requests', jsonOptions('POST', body)),
   sendRequest: (id, expectedVersion) => auth.request(`/api/requests/${id}/send`, jsonOptions('POST', { expectedVersion })),
   revokeRequest: (id) => auth.request(`/api/requests/${id}/revoke`, jsonOptions('POST', {})),
+  activityHeartbeat: (body) => auth.request('/api/activity/heartbeat', jsonOptions('POST', body)),
   preference: (background) => auth.request('/api/preferences/background', jsonOptions('PATCH', { background })),
   textSizePreference: (textSize) => auth.request('/api/preferences/text-size', jsonOptions('PATCH', { textSize })),
   themePreference: (theme) => auth.request('/api/preferences/theme', jsonOptions('PATCH', { theme })),
@@ -8888,6 +8892,7 @@ async function enterFixturePersona(persona) {
 
 function signOut() {
   suspendVoiceForIdentityExit();
+  stopActivityBeacon();
   state.user = null;
   state.capabilities = Object.freeze({
     voiceCapture: false,
@@ -8902,6 +8907,7 @@ function signOut() {
     storyVersions: false,
     inspiration: false,
     requestAStory: false,
+    activityTracking: false,
   });
   state.captureRecovering = false;
   state.lockout = null;
@@ -8931,6 +8937,103 @@ function announceVoiceHintOnBoot() {
       notify('New in StoryForge — tap the mic and it types while you talk.', '🎙');
     }
   }, 1300);
+}
+
+const activityBeacon = {
+  installed: false,
+  timer: 0,
+  sessionId: '',
+  lastMeaningfulAt: 0,
+  lastBeatAt: 0,
+  pending: false,
+};
+
+function activitySurface() {
+  if (capture.classList.contains('open')) return 'capture';
+  return ({
+    home: 'home',
+    library: 'library',
+    story: 'story_detail',
+    settings: 'settings',
+    notifications: 'notifications',
+    prep: 'interview_prep',
+    qshop: 'interview_prep',
+    qlib: 'interview_prep',
+    inspiration: 'inspiration',
+  })[state.route] || 'home';
+}
+
+function newActivitySession() {
+  activityBeacon.sessionId = crypto.randomUUID();
+  activityBeacon.lastBeatAt = 0;
+}
+
+function noteMeaningfulActivity() {
+  if (!state.capabilities?.activityTracking || document.visibilityState !== 'visible') return;
+  const now = Date.now();
+  if (!activityBeacon.sessionId || (activityBeacon.lastBeatAt && now - activityBeacon.lastBeatAt >= 30 * 60_000)) {
+    newActivitySession();
+  }
+  activityBeacon.lastMeaningfulAt = now;
+}
+
+async function flushActivityBeacon() {
+  if (
+    !state.capabilities?.activityTracking
+    || document.visibilityState !== 'visible'
+    || activityBeacon.pending
+    || !activityBeacon.lastMeaningfulAt
+  ) return;
+  const now = Date.now();
+  if (now - activityBeacon.lastMeaningfulAt > 120_000) return;
+  if (activityBeacon.lastBeatAt && now - activityBeacon.lastBeatAt < 55_000) return;
+  if (!activityBeacon.sessionId || (activityBeacon.lastBeatAt && now - activityBeacon.lastBeatAt >= 30 * 60_000)) {
+    newActivitySession();
+  }
+  const activeMs = activityBeacon.lastBeatAt
+    ? Math.max(0, Math.min(60_000, now - activityBeacon.lastBeatAt))
+    : 0;
+  activityBeacon.lastBeatAt = now;
+  activityBeacon.pending = true;
+  try {
+    await api.activityHeartbeat({
+      sessionId: activityBeacon.sessionId,
+      surface: activitySurface(),
+      activeMs,
+    });
+  } catch {
+    // Engagement analytics are deliberately fail-silent and never block product work.
+  } finally {
+    activityBeacon.pending = false;
+  }
+}
+
+function startActivityBeacon() {
+  stopActivityBeacon();
+  if (!state.capabilities?.activityTracking || !isStudent()) return;
+  if (!activityBeacon.installed) {
+    ['pointerdown', 'keydown', 'scroll', 'input'].forEach((eventName) => {
+      document.addEventListener(eventName, noteMeaningfulActivity, { passive: true, capture: true });
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') noteMeaningfulActivity();
+      else void flushActivityBeacon();
+    });
+    activityBeacon.installed = true;
+  }
+  activityBeacon.sessionId = '';
+  activityBeacon.lastMeaningfulAt = 0;
+  activityBeacon.lastBeatAt = 0;
+  activityBeacon.timer = window.setInterval(() => { void flushActivityBeacon(); }, 60_000);
+}
+
+function stopActivityBeacon() {
+  if (activityBeacon.timer) window.clearInterval(activityBeacon.timer);
+  activityBeacon.timer = 0;
+  activityBeacon.sessionId = '';
+  activityBeacon.lastMeaningfulAt = 0;
+  activityBeacon.lastBeatAt = 0;
+  activityBeacon.pending = false;
 }
 
 async function bootstrapSession() {
@@ -8967,6 +9070,7 @@ async function bootstrapSession() {
     inspiration: Boolean(session?.capabilities?.inspiration),
     storyVersions: Boolean(session?.capabilities?.storyVersions),
     requestAStory: Boolean(session?.capabilities?.requestAStory),
+    activityTracking: Boolean(session?.capabilities?.activityTracking),
   });
   state.library.sort = state.capabilities.inlinePriority ? 'priority' : 'new';
   state.captureRecovering = false;
@@ -8990,6 +9094,7 @@ async function bootstrapSession() {
     pushPath(state.route, null, true);
   }
   await renderRoute();
+  startActivityBeacon();
   await maybeShowConsent();
   await recoverVoiceDraftOnBoot();
   announceVoiceHintOnBoot();

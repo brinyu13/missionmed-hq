@@ -183,6 +183,14 @@ test('default-off surfaces avoid database work and missing RPCs fail truthfully'
     { code: 'admin_review_controls_force_off' },
   );
   assert.equal(closed.calls.length, 0);
+  assert.deepEqual(
+    await closedService.review(ADMIN, '44444444-4444-4444-8444-444444444444', {
+      expectedVersion: 0,
+      patch: { mentorScore: 4 },
+    }),
+    { ok: true },
+  );
+  assert.match(closed.calls.at(-1).text, /sf_admin_review_story/);
 
   const unavailable = runtime(({ text }) => {
     if (text.includes('sf_admin_directory')) {

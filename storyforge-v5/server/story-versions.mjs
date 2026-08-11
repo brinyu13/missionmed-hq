@@ -43,7 +43,16 @@ function mutation(input = {}) {
   const mode = String(input.mode || 'save');
   const source = String(input.source || 'typed');
   const body = String(input.body ?? '');
-  if (!modes.has(mode) || !sources.has(source) || body.length > 20_000 || (mode !== 'retell' && !body.trim())) {
+  const recordingId = input.recordingId == null ? null : identifier(input.recordingId, 'Recording identifier');
+  const audioAssetId = input.audioAssetId == null ? null : identifier(input.audioAssetId, 'Audio identifier');
+  if (
+    !modes.has(mode)
+    || !sources.has(source)
+    || body.length > 20_000
+    || (mode !== 'retell' && !body.trim())
+    || (source === 'typed' && (recordingId || audioAssetId))
+    || (source === 'voice' && (!recordingId || !audioAssetId))
+  ) {
     throw new StoryVersionsError('invalid_story_version', 'This telling could not be saved.');
   }
   return {
@@ -51,8 +60,8 @@ function mutation(input = {}) {
     mode,
     source,
     expectedVersion: expectedVersion(input.expectedVersion),
-    recordingId: input.recordingId == null ? null : identifier(input.recordingId, 'Recording identifier'),
-    audioAssetId: input.audioAssetId == null ? null : identifier(input.audioAssetId, 'Audio identifier'),
+    recordingId,
+    audioAssetId,
   };
 }
 

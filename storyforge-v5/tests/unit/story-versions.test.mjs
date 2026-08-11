@@ -44,6 +44,26 @@ test('retell may deliberately start blank but normal save cannot', async () => {
   await assert.rejects(() => subject.save(identity, storyId, 'nnq_setup', { body: '', mode: 'save', expectedVersion: 0 }), /could not be saved/);
 });
 
+test('typed and voice provenance must be coherent before the database RPC', async () => {
+  const subject = service();
+  await assert.rejects(
+    () => subject.save(identity, storyId, 'thirty_second', {
+      body: 'Typed telling', source: 'typed', expectedVersion: 0, recordingId: revisionId,
+    }),
+    /could not be saved/,
+  );
+  await assert.rejects(
+    () => subject.save(identity, storyId, 'thirty_second', {
+      body: 'Voice telling', source: 'voice', expectedVersion: 0, recordingId: revisionId,
+    }),
+    /could not be saved/,
+  );
+  await subject.save(identity, storyId, 'thirty_second', {
+    body: 'Voice telling', source: 'voice', expectedVersion: 0,
+    recordingId: revisionId, audioAssetId: storyId,
+  });
+});
+
 test('restore is owner-only and row-versioned', async () => {
   let captured;
   const subject = service({ query: async (sql, values) => { captured = { sql, values }; return { rows: [{ payload: { ok: true } }] }; } });

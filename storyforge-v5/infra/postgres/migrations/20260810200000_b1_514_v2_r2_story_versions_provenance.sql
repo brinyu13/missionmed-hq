@@ -61,6 +61,20 @@ CREATE TABLE public.sf_authored_segments (
   )
 );
 
+CREATE OR REPLACE FUNCTION public.sf_forbid_story_version_history_mutation()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  RAISE EXCEPTION 'story version history is append-only' USING ERRCODE='42501';
+END $$;
+
+CREATE TRIGGER sf_story_version_revisions_append_only
+BEFORE UPDATE OR DELETE ON public.sf_story_version_revisions
+FOR EACH ROW EXECUTE FUNCTION public.sf_forbid_story_version_history_mutation();
+
+CREATE TRIGGER sf_authored_segments_append_only
+BEFORE UPDATE OR DELETE ON public.sf_authored_segments
+FOR EACH ROW EXECUTE FUNCTION public.sf_forbid_story_version_history_mutation();
+
 CREATE INDEX sf_story_versions_story_idx
   ON public.sf_story_versions (story_id, version_key);
 CREATE INDEX sf_story_version_revisions_version_idx
@@ -101,6 +115,7 @@ AS $$
           story.student_id = public.sf_actor_id()
           OR (
             public.sf_actor_role() = 'mentor'
+            AND story.archived_at IS NULL
             AND EXISTS (
               SELECT 1 FROM public.sf_mentor_assignments assignment
               WHERE assignment.student_id = story.student_id
@@ -115,6 +130,30 @@ AS $$
           OR (
             public.sf_actor_role() = 'admin'
             AND public.sf_actor_admin_mode()
+            AND story.archived_at IS NULL
+            AND (
+              story.status <> 'private'
+              OR (
+                coalesce(story.visibility, 'private') = 'mentor_visible'
+                AND EXISTS (
+                  SELECT 1
+                  FROM public.sf_feature_flags flag
+                  JOIN public.sf_users student ON student.id = story.student_id
+                  WHERE flag.key = 'visibility_consent'
+                    AND student.role = 'student'
+                    AND student.eligible
+                    AND (
+                      flag.scope = 'eligible_all'
+                      OR (flag.scope = 'allowlist' AND student.id = ANY(flag.allowlist))
+                      OR (
+                        flag.scope = 'cohort'
+                        AND student.cohort IS NOT NULL
+                        AND student.cohort = ANY(flag.cohorts)
+                      )
+                    )
+                )
+              )
+            )
           )
         )
     )
@@ -124,70 +163,20 @@ CREATE POLICY sf_story_versions_read ON public.sf_story_versions
 FOR SELECT TO authenticated
 USING (public.sf_can_read_story_versions(story_id));
 
-CREATE POLICY sf_story_versions_owner_insert ON public.sf_story_versions
-FOR INSERT TO authenticated
-WITH CHECK (
-  public.sf_story_versions_enabled()
-  AND EXISTS (
-    SELECT 1 FROM public.sf_stories story
-    WHERE story.id = story_id AND story.student_id = public.sf_actor_id()
-  )
-);
-
-CREATE POLICY sf_story_versions_owner_update ON public.sf_story_versions
-FOR UPDATE TO authenticated
-USING (
-  public.sf_story_versions_enabled()
-  AND EXISTS (
-    SELECT 1 FROM public.sf_stories story
-    WHERE story.id = story_id AND story.student_id = public.sf_actor_id()
-  )
-)
-WITH CHECK (
-  public.sf_story_versions_enabled()
-  AND EXISTS (
-    SELECT 1 FROM public.sf_stories story
-    WHERE story.id = story_id AND story.student_id = public.sf_actor_id()
-  )
-);
-
 CREATE POLICY sf_story_version_revisions_read ON public.sf_story_version_revisions
 FOR SELECT TO authenticated
 USING (public.sf_can_read_story_versions(story_id));
-
-CREATE POLICY sf_story_version_revisions_owner_insert ON public.sf_story_version_revisions
-FOR INSERT TO authenticated
-WITH CHECK (
-  public.sf_story_versions_enabled()
-  AND actor_user_id = public.sf_actor_id()
-  AND EXISTS (
-    SELECT 1 FROM public.sf_stories story
-    WHERE story.id = story_id AND story.student_id = public.sf_actor_id()
-  )
-);
 
 CREATE POLICY sf_authored_segments_read ON public.sf_authored_segments
 FOR SELECT TO authenticated
 USING (public.sf_can_read_story_versions(story_id));
 
-CREATE POLICY sf_authored_segments_owner_insert ON public.sf_authored_segments
-FOR INSERT TO authenticated
-WITH CHECK (
-  public.sf_story_versions_enabled()
-  AND author_id = public.sf_actor_id()
-  AND source_role IN ('student_spoken', 'student_typed')
-  AND EXISTS (
-    SELECT 1 FROM public.sf_stories story
-    WHERE story.id = story_id AND story.student_id = public.sf_actor_id()
-  )
-);
-
 REVOKE ALL ON public.sf_story_versions FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.sf_story_version_revisions FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.sf_authored_segments FROM PUBLIC, anon, authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.sf_story_versions TO authenticated;
-GRANT SELECT, INSERT ON public.sf_story_version_revisions TO authenticated;
-GRANT SELECT, INSERT ON public.sf_authored_segments TO authenticated;
+GRANT SELECT ON public.sf_story_versions TO authenticated;
+GRANT SELECT ON public.sf_story_version_revisions TO authenticated;
+GRANT SELECT ON public.sf_authored_segments TO authenticated;
 
 INSERT INTO public.sf_feature_flags (key, scope, allowlist, cohorts, updated_by)
 SELECT feature.key, 'off', ARRAY[]::uuid[], ARRAY[]::text[], founder.updated_by
@@ -282,6 +271,28 @@ BEGIN
   WHERE id = p_story_id AND student_id = public.sf_actor_id() AND archived_at IS NULL
   FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'story not found' USING ERRCODE = 'P0002'; END IF;
+
+  IF p_source = 'typed' AND (p_recording_id IS NOT NULL OR p_audio_asset_id IS NOT NULL) THEN
+    RAISE EXCEPTION 'typed story versions cannot claim audio provenance' USING ERRCODE = '22023';
+  END IF;
+  IF p_source = 'voice' AND (p_recording_id IS NULL OR p_audio_asset_id IS NULL) THEN
+    RAISE EXCEPTION 'voice story versions require recording and audio provenance' USING ERRCODE = '22023';
+  END IF;
+  IF p_source = 'voice' AND NOT EXISTS (
+    SELECT 1
+    FROM public.sf_recording_sessions recording
+    JOIN public.sf_audio_assets audio ON audio.id = recording.assembled_asset_id
+    WHERE recording.id = p_recording_id
+      AND recording.student_id = v_story.student_id
+      AND recording.story_id = v_story.id
+      AND recording.state = 'attached'
+      AND audio.id = p_audio_asset_id
+      AND audio.student_id = v_story.student_id
+      AND audio.story_id = v_story.id
+      AND audio.state = 'verified'
+  ) THEN
+    RAISE EXCEPTION 'voice provenance does not belong to this story' USING ERRCODE = '42501';
+  END IF;
 
   SELECT * INTO v_before FROM public.sf_story_versions
   WHERE story_id = p_story_id AND version_key = p_version_key
@@ -408,6 +419,17 @@ BEGIN
   WHERE id = v_before.id
   RETURNING * INTO v_after;
 
+  INSERT INTO public.sf_authored_segments (
+    story_id, story_version_id, source_role, source_entity_type,
+    source_entity_id, body_hash, recording_id, audio_asset_id, author_id
+  ) VALUES (
+    v_after.story_id, v_after.id,
+    CASE WHEN v_after.source='voice' THEN 'student_spoken' ELSE 'student_typed' END,
+    'story_version_restore', p_revision_id,
+    encode(digest(convert_to(v_after.body,'UTF8'),'sha256'),'hex'),
+    v_after.recording_id, v_after.audio_asset_id, public.sf_actor_id()
+  );
+
   SELECT public.sf_append_audit(
     'story.version_restored', 'story_version', v_after.id, 'workspace',
     v_story.student_id, v_story.id,
@@ -426,6 +448,7 @@ END
 $$;
 
 REVOKE ALL ON FUNCTION public.sf_story_versions_enabled() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.sf_forbid_story_version_history_mutation() FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.sf_can_read_story_versions(uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.sf_list_story_versions(uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.sf_save_story_version(uuid, text, text, text, text, bigint, uuid, uuid) FROM PUBLIC, anon;
