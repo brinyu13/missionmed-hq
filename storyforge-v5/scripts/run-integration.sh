@@ -191,6 +191,7 @@ FOUNDER_STORYFORGE_ID="33333333-3333-4333-8333-333333333333"
 wp user update "$FOUNDER_ID" --first_name='Dr' >/dev/null
 SECOND_ADMIN_ID="$(wp user create secondadmin secondadmin@example.test --role=administrator --user_pass=storyforge-local-password --display_name='Second Admin' --porcelain)"
 STUDENT_ID="$(wp user create maya maya@example.test --role=subscriber --user_pass=storyforge-local-password --display_name='Maya Student' --porcelain)"
+INELIGIBLE_ID="$(wp user create ineligible ineligible@example.test --role=subscriber --user_pass=storyforge-local-password --display_name='Ineligible Student' --porcelain)"
 MENTOR_ID="$(wp user create drchen drchen@example.test --role=mentor --user_pass=storyforge-local-password --display_name='Dr. Chen' --porcelain)"
 MENTOR_TWO_ID="$(wp user create drrivera drrivera@example.test --role=mentor --user_pass=storyforge-local-password --display_name='Dr. Rivera' --porcelain)"
 "$PSQL_BIN" "${PSQL_ARGS[@]}" -c \
@@ -232,22 +233,36 @@ wp eval "\$s=mmsf_settings();\$s['storyforge_enabled']=true;\$s['allowed_user_id
 FOUNDER_ACCESS="$(wp eval "\$u=get_user_by('id',$FOUNDER_ID);\$state=mmsf_access_state(\$u);echo is_wp_error(\$state)?\$state->get_error_code():'allowed:'.\$state['role'];")"
 SECOND_ADMIN_ACCESS="$(wp eval "\$u=get_user_by('id',$SECOND_ADMIN_ID);\$state=mmsf_access_state(\$u);echo is_wp_error(\$state)?\$state->get_error_code():'allowed:'.\$state['role'];")"
 STUDENT_ACCESS="$(wp eval "\$u=get_user_by('id',$STUDENT_ID);\$state=mmsf_access_state(\$u);echo is_wp_error(\$state)?\$state->get_error_code():'allowed:'.\$state['role'];")"
+INELIGIBLE_ACCESS="$(wp eval "\$u=get_user_by('id',$INELIGIBLE_ID);\$state=mmsf_access_state(\$u);echo is_wp_error(\$state)?\$state->get_error_code():'allowed:'.\$state['role'];")"
 MENTOR_ACCESS="$(wp eval "\$u=get_user_by('id',$MENTOR_ID);\$state=mmsf_access_state(\$u);echo is_wp_error(\$state)?\$state->get_error_code():'allowed:'.\$state['role'];")"
 if [[ "$FOUNDER_ACCESS" != "allowed:student" ]]; then
   echo "Exact founder role override check failed: $FOUNDER_ACCESS" >&2
   exit 1
 fi
-for denied_state in "$SECOND_ADMIN_ACCESS" "$STUDENT_ACCESS" "$MENTOR_ACCESS"; do
+for denied_state in "$SECOND_ADMIN_ACCESS" "$MENTOR_ACCESS"; do
   if [[ "$denied_state" != "user_not_enabled" ]]; then
     echo "Exact-user allowlist denial check failed: $denied_state" >&2
     exit 1
   fi
 done
+if [[ "$STUDENT_ACCESS" != "allowed:student" ]]; then
+  echo "Eligible student entitlement check failed: $STUDENT_ACCESS" >&2
+  exit 1
+fi
+if [[ "$INELIGIBLE_ACCESS" != "eligibility_required" ]]; then
+  echo "Ineligible student denial check failed: $INELIGIBLE_ACCESS" >&2
+  exit 1
+fi
 
 FOUNDER_NAV="$(wp eval "\$u=get_user_by('id',$FOUNDER_ID);wp_set_current_user(\$u->ID);echo do_shortcode('[missionmed_storyforge_navigation][missionmed_storyforge_dashboard_tile]');")"
-DENIED_NAV="$(wp eval "\$ids=array($SECOND_ADMIN_ID,$STUDENT_ID,$MENTOR_ID);foreach(\$ids as \$id){\$u=get_user_by('id',\$id);wp_set_current_user(\$u->ID);echo do_shortcode('[missionmed_storyforge_navigation][missionmed_storyforge_dashboard_tile]');}")"
+STUDENT_NAV="$(wp eval "\$u=get_user_by('id',$STUDENT_ID);wp_set_current_user(\$u->ID);echo do_shortcode('[missionmed_storyforge_navigation][missionmed_storyforge_dashboard_tile]');")"
+DENIED_NAV="$(wp eval "\$ids=array($SECOND_ADMIN_ID,$INELIGIBLE_ID,$MENTOR_ID);foreach(\$ids as \$id){\$u=get_user_by('id',\$id);wp_set_current_user(\$u->ID);echo do_shortcode('[missionmed_storyforge_navigation][missionmed_storyforge_dashboard_tile]');}")"
 if [[ "$FOUNDER_NAV" != *"missionmed-storyforge-nav"* || "$FOUNDER_NAV" != *"missionmed-storyforge-tile"* ]]; then
   echo "Exact founder navigation check failed." >&2
+  exit 1
+fi
+if [[ "$STUDENT_NAV" != *"missionmed-storyforge-nav"* || "$STUDENT_NAV" != *"missionmed-storyforge-tile"* ]]; then
+  echo "Eligible student navigation check failed." >&2
   exit 1
 fi
 if [[ -n "$DENIED_NAV" ]]; then

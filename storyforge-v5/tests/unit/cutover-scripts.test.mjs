@@ -174,6 +174,27 @@ test('browser harnesses pin PostgreSQL 18 and the exact forward-only migration o
   }
 });
 
+test('integration fixtures exercise eligible-all students and preserve nonstudent denials', () => {
+  const integration = readFileSync(
+    path.join(packageDir, 'scripts', 'run-integration.sh'),
+    'utf8',
+  );
+  const compose = readFileSync(
+    path.join(packageDir, 'infra', 'wordpress', 'docker-compose.yml'),
+    'utf8',
+  );
+  assert.equal(
+    compose.split("define('MISSIONMED_STORYFORGE_LOCAL_FIXTURES', true);").length - 1,
+    2,
+    'both WordPress and WPCLI must evaluate the same local entitlement contract',
+  );
+  assert.match(integration, /if \[\[ "\$STUDENT_ACCESS" != "allowed:student" \]\]/);
+  assert.match(integration, /if \[\[ "\$INELIGIBLE_ACCESS" != "eligibility_required" \]\]/);
+  assert.match(integration, /for denied_state in "\$SECOND_ADMIN_ACCESS" "\$MENTOR_ACCESS"/);
+  assert.match(integration, /STUDENT_NAV=.*\$STUDENT_ID/);
+  assert.match(integration, /DENIED_NAV=.*\$INELIGIBLE_ID/);
+});
+
 test('guarded Kinsta install and rollback preserve exact prior state and immutable releases', () => {
   assert.ok(phpCli, 'PHP CLI is required for the local cutover fixture');
   const fixture = mkdtempSync(path.join(os.tmpdir(), 'storyforge-b1-503-cutover-'));
