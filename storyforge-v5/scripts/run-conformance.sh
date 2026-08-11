@@ -98,6 +98,11 @@ phase_one_migrations=(
   "20260805190000_b1_511_workflow_taxonomy_mentor_notes.sql"
   "20260806130000_b1_511a_wordpress_admin_authority.sql"
   "20260806190000_b1_512_concrete_configuration_media.sql"
+  "20260810190000_b1_514_v2_r1_visibility_consent_activity.sql"
+  "20260810200000_b1_514_v2_r2_story_versions_provenance.sql"
+  "20260810210000_b1_514_v2_r3_inspiration.sql"
+  "20260810220000_b1_514_v2_ra_requests_guest.sql"
+  "20260810230000_b1_514_v2_preferences_environments.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \

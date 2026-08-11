@@ -63,6 +63,7 @@ test('B1-514 mounts four purposeful tellings and governed student-only destinati
   for (const marker of [
     'Original telling',
     'Full Story',
+    '— Working version',
     '30-Second Version',
     'NNQ Setup',
     'data-version-restore',
