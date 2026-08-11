@@ -1,8 +1,16 @@
 # F2-LOR-1011 Complete Handoff
 
-> Current control, 2026-08-10: status is `NOT_COMPLETE / BINDING_FAILED_CLOSED_E12 / ROOT_CAUSE_UNRESOLVED`. DR-037 is canonically `PUSHED_FILED / INDEPENDENTLY_VERIFIED` at `c7018902b0bf69ab7c27d643c9d0f132e9099c2d`. Its sole authorized fixed-output wrapper ran once, returned `FAIL F2_LOR_1011_BRANCH_BINDING_PROBE E12` after approximately 0.9 seconds, emitted no wrapper stderr, and was not retried; no subsequent provider command ran. The data-less persistent child identity remains preserved, but E12 cannot distinguish a failed provider state from a nonterminal or unrecognized health pair. Resource binding is `FAIL / UNRESOLVED`; no implementation or later gate advances. DR-038 is currently only a local `LOCAL_DRAFT / NOT_VERIFIED` candidate for one newly authorized sanitized diagnostic observation after filing and fresh independent verification. Resume only from `F2-LOR-1011_PAUSE_RESUME_CHECKPOINT.md`.
+> Current control, 2026-08-11: status is `NOT_COMPLETE / TRANCHE_1_BINDING_FAIL_UNRESOLVED / RUN_ID_BINDING_EXTERNAL_BLOCKER`. DR-046 is canonically `PUSHED_FILED / INDEPENDENTLY_VERIFIED` at `e941c79a8076de649bfed1dd0b624839f7cde0aa`. Its sole authorized wrapper ran once, exited zero in approximately 0.576 seconds, emitted only `OBSERVED F2_LOR_1011_FAILED_WORKFLOW_STAGE_DIAGNOSTIC MIGRATIONS_FAILED_CLASS` with empty stderr, and was not retried. DR-046 is exhausted and early-expired.
+>
+> DR-047 is canonically `PUSHED_FILED / INDEPENDENTLY_VERIFIED` at `f45dee29289cb86dfbd2fe537bc6fce3a758bae5`; fresh verifier `/root/fresh_dr047_postpush` returned formal `PASS`. DR-047 activates official action-run/log/authentication/sanitization law and a pure offline synthetic reducer only. It authorizes no provider, API, browser, credential, keychain, action-run, log, migration-history, repair, product, deployment, Matrix, production, user, email, or data action.
+>
+> `RUN_ID_BINDING_EXTERNAL_BLOCKER`: no exact action-run identifier from the failed migration workflow was preserved. The accepted official action-list law documents no request filter, result ordering, immutable snapshot semantics, or deterministic mapping from the child branch and failed workflow observation to one unique run. Selecting a run from a later list would therefore guess; action-detail or log access cannot be safely authorized from current evidence.
+>
+> Exact resume condition: first obtain either (a) a provider-originated opaque run identifier with provenance binding it uniquely to child `mftguikkftmrxjxrkdln` and the observed `MIGRATIONS_FAILED` workflow, or (b) new primary provider law that closes the filter, ordering, snapshot, and branch-to-run mapping gaps sufficiently to select exactly one run without inference. Then file and freshly verify a new additive executable decision that binds the credential bridge, request wrapper, numeric transport ceilings, fixed result contract, and one lifecycle. Until then, do not resume provider or product implementation.
+>
+> No product source, package, staging resource, provider, Matrix, production, user, email, or data action followed DR-046. MissionMed OS tracked/index state is clean and synchronized at `f45dee29289cb86dfbd2fe537bc6fce3a758bae5`; its sole-writer surface is released. Pre-existing unrelated untracked directories remain preserved, and no StoryForge path or packet was changed. Resume only from `F2-LOR-1011_PAUSE_RESUME_CHECKPOINT.md`.
 
-## Historical pre-DR-037 handoff preserved below
+## Historical handoff preserved below
 
 The remainder is retained verbatim as the earlier partial state. Where it conflicts with the current-control notice above, the notice and pause/resume checkpoint control.
 

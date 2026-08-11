@@ -1,8 +1,16 @@
 # F2-LOR-1011 Resource Binding Receipt
 
-> Current control, 2026-08-10: status is `CREATED_DATALESS / BINDING_FAILED_CLOSED_E12 / ROOT_CAUSE_UNRESOLVED`. DR-037 is canonically `PUSHED_FILED / INDEPENDENTLY_VERIFIED` at `c7018902b0bf69ab7c27d643c9d0f132e9099c2d`. Its sole authorized fixed-output wrapper ran once, returned `FAIL F2_LOR_1011_BRANCH_BINDING_PROBE E12` after approximately 0.9 seconds, emitted no wrapper stderr, and was not retried; no later provider command ran. E12 preserves exact child/parent registry identity, child `persistent=true`, and `with_data=false`, but aggregates failed, nonterminal, and unrecognized workflow/preview-health pairs. It therefore proves neither terminal provider failure nor healthy resource binding. Binding is `FAIL / UNRESOLVED`, DR-037 execution authority is exhausted and early-expired, and DR-038 is only a local `LOCAL_DRAFT / NOT_VERIFIED` diagnostic-authority candidate. Resume only through the current instructions in `F2-LOR-1011_PAUSE_RESUME_CHECKPOINT.md`. Connection, migration, Storage, Railway binding, deployment, Matrix, production, user, email, and data gates remain closed.
+> Current control, 2026-08-11: status is `CREATED_DATALESS / MIGRATIONS_FAILED_CLASS / TRANCHE_1_BINDING_FAIL_UNRESOLVED / RUN_ID_BINDING_EXTERNAL_BLOCKER`. DR-046 is canonically `PUSHED_FILED / INDEPENDENTLY_VERIFIED` at `e941c79a8076de649bfed1dd0b624839f7cde0aa`. Its sole wrapper ran once, exited zero in approximately 0.576 seconds, emitted only `OBSERVED F2_LOR_1011_FAILED_WORKFLOW_STAGE_DIAGNOSTIC MIGRATIONS_FAILED_CLASS` with empty stderr, and was not retried. It proves the failed stage only, not a migration identity, root cause, history state, database fact, or repair path. DR-046 is exhausted and early-expired.
+>
+> DR-047 is canonically `PUSHED_FILED / INDEPENDENTLY_VERIFIED` at `f45dee29289cb86dfbd2fe537bc6fce3a758bae5`; fresh verifier `/root/fresh_dr047_postpush` returned formal `PASS`. It activates law and a pure offline synthetic reducer only, not any live read or runtime.
+>
+> `RUN_ID_BINDING_EXTERNAL_BLOCKER`: no exact action-run identifier from the failed workflow was preserved, and accepted official law documents no action-list filter, ordering, immutable snapshot semantics, or deterministic child-branch-to-run mapping. A later list cannot select the relevant run uniquely without guessing, so action-detail and action-log access remain closed.
+>
+> Resume only after either a provider-originated opaque run identifier is provenance-bound uniquely to child `mftguikkftmrxjxrkdln` and the observed `MIGRATIONS_FAILED` workflow, or new primary provider law closes every selection gap. A new additive executable decision and fresh independent verification must then bind the exact credential bridge, request wrapper, numeric transport ceilings, fixed output, and one lifecycle before any live read.
+>
+> MissionMed OS tracked/index state is clean and synchronized at `f45dee29289cb86dfbd2fe537bc6fce3a758bae5`; the writer is released. Pre-existing unrelated untracked directories remain preserved and StoryForge is untouched. No product source, package, staging resource, provider, Matrix, production, user, email, or data action followed DR-046. Connection, migration, Storage, Railway binding, deployment, Matrix, production, user, email, and data gates remain closed.
 
-## Historical pre-DR-037 receipt preserved below
+## Historical receipt preserved below
 
 The remainder is retained verbatim as time-bounded evidence from before the branch creation and DR-037 observation. Where it conflicts with the current-control notice above, the notice and pause/resume checkpoint control.
 

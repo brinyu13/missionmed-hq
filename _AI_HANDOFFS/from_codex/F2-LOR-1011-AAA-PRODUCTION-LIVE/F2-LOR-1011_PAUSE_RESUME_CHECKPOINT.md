@@ -1,6 +1,16 @@
 # F2-LOR-1011 Pause / Resume Checkpoint
 
-## Current serialization yield - DR-039 WIP checkpoint
+## Current control — DR-047 law active; runtime blocked
+
+Current status: `PAUSED / TRANCHE_1_BINDING_FAIL_UNRESOLVED / RUN_ID_BINDING_EXTERNAL_BLOCKER / MISSIONMED_OS_WRITER_RELEASED`
+
+- DR-046 is canonically `PUSHED_FILED / INDEPENDENTLY_VERIFIED` at `e941c79a8076de649bfed1dd0b624839f7cde0aa`. Its sole wrapper ran once, exited zero in approximately 0.576 seconds, emitted only `OBSERVED F2_LOR_1011_FAILED_WORKFLOW_STAGE_DIAGNOSTIC MIGRATIONS_FAILED_CLASS` with empty stderr, and was not retried. DR-046 is exhausted and early-expired.
+- DR-047 is canonically `PUSHED_FILED / INDEPENDENTLY_VERIFIED` at `f45dee29289cb86dfbd2fe537bc6fce3a758bae5`; fresh verifier `/root/fresh_dr047_postpush` returned formal `PASS`. It activates law and a pure offline synthetic reducer only, not a live wrapper or provider read.
+- No exact action-run identifier from the failed migration workflow was preserved. Accepted official law documents no action-list filter, ordering, immutable snapshot semantics, or deterministic mapping from child branch plus failed workflow to one unique run. Selecting from a later list would guess. This is the irreducible `RUN_ID_BINDING_EXTERNAL_BLOCKER`.
+- MissionMed OS tracked/index state is clean and synchronized at `f45dee29289cb86dfbd2fe537bc6fce3a758bae5`; its sole-writer surface is released. Pre-existing unrelated untracked directories remain preserved. No StoryForge path or packet was changed.
+- No product source, package, staging resource, provider, Matrix, production, user, email, or data action followed DR-046. All connection, migration, Storage, Railway binding, deployment, Matrix, production, canary, eligible-population, user, email, and data gates remain closed.
+
+## Historical serialization yield — DR-039 WIP checkpoint
 
 Current status: `PAUSED / DR_039_WIP_REMOTELY_CHECKPOINTED / MISSIONMED_OS_WRITER_RELEASED`
 
@@ -22,7 +32,9 @@ Exact preserved paths and Git blob IDs:
 4. `tests/test_f2_lor_1011_supabase_failed_workflow_stage_diagnostic_probe.py` - `2939c4cdb1782a2dba8b58d17d75f8a6e24ee4f8`
 5. `tools/f2_lor_1011_supabase_failed_workflow_stage_diagnostic_probe.py` - `33250a8e0089a7782a6ad83f21baa7fa9d13cc90`
 
-Exact resume point after StoryForge releases the writer:
+Historical resume point after StoryForge released the writer:
+
+The following steps are retained only as the serialization checkpoint that preceded DR-046 and DR-047. They are superseded by the current exact resume point below and must not be replayed.
 
 1. Re-read the then-current MissionMed OS BOOT -> CURRENT -> mission -> passport -> authority chain and reconcile StoryForge's accepted registrations.
 2. Restore only the five paths from checkpoint commit `5c00a36299c252920024f6974c5fc53289006a3b` and verify their blob identities above.
@@ -31,7 +43,7 @@ Exact resume point after StoryForge releases the writer:
 5. Do not run any provider command from this checkpoint. DR-039 remains unfiled, unverified, dormant, and all connection, migration, Storage, Railway, deployment, Matrix, production, user, email, and data gates remain closed.
 
 
-Current status: `BINDING_FAILED_CLOSED_E12 / ROOT_CAUSE_UNRESOLVED / DR_038_LOCAL_DRAFT`
+Historical status: `BINDING_FAILED_CLOSED_E12 / ROOT_CAUSE_UNRESOLVED / DR_038_LOCAL_DRAFT`
 
 Historical serialization status: `PAUSED_FOR_TEMPORARY_SERIALIZATION_YIELD`
 
@@ -41,7 +53,7 @@ Mission: F2-LOR-1011
 
 Founder directive: temporarily yield the shared MissionMed OS sole-writer surface without abandoning, resetting, reverting, discarding, or restarting LOR work.
 
-> Current control, 2026-08-10: the serialization yield was completed without loss and is preserved below as historical custody evidence. Since that checkpoint, DR-037 reached canonical `PUSHED_FILED / INDEPENDENTLY_VERIFIED` at `c7018902b0bf69ab7c27d643c9d0f132e9099c2d`. Its sole authorized wrapper ran once and returned `FAIL F2_LOR_1011_BRANCH_BINDING_PROBE E12` after approximately 0.9 seconds with empty wrapper stderr. It was not retried and no subsequent provider command ran. E12 preserves the data-less persistent child identity but does not reveal whether the health pair was failed, nonterminal, or unrecognized. Binding remains `FAIL / UNRESOLVED`; DR-037 authority is exhausted and early-expired. DR-038 is a local `LOCAL_DRAFT / NOT_VERIFIED` candidate only. All connection, migration, Storage, Railway binding, deployment, Matrix, production, user, email, and data gates remain closed.
+> Historical control, 2026-08-10: the serialization yield was completed without loss and is preserved below as historical custody evidence. Since that checkpoint, DR-037 reached canonical `PUSHED_FILED / INDEPENDENTLY_VERIFIED` at `c7018902b0bf69ab7c27d643c9d0f132e9099c2d`. Its sole authorized wrapper ran once and returned `FAIL F2_LOR_1011_BRANCH_BINDING_PROBE E12` after approximately 0.9 seconds with empty wrapper stderr. It was not retried within that lifecycle. E12 preserves the data-less persistent child identity but does not reveal whether the health pair was failed, nonterminal, or unrecognized. Binding remained `FAIL / UNRESOLVED`; DR-037 authority exhausted and early-expired. The later DR-038, DR-046, and DR-047 states are recorded in the current-control section above. All connection, migration, Storage, Railway binding, deployment, Matrix, production, user, email, and data gates remained closed.
 
 ## Checkpoint outcome
 
@@ -103,11 +115,11 @@ Other bounded evidence:
 
 ## Current exact resume point
 
-1. Re-read canonical MissionMed OS authority through DR-037 and the current F2-LOR-1011 mission, passport, and authority index.
-2. Preserve DR-037's canonical authority PASS separately from its one runtime result: `FAILED_E12 / EXHAUSTED / EARLY_EXPIRED`; do not retry it or infer the hidden provider status.
-3. Finish the exact DR-038 additive authority package, obtain a fresh precommit PASS, commit and push only that reviewed package, then obtain a distinct fresh post-push `INDEPENDENTLY_VERIFIED` verdict.
-4. Only after DR-038 is externally `PUSHED_FILED / INDEPENDENTLY_VERIFIED`, run exactly its one fixed-output sanitized branch-health diagnostic wrapper once. Do not run any direct Supabase child command.
-5. Stop after the fixed diagnostic result for a new fresh independent resource-binding review. No result advances connection, migration, Storage, Railway binding, deployment, Matrix, production, users, email, or data by implication.
+1. Do not rerun DR-037, DR-038, or DR-046 and do not execute any DR-047 endpoint, credential, or provider action.
+2. Obtain one of two external prerequisites: either (a) a provider-originated opaque action-run identifier with provenance binding it uniquely to child `mftguikkftmrxjxrkdln` and the observed `MIGRATIONS_FAILED` workflow, or (b) new primary provider law establishing request filtering, deterministic ordering, immutable snapshot semantics, and child-branch-to-run mapping sufficient to select exactly one run without inference.
+3. Re-read the then-current MissionMed OS `BOOT.md` -> `CURRENT.md` -> F2-LOR-1011 mission -> LOR passport -> authority index and confirm canonical DR-047 commit `f45dee29289cb86dfbd2fe537bc6fce3a758bae5` plus its fresh independent PASS remain controlling.
+4. File a new additive executable decision that binds the exact strict credential bridge, exact request wrapper, numeric header/body/decompression/line/time ceilings, deterministic run binding, fixed result contract, tests, and exactly one lifecycle. Obtain fresh precommit and post-push independent PASS before any credential or provider read.
+5. After any authorized lifecycle, stop for a new independent Tranche-1 binding verdict. No diagnostic result advances connection, migration, Storage, Railway binding, deployment, Matrix, production, canary, eligible-population, users, email, or data by implication.
 
 ## Historical exact resume point at serialization yield
 
