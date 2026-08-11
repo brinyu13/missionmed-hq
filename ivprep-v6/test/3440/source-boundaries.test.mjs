@@ -17,7 +17,11 @@ test('HQ integration is a narrow mount and successful-logout notification', { sk
   assert.match(hq, /recordIvPrepHqLogout/u);
   assert.match(hq, /pathname === '\/api\/auth\/logout'/u);
   assert.match(hq, /if \(session && !validateCsrf\(request, session\)\)/u);
-  assert.ok(hq.indexOf('recordIvPrepHqLogout') < hq.lastIndexOf("'Set-Cookie': clearSessionCookie(request)"));
+  const logoutCsrfGuard = hq.lastIndexOf('if (session && !validateCsrf(request, session))');
+  const logoutNotification = hq.lastIndexOf('recordIvPrepHqLogout({');
+  const logoutCookieClear = hq.lastIndexOf("'Set-Cookie': clearSessionCookie(request)");
+  assert.ok(logoutCsrfGuard < logoutNotification);
+  assert.ok(logoutNotification < logoutCookieClear);
 });
 
 test('product admission never projects shared access tokens or bearer auth', async () => {
@@ -47,4 +51,17 @@ test('ElevenLabs remains conditional and only the corrected multi-stream path is
   assert.equal(providerSources.join('\n').includes('/stream-input'), false);
   const elevenlabs = await source('ivprep-v6/server/providers/elevenlabs-tts-adapter.mjs');
   assert.match(elevenlabs, /\/v1\/text-to-speech\/\$\{value\}\/multi-stream-input/u);
+});
+
+test('HQ only dispatches and observes the child worker; provider objects stay worker-owned', async () => {
+  const controller = await source('ivprep-v6/server/providers/provider-session-controller.mjs');
+  const worker = await source('ivprep-v6/server/agents/profile-b-agent.mjs');
+  assert.equal(controller.includes('agent.join'), false);
+  assert.equal(controller.includes('avatar.create'), false);
+  assert.equal(controller.includes('avatar.terminate'), false);
+  assert.match(controller, /worker\.awaitMediaReady/u);
+  assert.match(controller, /worker\.awaitReconciliation/u);
+  assert.match(worker, /ctx\.waitForParticipant/u);
+  assert.match(worker, /durableGate\.claimJob/u);
+  assert.match(worker, /durableGate\.reconcileJob/u);
 });

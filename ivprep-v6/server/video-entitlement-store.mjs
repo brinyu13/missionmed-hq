@@ -18,6 +18,7 @@ export class InMemoryVideoEntitlementStore {
     this.reservations = new Map();
     this.idempotency = new Map();
     this.interviewReservations = new Map();
+    this.testReservations = new Map();
     this.killSwitch = false;
   }
 
@@ -45,10 +46,20 @@ export class InMemoryVideoEntitlementStore {
     const interview = boundedId(interviewId, 'Interview');
     const key = boundedId(idempotencyKey, 'Idempotency key');
     const seconds = Math.max(1, Math.trunc(Number(requestedSeconds) || 0));
-    const request = canonicalRequest({ owner, interview, seconds, testNo });
+    const testNumber = Number(testNo);
+    if (!Number.isInteger(testNumber) || testNumber < 1 || testNumber > 3) {
+      return Object.freeze({ ok: false, status: 403, code: 'ivprep_test_not_authorized' });
+    }
+    const authorizedMaximum = testNumber === 3 ? 59 : 45;
+    if (seconds > authorizedMaximum) {
+      return Object.freeze({ ok: false, status: 403, code: 'ivprep_test_duration_exceeded' });
+    }
+    const request = canonicalRequest({ owner, interview, seconds, testNo: testNumber });
     const prior = this.idempotency.get(key);
     if (prior) return prior.request === request ? prior.result : Object.freeze({ ok: false, status: 409, code: 'ivprep_idempotency_conflict' });
     if (this.interviewReservations.has(interview)) return Object.freeze({ ok: false, status: 409, code: 'ivprep_reservation_exists' });
+    const testKey = `${owner}\0${testNumber}`;
+    if (this.testReservations.has(testKey)) return Object.freeze({ ok: false, status: 409, code: 'ivprep_paid_test_already_used' });
 
     const balance = this.balance(owner);
     if (seconds > balance.available) return Object.freeze({ ok: false, status: 409, code: 'ivprep_video_seconds_unavailable' });
@@ -63,7 +74,7 @@ export class InMemoryVideoEntitlementStore {
       consumedSeconds: 0,
       refundedSeconds: 0,
       state: 'RESERVED',
-      testNo,
+      testNo: testNumber,
       dispatchId: null,
       providerSessionHash: null,
       createdAtMs: this.now(),
@@ -71,6 +82,7 @@ export class InMemoryVideoEntitlementStore {
     };
     this.reservations.set(reservation.id, reservation);
     this.interviewReservations.set(interview, reservation.id);
+    this.testReservations.set(testKey, reservation.id);
     const result = Object.freeze({ ok: true, status: 201, reservation: structuredClone(reservation) });
     this.idempotency.set(key, { request, result });
     return result;

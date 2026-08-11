@@ -1,5 +1,5 @@
 import { createReadStream, existsSync, statSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { dirname, extname, isAbsolute, join, normalize, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -54,12 +54,32 @@ function sendAdmissionError(response, admission) {
   sendJson(response, admission?.status || 401, { error: admission?.code || 'ivprep_authentication_required' });
 }
 
-function requestOrigin(request) {
-  const host = String(request.headers.host || '').trim();
-  if (!host || /[\s/\\]/u.test(host)) return null;
-  const forwarded = String(request.headers['x-forwarded-proto'] || '').split(',')[0].trim().toLowerCase();
-  const protocol = forwarded === 'https' ? 'https' : 'http';
-  return `${protocol}://${host}`;
+function trustedOrigin(value) {
+  try {
+    const parsed = new URL(String(value || ''));
+    if (!['http:', 'https:'].includes(parsed.protocol)
+      || parsed.username || parsed.password || parsed.pathname !== '/'
+      || parsed.search || parsed.hash) return null;
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+function hasQueryCredential(url) {
+  for (const [name, value] of url?.searchParams || []) {
+    const normalized = String(name).replace(/[^a-z0-9]/giu, '').toLowerCase();
+    if (/(?:authorization|bearer|credential|password|secret|session|cookie|token|apikey|csrf|jwt|wpauthorization)/u.test(normalized)) return true;
+    const candidate = String(value || '').trim();
+    if (/^(?:bearer|basic)\s+/iu.test(candidate) || /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u.test(candidate)) return true;
+  }
+  return false;
+}
+
+function startRequestHash({ mode }) {
+  return createHash('sha256')
+    .update(JSON.stringify({ operation: 'interview_start', mode }))
+    .digest('hex');
 }
 
 async function readJson(request) {
@@ -117,10 +137,11 @@ export function createIvPrepHqHandler({
     hqSession,
     cookieFingerprint,
     hqSessionMaxTtlSeconds,
+    expectedOrigin,
   } = {}) {
     const pathname = url?.pathname || '/';
     if (!isProductPath(pathname)) return false;
-    if (request.headers.authorization || request.headers.Authorization) {
+    if (request.headers.authorization || request.headers.Authorization || hasQueryCredential(url)) {
       sendAdmissionError(response, { status: 401, code: 'ivprep_authentication_required' });
       return true;
     }
@@ -183,14 +204,87 @@ export function createIvPrepHqHandler({
       return true;
     }
 
-    const expectedOrigin = requestOrigin(request);
-    if (!expectedOrigin) {
+    const sealedOrigin = trustedOrigin(expectedOrigin);
+    if (!sealedOrigin) {
       sendJson(response, 403, { error: 'ivprep_admission_denied' });
       return true;
     }
 
+    const statusMatch = pathname.match(new RegExp(`^${API_PREFIX}/interviews/([A-Za-z0-9._:-]{1,120})/status$`, 'u'));
+    if (request.method === 'GET' && statusMatch) {
+      const interview = interviews.get(statusMatch[1]);
+      const owner = registry.assertBinding({
+        interviewId: statusMatch[1],
+        subject: admission.subject,
+        cookieFingerprint: admission.cookieFingerprint,
+        entitlementRevision: admission.entitlement.revision,
+      });
+      if (!interview || !owner.ok) {
+        sendJson(response, 409, { error: 'ivprep_session_owner_changed' });
+        return true;
+      }
+      const provider = interview.controller?.status?.() || null;
+      if (provider?.state === 'ACTIVE') {
+        interview.state = 'active';
+        interview.connection = null;
+      } else if (provider?.state === 'CLOSED') {
+        interview.state = 'ended';
+        interview.connection = null;
+      } else if (provider?.state === 'FAILED_CLOSED') {
+        interview.state = 'failed_closed';
+        interview.connection = null;
+      }
+      sendJson(response, 200, {
+        interview: { id: interview.id, mode: interview.mode, state: interview.state },
+        provider: provider ? { state: provider.state, active: provider.active === true } : null,
+      });
+      return true;
+    }
+
+    const mediaReadyMatch = pathname.match(new RegExp(`^${API_PREFIX}/interviews/([A-Za-z0-9._:-]{1,120})/media-ready$`, 'u'));
+    if (request.method === 'POST' && mediaReadyMatch) {
+      const mutation = validateIvPrepMutation({ request, admission, expectedOrigin: sealedOrigin });
+      if (!mutation.ok) { sendAdmissionError(response, mutation); return true; }
+      const interview = interviews.get(mediaReadyMatch[1]);
+      const owner = registry.assertBinding({
+        interviewId: mediaReadyMatch[1],
+        subject: admission.subject,
+        cookieFingerprint: admission.cookieFingerprint,
+        entitlementRevision: admission.entitlement.revision,
+      });
+      if (!interview || !owner.ok || interview.mode !== 'video' || !interview.controller) {
+        sendJson(response, 409, { error: 'ivprep_session_owner_changed' });
+        return true;
+      }
+      let body;
+      try { body = await readJson(request); }
+      catch { sendJson(response, 400, { error: 'ivprep_invalid_request' }); return true; }
+      const keys = Object.keys(body).sort();
+      if (keys.join(',') !== 'audioAuthority,audioPlayable,videoDecoded'
+        || body.videoDecoded !== true
+        || body.audioPlayable !== true
+        || body.audioAuthority !== 'avatar-livekit') {
+        sendJson(response, 400, { error: 'ivprep_invalid_request' });
+        return true;
+      }
+      const recorded = await interview.controller.recordBrowserMediaReady({
+        subject: admission.subject,
+        cookieFingerprint: admission.cookieFingerprint,
+        entitlementRevision: admission.entitlement.revision,
+        videoDecoded: true,
+        audioPlayable: true,
+        audioAuthority: 'avatar-livekit',
+      });
+      if (!recorded?.ok) {
+        sendJson(response, 503, { error: 'ivprep_media_readiness_unconfirmed' });
+        return true;
+      }
+      sendJson(response, 202, { interview: { id: interview.id, mode: interview.mode, state: 'starting' } });
+      return true;
+    }
+
     if (request.method === 'POST' && pathname === `${API_PREFIX}/interviews/start`) {
-      const mutation = validateIvPrepMutation({ request, admission, expectedOrigin });
+      const mutation = validateIvPrepMutation({ request, admission, expectedOrigin: sealedOrigin });
       if (!mutation.ok) {
         sendAdmissionError(response, mutation);
         return true;
@@ -199,12 +293,8 @@ export function createIvPrepHqHandler({
       try { body = await readJson(request); }
       catch { sendJson(response, 400, { error: 'ivprep_invalid_request' }); return true; }
       const mode = body.mode === 'video' ? 'video' : 'voice-only';
-      if (mode === 'video' && (!flags.videoEnabled || admission.entitlement.video !== true)) {
-        sendJson(response, 503, { error: 'ivprep_unavailable' });
-        return true;
-      }
-      if (mode === 'video' && typeof providerControllerFactory !== 'function') {
-        sendJson(response, 503, { error: 'ivprep_unavailable' });
+      if (Object.keys(body).some((key) => key !== 'mode')) {
+        sendJson(response, 400, { error: 'ivprep_invalid_request' });
         return true;
       }
       const idempotencyKey = String(request.headers['idempotency-key'] || '').trim();
@@ -212,9 +302,30 @@ export function createIvPrepHqHandler({
         sendJson(response, 400, { error: 'ivprep_invalid_request' });
         return true;
       }
+      const requestHash = startRequestHash({ mode });
       const existing = [...interviews.values()].find((entry) => entry.idempotencyKey === idempotencyKey && entry.subject === admission.subject);
       if (existing) {
-        sendJson(response, 200, { interview: { id: existing.id, mode: existing.mode, state: existing.state } });
+        const owner = registry.assertBinding({
+          interviewId: existing.id,
+          subject: admission.subject,
+          cookieFingerprint: admission.cookieFingerprint,
+          entitlementRevision: admission.entitlement.revision,
+        });
+        if (!owner.ok || existing.requestHash !== requestHash) {
+          sendJson(response, 409, { error: 'ivprep_idempotency_conflict' });
+          return true;
+        }
+        const replay = { interview: { id: existing.id, mode: existing.mode, state: existing.state } };
+        if (existing.state === 'starting' && existing.connection) replay.connection = existing.connection;
+        sendJson(response, existing.state === 'starting' ? 202 : 200, replay);
+        return true;
+      }
+      if (mode === 'video' && (!flags.videoEnabled || admission.entitlement.video !== true)) {
+        sendJson(response, 503, { error: 'ivprep_unavailable' });
+        return true;
+      }
+      if (mode === 'video' && typeof providerControllerFactory !== 'function') {
+        sendJson(response, 503, { error: 'ivprep_unavailable' });
         return true;
       }
       const active = [...interviews.values()].find((entry) => entry.subject === admission.subject && ['starting', 'active', 'terminating'].includes(entry.state));
@@ -235,13 +346,15 @@ export function createIvPrepHqHandler({
         cookieFingerprint: admission.cookieFingerprint,
         entitlementRevision: admission.entitlement.revision,
         idempotencyKey,
+        requestHash,
         mode,
         state: mode === 'video' ? 'starting' : 'active',
         startedAtMs: now(),
+        connection: null,
         controller: mode === 'video' ? providerControllerFactory({ admission, id }) : null,
       };
       interviews.set(id, interview);
-      registry.setTerminationHandler?.(id, async (reason) => {
+      const terminateInterview = async (reason) => {
         if (['ended', 'failed_closed'].includes(interview.state)) return;
         interview.state = 'terminating';
         if (interview.controller) {
@@ -250,7 +363,9 @@ export function createIvPrepHqHandler({
         } else {
           interview.state = 'ended';
         }
-      });
+        interview.connection = null;
+      };
+      registry.setTerminationHandler?.(id, terminateInterview);
       if (interview.controller) {
         const started = await interview.controller.start({
           subject: admission.subject,
@@ -263,6 +378,32 @@ export function createIvPrepHqHandler({
           sendJson(response, 503, { error: 'ivprep_provider_start_failed' });
           return true;
         }
+        if (interview.state !== 'starting') {
+          const stopped = await interview.controller.stop('termination_requested_during_start');
+          interview.state = stopped?.ok ? 'ended' : 'failed_closed';
+          sendJson(response, 409, { error: 'ivprep_session_owner_changed' });
+          return true;
+        }
+        const stillOwned = registry.assertBinding({
+          interviewId: id,
+          subject: admission.subject,
+          cookieFingerprint: admission.cookieFingerprint,
+          entitlementRevision: admission.entitlement.revision,
+        });
+        if (!stillOwned.ok) {
+          const stopped = await interview.controller.stop('admission_changed_during_start');
+          interview.state = stopped?.ok ? 'ended' : 'failed_closed';
+          sendJson(response, 409, { error: 'ivprep_session_owner_changed' });
+          return true;
+        }
+        if (started.pending === true) {
+          interview.connection = started.connection;
+          sendJson(response, 202, {
+            interview: { id, mode, state: interview.state },
+            connection: interview.connection,
+          });
+          return true;
+        }
         interview.state = 'active';
       }
       sendJson(response, 201, { interview: { id, mode, state: interview.state } });
@@ -271,7 +412,7 @@ export function createIvPrepHqHandler({
 
     const endMatch = pathname.match(new RegExp(`^${API_PREFIX}/interviews/([A-Za-z0-9._:-]{1,120})/end$`, 'u'));
     if (request.method === 'POST' && endMatch) {
-      const mutation = validateIvPrepMutation({ request, admission, expectedOrigin });
+      const mutation = validateIvPrepMutation({ request, admission, expectedOrigin: sealedOrigin });
       if (!mutation.ok) { sendAdmissionError(response, mutation); return true; }
       const interview = interviews.get(endMatch[1]);
       const owner = registry.assertBinding({
@@ -284,8 +425,17 @@ export function createIvPrepHqHandler({
         sendJson(response, 409, { error: 'ivprep_session_owner_changed' });
         return true;
       }
-      if (interview.controller) await interview.controller.stop('user_ended');
-      interview.state = 'ended';
+      if (interview.controller) {
+        const stopped = await interview.controller.stop('user_ended');
+        interview.state = stopped?.ok ? 'ended' : 'failed_closed';
+        if (!stopped?.ok) {
+          sendJson(response, 503, { error: 'ivprep_provider_cleanup_unconfirmed' });
+          return true;
+        }
+      } else {
+        interview.state = 'ended';
+      }
+      interview.connection = null;
       interview.endedAtMs = now();
       registry.clearTerminationHandler?.(interview.id);
       sendJson(response, 200, { interview: { id: interview.id, mode: interview.mode, state: interview.state } });

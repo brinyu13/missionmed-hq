@@ -4,6 +4,7 @@ import { InMemoryAdmissionRegistry } from '../../server/admission-registry.mjs';
 import { createIvPrepHqHandler } from '../../server/hq-mount.mjs';
 
 const host = '127.0.0.1';
+let sealedOrigin = null;
 const now = () => Date.now();
 const registry = new InMemoryAdmissionRegistry({ now });
 registry.grantSyntheticEntitlement({
@@ -44,6 +45,7 @@ const server = http.createServer(async (request, response) => {
     hqSession,
     cookieFingerprint: '3'.repeat(64),
     hqSessionMaxTtlSeconds: 1800,
+    expectedOrigin: sealedOrigin,
   });
   if (!handled) {
     response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -53,7 +55,8 @@ const server = http.createServer(async (request, response) => {
 
 server.listen(0, host, () => {
   const address = server.address();
-  process.stdout.write(`LOCAL_HARNESS_URL=http://${host}:${address.port}/iv-prep-on-call/\n`);
+  sealedOrigin = `http://${host}:${address.port}`;
+  process.stdout.write(`LOCAL_HARNESS_URL=${sealedOrigin}/iv-prep-on-call/\n`);
 });
 
 for (const signal of ['SIGINT', 'SIGTERM']) {

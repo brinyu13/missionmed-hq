@@ -40,6 +40,7 @@ export function advanceProviderSession(current, next) {
   if (!PROVIDER_STATES.includes(current?.state) || !PROVIDER_STATES.includes(next)) throw new TypeError('Unknown provider lifecycle state.');
   if (TERMINAL.has(current.state)) throw new Error('Provider lifecycle is terminal.');
   const allowed = FORWARD[current.state] === next
+    || (next === 'FAILED_CLOSED' && current.state === 'ELIGIBLE')
     || (next === 'TERMINATING' && !['DISABLED', 'ELIGIBLE', 'TERMINATING', 'RECONCILING'].includes(current.state))
     || (next === 'RECONCILING' && current.state === 'TERMINATING')
     || (next === 'FAILED_CLOSED' && current.state === 'RECONCILING');
@@ -50,6 +51,10 @@ export function advanceProviderSession(current, next) {
 export function failProviderSession(current, code = 'provider_failure') {
   if (TERMINAL.has(current?.state)) return current;
   let next = current;
+  if (next.state === 'ELIGIBLE') {
+    next = advanceProviderSession(next, 'FAILED_CLOSED');
+    return Object.freeze({ ...next, failure: String(code).slice(0, 80) });
+  }
   if (!['TERMINATING', 'RECONCILING'].includes(next.state)) next = advanceProviderSession(next, 'TERMINATING');
   if (next.state === 'TERMINATING') next = advanceProviderSession(next, 'RECONCILING');
   next = advanceProviderSession(next, 'FAILED_CLOSED');

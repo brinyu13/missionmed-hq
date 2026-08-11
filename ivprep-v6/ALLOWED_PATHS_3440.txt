@@ -3,7 +3,7 @@
 # Rollback anchor: 9c1fa72e6b056db8b6fe0e17031fcaa688f78569
 # Product lease epoch: 2
 # Product lease binding: 886ce1044fcff63acd7dbee54adf3bc5a67d7b03ff8ca4e14fac7a30ae83ff45
-# Inventory: every exact path in the first 3440 product transaction
+# Inventory: cumulative exact changed-path inventory through the current 3440 follow-up candidate
 
 _AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3440/LOCAL_INTEGRATION_RECEIPT.md
 _AI_HANDOFFS/from_codex/Y1_Y2_CAM_V6_3440/PRODUCTION_GATES.md
@@ -107,6 +107,9 @@ ivprep-v6/scripts/probe-continuous-relay.mjs
 ivprep-v6/scripts/probe-liveavatar-origin.mjs
 ivprep-v6/server/admission-contract.mjs
 ivprep-v6/server/admission-registry.mjs
+ivprep-v6/server/agents/profile-b-agent.mjs
+ivprep-v6/server/agents/profile-b-durable-gate.mjs
+ivprep-v6/server/agents/start-profile-b-worker.mjs
 ivprep-v6/server/hq-auth-lifecycle.mjs
 ivprep-v6/server/hq-mount.mjs
 ivprep-v6/server/providers/elevenlabs-tts-adapter.mjs
@@ -124,6 +127,7 @@ ivprep-v6/test/3440/hq-mount.test.mjs
 ivprep-v6/test/3440/logout-revocation.test.mjs
 ivprep-v6/test/3440/offline-migration-contract.test.mjs
 ivprep-v6/test/3440/provider-lifecycle.test.mjs
+ivprep-v6/test/3440/provider-sdk-contracts.test.mjs
 ivprep-v6/test/3440/source-boundaries.test.mjs
 ivprep-v6/test/aaa-prototype.test.mjs
 ivprep-v6/test/aaa-ux-accessibility.test.mjs

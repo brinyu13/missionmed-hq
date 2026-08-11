@@ -1,5 +1,3 @@
-import { NO_RETRY } from './provider-session-controller.mjs';
-
 export const ELEVENLABS_MULTI_STREAM_ORIGIN = 'wss://api.elevenlabs.io';
 
 export function elevenLabsMultiStreamUrl(voiceId) {
@@ -19,7 +17,6 @@ export async function createConditionalElevenLabsTts({ apiKey, voiceId, profileA
     apiKey,
     voiceId,
     streamingLatency: 0,
-    connOptions: NO_RETRY,
-    websocketUrl: elevenLabsMultiStreamUrl(voiceId),
+    enableLogging: false,
   });
 }

@@ -240,6 +240,7 @@ const server = http.createServer(async (request, response) => {
         hqSession: request.headers.authorization ? null : readSessionFromRequest(request),
         cookieFingerprint: ivPrepCookieFingerprint,
         hqSessionMaxTtlSeconds: CONFIG.sessionTtlSeconds,
+        expectedOrigin: CONFIG.hqBaseUrl,
       });
       if (handled) return;
     }

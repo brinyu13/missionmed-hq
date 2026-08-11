@@ -6,9 +6,13 @@ function opaqueName(prefix) {
   return `${prefix}-${randomBytes(12).toString('hex')}`;
 }
 
-export async function createLiveKitSessionCoordinator({ url, apiKey, apiSecret }) {
-  if (!url?.startsWith('wss://') || !apiKey || !apiSecret) throw new Error('LiveKit server configuration is unavailable.');
-  const livekit = await import('livekit-server-sdk');
+export async function createLiveKitSessionCoordinator({ url, apiKey, apiSecret, livekitModule = null }) {
+  let parsed;
+  try { parsed = new URL(String(url || '')); } catch { parsed = null; }
+  if (!parsed || parsed.protocol !== 'wss:' || parsed.username || parsed.password || parsed.pathname !== '/' || parsed.search || parsed.hash || !apiKey || !apiSecret) {
+    throw new Error('LiveKit server configuration is unavailable.');
+  }
+  const livekit = livekitModule || await import('livekit-server-sdk');
   const httpUrl = url.replace(/^wss:/u, 'https:');
   const roomClient = new livekit.RoomServiceClient(httpUrl, apiKey, apiSecret);
   const dispatchClient = new livekit.AgentDispatchClient(httpUrl, apiKey, apiSecret);
@@ -23,16 +27,46 @@ export async function createLiveKitSessionCoordinator({ url, apiKey, apiSecret }
         await roomClient.deleteRoom(roomName);
       },
     }),
+    participant: Object.freeze({
+      async issue({ roomName, participantIdentity, maxSeconds }) {
+        if (!/^[A-Za-z0-9._:-]{1,120}$/u.test(String(roomName || ''))
+          || !/^[A-Za-z0-9._:-]{1,120}$/u.test(String(participantIdentity || ''))
+          || !Number.isInteger(maxSeconds)
+          || maxSeconds < 1
+          || maxSeconds > 45) {
+          throw new Error('Scoped LiveKit participant authority is invalid.');
+        }
+        const token = new livekit.AccessToken(apiKey, apiSecret, {
+          identity: participantIdentity,
+          ttl: maxSeconds + 30,
+        });
+        token.addGrant({
+          room: roomName,
+          roomJoin: true,
+          canPublish: true,
+          canPublishData: false,
+          canSubscribe: true,
+        });
+        return {
+          url: parsed.origin,
+          token: await token.toJwt(),
+          participantIdentity,
+        };
+      },
+    }),
     dispatch: Object.freeze({
-      async create({ roomName, reservationNonce, agentName }) {
+      async create({ roomName, reservationNonce, agentName, restartPolicy }) {
+        if (restartPolicy !== 'JRP_NEVER' || !agentName || !/^[a-f0-9]{64}$/u.test(String(reservationNonce || ''))) {
+          throw new Error('Explicit no-restart dispatch authority is required.');
+        }
         const created = await dispatchClient.createDispatch(roomName, agentName, {
           metadata: reservationNonce,
           restartPolicy: livekit.JobRestartPolicy.JRP_NEVER,
         });
         return { dispatchId: created.id };
       },
-      async delete({ dispatchId }) {
-        await dispatchClient.deleteDispatch(dispatchId);
+      async delete({ dispatchId, roomName }) {
+        await dispatchClient.deleteDispatch(dispatchId, roomName);
       },
     }),
     retry: NO_RETRY,
