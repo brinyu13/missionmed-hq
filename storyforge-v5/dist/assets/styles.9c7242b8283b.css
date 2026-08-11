@@ -1535,7 +1535,7 @@ body[data-theme="light"] input,body[data-theme="light"] select,body[data-theme="
 body[data-theme="light"] .storyforgeIntro:before{background:radial-gradient(circle,rgba(178,95,0,.12),rgba(92,75,204,.06) 42%,transparent 70%)}
 
 .b1513r2ThemeRow{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.6rem}
-.b1513r2ThemeCard{text-align:left;background:var(--card2);border:1px solid var(--edge);border-radius:14px;padding:.75rem .85rem;display:flex;flex-direction:column;gap:.3rem;color:var(--dim);font-size:.8rem;line-height:1.4}
+.b1513r2ThemeCard{text-align:left;background:var(--card2);border:1px solid var(--edge);border-radius:14px;padding:.75rem .85rem;display:flex;flex-direction:column;gap:.3rem;color:var(--mid);font-size:.8rem;line-height:1.4}
 .b1513r2ThemeCard b{color:var(--tx);font-size:.95rem}.b1513r2ThemeCard.on{border-color:var(--accent);box-shadow:0 0 0 1px rgba(var(--accentGlow),.3)}
 
 .b1513VisMentor{color:var(--cy);border-color:rgba(57,214,255,.35)}.b1513VisPrivate{color:var(--gd);border-color:rgba(255,215,106,.35)}

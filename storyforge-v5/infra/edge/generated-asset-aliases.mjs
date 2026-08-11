@@ -91,9 +91,9 @@ export default Object.freeze({
     "type": "image/png",
     "cache": "immutable"
   },
-  "29edd861302f": {
-    "path": "assets/styles.29edd861302f.css",
-    "sha256": "29edd861302f98da81c9d840d08a807515ce07ab66df62aa5e66f5330df70840",
+  "9c7242b8283b": {
+    "path": "assets/styles.9c7242b8283b.css",
+    "sha256": "9c7242b8283bee18de35835981b50b088e266640cd2535bba1e163054d3256f2",
     "size": 146410,
     "type": "text/css; charset=utf-8",
     "cache": "immutable"
