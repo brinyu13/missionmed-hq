@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createInspirationService, deterministicPrompt, InspirationError } from '../../server/inspiration.mjs';
+import { createInspirationService, deterministicPrompt, InspirationError, lifeStagesForPrompt } from '../../server/inspiration.mjs';
 
 const studentId = '11111111-1111-4111-8111-111111111111';
 const promptId = '22222222-2222-4222-8222-222222222222';
@@ -35,6 +35,13 @@ test('prompt selection is deterministic and honors the score band and exclusions
   assert.equal(first.id, second.id);
   assert.equal(first.id, promptId);
   assert.equal(deterministicPrompt(rows, { ...input, excludeIds: [promptId] }, studentId, 2).library_key, 'q-002');
+});
+
+test('Inspiration derives the Founder-approved life-stage facets from governed prompt metadata', () => {
+  assert.deepEqual(lifeStagesForPrompt({ territory: 'first_jobs', text: 'My first job', who_detail_ids: [] }), ['work_first_jobs']);
+  assert.deepEqual(lifeStagesForPrompt({ territory: 'travel', text: 'A trip abroad', who_detail_ids: [] }), ['travel_culture']);
+  assert.ok(lifeStagesForPrompt({ territory: 'caregiving', text: 'My spouse helped me', who_detail_ids: ['spouse_partner'] }).includes('marriage_partner'));
+  assert.deepEqual(lifeStagesForPrompt({ territory: 'unclassified', text: 'A quiet moment', who_detail_ids: [] }), ['other']);
 });
 
 test('next records only content-free dimensions', async () => {
@@ -85,6 +92,7 @@ test('browse returns self-scoped answered state and a pinned projection from one
   } });
   const result = await subject.browse(identity, { layout: 'grid' });
   assert.equal(result.prompts[0].answeredStoryId, '66666666-6666-4666-8666-666666666666');
+  assert.deepEqual(result.prompts[0].lifeStage, ['hobbies_interests']);
   assert.deepEqual(result.pinned, result.prompts);
   assert.match(observedSql, /story\.student_id=public\.sf_actor_id\(\)/);
   assert.match(observedSql, /story\.origin->>'inspirationPromptId'/);

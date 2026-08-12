@@ -110,6 +110,7 @@ phase_one_migrations=(
   "20260810260000_b1_514_guest_voice_contributions.sql"
   "20260810270000_b1_514_request_delivery_attempts.sql"
   "20260810280000_b1_514_guest_voice_cleanup_recovery.sql"
+  "20260812120000_b1_515_v201_reviews_collections_peer.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \

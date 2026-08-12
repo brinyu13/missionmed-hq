@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-export const SURVIVAL_SCHEMA = 'missionmed.storyforge.survival-manifest.v2';
+export const SURVIVAL_SCHEMA = 'missionmed.storyforge.survival-manifest.v3';
 
 const AUDIO_EXTENSIONS = Object.freeze({
   'audio/webm': 'webm',
@@ -104,6 +104,88 @@ function compareRowSet(differences, { storyId, table }, before = { count: 0, row
   }
 }
 
+function compareProtectedTables(differences, pre = {}, post = {}, expectedTableAdditions = []) {
+  const expected = new Set(expectedTableAdditions || []);
+  for (const [table, before] of Object.entries(pre).sort()) {
+    const after = post?.[table];
+    if (!after) {
+      difference(differences, { table, field: 'protectedTable', reason: 'table_missing', before });
+      continue;
+    }
+    compareExact(differences, { table, field: 'protectedTable' }, before, after);
+  }
+  for (const [table, after] of Object.entries(post || {}).sort()) {
+    if (pre?.[table]) continue;
+    if (!expected.has(table)) {
+      difference(differences, { table, field: 'protectedTable', reason: 'unexpected_table_addition', after });
+    } else if (Number(after?.count || 0) !== 0) {
+      difference(differences, {
+        table,
+        field: 'protectedTable.count',
+        reason: 'expected_table_not_empty',
+        before: 0,
+        after: after?.count,
+      });
+    }
+  }
+  for (const table of expected) {
+    if (pre?.[table] || !post?.[table]) {
+      difference(differences, {
+        table,
+        field: 'protectedTable',
+        reason: pre?.[table] ? 'expected_table_already_existed' : 'expected_table_addition_missing',
+        before: pre?.[table] || null,
+        after: post?.[table] || null,
+      });
+    }
+  }
+}
+
+function compareFeatureFlags(differences, pre = { rows: {} }, post = { rows: {} }, expectedAdditions = []) {
+  const expected = new Map(expectedAdditions || []);
+  for (const [key, before] of Object.entries(pre?.rows || {}).sort()) {
+    compareExact(
+      differences,
+      { table: 'sf_feature_flags', rowKey: key, field: 'row' },
+      before,
+      post?.rows?.[key] ?? null,
+    );
+  }
+  for (const [key, after] of Object.entries(post?.rows || {}).sort()) {
+    if (pre?.rows?.[key] != null) continue;
+    const expectedHash = expected.get(key);
+    if (expectedHash !== after?.rowHash) {
+      difference(differences, {
+        table: 'sf_feature_flags', rowKey: key, field: 'addition',
+        reason: 'unexpected_feature_flag_addition', after,
+      });
+    } else if (after?.defaultOff !== true) {
+      difference(differences, {
+        table: 'sf_feature_flags', rowKey: key, field: 'scope',
+        reason: 'expected_feature_flag_not_default_off', after,
+      });
+    }
+  }
+  for (const [key, expectedHash] of expected) {
+    const actual = post?.rows?.[key];
+    if (pre?.rows?.[key]) {
+      difference(differences, {
+        table: 'sf_feature_flags', rowKey: key, field: 'expected_addition',
+        reason: 'expected_feature_flag_already_existed',
+        before: pre.rows[key],
+        after: actual || null,
+      });
+    } else if (!actual || actual.rowHash !== expectedHash) {
+      difference(differences, {
+        table: 'sf_feature_flags', rowKey: key, field: 'expected_addition',
+        reason: 'expected_feature_flag_addition_missing',
+        before: expectedHash,
+        after: actual?.rowHash ?? null,
+      });
+    }
+  }
+}
+
 function validateObjectSet(differences, storyId, phase, objectSet = { count: 0, rows: {} }) {
   for (const [rowKey, item] of Object.entries(objectSet.rows || {}).sort()) {
     const valid = item?.required !== true || (
@@ -160,7 +242,11 @@ function compareLedger(differences, pre, post, expectedLedgerAdditions) {
   }
 }
 
-export function compareSurvivalManifests(pre, post, { expectedLedgerAdditions = [] } = {}) {
+export function compareSurvivalManifests(pre, post, {
+  expectedLedgerAdditions = [],
+  expectedTableAdditions = [],
+  expectedFeatureFlagAdditions = [],
+} = {}) {
   const differences = [];
   if (pre?.schema !== SURVIVAL_SCHEMA || post?.schema !== SURVIVAL_SCHEMA) {
     difference(differences, { field: 'schema', before: pre?.schema, after: post?.schema });
@@ -171,6 +257,10 @@ export function compareSurvivalManifests(pre, post, { expectedLedgerAdditions = 
     compareExact(differences, { field: `${phase}.fullVisibility` }, true, manifest.capture?.fullVisibility);
     compareExact(differences, { field: `${phase}.objectVerification` }, 'required_pass', manifest.capture?.objectVerification);
   }
+
+  compareProtectedTables(differences, pre.protectedTables, post.protectedTables, expectedTableAdditions);
+  compareFeatureFlags(differences, pre.featureFlags, post.featureFlags, expectedFeatureFlagAdditions);
+  compareObjects(differences, null, pre.permanentObjects, post.permanentObjects);
 
   for (const table of new Set([...Object.keys(pre.global || {}), ...Object.keys(post.global || {})])) {
     const before = pre.global?.[table] || { count: 0, idsHash: sha256(canonicalJson([])) };
@@ -197,14 +287,6 @@ export function compareSurvivalManifests(pre, post, { expectedLedgerAdditions = 
     const preVisibility = before.visibility?.columnPresent ? before.visibility.value : null;
     const postVisibility = after.visibility?.columnPresent ? after.visibility.value : null;
     compareExact(differences, { storyId, field: 'visibility' }, preVisibility, postVisibility);
-    if (Number(after.v2Assertions?.generatedVersionRows || 0) !== 0) {
-      difference(differences, { storyId, table: 'sf_story_versions', field: 'generatedVersionRows', reason: 'historical_version_synthesized', before: 0, after: after.v2Assertions?.generatedVersionRows });
-    }
-    for (const [table, count] of Object.entries(after.v2Assertions?.generatedRelationshipRows || {}).sort()) {
-      if (Number(count) !== 0) {
-        difference(differences, { storyId, table, field: 'generatedRelationshipRows', reason: 'historical_v2_relationship_synthesized', before: 0, after: count });
-      }
-    }
     for (const table of new Set([...Object.keys(before.children || {}), ...Object.keys(after.children || {})])) {
       compareRowSet(differences, { storyId, table }, before.children?.[table], after.children?.[table]);
     }
@@ -219,7 +301,7 @@ export function compareSurvivalManifests(pre, post, { expectedLedgerAdditions = 
 
 export function safeDifferenceReport(result) {
   return {
-    schema: 'missionmed.storyforge.survival-comparison.v2',
+    schema: 'missionmed.storyforge.survival-comparison.v3',
     pass: Boolean(result?.pass),
     differenceCount: result?.differences?.length || 0,
     differences: (result?.differences || []).map(({ storyId, table, rowKey, field, reason, beforeHash, afterHash }) => ({

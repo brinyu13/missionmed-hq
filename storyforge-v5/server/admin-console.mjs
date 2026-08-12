@@ -1,6 +1,7 @@
 const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const statusFilters = new Set(['awaiting', 'in_review', 'changes', 'reviewed', 'approved', 'unscored']);
 const reviewStatuses = new Set(['in_review', 'changes', 'reviewed', 'approved']);
+const directReviewStatuses = new Set(['awaiting', ...reviewStatuses]);
 const suitabilityValues = new Set(['ps_only', 'interview_only', 'both', 'neither']);
 const flagScopes = new Set(['off', 'allowlist']);
 const reviewFields = new Set(['status', 'mentorScore', 'suitability', 'studentFeedback', 'internalNote']);
@@ -59,6 +60,10 @@ export function reviewCheckForceOff(environment = process.env) {
 
 export function adminReviewControlsForceOff(environment = process.env) {
   return explicitlyDisabled(environment.STORYFORGE_ADMIN_REVIEW_CONTROLS_FORCE_OFF);
+}
+
+function storyArchiveForceOff(environment = process.env) {
+  return explicitlyDisabled(environment.STORYFORGE_STORY_ARCHIVE_FORCE_OFF);
 }
 
 function activityForceOffForAdmin(environment = process.env) {
@@ -295,6 +300,43 @@ export function validateAdminReview(input) {
   return { expectedVersion, patch: { ...patch } };
 }
 
+export function validateUseReviews(input) {
+  const expectedVersion = Number(input?.expectedVersion);
+  if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0 || !Array.isArray(input?.reviews) || input.reviews.length > 6) {
+    throw new AdminConsoleError('invalid_use_reviews', 'A valid story version and bounded use reviews are required.');
+  }
+  const seen = new Set();
+  const reviews = input.reviews.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)
+      || Object.keys(item).some((key) => !['useId', 'qualifies', 'score'].includes(key))) {
+      throw new AdminConsoleError('invalid_use_reviews', 'A use review contains unsupported fields.');
+    }
+    const useId = String(item.useId || '').trim();
+    if (!intendedUseValues.has(useId) || seen.has(useId)) {
+      throw new AdminConsoleError('invalid_use_reviews', 'A use review is invalid or duplicated.');
+    }
+    seen.add(useId);
+    const score = item.score == null ? null : Number(item.score);
+    if (score !== null && (!Number.isInteger(score) || score < 1 || score > 5)) {
+      throw new AdminConsoleError('invalid_use_reviews', 'A per-use score must be from 1 to 5.');
+    }
+    return { useId, qualifies: item.qualifies === true, score };
+  });
+  return Object.freeze({ expectedVersion, reviews });
+}
+
+function validatePromotion(input) {
+  const expectedVersion = Number(input?.expectedVersion);
+  if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0) {
+    throw new AdminConsoleError('invalid_story_promotion', 'Expected story version is required.');
+  }
+  return Object.freeze({
+    expectedVersion,
+    active: input?.active !== false,
+    confirmReplace: input?.confirmReplace === true,
+  });
+}
+
 function boundedEnumArray(value, allowed, label) {
   if (!Array.isArray(value)) {
     throw new AdminConsoleError('invalid_admin_taxonomy', `${label} must be an array.`);
@@ -329,6 +371,13 @@ function requireAdmin(identity) {
 }
 
 function translateDatabaseError(error) {
+  if (error?.code === '40001' && error?.message === 'publication replacement confirmation required') {
+    throw new AdminConsoleError(
+      'story_publication_replace_required',
+      'Another story is already promoted to this destination. Confirm replacement to continue.',
+      409,
+    );
+  }
   if (error?.code === '40001') {
     throw new AdminConsoleError('admin_review_conflict', 'This story changed. Reload before saving the review.', 409);
   }
@@ -438,7 +487,7 @@ export function createAdminConsoleService({
     return rpc(identity, sql, values);
   }
 
-  function reviewStory(identity, storyId, input, requireDirectControls = false) {
+function reviewStory(identity, storyId, input, requireDirectControls = false) {
     if (requireDirectControls && adminReviewControlsForceOff(environment)) {
       throw new AdminConsoleError(
         'admin_review_controls_force_off',
@@ -455,6 +504,35 @@ export function createAdminConsoleService({
         review.expectedVersion,
         JSON.stringify(review.patch),
       ],
+    );
+  }
+
+  function setStoryCollection(identity, storyId, input) {
+    if (storyArchiveForceOff(environment)) {
+      throw new AdminConsoleError(
+        'story_archive_force_off',
+        'Story collections are disabled by the runtime kill switch.',
+        403,
+      );
+    }
+    exactObject(
+      input,
+      new Set(['collection', 'expectedVersion']),
+      'invalid_story_collection',
+      'Story collection input is required.',
+    );
+    const collection = String(input.collection || '').trim();
+    if (!['active', 'archived', 'trashed'].includes(collection)) {
+      throw new AdminConsoleError('invalid_story_collection', 'Story collection is not recognized.');
+    }
+    const version = Number(input.expectedVersion);
+    if (!Number.isSafeInteger(version) || version < 0) {
+      throw new AdminConsoleError('invalid_story_version', 'A valid story version is required.');
+    }
+    return rpc(
+      identity,
+      "SELECT public.sf_set_story_collection($1,$2,$3,'workspace') AS payload",
+      [requireUuid(storyId, 'Story identifier'), version, collection],
     );
   }
 
@@ -610,7 +688,18 @@ export function createAdminConsoleService({
          ELSE detail.payload || jsonb_build_object(
            'visibility', story.visibility,
            'story', coalesce(detail.payload -> 'story', '{}'::jsonb)
-             || jsonb_build_object('visibility', story.visibility)
+             || jsonb_build_object('visibility', story.visibility),
+           'useReviews', coalesce((SELECT jsonb_agg(jsonb_build_object(
+             'useId', review.use_id, 'qualifies', review.qualifies, 'score', review.score,
+             'reviewerId', review.reviewer_id, 'rowVersion', review.row_version,
+             'updatedAt', review.updated_at
+           ) ORDER BY review.use_id) FROM public.sf_story_use_reviews review WHERE review.story_id=$1), '[]'::jsonb),
+           'publications', coalesce((SELECT jsonb_agg(jsonb_build_object(
+             'id', publication.id, 'destination', publication.destination,
+             'active', publication.active, 'activatedAt', publication.activated_at,
+             'revokedAt', publication.revoked_at, 'rowVersion', publication.row_version
+           ) ORDER BY publication.created_at, publication.id)
+             FROM public.sf_story_publications publication WHERE publication.story_id=$1), '[]'::jsonb)
          )
        END AS payload
        FROM detail
@@ -619,6 +708,49 @@ export function createAdminConsoleService({
     ),
     review: (identity, storyId, input) => reviewStory(identity, storyId, input),
     directReview: (identity, storyId, input) => reviewStory(identity, storyId, input, true),
+    reviewStatus: (identity, storyId, input) => {
+      if (adminReviewControlsForceOff(environment)) {
+        throw new AdminConsoleError('admin_review_controls_force_off', 'Direct administrator review controls are disabled.', 403);
+      }
+      const expectedVersion = Number(input?.expectedVersion);
+      const status = String(input?.status || '');
+      if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0 || !directReviewStatuses.has(status)
+          || Object.keys(input || {}).some((key) => !['expectedVersion', 'status'].includes(key))) {
+        throw new AdminConsoleError('invalid_admin_review', 'A recognized direct review status and story version are required.');
+      }
+      return rpc(
+        identity,
+        'SELECT public.sf_admin_set_review_status_v201($1,$2,$3) AS payload',
+        [requireUuid(storyId, 'Story identifier'), expectedVersion, status],
+      );
+    },
+    useReviews: (identity, storyId, input) => {
+      if (adminReviewControlsForceOff(environment)) {
+        throw new AdminConsoleError('admin_review_controls_force_off', 'Direct administrator review controls are disabled.', 403);
+      }
+      const reviews = validateUseReviews(input);
+      return rpc(
+        identity,
+        'SELECT public.sf_admin_save_use_reviews($1,$2,$3::jsonb) AS payload',
+        [requireUuid(storyId, 'Story identifier'), reviews.expectedVersion, JSON.stringify(reviews.reviews)],
+      );
+    },
+    promotion: (identity, storyId, destination, input) => {
+      const promotion = validatePromotion(input);
+      const destinationMap = new Map([
+        ['personal-statement', 'personal_statement'],
+        ['interview-prep', 'iv_prep_on_call'],
+      ]);
+      if (!destinationMap.has(destination)) {
+        throw new AdminConsoleError('invalid_story_promotion', 'Story promotion destination is not recognized.');
+      }
+      return rpc(
+        identity,
+        'SELECT public.sf_admin_set_story_publication($1,$2,$3,$4,$5) AS payload',
+        [requireUuid(storyId, 'Story identifier'), promotion.expectedVersion, destinationMap.get(destination), promotion.active, promotion.confirmReplace],
+      );
+    },
+    collection: setStoryCollection,
     taxonomy: (identity, storyId, input) => {
       const taxonomy = validateAdminTaxonomy(input);
       return rpc(

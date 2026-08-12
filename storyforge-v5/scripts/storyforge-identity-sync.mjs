@@ -61,6 +61,7 @@ export function classifyIdentityMappings(snapshot, databaseRows, {
     const username = String(raw.username ?? '');
     const email = String(raw.email ?? '').trim().toLowerCase();
     const displayName = String(raw.display_name ?? '').trim();
+    const firstName = String(raw.first_name ?? '').trim();
     const rawUuid = String(raw.storyforge_uuid_raw ?? '').trim().toLowerCase();
     const wpUuid = normalizedUuid(rawUuid);
     const base = {
@@ -68,6 +69,7 @@ export function classifyIdentityMappings(snapshot, databaseRows, {
       username,
       email,
       display_name: displayName,
+      first_name: firstName,
       eligible: raw.eligible === true,
       status: 'INELIGIBLE',
       storyforge_uuid: wpUuid,
@@ -261,6 +263,49 @@ export async function verifyPostgresPlan(plan, client) {
   return { verified };
 }
 
+export async function reconcilePostgresProfiles(plan, client) {
+  if (!plan || plan.version !== 1 || !Array.isArray(plan.entries)
+    || Number(plan.summary?.blocking_conflicts) !== 0) {
+    throw new Error('invalid identity plan');
+  }
+  const targets = plan.entries.filter((entry) => entry.eligible && !BLOCKING_STATUSES.has(entry.status));
+  await client.query('BEGIN');
+  try {
+    let updated = 0;
+    for (const entry of targets) {
+      const displayName = String(entry.display_name || '').trim();
+      const firstName = String(entry.first_name || '').trim();
+      if (!displayName || displayName.length > 120 || firstName.length > 120) {
+        throw new Error('identity plan contains an invalid profile projection');
+      }
+      const result = await client.query(
+        `UPDATE public.sf_users
+            SET display_name = $3,
+                first_name = nullif($4,''),
+                updated_at = CASE
+                  WHEN display_name IS DISTINCT FROM $3 OR first_name IS DISTINCT FROM nullif($4,'')
+                  THEN now() ELSE updated_at END
+          WHERE id = $1::uuid AND wp_user_id = $2 AND role='student' AND eligible
+        RETURNING id::text,wp_user_id,display_name,coalesce(first_name,'') AS first_name`,
+        [entry.storyforge_uuid, entry.wp_user_id, displayName, firstName],
+      );
+      if (result.rowCount !== 1
+        || normalizedUuid(result.rows[0].id) !== normalizedUuid(entry.storyforge_uuid)
+        || Number(result.rows[0].wp_user_id) !== Number(entry.wp_user_id)
+        || result.rows[0].display_name !== displayName
+        || result.rows[0].first_name !== firstName) {
+        throw new Error('PostgreSQL profile reconciliation failed');
+      }
+      updated++;
+    }
+    await client.query('COMMIT');
+    return { checked: targets.length, reconciled: updated };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  }
+}
+
 async function readJson(path) {
   return JSON.parse(await readFile(path, 'utf8'));
 }
@@ -285,8 +330,8 @@ async function main() {
   const planPath = args.get('--plan');
   const rosterPath = args.get('--roster');
   const connectionString = process.env.STORYFORGE_DATABASE_URL;
-  if (!['dry-run', 'apply-postgres', 'verify-postgres'].includes(action)) {
-    throw new Error('action must be dry-run, apply-postgres, or verify-postgres');
+  if (!['dry-run', 'apply-postgres', 'reconcile-profiles', 'verify-postgres'].includes(action)) {
+    throw new Error('action must be dry-run, apply-postgres, reconcile-profiles, or verify-postgres');
   }
   if (!connectionString) throw new Error('STORYFORGE_DATABASE_URL is required');
 
@@ -312,7 +357,9 @@ async function main() {
     const plan = await readJson(planPath);
     const result = action === 'apply-postgres'
       ? await applyPostgresPlan(plan, client)
-      : await verifyPostgresPlan(plan, client);
+      : action === 'reconcile-profiles'
+        ? await reconcilePostgresProfiles(plan, client)
+        : await verifyPostgresPlan(plan, client);
     process.stdout.write(`${JSON.stringify({ ok: true, action, ...result })}\n`);
   } finally {
     await client.end();

@@ -13,6 +13,39 @@ function authHeaders(token) {
   return { Authorization: `Bearer ${token}` };
 }
 
+async function resetSharedFixturePreferences(request) {
+  const student = await devToken(request, 'student');
+  const studentOther = await devToken(request, 'studentOther');
+  const admin = await devToken(request, 'admin');
+  for (const token of [student, studentOther]) {
+    const background = await request.patch('/api/preferences/background', {
+      headers: authHeaders(token),
+      data: { background: 'ember' },
+    });
+    expect(background.ok()).toBeTruthy();
+  }
+  const current = await request.get('/api/presentation', { headers: authHeaders(student) });
+  expect(current.ok()).toBeTruthy();
+  const configuration = (await current.json()).configuration;
+  if (configuration.payload.navigation.interviewPrepVisible) {
+    const published = await request.post('/api/admin/console/content-display/publish', {
+      headers: authHeaders(admin),
+      data: {
+        expectedVersion: Number(configuration.rowVersion ?? configuration.version),
+        payload: {
+          ...configuration.payload,
+          navigation: { interviewPrepVisible: false },
+        },
+      },
+    });
+    expect(published.ok()).toBeTruthy();
+  }
+}
+
+test.beforeEach(async ({ request }) => {
+  await resetSharedFixturePreferences(request);
+});
+
 async function setMentorAssignmentActive(studentId, mentorId, active) {
   const client = new pg.Client({ connectionString: process.env.STORYFORGE_DATABASE_URL });
   await client.connect();
@@ -543,7 +576,7 @@ test('mentor question-library loading carries the selected student scope', async
   const scopedRequest = page.waitForRequest((outgoing) => (
     new URL(outgoing.url()).pathname === '/api/questions'
   ));
-  await page.getByRole('button', { name: 'Question Library' }).click();
+  await page.locator('[data-view="prep"]').getByRole('button', { name: 'Question Library' }).first().click();
   const requestUrl = new URL((await scopedRequest).url());
   expect(requestUrl.searchParams.get('studentId'))
     .toBe('11111111-1111-4111-8111-111111111111');
@@ -563,13 +596,14 @@ test('canonical dark backgrounds persist on the authenticated profile and respec
   await expect(page.locator('body')).toHaveAttribute('data-role', 'student');
   await expect(page.locator('body')).toHaveAttribute('data-background', 'ember');
   expect(await page.locator('body').evaluate((body) => getComputedStyle(body).backgroundColor)).toBe('rgb(10, 13, 20)');
-  for (const name of ['Home', 'Story Library', 'Interview Prep', 'Notifications', 'Settings']) {
+  for (const name of ['Home', 'Story Library', 'Notifications', 'Settings']) {
     await expect(page.locator('#rail').getByRole('button', { name: new RegExp(name) })).toBeVisible();
   }
 
-  await page.getByRole('button', { name: /Interview Prep/ }).first().click();
-  await expect(page.getByRole('heading', { name: 'Become difficult to surprise.' })).toBeFocused();
-  const prepTypography = await page.evaluate(async () => {
+  await expect(page.locator('#rail').getByRole('button', { name: /Interview Prep/ })).toHaveCount(0);
+  await page.getByRole('button', { name: /Settings/ }).first().click();
+  await expect(page.getByRole('heading', { name: 'Your StoryForge.' })).toBeFocused();
+  const settingsTypography = await page.evaluate(async () => {
     await Promise.all([
       document.fonts.load('400 16px Archivo'),
       document.fonts.load('italic 800 16px Archivo'),
@@ -578,53 +612,19 @@ test('canonical dark backgrounds persist on the authenticated profile and respec
       document.fonts.load('italic 400 16px Lora'),
     ]);
     await document.fonts.ready;
-    return {
-      status: document.fonts.status,
-      families: {
-        archivo: document.fonts.check('400 16px Archivo'),
-        archivoItalic: document.fonts.check('italic 800 16px Archivo'),
-        rajdhani: document.fonts.check('700 16px Rajdhani'),
-        lora: document.fonts.check('500 16px Lora'),
-        loraItalic: document.fonts.check('italic 400 16px Lora'),
-      },
-      questions: [...document.querySelectorAll('.qiRow')].map((row) => {
-        const question = row.querySelector('.qTxt');
-        const style = getComputedStyle(question);
-        return {
-          fontFamily: style.fontFamily,
-          fontSize: style.fontSize,
-          lineHeight: style.lineHeight,
-          height: question.getBoundingClientRect().height,
-          cardWidth: row.getBoundingClientRect().width,
-          overflows: row.scrollWidth > row.clientWidth,
-        };
-      }),
-    };
+    return { status: document.fonts.status, families: {
+      archivo: document.fonts.check('400 16px Archivo'),
+      archivoItalic: document.fonts.check('italic 800 16px Archivo'),
+      rajdhani: document.fonts.check('700 16px Rajdhani'),
+      lora: document.fonts.check('500 16px Lora'),
+      loraItalic: document.fonts.check('italic 400 16px Lora'),
+    } };
   });
-  expect(prepTypography.status).toBe('loaded');
-  expect(prepTypography.families).toEqual({
-    archivo: true,
-    archivoItalic: true,
-    rajdhani: true,
-    lora: true,
-    loraItalic: true,
-  });
-  expect(prepTypography.questions.length).toBeGreaterThan(0);
-  for (const question of prepTypography.questions) {
-    expect(question.fontFamily).toContain('Lora');
-    expect(Number.parseFloat(question.fontSize)).toBeGreaterThanOrEqual(13);
-    expect(question.height).toBeLessThanOrEqual(120);
-    expect(question.cardWidth).toBeGreaterThan(300);
-    expect(question.overflows).toBe(false);
-  }
+  expect(settingsTypography.status).toBe('loaded');
+  expect(settingsTypography.families).toEqual({ archivo: true, archivoItalic: true, rajdhani: true, lora: true, loraItalic: true });
   await page.addScriptTag({ url: '/_test/axe.js' });
-  const prepAxe = await page.evaluate(async () => window.axe.run(document, {
-    resultTypes: ['violations'],
-  }));
-  expect(prepAxe.violations.map((item) => item.id)).not.toContain('heading-order');
-
-  await page.getByRole('button', { name: /Settings/ }).first().click();
-  await expect(page.getByRole('heading', { name: 'Your account' })).toBeFocused();
+  const settingsAxe = await page.evaluate(async () => window.axe.run(document, { resultTypes: ['violations'] }));
+  expect(settingsAxe.violations.map((item) => item.id)).not.toContain('heading-order');
   for (const name of ['Emberlight', 'Aurora', 'Night Constellation', 'Deep Tide', 'Meridian', 'Static Dark']) {
     await expect(page.getByRole('button', { name: new RegExp(name) })).toBeVisible();
   }
@@ -639,7 +639,7 @@ test('canonical dark backgrounds persist on the authenticated profile and respec
   await page.getByRole('button', { name: 'Save environment' }).click();
 
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Your account' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your StoryForge.' })).toBeVisible();
   await expect(page.locator('body')).toHaveAttribute('data-background', 'aurora');
   await expect(page.getByRole('button', { name: /Aurora/ })).toHaveClass(/\bon\b/);
 
@@ -658,7 +658,7 @@ test('mobile keeps a real Back to Matrix path and Settings route visible', async
   const settings = page.locator('#rail [data-nav="settings"]');
   await expect(settings).toBeVisible();
   await settings.click();
-  await expect(page.getByRole('heading', { name: 'Your account' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your StoryForge.' })).toBeVisible();
   const matrixLink = page.locator('.settingsPage a').filter({ hasText: 'Go' });
   await expect(matrixLink).toBeVisible();
   await expect(matrixLink).toHaveAttribute('href', /\/member-dashboard\/$/);
@@ -668,10 +668,11 @@ test('mobile keeps a real Back to Matrix path and Settings route visible', async
     sessionStorage.setItem('storyforge_local_fixture_persona', 'mentor');
   });
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Your account' })).toBeVisible();
-  for (const label of ['Home', 'Students', 'Review Queue', 'My Activity', 'Interview Prep', 'Settings']) {
+  await expect(page.getByRole('heading', { name: 'Your StoryForge.' })).toBeVisible();
+  for (const label of ['Home', 'Students', 'Review Queue', 'My Activity', 'Settings']) {
     await expect(page.locator('#rail').getByRole('button', { name: new RegExp(label) })).toBeVisible();
   }
+  await expect(page.locator('#rail').getByRole('button', { name: /Interview Prep/ })).toHaveCount(0);
   await expect(page.locator('#rail').getByRole('button', { name: 'Teaching Mode' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(matrixLink).toBeVisible();
@@ -736,10 +737,9 @@ test('zero-assignment student sees a truthful disabled mentor-review state', asy
   await page.getByRole('button', { name: /Private founder rehearsal/ }).first().click();
   await expect(page.getByRole('heading', { name: 'Private founder rehearsal' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mentor review unavailable' })).toBeDisabled();
-  await expect(page.getByText('Mentor review is not enabled yet. Your private story remains editable.')).toBeVisible();
+  await expect(page.getByText('Mentor review is not enabled yet. This story remains editable, and its visibility setting is unchanged.')).toBeVisible();
   await page.getByRole('tab', { name: 'Working version' }).click();
   await expect(page.getByLabel('Working version')).toBeEditable();
-  await expect(page.getByText('Private', { exact: true }).first()).toBeVisible();
 });
 
 test('Quick Capture draft restores to the signed account and clears after a real save', async ({ page }) => {

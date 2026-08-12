@@ -33,14 +33,35 @@ function story(overrides = {}) {
       },
     },
     children: { sf_story_revisions: revision },
-    v2Assertions: {
-      generatedVersionRows: 0,
-      generatedRelationshipRows: {
-        sf_story_versions: 0,
-        sf_story_version_revisions: 0,
-        sf_authored_segments: 0,
-        sf_inspiration_events: 0,
-        sf_story_contributions: 0,
+    ...overrides,
+  };
+}
+
+function protectedTable(rows = []) {
+  const entries = rows.map((row) => [sha256(row.id), sha256(row.value)]);
+  return {
+    columnNamesHash: sha256('columns'),
+    count: entries.length,
+    rows: Object.fromEntries(entries),
+  };
+}
+
+function featureFlags(rows = {}) {
+  return { count: Object.keys(rows).length, rows };
+}
+
+function permanentObjects(overrides = {}) {
+  return {
+    count: 1,
+    rows: {
+      'contribution_audio:asset-a': {
+        rowHash: sha256('contribution audio row'),
+        objectKeyHash: sha256('private/contribution/key'),
+        recordedSize: 18,
+        required: true,
+        exists: true,
+        actualSize: 18,
+        resolvedObjectKeyHashes: [sha256('private/contribution/key')],
       },
     },
     ...overrides,
@@ -59,6 +80,15 @@ function manifest(value = story()) {
       sf_stories: { count: 1, idsHash: sha256('[story-a]') },
       sf_audit_events: { count: 2, idsHash: sha256('[1,2]') },
     },
+    protectedTables: {
+      sf_story_versions: protectedTable([{ id: 'version-a', value: 'private version body' }]),
+      sf_story_contributions: protectedTable([{ id: 'contribution-a', value: 'private contribution' }]),
+      sf_mentorship_consent: protectedTable([{ id: 'consent-a', value: 'accepted v1' }]),
+    },
+    featureFlags: featureFlags({
+      story_versions: { rowHash: sha256('story versions off'), defaultOff: true },
+    }),
+    permanentObjects: permanentObjects(),
     ledger: { count: 1, rows: { '20260101': sha256('ledger-a') } },
     stories: { 'story-a': value },
   };
@@ -81,7 +111,7 @@ test('absent visibility to SQL NULL passes but widening fails', () => {
   assert.equal(compareSurvivalManifests(manifest(), postManifest(widened)).pass, false);
 });
 
-test('story loss, owner drift, core mutation, transcript loss, and synthesized version fail', () => {
+test('story loss, owner drift, core mutation, and transcript loss fail', () => {
   const missing = postManifest();
   missing.stories = {};
   for (const changed of [
@@ -89,14 +119,55 @@ test('story loss, owner drift, core mutation, transcript loss, and synthesized v
     postManifest(story({ owner: { studentId: 'student-b', wpBindingHash: sha256('107') } })),
     postManifest(story({ core: { ...story().core, workingHash: sha256('changed') } })),
     postManifest(story({ transcripts: childSummary([]) })),
-    postManifest(story({ v2Assertions: { generatedVersionRows: 1 } })),
-    postManifest(story({
-      v2Assertions: {
-        generatedVersionRows: 0,
-        generatedRelationshipRows: { sf_authored_segments: 1 },
-      },
-    })),
   ]) assert.equal(compareSurvivalManifests(manifest(), changed).pass, false);
+});
+
+test('populated V2 tables survive exactly and any mutation or deletion fails', () => {
+  const unchanged = postManifest();
+  assert.equal(compareSurvivalManifests(manifest(), unchanged).pass, true);
+
+  const mutated = postManifest();
+  mutated.protectedTables.sf_story_versions = protectedTable([
+    { id: 'version-a', value: 'mutated private version body' },
+  ]);
+  assert.equal(compareSurvivalManifests(manifest(), mutated).pass, false);
+
+  const deleted = postManifest();
+  delete deleted.protectedTables.sf_story_contributions;
+  assert.equal(compareSurvivalManifests(manifest(), deleted).pass, false);
+});
+
+test('candidate table additions must be explicit and empty', () => {
+  const added = postManifest();
+  added.protectedTables.sf_b1_515_candidate = protectedTable();
+  assert.equal(compareSurvivalManifests(manifest(), added).pass, false);
+  assert.equal(compareSurvivalManifests(manifest(), added, {
+    expectedTableAdditions: ['sf_b1_515_candidate'],
+  }).pass, true);
+
+  added.protectedTables.sf_b1_515_candidate = protectedTable([{ id: 'row-a', value: 'seed' }]);
+  assert.equal(compareSurvivalManifests(manifest(), added, {
+    expectedTableAdditions: ['sf_b1_515_candidate'],
+  }).pass, false);
+});
+
+test('candidate feature flags require exact hashes and default-off scope', () => {
+  const added = postManifest();
+  added.featureFlags.rows.peer_review = { rowHash: sha256('peer review off'), defaultOff: true };
+  added.featureFlags.count += 1;
+  assert.equal(compareSurvivalManifests(manifest(), added).pass, false);
+  assert.equal(compareSurvivalManifests(manifest(), added, {
+    expectedFeatureFlagAdditions: [['peer_review', sha256('peer review off')]],
+  }).pass, true);
+
+  added.featureFlags.rows.peer_review.defaultOff = false;
+  assert.equal(compareSurvivalManifests(manifest(), added, {
+    expectedFeatureFlagAdditions: [['peer_review', sha256('peer review off')]],
+  }).pass, false);
+
+  assert.equal(compareSurvivalManifests(manifest(), postManifest(), {
+    expectedFeatureFlagAdditions: [['story_versions', sha256('story versions off')]],
+  }).pass, false);
 });
 
 test('pre child rows must survive exactly while append-only additions are allowed', () => {
@@ -135,6 +206,10 @@ test('active object HEAD is mandatory and size must match in both manifests', ()
   const postBroken = postManifest();
   postBroken.stories['story-a'].audio.rows['story_audio:audio-a'].exists = false;
   assert.equal(compareSurvivalManifests(preBroken, postBroken).pass, false);
+
+  const contributionBroken = postManifest();
+  contributionBroken.permanentObjects.rows['contribution_audio:asset-a'].actualSize = 17;
+  assert.equal(compareSurvivalManifests(manifest(), contributionBroken).pass, false);
 });
 
 test('database identity, full visibility, and object-verification modes are enforced', () => {

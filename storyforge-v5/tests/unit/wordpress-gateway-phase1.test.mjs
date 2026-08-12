@@ -52,6 +52,8 @@ test('WordPress gateway narrowly admits Phase 1 and mentor-note multipart upload
     "  'inspiration_put_near_miss' => mmsfr_is_inspiration_put_path('/storyforge/api/inspiration/pins/all'),",
     "  'saved_view_delete_exact' => mmsfr_is_admin_saved_view_delete_path('/storyforge/api/admin/console/saved-views/' . $uuid),",
     "  'saved_view_delete_near_miss' => mmsfr_is_admin_saved_view_delete_path('/storyforge/api/admin/console/saved-views/' . $uuid . '/all'),",
+    "  'peer_grant_delete_exact' => mmsfr_is_peer_grant_delete_path('/storyforge/api/peer/grants/' . $uuid),",
+    "  'peer_grant_delete_near_miss' => mmsfr_is_peer_grant_delete_path('/storyforge/api/peer/grants/' . $uuid . '/feedback'),",
     "  'multipart_webkit' => mmsfr_is_bounded_multipart_content_type('multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW'),",
     "  'multipart_quoted' => mmsfr_is_bounded_multipart_content_type('multipart/form-data; boundary=\"safe-boundary.123\"'),",
     "  'multipart_missing_boundary' => mmsfr_is_bounded_multipart_content_type('multipart/form-data'),",
@@ -93,6 +95,8 @@ test('WordPress gateway narrowly admits Phase 1 and mentor-note multipart upload
     inspiration_put_near_miss: false,
     saved_view_delete_exact: true,
     saved_view_delete_near_miss: false,
+    peer_grant_delete_exact: true,
+    peer_grant_delete_near_miss: false,
     multipart_webkit: true,
     multipart_quoted: true,
     multipart_missing_boundary: false,
@@ -116,6 +120,7 @@ test('WordPress gateway source preserves the bounded body and fail-closed contro
   assert.match(source, /mmsfr_is_inspiration_delete_path/);
   assert.match(source, /mmsfr_is_inspiration_put_path/);
   assert.match(source, /mmsfr_is_admin_saved_view_delete_path/);
+  assert.match(source, /mmsfr_is_peer_grant_delete_path/);
   assert.match(source, /MISSIONMED_STORYFORGE_POSTMARK_WEBHOOK_SECRET/);
   assert.match(source, /x-storyforge-webhook-token/);
   assert.match(source, /x-storyforge-webhook-signature/);

@@ -32,6 +32,7 @@ import { createStoryFollowupService } from './story-followup.mjs';
 import { createAvatarIdentityService } from './avatar-identity.mjs';
 import { createPostmarkService } from './postmark.mjs';
 import { createGatewayIngressVerifier } from './gateway-ingress.mjs';
+import { createCollaborationService } from './collaboration.mjs';
 import { previewImport } from './imports.mjs';
 import {
   createAudioPlayback,
@@ -613,6 +614,7 @@ async function api(request, response, url, {
   guestVoiceService,
   storyFollowupService,
   avatarIdentityService,
+  collaborationService,
   postmarkService,
   verifyGatewayIngress,
   recordingsService,
@@ -1093,14 +1095,44 @@ async function api(request, response, url, {
     ));
   }
 
+  const adminStoryUseReviews = url.pathname.match(
+    /^\/api\/admin\/console\/stories\/([a-f0-9-]+)\/use-reviews$/i,
+  );
+  const adminStoryReviewStatus = url.pathname.match(
+    /^\/api\/admin\/console\/stories\/([a-f0-9-]+)\/review-status$/i,
+  );
+  if (request.method === 'POST' && adminStoryReviewStatus) {
+    return sendJson(response, 200, await adminConsoleService.reviewStatus(
+      identity, adminStoryReviewStatus[1], await readJson(request),
+    ));
+  }
+  if (request.method === 'POST' && adminStoryUseReviews) {
+    return sendJson(response, 200, await adminConsoleService.useReviews(
+      identity, adminStoryUseReviews[1], await readJson(request),
+    ));
+  }
+
+  const adminStoryPromotion = url.pathname.match(
+    /^\/api\/admin\/console\/stories\/([a-f0-9-]+)\/promotions\/(personal-statement|interview-prep)$/i,
+  );
+  if (request.method === 'POST' && adminStoryPromotion) {
+    return sendJson(response, 200, await adminConsoleService.promotion(
+      identity, adminStoryPromotion[1], adminStoryPromotion[2], await readJson(request),
+    ));
+  }
+
+  const adminStoryCollection = url.pathname.match(
+    /^\/api\/admin\/console\/stories\/([a-f0-9-]+)\/collection$/i,
+  );
+  if (request.method === 'POST' && adminStoryCollection) {
+    return sendJson(response, 200, { story: await adminConsoleService.collection(
+      identity, adminStoryCollection[1], await readJson(request),
+    ) });
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/session') {
-    const [
-      user, voiceCapture, adminConsole, mentorNotes, mentorNotesRead, storyMedia,
-      mentorship, activityTracking, storyVersions, inspiration, inspirationAdmin,
-      adminV2, requestAStory, storyFollowup, avatarIdentity,
-      b1511, adminB1511,
-    ] = await Promise.all([
-      withIdentity(identity, async (client) => {
+    const user = await withIdentity(identity, async (client) => {
+      try {
         const result = await client.query(
           `SELECT id, wp_user_id, display_name, first_name, pronouns, role, eligible,
              cohort, academic_year, specialty, application_cycle, background_preference,
@@ -1109,7 +1141,22 @@ async function api(request, response, url, {
           [identity.sub],
         );
         return result.rows[0] || null;
-      }),
+      } catch (error) {
+        if (error?.code === '42501') return null;
+        throw error;
+      }
+    });
+    if (!user) {
+      const error = new Error('StoryForge profile is missing or eligibility was revoked.');
+      error.code = 'eligibility_required';
+      throw error;
+    }
+    const [
+      voiceCapture, adminConsole, mentorNotes, mentorNotesRead, storyMedia,
+      mentorship, activityTracking, storyVersions, inspiration, inspirationAdmin,
+      adminV2, requestAStory, storyFollowup, avatarIdentity, collaboration,
+      b1511, adminB1511,
+    ] = await Promise.all([
       flagService.voiceCapture(identity),
       adminConsoleService.capability(identity),
       mentorNotesService.capability(identity),
@@ -1124,6 +1171,7 @@ async function api(request, response, url, {
       requestsService.capability(identity),
       storyFollowupService.capability(identity),
       avatarIdentityService.resolve(identity),
+      collaborationService.capabilities(identity),
       withIdentity(identity, async (client) => {
         try {
           const result = await client.query('SELECT public.sf_b1_511_capabilities() AS payload');
@@ -1145,11 +1193,6 @@ async function api(request, response, url, {
         }, { adminMode: true })
         : Promise.resolve({}),
     ]);
-    if (!user) {
-      const error = new Error('StoryForge profile is missing or eligibility was revoked.');
-      error.code = 'eligibility_required';
-      throw error;
-    }
     return sendJson(response, 200, {
       user: {
         ...user,
@@ -1171,6 +1214,10 @@ async function api(request, response, url, {
         adminDirectory: adminV2.directory === true,
         reviewCheck: adminV2.reviewCheck === true,
         adminReviewControls: adminV2.reviewControls === true,
+        storyArchive: collaboration.storyArchive === true,
+        peerShare: collaboration.peerShare === true,
+        storyPromotions: collaboration.storyPromotions === true,
+        perUseScoring: collaboration.perUseScoring === true,
         requestAStory,
         storyFollowup,
         submissionReview: b1511.submissionReview === true,
@@ -1223,13 +1270,28 @@ async function api(request, response, url, {
   }
 
   if (request.method === 'GET' && url.pathname === '/api/stories') {
+    const collection = String(url.searchParams.get('collection') || 'active').trim();
+    if (!['active', 'archive', 'trash'].includes(collection)) {
+      const error = new Error('Story collection is not valid.');
+      error.code = 'invalid_story_collection';
+      throw error;
+    }
     const rows = await withIdentity(identity, async (client) => {
       const result = await client.query(
-        `SELECT ${storyProjection('s')}, u.display_name AS student_name
+        `SELECT ${storyProjection('s')}, u.display_name AS student_name,
+           CASE WHEN trash.story_id IS NOT NULL THEN 'trash'
+                WHEN s.archived_at IS NOT NULL THEN 'archive' ELSE 'active' END AS collection,
+           trash.trashed_at
          FROM public.sf_stories s
          JOIN public.sf_users u ON u.id = s.student_id
-         WHERE s.archived_at IS NULL
+         LEFT JOIN public.sf_story_trash trash ON trash.story_id = s.id
+         WHERE CASE $1
+           WHEN 'active' THEN s.archived_at IS NULL AND trash.story_id IS NULL
+           WHEN 'archive' THEN s.archived_at IS NOT NULL AND trash.story_id IS NULL
+           WHEN 'trash' THEN trash.story_id IS NOT NULL
+         END
          ORDER BY s.updated_at DESC`,
+        [collection],
       );
       return result.rows;
     });
@@ -1321,7 +1383,8 @@ async function api(request, response, url, {
            ) AS mentor_review_available
          FROM public.sf_stories s
          JOIN public.sf_users u ON u.id = s.student_id
-         WHERE s.id = $1`,
+         WHERE s.id = $1
+           AND NOT EXISTS (SELECT 1 FROM public.sf_story_trash trash WHERE trash.story_id = s.id)`,
         [id],
       );
       if (!storyResult.rows[0]) return null;
@@ -1678,23 +1741,56 @@ async function api(request, response, url, {
     return sendJson(response, 200, { craft });
   }
 
-  const storyArchive = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/(archive|restore)$/i);
+  const storyArchive = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/(archive|trash|restore)$/i);
   if (request.method === 'POST' && storyArchive) {
     const body = await readJson(request);
     const storyId = safeUuid(storyArchive[1]);
-    const archiving = storyArchive[2] === 'archive';
-    const story = await withIdentity(identity, async (client) => {
-      const result = await client.query(
-        `SELECT * FROM public.sf_set_story_archived($1, $2, $3)`,
-        [
-          storyId,
-          archiving,
-          body.surface || 'library',
-        ],
-      );
-      return result.rows[0];
-    });
+    const collection = storyArchive[2] === 'restore' ? 'active' : `${storyArchive[2]}d`.replace('trashd', 'trashed');
+    const collectionCapabilities = await collaborationService.capabilities(identity);
+    const story = collectionCapabilities.storyArchive
+      ? await collaborationService.setCollection(identity, storyId, collection, body.expectedVersion)
+      : await withIdentity(identity, async (client) => {
+        if (storyArchive[2] === 'trash') {
+          const error = new Error('Story Trash is not enabled.');
+          error.code = 'feature_disabled';
+          throw error;
+        }
+        const result = await client.query(
+          `SELECT * FROM public.sf_set_story_archived($1, $2, $3)`,
+          [storyId, storyArchive[2] === 'archive', body.surface || 'library'],
+        );
+        return result.rows[0];
+      });
     return sendJson(response, 200, { story });
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/peer/candidates') {
+    return sendJson(response, 200, { classmates: await collaborationService.candidates(identity) });
+  }
+  if (request.method === 'GET' && url.pathname === '/api/peer/inbox') {
+    return sendJson(response, 200, { shares: await collaborationService.inbox(identity) });
+  }
+  if (request.method === 'GET' && url.pathname === '/api/peer/outbox') {
+    return sendJson(response, 200, { grants: await collaborationService.outbox(identity) });
+  }
+  const peerShare = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/peer-share$/i);
+  if (request.method === 'POST' && peerShare) {
+    return sendJson(response, 201, await collaborationService.share(identity, peerShare[1], await readJson(request)));
+  }
+  const peerGrant = url.pathname.match(/^\/api\/peer\/grants\/([a-f0-9-]+)$/i);
+  if (request.method === 'GET' && peerGrant) {
+    return sendJson(response, 200, await collaborationService.story(identity, peerGrant[1]));
+  }
+  if (request.method === 'DELETE' && peerGrant) {
+    return sendJson(response, 200, await collaborationService.revoke(identity, peerGrant[1]));
+  }
+  const peerFeedback = url.pathname.match(/^\/api\/peer\/grants\/([a-f0-9-]+)\/feedback$/i);
+  if (request.method === 'POST' && peerFeedback) {
+    return sendJson(response, 201, await collaborationService.feedback(identity, peerFeedback[1], await readJson(request)));
+  }
+  const peerPlayback = url.pathname.match(/^\/api\/peer\/grants\/([a-f0-9-]+)\/playback$/i);
+  if (request.method === 'GET' && peerPlayback) {
+    return sendJson(response, 200, await collaborationService.playback(identity, peerPlayback[1]));
   }
 
   if (request.method === 'GET' && url.pathname === '/api/drafts/story-builder') {
@@ -3121,6 +3217,7 @@ export function createAppServer({
   guestVoiceService = null,
   storyFollowupService = null,
   avatarIdentityService = null,
+  collaborationService = null,
   postmarkService = null,
   gatewayIngressVerifier = null,
   auditWriter = appendAudit,
@@ -3198,6 +3295,10 @@ export function createAppServer({
   const resolvedAvatarIdentityService = avatarIdentityService || createAvatarIdentityService({
     withIdentity: identityTransaction,
   });
+  const resolvedCollaborationService = collaborationService || createCollaborationService({
+    withIdentity: identityTransaction,
+    signPlayback: audioPlaybackSigner,
+  });
   const apiRuntime = Object.freeze({
     authorizeRequest,
     auditWriter,
@@ -3216,6 +3317,7 @@ export function createAppServer({
     guestVoiceService: resolvedGuestVoiceService,
     storyFollowupService: resolvedStoryFollowupService,
     avatarIdentityService: resolvedAvatarIdentityService,
+    collaborationService: resolvedCollaborationService,
     postmarkService: resolvedPostmarkService,
     verifyGatewayIngress: resolvedGatewayIngressVerifier,
     recordingsService: phaseOneRuntime.recordingsService,

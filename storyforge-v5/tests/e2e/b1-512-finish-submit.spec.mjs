@@ -122,7 +122,7 @@ test('normal Story Detail stays normal while invalid submission uses the same Wo
   await expect(page.locator('#storyEditText')).toBeFocused();
   await expect(page.locator('#storyEditText')).toHaveAttribute('aria-invalid', 'true');
   await expect(page.locator('[data-completion-field="lesson"]')).not.toHaveClass(/b1512Incomplete/);
-  await expect(page.locator('#room .stChip').first()).toHaveText('Private');
+  await expect(page.locator('#room .stChip').first()).toHaveText('Draft');
 
   await page.locator('#storyEditText').fill('abc');
   await expect(page.getByText(/Save the Working version before submitting/)).toBeVisible();

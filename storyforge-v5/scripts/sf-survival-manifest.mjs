@@ -68,25 +68,37 @@ const GLOBAL_SPECS = Object.freeze([
   ['sf_feedback', ['id']], ['sf_story_reflections', ['id']], ['sf_audit_events', ['id']],
 ]);
 
-// V2 version rows are intentionally not part of the protected V1 child-row
-// projection. Their only permitted migration-time state is asserted separately
-// by generatedVersionRows in buildStory().
-const ASSERTION_ONLY_STORY_RELATIONSHIPS = Object.freeze([
+// These V2 relationships are protected by the exact whole-table projection.
+// Listing them here also makes their sf_stories foreign keys explicitly
+// classified, so any future story relationship remains fail-closed.
+const V2_PROTECTED_STORY_RELATIONSHIPS = Object.freeze([
   ['sf_story_versions', 'story_id'],
   ['sf_story_version_revisions', 'story_id'],
   ['sf_authored_segments', 'story_id'],
   ['sf_inspiration_events', 'story_id'],
   ['sf_story_contributions', 'promoted_story_id'],
+  ['sf_story_use_reviews', 'story_id'],
+  ['sf_story_publications', 'story_id'],
+  ['sf_story_trash', 'story_id'],
+  ['sf_peer_story_grants', 'story_id'],
+  ['sf_peer_feedback', 'story_id'],
 ]);
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
-  const values = { command, expectedLedgerAddition: [] };
+  const values = {
+    command,
+    expectedLedgerAddition: [],
+    expectedTableAddition: [],
+    expectedFeatureFlagAddition: [],
+  };
   for (let index = 0; index < rest.length; index += 1) {
     const key = rest[index];
     if (!key.startsWith('--')) throw new Error(`Unexpected argument: ${key}`);
     if (key === '--require-object-head') values.requireObjectHead = true;
     else if (key === '--expected-ledger-addition') values.expectedLedgerAddition.push(rest[++index]);
+    else if (key === '--expected-table-addition') values.expectedTableAddition.push(rest[++index]);
+    else if (key === '--expected-feature-flag-addition') values.expectedFeatureFlagAddition.push(rest[++index]);
     else values[key.slice(2)] = rest[++index];
   }
   return values;
@@ -121,10 +133,16 @@ async function writeProtected(filePath, value) {
 
 async function schemaInventory(client) {
   const result = await client.query(
-    `SELECT table_name, column_name
-       FROM information_schema.columns
-      WHERE table_schema = 'public' AND table_name LIKE 'sf\\_%' ESCAPE '\\'
-      ORDER BY table_name, ordinal_position`,
+    `SELECT columns.table_name, columns.column_name
+       FROM information_schema.columns columns
+       JOIN pg_namespace namespace ON namespace.nspname = columns.table_schema
+       JOIN pg_class relation
+         ON relation.relnamespace = namespace.oid
+        AND relation.relname = columns.table_name
+        AND relation.relkind IN ('r', 'p')
+      WHERE columns.table_schema = 'public'
+        AND columns.table_name LIKE 'sf\\_%' ESCAPE '\\'
+      ORDER BY columns.table_name, columns.ordinal_position`,
   );
   const inventory = new Map();
   for (const row of result.rows) {
@@ -164,11 +182,7 @@ async function assertFullVisibility(client, inventory) {
       WHERE r.rolname = current_user`,
   );
   if (role.rows[0]?.rolsuper || role.rows[0]?.rolbypassrls) return true;
-  const protectedTables = [...new Set([
-    'sf_users', 'sf_stories',
-    ...DIRECT_SPECS.map(([table]) => table),
-    ...NESTED_SPECS.map(([table]) => table),
-  ])].filter((table) => inventory.has(table));
+  const protectedTables = [...inventory.keys()];
   const ownership = await client.query(
     `SELECT c.relname, pg_get_userbyid(c.relowner) = current_user AS owned
        FROM pg_class c
@@ -185,7 +199,7 @@ async function assertFullVisibility(client, inventory) {
 async function assertClassifiedStoryForeignKeys(client, inventory) {
   const classified = new Set([
     ...DIRECT_SPECS.map(([table]) => table),
-    ...ASSERTION_ONLY_STORY_RELATIONSHIPS.map(([table]) => table),
+    ...V2_PROTECTED_STORY_RELATIONSHIPS.map(([table]) => table),
   ]);
   const result = await client.query(
     `SELECT DISTINCT source.relname AS table_name
@@ -238,6 +252,110 @@ async function objectEvidence(rows, requireObjectHead, type, recordingSessions =
     }]);
   }
   return entries;
+}
+
+async function primaryKeyInventory(client) {
+  const result = await client.query(
+    `SELECT relation.relname AS table_name, attribute.attname AS column_name,
+            key_column.ordinality
+       FROM pg_constraint constraint_row
+       JOIN pg_class relation ON relation.oid = constraint_row.conrelid
+       JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+       JOIN unnest(constraint_row.conkey) WITH ORDINALITY AS key_column(attnum, ordinality)
+         ON true
+       JOIN pg_attribute attribute
+         ON attribute.attrelid = relation.oid
+        AND attribute.attnum = key_column.attnum
+      WHERE constraint_row.contype = 'p'
+        AND namespace.nspname = 'public'
+        AND relation.relname LIKE 'sf\\_%' ESCAPE '\\'
+      ORDER BY relation.relname, key_column.ordinality`,
+  );
+  const keys = new Map();
+  for (const row of result.rows) {
+    if (!keys.has(row.table_name)) keys.set(row.table_name, []);
+    keys.get(row.table_name).push(row.column_name);
+  }
+  return keys;
+}
+
+async function protectedTableSummary(client, inventory, primaryKeys, table) {
+  const columns = [...inventory.get(table)];
+  const result = await client.query(
+    `SELECT ${columns.map((column) => `"${column}"`).join(', ')} FROM public."${table}"`,
+  );
+  const keyColumns = primaryKeys.get(table) || [];
+  const keyed = result.rows.map((row) => ({
+    key: keyColumns.length
+      ? sha256(canonicalJson(keyColumns.map((column) => row[column])))
+      : null,
+    hash: rowHash(row),
+  }));
+  if (!keyColumns.length) {
+    keyed.sort((left, right) => left.hash.localeCompare(right.hash));
+    keyed.forEach((item, index) => { item.key = sha256(canonicalJson([item.hash, index])); });
+  }
+  keyed.sort((left, right) => left.key.localeCompare(right.key));
+  return {
+    columnNamesHash: sha256(canonicalJson(columns)),
+    count: keyed.length,
+    rows: Object.fromEntries(keyed.map((item) => [item.key, item.hash])),
+  };
+}
+
+async function protectedTablesSummary(client, inventory) {
+  const primaryKeys = await primaryKeyInventory(client);
+  const tables = [...inventory.keys()]
+    .filter((table) => !['sf_schema_migrations', 'sf_feature_flags'].includes(table))
+    .sort();
+  const summaries = {};
+  for (const table of tables) {
+    summaries[table] = await protectedTableSummary(client, inventory, primaryKeys, table);
+  }
+  return summaries;
+}
+
+async function featureFlagSummary(client, inventory) {
+  if (!inventory.has('sf_feature_flags')) return { count: 0, rows: {} };
+  const columns = [...inventory.get('sf_feature_flags')];
+  const result = await client.query(
+    `SELECT ${columns.map((column) => `"${column}"`).join(', ')} FROM public.sf_feature_flags ORDER BY key`,
+  );
+  return {
+    count: result.rows.length,
+    rows: Object.fromEntries(result.rows.map((row) => [String(row.key), {
+      rowHash: rowHash(row),
+      defaultOff: row.scope === 'off',
+    }])),
+  };
+}
+
+async function permanentObjectSummary(client, inventory, requireObjectHead) {
+  const select = async (table, columns) => {
+    if (!inventory.has(table)) return [];
+    const selected = existingColumns(inventory, table, columns);
+    return (await client.query(
+      `SELECT ${selected.map((column) => `"${column}"`).join(', ')} FROM public."${table}"`,
+    )).rows;
+  };
+  const recordingSessions = await select('sf_recording_sessions', [
+    'id', 'assembled_asset_id', 'segment_count',
+  ]);
+  const entries = [
+    ...await objectEvidence(await select('sf_audio_assets', [
+      'id', 'object_key', 'content_type', 'byte_size', 'state',
+    ]), requireObjectHead, 'story_audio', recordingSessions),
+    ...await objectEvidence(await select('sf_mentor_note_media', [
+      'id', 'object_key', 'content_type', 'byte_size', 'state',
+    ]), requireObjectHead, 'mentor_audio'),
+    ...await objectEvidence(await select('sf_story_media', [
+      'id', 'object_key', 'mime_type', 'byte_size', 'state',
+    ]).then((rows) => rows.map((row) => ({ ...row, content_type: row.mime_type }))), requireObjectHead, 'story_media'),
+    ...await objectEvidence(await select('sf_contribution_audio_assets', [
+      'id', 'object_key', 'content_type', 'byte_size', 'state',
+    ]), requireObjectHead, 'contribution_audio'),
+  ].sort(([left], [right]) => left.localeCompare(right));
+  return { count: entries.length, rows: Object.fromEntries(entries) };
 }
 
 function storyCore(story) {
@@ -308,13 +426,6 @@ async function buildStory(client, inventory, story, requireObjectHead) {
     ...await objectEvidence(raw.sf_mentor_note_media || [], requireObjectHead, 'mentor_audio'),
     ...await objectEvidence(raw.sf_story_media || [], requireObjectHead, 'story_media'),
   ].sort(([left], [right]) => left.localeCompare(right));
-  const generatedRelationshipRows = {};
-  for (const [table, link] of ASSERTION_ONLY_STORY_RELATIONSHIPS) {
-    generatedRelationshipRows[table] = inventory.has(table)
-      ? Number((await client.query(`SELECT count(*)::text AS count FROM public."${table}" WHERE "${link}" = $1`, [story.id])).rows[0].count)
-      : 0;
-  }
-  const generatedVersionRows = generatedRelationshipRows.sf_story_versions;
   return {
     owner: { studentId: story.student_id, wpBindingHash: sha256(story.wp_user_id) },
     core: storyCore(story),
@@ -328,7 +439,6 @@ async function buildStory(client, inventory, story, requireObjectHead) {
     transcripts: childSummary(transcriptRows, { key: (row) => row.id }),
     audio: { count: objectEntries.length, rows: Object.fromEntries(objectEntries) },
     children,
-    v2Assertions: { generatedVersionRows, generatedRelationshipRows },
   };
 }
 
@@ -389,6 +499,13 @@ async function capture(args) {
         objectVerification: args.requireObjectHead ? 'required_pass' : 'test_only_not_requested',
       },
       global,
+      protectedTables: await protectedTablesSummary(client, inventory),
+      featureFlags: await featureFlagSummary(client, inventory),
+      permanentObjects: await permanentObjectSummary(
+        client,
+        inventory,
+        Boolean(args.requireObjectHead),
+      ),
       ledger: await ledgerSummary(client, inventory),
       stories,
     };
@@ -410,12 +527,37 @@ function parseLedgerAdditions(values) {
   });
 }
 
+function parseHashAdditions(values, optionName) {
+  return (values || []).map((value) => {
+    const split = value.indexOf(':');
+    if (split < 1 || !/^[a-f0-9]{64}$/.test(value.slice(split + 1))) {
+      throw new Error(`${optionName} must be KEY:ROW_HASH`);
+    }
+    return [value.slice(0, split), value.slice(split + 1)];
+  });
+}
+
+function parseTableAdditions(values) {
+  return (values || []).map((value) => {
+    if (!/^sf_[a-z0-9_]+$/.test(value)
+        || ['sf_schema_migrations', 'sf_feature_flags'].includes(value)) {
+      throw new Error('--expected-table-addition must name a candidate sf_* data table');
+    }
+    return value;
+  });
+}
+
 async function compare(args) {
   if (!args.pre || !args.post) throw new Error('--pre and --post are required');
   const before = JSON.parse(await readFile(path.resolve(args.pre), 'utf8'));
   const after = JSON.parse(await readFile(path.resolve(args.post), 'utf8'));
   const report = safeDifferenceReport(compareSurvivalManifests(before, after, {
     expectedLedgerAdditions: parseLedgerAdditions(args.expectedLedgerAddition),
+    expectedTableAdditions: parseTableAdditions(args.expectedTableAddition),
+    expectedFeatureFlagAdditions: parseHashAdditions(
+      args.expectedFeatureFlagAddition,
+      '--expected-feature-flag-addition',
+    ),
   }));
   if (args.output) await writeProtected(args.output, report);
   process.stdout.write(report.pass ? 'PASS STORYFORGE_V1_SURVIVAL\n' : `FAIL STORYFORGE_V1_SURVIVAL differences=${report.differenceCount}\n`);

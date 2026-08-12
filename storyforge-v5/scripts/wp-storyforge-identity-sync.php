@@ -75,6 +75,7 @@ if ($action === 'export') {
             'username' => (string) $user->user_login,
             'email' => (string) $user->user_email,
             'display_name' => (string) $user->display_name,
+            'first_name' => (string) get_user_meta((int) $user->ID, 'first_name', true),
             'native_role' => (string) mmsf_native_role_for_user($user),
             'storyforge_uuid_raw' => strtolower(trim((string) get_user_meta(
                 (int) $user->ID,

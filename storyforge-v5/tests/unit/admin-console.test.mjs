@@ -199,6 +199,27 @@ test('stale database review conflicts are sanitized to HTTP 409', async () => {
   );
 });
 
+test('publication replacement conflicts expose only the bounded confirmation contract', async () => {
+  const fake = store(({ text }) => {
+    if (text.includes('sf_admin_console_enabled')) return { rows: [{ enabled: true }] };
+    const error = new Error('publication replacement confirmation required');
+    error.code = '40001';
+    throw error;
+  });
+  const service = createAdminConsoleService({
+    withIdentity: fake.withIdentity,
+    environment: { STORYFORGE_ADMIN_CONSOLE_FORCE_OFF: '0' },
+  });
+  await assert.rejects(
+    service.promotion(ADMIN, '10000000-0000-4000-8000-000000000001', 'personal-statement', {
+      expectedVersion: 0, confirmReplace: false,
+    }),
+    (error) => error.code === 'story_publication_replace_required'
+      && error.status === 409
+      && error.message === 'Another story is already promoted to this destination. Confirm replacement to continue.',
+  );
+});
+
 test('administrator flag control remains role-gated and bounded to off or allowlist', async () => {
   const fake = store(({ text }) => {
     if (text.startsWith('SELECT key')) {

@@ -1032,6 +1032,14 @@ function mmsfr_is_admin_saved_view_delete_path( $path ) {
 	);
 }
 
+/** Return whether DELETE revokes one exact recipient-bound peer grant. */
+function mmsfr_is_peer_grant_delete_path( $path ) {
+	return 1 === preg_match(
+		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/peer/grants/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$#i',
+		$path
+	);
+}
+
 /**
  * Accept the browser-generated multipart content type only when it contains
  * one bounded RFC-compatible boundary and no additional parameters.
@@ -1266,9 +1274,10 @@ function mmsfr_proxy_request( $path ) {
 	$is_inspiration_delete = 'DELETE' === $method && mmsfr_is_inspiration_delete_path( $path );
 	$is_saved_view_delete = 'DELETE' === $method && mmsfr_is_admin_saved_view_delete_path( $path );
 	$is_guest_voice_delete = 'DELETE' === $method && mmsfr_is_guest_voice_delete_path( $path );
+	$is_peer_grant_delete = 'DELETE' === $method && mmsfr_is_peer_grant_delete_path( $path );
 	$is_inspiration_put = 'PUT' === $method && mmsfr_is_inspiration_put_path( $path );
 	$is_privacy_delete = $is_audio_delete || $is_story_media_delete;
-	$is_bounded_delete = $is_privacy_delete || $is_inspiration_delete || $is_saved_view_delete || $is_guest_voice_delete;
+	$is_bounded_delete = $is_privacy_delete || $is_inspiration_delete || $is_saved_view_delete || $is_guest_voice_delete || $is_peer_grant_delete;
 	$is_guest = mmsfr_is_guest_contribution_path( $path )
 		&& in_array( $method, array( 'GET', 'POST', 'DELETE' ), true );
 	$is_postmark_webhook = 'POST' === $method && mmsfr_is_postmark_webhook_path( $path );

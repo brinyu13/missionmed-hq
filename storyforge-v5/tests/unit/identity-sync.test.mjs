@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import {
   applyPostgresPlan,
   classifyIdentityMappings,
+  reconcilePostgresProfiles,
 } from '../../scripts/storyforge-identity-sync.mjs';
 
 const wpCommand = fileURLToPath(new URL(
@@ -133,4 +134,41 @@ test('WordPress operator command recomputes entitlement and touches only the exi
   assert.match(source, /update_user_meta\(\$wp_user_id, \$uuid_meta_key, \$target_uuid\)/);
   assert.doesNotMatch(source, /wp_create_user|wp_insert_user|wp_update_user|ld_update_course_access/);
   assert.doesNotMatch(source, /voice_capture|recording|transcription|sf_stories/);
+});
+
+test('profile reconciliation updates only WordPress-authoritative names on an exact existing identity binding', async () => {
+  const queries = [];
+  const client = {
+    async query(sql, params = []) {
+      queries.push([sql, params]);
+      if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) return { rows: [], rowCount: 0 };
+      if (sql.includes('UPDATE public.sf_users')) {
+        assert.match(sql, /WHERE id = \$1::uuid AND wp_user_id = \$2 AND role='student' AND eligible/);
+        assert.doesNotMatch(sql, /SET role|SET eligible|SET cohort|SET wp_user_id/);
+        return {
+          rowCount: 1,
+          rows: [{ id: params[0], wp_user_id: params[1], display_name: params[2], first_name: params[3] }],
+        };
+      }
+      throw new Error('unexpected query');
+    },
+  };
+  const plan = {
+    version: 1,
+    summary: { blocking_conflicts: 0 },
+    entries: [{
+      status: 'ALREADY_VALID', eligible: true, wp_user_id: 10,
+      storyforge_uuid: uuids[0], display_name: 'Brian Bolante', first_name: 'Brian',
+    }],
+  };
+  assert.deepEqual(await reconcilePostgresProfiles(plan, client), { checked: 1, reconciled: 1 });
+  assert.equal(queries[0][0], 'BEGIN');
+  assert.equal(queries.at(-1)[0], 'COMMIT');
+
+  client.query = async (sql) => {
+    if (sql === 'BEGIN' || sql === 'ROLLBACK') return { rows: [] };
+    if (sql.includes('UPDATE public.sf_users')) return { rows: [], rowCount: 0 };
+    throw new Error('unexpected query');
+  };
+  await assert.rejects(reconcilePostgresProfiles(plan, client), /profile reconciliation failed/);
 });

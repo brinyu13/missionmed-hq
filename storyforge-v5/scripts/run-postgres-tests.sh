@@ -99,6 +99,9 @@ b1_514_migrations=(
   "20260810270000_b1_514_request_delivery_attempts.sql"
   "20260810280000_b1_514_guest_voice_cleanup_recovery.sql"
 )
+b1_515_migrations=(
+  "20260812120000_b1_515_v201_reviews_collections_peer.sql"
+)
 discovered_b1_514_migrations=()
 while IFS= read -r migration; do
   discovered_b1_514_migrations+=("$migration")
@@ -120,6 +123,9 @@ done
 for migration in "${b1_514_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \
     -f "$PACKAGE_DIR/infra/postgres/migrations/$migration"
+done
+for migration in "${b1_515_migrations[@]}"; do
+  "$PSQL_BIN" "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/migrations/$migration"
 done
 
 STORYFORGE_DATABASE_URL="postgresql://postgres@127.0.0.1:$SF_PG_PORT/storyforge?sslmode=disable" \

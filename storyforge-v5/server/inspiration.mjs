@@ -8,6 +8,17 @@ const allowedWhoDetail = new Set(['parents', 'siblings', 'spouse_partner', 'rela
 const allowedPromptStates = new Set(['active', 'retired']);
 const allowedReasons = new Set(['skip', 'another', 'lighter']);
 const eventTypes = new Set(['shown', 'answered', 'skipped', 'promoted']);
+const lifeStageTerritories = Object.freeze({
+  childhood: new Set(['childhood_play', 'family_lore', 'home', 'home_remedies']),
+  teen_years: new Set(['exams', 'self_belief', 'identity', 'friendship']),
+  college: new Set(['learning_for_joy', 'study_life', 'teaching', 'feedback']),
+  medical_school: new Set(['ordinary_clinical', 'firsts', 'milestones', 'patients', 'clinical_skills']),
+  marriage_partner: new Set(['helping', 'trust', 'caregiving']),
+  parenting: new Set(['family_values', 'education_values', 'being_taught']),
+  work_first_jobs: new Set(['first_jobs', 'work_ethic', 'teamwork', 'career_choice']),
+  hobbies_interests: new Set(['hobbies', 'food', 'objects', 'learning_for_joy', 'humor']),
+  travel_culture: new Set(['travel', 'migration', 'language', 'tradition']),
+});
 
 export class InspirationError extends Error {
   constructor(code, message, status = 400, options = {}) {
@@ -78,11 +89,32 @@ function safePrompt(row) {
     whoDetail: row.who_detail_ids,
     domain: row.domain_ids,
     energy: row.energy_ids,
+    lifeStage: lifeStagesForPrompt(row),
     territory: row.territory,
     followUp: row.follow_up,
     interviewUse: row.interview_use,
     recommended: row.recommended,
   };
+}
+
+export function lifeStagesForPrompt(row) {
+  const territory = String(row?.territory || '').trim();
+  const text = String(row?.text || '').toLowerCase();
+  const whoDetail = Array.isArray(row?.who_detail_ids) ? row.who_detail_ids : [];
+  const matches = [];
+  for (const [stage, territories] of Object.entries(lifeStageTerritories)) {
+    if (territories.has(territory)) matches.push(stage);
+  }
+  if (/\b(child|childhood|growing up|about twelve|parent|grandparent)\b/u.test(text)) matches.push('childhood');
+  if (/\b(teen|high school|adolescen)/u.test(text)) matches.push('teen_years');
+  if (/\b(college|university|undergrad|classmate|lecture|lab|study group)\b/u.test(text)) matches.push('college');
+  if (/\bmedical school|clinical|ward|clinic|patient|residency|medicine\b/u.test(text)) matches.push('medical_school');
+  if (whoDetail.includes('spouse_partner') || /\b(spouse|partner|marriage|married)\b/u.test(text)) matches.push('marriage_partner');
+  if (/\b(your child|your children|parenting|as a parent)\b/u.test(text)) matches.push('parenting');
+  if (/\b(job|work|coworker|colleague|supervisor|shift)\b/u.test(text)) matches.push('work_first_jobs');
+  if (/\b(hobby|skill|cook|dish|meal|game|sport|music)\b/u.test(text)) matches.push('hobbies_interests');
+  if (/\b(travel|country|culture|language|tradition|migrat|somewhere new)\b/u.test(text)) matches.push('travel_culture');
+  return [...new Set(matches.length ? matches : ['other'])];
 }
 
 function exactKeys(value, allowed, label) {

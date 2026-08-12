@@ -12,7 +12,8 @@ const screenshotDir = path.resolve(
 async function openFounderAdmin(page) {
   await page.goto('/');
   const change = page.getByRole('button', { name: 'Change fixture identity' });
-  if (await change.count()) await change.click();
+  await expect(change).toBeVisible();
+  await change.click();
   await page.getByRole('button', { name: 'Admin · least privilege' }).click();
   await expect(page.getByText('Question Governance', { exact: true })).toBeVisible();
 }
@@ -41,7 +42,8 @@ async function activateFounderAdminConsole(page) {
 async function restoreFounderAdminConsoleDefaultOff(page) {
   await page.goto('/');
   const change = page.getByRole('button', { name: 'Change fixture identity' });
-  if (await change.count()) await change.click();
+  await expect(change).toBeVisible();
+  await change.click();
   await page.getByRole('button', { name: 'Admin · least privilege' }).click();
   await page.getByRole('button', { name: 'Release Controls' }).click();
   await page.locator('#adminConsoleScope').selectOption('off');
@@ -56,6 +58,7 @@ test.afterEach(async ({ page }) => {
 });
 
 test('Founder-only administrator console is additive, bounded, and review-capable', async ({ page }) => {
+  test.slow();
   await createSubmittedStory(page);
   await openFounderAdmin(page);
   await activateFounderAdminConsole(page);

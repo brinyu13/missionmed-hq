@@ -26,6 +26,12 @@ process.env.STORYFORGE_POSTMARK_DRY_RUN = '1';
 process.env.STORYFORGE_POSTMARK_FROM = 'storyforge-e2e@missionmed.example';
 process.env.STORYFORGE_POSTMARK_REPLY_TO = 'storyforge-e2e@missionmed.example';
 process.env.STORYFORGE_GATEWAY_SHARED_SECRET = 'b1-514-e2e-gateway-secret-32-bytes-minimum';
+process.env.STORYFORGE_STORY_ARCHIVE_FORCE_OFF = '0';
+process.env.STORYFORGE_PEER_SHARE_FORCE_OFF = '0';
+process.env.STORYFORGE_STORY_PROMOTIONS_FORCE_OFF = '0';
+process.env.STORYFORGE_PER_USE_SCORING_FORCE_OFF = '0';
+process.env.STORYFORGE_ADMIN_REVIEW_CONTROLS_FORCE_OFF = '0';
+process.env.STORYFORGE_VOICE_CAPTURE_FORCE_OFF = '0';
 
 // This test-only executor proves the E4/E7 browser path through the production
 // injection boundary without selecting production Option A or Option B.

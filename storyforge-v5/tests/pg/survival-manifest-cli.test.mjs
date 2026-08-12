@@ -15,12 +15,27 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { sha256 } from '../../scripts/survival-manifest-lib.mjs';
-import { startEphemeralStoryForgeDatabase } from '../postgres/helpers/ephemeral-postgres.mjs';
+import {
+  migrationSql,
+  startEphemeralStoryForgeDatabase,
+} from '../postgres/helpers/ephemeral-postgres.mjs';
 
 const packageDir = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const cliPath = path.join(packageDir, 'scripts', 'sf-survival-manifest.mjs');
 const sentinel = 'PRIVATE_SENTINEL_DO_NOT_EMIT_9f8df53a';
 const candidateSha256 = sha256('B1-514 synthetic candidate');
+const b1514Migrations = [
+  '20260810190000_b1_514_v2_r1_visibility_consent_activity.sql',
+  '20260810200000_b1_514_v2_r2_story_versions_provenance.sql',
+  '20260810210000_b1_514_v2_r3_inspiration.sql',
+  '20260810220000_b1_514_v2_ra_requests_guest.sql',
+  '20260810230000_b1_514_v2_preferences_environments.sql',
+  '20260810240000_b1_514_v2_ra_lifecycle_completion.sql',
+  '20260810250000_b1_514_v21_authored_segment_writes.sql',
+  '20260810260000_b1_514_guest_voice_contributions.sql',
+  '20260810270000_b1_514_request_delivery_attempts.sql',
+  '20260810280000_b1_514_guest_voice_cleanup_recovery.sql',
+];
 
 function databaseUrl(socketDir, user = 'postgres') {
   return `postgresql://${user}@localhost/storyforge?host=${encodeURIComponent(socketDir)}`;
@@ -53,7 +68,7 @@ function captureArgs(phase, output) {
   ];
 }
 
-test('survival CLI enforces private artifacts and PostgreSQL 18 migration invariants', { timeout: 120_000 }, async (t) => {
+test('survival CLI enforces private artifacts and a populated PostgreSQL 18 V2 baseline', { timeout: 180_000 }, async (t) => {
   const database = await startEphemeralStoryForgeDatabase();
   assert.equal(database.postgresMajor, 18);
   const testRoot = mkdtempSync(path.join(tmpdir(), 'storyforge-survival-cli-'));
@@ -97,6 +112,87 @@ test('survival CLI enforces private artifacts and PostgreSQL 18 migration invari
        )`,
       [`${sentinel} private administrator note`],
     );
+    for (const migration of b1514Migrations) {
+      await database.client.query(migrationSql(migration).replace(/^\\set .*$/gm, ''));
+    }
+    await database.client.query(
+      `INSERT INTO public.sf_story_versions (
+         id, story_id, version_key, body, source
+       ) VALUES (
+         '51400000-0000-4514-8514-000000000004',
+         '51400000-0000-4514-8514-000000000001',
+         'thirty_second', $1, 'typed'
+       )`,
+      [`${sentinel} concise version`],
+    );
+    await database.client.query(
+      `INSERT INTO public.sf_story_version_revisions (
+         id, version_id, story_id, body, source, saved_at, actor_user_id
+       ) VALUES (
+         '51400000-0000-4514-8514-000000000005',
+         '51400000-0000-4514-8514-000000000004',
+         '51400000-0000-4514-8514-000000000001',
+         $1, 'typed', now(), '11111111-1111-4111-8111-111111111111'
+       )`,
+      [`${sentinel} version revision`],
+    );
+    await database.client.query(
+      `INSERT INTO public.sf_authored_segments (
+         id, story_id, story_version_id, source_role, source_entity_type,
+         source_entity_id, body_hash, author_id
+       ) VALUES (
+         '51400000-0000-4514-8514-000000000006',
+         '51400000-0000-4514-8514-000000000001',
+         '51400000-0000-4514-8514-000000000004',
+         'student_typed', 'story_version',
+         '51400000-0000-4514-8514-000000000004', $1,
+         '11111111-1111-4111-8111-111111111111'
+       )`,
+      ['a'.repeat(64)],
+    );
+    await database.client.query(
+      `INSERT INTO public.sf_contributor_prompts (
+         id, library_key, relationship_ids, text, hint, sort_order
+       ) VALUES (
+         '51400000-0000-4514-8514-000000000010', 'c-999', ARRAY['parent'],
+         'Tell me about one bounded remembered moment.', 'One specific moment.', 999
+       )`,
+    );
+    const prompt = await database.client.query(
+      `SELECT id, text FROM public.sf_contributor_prompts
+       WHERE id='51400000-0000-4514-8514-000000000010'`,
+    );
+    await database.client.query(
+      `INSERT INTO public.sf_story_invitations (
+         id, student_id, contributor_first_name, relationship_id, email,
+         status, disclosure_version
+       ) VALUES (
+         '51400000-0000-4514-8514-000000000007',
+         '11111111-1111-4111-8111-111111111111', 'Private', 'parent',
+         'private@example.test', 'draft', 'test-v1'
+       )`,
+    );
+    await database.client.query(
+      `INSERT INTO public.sf_story_contributions (
+         id, invitation_id, kind, transcript, prompt_id, prompt_text_snapshot
+       ) VALUES (
+         '51400000-0000-4514-8514-000000000008',
+         '51400000-0000-4514-8514-000000000007', 'voice', $1, $2, $3
+       )`,
+      [`${sentinel} guest transcript`, prompt.rows[0].id, prompt.rows[0].text],
+    );
+    await database.client.query(
+      `INSERT INTO public.sf_contribution_audio_assets (
+         id, contribution_id, invitation_id, object_key, content_type,
+         byte_size, duration_ms, state
+       ) VALUES (
+         '51400000-0000-4514-8514-000000000009',
+         '51400000-0000-4514-8514-000000000008',
+         '51400000-0000-4514-8514-000000000007',
+         'storyforge-contribution-audio/11111111-1111-4111-8111-111111111111/51400000-0000-4514-8514-000000000007/51400000-0000-4514-8514-000000000008/51400000-0000-4514-8514-000000000009.webm',
+         'audio/webm', 18, 1000, 'pending'
+       )`,
+    );
 
     await t.test('capture writes a new 0600 artifact without private prose', () => {
       chmodSync(testRoot, 0o700);
@@ -105,13 +201,27 @@ test('survival CLI enforces private artifacts and PostgreSQL 18 migration invari
       const result = runCli(captureArgs('pre', prePath), { evidenceRoot, connectionString });
       assert.equal(result.status, 0, result.stderr);
       assert.equal(lstatSync(prePath).mode & 0o777, 0o600);
-      assertNoPrivateProse(result.stdout, result.stderr, readFileSync(prePath, 'utf8'));
+      const contents = readFileSync(prePath, 'utf8');
+      assertNoPrivateProse(result.stdout, result.stderr, contents);
+      const manifest = JSON.parse(contents);
+      for (const table of [
+        'sf_mentorship_consent', 'sf_story_versions', 'sf_story_version_revisions',
+        'sf_authored_segments', 'sf_inspiration_prompts', 'sf_inspiration_saved',
+        'sf_inspiration_events', 'sf_inspiration_favorites', 'sf_inspiration_pins',
+        'sf_inspiration_prompt_history', 'sf_contributor_prompts', 'sf_story_invitations',
+        'sf_story_invitation_events', 'sf_story_invitation_suppressions',
+        'sf_story_invitation_provider_messages', 'sf_story_invitation_delivery_attempts',
+        'sf_story_contributions', 'sf_contribution_audio_assets', 'sf_guest_voice_sessions',
+        'sf_guest_voice_segments', 'sf_guest_voice_events', 'sf_guest_voice_cleanup_intents',
+      ]) assert.ok(manifest.protectedTables[table], table);
+      assert.equal(manifest.protectedTables.sf_story_versions.count, 1);
+      assert.equal(manifest.protectedTables.sf_story_contributions.count, 1);
+      assert.equal(manifest.permanentObjects.rows['contribution_audio:51400000-0000-4514-8514-000000000009'].required, false);
     });
 
-    await t.test('absent visibility to present SQL NULL compares PASS', async () => {
-      await database.client.query('ALTER TABLE public.sf_stories ADD COLUMN visibility text');
+    await t.test('an unchanged populated V2 baseline compares PASS', async () => {
       const prePath = path.join(evidenceRoot, 'PRE.json');
-      const postPath = path.join(evidenceRoot, 'POST-NULL.json');
+      const postPath = path.join(evidenceRoot, 'POST-UNCHANGED.json');
       const reportPath = path.join(evidenceRoot, 'COMPARE-PASS.json');
       const capture = runCli(captureArgs('post', postPath), { evidenceRoot, connectionString });
       assert.equal(capture.status, 0, capture.stderr);
@@ -127,7 +237,7 @@ test('survival CLI enforces private artifacts and PostgreSQL 18 migration invari
 
     await t.test('private root mode, root symlink, outside-root output, and overwrite are rejected', () => {
       const prePath = path.join(evidenceRoot, 'PRE.json');
-      const postPath = path.join(evidenceRoot, 'POST-NULL.json');
+      const postPath = path.join(evidenceRoot, 'POST-UNCHANGED.json');
       const existingOutput = path.join(evidenceRoot, 'COMPARE-PASS.json');
       const overwrite = runCli([
         'compare', '--pre', prePath, '--post', postPath, '--output', existingOutput,
@@ -159,34 +269,74 @@ test('survival CLI enforces private artifacts and PostgreSQL 18 migration invari
       assertNoPrivateProse(overwrite.stderr, wrongMode.stderr, symlink.stderr, outside.stderr);
     });
 
-    await t.test('synthetic historical version generation is captured and fails comparison', async () => {
+    await t.test('candidate table and default-off flag additions require exact allowlists', async () => {
       await database.client.query(
-        `CREATE TABLE public.sf_story_versions (
+        `CREATE TABLE public.sf_peer_feedback (
            id uuid PRIMARY KEY,
-           story_id uuid NOT NULL REFERENCES public.sf_stories(id) ON DELETE RESTRICT,
-           version_kind text NOT NULL
+           story_id uuid NOT NULL REFERENCES public.sf_stories(id) ON DELETE RESTRICT
          )`,
       );
       await database.client.query(
-        `INSERT INTO public.sf_story_versions (id, story_id, version_kind)
-         VALUES (
-           '51400000-0000-4514-8514-000000000004',
-           '51400000-0000-4514-8514-000000000001', 'thirty_second'
-         )`,
+        `INSERT INTO public.sf_feature_flags (key, scope, updated_by)
+         VALUES ('peer_review_test_gate', 'off', '11111111-1111-4111-8111-111111111111')`,
       );
-      const generatedPath = path.join(evidenceRoot, 'POST-GENERATED.json');
-      const failureReport = path.join(evidenceRoot, 'COMPARE-GENERATED-FAIL.json');
-      const capture = runCli(captureArgs('post', generatedPath), { evidenceRoot, connectionString });
+      const candidatePath = path.join(evidenceRoot, 'POST-CANDIDATE.json');
+      const capture = runCli(captureArgs('post', candidatePath), { evidenceRoot, connectionString });
       assert.equal(capture.status, 0, capture.stderr);
+      const captured = JSON.parse(readFileSync(candidatePath, 'utf8'));
+      const flagHash = captured.featureFlags.rows.peer_review_test_gate.rowHash;
+      const withoutAllowlist = runCli([
+        'compare', '--pre', path.join(evidenceRoot, 'PRE.json'), '--post', candidatePath,
+      ], { evidenceRoot, connectionString });
+      assert.notEqual(withoutAllowlist.status, 0);
+      const withAllowlist = runCli([
+        'compare', '--pre', path.join(evidenceRoot, 'PRE.json'), '--post', candidatePath,
+        '--expected-table-addition', 'sf_peer_feedback',
+        '--expected-feature-flag-addition', `peer_review_test_gate:${flagHash}`,
+      ], { evidenceRoot, connectionString });
+      assert.equal(withAllowlist.status, 0, withAllowlist.stderr);
+      assertNoPrivateProse(capture.stdout, capture.stderr, withoutAllowlist.stdout,
+        withoutAllowlist.stderr, withAllowlist.stdout, withAllowlist.stderr,
+        readFileSync(candidatePath, 'utf8'));
+    });
+
+    await t.test('mutating a populated V2 row fails without emitting private prose', async () => {
+      await database.client.query(
+        `UPDATE public.sf_story_versions SET body=$1
+         WHERE id='51400000-0000-4514-8514-000000000004'`,
+        [`${sentinel} mutated version`],
+      );
+      const mutatedPath = path.join(evidenceRoot, 'POST-MUTATED.json');
+      const failureReport = path.join(evidenceRoot, 'COMPARE-MUTATED-FAIL.json');
+      const capture = runCli(captureArgs('post', mutatedPath), { evidenceRoot, connectionString });
+      assert.equal(capture.status, 0, capture.stderr);
+      const captured = JSON.parse(readFileSync(mutatedPath, 'utf8'));
+      const flagHash = captured.featureFlags.rows.peer_review_test_gate.rowHash;
       const compare = runCli([
-        'compare', '--pre', path.join(evidenceRoot, 'PRE.json'), '--post', generatedPath,
+        'compare', '--pre', path.join(evidenceRoot, 'PRE.json'), '--post', mutatedPath,
         '--output', failureReport,
+        '--expected-table-addition', 'sf_peer_feedback',
+        '--expected-feature-flag-addition', `peer_review_test_gate:${flagHash}`,
       ], { evidenceRoot, connectionString });
       assert.notEqual(compare.status, 0);
       assert.match(compare.stdout, /FAIL STORYFORGE_V1_SURVIVAL/);
-      assert.match(readFileSync(failureReport, 'utf8'), /historical_version_synthesized/);
+      assert.match(readFileSync(failureReport, 'utf8'), /sf_story_versions/);
       assertNoPrivateProse(capture.stdout, capture.stderr, compare.stdout, compare.stderr,
-        readFileSync(generatedPath, 'utf8'), readFileSync(failureReport, 'utf8'));
+        readFileSync(mutatedPath, 'utf8'), readFileSync(failureReport, 'utf8'));
+    });
+
+    await t.test('verified contribution audio cannot be captured without object HEAD proof', async () => {
+      await database.client.query(
+        `UPDATE public.sf_contribution_audio_assets
+         SET state='verified', verified_at=now()
+         WHERE id='51400000-0000-4514-8514-000000000009'`,
+      );
+      const output = path.join(evidenceRoot, 'POST-UNVERIFIED-OBJECT.json');
+      const result = runCli(captureArgs('post', output), { evidenceRoot, connectionString });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /audio storage is not configured/i);
+      assertNoPrivateProse(result.stdout, result.stderr);
+      assert.throws(() => lstatSync(output), /ENOENT/);
     });
 
     await t.test('filtered authenticated capture fails before writing an artifact', async () => {
