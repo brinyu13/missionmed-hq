@@ -36,8 +36,8 @@ async function logIn(page, username = founderUsername, password = founderPasswor
   await page.goto('/wp-login.php');
   const usernameField = page.locator('input[name="log"]');
   const passwordField = page.locator('input[name="pwd"]');
-  await passwordField.fill(password);
   await usernameField.fill(username);
+  await passwordField.fill(password);
   await expect(usernameField).toHaveValue(username);
   await expect(passwordField).toHaveValue(password);
   await page.locator('#wp-submit').click();
@@ -277,9 +277,10 @@ test('founder-only zero-assignment workflow remains private and truthful', async
   await expect(page.getByText('Mentor review is not enabled yet. This story remains editable, and its visibility setting is unchanged.')).toBeVisible();
   await page.getByRole('tab', { name: 'Working version' }).click();
   await expect(page.getByRole('textbox', { name: 'Working version' })).toBeEditable();
-  // This fixture deliberately leaves visibility-consent disabled, so the
-  // canonical legacy status chip remains the privacy signal on this surface.
-  await expect(page.locator('#room .roomMeta .stChip').filter({ hasText: /^Private$/ })).toBeVisible();
+  // This fixture deliberately leaves visibility-consent disabled. Submission
+  // state is therefore represented by the canonical Draft chip; the direct
+  // server probe below remains the privacy/authorization assertion.
+  await expect(page.locator('#room .roomMeta .stChip').filter({ hasText: /^Draft$/ })).toBeVisible();
 
   const directProbe = await page.evaluate(async (id) => {
     const bootstrap = await fetch(
