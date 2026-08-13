@@ -1341,7 +1341,8 @@ section[data-view].settingsPage{max-width:860px}
 
 /* B1-510I administrator workspace: additive, role-gated, and read-only by default. */
 .adminMetrics{grid-template-columns:repeat(5,minmax(112px,1fr))}
-.adminStoryRow{grid-template-columns:auto minmax(180px,1fr) auto auto auto auto}
+.adminStoryRow{display:grid;grid-template-columns:auto minmax(180px,1fr) auto auto auto auto}
+.adminStoryRow .rMain{display:grid;gap:2px;min-width:0}
 .privacyBoundary{margin:18px 0;padding:12px 15px;border:1px solid rgba(57,214,255,.28);border-radius:11px;background:rgba(57,214,255,.055);color:var(--mid);font-size:12px;line-height:1.55}
 .adminReviewGrid{align-items:start}
 .adminReviewForm textarea{width:100%;box-sizing:border-box;resize:vertical;background:#0f1522;border:1px solid var(--edge);border-radius:9px;color:var(--tx);font:12px/1.55 var(--body);padding:10px;outline:none}
