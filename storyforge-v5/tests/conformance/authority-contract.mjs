@@ -93,7 +93,10 @@ export const PRODUCT_SURFACES = Object.freeze({
     // B1-515's binding page-introduction law intentionally replaces the old
     // route wrapper while every canonical marker and the remaining visual,
     // geometry, palette, and structural gates stay enforced.
-    conformanceMinimums: Object.freeze({ minTopologyJaccard: 0 }),
+    conformanceMinimums: Object.freeze({
+      minTopologyJaccard: 0,
+      minNonMarkerStructuralComposite: 0.35,
+    }),
   }),
   quick_capture: Object.freeze({
     label: 'Quick Capture',
@@ -112,6 +115,9 @@ export const PRODUCT_SURFACES = Object.freeze({
     flagOffSupersededMarkers: Object.freeze([
       'Record a voice note',
     ]),
+    productionMarkerAliases: Object.freeze({
+      'Only you can see it': 'New story begins Private — only you',
+    }),
     conformanceMinimums: Object.freeze({ minMarkerGeometryCoverage: 0.8 }),
   }),
   interview_prep: Object.freeze({
@@ -165,6 +171,7 @@ export const PRODUCT_SURFACES = Object.freeze({
     // B1-512 adds reading-size controls; B1-514 adds the approved first-class
     // theme and energetic-environment cards without replacing the V5 shell.
     conformanceMinimums: Object.freeze({
+      minTopologyJaccard: 0.12,
       minComponentClassJaccard: 0.39,
       minVisualStyleJaccard: 0.22,
       minNonMarkerStructuralComposite: 0.30,
