@@ -26,12 +26,13 @@ must not be replayed.
   `3dc3e408408f60079835cef7de7d66750391a253`, sole parent
   `ec369e45570f2b863338a1b1c7f8035e957d7109`: its decision transcribed the
   DR-068 R13 fixed-result schema version as `v1`; the actual schema version is
-  `v2`. DR-069 is superseded by DR-070.
+  `v2`. DR-069 remains preserved and controlling for the external Railway
+  project-token provisioning blocker when read with DR-070's narrow correction.
 - DR-070 is `PUSHED_FILED / INDEPENDENTLY_VERIFIED` at
   `283f72726a2e50993691f529c5e6b78e9c2195e2`, sole parent
   `3dc3e408408f60079835cef7de7d66750391a253`. It is an additive evidence-only
-  correction and authorizes no provider request, credential read, reset, or
-  retry.
+  correction that supersedes only DR-069's erroneous schema-version token and
+  authorizes no provider request, credential read, reset, or retry.
 - Supabase child `mftguikkftmrxjxrkdln` was not reset. No new
   `workflow_run_id` was returned, preserved, or polled; no action detail or log
   was read. The historical failed run remains prohibited from list selection,
@@ -41,12 +42,14 @@ must not be replayed.
   independent PASS. Faculty base `f86135a41c7c61a5c3c8d3f55b18651c80b70986`
   had post-push FAIL for client-controlled identifiers; additive repair
   `60587386451d616f798e93c0730d124e9a7e17fc` has fresh precommit and post-push
-  PASS and supersedes that defect. Current product branch, upstream, and draft PR #24
-  head are `60587386451d616f798e93c0730d124e9a7e17fc`; the PR remains open,
-  draft, and unmerged. This combined
-  head establishes provider-independent contracts and mock-driver behavior
-  only—not a concrete live driver, database, migration, provider, staging,
-  production activation, deployment, or user-facing PASS.
+  PASS and supersedes that defect. At the failed post-push review boundary, the
+  current product branch, upstream, draft PR `#24`, and these handoff documents
+  were controlled by `e45f5ec5f22fbc1dde50a6de3a9fecf183d2ee33`, whose sole
+  parent is implementation head `60587386451d616f798e93c0730d124e9a7e17fc`;
+  the PR remains open, draft, and unmerged. The implementation head establishes
+  provider-independent contracts and mock-driver behavior only—not a concrete
+  live driver, database, migration, provider, staging, production activation,
+  deployment, or user-facing PASS.
 
 `EXTERNAL_CREDENTIAL_PROVISIONING_BLOCKER`: the smallest resume input is for
 the Founder to privately create and provision a dedicated Railway project token
@@ -56,6 +59,14 @@ local mechanism as `RAILWAY_TOKEN` for a future separately filed, pushed, and
 fresh-PASS one-shot identity-plus-schema-discovery authority. The token value
 must never enter chat, a file, PR, stdout, stderr, or argv. DR-067 and DR-068
 cannot be retried.
+
+Physical Supabase Storage-backend observability is a separate unresolved reset
+boundary. Database and `storage.*` metadata cannot prove the physical backend
+empty or nonempty, and `storage_backend_observed=false` cannot pass. Before
+reset, new authority must obtain complete provider-native/internal attestation
+of zero backend objects, or the Founder must explicitly redefine the gate to
+zero logical/reachable user state with the physical orphan-byte boundary
+disclosed. Neither condition has been satisfied.
 
 Until that input and successor authority exist, all durable repository,
 transaction, migration, RLS, WordPress authentication, LearnDash entitlement,
