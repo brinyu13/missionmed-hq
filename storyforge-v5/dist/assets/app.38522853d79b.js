@@ -6187,6 +6187,11 @@ async function openWorkshop(questionId) {
     state.workshopFocusPairId = null;
     renderShell();
     renderQuestionWorkshop();
+    // A deep launcher on Interview Prep can scroll the fixed main viewport
+    // before route activation. A newly opened workshop must begin at its own
+    // top; later in-workshop rerenders intentionally preserve reading position.
+    main.scrollTop = 0;
+    main.scrollLeft = 0;
   } catch (error) {
     notify(error.message);
     await navigate('prep', null, { replace: true });
