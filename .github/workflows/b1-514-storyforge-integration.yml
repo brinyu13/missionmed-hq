@@ -6,6 +6,7 @@ on:
       - codex/b1-503-storyforge-product-recovery
     paths:
       - .github/workflows/b1-514-storyforge-integration.yml
+      - storyforge-v5/tests/integration/storyforge-sso.spec.mjs
 
 permissions:
   contents: read
