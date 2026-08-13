@@ -171,6 +171,59 @@ test('administrator identity surfaces receive only active Arena CDN projections'
   assert.equal(JSON.stringify(directory).includes('object_key'), false);
 });
 
+test('administrator action-center and recent rows receive the same bounded Arena projection', async () => {
+  const avatarId = '55555555-5555-4555-8555-555555555555';
+  const safeUrl = 'https://cdn.missionmedinstitute.com/avatars/maya.webp';
+  const storyRow = { id: STORY_ID, studentId: SUBJECT_ID, studentName: 'Maya Student' };
+  const observed = serviceFixture(({ sql }) => {
+    if (sql.includes('sf_admin_home')) {
+      return { rows: [{ payload: {
+        recent: [storyRow],
+        actionCenter: {
+          next: [storyRow],
+          whoNeedsMe: {
+            needsReview: { count: 1, items: [storyRow] },
+            needsNudge: { count: 1, items: [{ studentId: SUBJECT_ID, studentName: 'Maya Student' }] },
+          },
+          changed: {
+            changesReturned: { count: 1, items: [storyRow] },
+            newSinceLastVisit: { count: 1, items: [storyRow], firstVisit: false },
+          },
+        },
+      } }] };
+    }
+    if (sql.includes('sf_admin_arena_avatar_projections')) {
+      return { rows: [{ payload: [{
+        studentId: SUBJECT_ID,
+        avatar: {
+          available: true,
+          source: 'arena_lobby',
+          activeAvatarId: avatarId,
+          headshotUrl: safeUrl,
+          syncedAt: '2026-08-13T12:00:00.000Z',
+        },
+      }] }] };
+    }
+    return { rows: [{ payload: { ok: true } }] };
+  }, {
+    STORYFORGE_ADMIN_CONSOLE_FORCE_OFF: '0',
+    STORYFORGE_AVATAR_IDENTITY_FORCE_OFF: '0',
+  });
+  const home = await observed.service.home(ADMIN);
+  const rows = [
+    home.recent[0],
+    home.actionCenter.next[0],
+    home.actionCenter.whoNeedsMe.needsReview.items[0],
+    home.actionCenter.whoNeedsMe.needsNudge.items[0],
+    home.actionCenter.changed.changesReturned.items[0],
+    home.actionCenter.changed.newSinceLastVisit.items[0],
+  ];
+  assert.ok(rows.every((row) => row.avatar?.headshotUrl === safeUrl));
+  const avatarCalls = observed.calls.filter(({ sql }) => sql.includes('sf_admin_arena_avatar_projections'));
+  assert.equal(avatarCalls.length, 1);
+  assert.deepEqual(avatarCalls[0].values, [[SUBJECT_ID]]);
+});
+
 test('disabled or unavailable Arena identity falls back to authorized initials data', async () => {
   const observed = serviceFixture(({ sql }) => {
     if (sql.includes('sf_admin_directory(')) {

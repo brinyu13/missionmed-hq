@@ -139,21 +139,66 @@ function safeArenaThumbnail(value) {
 }
 
 function avatarStudentIds(payload) {
+  const actionCenter = payload?.actionCenter;
+  const actionRows = [
+    ...(Array.isArray(payload?.recent) ? payload.recent : []),
+    ...(Array.isArray(actionCenter?.next) ? actionCenter.next : []),
+    ...(Array.isArray(actionCenter?.whoNeedsMe?.needsReview?.items)
+      ? actionCenter.whoNeedsMe.needsReview.items : []),
+    ...(Array.isArray(actionCenter?.whoNeedsMe?.needsNudge?.items)
+      ? actionCenter.whoNeedsMe.needsNudge.items : []),
+    ...(Array.isArray(actionCenter?.changed?.changesReturned?.items)
+      ? actionCenter.changed.changesReturned.items : []),
+    ...(Array.isArray(actionCenter?.changed?.newSinceLastVisit?.items)
+      ? actionCenter.changed.newSinceLastVisit.items : []),
+  ];
   const ids = [
     payload?.student?.id,
     payload?.context?.subject?.id,
     ...((Array.isArray(payload?.students) ? payload.students : []).map((row) => row?.id || row?.studentId)),
     ...((Array.isArray(payload?.stories) ? payload.stories : []).map((row) => row?.studentId || row?.student_id)),
+    ...actionRows.map((row) => row?.studentId || row?.student_id),
   ].map((value) => String(value || '').trim()).filter((value) => uuidPattern.test(value));
   return [...new Set(ids)].slice(0, 100);
 }
 
 function applyAvatarMap(payload, avatarMap) {
   if (!payload || typeof payload !== 'object' || !avatarMap.size) return payload;
-  const attach = (row, id = row?.id || row?.studentId || row?.student_id) => {
+  const attach = (row, id = row?.studentId || row?.student_id || row?.id) => {
     const avatar = avatarMap.get(String(id || ''));
     return avatar ? { ...row, avatar } : row;
   };
+  const attachItems = (value) => (
+    value && typeof value === 'object' && Array.isArray(value.items)
+      ? { ...value, items: value.items.map((row) => attach(row)) }
+      : value
+  );
+  const actionCenter = payload.actionCenter && typeof payload.actionCenter === 'object'
+    ? {
+      ...payload.actionCenter,
+      ...(Array.isArray(payload.actionCenter.next)
+        ? { next: payload.actionCenter.next.map((row) => attach(row)) }
+        : {}),
+      ...(payload.actionCenter.whoNeedsMe && typeof payload.actionCenter.whoNeedsMe === 'object'
+        ? {
+          whoNeedsMe: {
+            ...payload.actionCenter.whoNeedsMe,
+            needsReview: attachItems(payload.actionCenter.whoNeedsMe.needsReview),
+            needsNudge: attachItems(payload.actionCenter.whoNeedsMe.needsNudge),
+          },
+        }
+        : {}),
+      ...(payload.actionCenter.changed && typeof payload.actionCenter.changed === 'object'
+        ? {
+          changed: {
+            ...payload.actionCenter.changed,
+            changesReturned: attachItems(payload.actionCenter.changed.changesReturned),
+            newSinceLastVisit: attachItems(payload.actionCenter.changed.newSinceLastVisit),
+          },
+        }
+        : {}),
+    }
+    : null;
   return {
     ...payload,
     ...(payload.student ? { student: attach(payload.student) } : {}),
@@ -162,6 +207,8 @@ function applyAvatarMap(payload, avatarMap) {
     } : {}),
     ...(Array.isArray(payload.students) ? { students: payload.students.map((row) => attach(row)) } : {}),
     ...(Array.isArray(payload.stories) ? { stories: payload.stories.map((row) => attach(row)) } : {}),
+    ...(Array.isArray(payload.recent) ? { recent: payload.recent.map((row) => attach(row)) } : {}),
+    ...(actionCenter ? { actionCenter } : {}),
   };
 }
 
@@ -745,32 +792,41 @@ function reviewStory(identity, storyId, input, requireDirectControls = false) {
     updateFlag,
     getPeerShareFlag,
     updatePeerShareFlag,
-    home: (identity, query = {}) => rpc(
-      identity,
-      'SELECT public.sf_admin_home($1) AS payload',
-      [boundedLimit(query.limit, 8)],
-    ),
-    students: (identity, query = {}) => rpc(
-      identity,
-      'SELECT public.sf_admin_search_students($1, $2, $3, $4, $5) AS payload',
-      [
+    home: (identity, query = {}) => {
+      const limit = boundedLimit(query.limit, 8);
+      return rpc(
+        identity,
+        'SELECT public.sf_admin_home($1) AS payload',
+        [limit],
+      ).then((payload) => enrichArenaAvatars(identity, payload));
+    },
+    students: (identity, query = {}) => {
+      const values = [
         String(query.q || '').trim().slice(0, 120),
         optionalStatus(query.status),
         query.afterName ? String(query.afterName).slice(0, 120) : null,
         query.afterId ? requireUuid(query.afterId, 'Student cursor') : null,
         boundedLimit(query.limit),
-      ],
-    ),
-    student: (identity, studentId, query = {}) => rpc(
-      identity,
-      'SELECT public.sf_admin_student_detail($1, $2, $3, $4) AS payload',
-      [
+      ];
+      return rpc(
+        identity,
+        'SELECT public.sf_admin_search_students($1, $2, $3, $4, $5) AS payload',
+        values,
+      ).then((payload) => enrichArenaAvatars(identity, payload));
+    },
+    student: (identity, studentId, query = {}) => {
+      const values = [
         requireUuid(studentId, 'Student identifier'),
         optionalTimestamp(query.afterAt, 'Student cursor timestamp'),
         query.afterId ? requireUuid(query.afterId, 'Story cursor') : null,
         boundedLimit(query.limit),
-      ],
-    ),
+      ];
+      return rpc(
+        identity,
+        'SELECT public.sf_admin_student_detail($1, $2, $3, $4) AS payload',
+        values,
+      ).then((payload) => enrichArenaAvatars(identity, payload));
+    },
     subjectHome: (identity, studentId) => {
       const subjectId = requireUuid(studentId, 'Student identifier');
       return rpc(
@@ -859,17 +915,20 @@ function reviewStory(identity, storyId, input, requireDirectControls = false) {
       'SELECT public.sf_admin_delete_saved_view($1) AS payload',
       [requireUuid(viewId, 'Saved-view identifier')],
     ),
-    queue: (identity, query = {}) => rpc(
-      identity,
-      'SELECT public.sf_admin_review_queue($1, $2, $3, $4, $5) AS payload',
-      [
+    queue: (identity, query = {}) => {
+      const values = [
         optionalStatus(query.status),
         query.studentId ? requireUuid(query.studentId, 'Student identifier') : null,
         optionalTimestamp(query.afterAt, 'Queue cursor timestamp'),
         query.afterId ? requireUuid(query.afterId, 'Queue cursor') : null,
         boundedLimit(query.limit),
-      ],
-    ),
+      ];
+      return rpc(
+        identity,
+        'SELECT public.sf_admin_review_queue($1, $2, $3, $4, $5) AS payload',
+        values,
+      ).then((payload) => enrichArenaAvatars(identity, payload));
+    },
     queueScaled: async (identity, query = {}) => {
       const value = validateQueueQuery(query);
       return enrichArenaAvatars(identity, await rpc(
