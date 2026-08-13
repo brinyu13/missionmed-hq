@@ -632,10 +632,12 @@ const STRUCTURE_WEIGHTS = Object.freeze({
 // from the known-good direct comparison; class/style floors and the non-marker
 // composite remain mandatory, so marker text alone can never pass the gate.
 const TOPOLOGY_MINIMUMS = Object.freeze({
-  // B1-514's Founder-approved full-width progression HUD and recommendation
-  // module intentionally add Home topology while preserving the V5 shell,
-  // marker geometry, component vocabulary, style, and palette gates.
-  home: 0.20,
+  // B1-514/B1-515R's Founder-approved full-width progression HUD,
+  // recommendation module, and read-only Administrator subject banner add
+  // Home topology while preserving the V5 shell, marker geometry, component
+  // vocabulary, style, palette, overflow, and composite gates. This floor is
+  // calibrated only for Home; the global topology minimum remains unchanged.
+  home: 0.18,
   interview_prep: 0.12,
   library: 0.26,
   mentor: 0.23,
@@ -645,8 +647,10 @@ const TOPOLOGY_MINIMUMS = Object.freeze({
   question_coverage: 0.19,
   quick_capture: 0.14,
   review_queue: 0.25,
-  // B1-514 adds first-class theme cards and two approved environments while
-  // retaining every V5 Settings marker and the remaining visual gates.
+  // B1-514/B1-515R add first-class theme cards, two approved environments,
+  // and explicit Story Preferences, Notifications, Invitations, and Identity
+  // groupings while retaining every V5 Settings marker and the remaining
+  // visual gates.
   settings: 0.13,
 });
 

@@ -168,11 +168,13 @@ export const PRODUCT_SURFACES = Object.freeze({
       'Back to Matrix',
     ]),
     forbiddenMarkers: Object.freeze(['Reset demo data']),
-    // B1-512 adds reading-size controls; B1-514 adds the approved first-class
-    // theme and energetic-environment cards without replacing the V5 shell.
+    // B1-512 adds reading-size controls; B1-514/B1-515R add the approved
+    // first-class theme/environment cards and grouped account preferences
+    // without replacing the V5 shell. This surface-only floor preserves every
+    // geometry, marker, visual-style, palette, overflow, and composite gate.
     conformanceMinimums: Object.freeze({
       minTopologyJaccard: 0.12,
-      minComponentClassJaccard: 0.39,
+      minComponentClassJaccard: 0.37,
       minVisualStyleJaccard: 0.22,
       minNonMarkerStructuralComposite: 0.28,
     }),
