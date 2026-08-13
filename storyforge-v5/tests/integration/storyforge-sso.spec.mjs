@@ -76,7 +76,7 @@ test('Matrix navigation and dashboard tile are server-gated and StoryForge wins 
 
   await page.goto('/storyforge/settings');
   await expect(page.locator('#main').getByText('Settings', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Your account' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Your StoryForge/i })).toBeVisible();
 
   const appRoute = await request.get('/storyforge/library');
   expect(appRoute.status()).toBe(200);
@@ -274,7 +274,7 @@ test('founder-only zero-assignment workflow remains private and truthful', async
   await openStory.click();
 
   await expect(page.getByRole('button', { name: 'Mentor review unavailable' })).toBeDisabled();
-  await expect(page.getByText('Mentor review is not enabled yet. Your private story remains editable.')).toBeVisible();
+  await expect(page.getByText('Mentor review is not enabled yet. This story remains editable, and its visibility setting is unchanged.')).toBeVisible();
   await page.getByRole('tab', { name: 'Working version' }).click();
   await expect(page.getByRole('textbox', { name: 'Working version' })).toBeEditable();
   await expect(page.locator('#room .roomMeta .stChip').filter({ hasText: /^Private$/ })).toBeVisible();
