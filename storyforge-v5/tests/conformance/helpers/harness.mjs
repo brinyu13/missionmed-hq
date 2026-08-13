@@ -1134,6 +1134,7 @@ function compareEvidence(
   candidate,
   canonicalProfile,
   candidateProfile,
+  minimums = {},
 ) {
   const markers = markerComparison(canonical.markers, candidate.markers);
   const componentClassJaccard = jaccard(
@@ -1149,7 +1150,8 @@ function compareEvidence(
     candidate.structure.visualStyles,
   );
   const topologyMinimum = (
-    TOPOLOGY_MINIMUMS[surfaceKey]
+    minimums.minTopologyJaccard
+    ?? TOPOLOGY_MINIMUMS[surfaceKey]
     ?? VISUAL_COMPARISON_THRESHOLDS.defaultMinTopologyJaccard
   );
   const nonMarkerStructuralComposite = (
@@ -1316,6 +1318,7 @@ export async function compareSurfacePair(
     candidateMeta,
     canonicalProfile,
     candidateProfile,
+    contract.conformanceMinimums,
   );
   if (
     process.env.STORYFORGE_CONFORMANCE_DIAGNOSTICS === '1'

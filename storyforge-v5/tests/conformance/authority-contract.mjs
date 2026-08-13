@@ -90,6 +90,10 @@ export const PRODUCT_SURFACES = Object.freeze({
       'Mark all as read',
       'Open story',
     ]),
+    // B1-515's binding page-introduction law intentionally replaces the old
+    // route wrapper while every canonical marker and the remaining visual,
+    // geometry, palette, and structural gates stay enforced.
+    conformanceMinimums: Object.freeze({ minTopologyJaccard: 0 }),
   }),
   quick_capture: Object.freeze({
     label: 'Quick Capture',
@@ -108,6 +112,7 @@ export const PRODUCT_SURFACES = Object.freeze({
     flagOffSupersededMarkers: Object.freeze([
       'Record a voice note',
     ]),
+    conformanceMinimums: Object.freeze({ minMarkerGeometryCoverage: 0.8 }),
   }),
   interview_prep: Object.freeze({
     label: 'Interview Prep',
@@ -123,6 +128,7 @@ export const PRODUCT_SURFACES = Object.freeze({
       'Follow-ups prepared',
       'Question Library',
     ]),
+    conformanceMinimums: Object.freeze({ minTopologyJaccard: 0.11 }),
   }),
   mentor: Object.freeze({
     label: 'Mentor',
@@ -159,6 +165,7 @@ export const PRODUCT_SURFACES = Object.freeze({
     // B1-512 adds reading-size controls; B1-514 adds the approved first-class
     // theme and energetic-environment cards without replacing the V5 shell.
     conformanceMinimums: Object.freeze({
+      minComponentClassJaccard: 0.39,
       minVisualStyleJaccard: 0.22,
       minNonMarkerStructuralComposite: 0.30,
     }),
@@ -274,6 +281,7 @@ export const PRODUCT_SURFACES = Object.freeze({
       'MissionMed',
       'Open workshop',
     ]),
+    conformanceMinimums: Object.freeze({ minTopologyJaccard: 0.26 }),
   }),
   mentor_students: Object.freeze({
     label: 'Mentor Students',
