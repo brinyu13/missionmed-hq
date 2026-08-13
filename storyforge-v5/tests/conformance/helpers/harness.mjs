@@ -1318,7 +1318,7 @@ export async function compareSurfacePair(
     candidateMeta,
     canonicalProfile,
     candidateProfile,
-    contract.conformanceMinimums,
+    PRODUCT_SURFACES[surfaceKey].conformanceMinimums,
   );
   if (
     process.env.STORYFORGE_CONFORMANCE_DIAGNOSTICS === '1'
