@@ -52,7 +52,7 @@ The release also preserves the live B1-514 V2 architecture and restores the appr
 - Post-cutover Railway log scan: zero HTTP 5xx/error/exception/fatal/unhandled matches.
 - Cleanup: zero pending story-audio, mentor-audio, story-media, and guest-voice deletion intents; zero stale recording sessions.
 - Critical Systems manifest reconciled to the live release; enforced gate: zero FAIL.
-- Exact hosted WordPress/Matrix integration gate: rerun pending at the time this receipt was first written; terminal seal must record its final result.
+- Exact hosted WordPress/Matrix integration gate: PASS. GitHub Actions run `31658345311` completed successfully at `2026-08-13T01:44:15Z`; the exact integration suite and bounded evidence upload both passed against test/evidence commit `9cc653873eb19725f41cfb82f1b230ed8829a267`, with deployed product bytes pinned to source commit `7462a101859d3942d44c16da2358b633543f6c6b`.
 
 ## Human perceptual checkpoint
 
