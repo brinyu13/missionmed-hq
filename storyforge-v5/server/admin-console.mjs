@@ -599,11 +599,19 @@ export function createAdminConsoleService({
     if (avatarIdentityForceOff(environment)) return payload;
     const studentIds = avatarStudentIds(payload);
     if (!studentIds.length) return payload;
-    const rows = await rpc(
-      identity,
-      'SELECT public.sf_admin_arena_avatar_projections($1::uuid[]) AS payload',
-      [studentIds],
-    );
+    let rows;
+    try {
+      rows = await withAdminIdentity(identity, async (client) => {
+        const result = await client.query(
+          'SELECT public.sf_admin_arena_avatar_projections($1::uuid[]) AS payload',
+          [studentIds],
+        );
+        return result.rows[0]?.payload ?? null;
+      });
+    } catch (error) {
+      if (['42501', '42883', '42P01'].includes(error?.code)) return payload;
+      throw error;
+    }
     const map = new Map();
     for (const row of Array.isArray(rows) ? rows : []) {
       const id = String(row?.studentId || '');

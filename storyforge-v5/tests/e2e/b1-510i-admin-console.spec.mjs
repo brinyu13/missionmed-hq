@@ -55,6 +55,15 @@ async function setDirectReviewFlags(scope) {
         WHERE key=ANY($3::text[])`,
       [scope, [ADMIN_ID], ['admin_review_controls', 'per_use_scoring', 'mentor_notes']],
     );
+    await client.query(
+      `UPDATE public.sf_feature_flags
+          SET scope=CASE WHEN $1='off' THEN 'off' ELSE 'eligible_all' END,
+              allowlist='{}'::uuid[],
+              cohorts='{}'::text[],
+              updated_at=now()
+        WHERE key='admin_directory'`,
+      [scope],
+    );
   } finally {
     await client.end();
   }
@@ -94,11 +103,12 @@ test('Founder-only administrator console is additive, bounded, and review-capabl
   await expect(page.locator('#adminStudentSearchForm')).toBeVisible();
   await page.locator('#adminStudentSearch').fill('Maya');
   await page.locator('#adminStudentSearchForm').getByRole('button', { name: 'Search' }).click();
-  await expect(page.locator('[data-admin-open-student]').first()).toBeVisible();
-  await page.locator('[data-admin-open-student]').first().click();
-  await expect(page.locator('.privacyBoundary')).toContainText('Private and archived stories are intentionally absent');
+  await expect(page.locator('[data-admin-open-subject]').first()).toBeVisible();
+  await page.locator('[data-admin-open-subject]').first().click();
+  await expect(page.locator('.b1515SubjectBanner')).toContainText('VIEWING STORYFORGE FOR');
+  await page.getByRole('button', { name: 'Open Story Library', exact: true }).click();
 
-  const review = page.locator('[data-admin-open-story]').first();
+  const review = page.locator('[data-admin-subject-story]').first();
   await expect(review).toBeVisible();
   await review.click();
   await expect(page.locator('#adminStoryReviewForm')).toBeVisible();

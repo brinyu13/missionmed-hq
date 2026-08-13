@@ -171,6 +171,27 @@ test('administrator identity surfaces receive only active Arena CDN projections'
   assert.equal(JSON.stringify(directory).includes('object_key'), false);
 });
 
+test('disabled or unavailable Arena identity falls back to authorized initials data', async () => {
+  const observed = serviceFixture(({ sql }) => {
+    if (sql.includes('sf_admin_directory(')) {
+      return { rows: [{ payload: { students: [{ id: SUBJECT_ID, name: 'Maya Student' }] } }] };
+    }
+    if (sql.includes('sf_admin_arena_avatar_projections')) {
+      const error = new Error('Arena avatar projection is disabled');
+      error.code = '42501';
+      throw error;
+    }
+    return { rows: [{ payload: { ok: true } }] };
+  }, {
+    STORYFORGE_ADMIN_CONSOLE_FORCE_OFF: '0',
+    STORYFORGE_ADMIN_DIRECTORY_FORCE_OFF: '0',
+    STORYFORGE_AVATAR_IDENTITY_FORCE_OFF: '0',
+  });
+  assert.deepEqual(await observed.service.directory(ADMIN), {
+    students: [{ id: SUBJECT_ID, name: 'Maya Student' }],
+  });
+});
+
 test('peer-share feature scope is admin-only, bounded, and calls only the audited flag RPC', async () => {
   const observed = serviceFixture(({ sql }) => {
     if (sql.includes("WHERE key = 'peer_share'")) {

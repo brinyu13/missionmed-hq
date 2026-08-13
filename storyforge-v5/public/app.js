@@ -3025,6 +3025,11 @@ async function openCapture({
     notify('Capture belongs to the student. This signed role cannot create a student story.');
     return;
   }
+  try {
+    localStorage.setItem(VOICE_HINT_KEY, '1');
+  } catch {
+    // The hint is cosmetic; capture remains available when storage is blocked.
+  }
   let durableDraft = null;
   try {
     const result = await api.storyDraft();

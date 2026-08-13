@@ -29,6 +29,17 @@ async function choosePersona(page, label) {
   await persona.click();
 }
 
+async function openReviewStory(page) {
+  await page.getByRole('button', { name: 'Review Queue', exact: true }).click();
+  const search = page.locator('#adminQueueSearch');
+  await expect(search).toBeVisible();
+  await search.fill(reviewStory.title);
+  await page.locator('[data-admin-queue-search]').last().click();
+  const row = page.locator('.adminStoryRow').filter({ hasText: reviewStory.title });
+  await expect(row).toHaveCount(1);
+  await row.getByRole('button', { name: 'Review' }).click();
+}
+
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async ({ request }) => {
@@ -46,7 +57,7 @@ test.beforeAll(async ({ request }) => {
       `UPDATE public.sf_feature_flags
           SET scope='eligible_all', allowlist='{}'::uuid[], cohorts='{}'::text[], updated_at=now()
         WHERE key=ANY($1::text[])`,
-      [['voice_capture', 'story_versions']],
+      [['admin_directory', 'voice_capture', 'story_versions']],
     );
   });
   const student = await token(request, 'student');
@@ -76,7 +87,7 @@ test.afterAll(async () => {
           SET scope='off', allowlist='{}'::uuid[], cohorts='{}'::text[], updated_at=now()
         WHERE key=ANY($1::text[])`,
       [[
-        'admin_console', 'admin_review_controls', 'mentor_notes', 'per_use_scoring',
+        'admin_console', 'admin_directory', 'admin_review_controls', 'mentor_notes', 'per_use_scoring',
         'voice_capture', 'story_versions',
       ]],
     );
@@ -92,8 +103,7 @@ test('[B1-515-FAST-VOICE-01] mentor feedback is idle until explicit Start and us
     window.__mentorMicCalls = () => calls;
   });
   await choosePersona(page, 'Admin · least privilege');
-  await page.getByRole('button', { name: 'Review Queue', exact: true }).click();
-  await page.locator('.adminStoryRow').filter({ hasText: reviewStory.title }).getByRole('button', { name: 'Review' }).click();
+  await openReviewStory(page);
   await expect(page.getByRole('region', { name: 'Mentor Review' })).toBeVisible();
   await expect(page.getByText('Ready · microphone off')).toBeVisible();
   await expect(page.getByRole('button', { name: '🎙 Start recording' })).toBeVisible();
@@ -207,8 +217,7 @@ test('[B1-515-FAST-VOICE-03] closing the Story Room stops and discards an active
     }
   });
   await choosePersona(page, 'Admin · least privilege');
-  await page.getByRole('button', { name: 'Review Queue', exact: true }).click();
-  await page.locator('.adminStoryRow').filter({ hasText: reviewStory.title }).getByRole('button', { name: 'Review' }).click();
+  await openReviewStory(page);
   await page.getByRole('button', { name: '🎙 Start recording' }).click();
   await expect(page.getByText(/Recording ·/)).toBeVisible();
   await page.getByRole('button', { name: 'Review Queue', exact: true }).click();
