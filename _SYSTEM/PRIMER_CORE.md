@@ -41,7 +41,7 @@ This section is mandatory and overrides any older conflicting logging/workspace 
 8. Claude planning/demo/design may continue if outputs stay outside the repo.
 9. Routine AI outputs/logs must stay outside the repo.
 10. Worktrees are optional advanced tools, not default workflow.
-11. New threads must load PRIMER_CORE.md, KNOWLEDGE_INDEX.md, and MISSIONMED_MASTER_KNOWLEDGE.md.
+11. New threads must load `_SYSTEM/PRIMER_CORE.md`, `08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md`, and the current MissionMed OS `BOOT.md` -> `CURRENT.md` -> mission -> authority chain (plus product passport when present). `MISSIONMED_MASTER_KNOWLEDGE.md` is deprecated.
 12. SESSION_PRIMER_V2.md is deprecated for new threads and must not be used as the active primer.
 
 Additional MissionMed defaults:
@@ -61,7 +61,7 @@ Additional MissionMed defaults:
 
 ```text
 Load _SYSTEM/PRIMER_CORE.md and apply all rules.
-Load KNOWLEDGE_INDEX.md and MISSIONMED_MASTER_KNOWLEDGE.md for MissionMed knowledge routing.
+Load 08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md for MissionMed knowledge routing, then resolve current authority through MissionMed OS BOOT.md -> CURRENT.md -> mission -> authority index/decision -> product passport when present.
 Use /Users/brianb/MissionMed as the primary repo and follow the MissionMed simple Git workflow.
 Run bash _SYSTEM/scripts/mm-preflight.sh before editing and apply dirty-state triage results.
 Dirty repo does not mean automatic stop; inspect, classify, and proceed only when scope is safe and non-overlapping.
@@ -78,7 +78,7 @@ Do not run reset, git clean, destructive cleanup, deploy, push, pull, rebase, or
 
 ## 3. TASK ROUTER
 
-Consult `KNOWLEDGE_INDEX.md` for task-specific file loading. Do not begin work until the required knowledge sources have been consulted. Files marked P0 are always required.
+Consult `08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md` for task-specific file loading. Do not begin work until the required knowledge sources have been consulted. Files marked P0 are always required.
 
 ---
 
@@ -157,9 +157,9 @@ Load the relevant extension when its trigger condition is met:
 | `PRIMER_EXT_HTML_DEPLOY.md` | Task modifies `arena.html`, `drills.html`, or `ranklistiq.html` |
 | `PRIMER_EXT_VISUAL.md` | Task involves frontend/UI changes at MEDIUM or HIGH risk |
 | `PRIMER_EXT_INTEGRITY.md` | Risk = HIGH |
-| `MM-AUTH-ARCH-001.md` | Task touches auth flow, session management, CORS, Arena auth, HQ auth, Supabase bootstrap, or `/api/auth/*` endpoints |
+| `08_AI_SYSTEM/MissionMed_AI_Brain/MM-AUTH-ARCH-001.md` | Task touches auth flow, session management, CORS, Arena auth, HQ auth, Supabase bootstrap, or `/api/auth/*` endpoints |
 
-Extensions live in `/Users/brianb/MissionMed/_SYSTEM/`.
+Primer extensions live in `/Users/brianb/MissionMed/_SYSTEM/`; the auth authority lives at its full canonical path shown above.
 
 ---
 
@@ -170,7 +170,7 @@ START
   │
   ├─ PRE-FLIGHT (§1) ── FAIL → STOP + REPORT
   ├─ INITIALIZE (§2) ── read_learnings.py + RULES_ENGINE.md
-  ├─ TASK ROUTER (§3) ── load files per KNOWLEDGE_INDEX.md
+  ├─ TASK ROUTER (§3) ── load files per 08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md
   ├─ NAMING CANON (§4) ── auto-correct deprecated names
   ├─ SCOPE LOCK (§5)
   ├─ RISK CLASSIFY (§6) ── deterministic table

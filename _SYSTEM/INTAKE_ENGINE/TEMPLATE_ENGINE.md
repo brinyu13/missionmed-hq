@@ -195,7 +195,7 @@ This is a distinct visual identity — not a clone of MR-1377.
 A generated manual MUST satisfy:
 
 1. Every prompt block begins with `PROMPT NAME:` and `THREAD NAME:` lines.
-2. Every prompt block contains load directives for `PRIMER_CORE.md` and `KNOWLEDGE_INDEX.md` unless explicitly opted out.
+2. Every prompt block contains load directives for `_SYSTEM/PRIMER_CORE.md` and `08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md` unless explicitly opted out.
 3. Every step shows AI + model + time + token budget at a glance.
 4. Every phase ends with a gate.
 5. The operator can complete the workflow without leaving the HTML file (copy prompts, track progress, resolve failures from the cheat sheet).

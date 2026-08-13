@@ -1,0 +1,1378 @@
+<!--
+(Y)-MissionMed_Workflow_OS_Redesign+Execution_Control_System-claude-opus-high-1367
+MissionMed Workflow OS + Execution Control System
+Version 1.0
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MR-1367 | MissionMed Workflow OS + Execution Control System</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --navy:#0F2A44;--navy-sec:#1B2F4A;--charcoal:#2A2A2A;--accent:#B23A3A;
+  --white:#FFF;--light:#F4F5F7;--mid:#E2E4E8;--text2:#6B7280;
+  --green:#2E7D32;--amber:#E65100;--red-bg:#FFEBEE;--red-txt:#C62828;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 4px 12px rgba(0,0,0,.04);
+  --shadow-h:0 2px 8px rgba(0,0,0,.12),0 8px 24px rgba(0,0,0,.06);
+  --r:12px;--rs:8px;--t:.25s ease;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:var(--light);color:var(--charcoal);line-height:1.65;-webkit-font-smoothing:antialiased}
+
+.header{background:var(--navy);padding:0 32px;height:68px;display:flex;align-items:center;gap:20px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.2)}
+.header-logo{height:38px;width:auto;flex-shrink:0}
+.header-title{color:var(--white);font-size:17px;font-weight:600;letter-spacing:-.2px}
+.header-badge{background:var(--accent);color:var(--white);font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;letter-spacing:.5px;text-transform:uppercase}
+
+.layout{display:flex;min-height:calc(100vh - 68px)}
+
+.sidebar{width:280px;min-width:280px;background:var(--white);border-right:1px solid var(--mid);padding:24px 0;overflow-y:auto;position:sticky;top:68px;height:calc(100vh - 68px)}
+.sidebar-label{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--text2);padding:0 24px;margin-bottom:12px}
+.sidebar-div{height:1px;background:var(--mid);margin:16px 24px}
+.tab-btn{display:flex;align-items:center;gap:10px;width:100%;padding:10px 24px;border:none;background:none;cursor:pointer;font-size:13px;font-weight:500;color:var(--charcoal);text-align:left;transition:all var(--t);position:relative;line-height:1.4}
+.tab-btn:hover{background:var(--light);color:var(--navy)}
+.tab-btn.active{background:rgba(15,42,68,.06);color:var(--navy);font-weight:600}
+.tab-btn.active::before{content:'';position:absolute;left:0;top:4px;bottom:4px;width:3px;background:var(--accent);border-radius:0 3px 3px 0}
+.tab-num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:var(--mid);color:var(--text2);font-size:11px;font-weight:700;flex-shrink:0;transition:all var(--t)}
+.tab-btn.active .tab-num{background:var(--navy);color:var(--white)}
+
+.content{flex:1;padding:32px 40px 60px;max-width:1000px;overflow-y:auto}
+.tab-content{display:none;animation:fadeIn .3s ease}
+.tab-content.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+.section-header{margin-bottom:28px}
+.section-header h1{font-size:26px;font-weight:700;color:var(--navy);margin-bottom:8px;letter-spacing:-.3px}
+.section-intro{font-size:15px;color:var(--text2);line-height:1.6;max-width:700px}
+
+.card{background:var(--white);border-radius:var(--r);padding:28px;margin-bottom:20px;box-shadow:var(--shadow);transition:box-shadow var(--t)}
+.card:hover{box-shadow:var(--shadow-h)}
+.card h2{font-size:17px;font-weight:700;color:var(--navy);margin-bottom:12px;letter-spacing:-.2px}
+.card h3{font-size:15px;font-weight:600;color:var(--navy-sec);margin-top:20px;margin-bottom:8px}
+.card p{font-size:14.5px;color:var(--charcoal);margin-bottom:12px;line-height:1.7}
+.card ul{margin:8px 0 12px 20px;font-size:14.5px}
+.card ul li{margin-bottom:6px;line-height:1.6}
+.card ol{margin:8px 0 12px 20px;font-size:14.5px}
+.card ol li{margin-bottom:8px;line-height:1.6}
+
+.hl{background:rgba(15,42,68,.04);border-left:3px solid var(--navy);padding:16px 20px;border-radius:0 var(--rs) var(--rs) 0;margin:16px 0;font-size:14px;color:var(--navy-sec);line-height:1.65}
+.hl strong{color:var(--navy)}
+.hl-a{background:rgba(178,58,58,.04);border-left:3px solid var(--accent);padding:16px 20px;border-radius:0 var(--rs) var(--rs) 0;margin:16px 0;font-size:14px;color:var(--charcoal);line-height:1.65}
+.hl-a strong{color:var(--accent)}
+.hl-g{background:rgba(46,125,50,.04);border-left:3px solid var(--green);padding:16px 20px;border-radius:0 var(--rs) var(--rs) 0;margin:16px 0;font-size:14px;color:var(--charcoal);line-height:1.65}
+.hl-g strong{color:var(--green)}
+.hl-w{background:#FFF8E1;border-left:3px solid #F9A825;padding:16px 20px;border-radius:0 var(--rs) var(--rs) 0;margin:16px 0;font-size:14px;color:var(--charcoal);line-height:1.65}
+.hl-w strong{color:#E65100}
+
+.st{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+.st th{background:var(--navy);color:var(--white);font-weight:600;padding:10px 16px;text-align:left;font-size:13px;letter-spacing:.3px}
+.st th:first-child{border-radius:var(--rs) 0 0 0}.st th:last-child{border-radius:0 var(--rs) 0 0}
+.st td{padding:10px 16px;border-bottom:1px solid var(--mid)}
+.st tr:last-child td{border-bottom:none}.st tr:nth-child(even) td{background:rgba(0,0,0,.015)}
+
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase}
+.b-g{background:#E8F5E9;color:#2E7D32}.b-y{background:#FFF3E0;color:#E65100}.b-r{background:#FFEBEE;color:#C62828}.b-b{background:var(--mid);color:var(--text2)}
+
+.verdict-box{background:var(--navy);color:var(--white);border-radius:var(--r);padding:32px;margin:20px 0}
+.verdict-box h2{color:#2FE7B0;font-size:20px;margin-bottom:16px}
+.verdict-box p{color:rgba(255,255,255,.85);line-height:1.7;font-size:15px;margin-bottom:12px}
+
+.code-ref{display:inline;background:rgba(15,42,68,.08);padding:2px 8px;border-radius:4px;font-family:'SF Mono',Consolas,monospace;font-size:13px;color:var(--navy)}
+
+.mono{font-family:'SF Mono',Consolas,monospace;background:rgba(15,42,68,.06);padding:16px 20px;border-radius:var(--rs);font-size:13px;line-height:1.8;margin:12px 0;overflow-x:auto;white-space:pre-wrap;color:var(--navy-sec)}
+
+.flow-box{background:var(--navy);color:var(--white);border-radius:var(--r);padding:24px;margin:16px 0;font-family:'SF Mono',Consolas,monospace;font-size:13px;line-height:1.9;white-space:pre-wrap}
+
+.footer{text-align:center;padding:24px;font-size:12px;color:var(--text2);border-top:1px solid var(--mid);margin-top:40px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <img src="https://missionmedinstitute.com/wp-content/uploads/2025/06/mission-med-logo.png" alt="MissionMed" class="header-logo" onerror="this.style.display='none'">
+  <span class="header-title">Workflow OS + Execution Control System</span>
+  <span class="header-badge">MR-1367</span>
+</div>
+
+<div class="layout">
+<nav class="sidebar">
+  <div class="sidebar-label">Foundation</div>
+  <button class="tab-btn active" data-tab="p0"><span class="tab-num">0</span> Self-Reconciliation</button>
+  <button class="tab-btn" data-tab="p1"><span class="tab-num">1</span> New Operating System</button>
+  <div class="sidebar-div"></div>
+  <div class="sidebar-label">Execution Control</div>
+  <button class="tab-btn" data-tab="p2"><span class="tab-num">2</span> Execution Control System</button>
+  <button class="tab-btn" data-tab="p3"><span class="tab-num">3</span> Prompt System</button>
+  <div class="sidebar-div"></div>
+  <div class="sidebar-label">Architecture</div>
+  <button class="tab-btn" data-tab="p4"><span class="tab-num">4</span> File Architecture</button>
+  <button class="tab-btn" data-tab="p5"><span class="tab-num">5</span> Enforcement System</button>
+  <button class="tab-btn" data-tab="p6"><span class="tab-num">6</span> Claude / Codex Model</button>
+  <div class="sidebar-div"></div>
+  <div class="sidebar-label">Implementation</div>
+  <button class="tab-btn" data-tab="p7"><span class="tab-num">7</span> Migration Plan</button>
+  <button class="tab-btn" data-tab="p8"><span class="tab-num">8</span> Codex Brief</button>
+  <button class="tab-btn" data-tab="p9"><span class="tab-num">9</span> Daily Workflow</button>
+</nav>
+
+<main class="content">
+
+<!-- ============================================================ -->
+<!-- PART 0: SELF-RECONCILIATION -->
+<!-- ============================================================ -->
+<div class="tab-content active" id="tab-p0">
+  <div class="section-header">
+    <h1>Part 0: Self-Reconciliation</h1>
+    <p class="section-intro">Before building anything new, I must reconcile what MR-1364 concluded, what holds up, what was wrong, and what was incomplete.</p>
+  </div>
+
+  <div class="card">
+    <h2>What MR-1364 Concluded</h2>
+    <p>The MR-1364 audit reached five core conclusions:</p>
+    <ol>
+      <li><strong>The protocol system is conceptually sound but overengineered in practice.</strong> The three-file architecture (PRIMER + MASTER_KNOWLEDGE + KNOWLEDGE_INDEX) has correct role separation but has grown past the point where loading all three is efficient. Universal P0 load consumes 20-32% of context window before any work begins.</li>
+      <li><strong>The MR-00144 failure proved the orchestration layer cannot plan without reading code.</strong> Three of seven proposed STAT threads would have duplicated existing work because the planning session relied on stale knowledge files instead of actual source files.</li>
+      <li><strong>Compliance degrades on secondary rules.</strong> Pre-flight checks hit ~95% compliance. Screenshot protocol hits ~20%. The more rules in the PRIMER, the less reliably any individual rule is followed.</li>
+      <li><strong>The 3-layer AI model (ChatGPT/Claude/Codex) should become 2-layer (Claude/Codex).</strong> The translation overhead between ChatGPT (planning) and Codex (implementation) loses context. Claude can plan AND read code in the same session.</li>
+      <li><strong>Knowledge files are snapshots that go stale.</strong> MASTER_KNOWLEDGE was compiled once and not systematically updated. The canonical architecture document contradicted the actual code (Supabase auth usage). Code is truth; documents are claims about truth.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>What Must Be Preserved</h2>
+    <table class="st">
+      <thead><tr><th>Element</th><th>Why It Works</th><th>Disposition</th></tr></thead>
+      <tbody>
+        <tr><td>KNOWLEDGE_INDEX task router</td><td>Answers "what context do I need for this task?" - the single most useful pattern in the system</td><td>KEEP. Move to PRIMER_CORE as the primary routing mechanism.</td></tr>
+        <tr><td>Pre-flight file validation</td><td>Simple, binary, ~95% compliance. Catches real missing-file errors.</td><td>KEEP. Simplify to 3 files max.</td></tr>
+        <tr><td>Naming canon (Sections 15-19)</td><td>Prevents drift across threads. Auto-correct deprecated names is genuinely useful.</td><td>KEEP. Move to its own stable reference file.</td></tr>
+        <tr><td>LEARNINGS_LOG.jsonl + scripts</td><td>The structured read-before/write-after cycle is the closest thing to real memory.</td><td>KEEP. Add priority field.</td></tr>
+        <tr><td>Activity log append</td><td>Audit trail, deduplication detection.</td><td>KEEP as-is.</td></tr>
+        <tr><td>HTML Deployment Lock (Section 20)</td><td>Protects production HTML apps. Backup + version header + full-file output is correct.</td><td>KEEP. Move to extension file, loaded only for HTML tasks.</td></tr>
+        <tr><td>Execution report format</td><td>Forces completion accountability.</td><td>KEEP. Scale by risk level.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>What Must Be Removed</h2>
+    <table class="st">
+      <thead><tr><th>Element</th><th>Why It Fails</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>Duplicate AI Task Router in MASTER_KNOWLEDGE (Section 1.5)</td><td>Exact duplicate of KNOWLEDGE_INDEX router. Two routers = maintenance divergence.</td><td>DELETE from MASTER_KNOWLEDGE.</td></tr>
+        <tr><td>P0 universal load of 5 files</td><td>31,000-42,000 tokens consumed before any work. 20-32% of context window wasted on most tasks.</td><td>REDUCE to 2 files: PRIMER_CORE + KNOWLEDGE_INDEX.</td></tr>
+        <tr><td>Re-anchor protocol (Section 5)</td><td>~30% compliance. When followed, it means re-reading files already in context. Not useful.</td><td>REPLACE with one rule: "If unsure about current state, read the source file."</td></tr>
+        <tr><td>Screenshot protocol as universal rule (Section 8)</td><td>~20% compliance. Only relevant for visual/frontend work.</td><td>MOVE to task-specific extension for visual tasks only.</td></tr>
+        <tr><td>Full MASTER_KNOWLEDGE as P0 load</td><td>15,000-20,000 tokens. Most tasks need 1-2 sections, not all 15.</td><td>SPLIT into task-scoped reference files.</td></tr>
+        <tr><td>Session Start Protocol in MASTER_KNOWLEDGE (Section 1.4)</td><td>Duplicates PRIMER's initialization sequence.</td><td>DELETE. PRIMER_CORE owns initialization.</td></tr>
+        <tr><td>ChatGPT as mandatory orchestration layer</td><td>MR-00144 proved this loses context. Claude can plan + read code in one session.</td><td>DEMOTE ChatGPT to optional strategic review only.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>What Must Be Changed</h2>
+    <table class="st">
+      <thead><tr><th>Current State</th><th>Problem</th><th>New State</th></tr></thead>
+      <tbody>
+        <tr><td>PRIMER has 20 subsystems in one file (634 lines)</td><td>Cognitive overload. Model drops secondary rules.</td><td>Split: PRIMER_CORE (~120 lines) + 4 extension files loaded by task type.</td></tr>
+        <tr><td>MASTER_KNOWLEDGE is one monolithic file</td><td>15,000+ tokens loaded for every task regardless of relevance.</td><td>Split into 5 scoped files: BRAND_CONTEXT, PROGRAM_DETAILS, CONVERSION_INTEL, SYSTEM_ARCHITECTURE, OPERATIONAL_STATE.</td></tr>
+        <tr><td>Risk classification is a natural-language judgment call</td><td>~60% compliance. Models struggle with subjective classification.</td><td>Make it deterministic: define task-type-to-risk mapping. Website copy = LOW. Code changes = HIGH. No judgment needed.</td></tr>
+        <tr><td>Execution reports are one-size-fits-all</td><td>A LOW-risk documentation task gets the same 10-field report as a HIGH-risk deployment.</td><td>Scale by risk: LOW = 3 fields. MEDIUM = 5 fields. HIGH = full report.</td></tr>
+        <tr><td>Learning log has no priority/severity</td><td>A critical rule ("never hardcode model strings") looks identical to a minor observation.</td><td>Add priority field: CRITICAL / STANDARD / LOW.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>What MR-1364 Got Wrong or Incomplete</h2>
+    <ol>
+      <li><strong>Incomplete on the "how."</strong> MR-1364 identified what to change but did not specify exactly how to implement those changes. It said "split PRIMER into core + extensions" without defining the exact files, their contents, or the migration steps. That is what this document (MR-1367) corrects.</li>
+      <li><strong>Underestimated the value of RULES_ENGINE.md.</strong> MR-1364 focused on the three primary files and did not audit RULES_ENGINE.md, which is a cross-task enforcement file that SESSION_PRIMER_V2 requires reading. This file should be evaluated for integration into PRIMER_CORE or maintained as a lean standalone.</li>
+      <li><strong>Did not address the prompt system.</strong> MR-1364 recommended a 2-layer model (Claude/Codex) but did not define what prompts look like in that model. The current system has no standardized prompt format for Codex tasks vs. Claude tasks. This document defines that.</li>
+      <li><strong>Did not address Dr. Brian's daily workflow.</strong> The audit was system-facing, not human-facing. The redesign must answer: "When Dr. Brian sits down to work, what does he do first?" MR-1364 did not answer that question.</li>
+      <li><strong>The Codex handoff was questions, not instructions.</strong> Part 8 of MR-1364 asked Codex 8 questions. But Codex does not answer questions; it executes instructions. This document converts those questions into implementation directives.</li>
+    </ol>
+  </div>
+
+  <div class="hl-g">
+    <strong>Reconciliation complete.</strong> MR-1364's strategic findings are validated. Its recommendations are correct in direction but incomplete in specification. MR-1367 takes those validated findings and converts them into an operational system with exact file definitions, prompt templates, enforcement rules, and a migration plan.
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PART 1: NEW OPERATING SYSTEM -->
+<!-- ============================================================ -->
+<div class="tab-content" id="tab-p1">
+  <div class="section-header">
+    <h1>Part 1: The New Operating System</h1>
+    <p class="section-intro">The complete workflow model across Claude, Codex, and ChatGPT, defining which AI handles which task type and in what sequence.</p>
+  </div>
+
+  <div class="card">
+    <h2>AI Role Definitions</h2>
+    <table class="st">
+      <thead><tr><th>AI</th><th>Role</th><th>Strengths</th><th>Limitations</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Claude (Cowork/Code)</strong></td><td>Primary brain. Plans, audits, reads code, writes code, reasons about architecture, produces documents.</td><td>Can read files + reason + write in one session. Holds complex constraints. Best for multi-step reasoning.</td><td>Sequential execution. Cannot run parallel tasks.</td></tr>
+        <tr><td><strong>Codex</strong></td><td>Implementation engine. Executes code changes, creates files, runs builds, validates against real filesystem.</td><td>Parallel task execution. Direct codebase access. Fast file operations.</td><td>Limited reasoning depth. Does not hold complex multi-system constraints well. Needs precise instructions.</td></tr>
+        <tr><td><strong>ChatGPT</strong></td><td>Strategic advisor (optional). Cross-session review, broad strategic thinking, brainstorming.</td><td>Flexible conversation. Good at open-ended strategy. Can review across many topics quickly.</td><td>No file access. No code execution. Plans based on what you tell it, not what exists. THIS IS THE MR-00144 FAILURE MODE.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Task Type Routing Matrix</h2>
+    <table class="st">
+      <thead><tr><th>Task Type</th><th>Primary AI</th><th>Secondary AI</th><th>ChatGPT?</th><th>Flow</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Planning</strong></td><td>Claude</td><td>None</td><td>NO</td><td>Claude reads current code/files, produces plan, validates plan against filesystem reality.</td></tr>
+        <tr><td><strong>Implementation (Code)</strong></td><td>Codex</td><td>Claude (review)</td><td>NO</td><td>Claude produces implementation brief. Codex executes. Claude reviews output.</td></tr>
+        <tr><td><strong>Implementation (Content/Copy)</strong></td><td>Claude</td><td>None</td><td>NO</td><td>Claude loads task-specific knowledge, produces content directly.</td></tr>
+        <tr><td><strong>Debugging</strong></td><td>Claude</td><td>Codex (fix)</td><td>NO</td><td>Claude diagnoses by reading code + error state. Produces fix brief. Codex applies fix. Claude validates.</td></tr>
+        <tr><td><strong>Audit / Review</strong></td><td>Claude</td><td>None</td><td>NO</td><td>Claude reads actual files/code, produces audit report with evidence.</td></tr>
+        <tr><td><strong>Deployment</strong></td><td>Codex</td><td>Claude (pre-check)</td><td>NO</td><td>Claude produces deployment checklist. Codex executes. Claude validates post-deployment state.</td></tr>
+        <tr><td><strong>Strategy</strong></td><td>Claude</td><td>None</td><td>OPTIONAL</td><td>Claude produces strategic analysis with data. ChatGPT may be used for a second-opinion review ONLY if Dr. Brian wants one.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="hl-a">
+    <strong>The ChatGPT Rule:</strong> ChatGPT is NEVER the first AI on any task. It is NEVER used for planning that involves code or file state. It is ONLY used when Dr. Brian explicitly wants a strategic second opinion. If you catch yourself typing a plan into ChatGPT, stop: use Claude instead. Claude can read the files ChatGPT cannot.
+  </div>
+
+  <div class="card">
+    <h2>Detailed Flow for Each Task Type</h2>
+
+    <h3>1. Planning Flow</h3>
+    <div class="flow-box">TRIGGER: "I need to plan [feature/system/project]"
+
+STEP 1: Claude reads PRIMER_CORE + KNOWLEDGE_INDEX
+STEP 2: Claude reads ALL relevant source files (actual code, not summaries)
+STEP 3: Claude reads last 10 learnings
+STEP 4: Claude produces plan WITH file-level evidence
+STEP 5: Plan includes "Current State" section citing actual files read
+STEP 6: Plan includes Codex Implementation Brief (if code changes needed)
+
+OUTPUT: Plan document with evidence + Codex brief
+NEXT: Dr. Brian reviews. If approved, Codex executes brief.</div>
+
+    <h3>2. Implementation Flow (Code)</h3>
+    <div class="flow-box">TRIGGER: "Build [feature]" or approved plan from Step 1
+
+STEP 1: Claude produces Implementation Brief:
+  - Exact files to create/modify
+  - Exact changes per file
+  - Validation criteria
+  - What NOT to touch
+STEP 2: Codex executes the brief
+STEP 3: Codex produces execution report
+STEP 4: Claude reviews Codex output against the brief
+STEP 5: If issues found: Claude produces fix brief, Codex re-executes
+
+OUTPUT: Working code + execution report
+NEXT: Dr. Brian reviews. Deploy if approved.</div>
+
+    <h3>3. Debugging Flow</h3>
+    <div class="flow-box">TRIGGER: "This is broken: [description]"
+
+STEP 1: Claude reads the broken file(s) + error logs
+STEP 2: Claude diagnoses root cause with evidence (line numbers, state)
+STEP 3: Claude produces fix brief for Codex
+  - OR fixes directly if change is small (< 20 lines)
+STEP 4: If Codex used: Codex applies fix, Claude validates
+STEP 5: If direct fix: Claude applies, verifies, reports
+
+OUTPUT: Fixed code + root cause analysis
+NEXT: Close.</div>
+
+    <h3>4. Audit Flow</h3>
+    <div class="flow-box">TRIGGER: "Audit [system/page/code]"
+
+STEP 1: Claude reads PRIMER_CORE + KNOWLEDGE_INDEX
+STEP 2: Claude reads ALL actual source files for the audit target
+STEP 3: Claude produces audit report with evidence from real files
+  - Every finding must cite file + line number or section
+  - No findings based on assumed state
+STEP 4: Report includes prioritized action items
+
+OUTPUT: Audit report (HTML or DOCX)
+NEXT: Dr. Brian reviews. Action items become planning tasks.</div>
+
+    <h3>5. Deployment Flow</h3>
+    <div class="flow-box">TRIGGER: "Deploy [system/change]"
+
+STEP 1: Claude runs HTML Deployment Lock checklist (if HTML app)
+STEP 2: Claude produces deployment checklist:
+  - Pre-deployment state capture
+  - Backup creation
+  - Version header update
+  - Exact deployment steps
+  - Post-deployment validation steps
+STEP 3: Codex executes checklist
+STEP 4: Claude validates post-deployment state
+
+OUTPUT: Deployed system + validation report
+NEXT: Close.</div>
+  </div>
+
+  <div class="hl">
+    <strong>Operating Principle:</strong> Claude thinks. Codex builds. Claude verifies. ChatGPT advises (only when asked). No AI operates without reading real files first.
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PART 2: EXECUTION CONTROL SYSTEM -->
+<!-- ============================================================ -->
+<div class="tab-content" id="tab-p2">
+  <div class="section-header">
+    <h1>Part 2: Execution Control System</h1>
+    <p class="section-intro">The system that ensures Dr. Brian always knows where he is, what just happened, what happens next, and which AI to use.</p>
+  </div>
+
+  <div class="card">
+    <h2>1. State Model</h2>
+    <p>Every task exists in a structured state. At any point, the system can report exactly where things stand.</p>
+    <table class="st">
+      <thead><tr><th>State Field</th><th>Values</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Phase</strong></td><td>PLAN / BUILD / AUDIT / FIX / DEPLOY / STRATEGY</td><td>BUILD</td></tr>
+        <tr><td><strong>Subphase</strong></td><td>Task-specific breakdown</td><td>Implementation: Ghost System</td></tr>
+        <tr><td><strong>Active Task</strong></td><td>Current work item</td><td>Create ghost_recorder.js event capture module</td></tr>
+        <tr><td><strong>Status</strong></td><td>NOT STARTED / IN PROGRESS / BLOCKED / REVIEW / COMPLETE</td><td>IN PROGRESS</td></tr>
+        <tr><td><strong>Last Completed</strong></td><td>Previous task</td><td>Schema audit: 12 tables mapped, 3 RPCs documented</td></tr>
+        <tr><td><strong>Next Task</strong></td><td>What follows current work</td><td>Wire ghost_recorder into STAT boot sequence</td></tr>
+        <tr><td><strong>Assigned AI</strong></td><td>CLAUDE / CODEX / CHATGPT</td><td>CODEX</td></tr>
+        <tr><td><strong>Next Prompt</strong></td><td>Exact prompt to run next</td><td>[See prompt template below]</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>2. Task Progression System</h2>
+
+    <h3>How Tasks Move Forward</h3>
+    <p>Every task follows the same lifecycle. The state transitions are deterministic, not judgment-based.</p>
+    <div class="flow-box">NOT STARTED
+  |
+  v  (Prompt executed)
+IN PROGRESS
+  |
+  +--> BLOCKED (dependency missing or error encountered)
+  |      |
+  |      v  (Blocker resolved)
+  |    IN PROGRESS
+  |
+  v  (Work complete, output produced)
+REVIEW
+  |
+  +--> IN PROGRESS (issues found during review)
+  |
+  v  (Review passed)
+COMPLETE</div>
+
+    <h3>Completion Validation</h3>
+    <p>A task transitions from REVIEW to COMPLETE only when ALL of these are true:</p>
+    <ol>
+      <li>Output exists (file created, code deployed, document produced)</li>
+      <li>Output matches the task's acceptance criteria</li>
+      <li>No regressions introduced (for code tasks: existing systems still work)</li>
+      <li>Execution report written (scaled by risk level)</li>
+      <li>Learning appended</li>
+      <li>Activity log entry written</li>
+    </ol>
+
+    <h3>How Next Step is Determined</h3>
+    <p>The executing AI MUST include a NEXT ACTION block at the end of every response. This block tells Dr. Brian exactly what to do next. No ambiguity. No "you could do X or Y." One clear next action with the exact prompt to run.</p>
+  </div>
+
+  <div class="card">
+    <h2>3. Human-Readable Dashboard Format</h2>
+    <p>Every AI response that completes a task or reports progress MUST end with this standardized block. This is not optional. This is the control interface.</p>
+
+    <div class="mono">========================================
+CURRENT STATE
+========================================
+Phase:        [PLAN / BUILD / AUDIT / FIX / DEPLOY / STRATEGY]
+Task:         [What is being done right now]
+Status:       [NOT STARTED / IN PROGRESS / BLOCKED / REVIEW / COMPLETE]
+
+LAST ACTION
+========================================
+What was done: [1-2 sentence summary]
+Output:        [File path or deliverable reference]
+
+NEXT ACTION
+========================================
+What to do:    [Clear, specific next step]
+Which AI:      [CLAUDE / CODEX]
+Prompt to run: [Exact prompt text, copy-paste ready]
+========================================</div>
+
+    <div class="hl-g">
+      <strong>The "Prompt to run" field is the key innovation.</strong> Dr. Brian should never have to figure out what to type next. The system tells him. He copies the prompt, pastes it into the correct AI, and the work continues. Zero cognitive overhead for determining the next step.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>4. Prompt Classification System</h2>
+    <p>Every prompt in the MissionMed system belongs to one of these categories. The category determines which AI to use and what level of reasoning is required.</p>
+
+    <table class="st">
+      <thead><tr><th>Category</th><th>Code</th><th>AI</th><th>Reasoning Level</th><th>Expected Output</th><th>Required Inputs</th></tr></thead>
+      <tbody>
+        <tr><td>Plan</td><td>PLAN</td><td>Claude</td><td>HIGH</td><td>Plan document with evidence + implementation brief</td><td>Task description + access to relevant source files</td></tr>
+        <tr><td>Build</td><td>BUILD</td><td>Codex</td><td>LOW-MEDIUM</td><td>Created/modified files + execution report</td><td>Implementation brief from Claude</td></tr>
+        <tr><td>Audit</td><td>AUDIT</td><td>Claude</td><td>HIGH</td><td>Audit report with findings, evidence, and action items</td><td>Target system identifier + access to source files</td></tr>
+        <tr><td>Fix</td><td>FIX</td><td>Codex (execution) / Claude (diagnosis)</td><td>MEDIUM</td><td>Fixed code + root cause analysis</td><td>Bug description + error state + affected files</td></tr>
+        <tr><td>Deploy</td><td>DEPLOY</td><td>Codex (execution) / Claude (checklist)</td><td>MEDIUM</td><td>Deployed system + validation report</td><td>Deployment checklist from Claude</td></tr>
+        <tr><td>Content</td><td>CONTENT</td><td>Claude</td><td>MEDIUM</td><td>Copy, documentation, or strategic content</td><td>Task type + relevant knowledge files per INDEX router</td></tr>
+        <tr><td>Strategy</td><td>STRATEGY</td><td>Claude (primary) / ChatGPT (optional review)</td><td>HIGH</td><td>Strategic analysis with recommendations</td><td>Business context + relevant data files</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PART 3: PROMPT SYSTEM -->
+<!-- ============================================================ -->
+<div class="tab-content" id="tab-p3">
+  <div class="section-header">
+    <h1>Part 3: Prompt System Redesign</h1>
+    <p class="section-intro">Standardized prompt templates for each AI and task type. Every prompt follows a defined structure so no context is lost between handoffs.</p>
+  </div>
+
+  <div class="card">
+    <h2>Universal Prompt Header (All Prompts)</h2>
+    <p>Every prompt to Claude or Codex starts with this block. No exceptions.</p>
+    <div class="mono">PROMPT NAME: (Y)-[Description]-[AI]-[reasoning_level]-[MR_number]
+THREAD NAME: (Y)-MISSIONMED - [Project/Feature Name]
+---
+Load PRIMER_CORE.md
+Load KNOWLEDGE_INDEX.md
+[Task-specific files per INDEX router]
+---
+TASK TYPE: [PLAN / BUILD / AUDIT / FIX / DEPLOY / CONTENT / STRATEGY]
+RISK LEVEL: [LOW / MEDIUM / HIGH]
+---</div>
+  </div>
+
+  <div class="card">
+    <h2>Claude Planning Prompt Template</h2>
+    <div class="mono">PROMPT NAME: (Y)-[Feature]_Plan-claude-high-[MR#]
+THREAD NAME: (Y)-MISSIONMED - [Feature] Planning
+---
+Load PRIMER_CORE.md
+Load KNOWLEDGE_INDEX.md
+---
+TASK TYPE: PLAN
+RISK LEVEL: [MEDIUM or HIGH]
+---
+OBJECTIVE:
+[1-2 sentences: what you want to accomplish]
+
+CONTEXT:
+[What exists now. Reference specific files if known.]
+
+CONSTRAINTS:
+- [Any boundaries or requirements]
+- Must read actual source files before producing plan
+- Must cite file paths for every claim about current state
+
+EXPECTED OUTPUT:
+1. Current State Assessment (with file-level evidence)
+2. Proposed Changes (specific, not abstract)
+3. Risk Analysis
+4. Codex Implementation Brief (if code changes needed)
+5. NEXT ACTION block with exact prompt for next step
+
+NOT ALLOWED:
+- Plans based on assumed state without reading files
+- Generic recommendations without specific file references
+- Proposing to build something that may already exist (check first)</div>
+  </div>
+
+  <div class="card">
+    <h2>Codex Build Prompt Template</h2>
+    <div class="mono">PROMPT NAME: (Y)-[Feature]_Build-codex-medium-[MR#]
+THREAD NAME: (Y)-MISSIONMED - [Feature] Implementation
+---
+Load PRIMER_CORE.md
+---
+TASK TYPE: BUILD
+RISK LEVEL: [per task]
+---
+IMPLEMENTATION BRIEF:
+[Paste the Codex Implementation Brief from Claude's plan]
+
+FILES TO CREATE:
+- [exact path]: [description of what this file does]
+
+FILES TO MODIFY:
+- [exact path]: [exact changes to make]
+
+FILES TO NOT TOUCH:
+- [exact paths of protected files]
+
+VALIDATION:
+After implementation, verify:
+1. [specific check 1]
+2. [specific check 2]
+3. No regressions in [related systems]
+
+OUTPUT REQUIRED:
+1. All created/modified files
+2. Execution report (scaled by risk level)
+3. NEXT ACTION block</div>
+  </div>
+
+  <div class="card">
+    <h2>Claude Audit Prompt Template</h2>
+    <div class="mono">PROMPT NAME: (Y)-[Target]_Audit-claude-high-[MR#]
+THREAD NAME: (Y)-MISSIONMED - [Target] Audit
+---
+Load PRIMER_CORE.md
+Load KNOWLEDGE_INDEX.md
+[Load task-specific files per INDEX router for Task Type 7]
+---
+TASK TYPE: AUDIT
+RISK LEVEL: LOW
+---
+AUDIT TARGET:
+[What system, page, or component to audit]
+
+AUDIT SCOPE:
+- [Specific areas to examine]
+- [What questions to answer]
+
+MANDATORY:
+- Read ALL source files for the target before producing findings
+- Every finding must cite a specific file and line/section
+- No findings based on assumed state
+- Classify all findings: HIGH / MEDIUM / LOW
+
+EXPECTED OUTPUT:
+1. Audit report with classified findings
+2. Evidence for each finding (file:line or section reference)
+3. Prioritized action items
+4. NEXT ACTION block for highest-priority item</div>
+  </div>
+
+  <div class="card">
+    <h2>Codex Fix Prompt Template</h2>
+    <div class="mono">PROMPT NAME: (Y)-[Bug]_Fix-codex-medium-[MR#]
+THREAD NAME: (Y)-MISSIONMED - [Bug] Fix
+---
+Load PRIMER_CORE.md
+---
+TASK TYPE: FIX
+RISK LEVEL: [per severity]
+---
+BUG DESCRIPTION:
+[What is broken]
+
+ROOT CAUSE (from Claude diagnosis):
+[Claude's analysis of why it is broken]
+
+FIX INSTRUCTIONS:
+File: [exact path]
+Change: [exact modification with before/after]
+
+VALIDATION:
+After fix, verify:
+1. [The bug no longer occurs]
+2. [Related functionality still works]
+3. [No new errors introduced]
+
+DO NOT:
+- Modify any files not listed above
+- Refactor adjacent code
+- Add features beyond the fix scope</div>
+  </div>
+
+  <div class="card">
+    <h2>ChatGPT Strategic Review Template (Optional Use)</h2>
+    <div class="mono">CONTEXT:
+You are reviewing a strategic decision for MissionMed Institute.
+MissionMed is a premium medical education company for IMGs.
+Dr. Brian is the founder. See brand rules below.
+
+BRAND RULES:
+- Mentor voice, not corporate
+- Data-backed, not generic
+- Never overpromise
+- Quality over quantity
+
+STRATEGIC QUESTION:
+[Specific question for second-opinion review]
+
+SUPPORTING DATA:
+[Paste relevant data or Claude's analysis]
+
+CONSTRAINTS:
+- This is a REVIEW, not a plan. Do not produce implementation details.
+- Challenge assumptions. Identify blind spots.
+- Reference specific data points, not generic strategy advice.
+- Output: 1-page strategic assessment with recommendation.</div>
+  </div>
+
+  <div class="hl">
+    <strong>Prompt System Rule:</strong> Every prompt must include a TASK TYPE, a RISK LEVEL, and a NEXT ACTION expectation. Every AI response must end with a NEXT ACTION block. This creates an unbroken chain of execution where Dr. Brian always knows what to do next.
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PART 4: FILE ARCHITECTURE -->
+<!-- ============================================================ -->
+<div class="tab-content" id="tab-p4">
+  <div class="section-header">
+    <h1>Part 4: File Architecture Redesign</h1>
+    <p class="section-intro">The exact file structure that replaces the current system. Every file named, every responsibility defined, every deprecation marked.</p>
+  </div>
+
+  <div class="card">
+    <h2>New File Structure</h2>
+    <div class="mono">MissionMed/
+  _SYSTEM/
+    PRIMER_CORE.md              [NEW] ~120 lines. The only file loaded for every task.
+    PRIMER_EXT_HTML_DEPLOY.md   [NEW] HTML Deployment Lock. Loaded only for HTML app tasks.
+    PRIMER_EXT_VISUAL.md        [NEW] Screenshot protocol + visual QA. Loaded only for UI tasks.
+    PRIMER_EXT_INTEGRITY.md     [NEW] System integrity checks. Loaded only for HIGH risk tasks.
+    RULES_ENGINE.md             [KEEP] Cross-task enforcement rules. Reviewed per PRIMER_CORE.
+    NAMING_CANON.md             [NEW] Sections 15-19 extracted. Stable reference. Loaded by PRIMER_CORE.
+    mm_html_versioner.py        [KEEP] Versioning tool for HTML apps.
+
+  _SYSTEM_LOGS/
+    LEARNINGS_LOG.jsonl         [KEEP] Add priority field to schema.
+    MM_ACTIVITY_LOG.md          [KEEP] No changes.
+    read_learnings.py           [KEEP] No changes.
+    append_learning.py          [MODIFY] Accept priority parameter.
+
+  08_AI_SYSTEM/MissionMed_AI_Brain/
+    KNOWLEDGE_INDEX.md          [MODIFY] Update P0 to reference new file names.
+    decisions_log/
+      DECISIONS_INDEX.md        [KEEP] No changes.
+
+  MISSIONMED_MASTER_KNOWLEDGE.md  [DEPRECATE] Replace with scoped files below.
+
+  _KNOWLEDGE/                     [NEW DIRECTORY]
+    BRAND_CONTEXT.md            [NEW] Extracted from MASTER_KNOWLEDGE Sections 3.1-3.6
+    PROGRAM_DETAILS.md          [NEW] Extracted from MASTER_KNOWLEDGE Sections 4.1-4.5
+    CONVERSION_INTEL.md         [NEW] Pointer file to 08_AI_SYSTEM/PHASE1 assets
+    SYSTEM_ARCHITECTURE.md      [NEW] Extracted from MASTER_KNOWLEDGE Section 1 (minus duplicates)
+    OPERATIONAL_STATE.md        [NEW] Current project state, recent work. The "living" file.
+
+  SESSION_PRIMER_V2.md          [DEPRECATE] Replaced by PRIMER_CORE + extensions.
+  SESSION_PRIMER.md             [ALREADY DEPRECATED]</div>
+  </div>
+
+  <div class="card">
+    <h2>PRIMER_CORE.md: Exact Contents</h2>
+    <p>This is the only file that loads for every task. Target: ~120 lines, ~1,500 tokens.</p>
+
+    <h3>Sections in PRIMER_CORE.md</h3>
+    <table class="st">
+      <thead><tr><th>#</th><th>Section</th><th>Lines</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Pre-Flight Check</td><td>~15</td><td>Validate 3 files exist: PRIMER_CORE, KNOWLEDGE_INDEX, LEARNINGS_LOG</td></tr>
+        <tr><td>2</td><td>Initialization</td><td>~10</td><td>Call read_learnings.py. Load last 10 entries. Review RULES_ENGINE.md.</td></tr>
+        <tr><td>3</td><td>Task Router Reference</td><td>~5</td><td>Point to KNOWLEDGE_INDEX for task-specific file loading.</td></tr>
+        <tr><td>4</td><td>Naming Canon Reference</td><td>~5</td><td>Point to NAMING_CANON.md. Auto-correct deprecated names on sight.</td></tr>
+        <tr><td>5</td><td>Scope Lock</td><td>~8</td><td>Execute only defined task. No scope expansion without justification.</td></tr>
+        <tr><td>6</td><td>Risk Classification</td><td>~15</td><td>Deterministic mapping: task type to risk level. No judgment calls.</td></tr>
+        <tr><td>7</td><td>Completion Standard</td><td>~10</td><td>Checklist: output exists, report written, learning appended, log written.</td></tr>
+        <tr><td>8</td><td>Execution Report Format</td><td>~20</td><td>Scaled templates: LOW (3 fields), MEDIUM (5 fields), HIGH (full).</td></tr>
+        <tr><td>9</td><td>Learning Engine</td><td>~15</td><td>Append learning after every task. Priority field: CRITICAL / STANDARD / LOW.</td></tr>
+        <tr><td>10</td><td>Extension Loader</td><td>~10</td><td>Rules for when to load each extension file.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Extension Loader Rules</h2>
+    <p>PRIMER_CORE Section 10 defines when to load each extension:</p>
+    <table class="st">
+      <thead><tr><th>Extension</th><th>Load When</th><th>Contains</th></tr></thead>
+      <tbody>
+        <tr><td><span class="code-ref">PRIMER_EXT_HTML_DEPLOY.md</span></td><td>Task modifies arena.html, drills.html, or ranklistiq.html</td><td>Full HTML Deployment Lock protocol (current Section 20)</td></tr>
+        <tr><td><span class="code-ref">PRIMER_EXT_VISUAL.md</span></td><td>Task involves frontend/UI changes at MEDIUM or HIGH risk</td><td>Screenshot protocol, visual QA checklist, MR-1316 design constraint reference</td></tr>
+        <tr><td><span class="code-ref">PRIMER_EXT_INTEGRITY.md</span></td><td>Risk level = HIGH</td><td>Full system integrity check (frontend, backend, functional)</td></tr>
+        <tr><td><span class="code-ref">NAMING_CANON.md</span></td><td>Always referenced (loaded on demand if needed)</td><td>Module names, deprecated-to-canonical mapping, nav structure, themes, system mapping, architecture model</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Updated KNOWLEDGE_INDEX P0</h2>
+    <p>The universal load is reduced from 5 files to 2:</p>
+    <table class="st">
+      <thead><tr><th>Current P0 (5 files, ~35,000 tokens)</th><th>New P0 (2 files, ~4,000 tokens)</th></tr></thead>
+      <tbody>
+        <tr><td>SESSION_PRIMER_V2.md (~10,000 tokens)</td><td><strong>PRIMER_CORE.md (~1,500 tokens)</strong></td></tr>
+        <tr><td>KNOWLEDGE_INDEX.md (~12,000 tokens)</td><td><strong>KNOWLEDGE_INDEX.md (~12,000 tokens)*</strong></td></tr>
+        <tr><td>MISSIONMED_SYSTEM_CONTEXT.md</td><td><em>Moved to task-specific load</em></td></tr>
+        <tr><td>MISSIONRESIDENCY_SYSTEM_CONTEXT.md</td><td><em>Moved to task-specific load</em></td></tr>
+        <tr><td>DECISIONS_INDEX.md</td><td><em>Moved to task-specific load</em></td></tr>
+      </tbody>
+    </table>
+    <p>* KNOWLEDGE_INDEX will be trimmed by removing content that now lives in scoped knowledge files. Target: ~8,000 tokens.</p>
+
+    <div class="hl-g">
+      <strong>Net savings:</strong> Universal load drops from ~35,000 tokens (20-32% of context) to ~4,000-9,500 tokens (3-7% of context). That is 25,000+ tokens freed for actual task work on every single session.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Deprecation Schedule</h2>
+    <table class="st">
+      <thead><tr><th>File</th><th>Action</th><th>When</th></tr></thead>
+      <tbody>
+        <tr><td><span class="code-ref">SESSION_PRIMER_V2.md</span></td><td>DEPRECATE. Add header: "DEPRECATED: Replaced by PRIMER_CORE.md + extensions. Do not load this file."</td><td>Phase 1 (immediate)</td></tr>
+        <tr><td><span class="code-ref">SESSION_PRIMER.md</span></td><td>Already deprecated. No action needed.</td><td>N/A</td></tr>
+        <tr><td><span class="code-ref">MISSIONMED_MASTER_KNOWLEDGE.md</span></td><td>DEPRECATE after _KNOWLEDGE/ files are created and validated. Add header: "DEPRECATED: Split into _KNOWLEDGE/ directory."</td><td>Phase 2</td></tr>
+        <tr><td>MASTER_KNOWLEDGE Section 1.5 (AI Task Router)</td><td>DELETE immediately. Duplicate of KNOWLEDGE_INDEX.</td><td>Phase 1</td></tr>
+        <tr><td>MASTER_KNOWLEDGE Section 1.4 (Session Start Protocol)</td><td>DELETE. Duplicates PRIMER initialization.</td><td>Phase 1</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PART 5: ENFORCEMENT SYSTEM -->
+<!-- ============================================================ -->
+<div class="tab-content" id="tab-p5">
+  <div class="section-header">
+    <h1>Part 5: Enforcement System</h1>
+    <p class="section-intro">How this system becomes the default behavior. Templates, guardrails, and deprecation markers that make drift difficult and compliance easy.</p>
+  </div>
+
+  <div class="card">
+    <h2>Workflow Kickoff Template</h2>
+    <p>Every new work session starts by pasting this block. This replaces the current 3-line "Load SESSION_PRIMER_V2.md / Load MASTER_KNOWLEDGE / Load KNOWLEDGE_INDEX" instruction.</p>
+    <div class="mono">PROMPT NAME: (Y)-[Description]-[AI]-[reasoning]-[MR#]
+THREAD NAME: (Y)-MISSIONMED - [Project Name]
+---
+Load PRIMER_CORE.md
+Load KNOWLEDGE_INDEX.md
+---
+TASK TYPE: [PLAN / BUILD / AUDIT / FIX / DEPLOY / CONTENT / STRATEGY]
+---
+[Task description here]</div>
+    <p>That's it. Two files. One task type. The INDEX router handles loading anything else that is needed. No more loading 5 files by default.</p>
+  </div>
+
+  <div class="card">
+    <h2>Validation Rules</h2>
+    <p>The system enforces itself through these validation gates:</p>
+
+    <h3>Gate 1: Pre-Flight (Blocks Execution)</h3>
+    <p>PRIMER_CORE.md, KNOWLEDGE_INDEX.md, and LEARNINGS_LOG.jsonl must exist and be non-empty. If any are missing, the AI halts. This is the same gate as before, but checking 3 files instead of 6.</p>
+
+    <h3>Gate 2: Learning Read (Blocks Execution)</h3>
+    <p>read_learnings.py must be called and return valid entries before any task work begins. Same enforcement as before.</p>
+
+    <h3>Gate 3: Risk Classification (Deterministic)</h3>
+    <p>No more judgment calls. The task type determines the risk level:</p>
+    <table class="st">
+      <thead><tr><th>Task Type</th><th>Default Risk</th><th>Override Condition</th></tr></thead>
+      <tbody>
+        <tr><td>CONTENT (copy, docs, analysis)</td><td>LOW</td><td>None</td></tr>
+        <tr><td>AUDIT</td><td>LOW</td><td>None</td></tr>
+        <tr><td>STRATEGY</td><td>LOW</td><td>None</td></tr>
+        <tr><td>PLAN</td><td>MEDIUM</td><td>None</td></tr>
+        <tr><td>FIX (non-production)</td><td>MEDIUM</td><td>Production fix = HIGH</td></tr>
+        <tr><td>BUILD (new files)</td><td>MEDIUM</td><td>Modifying production HTML = HIGH</td></tr>
+        <tr><td>BUILD (modify existing)</td><td>HIGH</td><td>None</td></tr>
+        <tr><td>DEPLOY</td><td>HIGH</td><td>None</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Gate 4: Extension Loading (Automatic)</h3>
+    <p>Based on risk level and task type, the correct extension files are loaded automatically. No human intervention needed. PRIMER_CORE Section 10 defines the rules.</p>
+
+    <h3>Gate 5: Completion (Blocks "COMPLETE" Status)</h3>
+    <p>Task cannot be marked COMPLETE until:</p>
+    <ol>
+      <li>Output exists and matches acceptance criteria</li>
+      <li>Execution report written (scaled by risk level)</li>
+      <li>append_learning.py called and returned success</li>
+      <li>Activity log entry appended</li>
+      <li>NEXT ACTION block produced</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>Scaled Execution Reports</h2>
+
+    <h3>LOW Risk Report (3 fields)</h3>
+    <div class="mono">REPORT:
+WHAT WAS DONE: [summary]
+RESULT: [outcome]
+STATUS: [COMPLETE / PARTIAL]</div>
+
+    <h3>MEDIUM Risk Report (5 fields)</h3>
+    <div class="mono">REPORT:
+WHAT WAS DONE: [summary]
+RESULT: [outcome]
+ISSUES: [problems or "none"]
+FIXES: [resolutions or "none"]
+STATUS: [COMPLETE / PARTIAL]</div>
+
+    <h3>HIGH Risk Report (Full)</h3>
+    <div class="mono">REPORT:
+WHAT WAS DONE: [summary]
+RESULT: [outcome]
+RISK LEVEL: HIGH
+ISSUES: [problems]
+FIXES: [resolutions]
+VERIFICATION: [what was tested and results]
+LEARNING UPDATE:
+  1. WHAT WORKED: [...]
+  2. WHAT FAILED: [...]
+  3. WHAT TO CHANGE: [...]
+  4. NEW RULE: [...]
+  5. KB UPDATE: [...]
+STATUS: [COMPLETE / PARTIAL / INVALID]</div>
+  </div>
+
+  <div class="card">
+    <h2>Deprecation Markers</h2>
+    <p>Deprecated files get a header block that AI systems will recognize and respect:</p>
+    <div class="mono"># DEPRECATED
+# This file has been replaced by: [new file path]
+# Do NOT load this file. Load the replacement instead.
+# If a prompt references this file, redirect to: [new file path]
+# Deprecation date: [date]
+# Authority: MR-1367</div>
+    <p>This marker must be the first content in the file, before any other text. AI systems parsing the file will see this immediately and redirect.</p>
+  </div>
+
+  <div class="card">
+    <h2>Context Window Guardrails</h2>
+    <p>To prevent the system from drifting back toward context overload:</p>
+    <ol>
+      <li><strong>PRIMER_CORE must stay under 150 lines.</strong> If a new rule needs to be added, an existing rule must be moved to an extension or removed. This is a hard cap.</li>
+      <li><strong>No file in _KNOWLEDGE/ may exceed 300 lines.</strong> If it grows past 300, it must be split further.</li>
+      <li><strong>P0 universal load must stay at exactly 2 files.</strong> Any proposal to add a third P0 file must include a justification and a measurement of the token cost.</li>
+      <li><strong>Extensions are loaded, not linked.</strong> An extension file that says "also load X" creates a chain loading problem. Extensions must be self-contained.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PART 6: CLAUDE / CODEX COLLABORATION -->
+<!-- ============================================================ -->
+<div class="tab-content" id="tab-p6">
+  <div class="section-header">
+    <h1>Part 6: Claude / Codex Collaboration Model</h1>
+    <p class="section-intro">The exact rules for how Claude and Codex work together, designed specifically to prevent the MR-00144 failure mode: planning without reading code.</p>
+  </div>
+
+  <div class="hl-a">
+    <strong>The MR-00144 Rule (Non-Negotiable):</strong> No AI may produce a plan, architecture decision, or implementation recommendation about a system without first reading the actual source files for that system. Knowledge files are claims about reality. Source code is reality. When they conflict, code wins.
+  </div>
+
+  <div class="card">
+    <h2>When Claude Must Read Code Before Planning</h2>
+    <p>Claude MUST read actual source files (not knowledge summaries) before producing output when:</p>
+    <ol>
+      <li><strong>The task involves modifying an existing system.</strong> Read the file being modified. Read its immediate dependencies. Cite line numbers in the plan.</li>
+      <li><strong>The task involves building something that might already exist.</strong> Search for it first. The MR-00144 audit found 3 of 7 threads proposing to build systems that already existed.</li>
+      <li><strong>The task involves architecture decisions about a system.</strong> Read the actual implementation, not the architecture document. If the architecture document says "Supabase is not used for auth" but the code calls <span class="code-ref">supabaseClient.auth.setSession()</span>, the code is correct.</li>
+      <li><strong>The task references a "canonical document" or "architecture spec."</strong> Read both the document AND the code it describes. Report discrepancies.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>When Codex Must Validate Against Real Files</h2>
+    <p>Codex MUST validate its work against the actual filesystem when:</p>
+    <ol>
+      <li><strong>Creating a new file.</strong> Before creating, check if a file with the same name or purpose already exists in the target directory.</li>
+      <li><strong>Modifying existing code.</strong> Read the current version of the file before making changes. Do not apply changes to a stale cached version.</li>
+      <li><strong>Following an implementation brief.</strong> Before executing, verify that the files referenced in the brief actually exist at the paths specified. If a path is wrong, report it instead of guessing.</li>
+      <li><strong>After completing work.</strong> Read the output file to verify the changes were applied correctly. Run any available tests or validation scripts.</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>When Claude Must Review Codex Work</h2>
+    <p>Claude reviews Codex output when:</p>
+    <ol>
+      <li><strong>The task is HIGH risk.</strong> Any production code change, deployment, or system architecture modification must be reviewed by Claude before being considered complete.</li>
+      <li><strong>The implementation brief was complex.</strong> If the brief had more than 3 files or involved cross-system changes, Claude reviews the output for consistency.</li>
+      <li><strong>Codex reported issues during execution.</strong> If Codex flagged blockers, unexpected state, or deviations from the brief, Claude investigates before proceeding.</li>
+    </ol>
+    <p>Claude review means: read the actual output files, compare against the implementation brief, verify no regressions, and produce a review summary.</p>
+  </div>
+
+  <div class="card">
+    <h2>Preventing Planning Drift from Real State</h2>
+    <p>The following rules prevent the scenario where plans diverge from what actually exists in the codebase:</p>
+
+    <h3>Rule 1: Evidence Requirement</h3>
+    <p>Every claim about current system state in a plan must include a file path and reference. "The boot function is incomplete" must cite the file and line where the boot function exists. If you cannot cite a file, you have not verified the claim.</p>
+
+    <h3>Rule 2: Staleness Declaration</h3>
+    <p>If a plan references a knowledge file (MASTER_KNOWLEDGE, system context, architecture doc), it must include a staleness disclaimer: "This information is from [file], last updated [date]. It may not reflect current code state." Then verify the critical claims against actual code.</p>
+
+    <h3>Rule 3: Build-Exists Check</h3>
+    <p>Before any plan proposes building a new component, the planner must search for existing implementations. Search method: grep the codebase for function names, class names, or feature keywords that match the proposed component. If found, switch from "build" to "audit/extend."</p>
+
+    <h3>Rule 4: Handoff Fidelity</h3>
+    <p>When Claude hands off to Codex, the implementation brief must include a "Current File State" section that lists every file Codex will touch along with the date/time Claude last read it. This prevents Codex from working with a stale picture of the codebase.</p>
+  </div>
+
+  <div class="card">
+    <h2>The Collaboration Loop</h2>
+    <div class="flow-box">Dr. Brian defines task
+        |
+        v
+    CLAUDE reads source files + knowledge files
+        |
+        v
+    CLAUDE produces plan with evidence
+        |
+        v
+    Dr. Brian approves/modifies plan
+        |
+        v
+    CLAUDE produces Codex Implementation Brief
+      (includes "Current File State" section)
+        |
+        v
+    CODEX executes brief
+      (validates files exist before modifying)
+        |
+        v
+    CODEX produces output + execution report
+        |
+        v
+    CLAUDE reviews output (if HIGH risk or complex)
+        |
+        v
+    Dr. Brian reviews final output
+        |
+        v
+    COMPLETE (with NEXT ACTION block)</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PART 7: MIGRATION PLAN -->
+<!-- ============================================================ -->
+<div class="tab-content" id="tab-p7">
+  <div class="section-header">
+    <h1>Part 7: Migration Plan</h1>
+    <p class="section-intro">Step-by-step transition from the current system to the new Workflow OS. Five phases, each with a clear owner, output, and completion criteria.</p>
+  </div>
+
+  <div class="card">
+    <h2>Phase 1: Immediate Changes (Day 1)</h2>
+    <p><strong>Owner:</strong> Codex (file operations) with Claude (content authoring)</p>
+    <p><strong>Duration:</strong> Single session</p>
+
+    <h3>Tasks</h3>
+    <ol>
+      <li>Create <span class="code-ref">_SYSTEM/PRIMER_CORE.md</span> with the 10 sections defined in Part 4.</li>
+      <li>Create <span class="code-ref">_SYSTEM/NAMING_CANON.md</span> by extracting SESSION_PRIMER_V2 Sections 15-19.</li>
+      <li>Delete MASTER_KNOWLEDGE Section 1.5 (duplicate AI Task Router) and Section 1.4 (duplicate Session Start Protocol).</li>
+      <li>Add deprecation header to SESSION_PRIMER_V2.md pointing to PRIMER_CORE.md.</li>
+      <li>Update KNOWLEDGE_INDEX.md P0 section to reference PRIMER_CORE.md instead of SESSION_PRIMER_V2.md, and remove MISSIONMED_SYSTEM_CONTEXT.md, MISSIONRESIDENCY_SYSTEM_CONTEXT.md, and DECISIONS_INDEX.md from P0 (move to task-specific loads).</li>
+    </ol>
+
+    <h3>Completion Criteria</h3>
+    <ul>
+      <li>PRIMER_CORE.md exists and is under 150 lines</li>
+      <li>NAMING_CANON.md exists with all canonical names and deprecated-to-canonical mappings</li>
+      <li>SESSION_PRIMER_V2.md has deprecation header</li>
+      <li>KNOWLEDGE_INDEX P0 references exactly 2 files</li>
+      <li>A test prompt using the new system executes successfully</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Phase 2: File Restructuring (Day 2-3)</h2>
+    <p><strong>Owner:</strong> Claude (content extraction) + Codex (file operations)</p>
+    <p><strong>Duration:</strong> 1-2 sessions</p>
+
+    <h3>Tasks</h3>
+    <ol>
+      <li>Create <span class="code-ref">_KNOWLEDGE/</span> directory.</li>
+      <li>Extract MASTER_KNOWLEDGE Sections 3.1-3.6 into <span class="code-ref">_KNOWLEDGE/BRAND_CONTEXT.md</span>.</li>
+      <li>Extract MASTER_KNOWLEDGE Sections 4.1-4.5 into <span class="code-ref">_KNOWLEDGE/PROGRAM_DETAILS.md</span>.</li>
+      <li>Create <span class="code-ref">_KNOWLEDGE/CONVERSION_INTEL.md</span> as a pointer file to Phase 1 intelligence assets.</li>
+      <li>Extract MASTER_KNOWLEDGE Section 1 (minus deleted subsections) into <span class="code-ref">_KNOWLEDGE/SYSTEM_ARCHITECTURE.md</span>.</li>
+      <li>Create <span class="code-ref">_KNOWLEDGE/OPERATIONAL_STATE.md</span> from MASTER_KNOWLEDGE Sections 12-15 (current project state, recent work, knowledge gaps).</li>
+      <li>Create extension files: <span class="code-ref">PRIMER_EXT_HTML_DEPLOY.md</span>, <span class="code-ref">PRIMER_EXT_VISUAL.md</span>, <span class="code-ref">PRIMER_EXT_INTEGRITY.md</span>.</li>
+      <li>Add deprecation header to MISSIONMED_MASTER_KNOWLEDGE.md.</li>
+      <li>Update KNOWLEDGE_INDEX task type tables to reference new _KNOWLEDGE/ files.</li>
+    </ol>
+
+    <h3>Completion Criteria</h3>
+    <ul>
+      <li>All 5 _KNOWLEDGE/ files exist and are under 300 lines each</li>
+      <li>All 3 extension files exist</li>
+      <li>MASTER_KNOWLEDGE has deprecation header</li>
+      <li>KNOWLEDGE_INDEX references new file paths</li>
+      <li>No content lost (every section from MASTER_KNOWLEDGE exists in a new location)</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Phase 3: Prompt System Rollout (Day 4-5)</h2>
+    <p><strong>Owner:</strong> Claude (template authoring)</p>
+    <p><strong>Duration:</strong> 1 session</p>
+
+    <h3>Tasks</h3>
+    <ol>
+      <li>Create prompt template library at <span class="code-ref">_SYSTEM/PROMPT_TEMPLATES/</span>.</li>
+      <li>Write 6 template files: <span class="code-ref">PLAN.md</span>, <span class="code-ref">BUILD.md</span>, <span class="code-ref">AUDIT.md</span>, <span class="code-ref">FIX.md</span>, <span class="code-ref">DEPLOY.md</span>, <span class="code-ref">CONTENT.md</span>.</li>
+      <li>Each template includes: header format, context rules, NOT ALLOWED section, expected output structure.</li>
+      <li>Add reference to prompt templates in PRIMER_CORE.md (not full content, just a pointer).</li>
+      <li>Modify <span class="code-ref">append_learning.py</span> to accept a <span class="code-ref">priority</span> parameter (CRITICAL / STANDARD / LOW).</li>
+    </ol>
+
+    <h3>Completion Criteria</h3>
+    <ul>
+      <li>All 6 template files exist</li>
+      <li>append_learning.py accepts priority parameter and writes it to JSONL</li>
+      <li>A test prompt using a template executes correctly</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Phase 4: Enforcement (Day 6-7)</h2>
+    <p><strong>Owner:</strong> Claude (validation) + Dr. Brian (adoption)</p>
+    <p><strong>Duration:</strong> 2-3 sessions of real work using the new system</p>
+
+    <h3>Tasks</h3>
+    <ol>
+      <li>Run 3 real tasks using the new system (one PLAN, one BUILD, one AUDIT).</li>
+      <li>Verify the NEXT ACTION block chain works (each task's output includes the next prompt).</li>
+      <li>Verify the scaled execution report works (LOW task gets 3-field report, not 10).</li>
+      <li>Verify extension loading works (visual task loads PRIMER_EXT_VISUAL, non-visual task does not).</li>
+      <li>Identify any friction points and adjust.</li>
+    </ol>
+
+    <h3>Completion Criteria</h3>
+    <ul>
+      <li>3 real tasks completed successfully under the new system</li>
+      <li>No regressions (activity log writes still work, learnings still append)</li>
+      <li>Dr. Brian confirms the NEXT ACTION flow works in practice</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>Phase 5: Full Adoption (Day 8+)</h2>
+    <p><strong>Owner:</strong> Dr. Brian (workflow owner) + all AIs</p>
+    <p><strong>Duration:</strong> Ongoing</p>
+
+    <h3>Tasks</h3>
+    <ol>
+      <li>All new prompts use the new kickoff template (2-file load, task type header).</li>
+      <li>Old prompts referencing SESSION_PRIMER_V2.md or MASTER_KNOWLEDGE are redirected by the deprecation headers.</li>
+      <li>The OPERATIONAL_STATE.md file is updated at least weekly to prevent staleness.</li>
+      <li>PRIMER_CORE line count is checked monthly. If it has grown past 150 lines, prune it.</li>
+    </ol>
+
+    <h3>Completion Criteria</h3>
+    <ul>
+      <li>No prompts reference deprecated files</li>
+      <li>PRIMER_CORE remains under 150 lines</li>
+      <li>OPERATIONAL_STATE.md has been updated within the last 7 days</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PART 8: CODEX IMPLEMENTATION BRIEF -->
+<!-- ============================================================ -->
+<div class="tab-content" id="tab-p8">
+  <div class="section-header">
+    <h1>Part 8: Codex Implementation Brief</h1>
+    <p class="section-intro">Direct, implementation-ready instructions for Codex to execute Phases 1 and 2 of the migration.</p>
+  </div>
+
+  <div class="hl-a">
+    <strong>Codex: This is your instruction set.</strong> Do not interpret, strategize, or expand scope. Execute exactly what is specified below. If a path does not exist, create it. If a file already exists at a target path, read it first and report the conflict before overwriting.
+  </div>
+
+  <div class="card">
+    <h2>Step 1: Create PRIMER_CORE.md</h2>
+    <p><strong>Path:</strong> <span class="code-ref">/Users/brianb/MissionMed/_SYSTEM/PRIMER_CORE.md</span></p>
+    <p><strong>Action:</strong> Create new file with the following content structure (Claude will provide the exact text in a companion prompt):</p>
+    <ol>
+      <li>Header block: version, date, authority (MR-1367), purpose statement</li>
+      <li>Section 1: Pre-Flight Check. Validate existence of PRIMER_CORE.md, KNOWLEDGE_INDEX.md, LEARNINGS_LOG.jsonl. Halt if missing.</li>
+      <li>Section 2: Initialization. Call read_learnings.py. Load last 10 entries. Review RULES_ENGINE.md.</li>
+      <li>Section 3: Task Router Reference. Single line: "Consult KNOWLEDGE_INDEX.md for task-specific file loading."</li>
+      <li>Section 4: Naming Canon Reference. Single line: "Load and enforce _SYSTEM/NAMING_CANON.md. Auto-correct deprecated names."</li>
+      <li>Section 5: Scope Lock. Execute only defined task. Log justification for any expansion.</li>
+      <li>Section 6: Risk Classification. Deterministic table mapping task types to risk levels.</li>
+      <li>Section 7: Completion Standard. Checklist: output, report, learning append, activity log, NEXT ACTION.</li>
+      <li>Section 8: Execution Report Format. Three templates: LOW (3 fields), MEDIUM (5 fields), HIGH (full).</li>
+      <li>Section 9: Learning Engine. Append via append_learning.py. Include priority field.</li>
+      <li>Section 10: Extension Loader. Conditional loading rules for each extension file.</li>
+    </ol>
+    <p><strong>Constraint:</strong> Total file must be under 150 lines.</p>
+    <p><strong>Validation:</strong> Count lines. If over 150, report which section is largest and flag for Claude review.</p>
+  </div>
+
+  <div class="card">
+    <h2>Step 2: Create NAMING_CANON.md</h2>
+    <p><strong>Path:</strong> <span class="code-ref">/Users/brianb/MissionMed/_SYSTEM/NAMING_CANON.md</span></p>
+    <p><strong>Action:</strong> Extract Sections 15 through 19 from <span class="code-ref">/Users/brianb/MissionMed/_SYSTEM/SESSION_PRIMER_V2.md</span> (lines 347-631) into this new file.</p>
+    <p><strong>Content includes:</strong></p>
+    <ul>
+      <li>Section 15: System Naming Canon (platform name, module names, deprecated-to-canonical mappings)</li>
+      <li>Section 16: Navigation Structure (tab order)</li>
+      <li>Section 17: Theme System (3 themes)</li>
+      <li>Section 18: System Mapping (tab-to-backend mappings)</li>
+      <li>Section 19: Architecture Model (MASTER_STABLE primary, WordPress secondary)</li>
+    </ul>
+    <p><strong>Validation:</strong> File contains all canonical module names, all deprecated-to-canonical mappings, the navigation tab order, and the architecture model. No content lost from SESSION_PRIMER_V2 Sections 15-19.</p>
+  </div>
+
+  <div class="card">
+    <h2>Step 3: Create Extension Files</h2>
+
+    <h3>3a: PRIMER_EXT_HTML_DEPLOY.md</h3>
+    <p><strong>Path:</strong> <span class="code-ref">/Users/brianb/MissionMed/_SYSTEM/PRIMER_EXT_HTML_DEPLOY.md</span></p>
+    <p><strong>Action:</strong> Extract Section 20 from SESSION_PRIMER_V2.md (lines 539-631) into this file. This is the complete HTML Deployment System Lock.</p>
+
+    <h3>3b: PRIMER_EXT_VISUAL.md</h3>
+    <p><strong>Path:</strong> <span class="code-ref">/Users/brianb/MissionMed/_SYSTEM/PRIMER_EXT_VISUAL.md</span></p>
+    <p><strong>Action:</strong> Create new file containing:
+    <ul>
+      <li>Screenshot protocol (from SESSION_PRIMER_V2 Section 8)</li>
+      <li>Visual QA checklist (layout, spacing, hierarchy, rendering, no broken UI)</li>
+      <li>Reference to MR-1316 Design Constraint System for premium filter</li>
+    </ul>
+
+    <h3>3c: PRIMER_EXT_INTEGRITY.md</h3>
+    <p><strong>Path:</strong> <span class="code-ref">/Users/brianb/MissionMed/_SYSTEM/PRIMER_EXT_INTEGRITY.md</span></p>
+    <p><strong>Action:</strong> Extract Section 7 from SESSION_PRIMER_V2.md (System Integrity Check) into this file.</p>
+  </div>
+
+  <div class="card">
+    <h2>Step 4: Deprecate SESSION_PRIMER_V2.md</h2>
+    <p><strong>Path:</strong> <span class="code-ref">/Users/brianb/MissionMed/_SYSTEM/SESSION_PRIMER_V2.md</span></p>
+    <p><strong>Action:</strong> Prepend the following header at line 1 (before existing content):</p>
+    <div class="mono"># DEPRECATED
+# This file has been replaced by: _SYSTEM/PRIMER_CORE.md + extensions
+# Extensions: PRIMER_EXT_HTML_DEPLOY.md, PRIMER_EXT_VISUAL.md, PRIMER_EXT_INTEGRITY.md
+# Naming canon: _SYSTEM/NAMING_CANON.md
+# Do NOT load this file. Load PRIMER_CORE.md instead.
+# Deprecation date: 2026-04-18
+# Authority: MR-1367
+---</div>
+    <p><strong>Do NOT delete the existing content.</strong> Preserve it below the deprecation header for reference.</p>
+  </div>
+
+  <div class="card">
+    <h2>Step 5: Update KNOWLEDGE_INDEX.md P0 Section</h2>
+    <p><strong>Path:</strong> <span class="code-ref">/Users/brianb/MissionMed/08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md</span></p>
+    <p><strong>Action:</strong> Replace the current P0 table (5 files) with:</p>
+    <div class="mono">### P0 - Universal (Load for EVERY Task)
+
+| File | Location |
+|------|----------|
+| PRIMER_CORE.md | `_SYSTEM/` |
+| KNOWLEDGE_INDEX.md | `08_AI_SYSTEM/MissionMed_AI_Brain/` (this file) |</div>
+    <p><strong>Move the following files to Task Type 6 (Technical / System Work) and Task Type 7 (Audit) load lists:</strong></p>
+    <ul>
+      <li>MISSIONMED_SYSTEM_CONTEXT.md</li>
+      <li>MISSIONRESIDENCY_SYSTEM_CONTEXT.md</li>
+      <li>DECISIONS_INDEX.md</li>
+    </ul>
+    <p><strong>Validation:</strong> P0 table contains exactly 2 rows. The three moved files appear in Task Types 6 and 7 (and any other types where they are relevant).</p>
+  </div>
+
+  <div class="card">
+    <h2>Step 6: Create _KNOWLEDGE/ Directory and Files</h2>
+    <p><strong>Base path:</strong> <span class="code-ref">/Users/brianb/MissionMed/_KNOWLEDGE/</span></p>
+
+    <h3>6a: BRAND_CONTEXT.md</h3>
+    <p>Extract from MASTER_KNOWLEDGE: Section 3 (MissionMed Institute Overview) including subsections 3.1 through 3.6.</p>
+
+    <h3>6b: PROGRAM_DETAILS.md</h3>
+    <p>Extract from MASTER_KNOWLEDGE: Section 4 (Mission Residency Division) including subsections 4.1 through 4.5.</p>
+
+    <h3>6c: CONVERSION_INTEL.md</h3>
+    <p>Create as a pointer file listing the Phase 1 intelligence assets in <span class="code-ref">08_AI_SYSTEM/PHASE1_CONVERSION_INTELLIGENCE/</span> with one-line descriptions. Do not duplicate their content.</p>
+
+    <h3>6d: SYSTEM_ARCHITECTURE.md</h3>
+    <p>Extract from MASTER_KNOWLEDGE: Section 1 subsections 1.1 through 1.3 and 1.6. Exclude Section 1.4 (duplicate session start) and Section 1.5 (duplicate task router).</p>
+
+    <h3>6e: OPERATIONAL_STATE.md</h3>
+    <p>Extract from MASTER_KNOWLEDGE: Sections 12 through 15 (Current Project State, Recent Work Completed, Thread Continuity, Knowledge Gaps). Add a "Last Updated" field at the top that must be refreshed weekly.</p>
+
+    <p><strong>Validation for all 6 files:</strong> Each file is under 300 lines. No content from MASTER_KNOWLEDGE Sections 1-15 is lost (every section exists in a new location or has been deliberately removed as duplicate).</p>
+  </div>
+
+  <div class="card">
+    <h2>Step 7: Deprecate MASTER_KNOWLEDGE</h2>
+    <p><strong>Path:</strong> <span class="code-ref">/Users/brianb/MissionMed/MISSIONMED_MASTER_KNOWLEDGE.md</span></p>
+    <p><strong>Action:</strong> Prepend deprecation header (same format as Step 4) pointing to <span class="code-ref">_KNOWLEDGE/</span> directory.</p>
+    <p><strong>Do NOT delete existing content.</strong></p>
+  </div>
+
+  <div class="card">
+    <h2>Step 8: Modify append_learning.py</h2>
+    <p><strong>Path:</strong> <span class="code-ref">/Users/brianb/MissionMed/_SYSTEM_LOGS/append_learning.py</span></p>
+    <p><strong>Action:</strong> Add an optional <span class="code-ref">--priority</span> argument that accepts values: CRITICAL, STANDARD, LOW. Default: STANDARD. Write the priority value into the JSONL entry as a <span class="code-ref">"priority"</span> field.</p>
+    <p><strong>Validation:</strong> Run the script with <span class="code-ref">--priority CRITICAL</span> and verify the output JSONL entry contains <span class="code-ref">"priority": "CRITICAL"</span>.</p>
+  </div>
+
+  <div class="card">
+    <h2>Step 9: Create Prompt Template Library</h2>
+    <p><strong>Base path:</strong> <span class="code-ref">/Users/brianb/MissionMed/_SYSTEM/PROMPT_TEMPLATES/</span></p>
+    <p><strong>Action:</strong> Create 6 files: PLAN.md, BUILD.md, AUDIT.md, FIX.md, DEPLOY.md, CONTENT.md. Each contains the prompt template from Part 3 of this document for that task type.</p>
+    <p><strong>Validation:</strong> Each template file contains: header format, context rules, NOT ALLOWED section, expected output structure, and NEXT ACTION requirement.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PART 9: DAILY WORKFLOW -->
+<!-- ============================================================ -->
+<div class="tab-content" id="tab-p9">
+  <div class="section-header">
+    <h1>Part 9: Daily Workflow (Human Version)</h1>
+    <p class="section-intro">How Dr. Brian uses this system every day. Minimal cognitive load. Maximum clarity. One decision tree.</p>
+  </div>
+
+  <div class="verdict-box">
+    <h2>The One Question</h2>
+    <p>When you sit down to work, ask yourself one question: <strong>"What do I need to accomplish?"</strong></p>
+    <p>Your answer maps directly to which AI you open and what you paste. No other decision is needed.</p>
+  </div>
+
+  <div class="card">
+    <h2>Decision Tree</h2>
+    <div class="flow-box">"What do I need to accomplish?"
+        |
+        +-- "I need to PLAN something" ---------> Open Claude
+        |                                           Paste PLAN template
+        |
+        +-- "I need to BUILD something" --------> Did Claude produce a brief?
+        |                                           YES -> Open Codex, paste BUILD template with brief
+        |                                           NO  -> Open Claude first, get the brief
+        |
+        +-- "I need to FIX something" ----------> Open Claude
+        |                                           Paste FIX template (Claude diagnoses)
+        |                                           Claude will produce Codex brief if needed
+        |
+        +-- "I need to AUDIT something" --------> Open Claude
+        |                                           Paste AUDIT template
+        |
+        +-- "I need to DEPLOY something" -------> Open Claude
+        |                                           Paste DEPLOY template (Claude makes checklist)
+        |                                           Claude will produce Codex brief for execution
+        |
+        +-- "I need CONTENT (copy, docs)" ------> Open Claude
+        |                                           Paste CONTENT template
+        |
+        +-- "I need STRATEGIC THINKING" --------> Open Claude
+        |                                           Paste STRATEGY template
+        |                                           (Optional: paste Claude's output into ChatGPT
+        |                                            for a second opinion)
+        |
+        +-- "I have a NEXT ACTION prompt" ------> Paste it into the AI specified
+                                                    (The system already told you what to do)</div>
+  </div>
+
+  <div class="card">
+    <h2>Your Daily Flow (Step by Step)</h2>
+
+    <h3>Step 1: Start</h3>
+    <p>Open Claude. Paste the 4-line kickoff block:</p>
+    <div class="mono">Load PRIMER_CORE.md
+Load KNOWLEDGE_INDEX.md
+---
+TASK TYPE: [your task type]
+---
+[Describe what you want to accomplish]</div>
+
+    <h3>Step 2: Work</h3>
+    <p>Claude will handle the rest: load the right files, classify risk, execute the task, and produce output. If Codex is needed, Claude will produce a Codex Implementation Brief for you to paste into Codex.</p>
+
+    <h3>Step 3: Follow the Chain</h3>
+    <p>Every AI response ends with a NEXT ACTION block that tells you:</p>
+    <ul>
+      <li>What to do next</li>
+      <li>Which AI to use</li>
+      <li>The exact prompt to paste</li>
+    </ul>
+    <p>Copy the prompt. Paste it into the specified AI. Repeat until the project is complete.</p>
+
+    <h3>Step 4: Done</h3>
+    <p>When the NEXT ACTION block says "COMPLETE," the work is done. The activity log has been written. The learning has been appended. The execution report is in the response. Move on to the next thing.</p>
+  </div>
+
+  <div class="card">
+    <h2>What Changed for You (Before vs. After)</h2>
+    <table class="st">
+      <thead><tr><th>Before</th><th>After</th></tr></thead>
+      <tbody>
+        <tr><td>Load 3-5 files at the start of every prompt</td><td>Load 2 files. The system handles the rest.</td></tr>
+        <tr><td>Decide which AI to use for each task</td><td>The decision tree tells you. One question, one answer.</td></tr>
+        <tr><td>Figure out what prompt to write next</td><td>The NEXT ACTION block gives you the exact prompt.</td></tr>
+        <tr><td>Write ChatGPT plans, then translate for Codex</td><td>Claude plans AND reads code. No translation layer.</td></tr>
+        <tr><td>10-field execution report for every task</td><td>3 fields for simple tasks. Full report only for HIGH risk.</td></tr>
+        <tr><td>20 PRIMER rules to comply with</td><td>10 core rules (PRIMER_CORE). Extensions loaded only when relevant.</td></tr>
+        <tr><td>35,000 tokens of context loaded before work begins</td><td>4,000-9,500 tokens. 25,000+ tokens freed for the actual task.</td></tr>
+        <tr><td>Unclear if something already exists before building</td><td>Claude MUST read code before planning. Build-Exists Check is mandatory.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Quick Reference Card</h2>
+    <table class="st">
+      <thead><tr><th>I want to...</th><th>AI</th><th>Template</th></tr></thead>
+      <tbody>
+        <tr><td>Plan a feature or project</td><td>Claude</td><td>PLAN.md</td></tr>
+        <tr><td>Build code from a plan</td><td>Codex</td><td>BUILD.md (with Claude's brief)</td></tr>
+        <tr><td>Fix a bug</td><td>Claude (then Codex if needed)</td><td>FIX.md</td></tr>
+        <tr><td>Audit a system or page</td><td>Claude</td><td>AUDIT.md</td></tr>
+        <tr><td>Deploy changes</td><td>Claude (then Codex)</td><td>DEPLOY.md</td></tr>
+        <tr><td>Write copy or documents</td><td>Claude</td><td>CONTENT.md</td></tr>
+        <tr><td>Think strategically</td><td>Claude (+ ChatGPT optional)</td><td>STRATEGY section in Claude</td></tr>
+        <tr><td>Continue from a NEXT ACTION</td><td>Whichever AI it specifies</td><td>The prompt it gives you</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="hl-g">
+    <strong>The system is designed so that after the first prompt, you never have to figure out what to do next.</strong> Every response tells you. You just follow the chain until the work is done.
+  </div>
+
+  <div class="footer">
+    (Y)-MissionMed_Workflow_OS_Redesign+Execution_Control_System-claude-opus-high-1367 / Version 1.0 / 2026-04-18
+  </div>
+</div>
+
+</main>
+</div>
+
+<script>
+(function(){
+  var tabs=document.querySelectorAll('.tab-btn');
+  var contents=document.querySelectorAll('.tab-content');
+  tabs.forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var t=this.getAttribute('data-tab');
+      tabs.forEach(function(b){b.classList.remove('active')});
+      contents.forEach(function(c){c.classList.remove('active')});
+      this.classList.add('active');
+      var el=document.getElementById('tab-'+t);
+      if(el)el.classList.add('active');
+      document.querySelector('.content').scrollTop=0;
+    });
+  });
+})();
+</script>
+</body>
+</html>

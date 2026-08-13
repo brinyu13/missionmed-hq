@@ -1,7 +1,8 @@
 PROMPT NAME: ({PROJECT})-[Bug]_Fix-claude-medium-[MR#]
 THREAD NAME: ({PROJECT}) — [Bug] Fix
 ---
-Load PRIMER_CORE.md
+Load _SYSTEM/PRIMER_CORE.md
+Load 08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md
 ---
 TASK TYPE: FIX
 RISK LEVEL: [MEDIUM or HIGH]

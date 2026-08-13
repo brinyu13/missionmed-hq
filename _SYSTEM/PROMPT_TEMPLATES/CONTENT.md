@@ -1,8 +1,8 @@
 PROMPT NAME: ({PROJECT})-[Topic]_Content-claude-medium-[MR#]
 THREAD NAME: ({PROJECT}) — [Topic] Content
 ---
-Load PRIMER_CORE.md
-Load KNOWLEDGE_INDEX.md
+Load _SYSTEM/PRIMER_CORE.md
+Load 08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md
 [Task-specific files per INDEX router]
 ---
 TASK TYPE: CONTENT
