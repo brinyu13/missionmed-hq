@@ -277,7 +277,7 @@ test('founder-only zero-assignment workflow remains private and truthful', async
   await expect(page.getByText('Mentor review is not enabled yet. This story remains editable, and its visibility setting is unchanged.')).toBeVisible();
   await page.getByRole('tab', { name: 'Working version' }).click();
   await expect(page.getByRole('textbox', { name: 'Working version' })).toBeEditable();
-  await expect(page.locator('#room .roomMeta .stChip').filter({ hasText: /^Private$/ })).toBeVisible();
+  await expect(page.locator('#room .roomMeta .stChip').filter({ hasText: /^🔒 Private · only you$/ })).toBeVisible();
 
   const directProbe = await page.evaluate(async (id) => {
     const bootstrap = await fetch(
