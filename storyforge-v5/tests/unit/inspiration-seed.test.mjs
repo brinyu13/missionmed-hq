@@ -12,4 +12,8 @@ test('canonical Inspiration library yields 81 stable server-owned identifiers', 
   assert.equal(new Set(first.map((prompt) => prompt.id)).size, 81);
   assert.equal(new Set(first.map((prompt) => prompt.libraryKey)).size, 81);
   assert.ok(first.every((prompt) => /^[a-f0-9-]{36}$/.test(prompt.id)));
+  assert.deepEqual(
+    first.filter((prompt) => prompt.recommended).map((prompt) => prompt.libraryKey),
+    ['q-004', 'q-012', 'q-046'],
+  );
 });

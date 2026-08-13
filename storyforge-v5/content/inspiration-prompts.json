@@ -144,6 +144,7 @@
   },
   {
    "id": "q-004",
+   "recommended": true,
    "text": "Tell me about a time laughter completely took over a room you were in. What set it off, and who lost it first?",
    "who": [
     "you"
@@ -272,6 +273,7 @@
   },
   {
    "id": "q-012",
+   "recommended": true,
    "text": "Tell me about a small act of kindness from a stranger that you still remember. What exactly did they do? Share only what feels comfortable.",
    "who": [
     "you",
@@ -870,6 +872,7 @@
   },
   {
    "id": "q-046",
+   "recommended": true,
    "text": "When you were growing up, how did schoolwork actually get done in your house — alone at a kitchen table, next to a sibling, squeezed around chores or a job? Take me to one specific evening.",
    "who": [
     "family"

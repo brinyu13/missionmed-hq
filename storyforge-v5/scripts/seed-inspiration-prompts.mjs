@@ -28,6 +28,7 @@ export function normalizePromptLibrary(library) {
     territory: prompt.territory,
     followUp: prompt.followUp,
     interviewUse: prompt.interviewUse,
+    recommended: prompt.recommended === true,
     sortOrder: index + 1,
   }));
 }
@@ -49,7 +50,7 @@ async function main() {
         `INSERT INTO public.sf_inspiration_prompts (
            id,library_key,text,who_ids,who_detail_ids,domain_ids,energy_ids,territory,
            follow_up,interview_use,state,recommended,imported,sort_order,row_version
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'active',false,false,$11,0)
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'active',$11,false,$12,0)
          ON CONFLICT (library_key) DO UPDATE SET library_key=EXCLUDED.library_key
          WHERE public.sf_inspiration_prompts.id=EXCLUDED.id
            AND public.sf_inspiration_prompts.text=EXCLUDED.text
@@ -62,7 +63,7 @@ async function main() {
            AND public.sf_inspiration_prompts.interview_use=EXCLUDED.interview_use
            AND public.sf_inspiration_prompts.imported=false
          RETURNING id,row_version`,
-        [prompt.id, prompt.libraryKey, prompt.text, prompt.who, prompt.whoDetail, prompt.domain, prompt.energy, prompt.territory, prompt.followUp, prompt.interviewUse, prompt.sortOrder],
+        [prompt.id, prompt.libraryKey, prompt.text, prompt.who, prompt.whoDetail, prompt.domain, prompt.energy, prompt.territory, prompt.followUp, prompt.interviewUse, prompt.recommended, prompt.sortOrder],
       );
       if (result.rowCount !== 1) throw new Error(`Canonical Inspiration prompt conflict: ${prompt.libraryKey}`);
       await client.query(
