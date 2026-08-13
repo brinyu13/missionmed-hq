@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en" data-role="student" data-projection="coach">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; style-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>IV Prep On-Call — Interview Studio 3466C</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="launch-gate" id="launchGate" role="alert">
+    <div>
+      <p class="eyebrow">LOCALHOST REQUIRED</p>
+      <h2>The visual shell opened, but the studio runtime did not.</h2>
+      <p>Chrome blocks this module-based camera lab on <code>file://</code>. Start the included localhost server, then open <code>http://127.0.0.1:8467/Y1_Y2_CAM_V6_3466C_R1_PROTOTYPE.html</code>.</p>
+    </div>
+  </div>
+  <div class="app-shell" id="appShell">
+    <header class="topbar" aria-label="Studio controls">
+      <a class="brand" href="#ready" aria-label="IV Prep On-Call home">
+        <span class="brand-mark" aria-hidden="true">MM</span>
+        <span><strong>IV PREP</strong> <em>ON-CALL</em><small>INTERVIEW STUDIO · LOCAL LAB</small></span>
+      </a>
+      <div class="role-switch" aria-label="Choose a studio projection">
+        <button class="role-button is-active" type="button" data-role-choice="student" aria-pressed="true">Student</button>
+        <button class="role-button" type="button" data-role-choice="mentor" aria-pressed="false">Dr Brian</button>
+      </div>
+      <div class="privacy-beacon" aria-label="Privacy status"><span aria-hidden="true"></span> This browser only</div>
+    </header>
+
+    <main>
+      <section class="screen ready-screen is-active" id="readyScreen" aria-labelledby="readyTitle">
+        <div class="ready-glow" aria-hidden="true"></div>
+        <div class="ready-copy">
+          <p class="eyebrow" id="readyEyebrow">STUDENT INTERVIEW STUDIO</p>
+          <h1 id="readyTitle">Walk in ready.<br><span>Leave knowing why.</span></h1>
+          <p class="ready-lede" id="readyLede">One question. One real take. Your camera, microphone, and analytics stay in this browser.</p>
+        </div>
+
+        <div class="launch-runway" aria-label="Session setup">
+          <div class="mode-selector" role="group" aria-label="Practice mode">
+            <button class="mode-choice is-selected" type="button" data-mode="simulation" aria-pressed="true">
+              <span class="mode-number">01</span>
+              <span><strong>Simulation</strong><small>No coaching while you answer</small></span>
+            </button>
+            <button class="mode-choice" type="button" data-mode="live-coaching" aria-pressed="false">
+              <span class="mode-number">02</span>
+              <span><strong>Live Coaching</strong><small>One correction at a time</small></span>
+            </button>
+          </div>
+
+          <div class="question-brief">
+            <span class="question-label">TODAY'S QUESTION</span>
+            <p id="questionText">“Tell me about yourself.”</p>
+            <span class="question-strategy">OPEN → PROVE → STORY → CLOSE <b>SAMPLE STRATEGY</b></span>
+          </div>
+
+          <label class="replay-consent">
+            <input type="checkbox" id="replayConsent">
+            <span aria-hidden="true"></span>
+            <span><strong>Keep this take for replay</strong><small>Optional · tab memory only · erased when you end the lab</small></span>
+          </label>
+
+          <div class="launch-actions">
+            <button class="primary-action" type="button" id="startSession">
+              <span>Connect camera + mic</span><b aria-hidden="true">→</b>
+            </button>
+            <button class="text-action" type="button" id="openDirector" aria-expanded="false" aria-controls="directorPanel">Set coaching focus</button>
+            <button class="text-action sample-action" type="button" id="loadSample">Explore SAMPLE film room</button>
+          </div>
+          <p class="permission-copy">Nothing starts until you choose Connect. Chrome will ask permission next.</p>
+        </div>
+
+        <aside class="director-panel" id="directorPanel" aria-labelledby="directorTitle" hidden>
+          <button class="panel-close" type="button" id="closeDirector" aria-label="Close Coaching Director">×</button>
+          <p class="eyebrow">COACHING DIRECTOR · LOCAL DETERMINISTIC DRAFT</p>
+          <h2 id="directorTitle">Tell the room what to watch.</h2>
+          <p>No provider call. Your words become a reviewable Analytics Focus Profile; nothing activates until you confirm.</p>
+          <label for="directorPrompt">Direction</label>
+          <textarea id="directorPrompt" rows="3">Focus on audibility and framing. Ignore pace.</textarea>
+          <button class="secondary-action" type="button" id="compileProfile">Build focus profile</button>
+          <div class="profile-preview" id="profilePreview" aria-live="polite"></div>
+          <button class="primary-action compact" type="button" id="confirmProfile" disabled><span>Confirm profile</span><b aria-hidden="true">✓</b></button>
+        </aside>
+      </section>
+
+      <section class="screen live-screen" id="liveScreen" aria-labelledby="liveQuestion" hidden>
+        <div class="live-stage" id="liveStage">
+          <video id="liveVideo" autoplay muted playsinline aria-label="Your live camera preview"></video>
+          <canvas id="liveOverlay" aria-hidden="true"></canvas>
+          <div class="frame-guide" id="frameGuide" aria-hidden="true"><span></span></div>
+          <div class="derived-layer-tag">DERIVED LOCAL OVERLAY</div>
+
+          <div class="live-topline">
+            <div class="mode-badge" id="liveModeBadge">SIMULATION · COACHING OFF</div>
+            <div class="session-clock" id="sessionClock" aria-label="Session time">00:00</div>
+            <div class="device-health" id="deviceHealth"><span></span> CAMERA + MIC</div>
+          </div>
+
+          <div class="question-ribbon">
+            <span id="phaseLabel">OPEN · SAMPLE STRATEGY</span>
+            <h2 id="liveQuestion">Tell me about yourself.</h2>
+          </div>
+
+          <div class="tuner-cue" id="tunerCue" aria-live="polite" hidden>
+            <span class="tuner-icon" aria-hidden="true">◫</span>
+            <span><small id="cueMaturity">REAL NOW</small><strong id="cueText">You're in range</strong></span>
+            <i class="tuner-track" aria-hidden="true"><b id="tunerNeedle"></b></i>
+          </div>
+
+          <aside class="telemetry-drawer" id="telemetryDrawer" aria-labelledby="telemetryTitle" hidden>
+            <div class="telemetry-heading">
+              <span><small>BLACK BOX</small><strong id="telemetryTitle">Same session · raw view</strong></span>
+              <span class="telemetry-session" id="telemetrySession">SESSION —</span>
+            </div>
+            <div class="signal-stack" id="signalStack"></div>
+            <div class="unavailable-strip">
+              <span>PITCH / F0 <b>NOT YET AVAILABLE</b></span>
+              <span>WPM <b>TRANSCRIPT REQUIRED</b></span>
+              <span>SMILE / EMOTION <b>NOT AVAILABLE</b></span>
+              <span>POSTURE SCORE <b>NOT AVAILABLE</b></span>
+            </div>
+          </aside>
+
+          <div class="mentor-marker" id="mentorMarker" hidden>
+            <button type="button" id="dropMarker"><kbd>M</kbd> Mark this moment</button>
+            <span>1 Strong · 2 Fix first · 3 Pause</span>
+          </div>
+
+          <div class="live-controls">
+            <div class="projection-switch" role="group" aria-label="Analytics projection">
+              <button class="is-active" type="button" data-projection-choice="coach" aria-pressed="true">Coach</button>
+              <button type="button" data-projection-choice="telemetry" aria-pressed="false">Telemetry</button>
+            </div>
+            <div class="layer-controls" aria-label="Live overlay layers">
+              <button type="button" data-layer="face" aria-pressed="true"><span></span> Face</button>
+              <button type="button" data-layer="body" aria-pressed="true"><span></span> Body + hands</button>
+            </div>
+            <button class="finish-action" type="button" id="finishTake">Finish take</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen replay-screen" id="replayScreen" aria-labelledby="replayTitle" hidden>
+        <div class="replay-header">
+          <div>
+            <p class="eyebrow" id="replayEyebrow">STUDENT FILM ROOM</p>
+            <h1 id="replayTitle">The answer is now teachable.</h1>
+          </div>
+          <div class="replay-actions">
+            <button class="spotlight-button" type="button" id="spotlightMode">Spotlight</button>
+            <button class="finish-action" type="button" id="eraseSession">End + erase lab</button>
+          </div>
+        </div>
+
+        <nav class="flight-breadcrumbs" aria-label="Flight recorder position">
+          <button type="button" data-seek-level="whole">WHOLE INTERVIEW</button><span>→</span>
+          <button type="button" data-seek-level="question">QUESTION 01</button><span>→</span>
+          <button type="button" id="crumbPhase">OPEN</button><span>→</span>
+          <strong id="crumbMoment">EXACT MOMENT</strong>
+        </nav>
+
+        <div class="film-room">
+          <div class="replay-stage" id="replayStage">
+            <video id="replayVideo" controls playsinline aria-label="Consented in-memory replay"></video>
+            <canvas id="replayOverlay" aria-hidden="true"></canvas>
+            <div class="no-replay" id="noReplay"><span>ORIGINAL MEDIA NOT RETAINED</span><p>The synchronized evidence remains available; replay video requires explicit tab-memory consent before capture.</p></div>
+            <div class="sample-watermark" id="sampleWatermark" hidden>SAMPLE / DEMO — NOT LIVE MEASUREMENT</div>
+            <div class="derived-layer-tag">DERIVED LOCAL OVERLAY</div>
+          </div>
+
+          <aside class="moment-rail" aria-labelledby="momentsTitle">
+            <p class="eyebrow">MOMENTS THAT MATTER</p>
+            <h2 id="momentsTitle">Show me where.</h2>
+            <div id="momentList"></div>
+            <button class="secondary-action" type="button" id="addReplayMarker">+ Mentor marker at playhead</button>
+          </aside>
+        </div>
+
+        <div class="recorder-console" aria-labelledby="recorderTitle">
+          <div class="recorder-heading">
+            <span><small>INTERVIEW FLIGHT RECORDER</small><strong id="recorderTitle">One clock · every claim seekable</strong></span>
+            <div class="replay-layers" aria-label="Replay overlay layers">
+              <button type="button" data-replay-layer="face" aria-pressed="true">Face</button>
+              <button type="button" data-replay-layer="body" aria-pressed="true">Body + hands</button>
+            </div>
+          </div>
+          <div class="time-ruler" id="timeRuler" aria-hidden="true"></div>
+          <div class="flight-tracks" id="flightTracks"></div>
+        </div>
+      </section>
+    </main>
+
+    <div class="status-toast" id="statusToast" role="status" aria-live="polite" hidden></div>
+    <div class="error-sheet" id="errorSheet" role="alertdialog" aria-modal="true" aria-labelledby="errorTitle" hidden>
+      <div>
+        <p class="eyebrow">CONNECTION CHECK</p>
+        <h2 id="errorTitle">Camera and microphone are still off.</h2>
+        <p id="errorMessage">Allow both devices in Chrome, then try again. Nothing has been recorded.</p>
+        <button class="primary-action compact" type="button" id="retrySession"><span>Try again</span><b aria-hidden="true">→</b></button>
+        <button class="text-action" type="button" id="dismissError">Back to ready</button>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="./app.mjs?v=3466c-r1-2"></script>
+</body>
+</html>
