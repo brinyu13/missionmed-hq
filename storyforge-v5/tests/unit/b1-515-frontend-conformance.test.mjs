@@ -7,6 +7,7 @@ const styles = await readFile(new URL('../../public/styles.css', import.meta.url
 
 test('B1-515 applies the page-introduction law without adding a renderer', () => {
   assert.match(app, /function pageIntroMarkup\(/);
+  assert.match(styles, /\.b1515PageIntro\{[^}]*inset:auto;[^}]*height:auto;[^}]*z-index:auto;/);
   assert.match(app, /How this works/);
   for (const marker of ['Your story library', 'Notifications', "Your <em>StoryForge</em>", 'Interview Prep', 'MissionMed Question Library', 'Administrator workspace', 'Administrator · Students', 'Administrator · Review Queue', 'Administrator · Content Studio']) {
     assert.match(app, new RegExp(marker));
