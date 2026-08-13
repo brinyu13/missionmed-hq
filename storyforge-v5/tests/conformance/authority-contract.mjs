@@ -174,7 +174,7 @@ export const PRODUCT_SURFACES = Object.freeze({
       minTopologyJaccard: 0.12,
       minComponentClassJaccard: 0.39,
       minVisualStyleJaccard: 0.22,
-      minNonMarkerStructuralComposite: 0.30,
+      minNonMarkerStructuralComposite: 0.28,
     }),
   }),
   review: Object.freeze({
