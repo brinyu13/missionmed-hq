@@ -172,3 +172,9 @@ test('B1-515R action center, contribution review, Content Studio, and grouped Se
   assert.match(styles, /\.b1515ContentTabs/);
   assert.match(styles, /\.b1515SettingsGroup/);
 });
+
+test('Question Workshop starts at the top without resetting later workshop rerenders', () => {
+  const openWorkshopBody = app.match(/async function openWorkshop\(questionId\) \{([\s\S]*?)\n\}/)?.[1] || '';
+  assert.match(openWorkshopBody, /renderQuestionWorkshop\(\);[\s\S]*main\.scrollTop = 0;[\s\S]*main\.scrollLeft = 0;/);
+  assert.doesNotMatch(app, /function renderQuestionWorkshop\([^)]*\) \{[\s\S]*?main\.scrollTop = 0;/);
+});

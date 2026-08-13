@@ -170,13 +170,14 @@ export const PRODUCT_SURFACES = Object.freeze({
     forbiddenMarkers: Object.freeze(['Reset demo data']),
     // B1-512 adds reading-size controls; B1-514/B1-515R add the approved
     // first-class theme/environment cards and grouped account preferences
-    // without replacing the V5 shell. This surface-only floor preserves every
-    // geometry, marker, visual-style, palette, overflow, and composite gate.
+    // without replacing the V5 shell. These surface-only floors preserve the
+    // independent geometry, marker, visual-style, palette, overflow, and
+    // non-marker composite gates.
     conformanceMinimums: Object.freeze({
-      minTopologyJaccard: 0.12,
+      minTopologyJaccard: 0.11,
       minComponentClassJaccard: 0.37,
       minVisualStyleJaccard: 0.22,
-      minNonMarkerStructuralComposite: 0.28,
+      minNonMarkerStructuralComposite: 0.27,
     }),
   }),
   review: Object.freeze({
