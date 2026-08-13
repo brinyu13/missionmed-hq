@@ -63,6 +63,8 @@ test('B1-515 administrator controls are direct and remain signed-capability gate
   assert.match(app, /\{ collection, expectedVersion \}/);
   assert.match(app, /data-admin-collection="archived"/);
   assert.match(app, /data-admin-collection="trashed"/);
+  assert.match(styles, /\.adminStoryRow\{display:grid;/);
+  assert.match(styles, /\.adminStoryRow \.rMain\{display:grid;/);
   assert.match(app, /data-admin-collection="active"/);
   assert.match(app, /\['awaiting', 'in_review', 'changes', 'reviewed', 'approved'\]/);
   assert.match(app, /api\.adminReviewStatus/);
