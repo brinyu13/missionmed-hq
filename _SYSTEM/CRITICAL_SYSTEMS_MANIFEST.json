@@ -39,9 +39,9 @@
       "environment_id": "bcef8734-e42b-44df-8488-c2a3de68213f",
       "environment": "production",
       "database_service_id": "a4a66362-c3ba-475a-ae21-2aa46624bafe",
-      "current_deployment_id": "c36b8579-bb28-44a7-b9f2-78956e36e3fc",
-      "current_product_commit": "9934fb49d7529f4f607530c5a0c98e99c07ea91c",
-      "current_release_id": "v-ca07600d8ba91f43",
+      "current_deployment_id": "2c5799a6-08b1-4505-84d2-68f832924f47",
+      "current_product_commit": "4d40852194a03c844e6afe4e6c36f40378f03dd9",
+      "current_release_id": "v-090252959e4f6abd",
       "current_replica_count": 1,
       "candidate_product_commit": "97ebf2433849343acd521547e558a9713c579eb0",
       "candidate_release_id": "v-a9a076957973d7d4",
@@ -94,29 +94,29 @@
       "host": "kinsta-wordpress-mu-plugin",
       "site_root": "/www/theresidencyacademy_209",
       "environment": "production",
-      "release_state": "b1_515_fast_voice_repair_founder_canary",
+      "release_state": "b1_515r_founder_conformance_pending",
       "entrypoint": "storyforge-v5/infra/wordpress/missionmed-storyforge-route.php",
       "production_entrypoint": "public/wp-content/mu-plugins/missionmed-storyforge-route.php",
       "asset_source": "storyforge-v5/dist",
       "generated_release_bundle": "storyforge-v5/infra/wordpress/missionmed-storyforge-runtime/release.php",
-      "generated_release_id": "v-ca07600d8ba91f43",
-      "generated_release_bundle_sha256": "2b0d0e1da237b687f64a1008b2d67916e7b9db1016010ce1addce669cf39839c",
-      "generated_release_bundle_size": 1438873,
-      "route_sha256": "4ea34bddb8b78c42bd0b0b11c054a60a7c399684a7aca0a5fbe72ea509706449",
-      "route_size": 50558,
-      "exact_product_commit": "9934fb49d7529f4f607530c5a0c98e99c07ea91c",
-      "exact_product_commit_state": "production_b1_515_fast_voice_repair_founder_canary",
+      "generated_release_id": "v-090252959e4f6abd",
+      "generated_release_bundle_sha256": "d711e1531cdbb7b20e9824a1dd202841137fcca3d4ff0418ef18db1c7108f478",
+      "generated_release_bundle_size": 1486579,
+      "route_sha256": "67607076bf7a12cf166d713dcdf655ffcaec38531f99fb5ec271ce648ec0b637",
+      "route_size": 50952,
+      "exact_product_commit": "4d40852194a03c844e6afe4e6c36f40378f03dd9",
+      "exact_product_commit_state": "production_b1_515r_founder_conformance_pending",
       "production_active": true,
-      "active_release_target": "releases/9934fb49d7529f4f607530c5a0c98e99c07ea91c",
+      "active_release_target": "releases/4d40852194a03c844e6afe4e6c36f40378f03dd9",
       "voice_production_active": true,
       "candidate": {
-        "exact_product_commit": "9934fb49d7529f4f607530c5a0c98e99c07ea91c",
-        "release_id": "v-ca07600d8ba91f43",
-        "route_sha256": "4ea34bddb8b78c42bd0b0b11c054a60a7c399684a7aca0a5fbe72ea509706449",
-        "route_size": 50558,
-        "release_bundle_sha256": "2b0d0e1da237b687f64a1008b2d67916e7b9db1016010ce1addce669cf39839c",
-        "release_bundle_size": 1438873,
-        "deployment_state": "production_b1_515_fast_voice_repair_founder_canary"
+        "exact_product_commit": "4d40852194a03c844e6afe4e6c36f40378f03dd9",
+        "release_id": "v-090252959e4f6abd",
+        "route_sha256": "67607076bf7a12cf166d713dcdf655ffcaec38531f99fb5ec271ce648ec0b637",
+        "route_size": 50952,
+        "release_bundle_sha256": "d711e1531cdbb7b20e9824a1dd202841137fcca3d4ff0418ef18db1c7108f478",
+        "release_bundle_size": 1486579,
+        "deployment_state": "production_b1_515r_founder_conformance_pending"
       },
       "production_release_root": "public/wp-content/mu-plugins/missionmed-storyforge-runtime/releases",
       "production_release_shape": "public/wp-content/mu-plugins/missionmed-storyforge-runtime/releases/<exact-product-commit>/release.php",
@@ -256,7 +256,11 @@
         "storyforge-v5/infra/postgres/migrations/20260810260000_b1_514_guest_voice_contributions.sql",
         "storyforge-v5/infra/postgres/migrations/20260810270000_b1_514_request_delivery_attempts.sql",
         "storyforge-v5/infra/postgres/migrations/20260810280000_b1_514_guest_voice_cleanup_recovery.sql",
-        "storyforge-v5/infra/postgres/migrations/20260812120000_b1_515_v201_reviews_collections_peer.sql"
+        "storyforge-v5/infra/postgres/migrations/20260812120000_b1_515_v201_reviews_collections_peer.sql",
+        "storyforge-v5/infra/postgres/migrations/20260813120000_b1_515r_admin_subject_masterkey.sql",
+        "storyforge-v5/infra/postgres/migrations/20260813130000_b1_515r_action_center_contribution_review.sql",
+        "storyforge-v5/infra/postgres/migrations/20260813140000_b1_515r_arena_avatar_directory_groups.sql",
+        "storyforge-v5/infra/postgres/migrations/20260813150000_b1_515r_inspiration_recommendation_publish_fix.sql"
       ],
       "pending_migration_files": [],
       "application_role": "storyforge_app",
@@ -265,7 +269,7 @@
       "application_role_bypassrls": false,
       "seed_policy": "No demo data. Preserve all canonical V1 and V2 stories, identities, versions, media, governed prompts, and audit history.",
       "mentor_assignment_policy": "Mentor and administrator reads remain bounded by signed WordPress authority, assignments, visibility, and submission state.",
-      "current_migration_count": 24,
+      "current_migration_count": 28,
       "current_storyforge_user_count": 441,
       "current_active_assignment_count": 0,
       "system_identifier": "7667256745042145332"
@@ -302,26 +306,26 @@
       "id": "storyforge_v5_index",
       "system": "storyforge_v5",
       "url": "https://missionmedinstitute.com/storyforge/",
-      "approved_sha256": "1b43b433be1716deffd314a0c3f36ea4dc8cc6ae214680c8df41ce7058d0442c",
+      "approved_sha256": "29e789f18a45f8afa8e52123b3ee612efbbfe95f3e2c5d929c25d3cb07310309",
       "required_markers": [
         "StoryForge V5 · MissionMed",
         "Dr Brian's IV Prep On-Call",
         "Opening your private story workspace"
       ],
-      "local_source_note": "B1-515 fast voice repair production asset from immutable release v-ca07600d8ba91f43 and exact committed source 9934fb49d7529f4f607530c5a0c98e99c07ea91c; live bytes independently verified after the guarded cutover."
+      "local_source_note": "B1-515R production asset from immutable release v-090252959e4f6abd and exact committed source 4d40852194a03c844e6afe4e6c36f40378f03dd9; live bytes independently verified after the guarded cutover."
     },
     {
       "id": "storyforge_v5_app_bundle",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/02ac4928ba09",
-      "approved_sha256": "02ac4928ba090912e45b1654cf0036ccabd905a3768af4d1420ea15a324f2f02",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/38522853d79b",
+      "approved_sha256": "38522853d79b18ccbd65e5e551b2d6ee0df86542a039608d325148703133ade1",
       "required_markers": [
         "Back to Matrix",
         "Mentor review unavailable",
         "StoryForge could not open safely"
       ],
-      "local_source_path": "storyforge-v5/dist/assets/app.02ac4928ba09.js",
-      "local_source_note": "B1-515 fast voice repair production asset from immutable release v-ca07600d8ba91f43 and exact committed source 9934fb49d7529f4f607530c5a0c98e99c07ea91c; live bytes independently verified after the guarded cutover."
+      "local_source_path": "storyforge-v5/dist/assets/app.38522853d79b.js",
+      "local_source_note": "B1-515R production asset from immutable release v-090252959e4f6abd and exact committed source 4d40852194a03c844e6afe4e6c36f40378f03dd9; live bytes independently verified after the guarded cutover."
     },
     {
       "id": "storyforge_v5_auth_bundle",
@@ -339,15 +343,15 @@
     {
       "id": "storyforge_v5_styles",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/2fdd3fe16fd0",
-      "approved_sha256": "2fdd3fe16fd072a2042d1191f9610576a5127e02075e0c6440f4ca9bfb316d24",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/5bc17e7089dd",
+      "approved_sha256": "5bc17e7089dde8092cc0494eb6658706fb60698c852d604c2a0e2ac39e71cb61",
       "required_markers": [
         ".homeGrid",
         ".wsGrid",
         "prefers-reduced-motion"
       ],
-      "local_source_path": "storyforge-v5/dist/assets/styles.2fdd3fe16fd0.css",
-      "local_source_note": "B1-515 fast voice repair production asset from immutable release v-ca07600d8ba91f43 and exact committed source 9934fb49d7529f4f607530c5a0c98e99c07ea91c; live bytes independently verified after the guarded cutover."
+      "local_source_path": "storyforge-v5/dist/assets/styles.5bc17e7089dd.css",
+      "local_source_note": "B1-515R production asset from immutable release v-090252959e4f6abd and exact committed source 4d40852194a03c844e6afe4e6c36f40378f03dd9; live bytes independently verified after the guarded cutover."
     },
     {
       "id": "storyforge_v5_font_archivo_normal",
@@ -570,7 +574,7 @@
     {
       "id": "storyforge_app_extensionless_alias",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/02ac4928ba09",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/38522853d79b",
       "method": "GET",
       "expected_status": 200,
       "expected_headers": {
