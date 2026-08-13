@@ -814,6 +814,7 @@ const api = Object.freeze({
   publishMentorNote: (id, body) => auth.request(`/api/mentor-notes/${id}/publish`, jsonOptions('POST', body)),
   discardMentorNote: (id, body) => auth.request(`/api/mentor-notes/${id}/discard`, jsonOptions('POST', body)),
   uploadMentorNoteAudio: (id, body) => auth.request(`/api/mentor-notes/${id}/audio`, { method: 'POST', body }),
+  transcribeMentorNoteSegment: (id, body) => auth.request(`/api/mentor-notes/${id}/segments`, { method: 'POST', body }),
   mentorNotePlayback: (id) => auth.request(`/api/mentor-notes/${id}/playback`),
 });
 
@@ -1289,6 +1290,7 @@ function renderShell() {
 
 function clearOverlays() {
   void cancelPurposefulVersionVoice();
+  void cancelMentorNoteRecording();
   stopAudioPlayback();
   activeAudioAssemblyPrompt?.interrupt();
   if (captureSaveInFlight) captureSaveInterrupted = true;
@@ -3028,9 +3030,8 @@ async function openCapture({
       startVoicePolling();
       void pollVoiceRecording();
     } else if (voice) {
-      window.setTimeout(() => {
-        void voiceStart();
-      }, 350);
+      const voiceButton = $('[data-voice-start]');
+      if (voiceButton) voiceButton.classList.add('suggested');
     }
   }
   $('#capTitle')?.focus({ preventScroll: true });
@@ -3039,6 +3040,7 @@ async function openCapture({
 function closeOverlay(node) {
   if (!node) return;
   if (node === room || node === quick) stopAudioPlayback();
+  if (node === room) void cancelMentorNoteRecording();
   if (node === capture) {
     const pendingDraft = state.captureDraftSaveTimer ? captureDraftPayload() : null;
     window.clearTimeout(state.captureDraftSaveTimer);
@@ -4465,7 +4467,14 @@ function normalizeMentorNote(raw = {}) {
     authorName: String(firstDefined(raw.authorName, raw.author_name, raw.mentor_name, 'Reviewer')),
     rowVersion: Number(firstDefined(raw.rowVersion, raw.row_version, 0)) || 0,
     audioAssetId: String(firstDefined(raw.audioAssetId, raw.audio_asset_id, raw.audio?.id, '')),
-    hasAudio: Boolean(firstDefined(raw.hasAudio, raw.has_audio, raw.audioState === 'verified', raw.audioAssetId, raw.audio_asset_id, false)),
+    hasAudio: Boolean(
+      raw.hasAudio === true
+      || raw.has_audio === true
+      || raw.audioState === 'verified'
+      || raw.audio_state === 'verified'
+      || raw.audioAssetId
+      || raw.audio_asset_id
+    ),
     createdAt: isoValue(firstDefined(raw.createdAt, raw.created_at)),
     publishedAt: isoValue(firstDefined(raw.publishedAt, raw.published_at)),
   };
@@ -4494,10 +4503,13 @@ function mentorNotesMarkup(story) {
     ? normalizeMentorNote(state.mentorNoteDraft || notes.find((note) => note.state === 'draft') || {})
     : null;
   if (draft?.id) state.mentorNoteDraft = draft;
-  const recordingState = state.mentorNoteRecording?.recorder?.state || '';
+  const recordingState = state.mentorNoteRecording?.phase || '';
   const isRecording = recordingState === 'recording';
   const isPaused = recordingState === 'paused';
   const adminWriter = canWriteMentorNotes() && canAdminReview();
+  const activeRecording = state.mentorNoteRecording?.noteId === draft?.id
+    ? state.mentorNoteRecording
+    : null;
   return `<section class="railCard b1511MentorNotes b1513r3Feedback" aria-labelledby="b1513r3FeedbackTitle">
     <div class="b1513r3FeedbackHeader"><div><div class="rLbl label-cy" id="b1513r3FeedbackTitle">Mentor feedback</div><p>${canWriteMentorNotes() ? 'Type feedback or speak instead of typing. Review the transcript before publishing it to the student.' : 'Your mentor’s words stay readable here, with the original voice recording whenever one was shared.'}</p></div><span class="b1513r3FeedbackBadge">Transcript + original voice</span></div>
     <div class="b1511MentorNoteList">${published.length ? published.map((note) => `<article class="b1511MentorNote b1513r3FeedbackNote ${note.internalOnly ? 'internal' : ''}">
@@ -4506,16 +4518,16 @@ function mentorNotesMarkup(story) {
       ${!note.internalOnly && (note.hasAudio || note.audioAssetId) ? `<div class="b1513r3AudioRow"><button class="rowBtn pri" type="button" data-play-mentor-note="${attr(note.id)}">▶ Listen to original voice</button><span class="b1513r3AudioPromise"><b>Original mentor recording</b><br>Authorized playback for this student only.</span><div class="b1511MentorAudio" data-mentor-note-player="${attr(note.id)}"></div></div>` : ''}
     </article>`).join('') : '<div class="storyEmpty">No published mentor feedback yet.</div>'}</div>
     ${canWriteMentorNotes() ? `<div class="b1511MentorComposer b1513r3Composer" data-mentor-note-composer>
-      <div class="b1513r3ComposerTop"><div class="b1513r3ComposerTitle">Speak instead of type<span>Your recording becomes an editable transcript; the original audio stays attached.</span></div><span class="b1513r3RecordState ${isRecording ? 'recording' : ''}" aria-live="polite"><i></i>${isRecording ? 'Recording now' : isPaused ? 'Recording paused' : draft?.hasAudio ? 'Audio captured · transcript ready' : 'Ready'}</span></div>
+      <div class="b1513r3ComposerTop"><div class="b1513r3ComposerTitle">Give ${esc(story.studentName?.split(/\s+/)[0] || 'the student')} feedback<span>Type, or use the same StoryForge voice workflow: Start, Pause, Resume, Stop, edit, then publish.</span></div><span class="b1513r3RecordState ${isRecording ? 'recording' : ''}" aria-live="polite"><i></i>${isRecording ? `Recording · ${voiceTime(state.mentorNoteRecording?.durationMs || 0)}` : isPaused ? 'Paused · nothing lost' : draft?.hasAudio ? 'Audio captured · transcript ready' : 'Ready · microphone off'}</span></div>
       <label class="fLbl" for="mentorNoteText">${draft?.id ? 'Editable transcript or typed feedback' : 'Student-facing feedback'}</label>
-      <textarea id="mentorNoteText" rows="6" placeholder="Type feedback, or record and edit the transcript before publishing.">${esc(draft?.body || '')}</textarea>
+      <textarea id="mentorNoteText" rows="6" placeholder="Type feedback, or record and edit the transcript before publishing.">${esc(activeRecording?.transcript ?? draft?.body ?? '')}</textarea>
       <div class="b1513r3TranscriptHint"><span aria-hidden="true">✎</span><span>Transcription is a draft. Correct names or clinical terminology here before the student sees it.</span></div>
-      ${adminWriter ? `<label class="b1513r3Internal"><input id="mentorNoteInternal" type="checkbox" ${draft?.internalOnly ? 'checked' : ''} ${draft?.id ? 'disabled' : ''}><span><b>Private admin note</b>Never visible to the student and never eligible for student audio playback.</span></label>` : ''}
+      ${adminWriter && draft?.internalOnly ? '<div class="b1513r3Internal"><span><b>Legacy private admin draft</b>This existing draft remains admin-only and cannot be published. Use the separate Private Admin Note field for new private notes.</span></div>' : ''}
       <div class="inlineActions">
         <button class="rowBtn" type="button" data-save-mentor-note>${draft?.id ? 'Update draft' : 'Save draft'}</button>
-        ${globalThis.MediaRecorder ? `<button class="rowBtn ${isRecording ? 'danger' : ''}" type="button" data-record-mentor-note>${isRecording || isPaused ? '■ Stop & transcribe' : '🎙 Record feedback'}</button>${isRecording ? '<button class="rowBtn" type="button" data-pause-mentor-note>Ⅱ Pause</button>' : ''}${isPaused ? '<button class="rowBtn" type="button" data-resume-mentor-note>▶ Resume</button>' : ''}` : ''}
+        ${globalThis.MediaRecorder ? `<button class="rowBtn ${isRecording || isPaused ? 'danger' : ''}" type="button" data-record-mentor-note>${isRecording || isPaused ? '■ Stop & review' : '🎙 Start recording'}</button>${isRecording ? '<button class="rowBtn" type="button" data-pause-mentor-note>Ⅱ Pause</button>' : ''}${isPaused ? '<button class="rowBtn" type="button" data-resume-mentor-note>▶ Resume</button>' : ''}` : ''}
         ${draft?.id ? `<button class="noteSend" type="button" data-publish-mentor-note ${draft.internalOnly ? 'disabled' : ''}>Publish transcript + audio</button><button class="rowBtn" type="button" data-discard-mentor-note>Discard draft</button>` : ''}
-      </div><div class="b1513r3PublishLaw"><b>Publication boundary:</b> only a published, student-facing note appears for the student. Drafts remain reviewer-only. Private admin notes remain admin-only.</div>
+      </div><div class="b1513r3PublishLaw"><b>Student will receive:</b> ✓ readable transcript ${draft?.hasAudio || isRecording || isPaused ? '✓ original voice recording' : ''}<br><b>Publication boundary:</b> only a published, student-facing note appears for the student. Drafts remain reviewer-only. Private admin notes remain admin-only.</div>
     </div>` : ''}
   </section>`;
 }
@@ -4947,7 +4959,7 @@ async function moveStoryMedia(id, delta) {
   notify('Media order saved.', '✓');
 }
 
-function adminReviewRailMarkup(story) {
+function adminReviewWorkspaceMarkup(story) {
   const notes = asArray(story.internalNotes);
   const direct = state.capabilities?.adminReviewControls === true;
   const perUseEnabled = direct && state.capabilities?.perUseScoring === true;
@@ -4959,17 +4971,16 @@ function adminReviewRailMarkup(story) {
     ps_only: ['ps'], interview_only: ['iv'], both: ['ps', 'iv'], neither: ['later'],
   })[story.reviewSuitability] || []);
   const scoreControl = (key, label) => `<div class="b1515PerUseScore"><span>${esc(label)}</span><div role="group" aria-label="${esc(label)} score">${[1, 2, 3, 4, 5].map((score) => `<button type="button" data-admin-use-score="${key}" data-value="${score}" class="${Number(story.perUseScores?.[key] || 0) >= score ? 'on' : ''}" aria-pressed="${Number(story.perUseScores?.[key] || 0) === score}">★<span class="srOnly">${score}</span></button>`).join('')}</div><input type="hidden" data-admin-use-score-value="${key}" value="${Number(story.perUseScores?.[key] || 0)}"></div>`;
-  return `<form id="adminStoryReviewForm" class="railCard adminReviewForm">
-    <div class="rLbl">Administrator review</div>
+  return `<section class="b1515AdminReviewWorkspace" aria-labelledby="adminReviewTitle"><form id="adminStoryReviewForm" class="railCard adminReviewForm">
+    <div class="b1515ReviewHeading"><div><div class="rLbl" id="adminReviewTitle">Mentor Review</div><p>Review ${esc(story.studentName?.split(/\s+/)[0] || 'this student')}’s story with direct, audited controls.</p></div><span class="cohortChip">Administrator capability</span></div>
     ${direct ? `<div class="fLbl">Review status</div><div class="b1515AdminSegments" role="group" aria-label="Review status">${['awaiting', 'in_review', 'changes', 'reviewed', 'approved'].map((status) => `<button type="button" data-admin-review-status="${status}" class="${story.status === status ? `on ${STATUS[status].col}` : ''}" aria-pressed="${story.status === status}">${esc(STATUS[status].label)}</button>`).join('')}</div><input type="hidden" id="adminReviewStatus" value="${attr(story.status)}">
       <div class="fLbl">Administrator score</div><div class="b1515AdminStars" role="group" aria-label="Administrator score">${[1, 2, 3, 4, 5].map((score) => `<button type="button" data-admin-review-score="${score}" class="${story.mentorScore >= score ? 'on' : ''}" aria-pressed="${story.mentorScore === score}">★<span class="srOnly">${score}</span></button>`).join('')}<span>${story.mentorScore ? `${story.mentorScore}/5` : 'Not scored'}</span></div><input type="hidden" id="adminReviewScore" value="${story.mentorScore || ''}">
       ${perUseEnabled ? `<fieldset class="b1515Suitability"><legend class="fLbl">Story suitability · choose every fit</legend>${useOptions.map(([value, label]) => `<label><input type="checkbox" data-admin-suitability="${value}" ${initialSuitability.has(value) ? 'checked' : ''}> <span>${label}</span></label>`).join('')}</fieldset><div class="b1515PerUse"><div class="fLbl">Score for each use</div>${useOptions.map(([key, label]) => scoreControl(key, label)).join('')}</div>` : `<label class="fLbl" for="adminReviewSuitability">Story suitability</label><select id="adminReviewSuitability" class="releaseSelect"><option value="">Not classified</option>${Object.entries(SUITABILITY).map(([value, label]) => `<option value="${value}" ${story.reviewSuitability === value ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select>`}
       ${state.capabilities?.storyPromotions ? `<div class="b1515Promotion"><div class="fLbl">Prepare downstream use</div><p>Creates a bounded, versioned handoff only after the production service accepts it.</p><div class="inlineActions"><button class="rowBtn" type="button" data-admin-promote="personal-statement">Promote to Personal Statement</button><button class="rowBtn" type="button" data-admin-promote="interview-prep">Promote to IV Prep On-Call StoryForge Content</button></div></div>` : ''}` : `<label class="fLbl" for="adminReviewStatus">Review status</label><select id="adminReviewStatus" class="releaseSelect">${['in_review', 'changes', 'reviewed', 'approved'].map((status) => `<option value="${status}" ${story.status === status ? 'selected' : ''}>${esc(STATUS[status].label)}</option>`).join('')}</select><label class="fLbl" for="adminReviewScore">Administrator score</label><select id="adminReviewScore" class="releaseSelect"><option value="">Not scored</option>${[1, 2, 3, 4, 5].map((score) => `<option value="${score}" ${story.mentorScore === score ? 'selected' : ''}>${score} / 5</option>`).join('')}</select><label class="fLbl" for="adminReviewSuitability">Story suitability</label><select id="adminReviewSuitability" class="releaseSelect"><option value="">Not classified</option>${Object.entries(SUITABILITY).map(([value, label]) => `<option value="${value}" ${story.reviewSuitability === value ? 'selected' : ''}>${esc(label)}</option>`).join('')}</select>`}
-    <label class="fLbl" for="adminStudentFeedback">Student-visible feedback</label><textarea id="adminStudentFeedback" rows="5" placeholder="The student will see this feedback and your administrator attribution."></textarea>
-    <label class="fLbl" for="adminInternalNote">Internal administrator note</label><textarea id="adminInternalNote" class="internalNoteField" rows="4" placeholder="Visible only to StoryForge administrators."></textarea>
-    <p class="stageHint">Internal notes never appear to students or mentors. Saving is version-checked and audit logged.</p>
+    <label class="fLbl" for="adminInternalNote">Private admin note · only you / authorized admins can see this</label><textarea id="adminInternalNote" class="internalNoteField" rows="4" placeholder="Never visible to the student or mentor."></textarea>
+    <p class="stageHint">This private note is separate from the Mentor Feedback workspace below. It never appears to students or mentors.</p>
     <button class="noteSend" type="submit">Save review</button>
-  </form>${state.capabilities?.taxonomy ? `<div class="railCard b1511AdminTaxonomy"><div class="rLbl">Story categories</div>${categoryButtons(story, { admin: true })}<div class="rLbl b1511TaxonomyHeading">Where this story could be used</div>${intendedUseButtons(story, { admin: true })}</div>` : ''}<div class="railCard adminInternalNotes"><div class="rLbl">Internal administrator notes</div>${notes.length ? notes.map((note) => `<div class="noteItem"><div class="nt">${esc(note.body)}</div><div class="nd">${esc(firstDefined(note.adminName, note.admin_name, 'Administrator'))} · ${esc(formatDateTime(firstDefined(note.createdAt, note.created_at)))}</div></div>`).join('') : '<div class="stageHint">No internal notes.</div>'}</div>`;
+  </form>${mentorNotesMarkup(story)}<div class="railCard adminInternalNotes"><div class="rLbl">Private admin note history</div>${notes.length ? notes.map((note) => `<div class="noteItem"><div class="nt">${esc(note.body)}</div><div class="nd">${esc(firstDefined(note.adminName, note.admin_name, 'Administrator'))} · ${esc(formatDateTime(firstDefined(note.createdAt, note.created_at)))}</div></div>`).join('') : '<div class="stageHint">No private admin notes.</div>'}</div></section>`;
 }
 
 function renderStoryRoom({ adminStory = null } = {}) {
@@ -5031,7 +5042,7 @@ function renderStoryRoom({ adminStory = null } = {}) {
         </div>
         ${versionTab ? `<form id="storyVersionForm" data-version-key="${attr(versionTab)}" data-row-version="${attr(selectedVersion?.rowVersion || 0)}" data-save-mode="save">
           <div class="b1514VersionIntro"><div><span class="eyebrow">Purposeful telling</span><h2>${versionTab === 'thirty_second' ? '30-Second Version' : 'NNQ Setup'}</h2><p>${versionTab === 'thirty_second' ? 'Shape the essential moment for a concise interview response. Aim for about 75–90 spoken words (≈30 seconds).' : 'Set up the story so it naturally ends on a question you want the interviewer to ask.'}</p></div>${selectedVersion ? `<span class="cohortChip">Started ${esc(formatDate(selectedVersion.createdAt))} · ${selectedVersion.source === 'voice' ? '🎙 voice' : '⌨ typed'} · saved ${esc(formatDateTime(selectedVersion.updatedAt))}</span>` : '<span class="cohortChip">Not started — type it, or tell it out loud</span>'}</div>
-          ${mentor ? `<div class="storyProse" data-empty="${text ? 'false' : 'true'}">${text ? esc(text) : '<span class="storyEmpty">This purposeful version has not been written yet.</span>'}</div>` : `<label class="srOnly" for="storyVersionText">${versionTab === 'thirty_second' ? '30-Second Version' : 'NNQ Setup'}</label><textarea class="storyProse storyProseEdit b1514VersionEditor" id="storyVersionText" maxlength="20000" placeholder="Keep the same truth. Shape this telling for its purpose.">${esc(text)}</textarea><div class="inlineActions"><button class="btnSave" type="submit">Save this version</button>${state.capabilities?.voiceCapture ? '<button class="rowBtn" type="button" data-version-voice>🎙 Speak instead of type</button>' : ''}${selectedVersion ? '<button class="rowBtn" type="button" data-version-mode="append">Append</button><button class="rowBtn" type="button" data-version-mode="retell">Retell from scratch</button>' : ''}<span class="saveState" data-version-voice-status>Every saved change remains in version history.</span></div>${selectedVersion?.audioAssetId ? `<div class="b1514VersionAudio"><button class="rowBtn" type="button" data-version-audio="${attr(selectedVersion.audioAssetId)}">▶ Play original telling</button><div data-version-audio-host></div></div>` : ''}`}
+          ${mentor ? `<div class="storyProse" data-empty="${text ? 'false' : 'true'}">${text ? esc(text) : '<span class="storyEmpty">This purposeful version has not been written yet.</span>'}</div>` : `<label class="srOnly" for="storyVersionText">${versionTab === 'thirty_second' ? '30-Second Version' : 'NNQ Setup'}</label><textarea class="storyProse storyProseEdit b1514VersionEditor" id="storyVersionText" maxlength="20000" placeholder="Keep the same truth. Shape this telling for its purpose.">${esc(text)}</textarea><div class="inlineActions"><button class="btnSave" type="submit">Save this version</button>${state.capabilities?.voiceCapture ? '<button class="rowBtn" type="button" data-version-voice>🎙 Start recording</button><button class="rowBtn" type="button" data-version-voice-pause hidden>Pause</button>' : ''}${selectedVersion ? '<button class="rowBtn" type="button" data-version-mode="append">Append</button><button class="rowBtn" type="button" data-version-mode="retell">Retell from scratch</button>' : ''}<span class="saveState" data-version-voice-status>Microphone off. Every saved change remains in version history.</span></div>${selectedVersion?.audioAssetId ? `<div class="b1514VersionAudio"><button class="rowBtn" type="button" data-version-audio="${attr(selectedVersion.audioAssetId)}">▶ Play original telling</button><div data-version-audio-host></div></div>` : ''}`}
           ${!mentor ? `<div class="b1514VersionCount" data-version-word-count aria-live="polite">${versionWords ? `≈ ${versionWords} words${versionTab === 'thirty_second' ? ` · ${versionWords <= 95 ? 'inside' : 'over'} the ~30-second target` : ''}` : ''}</div><div class="origNote">Append adds to what’s here. Retell starts fresh — your previous telling is kept in this version’s history and can be restored.</div>` : ''}
           ${selectedVersion?.history?.length ? `<details class="b1514VersionHistory"><summary>Earlier tellings (${selectedVersion.history.length})</summary>${selectedVersion.history.map((revision) => `<article><p>${esc(revision.body)}</p><div class="inlineActions"><small>${esc(formatDateTime(revision.savedAt))} · ${revision.source === 'voice' ? '🎙 voice' : '⌨ typed'}</small>${revision.audioAssetId ? `<button class="rowBtn" type="button" data-version-audio="${attr(revision.audioAssetId)}">▶ Play original telling</button><div data-version-audio-host></div>` : ''}${!mentor ? `<button class="rowBtn" type="button" data-version-restore="${attr(revision.id)}">Restore this telling</button>` : ''}</div></article>`).join('')}</details>` : ''}
         </form>` : !mentor && workingTab ? `<form id="storyEditForm">
@@ -5056,6 +5067,8 @@ function renderStoryRoom({ adminStory = null } = {}) {
             <div class="lessonTxt">${story.lesson ? esc(story.lesson) : '<span class="storyEmpty">No lesson added yet.</span>'}</div>
           </div>` : ''}`}
 
+        ${adminReviewer ? adminReviewWorkspaceMarkup(story) : ''}
+
         ${storyMediaMarkup(story)}
         <div class="reflBlock">
           <div class="eyebrow">Reflection</div>
@@ -5073,7 +5086,7 @@ function renderStoryRoom({ adminStory = null } = {}) {
       <aside>
         ${visibilityCard(story, mentor)}
         ${!mentor && state.capabilities?.peerShare ? `<form id="peerShareForm" class="railCard b1515PeerShare"><div class="rLbl">Share with a classmate for thoughts</div><p class="stageHint">Select one or more eligible classmates in your authorized cohort/session scope. They receive read/listen access only to this shared story and can leave bounded feedback.</p>${state.peerCandidatesError ? `<div class="b1514RaNotice" role="status">${esc(state.peerCandidatesError)} No share can be created until the authorized list loads.</div>` : state.peerCandidates.length ? `<fieldset class="b1515PeerCandidates"><legend class="fLbl">Eligible classmates</legend>${state.peerCandidates.map((peer) => `<label><input type="checkbox" data-peer-recipient="${attr(peer.id)}"> <span>${esc(peer.displayName || 'Eligible classmate')}</span></label>`).join('')}</fieldset>` : '<div class="stageHint">No eligible classmates are available in your current authorized scope.</div>'}<label class="b1515PeerConfirm"><input type="checkbox" id="peerShareConfirm" required> I chose these classmates and understand I can revoke each private grant.</label><button class="rowBtn pri" type="submit" ${!state.peerCandidates.length ? 'disabled' : ''}>Create private share</button></form>` : ''}
-        ${adminReviewer ? adminReviewRailMarkup(story) : presentationSectionVisible('reviewSubmission') ? `<div class="railCard ${mentor ? 'advPanel' : ''}">
+        ${adminReviewer ? '' : presentationSectionVisible('reviewSubmission') ? `<div class="railCard ${mentor ? 'advPanel' : ''}">
           <div class="rLbl">${esc(presentationSection('reviewSubmission').title)}</div>
           <div>${statusChip(story)}</div>
           <div class="stageHint">${esc(presentationSection('reviewSubmission').helper || STATUS[story.status].hint)}</div>
@@ -5084,7 +5097,7 @@ function renderStoryRoom({ adminStory = null } = {}) {
           <div class="tsList">${storyTimestamps(story)}</div>
         </div>` : ''}
 
-        <div class="railCard">
+        ${adminReviewer ? '' : `<div class="railCard">
           <div class="rLbl">Scores</div>
           <div class="fLbl">${mentor ? `${esc(story.studentName.split(/\s+/)[0])}’s own rating` : 'My rating — how much this story matters to you'}</div>
           ${mentor ? `<span class="scoreTag">${story.studentScore ? `<b>${story.studentScore}</b>/5` : 'not rated yet'}</span>` : scorePicker('room-student', story.studentScore)}
@@ -5094,9 +5107,9 @@ function renderStoryRoom({ adminStory = null } = {}) {
             <button class="starBtn ${story.studentStar ? 'on' : ''}" type="button" data-toggle-star="${attr(story.id)}" data-star-kind="student" ${mentor ? 'disabled' : ''}>★</button><span>Student star</span>
             <button class="starBtn mentor ${story.mentorStar ? 'on' : ''}" type="button" data-toggle-star="${attr(story.id)}" data-star-kind="mentor" ${mentor && !adminReviewer ? '' : 'disabled'}>★</button><span>Mentor star</span>
           </div>
-        </div>
+        </div>`}
 
-        <div class="railCard"><div class="rLbl">Classification</div>${classificationButtons(story)}</div>
+        ${adminReviewer ? '' : `<div class="railCard"><div class="rLbl">Classification</div>${classificationButtons(story)}</div>`}
         ${state.capabilities?.taxonomy && presentationSectionVisible('storyCategories') ? `<div class="railCard b1512CompletionField ${incompleteCategories ? 'b1512Incomplete' : ''}" data-completion-field="categories"><div class="rLbl">${esc(presentationSection('storyCategories').title)}</div>
           <p class="stageHint">${esc(presentationSection('storyCategories').helper)}</p>
           ${categoryButtons(story, adminReviewer ? { admin: true } : { readOnly: mentor })}
@@ -5112,12 +5125,12 @@ function renderStoryRoom({ adminStory = null } = {}) {
           ${state.capabilities?.taxonomy ? intendedUseButtons(story, adminReviewer ? { admin: true } : { readOnly: mentor }) : legacyIntendedUseButtons(story)}
           <p class="b1512IncompleteHelp" data-completion-help="uses" ${incompleteUses ? '' : 'hidden'}>${esc(completionMissing.find((item) => item.id === 'uses')?.message || '')}</p>
         </div>` : ''}
-        ${story.status !== 'private' || mentor ? `<div class="railCard ${mentor ? '' : 'advPanel'}">
+        ${!adminReviewer && (story.status !== 'private' || mentor) ? `<div class="railCard ${mentor ? '' : 'advPanel'}">
           <div class="rLbl label-cy">Mentor feedback</div>
           ${feedbackMarkup(story)}
           ${mentor && !adminReviewer ? `<div class="noteCompose"><textarea id="mentorFeedback" placeholder="Leave ${esc(story.studentName.split(/\s+/)[0])} feedback…"></textarea><button class="noteSend" type="button" data-send-feedback>Send feedback</button></div>` : ''}
         </div>` : ''}
-        ${mentorNotesMarkup(story)}
+        ${adminReviewer ? '' : mentorNotesMarkup(story)}
         <div class="railCard">
           <div class="rLbl">History</div>
           ${storyHistoryMarkup(story)}
@@ -7403,7 +7416,6 @@ function renderAdminStory() {
 async function saveAdminStoryReview(form) {
   const story = adminConsoleState().story;
   if (!story) return;
-  const feedback = $('#adminStudentFeedback', form)?.value.trim() || '';
   const internalNote = $('#adminInternalNote', form)?.value.trim() || '';
   const scoreValue = $('#adminReviewScore', form)?.value || '';
   const suitability = $('#adminReviewSuitability', form)?.value || '';
@@ -7425,7 +7437,6 @@ async function saveAdminStoryReview(form) {
       ...(!direct ? { status: $('#adminReviewStatus', form)?.value || story.status } : {}),
       mentorScore: scoreValue ? Number(scoreValue) : null,
       suitability: perUseEnabled ? legacySuitability : suitability || null,
-      ...(feedback ? { studentFeedback: feedback } : {}),
       ...(internalNote ? { internalNote } : {}),
     },
   }));
@@ -7516,6 +7527,105 @@ function renderActiveMentorNoteSurface() {
   else if (canAdminReview() && adminConsoleState().story) renderAdminStory();
 }
 
+function mentorRecordingClock(recording = state.mentorNoteRecording) {
+  if (!recording) return 0;
+  return recording.durationMs + (recording.phase === 'recording' && recording.segmentStartedAt
+    ? Date.now() - recording.segmentStartedAt
+    : 0);
+}
+
+function updateMentorRecordingClock() {
+  const indicator = $('.b1513r3RecordState');
+  const recording = state.mentorNoteRecording;
+  if (!indicator || !recording || recording.phase !== 'recording') return;
+  indicator.innerHTML = `<i></i>Recording · ${voiceTime(mentorRecordingClock(recording))}`;
+}
+
+function appendMentorLiveTranscript(recording, text) {
+  if (state.mentorNoteRecording !== recording || recording.canceled) return;
+  recording.transcript = mergeVoiceTranscript(recording.transcript, text);
+  const field = $('#mentorNoteText');
+  if (field) {
+    field.value = mergeVoiceTranscript(field.value, text);
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  const hint = $('.b1513r3TranscriptHint span:last-child');
+  if (hint) hint.textContent = 'Live transcript updated. Keep speaking, then review names and terminology before publishing.';
+}
+
+async function transcribeMentorSegment(recording, blob, durationMs, seq) {
+  if (!blob.size || recording.canceled) return;
+  const form = new FormData();
+  form.set('seq', String(seq));
+  form.set('durationMs', String(durationMs));
+  form.set('mimeType', recording.mimeType);
+  form.set('expectedVersion', String(recording.expectedVersion));
+  form.set('promptTail', recording.transcript.slice(-2_000));
+  form.set('segment', blob, voiceFileName(seq, recording.mimeType));
+  const result = await api.transcribeMentorNoteSegment(recording.noteId, form);
+  appendMentorLiveTranscript(recording, result?.text || '');
+}
+
+async function beginMentorSegment(recording) {
+  if (state.mentorNoteRecording !== recording || recording.canceled || recording.phase !== 'recording') return;
+  const chunks = [];
+  const recorder = new MediaRecorder(recording.segmentStream, { mimeType: recording.mimeType });
+  recording.segmentRecorder = recorder;
+  recording.segmentChunks = chunks;
+  recorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
+  recorder.start();
+  recording.segmentStartedAt = Date.now();
+  const delay = recording.seq === 0 ? VOICE_SEGMENT_PLAN[0] : VOICE_SEGMENT_PLAN[1];
+  recording.segmentTimeout = window.setTimeout(() => {
+    void closeMentorSegment(recording, { continueRecording: true });
+  }, delay);
+}
+
+async function closeMentorSegment(recording, { continueRecording = false } = {}) {
+  if (!recording?.segmentRecorder || recording.segmentRecorder.state === 'inactive') return;
+  const recorder = recording.segmentRecorder;
+  window.clearTimeout(recording.segmentTimeout);
+  recording.segmentTimeout = 0;
+  const durationMs = Math.max(1, Date.now() - recording.segmentStartedAt);
+  const stopped = new Promise((resolve) => recorder.addEventListener('stop', resolve, { once: true }));
+  recorder.stop();
+  await stopped;
+  const blob = new Blob(recording.segmentChunks, { type: recording.mimeType });
+  const seq = recording.seq;
+  recording.seq += 1;
+  recording.durationMs += durationMs;
+  recording.segmentStartedAt = 0;
+  recording.segmentRecorder = null;
+  recording.transcriptQueue = recording.transcriptQueue
+    .catch(() => {})
+    .then(() => transcribeMentorSegment(recording, blob, durationMs, seq))
+    .catch((error) => {
+      recording.transcriptionError = error.message || 'Live transcription is temporarily delayed.';
+      const hint = $('.b1513r3TranscriptHint span:last-child');
+      if (hint) hint.textContent = `${recording.transcriptionError} The original recording is still active.`;
+    });
+  if (continueRecording && state.mentorNoteRecording === recording && recording.phase === 'recording') {
+    await beginMentorSegment(recording);
+  }
+}
+
+async function cancelMentorNoteRecording({ notifyUser = false } = {}) {
+  const recording = state.mentorNoteRecording;
+  state.mentorNoteRecording = null;
+  if (!recording) return;
+  recording.canceled = true;
+  window.clearTimeout(recording.segmentTimeout);
+  window.clearInterval(recording.clockTimer);
+  for (const recorder of [recording.segmentRecorder, recording.archiveRecorder]) {
+    if (recorder && recorder.state !== 'inactive') {
+      try { recorder.stop(); } catch {}
+    }
+  }
+  recording.stream?.getTracks().forEach((track) => track.stop());
+  recording.segmentStream?.getTracks().forEach((track) => track.stop());
+  if (notifyUser) notify('Mentor recording stopped and discarded. No audio was attached.');
+}
+
 async function saveMentorNoteDraft({ allowEmpty = false } = {}) {
   const story = activeMentorNoteStory();
   const field = $('#mentorNoteText');
@@ -7561,43 +7671,89 @@ async function discardMentorNote() {
 
 async function toggleMentorNoteRecording() {
   if (!canWriteMentorNotes() || !globalThis.MediaRecorder) return;
-  if (['recording', 'paused'].includes(state.mentorNoteRecording?.recorder?.state)) {
-    state.mentorNoteRecording.recorder.stop();
+  const current = state.mentorNoteRecording;
+  if (current && ['recording', 'paused'].includes(current.phase)) {
+    current.phase = 'finishing';
+    window.clearInterval(current.clockTimer);
+    window.clearInterval(current.pollTimer);
+    await closeMentorSegment(current);
+    if (current.archiveRecorder?.state === 'paused') current.archiveRecorder.resume();
+    const stopped = new Promise((resolve) => current.archiveRecorder.addEventListener('stop', resolve, { once: true }));
+    current.archiveRecorder.stop();
+    await stopped;
+    current.stream.getTracks().forEach((track) => track.stop());
+    current.segmentStream.getTracks().forEach((track) => track.stop());
+    await current.transcriptQueue.catch(() => {});
+    if (state.mentorNoteRecording !== current || current.canceled) return;
+    const blob = new Blob(current.archiveChunks, { type: current.mimeType });
+    const form = new FormData();
+    form.append('segment', blob, voiceFileName(0, current.mimeType));
+    form.append('mimeType', current.mimeType);
+    form.append('durationMs', String(current.durationMs));
+    form.append('expectedVersion', String(current.expectedVersion));
+    try {
+      const result = await api.uploadMentorNoteAudio(current.noteId, form);
+      if (
+        state.mentorNoteRecording === current
+        && !current.canceled
+        && String(activeMentorNoteStory()?.id || '') === String(current.storyId)
+        && String(state.user?.id || state.user?.sub || '') === current.identitySub
+      ) {
+        storeMentorNote(result?.note || result);
+        notify('Mentor audio and transcript are ready to review before publishing.', '✓');
+      }
+    } catch (error) {
+      notify(error.message || 'Mentor audio could not be saved. The draft remains private.');
+    } finally {
+      if (state.mentorNoteRecording === current) state.mentorNoteRecording = null;
+      renderActiveMentorNoteSurface();
+    }
     return;
   }
   const draft = state.mentorNoteDraft?.id ? normalizeMentorNote(state.mentorNoteDraft) : await saveMentorNoteDraft({ allowEmpty: true });
   if (!draft) return;
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  const recorder = new MediaRecorder(stream);
-  const chunks = [];
-  const startedAt = performance.now();
-  recorder.addEventListener('dataavailable', (event) => {
-    if (event.data?.size) chunks.push(event.data);
+  const story = activeMentorNoteStory();
+  const identitySub = String(state.user?.id || state.user?.sub || '');
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
   });
-  recorder.addEventListener('stop', async () => {
+  const mimeType = supportedVoiceMimeType();
+  if (!mimeType) {
     stream.getTracks().forEach((track) => track.stop());
-    const activeDraft = normalizeMentorNote(state.mentorNoteDraft || draft);
-    const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
-    const form = new FormData();
-    form.append('segment', blob, 'mentor-note.webm');
-    form.append('mimeType', blob.type);
-    form.append('durationMs', String(Math.max(0, Math.round(performance.now() - startedAt))));
-    form.append('expectedVersion', String(activeDraft.rowVersion));
-    try {
-      const result = await api.uploadMentorNoteAudio(activeDraft.id, form);
-      storeMentorNote(result?.note || result);
-      notify('Mentor audio transcribed. Review and edit the draft before publishing.', '✓');
-    } catch (error) {
-      notify(error.message || 'Mentor audio could not be saved. The draft remains private.');
-    } finally {
-      state.mentorNoteRecording = null;
-      renderActiveMentorNoteSurface();
-    }
-  }, { once: true });
-  state.mentorNoteRecording = { recorder, stream, startedAt };
-  recorder.start();
+    throw new Error('No supported recording format is available.');
+  }
+  const archiveChunks = [];
+  const archiveRecorder = new MediaRecorder(stream, { mimeType });
+  archiveRecorder.addEventListener('dataavailable', (event) => { if (event.data.size) archiveChunks.push(event.data); });
+  const recording = {
+    noteId: draft.id,
+    storyId: story.id,
+    identitySub,
+    expectedVersion: draft.rowVersion,
+    phase: 'recording',
+    stream,
+    segmentStream: stream.clone(),
+    mimeType,
+    archiveRecorder,
+    archiveChunks,
+    segmentRecorder: null,
+    segmentChunks: [],
+    segmentStartedAt: 0,
+    segmentTimeout: 0,
+    clockTimer: 0,
+    seq: 0,
+    durationMs: 0,
+    transcript: String($('#mentorNoteText')?.value || ''),
+    transcriptQueue: Promise.resolve(),
+    transcriptionError: '',
+    canceled: false,
+  };
+  state.mentorNoteRecording = recording;
+  archiveRecorder.start();
+  await beginMentorSegment(recording);
+  recording.clockTimer = window.setInterval(updateMentorRecordingClock, 250);
   renderActiveMentorNoteSurface();
-  notify('Recording mentor note. Stop when you are finished.');
+  notify('Recording started. Your transcript will appear while you speak.');
 }
 
 async function playMentorNote(id, button) {
@@ -7876,27 +8032,118 @@ async function saveThemePreference(theme) {
   notify(theme === 'auto' ? 'Auto theme on — StoryForge follows your device.' : `${theme === 'light' ? 'Light' : 'Dark'} theme saved.`, '✓');
 }
 
-async function togglePurposefulVersionVoice(button) {
-  if (state.versionVoice?.recorder?.state === 'recording') {
-    const current = state.versionVoice;
-    const stopped = new Promise((resolve) => current.recorder.addEventListener('stop', resolve, { once: true }));
-    current.recorder.stop();
-    await stopped;
-    current.stream.getTracks().forEach((track) => track.stop());
-    const durationMs = Math.max(1, Date.now() - current.startedAt);
-    const blob = new Blob(current.chunks, { type: current.mimeType });
-    if (!blob.size) throw new Error('No voice recording was captured.');
-    const form = new FormData();
-    form.set('seq', '0');
-    form.set('durationMs', String(durationMs));
-    form.set('segment', blob, voiceFileName(0, current.mimeType));
+function updatePurposefulVersionVoiceUi(current = state.versionVoice) {
+  const button = $('[data-version-voice]');
+  const pause = $('[data-version-voice-pause]');
+  const status = $('[data-version-voice-status]');
+  if (!button || !current) return;
+  if (current.phase === 'recording') {
+    button.textContent = '■ Stop & review';
+    if (pause) { pause.hidden = false; pause.textContent = 'Pause'; }
+    if (status) status.textContent = `Recording · ${voiceTime(current.durationMs + (current.segmentStartedAt ? Date.now() - current.segmentStartedAt : 0))} · transcript appears while you speak.`;
+  } else if (current.phase === 'paused') {
+    button.textContent = '■ Stop & review';
+    if (pause) { pause.hidden = false; pause.textContent = 'Resume'; }
+    if (status) status.textContent = `Paused · ${voiceTime(current.durationMs)} · nothing lost.`;
+  } else if (current.phase === 'finishing') {
     button.disabled = true;
     button.textContent = 'Preparing transcript…';
-    await api.uploadRecordingSegment(current.recordingId, form);
-    await api.finishRecording(current.recordingId, durationMs);
+    if (pause) pause.hidden = true;
+    if (status) status.textContent = 'Preparing your editable transcript and preserving the original voice.';
+  }
+}
+
+async function pollPurposefulVersionVoice(current) {
+  if (state.versionVoice !== current || current.canceled) return null;
+  const payload = await api.recording(current.recordingId);
+  const recording = payload?.recording || payload;
+  const segments = asArray(firstDefined(recording?.segments, payload?.segments))
+    .slice()
+    .sort((left, right) => Number(firstDefined(left.seq, left.sequence, 0)) - Number(firstDefined(right.seq, right.sequence, 0)));
+  for (const segment of segments) {
+    const seq = Number(firstDefined(segment.seq, segment.sequence, 0));
+    if (current.appliedSegments.has(seq)) continue;
+    if (String(firstDefined(segment.transcribeState, segment.transcribe_state, '')) !== 'transcribed') break;
+    current.appliedSegments.add(seq);
+    const text = String(firstDefined(segment.transcript, segment.text, ''));
+    current.transcript = mergeVoiceTranscript(current.transcript, text);
+    const field = $('#storyVersionText');
+    if (field && text) {
+      field.value = mergeVoiceTranscript(field.value, text);
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+  return payload;
+}
+
+async function uploadPurposefulVersionSegment(current, blob, durationMs, seq) {
+  if (!blob.size || current.canceled) return;
+  const form = new FormData();
+  form.set('seq', String(seq));
+  form.set('durationMs', String(durationMs));
+  form.set('segment', blob, voiceFileName(seq, current.mimeType));
+  await api.uploadRecordingSegment(current.recordingId, form);
+  await pollPurposefulVersionVoice(current);
+}
+
+async function beginPurposefulVersionSegment(current) {
+  if (state.versionVoice !== current || current.canceled || current.phase !== 'recording') return;
+  const chunks = [];
+  const recorder = new MediaRecorder(current.stream, { mimeType: current.mimeType });
+  current.recorder = recorder;
+  current.chunks = chunks;
+  recorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
+  recorder.start();
+  current.segmentStartedAt = Date.now();
+  const delay = current.seq === 0 ? current.segmentPlanMs[0] : current.segmentPlanMs[1];
+  current.segmentTimeout = window.setTimeout(() => {
+    void closePurposefulVersionSegment(current, { continueRecording: true });
+  }, delay);
+}
+
+async function closePurposefulVersionSegment(current, { continueRecording = false } = {}) {
+  if (current.closePromise) return current.closePromise;
+  if (!current.recorder || current.recorder.state === 'inactive') return;
+  current.closePromise = (async () => {
+    window.clearTimeout(current.segmentTimeout);
+    const recorder = current.recorder;
+    const durationMs = Math.max(1, Date.now() - current.segmentStartedAt);
+    const stopped = new Promise((resolve) => recorder.addEventListener('stop', resolve, { once: true }));
+    recorder.stop();
+    await stopped;
+    const blob = new Blob(current.chunks, { type: current.mimeType });
+    const seq = current.seq;
+    current.seq += 1;
+    current.durationMs += durationMs;
+    current.segmentStartedAt = 0;
+    current.recorder = null;
+    current.uploadQueue = current.uploadQueue
+      .catch(() => {})
+      .then(() => uploadPurposefulVersionSegment(current, blob, durationMs, seq));
+    if (continueRecording && state.versionVoice === current && current.phase === 'recording') {
+      await beginPurposefulVersionSegment(current);
+    }
+  })().finally(() => { current.closePromise = null; });
+  return current.closePromise;
+}
+
+async function togglePurposefulVersionVoice(button) {
+  if (state.versionVoice && ['recording', 'paused'].includes(state.versionVoice.phase)) {
+    const current = state.versionVoice;
+    current.phase = 'finishing';
+    window.clearInterval(current.clockTimer);
+    window.clearInterval(current.pollTimer);
+    current.pollTimer = 0;
+    await closePurposefulVersionSegment(current);
+    current.stream.getTracks().forEach((track) => track.stop());
+    await current.uploadQueue;
+    if (!current.seq) throw new Error('No voice recording was captured.');
+    updatePurposefulVersionVoiceUi(current);
+    await api.finishRecording(current.recordingId, current.durationMs);
     let assembled = false;
     for (let attempt = 0; attempt < 46; attempt += 1) {
       const payload = await api.recording(current.recordingId);
+      await pollPurposefulVersionVoice(current);
       const status = recordingState(payload);
       if (['assembled', 'attached'].includes(status)) { assembled = true; break; }
       if (status === 'failed') throw new Error('StoryForge could not prepare this recording. Your typed version is unchanged.');
@@ -7921,39 +8168,80 @@ async function togglePurposefulVersionVoice(button) {
     button.textContent = '🎙 Record again';
     const status = $('[data-version-voice-status]');
     if (status) status.textContent = 'Transcript ready to edit. Original voice will be preserved when you save.';
+    const pause = $('[data-version-voice-pause]');
+    if (pause) pause.hidden = true;
     return;
   }
   if (state.versionVoice) await cancelPurposefulVersionVoice();
   const recording = await api.createRecording();
   const recordingId = String(firstDefined(recording?.recordingId, recording?.recording_id, recording?.recording?.id, ''));
   if (!recordingId) throw new Error('StoryForge could not open a private recording session.');
-  state.versionVoice = { recordingId };
+  state.versionVoice = { recordingId, phase: 'arming' };
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     const mimeType = supportedVoiceMimeType();
     if (!mimeType) { stream.getTracks().forEach((track) => track.stop()); throw new Error('No supported recording format is available.'); }
-    const chunks = [];
-    const mediaRecorder = new MediaRecorder(stream, { mimeType });
-    mediaRecorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
-    state.versionVoice = { recorder: mediaRecorder, stream, chunks, mimeType, recordingId, startedAt: Date.now() };
-    mediaRecorder.start();
+    const plan = asArray(firstDefined(recording?.segmentPlanMs, recording?.segment_plan_ms)).map(Number);
+    const current = {
+      recordingId,
+      phase: 'recording',
+      stream,
+      mimeType,
+      segmentPlanMs: plan.length === 2 ? plan : VOICE_SEGMENT_PLAN,
+      recorder: null,
+      chunks: [],
+      segmentStartedAt: 0,
+      segmentTimeout: 0,
+      clockTimer: 0,
+      pollTimer: 0,
+      seq: 0,
+      durationMs: 0,
+      transcript: '',
+      appliedSegments: new Set(),
+      uploadQueue: Promise.resolve(),
+      closePromise: null,
+      canceled: false,
+    };
+    state.versionVoice = current;
+    await beginPurposefulVersionSegment(current);
+    current.clockTimer = window.setInterval(() => updatePurposefulVersionVoiceUi(current), 250);
+    current.pollTimer = window.setInterval(() => { void pollPurposefulVersionVoice(current); }, 2_000);
+    updatePurposefulVersionVoiceUi(current);
   } catch (error) {
     await cancelPurposefulVersionVoice();
     throw error;
   }
-  button.textContent = '■ Stop and transcribe';
-  const status = $('[data-version-voice-status]');
-  if (status) status.textContent = 'Recording this purposeful telling. You can edit the transcript before saving.';
   window.setTimeout(() => {
-    if (state.versionVoice?.recordingId === recordingId && state.versionVoice?.recorder?.state === 'recording') button.click();
+    if (state.versionVoice?.recordingId === recordingId && ['recording', 'paused'].includes(state.versionVoice?.phase)) button.click();
   }, 10 * 60_000);
+}
+
+async function pausePurposefulVersionVoice() {
+  const current = state.versionVoice;
+  if (!current || !['recording', 'paused'].includes(current.phase)) return;
+  if (current.phase === 'recording') {
+    current.phase = 'paused';
+    window.clearInterval(current.clockTimer);
+    await closePurposefulVersionSegment(current);
+  } else {
+    current.phase = 'recording';
+    await beginPurposefulVersionSegment(current);
+    current.clockTimer = window.setInterval(() => updatePurposefulVersionVoiceUi(current), 250);
+  }
+  updatePurposefulVersionVoiceUi(current);
 }
 
 async function cancelPurposefulVersionVoice() {
   const current = state.versionVoice;
   state.versionVoice = null;
   if (!current) return;
-  if (current.recorder?.state === 'recording') current.recorder.stop();
+  current.canceled = true;
+  window.clearTimeout(current.segmentTimeout);
+  window.clearInterval(current.clockTimer);
+  window.clearInterval(current.pollTimer);
+  if (current.recorder && current.recorder.state !== 'inactive') {
+    try { current.recorder.stop(); } catch {}
+  }
   current.stream?.getTracks().forEach((track) => track.stop());
   if (current.audioAssetId) {
     await api.deleteAudio(current.audioAssetId).catch(() => {});
@@ -8723,6 +9011,10 @@ document.addEventListener('click', async (event) => {
       await togglePurposefulVersionVoice(button);
       return;
     }
+    if (button.matches('[data-version-voice-pause]')) {
+      await pausePurposefulVersionVoice();
+      return;
+    }
     if (button.matches('[data-version-audio]')) {
       await playPurposefulVersionAudio(button.dataset.versionAudio, button);
       return;
@@ -9100,18 +9392,24 @@ document.addEventListener('click', async (event) => {
       return;
     }
     if (button.matches('[data-pause-mentor-note]')) {
-      const activeRecorder = state.mentorNoteRecording?.recorder;
-      if (activeRecorder?.state === 'recording') {
-        activeRecorder.pause();
+      const recording = state.mentorNoteRecording;
+      if (recording?.phase === 'recording') {
+        recording.phase = 'paused';
+        await closeMentorSegment(recording);
+        recording.archiveRecorder.pause();
+        window.clearInterval(recording.clockTimer);
         renderActiveMentorNoteSurface();
         notify('Mentor recording paused.');
       }
       return;
     }
     if (button.matches('[data-resume-mentor-note]')) {
-      const activeRecorder = state.mentorNoteRecording?.recorder;
-      if (activeRecorder?.state === 'paused') {
-        activeRecorder.resume();
+      const recording = state.mentorNoteRecording;
+      if (recording?.phase === 'paused') {
+        recording.archiveRecorder.resume();
+        recording.phase = 'recording';
+        await beginMentorSegment(recording);
+        recording.clockTimer = window.setInterval(updateMentorRecordingClock, 250);
         renderActiveMentorNoteSurface();
         notify('Mentor recording resumed.');
       }
@@ -9542,7 +9840,12 @@ document.addEventListener('compositionend', (event) => {
 
 document.addEventListener('input', (event) => {
   const target = event.target;
-  if (target.id === 'storyVersionText') {
+  if (target.id === 'mentorNoteText' && state.mentorNoteRecording) {
+    state.mentorNoteRecording.transcript = target.value;
+  } else if (target.id === 'storyVersionText') {
+    if (state.versionVoice && ['recording', 'paused'].includes(state.versionVoice.phase)) {
+      state.versionVoice.transcript = target.value;
+    }
     const words = target.value.trim().split(/\s+/).filter(Boolean).length;
     const counter = $('[data-version-word-count]', target.form);
     const key = target.form?.dataset.versionKey;
@@ -10345,6 +10648,7 @@ async function enterFixturePersona(persona) {
 
 function signOut() {
   suspendVoiceForIdentityExit();
+  void cancelMentorNoteRecording();
   stopActivityBeacon();
   state.user = null;
   state.capabilities = Object.freeze({
