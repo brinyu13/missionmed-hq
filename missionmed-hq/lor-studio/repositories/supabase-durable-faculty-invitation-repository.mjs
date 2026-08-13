@@ -20,6 +20,7 @@ const LOR_STAGING_BRANCH = 'lor-staging';
 const RANKLISTIQ_MAIN_BRANCH = 'main';
 const LOR_SCHEMA = 'lor_studio';
 const FACULTY_PURPOSE = 'faculty_private_edit';
+const VERIFIED_CONTEXT_SCHEMA = 'missionmed.lor.verified-faculty-context.v1';
 const SCOPE_SCHEMA = 'missionmed.lor.faculty-verification-scope.v1';
 const DRIVER_BINDING_SCHEMA = 'missionmed.lor.faculty-verification-driver-binding.v1';
 const ATOMIC_RECEIPT_SCHEMA = 'missionmed.lor.atomic-faculty-verification-receipt.v1';
@@ -60,9 +61,24 @@ const FORBIDDEN_RECEIPT_KEYS = new Set([
   'sessionSecret',
   'sessionToken',
 ]);
+const VERIFIED_CONTEXT_KEYS = new Set([
+  'actorRole',
+  'authenticated',
+  'authenticatedSubject',
+  'authoritySource',
+  'bindingRef',
+  'caseId',
+  'clientAsserted',
+  'operation',
+  'purpose',
+  'roleVerified',
+  'schemaVersion',
+]);
 const SCOPE_KEYS = new Set([
   'actorRole',
+  'authenticatedSubject',
   'authoritySource',
+  'bindingRef',
   'caseId',
   'challengeId',
   'clientAsserted',
@@ -94,9 +110,11 @@ const INVITATION_KEYS = new Set([
 ]);
 const DRIVER_BINDING_KEYS = new Set([
   'actorRole',
+  'authenticatedSubject',
   'authoritySource',
   'caseId',
   'challengeRef',
+  'contextBindingRef',
   'invitationId',
   'operation',
   'otpExpiresAt',
@@ -168,14 +186,13 @@ const ATOMIC_RECEIPT_KEYS = new Set([
  * @typedef {object} DurableFacultyRepositoryOptions
  * @property {Record<string, any> | null} [binding]
  * @property {AtomicFacultyVerificationDriver | null} [driver]
- * @property {((request: {invitationId: string, operation: string}) => Promise<any>) | null} [scopeProvider]
+ * @property {((request: {bindingRef: string, operation: string, purpose: string}) => Promise<any>) | null} [scopeProvider]
+ * @property {(() => Promise<any>) | null} [verifiedContextProvider]
  */
 
 /**
  * @typedef {object} FacultyVerificationRequest
- * @property {unknown} [challengeId]
  * @property {unknown} [idempotencyKey]
- * @property {unknown} [invitationId]
  * @property {unknown} [otpCode]
  * @property {unknown} [rawToken]
  * @property {unknown} [recipientEmail]
@@ -256,17 +273,52 @@ function assertDriver(driver) {
   return driver;
 }
 
-function assertScope(rawScope, invitationId) {
+function assertVerifiedContext(rawContext) {
+  if (
+    !rawContext
+    || !hasExactKeys(rawContext, VERIFIED_CONTEXT_KEYS)
+    || rawContext.schemaVersion !== VERIFIED_CONTEXT_SCHEMA
+    || rawContext.authoritySource !== 'server_verified_wordpress_session_crosswalk'
+    || rawContext.authenticated !== true
+    || rawContext.roleVerified !== true
+    || rawContext.clientAsserted !== false
+    || rawContext.actorRole !== 'faculty'
+    || rawContext.operation !== OPERATION
+    || rawContext.purpose !== FACULTY_PURPOSE
+  ) {
+    throw new IntegrationDisabledError('lor_faculty_context', 'VERIFIED_FACULTY_CONTEXT_REQUIRED');
+  }
+  assertCanonicalWpSubject(rawContext.authenticatedSubject, 'AUTHENTICATED_FACULTY_SUBJECT');
+  assertNonEmptyString(rawContext.caseId, 'context.caseId', { maxLength: 200 });
+  assertSha256(rawContext.bindingRef, 'context.bindingRef');
+  return deepFreeze({
+    schemaVersion: VERIFIED_CONTEXT_SCHEMA,
+    authoritySource: rawContext.authoritySource,
+    authenticated: true,
+    roleVerified: true,
+    clientAsserted: false,
+    actorRole: 'faculty',
+    authenticatedSubject: rawContext.authenticatedSubject,
+    caseId: rawContext.caseId,
+    operation: OPERATION,
+    purpose: FACULTY_PURPOSE,
+    bindingRef: rawContext.bindingRef,
+  });
+}
+
+function assertScope(rawScope, context) {
   if (
     !rawScope
     || !hasExactKeys(rawScope, SCOPE_KEYS)
     || rawScope.schemaVersion !== SCOPE_SCHEMA
-    || rawScope.authoritySource !== 'server_resolved_faculty_invitation'
+    || rawScope.authoritySource !== 'server_resolved_faculty_invitation_challenge'
     || rawScope.clientAsserted !== false
     || rawScope.operation !== OPERATION
     || rawScope.actorRole !== 'faculty'
     || rawScope.purpose !== FACULTY_PURPOSE
-    || rawScope.invitationId !== invitationId
+    || rawScope.authenticatedSubject !== context.authenticatedSubject
+    || rawScope.caseId !== context.caseId
+    || rawScope.bindingRef !== context.bindingRef
   ) {
     throw new IntegrationDisabledError('lor_faculty_scope', 'VERIFIED_INVITATION_SCOPE_REQUIRED');
   }
@@ -279,12 +331,14 @@ function assertScope(rawScope, invitationId) {
     authoritySource: rawScope.authoritySource,
     clientAsserted: false,
     actorRole: 'faculty',
+    authenticatedSubject: rawScope.authenticatedSubject,
     caseId: rawScope.caseId,
     invitationId: rawScope.invitationId,
     challengeId: rawScope.challengeId,
     recipientEmailHash: rawScope.recipientEmailHash,
     operation: OPERATION,
     purpose: FACULTY_PURPOSE,
+    bindingRef: rawScope.bindingRef,
   });
 }
 
@@ -363,9 +417,11 @@ function assertDriverAuthorizationBinding(binding, scope, result) {
     || binding.schemaVersion !== DRIVER_BINDING_SCHEMA
     || binding.authoritySource !== 'atomic_durable_otp_invitation_transaction'
     || binding.actorRole !== 'faculty'
+    || binding.authenticatedSubject !== scope.authenticatedSubject
     || binding.caseId !== scope.caseId
     || binding.invitationId !== scope.invitationId
     || binding.challengeRef !== sha256(`lor-studio:challenge:${scope.challengeId}`)
+    || binding.contextBindingRef !== scope.bindingRef
     || binding.recipientEmailHash !== scope.recipientEmailHash
     || binding.operation !== scope.operation
     || binding.purpose !== scope.purpose
@@ -700,6 +756,7 @@ function validateAtomicReceipt(result, command, rawInputs) {
       || command.presentedTokenHash !== record.tokenHash
       || command.presentedRecipientEmailHash !== record.recipientEmailHash
       || record.verifiedFacultyId !== result.authorizationBinding.verifiedPrincipalId
+      || record.verifiedFacultyId !== command.scope.authenticatedSubject
       || usedAt < createdAt
       || usedAt >= expiresAt
       || otpVerifiedAt < createdAt
@@ -727,14 +784,18 @@ function validateAtomicReceipt(result, command, rawInputs) {
 
 export class SupabaseDurableFacultyInvitationRepository extends FacultyInvitationRepositoryPort {
   /** @param {DurableFacultyRepositoryOptions} [options] */
-  constructor({ binding, driver, scopeProvider } = {}) {
+  constructor({ binding, driver, scopeProvider, verifiedContextProvider } = {}) {
     super();
     this.binding = assertBinding(binding);
     this.driver = assertDriver(driver);
     if (typeof scopeProvider !== 'function') {
       throw new IntegrationDisabledError('lor_faculty_scope', 'SCOPE_PROVIDER_REQUIRED');
     }
+    if (typeof verifiedContextProvider !== 'function') {
+      throw new IntegrationDisabledError('lor_faculty_context', 'VERIFIED_CONTEXT_PROVIDER_REQUIRED');
+    }
     this.scopeProvider = scopeProvider;
+    this.verifiedContextProvider = verifiedContextProvider;
     this.durability = 'DURABLE_PROVIDER_BOUND';
     this.isDurable = true;
     this.atomicOtpInvitationAndAudit = true;
@@ -781,9 +842,7 @@ export class SupabaseDurableFacultyInvitationRepository extends FacultyInvitatio
       throw new ValidationError('Faculty verification request must be an object');
     }
     const allowedKeys = new Set([
-      'challengeId',
       'idempotencyKey',
-      'invitationId',
       'otpCode',
       'rawToken',
       'recipientEmail',
@@ -791,8 +850,6 @@ export class SupabaseDurableFacultyInvitationRepository extends FacultyInvitatio
     if (Object.keys(request).some((key) => !allowedKeys.has(key))) {
       throw new ValidationError('Faculty verification request contains forbidden fields');
     }
-    const invitationId = assertNonEmptyString(request.invitationId, 'invitationId', { maxLength: 200 });
-    const challengeId = assertNonEmptyString(request.challengeId, 'challengeId', { maxLength: 200 });
     const idempotencyKey = assertNonEmptyString(request.idempotencyKey, 'idempotencyKey', { maxLength: 200 });
     const rawToken = assertNonEmptyString(request.rawToken, 'rawToken', { maxLength: 512 });
     const otpCode = assertNonEmptyString(request.otpCode, 'otpCode', { maxLength: 64 });
@@ -806,24 +863,44 @@ export class SupabaseDurableFacultyInvitationRepository extends FacultyInvitatio
     } catch {
       presentedRecipientEmailHash = sha256('lor-studio:invalid-presented-faculty-email');
     }
+    let rawContext;
+    try {
+      rawContext = await this.verifiedContextProvider();
+    } catch {
+      throw new IntegrationDisabledError('lor_faculty_context', 'VERIFIED_CONTEXT_PROVIDER_UNAVAILABLE');
+    }
+    let context;
+    try {
+      context = assertVerifiedContext(rawContext);
+    } catch {
+      throw new IntegrationDisabledError('lor_faculty_context', 'VERIFIED_FACULTY_CONTEXT_REQUIRED');
+    }
     let rawScope;
     try {
-      rawScope = await this.scopeProvider({ invitationId, operation: OPERATION });
+      rawScope = await this.scopeProvider({
+        bindingRef: context.bindingRef,
+        operation: OPERATION,
+        purpose: FACULTY_PURPOSE,
+      });
     } catch {
       throw new IntegrationDisabledError('lor_faculty_scope', 'SCOPE_PROVIDER_UNAVAILABLE');
     }
     let scope;
     try {
-      scope = assertScope(rawScope, invitationId);
+      scope = assertScope(rawScope, context);
     } catch {
       throw new IntegrationDisabledError('lor_faculty_scope', 'VERIFIED_INVITATION_SCOPE_REQUIRED');
     }
+    const invitationId = scope.invitationId;
+    const challengeId = scope.challengeId;
     const presentedTokenHash = sha256(rawToken);
     const otpCodeHash = sha256(`lor-studio:otp-attempt:${challengeId}:${otpCode}`);
     const requestHash = hashValue({
       schemaVersion: 'missionmed.lor.faculty-verification-request.v1',
       invitationId,
       challengeIdHash: sha256(challengeId),
+      contextBindingRef: scope.bindingRef,
+      authenticatedSubjectRef: metadataRef('faculty', scope.authenticatedSubject),
       idempotencyKey,
       otpCodeHash,
       presentedRecipientEmailHash,
@@ -904,12 +981,15 @@ export const SUPABASE_DURABLE_FACULTY_INVITATION_CONTRACT = deepFreeze({
   },
   schema: LOR_SCHEMA,
   scopeSchema: SCOPE_SCHEMA,
+  verifiedContextSchema: VERIFIED_CONTEXT_SCHEMA,
   driverBindingSchema: DRIVER_BINDING_SCHEMA,
   atomicReceiptSchema: ATOMIC_RECEIPT_SCHEMA,
   databaseTimeSchema: DATABASE_TIME_SCHEMA,
   attemptStateSchema: ATTEMPT_STATE_SCHEMA,
   safeResultSchema: SAFE_RESULT_SCHEMA,
   purpose: FACULTY_PURPOSE,
+  serverResolution: 'verified_context_then_bound_invitation_and_challenge_without_client_locators',
+  serverResolvedIdentifiers: ['invitationId', 'challengeId'],
   atomicity: 'otp_challenge_invitation_state_and_metadata_audit_same_transaction',
   idempotency: 'durable_key_plus_request_hash_cross_instance',
   privateSessionIssued: false,

@@ -28,6 +28,7 @@ export const PORT_CONTRACTS = deepFreeze({
     verifiedWriteContract: 'verifyAndCommit atomically consumes the OTP challenge, updates invitation state, and appends metadata audit',
     prohibited: [
       'in_memory_production_fallback',
+      'client_asserted_invitation_or_challenge',
       'client_asserted_case_role_purpose_or_principal',
       'split_otp_and_invitation_commit',
       'raw_token_code_email_or_session_secret_receipt',

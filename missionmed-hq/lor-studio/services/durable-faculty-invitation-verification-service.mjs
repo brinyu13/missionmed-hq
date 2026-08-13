@@ -20,15 +20,13 @@ export class DurableFacultyInvitationVerificationService {
       throw new ValidationError('Faculty verification input must be an object');
     }
     const allowedKeys = new Set([
-      'challengeId',
       'idempotencyKey',
-      'invitationId',
       'otpCode',
       'rawToken',
       'recipientEmail',
     ]);
     if (Object.keys(input).some((key) => !allowedKeys.has(key))) {
-      throw new ValidationError('Case, role, purpose, principal, and session state are server-resolved');
+      throw new ValidationError('Invitation, challenge, case, role, purpose, principal, and session state are server-resolved');
     }
     const result = await this.repository.verifyAndCommit(input);
     if (result.verified !== true) {
@@ -40,14 +38,20 @@ export class DurableFacultyInvitationVerificationService {
 
 export const DURABLE_FACULTY_VERIFICATION_SERVICE_CONTRACT = Object.freeze({
   clientAcceptedFields: Object.freeze([
-    'challengeId',
     'idempotencyKey',
-    'invitationId',
     'otpCode',
     'rawToken',
     'recipientEmail',
   ]),
-  serverResolvedFields: Object.freeze(['caseId', 'actorRole', 'purpose', 'verifiedPrincipalId']),
+  serverResolvedFields: Object.freeze([
+    'authenticatedSubject',
+    'caseId',
+    'actorRole',
+    'purpose',
+    'invitationId',
+    'challengeId',
+    'verifiedPrincipalId',
+  ]),
   productionFallback: 'none',
   privateSessionIssued: false,
   privateEditGranted: false,
