@@ -1,0 +1,123 @@
+{
+  "schema_version": 2,
+  "dataset_version": "us-dapip-2026-07-30",
+  "retrieved_at": "2026-07-30T23:39:11.186Z",
+  "ingestion_tool": {
+    "name": "ingest-medical-school-registry.mjs",
+    "version": "1.1.0",
+    "sha256": "70761d690ec0a13dc2ee15b4186d8e100484cb871523a539f58f31a695a9e8bf"
+  },
+  "coverage": {
+    "countries": [
+      "United States"
+    ],
+    "school_types": [
+      "MD",
+      "DO"
+    ],
+    "record_count": 196,
+    "by_school_type": {
+      "MD": 154,
+      "DO": 42
+    },
+    "source_result_count": 196,
+    "records_without_matching_active_program": 17,
+    "normalized_display_name_count": 125,
+    "records_without_normalized_display_name": 71,
+    "superseded_crosswalk_record_count": 1,
+    "completeness_status": "not asserted",
+    "missing_record_inventory": "Not available from DAPIP; use the unlisted-school normalization path."
+  },
+  "integrity": {
+    "records_sha256": "41674dfba514744a685a0aa4073c4e8de5c341a0d57f50e1c59692c8891a5b04",
+    "accreditation_response_count": 196,
+    "accreditation_response_aggregate_sha256": "5af3eac7032bf53270319f821284ca7c16af8386b3a2e495e8b482969289f9d1",
+    "raw_source_snapshot_file": "medical-school-source-snapshot-2026-07-30.json",
+    "raw_source_snapshot_sha256": "0cfd57c29402ab5ba16f92f91bf43d54d57f975a677d481c863c3040931114f0",
+    "dataset_file": "us-dapip-2026-07-30.json",
+    "dataset_file_sha256": "432eb2f7e7686ef0bc20fa6ed6eeb3c269d11919bcca1152736fcc7dbb79ca0b"
+  },
+  "source": {
+    "name": "U.S. Department of Education DAPIP",
+    "public_service_url": "https://ope.ed.gov/dapip/",
+    "api_root": "https://ope.ed.gov/dapip/api",
+    "method": "Agency search followed by exact active agency/program accreditation-record verification.",
+    "agency_program_pairs": [
+      {
+        "agency_id": 46,
+        "program_id": 78,
+        "school_type": "MD"
+      },
+      {
+        "agency_id": 48,
+        "program_id": 52,
+        "school_type": "DO"
+      }
+    ],
+    "search_request_evidence": [
+      {
+        "url": "https://ope.ed.gov/dapip/api/search/advanced",
+        "response_sha256": "1acd23f690faf4b44520b9042e243d96d7cf7322518f4288cbd9862d9eef60d0",
+        "method": "POST",
+        "request_body": {
+          "AgencyIds": [
+            46
+          ],
+          "PageNumber": 1,
+          "RecordsPerPage": 500,
+          "SortField": "institutionName",
+          "SortAscending": true
+        },
+        "agency_id": 46,
+        "expected_program_id": 78
+      },
+      {
+        "url": "https://ope.ed.gov/dapip/api/search/advanced",
+        "response_sha256": "915eb76bb3a245257b5949e35f42158a1d046d55f7e948c344b403ed952243a1",
+        "method": "POST",
+        "request_body": {
+          "AgencyIds": [
+            48
+          ],
+          "PageNumber": 1,
+          "RecordsPerPage": 500,
+          "SortField": "institutionName",
+          "SortAscending": true
+        },
+        "agency_id": 48,
+        "expected_program_id": 52
+      }
+    ],
+    "program_metadata_evidence": [
+      {
+        "url": "https://ope.ed.gov/dapip/api/programs/78",
+        "response_sha256": "f85b447365920e9f2538b3d19986191ede5c75eba3c572f8290c9c0b48179b52"
+      },
+      {
+        "url": "https://ope.ed.gov/dapip/api/programs/52",
+        "response_sha256": "8758b1ee32c789fd85f7ef2183fd3ef7f32c0fd64f56714d542d775dbc74fac5"
+      }
+    ],
+    "reuse_basis": "U.S. Department of Education public-service data; no affirmative license statement was found. Production redistribution requires legal confirmation."
+  },
+  "name_enrichment": {
+    "name": "Wikidata",
+    "url": "https://www.wikidata.org/",
+    "query_service": "https://query.wikidata.org/sparql",
+    "license": "Creative Commons CC0 1.0",
+    "license_url": "https://www.wikidata.org/wiki/Wikidata:Licensing",
+    "response_sha256": "f34a8156ffcefd5c4946480527bfcd2a52859542bc525c8933d8bcdbd183875c",
+    "method": "High-confidence parent/name/city matching with degree-type safeguards; ambiguous matches are rejected."
+  },
+  "limitations": [
+    "DAPIP is agency-reported, unaudited, and may be incomplete or stale.",
+    "Records with a matching active institution-program profile identify the exact DAPIP agency/program accreditation record; display names use the source institution plus degree-program identity when DAPIP does not report a school-level name.",
+    "17 records are returned by the agency-filtered search but lack a matching active institution-program profile record; they remain selectable, are marked for program-record review, and are excluded from verified analytics.",
+    "71 records lack a high-confidence CC0 medical-school display-name match; they retain a source-derived label, are marked for name review, and are excluded from verified analytics.",
+    "1 stale duplicate source crosswalk record is preserved for provenance, marked review-only, excluded from selection, and excluded from verified analytics.",
+    "Aliases are deterministic search aids only; DAPIP institution aliases are excluded because they may describe unrelated schools, hospitals, prior names, or other programs.",
+    "No completeness percentage is asserted and no unsupported missing-school inventory is fabricated.",
+    "No WDOMS, LCME-directory, AACOM, or COCA-directory compilation is redistributed.",
+    "International and unlisted schools remain explicitly unverified and excluded from verified analytics pending normalization."
+  ]
+}

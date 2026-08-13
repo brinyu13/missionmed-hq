@@ -1,0 +1,363 @@
+/* ============================================================
+   D1-409H — TIMELINE BUILDER AAA VISUAL MASTER (FROZEN)
+   One key light: upper-left, 35° elevation, soft editorial daylight.
+   All shadows fall down-right (~115°). Elevation system E0–E4.
+   Codex: consume verbatim. No value in this file may change
+   without a Founder-approved visual addendum.
+   ============================================================ */
+
+/* ---------- FONTS (local, deterministic) ---------- */
+@font-face{font-family:'Archivo';font-weight:600;src:url('assets/fonts/archivo-600.woff2') format('woff2')}
+@font-face{font-family:'Archivo';font-weight:800;src:url('assets/fonts/archivo-800.woff2') format('woff2')}
+@font-face{font-family:'PT Serif';font-weight:400;src:url('assets/fonts/ptserif-400.woff2') format('woff2')}
+@font-face{font-family:'PT Serif';font-weight:700;src:url('assets/fonts/ptserif-700.woff2') format('woff2')}
+@font-face{font-family:'PT Serif';font-weight:700;font-style:italic;src:url('assets/fonts/ptserif-700i.woff2') format('woff2')}
+@font-face{font-family:'Cutive';font-weight:400;src:url('assets/fonts/cutive-400.woff2') format('woff2')}
+@font-face{font-family:'Quicksand';font-weight:500;src:url('assets/fonts/quicksand-500.woff2') format('woff2')}
+@font-face{font-family:'Quicksand';font-weight:700;src:url('assets/fonts/quicksand-700.woff2') format('woff2')}
+@font-face{font-family:'Caveat';font-weight:700;src:url('assets/fonts/caveat-700.woff2') format('woff2')}
+
+/* ---------- DESIGN TOKENS ---------- */
+:root{
+  /* category ink law (frozen) */
+  --cat-work:#0e8a3c; --cat-personal:#652c99; --cat-usmle:#1f66c4;
+  --cat-usce:#e07b18; --cat-res:#e6c015;
+  /* inks */
+  --ink-charcoal:#26282c;        /* all annotations: dates, locations, labels-on-paper */
+  --ink-navy:#1f3a63;            /* plaque title */
+  --ink-letterpress:#b7bdc4;     /* blind deboss */
+  --ink-marker-red:#c03a26;      /* sticky hand + pointer */
+  /* paper stocks */
+  --paper-hotpress:#fbfaf4;      /* plaque, logo mat */
+  --paper-bond:#f8f6ef;          /* profile, color key */
+  --paper-rc:#fdfdfc;            /* photo borders */
+  --paper-sticky:#f2df76;
+  /* ribbon (neutral satin — theme-driven later) */
+  --ribbon-hi:#5f6d88; --ribbon-mid:#4d5b75; --ribbon-lo:#3b4860; --ribbon-fold:#2e394e;
+  /* shadow ink — always the board's shade tone, never black */
+  --shade:15,25,45;
+  /* ELEVATION SYSTEM — offset grows with height, blur ~1.6×/level, opacity falls */
+  --e1-shadow:drop-shadow(1px 2px 3px rgba(var(--shade),.28)) drop-shadow(0 1px 1px rgba(var(--shade),.13));
+  --e2-shadow:0 1px 1px rgba(var(--shade),.16), 3px 4px 10px rgba(var(--shade),.20);
+  --e3-shadow:drop-shadow(0 1px 2px rgba(var(--shade),.18)) drop-shadow(5px 7px 12px rgba(var(--shade),.17));
+  --e4-shadow:0 1px 2px rgba(var(--shade),.18), 6px 9px 20px rgba(var(--shade),.15);
+  --pin-shadow:2px 3px 3px rgba(var(--shade),.40);
+  /* type */
+  --f-display:'Archivo','Liberation Sans',sans-serif;
+  --f-serif:'PT Serif',Georgia,serif;
+  --f-type:'Cutive','American Typewriter','Courier New',monospace;
+  --f-marker:'Caveat','Comic Sans MS',cursive;
+  --f-sans:'Quicksand','Liberation Sans',sans-serif;
+  /* geometry (frozen) */
+  --arrow-body:34px; --arrow-h:48px; --arrow-head:17px; --arrow-notch:9px;
+  --radius-card:12px; --radius-key:11px; --radius-photo:4px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#585c62}
+
+/* ---------- E0 · BOARD — founder chambray, one light ---------- */
+#board{
+  position:relative;width:1920px;height:1080px;overflow:hidden;
+  background:url('assets/tex/board_denim.jpg') 0 0/1920px 1080px no-repeat;
+  font-family:var(--f-serif);
+}
+#board::before{ /* key-light falloff: brightest upper-left, −7% lower-right */
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:linear-gradient(115deg, rgba(255,252,244,.055) 0%, rgba(255,252,244,0) 38%, rgba(var(--shade),.02) 62%, rgba(var(--shade),.075) 100%);
+}
+#board::after{ /* breath of vignette, asymmetric toward lower-right */
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(115% 105% at 42% 38%, transparent 62%, rgba(var(--shade),.10) 100%);
+}
+.layer{position:absolute;inset:0}
+
+/* ---------- E0 · YEAR AXIS — printed navy band (no float shadow) ---------- */
+#axis{position:absolute;left:8px;top:112px;height:60px;display:flex;z-index:4}
+.yseg{
+  position:relative;height:60px;margin-right:-14px;
+  background:linear-gradient(180deg,#365984 0%,#20406a 42%,#16314f 100%);
+  clip-path:polygon(0 0,calc(100% - 15px) 0,100% 50%,calc(100% - 15px) 100%,0 100%,15px 50%);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22), inset 0 -1px 0 rgba(0,0,0,.25);
+}
+.yseg:first-child{clip-path:polygon(0 0,calc(100% - 15px) 0,100% 50%,calc(100% - 15px) 100%,0 100%)}
+.yseg span{font-family:var(--f-display);font-weight:800;color:#f4f7fb;font-size:27px;
+  letter-spacing:-.3px;padding-left:10px;text-shadow:0 1px 1px rgba(0,0,0,.3)}
+#axisDrift{ /* ±1.5% ink density drift across the plate width */
+  position:absolute;left:8px;top:112px;height:60px;width:1904px;z-index:5;pointer-events:none;
+  background:linear-gradient(90deg,rgba(255,255,255,.02) 0%,rgba(0,0,0,.015) 23%,rgba(255,255,255,.018) 47%,rgba(0,0,0,.02) 74%,rgba(255,255,255,.012) 100%);
+}
+
+/* ---------- E1.5 · MILESTONE TAGS — folded card pennants ---------- */
+.flag{position:absolute;z-index:5;display:flex;align-items:flex-start;
+  filter:drop-shadow(1px 2px 2px rgba(var(--shade),.30)) drop-shadow(0 1px 1px rgba(var(--shade),.12))}
+.flag .tag{
+  position:relative;
+  background:url('assets/tex/paper_bond.png') 0 0/130px, linear-gradient(180deg,#c9cdd2,#a4aab1);
+  background-blend-mode:multiply,normal;
+  color:#fff;font-family:var(--f-serif);font-weight:700;font-size:16px;
+  padding:5px 9px 11px;line-height:1;min-width:44px;text-align:center;
+  clip-path:polygon(0 0,100% 0,100% 66%,50% 100%,0 66%);
+  border-radius:5px 5px 0 0;text-shadow:0 1px 1px rgba(0,0,0,.28);
+}
+.flag .tag i{ /* fold crease highlight, off-center */
+  position:absolute;left:46%;top:0;bottom:34%;width:1px;font-style:normal;
+  background:linear-gradient(rgba(255,255,255,.5),rgba(255,255,255,.08));
+}
+.flag .lbl{font-family:var(--f-serif);font-size:19px;color:var(--ink-charcoal);
+  margin-left:8px;margin-top:5px;white-space:nowrap;display:flex;align-items:center;gap:7px}
+.flag .lbl img{height:21px;width:auto;filter:drop-shadow(1px 1px 1px rgba(var(--shade),.18))}
+.flag .stem{position:absolute;left:22px;top:30px;width:2px;height:8px;background:#8b9298}
+
+/* ---------- E1 · ARROWS — matte die-cut cardstock, ONE silhouette ---------- */
+.arrow{
+  position:absolute;height:var(--arrow-h);z-index:3;
+  filter:saturate(var(--sat,1)) var(--e1-shadow);
+}
+.arrow .die{ /* the single continuous die-cut shape — tail notch + body + head */
+  position:absolute;inset:0;
+  clip-path:polygon(
+    0 7px,
+    calc(100% - 17px) 7px,
+    calc(100% - 17px) 0,
+    100% 50%,
+    calc(100% - 17px) 100%,
+    calc(100% - 17px) calc(100% - 7px),
+    0 calc(100% - 7px),
+    9px 50%);
+  background-image:
+    url('assets/tex/paper_rc.png'),                                   /* restrained card grain */
+    linear-gradient(180deg,
+      var(--ci-hi) 14.5%, var(--ci) 25%,
+      var(--ci) 78%, var(--ci-lo) 95%);                               /* ≤6% ink density, print not gel */
+  background-size:150px, 100% 100%;
+  background-position:var(--gx,0) var(--gy,0), 0 0;
+  background-blend-mode:multiply, normal;
+}
+.arrow .die::before{ /* paper edge catching the key light — body top edge */
+  content:"";position:absolute;left:2px;right:19px;top:7px;height:1px;
+  background:rgba(255,255,255,.34);
+}
+.arrow .die::after{ /* tiny dimensional edge — body bottom */
+  content:"";position:absolute;left:2px;right:19px;bottom:7px;height:1px;
+  background:rgba(0,0,0,.14);
+}
+.arrow .al{
+  position:absolute;top:7px;bottom:7px;left:12px;right:22px;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  color:#fff;font-family:var(--f-serif);font-weight:700;font-size:19px;
+  text-shadow:0 1px 0 rgba(0,0,0,.22);z-index:2;
+}
+.arrow .al .alt{white-space:nowrap;display:inline-block}
+.arrow.c-res .al{color:#4c3f06;text-shadow:0 1px 0 rgba(255,255,255,.28)}
+.arrow .date{position:absolute;left:6px;top:-18px;font-family:var(--f-serif);
+  font-size:18px;color:var(--ink-charcoal);white-space:nowrap}
+.arrow .loc{position:absolute;font-family:var(--f-serif);font-size:19px;
+  color:var(--ink-charcoal);white-space:nowrap}
+.arrow .loc.below{left:8px;top:calc(100% - 2px)}
+.arrow .loc.left{right:calc(100% + 16px);top:13px;text-align:right;line-height:1.05}
+/* category ink mixes (hi/lo stay within 6% of base) */
+.c-work{--ci:#0e8a3c;--ci-hi:#15954a;--ci-lo:#0b7f36}
+.c-personal{--ci:#652c99;--ci-hi:#6f35a6;--ci-lo:#5c2790}
+.c-usmle{--ci:#1f66c4;--ci-hi:#2870cf;--ci-lo:#1b5eb8}
+.c-usce{--ci:#e07b18;--ci-hi:#e8851f;--ci-lo:#d47212}
+.c-res{--ci:#e6c015;--ci-hi:#edc91e;--ci-lo:#dcb60e}
+/* the founder's red annotation rectangle on the restuck 2 CS */
+.arrow .hlbox{position:absolute;left:-3px;right:14px;top:4px;bottom:4px;
+  border:3px solid #d0392b;border-radius:2px;z-index:3;pointer-events:none;
+  box-shadow:0 1px 1px rgba(var(--shade),.2)}
+
+/* ---------- E4 · TITLE PLAQUE — hot-press cotton, notched ends ---------- */
+#titleWrap{position:absolute;left:660px;top:4px;width:600px;height:76px;z-index:6;
+  filter:drop-shadow(0 1px 2px rgba(var(--shade),.18)) drop-shadow(6px 9px 18px rgba(var(--shade),.16))}
+#title{
+  position:absolute;inset:0;
+  background:url('assets/tex/paper_hotpress.png') 0 0/300px,
+             linear-gradient(115deg,#ffffff 0%,#f7f5ec 55%,#efecdf 100%);
+  background-blend-mode:multiply,normal;
+  clip-path:polygon(0 0,100% 0,calc(100% - 16px) 50%,100% 100%,0 100%,16px 50%);
+  display:flex;align-items:center;justify-content:center;
+}
+#title::before{content:"";position:absolute;left:20px;right:20px;top:0;height:1px;
+  background:rgba(255,255,255,.9)}
+#title::after{content:"";position:absolute;left:20px;right:20px;bottom:0;height:2px;
+  background:linear-gradient(rgba(150,140,115,.0),rgba(150,140,115,.22))}
+#title span{
+  font-family:var(--f-serif);font-weight:700;color:var(--ink-navy);
+  font-size:34px;letter-spacing:1px;
+  text-shadow:0 1px 0 rgba(255,255,255,.65), 0 -1px 0 rgba(31,58,99,.18); /* letterpress */
+}
+
+/* ---------- E3 · LEATHER CORNERS — black pebbled album pockets ---------- */
+.lcorner{
+  position:absolute;z-index:7;
+  background:url('assets/tex/leather_pebble.png') var(--lx,0) var(--ly,0)/96px,
+             linear-gradient(135deg,rgba(255,255,255,.24),rgba(255,255,255,0) 48%),
+             linear-gradient(135deg,#3d3d44,#17171b 68%,#0c0c0f);
+  background-blend-mode:multiply,screen,normal;
+  filter:drop-shadow(1px 1px 1px rgba(0,0,0,.45)) drop-shadow(2px 3px 4px rgba(var(--shade),.30));
+}
+.lcorner.tl{clip-path:polygon(0 0,100% 0,0 100%)}
+.lcorner.tr{clip-path:polygon(0 0,100% 0,100% 100%)}
+.lcorner.bl{clip-path:polygon(0 0,0 100%,100% 100%)}
+.lcorner.br{clip-path:polygon(100% 0,100% 100%,0 100%)}
+.lcorner svg{position:absolute;inset:0;overflow:visible}
+/* fold ridge along the hypotenuse + pocket shadow under it */
+.lcorner .ridge{position:absolute;inset:0}
+
+/* ---------- E2 · COLOR KEY — pinned bond sheet ---------- */
+#key{position:absolute;left:18px;top:300px;width:416px;height:322px;z-index:4;
+  background:url('assets/tex/paper_bond.png') 0 0/340px,
+             linear-gradient(115deg,#fdfdfa,#f4f2ea);
+  background-blend-mode:multiply,normal;
+  box-shadow:var(--e2-shadow), inset 0 1px 0 rgba(255,255,255,.8), inset 0 -1px 0 rgba(150,140,115,.15);
+  padding:14px;transform:rotate(-.6deg);border-radius:var(--radius-key)}
+#key .inner{background:url('assets/tex/paper_bond.png') 40px 60px/340px,
+             linear-gradient(180deg,#e9eaea,#dddfe1);
+  background-blend-mode:multiply,normal;height:100%;padding:6px 14px 10px;border-radius:7px;
+  box-shadow:inset 0 2px 5px rgba(80,90,100,.16), inset 0 1px 0 rgba(255,255,255,.5)}
+#key h3{font-family:var(--f-sans);font-weight:700;color:#b0392b;font-size:28px;text-align:center;
+  letter-spacing:1px;margin:2px 0 6px;position:relative;display:flex;align-items:center;justify-content:center;gap:12px}
+#key h3 svg{opacity:.75}
+#key h3 em{font-style:normal}
+#key .row{display:flex;align-items:center;margin:7px 0}
+#key .sw{width:52px;height:40px;margin-right:16px;
+  box-shadow:1px 2px 2px rgba(var(--shade),.3), inset 0 2px 0 rgba(255,255,255,.32), inset 0 -3px 4px rgba(0,0,0,.16);
+  border:2px solid #fff}
+#key .row span{font-family:var(--f-sans);font-weight:500;color:#565c62;font-size:23px}
+.sw.c-work{background:var(--cat-work)} .sw.c-personal{background:var(--cat-personal)}
+.sw.c-usmle{background:var(--cat-usmle)} .sw.c-usce{background:var(--cat-usce)} .sw.c-res{background:var(--cat-res)}
+/* pin: nickel sphere + cast shadow ONTO the card + specular */
+#keyPinShadow{position:absolute;left:204px;top:-2px;width:34px;height:14px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(var(--shade),.38),rgba(var(--shade),0) 72%);
+  transform:translate(6px,20px) rotate(12deg);z-index:4}
+#keyPin{position:absolute;left:196px;top:-14px;width:30px;height:30px;border-radius:50%;z-index:5;
+  background:radial-gradient(circle at 34% 30%,#f4f6f8,#a9b0b8 55%,#5f666e 90%);
+  box-shadow:var(--pin-shadow), inset -2px -3px 5px rgba(0,0,0,.25)}
+#keyPin::before{content:"";position:absolute;left:7px;top:6px;width:5px;height:5px;border-radius:50%;
+  background:rgba(255,255,255,.95)} /* hard specular, key-light side */
+
+/* ---------- E2 · PROFILE SHEET — heavy bond, typewriter ---------- */
+#profile{position:absolute;left:18px;top:634px;width:566px;height:428px;z-index:4;
+  background:url('assets/tex/paper_bond.png') 60px 30px/380px,
+             linear-gradient(115deg,#fdfcf6 0%,#f7f5ec 60%,#f1eee2 100%);
+  background-blend-mode:multiply,normal;
+  box-shadow:var(--e2-shadow), inset 0 1px 0 rgba(255,255,255,.8), inset 0 -2px 4px rgba(150,140,115,.10);
+  padding:24px 26px;font-family:var(--f-type);border-radius:var(--radius-card)}
+#profile .txt{font-size:17px;line-height:1.32;color:var(--ink-charcoal);max-width:352px;
+  background-image:url('assets/tex/paper_bond.png'),linear-gradient(var(--ink-charcoal),var(--ink-charcoal));
+  background-size:220px,cover;background-blend-mode:multiply,normal;
+  -webkit-background-clip:text;background-clip:text;color:transparent} /* per-strike ink variance */
+#profile .txt b{font-weight:400;letter-spacing:.3px}
+#profile .txt .h{font-weight:700}
+.gap{height:14px}
+/* mounted-photo well: archival mat with beveled window */
+#photoMat{position:absolute;right:24px;top:24px;width:198px;height:206px;z-index:2;
+  background:url('assets/tex/paper_hotpress.png') 0 0/240px,
+             linear-gradient(115deg,#fcfbf5,#f1eee2);
+  background-blend-mode:multiply,normal;border-radius:6px;
+  box-shadow:0 1px 1px rgba(var(--shade),.14), 2px 3px 8px rgba(var(--shade),.16), inset 0 1px 0 rgba(255,255,255,.85);
+  padding:12px 12px 26px}
+#photoMat .well{width:100%;height:100%;border-radius:3px;position:relative;
+  background:linear-gradient(115deg,#ddd9cd,#d3cfc2 60%,#cbc7ba);
+  box-shadow:inset 0 2px 4px rgba(var(--shade),.28), inset 0 -1px 1px rgba(255,255,255,.55),
+             inset 2px 0 3px rgba(var(--shade),.12)}
+#photoMat .well i{position:absolute;left:0;right:0;bottom:7px;text-align:center;font-style:normal;
+  font-family:var(--f-type);font-size:10px;letter-spacing:1.5px;color:#a49f90;
+  text-shadow:0 1px 0 rgba(255,255,255,.6)}
+#photoMat small{position:absolute;left:0;right:0;bottom:7px;text-align:center;
+  font-family:var(--f-type);font-size:10px;color:#8f8a7c;letter-spacing:.5px}
+
+/* ---------- E3/E4 · STICKY NOTE — pulp, curl, hand ---------- */
+#sticky{
+  position:absolute;left:1180px;top:214px;width:136px;height:132px;transform:rotate(7deg);
+  background:url('assets/tex/sticky_pulp.jpg') 0 0/200px,
+             linear-gradient(160deg,#f9ec96 0%,#f3df67 70%,#eed553 100%);
+  background-blend-mode:multiply,normal;
+  display:flex;align-items:center;justify-content:center;text-align:center;z-index:4;
+  border-radius:2px 2px 10px 2px;
+  box-shadow:0 1px 2px rgba(var(--shade),.22),               /* adhered top edge: tight */
+             7px 10px 16px rgba(var(--shade),.16);            /* lifted body: soft, down-right */
+}
+#sticky::before{content:"";position:absolute;left:0;right:0;top:0;height:15px;
+  background:linear-gradient(rgba(255,255,255,.28),rgba(255,255,255,0))} /* adhesive band */
+#sticky::after{content:"";position:absolute;right:-1px;bottom:-1px;width:44px;height:36px;
+  background:linear-gradient(315deg,#dcbf3f 0%,#eeD75B 48%,#f5e88f 100%);
+  box-shadow:-5px -5px 8px rgba(var(--shade),.18);
+  transform:rotate(6deg);transform-origin:bottom right;border-radius:0 0 12px 3px}
+#sticky span{font-family:var(--f-marker);font-weight:700;color:var(--ink-marker-red);
+  font-size:26px;line-height:.98;transform:rotate(-1.5deg)}
+#redptr{position:absolute;z-index:5;left:1104px;top:246px;width:84px;height:52px;
+  filter:drop-shadow(1px 1px 1px rgba(var(--shade),.2))}
+
+/* ---------- E3 · PHOTOGRAPHS — RC luster prints ---------- */
+.photoTile{position:absolute;z-index:3;border-radius:var(--radius-photo);
+  background:url('assets/tex/paper_rc.png') 0 0/200px,
+             linear-gradient(115deg,#ffffff,#f6f4ee);
+  background-blend-mode:multiply,normal;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.85);
+  filter:drop-shadow(0 1px 2px rgba(var(--shade),.20)) drop-shadow(var(--px,5px) var(--py,7px) var(--pb,12px) rgba(var(--shade),.17))}
+.photoTile .img{position:absolute;overflow:hidden;border-radius:2px;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.12), inset 0 10px 14px -12px rgba(255,255,255,.20), inset 0 -14px 16px -14px rgba(0,0,0,.28)}
+.photoTile .img img{width:100%;height:100%;object-fit:cover;display:block}
+.photoTile .img::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:url('assets/tex/print_grain.png') var(--gx,0) var(--gy,0)/170px;
+  opacity:.13;mix-blend-mode:multiply}
+.photoTile .img::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:linear-gradient(var(--sheenA,125deg),rgba(255,255,255,.22) 0%,rgba(255,255,255,0) 38%)}
+.photoTile .cap{position:absolute;left:0;right:0;bottom:2px;text-align:center;overflow:hidden}
+.photoTile .cap.marker{font-family:var(--f-marker);font-weight:700;font-size:21px;color:#3a3d42}
+.photoTile .cap.type{font-family:var(--f-type);font-size:13px;color:var(--ink-charcoal)}
+
+/* ---------- E2 · LOGO MOUNT — embossed museum mat (no software UI) ---------- */
+#logoMat{position:absolute;left:1548px;top:238px;width:232px;height:112px;z-index:4;
+  background:url('assets/tex/paper_hotpress.png') 0 0/260px,
+             linear-gradient(115deg,#fcfbf5 0%,#f4f1e6 60%,#eeeadd 100%);
+  background-blend-mode:multiply,normal;border-radius:10px;
+  box-shadow:var(--e2-shadow), inset 0 1px 0 rgba(255,255,255,.85), inset 0 -2px 3px rgba(150,140,115,.12);
+  padding:11px}
+#logoMat .well{height:100%;border-radius:6px;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(115deg,#eeeadd,#e3dfcf);
+  box-shadow:inset 0 2px 4px rgba(var(--shade),.22), inset 2px 0 3px rgba(var(--shade),.10),
+             inset 0 -1px 1px rgba(255,255,255,.7)}
+#logoMat .well b{font-family:var(--f-display);font-weight:800;font-size:20px;letter-spacing:1.2px;
+  color:var(--ink-letterpress);
+  text-shadow:0 1px 0 rgba(255,255,255,.85), 0 -1px 0 rgba(90,90,80,.22)} /* blind deboss */
+#logoSlip{position:absolute;left:1560px;top:356px;width:208px;height:26px;z-index:4;
+  background:url('assets/tex/paper_bond.png') 0 0/200px, linear-gradient(#fdfcf7,#f4f2ea);
+  background-blend-mode:multiply,normal;border-radius:3px;transform:rotate(-.4deg);
+  box-shadow:0 1px 1px rgba(var(--shade),.18), 1px 2px 4px rgba(var(--shade),.14);
+  display:flex;align-items:center;justify-content:center}
+#logoSlip small{font-family:var(--f-type);font-size:10.5px;color:#6d6a5e;letter-spacing:.2px;white-space:nowrap}
+
+/* ---------- E3 · INTERVIEW RIBBON — neutral satin ---------- */
+#ivrWrap{position:absolute;left:1548px;top:394px;width:232px;height:56px;z-index:4}
+#ivrTails{position:absolute;inset:0;
+  filter:drop-shadow(0 2px 2px rgba(var(--shade),.22)) drop-shadow(6px 8px 14px rgba(var(--shade),.16))}
+#ivrTails i{position:absolute;top:4px;width:36px;height:52px;
+  background:url('assets/tex/satin.png') 0 0/120px, linear-gradient(180deg,var(--ribbon-lo),var(--ribbon-fold));
+  background-blend-mode:multiply,normal}
+#ivrTails i.l{left:-16px;clip-path:polygon(0 0,100% 0,100% 100%,0 100%,32% 50%)}
+#ivrTails i.r{right:-16px;clip-path:polygon(0 0,100% 0,68% 50%,100% 100%,0 100%)}
+#ivr{position:absolute;left:14px;right:14px;top:0;height:50px;
+  background:url('assets/tex/satin.png') 0 0/140px,
+             linear-gradient(180deg,var(--ribbon-hi) 0%,var(--ribbon-mid) 40%,var(--ribbon-lo) 100%);
+  background-blend-mode:multiply,normal;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  box-shadow:0 1px 2px rgba(var(--shade),.20), 5px 7px 12px rgba(var(--shade),.17),
+             inset 0 1px 0 rgba(255,255,255,.22), inset 0 -5px 8px rgba(0,0,0,.20)}
+#ivr::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(120deg,rgba(255,255,255,0) 30%,rgba(255,255,255,.09) 46%,rgba(255,255,255,0) 62%)}
+#ivr span{font-family:var(--f-serif);font-weight:700;color:#f5f7fa;font-size:22px;
+  text-shadow:0 1px 1px rgba(0,0,0,.3);white-space:nowrap;padding:0 10px}
+#ivrWrap .fold{position:absolute;top:48px;width:12px;height:8px;background:var(--ribbon-fold);z-index:1}
+#ivrWrap .fold.l{left:12px;clip-path:polygon(0 0,100% 0,100% 100%)}
+#ivrWrap .fold.r{right:12px;clip-path:polygon(0 0,100% 0,0 100%)}
+#ivdate{position:absolute;left:1548px;top:456px;width:232px;text-align:center;
+  font-family:var(--f-serif);font-size:20px;color:var(--ink-charcoal);z-index:4}
+
+/* ---------- companion-state banner (never in default board) ---------- */
+#stateBanner{position:absolute;left:0;right:0;bottom:0;z-index:9;text-align:center;
+  background:rgba(20,25,35,.82);color:#ffd24a;font-family:var(--f-display);font-weight:600;
+  font-size:15px;letter-spacing:2px;padding:6px}

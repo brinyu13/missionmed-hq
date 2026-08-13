@@ -1,0 +1,30 @@
+{
+  "schemaVersion": "d1-mac-pro-operator-413.1",
+  "mode": "LOCAL_WORKER_SIMULATOR_NOT_CONNECTED",
+  "connected": false,
+  "workerId": "mac-pro-local-staging-fixture",
+  "envelopeKeyId": "d1-413-local-envelope-key",
+  "credentialFiles": {
+    "envelopeSecret": "<LOCAL_0600_FILE_REQUIRED>",
+    "workerSecret": "<LOCAL_0600_FILE_REQUIRED>"
+  },
+  "authority": {
+    "approvedTemplateId": "timeline-2025-canonical",
+    "templateSha256": "113d22efb8ca2c00c29d8e57b92c1eb24ff2c66931f7138bbf23daa66dbba706",
+    "rendererVersion": "mac-pro-local-fixture-413.1",
+    "rendererSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "fontManifestSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "assetManifestSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "queue": {
+    "pollIntervalMs": 2000,
+    "leaseMs": 30000,
+    "heartbeatTimeoutMs": 15000,
+    "maxAttempts": 3
+  },
+  "disk": {
+    "minimumFreeBytes": 10737418240
+  },
+  "allowedFormats": ["PNG", "PDF", "HTML", "JSON", "ZIP"]
+}
+

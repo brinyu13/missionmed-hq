@@ -3,14 +3,25 @@
   "status": "ACTIVE",
   "lock_name": "MissionMed Critical Systems Contract",
   "owner": "Brian",
-  "last_updated_utc": "2026-08-01T14:00:00Z",
+  "last_updated_utc": "2026-08-04T19:46:14Z",
   "known_good": {
     "git_commit": "3f0c27aac55dbf82748b3eaba360006d4041b539",
     "git_tag": "known-good/2026-06-25-critical-auth-usce-arena-matrix",
     "railway_deployment": "27280193-c85b-49de-8b03-58e28ba0c9f3"
   },
   "delegated_locks": {
-    "matrix_runtime": "_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json"
+    "matrix_runtime": "_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json",
+    "matrix_runtime_recovery": {
+      "immutable_source_commit": "60e7169b544e6c93eb41f0de9717d8e61d2d49d0",
+      "immutable_source_tree": "291a1f4dff573e2f64635ddd069ac9275f3984ff",
+      "remote_refs": [
+        "origin/codex/v1-study-schedule-production-connected-rc",
+        "origin/codex/v1-study-schedule-8010d-validation"
+      ],
+      "guard_result": "PASS_10_OF_10_LOCAL_ORIGIN_PUBLIC",
+      "production_mutation": false,
+      "approved_hashes_changed": false
+    }
   },
   "runtime_owners": {
     "railway_missionmed_hq": {
@@ -128,6 +139,39 @@
         "https://missionmedinstitute.com/storyforge",
         "https://missionmedinstitute.com/storyforge/*"
       ]
+    },
+    "railway_mission_timeline": {
+      "host": "railway",
+      "workspace_id": "b6ab449c-1c87-46e0-95f8-3394c3ca7b14",
+      "project_id": "295b3d56-f555-4851-91f4-eb32d7dc88e1",
+      "environment_id": "d0705d67-83d5-4b53-942d-3862d9906529",
+      "environment": "production",
+      "service_id": "12bfaf69-f883-42b5-a380-b6beea49f251",
+      "database_service_id": "134e537e-d48b-4452-acf6-8c3af2ce03db",
+      "working_directory": "packages/mission-timeline",
+      "deploy_root": "packages/mission-timeline",
+      "railway_config": "packages/mission-timeline/railway.json",
+      "start_command": "npm start",
+      "resolved_start_command": "node dist-api/server.mjs",
+      "health_path": "/healthz",
+      "active_source_roots": [
+        "packages/mission-timeline/"
+      ],
+      "release_state": "API_DEPLOYED_HEALTHY_FEATURE_OFF_ACCESS_OFF",
+      "current_deployment_id": "d9ec6013-35e3-4f33-a75d-4ac5d936eed2",
+      "current_release_id": "timeline-0c5cc515a76346d6",
+      "required_env": [
+        {"name": "DATABASE_URL", "fail_if_missing": true, "must_use_role": "timeline_authenticated"},
+        {"name": "TIMELINE_GATEWAY_SECRET", "fail_if_missing": true},
+        {"name": "TIMELINE_JWT_ACTIVE_KEY_ID", "fail_if_missing": true},
+        {"name": "TIMELINE_JWT_SECRET", "fail_if_missing": true},
+        {"name": "TIMELINE_JWT_ISSUER", "fail_if_missing": true},
+        {"name": "TIMELINE_JWT_AUDIENCE", "fail_if_missing": true, "expected": "mission-timeline"},
+        {"name": "TIMELINE_RELEASE_VERSION", "fail_if_missing": true, "expected": "timeline-0c5cc515a76346d6"},
+        {"name": "TIMELINE_DATABASE_RUNTIME_ROLE", "fail_if_missing": true, "expected": "timeline_authenticated"},
+        {"name": "TIMELINE_DATABASE_POOL_MAX", "fail_if_missing": true},
+        {"name": "TIMELINE_ENVIRONMENT", "fail_if_missing": true, "expected": "production"}
+      ]
     }
   },
   "protected_paths": [
@@ -192,7 +236,34 @@
     "storyforge-v5/infra/wordpress/missionmed-storyforge-route.php",
     "storyforge-v5/infra/wordpress/missionmed-storyforge-runtime/release.php",
     "wp-content/plugins/missionmed-storyforge-sso/missionmed-storyforge-sso.php",
-    "wp-content/plugins/missionmed-storyforge-sso/assets/matrix-launch.js"
+    "wp-content/plugins/missionmed-storyforge-sso/assets/matrix-launch.js",
+    "packages/mission-timeline/package.json",
+    "packages/mission-timeline/package-lock.json",
+    "packages/mission-timeline/railway.json",
+    "packages/mission-timeline/src/server/production-server.ts",
+    "packages/mission-timeline/src/server/production-http-handler.ts",
+    "packages/mission-timeline/src/identity/wordpress-timeline-jwt.ts",
+    "packages/mission-timeline/src/identity/postgres-principal-directory.ts",
+    "packages/mission-timeline/src/persistence/postgres/repository.ts",
+    "packages/mission-timeline/database/migrations/202607150001_timeline_v1.sql",
+    "packages/mission-timeline/database/migrations/202607150002_timeline_v1_413_hardening.sql",
+    "packages/mission-timeline/database/migrations/202608020003_d1_411c_identity_and_admin_grants.sql",
+    "packages/mission-timeline/database/migrations/202608040004_d1_500_grant_hardening.sql",
+    "packages/mission-timeline/database/roles/202608020001_d1_411c_runtime_roles.sql",
+    "packages/mission-timeline/database/roles/202608040002_d1_500_runtime_roles.sql",
+    "packages/mission-timeline/release/manifest.json",
+    "packages/mission-timeline/release/feature-flags.json",
+    "packages/mission-timeline/release/rollback-plan.md",
+    "packages/mission-timeline/scripts/build-api.mjs",
+    "packages/mission-timeline/scripts/build-static.mjs",
+    "packages/mission-timeline/scripts/build-wordpress-runtime.mjs",
+    "packages/mission-timeline/infra/wordpress/missionmed-timeline-route.php",
+    "wp-content/plugins/missionmed-timeline-sso/missionmed-timeline-sso.php",
+    "wp-content/plugins/missionmed-timeline-sso/assets/matrix-launch.js",
+    "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_FEATURE_OFF_PAYLOAD.tar.gz",
+    "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_RUNTIME_2e775a88_FEATURE_OFF_PAYLOAD.tar.gz",
+    "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_RUNTIME_20c89a06_FEATURE_OFF_PAYLOAD.tar.gz",
+    "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/kinsta/wp-content/mu-plugins/missionmed-timeline-route.php"
   ],
   "supabase_projects": {
     "ranklistiq": {
@@ -269,6 +340,25 @@
       "current_storyforge_user_count": 441,
       "current_active_assignment_count": 0,
       "system_identifier": "7667256745042145332"
+    },
+    "timeline_builder": {
+      "provider": "railway",
+      "project_id": "295b3d56-f555-4851-91f4-eb32d7dc88e1",
+      "database_service_id": "134e537e-d48b-4452-acf6-8c3af2ce03db",
+      "environment_id": "d0705d67-83d5-4b53-942d-3862d9906529",
+      "schema": "timeline",
+      "schema_version": "d1-timeline-db-500.1",
+      "migration_files": [
+        "packages/mission-timeline/database/migrations/202607150001_timeline_v1.sql",
+        "packages/mission-timeline/database/migrations/202607150002_timeline_v1_413_hardening.sql",
+        "packages/mission-timeline/database/migrations/202608020003_d1_411c_identity_and_admin_grants.sql",
+        "packages/mission-timeline/database/migrations/202608040004_d1_500_grant_hardening.sql"
+      ],
+      "application_role": "timeline_authenticated",
+      "application_role_must_not_own_tables": true,
+      "application_role_bypassrls": false,
+      "force_row_level_security": true,
+      "seed_policy": "No production seed data. Controlled synthetic fixtures are disposable and must be labeled CONTROLLED_SYNTHETIC."
     }
   },
   "asset_checks": [
@@ -283,7 +373,7 @@
         "/api/auth/session",
         "Live protected"
       ],
-      "local_source_note": "Metadata-only reconciliation to the deployed June 29 archive-precedence repair. Live CDN and R2 bytes matched; B1-502M did not mutate USCE."
+      "local_source_note": "Metadata-only reconciliation to the documented 2026-06-29 archive-precedence repair. Private R2, public CDN, and retained post-deploy artifact are byte-identical. Central LIVE source remains SOURCE_SYNC_UNRESOLVED. No USCE runtime mutation is authorized by this amendment."
     },
     {
       "id": "cdn_arena_live",
@@ -295,8 +385,8 @@
         "/api/auth/bootstrap",
         "fglyvdykwgbuivikqoah"
       ],
-      "local_source_path": "LIVE/arena.html",
-      "local_source_note": "Metadata-only reconciliation to the Y1-CAM-4006 deployed and Y1-CAM-4007 validated Arena baseline. Live CDN and R2 bytes matched; B1-502M did not mutate Arena."
+      "local_source_path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4006/candidates/arena/arena.html",
+      "local_source_note": "Metadata-only reconciliation to the Y1-CAM-4005R deployed and Y1-CAM-4006/4007 validated baseline. Private R2, public CDN, accepted source, and retained rollback capture are byte-identical. Central LIVE source remains SOURCE_SYNC_UNRESOLVED. Open Y1-CAM-4008A credential-logging P0 remains unresolved; this pin is not a safety certification. No Arena runtime mutation is authorized by this amendment."
     },
     {
       "id": "storyforge_v5_index",
@@ -697,6 +787,19 @@
         404,
         500
       ]
+    },
+    {
+      "id": "timeline_anonymous_matrix_handoff",
+      "system": "timeline_builder",
+      "deployment_phase": "ELIGIBLE_360_LIVE",
+      "url": "https://missionmedinstitute.com/timeline/",
+      "method": "GET",
+      "expected_status": 303,
+      "expected_headers_contains": {
+        "location": "/member-dashboard/",
+        "cache-control": "no-store"
+      },
+      "must_not_status": [200, 404, 401, 403, 500, 501, 503]
     }
   ],
   "systems": {
@@ -780,7 +883,8 @@
         "https://missionmedinstitute.com/member-dashboard/#scheduler",
         "https://missionmedinstitute.com/member-dashboard/#filevault",
         "https://missionmedinstitute.com/member-dashboard/#messages",
-        "https://missionmedinstitute.com/member-dashboard/#storyforge"
+        "https://missionmedinstitute.com/member-dashboard/#storyforge",
+        "https://missionmedinstitute.com/member-dashboard/#timeline"
       ]
     },
     "storyforge_v5": {
@@ -823,6 +927,88 @@
         "protected_assets_unchanged": true
       },
       "rollback": "Set storyforge_enabled false; atomically restore or disable only the execution-private runtime current pointer; move only missionmed-storyforge-route.php out of mu-plugins when route absence is required; purge Kinsta site/CDN cache; prove /storyforge* returns the prior WordPress 404; leave the sibling private evidence release unchanged; deactivate only missionmed-storyforge-sso if the SSO seam itself must be removed; leave isolated dormant schema/data intact unless corruption requires the verified database restore. Dormant Cloudflare StoryForge bindings are separately decommissioned after gateway validation."
+    },
+    "timeline_builder": {
+      "owner": "MissionMed Matrix / Founder",
+      "runtime_owner": "railway_mission_timeline",
+      "wordpress_owner": "missionmed-timeline-sso",
+      "route_owner": "missionmed-timeline-route.php",
+      "source_of_truth": {
+        "repository": "brinyu13/missionmed-hq",
+        "branch": "codex/d1-500-critical-registration",
+        "accepted_base_commit": "49ba56dacd2cddfc2fb2241839d54a03e85bc271",
+        "sealed_source_commit": "296d74272b520502f35b3d2d5bf7fb9a508a1e7c",
+        "release_id": "timeline-wp-0fc51f8906decb8e",
+        "payload_path": "_AI_HANDOFFS/from_codex/D1-500_TIMELINE_PRODUCTION_LAUNCH/artifacts/D1-500_KINSTA_RUNTIME_0FC51F89_RELEASE_PAYLOAD.tar.gz",
+        "payload_sha256": "57ed9146f44c5d3684a5a873782c19c2da1f1ba4fb832b5708d71ec041fb73f4"
+      },
+      "classes": ["auth_session", "route", "redirect_handoff", "wordpress_wrapper", "matrix_runtime", "deploy_artifact", "browser_journey"],
+      "registration_state": "CURRENT_RELEASE_ELIGIBLE_360_LIVE",
+      "current_production": {
+        "wordpress_id": "timeline-wp-0fc51f8906decb8e",
+        "release_bundle_sha256": "e424edc9fd022dd225c84763707ef18dece073fddb433821e040bada5e25b820",
+        "timeline_enabled": true,
+        "rollout_stage": "eligible_360"
+      },
+      "routes_or_assets": [
+        "https://missionmedinstitute.com/timeline/",
+        "https://missionmedinstitute.com/timeline/api/**",
+        "https://missionmedinstitute.com/wp-json/missionmed-timeline/v1/token",
+        "https://missionmedinstitute.com/member-dashboard/#timeline"
+      ],
+      "dependencies": [
+        "Kinsta company 60d2928a-3253-4350-89e9-8f58a0827584 and site abb6097b-9884-4b75-a9c7-d247728395cc, live environment a23bbbca-55af-4d03-9447-1015a1e18dc8, public root /www/theresidencyacademy_209/public",
+        "Railway workspace b6ab449c-1c87-46e0-95f8-3394c3ca7b14, project 295b3d56-f555-4851-91f4-eb32d7dc88e1, production environment d0705d67-83d5-4b53-942d-3862d9906529, API service 12bfaf69-f883-42b5-a380-b6beea49f251",
+        "Timeline PostgreSQL service 134e537e-d48b-4452-acf6-8c3af2ce03db with schema version d1-timeline-db-500.1, non-owner runtime role timeline_authenticated, FORCE RLS, and no production seed data",
+        "WordPress plugin missionmed-timeline-sso and MU route missionmed-timeline-route.php",
+        "Timeline-owned Matrix launch adapter; #timeline is an eligible-only external handoff to /timeline/, not a Matrix app-mode route",
+        "Active LearnDash access to published Closed course 3893; WordPress login or a generic role alone never establishes eligibility",
+        "Consent version d1-500-v1 for secure remote saving",
+        "Fresh verified Kinsta and Timeline PostgreSQL backups before production mutation"
+      ],
+      "release": {
+        "static_id": "timeline-0c5cc515a76346d6",
+        "wordpress_id": "timeline-wp-0fc51f8906decb8e",
+        "release_bundle_sha256": "e424edc9fd022dd225c84763707ef18dece073fddb433821e040bada5e25b820",
+        "route_sha256": "258da3f2a5edf95899f921f5d617ef4f861260ca1be24dd5a8e1c1d4c5621403",
+        "wordpress_plugin_sha256": "20e64ed5af824e8c265a6e9a048f3164967680ce5d752eeda519c66eec8cb6b6",
+        "matrix_adapter_sha256": "a13c9cd6fa5420f19cc47691c09da07e79f9813b6ee774066f0d89230c131b8c",
+        "payload_sha256": "57ed9146f44c5d3684a5a873782c19c2da1f1ba4fb832b5708d71ec041fb73f4",
+        "railway_deployment_id": "d9ec6013-35e3-4f33-a75d-4ac5d936eed2",
+        "schema_version": "d1-timeline-db-500.1",
+        "health_path": "/healthz"
+      },
+      "feature_flag": {
+        "owner": "WordPress option missionmed_timeline_settings",
+        "timeline_enabled": true,
+        "rollout_stage": "eligible_360",
+        "eligible_360_students": true,
+        "navigation_visible": true,
+        "approved_administrator_wp_user_ids": [85]
+      },
+      "consent": {"version": "d1-500-v1", "required_for_remote_save": true},
+      "eligibility": {
+        "authority": "LearnDash",
+        "course_id": 3893,
+        "course_status": "published",
+        "enrollment_mode": "Closed",
+        "requires_active_access": true,
+        "generic_wordpress_role_is_sufficient": false
+      },
+      "planned_post_install_route_checks": [
+        "Anonymous GET /timeline/ returns 303 to the approved MissionMed Matrix/login handoff with Cache-Control and Surrogate-Control no-store; forbid 200, 301, 302, 404, and 5xx",
+        "Authenticated ineligible GET /timeline/ returns 403 with eligibility_required and has no Timeline Matrix navigation entry",
+        "Anonymous POST /wp-json/missionmed-timeline/v1/token returns 401 with session_required",
+        "Anonymous /timeline/api/v1/** returns 401 with session_required",
+        "Direct Railway /v1/** without the gateway secret returns 403 with GATEWAY_REQUIRED",
+        "GET /healthz returns 200 with service mission-timeline, release timeline-0c5cc515a76346d6, and schema d1-timeline-db-500.1; forbid 404 and 5xx"
+      ],
+      "backup": {
+        "kinsta": "Fresh environment backup required and receipt verified before install",
+        "postgresql": "Fresh provider backup required and receipt verified before migration"
+      },
+      "kill_switch": "Set missionmed_timeline_settings.timeline_enabled=false and rollout_stage=off; remove Timeline navigation; disable only the Timeline MU route when route absence is required.",
+      "rollback": "Restore only the Timeline Kinsta plugin, MU route, immutable release pointer, Railway API deployment, and Timeline-owned PostgreSQL schema from the fresh D1-500 receipts. Preserve Matrix, StoryForge, Arena, USCE, DNS, CDN, shared WordPress, and unrelated data. After rollback, prove /timeline/ returns the recorded prior 404, Timeline API is unreachable, navigation is absent, and all preexisting Critical Systems and Matrix checks still pass."
     }
   },
   "browser_journeys": [
@@ -867,6 +1053,69 @@
       "expected_console_errors": 0,
       "cohort": "B1-502M-FOUNDER-01",
       "ineligible_users_must_be_denied": true,
+      "manual_or_browser_plugin_required": true
+    },
+    {
+      "id": "timeline_founder_admin_canary",
+      "system": "timeline_builder",
+      "url": "https://missionmedinstitute.com/timeline/",
+      "expected_text": "Timeline Builder",
+      "expected_final_url": "https://missionmedinstitute.com/timeline/",
+      "expected_console_errors": 0,
+      "cohort": "FOUNDER_AND_APPROVED_ADMINISTRATORS_ONLY",
+      "student_access_must_be_disabled": true,
+      "manual_or_browser_plugin_required": true
+    },
+    {
+      "id": "timeline_eligible_360_student",
+      "system": "timeline_builder",
+      "url": "https://missionmedinstitute.com/member-dashboard/#timeline",
+      "expected_text": "Timeline Builder",
+      "expected_final_url": "https://missionmedinstitute.com/timeline/",
+      "expected_console_errors": 0,
+      "eligibility": "ACTIVE_LEARNDASH_COURSE_3893_ACCESS",
+      "create_save_reload_edit_export_required": true,
+      "manual_or_browser_plugin_required": true
+    },
+    {
+      "id": "timeline_ineligible_denial",
+      "system": "timeline_builder",
+      "url": "https://missionmedinstitute.com/timeline/",
+      "expected_text": "not available",
+      "expected_final_state": "DENIED_NO_NAVIGATION_ENTRY",
+      "expected_console_errors": 0,
+      "manual_or_browser_plugin_required": true
+    },
+    {
+      "id": "timeline_revoked_or_expired_denial",
+      "system": "timeline_builder",
+      "url": "https://missionmedinstitute.com/timeline/",
+      "expected_final_state": "DENIED_AFTER_ENTITLEMENT_REMOVAL_OR_EXPIRY",
+      "expected_console_errors": 0,
+      "manual_or_browser_plugin_required": true
+    },
+    {
+      "id": "timeline_logout_and_account_switch",
+      "system": "timeline_builder",
+      "url": "https://missionmedinstitute.com/timeline/",
+      "expected_final_state": "PRIOR_TIMELINE_CONTEXT_INVALIDATED_AND_NEW_PRINCIPAL_REBOUND",
+      "expected_console_errors": 0,
+      "manual_or_browser_plugin_required": true
+    },
+    {
+      "id": "timeline_cross_student_isolation",
+      "system": "timeline_builder",
+      "url": "https://missionmedinstitute.com/timeline/",
+      "expected_final_state": "SECOND_ELIGIBLE_STUDENT_CANNOT_LIST_READ_OR_MUTATE_FIRST_STUDENT_RECORDS",
+      "expected_console_errors": 0,
+      "manual_or_browser_plugin_required": true
+    },
+    {
+      "id": "timeline_anonymous_and_direct_api_denial",
+      "system": "timeline_builder",
+      "url": "https://missionmedinstitute.com/timeline/api/v1/documents",
+      "expected_final_state": "SESSION_REQUIRED_OR_GATEWAY_REQUIRED_WITHOUT_DATA",
+      "expected_console_errors": 0,
       "manual_or_browser_plugin_required": true
     }
   ],
