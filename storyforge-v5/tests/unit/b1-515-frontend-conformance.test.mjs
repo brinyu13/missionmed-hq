@@ -103,3 +103,24 @@ test('B1-515 preserves the existing mentor transcript and original-audio control
     assert.match(app, new RegExp(marker.replaceAll('+', '\\+')));
   }
 });
+
+test('B1-515 fast repair uses explicit start, shared segmentation, and one admin feedback workspace', () => {
+  assert.match(app, /🎙 Start recording/);
+  assert.match(app, /VOICE_SEGMENT_PLAN\[0\]/);
+  assert.match(app, /api\.transcribeMentorNoteSegment/);
+  assert.match(app, /appendMentorLiveTranscript/);
+  assert.match(app, /cancelMentorNoteRecording/);
+  assert.match(app, /noteId: draft\.id,[\s\S]{0,180}storyId: story\.id,[\s\S]{0,180}identitySub/);
+  assert.doesNotMatch(app, /window\.setTimeout\(\(\) => \{\s*void voiceStart\(\);\s*\}, 350\)/);
+  assert.match(app, /b1515AdminReviewWorkspace/);
+  assert.match(app, /Mentor Review/);
+  assert.match(app, /Private admin note · only you \/ authorized admins can see this/);
+  assert.doesNotMatch(app, /id="adminStudentFeedback"/);
+  assert.match(app, /data-version-voice>🎙 Start recording/);
+  assert.match(app, /data-version-voice-pause hidden>Pause/);
+  assert.match(app, /pollPurposefulVersionVoice/);
+  assert.match(app, /closePurposefulVersionSegment/);
+  assert.match(app, /pausePurposefulVersionVoice/);
+  assert.match(app, /Microphone off\. Every saved change remains in version history\./);
+  assert.match(styles, /\.b1515AdminReviewWorkspace/);
+});

@@ -1,6 +1,7 @@
 import { createAppServer, createPhaseOneRuntime } from '../../server/app.mjs';
 import { config, validateConfig } from '../../server/config.mjs';
-import { closePool, healthCheck } from '../../server/db.mjs';
+import { closePool, healthCheck, withIdentity } from '../../server/db.mjs';
+import { createMentorNotesService } from '../../server/mentor-notes.mjs';
 
 const errors = validateConfig();
 if (errors.length) {
@@ -35,11 +36,53 @@ process.env.STORYFORGE_VOICE_CAPTURE_FORCE_OFF = '0';
 
 // This test-only executor proves the E4/E7 browser path through the production
 // injection boundary without selecting production Option A or Option B.
+const deterministicTranscription = Object.freeze({
+  available: true,
+  keywordsForDraft() { return []; },
+  async transcribeSegment(input = {}) {
+    return {
+      text: `Deterministic near-live transcript segment ${Number(input.seq || 0) + 1}.`,
+      providerId: 'openai',
+      modelId: 'gpt-4o-mini-transcribe',
+      fallbackUsed: false,
+      flaggedTerms: [],
+    };
+  },
+});
+
 const phaseOneRuntime = createPhaseOneRuntime({
+  transcription: deterministicTranscription,
   assembly: Object.freeze({
     available: true,
     async assembleRecording() {},
   }),
+});
+
+// The isolated browser suite exercises the complete mentor Stop -> review ->
+// publish path without external R2 traffic. Authorization, note lifecycle,
+// transcript persistence, and playback claims still pass through production
+// service/RPC boundaries; only object bytes live in this process.
+const isolatedAudioObjects = new Map();
+const mentorNotesService = createMentorNotesService({
+  withIdentity,
+  transcription: deterministicTranscription,
+  storage: {
+    async putRecordingSegment({ objectKey, contentType, body, byteSize }) {
+      isolatedAudioObjects.set(objectKey, { contentType, body: Buffer.from(body), byteSize });
+    },
+    async headAudioObject({ objectKey }) {
+      const object = isolatedAudioObjects.get(objectKey);
+      if (!object) throw Object.assign(new Error('Audio object not found.'), { code: 'NoSuchKey' });
+      return { contentType: object.contentType, byteSize: object.byteSize };
+    },
+    async deleteRecordingObjects({ objectKeys = [] } = {}) {
+      objectKeys.forEach((objectKey) => isolatedAudioObjects.delete(objectKey));
+    },
+  },
+  async signPlayback({ objectKey }) {
+    if (!isolatedAudioObjects.has(objectKey)) throw new Error('Audio object not found.');
+    return { playbackUrl: `https://audio.test/${encodeURIComponent(objectKey)}`, expiresIn: 60 };
+  },
 });
 
 await healthCheck();
@@ -47,7 +90,7 @@ await phaseOneRuntime.recordingsService.recoverPendingTranscriptions();
 await phaseOneRuntime.recordingsService.recoverPendingAssemblies();
 await phaseOneRuntime.recordingsService.recoverPendingAudioAssets();
 const sweeps = phaseOneRuntime.recordingsService.startSweeps();
-const server = createAppServer({ phaseOneRuntime });
+const server = createAppServer({ phaseOneRuntime, mentorNotesService });
 
 server.listen(config.port, config.host, () => {
   console.log(`StoryForge V5 E2E server listening on ${config.host}:${config.port}`);

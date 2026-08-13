@@ -882,12 +882,6 @@ export function createPostgresRecordingStore({
       );
       const session = locked.rows[0];
       if (!session) throw recordingAccessDenied();
-      const owned = await client.query(
-        `SELECT id FROM public.sf_stories
-          WHERE id=$1 AND student_id=$2 AND archived_at IS NULL FOR SHARE`,
-        [storyId, identity.sub],
-      );
-      if (!owned.rowCount) throw recordingAccessDenied();
       if (!['assembled', 'attached'].includes(session.state)) {
         if (session.state === 'finishing') {
           const error = new RecordingError('voice_assembly_pending', 'Your recording is still being prepared.', 409);

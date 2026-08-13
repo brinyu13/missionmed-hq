@@ -465,6 +465,7 @@ async function readMultipartSegment(request) {
     seq: form.get('seq'),
     durationMs: form.get('durationMs'),
     expectedVersion: form.get('expectedVersion'),
+    promptTail: form.get('promptTail'),
     mimeType: String(form.get('mimeType') || segment.type || ''),
     buffer: Buffer.from(await segment.arrayBuffer()),
   };
@@ -1555,7 +1556,7 @@ async function api(request, response, url, {
   }
 
   const mentorNoteRoute = url.pathname.match(
-    /^\/api\/mentor-notes\/([a-f0-9-]+)(?:\/(publish|discard|audio|playback))?$/i,
+    /^\/api\/mentor-notes\/([a-f0-9-]+)(?:\/(publish|discard|audio|segments|playback))?$/i,
   );
   if (mentorNoteRoute) {
     const noteId = mentorNoteRoute[1];
@@ -1585,6 +1586,15 @@ async function api(request, response, url, {
           surface: 'workspace',
         }),
       });
+    }
+    if (request.method === 'POST' && action === 'segments') {
+      const audio = await readMultipartSegment(request);
+      return sendJson(response, 200, await mentorNotesService.transcribeAudioSegment(identity, noteId, {
+        ...audio,
+        buffer: audio.buffer,
+        expectedVersion: audio.expectedVersion,
+        surface: 'workspace',
+      }));
     }
     if (request.method === 'GET' && action === 'playback') {
       return sendJson(response, 200, await mentorNotesService.playback(identity, noteId));

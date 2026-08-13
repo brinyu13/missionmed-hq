@@ -406,6 +406,56 @@ export function createMentorNotesService({
     }
   }
 
+  async function transcribeAudioSegment(identity, noteId, input = {}) {
+    await requireEnabled(identity);
+    if (transcription?.available === false) {
+      throw new MentorNotesError(
+        'transcribe_unavailable',
+        'Mentor-note transcription is unavailable.',
+        503,
+      );
+    }
+    const id = requireUuid(noteId, 'Mentor note identifier');
+    const version = expectedVersion(input.expectedVersion);
+    const mimeType = normalizeMimeType(input.mimeType);
+    const buffer = normalizeAudio(input.buffer);
+    const seq = Number(input.seq);
+    if (!Number.isInteger(seq) || seq < 0 || seq > 199) {
+      throw new MentorNotesError('invalid_segment_sequence', 'Mentor-note segment sequence is invalid.');
+    }
+    const allocation = await rpc(
+      identity,
+      'SELECT public.sf_prepare_mentor_note_audio($1, $2, $3, $4, $5) AS payload',
+      [id, version, mimeType, buffer.byteLength, surface(input.surface)],
+      { reviewer: true },
+    );
+    try {
+      const transcript = await transcribe({
+        buffer,
+        mimeType,
+        seq,
+        recordingId: id,
+        studentId: allocation.studentId,
+        storyId: allocation.storyId,
+        keywords: [],
+        promptTail: String(input.promptTail || '').slice(-2_000),
+      });
+      return {
+        seq,
+        text: String(transcript.text || ''),
+        flaggedTerms: Array.isArray(transcript.flaggedTerms) ? transcript.flaggedTerms : [],
+      };
+    } catch (cause) {
+      if (cause instanceof MentorNotesError) throw cause;
+      throw new MentorNotesError(
+        cause?.code || 'transcribe_unavailable',
+        'This part of the mentor recording could not be transcribed yet.',
+        Number(cause?.status) || 503,
+        { cause },
+      );
+    }
+  }
+
   async function playback(identity, noteId) {
     await requireReadable(identity);
     const reviewer = identity?.wordpressAdmin === true && identity?.role !== 'admin';
@@ -435,6 +485,7 @@ export function createMentorNotesService({
     playback,
     publish,
     readCapability,
+    transcribeAudioSegment,
     update,
     uploadAudio,
   });

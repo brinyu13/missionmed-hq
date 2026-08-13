@@ -2,6 +2,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { expect, test } from '@playwright/test';
+import pg from 'pg';
+
+const ADMIN_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 
 const packageDir = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const screenshotDir = path.resolve(
@@ -39,6 +42,24 @@ async function activateFounderAdminConsole(page) {
   await expect(page.getByText('Administrator View', { exact: true })).toBeVisible();
 }
 
+async function setDirectReviewFlags(scope) {
+  const client = new pg.Client({ connectionString: process.env.STORYFORGE_DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `UPDATE public.sf_feature_flags
+          SET scope=$1,
+              allowlist=CASE WHEN $1='allowlist' THEN $2::uuid[] ELSE '{}'::uuid[] END,
+              cohorts='{}'::text[],
+              updated_at=now()
+        WHERE key=ANY($3::text[])`,
+      [scope, [ADMIN_ID], ['admin_review_controls', 'per_use_scoring', 'mentor_notes']],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
 async function restoreFounderAdminConsoleDefaultOff(page) {
   await page.goto('/');
   const change = page.getByRole('button', { name: 'Change fixture identity' });
@@ -54,6 +75,7 @@ async function restoreFounderAdminConsoleDefaultOff(page) {
 }
 
 test.afterEach(async ({ page }) => {
+  await setDirectReviewFlags('off');
   await restoreFounderAdminConsoleDefaultOff(page);
 });
 
@@ -62,6 +84,8 @@ test('Founder-only administrator console is additive, bounded, and review-capabl
   await createSubmittedStory(page);
   await openFounderAdmin(page);
   await activateFounderAdminConsole(page);
+  await setDirectReviewFlags('allowlist');
+  await page.reload();
   await page.getByRole('button', { name: 'Admin Home' }).click();
   await expect(page.locator('[data-view="admin-home"]')).toBeVisible();
   await expect(page.getByText(/without crossing privacy lines/i)).toBeVisible();
@@ -79,12 +103,13 @@ test('Founder-only administrator console is additive, bounded, and review-capabl
   await review.click();
   await expect(page.locator('#adminStoryReviewForm')).toBeVisible();
   await expect(page.locator('[data-view="admin-story"]')).not.toContainText(/original audio|play original audio/i);
-  await page.locator('#adminReviewStatus').selectOption('reviewed');
-  await page.locator('#adminReviewScore').selectOption('5');
-  await page.locator('#adminReviewSuitability').selectOption('both');
-  await page.locator('#adminStudentFeedback').fill('Strong example with a clear turning point.');
+  await page.locator('[data-admin-review-status="reviewed"]').click();
+  await page.locator('[data-admin-review-score="5"]').click();
+  await page.locator('#mentorNoteText').fill('Strong example with a clear turning point.');
+  await page.getByRole('button', { name: 'Save draft' }).click();
   await page.locator('#adminInternalNote').fill('Founder-only local acceptance note.');
   await page.locator('#adminStoryReviewForm').getByRole('button', { name: 'Save review' }).click();
+  await page.getByRole('button', { name: 'Publish transcript + audio' }).click();
   await expect(page.getByText('Strong example with a clear turning point.')).toBeVisible();
   await expect(page.getByText('Founder-only local acceptance note.')).toBeVisible();
   await page.screenshot({

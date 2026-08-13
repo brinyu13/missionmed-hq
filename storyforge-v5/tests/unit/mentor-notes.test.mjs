@@ -164,6 +164,39 @@ test('audio uses isolated mentor namespace and completes only after storage veri
   assert.equal([...fake.objects.keys()][0].startsWith('storyforge-rec/'), false);
 });
 
+test('incremental mentor segments reuse note-scoped authorization without creating media objects', async () => {
+  const fake = fixture({
+    query({ text }) {
+      if (text.includes('sf_mentor_notes_enabled')) return { rows: [{ enabled: true }] };
+      if (text.includes('sf_prepare_mentor_note_audio')) {
+        return { rows: [{ payload: {
+          authorId: ADMIN.sub,
+          studentId: STUDENT.sub,
+          storyId: STORY,
+          nextVersion: 2,
+        } }] };
+      }
+      throw new Error(`Unexpected query: ${text}`);
+    },
+  });
+  const service = createMentorNotesService({
+    ...fake,
+    signPlayback: async () => ({ playbackUrl: 'https://private.invalid', expiresIn: 300 }),
+    environment: { STORYFORGE_MENTOR_NOTES_FORCE_OFF: '0' },
+  });
+  const result = await service.transcribeAudioSegment(ADMIN, NOTE, {
+    expectedVersion: 1,
+    seq: 3,
+    mimeType: 'audio/webm',
+    buffer: Buffer.from('private-segment'),
+    promptTail: 'earlier words',
+  });
+  assert.equal(result.seq, 3);
+  assert.equal(result.text, 'Accurate mentor transcript.');
+  assert.equal(fake.objects.size, 0);
+  assert.equal(fake.transcription.lastInput, undefined);
+});
+
 test('discard deletes isolated audio only after a durable deletion intent and resolves that intent by note id', async () => {
   const objectKey = `storyforge-mentor-notes/${ADMIN.sub}/${STUDENT.sub}/${STORY}/${NOTE}/12345678-1234-4234-8234-123456789abc.webm`;
   const fake = fixture({

@@ -454,6 +454,14 @@ export async function installDeterministicMedia(page, {
         this.state = 'recording';
       }
 
+      pause() {
+        this.state = 'paused';
+      }
+
+      resume() {
+        this.state = 'recording';
+      }
+
       stop() {
         if (shouldEmitChunk) {
           const chunk = new Event('dataavailable');
@@ -472,6 +480,7 @@ export async function installDeterministicMedia(page, {
       active: true,
       getAudioTracks: () => [track],
       getTracks: () => [track],
+      clone() { return this; },
     };
     Object.defineProperty(window, 'MediaRecorder', {
       configurable: true,

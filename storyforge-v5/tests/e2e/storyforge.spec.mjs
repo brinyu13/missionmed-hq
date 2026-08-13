@@ -821,7 +821,8 @@ test('student and mentor complete the V5 browser loop with truthful gates', asyn
 
   await page.getByRole('button', { name: 'Change fixture identity' }).click();
   await page.getByRole('button', { name: 'Mentor · Dr. Chen' }).click();
-  await page.getByRole('button', { name: /Review Queue/ }).first().click();
+  await page.locator('[data-nav="queue"]').first().click();
+  await expect(page.locator('[data-view="mqueue"]')).toBeVisible();
   const firstReview = page.locator('[data-story-row]').filter({ hasText: 'A hard conversation' });
   await firstReview.locator('[data-open-story]').click();
   await expect(page.getByText('Awaiting review', { exact: true }).first()).toBeVisible();
@@ -847,7 +848,8 @@ test('student and mentor complete the V5 browser loop with truthful gates', asyn
 
   await page.getByRole('button', { name: 'Change fixture identity' }).click();
   await page.getByRole('button', { name: 'Second mentor · Dr. Rivera' }).click();
-  await page.getByRole('button', { name: /Review Queue/ }).first().click();
+  await page.locator('[data-nav="queue"]').first().click();
+  await expect(page.locator('[data-view="mqueue"]')).toBeVisible();
   await page.getByRole('button', { name: /Revised — needs re-review/ }).click();
   const secondReview = page.locator('[data-story-row]').filter({ hasText: 'A hard conversation' });
   await secondReview.locator('[data-open-story]').click();

@@ -931,7 +931,7 @@ function mmsfr_is_recording_segment_upload_path( $path ) {
  */
 function mmsfr_is_mentor_note_audio_upload_path( $path ) {
 	return 1 === preg_match(
-		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/mentor-notes/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/audio$#i',
+		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/mentor-notes/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/(?:audio|segments)$#i',
 		$path
 	);
 }
@@ -1093,7 +1093,10 @@ function mmsfr_build_segment_multipart_body( $fields, $bytes, $mime_type, $bound
  */
 function mmsfr_build_mentor_note_multipart_body( $fields, $bytes, $mime_type, $boundary ) {
 	$body = '';
-	foreach ( array( 'durationMs', 'expectedVersion', 'mimeType' ) as $name ) {
+	foreach ( array( 'durationMs', 'expectedVersion', 'mimeType', 'seq', 'promptTail' ) as $name ) {
+		if ( ! array_key_exists( $name, $fields ) ) {
+			continue;
+		}
 		$body .= '--' . $boundary . "\r\n";
 		$body .= 'Content-Disposition: form-data; name="' . $name . "\"\r\n\r\n";
 		$body .= $fields[ $name ] . "\r\n";
@@ -1189,8 +1192,10 @@ function mmsfr_mentor_note_multipart_request() {
 	$file_names  = array_keys( $_FILES );
 	sort( $field_names );
 	sort( $file_names );
+	$is_segment = array( 'durationMs', 'expectedVersion', 'mimeType', 'promptTail', 'seq' ) === $field_names;
 	if (
 		array( 'durationMs', 'expectedVersion', 'mimeType' ) !== $field_names
+		&& ! $is_segment
 		|| array( 'segment' ) !== $file_names
 	) {
 		mmsfr_send_error( 400, 'invalid_multipart', 'The mentor audio form is invalid.' );
@@ -1198,12 +1203,16 @@ function mmsfr_mentor_note_multipart_request() {
 	$duration         = $_POST['durationMs'];
 	$expected_version = $_POST['expectedVersion'];
 	$declared_mime    = strtolower( trim( (string) $_POST['mimeType'] ) );
+	$sequence         = $is_segment ? $_POST['seq'] : null;
+	$prompt_tail      = $is_segment ? (string) $_POST['promptTail'] : null;
 	if (
 		! is_string( $duration )
 		|| ! is_string( $expected_version )
 		|| ! is_string( $_POST['mimeType'] )
 		|| 1 !== preg_match( '/^[1-9][0-9]{0,6}$/', $duration )
 		|| 1 !== preg_match( '/^(?:0|[1-9][0-9]{0,18})$/', $expected_version )
+		|| ( $is_segment && ( ! is_string( $sequence ) || 1 !== preg_match( '/^(?:0|[1-9][0-9]{0,2})$/', $sequence ) || absint( $sequence ) > 199 ) )
+		|| ( $is_segment && strlen( $prompt_tail ) > 2000 )
 		|| 1 !== preg_match( '#^audio/(?:webm|mp4|ogg|wav)(?:\s*;\s*codecs=[A-Za-z0-9._-]+)?$#', $declared_mime )
 	) {
 		mmsfr_send_error( 400, 'invalid_multipart', 'The mentor audio form is invalid.' );
@@ -1243,12 +1252,17 @@ function mmsfr_mentor_note_multipart_request() {
 	} catch ( Exception $error ) {
 		mmsfr_send_error( 503, 'origin_unavailable', 'StoryForge is temporarily unavailable.' );
 	}
-	$body = mmsfr_build_mentor_note_multipart_body(
-		array(
+	$fields = array(
 			'durationMs'     => $duration,
 			'expectedVersion' => $expected_version,
 			'mimeType'       => $declared_mime,
-		),
+		);
+	if ( $is_segment ) {
+		$fields['seq']        = (string) absint( $sequence );
+		$fields['promptTail'] = sanitize_textarea_field( $prompt_tail );
+	}
+	$body = mmsfr_build_mentor_note_multipart_body(
+		$fields,
 		$bytes,
 		$mime_type,
 		$boundary

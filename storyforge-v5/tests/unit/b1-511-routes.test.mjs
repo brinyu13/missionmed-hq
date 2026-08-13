@@ -54,6 +54,9 @@ async function fixture(context) {
     uploadAudio: async (identity, noteId, body) => (
       calls.push(['audio', identity, noteId, body]), { id: NOTE, transcript: 'Verbatim.' }
     ),
+    transcribeAudioSegment: async (identity, noteId, body) => (
+      calls.push(['segment', identity, noteId, body]), { seq: Number(body.seq), text: 'Near-live.' }
+    ),
     playback: async (identity, noteId) => (
       calls.push(['playback', identity, noteId]), { playbackUrl: 'https://private.invalid' }
     ),
@@ -192,4 +195,25 @@ test('mentor-note multipart preserves expected version and private bytes at the 
   const call = calls.find((item) => item[0] === 'audio');
   assert.equal(call[3].expectedVersion, '4');
   assert.equal(call[3].buffer.toString(), 'mentor-private-audio');
+});
+
+test('mentor-note segment route preserves note scope, sequence, prompt tail, and private bytes', async (context) => {
+  const { calls, origin } = await fixture(context);
+  const form = new FormData();
+  form.set('seq', '2');
+  form.set('expectedVersion', '4');
+  form.set('durationMs', '4000');
+  form.set('mimeType', 'audio/webm');
+  form.set('promptTail', 'earlier words');
+  form.set('segment', new Blob([Buffer.from('mentor-live-segment')], { type: 'audio/webm' }), 'mentor.webm');
+  const result = await json(await fetch(`${origin}/api/mentor-notes/${NOTE}/segments`, {
+    method: 'POST', headers: { 'x-test-role': 'admin' }, body: form,
+  }));
+  assert.equal(result.status, 200);
+  assert.equal(result.body.text, 'Near-live.');
+  const call = calls.find((item) => item[0] === 'segment');
+  assert.equal(call[2], NOTE);
+  assert.equal(call[3].seq, '2');
+  assert.equal(call[3].promptTail, 'earlier words');
+  assert.equal(call[3].buffer.toString(), 'mentor-live-segment');
 });
