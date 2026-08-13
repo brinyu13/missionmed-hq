@@ -33,6 +33,7 @@ process.env.STORYFORGE_STORY_PROMOTIONS_FORCE_OFF = '0';
 process.env.STORYFORGE_PER_USE_SCORING_FORCE_OFF = '0';
 process.env.STORYFORGE_ADMIN_REVIEW_CONTROLS_FORCE_OFF = '0';
 process.env.STORYFORGE_VOICE_CAPTURE_FORCE_OFF = '0';
+process.env.STORYFORGE_AVATAR_IDENTITY_FORCE_OFF = '0';
 
 // This test-only executor proves the E4/E7 browser path through the production
 // injection boundary without selecting production Option A or Option B.

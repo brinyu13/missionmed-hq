@@ -19,19 +19,17 @@ test('B1-515 applies the page-introduction law without adding a renderer', () =>
 test('B1-515 Inspiration is list-first, filterable, pinned, reorderable, and voice-capable only when authorized', () => {
   for (const marker of [
     'My Pinned Questions',
-    'data-inspiration-filter="domain"',
-    'data-inspiration-filter="lifeStage"',
-    'Marriage / Partner life',
-    'Travel / cultural experiences',
-    'data-inspiration-filter="tone"',
-    'data-inspiration-filter="status"',
+    "['marriage_partner','Partner life']",
+    "['travel','Travel']",
     'Dr Brian Recommends',
     'data-inspiration-move',
     'text/storyforge-inspiration-pin',
     'api.inspirationPins',
-    'Speak instead of type',
+    'Answer by voice',
   ]) assert.match(app, new RegExp(marker.replaceAll('.', '\\.')));
-  assert.match(app, /state\.capabilities\?\.voiceCapture \? `<button class="rowBtn b1515Speak/);
+  assert.match(app, /group\('domain', 'What part of life\?'/);
+  assert.match(app, /group\('lifeStage', 'When did it happen\?'/);
+  assert.match(app, /state\.capabilities\?\.voiceCapture \? `<button class="btnSave b1515Speak/);
   assert.match(app, /inspiration: \{[\s\S]*layout: 'list'/);
   assert.match(styles, /\.b1515PinnedPrompt\.dragOver/);
 });
@@ -39,11 +37,36 @@ test('B1-515 Inspiration is list-first, filterable, pinned, reorderable, and voi
 test('B1-515 Request a Story uses relationship buttons and previews both delivery surfaces', () => {
   assert.match(app, /data-request-relationship=/);
   assert.match(app, /Exactly what <em>\$\{esc\(invitation\.recipientFirstName\)\}<\/em> will receive/);
-  assert.match(app, /Preview their experience/);
-  assert.match(app, /This is a product preview, not a live guest session/);
+  assert.match(app, /Preview the actual guest surface/);
+  assert.match(app, /api\.requestGuestPreview/);
+  assert.match(app, /data-guest-surface-preview/);
+  assert.match(app, /server-authorized preview data/);
+  assert.doesNotMatch(app, /Who knows a story of you\?|Ask someone/);
   assert.match(app, /Nothing sends before your final confirmation/);
   assert.match(styles, /\.b1515RelationshipButtons/);
   assert.match(styles, /\.b1515GuestPreviewScreen/);
+});
+
+test('B1-515R uses signed actor avatar and explicit read-only administrator subject context', () => {
+  assert.match(app, /state\.avatarIdentity = session\?\.avatarIdentity \|\| null/);
+  assert.match(app, /identity\?\.headshotUrl/);
+  assert.match(app, /b1515AvatarFallback/);
+  assert.match(app, /\/api\/admin\/console\/subjects\/\$\{id\}\/home/);
+  assert.match(app, /VIEWING STORYFORGE FOR/);
+  assert.match(app, /data-admin-open-subject/);
+  assert.match(app, /data-admin-subject-story/);
+  assert.match(app, /studentOwnedMutations/);
+  assert.match(styles, /\.b1515SubjectBanner/);
+  assert.match(styles, /\.b1515Avatar img/);
+});
+
+test('B1-515R direct review controls persist immediately and mentor composer accepts submitted visibility', () => {
+  assert.match(app, /async function saveDirectAdminScore/);
+  assert.match(app, /async function saveDirectUseReviews/);
+  assert.match(app, /await saveDirectUseReviews\(\{/);
+  assert.match(app, /storyVisibility\(story\) !== 'mentor_visible'[\s\S]*story\.status === 'private'/);
+  assert.match(app, /Text-only share · no original audio is attached/);
+  assert.match(app, /open\.hasAudio === true/);
 });
 
 test('B1-515 administrator controls are direct and remain signed-capability gated', () => {
@@ -123,4 +146,29 @@ test('B1-515 fast repair uses explicit start, shared segmentation, and one admin
   assert.match(app, /pausePurposefulVersionVoice/);
   assert.match(app, /Microphone off\. Every saved change remains in version history\./);
   assert.match(styles, /\.b1515AdminReviewWorkspace/);
+});
+
+test('B1-515R action center, contribution review, Content Studio, and grouped Settings remain bounded', () => {
+  for (const marker of [
+    'Who needs me', 'What should I do next?', 'What changed',
+    'data-contribution-review=', 'api.reviewContribution',
+    'Overview', 'Add One', 'Import', 'Environments',
+    'Validate draft', 'Validated preview · not published', 'Commit retired drafts',
+    'api.adminInspirationReorder', 'expectedVersions',
+    'Appearance', 'Story Preferences', 'Notifications', 'Invitations', 'Identity',
+    'No notification preference endpoint is available in this release',
+  ]) assert.match(app, new RegExp(marker.replaceAll('?', '\\?').replaceAll('.', '\\.')));
+  assert.match(app, /reviewContribution:[\s\S]{0,180}jsonOptions\('PATCH'/);
+  assert.match(app, /actionCenter\.whoNeedsMe\?\.needsReview\?\.items/);
+  assert.match(app, /actionCenter\.changed\?\.newSinceLastVisit/);
+  assert.match(app, /item\.studentScore,item\.student_score/);
+  assert.match(app, /item\.studentReviewNote,item\.student_review_note/);
+  assert.match(app, /maxlength="2000"/);
+  assert.match(app, /state\.adminBulkPreview = parsed/);
+  assert.match(app, /state\.adminBulkPreview\?\.validation\?\.publishable===true/);
+  assert.match(app, /activeOrder\.get\(String\(prompt\.id\)\)/);
+  assert.doesNotMatch(app, /api\.adminInspirationBulkCommit\(parsed\.prompts\)/);
+  assert.match(styles, /\.b1515ActionCenter/);
+  assert.match(styles, /\.b1515ContentTabs/);
+  assert.match(styles, /\.b1515SettingsGroup/);
 });

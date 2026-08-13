@@ -12,6 +12,10 @@ const wpCommand = fileURLToPath(new URL(
   '../../scripts/wp-storyforge-identity-sync.php',
   import.meta.url,
 ));
+const ssoPlugin = fileURLToPath(new URL(
+  '../../../wp-content/plugins/missionmed-storyforge-sso/missionmed-storyforge-sso.php',
+  import.meta.url,
+));
 const uuids = [
   '11111111-1111-4111-8111-111111111111',
   '22222222-2222-4222-8222-222222222222',
@@ -128,12 +132,76 @@ test('WordPress operator command recomputes entitlement and touches only the exi
   const source = await readFile(wpCommand, 'utf8');
   assert.match(source, /mmsf_entitlement_for_user/);
   assert.match(source, /mmsf_native_role_for_user/);
+  assert.match(source, /mmsf_arena_avatar_projections/);
+  assert.match(source, /avatar_authority/);
   assert.match(source, /_missionmed_storyforge_user_id/);
   assert.match(source, /mmhq_cam_build_entitlement/);
   assert.match(source, /fileperms\(\$path\)/);
   assert.match(source, /update_user_meta\(\$wp_user_id, \$uuid_meta_key, \$target_uuid\)/);
   assert.doesNotMatch(source, /wp_create_user|wp_insert_user|wp_update_user|ld_update_course_access/);
   assert.doesNotMatch(source, /voice_capture|recording|transcription|sf_stories/);
+});
+
+test('StoryForge JWTs consume only the active Arena Lobby avatar projection', async () => {
+  const source = await readFile(ssoPlugin, 'utf8');
+  assert.match(source, /MMED_Supabase_Bridge::get_supabase_uuid/);
+  assert.match(source, /rest\/v1\/user_avatars/);
+  assert.match(source, /'is_active'\s*=>\s*'eq\.true'/);
+  assert.match(source, /'select'\s*=>\s*'id,user_id,avatar_url,thumbnail_url,is_active,created_at'/);
+  assert.match(source, /cdn\.missionmedinstitute\.com/);
+  assert.match(source, /\$payload\['avatar_thumbnail_url'\]/);
+  assert.match(source, /\$payload\['active_avatar_id'\]/);
+  assert.doesNotMatch(source, /object_key|service_role/);
+});
+
+test('Arena Lobby active-avatar projection is validated and reconciled without R2 object authority', async () => {
+  const avatarId = '55555555-5555-4555-8555-555555555555';
+  const plan = classifyIdentityMappings({
+    ...snapshot([{
+      wp_user_id: 10,
+      username: 'arena-student',
+      storyforge_uuid_raw: uuids[0],
+      arena_avatar: {
+        source: 'arena_lobby',
+        active_avatar_id: avatarId,
+        avatar_thumbnail_url: 'https://cdn.missionmedinstitute.com/avatars/safe.webp',
+      },
+    }]),
+    avatar_authority: { source: 'arena_lobby', available: true, storage: 'r2_cdn' },
+  }, [{ id: uuids[0], wp_user_id: 10 }]);
+  assert.equal(plan.entries[0].arena_avatar_id, avatarId);
+  assert.equal(plan.entries[0].arena_avatar_thumbnail_url, 'https://cdn.missionmedinstitute.com/avatars/safe.webp');
+
+  const client = {
+    async query(sql, params = []) {
+      if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) return { rows: [], rowCount: 0 };
+      assert.match(sql, /arena_avatar_id = nullif\(\$5,''\)::uuid/);
+      assert.doesNotMatch(sql, /object_key|service_role|r2/i);
+      return {
+        rowCount: 1,
+        rows: [{
+          id: params[0], wp_user_id: params[1], display_name: params[2], first_name: params[3],
+          arena_avatar_id: params[4], arena_avatar_thumbnail_url: params[5],
+        }],
+      };
+    },
+  };
+  assert.deepEqual(await reconcilePostgresProfiles(plan, client), { checked: 1, reconciled: 1 });
+
+  const unsafe = classifyIdentityMappings({
+    ...snapshot([{
+      wp_user_id: 10,
+      username: 'arena-student',
+      storyforge_uuid_raw: uuids[0],
+      arena_avatar: {
+        source: 'arena_lobby',
+        active_avatar_id: avatarId,
+        avatar_thumbnail_url: 'https://attacker.example/avatar.webp',
+      },
+    }]),
+    avatar_authority: { source: 'arena_lobby', available: true, storage: 'r2_cdn' },
+  }, [{ id: uuids[0], wp_user_id: 10 }]);
+  assert.equal(unsafe.entries[0].status, 'INVALID_ACCOUNT');
 });
 
 test('profile reconciliation updates only WordPress-authoritative names on an exact existing identity binding', async () => {

@@ -12,10 +12,26 @@ const BLOCKING_STATUSES = new Set([
   'DUPLICATE_UUID',
   'INVALID_ACCOUNT',
 ]);
+const ARENA_AVATAR_ORIGIN = 'https://cdn.missionmedinstitute.com';
 
 function normalizedUuid(value) {
   const uuid = String(value ?? '').trim().toLowerCase();
   return UUID_PATTERN.test(uuid) ? uuid : '';
+}
+
+function arenaAvatarProjection(value) {
+  if (value == null) return { valid: true, id: '', thumbnailUrl: '' };
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return { valid: false, id: '', thumbnailUrl: '' };
+  const id = normalizedUuid(value.active_avatar_id);
+  const candidate = String(value.avatar_thumbnail_url || '').trim();
+  try {
+    const url = new URL(candidate);
+    const valid = id !== '' && url.protocol === 'https:' && url.origin === ARENA_AVATAR_ORIGIN
+      && url.username === '' && url.password === '';
+    return { valid, id: valid ? id : '', thumbnailUrl: valid ? url.href : '' };
+  } catch {
+    return { valid: false, id: '', thumbnailUrl: '' };
+  }
 }
 
 function countBy(values, key) {
@@ -64,6 +80,7 @@ export function classifyIdentityMappings(snapshot, databaseRows, {
     const firstName = String(raw.first_name ?? '').trim();
     const rawUuid = String(raw.storyforge_uuid_raw ?? '').trim().toLowerCase();
     const wpUuid = normalizedUuid(rawUuid);
+    const avatar = arenaAvatarProjection(raw.arena_avatar);
     const base = {
       wp_user_id: wpUserId,
       username,
@@ -75,6 +92,8 @@ export function classifyIdentityMappings(snapshot, databaseRows, {
       storyforge_uuid: wpUuid,
       apply_wordpress: false,
       apply_postgres: false,
+      arena_avatar_id: avatar.id,
+      arena_avatar_thumbnail_url: avatar.thumbnailUrl,
     };
     if (raw.eligible !== true) return base;
     if (
@@ -84,6 +103,7 @@ export function classifyIdentityMappings(snapshot, databaseRows, {
       || displayName === ''
       || raw.native_role !== 'student'
       || (rawUuid !== '' && wpUuid === '')
+      || !avatar.valid
     ) {
       return { ...base, status: 'INVALID_ACCOUNT' };
     }
@@ -170,6 +190,7 @@ export function classifyIdentityMappings(snapshot, databaseRows, {
     generated_at: new Date().toISOString(),
     authority: snapshot.authority,
     course_id: snapshot.course_id,
+    avatar_authority: snapshot.avatar_authority || null,
     entries,
     summary: {
       users_scanned: entries.length,
@@ -269,6 +290,9 @@ export async function reconcilePostgresProfiles(plan, client) {
     throw new Error('invalid identity plan');
   }
   const targets = plan.entries.filter((entry) => entry.eligible && !BLOCKING_STATUSES.has(entry.status));
+  const projectArenaAvatar = plan.avatar_authority?.source === 'arena_lobby'
+    && plan.avatar_authority?.available === true
+    && plan.avatar_authority?.storage === 'r2_cdn';
   await client.query('BEGIN');
   try {
     let updated = 0;
@@ -279,7 +303,24 @@ export async function reconcilePostgresProfiles(plan, client) {
         throw new Error('identity plan contains an invalid profile projection');
       }
       const result = await client.query(
-        `UPDATE public.sf_users
+        projectArenaAvatar
+          ? `UPDATE public.sf_users
+            SET display_name = $3,
+                first_name = nullif($4,''),
+                arena_avatar_id = nullif($5,'')::uuid,
+                arena_avatar_thumbnail_url = nullif($6,''),
+                arena_avatar_synced_at = now(),
+                updated_at = CASE
+                  WHEN display_name IS DISTINCT FROM $3
+                    OR first_name IS DISTINCT FROM nullif($4,'')
+                    OR arena_avatar_id IS DISTINCT FROM nullif($5,'')::uuid
+                    OR arena_avatar_thumbnail_url IS DISTINCT FROM nullif($6,'')
+                  THEN now() ELSE updated_at END
+          WHERE id = $1::uuid AND wp_user_id = $2 AND role='student' AND eligible
+        RETURNING id::text,wp_user_id,display_name,coalesce(first_name,'') AS first_name,
+          coalesce(arena_avatar_id::text,'') AS arena_avatar_id,
+          coalesce(arena_avatar_thumbnail_url,'') AS arena_avatar_thumbnail_url`
+          : `UPDATE public.sf_users
             SET display_name = $3,
                 first_name = nullif($4,''),
                 updated_at = CASE
@@ -287,13 +328,24 @@ export async function reconcilePostgresProfiles(plan, client) {
                   THEN now() ELSE updated_at END
           WHERE id = $1::uuid AND wp_user_id = $2 AND role='student' AND eligible
         RETURNING id::text,wp_user_id,display_name,coalesce(first_name,'') AS first_name`,
-        [entry.storyforge_uuid, entry.wp_user_id, displayName, firstName],
+        projectArenaAvatar
+          ? [
+            entry.storyforge_uuid,
+            entry.wp_user_id,
+            displayName,
+            firstName,
+            String(entry.arena_avatar_id || ''),
+            String(entry.arena_avatar_thumbnail_url || ''),
+          ]
+          : [entry.storyforge_uuid, entry.wp_user_id, displayName, firstName],
       );
       if (result.rowCount !== 1
         || normalizedUuid(result.rows[0].id) !== normalizedUuid(entry.storyforge_uuid)
         || Number(result.rows[0].wp_user_id) !== Number(entry.wp_user_id)
         || result.rows[0].display_name !== displayName
-        || result.rows[0].first_name !== firstName) {
+        || result.rows[0].first_name !== firstName
+        || (projectArenaAvatar && result.rows[0].arena_avatar_id !== String(entry.arena_avatar_id || ''))
+        || (projectArenaAvatar && result.rows[0].arena_avatar_thumbnail_url !== String(entry.arena_avatar_thumbnail_url || ''))) {
         throw new Error('PostgreSQL profile reconciliation failed');
       }
       updated++;

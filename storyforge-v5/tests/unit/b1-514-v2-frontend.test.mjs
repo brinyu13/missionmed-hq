@@ -102,9 +102,9 @@ test('B1-514 purposeful tellings preserve append-retell semantics, original audi
 test('Administrator review reuses authorized story telling and signed-audio surfaces without exposing private work', () => {
   assert.match(app, /async function loadAdminStory\(id\)[\s\S]*api\.storyVersions\(id\)/);
   assert.match(app, /function renderAdminStory\(\)[\s\S]*renderStoryRoom\(\{ adminStory: story \}\)/);
-  assert.match(app, /function renderStoryRoom\(\{ adminStory = null \} = \{\}\)[\s\S]*audioMarkup\(story\)/);
+  assert.match(app, /function renderStoryRoom\(\{ adminStory = null, subjectStory = null \} = \{\}\)[\s\S]*audioMarkup\(story\)/);
   assert.doesNotMatch(app, /function adminStoryTellingsMarkup/);
-  assert.match(app, /if \(isAdmin\(\) && adminConsoleState\(\)\.story\) renderAdminStory\(\)/);
+  assert.match(app, /if \(isAdmin\(\) && adminConsoleState\(\)\.story\) renderCurrentAdminStory\(\)/);
   assert.match(app, /Private and archived stories are intentionally absent/);
 });
 

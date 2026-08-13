@@ -153,6 +153,9 @@ phase_one_migrations=(
   "20260810270000_b1_514_request_delivery_attempts.sql"
   "20260810280000_b1_514_guest_voice_cleanup_recovery.sql"
   "20260812120000_b1_515_v201_reviews_collections_peer.sql"
+  "20260813120000_b1_515r_admin_subject_masterkey.sql"
+  "20260813130000_b1_515r_action_center_contribution_review.sql"
+  "20260813140000_b1_515r_arena_avatar_directory_groups.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \

@@ -65,11 +65,30 @@ $write_private_json = static function ($target, $value) {
 if ($action === 'export') {
     $rows = array();
     $eligible_count = 0;
-    foreach (get_users(array('fields' => 'all')) as $user) {
-        list($eligible, $entitlement) = $is_current_student($user);
+    $users = get_users(array('fields' => 'all'));
+    $user_states = array();
+    $eligible_ids = array();
+    foreach ($users as $user) {
+        $state = $is_current_student($user);
+        $user_states[(int) $user->ID] = $state;
+        if (!empty($state[0])) {
+            $eligible_ids[] = (int) $user->ID;
+        }
+    }
+    $avatar_authority_available = function_exists('mmsf_arena_avatar_projections')
+        && class_exists('MMED_Supabase_Bridge')
+        && MMED_Supabase_Bridge::configured();
+    $avatar_projections = $avatar_authority_available
+        ? mmsf_arena_avatar_projections($eligible_ids)
+        : array();
+    foreach ($users as $user) {
+        list($eligible, $entitlement) = $user_states[(int) $user->ID];
         if ($eligible) {
             $eligible_count++;
         }
+        $arena_avatar = is_array($avatar_projections[(int) $user->ID] ?? null)
+            ? $avatar_projections[(int) $user->ID]
+            : null;
         $rows[] = array(
             'wp_user_id' => (int) $user->ID,
             'username' => (string) $user->user_login,
@@ -83,6 +102,7 @@ if ($action === 'export') {
                 true
             ))),
             'eligible' => (bool) $eligible,
+            'arena_avatar' => $arena_avatar,
             'entitlement' => array(
                 'trusted' => !empty($entitlement['trusted']),
                 'verified' => !empty($entitlement['verified']),
@@ -97,6 +117,11 @@ if ($action === 'export') {
         'generated_at' => gmdate('c'),
         'authority' => 'mmhq_cam_build_entitlement',
         'course_id' => 3893,
+        'avatar_authority' => array(
+            'source' => 'arena_lobby',
+            'available' => $avatar_authority_available,
+            'storage' => 'r2_cdn',
+        ),
         'users' => $rows,
     );
     $write_private_json($path, $snapshot);

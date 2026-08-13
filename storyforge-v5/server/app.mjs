@@ -252,13 +252,15 @@ function exactHttpOrigin(value) {
 export function storyForgeContentSecurityPolicy({
   matrixOrigin,
   audioOrigin = '',
+  avatarOrigin = 'https://cdn.missionmedinstitute.com',
 } = {}) {
   const exactAudioOrigin = exactHttpOrigin(audioOrigin);
+  const exactAvatarOrigin = exactHttpOrigin(avatarOrigin);
   return [
     "default-src 'self'",
     "script-src 'self'",
     "style-src 'self'",
-    `img-src 'self' data:${exactAudioOrigin ? ` ${exactAudioOrigin}` : ''}`,
+    `img-src 'self' data:${exactAudioOrigin ? ` ${exactAudioOrigin}` : ''}${exactAvatarOrigin ? ` ${exactAvatarOrigin}` : ''}`,
     `media-src 'self' blob:${exactAudioOrigin ? ` ${exactAudioOrigin}` : ''}`,
     `connect-src 'self'${exactAudioOrigin ? ` ${exactAudioOrigin}` : ''}`,
     "font-src 'self'",
@@ -273,6 +275,7 @@ function setSecurityHeaders(response) {
   response.setHeader('Content-Security-Policy', storyForgeContentSecurityPolicy({
     matrixOrigin,
     audioOrigin: config.r2.endpoint,
+    avatarOrigin: 'https://cdn.missionmedinstitute.com',
   }));
   response.setHeader('Referrer-Policy', 'no-referrer');
   response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -806,6 +809,15 @@ async function api(request, response, url, {
   if (request.method === 'GET' && url.pathname === '/api/requests/contributions') {
     return sendJson(response, 200, { contributions: await requestsService.listContributions(identity) });
   }
+  const invitationGuestPreviewRoute = url.pathname.match(
+    /^\/api\/requests\/([a-f0-9-]+)\/guest-preview$/i,
+  );
+  if (request.method === 'GET' && invitationGuestPreviewRoute) {
+    return sendJson(response, 200, await requestsService.guestExperiencePreview(
+      identity,
+      invitationGuestPreviewRoute[1],
+    ));
+  }
   const contributionAudioRoute = url.pathname.match(
     /^\/api\/requests\/contributions\/([a-f0-9-]+)\/audio$/i,
   );
@@ -813,6 +825,16 @@ async function api(request, response, url, {
     return sendJson(response, 200, await requestsService.contributionPlayback(
       identity,
       contributionAudioRoute[1],
+    ));
+  }
+  const contributionReviewRoute = url.pathname.match(
+    /^\/api\/requests\/contributions\/([a-f0-9-]+)\/review$/i,
+  );
+  if (request.method === 'PATCH' && contributionReviewRoute) {
+    return sendJson(response, 200, await requestsService.reviewContribution(
+      identity,
+      contributionReviewRoute[1],
+      await readJson(request),
     ));
   }
   const contributionRoute = url.pathname.match(
@@ -995,6 +1017,16 @@ async function api(request, response, url, {
     });
   }
 
+  if (request.method === 'GET' && url.pathname === '/api/admin/features/peer_share') {
+    return sendJson(response, 200, { flag: await adminConsoleService.getPeerShareFlag(identity) });
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/admin/features/peer_share') {
+    return sendJson(response, 200, {
+      flag: await adminConsoleService.updatePeerShareFlag(identity, await readJson(request)),
+    });
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/admin/console/home') {
     return sendJson(response, 200, await adminConsoleService.home(
       identity,
@@ -1007,6 +1039,9 @@ async function api(request, response, url, {
       identity,
       Object.fromEntries(url.searchParams),
     ));
+  }
+  if (request.method === 'GET' && url.pathname === '/api/admin/console/groups') {
+    return sendJson(response, 200, await adminConsoleService.directoryGroups(identity));
   }
   const adminDirectoryStudentRoute = url.pathname.match(/^\/api\/admin\/console\/directory\/([a-f0-9-]+)$/i);
   if (request.method === 'GET' && adminDirectoryStudentRoute) {
@@ -1041,6 +1076,9 @@ async function api(request, response, url, {
   if (request.method === 'POST' && url.pathname === '/api/admin/console/inspiration/bulk/commit') {
     return sendJson(response, 201, await inspirationService.adminCommitBulk(identity, await readJson(request)));
   }
+  if (request.method === 'POST' && url.pathname === '/api/admin/console/inspiration/reorder') {
+    return sendJson(response, 200, await inspirationService.adminReorder(identity, await readJson(request)));
+  }
   const adminInspirationHistoryRoute = url.pathname.match(/^\/api\/admin\/console\/inspiration\/([a-f0-9-]+)\/history$/i);
   if (request.method === 'GET' && adminInspirationHistoryRoute) {
     return sendJson(response, 200, await inspirationService.adminHistory(identity, adminInspirationHistoryRoute[1]));
@@ -1059,6 +1097,38 @@ async function api(request, response, url, {
       identity,
       adminStudentRoute[1],
       Object.fromEntries(url.searchParams),
+    ));
+  }
+
+  const adminSubjectHomeRoute = url.pathname.match(
+    /^\/api\/admin\/console\/subjects\/([a-f0-9-]+)\/home$/i,
+  );
+  if (request.method === 'GET' && adminSubjectHomeRoute) {
+    return sendJson(response, 200, await adminConsoleService.subjectHome(
+      identity,
+      adminSubjectHomeRoute[1],
+    ));
+  }
+
+  const adminSubjectStoriesRoute = url.pathname.match(
+    /^\/api\/admin\/console\/subjects\/([a-f0-9-]+)\/stories$/i,
+  );
+  if (request.method === 'GET' && adminSubjectStoriesRoute) {
+    return sendJson(response, 200, await adminConsoleService.subjectStories(
+      identity,
+      adminSubjectStoriesRoute[1],
+      Object.fromEntries(url.searchParams),
+    ));
+  }
+
+  const adminSubjectStoryRoute = url.pathname.match(
+    /^\/api\/admin\/console\/subjects\/([a-f0-9-]+)\/stories\/([a-f0-9-]+)$/i,
+  );
+  if (request.method === 'GET' && adminSubjectStoryRoute) {
+    return sendJson(response, 200, await adminConsoleService.subjectStory(
+      identity,
+      adminSubjectStoryRoute[1],
+      adminSubjectStoryRoute[2],
     ));
   }
 

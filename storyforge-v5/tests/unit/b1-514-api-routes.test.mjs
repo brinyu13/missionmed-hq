@@ -37,6 +37,7 @@ async function withServer(options, operation) {
       adminHistory: async () => ({ history: [] }),
       adminParseBulk: async () => ({ prompts: [], count: 0, persisted: false }),
       adminCommitBulk: async () => ({ prompts: [] }),
+      adminReorder: async (_identity, body) => ({ promptIds: body.promptIds }),
       event: async () => ({ recorded: true }),
     },
     requestsService: {
@@ -49,12 +50,19 @@ async function withServer(options, operation) {
       create: async () => ({ id: 'invitation' }),
       update: async () => ({ status: 'draft' }),
       preview: async () => ({ preview: { subject: 'Preview' } }),
+      guestExperiencePreview: async (_identity, id) => ({ previewOnly: true, invitationId: id }),
       send: async () => ({ dryRun: true }),
       remind: async () => ({ dryRun: true, reminder: true }),
       reinvite: async () => ({ status: 'draft', reinvited: true }),
       revoke: async () => ({ status: 'revoked' }),
       listContributions: async () => [],
       contributionPlayback: async (_identity, id) => ({ contributionId: id, playbackUrl: 'https://audio.example.test/file' }),
+      reviewContribution: async (_identity, id, body) => ({
+        id,
+        studentScore: body.score,
+        studentReviewNote: body.note,
+        rowVersion: Number(body.expectedVersion) + 1,
+      }),
     },
     guestVoiceService: {
       open: async () => ({ recordingId: '33333333-3333-4333-8333-333333333333' }),
@@ -195,5 +203,33 @@ test('authenticated V2 version, Inspiration, and request routes delegate to boun
     const contributionAudio = await fetch(`${origin}/api/requests/contributions/${storyId}/audio`);
     assert.equal(contributionAudio.status, 200);
     assert.equal((await contributionAudio.json()).contributionId, storyId);
+    const contributionReview = await fetch(`${origin}/api/requests/contributions/${storyId}/review`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expectedVersion: 2, score: 5, note: 'A vivid candidate.' }),
+    });
+    assert.equal(contributionReview.status, 200);
+    assert.deepEqual(await contributionReview.json(), {
+      id: storyId,
+      studentScore: 5,
+      studentReviewNote: 'A vivid candidate.',
+      rowVersion: 3,
+    });
+    const guestPreview = await fetch(`${origin}/api/requests/${storyId}/guest-preview`);
+    assert.equal(guestPreview.status, 200);
+    assert.deepEqual(await guestPreview.json(), { previewOnly: true, invitationId: storyId });
+  });
+});
+
+test('Content Studio reorder route delegates the exact bounded payload', async () => {
+  const promptIds = ['22222222-2222-4222-8222-222222222222'];
+  await withServer({}, async (origin) => {
+    const response = await fetch(`${origin}/api/admin/console/inspiration/reorder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ promptIds, expectedVersions: { [promptIds[0]]: 2 } }),
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual((await response.json()).promptIds, promptIds);
   });
 });

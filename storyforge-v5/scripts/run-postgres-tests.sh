@@ -101,6 +101,9 @@ b1_514_migrations=(
 )
 b1_515_migrations=(
   "20260812120000_b1_515_v201_reviews_collections_peer.sql"
+  "20260813120000_b1_515r_admin_subject_masterkey.sql"
+  "20260813130000_b1_515r_action_center_contribution_review.sql"
+  "20260813140000_b1_515r_arena_avatar_directory_groups.sql"
 )
 discovered_b1_514_migrations=()
 while IFS= read -r migration; do
@@ -151,6 +154,9 @@ node --test \
   "$PACKAGE_DIR/tests/postgres/b1-514-v21-authored-segments.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/b1-514-guest-voice.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/b1-514-delivery-attempts.test.mjs" \
+  "$PACKAGE_DIR/tests/postgres/b1-515r-admin-subject-masterkey.test.mjs" \
+  "$PACKAGE_DIR/tests/postgres/b1-515r-action-center-contribution-review.test.mjs" \
+  "$PACKAGE_DIR/tests/postgres/b1-515r-arena-avatar-directory-groups.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/production-migration-transaction.test.mjs"
 
 node --test --test-concurrency=1 "$PACKAGE_DIR"/tests/pg/*.test.mjs

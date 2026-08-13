@@ -269,6 +269,102 @@ test('survival CLI enforces private artifacts and a populated PostgreSQL 18 V2 b
       assertNoPrivateProse(overwrite.stderr, wrongMode.stderr, symlink.stderr, outside.stderr);
     });
 
+    await t.test('exact contribution review schema evolution preserves every existing field and requires defaults', async () => {
+      await database.client.query(
+        `ALTER TABLE public.sf_story_contributions
+           ADD COLUMN student_score smallint NULL,
+           ADD COLUMN student_review_note text NULL,
+           ADD COLUMN reviewed_at timestamptz NULL,
+           ADD COLUMN row_version bigint NOT NULL DEFAULT 0`,
+      );
+      const evolvedPath = path.join(evidenceRoot, 'POST-CONTRIBUTION-REVIEW.json');
+      const capture = runCli(captureArgs('post', evolvedPath), { evidenceRoot, connectionString });
+      assert.equal(capture.status, 0, capture.stderr);
+      const withoutContract = runCli([
+        'compare', '--pre', path.join(evidenceRoot, 'PRE.json'), '--post', evolvedPath,
+      ], { evidenceRoot, connectionString });
+      assert.notEqual(withoutContract.status, 0);
+      const withContract = runCli([
+        'compare', '--pre', path.join(evidenceRoot, 'PRE.json'), '--post', evolvedPath,
+        '--expected-contribution-review-columns',
+      ], { evidenceRoot, connectionString });
+      assert.equal(withContract.status, 0, withContract.stderr);
+
+      await database.client.query(
+        `UPDATE public.sf_story_contributions SET student_score=5
+         WHERE id='51400000-0000-4514-8514-000000000008'`,
+      );
+      const populatedPath = path.join(evidenceRoot, 'POST-CONTRIBUTION-POPULATED.json');
+      const populatedCapture = runCli(captureArgs('post', populatedPath), { evidenceRoot, connectionString });
+      assert.equal(populatedCapture.status, 0, populatedCapture.stderr);
+      const populatedCompare = runCli([
+        'compare', '--pre', path.join(evidenceRoot, 'PRE.json'), '--post', populatedPath,
+        '--expected-contribution-review-columns',
+      ], { evidenceRoot, connectionString });
+      assert.notEqual(populatedCompare.status, 0);
+      await database.client.query(
+        `UPDATE public.sf_story_contributions SET student_score=NULL
+         WHERE id='51400000-0000-4514-8514-000000000008'`,
+      );
+      assertNoPrivateProse(capture.stdout, capture.stderr, withoutContract.stdout,
+        withoutContract.stderr, withContract.stdout, withContract.stderr,
+        populatedCapture.stdout, populatedCapture.stderr,
+        populatedCompare.stdout, populatedCompare.stderr,
+        readFileSync(evolvedPath, 'utf8'), readFileSync(populatedPath, 'utf8'));
+    });
+
+    await t.test('Arena avatar projection schema evolution is default-null and lossless', async () => {
+      await database.client.query(
+        `ALTER TABLE public.sf_users
+           ADD COLUMN arena_avatar_id uuid NULL,
+           ADD COLUMN arena_avatar_thumbnail_url text NULL,
+           ADD COLUMN arena_avatar_synced_at timestamptz NULL`,
+      );
+      const evolvedPath = path.join(evidenceRoot, 'POST-ARENA-AVATAR.json');
+      const capture = runCli(captureArgs('post', evolvedPath), { evidenceRoot, connectionString });
+      assert.equal(capture.status, 0, capture.stderr);
+      const withoutContract = runCli([
+        'compare', '--pre', path.join(evidenceRoot, 'PRE.json'), '--post', evolvedPath,
+      ], { evidenceRoot, connectionString });
+      assert.notEqual(withoutContract.status, 0);
+      const withContract = runCli([
+        'compare', '--pre', path.join(evidenceRoot, 'PRE.json'), '--post', evolvedPath,
+        '--expected-contribution-review-columns',
+        '--expected-arena-avatar-columns',
+      ], { evidenceRoot, connectionString });
+      assert.equal(withContract.status, 0, withContract.stderr);
+
+      await database.client.query(
+        `UPDATE public.sf_users
+         SET arena_avatar_id='55555555-5555-4555-8555-555555555555',
+             arena_avatar_thumbnail_url='https://cdn.missionmedinstitute.com/avatar.webp',
+             arena_avatar_synced_at=now()
+         WHERE id='11111111-1111-4111-8111-111111111111'`,
+      );
+      const populatedPath = path.join(evidenceRoot, 'POST-ARENA-AVATAR-POPULATED.json');
+      const populatedCapture = runCli(captureArgs('post', populatedPath), { evidenceRoot, connectionString });
+      assert.equal(populatedCapture.status, 0, populatedCapture.stderr);
+      const populatedCompare = runCli([
+        'compare', '--pre', path.join(evidenceRoot, 'PRE.json'), '--post', populatedPath,
+        '--expected-contribution-review-columns',
+        '--expected-arena-avatar-columns',
+      ], { evidenceRoot, connectionString });
+      assert.notEqual(populatedCompare.status, 0);
+      await database.client.query(
+        `UPDATE public.sf_users
+            SET arena_avatar_id=NULL,
+                arena_avatar_thumbnail_url=NULL,
+                arena_avatar_synced_at=NULL
+          WHERE id='11111111-1111-4111-8111-111111111111'`,
+      );
+      assertNoPrivateProse(
+        capture.stdout, capture.stderr, withoutContract.stdout, withoutContract.stderr,
+        withContract.stdout, withContract.stderr, populatedCapture.stdout,
+        populatedCapture.stderr, populatedCompare.stdout, populatedCompare.stderr,
+        readFileSync(evolvedPath, 'utf8'), readFileSync(populatedPath, 'utf8'),
+      );
+    });
+
     await t.test('candidate table and default-off flag additions require exact allowlists', async () => {
       await database.client.query(
         `CREATE TABLE public.sf_peer_feedback (
@@ -293,6 +389,8 @@ test('survival CLI enforces private artifacts and a populated PostgreSQL 18 V2 b
         'compare', '--pre', path.join(evidenceRoot, 'PRE.json'), '--post', candidatePath,
         '--expected-table-addition', 'sf_peer_feedback',
         '--expected-feature-flag-addition', `peer_review_test_gate:${flagHash}`,
+        '--expected-contribution-review-columns',
+        '--expected-arena-avatar-columns',
       ], { evidenceRoot, connectionString });
       assert.equal(withAllowlist.status, 0, withAllowlist.stderr);
       assertNoPrivateProse(capture.stdout, capture.stderr, withoutAllowlist.stdout,
@@ -317,6 +415,8 @@ test('survival CLI enforces private artifacts and a populated PostgreSQL 18 V2 b
         '--output', failureReport,
         '--expected-table-addition', 'sf_peer_feedback',
         '--expected-feature-flag-addition', `peer_review_test_gate:${flagHash}`,
+        '--expected-contribution-review-columns',
+        '--expected-arena-avatar-columns',
       ], { evidenceRoot, connectionString });
       assert.notEqual(compare.status, 0);
       assert.match(compare.stdout, /FAIL STORYFORGE_V1_SURVIVAL/);

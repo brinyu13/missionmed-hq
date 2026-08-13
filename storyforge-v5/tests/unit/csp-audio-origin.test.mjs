@@ -28,6 +28,10 @@ test('signed-audio CSP pins one exact configured origin for replay and direct PU
   );
   assert.equal(policy.includes('*.r2.cloudflarestorage.com'), false);
   assert.equal(policy.includes('/private/path'), false);
+  assert.match(
+    policy,
+    /img-src 'self' data: https:\/\/example-account\.r2\.cloudflarestorage\.com https:\/\/cdn\.missionmedinstitute\.com/,
+  );
 });
 
 test('invalid or credential-bearing audio endpoints add no CSP source', () => {
@@ -80,7 +84,7 @@ test('R2 presigning stays on the same exact origin pinned by CSP', async (t) => 
   assert.match(policy, new RegExp(`connect-src 'self' ${endpoint}`));
 });
 
-test('every serving layer derives CSP from an exact R2 endpoint without a wildcard', async () => {
+test('every serving layer pins exact R2 and Arena-avatar origins without a wildcard', async () => {
   const files = await Promise.all([
     readFile(new URL('../../infra/edge/worker.mjs', import.meta.url), 'utf8'),
     readFile(new URL('../../infra/edge/local-router.mjs', import.meta.url), 'utf8'),
@@ -93,6 +97,7 @@ test('every serving layer derives CSP from an exact R2 endpoint without a wildca
     assert.match(source, /STORYFORGE_R2_ENDPOINT/);
     assert.match(source, /media-src 'self' blob:/);
     assert.match(source, /connect-src 'self'/);
+    assert.match(source, /cdn\.missionmedinstitute\.com/);
     assert.equal(source.includes('*.r2.cloudflarestorage.com'), false);
   }
 });

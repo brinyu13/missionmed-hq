@@ -215,6 +215,11 @@ const ADMIN_CONSOLE_NAV = Object.freeze([
   ['settings', 'Release Controls', '⚙'],
 ]);
 
+const ADMIN_SUBJECT_NAV = Object.freeze([
+  ['home', 'Home', '⌂'],
+  ['library', 'Story Library', '▤'],
+]);
+
 const SUITABILITY = Object.freeze({
   ps_only: 'Personal Statement only',
   interview_only: 'Interview only',
@@ -310,6 +315,9 @@ const state = {
   adminContentDraft: null,
   adminContentError: '',
   adminContentPreviewing: false,
+  adminContentTab: 'overview',
+  adminPromptValidated: null,
+  adminBulkPreview: null,
   adminConsole: {
     home: null,
     students: [],
@@ -321,6 +329,7 @@ const state = {
     studentSort: 'attention',
     studentPage: 1,
     savedViews: [],
+    directoryGroups: [],
     selectedSavedView: '',
     selectedStudent: null,
     queue: [],
@@ -334,6 +343,8 @@ const state = {
     contentPrompts: [],
     story: null,
   },
+  adminSubject: null,
+  avatarIdentity: null,
   mentorNoteDraft: null,
   mentorNoteRecording: null,
   storyMediaUpload: null,
@@ -609,15 +620,16 @@ function normalizeQuestion(raw = {}) {
 }
 
 function normalizeStudent(raw = {}) {
+  const avatar = firstDefined(raw.avatar, raw.arenaAvatar, raw.arena_avatar, null);
   return {
     ...raw,
     id: String(firstDefined(raw.id, raw.student_id, '')),
-    name: String(firstDefined(raw.name, raw.display_name, raw.student_name, 'Student')),
-    first: String(firstDefined(raw.first, raw.first_name, raw.display_name, raw.student_name, 'Student')).split(/\s+/)[0],
+    name: String(firstDefined(raw.name, raw.displayName, raw.display_name, raw.studentName, raw.student_name, 'Student')),
+    first: String(firstDefined(raw.first, raw.firstName, raw.first_name, raw.displayName, raw.display_name, raw.studentName, raw.student_name, 'Student')).trim().split(/\s+/)[0],
     cohort: String(firstDefined(raw.cohort, '')),
-    year: String(firstDefined(raw.year, raw.training_year, raw.academic_year, '')),
+    year: String(firstDefined(raw.year, raw.academicYear, raw.training_year, raw.academic_year, '')),
     specialty: String(firstDefined(raw.specialty, raw.specialty_interest, '')),
-    cycle: String(firstDefined(raw.cycle, raw.application_cycle, '')),
+    cycle: String(firstDefined(raw.cycle, raw.applicationCycle, raw.application_cycle, '')),
     storyCount: Number(firstDefined(raw.storyCount, raw.story_count, 0)) || 0,
     awaitingReview: Number(firstDefined(raw.awaitingReview, raw.awaiting_review, 0)) || 0,
     revised: Number(firstDefined(raw.revised, raw.revised_count, 0)) || 0,
@@ -626,6 +638,7 @@ function normalizeStudent(raw = {}) {
     unreadCount: Number(firstDefined(raw.unreadCount, raw.unread_count, 0)) || 0,
     lastCaptureAt: isoValue(firstDefined(raw.lastCaptureAt, raw.last_capture_at, raw.last_activity_at)),
     lastSubmittedAt: isoValue(firstDefined(raw.lastSubmittedAt, raw.last_submitted_at, raw.last_shared_at)),
+    avatar: avatar && typeof avatar === 'object' ? avatar : null,
   };
 }
 
@@ -714,10 +727,12 @@ const api = Object.freeze({
   contributions: () => auth.request('/api/requests/contributions'),
   contributionPlayback: (id) => auth.request(`/api/requests/contributions/${id}/audio`),
   contributionState: (id, state) => auth.request(`/api/requests/contributions/${id}/state`, jsonOptions('POST', { state })),
+  reviewContribution: (id, body) => auth.request(`/api/requests/contributions/${id}/review`, jsonOptions('PATCH', body)),
   promoteContribution: (id, title) => auth.request(`/api/requests/contributions/${id}/promote`, jsonOptions('POST', { title })),
   createRequest: (body) => auth.request('/api/requests', jsonOptions('POST', body)),
   updateRequest: (id, body) => auth.request(`/api/requests/${id}/update`, jsonOptions('POST', body)),
   previewRequest: (id, expectedVersion) => auth.request(`/api/requests/${id}/preview`, jsonOptions('POST', { expectedVersion })),
+  requestGuestPreview: (id) => auth.request(`/api/requests/${id}/guest-preview`),
   sendRequest: (id, expectedVersion) => auth.request(`/api/requests/${id}/send`, jsonOptions('POST', { expectedVersion })),
   remindRequest: (id, expectedVersion) => auth.request(`/api/requests/${id}/remind`, jsonOptions('POST', { expectedVersion })),
   reinviteRequest: (id, expectedVersion, email) => auth.request(`/api/requests/${id}/reinvite`, jsonOptions('POST', { expectedVersion, email })),
@@ -788,8 +803,12 @@ const api = Object.freeze({
   adminHome: () => auth.request('/api/admin/console/home'),
   adminStudents: (query = '') => auth.request(`/api/admin/console/students${query ? `?${query}` : ''}`),
   adminStudent: (id, query = '') => auth.request(`/api/admin/console/students/${id}${query ? `?${query}` : ''}`),
+  adminSubjectHome: (id) => auth.request(`/api/admin/console/subjects/${id}/home`),
+  adminSubjectStories: (id) => auth.request(`/api/admin/console/subjects/${id}/stories`),
+  adminSubjectStory: (studentId, storyId) => auth.request(`/api/admin/console/subjects/${studentId}/stories/${storyId}`),
   adminQueue: (query = '') => auth.request(`/api/admin/console/queue${query ? `?${query}` : ''}`),
   adminDirectory: (query = '') => auth.request(`/api/admin/console/directory${query ? `?${query}` : ''}`),
+  adminDirectoryGroups: () => auth.request('/api/admin/console/groups'),
   adminDirectoryStudent: (id) => auth.request(`/api/admin/console/directory/${id}`),
   adminSavedViews: () => auth.request('/api/admin/console/saved-views'),
   adminSaveView: (body) => auth.request('/api/admin/console/saved-views', jsonOptions('POST', body)),
@@ -801,6 +820,7 @@ const api = Object.freeze({
   adminInspirationHistory: (id) => auth.request(`/api/admin/console/inspiration/${id}/history`),
   adminInspirationBulkParse: (csv) => auth.request('/api/admin/console/inspiration/bulk/parse', jsonOptions('POST', { csv })),
   adminInspirationBulkCommit: (prompts) => auth.request('/api/admin/console/inspiration/bulk/commit', jsonOptions('POST', { prompts })),
+  adminInspirationReorder: (body) => auth.request('/api/admin/console/inspiration/reorder', jsonOptions('POST', body)),
   adminStory: (id) => auth.request(`/api/admin/console/stories/${id}`),
   adminReview: (id, body) => auth.request(`/api/admin/console/stories/${id}/review`, jsonOptions('POST', body)),
   adminReviewStatus: (id, status, expectedVersion) => auth.request(`/api/admin/console/stories/${id}/review-status`, jsonOptions('POST', { status, expectedVersion })),
@@ -828,6 +848,43 @@ function isAdmin() {
 
 function isStudent() {
   return roleName() === 'student';
+}
+
+function isAdminSubjectContext() {
+  return canAdminReview() && Boolean(state.adminSubject?.student?.id);
+}
+
+function subjectStudent() {
+  return state.adminSubject?.student || null;
+}
+
+function initialsFor(value) {
+  const initials = String(value || '').trim().split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase();
+  return initials || 'SF';
+}
+
+function actorAvatarMarkup({ className = 'stuAv', label = '' } = {}) {
+  const identity = state.avatarIdentity;
+  const display = label || state.user?.display_name || firstName();
+  const candidate = String(identity?.headshotUrl || '');
+  const url = identity?.available === true && (/^https:\/\//i.test(candidate) || (candidate.startsWith('/') && !candidate.startsWith('//')))
+    ? candidate
+    : '';
+  return url
+    ? `<span class="${attr(className)} b1515Avatar"><img src="${attr(url)}" alt="${attr(display)}"></span>`
+    : `<span class="${attr(className)} b1515Avatar b1515AvatarFallback" aria-label="${attr(display)}">${esc(identity?.initials || initialsFor(display))}</span>`;
+}
+
+function studentAvatarMarkup(student, { className = 'stuAv', label = '' } = {}) {
+  const display = label || student?.name || student?.studentName || 'Student';
+  const candidate = String(student?.avatar?.headshotUrl || '');
+  const url = student?.avatar?.available === true
+    && /^https:\/\/cdn\.missionmedinstitute\.com\//i.test(candidate)
+    ? candidate
+    : '';
+  return url
+    ? `<span class="${attr(className)} b1515Avatar"><img src="${attr(url)}" alt="${attr(display)}"></span>`
+    : `<span class="${attr(className)} b1515Avatar b1515AvatarFallback" aria-label="${attr(display)}">${esc(initialsFor(display))}</span>`;
 }
 
 function canAdminReview() {
@@ -1135,8 +1192,8 @@ function storyRow(story, options = {}) {
     ? `<button class="rowBtn pri" type="button" data-library-collection="active" data-story-id="${attr(story.id)}" data-row-version="${attr(story.rowVersion)}">Restore to Library</button>${story.collection === 'archived' ? `<button class="rowBtn danger" type="button" data-library-collection="trashed" data-story-id="${attr(story.id)}" data-row-version="${attr(story.rowVersion)}">Move to Trash</button>` : ''}`
     : '';
   return `<article class="sRow" data-story-row="${attr(story.id)}">
-    <button class="starBtn ${isMentor() ? 'mentor' : ''} ${(isMentor() ? story.mentorStar : story.studentStar) ? 'on' : ''}" type="button"
-      data-toggle-star="${attr(story.id)}" aria-label="${isMentor() ? 'Toggle mentor star' : 'Toggle story star'}" aria-pressed="${isMentor() ? story.mentorStar : story.studentStar}">★</button>
+    ${options.readOnly ? '<span class="starBtn b1515ReadOnlyStar" aria-hidden="true">★</span>' : `<button class="starBtn ${isMentor() ? 'mentor' : ''} ${(isMentor() ? story.mentorStar : story.studentStar) ? 'on' : ''}" type="button"
+      data-toggle-star="${attr(story.id)}" aria-label="${isMentor() ? 'Toggle mentor star' : 'Toggle story star'}" aria-pressed="${isMentor() ? story.mentorStar : story.studentStar}">★</button>`}
     <div class="rMain">
       <div class="rTitle">${story.prefixEnabled ? '<span class="pre">The One Where</span>' : ''}${esc(story.title)}
         ${unread ? '<span class="emberDot" title="New mentor feedback"></span>' : ''}
@@ -1155,12 +1212,12 @@ function storyRow(story, options = {}) {
     <div class="rMeta">
       ${birdMini(story)}
       ${story.questionCount ? `<span class="scoreTag" title="Interview questions this story answers">${story.questionCount} question${story.questionCount === 1 ? '' : 's'}</span>` : ''}
-      ${options.inlinePriority && isStudent() && state.capabilities?.inlinePriority ? priorityPicker(story) : scoreDots(story.studentScore, 'student', 'Student score')}
+      ${options.inlinePriority && isStudent() && state.capabilities?.inlinePriority && !options.readOnly ? priorityPicker(story) : scoreDots(story.studentScore, 'student', 'Student score')}
       ${story.status === 'private' ? '' : scoreDots(story.mentorScore, 'mentor', 'Mentor score')}
       ${statusChip(story)}
       ${visibilityChip(story)}
-      ${collectionActions || `<button class="rowBtn" type="button" data-open-quick="${attr(story.id)}">${quickLabel}</button>
-      <button class="rowBtn pri" type="button" data-open-story="${attr(story.id)}">${isMentor() ? 'Full review' : 'Open story'}</button>`}
+      ${collectionActions || `${options.readOnly ? '' : `<button class="rowBtn" type="button" data-open-quick="${attr(story.id)}">${quickLabel}</button>`}
+      <button class="rowBtn pri" type="button" ${options.subjectStory ? `data-admin-subject-story="${attr(story.id)}"` : `data-open-story="${attr(story.id)}"`}>${options.readOnly ? 'Open story' : isMentor() ? 'Full review' : 'Open story'}</button>`}
     </div>
   </article>`;
 }
@@ -1202,7 +1259,7 @@ function railNavButton([route, label, icon]) {
   const queueCount = route === 'queue'
     ? mentorState().queue.filter((item) => ['awaiting', 'revised'].includes(item.bucket)).length
     : 0;
-  return `<button type="button" data-nav="${route}" class="rtab ${active ? 'on' : ''}" ${active ? 'aria-current="page"' : ''}>
+  return `<button type="button" ${isAdminSubjectContext() ? `data-subject-route="${route}"` : `data-nav="${route}"`} class="rtab ${active ? 'on' : ''}" ${active ? 'aria-current="page"' : ''}>
     ${esc(label)}${unread || queueCount ? `<span class="badge">${unread || queueCount}</span>` : ''}
   </button>`;
 }
@@ -1237,7 +1294,7 @@ function presentationTaxonomyLabel(key, id) {
 function renderShell() {
   if (!state.user) return;
   applyEnvironment();
-  const nav = (canAdminReview() ? ADMIN_CONSOLE_NAV : NAV[roleName()])
+  const nav = (isAdminSubjectContext() ? ADMIN_SUBJECT_NAV : canAdminReview() ? ADMIN_CONSOLE_NAV : NAV[roleName()])
     .filter(([route]) => (
       (route !== 'prep' || interviewPrepVisible() || isAdmin())
       && (route !== 'inspiration' || state.capabilities?.inspiration === true)
@@ -1247,13 +1304,13 @@ function renderShell() {
     ));
   rail.innerHTML = `
     <div class="logo" aria-label="StoryForge">Story<b>Forge</b></div><div class="logoSub">MissionMed</div>
-    ${isStudent() ? '<button class="railCta" type="button" data-open-capture>＋ <span class="rct">New Story</span></button>' : ''}
+    ${isStudent() && !isAdminSubjectContext() ? '<button class="railCta" type="button" data-open-capture>＋ <span class="rct">New Story</span></button>' : ''}
     ${nav.map(railNavButton).join('')}
     ${isMentor() ? '<button type="button" class="rtab" data-open-teaching>Teaching Mode</button>' : ''}
     <div class="railFoot">
       <a class="rtab matrixAnchor" href="${attr(matrixHref())}">↩ Back to Matrix</a>
-      ${roleSwitchMarkup()}
-      <div class="signedIdentity">${esc(state.user.display_name)}${state.user.cohort ? ` · ${esc(state.user.cohort)}` : ''}</div>
+      ${isAdminSubjectContext() ? `<button class="rowBtn" type="button" data-exit-subject>Exit student StoryForge</button>` : roleSwitchMarkup()}
+      <div class="signedIdentity b1515SignedIdentity">${actorAvatarMarkup({ className: 'b1515ActorAvatar' })}<span>${esc(state.user.display_name)}${state.user.cohort ? ` · ${esc(state.user.cohort)}` : ''}</span></div>
       ${state.config?.devAuth ? '<button class="rowBtn fixtureChange" type="button" data-change-fixture>Change fixture identity</button>' : ''}
     </div>`;
 
@@ -1267,18 +1324,19 @@ function renderShell() {
     </div>
     <div class="storyforgeHeaderActions">
       <span class="viewChip roleReadOnly" title="This view comes from your signed MissionMed role">${viewLabel()}</span>
+      ${isAdminSubjectContext() ? `<div class="b1515SubjectChip" role="status">${studentAvatarMarkup(subjectStudent(), { className: 'b1515SubjectAvatar' })}<span>VIEWING STORYFORGE FOR</span><b>${esc(subjectStudent().name)}</b></div>` : ''}
       ${isMentor() && state.selectedStudent ? `<button class="stuSelBtn" type="button" data-open-palette>
         <span class="fLbl">Viewing</span><span class="stuAv">${esc(state.selectedStudent.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join(''))}</span>
         <span class="nm">${esc(state.selectedStudent.name)}</span>${state.selectedStudent.cohort ? `<span class="cohortChip">${esc(state.selectedStudent.cohort)}</span>` : ''}<span class="car">▾</span>
       </button>` : ''}
-      ${isAdmin() && !canAdminReview() ? '' : `<div class="hSearch">
+      ${isAdminSubjectContext() || (isAdmin() && !canAdminReview()) ? '' : `<div class="hSearch">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
         <input id="omni" type="search" role="combobox" aria-autocomplete="list" placeholder="${isMentor() || canAdminReview() ? 'Search students and stories…' : 'Search your stories…'}" autocomplete="off" aria-label="${isMentor() || canAdminReview() ? 'Search students and stories' : 'Search your stories'}" aria-controls="omniSuggestions" aria-expanded="false">
         <span class="kbd">/</span>
         <div id="omniSuggestions" class="b1511Suggestions" role="listbox" aria-label="Search suggestions" hidden></div>
         <div id="omniSearchStatus" class="srOnly" role="status" aria-live="polite"></div>
       </div>`}
-      ${isStudent() ? '<button class="btnCatch" type="button" data-open-capture>＋ <span class="bc-txt">New Story</span></button>' : ''}
+      ${isStudent() && !isAdminSubjectContext() ? '<button class="btnCatch" type="button" data-open-capture>＋ <span class="bc-txt">New Story</span></button>' : ''}
     </div>`;
 
   advBanner.classList.toggle('show', isMentor());
@@ -1398,7 +1456,7 @@ function renderClassmateThoughts() {
   const open = state.peerOpenGrant;
   main.innerHTML = `<section class="page b1515Classmates" aria-labelledby="classmateThoughtsTitle">
     ${pageIntroMarkup({ eyebrow: 'Classmate thoughts', title: '<span id="classmateThoughtsTitle">Share one story. <em>Keep everything else private.</em></span>', value: 'A recipient-bound StoryForge space for thoughtful feedback from classmates in your authorized cohort.', how: 'Open a story shared directly with you, read or listen, and leave bounded feedback. Owners can see responses and revoke every grant.', action: '<button class="rowBtn pri" type="button" data-nav="library">Choose a story to share</button>' })}
-    ${open ? `<article class="panel b1515PeerReader"><button class="backBtn" type="button" data-peer-close>‹ All classmate thoughts</button><div class="eyebrow">Shared by ${esc(open.ownerName || 'Classmate')}</div><h2>${esc(open.title)}</h2><div class="storyProse">${esc(open.text || '')}</div>${open.lesson ? `<div class="railCard"><div class="rLbl">Learning Lesson</div><p>${esc(open.lesson)}</p></div>` : ''}<div class="inlineActions"><button class="rowBtn" type="button" data-peer-play="${attr(open.grantId)}">▶ Listen to original story audio</button><span data-peer-audio-host="${attr(open.grantId)}"></span></div><form id="peerFeedbackForm"><label class="fLbl" for="peerFeedbackBody">Your thoughts for this classmate</label><textarea id="peerFeedbackBody" maxlength="10000" required placeholder="What stood out? What might help them tell it more clearly?"></textarea><button class="rowBtn pri" type="submit">Share feedback privately</button></form>${asArray(open.feedback).map((item) => `<div class="noteItem"><div class="nt">${esc(item.body)}</div><div class="nd">${esc(item.authorName || 'Classmate')} · ${esc(formatDateTime(item.createdAt))}</div></div>`).join('')}</article>` : `<div class="b1514RaColumns"><section class="b1514InvitationList"><h2 class="h2">Shared <em>with you</em></h2>${state.peerInbox.length ? state.peerInbox.map((item) => `<article class="b1514Invitation"><div class="b1514RaInviteMain"><strong>${esc(item.title)}</strong><small>${esc(item.ownerName)} · ${esc(formatDateTime(item.grantedAt))} · ${Number(item.feedbackCount || 0)} feedback note${Number(item.feedbackCount || 0) === 1 ? '' : 's'}</small></div><button class="rowBtn pri" type="button" data-peer-open="${attr(item.grantId)}">Read / listen</button></article>`).join('') : '<div class="emptyState"><p>No classmate has shared a story with you.</p></div>'}</section><section class="b1514InvitationList"><h2 class="h2">Your active <em>shares</em></h2>${state.peerOutbox.length ? state.peerOutbox.map((item) => `<article class="b1514Invitation"><div class="b1514RaInviteMain"><strong>${esc(item.title)}</strong><small>${esc(item.recipientName)} · ${esc(item.status)} · ${esc(formatDateTime(item.grantedAt))}</small>${asArray(item.feedback).map((note) => `<span class="stageHint">“${esc(note.body)}” — ${esc(note.authorName)}</span>`).join('')}</div>${item.status === 'active' ? `<button class="rowBtn danger" type="button" data-peer-revoke="${attr(item.grantId)}">Revoke access</button>` : '<span class="cohortChip">Revoked</span>'}</article>`).join('') : '<div class="emptyState"><p>Open one of your stories to create a recipient-bound share.</p></div>'}</section></div>`}
+    ${open ? `<article class="panel b1515PeerReader"><button class="backBtn" type="button" data-peer-close>‹ All classmate thoughts</button><div class="eyebrow">Shared by ${esc(open.ownerName || 'Classmate')}</div><h2>${esc(open.title)}</h2><div class="storyProse">${esc(open.text || '')}</div>${open.lesson ? `<div class="railCard"><div class="rLbl">Learning Lesson</div><p>${esc(open.lesson)}</p></div>` : ''}${open.hasAudio === true ? `<div class="inlineActions"><button class="rowBtn" type="button" data-peer-play="${attr(open.grantId)}">▶ Listen to original story audio</button><span data-peer-audio-host="${attr(open.grantId)}"></span></div>` : '<p class="stageHint">Text-only share · no original audio is attached.</p>'}<form id="peerFeedbackForm"><label class="fLbl" for="peerFeedbackBody">Your thoughts for this classmate</label><textarea id="peerFeedbackBody" maxlength="10000" required placeholder="What stood out? What might help them tell it more clearly?"></textarea><button class="rowBtn pri" type="submit">Share feedback privately</button></form>${asArray(open.feedback).map((item) => `<div class="noteItem"><div class="nt">${esc(item.body)}</div><div class="nd">${esc(item.authorName || 'Classmate')} · ${esc(formatDateTime(item.createdAt))}</div></div>`).join('')}</article>` : `<div class="b1514RaColumns"><section class="b1514InvitationList"><h2 class="h2">Shared <em>with you</em></h2>${state.peerInbox.length ? state.peerInbox.map((item) => `<article class="b1514Invitation"><div class="b1514RaInviteMain"><strong>${esc(item.title)}</strong><small>${esc(item.ownerName)} · ${esc(formatDateTime(item.grantedAt))} · ${Number(item.feedbackCount || 0)} feedback note${Number(item.feedbackCount || 0) === 1 ? '' : 's'}</small></div><button class="rowBtn pri" type="button" data-peer-open="${attr(item.grantId)}">Read story</button></article>`).join('') : '<div class="emptyState"><p>No classmate has shared a story with you.</p></div>'}</section><section class="b1514InvitationList"><h2 class="h2">Your active <em>shares</em></h2>${state.peerOutbox.length ? state.peerOutbox.map((item) => `<article class="b1514Invitation"><div class="b1514RaInviteMain"><strong>${esc(item.title)}</strong><small>${esc(item.recipientName)} · ${esc(item.status)} · ${esc(formatDateTime(item.grantedAt))}</small>${asArray(item.feedback).map((note) => `<span class="stageHint">“${esc(note.body)}” — ${esc(note.authorName)}</span>`).join('')}</div>${item.status === 'active' ? `<button class="rowBtn danger" type="button" data-peer-revoke="${attr(item.grantId)}">Revoke access</button>` : '<span class="cohortChip">Revoked</span>'}</article>`).join('') : '<div class="emptyState"><p>Open one of your stories to create a recipient-bound share.</p></div>'}</section></div>`}
   </section>`;
 }
 
@@ -1467,14 +1525,14 @@ function filteredInspirationPrompts() {
 }
 
 function inspirationFilterOptions() {
-  const option = (value, label, current) => `<option value="${value}" ${current === value ? 'selected' : ''}>${label}</option>`;
   const context = state.v2.inspiration;
+  const group = (key, label, choices) => `<fieldset class="b1515FilterGroup"><legend>${esc(label)}</legend>${choices.map(([value, text]) => `<button type="button" data-inspiration-filter-chip="${key}" data-value="${attr(value)}" class="${context[key] === value ? 'on' : ''}" aria-pressed="${context[key] === value}">${esc(text)}</button>`).join('')}</fieldset>`;
   return `<div class="b1515InspirationFilters" aria-label="Inspiration filters">
-    <label>Domain<select data-inspiration-filter="domain">${option('', 'All domains', context.domain)}${option('personal', 'Personal life', context.domain)}${option('academic', 'Academic', context.domain)}${option('medical_clinical', 'Medical & clinical', context.domain)}</select></label>
-    <label>Life stage<select data-inspiration-filter="lifeStage">${option('', 'Any life stage', context.lifeStage)}${option('childhood', 'Childhood', context.lifeStage)}${option('teen_years', 'Teen years', context.lifeStage)}${option('college', 'College', context.lifeStage)}${option('medical_school', 'Medical school', context.lifeStage)}${option('marriage_partner', 'Marriage / Partner life', context.lifeStage)}${option('parenting', 'Parenting', context.lifeStage)}${option('work_first_jobs', 'Work / first jobs', context.lifeStage)}${option('hobbies_interests', 'Hobbies / interests', context.lifeStage)}${option('travel_culture', 'Travel / cultural experiences', context.lifeStage)}${option('other', 'Other', context.lifeStage)}</select></label>
-    <label>Tone<select data-inspiration-filter="tone">${option('', 'Any tone', context.tone)}${option('serious', 'Serious', context.tone)}${option('light', 'Light', context.tone)}${option('moving', 'Moving', context.tone)}</select></label>
-    <label>Status<select data-inspiration-filter="status">${option('', 'All prompts', context.status)}${option('unanswered', 'Not answered', context.status)}${option('answered', 'Answered', context.status)}${option('favorite', 'Favorites', context.status)}${option('pinned', 'Pinned', context.status)}</select></label>
-    <label>Curated<select data-inspiration-filter="recommended">${option('', 'All prompts', context.recommended)}${option('dr_brian', 'Dr Brian Recommends', context.recommended)}</select></label>
+    ${group('domain', 'What part of life?', [['','All'],['personal','Personal'],['academic','Academic'],['medical_clinical','Clinical'],['work','Work'],['relationships','Relationships'],['hobbies','Hobbies'],['travel','Travel'],['growth','Growth'],['service','Service'],['other','Other']])}
+    ${group('lifeStage', 'When did it happen?', [['','Any time'],['childhood','Childhood'],['teen_years','Teen years'],['college','College'],['medical_school','Medical school'],['work_first_jobs','Early work'],['marriage_partner','Partner life'],['parenting','Parenting'],['current_life','Current life'],['other','Other']])}
+    ${group('tone', 'What kind of memory?', [['','Any tone'],['serious','Serious'],['light','Light'],['moving','Moving']])}
+    ${group('status', 'Your progress', [['','All'],['unanswered','Not answered'],['answered','Answered'],['favorite','Favorites'],['pinned','Pinned']])}
+    ${group('recommended', 'Curated for you', [['','All'],['dr_brian','Dr Brian Recommends']])}
   </div>`;
 }
 
@@ -1485,7 +1543,7 @@ function inspirationPromptCard(prompt, { pinned = false, index = 0, count = 0 } 
   return `<article class="b1514PromptCard ${pinned ? 'b1515PinnedPrompt' : ''}" tabindex="-1" data-inspiration-prompt="${attr(prompt.id)}" ${pinned ? 'draggable="true"' : ''}>
     <div class="b1515PromptMeta"><span class="eyebrow">${esc(prompt.territory || 'Story prompt')}</span>${prompt.recommended === true ? '<span class="b1515DrBrian">✦ Dr Brian Recommends</span>' : ''}${answered ? '<span class="b1515Answered">✓ Answered</span>' : ''}</div><h2>“${esc(prompt.text)}”</h2>${prompt.followUp ? `<p>${esc(prompt.followUp)}</p>` : ''}
     <div class="b1515PromptDimensions">${dimensions.map((value) => `<span>${esc(value.replaceAll('_', ' '))}</span>`).join('')}</div>
-    <div class="inlineActions b1515PromptActions"><button class="rowBtn pri" type="button" data-inspiration-answer="${attr(prompt.id)}">Write an answer</button>${state.capabilities?.voiceCapture ? `<button class="rowBtn b1515Speak" type="button" data-inspiration-speak="${attr(prompt.id)}">● Speak instead of type</button>` : ''}<button class="rowBtn b1515Favorite ${prompt.favorite ? 'on' : ''}" type="button" data-inspiration-favorite="${attr(prompt.id)}" data-enabled="${prompt.favorite ? '0' : '1'}" aria-pressed="${Boolean(prompt.favorite)}">${prompt.favorite ? '★ Favorite' : '☆ Favorite'}</button><button class="rowBtn" type="button" data-inspiration-pin="${attr(prompt.id)}" data-position="${pinPosition == null ? '0' : ''}">${pinPosition == null ? 'Pin' : 'Unpin'}</button></div>
+    <div class="inlineActions b1515PromptActions">${state.capabilities?.voiceCapture ? `<button class="btnSave b1515Speak" type="button" data-inspiration-speak="${attr(prompt.id)}">🎙 Answer by voice</button>` : ''}<button class="rowBtn ${state.capabilities?.voiceCapture ? '' : 'pri'}" type="button" data-inspiration-answer="${attr(prompt.id)}">Type an answer</button><button class="rowBtn b1515Favorite ${prompt.favorite ? 'on' : ''}" type="button" data-inspiration-favorite="${attr(prompt.id)}" data-enabled="${prompt.favorite ? '0' : '1'}" aria-pressed="${Boolean(prompt.favorite)}">${prompt.favorite ? '★ Favorite' : '☆ Favorite'}</button><button class="rowBtn" type="button" data-inspiration-pin="${attr(prompt.id)}" data-position="${pinPosition == null ? '0' : ''}">${pinPosition == null ? 'Pin' : 'Unpin'}</button></div>
     ${pinned ? `<div class="b1515PinOrder" role="group" aria-label="Reorder pinned question"><span class="b1515DragHandle" aria-hidden="true">⠿ Drag</span><button class="rowBtn" type="button" data-inspiration-move="${attr(prompt.id)}" data-direction="-1" ${index === 0 ? 'disabled' : ''}>Move up</button><button class="rowBtn" type="button" data-inspiration-move="${attr(prompt.id)}" data-direction="1" ${index === count - 1 ? 'disabled' : ''}>Move down</button></div>` : ''}
   </article>`;
 }
@@ -1581,13 +1639,15 @@ function requestProcessStrip() {
 
 function requestGuestExperiencePreview(invitation) {
   const first = invitation?.recipientFirstName || 'your guest';
-  return `<section class="b1515GuestPreview" aria-labelledby="guestExperiencePreviewTitle"><div class="b1515SectionHead"><div><div class="eyebrow">Preview their experience</div><h2 class="h2" id="guestExperiencePreviewTitle">What ${esc(first)} sees after opening the private link</h2></div><span class="cohortChip">No Matrix account required</span></div><div class="b1515GuestPreviewScreen"><div class="logo"><b>Story</b><em>Forge</em></div><div><span class="eyebrow">A private invitation from ${esc(firstDefined(state.user?.first_name, state.user?.display_name, 'your student'))}</span><h3>Help them remember a story only you may know.</h3><p>They will see a short set of relationship-aware memory questions, then may type or—when guest voice is authorized—speak one story. They cannot enter StoryForge, browse other work, or see another student.</p><div class="b1515GuestPreviewSteps"><span><b>1</b> Open the expiring link</span><span><b>2</b> Choose a memory question</span><span><b>3</b> Review before sharing</span></div></div></div><p class="b1514RaTruth">This is a product preview, not a live guest session. Access remains token-scoped, expiring, revocable, and server-enforced.</p></section>`;
+  const inviter = invitation?.student?.firstName || firstName();
+  const prompt = asArray(invitation?.prompts)[0];
+  return `<section class="b1515GuestPreview" aria-labelledby="guestExperiencePreviewTitle"><div class="b1515SectionHead"><div><div class="eyebrow">Preview the actual guest surface</div><h2 class="h2" id="guestExperiencePreviewTitle">What ${esc(first)} sees after opening the private link</h2></div><span class="cohortChip">Preview only · nothing sends</span></div><div class="storyforgeGuest b1515GuestPreviewScreen" data-guest-surface-preview><div class="logo" aria-label="StoryForge">Story<b>Forge</b></div><div class="b1514RaGuestCenter"><div class="eyebrow">A private invitation from ${esc(inviter)}</div><h3 class="h1">${esc(inviter)} asked for your help.</h3>${invitation?.personalMessage ? `<blockquote>“${esc(invitation.personalMessage)}”</blockquote>` : ''}<p>${esc(inviter)} is collecting real stories from people who know them well.</p>${prompt ? `<div class="b1514RaGuestAsked"><b>A question selected for a ${esc(requestRelationshipLabel(invitation.relationship).toLowerCase())}</b><span>“${esc(guestPromptText(prompt.text, inviter))}”</span></div>` : ''}<div class="b1514RaGuestHow" role="list"><span role="listitem"><b>1</b> Pick one memory</span><span role="listitem"><b>2</b> Tell it in your own words</span><span role="listitem"><b>3</b> Review it before sharing</span></div><p class="b1514RaGuestBig">You do not need to write perfectly.<br>Just tell it the way you remember it.</p><button class="btnSave b1514RaGuestPrimary" type="button" disabled aria-disabled="true">BEGIN</button></div><div class="b1513ConsentCopy"><p>Your contribution is private to ${esc(inviter)}. It does not give you Matrix access. The real link expires automatically and can be revoked.</p></div><div class="b1514RaGuestFoot">MissionMed StoryForge · private invitation · nothing is public</div></div><p class="b1514RaTruth">This is server-authorized preview data rendered with the real guest-surface composition. Controls are inert here; no invitation is sent or activated.</p></section>`;
 }
 
 function renderRequestEditor() {
   const ui = state.v2.requestUi;
   const draft = ui.draft || {};
-  const title = ui.reinviteFrom ? 'Re-invite with a new address' : ui.editingId ? 'Edit this private request' : 'Who knows a story of you?';
+  const title = ui.reinviteFrom ? 'Re-invite with a new address' : ui.editingId ? 'Edit this private request' : 'Who would you like to hear a story from?';
   main.innerHTML = `<section class="page b1514Requests" aria-labelledby="requestsTitle">
     <button class="backBtn" type="button" data-request-home>‹ Request a Story</button>
     <div class="eyebrow">Step 1 of 2 · Choose and personalize</div><h1 class="h1" id="requestsTitle">${esc(title)}</h1>
@@ -1621,7 +1681,7 @@ function renderRequestPreview() {
       <div><b>What they are told</b><span>Their words return to your private StoryForge workspace. The link expires and can be revoked.</span></div>
       <div class="inlineActions"><button class="btnSave" type="button" data-request-confirm-send="${attr(invitation.id)}" data-version="${attr(invitation.rowVersion)}">CONFIRM &amp; SEND ➤</button><button class="rowBtn" type="button" data-request-home>Keep as draft</button></div>
       <p class="b1514RaTruth">Sent means accepted by the email service. Delivered appears only after signed delivery confirmation.</p>
-    </aside></div>${requestGuestExperiencePreview(invitation)}
+    </aside></div>${requestGuestExperiencePreview(ui.guestPreview || invitation)}
   </section>`;
 }
 
@@ -1632,10 +1692,10 @@ function renderRequests() {
   const contributions = state.v2.contributions;
   const contributionCount = (invitationId) => contributions.filter((item) => item.invitation_id === invitationId).length;
   main.innerHTML = `<section class="page b1514Requests" aria-labelledby="requestsTitle">
-    ${pageIntroMarkup({ eyebrow: 'Request a Story', title: '<span id="requestsTitle">The people who know you <em>remember stories you can’t.</em></span>', value: 'Invite someone who knows you well to share a memory in their own words. Whatever they send arrives privately, only to you.', how: 'Choose the relationship, personalize the invitation, inspect both the exact email and guest experience, then confirm delivery. Nothing sends before your final confirmation.', action: '<button class="btnSave" type="button" data-request-new>＋ Ask someone</button>' })}
+    ${pageIntroMarkup({ eyebrow: 'Request a Story', title: '<span id="requestsTitle">The people who know you <em>remember stories you can’t.</em></span>', value: 'Invite someone who knows you well to share a memory in their own words. Whatever they send arrives privately, only to you.', how: 'Choose the relationship, personalize the invitation, inspect both the exact email and guest experience, then confirm delivery. Nothing sends before your final confirmation.', action: '<button class="btnSave" type="button" data-request-new>＋ Invite someone to share a story</button>' })}
     ${requestProcessStrip()}
-    <div class="b1514RaColumns"><section class="b1514InvitationList" aria-label="Returned stories"><h2 class="h2">Story <em>candidates</em></h2>${contributions.length ? contributions.filter((item) => item.state !== 'archived').map((item) => `<article class="b1514Contribution"><div class="eyebrow">From ${esc(item.contributor_first_name)} · ${esc(requestRelationshipLabel(item.relationship_id))}</div><small>They answered: “${esc(item.prompt_text_snapshot)}”</small><p>“${esc(item.transcript)}”</p>${item.kind === 'voice' ? `<div class="b1514ContributionAudio"><button class="rowBtn" type="button" data-contribution-audio="${attr(item.id)}">▶ Hear their original voice</button><div data-contribution-audio-host="${attr(item.id)}"></div></div>` : ''}<div class="inlineActions">${item.state !== 'promoted' ? `<button class="rowBtn pri" type="button" data-contribution-promote="${attr(item.id)}">Bring into StoryForge</button><button class="rowBtn" type="button" data-contribution-state="${attr(item.id)}" data-state="${item.state === 'favorite' ? 'new' : 'favorite'}">${item.state === 'favorite' ? '★ Favorited' : '☆ Favorite'}</button><button class="rowBtn" type="button" data-contribution-state="${attr(item.id)}" data-state="archived">Dismiss</button>` : '<span class="cohortChip">Private StoryForge story created</span>'}</div></article>`).join('') : '<div class="emptyState"><p>When someone answers, their private story candidate lands here.</p></div>'}</section>
-    <section class="b1514InvitationList" aria-label="Your invitations"><div class="b1514RaSectionHead"><h2 class="h2">Your <em>invitations</em></h2><button class="rowBtn pri" type="button" data-request-new>＋ Ask someone</button></div>${state.v2.invitations.length ? state.v2.invitations.map((item) => `<article class="b1514Invitation">
+    <div class="b1514RaColumns"><section class="b1514InvitationList" aria-label="Returned stories"><h2 class="h2">Story <em>candidates</em></h2>${contributions.length ? contributions.filter((item) => item.state !== 'archived').map((item) => `<article class="b1514Contribution"><div class="eyebrow">From ${esc(firstDefined(item.contributorFirstName, item.contributor_first_name, 'Guest'))} · ${esc(requestRelationshipLabel(firstDefined(item.relationshipId, item.relationship_id)))}</div><small>They answered: “${esc(firstDefined(item.promptTextSnapshot, item.prompt_text_snapshot, ''))}”</small><p>“${esc(item.transcript)}”</p>${item.kind === 'voice' ? `<div class="b1514ContributionAudio"><button class="rowBtn" type="button" data-contribution-audio="${attr(item.id)}">▶ Hear their original voice</button><div data-contribution-audio-host="${attr(item.id)}"></div></div>` : ''}${item.state !== 'promoted' ? `<form class="b1515ContributionReview" data-contribution-review="${attr(item.id)}" data-row-version="${attr(firstDefined(item.rowVersion, item.row_version, 0))}"><fieldset><legend>Your private candidate score</legend>${[1,2,3,4,5].map((score)=>`<label><input type="radio" name="contributionScore-${attr(item.id)}" value="${score}" ${Number(firstDefined(item.studentScore,item.student_score,0))===score?'checked':''}><span>${score}</span></label>`).join('')}</fieldset><label>Optional review note<textarea data-contribution-review-note maxlength="2000" placeholder="Why this may be useful…">${esc(firstDefined(item.studentReviewNote,item.student_review_note,''))}</textarea></label><button class="rowBtn" type="submit">Save candidate review</button></form>` : ''}<div class="inlineActions">${item.state !== 'promoted' ? `<button class="rowBtn pri" type="button" data-contribution-promote="${attr(item.id)}">Bring into StoryForge</button><button class="rowBtn" type="button" data-contribution-state="${attr(item.id)}" data-state="${item.state === 'favorite' ? 'new' : 'favorite'}">${item.state === 'favorite' ? '★ Favorited' : '☆ Favorite'}</button><button class="rowBtn" type="button" data-contribution-state="${attr(item.id)}" data-state="archived">Dismiss</button>` : '<span class="cohortChip">Private StoryForge story created</span>'}</div></article>`).join('') : '<div class="emptyState"><p>When someone answers, their private story candidate lands here.</p></div>'}</section>
+    <section class="b1514InvitationList" aria-label="Your invitations"><div class="b1514RaSectionHead"><h2 class="h2">Your <em>invitations</em></h2><button class="rowBtn pri" type="button" data-request-new>＋ Invite someone to share a story</button></div>${state.v2.invitations.length ? state.v2.invitations.map((item) => `<article class="b1514Invitation">
       <div class="b1514RaInviteMain"><strong>${esc(item.recipientFirstName)} <span>· ${esc(requestRelationshipLabel(item.relationship))}</span></strong><small>${esc(item.maskedEmail)} · ${esc(requestLastEvent(item))}${contributionCount(item.id) ? ` · ${contributionCount(item.id)} ${contributionCount(item.id) === 1 ? 'story' : 'stories'} shared` : ''} · expires ${esc(formatDate(item.expiresAt))}</small>${item.status === 'bounced' && item.bounceReason ? `<small class="b1514RaBounce">${esc(item.bounceReason)}</small>` : ''}${requestJourney(item)}</div>
       <div class="b1514RaInviteActions">${requestStatusChip(item)}<div class="inlineActions">${item.status === 'draft' ? `<button class="rowBtn" type="button" data-request-edit="${attr(item.id)}">Edit</button><button class="rowBtn pri" type="button" data-request-preview="${attr(item.id)}" data-version="${attr(item.rowVersion)}">Preview &amp; send</button>` : ''}${['sent', 'delivered', 'link_visited', 'started'].includes(item.status) && Number(item.remindersSent || 0) < 2 ? `<button class="rowBtn" type="button" data-request-remind="${attr(item.id)}" data-version="${attr(item.rowVersion)}">Gentle reminder (${Number(item.remindersSent || 0)}/2)</button>` : ''}${item.status === 'bounced' ? `<button class="rowBtn" type="button" data-request-reinvite="${attr(item.id)}" data-version="${attr(item.rowVersion)}">Re-invite with a new address</button>` : ''}${!['expired', 'revoked', 'bounced'].includes(item.status) ? `<button class="rowBtn danger" type="button" data-request-revoke="${attr(item.id)}">Revoke</button>` : ''}</div></div>
     </article>`).join('') : '<div class="emptyState"><p>No invitations yet. Ask a parent, mentor, or old friend — the people who remember your stories differently.</p></div>'}</section></div>
@@ -1741,6 +1801,12 @@ function homeStatusHudMarkup() {
   </section>`;
 }
 
+function subjectContextBannerMarkup() {
+  const student = subjectStudent();
+  if (!student) return '';
+  return `<div class="b1515SubjectBanner" role="status">${studentAvatarMarkup(student, { className: 'b1515SubjectAvatar' })}<span>VIEWING STORYFORGE FOR</span><strong>${esc(student.name)}</strong><small>Administrator subject context · never signed in as the student</small><button class="rowBtn" type="button" data-exit-subject>Exit student StoryForge</button></div>`;
+}
+
 function renderHome() {
   const unfinished = state.stories
     .filter((story) => developmentState(story) !== 'Complete')
@@ -1756,9 +1822,18 @@ function renderHome() {
     voiceHintSeen = true;
   }
 
+  const subject = subjectStudent();
+  if (isAdminSubjectContext()) {
+    main.innerHTML = `<section data-view="home" class="live b1515SubjectSurface">${subjectContextBannerMarkup()}
+      ${pageIntroMarkup({ eyebrow: 'Administrator · authorized subject context', title: `${esc(subject.first)}’s <em>StoryForge home</em>.`, value: 'This is the student’s real StoryForge information architecture in a clearly labeled administrator context.', how: 'Open observable stories and review evidence. Student-owned capture, editing, visibility, archive, peer sharing, and preference controls remain unavailable.', action: '<button class="rowBtn pri" type="button" data-subject-route="library">Open Story Library</button>' })}
+      ${homeStatusHudMarkup()}
+      <div class="panel panel-spaced"><div class="pHead"><div class="h2">Recent observable <em>stories</em></div></div><div class="pBody">${state.stories.length ? state.stories.slice(0, 4).map((story) => storyRow(story, { readOnly: true, subjectStory: true })).join('') : '<div class="storyEmpty">No submitted or Mentor Visible stories are available.</div>'}</div></div>
+    </section>`;
+    return;
+  }
   main.innerHTML = `<section data-view="home" class="live">
     <div class="homeHero">
-      <div class="greet">${greeting}, <em>${esc(firstName())}</em>.</div>
+      <div class="b1515HomeIdentity">${actorAvatarMarkup({ className: 'b1515HomeAvatar', label: firstName() })}<div class="greet">${greeting}, <em>${esc(firstName())}</em>.</div></div>
       <div class="greetSub">What happened that you don’t want to lose?</div>
       <div class="b1515HomeHow"><span>How this works</span><p>Capture one moment now, then use your Library, mentor feedback, and interview tools to shape it over time.</p></div>
       <div class="heroCapture">
@@ -1857,8 +1932,12 @@ function renderLibrary() {
   const list = filteredStories();
   const filter = state.library;
   const sources = [...new Set(state.stories.map((story) => story.origin).filter(Boolean))].sort();
-  main.innerHTML = `<section data-view="library" class="live">
-    ${pageIntroMarkup({ eyebrow: 'Your story library', title: `${state.stories.length} ${state.stories.length === 1 ? 'story' : 'stories'}, <em>none forgotten</em>.`, value: 'Every story you capture stays organized here, with its source, development state, review state, and intended uses.', how: 'Search or filter to find the right story, open it to develop the working version, and use Archive only when you want it out of your active Library.', action: '<button class="btnSave" type="button" data-open-capture>＋ New story</button>' })}
+  const subjectMode = isAdminSubjectContext();
+  main.innerHTML = `<section data-view="library" class="live ${subjectMode ? 'b1515SubjectSurface' : ''}">
+    ${subjectMode ? subjectContextBannerMarkup() : ''}
+    ${pageIntroMarkup(subjectMode
+      ? { eyebrow: 'Administrator · authorized subject context', title: `${state.stories.length} observable ${state.stories.length === 1 ? 'story' : 'stories'} in <em>${esc(subjectStudent().first)}’s Library</em>.`, value: 'This is the same StoryForge Library presentation, limited to stories the administrator is authorized to observe.', how: 'Search and filter the observable set, then open the same Story Room. Student-owned mutations remain unavailable.', action: '<button class="rowBtn" type="button" data-subject-route="home">StoryForge Home</button>' }
+      : { eyebrow: 'Your story library', title: `${state.stories.length} ${state.stories.length === 1 ? 'story' : 'stories'}, <em>none forgotten</em>.`, value: 'Every story you capture stays organized here, with its source, development state, review state, and intended uses.', how: 'Search or filter to find the right story, open it to develop the working version, and use Archive only when you want it out of your active Library.', action: '<button class="btnSave" type="button" data-open-capture>＋ New story</button>' })}
     <div class="listBar">
       <div class="b1511Search"><input type="search" id="libQ" role="combobox" aria-autocomplete="list" placeholder="Search stories…" value="${attr(filter.query)}" aria-label="Search stories" autocomplete="off" aria-controls="libSearchSuggestions" aria-expanded="false">
         <div id="libSearchSuggestions" class="b1511Suggestions" role="listbox" aria-label="Story suggestions" hidden></div></div>
@@ -1896,7 +1975,7 @@ function renderLibrary() {
       ${libraryFacetButtons(presentationTaxonomy('intendedUses', { includeSelected: filter.uses }), filter.uses, 'use', 'Intended uses')}
     </div>` : ''}
     <div id="librarySearchStatus" class="srOnly" role="status" aria-live="polite"></div>
-    <div id="libraryRows">${list.length ? list.map((story) => storyRow(story, { inlinePriority: true })).join('') : emptyState('No stories match.', 'Clear a filter, or capture the story this search was looking for.')}</div>
+    <div id="libraryRows">${list.length ? list.map((story) => storyRow(story, { inlinePriority: true, readOnly: subjectMode, subjectStory: subjectMode })).join('') : emptyState('No stories match.', 'Clear a filter, or capture the story this search was looking for.')}</div>
   </section>`;
 }
 
@@ -1905,7 +1984,7 @@ function renderLibraryRowsOnly() {
   if (!rows) return;
   const list = filteredStories();
   rows.innerHTML = list.length
-    ? list.map((story) => storyRow(story, { inlinePriority: true })).join('')
+    ? list.map((story) => storyRow(story, { inlinePriority: true, readOnly: isAdminSubjectContext(), subjectStory: isAdminSubjectContext() })).join('')
     : emptyState('No stories match.', 'Clear a filter, or capture the story this search was looking for.');
   const count = $('#libraryCount');
   if (count) count.textContent = `${list.length} of ${state.stories.length}`;
@@ -2177,6 +2256,7 @@ function renderSettings() {
   main.innerHTML = `<section data-view="settings" class="live settingsPage">
     ${pageIntroMarkup({ eyebrow: 'Settings', title: 'Your <em>StoryForge</em>.', value: 'Control how StoryForge looks and reads on this signed-in account without changing identity, access, or story ownership.', how: 'Choose a theme, environment, and text size, preview safely, then save. Privacy choices remain explicit and separate below.', action: '<a class="rowBtn" href="#storyforge-settings-content">Review preferences ↓</a>' })}
     <div id="storyforge-settings-content"></div>
+    <section class="b1515SettingsGroup" aria-labelledby="settingsAppearance"><div class="b1515SettingsGroupHead"><span>01</span><div><h2 id="settingsAppearance">Appearance</h2><p>Theme, environment, text size, and system motion.</p></div></div>
     ${themeSettingsMarkup()}
     <div class="panel panel-spaced">
         <div class="pHead"><div class="h2">Background <em>environment</em></div></div>
@@ -2208,16 +2288,18 @@ function renderSettings() {
         <div class="b1512TextPreview" aria-live="polite"><strong>Preview reading sample</strong><span>Stories, forms, dialogs, tables, navigation, and controls use the same saved preference.</span></div>
         <div class="inlineActions b1512PreferenceActions"><button class="rowBtn" type="button" data-preview-text-size>Preview</button><button class="rowBtn pri" type="button" data-save-text-size>Save text size</button><button class="rowBtn" type="button" data-cancel-text-size>Cancel preview</button></div>
       </div>
-    </div>
-    ${privacySettingsMarkup()}
-    <div class="panel panel-spaced"><div class="pBody pbody-top">
+    </div></section>
+    <section class="b1515SettingsGroup" aria-labelledby="settingsStory"><div class="b1515SettingsGroupHead"><span>02</span><div><h2 id="settingsStory">Story Preferences</h2><p>Mentorship privacy and truthful sharing defaults.</p></div></div>${privacySettingsMarkup()}</section>
+    <section class="b1515SettingsGroup" aria-labelledby="settingsNotifications"><div class="b1515SettingsGroupHead"><span>03</span><div><h2 id="settingsNotifications">Notifications</h2><p>Delivery settings are managed by the signed MissionMed account.</p></div></div><div class="panel"><div class="pBody"><div class="setRow"><div class="sTxt"><b>StoryForge notifications</b><span>Read-only here. No notification preference endpoint is available in this release.</span></div><span class="rolePill roleReadOnly">Managed by Matrix</span></div></div></div></section>
+    <section class="b1515SettingsGroup" aria-labelledby="settingsInvitations"><div class="b1515SettingsGroupHead"><span>04</span><div><h2 id="settingsInvitations">Invitations</h2><p>Request-a-Story privacy and delivery boundaries.</p></div></div><div class="panel"><div class="pBody"><div class="setRow"><div class="sTxt"><b>Guest invitation access</b><span>Recipient-bound links expire and can be revoked from Request a Story. There is no blanket invitation preference.</span></div><button class="rowBtn" type="button" data-nav="requests" ${state.capabilities?.requestAStory?'':'disabled'}>Open requests</button></div></div></div></section>
+    <section class="b1515SettingsGroup" aria-labelledby="settingsIdentity"><div class="b1515SettingsGroupHead"><span>05</span><div><h2 id="settingsIdentity">Identity</h2><p>Signed authority, access, locale, and Matrix return path.</p></div></div><div class="panel panel-spaced"><div class="pBody pbody-top">
       <div class="setRow"><div class="sTxt"><b>Signed in as</b><span>${esc(state.user.display_name)} · ${esc(state.user.role)}${state.user.cohort ? ` · ${esc(state.user.cohort)}` : ''}</span></div></div>
       <div class="setRow"><div class="sTxt"><b>View access</b><span>${canSwitchAdministratorView() ? 'WordPress grants this account both Student and Administrator views. Use the signed view control in the sidebar.' : `Your ${viewLabel()} comes from your signed MissionMed role.`}</span></div><span class="rolePill roleReadOnly">${viewLabel()}</span></div>
       <div class="setRow"><div class="sTxt"><b>Time zone</b><span>Dates and times are shown in ${esc(timeZone)}. Authoritative UTC timestamps are preserved underneath.</span></div></div>
       <div class="setRow"><div class="sTxt"><b>Reduced motion</b><span>StoryForge follows your system setting automatically. Currently: ${reducedMotion ? 'ON — ambient animation is paused' : 'OFF — the ambient background is animated'}.</span></div></div>
       <div class="setRow"><div class="sTxt"><b>Back to Matrix</b><span>Return to the MissionMed Matrix hub.</span></div><a class="rowBtn" href="${attr(matrixHref())}">Go</a></div>
       ${state.config?.devAuth ? '<div class="setRow"><div class="sTxt"><b>Local verification identity</b><span>This control exists only in local signed-fixture mode.</span></div><button class="rowBtn" type="button" data-change-fixture>Change identity</button></div>' : ''}
-    </div></div>
+    </div></div></section>
   </section>`;
 }
 
@@ -4491,9 +4573,8 @@ function visibleMentorNotes(story) {
 }
 
 function mentorNotesMarkup(story) {
-  const unavailableToWriter = v2FeatureOn('visibility')
-    ? storyVisibility(story) === 'private'
-    : story.status === 'private';
+  const unavailableToWriter = storyVisibility(story) !== 'mentor_visible'
+    && story.status === 'private';
   if ((!state.capabilities?.mentorNotesRead && !canWriteMentorNotes())
       || (canWriteMentorNotes() && unavailableToWriter)
       || (!canWriteMentorNotes() && !visibleMentorNotes(story).length)) return '';
@@ -4983,12 +5064,13 @@ function adminReviewWorkspaceMarkup(story) {
   </form>${mentorNotesMarkup(story)}<div class="railCard adminInternalNotes"><div class="rLbl">Private admin note history</div>${notes.length ? notes.map((note) => `<div class="noteItem"><div class="nt">${esc(note.body)}</div><div class="nd">${esc(firstDefined(note.adminName, note.admin_name, 'Administrator'))} · ${esc(formatDateTime(firstDefined(note.createdAt, note.created_at)))}</div></div>`).join('') : '<div class="stageHint">No private admin notes.</div>'}</div></section>`;
 }
 
-function renderStoryRoom({ adminStory = null } = {}) {
-  const story = adminStory || state.storyDetail;
+function renderStoryRoom({ adminStory = null, subjectStory = null } = {}) {
+  const story = adminStory || subjectStory || state.storyDetail;
   if (!story) return;
   const adminReviewer = Boolean(adminStory);
-  const mentor = isMentor() || adminReviewer;
-  const host = adminReviewer ? main : room;
+  const subjectReviewer = Boolean(subjectStory);
+  const mentor = isMentor() || adminReviewer || subjectReviewer;
+  const host = adminReviewer || subjectReviewer ? main : room;
   const versionTab = ['thirty_second', 'nnq_setup'].includes(state.storyTab) ? state.storyTab : null;
   const selectedVersion = versionTab
     ? state.storyVersions.find((version) => version.key === versionTab) || null
@@ -5006,9 +5088,9 @@ function renderStoryRoom({ adminStory = null } = {}) {
   const incompleteCategories = completionMissing.some((item) => item.id === 'categories');
   const incompleteUses = completionMissing.some((item) => item.id === 'uses');
 
-  host.innerHTML = `<div class="roomSheet ${adminReviewer ? 'adminStoryReview live' : ''}" ${adminReviewer ? 'role="region" data-view="admin-story"' : 'role="dialog" aria-modal="true"'} aria-labelledby="roomStoryTitle">
+  host.innerHTML = `${subjectReviewer ? subjectContextBannerMarkup() : ''}<div class="roomSheet ${adminReviewer ? 'adminStoryReview live' : ''} ${subjectReviewer ? 'b1515SubjectStory live' : ''}" ${adminReviewer || subjectReviewer ? 'role="region" data-view="admin-story"' : 'role="dialog" aria-modal="true"'} aria-labelledby="roomStoryTitle">
     <div class="roomTop">
-      ${adminReviewer ? `<button class="backBtn" type="button" data-nav="student" data-nav-id="${attr(story.studentId)}">‹ ${esc(story.studentName)}’s submitted stories</button>` : `<button class="backBtn" type="button" data-close-overlay>‹ ${mentor ? `${esc(story.studentName)}’s stories` : 'Your library'}</button>`}
+      ${subjectReviewer ? `<button class="backBtn" type="button" data-subject-route="library">‹ ${esc(story.studentName)}’s Story Library</button>` : adminReviewer ? `<button class="backBtn" type="button" data-nav="student" data-nav-id="${attr(story.studentId)}">‹ ${esc(story.studentName)}’s submitted stories</button>` : `<button class="backBtn" type="button" data-close-overlay>‹ ${mentor ? `${esc(story.studentName)}’s stories` : 'Your library'}</button>`}
       <span class="eyebrow">Captured ${esc(formatDate(story.createdAt))}${story.captureType === 'audio' ? ' · from a voice note' : ''} · ${esc(developmentState(story))}</span>
     </div>
     ${mentor && story.revised ? `<div class="respStrip">✎ ${esc(story.studentName.split(/\s+/)[0])} revised this story after feedback (${esc(formatDateTime(story.studentRespondedAt || story.updatedAt))}). You’re looking at the revision — the original telling is one tab away.</div>` : ''}
@@ -5023,10 +5105,10 @@ function renderStoryRoom({ adminStory = null } = {}) {
       ${story.status === 'private' ? '' : scoreDots(story.mentorScore, 'mentor', story.reviewedByRole === 'admin' ? 'Administrator score' : 'Mentor score')}
       ${birdMini(story)}
       <span class="flex-spacer"></span>
-      ${state.capabilities?.storyArchive ? (adminReviewer
+      ${subjectReviewer ? '' : state.capabilities?.storyArchive ? (adminReviewer
         ? (story.collection === 'active' ? `<button class="rowBtn" type="button" data-admin-collection="archived">Archive</button>` : `<button class="rowBtn pri" type="button" data-admin-collection="active">Restore to Library</button>${story.collection === 'archived' ? '<button class="rowBtn danger" type="button" data-admin-collection="trashed">Move to Trash</button>' : ''}`)
         : !mentor ? (story.collection === 'active' ? `<button class="rowBtn" type="button" data-archive-story="${attr(story.id)}">Archive</button>` : `<button class="rowBtn pri" type="button" data-restore-story="${attr(story.id)}">Restore to Library</button>${story.collection === 'archived' ? `<button class="rowBtn danger" type="button" data-trash-story="${attr(story.id)}">Move to Trash</button>` : ''}`) : '') : ''}
-      <button class="rowBtn" type="button" data-open-assign="${attr(story.id)}">Assign interview questions</button>
+      ${subjectReviewer ? '' : `<button class="rowBtn" type="button" data-open-assign="${attr(story.id)}">Assign interview questions</button>`}
     </div>
     ${state.storyCompletionIntent ? `<div class="b1512CompletionSummary" role="status" aria-live="polite" tabindex="-1" data-completion-summary data-complete="${completionMissing.length === 0}">
       <span class="b1512IncompleteIcon" aria-hidden="true">!</span>
@@ -5067,7 +5149,7 @@ function renderStoryRoom({ adminStory = null } = {}) {
             <div class="lessonTxt">${story.lesson ? esc(story.lesson) : '<span class="storyEmpty">No lesson added yet.</span>'}</div>
           </div>` : ''}`}
 
-        ${adminReviewer ? adminReviewWorkspaceMarkup(story) : ''}
+        ${adminReviewer || subjectReviewer ? adminReviewWorkspaceMarkup(story) : ''}
 
         ${storyMediaMarkup(story)}
         <div class="reflBlock">
@@ -5078,15 +5160,15 @@ function renderStoryRoom({ adminStory = null } = {}) {
             ${mentor ? `<div class="a">${esc(reflectionAnswer(reflection)) || '<span class="storyEmpty">Waiting for the student’s reflection.</span>'}</div>` : `<textarea class="a" data-reflection-answer="${attr(reflection.id)}" placeholder="Write what this brings up…">${esc(reflectionAnswer(reflection))}</textarea>
               <button class="rowBtn" type="button" data-save-reflection="${attr(reflection.id)}">Save reflection</button>`}
           </div>`).join('') : '<div class="storyEmpty">No reflection prompts yet.</div>'}
-          ${mentor && !adminReviewer ? `<div class="askRow"><input id="mentorAskText" placeholder="Ask ${esc(story.studentName.split(/\s+/)[0])} a question that deepens this story…"><button class="noteSend" type="button" data-send-ask>Ask</button></div>`
-            : '<button class="reflAdd" type="button" data-add-reflection>+ Pull another reflection prompt</button>'}
+          ${mentor && !adminReviewer && !subjectReviewer ? `<div class="askRow"><input id="mentorAskText" placeholder="Ask ${esc(story.studentName.split(/\s+/)[0])} a question that deepens this story…"><button class="noteSend" type="button" data-send-ask>Ask</button></div>`
+            : adminReviewer || subjectReviewer ? '' : '<button class="reflAdd" type="button" data-add-reflection>+ Pull another reflection prompt</button>'}
         </div>
       </div>
 
       <aside>
         ${visibilityCard(story, mentor)}
         ${!mentor && state.capabilities?.peerShare ? `<form id="peerShareForm" class="railCard b1515PeerShare"><div class="rLbl">Share with a classmate for thoughts</div><p class="stageHint">Select one or more eligible classmates in your authorized cohort/session scope. They receive read/listen access only to this shared story and can leave bounded feedback.</p>${state.peerCandidatesError ? `<div class="b1514RaNotice" role="status">${esc(state.peerCandidatesError)} No share can be created until the authorized list loads.</div>` : state.peerCandidates.length ? `<fieldset class="b1515PeerCandidates"><legend class="fLbl">Eligible classmates</legend>${state.peerCandidates.map((peer) => `<label><input type="checkbox" data-peer-recipient="${attr(peer.id)}"> <span>${esc(peer.displayName || 'Eligible classmate')}</span></label>`).join('')}</fieldset>` : '<div class="stageHint">No eligible classmates are available in your current authorized scope.</div>'}<label class="b1515PeerConfirm"><input type="checkbox" id="peerShareConfirm" required> I chose these classmates and understand I can revoke each private grant.</label><button class="rowBtn pri" type="submit" ${!state.peerCandidates.length ? 'disabled' : ''}>Create private share</button></form>` : ''}
-        ${adminReviewer ? '' : presentationSectionVisible('reviewSubmission') ? `<div class="railCard ${mentor ? 'advPanel' : ''}">
+        ${adminReviewer || subjectReviewer ? '' : presentationSectionVisible('reviewSubmission') ? `<div class="railCard ${mentor ? 'advPanel' : ''}">
           <div class="rLbl">${esc(presentationSection('reviewSubmission').title)}</div>
           <div>${statusChip(story)}</div>
           <div class="stageHint">${esc(presentationSection('reviewSubmission').helper || STATUS[story.status].hint)}</div>
@@ -5097,7 +5179,7 @@ function renderStoryRoom({ adminStory = null } = {}) {
           <div class="tsList">${storyTimestamps(story)}</div>
         </div>` : ''}
 
-        ${adminReviewer ? '' : `<div class="railCard">
+        ${adminReviewer || subjectReviewer ? '' : `<div class="railCard">
           <div class="rLbl">Scores</div>
           <div class="fLbl">${mentor ? `${esc(story.studentName.split(/\s+/)[0])}’s own rating` : 'My rating — how much this story matters to you'}</div>
           ${mentor ? `<span class="scoreTag">${story.studentScore ? `<b>${story.studentScore}</b>/5` : 'not rated yet'}</span>` : scorePicker('room-student', story.studentScore)}
@@ -5109,28 +5191,28 @@ function renderStoryRoom({ adminStory = null } = {}) {
           </div>
         </div>`}
 
-        ${adminReviewer ? '' : `<div class="railCard"><div class="rLbl">Classification</div>${classificationButtons(story)}</div>`}
+        ${adminReviewer || subjectReviewer ? '' : `<div class="railCard"><div class="rLbl">Classification</div>${classificationButtons(story)}</div>`}
         ${state.capabilities?.taxonomy && presentationSectionVisible('storyCategories') ? `<div class="railCard b1512CompletionField ${incompleteCategories ? 'b1512Incomplete' : ''}" data-completion-field="categories"><div class="rLbl">${esc(presentationSection('storyCategories').title)}</div>
           <p class="stageHint">${esc(presentationSection('storyCategories').helper)}</p>
-          ${categoryButtons(story, adminReviewer ? { admin: true } : { readOnly: mentor })}
+          ${categoryButtons(story, adminReviewer || subjectReviewer ? { admin: true } : { readOnly: mentor })}
           <p class="b1512IncompleteHelp" data-completion-help="categories" ${incompleteCategories ? '' : 'hidden'}>${esc(completionMissing.find((item) => item.id === 'categories')?.message || '')}</p>
         </div>` : ''}
-        <div class="railCard">
+        ${subjectReviewer ? '' : `<div class="railCard">
           <div class="rLbl">Interview questions <button class="pMore" type="button" data-open-assign="${attr(story.id)}">Assign ▸</button></div>
           ${mappedQuestionMarkup(story)}
-        </div>
+        </div>`}
         ${presentationSectionVisible('intendedUses') ? `<div class="railCard b1512CompletionField ${incompleteUses ? 'b1512Incomplete' : ''}" data-completion-field="uses">
           <div class="rLbl">${esc(presentationSection('intendedUses').title)}</div>
           <p class="stageHint">${esc(presentationSection('intendedUses').helper)}</p>
-          ${state.capabilities?.taxonomy ? intendedUseButtons(story, adminReviewer ? { admin: true } : { readOnly: mentor }) : legacyIntendedUseButtons(story)}
+          ${state.capabilities?.taxonomy ? intendedUseButtons(story, adminReviewer || subjectReviewer ? { admin: true } : { readOnly: mentor }) : legacyIntendedUseButtons(story)}
           <p class="b1512IncompleteHelp" data-completion-help="uses" ${incompleteUses ? '' : 'hidden'}>${esc(completionMissing.find((item) => item.id === 'uses')?.message || '')}</p>
         </div>` : ''}
-        ${!adminReviewer && (story.status !== 'private' || mentor) ? `<div class="railCard ${mentor ? '' : 'advPanel'}">
+        ${!adminReviewer && !subjectReviewer && (story.status !== 'private' || mentor) ? `<div class="railCard ${mentor ? '' : 'advPanel'}">
           <div class="rLbl label-cy">Mentor feedback</div>
           ${feedbackMarkup(story)}
           ${mentor && !adminReviewer ? `<div class="noteCompose"><textarea id="mentorFeedback" placeholder="Leave ${esc(story.studentName.split(/\s+/)[0])} feedback…"></textarea><button class="noteSend" type="button" data-send-feedback>Send feedback</button></div>` : ''}
         </div>` : ''}
-        ${adminReviewer ? '' : mentorNotesMarkup(story)}
+        ${adminReviewer || subjectReviewer ? '' : mentorNotesMarkup(story)}
         <div class="railCard">
           <div class="rLbl">History</div>
           ${storyHistoryMarkup(story)}
@@ -7191,7 +7273,7 @@ function adminQuery(values) {
 function adminStoryRow(story, { showStudent = true } = {}) {
   const current = normalizeStory(story);
   return `<article class="mStuRow adminStoryRow">
-    <span class="stuAv">${esc((current.studentName || 'S').split(/\s+/).map((part) => part[0]).slice(0, 2).join(''))}</span>
+    ${studentAvatarMarkup({ name: current.studentName, avatar: current.avatar })}
     <span class="rMain"><span class="rTitle">${esc(current.title)}</span><span class="rSub">${showStudent ? `${esc(current.studentName)} · ` : ''}${esc(formatDateTime(current.updatedAt))}</span></span>
     ${statusChip(current)}
     ${scoreDots(current.mentorScore, 'mentor', 'Reviewer score')}
@@ -7224,8 +7306,12 @@ async function loadAdminStudents() {
   admin.studentsCursor = payload?.nextCursor || null;
   admin.studentTotal = Number(payload?.total || admin.students.length);
   if (state.capabilities?.adminDirectory) {
-    const views = await api.adminSavedViews().catch(() => ({ views: [] }));
+    const [views, groups] = await Promise.all([
+      api.adminSavedViews().catch(() => ({ views: [] })),
+      api.adminDirectoryGroups().catch(() => ({ groups: [] })),
+    ]);
     admin.savedViews = asArray(views?.views);
+    admin.directoryGroups = asArray(groups?.groups);
   }
 }
 
@@ -7243,8 +7329,66 @@ async function loadAdminStudent(id) {
   adminConsoleState().directoryDetail = directory?.student || null;
 }
 
+async function openAdminSubject(id) {
+  const [homePayload, storiesPayload] = await Promise.all([
+    api.adminSubjectHome(id),
+    api.adminSubjectStories(id),
+  ]);
+  const context = homePayload?.context || storiesPayload?.context || {};
+  if (context?.capabilities?.studentOwnedMutations !== false) {
+    throw new Error('Administrator subject context did not provide the required read-only capability boundary.');
+  }
+  const rawStudent = context.subject || { id };
+  state.adminSubject = {
+    context,
+    student: normalizeStudent(rawStudent),
+    home: homePayload,
+  };
+  state.stories = asArray(storiesPayload?.stories).map((story) => normalizeStory({
+    ...story,
+    studentId: rawStudent.id,
+    studentName: firstDefined(rawStudent.displayName, rawStudent.display_name, 'Student'),
+  }));
+  state.notifications = [];
+  state.library = { ...state.library, query: '', status: '', sort: 'new', star: '', bird: '', position: '', source: '', collection: 'active', categories: [], uses: [] };
+  state.route = 'home';
+  state.routeId = null;
+  renderShell();
+  renderHome();
+}
+
+async function loadAdminSubjectStory(storyId) {
+  const student = subjectStudent();
+  if (!student) return;
+  const payload = await api.adminSubjectStory(student.id, storyId);
+  const story = normalizeStory({
+    ...(payload?.story || {}),
+    studentId: student.id,
+    studentName: student.name,
+    feedback: payload?.feedback,
+    revisions: payload?.revisions,
+    reflections: payload?.reflections,
+    craft: payload?.craft,
+    internalNotes: payload?.internalNotes,
+  });
+  state.mentorNoteDraft = null;
+  if ((state.capabilities?.mentorNotesRead || canWriteMentorNotes()) && story.status !== 'private') {
+    const notesPayload = await optionalRequest(`/api/stories/${storyId}/mentor-notes?reviewer=1`, { notes: [] });
+    story.mentorNotes = asArray(notesPayload?.notes).map(normalizeMentorNote);
+  }
+  state.storyVersions = asArray(payload?.versions);
+  state.storyTab = story.revised ? 'working' : 'original';
+  state.storyDetail = story;
+  adminConsoleState().story = story;
+  renderStoryRoom({ subjectStory: story });
+}
+
 async function loadAdminQueue() {
   const admin = adminConsoleState();
+  if (state.capabilities?.adminDirectory && !admin.directoryGroups.length) {
+    const groups = await api.adminDirectoryGroups().catch(() => ({ groups: [] }));
+    admin.directoryGroups = asArray(groups?.groups);
+  }
   const payload = await api.adminQueue(adminQuery({
     q: admin.queueQuery,
     status: admin.queueStatus,
@@ -7293,6 +7437,26 @@ function renderAdminHome() {
   const payload = adminConsoleState().home || {};
   const metrics = payload.metrics || {};
   const recent = asArray(payload.recent).map(normalizeStory);
+  const actionCenter = payload.actionCenter || payload.action_center || null;
+  const whoNeedsMe = actionCenter ? [
+    ...asArray(firstDefined(actionCenter.whoNeedsMe?.needsReview?.items, actionCenter.who_needs_me?.needs_review?.items, [])),
+    ...asArray(firstDefined(actionCenter.whoNeedsMe?.needsNudge?.items, actionCenter.who_needs_me?.needs_nudge?.items, [])),
+  ] : [];
+  const nextActions = asArray(firstDefined(actionCenter?.next, []));
+  const changed = actionCenter ? [
+    ...asArray(firstDefined(actionCenter.changed?.changesReturned?.items, actionCenter.changed?.changes_returned?.items, [])),
+    ...asArray(firstDefined(actionCenter.changed?.newSinceLastVisit?.items, actionCenter.changed?.new_since_last_visit?.items, [])),
+  ] : [];
+  const boundaries = firstDefined(actionCenter?.boundaries, {});
+  const newSince = firstDefined(actionCenter?.changed?.newSinceLastVisit, actionCenter?.changed?.new_since_last_visit, {});
+  const actionGroup = (items, count, title, empty) => {
+    return `<section class="railCard b1515ActionGroup"><div class="b1515SectionHead"><h2 class="h2">${esc(title)}</h2><span class="cohortChip">${Number(count || 0)}</span></div>${items.length ? items.map((raw) => {
+      const story = normalizeStory(raw.story || raw);
+      if (story.id) return adminStoryRow(story);
+      if (firstDefined(raw.studentId, raw.student_id)) return `<div class="setRow"><div class="sTxt"><b>${esc(firstDefined(raw.studentName, raw.student_name, 'Authorized student'))}</b><span>${Number(firstDefined(raw.observableStoryCount, raw.observable_story_count, 0))} reviewable stories · ${firstDefined(raw.lastActivityAt, raw.last_activity_at) ? `last activity ${esc(formatDate(firstDefined(raw.lastActivityAt, raw.last_activity_at)))}` : 'activity unavailable'}</span></div><button class="rowBtn pri" type="button" data-admin-open-subject="${attr(firstDefined(raw.studentId, raw.student_id))}">Open StoryForge</button></div>`;
+      return `<div class="setRow"><div class="sTxt"><b>${esc(firstDefined(raw.label, raw.title, 'Admin action'))}</b><span>${esc(firstDefined(raw.detail, raw.reason, 'Open the authorized workspace for details.'))}</span></div></div>`;
+    }).join('') : `<p class="stageHint">${esc(empty)}</p>`}</section>`;
+  };
   main.innerHTML = `<section data-view="admin-home" class="live">
     ${pageIntroMarkup({ eyebrow: 'Administrator workspace', title: 'Review StoryForge, <em>without crossing privacy lines</em>.', value: 'Search eligible students, work submitted stories, and leave clearly attributed review decisions. Private stories remain invisible.', how: 'Start with Students for one learner or Review Queue for submitted work across the authorized population. Every consequential change is server-authorized and audited.', action: '<button class="btnSave" type="button" data-nav="queue">Open Review Queue</button>' })}
     <div class="forgeStats adminMetrics">
@@ -7302,6 +7466,7 @@ function renderAdminHome() {
       <div class="fstat"><div class="n metric-green">${Number(metrics.approved || 0)}</div><div class="l">Approved</div></div>
       <div class="fstat"><div class="n metric-violet">${Number(metrics.unscored || 0)}</div><div class="l">Unscored</div></div>
     </div>
+    ${actionCenter ? `<div class="b1515ActionCenter" aria-label="Administrator action center">${actionGroup(whoNeedsMe, whoNeedsMe.length, 'Who needs me', 'No authorized student currently needs administrator attention.')}${actionGroup(nextActions, nextActions.length, 'What should I do next?', 'No next action is currently assigned.')}${actionGroup(changed, changed.length, 'What changed', 'No authorized changes are available in this view.')}</div><div class="privacyBoundary" role="note">${newSince.firstVisit === true ? 'This is the first recorded Admin Home visit, so nothing is labeled new yet. ' : ''}${boundaries.boundaryLimited === true || boundaries.boundary_limited === true ? 'Activity-based nudges are limited until the tracked activity boundary is available.' : `Activity signals are available from ${esc(formatDate(firstDefined(boundaries.activityFrom, boundaries.activity_from)))}.`}</div>` : '<div class="privacyBoundary" role="note">Action Center detail is not available from this server release. The verified metrics, directory, and review queue remain available below.</div>'}
     <div class="inlineActions mentorActions">
       <button class="bigAction" type="button" data-nav="students"><span class="ba1">Find a student</span><span class="ba2">Search only the eligible StoryForge population with submitted work.</span><span class="baGo">Open Students ▸</span></button>
       <button class="bigAction" type="button" data-nav="queue"><span class="ba1">Review queue</span><span class="ba2">Filter submitted stories by review state without exposing private drafts.</span><span class="baGo">Open Review Queue ▸</span></button>
@@ -7323,7 +7488,7 @@ function renderAdminStudents() {
       <select id="adminStudentStatus" ${state.capabilities?.adminDirectory ? 'hidden' : ''}>
         <option value="">All submitted work</option>
         ${['awaiting', 'in_review', 'changes', 'reviewed', 'approved', 'unscored'].map((status) => `<option value="${status}" ${admin.studentStatus === status ? 'selected' : ''}>${esc(status === 'unscored' ? 'Unscored' : STATUS[status].label)}</option>`).join('')}
-      </select>${state.capabilities?.adminDirectory ? `<select id="adminStudentFilter" aria-label="Attention filter">${[['all','All students'],['awaiting','Awaiting review'],['needs_review','Needs review'],['never_active','Never active'],['never_started','Never started'],['needs_nudge','Needs a nudge'],['inactive_7','Inactive 7+ days'],['inactive_30','Inactive 30+ days']].map(([value,label])=>`<option value="${value}" ${admin.studentFilter===value?'selected':''}>${label}</option>`).join('')}</select><select id="adminStudentSession" aria-label="Session filter"><option value="">Any session</option><option value="active" ${admin.studentSession==='active'?'selected':''}>Active now</option><option value="idle" ${admin.studentSession==='idle'?'selected':''}>Idle</option><option value="offline" ${admin.studentSession==='offline'?'selected':''}>Offline</option></select><select id="adminStudentSort" aria-label="Sort students">${[['attention','Needs attention'],['name','Name'],['recent','Most recent'],['quiet','Quietest'],['stories','Story count']].map(([value,label])=>`<option value="${value}" ${admin.studentSort===value?'selected':''}>${label}</option>`).join('')}</select>` : ''}
+      </select>${state.capabilities?.adminDirectory ? `<select id="adminStudentFilter" aria-label="Attention filter">${[['all','All students'],['awaiting','Awaiting review'],['needs_review','Needs review'],['never_active','Never active'],['never_started','Never started'],['needs_nudge','Needs a nudge'],['inactive_7','Inactive 7+ days'],['inactive_30','Inactive 30+ days']].map(([value,label])=>`<option value="${value}" ${admin.studentFilter===value?'selected':''}>${label}</option>`).join('')}</select><select id="adminStudentSession" aria-label="Student group"><option value="">All groups</option>${admin.directoryGroups.map((group)=>`<option value="${attr(group.id)}" ${admin.studentSession===group.id?'selected':''}>${esc(group.label)} · ${Number(group.studentCount||0)}</option>`).join('')}</select><select id="adminStudentSort" aria-label="Sort students">${[['attention','Needs attention'],['name','Name'],['recent','Most recent'],['quiet','Quietest'],['stories','Story count']].map(([value,label])=>`<option value="${value}" ${admin.studentSort===value?'selected':''}>${label}</option>`).join('')}</select>` : ''}
       <button class="rowBtn pri" type="submit">Search</button><span class="countNote" id="adminStudentCount">${admin.students.length} results · server-authorized</span>
     </form>
     ${state.capabilities?.adminDirectory ? `<div class="b1514SavedViews"><label for="adminSavedView">Saved view</label><select id="adminSavedView"><option value="">Choose a saved view</option>${admin.savedViews.map((view)=>`<option value="${attr(view.id)}" ${admin.selectedSavedView===view.id?'selected':''}>${esc(view.label)}</option>`).join('')}</select><button class="rowBtn" type="button" data-admin-save-view>Save current view</button><button class="rowBtn danger" type="button" data-admin-delete-view ${admin.selectedSavedView?'':'disabled'}>Delete selected view</button></div>` : ''}
@@ -7335,12 +7500,12 @@ function renderAdminStudents() {
 function adminStudentRowsMarkup() {
   const students = adminConsoleState().students;
   return students.length ? students.map((student) => `<article class="mStuRow">
-      <span class="stuAv">${esc(student.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join(''))}</span>
+      ${studentAvatarMarkup(student)}
       <span class="rMain"><span class="rTitle">${esc(student.name)}</span><span class="rSub">${esc([student.year, student.specialty, student.cohort].filter(Boolean).join(' · '))}</span></span>
       <span class="numPair"><span class="n">${student.storyCount}</span><span class="l">Submitted</span></span>
       <span class="numPair"><span class="n">${student.awaitingReview}</span><span class="l">Awaiting</span></span>
       <span class="numPair"><span class="n metric-violet">${student.unscored}</span><span class="l">Unscored</span></span>
-      <button class="rowBtn pri" type="button" data-admin-open-student="${attr(student.id)}">Open</button>
+      <button class="rowBtn pri" type="button" data-admin-open-subject="${attr(student.id)}">Open StoryForge</button>
     </article>`).join('') : emptyState('No student matches.', 'Try a different name, WordPress ID, cohort, or review filter.');
 }
 
@@ -7358,9 +7523,9 @@ function renderAdminStudent() {
   if (!student) return;
   main.innerHTML = `<section data-view="admin-student" class="live">
     <button class="backBtn" type="button" data-nav="students">‹ All students</button>
-    <div class="profHead"><span class="stuAv">${esc(student.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join(''))}</span><div>
+    <div class="profHead">${studentAvatarMarkup(student)}<div>
       <div class="eyebrow">Administrator · submitted StoryForge account</div><h1 class="h1">${esc(student.first)} <em>${esc(student.name.split(/\s+/).slice(1).join(' '))}</em></h1>
-      <p class="stageHint">${esc([student.year, student.specialty, student.cohort, student.cycle].filter(Boolean).join(' · '))}</p></div></div>
+      <p class="stageHint">${esc([student.year, student.specialty, student.cohort, student.cycle].filter(Boolean).join(' · '))}</p></div><button class="btnSave" type="button" data-admin-open-subject="${attr(student.id)}">Open StoryForge</button></div>
     <div class="privacyBoundary" role="note">Private and archived stories are intentionally absent. This workspace cannot enumerate or open them.</div>
     ${adminConsoleState().directoryDetail ? `<div class="forgeStats b1514DirectoryStats"><div class="fstat"><div class="n">${Number(adminConsoleState().directoryDetail.submittedStories || 0)}</div><div class="l">Submitted</div></div><div class="fstat"><div class="n">${Number(adminConsoleState().directoryDetail.awaitingReview || 0)}</div><div class="l">Awaiting</div></div><div class="fstat"><div class="n">${Number(adminConsoleState().directoryDetail.privateStoryCount || 0)}</div><div class="l">Private count only</div></div></div>${adminConsoleState().directoryDetail.activity ? `<div class="railCard"><div class="rLbl">Activity boundary</div><p>${esc(adminConsoleState().directoryDetail.activity.label || 'No recent session signal.')}</p><small>Content, keystrokes, drafts, and private story text are never tracked.</small></div>` : ''}${state.capabilities?.reviewCheck ? `<div class="inlineActions"><button class="rowBtn" type="button" data-review-check-preview="${attr(student.id)}">Preview Review Check</button><button class="rowBtn pri" type="button" data-review-check-send="${attr(student.id)}">Send Review Check</button></div>` : ''}` : ''}
     ${student.stories.length ? student.stories.map((story) => adminStoryRow({ ...story, studentName: student.name }, { showStudent: false })).join('') : emptyState('No submitted stories.', 'Unsubmitted work remains outside the review queue. Visibility stays under student control.')}
@@ -7374,17 +7539,25 @@ function renderAdminQueue() {
     <div class="listBar">${state.capabilities?.adminDirectory ? '<label class="srOnly" for="adminQueueSearch">Search queue</label><input id="adminQueueSearch" type="search" placeholder="Student or story…" value="'+attr(admin.queueQuery)+'">' : ''}<label class="srOnly" for="adminQueueStatus">Review status</label><select id="adminQueueStatus">
       <option value="">All submitted stories</option>
       ${['awaiting', 'in_review', 'changes', 'reviewed', 'approved', 'unscored'].map((status) => `<option value="${status}" ${admin.queueStatus === status ? 'selected' : ''}>${esc(status === 'unscored' ? 'Unscored' : STATUS[status].label)}</option>`).join('')}
-    </select>${state.capabilities?.adminDirectory ? `<select id="adminQueueSession" aria-label="Queue session"><option value="">Any session</option><option value="active" ${admin.queueSession==='active'?'selected':''}>Active now</option><option value="idle" ${admin.queueSession==='idle'?'selected':''}>Idle</option><option value="offline" ${admin.queueSession==='offline'?'selected':''}>Offline</option></select><select id="adminQueueSort" aria-label="Queue order"><option value="oldest" ${admin.queueSort==='oldest'?'selected':''}>Oldest awaiting</option><option value="newest" ${admin.queueSort==='newest'?'selected':''}>Newest</option><option value="updated" ${admin.queueSort==='updated'?'selected':''}>Recently updated</option><option value="student" ${admin.queueSort==='student'?'selected':''}>Student</option></select><button class="rowBtn pri" type="button" data-admin-queue-search>Apply</button>` : ''}<span class="countNote">${admin.queue.length} results · private stories excluded</span></div>
+    </select>${state.capabilities?.adminDirectory ? `<select id="adminQueueSession" aria-label="Queue student group"><option value="">All groups</option>${admin.directoryGroups.map((group)=>`<option value="${attr(group.id)}" ${admin.queueSession===group.id?'selected':''}>${esc(group.label)} · ${Number(group.studentCount||0)}</option>`).join('')}</select><select id="adminQueueSort" aria-label="Queue order"><option value="oldest" ${admin.queueSort==='oldest'?'selected':''}>Oldest awaiting</option><option value="newest" ${admin.queueSort==='newest'?'selected':''}>Newest</option><option value="updated" ${admin.queueSort==='updated'?'selected':''}>Recently updated</option><option value="student" ${admin.queueSort==='student'?'selected':''}>Student</option></select><button class="rowBtn pri" type="button" data-admin-queue-search>Apply</button>` : ''}<span class="countNote">${admin.queue.length} results · private stories excluded</span></div>
     ${admin.queue.length ? admin.queue.map((story) => adminStoryRow(story)).join('') : emptyState('Nothing in this queue.', 'Choose another review state.')}${state.capabilities?.adminDirectory ? `<div class="inlineActions b1514AdminPager"><button class="rowBtn" type="button" data-admin-queue-page="${Math.max(1,admin.queuePage-1)}" ${admin.queuePage<=1?'disabled':''}>‹ Previous</button><span>Page ${admin.queuePage}</span><button class="rowBtn" type="button" data-admin-queue-page="${admin.queuePage+1}" ${admin.queue.length<25?'disabled':''}>Next ›</button></div>` : ''}
   </section>`;
 }
 
 function renderAdminContent() {
   const prompts = adminConsoleState().contentPrompts;
+  const tab = state.adminContentTab;
+  const tabs = [['overview','Overview'],['add','Add One'],['import','Import'],['environments','Environments']];
+  const activePrompts = prompts.filter((prompt) => prompt.state === 'active');
+  const activeOrder = new Map(activePrompts.map((prompt, index) => [String(prompt.id), index]));
+  const promptBank = `<div class="panel panel-spaced"><div class="pHead"><div class="h2">Prompt bank <em>${prompts.length}</em></div></div><div class="pBody">${prompts.map((prompt)=>`<article class="mStuRow" data-admin-prompt-row="${attr(prompt.id)}"><span class="rMain"><span class="rTitle">${esc(prompt.key)} · ${esc(prompt.text)}</span><span class="rSub">${esc(prompt.territory)} · version ${Number(prompt.rowVersion||0)}</span></span><span class="cohortChip">${esc(prompt.state)}</span>${prompt.state==='active'?`<span class="b1515OrderControls" role="group" aria-label="Reorder ${attr(prompt.text)}"><button class="rowBtn" type="button" data-admin-prompt-move="-1" data-prompt-id="${attr(prompt.id)}" ${activeOrder.get(String(prompt.id))===0?'disabled':''} aria-label="Move prompt up">↑</button><button class="rowBtn" type="button" data-admin-prompt-move="1" data-prompt-id="${attr(prompt.id)}" ${activeOrder.get(String(prompt.id))===activePrompts.length-1?'disabled':''} aria-label="Move prompt down">↓</button></span>`:''}<button class="rowBtn" type="button" data-admin-prompt-history="${attr(prompt.id)}">History</button></article>`).join('')||'<div class="stageHint">No prompts match.</div>'}</div></div>`;
   main.innerHTML = `<section data-view="admin-content" class="live b1514ContentStudio">${pageIntroMarkup({ eyebrow: 'Administrator · Content Studio', title: 'Govern <em>Inspiration</em>.', value: 'Validate and publish governed StoryForge questions without placing unreviewed bulk content in front of students.', how: 'Validate one prompt before publication, or parse a governed CSV into retired drafts. Publication remains an explicit, audited action with version history.', action: '<button class="rowBtn pri" type="button" data-focus-admin-prompt>Create a prompt</button>' })}
-    <form id="adminInspirationForm" class="railCard"><label>Prompt question<textarea id="adminPromptText" maxlength="400" required></textarea></label><div class="b1514FieldGrid"><label>Territory<input id="adminPromptTerritory" value="clinical_growth" required></label><label>Order<input id="adminPromptOrder" type="number" min="1" max="100000" value="100" required></label></div><label>Follow-up<input id="adminPromptFollowup" value="What changed because of that moment?" required></label><label>Interview use<input id="adminPromptUse" value="Shows reflection and growth." required></label><div class="inlineActions"><button class="rowBtn" type="button" data-admin-prompt-validate>Validate</button><button class="btnSave" type="submit">Publish active prompt</button></div></form>
-    <form id="adminInspirationBulkForm" class="railCard"><label>Governed CSV<textarea id="adminPromptCsv" rows="6" placeholder="Paste the exact 13-column governed CSV"></textarea></label><div class="inlineActions"><button class="rowBtn" type="submit">Parse safely</button></div></form>
-    <div class="panel panel-spaced"><div class="pHead"><div class="h2">Prompt bank <em>${prompts.length}</em></div></div><div class="pBody">${prompts.map((prompt)=>`<article class="mStuRow"><span class="rMain"><span class="rTitle">${esc(prompt.key)} · ${esc(prompt.text)}</span><span class="rSub">${esc(prompt.territory)} · version ${Number(prompt.rowVersion||0)}</span></span><span class="cohortChip">${esc(prompt.state)}</span><button class="rowBtn" type="button" data-admin-prompt-history="${attr(prompt.id)}">History</button></article>`).join('')||'<div class="stageHint">No prompts match.</div>'}</div></div></section>`;
+    <div class="b1515ContentTabs" role="tablist" aria-label="Content Studio sections">${tabs.map(([id,label])=>`<button type="button" role="tab" data-admin-content-tab="${id}" aria-selected="${tab===id}" class="${tab===id?'on':''}">${label}</button>`).join('')}</div>
+    ${tab==='overview'?`<div class="forgeStats"><div class="fstat"><div class="n">${prompts.length}</div><div class="l">Total prompts</div></div><div class="fstat"><div class="n">${activePrompts.length}</div><div class="l">Active</div></div></div>${promptBank}`:''}
+    ${tab==='add'?`<form id="adminInspirationForm" class="railCard"><div class="b1515GovernanceSteps" aria-label="Publication workflow"><b>1 Draft</b><b class="${state.adminPromptValidated?'done':''}">2 Validate</b><b>3 Preview</b><b>4 Publish</b></div><label>Prompt question<textarea id="adminPromptText" maxlength="400" required></textarea></label><div class="b1514FieldGrid"><label>Territory<input id="adminPromptTerritory" value="clinical_growth" required></label><label>Order<input id="adminPromptOrder" type="number" min="1" max="100000" value="100" required></label></div><label>Follow-up<input id="adminPromptFollowup" value="What changed because of that moment?" required></label><label>Interview use<input id="adminPromptUse" value="Shows reflection and growth." required></label><div class="inlineActions"><button class="rowBtn" type="button" data-admin-prompt-validate>Validate draft</button><button class="rowBtn" type="button" data-admin-prompt-preview ${state.adminPromptValidated?'':'disabled'}>Preview</button><button class="btnSave" type="submit" ${state.adminPromptValidated?'':'disabled'}>Publish active prompt</button></div>${state.adminPromptValidated?`<div class="b1514PromptCard b1515AdminPromptPreview"><span class="eyebrow">Validated preview · not published</span><h2>“${esc(state.adminPromptValidated.text)}”</h2><p>${esc(state.adminPromptValidated.followUp)}</p></div>`:''}</form>`:''}
+    ${tab==='import'?`<form id="adminInspirationBulkForm" class="railCard"><label>Governed CSV<textarea id="adminPromptCsv" rows="8" placeholder="Paste the exact governed CSV; quoted commas and line breaks are parsed server-side."></textarea></label><div class="inlineActions"><button class="rowBtn" type="submit">Parse and preview</button><button class="btnSave" type="button" data-admin-bulk-commit ${asArray(state.adminBulkPreview?.prompts).length && state.adminBulkPreview?.validation?.publishable===true?'':'disabled'}>Commit retired drafts</button></div>${state.adminBulkPreview?`<div class="b1515BulkPreview" role="status"><strong>${Number(state.adminBulkPreview.count||0)} parsed rows</strong>${state.adminBulkPreview.validation?.publishable===false?`<div class="releaseError">Resolve duplicate stable keys or ordering values before commit.</div>`:''}${asArray(state.adminBulkPreview.validation?.duplicateLibraryKeys).length?`<p>Duplicate keys: ${asArray(state.adminBulkPreview.validation.duplicateLibraryKeys).map(esc).join(', ')}</p>`:''}${asArray(state.adminBulkPreview.validation?.duplicateSortOrders).length?`<p>Duplicate order values: ${asArray(state.adminBulkPreview.validation.duplicateSortOrders).map(esc).join(', ')}</p>`:''}<ol>${asArray(state.adminBulkPreview.prompts).map((prompt)=>`<li><b>${esc(prompt.libraryKey||'Server-assigned ID')}</b> ${esc(prompt.text)}</li>`).join('')}</ol></div>`:''}</form>`:''}
+    ${tab==='environments'?`${renderContentDisplayControls()}<div class="privacyBoundary">Theme and environment choices use existing bounded configuration only. No CSS, scripts, or arbitrary application code can be published here.</div>`:''}
+  </section>`;
 }
 
 function adminInspirationDraft(form) {
@@ -7411,6 +7584,13 @@ function renderAdminStory() {
   if (!story) return;
   state.storyDetail = story;
   renderStoryRoom({ adminStory: story });
+}
+
+function renderCurrentAdminStory() {
+  const story = adminConsoleState().story;
+  if (!story) return;
+  state.storyDetail = story;
+  renderStoryRoom(isAdminSubjectContext() ? { subjectStory: story } : { adminStory: story });
 }
 
 async function saveAdminStoryReview(form) {
@@ -7455,8 +7635,51 @@ async function saveAdminStoryReview(form) {
     craft: result?.craft,
     internalNotes: result?.internalNotes,
   });
-  renderAdminStory();
+  renderCurrentAdminStory();
   notify('Administrator review saved and audited.', '✓');
+}
+
+function directUseReviews(story, { scoreKey = '', scoreValue = null, suitabilityKey = '', suitabilityValue = null } = {}) {
+  const selected = new Set(story.reviewSuitabilities);
+  if (suitabilityKey) {
+    if (suitabilityValue) selected.add(suitabilityKey);
+    else selected.delete(suitabilityKey);
+  }
+  return USES.map(({ id }) => ({
+    useId: id,
+    qualifies: selected.has(id),
+    score: id === scoreKey ? Number(scoreValue) : Number(story.perUseScores?.[id] || 0) || null,
+  }));
+}
+
+async function saveDirectAdminScore(value) {
+  const story = adminConsoleState().story;
+  if (!story || !state.capabilities?.adminReviewControls) return;
+  const result = await withBusy(() => api.adminReview(story.id, {
+    expectedVersion: story.rowVersion,
+    patch: { mentorScore: Number(value), suitability: story.reviewSuitability || null },
+  }));
+  adminConsoleState().story = normalizeStory({ ...story, ...(result?.story || {}) });
+  renderCurrentAdminStory();
+  notify(`Administrator score saved: ${value}/5.`, '✓');
+}
+
+async function saveDirectUseReviews(change) {
+  const story = adminConsoleState().story;
+  if (!story || !state.capabilities?.perUseScoring) return;
+  const result = await withBusy(() => api.adminUseReviews(story.id, {
+    expectedVersion: story.rowVersion,
+    reviews: directUseReviews(story, change),
+  }));
+  adminConsoleState().story = normalizeStory({
+    ...story,
+    reviewSuitabilities: undefined,
+    perUseScores: undefined,
+    rowVersion: firstDefined(result?.rowVersion, story.rowVersion),
+    useReviews: result?.reviews,
+  });
+  renderCurrentAdminStory();
+  notify('Intended-use review saved.', '✓');
 }
 
 async function updateAdminTaxonomy(kind, id) {
@@ -7476,7 +7699,7 @@ async function updateAdminTaxonomy(kind, id) {
       surface: 'workspace',
     });
     adminConsoleState().story = normalizeStory({ ...story, ...(result?.story || result) });
-    renderAdminStory();
+    renderCurrentAdminStory();
     notify(kind === 'categories' ? 'Administrator category change saved and audited.' : 'Administrator intended-use change saved and audited.');
   } catch (error) {
     story[kind] = previous;
@@ -7524,7 +7747,7 @@ function storeMentorNote(note) {
 
 function renderActiveMentorNoteSurface() {
   if (room.classList.contains('open')) renderStoryRoom();
-  else if (canAdminReview() && adminConsoleState().story) renderAdminStory();
+  else if (canAdminReview() && adminConsoleState().story) renderCurrentAdminStory();
 }
 
 function mentorRecordingClock(recording = state.mentorNoteRecording) {
@@ -8337,6 +8560,7 @@ async function createStoryRequest(form) {
   }
   const preview = await withBusy(() => api.previewRequest(invitation.id, Number(invitation.rowVersion || 0)));
   ui.preview = preview;
+  ui.guestPreview = await withBusy(() => api.requestGuestPreview(invitation.id));
   ui.editingId = invitation.id;
   ui.reinviteFrom = '';
   ui.view = 'preview';
@@ -8362,7 +8586,10 @@ function openRequestEditor(invitation = null, { reinvite = false } = {}) {
 
 async function previewStoryRequest(invitationId, expectedVersion) {
   const ui = state.v2.requestUi;
-  ui.preview = await withBusy(() => api.previewRequest(invitationId, expectedVersion));
+  [ui.preview, ui.guestPreview] = await withBusy(() => Promise.all([
+    api.previewRequest(invitationId, expectedVersion),
+    api.requestGuestPreview(invitationId),
+  ]));
   ui.editingId = invitationId;
   ui.view = 'preview';
   renderRequests();
@@ -8600,7 +8827,7 @@ function scheduleAdminStudentSearch(value, inputId = 'adminStudentSearch') {
         const list = $('#omniSuggestions');
         const input = $('#omni');
         if (list && input && value.trim()) {
-          list.innerHTML = adminConsoleState().students.slice(0, 6).map((student, index) => `<button type="button" id="omniSuggestions-${index}" role="option" aria-selected="false" data-admin-open-student="${attr(student.id)}"><span>${esc(student.name)}</span><small>${esc([student.cohort, student.specialty].filter(Boolean).join(' · '))}</small></button>`).join('');
+          list.innerHTML = adminConsoleState().students.slice(0, 6).map((student, index) => `<button type="button" id="omniSuggestions-${index}" role="option" aria-selected="false" data-admin-open-subject="${attr(student.id)}"><span>${esc(student.name)}</span><small>${esc([student.cohort, student.specialty].filter(Boolean).join(' · '))}</small></button>`).join('');
           list.hidden = !adminConsoleState().students.length;
           input.setAttribute('aria-expanded', String(Boolean(adminConsoleState().students.length)));
         }
@@ -8641,6 +8868,26 @@ document.addEventListener('click', async (event) => {
       }
       return;
     }
+    if (button.matches('[data-admin-open-subject]')) {
+      await withBusy(() => openAdminSubject(button.dataset.adminOpenSubject));
+      return;
+    }
+    if (button.matches('[data-exit-subject]')) {
+      state.adminSubject = null;
+      await navigate('students');
+      return;
+    }
+    if (button.matches('[data-subject-route]')) {
+      if (!isAdminSubjectContext()) return;
+      state.route = button.dataset.subjectRoute;
+      if (state.route === 'home') renderHome();
+      else renderLibrary();
+      return;
+    }
+    if (button.matches('[data-admin-subject-story]')) {
+      await withBusy(() => loadAdminSubjectStory(button.dataset.adminSubjectStory));
+      return;
+    }
     if (button.matches('[data-consent-decision]')) {
       await decideConsent(button.dataset.consentDecision);
       return;
@@ -8669,6 +8916,13 @@ document.addEventListener('click', async (event) => {
       state.v2.inspiration.layout = button.dataset.inspirationLayout;
       await api.inspirationLayout(state.v2.inspiration.layout);
       await loadInspiration();
+      renderInspiration();
+      return;
+    }
+    if (button.matches('[data-inspiration-filter-chip]')) {
+      const key = button.dataset.inspirationFilterChip;
+      if (!['domain', 'lifeStage', 'tone', 'status', 'recommended'].includes(key)) return;
+      state.v2.inspiration[key] = button.dataset.value || '';
       renderInspiration();
       return;
     }
@@ -8731,30 +8985,19 @@ document.addEventListener('click', async (event) => {
         story.id, button.dataset.adminReviewStatus, story.rowVersion,
       ));
       adminConsoleState().story = normalizeStory({ ...story, ...result });
-      renderAdminStory();
+      renderCurrentAdminStory();
       notify(`Review status updated to ${STATUS[result.status]?.label || result.status}.`, '✓');
       return;
     }
     if (button.matches('[data-admin-review-score]')) {
       const value = Number(button.dataset.adminReviewScore);
-      const input = $('#adminReviewScore', button.form);
-      if (input) input.value = String(value);
-      $$('[data-admin-review-score]', button.form).forEach((item) => {
-        item.classList.toggle('on', Number(item.dataset.adminReviewScore) <= value);
-        item.setAttribute('aria-pressed', String(Number(item.dataset.adminReviewScore) === value));
-      });
-      button.parentElement?.querySelector('span:last-child')?.replaceChildren(`${value}/5`);
+      await saveDirectAdminScore(value);
       return;
     }
     if (button.matches('[data-admin-use-score]')) {
       const key = button.dataset.adminUseScore;
       const value = Number(button.dataset.value);
-      const input = button.closest('.b1515PerUseScore')?.querySelector(`[data-admin-use-score-value="${CSS.escape(key)}"]`);
-      if (input) input.value = String(value);
-      $$(`[data-admin-use-score="${CSS.escape(key)}"]`, button.closest('.b1515PerUseScore')).forEach((item) => {
-        item.classList.toggle('on', Number(item.dataset.value) <= value);
-        item.setAttribute('aria-pressed', String(Number(item.dataset.value) === value));
-      });
+      await saveDirectUseReviews({ scoreKey: key, scoreValue: value });
       return;
     }
     if (button.matches('[data-admin-promote]')) {
@@ -8767,7 +9010,7 @@ document.addEventListener('click', async (event) => {
       if (!story || !state.capabilities?.storyArchive || !canAdminReview() || !['active', 'archived', 'trashed'].includes(collection)) return;
       const result = await withBusy(() => api.adminSetStoryCollection(story.id, collection, story.rowVersion));
       adminConsoleState().story = normalizeStory({ ...story, ...(result?.story || {}) });
-      renderAdminStory();
+      renderCurrentAdminStory();
       notify(collection === 'active' ? 'Story restored to the active Library.' : collection === 'archived' ? 'Story moved to Archive.' : 'Story moved to Trash.', '✓');
       return;
     }
@@ -8999,7 +9242,44 @@ document.addEventListener('click', async (event) => {
     if (button.matches('[data-admin-prompt-validate]')) {
       const draft = adminInspirationDraft($('#adminInspirationForm'));
       await api.adminInspirationValidate({ prompt: draft });
-      notify('Prompt is valid plain text and ready to publish.', '✓');
+      state.adminPromptValidated = draft;
+      renderAdminContent();
+      notify('Prompt is valid plain text and ready to preview.', '✓');
+      return;
+    }
+    if (button.matches('[data-admin-prompt-preview]')) {
+      notify('Validated preview is visible below. Nothing has been published.', '✓');
+      return;
+    }
+    if (button.matches('[data-admin-content-tab]')) {
+      state.adminContentTab = button.dataset.adminContentTab;
+      renderAdminContent();
+      return;
+    }
+    if (button.matches('[data-admin-prompt-move]')) {
+      const active = adminConsoleState().contentPrompts.filter((prompt) => prompt.state === 'active');
+      const from = active.findIndex((prompt) => String(prompt.id) === button.dataset.promptId);
+      const to = Math.max(0, Math.min(active.length - 1, from + Number(button.dataset.adminPromptMove || 0)));
+      if (from < 0 || from === to) return;
+      const [moved] = active.splice(from, 1);
+      active.splice(to, 0, moved);
+      await api.adminInspirationReorder({
+        promptIds: active.map((prompt) => prompt.id),
+        expectedVersions: Object.fromEntries(active.map((prompt) => [prompt.id, Number(prompt.rowVersion || 0)])),
+      });
+      await loadAdminContent();
+      renderAdminContent();
+      notify('Active prompt order saved.', '✓');
+      return;
+    }
+    if (button.matches('[data-admin-bulk-commit]')) {
+      const prompts = asArray(state.adminBulkPreview?.prompts);
+      if (!prompts.length || state.adminBulkPreview?.validation?.publishable !== true) throw new Error('Resolve import duplicates before committing drafts.');
+      await api.adminInspirationBulkCommit(prompts);
+      state.adminBulkPreview = null;
+      await loadAdminContent();
+      renderAdminContent();
+      notify(`${prompts.length} prompts imported as retired drafts.`, '✓');
       return;
     }
     if (button.matches('[data-admin-prompt-history]')) {
@@ -9071,7 +9351,14 @@ document.addEventListener('click', async (event) => {
     }
     if (button.matches('[data-library-status]')) {
       state.library.status = button.dataset.libraryStatus;
-      await navigate('library');
+      if (isAdminSubjectContext()) {
+        clearOverlays();
+        state.route = 'library';
+        state.routeId = null;
+        renderLibrary();
+      } else {
+        await navigate('library');
+      }
       return;
     }
     if (button.matches('[data-open-quick]')) {
@@ -9289,7 +9576,7 @@ document.addEventListener('click', async (event) => {
     if (button.matches('[data-story-tab]')) {
       await cancelPurposefulVersionVoice();
       state.storyTab = button.dataset.storyTab;
-      if (isAdmin() && adminConsoleState().story) renderAdminStory();
+      if (isAdmin() && adminConsoleState().story) renderCurrentAdminStory();
       else renderStoryRoom();
       return;
     }
@@ -9758,21 +10045,37 @@ document.addEventListener('submit', async (event) => {
     }
     if (event.target.id === 'adminInspirationForm') {
       event.preventDefault();
+      if (!state.adminPromptValidated) throw new Error('Validate and preview this draft before publishing.');
       await api.adminInspirationPublish({ prompt: adminInspirationDraft(event.target) });
+      state.adminPromptValidated = null;
       event.target.reset();
       await loadAdminContent();
       renderAdminContent();
       notify('Inspiration prompt published with immutable history.', '✓');
     }
+    if (event.target.matches('[data-contribution-review]')) {
+      event.preventDefault();
+      const form = event.target;
+      const id = form.dataset.contributionReview;
+      const score = Number($(`input[name="contributionScore-${CSS.escape(id)}"]:checked`, form)?.value || 0);
+      if (!score) throw new Error('Choose a score from 1 to 5 before saving this candidate review.');
+      const result = await api.reviewContribution(id, {
+        expectedVersion: Number(form.dataset.rowVersion || 0),
+        score,
+        note: $('[data-contribution-review-note]', form)?.value.trim() || null,
+      });
+      const reviewed = result?.contribution || result;
+      state.v2.contributions = state.v2.contributions.map((item) => String(item.id) === String(id) ? { ...item, ...reviewed } : item);
+      renderRequests();
+      notify('Candidate review saved privately.', '✓');
+    }
     if (event.target.id === 'adminInspirationBulkForm') {
       event.preventDefault();
       const parsed = await api.adminInspirationBulkParse($('#adminPromptCsv', event.target)?.value || '');
       if (!asArray(parsed?.prompts).length) throw new Error('No governed prompts were parsed.');
-      if (!window.confirm(`${parsed.count} prompts passed validation. Import them as retired drafts?`)) return;
-      await api.adminInspirationBulkCommit(parsed.prompts);
-      await loadAdminContent();
+      state.adminBulkPreview = parsed;
       renderAdminContent();
-      notify(`${parsed.count} prompts imported as retired drafts.`, '✓');
+      notify(`${parsed.count} prompts parsed. Review duplicates and errors before committing.`, '✓');
     }
     if (event.target.id === 'adminStoryReviewForm') {
       event.preventDefault();
@@ -9921,6 +10224,11 @@ document.addEventListener('change', async (event) => {
     if (target.matches?.('[data-consent-confirm]')) {
       const accept = document.querySelector('[data-consent-decision="accept"]');
       if (accept) accept.disabled = !target.checked;
+    } else if (target.matches('[data-admin-suitability]')) {
+      await saveDirectUseReviews({
+        suitabilityKey: target.dataset.adminSuitability,
+        suitabilityValue: target.checked,
+      });
     } else if (target.id === 'libStatus') {
       state.library.status = target.value;
       renderLibrary();
@@ -10806,6 +11114,8 @@ async function bootstrapSession() {
   const session = await api.session();
   const { user } = session;
   state.user = user;
+  state.avatarIdentity = session?.avatarIdentity || null;
+  state.adminSubject = null;
   state.v2.session = Object.freeze({
     features: Object.freeze({
       visibility: session?.capabilities?.visibilityConsent === true,

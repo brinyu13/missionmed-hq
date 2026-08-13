@@ -18,6 +18,7 @@ const audioOrigin = (() => {
     return '';
   }
 })();
+const arenaAvatarOrigin = 'https://cdn.missionmedinstitute.com';
 const staticDir = path.resolve(
   process.env.STORYFORGE_EDGE_STATIC_DIR
     || fileURLToPath(new URL('../../dist/', import.meta.url)),
@@ -73,7 +74,7 @@ function localSecurityHeaders(headers) {
     "default-src 'self'",
     "script-src 'self'",
     "style-src 'self'",
-    "img-src 'self' data:",
+    `img-src 'self' data: ${arenaAvatarOrigin}`,
     `media-src 'self' blob:${audioOrigin ? ` ${audioOrigin}` : ''}`,
     `connect-src 'self'${audioOrigin ? ` ${audioOrigin}` : ''}`,
     "font-src 'self'",

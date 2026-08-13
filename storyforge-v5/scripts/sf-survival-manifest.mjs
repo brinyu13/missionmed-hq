@@ -84,6 +84,13 @@ const V2_PROTECTED_STORY_RELATIONSHIPS = Object.freeze([
   ['sf_peer_feedback', 'story_id'],
 ]);
 
+const CONTRIBUTION_REVIEW_COLUMNS = Object.freeze([
+  'student_score', 'student_review_note', 'reviewed_at', 'row_version',
+]);
+const ARENA_AVATAR_COLUMNS = Object.freeze([
+  'arena_avatar_id', 'arena_avatar_thumbnail_url', 'arena_avatar_synced_at',
+]);
+
 function parseArgs(argv) {
   const [command, ...rest] = argv;
   const values = {
@@ -96,6 +103,8 @@ function parseArgs(argv) {
     const key = rest[index];
     if (!key.startsWith('--')) throw new Error(`Unexpected argument: ${key}`);
     if (key === '--require-object-head') values.requireObjectHead = true;
+    else if (key === '--expected-contribution-review-columns') values.expectedContributionReviewColumns = true;
+    else if (key === '--expected-arena-avatar-columns') values.expectedArenaAvatarColumns = true;
     else if (key === '--expected-ledger-addition') values.expectedLedgerAddition.push(rest[++index]);
     else if (key === '--expected-table-addition') values.expectedTableAddition.push(rest[++index]);
     else if (key === '--expected-feature-flag-addition') values.expectedFeatureFlagAddition.push(rest[++index]);
@@ -296,11 +305,65 @@ async function protectedTableSummary(client, inventory, primaryKeys, table) {
     keyed.forEach((item, index) => { item.key = sha256(canonicalJson([item.hash, index])); });
   }
   keyed.sort((left, right) => left.key.localeCompare(right.key));
-  return {
+  const summary = {
     columnNamesHash: sha256(canonicalJson(columns)),
     count: keyed.length,
     rows: Object.fromEntries(keyed.map((item) => [item.key, item.hash])),
   };
+  if (table === 'sf_story_contributions') {
+    const baseColumns = columns.filter((column) => !CONTRIBUTION_REVIEW_COLUMNS.includes(column));
+    const addedColumnsPresent = CONTRIBUTION_REVIEW_COLUMNS.filter((column) => columns.includes(column));
+    const baseKeyed = result.rows.map((row) => {
+      const key = keyColumns.length
+        ? sha256(canonicalJson(keyColumns.map((column) => row[column])))
+        : null;
+      const projected = Object.fromEntries(baseColumns.map((column) => [column, row[column]]));
+      return { key, hash: rowHash(projected) };
+    });
+    if (!keyColumns.length) {
+      baseKeyed.sort((left, right) => left.hash.localeCompare(right.hash));
+      baseKeyed.forEach((item, index) => { item.key = sha256(canonicalJson([item.hash, index])); });
+    }
+    baseKeyed.sort((left, right) => left.key.localeCompare(right.key));
+    summary.contributionReviewEvolution = {
+      baseColumnNamesHash: sha256(canonicalJson(baseColumns)),
+      addedColumnsPresent,
+      baseRows: Object.fromEntries(baseKeyed.map((item) => [item.key, item.hash])),
+      defaultsExact: result.rows.every((row) => (
+        row.student_score == null
+        && row.student_review_note == null
+        && row.reviewed_at == null
+        && (row.row_version == null || String(row.row_version) === '0')
+      )),
+    };
+  }
+  if (table === 'sf_users') {
+    const baseColumns = columns.filter((column) => !ARENA_AVATAR_COLUMNS.includes(column));
+    const addedColumnsPresent = ARENA_AVATAR_COLUMNS.filter((column) => columns.includes(column));
+    const baseKeyed = result.rows.map((row) => {
+      const key = keyColumns.length
+        ? sha256(canonicalJson(keyColumns.map((column) => row[column])))
+        : null;
+      const projected = Object.fromEntries(baseColumns.map((column) => [column, row[column]]));
+      return { key, hash: rowHash(projected) };
+    });
+    if (!keyColumns.length) {
+      baseKeyed.sort((left, right) => left.hash.localeCompare(right.hash));
+      baseKeyed.forEach((item, index) => { item.key = sha256(canonicalJson([item.hash, index])); });
+    }
+    baseKeyed.sort((left, right) => left.key.localeCompare(right.key));
+    summary.arenaAvatarEvolution = {
+      baseColumnNamesHash: sha256(canonicalJson(baseColumns)),
+      addedColumnsPresent,
+      baseRows: Object.fromEntries(baseKeyed.map((item) => [item.key, item.hash])),
+      defaultsExact: result.rows.every((row) => (
+        row.arena_avatar_id == null
+        && row.arena_avatar_thumbnail_url == null
+        && row.arena_avatar_synced_at == null
+      )),
+    };
+  }
+  return summary;
 }
 
 async function protectedTablesSummary(client, inventory) {
@@ -558,6 +621,8 @@ async function compare(args) {
       args.expectedFeatureFlagAddition,
       '--expected-feature-flag-addition',
     ),
+    expectedContributionReviewColumns: Boolean(args.expectedContributionReviewColumns),
+    expectedArenaAvatarColumns: Boolean(args.expectedArenaAvatarColumns),
   }));
   if (args.output) await writeProtected(args.output, report);
   process.stdout.write(report.pass ? 'PASS STORYFORGE_V1_SURVIVAL\n' : `FAIL STORYFORGE_V1_SURVIVAL differences=${report.differenceCount}\n`);

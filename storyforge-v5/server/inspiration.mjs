@@ -147,6 +147,16 @@ function dimensionList(value, allowed, label, { allowEmpty = false } = {}) {
   return normalized;
 }
 
+function duplicateValues(values) {
+  const seen = new Set();
+  const duplicates = new Set();
+  for (const value of values) {
+    if (seen.has(value)) duplicates.add(value);
+    seen.add(value);
+  }
+  return [...duplicates].sort((left, right) => String(left).localeCompare(String(right)));
+}
+
 const adminPromptFields = new Set([
   'id', 'libraryKey', 'text', 'who', 'whoDetail', 'domain', 'energy', 'territory',
   'followUp', 'interviewUse', 'state', 'recommended', 'sortOrder', 'expectedVersion',
@@ -171,7 +181,7 @@ export function validateAdminPromptDraft(input = {}, { bulk = false } = {}) {
   const expectedVersion = input.expectedVersion == null || input.expectedVersion === ''
     ? null
     : Number(input.expectedVersion);
-  if ((id || libraryKey) && (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0)) {
+  if (!bulk && (id || libraryKey) && (!Number.isSafeInteger(expectedVersion) || expectedVersion < 0)) {
     throw new InspirationError('invalid_inspiration_prompt', 'Existing prompts require an expected version.');
   }
   if (!id && !bulk && libraryKey) {
@@ -530,7 +540,20 @@ export function createInspirationService({ withIdentity, environment = process.e
     async adminParseBulk(identity, input = {}) {
       await requireAdminEnabled(identity);
       const prompts = parseInspirationBulkCsv(input.csv);
-      return { prompts, count: prompts.length, persisted: false };
+      const duplicateLibraryKeys = duplicateValues(prompts.map((prompt) => prompt.libraryKey).filter(Boolean));
+      const duplicateSortOrders = duplicateValues(prompts.map((prompt) => prompt.sortOrder));
+      return {
+        prompts,
+        count: prompts.length,
+        persisted: false,
+        validation: {
+          validCount: prompts.length,
+          duplicateLibraryKeys,
+          duplicateSortOrders,
+          publishable: duplicateLibraryKeys.length === 0 && duplicateSortOrders.length === 0,
+          commitState: 'retired',
+        },
+      };
     },
     async adminCommitBulk(identity, input = {}) {
       await requireAdminEnabled(identity);
@@ -561,6 +584,77 @@ export function createInspirationService({ withIdentity, environment = process.e
         });
       } catch (error) {
         if (error?.code === '40001') throw new InspirationError('inspiration_prompt_conflict', 'The prompt bank changed. Reload before importing.', 409, { cause: error });
+        if (error?.code === '42501') throw new InspirationError('inspiration_admin_disabled', 'Inspiration Content Studio is unavailable.', 403, { cause: error });
+        throw error;
+      }
+    },
+    async adminReorder(identity, input = {}) {
+      await requireAdminEnabled(identity);
+      if (!Array.isArray(input.promptIds) || !input.promptIds.length || input.promptIds.length > 500) {
+        throw new InspirationError('invalid_prompt_order', 'Prompt order must include the complete active prompt bank.');
+      }
+      const promptIds = input.promptIds.map((promptId) => uuid(promptId, 'Prompt identifier'));
+      if (new Set(promptIds).size !== promptIds.length) {
+        throw new InspirationError('invalid_prompt_order', 'Prompt order cannot contain duplicate prompts.');
+      }
+      if (!input.expectedVersions || typeof input.expectedVersions !== 'object' || Array.isArray(input.expectedVersions)) {
+        throw new InspirationError('invalid_prompt_order', 'Prompt order requires exact row versions.');
+      }
+      const expectedVersions = new Map(promptIds.map((promptId) => {
+        const value = Number(input.expectedVersions[promptId]);
+        if (!Number.isSafeInteger(value) || value < 0) {
+          throw new InspirationError('invalid_prompt_order', 'Prompt order contains an invalid row version.');
+        }
+        return [promptId, value];
+      }));
+      try {
+        return await withAdmin(identity, async (client) => {
+          const result = await client.query(
+            `SELECT id,library_key,text,who_ids,who_detail_ids,domain_ids,energy_ids,territory,
+                    follow_up,interview_use,state,recommended,sort_order,row_version
+               FROM public.sf_inspiration_prompts
+              WHERE state='active'
+              ORDER BY sort_order,id
+              FOR UPDATE`,
+          );
+          if (result.rows.length !== promptIds.length) {
+            throw new InspirationError('incomplete_prompt_order', 'Reload the complete active prompt bank before reordering.', 409);
+          }
+          const byId = new Map(result.rows.map((row) => [row.id, row]));
+          if (promptIds.some((promptId) => !byId.has(promptId))) {
+            throw new InspirationError('incomplete_prompt_order', 'Prompt order does not match the active prompt bank.', 409);
+          }
+          for (const [index, promptId] of promptIds.entries()) {
+            const row = byId.get(promptId);
+            if (Number(row.row_version) !== expectedVersions.get(promptId)) {
+              throw new InspirationError('inspiration_prompt_conflict', 'The prompt bank changed. Reload before reordering.', 409);
+            }
+            const payload = {
+              id: row.id,
+              libraryKey: row.library_key,
+              text: row.text,
+              who: row.who_ids,
+              whoDetail: row.who_detail_ids,
+              domain: row.domain_ids,
+              energy: row.energy_ids,
+              territory: row.territory,
+              followUp: row.follow_up,
+              interviewUse: row.interview_use,
+              state: row.state,
+              recommended: row.recommended === true,
+              sortOrder: index + 1,
+              expectedVersion: Number(row.row_version),
+            };
+            await client.query(
+              'SELECT public.sf_admin_publish_inspiration_prompt($1::jsonb) AS prompt',
+              [JSON.stringify(payload)],
+            );
+          }
+          return { promptIds, count: promptIds.length, persisted: true };
+        });
+      } catch (error) {
+        if (error instanceof InspirationError) throw error;
+        if (error?.code === '40001') throw new InspirationError('inspiration_prompt_conflict', 'The prompt bank changed. Reload before reordering.', 409, { cause: error });
         if (error?.code === '42501') throw new InspirationError('inspiration_admin_disabled', 'Inspiration Content Studio is unavailable.', 403, { cause: error });
         throw error;
       }

@@ -311,6 +311,102 @@ function mmsf_base64url($value) {
     return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
 }
 
+/**
+ * Accept only the canonical public CDN used by Arena's R2 avatar objects.
+ * StoryForge never receives an R2 object key or any avatar write authority.
+ */
+function mmsf_safe_arena_avatar_url($raw) {
+    $url = esc_url_raw((string) $raw, array('https'));
+    $host = strtolower((string) wp_parse_url($url, PHP_URL_HOST));
+    $allowed = (array) apply_filters(
+        'missionmed_storyforge_arena_avatar_hosts',
+        array('cdn.missionmedinstitute.com')
+    );
+    $allowed = array_values(array_unique(array_filter(array_map(
+        static fn($value) => strtolower(trim((string) $value)),
+        $allowed
+    ))));
+    return $url !== '' && in_array($host, $allowed, true) ? $url : '';
+}
+
+/**
+ * Resolve active Arena Lobby avatars for WordPress users through the existing
+ * WordPress-to-Supabase identity bridge. The query is read-only and returns a
+ * bounded safe projection of active user_avatars rows only.
+ */
+function mmsf_arena_avatar_projections($wp_user_ids) {
+    $result = array();
+    if (
+        !class_exists('MMED_Supabase_Bridge')
+        || !MMED_Supabase_Bridge::configured()
+        || !defined('MMED_SUPABASE_URL')
+    ) {
+        return $result;
+    }
+
+    $uuid_to_wp = array();
+    foreach (array_values(array_unique(array_map('absint', (array) $wp_user_ids))) as $wp_user_id) {
+        if ($wp_user_id < 1) {
+            continue;
+        }
+        $uuid = strtolower(trim((string) MMED_Supabase_Bridge::get_supabase_uuid($wp_user_id)));
+        if (MMED_Supabase_Bridge::is_valid_uuid($uuid)) {
+            $uuid_to_wp[$uuid] = $wp_user_id;
+        }
+    }
+    if (empty($uuid_to_wp)) {
+        return $result;
+    }
+
+    $headers = MMED_Supabase_Bridge::get_supabase_client_headers();
+    if (empty($headers)) {
+        return $result;
+    }
+    foreach (array_chunk(array_keys($uuid_to_wp), 75) as $uuid_chunk) {
+        $url = add_query_arg(array(
+            'user_id' => 'in.(' . implode(',', $uuid_chunk) . ')',
+            'is_active' => 'eq.true',
+            'select' => 'id,user_id,avatar_url,thumbnail_url,is_active,created_at',
+            'order' => 'created_at.desc',
+        ), untrailingslashit((string) MMED_SUPABASE_URL) . '/rest/v1/user_avatars');
+        $response = wp_remote_get($url, array('timeout' => 12, 'headers' => $headers));
+        if (is_wp_error($response) || (int) wp_remote_retrieve_response_code($response) !== 200) {
+            continue;
+        }
+        $rows = json_decode((string) wp_remote_retrieve_body($response), true);
+        if (!is_array($rows)) {
+            continue;
+        }
+        foreach ($rows as $row) {
+            $uuid = strtolower(trim((string) ($row['user_id'] ?? '')));
+            $wp_user_id = $uuid_to_wp[$uuid] ?? 0;
+            if ($wp_user_id < 1 || isset($result[$wp_user_id]) || empty($row['is_active'])) {
+                continue;
+            }
+            $avatar_id = strtolower(trim((string) ($row['id'] ?? '')));
+            $thumbnail = mmsf_safe_arena_avatar_url($row['thumbnail_url'] ?? $row['avatar_url'] ?? '');
+            $avatar_url = mmsf_safe_arena_avatar_url($row['avatar_url'] ?? '');
+            if (!MMED_Supabase_Bridge::is_valid_uuid($avatar_id) || $thumbnail === '') {
+                continue;
+            }
+            $result[$wp_user_id] = array(
+                'source' => 'arena_lobby',
+                'active_avatar_id' => $avatar_id,
+                'avatar_thumbnail_url' => $thumbnail,
+                'avatar_url' => $avatar_url,
+            );
+        }
+    }
+    return $result;
+}
+
+function mmsf_arena_avatar_for_user($wp_user_id) {
+    $projections = mmsf_arena_avatar_projections(array($wp_user_id));
+    return is_array($projections[(int) $wp_user_id] ?? null)
+        ? $projections[(int) $wp_user_id]
+        : array();
+}
+
 function mmsf_issue_jwt($user, $access) {
     $settings = mmsf_settings();
     $secret = mmsf_secret();
@@ -351,6 +447,12 @@ function mmsf_issue_jwt($user, $access) {
     );
     if ($access['cohort'] !== '') {
         $payload['cohort'] = (string) $access['cohort'];
+    }
+    $avatar = mmsf_arena_avatar_for_user((int) $user->ID);
+    if (!empty($avatar['avatar_thumbnail_url'])) {
+        $payload['avatar_thumbnail_url'] = (string) $avatar['avatar_thumbnail_url'];
+        $payload['avatar_url'] = (string) ($avatar['avatar_url'] ?? '');
+        $payload['active_avatar_id'] = (string) ($avatar['active_avatar_id'] ?? '');
     }
     $encoded_header = mmsf_base64url(wp_json_encode($header));
     $encoded_payload = mmsf_base64url(wp_json_encode($payload));

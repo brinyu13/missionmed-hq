@@ -287,9 +287,9 @@ test(`[B1-514-E2E-03] ${ACCEPTANCE['B1-514-E2E-03']}`, async ({ page, browser })
   await openStudent(page);
   await acceptConsentIfShown(page);
   await page.getByRole('button', { name: 'Request a Story', exact: true }).click();
-  await page.getByRole('button', { name: '＋ Ask someone' }).first().click();
+  await page.getByRole('button', { name: '＋ Invite someone to share a story' }).first().click();
   await page.locator('#requestFirstName').fill('Alex');
-  await page.locator('#requestRelationship').selectOption('best_friend');
+  await page.getByRole('button', { name: 'Best Friend', exact: true }).click();
   await page.locator('#requestEmail').fill('alex@example.test');
   await page.locator('#requestMessage').fill('Please share the moment exactly as you remember it.');
   const createResponse = page.waitForResponse((response) => (

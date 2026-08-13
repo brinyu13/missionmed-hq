@@ -95,6 +95,9 @@ phase_one_migrations=(
   "20260810270000_b1_514_request_delivery_attempts.sql"
   "20260810280000_b1_514_guest_voice_cleanup_recovery.sql"
   "20260812120000_b1_515_v201_reviews_collections_peer.sql"
+  "20260813120000_b1_515r_admin_subject_masterkey.sql"
+  "20260813130000_b1_515r_action_center_contribution_review.sql"
+  "20260813140000_b1_515r_arena_avatar_directory_groups.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \
@@ -118,6 +121,8 @@ export STORYFORGE_PUBLIC_ORIGIN="http://127.0.0.1:$SF_APP_PORT"
 export STORYFORGE_DEV_AUTH=1
 export STORYFORGE_DEV_JWT_SECRET="b1-500-local-e2e-secret-not-for-production"
 export STORYFORGE_ADMIN_CONSOLE_FORCE_OFF=0
+export STORYFORGE_ADMIN_DIRECTORY_FORCE_OFF=0
+export STORYFORGE_INSPIRATION_ADMIN_FORCE_OFF=0
 export STORYFORGE_CONTENT_DISPLAY_FORCE_OFF=0
 export STORYFORGE_STORY_MEDIA_FORCE_OFF=0
 export STORYFORGE_MENTOR_NOTES_FORCE_OFF=0

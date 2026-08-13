@@ -4,6 +4,7 @@ const reviewStatuses = new Set(['in_review', 'changes', 'reviewed', 'approved'])
 const directReviewStatuses = new Set(['awaiting', ...reviewStatuses]);
 const suitabilityValues = new Set(['ps_only', 'interview_only', 'both', 'neither']);
 const flagScopes = new Set(['off', 'allowlist']);
+const populationFlagScopes = new Set(['off', 'allowlist', 'cohort', 'eligible_all']);
 const reviewFields = new Set(['status', 'mentorScore', 'suitability', 'studentFeedback', 'internalNote']);
 const categoryValues = new Set([
   'clinical',
@@ -32,6 +33,7 @@ const directoryFilters = new Set([
 ]);
 const directorySorts = new Set(['attention', 'name', 'recent', 'quiet', 'stories']);
 const queueSorts = new Set(['oldest', 'newest', 'updated', 'student']);
+const subjectStorySorts = new Set(['recent', 'oldest', 'title', 'status']);
 
 export class AdminConsoleError extends Error {
   constructor(code, message, status = 400) {
@@ -66,6 +68,10 @@ function storyArchiveForceOff(environment = process.env) {
   return explicitlyDisabled(environment.STORYFORGE_STORY_ARCHIVE_FORCE_OFF);
 }
 
+function avatarIdentityForceOff(environment = process.env) {
+  return explicitlyDisabled(environment.STORYFORGE_AVATAR_IDENTITY_FORCE_OFF);
+}
+
 function activityForceOffForAdmin(environment = process.env) {
   return explicitlyDisabled(environment.STORYFORGE_ACTIVITY_FORCE_OFF);
 }
@@ -92,13 +98,13 @@ function boundedLimit(value, fallback = 25) {
   return limit;
 }
 
-function clampedPageSize(value, fallback) {
+function clampedPageSize(value, fallback, maximum = 50) {
   if (value == null || value === '') return fallback;
   const size = Number(value);
   if (!Number.isInteger(size) || size < 1) {
     throw new AdminConsoleError('invalid_admin_page', 'Administrator page size must be a positive integer.');
   }
-  return Math.min(size, 50);
+  return Math.min(size, maximum);
 }
 
 function boundedPage(value) {
@@ -116,6 +122,47 @@ function boundedText(value, max, code, label) {
     throw new AdminConsoleError(code, `${label} is not valid.`);
   }
   return text;
+}
+
+function safeArenaThumbnail(value) {
+  try {
+    const parsed = new URL(String(value || ''));
+    return parsed.protocol === 'https:'
+      && parsed.origin === 'https://cdn.missionmedinstitute.com'
+      && parsed.username === ''
+      && parsed.password === ''
+      ? parsed.href
+      : '';
+  } catch {
+    return '';
+  }
+}
+
+function avatarStudentIds(payload) {
+  const ids = [
+    payload?.student?.id,
+    payload?.context?.subject?.id,
+    ...((Array.isArray(payload?.students) ? payload.students : []).map((row) => row?.id || row?.studentId)),
+    ...((Array.isArray(payload?.stories) ? payload.stories : []).map((row) => row?.studentId || row?.student_id)),
+  ].map((value) => String(value || '').trim()).filter((value) => uuidPattern.test(value));
+  return [...new Set(ids)].slice(0, 100);
+}
+
+function applyAvatarMap(payload, avatarMap) {
+  if (!payload || typeof payload !== 'object' || !avatarMap.size) return payload;
+  const attach = (row, id = row?.id || row?.studentId || row?.student_id) => {
+    const avatar = avatarMap.get(String(id || ''));
+    return avatar ? { ...row, avatar } : row;
+  };
+  return {
+    ...payload,
+    ...(payload.student ? { student: attach(payload.student) } : {}),
+    ...(payload.context?.subject ? {
+      context: { ...payload.context, subject: attach(payload.context.subject) },
+    } : {}),
+    ...(Array.isArray(payload.students) ? { students: payload.students.map((row) => attach(row)) } : {}),
+    ...(Array.isArray(payload.stories) ? { stories: payload.stories.map((row) => attach(row)) } : {}),
+  };
 }
 
 function exactObject(input, allowed, code, message) {
@@ -158,6 +205,23 @@ export function validateQueueQuery(query = {}) {
     sort,
     page: boundedPage(query.page),
     pageSize: clampedPageSize(query.pageSize, 20),
+  });
+}
+
+export function validateSubjectStoriesQuery(query = {}) {
+  const sort = String(query.sort || 'recent').trim();
+  if (!subjectStorySorts.has(sort)) {
+    throw new AdminConsoleError('invalid_admin_sort', 'Student StoryForge sort is not recognized.');
+  }
+  return Object.freeze({
+    q: boundedText(query.q, 120, 'invalid_admin_search', 'Student StoryForge search'),
+    status: optionalStatus(query.status),
+    source: boundedText(query.source, 80, 'invalid_admin_filter', 'Student StoryForge source'),
+    sort,
+    page: boundedPage(query.page),
+    pageSize: (() => {
+      return clampedPageSize(query.pageSize, 25, 100);
+    })(),
   });
 }
 
@@ -258,6 +322,50 @@ function validateFlagMutation(input) {
     throw new AdminConsoleError('invalid_admin_scope_values', 'The allowlist scope requires at least one administrator.');
   }
   return { scope, allowlist };
+}
+
+function validatePopulationFlagMutation(input) {
+  exactObject(
+    input,
+    new Set(['scope', 'allowlist', 'cohorts']),
+    'invalid_admin_scope',
+    'Feature scope input is required.',
+  );
+  const scope = String(input.scope || '').trim();
+  if (!populationFlagScopes.has(scope)) {
+    throw new AdminConsoleError('invalid_admin_scope', 'Feature scope is not recognized.');
+  }
+  const allowlist = uniqueUuids(input.allowlist);
+  if (!Array.isArray(input.cohorts)) {
+    throw new AdminConsoleError('invalid_admin_scope', 'Feature cohorts must be an array.');
+  }
+  const cohorts = [...new Set(input.cohorts.map((value) => String(value).trim()).filter(Boolean))];
+  if (cohorts.length > 20 || cohorts.some((value) => value.length > 80)) {
+    throw new AdminConsoleError('invalid_admin_scope', 'Feature cohorts contain an unsupported value.');
+  }
+  if (
+    (scope === 'off' && (allowlist.length || cohorts.length))
+    || (scope === 'allowlist' && (!allowlist.length || cohorts.length))
+    || (scope === 'cohort' && (!cohorts.length || allowlist.length))
+    || (scope === 'eligible_all' && (allowlist.length || cohorts.length))
+  ) {
+    throw new AdminConsoleError('invalid_admin_scope_values', 'Feature scope values do not match the scope.');
+  }
+  return Object.freeze({ scope, allowlist, cohorts });
+}
+
+function normalizePopulationFlag(row, key) {
+  return Object.freeze({
+    key,
+    scope: populationFlagScopes.has(row?.scope) ? row.scope : 'off',
+    enabled: row?.enabled === true || (row?.scope != null && row.scope !== 'off'),
+    allowlist: Array.isArray(row?.allowlist) ? [...row.allowlist] : [],
+    cohorts: Array.isArray(row?.cohorts) ? [...row.cohorts] : [],
+    allowlistCount: Number(row?.allowlistCount ?? row?.allowlist_count ?? row?.allowlist?.length ?? 0),
+    cohortCount: Number(row?.cohortCount ?? row?.cohort_count ?? row?.cohorts?.length ?? 0),
+    updatedAt: row?.updatedAt ?? row?.updated_at ?? null,
+    auditId: row?.auditId == null ? null : String(row.auditId),
+  });
 }
 
 export function validateAdminReview(input) {
@@ -487,6 +595,34 @@ export function createAdminConsoleService({
     return rpc(identity, sql, values);
   }
 
+  async function enrichArenaAvatars(identity, payload) {
+    if (avatarIdentityForceOff(environment)) return payload;
+    const studentIds = avatarStudentIds(payload);
+    if (!studentIds.length) return payload;
+    const rows = await rpc(
+      identity,
+      'SELECT public.sf_admin_arena_avatar_projections($1::uuid[]) AS payload',
+      [studentIds],
+    );
+    const map = new Map();
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const id = String(row?.studentId || '');
+      const headshotUrl = safeArenaThumbnail(row?.avatar?.headshotUrl);
+      if (uuidPattern.test(id) && row?.avatar?.available === true && headshotUrl) {
+        map.set(id, {
+          available: true,
+          source: 'arena_lobby',
+          activeAvatarId: uuidPattern.test(String(row.avatar.activeAvatarId || ''))
+            ? String(row.avatar.activeAvatarId)
+            : null,
+          headshotUrl,
+          syncedAt: row.avatar.syncedAt || null,
+        });
+      }
+    }
+    return applyAvatarMap(payload, map);
+  }
+
 function reviewStory(identity, storyId, input, requireDirectControls = false) {
     if (requireDirectControls && adminReviewControlsForceOff(environment)) {
       throw new AdminConsoleError(
@@ -563,11 +699,44 @@ function reviewStory(identity, storyId, input, requireDirectControls = false) {
     });
   }
 
+  async function getPeerShareFlag(identity) {
+    await requireEnabled(identity);
+    return withAdminIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT key, scope, allowlist, cohorts, updated_at
+           FROM public.sf_feature_flags
+          WHERE key = 'peer_share'`,
+      );
+      if (!result.rows[0]) {
+        throw new AdminConsoleError('peer_share_unavailable', 'Classmate-sharing control is unavailable.', 503);
+      }
+      return normalizePopulationFlag(result.rows[0], 'peer_share');
+    });
+  }
+
+  async function updatePeerShareFlag(identity, input) {
+    await requireEnabled(identity);
+    const next = validatePopulationFlagMutation(input);
+    try {
+      return await withAdminIdentity(identity, async (client) => {
+        const result = await client.query(
+          'SELECT public.sf_admin_set_peer_share_scope($1, $2::uuid[], $3::text[]) AS payload',
+          [next.scope, next.allowlist, next.cohorts],
+        );
+        return normalizePopulationFlag(result.rows[0]?.payload, 'peer_share');
+      });
+    } catch (error) {
+      return translateDatabaseError(error);
+    }
+  }
+
   return Object.freeze({
     capability,
     v2Capabilities,
     getFlag,
     updateFlag,
+    getPeerShareFlag,
+    updatePeerShareFlag,
     home: (identity, query = {}) => rpc(
       identity,
       'SELECT public.sf_admin_home($1) AS payload',
@@ -594,25 +763,67 @@ function reviewStory(identity, storyId, input, requireDirectControls = false) {
         boundedLimit(query.limit),
       ],
     ),
-    directory: (identity, query = {}) => {
+    subjectHome: (identity, studentId) => {
+      const subjectId = requireUuid(studentId, 'Student identifier');
+      return rpc(
+        identity,
+        'SELECT public.sf_admin_subject_home($1) AS payload',
+        [subjectId],
+      ).then((payload) => enrichArenaAvatars(identity, payload));
+    },
+    subjectStories: (identity, studentId, query = {}) => {
+      const value = validateSubjectStoriesQuery(query);
+      const subjectId = requireUuid(studentId, 'Student identifier');
+      return rpc(
+        identity,
+        'SELECT public.sf_admin_subject_stories($1, $2, $3, $4, $5, $6, $7) AS payload',
+        [
+          subjectId,
+          value.q,
+          value.status,
+          value.source,
+          value.sort,
+          value.page,
+          value.pageSize,
+        ],
+      ).then((payload) => enrichArenaAvatars(identity, payload));
+    },
+    subjectStory: (identity, studentId, storyId) => {
+      const subjectId = requireUuid(studentId, 'Student identifier');
+      const exactStoryId = requireUuid(storyId, 'Story identifier');
+      return rpc(
+        identity,
+        'SELECT public.sf_admin_subject_story($1, $2) AS payload',
+        [subjectId, exactStoryId],
+      ).then((payload) => enrichArenaAvatars(identity, payload));
+    },
+    directory: async (identity, query = {}) => {
       const value = validateDirectoryQuery(query);
-      return surfaceRpc(
+      return enrichArenaAvatars(identity, await surfaceRpc(
         identity,
         adminDirectoryForceOff,
         'admin_directory_force_off',
         'The StoryForge student directory is disabled by the runtime kill switch.',
         'SELECT public.sf_admin_directory($1, $2, $3, $4, $5, $6) AS payload',
         [value.q, value.filter, value.session, value.sort, value.page, value.pageSize],
-      );
+      ));
     },
-    directoryStudent: (identity, studentId) => surfaceRpc(
+    directoryGroups: (identity) => surfaceRpc(
+      identity,
+      adminDirectoryForceOff,
+      'admin_directory_force_off',
+      'The StoryForge student directory is disabled by the runtime kill switch.',
+      'SELECT public.sf_admin_directory_groups() AS payload',
+      [],
+    ),
+    directoryStudent: async (identity, studentId) => enrichArenaAvatars(identity, await surfaceRpc(
       identity,
       adminDirectoryForceOff,
       'admin_directory_force_off',
       'The StoryForge student directory is disabled by the runtime kill switch.',
       'SELECT public.sf_admin_directory_student($1) AS payload',
       [requireUuid(studentId, 'Student identifier')],
-    ),
+    )),
     savedViews: (identity) => surfaceRpc(
       identity,
       adminDirectoryForceOff,
@@ -651,13 +862,13 @@ function reviewStory(identity, storyId, input, requireDirectControls = false) {
         boundedLimit(query.limit),
       ],
     ),
-    queueScaled: (identity, query = {}) => {
+    queueScaled: async (identity, query = {}) => {
       const value = validateQueueQuery(query);
-      return rpc(
+      return enrichArenaAvatars(identity, await rpc(
         identity,
         'SELECT public.sf_admin_review_queue_scaled($1, $2, $3, $4, $5, $6) AS payload',
         [value.q, value.status, value.session, value.sort, value.page, value.pageSize],
-      );
+      ));
     },
     activity: (identity, studentId) => surfaceRpc(
       identity,

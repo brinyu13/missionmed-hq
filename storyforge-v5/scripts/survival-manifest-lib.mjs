@@ -104,7 +104,21 @@ function compareRowSet(differences, { storyId, table }, before = { count: 0, row
   }
 }
 
-function compareProtectedTables(differences, pre = {}, post = {}, expectedTableAdditions = []) {
+const CONTRIBUTION_REVIEW_COLUMNS = Object.freeze([
+  'student_score', 'student_review_note', 'reviewed_at', 'row_version',
+]);
+const ARENA_AVATAR_COLUMNS = Object.freeze([
+  'arena_avatar_id', 'arena_avatar_thumbnail_url', 'arena_avatar_synced_at',
+]);
+
+function compareProtectedTables(
+  differences,
+  pre = {},
+  post = {},
+  expectedTableAdditions = [],
+  expectedContributionReviewColumns = false,
+  expectedArenaAvatarColumns = false,
+) {
   const expected = new Set(expectedTableAdditions || []);
   for (const [table, before] of Object.entries(pre).sort()) {
     const after = post?.[table];
@@ -112,7 +126,27 @@ function compareProtectedTables(differences, pre = {}, post = {}, expectedTableA
       difference(differences, { table, field: 'protectedTable', reason: 'table_missing', before });
       continue;
     }
-    compareExact(differences, { table, field: 'protectedTable' }, before, after);
+    if (table === 'sf_story_contributions' && expectedContributionReviewColumns) {
+      const beforeEvolution = before.contributionReviewEvolution;
+      const afterEvolution = after.contributionReviewEvolution;
+      compareExact(differences, { table, field: 'baseColumnNamesHash' }, beforeEvolution?.baseColumnNamesHash, afterEvolution?.baseColumnNamesHash);
+      compareExact(differences, { table, field: 'baseRows' }, beforeEvolution?.baseRows, afterEvolution?.baseRows);
+      compareExact(differences, { table, field: 'preAddedColumns' }, [], beforeEvolution?.addedColumnsPresent);
+      compareExact(differences, { table, field: 'postAddedColumns' }, CONTRIBUTION_REVIEW_COLUMNS, afterEvolution?.addedColumnsPresent);
+      compareExact(differences, { table, field: 'postDefaultsExact' }, true, afterEvolution?.defaultsExact);
+      compareExact(differences, { table, field: 'count' }, before.count, after.count);
+    } else if (table === 'sf_users' && expectedArenaAvatarColumns) {
+      const beforeEvolution = before.arenaAvatarEvolution;
+      const afterEvolution = after.arenaAvatarEvolution;
+      compareExact(differences, { table, field: 'baseColumnNamesHash' }, beforeEvolution?.baseColumnNamesHash, afterEvolution?.baseColumnNamesHash);
+      compareExact(differences, { table, field: 'baseRows' }, beforeEvolution?.baseRows, afterEvolution?.baseRows);
+      compareExact(differences, { table, field: 'preAddedColumns' }, [], beforeEvolution?.addedColumnsPresent);
+      compareExact(differences, { table, field: 'postAddedColumns' }, ARENA_AVATAR_COLUMNS, afterEvolution?.addedColumnsPresent);
+      compareExact(differences, { table, field: 'postDefaultsExact' }, true, afterEvolution?.defaultsExact);
+      compareExact(differences, { table, field: 'count' }, before.count, after.count);
+    } else {
+      compareExact(differences, { table, field: 'protectedTable' }, before, after);
+    }
   }
   for (const [table, after] of Object.entries(post || {}).sort()) {
     if (pre?.[table]) continue;
@@ -246,6 +280,8 @@ export function compareSurvivalManifests(pre, post, {
   expectedLedgerAdditions = [],
   expectedTableAdditions = [],
   expectedFeatureFlagAdditions = [],
+  expectedContributionReviewColumns = false,
+  expectedArenaAvatarColumns = false,
 } = {}) {
   const differences = [];
   if (pre?.schema !== SURVIVAL_SCHEMA || post?.schema !== SURVIVAL_SCHEMA) {
@@ -258,7 +294,14 @@ export function compareSurvivalManifests(pre, post, {
     compareExact(differences, { field: `${phase}.objectVerification` }, 'required_pass', manifest.capture?.objectVerification);
   }
 
-  compareProtectedTables(differences, pre.protectedTables, post.protectedTables, expectedTableAdditions);
+  compareProtectedTables(
+    differences,
+    pre.protectedTables,
+    post.protectedTables,
+    expectedTableAdditions,
+    expectedContributionReviewColumns,
+    expectedArenaAvatarColumns,
+  );
   compareFeatureFlags(differences, pre.featureFlags, post.featureFlags, expectedFeatureFlagAdditions);
   compareObjects(differences, null, pre.permanentObjects, post.permanentObjects);
 

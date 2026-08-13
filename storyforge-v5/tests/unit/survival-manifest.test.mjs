@@ -46,6 +46,34 @@ function protectedTable(rows = []) {
   };
 }
 
+function contributionTable({ added = false, defaultsExact = true, value = 'private contribution' } = {}) {
+  const table = protectedTable([{ id: 'contribution-a', value }]);
+  table.contributionReviewEvolution = {
+    baseColumnNamesHash: sha256('contribution base columns'),
+    addedColumnsPresent: added
+      ? ['student_score', 'student_review_note', 'reviewed_at', 'row_version']
+      : [],
+    baseRows: { [sha256('contribution-a')]: sha256(value) },
+    defaultsExact,
+  };
+  if (added) table.columnNamesHash = sha256('columns plus contribution review');
+  return table;
+}
+
+function usersTable({ added = false, defaultsExact = true, value = 'protected student identity' } = {}) {
+  const table = protectedTable([{ id: 'student-a', value }]);
+  table.arenaAvatarEvolution = {
+    baseColumnNamesHash: sha256('user base columns'),
+    addedColumnsPresent: added
+      ? ['arena_avatar_id', 'arena_avatar_thumbnail_url', 'arena_avatar_synced_at']
+      : [],
+    baseRows: { [sha256('student-a')]: sha256(value) },
+    defaultsExact,
+  };
+  if (added) table.columnNamesHash = sha256('columns plus arena avatar');
+  return table;
+}
+
 function featureFlags(rows = {}) {
   return { count: Object.keys(rows).length, rows };
 }
@@ -81,8 +109,9 @@ function manifest(value = story()) {
       sf_audit_events: { count: 2, idsHash: sha256('[1,2]') },
     },
     protectedTables: {
+      sf_users: usersTable(),
       sf_story_versions: protectedTable([{ id: 'version-a', value: 'private version body' }]),
-      sf_story_contributions: protectedTable([{ id: 'contribution-a', value: 'private contribution' }]),
+      sf_story_contributions: contributionTable(),
       sf_mentorship_consent: protectedTable([{ id: 'consent-a', value: 'accepted v1' }]),
     },
     featureFlags: featureFlags({
@@ -135,6 +164,48 @@ test('populated V2 tables survive exactly and any mutation or deletion fails', (
   const deleted = postManifest();
   delete deleted.protectedTables.sf_story_contributions;
   assert.equal(compareSurvivalManifests(manifest(), deleted).pass, false);
+});
+
+test('exact contribution review columns permit only default-valued schema evolution', () => {
+  const added = postManifest();
+  added.protectedTables.sf_story_contributions = contributionTable({ added: true });
+  assert.equal(compareSurvivalManifests(manifest(), added).pass, false);
+  assert.equal(compareSurvivalManifests(manifest(), added, {
+    expectedContributionReviewColumns: true,
+  }).pass, true);
+
+  const populated = postManifest();
+  populated.protectedTables.sf_story_contributions = contributionTable({ added: true, defaultsExact: false });
+  assert.equal(compareSurvivalManifests(manifest(), populated, {
+    expectedContributionReviewColumns: true,
+  }).pass, false);
+
+  const mutated = postManifest();
+  mutated.protectedTables.sf_story_contributions = contributionTable({ added: true, value: 'mutated private contribution' });
+  assert.equal(compareSurvivalManifests(manifest(), mutated, {
+    expectedContributionReviewColumns: true,
+  }).pass, false);
+});
+
+test('Arena avatar columns permit only default-null schema evolution during migration', () => {
+  const added = postManifest();
+  added.protectedTables.sf_users = usersTable({ added: true });
+  assert.equal(compareSurvivalManifests(manifest(), added).pass, false);
+  assert.equal(compareSurvivalManifests(manifest(), added, {
+    expectedArenaAvatarColumns: true,
+  }).pass, true);
+
+  const populated = postManifest();
+  populated.protectedTables.sf_users = usersTable({ added: true, defaultsExact: false });
+  assert.equal(compareSurvivalManifests(manifest(), populated, {
+    expectedArenaAvatarColumns: true,
+  }).pass, false);
+
+  const mutated = postManifest();
+  mutated.protectedTables.sf_users = usersTable({ added: true, value: 'mutated student identity' });
+  assert.equal(compareSurvivalManifests(manifest(), mutated, {
+    expectedArenaAvatarColumns: true,
+  }).pass, false);
 });
 
 test('candidate table additions must be explicit and empty', () => {

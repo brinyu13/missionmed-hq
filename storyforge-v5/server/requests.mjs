@@ -22,6 +22,25 @@ function expectedVersion(value) { const result=Number(value); if(!Number.isSafeI
 function escapeHtml(value) { return String(value||'').replace(/[&<>"']/g,(character)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[character]); }
 function exactObject(input,allowed,code='invalid_invitation'){if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some((key)=>!allowed.has(key)))throw new RequestsError(code,'Invitation details are invalid.');}
 function invitationFields(input,{version=false}={}){exactObject(input,new Set(['recipientFirstName','relationship','email','personalMessage',...(version?['expectedVersion']:[])]));const first=String(input.recipientFirstName||'').trim();const relationship=String(input.relationship||'').trim();const email=cleanEmail(input.email);const personalMessage=String(input.personalMessage||'').trim();if(!first||first.length>100||!relationships.has(relationship)||personalMessage.length>2000)throw new RequestsError('invalid_invitation','Invitation details are invalid.');return{first,relationship,email,personalMessage,...(version?{expectedVersion:expectedVersion(input.expectedVersion)}:{})};}
+function contributionReview(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)
+    || Object.keys(input).some((key) => !['expectedVersion', 'score', 'note'].includes(key))) {
+    throw new RequestsError('invalid_contribution_review', 'Contribution review details are invalid.');
+  }
+  const version = Number(input.expectedVersion);
+  const score = Number(input.score);
+  if (!Number.isSafeInteger(version) || version < 0 || !Number.isInteger(score) || score < 1 || score > 5) {
+    throw new RequestsError('invalid_contribution_review', 'Contribution review details are invalid.');
+  }
+  if (input.note != null && typeof input.note !== 'string') {
+    throw new RequestsError('invalid_contribution_review', 'Contribution review details are invalid.');
+  }
+  const note = input.note == null ? null : input.note.trim();
+  if (note && note.length > 2000) {
+    throw new RequestsError('invalid_contribution_review', 'Contribution review details are invalid.');
+  }
+  return { expectedVersion: version, score, note: note || null };
+}
 function canonicalGuestBase(environment) {
   const explicit = String(environment.STORYFORGE_PUBLIC_URL || '').trim();
   const configuredOrigin = String(environment.STORYFORGE_PUBLIC_ORIGIN || '').trim();
@@ -197,6 +216,43 @@ export function createRequestsService({ withIdentity, withServiceTransaction, po
     async create(identity,input={}){await requireStudent(identity);const value=invitationFields(input);const disclosure=String(environment.STORYFORGE_GUEST_DISCLOSURE_VERSION||'').trim();if(!/^[a-z0-9._-]{1,64}$/.test(disclosure))throw new RequestsError('disclosure_unapproved','Guest disclosure wording is unavailable.',503);return withIdentity(identity,async(client)=>{const result=await client.query('SELECT public.sf_request_create($1,$2,$3,$4,$5) AS payload',[value.first,value.relationship,value.email,value.personalMessage,disclosure]);return safeInvitation(result.rows[0].payload);});},
     async update(identity,invitationId,input={}){await requireStudent(identity);const value=invitationFields(input,{version:true});return withIdentity(identity,async(client)=>{const result=await client.query('SELECT public.sf_request_update($1,$2,$3,$4,$5,$6) AS payload',[uuid(invitationId,'Invitation identifier'),value.expectedVersion,value.first,value.relationship,value.email,value.personalMessage]);return safeInvitation(result.rows[0].payload);});},
     async preview(identity,invitationId,input={}){await requireStudent(identity);exactObject(input,new Set(['expectedVersion']));const version=expectedVersion(input.expectedVersion);const guestBase=canonicalGuestBase(environment);return withIdentity(identity,async(client)=>{const result=await client.query('SELECT public.sf_request_preview($1,$2) AS payload',[uuid(invitationId,'Invitation identifier'),version]);const row=result.rows[0].payload;const content=emailContent(identity,row,`${guestBase}/guest/[secure-link-created-on-send]`);return{invitation:safeInvitation(row),preview:{to:row.email,from:String(environment.STORYFORGE_POSTMARK_FROM||''),replyTo:String(environment.STORYFORGE_POSTMARK_REPLY_TO||''),senderVerification:'required-before-live-send',...content,auditEventId:String(row.preview_event_id)}};});},
+    async guestExperiencePreview(identity, invitationId) {
+      await requireStudent(identity);
+      const id = uuid(invitationId, 'Invitation identifier');
+      return withIdentity(identity, async (client) => {
+        const invitationResult = await client.query(
+          `SELECT invitation.id, invitation.contributor_first_name,
+                  invitation.relationship_id, invitation.personal_message,
+                  invitation.disclosure_version, invitation.expires_at,
+                  invitation.status
+             FROM public.sf_story_invitations invitation
+            WHERE invitation.id=$1
+              AND invitation.student_id=public.sf_actor_id()`,
+          [id],
+        );
+        const row = invitationResult.rows[0];
+        if (!row) throw new RequestsError('invitation_not_found', 'Invitation not found.', 404);
+        const prompts = await client.query(
+          `SELECT id, library_key, text, hint
+             FROM public.sf_contributor_prompts
+            WHERE state='active' AND $1=ANY(relationship_ids)
+            ORDER BY sort_order,id`,
+          [row.relationship_id],
+        );
+        const firstName = String(identity?.firstName || identity?.displayName || 'Your student').trim() || 'Your student';
+        return {
+          previewOnly: true,
+          student: { firstName },
+          recipientFirstName: row.contributor_first_name,
+          relationship: row.relationship_id,
+          personalMessage: row.personal_message,
+          disclosureVersion: row.disclosure_version,
+          expiresAt: row.expires_at,
+          status: row.status,
+          prompts: prompts.rows,
+        };
+      });
+    },
     async send(identity,invitationId,input={}){await requireStudent(identity);exactObject(input,new Set(['expectedVersion']));return dispatchDelivery(identity,uuid(invitationId,'Invitation identifier'),expectedVersion(input.expectedVersion),'initial');},
     async remind(identity,invitationId,input={}){await requireStudent(identity);exactObject(input,new Set(['expectedVersion']));return dispatchDelivery(identity,uuid(invitationId,'Invitation identifier'),expectedVersion(input.expectedVersion),'reminder');},
     async reinvite(identity,invitationId,input={}){await requireStudent(identity);exactObject(input,new Set(['expectedVersion','email']));const version=expectedVersion(input.expectedVersion);const email=cleanEmail(input.email);return withIdentity(identity,async(client)=>{const result=await client.query('SELECT public.sf_request_reinvite($1,$2,$3) AS payload',[uuid(invitationId,'Invitation identifier'),version,email]);return safeInvitation(result.rows[0].payload);});},
@@ -208,6 +264,8 @@ export function createRequestsService({ withIdentity, withServiceTransaction, po
           `SELECT contribution.id,contribution.invitation_id,contribution.kind,
                   contribution.transcript,contribution.prompt_text_snapshot,
                   contribution.state,contribution.promoted_story_id,
+                  contribution.student_score,contribution.student_review_note,
+                  contribution.row_version,contribution.reviewed_at,
                   contribution.submitted_at,invitation.contributor_first_name,
                   invitation.relationship_id
              FROM public.sf_story_contributions contribution
@@ -257,6 +315,33 @@ export function createRequestsService({ withIdentity, withServiceTransaction, po
         );
         return result.rows[0]?.payload;
       });
+    },
+    async reviewContribution(identity, contributionId, input = {}) {
+      await requireStudent(identity);
+      const review = contributionReview(input);
+      try {
+        return await withIdentity(identity, async (client) => {
+          const result = await client.query(
+            'SELECT public.sf_request_review_contribution($1,$2,$3,$4) AS payload',
+            [uuid(contributionId, 'Contribution identifier'), review.expectedVersion, review.score, review.note],
+          );
+          return result.rows[0]?.payload;
+        });
+      } catch (cause) {
+        if (cause?.code === 'P0002') {
+          throw new RequestsError('contribution_not_found', 'Contribution was not found.', 404, { cause });
+        }
+        if (cause?.code === '40001') {
+          throw new RequestsError('contribution_conflict', 'This contribution changed in another session.', 409, { cause });
+        }
+        if (cause?.code === '22023') {
+          throw new RequestsError('invalid_contribution_review', 'Contribution review details are invalid.', 400, { cause });
+        }
+        if (cause?.code === '42501') {
+          throw new RequestsError('request_a_story_disabled', 'Request a Story is unavailable.', 403, { cause });
+        }
+        throw cause;
+      }
     },
     async promote(identity, contributionId, input = {}) {
       await requireStudent(identity);

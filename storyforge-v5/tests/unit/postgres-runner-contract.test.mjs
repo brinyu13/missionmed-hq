@@ -20,6 +20,13 @@ const expectedB1514Train = [
   '20260810280000_b1_514_guest_voice_cleanup_recovery.sql',
 ];
 
+const expectedB1515Train = [
+  '20260812120000_b1_515_v201_reviews_collections_peer.sql',
+  '20260813120000_b1_515r_admin_subject_masterkey.sql',
+  '20260813130000_b1_515r_action_center_contribution_review.sql',
+  '20260813140000_b1_515r_arena_avatar_directory_groups.sql',
+];
+
 function bashArray(name) {
   const match = source.match(new RegExp(`${name}=\\(\\n(?<body>[\\s\\S]*?)\\n\\)`));
   assert.ok(match?.groups?.body, `${name} array is missing`);
@@ -41,6 +48,15 @@ test('PostgreSQL runner applies the exact ordered B1-514 train before legacy mat
   assert.ok(apply < authorization, 'B1-514 train must precede the authorization matrix');
   assert.ok(authorization < conformance, 'legacy matrix ordering changed');
   assert.match(source, /B1-514 migration train differs from the exact ordered allowlist/);
+});
+
+test('PostgreSQL runner applies the exact ordered B1-515 train after B1-514', () => {
+  assert.deepEqual(bashArray('b1_515_migrations'), expectedB1515Train);
+  const b1514 = source.indexOf('for migration in "${b1_514_migrations[@]}"');
+  const b1515 = source.indexOf('for migration in "${b1_515_migrations[@]}"');
+  const authorization = source.indexOf('tests/postgres/authorization_matrix.sql');
+  assert.ok(b1515 > b1514);
+  assert.ok(b1515 < authorization);
 });
 
 test('PostgreSQL runner seeds both canonical governed libraries before legacy matrices', () => {

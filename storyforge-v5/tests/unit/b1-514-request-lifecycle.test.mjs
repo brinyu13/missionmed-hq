@@ -102,6 +102,63 @@ test('guest links fail closed unless the configured public URL is canonical HTTP
   }
 });
 
+test('guest experience preview is owner-bounded, governed, non-sending, and contains no email or token', async () => {
+  const calls = [];
+  const subject = makeService({
+    identityQuery: async (sql, values) => {
+      calls.push({ sql, values });
+      if (sql.includes('sf_story_feature_enabled')) return { rows: [{ enabled: true }] };
+      if (sql.includes('FROM public.sf_story_invitations invitation')) {
+        return { rows: [{
+          id: invitationId,
+          contributor_first_name: 'Sam',
+          relationship_id: 'parent',
+          personal_message: 'Please share one specific moment.',
+          disclosure_version: 'founder-v1',
+          expires_at: '2026-09-01T00:00:00Z',
+          status: 'draft',
+        }] };
+      }
+      if (sql.includes('FROM public.sf_contributor_prompts')) {
+        return { rows: [{
+          id: '33333333-3333-4333-8333-333333333333',
+          library_key: 'parent-001',
+          text: 'When did you see Maya become more confident?',
+          hint: 'Choose one concrete moment.',
+        }] };
+      }
+      throw new Error(`unexpected SQL: ${sql}`);
+    },
+  });
+
+  const preview = await subject.guestExperiencePreview(identity, invitationId);
+  assert.equal(preview.previewOnly, true);
+  assert.equal(preview.student.firstName, 'Maya');
+  assert.equal(preview.recipientFirstName, 'Sam');
+  assert.equal(preview.relationship, 'parent');
+  assert.equal(preview.prompts.length, 1);
+  assert.equal(JSON.stringify(preview).includes('sam@example.test'), false);
+  assert.equal(JSON.stringify(preview).includes('secure-link'), false);
+  assert.equal(calls.some(({ sql }) => sql.includes('sf_request_prepare_send')), false);
+  assert.equal(calls.some(({ sql }) => sql.includes('sf_request_reserve_delivery')), false);
+  assert.deepEqual(
+    calls.find(({ sql }) => sql.includes('sf_story_invitations invitation')).values,
+    [invitationId],
+  );
+
+  const missing = makeService({
+    identityQuery: async (sql) => sql.includes('sf_story_feature_enabled')
+      ? { rows: [{ enabled: true }] }
+      : { rows: [] },
+  });
+  await assert.rejects(
+    () => missing.guestExperiencePreview(identity, invitationId),
+    (error) => error instanceof RequestsError
+      && error.code === 'invitation_not_found'
+      && error.status === 404,
+  );
+});
+
 test('send and reminder commit a unique reservation before the one provider call and finalize through service-only RPCs', async () => {
   const sequence = [];
   const deliveries = [];
@@ -222,6 +279,83 @@ test('expiry processing defaults closed and never touches PostgreSQL without the
   });
   assert.deepEqual(await subject.expireDue(), { expired: 0, disabled: true });
   assert.equal(calls, 0);
+});
+
+test('student contribution review uses the versioned owner-only RPC and normalizes a blank note', async () => {
+  const calls = [];
+  const reviewed = {
+    id: invitationId,
+    state: 'new',
+    studentScore: 4,
+    studentReviewNote: null,
+    rowVersion: 3,
+    reviewedAt: '2026-08-13T17:00:00Z',
+  };
+  const subject = makeService({
+    identityQuery: async (sql, values) => {
+      calls.push({ sql, values });
+      if (sql.includes('sf_story_feature_enabled')) return { rows: [{ enabled: true }] };
+      if (sql.includes('sf_request_review_contribution')) return { rows: [{ payload: reviewed }] };
+      throw new Error(`unexpected SQL: ${sql}`);
+    },
+  });
+
+  assert.deepEqual(await subject.reviewContribution(identity, invitationId, {
+    expectedVersion: 2,
+    score: 4,
+    note: '   ',
+  }), reviewed);
+  const rpc = calls.find(({ sql }) => sql.includes('sf_request_review_contribution'));
+  assert.deepEqual(rpc.values, [invitationId, 2, 4, null]);
+});
+
+test('student contribution review rejects malformed input before mutation and sanitizes database outcomes', async () => {
+  let mutations = 0;
+  const invalid = makeService({
+    identityQuery: async (sql) => {
+      if (sql.includes('sf_story_feature_enabled')) return { rows: [{ enabled: true }] };
+      mutations += 1;
+      return { rows: [] };
+    },
+  });
+  for (const input of [
+    { expectedVersion: 0, score: 0, note: '' },
+    { expectedVersion: -1, score: 5, note: '' },
+    { expectedVersion: 0, score: 5, note: 42 },
+    { expectedVersion: 0, score: 5, note: 'x'.repeat(2001) },
+    { expectedVersion: 0, score: 5, note: '', email: 'hidden@example.test' },
+  ]) {
+    await assert.rejects(
+      () => invalid.reviewContribution(identity, invitationId, input),
+      (error) => error instanceof RequestsError
+        && error.code === 'invalid_contribution_review'
+        && error.status === 400,
+    );
+  }
+  assert.equal(mutations, 0);
+
+  for (const [databaseCode, expectedCode, expectedStatus] of [
+    ['P0002', 'contribution_not_found', 404],
+    ['40001', 'contribution_conflict', 409],
+    ['22023', 'invalid_contribution_review', 400],
+    ['42501', 'request_a_story_disabled', 403],
+  ]) {
+    const subject = makeService({
+      identityQuery: async (sql) => {
+        if (sql.includes('sf_story_feature_enabled')) return { rows: [{ enabled: true }] };
+        const error = new Error('sensitive postgres detail');
+        error.code = databaseCode;
+        throw error;
+      },
+    });
+    await assert.rejects(
+      () => subject.reviewContribution(identity, invitationId, { expectedVersion: 0, score: 5, note: 'Keep.' }),
+      (error) => error instanceof RequestsError
+        && error.code === expectedCode
+        && error.status === expectedStatus
+        && !error.message.includes('postgres'),
+    );
+  }
 });
 
 test('migration keeps lifecycle writes in SECURITY DEFINER functions with forced-RLS hash-only suppression', async () => {

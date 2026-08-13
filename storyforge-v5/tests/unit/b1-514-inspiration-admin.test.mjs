@@ -83,6 +83,36 @@ test('bulk CSV parsing is quote-aware and never accepts client ids', () => {
   assert.throws(() => parseInspirationBulkCsv(`${csv}\n"unterminated`), /unterminated quoted field/);
 });
 
+test('bulk preview exposes duplicate keys and order before any commit', async () => {
+  const csv = [
+    'libraryKey,text,who,whoDetail,domain,energy,territory,followUp,interviewUse,state,recommended,sortOrder,expectedVersion',
+    'q-001,"Tell me about one ordinary moment you still remember clearly.",you,,personal,light,ordinary_moments,"What happened next?","Shows perspective.",active,true,1,2',
+    'q-001,"Tell me about another ordinary moment you still remember.",you,,personal,light,ordinary_moments,"What changed?","Shows reflection.",active,false,1,2',
+  ].join('\n');
+  const observed = subject();
+  const result = await observed.service.adminParseBulk(admin, { csv });
+  assert.deepEqual(result.validation, {
+    validCount: 2,
+    duplicateLibraryKeys: ['q-001'],
+    duplicateSortOrders: [1],
+    publishable: false,
+    commitState: 'retired',
+  });
+  assert.equal(observed.calls.some((call) => call.sql.includes('sf_admin_publish_inspiration_bulk')), false);
+});
+
+test('bulk preview accepts new stable keys without pretending they are versioned existing prompts', async () => {
+  const csv = [
+    'libraryKey,text,who,whoDetail,domain,energy,territory,followUp,interviewUse,state,recommended,sortOrder,expectedVersion',
+    'q-901,"What did you learn, exactly?",you,,personal,serious,reflection,"What changed?","Shows reflection.",retired,false,901,',
+    'q-902,"What surprised you most?",you,,personal,serious,surprise,"Why did it matter?","Shows insight.",retired,false,901,',
+  ].join('\n');
+  const result = await subject().service.adminParseBulk(admin, { csv });
+  assert.equal(result.count, 2);
+  assert.deepEqual(result.validation.duplicateSortOrders, [901]);
+  assert.equal(result.validation.publishable, false);
+});
+
 test('admin publish revalidates and delegates one atomic audited write to the bounded RPC', async () => {
   const observed = subject({ query: async (sql, values) => {
     if (sql.includes('sf_admin_publish_inspiration_prompt')) {
@@ -147,4 +177,45 @@ test('Content Studio history exposes only prompt snapshots and immutable attribu
     id: '8', promptId, rowVersion: 2, snapshot: { text: prompt.text },
     actorId: studentId, createdAt: '2026-08-10T12:00:00.000Z',
   });
+});
+
+test('Content Studio reorder requires the complete active bank and exact row versions', async () => {
+  const secondId = '33333333-3333-4333-8333-333333333333';
+  const rows = [
+    {
+      id: promptId, library_key: 'q-001', text: prompt.text, who_ids: ['you'], who_detail_ids: [],
+      domain_ids: ['personal'], energy_ids: ['light'], territory: 'ordinary_moments',
+      follow_up: prompt.followUp, interview_use: prompt.interviewUse, state: 'active', recommended: true,
+      sort_order: 1, row_version: '2',
+    },
+    {
+      id: secondId, library_key: 'q-002', text: 'Tell me about a second moment you remember clearly.', who_ids: ['you'], who_detail_ids: [],
+      domain_ids: ['personal'], energy_ids: ['moving'], territory: 'ordinary_moments',
+      follow_up: 'Why does it stay with you?', interview_use: 'Shows reflection.', state: 'active', recommended: false,
+      sort_order: 2, row_version: '4',
+    },
+  ];
+  const writes = [];
+  const observed = subject({ query: async (sql, values) => {
+    if (sql.includes("WHERE state='active'")) return { rows };
+    if (sql.includes('sf_admin_publish_inspiration_prompt')) {
+      writes.push(JSON.parse(values[0]));
+      return { rows: [{ prompt: JSON.parse(values[0]) }] };
+    }
+    return { rows: [] };
+  } });
+  const result = await observed.service.adminReorder(admin, {
+    promptIds: [secondId, promptId],
+    expectedVersions: { [promptId]: 2, [secondId]: 4 },
+  });
+  assert.deepEqual(result.promptIds, [secondId, promptId]);
+  assert.deepEqual(writes.map((entry) => [entry.id, entry.sortOrder, entry.expectedVersion]), [
+    [secondId, 1, 4], [promptId, 2, 2],
+  ]);
+  await assert.rejects(
+    () => observed.service.adminReorder(admin, {
+      promptIds: [promptId], expectedVersions: { [promptId]: 2 },
+    }),
+    (error) => error instanceof InspirationError && error.code === 'incomplete_prompt_order' && error.status === 409,
+  );
 });

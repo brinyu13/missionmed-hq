@@ -290,6 +290,17 @@ function mmsfr_audio_origin() {
 }
 
 /**
+ * Resolve the canonical public CDN origin for active Arena Lobby avatars.
+ * StoryForge receives only an allowlisted presentation URL and never an R2
+ * object key or write credential.
+ *
+ * @return string Exact HTTPS origin.
+ */
+function mmsfr_arena_avatar_origin() {
+	return 'https://cdn.missionmedinstitute.com';
+}
+
+/**
  * Apply the shared StoryForge security and cache headers.
  *
  * @param string $cache_control Cache-Control value.
@@ -326,8 +337,9 @@ function mmsfr_send_security_headers( $cache_control, $private = false ) {
 	}
 	$audio_origin = mmsfr_audio_origin();
 	$audio_source = '' !== $audio_origin ? ' ' . $audio_origin : '';
+	$avatar_source = ' ' . mmsfr_arena_avatar_origin();
 	header(
-		"Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:" . $audio_source . "; media-src 'self' blob:" . $audio_source . "; connect-src 'self'" . $audio_source . "; font-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
+		"Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:" . $audio_source . $avatar_source . "; media-src 'self' blob:" . $audio_source . "; connect-src 'self'" . $audio_source . "; font-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
 		true
 	);
 	header( 'Referrer-Policy: no-referrer', true );

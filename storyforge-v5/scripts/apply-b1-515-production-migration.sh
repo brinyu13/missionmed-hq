@@ -4,11 +4,13 @@ umask 077
 
 PACKAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPOSITORY_DIR="$(cd "$PACKAGE_DIR/.." && pwd)"
-BASE_LEDGER_COUNT=23
-MIGRATION=20260812120000_b1_515_v201_reviews_collections_peer.sql
+BASE_LEDGER_COUNT=24
+MIGRATIONS=(
+  20260813120000_b1_515r_admin_subject_masterkey.sql
+  20260813130000_b1_515r_action_center_contribution_review.sql
+  20260813140000_b1_515r_arena_avatar_directory_groups.sql
+)
 EXPECTED_TABLES=(sf_story_trash sf_story_use_reviews sf_story_publications sf_peer_story_grants sf_peer_feedback)
-EXPECTED_FLAGS=(story_archive story_promotions per_use_scoring peer_share)
-FLAG_TIMESTAMP='2026-08-12 12:00:00+00'
 
 fail(){ printf 'Refusing B1-515 production migration: %s\n' "$*" >&2; exit 1; }
 sha256_file(){ if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1"|awk '{print $1}'; else shasum -a 256 "$1"|awk '{print $1}'; fi; }
@@ -45,17 +47,22 @@ done
 actual_head="$(git -C "$REPOSITORY_DIR" rev-parse HEAD^{commit})"
 [[ "$actual_head" = "$STORYFORGE_DEPLOY_GIT_COMMIT" ]] || fail 'Git HEAD differs from deploy commit'
 [[ -z "$(git -C "$REPOSITORY_DIR" status --porcelain=v1 --untracked-files=all)" ]] || fail 'Git worktree is not clean'
-migration_path="$PACKAGE_DIR/infra/postgres/migrations/$MIGRATION"
-[[ -f "$migration_path" && ! -L "$migration_path" ]] || fail 'B1-515 migration is absent or symlinked'
-migration_hash="$(sha256_file "$migration_path")"
-committed_hash="$(git -C "$REPOSITORY_DIR" show "$actual_head:storyforge-v5/infra/postgres/migrations/$MIGRATION" | sha256_stream)"
-[[ "$migration_hash" = "$committed_hash" ]] || fail 'migration differs from deploy commit'
-train_hash="$(printf '%s\n' "$MIGRATION|$migration_hash" | sha256_stream)"
+migration_paths=(); migration_hashes=(); train_lines=()
+for migration in "${MIGRATIONS[@]}"; do
+  migration_path="$PACKAGE_DIR/infra/postgres/migrations/$migration"
+  [[ -f "$migration_path" && ! -L "$migration_path" ]] || fail "B1-515R migration is absent or symlinked: $migration"
+  migration_hash="$(sha256_file "$migration_path")"
+  committed_hash="$(git -C "$REPOSITORY_DIR" show "$actual_head:storyforge-v5/infra/postgres/migrations/$migration" | sha256_stream)"
+  [[ "$migration_hash" = "$committed_hash" ]] || fail "B1-515R migration differs from deploy commit: $migration"
+  migration_paths+=("$migration_path"); migration_hashes+=("$migration_hash")
+  train_lines+=("$migration|$migration_hash")
+done
+train_hash="$(printf '%s\n' "${train_lines[@]}" | sha256_stream)"
 node - "$STORYFORGE_SURVIVAL_PRE_MANIFEST" "$train_hash" <<'NODE'
 const fs=require('node:fs');const manifest=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
 if(manifest?.schema!=='missionmed.storyforge.survival-manifest.v3'||manifest?.capture?.phase!=='pre'||manifest?.capture?.candidateSha256!==process.argv[3]||manifest?.capture?.fullVisibility!==true||manifest?.capture?.objectVerification!=='required_pass')process.exit(41);
 NODE
-[[ $? = 0 ]] || fail 'PRE survival manifest does not bind the exact B1-515 migration'
+[[ $? = 0 ]] || fail 'PRE survival manifest does not bind the exact B1-515R migration'
 
 psql_bin="$(command -v psql || true)"; [[ -n "$psql_bin" && "$psql_bin" = /* && -x "$psql_bin" ]] || fail 'psql is unavailable'
 [[ "$($psql_bin --version|sed -E 's/^psql \(PostgreSQL\) ([0-9]+).*/\1/')" = 18 ]] || fail 'PostgreSQL 18 psql is required'
@@ -66,63 +73,55 @@ identity="$("${psql_read[@]}" -AtF '|' -c "SELECT (SELECT system_identifier::tex
 [[ "$identity" = "$STORYFORGE_EXPECTED_DB_SYSTEM_IDENTIFIER|true" ]] || fail 'database identity or TLS differs'
 counts="$("${psql_read[@]}" -AtF '|' -c 'SELECT (SELECT count(*) FROM public.sf_users),(SELECT count(*) FROM public.sf_stories)')"
 [[ "$counts" = "$STORYFORGE_EXPECTED_USER_COUNT|$STORYFORGE_EXPECTED_STORY_COUNT" ]] || fail 'protected production counts differ from the frozen PRE state'
-[[ "$("${psql_read[@]}" -Atc 'SELECT count(*) FROM public.sf_schema_migrations')" = "$BASE_LEDGER_COUNT" ]] || fail 'migration ledger is not the exact B1-514 V2 baseline'
-version="${MIGRATION%%_*}"
-[[ -z "$("${psql_read[@]}" -Atc "SELECT version FROM public.sf_schema_migrations WHERE version='$version'")" ]] || fail 'B1-515 migration is already present'
+[[ "$("${psql_read[@]}" -Atc 'SELECT count(*) FROM public.sf_schema_migrations')" = "$BASE_LEDGER_COUNT" ]] || fail 'migration ledger is not the exact B1-515 production baseline'
+for migration in "${MIGRATIONS[@]}"; do
+  version="${migration%%_*}"
+  [[ -z "$("${psql_read[@]}" -Atc "SELECT version FROM public.sf_schema_migrations WHERE version='$version'")" ]] || fail "B1-515R migration is already present: $version"
+done
 founder_id="$("${psql_read[@]}" -Atc "SELECT updated_by FROM public.sf_feature_flags WHERE key='admin_console'")"
 [[ "$founder_id" =~ ^[a-f0-9-]{36}$ ]] || fail 'canonical feature-flag authority is absent'
-for key in "${EXPECTED_FLAGS[@]}"; do
-  [[ -z "$("${psql_read[@]}" -Atc "SELECT key FROM public.sf_feature_flags WHERE key='$key'")" ]] || fail "B1-515 feature flag already exists: $key"
+for table in "${EXPECTED_TABLES[@]}"; do
+  [[ "$("${psql_read[@]}" -Atc "SELECT to_regclass('public.$table') IS NOT NULL")" = t ]] || fail "B1-515 baseline table is absent: $table"
 done
+[[ "$("${psql_read[@]}" -Atc "SELECT count(*) FROM public.sf_feature_flags WHERE key IN('story_archive','story_promotions','per_use_scoring','peer_share')")" = 4 ]] || fail 'B1-515 baseline feature flags are absent'
 
 if [[ "$mode" = preflight ]]; then
-  printf 'B1_515_PRODUCTION_MIGRATION_PREFLIGHT_PASS\ntrain_sha256=%s\npending=1\n' "$train_hash"
+  printf 'B1_515R_PRODUCTION_MIGRATION_PREFLIGHT_PASS\ntrain_sha256=%s\npending=3\n' "$train_hash"
   exit 0
 fi
 [[ "${STORYFORGE_MIGRATION_CONFIRM:-}" = B1-515-APPLY ]] || fail 'apply confirmation is absent'
 {
   printf '%s\n' "SELECT pg_advisory_xact_lock(hashtextextended('missionmed.storyforge.b1-515.production-migration',0));"
-  sed -E -e '/^[[:space:]]*\\set /d' -e '/^[[:space:]]*BEGIN;[[:space:]]*$/d' -e '/^[[:space:]]*COMMIT;[[:space:]]*$/d' "$migration_path"
-  printf "INSERT INTO public.sf_schema_migrations(version,file_name,sha256,git_commit,backup_id) VALUES('%s','%s','%s','%s','%s');\n" "$version" "$MIGRATION" "$migration_hash" "$STORYFORGE_DEPLOY_GIT_COMMIT" "$STORYFORGE_RAILWAY_BACKUP_ID"
+  for index in "${!MIGRATIONS[@]}"; do
+    migration="${MIGRATIONS[$index]}"; migration_path="${migration_paths[$index]}"; migration_hash="${migration_hashes[$index]}"; version="${migration%%_*}"
+    sed -E -e '/^[[:space:]]*\\set /d' -e '/^[[:space:]]*BEGIN;[[:space:]]*$/d' -e '/^[[:space:]]*COMMIT;[[:space:]]*$/d' "$migration_path"
+    printf "INSERT INTO public.sf_schema_migrations(version,file_name,sha256,git_commit,backup_id) VALUES('%s','%s','%s','%s','%s');\n" "$version" "$migration" "$migration_hash" "$STORYFORGE_DEPLOY_GIT_COMMIT" "$STORYFORGE_RAILWAY_BACKUP_ID"
+  done
 } | "$psql_bin" --dbname="$database_url" -X -v ON_ERROR_STOP=1 --single-transaction
 
 post_counts="$("${psql_read[@]}" -AtF '|' -c 'SELECT (SELECT count(*) FROM public.sf_users),(SELECT count(*) FROM public.sf_stories)')"
 [[ "$post_counts" = "$counts" ]] || fail 'protected user or story counts changed during B1-515 migration'
-for table in "${EXPECTED_TABLES[@]}"; do
-  [[ "$("${psql_read[@]}" -Atc "SELECT count(*) FROM public.$table")" = 0 ]] || fail "new B1-515 table is not empty: $table"
-done
-[[ "$("${psql_read[@]}" -Atc "SELECT count(*) FROM public.sf_feature_flags WHERE key IN('story_archive','story_promotions','per_use_scoring','peer_share') AND scope='off'")" = 4 ]] || fail 'B1-515 flags are not independently default-off'
-
 STORYFORGE_SURVIVAL_DATABASE_URL="$database_url" node "$PACKAGE_DIR/scripts/sf-survival-manifest.mjs" capture \
   --phase post --release B1-515 --candidate-sha256 "$train_hash" \
   --output "$STORYFORGE_SURVIVAL_POST_MANIFEST" --require-object-head
-ledger_hash="$(node --input-type=module - "$PACKAGE_DIR" "$version" "$MIGRATION" "$migration_hash" <<'NODE'
-import { pathToFileURL } from 'node:url';
-const [packageDir,version,file_name,sha256]=process.argv.slice(2);
-const { rowHash }=await import(pathToFileURL(`${packageDir}/scripts/survival-manifest-lib.mjs`).href);
-process.stdout.write(rowHash({version,file_name,sha256}));
-NODE
-)"
-compare_args=(
-  --expected-ledger-addition "$version:$ledger_hash"
-  --expected-table-addition sf_story_trash
-  --expected-table-addition sf_story_use_reviews
-  --expected-table-addition sf_story_publications
-  --expected-table-addition sf_peer_story_grants
-  --expected-table-addition sf_peer_feedback
-)
-for key in "${EXPECTED_FLAGS[@]}"; do
-  flag_hash="$(node --input-type=module - "$PACKAGE_DIR" "$key" "$founder_id" "$FLAG_TIMESTAMP" <<'NODE'
-import { pathToFileURL } from 'node:url';
-const [packageDir,key,updated_by,updated_at]=process.argv.slice(2);
-const { rowHash }=await import(pathToFileURL(`${packageDir}/scripts/survival-manifest-lib.mjs`).href);
-process.stdout.write(rowHash({key,scope:'off',allowlist:[],cohorts:[],updated_by,updated_at}));
-NODE
-)"
-  compare_args+=(--expected-feature-flag-addition "$key:$flag_hash")
+ledger_args=()
+for index in "${!MIGRATIONS[@]}"; do
+  migration="${MIGRATIONS[$index]}"; ledger_args+=("${migration%%_*}" "$migration" "${migration_hashes[$index]}")
 done
+ledger_hashes="$(node --input-type=module - "$PACKAGE_DIR" "${ledger_args[@]}" <<'NODE'
+import { pathToFileURL } from 'node:url';
+const [packageDir,...args]=process.argv.slice(2);
+const { rowHash }=await import(pathToFileURL(`${packageDir}/scripts/survival-manifest-lib.mjs`).href);
+for(let index=0;index<args.length;index+=3){const [version,file_name,sha256]=args.slice(index,index+3);process.stdout.write(`${version}:${rowHash({version,file_name,sha256})}\n`)}
+NODE
+)"
+compare_args=()
+while IFS= read -r ledger; do [[ -n "$ledger" ]] && compare_args+=(--expected-ledger-addition "$ledger"); done <<< "$ledger_hashes"
 node "$PACKAGE_DIR/scripts/sf-survival-manifest.mjs" compare \
   --pre "$STORYFORGE_SURVIVAL_PRE_MANIFEST" \
   --post "$STORYFORGE_SURVIVAL_POST_MANIFEST" \
-  --output "$STORYFORGE_SURVIVAL_COMPARE_REPORT" "${compare_args[@]}"
-printf 'B1_515_PRODUCTION_MIGRATION_APPLY_PASS\ntrain_sha256=%s\n' "$train_hash"
+  --output "$STORYFORGE_SURVIVAL_COMPARE_REPORT" \
+  --expected-contribution-review-columns \
+  --expected-arena-avatar-columns \
+  "${compare_args[@]}"
+printf 'B1_515R_PRODUCTION_MIGRATION_APPLY_PASS\ntrain_sha256=%s\n' "$train_hash"

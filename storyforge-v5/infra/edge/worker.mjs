@@ -1,6 +1,7 @@
 import assetAliases from './generated-asset-aliases.mjs';
 
 const DEFAULT_BASE_PATH = '/storyforge/';
+const ARENA_AVATAR_ORIGIN = 'https://cdn.missionmedinstitute.com';
 const ASSET_ALIAS_PATTERN = /^\/_asset\/([a-f0-9]{12})$/;
 
 function basePath(env) {
@@ -37,7 +38,7 @@ function withCachePolicy(response, pathname, env = {}) {
     "default-src 'self'",
     "script-src 'self'",
     "style-src 'self'",
-    "img-src 'self' data:",
+    `img-src 'self' data: ${ARENA_AVATAR_ORIGIN}`,
     `media-src 'self' blob:${audioOrigin ? ` ${audioOrigin}` : ''}`,
     `connect-src 'self'${audioOrigin ? ` ${audioOrigin}` : ''}`,
     "font-src 'self'",
