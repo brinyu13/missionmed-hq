@@ -42,6 +42,7 @@
     "./repositories/immutable-administrative-grant-repository.mjs",
     "./repositories/in-memory-faculty-invitation-repository.js",
     "./repositories/in-memory-recommendation-case-repository.js",
+    "./repositories/supabase-durable-faculty-invitation-repository.mjs",
     "./repositories/supabase-durable-recommendation-case-repository.mjs",
     "./security/authorization-policy.js",
     "./security/faculty-invitations.js",
@@ -49,6 +50,7 @@
     "./services/export-service.js",
     "./services/metadata-events.js",
     "./services/ports.js",
+    "./services/durable-faculty-invitation-verification-service.mjs",
     "./services/recommendation-case-service.js",
     "../lib/auth/session-token.mjs",
     "../public/lor-studio/production-adapter.js"

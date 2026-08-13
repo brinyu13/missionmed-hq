@@ -19,6 +19,20 @@ export const PORT_CONTRACTS = deepFreeze({
       'implicit_upsert',
     ],
   },
+  facultyInvitationRepository: {
+    ownership: 'F2-LOR',
+    durabilityRequiredForProduction: true,
+    concurrency: 'atomic_invitation_otp_audit_transaction',
+    retries: 'idempotency_key_and_request_hash',
+    identifierAllocation: 'server_only',
+    verifiedWriteContract: 'verifyAndCommit atomically consumes the OTP challenge, updates invitation state, and appends metadata audit',
+    prohibited: [
+      'in_memory_production_fallback',
+      'client_asserted_case_role_purpose_or_principal',
+      'split_otp_and_invitation_commit',
+      'raw_token_code_email_or_session_secret_receipt',
+    ],
+  },
   entitlement: {
     producer: ENTITLEMENT_PRODUCER_STATUS,
     minimumData: ['studentId', 'active', 'tier', 'lorEnabled', 'revoked'],
@@ -86,6 +100,7 @@ export class FacultyInvitationRepositoryPort extends RequiredPort {
   async create() { return this.notImplemented('create'); }
   async getById() { return this.notImplemented('getById'); }
   async save() { return this.notImplemented('save'); }
+  async verifyAndCommit() { return this.notImplemented('verifyAndCommit'); }
 }
 
 export class EntitlementPort extends RequiredPort {

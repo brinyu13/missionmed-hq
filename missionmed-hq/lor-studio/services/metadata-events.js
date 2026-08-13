@@ -13,6 +13,8 @@ const ALLOWED_EVENT_TYPES = new Set([
   'builder.autosaved',
   'builder.step_completed',
   'consent.recorded',
+  'faculty.verification_denied',
+  'faculty.verified',
   'waiver.recorded',
 ]);
 const ALLOWED_ACTOR_ROLES = new Set([
