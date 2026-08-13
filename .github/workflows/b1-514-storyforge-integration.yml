@@ -21,7 +21,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
-      TARGET_SHA: 7462a101859d3942d44c16da2358b633543f6c6b
+      TARGET_SHA: d51df6366a15421f55527cbe0d8164dff5702053
+      LIVE_PRODUCT_SHA: 7462a101859d3942d44c16da2358b633543f6c6b
       STORYFORGE_PG_BIN: /usr/lib/postgresql/18/bin
 
     steps:
@@ -37,6 +38,7 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$TARGET_SHA"
           test -z "$(git status --short)"
+          test -z "$(git diff --name-only "$LIVE_PRODUCT_SHA".."$TARGET_SHA" -- storyforge-v5 | grep -v '^storyforge-v5/tests/integration/storyforge-sso.spec.mjs$')"
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
