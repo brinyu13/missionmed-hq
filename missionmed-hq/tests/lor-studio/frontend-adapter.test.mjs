@@ -8,6 +8,7 @@ import { JSDOM } from 'jsdom';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const adapterSource = await readFile(path.resolve(testDirectory, '..', '..', 'public', 'lor-studio', 'production-adapter.js'), 'utf8');
+const materializedHtml = await readFile(path.resolve(testDirectory, '..', '..', 'public', 'lor-studio', 'index.html'), 'utf8');
 const shell = `<!doctype html><html data-lor-runtime="gated"><body>
   <section id="lorRuntimeGate" role="status" aria-live="polite" aria-busy="true">
     <h1 id="lorRuntimeGateTitle">Checking secure access</h1>
@@ -18,10 +19,14 @@ const shell = `<!doctype html><html data-lor-runtime="gated"><body>
   <button id="dialogTrigger" type="button">Open privacy notice</button>
   <div id="modal" role="dialog"><button id="dialogClose" type="button">Understood</button></div>
   <main id="prototype">Synthetic prototype</main>
+  <script id="lorFrozenPrototypeRuntime" type="application/x-lor-frozen-prototype">
+    window.__FROZEN_TEST_EXECUTIONS__ = (window.__FROZEN_TEST_EXECUTIONS__ || 0) + 1;
+    window.localStorage.setItem('lor-frozen-test-write', 'fixture-only');
+  </script>
 </body></html>`;
 
 async function runAdapter({ url = 'https://hq.example.test/lor-studio/', response = null } = {}) {
-  const dom = new JSDOM(shell, { runScripts: 'outside-only', url });
+  const dom = new JSDOM(shell, { runScripts: 'dangerously', url });
   dom.window.fetch = async () => response || {
     ok: false,
     status: 503,
@@ -32,6 +37,17 @@ async function runAdapter({ url = 'https://hq.example.test/lor-studio/', respons
   return dom;
 }
 
+test('materialized production document keeps the entire frozen prototype runtime inert before the governed adapter runs', () => {
+  const dom = new JSDOM(materializedHtml, {
+    runScripts: 'dangerously',
+    url: 'https://hq.example.test/lor-studio/',
+  });
+  assert.equal(dom.window.localStorage.getItem('lorstudio-f2-1002'), null);
+  assert.equal(dom.window.__LOR_FROZEN_PROTOTYPE_READY__, undefined);
+  assert.equal(dom.window.document.getElementById('main').childElementCount, 0);
+  assert.equal(dom.window.document.getElementById('lorFrozenPrototypeRuntime').type, 'application/x-lor-frozen-prototype');
+});
+
 test('production adapter keeps the prototype gated when durable runtime is unavailable', async () => {
   const dom = await runAdapter();
   const { document } = dom.window;
@@ -41,6 +57,8 @@ test('production adapter keeps the prototype gated when durable runtime is unava
   assert.equal(document.getElementById('lorRuntimeGateTitle').textContent, 'LOR Studio is not ready yet');
   assert.match(document.getElementById('lorRuntimeGateCode').textContent, /lor_application_unavailable/u);
   assert.equal(dom.window.__LOR_STUDIO_RUNTIME__, undefined);
+  assert.equal(dom.window.__FROZEN_TEST_EXECUTIONS__, undefined);
+  assert.equal(dom.window.localStorage.getItem('lor-frozen-test-write'), null);
 });
 
 test('authentication response offers the same-origin MissionMed login handoff', async () => {
@@ -93,6 +111,8 @@ test('local fidelity mode is visibly labeled synthetic and never marked operatio
   assert.match(badge.textContent, /Synthetic fidelity fixture/u);
   assert.equal(dom.window.__LOR_STUDIO_RUNTIME__.operational, false);
   assert.equal(dom.window.__LOR_STUDIO_RUNTIME__.mode, 'synthetic_fixture');
+  assert.equal(dom.window.__FROZEN_TEST_EXECUTIONS__, 1);
+  assert.equal(dom.window.localStorage.getItem('lor-frozen-test-write'), 'fixture-only');
 });
 
 test('localhost does not bypass the gate unless fidelity mode is explicit', async () => {

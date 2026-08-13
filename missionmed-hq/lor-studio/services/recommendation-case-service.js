@@ -6,7 +6,14 @@ import {
   completeBuilderStep,
   createRecommendationCase,
 } from '../domain/recommendation-case.js';
-import { hashValue, sha256 } from '../domain/value-utils.js';
+import {
+  assertNonEmptyString,
+  assertPlainObject,
+  hashValue,
+  makeId,
+  sha256,
+  toIso,
+} from '../domain/value-utils.js';
 import {
   authorizeCaseAction,
   evaluateStudentEntitlement,
@@ -36,6 +43,7 @@ import { assertPort } from './ports.js';
  *   studentId: string,
  *   actorId?: string,
  *   now?: Date | string | number,
+ *   builderSessionId?: string,
  *   idFactory?: () => string,
  * }} RecommendationCaseInput
  */
@@ -73,12 +81,18 @@ export class RecommendationCaseService {
     eventSink,
     clock = () => new Date(),
     requireCanary = false,
+    caseIdFactory = () => makeId('case'),
+    protectedIdFactory,
   }) {
     if (repository?.isDurable === true) {
       if (repository.atomicStateAndEvent !== true) {
         throw new TypeError('Durable repositories must declare atomicStateAndEvent=true');
       }
-      this.repository = assertPort(repository, ['getById', 'commitWithEvent'], 'repository');
+      this.repository = assertPort(
+        repository,
+        ['reserveCaseCreation', 'getById', 'commitWithEvent'],
+        'repository',
+      );
       if (eventSink !== undefined && eventSink !== null) {
         throw new TypeError('Durable repositories commit their metadata event atomically; no separate eventSink is allowed');
       }
@@ -88,7 +102,11 @@ export class RecommendationCaseService {
       repository?.isDurable === false &&
       repository?.durability === 'NON_DURABLE_TEST_ONLY'
     ) {
-      this.repository = assertPort(repository, ['create', 'getById', 'save'], 'repository');
+      this.repository = assertPort(
+        repository,
+        ['reserveCaseCreation', 'create', 'getById', 'save'],
+        'repository',
+      );
       this.eventSink = assertPort(eventSink, ['emit'], 'eventSink');
       this.persistenceMode = 'NON_DURABLE_TEST_ONLY_SEPARATE_EVENT';
     } else {
@@ -101,6 +119,12 @@ export class RecommendationCaseService {
     );
     this.clock = clock;
     this.requireCanary = requireCanary;
+    if (typeof caseIdFactory !== 'function') throw new TypeError('caseIdFactory must be a server-side function');
+    if (protectedIdFactory !== undefined && typeof protectedIdFactory !== 'function') {
+      throw new TypeError('protectedIdFactory must be a server-side function');
+    }
+    this.caseIdFactory = /** @type {(request: {actorId: string, idempotencyKey: string}) => string} */ (caseIdFactory);
+    this.protectedIdFactory = protectedIdFactory;
   }
 
   async #entitlement(studentId) {
@@ -158,20 +182,52 @@ export class RecommendationCaseService {
     return stored;
   }
 
-  async createCase({ caseId, actor, idempotencyKey }) {
+  async createCase(input = {}) {
+    const request = assertPlainObject(input, 'case create input');
+    const unexpectedKeys = Object.keys(request).filter((key) => !['actor', 'idempotencyKey'].includes(key));
+    if (unexpectedKeys.length > 0) {
+      throw new ValidationError('Recommendation case and protected identifiers are server-generated');
+    }
+    const { actor, idempotencyKey } = request;
     assertStudentActor(actor);
+    if (typeof idempotencyKey !== 'string' || idempotencyKey.trim() === '') {
+      throw new ValidationError('Every write requires an idempotency key');
+    }
     const entitlement = await this.#entitlement(actor.id);
     const decision = evaluateStudentEntitlement(entitlement, {
       studentId: actor.id,
       requireCanary: this.requireCanary,
     });
     if (!decision.allowed) throw new AuthorizationDeniedError(decision.reasonCode);
+    const creationRequestHash = hashValue({ operation: 'case.create', actorId: actor.id, payload: {} });
+    const proposedCaseId = this.caseIdFactory({ actorId: actor.id, idempotencyKey });
+    assertNonEmptyString(proposedCaseId, 'caseId', { maxLength: 200 });
+    const proposedBuilderSessionId = makeId('builder', this.protectedIdFactory);
+    const proposedCreatedAt = toIso(this.clock(), 'case createdAt');
+    const reservation = await this.repository.reserveCaseCreation({
+      actorId: actor.id,
+      idempotencyKey,
+      requestHash: creationRequestHash,
+      proposedIdentifiers: {
+        caseId: proposedCaseId,
+        builderSessionId: proposedBuilderSessionId,
+        createdAt: proposedCreatedAt,
+      },
+    });
+    const caseId = assertNonEmptyString(reservation?.caseId, 'reserved caseId', { maxLength: 200 });
+    const builderSessionId = assertNonEmptyString(
+      reservation?.builderSessionId,
+      'reserved builderSessionId',
+      { maxLength: 200 },
+    );
+    const createdAt = toIso(reservation?.createdAt, 'reserved createdAt');
     const metadata = requestMetadata('case.create', caseId, actor.id, idempotencyKey, {});
     const caseRecord = buildRecommendationCase({
       id: caseId,
       studentId: actor.id,
       actorId: actor.id,
-      now: this.clock(),
+      now: createdAt,
+      builderSessionId,
     });
     return this.#commitWrite({
       operation: 'create',

@@ -23,12 +23,15 @@ function harness() {
   const repository = new InMemoryRecommendationCaseRepository();
   const entitlementPort = new StaticEntitlementTestAdapter([eligible('student-1'), eligible('student-2')]);
   const eventSink = new MetadataOnlyEventBuffer();
+  let caseSequence = 0;
   const service = new RecommendationCaseService({
     repository,
     entitlementPort,
     eventSink,
     requireCanary: true,
     clock: () => new Date('2026-08-09T16:00:00.000Z'),
+    caseIdFactory: () => `case-${++caseSequence}`,
+    protectedIdFactory: () => 'builder-server-generated',
   });
   const adapter = createLorApplicationAdapter({
     caseService: service,
@@ -87,7 +90,7 @@ test('student case creation, autosave, completion, and resume work end to end wi
   const { adapter, eventSink } = harness();
   const created = await call(adapter, '/api/lor-studio/cases', {
     method: 'POST',
-    body: { caseId: 'case-1' },
+    body: {},
     key: 'create-case-1',
   });
   assert.equal(created.status, 201);
@@ -127,7 +130,7 @@ test('stale writes, idempotency conflicts, IDOR attempts, and unknown fields are
   const { adapter } = harness();
   await call(adapter, '/api/lor-studio/cases', {
     method: 'POST',
-    body: { caseId: 'case-1' },
+    body: {},
     key: 'create-case-1',
   });
   await call(adapter, '/api/lor-studio/cases/case-1/builder', {
@@ -145,12 +148,13 @@ test('stale writes, idempotency conflicts, IDOR attempts, and unknown fields are
   assert.equal(stale.body.error, 'stale_revision');
   assert.doesNotMatch(JSON.stringify(stale), /case-1|student-1/u);
 
-  const idempotencyConflict = await call(adapter, '/api/lor-studio/cases', {
+  const clientSelectedCase = await call(adapter, '/api/lor-studio/cases', {
     method: 'POST',
     body: { caseId: 'different-case' },
     key: 'create-case-1',
   });
-  assert.equal(idempotencyConflict.status, 201, 'idempotency keys are resource-scoped, so another case may reuse a key');
+  assert.equal(clientSelectedCase.status, 400);
+  assert.equal(clientSelectedCase.body.error, 'validation_failed');
 
   const denied = await call(adapter, '/api/lor-studio/cases/case-1', {
     actor: { id: 'student-2', role: 'student' },
@@ -182,16 +186,17 @@ test('same-resource idempotent retry replays and conflicting payload fails witho
   const { adapter } = harness();
   const first = await call(adapter, '/api/lor-studio/cases', {
     method: 'POST',
-    body: { caseId: 'case-1' },
+    body: {},
     key: 'safe-retry-key',
   });
   const replay = await call(adapter, '/api/lor-studio/cases', {
     method: 'POST',
-    body: { caseId: 'case-1' },
+    body: {},
     key: 'safe-retry-key',
   });
   assert.equal(first.status, 201);
   assert.equal(replay.status, 201);
+  assert.equal(replay.body.case.caseId, first.body.case.caseId);
   assert.equal(replay.body.case.revision, 0);
 
   const conflict = await call(adapter, '/api/lor-studio/cases/case-1/builder', {

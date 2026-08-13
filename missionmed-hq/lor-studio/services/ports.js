@@ -9,6 +9,7 @@ export const PORT_CONTRACTS = deepFreeze({
     durabilityRequiredForProduction: true,
     concurrency: 'optimistic_revision',
     retries: 'idempotency_key_and_request_hash',
+    identifierAllocation: 'server_only_durable_atomic_creation_reservation',
     durableWriteContract: 'commitWithEvent atomically persists state and its metadata event',
     nonDurableTestContract: 'explicit NON_DURABLE_TEST_ONLY repository plus separate test event sink',
     prohibited: [
@@ -74,6 +75,7 @@ class RequiredPort {
 }
 
 export class RecommendationCaseRepositoryPort extends RequiredPort {
+  async reserveCaseCreation() { return this.notImplemented('reserveCaseCreation'); }
   async create() { return this.notImplemented('create'); }
   async getById() { return this.notImplemented('getById'); }
   async save() { return this.notImplemented('save'); }

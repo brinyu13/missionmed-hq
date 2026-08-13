@@ -14,7 +14,7 @@ const SAFE_ERROR_MESSAGES = Object.freeze({
 
 /**
  * @typedef {object} RecommendationCaseServiceContract
- * @property {(input: { caseId: unknown, actor: unknown, idempotencyKey: string }) => Promise<unknown>} createCase
+ * @property {(input: { actor: unknown, idempotencyKey: string }) => Promise<{id: string}>} createCase
  * @property {(input: { caseId: unknown, actor: unknown }) => Promise<unknown>} getCaseProjection
  * @property {(input: { caseId: unknown, actor: unknown }) => Promise<unknown>} resumeBuilder
  * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, stepId: unknown, stepData: unknown }) => Promise<unknown>} autosaveBuilder
@@ -191,13 +191,12 @@ export function createLorApplicationAdapter({
       const method = String(request.method || 'GET').toUpperCase();
       if (url.pathname === '/api/lor-studio/cases' && method === 'POST') {
         const payload = await readJsonBody(request);
-        assertExactKeys(payload, ['caseId']);
-        await caseService.createCase({
-          caseId: payload.caseId,
+        assertExactKeys(payload, []);
+        const created = await caseService.createCase({
           actor,
           idempotencyKey: idempotencyKey(request),
         });
-        const projection = await caseService.getCaseProjection({ caseId: payload.caseId, actor });
+        const projection = await caseService.getCaseProjection({ caseId: created.id, actor });
         return { status: 201, body: { case: projection } };
       }
 

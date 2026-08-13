@@ -14,15 +14,19 @@ import {
   deepFreeze,
   hashValue,
   sha256,
+  toIso,
 } from '../domain/value-utils.js';
 import { RecommendationCaseRepositoryPort } from '../services/ports.js';
 import { validateMetadataServiceEvent } from '../services/metadata-events.js';
 
 const RANKLISTIQ_PROJECT_REF = 'fglyvdykwgbuivikqoah';
+const LOR_STAGING_BRANCH_ID = 'mftguikkftmrxjxrkdln';
 const LOR_SCHEMA = 'lor_studio';
 const LOR_STAGING_BRANCH = 'lor-staging';
+const RANKLISTIQ_MAIN_BRANCH = 'main';
 const SERVER_SCOPE_SCHEMA = 'missionmed.lor.server-query-scope.v1';
 const DRIVER_AUTHORIZATION_SCHEMA = 'missionmed.lor.driver-authorization-binding.v1';
+const CREATION_RESERVATION_RECEIPT_SCHEMA = 'missionmed.lor.case-creation-reservation-receipt.v1';
 const ATOMIC_COMMIT_RECEIPT_SCHEMA = 'missionmed.lor.atomic-commit-receipt.v1';
 const ACTOR_ROLES = new Set(['student', 'faculty', 'mentor', 'admin', 'founder', 'support', 'service']);
 const HUMAN_ROLES = new Set(['student', 'faculty', 'mentor', 'admin', 'founder', 'support']);
@@ -33,6 +37,7 @@ const HUMAN_ROLES = new Set(['student', 'faculty', 'mentor', 'admin', 'founder',
  * @property {boolean} [rlsEnforced]
  * @property {boolean} [serverOnly]
  * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} selectCase
+ * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} reserveCaseCreation
  * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} executeAtomicCaseCommand
  */
 
@@ -50,6 +55,14 @@ const HUMAN_ROLES = new Set(['student', 'faculty', 'mentor', 'admin', 'founder',
  * @property {((request: ServerScopeRequest) => Promise<Record<string, unknown> | null | undefined>) | null} [scopeProvider]
  */
 
+/**
+ * @typedef {object} CaseCreationReservationRequest
+ * @property {unknown} [actorId]
+ * @property {unknown} [idempotencyKey]
+ * @property {unknown} [requestHash]
+ * @property {{caseId?: unknown, builderSessionId?: unknown, createdAt?: unknown} | null} [proposedIdentifiers]
+ */
+
 function assertSha256(value, fieldName) {
   if (!/^[a-f0-9]{64}$/u.test(value ?? '')) {
     throw new ValidationError(`${fieldName} must be a SHA-256 digest`, { fieldName });
@@ -62,17 +75,31 @@ function assertBinding(binding) {
     || binding.providerResourceBound !== true
     || binding.independentlyVerified !== true
     || binding.health !== 'ready'
-    || binding.projectRef !== RANKLISTIQ_PROJECT_REF
-    || binding.branchName !== LOR_STAGING_BRANCH
-    || typeof binding.branchId !== 'string'
-    || binding.branchId.trim() === ''
+    || binding.environmentBound !== true
     || binding.schema !== LOR_SCHEMA
-    || binding.dataCopied !== false
   ) {
     throw new IntegrationDisabledError('lor_supabase_repository', 'RESOURCE_BINDING_REQUIRED');
   }
+
+  const staging = binding.environment === 'staging'
+    && binding.projectRef === LOR_STAGING_BRANCH_ID
+    && binding.parentProjectRef === RANKLISTIQ_PROJECT_REF
+    && binding.branchName === LOR_STAGING_BRANCH
+    && binding.branchId === LOR_STAGING_BRANCH_ID
+    && binding.dataCopied === false;
+  const production = binding.environment === 'production'
+    && binding.projectRef === RANKLISTIQ_PROJECT_REF
+    && binding.branchName === RANKLISTIQ_MAIN_BRANCH
+    && binding.branchId === RANKLISTIQ_PROJECT_REF
+    && binding.productionDataBindingPassed === true;
+  if (!staging && !production) {
+    throw new IntegrationDisabledError('lor_supabase_repository', 'ENVIRONMENT_TARGET_BINDING_REQUIRED');
+  }
+
   return deepFreeze({
+    environment: binding.environment,
     projectRef: binding.projectRef,
+    parentProjectRef: staging ? binding.parentProjectRef : null,
     branchName: binding.branchName,
     branchId: binding.branchId,
     schema: binding.schema,
@@ -86,6 +113,7 @@ function assertDriver(driver) {
     || driver.rlsEnforced !== true
     || driver.serverOnly !== true
     || typeof driver.selectCase !== 'function'
+    || typeof driver.reserveCaseCreation !== 'function'
     || typeof driver.executeAtomicCaseCommand !== 'function'
   ) {
     throw new IntegrationDisabledError('lor_supabase_repository', 'ATOMIC_RLS_DRIVER_REQUIRED');
@@ -189,6 +217,17 @@ function assertRecordScopeBinding(record, scope) {
   }
 }
 
+function assertCreationScopeBinding(scope, actorId) {
+  if (
+    scope.actorRole !== 'student'
+    || scope.actorId !== actorId
+    || scope.resourceStudentId !== actorId
+    || scope.authenticatedSubject !== actorId
+  ) {
+    throw new AuthorizationDeniedError('CASE_CREATION_SUBJECT_SCOPE_MISMATCH');
+  }
+}
+
 function assertDriverAuthorizationBinding(binding, scope) {
   if (
     !binding
@@ -240,6 +279,44 @@ function assertAtomicCommitBinding(result, command) {
   ) {
     throw new IntegrationDisabledError('lor_supabase_repository', 'ATOMIC_COMMIT_BINDING_INVALID');
   }
+}
+
+function assertCreationReservationReceipt(result, command) {
+  assertDriverAuthorizationBinding(result?.authorizationBinding, command.scope);
+  assertNonEmptyString(result?.caseId, 'creation reservation caseId', { maxLength: 200 });
+  assertNonEmptyString(
+    result?.builderSessionId,
+    'creation reservation builderSessionId',
+    { maxLength: 200 },
+  );
+  const createdAt = toIso(result?.createdAt, 'creation reservation createdAt');
+  if (
+    result.schemaVersion !== CREATION_RESERVATION_RECEIPT_SCHEMA
+    || result.reserved !== true
+    || result.durable !== true
+    || result.sameTransaction !== true
+    || typeof result.transactionId !== 'string'
+    || result.transactionId.trim() === ''
+    || typeof result.replayed !== 'boolean'
+    || result.creationRef !== command.creationRef
+    || result.actorRef !== command.actorRef
+    || result.idempotencyKey !== command.idempotencyKey
+    || result.requestHash !== command.requestHash
+    || result.caseId === result.builderSessionId
+    || (result.replayed === false && (
+      result.caseId !== command.proposedIdentifiers.caseId
+      || result.builderSessionId !== command.proposedIdentifiers.builderSessionId
+      || createdAt !== command.proposedIdentifiers.createdAt
+    ))
+  ) {
+    throw new IntegrationDisabledError('lor_supabase_repository', 'CREATION_RESERVATION_UNPROVEN');
+  }
+  return deepFreeze({
+    caseId: result.caseId,
+    builderSessionId: result.builderSessionId,
+    createdAt,
+    replayed: result.replayed,
+  });
 }
 
 function assertAtomicCommand(command) {
@@ -298,7 +375,8 @@ export class SupabaseDurableRecommendationCaseRepository extends RecommendationC
   describePersistence() {
     return deepFreeze({
       durability: this.durability,
-      productionEligible: true,
+      environment: this.binding.environment,
+      productionEligible: this.binding.environment === 'production',
       atomicStateAndEvent: true,
       rlsBound: true,
       projectRef: this.binding.projectRef,
@@ -309,6 +387,9 @@ export class SupabaseDurableRecommendationCaseRepository extends RecommendationC
   }
 
   assertProductionReady() {
+    if (this.binding.environment !== 'production') {
+      throw new IntegrationDisabledError('lor_supabase_repository', 'PRODUCTION_DATA_BINDING_REQUIRED');
+    }
     return this.describePersistence();
   }
 
@@ -318,6 +399,58 @@ export class SupabaseDurableRecommendationCaseRepository extends RecommendationC
 
   async save() {
     throw new DomainInvariantError('Durable case writes require commitWithEvent');
+  }
+
+  /** @param {CaseCreationReservationRequest} [request] */
+  async reserveCaseCreation(request = {}) {
+    const { actorId, idempotencyKey, requestHash, proposedIdentifiers } = request;
+    const normalizedActorId = assertNonEmptyString(actorId, 'actorId', { maxLength: 200 });
+    const normalizedIdempotencyKey = assertNonEmptyString(
+      idempotencyKey,
+      'idempotencyKey',
+      { maxLength: 200 },
+    );
+    assertSha256(requestHash, 'requestHash');
+    assertNonEmptyString(proposedIdentifiers?.caseId, 'proposedIdentifiers.caseId', { maxLength: 200 });
+    assertNonEmptyString(
+      proposedIdentifiers?.builderSessionId,
+      'proposedIdentifiers.builderSessionId',
+      { maxLength: 200 },
+    );
+    const proposedCreatedAt = toIso(proposedIdentifiers?.createdAt, 'proposedIdentifiers.createdAt');
+    if (proposedIdentifiers.caseId === proposedIdentifiers.builderSessionId) {
+      throw new ValidationError('Case and protected builder identifiers must be distinct');
+    }
+    const creationRef = `case_creation_${hashValue({
+      schemaVersion: 'missionmed.lor.case-creation-key.v1',
+      actorId: normalizedActorId,
+      idempotencyKey: normalizedIdempotencyKey,
+    })}`;
+    const scope = assertScope(
+      await this.scopeProvider({
+        caseId: creationRef,
+        operation: 'create',
+        resourceStudentId: normalizedActorId,
+      }),
+      { caseId: creationRef, operation: 'create' },
+    );
+    assertCreationScopeBinding(scope, normalizedActorId);
+    const command = {
+      binding: this.binding,
+      scope,
+      operation: 'reserve_create',
+      creationRef,
+      actorRef: `actor_${sha256(`lor-studio:actor:${normalizedActorId}`)}`,
+      idempotencyKey: normalizedIdempotencyKey,
+      requestHash,
+      proposedIdentifiers: {
+        caseId: proposedIdentifiers.caseId,
+        builderSessionId: proposedIdentifiers.builderSessionId,
+        createdAt: proposedCreatedAt,
+      },
+    };
+    const result = await this.driver.reserveCaseCreation(structuredClone(command));
+    return assertCreationReservationReceipt(result, command);
   }
 
   async getById(caseId) {
@@ -386,11 +519,29 @@ export class SupabaseDurableRecommendationCaseRepository extends RecommendationC
 }
 
 export const SUPABASE_LOR_REPOSITORY_CONTRACT = deepFreeze({
-  projectRef: RANKLISTIQ_PROJECT_REF,
-  branchName: LOR_STAGING_BRANCH,
+  rankListIqProjectRef: RANKLISTIQ_PROJECT_REF,
+  targets: {
+    staging: {
+      environment: 'staging',
+      projectRef: LOR_STAGING_BRANCH_ID,
+      parentProjectRef: RANKLISTIQ_PROJECT_REF,
+      branchName: LOR_STAGING_BRANCH,
+      branchId: LOR_STAGING_BRANCH_ID,
+      dataCopied: false,
+    },
+    production: {
+      environment: 'production',
+      projectRef: RANKLISTIQ_PROJECT_REF,
+      branchName: RANKLISTIQ_MAIN_BRANCH,
+      branchId: RANKLISTIQ_PROJECT_REF,
+      productionDataBindingPassed: true,
+    },
+  },
   schema: LOR_SCHEMA,
   serverScopeSchema: SERVER_SCOPE_SCHEMA,
   driverAuthorizationSchema: DRIVER_AUTHORIZATION_SCHEMA,
+  creationReservationReceiptSchema: CREATION_RESERVATION_RECEIPT_SCHEMA,
+  identifierAllocation: 'durable_atomic_server_only_creation_reservation',
   atomicCommitReceiptSchema: ATOMIC_COMMIT_RECEIPT_SCHEMA,
   writeAtomicity: 'case_state_and_metadata_audit_same_transaction',
   commitBinding: 'canonical_record_event_request_idempotency_operation_case_revision_and_audit',

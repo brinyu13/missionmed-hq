@@ -185,7 +185,7 @@ export class DependencyAwareMetadataHealthAdapter {
     this.flags = Object.freeze({
       enabled: flags.enabled === true,
       killSwitch: flags.killSwitch !== false,
-      requireCanary: flags.requireCanary === true,
+      requireCanary: typeof flags.requireCanary === 'boolean' ? flags.requireCanary : null,
     });
     this.metadataOnly = true;
     this.clock = clock;
@@ -210,9 +210,9 @@ export class DependencyAwareMetadataHealthAdapter {
     } else if (this.flags.killSwitch) {
       status = 'paused';
       reason = 'kill_switch_active';
-    } else if (!this.flags.requireCanary) {
+    } else if (this.flags.requireCanary === null) {
       status = 'blocked';
-      reason = 'canary_requirement_not_enforced';
+      reason = 'canary_configuration_invalid';
     } else if (Object.values(dependencies).some((item) => item.state !== 'ready')) {
       status = 'blocked';
       reason = 'dependency_not_ready';
@@ -355,7 +355,7 @@ export class BackupRestoreCheckAdapter {
 export const OPERATIONAL_READINESS_CONTRACT = deepFreeze({
   dependencies: [...DEPENDENCY_NAMES],
   healthContent: 'dependency_state_and_error_code_only',
-  productionCanaryConfiguration: 'requireCanary_must_be_explicitly_true',
+  productionCanaryConfiguration: 'requireCanary_must_be_an_explicit_boolean',
   logContent: 'allowlisted_metadata_and_hashed_references_only',
   restoreChecks: [...REHEARSAL_CHECKS],
 });

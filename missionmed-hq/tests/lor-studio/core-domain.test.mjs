@@ -84,6 +84,10 @@ class DurableAtomicRepositoryTestDouble {
     return this.inner.getById(caseId);
   }
 
+  async reserveCaseCreation(request) {
+    return this.inner.reserveCaseCreation(request);
+  }
+
   async commitWithEvent(transaction) {
     validateMetadataServiceEvent(transaction.event);
     const metadata = {
@@ -269,6 +273,38 @@ test('in-memory repository is truthful, optimistic, append-only, and idempotent'
   );
 });
 
+test('non-durable creation reservations fail closed at a fixed memory bound and replay without growth', async () => {
+  const repository = new InMemoryRecommendationCaseRepository({ creationReservationCapacity: 2 });
+  const reserve = (actorId, idempotencyKey, suffix, requestHash = sha256(`request-${actorId}`)) => (
+    repository.reserveCaseCreation({
+      actorId,
+      idempotencyKey,
+      requestHash,
+      proposedIdentifiers: {
+        caseId: `case-${suffix}`,
+        builderSessionId: `builder-${suffix}`,
+        createdAt: T0,
+      },
+    })
+  );
+  const first = await reserve('student-1', 'create-1', 'first');
+  const replay = await reserve('student-1', 'create-1', 'attacker-proposal');
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.caseId, first.caseId);
+  assert.equal(replay.builderSessionId, first.builderSessionId);
+  assert.equal(repository.describePersistence().creationReservationCount, 1);
+  await assert.rejects(
+    reserve('student-1', 'create-1', 'conflict', sha256('conflicting-request')),
+    IdempotencyConflictError,
+  );
+  await reserve('student-2', 'create-2', 'second');
+  await assert.rejects(
+    reserve('student-3', 'create-3', 'capacity-attack'),
+    /capacity is exhausted/u,
+  );
+  assert.equal(repository.describePersistence().creationReservationCount, 2);
+});
+
 test('case service resolves entitlement server-side, resumes autosave, rejects IDOR, and emits metadata only', async () => {
   const repository = new InMemoryRecommendationCaseRepository();
   const entitlements = new StaticEntitlementTestAdapter([eligible('student-1')]);
@@ -279,13 +315,25 @@ test('case service resolves entitlement server-side, resumes autosave, rejects I
     entitlementPort: entitlements,
     eventSink: events,
     clock: () => new Date(clockMs += 1_000),
+    caseIdFactory: () => 'case-service',
+    protectedIdFactory: () => 'builder-service',
   });
   const actor = { id: 'student-1', role: 'student' };
   const created = await service.createCase({
-    caseId: 'case-service',
     actor,
     idempotencyKey: 'service-create',
   });
+  for (const clientIdentifier of [
+    { caseId: 'client-selected-case' },
+    { id: 'client-selected-id' },
+    { builderSessionId: 'client-selected-builder' },
+    { protectedId: 'client-selected-protected-id' },
+  ]) {
+    await assert.rejects(
+      service.createCase({ ...clientIdentifier, actor, idempotencyKey: 'client-id-attack' }),
+      ValidationError,
+    );
+  }
   const saved = await service.autosaveBuilder({
     caseId: created.id,
     actor,
@@ -366,11 +414,12 @@ test('durable case writes require and use one atomic state-plus-event repository
     repository,
     entitlementPort: entitlements,
     clock: () => new Date(clockMs += 1_000),
+    caseIdFactory: () => 'case-durable-atomic',
+    protectedIdFactory: () => 'builder-durable-atomic',
   });
   assert.equal(service.persistenceMode, 'DURABLE_ATOMIC_STATE_AND_EVENT');
   const actor = { id: 'student-1', role: 'student' };
   const created = await service.createCase({
-    caseId: 'case-durable-atomic',
     actor,
     idempotencyKey: 'durable-create',
   });
@@ -396,6 +445,9 @@ test('durable case writes require and use one atomic state-plus-event repository
     isDurable: true,
     atomicStateAndEvent: true,
     commitCalls: 0,
+    async reserveCaseCreation({ proposedIdentifiers }) {
+      return { ...proposedIdentifiers, replayed: false };
+    },
     async getById() { throw new Error('not stored'); },
     async commitWithEvent() {
       this.commitCalls += 1;
@@ -406,10 +458,10 @@ test('durable case writes require and use one atomic state-plus-event repository
     repository: failingRepository,
     entitlementPort: entitlements,
     clock: () => T0,
+    caseIdFactory: () => 'case-atomic-failure',
   });
   await assert.rejects(
     failingService.createCase({
-      caseId: 'case-atomic-failure',
       actor,
       idempotencyKey: 'atomic-failure',
     }),

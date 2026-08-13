@@ -28,6 +28,7 @@ import {
 import { SupabaseDurableRecommendationCaseRepository } from '../../lor-studio/repositories/supabase-durable-recommendation-case-repository.mjs';
 import { hashFacultyEmail } from '../../lor-studio/security/faculty-invitations.js';
 import { createMetadataServiceEvent } from '../../lor-studio/services/metadata-events.js';
+import { RecommendationCaseService } from '../../lor-studio/services/recommendation-case-service.js';
 
 const T0 = new Date('2026-08-09T12:00:00.000Z');
 
@@ -35,11 +36,27 @@ const SUPABASE_BINDING = Object.freeze({
   providerResourceBound: true,
   independentlyVerified: true,
   health: 'ready',
-  projectRef: 'fglyvdykwgbuivikqoah',
+  environment: 'staging',
+  environmentBound: true,
+  projectRef: 'mftguikkftmrxjxrkdln',
+  parentProjectRef: 'fglyvdykwgbuivikqoah',
   branchName: 'lor-staging',
-  branchId: 'branch-test-only',
+  branchId: 'mftguikkftmrxjxrkdln',
   schema: 'lor_studio',
   dataCopied: false,
+});
+
+const SUPABASE_PRODUCTION_BINDING = Object.freeze({
+  providerResourceBound: true,
+  independentlyVerified: true,
+  health: 'ready',
+  environment: 'production',
+  environmentBound: true,
+  projectRef: 'fglyvdykwgbuivikqoah',
+  branchName: 'main',
+  branchId: 'fglyvdykwgbuivikqoah',
+  schema: 'lor_studio',
+  productionDataBindingPassed: true,
 });
 
 function serverScope(overrides = {}) {
@@ -198,6 +215,26 @@ function atomicCommitReceipt(command, overrides = {}) {
   };
 }
 
+function creationReservationReceipt(command, overrides = {}) {
+  return {
+    schemaVersion: 'missionmed.lor.case-creation-reservation-receipt.v1',
+    reserved: true,
+    durable: true,
+    sameTransaction: true,
+    transactionId: 'creation-reservation-transaction-test-only',
+    replayed: false,
+    creationRef: command.creationRef,
+    actorRef: command.actorRef,
+    idempotencyKey: command.idempotencyKey,
+    requestHash: command.requestHash,
+    caseId: command.proposedIdentifiers.caseId,
+    builderSessionId: command.proposedIdentifiers.builderSessionId,
+    createdAt: command.proposedIdentifiers.createdAt,
+    authorizationBinding: driverAuthorizationBinding(command.scope),
+    ...overrides,
+  };
+}
+
 function durableDriver(overrides = {}) {
   const record = caseRecord();
   return {
@@ -211,11 +248,81 @@ function durableDriver(overrides = {}) {
         record,
       };
     },
+    async reserveCaseCreation(command) {
+      return creationReservationReceipt(command);
+    },
     async executeAtomicCaseCommand(command) {
       return atomicCommitReceipt(command);
     },
     ...overrides,
   };
+}
+
+function persistentDurableCreationDriver() {
+  const reservations = new Map();
+  const records = new Map();
+  const commits = new Map();
+  let reservationCalls = 0;
+  return durableDriver({
+    async reserveCaseCreation(command) {
+      reservationCalls += 1;
+      const prior = reservations.get(command.creationRef);
+      if (prior) {
+        return creationReservationReceipt(command, {
+          ...prior,
+          replayed: true,
+          authorizationBinding: driverAuthorizationBinding(command.scope),
+        });
+      }
+      const reserved = {
+        caseId: command.proposedIdentifiers.caseId,
+        builderSessionId: command.proposedIdentifiers.builderSessionId,
+        createdAt: command.proposedIdentifiers.createdAt,
+        transactionId: `creation-reservation-${reservations.size + 1}`,
+      };
+      reservations.set(command.creationRef, reserved);
+      return creationReservationReceipt(command, reserved);
+    },
+    async selectCase(command) {
+      const record = records.get(command.caseId);
+      return record
+        ? {
+          found: true,
+          authorizationBinding: driverAuthorizationBinding(command.scope),
+          record,
+        }
+        : { found: false };
+    },
+    async executeAtomicCaseCommand(command) {
+      const commitKey = `${command.operation}:${command.record.id}:${command.idempotencyKey}`;
+      const prior = commits.get(commitKey);
+      if (prior) {
+        return atomicCommitReceipt(command, {
+          transactionId: prior.transactionId,
+          record: prior.record,
+          recordHash: hashValue(prior.record),
+          eventHash: hashValue(prior.event),
+          auditEventRef: prior.event.eventRef,
+        });
+      }
+      const stored = {
+        transactionId: `case-transaction-${commits.size + 1}`,
+        record: structuredClone(command.record),
+        event: structuredClone(command.event),
+      };
+      commits.set(commitKey, stored);
+      records.set(command.record.id, stored.record);
+      return atomicCommitReceipt(command, { transactionId: stored.transactionId });
+    },
+    stats() {
+      return {
+        reservationCalls,
+        reservationRows: reservations.size,
+        recordRows: records.size,
+        commitRows: commits.size,
+      };
+    },
+  });
 }
 
 function driverAuthorizationBinding(scope, overrides = {}) {
@@ -339,8 +446,197 @@ test('durable repository constructors fail closed until exact binding, atomicity
   assert.throws(
     () => new SupabaseDurableRecommendationCaseRepository({
       binding: SUPABASE_BINDING,
+      driver: durableDriver({ reserveCaseCreation: undefined }),
+      scopeProvider: ({ operation }) => serverScope({ operation }),
+    }),
+    /integration is unavailable/u,
+  );
+  assert.throws(
+    () => new SupabaseDurableRecommendationCaseRepository({
+      binding: SUPABASE_BINDING,
       driver: durableDriver(),
     }),
+    /integration is unavailable/u,
+  );
+});
+
+test('durable repository accepts only the exact environment-bound staging child or independently bound RankListIQ production main', () => {
+  for (const binding of [
+    { ...SUPABASE_BINDING, environmentBound: false },
+    { ...SUPABASE_BINDING, parentProjectRef: 'different-parent' },
+    { ...SUPABASE_BINDING, projectRef: 'fglyvdykwgbuivikqoah' },
+    { ...SUPABASE_BINDING, branchId: 'different-child' },
+    { ...SUPABASE_BINDING, branchName: 'arbitrary-preview' },
+    { ...SUPABASE_PRODUCTION_BINDING, productionDataBindingPassed: false },
+    { ...SUPABASE_PRODUCTION_BINDING, branchName: 'lor-staging' },
+  ]) {
+    assert.throws(
+      () => new SupabaseDurableRecommendationCaseRepository({
+        binding,
+        driver: durableDriver(),
+        scopeProvider: ({ operation }) => serverScope({ operation }),
+      }),
+      /integration is unavailable/u,
+    );
+  }
+
+  const staging = new SupabaseDurableRecommendationCaseRepository({
+    binding: SUPABASE_BINDING,
+    driver: durableDriver(),
+    scopeProvider: ({ operation }) => serverScope({ operation }),
+  });
+  assert.equal(staging.describePersistence().environment, 'staging');
+  assert.equal(staging.describePersistence().productionEligible, false);
+  assert.throws(() => staging.assertProductionReady(), /integration is unavailable/u);
+
+  const production = new SupabaseDurableRecommendationCaseRepository({
+    binding: SUPABASE_PRODUCTION_BINDING,
+    driver: durableDriver(),
+    scopeProvider: ({ operation }) => serverScope({ operation }),
+  });
+  assert.equal(production.assertProductionReady().environment, 'production');
+  assert.equal(production.assertProductionReady().productionEligible, true);
+});
+
+test('durable server-only creation reservation survives service restart and cross-instance retries without process-local growth', async () => {
+  const driver = persistentDurableCreationDriver();
+  const repository = () => new SupabaseDurableRecommendationCaseRepository({
+    binding: SUPABASE_BINDING,
+    driver,
+    scopeProvider: ({ caseId, operation, resourceStudentId = 'wp:42' }) => serverScope({
+      caseId,
+      operation,
+      authUid: 'auth-uid-student-42',
+      authenticatedSubject: resourceStudentId,
+      actorId: resourceStudentId,
+      resourceStudentId,
+    }),
+  });
+  const entitlementPort = {
+    async getStudentEntitlement({ studentId }) {
+      return {
+        studentId,
+        active: true,
+        tier: 'tier3_360',
+        lorEnabled: true,
+        revoked: false,
+        canaryEnabled: true,
+        canaryConsented: true,
+        producerStatus: 'VERIFIED_TEST_FIXTURE',
+      };
+    },
+  };
+  let firstCaseSequence = 0;
+  let firstProtectedSequence = 0;
+  let firstClock = T0.valueOf();
+  const firstInstance = new RecommendationCaseService({
+    repository: repository(),
+    entitlementPort,
+    clock: () => new Date(firstClock += 1_000),
+    caseIdFactory: () => `case_first_${++firstCaseSequence}`,
+    protectedIdFactory: () => `first_${++firstProtectedSequence}`,
+  });
+  let secondCaseSequence = 0;
+  let secondProtectedSequence = 0;
+  let secondClock = T0.valueOf() + 86_400_000;
+  const restartedInstance = new RecommendationCaseService({
+    repository: repository(),
+    entitlementPort,
+    clock: () => new Date(secondClock += 1_000),
+    caseIdFactory: () => `case_restarted_${++secondCaseSequence}`,
+    protectedIdFactory: () => `restarted_${++secondProtectedSequence}`,
+  });
+  const request = {
+    actor: { id: 'wp:42', role: 'student' },
+    idempotencyKey: 'restart-stable-create',
+  };
+  const created = await firstInstance.createCase(request);
+  const afterRestart = await restartedInstance.createCase(request);
+  assert.equal(afterRestart.id, created.id);
+  assert.equal(afterRestart.builder.sessionId, created.builder.sessionId);
+  assert.equal(afterRestart.createdAt, created.createdAt);
+  for (let attempt = 0; attempt < 250; attempt += 1) {
+    const replay = await (attempt % 2 === 0 ? firstInstance : restartedInstance).createCase(request);
+    assert.equal(replay.id, created.id);
+  }
+  assert.deepEqual(driver.stats(), {
+    reservationCalls: 252,
+    reservationRows: 1,
+    recordRows: 1,
+    commitRows: 1,
+  });
+  for (const service of [firstInstance, restartedInstance]) {
+    assert.equal(
+      Reflect.ownKeys(service).some((key) => Reflect.get(service, key) instanceof Map),
+      false,
+      'service instances must not retain idempotency maps',
+    );
+  }
+});
+
+test('durable creation reservation rejects non-atomic, cross-subject, or unbound identifier receipts', async () => {
+  const request = {
+    actorId: 'wp:42',
+    idempotencyKey: 'create-receipt-binding',
+    requestHash: sha256('logical-create-request'),
+    proposedIdentifiers: {
+      caseId: 'case_server_proposed',
+      builderSessionId: 'builder_server_proposed',
+      createdAt: T0,
+    },
+  };
+  const receiptOverrides = [
+    { schemaVersion: 'missionmed.lor.case-creation-reservation-receipt.invalid' },
+    { durable: false },
+    { sameTransaction: false },
+    { transactionId: '' },
+    { replayed: 'yes' },
+    { creationRef: 'case_creation_unbound' },
+    { actorRef: `actor_${sha256('different-actor')}` },
+    { idempotencyKey: 'different-idempotency-key' },
+    { requestHash: sha256('different-logical-request') },
+    { caseId: 'same-identifier', builderSessionId: 'same-identifier' },
+    { caseId: 'case_not_the_nonreplay_proposal' },
+    { builderSessionId: 'builder_not_the_nonreplay_proposal' },
+    { createdAt: '2026-08-09T12:01:00.000Z' },
+  ];
+  for (const receiptOverride of receiptOverrides) {
+    const repository = new SupabaseDurableRecommendationCaseRepository({
+      binding: SUPABASE_BINDING,
+      driver: durableDriver({
+        async reserveCaseCreation(command) {
+          return creationReservationReceipt(command, receiptOverride);
+        },
+      }),
+      scopeProvider: ({ caseId, operation, resourceStudentId = 'wp:42' }) => serverScope({
+        caseId,
+        operation,
+        authenticatedSubject: resourceStudentId,
+        actorId: resourceStudentId,
+        resourceStudentId,
+      }),
+    });
+    await assert.rejects(() => repository.reserveCaseCreation(request), /integration is unavailable/u);
+  }
+  const crossSubjectRepository = new SupabaseDurableRecommendationCaseRepository({
+    binding: SUPABASE_BINDING,
+    driver: durableDriver({
+      async reserveCaseCreation(command) {
+        return creationReservationReceipt(command, {
+          authorizationBinding: driverAuthorizationBinding(command.scope, { actorId: 'wp:99' }),
+        });
+      },
+    }),
+    scopeProvider: ({ caseId, operation, resourceStudentId = 'wp:42' }) => serverScope({
+      caseId,
+      operation,
+      authenticatedSubject: resourceStudentId,
+      actorId: resourceStudentId,
+      resourceStudentId,
+    }),
+  });
+  await assert.rejects(
+    () => crossSubjectRepository.reserveCaseCreation(request),
     /integration is unavailable/u,
   );
 });
@@ -374,6 +670,8 @@ test('durable repository binds reads and atomic state-plus-audit writes to the v
   assert.equal(calls[0].command.scope.caseId, 'case-1');
   assert.equal(calls[1].command.event.schemaVersion, 'missionmed.lor.service-event.v1');
   assert.equal(calls[1].command.binding.schema, 'lor_studio');
+  assert.equal(calls[1].command.binding.projectRef, 'mftguikkftmrxjxrkdln');
+  assert.equal(calls[1].command.binding.parentProjectRef, 'fglyvdykwgbuivikqoah');
 });
 
 test('durable repository denies cross-case scope and any receipt that cannot prove one atomic transaction', async () => {
@@ -1529,15 +1827,26 @@ test('health is dependency-aware and metadata-only, with feature-off and kill-sw
   assert.equal((await featureOff.snapshot()).status, 'closed');
 });
 
-test('health is never production-operational unless requireCanary is explicitly true', async () => {
-  const flagVariants = [
-    { enabled: true, killSwitch: false, requireCanary: false },
+test('health accepts both explicit canary modes and denies missing or nonboolean requireCanary state', async () => {
+  for (const requireCanary of [true, false]) {
+    const health = new DependencyAwareMetadataHealthAdapter({
+      dependencies: healthDependencies(),
+      flags: { enabled: true, killSwitch: false, requireCanary },
+      clock: () => T0,
+    });
+    const snapshot = await health.snapshot();
+    assert.equal(snapshot.status, 'ready');
+    assert.equal(snapshot.reason, 'all_dependencies_ready');
+    assert.equal(snapshot.productionOperational, true);
+  }
+
+  const invalidFlagVariants = [
     { enabled: true, killSwitch: false },
     { enabled: true, killSwitch: false, requireCanary: 'true' },
     { enabled: true, killSwitch: false, requireCanary: 1 },
     { enabled: true, killSwitch: false, requireCanary: null },
   ];
-  for (const flags of flagVariants) {
+  for (const flags of invalidFlagVariants) {
     const health = new DependencyAwareMetadataHealthAdapter({
       dependencies: healthDependencies(),
       flags,
@@ -1545,7 +1854,7 @@ test('health is never production-operational unless requireCanary is explicitly 
     });
     const snapshot = await health.snapshot();
     assert.equal(snapshot.status, 'blocked');
-    assert.equal(snapshot.reason, 'canary_requirement_not_enforced');
+    assert.equal(snapshot.reason, 'canary_configuration_invalid');
     assert.equal(snapshot.productionOperational, false);
   }
 });

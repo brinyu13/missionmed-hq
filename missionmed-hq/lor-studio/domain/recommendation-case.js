@@ -107,12 +107,18 @@ export function createRecommendationCase({
   studentId,
   actorId = studentId,
   now = new Date(),
+  builderSessionId,
   idFactory,
 }) {
   assertNonEmptyString(id, 'id', { maxLength: 200 });
   assertNonEmptyString(studentId, 'studentId', { maxLength: 200 });
   assertNonEmptyString(actorId, 'actorId', { maxLength: 200 });
   const timestamp = toIso(now, 'now');
+  const resolvedBuilderSessionId = builderSessionId ?? makeId('builder', idFactory);
+  assertNonEmptyString(resolvedBuilderSessionId, 'builderSessionId', { maxLength: 200 });
+  if (resolvedBuilderSessionId === id) {
+    throw new ValidationError('Case and protected builder identifiers must be distinct');
+  }
   const initial = {
     schemaVersion: 'missionmed.lor.recommendation-case.v1',
     id,
@@ -123,7 +129,7 @@ export function createRecommendationCase({
     updatedAt: timestamp,
     closedAt: null,
     builder: {
-      sessionId: makeId('builder', idFactory),
+      sessionId: resolvedBuilderSessionId,
       totalSteps: BUILDER_STEPS.length,
       completedStepIds: [],
       currentStepId: BUILDER_STEPS[0],
@@ -180,6 +186,10 @@ export function assertRecommendationCase(record) {
   }
   if (!record.builder || record.builder.totalSteps !== 8) {
     throw new DomainInvariantError('Every builder session must have exactly eight steps');
+  }
+  assertNonEmptyString(record.builder.sessionId, 'builder.sessionId', { maxLength: 200 });
+  if (record.builder.sessionId === record.id) {
+    throw new DomainInvariantError('Case and protected builder identifiers must be distinct');
   }
   const completed = record.builder.completedStepIds;
   if (!Array.isArray(completed) || completed.some((step, index) => step !== BUILDER_STEPS[index])) {

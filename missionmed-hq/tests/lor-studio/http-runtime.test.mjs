@@ -275,13 +275,18 @@ test('frozen public snapshot contains the adapter gate and source digest declara
   const html = await readFile(path.join(publicDirectory, 'index.html'), 'utf8');
   assert.equal(manifest.sourceSha256, '8560559341895f2973c51bdf7d7ba28ba7a9890d70c6bc6eb5976fc67371e037');
   assert.equal(createHash('sha256').update(html).digest('hex'), manifest.outputSha256);
-  assert.equal(manifest.adapterVersion, 5);
-  assert.deepEqual(manifest.securityTransforms, ['toast_text_only']);
+  assert.equal(manifest.adapterVersion, 6);
+  assert.deepEqual(manifest.securityTransforms, [
+    'toast_text_only',
+    'prototype_script_execution_quarantine',
+  ]);
   assert.match(html, new RegExp(manifest.sourceSha256, 'u'));
   assert.match(html, /data-lor-runtime="gated"/u);
   assert.match(html, /id="lorRuntimeGate"/u);
   assert.match(html, /production-adapter\.js/u);
   assert.match(html, /t\.textContent=String\(m\?\?''\)/u);
   assert.doesNotMatch(html, /t\.innerHTML=m/u);
-  assert.match(html, /<\/script>\s*<script src="\/lor-studio\/production-adapter\.js\?v=5"><\/script>\s*<\/body>\s*<\/html>\s*$/u);
+  assert.match(html, /<script id="lorFrozenPrototypeRuntime" type="application\/x-lor-frozen-prototype">/u);
+  assert.doesNotMatch(html, /<script>\s*'use strict';\s*\/\* =+ LOR STUDIO F2-LOR-1002/u);
+  assert.match(html, /<\/script>\s*<script src="\/lor-studio\/production-adapter\.js\?v=6"><\/script>\s*<\/body>\s*<\/html>\s*$/u);
 });

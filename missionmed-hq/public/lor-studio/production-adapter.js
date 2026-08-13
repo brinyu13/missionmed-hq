@@ -73,6 +73,22 @@
     });
   }
 
+  function activateFrozenFixtureRuntime() {
+    const frozenRuntime = document.getElementById('lorFrozenPrototypeRuntime');
+    if (!frozenRuntime) return false;
+    if (
+      !(frozenRuntime instanceof HTMLScriptElement)
+      || frozenRuntime.type !== 'application/x-lor-frozen-prototype'
+    ) {
+      return false;
+    }
+    const executable = document.createElement('script');
+    executable.dataset.lorFixtureRuntime = 'active';
+    executable.textContent = `${frozenRuntime.textContent || ''}\n;window.__LOR_FROZEN_PROTOTYPE_READY__=true;`;
+    frozenRuntime.replaceWith(executable);
+    return Reflect.get(window, '__LOR_FROZEN_PROTOTYPE_READY__') === true;
+  }
+
   function blockUnhydratedLiveRuntime() {
     Object.assign(window, {
       __LOR_STUDIO_RUNTIME__: Object.freeze({
@@ -232,11 +248,20 @@
     if (wasOpen) labelDialog();
   }
 
-  installDialogAccessibility();
   setUnderlyingState(true);
   if (isLocalFixture) {
-    revealFixture();
+    if (activateFrozenFixtureRuntime()) {
+      installDialogAccessibility();
+      revealFixture();
+    } else {
+      showState({
+        heading: 'The fidelity fixture could not start',
+        detail: 'The frozen local-only presentation remained blocked and no application data was loaded.',
+        reason: 'fidelity_runtime_invalid',
+      });
+    }
   } else {
+    installDialogAccessibility();
     checkRuntime();
   }
 })();

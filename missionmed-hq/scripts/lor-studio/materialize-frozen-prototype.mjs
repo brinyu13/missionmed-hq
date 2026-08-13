@@ -4,10 +4,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const CANONICAL_PROTOTYPE_SHA256 = '8560559341895f2973c51bdf7d7ba28ba7a9890d70c6bc6eb5976fc67371e037';
-export const PRODUCTION_ADAPTER_VERSION = 5;
+export const PRODUCTION_ADAPTER_VERSION = 6;
 
 const UNSAFE_TOAST_IMPLEMENTATION = "function toast(m,ms){const t=$('#toast');t.innerHTML=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),ms||3200)}";
 const SAFE_TOAST_IMPLEMENTATION = "function toast(m,ms){const t=$('#toast');t.textContent=String(m??'');t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),ms||3200)}";
+const FROZEN_SCRIPT_MARKER = '<script id="lorFrozenPrototypeRuntime" type="application/x-lor-frozen-prototype">';
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const runtimeDirectory = path.resolve(scriptDirectory, '..', '..');
@@ -55,6 +56,10 @@ export function materializeFrozenPrototype(sourceHtml) {
     throw new Error('Expected frozen toast implementation was not found; security transform cannot be proven.');
   }
   generated = generated.replace(UNSAFE_TOAST_IMPLEMENTATION, SAFE_TOAST_IMPLEMENTATION);
+  if ((generated.match(/<script>/gu) || []).length !== 1) {
+    throw new Error('Expected exactly one frozen prototype script before execution quarantine.');
+  }
+  generated = generated.replace('<script>', FROZEN_SCRIPT_MARKER);
   generated = generated.replace(/<html\b([^>]*)>/u, '<html$1 data-lor-runtime="gated">');
   generated = generated.replace('</head>', `${headMarker}</head>`);
   generated = generated.replace(/<body([^>]*)>/u, `<body$1>${bodyMarker}`);
@@ -83,7 +88,7 @@ export async function materialize({
     outputSha256: digest(generated),
     outputBytes: Buffer.byteLength(generated),
     adapterVersion: PRODUCTION_ADAPTER_VERSION,
-    securityTransforms: ['toast_text_only'],
+    securityTransforms: ['toast_text_only', 'prototype_script_execution_quarantine'],
   };
   await writeFile(manifestPath, `${JSON.stringify(result, null, 2)}\n`);
   return { sourcePath, outputPath, manifestPath, ...result };

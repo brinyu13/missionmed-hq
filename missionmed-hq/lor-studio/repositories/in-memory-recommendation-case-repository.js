@@ -10,8 +10,11 @@ import {
   assertNonEmptyString,
   canonicalize,
   cloneFrozen,
+  toIso,
 } from '../domain/value-utils.js';
 import { RecommendationCaseRepositoryPort } from '../services/ports.js';
+
+const DEFAULT_CREATION_RESERVATION_CAPACITY = 1_024;
 
 function assertRequestMetadata({ idempotencyKey, requestHash }) {
   assertNonEmptyString(idempotencyKey, 'idempotencyKey', { maxLength: 200 });
@@ -21,22 +24,30 @@ function assertRequestMetadata({ idempotencyKey, requestHash }) {
 }
 
 export class InMemoryRecommendationCaseRepository extends RecommendationCaseRepositoryPort {
-  constructor() {
+  constructor({ creationReservationCapacity = DEFAULT_CREATION_RESERVATION_CAPACITY } = {}) {
     super();
+    if (!Number.isSafeInteger(creationReservationCapacity) || creationReservationCapacity < 1) {
+      throw new TypeError('creationReservationCapacity must be a positive safe integer');
+    }
     this.durability = 'NON_DURABLE_TEST_ONLY';
     this.isDurable = false;
     this.atomicStateAndEvent = false;
+    this.creationReservationCapacity = creationReservationCapacity;
     this.#records = new Map();
     this.#idempotency = new Map();
+    this.#creationReservations = new Map();
   }
 
   #records;
   #idempotency;
+  #creationReservations;
 
   describePersistence() {
     return Object.freeze({
       durability: this.durability,
       productionEligible: false,
+      creationReservationCapacity: this.creationReservationCapacity,
+      creationReservationCount: this.#creationReservations.size,
       warning: 'Process-local records are lost on restart and must never back real users.',
     });
   }
@@ -61,6 +72,42 @@ export class InMemoryRecommendationCaseRepository extends RecommendationCaseRepo
       requestHash,
       result: cloneFrozen(result),
     });
+  }
+
+  async reserveCaseCreation({
+    actorId,
+    idempotencyKey,
+    requestHash,
+    proposedIdentifiers,
+  }) {
+    assertNonEmptyString(actorId, 'actorId', { maxLength: 200 });
+    assertRequestMetadata({ idempotencyKey, requestHash });
+    assertNonEmptyString(proposedIdentifiers?.caseId, 'proposedIdentifiers.caseId', { maxLength: 200 });
+    assertNonEmptyString(
+      proposedIdentifiers?.builderSessionId,
+      'proposedIdentifiers.builderSessionId',
+      { maxLength: 200 },
+    );
+    const createdAt = toIso(proposedIdentifiers?.createdAt, 'proposedIdentifiers.createdAt');
+    const namespace = canonicalize([actorId, idempotencyKey]);
+    const prior = this.#creationReservations.get(namespace);
+    if (prior) {
+      if (prior.requestHash !== requestHash) throw new IdempotencyConflictError({ idempotencyKey });
+      return cloneFrozen({ ...prior.identifiers, replayed: true });
+    }
+    if (this.#creationReservations.size >= this.creationReservationCapacity) {
+      throw new DomainInvariantError('Non-durable case-creation reservation capacity is exhausted');
+    }
+    const identifiers = {
+      caseId: proposedIdentifiers.caseId,
+      builderSessionId: proposedIdentifiers.builderSessionId,
+      createdAt,
+    };
+    this.#creationReservations.set(namespace, {
+      requestHash,
+      identifiers: cloneFrozen(identifiers),
+    });
+    return cloneFrozen({ ...identifiers, replayed: false });
   }
 
   async create(record, metadata) {
