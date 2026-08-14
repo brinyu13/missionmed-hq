@@ -97,6 +97,17 @@ test.afterAll(async () => {
 test('[B1-515-FAST-VOICE-01] mentor feedback is idle until explicit Start and uses the wide canonical workspace', async ({ page }) => {
   await installDeterministicMedia(page, { emitChunk: true });
   await page.addInitScript(() => {
+    window.__mentorMultipartTypes = [];
+    for (const method of ['set', 'append']) {
+      const original = FormData.prototype[method];
+      FormData.prototype[method] = function captureMentorMime(name, value, ...rest) {
+        if (name === 'mimeType') window.__mentorMultipartTypes.push(String(value));
+        if (name === 'segment') window.__mentorMultipartTypes.push(String(value?.type || ''));
+        return original.call(this, name, value, ...rest);
+      };
+    }
+  });
+  await page.addInitScript(() => {
     const original = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
     let calls = 0;
     navigator.mediaDevices.getUserMedia = async (...args) => { calls += 1; return original(...args); };
@@ -129,6 +140,9 @@ test('[B1-515-FAST-VOICE-01] mentor feedback is idle until explicit Start and us
   await page.locator('#mentorNoteText').fill(`${pausedText} Edited after recording.`);
   await page.getByRole('button', { name: 'Publish transcript + audio' }).click();
   await expect(page.getByText('Transcript + original voice')).toBeVisible();
+  const mentorMultipartTypes = await page.evaluate(() => window.__mentorMultipartTypes);
+  expect(mentorMultipartTypes.length).toBeGreaterThanOrEqual(4);
+  expect(new Set(mentorMultipartTypes)).toEqual(new Set(['audio/webm']));
 });
 
 test('[B1-515-FAST-VOICE-02] student entry points and purposeful versions never auto-start', async ({ page }) => {

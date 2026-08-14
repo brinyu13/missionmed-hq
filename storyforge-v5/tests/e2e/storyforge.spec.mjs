@@ -821,6 +821,7 @@ test('student and mentor complete the V5 browser loop with truthful gates', asyn
 
   await page.getByRole('button', { name: 'Change fixture identity' }).click();
   await page.getByRole('button', { name: 'Mentor · Dr. Chen' }).click();
+  await expect(page.locator('[data-view="mhome"]')).toBeVisible();
   await page.locator('[data-nav="queue"]').first().click();
   await expect(page.locator('[data-view="mqueue"]')).toBeVisible();
   const firstReview = page.locator('[data-story-row]').filter({ hasText: 'A hard conversation' });
@@ -835,6 +836,7 @@ test('student and mentor complete the V5 browser loop with truthful gates', asyn
 
   await page.getByRole('button', { name: 'Change fixture identity' }).click();
   await page.getByRole('button', { name: 'Student · Maya' }).click();
+  await expect(page.locator('.homeHero')).toBeVisible();
   await page.getByRole('button', { name: /Notifications/ }).first().click();
   const revisionNotice = page.locator('[data-open-notification]').filter({ hasText: 'Changes requested' });
   await expect(revisionNotice).toBeVisible();
@@ -848,6 +850,7 @@ test('student and mentor complete the V5 browser loop with truthful gates', asyn
 
   await page.getByRole('button', { name: 'Change fixture identity' }).click();
   await page.getByRole('button', { name: 'Second mentor · Dr. Rivera' }).click();
+  await expect(page.locator('[data-view="mhome"]')).toBeVisible();
   await page.locator('[data-nav="queue"]').first().click();
   await expect(page.locator('[data-view="mqueue"]')).toBeVisible();
   await page.getByRole('button', { name: /Revised — needs re-review/ }).click();

@@ -53,6 +53,8 @@ test('B1-514 ports the accepted R3 Home, consent, and mentor-audio surfaces', ()
   ]) {
     assert.match(app, new RegExp(marker.replaceAll('+', '\\+')));
   }
+  assert.match(app, /uploadMimeType: String\(mimeType\)\.split\(';', 1\)\[0\]\.trim\(\)\.toLowerCase\(\)/);
+  assert.match(app, /purposefulVersionSaveQueue\.then\(performSave, performSave\)/);
 });
 
 test('B1-514 adds first-class theme and energetic environment controls', () => {

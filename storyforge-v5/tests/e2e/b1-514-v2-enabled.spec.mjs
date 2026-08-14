@@ -260,10 +260,20 @@ test(`[B1-514-E2E-02] ${ACCEPTANCE['B1-514-E2E-02']}`, async ({ page }) => {
   await openStoryFromLibrary(page, historicalStory.title);
   await page.getByRole('tab', { name: '30-Second Version' }).click();
   await page.locator('#storyVersionText').fill(VERSION_ONE);
+  const firstVersionSave = page.waitForResponse((response) => (
+    response.request().method() === 'PATCH'
+    && /\/api\/stories\/[a-f0-9-]+\/versions\/thirty_second$/i.test(new URL(response.url()).pathname)
+  ));
   await page.getByRole('button', { name: 'Save this version' }).click();
+  expect((await firstVersionSave).status()).toBe(200);
   await expect(page.locator('#storyVersionText')).toHaveValue(VERSION_ONE);
   await page.locator('#storyVersionText').fill(VERSION_TWO);
+  const secondVersionSave = page.waitForResponse((response) => (
+    response.request().method() === 'PATCH'
+    && /\/api\/stories\/[a-f0-9-]+\/versions\/thirty_second$/i.test(new URL(response.url()).pathname)
+  ));
   await page.getByRole('button', { name: 'Save this version' }).click();
+  expect((await secondVersionSave).status()).toBe(200);
   await expect(page.getByText('Earlier tellings (1)')).toBeVisible();
   await page.getByText('Earlier tellings (1)').click();
   await expect(page.getByText(VERSION_ONE, { exact: true })).toBeVisible();

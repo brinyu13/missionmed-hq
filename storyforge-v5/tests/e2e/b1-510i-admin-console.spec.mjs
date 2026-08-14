@@ -114,11 +114,15 @@ test('Founder-only administrator console is additive, bounded, and review-capabl
   await expect(page.locator('#adminStoryReviewForm')).toBeVisible();
   await expect(page.locator('[data-view="admin-story"]')).not.toContainText(/original audio|play original audio/i);
   await page.locator('[data-admin-review-status="reviewed"]').click();
+  await expect(page.getByText('Review status updated to Reviewed.', { exact: true })).toBeVisible();
   await page.locator('[data-admin-review-score="5"]').click();
+  await expect(page.getByText('Administrator score saved: 5/5.', { exact: true })).toBeVisible();
   await page.locator('#mentorNoteText').fill('Strong example with a clear turning point.');
   await page.getByRole('button', { name: 'Save draft' }).click();
+  await expect(page.getByText('Mentor note draft saved. It is not visible to the student.', { exact: true })).toBeVisible();
   await page.locator('#adminInternalNote').fill('Founder-only local acceptance note.');
   await page.locator('#adminStoryReviewForm').getByRole('button', { name: 'Save review' }).click();
+  await expect(page.getByText('Administrator review saved and audited.', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Publish transcript + audio' }).click();
   await expect(page.getByText('Strong example with a clear turning point.')).toBeVisible();
   await expect(page.getByText('Founder-only local acceptance note.')).toBeVisible();
