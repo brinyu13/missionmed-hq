@@ -210,21 +210,36 @@
       <section class="view room-view" data-view-panel="room" aria-labelledby="room-title">
         <div class="room-topline"><span class="mobile-room-brand">MissionMed<span>//</span> IV Prep On-Call</span><div><p class="eyebrow">LIVE PRACTICE · INTERNAL MEDICINE</p><h1 id="room-title">Your interview</h1></div><div class="room-clock"><span id="room-time">00:00</span><small>of 15:00</small></div></div>
         <div class="room-stage">
+          <div class="student-stage" aria-label="Student primary video surface">
+            <video id="founder-student-video" autoplay muted playsinline></video>
+            <div class="student-stage-placeholder" aria-hidden="true"><span>YOU</span><small>Student primary</small></div>
+          </div>
           <div class="interviewer-stage">
-            <div class="interviewer-orbit" aria-hidden="true"><span>PD</span><i></i><i></i><i></i></div>
-            <div class="speaker-label"><strong>Dr. Marcus Hale</strong><span>Program Director</span></div>
+            <video id="founder-avatar-video" autoplay muted playsinline aria-label="Dr Kelly interviewer video"></video>
+            <audio id="founder-avatar-audio" autoplay></audio>
+            <div class="interviewer-orbit" aria-hidden="true"><span>DK</span><i></i><i></i><i></i></div>
+            <div class="speaker-label"><strong>Dr Kelly</strong><span>Program Director · interviewer inset</span></div>
             <div class="room-status" id="room-status" aria-live="polite">Ready when you are.</div>
-            <div class="student-preview" aria-label="Your camera preview"><div>PS</div><span>You</span></div>
           </div>
           <div class="room-prompt" id="room-prompt">“Tell me about yourself, and what brought you to internal medicine.”</div>
         </div>
         <div class="room-controls" aria-label="Interview controls">
           <button type="button" id="room-mute"><span>♩</span>Mute</button>
           <button type="button" id="room-type"><span>⌨</span>Type instead</button>
+          <button type="button" id="room-swap" aria-pressed="false"><span>⇄</span>Swap layout</button>
           <button class="primary-control" type="button" id="room-start"><span>●</span>Start interview</button>
           <button type="button" id="room-interrupt"><span>↯</span>Interrupt</button>
           <button class="danger-control" type="button" id="room-end"><span>■</span>End</button>
         </div>
+        <section class="founder-proof-panel" id="founder-proof-panel" aria-labelledby="founder-proof-title" hidden>
+          <div><p class="eyebrow gold">FOUNDER TEST #1 · ONE SHOT</p><h2 id="founder-proof-title">Self-managed physical proof</h2><p>Authorization alone creates no provider session. Start remains a separate explicit action.</p></div>
+          <dl><div><dt>Agent</dt><dd id="founder-proof-agent">—</dd></div><div><dt>Pipeline</dt><dd>gpt-realtime-2.1 native speech → LiveKit → LemonSlice</dd></div><div><dt>Limit</dt><dd id="founder-proof-duration">45s hard maximum</dd></div><div><dt>State</dt><dd id="founder-proof-state">NOT AUTHORIZED</dd></div></dl>
+          <label><span>Session-pinned Realtime voice</span><select id="founder-proof-voice" aria-describedby="founder-proof-voice-note"></select></label>
+          <p id="founder-proof-voice-note" class="truth-note">Cedar is prohibited. The selected voice is bound into the one-shot authorization and cannot change mid-session.</p>
+          <button class="btn btn-primary" type="button" id="founder-authorize-test">AUTHORIZE TEST #1 ONCE</button>
+          <strong id="founder-proof-selected" aria-live="polite">No paid authorization exists.</strong>
+          <div class="proof-milestones" aria-label="Proof milestones"><span>Authorization <b data-proof-milestone="authorization">Waiting</b></span><span>Dispatch <b data-proof-milestone="dispatch">Waiting</b></span><span>Worker <b data-proof-milestone="worker">Waiting</b></span><span>Media <b data-proof-milestone="media">Waiting</b></span></div>
+        </section>
         <div class="typed-room-answer" id="typed-room-answer" role="dialog" aria-modal="true" aria-labelledby="room-answer-title" hidden><div class="room-type-head"><strong id="room-answer-title">Type your answer</strong><button class="room-type-close" id="room-type-close" type="button" aria-label="Close typed answer">×</button></div><label class="sr-only" for="room-answer">Type your answer</label><textarea id="room-answer" rows="3" placeholder="Type your response…"></textarea><button class="btn btn-primary" id="send-room-answer" type="button">SEND ANSWER</button></div>
         <div class="live-rail-link"><div><strong>Want to test the accepted full-duplex interviewer?</strong><span>This prototype preserves the live 3410 rail separately so the working AI system is not redesigned here.</span></div><a class="btn btn-secondary" href="/">OPEN LIVE ALPHA ROOM ↗</a></div>
       </section>

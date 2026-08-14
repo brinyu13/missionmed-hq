@@ -4,7 +4,18 @@ import {
   QUESTIONS,
   QUESTION_CATEGORIES
 } from "./fixtures.mjs";
-import { endInterview, loadIvPrepSession, loadVault, startInterview } from "./api-client.mjs";
+import {
+  authorizeFounderTest,
+  createFounderMediaReadinessGate,
+  createFounderTransportTerminationGate,
+  createNoReconnectPolicy,
+  endInterview,
+  loadInterviewStatus,
+  loadIvPrepSession,
+  loadVault,
+  recordInterviewMediaReady,
+  startInterview,
+} from "./api-client.mjs";
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -31,6 +42,11 @@ const state = {
   lastFocus: null,
   admission: null,
   currentInterview: null,
+  founderTestPermit: null,
+  founderProofRoom: null,
+  founderProofStatusTimer: null,
+  audibleInterviewerTrack: null,
+  roomLayoutSwapped: false,
   vaultSessions: []
 };
 
@@ -439,12 +455,33 @@ function formatTime(seconds) {
 async function startProductionRoom() {
   if (state.roomStarted) return;
   $("#room-start").disabled = true;
-  $("#room-status").textContent = "Opening the secure voice-only interview…";
+  const videoProof = Boolean(state.founderTestPermit);
+  $("#room-status").textContent = videoProof ? "Opening the bounded Founder video proof…" : "Opening the secure voice-only interview…";
   try {
     const idempotencyKey = `room-${Date.now()}-${crypto.randomUUID()}`;
-    const started = await startInterview({ mode: "voice-only", idempotencyKey });
+    const started = await startInterview({
+      mode: videoProof ? "video" : "voice-only",
+      idempotencyKey,
+      authorization: state.founderTestPermit,
+    });
     state.currentInterview = started.interview;
+    if (videoProof) await connectFounderProofMedia(started);
   } catch (error) {
+    const interview = state.currentInterview;
+    if (interview?.id) {
+      try { await endInterview(interview.id); }
+      catch {
+        toast("Startup cleanup is unresolved. New video starts remain disabled.");
+      }
+      state.currentInterview = null;
+    }
+    window.clearInterval(state.founderProofStatusTimer);
+    state.founderProofStatusTimer = null;
+    try { await state.founderProofRoom?.localParticipant?.setMicrophoneEnabled?.(false); }
+    catch { /* the server-side kill path above remains authoritative */ }
+    state.founderProofRoom?.disconnect?.(true);
+    state.founderProofRoom = null;
+    state.audibleInterviewerTrack = null;
     $("#room-start").disabled = false;
     $("#room-status").textContent = error.code === "ivprep_unavailable" ? "Interview starts are temporarily disabled." : "Secure admission could not be confirmed.";
     toast("Interview start failed closed; no provider session was created.");
@@ -454,24 +491,44 @@ async function startProductionRoom() {
   state.roomSeconds = 0;
   document.body.dataset.roomState = "active";
   $("#room-start").innerHTML = "<span>●</span> Interview active";
-  $("#room-status").textContent = "Secure voice-only interview active. Video remains off.";
+  $("#room-status").textContent = videoProof ? "Founder proof is active. Dr Kelly is the sole avatar and audio authority." : "Secure voice-only interview active. Video remains off.";
   state.roomTimer = window.setInterval(() => {
     state.roomSeconds += 1;
     $("#room-time").textContent = formatTime(state.roomSeconds);
   }, 1000);
 }
 
-async function stopProductionRoom({ results = true } = {}) {
+async function stopProductionRoom({
+  results = true,
+  skipServerEnd = false,
+  terminalMessage = "Ready when you are.",
+} = {}) {
   window.clearInterval(state.roomTimer);
   state.roomTimer = null;
   const interview = state.currentInterview;
-  if (interview?.id) {
+  const activeRoom = state.founderProofRoom;
+  if (activeRoom?.localParticipant) {
+    try { await activeRoom.localParticipant.setMicrophoneEnabled(false); }
+    catch {
+      terminalMessage = 'Interview ended locally; microphone shutdown was not confirmed.';
+    }
+  }
+  if (interview?.id && !skipServerEnd) {
     try { await endInterview(interview.id); }
     catch {
       $("#room-status").textContent = "Interview ended locally; server cleanup is unresolved.";
       toast("Cleanup is unresolved. New video starts remain disabled.");
     }
   }
+  window.clearInterval(state.founderProofStatusTimer);
+  state.founderProofStatusTimer = null;
+  state.founderProofRoom?.disconnect?.(true);
+  state.founderProofRoom = null;
+  state.audibleInterviewerTrack = null;
+  state.roomMuted = false;
+  $('#room-mute').classList.remove('active');
+  $('#room-mute').setAttribute('aria-pressed', 'false');
+  $('#room-mute').innerHTML = '<span>♩</span>Mute';
   state.currentInterview = null;
   state.roomStarted = false;
   document.body.dataset.roomState = "ready";
@@ -479,8 +536,254 @@ async function stopProductionRoom({ results = true } = {}) {
   resetEndConfirmation();
   $("#room-start").disabled = false;
   $("#room-start").innerHTML = "<span>●</span> Start interview";
-  $("#room-status").textContent = "Ready when you are.";
+  $("#room-status").textContent = terminalMessage;
   if (results) navigate("results");
+}
+
+async function ensureLiveKitClient() {
+  if (window.LivekitClient?.Room) return window.LivekitClient;
+  await new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-livekit-client]');
+    if (existing) {
+      existing.addEventListener('load', resolve, { once: true });
+      existing.addEventListener('error', reject, { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = '/iv-prep-on-call/assets/vendor/livekit-client.umd.js';
+    script.dataset.livekitClient = 'true';
+    script.addEventListener('load', resolve, { once: true });
+    script.addEventListener('error', reject, { once: true });
+    document.head.append(script);
+  });
+  if (!window.LivekitClient?.Room) throw new Error('LiveKit browser adapter is unavailable.');
+  return window.LivekitClient;
+}
+
+async function waitForFounderProofActive(interviewId, setMilestone, timeoutMs = 12_000) {
+  const deadline = Date.now() + timeoutMs;
+  do {
+    const status = await loadInterviewStatus(interviewId);
+    setMilestone('worker', status.provider?.state || 'Starting');
+    if (status.provider?.state === 'ACTIVE' && status.interview?.state === 'active') return status;
+    if (['CLOSED', 'FAILED_CLOSED'].includes(status.provider?.state)
+      || ['ended', 'failed_closed'].includes(status.interview?.state)) {
+      throw new Error('ivprep_media_readiness_unconfirmed');
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 100));
+  } while (Date.now() < deadline);
+  throw new Error('ivprep_media_readiness_unconfirmed');
+}
+
+function decodedVideoProof(video, timeoutMs = 10_000) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (ok) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      video.removeEventListener('error', onError);
+      if (ok) resolve(true);
+      else reject(new Error('ivprep_media_readiness_unconfirmed'));
+    };
+    const onError = () => finish(false);
+    const timer = window.setTimeout(() => finish(false), timeoutMs);
+    video.addEventListener('error', onError, { once: true });
+    if (typeof video.requestVideoFrameCallback === 'function') {
+      video.requestVideoFrameCallback(() => finish(true));
+    } else {
+      video.addEventListener('playing', () => finish(video.readyState >= 2), { once: true });
+    }
+  });
+}
+
+async function audibleAudioProof(audio, timeoutMs = 10_000) {
+  await audio.play();
+  if (!audio.paused && audio.readyState >= 2) return true;
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error('ivprep_media_readiness_unconfirmed'));
+    }, timeoutMs);
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      audio.removeEventListener('playing', onPlaying);
+      audio.removeEventListener('error', onError);
+    };
+    const onPlaying = () => {
+      if (audio.paused || audio.readyState < 2) return;
+      cleanup();
+      resolve(true);
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error('ivprep_media_readiness_unconfirmed'));
+    };
+    audio.addEventListener('playing', onPlaying);
+    audio.addEventListener('error', onError, { once: true });
+  });
+}
+
+async function connectFounderProofMedia(started) {
+  const connection = started?.connection;
+  if (!connection?.url || !connection?.token || !started?.interview?.id
+    || !/^[A-Za-z0-9._:-]{8,160}$/u.test(String(connection.avatarParticipantIdentity || ''))) {
+    throw new Error('ivprep_media_readiness_unconfirmed');
+  }
+  const avatarParticipantIdentity = connection.avatarParticipantIdentity;
+  const setMilestone = (name, value) => {
+    const node = $(`[data-proof-milestone="${name}"]`);
+    if (node) node.textContent = value;
+  };
+  setMilestone('authorization', 'Bound');
+  setMilestone('dispatch', 'One-shot');
+  if (connection.synthetic === true || connection.url === 'wss://synthetic.invalid') {
+    setMilestone('media', 'Synthetic ready');
+    await recordInterviewMediaReady(started.interview.id, avatarParticipantIdentity);
+    await waitForFounderProofActive(started.interview.id, setMilestone);
+  } else {
+    const livekit = await ensureLiveKitClient();
+    const room = new livekit.Room({
+      adaptiveStream: true,
+      dynacast: false,
+      disconnectOnPageLeave: true,
+      reconnectPolicy: createNoReconnectPolicy(),
+    });
+    state.founderProofRoom = room;
+    let videoReady = false;
+    let audioReady = false;
+    let mediaCommitPromise = null;
+    let failTransport;
+    const transportFailure = new Promise((resolve, reject) => { failTransport = reject; });
+    const transportGate = createFounderTransportTerminationGate({
+      onPreReadyFailure: () => failTransport(new Error('ivprep_media_readiness_unconfirmed')),
+      onPostReadyFailure: () => stopProductionRoom({
+        results: false,
+        terminalMessage: 'Founder proof ended after avatar media transport was lost.',
+      }),
+    });
+    const maybeReady = async () => {
+      if (!videoReady || !audioReady || state.currentInterview?.id !== started.interview.id) return;
+      if (!mediaCommitPromise) {
+        mediaCommitPromise = (async () => {
+          setMilestone('media', 'Decoded + audible');
+          await recordInterviewMediaReady(started.interview.id, avatarParticipantIdentity);
+          await waitForFounderProofActive(started.interview.id, setMilestone);
+          return true;
+        })();
+      }
+      return mediaCommitPromise;
+    };
+    const failClosed = (reason = 'media_transport_failed') => transportGate.fail(reason);
+    const mediaGate = createFounderMediaReadinessGate({
+      avatarParticipantIdentity,
+      onReady: maybeReady,
+      onFail: failClosed,
+    });
+    room.on(livekit.RoomEvent.Reconnecting, failClosed);
+    room.on(livekit.RoomEvent.Disconnected, failClosed);
+    room.on(livekit.RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+      if (participant?.identity === avatarParticipantIdentity) mediaGate.fail('avatar_track_unsubscribed');
+    });
+    room.on(livekit.RoomEvent.AudioPlaybackStatusChanged, () => {
+      if (room.canPlaybackAudio === false) failClosed();
+    });
+    room.on(livekit.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+      if (participant?.identity !== avatarParticipantIdentity) {
+        track.detach();
+        return;
+      }
+      if (track.kind === livekit.Track.Kind.Video && !videoReady) {
+        const video = $('#founder-avatar-video');
+        track.attach(video);
+        $('.interviewer-stage').classList.add('media-live');
+        void decodedVideoProof(video).then(() => {
+          videoReady = true;
+          return mediaGate.observe({ participantIdentity: participant.identity, kind: 'video', ready: true });
+        }, failClosed);
+      } else if (track.kind === livekit.Track.Kind.Audio && !state.audibleInterviewerTrack) {
+        state.audibleInterviewerTrack = track;
+        const audio = $('#founder-avatar-audio');
+        track.attach(audio);
+        void audibleAudioProof(audio).then(() => {
+          audioReady = true;
+          return mediaGate.observe({ participantIdentity: participant.identity, kind: 'audio', ready: true });
+        }, failClosed);
+      } else if (track.kind === livekit.Track.Kind.Audio) {
+        track.detach();
+      }
+    });
+    await room.connect(connection.url, connection.token, { autoSubscribe: true });
+    await room.localParticipant.setMicrophoneEnabled(true);
+    const cameraPublication = await room.localParticipant.setCameraEnabled(true);
+    cameraPublication?.track?.attach?.($('#founder-student-video'));
+    $('.student-stage').classList.add('media-live');
+    await Promise.race([
+      new Promise((resolve, reject) => {
+        const deadline = window.setTimeout(() => reject(new Error('ivprep_media_readiness_unconfirmed')), 12_000);
+        const wait = () => {
+          if (mediaCommitPromise) {
+            mediaCommitPromise.then((value) => {
+              window.clearTimeout(deadline);
+              resolve(value);
+            }, reject);
+            return;
+          }
+          window.setTimeout(wait, 25);
+        };
+        wait();
+      }),
+      transportFailure,
+    ]);
+    if (!transportGate.markReady()) throw new Error('ivprep_media_readiness_unconfirmed');
+  }
+  state.founderProofStatusTimer = window.setInterval(async () => {
+    if (!state.currentInterview?.id) return;
+    try {
+      const status = await loadInterviewStatus(state.currentInterview.id);
+      setMilestone('worker', status.provider?.state || 'Starting');
+      if (status.interview?.state === 'ended') {
+        await stopProductionRoom({
+          results: false,
+          skipServerEnd: true,
+          terminalMessage: 'Founder proof ended and provider cleanup is confirmed.',
+        });
+      } else if (status.interview?.state === 'failed_closed') {
+        await stopProductionRoom({
+          results: false,
+          skipServerEnd: true,
+          terminalMessage: 'Founder proof failed closed. A new start requires fresh authorization.',
+        });
+      }
+    } catch {
+      await stopProductionRoom({ results: false });
+    }
+  }, 500);
+}
+
+async function authorizeFounderProof() {
+  const contract = state.admission?.founderPaidTest;
+  if (!contract?.enabled) return;
+  const button = $('#founder-authorize-test');
+  button.disabled = true;
+  try {
+    const issued = await authorizeFounderTest({
+      agentId: contract.agentId,
+      profile: contract.profile,
+      voice: $('#founder-proof-voice').value,
+      maxSeconds: contract.maximumSeconds,
+      idempotencyKey: `authorize-${crypto.randomUUID()}`,
+    });
+    state.founderTestPermit = issued.authorization;
+    $('#founder-proof-state').textContent = 'AUTHORIZED ONCE';
+    $('#founder-proof-selected').textContent = `${issued.authorization.voice} · ${issued.authorization.maxSeconds}s maximum`;
+    $('#room-start').innerHTML = '<span>●</span> Start Founder video proof';
+    toast('One Founder Test 1 authorization is bound. No provider session exists yet.');
+  } catch (error) {
+    button.disabled = false;
+    $('#founder-proof-state').textContent = 'DENIED';
+    toast(error.code || 'Founder authorization failed closed.');
+  }
 }
 
 function requestEndInterview() {
@@ -732,11 +1035,38 @@ function bindStaticEvents() {
   });
 
   $("#room-start").addEventListener("click", () => { void startProductionRoom(); });
-  $("#room-mute").addEventListener("click", (event) => {
-    state.roomMuted = !state.roomMuted;
-    event.currentTarget.classList.toggle("active", state.roomMuted);
-    event.currentTarget.innerHTML = `<span>♩</span>${state.roomMuted ? "Unmute" : "Mute"}`;
-    $("#room-status").textContent = state.roomMuted ? "Microphone muted in this prototype room." : "Prototype microphone state restored.";
+  $("#founder-authorize-test").addEventListener("click", () => { void authorizeFounderProof(); });
+  $("#room-swap").addEventListener("click", () => {
+    state.roomLayoutSwapped = !state.roomLayoutSwapped;
+    $('.room-stage').classList.toggle('layout-swapped', state.roomLayoutSwapped);
+    $('#room-swap').setAttribute('aria-pressed', String(state.roomLayoutSwapped));
+    $('#room-swap').innerHTML = state.roomLayoutSwapped ? '<span>⇄</span>Student primary' : '<span>⇄</span>Swap layout';
+  });
+  $("#room-mute").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const targetMuted = !state.roomMuted;
+    button.disabled = true;
+    try {
+      const participant = state.founderProofRoom?.localParticipant;
+      if (participant) {
+        await participant.setMicrophoneEnabled(!targetMuted);
+        if (participant.isMicrophoneEnabled !== !targetMuted) {
+          throw new Error('LiveKit microphone state could not be confirmed.');
+        }
+      }
+      state.roomMuted = targetMuted;
+      button.classList.toggle("active", state.roomMuted);
+      button.setAttribute('aria-pressed', String(state.roomMuted));
+      button.innerHTML = `<span>♩</span>${state.roomMuted ? "Unmute" : "Mute"}`;
+      $("#room-status").textContent = state.roomMuted ? "Microphone muted." : "Microphone live.";
+    } catch {
+      await stopProductionRoom({
+        results: false,
+        terminalMessage: 'Microphone control failed closed; provider cleanup was requested.',
+      });
+    } finally {
+      button.disabled = false;
+    }
   });
   $("#room-type").setAttribute("aria-expanded", "false");
   $("#room-type").setAttribute("aria-controls", "typed-room-answer");
@@ -920,6 +1250,7 @@ function bindStaticEvents() {
   window.addEventListener("beforeunload", () => {
     window.clearInterval(state.roomTimer);
     window.clearInterval(state.countdownTimer);
+    window.clearInterval(state.founderProofStatusTimer);
     window.clearTimeout(state.endConfirmTimer);
     if (state.currentInterview?.id) void endInterview(state.currentInterview.id);
   });
@@ -944,6 +1275,20 @@ async function initialize() {
   if (!state.admission?.admitted) {
     $("#room-start").disabled = true;
     $("#room-status").textContent = "Secure IV Prep admission is unavailable.";
+  }
+  const founderProof = state.admission?.founderPaidTest;
+  $("#founder-proof-panel").hidden = founderProof?.enabled !== true;
+  if (founderProof?.enabled === true) {
+    $("#founder-proof-agent").textContent = founderProof.agentId;
+    $("#founder-proof-duration").textContent = `${founderProof.maximumSeconds}s hard maximum`;
+    const voice = $("#founder-proof-voice");
+    voice.replaceChildren(...founderProof.voices.map((name) => {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name;
+      option.selected = name === 'marin';
+      return option;
+    }));
   }
   setMobileBuilderPane("questions");
   syncResponsiveState();

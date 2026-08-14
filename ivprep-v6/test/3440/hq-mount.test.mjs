@@ -3,10 +3,32 @@ import { Readable } from 'node:stream';
 import test from 'node:test';
 
 import { InMemoryAdmissionRegistry } from '../../server/admission-registry.mjs';
+import { FOUNDER_TEST_AVATAR_PARTICIPANT_ID } from '../../server/founder-paid-test-gate.mjs';
 import { createIvPrepHqHandler } from '../../server/hq-mount.mjs';
 
 const NOW = Date.parse('2026-08-11T16:00:00.000Z');
 const CSRF = 'csrf_token_1234567890';
+const VIDEO_BODY = Object.freeze({
+  mode: 'video', authorizationId: 'authorization-video-1',
+  agentId: 'agent_9bdfc50ec0086043', profile: 'PROFILE_B_OPENAI_NATIVE_AUDIO',
+  voice: 'marin', maxSeconds: 45,
+});
+
+function paidTestGate() {
+  return {
+    publicState: () => ({ enabled: true, agentId: VIDEO_BODY.agentId, profile: VIDEO_BODY.profile, maximumSeconds: 45, voices: ['marin'], state: 'READY' }),
+    issue: () => ({ ok: true, status: 201, authorization: { id: VIDEO_BODY.authorizationId, ...VIDEO_BODY } }),
+    consume: ({ admission, interviewId, idempotencyKey }) => ({ ok: true, receipt: {
+      authorized: true, consumed: true, authorizationId: VIDEO_BODY.authorizationId,
+      authorizationBinding: 'a'.repeat(64), subject: admission.subject,
+      cookieFingerprint: admission.cookieFingerprint, entitlementRevision: admission.entitlement.revision,
+      interviewId, idempotencyKey, agentId: VIDEO_BODY.agentId, profile: VIDEO_BODY.profile,
+      avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
+      voice: VIDEO_BODY.voice, maxSeconds: 45, testNo: 1, terminationArmed: true,
+      reconciliationArmed: true, zeroRetry: true, zeroReconnect: true, zeroRecreation: true,
+    } }),
+  };
+}
 
 function session(userId = 1) {
   return {
@@ -77,6 +99,26 @@ test('admitted session projection contains no shared token and vault is empty', 
   assert.deepEqual(vault.body, { sessions: [] });
 });
 
+test('live product CSP permits only the sealed LiveKit WSS origin', async () => {
+  const live = createIvPrepHqHandler({
+    registry: registry(),
+    now: () => NOW,
+    flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: true },
+    liveKitSignalOrigin: 'wss://example.livekit.cloud',
+  });
+  const response = await invoke(live, { path: '/iv-prep-on-call/', method: 'HEAD' });
+  assert.match(response.headers['Content-Security-Policy'], /connect-src 'self' wss:\/\/example\.livekit\.cloud;/u);
+  assert.doesNotMatch(response.headers['Content-Security-Policy'], /connect-src[^;]*\*/u);
+  const closed = createIvPrepHqHandler({
+    registry: registry(),
+    now: () => NOW,
+    flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: false },
+  });
+  const closedResponse = await invoke(closed, { path: '/iv-prep-on-call/', method: 'HEAD' });
+  assert.match(closedResponse.headers['Content-Security-Policy'], /connect-src 'self';/u);
+  assert.throws(() => createIvPrepHqHandler({ liveKitSignalOrigin: 'wss://example.livekit.cloud/path' }), /origin is invalid/u);
+});
+
 test('voice start is CSRF-bound and idempotent; switched cookies cannot end it', async () => {
   const handler = createIvPrepHqHandler({ registry: registry(), now: () => NOW, idFactory: () => 'interview-1', flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: false } });
   const mutationHeaders = { origin: 'http://hq.local', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': CSRF, 'idempotency-key': 'idem-key-1' };
@@ -86,7 +128,7 @@ test('voice start is CSRF-bound and idempotent; switched cookies cannot end it',
   assert.equal(first.status, 201);
   assert.equal(duplicate.status, 200);
   assert.deepEqual(first.body.interview, duplicate.body.interview);
-  const changedBody = await invoke(handler, { path: '/api/ivprep-v6/interviews/start', method: 'POST', headers: mutationHeaders, body: '{"mode":"video"}' });
+  const changedBody = await invoke(handler, { path: '/api/ivprep-v6/interviews/start', method: 'POST', headers: mutationHeaders, body: JSON.stringify(VIDEO_BODY) });
   assert.equal(changedBody.status, 409);
   assert.equal(changedBody.body.error, 'ivprep_idempotency_conflict');
   const switchedReplay = await invoke(handler, { path: '/api/ivprep-v6/interviews/start', method: 'POST', headers: mutationHeaders, body: '{"mode":"voice-only"}', fingerprint: 'b'.repeat(64) });
@@ -127,9 +169,38 @@ test('mutations fail closed without a sealed configured origin', async () => {
 test('video cannot become active without both the gate and a controller', async () => {
   const noGate = createIvPrepHqHandler({ registry: registry(), now: () => NOW, flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: false } });
   const yesGateNoController = createIvPrepHqHandler({ registry: registry(), now: () => NOW, flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: true } });
-  const options = { path: '/api/ivprep-v6/interviews/start', method: 'POST', headers: { origin: 'http://hq.local', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': CSRF, 'idempotency-key': 'idem-video-1' }, body: '{"mode":"video"}' };
+  const options = { path: '/api/ivprep-v6/interviews/start', method: 'POST', headers: { origin: 'http://hq.local', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': CSRF, 'idempotency-key': 'idem-video-1' }, body: JSON.stringify(VIDEO_BODY) };
   assert.equal((await invoke(noGate, options)).status, 503);
   assert.equal((await invoke(yesGateNoController, options)).status, 503);
+});
+
+test('local controller construction failure closes the consumed authorization without provider work', async () => {
+  const gate = paidTestGate();
+  const terminal = [];
+  gate.finish = (evidence) => { terminal.push(evidence); return { ok: true, state: 'CLOSED' }; };
+  gate.failClosed = () => { throw new Error('Safe local close must not trip the uncertainty path.'); };
+  const handler = createIvPrepHqHandler({
+    registry: registry(),
+    now: () => NOW,
+    idFactory: () => 'interview-controller-construction-failure',
+    flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: true },
+    paidTestGate: gate,
+    providerControllerFactory: () => { throw new Error('Synthetic local construction failure.'); },
+  });
+  const result = await invoke(handler, {
+    path: '/api/ivprep-v6/interviews/start', method: 'POST',
+    headers: { origin: 'http://hq.local', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': CSRF, 'idempotency-key': 'idem-controller-construction-failure' },
+    body: JSON.stringify(VIDEO_BODY),
+  });
+  assert.equal(result.status, 503);
+  assert.equal(result.body.error, 'ivprep_provider_start_failed');
+  assert.deepEqual(terminal, [{
+    authorizationId: VIDEO_BODY.authorizationId,
+    providerCreateAttempted: false,
+    terminationConfirmed: true,
+    reconciliationConfirmed: true,
+    reason: 'local_startup_initialization_failed',
+  }]);
 });
 
 test('video start returns one scoped connection before browser readiness and exposes status separately', async () => {
@@ -139,12 +210,14 @@ test('video start returns one scoped connection before browser readiness and exp
     url: 'wss://example.livekit.cloud',
     token: 'synthetic-room-token'.padEnd(64, 'x'),
     participantIdentity: 'ivp-browser-1',
+    avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
   };
   const handler = createIvPrepHqHandler({
     registry: registry(),
     now: () => NOW,
     idFactory: () => 'interview-video-two-phase',
     flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: true },
+    paidTestGate: paidTestGate(),
     providerControllerFactory: () => ({
       start: async () => ({ ok: true, pending: true, connection }),
       recordBrowserMediaReady: async (evidence) => { recorded.push(evidence); return { ok: true }; },
@@ -153,8 +226,8 @@ test('video start returns one scoped connection before browser readiness and exp
     }),
   });
   const mutationHeaders = { origin: 'http://hq.local', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': CSRF, 'idempotency-key': 'idem-video-two-phase' };
-  const first = await invoke(handler, { path: '/api/ivprep-v6/interviews/start', method: 'POST', headers: mutationHeaders, body: '{"mode":"video"}' });
-  const replay = await invoke(handler, { path: '/api/ivprep-v6/interviews/start', method: 'POST', headers: mutationHeaders, body: '{"mode":"video"}' });
+  const first = await invoke(handler, { path: '/api/ivprep-v6/interviews/start', method: 'POST', headers: mutationHeaders, body: JSON.stringify(VIDEO_BODY) });
+  const replay = await invoke(handler, { path: '/api/ivprep-v6/interviews/start', method: 'POST', headers: mutationHeaders, body: JSON.stringify(VIDEO_BODY) });
   assert.equal(first.status, 202);
   assert.deepEqual(first.body.connection, connection);
   assert.deepEqual(replay.body.connection, connection);
@@ -164,17 +237,68 @@ test('video start returns one scoped connection before browser readiness and exp
     path: '/api/ivprep-v6/interviews/interview-video-two-phase/media-ready',
     method: 'POST',
     headers: mutationHeaders,
-    body: '{"videoDecoded":true,"audioPlayable":true,"audioAuthority":"avatar-livekit"}',
+    body: JSON.stringify({
+      avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
+      videoDecoded: true,
+      audioPlayable: true,
+      audioAuthority: 'avatar-livekit',
+    }),
   });
   assert.equal(readiness.status, 202);
   assert.equal(recorded.length, 1);
   assert.equal(recorded[0].cookieFingerprint, 'a'.repeat(64));
+  assert.equal(recorded[0].avatarParticipantIdentity, FOUNDER_TEST_AVATAR_PARTICIPANT_ID);
 
   providerState = 'ACTIVE';
   const status = await invoke(handler, { path: '/api/ivprep-v6/interviews/interview-video-two-phase/status' });
   assert.equal(status.status, 200);
   assert.equal(status.body.interview.state, 'active');
   assert.equal(JSON.stringify(status.body).includes(connection.token), false);
+
+  providerState = 'CLOSED';
+  const closed = await invoke(handler, { path: '/api/ivprep-v6/interviews/interview-video-two-phase/status' });
+  assert.equal(closed.status, 200);
+  assert.equal(closed.body.interview.state, 'ended');
+  assert.equal(closed.body.provider.active, false);
+});
+
+test('handler shutdown awaits active controller cleanup', async () => {
+  const stops = [];
+  const handler = createIvPrepHqHandler({
+    registry: registry(),
+    now: () => NOW,
+    idFactory: () => 'interview-shutdown-proof',
+    flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: true },
+    paidTestGate: paidTestGate(),
+    providerControllerFactory: () => ({
+      start: async () => ({
+        ok: true,
+        pending: true,
+        connection: {
+          url: 'wss://example.livekit.cloud',
+          token: 'synthetic-room-token'.padEnd(64, 'x'),
+          participantIdentity: 'ivp-browser-shutdown',
+          avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
+        },
+      }),
+      stop: async (reason) => { stops.push(reason); return { ok: true }; },
+      status: () => ({ state: 'AGENT_JOINING', active: false }),
+    }),
+  });
+  const start = await invoke(handler, {
+    path: '/api/ivprep-v6/interviews/start',
+    method: 'POST',
+    headers: {
+      origin: 'http://hq.local',
+      'sec-fetch-site': 'same-origin',
+      'x-mmhq-csrf': CSRF,
+      'idempotency-key': 'idem-shutdown-proof',
+    },
+    body: JSON.stringify(VIDEO_BODY),
+  });
+  assert.equal(start.status, 202);
+  assert.deepEqual(await handler.shutdown('harness_shutdown'), { ok: true, stopped: 1 });
+  assert.deepEqual(stops, ['harness_shutdown']);
 });
 
 test('logout during provider start is observed before activation and forces cleanup', async () => {
@@ -188,6 +312,7 @@ test('logout during provider start is observed before activation and forces clea
     now: () => NOW,
     idFactory: () => 'interview-video-race',
     flags: { enabled: true, adminCanaryEnabled: true, videoEnabled: true },
+    paidTestGate: paidTestGate(),
     providerControllerFactory: () => ({
       start: async () => startBarrier,
       stop: async (reason) => {
@@ -204,7 +329,7 @@ test('logout during provider start is observed before activation and forces clea
     path: '/api/ivprep-v6/interviews/start',
     method: 'POST',
     headers: { origin: 'http://hq.local', 'sec-fetch-site': 'same-origin', 'x-mmhq-csrf': CSRF, 'idempotency-key': 'idem-video-race' },
-    body: '{"mode":"video"}',
+    body: JSON.stringify(VIDEO_BODY),
     fingerprint,
   });
   await new Promise((resolve) => setImmediate(resolve));

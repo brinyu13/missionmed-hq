@@ -65,3 +65,20 @@ test('HQ only dispatches and observes the child worker; provider objects stay wo
   assert.match(worker, /durableGate\.claimJob/u);
   assert.match(worker, /durableGate\.reconcileJob/u);
 });
+
+test('3441R paid path has one exact agent, explicit Founder POST, and no public activation hook', async () => {
+  const [gate, mount, adapter, runtime, app] = await Promise.all([
+    source('ivprep-v6/server/founder-paid-test-gate.mjs'),
+    source('ivprep-v6/server/hq-mount.mjs'),
+    source('ivprep-v6/server/providers/lemonslice-avatar-adapter.mjs'),
+    source('ivprep-v6/server/founder-proof-runtime.mjs'),
+    source('ivprep-v6/public/aaa/app.mjs'),
+  ]);
+  const combined = [gate, mount, adapter, runtime, app].join('\n');
+  const agentIds = [...combined.matchAll(/agent_[a-z0-9]+/gu)].map((match) => match[0]);
+  assert.deepEqual([...new Set(agentIds)], ['agent_9bdfc50ec0086043']);
+  assert.match(mount, /request\.method === 'POST'.*provider-tests\/authorize/su);
+  assert.doesNotMatch(mount, /request\.method === 'GET' && pathname === `\$\{API_PREFIX\}\/provider-tests\/authorize`/u);
+  assert.doesNotMatch(app, /LEMONSLICE|apiKey|LIVEKIT_API_SECRET/u);
+  assert.doesNotMatch(runtime, /process\.env/u);
+});

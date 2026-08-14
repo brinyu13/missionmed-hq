@@ -5,9 +5,11 @@ import { fileURLToPath } from 'node:url';
 
 import { admissionRegistry } from './admission-registry.mjs';
 import { publicAdmissionState, strictProjectHqSession, validateIvPrepMutation } from './admission-contract.mjs';
+import { FOUNDER_TEST_AVATAR_PARTICIPANT_ID } from './founder-paid-test-gate.mjs';
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_ROOT = normalize(join(MODULE_DIR, '..', 'public'));
+const LIVEKIT_BROWSER_UMD = normalize(join(MODULE_DIR, '..', 'node_modules', 'livekit-client', 'dist', 'livekit-client.umd.js'));
 const MAX_BODY_BYTES = 64 * 1024;
 const PRODUCT_PREFIX = '/iv-prep-on-call';
 const API_PREFIX = '/api/ivprep-v6';
@@ -30,10 +32,22 @@ function enabled(value) {
   return String(value || '').trim().toLowerCase() === 'true';
 }
 
-function headers(extra = {}) {
+function trustedWebSocketOrigin(value) {
+  try {
+    const parsed = new URL(String(value || ''));
+    if (parsed.protocol !== 'wss:' || parsed.username || parsed.password
+      || parsed.pathname !== '/' || parsed.search || parsed.hash) return null;
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+function headers(extra = {}, liveKitSignalOrigin = null) {
+  const connectSource = liveKitSignalOrigin ? `'self' ${liveKitSignalOrigin}` : `'self'`;
   return {
     'Cache-Control': 'no-store',
-    'Content-Security-Policy': "default-src 'self'; connect-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+    'Content-Security-Policy': `default-src 'self'; connect-src ${connectSource}; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Resource-Policy': 'same-origin',
     'Permissions-Policy': 'camera=(self), microphone=(self)',
@@ -76,9 +90,9 @@ function hasQueryCredential(url) {
   return false;
 }
 
-function startRequestHash({ mode }) {
+function startRequestHash(value) {
   return createHash('sha256')
-    .update(JSON.stringify({ operation: 'interview_start', mode }))
+    .update(JSON.stringify({ operation: 'interview_start', ...value }))
     .digest('hex');
 }
 
@@ -99,6 +113,9 @@ async function readJson(request) {
 function staticFile(pathname) {
   let relativePath;
   if (pathname === PRODUCT_PREFIX || pathname === `${PRODUCT_PREFIX}/`) relativePath = 'aaa/index.html';
+  else if (pathname === `${PRODUCT_PREFIX}/assets/vendor/livekit-client.umd.js`) {
+    return existsSync(LIVEKIT_BROWSER_UMD) && statSync(LIVEKIT_BROWSER_UMD).isFile() ? LIVEKIT_BROWSER_UMD : null;
+  }
   else if (pathname.startsWith(`${PRODUCT_PREFIX}/assets/`)) relativePath = pathname.slice(`${PRODUCT_PREFIX}/assets/`.length);
   else return null;
   let decoded;
@@ -127,10 +144,16 @@ export function createIvPrepHqHandler({
     adminCanaryEnabled: enabled(process.env.IVPREP_ADMIN_CANARY_ENABLED),
   },
   providerControllerFactory = null,
+  paidTestGate = null,
+  liveKitSignalOrigin = null,
 } = {}) {
   const interviews = new Map();
+  const sealedLiveKitSignalOrigin = liveKitSignalOrigin == null ? null : trustedWebSocketOrigin(liveKitSignalOrigin);
+  if (liveKitSignalOrigin != null && !sealedLiveKitSignalOrigin) {
+    throw new Error('LiveKit browser signal origin is invalid.');
+  }
 
-  return async function handleIvPrepV6Request({
+  const handler = async function handleIvPrepV6Request({
     request,
     response,
     url,
@@ -183,7 +206,7 @@ export function createIvPrepHqHandler({
       response.writeHead(200, headers({
         'Cache-Control': 'no-cache',
         'Content-Type': MIME[extname(file).toLowerCase()] || 'application/octet-stream',
-      }));
+      }, sealedLiveKitSignalOrigin));
       if (request.method === 'HEAD') response.end();
       else createReadStream(file).pipe(response);
       return true;
@@ -195,7 +218,8 @@ export function createIvPrepHqHandler({
     }
 
     if (request.method === 'GET' && pathname === `${API_PREFIX}/session`) {
-      sendJson(response, 200, publicAdmissionState(admission, { videoEnabled: flags.videoEnabled }));
+      const founderPaidTest = paidTestGate?.publicState?.({ admission }) || null;
+      sendJson(response, 200, publicAdmissionState(admission, { videoEnabled: flags.videoEnabled, founderPaidTest }));
       return true;
     }
 
@@ -207,6 +231,30 @@ export function createIvPrepHqHandler({
     const sealedOrigin = trustedOrigin(expectedOrigin);
     if (!sealedOrigin) {
       sendJson(response, 403, { error: 'ivprep_admission_denied' });
+      return true;
+    }
+
+    if (request.method === 'POST' && pathname === `${API_PREFIX}/provider-tests/authorize`) {
+      const mutation = validateIvPrepMutation({ request, admission, expectedOrigin: sealedOrigin });
+      if (!mutation.ok) { sendAdmissionError(response, mutation); return true; }
+      if (!flags.videoEnabled || typeof paidTestGate?.issue !== 'function') {
+        sendJson(response, 503, { error: 'ivprep_unavailable' });
+        return true;
+      }
+      let body;
+      try { body = await readJson(request); }
+      catch { sendJson(response, 400, { error: 'ivprep_invalid_request' }); return true; }
+      if (Object.keys(body).sort().join(',') !== 'agentId,maxSeconds,profile,voice') {
+        sendJson(response, 400, { error: 'ivprep_invalid_request' });
+        return true;
+      }
+      const idempotencyKey = String(request.headers['idempotency-key'] || '').trim();
+      const issued = paidTestGate.issue({ admission, idempotencyKey, ...body });
+      if (!issued?.ok) {
+        sendJson(response, issued?.status || 403, { error: issued?.code || 'ivprep_founder_authorization_required' });
+        return true;
+      }
+      sendJson(response, issued.status || 201, { authorization: issued.authorization });
       return true;
     }
 
@@ -260,9 +308,10 @@ export function createIvPrepHqHandler({
       try { body = await readJson(request); }
       catch { sendJson(response, 400, { error: 'ivprep_invalid_request' }); return true; }
       const keys = Object.keys(body).sort();
-      if (keys.join(',') !== 'audioAuthority,audioPlayable,videoDecoded'
+      if (keys.join(',') !== 'audioAuthority,audioPlayable,avatarParticipantIdentity,videoDecoded'
         || body.videoDecoded !== true
         || body.audioPlayable !== true
+        || body.avatarParticipantIdentity !== FOUNDER_TEST_AVATAR_PARTICIPANT_ID
         || body.audioAuthority !== 'avatar-livekit') {
         sendJson(response, 400, { error: 'ivprep_invalid_request' });
         return true;
@@ -271,6 +320,7 @@ export function createIvPrepHqHandler({
         subject: admission.subject,
         cookieFingerprint: admission.cookieFingerprint,
         entitlementRevision: admission.entitlement.revision,
+        avatarParticipantIdentity: body.avatarParticipantIdentity,
         videoDecoded: true,
         audioPlayable: true,
         audioAuthority: 'avatar-livekit',
@@ -292,17 +342,29 @@ export function createIvPrepHqHandler({
       let body;
       try { body = await readJson(request); }
       catch { sendJson(response, 400, { error: 'ivprep_invalid_request' }); return true; }
-      const mode = body.mode === 'video' ? 'video' : 'voice-only';
-      if (Object.keys(body).some((key) => key !== 'mode')) {
+      const mode = body.mode === 'video' ? 'video' : (body.mode === 'voice-only' ? 'voice-only' : null);
+      if (!mode) {
         sendJson(response, 400, { error: 'ivprep_invalid_request' });
         return true;
       }
+      const bodyKeys = Object.keys(body).sort().join(',');
+      const expectedKeys = mode === 'video'
+        ? 'agentId,authorizationId,maxSeconds,mode,profile,voice'
+        : 'mode';
+      if (bodyKeys !== expectedKeys) { sendJson(response, 400, { error: 'ivprep_invalid_request' }); return true; }
       const idempotencyKey = String(request.headers['idempotency-key'] || '').trim();
       if (!/^[A-Za-z0-9._:-]{8,120}$/u.test(idempotencyKey)) {
         sendJson(response, 400, { error: 'ivprep_invalid_request' });
         return true;
       }
-      const requestHash = startRequestHash({ mode });
+      const requestHash = startRequestHash(mode === 'video' ? {
+        mode,
+        authorizationId: body.authorizationId,
+        agentId: body.agentId,
+        profile: body.profile,
+        voice: body.voice,
+        maxSeconds: body.maxSeconds,
+      } : { mode });
       const existing = [...interviews.values()].find((entry) => entry.idempotencyKey === idempotencyKey && entry.subject === admission.subject);
       if (existing) {
         const owner = registry.assertBinding({
@@ -324,7 +386,7 @@ export function createIvPrepHqHandler({
         sendJson(response, 503, { error: 'ivprep_unavailable' });
         return true;
       }
-      if (mode === 'video' && typeof providerControllerFactory !== 'function') {
+      if (mode === 'video' && (typeof providerControllerFactory !== 'function' || typeof paidTestGate?.consume !== 'function')) {
         sendJson(response, 503, { error: 'ivprep_unavailable' });
         return true;
       }
@@ -334,12 +396,49 @@ export function createIvPrepHqHandler({
         return true;
       }
       const id = idFactory();
-      registry.bindInterview({
-        interviewId: id,
-        subject: admission.subject,
-        cookieFingerprint: admission.cookieFingerprint,
-        entitlementRevision: admission.entitlement.revision,
-      });
+      let paidTestAuthorization = null;
+      const closeConsumedAuthorization = (reason) => {
+        if (!paidTestAuthorization) return;
+        const closed = paidTestGate.finish?.({
+          authorizationId: paidTestAuthorization.authorizationId,
+          providerCreateAttempted: false,
+          terminationConfirmed: true,
+          reconciliationConfirmed: true,
+          reason,
+        });
+        if (closed?.ok !== true) paidTestGate.failClosed?.(reason);
+      };
+      if (mode === 'video') {
+        const consumed = paidTestGate.consume({
+          admission,
+          authorizationId: body.authorizationId,
+          interviewId: id,
+          idempotencyKey,
+          agentId: body.agentId,
+          profile: body.profile,
+          voice: body.voice,
+          maxSeconds: body.maxSeconds,
+        });
+        if (!consumed?.ok) {
+          sendJson(response, consumed?.status || 403, { error: consumed?.code || 'ivprep_paid_test_authorization_required' });
+          return true;
+        }
+        paidTestAuthorization = consumed.receipt;
+      }
+      let controller = null;
+      try {
+        controller = mode === 'video' ? providerControllerFactory({ admission, id, paidTestAuthorization }) : null;
+        registry.bindInterview({
+          interviewId: id,
+          subject: admission.subject,
+          cookieFingerprint: admission.cookieFingerprint,
+          entitlementRevision: admission.entitlement.revision,
+        });
+      } catch {
+        closeConsumedAuthorization('local_startup_initialization_failed');
+        sendJson(response, 503, { error: 'ivprep_provider_start_failed' });
+        return true;
+      }
       const interview = {
         id,
         subject: admission.subject,
@@ -351,7 +450,13 @@ export function createIvPrepHqHandler({
         state: mode === 'video' ? 'starting' : 'active',
         startedAtMs: now(),
         connection: null,
-        controller: mode === 'video' ? providerControllerFactory({ admission, id }) : null,
+        controller,
+        proof: mode === 'video' ? Object.freeze({
+          agentId: paidTestAuthorization.agentId,
+          profile: paidTestAuthorization.profile,
+          voice: paidTestAuthorization.voice,
+          maxSeconds: paidTestAuthorization.maxSeconds,
+        }) : null,
       };
       interviews.set(id, interview);
       const terminateInterview = async (reason) => {
@@ -367,12 +472,22 @@ export function createIvPrepHqHandler({
       };
       registry.setTerminationHandler?.(id, terminateInterview);
       if (interview.controller) {
-        const started = await interview.controller.start({
-          subject: admission.subject,
-          interviewId: id,
-          idempotencyKey,
-          testNo: 1,
-        });
+        let started;
+        try {
+          started = await interview.controller.start({
+            subject: admission.subject,
+            interviewId: id,
+            idempotencyKey,
+            testNo: 1,
+            paidTestAuthorization,
+          });
+        } catch {
+          paidTestGate.failClosed?.('provider_controller_exception');
+          try { await interview.controller.stop('provider_controller_exception'); } catch { /* fail closed below */ }
+          interview.state = 'failed_closed';
+          sendJson(response, 503, { error: 'ivprep_provider_start_failed' });
+          return true;
+        }
         if (!started?.ok) {
           interview.state = 'failed_closed';
           sendJson(response, 503, { error: 'ivprep_provider_start_failed' });
@@ -401,6 +516,7 @@ export function createIvPrepHqHandler({
           sendJson(response, 202, {
             interview: { id, mode, state: interview.state },
             connection: interview.connection,
+            proof: interview.proof,
           });
           return true;
         }
@@ -445,6 +561,30 @@ export function createIvPrepHqHandler({
     sendJson(response, 404, { error: 'not_found' });
     return true;
   };
+  handler.shutdown = async (reason = 'server_shutdown') => {
+    const terminal = [];
+    for (const interview of interviews.values()) {
+      if (['ended', 'failed_closed'].includes(interview.state)) continue;
+      interview.state = 'terminating';
+      if (!interview.controller) {
+        interview.state = 'ended';
+        registry.clearTerminationHandler?.(interview.id);
+        continue;
+      }
+      terminal.push(Promise.resolve(interview.controller.stop(reason)).then((stopped) => {
+        interview.state = stopped?.ok ? 'ended' : 'failed_closed';
+        interview.connection = null;
+        registry.clearTerminationHandler?.(interview.id);
+        return stopped?.ok === true;
+      }));
+    }
+    const settled = await Promise.allSettled(terminal);
+    return Object.freeze({
+      ok: settled.every((entry) => entry.status === 'fulfilled' && entry.value === true),
+      stopped: settled.length,
+    });
+  };
+  return handler;
 }
 
 export const handleIvPrepV6Request = createIvPrepHqHandler();

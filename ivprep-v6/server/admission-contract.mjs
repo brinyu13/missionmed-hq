@@ -81,7 +81,7 @@ export function validateIvPrepMutation({ request, admission, expectedOrigin }) {
   return Object.freeze({ ok: true, status: 200 });
 }
 
-export function publicAdmissionState(admission, { videoEnabled = false } = {}) {
+export function publicAdmissionState(admission, { videoEnabled = false, founderPaidTest = null } = {}) {
   return Object.freeze({
     admitted: admission?.ok === true,
     voiceEnabled: admission?.ok === true && admission.entitlement.voice === true,
@@ -90,5 +90,15 @@ export function publicAdmissionState(admission, { videoEnabled = false } = {}) {
     entitlementRevision: admission?.ok === true ? admission.entitlement.revision : null,
     sessionExpiresAt: admission?.ok === true ? new Date(admission.expiresAtMs).toISOString() : null,
     mutationCsrfToken: admission?.ok === true ? admission.csrfToken : null,
+    founderPaidTest: admission?.ok === true && founderPaidTest?.enabled === true
+      ? Object.freeze({
+          enabled: true,
+          agentId: founderPaidTest.agentId,
+          profile: founderPaidTest.profile,
+          maximumSeconds: founderPaidTest.maximumSeconds,
+          voices: Object.freeze([...(founderPaidTest.voices || [])]),
+          state: founderPaidTest.state,
+        })
+      : Object.freeze({ enabled: false }),
   });
 }

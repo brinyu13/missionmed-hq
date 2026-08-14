@@ -1,12 +1,14 @@
 import { NO_RETRY } from './provider-session-controller.mjs';
+import { FOUNDER_TEST_AVATAR_PARTICIPANT_ID } from '../founder-paid-test-gate.mjs';
 
 export const LEMONSLICE_ORIGIN = 'https://lemonslice.com';
+export const LEMONSLICE_API_URL = `${LEMONSLICE_ORIGIN}/api/liveai/sessions`;
 export const LEMONSLICE_AGENT_ID = 'agent_9bdfc50ec0086043';
 export const LEMONSLICE_TERMINAL_STATUSES = Object.freeze(new Set(['COMPLETED', 'TIMED_OUT', 'FAILED']));
 
 function sessionUrl(sessionId) {
   if (!/^[A-Za-z0-9._:-]{1,160}$/u.test(String(sessionId || ''))) throw new TypeError('Invalid LemonSlice session identifier.');
-  return `${LEMONSLICE_ORIGIN}/api/liveai/sessions/${sessionId}`;
+  return `${LEMONSLICE_API_URL}/${sessionId}`;
 }
 
 export class LemonSliceAvatarAdapter {
@@ -36,16 +38,22 @@ export class LemonSliceAvatarAdapter {
     if (typeof AvatarSession !== 'function') throw new Error('Pinned LemonSlice adapter is unavailable.');
     this.session = new AvatarSession({
       apiKey: this.apiKey,
+      apiUrl: LEMONSLICE_API_URL,
       agentId: this.agentId,
+      avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
       idleTimeout: 45,
       connOptions: NO_RETRY,
     });
+    if (this.session.avatarIdentity !== FOUNDER_TEST_AVATAR_PARTICIPANT_ID) {
+      throw new Error('LemonSlice avatar participant binding is unavailable.');
+    }
     const sessionId = String(await this.session.start(agentSession, room, this.livekit));
     if (!/^[A-Za-z0-9._:-]{1,160}$/u.test(sessionId)) throw new Error('LemonSlice returned an invalid session identifier.');
     await this.session.waitForJoin({ timeout: NO_RETRY.timeoutMs });
     return {
       sessionId,
       avatarJoined: true,
+      avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
     };
   }
 
@@ -93,8 +101,25 @@ export class LemonSliceAvatarAdapter {
     };
   }
 
+  async waitForTerminal({ sessionId, timeoutMs = 8_000, intervalMs = 250 } = {}) {
+    const deadline = Date.now() + Math.max(1, Math.min(8_000, Number(timeoutMs) || 0));
+    let last = null;
+    do {
+      last = await this.status({ sessionId });
+      if (last?.ok && LEMONSLICE_TERMINAL_STATUSES.has(last.sessionStatus)) return last;
+      if (Date.now() >= deadline) break;
+      await new Promise((resolve) => setTimeout(resolve, Math.max(25, Math.min(500, Number(intervalMs) || 250))));
+    } while (Date.now() < deadline);
+    return last && typeof last === 'object' ? { ...last, terminalObserved: false } : { ok: false, terminalObserved: false };
+  }
+
+  get avatarIdentity() {
+    return this.session?.avatarIdentity === FOUNDER_TEST_AVATAR_PARTICIPANT_ID
+      ? FOUNDER_TEST_AVATAR_PARTICIPANT_ID
+      : null;
+  }
+
   async close() {
     await this.session?.aclose?.();
-    this.session = null;
   }
 }

@@ -1,5 +1,11 @@
 import { createHash } from 'node:crypto';
 
+import {
+  FOUNDER_TEST_AGENT_ID,
+  FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
+  FOUNDER_TEST_PROFILE,
+  FOUNDER_TEST_VOICES,
+} from '../founder-paid-test-gate.mjs';
 import { advanceProviderSession, failProviderSession, initialProviderSessionState } from './provider-session-state.mjs';
 import { reconcileProviderCost } from './provider-cost-reconciler.mjs';
 
@@ -27,15 +33,36 @@ function validWorkerReport(report, context) {
   return report?.reservationNonce === context.reservationNonce
     && report?.roomName === context.roomName
     && report?.dispatchId === context.dispatchId
-    && report?.participantIdentity === context.participantIdentity;
+    && report?.participantIdentity === context.participantIdentity
+    && report?.avatarParticipantIdentity === context.avatarParticipantIdentity;
 }
 
 function validProviderHash(value) {
   return /^[a-f0-9]{64}$/u.test(String(value || ''));
 }
 
+function validPaidTestAuthorization(value, { subject, interviewId, idempotencyKey, maxSeconds }) {
+  return value?.authorized === true
+    && value?.consumed === true
+    && value?.subject === subject
+    && value?.interviewId === interviewId
+    && value?.idempotencyKey === idempotencyKey
+    && value?.agentId === FOUNDER_TEST_AGENT_ID
+    && value?.avatarParticipantIdentity === FOUNDER_TEST_AVATAR_PARTICIPANT_ID
+    && value?.profile === FOUNDER_TEST_PROFILE
+    && FOUNDER_TEST_VOICES.has(value?.voice)
+    && value?.maxSeconds === maxSeconds
+    && value?.testNo === 1
+    && value?.terminationArmed === true
+    && value?.reconciliationArmed === true
+    && value?.zeroRetry === true
+    && value?.zeroReconnect === true
+    && value?.zeroRecreation === true
+    && /^[a-f0-9]{64}$/u.test(String(value?.authorizationBinding || ''));
+}
+
 export class ProviderSessionController {
-  constructor({ entitlementStore, room, participant, dispatch, worker, clock = globalThis, now = () => Date.now(), maxSeconds = 45 } = {}) {
+  constructor({ entitlementStore, room, participant, dispatch, worker, onTerminal = null, clock = globalThis, now = () => Date.now(), maxSeconds = 45 } = {}) {
     this.entitlementStore = entitlementStore;
     this.room = room;
     this.participant = participant;
@@ -44,21 +71,29 @@ export class ProviderSessionController {
     this.clock = clock;
     this.now = now;
     this.maxSeconds = Math.min(45, Math.max(1, Math.trunc(maxSeconds)));
+    this.onTerminal = onTerminal;
     this.lifecycle = initialProviderSessionState();
     this.context = null;
     this.deadline = null;
     this.teardownPromise = null;
     this.activationPromise = null;
     this.startedAtMs = null;
+    this.authorization = null;
+    this.terminalNotified = false;
   }
 
-  async start({ subject, interviewId, idempotencyKey, testNo = 1 } = {}) {
+  async start({ subject, interviewId, idempotencyKey, testNo = 1, paidTestAuthorization = null } = {}) {
     if (this.lifecycle.state !== 'DISABLED') throw new Error('Provider session can start only once.');
     if (testNo !== 1) throw new Error('This controller is bounded to Engineering Test 1.');
+    if (!validPaidTestAuthorization(paidTestAuthorization, { subject, interviewId, idempotencyKey, maxSeconds: this.maxSeconds })) {
+      throw new Error('An exact consumed Founder Test 1 authorization is required.');
+    }
+    this.authorization = paidTestAuthorization;
     this.lifecycle = advanceProviderSession(this.lifecycle, 'ELIGIBLE');
     const reserved = this.entitlementStore.reserve({ subject, interviewId, requestedSeconds: this.maxSeconds, idempotencyKey, testNo });
     if (!reserved.ok) {
       this.lifecycle = failProviderSession(this.lifecycle, reserved.code);
+      await this.#notifyTerminal({ providerCreateAttempted: false, terminationConfirmed: true, reconciliationConfirmed: true, reason: reserved.code });
       return { ok: false, code: reserved.code, lifecycle: this.lifecycle };
     }
     this.context = {
@@ -68,6 +103,7 @@ export class ProviderSessionController {
       reservationNonce: dispatchNonce({ reservationId: reserved.reservation.id, interviewId, subject }),
       roomName: null,
       participantIdentity: null,
+      avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
       dispatchId: null,
       providerSessionHash: null,
       roomCreateAttempted: false,
@@ -86,6 +122,7 @@ export class ProviderSessionController {
       const access = await this.participant.issue({
         roomName: createdRoom.roomName,
         participantIdentity,
+        avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
         maxSeconds: this.maxSeconds,
         retry: NO_RETRY,
       });
@@ -97,6 +134,24 @@ export class ProviderSessionController {
         throw new Error('Scoped browser room access was not established.');
       }
       this.context.participantIdentity = participantIdentity;
+      if (typeof this.worker?.armJob !== 'function' || typeof this.worker?.bindDispatch !== 'function') {
+        throw new Error('Durable worker authorization bridge is unavailable.');
+      }
+      const armed = await this.worker.armJob({
+        reservationId: this.context.reservation.id,
+        reservationNonce: this.context.reservationNonce,
+        subject,
+        interviewId,
+        roomName: createdRoom.roomName,
+        participantIdentity,
+        avatarParticipantIdentity: this.context.avatarParticipantIdentity,
+        agentName: PROFILE_B_AGENT_NAME,
+        profile: this.authorization.profile,
+        voice: this.authorization.voice,
+        maxSeconds: this.maxSeconds,
+        retry: NO_RETRY,
+      });
+      if (armed?.ok !== true) throw new Error('Durable worker authorization could not be armed.');
       this.context.dispatchCreateAttempted = true;
       this.startedAtMs = this.now();
       this.deadline = this.clock.setTimeout(() => { void this.stop('authorized_deadline'); }, this.maxSeconds * 1000);
@@ -108,6 +163,16 @@ export class ProviderSessionController {
         retry: NO_RETRY,
       });
       this.context.dispatchId = createdDispatch.dispatchId;
+      const dispatchBound = await this.worker.bindDispatch({
+        reservationId: this.context.reservation.id,
+        reservationNonce: this.context.reservationNonce,
+        roomName: this.context.roomName,
+        participantIdentity: this.context.participantIdentity,
+        avatarParticipantIdentity: this.context.avatarParticipantIdentity,
+        dispatchId: this.context.dispatchId,
+        retry: NO_RETRY,
+      });
+      if (dispatchBound?.ok !== true) throw new Error('Durable dispatch binding could not be established.');
       this.lifecycle = advanceProviderSession(this.lifecycle, 'DISPATCH_CREATED');
       this.lifecycle = advanceProviderSession(this.lifecycle, 'AGENT_JOINING');
       this.activationPromise = this.#observeMediaReady();
@@ -118,7 +183,21 @@ export class ProviderSessionController {
         lifecycle: this.lifecycle,
         reservationId: reserved.reservation.id,
         profile: PROFILE_B,
-        connection: Object.freeze({ url: access.url, token: access.token, participantIdentity }),
+        proof: Object.freeze({
+          agentId: this.authorization.agentId,
+          profile: this.authorization.profile,
+          voice: this.authorization.voice,
+          maxSeconds: this.authorization.maxSeconds,
+          audioAuthority: 'avatar-livekit',
+          avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
+        }),
+        connection: Object.freeze({
+          url: access.url,
+          token: access.token,
+          participantIdentity,
+          avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
+          synthetic: access.synthetic === true,
+        }),
       };
     } catch (error) {
       await this.stop('start_failed');
@@ -135,6 +214,7 @@ export class ProviderSessionController {
         reservationNonce: this.context.reservationNonce,
         reservationId: this.context.reservation.id,
         participantIdentity: this.context.participantIdentity,
+        avatarParticipantIdentity: this.context.avatarParticipantIdentity,
         subject: this.context.subject,
         interviewId: this.context.interviewId,
         maxSeconds: this.maxSeconds,
@@ -171,14 +251,24 @@ export class ProviderSessionController {
     }
   }
 
-  async recordBrowserMediaReady({ subject, cookieFingerprint, entitlementRevision, videoDecoded, audioPlayable, audioAuthority } = {}) {
+  async recordBrowserMediaReady({
+    subject,
+    cookieFingerprint,
+    entitlementRevision,
+    avatarParticipantIdentity,
+    videoDecoded,
+    audioPlayable,
+    audioAuthority,
+  } = {}) {
     if (this.lifecycle.state !== 'AGENT_JOINING' || subject !== this.context?.subject) return { ok: false };
+    if (avatarParticipantIdentity !== this.context.avatarParticipantIdentity) return { ok: false };
     const recorded = await this.worker.recordBrowserMediaReady({
       reservationId: this.context.reservation.id,
       reservationNonce: this.context.reservationNonce,
       dispatchId: this.context.dispatchId,
       roomName: this.context.roomName,
       participantIdentity: this.context.participantIdentity,
+      avatarParticipantIdentity: this.context.avatarParticipantIdentity,
       subject,
       cookieFingerprint,
       entitlementRevision,
@@ -218,6 +308,7 @@ export class ProviderSessionController {
         dispatchId: this.context.dispatchId,
         roomName: this.context.roomName,
         participantIdentity: this.context.participantIdentity,
+        avatarParticipantIdentity: this.context.avatarParticipantIdentity,
         reason,
         retry: NO_RETRY,
       }));
@@ -228,6 +319,7 @@ export class ProviderSessionController {
         dispatchId: this.context.dispatchId,
         roomName: this.context.roomName,
         participantIdentity: this.context.participantIdentity,
+        avatarParticipantIdentity: this.context.avatarParticipantIdentity,
         retry: NO_RETRY,
       }));
     }
@@ -268,7 +360,7 @@ export class ProviderSessionController {
         providerSessionHash: workerReport.providerSessionHash,
       }));
     }
-    const terminationConfirmed = failures.length === 0
+    let terminationConfirmed = failures.length === 0
       && !unknownRemoteCreate
       && (!this.context?.dispatchCreateAttempted || (workerStopAccepted && durableWorkerReconciled));
     this.lifecycle = advanceProviderSession(this.lifecycle, 'RECONCILING');
@@ -283,9 +375,24 @@ export class ProviderSessionController {
         });
       }
     }
+    const terminalAudit = await this.#notifyTerminal({
+      providerCreateAttempted: workerReport?.providerCreateAttempted === true,
+      terminationConfirmed,
+      reconciliationConfirmed: durableWorkerReconciled,
+      reason,
+    });
+    if (!terminalAudit) terminationConfirmed = false;
     this.lifecycle = terminationConfirmed
       ? advanceProviderSession(this.lifecycle, 'CLOSED')
       : advanceProviderSession(this.lifecycle, 'FAILED_CLOSED');
     return { ok: terminationConfirmed, lifecycle: this.lifecycle, reason, cost, cleanupFailures: Object.freeze(failures) };
+  }
+
+  async #notifyTerminal(evidence) {
+    if (this.terminalNotified) return true;
+    this.terminalNotified = true;
+    if (typeof this.onTerminal !== 'function') return false;
+    try { return (await this.onTerminal({ authorizationId: this.authorization?.authorizationId, ...evidence }))?.ok === true; }
+    catch { return false; }
   }
 }

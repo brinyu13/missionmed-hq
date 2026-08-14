@@ -3,6 +3,7 @@ import { RoomEvent } from '@livekit/rtc-node';
 import { createHash } from 'node:crypto';
 
 import { profileBDurableGate } from './profile-b-durable-gate.mjs';
+import { FOUNDER_TEST_AVATAR_PARTICIPANT_ID } from '../founder-paid-test-gate.mjs';
 import { LemonSliceAvatarAdapter } from '../providers/lemonslice-avatar-adapter.mjs';
 import { createOpenAiRealtimeModel } from '../providers/openai-realtime-adapter.mjs';
 import { reconcileProviderCost } from '../providers/provider-cost-reconciler.mjs';
@@ -30,6 +31,9 @@ function isExactClaim(claim, expected) {
     && claim?.dispatchId === expected.dispatchId
     && claim?.roomName === expected.roomName
     && claim?.agentName === PROFILE_B_AGENT_NAME
+    && claim?.profile === RENDERING_PROFILES.B.id
+    && ['marin', 'coral', 'shimmer'].includes(claim?.voice)
+    && claim?.maxSeconds === PROFILE_B_MAX_SECONDS
     && /^[A-Za-z0-9._:-]{1,120}$/u.test(String(claim?.reservationId || ''))
     && /^[A-Za-z0-9._:-]{1,120}$/u.test(String(claim?.participantIdentity || ''));
 }
@@ -43,6 +47,9 @@ export function createProfileBAgentDefinition({
   environment = process.env,
   clock = globalThis,
   now = () => Date.now(),
+  teardownClock = globalThis,
+  teardownNow = () => Date.now(),
+  teardownBudgetMs = 10_000,
 } = {}) {
   return agents.defineAgent({
     entry: async (ctx) => {
@@ -116,14 +123,48 @@ export function createProfileBAgentDefinition({
           if (participantDeadline != null) clock.clearTimeout(participantDeadline);
           detachTerminalHandlers();
           const cleanupFailures = [];
+          const cleanupDeadline = teardownNow() + Math.max(1, Math.min(10_000, Number(teardownBudgetMs) || 0));
           const attempt = async (label, operation) => {
-            try { return await operation(); }
-            catch { cleanupFailures.push(label); return null; }
+            const remaining = Math.max(1, cleanupDeadline - teardownNow());
+            let timer = null;
+            const pending = Promise.resolve().then(operation);
+            pending.catch(() => {});
+            try {
+              const outcome = await Promise.race([
+                pending.then((value) => ({ value }), () => ({ failed: true })),
+                new Promise((resolve) => {
+                  timer = teardownClock.setTimeout(() => resolve({ timedOut: true }), remaining);
+                }),
+              ]);
+              if (outcome?.timedOut || outcome?.failed) {
+                cleanupFailures.push(label);
+                return null;
+              }
+              return outcome.value;
+            } finally {
+              if (timer != null) teardownClock.clearTimeout(timer);
+            }
           };
 
           const agentSessionClose = attempt('agent_session_close', async () => agentSession?.close?.());
+          let avatarCreateSettled = false;
           if (avatarCreatePromise) {
-            try { await avatarCreatePromise; } catch {}
+            await attempt('avatar_cancel', async () => avatar?.close?.());
+            await attempt('avatar_create_settle', async () => {
+              await avatarCreatePromise;
+              avatarCreateSettled = true;
+            });
+            if (!avatarCreateSettled) {
+              void avatarCreatePromise.then(async () => {
+                try {
+                  if (avatar?.sessionId) {
+                    await avatar.terminate({ sessionId: avatar.sessionId, reason: terminalReason, retry: NO_RETRY });
+                    await avatar.waitForTerminal({ sessionId: avatar.sessionId, timeoutMs: 4_000, intervalMs: 250 });
+                  }
+                  await avatar?.close?.();
+                } catch {}
+              }, () => {});
+            }
           }
           if (avatar?.sessionId && !providerHash) providerHash = providerSessionHash(avatar.sessionId);
           let terminationAccepted = !providerCreateAttempted;
@@ -135,26 +176,34 @@ export function createProfileBAgentDefinition({
               retry: NO_RETRY,
             }));
             terminationAccepted = terminated?.confirmed === true;
-            providerStatus = await attempt('avatar_status', () => avatar.status({
+            providerStatus = await attempt('avatar_terminal_status', () => avatar.waitForTerminal({
               sessionId: avatar.sessionId,
-              retry: NO_RETRY,
+              timeoutMs: 4_000,
+              intervalMs: 250,
             }));
           }
+          let agentSessionStartSettled = false;
           if (agentSessionStartPromise) {
-            try { await agentSessionStartPromise; } catch {}
+            await attempt('agent_session_start_settle', async () => {
+              await agentSessionStartPromise;
+              agentSessionStartSettled = true;
+            });
             await attempt('agent_session_post_start_close', async () => agentSession?.close?.());
+            if (!agentSessionStartSettled) {
+              void agentSessionStartPromise.then(() => agentSession?.close?.(), () => {});
+            }
           }
           if (claimPromise && !claimed) {
-            try {
-              const settledClaim = await claimPromise;
+            const settledClaim = await attempt('claim_settle', () => claimPromise);
+            if (settledClaim) {
               if (/^[a-f0-9]{64}$/u.test(reservationNonce) && isExactClaim(settledClaim, expectedClaim)) {
                 claim = settledClaim;
                 claimed = true;
               }
-            } catch {}
+            }
           }
           if (workerJoinedPromise) {
-            try { workerJoinedRecorded = (await workerJoinedPromise)?.ok === true; } catch {}
+            workerJoinedRecorded = (await attempt('worker_join_settle', () => workerJoinedPromise))?.ok === true;
           }
           await agentSessionClose;
           await attempt('avatar_close', async () => avatar?.close?.());
@@ -175,6 +224,7 @@ export function createProfileBAgentDefinition({
               jobId,
               dispatchId,
               roomName,
+              avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
               providerCreateAttempted,
               providerSessionHash: providerHash,
               workerJoinedRecorded,
@@ -244,6 +294,7 @@ export function createProfileBAgentDefinition({
         jobId,
         dispatchId,
         roomName,
+        avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
         signal: terminationWatchAbort.signal,
       })).then(
         (signal) => {
@@ -268,6 +319,7 @@ export function createProfileBAgentDefinition({
         const model = await awaitStartup(() => createModel({
           apiKey: environment.OPENAI_API_KEY,
           profile: RENDERING_PROFILES.B,
+          voice: claim.voice,
         }));
         assertStartupActive();
         agentSession = new agents.voice.AgentSession({
@@ -292,10 +344,15 @@ export function createProfileBAgentDefinition({
           assertStartupActive();
           return avatar.create({ agentSession, room: ctx.room });
         });
-        const created = await avatarCreatePromise;
+        const created = await awaitStartup(() => avatarCreatePromise);
         if (avatar.sessionId) providerHash = providerSessionHash(avatar.sessionId);
         assertStartupActive();
-        if (created?.avatarJoined !== true || !avatar.sessionId) throw new Error('Avatar join was not established.');
+        if (created?.avatarJoined !== true
+          || created?.avatarParticipantIdentity !== FOUNDER_TEST_AVATAR_PARTICIPANT_ID
+          || avatar.avatarIdentity !== FOUNDER_TEST_AVATAR_PARTICIPANT_ID
+          || !avatar.sessionId) {
+          throw new Error('Avatar join was not established.');
+        }
         agentSession.on(agents.voice.AgentSessionEventTypes.Error, () => { void requestTerminal('agent_session_error'); });
         agentSession.on(agents.voice.AgentSessionEventTypes.Close, () => { void requestTerminal('agent_session_closed'); });
         assertStartupActive();
@@ -305,7 +362,7 @@ export function createProfileBAgentDefinition({
           ...avatar.roomOptions(),
           record: false,
         });
-        await agentSessionStartPromise;
+        await awaitStartup(() => agentSessionStartPromise);
         assertStartupActive();
         workerJoinedPromise = Promise.resolve(durableGate.markWorkerJoined({
           reservationId: claim.reservationId,
@@ -314,8 +371,10 @@ export function createProfileBAgentDefinition({
           dispatchId,
           roomName,
           participantIdentity: claim.participantIdentity,
+          avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
           providerSessionHash: providerHash,
           audioAuthority: 'avatar-livekit',
+          joinedAtMs: now(),
         }));
         const recorded = await workerJoinedPromise;
         assertStartupActive();

@@ -2,11 +2,25 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { NO_RETRY, PROFILE_B, PROFILE_B_AGENT_NAME, ProviderSessionController } from '../../server/providers/provider-session-controller.mjs';
+import { FOUNDER_TEST_AVATAR_PARTICIPANT_ID } from '../../server/founder-paid-test-gate.mjs';
 import { InMemoryVideoEntitlementStore } from '../../server/video-entitlement-store.mjs';
 
 function syntheticClock() {
   return { setTimeout: () => 1, clearTimeout: () => {} };
 }
+
+function paidAuthorization({ subject, interviewId, idempotencyKey, voice = 'marin' }) {
+  return Object.freeze({
+    authorized: true, consumed: true, authorizationId: `authorization-${interviewId}`,
+    authorizationBinding: 'a'.repeat(64), subject, interviewId, idempotencyKey,
+    agentId: 'agent_9bdfc50ec0086043', profile: 'PROFILE_B_OPENAI_NATIVE_AUDIO',
+    avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
+    voice, maxSeconds: 45, testNo: 1, terminationArmed: true,
+    reconciliationArmed: true, zeroRetry: true, zeroReconnect: true, zeroRecreation: true,
+  });
+}
+
+const terminalAudit = async () => ({ ok: true });
 
 test('one Profile B reservation, dispatch, provider session, and ordered teardown are enforced', async () => {
   const calls = [];
@@ -18,6 +32,7 @@ test('one Profile B reservation, dispatch, provider session, and ordered teardow
     clock: syntheticClock(),
     now: () => now,
     maxSeconds: 45,
+    onTerminal: terminalAudit,
     room: {
       create: async ({ retry }) => { calls.push(['room.create', retry]); return { roomName: 'room-1' }; },
       delete: async ({ retry }) => { calls.push(['room.delete', retry]); },
@@ -33,6 +48,8 @@ test('one Profile B reservation, dispatch, provider session, and ordered teardow
       delete: async ({ roomName, retry }) => { calls.push(['dispatch.delete', roomName, retry]); },
     },
     worker: {
+      armJob: async ({ retry }) => { calls.push(['worker.armJob', retry]); return { ok: true }; },
+      bindDispatch: async ({ retry }) => { calls.push(['worker.bindDispatch', retry]); return { ok: true }; },
       awaitMediaReady: async ({ roomName, dispatchId, reservationNonce, retry }) => {
         calls.push(['worker.awaitMediaReady', retry]);
         return {
@@ -40,6 +57,7 @@ test('one Profile B reservation, dispatch, provider session, and ordered teardow
           dispatchId,
           reservationNonce,
           participantIdentity: `ivp-${reservationNonce.slice(0, 48)}`,
+          avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
           agentJoined: true,
           avatarCreateObserved: true,
           avatarJoined: true,
@@ -59,6 +77,7 @@ test('one Profile B reservation, dispatch, provider session, and ordered teardow
           dispatchId,
           reservationNonce,
           participantIdentity,
+          avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
           providerCreateAttempted: true,
           providerSessionHash: 'b'.repeat(64),
           terminationConfirmed: true,
@@ -71,20 +90,21 @@ test('one Profile B reservation, dispatch, provider session, and ordered teardow
     },
   });
 
-  const started = await controller.start({ subject: 'wp:1', interviewId: 'interview-1', idempotencyKey: 'idem-key-1', testNo: 1 });
+  const authorization = paidAuthorization({ subject: 'wp:1', interviewId: 'interview-1', idempotencyKey: 'idem-key-1' });
+  const started = await controller.start({ subject: 'wp:1', interviewId: 'interview-1', idempotencyKey: 'idem-key-1', testNo: 1, paidTestAuthorization: authorization });
   assert.equal(started.ok, true);
   assert.equal(started.pending, true);
   assert.equal(started.profile, PROFILE_B);
   assert.equal(await controller.activationPromise, true);
   assert.equal(controller.lifecycle.state, 'ACTIVE');
-  await assert.rejects(controller.start({ subject: 'wp:1', interviewId: 'interview-1', idempotencyKey: 'idem-key-1', testNo: 1 }));
+  await assert.rejects(controller.start({ subject: 'wp:1', interviewId: 'interview-1', idempotencyKey: 'idem-key-1', testNo: 1, paidTestAuthorization: authorization }));
   now = 12_100;
   const stopped = await controller.stop('user_ended');
   assert.equal(stopped.ok, true);
   assert.equal(controller.lifecycle.state, 'CLOSED');
   assert.deepEqual(store.balance('wp:1'), { granted: 59, consumed: 13, reserved: 0, available: 46 });
   assert.deepEqual(calls.map(([name]) => name), [
-    'room.create', 'participant.issue', 'dispatch.create', 'worker.awaitMediaReady',
+    'room.create', 'participant.issue', 'worker.armJob', 'dispatch.create', 'worker.bindDispatch', 'worker.awaitMediaReady',
     'worker.requestStop', 'worker.awaitReconciliation', 'worker.close', 'dispatch.delete', 'room.delete',
   ]);
   for (const call of calls) {
@@ -104,6 +124,7 @@ test('reservation denial fails closed without any provider-side operation', asyn
   const controller = new ProviderSessionController({
     entitlementStore: new InMemoryVideoEntitlementStore(),
     clock: syntheticClock(),
+    onTerminal: terminalAudit,
     room: {
       create: async () => denied('room.create'),
       delete: async () => denied('room.delete'),
@@ -114,6 +135,8 @@ test('reservation denial fails closed without any provider-side operation', asyn
       delete: async () => denied('dispatch.delete'),
     },
     worker: {
+      armJob: async () => denied('worker.armJob'),
+      bindDispatch: async () => denied('worker.bindDispatch'),
       awaitMediaReady: async () => denied('worker.awaitMediaReady'),
       requestStop: async () => denied('worker.requestStop'),
       awaitReconciliation: async () => denied('worker.awaitReconciliation'),
@@ -126,6 +149,7 @@ test('reservation denial fails closed without any provider-side operation', asyn
     interviewId: 'interview-denied',
     idempotencyKey: 'idem-key-denied',
     testNo: 1,
+    paidTestAuthorization: paidAuthorization({ subject: 'wp:not-entitled', interviewId: 'interview-denied', idempotencyKey: 'idem-key-denied' }),
   });
 
   assert.equal(result.ok, false);
@@ -143,15 +167,19 @@ test('unconfirmed termination fails closed and trips the store kill switch', asy
   const controller = new ProviderSessionController({
     entitlementStore: store,
     clock: syntheticClock(),
+    onTerminal: terminalAudit,
     room: { create: async () => ({ roomName: 'room-2' }), delete: async () => {} },
     participant: { issue: async ({ participantIdentity }) => ({ url: 'wss://example.livekit.cloud', token: 'synthetic-room-token'.padEnd(64, 'x'), participantIdentity }) },
     dispatch: { create: async () => ({ dispatchId: 'dispatch-2' }), delete: async () => {} },
     worker: {
+      armJob: async () => ({ ok: true }),
+      bindDispatch: async () => ({ ok: true }),
       awaitMediaReady: async ({ roomName, dispatchId, reservationNonce }) => ({
         roomName,
         dispatchId,
         reservationNonce,
         participantIdentity: `ivp-${reservationNonce.slice(0, 48)}`,
+        avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
         agentJoined: true,
         avatarCreateObserved: true,
         avatarJoined: true,
@@ -168,6 +196,7 @@ test('unconfirmed termination fails closed and trips the store kill switch', asy
         dispatchId,
         reservationNonce,
         participantIdentity,
+        avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
         providerCreateAttempted: true,
         providerSessionHash: 'c'.repeat(64),
         terminationConfirmed: false,
@@ -177,7 +206,7 @@ test('unconfirmed termination fails closed and trips the store kill switch', asy
       close: async () => {},
     },
   });
-  assert.equal((await controller.start({ subject: 'wp:2', interviewId: 'interview-2', idempotencyKey: 'idem-key-2', testNo: 1 })).ok, true);
+  assert.equal((await controller.start({ subject: 'wp:2', interviewId: 'interview-2', idempotencyKey: 'idem-key-2', testNo: 1, paidTestAuthorization: paidAuthorization({ subject: 'wp:2', interviewId: 'interview-2', idempotencyKey: 'idem-key-2' }) })).ok, true);
   assert.equal(await controller.activationPromise, true);
   assert.equal((await controller.stop()).ok, false);
   assert.equal(controller.lifecycle.state, 'FAILED_CLOSED');
@@ -187,8 +216,8 @@ test('unconfirmed termination fails closed and trips the store kill switch', asy
 test('paid controller refuses Test 2, Test 3, and any restart', async () => {
   const store = new InMemoryVideoEntitlementStore();
   store.grantSyntheticSeconds('wp:3', 45);
-  const controller = new ProviderSessionController({ entitlementStore: store, clock: syntheticClock() });
-  await assert.rejects(controller.start({ subject: 'wp:3', interviewId: 'interview-3', idempotencyKey: 'idem-key-4', testNo: 2 }), /Test 1/u);
+  const controller = new ProviderSessionController({ entitlementStore: store, clock: syntheticClock(), onTerminal: terminalAudit });
+  await assert.rejects(controller.start({ subject: 'wp:3', interviewId: 'interview-3', idempotencyKey: 'idem-key-4', testNo: 2, paidTestAuthorization: paidAuthorization({ subject: 'wp:3', interviewId: 'interview-3', idempotencyKey: 'idem-key-4' }) }), /Test 1/u);
 });
 
 test('lost avatar start response remains unconfirmed and every cleanup step is attempted', async () => {
@@ -198,17 +227,20 @@ test('lost avatar start response remains unconfirmed and every cleanup step is a
   const controller = new ProviderSessionController({
     entitlementStore: store,
     clock: syntheticClock(),
+    onTerminal: terminalAudit,
     room: { create: async () => ({ roomName: 'room-4' }), delete: async () => calls.push('room.delete') },
     participant: { issue: async ({ participantIdentity }) => ({ url: 'wss://example.livekit.cloud', token: 'synthetic-room-token'.padEnd(64, 'x'), participantIdentity }) },
     dispatch: { create: async () => ({ dispatchId: 'dispatch-4' }), delete: async () => calls.push('dispatch.delete') },
     worker: {
+      armJob: async () => ({ ok: true }),
+      bindDispatch: async () => ({ ok: true }),
       awaitMediaReady: async () => { calls.push('worker.awaitMediaReady'); throw new Error('response lost'); },
       requestStop: async () => { calls.push('worker.requestStop'); return { accepted: true }; },
       awaitReconciliation: async () => { calls.push('worker.awaitReconciliation'); throw new Error('reconciliation unavailable'); },
       close: async () => { calls.push('worker.close'); throw new Error('close failed'); },
     },
   });
-  const result = await controller.start({ subject: 'wp:4', interviewId: 'interview-4', idempotencyKey: 'idem-key-5', testNo: 1 });
+  const result = await controller.start({ subject: 'wp:4', interviewId: 'interview-4', idempotencyKey: 'idem-key-5', testNo: 1, paidTestAuthorization: paidAuthorization({ subject: 'wp:4', interviewId: 'interview-4', idempotencyKey: 'idem-key-5' }) });
   assert.equal(result.ok, true);
   assert.equal(result.pending, true);
   assert.equal(await controller.activationPromise, false);
