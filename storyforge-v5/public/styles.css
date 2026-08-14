@@ -298,7 +298,7 @@ body[data-role="advisor"] .seg button.on{color:#04121c}
 .roomTitle:focus{box-shadow:0 0 0 2px rgba(57,214,255,.4)}
 .roomMeta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:14px 0 26px}
 .roomGrid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(280px,1fr);gap:26px;align-items:start}
-@media(max-width:900px){.roomGrid{grid-template-columns:1fr}}
+@media(max-width:900px){.roomGrid{grid-template-columns:minmax(0,1fr)}.roomGrid>*{min-width:0}.voiceTabs{max-width:100%;overflow-x:auto}}
 .voiceTabs{display:flex;gap:2px;background:rgba(15,21,34,.9);border:1px solid var(--edge);border-radius:9px;padding:3px;width:max-content;margin-bottom:14px}
 .voiceTabs button{font-family:var(--num);font-weight:700;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);padding:6px 14px;border-radius:6px;transition:.15s}
 .voiceTabs button.on{color:#140b00;background:linear-gradient(90deg,var(--em),var(--em2))}

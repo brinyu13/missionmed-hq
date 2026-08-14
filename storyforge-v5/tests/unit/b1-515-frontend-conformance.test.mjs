@@ -186,3 +186,7 @@ test('legacy submitted visibility is labeled truthfully instead of private', () 
   assert.match(app, /pre-consent transition/);
   assert.match(styles, /\.b1513VisLegacy/);
 });
+
+test('mobile Story Room shrinks every grid child and scrolls only the version tabs', () => {
+  assert.match(styles, /@media\(max-width:900px\)\{\.roomGrid\{grid-template-columns:minmax\(0,1fr\)\}\.roomGrid>\*\{min-width:0\}\.voiceTabs\{max-width:100%;overflow-x:auto\}\}/);
+});
