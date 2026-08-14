@@ -2,6 +2,8 @@ import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import http from 'node:http';
+import { createRequire } from 'node:module';
+import { basename, isAbsolute } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
@@ -19,20 +21,124 @@ const host = '127.0.0.1';
 const liveRequested = process.argv.includes('--live-test-1');
 const syntheticStabilityTest = process.argv.includes('--synthetic-stability-test');
 const syntheticLeaseLossTest = process.argv.includes('--synthetic-lease-loss-test');
-if (process.argv.slice(2).some((value) => ![
+const unexpectedArgument = process.argv.slice(2).find((value) => ![
   '--live-test-1', '--synthetic-stability-test', '--synthetic-lease-loss-test',
-].includes(value))) {
-  throw new Error('Only the exact Founder Test 1 mode is recognized.');
-}
-if (liveRequested && (syntheticStabilityTest || syntheticLeaseLossTest)) {
-  throw new Error('Synthetic lease timing cannot be combined with live Test 1.');
-}
-if (liveRequested && process.env.IVPREP_FOUNDER_TEST1_LIVE_ENABLED !== 'true') {
-  throw new Error('Founder live Test 1 execution is not authorized.');
-}
+].includes(value));
 
 const keeperPath = fileURLToPath(new URL('./t1-durable-lease-keeper.py', import.meta.url));
+const productRoot = fileURLToPath(new URL('../../', import.meta.url));
+const localRequire = createRequire(import.meta.url);
 const leaseStates = new Set(['NOT_ACQUIRED', 'STABILIZING', 'READY', 'LOST', 'RELEASED']);
+const requiredProviderBindings = Object.freeze([
+  'OPENAI_API_KEY', 'LEMONSLICE_API_KEY', 'LIVEKIT_URL', 'LIVEKIT_API_KEY', 'LIVEKIT_API_SECRET',
+]);
+
+class FounderHarnessStartupError extends Error {
+  constructor(code) {
+    super(code);
+    this.name = 'FounderHarnessStartupError';
+    this.code = code;
+  }
+}
+
+function fixedStartupReason(error) {
+  const allowed = new Set([
+    'ARGUMENTS_INVALID',
+    'LIVE_MODE_NOT_ENABLED',
+    'PROVIDER_BINDINGS_UNAVAILABLE',
+    'NPM_RUNTIME_UNAVAILABLE',
+    'LOCKED_DEPENDENCY_INSTALL_FAILED',
+    'LOCKED_RUNTIME_DEPENDENCIES_UNAVAILABLE',
+    'LIVEKIT_CONFIGURATION_INVALID',
+    'LEASE_KEEPER_INITIALIZATION_FAILED',
+    'LOOPBACK_LISTEN_FAILED',
+    'INTERNAL_STARTUP_FAILURE',
+  ]);
+  return allowed.has(error?.code) ? error.code : 'INTERNAL_STARTUP_FAILURE';
+}
+
+function reportStartupFailure(error) {
+  process.stderr.write('FOUNDER HARNESS START FAILED\n');
+  process.stderr.write(`REASON:\n${fixedStartupReason(error)}\n`);
+}
+
+function validateStartupContract() {
+  if (unexpectedArgument || (liveRequested && (syntheticStabilityTest || syntheticLeaseLossTest))) {
+    throw new FounderHarnessStartupError('ARGUMENTS_INVALID');
+  }
+  if (!liveRequested) return;
+  if (process.env.IVPREP_FOUNDER_TEST1_LIVE_ENABLED !== 'true') {
+    throw new FounderHarnessStartupError('LIVE_MODE_NOT_ENABLED');
+  }
+  if (requiredProviderBindings.some((name) => !process.env[name])) {
+    throw new FounderHarnessStartupError('PROVIDER_BINDINGS_UNAVAILABLE');
+  }
+}
+
+export async function installLockedDependencies({
+  spawnProcess = spawn,
+  timeoutMs = 180_000,
+  npmExecPath = process.env.npm_execpath,
+} = {}) {
+  if (!npmExecPath || !isAbsolute(npmExecPath) || basename(npmExecPath) !== 'npm-cli.js') {
+    throw new FounderHarnessStartupError('NPM_RUNTIME_UNAVAILABLE');
+  }
+  const child = spawnProcess(process.execPath, [
+    npmExecPath, 'ci', '--ignore-scripts', '--no-audit', '--no-fund', '--loglevel=error',
+  ], {
+    cwd: productRoot,
+    env: {
+      PATH: '/opt/homebrew/bin:/usr/bin:/bin',
+      HOME: process.env.HOME || '',
+      TMPDIR: process.env.TMPDIR || '/tmp',
+      LANG: 'en_US.UTF-8',
+      npm_config_userconfig: '/dev/null',
+      npm_config_registry: 'https://registry.npmjs.org/',
+    },
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+  const result = await new Promise((resolve) => {
+    let settled = false;
+    let timer = null;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    timer = setTimeout(() => {
+      child.kill('SIGTERM');
+      finish(false);
+    }, timeoutMs);
+    child.once('error', () => finish(false));
+    child.once('exit', (code) => finish(code === 0));
+  });
+  if (!result) throw new FounderHarnessStartupError('LOCKED_DEPENDENCY_INSTALL_FAILED');
+}
+
+export async function ensureFounderHarnessDependencies({
+  resolveDependency = () => localRequire.resolve('livekit-server-sdk'),
+  install = installLockedDependencies,
+} = {}) {
+  try {
+    resolveDependency();
+    return 'PRESENT';
+  } catch (error) {
+    if (error?.code !== 'MODULE_NOT_FOUND') {
+      throw new FounderHarnessStartupError('LOCKED_RUNTIME_DEPENDENCIES_UNAVAILABLE');
+    }
+  }
+  process.stdout.write('FOUNDER_HARNESS_BOOTSTRAP=INSTALLING_LOCKED_DEPENDENCIES\n');
+  await install();
+  try {
+    resolveDependency();
+  } catch {
+    throw new FounderHarnessStartupError('LOCKED_RUNTIME_DEPENDENCIES_UNAVAILABLE');
+  }
+  process.stdout.write('FOUNDER_HARNESS_BOOTSTRAP=LOCKED_DEPENDENCIES_READY\n');
+  return 'INSTALLED';
+}
 
 export class DurableLeaseSupervisor {
   constructor({ synthetic = true, fastSynthetic = false, syntheticFailAfter = null, onLost = () => {} } = {}) {
@@ -195,6 +301,24 @@ let workerProcess = null;
 let closing = false;
 let leaseSupervisor = null;
 
+function ensureWorkerProcess() {
+  if (!liveRequested || (workerProcess && workerProcess.exitCode === null)) return;
+  const workerPath = fileURLToPath(new URL('../../server/agents/start-profile-b-worker.mjs', import.meta.url));
+  workerProcess = spawn(process.execPath, [workerPath], {
+    env: {
+      ...process.env,
+      IVPREP_FOUNDER_PROOF_GATE_URL: `${sealedOrigin}/_3441r/worker`,
+      IVPREP_FOUNDER_PROOF_GATE_TOKEN: controlToken,
+    },
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+  workerProcess.once('error', () => runtime?.paidTestGate.failClosed('profile_b_worker_spawn_error'));
+  workerProcess.once('exit', () => {
+    if (!closing) runtime?.paidTestGate.failClosed('profile_b_worker_exit');
+  });
+}
+
 function sendJson(response, status, body) {
   response.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
@@ -259,6 +383,11 @@ const server = http.createServer(async (request, response) => {
     sendJson(response, 409, { error: 'ivprep_t1_lease_not_ready' });
     return;
   }
+  if (liveRequested
+    && url.pathname === '/api/ivprep-v6/provider-tests/authorize'
+    && founderMutationAuthorized(request)) {
+    ensureWorkerProcess();
+  }
   if (url.pathname === '/') {
     response.writeHead(302, { Location: '/iv-prep-on-call/', 'Cache-Control': 'no-store' });
     response.end();
@@ -279,9 +408,7 @@ const server = http.createServer(async (request, response) => {
   }
 });
 
-const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url);
-if (isDirectRun) server.listen(0, host, async () => {
-  try {
+async function initializeFounderHarness() {
     const address = server.address();
     sealedOrigin = `http://${host}:${address.port}`;
     leaseSupervisor = new DurableLeaseSupervisor({
@@ -297,11 +424,19 @@ if (isDirectRun) server.listen(0, host, async () => {
     await leaseSupervisor.start();
     let providerDependencies;
     if (liveRequested) {
-      const livekit = await createLiveKitSessionCoordinator({
-        url: process.env.LIVEKIT_URL,
-        apiKey: process.env.LIVEKIT_API_KEY,
-        apiSecret: process.env.LIVEKIT_API_SECRET,
-      });
+      let livekit;
+      try {
+        livekit = await createLiveKitSessionCoordinator({
+          url: process.env.LIVEKIT_URL,
+          apiKey: process.env.LIVEKIT_API_KEY,
+          apiSecret: process.env.LIVEKIT_API_SECRET,
+        });
+      } catch (error) {
+        if (error?.message === 'LiveKit server configuration is unavailable.') {
+          throw new FounderHarnessStartupError('LIVEKIT_CONFIGURATION_INVALID');
+        }
+        throw error;
+      }
       providerDependencies = Object.freeze({
         coordinator,
         liveKitSignalOrigin: livekit.signalOrigin,
@@ -314,29 +449,34 @@ if (isDirectRun) server.listen(0, host, async () => {
       providerDependencies = createSyntheticProviderDependencies({ coordinator });
     }
     runtime = createFounderProofRuntime({ registry, entitlementStore, providerDependencies, now });
-    if (liveRequested) {
-      const workerPath = fileURLToPath(new URL('../../server/agents/start-profile-b-worker.mjs', import.meta.url));
-      workerProcess = spawn(process.execPath, [workerPath], {
-        env: {
-          ...process.env,
-          IVPREP_FOUNDER_PROOF_GATE_URL: `${sealedOrigin}/_3441r/worker`,
-          IVPREP_FOUNDER_PROOF_GATE_TOKEN: controlToken,
-        },
-        stdio: 'ignore',
-        windowsHide: true,
-      });
-      workerProcess.once('exit', () => {
-        if (!closing) runtime?.paidTestGate.failClosed('profile_b_worker_exit');
-      });
-    }
     process.stdout.write(`LOCAL_FOUNDER_PROOF_URL=${sealedOrigin}/iv-prep-on-call/#room\n`);
     process.stdout.write(`LOCAL_FOUNDER_PROOF_MODE=${liveRequested ? 'LIVE_FOUNDER_TEST_1' : 'SYNTHETIC_ZERO_COST'}\n`);
     process.stdout.write('LEASE_STATE=NOT_ACQUIRED\n');
     process.stdout.write('PROVIDER_CALLS_AT_STARTUP=0\n');
-  } catch {
-    server.close(() => process.exit(1));
-  }
-});
+}
+
+const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url);
+async function startFounderHarness() {
+  validateStartupContract();
+  if (liveRequested) await ensureFounderHarnessDependencies();
+  await new Promise((resolve, reject) => {
+    const fail = () => reject(new FounderHarnessStartupError('LOOPBACK_LISTEN_FAILED'));
+    server.once('error', fail);
+    server.listen(0, host, () => {
+      server.off('error', fail);
+      resolve();
+    });
+  });
+  await initializeFounderHarness();
+}
+
+if (isDirectRun) {
+  startFounderHarness().catch(async (error) => {
+    reportStartupFailure(error);
+    if (server.listening) await close({ exitCode: 1 });
+    else process.exitCode = 1;
+  });
+}
 
 async function close({ exitCode = 0 } = {}) {
   if (closing) return;

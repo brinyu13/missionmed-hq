@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { once } from 'node:events';
+import { EventEmitter, once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
 import test from 'node:test';
@@ -13,7 +13,11 @@ import {
 } from '../../server/founder-paid-test-gate.mjs';
 import { FounderProofDurableCoordinator, createFounderProofRuntime, createSyntheticProviderDependencies } from '../../server/founder-proof-runtime.mjs';
 import { InMemoryVideoEntitlementStore } from '../../server/video-entitlement-store.mjs';
-import { createFounderProofHqSession } from '../../scripts/3441r/start-founder-proof-harness.mjs';
+import {
+  createFounderProofHqSession,
+  ensureFounderHarnessDependencies,
+  installLockedDependencies,
+} from '../../scripts/3441r/start-founder-proof-harness.mjs';
 
 const NOW = Date.parse('2026-08-13T20:00:00.000Z');
 const CSRF = 'founder_proof_csrf_3441r';
@@ -138,6 +142,71 @@ test('Founder harness session TTL uses one deterministic clock read and exactly 
 
   assert.equal(clockReads, 1);
   assert.equal(Date.parse(session.expiresAt) - Date.parse(session.issuedAt), 1_800_000);
+});
+
+test('Founder live bootstrap installs the locked graph once when dependency resolution is absent', async () => {
+  let resolveCalls = 0;
+  let installCalls = 0;
+  const result = await ensureFounderHarnessDependencies({
+    resolveDependency: () => {
+      resolveCalls += 1;
+      if (resolveCalls === 1) {
+        const error = new Error('synthetic missing dependency');
+        error.code = 'MODULE_NOT_FOUND';
+        throw error;
+      }
+      return '/synthetic/livekit-server-sdk.js';
+    },
+    install: async () => { installCalls += 1; },
+  });
+  assert.equal(result, 'INSTALLED');
+  assert.equal(resolveCalls, 2);
+  assert.equal(installCalls, 1);
+});
+
+test('Founder locked install is scripts-disabled and excludes provider and lease bindings', async () => {
+  let invocation;
+  const spawnProcess = (command, args, options) => {
+    invocation = { command, args, options };
+    const child = new EventEmitter();
+    child.kill = () => {};
+    queueMicrotask(() => child.emit('exit', 0));
+    return child;
+  };
+  await installLockedDependencies({
+    spawnProcess,
+    timeoutMs: 1_000,
+    npmExecPath: '/synthetic/npm-cli.js',
+  });
+  assert.equal(invocation.command, process.execPath);
+  assert.deepEqual(invocation.args, [
+    '/synthetic/npm-cli.js', 'ci', '--ignore-scripts', '--no-audit', '--no-fund', '--loglevel=error',
+  ]);
+  assert.equal(invocation.options.env.npm_config_userconfig, '/dev/null');
+  assert.equal(Object.hasOwn(invocation.options.env, 'npm_config_globalconfig'), false);
+  for (const name of [
+    'OPENAI_API_KEY', 'LEMONSLICE_API_KEY', 'LIVEKIT_URL', 'LIVEKIT_API_KEY',
+    'LIVEKIT_API_SECRET', 'MMOS_LEASE_SUPABASE_URL', 'MMOS_LEASE_SUPABASE_SERVICE_ROLE_KEY',
+  ]) assert.equal(Object.hasOwn(invocation.options.env, name), false);
+});
+
+test('Founder live startup failure emits only the fixed actionable diagnostic', async () => {
+  const child = spawn(process.execPath, [HARNESS, '--live-test-1'], {
+    cwd: PRODUCT_ROOT,
+    env: { IVPREP_FOUNDER_TEST1_LIVE_ENABLED: 'true' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => { stdout += chunk; });
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const [code] = await once(child, 'exit');
+  assert.equal(code, 1);
+  assert.equal(stdout, '');
+  assert.equal(stderr, 'FOUNDER HARNESS START FAILED\nREASON:\nPROVIDER_BINDINGS_UNAVAILABLE\n');
 });
 
 test('synthetic Founder harness serves the observable room without provider activation', async (context) => {
