@@ -33,6 +33,7 @@ function awaitSyntheticHarness(child) {
       stdout += chunk;
       const url = stdout.match(/^LOCAL_FOUNDER_PROOF_URL=(http:\/\/127\.0\.0\.1:\d+\/iv-prep-on-call\/#room)$/mu)?.[1];
       if (!url || !stdout.includes('LOCAL_FOUNDER_PROOF_MODE=SYNTHETIC_ZERO_COST')
+        || !stdout.includes('LEASE_STATE=NOT_ACQUIRED')
         || !stdout.includes('PROVIDER_CALLS_AT_STARTUP=0')) return;
       clearTimeout(timer);
       resolve({ url, stdout, stderr });
@@ -42,6 +43,32 @@ function awaitSyntheticHarness(child) {
       reject(new Error(`Synthetic Founder harness exited before readiness (${code}).`));
     });
   });
+}
+
+async function leaseRequest(url, path, { method = 'GET' } = {}) {
+  const origin = new URL(url).origin;
+  const response = await fetch(`${origin}/api/ivprep-v6${path}`, {
+    method,
+    headers: method === 'POST' ? {
+      Origin: origin,
+      'Sec-Fetch-Site': 'same-origin',
+      'X-MMHQ-CSRF': CSRF,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': `lease-test-${path}`,
+    } : {},
+    body: method === 'POST' ? '{}' : undefined,
+  });
+  return { status: response.status, body: await response.json() };
+}
+
+async function waitForHarnessLease(url, state, timeoutMs = 5_000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const current = await leaseRequest(url, '/t1-lease');
+    if (current.body.lease?.state === state) return current.body.lease;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`Harness lease did not reach ${state}.`);
 }
 
 function hqSession(userId = 3441) {
@@ -134,13 +161,66 @@ test('synthetic Founder harness serves the observable room without provider acti
   assert.match(html, /FOUNDER TEST #1 · ONE SHOT/u);
   assert.match(html, /Dr Kelly/u);
   assert.match(html, /id="founder-authorize-test"/u);
+  assert.match(html, /id="founder-acquire-lease"/u);
   assert.match(html, /id="room-start"/u);
   assert.match(html, /id="founder-proof-voice"/u);
+  const lease = await leaseRequest(startup.url, '/t1-lease');
+  assert.equal(lease.status, 200);
+  assert.equal(lease.body.lease.state, 'NOT_ACQUIRED');
 
   child.kill('SIGTERM');
   await once(child, 'exit');
   stopped = true;
   assert.equal(child.exitCode, 0);
+});
+
+test('harness blocks paid mutations until stable READY and releases on clean exit', async (context) => {
+  const child = spawn(process.execPath, [HARNESS, '--synthetic-stability-test'], {
+    cwd: PRODUCT_ROOT,
+    env: {},
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  context.after(() => { if (child.exitCode == null) child.kill('SIGKILL'); });
+  const startup = await awaitSyntheticHarness(child);
+  const origin = new URL(startup.url).origin;
+  const blocked = await fetch(`${origin}/api/ivprep-v6/provider-tests/authorize`, {
+    method: 'POST',
+    headers: {
+      Origin: origin,
+      'Sec-Fetch-Site': 'same-origin',
+      'X-MMHQ-CSRF': CSRF,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': 'blocked-before-ready',
+    },
+    body: JSON.stringify({ agentId: FOUNDER_TEST_AGENT_ID, profile: FOUNDER_TEST_PROFILE, voice: 'marin', maxSeconds: 45 }),
+  });
+  assert.equal(blocked.status, 409);
+  assert.deepEqual(await blocked.json(), { error: 'ivprep_t1_lease_not_ready' });
+
+  const acquire = await leaseRequest(startup.url, '/t1-lease/acquire', { method: 'POST' });
+  assert.equal(acquire.status, 202);
+  const ready = await waitForHarnessLease(startup.url, 'READY');
+  assert.ok(ready.heartbeatCount >= 3);
+  child.kill('SIGTERM');
+  await once(child, 'exit');
+  assert.equal(child.exitCode, 0);
+});
+
+test('heartbeat loss terminates the paid-capable harness without provider startup calls', async (context) => {
+  const child = spawn(process.execPath, [HARNESS, '--synthetic-lease-loss-test'], {
+    cwd: PRODUCT_ROOT,
+    env: {},
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  context.after(() => { if (child.exitCode == null) child.kill('SIGKILL'); });
+  const startup = await awaitSyntheticHarness(child);
+  const acquire = await leaseRequest(startup.url, '/t1-lease/acquire', { method: 'POST' });
+  assert.equal(acquire.status, 202);
+  await once(child, 'exit');
+  assert.equal(child.exitCode, 1);
+  assert.match(startup.stdout, /PROVIDER_CALLS_AT_STARTUP=0/u);
 });
 
 test('one authenticated Founder action maps to one authorization, reservation, dispatch, worker, fake provider, and terminal record', async () => {

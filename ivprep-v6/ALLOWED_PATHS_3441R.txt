@@ -1,8 +1,8 @@
 # Y1-Y2-CAM-V6-3441R exact zero-cost product transaction allowlist
-# Authority: DR-081/DR-082 plus DR-085 at MissionMed OS commit 893cb86e9aede4e3be4485781807b90c3e53f9b4
-# Product base: 864bb3eb64342f61e5bee30b9025674f1be175cf
-# Current final-candidate lease: PRODUCT:IV-PREP-ON-CALL lease 9cd2c3b1-6a0c-47e8-81b3-83ac0ff6ad28, fencing epoch 19
-# Current exact 31-path binding: 8c6d99a3d0656cb4d24a6a3e1ee26fbc123f7bc1897a802a1c99fabe02c4ee2f
+# Authority: DR-081/082, DR-085, DR-094/095, and additive DR-098/099 at MissionMed OS commit 3f5c48f40b1e645bd25977bc76f333d6d99a747e
+# Product base: 008f7f60d7a2b2c70e25a0794f5bfb9398ebf33a
+# Current R3 publication lease: PRODUCT:IV-PREP-ON-CALL lease 9afef4ed-383b-4c04-8bde-76e2e42b5bb2, fencing epoch 28
+# Current exact 14-path binding: d9b1eb4c8b90c35897af5ca0359ba488e31deed8a4d037623b46ca984e23b7b9
 
 ivprep-v6/ALLOWED_PATHS_3440.txt
 ivprep-v6/ALLOWED_PATHS_3441R.txt
@@ -24,6 +24,7 @@ ivprep-v6/public/aaa/app.mjs
 ivprep-v6/public/aaa/index.html
 ivprep-v6/public/aaa/styles.css
 ivprep-v6/scripts/3441r/start-founder-proof-harness.mjs
+ivprep-v6/scripts/3441r/t1-durable-lease-keeper.py
 ivprep-v6/test/3440/admission-negative-matrix.test.mjs
 ivprep-v6/test/3440/hq-mount.test.mjs
 ivprep-v6/test/3440/provider-lifecycle.test.mjs
@@ -32,6 +33,9 @@ ivprep-v6/test/3440/source-boundaries.test.mjs
 ivprep-v6/test/3441r/founder-paid-test-gate.test.mjs
 ivprep-v6/test/3441r/founder-proof-runtime.test.mjs
 ivprep-v6/test/3441r/founder-proof-ui.test.mjs
+ivprep-v6/test/3441r/t1-durable-lease-keeper.test.mjs
 ivprep-v6/handoffs/Y1_Y2_CAM_V6_3441R_REALTIME_LEMONSLICE_TEST_RESULTS.md
 ivprep-v6/handoffs/Y1_Y2_CAM_V6_3441R_AVATAR_VOICE_INTEGRATION_CONTRACT.md
 ivprep-v6/handoffs/Y1_Y2_CAM_V6_3441R_COMPLETE_COMBINED_HANDOFF.md
+ivprep-v6/handoffs/Y1_Y2_CAM_V6_3441R_T1_R3/T1_DURABLE_HARNESS_COMPLETE_COMBINED_HANDOFF.md
+ivprep-v6/handoffs/Y1_Y2_CAM_V6_3441R_T1_R3/T1_DURABLE_HARNESS_EVIDENCE.json

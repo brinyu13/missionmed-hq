@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  canUsePaidFounderControls,
   createFounderMediaReadinessGate,
   createFounderTransportTerminationGate,
   createNoReconnectPolicy,
@@ -144,15 +145,34 @@ test('UI cannot authorize on page load and binds exact visible test truth', asyn
   assert.match(html, /FOUNDER TEST #1 · ONE SHOT/u);
   assert.match(html, /gpt-realtime-2\.1 native speech → LiveKit → LemonSlice/u);
   assert.match(html, /Authorization alone creates no provider session/u);
+  assert.match(html, /id="founder-acquire-lease"/u);
+  assert.match(html, /id="founder-lease-state">NOT_ACQUIRED/u);
   assert.match(html, /Cedar is prohibited/u);
   assert.match(app, /addEventListener\("click", \(\) => \{ void authorizeFounderProof\(\); \}\)/u);
   const initializeStart = app.indexOf('async function initialize()');
   const initializeEnd = app.indexOf('void initialize();', initializeStart);
   assert.ok(initializeStart >= 0 && initializeEnd > initializeStart);
   assert.doesNotMatch(app.slice(initializeStart, initializeEnd), /authorizeFounderProof\(/u);
+  assert.doesNotMatch(app.slice(initializeStart, initializeEnd), /acquireFounderProofLease\(/u);
   assert.match(api, /request\('\/provider-tests\/authorize'/u);
   assert.match(api, /method: 'POST'/u);
   assert.doesNotMatch(api, /request\('\/provider-tests\/authorize'\)/u);
+});
+
+test('Founder paid controls are READY-only and lease loss disables them immediately', async () => {
+  for (const state of ['NOT_ACQUIRED', 'STABILIZING', 'LOST', 'RELEASED']) {
+    assert.equal(canUsePaidFounderControls(state), false);
+  }
+  assert.equal(canUsePaidFounderControls('READY'), true);
+  const [app, api] = await Promise.all([
+    readFile(new URL('public/aaa/app.mjs', ROOT), 'utf8'),
+    readFile(new URL('public/aaa/api-client.mjs', ROOT), 'utf8'),
+  ]);
+  assert.match(app, /!canUsePaidFounderControls\(state\.t1Lease\.state\)/u);
+  assert.match(app, /state\.t1Lease\.state === 'LOST'[\s\S]*?stopProductionRoom/u);
+  assert.match(app, /releaseT1Lease\(\)/u);
+  assert.match(api, /request\('\/t1-lease\/acquire'/u);
+  assert.match(api, /request\('\/t1-lease\/release'/u);
 });
 
 test('Realtime adapter uses semantic turn detection without a fixed five-second silence wait', async () => {

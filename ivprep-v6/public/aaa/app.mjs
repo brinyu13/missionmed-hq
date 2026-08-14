@@ -5,15 +5,19 @@ import {
   QUESTION_CATEGORIES
 } from "./fixtures.mjs";
 import {
+  acquireT1Lease,
   authorizeFounderTest,
+  canUsePaidFounderControls,
   createFounderMediaReadinessGate,
   createFounderTransportTerminationGate,
   createNoReconnectPolicy,
   endInterview,
   loadInterviewStatus,
   loadIvPrepSession,
+  loadT1LeaseState,
   loadVault,
   recordInterviewMediaReady,
+  releaseT1Lease,
   startInterview,
 } from "./api-client.mjs";
 
@@ -45,6 +49,8 @@ const state = {
   founderTestPermit: null,
   founderProofRoom: null,
   founderProofStatusTimer: null,
+  t1LeaseStatusTimer: null,
+  t1Lease: Object.freeze({ state: 'NOT_ACQUIRED', heartbeatCount: 0, stableSeconds: 0 }),
   audibleInterviewerTrack: null,
   roomLayoutSwapped: false,
   vaultSessions: []
@@ -454,6 +460,10 @@ function formatTime(seconds) {
 
 async function startProductionRoom() {
   if (state.roomStarted) return;
+  if (state.admission?.founderPaidTest?.enabled && !canUsePaidFounderControls(state.t1Lease.state)) {
+    toast('The product lease keeper must be READY before Test #1 can start.');
+    return;
+  }
   $("#room-start").disabled = true;
   const videoProof = Boolean(state.founderTestPermit);
   $("#room-status").textContent = videoProof ? "Opening the bounded Founder video proof…" : "Opening the secure voice-only interview…";
@@ -482,7 +492,12 @@ async function startProductionRoom() {
     state.founderProofRoom?.disconnect?.(true);
     state.founderProofRoom = null;
     state.audibleInterviewerTrack = null;
-    $("#room-start").disabled = false;
+    if (state.admission?.founderPaidTest?.enabled) {
+      try { state.t1Lease = Object.freeze(await releaseT1Lease()); }
+      catch { state.t1Lease = Object.freeze({ ...state.t1Lease, state: 'LOST' }); }
+      renderT1LeaseState();
+    }
+    $("#room-start").disabled = !canUsePaidFounderControls(state.t1Lease.state);
     $("#room-status").textContent = error.code === "ivprep_unavailable" ? "Interview starts are temporarily disabled." : "Secure admission could not be confirmed.";
     toast("Interview start failed closed; no provider session was created.");
     return;
@@ -520,6 +535,10 @@ async function stopProductionRoom({
       toast("Cleanup is unresolved. New video starts remain disabled.");
     }
   }
+  if (state.admission?.founderPaidTest?.enabled && state.t1Lease.state !== 'NOT_ACQUIRED') {
+    try { state.t1Lease = Object.freeze(await releaseT1Lease()); }
+    catch { state.t1Lease = Object.freeze({ ...state.t1Lease, state: 'LOST' }); }
+  }
   window.clearInterval(state.founderProofStatusTimer);
   state.founderProofStatusTimer = null;
   state.founderProofRoom?.disconnect?.(true);
@@ -534,7 +553,7 @@ async function stopProductionRoom({
   document.body.dataset.roomState = "ready";
   setRoomComposer(false);
   resetEndConfirmation();
-  $("#room-start").disabled = false;
+  renderT1LeaseState();
   $("#room-start").innerHTML = "<span>●</span> Start interview";
   $("#room-status").textContent = terminalMessage;
   if (results) navigate("results");
@@ -764,6 +783,10 @@ async function connectFounderProofMedia(started) {
 async function authorizeFounderProof() {
   const contract = state.admission?.founderPaidTest;
   if (!contract?.enabled) return;
+  if (!canUsePaidFounderControls(state.t1Lease.state)) {
+    toast('Wait for the durable product lease to reach READY.');
+    return;
+  }
   const button = $('#founder-authorize-test');
   button.disabled = true;
   try {
@@ -783,6 +806,66 @@ async function authorizeFounderProof() {
     button.disabled = false;
     $('#founder-proof-state').textContent = 'DENIED';
     toast(error.code || 'Founder authorization failed closed.');
+  }
+}
+
+function renderT1LeaseState() {
+  const lease = state.t1Lease || { state: 'LOST', heartbeatCount: 0, stableSeconds: 0 };
+  const stateNode = $('#founder-lease-state');
+  const detailNode = $('#founder-lease-detail');
+  const acquireButton = $('#founder-acquire-lease');
+  const authorizeButton = $('#founder-authorize-test');
+  const ready = canUsePaidFounderControls(lease.state);
+  if (stateNode) stateNode.textContent = lease.state;
+  if (detailNode) {
+    detailNode.textContent = lease.state === 'STABILIZING'
+      ? `${lease.heartbeatCount} heartbeats · ${lease.stableSeconds}s stable · 30s required`
+      : lease.state === 'READY'
+        ? `${lease.heartbeatCount} heartbeats · ${lease.stableSeconds}s stable · automatic keeper active`
+        : lease.state === 'LOST'
+          ? 'Authority was lost. Paid controls are closed and no automatic reacquire is allowed.'
+          : lease.state === 'RELEASED'
+            ? 'Lease released. This harness cannot reacquire automatically.'
+            : 'Founder may start the keeper when physically ready.';
+  }
+  if (acquireButton) {
+    acquireButton.disabled = lease.state !== 'NOT_ACQUIRED';
+    acquireButton.textContent = lease.state === 'NOT_ACQUIRED' ? 'START LEASE KEEPER' : `LEASE ${lease.state}`;
+  }
+  if (authorizeButton) authorizeButton.disabled = !ready || Boolean(state.founderTestPermit);
+  if ($('#room-start') && !state.roomStarted) {
+    $('#room-start').disabled = !ready || !state.founderTestPermit;
+  }
+}
+
+async function refreshT1LeaseState() {
+  try {
+    const previous = state.t1Lease.state;
+    state.t1Lease = Object.freeze(await loadT1LeaseState());
+    renderT1LeaseState();
+    if (state.t1Lease.state === 'LOST' && previous !== 'LOST' && state.roomStarted) {
+      await stopProductionRoom({
+        results: false,
+        terminalMessage: 'Founder proof stopped because product lease authority was lost.',
+      });
+    }
+  } catch {
+    state.t1Lease = Object.freeze({ ...state.t1Lease, state: 'LOST' });
+    renderT1LeaseState();
+  }
+}
+
+async function acquireFounderProofLease() {
+  const button = $('#founder-acquire-lease');
+  button.disabled = true;
+  try {
+    state.t1Lease = Object.freeze(await acquireT1Lease());
+    renderT1LeaseState();
+    toast('Lease keeper is stabilizing automatically. Provider calls remain zero.');
+  } catch (error) {
+    state.t1Lease = Object.freeze({ ...state.t1Lease, state: 'LOST' });
+    renderT1LeaseState();
+    toast(error.code || 'Lease keeper failed closed.');
   }
 }
 
@@ -1035,6 +1118,7 @@ function bindStaticEvents() {
   });
 
   $("#room-start").addEventListener("click", () => { void startProductionRoom(); });
+  $("#founder-acquire-lease").addEventListener("click", () => { void acquireFounderProofLease(); });
   $("#founder-authorize-test").addEventListener("click", () => { void authorizeFounderProof(); });
   $("#room-swap").addEventListener("click", () => {
     state.roomLayoutSwapped = !state.roomLayoutSwapped;
@@ -1289,6 +1373,9 @@ async function initialize() {
       option.selected = name === 'marin';
       return option;
     }));
+    await refreshT1LeaseState();
+    window.clearInterval(state.t1LeaseStatusTimer);
+    state.t1LeaseStatusTimer = window.setInterval(() => { void refreshT1LeaseState(); }, 1_000);
   }
   setMobileBuilderPane("questions");
   syncResponsiveState();

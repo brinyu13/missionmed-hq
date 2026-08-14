@@ -6,6 +6,10 @@ export function createNoReconnectPolicy() {
   return Object.freeze({ nextRetryDelayInMs: () => null });
 }
 
+export function canUsePaidFounderControls(leaseState) {
+  return leaseState === 'READY';
+}
+
 export function createFounderTransportTerminationGate({
   onPreReadyFailure,
   onPostReadyFailure,
@@ -105,6 +109,31 @@ async function request(path, options = {}) {
 export async function loadIvPrepSession() {
   sessionState = await request('/session');
   return structuredClone(sessionState);
+}
+
+export async function loadT1LeaseState() {
+  const body = await request('/t1-lease');
+  return body.lease || { state: 'LOST' };
+}
+
+export async function acquireT1Lease() {
+  if (!sessionState?.mutationCsrfToken) throw new Error('ivprep_authentication_required');
+  const body = await request('/t1-lease/acquire', {
+    method: 'POST',
+    headers: { 'X-MMHQ-CSRF': sessionState.mutationCsrfToken },
+    body: JSON.stringify({ action: 'acquire' }),
+  });
+  return body.lease;
+}
+
+export async function releaseT1Lease() {
+  if (!sessionState?.mutationCsrfToken) throw new Error('ivprep_authentication_required');
+  const body = await request('/t1-lease/release', {
+    method: 'POST',
+    headers: { 'X-MMHQ-CSRF': sessionState.mutationCsrfToken },
+    body: JSON.stringify({ action: 'release' }),
+  });
+  return body.lease;
 }
 
 export async function loadVault() {

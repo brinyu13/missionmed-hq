@@ -233,9 +233,10 @@
         </div>
         <section class="founder-proof-panel" id="founder-proof-panel" aria-labelledby="founder-proof-title" hidden>
           <div><p class="eyebrow gold">FOUNDER TEST #1 · ONE SHOT</p><h2 id="founder-proof-title">Self-managed physical proof</h2><p>Authorization alone creates no provider session. Start remains a separate explicit action.</p></div>
-          <dl><div><dt>Agent</dt><dd id="founder-proof-agent">—</dd></div><div><dt>Pipeline</dt><dd>gpt-realtime-2.1 native speech → LiveKit → LemonSlice</dd></div><div><dt>Limit</dt><dd id="founder-proof-duration">45s hard maximum</dd></div><div><dt>State</dt><dd id="founder-proof-state">NOT AUTHORIZED</dd></div></dl>
+          <dl><div><dt>Agent</dt><dd id="founder-proof-agent">—</dd></div><div><dt>Pipeline</dt><dd>gpt-realtime-2.1 native speech → LiveKit → LemonSlice</dd></div><div><dt>Limit</dt><dd id="founder-proof-duration">45s hard maximum</dd></div><div><dt>Lease</dt><dd id="founder-lease-state">NOT_ACQUIRED</dd></div><div><dt>State</dt><dd id="founder-proof-state">NOT AUTHORIZED</dd></div></dl>
           <label><span>Session-pinned Realtime voice</span><select id="founder-proof-voice" aria-describedby="founder-proof-voice-note"></select></label>
           <p id="founder-proof-voice-note" class="truth-note">Cedar is prohibited. The selected voice is bound into the one-shot authorization and cannot change mid-session.</p>
+          <div class="founder-lease-control"><button class="btn btn-secondary" type="button" id="founder-acquire-lease">START LEASE KEEPER</button><span id="founder-lease-detail" aria-live="polite">Founder may start the keeper when physically ready.</span></div>
           <button class="btn btn-primary" type="button" id="founder-authorize-test">AUTHORIZE TEST #1 ONCE</button>
           <strong id="founder-proof-selected" aria-live="polite">No paid authorization exists.</strong>
           <div class="proof-milestones" aria-label="Proof milestones"><span>Authorization <b data-proof-milestone="authorization">Waiting</b></span><span>Dispatch <b data-proof-milestone="dispatch">Waiting</b></span><span>Worker <b data-proof-milestone="worker">Waiting</b></span><span>Media <b data-proof-milestone="media">Waiting</b></span></div>
