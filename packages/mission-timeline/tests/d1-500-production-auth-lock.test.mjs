@@ -110,6 +110,10 @@ test("File Vault source adapter is same-origin, nonce-bound, metadata-only, and 
     calls.push({url:String(url),options});
     if(String(url).includes("admin-ajax.php"))return bootstrap();
     if(String(url).includes("/token"))return tokenResponse();
+    if(String(url).endsWith(`/file-vault/sources/${id}/ingestions`))return new Response(JSON.stringify({document:{
+      id,name:"CV.pdf",provider:"missionmed-filevault-v1",documentType:"cv",
+      versionId:"22222222-2222-4222-8222-222222222222",mimeType:"application/pdf"
+    },source:{objectId:"object_filevault_12345678",sha256:"a".repeat(64),mimeType:"application/pdf"},contentBase64:Buffer.from("cv bytes").toString("base64")}),{status:201,headers:{"content-type":"application/json"}});
     if(String(url).endsWith(`/file-vault/sources/${id}`))return new Response(JSON.stringify({document:{
       id,name:"CV.pdf",provider:"missionmed-filevault-v1",documentType:"cv",
       versionId:"22222222-2222-4222-8222-222222222222",mimeType:"application/pdf"
@@ -122,12 +126,16 @@ test("File Vault source adapter is same-origin, nonce-bound, metadata-only, and 
   assert.equal(adapter.connected,true);
   assert.equal((await adapter.search("CV"))[0].id,id);
   assert.equal((await adapter.select(id)).versionId,"22222222-2222-4222-8222-222222222222");
+  const imported=await adapter.select(id,{timelineDocumentId:"timeline_filevault_1",versionId:"22222222-2222-4222-8222-222222222222"});
+  assert.equal(imported.file.timelineSourceObject.objectId,"object_filevault_12345678");
   const sourceCalls=calls.filter(({url})=>url.includes("/file-vault/sources"));
-  assert.equal(sourceCalls.length,2);
+  assert.equal(sourceCalls.length,3);
   assert.equal(sourceCalls.every(({url})=>url.startsWith(locationObject.origin)),true);
   assert.equal(sourceCalls.every(({options})=>options.credentials==="same-origin"&&options.cache==="no-store"),true);
   assert.equal(sourceCalls.every(({options})=>new Headers(options.headers).get("x-wp-nonce")==="next"),true);
   assert.equal(sourceCalls.every(({options})=>!new Headers(options.headers).has("authorization")),true);
+  assert.equal(sourceCalls.at(-1).options.method,"POST");
+  assert.deepEqual(JSON.parse(sourceCalls.at(-1).options.body),{timelineDocumentId:"timeline_filevault_1",versionId:"22222222-2222-4222-8222-222222222222"});
   client.close();
   assert.equal("MISSIONMED_FILEVAULT_SOURCE_ADAPTER" in globalObject,false);
 });

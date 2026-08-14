@@ -625,10 +625,102 @@ function mmtl_filevault_source_endpoint($request) {
     if (is_wp_error($upstream)) {
         return $upstream;
     }
-    $descriptor = mmtl_filevault_source_descriptor($upstream, get_current_user_id(), true);
+    $descriptor = mmtl_filevault_source_descriptor($upstream['file'] ?? $upstream, get_current_user_id(), true);
     return $descriptor === null
         ? mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404)
         : mmtl_filevault_source_response(array('document' => $descriptor));
+}
+
+/**
+ * Transfer one exact File Vault version into Timeline private SOURCE custody.
+ * The signed File Vault URL is consumed only inside WordPress and is never
+ * returned to the browser, persisted, logged, or copied into Timeline state.
+ */
+function mmtl_filevault_ingestion_endpoint($request) {
+    $id = sanitize_text_field((string) $request['id']);
+    $params = $request->get_json_params();
+    $timeline_document_id = sanitize_text_field((string) ($params['timelineDocumentId'] ?? ''));
+    $requested_version_id = sanitize_text_field((string) ($params['versionId'] ?? ''));
+    if (!preg_match('/^[0-9a-fA-F-]{8,64}$/', $id)
+        || !preg_match('/^[-_a-zA-Z0-9]{8,128}$/', $timeline_document_id)
+        || !preg_match('/^[0-9a-fA-F-]{8,64}$/', $requested_version_id)) {
+        return mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404);
+    }
+    $detail = mmtl_filevault_source_dispatch('/mmed/v1/files/' . rawurlencode($id));
+    if (is_wp_error($detail)) {
+        return $detail;
+    }
+    $descriptor = mmtl_filevault_source_descriptor($detail['file'] ?? $detail, get_current_user_id(), true);
+    if ($descriptor === null || !hash_equals((string) $descriptor['versionId'], $requested_version_id)) {
+        return mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404);
+    }
+    if (!in_array((string) $descriptor['mimeType'], array(
+        'application/pdf',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ), true)) {
+        return mmtl_filevault_source_error('timeline_filevault_source_type_denied', 'Choose a PDF or DOCX document for Smart Fill.', 415);
+    }
+    $download = mmtl_filevault_source_dispatch('/mmed/v1/files/' . rawurlencode($id) . '/download');
+    $download_url = is_wp_error($download) ? '' : esc_url_raw((string) ($download['url'] ?? ''));
+    if ($download_url === '' || !wp_http_validate_url($download_url) || strtolower((string) wp_parse_url($download_url, PHP_URL_SCHEME)) !== 'https') {
+        return mmtl_filevault_source_error('timeline_filevault_unavailable', 'File Vault is temporarily unavailable. You can still upload a CV from this device.', 503);
+    }
+    $source_response = wp_remote_get($download_url, array(
+        'timeout' => 30,
+        'redirection' => 0,
+        'reject_unsafe_urls' => true,
+        'limit_response_size' => 25 * 1024 * 1024 + 1,
+    ));
+    if (is_wp_error($source_response) || (int) wp_remote_retrieve_response_code($source_response) !== 200) {
+        return mmtl_filevault_source_error('timeline_filevault_unavailable', 'File Vault is temporarily unavailable. You can still upload a CV from this device.', 503);
+    }
+    $bytes = (string) wp_remote_retrieve_body($source_response);
+    $byte_size = strlen($bytes);
+    if ($byte_size < 1 || $byte_size > 25 * 1024 * 1024) {
+        return mmtl_filevault_source_error('timeline_filevault_source_size_denied', 'That File Vault document is too large for Smart Fill.', 413);
+    }
+    $sha256 = hash('sha256', $bytes);
+    $user = wp_get_current_user();
+    $access = mmtl_access_state($user);
+    $issued = is_wp_error($access) ? $access : mmtl_issue_jwt($user, $access);
+    $settings = mmtl_settings();
+    $gateway_secret = mmtl_gateway_secret();
+    if (is_wp_error($issued) || $settings['api_origin'] === '' || !wp_http_validate_url($settings['api_origin']) || strlen($gateway_secret) < 32) {
+        return mmtl_filevault_source_error('timeline_api_unavailable', 'Timeline Smart Fill is temporarily unavailable. You can still upload a CV from this device.', 503);
+    }
+    $target = $settings['api_origin'] . '/v1/documents/' . rawurlencode($timeline_document_id) . '/file-vault/ingestions';
+    $timeline_response = wp_remote_request($target, array(
+        'method' => 'POST',
+        'timeout' => 45,
+        'redirection' => 0,
+        'reject_unsafe_urls' => true,
+        'headers' => array(
+            'Authorization' => 'Bearer ' . $issued['token'],
+            'Content-Type' => (string) $descriptor['mimeType'],
+            'Content-Length' => (string) $byte_size,
+            'X-Content-Sha256' => $sha256,
+            'X-File-Vault-Id' => $id,
+            'X-File-Vault-Version' => $requested_version_id,
+            'X-Request-Id' => wp_generate_uuid4(),
+            'X-MissionMed-Timeline-Gateway' => 'wordpress',
+            'X-MissionMed-Timeline-Gateway-Secret' => $gateway_secret,
+        ),
+        'body' => $bytes,
+    ));
+    $status = is_wp_error($timeline_response) ? 0 : (int) wp_remote_retrieve_response_code($timeline_response);
+    $payload = $status > 0 ? json_decode((string) wp_remote_retrieve_body($timeline_response), true) : null;
+    if ($status < 200 || $status >= 300 || !is_array($payload) || empty($payload['source']['objectId'])) {
+        return mmtl_filevault_source_error('timeline_filevault_ingestion_failed', 'Timeline could not safely import that File Vault document. You can still upload it from this device.', 503);
+    }
+    return mmtl_filevault_source_response(array(
+        'document' => $descriptor,
+        'source' => array(
+            'objectId' => sanitize_text_field((string) $payload['source']['objectId']),
+            'sha256' => $sha256,
+            'mimeType' => (string) $descriptor['mimeType'],
+        ),
+        'contentBase64' => base64_encode($bytes),
+    ), 201);
 }
 
 function mmtl_register_rest_routes() {
@@ -648,6 +740,11 @@ function mmtl_register_rest_routes() {
     register_rest_route(MMTL_REST_NAMESPACE, MMTL_REST_FILEVAULT_SOURCES_ROUTE . '/(?P<id>[0-9a-fA-F-]{8,64})', array(
         'methods' => WP_REST_Server::READABLE,
         'callback' => 'mmtl_filevault_source_endpoint',
+        'permission_callback' => 'mmtl_filevault_source_permission',
+    ));
+    register_rest_route(MMTL_REST_NAMESPACE, MMTL_REST_FILEVAULT_SOURCES_ROUTE . '/(?P<id>[0-9a-fA-F-]{8,64})/ingestions', array(
+        'methods' => WP_REST_Server::CREATABLE,
+        'callback' => 'mmtl_filevault_ingestion_endpoint',
         'permission_callback' => 'mmtl_filevault_source_permission',
     ));
 }

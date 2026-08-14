@@ -55,10 +55,27 @@ export function createAuthenticatedFileVaultSourceAdapter({request}={}){
     provider:"missionmed-filevault-v1",
     async listRecent(){return load();},
     async search(query){return load(query);},
-    async select(documentId){
+    async select(documentId,{timelineDocumentId,versionId}={}){
       const id=String(documentId||"").trim();
       if(!/^[0-9a-fA-F-]{8,64}$/.test(id)){
         throw stableUnavailableError("That File Vault document is not available.");
+      }
+      if(timelineDocumentId&&versionId){
+        const payload=await request(`/${encodeURIComponent(id)}/ingestions`,{
+          method:"POST",body:{timelineDocumentId:String(timelineDocumentId),versionId:String(versionId)}
+        });
+        const document=payload?.document||null;
+        const source=payload?.source||null;
+        const encoded=String(payload?.contentBase64||"");
+        if(!document||!source?.objectId||!encoded)throw stableUnavailableError("Timeline could not safely import that File Vault document.");
+        const binary=atob(encoded);
+        const bytes=new Uint8Array(binary.length);
+        for(let index=0;index<binary.length;index+=1)bytes[index]=binary.charCodeAt(index);
+        const file=new File([bytes],String(document.name||"MissionMed document"),{
+          type:String(document.mimeType||source.mimeType||"application/octet-stream"),lastModified:Date.parse(String(document.updatedAt||""))||Date.now()
+        });
+        Object.defineProperty(file,"timelineSourceObject",{value:Object.freeze({...source,provider:"missionmed-filevault-v1",vaultFileId:id,versionId:String(document.versionId||versionId)}),enumerable:false});
+        return{...document,file,source:file.timelineSourceObject};
       }
       const payload=await request(`/${encodeURIComponent(id)}`);
       return payload?.document||null;
@@ -113,12 +130,13 @@ export async function queryFileVaultSource(adapter,{query=""}={}){
   });
 }
 
-export async function selectFileVaultSourceDocument(adapter,documentId){
+export async function selectFileVaultSourceDocument(adapter,documentId,options={}){
   const source=resolveFileVaultSourceAdapter(adapter);
   if(!source.connected)throw stableUnavailableError(source.reason);
-  const selected=normalizeFileVaultSourceDocument(await source.select(String(documentId||"")));
+  const raw=await source.select(String(documentId||""),options);
+  const selected=normalizeFileVaultSourceDocument(raw);
   if(!selected)throw stableUnavailableError("File Vault returned an invalid document descriptor.");
-  return selected;
+  return Object.freeze({...selected,...(raw?.file?{file:raw.file,source:raw.source}:{} )});
 }
 
 export function renderFileVaultSourceChooser(model){

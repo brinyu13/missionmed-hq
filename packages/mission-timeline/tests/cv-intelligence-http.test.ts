@@ -86,3 +86,63 @@ test("owner-authenticated CV route validates private SOURCE custody and returns 
   assert.equal(body.candidates[0].canonicalType, "AWARD_HONOR");
   assert.equal(body.candidates[0].safeToBulkAccept, true);
 });
+
+test("owner-authenticated File Vault handoff stores one exact private SOURCE with integrity and provenance", async () => {
+  const repository = new InMemoryTimelineRepository();
+  const service = new TimelineService(repository, fixedClock);
+  const directory = new InMemoryPrincipalDirectory();
+  directory.register({ principalId: student.principalId, wpUserId: 42, role: "STUDENT", programIds: student.programIds, assignedDocumentIds: [], active: true });
+  const identity = new MatrixSessionExchange(directory, { verify: async () => true }, "0123456789abcdef0123456789abcdef", 600, fixedClock);
+  const objectStore = new InMemoryPrivateObjectStore("test", "0123456789abcdef0123456789abcdef", fixedClock);
+  const api = new TimelineHttpApi(
+    service,
+    identity,
+    objectStore,
+    new PrivacySafeTelemetry(new InMemoryTelemetrySink(), "test", fixedClock),
+    "test",
+    false,
+  );
+  const exchange = await api.handle(httpRequest("/v1/session/exchange", "POST"), { wpUserId: 42, displayName: "Student", nonceVerified: true, sessionId: "matrix_session" });
+  const { token } = await exchange.json();
+  await api.handle(httpRequest("/v1/documents", "POST", token, { id: "timeline_filevault_http", programId: student.programIds[0], title: "Timeline", document: { events: [] } }));
+  const bytes = new TextEncoder().encode("exact private File Vault CV bytes");
+  const digest = sha256(bytes);
+  const request = new Request("https://timeline.local/v1/documents/timeline_filevault_http/file-vault/ingestions", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/pdf",
+      "content-length": String(bytes.byteLength),
+      "x-content-sha256": digest,
+      "x-file-vault-id": "11111111-1111-4111-8111-111111111111",
+      "x-file-vault-version": "22222222-2222-4222-8222-222222222222",
+    },
+    body: bytes,
+  });
+  const response = await api.handle(request);
+  assert.equal(response.status, 201);
+  const payload = await response.json();
+  assert.deepEqual(payload.provenance, {
+    provider: "missionmed-filevault-v1",
+    vaultFileId: "11111111-1111-4111-8111-111111111111",
+    versionId: "22222222-2222-4222-8222-222222222222",
+  });
+  const stored = await objectStore.getAuthorizedObject(student, payload.source.objectId);
+  assert.equal(stored?.ownerPrincipalId, student.principalId);
+  assert.equal(stored?.objectClass, "SOURCE");
+  assert.equal(stored?.expectedSha256, digest);
+
+  const tampered = new Request("https://timeline.local/v1/documents/timeline_filevault_http/file-vault/ingestions", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/pdf",
+      "content-length": String(bytes.byteLength),
+      "x-content-sha256": "0".repeat(64),
+      "x-file-vault-id": "11111111-1111-4111-8111-111111111111",
+      "x-file-vault-version": "22222222-2222-4222-8222-222222222222",
+    },
+    body: bytes,
+  });
+  assert.equal((await api.handle(tampered)).status, 409);
+});

@@ -83,7 +83,7 @@ export class TimelineProductionAuthClient{
     }
     await this.refreshToken();
     this.fileVaultSourceAdapter=createAuthenticatedFileVaultSourceAdapter({
-      request:(suffix="")=>this.requestFileVaultSource(suffix)
+      request:(suffix="",options={})=>this.requestFileVaultSource(suffix,options)
     });
     if(this.globalObject)this.globalObject.MISSIONMED_FILEVAULT_SOURCE_ADAPTER=this.fileVaultSourceAdapter;
     return Object.freeze({...this.bootstrapState,claims:{...this.claims}});
@@ -157,22 +157,23 @@ export class TimelineProductionAuthClient{
     return payload;
   }
 
-  async requestFileVaultSource(suffix="",{retry=true}={}){
+  async requestFileVaultSource(suffix="",{method="GET",body,retry=true}={}){
     await this.validToken();
     const endpoint=new URL(`${this.bootstrapState.fileVaultSourceEndpoint}${String(suffix||"")}`);
     if(endpoint.origin!==this.locationObject.origin){
       throw new TimelineProductionAuthError("CROSS_ORIGIN_CONFIGURATION","File Vault source configuration is invalid.");
     }
     const response=await this.fetchImpl(endpoint,{
-      method:"GET",credentials:"same-origin",cache:"no-store",
-      headers:{accept:"application/json","x-wp-nonce":this.bootstrapState.nonce},
+      method,credentials:"same-origin",cache:"no-store",
+      headers:{accept:"application/json","x-wp-nonce":this.bootstrapState.nonce,...(body===undefined?{}:{"content-type":"application/json"})},
+      body:body===undefined?undefined:JSON.stringify(body),
       signal:AbortSignal.timeout(20_000)
     });
     const payload=await response.json().catch(()=>({}));
     const code=String(payload?.code||payload?.error?.code||"TIMELINE_FILEVAULT_ERROR");
     if(retry&&(response.status===401||code.toLowerCase()==="csrf_failed")){
       await this.refreshToken();
-      return this.requestFileVaultSource(suffix,{retry:false});
+      return this.requestFileVaultSource(suffix,{method,body,retry:false});
     }
     if(response.status===401||isAuthorityRevocation(code))this.lock(`filevault_${code.toLowerCase()}`);
     if(!response.ok){

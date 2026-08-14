@@ -98,6 +98,27 @@ test("D1-405 authenticated adapter uses only the bounded source routes",async()=
   assert.deepEqual(calls,["","?query=my%20cv",`/${id}`]);
 });
 
+test("D1-405 authenticated adapter performs an exact-version one-use ingestion without exposing a signed URL",async()=>{
+  const calls=[];
+  const id="11111111-1111-4111-8111-111111111111";
+  const versionId="22222222-2222-4222-8222-222222222222";
+  const contentBase64=Buffer.from("bounded cv bytes").toString("base64");
+  const adapter=createAuthenticatedFileVaultSourceAdapter({request:async(suffix,options={})=>{
+    calls.push([suffix,options]);
+    return{
+      document:{id,name:"CV.pdf",provider:"missionmed-filevault-v1",documentType:"cv",versionId,mimeType:"application/pdf"},
+      source:{objectId:"object_filevault_12345678",sha256:"a".repeat(64),mimeType:"application/pdf"},
+      contentBase64
+    };
+  }});
+  const selected=await selectFileVaultSourceDocument(adapter,id,{timelineDocumentId:"timeline_filevault_1",versionId});
+  assert.equal(selected.file.name,"CV.pdf");
+  assert.equal(selected.file.timelineSourceObject.objectId,"object_filevault_12345678");
+  assert.equal(await selected.file.text(),"bounded cv bytes");
+  assert.deepEqual(calls,[[`/${id}/ingestions`,{method:"POST",body:{timelineDocumentId:"timeline_filevault_1",versionId}}]]);
+  assert.equal(JSON.stringify(selected).includes("signed"),false);
+});
+
 test("D1-405 Timeline gateway is read-only, nonce-bound, entitled, and owner-filtered",()=>{
   assert.match(plugin,/MMTL_REST_FILEVAULT_SOURCES_ROUTE = '\/file-vault\/sources'/);
   assert.match(plugin,/function mmtl_filevault_source_permission/);
@@ -109,8 +130,13 @@ test("D1-405 Timeline gateway is read-only, nonce-bound, entitled, and owner-fil
   assert.match(plugin,/provider' => 'missionmed-filevault-v1'/);
   assert.match(plugin,/current_version_id/);
   assert.match(plugin,/upload_confirmed/);
+  assert.match(plugin,/\$upstream\['file'\] \?\? \$upstream/);
+  assert.match(plugin,/\$detail\['file'\] \?\? \$detail/);
   assert.match(plugin,/File Vault is temporarily unavailable\. You can still upload a CV from this device\./);
-  assert.doesNotMatch(plugin,/MMTL_REST_FILEVAULT_SOURCES_ROUTE[\s\S]{0,120}WP_REST_Server::CREATABLE/);
+  assert.match(plugin,/function mmtl_filevault_ingestion_endpoint/);
+  assert.match(plugin,/X-File-Vault-Version/);
+  assert.match(plugin,/limit_response_size' => 25 \* 1024 \* 1024 \+ 1/);
+  assert.match(plugin,/contentBase64' => base64_encode\(\$bytes\)/);
   const descriptor=plugin.match(/function mmtl_filevault_source_descriptor[\s\S]*?\n}/)?.[0]||"";
   assert.doesNotMatch(descriptor,/r2_key|signed|url|contents|note_to_advisor/);
 });

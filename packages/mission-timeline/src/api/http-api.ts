@@ -1,4 +1,5 @@
 import type { MatrixIdentity, PrincipalContext } from "../contracts/types.js";
+import { sha256 } from "../core/canonical.js";
 import { asTimelineError, TimelineError } from "../core/errors.js";
 import type { TimelineService } from "../domain/timeline-service.js";
 import { CvIntelligenceService } from "../intelligence/cv-intelligence-service.js";
@@ -133,6 +134,47 @@ export class TimelineHttpApi {
       const sourceObject = await this.objectStore.getAuthorizedObject(context, String(source.objectId ?? ""));
       return json(await this.cvIntelligence.analyze(context, record.document, sourceObject, input), 200);
     }
+    const fileVaultIngestMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/file-vault\/ingestions$/);
+    if (fileVaultIngestMatch && request.method === "POST") {
+      const record = await service.getDocument(context, fileVaultIngestMatch[1]!);
+      if (record.document.studentOwnerId !== context.principalId || context.role !== "STUDENT") {
+        throw new TimelineError("FILE_VAULT_INGEST_OWNER_REQUIRED", "Student ownership is required for File Vault ingestion.", 403);
+      }
+      const byteSize = Number(request.headers.get("content-length") ?? 0);
+      const mimeType = String(request.headers.get("content-type") ?? "").split(";", 1)[0]!.trim().toLowerCase();
+      const expectedSha256 = String(request.headers.get("x-content-sha256") ?? "").trim().toLowerCase();
+      const vaultFileId = String(request.headers.get("x-file-vault-id") ?? "").trim();
+      const versionId = String(request.headers.get("x-file-vault-version") ?? "").trim();
+      if (!Number.isInteger(byteSize) || byteSize < 1 || byteSize > 25 * 1024 * 1024) {
+        throw new TimelineError("FILE_VAULT_INGEST_SIZE_DENIED", "File Vault source size is outside the allowed range.", 413);
+      }
+      if (!["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(mimeType)) {
+        throw new TimelineError("FILE_VAULT_INGEST_MIME_DENIED", "File Vault source type is not supported for CV analysis.", 415);
+      }
+      if (!/^[a-f0-9]{64}$/.test(expectedSha256) || !/^[0-9a-fA-F-]{8,64}$/.test(vaultFileId) || !/^[0-9a-fA-F-]{8,64}$/.test(versionId)) {
+        throw new TimelineError("FILE_VAULT_INGEST_PROVENANCE_INVALID", "File Vault source provenance is invalid.", 400);
+      }
+      const bytes = new Uint8Array(await request.arrayBuffer());
+      if (bytes.byteLength !== byteSize || sha256(bytes) !== expectedSha256) {
+        throw new TimelineError("FILE_VAULT_INGEST_INTEGRITY_FAILED", "File Vault source integrity could not be verified.", 409);
+      }
+      const sourceObject = await this.objectStore.putServiceObject(
+        { ...context, role: "SERVICE" },
+        {
+          documentId: record.document.id,
+          ownerPrincipalId: context.principalId,
+          objectClass: "SOURCE",
+          mimeType,
+          byteSize,
+          sha256: expectedSha256,
+        },
+        bytes,
+      );
+      return json({
+        source: { objectId: sourceObject.id, sha256: expectedSha256, mimeType },
+        provenance: { provider: "missionmed-filevault-v1", vaultFileId, versionId },
+      }, 201);
+    }
     const checkpointMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/checkpoints\/([^/]+)$/);
     if (checkpointMatch && request.method === "PUT") {
       const input = await body(request);
@@ -246,6 +288,7 @@ export class TimelineHttpApi {
     if (pathname.includes("/versions")) return "versions";
     if (pathname.includes("/checkpoints")) return "checkpoints";
     if (pathname.includes("/intake/")) return "intake";
+    if (pathname.includes("/file-vault/")) return "intake";
     if (pathname.includes("/documents")) return "documents";
     if (pathname.includes("/objects")) return "objects";
     if (pathname.includes("/exports")) return "exports";

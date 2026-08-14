@@ -61,6 +61,18 @@ paths:
         "403": { description: Document or SOURCE ownership denied }
         "409": { description: SOURCE version, integrity, or consent conflict }
         "503": { description: Configured intelligence provider unavailable }
+  /documents/{documentId}/file-vault/ingestions:
+    post:
+      description: WordPress-gateway-only exact-version handoff. The authenticated File Vault V1 owner read is copied server-to-server into the same student's private Timeline SOURCE custody after MIME, size, and SHA256 verification. Signed File Vault URLs and object keys are never accepted from or returned to the browser.
+      parameters:
+        - $ref: "#/components/parameters/documentId"
+      responses:
+        "201": { description: Confirmed owner-bound private SOURCE and storage-opaque provenance }
+        "400": { description: Invalid source provenance }
+        "403": { description: Student or document ownership denied }
+        "409": { description: Source integrity mismatch }
+        "413": { description: Source exceeds the bounded 25 MiB limit }
+        "415": { description: Source MIME is not PDF or DOCX }
   /documents/{documentId}/reviews:
     post:
       parameters:

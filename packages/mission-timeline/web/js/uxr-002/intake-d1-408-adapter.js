@@ -521,7 +521,8 @@ export function createProductionCvIntakeAdapter({
       const file=input.file;
       const source=local.sourceDocument;
       const sha256=String(source.sha256).toLowerCase();
-      let objectId=confirmedSources.get(sha256)||"";
+      const handedOffSource=file?.timelineSourceObject;
+      let objectId=(String(handedOffSource?.sha256||"").toLowerCase()===sha256&&String(handedOffSource?.objectId||""))||confirmedSources.get(sha256)||"";
       let created=false;
       try{
         await ensureRemoteDocument();

@@ -6274,9 +6274,16 @@ export async function boot407FEngineeringAdapter({
       const selected=document.querySelector('input[name="file-vault-source"]:checked');
       if(!selected)return;
       try{
-        await selectFileVaultSourceDocument(fileVaultSource,selected.value);
+        const selectedDescriptor=await fileVaultSource.select(selected.value);
+        const imported=await selectFileVaultSourceDocument(fileVaultSource,selected.value,{
+          timelineDocumentId:store.document.id,
+          versionId:String(selectedDescriptor?.versionId||"")
+        });
+        if(!imported.file||!intakeMachine)throw new Error("Timeline could not open that File Vault document for Smart Fill.");
+        intakeMachine.receiveFile(imported.file);
         closeOwnedModal();
         bridge.go("intake");
+        bridge.toast("File Vault document ready for your review");
       }catch(error){
         bridge.toast(String(error?.message||error));
       }
