@@ -1,0 +1,63 @@
+{
+  "artifact_type": "sanitized_legacy_reconciliation",
+  "ticket": "I1Q-1007X-MA",
+  "production_database_read": false,
+  "production_write": false,
+  "medical_content_included": false,
+  "static_v4": {
+    "source_path": "supabase/migrations/20260420111000_stat_dataset_ingest.sql",
+    "source_sha256": "9bbd46e329933f1ebe5642e48238f9e0ac9f29bd772ad40675123e1d2c313f0e",
+    "dataset_version": "v4",
+    "rows": 845,
+    "distinct_question_ids": 845,
+    "required_field_nulls": 0,
+    "missing_explanations": 0,
+    "base_items": 517,
+    "vignette_items": 328,
+    "paired_base_vignettes": 328,
+    "duplicate_prompt_groups": 11,
+    "duplicate_full_content_groups": 0,
+    "duplicate_choice_rows": 0,
+    "answer_distribution": {
+      "A": 845
+    },
+    "canonical_registry_hash": "eae68f7c33948b8a2df53315d0b533fa2e24683c068d4bcac3aea7d2c8fd1b15",
+    "restricted_export_sha256": "066df25d6c46e2e04904ab13ea2aab2c8b5631c6ff76551a0e6d24d4664008cb",
+    "restricted_export_rows": 845,
+    "restricted_export_bytes": 459647,
+    "restricted_export_committed": false
+  },
+  "cdn_mirror": {
+    "runtime_rows": 3961,
+    "runtime_distinct_ids": 3961,
+    "runtime_duplicate_ids": 0,
+    "runtime_bytes": 1885976,
+    "runtime_sha256": "b38297a6bad8fdf30bc4e4ac326664132e2e55a14c81a01b2ae0238a6ac2ef7c",
+    "lookup_rows": 3961,
+    "lookup_bytes": 3169665,
+    "lookup_sha256": "7e3783c0ffffb4f468581fe892cd6dc749ab76e5b5e3c334f9ae0976fce2198d",
+    "index_sections": 4,
+    "index_bytes": 333326,
+    "index_sha256": "b87aba6404dd56a8c399753d0988bcf036a7dfef6046325f3869fe0dbea76ca3",
+    "subjects": 21,
+    "question_types": 10,
+    "step_levels": 2,
+    "tiers": 3,
+    "answer_distribution": {
+      "A": 3961
+    },
+    "runtime_lookup_id_match": true,
+    "all_index_sections_cover_runtime_exactly": true
+  },
+  "identity_reconciliation": {
+    "static_v4_ids": 845,
+    "cdn_runtime_ids": 3961,
+    "overlapping_ids": 0,
+    "ruling": "separate_collections_do_not_silently_join"
+  },
+  "release_state": {
+    "i1q_import_performed": false,
+    "medical_review_performed": false,
+    "student_publication_enabled": false
+  }
+}

@@ -1,0 +1,2062 @@
+{
+  "schema_version": "i1q.contract-test-vectors.v1",
+  "reference_time": "2026-07-15T18:00:00.000Z",
+  "closed_world": true,
+  "contract_versions": {
+    "identity": "I1Q-IDENTITY-RESOLVER-v1",
+    "auth_bootstrap": "https://missionmed.internal/contracts/i1q/auth-bootstrap/v1",
+    "runtime_role": "I1Q-RUNTIME-ROLE-v1",
+    "migration": "I1Q-MIGRATION-v1",
+    "rls_actor": "I1Q-RLS-ACTOR-v1",
+    "rollback": "I1Q-ROLLBACK-v1"
+  },
+  "role_order": [
+    "platform_admin",
+    "content_operator",
+    "author",
+    "editorial_reviewer",
+    "physician_reviewer",
+    "release_manager",
+    "privacy_officer",
+    "incident_owner",
+    "read_only",
+    "system"
+  ],
+  "closed_world_schemas": {
+    "vector": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://missionmed.internal/contracts/i1q/contract-test-vector/v1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "category",
+        "fixture_refs",
+        "mutations",
+        "expected",
+        "basis"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Z]+-[0-9]{3}$"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "identity_mapping",
+            "role_resolution",
+            "session_validation",
+            "request_integrity",
+            "runtime_role",
+            "actor_context",
+            "migration_gate",
+            "rollback_gate",
+            "environment_validation"
+          ]
+        },
+        "fixture_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^#/fixtures/"
+          }
+        },
+        "mutations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/mutation"
+          }
+        },
+        "expected": {
+          "$ref": "#/$defs/expected"
+        },
+        "basis": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "$defs": {
+        "mutation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op",
+            "path",
+            "value"
+          ],
+          "properties": {
+            "op": {
+              "type": "string",
+              "enum": [
+                "add",
+                "remove",
+                "replace"
+              ]
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^#/fixtures/"
+            },
+            "value": true
+          }
+        },
+        "expected": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decision",
+            "code",
+            "actor_id",
+            "roles",
+            "assertions"
+          ],
+          "properties": {
+            "decision": {
+              "type": "string",
+              "enum": [
+                "PASS",
+                "DENY",
+                "BLOCK",
+                "OPEN"
+              ]
+            },
+            "code": {
+              "type": "string",
+              "pattern": "^[a-z0-9_]+$"
+            },
+            "actor_id": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "roles": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            },
+            "assertions": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "fixture_key_sets": {
+      "identity_binding": [
+        "id",
+        "wordpress_subject",
+        "wordpress_user_id",
+        "normalized_email",
+        "wordpress_roles",
+        "ranklistiq_supabase_user_uuid",
+        "project",
+        "audience",
+        "session_id",
+        "expires_at",
+        "validated_at",
+        "revoked",
+        "csrf_token",
+        "trusted_origins",
+        "source_status"
+      ],
+      "role_membership": [
+        "id",
+        "actor_id",
+        "role_name",
+        "valid_from",
+        "valid_until",
+        "revoked_at",
+        "grant_evidence_hash"
+      ],
+      "request": [
+        "method",
+        "origin",
+        "csrf_token",
+        "identity_headers",
+        "attempted_actor_guc",
+        "attempted_role_guc"
+      ],
+      "runtime_role": [
+        "physical_name",
+        "authority_status",
+        "attributes",
+        "database_privileges",
+        "schema_privileges",
+        "table_privileges",
+        "function_privileges",
+        "database_role_memberships",
+        "browser_exposed",
+        "secret_value_captured"
+      ],
+      "actor_context": [
+        "resolver_actor_id",
+        "database_actor_id",
+        "context_scope",
+        "context_after_transaction",
+        "pool_connection_reused"
+      ],
+      "migration": [
+        "filename",
+        "sha256",
+        "project",
+        "environment",
+        "timestamp_valid",
+        "timestamp_after_remote",
+        "history_synchronized",
+        "transaction_wrapped",
+        "table_count",
+        "forced_rls_all_tables",
+        "public_grants_absent",
+        "flags_all_false",
+        "canonical_route_authorized",
+        "preview_target_authorized"
+      ],
+      "rollback": [
+        "filename",
+        "sha256",
+        "compensation_id",
+        "destructive_statements",
+        "history_rewrite",
+        "flags_after",
+        "data_preserved",
+        "schema_preserved",
+        "duplicate_records_on_reapply",
+        "functional_reenable_after_primary_reapply",
+        "runtime_capability_reapply_candidate_present",
+        "runtime_capability_restored_after_candidate_reapply",
+        "feature_flags_all_false_after_candidate_reapply",
+        "candidate_reapply_authorized",
+        "preview_execution_authorized"
+      ],
+      "environment": [
+        "name",
+        "project",
+        "preview_target_id",
+        "canonical_workflow",
+        "identity_assertion_authorized",
+        "runtime_role_authorized",
+        "registered_https_origin",
+        "test_identities_available",
+        "secret_values_emitted",
+        "consumer_flags_all_false",
+        "source_status"
+      ]
+    }
+  },
+  "fixtures": {
+    "auth_bootstrap": {
+      "validated": true,
+      "actor": {
+        "id": "10000000-0000-4000-8000-000000000001",
+        "roles": [
+          "author",
+          "read_only"
+        ]
+      },
+      "session": {
+        "id": "fixture-session-00000001",
+        "expires_at": "2026-07-15T19:00:00.000Z",
+        "validated_at": "2026-07-15T18:00:00.000Z",
+        "revoked": false
+      },
+      "request_security": {
+        "session_id": "fixture-session-00000001",
+        "csrf_token": "fixture-csrf-token-0001",
+        "trusted_origins": [
+          "https://i1q-staging.example.invalid"
+        ]
+      }
+    },
+    "identity_bindings": [
+      {
+        "id": "identity_primary",
+        "wordpress_subject": "wp:4001",
+        "wordpress_user_id": 4001,
+        "normalized_email": "lorentz-fixture@example.invalid",
+        "wordpress_roles": [
+          "administrator"
+        ],
+        "ranklistiq_supabase_user_uuid": "10000000-0000-4000-8000-000000000001",
+        "project": "RANKLISTIQ",
+        "audience": "question-platform",
+        "session_id": "fixture-session-00000001",
+        "expires_at": "2026-07-15T19:00:00.000Z",
+        "validated_at": "2026-07-15T18:00:00.000Z",
+        "revoked": false,
+        "csrf_token": "fixture-csrf-token-0001",
+        "trusted_origins": [
+          "https://i1q-staging.example.invalid"
+        ],
+        "source_status": "synthetic_contract_fixture"
+      },
+      {
+        "id": "identity_no_roles",
+        "wordpress_subject": "wp:4002",
+        "wordpress_user_id": 4002,
+        "normalized_email": "no-role-fixture@example.invalid",
+        "wordpress_roles": [
+          "administrator"
+        ],
+        "ranklistiq_supabase_user_uuid": "10000000-0000-4000-8000-000000000002",
+        "project": "RANKLISTIQ",
+        "audience": "question-platform",
+        "session_id": "fixture-session-00000002",
+        "expires_at": "2026-07-15T19:00:00.000Z",
+        "validated_at": "2026-07-15T18:00:00.000Z",
+        "revoked": false,
+        "csrf_token": "fixture-csrf-token-0002",
+        "trusted_origins": [
+          "https://i1q-staging.example.invalid"
+        ],
+        "source_status": "synthetic_contract_fixture"
+      },
+      {
+        "id": "identity_physician_role_only",
+        "wordpress_subject": "wp:4003",
+        "wordpress_user_id": 4003,
+        "normalized_email": "role-only-fixture@example.invalid",
+        "wordpress_roles": [
+          "subscriber"
+        ],
+        "ranklistiq_supabase_user_uuid": "10000000-0000-4000-8000-000000000003",
+        "project": "RANKLISTIQ",
+        "audience": "question-platform",
+        "session_id": "fixture-session-00000003",
+        "expires_at": "2026-07-15T19:00:00.000Z",
+        "validated_at": "2026-07-15T18:00:00.000Z",
+        "revoked": false,
+        "csrf_token": "fixture-csrf-token-0003",
+        "trusted_origins": [
+          "https://i1q-staging.example.invalid"
+        ],
+        "source_status": "synthetic_contract_fixture"
+      }
+    ],
+    "role_memberships": [
+      {
+        "id": "membership_primary_read",
+        "actor_id": "10000000-0000-4000-8000-000000000001",
+        "role_name": "read_only",
+        "valid_from": "2026-07-15T16:00:00.000Z",
+        "valid_until": null,
+        "revoked_at": null,
+        "grant_evidence_hash": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      {
+        "id": "membership_primary_author",
+        "actor_id": "10000000-0000-4000-8000-000000000001",
+        "role_name": "author",
+        "valid_from": "2026-07-15T16:00:00.000Z",
+        "valid_until": "2026-07-16T18:00:00.000Z",
+        "revoked_at": null,
+        "grant_evidence_hash": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      {
+        "id": "membership_primary_revoked_release",
+        "actor_id": "10000000-0000-4000-8000-000000000001",
+        "role_name": "release_manager",
+        "valid_from": "2026-07-15T16:00:00.000Z",
+        "valid_until": null,
+        "revoked_at": "2026-07-15T17:00:00.000Z",
+        "grant_evidence_hash": "3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      {
+        "id": "membership_primary_expired_privacy",
+        "actor_id": "10000000-0000-4000-8000-000000000001",
+        "role_name": "privacy_officer",
+        "valid_from": "2026-07-15T16:00:00.000Z",
+        "valid_until": "2026-07-15T18:00:00.000Z",
+        "revoked_at": null,
+        "grant_evidence_hash": "4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      {
+        "id": "membership_primary_future_editor",
+        "actor_id": "10000000-0000-4000-8000-000000000001",
+        "role_name": "editorial_reviewer",
+        "valid_from": "2026-07-15T18:00:00.001Z",
+        "valid_until": null,
+        "revoked_at": null,
+        "grant_evidence_hash": "5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      {
+        "id": "membership_role_only_physician",
+        "actor_id": "10000000-0000-4000-8000-000000000003",
+        "role_name": "physician_reviewer",
+        "valid_from": "2026-07-15T16:00:00.000Z",
+        "valid_until": null,
+        "revoked_at": null,
+        "grant_evidence_hash": "6666666666666666666666666666666666666666666666666666666666666666"
+      }
+    ],
+    "request": {
+      "method": "POST",
+      "origin": "https://i1q-staging.example.invalid",
+      "csrf_token": "fixture-csrf-token-0001",
+      "identity_headers": {
+        "x-i1q-actor": null,
+        "x-i1q-roles": null
+      },
+      "attempted_actor_guc": null,
+      "attempted_role_guc": null
+    },
+    "runtime_role": {
+      "physical_name": "i1q_app_runtime",
+      "authority_status": "proposed_default_not_authorized",
+      "attributes": {
+        "login": true,
+        "superuser": false,
+        "createdb": false,
+        "createrole": false,
+        "inherit": false,
+        "bypassrls": false,
+        "replication": false,
+        "owns_i1q_schema": false
+      },
+      "database_privileges": [
+        "CONNECT:authorized_preview_database"
+      ],
+      "schema_privileges": [
+        "USAGE:i1q"
+      ],
+      "table_privileges": [
+        "SELECT:i1q.item_revisions",
+        "SELECT:i1q.release_memberships",
+        "SELECT:i1q.review_assignments"
+      ],
+      "function_privileges": [
+        "EXECUTE:i1q.current_actor_id()",
+        "EXECUTE:i1q.read_item_revision_answers(text,text)",
+        "EXECUTE:i1q.read_restricted_source_reference(text,text)"
+      ],
+      "database_role_memberships": [],
+      "browser_exposed": false,
+      "secret_value_captured": false
+    },
+    "actor_context": {
+      "resolver_actor_id": "10000000-0000-4000-8000-000000000001",
+      "database_actor_id": "10000000-0000-4000-8000-000000000001",
+      "context_scope": "transaction_local",
+      "context_after_transaction": null,
+      "pool_connection_reused": true
+    },
+    "migration": {
+      "filename": "20260715122434_i1q_1007x_question_platform.sql",
+      "sha256": "0c2ca0c48436c7684b97ce88d6b7d518b0780c3e336ad1b5bfd457c4fd60b5e3",
+      "project": "RANKLISTIQ",
+      "environment": "preview",
+      "timestamp_valid": true,
+      "timestamp_after_remote": null,
+      "history_synchronized": null,
+      "transaction_wrapped": true,
+      "table_count": 52,
+      "forced_rls_all_tables": true,
+      "public_grants_absent": true,
+      "flags_all_false": true,
+      "canonical_route_authorized": false,
+      "preview_target_authorized": false
+    },
+    "rollback": {
+      "filename": "20260715122435_i1q_1007x_compensating_disable.sql",
+      "sha256": "25e317428ca75c8cce29269e19c7002ea69860080aac7f59496312bbed34446a",
+      "compensation_id": "20260715122435",
+      "destructive_statements": false,
+      "history_rewrite": false,
+      "flags_after": {
+        "internal_platform_enabled": false,
+        "internal_review_enabled": false,
+        "student_content_enabled": false,
+        "student_release_enabled": false,
+        "stat_adapter_enabled": false,
+        "drills_adapter_enabled": false
+      },
+      "data_preserved": true,
+      "schema_preserved": true,
+      "duplicate_records_on_reapply": false,
+      "functional_reenable_after_primary_reapply": false,
+      "runtime_capability_reapply_candidate_present": true,
+      "runtime_capability_restored_after_candidate_reapply": true,
+      "feature_flags_all_false_after_candidate_reapply": true,
+      "candidate_reapply_authorized": false,
+      "preview_execution_authorized": false
+    },
+    "environments": [
+      {
+        "name": "current_observed_staging",
+        "project": "RANKLISTIQ",
+        "preview_target_id": null,
+        "canonical_workflow": null,
+        "identity_assertion_authorized": false,
+        "runtime_role_authorized": false,
+        "registered_https_origin": null,
+        "test_identities_available": false,
+        "secret_values_emitted": false,
+        "consumer_flags_all_false": true,
+        "source_status": "observed_open"
+      },
+      {
+        "name": "synthetic_authorized_preview",
+        "project": "RANKLISTIQ",
+        "preview_target_id": "fixture-preview-target",
+        "canonical_workflow": "fixture-project-pinned-workflow",
+        "identity_assertion_authorized": true,
+        "runtime_role_authorized": true,
+        "registered_https_origin": "https://i1q-staging.example.invalid",
+        "test_identities_available": true,
+        "secret_values_emitted": false,
+        "consumer_flags_all_false": true,
+        "source_status": "synthetic_contract_fixture"
+      }
+    ]
+  },
+  "vectors": [
+    {
+      "id": "ID-001",
+      "category": "identity_mapping",
+      "fixture_refs": [
+        "#/fixtures/identity_bindings/0",
+        "#/fixtures/role_memberships"
+      ],
+      "mutations": [],
+      "expected": {
+        "decision": "PASS",
+        "code": "identity_resolved",
+        "actor_id": "10000000-0000-4000-8000-000000000001",
+        "roles": [
+          "author",
+          "read_only"
+        ],
+        "assertions": [
+          "actor is the RANKLISTIQ Supabase UUID",
+          "roles are active database memberships in canonical order"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md Canonical Actor Identity",
+        "rls_actor_contract.md Role Evaluation"
+      ]
+    },
+    {
+      "id": "ID-002",
+      "category": "identity_mapping",
+      "fixture_refs": [
+        "#/fixtures/identity_bindings/0"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/identity_bindings/0/wordpress_subject",
+          "value": "wp:9999"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "wordpress_subject_mismatch",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "wordpress_subject must equal wp plus wordpress_user_id"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md Required Mapping"
+      ]
+    },
+    {
+      "id": "ID-003",
+      "category": "identity_mapping",
+      "fixture_refs": [
+        "#/fixtures/identity_bindings/0"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/identity_bindings/0/ranklistiq_supabase_user_uuid",
+          "value": null
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "supabase_actor_uuid_required",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "WordPress ID or email cannot substitute for the Supabase UUID"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md Required Mapping"
+      ]
+    },
+    {
+      "id": "ID-004",
+      "category": "identity_mapping",
+      "fixture_refs": [
+        "#/fixtures/identity_bindings/0"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/identity_bindings/0/project",
+          "value": "GROWTH_ENGINE"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "identity_project_mismatch",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "I1Q actor identity is bound to RANKLISTIQ"
+        ]
+      },
+      "basis": [
+        "MR-078B project map",
+        "identity_resolver_contract.md Resolver Operation"
+      ]
+    },
+    {
+      "id": "ID-005",
+      "category": "identity_mapping",
+      "fixture_refs": [
+        "#/fixtures/identity_bindings/0"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/identity_bindings/0/audience",
+          "value": "missionmed-hq"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "identity_audience_mismatch",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "the assertion audience must be question-platform"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md Resolver Operation"
+      ]
+    },
+    {
+      "id": "ID-006",
+      "category": "identity_mapping",
+      "fixture_refs": [
+        "#/fixtures/identity_bindings/0",
+        "#/fixtures/role_memberships"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/identity_bindings/0/wordpress_roles",
+          "value": [
+            "administrator",
+            "physician_reviewer",
+            "release_manager"
+          ]
+        }
+      ],
+      "expected": {
+        "decision": "PASS",
+        "code": "wordpress_roles_ignored_for_i1q",
+        "actor_id": "10000000-0000-4000-8000-000000000001",
+        "roles": [
+          "author",
+          "read_only"
+        ],
+        "assertions": [
+          "WordPress roles do not mint I1Q permissions"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md I1Q Role Resolution"
+      ]
+    },
+    {
+      "id": "ID-007",
+      "category": "identity_mapping",
+      "fixture_refs": [
+        "#/fixtures/identity_bindings/1",
+        "#/fixtures/role_memberships"
+      ],
+      "mutations": [],
+      "expected": {
+        "decision": "DENY",
+        "code": "active_i1q_role_required",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "a valid WordPress and Supabase identity with no I1Q membership cannot enter the app"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md I1Q Role Resolution"
+      ]
+    },
+    {
+      "id": "ID-008",
+      "category": "identity_mapping",
+      "fixture_refs": [
+        "#/fixtures/request",
+        "#/fixtures/identity_bindings/0"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/request/identity_headers/x-i1q-actor",
+          "value": "10000000-0000-4000-8000-000000000099"
+        },
+        {
+          "op": "replace",
+          "path": "#/fixtures/request/identity_headers/x-i1q-roles",
+          "value": "platform_admin,system"
+        }
+      ],
+      "expected": {
+        "decision": "PASS",
+        "code": "caller_identity_headers_ignored",
+        "actor_id": "10000000-0000-4000-8000-000000000001",
+        "roles": [
+          "author",
+          "read_only"
+        ],
+        "assertions": [
+          "caller headers cannot override actor or roles"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md Resolver Operation",
+        "rls_actor_contract.md Request To Database Separation"
+      ]
+    },
+    {
+      "id": "ID-009",
+      "category": "identity_mapping",
+      "fixture_refs": [
+        "#/fixtures/identity_bindings/0"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/identity_bindings/0/audience",
+          "value": "authenticated"
+        },
+        {
+          "op": "replace",
+          "path": "#/fixtures/identity_bindings/0/csrf_token",
+          "value": ""
+        }
+      ],
+      "expected": {
+        "decision": "OPEN",
+        "code": "direct_bearer_profile_not_ratified",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "the standard Supabase audience is observed only in an in-flight candidate",
+          "blank CSRF is acceptable only under an explicitly ratified bearer profile",
+          "the current closed auth bootstrap schema rejects this profile"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md Observed In-Flight 1008A Candidate",
+        "auth_bootstrap_contract.json x-observed-in-flight-candidates"
+      ]
+    },
+    {
+      "id": "SESS-001",
+      "category": "session_validation",
+      "fixture_refs": [
+        "#/fixtures/auth_bootstrap"
+      ],
+      "mutations": [],
+      "expected": {
+        "decision": "PASS",
+        "code": "session_valid",
+        "actor_id": "10000000-0000-4000-8000-000000000001",
+        "roles": [
+          "author",
+          "read_only"
+        ],
+        "assertions": [
+          "expiry is in the future",
+          "validation is current",
+          "revoked is false"
+        ]
+      },
+      "basis": [
+        "auth_bootstrap_contract.json x-invariants"
+      ]
+    },
+    {
+      "id": "SESS-002",
+      "category": "session_validation",
+      "fixture_refs": [
+        "#/fixtures/auth_bootstrap"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/auth_bootstrap/session/expires_at",
+          "value": "2026-07-15T18:00:00.000Z"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "session_expired",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "expires_at equal to now is expired"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md Session And Revocation Rules"
+      ]
+    },
+    {
+      "id": "SESS-003",
+      "category": "session_validation",
+      "fixture_refs": [
+        "#/fixtures/auth_bootstrap"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/auth_bootstrap/session/revoked",
+          "value": true
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "session_revoked",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "revoked session fails closed"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md Session And Revocation Rules"
+      ]
+    },
+    {
+      "id": "SESS-004",
+      "category": "session_validation",
+      "fixture_refs": [
+        "#/fixtures/auth_bootstrap"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/auth_bootstrap/session/validated_at",
+          "value": "2026-07-15T17:54:59.999Z"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "session_validation_stale",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "validation age greater than 300000 milliseconds is stale"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md Session And Revocation Rules"
+      ]
+    },
+    {
+      "id": "SESS-005",
+      "category": "session_validation",
+      "fixture_refs": [
+        "#/fixtures/auth_bootstrap"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/auth_bootstrap/session/validated_at",
+          "value": "2026-07-15T17:55:00.000Z"
+        }
+      ],
+      "expected": {
+        "decision": "PASS",
+        "code": "session_validation_age_boundary_valid",
+        "actor_id": "10000000-0000-4000-8000-000000000001",
+        "roles": [
+          "author",
+          "read_only"
+        ],
+        "assertions": [
+          "validation age equal to 300000 milliseconds is accepted"
+        ]
+      },
+      "basis": [
+        "current I1Q normalizeIdentityContext boundary"
+      ]
+    },
+    {
+      "id": "SESS-006",
+      "category": "session_validation",
+      "fixture_refs": [
+        "#/fixtures/auth_bootstrap"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/auth_bootstrap/session/validated_at",
+          "value": "2026-07-15T18:00:30.001Z"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "session_validation_from_future",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "validation more than 30 seconds in the future is invalid"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md Session And Revocation Rules"
+      ]
+    },
+    {
+      "id": "SESS-007",
+      "category": "session_validation",
+      "fixture_refs": [
+        "#/fixtures/auth_bootstrap"
+      ],
+      "mutations": [
+        {
+          "op": "remove",
+          "path": "#/fixtures/auth_bootstrap/session/revoked",
+          "value": null
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "revocation_evidence_required",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "missing revocation evidence is not false"
+        ]
+      },
+      "basis": [
+        "auth_bootstrap_contract.json resolverSession"
+      ]
+    },
+    {
+      "id": "REQ-001",
+      "category": "request_integrity",
+      "fixture_refs": [
+        "#/fixtures/auth_bootstrap",
+        "#/fixtures/request"
+      ],
+      "mutations": [],
+      "expected": {
+        "decision": "PASS",
+        "code": "request_integrity_valid",
+        "actor_id": "10000000-0000-4000-8000-000000000001",
+        "roles": [
+          "author",
+          "read_only"
+        ],
+        "assertions": [
+          "session IDs, CSRF token, and origin match"
+        ]
+      },
+      "basis": [
+        "auth_bootstrap_contract.json x-invariants"
+      ]
+    },
+    {
+      "id": "REQ-002",
+      "category": "request_integrity",
+      "fixture_refs": [
+        "#/fixtures/auth_bootstrap",
+        "#/fixtures/request"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/auth_bootstrap/request_security/session_id",
+          "value": "fixture-session-99999999"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "request_session_binding_mismatch",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "request security must bind to the same session"
+        ]
+      },
+      "basis": [
+        "auth_bootstrap_contract.json x-invariants"
+      ]
+    },
+    {
+      "id": "REQ-003",
+      "category": "request_integrity",
+      "fixture_refs": [
+        "#/fixtures/auth_bootstrap",
+        "#/fixtures/request"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/request/csrf_token",
+          "value": "fixture-csrf-token-wrong"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "request_verification_failed",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "wrong CSRF token is denied"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md Session And Revocation Rules"
+      ]
+    },
+    {
+      "id": "REQ-004",
+      "category": "request_integrity",
+      "fixture_refs": [
+        "#/fixtures/auth_bootstrap",
+        "#/fixtures/request"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/request/origin",
+          "value": "https://hostile.example.invalid"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "request_verification_failed",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "origin must be an exact trusted HTTPS origin"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md Resolver Operation"
+      ]
+    },
+    {
+      "id": "ROLE-001",
+      "category": "role_resolution",
+      "fixture_refs": [
+        "#/fixtures/identity_bindings/0",
+        "#/fixtures/role_memberships"
+      ],
+      "mutations": [],
+      "expected": {
+        "decision": "PASS",
+        "code": "inactive_memberships_excluded",
+        "actor_id": "10000000-0000-4000-8000-000000000001",
+        "roles": [
+          "author",
+          "read_only"
+        ],
+        "assertions": [
+          "revoked, expired, and future memberships are excluded"
+        ]
+      },
+      "basis": [
+        "rls_actor_contract.md Role Evaluation"
+      ]
+    },
+    {
+      "id": "ROLE-002",
+      "category": "role_resolution",
+      "fixture_refs": [
+        "#/fixtures/identity_bindings/2",
+        "#/fixtures/role_memberships/5"
+      ],
+      "mutations": [],
+      "expected": {
+        "decision": "PASS",
+        "code": "role_resolved_credential_not_granted",
+        "actor_id": "10000000-0000-4000-8000-000000000003",
+        "roles": [
+          "physician_reviewer"
+        ],
+        "assertions": [
+          "role membership does not establish credential",
+          "medical approval remains denied without separate verified evidence"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md I1Q Role Resolution",
+        "DR-006 medical governance ruling"
+      ]
+    },
+    {
+      "id": "ROLE-003",
+      "category": "role_resolution",
+      "fixture_refs": [
+        "#/fixtures/role_memberships/1"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/role_memberships/1/role_name",
+          "value": "wordpress_administrator"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "unknown_i1q_role",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "unknown role names fail closed"
+        ]
+      },
+      "basis": [
+        "auth_bootstrap_contract.json role enum"
+      ]
+    },
+    {
+      "id": "ROLE-004",
+      "category": "role_resolution",
+      "fixture_refs": [
+        "#/fixtures/role_memberships/1"
+      ],
+      "mutations": [
+        {
+          "op": "add",
+          "path": "#/fixtures/role_memberships/6",
+          "value": {
+            "id": "membership_duplicate_author",
+            "actor_id": "10000000-0000-4000-8000-000000000001",
+            "role_name": "author",
+            "valid_from": "2026-07-15T17:00:00.000Z",
+            "valid_until": null,
+            "revoked_at": null,
+            "grant_evidence_hash": "7777777777777777777777777777777777777777777777777777777777777777"
+          }
+        }
+      ],
+      "expected": {
+        "decision": "BLOCK",
+        "code": "duplicate_active_role_integrity_failure",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "duplicate active actor role violates the unique active-role invariant"
+        ]
+      },
+      "basis": [
+        "current migration actor_role_memberships_active_role index"
+      ]
+    },
+    {
+      "id": "ROLE-005",
+      "category": "role_resolution",
+      "fixture_refs": [
+        "#/fixtures/identity_bindings/0",
+        "#/fixtures/role_memberships"
+      ],
+      "mutations": [
+        {
+          "op": "add",
+          "path": "#/fixtures/role_memberships/6",
+          "value": {
+            "id": "membership_primary_platform_admin",
+            "actor_id": "10000000-0000-4000-8000-000000000001",
+            "role_name": "platform_admin",
+            "valid_from": "2026-07-15T17:00:00.000Z",
+            "valid_until": null,
+            "revoked_at": null,
+            "grant_evidence_hash": "8888888888888888888888888888888888888888888888888888888888888888"
+          }
+        }
+      ],
+      "expected": {
+        "decision": "PASS",
+        "code": "roles_sorted_in_canonical_order",
+        "actor_id": "10000000-0000-4000-8000-000000000001",
+        "roles": [
+          "platform_admin",
+          "author",
+          "read_only"
+        ],
+        "assertions": [
+          "canonical application-role order is deterministic",
+          "alphabetical database ordering is nonconforming"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md I1Q Role Resolution",
+        "identity_resolver_contract.md Observed In-Flight 1008A Candidate"
+      ]
+    },
+    {
+      "id": "DBR-001",
+      "category": "runtime_role",
+      "fixture_refs": [
+        "#/fixtures/runtime_role"
+      ],
+      "mutations": [],
+      "expected": {
+        "decision": "OPEN",
+        "code": "runtime_role_shape_valid_authority_open",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "least-privilege shape passes",
+          "physical role is not owner-authorized"
+        ]
+      },
+      "basis": [
+        "runtime_role_contract.md Runtime Role Attributes",
+        "runtime_role_contract.md Open Authority Gaps"
+      ]
+    },
+    {
+      "id": "DBR-002",
+      "category": "runtime_role",
+      "fixture_refs": [
+        "#/fixtures/runtime_role"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/runtime_role/attributes/superuser",
+          "value": true
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "runtime_superuser_forbidden",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "runtime role must be NOSUPERUSER"
+        ]
+      },
+      "basis": [
+        "runtime_role_contract.md Runtime Role Attributes"
+      ]
+    },
+    {
+      "id": "DBR-003",
+      "category": "runtime_role",
+      "fixture_refs": [
+        "#/fixtures/runtime_role"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/runtime_role/attributes/bypassrls",
+          "value": true
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "runtime_bypassrls_forbidden",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "runtime role must be NOBYPASSRLS"
+        ]
+      },
+      "basis": [
+        "runtime_role_contract.md Runtime Role Attributes"
+      ]
+    },
+    {
+      "id": "DBR-004",
+      "category": "runtime_role",
+      "fixture_refs": [
+        "#/fixtures/runtime_role"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/runtime_role/attributes/inherit",
+          "value": true
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "runtime_inherit_forbidden",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "runtime role must not inherit stronger roles"
+        ]
+      },
+      "basis": [
+        "runtime_role_contract.md Runtime Role Attributes"
+      ]
+    },
+    {
+      "id": "DBR-005",
+      "category": "runtime_role",
+      "fixture_refs": [
+        "#/fixtures/runtime_role"
+      ],
+      "mutations": [
+        {
+          "op": "add",
+          "path": "#/fixtures/runtime_role/table_privileges/3",
+          "value": "ALL:i1q.*"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "wildcard_grant_forbidden",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "grants are exact-object allowlists"
+        ]
+      },
+      "basis": [
+        "runtime_role_contract.md Closed Grant Inventory"
+      ]
+    },
+    {
+      "id": "DBR-006",
+      "category": "runtime_role",
+      "fixture_refs": [
+        "#/fixtures/runtime_role"
+      ],
+      "mutations": [
+        {
+          "op": "add",
+          "path": "#/fixtures/runtime_role/schema_privileges/1",
+          "value": "USAGE:public:authenticated"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "broad_authenticated_grant_forbidden",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "unscoped anon and authenticated grants are forbidden",
+          "only an explicitly ratified self-profile capability may be considered separately"
+        ]
+      },
+      "basis": [
+        "DR-006 datastore ruling",
+        "runtime_role_contract.md Closed Grant Inventory"
+      ]
+    },
+    {
+      "id": "DBR-007",
+      "category": "runtime_role",
+      "fixture_refs": [
+        "#/fixtures/runtime_role"
+      ],
+      "mutations": [
+        {
+          "op": "add",
+          "path": "#/fixtures/runtime_role/function_privileges/3",
+          "value": "EXECUTE:i1q.disable_i1q_behavior(text,text)"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "runtime_compensation_execute_forbidden",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "compensation is operator-only"
+        ]
+      },
+      "basis": [
+        "runtime_role_contract.md Explicit Function Denials"
+      ]
+    },
+    {
+      "id": "DBR-008",
+      "category": "runtime_role",
+      "fixture_refs": [
+        "#/fixtures/runtime_role"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/runtime_role/browser_exposed",
+          "value": true
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "runtime_credential_browser_exposure",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "database access is server-only"
+        ]
+      },
+      "basis": [
+        "runtime_role_contract.md Secret And Connection Handling"
+      ]
+    },
+    {
+      "id": "DBR-009",
+      "category": "runtime_role",
+      "fixture_refs": [
+        "#/fixtures/runtime_role"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/runtime_role/physical_name",
+          "value": "i1q_runtime"
+        },
+        {
+          "op": "replace",
+          "path": "#/fixtures/runtime_role/authority_status",
+          "value": "observed_inflight_not_authorized"
+        },
+        {
+          "op": "replace",
+          "path": "#/fixtures/runtime_role/attributes/login",
+          "value": false
+        },
+        {
+          "op": "replace",
+          "path": "#/fixtures/runtime_role/attributes/inherit",
+          "value": true
+        },
+        {
+          "op": "replace",
+          "path": "#/fixtures/runtime_role/database_privileges",
+          "value": []
+        },
+        {
+          "op": "replace",
+          "path": "#/fixtures/runtime_role/table_privileges",
+          "value": []
+        },
+        {
+          "op": "replace",
+          "path": "#/fixtures/runtime_role/function_privileges",
+          "value": [
+            "EXECUTE:i1q.resolve_current_identity()"
+          ]
+        },
+        {
+          "op": "add",
+          "path": "#/fixtures/runtime_role/database_role_memberships/0",
+          "value": "authenticated->i1q_runtime"
+        }
+      ],
+      "expected": {
+        "decision": "OPEN",
+        "code": "inflight_capability_role_requires_authority_resolution",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "the source candidate is unratified and unapplied",
+          "inherited authenticated capability differs from the proposed dedicated server login",
+          "Root must select one runtime model and prove the closed effective grant graph"
+        ]
+      },
+      "basis": [
+        "runtime_role_contract.md Observed In-Flight Capability-Role Candidate",
+        "runtime_role_contract.md Open Authority Gaps"
+      ]
+    },
+    {
+      "id": "CTX-001",
+      "category": "actor_context",
+      "fixture_refs": [
+        "#/fixtures/actor_context"
+      ],
+      "mutations": [],
+      "expected": {
+        "decision": "PASS",
+        "code": "actor_context_bound_and_cleared",
+        "actor_id": "10000000-0000-4000-8000-000000000001",
+        "roles": [],
+        "assertions": [
+          "resolver and database actor match",
+          "context is transaction-local and absent after completion"
+        ]
+      },
+      "basis": [
+        "rls_actor_contract.md Transaction Binding"
+      ]
+    },
+    {
+      "id": "CTX-002",
+      "category": "actor_context",
+      "fixture_refs": [
+        "#/fixtures/actor_context"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/actor_context/database_actor_id",
+          "value": null
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "authenticated_actor_required",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "null database actor rolls back before work"
+        ]
+      },
+      "basis": [
+        "current PostgresRepository transaction contract"
+      ]
+    },
+    {
+      "id": "CTX-003",
+      "category": "actor_context",
+      "fixture_refs": [
+        "#/fixtures/actor_context"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/actor_context/database_actor_id",
+          "value": "10000000-0000-4000-8000-000000000099"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "database_actor_mismatch",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "database actor must equal resolver actor"
+        ]
+      },
+      "basis": [
+        "rls_actor_contract.md Transaction Binding"
+      ]
+    },
+    {
+      "id": "CTX-004",
+      "category": "actor_context",
+      "fixture_refs": [
+        "#/fixtures/actor_context",
+        "#/fixtures/request"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/request/attempted_actor_guc",
+          "value": "10000000-0000-4000-8000-000000000099"
+        },
+        {
+          "op": "replace",
+          "path": "#/fixtures/request/attempted_role_guc",
+          "value": "platform_admin,system"
+        }
+      ],
+      "expected": {
+        "decision": "PASS",
+        "code": "caller_guc_spoof_ignored",
+        "actor_id": "10000000-0000-4000-8000-000000000001",
+        "roles": [],
+        "assertions": [
+          "app.actor_id and app.actor_roles are not authorization sources"
+        ]
+      },
+      "basis": [
+        "rls_actor_contract.md Transaction Binding",
+        "1007X RLS report"
+      ]
+    },
+    {
+      "id": "CTX-005",
+      "category": "actor_context",
+      "fixture_refs": [
+        "#/fixtures/actor_context"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/actor_context/context_after_transaction",
+          "value": "10000000-0000-4000-8000-000000000001"
+        }
+      ],
+      "expected": {
+        "decision": "BLOCK",
+        "code": "pooled_actor_context_leak",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "connection must be retired when actor context survives the transaction"
+        ]
+      },
+      "basis": [
+        "rls_actor_contract.md Transaction Binding"
+      ]
+    },
+    {
+      "id": "MIG-001",
+      "category": "migration_gate",
+      "fixture_refs": [
+        "#/fixtures/migration"
+      ],
+      "mutations": [],
+      "expected": {
+        "decision": "OPEN",
+        "code": "static_candidate_valid_preview_route_open",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "static candidate fields pass",
+          "remote order, history, route, and preview authority are unresolved"
+        ]
+      },
+      "basis": [
+        "migration_contract.md Fixed Candidate",
+        "migration_contract.md Gate M1"
+      ]
+    },
+    {
+      "id": "MIG-002",
+      "category": "migration_gate",
+      "fixture_refs": [
+        "#/fixtures/migration"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/migration/project",
+          "value": "GROWTH_ENGINE"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "migration_project_mismatch",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "I1Q target must be RANKLISTIQ"
+        ]
+      },
+      "basis": [
+        "MR-078B project map"
+      ]
+    },
+    {
+      "id": "MIG-003",
+      "category": "migration_gate",
+      "fixture_refs": [
+        "#/fixtures/migration"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/migration/history_synchronized",
+          "value": false
+        }
+      ],
+      "expected": {
+        "decision": "BLOCK",
+        "code": "migration_history_not_synchronized",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "history mismatch stops without repair"
+        ]
+      },
+      "basis": [
+        "MR-078A history sync check"
+      ]
+    },
+    {
+      "id": "MIG-004",
+      "category": "migration_gate",
+      "fixture_refs": [
+        "#/fixtures/migration"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/migration/timestamp_valid",
+          "value": false
+        }
+      ],
+      "expected": {
+        "decision": "BLOCK",
+        "code": "migration_timestamp_invalid",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "timestamp must be exact 14-digit UTC and unique"
+        ]
+      },
+      "basis": [
+        "MR-078A naming and timestamp rules"
+      ]
+    },
+    {
+      "id": "MIG-005",
+      "category": "migration_gate",
+      "fixture_refs": [
+        "#/fixtures/migration"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/migration/transaction_wrapped",
+          "value": false
+        }
+      ],
+      "expected": {
+        "decision": "BLOCK",
+        "code": "migration_transaction_wrapper_missing",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "BEGIN and COMMIT are mandatory"
+        ]
+      },
+      "basis": [
+        "MR-078A file structure rules"
+      ]
+    },
+    {
+      "id": "MIG-006",
+      "category": "migration_gate",
+      "fixture_refs": [
+        "#/fixtures/migration"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/migration/flags_all_false",
+          "value": false
+        }
+      ],
+      "expected": {
+        "decision": "BLOCK",
+        "code": "migration_feature_flags_not_closed",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "all six flags must remain false"
+        ]
+      },
+      "basis": [
+        "DR-006 feature flag ruling"
+      ]
+    },
+    {
+      "id": "MIG-007",
+      "category": "migration_gate",
+      "fixture_refs": [
+        "#/fixtures/migration",
+        "#/fixtures/environments/1"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/migration/timestamp_after_remote",
+          "value": true
+        },
+        {
+          "op": "replace",
+          "path": "#/fixtures/migration/history_synchronized",
+          "value": true
+        },
+        {
+          "op": "replace",
+          "path": "#/fixtures/migration/canonical_route_authorized",
+          "value": true
+        },
+        {
+          "op": "replace",
+          "path": "#/fixtures/migration/preview_target_authorized",
+          "value": true
+        }
+      ],
+      "expected": {
+        "decision": "PASS",
+        "code": "synthetic_migration_gate_complete",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "this proves the gate algorithm only and is not current preview evidence"
+        ]
+      },
+      "basis": [
+        "migration_contract.md Gate Sequence"
+      ]
+    },
+    {
+      "id": "RB-001",
+      "category": "rollback_gate",
+      "fixture_refs": [
+        "#/fixtures/rollback"
+      ],
+      "mutations": [],
+      "expected": {
+        "decision": "OPEN",
+        "code": "static_compensation_valid_preview_execution_open",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "compensation is preserving and idempotent",
+          "preview execution and acceptance semantics remain open"
+        ]
+      },
+      "basis": [
+        "rollback_contract.md Fixed Compensation Candidate",
+        "rollback_contract.md Important Acceptance Conflict"
+      ]
+    },
+    {
+      "id": "RB-002",
+      "category": "rollback_gate",
+      "fixture_refs": [
+        "#/fixtures/rollback"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/rollback/destructive_statements",
+          "value": true
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "destructive_rollback_forbidden",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "rollback must not drop, truncate, or delete I1Q history"
+        ]
+      },
+      "basis": [
+        "DR-006 rollback ruling",
+        "rollback_contract.md Failure Handling"
+      ]
+    },
+    {
+      "id": "RB-003",
+      "category": "rollback_gate",
+      "fixture_refs": [
+        "#/fixtures/rollback"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/rollback/history_rewrite",
+          "value": true
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "migration_history_rewrite_forbidden",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "history remains append-only"
+        ]
+      },
+      "basis": [
+        "MR-078A",
+        "rollback_contract.md Authority Ruling"
+      ]
+    },
+    {
+      "id": "RB-004",
+      "category": "rollback_gate",
+      "fixture_refs": [
+        "#/fixtures/rollback"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/rollback/schema_preserved",
+          "value": false
+        }
+      ],
+      "expected": {
+        "decision": "OPEN",
+        "code": "rollback_schema_absence_authority_conflict",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "DR-006 requires preserving forward compensation while the ticket asks exact prior schema state"
+        ]
+      },
+      "basis": [
+        "rollback_contract.md Important Acceptance Conflict"
+      ]
+    },
+    {
+      "id": "RB-005",
+      "category": "rollback_gate",
+      "fixture_refs": [
+        "#/fixtures/rollback"
+      ],
+      "mutations": [],
+      "expected": {
+        "decision": "BLOCK",
+        "code": "primary_reapply_does_not_reenable_behavior",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "idempotent primary reapply preserves false feature flags",
+          "a new authorized recovery action is required"
+        ]
+      },
+      "basis": [
+        "rollback_contract.md Reapplication And Recovery"
+      ]
+    },
+    {
+      "id": "RB-006",
+      "category": "rollback_gate",
+      "fixture_refs": [
+        "#/fixtures/rollback"
+      ],
+      "mutations": [],
+      "expected": {
+        "decision": "OPEN",
+        "code": "inflight_runtime_reapply_not_authorized",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "the in-flight candidate restores only the proposed identity capability",
+          "all feature flags remain false after candidate reapply",
+          "source presence is not forward recovery authority"
+        ]
+      },
+      "basis": [
+        "rollback_contract.md Observed In-Flight 1008A Compensation Set",
+        "rollback_contract.md Reapplication And Recovery"
+      ]
+    },
+    {
+      "id": "ENV-001",
+      "category": "environment_validation",
+      "fixture_refs": [
+        "#/fixtures/environments/0"
+      ],
+      "mutations": [],
+      "expected": {
+        "decision": "BLOCK",
+        "code": "staging_environment_authority_incomplete",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "preview target, workflow, identity assertion, runtime role, origin, and test identities are missing"
+        ]
+      },
+      "basis": [
+        "identity_resolver_contract.md Environment Validation",
+        "migration_contract.md Environment Validation"
+      ]
+    },
+    {
+      "id": "ENV-002",
+      "category": "environment_validation",
+      "fixture_refs": [
+        "#/fixtures/environments/1"
+      ],
+      "mutations": [],
+      "expected": {
+        "decision": "PASS",
+        "code": "synthetic_environment_contract_valid",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "this is a synthetic gate fixture and not deployment evidence"
+        ]
+      },
+      "basis": [
+        "migration_contract.md Environment Validation"
+      ]
+    },
+    {
+      "id": "ENV-003",
+      "category": "environment_validation",
+      "fixture_refs": [
+        "#/fixtures/environments/1"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/environments/1/name",
+          "value": "production"
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "production_migration_not_authorized",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "I1Q-1008A does not authorize production migration or deployment"
+        ]
+      },
+      "basis": [
+        "I1Q-1008A mission boundary"
+      ]
+    },
+    {
+      "id": "ENV-004",
+      "category": "environment_validation",
+      "fixture_refs": [
+        "#/fixtures/environments/1"
+      ],
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "#/fixtures/environments/1/secret_values_emitted",
+          "value": true
+        }
+      ],
+      "expected": {
+        "decision": "DENY",
+        "code": "secret_value_evidence_forbidden",
+        "actor_id": null,
+        "roles": [],
+        "assertions": [
+          "environment evidence records presence only and never secret values"
+        ]
+      },
+      "basis": [
+        "runtime_role_contract.md Secret And Connection Handling",
+        "MR-079"
+      ]
+    }
+  ]
+}

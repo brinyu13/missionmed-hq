@@ -1,0 +1,9 @@
+{
+  "generated_at": "2026-07-14T01:17:48.747Z",
+  "status": "BLOCKED_STATIC_EXPORT_NOT_AUTHORIZED",
+  "expected_rows_from_checked_in_migration_provenance": 845,
+  "reconciled_rows": 0,
+  "imported_rows": 0,
+  "historical_join_strategy": "dataset_version plus question_id plus content_hash",
+  "unreviewed_marked_approved": 0
+}

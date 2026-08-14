@@ -1,0 +1,27 @@
+{
+  "fixture_classification": "SYNTHETIC_MAPPING_ONLY_NO_LEGACY_CONTENT",
+  "source_count_claim": 845,
+  "source_count_status": "UNVERIFIED_STATIC_EXPORT_NOT_AUTHORIZED",
+  "mapping": {
+    "dataset_version": "legacy_dataset_version",
+    "question_id": "legacy_question_id",
+    "prompt": "item_revision.prompt",
+    "choice_a": "item_revision.choices[A].text",
+    "choice_b": "item_revision.choices[B].text",
+    "choice_c": "item_revision.choices[C].text",
+    "choice_d": "item_revision.choices[D].text",
+    "answer": "item_revision.answer",
+    "explanation": "item_revision.explanation"
+  },
+  "required_import_outputs": [
+    "source_record",
+    "concept_or_placeholder",
+    "variant_group",
+    "item",
+    "item_revision",
+    "import_map",
+    "retro_review_priority",
+    "risk_flags"
+  ],
+  "release_eligibility": "NEVER_BY_LEGACY_STATUS_ALONE"
+}
