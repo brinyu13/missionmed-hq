@@ -1,0 +1,1143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="color-scheme" content="dark">
+  <title>MissionMed Delivery Intelligence — Independent Instrument Design Lab</title>
+  <style>
+    :root {
+      --ink: #f5f8fb;
+      --muted: #9ca8b6;
+      --void: #071016;
+      --void-2: #0b171f;
+      --panel: #10232c;
+      --panel-2: #142d37;
+      --line: #2b4450;
+      --cyan: #59e6ff;
+      --cyan-soft: rgba(89, 230, 255, .18);
+      --lime: #caff49;
+      --lime-soft: rgba(202, 255, 73, .16);
+      --amber: #ffbf3f;
+      --amber-soft: rgba(255, 191, 63, .18);
+      --coral: #ff6e5f;
+      --coral-soft: rgba(255, 110, 95, .18);
+      --violet: #a893ff;
+      --blue: #4aa4ff;
+      --left: #59e6ff;
+      --right: #ffbf3f;
+      --good: var(--lime);
+      --state: var(--lime);
+      --state-soft: var(--lime-soft);
+      --shadow: 0 18px 50px rgba(0, 0, 0, .34);
+      --radius: 18px;
+      --gap: clamp(14px, 2vw, 24px);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 18% -10%, rgba(89, 230, 255, .13), transparent 30rem),
+        radial-gradient(circle at 90% 10%, rgba(168, 147, 255, .1), transparent 28rem),
+        var(--void);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+    }
+
+    body[data-state="approaching"] { --state: var(--amber); --state-soft: var(--amber-soft); }
+    body[data-state="out"] { --state: var(--coral); --state-soft: var(--coral-soft); }
+    body[data-state="unavailable"] { --state: #778692; --state-soft: rgba(119, 134, 146, .15); }
+
+    button, select { font: inherit; }
+    button, select { color: inherit; }
+    button:focus-visible, select:focus-visible, a:focus-visible {
+      outline: 3px solid var(--cyan);
+      outline-offset: 3px;
+    }
+
+    .skip-link {
+      position: absolute;
+      left: 12px;
+      top: -60px;
+      z-index: 99;
+      padding: 12px 16px;
+      color: #071016;
+      background: var(--lime);
+      font-weight: 900;
+      text-decoration: none;
+    }
+    .skip-link:focus { top: 12px; }
+
+    .shell { width: min(1540px, 100%); margin: 0 auto; }
+
+    .masthead {
+      min-height: 320px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(280px, .7fr);
+      gap: clamp(28px, 6vw, 84px);
+      align-items: end;
+      padding: clamp(52px, 8vw, 112px) clamp(20px, 5vw, 76px) 52px;
+      border-bottom: 1px solid var(--line);
+    }
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--cyan);
+      font-size: .75rem;
+      font-weight: 900;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 {
+      max-width: 15ch;
+      margin-bottom: 18px;
+      font-size: clamp(2.8rem, 7vw, 7.6rem);
+      line-height: .87;
+      letter-spacing: -.065em;
+      text-transform: uppercase;
+    }
+    .lede { max-width: 65ch; margin: 0; color: #c4cdd5; font-size: clamp(1rem, 1.6vw, 1.24rem); }
+    .mission-seal {
+      padding: 24px;
+      border: 1px solid var(--line);
+      background: linear-gradient(145deg, rgba(89, 230, 255, .08), rgba(202, 255, 73, .03));
+      clip-path: polygon(0 0, calc(100% - 26px) 0, 100% 26px, 100% 100%, 26px 100%, 0 calc(100% - 26px));
+    }
+    .mission-seal strong { display: block; margin-bottom: 12px; color: var(--lime); font-size: 1.35rem; letter-spacing: -.02em; }
+    .mission-seal p { margin: 0; color: var(--muted); }
+
+    .truth-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 20px;
+      align-items: center;
+      padding: 14px clamp(20px, 5vw, 76px);
+      color: var(--muted);
+      background: #09141b;
+      border-bottom: 1px solid var(--line);
+      font-size: .78rem;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .truth-strip strong { color: var(--amber); }
+
+    .control-deck {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 16px;
+      align-items: center;
+      padding: 14px clamp(16px, 4vw, 52px);
+      background: rgba(7, 16, 22, .94);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(18px);
+    }
+    .control-deck fieldset { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; }
+    .control-deck legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .seg-button, .phase-select, .family-tab, .motion-button {
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      color: #c6d0d7;
+      background: #0c1b23;
+      font-weight: 850;
+      letter-spacing: .035em;
+      cursor: pointer;
+    }
+    .seg-button, .family-tab, .motion-button { padding: 10px 14px; }
+    .seg-button[aria-pressed="true"], .family-tab[aria-selected="true"] {
+      color: #061016;
+      background: var(--state);
+      border-color: var(--state);
+    }
+    .phase-select { padding: 0 40px 0 12px; }
+    .mode-label { display: none; color: var(--muted); font-size: .74rem; font-weight: 900; text-transform: uppercase; }
+
+    main { padding: 0 clamp(16px, 4vw, 52px) 100px; }
+    .section { padding-top: clamp(52px, 7vw, 96px); }
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 560px);
+      gap: 30px;
+      align-items: end;
+      margin-bottom: 28px;
+    }
+    .section-kicker { color: var(--cyan); font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
+    h2 { margin-bottom: 8px; font-size: clamp(2rem, 4vw, 4.6rem); line-height: .95; letter-spacing: -.05em; text-transform: uppercase; }
+    .section-head p { margin: 0; color: var(--muted); }
+
+    .live-stage {
+      position: relative;
+      min-height: min(760px, 70vw);
+      overflow: hidden;
+      border: 1px solid #2c4651;
+      border-radius: 26px;
+      background:
+        linear-gradient(rgba(89, 230, 255, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(89, 230, 255, .035) 1px, transparent 1px),
+        radial-gradient(circle at 50% 50%, #16313a 0, #0c1d25 48%, #081219 100%);
+      background-size: 34px 34px, 34px 34px, auto;
+      box-shadow: var(--shadow);
+    }
+    .live-stage::after {
+      content: "SIMULATED DESIGN-LAB DATA • NO CAMERA • NO MICROPHONE";
+      position: absolute;
+      right: 18px;
+      bottom: 14px;
+      z-index: 9;
+      color: var(--muted);
+      font-size: .66rem;
+      font-weight: 900;
+      letter-spacing: .1em;
+    }
+    .conference-grid {
+      position: absolute;
+      inset: 70px 8% 90px;
+      display: grid;
+      grid-template-columns: minmax(0, 2.2fr) minmax(180px, .8fr);
+      gap: 16px;
+    }
+    .student-tile, .interviewer-tile {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid #35525e;
+      border-radius: 22px;
+      background: linear-gradient(150deg, #17313b, #0b1a21);
+    }
+    .student-tile { min-height: 460px; }
+    .interviewer-tile { min-height: 240px; align-self: start; }
+    .tile-name {
+      position: absolute;
+      left: 16px;
+      bottom: 14px;
+      z-index: 6;
+      padding: 6px 10px;
+      border-radius: 7px;
+      background: rgba(3, 8, 11, .7);
+      font-size: .72rem;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .avatar-shape {
+      position: absolute;
+      left: 50%;
+      top: 20%;
+      width: 34%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #33505d, #182b34);
+      transform: translateX(-50%);
+      box-shadow: 0 0 0 18px rgba(89, 230, 255, .025);
+    }
+    .avatar-shape::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 78%;
+      width: 210%;
+      height: 190%;
+      border-radius: 50% 50% 16% 16%;
+      background: linear-gradient(145deg, #294652, #132630);
+      transform: translateX(-50%);
+    }
+    .interviewer-tile .avatar-shape { top: 26%; width: 42%; opacity: .75; }
+    .frame-reticle {
+      position: absolute;
+      inset: 12% 18% 16%;
+      z-index: 4;
+      border: 2px solid var(--state);
+      border-radius: 18px;
+      box-shadow: inset 0 0 34px var(--state-soft), 0 0 28px var(--state-soft);
+      transition: all .35s ease;
+    }
+    .frame-reticle::before, .frame-reticle::after {
+      content: "";
+      position: absolute;
+      inset: 48% -12px auto;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--state), transparent);
+    }
+    .frame-reticle::after { inset: -12px auto -12px 50%; width: 2px; height: auto; }
+    body[data-state="approaching"] .frame-reticle { inset: 10% 14% 12% 22%; }
+    body[data-state="out"] .frame-reticle { inset: 5% 7% 7% 30%; }
+    body[data-state="unavailable"] .frame-reticle { border-style: dashed; opacity: .4; box-shadow: none; }
+
+    .hand-orb {
+      position: absolute;
+      z-index: 5;
+      width: clamp(24px, 3vw, 48px);
+      aspect-ratio: 1;
+      border: 3px solid currentColor;
+      border-radius: 50%;
+      background: color-mix(in srgb, currentColor 22%, transparent);
+      box-shadow: 0 0 24px currentColor;
+      transition: left .45s ease, top .45s ease, opacity .25s ease;
+    }
+    .hand-orb.left { left: 27%; top: 64%; color: var(--left); }
+    .hand-orb.right { left: 66%; top: 58%; color: var(--right); }
+    body[data-state="approaching"] .hand-orb.left { left: 38%; top: 76%; }
+    body[data-state="approaching"] .hand-orb.right { left: 59%; top: 73%; }
+    body[data-state="out"] .hand-orb.left { left: 41%; top: 90%; opacity: .3; }
+    body[data-state="out"] .hand-orb.right { left: 58%; top: 88%; opacity: .3; }
+    body[data-state="unavailable"] .hand-orb { opacity: 0; }
+
+    .voice-rail-live {
+      position: absolute;
+      left: 18px;
+      top: 84px;
+      bottom: 112px;
+      z-index: 8;
+      width: 28px;
+      overflow: hidden;
+      border: 1px solid #39535e;
+      border-radius: 16px;
+      background: #071219;
+    }
+    .voice-rail-live::before {
+      content: "";
+      position: absolute;
+      inset: 24% 4px;
+      border-radius: 10px;
+      background: var(--lime-soft);
+      border: 1px solid rgba(202, 255, 73, .5);
+    }
+    .voice-rail-live span {
+      position: absolute;
+      left: 5px;
+      right: 5px;
+      bottom: 18%;
+      height: 48%;
+      border-radius: 8px;
+      background: var(--state);
+      box-shadow: 0 0 20px var(--state);
+      transition: height .35s ease, bottom .35s ease, background .25s ease;
+    }
+    body[data-state="approaching"] .voice-rail-live span { height: 28%; bottom: 22%; }
+    body[data-state="out"] .voice-rail-live span { height: 12%; bottom: 3%; }
+    body[data-state="unavailable"] .voice-rail-live span { height: 5%; bottom: 48%; opacity: .4; }
+
+    .phase-chip {
+      position: absolute;
+      left: 50%;
+      top: 18px;
+      z-index: 10;
+      transform: translateX(-50%);
+      color: var(--cyan);
+      font-size: .72rem;
+      font-weight: 950;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .live-command {
+      position: absolute;
+      left: 50%;
+      bottom: 24px;
+      z-index: 10;
+      width: min(620px, 78%);
+      padding: 16px 22px;
+      color: #061016;
+      background: var(--state);
+      clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 18px 100%, 0 50%);
+      font-size: clamp(1.25rem, 3vw, 2.5rem);
+      font-weight: 1000;
+      letter-spacing: -.03em;
+      text-align: center;
+      text-transform: uppercase;
+      transform: translateX(-50%);
+      transition: background .25s ease;
+    }
+    .coord-pulse {
+      position: absolute;
+      left: 50%;
+      top: 48%;
+      z-index: 3;
+      width: 120px;
+      aspect-ratio: 1;
+      border: 2px solid var(--state);
+      border-radius: 50%;
+      opacity: .55;
+      transform: translate(-50%, -50%);
+      animation: pulse-ring 2.2s ease-out infinite;
+    }
+    @keyframes pulse-ring { 0% { scale: .45; opacity: .7; } 80%, 100% { scale: 4; opacity: 0; } }
+
+    .family-nav {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin: 0 0 28px;
+    }
+    .family-tab { min-height: 64px; text-transform: uppercase; }
+    .family-panel[hidden] { display: none; }
+    .family-banner {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: flex-end;
+      margin-bottom: 18px;
+    }
+    .family-banner h3 { margin: 0; font-size: clamp(1.55rem, 3vw, 2.6rem); letter-spacing: -.03em; text-transform: uppercase; }
+    .family-banner p { max-width: 62ch; margin: 0; color: var(--muted); }
+    .construct-control { display: grid; gap: 7px; min-width: min(100%, 320px); }
+    .construct-control label { color: var(--cyan); font-size: .68rem; font-weight: 950; letter-spacing: .09em; text-transform: uppercase; }
+    .construct-control select { min-height: 48px; padding: 0 40px 0 12px; border: 1px solid #3c5966; border-radius: 10px; background: #0a1820; font-weight: 900; }
+    .construct-ribbon { margin: -2px 0 18px; padding: 12px 14px; border-left: 3px solid var(--violet); color: #c6d0d7; background: rgba(168, 147, 255, .06); }
+    .construct-ribbon strong { color: var(--ink); }
+
+    .option-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); align-items: stretch; }
+    .option-card {
+      position: relative;
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(155deg, rgba(19, 43, 53, .98), rgba(9, 22, 29, .99));
+      box-shadow: 0 14px 36px rgba(0, 0, 0, .22);
+    }
+    .option-card.fortnite-study {
+      border-color: color-mix(in srgb, var(--violet) 60%, var(--line));
+      background: linear-gradient(155deg, #253044, #111c28 58%, #0c171e);
+    }
+    .card-head { min-height: 158px; padding: 22px 22px 16px; }
+    .option-number { color: var(--cyan); font-size: .7rem; font-weight: 950; letter-spacing: .16em; text-transform: uppercase; }
+    .fortnite-study .option-number { color: #c7baff; }
+    .option-card h3 { margin: 9px 0 8px; font-size: clamp(1.35rem, 2vw, 2rem); line-height: .98; letter-spacing: -.035em; text-transform: uppercase; }
+    .one-line { min-height: 2.8em; margin: 0; color: #b4c0c8; }
+    .support {
+      display: inline-flex;
+      margin-top: 14px;
+      padding: 5px 8px;
+      border: 1px solid #3a5663;
+      border-radius: 7px;
+      color: var(--cyan);
+      background: rgba(89, 230, 255, .06);
+      font-size: .66rem;
+      font-weight: 950;
+      letter-spacing: .075em;
+      text-transform: uppercase;
+    }
+    .support.new { color: #d2c9ff; background: rgba(168, 147, 255, .08); border-color: rgba(168, 147, 255, .4); }
+    .support.current { color: var(--lime); background: rgba(202, 255, 73, .07); border-color: rgba(202, 255, 73, .38); }
+
+    .instrument {
+      position: relative;
+      min-height: 330px;
+      overflow: hidden;
+      margin: 0 12px;
+      border: 1px solid #29444e;
+      border-radius: 14px;
+      background:
+        linear-gradient(rgba(89, 230, 255, .04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(89, 230, 255, .04) 1px, transparent 1px),
+        #08151c;
+      background-size: 24px 24px;
+    }
+    .instrument svg { display: block; width: 100%; height: 330px; }
+    .instrument text { fill: var(--ink); font-family: inherit; font-weight: 900; }
+    .instrument .muted-svg { fill: var(--muted); font-weight: 700; }
+    .instrument .state-stroke { stroke: var(--state); }
+    .instrument .state-fill { fill: var(--state); }
+    .instrument .state-soft { fill: var(--state-soft); }
+    .instrument .cyan-stroke { stroke: var(--cyan); }
+    .instrument .cyan-fill { fill: var(--cyan); }
+    .instrument .amber-stroke { stroke: var(--amber); }
+    .instrument .left-stroke { stroke: var(--left); }
+    .instrument .right-stroke { stroke: var(--right); }
+
+    .instrument-cue {
+      position: absolute;
+      left: 50%;
+      bottom: 15px;
+      z-index: 4;
+      width: calc(100% - 30px);
+      padding: 11px 12px;
+      color: #061016;
+      background: var(--state);
+      border-radius: 9px;
+      font-weight: 1000;
+      letter-spacing: .03em;
+      text-align: center;
+      text-transform: uppercase;
+      transform: translateX(-50%);
+    }
+    .instrument-cue.dark { color: var(--ink); background: rgba(5, 12, 16, .88); border: 1px solid var(--state); }
+    .state-copy > span { display: none; }
+    body[data-state="target"] .state-copy .target,
+    body[data-state="approaching"] .state-copy .approaching,
+    body[data-state="out"] .state-copy .out,
+    body[data-state="unavailable"] .state-copy .unavailable { display: inline; }
+
+    .card-foot { display: grid; gap: 14px; padding: 18px 20px 22px; }
+    .contract-summary { margin: 0; color: var(--muted); font-size: .82rem; }
+    .contract-summary strong { color: var(--ink); }
+    .lab-contract {
+      display: none;
+      padding: 12px;
+      border-left: 3px solid var(--cyan);
+      color: #b9c5cc;
+      background: rgba(89, 230, 255, .05);
+      font-size: .78rem;
+    }
+    body[data-mode="lab"] .lab-contract { display: block; }
+    body[data-mode="simple"] .card-head .one-line,
+    body[data-mode="simple"] .support,
+    body[data-mode="simple"] .contract-summary,
+    body[data-mode="simple"] .lab-contract { display: none; }
+    body[data-mode="simple"] .card-head { min-height: 96px; }
+
+    .disposition-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: center; }
+    .disposition-row label { color: var(--muted); font-size: .68rem; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+    .disposition-row select {
+      min-width: 0;
+      min-height: 46px;
+      padding: 0 12px;
+      border: 1px solid #3c5966;
+      border-radius: 10px;
+      background: #0a1820;
+      font-weight: 900;
+    }
+
+    /* Voice concepts */
+    .wave-target { fill: rgba(202, 255, 73, .10); stroke: rgba(202, 255, 73, .58); stroke-width: 2; }
+    .wave-path { fill: none; stroke: var(--state); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 8px var(--state)); transition: stroke .25s ease; }
+    .wave-baseline { fill: none; stroke: #68808c; stroke-width: 2; stroke-dasharray: 5 7; }
+    .pace-beads { position: absolute; inset: 44px 24px 76px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; align-items: center; }
+    .pace-bead { aspect-ratio: .62; border-radius: 12px; background: #17303a; border: 1px solid #31515e; transition: height .3s ease, background .3s ease; }
+    .pace-bead:nth-child(2n) { height: 68%; }
+    .pace-bead:nth-child(2n + 1) { height: 42%; }
+    .pace-bead.emphasis { height: 92%; background: var(--state); box-shadow: 0 0 22px var(--state-soft); }
+    .pause-gate { position: absolute; left: 41%; top: 35px; bottom: 74px; width: 16%; border: 1px dashed var(--cyan); background: rgba(89, 230, 255, .07); }
+    .voice-core {
+      position: absolute;
+      left: 50%;
+      top: 46%;
+      width: 190px;
+      aspect-ratio: 1;
+      border: 14px solid #1d3945;
+      border-top-color: var(--state);
+      border-right-color: var(--state);
+      border-radius: 50%;
+      box-shadow: inset 0 0 38px var(--state-soft), 0 0 44px var(--state-soft);
+      transform: translate(-50%, -50%) rotate(-24deg);
+      transition: border-color .3s ease;
+    }
+    .voice-core::before, .voice-core::after { content: ""; position: absolute; inset: 25px; border: 3px solid var(--cyan); border-radius: 50%; opacity: .55; }
+    .voice-core::after { inset: 48px; border-color: var(--amber); }
+    .core-label { position: absolute; left: 50%; top: 42%; width: 160px; transform: translate(-50%, -50%); text-align: center; font-size: 2rem; font-weight: 1000; line-height: .9; text-transform: uppercase; }
+
+    /* Gesture concepts */
+    .gesture-field { background: radial-gradient(ellipse at 50% 67%, rgba(202,255,73,.12), transparent 33%), #08151c; }
+    .gesture-safe { fill: rgba(202, 255, 73, .07); stroke: rgba(202, 255, 73, .5); stroke-width: 2; stroke-dasharray: 8 8; }
+    .heat-dot { transition: opacity .25s ease, transform .35s ease; transform-box: fill-box; transform-origin: center; }
+    body[data-state="unavailable"] .heat-dot { opacity: 0; }
+    body[data-state="out"] .heat-dot { transform: translateY(72px); }
+    .gesture-lanes { position: absolute; inset: 34px 26px 78px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .hand-lane { position: relative; border: 1px solid #31505c; border-radius: 100px 100px 18px 18px; background: linear-gradient(to top, rgba(255, 110, 95, .12) 0 23%, rgba(202, 255, 73, .09) 23% 78%, rgba(255, 191, 63, .10) 78%); }
+    .hand-lane::after { content: ""; position: absolute; left: 50%; bottom: 34%; width: 34px; aspect-ratio: 1; border: 4px solid currentColor; border-radius: 50%; background: rgba(7, 16, 22, .9); box-shadow: 0 0 20px currentColor; transform: translateX(-50%); transition: bottom .35s ease, opacity .3s ease; }
+    .hand-lane.left { color: var(--left); }
+    .hand-lane.right { color: var(--right); }
+    body[data-state="target"] .hand-lane.left::after { bottom: 55%; }
+    body[data-state="target"] .hand-lane.right::after { bottom: 61%; }
+    body[data-state="approaching"] .hand-lane::after { bottom: 29%; }
+    body[data-state="out"] .hand-lane::after { bottom: 5%; opacity: .35; }
+    body[data-state="unavailable"] .hand-lane::after { opacity: 0; }
+    .balance-bridge { position: absolute; left: 22%; right: 22%; top: 50%; height: 3px; background: linear-gradient(90deg, var(--left), var(--state), var(--right)); box-shadow: 0 0 16px var(--state-soft); }
+    .arena-zone { fill: rgba(168, 147, 255, .08); stroke: #7567bc; stroke-width: 2; }
+    .arena-hand { fill: #071016; stroke-width: 6; filter: drop-shadow(0 0 8px currentColor); }
+
+    /* Framing concepts */
+    .frame-demo { position: absolute; inset: 30px 30px 76px; border: 1px solid #375661; border-radius: 20px; background: radial-gradient(circle at 50% 30%, #233f4b 0 15%, transparent 16%), radial-gradient(ellipse at 50% 105%, #213b46 0 46%, transparent 47%), #0b1a22; }
+    .frame-demo::before { content: ""; position: absolute; inset: 12% 18%; border: 4px solid var(--state); border-radius: 17px; box-shadow: 0 0 24px var(--state-soft); transition: inset .35s ease; }
+    body[data-state="approaching"] .frame-demo::before { inset: 8% 13% 15% 24%; }
+    body[data-state="out"] .frame-demo::before { inset: 2% 4% 4% 34%; }
+    body[data-state="unavailable"] .frame-demo::before { opacity: .35; border-style: dashed; }
+    .gravity-orbits { position: absolute; left: 50%; top: 44%; width: 230px; aspect-ratio: 1; transform: translate(-50%, -50%); }
+    .gravity-orbits span { position: absolute; inset: calc(var(--i) * 22px); border: 1px solid color-mix(in srgb, var(--state) 55%, transparent); border-radius: 50%; }
+    .gravity-tile { position: absolute; left: 50%; top: 44%; width: 110px; height: 145px; border: 5px solid var(--state); border-radius: 16px; background: #17303a; box-shadow: 0 0 28px var(--state-soft); transform: translate(-50%, -50%); transition: transform .4s ease; }
+    body[data-state="approaching"] .gravity-tile { transform: translate(-28%, -60%) rotate(4deg); }
+    body[data-state="out"] .gravity-tile { transform: translate(8%, -72%) rotate(8deg); }
+    body[data-state="unavailable"] .gravity-tile { opacity: .35; }
+    .squad-frame { position: absolute; inset: 35px 28px 78px; background: linear-gradient(150deg, #1a3340, #0d1d25); clip-path: polygon(10% 0, 90% 0, 100% 12%, 100% 88%, 90% 100%, 10% 100%, 0 88%, 0 12%); }
+    .squad-frame::before { content: ""; position: absolute; inset: 11%; border: 8px solid var(--state); clip-path: polygon(0 0, 35% 0, 35% 6%, 65% 6%, 65% 0, 100% 0, 100% 35%, 94% 35%, 94% 65%, 100% 65%, 100% 100%, 65% 100%, 65% 94%, 35% 94%, 35% 100%, 0 100%, 0 65%, 6% 65%, 6% 35%, 0 35%); box-shadow: inset 0 0 28px var(--state-soft); }
+    .squad-frame::after { content: "READY FRAME"; position: absolute; left: 50%; top: 50%; color: var(--state); font-size: 1.35rem; font-weight: 1000; letter-spacing: .08em; transform: translate(-50%, -50%); }
+
+    /* Coordination concepts */
+    .coord-rings { position: absolute; inset: 24px 24px 72px; display: grid; place-items: center; }
+    .coord-ring { position: absolute; width: calc(56px + var(--i) * 42px); aspect-ratio: 1; border: 3px solid color-mix(in srgb, var(--state) 52%, #314d59); border-radius: 50%; opacity: calc(1 - var(--i) * .12); }
+    .coord-node { position: absolute; left: calc(50% + var(--x)); top: calc(50% + var(--y)); width: 24px; aspect-ratio: 1; border-radius: 50%; background: var(--node); box-shadow: 0 0 18px var(--node); transform: translate(-50%, -50%); }
+    .threadline { position: absolute; inset: 28px 20px 72px; display: grid; grid-template-rows: repeat(6, 1fr); gap: 7px; }
+    .thread-row { position: relative; display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 8px; color: var(--muted); font-size: .64rem; font-weight: 900; text-transform: uppercase; }
+    .thread-track { position: relative; height: 12px; border-radius: 8px; background: #18303a; }
+    .thread-hit { position: absolute; left: var(--x); width: var(--w); height: 100%; border-radius: 8px; background: var(--node); box-shadow: 0 0 10px var(--node); }
+    .thread-link { position: absolute; left: 62%; top: 11%; bottom: 11%; width: 2px; background: var(--state); box-shadow: 0 0 14px var(--state); }
+    .combo-chain { position: absolute; inset: 30px 22px 78px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; align-items: center; }
+    .combo-link { position: relative; aspect-ratio: .72; display: grid; place-items: center; color: #071016; background: var(--node); clip-path: polygon(16% 0, 84% 0, 100% 18%, 100% 82%, 84% 100%, 16% 100%, 0 82%, 0 18%); font-size: .72rem; font-weight: 1000; text-align: center; }
+    body[data-state="out"] .combo-link:nth-child(4), body[data-state="out"] .combo-link:nth-child(5) { opacity: .18; transform: translateY(22px); }
+    body[data-state="approaching"] .combo-link:nth-child(5) { opacity: .35; transform: translateY(12px); }
+    body[data-state="unavailable"] .combo-link { opacity: .16; }
+
+    /* Composite concepts */
+    .loom { position: absolute; inset: 22px 18px 76px; }
+    .loom-ribbon { position: absolute; left: 3%; top: var(--y); width: 64%; height: 14px; border-radius: 8px; background: linear-gradient(90deg, var(--node), var(--state)); transform: rotate(var(--r)); transform-origin: right center; opacity: .92; transition: width .35s ease, opacity .3s ease; }
+    .loom-ribbon::before { content: attr(data-label); position: absolute; left: 4px; top: -19px; color: var(--muted); font-size: .62rem; font-weight: 900; letter-spacing: .05em; }
+    body[data-state="approaching"] .loom-ribbon.weak { width: 43%; opacity: .45; }
+    body[data-state="out"] .loom-ribbon.weak { width: 25%; opacity: .2; }
+    body[data-state="unavailable"] .loom-ribbon { opacity: .13; }
+    .loom-core { position: absolute; right: 4%; top: 50%; display: grid; width: 115px; aspect-ratio: 1; place-items: center; color: #061016; background: var(--state); clip-path: polygon(50% 0, 92% 20%, 100% 64%, 72% 100%, 28% 100%, 0 64%, 8% 20%); font-size: .92rem; font-weight: 1000; line-height: .92; text-align: center; text-transform: uppercase; transform: translateY(-50%); box-shadow: 0 0 32px var(--state-soft); }
+    .control-stack { position: absolute; inset: 28px 22px 78px; display: grid; grid-template-columns: 1.1fr .9fr; gap: 20px; }
+    .stack-contributors { display: grid; gap: 10px; align-content: center; }
+    .stack-row { display: grid; grid-template-columns: 70px 1fr; gap: 8px; align-items: center; color: var(--muted); font-size: .65rem; font-weight: 900; text-transform: uppercase; }
+    .stack-bar { height: 13px; border-radius: 8px; background: #19313b; overflow: hidden; }
+    .stack-bar span { display: block; width: var(--fill); height: 100%; border-radius: inherit; background: var(--node); transition: width .35s ease; }
+    body[data-state="approaching"] .stack-row.weak .stack-bar span { width: 42%; }
+    body[data-state="out"] .stack-row.weak .stack-bar span { width: 16%; }
+    body[data-state="unavailable"] .stack-bar span { width: 0; }
+    .stack-vector { position: relative; display: grid; place-items: center; }
+    .stack-vector::before { content: ""; width: 120px; height: 170px; background: var(--state); clip-path: polygon(50% 0, 100% 58%, 72% 58%, 72% 100%, 28% 100%, 28% 58%, 0 58%); filter: drop-shadow(0 0 14px var(--state)); transition: transform .35s ease; }
+    body[data-state="approaching"] .stack-vector::before { transform: rotate(18deg) scale(.83); }
+    body[data-state="out"] .stack-vector::before { transform: rotate(52deg) scale(.62); }
+    body[data-state="unavailable"] .stack-vector::before { opacity: .2; }
+    .impact-core { position: absolute; left: 50%; top: 44%; display: grid; width: 155px; aspect-ratio: 1; place-items: center; color: #071016; background: var(--state); border: 10px solid #071016; border-radius: 50%; outline: 5px solid var(--state); font-size: 1.3rem; font-weight: 1000; line-height: .9; text-align: center; text-transform: uppercase; transform: translate(-50%, -50%); box-shadow: 0 0 0 18px var(--state-soft), 0 0 55px var(--state); }
+    .impact-shard { position: absolute; left: calc(50% + var(--x)); top: calc(44% + var(--y)); width: 62px; height: 34px; display: grid; place-items: center; color: #061016; background: var(--node); clip-path: polygon(12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 50%); font-size: .6rem; font-weight: 1000; transform: translate(-50%, -50%) rotate(var(--r)); }
+    body[data-state="out"] .impact-shard.weak { background: var(--coral); transform: translate(-50%, -50%) rotate(var(--r)) scale(.7); }
+    body[data-state="unavailable"] .impact-shard { opacity: .2; }
+
+    .legend-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 26px; }
+    .legend-item { padding: 14px; border-top: 3px solid var(--line); color: var(--muted); background: rgba(255,255,255,.015); font-size: .8rem; }
+    .legend-item strong { display: block; margin-bottom: 4px; color: var(--ink); }
+    .legend-item:nth-child(1) { border-color: var(--lime); }
+    .legend-item:nth-child(2) { border-color: var(--cyan); }
+    .legend-item:nth-child(3) { border-color: var(--violet); }
+    .legend-item:nth-child(4) { border-color: var(--coral); }
+
+    .selection-gate {
+      margin-top: 70px;
+      padding: clamp(24px, 5vw, 58px);
+      border: 1px solid #46606c;
+      border-radius: 24px;
+      background: linear-gradient(145deg, #142d37, #0a1921);
+      box-shadow: var(--shadow);
+    }
+    .selection-gate h2 { max-width: 13ch; }
+    .selection-ledger { width: 100%; border-collapse: collapse; margin-top: 26px; }
+    .selection-ledger th, .selection-ledger td { padding: 12px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    .selection-ledger th { color: var(--muted); font-size: .7rem; letter-spacing: .09em; text-transform: uppercase; }
+    .selection-ledger td:last-child { color: var(--state); font-weight: 950; }
+    .empty-selection { color: var(--muted) !important; font-weight: 700 !important; }
+    .stop-line { margin: 24px 0 0; padding-top: 20px; border-top: 1px solid var(--line); color: var(--amber); font-weight: 900; }
+
+    .family-panel:not([hidden]) { animation: panel-in .32s ease both; }
+    @keyframes panel-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    @media (max-width: 1100px) {
+      .option-grid { grid-template-columns: 1fr; }
+      .option-card { display: grid; grid-template-columns: minmax(230px, .72fr) minmax(340px, 1.28fr); }
+      .card-head { min-height: auto; }
+      .instrument { grid-column: 2; grid-row: 1 / span 2; margin: 12px; }
+      .card-foot { grid-column: 1; }
+      .family-nav { grid-template-columns: repeat(3, 1fr); }
+      .legend-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 820px) {
+      .masthead { grid-template-columns: 1fr; min-height: 0; }
+      .control-deck { position: relative; grid-template-columns: 1fr; }
+      .mode-label { display: block; }
+      .section-head, .family-banner { grid-template-columns: 1fr; display: grid; }
+      .conference-grid { inset: 60px 9% 100px; grid-template-columns: 1fr; }
+      .interviewer-tile { display: none; }
+      .live-stage { min-height: 620px; }
+      .option-card { display: flex; }
+      .instrument { margin: 0 12px; }
+      .family-nav { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 560px) {
+      .masthead { padding: 52px 20px 36px; }
+      h1 { font-size: 3rem; }
+      .truth-strip { padding-inline: 20px; }
+      main { padding-inline: 12px; }
+      .seg-button, .family-tab { padding-inline: 10px; }
+      .family-nav { grid-template-columns: 1fr 1fr; }
+      .family-tab { min-height: 54px; font-size: .78rem; }
+      .conference-grid { inset: 54px 8% 104px; }
+      .student-tile { min-height: 430px; }
+      .live-command { width: 82%; font-size: 1.25rem; }
+      .live-stage::after { left: 16px; right: auto; max-width: 70%; }
+      .instrument { min-height: 300px; }
+      .instrument svg { height: 300px; }
+      .legend-grid { grid-template-columns: 1fr; }
+      .disposition-row { grid-template-columns: 1fr; }
+      .selection-gate { padding: 22px 16px; }
+      .selection-ledger, .selection-ledger tbody, .selection-ledger tr, .selection-ledger td { display: block; }
+      .selection-ledger thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+      .selection-ledger tr { padding: 12px 0; border-bottom: 1px solid var(--line); }
+      .selection-ledger td { padding: 3px 0; border: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+    }
+    body.motion-paused *, body.motion-paused *::before, body.motion-paused *::after { animation-play-state: paused !important; }
+  </style>
+</head>
+<body data-state="target" data-mode="simple" data-phase="prove">
+  <a class="skip-link" href="#main">Skip to Design Lab</a>
+  <div class="shell">
+    <header class="masthead">
+      <div>
+        <p class="eyebrow">MissionMed • IV Prep On-Call • Independent Round 1</p>
+        <h1>Delivery is the controller.</h1>
+        <p class="lede">Five instrument families for real-time communication coaching. Each concept converts observable behavior into one immediate physical or vocal move—without pretending to measure a person’s inner state.</p>
+      </div>
+      <aside class="mission-seal" aria-label="Design lab boundary">
+        <strong>BLIND DESIGN LAB</strong>
+        <p>All motion is simulated. No camera, microphone, provider, external asset, production system, or student data is used. Observable cues and MissionMed coaching interpretation remain separate.</p>
+      </aside>
+    </header>
+
+    <div class="truth-strip" role="note">
+      <strong>Engine capability is authority.</strong>
+      <span>Design-lab data: simulated</span>
+      <span>One student tile</span>
+      <span>One synchronized clock</span>
+      <span>Fail closed when unavailable</span>
+    </div>
+
+    <div class="control-deck" aria-label="Design Lab controls">
+      <fieldset aria-label="Signal state">
+        <legend>Signal state</legend>
+        <button class="seg-button state-button" type="button" data-state-value="target" aria-pressed="true">GOOD / TARGET</button>
+        <button class="seg-button state-button" type="button" data-state-value="approaching" aria-pressed="false">APPROACHING</button>
+        <button class="seg-button state-button" type="button" data-state-value="out" aria-pressed="false">OUT OF RANGE</button>
+        <button class="seg-button state-button" type="button" data-state-value="unavailable" aria-pressed="false">UNAVAILABLE</button>
+      </fieldset>
+      <fieldset aria-label="Information density">
+        <legend>Information density</legend>
+        <span class="mode-label">View</span>
+        <button class="seg-button mode-button" type="button" data-mode-value="simple" aria-pressed="true">SIMPLE</button>
+        <button class="seg-button mode-button" type="button" data-mode-value="standard" aria-pressed="false">STANDARD</button>
+        <button class="seg-button mode-button" type="button" data-mode-value="lab" aria-pressed="false">LAB</button>
+      </fieldset>
+      <div>
+        <label class="mode-label" for="phase-select">Answer phase</label>
+        <select class="phase-select" id="phase-select" aria-label="Answer phase">
+          <option value="open">OPEN</option>
+          <option value="enumerate">ENUMERATE</option>
+          <option value="prove" selected>PROVE / STORY</option>
+          <option value="close">CLOSE</option>
+        </select>
+        <button class="motion-button" id="motion-toggle" type="button" aria-pressed="false">PAUSE MOTION</button>
+      </div>
+    </div>
+
+    <main id="main">
+      <section class="section" aria-labelledby="live-title">
+        <div class="section-head">
+          <div>
+            <span class="section-kicker">Integrated composition</span>
+            <h2 id="live-title">One correction. Peripheral instruments.</h2>
+          </div>
+          <p>The student keeps eyes on the interviewer. Voice, framing, hands, and coordination live at the edges; only the highest-value correction becomes language.</p>
+        </div>
+        <div class="live-stage" aria-label="Simulated realistic video-conference coaching composition">
+          <div class="phase-chip">PHASE • <span data-phase-label>PROVE / STORY</span></div>
+          <div class="voice-rail-live" aria-label="Voice target rail"><span></span></div>
+          <div class="conference-grid">
+            <div class="student-tile">
+              <div class="avatar-shape" aria-hidden="true"></div>
+              <div class="frame-reticle" aria-hidden="true"></div>
+              <div class="coord-pulse" aria-hidden="true"></div>
+              <div class="hand-orb left" aria-hidden="true"></div>
+              <div class="hand-orb right" aria-hidden="true"></div>
+              <span class="tile-name">YOU • STUDENT</span>
+            </div>
+            <div class="interviewer-tile">
+              <div class="avatar-shape" aria-hidden="true"></div>
+              <span class="tile-name">INTERVIEWER</span>
+            </div>
+          </div>
+          <div class="live-command state-copy" aria-live="polite">
+            <span class="target">GOOD — HOLD</span>
+            <span class="approaching">HANDS UP</span>
+            <span class="out">MOVE BACK</span>
+            <span class="unavailable">COACH PAUSED</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="wall-title">
+        <div class="section-head">
+          <div>
+            <span class="section-kicker">Option wall</span>
+            <h2 id="wall-title">Do not choose a shape. Choose a teaching mechanic.</h2>
+          </div>
+          <p>Each family offers three materially different approaches. The third is an original Fortnite design-language study: bolder hierarchy and game feel, with no copied assets or screen.</p>
+        </div>
+
+        <div class="family-nav" role="tablist" aria-label="Instrument families">
+          <button class="family-tab" id="tab-voice" role="tab" aria-selected="true" aria-controls="panel-voice" type="button" data-family="voice">VOICE</button>
+          <button class="family-tab" id="tab-gesture" role="tab" aria-selected="false" aria-controls="panel-gesture" type="button" data-family="gesture">GESTURE</button>
+          <button class="family-tab" id="tab-frame" role="tab" aria-selected="false" aria-controls="panel-frame" type="button" data-family="frame">FRAMING</button>
+          <button class="family-tab" id="tab-coordination" role="tab" aria-selected="false" aria-controls="panel-coordination" type="button" data-family="coordination">COORDINATION</button>
+          <button class="family-tab" id="tab-composite" role="tab" aria-selected="false" aria-controls="panel-composite" type="button" data-family="composite">COMPOSITE</button>
+        </div>
+
+        <div class="family-panel" id="panel-voice" role="tabpanel" aria-labelledby="tab-voice">
+          <div class="family-banner">
+            <div><span class="section-kicker">Family 01</span><h3>Voice as terrain</h3></div>
+            <p>Teach level, pace, pause placement, emphasis, cadence variation, and eventual prosodic variety without rewarding a mechanical metronome.</p>
+          </div>
+          <div class="option-grid">
+            <article class="option-card" data-option="V1" data-option-name="Soundline Corridor">
+              <div class="card-head">
+                <span class="option-number">V1 • Live tuner field</span>
+                <h3>Soundline Corridor</h3>
+                <p class="one-line">A living waveform enters a personalized safe lane; its direction is obvious before its number is.</p>
+                <span class="support current">Currently supportable core</span>
+              </div>
+              <div class="instrument" aria-label="Soundline Corridor showing microphone energy in a target lane">
+                <svg viewBox="0 0 420 330" role="img" aria-labelledby="v1-title v1-desc">
+                  <title id="v1-title">Soundline Corridor</title><desc id="v1-desc">A live waveform moves through a target band and changes color by coaching state.</desc>
+                  <rect x="18" y="28" width="384" height="224" rx="15" fill="#0b1a22" stroke="#29444e"/>
+                  <rect class="wave-target" x="18" y="102" width="384" height="74" rx="8"/>
+                  <path class="wave-baseline" d="M18 139 H402"/>
+                  <path class="wave-path" data-wave d="M18 140 L402 140"/>
+                  <text x="30" y="92" class="muted-svg" font-size="11">PERSONAL TARGET</text>
+                  <text x="390" y="146" class="state-fill" text-anchor="end" font-size="12">LIVE</text>
+                </svg>
+                <div class="instrument-cue state-copy"><span class="target">VOICE LOCKED</span><span class="approaching">MORE VOICE</span><span class="out">SPEAK UP</span><span class="unavailable">MIC SIGNAL UNAVAILABLE</span></div>
+              </div>
+              <div class="card-foot">
+                <p class="contract-summary"><strong>Teaches:</strong> level/energy target and clipping avoidance. Pace/pause overlays enter only when coverage is sufficient.</p>
+                <div class="lab-contract"><strong>Inputs:</strong> captured_level_dbfs, digital_clipping_fraction, energy_variation_db, pause_episode. <strong>Transform:</strong> rolling level → vertical displacement; clipping → edge break. <strong>Fail:</strong> freeze and label unavailable on audio gap. Device dBFS is not calibrated loudness.</div>
+                <div class="disposition-row"><label for="select-v1">Founder verdict</label><select id="select-v1" class="disposition"><option value="">NO DECISION</option><option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option><option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option></select></div>
+              </div>
+            </article>
+
+            <article class="option-card" data-option="V2" data-option-name="Phrase Runway">
+              <div class="card-head">
+                <span class="option-number">V2 • Rhythm mechanic</span>
+                <h3>Phrase Runway</h3>
+                <p class="one-line">Speech bursts become varied strides; a pause gate rewards a deliberate landing, not constant speed.</p>
+                <span class="support">Supportable with derivation</span>
+              </div>
+              <div class="instrument" aria-label="Phrase Runway showing varied speech bursts and a pause gate">
+                <div class="pause-gate" aria-hidden="true"></div>
+                <div class="pace-beads" aria-hidden="true"><span class="pace-bead"></span><span class="pace-bead"></span><span class="pace-bead emphasis"></span><span class="pace-bead"></span><span class="pace-bead"></span><span class="pace-bead emphasis"></span><span class="pace-bead"></span></div>
+                <div class="instrument-cue state-copy"><span class="target">VARIATION — HOLD</span><span class="approaching">TAKE THE PAUSE</span><span class="out">BREAK THE METRONOME</span><span class="unavailable">SPEECH TIMING UNAVAILABLE</span></div>
+              </div>
+              <div class="card-foot">
+                <p class="contract-summary"><strong>Teaches:</strong> pace variability, purposeful silence, emphasis spacing, and phase-aware landing.</p>
+                <div class="lab-contract"><strong>Inputs:</strong> speech activity, pause episodes, transcript word rate, energy peaks, answer phase. <strong>Transform:</strong> bursts → strides; silence → gaps; emphasis → tall beats. <strong>Fail:</strong> no coaching when VAD/transcript is unvalidated or coverage drops. Intent is never inferred.</div>
+                <div class="disposition-row"><label for="select-v2">Founder verdict</label><select id="select-v2" class="disposition"><option value="">NO DECISION</option><option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option><option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option></select></div>
+              </div>
+            </article>
+
+            <article class="option-card fortnite-study" data-option="V3" data-option-name="Voice Forge">
+              <div class="card-head">
+                <span class="option-number">V3 • Fortnite design-language study</span>
+                <h3>Voice Forge</h3>
+                <p class="one-line">Level, pace, prosody, and emphasis charge one chunky voice core; the weakest segment becomes the move.</p>
+                <span class="support new">New engineering</span>
+              </div>
+              <div class="instrument" aria-label="Voice Forge reactor composed of several voice signal segments">
+                <div class="voice-core" aria-hidden="true"></div>
+                <div class="core-label state-copy"><span class="target">VOICE<br>LOCK</span><span class="approaching">ADD<br>RANGE</span><span class="out">WAKE<br>VOICE</span><span class="unavailable">NO<br>SIGNAL</span></div>
+                <div class="instrument-cue dark state-copy"><span class="target">CORE CHARGED</span><span class="approaching">VARY THE PITCH</span><span class="out">MORE VOCAL SHAPE</span><span class="unavailable">CONCEPT ONLY</span></div>
+              </div>
+              <div class="card-foot">
+                <p class="contract-summary"><strong>Teaches:</strong> integrated vocal shape with bold lock feedback and one contributor-level correction.</p>
+                <div class="lab-contract"><strong>Inputs:</strong> validated level plus future F0/prosodic contour, cadence regularity, emphasis, and phase targets. <strong>Transform:</strong> contributors charge distinct core sectors. <strong>Fail:</strong> unsupported sectors remain visibly offline; aggregate never claims naturalness or character.</div>
+                <div class="disposition-row"><label for="select-v3">Founder verdict</label><select id="select-v3" class="disposition"><option value="">NO DECISION</option><option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option><option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option></select></div>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div class="family-panel" id="panel-gesture" role="tabpanel" aria-labelledby="tab-gesture" hidden>
+          <div class="family-banner"><div><span class="section-kicker">Family 02</span><h3>Hands as spatial control</h3></div><p>Teach visibility, operating range, balance, repetition, and voice-linked emphasis while preserving anatomical left/right provenance.</p></div>
+          <div class="option-grid">
+            <article class="option-card" data-option="G1" data-option-name="Gesture Field">
+              <div class="card-head"><span class="option-number">G1 • Live field + replay heatmap</span><h3>Gesture Field</h3><p class="one-line">Two colored trails show where the hands live; the target field turns density into a physical move.</p><span class="support">Supportable with derivation</span></div>
+              <div class="instrument gesture-field" aria-label="Gesture Field with left and right hand density trails">
+                <svg viewBox="0 0 420 330" role="img" aria-labelledby="g1-title g1-desc"><title id="g1-title">Gesture Field</title><desc id="g1-desc">A safe chest-level gesture zone receives colored left and right hand trails.</desc><rect class="gesture-safe" x="84" y="72" width="252" height="164" rx="72"/><path d="M210 60 V248 M80 160 H340" stroke="#29444e" stroke-width="1"/><g fill="var(--left)"><circle class="heat-dot" cx="122" cy="189" r="19" opacity=".18"/><circle class="heat-dot" cx="151" cy="168" r="15" opacity=".34"/><circle class="heat-dot" cx="175" cy="145" r="10" opacity=".85"/></g><g fill="var(--right)"><circle class="heat-dot" cx="296" cy="186" r="20" opacity=".2"/><circle class="heat-dot" cx="272" cy="154" r="15" opacity=".4"/><circle class="heat-dot" cx="245" cy="136" r="10" opacity=".9"/></g><text x="24" y="30" class="muted-svg" font-size="11">L / R TRAILS • TARGET FIELD</text></svg>
+                <div class="instrument-cue state-copy"><span class="target">GOOD RANGE — HOLD</span><span class="approaching">EXPAND</span><span class="out">HANDS UP</span><span class="unavailable">HANDS NOT OBSERVABLE</span></div>
+              </div>
+              <div class="card-foot"><p class="contract-summary"><strong>Teaches:</strong> hand visibility, spatial operating area, below-frame loss, face-zone avoidance, and range diversity.</p><div class="lab-contract"><strong>Inputs:</strong> L/R present, compact hand centers/zones, shoulder scale, motion episodes. <strong>Transform:</strong> short-lived centers → decaying live trail; bounded replay bins → density. <strong>Fail:</strong> erase trail during unsafe face-count or tracking gap; never persist raw landmarks.</div><div class="disposition-row"><label for="select-g1">Founder verdict</label><select id="select-g1" class="disposition"><option value="">NO DECISION</option><option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option><option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option></select></div></div>
+            </article>
+
+            <article class="option-card" data-option="G2" data-option-name="Dual Hand Lanes">
+              <div class="card-head"><span class="option-number">G2 • Bilateral range mechanic</span><h3>Dual Hand Lanes</h3><p class="one-line">Each hand climbs its own operating lane; a bridge reveals imbalance without demanding symmetry.</p><span class="support">Supportable with derivation</span></div>
+              <div class="instrument" aria-label="Dual Hand Lanes for left and right gesture range"><div class="gesture-lanes" aria-hidden="true"><div class="hand-lane left"></div><div class="hand-lane right"></div></div><div class="balance-bridge" aria-hidden="true"></div><div class="instrument-cue state-copy"><span class="target">BOTH HANDS AVAILABLE</span><span class="approaching">USE THE OTHER HAND</span><span class="out">HANDS IN FRAME</span><span class="unavailable">VISUAL SIGNAL PAUSED</span></div></div>
+              <div class="card-foot"><p class="contract-summary"><strong>Teaches:</strong> L/R visibility, unilateral overuse, operating height, and balanced availability—not forced mirroring.</p><div class="lab-contract"><strong>Inputs:</strong> per-side hand presence, center, zone, movement episode. <strong>Transform:</strong> normalized height → lane position; availability over phase → bridge. <strong>Fail:</strong> neutral unavailable state during hand occlusion or unsafe person-specific coverage.</div><div class="disposition-row"><label for="select-g2">Founder verdict</label><select id="select-g2" class="disposition"><option value="">NO DECISION</option><option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option><option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option></select></div></div>
+            </article>
+
+            <article class="option-card fortnite-study" data-option="G3" data-option-name="Handstorm Arena">
+              <div class="card-head"><span class="option-number">G3 • Fortnite design-language study</span><h3>Handstorm Arena</h3><p class="one-line">Hands acquire chunky target zones; synchronized vocal hits trigger satisfying dual-hand impact locks.</p><span class="support new">New engineering</span></div>
+              <div class="instrument" aria-label="Handstorm Arena with two hand targets and a vocal emphasis impact">
+                <svg viewBox="0 0 420 330" role="img" aria-labelledby="g3-title g3-desc"><title id="g3-title">Handstorm Arena</title><desc id="g3-desc">Two bold hand reticles sit in a speech-synchronized arena.</desc><path class="arena-zone" d="M25 62 L106 25 H314 L395 62 V242 L318 276 H102 L25 242 Z"/><circle class="arena-hand left-stroke" cx="142" cy="164" r="45"/><circle class="arena-hand right-stroke" cx="278" cy="164" r="45"/><path d="M188 164 H232" class="state-stroke" stroke-width="8" stroke-linecap="round"/><text x="142" y="169" text-anchor="middle" font-size="13">LEFT</text><text x="278" y="169" text-anchor="middle" font-size="13">RIGHT</text><text x="210" y="77" text-anchor="middle" class="state-fill" font-size="15">EMPHASIS WINDOW</text></svg>
+                <div class="instrument-cue dark state-copy"><span class="target">IMPACT LOCK</span><span class="approaching">HIT WITH HANDS</span><span class="out">BRING HANDS ONLINE</span><span class="unavailable">ARENA OFFLINE</span></div>
+              </div>
+              <div class="card-foot"><p class="contract-summary"><strong>Teaches:</strong> gesture timing with vocal emphasis and phase-appropriate bilateral impact.</p><div class="lab-contract"><strong>Inputs:</strong> hand motion onset, zones, future emphasis events, phase labels, shared clock. <strong>Transform:</strong> temporal overlap → impact lock. <strong>Fail:</strong> no combo when any channel has low coverage; no semantic meaning or confidence inference.</div><div class="disposition-row"><label for="select-g3">Founder verdict</label><select id="select-g3" class="disposition"><option value="">NO DECISION</option><option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option><option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option></select></div></div>
+            </article>
+          </div>
+        </div>
+
+        <div class="family-panel" id="panel-frame" role="tabpanel" aria-labelledby="tab-frame" hidden>
+          <div class="family-banner"><div><span class="section-kicker">Family 03</span><h3>Camera relationship</h3></div><p>Teach centering, headroom, distance, visibility, head movement, and observable facial activity inside realistic video-conference geometry.</p></div>
+          <div class="option-grid">
+            <article class="option-card" data-option="F1" data-option-name="Camera Dock">
+              <div class="card-head"><span class="option-number">F1 • Direct spatial correction</span><h3>Camera Dock</h3><p class="one-line">The student tile docks inside a visible target frame; movement direction is spatial, not numeric.</p><span class="support current">Currently supportable core</span></div>
+              <div class="instrument" aria-label="Camera Dock showing a target video frame"><div class="frame-demo" aria-hidden="true"></div><div class="instrument-cue state-copy"><span class="target">CAMERA READY</span><span class="approaching">CENTER</span><span class="out">MOVE BACK</span><span class="unavailable">FACE TRACK UNAVAILABLE</span></div></div>
+              <div class="card-foot"><p class="contract-summary"><strong>Teaches:</strong> center, safe face size, headroom proxy, and camera-facing head position.</p><div class="lab-contract"><strong>Inputs:</strong> compact face box, framing_center, head orientation proxy, face count. <strong>Transform:</strong> box edges → dock alignment and directional arrows. <strong>Fail:</strong> dashed neutral frame for zero/multiple/unprotected faces; never call head orientation “eye contact.”</div><div class="disposition-row"><label for="select-f1">Founder verdict</label><select id="select-f1" class="disposition"><option value="">NO DECISION</option><option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option><option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option></select></div></div>
+            </article>
+
+            <article class="option-card" data-option="F2" data-option-name="Gravity Frame">
+              <div class="card-head"><span class="option-number">F2 • Magnetic field</span><h3>Gravity Frame</h3><p class="one-line">The tile floats off-center until the student physically moves it into a calm magnetic center.</p><span class="support">Supportable with derivation</span></div>
+              <div class="instrument" aria-label="Gravity Frame with concentric target orbits"><div class="gravity-orbits" aria-hidden="true"><span style="--i:0"></span><span style="--i:1"></span><span style="--i:2"></span><span style="--i:3"></span></div><div class="gravity-tile" aria-hidden="true"></div><div class="instrument-cue dark state-copy"><span class="target">STABLE — HOLD</span><span class="approaching">DOWN + LEFT</span><span class="out">BACK TO CENTER</span><span class="unavailable">FIELD PAUSED</span></div></div>
+              <div class="card-foot"><p class="contract-summary"><strong>Teaches:</strong> continuous spatial correction with less chrome than a video-overlay box.</p><div class="lab-contract"><strong>Inputs:</strong> face box center/size, torso presence, head orientation, target reference. <strong>Transform:</strong> normalized error vector → tile offset and pull. <strong>Fail:</strong> tile fades at coverage gap. Distance remains a face-size proxy until calibrated.</div><div class="disposition-row"><label for="select-f2">Founder verdict</label><select id="select-f2" class="disposition"><option value="">NO DECISION</option><option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option><option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option></select></div></div>
+            </article>
+
+            <article class="option-card fortnite-study" data-option="F3" data-option-name="Squad Ready Frame">
+              <div class="card-head"><span class="option-number">F3 • Fortnite design-language study</span><h3>Squad Ready Frame</h3><p class="one-line">Oversized corner locks snap on when face, torso, framing, and camera-facing proxies are all available.</p><span class="support">Supportable with derivation</span></div>
+              <div class="instrument" aria-label="Squad Ready Frame with bold locking corners"><div class="squad-frame" aria-hidden="true"></div><div class="instrument-cue dark state-copy"><span class="target">READY FRAME LOCKED</span><span class="approaching">CLEAR THE HEADROOM</span><span class="out">RESET YOUR FRAME</span><span class="unavailable">NO SAFE TARGET</span></div></div>
+              <div class="card-foot"><p class="contract-summary"><strong>Teaches:</strong> a single high-readiness framing lock while preserving component-level fail reasons.</p><div class="lab-contract"><strong>Inputs:</strong> face/torso presence, face-box bounds, orientation proxies, coverage. <strong>Transform:</strong> all required conditions → corner lock. <strong>Fail:</strong> lock cannot display if person-specific safety is unavailable; no identity or impression claim.</div><div class="disposition-row"><label for="select-f3">Founder verdict</label><select id="select-f3" class="disposition"><option value="">NO DECISION</option><option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option><option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option></select></div></div>
+            </article>
+          </div>
+        </div>
+
+        <div class="family-panel" id="panel-coordination" role="tabpanel" aria-labelledby="tab-coordination" hidden>
+          <div class="family-banner"><div><span class="section-kicker">Family 04</span><h3>One clock, many channels</h3></div><p>Make coordinated delivery visible as simultaneous observable events—not a mysterious “sync score.”</p></div>
+          <div class="option-grid">
+            <article class="option-card" data-option="C1" data-option-name="Convergence Rings">
+              <div class="card-head"><span class="option-number">C1 • Live peripheral pulse</span><h3>Convergence Rings</h3><p class="one-line">Voice, face, head, body, and hands arrive as rings; a shared impact is felt when events converge.</p><span class="support">Supportable with derivation</span></div>
+              <div class="instrument" aria-label="Convergence Rings with synchronized channel nodes"><div class="coord-rings" aria-hidden="true"><span class="coord-ring" style="--i:0"></span><span class="coord-ring" style="--i:1"></span><span class="coord-ring" style="--i:2"></span><span class="coord-ring" style="--i:3"></span><i class="coord-node" style="--x:-80px;--y:-54px;--node:var(--cyan)"></i><i class="coord-node" style="--x:80px;--y:-54px;--node:var(--amber)"></i><i class="coord-node" style="--x:-95px;--y:58px;--node:var(--violet)"></i><i class="coord-node" style="--x:95px;--y:58px;--node:var(--lime)"></i></div><div class="instrument-cue state-copy"><span class="target">CHANNELS CONNECTED</span><span class="approaching">ADD THE HANDS</span><span class="out">MATCH VOICE + BODY</span><span class="unavailable">SYNC UNAVAILABLE</span></div></div>
+              <div class="card-foot"><p class="contract-summary"><strong>Teaches:</strong> whether observable activation happened together, with the missing channel made actionable.</p><div class="lab-contract"><strong>Inputs:</strong> synchronized energy peaks, hand/head/body/face episodes, phase boundary. <strong>Transform:</strong> bounded temporal coincidence → ring convergence. <strong>Fail:</strong> missing channel disappears and aggregate withholds; never call coincidence intention or congruence.</div><div class="disposition-row"><label for="select-c1">Founder verdict</label><select id="select-c1" class="disposition"><option value="">NO DECISION</option><option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option><option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option></select></div></div>
+            </article>
+
+            <article class="option-card" data-option="C2" data-option-name="Threadline Replay">
+              <div class="card-head"><span class="option-number">C2 • Film Room evidence</span><h3>Threadline Replay</h3><p class="one-line">Six tracks share one cursor; vertical threads reveal exactly what changed together at a teaching moment.</p><span class="support">Supportable with derivation</span></div>
+              <div class="instrument" aria-label="Threadline Replay showing synchronized voice, face, head, body, and hand events"><div class="threadline" aria-hidden="true"><div class="thread-row"><span>VOICE</span><b class="thread-track"><i class="thread-hit" style="--x:48%;--w:24%;--node:var(--cyan)"></i></b></div><div class="thread-row"><span>FACE</span><b class="thread-track"><i class="thread-hit" style="--x:58%;--w:18%;--node:var(--violet)"></i></b></div><div class="thread-row"><span>HEAD</span><b class="thread-track"><i class="thread-hit" style="--x:52%;--w:15%;--node:var(--amber)"></i></b></div><div class="thread-row"><span>BODY</span><b class="thread-track"><i class="thread-hit" style="--x:35%;--w:28%;--node:var(--lime)"></i></b></div><div class="thread-row"><span>L HAND</span><b class="thread-track"><i class="thread-hit" style="--x:55%;--w:19%;--node:var(--left)"></i></b></div><div class="thread-row"><span>R HAND</span><b class="thread-track"><i class="thread-hit" style="--x:62%;--w:14%;--node:var(--right)"></i></b></div><i class="thread-link"></i></div><div class="instrument-cue dark state-copy"><span class="target">IMPACT AT 0:42</span><span class="approaching">RIGHT HAND ARRIVED LATE</span><span class="out">VOICE MOVED ALONE</span><span class="unavailable">EVIDENCE GAP</span></div></div>
+              <div class="card-foot"><p class="contract-summary"><strong>Teaches:</strong> exact-moment multimodal timing in Film Room; not intended as a live student HUD.</p><div class="lab-contract"><strong>Inputs:</strong> evidence events and one monotonic clock; future Mentor markers/phase events. <strong>Transform:</strong> interval events → aligned lanes and coincidence threads. <strong>Fail:</strong> observation gaps are explicit striped intervals. <strong>2-second ruling:</strong> REPLAY/LAB only.</div><div class="disposition-row"><label for="select-c2">Founder verdict</label><select id="select-c2" class="disposition"><option value="">NO DECISION</option><option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option><option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option></select></div></div>
+            </article>
+
+            <article class="option-card fortnite-study" data-option="C3" data-option-name="Combo Chain">
+              <div class="card-head"><span class="option-number">C3 • Fortnite design-language study</span><h3>Combo Chain</h3><p class="one-line">Observable channel hits build a bold delivery combo; the broken link names the next physical move.</p><span class="support new">New engineering</span></div>
+              <div class="instrument" aria-label="Combo Chain built from six observable channels"><div class="combo-chain" aria-hidden="true"><span class="combo-link" style="--node:var(--cyan)">VOICE</span><span class="combo-link" style="--node:var(--violet)">FACE</span><span class="combo-link" style="--node:var(--amber)">HEAD</span><span class="combo-link" style="--node:var(--lime)">BODY</span><span class="combo-link" style="--node:var(--left)">LEFT</span><span class="combo-link" style="--node:var(--right)">RIGHT</span></div><div class="instrument-cue dark state-copy"><span class="target">6-CHANNEL IMPACT</span><span class="approaching">FINISH WITH RIGHT HAND</span><span class="out">CONNECT VOICE + GESTURE</span><span class="unavailable">COMBO WITHHELD</span></div></div>
+              <div class="card-foot"><p class="contract-summary"><strong>Teaches:</strong> channel coordination as a readable gameplay chain, with no black-box percentage.</p><div class="lab-contract"><strong>Inputs:</strong> stable real-time channel-event bus, temporal windows, coverage, phase target. <strong>Transform:</strong> observable hits within target window → explicit links. <strong>Fail:</strong> no chain credit from unavailable signals; configurable coaching logic is visibly labeled.</div><div class="disposition-row"><label for="select-c3">Founder verdict</label><select id="select-c3" class="disposition"><option value="">NO DECISION</option><option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option><option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option></select></div></div>
+            </article>
+          </div>
+        </div>
+
+        <div class="family-panel" id="panel-composite" role="tabpanel" aria-labelledby="tab-composite" hidden>
+          <div class="family-banner">
+            <div><span class="section-kicker">Family 05</span><h3>Contributors become coaching</h3></div>
+            <div class="construct-control"><label for="construct-select">Composite coaching study</label><select id="construct-select"><option value="expressive">EXPRESSIVE ENERGY</option><option value="natural">NATURAL-DELIVERY PATTERN</option><option value="warmth">WARMTH-PRESENTATION CUES</option><option value="control">CONTROLLED DELIVERY</option><option value="impact" selected>DELIVERY IMPACT</option></select></div>
+          </div>
+          <p class="construct-ribbon"><strong data-construct-name>Delivery Impact</strong> <span data-construct-boundary>is a configurable delivery-only coaching construct; content quality and latent social traits are excluded.</span></p>
+          <div class="option-grid">
+            <article class="option-card" data-option="A1" data-option-name="Signal Loom">
+              <div class="card-head"><span class="option-number">A1 • Component-to-aggregate loom</span><h3>Signal Loom</h3><p class="one-line">Five visible ribbons weave into Delivery Flow; a slack ribbon shows exactly what is dragging the construct.</p><span class="support new">New engineering</span></div>
+              <div class="instrument" aria-label="Signal Loom feeding five contributors into Delivery Flow"><div class="loom" aria-hidden="true"><span class="loom-ribbon" data-label="VOICE RANGE" style="--y:14%;--r:12deg;--node:var(--cyan)"></span><span class="loom-ribbon weak" data-label="PAUSE VARIATION" style="--y:31%;--r:6deg;--node:var(--violet)"></span><span class="loom-ribbon" data-label="GESTURE RANGE" style="--y:49%;--r:0deg;--node:var(--left)"></span><span class="loom-ribbon" data-label="COORDINATION" style="--y:67%;--r:-7deg;--node:var(--amber)"></span><span class="loom-ribbon" data-label="FRAME CONTROL" style="--y:84%;--r:-13deg;--node:var(--lime)"></span><span class="loom-core">DELIVERY<br>FLOW</span></div><div class="instrument-cue dark state-copy"><span class="target">FLOW LOCKED</span><span class="approaching">VARY THE PAUSES</span><span class="out">BUILD VOCAL RANGE</span><span class="unavailable">AGGREGATE WITHHELD</span></div></div>
+              <div class="card-foot"><p class="contract-summary"><strong>Teaches:</strong> how simple components affect a configurable higher-order coaching construct.</p><div class="lab-contract"><strong>Inputs:</strong> normalized component states, coverage, selected target, configurable MissionMed weights. <strong>Transform:</strong> contributor envelopes → ribbon tension and aggregate state. <strong>Fail:</strong> any required unavailable contributor visibly breaks the weave; “Delivery Flow” is coaching interpretation, not measured truth.</div><div class="disposition-row"><label for="select-a1">Founder verdict</label><select id="select-a1" class="disposition"><option value="">NO DECISION</option><option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option><option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option></select></div></div>
+            </article>
+
+            <article class="option-card" data-option="A2" data-option-name="Mission Vector">
+              <div class="card-head"><span class="option-number">A2 • Direction-first aggregate</span><h3>Mission Vector</h3><p class="one-line">Contributors remain small; one large vector tells the student which direction the whole delivery needs to move.</p><span class="support">Supportable with derivation</span></div>
+              <div class="instrument" aria-label="Mission Vector fed by readable component bars"><div class="control-stack"><div class="stack-contributors" aria-hidden="true"><div class="stack-row"><span>VOICE</span><b class="stack-bar"><i style="--fill:82%;--node:var(--cyan)"></i></b></div><div class="stack-row weak"><span>PAUSE</span><b class="stack-bar"><i style="--fill:78%;--node:var(--violet)"></i></b></div><div class="stack-row"><span>HANDS</span><b class="stack-bar"><i style="--fill:88%;--node:var(--left)"></i></b></div><div class="stack-row"><span>FRAME</span><b class="stack-bar"><i style="--fill:92%;--node:var(--lime)"></i></b></div><div class="stack-row"><span>SYNC</span><b class="stack-bar"><i style="--fill:74%;--node:var(--amber)"></i></b></div></div><div class="stack-vector" aria-hidden="true"></div></div><div class="instrument-cue dark state-copy"><span class="target">STAY ON VECTOR</span><span class="approaching">SLOW THE LANDING</span><span class="out">RESET — ONE BREATH</span><span class="unavailable">TARGET UNAVAILABLE</span></div></div>
+              <div class="card-foot"><p class="contract-summary"><strong>Teaches:</strong> one action at a time while preserving the component evidence behind it.</p><div class="lab-contract"><strong>Inputs:</strong> component deviations, target priority, answer phase, availability. <strong>Transform:</strong> coaching priority selects one action vector; no latent-score average required. <strong>Fail:</strong> if the top component is unavailable, use another observable correction or withhold.</div><div class="disposition-row"><label for="select-a2">Founder verdict</label><select id="select-a2" class="disposition"><option value="">NO DECISION</option><option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option><option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option></select></div></div>
+            </article>
+
+            <article class="option-card fortnite-study" data-option="A3" data-option-name="Impact Core">
+              <div class="card-head"><span class="option-number">A3 • Fortnite design-language study</span><h3>Impact Core</h3><p class="one-line">Five chunky contributor shards charge one central impact core; a weak shard becomes an oversized quest cue.</p><span class="support new">New engineering</span></div>
+              <div class="instrument" aria-label="Impact Core surrounded by five labeled contributor shards"><div class="impact-core state-copy"><span class="target">IMPACT<br>LOCK</span><span class="approaching">BUILD<br>RANGE</span><span class="out">RESET<br>NOW</span><span class="unavailable">CORE<br>OFF</span></div><span class="impact-shard" style="--x:-128px;--y:-72px;--r:-10deg;--node:var(--cyan)">VOICE</span><span class="impact-shard weak" style="--x:128px;--y:-72px;--r:10deg;--node:var(--violet)">VARIETY</span><span class="impact-shard" style="--x:-142px;--y:38px;--r:9deg;--node:var(--left)">HANDS</span><span class="impact-shard" style="--x:142px;--y:38px;--r:-9deg;--node:var(--amber)">SYNC</span><span class="impact-shard" style="--x:0px;--y:128px;--r:0deg;--node:var(--lime)">FRAME</span><div class="instrument-cue dark state-copy"><span class="target">DELIVERY IMPACT READY</span><span class="approaching">ADD VOCAL VARIETY</span><span class="out">RESET THE SYSTEM</span><span class="unavailable">CONSTRUCT WITHHELD</span></div></div>
+              <div class="card-foot"><p class="contract-summary"><strong>Teaches:</strong> a high-energy composite that keeps its contributors visible and its interpretation explicit.</p><div class="lab-contract"><strong>Inputs:</strong> future validated/derivable contributor states and MissionMed-configured weights. <strong>Transform:</strong> shards charge the coaching core. <strong>Fail:</strong> unsupported shard remains concept-only; no claim of competence, warmth, trust, or content quality.</div><div class="disposition-row"><label for="select-a3">Founder verdict</label><select id="select-a3" class="disposition"><option value="">NO DECISION</option><option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option><option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option></select></div></div>
+            </article>
+          </div>
+        </div>
+
+        <div class="legend-grid" aria-label="Support maturity legend">
+          <div class="legend-item"><strong>CURRENTLY SUPPORTABLE</strong>Directly grounded in accepted 3420R clock, dBFS/clipping, compact visual geometry, or existing event contract.</div>
+          <div class="legend-item"><strong>SUPPORTABLE WITH DERIVATION</strong>Can be calculated from accepted observables, but the transformation and target still need product validation.</div>
+          <div class="legend-item"><strong>NEW ENGINEERING</strong>Requires a new signal, event stream, real-time transform, calibration, or coaching-model implementation.</div>
+          <div class="legend-item"><strong>NOT DEFENSIBLE</strong>Hidden-trait, honesty, emotion, personality, actual competence/warmth, or unsupported causal meaning. Never displayed as sensor truth.</div>
+        </div>
+      </section>
+
+      <section class="selection-gate" id="selection" aria-labelledby="selection-title">
+        <span class="section-kicker">Founder gate</span>
+        <h2 id="selection-title">Select. Combine. Stop.</h2>
+        <p>Choose dispositions on any option card. This ledger updates in memory only and resets on reload.</p>
+        <table class="selection-ledger">
+          <thead><tr><th scope="col">Option</th><th scope="col">Concept</th><th scope="col">Disposition</th></tr></thead>
+          <tbody id="selection-body"><tr><td colspan="3" class="empty-selection">No Founder dispositions selected.</td></tr></tbody>
+        </table>
+        <p class="stop-line">STOP: a Founder selection does not authorize production engineering, merge, provider use, camera/microphone capture, deployment, or student access.</p>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      'use strict';
+      const body = document.body;
+      const phaseLabels = { open: 'OPEN', enumerate: 'ENUMERATE', prove: 'PROVE / STORY', close: 'CLOSE' };
+      const constructs = {
+        expressive: ['Expressive Energy', 'combines observable energy variation and visible activation; it does not measure enthusiasm or confidence.'],
+        natural: ['Natural-Delivery Pattern', 'compares observable repetition and variation with a marked baseline; it cannot prove memorization or authenticity.'],
+        warmth: ['Warmth-Presentation Cues', 'shows only MissionMed-selected observable cues; it does not measure actual warmth, likability, or character.'],
+        control: ['Controlled Delivery', 'uses phase-aware observable timing, movement, and framing envelopes; it does not diagnose anxiety or personality.'],
+        impact: ['Delivery Impact', 'is a configurable delivery-only coaching construct; content quality and latent social traits are excluded.']
+      };
+      const stateButtons = [...document.querySelectorAll('.state-button')];
+      const modeButtons = [...document.querySelectorAll('.mode-button')];
+      const familyTabs = [...document.querySelectorAll('.family-tab')];
+      const familyPanels = [...document.querySelectorAll('.family-panel')];
+      const selectionBody = document.getElementById('selection-body');
+      const selections = new Map();
+      const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+      let motionPaused = reducedMotion.matches;
+      let waveTimer = null;
+      let waveTick = 0;
+
+      function setPressed(buttons, active, attribute = 'aria-pressed') {
+        for (const button of buttons) button.setAttribute(attribute, String(button === active));
+      }
+
+      for (const button of stateButtons) {
+        button.addEventListener('click', () => {
+          body.dataset.state = button.dataset.stateValue;
+          setPressed(stateButtons, button);
+          drawWave();
+        });
+      }
+
+      for (const button of modeButtons) {
+        button.addEventListener('click', () => {
+          body.dataset.mode = button.dataset.modeValue;
+          setPressed(modeButtons, button);
+        });
+      }
+
+      document.getElementById('phase-select').addEventListener('change', (event) => {
+        body.dataset.phase = event.target.value;
+        for (const label of document.querySelectorAll('[data-phase-label]')) label.textContent = phaseLabels[event.target.value];
+      });
+
+      document.getElementById('construct-select').addEventListener('change', (event) => {
+        const [name, boundary] = constructs[event.target.value];
+        document.querySelector('[data-construct-name]').textContent = name;
+        document.querySelector('[data-construct-boundary]').textContent = boundary;
+      });
+
+      function activateFamily(tab, focus = false) {
+        const family = tab.dataset.family;
+        for (const item of familyTabs) {
+          const selected = item === tab;
+          item.setAttribute('aria-selected', String(selected));
+          item.tabIndex = selected ? 0 : -1;
+        }
+        for (const panel of familyPanels) panel.hidden = panel.id !== `panel-${family}`;
+        if (focus) tab.focus();
+      }
+
+      for (const [index, tab] of familyTabs.entries()) {
+        tab.addEventListener('click', () => activateFamily(tab));
+        tab.addEventListener('keydown', (event) => {
+          if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+          event.preventDefault();
+          let next = index;
+          if (event.key === 'ArrowLeft') next = (index - 1 + familyTabs.length) % familyTabs.length;
+          if (event.key === 'ArrowRight') next = (index + 1) % familyTabs.length;
+          if (event.key === 'Home') next = 0;
+          if (event.key === 'End') next = familyTabs.length - 1;
+          activateFamily(familyTabs[next], true);
+        });
+      }
+
+      function renderSelections() {
+        selectionBody.replaceChildren();
+        if (!selections.size) {
+          const row = document.createElement('tr');
+          const cell = document.createElement('td');
+          cell.colSpan = 3;
+          cell.className = 'empty-selection';
+          cell.textContent = 'No Founder dispositions selected.';
+          row.append(cell);
+          selectionBody.append(row);
+          return;
+        }
+        for (const [id, value] of selections) {
+          const card = document.querySelector(`[data-option="${id}"]`);
+          const row = document.createElement('tr');
+          for (const text of [id, card?.dataset.optionName || id, value]) {
+            const cell = document.createElement('td');
+            cell.textContent = text;
+            row.append(cell);
+          }
+          selectionBody.append(row);
+        }
+      }
+
+      for (const select of document.querySelectorAll('.disposition')) {
+        select.addEventListener('change', () => {
+          const card = select.closest('[data-option]');
+          if (!card) return;
+          if (select.value) selections.set(card.dataset.option, select.value);
+          else selections.delete(card.dataset.option);
+          renderSelections();
+        });
+      }
+
+      function drawWave() {
+        const state = body.dataset.state;
+        const center = state === 'target' ? 139 : state === 'approaching' ? 174 : state === 'out' ? 220 : 139;
+        const amp = state === 'target' ? 24 : state === 'approaching' ? 15 : state === 'out' ? 7 : 0;
+        const paths = [...document.querySelectorAll('[data-wave]')];
+        const points = [];
+        for (let x = 18; x <= 402; x += 8) {
+          const envelope = .52 + .48 * Math.sin((x + waveTick * 9) * .037) ** 2;
+          const y = center + Math.sin((x + waveTick * 12) * .115) * amp * envelope + Math.sin(x * .31) * amp * .2;
+          points.push(`${x},${y.toFixed(1)}`);
+        }
+        for (const path of paths) path.setAttribute('d', `M${points.join(' L')}`);
+        waveTick += 1;
+      }
+
+      function syncMotionButton() {
+        const button = document.getElementById('motion-toggle');
+        body.classList.toggle('motion-paused', motionPaused);
+        button.setAttribute('aria-pressed', String(motionPaused));
+        button.textContent = motionPaused ? 'RESUME MOTION' : 'PAUSE MOTION';
+        clearInterval(waveTimer);
+        waveTimer = null;
+        if (!motionPaused) waveTimer = setInterval(drawWave, 420);
+      }
+
+      document.getElementById('motion-toggle').addEventListener('click', () => {
+        motionPaused = !motionPaused;
+        syncMotionButton();
+      });
+      reducedMotion.addEventListener?.('change', (event) => {
+        if (event.matches) motionPaused = true;
+        syncMotionButton();
+      });
+
+      drawWave();
+      syncMotionButton();
+      renderSelections();
+    })();
+  </script>
+</body>
+</html>
