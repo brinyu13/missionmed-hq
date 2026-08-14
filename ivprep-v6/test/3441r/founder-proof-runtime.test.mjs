@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
 import test from 'node:test';
 
@@ -10,10 +13,36 @@ import {
 } from '../../server/founder-paid-test-gate.mjs';
 import { FounderProofDurableCoordinator, createFounderProofRuntime, createSyntheticProviderDependencies } from '../../server/founder-proof-runtime.mjs';
 import { InMemoryVideoEntitlementStore } from '../../server/video-entitlement-store.mjs';
+import { createFounderProofHqSession } from '../../scripts/3441r/start-founder-proof-harness.mjs';
 
 const NOW = Date.parse('2026-08-13T20:00:00.000Z');
 const CSRF = 'founder_proof_csrf_3441r';
 const ORIGIN = 'http://127.0.0.1:3441';
+const PRODUCT_ROOT = fileURLToPath(new URL('../../', import.meta.url));
+const HARNESS = fileURLToPath(new URL('../../scripts/3441r/start-founder-proof-harness.mjs', import.meta.url));
+
+function awaitSyntheticHarness(child) {
+  return new Promise((resolve, reject) => {
+    let stdout = '';
+    let stderr = '';
+    const timer = setTimeout(() => reject(new Error('Synthetic Founder harness startup timed out.')), 5_000);
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+      const url = stdout.match(/^LOCAL_FOUNDER_PROOF_URL=(http:\/\/127\.0\.0\.1:\d+\/iv-prep-on-call\/#room)$/mu)?.[1];
+      if (!url || !stdout.includes('LOCAL_FOUNDER_PROOF_MODE=SYNTHETIC_ZERO_COST')
+        || !stdout.includes('PROVIDER_CALLS_AT_STARTUP=0')) return;
+      clearTimeout(timer);
+      resolve({ url, stdout, stderr });
+    });
+    child.once('exit', (code) => {
+      clearTimeout(timer);
+      reject(new Error(`Synthetic Founder harness exited before readiness (${code}).`));
+    });
+  });
+}
 
 function hqSession(userId = 3441) {
   return {
@@ -69,6 +98,49 @@ test('GET, page load, health-shaped reads, and startup create no authorization o
   assert.equal(proof.providerDependencies.coordinator.jobs.size, 0);
   assert.equal((await invoke(proof.handler, { path: '/api/ivprep-v6/provider-tests/authorize' })).status, 404);
   assert.equal(proof.providerDependencies.coordinator.jobs.size, 0);
+});
+
+test('Founder harness session TTL uses one deterministic clock read and exactly 1800000 ms', () => {
+  let clockReads = 0;
+  const session = createFounderProofHqSession({
+    clock: () => {
+      clockReads += 1;
+      return NOW + clockReads - 1;
+    },
+  });
+
+  assert.equal(clockReads, 1);
+  assert.equal(Date.parse(session.expiresAt) - Date.parse(session.issuedAt), 1_800_000);
+});
+
+test('synthetic Founder harness serves the observable room without provider activation', async (context) => {
+  const child = spawn(process.execPath, [HARNESS], {
+    cwd: PRODUCT_ROOT,
+    env: {},
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+  let stopped = false;
+  context.after(() => {
+    if (!stopped && child.exitCode == null) child.kill('SIGTERM');
+  });
+
+  const startup = await awaitSyntheticHarness(child);
+  assert.equal(startup.stderr, '');
+  const response = await fetch(startup.url);
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-security-policy') || '', /default-src 'self'/u);
+  assert.match(html, /FOUNDER TEST #1 · ONE SHOT/u);
+  assert.match(html, /Dr Kelly/u);
+  assert.match(html, /id="founder-authorize-test"/u);
+  assert.match(html, /id="room-start"/u);
+  assert.match(html, /id="founder-proof-voice"/u);
+
+  child.kill('SIGTERM');
+  await once(child, 'exit');
+  stopped = true;
+  assert.equal(child.exitCode, 0);
 });
 
 test('one authenticated Founder action maps to one authorization, reservation, dispatch, worker, fake provider, and terminal record', async () => {

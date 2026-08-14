@@ -23,6 +23,19 @@ if (liveRequested && process.env.IVPREP_FOUNDER_TEST1_LIVE_ENABLED !== 'true') {
 }
 
 const now = () => Date.now();
+export function createFounderProofHqSession({ clock, userId = 3441 } = {}) {
+  if (typeof clock !== 'function') throw new TypeError('A session clock is required.');
+  const issuedAtMs = clock();
+  return Object.freeze({
+    version: 1,
+    issuedAt: new Date(issuedAtMs).toISOString(),
+    expiresAt: new Date(issuedAtMs + 30 * 60 * 1000).toISOString(),
+    csrfToken: 'founder_proof_csrf_3441r',
+    authSource: 'wordpress-cookie',
+    user: Object.freeze({ id: userId, roles: Object.freeze(['administrator']) }),
+  });
+}
+
 const registry = new InMemoryAdmissionRegistry({ now });
 const entitlementStore = new InMemoryVideoEntitlementStore({ now });
 registry.grantSyntheticEntitlement({
@@ -36,14 +49,7 @@ registry.grantSyntheticEntitlement({
 });
 entitlementStore.grantSyntheticSeconds('wp:3441', 45);
 
-const hqSession = Object.freeze({
-  version: 1,
-  issuedAt: new Date(now()).toISOString(),
-  expiresAt: new Date(now() + 30 * 60 * 1000).toISOString(),
-  csrfToken: 'founder_proof_csrf_3441r',
-  authSource: 'wordpress-cookie',
-  user: Object.freeze({ id: 3441, roles: Object.freeze(['administrator']) }),
-});
+const hqSession = createFounderProofHqSession({ clock: now });
 const coordinator = new FounderProofDurableCoordinator();
 const controlToken = randomBytes(32).toString('base64url');
 const handleDurableWorker = createDurableWorkerHttpHandler({ coordinator, token: controlToken });
@@ -79,7 +85,8 @@ const server = http.createServer(async (request, response) => {
   }
 });
 
-server.listen(0, host, async () => {
+const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url);
+if (isDirectRun) server.listen(0, host, async () => {
   try {
     const address = server.address();
     sealedOrigin = `http://${host}:${address.port}`;
@@ -156,4 +163,6 @@ async function close() {
   if (!clean) runtime?.paidTestGate.failClosed('harness_shutdown_unconfirmed');
   process.exit(clean ? 0 : 1);
 }
-for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => { void close(); });
+if (isDirectRun) {
+  for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => { void close(); });
+}
