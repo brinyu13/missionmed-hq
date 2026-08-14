@@ -1131,6 +1131,12 @@ function storyVisibility(story) {
   return story?.visibility === 'mentor_visible' ? 'mentor_visible' : 'private';
 }
 
+function storyVisibilityDisplay(story) {
+  if (story?.visibility === 'mentor_visible') return 'mentor_visible';
+  if (story?.visibility === 'private') return 'private';
+  return story?.status && story.status !== 'private' ? 'legacy_review' : 'private';
+}
+
 function setMotionEnergy(energy = 'low') {
   const allowed = new Set(['low', 'active', 'recording', 'success']);
   document.body.dataset.motionEnergy = allowed.has(energy) ? energy : 'low';
@@ -2370,25 +2376,31 @@ async function decideConsent(decision) {
 
 function visibilityChip(story) {
   if (!v2FeatureOn('visibility') || !story) return '';
-  return storyVisibility(story) === 'private'
+  const visibility = storyVisibilityDisplay(story);
+  if (visibility === 'legacy_review') {
+    return '<span class="stChip b1513VisLegacy" title="Legacy submitted story — available to authorized reviewers under the pre-consent transition. The student has not explicitly selected Mentor Visible.">◷ Legacy review access</span>';
+  }
+  return visibility === 'private'
     ? '<span class="stChip b1513VisPrivate" title="Private — visible only to you. Not listed for or openable by any mentor.">🔒 Private · only you</span>'
     : '<span class="stChip b1513VisMentor" title="Your mentor can see this story for guidance. Submitting is still a separate action.">👁 Mentor visible</span>';
 }
 
 function visibilityCard(story, mentor) {
   if (!v2FeatureOn('visibility') || !story) return '';
-  const isPrivate = storyVisibility(story) === 'private';
+  const visibility = storyVisibilityDisplay(story);
+  const isPrivate = visibility === 'private';
+  const isLegacyReview = visibility === 'legacy_review';
   const submitted = story.status !== 'private';
   if (mentor) {
-    return `<div class="railCard b1513VisibilityCard"><div class="rLbl">Visibility</div><div>${visibilityChip(story)}</div><div class="stageHint">${isPrivate ? 'This story is private to the student.' : 'The student made this story mentor-visible for guidance.'}</div></div>`;
+    return `<div class="railCard b1513VisibilityCard"><div class="rLbl">Visibility</div><div>${visibilityChip(story)}</div><div class="stageHint">${isLegacyReview ? 'This submitted legacy story remains reviewable under the pre-consent transition. The student has not explicitly selected Mentor Visible.' : isPrivate ? 'This story is private to the student.' : 'The student made this story mentor-visible for guidance.'}</div></div>`;
   }
   return `<div class="railCard b1513VisibilityCard"><div class="rLbl">Visibility</div>
     <div>${visibilityChip(story)}</div>
     <div class="statusRow b1513VisibilityRow" role="group" aria-label="Story visibility">
-      <button type="button" data-set-story-visibility="mentor_visible" class="${isPrivate ? '' : 'on b1513VisMentor'}" aria-pressed="${!isPrivate}">Mentor Visible</button>
+      <button type="button" data-set-story-visibility="mentor_visible" class="${!isPrivate && !isLegacyReview ? 'on b1513VisMentor' : ''}" aria-pressed="${!isPrivate && !isLegacyReview}">Mentor Visible</button>
       <button type="button" data-set-story-visibility="private" class="${isPrivate ? 'on b1513VisPrivate' : ''}" aria-pressed="${isPrivate}" ${submitted ? 'disabled title="Withdraw from review before making this story Private."' : ''}>Private — visible only to me</button>
     </div>
-    <div class="stageHint">${isPrivate ? 'Only you can open this story. It is never listed for your mentor and is not reviewed.' : 'Your mentor can see this story to guide you. “Submit for review” below is still a separate, explicit ask.'}${submitted && !isPrivate ? ' While submitted, withdraw from review before changing Visibility to Private.' : ''}</div>
+    <div class="stageHint">${isLegacyReview ? 'This older submitted story remains available to authorized reviewers under the pre-consent transition. It is not marked Mentor Visible by your choice.' : isPrivate ? 'Only you can open this story. It is never listed for your mentor and is not reviewed.' : 'Your mentor can see this story to guide you. “Submit for review” below is still a separate, explicit ask.'}${submitted && !isPrivate ? ' While submitted, withdraw from review before changing Visibility to Private.' : ''}</div>
     <div class="stageHint b1513VisAudit">Visibility changes are logged to this story’s history.</div>
   </div>`;
 }

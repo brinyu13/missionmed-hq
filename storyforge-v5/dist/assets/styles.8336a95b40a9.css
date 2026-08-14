@@ -1575,7 +1575,7 @@ body[data-theme="light"] .storyforgeIntro:before{background:radial-gradient(circ
 .b1513r2ThemeCard{text-align:left;background:var(--card2);border:1px solid var(--edge);border-radius:14px;padding:.75rem .85rem;display:flex;flex-direction:column;gap:.3rem;color:var(--mid);font-size:.8rem;line-height:1.4}
 .b1513r2ThemeCard b{color:var(--tx);font-size:.95rem}.b1513r2ThemeCard.on{border-color:var(--accent);box-shadow:0 0 0 1px rgba(var(--accentGlow),.3)}
 
-.b1513VisMentor{color:var(--cy);border-color:rgba(57,214,255,.35)}.b1513VisPrivate{color:var(--gd);border-color:rgba(255,215,106,.35)}
+.b1513VisMentor{color:var(--cy);border-color:rgba(57,214,255,.35)}.b1513VisPrivate{color:var(--gd);border-color:rgba(255,215,106,.35)}.b1513VisLegacy{color:var(--or);border-color:rgba(255,154,60,.4)}
 .b1513VisibilityRow button[disabled]{opacity:.45;cursor:not-allowed}.b1513VisAudit{font-size:11px;opacity:.8}.b1513PrivacyPanel .rolePill{align-self:center}
 #b1513Consent{position:fixed;inset:0;z-index:340;display:none}#b1513Consent.b1513ConsentOpen{display:block}
 .b1513ConsentScrim{position:absolute;inset:0;background:rgba(5,8,14,.78);backdrop-filter:blur(6px)}
