@@ -364,6 +364,7 @@ test(`[B1-514-E2E-04] ${ACCEPTANCE['B1-514-E2E-04']}`, async ({ page }) => {
   await listen.click();
   const audio = feedback.locator('audio[aria-label="Mentor note audio"]');
   await expect(audio).toHaveAttribute('controls', '');
+  await expect.poll(() => audio.evaluate((node) => node.clientWidth)).toBeGreaterThan(0);
   await expect(audio).toHaveAttribute('data-play-state', 'playing');
   await audio.evaluate((node) => node.pause());
   await expect(audio).toHaveAttribute('data-play-state', 'paused');
