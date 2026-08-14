@@ -23,6 +23,7 @@ const palette = $('#pal');
 const sessionBar = $('#sesh');
 const teaching = $('#teach');
 const toastNode = $('#toast');
+let purposefulVersionSaveQueue = Promise.resolve();
 
 const FIXTURE_PERSONA_KEY = 'storyforge_local_fixture_persona';
 const VOICE_HINT_KEY = 'storyforge_voice_hint_seen';
@@ -7788,13 +7789,15 @@ function appendMentorLiveTranscript(recording, text) {
 
 async function transcribeMentorSegment(recording, blob, durationMs, seq) {
   if (!blob.size || recording.canceled) return;
+  const uploadMimeType = recording.uploadMimeType
+    || String(recording.mimeType || blob.type || '').split(';', 1)[0].trim().toLowerCase();
   const form = new FormData();
   form.set('seq', String(seq));
   form.set('durationMs', String(durationMs));
-  form.set('mimeType', recording.mimeType);
+  form.set('mimeType', uploadMimeType);
   form.set('expectedVersion', String(recording.expectedVersion));
   form.set('promptTail', recording.transcript.slice(-2_000));
-  form.set('segment', blob, voiceFileName(seq, recording.mimeType));
+  form.set('segment', new Blob([blob], { type: uploadMimeType }), voiceFileName(seq, uploadMimeType));
   const result = await api.transcribeMentorNoteSegment(recording.noteId, form);
   appendMentorLiveTranscript(recording, result?.text || '');
 }
@@ -7823,7 +7826,7 @@ async function closeMentorSegment(recording, { continueRecording = false } = {})
   const stopped = new Promise((resolve) => recorder.addEventListener('stop', resolve, { once: true }));
   recorder.stop();
   await stopped;
-  const blob = new Blob(recording.segmentChunks, { type: recording.mimeType });
+  const blob = new Blob(recording.segmentChunks, { type: recording.uploadMimeType });
   const seq = recording.seq;
   recording.seq += 1;
   recording.durationMs += durationMs;
@@ -7918,10 +7921,10 @@ async function toggleMentorNoteRecording() {
     current.segmentStream.getTracks().forEach((track) => track.stop());
     await current.transcriptQueue.catch(() => {});
     if (state.mentorNoteRecording !== current || current.canceled) return;
-    const blob = new Blob(current.archiveChunks, { type: current.mimeType });
+    const blob = new Blob(current.archiveChunks, { type: current.uploadMimeType });
     const form = new FormData();
-    form.append('segment', blob, voiceFileName(0, current.mimeType));
-    form.append('mimeType', current.mimeType);
+    form.append('segment', blob, voiceFileName(0, current.uploadMimeType));
+    form.append('mimeType', current.uploadMimeType);
     form.append('durationMs', String(current.durationMs));
     form.append('expectedVersion', String(current.expectedVersion));
     try {
@@ -7967,6 +7970,7 @@ async function toggleMentorNoteRecording() {
     stream,
     segmentStream: stream.clone(),
     mimeType,
+    uploadMimeType: String(mimeType).split(';', 1)[0].trim().toLowerCase(),
     archiveRecorder,
     archiveChunks,
     segmentRecorder: null,
@@ -8501,29 +8505,38 @@ async function playPurposefulVersionAudio(assetId, button = null) {
 
 async function savePurposefulVersion(form, mode = 'save') {
   const key = form.dataset.versionKey;
-  const current = state.storyVersions.find((version) => version.key === key);
+  const storyId = String(state.storyDetail?.id || '');
   const field = $('#storyVersionText', form);
   const body = field?.value || '';
   const voice = state.versionVoice?.recordingId && state.versionVoice?.audioAssetId
     ? state.versionVoice
     : null;
-  const result = await withBusy(() => api.saveStoryVersion(state.storyDetail.id, key, {
-    body,
-    mode,
-    source: voice ? 'voice' : 'typed',
-    expectedVersion: Number(current?.rowVersion || 0),
-    ...(voice ? { recordingId: voice.recordingId, audioAssetId: voice.audioAssetId } : {}),
-  }));
-  const version = result?.version || result;
-  if (mode === 'retell') {
-    state.storyVersions = state.storyVersions.map((item) => item.key === key ? version : item);
-  }
-  await reloadStorySurface('workspace');
-  state.storyTab = key;
-  state.versionVoice = null;
-  form.dataset.saveMode = 'save';
-  renderStoryRoom();
-  notify(mode === 'retell' ? 'A fresh telling is ready.' : 'Purposeful version saved.', '✓');
+  const performSave = async () => {
+    if (!storyId || String(state.storyDetail?.id || '') !== storyId) return;
+    const current = state.storyVersions.find((version) => version.key === key);
+    const activeVoice = state.versionVoice === voice ? voice : null;
+    const result = await withBusy(() => api.saveStoryVersion(storyId, key, {
+      body,
+      mode,
+      source: activeVoice ? 'voice' : 'typed',
+      expectedVersion: Number(current?.rowVersion || 0),
+      ...(activeVoice ? { recordingId: activeVoice.recordingId, audioAssetId: activeVoice.audioAssetId } : {}),
+    }));
+    if (!result) throw new Error('StoryForge is finishing another change. Try saving again.');
+    const version = result?.version || result;
+    if (mode === 'retell') {
+      state.storyVersions = state.storyVersions.map((item) => item.key === key ? version : item);
+    }
+    await reloadStorySurface('workspace');
+    state.storyTab = key;
+    state.versionVoice = null;
+    if (form.isConnected) form.dataset.saveMode = 'save';
+    renderStoryRoom();
+    notify(mode === 'retell' ? 'A fresh telling is ready.' : 'Purposeful version saved.', '✓');
+  };
+  const queuedSave = purposefulVersionSaveQueue.then(performSave, performSave);
+  purposefulVersionSaveQueue = queuedSave.catch(() => {});
+  return queuedSave;
 }
 
 async function restorePurposefulVersion(revisionId) {
