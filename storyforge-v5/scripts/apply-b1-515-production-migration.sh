@@ -4,7 +4,10 @@ umask 077
 
 PACKAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REPOSITORY_DIR="$(cd "$PACKAGE_DIR/.." && pwd)"
-BASE_LEDGER_COUNT=27
+BASE_LEDGER_COUNT=28
+BASELINE_LATEST_VERSION=20260813150000
+BASELINE_LATEST_FILE=20260813150000_b1_515r_inspiration_recommendation_publish_fix.sql
+BASELINE_LATEST_SHA256=be421a35741cefbf38b58202ba7d936d1f3b944c483b7bb735bd9ffe431ffac5
 MIGRATIONS=(
   20260814120000_b1_515r2_admin_population_avatar_sound.sql
 )
@@ -78,6 +81,8 @@ identity="$("${psql_read[@]}" -AtF '|' -c "SELECT (SELECT system_identifier::tex
 counts="$("${psql_read[@]}" -AtF '|' -c 'SELECT (SELECT count(*) FROM public.sf_users),(SELECT count(*) FROM public.sf_stories)')"
 [[ "$counts" = "$STORYFORGE_EXPECTED_USER_COUNT|$STORYFORGE_EXPECTED_STORY_COUNT" ]] || fail 'protected production counts differ from the frozen PRE state'
 [[ "$("${psql_read[@]}" -Atc 'SELECT count(*) FROM public.sf_schema_migrations')" = "$BASE_LEDGER_COUNT" ]] || fail 'migration ledger is not the exact B1-515R production baseline'
+baseline_latest="$("${psql_read[@]}" -AtF '|' -c 'SELECT version,file_name,sha256 FROM public.sf_schema_migrations ORDER BY version DESC LIMIT 1')"
+[[ "$baseline_latest" = "$BASELINE_LATEST_VERSION|$BASELINE_LATEST_FILE|$BASELINE_LATEST_SHA256" ]] || fail 'latest B1-515R migration receipt differs from the exact production baseline'
 for migration in "${MIGRATIONS[@]}"; do
   version="${migration%%_*}"
   [[ -z "$("${psql_read[@]}" -Atc "SELECT version FROM public.sf_schema_migrations WHERE version='$version'")" ]] || fail "B1-515R2 migration is already present: $version"

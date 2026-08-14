@@ -21,7 +21,11 @@ test('B1-515R2 runner permits only the exact additive population/preference tabl
   assert.equal((source.match(/20260813130000_b1_515r_action_center_contribution_review\.sql/g) || []).length, 0);
   assert.equal((source.match(/20260813140000_b1_515r_arena_avatar_directory_groups\.sql/g) || []).length, 0);
   assert.equal((source.match(/20260814120000_b1_515r2_admin_population_avatar_sound\.sql/g) || []).length, 1);
-  assert.match(source, /BASE_LEDGER_COUNT=27/);
+  assert.match(source, /BASE_LEDGER_COUNT=28/);
+  assert.match(source, /BASELINE_LATEST_VERSION=20260813150000/);
+  assert.match(source, /BASELINE_LATEST_FILE=20260813150000_b1_515r_inspiration_recommendation_publish_fix\.sql/);
+  assert.match(source, /BASELINE_LATEST_SHA256=be421a35741cefbf38b58202ba7d936d1f3b944c483b7bb735bd9ffe431ffac5/);
+  assert.match(source, /latest B1-515R migration receipt differs from the exact production baseline/);
   assert.match(source, /pending=1/);
   for (const table of ['sf_story_trash', 'sf_story_use_reviews', 'sf_story_publications', 'sf_peer_story_grants', 'sf_peer_feedback']) {
     assert.ok(source.includes(table));
