@@ -70,6 +70,9 @@ const rewrittenApp = replaceExactlyOnce(
   `from './${authAlias}'`,
   'auth module',
 );
+if (rewrittenApp.includes('missionmed-logo.png')) {
+  throw new Error('StoryForge runtime code must not inject an unmanifested MissionMed logo path.');
+}
 const appName = `app.${digest(rewrittenApp)}.js`;
 let rewrittenStyles = sourceStyles;
 for (const [fontName, alias] of fontAliases) {

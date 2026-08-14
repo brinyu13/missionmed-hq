@@ -13,6 +13,7 @@ const BLOCKING_STATUSES = new Set([
   'INVALID_ACCOUNT',
 ]);
 const ARENA_AVATAR_ORIGIN = 'https://cdn.missionmedinstitute.com';
+const POPULATION_SNAPSHOT_MAX_AGE_MS = 86_400_000;
 
 function normalizedUuid(value) {
   const uuid = String(value ?? '').trim().toLowerCase();
@@ -23,15 +24,58 @@ function arenaAvatarProjection(value) {
   if (value == null) return { valid: true, id: '', thumbnailUrl: '' };
   if (!value || typeof value !== 'object' || Array.isArray(value)) return { valid: false, id: '', thumbnailUrl: '' };
   const id = normalizedUuid(value.active_avatar_id);
-  const candidate = String(value.avatar_thumbnail_url || '').trim();
+  const candidate = String(value.avatar_thumbnail_url || '');
   try {
     const url = new URL(candidate);
-    const valid = id !== '' && url.protocol === 'https:' && url.origin === ARENA_AVATAR_ORIGIN
-      && url.username === '' && url.password === '';
-    return { valid, id: valid ? id : '', thumbnailUrl: valid ? url.href : '' };
+    const valid = value.source === 'arena_lobby'
+      && id !== ''
+      && url.protocol === 'https:'
+      && url.origin === ARENA_AVATAR_ORIGIN
+      && url.username === ''
+      && url.password === ''
+      && url.search === ''
+      && url.hash === ''
+      && url.pathname.length > 1
+      && url.href === candidate;
+    return { valid, id: valid ? id : '', thumbnailUrl: valid ? candidate : '' };
   } catch {
     return { valid: false, id: '', thumbnailUrl: '' };
   }
+}
+
+function canonicalPopulationAuthority(value) {
+  if (value == null) return null;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('invalid canonical population authority');
+  }
+  const allowed = new Set([
+    'key', 'authority', 'course_id', 'generation_id', 'complete', 'observed_at',
+  ]);
+  if (Object.keys(value).some((key) => !allowed.has(key))) {
+    throw new Error('invalid canonical population authority');
+  }
+  const observedTime = Date.parse(String(value.observed_at || ''));
+  const generationId = normalizedUuid(value.generation_id);
+  if (
+    value.key !== 'match_mentorship_360'
+    || value.authority !== 'mmhq_cam_build_entitlement'
+    || Number(value.course_id) !== 3893
+    || value.complete !== true
+    || !generationId
+    || !Number.isFinite(observedTime)
+    || observedTime < Date.now() - POPULATION_SNAPSHOT_MAX_AGE_MS
+    || observedTime > Date.now() + 300_000
+  ) {
+    throw new Error('invalid canonical population authority');
+  }
+  return Object.freeze({
+    key: value.key,
+    authority: value.authority,
+    course_id: 3893,
+    generation_id: generationId,
+    complete: true,
+    observed_at: new Date(observedTime).toISOString(),
+  });
 }
 
 function countBy(values, key) {
@@ -52,6 +96,7 @@ export function classifyIdentityMappings(snapshot, databaseRows, {
     throw new Error('invalid WordPress identity snapshot');
   }
   const users = snapshot.users;
+  const populationAuthority = canonicalPopulationAuthority(snapshot.population_authority);
   const wpIdCounts = countBy(users, (row) => String(Number(row.wp_user_id) || ''));
   const wpUuidCounts = countBy(users, (row) => normalizedUuid(row.storyforge_uuid_raw));
   const dbById = new Map();
@@ -191,6 +236,7 @@ export function classifyIdentityMappings(snapshot, databaseRows, {
     authority: snapshot.authority,
     course_id: snapshot.course_id,
     avatar_authority: snapshot.avatar_authority || null,
+    population_authority: populationAuthority,
     entries,
     summary: {
       users_scanned: entries.length,
@@ -281,6 +327,16 @@ export async function verifyPostgresPlan(plan, client) {
     }
     verified++;
   }
+  if (plan.population_authority) {
+    const population = canonicalPopulationAuthority(plan.population_authority);
+    const result = await client.query(
+      `SELECT public.sf_verify_admin_population_snapshot(
+         $1,$2::uuid,$3::uuid[]
+       ) AS payload`,
+      [population.key, population.generation_id, targets.map((entry) => entry.storyforge_uuid)],
+    );
+    return { verified, population: result.rows[0]?.payload ?? null };
+  }
   return { verified };
 }
 
@@ -290,7 +346,9 @@ export async function reconcilePostgresProfiles(plan, client) {
     throw new Error('invalid identity plan');
   }
   const targets = plan.entries.filter((entry) => entry.eligible && !BLOCKING_STATUSES.has(entry.status));
-  const projectArenaAvatar = plan.avatar_authority?.source === 'arena_lobby'
+  const population = canonicalPopulationAuthority(plan.population_authority);
+  const projectArenaAvatar = !population
+    && plan.avatar_authority?.source === 'arena_lobby'
     && plan.avatar_authority?.available === true
     && plan.avatar_authority?.storage === 'r2_cdn';
   await client.query('BEGIN');
@@ -350,8 +408,46 @@ export async function reconcilePostgresProfiles(plan, client) {
       }
       updated++;
     }
+    let populationResult = null;
+    if (population) {
+      const avatarAuthorityAvailable = plan.avatar_authority?.source === 'arena_lobby'
+        && plan.avatar_authority?.available === true
+        && plan.avatar_authority?.storage === 'r2_cdn';
+      const snapshotEntries = targets.map((entry) => ({
+        storyforge_uuid: normalizedUuid(entry.storyforge_uuid),
+        wp_user_id: Number(entry.wp_user_id),
+        arena_avatar_id: avatarAuthorityAvailable ? String(entry.arena_avatar_id || '') : '',
+        arena_avatar_thumbnail_url: avatarAuthorityAvailable
+          ? String(entry.arena_avatar_thumbnail_url || '') : '',
+      }));
+      const synced = await client.query(
+        `SELECT public.sf_sync_admin_population_snapshot(
+           $1,$2::uuid,$3::timestamptz,$4,$5,$6::jsonb,$7
+         ) AS payload`,
+        [
+          population.key,
+          population.generation_id,
+          population.observed_at,
+          population.authority,
+          population.course_id,
+          JSON.stringify(snapshotEntries),
+          avatarAuthorityAvailable,
+        ],
+      );
+      populationResult = synced.rows[0]?.payload ?? null;
+      if (
+        normalizedUuid(populationResult?.generationId) !== population.generation_id
+        || Number(populationResult?.memberCount) !== targets.length
+      ) {
+        throw new Error('PostgreSQL population reconciliation failed');
+      }
+    }
     await client.query('COMMIT');
-    return { checked: targets.length, reconciled: updated };
+    return {
+      checked: targets.length,
+      reconciled: updated,
+      ...(population ? { population: populationResult } : {}),
+    };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;

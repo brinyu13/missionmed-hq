@@ -63,6 +63,11 @@ $write_private_json = static function ($target, $value) {
 };
 
 if ($action === 'export') {
+    $generated_at = gmdate('c');
+    $generation_id = strtolower((string) wp_generate_uuid4());
+    if (!preg_match($uuid_pattern, $generation_id)) {
+        WP_CLI::error('WordPress could not generate a population snapshot identifier.');
+    }
     $rows = array();
     $eligible_count = 0;
     $users = get_users(array('fields' => 'all'));
@@ -114,9 +119,17 @@ if ($action === 'export') {
     }
     $snapshot = array(
         'version' => 1,
-        'generated_at' => gmdate('c'),
+        'generated_at' => $generated_at,
         'authority' => 'mmhq_cam_build_entitlement',
         'course_id' => 3893,
+        'population_authority' => array(
+            'key' => 'match_mentorship_360',
+            'authority' => 'mmhq_cam_build_entitlement',
+            'course_id' => 3893,
+            'generation_id' => $generation_id,
+            'complete' => true,
+            'observed_at' => $generated_at,
+        ),
         'avatar_authority' => array(
             'source' => 'arena_lobby',
             'available' => $avatar_authority_available,
@@ -141,6 +154,14 @@ if (!is_array($plan) || (int) ($plan['version'] ?? 0) !== 1 || !is_array($plan['
 if (
     (string) ($plan['authority'] ?? '') !== 'mmhq_cam_build_entitlement'
     || (int) ($plan['course_id'] ?? 0) !== 3893
+    || (string) ($plan['population_authority']['key'] ?? '') !== 'match_mentorship_360'
+    || (string) ($plan['population_authority']['authority'] ?? '') !== 'mmhq_cam_build_entitlement'
+    || (int) ($plan['population_authority']['course_id'] ?? 0) !== 3893
+    || empty($plan['population_authority']['complete'])
+    || !preg_match(
+        $uuid_pattern,
+        strtolower((string) ($plan['population_authority']['generation_id'] ?? ''))
+    )
     || substr(sprintf('%o', fileperms($path)), -4) !== '0600'
 ) {
     WP_CLI::error('The identity plan authority or private file mode is invalid.');

@@ -12,14 +12,13 @@ const identity = Object.freeze({
   firstName: 'Brian',
   name: 'Brian Yu',
   username: 'brinyu',
-  avatarThumbnailUrl: '/matrix/avatar/headshot.webp',
-  avatarUrl: 'https://missionmedinstitute.com/matrix/avatar/full.webp',
+  avatarThumbnailUrl: 'https://cdn.missionmedinstitute.com/avatars/headshot.webp',
+  avatarUrl: 'https://cdn.missionmedinstitute.com/avatars/full.webp',
   activeAvatarId: '55555555-5555-4555-8555-555555555555',
 });
 
 const enabledEnvironment = Object.freeze({
   STORYFORGE_AVATAR_IDENTITY_FORCE_OFF: '0',
-  STORYFORGE_PUBLIC_ORIGIN: 'https://missionmedinstitute.com',
 });
 
 test('Avatar Studio identity is default-off and falls back to initials', () => {
@@ -35,15 +34,15 @@ test('Avatar Studio identity is default-off and falls back to initials', () => {
   });
 });
 
-test('enabled canonical signed headshot resolves without creating an avatar service', () => {
+test('enabled canonical Arena Lobby CDN headshot resolves without creating an avatar service', () => {
   const result = resolveAvatarIdentity(identity, {
     enabled: true,
     environment: enabledEnvironment,
   });
   assert.equal(result.available, true);
-  assert.equal(result.source, 'avatar_studio');
-  assert.equal(result.headshotUrl, '/matrix/avatar/headshot.webp');
-  assert.equal(result.fullBodyUrl, 'https://missionmedinstitute.com/matrix/avatar/full.webp');
+  assert.equal(result.source, 'arena_lobby');
+  assert.equal(result.headshotUrl, 'https://cdn.missionmedinstitute.com/avatars/headshot.webp');
+  assert.equal(result.fullBodyUrl, 'https://cdn.missionmedinstitute.com/avatars/full.webp');
   assert.equal(result.activeAvatarId, identity.activeAvatarId);
 });
 
@@ -57,6 +56,19 @@ test('untrusted or absent headshots fail closed to initials', () => {
   assert.equal(result.source, 'initials');
   assert.equal(result.headshotUrl, null);
   assert.equal(result.fullBodyUrl, null);
+});
+
+test('relative, credentialed, query-bearing, and unbound Arena assets fail closed', () => {
+  for (const patch of [
+    { avatarThumbnailUrl: '/avatars/headshot.webp' },
+    { avatarThumbnailUrl: 'https://user:pass@cdn.missionmedinstitute.com/avatars/headshot.webp' },
+    { avatarThumbnailUrl: 'https://cdn.missionmedinstitute.com/avatars/headshot.webp?token=secret' },
+    { activeAvatarId: 'not-a-uuid' },
+  ]) {
+    assert.equal(resolveAvatarIdentity({ ...identity, ...patch }, {
+      enabled: true, environment: enabledEnvironment,
+    }).available, false);
+  }
 });
 
 test('service requires both the kill switch and database feature flag', async () => {

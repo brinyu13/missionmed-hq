@@ -1,13 +1,4 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { test, expect } from '@playwright/test';
-
-const packageDir = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
-const screenshotDir = path.resolve(
-  packageDir,
-  '../_AI_HANDOFFS/from_codex/B1-507B_storyforge_phase1_final_binding/screenshots',
-);
 
 async function openStudent(page) {
   await page.goto('/');
@@ -16,13 +7,13 @@ async function openStudent(page) {
   await expect(page.locator('.homeHero')).toBeVisible();
 }
 
-test('brand header renders the exact approved copy and no Timeline artifacts', async ({ page }) => {
+test('brand header renders the exact approved copy and no Timeline artifacts', async ({ page }, testInfo) => {
   await openStudent(page);
   await expect(page.locator('.storyforgeBrandTitle')).toHaveText('MissionMed//Storyforge');
   await expect(page.locator('.storyforgeBrandSub')).toHaveText('MISSION:RESIDENCY DIVISION');
   await expect(page.locator('#hdr')).not.toContainText(/TIMELINE|SEASON ONE|TIMELINE OPS|\bS1\b/i);
   await page.screenshot({
-    path: path.join(screenshotDir, 'checkpoint-3-final-brand-desktop-1440x1000.png'),
+    path: testInfo.outputPath('checkpoint-3-final-brand-desktop-1440x1000.png'),
     fullPage: true,
   });
 });
@@ -53,7 +44,7 @@ test('fixed header offsets the rail and main content without overlap', async ({ 
   expect(geometry.bodyOverflow).toBe(false);
 });
 
-test('responsive header preserves its title at laptop tablet and narrow mobile widths', async ({ page }) => {
+test('responsive header preserves its title at laptop tablet and narrow mobile widths', async ({ page }, testInfo) => {
   for (const viewport of [
     { width: 1100, height: 760, name: 'laptop-1100x760' },
     { width: 768, height: 1024, name: 'tablet-768x1024' },
@@ -77,13 +68,13 @@ test('responsive header preserves its title at laptop tablet and narrow mobile w
     expect(clipping).toBe(false);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({
-      path: path.join(screenshotDir, `checkpoint-4-${viewport.name}.png`),
+      path: testInfo.outputPath(`checkpoint-4-${viewport.name}.png`),
       fullPage: true,
     });
   }
 });
 
-test('Quick Capture remains above the brand header and restores focus on close', async ({ page }) => {
+test('Quick Capture remains above the brand header and restores focus on close', async ({ page }, testInfo) => {
   await openStudent(page);
   const launch = page.locator('#hdr').getByRole('button', { name: /New Story/ });
   await launch.click();
@@ -95,7 +86,7 @@ test('Quick Capture remains above the brand header and restores focus on close',
   }));
   expect(z.capture).toBeGreaterThan(z.header);
   await page.screenshot({
-    path: path.join(screenshotDir, 'checkpoint-4-overlay-quick-capture.png'),
+    path: testInfo.outputPath('checkpoint-4-overlay-quick-capture.png'),
     fullPage: true,
   });
   await page.keyboard.press('Escape');

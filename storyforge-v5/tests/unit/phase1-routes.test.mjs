@@ -512,6 +512,7 @@ test('foreign or missing audio playback is audited and returns the same private 
 
 test('verified Option B playback signs every derived key in stable order', async (context) => {
   const signedKeys = [];
+  const events = [];
   const stem = `storyforge-audio/${studentId}/story/${audioId}`;
   const fixture = runtimeFixture({
     recordingsService: {
@@ -532,6 +533,7 @@ test('verified Option B playback signs every derived key in stable order', async
         return {
           rows: [{
             id: audioId,
+            student_id: studentId,
             story_id: recordingId,
             object_key: stem,
             content_type: 'audio/webm',
@@ -548,8 +550,13 @@ test('verified Option B playback signs every derived key in stable order', async
         expiresIn: 300,
       };
     },
+    reportEvent(event) {
+      events.push(event);
+    },
   });
-  const response = await json(await fetch(`${origin}/api/audio/${audioId}/playback`));
+  const response = await json(await fetch(`${origin}/api/audio/${audioId}/playback`, {
+    headers: { 'x-test-role': 'admin' },
+  }));
   assert.equal(response.status, 200);
   assert.deepEqual(response.body.playbackUrls, [
     'https://private.example/1',
@@ -560,6 +567,9 @@ test('verified Option B playback signs every derived key in stable order', async
     `${stem}/seg-00000.webm`,
     `${stem}/seg-00001.webm`,
   ]);
+  assert.equal(events[0].event, 'audio_playback_granted');
+  assert.equal(events[0].actorId, adminId);
+  assert.equal(events[0].studentId, studentId);
 });
 
 test('restoring a linked voice draft emits only content-free recovery metadata', async (context) => {

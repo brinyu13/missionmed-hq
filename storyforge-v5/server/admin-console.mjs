@@ -34,6 +34,7 @@ const directoryFilters = new Set([
 const directorySorts = new Set(['attention', 'name', 'recent', 'quiet', 'stories']);
 const queueSorts = new Set(['oldest', 'newest', 'updated', 'student']);
 const subjectStorySorts = new Set(['recent', 'oldest', 'title', 'status']);
+const adminPopulationKey = 'match_mentorship_360';
 
 export class AdminConsoleError extends Error {
   constructor(code, message, status = 400) {
@@ -126,12 +127,17 @@ function boundedText(value, max, code, label) {
 
 function safeArenaThumbnail(value) {
   try {
-    const parsed = new URL(String(value || ''));
+    const raw = String(value || '');
+    const parsed = new URL(raw);
     return parsed.protocol === 'https:'
       && parsed.origin === 'https://cdn.missionmedinstitute.com'
       && parsed.username === ''
       && parsed.password === ''
-      ? parsed.href
+      && parsed.search === ''
+      && parsed.hash === ''
+      && parsed.pathname.length > 1
+      && parsed.href === raw
+      ? raw
       : '';
   } catch {
     return '';
@@ -157,6 +163,10 @@ function avatarStudentIds(payload) {
     payload?.context?.subject?.id,
     ...((Array.isArray(payload?.students) ? payload.students : []).map((row) => row?.id || row?.studentId)),
     ...((Array.isArray(payload?.stories) ? payload.stories : []).map((row) => row?.studentId || row?.student_id)),
+    ...((Array.isArray(payload?.studentGroups) ? payload.studentGroups : []).flatMap((group) => [
+      group?.studentId || group?.student_id,
+      ...((Array.isArray(group?.stories) ? group.stories : []).map((row) => row?.studentId || row?.student_id)),
+    ])),
     ...actionRows.map((row) => row?.studentId || row?.student_id),
   ].map((value) => String(value || '').trim()).filter((value) => uuidPattern.test(value));
   return [...new Set(ids)].slice(0, 100);
@@ -199,6 +209,14 @@ function applyAvatarMap(payload, avatarMap) {
         : {}),
     }
     : null;
+  const studentGroups = Array.isArray(payload.studentGroups)
+    ? payload.studentGroups.map((group) => ({
+      ...attach(group),
+      ...(Array.isArray(group?.stories)
+        ? { stories: group.stories.map((row) => attach(row)) }
+        : {}),
+    }))
+    : null;
   return {
     ...payload,
     ...(payload.student ? { student: attach(payload.student) } : {}),
@@ -208,6 +226,7 @@ function applyAvatarMap(payload, avatarMap) {
     ...(Array.isArray(payload.students) ? { students: payload.students.map((row) => attach(row)) } : {}),
     ...(Array.isArray(payload.stories) ? { stories: payload.stories.map((row) => attach(row)) } : {}),
     ...(Array.isArray(payload.recent) ? { recent: payload.recent.map((row) => attach(row)) } : {}),
+    ...(studentGroups ? { studentGroups } : {}),
     ...(actionCenter ? { actionCenter } : {}),
   };
 }
@@ -238,6 +257,33 @@ export function validateDirectoryQuery(query = {}) {
     page: boundedPage(query.page),
     pageSize: clampedPageSize(query.pageSize, 25),
   });
+}
+
+export function validateAdminPopulationSettings(input) {
+  exactObject(
+    input,
+    new Set(['populationKeys']),
+    'invalid_admin_population',
+    'Administrator population settings are required.',
+  );
+  if (!Array.isArray(input.populationKeys)) {
+    throw new AdminConsoleError(
+      'invalid_admin_population',
+      'Administrator population keys must be an array.',
+    );
+  }
+  const populationKeys = input.populationKeys.map((value) => String(value || '').trim());
+  if (
+    populationKeys.length > 1
+    || new Set(populationKeys).size !== populationKeys.length
+    || populationKeys.some((value) => value !== adminPopulationKey)
+  ) {
+    throw new AdminConsoleError(
+      'invalid_admin_population',
+      'Administrator population may only include the verified 360 Match Mentorship population.',
+    );
+  }
+  return Object.freeze({ populationKeys: Object.freeze([...populationKeys]) });
 }
 
 export function validateQueueQuery(query = {}) {
@@ -785,6 +831,23 @@ function reviewStory(identity, storyId, input, requireDirectControls = false) {
     }
   }
 
+  function populationSettings(identity) {
+    return rpc(
+      identity,
+      'SELECT public.sf_admin_population_context() AS payload',
+      [],
+    );
+  }
+
+  function updatePopulationSettings(identity, input) {
+    const next = validateAdminPopulationSettings(input);
+    return rpc(
+      identity,
+      'SELECT public.sf_admin_set_population_scope($1::text[]) AS payload',
+      [next.populationKeys],
+    );
+  }
+
   return Object.freeze({
     capability,
     v2Capabilities,
@@ -792,6 +855,8 @@ function reviewStory(identity, storyId, input, requireDirectControls = false) {
     updateFlag,
     getPeerShareFlag,
     updatePeerShareFlag,
+    populationSettings,
+    updatePopulationSettings,
     home: (identity, query = {}) => {
       const limit = boundedLimit(query.limit, 8);
       return rpc(

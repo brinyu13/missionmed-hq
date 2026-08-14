@@ -23,12 +23,16 @@ const palette = $('#pal');
 const sessionBar = $('#sesh');
 const teaching = $('#teach');
 const toastNode = $('#toast');
+const openingNode = $('#storyforgeOpening');
 let purposefulVersionSaveQueue = Promise.resolve();
 
 const FIXTURE_PERSONA_KEY = 'storyforge_local_fixture_persona';
 const VOICE_HINT_KEY = 'storyforge_voice_hint_seen';
+const OPENING_TAB_KEY = 'storyforge_opening_seen_this_tab';
 const VOICE_SEGMENT_PLAN = Object.freeze([4000, 15000]);
 const VOICE_MAX_DURATION_SECONDS = 20 * 60;
+const OPENING_MINIMUM_MS = 1650;
+const OPENING_REDUCED_MOTION_MS = 650;
 const FIXTURE_PERSONAS = new Set([
   'student',
   'founderStudent',
@@ -334,13 +338,18 @@ const state = {
     selectedSavedView: '',
     selectedStudent: null,
     queue: [],
+    queueGroups: [],
+    queueGroupedBy: '',
+    queueTotal: 0,
+    queuePageSize: 25,
     queueCursor: null,
     queueStatus: '',
     queueQuery: '',
     queueSession: '',
-    queueSort: 'oldest',
+    queueSort: 'student',
     queuePage: 1,
     directoryDetail: null,
+    population: null,
     contentPrompts: [],
     story: null,
   },
@@ -742,6 +751,7 @@ const api = Object.freeze({
   preference: (background) => auth.request('/api/preferences/background', jsonOptions('PATCH', { background })),
   textSizePreference: (textSize) => auth.request('/api/preferences/text-size', jsonOptions('PATCH', { textSize })),
   themePreference: (theme) => auth.request('/api/preferences/theme', jsonOptions('PATCH', { theme })),
+  openingSoundPreference: (enabled) => auth.request('/api/preferences/opening-sound', jsonOptions('PATCH', { enabled })),
   questions: (studentId = '') => auth.request(`/api/questions${studentId ? `?studentId=${encodeURIComponent(studentId)}` : ''}`),
   createQuestion: (body) => auth.request('/api/questions', jsonOptions('POST', body)),
   approveQuestion: (id, surface = 'library') => auth.request(`/api/questions/${id}/approve`, jsonOptions('POST', { surface })),
@@ -802,6 +812,11 @@ const api = Object.freeze({
     jsonOptions('POST', body),
   ),
   adminHome: () => auth.request('/api/admin/console/home'),
+  adminPopulationSettings: () => auth.request('/api/admin/console/population-settings'),
+  updateAdminPopulationSettings: (populationKeys) => auth.request(
+    '/api/admin/console/population-settings',
+    jsonOptions('PATCH', { populationKeys }),
+  ),
   adminStudents: (query = '') => auth.request(`/api/admin/console/students${query ? `?${query}` : ''}`),
   adminStudent: (id, query = '') => auth.request(`/api/admin/console/students/${id}${query ? `?${query}` : ''}`),
   adminSubjectHome: (id) => auth.request(`/api/admin/console/subjects/${id}/home`),
@@ -867,10 +882,7 @@ function initialsFor(value) {
 function actorAvatarMarkup({ className = 'stuAv', label = '' } = {}) {
   const identity = state.avatarIdentity;
   const display = label || state.user?.display_name || firstName();
-  const candidate = String(identity?.headshotUrl || '');
-  const url = identity?.available === true && (/^https:\/\//i.test(candidate) || (candidate.startsWith('/') && !candidate.startsWith('//')))
-    ? candidate
-    : '';
+  const url = identity?.available === true ? safeAvatarUrl(identity?.headshotUrl) : '';
   return url
     ? `<span class="${attr(className)} b1515Avatar"><img src="${attr(url)}" alt="${attr(display)}"></span>`
     : `<span class="${attr(className)} b1515Avatar b1515AvatarFallback" aria-label="${attr(display)}">${esc(identity?.initials || initialsFor(display))}</span>`;
@@ -878,14 +890,29 @@ function actorAvatarMarkup({ className = 'stuAv', label = '' } = {}) {
 
 function studentAvatarMarkup(student, { className = 'stuAv', label = '' } = {}) {
   const display = label || student?.name || student?.studentName || 'Student';
-  const candidate = String(student?.avatar?.headshotUrl || '');
-  const url = student?.avatar?.available === true
-    && /^https:\/\/cdn\.missionmedinstitute\.com\//i.test(candidate)
-    ? candidate
-    : '';
+  const url = student?.avatar?.available === true ? safeAvatarUrl(student?.avatar?.headshotUrl) : '';
   return url
     ? `<span class="${attr(className)} b1515Avatar"><img src="${attr(url)}" alt="${attr(display)}"></span>`
     : `<span class="${attr(className)} b1515Avatar b1515AvatarFallback" aria-label="${attr(display)}">${esc(initialsFor(display))}</span>`;
+}
+
+function safeAvatarUrl(value) {
+  try {
+    const raw = String(value || '');
+    const parsed = new URL(raw);
+    return parsed.protocol === 'https:'
+      && parsed.origin === 'https://cdn.missionmedinstitute.com'
+      && parsed.username === ''
+      && parsed.password === ''
+      && parsed.search === ''
+      && parsed.hash === ''
+      && parsed.pathname.length > 1
+      && parsed.href === raw
+      ? raw
+      : '';
+  } catch {
+    return '';
+  }
 }
 
 function canAdminReview() {
@@ -961,6 +988,120 @@ function savedTheme() {
   return ['dark', 'light', 'auto'].includes(value) ? value : 'dark';
 }
 
+function savedOpeningSound() {
+  return state.user?.opening_sound_enabled === true;
+}
+
+function delay(milliseconds) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+let openingStartedAt = performance.now();
+let openingProgressTimer = 0;
+
+function showOpeningExperience() {
+  if (!openingNode || guestRoute()) return;
+  try {
+    if (sessionStorage.getItem(OPENING_TAB_KEY) === '1') {
+      dismissOpeningExperience({ immediate: true });
+      return;
+    }
+  } catch {
+    // A blocked session store may replay the bounded visual, never block access.
+  }
+  const alreadyActive = !openingNode.hidden && document.body.classList.contains('opening-active');
+  if (alreadyActive) return;
+  if (openingProgressTimer) window.clearTimeout(openingProgressTimer);
+  openingStartedAt = performance.now();
+  openingNode.hidden = false;
+  openingNode.dataset.phase = 'forming';
+  document.body.classList.add('opening-active');
+  const status = $('[data-opening-status]', openingNode);
+  if (status) status.textContent = 'Opening your private story workspace…';
+  openingProgressTimer = window.setTimeout(() => {
+    if (!openingNode.hidden && status) status.textContent = 'Preparing your workspace…';
+  }, 2100);
+}
+
+function dismissOpeningExperience({ immediate = false } = {}) {
+  if (!openingNode) return;
+  if (openingProgressTimer) window.clearTimeout(openingProgressTimer);
+  openingProgressTimer = 0;
+  openingNode.dataset.phase = immediate ? 'idle' : 'leaving';
+  document.body.classList.remove('opening-active');
+  if (immediate) openingNode.hidden = true;
+}
+
+async function playOpeningSound({ preview = false } = {}) {
+  if (!preview && !savedOpeningSound()) return false;
+  if (!preview && navigator.userActivation && !navigator.userActivation.hasBeenActive) return false;
+  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextCtor) return false;
+  const context = new AudioContextCtor();
+  try {
+    if (context.state === 'suspended') {
+      const resumed = await Promise.race([
+        context.resume().then(() => true).catch(() => false),
+        delay(250).then(() => false),
+      ]);
+      if (!resumed) {
+        void context.close().catch(() => {});
+        return false;
+      }
+    }
+    if (context.state !== 'running') {
+      void context.close().catch(() => {});
+      return false;
+    }
+    const now = context.currentTime;
+    const master = context.createGain();
+    master.gain.setValueAtTime(0.0001, now);
+    master.gain.exponentialRampToValueAtTime(0.12, now + 0.025);
+    master.gain.exponentialRampToValueAtTime(0.0001, now + 0.72);
+    master.connect(context.destination);
+
+    const tone = (type, from, to, start, stop, peak) => {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(from, now + start);
+      oscillator.frequency.exponentialRampToValueAtTime(to, now + stop);
+      gain.gain.setValueAtTime(0.0001, now + start);
+      gain.gain.exponentialRampToValueAtTime(peak, now + start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + stop);
+      oscillator.connect(gain);
+      gain.connect(master);
+      oscillator.start(now + start);
+      oscillator.stop(now + stop + 0.02);
+    };
+    tone('triangle', 620, 220, 0.02, 0.28, 0.58);
+    tone('sine', 156, 84, 0, 0.62, 0.36);
+    tone('sine', 284, 196, 0.11, 0.7, 0.22);
+    window.setTimeout(() => { void context.close(); }, 900);
+    return true;
+  } catch {
+    void context.close().catch(() => {});
+    return false;
+  }
+}
+
+async function completeOpeningExperience() {
+  if (!openingNode || openingNode.hidden) return;
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const minimum = reducedMotion ? OPENING_REDUCED_MOTION_MS : OPENING_MINIMUM_MS;
+  const remaining = Math.max(0, minimum - (performance.now() - openingStartedAt));
+  if (remaining) await delay(remaining);
+  await playOpeningSound();
+  try {
+    sessionStorage.setItem(OPENING_TAB_KEY, '1');
+  } catch {
+    // The visual remains bounded even when tab-local replay state is unavailable.
+  }
+  dismissOpeningExperience();
+  await delay(reducedMotion ? 0 : 250);
+  openingNode.hidden = true;
+}
+
 function applyTheme() {
   const preference = savedTheme();
   const resolved = preference === 'auto'
@@ -975,7 +1116,7 @@ function applyTheme() {
 }
 
 function applyEnvironment() {
-  document.body.dataset.role = isMentor() || isAdmin() ? 'advisor' : 'student';
+  document.body.dataset.role = isAdmin() ? 'admin' : isMentor() ? 'advisor' : 'student';
   document.body.dataset.background = activeBackground();
   document.body.dataset.textSize = activeTextSize();
   applyTheme();
@@ -1387,6 +1528,8 @@ async function navigate(route, id = null, options = {}) {
   state.routeId = id;
   pushPath(route, id, options.replace);
   await renderRoute();
+  main.scrollTop = 0;
+  main.scrollLeft = 0;
   const heading = $('h1, .h1', main);
   if (heading) {
     heading.tabIndex = -1;
@@ -2104,6 +2247,18 @@ function themeSettingsMarkup() {
   </div>`;
 }
 
+function openingSoundSettingsMarkup() {
+  const enabled = savedOpeningSound();
+  return `<div class="panel panel-spaced b1515OpeningSound">
+    <div class="pHead"><div class="h2">Opening <em>sound</em></div></div>
+    <div class="pBody">
+      <div class="setRow"><div class="sTxt"><b>Opening Sound</b><span>A restrained forge strike and warm resonance on meaningful StoryForge entry. It never uses the microphone and never repeats during internal navigation.</span></div>
+        <button class="tgl b1515SoundSwitch ${enabled ? 'on' : ''}" type="button" role="switch" aria-label="Opening Sound" aria-checked="${enabled}" data-opening-sound-toggle><span aria-hidden="true"></span>${enabled ? 'ON' : 'OFF'}</button></div>
+      <div class="inlineActions"><button class="rowBtn" type="button" data-opening-sound-preview>Preview sound</button><span class="stageHint">Default is OFF. Playback always follows browser and device sound rules.</span></div>
+    </div>
+  </div>`;
+}
+
 function privacySettingsMarkup() {
   if (!isStudent() || !v2FeatureOn('visibility')) return '';
   const consent = state.v2.consent;
@@ -2259,6 +2414,7 @@ function renderSettings() {
     <div id="storyforge-settings-content"></div>
     <section class="b1515SettingsGroup" aria-labelledby="settingsAppearance"><div class="b1515SettingsGroupHead"><span>01</span><div><h2 id="settingsAppearance">Appearance</h2><p>Theme, environment, text size, and system motion.</p></div></div>
     ${themeSettingsMarkup()}
+    ${openingSoundSettingsMarkup()}
     <div class="panel panel-spaced">
         <div class="pHead"><div class="h2">Background <em>environment</em></div></div>
       <div class="pBody">
@@ -2479,6 +2635,8 @@ function renderAdminReleaseControls() {
   main.innerHTML = `<section data-view="settings" class="live settingsPage">
     <div class="eyebrow">Administration</div>
     <h1 class="h1">Release <em>Controls</em></h1>
+    ${openingSoundSettingsMarkup()}
+    ${adminPopulationSettingsMarkup()}
     ${renderContentDisplayControls()}
     <div class="panel panel-spaced">
       <div class="pHead"><div class="h2">Administrator workspace <em>Founder pilot</em></div></div>
@@ -2557,11 +2715,12 @@ function renderAdminReleaseControls() {
 }
 
 async function loadAdminReleaseControls() {
-  const [features, health, adminConsole, contentDisplay] = await Promise.allSettled([
+  const [features, health, adminConsole, contentDisplay, population] = await Promise.allSettled([
     api.adminFeatures(),
     api.adminVoiceHealth(),
     api.adminConsoleFlag(),
     api.adminContentDisplay(),
+    api.adminPopulationSettings(),
   ]);
   if (features.status === 'fulfilled') {
     state.adminFeatures = features.value;
@@ -2598,6 +2757,9 @@ async function loadAdminReleaseControls() {
   } else {
     state.adminContentDisplay = null;
     state.adminContentError = contentDisplay.reason?.message || 'Content & Display is temporarily unavailable.';
+  }
+  if (population.status === 'fulfilled') {
+    adminConsoleState().population = population.value;
   }
 }
 
@@ -7293,8 +7455,52 @@ function adminStoryRow(story, { showStudent = true } = {}) {
   </article>`;
 }
 
+function adminActionIdentity(raw = {}) {
+  const source = raw.story || raw;
+  return String(firstDefined(source.id, raw.storyId, raw.story_id, raw.studentId, raw.student_id, raw.label, raw.title, ''));
+}
+
+function compactAdminActionRow(raw = {}) {
+  const source = raw.story || raw;
+  const story = normalizeStory(source);
+  const studentId = String(firstDefined(raw.studentId, raw.student_id, source.studentId, source.student_id, ''));
+  const studentName = String(firstDefined(raw.studentName, raw.student_name, source.studentName, source.student_name, 'Student'));
+  const avatar = firstDefined(raw.avatar, source.avatar, null);
+  const title = story.id ? story.title : String(firstDefined(raw.label, raw.title, studentName));
+  const detail = story.id
+    ? [studentName, STATUS[story.status]?.label || story.status, story.updatedAt ? formatDateTime(story.updatedAt) : ''].filter(Boolean).join(' · ')
+    : String(firstDefined(
+      raw.detail,
+      raw.reason,
+      `${Number(firstDefined(raw.observableStoryCount, raw.observable_story_count, 0))} reviewable stories${firstDefined(raw.lastActivityAt, raw.last_activity_at) ? ` · active ${formatDate(firstDefined(raw.lastActivityAt, raw.last_activity_at))}` : ' · activity unavailable'}`,
+    ));
+  const action = story.id
+    ? `<button class="rowBtn pri" type="button" data-admin-open-story="${attr(story.id)}">Review</button>`
+    : studentId
+      ? `<button class="rowBtn pri" type="button" data-admin-open-subject="${attr(studentId)}">Open StoryForge</button>`
+      : '';
+  return `<article class="b1515R2ActionRow">
+    ${studentAvatarMarkup({ name: studentName, avatar }, { className: 'b1515R2ActionAvatar' })}
+    <span><strong>${esc(title)}</strong><small>${esc(detail)}</small></span>${action}
+  </article>`;
+}
+
+function uniqueAdminActions(items, seen, limit = 3) {
+  const output = [];
+  for (const item of items) {
+    const key = adminActionIdentity(item);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    output.push(item);
+    if (output.length >= limit) break;
+  }
+  return output;
+}
+
 async function loadAdminHome() {
-  adminConsoleState().home = await api.adminHome();
+  const admin = adminConsoleState();
+  admin.home = await api.adminHome();
+  admin.population = admin.home?.population || admin.population;
 }
 
 async function loadAdminStudents() {
@@ -7316,13 +7522,16 @@ async function loadAdminStudents() {
   admin.students = asArray(payload?.students).map(normalizeStudent);
   admin.studentsCursor = payload?.nextCursor || null;
   admin.studentTotal = Number(payload?.total || admin.students.length);
+  admin.population = payload?.population || admin.population;
   if (state.capabilities?.adminDirectory) {
-    const [views, groups] = await Promise.all([
+    const [views, groups, population] = await Promise.all([
       api.adminSavedViews().catch(() => ({ views: [] })),
       api.adminDirectoryGroups().catch(() => ({ groups: [] })),
+      api.adminPopulationSettings(),
     ]);
     admin.savedViews = asArray(views?.views);
     admin.directoryGroups = asArray(groups?.groups);
+    admin.population = population;
   }
 }
 
@@ -7410,6 +7619,19 @@ async function loadAdminQueue() {
     limit: state.capabilities?.adminDirectory ? '' : 25,
   }));
   admin.queue = asArray(payload?.stories).map(normalizeStory);
+  admin.queueGroups = asArray(payload?.studentGroups).map((group) => ({
+    ...group,
+    studentId: String(firstDefined(group.studentId, group.student_id, '')),
+    studentName: String(firstDefined(group.studentName, group.student_name, 'Student')),
+    session: String(firstDefined(group.session, group.cohort, '')),
+    storyCount: Number(firstDefined(group.storyCount, group.story_count, asArray(group.stories).length)) || 0,
+    waitingCount: Number(firstDefined(group.waitingCount, group.waiting_count, 0)) || 0,
+    oldestWaitingAt: isoValue(firstDefined(group.oldestWaitingAt, group.oldest_waiting_at)),
+    stories: asArray(group.stories).map(normalizeStory),
+  }));
+  admin.queueGroupedBy = String(payload?.groupedBy || '');
+  admin.queueTotal = Number(payload?.total || (admin.queueGroupedBy === 'student' ? admin.queueGroups.length : admin.queue.length));
+  admin.queuePageSize = Number(payload?.pageSize || 25);
   admin.queueCursor = payload?.nextCursor || null;
 }
 
@@ -7447,51 +7669,70 @@ async function loadAdminStory(id) {
 function renderAdminHome() {
   const payload = adminConsoleState().home || {};
   const metrics = payload.metrics || {};
-  const recent = asArray(payload.recent).map(normalizeStory);
   const actionCenter = payload.actionCenter || payload.action_center || null;
-  const whoNeedsMe = actionCenter ? [
-    ...asArray(firstDefined(actionCenter.whoNeedsMe?.needsReview?.items, actionCenter.who_needs_me?.needs_review?.items, [])),
-    ...asArray(firstDefined(actionCenter.whoNeedsMe?.needsNudge?.items, actionCenter.who_needs_me?.needs_nudge?.items, [])),
-  ] : [];
-  const nextActions = asArray(firstDefined(actionCenter?.next, []));
-  const changed = actionCenter ? [
-    ...asArray(firstDefined(actionCenter.changed?.changesReturned?.items, actionCenter.changed?.changes_returned?.items, [])),
-    ...asArray(firstDefined(actionCenter.changed?.newSinceLastVisit?.items, actionCenter.changed?.new_since_last_visit?.items, [])),
-  ] : [];
+  const needsReview = actionCenter ? firstDefined(actionCenter.whoNeedsMe?.needsReview, actionCenter.who_needs_me?.needs_review, {}) : {};
+  const needsReviewItems = actionCenter ? asArray(actionCenter.whoNeedsMe?.needsReview?.items) : [];
+  const needsNudge = actionCenter ? firstDefined(actionCenter.whoNeedsMe?.needsNudge, actionCenter.who_needs_me?.needs_nudge, {}) : {};
+  const changesReturned = actionCenter ? firstDefined(actionCenter.changed?.changesReturned, actionCenter.changed?.changes_returned, {}) : {};
+  const newSince = actionCenter ? firstDefined(actionCenter.changed?.newSinceLastVisit, actionCenter.changed?.new_since_last_visit, {}) : {};
+  const whoRaw = [...(needsReviewItems.length ? needsReviewItems : asArray(needsReview.items)), ...asArray(needsNudge.items)];
+  const nextRaw = asArray(firstDefined(actionCenter?.next, []));
+  const changedRaw = [...asArray(changesReturned.items), ...asArray(newSince.items)];
+  const seen = new Set();
+  const whoNeedsMe = uniqueAdminActions(whoRaw, seen);
+  const nextActions = uniqueAdminActions(nextRaw, seen);
+  const changed = uniqueAdminActions(changedRaw, seen);
   const boundaries = firstDefined(actionCenter?.boundaries, {});
-  const newSince = firstDefined(actionCenter?.changed?.newSinceLastVisit, actionCenter?.changed?.new_since_last_visit, {});
   const actionGroup = (items, count, title, empty) => {
-    return `<section class="railCard b1515ActionGroup"><div class="b1515SectionHead"><h2 class="h2">${esc(title)}</h2><span class="cohortChip">${Number(count || 0)}</span></div>${items.length ? items.map((raw) => {
-      const story = normalizeStory(raw.story || raw);
-      if (story.id) return adminStoryRow(story);
-      if (firstDefined(raw.studentId, raw.student_id)) return `<div class="setRow"><div class="sTxt"><b>${esc(firstDefined(raw.studentName, raw.student_name, 'Authorized student'))}</b><span>${Number(firstDefined(raw.observableStoryCount, raw.observable_story_count, 0))} reviewable stories · ${firstDefined(raw.lastActivityAt, raw.last_activity_at) ? `last activity ${esc(formatDate(firstDefined(raw.lastActivityAt, raw.last_activity_at)))}` : 'activity unavailable'}</span></div><button class="rowBtn pri" type="button" data-admin-open-subject="${attr(firstDefined(raw.studentId, raw.student_id))}">Open StoryForge</button></div>`;
-      return `<div class="setRow"><div class="sTxt"><b>${esc(firstDefined(raw.label, raw.title, 'Admin action'))}</b><span>${esc(firstDefined(raw.detail, raw.reason, 'Open the authorized workspace for details.'))}</span></div></div>`;
-    }).join('') : `<p class="stageHint">${esc(empty)}</p>`}</section>`;
+    return `<section class="b1515R2ActionGroup"><div class="b1515SectionHead"><h2>${esc(title)}</h2><span>${Number(count || 0)}</span></div>${items.length ? items.map(compactAdminActionRow).join('') : `<p class="stageHint">${esc(empty)}</p>`}</section>`;
   };
-  main.innerHTML = `<section data-view="admin-home" class="live">
-    ${pageIntroMarkup({ eyebrow: 'Administrator workspace', title: 'Review StoryForge, <em>without crossing privacy lines</em>.', value: 'Search eligible students, work submitted stories, and leave clearly attributed review decisions. Private stories remain invisible.', how: 'Start with Students for one learner or Review Queue for submitted work across the authorized population. Every consequential change is server-authorized and audited.', action: '<button class="btnSave" type="button" data-nav="queue">Open Review Queue</button>' })}
-    <div class="forgeStats adminMetrics">
+  const whoCount = Number(firstDefined(needsReview.count, asArray(needsReview.items).length)) + Number(firstDefined(needsNudge.count, asArray(needsNudge.items).length));
+  const changedCount = Number(firstDefined(changesReturned.count, asArray(changesReturned.items).length)) + Number(firstDefined(newSince.count, asArray(newSince.items).length));
+  main.innerHTML = `<section data-view="admin-home" class="live b1515R2AdminHome">
+    ${pageIntroMarkup({ eyebrow: 'Administrator mission control', title: 'Know who needs you. <em>Act next.</em>', value: 'A compact view of the current 360 Match Mentorship StoryForge population—without crossing privacy lines.', how: 'Start with the oldest review need, then move through the unique next actions. Private stories remain invisible; no private drafts or out-of-population accounts are counted.', action: '<button class="btnSave" type="button" data-nav="queue">Open Review Queue</button>' })}
+    ${actionCenter ? `<div class="b1515R2ActionCenter" aria-label="Administrator action center">${actionGroup(whoNeedsMe, whoCount, 'Who needs me', 'No student currently needs review attention.')}${actionGroup(nextActions, nextRaw.length, 'What should I do next?', 'No next action is currently assigned.')}${actionGroup(changed, changedCount, 'What changed', 'No new submitted-work changes since your last visit.')}</div>` : '<div class="privacyBoundary" role="note">Action Center detail is unavailable. Use Students or Review Queue; private drafts remain inaccessible.</div>'}
+    <div class="forgeStats adminMetrics b1515R2Metrics">
       <div class="fstat"><div class="n">${Number(metrics.submittedStories || 0)}</div><div class="l">Submitted stories</div></div>
       <div class="fstat"><div class="n metric-ember">${Number(metrics.awaitingReview || 0)}</div><div class="l">Awaiting review</div></div>
-      <div class="fstat"><div class="n metric-cyan">${Number(metrics.inReview || 0)}</div><div class="l">In review</div></div>
+      <div class="fstat"><div class="n metric-ember">${Number(metrics.inReview || 0)}</div><div class="l">In review</div></div>
       <div class="fstat"><div class="n metric-green">${Number(metrics.approved || 0)}</div><div class="l">Approved</div></div>
       <div class="fstat"><div class="n metric-violet">${Number(metrics.unscored || 0)}</div><div class="l">Unscored</div></div>
     </div>
-    ${actionCenter ? `<div class="b1515ActionCenter" aria-label="Administrator action center">${actionGroup(whoNeedsMe, whoNeedsMe.length, 'Who needs me', 'No authorized student currently needs administrator attention.')}${actionGroup(nextActions, nextActions.length, 'What should I do next?', 'No next action is currently assigned.')}${actionGroup(changed, changed.length, 'What changed', 'No authorized changes are available in this view.')}</div><div class="privacyBoundary" role="note">${newSince.firstVisit === true ? 'This is the first recorded Admin Home visit, so nothing is labeled new yet. ' : ''}${boundaries.boundaryLimited === true || boundaries.boundary_limited === true ? 'Activity-based nudges are limited until the tracked activity boundary is available.' : `Activity signals are available from ${esc(formatDate(firstDefined(boundaries.activityFrom, boundaries.activity_from)))}.`}</div>` : '<div class="privacyBoundary" role="note">Action Center detail is not available from this server release. The verified metrics, directory, and review queue remain available below.</div>'}
-    <div class="inlineActions mentorActions">
-      <button class="bigAction" type="button" data-nav="students"><span class="ba1">Find a student</span><span class="ba2">Search only the eligible StoryForge population with submitted work.</span><span class="baGo">Open Students ▸</span></button>
-      <button class="bigAction" type="button" data-nav="queue"><span class="ba1">Review queue</span><span class="ba2">Filter submitted stories by review state without exposing private drafts.</span><span class="baGo">Open Review Queue ▸</span></button>
+    ${actionCenter ? `<div class="privacyBoundary b1515R2Boundary" role="note">${newSince.firstVisit === true ? 'First recorded Admin Home visit: nothing is mislabeled as new. ' : ''}${boundaries.boundaryLimited === true || boundaries.boundary_limited === true ? 'Activity nudges remain bounded until tracking evidence is available.' : `Activity signals begin ${esc(formatDate(firstDefined(boundaries.activityFrom, boundaries.activity_from)))}.`}</div>` : ''}
+    <div class="b1515R2AdminLinks">
+      <button class="rowBtn" type="button" data-nav="students">Find a student</button>
+      <button class="rowBtn" type="button" data-nav="queue">Review queue</button>
     </div>
-    <div class="panel panel-spaced"><div class="pHead"><div class="h2">Recently active <em>submitted stories</em></div></div><div class="pBody">
-      ${recent.length ? recent.map((story) => adminStoryRow(story)).join('') : '<div class="stageHint">No submitted stories are available.</div>'}
-    </div></div>
   </section>`;
+}
+
+function adminPopulationSettingsMarkup() {
+  if (!state.capabilities?.adminDirectory) return '';
+  const population = adminConsoleState().population || {};
+  const selectedKeys = asArray(firstDefined(population.selectedKeys, population.selected_keys));
+  const options = asArray(population.options);
+  const visibleMemberCount = selectedKeys.includes('match_mentorship_360')
+    ? Number(firstDefined(population.memberCount, population.member_count, 0))
+    : 0;
+  return `<form id="adminPopulationForm" class="b1515R2Population" aria-labelledby="adminPopulationTitle">
+    <div><span class="eyebrow">Current Administrator universe</span><h2 id="adminPopulationTitle">Student population</h2><p>Population settings can only narrow current StoryForge authorization. They can never grant access.</p></div>
+    <div class="b1515R2PopulationSummary"><strong>${visibleMemberCount}</strong><span>visible current 360 Match Mentorship students</span><small>${firstDefined(population.observedAt, population.observed_at) ? `Verified ${esc(formatDateTime(firstDefined(population.observedAt, population.observed_at)))}` : 'Current entitlement projection not yet verified'}</small></div>
+    <fieldset><legend>Available populations</legend>${options.map((option) => {
+      const key = String(option.key || '');
+      const available = option.available === true;
+      const selected = available && selectedKeys.includes(key);
+      const reason = option.reason === 'canonical_identifier_unverified' ? 'Unavailable · canonical identifier unverified' : option.reason === 'not_authorized_for_storyforge' ? 'Unavailable · not authorized for StoryForge' : option.reason === 'not_entitled' ? 'Unavailable · no qualifying enrollment' : '';
+      return `<label class="${available ? '' : 'unavailable'}"><input type="checkbox" name="populationKey" value="${attr(key)}" ${selected ? 'checked' : ''} ${available ? '' : 'disabled'}><span><b>${esc(option.label || key)}</b>${reason ? `<small>${esc(reason)}</small>` : '<small>Current verified entitlement only</small>'}</span></label>`;
+    }).join('')}</fieldset>
+    <button class="rowBtn pri" type="submit">Save population</button>
+  </form>`;
 }
 
 function renderAdminStudents() {
   const admin = adminConsoleState();
-  main.innerHTML = `<section data-view="admin-students" class="live">
-    ${pageIntroMarkup({ eyebrow: 'Administrator · Students', title: 'Find the right <em>student account</em>.', value: 'A scalable directory of the server-authorized StoryForge population, with privacy-safe activity and submitted-work signals.', how: 'Search, filter, sort, page, or save a view. Opening a student reveals only authorized submitted stories; private and archived content remains absent.', action: '<button class="rowBtn pri" type="button" data-focus-admin-search>Search students</button>' })}
+  main.innerHTML = `<section data-view="admin-students" class="live b1515R2AdminStudents">
+    ${pageIntroMarkup({ eyebrow: 'Administrator · Students', title: 'Find the right <em>360 student</em>.', value: 'A scalable directory of the current, verified 360 Match Mentorship StoryForge population.', how: 'Search, filter, sort, page, or save a view. Private, archived, out-of-population, and ineligible accounts remain absent even by direct URL.', action: '<button class="rowBtn pri" type="button" data-focus-admin-search>Search students</button>' })}
+    ${adminPopulationSettingsMarkup()}
     <form class="listBar" id="adminStudentSearchForm" role="search">
       <label class="srOnly" for="adminStudentSearch">Search students</label>
       <input id="adminStudentSearch" type="search" placeholder="Name, WordPress ID, cohort…" value="${attr(admin.studentQuery)}" autocomplete="off">
@@ -7500,11 +7741,11 @@ function renderAdminStudents() {
         <option value="">All submitted work</option>
         ${['awaiting', 'in_review', 'changes', 'reviewed', 'approved', 'unscored'].map((status) => `<option value="${status}" ${admin.studentStatus === status ? 'selected' : ''}>${esc(status === 'unscored' ? 'Unscored' : STATUS[status].label)}</option>`).join('')}
       </select>${state.capabilities?.adminDirectory ? `<select id="adminStudentFilter" aria-label="Attention filter">${[['all','All students'],['awaiting','Awaiting review'],['needs_review','Needs review'],['never_active','Never active'],['never_started','Never started'],['needs_nudge','Needs a nudge'],['inactive_7','Inactive 7+ days'],['inactive_30','Inactive 30+ days']].map(([value,label])=>`<option value="${value}" ${admin.studentFilter===value?'selected':''}>${label}</option>`).join('')}</select><select id="adminStudentSession" aria-label="Student group"><option value="">All groups</option>${admin.directoryGroups.map((group)=>`<option value="${attr(group.id)}" ${admin.studentSession===group.id?'selected':''}>${esc(group.label)} · ${Number(group.studentCount||0)}</option>`).join('')}</select><select id="adminStudentSort" aria-label="Sort students">${[['attention','Needs attention'],['name','Name'],['recent','Most recent'],['quiet','Quietest'],['stories','Story count']].map(([value,label])=>`<option value="${value}" ${admin.studentSort===value?'selected':''}>${label}</option>`).join('')}</select>` : ''}
-      <button class="rowBtn pri" type="submit">Search</button><span class="countNote" id="adminStudentCount">${admin.students.length} results · server-authorized</span>
+      <button class="rowBtn pri" type="submit">Search</button><span class="countNote" id="adminStudentCount">${admin.students.length} results · current 360 population</span>
     </form>
     ${state.capabilities?.adminDirectory ? `<div class="b1514SavedViews"><label for="adminSavedView">Saved view</label><select id="adminSavedView"><option value="">Choose a saved view</option>${admin.savedViews.map((view)=>`<option value="${attr(view.id)}" ${admin.selectedSavedView===view.id?'selected':''}>${esc(view.label)}</option>`).join('')}</select><button class="rowBtn" type="button" data-admin-save-view>Save current view</button><button class="rowBtn danger" type="button" data-admin-delete-view ${admin.selectedSavedView?'':'disabled'}>Delete selected view</button></div>` : ''}
     <div id="adminStudentResults">${adminStudentRowsMarkup()}</div>
-    ${state.capabilities?.adminDirectory ? `<div class="inlineActions b1514AdminPager"><button class="rowBtn" type="button" data-admin-student-page="${Math.max(1,admin.studentPage-1)}" ${admin.studentPage<=1?'disabled':''}>‹ Previous</button><span>Page ${admin.studentPage} · ${admin.studentTotal} authorized students</span><button class="rowBtn" type="button" data-admin-student-page="${admin.studentPage+1}" ${admin.studentPage*25>=admin.studentTotal?'disabled':''}>Next ›</button></div>` : ''}<div id="adminStudentSearchStatus" class="srOnly" role="status" aria-live="polite"></div>
+    ${state.capabilities?.adminDirectory ? `<div class="inlineActions b1514AdminPager"><button class="rowBtn" type="button" data-admin-student-page="${Math.max(1,admin.studentPage-1)}" ${admin.studentPage<=1?'disabled':''}>‹ Previous</button><span>Page ${admin.studentPage} · ${admin.studentTotal} current 360 students</span><button class="rowBtn" type="button" data-admin-student-page="${admin.studentPage+1}" ${admin.studentPage*25>=admin.studentTotal?'disabled':''}>Next ›</button></div>` : ''}<div id="adminStudentSearchStatus" class="srOnly" role="status" aria-live="polite"></div>
   </section>`;
 }
 
@@ -7524,9 +7765,9 @@ function renderAdminStudentRowsOnly() {
   const rows = $('#adminStudentResults');
   if (rows) rows.innerHTML = adminStudentRowsMarkup();
   const count = $('#adminStudentCount');
-  if (count) count.textContent = `${adminConsoleState().students.length} results · server-authorized`;
+  if (count) count.textContent = `${adminConsoleState().students.length} results · current 360 population`;
   const status = $('#adminStudentSearchStatus');
-  if (status) status.textContent = `${adminConsoleState().students.length} authorized student results.`;
+  if (status) status.textContent = `${adminConsoleState().students.length} current 360 student results.`;
 }
 
 function renderAdminStudent() {
@@ -7543,15 +7784,34 @@ function renderAdminStudent() {
   </section>`;
 }
 
+function adminQueueGroupMarkup(group) {
+  const student = { id: group.studentId, name: group.studentName, cohort: group.session, avatar: group.avatar };
+  return `<section class="b1515R2QueueGroup" aria-labelledby="queue-student-${attr(group.studentId)}">
+    <header class="b1515R2QueueGroupHead">
+      ${studentAvatarMarkup(student, { className: 'b1515R2QueueAvatar' })}
+      <span><h2 id="queue-student-${attr(group.studentId)}">${esc(group.studentName)}</h2><small>${esc(group.session || '360 Match Mentorship')} · ${Number(group.storyCount)} submitted ${Number(group.storyCount) === 1 ? 'story' : 'stories'}${group.oldestWaitingAt ? ` · oldest waiting ${esc(formatDate(group.oldestWaitingAt))}` : ''}</small></span>
+      <span class="cohortChip">${Number(group.waitingCount)} waiting</span>
+      <button class="rowBtn" type="button" data-admin-open-subject="${attr(group.studentId)}">Open StoryForge</button>
+    </header>
+    <div class="b1515R2QueueStories">${group.stories.map((story) => {
+      const current = normalizeStory({ ...story, studentId: group.studentId, studentName: group.studentName });
+      return `<article class="adminStoryRow b1515R2QueueStory"><span><strong>${esc(current.title)}</strong><small>${esc([STATUS[current.status]?.label || current.status, current.submittedAt ? `submitted ${formatDate(current.submittedAt)}` : '', current.mentorScore ? `${current.mentorScore}/5` : 'unscored'].filter(Boolean).join(' · '))}</small></span><button class="rowBtn pri" type="button" data-admin-open-story="${attr(current.id)}">Review</button></article>`;
+    }).join('')}</div>
+  </section>`;
+}
+
 function renderAdminQueue() {
   const admin = adminConsoleState();
-  main.innerHTML = `<section data-view="admin-queue" class="live">
-    ${pageIntroMarkup({ eyebrow: 'Administrator · Review Queue', title: 'Submitted stories, <em>bounded and auditable</em>.', value: 'A server-filtered work queue for review-ready stories across authorized students; private drafts never enter it.', how: 'Filter to the review state you need, open the same Story Room the student uses, then make direct review decisions with clear attribution.', action: '<button class="rowBtn pri" type="button" data-admin-queue-search>Refresh queue</button>' })}
+  const grouped = admin.queueGroupedBy === 'student';
+  const resultCount = grouped ? admin.queueGroups.length : admin.queue.length;
+  const resultUnit = grouped ? 'students' : 'stories';
+  main.innerHTML = `<section data-view="admin-queue" class="live b1515R2AdminQueue">
+    ${pageIntroMarkup({ eyebrow: 'Administrator · Review Queue', title: 'Students first. <em>Stories nested clearly.</em>', value: 'An alphabetical, avatar-led work queue for the current 360 Match Mentorship population; private drafts never enter it.', how: 'Each student appears once per page with all matching submitted stories nested below. Open the student’s StoryForge or review a story in the same Story Room they use.', action: '<button class="rowBtn pri" type="button" data-admin-queue-search>Refresh queue</button>' })}
     <div class="listBar">${state.capabilities?.adminDirectory ? '<label class="srOnly" for="adminQueueSearch">Search queue</label><input id="adminQueueSearch" type="search" placeholder="Student or story…" value="'+attr(admin.queueQuery)+'">' : ''}<label class="srOnly" for="adminQueueStatus">Review status</label><select id="adminQueueStatus">
       <option value="">All submitted stories</option>
       ${['awaiting', 'in_review', 'changes', 'reviewed', 'approved', 'unscored'].map((status) => `<option value="${status}" ${admin.queueStatus === status ? 'selected' : ''}>${esc(status === 'unscored' ? 'Unscored' : STATUS[status].label)}</option>`).join('')}
-    </select>${state.capabilities?.adminDirectory ? `<select id="adminQueueSession" aria-label="Queue student group"><option value="">All groups</option>${admin.directoryGroups.map((group)=>`<option value="${attr(group.id)}" ${admin.queueSession===group.id?'selected':''}>${esc(group.label)} · ${Number(group.studentCount||0)}</option>`).join('')}</select><select id="adminQueueSort" aria-label="Queue order"><option value="oldest" ${admin.queueSort==='oldest'?'selected':''}>Oldest awaiting</option><option value="newest" ${admin.queueSort==='newest'?'selected':''}>Newest</option><option value="updated" ${admin.queueSort==='updated'?'selected':''}>Recently updated</option><option value="student" ${admin.queueSort==='student'?'selected':''}>Student</option></select><button class="rowBtn pri" type="button" data-admin-queue-search>Apply</button>` : ''}<span class="countNote">${admin.queue.length} results · private stories excluded</span></div>
-    ${admin.queue.length ? admin.queue.map((story) => adminStoryRow(story)).join('') : emptyState('Nothing in this queue.', 'Choose another review state.')}${state.capabilities?.adminDirectory ? `<div class="inlineActions b1514AdminPager"><button class="rowBtn" type="button" data-admin-queue-page="${Math.max(1,admin.queuePage-1)}" ${admin.queuePage<=1?'disabled':''}>‹ Previous</button><span>Page ${admin.queuePage}</span><button class="rowBtn" type="button" data-admin-queue-page="${admin.queuePage+1}" ${admin.queue.length<25?'disabled':''}>Next ›</button></div>` : ''}
+    </select>${state.capabilities?.adminDirectory ? `<select id="adminQueueSession" aria-label="Queue student group"><option value="">All groups</option>${admin.directoryGroups.map((group)=>`<option value="${attr(group.id)}" ${admin.queueSession===group.id?'selected':''}>${esc(group.label)} · ${Number(group.studentCount||0)}</option>`).join('')}</select><select id="adminQueueSort" aria-label="Queue order"><option value="student" ${admin.queueSort==='student'?'selected':''}>Student A–Z</option><option value="oldest" ${admin.queueSort==='oldest'?'selected':''}>Oldest awaiting</option><option value="newest" ${admin.queueSort==='newest'?'selected':''}>Newest</option><option value="updated" ${admin.queueSort==='updated'?'selected':''}>Recently updated</option></select><button class="rowBtn pri" type="button" data-admin-queue-search>Apply</button>` : ''}<span class="countNote">${resultCount} ${resultUnit} on this page · ${admin.queueTotal} total · private stories excluded</span></div>
+    ${resultCount ? (grouped ? admin.queueGroups.map(adminQueueGroupMarkup).join('') : admin.queue.map((story) => adminStoryRow(story)).join('')) : emptyState('Nothing in this queue.', 'Choose another review state.')}${state.capabilities?.adminDirectory ? `<div class="inlineActions b1514AdminPager"><button class="rowBtn" type="button" data-admin-queue-page="${Math.max(1,admin.queuePage-1)}" ${admin.queuePage<=1?'disabled':''}>‹ Previous</button><span>Page ${admin.queuePage} · ${admin.queueTotal} ${grouped ? 'students' : 'stories'}</span><button class="rowBtn" type="button" data-admin-queue-page="${admin.queuePage+1}" ${admin.queuePage*admin.queuePageSize>=admin.queueTotal?'disabled':''}>Next ›</button></div>` : ''}
   </section>`;
 }
 
@@ -8269,6 +8529,27 @@ async function saveThemePreference(theme) {
   notify(theme === 'auto' ? 'Auto theme on — StoryForge follows your device.' : `${theme === 'light' ? 'Light' : 'Dark'} theme saved.`, '✓');
 }
 
+async function saveOpeningSoundPreference(enabled) {
+  const result = await withBusy(() => api.openingSoundPreference(enabled));
+  if (!result) return;
+  state.user.opening_sound_enabled = firstDefined(
+    result?.openingSoundEnabled,
+    result?.opening_sound_enabled,
+    result?.user?.opening_sound_enabled,
+    enabled,
+  ) === true;
+  if (isAdmin()) renderAdminReleaseControls();
+  else renderSettings();
+  notify(`Opening Sound ${state.user.opening_sound_enabled ? 'ON' : 'OFF'}.`, '✓');
+}
+
+async function previewOpeningSound() {
+  const played = await playOpeningSound({ preview: true });
+  notify(played
+    ? 'Opening sound preview played.'
+    : 'Your browser did not allow sound playback. Try again after interacting with the page.', played ? '♪' : '');
+}
+
 function updatePurposefulVersionVoiceUi(current = state.versionVoice) {
   const button = $('[data-version-voice]');
   const pause = $('[data-version-voice-pause]');
@@ -8931,6 +9212,14 @@ document.addEventListener('click', async (event) => {
       await saveThemePreference(button.dataset.themePreference);
       return;
     }
+    if (button.matches('[data-opening-sound-toggle]')) {
+      await saveOpeningSoundPreference(button.getAttribute('aria-checked') !== 'true');
+      return;
+    }
+    if (button.matches('[data-opening-sound-preview]')) {
+      await previewOpeningSound();
+      return;
+    }
     if (button.matches('[data-recommend-prompt]')) {
       await openCapture({ prompt: button.dataset.recommendPrompt });
       return;
@@ -9256,7 +9545,9 @@ document.addEventListener('click', async (event) => {
     if (button.matches('[data-admin-queue-search]')) {
       const admin = adminConsoleState();
       admin.queueQuery = $('#adminQueueSearch')?.value.trim() || '';
-      admin.queueSort = $('#adminQueueSort')?.value || 'oldest';
+      admin.queueStatus = $('#adminQueueStatus')?.value || '';
+      admin.queueSession = $('#adminQueueSession')?.value || '';
+      admin.queueSort = $('#adminQueueSort')?.value || 'student';
       admin.queuePage = 1;
       await loadAdminQueue();
       renderAdminQueue();
@@ -10066,6 +10357,22 @@ document.addEventListener('submit', async (event) => {
       await loadAdminStudents();
       renderAdminStudents();
     }
+    if (event.target.id === 'adminPopulationForm') {
+      event.preventDefault();
+      const populationKeys = $$('input[name="populationKey"]:checked', event.target)
+        .map((input) => input.value);
+      const admin = adminConsoleState();
+      admin.population = await api.updateAdminPopulationSettings(populationKeys);
+      admin.studentPage = 1;
+      admin.queuePage = 1;
+      if (state.route === 'settings') {
+        renderAdminReleaseControls();
+      } else {
+        await loadAdminStudents();
+        renderAdminStudents();
+      }
+      notify(populationKeys.length ? 'Administrator population limited to current 360 Match Mentorship students.' : 'Administrator population is now empty. No student access was granted.', '✓');
+    }
     if (event.target.id === 'adminInspirationForm') {
       event.preventDefault();
       if (!state.adminPromptValidated) throw new Error('Validate and preview this draft before publishing.');
@@ -10518,6 +10825,7 @@ function gateMarkup({ eyebrow, heading, message, action = '' }) {
 }
 
 function renderLogin(errorMessage = '') {
+  dismissOpeningExperience({ immediate: true });
   hideApplicationChrome();
   const fixtureButtons = state.config?.devAuth ? `<div class="fixtureGrid">
     <button class="gateBtn" type="button" data-fixture-persona="student">Student · Maya</button>
@@ -10557,6 +10865,7 @@ function lockoutPresentation(lockoutState) {
 }
 
 function renderLockout(lockoutState = 'access_unavailable', message = '') {
+  dismissOpeningExperience({ immediate: true });
   hideApplicationChrome();
   const [eyebrow, heading, fallback] = lockoutPresentation(lockoutState);
   main.innerHTML = gateMarkup({
@@ -10573,6 +10882,7 @@ function renderLockout(lockoutState = 'access_unavailable', message = '') {
 }
 
 function renderStartupFailure(message = '') {
+  dismissOpeningExperience({ immediate: true });
   hideApplicationChrome();
   main.innerHTML = gateMarkup({
     eyebrow: 'Temporarily unavailable',
@@ -10971,6 +11281,7 @@ async function initGuest(route) {
 
 async function enterFixturePersona(persona) {
   if (!FIXTURE_PERSONAS.has(persona)) throw new Error('Unknown local fixture identity.');
+  showOpeningExperience();
   const { token } = await api.fixture(persona);
   auth.setToken(token);
   sessionStorage.setItem(FIXTURE_PERSONA_KEY, persona);
@@ -11010,6 +11321,8 @@ function signOut() {
   state.lockout = null;
   auth.clear();
   sessionStorage.removeItem(FIXTURE_PERSONA_KEY);
+  sessionStorage.removeItem(OPENING_TAB_KEY);
+  dismissOpeningExperience({ immediate: true });
   renderLogin();
 }
 
@@ -11203,6 +11516,7 @@ async function bootstrapSession() {
     pushPath(state.route, null, true);
   }
   await renderRoute();
+  await completeOpeningExperience();
   startActivityBeacon();
   await maybeShowConsent();
   await recoverVoiceDraftOnBoot();
@@ -11212,19 +11526,13 @@ async function bootstrapSession() {
 async function init() {
   const guest = guestRoute();
   if (guest) {
+    dismissOpeningExperience({ immediate: true });
     await initGuest(guest);
     return;
   }
   hideApplicationChrome();
+  showOpeningExperience();
   setMotionEnergy('active');
-  main.innerHTML = `<section class="storyforgeIntro" role="status" aria-live="polite">
-    <img class="introLogo" src="./missionmed-logo.png" alt="MissionMed Institute">
-    <p class="introCreator">Dr Brian's IV Prep On-Call</p>
-    <p class="introInstitution">MissionMed Institute</p>
-    <p class="introDivision">Mission:Residency Division</p>
-    <h1 class="introProduct">Story<span>Forge</span></h1>
-    <p class="introStatus">Opening your private story workspace…</p>
-  </section>`;
   try {
     state.config = await api.config();
     document.body.classList.toggle('motion-enabled', state.config.premiumMotion === true);

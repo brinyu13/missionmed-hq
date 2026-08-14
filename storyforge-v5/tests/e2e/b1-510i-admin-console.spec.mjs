@@ -1,16 +1,7 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { expect, test } from '@playwright/test';
 import pg from 'pg';
 
 const ADMIN_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
-
-const packageDir = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
-const screenshotDir = path.resolve(
-  packageDir,
-  '../_AI_HANDOFFS/from_codex/B1-510I_storyforge_august1_canonical_and_admin_console/screenshots',
-);
 
 async function openFounderAdmin(page) {
   await page.goto('/');
@@ -88,7 +79,7 @@ test.afterEach(async ({ page }) => {
   await restoreFounderAdminConsoleDefaultOff(page);
 });
 
-test('Founder-only administrator console is additive, bounded, and review-capable', async ({ page }) => {
+test('Founder-only administrator console is additive, bounded, and review-capable', async ({ page }, testInfo) => {
   test.slow();
   await createSubmittedStory(page);
   await openFounderAdmin(page);
@@ -127,7 +118,7 @@ test('Founder-only administrator console is additive, bounded, and review-capabl
   await expect(page.getByText('Strong example with a clear turning point.')).toBeVisible();
   await expect(page.getByText('Founder-only local acceptance note.')).toBeVisible();
   await page.screenshot({
-    path: path.join(screenshotDir, 'phase-b-founder-admin-story-review.png'),
+    path: testInfo.outputPath('phase-b-founder-admin-story-review.png'),
     fullPage: true,
   });
 });

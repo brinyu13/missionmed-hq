@@ -115,6 +115,7 @@ phase_one_migrations=(
   "20260813130000_b1_515r_action_center_contribution_review.sql"
   "20260813140000_b1_515r_arena_avatar_directory_groups.sql"
   "20260813150000_b1_515r_inspiration_recommendation_publish_fix.sql"
+  "20260814120000_b1_515r2_admin_population_avatar_sound.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \
@@ -125,6 +126,11 @@ for migration in "${phase_one_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \
     -f "$PACKAGE_DIR/infra/postgres/migrations/$migration" >/dev/null
 done
+# Ephemeral/manual fixture only: mirror the complete seeded eligible-student set
+# into the canonical projection after the fail-closed migration is installed.
+"$PSQL_BIN" "${PSQL_ARGS[@]}" -c \
+  "SELECT public.sf_sync_admin_population_snapshot('match_mentorship_360','77777777-7777-4777-8777-777777777777',now(),'mmhq_cam_build_entitlement',3893,coalesce((SELECT jsonb_agg(jsonb_build_object('storyforge_uuid',id::text,'wp_user_id',wp_user_id,'arena_avatar_id','','arena_avatar_thumbnail_url','') ORDER BY id) FROM public.sf_users WHERE role='student' AND eligible),'[]'::jsonb),false)" \
+  >/dev/null
 "$PSQL_BIN" "${PSQL_ARGS[@]}" \
   -c "ALTER ROLE storyforge_app LOGIN" >/dev/null
 

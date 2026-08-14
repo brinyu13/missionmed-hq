@@ -1,4 +1,6 @@
 const explicitlyOff = new Set(['0', 'false', 'no', 'off']);
+const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+const arenaCdnOrigin = 'https://cdn.missionmedinstitute.com';
 
 function forceOff(environment) {
   const value = String(environment?.STORYFORGE_AVATAR_IDENTITY_FORCE_OFF ?? '')
@@ -7,32 +9,21 @@ function forceOff(environment) {
   return !explicitlyOff.has(value);
 }
 
-function origin(value) {
-  try {
-    const parsed = new URL(String(value || ''));
-    return parsed.protocol === 'https:' || parsed.hostname === '127.0.0.1'
-      ? parsed.origin
-      : '';
-  } catch {
-    return '';
-  }
-}
-
-function allowedOrigins(environment) {
-  const candidates = [
-    environment?.STORYFORGE_PUBLIC_ORIGIN,
-    ...String(environment?.STORYFORGE_AVATAR_ALLOWED_ORIGINS || '').split(','),
-  ];
-  return new Set(candidates.map(origin).filter(Boolean));
-}
-
-function safeAssetUrl(value, origins) {
-  const candidate = typeof value === 'string' ? value.trim() : '';
+function safeAssetUrl(value) {
+  const candidate = typeof value === 'string' ? value : '';
   if (!candidate) return '';
-  if (candidate.startsWith('/') && !candidate.startsWith('//')) return candidate;
   try {
     const parsed = new URL(candidate);
-    return parsed.protocol === 'https:' && origins.has(parsed.origin) ? parsed.href : '';
+    return parsed.protocol === 'https:'
+      && parsed.origin === arenaCdnOrigin
+      && parsed.username === ''
+      && parsed.password === ''
+      && parsed.search === ''
+      && parsed.hash === ''
+      && parsed.pathname.length > 1
+      && parsed.href === candidate
+      ? candidate
+      : '';
   } catch {
     return '';
   }
@@ -73,19 +64,19 @@ export function resolveAvatarIdentity(identity, {
 
   if (!enabled || forceOff(environment)) return fallback;
 
-  const origins = allowedOrigins(environment);
-  const headshotUrl = safeAssetUrl(identity?.avatarThumbnailUrl, origins);
-  const fullBodyUrl = safeAssetUrl(identity?.avatarUrl, origins);
-  if (!headshotUrl) return Object.freeze({ ...fallback, fullBodyUrl: fullBodyUrl || null });
+  const activeAvatarId = String(identity?.activeAvatarId || '');
+  const headshotUrl = safeAssetUrl(identity?.avatarThumbnailUrl);
+  const fullBodyUrl = safeAssetUrl(identity?.avatarUrl);
+  if (!uuidPattern.test(activeAvatarId) || !headshotUrl) return fallback;
 
   return Object.freeze({
     available: true,
-    source: 'avatar_studio',
+    source: 'arena_lobby',
     firstName: resolvedFirstName,
     initials: fallback.initials,
     headshotUrl,
     fullBodyUrl: fullBodyUrl || null,
-    activeAvatarId: identity?.activeAvatarId || null,
+    activeAvatarId,
   });
 }
 

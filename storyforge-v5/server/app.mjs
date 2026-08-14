@@ -1027,6 +1027,22 @@ async function api(request, response, url, {
     });
   }
 
+  if (request.method === 'GET' && url.pathname === '/api/admin/console/population-settings') {
+    return sendJson(
+      response,
+      200,
+      await adminConsoleService.populationSettings(identity),
+    );
+  }
+
+  if (request.method === 'PATCH' && url.pathname === '/api/admin/console/population-settings') {
+    return sendJson(
+      response,
+      200,
+      await adminConsoleService.updatePopulationSettings(identity, await readJson(request)),
+    );
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/admin/console/home') {
     return sendJson(response, 200, await adminConsoleService.home(
       identity,
@@ -1207,7 +1223,8 @@ async function api(request, response, url, {
         const result = await client.query(
           `SELECT id, wp_user_id, display_name, first_name, pronouns, role, eligible,
              cohort, academic_year, specialty, application_cycle, background_preference,
-             reading_size_preference, theme_preference, inspiration_layout
+             reading_size_preference, theme_preference, inspiration_layout,
+             public.sf_opening_sound_preference() AS opening_sound_enabled
            FROM public.sf_users WHERE id = $1`,
           [identity.sub],
         );
@@ -1314,6 +1331,29 @@ async function api(request, response, url, {
       return result.rows[0]?.background_preference;
     });
     return sendJson(response, 200, { backgroundPreference });
+  }
+
+  if (request.method === 'PATCH' && url.pathname === '/api/preferences/opening-sound') {
+    const body = await readJson(request);
+    if (
+      !body
+      || typeof body !== 'object'
+      || Array.isArray(body)
+      || Object.keys(body).length !== 1
+      || typeof body.enabled !== 'boolean'
+    ) {
+      const error = new Error('Opening Sound preference requires one boolean enabled field.');
+      error.code = '22023';
+      throw error;
+    }
+    const openingSoundEnabled = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        'SELECT public.sf_set_opening_sound_preference($1) AS opening_sound_enabled',
+        [body.enabled],
+      );
+      return result.rows[0]?.opening_sound_enabled === true;
+    });
+    return sendJson(response, 200, { openingSoundEnabled });
   }
 
   if (request.method === 'PATCH' && url.pathname === '/api/preferences/text-size') {
@@ -3165,7 +3205,7 @@ async function api(request, response, url, {
     const assetId = safeUuid(audioPlayback[1]);
     const asset = await withIdentity(identity, async (client) => {
       const result = await client.query(
-        `SELECT id, story_id, object_key, content_type, byte_size, duration_ms
+        `SELECT id, student_id, story_id, object_key, content_type, byte_size, duration_ms
          FROM public.sf_audio_assets
          WHERE id = $1 AND state = 'verified'`,
         [assetId],
@@ -3178,7 +3218,7 @@ async function api(request, response, url, {
         entityType: 'audio_asset',
         entityId: assetId,
         surface: 'library',
-        studentId: identity.sub,
+        studentId: identity.role === 'student' ? identity.sub : null,
         previousValue: null,
         newValue: { errorCategory: 'auth' },
       }));
@@ -3186,7 +3226,7 @@ async function api(request, response, url, {
         t: new Date().toISOString(),
         event: 'unauthorized_denied',
         assetId,
-        studentId: identity.sub,
+        studentId: identity.role === 'student' ? identity.sub : null,
         errorCategory: 'auth',
       });
       const error = new Error('Audio asset not found.');
@@ -3202,7 +3242,8 @@ async function api(request, response, url, {
       event: 'audio_playback_granted',
       assetId,
       storyId: asset.story_id,
-      studentId: identity.sub,
+      actorId: identity.sub,
+      studentId: asset.student_id,
     });
     return sendJson(response, 200, {
       asset: {

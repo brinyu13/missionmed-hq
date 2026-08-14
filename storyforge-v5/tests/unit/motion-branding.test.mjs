@@ -10,14 +10,16 @@ const [html, app, styles, config, server] = await Promise.all([
   readFile(new URL('../../server/app.mjs', import.meta.url), 'utf8'),
 ]);
 
-test('opening hierarchy uses exact approved Founder and MissionMed copy with the official asset', () => {
+test('opening hierarchy uses exact B1-515R2 Founder lockup and a manifestable official asset', () => {
   for (const copy of [
-    "Dr Brian's IV Prep On-Call",
-    'MissionMed Institute',
-    'Mission:Residency Division',
+    "DR BRIAN'S",
+    'MATCH PREP ON-CALL',
     'Story<span>Forge</span>',
+    'TURN THE MOMENTS THAT MADE YOU INTO STORIES YOU CAN USE.',
   ]) assert.match(html, new RegExp(copy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(html, /src="\.\/missionmed-logo\.png"/);
+  assert.doesNotMatch(app, /missionmed-logo\.png/);
+  assert.doesNotMatch(html, /IV PREP ON-CALL/i);
   assert.doesNotMatch(html, /Tyler Perry/i);
 });
 

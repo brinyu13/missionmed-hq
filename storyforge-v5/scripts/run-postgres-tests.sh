@@ -106,6 +106,9 @@ b1_515_migrations=(
   "20260813140000_b1_515r_arena_avatar_directory_groups.sql"
   "20260813150000_b1_515r_inspiration_recommendation_publish_fix.sql"
 )
+b1_515r2_migrations=(
+  "20260814120000_b1_515r2_admin_population_avatar_sound.sql"
+)
 discovered_b1_514_migrations=()
 while IFS= read -r migration; do
   discovered_b1_514_migrations+=("$migration")
@@ -131,7 +134,6 @@ done
 for migration in "${b1_515_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/migrations/$migration"
 done
-
 STORYFORGE_DATABASE_URL="postgresql://postgres@127.0.0.1:$SF_PG_PORT/storyforge?sslmode=disable" \
   node "$PACKAGE_DIR/scripts/seed-inspiration-prompts.mjs"
 STORYFORGE_DATABASE_URL="postgresql://postgres@127.0.0.1:$SF_PG_PORT/storyforge?sslmode=disable" \
@@ -139,6 +141,9 @@ STORYFORGE_DATABASE_URL="postgresql://postgres@127.0.0.1:$SF_PG_PORT/storyforge?
 
 "$PSQL_BIN" "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/tests/postgres/authorization_matrix.sql"
 "$PSQL_BIN" "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/tests/postgres/b1_503_conformance_matrix.sql"
+for migration in "${b1_515r2_migrations[@]}"; do
+  "$PSQL_BIN" "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/migrations/$migration"
+done
 
 printf 'PostgreSQL parity: %s\n' "$("$POSTGRES_BIN" --version)"
 node --test \
@@ -159,6 +164,7 @@ node --test \
   "$PACKAGE_DIR/tests/postgres/b1-515r-action-center-contribution-review.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/b1-515r-arena-avatar-directory-groups.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/b1-515r-inspiration-recommendations.test.mjs" \
+  "$PACKAGE_DIR/tests/postgres/b1-515r2-admin-population.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/production-migration-transaction.test.mjs"
 
 node --test --test-concurrency=1 "$PACKAGE_DIR"/tests/pg/*.test.mjs

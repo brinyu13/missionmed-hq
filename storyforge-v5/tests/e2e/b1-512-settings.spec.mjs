@@ -58,3 +58,69 @@ test('Standard, Large, and Extra Large preview and persist per signed user witho
   await page.getByRole('button', { name: 'Save text size' }).click();
   await expect(page.locator('body')).toHaveAttribute('data-text-size', 'standard');
 });
+
+test('Opening Sound is default-off, previews by user gesture, persists, and requests no microphone', async ({ page }) => {
+  let enabled = false;
+  let microphoneRequests = 0;
+  await page.addInitScript(() => {
+    window.__openingSoundContexts = 0;
+    const parameter = () => ({
+      setValueAtTime() {},
+      exponentialRampToValueAtTime() {},
+    });
+    class TestAudioContext {
+      constructor() {
+        window.__openingSoundContexts += 1;
+        this.currentTime = 0;
+        this.destination = {};
+        this.state = 'running';
+      }
+      createGain() { return { gain: parameter(), connect() {} }; }
+      createOscillator() { return { type: 'sine', frequency: parameter(), connect() {}, start() {}, stop() {} }; }
+      async resume() { this.state = 'running'; }
+      async close() { this.state = 'closed'; }
+    }
+    window.AudioContext = TestAudioContext;
+    window.webkitAudioContext = TestAudioContext;
+  });
+  await page.route('**/api/session', async (route) => {
+    const response = await route.fetch();
+    const payload = await response.json();
+    payload.user.opening_sound_enabled = enabled;
+    await route.fulfill({ response, json: payload });
+  });
+  await page.route('**/api/preferences/opening-sound', async (route) => {
+    const request = route.request();
+    expect(request.method()).toBe('PATCH');
+    const body = request.postDataJSON();
+    expect(typeof body.enabled).toBe('boolean');
+    enabled = body.enabled;
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ openingSoundEnabled: enabled }) });
+  });
+  page.on('request', (request) => {
+    if (/microphone|getUserMedia/i.test(request.url())) microphoneRequests += 1;
+  });
+
+  await openStudentSettings(page);
+  const soundSwitch = page.getByRole('switch', { name: /Opening Sound/ });
+  await expect(soundSwitch).toHaveAttribute('aria-checked', 'false');
+  await expect(soundSwitch).toHaveText('OFF');
+
+  await page.getByRole('button', { name: 'Preview sound' }).click();
+  await expect(page.locator('#toast')).toContainText('Opening sound preview played.');
+  expect(await page.evaluate(() => window.__openingSoundContexts)).toBe(1);
+
+  await soundSwitch.click();
+  await expect(page.getByRole('switch', { name: /Opening Sound/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('switch', { name: /Opening Sound/ })).toHaveText('ON');
+  expect(enabled).toBe(true);
+
+  await page.reload();
+  await expect(page.locator('#storyforgeOpening')).toBeHidden();
+  await expect(page.getByRole('switch', { name: /Opening Sound/ })).toHaveAttribute('aria-checked', 'true');
+  expect(microphoneRequests).toBe(0);
+
+  await page.getByRole('switch', { name: /Opening Sound/ }).click();
+  await expect(page.getByRole('switch', { name: /Opening Sound/ })).toHaveAttribute('aria-checked', 'false');
+  expect(enabled).toBe(false);
+});

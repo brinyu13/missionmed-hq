@@ -367,6 +367,29 @@ test('nonce, JWT signature, and allowed-origin checks fail closed', async ({ pag
   expect(probe.anonymousBootstrapStatus).toBe(401);
   expect(probe.anonymousBootstrapCache).toBe('no-store, private');
 
+  const bearer = { Authorization: `Bearer ${probe.issuedBody.token}` };
+  const initialSession = await request.get('/storyforge/api/session', { headers: bearer });
+  expect(initialSession.status()).toBe(200);
+  expect((await initialSession.json()).user.opening_sound_enabled).toBe(false);
+  const soundOn = await request.patch('/storyforge/api/preferences/opening-sound', {
+    headers: bearer,
+    data: { enabled: true },
+  });
+  expect(soundOn.status()).toBe(200);
+  expect(await soundOn.json()).toEqual({ openingSoundEnabled: true });
+  const persistedSession = await request.get('/storyforge/api/session', { headers: bearer });
+  expect((await persistedSession.json()).user.opening_sound_enabled).toBe(true);
+  const rejectedExpansion = await request.patch('/storyforge/api/preferences/opening-sound', {
+    headers: bearer,
+    data: { enabled: false, userId: studentId },
+  });
+  expect(rejectedExpansion.status()).toBe(400);
+  const soundOff = await request.patch('/storyforge/api/preferences/opening-sound', {
+    headers: bearer,
+    data: { enabled: false },
+  });
+  expect(await soundOff.json()).toEqual({ openingSoundEnabled: false });
+
   const tampered = await request.get('/storyforge/api/session', {
     headers: { Authorization: `Bearer ${probe.issuedBody.token}x` },
   });

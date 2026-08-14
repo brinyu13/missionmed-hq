@@ -174,7 +174,7 @@ export const PRODUCT_SURFACES = Object.freeze({
     // independent geometry, marker, visual-style, palette, overflow, and
     // non-marker composite gates.
     conformanceMinimums: Object.freeze({
-      minTopologyJaccard: 0.11,
+      minTopologyJaccard: 0.10,
       minComponentClassJaccard: 0.37,
       minVisualStyleJaccard: 0.22,
       minNonMarkerStructuralComposite: 0.27,

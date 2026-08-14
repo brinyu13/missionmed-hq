@@ -1,7 +1,3 @@
-import { mkdirSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import pg from 'pg';
 
 import { expect, test } from '@playwright/test';
@@ -13,13 +9,6 @@ const FLAG_KEYS = [
   'story_search',
   'mentor_notes',
 ];
-
-const packageDir = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
-const screenshotDir = path.resolve(
-  packageDir,
-  '../_AI_HANDOFFS/from_codex/B1-511_storyforge_student_mentor_workflow/screenshots',
-);
-mkdirSync(screenshotDir, { recursive: true });
 
 async function devToken(request, persona) {
   const response = await request.post(`/api/dev/session/${persona}`, { data: {} });
@@ -176,14 +165,14 @@ test('B1-511 submission, taxonomy, priority, mentor notes, withdrawal, and priva
   expect(mentorAfterWithdrawal.status()).toBe(404);
 });
 
-test('B1-511 Library keeps uninterrupted search and row-only priority controls in the canonical student release', async ({ page, request }) => {
+test('B1-511 Library keeps uninterrupted search and row-only priority controls in the canonical student release', async ({ page, request }, testInfo) => {
   const student = await devToken(request, 'student');
   await createStory(request, student, 'B1-511 uninterrupted-search proof');
   await page.goto('/');
   await page.getByRole('button', { name: 'Student · Maya' }).click();
   await page.getByRole('button', { name: 'Story Library', exact: true }).click();
   await page.screenshot({
-    path: path.join(screenshotDir, 'student-private-library-desktop.png'),
+    path: testInfo.outputPath('student-private-library-desktop.png'),
     fullPage: true,
   });
   await expect(page.getByRole('option', { name: 'Sort: priority 5→1' })).toHaveCount(1);
@@ -199,7 +188,7 @@ test('B1-511 Library keeps uninterrupted search and row-only priority controls i
   await expect(priority).toHaveAttribute('aria-pressed', 'true');
   await expect(search).toHaveValue('uninterrupted-search proof');
   await page.screenshot({
-    path: path.join(screenshotDir, 'student-search-priority-category.png'),
+    path: testInfo.outputPath('student-search-priority-category.png'),
     fullPage: true,
   });
 
@@ -207,18 +196,18 @@ test('B1-511 Library keeps uninterrupted search and row-only priority controls i
   await search.fill('');
   await page.getByRole('button', { name: 'Clinical', exact: true }).click();
   await page.screenshot({
-    path: path.join(screenshotDir, 'student-category-filter.png'),
+    path: testInfo.outputPath('student-category-filter.png'),
     fullPage: true,
   });
 
   await page.setViewportSize({ width: 768, height: 1024 });
   await page.screenshot({
-    path: path.join(screenshotDir, 'student-library-tablet-768x1024.png'),
+    path: testInfo.outputPath('student-library-tablet-768x1024.png'),
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({
-    path: path.join(screenshotDir, 'student-library-mobile-390x844.png'),
+    path: testInfo.outputPath('student-library-mobile-390x844.png'),
     fullPage: true,
   });
 });

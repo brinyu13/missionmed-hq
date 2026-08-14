@@ -1,16 +1,5 @@
-import { mkdirSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import pg from 'pg';
 import { expect, test } from '@playwright/test';
-
-const packageDir = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
-const screenshotDir = path.resolve(
-  packageDir,
-  '../_AI_HANDOFFS/from_codex/B1-512_storyforge_concrete_upgrade/screenshots',
-);
-mkdirSync(screenshotDir, { recursive: true });
 
 async function setWorkflowScope(scope) {
   const client = new pg.Client({ connectionString: process.env.STORYFORGE_DATABASE_URL });
@@ -59,7 +48,7 @@ test.afterEach(async () => {
   await setWorkflowScope('off');
 });
 
-test('Finish It highlights only exact missing completion items and clears them without remounting', async ({ page, request }) => {
+test('Finish It highlights only exact missing completion items and clears them without remounting', async ({ page, request }, testInfo) => {
   const student = await devToken(request);
   const title = `B1-512 incomplete ${Date.now()}`;
   await createStory(request, student, { title, text: 'A short but durable story.' });
@@ -99,12 +88,12 @@ test('Finish It highlights only exact missing completion items and clears them w
   const overflow = await page.locator('#room .roomSheet').evaluate((element) => element.scrollWidth - element.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
   await page.screenshot({
-    path: path.join(screenshotDir, 'finish-it-guidance-mobile-390x844.png'),
+    path: testInfo.outputPath('finish-it-guidance-mobile-390x844.png'),
     fullPage: true,
   });
 });
 
-test('normal Story Detail stays normal while invalid submission uses the same Working Version guidance', async ({ page, request }) => {
+test('normal Story Detail stays normal while invalid submission uses the same Working Version guidance', async ({ page, request }, testInfo) => {
   const student = await devToken(request);
   const title = `B1-512 submit ${Date.now()}`;
   await createStory(request, student, { title, text: 'ab' });
@@ -132,7 +121,7 @@ test('normal Story Detail stays normal while invalid submission uses the same Wo
   await expect(page.locator('#room .stChip').first()).toHaveText('Awaiting review');
 
   await page.screenshot({
-    path: path.join(screenshotDir, 'submit-for-review-repaired-desktop.png'),
+    path: testInfo.outputPath('submit-for-review-repaired-desktop.png'),
     fullPage: true,
   });
 });
