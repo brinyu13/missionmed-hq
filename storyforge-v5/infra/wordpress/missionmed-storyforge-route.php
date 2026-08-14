@@ -25,9 +25,9 @@ define( 'MMSFR_MAX_BODY_BYTES', 6291456 );
 define( 'MMSFR_MAX_RESPONSE_BYTES', 33554432 );
 define( 'MMSFR_TIMEOUT_SECONDS', 9 );
 // BEGIN GENERATED STORYFORGE RELEASE ID.
-define( 'MMSFR_RELEASE_ID', 'v-13b8d5f0ea021874' );
-define( 'MMSFR_RELEASE_PHP_SHA256', 'a4d638f5776953183e4317822aa9c8fe350fd1cf68cdfea7833eaede9ffe36f3' );
-define( 'MMSFR_RELEASE_PHP_SIZE', 1528634 );
+define( 'MMSFR_RELEASE_ID', 'v-693db9354e71b908' );
+define( 'MMSFR_RELEASE_PHP_SHA256', 'e59a7a7fdb1469a825c80f6d8eccb36a4c15045e9190beed1cd1b846b3da37c5' );
+define( 'MMSFR_RELEASE_PHP_SIZE', 1528743 );
 // END GENERATED STORYFORGE RELEASE ID.
 
 /**
@@ -129,16 +129,16 @@ function mmsfr_asset_manifest() {
 			'type' => 'image/png',
 			'cache' => 'immutable',
 		),
-		'assets/styles.8336a95b40a9.css' => array(
-			'alias' => '8336a95b40a9',
-			'sha256' => '8336a95b40a9c533b9b61534b349b8c24622ea6e77cfd20eaa2d7ee1b7ee368d',
-			'size' => 184159,
+		'assets/styles.71c94547613b.css' => array(
+			'alias' => '71c94547613b',
+			'sha256' => '71c94547613b1b2cf1360c7c965a3989aca142f82619e68e6c70543c4b305ac6',
+			'size' => 184235,
 			'type' => 'text/css; charset=utf-8',
 			'cache' => 'immutable',
 		),
 		'index.html' => array(
-			'alias' => '63b969f5e957',
-			'sha256' => '63b969f5e9570cc7e2cdf8de4c72caa1b2897339b39b0a6063926edd76979c11',
+			'alias' => 'caee12d92a6b',
+			'sha256' => 'caee12d92a6bfe6bfc99463c96db8f27058c4bafe2b79a858276ea988b68f907',
 			'size' => 2276,
 			'type' => 'text/html; charset=utf-8',
 			'cache' => 'html',
