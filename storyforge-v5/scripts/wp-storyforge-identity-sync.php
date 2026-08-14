@@ -25,6 +25,8 @@ $action = sanitize_key((string) ($command_args[0] ?? ''));
 $path = (string) ($command_args[1] ?? '');
 $uuid_meta_key = '_missionmed_storyforge_user_id';
 $uuid_pattern = '/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/';
+$population_course_id = 3893;
+$approved_360_attestation_source = 'manual_session_a_batch';
 
 if (!in_array($action, array('export', 'apply', 'verify'), true) || $path === '') {
     WP_CLI::error('Usage: export|apply|verify /absolute/private/file.json');
@@ -33,7 +35,25 @@ if ($path[0] !== '/') {
     WP_CLI::error('The receipt path must be absolute.');
 }
 
-$is_current_student = static function ($user) {
+$has_approved_360_attestation = static function ($user_id) use ($approved_360_attestation_source) {
+    $sent_at = trim((string) get_user_meta($user_id, '_mmed_welcome_email_sent_at_360elite', true));
+    $sent_by = absint(get_user_meta($user_id, '_mmed_welcome_email_sent_by_360elite', true));
+    $subject = trim((string) get_user_meta($user_id, '_mmed_welcome_email_subject_360elite', true));
+    $source = sanitize_key((string) get_user_meta(
+        $user_id,
+        '_mmed_welcome_email_source_360elite',
+        true
+    ));
+    $sent_at_timestamp = $sent_at === '' ? false : strtotime($sent_at . ' UTC');
+
+    return $source === $approved_360_attestation_source
+        && $sent_by > 0
+        && $subject !== ''
+        && $sent_at_timestamp !== false
+        && $sent_at_timestamp <= time();
+};
+
+$is_current_student = static function ($user) use ($population_course_id, $has_approved_360_attestation) {
     if (!($user instanceof WP_User) || !$user->exists()) {
         return array(false, array('status' => 'invalid_account', 'source' => 'wordpress'));
     }
@@ -41,10 +61,33 @@ $is_current_student = static function ($user) {
         return array(false, array('status' => 'non_student', 'source' => 'wordpress'));
     }
     $entitlement = mmsf_entitlement_for_user($user);
+    $course_ids = is_array($entitlement) && is_array($entitlement['course_ids'] ?? null)
+        ? array_map('absint', $entitlement['course_ids'])
+        : array();
+    $verified_purchase = !empty($entitlement['purchase_verified'])
+        && !empty($entitlement['purchase_match_found'])
+        && !empty($entitlement['enrollment_verified'])
+        && sanitize_key((string) ($entitlement['authority_mode'] ?? '')) === 'learndash_and_woocommerce';
+    $approved_manual_attestation = !empty($entitlement['enrollment_verified'])
+        && sanitize_key((string) ($entitlement['authority_mode'] ?? '')) === 'learndash_current_access'
+        && $has_approved_360_attestation((int) $user->ID);
     $eligible = is_array($entitlement)
         && !empty($entitlement['trusted'])
         && !empty($entitlement['verified'])
-        && !empty($entitlement['active']);
+        && !empty($entitlement['active'])
+        && sanitize_key((string) ($entitlement['status'] ?? '')) === 'active'
+        && sanitize_key((string) ($entitlement['source'] ?? '')) === 'wordpress_learndash_handoff'
+        && !empty($entitlement['current_access_verified'])
+        && !empty($entitlement['revocation_checked'])
+        && empty($entitlement['restricted'])
+        && empty($entitlement['revoked'])
+        && in_array($population_course_id, $course_ids, true)
+        && ($verified_purchase || $approved_manual_attestation);
+    if (is_array($entitlement)) {
+        $entitlement['population_evidence'] = $verified_purchase
+            ? 'verified_purchase'
+            : ($approved_manual_attestation ? 'approved_manual_360_attestation' : 'none');
+    }
     return array($eligible, is_array($entitlement) ? $entitlement : array());
 };
 
@@ -114,6 +157,9 @@ if ($action === 'export') {
                 'active' => !empty($entitlement['active']),
                 'status' => sanitize_key((string) ($entitlement['status'] ?? 'unknown')),
                 'source' => sanitize_key((string) ($entitlement['source'] ?? 'unknown')),
+                'population_evidence' => sanitize_key((string) (
+                    $entitlement['population_evidence'] ?? 'none'
+                )),
             ),
         );
     }
@@ -121,11 +167,11 @@ if ($action === 'export') {
         'version' => 1,
         'generated_at' => $generated_at,
         'authority' => 'mmhq_cam_build_entitlement',
-        'course_id' => 3893,
+        'course_id' => $population_course_id,
         'population_authority' => array(
             'key' => 'match_mentorship_360',
             'authority' => 'mmhq_cam_build_entitlement',
-            'course_id' => 3893,
+            'course_id' => $population_course_id,
             'generation_id' => $generation_id,
             'complete' => true,
             'observed_at' => $generated_at,
