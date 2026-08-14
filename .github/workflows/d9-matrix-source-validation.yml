@@ -1,0 +1,35 @@
+name: D9 Matrix source validation
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "wp-content/plugins/missionmed-hub/**"
+      - "wp-content/mu-plugins/**"
+      - "_SYSTEM/BASELINES/D9_MATRIX_RUNTIME_2026_07_13/**"
+      - "_SYSTEM/scripts/build_d9_matrix_source_package.py"
+      - "_SYSTEM/scripts/validate_d9_matrix_mu_active_set.py"
+      - "_SYSTEM/scripts/validate_d9_matrix_source.py"
+      - "_AI_HANDOFFS/from_codex/D9_MATRIX_PLAN_415_SOURCE_RECOVERY/D9_415_PRODUCTION_TO_GIT_HASH_MAP.json"
+      - "_AI_HANDOFFS/from_codex/D9_MATRIX_PLAN_415_SOURCE_RECOVERY/evidence/D9_415_REDACTED_SOURCE_SCAN.py"
+      - ".github/workflows/d9-matrix-source-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate-source-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source and tags
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate and build twice without deployment
+        run: >-
+          python3 _SYSTEM/scripts/validate_d9_matrix_source.py
+          --output-dir "$RUNNER_TEMP/d9-matrix-validation"

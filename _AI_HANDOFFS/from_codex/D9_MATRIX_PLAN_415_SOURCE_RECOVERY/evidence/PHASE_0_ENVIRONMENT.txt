@@ -1,0 +1,10 @@
+Captured: 2026-07-13T15:19:17-0400 EDT
+Timezone: America/New_York
+Hostname: Brians-MacBook-Pro.local
+Operating system: macOS 26.4.1 (25E253), Darwin 25.4.0, arm64
+Git: 2.50.1 (Apple Git-155)
+GitHub CLI: 2.88.1 (2026-03-12)
+Python: 3.14.6
+Node: v24.14.0
+npm: 11.9.0
+

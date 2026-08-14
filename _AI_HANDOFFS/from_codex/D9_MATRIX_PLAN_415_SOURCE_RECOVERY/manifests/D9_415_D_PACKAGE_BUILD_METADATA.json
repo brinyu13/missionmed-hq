@@ -1,0 +1,15 @@
+{
+  "archive_file_count": 131,
+  "branch": "d9-matrix-plan-415-source-recovery",
+  "deployable": false,
+  "deployment_side_effects": "NONE",
+  "package_byte_size": 2711483,
+  "package_sha256": "afd9a1e6a236413552c6477b1f959ac5d750233724ceb14dd2351393430dae5f",
+  "plugin_version": "1.5.1",
+  "result": "PASS",
+  "source_commit": "e12cd99aa9c019a6f99325c0b961aa50db945472",
+  "source_file_count": 129,
+  "source_manifest_sha256": "a650686889a6ddc22664ed890b6ff7b80fc3c1e475282723b8542d05f3967bc5",
+  "source_total_bytes": 10560023,
+  "source_tree": "9e0408d93a37c0d6f73a4d06aa9da135b79c9b90"
+}
