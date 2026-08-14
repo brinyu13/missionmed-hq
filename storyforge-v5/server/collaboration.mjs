@@ -78,7 +78,7 @@ export function createCollaborationService({
           storyPromotions: !explicitlyDisabled(environment.STORYFORGE_STORY_PROMOTIONS_FORCE_OFF) && row.story_promotions === true,
           perUseScoring: !explicitlyDisabled(environment.STORYFORGE_PER_USE_SCORING_FORCE_OFF) && row.per_use_scoring === true,
         };
-      });
+      }, { adminMode: identity?.wordpressAdmin === true });
     } catch (error) {
       if (['42501', '42883', '42P01', '42703'].includes(error?.code)) {
         return { storyArchive: false, peerShare: false, storyPromotions: false, perUseScoring: false };

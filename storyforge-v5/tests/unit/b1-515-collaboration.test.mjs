@@ -60,6 +60,39 @@ test('collaboration validates exact peer ids and delegates only bounded RPCs', a
   assert.throws(() => service.share(STUDENT, STORY, { recipientIds: [PEER, PEER], expectedVersion: 0 }), /only be selected once/);
 });
 
+test('WordPress administrator capabilities resolve with bounded admin mode', async () => {
+  const calls = [];
+  const identity = { ...STUDENT, wordpressAdmin: true };
+  const service = createCollaborationService({
+    withIdentity: async (_identity, operation, options = {}) => {
+      calls.push(options);
+      return operation({
+        async query() {
+          return { rows: [{
+            story_archive: true,
+            peer_share: false,
+            story_promotions: true,
+            per_use_scoring: true,
+          }] };
+        },
+      });
+    },
+    environment: {
+      STORYFORGE_STORY_ARCHIVE_FORCE_OFF: '0',
+      STORYFORGE_PEER_SHARE_FORCE_OFF: '0',
+      STORYFORGE_STORY_PROMOTIONS_FORCE_OFF: '0',
+      STORYFORGE_PER_USE_SCORING_FORCE_OFF: '0',
+    },
+  });
+  assert.deepEqual(await service.capabilities(identity), {
+    storyArchive: true,
+    peerShare: false,
+    storyPromotions: true,
+    perUseScoring: true,
+  });
+  assert.deepEqual(calls, [{ adminMode: true }]);
+});
+
 test('administrator collection controls use a bounded admin-mode RPC and fail closed', async () => {
   const calls = [];
   const identity = { ...STUDENT, wordpressAdmin: true };

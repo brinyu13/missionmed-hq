@@ -178,3 +178,11 @@ test('Question Workshop starts at the top without resetting later workshop reren
   assert.match(openWorkshopBody, /renderQuestionWorkshop\(\);[\s\S]*main\.scrollTop = 0;[\s\S]*main\.scrollLeft = 0;/);
   assert.doesNotMatch(app, /function renderQuestionWorkshop\([^)]*\) \{[\s\S]*?main\.scrollTop = 0;/);
 });
+
+test('legacy submitted visibility is labeled truthfully instead of private', () => {
+  assert.match(app, /function storyVisibilityDisplay\(story\)/);
+  assert.match(app, /return story\?\.status && story\.status !== 'private' \? 'legacy_review' : 'private'/);
+  assert.match(app, /Legacy review access/);
+  assert.match(app, /pre-consent transition/);
+  assert.match(styles, /\.b1513VisLegacy/);
+});
