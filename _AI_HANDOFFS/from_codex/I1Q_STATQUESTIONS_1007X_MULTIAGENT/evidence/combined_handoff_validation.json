@@ -1,0 +1,671 @@
+{
+  "generated_at": "2026-07-15T16:57:05.761Z",
+  "status": "pass",
+  "combined_path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/I1Q_1007X_COMBINED_HANDOFF.md",
+  "source_count": 109,
+  "source_list": [
+    {
+      "path": "agents/assessment_science/assessment_release_verdict.md",
+      "bytes": 8705,
+      "lines": 105,
+      "sha256": "3290c38f74d6122f5f5e537973463421cf1d701619721d3aa6d12a6c0880bc1b"
+    },
+    {
+      "path": "agents/assessment_science/item_quality_rubric_results.md",
+      "bytes": 9497,
+      "lines": 119,
+      "sha256": "233f4e39d32bf8b3e06dff5f48e56a7cbf14913155b94c2c4f258515d347f93d"
+    },
+    {
+      "path": "agents/assessment_science/pilot_measurement_plan.md",
+      "bytes": 12096,
+      "lines": 128,
+      "sha256": "ba50ceed36565244eb6c689ce788e5c010545725aba06ae48a009cc8c6df6c1c"
+    },
+    {
+      "path": "agents/assessment_science/psychometric_readiness.md",
+      "bytes": 8305,
+      "lines": 114,
+      "sha256": "131e23ac2aa29abac3d11db0be9a867cae9d7e013fb4bab08b2ab839505e9c86"
+    },
+    {
+      "path": "agents/avicenna_diagnostics/diagnostics_log.md",
+      "bytes": 5043,
+      "lines": 102,
+      "sha256": "ee853ead21d617c4b6a82766a1cb61b9ae14f57198b33a6eaea7b4d7c3793b29"
+    },
+    {
+      "path": "agents/avicenna_diagnostics/regression_tests_added.md",
+      "bytes": 3666,
+      "lines": 73,
+      "sha256": "a4ca9c47cab1a75bfa52ad7cff4cdd6760231cf1f9cc015bc764166e26f77231"
+    },
+    {
+      "path": "agents/avicenna_diagnostics/repaired_failures.md",
+      "bytes": 3380,
+      "lines": 75,
+      "sha256": "d60f48e935e24b6d28dd240b0fab849b2ae97a537bb506b818f0bae6e5e04619"
+    },
+    {
+      "path": "agents/avicenna_diagnostics/unresolved_external_failures.md",
+      "bytes": 3604,
+      "lines": 68,
+      "sha256": "1211b5af6b1bc3e1f671950445c73514821e4f7b70fe31047a95c2d0d34ae0bf"
+    },
+    {
+      "path": "agents/darwin/behavioral_parity_report.md",
+      "bytes": 8081,
+      "lines": 169,
+      "sha256": "a185c14da7ffbb5fcf955488fc5ae1e2172b0a200c19362aa0ba322d6638ef00"
+    },
+    {
+      "path": "agents/darwin/maintainability_report.md",
+      "bytes": 8328,
+      "lines": 129,
+      "sha256": "d0cd1a02c3e8b70e321591e09ec5dddcff4e5e79870e2f97f971c7559723cbb0"
+    },
+    {
+      "path": "agents/darwin/refactor_plan.md",
+      "bytes": 8716,
+      "lines": 95,
+      "sha256": "f8c0b396c1d8a2c00804354905c23271cda095854113b1a5d52201adbbb8bfb5"
+    },
+    {
+      "path": "agents/darwin/refactors_completed.md",
+      "bytes": 5739,
+      "lines": 71,
+      "sha256": "48f71ded562877c223614b56b8f7977ec1c68120220b8a7d9008d09e7af90b95"
+    },
+    {
+      "path": "agents/datastore_contracts/datastore_contract_review.md",
+      "bytes": 3542,
+      "lines": 89,
+      "sha256": "38d1624205dbf81536fef42651d587bd96c06f1e73c8607f5eed5398ad2854d9"
+    },
+    {
+      "path": "agents/datastore_contracts/migration_static_verdict.md",
+      "bytes": 3656,
+      "lines": 52,
+      "sha256": "ab2e3ef34c9603c699f24868907841ddfe3c62bc32225df510e6c8dd0149b873"
+    },
+    {
+      "path": "agents/datastore_contracts/repository_adapter_verdict.md",
+      "bytes": 2999,
+      "lines": 56,
+      "sha256": "ae7cff771fa8747aa129a3ea8eff73abc339cc10c3a50987d2ae1f841c39bf07"
+    },
+    {
+      "path": "agents/ecosystem_mapper/auth_and_bootstrap_map.md",
+      "bytes": 13030,
+      "lines": 185,
+      "sha256": "5f2e255aace1dd54182b58fae022acc34ca72a93425aad9a8e67c2fca41745f3"
+    },
+    {
+      "path": "agents/ecosystem_mapper/collision_risk_register.md",
+      "bytes": 12530,
+      "lines": 67,
+      "sha256": "ae4f49ca05289cb6194432f1b0e5dde10929c23d8761e3df0842b98628fff4c2"
+    },
+    {
+      "path": "agents/ecosystem_mapper/deployment_route_map.md",
+      "bytes": 9168,
+      "lines": 137,
+      "sha256": "a7702e5a036257a9be56e9b2f67ff2518dfd3d1b1c47f47e93028fa916cdaf1d"
+    },
+    {
+      "path": "agents/ecosystem_mapper/ecosystem_dependency_graph.md",
+      "bytes": 13225,
+      "lines": 146,
+      "sha256": "b82b9616305c13e63bea22ee82b753231c5b58e9a9fa1b8c28c13e039ff937fe"
+    },
+    {
+      "path": "agents/ecosystem_mapper/media_source_map.md",
+      "bytes": 14153,
+      "lines": 248,
+      "sha256": "95ac01a6c04551d5a4f32f322568793f0e5339f06fe24ba7b3e8c53db64f2780"
+    },
+    {
+      "path": "agents/ecosystem_mapper/protected_consumers_matrix.md",
+      "bytes": 12267,
+      "lines": 66,
+      "sha256": "cf43bb02170517167b32b83c19657bef7c2ead8b47db1f0c342e56f5799d4ab4"
+    },
+    {
+      "path": "agents/independent_red_team/independent_red_team.md",
+      "bytes": 88994,
+      "lines": 1067,
+      "sha256": "edfe094d964886df1241559eb7c2612827145ae00f9ed7e11f3dec46ab8ad205"
+    },
+    {
+      "path": "agents/independent_red_team/release_veto_or_clearance.md",
+      "bytes": 37413,
+      "lines": 511,
+      "sha256": "3be28e6c9e07505487e64b6d2b3ba4f17318f6c4308cd0f20aee657aec5e2418"
+    },
+    {
+      "path": "agents/lorentz_security/answer_isolation_report.md",
+      "bytes": 5289,
+      "lines": 93,
+      "sha256": "10da1d8a2077b24d55c4484bf278f23d098b3a80271082b9a0925957725c5afc"
+    },
+    {
+      "path": "agents/lorentz_security/auth_test_matrix.md",
+      "bytes": 5754,
+      "lines": 70,
+      "sha256": "3f02ba3d97ccddbba5b88fe57b5785a923ff6613852318599fbf9967bc4417cf"
+    },
+    {
+      "path": "agents/lorentz_security/boundary_contracts.md",
+      "bytes": 8274,
+      "lines": 107,
+      "sha256": "bfc3928fe5a39e6afd2aa71be73b9cad0e5069a36e35ebd33792c337876436eb"
+    },
+    {
+      "path": "agents/lorentz_security/drills_projection_verification.md",
+      "bytes": 4584,
+      "lines": 97,
+      "sha256": "d93eb713efd8ad1f8abb02d8c4cf1ea580c57a0b6f63e715c3dac6a042be9a8f"
+    },
+    {
+      "path": "agents/lorentz_security/hash_and_identity_report.md",
+      "bytes": 4752,
+      "lines": 95,
+      "sha256": "e1c55188b6d3c2c470e079859c645c09fa74a619c903304fe9bbace3a7c3c60b"
+    },
+    {
+      "path": "agents/lorentz_security/legacy_v4_mapping_report.md",
+      "bytes": 4222,
+      "lines": 89,
+      "sha256": "d393edda99c0ac0ab5adfa237974115692b21b966ee250538f43024ea342df94"
+    },
+    {
+      "path": "agents/lorentz_security/rls_test_matrix.md",
+      "bytes": 6495,
+      "lines": 85,
+      "sha256": "f1728cb708ae5742167d0b8b1e3257ff73cd49032a3103dac35a076474a1b296"
+    },
+    {
+      "path": "agents/lorentz_security/schema_and_adapter_changes.md",
+      "bytes": 8057,
+      "lines": 137,
+      "sha256": "e58be6241072cfb797f0189de1cedcf2cc0339818b8dadba167e8fc340561970"
+    },
+    {
+      "path": "agents/lorentz_security/security_release_verdict.md",
+      "bytes": 4505,
+      "lines": 68,
+      "sha256": "16b7e824f270f224c849a1fedc10652044b651af983d4f1cb695b27efae6c605"
+    },
+    {
+      "path": "agents/lorentz_security/security_repairs.md",
+      "bytes": 5119,
+      "lines": 56,
+      "sha256": "726dcfe397afb7471b32fb72643b5ac7f79c60c75c08ff60304eda6f2ffa54b3"
+    },
+    {
+      "path": "agents/lorentz_security/stat_projection_verification.md",
+      "bytes": 4211,
+      "lines": 98,
+      "sha256": "0f3691e803bbad19c141a8c1f38e53abefb7b9ec6e4c9a816b6f04ba636c445a"
+    },
+    {
+      "path": "agents/lorentz_security/threat_model.md",
+      "bytes": 8281,
+      "lines": 107,
+      "sha256": "a3199bac885f651aa280fc7f1cb6250618b6a4c4a27659a3b792dc41c29c729d"
+    },
+    {
+      "path": "agents/medical_content/distractor_quality_report.md",
+      "bytes": 4604,
+      "lines": 64,
+      "sha256": "7467b42df87636a31993478289e16a33d04e6b8f4f5a0f58a72f66512bd89144"
+    },
+    {
+      "path": "agents/medical_content/evidence_conflict_report.md",
+      "bytes": 3981,
+      "lines": 51,
+      "sha256": "de4601737304b747861f35db28e10664bc5739d590b7e393edee1dbcf3c468f4"
+    },
+    {
+      "path": "agents/medical_content/legacy_v4_medical_risk_triage.md",
+      "bytes": 3958,
+      "lines": 55,
+      "sha256": "54e4c8cd87e652e3f3abf2ddad4ff2aead9af135a7d78ef2088747b88973b186"
+    },
+    {
+      "path": "agents/medical_content/medical_candidate_audit.md",
+      "bytes": 9064,
+      "lines": 112,
+      "sha256": "25a8adb79700a81bf93b578898b4bc49fe5bb5aa9b3873c5668de402b05d1cf9"
+    },
+    {
+      "path": "agents/medical_content/physician_review_queue.md",
+      "bytes": 4556,
+      "lines": 68,
+      "sha256": "d34c3c5cada2feae1457a5e7f8b0ea407e3da91b0614884921a39388b4676a8f"
+    },
+    {
+      "path": "agents/privacy_rights/blocked_sources.md",
+      "bytes": 2577,
+      "lines": 36,
+      "sha256": "4cc32ae335f44b77fa8902c2bd7b2462640a33bb10a8ee12ce16b19552c277ed"
+    },
+    {
+      "path": "agents/privacy_rights/privacy_recall_precision.md",
+      "bytes": 5045,
+      "lines": 75,
+      "sha256": "1c24f5370556506565155a3f70bde8b4e4ffe5b0dba4e3ef732e627b10d0f4e1"
+    },
+    {
+      "path": "agents/privacy_rights/privacy_release_verdict.md",
+      "bytes": 2729,
+      "lines": 32,
+      "sha256": "f95bc93d4dfae195b6a7c46b5f6f4e2bbdb9ff3ce59552baa3296386ed141a8b"
+    },
+    {
+      "path": "agents/privacy_rights/privacy_source_model.md",
+      "bytes": 7168,
+      "lines": 70,
+      "sha256": "f830d28db45b2a4beda5d330a5d98fd9a4c74b341fe67ba09301d1af397b0604"
+    },
+    {
+      "path": "agents/privacy_rights/source_access_audit.md",
+      "bytes": 3759,
+      "lines": 51,
+      "sha256": "7bd4af3814a61d22f2de606a4b6bba485af88ac73ee0e984f530003e0fd4e043"
+    },
+    {
+      "path": "agents/red_team/independent_red_team.md",
+      "bytes": 5901,
+      "lines": 75,
+      "sha256": "fa2fb72982f6c51a83b10407955c1aa03b7f37805d3937e32572b5f24f45e739"
+    },
+    {
+      "path": "agents/red_team/release_veto_or_clearance.md",
+      "bytes": 2351,
+      "lines": 31,
+      "sha256": "dc466d294be61405e023927668a54487e3c2388565b885facbc2b8cb44fe3a5e"
+    },
+    {
+      "path": "agents/release_reliability/dependent_product_regression.md",
+      "bytes": 6281,
+      "lines": 80,
+      "sha256": "1af39bf87949048198afa4e86a90a3be8f1d58c942b825b83ad915099b30d763"
+    },
+    {
+      "path": "agents/release_reliability/deployment_plan.md",
+      "bytes": 7260,
+      "lines": 85,
+      "sha256": "e3e0e0fa2dfe00dbf7390e503fd064a3be019a84b34a6ce4f6f609f1fe662f58"
+    },
+    {
+      "path": "agents/release_reliability/monitoring_plan.md",
+      "bytes": 5574,
+      "lines": 95,
+      "sha256": "0fabc072d53fd76a6e5e0c382cada8f56b163ba0586f0026a2248003f8fdb3da"
+    },
+    {
+      "path": "agents/release_reliability/production_smoke_results.md",
+      "bytes": 3709,
+      "lines": 77,
+      "sha256": "65f5533cdf3857320fd8341bf3130ac0ddf0c16699b1d6deb42498978ac26d95"
+    },
+    {
+      "path": "agents/release_reliability/release_verdict.md",
+      "bytes": 6898,
+      "lines": 104,
+      "sha256": "b4691e940792290c05bcc3c39d76b5864e57d46b9f793c724a6da15d39954667"
+    },
+    {
+      "path": "agents/release_reliability/rollback_plan.md",
+      "bytes": 5850,
+      "lines": 86,
+      "sha256": "749b0d360a1239ab1425a907aeaea36489a7769625bf18894e285ab9ddeff27a"
+    },
+    {
+      "path": "agents/release_reliability/rollback_results.md",
+      "bytes": 3494,
+      "lines": 76,
+      "sha256": "73ec72e8dafab9f7c652e71f338e7499747338395cb4d6869a9e6d9904b6fc52"
+    },
+    {
+      "path": "agents/release_reliability/staging_certification.md",
+      "bytes": 5928,
+      "lines": 83,
+      "sha256": "7899bcbb72f63c850bd401720dbd25053f95f095457c58f00f9568a88d2dc3ea"
+    },
+    {
+      "path": "agents/security_integrated/answer_isolation_report.md",
+      "bytes": 4600,
+      "lines": 85,
+      "sha256": "28d8363f9518f8b70b0c082abd395bf018bf6b4588f13f71208857ba6e3b27dd"
+    },
+    {
+      "path": "agents/security_integrated/auth_test_matrix.md",
+      "bytes": 5066,
+      "lines": 72,
+      "sha256": "a92c60ae0c0e503072b894d2df2db6697b0c0699c9a990973975dd8f74167b5e"
+    },
+    {
+      "path": "agents/security_integrated/rls_test_matrix.md",
+      "bytes": 6528,
+      "lines": 80,
+      "sha256": "4de22882646d0cb31269d91df6de2b6ed4d3fa359535cb7438d004b085de04fc"
+    },
+    {
+      "path": "agents/security_integrated/security_release_verdict.md",
+      "bytes": 4822,
+      "lines": 78,
+      "sha256": "bcacbd5c1d74003bc9af21eea43483f73681eb2ce19faeefadd550dabfaf8e7a"
+    },
+    {
+      "path": "agents/security_integrated/security_repairs.md",
+      "bytes": 5901,
+      "lines": 60,
+      "sha256": "7536772f623180763912f5a0cfa8cb722644495fd396869cd7afbd893eff77d3"
+    },
+    {
+      "path": "agents/security_integrated/threat_model.md",
+      "bytes": 7980,
+      "lines": 87,
+      "sha256": "950fe5fda32fdb872ad74b005afeff64ab3db20f68ca9ed869034b5221d93741"
+    },
+    {
+      "path": "agents/ux_accessibility/accessibility_audit.md",
+      "bytes": 6789,
+      "lines": 109,
+      "sha256": "a9307d4d03563dd52dfdf4fcd8c738b213fb87c1b8ee7ce74a0e24ea069ecf12"
+    },
+    {
+      "path": "agents/ux_accessibility/human_validation_protocol.md",
+      "bytes": 8340,
+      "lines": 159,
+      "sha256": "7f85d0b03196da9a689f2eb7fcb503919521bdbe0ae132657e8430998b1036ef"
+    },
+    {
+      "path": "agents/ux_accessibility/responsive_audit.md",
+      "bytes": 5488,
+      "lines": 86,
+      "sha256": "96b1610dfa231016d86312491592f27acc066b87b286c82cc80a9e53847bafe5"
+    },
+    {
+      "path": "agents/ux_accessibility/ui_repairs.md",
+      "bytes": 7756,
+      "lines": 231,
+      "sha256": "5739c71077becb19f75e5b125ac03f143ddbe192407f6ae53d50325c4caab390"
+    },
+    {
+      "path": "agents/ux_accessibility/ux_release_verdict.md",
+      "bytes": 5148,
+      "lines": 80,
+      "sha256": "2c5ccecd7d0eac53c7c0191f82da409ab95c38334e034d398719ca3030c75ef8"
+    },
+    {
+      "path": "agents/ux_accessibility/ux_workflow_audit.md",
+      "bytes": 7922,
+      "lines": 98,
+      "sha256": "1ae4da07e4b7686543769bd3c4e2766bf9848cb098711147879f7bb888ef9957"
+    },
+    {
+      "path": "agents/ux_current/accessibility_audit.md",
+      "bytes": 9584,
+      "lines": 173,
+      "sha256": "69f3ea83869a913a01d5b4cff4714acd0fc136962b1dabc260faa82b21410268"
+    },
+    {
+      "path": "agents/ux_current/human_validation_protocol.md",
+      "bytes": 10812,
+      "lines": 225,
+      "sha256": "a006f5d36d5da15e4047c326758a704d480830f6b5788950116a6a79ccad1fc4"
+    },
+    {
+      "path": "agents/ux_current/responsive_audit.md",
+      "bytes": 6598,
+      "lines": 140,
+      "sha256": "69b86d347495d8273cb8a47bc029df1ce3add422bdd2386b1bf7f2fdac219dfc"
+    },
+    {
+      "path": "agents/ux_current/ui_repairs.md",
+      "bytes": 10322,
+      "lines": 257,
+      "sha256": "f602b63c002332cfb0fe7684c852d84eac5b58f9c6a666d272afba00ddb6fa77"
+    },
+    {
+      "path": "agents/ux_current/ux_release_verdict.md",
+      "bytes": 5377,
+      "lines": 109,
+      "sha256": "3ed3e97f6baa58322a90e16cf8aa4efbae00cbd434e9842a3eef4523b72ceb71"
+    },
+    {
+      "path": "agents/ux_current/ux_workflow_audit.md",
+      "bytes": 12175,
+      "lines": 144,
+      "sha256": "12ac039c65fbfb60eb0d90e1295a8ebee3ab88364b0db7381ea406f86ea4d31c"
+    },
+    {
+      "path": "I1Q_1007X_ACCESSIBILITY.md",
+      "bytes": 1161,
+      "lines": 17,
+      "sha256": "055958207b0d938caf5fda2bf36bbbc9fc75d9e5fe4dd55bda79ef3040ef91e5"
+    },
+    {
+      "path": "I1Q_1007X_AGENT_CHARTERS.md",
+      "bytes": 3854,
+      "lines": 57,
+      "sha256": "d0740ed44708a3399a2639670e3bf23e616ca11968947c8975e111e1acb2993c"
+    },
+    {
+      "path": "I1Q_1007X_AGENT_OWNERSHIP_MATRIX.md",
+      "bytes": 5018,
+      "lines": 58,
+      "sha256": "3063a886619f04eb19e88b5f854ea26d36aa4f92cea7d23e0412da0a4e94724a"
+    },
+    {
+      "path": "I1Q_1007X_AUTH.md",
+      "bytes": 2230,
+      "lines": 36,
+      "sha256": "07d48ad1dbe5c32817ab5c5b05a9c95abbdc339d7c53e61137c987be77faa357"
+    },
+    {
+      "path": "I1Q_1007X_AUTHORITY_DECISION.md",
+      "bytes": 4428,
+      "lines": 79,
+      "sha256": "7c4967db5b6b62785365b90e540af989135ad00e1f8d0184ae773521ad4c9b54"
+    },
+    {
+      "path": "I1Q_1007X_BASELINE.md",
+      "bytes": 4185,
+      "lines": 74,
+      "sha256": "9e4fc8b5b118097129850741b6fd60c78a144a687aad5166a38fd55a76cb574c"
+    },
+    {
+      "path": "I1Q_1007X_BATCH_EXTRACTION.md",
+      "bytes": 1768,
+      "lines": 36,
+      "sha256": "69014bf8b3ba7095c6f2cd8540e33b9f7d3ac0604049c31e3ea37cec0624e7f4"
+    },
+    {
+      "path": "I1Q_1007X_CORPUS_INVENTORY.md",
+      "bytes": 7105,
+      "lines": 130,
+      "sha256": "48f9fdceee8afa2d85e07284a4e1e3c2fb3c0c911eaadc88eecb1d2193b9dd7c"
+    },
+    {
+      "path": "I1Q_1007X_DATASTORE.md",
+      "bytes": 2404,
+      "lines": 41,
+      "sha256": "5dae9c5ab2b00f9393daa9907aa8775ae4b5a5d03559c501527f2af534426b5d"
+    },
+    {
+      "path": "I1Q_1007X_DEPENDENT_PRODUCTS.md",
+      "bytes": 1628,
+      "lines": 25,
+      "sha256": "d9cef74bb41dfdf80a096cfa4c9a06ff3ca320a938bc7839a65bb882214cd725"
+    },
+    {
+      "path": "I1Q_1007X_DRILLS_ADAPTER.md",
+      "bytes": 3667,
+      "lines": 82,
+      "sha256": "d6b2255e2ba56931bcbe586e87ea23add89dc9d0eefd77068f89438b04672765"
+    },
+    {
+      "path": "I1Q_1007X_ECOSYSTEM_DEPENDENCIES.md",
+      "bytes": 6735,
+      "lines": 102,
+      "sha256": "e0da442295df71ecac8d1a1a8cfbe1a8e9b13e1c2c08ef3f0749c2823fa8b2a8"
+    },
+    {
+      "path": "I1Q_1007X_EXECUTION_PLAN.md",
+      "bytes": 3472,
+      "lines": 55,
+      "sha256": "35e86a745fe2ed8667cb6da1ea1f6a64a5980eba88f8f6e289913874324fd266"
+    },
+    {
+      "path": "I1Q_1007X_FOUNDATION_REPRODUCTION.md",
+      "bytes": 6278,
+      "lines": 81,
+      "sha256": "6c6b4d88e08ac76b870b3b8da827536bac37774568db28764232c421d18f8f99"
+    },
+    {
+      "path": "I1Q_1007X_INTERNAL_APP.md",
+      "bytes": 2526,
+      "lines": 38,
+      "sha256": "e0399b571d091c13e70ca4a5a1475e64b0d9b6fb3878cb5005d303bdd86c884d"
+    },
+    {
+      "path": "I1Q_1007X_LEGACY_V4.md",
+      "bytes": 6845,
+      "lines": 141,
+      "sha256": "b2293dbbf33472f255abb2b99788022f875ac557595604ecd31af6681f0a43bc"
+    },
+    {
+      "path": "I1Q_1007X_MISSIONMED_OS_RECOVERY.md",
+      "bytes": 3703,
+      "lines": 81,
+      "sha256": "b1623864ff4b87ee8c4c834cff967baac850f48cb079e77f9fbf2e6aaff991ca"
+    },
+    {
+      "path": "I1Q_1007X_MONITORING.md",
+      "bytes": 1158,
+      "lines": 17,
+      "sha256": "d5fba0e5cbe50bcf54d2092381c9789f171757d19680d32e5fab20ba30d27ae9"
+    },
+    {
+      "path": "I1Q_1007X_OPEN_HUMAN_ACTIONS.md",
+      "bytes": 3933,
+      "lines": 32,
+      "sha256": "33647e98ba355b8d25881cd56e8ce8cec41dd68174238301674e91712894d2f9"
+    },
+    {
+      "path": "I1Q_1007X_PATH_INDEX.md",
+      "bytes": 6070,
+      "lines": 101,
+      "sha256": "770fe73eb662e14501cb8a59650041ebae7ce5c009e703a901f271be88b26fae"
+    },
+    {
+      "path": "I1Q_1007X_PERFORMANCE.md",
+      "bytes": 1360,
+      "lines": 19,
+      "sha256": "bb6693ff5c705fd0a203e87fe1389a425f9c1eb98c362c5c0350f13d3452cdbe"
+    },
+    {
+      "path": "I1Q_1007X_PILOT.md",
+      "bytes": 2474,
+      "lines": 45,
+      "sha256": "87ccf293446c0299d0a6eb51965150a8fb993d2241266fad956cbf7ddaccf976"
+    },
+    {
+      "path": "I1Q_1007X_PRIVACY_NORMALIZATION.md",
+      "bytes": 3615,
+      "lines": 67,
+      "sha256": "0a8ed8ecaf55687355db323c6b602cc37145aa01d97cfa06b6bb06ddeb5be7c6"
+    },
+    {
+      "path": "I1Q_1007X_PRODUCTION_DEPLOYMENT.md",
+      "bytes": 881,
+      "lines": 13,
+      "sha256": "789de8da4c5e7128c9103bda8957f9f645c8e73716250c7f9aef663f6f402c0e"
+    },
+    {
+      "path": "I1Q_1007X_PRODUCTION_SMOKE.md",
+      "bytes": 858,
+      "lines": 20,
+      "sha256": "16a794d54e34b8919165b6ceeef38a9452585b258ac3a2db7258478bc946cfb3"
+    },
+    {
+      "path": "I1Q_1007X_PROTECTED_SYSTEM_COMPARISON.md",
+      "bytes": 5095,
+      "lines": 76,
+      "sha256": "08834f21ea67c8f14970d72e7fe70860734896c760a123ac429b3a609508c8a7"
+    },
+    {
+      "path": "I1Q_1007X_RED_TEAM.md",
+      "bytes": 5543,
+      "lines": 65,
+      "sha256": "d439f590ff2772dd410e28575fac1a1b4998de439508b2b36bbeb2f6622a3df7"
+    },
+    {
+      "path": "I1Q_1007X_REGISTRATION.md",
+      "bytes": 2504,
+      "lines": 59,
+      "sha256": "bae0740bf715eb266781a29ccd219c8cc8c413a9304189c52ac6f77103ea5c80"
+    },
+    {
+      "path": "I1Q_1007X_REPORT.md",
+      "bytes": 11606,
+      "lines": 140,
+      "sha256": "f6c2a522f0ee0ba439672fe79a2b10ce969f80f91bafc368bf2b959f58c00521"
+    },
+    {
+      "path": "I1Q_1007X_RLS.md",
+      "bytes": 1798,
+      "lines": 21,
+      "sha256": "c99bd07f8e7dfcccb2d0c2cb030a97af539567dacee69ed335364d3534f49d61"
+    },
+    {
+      "path": "I1Q_1007X_ROLLBACK.md",
+      "bytes": 1415,
+      "lines": 23,
+      "sha256": "ffad8173757c8f4ea6840ffdd0aa5d3bb7f70d83389d6708b1113457e15da90c"
+    },
+    {
+      "path": "I1Q_1007X_SECURITY.md",
+      "bytes": 3048,
+      "lines": 29,
+      "sha256": "426529c6b775b2b08a26447d1caec2aa4673954cc8555c2484d3c202dd8b81b2"
+    },
+    {
+      "path": "I1Q_1007X_STAGING_CERTIFICATION.md",
+      "bytes": 1219,
+      "lines": 30,
+      "sha256": "b0c99ab4d97c844896f5fc194110782c3e7056c1612e2d1e58a8790bbd67c867"
+    },
+    {
+      "path": "I1Q_1007X_STAT_ADAPTER.md",
+      "bytes": 4880,
+      "lines": 82,
+      "sha256": "9d67c0ea46499b2b862e73a4c9850c3f77ba3cf5f553e5ba2b543e922559809a"
+    },
+    {
+      "path": "I1Q_1007X_TRUE_BLOCKERS.md",
+      "bytes": 4884,
+      "lines": 61,
+      "sha256": "618f7716f8e3707e44d696a32c62128ec1be475544fc8babd8889844316d16d9"
+    },
+    {
+      "path": "I1Q_1007X_UI_UX.md",
+      "bytes": 1432,
+      "lines": 21,
+      "sha256": "703f945f8fc39cf01006530c63d8617b7f31e1777c52cce65bdd753f285d1668"
+    }
+  ],
+  "final_line_count": 11142,
+  "combined_bytes": 746926,
+  "combined_sha256": "8fdc2acc486cbd220eaac573e766693e06084b70b4338709092e9bbd53b48a73",
+  "markers_found": 109,
+  "missing_sources": [],
+  "duplicate_sources": [],
+  "unexpected_sources": [],
+  "exact_content_mismatches": [],
+  "self_embedding": false
+}
