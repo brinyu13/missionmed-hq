@@ -464,6 +464,10 @@ async function startProductionRoom() {
     toast('The product lease keeper must be READY before Test #1 can start.');
     return;
   }
+  if (state.founderTestPermit && state.t1Lease.workerRegistrationState !== 'READY') {
+    toast('Wait for the exact Profile B worker to register before starting the clock.');
+    return;
+  }
   $("#room-start").disabled = true;
   const videoProof = Boolean(state.founderTestPermit);
   $("#room-status").textContent = videoProof ? "Opening the bounded Founder video proof…" : "Opening the secure voice-only interview…";
@@ -497,7 +501,8 @@ async function startProductionRoom() {
       catch { state.t1Lease = Object.freeze({ ...state.t1Lease, state: 'LOST' }); }
       renderT1LeaseState();
     }
-    $("#room-start").disabled = !canUsePaidFounderControls(state.t1Lease.state);
+    $("#room-start").disabled = !canUsePaidFounderControls(state.t1Lease.state)
+      || state.t1Lease.workerRegistrationState !== 'READY';
     $("#room-status").textContent = error.code === "ivprep_unavailable" ? "Interview starts are temporarily disabled." : "Secure admission could not be confirmed.";
     toast("Interview start failed closed; no provider session was created.");
     return;
@@ -801,7 +806,8 @@ async function authorizeFounderProof() {
     $('#founder-proof-state').textContent = 'AUTHORIZED ONCE';
     $('#founder-proof-selected').textContent = `${issued.authorization.voice} · ${issued.authorization.maxSeconds}s maximum`;
     $('#room-start').innerHTML = '<span>●</span> Start Founder video proof';
-    toast('One Founder Test 1 authorization is bound. No provider session exists yet.');
+    renderT1LeaseState();
+    toast('Authorization is bound. Start stays disabled until the exact Profile B worker registers.');
   } catch (error) {
     button.disabled = false;
     $('#founder-proof-state').textContent = 'DENIED';
@@ -816,12 +822,13 @@ function renderT1LeaseState() {
   const acquireButton = $('#founder-acquire-lease');
   const authorizeButton = $('#founder-authorize-test');
   const ready = canUsePaidFounderControls(lease.state);
+  const workerReady = lease.workerRegistrationState === 'READY';
   if (stateNode) stateNode.textContent = lease.state;
   if (detailNode) {
     detailNode.textContent = lease.state === 'STABILIZING'
       ? `${lease.heartbeatCount} heartbeats · ${lease.stableSeconds}s stable · 30s required`
       : lease.state === 'READY'
-        ? `${lease.heartbeatCount} heartbeats · ${lease.stableSeconds}s stable · automatic keeper active`
+        ? `${lease.heartbeatCount} heartbeats · ${lease.stableSeconds}s stable · ${state.founderTestPermit && !workerReady ? 'waiting for Profile B worker registration' : 'automatic keeper active'}`
         : lease.state === 'LOST'
           ? 'Authority was lost. Paid controls are closed and no automatic reacquire is allowed.'
           : lease.state === 'RELEASED'
@@ -834,7 +841,7 @@ function renderT1LeaseState() {
   }
   if (authorizeButton) authorizeButton.disabled = !ready || Boolean(state.founderTestPermit);
   if ($('#room-start') && !state.roomStarted) {
-    $('#room-start').disabled = !ready || !state.founderTestPermit;
+    $('#room-start').disabled = !ready || !state.founderTestPermit || !workerReady;
   }
 }
 

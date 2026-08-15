@@ -169,6 +169,9 @@ test('Founder paid controls are READY-only and lease loss disables them immediat
     readFile(new URL('public/aaa/api-client.mjs', ROOT), 'utf8'),
   ]);
   assert.match(app, /!canUsePaidFounderControls\(state\.t1Lease\.state\)/u);
+  assert.match(app, /state\.t1Lease\.workerRegistrationState !== 'READY'/u);
+  assert.match(app, /!ready \|\| !state\.founderTestPermit \|\| !workerReady/u);
+  assert.match(app, /waiting for Profile B worker registration/u);
   assert.match(app, /state\.t1Lease\.state === 'LOST'[\s\S]*?stopProductionRoom/u);
   assert.match(app, /releaseT1Lease\(\)/u);
   assert.match(api, /request\('\/t1-lease\/acquire'/u);

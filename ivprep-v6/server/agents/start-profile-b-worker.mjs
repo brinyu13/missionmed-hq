@@ -1,4 +1,4 @@
-import { AgentServer, ServerOptions } from '@livekit/agents';
+import { AgentServer, ServerOptions, initializeLogger } from '@livekit/agents';
 import { fileURLToPath } from 'node:url';
 
 import { PROFILE_B_AGENT_NAME } from './profile-b-agent.mjs';
@@ -31,7 +31,22 @@ export function createProfileBAgentServer({ environment = process.env } = {}) {
   }));
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const server = createProfileBAgentServer();
+export async function runProfileBAgentWorker({
+  environment = process.env,
+  initialize = initializeLogger,
+  createServer = createProfileBAgentServer,
+  processRef = process,
+} = {}) {
+  initialize({ pretty: false, level: 'info' });
+  const server = createServer({ environment });
+  server.event.once('worker_registered', () => {
+    if (typeof processRef.send === 'function' && processRef.connected !== false) {
+      processRef.send({ type: 'ivprep-profile-b-worker-registered' });
+    }
+  });
   await server.run();
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  await runProfileBAgentWorker();
 }

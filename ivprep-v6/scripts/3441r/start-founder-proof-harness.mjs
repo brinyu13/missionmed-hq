@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { statSync } from 'node:fs';
 import http from 'node:http';
 import { createRequire } from 'node:module';
 import { basename, isAbsolute } from 'node:path';
@@ -8,6 +9,7 @@ import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
 import { InMemoryAdmissionRegistry } from '../../server/admission-registry.mjs';
+import { loadLocalEnvironment } from '../../config/load-environment.mjs';
 import {
   FounderProofDurableCoordinator,
   createDurableWorkerHttpHandler,
@@ -27,6 +29,7 @@ const unexpectedArgument = process.argv.slice(2).find((value) => ![
 
 const keeperPath = fileURLToPath(new URL('./t1-durable-lease-keeper.py', import.meta.url));
 const productRoot = fileURLToPath(new URL('../../', import.meta.url));
+const providerEnvironmentPath = fileURLToPath(new URL('../../.env.local', import.meta.url));
 const localRequire = createRequire(import.meta.url);
 const leaseStates = new Set(['NOT_ACQUIRED', 'STABILIZING', 'READY', 'LOST', 'RELEASED']);
 const requiredProviderBindings = Object.freeze([
@@ -46,12 +49,15 @@ function fixedStartupReason(error) {
     'ARGUMENTS_INVALID',
     'LIVE_MODE_NOT_ENABLED',
     'PROVIDER_BINDINGS_UNAVAILABLE',
+    'PROVIDER_BINDINGS_FILE_UNAVAILABLE',
+    'PROVIDER_BINDINGS_FILE_UNSAFE',
     'NPM_RUNTIME_UNAVAILABLE',
     'LOCKED_DEPENDENCY_INSTALL_FAILED',
     'LOCKED_RUNTIME_DEPENDENCIES_UNAVAILABLE',
     'LIVEKIT_CONFIGURATION_INVALID',
     'LEASE_KEEPER_INITIALIZATION_FAILED',
     'LOOPBACK_LISTEN_FAILED',
+    'LOOPBACK_READINESS_FAILED',
     'INTERNAL_STARTUP_FAILURE',
   ]);
   return allowed.has(error?.code) ? error.code : 'INTERNAL_STARTUP_FAILURE';
@@ -60,6 +66,31 @@ function fixedStartupReason(error) {
 function reportStartupFailure(error) {
   process.stderr.write('FOUNDER HARNESS START FAILED\n');
   process.stderr.write(`REASON:\n${fixedStartupReason(error)}\n`);
+}
+
+export function loadApprovedFounderEnvironment({
+  live = liveRequested,
+  path = providerEnvironmentPath,
+  env = process.env,
+  statFile = statSync,
+  loadEnvironment = loadLocalEnvironment,
+} = {}) {
+  if (!live) return Object.freeze({ found: false, loaded: 0 });
+  let stats;
+  try {
+    stats = statFile(path);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return Object.freeze({ found: false, loaded: 0 });
+    throw new FounderHarnessStartupError('PROVIDER_BINDINGS_FILE_UNAVAILABLE');
+  }
+  if (!stats.isFile() || (stats.mode & 0o077) !== 0) {
+    throw new FounderHarnessStartupError('PROVIDER_BINDINGS_FILE_UNSAFE');
+  }
+  try {
+    return Object.freeze(loadEnvironment({ path, env }));
+  } catch {
+    throw new FounderHarnessStartupError('PROVIDER_BINDINGS_FILE_UNAVAILABLE');
+  }
 }
 
 function validateStartupContract() {
@@ -73,6 +104,26 @@ function validateStartupContract() {
   if (requiredProviderBindings.some((name) => !process.env[name])) {
     throw new FounderHarnessStartupError('PROVIDER_BINDINGS_UNAVAILABLE');
   }
+}
+
+export function verifyFounderLoopback({ origin = sealedOrigin, timeoutMs = 2_000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const target = new URL('/iv-prep-on-call/', origin);
+    const request = http.get({
+      hostname: target.hostname,
+      port: target.port,
+      path: target.pathname,
+      headers: { Cookie: '' },
+    }, (response) => {
+      response.resume();
+      response.once('end', () => {
+        if (response.statusCode === 200) resolve(true);
+        else reject(new FounderHarnessStartupError('LOOPBACK_READINESS_FAILED'));
+      });
+    });
+    request.setTimeout(timeoutMs, () => request.destroy());
+    request.once('error', () => reject(new FounderHarnessStartupError('LOOPBACK_READINESS_FAILED')));
+  });
 }
 
 export async function installLockedDependencies({
@@ -298,24 +349,55 @@ const handleDurableWorker = createDurableWorkerHttpHandler({ coordinator, token:
 let sealedOrigin = null;
 let runtime = null;
 let workerProcess = null;
+let workerRegistrationTimer = null;
+let workerRegistrationState = liveRequested ? 'NOT_STARTED' : 'READY';
 let closing = false;
 let leaseSupervisor = null;
 
 function ensureWorkerProcess() {
-  if (!liveRequested || (workerProcess && workerProcess.exitCode === null)) return;
+  if (!liveRequested || workerRegistrationState === 'READY'
+    || (workerProcess && workerProcess.exitCode === null)) return;
   const workerPath = fileURLToPath(new URL('../../server/agents/start-profile-b-worker.mjs', import.meta.url));
+  workerRegistrationState = 'STARTING';
   workerProcess = spawn(process.execPath, [workerPath], {
     env: {
       ...process.env,
       IVPREP_FOUNDER_PROOF_GATE_URL: `${sealedOrigin}/_3441r/worker`,
       IVPREP_FOUNDER_PROOF_GATE_TOKEN: controlToken,
     },
-    stdio: 'ignore',
+    stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
     windowsHide: true,
   });
-  workerProcess.once('error', () => runtime?.paidTestGate.failClosed('profile_b_worker_spawn_error'));
+  workerRegistrationTimer = setTimeout(() => {
+    workerRegistrationState = 'FAILED';
+    workerProcess?.kill('SIGTERM');
+    runtime?.paidTestGate.failClosed('profile_b_worker_registration_timeout');
+  }, 15_000);
+  workerProcess.once('message', (message) => {
+    if (message?.type !== 'ivprep-profile-b-worker-registered'
+      || workerRegistrationState !== 'STARTING') return;
+    clearTimeout(workerRegistrationTimer);
+    workerRegistrationTimer = null;
+    workerRegistrationState = 'READY';
+  });
+  workerProcess.once('error', () => {
+    clearTimeout(workerRegistrationTimer);
+    workerRegistrationTimer = null;
+    workerRegistrationState = 'FAILED';
+    runtime?.paidTestGate.failClosed('profile_b_worker_spawn_error');
+  });
   workerProcess.once('exit', () => {
+    clearTimeout(workerRegistrationTimer);
+    workerRegistrationTimer = null;
+    workerRegistrationState = 'FAILED';
     if (!closing) runtime?.paidTestGate.failClosed('profile_b_worker_exit');
+  });
+}
+
+function publicLeaseState() {
+  return Object.freeze({
+    ...(leaseSupervisor?.publicState() || { state: 'LOST' }),
+    workerRegistrationState,
   });
 }
 
@@ -338,7 +420,7 @@ function founderMutationAuthorized(request) {
 
 async function handleLeaseControl(request, response, url) {
   if (url.pathname === '/api/ivprep-v6/t1-lease' && request.method === 'GET') {
-    sendJson(response, 200, { lease: leaseSupervisor?.publicState() || { state: 'LOST' } });
+    sendJson(response, 200, { lease: publicLeaseState() });
     return true;
   }
   if (!['/api/ivprep-v6/t1-lease/acquire', '/api/ivprep-v6/t1-lease/release'].includes(url.pathname)) {
@@ -353,12 +435,12 @@ async function handleLeaseControl(request, response, url) {
       sendJson(response, 409, { error: 'ivprep_t1_lease_acquire_denied' });
       return true;
     }
-    sendJson(response, 202, { lease: leaseSupervisor.publicState() });
+    sendJson(response, 202, { lease: publicLeaseState() });
     return true;
   }
   const released = await leaseSupervisor?.release();
   sendJson(response, released ? 200 : 409, released
-    ? { lease: leaseSupervisor.publicState() }
+    ? { lease: publicLeaseState() }
     : { error: 'ivprep_t1_lease_release_unconfirmed' });
   return true;
 }
@@ -367,6 +449,10 @@ function paidMutationRequiresReadyLease(request, url) {
   if (request.method !== 'POST') return false;
   return url.pathname === '/api/ivprep-v6/provider-tests/authorize'
     || url.pathname === '/api/ivprep-v6/interviews/start';
+}
+
+export function workerRegistrationAllowsStart({ live, state } = {}) {
+  return live !== true || state === 'READY';
 }
 
 const server = http.createServer(async (request, response) => {
@@ -381,6 +467,12 @@ const server = http.createServer(async (request, response) => {
   if (paidMutationRequiresReadyLease(request, url)
     && leaseSupervisor?.publicState().state !== 'READY') {
     sendJson(response, 409, { error: 'ivprep_t1_lease_not_ready' });
+    return;
+  }
+  if (request.method === 'POST'
+    && url.pathname === '/api/ivprep-v6/interviews/start'
+    && !workerRegistrationAllowsStart({ live: liveRequested, state: workerRegistrationState })) {
+    sendJson(response, 409, { error: 'ivprep_t1_worker_not_ready' });
     return;
   }
   if (liveRequested
@@ -443,12 +535,16 @@ async function initializeFounderHarness() {
         room: livekit.room,
         participant: livekit.participant,
         dispatch: livekit.dispatch,
-        worker: coordinator.workerAdapter(),
+        worker: Object.freeze({
+          ...coordinator.workerAdapter(),
+          assertReady: async () => ({ ok: workerRegistrationState === 'READY' }),
+        }),
       });
     } else {
       providerDependencies = createSyntheticProviderDependencies({ coordinator });
     }
     runtime = createFounderProofRuntime({ registry, entitlementStore, providerDependencies, now });
+    await verifyFounderLoopback();
     process.stdout.write(`LOCAL_FOUNDER_PROOF_URL=${sealedOrigin}/iv-prep-on-call/#room\n`);
     process.stdout.write(`LOCAL_FOUNDER_PROOF_MODE=${liveRequested ? 'LIVE_FOUNDER_TEST_1' : 'SYNTHETIC_ZERO_COST'}\n`);
     process.stdout.write('LEASE_STATE=NOT_ACQUIRED\n');
@@ -457,6 +553,7 @@ async function initializeFounderHarness() {
 
 const isDirectRun = process.argv[1] === fileURLToPath(import.meta.url);
 async function startFounderHarness() {
+  loadApprovedFounderEnvironment();
   validateStartupContract();
   if (liveRequested) await ensureFounderHarnessDependencies();
   await new Promise((resolve, reject) => {
@@ -481,6 +578,8 @@ if (isDirectRun) {
 async function close({ exitCode = 0 } = {}) {
   if (closing) return;
   closing = true;
+  clearTimeout(workerRegistrationTimer);
+  workerRegistrationTimer = null;
   const serverClosed = new Promise((resolve) => server.close(resolve));
   let clean = true;
   try {

@@ -48,6 +48,7 @@ test('one Profile B reservation, dispatch, provider session, and ordered teardow
       delete: async ({ roomName, retry }) => { calls.push(['dispatch.delete', roomName, retry]); },
     },
     worker: {
+      assertReady: async ({ retry }) => { calls.push(['worker.assertReady', retry]); return { ok: true }; },
       armJob: async ({ retry }) => { calls.push(['worker.armJob', retry]); return { ok: true }; },
       bindDispatch: async ({ retry }) => { calls.push(['worker.bindDispatch', retry]); return { ok: true }; },
       awaitMediaReady: async ({ roomName, dispatchId, reservationNonce, retry }) => {
@@ -104,7 +105,7 @@ test('one Profile B reservation, dispatch, provider session, and ordered teardow
   assert.equal(controller.lifecycle.state, 'CLOSED');
   assert.deepEqual(store.balance('wp:1'), { granted: 59, consumed: 13, reserved: 0, available: 46 });
   assert.deepEqual(calls.map(([name]) => name), [
-    'room.create', 'participant.issue', 'worker.armJob', 'dispatch.create', 'worker.bindDispatch', 'worker.awaitMediaReady',
+    'room.create', 'participant.issue', 'worker.assertReady', 'worker.armJob', 'worker.assertReady', 'dispatch.create', 'worker.bindDispatch', 'worker.awaitMediaReady',
     'worker.requestStop', 'worker.awaitReconciliation', 'worker.close', 'dispatch.delete', 'room.delete',
   ]);
   for (const call of calls) {
@@ -172,6 +173,7 @@ test('unconfirmed termination fails closed and trips the store kill switch', asy
     participant: { issue: async ({ participantIdentity }) => ({ url: 'wss://example.livekit.cloud', token: 'synthetic-room-token'.padEnd(64, 'x'), participantIdentity }) },
     dispatch: { create: async () => ({ dispatchId: 'dispatch-2' }), delete: async () => {} },
     worker: {
+      assertReady: async () => ({ ok: true }),
       armJob: async () => ({ ok: true }),
       bindDispatch: async () => ({ ok: true }),
       awaitMediaReady: async ({ roomName, dispatchId, reservationNonce }) => ({
@@ -220,6 +222,46 @@ test('paid controller refuses Test 2, Test 3, and any restart', async () => {
   await assert.rejects(controller.start({ subject: 'wp:3', interviewId: 'interview-3', idempotencyKey: 'idem-key-4', testNo: 2, paidTestAuthorization: paidAuthorization({ subject: 'wp:3', interviewId: 'interview-3', idempotencyKey: 'idem-key-4' }) }), /Test 1/u);
 });
 
+test('unregistered live worker cannot arm the 45-second clock or create a dispatch', async () => {
+  let deadlineCalls = 0;
+  let dispatchCalls = 0;
+  const store = new InMemoryVideoEntitlementStore({ idFactory: () => 'reservation-worker-gate' });
+  store.grantSyntheticSeconds('wp:worker-gate', 45);
+  const controller = new ProviderSessionController({
+    entitlementStore: store,
+    clock: { setTimeout: () => { deadlineCalls += 1; return 1; }, clearTimeout: () => {} },
+    onTerminal: terminalAudit,
+    room: { create: async () => ({ roomName: 'room-worker-gate' }), delete: async () => {} },
+    participant: { issue: async ({ participantIdentity }) => ({
+      url: 'wss://example.livekit.cloud',
+      token: 'synthetic-room-token'.padEnd(64, 'x'),
+      participantIdentity,
+    }) },
+    dispatch: {
+      create: async () => { dispatchCalls += 1; return { dispatchId: 'forbidden-dispatch' }; },
+      delete: async () => {},
+    },
+    worker: {
+      assertReady: async () => ({ ok: false }),
+      close: async () => {},
+    },
+  });
+  const result = await controller.start({
+    subject: 'wp:worker-gate',
+    interviewId: 'interview-worker-gate',
+    idempotencyKey: 'idem-worker-gate',
+    testNo: 1,
+    paidTestAuthorization: paidAuthorization({
+      subject: 'wp:worker-gate', interviewId: 'interview-worker-gate', idempotencyKey: 'idem-worker-gate',
+    }),
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'provider_start_failed');
+  assert.equal(deadlineCalls, 0);
+  assert.equal(dispatchCalls, 0);
+  assert.equal(controller.startedAtMs, null);
+});
+
 test('lost avatar start response remains unconfirmed and every cleanup step is attempted', async () => {
   const calls = [];
   const store = new InMemoryVideoEntitlementStore({ idFactory: () => 'reservation-4' });
@@ -232,6 +274,7 @@ test('lost avatar start response remains unconfirmed and every cleanup step is a
     participant: { issue: async ({ participantIdentity }) => ({ url: 'wss://example.livekit.cloud', token: 'synthetic-room-token'.padEnd(64, 'x'), participantIdentity }) },
     dispatch: { create: async () => ({ dispatchId: 'dispatch-4' }), delete: async () => calls.push('dispatch.delete') },
     worker: {
+      assertReady: async () => ({ ok: true }),
       armJob: async () => ({ ok: true }),
       bindDispatch: async () => ({ ok: true }),
       awaitMediaReady: async () => { calls.push('worker.awaitMediaReady'); throw new Error('response lost'); },

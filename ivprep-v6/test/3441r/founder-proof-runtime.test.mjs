@@ -17,6 +17,8 @@ import {
   createFounderProofHqSession,
   ensureFounderHarnessDependencies,
   installLockedDependencies,
+  loadApprovedFounderEnvironment,
+  workerRegistrationAllowsStart,
 } from '../../scripts/3441r/start-founder-proof-harness.mjs';
 
 const NOW = Date.parse('2026-08-13T20:00:00.000Z');
@@ -142,6 +144,38 @@ test('Founder harness session TTL uses one deterministic clock read and exactly 
 
   assert.equal(clockReads, 1);
   assert.equal(Date.parse(session.expiresAt) - Date.parse(session.issuedAt), 1_800_000);
+});
+
+test('live Start remains closed until the exact worker registration event is READY', () => {
+  for (const state of ['NOT_STARTED', 'STARTING', 'FAILED']) {
+    assert.equal(workerRegistrationAllowsStart({ live: true, state }), false);
+  }
+  assert.equal(workerRegistrationAllowsStart({ live: true, state: 'READY' }), true);
+  assert.equal(workerRegistrationAllowsStart({ live: false, state: 'NOT_STARTED' }), true);
+});
+
+test('Founder launcher loads only a private approved environment file and preserves process authority', () => {
+  const env = { OPENAI_API_KEY: 'process-authority' };
+  const loaded = loadApprovedFounderEnvironment({
+    live: true,
+    path: '/synthetic/.env.local',
+    env,
+    statFile: () => ({ isFile: () => true, mode: 0o100600 }),
+    loadEnvironment: ({ env: target }) => {
+      target.OPENAI_API_KEY ??= 'file-openai';
+      target.LEMONSLICE_API_KEY = 'file-lemon';
+      return { found: true, loaded: 1 };
+    },
+  });
+  assert.deepEqual(loaded, { found: true, loaded: 1 });
+  assert.equal(env.OPENAI_API_KEY, 'process-authority');
+  assert.equal(env.LEMONSLICE_API_KEY, 'file-lemon');
+  assert.throws(() => loadApprovedFounderEnvironment({
+    live: true,
+    path: '/synthetic/.env.local',
+    env: {},
+    statFile: () => ({ isFile: () => true, mode: 0o100644 }),
+  }), /PROVIDER_BINDINGS_FILE_UNSAFE/u);
 });
 
 test('Founder live bootstrap installs the locked graph once when dependency resolution is absent', async () => {

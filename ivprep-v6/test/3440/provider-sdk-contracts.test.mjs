@@ -458,6 +458,36 @@ test('Profile B AgentServer and AgentSession are explicit, terminal on reconnect
   assert.equal(options.shutdownProcessTimeout, 20_000);
 });
 
+test('Profile B direct worker initializes logging before construction and signals only SDK registration', { skip: !PINNED_AGENTS_AVAILABLE }, async () => {
+  const { runProfileBAgentWorker } = await import('../../server/agents/start-profile-b-worker.mjs');
+  const calls = [];
+  let registered;
+  const server = {
+    event: { once: (event, handler) => { calls.push(['listen', event]); registered = handler; } },
+    run: async () => { calls.push(['run']); registered(); },
+  };
+  await runProfileBAgentWorker({
+    environment: {},
+    initialize: (options) => calls.push(['initialize', options]),
+    createServer: () => {
+      assert.equal(calls[0][0], 'initialize');
+      calls.push(['construct']);
+      return server;
+    },
+    processRef: {
+      connected: true,
+      send: (message) => calls.push(['send', message]),
+    },
+  });
+  assert.deepEqual(calls, [
+    ['initialize', { pretty: false, level: 'info' }],
+    ['construct'],
+    ['listen', 'worker_registered'],
+    ['run'],
+    ['send', { type: 'ivprep-profile-b-worker-registered' }],
+  ]);
+});
+
 test('Profile B terminal signal before provider creation cannot resume startup', { skip: !PINNED_AGENTS_AVAILABLE }, async () => {
   let releaseConnect;
   let providerCreateCalls = 0;

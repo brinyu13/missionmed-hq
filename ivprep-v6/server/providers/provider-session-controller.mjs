@@ -133,6 +133,10 @@ export class ProviderSessionController {
         || access.token.length > 4096) {
         throw new Error('Scoped browser room access was not established.');
       }
+      if (access.synthetic !== true && (typeof this.worker?.assertReady !== 'function'
+        || (await this.worker.assertReady({ retry: NO_RETRY }))?.ok !== true)) {
+        throw new Error('The exact Profile B worker is not registered.');
+      }
       this.context.participantIdentity = participantIdentity;
       if (typeof this.worker?.armJob !== 'function' || typeof this.worker?.bindDispatch !== 'function') {
         throw new Error('Durable worker authorization bridge is unavailable.');
@@ -152,6 +156,9 @@ export class ProviderSessionController {
         retry: NO_RETRY,
       });
       if (armed?.ok !== true) throw new Error('Durable worker authorization could not be armed.');
+      if (access.synthetic !== true && (await this.worker.assertReady({ retry: NO_RETRY }))?.ok !== true) {
+        throw new Error('The exact Profile B worker registration was lost before dispatch.');
+      }
       this.context.dispatchCreateAttempted = true;
       this.startedAtMs = this.now();
       this.deadline = this.clock.setTimeout(() => { void this.stop('authorized_deadline'); }, this.maxSeconds * 1000);
