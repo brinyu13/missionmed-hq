@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>MissionMed Delivery Intelligence — Round 2 Instrument Arsenal</title>
+  <style>
+    :root {
+      --ink: #080a13;
+      --ink-2: #101426;
+      --panel: #171b31;
+      --panel-2: #202641;
+      --paper: #fff9e8;
+      --white: #ffffff;
+      --muted: #c3c8d8;
+      --orange: #ff7417;
+      --gold: #f4bd25;
+      --red: #df3545;
+      --purple: #7657e8;
+      --blue: #3450c8;
+      --pink: #d84b91;
+      --black: #05060b;
+      --border: #424a68;
+      --shadow: 8px 8px 0 #05060b;
+      --accent: var(--orange);
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: var(--ink); color: var(--white); }
+    button, select { font: inherit; }
+    button, select, input { accent-color: var(--orange); }
+    button:focus-visible, select:focus-visible, input:focus-visible { outline: 4px solid var(--paper); outline-offset: 3px; }
+    .shell { min-height: 100vh; overflow: hidden; background: linear-gradient(145deg, #080a13 0 38%, #11152a 38% 72%, #080a13 72%); }
+    .hero { position: relative; padding: 44px clamp(20px, 5vw, 76px) 36px; border-bottom: 8px solid var(--black); overflow: hidden; }
+    .hero::after { content: "90"; position: absolute; right: -18px; top: -62px; font-size: clamp(170px, 26vw, 390px); line-height: 1; font-weight: 1000; font-style: italic; letter-spacing: -0.12em; color: #1a2039; transform: rotate(-6deg); z-index: 0; }
+    .hero > * { position: relative; z-index: 1; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 9px; padding: 8px 12px; background: var(--gold); color: var(--black); border: 3px solid var(--black); font-size: 13px; font-weight: 1000; letter-spacing: .12em; text-transform: uppercase; transform: skew(-4deg); }
+    h1 { max-width: 1040px; margin: 20px 0 12px; font-size: clamp(42px, 7vw, 100px); line-height: .88; letter-spacing: -.055em; text-transform: uppercase; font-style: italic; font-weight: 1000; }
+    .hero p { max-width: 820px; margin: 0; color: var(--paper); font-size: clamp(16px, 2vw, 23px); font-weight: 750; line-height: 1.35; }
+    .hero-stats { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 26px; }
+    .hero-stat { min-width: 150px; padding: 12px 15px; background: var(--panel); border-left: 7px solid var(--orange); }
+    .hero-stat strong { display: block; font-size: 25px; line-height: 1; }
+    .hero-stat span { color: var(--muted); font-size: 12px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+    .truth-strip { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--paper); color: var(--black); border-bottom: 8px solid var(--black); }
+    .truth-strip div { padding: 15px 18px; border-right: 2px solid var(--black); }
+    .truth-strip div:last-child { border-right: 0; }
+    .truth-strip b { display: block; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+    .truth-strip span { font-size: 13px; line-height: 1.25; }
+    .controls { position: sticky; top: 0; z-index: 30; background: rgba(8,10,19,.97); border-bottom: 4px solid var(--orange); padding: 12px clamp(16px, 3vw, 44px); }
+    .control-row { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; max-width: 1560px; margin: 0 auto; }
+    .field { display: grid; gap: 5px; }
+    .field label, .control-label { color: var(--muted); font-size: 11px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+    select { min-height: 42px; padding: 8px 34px 8px 11px; color: var(--white); background: var(--panel-2); border: 2px solid var(--border); border-radius: 0; font-weight: 800; }
+    .segmented { display: flex; flex-wrap: wrap; gap: 4px; }
+    .segmented button, .state-button, .family-button, .action-button { min-height: 42px; padding: 8px 12px; border: 2px solid var(--border); border-radius: 0; background: var(--panel-2); color: var(--white); font-weight: 900; cursor: pointer; }
+    .segmented button[aria-pressed="true"], .state-button[aria-pressed="true"] { background: var(--paper); color: var(--black); border-color: var(--paper); }
+    .state-deck { max-width: 1560px; margin: 9px auto 0; display: flex; gap: 5px; overflow-x: auto; padding-bottom: 2px; }
+    .state-button { flex: 1 0 auto; min-height: 34px; padding: 5px 10px; font-size: 11px; }
+    .main { max-width: 1640px; margin: 0 auto; padding: 28px clamp(16px, 3vw, 44px) 80px; }
+    .family-nav { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 8px; margin: 0 0 30px; }
+    .family-button { min-height: 64px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; text-align: left; border-left: 8px solid var(--family-accent, var(--orange)); }
+    .family-button .family-code { color: var(--family-accent, var(--orange)); font-size: 19px; font-style: italic; }
+    .family-button .family-name { font-size: 12px; line-height: 1.1; }
+    .family-button .family-count { color: var(--muted); font-size: 11px; }
+    .family-button[aria-selected="true"] { background: var(--paper); color: var(--black); border-color: var(--black); border-left-color: var(--family-accent, var(--orange)); box-shadow: 5px 5px 0 var(--family-accent, var(--orange)); transform: translate(-2px,-2px); }
+    .family-button[aria-selected="true"] .family-count { color: #444; }
+    .family-head { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 20px; align-items: end; margin-bottom: 19px; }
+    .family-kicker { color: var(--accent); font-size: 13px; font-weight: 1000; letter-spacing: .16em; text-transform: uppercase; }
+    .family-head h2 { margin: 2px 0 0; font-size: clamp(36px, 5vw, 68px); line-height: .92; letter-spacing: -.045em; text-transform: uppercase; font-style: italic; }
+    .family-head p { max-width: 580px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.4; text-align: right; }
+    .arsenal { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 28px; }
+    .concept { --card-accent: var(--orange); position: relative; background: var(--panel); border: 4px solid var(--black); border-top: 10px solid var(--card-accent); box-shadow: var(--shadow); min-width: 0; }
+    .concept.selected { outline: 5px solid var(--paper); outline-offset: 4px; }
+    .card-top { display: grid; grid-template-columns: 96px 1fr auto; gap: 14px; align-items: start; padding: 18px 18px 12px; }
+    .concept-code { display: grid; place-items: center; min-height: 70px; background: var(--card-accent); color: var(--black); border: 3px solid var(--black); font-size: 31px; font-weight: 1000; font-style: italic; transform: skew(-5deg); }
+    .literal-title { margin: 0; font-size: clamp(21px, 2vw, 30px); line-height: .94; text-transform: uppercase; font-style: italic; }
+    .mechanic-name { margin-top: 6px; color: var(--card-accent); font-size: 14px; font-weight: 950; letter-spacing: .06em; text-transform: uppercase; }
+    .source { justify-self: end; max-width: 124px; padding: 6px 8px; border: 2px solid var(--card-accent); color: var(--paper); font-size: 10px; font-weight: 900; line-height: 1.1; text-align: center; letter-spacing: .06em; text-transform: uppercase; }
+    .instrument { position: relative; margin: 0 18px; min-height: 285px; overflow: hidden; border: 4px solid var(--black); background: #0d1020; }
+    .instrument::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px); background-size: 28px 28px; pointer-events: none; }
+    .instrument svg { display: block; width: 100%; height: 285px; }
+    .instrument text { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+    .correction { position: absolute; left: 16px; right: 16px; bottom: 14px; z-index: 4; display: flex; align-items: end; justify-content: space-between; gap: 12px; }
+    .correction strong { max-width: 84%; color: var(--white); font-size: clamp(25px, 4vw, 52px); line-height: .84; letter-spacing: -.04em; font-style: italic; text-transform: uppercase; text-shadow: 3px 3px 0 var(--black); }
+    .correction span { padding: 6px 8px; background: var(--paper); color: var(--black); border: 2px solid var(--black); font-size: 11px; font-weight: 1000; white-space: nowrap; }
+    .simple-copy { padding: 14px 18px 16px; min-height: 65px; color: var(--white); font-size: 15px; font-weight: 750; line-height: 1.35; }
+    .master-lanes { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 18px 16px; padding: 11px; background: var(--black); border-left: 6px solid var(--card-accent); }
+    .master-lanes span { padding: 4px 6px; background: #252b47; color: var(--paper); font-size: 9px; font-weight: 900; letter-spacing: .05em; text-transform: uppercase; }
+    .detail { margin: 0 18px 17px; padding: 14px; background: var(--panel-2); border-left: 6px solid var(--card-accent); }
+    .detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 11px 16px; }
+    .detail-item b { display: block; color: var(--card-accent); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+    .detail-item span { display: block; margin-top: 3px; color: var(--paper); font-size: 12px; line-height: 1.35; }
+    .lab-detail { border-left-color: var(--purple); }
+    .lab-detail .detail-item b { color: #b8a8ff; }
+    .card-actions { display: grid; grid-template-columns: 1fr minmax(220px, 1.4fr); gap: 12px; align-items: end; padding: 14px 18px 18px; border-top: 2px solid var(--border); }
+    .compare-label { min-height: 42px; display: flex; align-items: center; gap: 9px; color: var(--paper); font-size: 12px; font-weight: 900; cursor: pointer; }
+    .compare-label input { width: 21px; height: 21px; }
+    .disposition { display: grid; gap: 4px; }
+    .disposition label { color: var(--muted); font-size: 10px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+    .disposition select { width: 100%; }
+    .compare-dock { margin-top: 34px; padding: 20px; background: var(--paper); color: var(--black); border: 5px solid var(--black); box-shadow: 8px 8px 0 var(--orange); }
+    .compare-dock h3 { margin: 0 0 6px; font-size: 22px; text-transform: uppercase; font-style: italic; }
+    .compare-dock p { margin: 0; font-size: 13px; }
+    .compare-list { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+    .compare-chip { padding: 8px 10px; background: var(--black); color: var(--white); font-weight: 950; font-size: 12px; }
+    .selection-footer { margin-top: 36px; padding: 25px; background: var(--orange); color: var(--black); border: 5px solid var(--black); box-shadow: 10px 10px 0 var(--paper); }
+    .selection-footer h3 { margin: 0; font-size: clamp(28px, 4vw, 48px); line-height: .92; text-transform: uppercase; font-style: italic; }
+    .selection-footer p { max-width: 930px; margin: 9px 0 0; font-weight: 800; line-height: 1.35; }
+    .selection-words { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 15px; }
+    .selection-words span { padding: 7px 9px; background: var(--black); color: var(--white); font-size: 12px; font-weight: 950; }
+    .no-results { padding: 50px 20px; border: 3px dashed var(--border); color: var(--muted); text-align: center; }
+    [hidden] { display: none !important; }
+    body[data-density="simple"] .standard-detail,
+    body[data-density="simple"] .lab-detail,
+    body[data-density="standard"] .lab-detail { display: none; }
+    body[data-density="lab"] .standard-detail { display: block; }
+    body[data-density="lab"] .lab-detail { display: block; }
+    @media (max-width: 1120px) {
+      .family-nav { grid-template-columns: repeat(3, minmax(0,1fr)); }
+      .truth-strip { grid-template-columns: repeat(2,1fr); }
+      .truth-strip div:nth-child(2) { border-right: 0; }
+      .truth-strip div:nth-child(-n+2) { border-bottom: 2px solid var(--black); }
+    }
+    @media (max-width: 900px) {
+      .arsenal { grid-template-columns: 1fr; }
+      .family-head { grid-template-columns: 1fr; }
+      .family-head p { text-align: left; }
+      .controls { position: static; }
+    }
+    @media (max-width: 640px) {
+      .hero { padding-top: 28px; }
+      .hero::after { opacity: .5; }
+      .truth-strip { grid-template-columns: 1fr; }
+      .truth-strip div { border-right: 0; border-bottom: 2px solid var(--black); }
+      .family-nav { grid-template-columns: 1fr 1fr; }
+      .family-button { min-height: 58px; }
+      .family-button .family-name { font-size: 11px; }
+      .card-top { grid-template-columns: 72px 1fr; }
+      .concept-code { min-height: 58px; font-size: 24px; }
+      .source { grid-column: 1 / -1; justify-self: stretch; max-width: none; }
+      .instrument { min-height: 250px; margin-inline: 11px; }
+      .instrument svg { height: 250px; }
+      .correction strong { max-width: 78%; font-size: clamp(28px, 9vw, 46px); }
+      .detail { margin-inline: 11px; }
+      .detail-grid, .card-actions { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 390px) {
+      .main { padding-inline: 11px; }
+      .family-nav { grid-template-columns: 1fr; }
+      .state-deck { margin-inline: -4px; }
+      .correction { left: 10px; right: 10px; }
+      .correction strong { font-size: 27px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body data-density="simple">
+<div class="shell">
+  <header class="hero">
+    <div class="eyebrow">Round 2 • Independent Arsenal • Founder Selection Surface</div>
+    <h1>Delivery Intelligence Instrument Arsenal</h1>
+    <p>Fifteen literal measurement families. Six materially different teaching mechanics per family. Every card makes the correction bigger than the number.</p>
+    <div class="hero-stats" aria-label="Arsenal inventory">
+      <div class="hero-stat"><strong>15</strong><span>Signal families</span></div>
+      <div class="hero-stat"><strong>6</strong><span>Mechanics each</span></div>
+      <div class="hero-stat"><strong>90</strong><span>Permanent concept IDs</span></div>
+      <div class="hero-stat"><strong>0</strong><span>Runtime changes</span></div>
+    </div>
+  </header>
+
+  <section class="truth-strip" aria-label="Evidence boundary">
+    <div><b>Simulated teaching surface</b><span>No live camera, microphone, provider, or student data.</span></div>
+    <div><b>Capability is authority</b><span>Each LAB view names support maturity and fail-closed behavior.</span></div>
+    <div><b>Observable delivery only</b><span>No honesty, identity, emotion, intent, personality, or diagnosis claims.</span></div>
+    <div><b>Founder stop</b><span>LOCK / KEEP AS BASE / REFINE / REJECT / COMBINE / SHOW MORE LIKE.</span></div>
+  </section>
+
+  <section class="controls" aria-label="Arsenal simulator controls">
+    <div class="control-row">
+      <div class="field">
+        <span class="control-label">Density</span>
+        <div class="segmented" role="group" aria-label="Information density">
+          <button type="button" data-density="simple" aria-pressed="true">SIMPLE</button>
+          <button type="button" data-density="standard" aria-pressed="false">STANDARD</button>
+          <button type="button" data-density="lab" aria-pressed="false">LAB</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="targetSelect">Active target</label>
+        <select id="targetSelect">
+          <option>MissionMed Standard</option>
+          <option>Personal Baseline</option>
+          <option>Personal Best</option>
+          <option selected>Session Target</option>
+          <option>Answer-Phase Target</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="phaseSelect">Simulated phase</label>
+        <select id="phaseSelect">
+          <option>QUESTION</option>
+          <option selected>ANSWER — EXPLAIN</option>
+          <option>ANSWER — EMPHASIZE</option>
+          <option>ANSWER — CLOSE</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="contextSelect">Intended context</label>
+        <select id="contextSelect">
+          <option value="ALL" selected>ALL CONTEXTS</option>
+          <option value="LIVE">LIVE</option>
+          <option value="HUD">HUD</option>
+          <option value="FILM ROOM">FILM ROOM</option>
+          <option value="ADMIN">ADMIN</option>
+        </select>
+      </div>
+    </div>
+    <div class="state-deck" role="group" aria-label="Simulated coaching state">
+      <button class="state-button" type="button" data-state="TOO LITTLE" aria-pressed="false">TOO LITTLE</button>
+      <button class="state-button" type="button" data-state="APPROACHING" aria-pressed="false">APPROACHING</button>
+      <button class="state-button" type="button" data-state="TARGET" aria-pressed="true">TARGET</button>
+      <button class="state-button" type="button" data-state="LOCKED" aria-pressed="false">LOCKED</button>
+      <button class="state-button" type="button" data-state="TOO MUCH" aria-pressed="false">TOO MUCH</button>
+      <button class="state-button" type="button" data-state="DRIFTING" aria-pressed="false">DRIFTING</button>
+      <button class="state-button" type="button" data-state="RECOVERING" aria-pressed="false">RECOVERING</button>
+      <button class="state-button" type="button" data-state="GOOD — HOLD" aria-pressed="false">GOOD — HOLD</button>
+    </div>
+  </section>
+
+  <main class="main">
+    <nav class="family-nav" role="tablist" aria-label="Instrument families" id="familyNav"></nav>
+    <section aria-live="polite" aria-atomic="false">
+      <div class="family-head">
+        <div><div class="family-kicker" id="familyKicker">Family VV • 6 options</div><h2 id="familyTitle">Voice Volume</h2></div>
+        <p id="familyDescription"></p>
+      </div>
+      <div class="arsenal" id="arsenal"></div>
+      <div class="no-results" id="noResults" hidden>No cards in this family match the selected context.</div>
+    </section>
+
+    <section class="compare-dock" aria-labelledby="compareTitle">
+      <h3 id="compareTitle">Compare tray <span id="compareCount">0</span>/6</h3>
+      <p>Choose up to six cards across families. Selections stay local to this page and are not persisted.</p>
+      <div class="compare-list" id="compareList"><span>No concepts selected.</span></div>
+    </section>
+
+    <section class="selection-footer">
+      <h3>Arsenal complete. Product integration has not begun.</h3>
+      <p>Founder: select one or more permanent IDs and use only the permitted disposition vocabulary. A COMBINE decision should name the base ID, the donor ID, and the exact mechanic to transplant.</p>
+      <div class="selection-words" aria-label="Founder dispositions">
+        <span>LOCK</span><span>KEEP AS BASE</span><span>REFINE</span><span>REJECT</span><span>COMBINE</span><span>SHOW MORE LIKE</span>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const dispositions = ['', 'LOCK', 'KEEP AS BASE', 'REFINE', 'REJECT', 'COMBINE', 'SHOW MORE LIKE'];
+  const familyColors = ['#ff7417','#f4bd25','#df3545','#7657e8','#d84b91','#ff8e31','#e44857','#8a6af0','#f2a72b','#d94b84','#f07c24','#e33d4c','#7f60dc','#df5d2b','#f0b82a'];
+  const families = [
+    { code:'VV', title:'Voice Volume', desc:'Teach captured level relative to an active target without implying vocal quality or emotion.' },
+    { code:'VP', title:'Pitch Variation', desc:'Explore future F0-contour coaching mechanics; current engine truth does not yet provide pitch.' },
+    { code:'VC', title:'Speaking Pace', desc:'Teach transcript-derived word rate with explicit latency, confidence, and phase boundaries.' },
+    { code:'VR', title:'Cadence Variation / Regularity', desc:'Expose temporal spacing patterns without inferring memorization, confidence, or intent.' },
+    { code:'VW', title:'Audio Waveform', desc:'Make captured waveform evidence readable while keeping raw audio non-persistent.' },
+    { code:'GZ', title:'Gesture Operating Zone', desc:'Coach observable hand locations relative to a body-anchored operating zone.' },
+    { code:'GH', title:'Gesture Heatmap', desc:'Show bounded, decaying spatial density for left and right hands without semantic meaning.' },
+    { code:'GS', title:'Gesture + Speech Synchrony', desc:'Teach timing between observable motion episodes and speech emphasis windows.' },
+    { code:'FF', title:'Camera / Framing', desc:'Coach face position and size proxies with explicit multi-face suppression.' },
+    { code:'CD', title:'Delivery Congruence', desc:'Expose contributors to cross-channel timing alignment; never score honesty or truth.' },
+    { code:'CW', title:'Warmth-Cue Profile', desc:'Combine observable delivery cues only; never label personality, emotion, or actual warmth.' },
+    { code:'CC', title:'Competence-Cue Profile', desc:'Combine observable delivery cues only; never claim knowledge, ability, or trustworthiness.' },
+    { code:'CM', title:'Mechanical / Over-Regular Delivery', desc:'Surface over-regular or script-like delivery patterns without claiming memorization.' },
+    { code:'CT', title:'Storytelling Delivery', desc:'Teach delivery shape across answer phases; semantic story quality remains out of scope.' },
+    { code:'TM', title:'Master Flight Recorder', desc:'Synchronized film-room evidence answering WHEN, WHAT ELSE, and WHERE TO CLICK.' }
+  ];
+  const concepts = [
+    // VV — VOICE VOLUME
+    c('VV1','Soundline Target Corridor','Fortnite-class target corridor','LIVE / HUD','CURRENTLY SUPPORTABLE','corridor','Stay inside the moving safe band; wall pressure shows which direction to correct.','captured digital dBFS; clipping','map smoothed level to target corridor; preserve headroom','audio gap, stale clock, or invalid calibration → UNAVAILABLE','relative captured level only','Raise level into the corridor.'),
+    c('VV2','Shield Charge Meter','Fortnite-class shield economy','LIVE / HUD','CURRENTLY SUPPORTABLE','radial','Build usable voice charge without under-fill or redline overcharge.','captured digital dBFS; clipping','integrate target-band dwell into a shield arc','audio gap or clipping uncertainty → UNAVAILABLE','target-band dwell, not vocal power','Add clean level; stop short of overload.'),
+    c('VV3','Volume Capture Zone','Fortnite-class capture objective','LIVE / HUD','SUPPORTABLE WITH DERIVATION','field','Hold the moving level marker inside a contested target zone long enough to capture it.','captured digital dBFS; monotonic time','derive continuous in-band dwell and exit direction','gap resets capture; never bridge missing samples','continuous target adherence','Re-enter the zone and hold.'),
+    c('VV4','Level Bounce Course','Fortnite-class traversal','HUD / FILM ROOM','SUPPORTABLE WITH DERIVATION','deck','Land each phrase on a sequence of level pads; misses reveal phrase-to-phrase drift.','captured level; speech-active estimate; phase clock','segment speech runs and compare median level by run','speech activity unavailable → no pad scoring','phrase-level consistency around target','Land the next phrase on target.'),
+    c('VV5','Volume Lock Reticle','Tactical AAA reticle','LIVE / HUD','CURRENTLY SUPPORTABLE','reticle','Center a four-part reticle as level approaches the target; clipping breaks lock instantly.','captured digital dBFS; clipping','map signed target error to reticle spread','clipping or audio gap → lock broken','instant target error and headroom','Close the reticle; hold clean level.'),
+    c('VV6','Voice Rev Band','Racing AAA telemetry','LIVE / FILM ROOM','CURRENTLY SUPPORTABLE','tach','Drive level through an optimal rev band; low gear and redline are visibly different corrections.','captured digital dBFS; clipping','map level and headroom to tach band','invalid calibration → relative-only; no absolute SPL claim','captured digital level versus target','Shift into the target band.'),
+
+    // VP — PITCH VARIATION
+    c('VP1','Pitch Terrain Route','Fortnite-class terrain traversal','FILM ROOM','NEW ENGINEERING','terrain','A contour route must crest, dip, and return through a target variation landscape.','future F0 contour; voicing confidence','derive contour range and directional turns per phrase','no reliable F0 → UNAVAILABLE','observable fundamental-frequency movement','Add one clear rise or fall.'),
+    c('VP2','Pitch Range Ladder','Fortnite-class progression ladder','LIVE / HUD','NEW ENGINEERING','stack','Climb enough usable pitch rungs to avoid a flat floor without chasing maximum range.','future F0 contour; phase clock','bin reliable voiced F0 into relative personal-range rungs','low voicing coverage → UNAVAILABLE','used relative pitch range','Use another pitch level.'),
+    c('VP3','Pitch Safe Ring','Fortnite-class storm ring','LIVE / HUD','NEW ENGINEERING','radial','Keep pitch movement inside a personal safe ring while avoiding a collapsed center.','future F0 contour; personal baseline','normalize F0 to baseline and measure radial excursion','baseline absent → session-relative only, labeled','relative pitch excursion','Open the ring with a deliberate turn.'),
+    c('VP4','Pitch Combo Tiles','Fortnite-class combo build','HUD / FILM ROOM','NEW ENGINEERING','grid','Chain low, mid, and high relative pitch tiles; repeated same-tier landings break the combo.','future reliable F0; phrase boundaries','classify relative pitch tier per phrase and count transitions','unvoiced/uncertain phrase → neutral tile, no penalty','phrase-to-phrase pitch-tier movement','Change tier on the next phrase.'),
+    c('VP5','Pitch Note Arc','Rhythm AAA note highway','FILM ROOM','NEW ENGINEERING','lanes','Replay pitch movement as notes on a curved highway with target turns, not musical accuracy.','future F0 contour; monotonic clock','resample reliable F0 into phase-aligned note events','no F0 confidence → visible gap','timed contour movement only','Place a clear contour turn here.'),
+    c('VP6','Pitch Orbit Control','Hero AAA ability orbit','LIVE / HUD','NEW ENGINEERING','orbit','Balance three orbiting bands—floor, center, and ceiling—so no band dominates the answer.','future F0 distribution; baseline','derive relative distribution occupancy by answer phase','insufficient voiced duration → UNAVAILABLE','relative pitch-band occupancy','Move away from the crowded band.'),
+
+    // VC — SPEAKING PACE
+    c('VC1','Phrase Runway','Fortnite-class launch runway','LIVE / HUD','SUPPORTABLE WITH DERIVATION','corridor','Phrase packets land on a target-speed runway; the next landing gives the correction.','transcript timestamps; speech-active estimate','derive rolling words per minute by bounded speech run','transcript latency/confidence gap → UNAVAILABLE','estimated word rate, not comprehension','Ease the next phrase into range.'),
+    c('VC2','Pace Stamina Bar','Fortnite-class sprint stamina','LIVE / HUD','SUPPORTABLE WITH DERIVATION','stack','Fast speech drains stamina; target pace stabilizes it; long silence pauses rather than cheats recharge.','transcript word timing; speech/silence','integrate rolling pace error with explicit silence state','missing transcript timing → frozen and labeled unavailable','pace sustainability relative to target','Release the sprint; add space.'),
+    c('VC3','Pace Phase Gates','Fortnite-class storm phases','HUD / FILM ROOM','SUPPORTABLE WITH DERIVATION','deck','Each answer phase has a pace gate, making a fast opening and deliberate close separately visible.','transcript timing; answer-phase markers','compute WPM within phase-bounded windows','phase marker unavailable → whole-answer view only','phase-specific estimated word rate','Clear this phase gate more deliberately.'),
+    c('VC4','Pace Build Rhythm','Fortnite-class build cadence','LIVE / HUD','SUPPORTABLE WITH DERIVATION','grid','Words assemble visible build pieces; dense unstable stacking signals a pace correction.','transcript word events; monotonic clock','bin word events into short fixed windows','late transcript → show provisional bins, never backfill silently','short-window word density','Leave a clean gap before the next build.'),
+    c('VC5','Pace Gearbox','Racing AAA optimal gear','LIVE / FILM ROOM','SUPPORTABLE WITH DERIVATION','tach','Shift between deliberate, target, and rushed pace bands without treating faster as better.','transcript timestamps; active speech time','map rolling word rate to target-relative gear bands','low transcript confidence → neutral gear','estimated active-speech word rate','Downshift one gear.'),
+    c('VC6','Pace Possession Clock','Sports AAA broadcast clock','FILM ROOM','SUPPORTABLE WITH DERIVATION','score','A possession clock shows words used versus answer time so pacing decisions remain phase-aware.','word count; answer duration; phase markers','pair cumulative words with elapsed answer phase','word timing absent → duration only; no pace judgment','words per elapsed answer phase','Use the remaining phase with more space.'),
+
+    // VR — CADENCE
+    c('VR1','Cadence Break Tiles','Fortnite-class trap breaker','LIVE / HUD','NEW ENGINEERING','grid','Repeated equal-duration phrase tiles become breakable traps; one intentional timing change clears them.','speech runs; pause boundaries; transcript timing','derive phrase-duration sequence and repetition tolerance','segmentation uncertainty → UNAVAILABLE','temporal regularity, not memorization','Break the repeated timing pattern.'),
+    c('VR2','Cadence Pulse Trap','Fortnite-class timed hazard','HUD / FILM ROOM','NEW ENGINEERING','radial','A hazard pulse tightens when phrase and pause spacing become overly regular.','speech/silence episodes; phrase boundaries','estimate interval regularity over a bounded window','fewer than four valid intervals → insufficient evidence','interval regularity only','Vary one phrase or pause length.'),
+    c('VR3','Cadence Combo Spacing','Fortnite-class combo chain','LIVE / HUD','NEW ENGINEERING','lanes','Cadence earns a chain from varied but controlled spacing; identical gaps break the run.','phrase onsets; pause durations','compare adjacent onset and pause intervals against target variation','gap in event stream resets chain','local temporal variation','Change the spacing on the next beat.'),
+    c('VR4','Cadence Storm Pulse','Fortnite-class moving storm','FILM ROOM','NEW ENGINEERING','wave','A storm envelope shows when rhythmic regularity compresses delivery into repeated pulses.','speech activity; phrase/pause segmentation','overlay event impulses with regularity envelope','unreliable speech activity → no envelope','patterned timing density','Open space between repeated pulses.'),
+    c('VR5','Cadence Beat Lanes','Rhythm AAA lane chart','FILM ROOM','NEW ENGINEERING','lanes','Speech starts and pauses occupy separate beat lanes so useful variation can be replayed precisely.','speech and pause events; session clock','align event lanes and derive interval variation','missing monotonic timestamps → UNAVAILABLE','event timing and spacing','Repeat this varied beat pattern.'),
+    c('VR6','Cadence Fight Spacing','Fighting AAA spacing meter','LIVE / HUD','NEW ENGINEERING','field','Phrase blocks enter a timing range; predictable repeated spacing lets the opponent read the pattern.','phrase boundaries; pause intervals','map next-onset prediction error to spacing bands','insufficient interval history → warming up','bounded predictability of timing','Delay or advance the next phrase slightly.'),
+
+    // VW — AUDIO WAVEFORM
+    c('VW1','Waveform Target Band','Fortnite-class target monitor','LIVE / HUD','CURRENTLY SUPPORTABLE','wave','A large trace crosses a clearly labeled target band; clipping spikes override every other cue.','captured audio amplitude; clipping; session clock','render non-persistent rolling amplitude envelope','audio gap → break trace; never interpolate','captured amplitude envelope','Bring the waveform body into band.'),
+    c('VW2','Waveform Tunnel','Fortnite-class traversal tunnel','LIVE / HUD','CURRENTLY SUPPORTABLE','terrain','The amplitude envelope flies through a target tunnel; wall strikes show under- and over-level moments.','captured audio amplitude; target band','map envelope to centerline error through time','missing samples → open tunnel segment','relative envelope trajectory','Steer the next phrase toward center.'),
+    c('VW3','Waveform Shield Ripples','Fortnite-class shield response','HUD / FILM ROOM','SUPPORTABLE WITH DERIVATION','radial','Phrase energy produces concentric ripples; target-sized ripples reveal consistent usable level.','audio envelope; speech-active estimate','summarize envelope energy per speech run','speech activity unavailable → raw envelope view only','speech-run energy proxy','Make the next ripple match target.'),
+    c('VW4','Waveform Terrain Ridge','Fortnite-class terrain map','FILM ROOM','CURRENTLY SUPPORTABLE','terrain','A continuous amplitude ridge makes low valleys, target plateaus, and clipping peaks easy to locate.','audio envelope; clipping; monotonic time','downsample envelope into bounded display bins','gaps remain blank; clipping remains explicit','time-local amplitude shape','Return from this valley to the plateau.'),
+    c('VW5','Waveform Sonar Sweep','Tactical AAA sonar','LIVE / HUD','CURRENTLY SUPPORTABLE','reticle','A rotating sweep catches the newest amplitude envelope against target arcs.','rolling amplitude envelope; clock','project latest bounded window onto polar sweep','stale window → sweep stops and labels stale','recent amplitude envelope','Fill the next sweep to the target arc.'),
+    c('VW6','Waveform Telemetry Ribbon','Racing AAA telemetry','FILM ROOM','CURRENTLY SUPPORTABLE','lanes','Stacked ribbons separate waveform body, clipping events, and target error without storing audio.','envelope bins; clipping; target band','align three derived display lanes on session clock','gap breaks all aligned lanes','non-persistent derived amplitude telemetry','Inspect the marked overage, then recover.'),
+
+    // GZ — GESTURE OPERATING ZONE
+    c('GZ1','Gesture Operating Field','Fortnite-class combat field','LIVE / HUD','SUPPORTABLE WITH DERIVATION','field','Hands move inside a body-anchored field with visible dead, useful, and overflow zones.','L/R hand centers; torso anchor; coverage','normalize hand centers to torso-relative coordinates','torso or hand coverage insufficient → UNAVAILABLE','observable hand location','Bring the active hand into the useful field.'),
+    c('GZ2','Dual Hand Lanes','Fortnite-class paired lanes','LIVE / HUD','SUPPORTABLE WITH DERIVATION','lanes','Left and right hands get separate operating lanes so one hand cannot hide the other.','L/R hand presence and centers; body anchor','map each hand to independent vertical and lateral lanes','unknown hand side → unassigned lane, no swap','per-hand operating position','Recover the missing hand lane.'),
+    c('GZ3','Gesture Capture Zones','Fortnite-class capture points','LIVE / HUD','SUPPORTABLE WITH DERIVATION','field','Three body-relative zones become capture objectives, rewarding intentional relocation rather than motion volume.','L/R hand centers; monotonic time','derive dwell and transitions across torso-relative zones','tracking gap resets dwell','zone occupancy and relocation','Move to a new useful zone and hold.'),
+    c('GZ4','Gesture Build Grid','Fortnite-class build grid','HUD / FILM ROOM','SUPPORTABLE WITH DERIVATION','grid','A body-relative grid lights only cells actually occupied, exposing cramped or scattered range.','hand centers; torso box; coverage','bin reliable hand positions into a fixed body grid','low coverage → incomplete grid label','spatial occupancy, not gesture meaning','Use one clear neighboring cell.'),
+    c('GZ5','Gesture Court Map','Sports AAA court map','FILM ROOM','SUPPORTABLE WITH DERIVATION','field','A shot-chart-like body field shows where each hand operated and whether zones were revisited.','L/R hand centers; torso-relative coordinates','aggregate decaying position marks by hand','multi-person ambiguity → suppress all hand mapping','per-hand spatial distribution','Shift the next gesture into open space.'),
+    c('GZ6','Gesture Reach Arcs','Fighting AAA reach control','LIVE / HUD','SUPPORTABLE WITH DERIVATION','arc','Reach arcs distinguish compact, useful, and overflow extension from the torso anchor.','hand centers; shoulder/torso scale proxy','derive normalized radial hand distance and side','scale anchor unavailable → UNAVAILABLE','body-relative reach only','Shorten the reach into the useful arc.'),
+
+    // GH — GESTURE HEATMAP
+    c('GH1','Left / Right Heat Field','Fortnite-class heat field','FILM ROOM','SUPPORTABLE WITH DERIVATION','heat','Separate warm-color fields for left and right hands preserve side identity and coverage gaps.','L/R hand centers; torso anchor; sample coverage','kernel-bin positions independently by hand','side ambiguity or multi-face ambiguity → suppress','per-hand spatial density','Open a cooler useful zone.'),
+    c('GH2','Gesture Decay Trail','Fortnite-class motion trail','LIVE / HUD','SUPPORTABLE WITH DERIVATION','trail','Recent positions burn brightest and decay, teaching relocation without accumulating the entire answer forever.','timestamped L/R hand centers','apply bounded time decay to spatial bins','timestamp gap clears trail; no stale glow','recent hand-location density','Move away from the repeated hotspot.'),
+    c('GH3','Gesture Safe-Zone Heatmap','Fortnite-class safe zone','HUD / FILM ROOM','SUPPORTABLE WITH DERIVATION','heat','Heat density is judged only against a body-relative safe zone, not the camera frame edges.','hand centers; torso-relative operating zone','overlay spatial density with active zone boundary','body anchor unavailable → heatmap unavailable','density relative to useful zone','Bring heat back inside the zone.'),
+    c('GH4','Gesture Repetition Hotspot','Fortnite-class hotspot alert','FILM ROOM','SUPPORTABLE WITH DERIVATION','radar','A hotspot alarms when successive motion episodes return to the same small region.','motion episodes; episode centroids; clock','cluster recent episode centroids and count revisits','fewer than three reliable episodes → warming up','spatial repetition, not semantic repetition','Start the next episode elsewhere.'),
+    c('GH5','Gesture Territory Map','Strategy AAA territory control','FILM ROOM','SUPPORTABLE WITH DERIVATION','grid','Occupied useful cells become territory; over-owned cells reveal spatial monotony.','hand positions; torso-relative grid','count reliable occupancy and revisit rate per cell','low coverage → hatched unknown cells','body-relative spatial coverage','Claim one unvisited useful cell.'),
+    c('GH6','Gesture Shot Chart','Sports AAA shot chart','FILM ROOM','SUPPORTABLE WITH DERIVATION','score','Each gesture episode lands as a left/right mark with zone and time, enabling precise replay selection.','motion episodes; centroids; hand side; time','create one event mark per reliable motion episode','uncertain side → neutral mark; uncertain time → omit','event-location distribution','Replay the cluster, then vary placement.'),
+
+    // GS — GESTURE + SPEECH SYNCHRONY
+    c('GS1','Handstorm Impact Window','Fortnite-class impact window','LIVE / HUD','SUPPORTABLE WITH DERIVATION','impact','Gesture motion collides with speech emphasis windows; centered impacts read as synchronized.','hand motion episodes; audio energy variation; clock','align motion peaks with non-semantic energy peaks','either stream missing → UNAVAILABLE','cross-modal temporal proximity','Move the gesture onto the emphasized beat.'),
+    c('GS2','Gesture Speech Combo','Fortnite-class combo chain','LIVE / HUD','SUPPORTABLE WITH DERIVATION','combo','Consecutive aligned gesture-speech events build a combo; isolated motion never counts as meaning.','motion peaks; speech activity; energy peaks','score bounded temporal co-occurrence events','tracking or audio gap resets combo','event co-occurrence only','Hit the next spoken beat together.'),
+    c('GS3','Synchrony Convergence Rings','Fortnite-class convergence target','HUD / FILM ROOM','SUPPORTABLE WITH DERIVATION','radial','Speech and gesture rings converge toward the same timestamp; distance is the coaching error.','gesture event time; energy peak time','compute nearest-event signed time offset','ambiguous multiple matches → no pairing','nearest-event timing offset','Bring the gesture earlier.'),
+    c('GS4','Emphasis Hit Windows','Fortnite-class timed objective','LIVE / HUD','NEW ENGINEERING','deck','Phase-aware hit windows invite one gesture near a selected delivery emphasis point.','future explicit emphasis markers; motion events','match gesture events to authored or mentor-marked windows','no emphasis marker → show motion and speech separately','timing to explicit marker','Place one gesture inside this window.'),
+    c('GS5','Synchrony Rhythm Track','Rhythm AAA dual track','FILM ROOM','SUPPORTABLE WITH DERIVATION','lanes','Speech-energy and hand-motion tracks scroll together so aligned and missed beats are directly inspectable.','energy envelope; motion magnitude; clock','normalize and align derived traces without raw media persistence','clock skew or missing lane → visible broken track','aligned derived activity traces','Replay this offset and tighten it.'),
+    c('GS6','Synchrony Telestrator','Sports AAA replay telestration','FILM ROOM','SUPPORTABLE WITH DERIVATION','timeline','Event diamonds and coach circles identify exactly when a gesture arrived relative to a spoken beat.','motion events; energy peaks; mentor markers','align selectable events on session clock','unpaired events remain visible; never force a match','event timing relationship','Click the offset pair and review.'),
+
+    // FF — CAMERA / FRAMING
+    c('FF1','Camera Dock','Fortnite-class docking target','LIVE / HUD','CURRENTLY SUPPORTABLE','reticle','The face box docks inside a target bay; center and size corrections stay literal.','face box center and size; face count','map current box to target center/size bounds','face count not exactly one → SUPPRESSED','framing proxies only','Move slightly left and closer.'),
+    c('FF2','Framing Gravity Field','Fortnite-class gravity pull','LIVE / HUD','CURRENTLY SUPPORTABLE','orbit','Directional gravity arrows pull the primary face box toward target center without snapping.','face center; face size; primary lock; coverage','derive signed center and scale error','primary ambiguity → UNAVAILABLE','frame position and size error','Follow the pull toward center.'),
+    c('FF3','Squad Ready Frame','Fortnite-class ready check','LIVE / HUD','CURRENTLY SUPPORTABLE','field','Four framing conditions ready independently: one face, center, scale, and coverage.','face count; center; size; tracking coverage','evaluate exposed boolean contributors','any unavailable contributor stays unknown, never green','observable framing readiness','Clear the size check; others hold.'),
+    c('FF4','Framing Quest Arrow','Fortnite-class quest navigation','LIVE / HUD','CURRENTLY SUPPORTABLE','arc','One giant quest arrow points toward the shortest corrective movement; distance shows remaining error.','face center and size versus target','choose dominant signed correction from explicit errors','tie or ambiguity → show multiple arrows, no guess','dominant framing correction','Move up one step.'),
+    c('FF5','Framing Pit Alignment','Racing AAA pit box','LIVE / FILM ROOM','CURRENTLY SUPPORTABLE','grid','Align the face box with a pit rectangle; edge deltas reveal drift across an answer.','face box stream; target box; clock','track boundary error and centered fraction','tracking gap breaks the lap segment','time-local framing alignment','Return to the pit box.'),
+    c('FF6','Framing Acquisition Reticle','Tactical AAA acquisition','LIVE / HUD','CURRENTLY SUPPORTABLE','reticle','Reticle brackets close only when one face is centered at target size; bystanders break acquisition.','face count; primary lock; center; size','map contributor status to independent bracket positions','extra face or primary ambiguity → lock broken','framing acquisition, not identity','Hold one clear centered frame.'),
+
+    // CD — DELIVERY CONGRUENCE
+    c('CD1','Congruence Lock Core','Fortnite-class lock core','LIVE / HUD','NEW ENGINEERING','core','Voice, timing, gesture, and framing shards must align; every contributor stays exposed.','selected voice, timing, motion, framing contributors','combine only available normalized contributor errors with fixed contract','any required shard unavailable → composite UNAVAILABLE','cross-channel delivery alignment only','Recover the timing shard.'),
+    c('CD2','Congruence Gate Array','Fortnite-class objective gates','HUD / FILM ROOM','NEW ENGINEERING','deck','A delivery moment clears sequential gates only when its visible contributors meet their own targets.','phase-bounded contributor states','evaluate ordered transparent gates, no hidden weight','missing contributor leaves gate open and labeled','co-occurring target states','Clear the gesture-timing gate next.'),
+    c('CD3','Congruence Split Screen','Fortnite-class split replay','FILM ROOM','NEW ENGINEERING','split','Voice/timing and visual-motion halves mirror each other around the same session moment.','aligned contributor traces; session clock','compare signed deviations by shared time window','clock misalignment → no comparison','simultaneous delivery-pattern deviation','Bring both halves toward target together.'),
+    c('CD4','Congruence Squad Bar','Fortnite-class squad status','LIVE / HUD','NEW ENGINEERING','stack','Four squad members represent exposed contributors; the weakest available member sets the correction.','four named contributor states','select largest explicit target deviation; do not average away weakness','unavailable member stays gray; required gap blocks team state','weak-link contributor state','Help the timing member recover.'),
+    c('CD5','Congruence Ability Orbit','Hero AAA ability HUD','LIVE / HUD','NEW ENGINEERING','orbit','Contributor orbits charge toward a shared alignment window while remaining individually readable.','named normalized contributors; phase','map each contributor target error to orbit radius','missing orbit never disappears or renormalizes','contributor alignment around target','Tighten the outer gesture orbit.'),
+    c('CD6','Congruence Lineup Board','Sports AAA lineup','FILM ROOM','NEW ENGINEERING','score','A phase lineup shows which observable channels were active, targeted, drifting, or unavailable.','phase states for voice, timing, gesture, framing','assemble phase-by-phase status matrix','no phase marker → session-only lineup','phase-specific contributor status','Review the explain-phase mismatch.'),
+
+    // CW — WARMTH-CUE PROFILE
+    c('CW1','Warmth-Cue Banner','Fortnite-class status banner','LIVE / HUD','NEW ENGINEERING','score','An explicitly named cue profile banner expands into its observable contributors on demand.','approved observable cue contributors only','fixed, reviewable profile contract; no hidden traits','any required contributor unavailable → profile UNAVAILABLE','warmth-cue profile, never actual warmth','Add the missing observable cue.'),
+    c('CW2','Warmth-Cue Shard Core','Fortnite-class shard assembly','LIVE / HUD','NEW ENGINEERING','core','Facial movement, vocal variation, orientation, and gesture timing appear as separate cue shards.','facial movement; orientation; voice variation; synchrony','assemble exposed target-relative cue states','unsupported pitch shard remains unavailable, not estimated','observable warmth-associated cues only','Recover the orientation shard.'),
+    c('CW3','Warmth-Cue Quest List','Fortnite-class quest checklist','HUD / FILM ROOM','NEW ENGINEERING','deck','A literal checklist asks whether selected observable cues appeared during an answer phase.','phase-bounded approved cue events','evaluate presence/target relation per cue','no reliable phase or cue → unknown checkbox','presence of named delivery cues','Complete one more cue objective.'),
+    c('CW4','Warmth-Cue Balance Field','Fortnite-class balance field','LIVE / HUD','NEW ENGINEERING','radar','A radar field prevents a single cue from hiding absent contributors; axes stay named.','approved normalized contributor measures','plot contributor vector against target envelope','missing axis remains broken and blocks summary','multi-cue delivery profile','Open the underused gesture-timing axis.'),
+    c('CW5','Warmth-Cue Orbit','Hero AAA team orbit','LIVE / FILM ROOM','NEW ENGINEERING','orbit','Observable cue events orbit the answer phase; clustering reveals when cues arrived together.','timestamped approved cue events; phase clock','place events by time and cue family, not value judgment','clock gap breaks orbit segment','cue timing and co-occurrence','Bring a cue into the close phase.'),
+    c('CW6','Warmth-Cue Stat Line','Sports AAA stat line','FILM ROOM','NEW ENGINEERING','score','A broadcast-style line lists cue counts, coverage, and timing with no overall personality grade.','cue events; coverage; phase duration','report transparent counts and target relations','low coverage labels the affected statistic unavailable','observable cue statistics only','Review the low-coverage cue before deciding.'),
+
+    // CC — COMPETENCE-CUE PROFILE
+    c('CC1','Competence-Cue Mission Stack','Fortnite-class mission stack','LIVE / HUD','NEW ENGINEERING','stack','Phase control, framing stability, pace, and delivery structure stack as visible cue modules.','approved observable delivery contributors','fixed module contract with no hidden inference','required module unavailable → stack incomplete','competence-cue profile, never actual competence','Stabilize the pace module.'),
+    c('CC2','Competence-Cue Readiness Gates','Fortnite-class readiness gates','LIVE / HUD','NEW ENGINEERING','deck','Each named delivery cue clears its own gate; no opaque total replaces the gate evidence.','named cue states and coverage','gate each contributor against its active target','unknown gate stays open and blocks READY','observable cue readiness','Clear the framing gate.'),
+    c('CC3','Competence-Cue Tactical Board','Fortnite-class tactical board','FILM ROOM','NEW ENGINEERING','map','A phase map connects setup, explanation, evidence, and close delivery cues without judging content correctness.','phase markers; delivery-only cue events','align cue events to phase nodes','semantic phase labels absent → generic answer phases','delivery organization cues only','Strengthen the close-phase delivery cue.'),
+    c('CC4','Competence-Cue Weak-Link Vector','Fortnite-class mission vector','LIVE / HUD','NEW ENGINEERING','radar','The farthest target deviation becomes the giant correction while all cue vectors remain visible.','normalized approved contributors','select maximum absolute explicit deviation','unavailable required vector blocks composite state','dominant cue deviation','Correct the pace vector first.'),
+    c('CC5','Competence-Cue Skill Tree','RPG AAA skill tree','HUD / FILM ROOM','NEW ENGINEERING','grid','Observable delivery cue nodes unlock only from evidence, never from identity or inferred ability.','cue events and target relations','populate transparent node prerequisites by phase','missing evidence leaves node unknown, not failed','delivery-cue coverage','Build the missing transition cue.'),
+    c('CC6','Competence-Cue Box Score','Sports AAA box score','FILM ROOM','NEW ENGINEERING','score','Phase-by-phase cue statistics reveal consistency, coverage, and the exact evidence gap.','phase cue measures; coverage; time','tabulate target-relative measures without scalar grade','missing phase or contributor remains blank and labeled','observable delivery-cue statistics','Review the explain-phase gap.'),
+
+    // CM — MECHANICAL / OVER-REGULAR
+    c('CM1','Regularity Trap Breaker','Fortnite-class trap breaker','LIVE / HUD','NEW ENGINEERING','grid','Equal phrase-and-pause tiles become visible traps; purposeful variation breaks the pattern.','phrase durations; pause durations; pace windows','detect repeated timing tiles within tolerance','insufficient reliable intervals → WARMING UP','over-regular timing pattern only','Break one repeated tile.'),
+    c('CM2','Regularity Radar','Fortnite-class threat radar','HUD / FILM ROOM','NEW ENGINEERING','radar','Timing, pace, level, and movement regularity occupy named radar axes with no hidden script claim.','approved variation measures across channels','plot normalized regularity axes against personal target','unsupported axis stays broken; no renormalization','multi-channel regularity profile','Vary the dominant timing axis.'),
+    c('CM3','Script-Like Pattern Timeline','Fortnite-class replay timeline','FILM ROOM','NEW ENGINEERING','timeline','Repeated delivery shapes align on a timeline so the exact pattern can be reviewed, not psychologized.','phrase timing; pace; energy variation; motion episodes','find similar delivery-only window shapes','similarity unavailable below coverage threshold','script-like delivery pattern, not memorization','Replay the repeated delivery shape.'),
+    c('CM4','Variation Combo Builder','Fortnite-class combo chain','LIVE / HUD','NEW ENGINEERING','combo','Useful changes in timing, pace, level, or motion add distinct combo links; random excess breaks control.','bounded variation events across approved channels','count target-aligned changes by named channel','missing channel never becomes a zero or bonus','controlled observable variation','Add one timing variation link.'),
+    c('CM5','Sameness Beat Lane','Rhythm AAA note lane','FILM ROOM','NEW ENGINEERING','lanes','Repeated phrase fingerprints stack in aligned lanes, making sameness and intentional breaks obvious.','delivery-only phrase feature vectors','compare adjacent normalized phrase shapes','feature gap breaks sequence; no imputation','phrase-shape similarity','Mark the first useful break.'),
+    c('CM6','Regularity Lap Delta','Racing AAA lap telemetry','FILM ROOM','NEW ENGINEERING','tach','Each phrase is a lap; near-identical deltas warn about over-regular delivery while target variation wins.','phrase-bounded timing and energy features','compute phrase-to-phrase feature delta versus target range','fewer than three phrases → insufficient evidence','delivery-pattern repeatability','Make the next lap deliberately different.'),
+
+    // CT — STORYTELLING DELIVERY
+    c('CT1','Story Delivery Runway','Fortnite-class launch runway','LIVE / HUD','NEW ENGINEERING','corridor','Setup, turn, and close phases land on distinct delivery targets without judging story content.','explicit/derived answer phases; approved delivery measures','map phase-specific targets to sequential runway zones','phase detection unavailable → manual markers required','phase-shaped delivery only','Build energy into the turn.'),
+    c('CT2','Story Delivery Quest Map','Fortnite-class quest map','FILM ROOM','NEW ENGINEERING','map','A path connects delivery beats and marks where pace, pause, or gesture changed across the answer.','phase/mentor markers; delivery events; clock','place named delivery events between explicit nodes','no markers → chronological generic nodes only','delivery event sequence','Add a deliberate pause at the turn.'),
+    c('CT3','Setup–Turn–Payoff Zones','Fortnite-class capture zones','LIVE / HUD','NEW ENGINEERING','field','Three delivery zones capture when their phase-specific observable targets are met.','phase markers; pace, level, pause, gesture cues','evaluate each phase against its own transparent target','missing phase or required signal → zone unknown','phase-specific delivery target relation','Capture the payoff zone with a firmer close.'),
+    c('CT4','Story Beat Combo','Fortnite-class combo chain','LIVE / HUD','NEW ENGINEERING','combo','Delivery beats chain when transitions are observable and phase-aligned; semantic quality is excluded.','phase transitions; pauses; energy/motion events','count distinct phase-aligned delivery transitions','no reliable phase markers → no combo scoring','observable delivery transitions','Make the next transition unmistakable.'),
+    c('CT5','Story Decision Trail','Adventure AAA decision path','FILM ROOM','NEW ENGINEERING','terrain','At each answer phase, the replay branches to the dominant observable delivery choice made.','phase-bounded delivery measures','label dominant pace/level/pause/motion shift per phase','ties stay multi-branch; no guessed intent','dominant delivery shift by phase','Compare the two possible close shapes.'),
+    c('CT6','Story Momentum Board','Sports AAA momentum chart','FILM ROOM','NEW ENGINEERING','score','A broadcast timeline shows delivery momentum from pace, pause, level, and motion events—never content value.','approved delivery event streams; phase clock','display event density and target relation by phase','missing lane remains blank and blocks total','delivery-event momentum proxy','Review the flat middle phase.'),
+
+    // TM — MASTER FLIGHT RECORDER
+    c('TM1','Threadline Flight Recorder','Fortnite-class mission replay','FILM ROOM / ADMIN','SUPPORTABLE WITH DERIVATION','timeline','A master playhead aligns every permitted lane and turns coaching events into clickable evidence.','all approved derived lanes; session clock; markers','align immutable event references on one monotonic clock','any lane gap remains visible; raw media not persisted','synchronized delivery evidence','Click the drift marker and inspect every lane.'),
+    c('TM2','Replay Command Wheel','Fortnite-class command wheel','FILM ROOM','NEW ENGINEERING','radial','Question, answer phases, coaching events, and highlights become radial sectors around a synchronized session clock.','phase events; delivery lanes; mentor/system markers','index lane events into selectable time sectors','missing lane marks sector incomplete, never absent','event timing and lane availability','Open the marked sector.'),
+    c('TM3','Delivery Filmstrip','Fortnite-class replay filmstrip','FILM ROOM','SUPPORTABLE WITH DERIVATION','lanes','Dense aligned strips separate voice, speech, face, body, hands, framing, markers, and targets.','all approved derived event/trace lanes','downsample each lane onto common display bins','gaps render blank; cross-lane skew blocks alignment','time-aligned derived delivery traces','Scrub to the first recovery.'),
+    c('TM4','Session Tactical Map','Fortnite-class tactical map','FILM ROOM / ADMIN','NEW ENGINEERING','map','Major answer moments are map nodes; every node opens the same synchronized evidence lanes.','answer phases; coaching/mentor/system events; target states','build event graph on immutable session timestamps','unresolved time or node source → unlinked evidence','session event topology','Open the weak-link node.'),
+    c('TM5','Replay Telestrator','Sports AAA telestration','FILM ROOM','SUPPORTABLE WITH DERIVATION','timeline','A shared playhead supports mentor circles, PERFECT, REMEMBER THIS, coaching, personal-best, and target markers.','derived lanes; mentor/coaching/target events; clock','align selectable markers and lane summaries','marker without valid time stays in unplaced list','synchronized annotated replay','Click REMEMBER THIS and compare lanes.'),
+    c('TM6','Session Telemetry Stack','Racing AAA telemetry','FILM ROOM / ADMIN','SUPPORTABLE WITH DERIVATION','lanes','A telemetry stack answers WHEN, WHAT ELSE, and WHERE TO CLICK with explicit lane provenance.','all approved signal summaries and event markers','render shared-time lane stack with phase and target overlays','unavailable lane remains named and broken','session-level derived telemetry','Jump to the personal-best event.'),
+  ];
+
+  function c(id,name,source,context,support,viz,description,inputs,transform,fail,interpretation,correction) {
+    const code = id.slice(0,2);
+    return { id, code, name, source, context, support, viz, description, inputs, transform, fail, interpretation, correction };
+  }
+
+  const stateStrength = { 'TOO LITTLE':.18, 'APPROACHING':.38, 'TARGET':.58, 'LOCKED':.70, 'TOO MUCH':.91, 'DRIFTING':.78, 'RECOVERING':.48, 'GOOD — HOLD':.64 };
+  const stateLabels = {
+    'TOO LITTLE':'ADD A CLEARER SIGNAL',
+    'APPROACHING':'ONE MORE STEP',
+    'TARGET':'TARGET — HOLD',
+    'LOCKED':'LOCKED — REPEAT THIS',
+    'TOO MUCH':'PULL BACK NOW',
+    'DRIFTING':'RETURN TO TARGET',
+    'RECOVERING':'GOOD RECOVERY',
+    'GOOD — HOLD':'GOOD — HOLD'
+  };
+  const accentByState = { 'TOO LITTLE':'#7657e8', 'APPROACHING':'#f0a429', 'TARGET':'#f4bd25', 'LOCKED':'#fff9e8', 'TOO MUCH':'#df3545', 'DRIFTING':'#d84b91', 'RECOVERING':'#ff7417', 'GOOD — HOLD':'#f4bd25' };
+  const familyCorrection = {
+    VV:['ADD CLEAN LEVEL','APPROACH TARGET','HOLD THE BAND','LEVEL LOCKED','PULL LEVEL BACK','RETURN TO BAND','RECOVERING LEVEL','GOOD — HOLD'],
+    VP:['ADD A PITCH TURN','OPEN THE RANGE','USE THE RANGE','PATTERN LOCKED','REDUCE THE SWING','RANGE IS COLLAPSING','RANGE RECOVERING','GOOD — HOLD'],
+    VC:['ADD DELIBERATE PACE','PACE APPROACHING','PACE ON TARGET','PACE LOCKED','SLOW THE NEXT PHRASE','PACE IS DRIFTING','PACE RECOVERING','GOOD — HOLD'],
+    VR:['VARY THE NEXT BEAT','VARIATION BUILDING','RHYTHM ON TARGET','PATTERN LOCKED','RESTORE CONTROL','TIMING TOO REGULAR','VARIATION RECOVERING','GOOD — HOLD'],
+    VW:['FILL THE WAVE BODY','WAVE APPROACHING','WAVE IN BAND','TRACE LOCKED','PULL BACK FROM PEAK','TRACE IS DRIFTING','TRACE RECOVERING','GOOD — HOLD'],
+    GZ:['ENTER THE USEFUL ZONE','ZONE APPROACHING','USE THE ACTIVE ZONE','ZONE LOCKED','REDUCE THE REACH','RETURN TO THE ZONE','ZONE RECOVERING','GOOD — HOLD'],
+    GH:['OPEN ANOTHER ZONE','COVERAGE BUILDING','DISTRIBUTION ON TARGET','PATTERN LOCKED','REDUCE THE HOTSPOT','HEAT IS CONCENTRATING','DISTRIBUTION RECOVERING','GOOD — HOLD'],
+    GS:['JOIN THE SPOKEN BEAT','TIMING APPROACHING','HIT THE SAME BEAT','SYNC LOCKED','REDUCE EXTRA MOTION','TIMING IS DRIFTING','SYNC RECOVERING','GOOD — HOLD'],
+    FF:['MOVE INTO FRAME','ALIGNMENT APPROACHING','FRAME ON TARGET','FRAME LOCKED','REDUCE THE CORRECTION','FRAME IS DRIFTING','FRAME RECOVERING','GOOD — HOLD'],
+    CD:['ALIGN THE CHANNELS','ALIGNMENT BUILDING','DELIVERY ALIGNED','ALIGNMENT LOCKED','RESTORE BALANCE','CHANNELS ARE DRIFTING','ALIGNMENT RECOVERING','GOOD — HOLD'],
+    CW:['ADD THE MISSING CUE','PROFILE APPROACHING','CUES ON TARGET','CUE PATTERN LOCKED','REDUCE CUE EXCESS','CUES ARE DRIFTING','PROFILE RECOVERING','GOOD — HOLD'],
+    CC:['BUILD THE MISSING CUE','READINESS APPROACHING','CUES ON TARGET','CUE SET LOCKED','RESTORE CONTROL','CUES ARE DRIFTING','PROFILE RECOVERING','GOOD — HOLD'],
+    CM:['ADD USEFUL VARIATION','VARIATION APPROACHING','PATTERN ON TARGET','VARIATION LOCKED','REDUCE RANDOM CHANGE','PATTERN TOO REGULAR','VARIATION RECOVERING','GOOD — HOLD'],
+    CT:['SHAPE THE NEXT PHASE','PHASE BUILDING','DELIVERY ARC ON TARGET','ARC LOCKED','RESTORE THE ARC','MIDDLE IS FLATTENING','ARC RECOVERING','GOOD — HOLD'],
+    TM:['ADD THE MISSING LANE','EVIDENCE ALIGNING','PLAYHEAD ON TARGET','EVENT LOCKED','REDUCE VIEW NOISE','LANES ARE DRIFTING','ALIGNMENT RECOVERING','GOOD — HOLD']
+  };
+  const states = ['TOO LITTLE','APPROACHING','TARGET','LOCKED','TOO MUCH','DRIFTING','RECOVERING','GOOD — HOLD'];
+  const app = { family:'VV', state:'TARGET', density:'simple', context:'ALL', target:'Session Target', phase:'ANSWER — EXPLAIN', compare:new Set(), disposition:new Map() };
+
+  const nav = document.getElementById('familyNav');
+  const arsenal = document.getElementById('arsenal');
+  const compareList = document.getElementById('compareList');
+  const compareCount = document.getElementById('compareCount');
+  const noResults = document.getElementById('noResults');
+
+  function esc(value) { return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+  function navRender() {
+    nav.innerHTML = families.map((f,i) => `<button type="button" role="tab" class="family-button" id="tab-${f.code}" aria-controls="family-panel" aria-selected="${f.code===app.family}" style="--family-accent:${familyColors[i]}" data-family="${f.code}"><span class="family-code">${f.code}</span><span class="family-name">${esc(f.title)}</span><span class="family-count">6</span></button>`).join('');
+    nav.querySelectorAll('button').forEach((button,index) => {
+      button.addEventListener('click', () => selectFamily(button.dataset.family));
+      button.addEventListener('keydown', event => {
+        if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key)) return;
+        event.preventDefault();
+        const buttons = [...nav.querySelectorAll('button')];
+        let next = index;
+        if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = buttons.length - 1;
+        else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index - 1 + buttons.length) % buttons.length;
+        else next = (index + 1) % buttons.length;
+        buttons[next].focus(); buttons[next].click();
+      });
+    });
+  }
+  function selectFamily(code) {
+    app.family = code;
+    nav.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.family===code)));
+    renderFamily();
+  }
+  function renderFamily() {
+    const fi = families.findIndex(f => f.code === app.family);
+    const family = families[fi];
+    document.documentElement.style.setProperty('--accent', familyColors[fi]);
+    document.getElementById('familyKicker').textContent = `Family ${family.code} • 6 options`;
+    document.getElementById('familyTitle').textContent = family.title;
+    document.getElementById('familyDescription').textContent = family.desc;
+    const familyConcepts = concepts.filter(item => item.code === app.family && (app.context === 'ALL' || item.context.includes(app.context)));
+    arsenal.innerHTML = familyConcepts.map((item,index) => card(item, fi, index)).join('');
+    noResults.hidden = familyConcepts.length > 0;
+    wireCards();
+  }
+  function card(item, familyIndex, index) {
+    const target = esc(app.target);
+    const stateIndex = states.indexOf(app.state);
+    const correction = familyCorrection[item.code][stateIndex] || stateLabels[app.state];
+    const selected = app.compare.has(item.id);
+    const disposition = app.disposition.get(item.id) || '';
+    const options = dispositions.map(d => `<option value="${esc(d)}"${d===disposition?' selected':''}>${d || 'CHOOSE…'}</option>`).join('');
+    return `<article class="concept${selected?' selected':''}" id="${item.id}" style="--card-accent:${accentByState[app.state] || familyColors[familyIndex]}" aria-labelledby="${item.id}-title">
+      <div class="card-top">
+        <div class="concept-code">${item.id}</div>
+        <div><h3 class="literal-title" id="${item.id}-title">${esc(families[familyIndex].title)}</h3><div class="mechanic-name">${esc(item.name)}</div></div>
+        <div class="source">${esc(item.source)}</div>
+      </div>
+      <div class="instrument" role="img" aria-label="Simulated ${esc(item.name)} showing ${esc(app.state)} for ${target}">
+        ${instrument(item, index)}
+        <div class="correction"><strong>${esc(correction)}</strong><span>${esc(app.state)}</span></div>
+      </div>
+      <div class="simple-copy">${esc(item.description)}</div>
+      ${item.code === 'TM' ? `<div class="master-lanes" aria-label="Required synchronized flight-recorder lanes"><span>QUESTION</span><span>ANSWER PHASE</span><span>VOICE LEVEL</span><span>PITCH — UNAVAILABLE</span><span>PACE</span><span>SPEECH / SILENCE / PAUSE</span><span>FACIAL ACTIVITY / SMILE CUE</span><span>HEAD</span><span>TORSO</span><span>LEFT HAND</span><span>RIGHT HAND</span><span>GESTURE</span><span>GESTURE + SPEECH SYNC</span><span>FRAMING</span><span>MENTOR</span><span>PERFECT</span><span>REMEMBER THIS</span><span>COACHING</span><span>PERSONAL BEST</span><span>MISSION TARGET</span><span>SYSTEM</span></div>` : ''}
+      <div class="detail standard-detail">
+        <div class="detail-grid">
+          <div class="detail-item"><b>Intended context</b><span>${esc(item.context)}</span></div>
+          <div class="detail-item"><b>Active target</b><span>${target} dominates this view</span></div>
+          <div class="detail-item"><b>Signal contributors</b><span>${esc(item.inputs)}</span></div>
+          <div class="detail-item"><b>Two-second action</b><span>${esc(item.correction)}</span></div>
+        </div>
+      </div>
+      <div class="detail lab-detail">
+        <div class="detail-grid">
+          <div class="detail-item"><b>Support class</b><span>${esc(item.support)}</span></div>
+          <div class="detail-item"><b>Transform</b><span>${esc(item.transform)}</span></div>
+          <div class="detail-item"><b>Fail closed</b><span>${esc(item.fail)}</span></div>
+          <div class="detail-item"><b>Defensible interpretation</b><span>${esc(item.interpretation)}</span></div>
+          <div class="detail-item"><b>Simulated phase</b><span>${esc(app.phase)}</span></div>
+          <div class="detail-item"><b>Raw evidence boundary</b><span>Raw audio, frames, landmarks, pixels, and embeddings are not persisted.</span></div>
+        </div>
+      </div>
+      <div class="card-actions">
+        <label class="compare-label"><input type="checkbox" data-compare="${item.id}" ${selected?'checked':''}> COMPARE ${item.id}</label>
+        <div class="disposition"><label for="disp-${item.id}">Founder disposition</label><select id="disp-${item.id}" data-disposition="${item.id}">${options}</select></div>
+      </div>
+    </article>`;
+  }
+
+  function instrument(item, index) {
+    const s = stateStrength[app.state] || .5;
+    const color = accentByState[app.state] || '#f4bd25';
+    const x = Math.round(70 + s * 480);
+    const y = Math.round(210 - s * 135);
+    const safeText = esc(app.target.toUpperCase());
+    const title = `<title>${esc(item.name)} simulated teaching instrument</title><desc>${esc(item.description)}</desc>`;
+    const bg = `<rect width="640" height="285" fill="#0d1020"/><text x="18" y="27" fill="#c3c8d8" font-size="11" font-weight="800" letter-spacing="1.5">${safeText} • ${esc(app.phase)}</text>`;
+    const common = `${title}${bg}`;
+    const label = `<text x="600" y="27" text-anchor="end" fill="${color}" font-size="12" font-weight="900">${esc(item.id)} / SIM</text>`;
+    const marker = `<polygon points="${x},43 ${x+12},58 ${x},73 ${x-12},58" fill="${color}" stroke="#05060b" stroke-width="4"/>`;
+    const gridLines = `<g stroke="#303751" stroke-width="2">${[1,2,3,4].map(i=>`<line x1="55" y1="${45+i*38}" x2="595" y2="${45+i*38}"/>`).join('')}</g>`;
+    let body = '';
+    switch(item.viz) {
+      case 'corridor': body = `<path d="M45 205 L205 155 L390 125 L595 70 L595 155 L390 180 L205 205 L45 235Z" fill="#202641"/><path d="M45 177 L205 135 L390 112 L595 92" fill="none" stroke="${color}" stroke-width="30" opacity=".85"/><path d="M45 218 C150 198 240 125 340 156 S500 118 595 118" fill="none" stroke="#fff9e8" stroke-width="7"/>${marker}<text x="44" y="258" fill="#c3c8d8" font-size="11">START</text><text x="596" y="258" fill="#c3c8d8" font-size="11" text-anchor="end">TARGET GATE</text>`; break;
+      case 'radial': body = `<g transform="translate(320 150)" fill="none" stroke-width="18"><circle r="99" stroke="#252b47"/><circle r="70" stroke="#252b47"/><circle r="42" stroke="#252b47"/><path d="M0 -99 A99 99 0 ${s>.5?1:0} 1 ${Math.sin(s*5.4)*99} ${-Math.cos(s*5.4)*99}" stroke="${color}"/><circle r="${30+s*58}" stroke="#fff9e8" stroke-width="6"/></g><text x="320" y="154" text-anchor="middle" fill="${color}" font-size="22" font-weight="1000">${Math.round(s*100)}%</text><text x="320" y="171" text-anchor="middle" fill="#c3c8d8" font-size="10">TARGET RELATION</text>`; break;
+      case 'field': body = `<path d="M320 50 C290 50 278 75 285 101 L262 126 L245 221 L283 221 L300 146 L300 245 L340 245 L340 146 L357 221 L395 221 L378 126 L355 101 C362 75 350 50 320 50Z" fill="#202641" stroke="#6b7290" stroke-width="3"/><rect x="150" y="78" width="340" height="142" fill="none" stroke="${color}" stroke-width="7" stroke-dasharray="18 10"/><circle cx="${190+s*220}" cy="${110+(index%3)*38}" r="18" fill="${color}" stroke="#05060b" stroke-width="5"/><circle cx="${450-s*180}" cy="${140+(index%2)*55}" r="13" fill="#fff9e8"/><text x="320" y="267" text-anchor="middle" fill="#c3c8d8" font-size="11">BODY-ANCHORED OPERATING SPACE</text>`; break;
+      case 'deck': body = `<g>${[0,1,2,3].map(i=>`<rect x="${55+i*140}" y="${72+(i%2)*20}" width="112" height="100" fill="${i/4<s?color:'#202641'}" stroke="#05060b" stroke-width="5"/><text x="${111+i*140}" y="${202+(i%2)*20}" text-anchor="middle" fill="#fff9e8" font-size="11">PHASE ${i+1}</text>`).join('')}</g><path d="M54 236 L${x} 236" stroke="#fff9e8" stroke-width="8"/><polygon points="${x},224 ${x+18},236 ${x},248" fill="#fff9e8"/>`; break;
+      case 'reticle': body = `<g transform="translate(320 145)" fill="none" stroke="${color}" stroke-width="10"><path d="M-145 -70 H${-35-s*45} V-115"/><path d="M145 -70 H${35+s*45} V-115"/><path d="M-145 70 H${-35-s*45} V115"/><path d="M145 70 H${35+s*45} V115"/><circle r="${22+(1-s)*70}" stroke="#fff9e8" stroke-width="5"/></g><circle cx="320" cy="145" r="7" fill="${color}"/><text x="320" y="270" text-anchor="middle" fill="#c3c8d8" font-size="11">FOUR-CONTRIBUTOR ACQUISITION</text>`; break;
+      case 'tach': body = `<path d="M110 220 A210 210 0 0 1 530 220" fill="none" stroke="#252b47" stroke-width="42"/><path d="M110 220 A210 210 0 0 1 530 220" pathLength="100" fill="none" stroke="${color}" stroke-width="42" stroke-dasharray="${s*100} 100"/><line x1="320" y1="220" x2="${320+Math.cos(Math.PI*(1+s))*170}" y2="${220+Math.sin(Math.PI*(1+s))*170}" stroke="#fff9e8" stroke-width="9"/><circle cx="320" cy="220" r="17" fill="${color}" stroke="#05060b" stroke-width="5"/><text x="320" y="142" text-anchor="middle" fill="#fff9e8" font-size="20" font-weight="1000">TARGET BAND</text>`; break;
+      case 'terrain': body = `<path d="M25 235 L75 190 L125 205 L180 112 L230 145 L280 90 L340 175 L390 118 L445 150 L500 78 L610 195 L610 255 L25 255Z" fill="#202641"/><path d="M25 235 L75 190 L125 205 L180 112 L230 145 L280 90 L340 175 L390 118 L445 150 L500 78 L610 195" fill="none" stroke="#fff9e8" stroke-width="6"/><circle cx="${60+s*510}" cy="${195-s*95+(index%2)*25}" r="15" fill="${color}" stroke="#05060b" stroke-width="5"/><path d="M80 154 H555" stroke="${color}" stroke-width="5" stroke-dasharray="12 10"/>`; break;
+      case 'stack': body = `<g>${[0,1,2,3,4].map(i=>{const h=42+(i*17+index*13)%105;return `<rect x="${72+i*104}" y="${225-h}" width="72" height="${h}" fill="${i/5<s?color:'#252b47'}"/><text x="${108+i*104}" y="246" text-anchor="middle" fill="#c3c8d8" font-size="10">${['LOW','MID−','MID','MID+','HIGH'][i]}</text>`}).join('')}</g><path d="M55 ${225-y/3} H585" stroke="#fff9e8" stroke-width="5" stroke-dasharray="14 8"/>`; break;
+      case 'grid': body = `<g>${[0,1,2].map(r=>[0,1,2,3,4].map(col=>{const on=((r*5+col+index)%15)/15<s;return `<rect x="${73+col*100}" y="${63+r*55}" width="78" height="42" fill="${on?color:'#252b47'}" stroke="#05060b" stroke-width="4"/>`}).join('')).join('')}</g><path d="M74 244 H${74+s*478}" stroke="#fff9e8" stroke-width="9"/><text x="552" y="249" text-anchor="end" fill="#c3c8d8" font-size="10">SEQUENCE CONTROL</text>`; break;
+      case 'lanes': body = `${gridLines}<g fill="none" stroke-width="6">${[0,1,2,3].map(i=>`<path d="M55 ${83+i*38} C140 ${55+i*42}, 205 ${120+i*21}, 300 ${83+i*38} S475 ${52+i*44}, 585 ${83+i*38}" stroke="${i===index%4?color:'#707794'}"/>`).join('')}</g><line x1="${x}" y1="48" x2="${x}" y2="235" stroke="#fff9e8" stroke-width="5"/><polygon points="${x-12},45 ${x+12},45 ${x},64" fill="#fff9e8"/>`; break;
+      case 'orbit': body = `<g transform="translate(320 145)" fill="none">${[52,84,116].map((r,i)=>`<ellipse rx="${r+45}" ry="${r}" stroke="#303751" stroke-width="4" transform="rotate(${i*45})"/><circle cx="${Math.cos(s*6.28+i*2)* (r+45)}" cy="${Math.sin(s*6.28+i*2)*r}" r="${12+i*3}" fill="${i===index%3?color:'#fff9e8'}" stroke="#05060b" stroke-width="4"/>`).join('')}<circle r="34" fill="${color}" stroke="#05060b" stroke-width="7"/></g>`; break;
+      case 'wave': body = `${gridLines}<path d="M40 151 ${Array.from({length:25},(_,i)=>`L${40+i*24} ${151+Math.sin(i*.9+index)* (22+s*50) * (i%4===0?1.7:1)}`).join(' ')}" fill="none" stroke="#fff9e8" stroke-width="6"/><rect x="40" y="${100-s*25}" width="560" height="${65+s*20}" fill="${color}" opacity=".18"/><path d="M40 ${100-s*25} H600 M40 ${165-s*5} H600" stroke="${color}" stroke-width="4" stroke-dasharray="12 8"/>`; break;
+      case 'heat': body = `<g>${[[165,105,48],[260,160,68],[380,115,52],[465,185,64],[320,220,38]].map((p,i)=>`<circle cx="${p[0]+(index%2)*12}" cy="${p[1]}" r="${p[2]*(.4+s)}" fill="${i%2?color:'#df3545'}" opacity="${.16+i*.08}"/>`).join('')}</g><path d="M320 52 V248 M105 150 H535" stroke="#707794" stroke-width="3" stroke-dasharray="8 8"/><text x="105" y="267" fill="#c3c8d8" font-size="10">LEFT</text><text x="535" y="267" text-anchor="end" fill="#c3c8d8" font-size="10">RIGHT</text>`; break;
+      case 'trail': body = `<path d="M75 220 C130 75 200 235 275 110 S430 225 570 70" fill="none" stroke="#303751" stroke-width="28"/>${[0,1,2,3,4,5].map(i=>`<circle cx="${90+i*90}" cy="${190-Math.sin(i+index)*70}" r="${10+i*2}" fill="${color}" opacity="${.25+i*.12}"/>`).join('')}<circle cx="${90+s*480}" cy="${190-Math.sin(s*5+index)*70}" r="20" fill="#fff9e8" stroke="#05060b" stroke-width="5"/>`; break;
+      case 'radar': { const pts = [0,1,2,3,4,5].map((i)=>{const a=-Math.PI/2+i*Math.PI/3;const r=42+s*66*((i+index)%3===0?.65:1);return `${320+Math.cos(a)*r},${148+Math.sin(a)*r}`}).join(' '); body=`<g transform="translate(320 148)" fill="none" stroke="#3d4564" stroke-width="3">${[45,75,105].map(r=>`<polygon points="${[0,1,2,3,4,5].map(i=>`${Math.cos(-Math.PI/2+i*Math.PI/3)*r},${Math.sin(-Math.PI/2+i*Math.PI/3)*r}`).join(' ')}"/>`).join('')}${[0,1,2,3,4,5].map(i=>`<line x2="${Math.cos(-Math.PI/2+i*Math.PI/3)*110}" y2="${Math.sin(-Math.PI/2+i*Math.PI/3)*110}"/>`).join('')}</g><polygon points="${pts}" fill="${color}" opacity=".6" stroke="#fff9e8" stroke-width="5"/>`; break; }
+      case 'score': body = `<g>${[0,1,2,3].map(i=>`<rect x="55" y="${58+i*45}" width="530" height="34" fill="#202641"/><rect x="55" y="${58+i*45}" width="${Math.max(45,(s-.08*i)*530)}" height="34" fill="${i===index%4?color:'#59617f'}"/><text x="68" y="${80+i*45}" fill="#fff9e8" font-size="12" font-weight="900">${['VOICE / AUDIO','TIMING / PHASE','FACE / BODY','HANDS / EVENTS'][i]}</text><text x="570" y="${80+i*45}" text-anchor="end" fill="#fff9e8" font-size="12">${Math.round(Math.max(0,s-.08*i)*100)}</text>`).join('')}</g><text x="55" y="258" fill="#c3c8d8" font-size="10">EXPOSED CONTRIBUTORS • NO HIDDEN SCORE</text>`; break;
+      case 'arc': body = `<g transform="translate(320 220)" fill="none" stroke-width="24">${[0,1,2].map(i=>`<path d="M${-180+i*28} 0 A${180-i*28} ${180-i*28} 0 0 1 ${180-i*28} 0" stroke="${i===index%3?color:'#303751'}"/>`).join('')}</g><circle cx="${140+s*360}" cy="${214-Math.sin(s*Math.PI)*150}" r="18" fill="#fff9e8" stroke="#05060b" stroke-width="5"/>`; break;
+      case 'impact': body = `<circle cx="320" cy="145" r="95" fill="#202641" stroke="${color}" stroke-width="14"/><circle cx="${245+s*150}" cy="145" r="26" fill="#fff9e8" stroke="#05060b" stroke-width="6"/><path d="M70 145 H570" stroke="#707794" stroke-width="5" stroke-dasharray="12 8"/><path d="M320 48 V242" stroke="#707794" stroke-width="5" stroke-dasharray="12 8"/><text x="320" y="153" text-anchor="middle" fill="${color}" font-size="18" font-weight="1000">HIT</text>`; break;
+      case 'combo': body = `<path d="M70 160 H570" stroke="#303751" stroke-width="22"/>${[0,1,2,3,4].map(i=>`<polygon points="${95+i*105},120 ${130+i*105},160 ${95+i*105},200 ${60+i*105},160" fill="${i/5<s?color:'#252b47'}" stroke="#05060b" stroke-width="5"/><text x="${95+i*105}" y="166" text-anchor="middle" fill="#fff9e8" font-size="13" font-weight="1000">${i+1}</text>`).join('')}<text x="320" y="245" text-anchor="middle" fill="#c3c8d8" font-size="10">CHAIN DISTINCT TARGET-ALIGNED EVENTS</text>`; break;
+      case 'timeline': body = `${gridLines}<line x1="${x}" y1="45" x2="${x}" y2="235" stroke="#fff9e8" stroke-width="5"/>${[0,1,2,3].map(i=>[.18,.39,.63,.82].map((p,j)=>`<${(i+j)%2?'circle':'rect'} ${((i+j)%2)?`cx="${55+p*530}" cy="${83+i*38}" r="${7+(j%2)*4}"`:`x="${48+p*530}" y="${76+i*38}" width="14" height="14"`} fill="${j===index%4?color:'#737b98'}"/>`).join('')).join('')}<text x="55" y="258" fill="#c3c8d8" font-size="10">WHEN</text><text x="320" y="258" text-anchor="middle" fill="#c3c8d8" font-size="10">WHAT ELSE</text><text x="585" y="258" text-anchor="end" fill="#c3c8d8" font-size="10">WHERE TO CLICK</text>`; break;
+      case 'split': body = `<rect x="50" y="55" width="250" height="165" fill="#202641"/><rect x="340" y="55" width="250" height="165" fill="#202641"/><path d="M65 170 C125 55 185 210 285 95" fill="none" stroke="${color}" stroke-width="8"/><path d="M355 105 C420 225 485 65 575 175" fill="none" stroke="#fff9e8" stroke-width="8"/><path d="M320 45 V235" stroke="#707794" stroke-width="5" stroke-dasharray="12 8"/><text x="175" y="245" text-anchor="middle" fill="#c3c8d8" font-size="10">VOICE + TIMING</text><text x="465" y="245" text-anchor="middle" fill="#c3c8d8" font-size="10">MOTION + FRAME</text>`; break;
+      case 'core': body = `<polygon points="320,62 390,104 390,186 320,228 250,186 250,104" fill="${color}" stroke="#05060b" stroke-width="8"/>${[[150,75],[490,75],[150,215],[490,215]].map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="31" fill="${i/4<s?'#fff9e8':'#252b47'}" stroke="#05060b" stroke-width="6"/><path d="M${p[0]+(p[0]<320?31:-31)} ${p[1]} L${p[0]<320?250:390} ${p[1]<145?108:182}" stroke="#69718e" stroke-width="5"/>`).join('')}<text x="320" y="151" text-anchor="middle" fill="#05060b" font-size="16" font-weight="1000">EXPOSED</text>`; break;
+      case 'map': body = `<g stroke="#69718e" stroke-width="6">${[[115,190,230,90],[230,90,370,175],[370,175,520,72],[370,175,510,225]].map(v=>`<line x1="${v[0]}" y1="${v[1]}" x2="${v[2]}" y2="${v[3]}"/>`).join('')}</g>${[[115,190],[230,90],[370,175],[520,72],[510,225]].map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="${20+(i===index%5?8:0)}" fill="${i/5<s?color:'#252b47'}" stroke="#05060b" stroke-width="6"/><text x="${p[0]}" y="${p[1]+4}" text-anchor="middle" fill="#fff9e8" font-size="10" font-weight="900">${i+1}</text>`).join('')}`; break;
+      default: body = `<rect x="55" y="65" width="530" height="160" fill="#202641"/><rect x="55" y="65" width="${530*s}" height="160" fill="${color}"/><text x="320" y="154" text-anchor="middle" fill="#fff9e8" font-size="20" font-weight="1000">SIMULATED STATE</text>`;
+    }
+    return `<svg viewBox="0 0 640 285" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${common}${body}${label}</svg>`;
+  }
+
+  function wireCards() {
+    arsenal.querySelectorAll('[data-compare]').forEach(input => input.addEventListener('change', () => {
+      const id = input.dataset.compare;
+      if (input.checked && app.compare.size >= 6) { input.checked = false; window.alert('Compare tray holds up to six concepts.'); return; }
+      if (input.checked) app.compare.add(id); else app.compare.delete(id);
+      renderCompare(); renderFamily();
+    }));
+    arsenal.querySelectorAll('[data-disposition]').forEach(select => select.addEventListener('change', () => {
+      if (select.value) app.disposition.set(select.dataset.disposition, select.value); else app.disposition.delete(select.dataset.disposition);
+    }));
+  }
+  function renderCompare() {
+    compareCount.textContent = app.compare.size;
+    compareList.innerHTML = app.compare.size ? [...app.compare].map(id => {
+      const item = concepts.find(c => c.id === id);
+      return `<span class="compare-chip">${id} • ${esc(item.name)}</span>`;
+    }).join('') : '<span>No concepts selected.</span>';
+  }
+
+  document.querySelectorAll('[data-density]').forEach(button => button.addEventListener('click', () => {
+    app.density = button.dataset.density;
+    document.body.dataset.density = app.density;
+    document.querySelectorAll('[data-density]').forEach(b => b.setAttribute('aria-pressed', String(b===button)));
+  }));
+  document.querySelectorAll('[data-state]').forEach(button => button.addEventListener('click', () => {
+    app.state = button.dataset.state;
+    document.querySelectorAll('[data-state]').forEach(b => b.setAttribute('aria-pressed', String(b===button)));
+    renderFamily();
+  }));
+  document.getElementById('targetSelect').addEventListener('change', event => { app.target = event.target.value; renderFamily(); });
+  document.getElementById('phaseSelect').addEventListener('change', event => { app.phase = event.target.value; renderFamily(); });
+  document.getElementById('contextSelect').addEventListener('change', event => { app.context = event.target.value; renderFamily(); });
+
+  navRender(); renderFamily(); renderCompare();
+  window.__ARSENAL_DIAGNOSTICS__ = () => ({ families:families.length, concepts:concepts.length, uniqueIds:new Set(concepts.map(c=>c.id)).size, familyCounts:Object.fromEntries(families.map(f=>[f.code,concepts.filter(c=>c.code===f.code).length])), state:app.state, density:app.density, context:app.context, compare:[...app.compare], dispositions:Object.fromEntries(app.disposition) });
+})();
+</script>
+</body>
+</html>
