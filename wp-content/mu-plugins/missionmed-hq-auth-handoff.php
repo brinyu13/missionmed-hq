@@ -186,13 +186,39 @@ function mmhq_handoff_is_allowed_return_url($url) {
 }
 
 function mmhq_handoff_allowed_final_hosts() {
-    $hosts = array('missionmedinstitute.com', 'www.missionmedinstitute.com');
+    $hosts = array(
+        'missionmedinstitute.com',
+        'www.missionmedinstitute.com',
+        'missionmed-hq-production.up.railway.app',
+    );
     $hosts = array_merge($hosts, mmhq_handoff_csv_setting('MMHQ_HANDOFF_ALLOWED_FINAL_HOSTS', 'MMHQ_HANDOFF_ALLOWED_FINAL_HOSTS', ''));
     $wp_host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
     if ($wp_host !== '') {
         $hosts[] = $wp_host;
     }
     return array_values(array_unique(array_filter($hosts)));
+}
+
+function mmhq_handoff_requested_final($final_raw, $return_to) {
+    $final_raw = trim((string) $final_raw);
+    if ($final_raw !== '') {
+        return $final_raw;
+    }
+
+    if (!mmhq_handoff_is_allowed_return_url($return_to)) {
+        return '';
+    }
+
+    $return_query = wp_parse_url((string) $return_to, PHP_URL_QUERY);
+    if (!is_string($return_query) || $return_query === '') {
+        return '';
+    }
+
+    $return_args = array();
+    parse_str($return_query, $return_args);
+    return isset($return_args['final']) && is_string($return_args['final'])
+        ? $return_args['final']
+        : '';
 }
 
 function mmhq_handoff_starts_with_slash($value) {
@@ -582,6 +608,7 @@ function mmhq_handoff_handle() {
     }
 
     $final_raw = isset($_GET['final']) ? (string) wp_unslash($_GET['final']) : '';
+    $final_raw = mmhq_handoff_requested_final($final_raw, $return_to);
     $final = mmhq_handoff_normalize_final($final_raw);
 
     $wp_user = wp_get_current_user();

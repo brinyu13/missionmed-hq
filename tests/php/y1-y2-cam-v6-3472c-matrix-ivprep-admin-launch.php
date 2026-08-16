@@ -74,4 +74,23 @@ mmed_assert(
 	'student module registry must omit IV Prep'
 );
 
-echo "PASS: Matrix IV Prep admin launch is exact and student access remains denied.\n";
+$handoff_source = file_get_contents( dirname( __DIR__, 2 ) . '/wp-content/mu-plugins/missionmed-hq-auth-handoff.php' );
+mmed_assert( is_string( $handoff_source ), 'handoff source must be readable' );
+mmed_assert(
+	false !== strpos( $handoff_source, "'missionmed-hq-production.up.railway.app'" ),
+	'exact HQ host must be in the final-host allowlist'
+);
+mmed_assert(
+	false !== strpos( $handoff_source, 'function mmhq_handoff_requested_final($final_raw, $return_to)' ),
+	'handoff must expose the bounded nested-final compatibility helper'
+);
+mmed_assert(
+	false !== strpos( $handoff_source, 'if (!mmhq_handoff_is_allowed_return_url($return_to))' ),
+	'nested final extraction must fail closed before parsing return_to'
+);
+mmed_assert(
+	false !== strpos( $handoff_source, '$final_raw = mmhq_handoff_requested_final($final_raw, $return_to);' ),
+	'handler must normalize the bounded nested final before signing'
+);
+
+echo "PASS: Matrix IV Prep admin launch and nested HQ final are exact; student access remains denied.\n";
