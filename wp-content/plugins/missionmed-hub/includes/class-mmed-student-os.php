@@ -58,7 +58,7 @@ class MMED_Student_OS {
 		}
 
 		$css_path           = MMED_HUB_PATH . 'assets/student-os.css';
-		$js_asset           = 'student-os.c1d97237eab4936d.js';
+		$js_asset           = 'student-os.16ca42c53ca2e890.js';
 		$js_path            = MMED_HUB_PATH . 'assets/' . $js_asset;
 		$scheduler_mount_js = MMED_HUB_PATH . 'assets/scheduler-mount.js';
 		$runtime_v2_enabled = self::is_runtime_v2_enabled();
@@ -317,6 +317,7 @@ class MMED_Student_OS {
 		);
 		$access_payload = self::add_storyforge_access_payload( $access_payload, $user_id, $is_admin_full_access );
 		$access_payload = self::add_cam_access_payload( $access_payload, $user_id );
+		$access_payload = self::add_ivprep_access_payload( $access_payload, $user_id );
 
 		return array(
 			'profile'       => self::get_profile_data( $user_id ),
@@ -484,6 +485,22 @@ class MMED_Student_OS {
 				'icon'       => 'CA',
 				'section'    => 'Match Prep',
 				'launch_url' => $cam_access['launch_url'],
+			);
+		}
+
+		$ivprep_access = isset( $access['ivprep'] ) && is_array( $access['ivprep'] ) ? $access['ivprep'] : array();
+		if (
+			$user_id > 0
+			&& ! empty( $access['module_permissions']['ivprep'] )
+			&& ! empty( $ivprep_access['launch_url'] )
+		) {
+			$modules[] = array(
+				'id'         => 'ivprep',
+				'route'      => 'ivprep',
+				'label'      => 'IV Prep On-Call',
+				'icon'       => 'IV',
+				'section'    => 'Match Prep',
+				'launch_url' => $ivprep_access['launch_url'],
 			);
 		}
 
@@ -671,6 +688,41 @@ class MMED_Student_OS {
 	}
 
 	/**
+	 * Add the fail-closed administrator-only IV Prep On-Call launch data.
+	 *
+	 * The launch target is fixed in server-owned code. Students and anonymous
+	 * visitors receive neither the module permission nor the handoff URL.
+	 *
+	 * @param array $access Matrix access payload.
+	 * @param int   $user_id WordPress user ID.
+	 * @return array
+	 */
+	private static function add_ivprep_access_payload( $access, $user_id ) {
+		if ( ! is_array( $access ) ) {
+			$access = array();
+		}
+
+		$allowed    = $user_id > 0 && user_can( $user_id, 'manage_options' );
+		$launch_url = $allowed ? self::get_ivprep_launch_url() : '';
+		$unlocked   = $allowed && '' !== $launch_url;
+
+		if ( ! isset( $access['module_permissions'] ) || ! is_array( $access['module_permissions'] ) ) {
+			$access['module_permissions'] = array();
+		}
+
+		$access['module_permissions']['ivprep'] = $unlocked;
+		$access['ivprep'] = array(
+			'enabled'     => '' !== $launch_url,
+			'unlocked'    => $unlocked,
+			'status'      => $unlocked ? 'admin_only' : 'not_authorized',
+			'reason_code' => $unlocked ? 'ivprep_admin_access' : 'ivprep_admin_required',
+			'launch_url'  => $unlocked ? $launch_url : '',
+		);
+
+		return $access;
+	}
+
+	/**
 	 * Resolve the WordPress-owned CAM claim with one narrow capability-derived administrator override.
 	 *
 	 * @param int $user_id WordPress user ID.
@@ -777,6 +829,26 @@ class MMED_Student_OS {
 					'entry'     => 'matrix',
 					'return_to' => $return_to,
 					'final'     => $final,
+				)
+			)
+		);
+	}
+
+	/**
+	 * Build the fixed HQ-authenticated IV Prep On-Call launch URL.
+	 *
+	 * @return string
+	 */
+	private static function get_ivprep_launch_url() {
+		$origin   = 'https://missionmed-hq-production.up.railway.app';
+		$final    = $origin . '/iv-prep-on-call/';
+		$auth_url = $origin . '/api/auth/start';
+
+		return esc_url_raw(
+			self::build_cam_query_url(
+				$auth_url,
+				array(
+					'final' => $final,
 				)
 			)
 		);
