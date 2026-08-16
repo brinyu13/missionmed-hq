@@ -93,6 +93,7 @@ export function publicAdmissionState(admission, { videoEnabled = false, founderP
     founderPaidTest: admission?.ok === true && founderPaidTest?.enabled === true
       ? Object.freeze({
           enabled: true,
+          testNo: founderPaidTest.testNo,
           agentId: founderPaidTest.agentId,
           profile: founderPaidTest.profile,
           maximumSeconds: founderPaidTest.maximumSeconds,

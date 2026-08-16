@@ -567,7 +567,7 @@ async function startProductionRoom() {
     state.founderProofRoom?.disconnect?.(true);
     state.founderProofRoom = null;
     state.audibleInterviewerTrack = null;
-    if (state.admission?.founderPaidTest?.enabled) {
+    if (state.admission?.founderPaidTest?.enabled && state.admission?.runtime?.mode !== 'hosted') {
       try { state.t1Lease = Object.freeze(await releaseT1Lease()); }
       catch { state.t1Lease = Object.freeze({ ...state.t1Lease, state: 'LOST' }); }
       renderT1LeaseState();
@@ -635,7 +635,9 @@ async function stopProductionRoom({
     }
   }
   const nextFounderTestReady = nextFounderProof?.enabled === true && nextFounderProof.state === 'READY';
-  if (!nextFounderTestReady && founderSequenceWasEnabled && state.t1Lease.state !== 'NOT_ACQUIRED') {
+  if (!nextFounderTestReady && founderSequenceWasEnabled
+    && state.admission?.runtime?.mode !== 'hosted'
+    && state.t1Lease.state !== 'NOT_ACQUIRED') {
     try { state.t1Lease = Object.freeze(await releaseT1Lease()); }
     catch { state.t1Lease = Object.freeze({ ...state.t1Lease, state: 'LOST' }); }
   }
@@ -1510,9 +1512,19 @@ async function initialize() {
   }
   renderFounderProofContract(founderProof);
   if (founderProof?.enabled === true) {
-    await refreshT1LeaseState();
-    window.clearInterval(state.t1LeaseStatusTimer);
-    state.t1LeaseStatusTimer = window.setInterval(() => { void refreshT1LeaseState(); }, 1_000);
+    if (hosted) {
+      state.t1Lease = Object.freeze({
+        state: hostedReady ? 'READY' : 'LOST',
+        heartbeatCount: hostedReady ? 1 : 0,
+        stableSeconds: hostedReady ? 30 : 0,
+        workerRegistrationState: hostedReady ? 'READY' : 'UNAVAILABLE',
+      });
+      renderT1LeaseState();
+    } else {
+      await refreshT1LeaseState();
+      window.clearInterval(state.t1LeaseStatusTimer);
+      state.t1LeaseStatusTimer = window.setInterval(() => { void refreshT1LeaseState(); }, 1_000);
+    }
   }
   setMobileBuilderPane("questions");
   syncResponsiveState();
