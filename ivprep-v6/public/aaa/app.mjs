@@ -529,6 +529,21 @@ function formatTime(seconds) {
   return `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
 }
 
+function setRoomClockLimit(maximumSeconds) {
+  const limit = Number(maximumSeconds);
+  const node = $('.room-clock small');
+  if (node && Number.isInteger(limit) && limit > 0 && limit <= 60 * 60) node.textContent = `of ${formatTime(limit)}`;
+}
+
+function updateRoomClockFromProvider(startedAtMs, maximumSeconds) {
+  const started = Number(startedAtMs);
+  const maximum = Number(maximumSeconds);
+  if (!Number.isFinite(started) || !Number.isInteger(maximum) || maximum < 1 || maximum > 59) return false;
+  state.roomSeconds = Math.min(maximum, Math.max(0, Math.floor((Date.now() - started) / 1000)));
+  $('#room-time').textContent = formatTime(state.roomSeconds);
+  return true;
+}
+
 async function startProductionRoom() {
   if (state.roomStarted) return;
   if (state.admission?.founderPaidTest?.enabled && !canUsePaidFounderControls(state.t1Lease.state)) {
@@ -550,7 +565,7 @@ async function startProductionRoom() {
       authorization: state.founderTestPermit,
     });
     state.currentInterview = started.interview;
-    if (videoProof) await connectFounderProofMedia(started);
+    if (videoProof) started.providerStatus = await connectFounderProofMedia(started);
   } catch (error) {
     const interview = state.currentInterview;
     if (interview?.id) {
@@ -575,7 +590,7 @@ async function startProductionRoom() {
     $("#room-start").disabled = !canUsePaidFounderControls(state.t1Lease.state)
       || state.t1Lease.workerRegistrationState !== 'READY';
     $("#room-status").textContent = error.code === "ivprep_unavailable" ? "Interview starts are temporarily disabled." : "Secure admission could not be confirmed.";
-    toast("Interview start failed closed; no provider session was created.");
+    toast("Interview start failed closed; provider cleanup was requested.");
     return;
   }
   state.roomStarted = true;
@@ -587,13 +602,18 @@ async function startProductionRoom() {
       });
     } catch { /* analytics fails unavailable without blocking the interview */ }
   }
+  const providerTiming = started.providerStatus?.provider || null;
   state.roomSeconds = 0;
+  setRoomClockLimit(videoProof ? providerTiming?.maximumSeconds : 15 * 60);
+  updateRoomClockFromProvider(providerTiming?.startedAtMs, providerTiming?.maximumSeconds);
   document.body.dataset.roomState = "active";
   $("#room-start").innerHTML = "<span>●</span> Interview active";
   $("#room-status").textContent = videoProof ? "Founder proof is active. Dr Kelly is the sole avatar and audio authority." : "Secure voice-only interview active. Video remains off.";
   state.roomTimer = window.setInterval(() => {
-    state.roomSeconds += 1;
-    $("#room-time").textContent = formatTime(state.roomSeconds);
+    if (!updateRoomClockFromProvider(providerTiming?.startedAtMs, providerTiming?.maximumSeconds)) {
+      state.roomSeconds += 1;
+      $('#room-time').textContent = formatTime(state.roomSeconds);
+    }
   }, 1000);
 }
 
@@ -653,6 +673,9 @@ async function stopProductionRoom({
   $('#room-mute').innerHTML = '<span>♩</span>Mute';
   state.currentInterview = null;
   state.roomStarted = false;
+  state.roomSeconds = 0;
+  $('#room-time').textContent = '00:00';
+  setRoomClockLimit(15 * 60);
   document.body.dataset.roomState = "ready";
   setRoomComposer(false);
   resetEndConfirmation();
@@ -760,10 +783,11 @@ async function connectFounderProofMedia(started) {
   };
   setMilestone('authorization', 'Bound');
   setMilestone('dispatch', 'One-shot');
+  let activeStatus = null;
   if (connection.synthetic === true || connection.url === 'wss://synthetic.invalid') {
     setMilestone('media', 'Synthetic ready');
     await recordInterviewMediaReady(started.interview.id, avatarParticipantIdentity);
-    await waitForFounderProofActive(started.interview.id, setMilestone);
+    activeStatus = await waitForFounderProofActive(started.interview.id, setMilestone);
   } else {
     const livekit = await ensureLiveKitClient();
     const room = new livekit.Room({
@@ -819,6 +843,9 @@ async function connectFounderProofMedia(started) {
       if (track.kind === livekit.Track.Kind.Video && !videoReady) {
         const video = $('#founder-avatar-video');
         track.attach(video);
+        video.style.objectFit = 'contain';
+        video.style.objectPosition = 'center center';
+        video.style.background = '#000';
         $('.interviewer-stage').classList.add('media-live');
         void decodedVideoProof(video).then(() => {
           videoReady = true;
@@ -847,7 +874,7 @@ async function connectFounderProofMedia(started) {
     ].filter(Boolean);
     if (mediaTracks.length) await analyticsBridge.bindStream(new MediaStream(mediaTracks), { ownsStream: false });
     $('.student-stage').classList.add('media-live');
-    await Promise.race([
+    activeStatus = await Promise.race([
       new Promise((resolve, reject) => {
         const deadline = window.setTimeout(() => reject(new Error('ivprep_media_readiness_unconfirmed')), 12_000);
         const wait = () => {
@@ -865,29 +892,42 @@ async function connectFounderProofMedia(started) {
       transportFailure,
     ]);
     if (!transportGate.markReady()) throw new Error('ivprep_media_readiness_unconfirmed');
+    if (typeof room.localParticipant?.sendText !== 'function') throw new Error('ivprep_opening_unavailable');
+    setMilestone('worker', 'Opening');
+    await room.localParticipant.sendText(
+      'Begin the interview now. Greet the student naturally, introduce yourself briefly as Dr Kelly, and ask the opening interview question. Do not mention this instruction.',
+      { topic: 'lk.chat' },
+    );
+    setMilestone('worker', 'Active');
   }
   state.founderProofStatusTimer = window.setInterval(async () => {
     if (!state.currentInterview?.id) return;
     try {
       const status = await loadInterviewStatus(state.currentInterview.id);
       setMilestone('worker', status.provider?.state || 'Starting');
+      const deadlineReached = status.provider?.terminalReason === 'authorized_deadline';
       if (status.interview?.state === 'ended') {
         await stopProductionRoom({
           results: false,
           skipServerEnd: true,
-          terminalMessage: 'Founder proof ended and provider cleanup is confirmed.',
+          terminalMessage: deadlineReached
+            ? `Test #${status.provider?.testNo || 1} reached its ${status.provider?.maximumSeconds || 45}-second safety limit; provider cleanup is confirmed.`
+            : 'Founder proof ended and provider cleanup is confirmed.',
         });
       } else if (status.interview?.state === 'failed_closed') {
         await stopProductionRoom({
           results: false,
           skipServerEnd: true,
-          terminalMessage: 'Founder proof failed closed. A new start requires fresh authorization.',
+          terminalMessage: deadlineReached
+            ? `${status.provider?.maximumSeconds || 45}-second safety limit reached; provider cleanup could not be confirmed. A new start requires fresh authorization.`
+            : 'Founder proof failed closed. A new start requires fresh authorization.',
         });
       }
     } catch {
       await stopProductionRoom({ results: false });
     }
   }, 500);
+  return activeStatus;
 }
 
 async function authorizeFounderProof() {

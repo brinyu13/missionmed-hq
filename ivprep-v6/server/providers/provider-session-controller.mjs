@@ -104,6 +104,7 @@ export class ProviderSessionController {
     this.startedAtMs = null;
     this.authorization = null;
     this.testNo = null;
+    this.terminalReason = null;
     this.terminalNotified = false;
   }
 
@@ -326,11 +327,22 @@ export class ProviderSessionController {
   }
 
   status() {
-    return Object.freeze({ state: this.lifecycle.state, active: this.lifecycle.state === 'ACTIVE' });
+    const deadlineAtMs = this.startedAtMs == null ? null : this.startedAtMs + (this.maxSeconds * 1000);
+    return Object.freeze({
+      state: this.lifecycle.state,
+      active: this.lifecycle.state === 'ACTIVE',
+      testNo: this.testNo,
+      maximumSeconds: this.maxSeconds,
+      startedAtMs: this.startedAtMs,
+      deadlineAtMs,
+      remainingMilliseconds: deadlineAtMs == null ? null : Math.max(0, deadlineAtMs - this.now()),
+      terminalReason: this.terminalReason,
+    });
   }
 
   stop(reason = 'user_ended', evidence = {}) {
     if (this.teardownPromise) return this.teardownPromise;
+    this.terminalReason = reason;
     this.teardownPromise = this.#teardown(reason, evidence);
     return this.teardownPromise;
   }

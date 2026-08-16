@@ -313,7 +313,16 @@ export function createIvPrepHqHandler({
       }
       sendJson(response, 200, {
         interview: { id: interview.id, mode: interview.mode, state: interview.state },
-        provider: provider ? { state: provider.state, active: provider.active === true } : null,
+        provider: provider ? {
+          state: provider.state,
+          active: provider.active === true,
+          testNo: provider.testNo,
+          maximumSeconds: provider.maximumSeconds,
+          startedAtMs: provider.startedAtMs,
+          deadlineAtMs: provider.deadlineAtMs,
+          remainingMilliseconds: provider.remainingMilliseconds,
+          terminalReason: provider.terminalReason,
+        } : null,
       });
       return true;
     }
