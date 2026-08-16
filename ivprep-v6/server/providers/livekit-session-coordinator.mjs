@@ -61,7 +61,7 @@ export async function createLiveKitSessionCoordinator({
           || !/^[A-Za-z0-9._:-]{1,120}$/u.test(String(participantIdentity || ''))
           || !Number.isInteger(maxSeconds)
           || maxSeconds < 1
-          || maxSeconds > 45) {
+          || maxSeconds > 59) {
           throw new Error('Scoped LiveKit participant authority is invalid.');
         }
         const token = new livekit.AccessToken(apiKey, apiSecret, {

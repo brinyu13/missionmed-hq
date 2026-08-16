@@ -602,6 +602,7 @@ async function stopProductionRoom({
   skipServerEnd = false,
   terminalMessage = "Ready when you are.",
 } = {}) {
+  const founderSequenceWasEnabled = state.admission?.founderPaidTest?.enabled === true;
   window.clearInterval(state.roomTimer);
   state.roomTimer = null;
   const interview = state.currentInterview;
@@ -623,7 +624,18 @@ async function stopProductionRoom({
       toast("Cleanup is unresolved. New video starts remain disabled.");
     }
   }
-  if (state.admission?.founderPaidTest?.enabled && state.t1Lease.state !== 'NOT_ACQUIRED') {
+  state.founderTestPermit = null;
+  let nextFounderProof = null;
+  if (founderSequenceWasEnabled) {
+    try {
+      state.admission = await loadIvPrepSession();
+      nextFounderProof = state.admission?.founderPaidTest || null;
+    } catch {
+      terminalMessage = 'Interview ended; the next Founder test contract could not be verified.';
+    }
+  }
+  const nextFounderTestReady = nextFounderProof?.enabled === true && nextFounderProof.state === 'READY';
+  if (!nextFounderTestReady && founderSequenceWasEnabled && state.t1Lease.state !== 'NOT_ACQUIRED') {
     try { state.t1Lease = Object.freeze(await releaseT1Lease()); }
     catch { state.t1Lease = Object.freeze({ ...state.t1Lease, state: 'LOST' }); }
   }
@@ -642,6 +654,7 @@ async function stopProductionRoom({
   document.body.dataset.roomState = "ready";
   setRoomComposer(false);
   resetEndConfirmation();
+  renderFounderProofContract(nextFounderProof);
   renderT1LeaseState();
   $("#room-start").innerHTML = "<span>●</span> Start interview";
   $("#room-status").textContent = terminalMessage;
@@ -897,12 +910,35 @@ async function authorizeFounderProof() {
     $('#founder-proof-selected').textContent = `${issued.authorization.voice} · ${issued.authorization.maxSeconds}s maximum`;
     $('#room-start').innerHTML = '<span>●</span> Start Founder video proof';
     renderT1LeaseState();
-    toast('Authorization is bound. Start stays disabled until the exact Profile B worker registers.');
+    toast(`Founder Test #${issued.authorization.testNo} is bound. Start stays disabled until the exact Profile B worker registers.`);
   } catch (error) {
     button.disabled = false;
     $('#founder-proof-state').textContent = 'DENIED';
     toast(error.code || 'Founder authorization failed closed.');
   }
+}
+
+function renderFounderProofContract(founderProof) {
+  const panel = $('#founder-proof-panel');
+  if (!panel) return;
+  panel.hidden = founderProof?.enabled !== true;
+  if (founderProof?.enabled !== true) return;
+  const testNo = Number(founderProof.testNo);
+  panel.querySelector('.eyebrow.gold').textContent = `FOUNDER TEST #${testNo} · ONE SHOT`;
+  $('#founder-proof-agent').textContent = founderProof.agentId;
+  $('#founder-proof-duration').textContent = `${founderProof.maximumSeconds}s hard maximum`;
+  $('#founder-proof-state').textContent = founderProof.state === 'READY' ? 'NOT AUTHORIZED' : founderProof.state;
+  $('#founder-authorize-test').textContent = `AUTHORIZE TEST #${testNo} ONCE`;
+  $('#founder-proof-selected').textContent = `Test #${testNo} · ${founderProof.maximumSeconds}s maximum`;
+  const voice = $('#founder-proof-voice');
+  const selected = founderProof.voices.includes(voice.value) ? voice.value : 'marin';
+  voice.replaceChildren(...founderProof.voices.map((name) => {
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = name;
+    option.selected = name === selected;
+    return option;
+  }));
 }
 
 function renderT1LeaseState() {
@@ -1472,18 +1508,8 @@ async function initialize() {
     $('#room-start').disabled = true;
     $('#room-status').textContent = 'Hosted foundation ready. Dr Kelly physical testing remains Founder-gated and provider creation is off.';
   }
-  $("#founder-proof-panel").hidden = founderProof?.enabled !== true;
+  renderFounderProofContract(founderProof);
   if (founderProof?.enabled === true) {
-    $("#founder-proof-agent").textContent = founderProof.agentId;
-    $("#founder-proof-duration").textContent = `${founderProof.maximumSeconds}s hard maximum`;
-    const voice = $("#founder-proof-voice");
-    voice.replaceChildren(...founderProof.voices.map((name) => {
-      const option = document.createElement('option');
-      option.value = name;
-      option.textContent = name;
-      option.selected = name === 'marin';
-      return option;
-    }));
     await refreshT1LeaseState();
     window.clearInterval(state.t1LeaseStatusTimer);
     state.t1LeaseStatusTimer = window.setInterval(() => { void refreshT1LeaseState(); }, 1_000);

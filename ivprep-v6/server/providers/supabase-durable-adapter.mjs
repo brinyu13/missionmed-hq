@@ -1,7 +1,13 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 import { installAdmissionRegistry, InMemoryAdmissionRegistry } from '../admission-registry.mjs';
-import { FounderPaidTestGate, FOUNDER_TEST_AGENT_ID, FOUNDER_TEST_AVATAR_PARTICIPANT_ID } from '../founder-paid-test-gate.mjs';
+import {
+  FounderPaidTestGate,
+  FOUNDER_TEST_AGENT_ID,
+  FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
+  FOUNDER_TEST_PLAN,
+  founderTestPlanFor,
+} from '../founder-paid-test-gate.mjs';
 import { createLiveKitSessionCoordinator } from './livekit-session-coordinator.mjs';
 import { PROFILE_B, PROFILE_B_AGENT_NAME, ProviderSessionController } from './provider-session-controller.mjs';
 
@@ -162,7 +168,7 @@ export class SupabaseAdmissionRegistry extends InMemoryAdmissionRegistry {
       const founder = this.founderSubjects.has(subject);
       const existing = await this.rest.table(
         'ivprep_entitlements',
-        `?subject=eq.${encodeURIComponent(subject)}&select=subject&limit=1`,
+        `?subject=eq.${encodeURIComponent(subject)}&select=subject,granted_video_seconds&limit=1`,
       );
       const common = {
         revision: 'hosted-3472a-v1',
@@ -176,7 +182,15 @@ export class SupabaseAdmissionRegistry extends InMemoryAdmissionRegistry {
         await this.rest.table('ivprep_entitlements', `?subject=eq.${encodeURIComponent(subject)}`, {
           method: 'PATCH',
           prefer: 'return=minimal',
-          body: common,
+          body: {
+            ...common,
+            ...(founder ? {
+              granted_video_seconds: Math.max(
+                Number(existing[0].granted_video_seconds) || 0,
+                FOUNDER_TEST_PLAN.reduce((total, entry) => total + entry.maxSeconds, 0),
+              ),
+            } : {}),
+          },
         });
       } else {
         await this.rest.table('ivprep_entitlements', '', {
@@ -185,7 +199,9 @@ export class SupabaseAdmissionRegistry extends InMemoryAdmissionRegistry {
           body: {
             subject,
             ...common,
-            granted_video_seconds: founder ? 45 : 0,
+            granted_video_seconds: founder
+              ? FOUNDER_TEST_PLAN.reduce((total, entry) => total + entry.maxSeconds, 0)
+              : 0,
             consumed_video_seconds: 0,
             reserved_video_seconds: 0,
           },
@@ -349,7 +365,7 @@ export class SupabaseVideoEntitlementStore {
 async function readReservation(rest, reservationNonce) {
   const rows = await rest.table(
     'ivprep_provider_reservations',
-    `?reservation_nonce=eq.${encodeURIComponent(reservationNonce)}&select=reservation_id,subject,state,room_name,dispatch_id,livekit_job_id,participant_identity,provider_create_attempted,provider_session_hash,termination_requested,termination_reason,termination_accepted,provider_terminal_status,provider_native_cost,cost_evidence,local_elapsed_ms,unknown_remote_create,cleanup_failure_codes,worker_joined_at,media_ready_at&limit=1`,
+    `?reservation_nonce=eq.${encodeURIComponent(reservationNonce)}&select=reservation_id,subject,state,test_number,reserved_seconds,room_name,dispatch_id,livekit_job_id,participant_identity,provider_create_attempted,provider_session_hash,termination_requested,termination_reason,termination_accepted,provider_terminal_status,provider_native_cost,cost_evidence,local_elapsed_ms,unknown_remote_create,cleanup_failure_codes,worker_joined_at,media_ready_at&limit=1`,
   );
   return Array.isArray(rows) ? rows[0] : null;
 }
@@ -393,12 +409,13 @@ export function createSupabaseHqWorkerAdapter({ rest, healthUrl, fetchImpl = fet
       }
     },
     async armJob(input) {
+      const plan = founderTestPlanFor(input.testNo);
       return Object.freeze({
         ok: Boolean(exactId(input.reservationId) && exactHash(input.reservationNonce)
           && exactId(input.roomName) && exactId(input.participantIdentity)
           && input.avatarParticipantIdentity === FOUNDER_TEST_AVATAR_PARTICIPANT_ID
           && input.agentName === PROFILE_B_AGENT_NAME && input.profile === PROFILE_B
-          && SAFE_VOICES.has(input.voice) && Number(input.maxSeconds) === 45),
+          && SAFE_VOICES.has(input.voice) && plan?.maxSeconds === Number(input.maxSeconds)),
       });
     },
     async bindDispatch(input) {
@@ -498,6 +515,13 @@ export function createSupabaseWorkerGate({ rest, voice } = {}) {
       });
       const row = Array.isArray(rows) ? rows[0] : null;
       if (!row) return Object.freeze({ ok: false });
+      const reservation = await readReservation(rest, input.reservationNonce);
+      const plan = founderTestPlanFor(reservation?.test_number);
+      if (!reservation
+        || reservation.reservation_id !== row.reservation_id
+        || plan?.maxSeconds !== Number(reservation.reserved_seconds)) {
+        return Object.freeze({ ok: false });
+      }
       logMilestone('worker_job_claimed', { reservationId: row.reservation_id, dispatchId: row.dispatch_id });
       return Object.freeze({
         ok: true,
@@ -511,7 +535,8 @@ export function createSupabaseWorkerGate({ rest, voice } = {}) {
         agentName: row.agent_name,
         profile: PROFILE_B,
         voice,
-        maxSeconds: 45,
+        testNo: plan.testNo,
+        maxSeconds: plan.maxSeconds,
       });
     },
     async waitForTermination(input) {
@@ -546,6 +571,11 @@ export function createSupabaseWorkerGate({ rest, voice } = {}) {
     },
     async reconcileJob(input) {
       const status = String(input.providerStatus?.status || 'UNRESOLVED').toUpperCase();
+      const reservation = await readReservation(rest, input.reservationNonce);
+      const plan = founderTestPlanFor(reservation?.test_number);
+      if (!plan || plan.maxSeconds !== Number(reservation?.reserved_seconds)) {
+        throw new Error('Durable Founder test plan evidence is unavailable.');
+      }
       const ok = await rest.rpc('ivprep_reconcile_provider_job', {
         p_reservation_id: input.reservationId,
         p_reservation_nonce: input.reservationNonce,
@@ -557,7 +587,7 @@ export function createSupabaseWorkerGate({ rest, voice } = {}) {
         p_provider_terminal_status: ['COMPLETED', 'TIMED_OUT', 'FAILED'].includes(status) ? status : 'UNRESOLVED',
         p_provider_native_cost: Number.isFinite(Number(input.cost?.providerNativeCost)) ? Number(input.cost.providerNativeCost) : null,
         p_cost_evidence: input.cost?.costEvidence || 'UNRESOLVED',
-        p_local_elapsed_ms: Math.round(Math.max(0, Math.min(45, Number(input.cost?.localElapsedSeconds) || 0)) * 1000),
+        p_local_elapsed_ms: Math.round(Math.max(0, Math.min(plan.maxSeconds, Number(input.cost?.localElapsedSeconds) || 0)) * 1000),
         p_unknown_remote_create: input.unknownRemoteCreate === true,
         p_cleanup_failure_codes: Array.isArray(input.cleanupFailures) ? input.cleanupFailures.slice(0, 8) : [],
       });
@@ -617,7 +647,7 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
     apiKey: environment.LIVEKIT_API_KEY,
     apiSecret: environment.LIVEKIT_API_SECRET,
   });
-  const paidTestGate = new FounderPaidTestGate();
+  const paidTestGate = new FounderPaidTestGate({ testPlan: FOUNDER_TEST_PLAN });
   const armed = paidTestGate.armInfrastructure({
     terminationArmed: true,
     reconciliationArmed: true,
@@ -635,6 +665,7 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
     dispatch: livekit.dispatch,
     worker,
     maxSeconds: paidTestAuthorization.maxSeconds,
+    testPlan: FOUNDER_TEST_PLAN,
     onTerminal: (evidence) => paidTestGate.finish(evidence),
   });
   return Object.freeze({

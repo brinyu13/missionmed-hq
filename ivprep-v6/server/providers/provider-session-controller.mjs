@@ -4,7 +4,9 @@ import {
   FOUNDER_TEST_AGENT_ID,
   FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
   FOUNDER_TEST_PROFILE,
+  FOUNDER_TEST_PLAN,
   FOUNDER_TEST_VOICES,
+  founderTestPlanFor,
 } from '../founder-paid-test-gate.mjs';
 import { advanceProviderSession, failProviderSession, initialProviderSessionState } from './provider-session-state.mjs';
 import { reconcileProviderCost } from './provider-cost-reconciler.mjs';
@@ -41,7 +43,8 @@ function validProviderHash(value) {
   return /^[a-f0-9]{64}$/u.test(String(value || ''));
 }
 
-function validPaidTestAuthorization(value, { subject, interviewId, idempotencyKey, maxSeconds }) {
+function validPaidTestAuthorization(value, { subject, interviewId, idempotencyKey, maxSeconds, testNo }) {
+  const plan = founderTestPlanFor(value?.testNo);
   return value?.authorized === true
     && value?.consumed === true
     && value?.subject === subject
@@ -52,7 +55,8 @@ function validPaidTestAuthorization(value, { subject, interviewId, idempotencyKe
     && value?.profile === FOUNDER_TEST_PROFILE
     && FOUNDER_TEST_VOICES.has(value?.voice)
     && value?.maxSeconds === maxSeconds
-    && value?.testNo === 1
+    && value?.testNo === testNo
+    && plan?.maxSeconds === maxSeconds
     && value?.terminationArmed === true
     && value?.reconciliationArmed === true
     && value?.zeroRetry === true
@@ -62,7 +66,18 @@ function validPaidTestAuthorization(value, { subject, interviewId, idempotencyKe
 }
 
 export class ProviderSessionController {
-  constructor({ entitlementStore, room, participant, dispatch, worker, onTerminal = null, clock = globalThis, now = () => Date.now(), maxSeconds = 45 } = {}) {
+  constructor({
+    entitlementStore,
+    room,
+    participant,
+    dispatch,
+    worker,
+    onTerminal = null,
+    clock = globalThis,
+    now = () => Date.now(),
+    maxSeconds = 45,
+    testPlan = [FOUNDER_TEST_PLAN[0]],
+  } = {}) {
     this.entitlementStore = entitlementStore;
     this.room = room;
     this.participant = participant;
@@ -70,7 +85,16 @@ export class ProviderSessionController {
     this.worker = worker;
     this.clock = clock;
     this.now = now;
-    this.maxSeconds = Math.min(45, Math.max(1, Math.trunc(maxSeconds)));
+    this.maxSeconds = Math.min(59, Math.max(1, Math.trunc(maxSeconds)));
+    const normalizedPlan = Array.isArray(testPlan)
+      ? testPlan.map((entry) => founderTestPlanFor(entry?.testNo))
+      : [];
+    if (!normalizedPlan.length
+      || normalizedPlan.some((entry, index) => !entry || entry.testNo !== index + 1)
+      || new Set(normalizedPlan.map((entry) => entry.testNo)).size !== normalizedPlan.length) {
+      throw new TypeError('Provider controller test plan is invalid.');
+    }
+    this.testPlan = Object.freeze([...normalizedPlan]);
     this.onTerminal = onTerminal;
     this.lifecycle = initialProviderSessionState();
     this.context = null;
@@ -79,16 +103,19 @@ export class ProviderSessionController {
     this.activationPromise = null;
     this.startedAtMs = null;
     this.authorization = null;
+    this.testNo = null;
     this.terminalNotified = false;
   }
 
   async start({ subject, interviewId, idempotencyKey, testNo = 1, paidTestAuthorization = null } = {}) {
     if (this.lifecycle.state !== 'DISABLED') throw new Error('Provider session can start only once.');
-    if (testNo !== 1) throw new Error('This controller is bounded to Engineering Test 1.');
-    if (!validPaidTestAuthorization(paidTestAuthorization, { subject, interviewId, idempotencyKey, maxSeconds: this.maxSeconds })) {
-      throw new Error('An exact consumed Founder Test 1 authorization is required.');
+    const plan = this.testPlan.find((entry) => entry?.testNo === testNo) || null;
+    if (!plan || plan.maxSeconds !== this.maxSeconds) throw new Error('This controller is bounded to Engineering Test 1 unless an exact multi-test plan is supplied.');
+    if (!validPaidTestAuthorization(paidTestAuthorization, { subject, interviewId, idempotencyKey, maxSeconds: this.maxSeconds, testNo })) {
+      throw new Error('An exact consumed Founder test authorization is required.');
     }
     this.authorization = paidTestAuthorization;
+    this.testNo = testNo;
     this.lifecycle = advanceProviderSession(this.lifecycle, 'ELIGIBLE');
     const reserved = await this.entitlementStore.reserve({
       subject,
@@ -161,6 +188,7 @@ export class ProviderSessionController {
         agentName: PROFILE_B_AGENT_NAME,
         profile: this.authorization.profile,
         voice: this.authorization.voice,
+        testNo,
         maxSeconds: this.maxSeconds,
         retry: NO_RETRY,
       });
@@ -203,6 +231,7 @@ export class ProviderSessionController {
           agentId: this.authorization.agentId,
           profile: this.authorization.profile,
           voice: this.authorization.voice,
+          testNo: this.authorization.testNo,
           maxSeconds: this.authorization.maxSeconds,
           audioAuthority: 'avatar-livekit',
           avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,

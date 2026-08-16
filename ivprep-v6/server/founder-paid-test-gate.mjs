@@ -2,12 +2,21 @@ import { createHash, randomUUID } from 'node:crypto';
 
 export const FOUNDER_TEST_NUMBER = 1;
 export const FOUNDER_TEST_MAX_SECONDS = 45;
+export const FOUNDER_TEST_PLAN = Object.freeze([
+  Object.freeze({ testNo: 1, maxSeconds: 45 }),
+  Object.freeze({ testNo: 2, maxSeconds: 45 }),
+  Object.freeze({ testNo: 3, maxSeconds: 59 }),
+]);
 export const FOUNDER_TEST_AGENT_ID = 'agent_9bdfc50ec0086043';
 export const FOUNDER_TEST_AVATAR_PARTICIPANT_ID = 'ivprep-3441r-lemonslice-avatar';
 export const FOUNDER_TEST_PROFILE = 'PROFILE_B_OPENAI_NATIVE_AUDIO';
 export const FOUNDER_TEST_VOICES = Object.freeze(new Set(['marin', 'coral', 'shimmer']));
 
 const MAX_AUTHORIZATION_TTL_MS = 5 * 60 * 1000;
+
+export function founderTestPlanFor(testNo) {
+  return FOUNDER_TEST_PLAN.find((entry) => entry.testNo === Number(testNo)) || null;
+}
 
 function hash(value) {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -29,12 +38,28 @@ function exactVoice(value) {
 }
 
 export class FounderPaidTestGate {
-  constructor({ now = () => Date.now(), idFactory = () => randomUUID(), authorizationTtlMs = MAX_AUTHORIZATION_TTL_MS } = {}) {
+  constructor({
+    now = () => Date.now(),
+    idFactory = () => randomUUID(),
+    authorizationTtlMs = MAX_AUTHORIZATION_TTL_MS,
+    testPlan = [FOUNDER_TEST_PLAN[0]],
+  } = {}) {
+    const normalizedPlan = Array.isArray(testPlan)
+      ? testPlan.map((entry) => founderTestPlanFor(entry?.testNo))
+      : [];
+    if (!normalizedPlan.length
+      || normalizedPlan.some((entry, index) => !entry || entry.testNo !== index + 1)
+      || new Set(normalizedPlan.map((entry) => entry.testNo)).size !== normalizedPlan.length) {
+      throw new TypeError('Founder paid-test plan is invalid.');
+    }
     this.now = now;
     this.idFactory = idFactory;
     this.authorizationTtlMs = Math.min(MAX_AUTHORIZATION_TTL_MS, Math.max(10_000, Math.trunc(authorizationTtlMs)));
+    this.testPlan = Object.freeze([...normalizedPlan]);
     this.infrastructure = null;
     this.authorization = null;
+    this.testIndex = 0;
+    this.completedTests = [];
     this.terminal = null;
     this.killSwitch = false;
   }
@@ -62,24 +87,30 @@ export class FounderPaidTestGate {
   }
 
   publicState({ admission } = {}) {
+    const current = this.testPlan[this.testIndex] || null;
     return Object.freeze({
       enabled: admission?.ok === true
         && admission.entitlement?.founder === true
         && admission.entitlement?.video === true
         && Boolean(this.infrastructure)
         && !this.killSwitch
-        && !this.terminal,
+        && !this.terminal
+        && Boolean(current),
       agentId: FOUNDER_TEST_AGENT_ID,
       avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
       profile: FOUNDER_TEST_PROFILE,
-      maximumSeconds: FOUNDER_TEST_MAX_SECONDS,
+      testNo: current?.testNo || this.testPlan.at(-1).testNo,
+      maximumSeconds: current?.maxSeconds || this.testPlan.at(-1).maxSeconds,
+      remainingTests: Math.max(0, this.testPlan.length - this.testIndex),
+      completedTests: Object.freeze(this.completedTests.map((entry) => Object.freeze({ ...entry }))),
       voices: Object.freeze([...FOUNDER_TEST_VOICES]),
       state: this.killSwitch ? 'FAILED_CLOSED' : (this.terminal ? 'TERMINAL' : (this.authorization?.consumedAtMs ? 'CONSUMED' : (this.authorization ? 'AUTHORIZED' : 'READY'))),
     });
   }
 
   issue({ admission, idempotencyKey, agentId, profile, voice, maxSeconds } = {}) {
-    if (this.killSwitch || !this.infrastructure || this.terminal) return denied('ivprep_paid_test_unavailable', 503);
+    const current = this.testPlan[this.testIndex] || null;
+    if (this.killSwitch || !this.infrastructure || this.terminal || !current) return denied('ivprep_paid_test_unavailable', 503);
     if (admission?.ok !== true || admission.entitlement?.founder !== true || admission.entitlement?.video !== true) {
       return denied('ivprep_founder_authorization_required');
     }
@@ -90,7 +121,7 @@ export class FounderPaidTestGate {
     if (agentId !== FOUNDER_TEST_AGENT_ID
       || profile !== FOUNDER_TEST_PROFILE
       || !selectedVoice
-      || Number(maxSeconds) !== FOUNDER_TEST_MAX_SECONDS) {
+      || Number(maxSeconds) !== current.maxSeconds) {
       return denied('ivprep_paid_test_contract_mismatch');
     }
     const requestHash = hash({
@@ -100,8 +131,8 @@ export class FounderPaidTestGate {
       agentId,
       profile,
       voice: selectedVoice,
-      maxSeconds: FOUNDER_TEST_MAX_SECONDS,
-      testNo: FOUNDER_TEST_NUMBER,
+      maxSeconds: current.maxSeconds,
+      testNo: current.testNo,
     });
     if (this.authorization) {
       if (this.authorization.idempotencyKey === requestKey && this.authorization.requestHash === requestHash) {
@@ -121,8 +152,8 @@ export class FounderPaidTestGate {
       avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
       profile: FOUNDER_TEST_PROFILE,
       voice: selectedVoice,
-      maxSeconds: FOUNDER_TEST_MAX_SECONDS,
-      testNo: FOUNDER_TEST_NUMBER,
+      maxSeconds: current.maxSeconds,
+      testNo: current.testNo,
       issuedAtMs,
       expiresAtMs: issuedAtMs + this.authorizationTtlMs,
       consumedAtMs: null,
@@ -203,15 +234,29 @@ export class FounderPaidTestGate {
     }
     const safe = terminationConfirmed === true && reconciliationConfirmed === true;
     if (!safe) this.killSwitch = true;
-    this.terminal = Object.freeze({
+    const evidence = Object.freeze({
       state: safe ? 'CLOSED' : 'FAILED_CLOSED',
       atMs: this.now(),
+      testNo: this.authorization.testNo,
+      maxSeconds: this.authorization.maxSeconds,
       providerCreateAttempted: providerCreateAttempted === true,
       terminationConfirmed: terminationConfirmed === true,
       reconciliationConfirmed: reconciliationConfirmed === true,
       reason: String(reason || 'terminal').slice(0, 40),
     });
-    return Object.freeze({ ok: safe, state: this.terminal.state });
+    if (!safe) {
+      this.terminal = evidence;
+      return Object.freeze({ ok: false, state: this.terminal.state });
+    }
+    this.completedTests.push(evidence);
+    if (this.testIndex < this.testPlan.length - 1) {
+      this.testIndex += 1;
+      this.authorization = null;
+      return Object.freeze({ ok: true, state: 'READY', nextTestNo: this.testPlan[this.testIndex].testNo });
+    }
+    this.testIndex = this.testPlan.length;
+    this.terminal = evidence;
+    return Object.freeze({ ok: true, state: this.terminal.state });
   }
 
   failClosed(reason = 'safety_uncertain') {

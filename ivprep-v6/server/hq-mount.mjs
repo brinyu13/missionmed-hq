@@ -484,6 +484,7 @@ export function createIvPrepHqHandler({
           agentId: paidTestAuthorization.agentId,
           profile: paidTestAuthorization.profile,
           voice: paidTestAuthorization.voice,
+          testNo: paidTestAuthorization.testNo,
           maxSeconds: paidTestAuthorization.maxSeconds,
         }) : null,
       };
@@ -507,7 +508,7 @@ export function createIvPrepHqHandler({
             subject: admission.subject,
             interviewId: id,
             idempotencyKey,
-            testNo: 1,
+            testNo: paidTestAuthorization.testNo,
             paidTestAuthorization,
           });
         } catch {

@@ -4,8 +4,10 @@ import test from 'node:test';
 import {
   FOUNDER_TEST_AGENT_ID,
   FOUNDER_TEST_MAX_SECONDS,
+  FOUNDER_TEST_PLAN,
   FOUNDER_TEST_PROFILE,
   FounderPaidTestGate,
+  founderTestPlanFor,
 } from '../../server/founder-paid-test-gate.mjs';
 
 const FINGERPRINT = 'a'.repeat(64);
@@ -20,19 +22,20 @@ function admission({ founder = true, fingerprint = FINGERPRINT, revision = 'enti
 }
 
 function request(overrides = {}) {
+  const plan = founderTestPlanFor(overrides.testNo || 1);
   return {
     admission: admission(),
-    idempotencyKey: 'authorize-test-1',
+    idempotencyKey: `authorize-test-${plan.testNo}`,
     agentId: FOUNDER_TEST_AGENT_ID,
     profile: FOUNDER_TEST_PROFILE,
     voice: 'marin',
-    maxSeconds: FOUNDER_TEST_MAX_SECONDS,
+    maxSeconds: plan.maxSeconds,
     ...overrides,
   };
 }
 
 function armedGate(options = {}) {
-  const gate = new FounderPaidTestGate(options);
+  const gate = new FounderPaidTestGate({ testPlan: FOUNDER_TEST_PLAN, ...options });
   assert.equal(gate.armInfrastructure({
     terminationArmed: true,
     reconciliationArmed: true,
@@ -44,32 +47,42 @@ function armedGate(options = {}) {
   return gate;
 }
 
-test('Founder authorization is exact, idempotent before consume, and single-use', () => {
+test('three Founder-only tests require three separate authorizations and exact 45/45/59 limits', () => {
   let now = 1_000;
-  const gate = armedGate({ now: () => now, idFactory: () => 'authorization-test-1' });
-  const issued = gate.issue(request());
-  assert.equal(issued.status, 201);
-  assert.equal(gate.issue(request()).status, 200);
-  const consumed = gate.consume({
-    admission: admission(),
-    authorizationId: issued.authorization.id,
-    interviewId: 'interview-test-1',
-    idempotencyKey: 'start-test-1',
-    agentId: FOUNDER_TEST_AGENT_ID,
-    profile: FOUNDER_TEST_PROFILE,
-    voice: 'marin',
-    maxSeconds: 45,
-  });
-  assert.equal(consumed.ok, true);
-  assert.equal(consumed.receipt.terminationArmed, true);
-  assert.equal(consumed.receipt.reconciliationArmed, true);
-  assert.equal(consumed.receipt.zeroRetry, true);
-  assert.match(consumed.receipt.authorizationBinding, /^[a-f0-9]{64}$/u);
-  assert.equal(gate.consume({ ...consumed.receipt, admission: admission(), authorizationId: issued.authorization.id }).code, 'ivprep_paid_test_authorization_consumed');
-  assert.equal(gate.finish({ authorizationId: issued.authorization.id, providerCreateAttempted: true, terminationConfirmed: true, reconciliationConfirmed: true }).ok, true);
+  let sequence = 0;
+  const gate = armedGate({ now: () => now, idFactory: () => `authorization-test-${++sequence}` });
+  assert.deepEqual(FOUNDER_TEST_PLAN.map(({ testNo, maxSeconds }) => [testNo, maxSeconds]), [[1, 45], [2, 45], [3, 59]]);
+  for (const plan of FOUNDER_TEST_PLAN) {
+    const publicBefore = gate.publicState({ admission: admission() });
+    assert.equal(publicBefore.state, 'READY');
+    assert.equal(publicBefore.testNo, plan.testNo);
+    assert.equal(publicBefore.maximumSeconds, plan.maxSeconds);
+    const issued = gate.issue(request({ testNo: plan.testNo }));
+    assert.equal(issued.status, 201);
+    assert.equal(issued.authorization.testNo, plan.testNo);
+    assert.equal(gate.issue(request({ testNo: plan.testNo })).status, 200);
+    const consumed = gate.consume({
+      admission: admission(),
+      authorizationId: issued.authorization.id,
+      interviewId: `interview-test-${plan.testNo}`,
+      idempotencyKey: `start-test-${plan.testNo}`,
+      agentId: FOUNDER_TEST_AGENT_ID,
+      profile: FOUNDER_TEST_PROFILE,
+      voice: 'marin',
+      maxSeconds: plan.maxSeconds,
+    });
+    assert.equal(consumed.ok, true);
+    assert.equal(consumed.receipt.testNo, plan.testNo);
+    assert.equal(consumed.receipt.maxSeconds, plan.maxSeconds);
+    assert.match(consumed.receipt.authorizationBinding, /^[a-f0-9]{64}$/u);
+    assert.equal(gate.consume({ ...consumed.receipt, admission: admission(), authorizationId: issued.authorization.id }).code, 'ivprep_paid_test_authorization_consumed');
+    const finished = gate.finish({ authorizationId: issued.authorization.id, providerCreateAttempted: true, terminationConfirmed: true, reconciliationConfirmed: true });
+    assert.equal(finished.ok, true);
+    now += 1;
+  }
   assert.equal(gate.publicState({ admission: admission() }).state, 'TERMINAL');
-  now += 1;
-  assert.equal(gate.issue(request({ idempotencyKey: 'another-authorization' })).code, 'ivprep_paid_test_unavailable');
+  assert.equal(gate.publicState({ admission: admission() }).completedTests.length, 3);
+  assert.equal(gate.issue(request({ testNo: 3, idempotencyKey: 'authorize-test-4' })).code, 'ivprep_paid_test_unavailable');
 });
 
 test('ordinary admin, wrong agent, cedar, duration drift, account switch, and missing cleanup fail closed', () => {
