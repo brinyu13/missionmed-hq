@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MissionMed HQ Auth Handoff
  * Description: WordPress -> Railway runtime auth handoff for Arena/STAT exchange bootstrap.
- * Version: 1.0.3
+ * Version: 1.0.4
  */
 
 if (!defined('ABSPATH')) {
@@ -20,6 +20,9 @@ if (!defined('MMHQ_HANDOFF_LOGIN_STATE_COOKIE')) {
 }
 if (!defined('MMHQ_CAM_ADMIN_TTL_SECONDS')) {
     define('MMHQ_CAM_ADMIN_TTL_SECONDS', 900);
+}
+if (!defined('MMHQ_CAM_AUTHORITY_TTL_SECONDS')) {
+    define('MMHQ_CAM_AUTHORITY_TTL_SECONDS', 300);
 }
 
 if (defined('MMHQ_CAM_STAGING_MEMORY_LIMIT')) {
@@ -161,7 +164,10 @@ function mmhq_handoff_login_url($request_uri) {
 }
 
 function mmhq_handoff_allowed_return_hosts() {
-    $hosts = array('missionmed-hq-production.up.railway.app');
+    $hosts = array(
+        'missionmed-hq-production.up.railway.app',
+        'cam-hq-production-cam-production.up.railway.app',
+    );
     $hosts = array_merge($hosts, mmhq_handoff_csv_setting('MMHQ_HANDOFF_ALLOWED_RETURN_HOSTS', 'MMHQ_HANDOFF_ALLOWED_RETURN_HOSTS', ''));
     $wp_host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
     if ($wp_host !== '') {
@@ -178,11 +184,65 @@ function mmhq_handoff_is_allowed_return_url($url) {
     if ($url === '') {
         return false;
     }
+    $scheme = strtolower((string) wp_parse_url($url, PHP_URL_SCHEME));
     $host = strtolower((string) wp_parse_url($url, PHP_URL_HOST));
-    if ($host === '') {
+    $port = wp_parse_url($url, PHP_URL_PORT);
+    $user = (string) wp_parse_url($url, PHP_URL_USER);
+    $pass = (string) wp_parse_url($url, PHP_URL_PASS);
+    if ($scheme !== 'https' || $host === '' || $user !== '' || $pass !== '' || ($port !== null && (int) $port !== 443)) {
         return false;
     }
     return in_array($host, mmhq_handoff_allowed_return_hosts(), true);
+}
+
+function mmhq_handoff_is_allowed_cam_return_url($url) {
+    if (!mmhq_handoff_is_allowed_return_url($url)) {
+        return false;
+    }
+
+    $path = (string) wp_parse_url((string) $url, PHP_URL_PATH);
+    $query = (string) wp_parse_url((string) $url, PHP_URL_QUERY);
+    $values = array();
+    parse_str($query, $values);
+    $allowed_keys = array('audience', 'final', 'state');
+
+    if ('/api/auth/session' !== rtrim($path, '/')) {
+        return false;
+    }
+    if ('cam' !== sanitize_key((string) ($values['audience'] ?? ''))) {
+        return false;
+    }
+    foreach (array_keys($values) as $key) {
+        if (!in_array((string) $key, $allowed_keys, true)) {
+            return false;
+        }
+    }
+    if (isset($values['state']) && !preg_match('/^[A-Za-z0-9_-]{32,96}$/', (string) $values['state'])) {
+        return false;
+    }
+    return true;
+}
+
+function mmhq_handoff_state_from_return_url($url) {
+    $query = (string) wp_parse_url((string) $url, PHP_URL_QUERY);
+    if ($query === '') {
+        return '';
+    }
+    $values = array();
+    parse_str($query, $values);
+    $state = isset($values['state']) ? (string) $values['state'] : '';
+    return preg_match('/^[A-Za-z0-9_-]{32,96}$/', $state) ? $state : '';
+}
+
+function mmhq_cam_is_allowed_logout_return_url($url) {
+    if (!mmhq_handoff_is_allowed_return_url($url)) {
+        return false;
+    }
+
+    $path = (string) wp_parse_url((string) $url, PHP_URL_PATH);
+    $query = (string) wp_parse_url((string) $url, PHP_URL_QUERY);
+    $fragment = (string) wp_parse_url((string) $url, PHP_URL_FRAGMENT);
+    return '/cam' === rtrim($path, '/') && '' === $query && '' === $fragment;
 }
 
 function mmhq_handoff_allowed_final_hosts() {
@@ -190,6 +250,7 @@ function mmhq_handoff_allowed_final_hosts() {
         'missionmedinstitute.com',
         'www.missionmedinstitute.com',
         'missionmed-hq-production.up.railway.app',
+        'cam-hq-production-cam-production.up.railway.app',
     );
     $hosts = array_merge($hosts, mmhq_handoff_csv_setting('MMHQ_HANDOFF_ALLOWED_FINAL_HOSTS', 'MMHQ_HANDOFF_ALLOWED_FINAL_HOSTS', ''));
     $wp_host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
@@ -199,26 +260,84 @@ function mmhq_handoff_allowed_final_hosts() {
     return array_values(array_unique(array_filter($hosts)));
 }
 
-function mmhq_handoff_requested_final($final_raw, $return_to) {
-    $final_raw = trim((string) $final_raw);
-    if ($final_raw !== '') {
-        return $final_raw;
+function mmhq_handoff_nested_hq_final($return_to, $audience = '') {
+    if (sanitize_key((string) $audience) !== '') {
+        return '';
     }
-
     if (!mmhq_handoff_is_allowed_return_url($return_to)) {
         return '';
     }
 
-    $return_query = wp_parse_url((string) $return_to, PHP_URL_QUERY);
-    if (!is_string($return_query) || $return_query === '') {
+    $host = strtolower((string) wp_parse_url((string) $return_to, PHP_URL_HOST));
+    $path = rtrim((string) wp_parse_url((string) $return_to, PHP_URL_PATH), '/');
+    $query = (string) wp_parse_url((string) $return_to, PHP_URL_QUERY);
+    $fragment = (string) wp_parse_url((string) $return_to, PHP_URL_FRAGMENT);
+    if (
+        $host !== 'missionmed-hq-production.up.railway.app'
+        || $path !== '/api/auth/session'
+        || $query === ''
+        || $fragment !== ''
+    ) {
         return '';
     }
 
-    $return_args = array();
-    parse_str($return_query, $return_args);
-    return isset($return_args['final']) && is_string($return_args['final'])
-        ? $return_args['final']
-        : '';
+    $values = array();
+    parse_str($query, $values);
+    if (array_keys($values) !== array('final')) {
+        return '';
+    }
+    return is_string($values['final']) ? $values['final'] : '';
+}
+
+function mmhq_handoff_is_allowed_cam_final_url($url) {
+    $url = (string) $url;
+    $scheme = strtolower((string) wp_parse_url($url, PHP_URL_SCHEME));
+    $host = strtolower((string) wp_parse_url($url, PHP_URL_HOST));
+    $path = (string) wp_parse_url($url, PHP_URL_PATH);
+    $query = (string) wp_parse_url($url, PHP_URL_QUERY);
+    $fragment = (string) wp_parse_url($url, PHP_URL_FRAGMENT);
+    $port = wp_parse_url($url, PHP_URL_PORT);
+    $user = (string) wp_parse_url($url, PHP_URL_USER);
+    $pass = (string) wp_parse_url($url, PHP_URL_PASS);
+    if (
+        $scheme !== 'https'
+        || $host !== 'cam-hq-production-cam-production.up.railway.app'
+        || $path !== '/cam/'
+        || $fragment !== ''
+        || $user !== ''
+        || $pass !== ''
+        || ($port !== null && (int) $port !== 443)
+    ) {
+        return false;
+    }
+
+    $values = array();
+    parse_str($query, $values);
+    foreach (array_keys($values) as $key) {
+        if (!in_array((string) $key, array('entry', 'return_to'), true)) {
+            return false;
+        }
+    }
+    if ($query === '') {
+        return true;
+    }
+
+    $entry = sanitize_key((string) ($values['entry'] ?? ''));
+    $return_to = esc_url_raw((string) ($values['return_to'] ?? ''));
+    if (!in_array($entry, array('matrix', 'arena'), true) || $return_to === '') {
+        return false;
+    }
+    $return_scheme = strtolower((string) wp_parse_url($return_to, PHP_URL_SCHEME));
+    $return_host = strtolower((string) wp_parse_url($return_to, PHP_URL_HOST));
+    $return_path = rtrim((string) wp_parse_url($return_to, PHP_URL_PATH), '/');
+    $return_query = (string) wp_parse_url($return_to, PHP_URL_QUERY);
+    $return_fragment = (string) wp_parse_url($return_to, PHP_URL_FRAGMENT);
+    $expected_path = $entry === 'matrix' ? '/member-dashboard' : '/arena';
+    return $return_scheme === 'https'
+        && in_array($return_host, array('missionmedinstitute.com', 'www.missionmedinstitute.com'), true)
+        && $return_path === $expected_path
+        && $return_query === ''
+        && ($entry === 'matrix' ? in_array($return_fragment, array('', 'dashboard'), true) : $return_fragment === '');
 }
 
 function mmhq_handoff_starts_with_slash($value) {
@@ -226,25 +345,42 @@ function mmhq_handoff_starts_with_slash($value) {
     return isset($value[0]) && $value[0] === '/';
 }
 
-function mmhq_handoff_normalize_final($raw_final) {
-    $fallback = mmhq_handoff_default_final();
+function mmhq_handoff_normalize_final($raw_final, $audience = '') {
+    $is_cam = 'cam' === sanitize_key((string) $audience);
+    $fallback = $is_cam
+        ? 'https://cam-hq-production-cam-production.up.railway.app/cam/'
+        : mmhq_handoff_default_final();
     $raw_final = trim((string) $raw_final);
     if ($raw_final === '') {
         return $fallback;
     }
 
     if (mmhq_handoff_starts_with_slash($raw_final)) {
-        return home_url($raw_final);
+        return $is_cam ? '' : home_url($raw_final);
     }
 
     $candidate = esc_url_raw($raw_final);
     if ($candidate === '') {
-        return $fallback;
+        return $is_cam ? '' : $fallback;
     }
 
+    $scheme = strtolower((string) wp_parse_url($candidate, PHP_URL_SCHEME));
     $host = strtolower((string) wp_parse_url($candidate, PHP_URL_HOST));
-    if ($host === '' || !in_array($host, mmhq_handoff_allowed_final_hosts(), true)) {
-        return $fallback;
+    $port = wp_parse_url($candidate, PHP_URL_PORT);
+    $user = (string) wp_parse_url($candidate, PHP_URL_USER);
+    $pass = (string) wp_parse_url($candidate, PHP_URL_PASS);
+    if (
+        $scheme !== 'https'
+        || $host === ''
+        || $user !== ''
+        || $pass !== ''
+        || ($port !== null && (int) $port !== 443)
+        || !in_array($host, mmhq_handoff_allowed_final_hosts(), true)
+    ) {
+        return $is_cam ? '' : $fallback;
+    }
+    if ($is_cam && !mmhq_handoff_is_allowed_cam_final_url($candidate)) {
+        return '';
     }
 
     return $candidate;
@@ -526,6 +662,8 @@ function mmhq_cam_build_entitlement($user_id) {
         $status = $active ? 'active' : 'not_eligible';
     }
 
+    $authority_ttl = min(900, max(60, absint(MMHQ_CAM_AUTHORITY_TTL_SECONDS)));
+
     return array(
         'product' => 'cam',
         'source' => 'wordpress_learndash_handoff',
@@ -544,6 +682,7 @@ function mmhq_cam_build_entitlement($user_id) {
         'authority_mode' => $authority_mode,
         'revocation_checked' => $source_available,
         'expires_at' => (string) $course_state['expires_at'],
+        'authority_expires_at' => gmdate('c', time() + $authority_ttl),
         'evaluated_at' => gmdate('c'),
     );
 }
@@ -570,7 +709,7 @@ function mmhq_cam_build_admin_override($wp_user) {
     );
 }
 
-function mmhq_handoff_build_token_payload($wp_user) {
+function mmhq_handoff_build_token_payload($wp_user, $audience = '', $handoff_state = '') {
     return array(
         'wp_user_id' => (int) $wp_user->ID,
         'email' => (string) $wp_user->user_email,
@@ -579,10 +718,49 @@ function mmhq_handoff_build_token_payload($wp_user) {
         'roles' => array_values((array) $wp_user->roles),
         'cam_entitlement' => mmhq_cam_build_entitlement((int) $wp_user->ID),
         'cam_admin_override' => mmhq_cam_build_admin_override($wp_user),
+        'aud' => sanitize_key((string) $audience),
         'iat' => time(),
         'exp' => time() + (int) MMHQ_HANDOFF_TTL_SECONDS,
         'nonce' => wp_generate_uuid4(),
+        'handoff_state' => 'cam' === sanitize_key((string) $audience) ? (string) $handoff_state : '',
     );
+}
+
+function mmhq_handoff_audience_from_return_url($url) {
+    $query = (string) wp_parse_url((string) $url, PHP_URL_QUERY);
+    if ($query === '') {
+        return '';
+    }
+    $values = array();
+    parse_str($query, $values);
+    return sanitize_key((string) ($values['audience'] ?? ''));
+}
+
+function mmhq_handoff_post_assertion($target, $token, $final) {
+    $target = esc_url_raw((string) $target);
+    if (!mmhq_handoff_is_allowed_return_url($target)) {
+        status_header(400);
+        wp_die('Invalid handoff target.');
+    }
+
+    $nonce = wp_generate_password(24, false, false);
+    $parts = wp_parse_url($target);
+    $origin = 'https://' . strtolower((string) ($parts['host'] ?? ''));
+    if (!empty($parts['port']) && (int) $parts['port'] !== 443) {
+        $origin .= ':' . absint($parts['port']);
+    }
+
+    status_header(200);
+    nocache_headers();
+    header('Referrer-Policy: no-referrer');
+    header("Content-Security-Policy: default-src 'none'; base-uri 'none'; form-action " . $origin . "; script-src 'nonce-" . $nonce . "'");
+    echo '<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>MissionMed secure handoff</title></head><body>';
+    echo '<form id="mmhq-handoff" method="post" action="' . esc_url($target) . '">';
+    echo '<input type="hidden" name="token" value="' . esc_attr((string) $token) . '">';
+    echo '<input type="hidden" name="final" value="' . esc_attr((string) $final) . '">';
+    echo '<noscript><button type="submit">Continue to MissionMed</button></noscript></form>';
+    echo '<script nonce="' . esc_attr($nonce) . '">document.getElementById("mmhq-handoff").submit();</script></body></html>';
+    exit;
 }
 
 function mmhq_handoff_handle() {
@@ -607,12 +785,23 @@ function mmhq_handoff_handle() {
         wp_die('Invalid return_to target.');
     }
 
-    $final_raw = isset($_GET['final']) ? (string) wp_unslash($_GET['final']) : '';
-    $final_raw = mmhq_handoff_requested_final($final_raw, $return_to);
-    $final = mmhq_handoff_normalize_final($final_raw);
-
     $wp_user = wp_get_current_user();
-    $payload = mmhq_handoff_build_token_payload($wp_user);
+    $audience = mmhq_handoff_audience_from_return_url($return_to);
+    if ('cam' === $audience && !mmhq_handoff_is_allowed_cam_return_url($return_to)) {
+        status_header(400);
+        wp_die('Invalid CAM handoff target.');
+    }
+    $final_raw = isset($_GET['final']) ? (string) wp_unslash($_GET['final']) : '';
+    if (trim($final_raw) === '') {
+        $final_raw = mmhq_handoff_nested_hq_final($return_to, $audience);
+    }
+    $final = mmhq_handoff_normalize_final($final_raw, $audience);
+    if ('cam' === $audience && $final === '') {
+        status_header(400);
+        wp_die('Invalid CAM final target.');
+    }
+    $handoff_state = 'cam' === $audience ? mmhq_handoff_state_from_return_url($return_to) : '';
+    $payload = mmhq_handoff_build_token_payload($wp_user, $audience, $handoff_state);
     $payload_json = wp_json_encode($payload);
     if (!is_string($payload_json) || $payload_json === '') {
         status_header(500);
@@ -623,6 +812,17 @@ function mmhq_handoff_handle() {
     $signature = hash_hmac('sha256', $body, $secret);
     $token = $body . '.' . $signature;
 
+    // The current HQ does not emit state and still expects the legacy GET
+    // transport. The hardened HQ emits state, which upgrades CAM to POST
+    // without creating a broken intermediate deployment window.
+    if ('cam' === $audience && $handoff_state !== '') {
+        mmhq_handoff_post_assertion($return_to, $token, $final);
+    }
+
+    // Preserve the established non-CAM Arena/STAT handoff contract. Those
+    // runtimes do not accept a form POST. State-bearing CAM callbacks use the
+    // hardened POST above; state-less CAM callbacks exist only for rollout
+    // compatibility with the previous HQ and are rejected by the new HQ.
     $target = add_query_arg(
         array(
             'token' => $token,
@@ -630,10 +830,83 @@ function mmhq_handoff_handle() {
         ),
         $return_to
     );
-
     wp_redirect($target, 302, 'MissionMed HQ Handoff');
     exit;
 }
+
+function mmhq_cam_logout_nonce_option_name($nonce) {
+    return 'mmhq_cam_logout_nonce_' . hash('sha256', (string) $nonce);
+}
+
+function mmhq_cam_cleanup_logout_nonce($option_name) {
+    $option_name = sanitize_key((string) $option_name);
+    if (strpos($option_name, 'mmhq_cam_logout_nonce_') !== 0) {
+        return;
+    }
+    delete_option($option_name);
+}
+add_action('mmhq_cam_cleanup_logout_nonce', 'mmhq_cam_cleanup_logout_nonce', 10, 1);
+
+function mmhq_cam_consume_logout_nonce($nonce, $expires_at) {
+    $option_name = mmhq_cam_logout_nonce_option_name($nonce);
+    if (!add_option($option_name, (int) $expires_at, '', 'no')) {
+        return false;
+    }
+    wp_schedule_single_event(max(time() + 60, (int) $expires_at + 60), 'mmhq_cam_cleanup_logout_nonce', array($option_name));
+    return true;
+}
+
+function mmhq_cam_verify_logout_state($state, $return_to) {
+    $secret = mmhq_handoff_secret();
+    $parts = explode('.', (string) $state, 2);
+    if ($secret === '' || count($parts) !== 2 || !preg_match('/^[A-Za-z0-9_-]+$/', $parts[0]) || !preg_match('/^[a-f0-9]{64}$/i', $parts[1])) {
+        return false;
+    }
+    if (!hash_equals(hash_hmac('sha256', $parts[0], $secret), strtolower($parts[1]))) {
+        return false;
+    }
+
+    $encoded = strtr($parts[0], '-_', '+/');
+    $padding = strlen($encoded) % 4;
+    if ($padding > 0) {
+        $encoded .= str_repeat('=', 4 - $padding);
+    }
+    $payload = json_decode((string) base64_decode($encoded, true), true);
+    $now = time();
+    if (
+        !is_array($payload)
+        || 'cam_logout' !== (string) ($payload['action'] ?? '')
+        || (int) ($payload['iat'] ?? 0) > $now + 30
+        || (int) ($payload['exp'] ?? 0) < $now
+        || (int) ($payload['exp'] ?? 0) - (int) ($payload['iat'] ?? 0) > 60
+        || !hash_equals((string) ($payload['return_to'] ?? ''), (string) $return_to)
+        || !preg_match('/^[0-9a-f-]{36}$/i', (string) ($payload['nonce'] ?? ''))
+        || (int) ($payload['wp_user_id'] ?? 0) <= 0
+        || (int) get_current_user_id() !== (int) ($payload['wp_user_id'] ?? 0)
+    ) {
+        return false;
+    }
+    return mmhq_cam_consume_logout_nonce((string) $payload['nonce'], (int) $payload['exp']);
+}
+
+function mmhq_cam_logout_handle() {
+    if (!isset($_GET['mmhq_cam_logout']) || '1' !== sanitize_key(wp_unslash($_GET['mmhq_cam_logout']))) {
+        return;
+    }
+
+    $return_to = isset($_GET['return_to']) ? esc_url_raw((string) wp_unslash($_GET['return_to'])) : '';
+    $state = isset($_GET['state']) ? (string) wp_unslash($_GET['state']) : '';
+    if (!mmhq_cam_is_allowed_logout_return_url($return_to) || !mmhq_cam_verify_logout_state($state, $return_to)) {
+        status_header(400);
+        wp_die('Invalid CAM logout request.');
+    }
+
+    wp_logout();
+    mmhq_handoff_clear_login_state();
+    wp_redirect($return_to, 302, 'MissionMed CAM Logout');
+    exit;
+}
+add_action('init', 'mmhq_cam_logout_handle', 1);
 
 function mmhq_handoff_maybe_handle_public_route() {
     if (mmhq_handoff_is_endpoint_request() && (!isset($_REQUEST['action']) || MMHQ_HANDOFF_ACTION !== sanitize_key(wp_unslash($_REQUEST['action'])))) {

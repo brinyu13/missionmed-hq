@@ -81,16 +81,24 @@ mmed_assert(
 	'exact HQ host must be in the final-host allowlist'
 );
 mmed_assert(
-	false !== strpos( $handoff_source, 'function mmhq_handoff_requested_final($final_raw, $return_to)' ),
+	false !== strpos( $handoff_source, 'function mmhq_handoff_nested_hq_final($return_to, $audience = \'\')' ),
 	'handoff must expose the bounded nested-final compatibility helper'
 );
 mmed_assert(
-	false !== strpos( $handoff_source, 'if (!mmhq_handoff_is_allowed_return_url($return_to))' ),
-	'nested final extraction must fail closed before parsing return_to'
+	false !== strpos( $handoff_source, '$host !== \'missionmed-hq-production.up.railway.app\'' ),
+	'nested final extraction must bind the exact HQ host'
 );
 mmed_assert(
-	false !== strpos( $handoff_source, '$final_raw = mmhq_handoff_requested_final($final_raw, $return_to);' ),
-	'handler must normalize the bounded nested final before signing'
+	false !== strpos( $handoff_source, '$path !== \'/api/auth/session\'' ),
+	'nested final extraction must bind the exact HQ session path'
+);
+mmed_assert(
+	false !== strpos( $handoff_source, 'array_keys($values) !== array(\'final\')' ),
+	'nested final extraction must reject unexpected query fields'
+);
+mmed_assert(
+	false !== strpos( $handoff_source, '$final_raw = mmhq_handoff_nested_hq_final($return_to, $audience);' ),
+	'nested final extraction must fail closed before parsing return_to'
 );
 
 echo "PASS: Matrix IV Prep admin launch and nested HQ final are exact; student access remains denied.\n";
