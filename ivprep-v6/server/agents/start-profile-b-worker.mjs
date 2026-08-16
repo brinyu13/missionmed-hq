@@ -36,10 +36,12 @@ export async function runProfileBAgentWorker({
   initialize = initializeLogger,
   createServer = createProfileBAgentServer,
   processRef = process,
+  onRegistered = null,
 } = {}) {
   initialize({ pretty: false, level: 'info' });
   const server = createServer({ environment });
   server.event.once('worker_registered', () => {
+    onRegistered?.();
     if (typeof processRef.send === 'function' && processRef.connected !== false) {
       processRef.send({ type: 'ivprep-profile-b-worker-registered' });
     }

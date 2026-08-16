@@ -7,6 +7,7 @@
   <meta name="theme-color" content="#0a0d14">
   <title>Dr Brian's IV Prep On-Call · MissionMed</title>
   <link rel="stylesheet" href="/iv-prep-on-call/assets/aaa/styles.css">
+  <link rel="stylesheet" href="/iv-prep-on-call/assets/analytics/analytics.css">
 </head>
 <body data-active-view="intro">
   <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -63,6 +64,7 @@
       </div>
       <div class="system-state">
         <span class="state-pill"><i class="proof-dot live"></i> Coach ready</span>
+        <span class="state-pill" id="hosted-runtime-state" hidden><i class="proof-dot"></i> Hosted worker checking</span>
         <button class="icon-button" type="button" aria-label="Open notifications">●</button>
         <button class="avatar-button" type="button" aria-label="Open account menu">PS</button>
       </div>
@@ -80,6 +82,7 @@
         <button class="nav-item" type="button" data-nav="vault"><span>▣</span><b>Interview Vault</b></button>
         <button class="nav-item" type="button" data-nav="mentor"><span>◇</span><b>Mentor Review</b></button>
         <button class="nav-item" type="button" data-nav="debrief"><span>◉</span><b>Real Interview Debrief</b></button>
+        <button class="nav-item" id="delivery-intelligence-nav" type="button" data-nav="delivery" hidden><span>⌁</span><b>Delivery Intelligence</b></button>
 
         <p class="nav-section-label">PREP SOURCES</p>
         <button class="nav-item" type="button" data-nav="file"><span>▤</span><b>Your File</b></button>
@@ -207,10 +210,10 @@
         </div>
       </section>
 
-      <section class="view room-view" data-view-panel="room" aria-labelledby="room-title">
+      <section class="view room-view" id="founder-room-wrapper" data-view-panel="room" aria-labelledby="room-title">
         <div class="room-topline"><span class="mobile-room-brand">MissionMed<span>//</span> IV Prep On-Call</span><div><p class="eyebrow">LIVE PRACTICE · INTERNAL MEDICINE</p><h1 id="room-title">Your interview</h1></div><div class="room-clock"><span id="room-time">00:00</span><small>of 15:00</small></div></div>
-        <div class="room-stage">
-          <div class="student-stage" aria-label="Student primary video surface">
+        <div class="room-stage" id="founder-room-stage">
+          <div class="student-stage" aria-label="Student primary video surface" id="founder-student-stage">
             <video id="founder-student-video" autoplay muted playsinline></video>
             <div class="student-stage-placeholder" aria-hidden="true"><span>YOU</span><small>Student primary</small></div>
           </div>
@@ -253,7 +256,12 @@
           <section class="panel feedback-panel"><p class="eyebrow success">WHAT WORKED</p><h2>Three moments to keep.</h2><article><span>01</span><div><strong>You answered before explaining.</strong><p>Your opening was direct, then added context.</p><button type="button" data-moment="0:42">Watch at 0:42 →</button></div></article><article><span>02</span><div><strong>The clinical example felt specific.</strong><p>You named your role and the decision you made.</p><button type="button" data-moment="4:18">Watch at 4:18 →</button></div></article><article><span>03</span><div><strong>You owned the pause.</strong><p>Two seconds of silence made the close land.</p><button type="button" data-moment="11:03">Watch at 11:03 →</button></div></article></section>
           <section class="panel feedback-panel priority"><p class="eyebrow coral">WHAT TO WORK ON NEXT</p><h2>Two changes for your next rep.</h2><article><span>01</span><div><strong>Shorten the research setup.</strong><p>The context took 24 seconds before your contribution was clear.</p><button type="button" data-moment="6:12">Watch at 6:12 →</button></div></article><article><span>02</span><div><strong>Make the final sentence about them.</strong><p>Connect your goal back to what the program offers.</p><button type="button" data-moment="12:47">Watch at 12:47 →</button></div></article></section>
         </div>
+        <div id="communication-results-anchor" aria-live="polite"></div>
         <section class="moments-panel panel" aria-labelledby="moments-title"><div class="panel-heading"><div><p class="eyebrow">SHOW ME WHERE</p><h2 id="moments-title">Watch the moments that matter.</h2></div><button class="text-action" type="button" id="toggle-analysis" aria-expanded="false">Full analysis ↓</button></div><div class="moment-timeline" id="moment-timeline"><button style="--at:9%" data-moment="0:42"><span>0:42</span><b>Direct opening</b></button><button style="--at:35%" data-moment="4:18"><span>4:18</span><b>Clinical story</b></button><button class="needs-work" style="--at:58%" data-moment="6:12"><span>6:12</span><b>Long setup</b></button><button style="--at:81%" data-moment="11:03"><span>11:03</span><b>Owned pause</b></button><button class="needs-work" style="--at:94%" data-moment="12:47"><span>12:47</span><b>Close</b></button></div><div class="analysis-drawer" id="analysis-drawer" hidden><div><span>Pacing</span><strong>Clear and measured</strong><p>One dense section during research.</p></div><div><span>Purposeful pauses</span><strong>3 useful moments</strong><p>Observable timing only—not confidence scoring.</p></div><div><span>Framing</span><strong>Camera-ready</strong><p>Prototype slot for 3420R evidence after integration.</p></div><div><span>Gesture</span><strong>Not connected</strong><p>Requires the separately accepted analytics lane.</p></div></div></section>
+      </section>
+
+      <section class="view" id="communication-analytics-test-root" data-view-panel="delivery" aria-labelledby="communication-analytics-title" hidden>
+        <div class="page-head"><div><p class="eyebrow gold">FOUNDER / ADMIN · DELIVERY INTELLIGENCE</p><h1 id="communication-analytics-title">Observable communication evidence.</h1><p>Local derived cues only. No identity, emotion, personality, honesty, confidence, gaze, intent, demographic, psychometric, diagnostic, or hidden-trait inference.</p></div></div>
       </section>
 
       <section class="view" data-view-panel="vault" aria-labelledby="vault-title">

@@ -1,10 +1,12 @@
 import { AnalyticsSession } from './analytics-session.mjs';
 import { measurePcmFrame } from './audio-signal.mjs';
 
-const VENDOR_ROOT = '/vendor/mediapipe/tasks-vision/1.0.1';
-const HOLISTIC_MODEL = '/vendor/mediapipe/models/holistic_landmarker/float16/1/holistic_landmarker.task';
-const FACE_MODEL = '/vendor/mediapipe/models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite';
-const FACE_WORKER = '/analytics/face-detector-worker.mjs';
+const IVPREP_ASSET_ROOT = '/iv-prep-on-call/assets';
+const VENDOR_ROOT = `${IVPREP_ASSET_ROOT}/vendor/mediapipe/tasks-vision/1.0.1`;
+const HOLISTIC_MODEL = `${IVPREP_ASSET_ROOT}/vendor/mediapipe/models/holistic_landmarker/float16/1/holistic_landmarker.task`;
+const FACE_MODEL = `${IVPREP_ASSET_ROOT}/vendor/mediapipe/models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite`;
+const ANALYTICS_ROOT = `${IVPREP_ASSET_ROOT}/analytics`;
+const FACE_WORKER = `${ANALYTICS_ROOT}/face-detector-worker.mjs`;
 const WORKER_REVISION = '3440-primary-interviewee-lock-1';
 const FACE_INITIALIZATION_TIMEOUT_MS = 10_000;
 const HOLISTIC_FRAME_TIMEOUT_MIN_MS = 1_000;
@@ -231,7 +233,9 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     if (!this.worker) {
       this.workerReady = false;
       generation = ++this.generation;
-      this.worker = new Worker(`/analytics/holistic-worker.mjs?v=${WORKER_REVISION}`, { type: 'module', name: `communication-analytics-${generation}` });
+      this.worker = ANALYTICS_ROOT === '/analytics'
+        ? new Worker(`/analytics/holistic-worker.mjs?v=${WORKER_REVISION}`, { type: 'module', name: `communication-analytics-${generation}` })
+        : new Worker(`${ANALYTICS_ROOT}/holistic-worker.mjs?v=${WORKER_REVISION}`, { type: 'module', name: `communication-analytics-${generation}` });
       this.worker.onmessage = (event) => this.onWorkerMessage(event.data || {}, generation);
       this.worker.onerror = (event) => {
         if (generation === this.generation) this.failVisionWorker(event.message || 'vision worker error');

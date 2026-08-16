@@ -157,4 +157,16 @@ export class InMemoryAdmissionRegistry {
   }
 }
 
-export const admissionRegistry = new InMemoryAdmissionRegistry();
+export let admissionRegistry = new InMemoryAdmissionRegistry();
+
+export function installAdmissionRegistry(nextRegistry) {
+  if (!nextRegistry
+    || typeof nextRegistry.entitlementFor !== 'function'
+    || typeof nextRegistry.isRevoked !== 'function'
+    || typeof nextRegistry.bindInterview !== 'function'
+    || typeof nextRegistry.assertBinding !== 'function') {
+    throw new TypeError('A complete IV Prep admission registry is required.');
+  }
+  admissionRegistry = nextRegistry;
+  return admissionRegistry;
+}

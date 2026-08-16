@@ -1,3 +1,5 @@
+import { createSupabaseWorkerGateFromEnvironment } from '../providers/supabase-durable-adapter.mjs';
+
 const DENIED = Object.freeze({ ok: false, code: 'ivprep_durable_provider_gate_unavailable' });
 
 function exactLoopbackEndpoint(value) {
@@ -87,9 +89,10 @@ export function createProfileBDurableGate({ endpoint, token, fetchImpl = fetch }
 
 // Missing or malformed local proof bindings remain deny-all. A future product
 // database adapter requires separate authority and does not fall through here.
-export const profileBDurableGate = createProfileBDurableGate({
-  endpoint: process.env.IVPREP_FOUNDER_PROOF_GATE_URL,
-  token: process.env.IVPREP_FOUNDER_PROOF_GATE_TOKEN,
-});
+export const profileBDurableGate = createSupabaseWorkerGateFromEnvironment(process.env)
+  || createProfileBDurableGate({
+    endpoint: process.env.IVPREP_FOUNDER_PROOF_GATE_URL,
+    token: process.env.IVPREP_FOUNDER_PROOF_GATE_TOKEN,
+  });
 
 export default profileBDurableGate;

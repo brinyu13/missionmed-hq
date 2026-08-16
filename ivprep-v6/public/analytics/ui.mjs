@@ -175,12 +175,25 @@ function interviewLayoutMode(meetwrap) {
 }
 
 export class StudentSurfaceOverlayController {
-  constructor({ pipeline, playbackPipeline, documentRef = globalThis.document, scheduleMicrotask = (callback) => queueMicrotask(callback) } = {}) {
+  constructor({
+    pipeline,
+    playbackPipeline,
+    documentRef = globalThis.document,
+    scheduleMicrotask = (callback) => queueMicrotask(callback),
+    surfaceIds = {},
+  } = {}) {
     if (!pipeline || !playbackPipeline) throw new TypeError('Live and playback analytics pipelines are required.');
     this.pipeline = pipeline;
     this.playbackPipeline = playbackPipeline;
     this.document = documentRef;
     this.scheduleMicrotask = scheduleMicrotask;
+    this.surfaceIds = Object.freeze({
+      video: surfaceIds.video || 'pipvid',
+      stage: surfaceIds.stage || 'selfpip',
+      room: surfaceIds.room || 'roomstage',
+      wrapper: surfaceIds.wrapper || 'meetwrap',
+      playback: surfaceIds.playback || 'playback',
+    });
     this.policy = Object.freeze({ authorized: false, enabled: false, face: false, bodyHands: false, studentPrimary: true });
     this.view = null;
     this.role = null;
@@ -301,9 +314,9 @@ export class StudentSurfaceOverlayController {
   }
 
   bindLiveSurface() {
-    const video = this.document.getElementById('pipvid');
-    const stage = this.document.getElementById('selfpip');
-    const room = this.document.getElementById('roomstage');
+    const video = this.document.getElementById(this.surfaceIds.video);
+    const stage = this.document.getElementById(this.surfaceIds.stage);
+    const room = this.document.getElementById(this.surfaceIds.room);
     if (!video || !stage || !room) {
       this.unbindSurface();
       return false;
@@ -319,13 +332,13 @@ export class StudentSurfaceOverlayController {
     room.classList.toggle('ca-student-primary', this.policy.studentPrimary);
     this.overlay = this.createOverlay(stage, 'communication-analytics-student-live-overlay');
     this.controls = this.createControls(stage, true);
-    this.observeLayout([this.document.getElementById('meetwrap'), room, stage, video]);
+    this.observeLayout([this.document.getElementById(this.surfaceIds.wrapper), room, stage, video]);
     this.syncSurfaceContract();
     return true;
   }
 
   bindPlaybackSurface() {
-    const video = this.document.getElementById('playback');
+    const video = this.document.getElementById(this.surfaceIds.playback);
     if (!video || !video.parentNode) return false;
     if (this.mode === 'playback' && this.video === video) {
       this.syncSurfaceContract();
@@ -365,8 +378,8 @@ export class StudentSurfaceOverlayController {
 
   syncSurfaceContract() {
     if (!this.overlay || !this.video) return null;
-    const meetwrap = this.document.getElementById('meetwrap');
-    const room = this.document.getElementById('roomstage');
+    const meetwrap = this.document.getElementById(this.surfaceIds.wrapper);
+    const room = this.document.getElementById(this.surfaceIds.room);
     const transform = String(this.video.style?.transform || this.document.defaultView?.getComputedStyle?.(this.video)?.transform || 'none');
     const contract = studentSurfaceOverlayContract({
       studentSurfaceId: this.video.id,
@@ -396,7 +409,7 @@ export class StudentSurfaceOverlayController {
 
   toggleStudentPrimary() {
     if (this.mode !== 'live') return false;
-    const room = this.document.getElementById('roomstage');
+    const room = this.document.getElementById(this.surfaceIds.room);
     if (!room) return false;
     const primary = !room.classList.contains('ca-student-primary');
     room.classList.toggle('ca-student-primary', primary);
@@ -466,7 +479,7 @@ export class StudentSurfaceOverlayController {
       this.playbackParent.insertBefore(this.video, this.playbackNextSibling || this.playbackWrapper);
       this.playbackWrapper.remove?.();
     }
-    if (this.mode === 'live') this.document.getElementById('roomstage')?.classList?.remove?.('ca-student-primary');
+    if (this.mode === 'live') this.document.getElementById(this.surfaceIds.room)?.classList?.remove?.('ca-student-primary');
     this.mode = null;
     this.video = null;
     this.stage = null;
@@ -2080,13 +2093,14 @@ export class FounderAnalyticsSurface {
   }
 }
 
-export function initializeAnalyticsUi(bridge) {
+export function initializeAnalyticsUi(bridge, { surfaceIds = {}, overlayPolicy = null } = {}) {
   const pipeline = new BrowserAnalyticsPipeline({ bridge });
   const playbackPipeline = new BrowserAnalyticsPipeline({ bridge });
   const founderPipeline = new BrowserAnalyticsPipeline({ bridge });
   const root = document.getElementById('communication-analytics-test-root');
   const founder = root ? new FounderAnalyticsSurface({ root, pipeline: founderPipeline, bridge }) : null;
-  const studentOverlay = new StudentSurfaceOverlayController({ pipeline, playbackPipeline });
+  const studentOverlay = new StudentSurfaceOverlayController({ pipeline, playbackPipeline, surfaceIds });
+  if (overlayPolicy) studentOverlay.configure(overlayPolicy);
   const api = Object.freeze({
     beginAnswer: (options) => pipeline.beginAnswer(options),
     prepareEnd: (endAt) => pipeline.prepareEnd(endAt),

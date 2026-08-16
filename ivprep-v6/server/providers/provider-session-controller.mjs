@@ -90,7 +90,14 @@ export class ProviderSessionController {
     }
     this.authorization = paidTestAuthorization;
     this.lifecycle = advanceProviderSession(this.lifecycle, 'ELIGIBLE');
-    const reserved = this.entitlementStore.reserve({ subject, interviewId, requestedSeconds: this.maxSeconds, idempotencyKey, testNo });
+    const reserved = await this.entitlementStore.reserve({
+      subject,
+      interviewId,
+      requestedSeconds: this.maxSeconds,
+      idempotencyKey,
+      testNo,
+      entitlementRevision: paidTestAuthorization.entitlementRevision,
+    });
     if (!reserved.ok) {
       this.lifecycle = failProviderSession(this.lifecycle, reserved.code);
       await this.#notifyTerminal({ providerCreateAttempted: false, terminationConfirmed: true, reconciliationConfirmed: true, reason: reserved.code });
@@ -100,7 +107,8 @@ export class ProviderSessionController {
       subject,
       interviewId,
       reservation: reserved.reservation,
-      reservationNonce: dispatchNonce({ reservationId: reserved.reservation.id, interviewId, subject }),
+      reservationNonce: reserved.reservationNonce
+        || dispatchNonce({ reservationId: reserved.reservation.id, interviewId, subject }),
       roomName: null,
       participantIdentity: null,
       avatarParticipantIdentity: FOUNDER_TEST_AVATAR_PARTICIPANT_ID,
@@ -118,7 +126,8 @@ export class ProviderSessionController {
       const createdRoom = await this.room.create({ interviewId, retry: NO_RETRY });
       this.context.roomName = createdRoom.roomName;
       this.lifecycle = advanceProviderSession(this.lifecycle, 'ROOM_CREATED');
-      const participantIdentity = `ivp-${this.context.reservationNonce.slice(0, 48)}`;
+      const participantIdentity = reserved.participantIdentity
+        || `ivp-${this.context.reservationNonce.slice(0, 48)}`;
       const access = await this.participant.issue({
         roomName: createdRoom.roomName,
         participantIdentity,
@@ -244,7 +253,7 @@ export class ProviderSessionController {
       this.context.providerSessionHash = ready.providerSessionHash;
       this.lifecycle = advanceProviderSession(this.lifecycle, 'AVATAR_CREATING');
       this.lifecycle = advanceProviderSession(this.lifecycle, 'AVATAR_JOINED');
-      this.entitlementStore.bindProvider({
+      await this.entitlementStore.bindProvider({
         reservationId: this.context.reservation.id,
         dispatchId: this.context.dispatchId,
         providerSessionHash: ready.providerSessionHash,
@@ -303,6 +312,8 @@ export class ProviderSessionController {
     if (!['TERMINATING', 'RECONCILING'].includes(this.lifecycle.state)) this.lifecycle = advanceProviderSession(this.lifecycle, 'TERMINATING');
     const failures = [];
     let workerStopAccepted = false;
+    let preJobRefundEligible = false;
+    let dispatchDeleted = false;
     let workerReport = null;
     const attempt = async (label, operation) => {
       try { return await operation(); }
@@ -320,23 +331,29 @@ export class ProviderSessionController {
         retry: NO_RETRY,
       }));
       workerStopAccepted = stopped?.accepted === true;
-      workerReport = await attempt('worker_reconciliation', () => this.worker.awaitReconciliation({
-        reservationNonce: this.context.reservationNonce,
-        reservationId: this.context.reservation.id,
-        dispatchId: this.context.dispatchId,
-        roomName: this.context.roomName,
-        participantIdentity: this.context.participantIdentity,
-        avatarParticipantIdentity: this.context.avatarParticipantIdentity,
-        retry: NO_RETRY,
-      }));
+      preJobRefundEligible = stopped?.preJob === true;
+      if (!preJobRefundEligible) {
+        workerReport = await attempt('worker_reconciliation', () => this.worker.awaitReconciliation({
+          reservationNonce: this.context.reservationNonce,
+          reservationId: this.context.reservation.id,
+          dispatchId: this.context.dispatchId,
+          roomName: this.context.roomName,
+          participantIdentity: this.context.participantIdentity,
+          avatarParticipantIdentity: this.context.avatarParticipantIdentity,
+          retry: NO_RETRY,
+        }));
+      }
     }
     await attempt('worker_close', async () => this.worker?.close?.());
     if (this.context?.dispatchId) {
-      await attempt('dispatch_delete', () => this.dispatch.delete({
-        dispatchId: this.context.dispatchId,
-        roomName: this.context.roomName,
-        retry: NO_RETRY,
-      }));
+      await attempt('dispatch_delete', async () => {
+        await this.dispatch.delete({
+          dispatchId: this.context.dispatchId,
+          roomName: this.context.roomName,
+          retry: NO_RETRY,
+        });
+        dispatchDeleted = true;
+      });
     }
     if (this.context?.roomName) {
       await attempt('room_delete', () => this.room.delete({ roomName: this.context.roomName, retry: NO_RETRY }));
@@ -353,12 +370,14 @@ export class ProviderSessionController {
       (this.context?.roomCreateAttempted && !this.context.roomName)
       || (this.context?.dispatchCreateAttempted && !this.context.dispatchId)
     );
-    const noProviderCreate = workerReport?.providerCreateAttempted === false;
-    const durableWorkerReconciled = validWorkerReport(workerReport, this.context)
-      && workerReport?.reconciled === true
-      && workerReport?.terminationConfirmed === true
-      && (noProviderCreate || cost.costEvidence === 'VERIFIED')
-      && (!workerReport?.providerSessionHash || validProviderHash(workerReport.providerSessionHash));
+    const noProviderCreate = preJobRefundEligible || workerReport?.providerCreateAttempted === false;
+    const durableWorkerReconciled = preJobRefundEligible
+      ? dispatchDeleted
+      : validWorkerReport(workerReport, this.context)
+        && workerReport?.reconciled === true
+        && workerReport?.terminationConfirmed === true
+        && (noProviderCreate || cost.costEvidence === 'VERIFIED')
+        && (!workerReport?.providerSessionHash || validProviderHash(workerReport.providerSessionHash));
     if (workerReport?.providerSessionHash && this.context?.dispatchId) {
       this.context.providerSessionHash = workerReport.providerSessionHash;
       await attempt('reservation_bind', async () => this.entitlementStore.bindProvider({
@@ -369,13 +388,14 @@ export class ProviderSessionController {
     }
     let terminationConfirmed = failures.length === 0
       && !unknownRemoteCreate
-      && (!this.context?.dispatchCreateAttempted || (workerStopAccepted && durableWorkerReconciled));
+      && (!this.context?.dispatchCreateAttempted
+        || (preJobRefundEligible ? dispatchDeleted : (workerStopAccepted && durableWorkerReconciled)));
     this.lifecycle = advanceProviderSession(this.lifecycle, 'RECONCILING');
     if (this.context?.reservation?.id) {
-      if (!this.context.dispatchCreateAttempted && terminationConfirmed) {
-        this.entitlementStore.refundBeforeProviderStart(this.context.reservation.id);
+      if ((!this.context.dispatchCreateAttempted || preJobRefundEligible) && terminationConfirmed) {
+        await this.entitlementStore.refundBeforeProviderStart(this.context.reservation.id, { dispatchDeleted });
       } else {
-        this.entitlementStore.reconcile({
+        await this.entitlementStore.reconcile({
           reservationId: this.context.reservation.id,
           observedBillableSeconds: cost.localElapsedSeconds,
           terminationConfirmed,

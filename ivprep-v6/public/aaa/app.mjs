@@ -49,6 +49,8 @@ const state = {
   founderTestPermit: null,
   founderProofRoom: null,
   founderProofStatusTimer: null,
+  communicationAnalytics: null,
+  communicationAnalyticsResult: null,
   t1LeaseStatusTimer: null,
   t1Lease: Object.freeze({ state: 'NOT_ACQUIRED', heartbeatCount: 0, stableSeconds: 0 }),
   audibleInterviewerTrack: null,
@@ -58,6 +60,73 @@ const state = {
 
 const mobileShell = window.matchMedia("(max-width: 920px)");
 const phoneShell = window.matchMedia("(max-width: 680px)");
+
+const analyticsBridge = {
+  media: Object.freeze({ cam: false, mic: false, stream: null, AC: null, analyser: null, data: null }),
+  ownsStream: false,
+  source: null,
+  async bindStream(stream, { ownsStream = false } = {}) {
+    this.stopMedia();
+    if (!(stream instanceof MediaStream)) throw new TypeError('A browser media stream is required.');
+    const tracks = stream.getTracks();
+    const mic = tracks.some((track) => track.kind === 'audio' && track.readyState === 'live');
+    const cam = tracks.some((track) => track.kind === 'video' && track.readyState === 'live');
+    let AC = null;
+    let analyser = null;
+    let data = null;
+    let source = null;
+    if (mic) {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (AudioContext) {
+        AC = new AudioContext();
+        await AC.resume();
+        analyser = AC.createAnalyser();
+        analyser.fftSize = 2048;
+        data = new Float32Array(analyser.fftSize);
+        source = AC.createMediaStreamSource(new MediaStream(stream.getAudioTracks()));
+        source.connect(analyser);
+      }
+    }
+    this.ownsStream = ownsStream;
+    this.source = source;
+    this.media = Object.freeze({ cam, mic: Boolean(mic && AC && analyser && data), stream, AC, analyser, data });
+    return this.media;
+  },
+  async requestMedia(mic = true, cam = true) {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: mic === true, video: cam === true });
+    return this.bindStream(stream, { ownsStream: true });
+  },
+  stopMedia() {
+    try { this.source?.disconnect?.(); } catch {}
+    if (this.ownsStream) this.media.stream?.getTracks?.().forEach((track) => track.stop());
+    void this.media.AC?.close?.().catch?.(() => {});
+    this.ownsStream = false;
+    this.source = null;
+    this.media = Object.freeze({ cam: false, mic: false, stream: null, AC: null, analyser: null, data: null });
+  },
+};
+
+async function initializeDeliveryIntelligence() {
+  if (!state.admission?.admitted || state.admission?.runtime?.mode !== 'hosted' || state.communicationAnalytics) return;
+  const { initializeAnalyticsUi } = await import('../analytics/ui.mjs');
+  state.communicationAnalytics = initializeAnalyticsUi(analyticsBridge, {
+    surfaceIds: {
+      video: 'founder-student-video',
+      stage: 'founder-student-stage',
+      room: 'founder-room-stage',
+      wrapper: 'founder-room-wrapper',
+      playback: 'playback',
+    },
+    overlayPolicy: {
+      authorized: true,
+      enabled: true,
+      face: true,
+      bodyHands: true,
+      studentPrimary: true,
+    },
+  });
+  state.communicationAnalytics.onViewChange(state.view, 'admin');
+}
 
 function reducedMotionRequested() {
   return document.body.classList.contains("reduce-motion") || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -164,7 +233,8 @@ const viewMeta = {
   mentor: ["MENTOR REVIEW", "One moment, the right feedback"],
   debrief: ["REAL INTERVIEW DEBRIEF", "Reconstruct what actually happened"],
   file: ["YOUR FILE", "Application-aware preparation"],
-  program: ["PROGRAM INTEL", "Prepare for the place, not a generic interview"]
+  program: ["PROGRAM INTEL", "Prepare for the place, not a generic interview"],
+  delivery: ["DELIVERY INTELLIGENCE", "Observable communication evidence"]
 };
 
 function toast(message) {
@@ -215,6 +285,7 @@ function navigate(view, { focus = true, updateHash = true } = {}) {
   setMobileNavigation(false);
   closeMobileSheets();
   if (updateHash) history.replaceState(null, "", `#${view}`);
+  state.communicationAnalytics?.onViewChange?.(view, 'admin');
   if (focus) $("#main-content").focus({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: reducedMotionRequested() || view === "room" ? "auto" : "smooth" });
 }
@@ -508,6 +579,14 @@ async function startProductionRoom() {
     return;
   }
   state.roomStarted = true;
+  if (analyticsBridge.media.stream && !state.communicationAnalytics?.diagnostics?.().active) {
+    try {
+      state.communicationAnalytics?.beginAnswer?.({
+        answerId: `hosted-${started.interview.id}`,
+        videoElement: $('#founder-student-video'),
+      });
+    } catch { /* analytics fails unavailable without blocking the interview */ }
+  }
   state.roomSeconds = 0;
   document.body.dataset.roomState = "active";
   $("#room-start").innerHTML = "<span>●</span> Interview active";
@@ -526,6 +605,10 @@ async function stopProductionRoom({
   window.clearInterval(state.roomTimer);
   state.roomTimer = null;
   const interview = state.currentInterview;
+  try {
+    state.communicationAnalyticsResult = state.communicationAnalytics?.endAnswer?.({ mediaAvailable: false }) || null;
+    if (state.communicationAnalyticsResult) state.communicationAnalytics?.renderStudentResults?.(state.communicationAnalyticsResult);
+  } catch { state.communicationAnalyticsResult = null; }
   const activeRoom = state.founderProofRoom;
   if (activeRoom?.localParticipant) {
     try { await activeRoom.localParticipant.setMicrophoneEnabled(false); }
@@ -548,6 +631,7 @@ async function stopProductionRoom({
   state.founderProofStatusTimer = null;
   state.founderProofRoom?.disconnect?.(true);
   state.founderProofRoom = null;
+  analyticsBridge.stopMedia();
   state.audibleInterviewerTrack = null;
   state.roomMuted = false;
   $('#room-mute').classList.remove('active');
@@ -741,6 +825,12 @@ async function connectFounderProofMedia(started) {
     await room.localParticipant.setMicrophoneEnabled(true);
     const cameraPublication = await room.localParticipant.setCameraEnabled(true);
     cameraPublication?.track?.attach?.($('#founder-student-video'));
+    const microphonePublication = room.localParticipant.getTrackPublication?.(livekit.Track.Source.Microphone);
+    const mediaTracks = [
+      microphonePublication?.track?.mediaStreamTrack,
+      cameraPublication?.track?.mediaStreamTrack,
+    ].filter(Boolean);
+    if (mediaTracks.length) await analyticsBridge.bindStream(new MediaStream(mediaTracks), { ownsStream: false });
     $('.student-stage').classList.add('media-live');
     await Promise.race([
       new Promise((resolve, reject) => {
@@ -1368,6 +1458,20 @@ async function initialize() {
     $("#room-status").textContent = "Secure IV Prep admission is unavailable.";
   }
   const founderProof = state.admission?.founderPaidTest;
+  const hosted = state.admission?.runtime?.mode === 'hosted';
+  const hostedReady = hosted && state.admission.runtime.workerRegistrationState === 'READY';
+  const providerCreationEnabled = hosted && state.admission.runtime.paidProviderCreationEnabled === true;
+  const runtimeNode = $('#hosted-runtime-state');
+  if (runtimeNode) {
+    runtimeNode.hidden = !hosted;
+    runtimeNode.innerHTML = `<i class="proof-dot${hostedReady ? ' live' : ''}"></i> Hosted worker ${hostedReady ? 'ready' : 'unavailable'} · provider ${providerCreationEnabled ? 'armed' : 'off'}`;
+  }
+  $('#delivery-intelligence-nav').hidden = !hosted;
+  await initializeDeliveryIntelligence();
+  if (hosted && founderProof?.enabled !== true) {
+    $('#room-start').disabled = true;
+    $('#room-status').textContent = 'Hosted foundation ready. Dr Kelly physical testing remains Founder-gated and provider creation is off.';
+  }
   $("#founder-proof-panel").hidden = founderProof?.enabled !== true;
   if (founderProof?.enabled === true) {
     $("#founder-proof-agent").textContent = founderProof.agentId;

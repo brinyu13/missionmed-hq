@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { admissionRegistry } from './admission-registry.mjs';
 import { publicAdmissionState, strictProjectHqSession, validateIvPrepMutation } from './admission-contract.mjs';
 import { FOUNDER_TEST_AVATAR_PARTICIPANT_ID } from './founder-paid-test-gate.mjs';
+import { createHostedHqDependenciesFromEnvironment } from './providers/supabase-durable-adapter.mjs';
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_ROOT = normalize(join(MODULE_DIR, '..', 'public'));
@@ -146,6 +147,12 @@ export function createIvPrepHqHandler({
   providerControllerFactory = null,
   paidTestGate = null,
   liveKitSignalOrigin = null,
+  runtimeState = async () => Object.freeze({
+    mode: 'disabled',
+    workerRegistrationState: 'UNAVAILABLE',
+    providerSessionsCreatedAtReadiness: 0,
+    paidProviderCreationEnabled: false,
+  }),
 } = {}) {
   const interviews = new Map();
   const sealedLiveKitSignalOrigin = liveKitSignalOrigin == null ? null : trustedWebSocketOrigin(liveKitSignalOrigin);
@@ -170,6 +177,15 @@ export function createIvPrepHqHandler({
     }
     if (!flags.enabled || !flags.adminCanaryEnabled) {
       sendJson(response, 503, { error: 'ivprep_unavailable' });
+      return true;
+    }
+
+    try {
+      if (typeof registry.refreshSubject === 'function') {
+        await registry.refreshSubject({ hqSession, cookieFingerprint });
+      }
+    } catch {
+      sendJson(response, 503, { error: 'ivprep_admission_unavailable' });
       return true;
     }
 
@@ -219,7 +235,20 @@ export function createIvPrepHqHandler({
 
     if (request.method === 'GET' && pathname === `${API_PREFIX}/session`) {
       const founderPaidTest = paidTestGate?.publicState?.({ admission }) || null;
-      sendJson(response, 200, publicAdmissionState(admission, { videoEnabled: flags.videoEnabled, founderPaidTest }));
+      let runtime;
+      try { runtime = await runtimeState({ admission }); }
+      catch {
+        runtime = Object.freeze({
+          mode: 'hosted',
+          workerRegistrationState: 'UNAVAILABLE',
+          providerSessionsCreatedAtReadiness: 0,
+          paidProviderCreationEnabled: false,
+        });
+      }
+      sendJson(response, 200, {
+        ...publicAdmissionState(admission, { videoEnabled: flags.videoEnabled, founderPaidTest }),
+        runtime,
+      });
       return true;
     }
 
@@ -428,7 +457,7 @@ export function createIvPrepHqHandler({
       let controller = null;
       try {
         controller = mode === 'video' ? providerControllerFactory({ admission, id, paidTestAuthorization }) : null;
-        registry.bindInterview({
+        await registry.bindInterview({
           interviewId: id,
           subject: admission.subject,
           cookieFingerprint: admission.cookieFingerprint,
@@ -587,4 +616,9 @@ export function createIvPrepHqHandler({
   return handler;
 }
 
-export const handleIvPrepV6Request = createIvPrepHqHandler();
+async function createDefaultIvPrepHandler() {
+  const hosted = await createHostedHqDependenciesFromEnvironment();
+  return hosted ? createIvPrepHqHandler(hosted) : createIvPrepHqHandler();
+}
+
+export const handleIvPrepV6Request = await createDefaultIvPrepHandler();
