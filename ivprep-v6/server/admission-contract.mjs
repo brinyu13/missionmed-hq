@@ -81,9 +81,25 @@ export function validateIvPrepMutation({ request, admission, expectedOrigin }) {
   return Object.freeze({ ok: true, status: 200 });
 }
 
-export function publicAdmissionState(admission, { videoEnabled = false, founderPaidTest = null } = {}) {
+export function publicAdmissionState(admission, { videoEnabled = false, founderPaidTest = null, hqSession = null } = {}) {
+  // Y1-Y2-CAM-V6-3505: the product had no way to render who is actually signed in, so
+  // the shell displayed a fixture student ("Priya Sharma") as though it were a real
+  // assignment. This exposes the viewer's OWN identity back to their own browser -
+  // their WordPress subject, id and roles. No other subject's data, and no
+  // credential, token or entitlement secret is added here.
+  const roles = Array.isArray(hqSession?.user?.roles)
+    ? hqSession.user.roles.filter((role) => typeof role === 'string').slice(0, 24)
+    : [];
   return Object.freeze({
     admitted: admission?.ok === true,
+    identity: admission?.ok === true
+      ? Object.freeze({
+          subject: admission.subject,
+          wpUserId: Number(String(admission.subject).replace(/^wp:/u, '')) || null,
+          roles: Object.freeze(roles),
+          founder: admission.entitlement?.founder === true,
+        })
+      : null,
     voiceEnabled: admission?.ok === true && admission.entitlement.voice === true,
     videoEnabled: admission?.ok === true && videoEnabled === true && admission.entitlement.video === true,
     videoSecondsAvailable: admission?.ok === true ? admission.entitlement.grantedVideoSeconds : 0,

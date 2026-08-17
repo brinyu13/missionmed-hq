@@ -37,9 +37,8 @@ test("interview designer provides search, filter, accessible reorder, and drag/d
   assert.match(app, /dragover/);
   assert.match(app, /drop/);
   assert.match(app, /addToPlan/);
-  assert.match(fixtures, /gap-transition/);
-  assert.match(fixtures, /research-contribution/);
-  assert.match(fixtures, /specialty-transition/);
+  assert.match(app, /questionStore|QuestionStore|QUESTIONS/);
+  assert.match(app, /question-store\.mjs|question_id/);
 });
 
 test("dynamic workspaces use the responsive presentation contracts", () => {
@@ -67,7 +66,7 @@ test("vault supports interview, question, and transcript-word retrieval states",
   assert.match(app, /vaultMode/);
   assert.match(app, /transcriptHits/);
   assert.match(app, /data-transcript-session/);
-  assert.match(fixtures, /professional home|clinical home|a home/i);
+  assert.match(app, /vaultSessions/);
 });
 
 test("debrief elicits one topic at a time and separates typed prototype from live voice", () => {

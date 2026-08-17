@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#0a0d14">
-  <title>Dr Brian's IV Prep On-Call · MissionMed</title>
+  <title>IV Prep On-Call · MissionMed</title>
   <link rel="stylesheet" href="/iv-prep-on-call/assets/aaa/styles.css">
   <link rel="stylesheet" href="/iv-prep-on-call/assets/analytics/analytics.css">
 </head>
@@ -24,7 +24,7 @@
       <div class="energy-grid"></div>
     </div>
     <header class="intro-masthead">
-      <a class="matrix-return" href="#" aria-label="Return to MissionMed Matrix">← MATRIX</a>
+      <a class="matrix-return" href="/member-dashboard/" aria-label="Return to MissionMed Matrix">← MATRIX</a>
       <div class="brand-lockup" aria-label="MissionMed Institute, Mission Residency Division">
         <span class="brand-parent">MissionMed</span><span class="brand-slash">//</span><span class="brand-product">IV Prep On-Call</span>
         <span class="brand-division">MISSION:RESIDENCY DIVISION</span>
@@ -32,7 +32,7 @@
       <button class="sound-control" id="intro-motion-toggle" type="button" aria-pressed="false">Reduce motion</button>
     </header>
     <div class="intro-content">
-      <p class="eyebrow gold">DR BRIAN'S PRIVATE INTERVIEW COACH</p>
+      <p class="eyebrow gold">YOUR PRIVATE INTERVIEW COACH</p>
       <h1 id="intro-title">Walk in ready.<br><span>Answer like yourself.</span></h1>
       <p class="intro-lede">Practice the pressure, timing, and follow-ups of a real residency interview—with a coach who remembers the whole conversation.</p>
       <div class="intro-actions">
@@ -66,7 +66,7 @@
         <span class="state-pill"><i class="proof-dot live"></i> Coach ready</span>
         <span class="state-pill" id="hosted-runtime-state" hidden><i class="proof-dot"></i> Hosted worker checking</span>
         <button class="icon-button" type="button" aria-label="Open notifications">●</button>
-        <button class="avatar-button" type="button" aria-label="Open account menu">PS</button>
+        <button class="avatar-button" type="button" aria-label="Open account menu">—</button>
       </div>
     </header>
 
@@ -88,10 +88,10 @@
         <button class="nav-item" type="button" data-nav="file"><span>▤</span><b>Your File</b></button>
         <button class="nav-item" type="button" data-nav="program"><span>⌖</span><b>Program Intel</b></button>
       </nav>
+      <a class="nav-item" href="/member-dashboard/" style="margin-top:auto"><span>←</span><b>Back to Matrix</b></a>
       <div class="rail-profile">
-        <div class="profile-mark">PS</div>
-        <div><strong>Priya Sharma</strong><span>IM applicant · 2027</span></div>
-        <button type="button" aria-label="Switch profile">↔</button>
+        <div class="profile-mark" id="identity-initials">—</div>
+        <div><strong id="identity-name">Loading…</strong><span id="identity-sub">SESSION</span></div>
       </div>
     </aside>
     <button class="nav-backdrop" id="nav-backdrop" type="button" aria-label="Close navigation" hidden></button>
@@ -102,7 +102,7 @@
           <div>
             <p class="eyebrow">MONDAY · AUGUST 10</p>
             <h1 id="home-title">What should I practice today?</h1>
-            <p>Good morning, Priya. Dr Brian has three focused reps ready for you.</p>
+            <p id="home-greeting">Welcome back. Your focused reps are ready.</p>
           </div>
           <div class="streak-chip" aria-label="Three day practice streak"><strong>3</strong><span>day<br>streak</span></div>
         </div>
@@ -161,7 +161,7 @@
           <aside class="interviewer-card">
             <div class="interviewer-portrait" aria-hidden="true"><span>PD</span><i></i></div>
             <p class="eyebrow gold">YOUR INTERVIEWER</p>
-            <h2>Dr. Marcus Hale</h2><p>Senior Academic Program Director</p>
+            <h2 id="instant-interviewer">Interviewer not yet assigned</h2><p id="instant-interviewer-sub">Prerecorded and live interviewer packs arrive with Dr Kelly / Dr Woods.</p>
             <dl><div><dt>Style</dt><dd>Direct, calm, curious</dd></div><div><dt>Format</dt><dd>Conversational</dd></div><div><dt>Focus</dt><dd>Your path to IM</dd></div></dl>
             <p class="truth-note"><i class="proof-dot live"></i> The assigned role and behavior are ready. Visual avatar availability is confirmed only inside the accepted live alpha room.</p>
           </aside>
@@ -203,7 +203,7 @@
             <ol class="plan-list" id="plan-list" aria-live="polite"></ol>
             <div class="plan-empty" id="plan-empty"><span>＋</span><strong>Your interview starts here.</strong><p>Add a question from the library or build from your profile.</p></div>
             <div class="plan-footer">
-              <label><span>Interviewer</span><select id="plan-interviewer"><option>Dr. Marcus Hale · Program Director</option><option>Dr. Naomi Chen · APD</option><option>Surprise me</option></select></label>
+              <label><span>Interviewer</span><select id="plan-interviewer"><option value="unassigned">Not yet assigned</option><option value="kelly">Dr Kelly · pack pending</option><option value="woods">Dr Woods · pack pending</option></select></label>
               <button class="btn btn-primary full" id="review-interview" type="button">REVIEW & START <span>▸</span></button>
             </div>
           </section>
@@ -304,7 +304,7 @@
   <dialog class="countdown-overlay" id="countdown-overlay" aria-labelledby="countdown-title">
     <div class="countdown-atmosphere" aria-hidden="true"></div>
     <button class="countdown-cancel" id="countdown-cancel" type="button">Cancel</button>
-    <div class="countdown-content"><p class="eyebrow">YOUR INTERVIEWER IS JOINING</p><h2 id="countdown-title">Take one breath.</h2><div class="countdown-number" id="countdown-number">10</div><p id="countdown-prompt">Dr. Marcus Hale · Internal Medicine · Realistic pressure</p><div><button class="btn btn-primary" id="countdown-skip" type="button">SKIP COUNTDOWN <span>▸</span></button><button class="btn btn-quiet" id="countdown-sound" type="button" aria-pressed="true">♪ Sound on</button></div></div>
+    <div class="countdown-content"><p class="eyebrow">YOUR INTERVIEWER IS JOINING</p><h2 id="countdown-title">Take one breath.</h2><div class="countdown-number" id="countdown-number">10</div><p id="countdown-prompt">Interviewer pack pending · realistic pressure</p><div><button class="btn btn-primary" id="countdown-skip" type="button">SKIP COUNTDOWN <span>▸</span></button><button class="btn btn-quiet" id="countdown-sound" type="button" aria-pressed="true">♪ Sound on</button></div></div>
   </dialog>
 
   <div class="modal-backdrop" id="modal-backdrop" hidden></div>

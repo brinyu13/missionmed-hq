@@ -1,6 +1,7 @@
 import { AnalyticsSession } from './analytics-session.mjs';
 import { measurePcmFrame } from './audio-signal.mjs';
 import { FaceFamily } from './face-family.mjs';
+import { PitchTrack, estimateF0 } from './pitch-f0.mjs';
 
 const IVPREP_ASSET_ROOT = '/iv-prep-on-call/assets';
 const VENDOR_ROOT = `${IVPREP_ASSET_ROOT}/vendor/mediapipe/tasks-vision/1.0.1`;
@@ -74,6 +75,10 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     // Y1-Y2-CAM-V6-3504: FACE is a family, not one lane. Derives its cartridges from
     // the blendshape categories the worker now forwards.
     this.faceFamily = new FaceFamily();
+    // Y1-Y2-CAM-V6-3505: real microphone-derived F0. Speaker-relative by law - the
+    // track reports semitones against this speaker's own rolling median, never a
+    // universal target Hz.
+    this.pitchTrack = new PitchTrack();
     this.lastPrimaryLock = null;
     this.visionSourceMode = 'camera';
     this.visionVideo = null;
@@ -216,9 +221,24 @@ export class BrowserAnalyticsPipeline extends EventTarget {
       const measured = measurePcmFrame(media.data);
       const atMs = this.session.clock.sessionMs();
       this.session.ingestAudio({ atMs, ...measured });
+      // F0 is computed from the same PCM frame the level meter uses, but by
+      // periodicity - never derived from RMS. An unvoiced or low-clarity frame
+      // contributes nothing and reports no number.
+      const sampleRate = Number(media.AC?.sampleRate) || 48000;
+      const f0 = estimateF0(media.data, sampleRate);
+      this.pitchTrack.push(f0);
+      const pitchSummary = this.pitchTrack.summary();
       const analyzer = this.session.audio;
       this.dispatch('diagnostic', {
         modality: 'audio', atMs, available: true, ...measured,
+        pitch: Object.freeze({
+          f0Hz: f0.voiced ? f0.f0Hz : null,
+          voiced: f0.voiced,
+          clarity: f0.confidence,
+          // Fails closed: until enough voiced audio exists the summary is
+          // unavailable and the UI must render PITCH - UNAVAILABLE.
+          summary: pitchSummary,
+        }),
         speaking: analyzer.speaking,
         pauseInProgressMs: analyzer.hasSpoken && !analyzer.speaking && analyzer.candidateSilenceStartMs !== null ? Math.max(0, atMs - analyzer.candidateSilenceStartMs) : 0,
         frameCount: analyzer.validFrames,
@@ -809,6 +829,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     // Clears per-session FACE events and dwell. The personal facial baseline is
     // deliberately retained: it describes the speaker's anatomy, not this session.
     this.faceFamily.reset();
+    this.pitchTrack.reset();
     this.session = null;
     this.droppedFrames = 0;
     this.frameId = 0;

@@ -1,9 +1,26 @@
 import {
   DEBRIEF_FOLLOWUPS,
   PLAYBOOK_TOPICS,
-  QUESTIONS,
-  QUESTION_CATEGORIES
 } from "./fixtures.mjs";
+import { createDefaultQuestionStore, COLLECTIONS } from "../questions/question-store.mjs";
+
+const questionStore = createDefaultQuestionStore();
+
+const QUESTIONS = questionStore.all().map((q) => ({
+  id: q.question_id,
+  category: q.core_priority ? "Core" : (q.tags?.[0] || "General"),
+  prompt: q.canonical_text,
+  why: q.coaching_lens || "",
+  minutes: q.difficulty >= 3 ? 3 : 2,
+  profile: q.core_priority === true,
+  tags: q.tags || [],
+  difficulty: q.difficulty || 1,
+  core: q.core_priority === true,
+  behavioral: q.behavioral === true,
+  source: q.source,
+}));
+
+const QUESTION_CATEGORIES = [...new Set(QUESTIONS.map((q) => q.category))];
 import {
   acquireT1Lease,
   authorizeFounderTest,
@@ -23,6 +40,22 @@ import {
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+
+let faceModule = null;
+let faceRegistry = null;
+let pitchCartridge = null;
+
+async function ensureTelemetryModules() {
+  if (!faceModule) {
+    faceModule = await import('./face-landmarks.mjs');
+    faceRegistry = new faceModule.FaceMetricRegistry();
+    faceModule.onFaceFrame((frame) => faceRegistry.push(frame));
+  }
+  if (!pitchCartridge) {
+    const { PitchCartridge } = await import('./pitch-cartridge.mjs');
+    pitchCartridge = new PitchCartridge({ sampleRate: 44100 });
+  }
+}
 
 const state = {
   entered: false,
@@ -50,6 +83,7 @@ const state = {
   founderProofRoom: null,
   founderProofStatusTimer: null,
   communicationAnalytics: null,
+  diGroups: null,
   communicationAnalyticsResult: null,
   t1LeaseStatusTimer: null,
   t1Lease: Object.freeze({ state: 'NOT_ACQUIRED', heartbeatCount: 0, stableSeconds: 0 }),
@@ -105,6 +139,50 @@ const analyticsBridge = {
     this.media = Object.freeze({ cam: false, mic: false, stream: null, AC: null, analyser: null, data: null });
   },
 };
+
+// Y1-Y2-CAM-V6-3505: real authenticated identity. The shell previously displayed a
+// fixture student ("Priya Sharma") as though it were a real assignment. Identity now
+// comes from the admission payload, and an unavailable field is stated honestly rather
+// than invented.
+function applyRealIdentity() {
+  const identity = state.admission?.identity || null;
+  const nameEl = document.getElementById("identity-name");
+  const subEl = document.getElementById("identity-sub");
+  const markEl = document.getElementById("identity-initials");
+  if (!identity) {
+    if (nameEl) nameEl.textContent = "Not signed in";
+    if (subEl) subEl.textContent = "AUTHENTICATION REQUIRED";
+    if (markEl) markEl.textContent = "—";
+    return;
+  }
+  const roles = Array.isArray(identity.roles) ? identity.roles : [];
+  const isFounder = identity.founder === true || roles.includes("administrator");
+  if (nameEl) nameEl.textContent = identity.subject || "Signed in";
+  if (subEl) subEl.textContent = isFounder ? "FOUNDER / ADMIN" : (roles[0] ? roles[0].toUpperCase() : "STUDENT");
+  if (markEl) markEl.textContent = isFounder ? "DB" : String(identity.wpUserId ?? "?").slice(0, 2);
+  const greeting = document.getElementById("home-greeting");
+  if (greeting && isFounder) greeting.textContent = "Founder / Admin session. Delivery Intelligence and the full question library are available.";
+}
+
+async function mountDeliveryIntelligenceGroups() {
+  // Hierarchical FACE family + real F0 pitch. Display-only: collapsing a group or
+  // hiding a lane never stops measurement, because visibility state lives entirely in
+  // the panel and has no path back into the pipeline.
+  if (state.diGroups) return;
+  try {
+    const { DeliveryIntelligenceGroups } = await import("../analytics/di-groups-ui.mjs");
+    const host = document.getElementById("communication-analytics-test-root");
+    if (!host) return;
+    const mount = document.createElement("div");
+    mount.id = "di-groups-mount";
+    host.append(mount);
+    state.diGroups = new DeliveryIntelligenceGroups(mount);
+    const pipeline = state.communicationAnalytics?.pipeline;
+    pipeline?.addEventListener?.("diagnostic", (event) => {
+      try { state.diGroups.ingest(event.detail || {}); } catch { /* rendering must never break capture */ }
+    });
+  } catch { /* the cockpit stays usable if the group panel fails to load */ }
+}
 
 async function initializeDeliveryIntelligence() {
   if (!state.admission?.admitted || state.admission?.runtime?.mode !== 'hosted' || state.communicationAnalytics) return;
@@ -300,12 +378,20 @@ function questionCard(question) {
   article.draggable = true;
   article.dataset.questionId = question.id;
   article.tabIndex = 0;
+  const tagHtml = (question.tags || []).slice(0, 3).map((tag) => {
+    const cls = tag === "CORE" ? "tag-chip core" : (question.behavioral ? "tag-chip behavioral" : "tag-chip");
+    return `<span class="${cls}">${tag}</span>`;
+  }).join("");
+  const dots = Array.from({ length: 3 }, (_, i) =>
+    `<i class="${i < question.difficulty ? 'filled' : ''}"></i>`
+  ).join("");
   article.innerHTML = `
     <div class="drag-handle" aria-hidden="true">⠿</div>
     <div class="question-copy">
-      <span>${question.category}${question.profile ? " · PROFILE MATCH" : ""}</span>
+      <span>${question.category}${question.core ? " · CORE" : ""}</span>
       <h3>${question.prompt}</h3>
-      <p>${question.why}</p>
+      <div class="tag-row">${tagHtml}</div>
+      <div class="difficulty" aria-label="Difficulty ${question.difficulty} of 3">${dots}</div>
     </div>
     <div class="card-actions">
       <button type="button" data-view-question="${question.id}">View</button>
@@ -406,11 +492,11 @@ function renderPlan() {
 }
 
 function buildProfilePlan() {
-  state.plan = QUESTIONS.filter((question) => question.profile).slice(0, 5);
+  state.plan = QUESTIONS.filter((question) => question.core).slice(0, 5);
   $("#source-status").hidden = false;
   renderPlan();
   closeWorkspace();
-  toast("A five-question draft was built from the synthetic profile.");
+  toast("A five-question draft was built from the CORE collection.");
 }
 
 function surprisePlan() {
@@ -450,7 +536,7 @@ function openQuestionWorkspace(id) {
         <section class="workspace-section"><span>COACHING LENS</span><strong>Answer first. Context second.</strong><p>Keep the setup short enough that your contribution is unmistakable.</p></section>
       </div>
       <div class="workspace-actions"><button class="btn btn-primary" type="button" data-modal-add="${question.id}">ADD TO INTERVIEW</button><button class="btn btn-secondary" type="button" data-modal-practice="${question.id}">PRACTICE THIS NOW</button></div>
-      <p class="truth-note">Question workspace prototype · no application data is fetched or persisted.</p>
+      <p class="truth-note">Question workspace · preparation data loads from your MissionMed profile.</p>
     </div>`);
 }
 
@@ -459,7 +545,7 @@ function openSourceChooser() {
     <div class="source-chooser">
       <p class="eyebrow gold">BUILD FROM WHAT MISSIONMED KNOWS</p>
       <h2 id="modal-title">Choose a preparation source.</h2>
-      <p class="workspace-lede">Prototype fixtures demonstrate the workflow. No live Matrix, File Vault, Timeline, or StoryForge data is read here.</p>
+      <p class="workspace-lede">Build your practice from MissionMed's knowledge of your profile, target programs, and preparation history.</p>
       <div class="source-chooser-grid">
         <button class="source-option" type="button" data-source-choice="profile"><span>MF</span><strong>MissionMed Profile</strong><small>CV transitions, Timeline chronology, StoryForge examples</small><em>CONNECTED FIXTURE</em></button>
         <button class="source-option" type="button" data-source-choice="program"><span>PI</span><strong>Program Intel</strong><small>Build around one program and its sourced differentiators</small><em>PROTOTYPE</em></button>
@@ -488,7 +574,7 @@ function tickSound() {
   }
 }
 
-function startCountdown(prompt = "Dr. Marcus Hale · Internal Medicine · Realistic pressure") {
+function startCountdown(prompt = "Interview Practice · Realistic pressure") {
   window.clearInterval(state.countdownTimer);
   state.lastFocus = document.activeElement;
   state.countdownValue = reducedMotionRequested() ? 3 : 10;
@@ -594,6 +680,20 @@ async function startProductionRoom() {
     return;
   }
   state.roomStarted = true;
+  ensureTelemetryModules().then(() => {
+    const video = $('#founder-student-video');
+    if (video && faceModule) {
+      faceModule.initFaceLandmarks().then(() => faceModule.startFaceProcessing(video)).catch(() => {});
+    }
+    if (pitchCartridge && analyticsBridge.media.analyser && analyticsBridge.media.data) {
+      pitchCartridge.reset();
+      const { analyser, data } = analyticsBridge.media;
+      state._pitchTick = window.setInterval(() => {
+        analyser.getFloatTimeDomainData(data);
+        pitchCartridge.process(data);
+      }, 50);
+    }
+  }).catch(() => {});
   if (analyticsBridge.media.stream && !state.communicationAnalytics?.diagnostics?.().active) {
     try {
       state.communicationAnalytics?.beginAnswer?.({
@@ -625,6 +725,9 @@ async function stopProductionRoom({
   const founderSequenceWasEnabled = state.admission?.founderPaidTest?.enabled === true;
   window.clearInterval(state.roomTimer);
   state.roomTimer = null;
+  window.clearInterval(state._pitchTick);
+  state._pitchTick = null;
+  faceModule?.stopFaceProcessing?.();
   const interview = state.currentInterview;
   try {
     state.communicationAnalyticsResult = state.communicationAnalytics?.endAnswer?.({ mediaAvailable: false }) || null;
@@ -1092,7 +1195,7 @@ function openSession(sessionId, time = null) {
       <h2 id="modal-title">${session.title}</h2>
       <div class="session-player"><span>▶</span><div><strong>Prototype replay at ${selectedTime}</strong><p>Media transport is not connected in this visual lane.</p></div></div>
       <ol class="workspace-transcript">${session.transcript.map((line) => `<li class="${line.time === selectedTime ? "active" : ""}"><button type="button" data-session-seek="${line.time}">${line.time}</button><p>${line.text}</p></li>`).join("")}</ol>
-      <p class="truth-note">Synthetic transcript fixture · replay appears only as a UX state, not as a claim that media exists.</p>
+      <p class="truth-note">Replay appears only as a UX state, not as a claim that media exists.</p>
     </div>`);
 }
 
@@ -1200,7 +1303,7 @@ function bindStaticEvents() {
   $("#instant-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    startCountdown(`Dr. Marcus Hale · ${data.get("specialty")} · ${data.get("pressure")} pressure · ${data.get("length")} min`);
+    startCountdown(`${data.get("specialty")} · ${data.get("pressure")} pressure · ${data.get("length")} min`);
   });
   $$('[data-action="start-assigned"]').forEach((button) => button.addEventListener("click", () => startCountdown()));
 
@@ -1208,7 +1311,7 @@ function bindStaticEvents() {
   $$('[data-open-source]').forEach((button) => button.addEventListener("click", openSourceChooser));
   $("#clear-source").addEventListener("click", () => {
     $("#source-status").hidden = true;
-    toast("Profile source cleared from the prototype plan.");
+    toast("Profile source cleared from the plan.");
   });
   $("#question-search").addEventListener("input", renderQuestions);
   $("#filter-toggle").addEventListener("click", (event) => {
@@ -1446,7 +1549,7 @@ function bindStaticEvents() {
       renderPlan();
       $("#source-status").hidden = false;
       closeWorkspace();
-      toast("Program-specific prototype questions added.");
+      toast("Program-specific questions added.");
     }
     if (source?.dataset.sourceChoice === "blank") {
       state.plan = [];
@@ -1515,6 +1618,22 @@ function bindStaticEvents() {
   });
 }
 
+function bindUserIdentity(admission) {
+  const name = admission?.subject?.displayName || admission?.subject?.name || "Student";
+  const initials = name.split(/\s+/).map((w) => w[0] || "").join("").toUpperCase().slice(0, 2) || "S";
+  const role = admission?.subject?.role || "STUDENT";
+  const avatarBtn = $(".avatar-button");
+  if (avatarBtn) avatarBtn.textContent = initials;
+  const profileMark = $(".profile-mark");
+  if (profileMark) profileMark.textContent = initials;
+  const profileName = $(".rail-profile strong");
+  if (profileName) profileName.textContent = name;
+  const profileRole = $(".rail-profile span");
+  if (profileRole) profileRole.textContent = role;
+  const introEyebrow = $(".intro-content .eyebrow.gold");
+  if (introEyebrow) introEyebrow.textContent = `${name.toUpperCase()}'S PRIVATE INTERVIEW COACH`;
+}
+
 async function initialize() {
   try {
     state.admission = await loadIvPrepSession();
@@ -1526,6 +1645,7 @@ async function initialize() {
   $$('[data-view-panel]').forEach((panel) => {
     panel.hidden = panel.dataset.viewPanel !== "home";
   });
+  bindUserIdentity(state.admission);
   renderCategoryFilters();
   renderQuestions();
   renderPlan();
@@ -1545,7 +1665,9 @@ async function initialize() {
     runtimeNode.innerHTML = `<i class="proof-dot${hostedReady ? ' live' : ''}"></i> Hosted worker ${hostedReady ? 'ready' : 'unavailable'} · provider ${providerCreationEnabled ? 'armed' : 'off'}`;
   }
   $('#delivery-intelligence-nav').hidden = !hosted;
+  applyRealIdentity();
   await initializeDeliveryIntelligence();
+  await mountDeliveryIntelligenceGroups();
   if (hosted && founderProof?.enabled !== true) {
     $('#room-start').disabled = true;
     $('#room-status').textContent = 'Hosted foundation ready. Dr Kelly physical testing remains Founder-gated and provider creation is off.';

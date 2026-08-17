@@ -259,7 +259,7 @@ export function createIvPrepHqHandler({
         });
       }
       sendJson(response, 200, {
-        ...publicAdmissionState(admission, { videoEnabled: flags.videoEnabled, founderPaidTest }),
+        ...publicAdmissionState(admission, { videoEnabled: flags.videoEnabled, founderPaidTest, hqSession }),
         runtime,
       });
       return true;
