@@ -210,6 +210,102 @@ class MMED_REST_API {
 
 		register_rest_route(
 			self::NAMESPACE,
+			'/admin/file-vault/students',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( __CLASS__, 'admin_file_vault_students' ),
+				'permission_callback' => array( __CLASS__, 'can_manage' ),
+				'args'                => array(
+					'search' => array( 'sanitize_callback' => 'sanitize_text_field' ),
+					'limit'  => array( 'sanitize_callback' => 'absint' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/admin/file-vault/students/(?P<uid>\d+)/files',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( __CLASS__, 'admin_file_vault_student_files' ),
+				'permission_callback' => array( __CLASS__, 'can_manage' ),
+				'args'                => array(
+					'uid'      => array(
+						'sanitize_callback' => 'absint',
+						'validate_callback' => static function ( $param ) {
+							return absint( $param ) > 0;
+						},
+					),
+					'category' => array( 'sanitize_callback' => 'sanitize_key' ),
+					'status'   => array( 'sanitize_callback' => 'sanitize_key' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/admin/file-vault/files/(?P<id>\d+)/download',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( __CLASS__, 'admin_file_vault_download' ),
+				'permission_callback' => array( __CLASS__, 'can_manage' ),
+				'args'                => self::id_args(),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/admin/file-vault/files/(?P<id>\d+)/status',
+			array(
+				'methods'             => WP_REST_Server::EDITABLE,
+				'callback'            => array( __CLASS__, 'admin_file_vault_update_status' ),
+				'permission_callback' => array( __CLASS__, 'can_manage' ),
+				'args'                => self::id_args(),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/admin/file-vault/students/(?P<uid>\d+)/upload-url',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'admin_file_vault_upload_url' ),
+				'permission_callback' => array( __CLASS__, 'can_manage' ),
+				'args'                => array(
+					'uid'       => array(
+						'sanitize_callback' => 'absint',
+						'validate_callback' => static function ( $param ) {
+							return absint( $param ) > 0;
+						},
+					),
+					'filename'  => array( 'sanitize_callback' => 'sanitize_file_name' ),
+					'mime_type' => array( 'sanitize_callback' => 'sanitize_mime_type' ),
+					'category'  => array( 'sanitize_callback' => 'sanitize_key' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/admin/file-vault/students/(?P<uid>\d+)/files/(?P<id>\d+)/confirm',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'admin_file_vault_confirm' ),
+				'permission_callback' => array( __CLASS__, 'can_manage' ),
+				'args'                => array(
+					'uid' => array(
+						'sanitize_callback' => 'absint',
+						'validate_callback' => static function ( $param ) {
+							return absint( $param ) > 0;
+						},
+					),
+					'id'  => array( 'sanitize_callback' => 'absint' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
 			'/lor',
 			array(
 				array(
@@ -1459,6 +1555,78 @@ class MMED_REST_API {
 	public static function get_file_download( $request ) {
 		return class_exists( 'MMED_File_Vault' )
 			? MMED_File_Vault::get_download_url( $request )
+			: new WP_Error( 'mmed_file_vault_missing', 'File vault is unavailable.', array( 'status' => 500 ) );
+	}
+
+	/**
+	 * Admin File Vault student list endpoint.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function admin_file_vault_students( $request ) {
+		return class_exists( 'MMED_File_Vault' )
+			? MMED_File_Vault::admin_list_students( $request )
+			: new WP_Error( 'mmed_file_vault_missing', 'File vault is unavailable.', array( 'status' => 500 ) );
+	}
+
+	/**
+	 * Admin File Vault student files endpoint.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function admin_file_vault_student_files( $request ) {
+		return class_exists( 'MMED_File_Vault' )
+			? MMED_File_Vault::admin_get_student_files( $request )
+			: new WP_Error( 'mmed_file_vault_missing', 'File vault is unavailable.', array( 'status' => 500 ) );
+	}
+
+	/**
+	 * Admin File Vault download endpoint.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function admin_file_vault_download( $request ) {
+		return class_exists( 'MMED_File_Vault' )
+			? MMED_File_Vault::admin_get_file_download_url( $request )
+			: new WP_Error( 'mmed_file_vault_missing', 'File vault is unavailable.', array( 'status' => 500 ) );
+	}
+
+	/**
+	 * Admin File Vault status update endpoint.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function admin_file_vault_update_status( $request ) {
+		return class_exists( 'MMED_File_Vault' )
+			? MMED_File_Vault::admin_update_file_status( $request )
+			: new WP_Error( 'mmed_file_vault_missing', 'File vault is unavailable.', array( 'status' => 500 ) );
+	}
+
+	/**
+	 * Admin File Vault upload URL endpoint.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function admin_file_vault_upload_url( $request ) {
+		return class_exists( 'MMED_File_Vault' )
+			? MMED_File_Vault::admin_get_student_upload_url( $request )
+			: new WP_Error( 'mmed_file_vault_missing', 'File vault is unavailable.', array( 'status' => 500 ) );
+	}
+
+	/**
+	 * Admin File Vault upload confirm endpoint.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function admin_file_vault_confirm( $request ) {
+		return class_exists( 'MMED_File_Vault' )
+			? MMED_File_Vault::admin_confirm_student_upload( $request )
 			: new WP_Error( 'mmed_file_vault_missing', 'File vault is unavailable.', array( 'status' => 500 ) );
 	}
 

@@ -93,10 +93,6 @@ class MMED_Student_OS {
 
 		self::optimize_runtime_v2_member_dashboard_assets( $runtime_v2_enabled );
 
-		if ( $runtime_v2_enabled ) {
-			return;
-		}
-
 		$file_vault_css        = MMED_HUB_PATH . 'assets/student-os-file-vault.css';
 		$file_vault_js         = MMED_HUB_PATH . 'assets/student-os-file-vault.js';
 		$file_vault_ui_version = 'mm064-006d-fidelity';
@@ -108,6 +104,10 @@ class MMED_Student_OS {
 				array( 'mmed-student-os-css' ),
 				filemtime( $file_vault_css ) . '-' . $file_vault_ui_version
 			);
+		}
+
+		if ( $runtime_v2_enabled ) {
+			return;
 		}
 
 		if ( file_exists( $file_vault_js ) ) {

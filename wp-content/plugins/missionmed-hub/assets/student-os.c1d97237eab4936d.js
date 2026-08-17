@@ -91,7 +91,7 @@
 	var isAdminFullAccess = truthyAccessFlag(accessData.admin_full_access) || truthyAccessFlag(accessData.is_admin) || truthyAccessFlag(profileAccessData.admin_full_access) || truthyAccessFlag(profileAccessData.is_admin);
 	var promoCourses = Array.isArray(accessData.promo_courses) ? accessData.promo_courses : [];
 	var modulePermissions = accessData.module_permissions && typeof accessData.module_permissions === "object" ? accessData.module_permissions : {};
-	var MATRIX_TEMPORARY_OPEN_ROUTES = ["dashboard", "calendar", "scheduler", "appointments", "profile"];
+	var MATRIX_TEMPORARY_OPEN_ROUTES = ["dashboard", "calendar", "scheduler", "appointments", "profile", "filevault"];
 
 	function truthyAccessFlag(value) {
 		return value === true || value === 1 || value === "1" || value === "true";
