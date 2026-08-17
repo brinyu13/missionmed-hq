@@ -63,6 +63,7 @@ found for the reason in §1. Decide whether to track it.
 | `571054c` | fix | M1 media stage: frozen-object crash, stale view guard, stream re-attach (3502) |
 | `c808978` | feat | Real F0 pitch cartridge + FACE family, 10 lanes, claim-safety enforced (3504) |
 | `8721074` | feat | Stage A: real identity, real 193-question corpus in UI, FACE/PITCH group panel (3505) |
+| `18a1a54` | feat | 3492 Performance Studio shell live + diagnostic seam repaired (3507) |
 
 Each is bounded and independently revertable. Product code and authority
 documentation were kept in separate commits.
@@ -447,3 +448,89 @@ needed.
 2. Approved 3492 nav taxonomy + Performance Studio screens.
 3. Physical Founder validation of pitch (lower/higher/monotone/varied) and of the
    FACE submetrics against a real face.
+
+
+---
+
+## 15. Y1-Y2-CAM-V6-3507 — Studio shell shipped, diagnostic seam repaired
+
+HQ deployment **`4f2f50b9-b7ef-443f-95f3-cf55e712fbf1`**, SUCCESS, from commit
+`18a1a54`. Rollback target: **`220cf220-d5bc-448c-9726-ebbf18340d27`** (the Stage A
+build at `d98d4be`).
+
+**Profile B was NOT deployed.** Verified byte-identical pre/post: deployment
+`271d3953` unchanged, same start command and builder. A pre-deploy gate asserted
+that service id `3d18b017` resolves to `missionmed-hq` and aborted otherwise;
+deployment used explicit `-p/-e/-s` targeting, never directory-linked state.
+
+Provider sessions created by automation: **ZERO**.
+
+### The seam defect that mattered
+
+`public/aaa/app.mjs` subscribed via `state.communicationAnalytics?.pipeline`. The
+facade from `initializeAnalyticsUi` exposes no `pipeline` property, so with optional
+chaining the whole subscription was a **silent no-op** and every FACE and PITCH lane
+rendered UNAVAILABLE forever. The FACE and F0 engines were correct throughout; only
+the frontend seam was broken. This is why the 3505 report's
+"FACE FAMILY UI: WORKING / REAL PITCH: WORKING" was wrong — the lanes were mounted,
+not functioning.
+
+Fix: the facade now exposes `onDiagnostic(listener)`, forwarding both emitting
+pipelines (`founderPipeline` for cockpit guided runs, `pipeline` for the student
+overlay), returning an unsubscribe function, and throwing on misuse rather than
+failing silently. It hands out a callback rather than the mutable pipeline, so a
+consumer cannot influence capture. Both the Studio shell and the legacy shell use it.
+
+### Route
+
+`/iv-prep-on-call/` now serves `public/studio/index.html`. The pre-Fable AAA shell
+remains at `/iv-prep-on-call/legacy/` for comparison and rollback and is no longer
+primary. One existing test (`test/3441r/founder-proof-runtime.test.mjs`) was
+retargeted to the legacy path because the Founder paid-test controls it asserts live
+in that shell.
+
+**Outstanding for Codex:** the Founder paid-test / Dr Kelly controls have NOT been
+ported into the Studio shell. Until they are, the provider test path is the legacy
+route.
+
+### Tests
+
+364 pass / 0 fail (355 before, +9 in `test/analytics/studio-diagnostic-seam.test.mjs`).
+`npm run check`: 35 modules.
+
+Pre-existing, unrelated: `test/3472a/hosted-runtime.test.mjs` has one failing test
+("hosted entitlement bootstrap preserves an existing durable usage ledger"). Verified
+pre-existing by stashing all 3507 changes and re-running — it fails identically. That
+directory is **not** in the `npm test` glob, so it has never been running in CI. Not a
+3507 regression; worth a separate look.
+
+### Not proven
+
+FACE and PITCH are subscribed and render correct states under test, but neither has
+been physically validated with a real face and microphone. Automated runs produce no
+landmarks (synthetic frames yield none by design) and no user activation (suspended
+AudioContext), so physical proof requires the Founder.
+
+### PROFILE_B_HEALTH_BLOCKER: OPEN
+
+Railway reports deployment `271d3953` SUCCESS with instance RUNNING, but the
+worker's own `/health` route returns 502 "Application failed to respond".
+`server/agents/hosted-profile-b-runtime.mjs:77` does
+`healthServer.listen(port, '0.0.0.0')` and serves `/health` with 200 (registered) or
+503, so 502 means nothing is listening on the expected port. This contradicts the
+contamination audit's "currently healthy" claim. Not touched in 3507 per ticket
+scope. Blocks Dr Kelly / M5 provider testing; does NOT block student practice.
+
+### Matrix front door — next exact seam
+
+`/api/auth/start` already 302s to
+`missionmedinstitute.com/wp-admin/admin-post.php?action=mmac_hq_auth_redirect` and
+returns authenticated, so the HQ half is complete. `wp-content/mu-plugins/` IS in
+this worktree, but no plugin here renders the product nav
+(`missionmed-launch-sev1-fixes.php` only filters arena links;
+`missionmed-hq-auth-handoff.php` only registers the `admin_post` action), and
+`wp-content` is not deployed by Railway, which runs `node missionmed-hq/server.mjs`.
+
+**Remaining work is one WordPress nav entry on the member dashboard pointing at
+`https://missionmed-hq-production.up.railway.app/api/auth/start`. No code required —
+Founder or WordPress admin action.**
