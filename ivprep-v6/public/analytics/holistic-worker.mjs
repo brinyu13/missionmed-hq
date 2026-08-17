@@ -258,6 +258,15 @@ async function analyze(message) {
       holisticInferenceMs: Number((performance.now() - startedAt).toFixed(2)),
       faceInferenceMs: Number.isFinite(message.faceInferenceMs) ? message.faceInferenceMs : null,
       geometry,
+      // Y1-Y2-CAM-V6-3504: the blendshape categories were computed every frame, spent
+      // on a single movementRatePerSecond scalar, and then dropped - which is why FACE
+      // was one Flight Recorder lane. Forward them so the FACE family can derive its
+      // cartridges (smile, mouth, eye aperture, blink, brow, periocular, gaze).
+      // These are derived cue scores, the same privacy class as the geometry already
+      // sent: no raw frames, crops or coordinates leave the worker.
+      faceCategories: Array.isArray(faceCategories)
+        ? faceCategories.map((category) => ({ categoryName: category.categoryName, score: category.score }))
+        : null,
       primaryLock: message.primaryLock || null,
       overlayRequested: overlayEnabled,
       overlayRendered: Boolean(overlayBitmap),

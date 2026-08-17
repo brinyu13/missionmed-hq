@@ -1,5 +1,6 @@
 import { AnalyticsSession } from './analytics-session.mjs';
 import { measurePcmFrame } from './audio-signal.mjs';
+import { FaceFamily } from './face-family.mjs';
 
 const IVPREP_ASSET_ROOT = '/iv-prep-on-call/assets';
 const VENDOR_ROOT = `${IVPREP_ASSET_ROOT}/vendor/mediapipe/tasks-vision/1.0.1`;
@@ -70,6 +71,9 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.faceOverlayEnabled = true;
     this.bodyHandsOverlayEnabled = true;
     this.overlayConsumer = null;
+    // Y1-Y2-CAM-V6-3504: FACE is a family, not one lane. Derives its cartridges from
+    // the blendshape categories the worker now forwards.
+    this.faceFamily = new FaceFamily();
     this.lastPrimaryLock = null;
     this.visionSourceMode = 'camera';
     this.visionVideo = null;
@@ -566,8 +570,10 @@ export class BrowserAnalyticsPipeline extends EventTarget {
           primitiveCount: message.overlayPrimitiveCount,
           pipelineMs,
         });
+        const faceFamilyFrame = this.faceFamily.update(message.faceCategories, message.timestampMs);
         this.dispatch('diagnostic', {
           modality: 'vision', atMs: message.timestampMs, geometry: message.geometry, primaryLock: message.primaryLock || null, live,
+          faceFamily: faceFamilyFrame,
           overlayRequested: Boolean(message.overlayRequested), overlayRendered: Boolean(message.overlayRendered),
           overlayPrimitiveCount: Number.isFinite(message.overlayPrimitiveCount) ? message.overlayPrimitiveCount : 0,
           inferenceMs: pipelineMs,
@@ -800,6 +806,9 @@ export class BrowserAnalyticsPipeline extends EventTarget {
   resetSession() {
     if (this.answer) this.abandonAnswer('session_reset');
     this.stopSampling({ terminateWorker: true });
+    // Clears per-session FACE events and dwell. The personal facial baseline is
+    // deliberately retained: it describes the speaker's anatomy, not this session.
+    this.faceFamily.reset();
     this.session = null;
     this.droppedFrames = 0;
     this.frameId = 0;
