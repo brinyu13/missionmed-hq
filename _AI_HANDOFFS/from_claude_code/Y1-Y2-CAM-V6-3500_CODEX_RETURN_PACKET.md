@@ -62,6 +62,7 @@ found for the reason in §1. Decide whether to track it.
 | `2034a5d` | feat | CC-25 seed question corpus + CC-04 provider registry substrate (6 files) |
 | `571054c` | fix | M1 media stage: frozen-object crash, stale view guard, stream re-attach (3502) |
 | `c808978` | feat | Real F0 pitch cartridge + FACE family, 10 lanes, claim-safety enforced (3504) |
+| `8721074` | feat | Stage A: real identity, real 193-question corpus in UI, FACE/PITCH group panel (3505) |
 
 Each is bounded and independently revertable. Product code and authority
 documentation were kept in separate commits.
@@ -183,7 +184,7 @@ same constant. Verified: the two-clock-read pattern exists nowhere else
 | Suite | Before | After |
 |---|---|---|
 | `npm test` | 314 pass / 0 fail | **355 pass / 0 fail** |
-| `npm run check` | PASS, 28 modules | PASS, 34 modules |
+| `npm run check` | PASS, 28 modules | PASS, 35 modules |
 
 New: `test/analytics/vision-stage-boot.test.mjs` — 4 guards pinning the CSP
 directive (and asserting broad `'unsafe-eval'`/`'unsafe-inline'` stay absent),
@@ -403,3 +404,46 @@ without touching product code.
    retire `public/aaa/fixtures.mjs` as the UI question source (§11.2).
 7. Re-run `npm run check` and `npm test` (expect 327/327) before any further
    product mutation.
+
+
+---
+
+## 14. Stage A state (Y1-Y2-CAM-V6-3505)
+
+HQ deployment **`edf650b9`** (commit `8721074`), SUCCESS. Profile B `aec9436e`
+unchanged. Provider sessions created by automation: **ZERO**.
+
+| Stage A item | State |
+|---|---|
+| Real authenticated identity | **DONE.** `publicAdmissionState()` gained an `identity` block (own subject/id/roles/founder only, no secrets); `hq-mount` threads `hqSession`. Verified live: `wp:3440 / FOUNDER / ADMIN`. |
+| Priya Sharma in normal product | **REMOVED** (0 occurrences in `public/aaa/index.html`). |
+| Dr Marcus Hale as real assignment | **REMOVED** from the instant card, the interviewer select and the countdown card. Now reads "Interviewer not yet assigned". |
+| Real 193-question corpus in UI | **DONE.** `public/aaa/app.mjs` sources questions from `public/questions/question-store.mjs`; the 10-question fixture is no longer the question source. CORE first, "Tell me about yourself." first. |
+| FACE family visible | **DONE.** `public/analytics/di-groups-ui.mjs`; verified 10 FACE lanes mounted. |
+| Real PITCH visible | **DONE** (engine + UI). F0 wired at the live PCM frame in `browser-pipeline.mjs`, rendered speaker-relative in semitones. Physical Founder validation still outstanding. |
+| Approved 3492 shell | **PARTIAL.** Fixtures removed and the DI ontology converged, but the nav taxonomy and the Performance Studio screen set (Home/New Session/Device Check/Delivery Training/Simulation/Post-Answer/Film Room/Compare/Analytics Lab/Progress/Fingerprint/Results) are **not** ported. |
+| Matrix front door | **BLOCKED — not fixable from this repo.** |
+
+### Matrix front-door blocker (exact)
+
+The Matrix is a **WordPress page**, not part of this repository. The AAA shell's own
+return link points at `/member-dashboard/`, and `missionmed-hq/public/mmc-private/`
+is a different surface (an internal MMC ops shell: Command/Intelligence/Views), not
+the student Matrix. Adding the left-column "IV Prep On-Call" entry therefore
+requires editing the WordPress member dashboard template/menu on
+missionmedinstitute.com, which this repo does not contain and which I have no
+authenticated path to.
+
+The HQ side is already complete: `/api/auth/start` performs the WordPress handoff
+(302 → `admin-post.php?action=mmac_hq_auth_redirect`), and `/iv-prep-on-call/`
+serves the product behind that auth with anonymous access denied. **Only the menu
+item is missing.** Whoever edits the member dashboard should add a nav entry
+pointing at the canonical HQ route; no duplication of the app in WordPress is
+needed.
+
+### Remaining before Stage A is fully closed
+
+1. Matrix left-nav entry (WordPress, outside this repo).
+2. Approved 3492 nav taxonomy + Performance Studio screens.
+3. Physical Founder validation of pitch (lower/higher/monotone/varied) and of the
+   FACE submetrics against a real face.
