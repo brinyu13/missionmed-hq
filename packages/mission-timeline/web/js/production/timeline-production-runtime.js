@@ -26,11 +26,7 @@ export function productionEntitlementAssertion(identity,currentUsage){
 }
 
 export function productionRemotePersistenceAllowed(identity){
-  // WordPress grants remote-save capability to approved administrators as well
-  // as consented students. Keep the client boundary aligned with that signed
-  // server assertion: both personas still receive a distinct principal-scoped
-  // cache and the API enforces owner isolation for every write/object request.
-  return ["STUDENT","PROGRAM_ADMIN"].includes(identity?.role)&&identity?.remoteSyncAllowed===true;
+  return identity?.role==="STUDENT"&&identity?.remoteSyncAllowed===true;
 }
 
 export async function prepareTimelineProductionRuntime({fetchImpl=globalThis.fetch.bind(globalThis),locationObject=globalThis.location}={}){

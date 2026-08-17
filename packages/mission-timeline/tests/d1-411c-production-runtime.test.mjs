@@ -40,7 +40,7 @@ test("production bootstrap fails before IndexedDB opens when WordPress identity 
   }finally{indexedDB.open=prior;}
 });
 
-test("approved administrators receive owner-scoped secure Timeline persistence",async()=>{
+test("approved administrators keep Timeline authoring device-local and never enqueue remote media or document writes",async()=>{
   const originalIndexedDb=globalThis.indexedDB;
   let writeRequests=0;
   const fetchImpl=async(url,options={})=>{
@@ -59,11 +59,11 @@ test("approved administrators receive owner-scoped secure Timeline persistence",
   try{
     globalThis.indexedDB=new IDBFactory();
     const runtime=await prepareTimelineProductionRuntime({fetchImpl,locationObject:locationObject()});
-    assert.equal(productionRemotePersistenceAllowed(runtime.identity),true);
-    assert.equal(runtime.remotePersistenceAllowed,true);
-    assert.equal(runtime.privateMediaStorageEnabled,true);
-    assert.equal(runtime.adapter.remoteSyncConsent,true);
-    assert.deepEqual(await runtime.adapter.flush(),{synced:0,pending:0});
+    assert.equal(productionRemotePersistenceAllowed(runtime.identity),false);
+    assert.equal(runtime.remotePersistenceAllowed,false);
+    assert.equal(runtime.privateMediaStorageEnabled,false);
+    assert.equal(runtime.adapter.remoteSyncConsent,false);
+    assert.deepEqual(await runtime.adapter.flush(),{synced:0,pending:0,consentRequired:true});
     assert.equal(writeRequests,0);
     runtime.adapter.close();
   }finally{globalThis.indexedDB=originalIndexedDb;}
