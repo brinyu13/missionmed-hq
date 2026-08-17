@@ -1,0 +1,1967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IV PREP ON-CALL — AAA Design Showroom · Y1-Y2-CAM-V6-3490 · Fable 5</title>
+<style>
+:root{
+  --ok:#2FA84F; --warn:#F5A623; --bad:#D93B3B; --info:#2E6BE6; --neutral:#8A94A6;
+  --ink:#FFFFFF; --ink2:#D7DEE8; --bg:#0B0E13;
+  --panel:#11151D; --card:#161B25; --card2:#1B2130; --line:#242C3B; --line2:#2E3849;
+  --gold:#C9A35C; --sel:#2E6BE6;
+  --r:14px;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  font-size:15px; line-height:1.45; overflow-x:hidden;
+}
+::selection{background:#2E6BE655;}
+/* ---------- LAW STRIP ---------- */
+#lawstrip{
+  position:fixed; top:0; left:0; right:0; z-index:100;
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  background:linear-gradient(180deg,#0D1118,#0B0E13F2);
+  border-bottom:1px solid var(--line); padding:8px 18px; backdrop-filter:blur(8px);
+}
+#lawstrip .brand{font-weight:800; letter-spacing:.14em; font-size:13px;}
+#lawstrip .brand b{color:var(--gold);}
+.law{font-size:10px; letter-spacing:.12em; font-weight:700; color:var(--ink2);
+  border:1px solid var(--line2); border-radius:4px; padding:3px 8px; white-space:nowrap;}
+.law.warn{color:var(--warn); border-color:#5a4310;}
+#gctrl{display:flex; gap:8px; margin-left:auto; align-items:center; flex-wrap:wrap;}
+.seg{display:flex; border:1px solid var(--line2); border-radius:8px; overflow:hidden;}
+.seg button{
+  background:transparent; color:var(--neutral); border:0; padding:5px 11px;
+  font-size:11px; font-weight:700; letter-spacing:.08em; cursor:pointer; font-family:inherit;
+}
+.seg button.on{background:var(--sel); color:#fff;}
+.seg .lbl{font-size:9px; letter-spacing:.1em; color:var(--neutral); padding:7px 6px 0 10px; font-weight:700;}
+/* ---------- LAYOUT ---------- */
+#wrap{display:flex; padding-top:52px; min-height:100vh;}
+#nav{
+  width:248px; min-width:248px; position:sticky; top:52px; height:calc(100vh - 52px);
+  overflow-y:auto; background:var(--panel); border-right:1px solid var(--line); padding:14px 0 120px;
+}
+#nav h4{font-size:10px; letter-spacing:.16em; color:var(--neutral); padding:16px 18px 6px; font-weight:800;}
+#nav a{
+  display:flex; justify-content:space-between; align-items:center; gap:6px;
+  color:var(--ink2); text-decoration:none; font-size:12.5px; font-weight:600;
+  padding:6px 18px; border-left:3px solid transparent;
+}
+#nav a:hover{background:#1a2130; color:var(--ink);}
+#nav a.cur{border-left-color:var(--gold); color:var(--ink); background:#181f2c;}
+#nav a .pick{font-size:10px; font-weight:800; color:var(--gold); letter-spacing:.04em;}
+#main{flex:1; padding:26px 34px 220px; max-width:1340px;}
+section.fam{margin-bottom:64px; scroll-margin-top:70px;}
+.famhead{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; border-bottom:2px solid var(--line); padding-bottom:10px; margin-bottom:8px;}
+.famhead h2{font-size:22px; font-weight:800; letter-spacing:.02em;}
+.famhead .fid{font-size:11px; font-weight:800; letter-spacing:.14em; color:var(--gold);}
+.badge{font-size:9.5px; font-weight:800; letter-spacing:.1em; padding:3px 8px; border-radius:4px;}
+.badge.verified{background:#12331d; color:#5ED084; border:1px solid #1d5230;}
+.badge.target{background:#20293c; color:#7FA6EF; border:1px solid #2d4370;}
+.badge.lock72{background:#33270f; color:#E8BE6A; border:1px solid #5a4310;}
+.badge.newid{background:#231a33; color:#B79AE8; border:1px solid #3d2d5c;}
+.famnote{color:var(--neutral); font-size:13px; margin:6px 0 18px; max-width:960px;}
+.famnote b{color:var(--ink2);}
+/* ---------- OPTION CARDS ---------- */
+.opts{display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px;}
+.opt{
+  background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+  overflow:hidden; display:flex; flex-direction:column; transition:border-color .15s, transform .15s;
+}
+.opt:hover{border-color:var(--line2);}
+.opt.selected{border-color:var(--gold); box-shadow:0 0 0 1px var(--gold);}
+.opt.wide{grid-column:1 / -1;}
+.opthead{display:flex; align-items:center; gap:10px; padding:12px 14px 8px;}
+.optid{
+  font-size:12px; font-weight:900; letter-spacing:.08em; color:#0B0E13;
+  background:var(--gold); border-radius:6px; padding:3px 9px;
+}
+.opthead h3{font-size:14.5px; font-weight:800; flex:1;}
+.optdesc{padding:0 14px 12px; color:var(--neutral); font-size:12.5px;}
+.optdesc b{color:var(--ink2);}
+.optfoot{
+  margin-top:auto; display:flex; align-items:center; gap:8px;
+  border-top:1px solid var(--line); padding:9px 14px; background:#131824;
+}
+.selbtn{
+  background:transparent; border:1px solid var(--line2); color:var(--ink2);
+  font-family:inherit; font-size:11px; font-weight:800; letter-spacing:.1em;
+  padding:6px 14px; border-radius:7px; cursor:pointer;
+}
+.selbtn:hover{border-color:var(--gold); color:var(--gold);}
+.opt.selected .selbtn{background:var(--gold); color:#0B0E13; border-color:var(--gold);}
+.dispo{
+  background:#0f131c; color:var(--neutral); border:1px solid var(--line); border-radius:7px;
+  font-family:inherit; font-size:10.5px; font-weight:700; padding:6px 6px; letter-spacing:.04em;
+}
+.thumb{
+  margin:4px 14px 12px; border-radius:10px; background:var(--bg);
+  border:1px solid var(--line); height:170px; overflow:hidden; position:relative; flex:none;
+}
+.thumb.tall{height:300px;}
+.thumb.xl{height:420px;}
+/* ---------- GENERIC MOCK PARTS ---------- */
+.mock{position:absolute; inset:0; padding:10px; display:flex; gap:8px; font-size:8px; color:var(--neutral);}
+.mk{background:var(--card2); border:1px solid var(--line); border-radius:6px;}
+.mklbl{font-size:7.5px; font-weight:800; letter-spacing:.08em; color:var(--neutral); padding:4px 6px; display:block;}
+.mkbar{height:8px; border-radius:4px; background:var(--line2); margin:4px 6px;}
+.mkdot{width:8px; height:8px; border-radius:50%; display:inline-block;}
+.person{
+  position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+  width:58%; height:78%;
+  background:radial-gradient(ellipse 30% 22% at 50% 18%, #3a4356 0 98%, transparent 100%),
+             radial-gradient(ellipse 50% 42% at 50% 78%, #333c4e 0 98%, transparent 100%);
+  filter:drop-shadow(0 0 24px #0009);
+}
+.vidbg{position:absolute; inset:0; background:
+  radial-gradient(120% 90% at 50% 0%, #232b3a 0%, #151a24 55%, #10141d 100%);}
+.vidtag{position:absolute; top:8px; left:8px; font-size:8px; font-weight:800; letter-spacing:.12em;
+  color:var(--ink2); background:#0009; padding:2px 6px; border-radius:3px; z-index:5;}
+.rec{position:absolute; top:8px; right:8px; display:flex; gap:4px; align-items:center;
+  font-size:8px; font-weight:800; color:var(--ink2); z-index:5;}
+.rec i{width:7px;height:7px;border-radius:50%;background:var(--bad); display:inline-block; animation:blink 1.6s infinite;}
+@keyframes blink{50%{opacity:.25;}}
+/* Dr Kelly placeholder */
+.kelly{
+  position:absolute; inset:0;
+  background:radial-gradient(90% 70% at 50% 30%, #2c3141 0%, #191d29 70%, #12151f 100%);
+}
+.kelly .kface{
+  position:absolute; top:16%; left:50%; transform:translateX(-50%);
+  width:34%; aspect-ratio:1; border-radius:50%;
+  background:radial-gradient(circle at 42% 38%, #57617a, #3b4257 65%, #2c3244);
+}
+.kelly .kbody{
+  position:absolute; top:52%; left:50%; transform:translateX(-50%);
+  width:66%; height:50%; border-radius:40% 40% 0 0;
+  background:linear-gradient(180deg,#454f68,#2b3242);
+}
+.kelly .kname{position:absolute; bottom:8px; left:10px; font-size:9px; font-weight:800; letter-spacing:.1em; color:var(--ink2);}
+.stateRing{position:absolute; top:10px; right:10px; display:flex; align-items:center; gap:5px;
+  font-size:8px; font-weight:800; letter-spacing:.1em; color:var(--ink2);
+  background:#0009; border-radius:20px; padding:3px 8px;}
+.stateRing i{width:8px;height:8px;border-radius:50%;display:inline-block;}
+/* ---------- INSTRUMENT SHARED ---------- */
+.inst{position:absolute; inset:0; padding:14px 16px; display:flex; flex-direction:column;}
+.ititle{font-size:11px; font-weight:900; letter-spacing:.16em; color:var(--ink2);}
+.istate{font-size:9px; font-weight:800; letter-spacing:.12em; margin-left:auto;}
+.irow{display:flex; align-items:center; gap:8px;}
+.corr{
+  font-size:26px; font-weight:900; letter-spacing:.06em; text-align:center;
+  min-height:38px; display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.corr.ok{color:var(--ok);} .corr.warn{color:var(--warn);} .corr.bad{color:var(--bad);} .corr.dim{color:var(--neutral);}
+.chip{font-size:9px; font-weight:800; letter-spacing:.1em; padding:2px 7px; border-radius:4px; border:1px solid var(--line2); color:var(--neutral);}
+.chip.unav{color:var(--warn); border-color:#5a4310; background:repeating-linear-gradient(45deg,#1a1508 0 6px,#211a09 6px 12px);}
+.covring{display:inline-flex; align-items:center; gap:6px; font-size:9.5px; font-weight:800; color:var(--neutral); letter-spacing:.06em;}
+.covring svg{transform:rotate(-90deg);}
+/* scenario bar */
+#scen{display:flex; gap:6px; flex-wrap:wrap; margin:10px 0 4px;}
+#scen button, .scenbtn{
+  background:var(--card2); border:1px solid var(--line2); color:var(--ink2);
+  font-family:inherit; font-size:10.5px; font-weight:800; letter-spacing:.06em;
+  padding:7px 12px; border-radius:8px; cursor:pointer;
+}
+#scen button.on, .scenbtn.on{background:var(--gold); color:#0B0E13; border-color:var(--gold);}
+/* selection tray */
+#tray{
+  position:fixed; right:18px; bottom:18px; z-index:120; width:320px;
+  background:#10141d; border:1px solid var(--line2); border-radius:14px;
+  box-shadow:0 18px 60px #000A; overflow:hidden;
+}
+#tray header{display:flex; align-items:center; padding:10px 14px; background:#151b28; cursor:pointer;}
+#tray header b{font-size:11px; letter-spacing:.12em;}
+#tray header span{margin-left:auto; font-size:10px; color:var(--gold); font-weight:800;}
+#traybody{max-height:300px; overflow-y:auto; padding:8px 14px; font-size:11px;}
+#traybody .trow{display:flex; justify-content:space-between; padding:3px 0; color:var(--ink2);}
+#traybody .trow b{color:var(--gold);}
+#trayfoot{display:flex; gap:8px; padding:10px 14px; border-top:1px solid var(--line);}
+#trayfoot button{flex:1; background:var(--sel); border:0; color:#fff; font-family:inherit; font-weight:800; font-size:11px; letter-spacing:.08em; padding:8px; border-radius:8px; cursor:pointer;}
+#trayfoot button.ghost{background:transparent; border:1px solid var(--line2); color:var(--ink2);}
+/* hero blocks */
+.hero{
+  background:linear-gradient(140deg,#131926 0%, #0e1219 60%);
+  border:1px solid var(--line); border-radius:18px; padding:28px 30px; margin-bottom:26px;
+}
+.hero h1{font-size:30px; font-weight:900; letter-spacing:.01em;}
+.hero h1 b{color:var(--gold);}
+.hero p{color:var(--neutral); max-width:900px; margin-top:8px; font-size:14px;}
+.hero .picks{display:flex; flex-wrap:wrap; gap:6px; margin-top:14px;}
+.pickchip{font-size:10.5px; font-weight:800; letter-spacing:.06em; color:var(--ink2);
+  background:var(--card2); border:1px solid var(--line2); padding:4px 9px; border-radius:6px;}
+.pickchip b{color:var(--gold);}
+.grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+@media(max-width:980px){.grid2{grid-template-columns:1fr;} #nav{display:none;} }
+.mapbox{background:var(--card); border:1px solid var(--line); border-radius:var(--r); padding:18px;}
+.mapbox h3{font-size:13px; letter-spacing:.12em; font-weight:900; color:var(--gold); margin-bottom:10px;}
+.flow{display:flex; flex-direction:column; gap:6px;}
+.fstep{display:flex; align-items:center; gap:10px; background:var(--card2); border:1px solid var(--line);
+  border-radius:9px; padding:8px 12px; font-size:12px; font-weight:600; color:var(--ink2);}
+.fstep .n{width:20px; height:20px; border-radius:50%; background:var(--sel); color:#fff; font-size:10px;
+  font-weight:900; display:flex; align-items:center; justify-content:center; flex:none;}
+.fstep.alt .n{background:var(--gold); color:#0B0E13;}
+.fstep small{color:var(--neutral); font-weight:500;}
+.note{background:#171408; border:1px solid #4a3a10; border-radius:10px; padding:10px 14px;
+  color:#E8BE6A; font-size:12px; font-weight:600; margin:10px 0;}
+.note.blue{background:#0d1524; border-color:#22406e; color:#7FA6EF;}
+kbd{background:var(--card2); border:1px solid var(--line2); border-radius:4px; padding:1px 6px; font-size:10.5px;}
+h5.sub{font-size:11px; letter-spacing:.14em; color:var(--neutral); margin:20px 0 8px; font-weight:800;}
+[data-lab]{display:none !important;}
+body[data-density="LAB"] [data-lab]{display:flex !important;}
+canvas{display:block;}
+</style>
+</head>
+<body>
+<div id="lawstrip">
+  <div class="brand">MISSIONMED <b>IV PREP ON-CALL</b>&nbsp;·&nbsp;DESIGN SHOWROOM</div>
+  <span class="law">SIMULATED TEACHING SURFACE</span>
+  <span class="law">OBSERVABLE DELIVERY ONLY</span>
+  <span class="law">CAPABILITY IS AUTHORITY</span>
+  <span class="law warn">FOUNDER STOP · NO PROVIDER SESSIONS</span>
+  <div id="gctrl">
+    <div class="seg"><span class="lbl">DENSITY</span>
+      <button data-density="SIMPLE">SIMPLE</button>
+      <button data-density="STANDARD" class="on">STANDARD</button>
+      <button data-density="LAB">LAB</button>
+    </div>
+    <div class="seg"><span class="lbl">ROLE</span>
+      <button data-role="STUDENT" class="on">STUDENT</button>
+      <button data-role="MENTOR">MENTOR</button>
+    </div>
+    <div class="seg"><span class="lbl">STATE</span>
+      <button data-state="LIVE" class="on">LIVE</button>
+      <button data-state="POST">POST</button>
+    </div>
+  </div>
+</div>
+<div id="wrap">
+  <nav id="nav"></nav>
+  <main id="main"></main>
+</div>
+<div id="tray">
+  <header onclick="toggleTray()"><b>FOUNDER SELECTIONS</b><span id="trayCount">0 PICKED</span></header>
+  <div id="traybody"></div>
+  <div id="trayfoot">
+    <button onclick="copySelections()">COPY SELECTION SHEET</button>
+    <button class="ghost" onclick="loadNorthStar()">LOAD FABLE ★</button>
+  </div>
+</div>
+<script>
+/* ============================================================
+   IV PREP ON-CALL — AAA DESIGN SHOWROOM ENGINE
+   Ticket Y1-Y2-CAM-V6-3490 · Fable 5
+   Honors: 3471C signal contract IDs · 3472 instrument grammar lock
+   ============================================================ */
+'use strict';
+/* ---------- GLOBAL UI STATE ---------- */
+const UI = { density:'STANDARD', role:'STUDENT', state:'LIVE' };
+document.querySelectorAll('#gctrl .seg button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const k = Object.keys(b.dataset)[0];
+    UI[k]=b.dataset[k];
+    b.parentElement.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+    document.body.dataset[k]=b.dataset[k];
+  });
+});
+/* ---------- SYNTHETIC TELEMETRY (SessionClock) ---------- */
+const SIM = {
+  t:0, scenario:'IDLE', scenT:0, phase:'OPEN',
+  level:.58, p10:.48, p90:.68, pitchLo:-3.2, pitchHi:3.4, pitchCur:0,
+  pace:.48, paceTarget:[.34,.62],
+  cad:'NATURAL',            // EVEN | NATURAL | CHAOTIC
+  hands:{ L:{x:-.34,y:.30,vis:true}, R:{x:.30,y:.28,vis:true} },
+  frame:{cx:0, cy:0, size:1},
+  warm:72, comp:74, congr:'ALIGNED',
+  contributors:{ 'HANDS VISIBLE':88,'OPERATING ZONE':81,'SPACE VS BASELINE':76,'ILLUSTRATOR RATE':72,'GESTURE HOLDS':70 },
+  vvContrib:{ 'PITCH VARIATION':96,'VOLUME VARIATION':61,'PACE VARIATION':91,'CADENCE VARIATION':89 },
+  pitchAvail:true, rHandAvail:true, windowFill:1, speaking:true,
+};
+const lerp=(a,b,k)=>a+(b-a)*k;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const noise=(t,s)=>Math.sin(t*1.7+s)*.5+Math.sin(t*.63+s*2.7)*.35+Math.sin(t*3.1+s*.4)*.15;
+/* Scenario scripts: each is fn(ts) mutating SIM. ts = seconds since scenario start */
+const SCEN = {
+  IDLE(ts){
+    SIM.phase = ['OPEN','ENUMERATE','PROVE-STORY','CLOSE'][Math.floor(ts/9)%4];
+    SIM.level = .58 + noise(ts,1)*.07;
+    SIM.p10 = SIM.level-.11+noise(ts,9)*.02; SIM.p90 = SIM.level+.11+noise(ts,4)*.02;
+    SIM.pitchLo=-3.4+noise(ts,2); SIM.pitchHi=3.5+noise(ts,5);
+    SIM.pitchCur = noise(ts*1.9,3)*3.4;
+    SIM.pace=.5+noise(ts,7)*.09;
+    SIM.paceTarget = SIM.phase==='PROVE-STORY' ? [.20,.50] : SIM.phase==='CLOSE' ? [.55,.80] : [.34,.62];
+    SIM.cad='NATURAL';
+    SIM.hands.L={x:-.30+noise(ts,11)*.16, y:.26+noise(ts,13)*.13, vis:true};
+    SIM.hands.R={x:.30+noise(ts,17)*.18, y:.24+noise(ts,19)*.15, vis:true};
+    SIM.frame={cx:noise(ts,23)*.03, cy:noise(ts,29)*.02, size:1+noise(ts,31)*.03};
+    SIM.warm=72+noise(ts,37)*5; SIM.comp=74+noise(ts,41)*5;
+    SIM.vvContrib['VOLUME VARIATION']=61; SIM.pitchAvail=true; SIM.rHandAvail=true;
+    SIM.windowFill=1; SIM.congr='ALIGNED';
+  },
+  S1(ts){ /* voice too quiet -> correction -> recovery -> lock */
+    SCEN.IDLE(ts); SIM.phase='OPEN';
+    if(ts<4){ SIM.level=.34+noise(ts,1)*.015; }
+    else if(ts<9){ SIM.level=lerp(.34,.58,(ts-4)/5)+noise(ts,1)*.012; }
+    else { SIM.level=.58+noise(ts,1)*.02; }
+    SIM.p10=SIM.level-.08; SIM.p90=SIM.level+.08;
+    if(ts>15) restartScen();
+  },
+  S2(ts){ /* pace acceleration, phase-aware moving arc */
+    SCEN.IDLE(ts);
+    SIM.phase = ts<8?'OPEN' : ts<20?'ENUMERATE' : 'PROVE-STORY';
+    SIM.paceTarget = SIM.phase==='PROVE-STORY' ? [.20,.50] : SIM.phase==='ENUMERATE' ? [.40,.72] : [.34,.62];
+    if(ts<20) SIM.pace=.5+noise(ts,7)*.05;
+    else if(ts<24) SIM.pace=lerp(.5,.86,(ts-20)/4);
+    else if(ts<32) SIM.pace=.86+noise(ts,7)*.03;
+    else SIM.pace=lerp(.86,.42,Math.min(1,(ts-32)/5));
+    if(ts>40) restartScen();
+  },
+  S3(ts){ /* right hand lost -> coverage honesty */
+    SCEN.IDLE(ts);
+    SIM.rHandAvail = !(ts>10 && ts<22);
+    SIM.hands.R.vis = SIM.rHandAvail;
+    if(ts>30) restartScen();
+  },
+  S4(ts){ /* loud monotone — decisive scenario */
+    SCEN.IDLE(ts); SIM.phase='PROVE-STORY';
+    SIM.level=.60+noise(ts,1)*.012;
+    SIM.p10=SIM.level-.02; SIM.p90=SIM.level+.02;          // collapsed bracket
+    SIM.pitchLo=-.8; SIM.pitchHi=.9; SIM.pitchCur=noise(ts*2,3)*.7; // <2 st
+    SIM.pace=.5+noise(ts,7)*.02;
+    SIM.vvContrib['VOLUME VARIATION']=34+noise(ts,5)*3;
+    SIM.vvContrib['PITCH VARIATION']=38+noise(ts,6)*3;
+    if(ts>18) restartScen();
+  },
+  S5(ts){ /* cadence: metronomic -> natural -> chaotic */
+    SCEN.IDLE(ts);
+    SIM.cad = ts<14?'EVEN' : ts<26?'NATURAL' : 'CHAOTIC';
+    if(ts>36) restartScen();
+  },
+  S6(ts){ /* film room replay — handled by film demo (POST) */
+    SCEN.IDLE(ts);
+    SIM.pitchAvail = !(ts%60>22 && ts%60<31);
+  },
+  SD(ts){ /* natural vs interview suppression (Scenario D) */
+    SCEN.IDLE(ts);
+    const k=(Math.sin(ts*.5)+1)/2; // oscillate suppression for the fingerprint demo
+    SIM.hands.L={x:-.14-k*.02+noise(ts,11)*.05, y:.34+noise(ts,13)*.05, vis:true};
+    SIM.hands.R={x:.13+noise(ts,17)*.05, y:.33+noise(ts,19)*.05, vis:true};
+    SIM.pitchLo=-1.4; SIM.pitchHi=1.5;
+  },
+  SB(ts){ /* personable, lower authority */
+    SCEN.IDLE(ts); SIM.warm=86+noise(ts,3)*3; SIM.comp=48+noise(ts,5)*4;
+  },
+  SC(ts){ /* polished but cold */
+    SCEN.IDLE(ts); SIM.warm=42+noise(ts,3)*4; SIM.comp=88+noise(ts,5)*3;
+  },
+  SE(ts){ /* strong congruence beat every 6s */
+    SCEN.IDLE(ts);
+    const beat=(ts%6)<0.9;
+    SIM.congr = beat?'CONVERGE':'ALIGNED';
+    if(beat){ SIM.level=.72; SIM.pitchCur=4.5; SIM.hands.R.y=.55; }
+  },
+  SVV(ts){ /* volume variation recovers -> master responds (contributor→master law) */
+    SCEN.IDLE(ts); SIM.phase='PROVE-STORY';
+    let vv;
+    if(ts<5) vv=61; else if(ts<15) vv=lerp(61,84,(ts-5)/10); else vv=84+noise(ts,5)*2;
+    SIM.vvContrib['VOLUME VARIATION']=vv;
+    const spread=lerp(.04,.24,(vv-34)/56);
+    SIM.p10=SIM.level-spread/2; SIM.p90=SIM.level+spread/2;
+    if(ts>22) restartScen();
+  },
+};
+let scenStart=performance.now()/1000;
+function setScenario(id){
+  SIM.scenario=id; scenStart=performance.now()/1000;
+  document.querySelectorAll('[data-scen]').forEach(b=>b.classList.toggle('on',b.dataset.scen===id));
+}
+function restartScen(){ scenStart=performance.now()/1000; }
+/* ---------- COMPOSITE LAW (3472 §8.1) ---------- */
+function compositeMaster(contribs, avail){
+  const vals=Object.entries(contribs).filter(([k])=>!avail||avail[k]!==false).map(([,v])=>v);
+  if(!vals.length) return {master:0,cov:0,limiting:null};
+  const mean=vals.reduce((a,b)=>a+b,0)/vals.length;
+  const weakest=Math.min(...vals);
+  const master=Math.min(mean, weakest+15);         // headroom 15 [CALIBRATE]
+  const bucket=Math.round(master/5)*5;             // buckets of 5
+  let limiting=null;
+  for(const [k,v] of Object.entries(contribs)) if(v===weakest) limiting=k;
+  return {master:bucket, raw:master, mean, weakest, limiting,
+          cov:vals.length, tot:Object.keys(contribs).length};
+}
+/* ---------- INSTRUMENT REGISTRY ---------- */
+const MOUNTED=[];
+function mountDemo(el, factory){
+  const inst=factory(el); if(inst && inst.update) MOUNTED.push(inst);
+  return inst;
+}
+function statusColor(s){return s==='ok'?'var(--ok)':s==='warn'?'var(--warn)':s==='bad'?'var(--bad)':'var(--neutral)';}
+/* ============================================================
+   INSTRUMENT FACTORIES — 3472 grammar lock
+   CONTROL corridor · PATTERN bracket · SPATIAL field · EVENT chips · COMPOSITE cap
+   ============================================================ */
+
+/* ---- 1+2 · VOICE LEVEL corridor + VOLUME VARIATION bracket (shared axis) ---- */
+function voiceAxis(el){
+  el.innerHTML = `
+  <div class="inst">
+    <div class="irow"><span class="ititle">VOICE LEVEL</span><span class="ititle" style="color:var(--neutral)">+ VOLUME VARIATION</span><span class="istate" data-r="st"></span></div>
+    <div style="flex:1; position:relative; margin:14px 4px;">
+      <div data-r="axis" style="position:absolute; left:0; right:0; top:50%; height:34px; transform:translateY(-50%); background:#141926; border:1px solid var(--line2); border-radius:8px;">
+        <div data-r="band" style="position:absolute; top:0; bottom:0; background:#173322; border-left:2px solid var(--ok); border-right:2px solid var(--ok);"></div>
+        <div data-r="marker" style="position:absolute; top:-8px; bottom:-8px; width:14px; border-radius:5px; background:var(--ink); box-shadow:0 0 12px #0008;"></div>
+        <div data-r="chevL" style="position:absolute; left:6px; top:6px; font-weight:900; color:var(--warn); font-size:16px; display:none;">◀◀</div>
+        <div data-r="chevR" style="position:absolute; right:6px; top:6px; font-weight:900; color:var(--warn); font-size:16px; display:none;">▶▶</div>
+      </div>
+      <div data-r="brk" style="position:absolute; top:calc(50% - 40px); height:80px; border:3px solid var(--info); border-top-width:4px; border-bottom-width:4px; border-radius:6px; border-left-style:solid; border-right-style:solid; background:transparent; transition:border-color .3s;"></div>
+      <div data-r="brklbl" style="position:absolute; top:calc(50% + 46px); font-size:9px; font-weight:800; letter-spacing:.1em; color:var(--info);">RANGE P10–P90</div>
+    </div>
+    <div class="corr" data-r="corr">HOLD</div>
+    <div class="irow" data-lab style="justify-content:center; gap:16px; font-size:10px; color:var(--neutral); font-weight:700;">
+      <span data-r="nlv"></span><span data-r="nsp"></span><span>WINDOW 6s</span><span>HYSTERESIS .03</span>
+    </div>
+  </div>`;
+  const R={}; el.querySelectorAll('[data-r]').forEach(n=>R[n.dataset.r]=n);
+  const LO=.46, HI=.70; let inBandSince=null;
+  return { update(now){
+    const axW=R.axis.clientWidth;
+    R.band.style.left=(LO*100)+'%'; R.band.style.width=((HI-LO)*100)+'%';
+    const x=clamp(SIM.level,0,1)*axW;
+    R.marker.style.left=(clamp(SIM.level,0,1)*100)+'%';
+    const spread=SIM.p90-SIM.p10;
+    R.brk.style.left=(clamp(SIM.p10,0,1)*100)+'%';
+    R.brk.style.width=(clamp(spread,0,1)*100)+'%';
+    const flat=spread<.10, uneven=spread>.42;
+    R.brk.style.borderColor= flat? 'var(--warn)' : uneven? 'var(--bad)':'var(--info)';
+    R.brklbl.style.color=R.brk.style.borderColor;
+    R.brklbl.textContent= flat? 'RANGE COLLAPSED' : uneven? 'RANGE UNEVEN':'RANGE P10–P90';
+    const below=SIM.level<LO, above=SIM.level>HI;
+    R.chevR.style.display=below?'block':'none';
+    R.chevL.style.display=above?'block':'none';
+    let txt='HOLD', cls='dim';
+    if(below){txt='LOUDER ↑'; cls='warn'; inBandSince=null;}
+    else if(above){txt='SOFTER ↓'; cls='warn'; inBandSince=null;}
+    else{
+      if(inBandSince===null) inBandSince=now;
+      if(flat){txt='FLAT — ADD RANGE'; cls='warn';}
+      else if(uneven){txt='UNEVEN — STEADY IT'; cls='bad';}
+      else if(now-inBandSince>4){txt='LOCKED'; cls='ok';}
+      else {txt='GOOD — HOLD'; cls='ok';}
+    }
+    R.corr.textContent=txt; R.corr.className='corr '+cls;
+    R.st.textContent= (cls==='ok')?'IN BAND':'CORRECTING';
+    R.st.style.color= cls==='ok'?'var(--ok)':'var(--warn)';
+    R.nlv.textContent='LEVEL '+SIM.level.toFixed(2);
+    R.nsp.textContent='SPREAD '+spread.toFixed(2);
+  }};
+}
+
+/* ---- 3 · SPEAKING PACE — five-zone dial with moving phase arc ---- */
+function paceDial(el){
+  el.innerHTML=`
+  <div class="inst" style="align-items:center;">
+    <div class="irow" style="width:100%"><span class="ititle">SPEAKING PACE</span><span class="istate" data-r="ph" style="color:var(--info)"></span></div>
+    <svg data-r="svg" viewBox="0 0 240 150" style="flex:1; max-height:78%; width:100%;"></svg>
+    <div class="corr" data-r="corr" style="font-size:22px;">HOLD PACE</div>
+  </div>`;
+  const svg=el.querySelector('[data-r=svg]'), ph=el.querySelector('[data-r=ph]'), corr=el.querySelector('[data-r=corr]');
+  const cx=120, cy=132, r1=78, r2=104;
+  const a0=-200, a1=20; // 220 degrees
+  const zones=[[0,.12,'PAUSE','#4a5468'],[.12,.34,'SLOW','#7d8aa3'],[.34,.62,'CRUISE','#2FA84F'],[.62,.80,'ENERGIZE','#F5A623'],[.80,1,'TOO FAST','#D93B3B']];
+  const P=(ang,rad)=>[cx+rad*Math.cos(ang*Math.PI/180), cy+rad*Math.sin(ang*Math.PI/180)];
+  const arc=(f0,f1,rI,rO)=>{ const s0=a0+(a1-a0)*f0, s1=a0+(a1-a0)*f1;
+    const [x0,y0]=P(s0,rO),[x1,y1]=P(s1,rO),[x2,y2]=P(s1,rI),[x3,y3]=P(s0,rI);
+    const lg=(s1-s0)>180?1:0;
+    return `M${x0},${y0} A${rO},${rO} 0 ${lg} 1 ${x1},${y1} L${x2},${y2} A${rI},${rI} 0 ${lg} 0 ${x3},${y3} Z`; };
+  let html='';
+  zones.forEach(z=>{ html+=`<path d="${arc(z[0],z[1],r1,r2)}" fill="${z[3]}22" stroke="${z[3]}" stroke-width="1.4"/>`;
+    const mid=a0+(a1-a0)*(z[0]+z[1])/2, [tx,ty]=P(mid,r2+14);
+    html+=`<text x="${tx}" y="${ty}" fill="#D7DEE8" font-size="8.5" font-weight="800" text-anchor="middle" letter-spacing=".08em">${z[2]}</text>`;});
+  html+=`<path data-r="tgt" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" opacity=".9"/>`;
+  html+=`<line data-r="needle" x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-r1+6}" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>`;
+  html+=`<circle cx="${cx}" cy="${cy}" r="9" fill="#D7DEE8"/>`;
+  svg.innerHTML=html;
+  const tgt=svg.querySelector('[data-r=tgt]'), needle=svg.querySelector('[data-r=needle]');
+  const arcLine=(f0,f1,rad)=>{ const s0=a0+(a1-a0)*f0, s1=a0+(a1-a0)*f1;
+    const [x0,y0]=P(s0,rad),[x1,y1]=P(s1,rad); return `M${x0},${y0} A${rad},${rad} 0 0 1 ${x1},${y1}`; };
+  let shownPace=SIM.pace;
+  return { update(){
+    shownPace=lerp(shownPace,SIM.pace,.12);
+    const ang=a0+(a1-a0)*clamp(shownPace,0,1);
+    const [nx,ny]=P(ang,r1-4);
+    needle.setAttribute('x2',nx); needle.setAttribute('y2',ny);
+    tgt.setAttribute('d',arcLine(SIM.paceTarget[0],SIM.paceTarget[1],(r1+r2)/2));
+    ph.textContent='PHASE · '+SIM.phase;
+    const inT=shownPace>=SIM.paceTarget[0]&&shownPace<=SIM.paceTarget[1];
+    let t='HOLD PACE',c='ok';
+    if(shownPace>SIM.paceTarget[1]+.02){t='SLOW DOWN';c=shownPace>.8?'bad':'warn';}
+    else if(shownPace<SIM.paceTarget[0]-.02){t='PICK IT UP';c='warn';}
+    corr.textContent=t; corr.className='corr '+c; corr.style.fontSize='22px';
+    tgt.setAttribute('stroke', inT? 'var(--ok)':'#FFFFFF');
+  }};
+}
+
+/* ---- 4 · PITCH VARIATION — stepped semitone ladder ---- */
+function pitchLadder(el){
+  el.innerHTML=`
+  <div class="inst">
+    <div class="irow"><span class="ititle">PITCH VARIATION</span><span class="chip" data-r="chip" style="margin-left:auto;">SEMITONES VS YOUR MEDIAN</span></div>
+    <div style="flex:1; display:flex; gap:18px; margin-top:10px;">
+      <div data-r="lad" style="position:relative; width:120px; margin:6px 0 6px 26px;"></div>
+      <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:10px;">
+        <div class="corr" data-r="corr" style="font-size:20px; justify-content:flex-start; text-align:left;">GOOD RANGE</div>
+        <div data-lab style="font-size:10px; color:var(--neutral); font-weight:700;" data-r="lab"></div>
+      </div>
+    </div>
+  </div>`;
+  const lad=el.querySelector('[data-r=lad]'), corr=el.querySelector('[data-r=corr]'),
+        chip=el.querySelector('[data-r=chip]'), lab=el.querySelector('[data-r=lab]');
+  let html='';
+  for(let s=8;s>=-8;s-=2){ const y=(1-(s+8)/16)*100;
+    html+=`<div style="position:absolute; top:${y}%; left:0; right:0; height:2px; background:${s===0?'var(--ink2)':'#2a3344'};"></div>
+    <div style="position:absolute; top:calc(${y}% - 6px); left:-24px; font-size:8px; color:var(--neutral); font-weight:700;">${s>0?'+':''}${s}</div>`;}
+  html+=`<div data-r="brk" style="position:absolute; left:14px; right:14px; border:3px solid var(--info); border-radius:6px; transition:all .35s;"></div>
+  <div data-r="mk" style="position:absolute; left:50%; width:34px; height:8px; margin-left:-17px; background:var(--ink); border-radius:3px;"></div>
+  <div data-r="unav" class="chip unav" style="position:absolute; inset:40% 0 auto 0; text-align:center; display:none; padding:8px;">PITCH — UNAVAILABLE</div>`;
+  lad.innerHTML=html;
+  const brk=lad.querySelector('[data-r=brk]'), mk=lad.querySelector('[data-r=mk]'), unav=lad.querySelector('[data-r=unav]');
+  const yOf=s=>(1-(clamp(s,-8,8)+8)/16)*100;
+  return { update(){
+    if(!SIM.pitchAvail){ unav.style.display='block'; brk.style.display='none'; mk.style.display='none';
+      corr.textContent='PITCH — UNAVAILABLE'; corr.className='corr dim'; corr.style.fontSize='20px';
+      chip.textContent='CONTRIBUTES NOTHING · DENOMINATOR REDUCED'; return; }
+    unav.style.display='none'; brk.style.display='block'; mk.style.display='block';
+    chip.textContent='SEMITONES VS YOUR MEDIAN';
+    const range=SIM.pitchHi-SIM.pitchLo;
+    brk.style.top=yOf(SIM.pitchHi)+'%';
+    brk.style.height=(yOf(SIM.pitchLo)-yOf(SIM.pitchHi))+'%';
+    const snapped=Math.round(SIM.pitchCur);
+    mk.style.top='calc('+yOf(snapped)+'% - 4px)';
+    let t='GOOD RANGE',c='ok';
+    if(range<2.5){t='ADD MORE PITCH RANGE';c='warn'; brk.style.borderColor='var(--warn)';}
+    else if(range>12){t='LET IT SETTLE';c='warn'; brk.style.borderColor='var(--warn)';}
+    else brk.style.borderColor='var(--info)';
+    corr.textContent=t; corr.className='corr '+c; corr.style.fontSize='20px'; corr.style.justifyContent='flex-start';
+    lab.textContent='RANGE '+range.toFixed(1)+' st · TARGET 3.5–9.0 st [CALIBRATE] · VOICED COVERAGE OK';
+  }};
+}
+
+/* ---- 5 · CADENCE — phrase-spacing rail vs even-grid ghost ---- */
+function cadenceRail(el){
+  el.innerHTML=`
+  <div class="inst">
+    <div class="irow"><span class="ititle">CADENCE</span><span class="istate" data-r="st"></span></div>
+    <div data-r="rail" style="flex:1; position:relative; background:#12161f; border:1px solid var(--line); border-radius:8px; margin:12px 0; overflow:hidden;"></div>
+    <div class="corr" data-r="corr" style="font-size:20px;">NATURAL RHYTHM</div>
+  </div>`;
+  const rail=el.querySelector('[data-r=rail]'), corr=el.querySelector('[data-r=corr]'), st=el.querySelector('[data-r=st]');
+  return { update(now){
+    const W=rail.clientWidth, H=rail.clientHeight;
+    let html='';
+    for(let i=0;i<12;i++){ const gx=(i/12)*100;
+      html+=`<div style="position:absolute; left:${gx}%; top:0; bottom:0; width:1px; background:#232b3a;"></div>`; }
+    const mode=SIM.cad; let x=4; let i=0;
+    const scroll=(now*26)%60;
+    x-=scroll;
+    while(x<W){
+      let w,gap;
+      if(mode==='EVEN'){ w=44; gap=16; }
+      else if(mode==='NATURAL'){ w=30+((i*37)%42); gap=8+((i*23)%26); }
+      else { w=8+((i*61)%74); gap=2+((i*47)%52); }
+      const onGrid = mode==='EVEN';
+      html+=`<div style="position:absolute; left:${x}px; top:26%; height:48%; width:${w}px; border-radius:5px;
+        background:${onGrid?'#7a5c17':'#2E6BE6'}; opacity:.92;"></div>`;
+      x+=w+gap; i++;
+    }
+    rail.innerHTML=html;
+    if(mode==='EVEN'){ corr.textContent='TOO EVEN — BREAK THE RHYTHM'; corr.className='corr warn';
+      st.textContent='OVER-REGULAR DELIVERY PATTERN'; st.style.color='var(--warn)'; }
+    else if(mode==='CHAOTIC'){ corr.textContent='UNEVEN — FIND A PATTERN'; corr.className='corr bad';
+      st.textContent='SPACING CHAOTIC'; st.style.color='var(--bad)'; }
+    else { corr.textContent='NATURAL RHYTHM'; corr.className='corr ok';
+      st.textContent='HEALTHY IRREGULARITY'; st.style.color='var(--ok)'; }
+    corr.style.fontSize='20px';
+  }};
+}
+
+/* ---- 6 · L/R HAND GESTURE FIELD ---- */
+function handField(el){
+  el.innerHTML=`
+  <div class="inst">
+    <div class="irow"><span class="ititle">L / R HAND FIELD</span>
+      <span class="chip" data-r="lchip" style="margin-left:auto; color:#E8BE6A; border-color:#5a4310;">LEFT · OK</span>
+      <span class="chip" data-r="rchip" style="color:#7FA6EF; border-color:#2d4370;">RIGHT · OK</span></div>
+    <div data-r="fld" style="flex:1; position:relative; margin-top:10px; background:#12161f; border:1px solid var(--line); border-radius:10px; overflow:hidden;">
+      <div style="position:absolute; left:0; right:0; top:0; height:18%; background:#D93B3B14; border-bottom:1px dashed #D93B3B66;"></div>
+      <div style="position:absolute; right:6px; top:4px; font-size:8px; font-weight:800; color:#D9787855;">FACE ZONE</div>
+      <div style="position:absolute; left:0; right:0; bottom:0; height:16%; background:#8A94A614; border-top:1px dashed #8A94A666;"></div>
+      <div style="position:absolute; right:6px; bottom:4px; font-size:8px; font-weight:800; color:#8A94A688;">BELOW FRAME</div>
+      <div style="position:absolute; left:14%; right:14%; top:22%; bottom:20%; border:1.5px dashed #2FA84F77; border-radius:12px;"></div>
+      <div style="position:absolute; left:16%; top:23%; font-size:8px; font-weight:800; color:#2FA84F99;">READABLE FIELD</div>
+      <div style="position:absolute; left:50%; top:12%; bottom:0; width:0; border-left:1px solid #232b3a;"></div>
+      <div style="position:absolute; left:50%; transform:translateX(-50%); bottom:0; width:34%; height:52%; border-radius:40% 40% 0 0; background:#222a3a88;"></div>
+      <div style="position:absolute; left:50%; transform:translateX(-50%); top:9%; width:13%; aspect-ratio:1; border-radius:50%; background:#222a3a88;"></div>
+      <canvas data-r="cv" style="position:absolute; inset:0; width:100%; height:100%;"></canvas>
+    </div>
+    <div class="corr" data-r="corr" style="font-size:18px; min-height:30px;">HANDS VISIBLE</div>
+  </div>`;
+  const cv=el.querySelector('[data-r=cv]'), corr=el.querySelector('[data-r=corr]'),
+        lchip=el.querySelector('[data-r=lchip]'), rchip=el.querySelector('[data-r=rchip]');
+  const trailL=[], trailR=[];
+  return { update(){
+    const w=cv.clientWidth,h=cv.clientHeight;
+    if(cv.width!==w)cv.width=w; if(cv.height!==h)cv.height=h;
+    const ctx=cv.getContext('2d'); ctx.clearRect(0,0,w,h);
+    const px=(p)=>[w/2+p.x*w*.9, h*.60-p.y*h*.7];
+    trailL.push({...SIM.hands.L}); if(trailL.length>26)trailL.shift();
+    if(SIM.hands.R.vis){trailR.push({...SIM.hands.R}); if(trailR.length>26)trailR.shift();}
+    const draw=(trail,color,ghost)=>{
+      ctx.strokeStyle=color; ctx.lineWidth=3; ctx.lineCap='round';
+      ctx.beginPath();
+      trail.forEach((p,ii)=>{ const [x,y]=px(p); ii?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+      ctx.globalAlpha=.5; ctx.stroke(); ctx.globalAlpha=1;
+      if(trail.length){ const [x,y]=px(trail[trail.length-1]);
+        ctx.fillStyle=ghost?'transparent':color; ctx.beginPath(); ctx.arc(x,y,9,0,7); ctx.fill();
+        if(ghost){ ctx.strokeStyle=color; ctx.setLineDash([4,4]); ctx.beginPath(); ctx.arc(x,y,9,0,7); ctx.stroke(); ctx.setLineDash([]);} }
+    };
+    draw(trailL,'#E8BE6A',false);
+    draw(trailR,'#7FA6EF', !SIM.hands.R.vis);
+    lchip.textContent='LEFT · OK';
+    if(SIM.hands.R.vis){ rchip.textContent='RIGHT · OK'; rchip.classList.remove('unav');
+      corr.textContent='HANDS VISIBLE'; corr.className='corr ok'; }
+    else { rchip.textContent='RIGHT HAND — NOT DETECTED'; rchip.classList.add('unav');
+      corr.textContent='RIGHT HAND OUT OF VIEW'; corr.className='corr warn'; }
+    corr.style.fontSize='18px'; corr.style.minHeight='30px';
+  }};
+}
+
+/* ---- 8 · CAMERA DOCK ---- */
+function cameraDock(el){
+  el.innerHTML=`
+  <div class="inst">
+    <div class="irow"><span class="ititle">CAMERA POSITION</span><span class="istate" data-r="st"></span></div>
+    <div style="flex:1; position:relative; margin:10px 0;">
+      <div class="vidbg" style="border-radius:10px;"></div>
+      <div data-r="dock" style="position:absolute; left:26%; right:26%; top:12%; bottom:22%;">
+        <div data-r="c0" style="position:absolute; left:-2px; top:-2px; width:22px; height:22px; border-left:4px solid var(--neutral); border-top:4px solid var(--neutral); border-radius:4px 0 0 0;"></div>
+        <div data-r="c1" style="position:absolute; right:-2px; top:-2px; width:22px; height:22px; border-right:4px solid var(--neutral); border-top:4px solid var(--neutral); border-radius:0 4px 0 0;"></div>
+        <div data-r="c2" style="position:absolute; left:-2px; bottom:-2px; width:22px; height:22px; border-left:4px solid var(--neutral); border-bottom:4px solid var(--neutral); border-radius:0 0 0 4px;"></div>
+        <div data-r="c3" style="position:absolute; right:-2px; bottom:-2px; width:22px; height:22px; border-right:4px solid var(--neutral); border-bottom:4px solid var(--neutral); border-radius:0 0 4px 0;"></div>
+      </div>
+      <div data-r="head" style="position:absolute; width:26%; aspect-ratio:.8; border-radius:46%; background:#3a4356; top:20%; left:37%;"></div>
+    </div>
+    <div class="corr" data-r="corr" style="font-size:20px;">DOCKED</div>
+  </div>`;
+  const R={}; el.querySelectorAll('[data-r]').forEach(n=>R[n.dataset.r]=n);
+  let lockSince=null;
+  return { update(now){
+    const err=Math.hypot(SIM.frame.cx,SIM.frame.cy)+Math.abs(SIM.frame.size-1)*.5;
+    R.head.style.left=(37+SIM.frame.cx*60)+'%';
+    R.head.style.top=(20+SIM.frame.cy*60)+'%';
+    R.head.style.width=(26*SIM.frame.size)+'%';
+    const ok=err<.06;
+    if(ok && lockSince===null) lockSince=now;
+    if(!ok) lockSince=null;
+    const locked= ok && (now-lockSince>2);
+    ['c0','c1','c2','c3'].forEach(k=>{
+      const b=R[k]; const col= locked?'var(--ok)': ok?'var(--ink2)':'var(--warn)';
+      b.style.borderColor=col;
+    });
+    let t='DOCKED', c='ok';
+    if(!ok){
+      if(Math.abs(SIM.frame.size-1)>.08) t=SIM.frame.size>1?'TOO CLOSE':'TOO FAR';
+      else if(Math.abs(SIM.frame.cy)>.05) t=SIM.frame.cy>0?'CAMERA TOO LOW':'MOVE DOWN A TOUCH';
+      else t='RE-CENTER';
+      c='warn';
+    } else if(locked) t='LOCKED';
+    R.corr.textContent=t; R.corr.className='corr '+c; R.corr.style.fontSize='20px';
+    R.st.textContent= locked?'LOCK':'ACQUIRING'; R.st.style.color=locked?'var(--ok)':'var(--neutral)';
+  }};
+}
+
+/* ---- 9 · COMPOSITE — master capped by weakest, coverage ring ---- */
+function geComposite(el, title, contribsFn, availFn){
+  el.innerHTML=`
+  <div class="inst">
+    <div class="irow"><span class="ititle" data-r="tt"></span>
+      <span class="covring" style="margin-left:auto;" data-r="cov"></span></div>
+    <div style="display:flex; gap:16px; flex:1; margin-top:10px;">
+      <div style="width:132px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;">
+        <div data-r="master" style="font-size:52px; font-weight:900; letter-spacing:-.02em;"></div>
+        <div style="font-size:9px; font-weight:800; letter-spacing:.12em; color:var(--neutral);">MASTER · BUCKETS OF 5</div>
+        <div data-r="capnote" style="font-size:9px; font-weight:800; letter-spacing:.06em; color:var(--warn); text-align:center;"></div>
+      </div>
+      <div data-r="rows" style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:7px;"></div>
+    </div>
+  </div>`;
+  const R={}; el.querySelectorAll('[data-r]').forEach(n=>R[n.dataset.r]=n);
+  R.tt.textContent=title;
+  return { update(){
+    const contribs=contribsFn(), avail=availFn?availFn():null;
+    const res=compositeMaster(contribs,avail);
+    R.master.textContent=res.master;
+    R.master.style.color= res.master>=80?'var(--ok)':res.master>=60?'var(--warn)':'var(--bad)';
+    let rows='';
+    for(const [k,v] of Object.entries(contribs)){
+      const unav = avail && avail[k]===false;
+      const isLim = !unav && k===res.limiting && res.raw < res.mean-0.01;
+      const col= unav?'var(--neutral)': v>=80?'var(--ok)':v>=60?'var(--warn)':'var(--bad)';
+      rows+=`<div style="display:flex; align-items:center; gap:8px;">
+        <span style="width:150px; font-size:9.5px; font-weight:800; letter-spacing:.06em; color:${unav?'var(--neutral)':'var(--ink2)'};">${k}</span>
+        <div style="flex:1; height:10px; background:#12161f; border:1px solid var(--line); border-radius:5px; position:relative; overflow:hidden;">
+          ${unav?'<div class="chip unav" style="position:absolute; inset:0; border:0; border-radius:0; text-align:center; font-size:7.5px; padding-top:1px;">UNAVAILABLE</div>'
+                :`<div style="position:absolute; left:0; top:0; bottom:0; width:${v}%; background:${col}; transition:width .2s;"></div>`}
+        </div>
+        <span style="width:56px; font-size:10px; font-weight:900; color:${col}; text-align:right;">${unav?'—':Math.round(v)}${isLim?' ◄ LIMITING':''}</span>
+      </div>`;
+    }
+    R.rows.innerHTML=rows;
+    const pct=res.cov/res.tot;
+    R.cov.innerHTML=`<svg width="18" height="18"><circle cx="9" cy="9" r="7" fill="none" stroke="#242C3B" stroke-width="3"/>
+      <circle cx="9" cy="9" r="7" fill="none" stroke="${pct<1?'var(--warn)':'var(--ok)'}" stroke-width="3"
+      stroke-dasharray="${(pct*44).toFixed(1)} 44"/></svg> ${res.cov} OF ${res.tot} CONTRIBUTORS`;
+    R.capnote.textContent = (res.raw < res.mean-0.01) ? 'CAPPED BY WEAKEST +15' : '';
+  }};
+}
+
+/* ---- WARMTH × COMPETENCE two-axis field ---- */
+function wxField(el){
+  el.innerHTML=`
+  <div class="inst">
+    <div class="irow"><span class="ititle">WARMTH-CUE × COMPETENCE-CUE FIELD</span><span class="istate" data-r="st"></span></div>
+    <div style="flex:1; display:flex; gap:14px; margin-top:8px;">
+      <div data-r="fld" style="flex:1; position:relative; background:#12161f; border:1px solid var(--line); border-radius:10px;">
+        <div style="position:absolute; right:4%; top:6%; width:40%; height:44%; border:2px dashed #2FA84F88; border-radius:12px;"></div>
+        <div style="position:absolute; right:6%; top:8%; font-size:8px; font-weight:800; color:#2FA84F;">TARGET ZONE</div>
+        <div style="position:absolute; left:6px; top:6px; font-size:8px; font-weight:800; color:var(--neutral);">WARMTH CUES ↑</div>
+        <div style="position:absolute; right:6px; bottom:6px; font-size:8px; font-weight:800; color:var(--neutral);">COMPETENCE CUES →</div>
+        <div style="position:absolute; left:8%; top:24%; font-size:8.5px; color:#8A94A6; max-width:34%;">MORE WARMTH CUES · FEWER COMPETENCE CUES</div>
+        <div style="position:absolute; left:8%; bottom:20%; font-size:8.5px; color:#8A94A6; max-width:34%;">FEW CUES OF EITHER FAMILY</div>
+        <div style="position:absolute; right:8%; bottom:20%; font-size:8.5px; color:#8A94A6; max-width:34%; text-align:right;">MORE COMPETENCE CUES · FEWER WARMTH CUES</div>
+        <canvas data-r="cv" style="position:absolute; inset:0; width:100%; height:100%;"></canvas>
+      </div>
+    </div>
+    <div data-r="read" style="margin-top:8px; font-size:11px; font-weight:700; color:var(--ink2); text-align:center; min-height:16px;"></div>
+  </div>`;
+  const cv=el.querySelector('[data-r=cv]'), read=el.querySelector('[data-r=read]'), st=el.querySelector('[data-r=st]');
+  const hist=[];
+  return { update(){
+    const w=cv.clientWidth,h=cv.clientHeight;
+    if(cv.width!==w)cv.width=w; if(cv.height!==h)cv.height=h;
+    const ctx=cv.getContext('2d'); ctx.clearRect(0,0,w,h);
+    hist.push([SIM.comp,SIM.warm]); if(hist.length>60)hist.shift();
+    ctx.strokeStyle='#C9A35C66'; ctx.lineWidth=2; ctx.beginPath();
+    hist.forEach((p,i)=>{ const x=p[0]/100*w, y=(1-p[1]/100)*h; i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+    ctx.stroke();
+    const x=SIM.comp/100*w, y=(1-SIM.warm/100)*h;
+    ctx.fillStyle='#C9A35C'; ctx.beginPath(); ctx.arc(x,y,10,0,7); ctx.fill();
+    ctx.strokeStyle='#0B0E13'; ctx.lineWidth=3; ctx.stroke();
+    let msg;
+    if(SIM.warm>=65&&SIM.comp>=65){msg='BOTH CUE FAMILIES PRESENT — TARGET ZONE'; st.textContent='ON TARGET'; st.style.color='var(--ok)';}
+    else if(SIM.warm>=65){msg='DELIVERY IS SENDING FEWER COMPETENCE CUES THAN YOUR TARGET'; st.textContent='IMBALANCE'; st.style.color='var(--warn)';}
+    else if(SIM.comp>=65){msg='DELIVERY IS SENDING FEWER WARMTH CUES THAN YOUR TARGET'; st.textContent='IMBALANCE'; st.style.color='var(--warn)';}
+    else {msg='FEW CUES OF EITHER FAMILY — REBUILD FROM CONTRIBUTORS'; st.textContent='LOW'; st.style.color='var(--bad)';}
+    read.textContent=msg;
+  }};
+}
+
+/* ---- CHARISMA CUE BALANCE ---- */
+function cbBalance(el){
+  el.innerHTML=`
+  <div class="inst">
+    <div class="irow"><span class="ititle">CHARISMA CUE BALANCE</span>
+      <span class="covring" data-r="cov" style="margin-left:auto;"></span></div>
+    <div style="display:flex; align-items:center; gap:18px; flex:1;">
+      <div style="flex:1;">
+        <div data-r="beam" style="position:relative; height:12px; background:#12161f; border:1px solid var(--line); border-radius:6px; margin:20px 0 8px;">
+          <div style="position:absolute; left:50%; top:-7px; bottom:-7px; width:2px; background:var(--neutral);"></div>
+          <div data-r="ball" style="position:absolute; top:-6px; width:24px; height:24px; border-radius:50%; background:var(--gold); border:3px solid #0B0E13; transition:left .3s;"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:9px; font-weight:800; letter-spacing:.08em; color:var(--neutral);">
+          <span>WARMTH-CUE WEIGHTED</span><span>BALANCED</span><span>COMPETENCE-CUE WEIGHTED</span>
+        </div>
+        <div data-r="note" style="margin-top:12px; font-size:11px; color:var(--ink2); font-weight:600;"></div>
+      </div>
+      <div style="width:120px; text-align:center;">
+        <div data-r="num" style="font-size:46px; font-weight:900;"></div>
+        <div style="font-size:8.5px; font-weight:800; letter-spacing:.1em; color:var(--neutral);">0–100 HEADLINE<br>PERFORMANCE MODE ONLY</div>
+      </div>
+    </div>
+  </div>`;
+  const R={}; el.querySelectorAll('[data-r]').forEach(n=>R[n.dataset.r]=n);
+  return { update(){
+    const contribs={'WARMTH-CUE PROFILE':SIM.warm,'COMPETENCE-CUE PROFILE':SIM.comp,
+      'DELIVERY CONGRUENCE':SIM.congr==='CONVERGE'?90:76,'GESTURE EFFECTIVENESS':compositeMaster(SIM.contributors).master};
+    const res=compositeMaster(contribs);
+    const skew=clamp((SIM.comp-SIM.warm)/60,-1,1);
+    R.ball.style.left='calc('+(50+skew*44)+'% - 12px)';
+    const balanced=Math.abs(SIM.comp-SIM.warm)<14;
+    R.ball.style.background= balanced?'var(--ok)':'var(--warn)';
+    R.num.textContent=res.master;
+    R.num.style.color=balanced&&res.master>=70?'var(--ok)':'var(--warn)';
+    R.note.textContent= balanced? 'CUE FAMILIES IN PROPORTION — capped composite, never a personality claim.'
+      : (skew>0? 'Competence-cue side outweighs warmth-cue side — see WARMTH-CUE PROFILE contributors.'
+               : 'Warmth-cue side outweighs competence-cue side — see COMPETENCE-CUE PROFILE contributors.');
+    R.cov.innerHTML=`<svg width="18" height="18"><circle cx="9" cy="9" r="7" fill="none" stroke="#242C3B" stroke-width="3"/>
+      <circle cx="9" cy="9" r="7" fill="none" stroke="var(--ok)" stroke-width="3" stroke-dasharray="44 44"/></svg> 4 OF 4 CONTRIBUTORS`;
+  }};
+}
+
+/* ---- DELIVERY CONGRUENCE — aligned lanes ---- */
+function congruenceLanes(el){
+  el.innerHTML=`
+  <div class="inst">
+    <div class="irow"><span class="ititle">DELIVERY CONGRUENCE</span><span class="istate" data-r="st"></span></div>
+    <canvas data-r="cv" style="flex:1; width:100%; margin:8px 0;"></canvas>
+    <div class="corr" data-r="corr" style="font-size:17px; min-height:26px;">CHANNELS ALIGNED</div>
+  </div>`;
+  const cv=el.querySelector('[data-r=cv]'), corr=el.querySelector('[data-r=corr]'), st=el.querySelector('[data-r=st]');
+  const lanes=[{n:'VOICE ENERGY',c:'#2FA84F',s:1},{n:'PITCH MOVEMENT',c:'#2E6BE6',s:5},{n:'HAND MOTION',c:'#E8BE6A',s:9}];
+  return { update(now){
+    const w=cv.clientWidth,h=cv.clientHeight;
+    if(cv.width!==w)cv.width=w; if(cv.height!==h)cv.height=h;
+    const ctx=cv.getContext('2d'); ctx.clearRect(0,0,w,h);
+    const beat=SIM.congr==='CONVERGE';
+    lanes.forEach((ln,i)=>{
+      const y0=(i+0.5)*h/3;
+      ctx.fillStyle='#8A94A6'; ctx.font='800 8px sans-serif'; ctx.fillText(ln.n,4,y0-14);
+      ctx.strokeStyle=ln.c; ctx.lineWidth=2.2; ctx.beginPath();
+      for(let x=0;x<w;x+=3){
+        const t=now*2+ (w-x)*.05;
+        let v=noise(t,ln.s)*.5;
+        const beatPhase=((now%6)+ (w-x)*.016);
+        if(beatPhase>5.6&&beatPhase<6.4) v=.95;
+        ctx.lineTo(x, y0 - v*h*.13);
+      }
+      ctx.stroke();
+    });
+    if(beat){
+      ctx.fillStyle='#FFFFFF22'; ctx.fillRect(w-58,0,50,h);
+      ctx.strokeStyle='#2FA84F'; ctx.lineWidth=2; ctx.strokeRect(w-58,1,50,h-2);
+      ctx.fillStyle='#2FA84F'; ctx.font='900 9px sans-serif'; ctx.fillText('CONVERGE',w-55,12);
+    }
+    corr.textContent= beat? 'EMPHASIS LANDED — ALL CHANNELS':'CHANNELS ALIGNED';
+    corr.className='corr '+(beat?'ok':'dim'); corr.style.fontSize='17px'; corr.style.minHeight='26px';
+    st.textContent= beat?'MULTIMODAL EVENT':'MONITORING'; st.style.color= beat?'var(--ok)':'var(--neutral)';
+  }};
+}
+
+/* ---- NATURAL GESTURE FINGERPRINT — territory overlay ---- */
+function fingerprint(el){
+  el.innerHTML=`
+  <div class="inst">
+    <div class="irow"><span class="ititle">NATURAL GESTURE FINGERPRINT</span>
+      <div class="seg" style="margin-left:auto;">
+        <button data-v="NATURAL">NATURAL</button><button data-v="INTERVIEW">INTERVIEW</button><button data-v="OVERLAY" class="on">OVERLAY</button>
+      </div></div>
+    <div style="flex:1; display:flex; gap:16px; margin-top:8px;">
+      <div style="flex:1.2; position:relative; background:#12161f; border:1px solid var(--line); border-radius:10px; overflow:hidden;">
+        <canvas data-r="cv" style="position:absolute; inset:0; width:100%; height:100%;"></canvas>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; justify-content:center; gap:9px;">
+        <div style="font-size:19px; font-weight:900; color:var(--warn); line-height:1.2;">YOU USE <span style="font-size:26px;">34%</span> LESS SPACE UNDER PRESSURE</div>
+        <div data-r="rows" style="display:flex; flex-direction:column; gap:5px; font-size:10.5px; font-weight:700; color:var(--ink2);"></div>
+        <div style="font-size:10px; color:var(--neutral);">Drill: <b style="color:var(--ink2)">RECOVER YOUR NATURAL RANGE — TARGET 85% OF BASELINE HULL</b>. Never "you are nervous" — this is your range; you have more than you are using.</div>
+      </div>
+    </div>
+  </div>`;
+  const cv=el.querySelector('[data-r=cv]'), rows=el.querySelector('[data-r=rows]');
+  let view='OVERLAY';
+  el.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{
+    view=b.dataset.v; el.querySelectorAll('.seg button').forEach(x=>x.classList.toggle('on',x===b));}));
+  rows.innerHTML=[['STROKE RATE','5.6/min → 2.4/min'],['AMPLITUDE','0.72 → 0.41'],['L/R BALANCE','48:52 → 22:78'],['ZONE','READABLE → LAP/BELOW'],['HOLD RATE','1.1/min → 0.3/min']]
+    .map(r=>`<div style="display:flex; justify-content:space-between; border-bottom:1px solid #1c2331; padding-bottom:3px;"><span style="color:var(--neutral)">${r[0]}</span><span>${r[1]}</span></div>`).join('');
+  const blob=(ctx,cx,cy,rx,ry,seed,t)=>{
+    ctx.beginPath();
+    for(let a=0;a<=Math.PI*2+.01;a+=.22){
+      const rr=1+noise(a*3+seed,seed)*0.18+Math.sin(t*.6+a*2+seed)*.03;
+      const x=cx+Math.cos(a)*rx*rr, y=cy+Math.sin(a)*ry*rr;
+      a?ctx.lineTo(x,y):ctx.moveTo(x,y);
+    }
+    ctx.closePath();
+  };
+  return { update(now){
+    const w=cv.clientWidth,h=cv.clientHeight;
+    if(cv.width!==w)cv.width=w; if(cv.height!==h)cv.height=h;
+    const ctx=cv.getContext('2d'); ctx.clearRect(0,0,w,h);
+    ctx.fillStyle='#222a3a'; // silhouette
+    ctx.beginPath(); ctx.ellipse(w/2,h*.20,w*.075,h*.10,0,0,7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(w/2,h*.78,w*.17,h*.34,0,Math.PI,0); ctx.fill();
+    ctx.fillRect(w/2-w*.17,h*.78,w*.34,h*.22);
+    if(view!=='INTERVIEW'){
+      blob(ctx,w/2,h*.46,w*.36,h*.30,2,now);
+      ctx.fillStyle='#2E6BE62E'; ctx.fill();
+      ctx.strokeStyle='#2E6BE6AA'; ctx.lineWidth=1.5; ctx.stroke();
+      ctx.fillStyle='#7FA6EF'; ctx.font='800 9px sans-serif'; ctx.fillText('NATURAL TERRITORY',8,14);
+    }
+    if(view!=='NATURAL'){
+      blob(ctx,w/2,h*.60,w*.17,h*.13,7,now);
+      ctx.strokeStyle='#F5A623'; ctx.lineWidth=2.5; ctx.setLineDash([]); ctx.stroke();
+      ctx.fillStyle='#F5A623'; ctx.font='800 9px sans-serif'; ctx.fillText('INTERVIEW TERRITORY',8,26);
+    }
+  }};
+}
+
+/* ---- 14 · FILM ROOM — flight recorder timeline ---- */
+function filmRoom(el){
+  const DUR=60;
+  const lanes=[
+    {n:'PHASE', kind:'phase'},
+    {n:'SPEECH', kind:'speech', simple:true},
+    {n:'VOICE LEVEL', kind:'trace', c:'#2FA84F'},
+    {n:'PITCH', kind:'pitch', c:'#2E6BE6'},
+    {n:'CADENCE', kind:'cad'},
+    {n:'HANDS L', kind:'hand', c:'#E8BE6A'},
+    {n:'HANDS R', kind:'hand', c:'#7FA6EF', gap:[31,42]},
+    {n:'GESTURE EVENTS', kind:'chips', simple:true, chips:[
+      [7,'ENUMERATION ✓','#2FA84F'],[15,'HOLD 1.4s','#8A94A6'],[22,'SELF-ADAPTOR','#8A94A6'],
+      [33,'ILLUSTRATOR CANDIDATE','#2E6BE6'],[41,'SELF-ADAPTOR','#8A94A6'],[47,'HAND-TO-CHEST CANDIDATE','#C9A35C'],[54,'HOLD 0.9s','#8A94A6']]},
+    {n:'OPPORTUNITIES', kind:'chips', simple:true, chips:[
+      [11,'GESTURE OPPORTUNITY · ENUM','#F5A623'],[27,'GESTURE OPPORTUNITY · CONTRAST','#F5A623'],[50,'GESTURE OPPORTUNITY · EMPHASIS','#F5A623']]},
+    {n:'CONGRUENCE', kind:'congr'},
+    {n:'MENTOR MARKS', kind:'chips', chips:[[18,'PERFECT ★','#2FA84F'],[44,'REMEMBER THIS','#2E6BE6']]},
+    {n:'COVERAGE', kind:'cover', lab:true},
+  ];
+  let seek=8, playing=true, tt=0;
+  el.innerHTML=`
+  <div style="position:absolute; inset:0; display:flex; flex-direction:column; padding:12px 14px;">
+    <div style="display:flex; gap:12px; height:150px; flex:none;">
+      <div style="width:230px; position:relative; border-radius:10px; overflow:hidden; flex:none;">
+        <div class="vidbg"></div><div class="person"></div>
+        <div class="vidtag">ANSWER REPLAY</div>
+        <div data-r="tc" style="position:absolute; bottom:6px; right:8px; font-size:11px; font-weight:900; color:var(--ink); background:#000A; padding:2px 7px; border-radius:4px;">00:08</div>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; gap:6px; min-width:0;">
+        <div style="font-size:11px; font-weight:900; letter-spacing:.12em; color:var(--ink2);">Q3 · "TELL ME ABOUT A TIME YOU DISAGREED WITH A SUPERVISOR"</div>
+        <div data-r="evd" style="flex:1; background:var(--card2); border:1px solid var(--line); border-radius:9px; padding:8px 12px; font-size:11px; color:var(--neutral); overflow:hidden;">
+          Click any chip. Every claim seeks its evidence frame (−2s). Hover shows detector · value · confidence · phase.</div>
+        <div style="display:flex; gap:6px;">
+          <button class="scenbtn" data-r="play">⏸ PAUSE</button>
+          <span class="chip">EVIDENCE, NOT VERDICT</span>
+          <span class="chip">OPPORTUNITIES ≤ 4 · NEVER "MISSED"</span>
+          <span class="chip unav">PITCH — UNAVAILABLE 22–31s</span>
+        </div>
+      </div>
+    </div>
+    <div data-r="tl" style="flex:1; margin-top:10px; position:relative; overflow-y:auto; border:1px solid var(--line); border-radius:10px; background:#0d1119;"></div>
+  </div>`;
+  const tl=el.querySelector('[data-r=tl]'), tc=el.querySelector('[data-r=tc]'),
+        evd=el.querySelector('[data-r=evd]'), playBtn=el.querySelector('[data-r=play]');
+  playBtn.addEventListener('click',()=>{playing=!playing; playBtn.textContent=playing?'⏸ PAUSE':'▶ PLAY';});
+  const X=s=>'calc(120px + (100% - 132px) * '+(s/DUR)+')';
+  function laneRow(ln){
+    let inner='';
+    if(ln.kind==='phase'){
+      const ph=[[0,9,'OPEN','#2E6BE6'],[9,21,'ENUMERATE','#C9A35C'],[21,48,'PROVE-STORY','#2FA84F'],[48,60,'CLOSE','#B79AE8']];
+      ph.forEach(p=>{ inner+=`<div style="position:absolute; left:calc(120px + (100% - 132px)*${p[0]/DUR}); width:calc((100% - 132px)*${(p[1]-p[0])/DUR}); top:4px; bottom:4px; background:${p[3]}22; border:1px solid ${p[3]}55; border-radius:4px; font-size:7.5px; font-weight:800; color:${p[3]}; padding:2px 5px; overflow:hidden;">${p[2]}</div>`;});
+    }
+    if(ln.kind==='speech'){
+      for(let s=0;s<DUR;s+=1.7){ const gap=((s*7)%11)<1.6;
+        if(!gap) inner+=`<div style="position:absolute; left:calc(120px + (100% - 132px)*${s/DUR}); width:calc((100% - 132px)*${1.3/DUR}); top:35%; bottom:35%; background:#3d465a;"></div>`;}
+    }
+    if(ln.kind==='trace'||ln.kind==='pitch'){
+      let pts='';
+      for(let s=0;s<=DUR;s+=.8){
+        const v=.5+noise(s*.8,ln.kind==='pitch'?5:1)*.4;
+        pts+=(pts?' L':'M')+(s/DUR*100).toFixed(2)+','+((1-v)*24+3).toFixed(1);
+      }
+      inner+=`<svg preserveAspectRatio="none" viewBox="0 0 100 30" style="position:absolute; left:120px; right:12px; top:0; height:100%; width:calc(100% - 132px);">
+        <path d="${pts}" fill="none" stroke="${ln.c}" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>`;
+      if(ln.kind==='pitch') inner+=`<div style="position:absolute; left:calc(120px + (100% - 132px)*${22/DUR}); width:calc((100% - 132px)*${9/DUR}); top:2px; bottom:2px; background:repeating-linear-gradient(45deg,#1a1508 0 6px,#2a2210 6px 12px); border:1px solid #5a4310; border-radius:4px; font-size:7px; font-weight:800; color:var(--warn); text-align:center; padding-top:6px;">PITCH — UNAVAILABLE</div>`;
+    }
+    if(ln.kind==='cad'){
+      let x=0,i=0;
+      while(x<DUR-2){ const wdt=1.2+((i*37)%30)/14, gp=.4+((i*23)%22)/16;
+        inner+=`<div style="position:absolute; left:calc(120px + (100% - 132px)*${x/DUR}); width:calc((100% - 132px)*${wdt/DUR}); top:30%; bottom:30%; background:#2E6BE6; opacity:.8; border-radius:2px;"></div>`;
+        x+=wdt+gp; i++; }
+    }
+    if(ln.kind==='hand'){
+      const g=ln.gap||[999,999];
+      inner+=`<div style="position:absolute; left:120px; width:calc((100% - 132px)*${Math.min(g[0],DUR)/DUR}); top:42%; height:16%; background:${ln.c}; border-radius:3px; opacity:.85;"></div>`;
+      if(g[0]<DUR){
+        inner+=`<div style="position:absolute; left:calc(120px + (100% - 132px)*${g[0]/DUR}); width:calc((100% - 132px)*${(g[1]-g[0])/DUR}); top:20%; bottom:20%; background:repeating-linear-gradient(45deg,#1a1508 0 5px,#241d0c 5px 10px); border:1px dashed #5a4310; font-size:7px; color:var(--warn); font-weight:800; text-align:center; padding-top:4px;">NOT DETECTED</div>
+        <div style="position:absolute; left:calc(120px + (100% - 132px)*${g[1]/DUR}); right:12px; top:42%; height:16%; background:${ln.c}; border-radius:3px; opacity:.85;"></div>`;
+      }
+    }
+    if(ln.kind==='chips'){
+      ln.chips.forEach(c=>{
+        inner+=`<button class="fchip" data-t="${c[0]}" data-l="${c[1]}" style="position:absolute; left:${X(c[0])}; top:16%; transform:translateX(-8px); background:#141a26; border:1.5px solid ${c[2]}; color:${c[2]}; font-size:7.5px; font-weight:800; letter-spacing:.03em; border-radius:4px; padding:2px 5px; cursor:pointer; white-space:nowrap; font-family:inherit;">${c[1]}</button>`;});
+    }
+    if(ln.kind==='congr'){
+      [8,19,37,52].forEach(s=>{ inner+=`<div style="position:absolute; left:${X(s)}; width:8px; top:15%; bottom:15%; background:#2FA84F; border-radius:2px;" title="MULTIMODAL CONVERGENCE"></div>`;});
+      inner+=`<div style="position:absolute; left:${X(44)}; width:8px; top:15%; bottom:15%; background:#8A94A6; border-radius:2px;" title="HANDS QUIET WHILE VOICE PEAKS"></div>`;
+    }
+    if(ln.kind==='cover'){
+      inner+=`<div style="position:absolute; left:120px; right:12px; top:35%; height:30%; background:#173322; border-radius:3px;"></div>
+      <div style="position:absolute; left:calc(120px + (100% - 132px)*${22/DUR}); width:calc((100% - 132px)*${9/DUR}); top:25%; height:50%; background:repeating-linear-gradient(45deg,#33270f 0 5px,#241d0c 5px 10px); border-radius:3px;" title="PITCH DETECTOR DOWN"></div>
+      <div style="position:absolute; left:calc(120px + (100% - 132px)*${31/DUR}); width:calc((100% - 132px)*${11/DUR}); top:25%; height:50%; background:repeating-linear-gradient(45deg,#33270f 0 5px,#241d0c 5px 10px); border-radius:3px;" title="R-HAND DETECTOR DOWN"></div>`;
+    }
+    return `<div class="lane" data-kind="${ln.kind}" data-simple="${ln.simple?1:0}" style="position:relative; height:30px; border-bottom:1px solid #161c28;">
+      <div style="position:absolute; left:0; top:0; bottom:0; width:112px; font-size:8px; font-weight:800; letter-spacing:.08em; color:var(--neutral); padding:9px 8px; background:#10151f; border-right:1px solid var(--line);">${ln.n}</div>
+      ${inner}</div>`;
+  }
+  tl.innerHTML = lanes.map(laneRow).join('') +
+    `<div data-r="ph" style="position:absolute; top:0; bottom:0; width:2px; background:var(--ink); box-shadow:0 0 8px #fff8; z-index:5; pointer-events:none;"></div>`;
+  const phEl=tl.querySelector('[data-r=ph]');
+  tl.querySelectorAll('.fchip').forEach(ch=>{
+    ch.addEventListener('click',()=>{
+      seek=Math.max(0,parseFloat(ch.dataset.t)-2); playing=false; playBtn.textContent='▶ PLAY';
+      evd.innerHTML=`<b style="color:var(--ink)">SEEK → ${fmt(parseFloat(ch.dataset.t))} (−2s lead-in)</b> · <b style="color:${ch.style.color}">${ch.dataset.l}</b><br>
+      detector: geometric/acoustic observation · confidence 0.83 · phase PROVE-STORY · WHEN → WHAT ELSE → WHERE TO CLICK all answered on this clock. Interpretation stays with the Mentor.`;
+    });
+  });
+  const fmt=s=>'0'+Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+  return { update(now,dt){
+    if(playing){ seek+=dt; if(seek>DUR)seek=0; }
+    phEl.style.left=X(seek);
+    tc.textContent=fmt(seek);
+    const d=UI.density;
+    tl.querySelectorAll('.lane').forEach(l=>{
+      const simple=l.dataset.simple==='1', kind=l.dataset.kind;
+      let show=true;
+      if(d==='SIMPLE') show= simple||kind==='phase';
+      if(d==='STANDARD') show= kind!=='cover';
+      l.style.display=show?'block':'none';
+    });
+  }};
+}
+
+/* ---- LIVE STAGE + HUD VARIANTS ---- */
+function hudStage(el){
+  el.innerHTML=`
+  <div style="position:absolute; inset:0; display:flex; flex-direction:column;">
+    <div style="display:flex; gap:8px; padding:10px 12px; align-items:center; flex-wrap:wrap; border-bottom:1px solid var(--line); background:#10151f;">
+      <div class="seg" data-r="hudsel">
+        <span class="lbl">HUD</span>
+        <button data-h="HUD1">1 · ONE BIG CORRECTION</button>
+        <button data-h="HUD2">2 · CORNERS</button>
+        <button data-h="HUD3">3 · TRAINING RAIL</button>
+        <button data-h="HUD4">4 · BODY-RELATIVE</button>
+        <button data-h="HUD5" class="on">5 · ADAPTIVE REVEAL</button>
+      </div>
+      <div class="seg" data-r="lvlsel">
+        <span class="lbl">STATE</span>
+        <button data-l="NO">NO HUD</button><button data-l="MINIMAL">MINIMAL</button>
+        <button data-l="STANDARD" class="on">STANDARD</button><button data-l="COACHING">COACHING</button>
+      </div>
+      <span class="chip" data-r="modechip">DELIVERY TRAINING</span>
+      <button class="scenbtn" data-r="simbtn">SWITCH TO SIMULATION (ZERO HUD)</button>
+    </div>
+    <div style="flex:1; position:relative; display:flex; gap:10px; padding:12px;">
+      <div style="flex:2.4; position:relative; border-radius:12px; overflow:hidden; border:1px solid var(--line);">
+        <div class="vidbg"></div><div class="person"></div>
+        <div class="vidtag">YOU · CAMERA LIVE</div><div class="rec"><i></i>REC</div>
+        <div data-r="hudlayer" style="position:absolute; inset:0; pointer-events:none;"></div>
+      </div>
+      <div style="flex:1; position:relative; border-radius:12px; overflow:hidden; border:1px solid var(--line); min-width:170px;">
+        <div class="kelly"><div class="kface"></div><div class="kbody"></div>
+          <div class="kname">DR KELLY · MISSIONMED</div>
+          <div class="stateRing" data-r="kstate"><i style="background:var(--ok)"></i>ASKING</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  let hud='HUD5', lvl='STANDARD', simMode=false;
+  const layer=el.querySelector('[data-r=hudlayer]'), kstate=el.querySelector('[data-r=kstate]'),
+        modechip=el.querySelector('[data-r=modechip]'), simbtn=el.querySelector('[data-r=simbtn]');
+  el.querySelectorAll('[data-r=hudsel] button').forEach(b=>b.addEventListener('click',()=>{
+    hud=b.dataset.h; el.querySelectorAll('[data-r=hudsel] button').forEach(x=>x.classList.toggle('on',x===b));}));
+  el.querySelectorAll('[data-r=lvlsel] button').forEach(b=>b.addEventListener('click',()=>{
+    lvl=b.dataset.l; el.querySelectorAll('[data-r=lvlsel] button').forEach(x=>x.classList.toggle('on',x===b));}));
+  simbtn.addEventListener('click',()=>{ simMode=!simMode;
+    modechip.textContent=simMode?'SIMULATION · PROFESSIONAL INTERVIEW':'DELIVERY TRAINING';
+    simbtn.textContent=simMode?'SWITCH TO DELIVERY TRAINING':'SWITCH TO SIMULATION (ZERO HUD)';});
+  const kstates=[['LISTENING','#2E6BE6'],['ASKING','#2FA84F'],['REACTING','#C9A35C'],['FOLLOW-UP','#2FA84F'],['WRAPPING UP','#B79AE8']];
+  function correction(){
+    /* 3472 §9.2 arbitration: setup pre-empts; then severity × correctability */
+    if(!SIM.hands.R.vis) return {t:'RIGHT HAND OUT OF VIEW',c:'var(--warn)',k:'SETUP'};
+    const frameErr=Math.hypot(SIM.frame.cx,SIM.frame.cy);
+    if(frameErr>.07) return {t:'RE-CENTER',c:'var(--warn)',k:'SETUP'};
+    const cand=[];
+    if(SIM.level<.46) cand.push({t:'LOUDER ↑',s:(.46-SIM.level)*4,cor:1});
+    if(SIM.level>.70) cand.push({t:'SOFTER ↓',s:(SIM.level-.70)*4,cor:1});
+    if(SIM.pace>SIM.paceTarget[1]+.03) cand.push({t:'SLOW DOWN',s:(SIM.pace-SIM.paceTarget[1])*3,cor:.8});
+    if(SIM.pace<SIM.paceTarget[0]-.03) cand.push({t:'PICK IT UP',s:(SIM.paceTarget[0]-SIM.pace)*3,cor:.8});
+    if(SIM.p90-SIM.p10<.10) cand.push({t:'MORE VOLUME VARIATION',s:.5,cor:.6});
+    if(SIM.pitchAvail&&SIM.pitchHi-SIM.pitchLo<2.5) cand.push({t:'ADD MORE PITCH RANGE',s:.45,cor:.4});
+    if(SIM.cad==='EVEN') cand.push({t:'BREAK THE RHYTHM',s:.4,cor:.3});
+    if(!cand.length) return {t:'GOOD — HOLD',c:'var(--ok)',k:'LOCK'};
+    cand.sort((a,b)=>b.s*b.cor-a.s*a.cor);
+    return {t:cand[0].t,c:'var(--warn)',k:'CORRECT'};
+  }
+  let lastT='GOOD — HOLD', lastSwitch=0;
+  return { update(now){
+    const ks=kstates[Math.floor(now/5)%kstates.length];
+    kstate.innerHTML=`<i style="background:${ks[1]}"></i>${ks[0]}`;
+    if(simMode||lvl==='NO'){ layer.innerHTML=`<div style="position:absolute; bottom:10px; left:50%; transform:translateX(-50%); font-size:9px; letter-spacing:.14em; font-weight:800; color:#ffffff33;">${simMode?'SIMULATION — INSTRUMENTS OFF · FULL RECORDING FOR FILM ROOM':'HUD OFF'}</div>`; return; }
+    const c=correction();
+    if(c.t!==lastT && now-lastSwitch>4){ lastT=c.t; lastSwitch=now; } /* min dwell */
+    const cc= lastT==='GOOD — HOLD'?{t:lastT,c:'var(--ok)'}:{...c,t:lastT};
+    const dot=(ok)=>`<span class="mkdot" style="background:${ok?'var(--ok)':'var(--warn)'};"></span>`;
+    const states=[SIM.level>=.46&&SIM.level<=.70, SIM.p90-SIM.p10>=.10, SIM.pace<=SIM.paceTarget[1]&&SIM.pace>=SIM.paceTarget[0], SIM.hands.R.vis, Math.hypot(SIM.frame.cx,SIM.frame.cy)<.07];
+    let html='';
+    const bigCard=(size)=>`<div style="position:absolute; bottom:14px; left:50%; transform:translateX(-50%); background:#0B0E13E6; border:2px solid ${cc.c}; border-radius:12px; padding:${size==='xl'?'14px 34px':'9px 22px'}; font-size:${size==='xl'?'30px':'21px'}; font-weight:900; letter-spacing:.06em; color:${cc.c}; box-shadow:0 10px 40px #000B;">${cc.t}</div>`;
+    if(hud==='HUD1'){
+      html+=bigCard('xl');
+      html+=`<div style="position:absolute; top:12px; right:12px; display:flex; gap:6px; background:#0B0E13AA; padding:5px 9px; border-radius:14px;">${states.map(dot).join('')}</div>`;
+    }
+    if(hud==='HUD2'){
+      const corner=(pos,lbl,ok,val)=>`<div style="position:absolute; ${pos}; width:120px; background:#0B0E13D9; border:1px solid var(--line2); border-radius:9px; padding:6px 9px;">
+        <div style="font-size:7.5px; font-weight:800; letter-spacing:.1em; color:var(--neutral);">${lbl}</div>
+        <div style="height:6px; background:#1a2130; border-radius:3px; margin-top:4px; position:relative;"><div style="position:absolute; left:0; top:0; bottom:0; width:${val}%; background:${ok?'var(--ok)':'var(--warn)'}; border-radius:3px;"></div></div></div>`;
+      html+=corner('top:12px; left:12px','VOICE',states[0]&&states[1],SIM.level*100);
+      html+=corner('top:12px; right:12px','PACE',states[2],SIM.pace*100);
+      html+=corner('bottom:12px; left:12px','HANDS',states[3],states[3]?82:30);
+      html+=corner('bottom:12px; right:12px','FRAMING',states[4],states[4]?90:44);
+      if(lvl==='COACHING') html+=bigCard();
+    }
+    if(hud==='HUD3'){
+      const strip=(lbl,ok,active)=>`<div style="flex:${active?2.6:1}; background:${active?'#141b2b':'#0f141f'}; border:1px solid ${active?cc.c:'var(--line2)'}; border-radius:8px; padding:5px 8px; transition:flex .3s;">
+        <div style="font-size:7.5px; font-weight:800; letter-spacing:.08em; color:${active?cc.c:'var(--neutral)'};">${lbl}</div>
+        ${active?`<div style="font-size:13px; font-weight:900; color:${cc.c};">${cc.t}</div>`:`<div style="font-size:10px; font-weight:900; color:${ok?'var(--ok)':'var(--warn)'};">${ok?'OK':'WATCH'}</div>`}</div>`;
+      const which=cc.t.includes('LOUD')||cc.t.includes('SOFT')||cc.t.includes('VOLUME')?0:cc.t.includes('PACE')||cc.t.includes('SLOW')||cc.t.includes('PICK')?1:cc.t.includes('PITCH')?2:cc.t.includes('HAND')?3:cc.t.includes('CENTER')?4:cc.t.includes('RHYTHM')?5:-1;
+      html+=`<div style="position:absolute; left:10px; right:10px; bottom:10px; display:flex; gap:6px;">${['VOICE','PACE','PITCH','HANDS','FRAME','RHYTHM'].map((l,i)=>strip(l,states[Math.min(i,4)],i===which)).join('')}</div>`;
+    }
+    if(hud==='HUD4'){
+      html+=`<div style="position:absolute; left:6%; right:6%; top:14%; bottom:26%; border:1.5px dashed #2FA84F55; border-radius:14px;"></div>
+      <div style="position:absolute; left:7%; top:15%; font-size:8px; font-weight:800; color:#2FA84F88;">GESTURE FIELD</div>
+      <div style="position:absolute; left:30%; right:30%; top:6%; height:34%; border:2px solid ${states[4]?'var(--ok)':'var(--warn)'}44; border-radius:10px;"></div>
+      <div style="position:absolute; bottom:18%; left:50%; transform:translateX(-50%); width:44%; height:16px; background:#0B0E13AA; border-radius:8px; border:1px solid var(--line2);">
+        <div style="position:absolute; left:46%; width:24%; top:0; bottom:0; background:#17332288; border-left:2px solid var(--ok); border-right:2px solid var(--ok);"></div>
+        <div style="position:absolute; left:${SIM.level*100}%; top:-3px; bottom:-3px; width:6px; background:#fff; border-radius:3px;"></div></div>`;
+      if(lvl!=='MINIMAL') html+=bigCard();
+    }
+    if(hud==='HUD5'){
+      if(cc.t==='GOOD — HOLD'){
+        html+=`<div style="position:absolute; bottom:14px; right:14px; display:flex; align-items:center; gap:6px; font-size:8px; font-weight:800; letter-spacing:.1em; color:#ffffff55;"><span class="mkdot" style="background:var(--ok); animation:blink 2.4s infinite;"></span>WATCHING</div>`;
+      } else {
+        html+=bigCard();
+        html+=`<div style="position:absolute; bottom:74px; left:50%; transform:translateX(-50%); width:280px; height:14px; background:#0B0E13CC; border-radius:7px; border:1px solid var(--line2);">
+          <div style="position:absolute; left:46%; width:24%; top:0; bottom:0; background:#17332288; border-left:2px solid var(--ok); border-right:2px solid var(--ok);"></div>
+          <div style="position:absolute; left:${SIM.level*100}%; top:-3px; bottom:-3px; width:6px; background:#fff; border-radius:3px;"></div></div>`;
+      }
+    }
+    if(lvl==='MINIMAL'&&hud!=='HUD4') html= (cc.t!=='GOOD — HOLD')? bigCard() : '';
+    layer.innerHTML=html;
+  }};
+}
+
+/* ---- DR KELLY presentation + fallback ladder ---- */
+function kellyPanel(el){
+  el.innerHTML=`
+  <div style="position:absolute; inset:0; display:flex; gap:12px; padding:12px;">
+    <div style="flex:1.1; position:relative; border-radius:12px; overflow:hidden; border:1px solid var(--line);" data-r="frame">
+      <div class="kelly"><div class="kface"></div><div class="kbody"></div>
+        <div class="kname">DR KELLY · agent_9bdfc50ec0086043</div>
+        <div class="stateRing" data-r="ring"><i></i></div>
+      </div>
+      <div data-r="overlay" style="position:absolute; inset:0; display:none; align-items:center; justify-content:center; flex-direction:column; gap:8px; background:#0B0E13E8; text-align:center; padding:16px;"></div>
+    </div>
+    <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+      <div style="font-size:10px; font-weight:800; letter-spacing:.12em; color:var(--neutral);">EMBODIMENT LADDER — FALLBACK IS A FIRST-CLASS STATE</div>
+      <div class="seg" style="flex-direction:column; align-items:stretch; border-radius:10px;" data-r="ladder">
+        <button data-m="LIVE" class="on" style="text-align:left; padding:9px 12px;">AVATAR LIVE · LemonSlice Self-Managed <span style="float:right; color:var(--warn);">PARTIAL — HUMAN QA REQUIRED</span></button>
+        <button data-m="VOICE" style="text-align:left; padding:9px 12px;">VOICE ONLY · gpt-realtime-2.1 <span style="float:right; color:#7FA6EF;">TARGET</span></button>
+        <button data-m="PREGEN" style="text-align:left; padding:9px 12px;">PRE-GENERATED INTERVIEWER <span style="float:right; color:#5ED084;">SUPPORTABLE</span></button>
+        <button data-m="TEXT" style="text-align:left; padding:9px 12px;">TEXT INTERVIEWER <span style="float:right; color:#5ED084;">VERIFIED</span></button>
+      </div>
+      <div style="font-size:10.5px; color:var(--neutral); background:var(--card2); border:1px solid var(--line); border-radius:9px; padding:8px 10px;" data-r="note"></div>
+      <div class="note" style="margin:0; font-size:10.5px;">QA LOOP: READY → human START → live Dr Kelly → human conversation → STOP/timeout → cleanup → TEST AGAIN. Fable never initiates provider sessions.</div>
+    </div>
+  </div>`;
+  const ring=el.querySelector('[data-r=ring]'), note=el.querySelector('[data-r=note]'),
+        overlay=el.querySelector('[data-r=overlay]');
+  let mode='LIVE';
+  const notes={
+    LIVE:'Full presence: idle breathing loop, listening lean-in, asking, reactive nods, follow-up, wrap-up choreography. State ring is always visible so silence never reads as a crash. CURRENTLY VERIFIED: appeared + audible in one Founder-observed run; natural initiation NOT yet verified.',
+    VOICE:'Waveform halo replaces the face — same state ring, same choreography timing. Feels like a phone-quality interviewer, not a broken avatar.',
+    PREGEN:'Recorded Dr Kelly clips for question delivery, still frame + subtle motion between. Deterministic, cheap, reliable.',
+    TEXT:'Typography-forward interviewer card with the question as the hero. The lowest tier still feels designed, not degraded.'};
+  el.querySelectorAll('[data-r=ladder] button').forEach(b=>b.addEventListener('click',()=>{
+    mode=b.dataset.m; el.querySelectorAll('[data-r=ladder] button').forEach(x=>x.classList.toggle('on',x===b));
+    note.textContent=notes[mode];
+    if(mode==='LIVE'){ overlay.style.display='none'; }
+    else{
+      overlay.style.display='flex';
+      overlay.innerHTML= mode==='VOICE'
+        ? `<div style="display:flex; gap:4px; align-items:flex-end; height:46px;" data-wave>${Array.from({length:14},()=>'<span style="width:6px; background:var(--info); border-radius:3px; height:12px;"></span>').join('')}</div><div style="font-size:12px; font-weight:800; letter-spacing:.1em;">DR KELLY · VOICE ONLY</div><div style="font-size:10px; color:var(--neutral);">Realtime voice · avatar unavailable — nothing is broken</div>`
+        : mode==='PREGEN'
+        ? `<div class="kface" style="position:static; width:80px; aspect-ratio:1; border-radius:50%; background:radial-gradient(circle at 42% 38%, #57617a, #3b4257 65%, #2c3244);"></div><div style="font-size:12px; font-weight:800; letter-spacing:.1em;">PRE-GENERATED INTERVIEWER</div><div style="font-size:10px; color:var(--neutral);">Recorded question delivery · full Delivery Intelligence still runs</div>`
+        : `<div style="font-size:16px; font-weight:900; max-width:90%; line-height:1.4;">"Tell me about a time you disagreed with a supervisor."</div><div style="font-size:10px; color:var(--neutral);">TEXT INTERVIEWER · Q3 OF 6 · take a breath, then begin</div>`;
+    }
+  }));
+  note.textContent=notes.LIVE;
+  const states=[['IDLE','#8A94A6'],['LISTENING','#2E6BE6'],['ASKING','#2FA84F'],['REACTING','#C9A35C'],['FOLLOW-UP','#2FA84F'],['ENDING','#B79AE8']];
+  return { update(now){
+    const s=states[Math.floor(now/4)%states.length];
+    ring.innerHTML=`<i style="background:${s[1]}"></i>${s[0]}`;
+    if(mode==='VOICE'&&overlay.style.display!=='none'){
+      overlay.querySelectorAll('[data-wave] span').forEach((sp,i)=>{ sp.style.height=(8+Math.abs(noise(now*3,i))*38)+'px'; });
+    }
+  }};
+}
+
+/* ---- MENTOR STUDIO ---- */
+function mentorStudio(el){
+  el.innerHTML=`
+  <div style="position:absolute; inset:0; display:flex; gap:10px; padding:12px;">
+    <div style="flex:2; position:relative; border-radius:10px; overflow:hidden; border:1px solid var(--line);">
+      <div class="vidbg"></div><div class="person"></div>
+      <div class="vidtag">STUDENT · A. OKAFOR · LIVE OBSERVE</div><div class="rec"><i></i>REC</div>
+      <div style="position:absolute; bottom:8px; left:8px; right:8px; height:26px; background:#0B0E13CC; border-radius:6px; border:1px solid var(--line2);" data-r="mtl"></div>
+    </div>
+    <div style="flex:1.2; display:flex; flex-direction:column; gap:8px; min-width:210px;">
+      <div style="font-size:9px; font-weight:800; letter-spacing:.12em; color:var(--warn);">PRIVATE INSTRUMENT RAIL — NEVER MIRRORED TO STUDENT</div>
+      <div data-r="rail" style="flex:1; display:flex; flex-direction:column; gap:6px;"></div>
+      <div style="display:flex; gap:6px;">
+        <button class="scenbtn" data-mark="PERFECT ★" style="border-color:var(--ok); color:var(--ok);">PERFECT ★</button>
+        <button class="scenbtn" data-mark="REMEMBER THIS" style="border-color:var(--info); color:#7FA6EF;">REMEMBER THIS</button>
+        <button class="scenbtn" data-mark="FLAG">FLAG</button>
+      </div>
+      <button class="scenbtn" style="border-color:var(--gold); color:var(--gold);">TEACH THIS MOMENT → package frame + lanes + voice note</button>
+    </div>
+  </div>`;
+  const rail=el.querySelector('[data-r=rail]'), mtl=el.querySelector('[data-r=mtl]');
+  const marks=[];
+  el.querySelectorAll('[data-mark]').forEach(b=>b.addEventListener('click',()=>{
+    marks.push({x:Math.random()*90+4, l:b.dataset.mark,
+      c:b.dataset.mark.includes('PERFECT')?'var(--ok)':b.dataset.mark.includes('REMEMBER')?'var(--info)':'var(--warn)'});
+    mtl.innerHTML=marks.map(m=>`<div title="${m.l}" style="position:absolute; left:${m.x}%; top:3px; bottom:3px; width:6px; border-radius:2px; background:${m.c};"></div>`).join('');
+  }));
+  return { update(){
+    const rows=[['VOICE LEVEL',SIM.level*100,.46*100,.70*100],['VOL VARIATION',(SIM.p90-SIM.p10)*300,30,100],
+      ['PACE',SIM.pace*100,SIM.paceTarget[0]*100,SIM.paceTarget[1]*100],['WARMTH-CUE',SIM.warm,65,100],['COMPETENCE-CUE',SIM.comp,65,100]];
+    rail.innerHTML=rows.map(r=>{
+      const ok=r[1]>=r[2]&&r[1]<=r[3];
+      return `<div style="background:var(--card2); border:1px solid var(--line); border-radius:8px; padding:6px 9px;">
+      <div style="display:flex; justify-content:space-between; font-size:8.5px; font-weight:800; letter-spacing:.06em;">
+        <span style="color:var(--neutral)">${r[0]}</span><span style="color:${ok?'var(--ok)':'var(--warn)'}">${Math.round(r[1])}</span></div>
+      <div style="height:5px; background:#12161f; border-radius:3px; margin-top:4px; position:relative;">
+        <div style="position:absolute; left:${r[2]}%; width:${r[3]-r[2]}%; top:0; bottom:0; background:#17332288;"></div>
+        <div style="position:absolute; left:${clamp(r[1],0,97)}%; top:-2px; width:4px; height:9px; background:${ok?'var(--ok)':'var(--warn)'}; border-radius:2px;"></div></div></div>`;
+    }).join('');
+  }};
+}
+
+/* ---- ADMIN — composite arithmetic inspector ---- */
+function adminInspector(el){
+  el.innerHTML=`
+  <div style="position:absolute; inset:0; display:flex; gap:10px; padding:12px;">
+    <div style="flex:1.4; display:flex; flex-direction:column; gap:6px;">
+      <div style="font-size:9px; font-weight:800; letter-spacing:.12em; color:var(--neutral);">COMPOSITE ARITHMETIC — WHY THE MASTER MOVED (3472 §8.1)</div>
+      <div data-r="math" style="flex:1; background:#0d1119; border:1px solid var(--line); border-radius:10px; padding:12px; font-family:ui-monospace,Menlo,monospace; font-size:11.5px; line-height:1.8; color:var(--ink2);"></div>
+    </div>
+    <div style="flex:1; display:flex; flex-direction:column; gap:6px;">
+      <div style="font-size:9px; font-weight:800; letter-spacing:.12em; color:var(--neutral);">DETECTOR STATE · THRESHOLDS EXPOSED [CALIBRATE]</div>
+      <div data-r="det" style="flex:1; background:#0d1119; border:1px solid var(--line); border-radius:10px; padding:10px; font-size:10px; overflow:auto;"></div>
+    </div>
+  </div>`;
+  const math=el.querySelector('[data-r=math]'), det=el.querySelector('[data-r=det]');
+  return { update(){
+    const c=SIM.vvContrib, res=compositeMaster(c);
+    math.innerHTML=
+`VOCAL VARIETY (master)
+ contributors  ${Object.entries(c).map(([k,v])=>`\n   ${k.padEnd(20,' ')} ${String(Math.round(v)).padStart(3)}`).join('')}
+ mean          ${res.mean.toFixed(1)}
+ weakest       ${Math.round(res.weakest)}  ← <span style="color:var(--warn)">${res.limiting}</span>
+ cap           min(mean, weakest + 15) = ${res.raw.toFixed(1)}
+ bucket(5)     <b style="color:${res.master>=80?'var(--ok)':'var(--warn)'}; font-size:15px;">${res.master}</b>
+ rule          three strong contributors can never hide one weak one`;
+    const rows=[['audio.dbfs','OK',.97],['voice.levelSpread','OK',.91],['voice.f0',SIM.pitchAvail?'OK':'UNAVAILABLE',SIM.pitchAvail?.84:0],
+      ['speech.rate','OK',.78],['cadence.intervals','OK',.72],['hands.L','OK',.93],['hands.R',SIM.hands.R.vis?'OK':'UNAVAILABLE',SIM.hands.R.vis?.9:0],
+      ['face.box','OK',.96],['phase.contract','MANUAL',.5]];
+    det.innerHTML=rows.map(r=>`<div style="display:flex; justify-content:space-between; padding:3px 2px; border-bottom:1px solid #161c28;">
+      <span style="font-family:ui-monospace,monospace; color:var(--neutral);">${r[0]}</span>
+      <span style="font-weight:800; color:${r[1]==='OK'?'var(--ok)':r[1]==='MANUAL'?'var(--info)':'var(--warn)'};">${r[1]} · ${r[2]?r[2].toFixed(2):'—'}</span></div>`).join('');
+  }};
+}
+
+/* ============================================================
+   THUMB BUILDERS (schematic mockups)
+   ============================================================ */
+const T={
+  cols:(spec)=>`<div class="mock">${spec.map(c=>`<div class="mk" style="flex:${c.f||1}; display:flex; flex-direction:column; ${c.s||''}">
+    <span class="mklbl">${c.l||''}</span>${'<div class="mkbar"></div>'.repeat(c.r||0)}${c.h||''}</div>`).join('')}</div>`,
+  rows:(spec)=>`<div class="mock" style="flex-direction:column;">${spec.map(c=>`<div class="mk" style="flex:${c.f||1}; ${c.s||''}">
+    <span class="mklbl">${c.l||''}</span>${'<div class="mkbar"></div>'.repeat(c.r||0)}${c.h||''}</div>`).join('')}</div>`,
+  stage:(o={})=>`<div class="mock" style="padding:8px;">
+    <div style="flex:${o.kf||1}; position:relative; border-radius:6px; overflow:hidden; border:1px solid var(--line);">
+      <div class="kelly" style="position:absolute;"><div class="kface"></div><div class="kbody"></div></div>
+      <div class="vidtag">DR KELLY</div></div>
+    <div style="flex:${o.sf||1}; position:relative; border-radius:6px; overflow:hidden; border:1px solid var(--line);">
+      <div class="vidbg"></div><div class="person" style="width:70%; height:70%;"></div><div class="vidtag">YOU</div>
+      ${o.hud?'<div style="position:absolute; bottom:6px; left:50%; transform:translateX(-50%); background:#0B0E13E0; border:1px solid var(--warn); color:var(--warn); font-size:7px; font-weight:900; border-radius:4px; padding:2px 8px;">SLOW DOWN</div>':''}
+      ${o.self?'<div style="position:absolute; bottom:6px; right:6px; width:26%; height:30%; border:1px solid var(--line2); border-radius:4px; background:#10141d;"></div>':''}
+    </div></div>`,
+  solo:(o={})=>`<div class="mock" style="padding:8px;">
+    <div style="flex:1; position:relative; border-radius:6px; overflow:hidden; border:1px solid var(--line);">
+      <div class="vidbg"></div><div class="person" style="width:52%; height:74%;"></div><div class="vidtag">${o.tag||'YOU'}</div>
+      ${o.kcard?'<div style="position:absolute; top:6px; right:6px; width:24%; height:34%; border-radius:5px; overflow:hidden; border:1px solid var(--line2);"><div class="kelly"><div class="kface"></div><div class="kbody"></div></div></div>':''}
+      ${o.rail?'<div style="position:absolute; bottom:6px; left:6px; right:6px; display:flex; gap:4px;">'+('<div style="flex:1; height:14px; background:#0B0E13D0; border:1px solid var(--line2); border-radius:3px;"></div>').repeat(5)+'</div>':''}
+      ${o.h||''}
+    </div></div>`,
+  steps:(labels)=>`<div class="mock" style="align-items:center; justify-content:center; gap:6px;">${labels.map((l,i)=>`
+    <div class="mk" style="flex:1; height:70%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; ${i===0?'border-color:var(--gold);':''}">
+      <div class="mkdot" style="background:${i===0?'var(--gold)':'var(--line2)'}; width:14px; height:14px;"></div>
+      <span style="font-size:7px; font-weight:800; letter-spacing:.06em; color:${i===0?'var(--ink2)':'var(--neutral)'}; text-align:center;">${l}</span></div>`).join('')}</div>`,
+  cards:(labels,big)=>`<div class="mock" style="gap:6px;">${labels.map((l,i)=>`
+    <div class="mk" style="flex:${big===i?2:1}; display:flex; align-items:flex-end; padding:6px; ${big===i?'border-color:var(--gold);':''}">
+      <span style="font-size:7px; font-weight:800; letter-spacing:.05em; color:var(--ink2);">${l}</span></div>`).join('')}</div>`,
+  phone:(h)=>`<div class="mock" style="justify-content:center;">
+    <div style="width:36%; height:100%; border:2px solid var(--line2); border-radius:12px; background:var(--card2); position:relative; overflow:hidden; padding:8px 6px;">${h||'<div class="mkbar"></div><div class="mkbar"></div><div class="mkbar" style="width:50%"></div>'}</div></div>`,
+  lanes:(n)=>`<div class="mock" style="flex-direction:column; gap:3px; padding:8px;">${Array.from({length:n},(_,i)=>`
+    <div style="display:flex; gap:4px; align-items:center;"><span style="width:44px; font-size:6.5px; font-weight:800; color:var(--neutral);">LANE ${i+1}</span>
+    <div style="flex:1; height:9px; background:var(--card2); border:1px solid var(--line); border-radius:2px; position:relative;">
+      <div style="position:absolute; left:${(i*17)%60+10}%; width:6%; top:1px; bottom:1px; background:${['#2FA84F','#2E6BE6','#E8BE6A','#F5A623','#B79AE8'][i%5]}; border-radius:2px;"></div></div></div>`).join('')}</div>`,
+};
+
+/* ============================================================
+   CATALOG — SHOWROOM FAMILIES
+   badge: v=VERIFIED-wireable now · t=TARGET · l72=3472 LOCK · n=NEW ID (3490)
+   ============================================================ */
+function o71(rows){ // expand 3471C locked option rows [id, mechanic, contract]
+  return rows.map(r=>({id:r[0], name:r[1], desc:r[2], badge:'71C'}));
+}
+const CATALOG=[
+{group:'SHELL & FLOW'},
+{fid:'NAV', name:'1 · APP SHELL / NAVIGATION', b:['v','n'],
+ note:'The shell must read as a <b>training engine inside MissionMed Matrix</b> — chaptered like a game, quiet like a clinic. Nav always collapses to nothing during an active answer.',
+ options:[
+  {id:'NAV1', name:'Chapter Rail', desc:'Thin icon rail; chapters fly out on hover. Maximum stage space, minimum identity.', thumb:T.cols([{f:.14,r:5},{f:1,l:'STAGE'}])},
+  {id:'NAV2', name:'Mission Rail', star:1, desc:'Left rail with four chapters — <b>TRAIN · SIMULATE · REVIEW · PROGRESS</b> — plus a persistent "next rep" card and streak. The rail is the product\'s spine and its motivation surface.', thumb:T.cols([{f:.34,l:'TRAIN / SIMULATE / REVIEW / PROGRESS',r:4,h:'<div style="margin:auto 6px 6px; border:1px solid var(--gold); border-radius:5px; padding:4px; font-size:6.5px; color:var(--gold); font-weight:800;">NEXT REP · PACE 90s</div>'},{f:1,l:'HOME'}])},
+  {id:'NAV3', name:'Command Bar', desc:'Horizontal top bar; the stage owns the whole viewport below. Closest to a broadcast console.', thumb:T.rows([{f:.2,l:'TRAIN · SIMULATE · REVIEW · PROGRESS'},{f:1,l:'STAGE'}])},
+  {id:'NAV4', name:'Hub & Rooms', desc:'The lobby IS the nav: walk into Interview Room, Film Room, Locker. Strong game feel; slower for daily reps.', thumb:T.cards(['INTERVIEW ROOM','FILM ROOM','LOCKER','MENTOR'],0)},
+  {id:'NAV5', name:'Console Dock', desc:'Bottom dock, console-style. Familiar to gamers; risks toy-feel for faculty.', thumb:T.rows([{f:1,l:'STAGE'},{f:.2,l:'DOCK'}])},
+ ]},
+{fid:'HOME', name:'2 · HOME / LOBBY', b:['v','n'],
+ note:'Game-grade is allowed here. One glance answers: <b>what do I do next, am I improving, what did I unlock</b>.',
+ options:[
+  {id:'HOME1', name:'Next-Rep Hero', star:1, desc:'One dominant action card generated from your weakest contributor ("90 seconds on volume variation"), streak counter, personal-best shelf, session history strip. Zero dashboards.', thumb:T.rows([{f:1.4,l:'YOUR NEXT REP — MORE VOLUME VARIATION · 90s',s:'border-color:var(--gold);'},{f:.8,h:'<div style="display:flex; gap:6px; padding:6px;">'+('<div class="mk" style="flex:1; height:34px;"></div>').repeat(4)+'</div>'}])},
+  {id:'HOME2', name:'Locker Room', desc:'Identity-first: your Conversation Fingerprint card, mission board, gear-like mode tiles.', thumb:T.cols([{f:.6,l:'FINGERPRINT CARD',r:3},{f:1,l:'MISSIONS',r:4}])},
+  {id:'HOME3', name:'Season Board', desc:'Progression track center-stage: reps, milestones, mastery nodes across the interview season.', thumb:T.rows([{f:.5,l:'SEASON TRACK ●───●───◐───○'},{f:1,l:'MODES',r:2}])},
+  {id:'HOME4', name:'Coach\'s Desk', desc:'Mentor note and assigned missions first — for programs where Dr Brian drives the plan.', thumb:T.rows([{f:.8,l:'FROM DR BRIAN — WATCH YOUR CLOSE',r:2},{f:1,l:'ASSIGNED',r:3}])},
+  {id:'HOME5', name:'Broadcast', desc:'Auto-featured replay of your best recent moment plays muted behind the CTAs. Confidence machine.', thumb:T.solo({tag:'YOUR BEST MOMENT · Q3', h:'<div style="position:absolute; bottom:8px; left:8px; font-size:7px; font-weight:900; color:var(--gold);">▶ REPLAY · START TODAY\'S REP</div>'})},
+ ]},
+{fid:'MODE', name:'3 · MODE SELECTOR', b:['v','n'],
+ note:'Modes are isolated by prior architecture law: <b>QUICK REP · GUIDED PRACTICE · DELIVERY TRAINING · SIMULATION · BASELINE SESSION</b>. No mode silently borrows another\'s behavior. Simulation shows its zero-HUD promise up front.',
+ options:[
+  {id:'MODE1', name:'Card Row', desc:'Five equal cards, spec sheet on hover (HUD level, recording, avatar tier, duration).', thumb:T.cards(['QUICK','GUIDED','TRAINING','SIM','BASELINE'],-1)},
+  {id:'MODE2', name:'Mode Gates', star:1, desc:'Full-height gates with the contract printed on the door: instrumentation level, interviewer tier, what gets recorded, expected time. Walking through a gate = informed consent to the mode\'s rules.', thumb:T.cards(['QUICK REP · HUD OFF · 5m','DELIVERY TRAINING · HUD COACHING','SIMULATION · ZERO HUD · DR KELLY'],2)},
+  {id:'MODE3', name:'Intent Dial', desc:'"What do you need today?" dial: WARM UP → DRILL → REHEARSE → PROVE. Modes map to intents.', thumb:T.solo({tag:'DIAL', h:'<div style="position:absolute; inset:20% 30%; border:3px solid var(--line2); border-radius:50%;"></div><div style="position:absolute; left:50%; top:50%; width:3px; height:26%; background:var(--gold); transform-origin:top; transform:rotate(40deg);"></div>'})},
+  {id:'MODE4', name:'Progression Ladder', desc:'Modes as rungs — Simulation unlocks after N training reps. Deliberate-practice pressure; may frustrate advanced users.', thumb:T.steps(['QUICK','GUIDED','TRAINING','SIMULATION 🔒'])},
+ ]},
+{fid:'BTN', name:'4 · PRIMARY CTA / BUTTON SYSTEM', b:['v','n'],
+ note:'AAA buttons: heavy, tactile, deliberate. State changes must <b>click</b>. No SaaS pill-buttons.',
+ options:[
+  {id:'BTN1', name:'Plate System', star:1, desc:'Weighty plates with hard 2px edges, gold primary, press-depth shadow, 120ms state snap. Destructive actions require hold-to-confirm with a filling ring.', thumb:`<div class="mock" style="align-items:center; justify-content:center; gap:10px;"><div style="background:var(--gold); color:#0B0E13; font-weight:900; font-size:9px; letter-spacing:.1em; padding:10px 18px; border-radius:8px; box-shadow:0 4px 0 #7a5c17;">BEGIN INTERVIEW</div><div style="border:2px solid var(--line2); color:var(--ink2); font-weight:800; font-size:9px; padding:9px 14px; border-radius:8px;">REVIEW LAST</div><div style="border:2px solid var(--bad); color:var(--bad); font-weight:800; font-size:9px; padding:9px 14px; border-radius:8px;">HOLD TO END ◔</div></div>`},
+  {id:'BTN2', name:'Ring Actions', desc:'Circular primaries with progress rings — the START button literally charges. Strong for countdowns.', thumb:`<div class="mock" style="align-items:center; justify-content:center; gap:14px;"><div style="width:52px; height:52px; border-radius:50%; border:3px solid var(--gold); display:flex; align-items:center; justify-content:center; color:var(--gold); font-weight:900; font-size:8px;">START</div><div style="width:40px; height:40px; border-radius:50%; border:3px solid var(--line2); color:var(--neutral); display:flex; align-items:center; justify-content:center; font-size:7px; font-weight:800;">SKIP</div></div>`},
+  {id:'BTN3', name:'Rail Keys', desc:'Keyboard-key styling with visible shortcuts (SPACE to start, R to redo). Power-user speed; mentor favorite.', thumb:`<div class="mock" style="align-items:center; justify-content:center; gap:8px;"><kbd style="font-size:9px; padding:8px 12px;">SPACE · START</kbd><kbd style="font-size:9px; padding:8px 12px;">R · REDO</kbd><kbd style="font-size:9px; padding:8px 12px;">F · FILM ROOM</kbd></div>`},
+  {id:'BTN4', name:'Ghost + Gold', desc:'Everything ghost-outline except exactly one gold action per screen. Maximum calm; weakest game feel.', thumb:`<div class="mock" style="align-items:center; justify-content:center; gap:10px;"><div style="border:1px solid var(--line2); color:var(--neutral); font-weight:700; font-size:9px; padding:9px 14px; border-radius:8px;">SETTINGS</div><div style="background:var(--gold); color:#0B0E13; font-weight:900; font-size:9px; padding:10px 18px; border-radius:8px;">CONTINUE</div></div>`},
+ ]},
+{fid:'WIZ', name:'5 · SESSION SETUP WIZARD', b:['v','n'],
+ note:'Setup is confidence-building, not configuration. Three decisions maximum; everything else is remembered.',
+ options:[
+  {id:'WIZ1', name:'Loadout Screen', desc:'One screen, game-loadout style: question set, interviewer tier, HUD level as three slot columns.', thumb:T.cols([{f:1,l:'QUESTIONS',r:3},{f:1,l:'INTERVIEWER',r:3},{f:1,l:'HUD',r:3}])},
+  {id:'WIZ2', name:'Three-Decision Setup', star:1, desc:'Three full-screen decisions with strong defaults: <b>What are we training? → Who interviews you? → How much coaching on screen?</b> Each screen shows its consequence honestly (cost tier, recording, HUD).', thumb:T.steps(['WHAT ARE WE TRAINING?','WHO INTERVIEWS YOU?','COACHING ON SCREEN?'])},
+  {id:'WIZ3', name:'Conversational Setup', desc:'Dr Kelly asks the setup questions by voice. Premium and charming; slower, and burns provider minutes.', thumb:T.stage({kf:1, sf:.7})},
+ ]},
+{fid:'CHK', name:'6 · CAMERA + MIC CHECK', b:['v','n'],
+ note:'The check IS the first instrument lesson: the student meets the Camera Dock and the voice corridor before the interview.',
+ options:[
+  {id:'CHK1', name:'Dock Check', star:1, desc:'Camera Dock brackets + voice corridor + hands-visible check run as a 20-second gate. All three lock green → READY plate charges. Doubles as instrument tutorial.', demo:cameraDock, th:'tall'},
+  {id:'CHK2', name:'Pre-Flight List', desc:'Checklist with auto-verifying rows (camera, mic level, lighting proxy, hands in frame). Familiar, calm, less teachable.', thumb:T.rows([{f:1,l:'✓ CAMERA FOUND'},{f:1,l:'✓ MIC LEVEL IN BAND'},{f:1,l:'◐ HANDS VISIBLE'},{f:1,l:'○ LIGHTING'}])},
+  {id:'CHK3', name:'Mirror Room', desc:'Full-screen self-view with overlay hints; the student adjusts until overlays fade. Immersive; slower.', thumb:T.solo({tag:'MIRROR', rail:1})},
+ ]},
+{fid:'PREP', name:'7 · INTERVIEW PREP SCREEN', b:['v','n'],
+ note:'Focused and confidence-building. SAF(e) appears here as structure scaffolding — never as a score.',
+ options:[
+  {id:'PREP1', name:'Question Card', desc:'Question hero + SAF(e) ghost outline (Start Simple · Add Reasons · ONE Example · End Strong) + optional story chips from StoryForge.', thumb:T.rows([{f:1,l:'"WHY THIS PROGRAM?"',s:'border-color:var(--gold);'},{f:.6,l:'S · A · F · E'},{f:.5,l:'STORY CHIPS: ICU HANDOVER · FIRST CODE'}])},
+  {id:'PREP2', name:'Quiet Room', star:1, desc:'Screen dims, a slow breath dot sets cadence (4s in / 6s out), question reveals when the student presses READY. Dr Kelly visible in idle — presence without pressure.', thumb:T.stage({kf:.7,sf:1})},
+  {id:'PREP3', name:'Warm-Up Rep', desc:'A 10-second throwaway answer ("describe your walk this morning") before the real question. Loosens delivery; adds time.', thumb:T.steps(['WARM-UP 10s','REAL QUESTION'])},
+ ]},
+{fid:'CTRL', name:'11 · SESSION CONTROL BAR', b:['v','n'],
+ options:[
+  {id:'CTRL1', name:'Recessed Bar', star:1, desc:'Auto-hiding bottom bar (mic, camera, skip, end). Appears on mouse intent only. The interview owns the screen.', thumb:T.solo({tag:'STAGE', h:'<div style="position:absolute; bottom:6px; left:30%; right:30%; height:16px; background:#0B0E13D9; border:1px solid var(--line2); border-radius:8px;"></div>'})},
+  {id:'CTRL2', name:'Side Column', desc:'Controls in a slim right column with the question list. Always visible; slight dashboard risk.', thumb:T.cols([{f:1,l:'STAGE'},{f:.22,l:'Q1 Q2 Q3 · CTRL',r:4}])},
+  {id:'CTRL3', name:'Minimal + Hold', desc:'No visible chrome. ESC shows controls; ending requires hold-to-confirm. Purest interview illusion.', thumb:T.solo({tag:'STAGE'})},
+ ]},
+{fid:'SELF', name:'10 · STUDENT SELF-VIEW', b:['v','n'],
+ options:[
+  {id:'SELF1', name:'Corner PiP', desc:'Small self-view corner tile, camera-app convention. Familiar; pulls eyes off the interviewer.', thumb:T.solo({tag:'DR KELLY', self:1})},
+  {id:'SELF2', name:'Docked Self-View', star:1, desc:'Bottom-center dock under the eye-line with a frame-state ring (green = docked). Self-monitoring without mirror-gazing; ring replaces any framing text.', thumb:T.solo({tag:'DR KELLY', h:'<div style="position:absolute; bottom:6px; left:50%; transform:translateX(-50%); width:22%; height:26%; border:2px solid var(--ok); border-radius:6px; background:#10141d;"></div>'})},
+  {id:'SELF3', name:'Trust Mode (Off)', desc:'Self-view off by default; only framing corrections surface. Interview realism — real interviews have no mirror.', thumb:T.solo({tag:'DR KELLY ONLY'})},
+ ]},
+{group:'STAGE & AVATAR'},
+{fid:'STAGE', name:'8 · ACTIVE INTERVIEW STAGE', b:['t','n'],
+ note:'The actual interview must never look like an analytics dashboard. Composition changes by mode, not by cramming.',
+ options:[
+  {id:'STAGE1', name:'Interviewer Dominant', desc:'Dr Kelly at 72%, student dock small. Maximum social presence — closest to sitting across the desk.', thumb:T.stage({kf:2.2, sf:.8})},
+  {id:'STAGE2', name:'Balanced Stage', star:1, desc:'50/50 with aligned eye-lines and shared horizon — a real video interview. <b>Simulation default.</b>', thumb:T.stage({kf:1, sf:1})},
+  {id:'STAGE3', name:'Interviewer + Whisper Dock', desc:'Kelly large, self-view small, single correction line beneath — Guided Practice default.', thumb:T.stage({kf:1.6, sf:1, hud:1})},
+  {id:'STAGE4', name:'Full-Frame Student', star:1, desc:'Student full-bleed with instruments; Kelly reduced to a voice card. <b>Delivery Training default</b> — training HOW is the point.', thumb:T.solo({tag:'YOU · TRAINING', kcard:1, rail:1})},
+  {id:'STAGE5', name:'Observation Stage', desc:'Mentor view: student full-frame + private rail + marker keys. Never visible to the student.', thumb:T.solo({tag:'STUDENT · OBSERVED', rail:1})},
+ ]},
+{fid:'KELLY', name:'9 · DR KELLY PRESENTATION', b:['t'],
+ note:'Dr Kelly is a major feature, not the whole app. Runtime is PARTIAL: appeared + audible once, no natural initiation, short exchange only. The state ring below is the design answer to "is it broken or thinking?" — <b>silence never reads as a crash.</b> Live demo cycles LISTENING → ASKING → REACTING → FOLLOW-UP → ENDING and the full fallback ladder.',
+ options:[
+  {id:'KELLY2', name:'Presence Panel + State Ring', star:1, wide:1, demo:kellyPanel, th:'tall',
+   desc:'Portrait panel, name plate, always-on state ring. Fallback tiers are first-class designed states — lower cost never feels broken. <span class="badge verified">TEXT TIER VERIFIED</span> <span class="badge target">AVATAR TIER TARGET</span>'},
+  {id:'KELLY1', name:'Call Window', desc:'Video-call realism: Kelly in a plain meeting tile. Lowest craft, highest familiarity.', thumb:T.stage({kf:1.4,sf:1})},
+  {id:'KELLY3', name:'Across the Desk', desc:'Environmental backdrop (office depth, desk foreground) composited behind Kelly. Cinematic; heavier asset work.', thumb:`<div class="mock"><div class="mk" style="flex:1; position:relative; overflow:hidden;"><div class="kelly"><div class="kface"></div><div class="kbody"></div></div><div style="position:absolute; bottom:0; left:0; right:0; height:22%; background:linear-gradient(180deg,#2a2318,#1a1610);"></div><div class="vidtag">OFFICE SET</div></div></div>`},
+  {id:'KELLY4', name:'Floating Bust', desc:'Kelly keyed out on the dark environment with cinematic key light. Premium AAA look; risks uncanny.', thumb:`<div class="mock"><div class="mk" style="flex:1; position:relative; background:radial-gradient(60% 60% at 50% 40%, #1c2230, #0B0E13); overflow:hidden;"><div class="kface" style="position:absolute; top:18%; left:50%; transform:translateX(-50%); width:30%; aspect-ratio:1; border-radius:50%; background:radial-gradient(circle at 40% 35%, #5a6480, #363d52);"></div></div></div>`},
+  {id:'KELLY5', name:'Split Persona', desc:'Kelly + the question as a typographic co-star, broadcast lower-third style. Strong for Guided Practice.', thumb:T.cols([{f:1,h:'<div class="kelly" style="position:relative; height:100%;"><div class="kface"></div><div class="kbody"></div></div>'},{f:1,l:'"WHY THIS PROGRAM?"',s:'justify-content:center;'}])},
+ ]},
+{group:'LIVE COACHING'},
+{fid:'HUD', name:'12 · LIVE DELIVERY HUD', b:['t','n'],
+ note:'Five structurally different HUDs on one live stage. Switch HUD and state; watch the arbitration engine (3472 §9.2: setup pre-empts, severity × correctability, 4s dwell, one correction ever). SIMULATION switch proves the zero-HUD contract.',
+ options:[
+  {id:'HUDLIVE', name:'LIVE HUD PROVING GROUND — all five concepts', star:1, wide:1, demo:hudStage, th:'xl', noselect:1,
+   desc:'HUD1 One Big Correction + peripheral dots · HUD2 Corner Instruments · HUD3 Bottom Training Rail (active metric expands) · HUD4 Body-Relative Spatial · HUD5 Adaptive Reveal (instruments materialize only when needed; heartbeat dot says "watching"). <b>Fable recommends HUD5 with HUD1 as MINIMAL fallback.</b>'},
+ ]},
+{fid:'COACH', name:'13 · CORRECTION / COACHING PROMPT', b:['t','n'],
+ options:[
+  {id:'COACH1', name:'Verb Card', star:1, desc:'One imperative + direction glyph in a heavy plate (<b>LOUDER ↑</b> · <b>GOOD — HOLD</b> · <b>LOCKED</b>). ≥40px text, 4s dwell, satisfying lock snap. The guitar tuner made words.', thumb:`<div class="mock" style="align-items:center; justify-content:center;"><div style="background:#0B0E13; border:2px solid var(--warn); color:var(--warn); font-size:20px; font-weight:900; letter-spacing:.06em; padding:12px 26px; border-radius:10px;">SLOW DOWN</div></div>`},
+  {id:'COACH2', name:'In-Instrument', desc:'No banner — the active instrument itself grows and carries its correction. Zero added chrome; requires the instrument on screen.', thumb:`<div class="mock" style="align-items:center; justify-content:center;"><div class="mk" style="width:70%; height:60%; display:flex; align-items:center; justify-content:center; border-color:var(--warn);"><span style="color:var(--warn); font-weight:900; font-size:12px;">◀◀ CORRIDOR · LOUDER</span></div></div>`},
+  {id:'COACH3', name:'Whisper Line', desc:'Thin calm text line under the stage. Least intrusive; weakest under pressure at two feet.', thumb:T.solo({tag:'STAGE', h:'<div style="position:absolute; bottom:4px; left:0; right:0; text-align:center; font-size:8px; color:var(--warn); font-weight:800;">more volume variation</div>'})},
+  {id:'COACH4', name:'Audio Coach', desc:'Soft earcon + spoken cue ("slower") in the earpiece; screen stays clean. Powerful for Simulation-adjacent training; needs careful mixing against Dr Kelly\'s voice.', thumb:`<div class="mock" style="align-items:center; justify-content:center; gap:8px;"><span style="font-size:22px;">🎧</span><span style="font-size:9px; color:var(--ink2); font-weight:800;">"slower…" · VISUAL STAYS CLEAN</span></div>`},
+ ]},
+{group:'VOICE INSTRUMENTS'},
+{fid:'VV', name:'14 · VOICE VOLUME (LEVEL)', b:['v','l72','71C'],
+ note:'CONTROL class. 3472 lock: <b>target corridor + directional chevrons</b>, waveform family folded into the corridor. The live hybrid below animates the lock (base VV1 corridor + VV5 lock state + VOLUME VARIATION bracket riding the same axis — decision §1.6/§7.2). 3471C alternates remain selectable.',
+ options:[
+  {id:'VVLOCK', name:'3472 LOCK — Corridor + Chevrons + Range Bracket', star:1, wide:1, demo:voiceAxis, th:'tall', noselect:1,
+   desc:'One axis, two readings: the <b>marker</b> is where you are (CONTROL), the <b>bracket</b> is how much you move (PATTERN). Run Scenario S4 — a loud monotone shows a satisfied marker inside a collapsed amber bracket. Never all-green.'},
+  ...o71([
+   ['VV1','Soundline Target Corridor','Signed position within target corridor from smoothed dBFS + clipping. CURRENTLY SUPPORTABLE.'],
+   ['VV2','Shield Charge Meter','Accumulated in-band dwell charges the arc. "Add clean level; stop short of overload."'],
+   ['VV3','Volume Capture Zone','Continuous target-band dwell + exit direction; gap resets capture.'],
+   ['VV4','Level Bounce Course','Median level per phrase pad — "land the next phrase on target."'],
+   ['VV5','Volume Lock Reticle','Reticle spread closes on target error; clipping breaks lock. Donor of the LOCKED state.'],
+   ['VV6','Voice Rev Band','Target-relative tach band; relative-only, never claims SPL.'],
+  ])]},
+{fid:'VD', name:'15 · VOLUME VARIATION', b:['t','l72','n'],
+ note:'A separate instrument by law (3471C §1.6 proof case + ticket): <b>level ≠ modulation</b>. The lock rides the VV axis above; these are the alternate presentations if the Founder overrules co-location.',
+ options:[
+  {id:'VD1', name:'Bracket on the Level Axis', star:1, desc:'3472 §7.2 lock: P10–P90 bracket whose HEIGHT is the measurement, two failure walls (FLAT — ADD RANGE / UNEVEN — STEADY IT), pinch animation on collapse. Zero extra screen space.', thumb:`<div class="mock" style="align-items:center;"><div style="flex:1; position:relative; height:60%;"><div style="position:absolute; left:0; right:0; top:50%; height:16px; transform:translateY(-50%); background:#141926; border-radius:6px;"><div style="position:absolute; left:46%; width:24%; top:0; bottom:0; background:#173322;"></div><div style="position:absolute; left:57%; top:-4px; bottom:-4px; width:8px; background:#fff; border-radius:3px;"></div></div><div style="position:absolute; left:42%; width:34%; top:8%; bottom:8%; border:3px solid var(--info); border-radius:6px;"></div></div></div>`},
+  {id:'VD2', name:'Modulation Band Meter', desc:'Standalone vertical band showing rolling spread vs target band. Clear, but severs the level↔range relationship.', thumb:T.cols([{f:1,l:'SPREAD',h:'<div style="margin:8px 20%; height:60%; border:3px solid var(--info); border-radius:6px;"></div>'},{f:2,l:'TARGET 0.14–0.34'}])},
+  {id:'VD3', name:'Swell Ribbon', desc:'Recent level envelope as a filled ribbon; flat delivery literally draws a flat ribbon. Strong post-hoc, hypnotic live.', thumb:T.solo({tag:'RIBBON', h:'<svg viewBox="0 0 100 30" preserveAspectRatio="none" style="position:absolute; inset:20% 6%;"><path d="M0,15 Q10,4 20,15 T40,15 T60,15 T80,15 T100,15 L100,30 L0,30 Z" fill="#2E6BE633" stroke="#2E6BE6"/></svg>'})},
+  {id:'VD4', name:'Dynamics Rings', desc:'Concentric rings breathe with modulation; monotone freezes them. Beautiful ambience, fails the "how far / which direction" test — LOBBY decoration at best.', thumb:`<div class="mock" style="align-items:center; justify-content:center;">${[46,32,18].map(r=>`<div style="position:absolute; width:${r*2}px; height:${r*2}px; border:2px solid #2E6BE6${r===18?'':'44'}; border-radius:50%;"></div>`).join('')}</div>`},
+ ]},
+{fid:'VP', name:'16+17 · PITCH + PITCH VARIATION', b:['t','l72','71C'],
+ note:'Pitch is REQUIRED in the architecture and honestly labeled: F0 is <b>NEW ENGINEERING</b> — every pitch surface must render the <b>PITCH — UNAVAILABLE</b> chip until the tracker ships (the chip is the system-wide coverage standard). Semitones only, never Hz. Lock: stepped ladder, same bracket grammar as volume.',
+ options:[
+  {id:'VPLOCK', name:'3472 LOCK — Stepped Semitone Ladder', star:1, wide:1, demo:pitchLadder, th:'tall', noselect:1,
+   desc:'Discrete rungs (continuous contours are Film-Room-only), center line at YOUR median, P10–P90 bracket. Toggle Scenario S4 to see the collapsed bracket; the UNAVAILABLE state renders honestly.'},
+  ...o71([
+   ['VP1','Pitch Terrain Route','Range/turn route per phrase from future F0 contour. FILM ROOM.'],
+   ['VP2','Pitch Range Ladder','Occupancy of personal-range rungs. Lock chassis donor.'],
+   ['VP3','Pitch Safe Ring','Normalized excursion ring vs baseline. REJECTED by 3472 (state display, no action).'],
+   ['VP4','Pitch Combo Tiles','Low/mid/high phrase tiers and transitions — "change tier on the next phrase."'],
+   ['VP5','Pitch Note Arc','Phase-aligned contour events. Film Room forensic object.'],
+   ['VP6','Pitch Orbit Control','Floor/center/ceiling occupancy — "move away from the crowded band."'],
+  ])]},
+{fid:'VC', name:'18 · SPEAKING PACE', b:['t','l72','71C'],
+ note:'CONTROL with a phase-dependent target. Lock: the one legitimate radial — five named zones, and the <b>target arc physically slides at phase boundaries</b> (S2: the deviation reads as "the target moved and you did not"). No WPM numbers at student density; no vehicle metaphors.',
+ options:[
+  {id:'VCLOCK', name:'3472 LOCK — Five-Zone Dial + Moving Phase Arc', star:1, wide:1, demo:paceDial, th:'tall', noselect:1,
+   desc:'PAUSE · SLOW · CRUISE · ENERGIZE · TOO FAST. Watch Scenario S2: arc slides left at PROVE-STORY before the student drifts. Deliberate pause parks in PAUSE as neutral — a pause is not slow speech.'},
+  ...o71([
+   ['VC1','Phrase Runway','Rolling WPM per bounded speech run eases onto the runway.'],
+   ['VC2','Pace Stamina Bar','Integrated pace error drains stamina — "release the sprint; add space."'],
+   ['VC3','Pace Phase Gates','WPM inside explicit phases; whole-answer view without markers.'],
+   ['VC4','Pace Build Rhythm','Short-window word-density bins; provisional under transcript latency.'],
+   ['VC5','Pace Gearbox','Target-relative gear metaphor. REJECTED by 3472 tone rule (vehicles).'],
+   ['VC6','Pace Possession Clock','Cumulative words vs elapsed phase. FILM ROOM.'],
+  ])]},
+{fid:'VR', name:'19 · CADENCE / RHYTHM', b:['t','l72','71C'],
+ note:'PATTERN, inverted target: <b>metronomic = failure</b>. ECG metaphor explicitly rejected for a medical audience (a flat trace means something else to physicians). Lock: phrase-spacing rail vs even-grid ghost — matching the grid is the failure state. Folds pause duration (gap width) and placement (gap position) into one object.',
+ options:[
+  {id:'VRLOCK', name:'3472 LOCK — Phrase Rail vs Ghost Grid', star:1, wide:1, demo:cadenceRail, th:'tall', noselect:1,
+   desc:'Run Scenario S5: grid-matching blocks turn amber (TOO EVEN — BREAK THE RHYTHM), natural irregularity reads as success, chaos triggers the second wall (UNEVEN — FIND A PATTERN). Over-regular pattern language only — never "memorized" or "scripted."'},
+  ...o71([
+   ['VR1','Cadence Break Tiles','Repeated duration tiles beg to be broken.'],
+   ['VR2','Cadence Pulse Trap','Bounded regularity pulse; needs ≥4 valid intervals.'],
+   ['VR3','Cadence Combo Spacing','Adjacent spacing-variation chain; gap resets chain.'],
+   ['VR4','Cadence Storm Pulse','Regularity envelope over event impulses. FILM ROOM.'],
+   ['VR5','Cadence Beat Lanes','Aligned event lanes + intervals. FILM ROOM.'],
+   ['VR6','Cadence Fight Spacing','Bounded next-onset predictability — "delay or advance slightly."'],
+  ])]},
+{fid:'PP', name:'20 · PAUSE PLACEMENT', b:['t','n'],
+ note:'3472 folds pause into the cadence rail (duration = gap width) and the timeline (placement = EVENT). These are the standalone alternates if the Founder wants pause as its own surface.',
+ options:[
+  {id:'PP1', name:'Folded into Rail + Timeline', star:1, desc:'The lock: no separate instrument. Gap width lives in CADENCE; strategic-pause chips live in the Film Room EVENT strip, phase-aware (a pause before CLOSE reads differently than mid-EXPLAIN hesitation).', thumb:T.lanes(3)},
+  {id:'PP2', name:'Pause Beat Line', desc:'Live line that marks each silence ≥600ms as a dot sized by duration; strategic pre-CLOSE pauses ring gold.', thumb:`<div class="mock" style="align-items:center;"><div style="flex:1; height:2px; background:var(--line2); position:relative;">${[[12,5],[34,8],[52,4],[78,12]].map(p=>`<div style="position:absolute; left:${p[0]}%; top:${-p[1]/2}px; width:${p[1]}px; height:${p[1]}px; border-radius:50%; background:${p[1]>9?'var(--gold)':'var(--neutral)'};"></div>`).join('')}</div></div>`},
+  {id:'PP3', name:'Silence Budget', desc:'A per-answer silence allowance that fills as you bank deliberate pauses. Gamey; risks rewarding silence for its own sake.', thumb:T.rows([{f:1,l:'SILENCE BANKED ▮▮▮▯▯'}])},
+ ]},
+{group:'HANDS & FRAMING'},
+{fid:'GZ', name:'21+22 · GESTURE FIELD + L/R TRACKING', b:['v','l72','71C'],
+ note:'SPATIAL class, silhouette always present for scale. Lock (3472 §7.7): exactly two live hand instruments — this field with two-color trails, plus the Gesture Effectiveness composite. Run Scenario S3: right hand leaves frame → ghost ring + honest chip; the composite loses a contributor instead of scoring zero.',
+ options:[
+  {id:'GZLOCK', name:'3472 LOCK — Body-Relative Field + Two-Color Trails', star:1, wide:1, demo:handField, th:'tall', noselect:1,
+   desc:'Zones: FACE (caution) · READABLE FIELD (target) · BELOW FRAME (loss). Trail length = recent amplitude. Answers all three live questions at once: visible? where? moving? Correction priority: BRING HANDS INTO FRAME outranks everything gestural.'},
+  ...o71([
+   ['GZ1','Gesture Operating Field','Dead/useful/overflow zones anchored to torso. Lock base.'],
+   ['GZ2','Dual Hand Lanes','Independent per-hand lanes; unknown side never swaps. Lock donor.'],
+   ['GZ3','Gesture Capture Zones','Zone dwell + transitions; tracking gap resets dwell.'],
+   ['GZ4','Gesture Build Grid','Occupied body-grid cells — "use one clear neighboring cell."'],
+   ['GZ5','Gesture Court Map','Decaying per-hand position marks. FILM ROOM.'],
+   ['GZ6','Gesture Reach Arcs','Normalized radial reach — "shorten the reach into the useful arc."'],
+  ])]},
+{fid:'GH', name:'23 · GESTURE HEATMAP', b:['t','71C'],
+ note:'3472 verdict: five of six heatmaps die — heat needs time to accumulate and answers "where were your hands?", which no student needs live. <b>The Natural Gesture Fingerprint replaces heat as the flagship spatial story.</b> GH3/GH6 survive as Film Room lenses only.',
+ options:o71([
+   ['GH1','Left/Right Heat Field','Independent per-hand density fields. Film Room only.'],
+   ['GH2','Gesture Decay Trail','Bounded time-decay trail. Superseded by the lock field trails.'],
+   ['GH3','Safe-Zone Heatmap','Density vs useful zone relation. SURVIVES as Film Room lens.'],
+   ['GH4','Repetition Hotspot','Episode centroid clusters/revisits — "start the next episode elsewhere."'],
+   ['GH5','Territory Map','Occupancy/revisit counts on the body grid; unknown cells stay hatched.'],
+   ['GH6','Gesture Shot Chart','Replay-selectable event marks. SURVIVES as Film Room lens.'],
+  ])},
+{fid:'GS', name:'GESTURE + SPEECH SYNCHRONY', b:['t','71C'],
+ note:'Feeds DELIVERY CONGRUENCE. Live shows co-occurrence only; semantic pairing is post. Beat-gesture evidence is contested (3472 §4 G-BEAT) — no beat-rate targets, ever. Permitted claim shape: "your emphasis and your hand landed together on 8 of 11 key words."',
+ options:o71([
+   ['GS1','Handstorm Impact Window','Signed timing offset between motion peaks and energy peaks.'],
+   ['GS2','Gesture Speech Combo','Bounded co-occurrence chain; gaps reset the chain.'],
+   ['GS3','Synchrony Convergence Rings','Nearest signed time offset; no forced pairing.'],
+   ['GS4','Emphasis Hit Windows','Hit/miss vs future explicit emphasis markers. NEW ENGINEERING.'],
+   ['GS5','Synchrony Rhythm Track','Aligned energy + motion traces. FILM ROOM pick.'],
+   ['GS6','Synchrony Telestrator','Selectable replay events with mentor markers. FILM ROOM.'],
+  ])},
+{fid:'FF', name:'25 · CAMERA POSITION / FRAMING', b:['v','l72','71C'],
+ note:'Setup task → completion grammar. Lock: Codex corner reticle (their strongest single visual) + Opus docking-lock + strict priority order: TOO CLOSE → TOO FAR → OFF-CENTRE → CAMERA TOO LOW → HANDS BELOW FRAME. Live demo above in CAMERA + MIC CHECK.',
+ options:[
+  {id:'FFLOCK', name:'3472 LOCK — Docking Bay + Corner Brackets', star:1, wide:1, demo:cameraDock, th:'tall', noselect:1,
+   desc:'Brackets snap and lock green; LOCKED is a terminal state, not a reading. HANDS BELOW FRAME lives here — if the camera crops the hands, the fix is a camera fix.'},
+  ...o71([
+   ['FF1','Camera Dock','Signed dock errors; face count ≠ 1 suppresses. Lock base.'],
+   ['FF2','Framing Gravity Field','Directional pull toward center.'],
+   ['FF3','Squad Ready Frame','Four exposed readiness contributors; unknown never turns green.'],
+   ['FF4','Framing Quest Arrow','One dominant signed correction; ties show multiple arrows honestly.'],
+   ['FF5','Framing Pit Alignment','Time-local boundary error + centered fraction. FILM ROOM.'],
+   ['FF6','Acquisition Reticle','Independent brackets per check; extra face breaks lock. Lock donor.'],
+  ])]},
+{group:'CUE PROFILES & COMPOSITES'},
+{fid:'MC', name:'27 · MASTER + CONTRIBUTORS', b:['t','l72','n'],
+ note:'The universal composite law (3472 §8.1): <b>cap by weakest (+15 headroom), contributors always visible, coverage ring with denominator, buckets of 5, scores never flow down.</b> Run the CONTRIBUTOR → MASTER scenario: VOLUME VARIATION recovers 61 → 84 and the master follows 85 → 90 with the cap visibly releasing.',
+ options:[
+  {id:'MCLOCK', name:'VOCAL VARIETY — live contributor → master proof', star:1, wide:1, th:'tall', noselect:1,
+   demo:(el)=>geComposite(el,'VOCAL VARIETY (MASTER)',()=>SIM.vvContrib,null),
+   desc:'PITCH VARIATION 96 · VOLUME VARIATION 61 ◄ LIMITING · PACE 91 · CADENCE 89 — mean says 84, the cap says the truth. Start scenario <b>CONTRIB→MASTER</b> below and watch the bracket open, the 61 climb, and the master release.'},
+  {id:'MC1', name:'Stack Bars', desc:'Contributors as a stacked bar under a big number. Compact; hides the cap logic.', thumb:T.rows([{f:.8,l:'85'},{f:1,l:'▮▮▮▮ CONTRIBUTORS'}])},
+  {id:'MC2', name:'Contributor Rail → Master', star:1, desc:'Horizontal contributor rail feeding a master tile through a visible cap gate — the arithmetic is the interface. Fable pick (rendered live above).', thumb:T.cols([{f:1.6,l:'CONTRIBUTORS',r:4},{f:.16,h:'<div style="margin:auto; font-size:12px; color:var(--warn);">⟶</div>'},{f:.8,l:'MASTER 85',s:'justify-content:center; border-color:var(--gold);'}])},
+  {id:'MC3', name:'Orbit', desc:'Contributors orbit the master; weak orbits drift outward. Elegant; harder to read exact states.', thumb:`<div class="mock" style="align-items:center; justify-content:center;"><div style="width:40px; height:40px; border-radius:50%; background:var(--card2); border:2px solid var(--gold); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:11px;">85</div>${[0,72,144,216,288].map(a=>`<div style="position:absolute; left:calc(50% + ${Math.cos(a*Math.PI/180)*62}px - 6px); top:calc(50% + ${Math.sin(a*Math.PI/180)*46}px - 6px); width:12px; height:12px; border-radius:50%; background:${a===144?'var(--warn)':'var(--ok)'};"></div>`).join('')}</div>`},
+  {id:'MC4', name:'Chain', desc:'Contributors as chain links; the weakest link visually strains and caps the chain\'s rating. The metaphor IS the math.', thumb:`<div class="mock" style="align-items:center; justify-content:center; gap:4px;">${['#2FA84F','#2FA84F','#F5A623','#2FA84F'].map(c=>`<div style="width:26px; height:16px; border:3px solid ${c}; border-radius:8px;"></div>`).join('')}<span style="font-weight:900; font-size:11px; margin-left:8px;">⟶ 85</span></div>`},
+  {id:'MC5', name:'Ledger', desc:'Typographic ledger with the cap computation printed. LAB/Mentor density pick; too austere for students.', thumb:T.rows([{f:1,l:'mean 84.2 · weakest 61 · cap = min(84.2, 76) = 76 → bucket 75'}])},
+ ]},
+{fid:'GE', name:'GESTURE EFFECTIVENESS', b:['t','l72','n'],
+ note:'3472 §8.2 weights: hands visible .25 · zone residency .20 · space vs baseline .25 · illustrator rate .20 · holds .10. Excluded on evidence: beat rate, open-palm rate, self-adaptor rate (detected, shown post, contributes to NOTHING). Scenario S3 proves coverage honesty.',
+ options:[
+  {id:'GELOCK', name:'GESTURE EFFECTIVENESS — coverage-honest composite', star:1, wide:1, th:'tall', noselect:1,
+   demo:(el)=>geComposite(el,'GESTURE EFFECTIVENESS',()=>({'HANDS VISIBLE':SIM.hands.R.vis?88:70,'OPERATING ZONE':81,'SPACE VS BASELINE':76,'ILLUSTRATOR RATE':72,'L/R BALANCE':74}),()=>({'L/R BALANCE':SIM.hands.R.vis})),
+   desc:'Run S3: right hand leaves frame → L/R BALANCE goes UNAVAILABLE (not "imbalanced"), ring drops to 4 OF 5, master does NOT crater as if scoring zero.'},
+ ]},
+{fid:'CW', name:'WARMTH-CUE PROFILE', b:['t','71C'],
+ note:'Naming law: the suffix carries the entire claim boundary — <b>never "warmth", ever, anywhere</b>, including tooltips and CSV headers. Contributors: expressive vocal variation, open-hand events, visible hands, responsive head movement, conversational cadence, synchrony.',
+ options:o71([
+   ['CW1','Warmth-Cue Banner','Fixed reviewable profile of approved named cues.'],
+   ['CW2','Warmth-Cue Shard Core','Exposed shards; unsupported pitch shard stays visibly unavailable.'],
+   ['CW3','Warmth-Cue Quest List','Literal phase-bounded cue checklist.'],
+   ['CW4','Warmth-Cue Balance Field','Target-envelope radar; a missing axis stays broken and blocks the summary. Fable pick.'],
+   ['CW5','Warmth-Cue Orbit','Cue timing/co-occurrence orbit across phases.'],
+   ['CW6','Warmth-Cue Stat Line','Counts/timing/target relation. FILM ROOM/Mentor.'],
+  ])},
+{fid:'CC', name:'COMPETENCE-CUE PROFILE', b:['t','71C'],
+ note:'Contributors: pace stability in phase target, gesture holds, enumeration during ENUMERATE, filled-pause rate (inverted), congruence. Deliberately excluded: steepling, power stance, posture expansiveness — the folk backbone of "competence coaching" does not survive the evidence.',
+ options:o71([
+   ['CC1','Mission Stack','Exposed cue modules; absent module = visibly incomplete stack.'],
+   ['CC2','Readiness Gates','Independent gates; unknown stays open and blocks READY.'],
+   ['CC3','Tactical Board','Phase-node map of delivery-only cues. FILM ROOM.'],
+   ['CC4','Weak-Link Vector','Largest explicit deviation leads. Fable pick — pairs with the composite law.'],
+   ['CC5','Skill Tree','Transparent phase prerequisites; missing evidence stays unknown.'],
+   ['CC6','Box Score','Target-relative stat table. Mentor/Admin density.'],
+  ])},
+{fid:'CR', name:'CREDIBILITY / AUTHORITY-CUE LENS', b:['t','n'],
+ note:'Hard boundary (3472 §1.5): deception/credibility inference is prohibited — 54% human accuracy, visual channel worse, 28/36 TSA indicators unsupported. What survives is a <b>stability lens</b>: steadiness, landings, strategic pauses, congruence. Fable recommends it as a LAB/Mentor lens inside Competence, not a student-facing profile.',
+ options:[
+  {id:'CR1', name:'LAB Lens inside Competence', star:1, desc:'Authority-cue subset rendered only in LAB/Mentor density as a lens over COMPETENCE-CUE PROFILE. Students never see a "credibility" surface; mentors see steadiness evidence.', thumb:T.rows([{f:1,l:'COMPETENCE-CUE PROFILE'},{f:.7,l:'⊕ AUTHORITY-CUE LENS · LAB ONLY',s:'border-color:var(--info);'}])},
+  {id:'CR2', name:'Steadiness Strip', desc:'Vocal steadiness + framing stability + composed range as one strip. Observable, narrow, safe.', thumb:T.lanes(3)},
+  {id:'CR3', name:'Landing Meter', desc:'Clear vocal endings only: did the last phrase land down and clean? Feeds END STRONG coaching.', thumb:`<div class="mock" style="align-items:center; justify-content:center;"><svg viewBox="0 0 100 30" style="width:80%;"><path d="M0,12 Q30,8 60,14 T95,22" fill="none" stroke="#2FA84F" stroke-width="2"/><circle cx="95" cy="22" r="3" fill="#2FA84F"/></svg><span style="position:absolute; bottom:10px; font-size:8px; font-weight:800; color:var(--ok);">LANDED ↓</span></div>`},
+  {id:'CR4', name:'Standalone Profile', desc:'Full student-facing AUTHORITY-CUE PROFILE. NOT recommended — closest to the prohibited inference; keep behind human validation.', thumb:T.rows([{f:1,l:'AUTHORITY-CUE PROFILE — HOLD FOR VALIDATION',s:'border-color:var(--bad);'}])},
+ ]},
+{fid:'CB', name:'CHARISMA CUE BALANCE', b:['t','l72','n'],
+ note:'Not a mystery score: the <b>balance</b> of Warmth-Cue + Competence-Cue + Congruence + Gesture Effectiveness, capped by weakest, buckets of 5, coverage ring. The ONLY 0–100 headline permitted in the product, PERFORMANCE mode only. Label never shortened.',
+ options:[
+  {id:'CBLOCK', name:'CHARISMA CUE BALANCE — beam + capped headline', star:1, wide:1, demo:cbBalance, th:'tall', noselect:1,
+   desc:'Run Scenarios B and C: the beam tips, the note names which cue family is under-supplied, and the headline caps. Balance is the message — never "you are charismatic."'},
+  {id:'CB2', name:'Twin Arcs', desc:'Warmth-cue and competence-cue as facing arcs that close into a ring when balanced.', thumb:`<div class="mock" style="align-items:center; justify-content:center;"><svg viewBox="0 0 100 60" style="width:70%;"><path d="M20,50 A32,32 0 0 1 50,15" fill="none" stroke="#E8BE6A" stroke-width="5"/><path d="M80,50 A32,32 0 0 0 52,15" fill="none" stroke="#2E6BE6" stroke-width="5"/></svg></div>`},
+  {id:'CB3', name:'Proportion Dial', desc:'One needle between the two cue families; center zone is target. Simplest possible read; hides contributors (violates §8.1.2 unless paired).', thumb:T.solo({tag:'', h:'<div style="position:absolute; inset:30% 20%; border-top:4px solid var(--line2); border-radius:50% 50% 0 0;"></div><div style="position:absolute; left:50%; bottom:30%; width:3px; height:30%; background:var(--gold); transform:rotate(-12deg); transform-origin:bottom;"></div>'})},
+  {id:'CB4', name:'Cue Ledger', desc:'Four contributor rows + capped total, typographic. Mentor/Film Room density.', thumb:T.rows([{f:1,l:'WARMTH-CUE 72 · COMPETENCE-CUE 74 · CONGRUENCE 76 · GESTURE 75 → 70'}])},
+ ]},
+{fid:'WX', name:'WARMTH × COMPETENCE FIELD', b:['t','n'],
+ note:'The Founder-required relationship view. High-competence-cues + low-warmth-cues → "capable but distant" coaching state; the reverse → "personable, less controlled." Language stays in cue space: "your delivery is sending fewer warmth cues than your target."',
+ options:[
+  {id:'WXLOCK', name:'WX1 — Two-Axis Field with drift trail', star:1, wide:1, demo:wxField, th:'tall', noselect:1,
+   desc:'Position + 60-second drift trail + target zone. Run Scenario B (personable/low-authority) and C (polished/cold) to see the dot migrate and the coaching line rewrite itself.'},
+  {id:'WX2', name:'Dual Vectors', desc:'Two arrows from origin; the resultant vector is the read. Physics-clean; needs a legend (fails two-foot).', thumb:`<div class="mock" style="align-items:center; justify-content:center;"><svg viewBox="0 0 100 60" style="width:70%;"><line x1="10" y1="50" x2="60" y2="20" stroke="#E8BE6A" stroke-width="3"/><line x1="10" y1="50" x2="75" y2="42" stroke="#2E6BE6" stroke-width="3"/><line x1="10" y1="50" x2="82" y2="24" stroke="#2FA84F" stroke-width="2" stroke-dasharray="4 3"/></svg></div>`},
+  {id:'WX3', name:'Paired Gauges → Shared Target', desc:'Two vertical gauges feeding one shared target chamber that only fills when both are supplied. Strong causal read.', thumb:T.cols([{f:.5,l:'W',h:'<div style="margin:6px; height:60%; background:linear-gradient(0deg,#E8BE6A 60%,transparent 60%); border-radius:4px;"></div>'},{f:.5,l:'C',h:'<div style="margin:6px; height:60%; background:linear-gradient(0deg,#2E6BE6 40%,transparent 40%); border-radius:4px;"></div>'},{f:1,l:'SHARED TARGET',s:'justify-content:center;'}])},
+  {id:'WX4', name:'Quadrant Compass', desc:'Named quadrants with a compass needle. Reads instantly; quadrant labels risk sounding like verdicts — copy must stay cue-bounded.', thumb:`<div class="mock" style="align-items:center; justify-content:center;"><div style="width:70%; height:80%; border:1px solid var(--line2); position:relative;"><div style="position:absolute; left:50%; top:0; bottom:0; width:1px; background:var(--line2);"></div><div style="position:absolute; top:50%; left:0; right:0; height:1px; background:var(--line2);"></div><div class="mkdot" style="position:absolute; right:18%; top:22%; background:var(--gold); width:10px; height:10px;"></div></div></div>`},
+ ]},
+{fid:'CD', name:'26 · DELIVERY CONGRUENCE', b:['t','l72','71C'],
+ note:'The most defensible composite — it measures whether observable channels agree in time, no interpretive leap. Three distinct failure states, three distinct corrections: <b>VOICE AHEAD OF HANDS · HANDS QUIET WHILE VOICE PEAKS · BOTH FLAT</b>. Scenario E fires a multimodal beat every 6 seconds.',
+ options:[
+  {id:'CDLOCK', name:'Aligned Channel Lanes — live convergence', star:1, wide:1, demo:congruenceLanes, th:'tall', noselect:1,
+   desc:'Voice energy, pitch movement, hand motion on one clock; convergence flashes as a marked column. Post-hoc, the same columns become clickable timeline events.'},
+  ...o71([
+   ['CD1','Congruence Lock Core','Fixed exposed composite; a missing shard is named, never hidden. LIVE pick.'],
+   ['CD2','Congruence Gate Array','Ordered transparent gates per phase.'],
+   ['CD3','Congruence Split Screen','Voice/timing vs motion/framing deviations in shared time. FILM ROOM pick.'],
+   ['CD4','Congruence Squad Bar','Weak-link contributor state leads.'],
+   ['CD5','Congruence Ability Orbit','Per-contributor target-error orbits; no renormalization. Donor of the capping math.'],
+   ['CD6','Congruence Lineup Board','Phase matrix of channel states. Mentor.'],
+  ])]},
+{fid:'CM', name:'MECHANICAL / OVER-REGULAR DELIVERY', b:['t','71C'],
+ note:'Language law: we can see regularity; we cannot see memorization. "Over-regular / script-like delivery pattern" is the permitted construct; "rehearsed/memorized/scripted answer" is prohibited.',
+ options:o71([
+   ['CM1','Regularity Trap Breaker','Repeated timing tiles — break one to escape.'],
+   ['CM2','Regularity Radar','Named variation axes; unsupported axis stays broken.'],
+   ['CM3','Script-Like Pattern Timeline','Similar delivery-only window shapes marked for replay. Fable pick (FILM ROOM).'],
+   ['CM4','Variation Combo Builder','Distinct variation links build a chain; missing channel is neither zero nor bonus.'],
+   ['CM5','Sameness Beat Lane','Adjacent phrase-shape similarity; no imputation.'],
+   ['CM6','Regularity Lap Delta','Phrase-to-phrase deltas; needs ≥3 phrases.'],
+  ])},
+{fid:'CT', name:'STORYTELLING DELIVERY', b:['t','71C'],
+ note:'Phase-shaped delivery over OPEN · ENUMERATE · PROVE-STORY · CLOSE. Phase truth is NEW ENGINEERING — until it ships, manual/mentor markers or whole-answer view (fail-closed).',
+ options:o71([
+   ['CT1','Story Delivery Runway','Phase-specific runway targets — "build energy into the turn."'],
+   ['CT2','Story Delivery Quest Map','Chronological event path. FILM ROOM.'],
+   ['CT3','Setup–Turn–Payoff Zones','Three transparent zone states. Fable pick — maps 1:1 to SAF(e) coaching.'],
+   ['CT4','Story Beat Combo','Transition chain over phase boundaries.'],
+   ['CT5','Story Decision Trail','Dominant observable delivery shift per phase; ties stay multi-branch.'],
+   ['CT6','Story Momentum Board','Delivery-event density vs phase targets. FILM ROOM.'],
+  ])},
+{group:'FINGERPRINT & OPPORTUNITIES'},
+{fid:'NG', name:'24 · NATURAL GESTURE FINGERPRINT', b:['t','l72','n'],
+ note:'The strongest product idea in the brief, with direct experimental license (gesture space contracts under status pressure — replicated across two languages). Framed as <b>"this is your range — you have more than you are using"</b>, never "you are nervous." Baseline capture is unscored, instrument-free, 60–90s of casual storytelling; baselines expire at 90 days.',
+ options:[
+  {id:'NGLOCK', name:'NG1 — Territory Overlay on one silhouette', star:1, wide:1, demo:fingerprint, th:'tall', noselect:1,
+   desc:'Natural territory filled translucent; interview territory as a solid outline. The delta needs no explanation. One drill output: RECOVER YOUR NATURAL RANGE — TARGET 85% OF BASELINE HULL. Toggle NATURAL / INTERVIEW / OVERLAY.'},
+  {id:'NG2', name:'Side-by-Side Twin', desc:'Two silhouettes, natural vs interview, same scale. Clearer for first-time viewers; loses the direct overlap read.', thumb:T.cols([{f:1,l:'NATURAL',h:'<div style="margin:10px 18%; height:56%; border:2px solid #2E6BE6; border-radius:50%;"></div>'},{f:1,l:'INTERVIEW',h:'<div style="margin:22px 32%; height:34%; border:2px solid var(--warn); border-radius:50%;"></div>'}])},
+  {id:'NG3', name:'Morph Replay', desc:'The natural territory animates shrinking into the interview territory over 3 seconds. Emotionally powerful; use sparingly (session end, not every answer).', thumb:T.solo({tag:'MORPH', h:'<div style="position:absolute; inset:16% 22%; border:2px dashed #2E6BE6; border-radius:50%;"></div><div style="position:absolute; inset:36% 36%; border:2px solid var(--warn); border-radius:50%;"></div><div style="position:absolute; bottom:8px; right:8px; font-size:8px; color:var(--warn); font-weight:800;">−34%</div>'})},
+  {id:'NG4', name:'Fingerprint Card', desc:'The Conversation Fingerprint as a beautiful identity card (territory glyph + cadence style + pitch character). Lives in HOME/Locker; the emotional anchor for the whole baseline system.', thumb:T.rows([{f:1.4,l:'A. OKAFOR — CONVERSATION FINGERPRINT',s:'border-color:var(--gold);'},{f:.8,l:'TERRITORY ◉ · CADENCE varied · PITCH wide'}])},
+  {id:'NG5', name:'Recovery Dial', desc:'Single dial: % of natural range currently in use. The tuner version of the fingerprint for live Delivery Training (peripheral slot).', thumb:T.solo({tag:'', h:'<div style="position:absolute; inset:22% 30%; border:4px solid var(--line2); border-radius:50%;"></div><div style="position:absolute; left:50%; top:50%; width:3px; height:24%; background:var(--gold); transform-origin:top; transform:rotate(58deg);"></div><div style="position:absolute; bottom:10px; left:0; right:0; text-align:center; font-size:8px; font-weight:800; color:var(--ink2);">66% OF YOUR RANGE</div>'})},
+ ]},
+{fid:'GO', name:'SEMANTIC GESTURE OPPORTUNITIES', b:['t','n'],
+ note:'Post/Film-Room only, ≤4 per answer, labeled <b>GESTURE OPPORTUNITY</b>, never "MISSED", never a live penalty, never a score input. Flagship case: transcript announces "three things…", no enumeration detected → clickable marker replays the exact moment. Fairness gate: ships only above an ASR word-error-rate threshold.',
+ options:[
+  {id:'GO1', name:'Timeline Opportunity Chips', star:1, desc:'Amber chips on the Film Room OPPORTUNITIES lane; click → seek −2s, transcript line + hand lanes shown together; Mentor decides whether enumeration would have helped.', thumb:T.lanes(4)},
+  {id:'GO2', name:'Post-Answer Card Stack', desc:'Up to 3 opportunity cards after the answer, swipeable, each with a replay chip. Faster loop; competes with the one-thing-to-fix card.', thumb:T.cards(['OPP · ENUM 00:47','OPP · CONTRAST 01:12','OPP · EMPHASIS 01:44'],0)},
+  {id:'GO3', name:'Mentor Queue', desc:'Opportunities land in the Mentor\'s queue only; the Mentor forwards the ones worth teaching. Maximum pedagogy control, slower feedback.', thumb:T.rows([{f:1,l:'MENTOR REVIEW QUEUE (3)',r:3}])},
+  {id:'GO4', name:'Micro-Mission Generator', desc:'Each accepted opportunity becomes a 90-second drill ("rebuild that answer\'s list with enumeration"). Closes the loop from evidence to practice.', thumb:T.steps(['OPPORTUNITY','REPLAY','90s MISSION'])},
+ ]},
+{group:'FILM ROOM & REVIEW'},
+{fid:'FILM', name:'31 · FILM ROOM', b:['t','l72','n'],
+ note:'Flagship. Evidence, not verdict: every claim clickable to its source frame; the COVERAGE lane is mandatory; a gap never renders like a measured zero. The live demo answers WHEN · WHAT ELSE · WHERE TO CLICK on one shared clock — including the 9s PITCH — UNAVAILABLE outage and the R-hand loss.',
+ options:[
+  {id:'FILMLOCK', name:'FILM1 — Theater (Threadline Flight Recorder)', star:1, wide:1, demo:filmRoom, th:'xl', noselect:1,
+   desc:'Video + synchronized lanes + playhead + chips (gesture events, opportunities, mentor marks) + coverage hatching. Density switch changes lane count (SIMPLE → phase/events only · LAB → adds coverage). This is TM1 on the Codex chassis with Opus chip grammar.'},
+  {id:'FILM2', name:'Split Court', desc:'Video left, vertical lane stack right — reads like a chart review. Better for long answers; weaker shared-clock feel.', thumb:T.cols([{f:1,l:'VIDEO'},{f:1,l:'LANES',r:6}])},
+  {id:'FILM3', name:'Broadcast Booth', desc:'Big video, lower-third lanes, commentary-style coaching cards. Most cinematic; fewest simultaneous lanes.', thumb:T.rows([{f:1.6,l:'VIDEO'},{f:.6,l:'LOWER-THIRD LANES'}])},
+  {id:'FILM4', name:'Evidence Desk', desc:'Chips-first: a sortable table of every event; video is the sidecar. Mentor/Admin power view.', thumb:T.cols([{f:1.4,l:'EVENT TABLE',r:5},{f:.8,l:'VIDEO'}])},
+  {id:'FILM5', name:'Compare Room', desc:'Before/after synchronized playback of the same question, tracks phase-aligned. The improvement-proof machine; pairs with Personal Best.', thumb:T.cols([{f:1,l:'ATTEMPT 1'},{f:1,l:'ATTEMPT 2 · +VOL VAR'}])},
+ ]},
+{fid:'TM', name:'32 · TIMELINE / FLIGHT RECORDER', b:['t','71C'],
+ note:'All TM options present synchronized clickable lanes; every event answers WHEN, WHAT ELSE, WHERE TO CLICK. Unsupported lanes stay visibly unavailable. TM1 is the Fable/3472 pick; TM5\'s telestrator marks are transplanted in.',
+ options:o71([
+   ['TM1','Threadline Flight Recorder','One monotonic clickable playhead across all approved lanes. THE pick.'],
+   ['TM2','Replay Command Wheel','Radial time sectors; incomplete sectors marked. NEW ENGINEERING.'],
+   ['TM3','Delivery Filmstrip','Common display bins; skew blocks alignment honestly.'],
+   ['TM4','Session Tactical Map','Immutable event graph topology. Admin forensics.'],
+   ['TM5','Replay Telestrator','Shared playhead + mentor annotation layer. Mark grammar donor.'],
+   ['TM6','Session Telemetry Stack','Lane stack with phase/target overlays. Admin.'],
+  ])},
+{fid:'NLS', name:'33 · NATURAL-LANGUAGE MOMENT SEARCH', b:['t','n'],
+ options:[
+  {id:'NLS1', name:'Ask the Session', star:1, desc:'One search bar over the flight recorder: "show every pause longer than 2 seconds" · "where did my hands drop?" · "play my strongest congruence moment." Results are chips that seek.', thumb:T.rows([{f:.5,l:'🔍 "where did my hands drop?"',s:'border-color:var(--gold);'},{f:1,l:'RESULTS → 00:31 · 01:12',r:2}])},
+  {id:'NLS2', name:'Query Chip Library', desc:'Pre-built query chips by category (voice/hands/pauses/opportunities). Zero typing; discoverable; less flexible.', thumb:T.cards(['PAUSES >2s','HANDS LOST','BEST MOMENT','ALL OPPS'],-1)},
+  {id:'NLS3', name:'Transcript-Anchored', desc:'Search the transcript; every hit carries its delivery lanes inline. Strongest for content+delivery review together.', thumb:T.rows([{f:1,l:'"...three things I learned..." — lanes inline',r:2}])},
+ ]},
+{fid:'AR', name:'28 · ANSWER REVIEW (POST-ANSWER CARD)', b:['t','n'],
+ note:'Ten seconds between answers: one thing that worked, one thing to fix, one replay chip. Structure note (SAF(e)) and delivery note are visually distinct — the two systems meet here and only here.',
+ options:[
+  {id:'AR1', name:'Moment Stack', star:1, desc:'WORKED (green, evidence chip) · FIX (amber, evidence chip) · NEXT. Delivery note from the arbiter\'s history; structure note from SAF(e) coaching. Ships in Wave 0.', thumb:T.rows([{f:1,l:'✔ WORKED — pace held through the story · 00:34',s:'border-color:#1d5230;'},{f:1,l:'△ FIX — volume variation collapsed in CLOSE · 01:41',s:'border-color:#5a4310;'},{f:.6,l:'NEXT QUESTION →'}])},
+  {id:'AR2', name:'Twin Columns', desc:'STRUCTURE | DELIVERY side-by-side, each with its own voice and color system. Clearest separation; heavier read between answers.', thumb:T.cols([{f:1,l:'STRUCTURE · SAF(e)',r:3},{f:1,l:'DELIVERY · CUES',r:3}])},
+  {id:'AR3', name:'Coach Voiceover', desc:'Dr Kelly (or mentor voice) delivers the one note aloud while the replay chip pulses. Premium feel; costs provider seconds.', thumb:T.stage({kf:.8, sf:1})},
+ ]},
+{fid:'SR', name:'29 · SAF(e) REVIEW', b:['v','n'],
+ note:'SAF(e) is answer STRUCTURE — Start Simple · Add Reasons · Focus on ONE Example · End Strong. Qualitative by prior architecture law: <b>no fake 1–100 grade, ever.</b>',
+ options:[
+  {id:'SR1', name:'Checkpoint Ribbon', desc:'S·A·F·E checkpoints over the answer transcript; each checkpoint is MET / PARTIAL / NOT REACHED with the evidence sentence highlighted.', thumb:T.steps(['S ✔','A ✔','F ◐','E ✘'])},
+  {id:'SR2', name:'Structure Cards', star:1, desc:'Four cards, each quoting the student\'s own words where the move happened (or noting its absence) plus one improvement line. Reads like mentor feedback, not machine output.', thumb:T.cards(['START SIMPLE ✔','ADD REASONS ✔','ONE EXAMPLE — two competing','END STRONG — trailed off'],3)},
+  {id:'SR3', name:'Mentor Annotations Only', desc:'SAF(e) surfaces exclusively through mentor/manual annotation — the most conservative reading of the qualitative law. Zero automation risk; slower feedback.', thumb:T.rows([{f:1,l:'DR BRIAN — "your END STRONG is one sentence too long"',r:2}])},
+ ]},
+{fid:'RES', name:'30 · SESSION RESULTS', b:['t','n'],
+ options:[
+  {id:'RES1', name:'Session Debrief', star:1, desc:'One screen: what we trained, the master + contributors (with the cap visible), 2–3 saved moments, one generated next mission. No grade wall.', thumb:T.rows([{f:1,l:'VOCAL VARIETY 85 · LIMITING: VOLUME VARIATION'},{f:.8,l:'MOMENTS ▸▸▸'},{f:.6,l:'NEXT MISSION → 90s VOLUME VARIATION',s:'border-color:var(--gold);'}])},
+  {id:'RES2', name:'Highlight Reel', desc:'Auto-cut 45-second reel of best + fix moments, lanes burned in. Shareable with mentor; most memorable artifact.', thumb:T.solo({tag:'REEL 0:45', h:'<div style="position:absolute; bottom:8px; left:8px; right:8px; height:10px; background:var(--card2); border-radius:3px;"><div style="position:absolute; left:20%; width:8%; top:0; bottom:0; background:var(--ok);"></div><div style="position:absolute; left:64%; width:8%; top:0; bottom:0; background:var(--warn);"></div></div>'})},
+  {id:'RES3', name:'Scorecard', desc:'Dense numeric table of everything. LAB/Mentor only — shown to students it becomes score-chasing fuel.', thumb:T.rows([{f:1,l:'FULL TABLE — LAB DENSITY ONLY',r:4}])},
+ ]},
+{fid:'PB', name:'34 · PERSONAL BASELINE VS CURRENT', b:['t','n'],
+ options:[
+  {id:'PB1', name:'Baseline Ribbon', star:1, desc:'Every instrument can show a quiet second ribbon: your baseline for this metric. One toggle, system-wide, target-reference law compliant (BASELINE is one of the five permitted targets).', thumb:T.rows([{f:1,l:'CURRENT ▬▬▬▬',s:'border-color:var(--gold);'},{f:1,l:'BASELINE ▭▭▭▭'}])},
+  {id:'PB2', name:'Ghost Overlay', desc:'Baseline as a ghosted overlay directly on the live instrument (ghost bracket, ghost needle). Densest information; needs restraint at SIMPLE.', thumb:T.solo({tag:'GHOST', h:'<div style="position:absolute; inset:40% 20% 40%; border:2px dashed var(--neutral); border-radius:6px;"></div><div style="position:absolute; inset:34% 30% 34%; border:3px solid var(--info); border-radius:6px;"></div>'})},
+  {id:'PB3', name:'Delta Tiles', desc:'Session-end tiles: each behavior as NATURAL → TODAY with an arrow and one word. Simplest story; post-only.', thumb:T.cards(['PITCH RANGE ↑','TERRITORY ↓ 34%','PACE ='],1)},
+ ]},
+{fid:'BEST', name:'35 · PERSONAL BEST', b:['t','n'],
+ options:[
+  {id:'BEST1', name:'Shadow Marker', desc:'A small gold tick on every instrument at your best-ever value — race your ghost, quietly. Zero chrome cost.', thumb:T.solo({tag:'', h:'<div style="position:absolute; left:10%; right:10%; top:50%; height:14px; transform:translateY(-50%); background:#141926; border-radius:6px;"><div style="position:absolute; left:70%; top:-6px; width:3px; height:26px; background:var(--gold);"></div><div style="position:absolute; left:52%; top:1px; bottom:1px; width:8px; background:#fff; border-radius:3px;"></div></div><div style="position:absolute; bottom:14px; left:0; right:0; text-align:center; font-size:8px; color:var(--gold); font-weight:800;">▲ YOUR BEST</div>'})},
+  {id:'BEST2', name:'Personal-Best Shelf', star:1, desc:'HOME shelf of best moments as replayable trophies (best congruence, best CLOSE, best recovery). Motivation through evidence, not badges.', thumb:T.cards(['BEST CLOSE ▶','BEST RECOVERY ▶','BEST CONGRUENCE ▶'],-1)},
+  {id:'BEST3', name:'Beat-Your-Best Mission', desc:'A mission type that replays your best attempt\'s lanes as a live shadow to race against. The strongest training-engine loop; Wave 2 (needs lane replay live).', thumb:T.steps(['LOAD BEST','RACE THE SHADOW','NEW BEST?'])},
+ ]},
+{fid:'PRG', name:'36 · STUDENT PROGRESS / HISTORY', b:['t','n'],
+ options:[
+  {id:'PRG1', name:'Streak + Reps', desc:'Simple counters: rep streak, total reps, minutes trained. Honest and light; no behavioral depth.', thumb:T.cards(['STREAK 6','REPS 42','MIN 380'],-1)},
+  {id:'PRG2', name:'Mastery Grid', star:1, desc:'Behaviors × mastery states (LEARNING → STABLE → LOCKED). A skill locks after N sessions in corridor — deliberate practice made visible without toy gamification.', thumb:`<div class="mock" style="flex-wrap:wrap; align-content:center; gap:5px; padding:14px;">${['VOICE LEVEL·LOCKED','PACE·STABLE','VOL VAR·LEARNING','PITCH·—','HANDS·STABLE','FRAMING·LOCKED'].map(s=>{const [n,st]=s.split('·'); const c=st==='LOCKED'?'var(--ok)':st==='STABLE'?'var(--info)':st==='LEARNING'?'var(--warn)':'var(--line2)'; return `<div style="flex:0 0 30%; border:1.5px solid ${c}; border-radius:6px; padding:5px 6px; font-size:6.5px; font-weight:800; color:var(--ink2);">${n}<br><span style="color:${c};">${st}</span></div>`;}).join('')}</div>`},
+  {id:'PRG3', name:'Season Arc', desc:'Interview-season narrative: capture baseline → build → simulate → peak week. Time-anchored; strongest for cohorts on a match calendar.', thumb:T.steps(['BASELINE','BUILD','SIMULATE','PEAK WEEK'])},
+  {id:'PRG4', name:'Delta Trends', desc:'Sparkline per behavior across sessions with baseline + best reference lines. Mentor favorite; drier for students.', thumb:T.lanes(4)},
+ ]},
+{group:'MENTOR / ADMIN / SYSTEM'},
+{fid:'MEN', name:'37 · MENTOR LIVE TEACHING STUDIO', b:['t','n'],
+ note:'Private by architecture: the mentor rail is a separate render target, never a hidden student layer. Live demo — drop PERFECT ★ / REMEMBER THIS / FLAG markers onto the session strip.',
+ options:[
+  {id:'MENLOCK', name:'MEN1 — Sideline Studio', star:1, wide:1, demo:mentorStudio, th:'tall', noselect:1,
+   desc:'Observe live, private instruments, one-key markers, TEACH THIS MOMENT packaging (frame span + lanes + voice note → lesson chip in the student\'s next prep screen).'},
+  {id:'MEN2', name:'Split Cockpit', desc:'Student stage + full instrument wall side-by-side. Maximum telemetry; heaviest surface — reserve for Delivery Training observation.', thumb:T.cols([{f:1,l:'STUDENT'},{f:1,l:'INSTRUMENT WALL',r:5}])},
+  {id:'MEN3', name:'Marker-First', desc:'Video full-bleed, hotkeys only (P = perfect, R = remember, F = flag), instruments hidden until post. For mentors who coach by eye and mark by feel.', thumb:T.solo({tag:'FULL BLEED + HOTKEYS'})},
+  {id:'MEN4', name:'Cohort Live Wall', desc:'Grid of concurrent student sessions with one alert lane. Program-scale supervision; least personal.', thumb:`<div class="mock" style="flex-wrap:wrap; gap:5px; padding:12px;">${Array.from({length:6},()=>'<div class="mk" style="flex:0 0 30%; height:42%;"></div>').join('')}</div>`},
+ ]},
+{fid:'ADM', name:'38 · ADMIN / MENTOR ANALYTICS', b:['t','n'],
+ note:'Powerful without becoming enterprise BI. The inspector answers the Mentor\'s question — "why is the system saying that?" — with the composite arithmetic printed and every threshold exposed as [CALIBRATE].',
+ options:[
+  {id:'ADMLOCK', name:'ADM2 — Profile Inspector', star:1, wide:1, demo:adminInspector, th:'tall', noselect:1,
+   desc:'Live cap computation (mean vs weakest+15 vs bucket), detector states with confidence, phase contract status. This panel is also the human-validation workbench for tuning composite weights.'},
+  {id:'ADM1', name:'Cohort Trends', desc:'Cross-student trends by behavior, coverage-weighted, with drill-down to evidence moments. No ranking tables by name — cohort culture, not leaderboard culture.', thumb:T.lanes(5)},
+  {id:'ADM3', name:'Threshold Tuner', desc:'Every [CALIBRATE] constant as a governed control with change history and a preview against recorded sessions. The tuning console for MissionMed validation.', thumb:T.rows([{f:1,l:'PATTERN WINDOW 6s ▸'},{f:1,l:'HEADROOM +15 ▸'},{f:1,l:'PITCH TARGET 3.5–9.0st ▸'}])},
+ ]},
+{fid:'EVD', name:'39 · EVIDENCE / CONFIDENCE / COVERAGE', b:['t','l72','n'],
+ options:[
+  {id:'EVD1', name:'Coverage Ring Vocabulary', star:1, desc:'One system-wide grammar: coverage ring + denominator on composites, UNAVAILABLE chips on instruments, hatched bands on timelines. Students learn it once; it never lies.', thumb:`<div class="mock" style="align-items:center; justify-content:center; gap:14px;"><svg width="40" height="40"><circle cx="20" cy="20" r="15" fill="none" stroke="#242C3B" stroke-width="5"/><circle cx="20" cy="20" r="15" fill="none" stroke="var(--warn)" stroke-width="5" stroke-dasharray="75 94" transform="rotate(-90 20 20)"/></svg><span class="chip unav">PITCH — UNAVAILABLE</span><span style="font-size:8px; font-weight:800; color:var(--ink2);">4 OF 5<br>CONTRIBUTORS</span></div>`},
+  {id:'EVD2', name:'Confidence Halo', desc:'Instrument borders desaturate as detector confidence drops (LOW = 40% saturation, corrections suppressed). Ambient honesty; subtle at two feet.', thumb:T.cards(['OK','LOW · DESATURATED','UNAVAILABLE'],-1)},
+  {id:'EVD3', name:'Provenance Drawer', desc:'Every reading expands to detector → value → confidence → threshold → evidence timestamp. LAB drawer behind every number in the product.', thumb:T.rows([{f:1,l:'85 ▸ voice.levelSpread 0.19 · conf 0.91 · window 6s · seek 01:12'}])},
+ ]},
+{fid:'ERR', name:'40 · ERROR / OFFLINE / PROVIDER FALLBACK', b:['v','n'],
+ note:'Fallback is a designed state, not an apology. The embodiment ladder (see DR KELLY) plus these system states keep degraded modes feeling intentional.',
+ options:[
+  {id:'ERR1', name:'Honest Fallback Cards', star:1, desc:'Named states with next actions: AVATAR UNAVAILABLE → CONTINUE VOICE-ONLY / PRE-GENERATED. Session value is never lost; Delivery Intelligence keeps running through avatar failures.', thumb:T.rows([{f:1,l:'DR KELLY AVATAR UNAVAILABLE',s:'border-color:#5a4310;'},{f:.7,l:'▶ CONTINUE VOICE-ONLY (RECOMMENDED)'},{f:.7,l:'▶ PRE-GENERATED INTERVIEWER'}])},
+  {id:'ERR2', name:'Degrade Ladder Banner', desc:'A slim banner shows the current rung and why (LIVE → VOICE → PREGEN → TEXT). Transparent; slightly technical for students.', thumb:T.rows([{f:.5,l:'TIER: VOICE-ONLY · avatar session did not initiate'},{f:1,l:'STAGE'}])},
+  {id:'ERR3', name:'Reconnect Theater', desc:'On drop: lights dim, a 20-second reconnect countdown with Kelly\'s chair "empty", then automatic fallback. Cinematic; risks feeling precious under real failure.', thumb:T.solo({tag:'RECONNECTING · 0:14'})},
+ ]},
+{fid:'TIER', name:'41 · EMBODIMENT TIER SELECTOR', b:['v','n'],
+ options:[
+  {id:'TIER1', name:'Ladder Card', desc:'Single card in setup showing the four rungs and which your plan includes. Quietest presentation.', thumb:T.rows([{f:1,l:'AVATAR LIVE ✦ PREMIUM'},{f:1,l:'VOICE ONLY — INCLUDED'},{f:1,l:'PRE-GENERATED — INCLUDED'},{f:1,l:'TEXT — INCLUDED'}])},
+  {id:'TIER2', name:'Tier Gates', star:1, desc:'Interviewer choice as casting: each tier a door with cost transparency and an honest capability line (avatar tier carries HUMAN QA REQUIRED until verified). Entitlements enforced at the gate.', thumb:T.cards(['TEXT','PRE-GEN','VOICE','DR KELLY LIVE ✦'],3)},
+  {id:'TIER3', name:'Settings-Buried', desc:'Tier chosen once in settings, never during flow. Fastest daily loop; hides the premium value.', thumb:T.rows([{f:1,l:'SETTINGS → INTERVIEWER TIER'}])},
+ ]},
+{fid:'VLT', name:'42 · RESULTS / VAULT', b:['t','n'],
+ options:[
+  {id:'VLT1', name:'Evidence Vault', star:1, desc:'Sessions as case records: answer videos, lanes, saved moments, mentor marks, exports. Raw frames/audio never persisted — derived lanes and consented recordings only.', thumb:T.cols([{f:.6,l:'SESSIONS',r:5},{f:1,l:'CASE RECORD · Q3 · LANES + MOMENTS'}])},
+  {id:'VLT2', name:'Case Files', desc:'One file per question archetype ("conflict answer", "why this program") accumulating attempts over time. Organized by the story, not the date.', thumb:T.cards(['WHY MEDICINE','CONFLICT','FAILURE','STRENGTHS'],-1)},
+  {id:'VLT3', name:'Export Center', desc:'Timeline stills + event CSVs + reels for mentor records (3472 §10.3 export contract). Compliance-friendly.', thumb:T.rows([{f:1,l:'EXPORT: TIMELINE PNG · EVENTS CSV · REEL MP4'}])},
+ ]},
+{fid:'SFG', name:'43 · STORYFORGE CONNECTION', b:['t','n'],
+ options:[
+  {id:'SFG1', name:'Story Bank Seam', star:1, desc:'StoryForge stories appear as chips in PREP ("ICU handover", "first code") — tap to anchor the answer. IV Prep sends back a delivery note per story use. Clean seam, no deep coupling.', thumb:T.rows([{f:.6,l:'PREP · STORY CHIPS: ICU HANDOVER · FIRST CODE'},{f:1,l:'ANSWER → STORY GETS A DELIVERY NOTE'}])},
+  {id:'SFG2', name:'Story-to-Answer Wizard', desc:'Guided flow turning a StoryForge story into a SAF(e)-structured answer draft before practicing it. Deeper integration; Wave 2+.', thumb:T.steps(['PICK STORY','SAF(e) DRAFT','PRACTICE IT'])},
+  {id:'SFG3', name:'Film Room Cross-Links', desc:'Detected story usage in answers links back to the StoryForge entry with delivery evidence attached. The story\'s performance history accumulates.', thumb:T.rows([{f:1,l:'Q3 USED "ICU HANDOVER" → story page shows delivery trend'}])},
+ ]},
+{fid:'SET', name:'44 · SETTINGS / DEVICES / PERMISSIONS', b:['v','n'],
+ options:[
+  {id:'SET1', name:'Device Room', star:1, desc:'Devices, consent, retention, baseline management (age + STALE state + re-capture) in one calm room. Consent language mirrors the claim-safety law.', thumb:T.rows([{f:1,l:'CAMERA · MIC · CALIBRATION'},{f:1,l:'CONSENT & RETENTION — what we keep, what we never keep'},{f:1,l:'BASELINE · captured 12d ago · RECAPTURE'}])},
+  {id:'SET2', name:'Inline Sheets', desc:'Settings appear as context sheets where needed (mic sheet at check, HUD sheet in training). No settings "place"; fastest, least discoverable.', thumb:T.solo({tag:'STAGE', h:'<div style="position:absolute; right:0; top:0; bottom:0; width:34%; background:var(--card2); border-left:1px solid var(--line2);"></div>'})},
+  {id:'SET3', name:'Wizard Re-Run', desc:'Settings = re-running the three-decision setup with memory. One mental model for setup and preferences.', thumb:T.steps(['WHAT','WHO','HOW MUCH HUD'])},
+ ]},
+{fid:'MOB', name:'45 · MOBILE / SMALL WINDOW', b:['t','n'],
+ options:[
+  {id:'MOB1', name:'Companion', star:1, desc:'Phone = review + missions + fingerprint card + prep; live interviews stay on desktop where camera geometry and instruments are trustworthy. Small window on desktop → PERFORMANCE-mode compact layout.', thumb:T.phone('<div class="mkbar" style="height:26px; background:var(--card);"></div><div class="mkbar"></div><div class="mkbar" style="width:60%"></div><div style="margin-top:8px; border:1px solid var(--gold); border-radius:4px; padding:3px; font-size:6px; color:var(--gold); font-weight:800;">NEXT REP · 90s</div>')},
+  {id:'MOB2', name:'Vertical Stage', desc:'Full mobile practice: vertical stage, HUD1-only (one big correction), no LAB density. Honest subset; camera framing is weaker on phones and the dock must compensate.', thumb:T.phone('<div style="height:52%; background:#10141d; border-radius:4px; position:relative;"><div class="person" style="width:70%; height:80%;"></div></div><div style="margin-top:6px; text-align:center; border:1px solid var(--warn); border-radius:4px; color:var(--warn); font-size:6.5px; font-weight:900; padding:3px;">SLOW DOWN</div>')},
+  {id:'MOB3', name:'Responsive Shrink', desc:'The desktop app scaled down. Explicitly NOT recommended — instruments fail the two-foot test at phone scale.', thumb:T.phone('<div class="mkbar"></div><div class="mkbar"></div><div class="mkbar"></div><div class="mkbar"></div><div style="color:var(--bad); font-size:6.5px; font-weight:800; margin-top:6px;">FAILS TWO-FOOT TEST</div>')},
+ ]},
+];
+
+/* HUD selectable options (the live proving ground above demos all five) */
+CATALOG.find(f=>f.fid==='HUD').options.push(
+ {id:'HUD1', name:'One Big Correction', desc:'Single dominant verb card + five peripheral state dots. The purest tuner; MINIMAL-state fallback of the North Star.'},
+ {id:'HUD2', name:'Corner Instruments', desc:'Four fixed micro-tuners in the corners. Nothing over the stage; most "cockpit" of the five.'},
+ {id:'HUD3', name:'Bottom Training Rail', desc:'Full-width rail; the metric needing correction expands 3×. Best for Delivery Training marathons.'},
+ {id:'HUD4', name:'Body-Relative Spatial', desc:'Instruments anchored to the student\'s own body: gesture field flanks, dock frames the face, corridor under the chin.'},
+ {id:'HUD5', name:'Adaptive Reveal', star:1, desc:'Zero instruments at rest; the out-of-corridor metric materializes, resolves, lingers in lock 2s, fades. Heartbeat dot = "watching". Fable pick.'}
+);
+
+/* ============================================================
+   RENDERER
+   ============================================================ */
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{store.set(k,v);}catch(e){}}};
+const SEL = JSON.parse(store.get('ivprep3490sel')||'{}');
+const DISPO = JSON.parse(store.get('ivprep3490dis')||'{}');
+const NORTH = {NAV:'NAV2',HOME:'HOME1',MODE:'MODE2',BTN:'BTN1',WIZ:'WIZ2',CHK:'CHK1',PREP:'PREP2',CTRL:'CTRL1',SELF:'SELF2',
+ STAGE:'STAGE2',KELLY:'KELLY2',HUD:'HUD5',COACH:'COACH1',VV:'VVLOCK',VD:'VD1',VP:'VPLOCK',VC:'VCLOCK',VR:'VRLOCK',PP:'PP1',
+ GZ:'GZLOCK',GH:'GH3',GS:'GS5',FF:'FFLOCK',MC:'MC2',GE:'GELOCK',CW:'CW4',CC:'CC4',CR:'CR1',CB:'CBLOCK',WX:'WXLOCK',
+ CD:'CDLOCK',CM:'CM3',CT:'CT3',NG:'NGLOCK',GO:'GO1',FILM:'FILMLOCK',TM:'TM1',NLS:'NLS1',AR:'AR1',SR:'SR2',RES:'RES1',
+ PB:'PB1',BEST:'BEST2',PRG:'PRG2',MEN:'MENLOCK',ADM:'ADMLOCK',EVD:'EVD1',ERR:'ERR1',TIER:'TIER2',VLT:'VLT1',SFG:'SFG1',SET:'SET1',MOB:'MOB1'};
+const BADGES={v:'<span class="badge verified">WIREABLE NOW</span>', t:'<span class="badge target">TARGET</span>',
+ l72:'<span class="badge lock72">3472 LOCK</span>', '71C':'<span class="badge lock72">3471C IDs</span>', n:'<span class="badge newid">NEW IDs · 3490</span>'};
+const main=document.getElementById('main'), nav=document.getElementById('nav');
+
+function heroHTML(){
+ return `
+ <div class="hero" id="northstar">
+  <div style="display:flex; gap:8px; margin-bottom:10px;"><span class="badge lock72">FABLE NORTH STAR</span><span class="badge verified">RUN 1</span><span class="badge target">AWAITING FOUNDER SELECTIONS</span></div>
+  <h1>IV PREP ON-CALL — <b>the complete product, visible</b></h1>
+  <p>Epic-grade training engine around an Apple-grade interview moment. Everything below is selectable by ID; the gold ★ cards are Fable's recommended composite, honoring the <b>3471C signal contract</b> and the <b>3472 instrument grammar lock</b>. Global controls (top right) switch <b>DENSITY / ROLE / STATE</b> everywhere. Scenario buttons below drive live telemetry through every instrument on this page.</p>
+  <div id="scen">
+    <button data-scen="IDLE" class="on">FREE RUN</button>
+    <button data-scen="S1">S1 · QUIET → LOCK</button>
+    <button data-scen="S2">S2 · PACE + PHASE ARC</button>
+    <button data-scen="S3">S3 · HAND LOST → COVERAGE</button>
+    <button data-scen="S4">S4 · LOUD MONOTONE</button>
+    <button data-scen="S5">S5 · METRONOMIC CADENCE</button>
+    <button data-scen="SVV">CONTRIB → MASTER</button>
+    <button data-scen="SB">B · WARM / LOW AUTH-CUE</button>
+    <button data-scen="SC">C · POLISHED / COLD-CUE</button>
+    <button data-scen="SD">D · NATURAL VS INTERVIEW</button>
+    <button data-scen="SE">E · CONGRUENCE BEATS</button>
+  </div>
+  <div class="picks">${Object.entries(NORTH).map(([f,id])=>`<span class="pickchip">${f} <b>${id.replace('LOCK','★')}</b></span>`).join('')}</div>
+  <div class="note blue" style="margin-top:14px;">CURRENTLY VERIFIED vs TARGET is badged per family. Runtime truth: shell WORKING · Dr Kelly PARTIAL (appeared + audible once, no natural initiation) · human QA loop NOT VERIFIED · Delivery Intelligence PARTIAL · production BLOCKED. Nothing here initiates provider sessions.</div>
+ </div>
+ <div class="grid2" id="maps">
+  <div class="mapbox"><h3>STUDENT LOOP</h3><div class="flow">
+    ${[['ARRIVE','home shows ONE next action from your weakest contributor'],
+       ['MODE GATE','Quick Rep · Guided · Delivery Training · Simulation · Baseline — contracts on the door'],
+       ['SETUP + CHECK','three decisions · Camera Dock + voice corridor gate (20s)'],
+       ['PREP','quiet room · SAF(e) ghost · breath cadence · Dr Kelly idle'],
+       ['ANSWER','Simulation: zero HUD · Training: one correction, tuner law, earned lock states'],
+       ['POST-ANSWER','10s card: 1 worked · 1 fix · replay chip'],
+       ['SESSION END','master + contributors (cap visible) · moments → Vault · next mission'],
+       ['FILM ROOM','flight recorder · opportunities · fingerprint overlay · personal-best shadow'],
+       ['NEXT REP','90-second micro-mission → back to ARRIVE']]
+      .map((s,i)=>`<div class="fstep"><span class="n">${i+1}</span><div>${s[0]} — <small>${s[1]}</small></div></div>`).join('')}
+  </div></div>
+  <div class="mapbox"><h3>MENTOR / ADMIN LOOP</h3><div class="flow">
+    ${[['SELECT STUDENT','roster with mastery grid + last-session deltas'],
+       ['OBSERVE LIVE','private instrument rail — never mirrored to the student'],
+       ['MARK','PERFECT ★ · REMEMBER THIS · FLAG — one-key, timestamped, attributed'],
+       ['TEACH THIS MOMENT','exact frame span + all lanes + voice note → lesson chip in student prep'],
+       ['ASSIGN','90-second micro-mission targeted at the limiting contributor'],
+       ['INSPECT','composite arithmetic · thresholds [CALIBRATE] · confidence · coverage · evidence seeks'],
+       ['VALIDATE','human-validation workbench tunes weights before any composite ships']]
+      .map((s,i)=>`<div class="fstep alt"><span class="n">${i+1}</span><div>${s[0]} — <small>${s[1]}</small></div></div>`).join('')}
+  </div></div>
+ </div>
+ <div class="mapbox" id="gap" style="margin:16px 0 40px;"><h3>CURRENT vs TARGET (honest strip)</h3>
+  <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:8px; font-size:11px;">
+   ${[['Shell / nav / modes','WORKING — wire selections now','verified'],
+      ['Voice level / waveform / framing / hand presence','ACCEPTED PRIMITIVES — Wave 0','verified'],
+      ['Volume variation · pace · heat/trails · Film lanes','DERIVATION — Wave 1','target'],
+      ['Pitch/F0 · cadence truth · phases · composites · semantics · NL search','NEW ENGINEERING — Wave 2','target'],
+      ['Dr Kelly avatar','PARTIAL — human QA loop required, Founder-initiated only','target'],
+      ['SAF(e) pedagogy','EXISTING — stays qualitative, never a number','verified']]
+    .map(r=>`<div style="background:var(--card2); border:1px solid var(--line); border-radius:8px; padding:8px 10px;"><b style="font-size:11px;">${r[0]}</b><br><span class="badge ${r[2]}" style="margin-top:4px; display:inline-block;">${r[1]}</span></div>`).join('')}
+  </div></div>`;
+}
+
+function render(){
+ let mhtml=heroHTML();
+ let nhtml=`<h4>START</h4><a href="#northstar">North Star + Scenarios</a><a href="#maps">Experience Maps</a><a href="#gap">Current vs Target</a><a href="#sheet">Selection Sheet</a>`;
+ CATALOG.forEach(entry=>{
+  if(entry.group){ nhtml+=`<h4>${entry.group}</h4>`; return; }
+  nhtml+=`<a href="#f-${entry.fid}" data-nav="${entry.fid}">${entry.fid} · ${entry.name.replace(/^\d+[+·\d]* · /,'').slice(0,22)}<span class="pick" data-navpick="${entry.fid}"></span></a>`;
+  mhtml+=`<section class="fam" id="f-${entry.fid}">
+   <div class="famhead"><span class="fid">${entry.fid}</span><h2>${entry.name}</h2>${(entry.b||[]).map(b=>BADGES[b]).join(' ')}</div>
+   ${entry.note?`<div class="famnote">${entry.note}</div>`:''}
+   <div class="opts">
+   ${entry.options.map(o=>`
+    <div class="opt ${o.wide?'wide':''}" data-fam="${entry.fid}" data-oid="${o.id}">
+      <div class="opthead"><span class="optid">${o.id}</span><h3>${o.name}</h3>${o.star?'<span style="color:var(--gold); font-size:15px;">★</span>':''}${o.badge==='71C'?'<span class="badge lock72" style="font-size:8px;">3471C</span>':''}</div>
+      ${o.demo?`<div class="thumb ${o.th||''}" data-demo="1"></div>`: o.thumb?`<div class="thumb">${o.thumb}</div>`:''}
+      <div class="optdesc">${o.desc}</div>
+      <div class="optfoot">
+        <button class="selbtn" data-select>SELECT ${o.id}</button>
+        <select class="dispo" data-dispo>
+          <option value="">— DISPOSITION —</option>
+          <option>LOCK</option><option>KEEP AS BASE</option><option>REFINE</option>
+          <option>REJECT</option><option>COMBINE</option><option>SHOW MORE LIKE</option>
+        </select>
+      </div>
+    </div>`).join('')}
+   </div></section>`;
+ });
+ mhtml+=`<section class="fam" id="sheet">
+  <div class="famhead"><span class="fid">SHEET</span><h2>FOUNDER SELECTION SHEET</h2></div>
+  <div class="famnote">Click SELECT on one option per family (or press <b>LOAD FABLE ★</b> in the tray to preload the North Star composite), add dispositions (3471C ledger vocabulary: LOCK · KEEP AS BASE · REFINE · REJECT · COMBINE · SHOW MORE LIKE), then COPY SELECTION SHEET and paste the result back into the ticket. For COMBINE, use: BASE &lt;ID&gt; + DONOR &lt;ID&gt; + TRANSPLANT &lt;mechanic&gt; + PRESERVE &lt;mechanic&gt;.</div>
+  <div class="note">Run 2 contract: your selections + specific corrections → FINAL FROZEN DESIGN SYSTEM + FINAL PROTOTYPE + BUILD CONTRACT. No re-architecture.</div>
+ </section>`;
+ main.innerHTML=mhtml;
+ nav.innerHTML=nhtml;
+
+ /* mount demos */
+ document.querySelectorAll('.opt').forEach(card=>{
+  const fam=card.dataset.fam, oid=card.dataset.oid;
+  const entry=CATALOG.find(f=>f.fid===fam), opt=entry.options.find(o=>o.id===oid);
+  if(opt.demo){ mountDemo(card.querySelector('[data-demo]'), opt.demo); }
+  card.querySelector('[data-select]').addEventListener('click',()=>{ pick(fam,oid); });
+  const d=card.querySelector('[data-dispo]');
+  d.value=DISPO[oid]||'';
+  d.addEventListener('change',()=>{ DISPO[oid]=d.value; store.set('ivprep3490dis',JSON.stringify(DISPO)); refreshTray(); });
+ });
+ document.querySelectorAll('#scen button').forEach(b=>b.addEventListener('click',()=>setScenario(b.dataset.scen)));
+ refreshTray();
+}
+function pick(fam,oid){
+ if(SEL[fam]===oid) delete SEL[fam]; else SEL[fam]=oid;
+ store.set('ivprep3490sel',JSON.stringify(SEL));
+ refreshTray();
+}
+function refreshTray(){
+ document.querySelectorAll('.opt').forEach(c=>c.classList.toggle('selected', SEL[c.dataset.fam]===c.dataset.oid));
+ document.querySelectorAll('[data-navpick]').forEach(n=>{ n.textContent=SEL[n.dataset.navpick]||''; });
+ const body=document.getElementById('traybody');
+ const ks=Object.keys(SEL);
+ document.getElementById('trayCount').textContent=ks.length+' PICKED';
+ body.innerHTML= ks.length? ks.map(f=>`<div class="trow"><span>${f}</span><b>${SEL[f]}${DISPO[SEL[f]]?' · '+DISPO[SEL[f]]:''}</b></div>`).join('')
+  : '<div style="color:var(--neutral); padding:6px 0;">No selections yet. SELECT options, or LOAD FABLE ★ to start from the recommended composite.</div>';
+}
+function loadNorthStar(){ Object.assign(SEL,NORTH); store.set('ivprep3490sel',JSON.stringify(SEL)); refreshTray(); }
+function copySelections(){
+ const lines=['Y1-Y2-CAM-V6-3490 — FOUNDER SELECTION SHEET','DATE: '+new Date().toISOString().slice(0,10),''];
+ CATALOG.filter(f=>f.fid).forEach(f=>{
+  const id=SEL[f.fid]; lines.push(`${f.fid.padEnd(6)} ${ (id||'—').padEnd(10) } ${id&&DISPO[id]?DISPO[id]:''}`.trimEnd());
+ });
+ const txt=lines.join('\n');
+ (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(
+  ()=>{ document.getElementById('trayCount').textContent='COPIED ✓'; setTimeout(refreshTray,1500); },
+  ()=>{ prompt('Copy your selection sheet:',txt); });
+}
+let trayOpen=true;
+function toggleTray(){ trayOpen=!trayOpen;
+ document.getElementById('traybody').style.display=trayOpen?'block':'none';
+ document.getElementById('trayfoot').style.display=trayOpen?'flex':'none';}
+
+/* ---------- MAIN LOOP ---------- */
+document.body.dataset.density='STANDARD'; document.body.dataset.role='STUDENT'; document.body.dataset.state='LIVE';
+render();
+let last=performance.now()/1000;
+function loop(){
+ const now=performance.now()/1000, dt=Math.min(.05,now-last); last=now;
+ SIM.t=now;
+ (SCEN[SIM.scenario]||SCEN.IDLE)(now-scenStart);
+ for(const inst of MOUNTED){ try{ inst.update(now,dt); }catch(e){} }
+ requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
