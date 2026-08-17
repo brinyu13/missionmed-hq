@@ -14,8 +14,18 @@ const LANE_MAX = 6;
    ongoing/community work:5, res:6, personal: first free of [6,5,3,2].
    Within a band, x-overlapping events cascade to the next lane of the band.
    presentationOverride.lane always wins. If no lane clears, the adapter
-   keeps the last band lane and lets the kernel's collision law fail closed. */
+   uses the nearest otherwise-free display lane before reporting saturation.
+   This overflow is layout-only: category/color/semantic mapping remain frozen.
+   If every lane is occupied, it keeps the last canonical lane and lets the
+   kernel's collision law fail closed. */
 const BANDS = { work:[0,5], usmle:[1], usce:[2,3,4], res:[6], personal:[6,5,3,2] };
+const OVERFLOW_LANES = {
+  work:[1,2,3,4,6],
+  usmle:[2,0,3,4,5,6],
+  usce:[1,5,6,0],
+  res:[5,4,3,2,1,0],
+  personal:[4,1,0]
+};
 const CATEGORY_KEY_IDS=['education','exams','clinical','work','research','personal'];
 const HEX_COLOR=/^#[0-9A-F]{6}$/i;
 
@@ -127,6 +137,15 @@ function toRenderModel(doc){
     let placed=false;
     for(const l of band){
       if(!laneOcc[l].some(o=>overlap(o,a))){ a.lane=l; laneOcc[l].push(a); placed=true; break; }
+    }
+    if(!placed){
+      for(const l of OVERFLOW_LANES[a.cat]||[]){
+        if(!laneOcc[l].some(o=>overlap(o,a))){
+          a.lane=l; laneOcc[l].push(a); placed=true;
+          warnings.push('EVENT_LANE_OVERFLOW:'+a.id+':'+a.lane);
+          break;
+        }
+      }
     }
     if(!placed){ a.lane=band[band.length-1]; laneOcc[a.lane].push(a);
       warnings.push('EVENT_LANE_SATURATED:'+a.id); }

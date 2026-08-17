@@ -19,6 +19,8 @@ const {
   setColorKeyGeometryPresentationOverride
 }=await import("../web/js/uxr-002/advanced-studio.js?d1-411a-presentation-amendment");
 const {migrateDocument}=await import("../web/js/uxr-002/store.js?d1-411a-presentation-amendment");
+await import("../web/js/d1-411a/presentation-kernel-adapter.js?d1-411a-presentation-amendment");
+const {toRenderModel}=globalThis.D1411A_Adapter;
 
 const IDS=["education","exams","clinical","work","research","personal"];
 
@@ -164,4 +166,26 @@ test("D1-411A Advanced UI exposes axis and six key controls only in Advanced mod
     IDS
   );
   assert.equal(renderAdvancedPresentationControls({...timeline(),mode:"guided"}),"");
+});
+
+test("D1-411A separates overlapping canonical exam events before reporting saturation",()=>{
+  const visual={
+    schemaVersion:"d1-411a/timeline-visual-document/1",
+    timelineId:"overlap",revision:1,title:"Overlap",
+    categories:[
+      {id:"education",mapsTo:"work"},{id:"exams",mapsTo:"usmle"},
+      {id:"clinical",mapsTo:"usce"},{id:"work",mapsTo:"work"},
+      {id:"research",mapsTo:"res"},{id:"personal",mapsTo:"personal"}
+    ],
+    events:[
+      {id:"step-1",title:"Step 1",categoryId:"exams",startDate:"2026-01",endDate:"2026-08"},
+      {id:"step-2",title:"Step 2 CK",categoryId:"exams",startDate:"2026-04",endDate:"2026-10"}
+    ]
+  };
+  const projected=toRenderModel(visual);
+  const lanes=projected.model.events.map(({lane})=>lane);
+  assert.deepEqual(lanes,[1,2]);
+  assert.ok(projected.warnings.includes("EVENT_LANE_OVERFLOW:step-2:2"));
+  assert.ok(!projected.warnings.some((warning)=>warning.startsWith("EVENT_LANE_SATURATED:")));
+  assert.deepEqual(projected.model.events.map(({cat})=>cat),["usmle","usmle"]);
 });
