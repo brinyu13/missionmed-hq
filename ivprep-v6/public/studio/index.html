@@ -84,6 +84,7 @@
     </header>
 
     <main id="main-content" tabindex="-1">
+      <div class="debug-banner" id="debug-banner" hidden>Founder / Admin debug instrumentation enabled — engineering diagnostics, dense mesh and raw timelines are visible. Students never see this.</div>
 
       <!-- HOME -->
       <section class="screen" data-view-panel="home" data-active="true">
@@ -171,7 +172,15 @@
         <h1 class="hero">Get <em>camera-ready.</em></h1>
         <div class="grid grid-2" style="margin-top:18px">
           <div class="housing">
-            <div class="housing-title">Readiness</div>
+            <div class="housing-title">Devices</div>
+            <div class="recess grid grid-2" data-device-selectors></div>
+            <div class="recess">
+              <div class="microcap">Microphone level — speak to test</div>
+              <div class="mic-meter"><div class="mic-meter-fill" id="mic-level-fill"></div></div>
+              <div class="microcap" id="mic-level-readout">Connect to measure</div>
+              <div class="microcap" id="device-switch-status" style="margin-top:6px"></div>
+            </div>
+            <div class="housing-title" style="margin-top:14px">Readiness</div>
             <div class="recess" id="device-checklist"></div>
             <div class="btn-row">
               <button class="btn btn-primary" type="button" id="device-connect"><span>Connect camera + mic</span></button>
@@ -195,6 +204,10 @@
         <div class="microcap hero-kick">Delivery training</div>
         <h1 class="hero">One thing at a <em>time.</em></h1>
         <p class="lede">Live coaching shows a single active correction. Every other enabled metric stays visible as compact status; the detail lives in Film Room and Analytics Lab.</p>
+        <details class="housing" style="margin:14px 0">
+          <summary class="housing-title" style="cursor:pointer">⚙ Devices — switch camera or microphone without leaving the session</summary>
+          <div class="recess grid grid-2" data-device-selectors></div>
+        </details>
       </section>
 
       <!-- SIMULATION -->

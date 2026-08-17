@@ -245,7 +245,14 @@ test('full FaceDetector-to-Holistic latency drives backoff and overlay closes af
     type:'geometry',generation:pipeline.generation,answerEpoch:pipeline.answerEpoch,visionEpoch,frameId:5,timestampMs:0,expectedFrameMs:125,
     geometry:{faceCount:null,face:{present:false},pose:{torsoPresent:false},hands:{}},overlayBitmap:{close(){closed+=1}},overlayRendered:true,overlayPrimitiveCount:4,faceInferenceMs:240,holisticInferenceMs:40,
   },pipeline.generation);
-  assert.equal(pipeline.targetFps,6);
+  // Y1-Y2-CAM-V6-3508: this asserted 6 - the old policy degraded targetFps by 2 per
+  // slow frame down to a floor of 2, i.e. a 500ms overlay interval. Founder physical QA
+  // reported the overlay reading as detached from real movement, and that floor was the
+  // cause. The floor is now 8, so a slow frame no longer lengthens the scheduling
+  // interval. Load protection is unaffected: capture is skipped while a frame is in
+  // flight (!this.frameInFlight), so slow inference still self-regulates the effective
+  // rate without adding scheduling latency on top.
+  assert.equal(pipeline.targetFps,8);
   assert.equal(diagnostic.inferenceMs,300);
   assert.equal('overlayBitmap' in diagnostic,false);
   assert.equal(closed,1);

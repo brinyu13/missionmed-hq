@@ -39,6 +39,9 @@ const state = {
   collection: null,
   wizardStep: 0,
   wizard: { goal: null, focus: null, interviewer: null, coaching: null },
+  devices: { cameras: [], microphones: [] },
+  selected: { camera: null, microphone: null },
+  levelTimer: null,
 };
 
 /* ------------------------------------------------------------------ media bridge
@@ -55,7 +58,7 @@ const bridge = {
     const tracks = stream.getTracks();
     const mic = tracks.some((t) => t.kind === 'audio' && t.readyState === 'live');
     const cam = tracks.some((t) => t.kind === 'video' && t.readyState === 'live');
-    let AC = null; let analyser = null; let data = null; let source = null;
+    let AC = null; let analyser = null; let data = null; let source = null; let sink = null;
     if (mic) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (Ctx) {
@@ -64,13 +67,68 @@ const bridge = {
         analyser = AC.createAnalyser();
         analyser.fftSize = 2048;
         data = new Float32Array(analyser.fftSize);
-        source = AC.createMediaStreamSource(new MediaStream(stream.getAudioTracks()));
+
+        // Y1-Y2-CAM-V6-3508 — THE MICROPHONE ROOT CAUSE.
+        //
+        // Two defects, both invisible in Chrome and fatal in Safari:
+        //
+        // 1. The graph terminated at the analyser. WebKit's Web Audio implementation
+        //    is demand-driven: a node with no route to a destination is never pulled,
+        //    so getFloatTimeDomainData() returned silence forever. That is exactly the
+        //    reported -160 dBFS, peak 0.00, "Detected speech NO", and F0 receiving
+        //    nothing. Chrome pulls analysers regardless of termination, which is why
+        //    every automated Chrome run passed while the real Safari test failed.
+        //
+        //    The graph now terminates at the destination through a MUTED gain node.
+        //    This is the standards-compliant construction, not a Safari special case:
+        //    the graph genuinely ends at a destination, and gain 0 guarantees the
+        //    microphone is never played back (no echo, no feedback).
+        //
+        // 2. createMediaStreamSource() was handed a NEW MediaStream built from
+        //    stream.getAudioTracks(). Safari does not reliably pull audio from such a
+        //    reconstructed stream. The original stream is used instead.
+        source = AC.createMediaStreamSource(stream);
+        sink = AC.createGain();
+        sink.gain.value = 0;
         source.connect(analyser);
+        analyser.connect(sink);
+        sink.connect(AC.destination);
       }
     }
     this.ownsStream = ownsStream;
     this.source = source;
+    this.sink = sink;
     this.media = Object.freeze({ cam, mic: Boolean(mic && AC && analyser && data), stream, AC, analyser, data });
+    return this.media;
+  },
+
+  /**
+   * Replace one track in place. Camera and microphone can be swapped mid-session
+   * without a refresh, a new session, or restarting Delivery Intelligence.
+   * The previous track is stopped only AFTER the replacement is live, so a failed
+   * switch never leaves the student with no device.
+   */
+  async replaceTrack(kind, deviceId) {
+    const constraint = kind === 'audio'
+      ? { audio: { deviceId: { exact: deviceId } }, video: false }
+      : { video: { deviceId: { exact: deviceId } }, audio: false };
+    const fresh = await navigator.mediaDevices.getUserMedia(constraint);
+    const incoming = kind === 'audio' ? fresh.getAudioTracks()[0] : fresh.getVideoTracks()[0];
+    if (!incoming) { fresh.getTracks().forEach((t) => t.stop()); throw new Error(`No ${kind} track returned.`); }
+
+    const current = this.media.stream;
+    const outgoing = kind === 'audio' ? current?.getAudioTracks?.()[0] : current?.getVideoTracks?.()[0];
+    const retained = (current?.getTracks?.() || []).filter((t) => t !== outgoing);
+    const next = new MediaStream([...retained, incoming]);
+
+    // bindStream() begins with stopMedia(), which stops every track of the CURRENT
+    // stream when we own it - including the track we are carrying over. Switching the
+    // microphone would therefore have killed the camera. Release ownership first so
+    // stopMedia() cannot touch the retained tracks, then stop only the device we are
+    // actually replacing, and only after the new one is live.
+    this.ownsStream = false;
+    await this.bindStream(next, { ownsStream: true });
+    try { outgoing?.stop?.(); } catch {}
     return this.media;
   },
   async requestMedia(mic = true, cam = true) {
@@ -79,6 +137,7 @@ const bridge = {
   },
   stopMedia() {
     try { this.source?.disconnect?.(); } catch {}
+    try { this.sink?.disconnect?.(); } catch {}
     if (this.ownsStream) this.media.stream?.getTracks?.().forEach((t) => t.stop());
     void this.media.AC?.close?.().catch?.(() => {});
     this.ownsStream = false;
@@ -86,6 +145,28 @@ const bridge = {
     this.media = Object.freeze({ cam: false, mic: false, stream: null, AC: null, analyser: null, data: null });
   },
 };
+
+/* ------------------------------------------------------------------ role
+ * Y1-Y2-CAM-V6-3508. The role switcher used to change a badge. The Founder physical
+ * test found the engineering cockpit (FOUNDER RUN MODE, guided-test steps, raw
+ * diagnostics, FPS/dropped-frame counters, engineering timeline) rendering inside the
+ * normal STUDENT session. That tooling is valuable and is NOT deleted - it moves
+ * behind the Admin role.
+ *
+ * This is presentation only. Hiding engineering instrumentation never changes what is
+ * measured; the pipeline is untouched by this function.
+ */
+function applyRole(role) {
+  state.role = role === 'admin' || role === 'mentor' ? role : 'student';
+  document.body.dataset.role = state.role;
+  for (const button of $$('[data-role]')) {
+    button.setAttribute('aria-pressed', String(button.dataset.role === state.role));
+  }
+  const banner = $('#debug-banner');
+  if (banner) banner.hidden = state.role !== 'admin';
+  // The analytics cockpit gets the real role so its own founder surfaces follow suit.
+  state.analytics?.onViewChange?.(state.view, state.role === 'student' ? 'student' : 'admin');
+}
 
 /* ------------------------------------------------------------------ router */
 
@@ -348,6 +429,154 @@ function applyWizardFocus() {
   renderSet();
 }
 
+/* ------------------------------------------------------------------ devices
+ * Production device management. The browser permission prompt alone is not a device
+ * picker: labels are only exposed AFTER permission is granted, so enumeration runs
+ * post-permission and the selection persists locally for next time.
+ */
+
+const DEVICE_STORE_KEY = 'ivprep.devices.v1';
+
+function loadDevicePreference() {
+  try { return JSON.parse(localStorage.getItem(DEVICE_STORE_KEY) || '{}'); } catch { return {}; }
+}
+
+function saveDevicePreference() {
+  try {
+    localStorage.setItem(DEVICE_STORE_KEY, JSON.stringify({
+      camera: state.selected.camera, microphone: state.selected.microphone,
+    }));
+  } catch { /* private browsing must not break device switching */ }
+}
+
+async function refreshDevices() {
+  if (!navigator.mediaDevices?.enumerateDevices) return;
+  const all = await navigator.mediaDevices.enumerateDevices();
+  state.devices.cameras = all.filter((d) => d.kind === 'videoinput');
+  state.devices.microphones = all.filter((d) => d.kind === 'audioinput');
+
+  // Adopt whatever the live tracks actually resolved to, so the selectors reflect
+  // reality rather than a guess.
+  const settings = {
+    camera: bridge.media.stream?.getVideoTracks?.()[0]?.getSettings?.().deviceId,
+    microphone: bridge.media.stream?.getAudioTracks?.()[0]?.getSettings?.().deviceId,
+  };
+  const preferred = loadDevicePreference();
+  for (const kind of ['camera', 'microphone']) {
+    const list = kind === 'camera' ? state.devices.cameras : state.devices.microphones;
+    const wanted = settings[kind] || state.selected[kind] || preferred[kind];
+    state.selected[kind] = list.some((d) => d.deviceId === wanted) ? wanted : (list[0]?.deviceId || null);
+  }
+  renderDeviceSelectors();
+}
+
+function deviceLabel(device, index, kind) {
+  // Labels are empty until permission is granted; say so rather than showing a blank.
+  return device.label || `${kind} ${index + 1} (allow access to see its name)`;
+}
+
+function renderDeviceSelectors() {
+  for (const host of $$('[data-device-selectors]')) {
+    host.replaceChildren();
+    for (const [kind, list, label] of [
+      ['camera', state.devices.cameras, 'Camera'],
+      ['microphone', state.devices.microphones, 'Microphone'],
+    ]) {
+      const wrap = document.createElement('div');
+      const cap = document.createElement('div');
+      cap.className = 'microcap';
+      cap.textContent = label;
+      const select = document.createElement('select');
+      select.className = 'q-search';
+      select.dataset.deviceKind = kind;
+      select.setAttribute('aria-label', `${label} device`);
+      if (!list.length) {
+        const opt = document.createElement('option');
+        opt.textContent = 'No device found';
+        select.append(opt);
+        select.disabled = true;
+      }
+      list.forEach((device, index) => {
+        const opt = document.createElement('option');
+        opt.value = device.deviceId;
+        opt.textContent = deviceLabel(device, index, label);
+        opt.selected = device.deviceId === state.selected[kind];
+        select.append(opt);
+      });
+      select.addEventListener('change', () => void switchDevice(kind, select.value));
+      wrap.append(cap, select);
+      host.append(wrap);
+    }
+    const refresh = document.createElement('button');
+    refresh.type = 'button';
+    refresh.className = 'btn btn-quiet';
+    refresh.innerHTML = '<span>Refresh devices</span>';
+    refresh.addEventListener('click', () => void refreshDevices());
+    host.append(refresh);
+  }
+}
+
+async function switchDevice(kind, deviceId) {
+  if (!deviceId) return;
+  const trackKind = kind === 'camera' ? 'video' : 'audio';
+  const status = $('#device-switch-status');
+  if (status) status.textContent = `Switching ${kind}…`;
+  try {
+    if (!bridge.media.stream) {
+      await bridge.requestMedia(true, true);
+    } else {
+      await bridge.replaceTrack(trackKind, deviceId);
+    }
+    state.selected[kind] = deviceId;
+    saveDevicePreference();
+    bindPreview();
+    startLevelMeter();
+    if (status) status.textContent = `${kind === 'camera' ? 'Camera' : 'Microphone'} switched.`;
+  } catch (error) {
+    if (status) status.textContent = `Could not switch ${kind}: ${String(error?.name || error)}`;
+  }
+  renderDeviceCheck();
+  await refreshDevices();
+}
+
+function bindPreview() {
+  for (const stage of ['#devicecheck-stage']) {
+    const host = $(stage);
+    if (!host) continue;
+    let video = host.querySelector('video');
+    if (!video) {
+      video = document.createElement('video');
+      video.autoplay = true; video.muted = true; video.playsInline = true;
+      host.append(video);
+    }
+    if (video.srcObject !== bridge.media.stream) video.srcObject = bridge.media.stream;
+  }
+}
+
+/** Live input meter so the student can SEE the microphone working before a session. */
+function startLevelMeter() {
+  if (state.levelTimer) clearInterval(state.levelTimer);
+  const bar = $('#mic-level-fill');
+  const readout = $('#mic-level-readout');
+  if (!bar) return;
+  state.levelTimer = setInterval(() => {
+    const { analyser, data } = bridge.media;
+    if (!analyser || !data) { bar.style.width = '0%'; if (readout) readout.textContent = 'UNAVAILABLE'; return; }
+    analyser.getFloatTimeDomainData(data);
+    let peak = 0;
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 1) { const v = Math.abs(data[i]); if (v > peak) peak = v; sum += data[i] * data[i]; }
+    const rms = Math.sqrt(sum / data.length);
+    const dbfs = rms > 0 ? 20 * Math.log10(rms) : -Infinity;
+    bar.style.width = `${Math.max(0, Math.min(100, (dbfs + 60) / 60 * 100))}%`;
+    if (readout) {
+      readout.textContent = Number.isFinite(dbfs)
+        ? `${dbfs.toFixed(1)} dBFS · peak ${peak.toFixed(3)}`
+        : 'SILENT — check the microphone selector';
+    }
+  }, 100);
+}
+
 /* ------------------------------------------------------------------ device check */
 
 function renderDeviceCheck() {
@@ -385,12 +614,9 @@ async function connectDevices() {
   if (button) { button.disabled = true; button.innerHTML = '<span>Requesting…</span>'; }
   try {
     await bridge.requestMedia(true, true);
-    const preview = document.createElement('video');
-    preview.autoplay = true; preview.muted = true; preview.playsInline = true;
-    preview.srcObject = bridge.media.stream;
-    const stage = $('#devicecheck-stage');
-    stage?.querySelector('video')?.remove();
-    stage?.append(preview);
+    bindPreview();
+    await refreshDevices();
+    startLevelMeter();
   } catch (error) {
     const host = $('#device-checklist');
     const note = document.createElement('p');
@@ -473,11 +699,7 @@ function wireChrome() {
     rail.dataset.open = String(rail.dataset.open !== 'true');
   });
   for (const button of $$('[data-role]')) {
-    button.addEventListener('click', () => {
-      state.role = button.dataset.role;
-      for (const other of $$('[data-role]')) other.setAttribute('aria-pressed', String(other === button));
-      state.analytics?.onViewChange?.(state.view, state.role === 'student' ? 'student' : 'admin');
-    });
+    button.addEventListener('click', () => applyRole(button.dataset.role));
   }
   $('#q-search')?.addEventListener('input', (event) => { state.search = event.target.value; renderQuestions(); });
   $('#set-clear')?.addEventListener('click', () => { state.interviewSet = []; renderSet(); });
@@ -559,6 +781,7 @@ function renderHomeCorpus() {
 
 async function boot() {
   wireChrome();
+  applyRole('student');
   collectionChips();
   renderQuestions();
   renderSet();
@@ -567,6 +790,8 @@ async function boot() {
   renderPostAnswer();
   renderHomeCorpus();
   renderDeviceCheck();
+  void refreshDevices();
+  navigator.mediaDevices?.addEventListener?.('devicechange', () => void refreshDevices());
 
   try {
     state.admission = await loadIvPrepSession();

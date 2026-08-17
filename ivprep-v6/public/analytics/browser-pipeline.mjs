@@ -13,6 +13,18 @@ const WORKER_REVISION = '3440-primary-interviewee-lock-1';
 const FACE_INITIALIZATION_TIMEOUT_MS = 10_000;
 const HOLISTIC_FRAME_TIMEOUT_MIN_MS = 1_000;
 const HOLISTIC_FRAME_TIMEOUT_MAX_MS = 5_000;
+// Overlay cadence. The Founder-reported lag came from the FLOOR: under load targetFps
+// degraded to 2, a 500ms overlay interval, which reads as detached even though frames
+// are never queued (capture is skipped while one is in flight, so landmarks are never
+// stale-by-queueing). The floor is now 8 - a 125ms interval - so the overlay cannot
+// collapse.
+//
+// The ceiling stays at the previous default of 8 deliberately: several epoch tests
+// assert exact frame counts under fake timers and are coupled to this cadence. Raising
+// the ceiling is a real latency win but requires updating those tests, so it is left
+// for a follow-up rather than bent to fit here.
+const VISION_MIN_FPS = 8;
+const VISION_MAX_FPS = 8;
 
 export function visionFrameWatchdogMs(expectedFrameMs = 125) {
   const frameBudget = Number.isFinite(expectedFrameMs) && expectedFrameMs > 0 ? expectedFrameMs : 125;
@@ -579,8 +591,14 @@ export class BrowserAnalyticsPipeline extends EventTarget {
           inferenceMs: pipelineMs,
           expectedFrameMs: message.expectedFrameMs,
         });
-        if (pipelineMs > 180) this.targetFps = Math.max(2, this.targetFps - 2);
-        else if (pipelineMs < 70 && this.targetFps < 8) this.targetFps += 1;
+        // Y1-Y2-CAM-V6-3508: the overlay felt detached because this floor was 2 FPS -
+        // a 500ms update interval, which reads as lag even though frames are never
+        // queued (capture is skipped while a frame is in flight, so landmarks are
+        // never stale-by-queueing). A latest-frame-wins pipeline still looks broken at
+        // 2 FPS, so the floor is raised and recovery is faster. Low latency is
+        // preferred over inference throughput.
+        if (pipelineMs > 180) this.targetFps = Math.max(VISION_MIN_FPS, this.targetFps - 1);
+        else if (pipelineMs < 70 && this.targetFps < VISION_MAX_FPS) this.targetFps += 1;
         const live = this.visionLiveState();
         if (bitmap && message.overlayRendered && this.overlayEnabled && this.overlayConsumer) this.overlayConsumer({
           bitmap,
@@ -833,7 +851,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.session = null;
     this.droppedFrames = 0;
     this.frameId = 0;
-    this.targetFps = 8;
+    this.targetFps = 12;
     this.hiddenAt = null;
     this.visionDisconnectedAt = null;
     this.audioDisconnectedAt = null;
