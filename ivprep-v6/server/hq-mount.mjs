@@ -126,7 +126,12 @@ async function readJson(request) {
 
 function staticFile(pathname) {
   let relativePath;
-  if (pathname === PRODUCT_PREFIX || pathname === `${PRODUCT_PREFIX}/`) relativePath = 'aaa/index.html';
+  // Y1-Y2-CAM-V6-3506: the product surface is now the approved 3492 Performance Studio
+  // shell. The pre-Fable 3440 AAA shell remains on disk and reachable at
+  // /iv-prep-on-call/legacy/ for comparison and rollback, but it is no longer what the
+  // hosted route serves.
+  if (pathname === PRODUCT_PREFIX || pathname === `${PRODUCT_PREFIX}/`) relativePath = 'studio/index.html';
+  else if (pathname === `${PRODUCT_PREFIX}/legacy` || pathname === `${PRODUCT_PREFIX}/legacy/`) relativePath = 'aaa/index.html';
   else if (pathname === `${PRODUCT_PREFIX}/assets/vendor/livekit-client.umd.js`) {
     return existsSync(LIVEKIT_BROWSER_UMD) && statSync(LIVEKIT_BROWSER_UMD).isFile() ? LIVEKIT_BROWSER_UMD : null;
   }

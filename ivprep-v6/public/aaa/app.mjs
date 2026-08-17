@@ -10,7 +10,9 @@ const QUESTIONS = questionStore.all().map((q) => ({
   id: q.question_id,
   category: q.core_priority ? "Core" : (q.tags?.[0] || "General"),
   prompt: q.canonical_text,
-  why: q.coaching_lens || "",
+  // No coaching field exists on canonical records and none is invented here; the line
+  // states real provenance and tags instead.
+  why: `${q.source === "founder_core" ? "Founder CORE" : q.source === "mr142" ? "Mission Residency" : "Behavioral"} · ${(q.tags || []).filter((t) => t !== "CORE").slice(0, 3).join(" · ") || "general"}`,
   minutes: q.difficulty >= 3 ? 3 : 2,
   profile: q.core_priority === true,
   tags: q.tags || [],
@@ -177,9 +179,11 @@ async function mountDeliveryIntelligenceGroups() {
     mount.id = "di-groups-mount";
     host.append(mount);
     state.diGroups = new DeliveryIntelligenceGroups(mount);
-    const pipeline = state.communicationAnalytics?.pipeline;
-    pipeline?.addEventListener?.("diagnostic", (event) => {
-      try { state.diGroups.ingest(event.detail || {}); } catch { /* rendering must never break capture */ }
+    // Y1-Y2-CAM-V6-3507: this used to read `state.communicationAnalytics?.pipeline`,
+    // which the facade never exposed, so the optional call silently no-opped and every
+    // FACE / PITCH lane stayed UNAVAILABLE forever. Use the real seam.
+    state.communicationAnalytics?.onDiagnostic?.((detail) => {
+      try { state.diGroups.ingest(detail); } catch { /* rendering must never break capture */ }
     });
   } catch { /* the cockpit stays usable if the group panel fails to load */ }
 }

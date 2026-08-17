@@ -257,7 +257,14 @@ test('synthetic Founder harness serves the observable room without provider acti
 
   const startup = await awaitSyntheticHarness(child);
   assert.equal(startup.stderr, '');
-  const response = await fetch(startup.url);
+  // Y1-Y2-CAM-V6-3506: the product root now serves the approved 3492 Performance Studio
+  // shell. The Founder paid-test controls asserted below live in the pre-Fable AAA
+  // shell, which is still served at /iv-prep-on-call/legacy/. This test covers that
+  // surface, so it fetches it explicitly rather than the product root.
+  // NOTE FOR CODEX: porting the Founder paid-test / Dr Kelly controls into the Studio
+  // shell is outstanding work; until then the provider test path is the legacy route.
+  const legacyUrl = new URL('legacy/', new URL(startup.url).href.replace(/#.*$/u, ''));
+  const response = await fetch(legacyUrl);
   const html = await response.text();
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-security-policy') || '', /default-src 'self'/u);

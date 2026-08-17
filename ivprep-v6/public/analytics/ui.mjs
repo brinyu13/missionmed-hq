@@ -2153,6 +2153,22 @@ export function initializeAnalyticsUi(bridge, { surfaceIds = {}, overlayPolicy =
     renderStudentResults: renderStudentAnalytics,
     onViewChange: (view, role) => { studentOverlay.onViewChange(view, role);founder?.onViewChange(view, role); },
     diagnostics: () => pipeline.diagnostics(),
+    // Y1-Y2-CAM-V6-3506: the facade exposed no way to observe telemetry, so external
+    // surfaces (Film Room, Analytics Lab) had no diagnostic source and rendered every
+    // lane UNAVAILABLE. Two pipelines emit: `founderPipeline` drives the cockpit's own
+    // guided runs and `pipeline` drives the student overlay, so both are forwarded.
+    // Returns an unsubscribe function. Read-only by construction - a listener cannot
+    // influence capture.
+    onDiagnostic: (listener) => {
+      if (typeof listener !== 'function') throw new TypeError('A diagnostic listener function is required.');
+      const handler = (event) => { try { listener(event.detail || {}); } catch { /* a consumer must never break capture */ } };
+      founderPipeline.addEventListener('diagnostic', handler);
+      pipeline.addEventListener('diagnostic', handler);
+      return () => {
+        founderPipeline.removeEventListener('diagnostic', handler);
+        pipeline.removeEventListener('diagnostic', handler);
+      };
+    },
     persistentEnvelopes: (value) => persistentAnalyticsEnvelopes(value),
     resetSession: () => { playbackPipeline.endPlayback('session_reset');pipeline.resetSession(); },
     releaseRuntime: () => { playbackPipeline.endPlayback('runtime_released');pipeline.resetSession(); },
