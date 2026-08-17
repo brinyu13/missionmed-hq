@@ -11,7 +11,7 @@ const SECTION_ALIASES={
   presentations:["presentations","posters and presentations","abstracts"],
   leadership:["leadership","leadership experience"],
   memberships:["memberships","professional memberships"],
-  honors:["honors","awards and honors","medical school awards"],
+  honors:["honors","awards and honors","medical school awards","honors and service","honors & service"],
   languages:["languages","language fluency"],
   interests:["hobbies and interests","interests","hobbies"],
   personal:["personal information","personal history","additional information"],

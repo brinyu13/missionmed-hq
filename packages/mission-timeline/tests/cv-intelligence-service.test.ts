@@ -113,6 +113,29 @@ test("taxonomy guard prevents an award from remaining in Work", async () => {
   assert.ok(response.candidates[0]!.warnings.some((warning) => /corrected from work to education/i.test(warning)));
 });
 
+test("explicit volunteer service cannot survive as Research after an adjacent research section", async () => {
+  const excerpt = "Volunteer Mentor, Community Health Program, January 2024 - Present";
+  const volunteerResult = result({
+    canonicalType: "RESEARCH_EXPERIENCE",
+    categoryId: "res",
+    title: "Volunteer Mentor, Community Health Program",
+    organization: "Community Health Program",
+    startDate: "2024-01",
+    endDate: null,
+    openEnded: true,
+    timelineKind: "duration",
+  });
+  for (const evidence of volunteerResult.candidates[0]!.evidence) evidence.excerpt = excerpt;
+  const service = new CvIntelligenceService({ provider: provider(volunteerResult), expectedConsentVersion: "d1-ux-007-ai-v1" });
+  const response = await service.analyze(student, document(), sourceObject, request({
+    blocks: [{ id: "block_education", pageNumber: 1, section: "Honors and Service", text: excerpt }],
+  }));
+  assert.equal(response.candidates[0]!.canonicalType, "VOLUNTEER_EXPERIENCE");
+  assert.equal(response.candidates[0]!.categoryId, "work");
+  assert.equal(response.candidates[0]!.safeToBulkAccept, false);
+  assert.ok(response.candidates[0]!.warnings.some((warning) => /volunteer experience/i.test(warning)));
+});
+
 test("unconfigured or unavailable AI fails soft without fabricating candidates", async () => {
   const service = new CvIntelligenceService();
   const response = await service.analyze(student, document(), sourceObject, request());

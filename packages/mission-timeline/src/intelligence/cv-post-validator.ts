@@ -43,6 +43,7 @@ const FORCED_CATEGORY: Partial<Record<CvProviderCandidate["canonicalType"], CvCa
   GRADUATION: "education",
   AWARD_HONOR: "education",
   CERTIFICATION: "education",
+  VOLUNTEER_EXPERIENCE: "work",
   STEP_1: "usmle",
   STEP_2_CK: "usmle",
   STEP_3: "usmle",
@@ -53,6 +54,23 @@ const FORCED_CATEGORY: Partial<Record<CvProviderCandidate["canonicalType"], CvCa
   RESEARCH_EXPERIENCE: "res",
   PERSONAL_NOT_ON_CV: "personal",
 };
+
+function normalizeExplicitServiceClassification(
+  canonicalType: string,
+  title: string | null,
+): { canonicalType: string; corrected: boolean; warning: string | null } {
+  if (
+    canonicalType === "RESEARCH_EXPERIENCE"
+    && /\b(?:volunteer|community service|community health|mentor(?:ing)?)\b/i.test(String(title || ""))
+  ) {
+    return {
+      canonicalType: "VOLUNTEER_EXPERIENCE",
+      corrected: true,
+      warning: "Classification corrected to volunteer experience from explicit service wording; review before acceptance.",
+    };
+  }
+  return { canonicalType, corrected: false, warning: null };
+}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -187,12 +205,12 @@ function parseCandidate(value: unknown, request: CvIntelligenceRequest): { local
   const item = asRecord(value);
   if (!item) return null;
   const localId = text(item.localId, 160);
-  const canonicalType = text(item.canonicalType, 80);
+  const canonicalTypeInput = text(item.canonicalType, 80);
   const categoryInput = text(item.categoryId, 80);
   const timelineKind = item.timelineKind === "duration" || item.timelineKind === "milestone" ? item.timelineKind : null;
   const classificationReason = text(item.classificationReason, 1_000);
   const evidenceInput = Array.isArray(item.evidence) && item.evidence.length <= 40 ? item.evidence : null;
-  if (!localId || !canonicalType || !CANONICAL_TYPES.has(canonicalType) || !categoryInput || !CATEGORY_IDS.has(categoryInput) || !timelineKind || !classificationReason || !evidenceInput) return null;
+  if (!localId || !canonicalTypeInput || !CANONICAL_TYPES.has(canonicalTypeInput) || !categoryInput || !CATEGORY_IDS.has(categoryInput) || !timelineKind || !classificationReason || !evidenceInput) return null;
   const blocks = new Map(request.blocks.map((block) => [block.id, block.text]));
   const evidence = evidenceInput.map((entry) => providerEvidence(entry, blocks));
   if (evidence.some((entry) => entry === null)) return null;
@@ -232,11 +250,13 @@ function parseCandidate(value: unknown, request: CvIntelligenceRequest): { local
     datePrecision,
   ))) return null;
 
+  const classificationNormalization = normalizeExplicitServiceClassification(canonicalTypeInput, title);
+  const canonicalType = classificationNormalization.canonicalType;
   const forcedCategory = FORCED_CATEGORY[canonicalType as CvProviderCandidate["canonicalType"]];
-  const correctedCategory = Boolean(forcedCategory && forcedCategory !== categoryInput);
+  const correctedCategory = Boolean(classificationNormalization.corrected || (forcedCategory && forcedCategory !== categoryInput));
   const categoryId = forcedCategory ?? categoryInput as CvCategoryId;
   const correctedWarnings = correctedCategory
-    ? [...warnings, `Category corrected from ${categoryInput} to ${categoryId} by the canonical taxonomy.`]
+    ? [...warnings, ...(classificationNormalization.warning ? [classificationNormalization.warning] : []), `Category corrected from ${categoryInput} to ${categoryId} by the canonical taxonomy.`]
     : warnings;
   const providerCandidate: CvProviderCandidate = {
     localId,
