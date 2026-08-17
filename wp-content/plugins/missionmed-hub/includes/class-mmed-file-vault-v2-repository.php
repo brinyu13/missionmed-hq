@@ -1920,6 +1920,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	 * @return array|WP_Error
 	 */
 	protected static function scan_object( $intent, $probe ) {
+		$probe['staging_download_url'] = self::presign_url( 'GET', $intent['r2_key'], 60 );
 		$result = apply_filters( 'mmed_file_vault_v2_scan_object', null, $intent, $probe );
 		if ( is_wp_error( $result ) ) {
 			return $result;
