@@ -284,3 +284,62 @@ function mmed_fv2_zip_contains_entry( $zip_data, $entry ) {
 
 	return false;
 }
+
+add_action( 'mmed_fv2_staging_cleanup', 'mmed_fv2_run_staging_cleanup' );
+
+add_action( 'init', static function () {
+	if ( ! wp_next_scheduled( 'mmed_fv2_staging_cleanup' ) ) {
+		wp_schedule_event( time(), 'daily', 'mmed_fv2_staging_cleanup' );
+	}
+} );
+
+/**
+ * Delete staging objects older than 24 hours.
+ *
+ * @return void
+ */
+function mmed_fv2_run_staging_cleanup() {
+	if ( ! class_exists( '\\Aws\\S3\\S3Client' ) || ! defined( 'MMED_R2_ENDPOINT' ) || ! defined( 'MMED_R2_BUCKET' ) ) {
+		return;
+	}
+
+	try {
+		$client = new \Aws\S3\S3Client( array(
+			'region'      => 'auto',
+			'version'     => 'latest',
+			'endpoint'    => rtrim( MMED_R2_ENDPOINT, '/' ),
+			'credentials' => array(
+				'key'    => MMED_R2_ACCESS_KEY,
+				'secret' => MMED_R2_SECRET_KEY,
+			),
+		) );
+
+		$cutoff = new \DateTime( '-24 hours', new \DateTimeZone( 'UTC' ) );
+		$result = $client->listObjectsV2( array(
+			'Bucket' => MMED_R2_BUCKET,
+			'Prefix' => 'student-files/v2/staging/',
+			'MaxKeys' => 100,
+		) );
+
+		$contents = $result['Contents'] ?? array();
+		$deleted  = 0;
+
+		foreach ( $contents as $object ) {
+			$key = $object['Key'] ?? '';
+			if ( '' === $key || 0 !== strpos( $key, 'student-files/v2/staging/' ) ) {
+				continue;
+			}
+			$modified = $object['LastModified'] ?? null;
+			if ( $modified instanceof \DateTimeInterface && $modified < $cutoff ) {
+				$client->deleteObject( array( 'Bucket' => MMED_R2_BUCKET, 'Key' => $key ) );
+				$deleted++;
+			}
+		}
+
+		if ( $deleted > 0 ) {
+			do_action( 'mmed_file_vault_v2_staging_cleanup', $deleted );
+		}
+	} catch ( \Throwable $e ) {
+		do_action( 'mmed_file_vault_v2_staging_cleanup_error', $e->getMessage() );
+	}
+}
