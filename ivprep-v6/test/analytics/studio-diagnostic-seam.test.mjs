@@ -71,9 +71,15 @@ test('the Studio shell declares the approved Performance Studio hierarchy', () =
     'founder-room-wrapper', 'playback', 'communication-analytics-test-root']) {
     assert.match(studioHtml, new RegExp(`id="${id}"`, 'u'), `surface id ${id} missing`);
   }
-  // The cockpit resolves its owning view from data-view-panel; the training screen
-  // must therefore carry both.
-  assert.match(studioHtml, /data-view-panel="training" id="communication-analytics-test-root"/u);
+  // Y1-Y2-CAM-V6-3509: these were the SAME element, which meant the analytics module's
+  // root.replaceChildren() wiped the student cockpit out of the training screen on every
+  // render. The analytics module now owns a dedicated founder-only child container, and
+  // the cockpit is a sibling. ownsActiveView still resolves because closest() finds the
+  // panel from the nested host.
+  assert.match(studioHtml, /data-view-panel="training"/u);
+  assert.match(studioHtml, /id="communication-analytics-test-root" data-founder-only/u);
+  assert.doesNotMatch(studioHtml, /data-view-panel="training" id="communication-analytics-test-root"/u,
+    'the analytics root must not be the training panel itself');
 });
 
 test('the Studio shell uses the canonical corpus and never the retired fixture', async () => {

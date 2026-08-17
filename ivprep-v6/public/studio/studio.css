@@ -329,3 +329,36 @@ body[data-role="student"] #communication-analytics-test-root .ca-founder,
 body[data-role="student"] #communication-analytics-test-root .ca-timeline,
 body[data-role="student"] #communication-analytics-test-root .ca-diagnostics { display: none !important; }
 .debug-banner { border: 1px solid var(--warn); color: var(--warn); padding: 8px 12px; font-size: 10px; letter-spacing: .12em; font-weight: 800; text-transform: uppercase; margin-bottom: 12px; }
+
+/* ---------- student cockpit ---------- */
+.cockpit { display: grid; grid-template-columns: minmax(0,1.55fr) minmax(300px,1fr); gap: 16px; margin-top: 4px; }
+.cockpit-stage { min-width: 0; }
+.cockpit-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+#cockpit-video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.overlay-toggles { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.overlay-toggles button {
+  background: var(--s2); border: 1px solid var(--line); color: var(--ink2); cursor: pointer;
+  font-family: inherit; font-weight: 800; font-size: 9px; letter-spacing: .1em;
+  text-transform: uppercase; padding: 6px 10px;
+}
+.overlay-toggles button[aria-pressed="true"] { background: var(--gold); color: #241503; border-color: var(--brand-b); }
+.primary-instrument { min-height: 132px; }
+
+/* ---------- instruments ---------- */
+.inst { background: var(--housing); border: 1px solid var(--line); box-shadow: var(--bevel); clip-path: var(--chamfer-sm); padding: 10px 12px 12px; }
+.inst-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.inst-plate {
+  background: var(--gold); color: #241503; font-weight: 900; font-size: 8.5px;
+  letter-spacing: .1em; padding: 3px 6px; transform: skewX(-10deg);
+}
+.inst-title { font-weight: 800; font-style: italic; text-transform: uppercase; font-size: 11px; letter-spacing: .02em; }
+.inst-readout { margin-left: auto; font-family: var(--font-num); font-size: 10px; font-weight: 600; color: var(--ink2); }
+.inst-readout[data-state="ok"] { color: var(--ok); }
+.inst-readout[data-state="warn"] { color: var(--warn); }
+.inst-readout[data-state="unavailable"] { color: var(--warn); }
+.inst-readout[data-state="idle"] { color: var(--dim); }
+.inst-canvas { display: block; width: 100%; height: 92px; }
+.primary-instrument .inst-canvas { height: 104px; }
+.inst-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); gap: 12px; background: transparent; box-shadow: none; padding: 0; }
+
+@media (max-width: 1180px) { .cockpit { grid-template-columns: 1fr; } }

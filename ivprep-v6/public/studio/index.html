@@ -200,7 +200,7 @@
       </section>
 
       <!-- DELIVERY TRAINING — hosts the real analytics cockpit -->
-      <section class="screen" data-view-panel="training" id="communication-analytics-test-root">
+      <section class="screen" data-view-panel="training">
         <div class="microcap hero-kick">Delivery training</div>
         <h1 class="hero">One thing at a <em>time.</em></h1>
         <p class="lede">Live coaching shows a single active correction. Every other enabled metric stays visible as compact status; the detail lives in Film Room and Analytics Lab.</p>
@@ -208,6 +208,42 @@
           <summary class="housing-title" style="cursor:pointer">⚙ Devices — switch camera or microphone without leaving the session</summary>
           <div class="recess grid grid-2" data-device-selectors></div>
         </details>
+
+        <!-- STUDENT COCKPIT. One large active correction plus a compact status rail.
+             The engineering cockpit that the analytics module renders into this same
+             screen is hidden for students by role CSS, never unsubscribed. -->
+        <div class="cockpit" data-student-cockpit>
+          <div class="cockpit-stage">
+            <div class="stage" id="cockpit-stage">
+              <video id="cockpit-video" autoplay muted playsinline></video>
+              <div class="stage-tag"><span id="cockpit-question">No question selected</span></div>
+            </div>
+            <div class="overlay-toggles" id="cockpit-overlays" role="group" aria-label="Overlay layers"></div>
+            <div class="btn-row" style="margin-top:12px">
+              <button class="btn btn-primary" type="button" id="cockpit-connect"><span>Connect camera + mic</span></button>
+              <button class="btn btn-secondary" type="button" id="cockpit-start"><span>Start rep ▸</span></button>
+              <button class="btn btn-quiet" type="button" id="cockpit-finish"><span>Finish</span></button>
+            </div>
+          </div>
+
+          <div class="cockpit-side">
+            <!-- ONE dominant correction, ever. -->
+            <div class="correction-plate" id="cockpit-correction" data-state="idle">
+              <div>
+                <div class="microcap" id="correction-metric">Ready</div>
+                <div class="correction-verdict" id="correction-verdict">Start speaking</div>
+              </div>
+            </div>
+            <div class="primary-instrument" id="cockpit-primary"></div>
+            <div class="status-rail" id="cockpit-rail"></div>
+            <div class="microcap" id="cockpit-session">Session idle</div>
+          </div>
+        </div>
+        <!-- Engineering cockpit host. The analytics module owns this element and calls
+             replaceChildren() on it, which is why it must be its own container rather
+             than the whole screen. Marked founder-only: hidden for students by role
+             CSS, never unsubscribed. -->
+        <div id="communication-analytics-test-root" data-founder-only></div>
       </section>
 
       <!-- SIMULATION -->
@@ -294,6 +330,10 @@
         <h1 class="hero">Deep <em>inspection.</em></h1>
         <p class="lede">Full instrumentation with numerics and coverage. Composite cue profiles show their contributors and denominators; a weak contributor is never averaged out of sight.</p>
         <div class="housing" style="margin-top:18px">
+          <div class="housing-title">Instrument library</div>
+          <div class="recess inst-grid" id="lab-instruments"></div>
+        </div>
+        <div class="housing" style="margin-top:16px">
           <div class="housing-title">Live signal groups</div>
           <div id="lab-groups"></div>
         </div>

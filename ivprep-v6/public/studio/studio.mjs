@@ -14,6 +14,8 @@
 
 import { loadIvPrepSession, loadVault } from '../aaa/api-client.mjs';
 import { COLLECTIONS, createDefaultQuestionStore } from '../questions/question-store.mjs';
+import { MetricBus, selectCorrection, statusRail } from './metric-bus.mjs';
+import { InstrumentRack } from './instruments.mjs';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -42,6 +44,11 @@ const state = {
   devices: { cameras: [], microphones: [] },
   selected: { camera: null, microphone: null },
   levelTimer: null,
+  bus: new MetricBus(),
+  rack: null,
+  labRack: null,
+  primaryMetric: null,
+  overlays: { face: true, bodyHands: true, enabled: true },
 };
 
 /* ------------------------------------------------------------------ media bridge
@@ -189,6 +196,8 @@ function setView(view, { focus = false } = {}) {
   // live media while its own screen is active.
   state.analytics?.onViewChange?.(view, state.role === 'student' ? 'student' : 'admin');
   if (view === 'devicecheck') renderDeviceCheck();
+  if (view === 'training') bindCockpitVideo();
+  if (view === 'lab') mountLabInstruments();
   if (view === 'vault') void renderVault();
   if (focus) $('#main-content')?.focus?.({ preventScroll: true });
   window.scrollTo({ top: 0, behavior: 'auto' });
@@ -577,6 +586,144 @@ function startLevelMeter() {
   }, 100);
 }
 
+/* ------------------------------------------------------------------ student cockpit
+ * The approved instrument layer. Telemetry arrives as raw analytics diagnostics, is
+ * normalized by MetricBus, and is rendered by swappable instruments. No DSP lives in
+ * this file or in any gauge.
+ *
+ * DISPLAY IS NOT MEASUREMENT: overlay toggles and instrument visibility never
+ * unsubscribe a cartridge. The only thing they change is what is drawn.
+ */
+
+const PRIMARY_FOR = Object.freeze({
+  VOLUME_VARIATION: 'VOLUME_VARIATION', VOICE_LEVEL: 'VOICE_LEVEL', PACE: 'PACE',
+  PITCH_VARIATION: 'PITCH_VARIATION', CADENCE: 'CADENCE', FRAMING: 'FRAMING',
+});
+
+const LAB_ORDER = Object.freeze([
+  'VOICE_LEVEL', 'VOLUME_VARIATION', 'PITCH', 'PITCH_VARIATION',
+  'PACE', 'CADENCE', 'PAUSE', 'FACE', 'HANDS', 'FRAMING',
+]);
+
+function mountPrimary(metricId) {
+  const host = $('#cockpit-primary');
+  if (!host || state.primaryMetric === metricId) return;
+  host.replaceChildren();
+  const shell = document.createElement('div');
+  host.append(shell);
+  state.rack = new InstrumentRack();
+  state.rack.mount(shell, metricId);
+  state.rack.start();
+  state.primaryMetric = metricId;
+  // Immediately paint with whatever evidence already exists.
+  state.rack.update(state.bus.latest);
+}
+
+function mountLabInstruments() {
+  const host = $('#lab-instruments');
+  if (!host || state.labRack) return;
+  host.replaceChildren();
+  state.labRack = new InstrumentRack();
+  for (const id of LAB_ORDER) {
+    const cell = document.createElement('div');
+    host.append(cell);
+    state.labRack.mount(cell, id);
+  }
+  state.labRack.start();
+}
+
+function renderCorrection() {
+  const correction = selectCorrection(state.bus.latest);
+  const plate = $('#cockpit-correction');
+  const metric = $('#correction-metric');
+  const verdict = $('#correction-verdict');
+  if (!plate) return;
+  plate.dataset.state = correction.state === 'locked' ? 'locked' : correction.state === 'warn' ? 'warn' : 'idle';
+  if (metric) metric.textContent = correction.headline;
+  if (verdict) verdict.textContent = correction.instruction;
+  // One dominant correction, ever: the primary instrument follows the limiting
+  // contributor, and falls back to voice level when nothing needs correcting.
+  mountPrimary(PRIMARY_FOR[correction.metric] || 'VOICE_LEVEL');
+}
+
+function renderStatusRail() {
+  const host = $('#cockpit-rail');
+  if (!host) return;
+  const rows = statusRail(state.bus.latest);
+  host.replaceChildren();
+  for (const row of rows) {
+    const pill = document.createElement('span');
+    pill.className = 'status-pill';
+    pill.dataset.ok = row.state === 'ok' ? 'true' : row.state === 'warn' ? 'warn' : 'false';
+    pill.textContent = `${row.label} ${row.state === 'ok' ? '✓' : row.state === 'warn' ? '!' : '—'}`;
+    host.append(pill);
+  }
+}
+
+function renderOverlayToggles() {
+  const host = $('#cockpit-overlays');
+  if (!host || host.childElementCount) return;
+  const defs = [
+    ['enabled', 'Tracking overlay'],
+    ['face', 'Face'],
+    ['bodyHands', 'Body + hands'],
+  ];
+  for (const [key, label] of defs) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.setAttribute('aria-pressed', String(state.overlays[key]));
+    b.addEventListener('click', () => {
+      state.overlays[key] = !state.overlays[key];
+      b.setAttribute('aria-pressed', String(state.overlays[key]));
+      // Presentation only. setInstrumentation changes what the worker DRAWS; the
+      // landmark inference and every metric cartridge keep running.
+      state.analytics?.setInstrumentation?.({
+        overlayEnabled: state.overlays.enabled,
+        faceOverlayEnabled: state.overlays.face,
+        bodyHandsOverlayEnabled: state.overlays.bodyHands,
+      });
+    });
+    host.append(b);
+  }
+}
+
+function bindCockpitVideo() {
+  const v = $('#cockpit-video');
+  if (v && bridge.media.stream && v.srcObject !== bridge.media.stream) v.srcObject = bridge.media.stream;
+}
+
+function wireCockpit() {
+  renderOverlayToggles();
+  renderStatusRail();
+  renderCorrection();
+  $('#cockpit-connect')?.addEventListener('click', async () => {
+    // Route through the analytics cockpit's own connect so it reaches its 'ready'
+    // state against the SHARED bridge. Calling requestMedia directly here would leave
+    // the analytics module idle and its start() would return early - the student would
+    // see a live camera and no telemetry.
+    const analyticsConnect = document.getElementById('communication-analytics-connect');
+    if (analyticsConnect) analyticsConnect.click();
+    else await connectDevices();
+    // Give the shared bridge a moment to publish media, then adopt it.
+    await new Promise((r) => setTimeout(r, 1200));
+    bindCockpitVideo();
+    bindPreview();
+    await refreshDevices();
+    startLevelMeter();
+    renderDeviceCheck();
+  });
+  $('#cockpit-start')?.addEventListener('click', () => {
+    document.getElementById('communication-analytics-start')?.click();
+    const q = state.interviewSet[0];
+    const label = $('#cockpit-question');
+    if (label) label.textContent = q ? q.canonical_text : 'Free practice';
+  });
+  $('#cockpit-finish')?.addEventListener('click', () => {
+    document.getElementById('communication-analytics-finish')?.click();
+  });
+}
+
 /* ------------------------------------------------------------------ device check */
 
 function renderDeviceCheck() {
@@ -686,7 +833,18 @@ async function mountAnalytics() {
   state.analytics.onDiagnostic?.((detail) => {
     try { state.filmGroups?.ingest(detail); } catch {}
     try { state.labGroups?.ingest(detail); } catch {}
+    // Raw diagnostic -> normalized metric frame -> renderers. Renderers never see the
+    // raw payload, which is what keeps them swappable.
+    try {
+      const frame = state.bus.ingest(detail);
+      if (!frame) return;
+      state.rack?.update(frame);
+      state.labRack?.update(frame);
+      renderStatusRail();
+      renderCorrection();
+    } catch { /* rendering must never break capture */ }
   });
+  mountLabInstruments();
 }
 
 /* ------------------------------------------------------------------ boot */
@@ -782,6 +940,7 @@ function renderHomeCorpus() {
 async function boot() {
   wireChrome();
   applyRole('student');
+  wireCockpit();
   collectionChips();
   renderQuestions();
   renderSet();
