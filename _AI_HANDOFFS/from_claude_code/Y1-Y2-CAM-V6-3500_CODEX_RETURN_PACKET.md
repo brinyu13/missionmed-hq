@@ -64,6 +64,8 @@ found for the reason in §1. Decide whether to track it.
 | `c808978` | feat | Real F0 pitch cartridge + FACE family, 10 lanes, claim-safety enforced (3504) |
 | `8721074` | feat | Stage A: real identity, real 193-question corpus in UI, FACE/PITCH group panel (3505) |
 | `18a1a54` | feat | 3492 Performance Studio shell live + diagnostic seam repaired (3507) |
+| `0eff67f` | fix | Safari mic root cause, device pickers + hot switch, student/debug split (3508) |
+| `10e583f` | feat | Approved Delivery Intelligence instruments wired into the cockpit (3509) |
 
 Each is bounded and independently revertable. Product code and authority
 documentation were kept in separate commits.
@@ -534,3 +536,75 @@ this worktree, but no plugin here renders the product nav
 **Remaining work is one WordPress nav entry on the member dashboard pointing at
 `https://missionmed-hq-production.up.railway.app/api/auth/start`. No code required —
 Founder or WordPress admin action.**
+
+
+---
+
+## 16. Y1-Y2-CAM-V6-3508 / 3509
+
+HQ deployments: `d1041156` (3508, commit `0eff67f`), **`badae54e`** (3509, commit
+`10e583f`), both SUCCESS. Profile B `271d3953` unchanged throughout, verified against a
+pre-deploy snapshot each time (start command and builder identical). Provider sessions
+created by automation: **ZERO**.
+
+### 3508 — Safari microphone root cause
+
+The Web Audio graph terminated at the AnalyserNode with no route to a destination.
+WebKit's graph is demand-driven, so the analyser was never pulled and returned silence
+forever: -160 dBFS, peak 0.00, "Detected speech NO", and F0 fed nothing. **F0 was never
+at fault.** Chrome pulls analysers regardless of termination, which is why every
+automated run passed and the real Safari test failed. Fixed with
+`analyser -> gain(0) -> destination`, plus using the original stream rather than one
+rebuilt from `getAudioTracks()` (Safari does not reliably pull a reconstructed stream).
+Verified through the real bridge: -9.1 dBFS, peak 0.500.
+
+Also: device pickers with real labels, hot switching with persistence, live input meter,
+role-driven student/debug split, and the vision cadence floor raised from 2 FPS (a 500ms
+overlay interval - the actual cause of the reported lag) to 8.
+
+Defect found while testing the switch: `bindStream()` stops every track of the current
+stream when owned, including the one being carried over, so switching the microphone
+would have killed the camera. Ownership is released before rebinding.
+
+### 3509 — approved instruments wired
+
+`public/studio/metric-bus.mjs` normalizes diagnostics into ten metric frames;
+`public/studio/instruments.mjs` holds renderers only. A test asserts the renderers
+contain no `estimateF0`, `getFloatTimeDomainData`, `createAnalyser`, `AudioContext`,
+`FaceFamily` or `PitchTrack`, so SPD-C is a pace renderer and not the pace engine.
+
+Founder-selected mappings: VOICE LEVEL = VV1 column + VV2 target window + monitor
+trace; PITCH = VV4 stepped registers around the speaker's own median; PACE = SPD-C/VV5
+corridor. Volume and volume variation are separate observables - a test drives 40 frames
+of constant loud level and asserts FLAT. Pitch comes from F0 semitones only.
+
+One-big-correction: `selectCorrection()` elevates exactly one, by severity, and only
+from metrics that have evidence; an UNAVAILABLE metric can never produce coaching.
+
+**Defect found and fixed:** the student cockpit was wiped from Delivery Training on
+every analytics render, because `#communication-analytics-test-root` WAS the training
+`<section>` and the analytics module calls `root.replaceChildren()`. The module now owns
+a dedicated `data-founder-only` child container; the cockpit is a sibling. This also
+completes the student/debug split structurally rather than by CSS alone.
+
+### Tests
+
+**382 pass / 0 fail** (372 → +10). `npm run check`: 35 modules.
+
+### Not verified — Founder physical test required
+
+Instruments have not been seen animating with real values. This environment produces no
+telemetry at all: the engineering cockpit's own meters also read UNAVAILABLE, because
+automated runs have no user activation for audio and synthetic frames yield no
+landmarks. rAF is additionally paused while the browser pane is hidden, so canvas
+painting could not be sampled. The Safari microphone fix is likewise reasoned from the
+WebKit graph-pull rule and proven in Chromium, not in Safari.
+
+### Still open
+
+1. `PROFILE_B_HEALTH_BLOCKER: OPEN` — `/health` returns 502 while Railway reports
+   RUNNING. Untouched. Blocks Dr Kelly / M5 only, not student practice.
+2. Matrix menu entry — one WordPress nav item pointing at `/api/auth/start`. No code.
+3. Founder paid-test / Dr Kelly controls are not ported into the Studio shell; the
+   provider path remains the legacy route.
+4. Composite cue profiles remain structural placeholders with honest coverage.
