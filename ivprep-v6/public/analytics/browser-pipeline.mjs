@@ -133,7 +133,26 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.answerSealed = false;
     this.sealedEndAt = null;
     const media = this.bridge.media || {};
-    const hasMic = Boolean(media.mic && media.AC?.state === 'running' && media.analyser && media.data && media.stream?.getAudioTracks?.().some((track) => track.readyState === 'live' && track.enabled && track.muted !== true));
+    // Y1-Y2-CAM-V6-3510 — SAFARI GATE.
+    //
+    // Two conditions here silently disabled all audio in WebKit while the camera
+    // worked perfectly, which is exactly the reported "UNAVAILABLE - NO AUDIO" with a
+    // selected microphone and granted permission:
+    //
+    //   track.muted !== true
+    //     MediaStreamTrack.muted is NOT a user mute. Per spec it means "temporarily
+    //     not producing data", and WebKit reports muted===true on a freshly acquired
+    //     microphone until samples actually begin flowing. Requiring it to be false
+    //     before we start sampling is a deadlock: we never sample, so data never
+    //     flows, so muted never clears. Liveness is now readyState + enabled, and the
+    //     transient muted state is tolerated.
+    //
+    //   AC.state === 'running'
+    //     Kept, but the context is now created and resumed synchronously inside the
+    //     user gesture (see primeAudioContext in studio.mjs). Creating it after the
+    //     media-acquisition await left it permanently 'suspended' in WebKit, because
+    //     user activation does not survive that await.
+    const hasMic = Boolean(media.mic && media.AC?.state === 'running' && media.analyser && media.data && media.stream?.getAudioTracks?.().some((track) => track.readyState === 'live' && track.enabled));
     const video = videoElement || document.getElementById('pipvid') || document.getElementById('stationvid');
     const hasCamera = Boolean(media.cam && media.stream?.getVideoTracks?.().some((track) => track.readyState === 'live' && track.enabled && track.muted !== true) && video);
     const session = this.ensureSession();
@@ -393,6 +412,10 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     const media = this.bridge.media || {};
     return Boolean(media.mic
       && media.AC?.state === 'running'
+      // The per-frame guard DOES honour muted: a microphone that genuinely mutes
+      // mid-session must produce an observation gap rather than be recorded as measured.
+      // Only the startup gate tolerates the transient WebKit muted state, because that
+      // was a bootstrap deadlock (no sampling -> no data -> muted never clears).
       && media.stream?.getAudioTracks?.().some((track) => track.readyState === 'live' && track.enabled && track.muted !== true));
   }
 

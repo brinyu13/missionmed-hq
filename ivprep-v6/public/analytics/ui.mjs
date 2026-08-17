@@ -1042,7 +1042,13 @@ export class FounderAnalyticsSurface {
 
   microphoneIsLive() {
     const media = this.bridge.media || {};
-    return Boolean(media.mic && media.AC?.state === 'running' && media.stream?.getAudioTracks?.().some((track) => track.readyState === 'live' && track.enabled && track.muted !== true));
+    // Y1-Y2-CAM-V6-3510: the third and last transient-muted gate. MediaStreamTrack.muted
+    // means "temporarily not producing data", not a user mute, and WebKit reports it true
+    // on a freshly acquired microphone. Gating on it here kept micAvailable() false in
+    // Safari even once the AudioContext was running and the analyser was delivering real
+    // PCM, so the guided run started with hasMic false and no audio diagnostic was ever
+    // dispatched. Liveness is readyState + enabled.
+    return Boolean(media.mic && media.AC?.state === 'running' && media.stream?.getAudioTracks?.().some((track) => track.readyState === 'live' && track.enabled));
   }
 
   updateStartAvailability() {

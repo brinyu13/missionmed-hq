@@ -44,6 +44,7 @@ const state = {
   devices: { cameras: [], microphones: [] },
   selected: { camera: null, microphone: null },
   levelTimer: null,
+  audioDebug: { pcmFrames: 0, f0Frames: 0, timer: null },
   bus: new MetricBus(),
   rack: null,
   labRack: null,
@@ -59,8 +60,34 @@ const bridge = {
   media: Object.freeze({ cam: false, mic: false, stream: null, AC: null, analyser: null, data: null }),
   ownsStream: false,
   source: null,
+  /**
+   * Create and resume the AudioContext SYNCHRONOUSLY, inside the user gesture.
+   *
+   * Y1-Y2-CAM-V6-3510 — THE SAFARI ROOT CAUSE.
+   *
+   * 3508 fixed graph termination but still constructed the AudioContext *after*
+   * `await navigator.mediaDevices.getUserMedia(...)`. WebKit does not carry user
+   * activation across that await, so a context created afterwards starts 'suspended'
+   * and resume() never reaches 'running' without a fresh gesture. The pipeline gates
+   * audio on `AC.state === 'running'`, so audio was silently disabled while the camera
+   * worked - exactly the reported symptom. Chrome is permissive here, which is why
+   * every Chromium run passed.
+   *
+   * Call this first, from the click handler, before any await.
+   */
+  primeAudioContext() {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    if (!this.audioContext || this.audioContext.state === 'closed') {
+      this.audioContext = new Ctx();
+    }
+    // resume() inside the gesture; the promise is deliberately not awaited here.
+    if (this.audioContext.state !== 'running') void this.audioContext.resume().catch(() => {});
+    return this.audioContext;
+  },
+
   async bindStream(stream, { ownsStream = false } = {}) {
-    this.stopMedia();
+    this.stopMedia({ keepContext: true });
     if (!(stream instanceof MediaStream)) throw new TypeError('A browser media stream is required.');
     const tracks = stream.getTracks();
     const mic = tracks.some((t) => t.kind === 'audio' && t.readyState === 'live');
@@ -69,8 +96,9 @@ const bridge = {
     if (mic) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (Ctx) {
-        AC = new Ctx();
-        await AC.resume();
+        // Reuse the gesture-primed context. Creating a new one here is what broke Safari.
+        AC = this.primeAudioContext();
+        if (AC && AC.state !== 'running') { try { await AC.resume(); } catch { /* reported by the debug panel */ } }
         analyser = AC.createAnalyser();
         analyser.fftSize = 2048;
         data = new Float32Array(analyser.fftSize);
@@ -95,11 +123,14 @@ const bridge = {
         //    stream.getAudioTracks(). Safari does not reliably pull audio from such a
         //    reconstructed stream. The original stream is used instead.
         source = AC.createMediaStreamSource(stream);
-        sink = AC.createGain();
-        sink.gain.value = 0;
         source.connect(analyser);
+        // The graph must terminate at a real destination for WebKit to pull it, but it
+        // must never reach the speakers. A MediaStreamAudioDestinationNode is a genuine
+        // destination with no playback path at all, so self-monitoring/feedback is
+        // structurally impossible - and unlike a gain(0) branch to
+        // AudioContext.destination, there is nothing for the engine to optimise away.
+        sink = AC.createMediaStreamDestination();
         analyser.connect(sink);
-        sink.connect(AC.destination);
       }
     }
     this.ownsStream = ownsStream;
@@ -142,11 +173,16 @@ const bridge = {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: mic === true, video: cam === true });
     return this.bindStream(stream, { ownsStream: true });
   },
-  stopMedia() {
+  stopMedia({ keepContext = false } = {}) {
     try { this.source?.disconnect?.(); } catch {}
     try { this.sink?.disconnect?.(); } catch {}
     if (this.ownsStream) this.media.stream?.getTracks?.().forEach((t) => t.stop());
-    void this.media.AC?.close?.().catch?.(() => {});
+    // Closing the context on a hot switch would discard the gesture-primed context and
+    // Safari could not legally resume a replacement outside a gesture.
+    if (!keepContext) {
+      void this.media.AC?.close?.().catch?.(() => {});
+      this.audioContext = null;
+    }
     this.ownsStream = false;
     this.source = null;
     this.media = Object.freeze({ cam: false, mic: false, stream: null, AC: null, analyser: null, data: null });
@@ -527,6 +563,8 @@ function renderDeviceSelectors() {
 
 async function switchDevice(kind, deviceId) {
   if (!deviceId) return;
+  // A device switch is also a gesture; re-prime so a suspended context can recover.
+  bridge.primeAudioContext();
   const trackKind = kind === 'camera' ? 'video' : 'audio';
   const status = $('#device-switch-status');
   if (status) status.textContent = `Switching ${kind}…`;
@@ -698,6 +736,9 @@ function wireCockpit() {
   renderStatusRail();
   renderCorrection();
   $('#cockpit-connect')?.addEventListener('click', async () => {
+    // MUST be first and synchronous: WebKit only allows AudioContext resume inside the
+    // gesture, and everything below awaits.
+    bridge.primeAudioContext();
     // Route through the analytics cockpit's own connect so it reaches its 'ready'
     // state against the SHARED bridge. Calling requestMedia directly here would leave
     // the analytics module idle and its start() would return early - the student would
@@ -722,6 +763,61 @@ function wireCockpit() {
   $('#cockpit-finish')?.addEventListener('click', () => {
     document.getElementById('communication-analytics-finish')?.click();
   });
+}
+
+
+/* ------------------------------------------------------------------ audio debug
+ * Founder/Admin only. Added because Safari QA was flying blind: the product reported
+ * "NO AUDIO" with no way to see WHERE the chain broke. Every field below is read
+ * directly from the live objects, so it cannot agree with a broken pipeline.
+ */
+function renderAudioDebug() {
+  const host = $('#audio-debug');
+  if (!host) return;
+  const m = bridge.media;
+  const track = m.stream?.getAudioTracks?.()[0] || null;
+  const settings = track?.getSettings?.() || {};
+  let rms = null; let peak = null;
+  if (m.analyser && m.data) {
+    m.analyser.getFloatTimeDomainData(m.data);
+    let sum = 0; let pk = 0;
+    for (let i = 0; i < m.data.length; i += 1) { const v = Math.abs(m.data[i]); if (v > pk) pk = v; sum += m.data[i] * m.data[i]; }
+    rms = Math.sqrt(sum / m.data.length);
+    peak = pk;
+    if (rms > 0) state.audioDebug.pcmFrames += 1;
+    if (rms > 0.002) state.audioDebug.f0Frames += 1;
+  }
+  const dbfs = rms && rms > 0 ? 20 * Math.log10(rms) : null;
+  const rows = [
+    ['Audio track', track ? track.readyState : 'NONE', track?.readyState === 'live'],
+    ['Track enabled', String(track?.enabled ?? '—'), track?.enabled === true],
+    ['Track muted (transient)', String(track?.muted ?? '—'), track?.muted !== true],
+    ['AudioContext', m.AC?.state ?? 'NONE', m.AC?.state === 'running'],
+    ['Sample rate', String(settings.sampleRate ?? m.AC?.sampleRate ?? '—'), true],
+    ['Channels', String(settings.channelCount ?? '—'), true],
+    ['Device id', String(settings.deviceId ?? '—').slice(0, 14), true],
+    ['PCM frames', String(state.audioDebug.pcmFrames), state.audioDebug.pcmFrames > 0],
+    ['RMS', rms === null ? '—' : rms.toFixed(5), (rms ?? 0) > 0],
+    ['Peak', peak === null ? '—' : peak.toFixed(4), (peak ?? 0) > 0],
+    ['dBFS', dbfs === null ? '—' : dbfs.toFixed(1), dbfs !== null && dbfs > -90],
+    ['F0 input frames', String(state.audioDebug.f0Frames), state.audioDebug.f0Frames > 0],
+  ];
+  host.replaceChildren();
+  for (const [name, value, good] of rows) {
+    const row = document.createElement('div');
+    row.className = 'check-row';
+    const n = document.createElement('span'); n.className = 'check-name'; n.textContent = name;
+    const v = document.createElement('span'); v.className = 'check-state';
+    v.dataset.state = good ? 'ready' : 'unavailable';
+    v.textContent = value;
+    row.append(n, v);
+    host.append(row);
+  }
+}
+
+function startAudioDebug() {
+  if (state.audioDebug.timer) clearInterval(state.audioDebug.timer);
+  state.audioDebug.timer = setInterval(renderAudioDebug, 250);
 }
 
 /* ------------------------------------------------------------------ device check */
@@ -757,6 +853,8 @@ function renderDeviceCheck() {
 }
 
 async function connectDevices() {
+  // Same law as the cockpit handler: prime before any await.
+  bridge.primeAudioContext();
   const button = $('#device-connect');
   if (button) { button.disabled = true; button.innerHTML = '<span>Requesting…</span>'; }
   try {
@@ -941,6 +1039,7 @@ async function boot() {
   wireChrome();
   applyRole('student');
   wireCockpit();
+  startAudioDebug();
   collectionChips();
   renderQuestions();
   renderSet();

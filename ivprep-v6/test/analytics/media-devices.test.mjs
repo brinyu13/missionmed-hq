@@ -20,18 +20,17 @@ const html = await readFile(HTML, 'utf8');
 const css = await readFile(CSS, 'utf8');
 const pipeline = await readFile(PIPELINE, 'utf8');
 
-test('the audio graph terminates at a destination through a muted gain node', () => {
-  // The fix. Without a route to a destination Safari never pulls the analyser.
-  assert.match(studio, /sink = AC\.createGain\(\)/u);
-  assert.match(studio, /sink\.gain\.value = 0/u, 'the sink must be silent so the mic is never played back');
+test('the audio graph terminates at a destination the speakers cannot reach', () => {
+  // Y1-Y2-CAM-V6-3510 superseded the gain(0) -> AudioContext.destination construction.
+  // A MediaStreamAudioDestinationNode is a genuine destination, so WebKit pulls the
+  // graph, but it has no playback path at all - feedback is structurally impossible and
+  // there is no zero-gain branch for the engine to optimise away.
+  assert.match(studio, /sink = AC\.createMediaStreamDestination\(\)/u);
   assert.match(studio, /analyser\.connect\(sink\)/u);
-  assert.match(studio, /sink\.connect\(AC\.destination\)/u, 'the graph must reach a destination');
-
-  // Ordering matters: source -> analyser -> sink -> destination.
+  assert.doesNotMatch(studio, /sink\.connect\(AC\.destination\)/u, 'must never reach the speakers');
   const sourceIdx = studio.indexOf('source.connect(analyser)');
   const sinkIdx = studio.indexOf('analyser.connect(sink)');
-  const destIdx = studio.indexOf('sink.connect(AC.destination)');
-  assert.ok(sourceIdx > 0 && sinkIdx > sourceIdx && destIdx > sinkIdx, 'graph must be wired in order');
+  assert.ok(sourceIdx > 0 && sinkIdx > sourceIdx, 'graph must be wired in order');
 });
 
 test('the media source uses the original stream, not a reconstructed one', () => {
