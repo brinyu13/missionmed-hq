@@ -58,11 +58,15 @@ found for the reason in §1. Decide whether to track it.
 |---|---|---|
 | `bcc78ca` | docs | Preserve Fable 3490–3494A production authority in-repo (36 files, +9281) |
 | `b889bf4` | fix | Repair hosted vision stage boot: CSP + module-worker wasm glue (6 files) |
+| `7045419` | docs | Open this return packet |
+| `2034a5d` | feat | CC-25 seed question corpus + CC-04 provider registry substrate (6 files) |
 
-Both are bounded and independently revertable. Product code and authority
+Each is bounded and independently revertable. Product code and authority
 documentation were kept in separate commits.
 
-**Not pushed.** Branch is 2 ahead of origin. See §8.
+`bcc78ca`, `b889bf4` and `7045419` are **pushed** to
+`origin/codex/y1-y2-cam-v6-3440-aaa-unified-production-admin-canary`
+(`ae17956..7045419`). `2034a5d` is local at the time of writing. No force push.
 
 ---
 
@@ -176,13 +180,24 @@ same constant. Verified: the two-clock-read pattern exists nowhere else
 
 | Suite | Before | After |
 |---|---|---|
-| `npm test` | 314 pass / 0 fail | **318 pass / 0 fail** |
-| `npm run check` | PASS, 28 analytics modules | PASS, 29 analytics modules |
+| `npm test` | 314 pass / 0 fail | **327 pass / 0 fail** |
+| `npm run check` | PASS, 28 modules | PASS, 32 modules |
 
 New: `test/analytics/vision-stage-boot.test.mjs` — 4 guards pinning the CSP
 directive (and asserting broad `'unsafe-eval'`/`'unsafe-inline'` stay absent),
 the resolver routing in both workers, the resolver contract, and the presence of
 the vendored glue the resolver depends on.
+
+New: `test/questions/question-corpus.test.mjs` — 9 CC-25 acceptance tests: exact
+counts, structural exclusion of the applicant-asked sections, CORE-first under
+every sort, byte-exact verbatim text re-parsed from the manifest, the canonical
+Question contract, read-time stats join with no stored counts, drawer
+search/collections, provider-registry composition and id-collision refusal, and a
+manifest SHA-256 drift guard.
+
+`test/questions/*.test.mjs` was added to the `npm test` glob and
+`public/questions` + `scripts/questions` to the syntax sweep, so neither can
+silently drop out of CI.
 
 ---
 
@@ -215,18 +230,44 @@ faster. `targetFps` adapts, but perf on the Founder's machine is unmeasured.
 
 ---
 
-## 8. Deployment
+## 8. Deployment — PUSHED, NOT DEPLOYED
 
-**Nothing deployed. Nothing pushed.** Branch is 2 commits ahead of origin.
+The Founder authorized push + deploy. The push succeeded. **The deploy did not
+happen, and I stopped rather than force it.** Evidence:
 
-Railway starts `node missionmed-hq/server.mjs` (`railway.json`). Whether a push
-to this branch auto-deploys is a Railway service setting not visible from the
-repo, so the blast radius of a push could not be verified from here. Because the
-change alters a **production security header**, the push/deploy decision was left
-to the Founder rather than assumed. Awaiting that decision.
+- Pushed `ae17956..7045419` to the 3440 feature branch. No force push.
+- Polled the hosted route 21 times over ~5 minutes, plus a later fresh check.
+  `https://missionmed-hq-production.up.railway.app/iv-prep-on-call/` still serves
+  `script-src 'self'` with **no `'wasm-unsafe-eval'`**. Pushing this branch is not
+  a deploy trigger.
+- `origin/HEAD` → `refs/heads/main`, and `origin/main` is `4c86e85` (2026-08-13,
+  "Restore canonical Critical and Matrix custody"). Our commits are **not** on
+  `main`, and `main` does not contain `ae17956` or `89f8cae` either — so the live
+  HQ service is running a pinned deployment off this feature branch, consistent
+  with 3483's recorded-deployment model.
 
-Deploy consists of pushing these two commits; no migration, no infrastructure
-change, no secret rotation is involved.
+**Why I did not deploy via the Railway CLI.** `railway status` in this worktree
+resolves to project `missionmed-hq-fix005` / environment `production` with the
+linked service:
+
+```
+ivprep-profile-b-worker   service ID 294a0bef-9cd2-43ff-97e8-4b88fa9e873d
+```
+
+That is the **Profile B avatar worker** (3483 records the worker service ID prefix
+as `294a`), *not* the HQ web service that serves `/iv-prep-on-call/` (3483 records
+the HQ prefix as `3d18`). A `railway up` from here would have deployed the wrong
+service — and specifically the paid provider worker. That is the unbounded,
+wrong-target infrastructure change 3500 forbids, so it was refused on evidence
+rather than attempted.
+
+**What is actually needed:** redeploy the **HQ** service (prefix `3d18`) from the
+3440 branch at commit `7045419` (or later). That requires Railway access to the
+correct service and is one action for the Founder or Codex. No migration, no
+infrastructure change, no secret rotation is involved.
+
+Until that redeploy happens, the vision-stage repair is **not live**, and the
+hosted product still cannot render wireframes.
 
 ---
 
@@ -234,8 +275,8 @@ change, no secret rotation is involved.
 
 | Milestone | Status |
 |---|---|
-| **M1 — real sensor stage** | **Code path repaired and verified to boot. Physical camera/mic confirmation OUTSTANDING (Founder). Not yet deployed.** |
-| M2 — core practice loop | NOT STARTED. Shell views exist (`instant`/`custom`/`room`/`vault`); question corpus is 10 prototype fixtures in `public/aaa/fixtures.mjs`, not the canonical Core Ten wording, and not the MR142/behavioural corpus. CC-25…CC-28 outstanding. |
+| **M1 — real sensor stage** | **Code path repaired and verified to boot. Physical camera/mic confirmation OUTSTANDING (Founder). Pushed but NOT DEPLOYED — see §8.** |
+| M2 — core practice loop | **CC-25 DONE** (`2034a5d`): real 193-record corpus, provider registry, CORE-first law, read-time stats join, exclusions enforced, 9 acceptance tests. **CC-26 (drawer), CC-27 (Interview Set), CC-28 (presets) outstanding.** `public/aaa/fixtures.mjs` still drives the UI and still holds the 10 prototype questions — the corpus is not yet wired to any surface, so no UI behaviour has changed yet. |
 | M3 — delivery HUD | Engine + gauges + registry exist and now boot; real-behaviour response unconfirmed pending M1 physical test. |
 | M4 — review | NOT STARTED. `AnswerRecord`, Answer Library, Film Room, mentor async review not implemented. |
 | M5 — Dr Kelly | NOT STARTED by 3500. Provider stack untouched. |
@@ -259,11 +300,12 @@ The obsolete 45/45/59 three-test ceremony was **not** touched.
 ## 11. Known bugs / open questions
 
 1. **Vendored-loader accommodation** — see §5.2 Codex review request.
-2. **`public/aaa/fixtures.mjs` is prototype data.** 10 questions with
-   non-canonical wording (e.g. "Tell me about yourself, **and what brought you to
-   internal medicine**" vs the canonical "Tell me about yourself."). The 3494A
-   import manifest requires 10 CORE verbatim + 142 MR142 + 41 behavioural. Do not
-   mistake the fixtures for the corpus.
+2. **`public/aaa/fixtures.mjs` is still prototype data and still drives the UI.**
+   The real corpus landed in `2034a5d` at `public/questions/` but is wired to no
+   surface yet. Until CC-26/27/28, the product still shows the 10 prototype
+   questions with non-canonical wording ("Tell me about yourself, **and what
+   brought you to internal medicine**"). Two question sources now coexist; this is
+   the single most important thing to finish next.
 3. **Hosted DI panel contains hardcoded prototype content** — the moments
    timeline in `public/aaa/index.html:260` ships literal values ("Direct
    opening", "0:42", "Gesture — Not connected"). These are synthetic and must not
@@ -301,7 +343,10 @@ without touching product code.
 3. File the canonical decision record / REGISTRY release for 3500 (§11.7).
 4. Confirm the hosted CSP change against the production security posture, then
    push/deploy (§8) if the Founder has not already authorized it.
-5. Resume the 3494A sequence at **CC-25** (question data import) — the M2 gate and
-   the largest remaining block to Founder MVP.
-6. Re-run `npm run check` and `npm test` (expect 318/318) before any further
+5. **Redeploy the HQ service (prefix `3d18`) from this branch** (§8). Until then
+   the vision repair is not live. Do not deploy from this worktree's Railway CLI
+   context — it is linked to the Profile B worker, not HQ.
+6. Resume the 3494A sequence at **CC-26** (question drawer), then CC-27/CC-28, and
+   retire `public/aaa/fixtures.mjs` as the UI question source (§11.2).
+7. Re-run `npm run check` and `npm test` (expect 327/327) before any further
    product mutation.
