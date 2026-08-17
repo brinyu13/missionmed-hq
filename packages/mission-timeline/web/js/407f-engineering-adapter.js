@@ -1066,7 +1066,15 @@ function chooseLocalFile(accept){
     const input=document.createElement("input");
     input.type="file";
     input.accept=accept;
-    input.addEventListener("change",()=>resolve(input.files?.[0]||null),{once:true});
+    input.tabIndex=-1;
+    input.style.cssText="position:fixed;left:-10000px;top:auto;width:1px;height:1px;opacity:0;pointer-events:none;";
+    document.body.append(input);
+    const finish=(file)=>{
+      input.remove();
+      resolve(file||null);
+    };
+    input.addEventListener("change",()=>finish(input.files?.[0]),{once:true});
+    input.addEventListener("cancel",()=>finish(null),{once:true});
     input.click();
   });
 }
