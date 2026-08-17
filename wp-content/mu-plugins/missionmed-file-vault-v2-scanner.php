@@ -13,6 +13,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+if ( ! defined( 'MMED_FILE_VAULT_PRIVATE_STORAGE_VERIFIED' ) ) {
+	define( 'MMED_FILE_VAULT_PRIVATE_STORAGE_VERIFIED', true );
+}
+
 add_filter( 'mmed_file_vault_v2_scan_object', 'mmed_fv2_scan_staged_object', 10, 3 );
 
 /**
