@@ -3,6 +3,7 @@ import {
   faceDetectionCandidates,
   primaryLockDiagnostic,
 } from './primary-interviewee-lock.mjs';
+import { resolveVisionFileset } from './vision-fileset.mjs';
 
 let detector = null;
 let primaryLock = null;
@@ -37,7 +38,10 @@ async function initialize(message) {
   generation = message.generation;
   activeAnswerEpoch = message.answerEpoch;
   const module = await import(message.bundleUrl);
-  const fileset = await module.FilesetResolver.forVisionTasks(message.wasmRoot, true);
+  // See vision-fileset.mjs: the vendored bundle cannot load its own wasm glue from
+  // a module worker. This worker gates multi-face protection, so the same failure
+  // also took the primary-interviewee lock offline.
+  const fileset = await resolveVisionFileset(module, message.wasmRoot);
   detector = await module.FaceDetector.createFromOptions(fileset, {
     baseOptions: { modelAssetPath: message.faceDetectorModelUrl, delegate: 'CPU' },
     runningMode: 'VIDEO',

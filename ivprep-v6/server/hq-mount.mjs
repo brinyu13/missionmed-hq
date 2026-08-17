@@ -44,11 +44,24 @@ function trustedWebSocketOrigin(value) {
   }
 }
 
+// 'wasm-unsafe-eval' is required for the vendored MediaPipe holistic landmarker to
+// instantiate its WebAssembly module. Without it the hosted product served the
+// entire vision stage inert: the face mesh, head axes, torso, arm, hand and finger
+// wireframes and every landmark-derived signal failed closed with
+// "CompileError: WebAssembly.instantiate() violates ... script-src 'self'".
+// server/serve.mjs already carried the directive, which is why the stage worked on
+// localhost and not on Railway.
+//
+// This is the narrow WebAssembly-only directive, NOT 'unsafe-eval': it permits
+// WASM compilation while continuing to forbid eval() and new Function() on
+// JavaScript. Inline script remains disallowed here (this mount deliberately does
+// not carry serve.mjs's 'unsafe-inline'), so the hosted script policy is otherwise
+// unchanged and remains stricter than the local dev server.
 function headers(extra = {}, liveKitSignalOrigin = null) {
   const connectSource = liveKitSignalOrigin ? `'self' ${liveKitSignalOrigin}` : `'self'`;
   return {
     'Cache-Control': 'no-store',
-    'Content-Security-Policy': `default-src 'self'; connect-src ${connectSource}; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
+    'Content-Security-Policy': `default-src 'self'; connect-src ${connectSource}; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`,
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Resource-Policy': 'same-origin',
     'Permissions-Policy': 'camera=(self), microphone=(self)',

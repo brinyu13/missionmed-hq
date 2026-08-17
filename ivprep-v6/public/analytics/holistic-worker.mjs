@@ -1,4 +1,5 @@
 import { assertCompactGeometry, deriveCompactGeometry, facialMovementRate } from './vision-geometry.mjs';
+import { resolveVisionFileset } from './vision-fileset.mjs';
 
 let holistic = null;
 let visionModule = null;
@@ -50,7 +51,7 @@ async function createHolistic(module, wasmRoot, modelUrl) {
     minPosePresenceConfidence: 0.5,
     minHandLandmarksConfidence: 0.5,
   };
-  const fileset = await module.FilesetResolver.forVisionTasks(wasmRoot, true);
+  const fileset = await resolveVisionFileset(module, wasmRoot);
   return module.HolisticLandmarker.createFromOptions(fileset, { ...common, baseOptions: { modelAssetPath: modelUrl, delegate: 'CPU' } });
 }
 
