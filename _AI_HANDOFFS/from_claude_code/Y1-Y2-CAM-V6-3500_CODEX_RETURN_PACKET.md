@@ -60,6 +60,8 @@ found for the reason in §1. Decide whether to track it.
 | `b889bf4` | fix | Repair hosted vision stage boot: CSP + module-worker wasm glue (6 files) |
 | `7045419` | docs | Open this return packet |
 | `2034a5d` | feat | CC-25 seed question corpus + CC-04 provider registry substrate (6 files) |
+| `571054c` | fix | M1 media stage: frozen-object crash, stale view guard, stream re-attach (3502) |
+| `c808978` | feat | Real F0 pitch cartridge + FACE family, 10 lanes, claim-safety enforced (3504) |
 
 Each is bounded and independently revertable. Product code and authority
 documentation were kept in separate commits.
@@ -180,8 +182,8 @@ same constant. Verified: the two-clock-read pattern exists nowhere else
 
 | Suite | Before | After |
 |---|---|---|
-| `npm test` | 314 pass / 0 fail | **327 pass / 0 fail** |
-| `npm run check` | PASS, 28 modules | PASS, 32 modules |
+| `npm test` | 314 pass / 0 fail | **355 pass / 0 fail** |
+| `npm run check` | PASS, 28 modules | PASS, 34 modules |
 
 New: `test/analytics/vision-stage-boot.test.mjs` — 4 guards pinning the CSP
 directive (and asserting broad `'unsafe-eval'`/`'unsafe-inline'` stay absent),
@@ -357,9 +359,16 @@ The obsolete 45/45/59 three-test ceremony was **not** touched.
 4. **`onViewChange(state.view, 'admin')`** is hardcoded to the admin role at
    `public/aaa/app.mjs:128,288`. Needs a real role source before student access.
 5. **Perf unmeasured on target hardware** (§7).
-6. **`pitch_zero_crossing`** is the only pitch-adjacent registered signal. It is a
-   zero-crossing proxy, not F0. Per 3500 this must surface as
-   `PITCH — UNAVAILABLE` unless genuine F0 is implemented. Not yet audited.
+6. **F0 now exists** (`c808978`, `public/analytics/pitch-f0.mjs`, McLeod/NSDF,
+   validated to 50 cents across 80-440Hz). `pitch_zero_crossing` remains
+   MATURITY.REJECTED and unused. **F0 and the FACE family are engine-only: neither
+   is surfaced in the Flight Recorder UI yet.** Wiring them into the approved
+   cockpit is the next transaction.
+8. **FACE is now a 10-lane family** (`public/analytics/face-family.mjs`) fed by the
+   blendshape categories the worker previously discarded. Claim safety is enforced
+   by test against the executable surface.
+9. **HQ deployments so far:** `a869beae` (7492873), `e3c7f7d6` (571054c),
+   `47c3455d` (c808978). Profile B `aec9436e` unchanged throughout.
 7. **MissionMed OS governance not filed.** `CLAUDE.md` hard-stop rules call for a
    decision record for protected-path touches; no DR was filed for 3500 because
    Codex owns canonical filing and REGISTRY release. Flagged, not assumed.
