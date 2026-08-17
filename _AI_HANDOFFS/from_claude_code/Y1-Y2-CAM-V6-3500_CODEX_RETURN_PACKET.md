@@ -230,44 +230,88 @@ faster. `targetFps` adapts, but perf on the Founder's machine is unmeasured.
 
 ---
 
-## 8. Deployment — PUSHED, NOT DEPLOYED
+## 8. Deployment — DEPLOYED AND VERIFIED LIVE (Y1-Y2-CAM-V6-3501)
 
-The Founder authorized push + deploy. The push succeeded. **The deploy did not
-happen, and I stopped rather than force it.** Evidence:
+### 8.1 Discovery (read-only)
 
-- Pushed `ae17956..7045419` to the 3440 feature branch. No force push.
-- Polled the hosted route 21 times over ~5 minutes, plus a later fresh check.
-  `https://missionmed-hq-production.up.railway.app/iv-prep-on-call/` still serves
-  `script-src 'self'` with **no `'wasm-unsafe-eval'`**. Pushing this branch is not
-  a deploy trigger.
-- `origin/HEAD` → `refs/heads/main`, and `origin/main` is `4c86e85` (2026-08-13,
-  "Restore canonical Critical and Matrix custody"). Our commits are **not** on
-  `main`, and `main` does not contain `ae17956` or `89f8cae` either — so the live
-  HQ service is running a pinned deployment off this feature branch, consistent
-  with 3483's recorded-deployment model.
+`railway status --json` enumerated the whole project. The HQ service is
+unambiguous:
 
-**Why I did not deploy via the Railway CLI.** `railway status` in this worktree
-resolves to project `missionmed-hq-fix005` / environment `production` with the
-linked service:
+| Field | Value |
+|---|---|
+| Railway project | `missionmed-hq-fix005` / `29afe885-b9b1-425d-8fd8-8611cd275409` |
+| Environment | `production` / `ed3353f7-bcc7-4e25-a000-3c9fc628a9a7` |
+| **HQ service** | **`missionmed-hq` / `3d18b017-4fc9-4b22-b097-ba879816d374`** (3483 prefix `3d18`) |
+| HQ domain | `missionmed-hq-production.up.railway.app` |
+| HQ start command | `node missionmed-hq/server.mjs` (matches `railway.json`) |
+| HQ builder | NIXPACKS |
+| HQ source repo | `brinyu13/missionmed-hq` |
+| Pre-deploy HQ deployment | `9ea6bf75-2ed2-4bc8-9a5e-04dfdd900b25`, label `ae17956 prepare hosted founder test 2` |
+| Worker service | `ivprep-profile-b-worker` / `294a0bef-9cd2-43ff-97e8-4b88fa9e873d` (3483 prefix `294a`) |
+| Pre-deploy worker deployment | `aec9436e-d521-4b1d-a338-9d8d7c5e3934` |
+
+The pre-deploy HQ deployment label `ae17956 prepare hosted founder test 2`
+confirms two things: the live product was pinned at `ae17956` (the pre-3500 HEAD),
+and **CLI upload is the established deployment mechanism for this lane** — every
+service in this project carries a CLI-style deploy label. No architecture change
+was needed to deploy the same way.
+
+### 8.2 Why the branch push did not deploy
+
+`origin/HEAD` → `main`, and `origin/main` is `4c86e85` (2026-08-13), which contains
+neither `ae17956` nor `89f8cae`. The HQ service ran a pinned CLI deployment, so
+pushing the feature branch was never a deploy trigger. No merge to `main` was
+performed or needed.
+
+### 8.3 Safe targeting
+
+`railway up` supports `-p/-e/-s`, so the HQ service was targeted **explicitly by
+service ID** and the local CLI link was never mutated:
 
 ```
-ivprep-profile-b-worker   service ID 294a0bef-9cd2-43ff-97e8-4b88fa9e873d
+railway up -p 29afe885-b9b1-425d-8fd8-8611cd275409 \
+           -e production \
+           -s 3d18b017-4fc9-4b22-b097-ba879816d374 -d
 ```
 
-That is the **Profile B avatar worker** (3483 records the worker service ID prefix
-as `294a`), *not* the HQ web service that serves `/iv-prep-on-call/` (3483 records
-the HQ prefix as `3d18`). A `railway up` from here would have deployed the wrong
-service — and specifically the paid provider worker. That is the unbounded,
-wrong-target infrastructure change 3500 forbids, so it was refused on evidence
-rather than attempted.
+The local link remained `ivprep-profile-b-worker` before and after, so no
+restore step was required.
 
-**What is actually needed:** redeploy the **HQ** service (prefix `3d18`) from the
-3440 branch at commit `7045419` (or later). That requires Railway access to the
-correct service and is one action for the Founder or Codex. No migration, no
-infrastructure change, no secret rotation is involved.
+Pre-flight safety checks before upload (`railway up` ships the working tree):
 
-Until that redeploy happens, the vision-stage repair is **not live**, and the
-hosted product still cannot render wireframes.
+- `ivprep-v6/.env.local` is gitignored → **excluded**. `.gitignore` is honoured by
+  default; `--no-gitignore` was NOT used. No secret file entered the build.
+- 11 untracked-but-unignored files would ride along, all `_AI_HANDOFFS/**/*.md`
+  documentation. Scanned for credential patterns: zero hits.
+- Only tracked delta vs the pushed commit was `supabase/.temp/cli-latest`
+  (`v2.95.4` → `v2.114.0`), a Supabase CLI version string, not runtime code.
+- Payload ~64 MB tracked.
+
+### 8.4 Result
+
+New HQ deployment **`a869beae-8d80-4a36-802c-874aef3b5951`**, status **SUCCESS**,
+`2026-08-17T13:33:47Z`, built from the working tree at commit **`7492873`**.
+
+### 8.5 Post-deploy verification (all eight checks)
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Hosted route responds | `/iv-prep-on-call/` HTTP 401 in 0.12 s (correct for anonymous) |
+| 2 | CSP carries the WebAssembly grant | `script-src 'self' 'wasm-unsafe-eval'` — and still **no** `'unsafe-inline'`, **no** `'unsafe-eval'` |
+| 3 | Anonymous access still denied | 401 on `/iv-prep-on-call/`, its assets, `/api/ivprep-v6/session`, `/api/ivprep-v6/vault`; body `ivprep_authentication_required` |
+| 4 | Wider HQ intact | `/api/auth/session` 200, `/api/bootstrap` 200, `/api/bridge/health` 200, POST-only routes 405, DBOC routes 401 |
+| 5 | Provider sessions created | **0.** No provider endpoint was called; creation requires an authenticated Founder POST plus a human click |
+| 6 | Profile B worker | **UNCHANGED** — deployment still `aec9436e`, identical start command, builder, replicas, domain |
+| 7 | Secrets / configuration | Untouched. `railway variables` was never run. Start command, builder, replicas, domains identical pre/post; environments 5 → 5; no new service or environment |
+| 8 | Deployment points at the intended tree | The live CSP now matches `hq-mount.mjs` from `b889bf4` byte for byte, which only exists at/after that commit |
+
+**Traceability gap for Codex:** this CLI version has no `--message` flag, so the
+new deployment carries an empty label where the previous one read
+`ae17956 prepare hosted founder test 2`. Record the mapping:
+**deployment `a869beae-8d80-4a36-802c-874aef3b5951` = commit `7492873`.**
+
+**Rollback:** redeploy HQ deployment `9ea6bf75-2ed2-4bc8-9a5e-04dfdd900b25`
+(the `ae17956` build) from the Railway UI or `railway redeploy`.
 
 ---
 
@@ -275,7 +319,7 @@ hosted product still cannot render wireframes.
 
 | Milestone | Status |
 |---|---|
-| **M1 — real sensor stage** | **Code path repaired and verified to boot. Physical camera/mic confirmation OUTSTANDING (Founder). Pushed but NOT DEPLOYED — see §8.** |
+| **M1 — real sensor stage** | **DEPLOYED LIVE on HQ (§8). Physical camera/mic confirmation is the open item — Founder test gate.** |
 | M2 — core practice loop | **CC-25 DONE** (`2034a5d`): real 193-record corpus, provider registry, CORE-first law, read-time stats join, exclusions enforced, 9 acceptance tests. **CC-26 (drawer), CC-27 (Interview Set), CC-28 (presets) outstanding.** `public/aaa/fixtures.mjs` still drives the UI and still holds the 10 prototype questions — the corpus is not yet wired to any surface, so no UI behaviour has changed yet. |
 | M3 — delivery HUD | Engine + gauges + registry exist and now boot; real-behaviour response unconfirmed pending M1 physical test. |
 | M4 — review | NOT STARTED. `AnswerRecord`, Answer Library, Film Room, mentor async review not implemented. |
