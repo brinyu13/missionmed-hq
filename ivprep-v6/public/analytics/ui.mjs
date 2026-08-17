@@ -876,6 +876,14 @@ export class FounderAnalyticsSurface {
     });
     this.pipeline.addEventListener('state', (event) => this.consumePipelineState(event.detail || {}));
     this.pipeline.setOverlayConsumer?.((payload) => this.consumeOverlay(payload));
+    // The view this cockpit lives in, read from the DOM rather than hardcoded, so a
+    // renamed or re-hosted view can never silently strand onViewChange() again.
+    // Two hosts mount this cockpit and they use different attributes:
+    //   public/index.html  -> <section data-view="analytics-test" id="analytics-test">
+    //   public/aaa/        -> <section data-view-panel="delivery">
+    // See onViewChange for what went wrong when this was a hardcoded string.
+    this.viewHost = this.root?.closest?.('[data-view-panel],[data-view]') || null;
+    this.viewId = this.viewHost?.dataset?.viewPanel || this.viewHost?.dataset?.view || null;
     this.render();
   }
 
@@ -900,6 +908,12 @@ export class FounderAnalyticsSurface {
     overlay.dataset.anchorSurface = preview.id;
     overlay.dataset.overlayLayer = 'student-analytics';
     previewStage.append(preview, overlay);
+    // render() rebuilds this subtree via root.replaceChildren(), which discards the
+    // <video> that was holding srcObject. Any render while media is live would
+    // otherwise leave a black preview with the camera still running. Re-attach the
+    // live stream so the surface is self-healing rather than order-dependent.
+    const liveStream = this.bridge?.media?.stream;
+    if (liveStream && this.bridge?.media?.cam) preview.srcObject = liveStream;
     media.append(previewStage);
     const status = element('div', 'ca-status', 'Connect camera and microphone to begin. Nothing is measured while idle.');
     status.id = 'communication-analytics-status';
@@ -1736,19 +1750,29 @@ export class FounderAnalyticsSurface {
       this.ownsMedia = false;
       return;
     }
+    // Y1-Y2-CAM-V6-3502: this block used to assign to current.cam / current.mic.
+    // The bridge publishes its media as Object.freeze({...}) (see analyticsBridge in
+    // public/aaa/app.mjs), and ES modules are always strict, so the write threw
+    // "TypeError: Cannot assign to read only property 'cam'" and aborted connect()
+    // right here - after getUserMedia had already succeeded and the camera was live,
+    // but before the stream reached the preview and before the status left
+    // "Waiting for browser permission...". That is the reported M1 failure exactly:
+    // permission granted, webcam LED on, black video, vision IDLE, every metric
+    // unavailable, Start never enabling. Liveness is now derived into locals and the
+    // bridge's frozen contract is respected.
     const current = this.bridge.media;
-    current.cam = Boolean(current.cam && current.stream?.getVideoTracks?.().some((track) => track.readyState === 'live'));
-    current.mic = Boolean(current.mic && current.stream?.getAudioTracks?.().some((track) => track.readyState === 'live'));
+    const camLive = Boolean(current.cam && current.stream?.getVideoTracks?.().some((track) => track.readyState === 'live'));
+    const micLive = Boolean(current.mic && current.stream?.getAudioTracks?.().some((track) => track.readyState === 'live'));
     const preview = document.getElementById('communication-analytics-preview');
     if (preview && current.stream) preview.srcObject = current.stream;
-    if (!current.cam && !current.mic) {
+    if (!camLive && !micLive) {
       this.setStatus('denied', 'Camera and microphone are blocked or unavailable. Nothing was measured. Use the browser permission control, then retry.');
       document.getElementById('communication-analytics-status')?.focus();
       if (connect) { connect.disabled = false; connect.textContent = 'Retry camera + mic'; }
       return;
     }
-    const availability = `${current.cam ? 'CAMERA ACTIVE' : 'CAMERA UNAVAILABLE'} · ${current.mic ? 'MIC ACTIVE' : 'MIC UNAVAILABLE'}`;
-    this.setStatus(current.cam && current.mic ? 'ready' : 'partial', `${availability}. Raw frames and audio are not sent by analytics.`);
+    const availability = `${camLive ? 'CAMERA ACTIVE' : 'CAMERA UNAVAILABLE'} · ${micLive ? 'MIC ACTIVE' : 'MIC UNAVAILABLE'}`;
+    this.setStatus(camLive && micLive ? 'ready' : 'partial', `${availability}. Raw frames and audio are not sent by analytics.`);
     if (connect) connect.disabled = false;
     this.updateStartAvailability();
   }
@@ -2040,8 +2064,28 @@ export class FounderAnalyticsSurface {
     if (render) this.render();
   }
 
+  // Y1-Y2-CAM-V6-3502: this guard used to read `view === 'analytics-test'`, a literal
+  // that is only correct for the public/index.html host. In the shipped AAA product
+  // the views are home/instant/custom/results/vault/mentor/debrief/delivery/file/
+  // program and this cockpit lives in 'delivery', so the guard never matched. Every
+  // view sync after connecting fell through to clear(), which calls
+  // bridge.stopMedia() and render(): the camera tracks were stopped and the preview
+  // <video> was rebuilt empty. That is precisely the reported failure - permission
+  // granted, webcam LED on, student video black, vision IDLE, face/torso/hands
+  // unavailable, gauges unavailable, controls unresponsive.
+  //
+  // The owning view is now resolved from the DOM, so re-hosting or renaming the view
+  // cannot strand this again.
+  ownsActiveView(view, role) {
+    if (String(role || '') !== 'admin') return false;
+    if (this.viewId && String(view || '') === this.viewId) return true;
+    // setView() applies panel.hidden before calling onViewChange, so an unhidden
+    // owning panel is authoritative even if the id lookup failed.
+    return Boolean(this.viewHost && this.viewHost.hidden !== true);
+  }
+
   onViewChange(view, role) {
-    if (view === 'analytics-test' && role === 'admin') return;
+    if (this.ownsActiveView(view, role)) return;
     if (this.ownsMedia || this.state !== 'idle' || this.replayUrl) this.clear();
   }
 
