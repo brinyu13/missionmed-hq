@@ -189,10 +189,11 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		if ( class_exists( '\\Aws\\S3\\S3Client' ) ) {
 			$client = new \Aws\S3\S3Client(
 				array(
-					'region'      => 'auto',
-					'version'     => 'latest',
-					'endpoint'    => rtrim( MMED_R2_ENDPOINT, '/' ),
-					'credentials' => array(
+					'region'                  => 'auto',
+					'version'                 => 'latest',
+					'endpoint'                => rtrim( MMED_R2_ENDPOINT, '/' ),
+					'use_path_style_endpoint' => true,
+					'credentials'             => array(
 						'key'    => MMED_R2_ACCESS_KEY,
 						'secret' => MMED_R2_SECRET_KEY,
 					),
@@ -229,10 +230,11 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		try {
 			$client = new \Aws\S3\S3Client(
 				array(
-					'region'      => 'auto',
-					'version'     => 'latest',
-					'endpoint'    => rtrim( MMED_R2_ENDPOINT, '/' ),
-					'credentials' => array(
+					'region'                  => 'auto',
+					'version'                 => 'latest',
+					'endpoint'                => rtrim( MMED_R2_ENDPOINT, '/' ),
+					'use_path_style_endpoint' => true,
+					'credentials'             => array(
 						'key'    => MMED_R2_ACCESS_KEY,
 						'secret' => MMED_R2_SECRET_KEY,
 					),
@@ -270,10 +272,11 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		try {
 			$client = new \Aws\S3\S3Client(
 				array(
-					'region'      => 'auto',
-					'version'     => 'latest',
-					'endpoint'    => rtrim( MMED_R2_ENDPOINT, '/' ),
-					'credentials' => array(
+					'region'                  => 'auto',
+					'version'                 => 'latest',
+					'endpoint'                => rtrim( MMED_R2_ENDPOINT, '/' ),
+					'use_path_style_endpoint' => true,
+					'credentials'             => array(
 						'key'    => MMED_R2_ACCESS_KEY,
 						'secret' => MMED_R2_SECRET_KEY,
 					),
@@ -1958,10 +1961,11 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		try {
 			$client = new \Aws\S3\S3Client(
 				array(
-					'region'      => 'auto',
-					'version'     => 'latest',
-					'endpoint'    => rtrim( MMED_R2_ENDPOINT, '/' ),
-					'credentials' => array(
+					'region'                  => 'auto',
+					'version'                 => 'latest',
+					'endpoint'                => rtrim( MMED_R2_ENDPOINT, '/' ),
+					'use_path_style_endpoint' => true,
+					'credentials'             => array(
 						'key'    => MMED_R2_ACCESS_KEY,
 						'secret' => MMED_R2_SECRET_KEY,
 					),
@@ -2021,10 +2025,11 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		try {
 			$client = new \Aws\S3\S3Client(
 				array(
-					'region'      => 'auto',
-					'version'     => 'latest',
-					'endpoint'    => rtrim( MMED_R2_ENDPOINT, '/' ),
-					'credentials' => array(
+					'region'                  => 'auto',
+					'version'                 => 'latest',
+					'endpoint'                => rtrim( MMED_R2_ENDPOINT, '/' ),
+					'use_path_style_endpoint' => true,
+					'credentials'             => array(
 						'key'    => MMED_R2_ACCESS_KEY,
 						'secret' => MMED_R2_SECRET_KEY,
 					),
@@ -2747,7 +2752,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 				$rubrics[ $document_type ] = $labels;
 			}
 		}
-		return $rubrics;
+		return empty( $rubrics ) ? (object) array() : $rubrics;
 	}
 
 	/**

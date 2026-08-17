@@ -13,6 +13,12 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+$mmed_hub_autoload = WP_PLUGIN_DIR . '/missionmed-hub/vendor/autoload.php';
+if ( file_exists( $mmed_hub_autoload ) ) {
+	require_once $mmed_hub_autoload;
+}
+unset( $mmed_hub_autoload );
+
 if ( ! defined( 'MMED_FILE_VAULT_PRIVATE_STORAGE_VERIFIED' ) ) {
 	define( 'MMED_FILE_VAULT_PRIVATE_STORAGE_VERIFIED', true );
 }
