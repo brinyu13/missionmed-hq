@@ -44,6 +44,11 @@ for name, target, h in (("mobile-frame", "/index.html", 844), ("mobile-frame-das
         f'<iframe src="{target}"></iframe>', encoding="utf-8")
 PY
 
-php "$HERE/render-myaccount.php" > "$EV/serve/myaccount.html"
+cp "$WT/wp-content/plugins/missionmed-hub/assets/matrix-entry-bg.jpg" "$EV/serve/assets/"
+# The card artwork is referenced by its production URL; point it at the local
+# copy so the harness renders it before the asset has been deployed.
+php "$HERE/render-myaccount.php" \
+  | sed 's#https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/matrix-entry-bg.jpg#/assets/matrix-entry-bg.jpg#g' \
+  > "$EV/serve/myaccount.html"
 echo "harness rebuilt at $EV/serve"
 echo "serve with: python3 -m http.server 8899 --directory $EV/serve"

@@ -157,6 +157,7 @@ All inside the ticket worktree. Nothing outside it was written.
 | `wp-content/plugins/missionmed-hub/assets/student-os.css` | modified | `student_os_css` — **override granted** | Season Priority + Welcome Home styling |
 | `wp-content/mu-plugins/missionmed-matrix-account-entry.php` | modified | not a locked asset | `/my-account/` front door (§11) |
 | `wp-content/mu-plugins/missionmed-matrix-footer-cleanup.php` | **new** | not a locked asset | bottom-page artifact fix (§20) |
+| `wp-content/plugins/missionmed-hub/assets/matrix-entry-bg.jpg` | **new** | not a locked asset | front-door card artwork — a screenshot of Matrix itself (§11) |
 | `_TICKETS/MX-LOGIN-UX-008C/**` | new | n/a | baselines, QA harness, screenshots, logic tests |
 | `.claude/launch.json` | new | n/a | runs the local QA harness |
 
@@ -300,9 +301,14 @@ cannot deliver the required sequence):
 
 The Matrix entry component is a purpose-built element, not a resized Woo card:
 
-- Real photographic background: `MissionMed-Hero-Laptop-1024x689.png` (verified HTTP 200,
-  Matrix-specific, **not** Arena artwork)
-- Dark dimensional overlay + teal radial for depth
+- Background is **a real screenshot of the Matrix student dashboard itself** —
+  `assets/matrix-entry-bg.jpg`, captured from the shipped runtime, with the greeting line
+  cropped out so no student name is baked into the asset. The front door shows the student
+  the actual product they are about to open, which is as Matrix-specific as artwork gets.
+  *(An earlier pass used a stock tutoring photo from the media library; Brian rejected it.)*
+- Dark dimensional overlay, weighted **horizontally**: near-opaque behind the copy on the
+  left, falling away to the right so the app stays legible as the product rather than
+  dissolving into the background
 - `MISSIONMED MATRIX`, one support line, exactly one CTA reading **ENTER MATRIX**
 - Deliberate hover: card lift, image scale + brightness, CTA lift and glow
 - Destination `home_url('/member-dashboard/#dashboard')` — byte-identical to the previous

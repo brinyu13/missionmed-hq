@@ -907,22 +907,32 @@ body.mmed-matrix-account-dashboard a.mmed-matrix-account-entry {
 	transition: transform .28s ease, box-shadow .28s ease, border-color .28s ease;
 }
 
+/* Artwork is a real screenshot of the Matrix student dashboard -- the product
+   the student is about to open -- not stock photography. Captured from the
+   shipped runtime; the greeting line is cropped out so no student name is baked
+   into the asset. Ships alongside the runtime at
+   wp-content/plugins/missionmed-hub/assets/matrix-entry-bg.jpg */
 body.mmed-matrix-account-dashboard .mmed-matrix-account-entry__art {
 	position: absolute;
 	inset: 0;
-	background-image: url('https://missionmedinstitute.com/wp-content/uploads/2026/03/MissionMed-Hero-Laptop-1024x689.png');
+	background-image: url('https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/matrix-entry-bg.jpg');
 	background-size: cover;
-	background-position: center 38%;
+	background-position: right top;
+	filter: saturate(1.12) brightness(1.18);
 	transition: transform .5s ease, filter .5s ease;
 }
 
-/* dark dimensional overlay -- carries text to AA over the photograph */
+/* Dark dimensional overlay. Weighted HORIZONTALLY rather than vertically: near
+   opaque behind the copy on the left (so text clears AA against app UI that is
+   itself dark navy), falling away to the right so the Matrix screenshot stays
+   legible as the product rather than dissolving into the background. */
 body.mmed-matrix-account-dashboard .mmed-matrix-account-entry__scrim {
 	position: absolute;
 	inset: 0;
 	background:
-		radial-gradient(90% 120% at 12% 12%, rgba(23, 163, 207, 0.34) 0%, transparent 58%),
-		linear-gradient(to top, rgba(2, 7, 18, 0.96) 16%, rgba(2, 7, 18, 0.72) 52%, rgba(2, 7, 18, 0.44) 100%);
+		linear-gradient(90deg, rgba(2, 7, 18, 0.97) 0%, rgba(2, 7, 18, 0.94) 32%, rgba(2, 7, 18, 0.62) 58%, rgba(2, 7, 18, 0.34) 100%),
+		linear-gradient(to top, rgba(2, 7, 18, 0.72) 0%, transparent 42%),
+		radial-gradient(80% 110% at 8% 10%, rgba(23, 163, 207, 0.26) 0%, transparent 60%);
 }
 
 body.mmed-matrix-account-dashboard .mmed-matrix-account-entry__shell {
@@ -991,7 +1001,7 @@ body.mmed-matrix-account-dashboard a.mmed-matrix-account-entry:focus-visible {
 body.mmed-matrix-account-dashboard a.mmed-matrix-account-entry:hover .mmed-matrix-account-entry__art,
 body.mmed-matrix-account-dashboard a.mmed-matrix-account-entry:focus-visible .mmed-matrix-account-entry__art {
 	transform: scale(1.05);
-	filter: brightness(1.14);
+	filter: saturate(1.15) brightness(1.32);
 }
 
 body.mmed-matrix-account-dashboard a.mmed-matrix-account-entry:hover .mmed-matrix-account-entry__cta,
