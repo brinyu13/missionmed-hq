@@ -45,6 +45,10 @@ const state = {
   selected: { camera: null, microphone: null },
   levelTimer: null,
   audioDebug: { pcmFrames: 0, f0Frames: 0, timer: null },
+  // ONE canonical readiness truth. The legacy cockpit keeps its own internal state for
+  // its own controls, but the student-facing product reads only this.
+  session: { state: 'IDLE', reason: null, startedAt: null, answerId: null },
+  trace: { mediaPcm: 0, analyticsPcm: 0, speech: 0, pause: 0, f0: 0, metrics: 0, diagnostics: 0 },
   bus: new MetricBus(),
   rack: null,
   labRack: null,
@@ -727,6 +731,104 @@ function renderOverlayToggles() {
 }
 
 
+
+/* ------------------------------------------------------------------ session engine
+ * Y1-Y2-CAM-V6-3513. ONE canonical state machine:
+ *
+ *   IDLE -> MEDIA_READY -> ANALYTICS_READY -> SESSION_READY -> STARTING -> RUNNING
+ *        -> FINISHING -> COMPLETE
+ *
+ * Start Rep previously proxied a click into the LEGACY cockpit's hidden button, whose
+ * `disabled` state is derived from that cockpit's own connect() lifecycle. After 3511
+ * the Studio button correctly read "Devices connected", so a student went straight to
+ * Start Rep while the legacy cockpit had never connected - its state stayed 'idle', its
+ * button stayed disabled, and Start Rep refused with "the session engine is not ready".
+ *
+ * Readiness now derives from REAL prerequisites, and Start Rep drives the session engine
+ * directly through the facade (beginAnswer/endAnswer). The legacy cockpit is no longer
+ * in the student's critical path.
+ *
+ * Also note: the pipeline only samples audio between beginAnswer and endAnswer. Before a
+ * rep there are deliberately no audio diagnostics - that is connectivity, not failure,
+ * and the two are now distinct states rather than both reading "NO AUDIO".
+ */
+
+function setSessionState(next, reason = null) {
+  state.session.state = next;
+  state.session.reason = reason;
+  const el = $('#cockpit-session');
+  if (el) {
+    const label = {
+      IDLE: 'Connect your camera and microphone to begin',
+      MEDIA_READY: 'Devices connected · analytics attaching',
+      ANALYTICS_READY: 'Analytics connected · ready when you are',
+      SESSION_READY: 'Ready — press Start rep',
+      STARTING: 'Starting…',
+      RUNNING: 'Rep running',
+      FINISHING: 'Finishing…',
+      COMPLETE: 'Rep complete',
+      BLOCKED: reason || 'Not ready',
+    }[next] || next;
+    el.textContent = label;
+    el.dataset.notice = next === 'BLOCKED' ? 'true' : 'false';
+  }
+  const start = $('#cockpit-start');
+  if (start) {
+    const running = next === 'RUNNING' || next === 'STARTING';
+    start.innerHTML = `<span>${running ? 'Rep running…' : 'Start rep ▸'}</span>`;
+    start.disabled = running;
+  }
+  return next;
+}
+
+/** Canonical readiness. Real prerequisites only - no legacy cockpit flags, no DOM state. */
+function evaluateReadiness() {
+  const m = bridge.media;
+  const audio = m.stream?.getAudioTracks?.()[0];
+  const video = m.stream?.getVideoTracks?.()[0];
+  if (!m.stream) return setSessionState('IDLE');
+  if (!video || video.readyState !== 'live') return setSessionState('BLOCKED', 'Camera disconnected — reconnect it in Devices.');
+  if (!audio || audio.readyState !== 'live') return setSessionState('BLOCKED', 'Microphone disconnected — reconnect it in Devices.');
+  if (!m.AC) return setSessionState('BLOCKED', 'Audio could not start. Click Connect camera + mic again.');
+  if (m.AC.state !== 'running') return setSessionState('BLOCKED', 'Audio is suspended — click Connect camera + mic to resume it.');
+  if (!m.analyser || !m.data) return setSessionState('BLOCKED', 'Audio analysis is not attached. Reconnect your microphone.');
+  setSessionState('MEDIA_READY');
+  if (!state.analytics) return setSessionState('BLOCKED', 'Delivery Intelligence is still loading. Wait a moment and try again.');
+  setSessionState('ANALYTICS_READY');
+  return setSessionState('SESSION_READY');
+}
+
+async function startRep() {
+  if (['STARTING', 'RUNNING'].includes(state.session.state)) return;
+  if (evaluateReadiness() !== 'SESSION_READY') return;
+  setSessionState('STARTING');
+  try {
+    const video = $('#cockpit-video');
+    // Drive the session engine directly. No legacy button, no hidden state machine.
+    const answer = state.analytics.beginAnswer({ videoElement: video });
+    state.session.answerId = answer?.answerId ?? null;
+    state.session.startedAt = Date.now();
+    const q = state.interviewSet[0];
+    const label = $('#cockpit-question');
+    if (label) label.textContent = q ? q.canonical_text : 'Free practice';
+    setSessionState('RUNNING');
+  } catch (error) {
+    // Never swallow: a rejected start must name itself.
+    setSessionState('BLOCKED', `Could not start the rep: ${String(error?.message || error).slice(0, 120)}`);
+  }
+}
+
+async function finishRep() {
+  if (!['RUNNING', 'STARTING'].includes(state.session.state)) return;
+  setSessionState('FINISHING');
+  try {
+    await Promise.resolve(state.analytics?.endAnswer?.({}));
+    setSessionState('COMPLETE');
+  } catch (error) {
+    setSessionState('BLOCKED', `Could not finish cleanly: ${String(error?.message || error).slice(0, 120)}`);
+  }
+}
+
 /** Explicit, actionable prerequisites. A dead button with no explanation is a defect. */
 function startBlockedReason() {
   const m = bridge.media;
@@ -754,11 +856,10 @@ function bindCockpitVideo() {
   // Training attaches to the same one.
   const v = $('#cockpit-video');
   if (v && bridge.media.stream && v.srcObject !== bridge.media.stream) v.srcObject = bridge.media.stream;
-  const reason = startBlockedReason();
-  showCockpitNotice(reason || '');
+  const ready = evaluateReadiness();
   const connect = $('#cockpit-connect');
   if (connect) {
-    const live = !reason;
+    const live = ready === 'SESSION_READY' || ready === 'RUNNING';
     connect.innerHTML = `<span>${live ? 'Devices connected ✓' : 'Connect camera + mic'}</span>`;
   }
 }
@@ -786,26 +887,8 @@ function wireCockpit() {
     startLevelMeter();
     renderDeviceCheck();
   });
-  $('#cockpit-start')?.addEventListener('click', () => {
-    // Y1-Y2-CAM-V6-3511: this used optional chaining into the analytics start button, so
-    // when prerequisites were not met it did nothing at all and said nothing - a dead
-    // button. Prerequisites are now checked explicitly and every failure is actionable.
-    const reason = startBlockedReason();
-    if (reason) { showCockpitNotice(reason); return; }
-    const startButton = document.getElementById('communication-analytics-start');
-    if (!startButton || startButton.disabled) {
-      showCockpitNotice('The session engine is not ready yet. Reconnect your camera and microphone.');
-      return;
-    }
-    startButton.click();
-    const q = state.interviewSet[0];
-    const label = $('#cockpit-question');
-    if (label) label.textContent = q ? q.canonical_text : 'Free practice';
-    showCockpitNotice('');
-  });
-  $('#cockpit-finish')?.addEventListener('click', () => {
-    document.getElementById('communication-analytics-finish')?.click();
-  });
+  $('#cockpit-start')?.addEventListener('click', () => { void startRep(); });
+  $('#cockpit-finish')?.addEventListener('click', () => { void finishRep(); });
 }
 
 
@@ -844,6 +927,16 @@ function renderAudioDebug() {
     ['Peak', peak === null ? '—' : peak.toFixed(4), (peak ?? 0) > 0],
     ['dBFS', dbfs === null ? '—' : dbfs.toFixed(1), dbfs !== null && dbfs > -90],
     ['F0 input frames', String(state.audioDebug.f0Frames), state.audioDebug.f0Frames > 0],
+    // Pipeline trace. The FIRST zero boundary is the breakpoint.
+    ['— pipeline trace —', '', true],
+    ['MEDIA PCM', String(state.audioDebug.pcmFrames), state.audioDebug.pcmFrames > 0],
+    ['ANALYTICS PCM', String(state.trace.analyticsPcm), state.trace.analyticsPcm > 0],
+    ['SPEECH INPUT', String(state.trace.speech), state.trace.speech > 0],
+    ['PAUSE INPUT', String(state.trace.pause), state.trace.pause > 0],
+    ['F0 VOICED', String(state.trace.f0), state.trace.f0 > 0],
+    ['METRIC EVENTS', String(state.trace.metrics), state.trace.metrics > 0],
+    ['UI DIAGNOSTICS', String(state.trace.diagnostics), state.trace.diagnostics > 0],
+    ['SESSION STATE', state.session.state, !['IDLE', 'BLOCKED'].includes(state.session.state)],
   ];
   host.replaceChildren();
   for (const [name, value, good] of rows) {
@@ -977,7 +1070,15 @@ async function mountAnalytics() {
     // Raw diagnostic -> normalized metric frame -> renderers. Renderers never see the
     // raw payload, which is what keeps them swappable.
     try {
+      state.trace.diagnostics += 1;
+      if (detail.modality === 'audio') {
+        state.trace.analyticsPcm += 1;
+        if (detail.speaking === true) state.trace.speech += 1;
+        if (detail.speaking === false) state.trace.pause += 1;
+        if (detail.pitch?.voiced === true) state.trace.f0 += 1;
+      }
       const frame = state.bus.ingest(detail);
+      if (frame) state.trace.metrics += 1;
       if (!frame) return;
       state.rack?.update(frame);
       state.labRack?.update(frame);

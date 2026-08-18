@@ -75,24 +75,42 @@ test('Delivery Training consumes the existing session and never reacquires', () 
 });
 
 test('Start Rep is never a dead button', () => {
-  // Every prerequisite failure must name an actionable reason.
-  assert.match(studio, /function startBlockedReason\(\)/u);
+  // Y1-Y2-CAM-V6-3513: the guarantee moved from an inline check into the canonical
+  // session engine. Start Rep no longer proxies a click into the LEGACY cockpit's hidden
+  // button - whose disabled state came from that cockpit's own connect() lifecycle, so a
+  // student who never pressed it got "the session engine is not ready" forever.
+  assert.match(studio, /function evaluateReadiness\(\)/u);
+  assert.match(studio, /async function startRep\(\)/u);
+  // Readiness derives from REAL prerequisites, each with an actionable reason.
   for (const phrase of [
-    'Connect your camera and microphone first',
+    'Connect your camera and microphone to begin',
     'Camera disconnected',
     'Microphone disconnected',
     'Audio is suspended',
+    'Delivery Intelligence is still loading',
   ]) {
     assert.ok(studio.includes(phrase), `missing actionable reason: ${phrase}`);
   }
-  // The handler must consult it and surface it, not silently no-op.
-  const at = studio.indexOf("$('#cockpit-start')?.addEventListener");
-  const body = studio.slice(at, at + 900);
-  assert.match(body, /const reason = startBlockedReason\(\);/u);
-  assert.match(body, /if \(reason\) \{ showCockpitNotice\(reason\); return; \}/u);
-  // A disabled engine button must also explain itself rather than being clicked blindly.
-  assert.match(body, /startButton\.disabled/u);
-  assert.match(body, /showCockpitNotice\('The session engine is not ready yet/u);
+  // Start drives the session engine DIRECTLY through the facade.
+  const body = studio.slice(studio.indexOf('async function startRep()'), studio.indexOf('async function finishRep()'));
+  assert.match(body, /state\.analytics\.beginAnswer\(\{ videoElement: video \}\)/u,
+    'Start Rep must drive the engine, not a legacy button');
+  assert.doesNotMatch(body, /communication-analytics-start/u, 'the legacy button must not be in the critical path');
+  // A rejected start must name itself rather than being swallowed.
+  assert.match(body, /catch \(error\) \{[\s\S]*?Could not start the rep/u);
+  // One canonical state machine, with the required transitions.
+  for (const st of ['IDLE', 'MEDIA_READY', 'ANALYTICS_READY', 'SESSION_READY', 'STARTING', 'RUNNING', 'FINISHING', 'COMPLETE']) {
+    assert.ok(studio.includes(st), `state ${st} missing from the canonical machine`);
+  }
+});
+
+test('connectivity is distinguished from an active rep', () => {
+  // The pipeline only samples audio between beginAnswer and endAnswer, so before a rep
+  // there are deliberately no audio diagnostics. That is connectivity, not failure, and
+  // must not read as "NO AUDIO" to the student.
+  assert.match(studio, /MEDIA_READY: 'Devices connected · analytics attaching'/u);
+  assert.match(studio, /SESSION_READY: 'Ready — press Start rep'/u);
+  assert.match(studio, /RUNNING: 'Rep running'/u);
 });
 
 test('the media session has one owner and the bridge is shared', () => {

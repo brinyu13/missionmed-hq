@@ -154,9 +154,15 @@ export function voiceLaneReadouts(audio) {
       'VOICE.VOLUME': UNAVAILABLE, 'VOICE.VOLUME_VARIATION': UNAVAILABLE, 'VOICE.PAUSE': UNAVAILABLE,
     });
   }
+  // Y1-Y2-CAM-V6-3513: these read capturedLevelDbfs / energyVariationDb, which
+  // measurePcmFrame() does not emit - it emits { rms, peak, clippedFraction }. Film Room
+  // therefore showed VOLUME UNAVAILABLE while PITCH and PAUSE worked. Derive from rms.
+  const levelDbfs = Number.isFinite(audio.capturedLevelDbfs) ? audio.capturedLevelDbfs
+    : (Number.isFinite(audio.rms) && audio.rms > 0 ? 20 * Math.log10(audio.rms) : null);
   return Object.freeze({
-    'VOICE.VOLUME': Number.isFinite(audio.capturedLevelDbfs) ? `${fixed(audio.capturedLevelDbfs, 1)} dBFS` : UNAVAILABLE,
-    'VOICE.VOLUME_VARIATION': Number.isFinite(audio.energyVariationDb) ? `${fixed(audio.energyVariationDb, 1)} dB` : UNAVAILABLE,
+    'VOICE.VOLUME': Number.isFinite(levelDbfs) ? `${fixed(levelDbfs, 1)} dBFS` : UNAVAILABLE,
+    'VOICE.VOLUME_VARIATION': Number.isFinite(audio.energyVariationDb) ? `${fixed(audio.energyVariationDb, 1)} dB`
+      : (Number.isFinite(audio.peak) ? `peak ${fixed(audio.peak, 3)}` : UNAVAILABLE),
     'VOICE.PAUSE': audio.speaking ? 'SPEAKING' : `PAUSE ${((audio.pauseInProgressMs || 0) / 1000).toFixed(1)}s`,
   });
 }

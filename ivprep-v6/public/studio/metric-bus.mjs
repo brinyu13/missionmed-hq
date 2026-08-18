@@ -77,7 +77,14 @@ export class MetricBus extends EventTarget {
 
     // ---- VOICE LEVEL. Level and variation are separate observables by law: a loud
     // monotone must not read as good on variation.
-    const dbfs = Number.isFinite(d.capturedLevelDbfs) ? d.capturedLevelDbfs : null;
+    // Y1-Y2-CAM-V6-3513: this read `d.capturedLevelDbfs`, a field name that does not
+    // exist. measurePcmFrame() emits { rms, peak, clippedFraction }, so VOICE_LEVEL and
+    // VOLUME_VARIATION could never populate while PITCH and PAUSE worked - the exact
+    // split the Founder saw. Level is derived from the real rms here.
+    const rms = Number.isFinite(d.rms) ? d.rms
+      : (Number.isFinite(d.capturedLevelDbfs) ? null : null);
+    const dbfs = Number.isFinite(d.capturedLevelDbfs) ? d.capturedLevelDbfs
+      : (Number.isFinite(rms) && rms > 0 ? 20 * Math.log10(rms) : null);
     if (dbfs === null) {
       out.VOICE_LEVEL = unavailable('NO_AUDIO');
     } else {
@@ -86,7 +93,7 @@ export class MetricBus extends EventTarget {
       const norm = Math.max(0, Math.min(1, (dbfs + 60) / 60));
       out.VOICE_LEVEL = Object.freeze({
         available: true, dbfs, normalized: norm,
-        peak: Number.isFinite(d.peakAmplitude) ? d.peakAmplitude : null,
+        peak: Number.isFinite(d.peak) ? d.peak : (Number.isFinite(d.peakAmplitude) ? d.peakAmplitude : null),
         history: this.#level.values.slice(-160),
         // Usable corridor, not a pass/fail score.
         inCorridor: dbfs > -34 && dbfs < -8,
