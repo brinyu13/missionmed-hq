@@ -50,10 +50,16 @@ test('the AudioContext is created and resumed inside the user gesture', () => {
   assert.doesNotMatch(bind, /AC = new Ctx\(\)/u, 'bindStream must not create a post-await context');
 
   // Every media-acquiring gesture must prime first, before any await.
-  for (const handler of ['#cockpit-connect', 'async function connectDevices', 'async function switchDevice']) {
+  // Anchor on the CLICK HANDLER, not the first mention of the id: bindCockpitVideo also
+  // references #cockpit-connect and appears earlier in the file.
+  for (const handler of [
+    "$('#cockpit-connect')?.addEventListener",
+    'async function connectDevices',
+    'async function switchDevice',
+  ]) {
     const at = studio.indexOf(handler);
     assert.ok(at > 0, `${handler} missing`);
-    assert.match(studio.slice(at, at + 420), /primeAudioContext\(\)/u, `${handler} must prime the context`);
+    assert.match(studio.slice(at, at + 460), /primeAudioContext\(\)/u, `${handler} must prime the context`);
   }
   // A hot switch must not close the primed context.
   assert.match(studio, /stopMedia\(\{ keepContext = false \} = \{\}\)/u);

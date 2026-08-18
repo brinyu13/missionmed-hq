@@ -726,9 +726,41 @@ function renderOverlayToggles() {
   }
 }
 
+
+/** Explicit, actionable prerequisites. A dead button with no explanation is a defect. */
+function startBlockedReason() {
+  const m = bridge.media;
+  const audio = m.stream?.getAudioTracks?.()[0];
+  const video = m.stream?.getVideoTracks?.()[0];
+  if (!m.stream) return 'Connect your camera and microphone first.';
+  if (!video || video.readyState !== 'live') return 'Camera disconnected — reconnect it in Devices.';
+  if (!audio || audio.readyState !== 'live') return 'Microphone disconnected — reconnect it in Devices.';
+  if (!m.AC) return 'Audio could not start. Click Connect camera + mic again.';
+  if (m.AC.state !== 'running') return 'Audio is suspended — click Connect camera + mic to resume it.';
+  if (!m.analyser || !m.data) return 'Audio analysis is not attached. Reconnect your microphone.';
+  return null;
+}
+
+function showCockpitNotice(message) {
+  const el = $('#cockpit-session');
+  if (!el) return;
+  el.textContent = message || 'Session idle';
+  el.dataset.notice = message ? 'true' : 'false';
+}
+
 function bindCockpitVideo() {
+  // Consume the EXISTING session. No new getUserMedia, no new AudioContext, no new
+  // permission prompt - Device Check establishes the media session and Delivery
+  // Training attaches to the same one.
   const v = $('#cockpit-video');
   if (v && bridge.media.stream && v.srcObject !== bridge.media.stream) v.srcObject = bridge.media.stream;
+  const reason = startBlockedReason();
+  showCockpitNotice(reason || '');
+  const connect = $('#cockpit-connect');
+  if (connect) {
+    const live = !reason;
+    connect.innerHTML = `<span>${live ? 'Devices connected ✓' : 'Connect camera + mic'}</span>`;
+  }
 }
 
 function wireCockpit() {
@@ -755,10 +787,21 @@ function wireCockpit() {
     renderDeviceCheck();
   });
   $('#cockpit-start')?.addEventListener('click', () => {
-    document.getElementById('communication-analytics-start')?.click();
+    // Y1-Y2-CAM-V6-3511: this used optional chaining into the analytics start button, so
+    // when prerequisites were not met it did nothing at all and said nothing - a dead
+    // button. Prerequisites are now checked explicitly and every failure is actionable.
+    const reason = startBlockedReason();
+    if (reason) { showCockpitNotice(reason); return; }
+    const startButton = document.getElementById('communication-analytics-start');
+    if (!startButton || startButton.disabled) {
+      showCockpitNotice('The session engine is not ready yet. Reconnect your camera and microphone.');
+      return;
+    }
+    startButton.click();
     const q = state.interviewSet[0];
     const label = $('#cockpit-question');
     if (label) label.textContent = q ? q.canonical_text : 'Free practice';
+    showCockpitNotice('');
   });
   $('#cockpit-finish')?.addEventListener('click', () => {
     document.getElementById('communication-analytics-finish')?.click();

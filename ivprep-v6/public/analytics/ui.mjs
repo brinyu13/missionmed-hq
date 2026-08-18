@@ -2040,7 +2040,7 @@ export class FounderAnalyticsSurface {
     for (const id of ['communication-analytics-finish', 'communication-analytics-next', 'communication-analytics-skip']) document.getElementById(id)?.setAttribute('disabled', '');
   }
 
-  clear({ render = true } = {}) {
+  clear({ render = true, stopMedia = true } = {}) {
     this.connectEpoch += 1;
     this.runEpoch += 1;
     clearInterval(this.timer);
@@ -2065,8 +2065,11 @@ export class FounderAnalyticsSurface {
     this.resetInstrumentation();
     this.pipeline.resetSession();
     this.state = 'idle';
-    if (this.ownsMedia) this.bridge.stopMedia();
-    this.ownsMedia = false;
+    // Guarded so a view change cannot release devices the student is still using.
+    if (stopMedia && this.ownsMedia) {
+      this.bridge.stopMedia();
+      this.ownsMedia = false;
+    }
     if (render) this.render();
   }
 
@@ -2083,7 +2086,17 @@ export class FounderAnalyticsSurface {
   // The owning view is now resolved from the DOM, so re-hosting or renaming the view
   // cannot strand this again.
   ownsActiveView(view, role) {
-    if (String(role || '') !== 'admin') return false;
+    // Y1-Y2-CAM-V6-3511 — THE MEDIA-LIFECYCLE ROOT CAUSE.
+    //
+    // This began `if (role !== 'admin') return false;`, carried over from 3502. The
+    // Studio shell passes 'student' for the student role, so in STUDENT mode this
+    // returned false for EVERY view - including this cockpit's own. onViewChange then
+    // fell through to clear(), which calls bridge.stopMedia(), so simply navigating
+    // Device Check -> Delivery Training stopped the live microphone and camera. It also
+    // reset state to 'idle', which made Start Rep a silent no-op. One line, both
+    // reported symptoms, and role-dependent - which is why admin-mode testing missed it.
+    //
+    // Role governs PRESENTATION only. It must never decide who owns the hardware.
     if (this.viewId && String(view || '') === this.viewId) return true;
     // setView() applies panel.hidden before calling onViewChange, so an unhidden
     // owning panel is authoritative even if the id lookup failed.
@@ -2092,7 +2105,9 @@ export class FounderAnalyticsSurface {
 
   onViewChange(view, role) {
     if (this.ownsActiveView(view, role)) return;
-    if (this.ownsMedia || this.state !== 'idle' || this.replayUrl) this.clear();
+    // A route change resets this cockpit's own UI state but MUST NOT stop hardware.
+    // Only explicit teardown may do that: the Clear control, Finish, or pagehide.
+    if (this.ownsMedia || this.state !== 'idle' || this.replayUrl) this.clear({ stopMedia: false });
   }
 
   setStatus(state, message, { announce = false } = {}) {

@@ -362,3 +362,4 @@ body[data-role="student"] #communication-analytics-test-root .ca-diagnostics { d
 .inst-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); gap: 12px; background: transparent; box-shadow: none; padding: 0; }
 
 @media (max-width: 1180px) { .cockpit { grid-template-columns: 1fr; } }
+#cockpit-session[data-notice="true"] { color: var(--warn); font-weight: 800; }
