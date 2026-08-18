@@ -5,9 +5,9 @@
 
 $root = dirname( __DIR__ );
 $files = array(
-	'wp-content/plugins/missionmed-hub/assets/student-os.js' => 'c1d97237eab4936d014ec00549deb2358a056d5b8f430fe7713f5dd2ac39e76a',
-	'wp-content/plugins/missionmed-hub/assets/student-os.c1d97237eab4936d.js' => 'c1d97237eab4936d014ec00549deb2358a056d5b8f430fe7713f5dd2ac39e76a',
-	'wp-content/plugins/missionmed-hub/includes/class-mmed-rest-api.php' => '2e2a282d05ac876c658b0c5717e4412989b362ce63cc0731f7f97f8187126b16',
+	'wp-content/plugins/missionmed-hub/assets/student-os.js' => '814ed385e00ac6bb34c870a65afbbb974bcce3c47e6e5b6490f8bdd3716a117e',
+	'wp-content/plugins/missionmed-hub/assets/student-os.c1d97237eab4936d.js' => '814ed385e00ac6bb34c870a65afbbb974bcce3c47e6e5b6490f8bdd3716a117e',
+	'wp-content/plugins/missionmed-hub/includes/class-mmed-rest-api.php' => '70e7bae598a804f547425085e90e2b4e52d659c2c41755d124184619b92c29da',
 	'wp-content/plugins/missionmed-hub/assets/student-os-file-vault.js' => 'f1639c41d32ffe74d6d2712c93a321abd67c36ef12adb75b36061b2b39331edd',
 	'wp-content/plugins/missionmed-hub/assets/student-os-file-vault.css' => '6daeaf25071f0850dbedfd522e9f0819f46fcf0e5c7a8ffc5ad3abba73ef0990',
 );
