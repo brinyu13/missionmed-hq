@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MX-LOGIN-UX-008C Matrix render harness</title>
+<link rel="stylesheet" href="/assets/student-os.css">
+<style>html,body{margin:0;padding:0}</style>
+</head><body>
+<div id="student-os-root" class="mmed-matrix-shell" data-nonce="harness" data-api-base="/__no_api__/">
+  <aside id="sos-sidebar" aria-label="MissionMed Matrix navigation"></aside>
+  <main id="sos-main">
+    <div id="sos-bg-layer" aria-hidden="true">
+      <div class="sos-bg sos-bg-a"></div><div class="sos-bg sos-bg-b"></div><div class="sos-bg sos-bg-c"></div>
+    </div>
+    <div id="sos-content" aria-live="polite"></div>
+  </main>
+</div>
+<script>
+/* Representative eligible 360 Match Mentorship student.
+   Shape mirrors MMED_Student_OS::get_initial_data(). Name is sample harness data
+   only and exists nowhere in shipped source. */
+window.MMED_OS = {
+  profile: {
+    display_name: "Amara Osei",
+    program_tier: "360 Match Mentorship",
+    logout_url: "/my-account/customer-logout/",
+    phase: { phases: [], current_index: 0 }
+  },
+  stats: { active_courses: 3, tasks_total: 12, tasks_approved: 7, days_to_next_step: 4,
+           next_step_label: "Submit MyERAS draft", upcoming_events_week: 2, unread_messages: 1,
+           courses_in_progress: 2 },
+  access: { tier: "enrolled", is_enrolled: true, admin_full_access: false,
+            free_modules: ["dashboard","arena"], module_permissions: {}, promo_courses: [] },
+  modules: [
+    {id:"calendar",route:"calendar",label:"Calendar",icon:"Cal",section:"Planning"},
+    {id:"scheduler",route:"scheduler",label:"Scheduler",icon:"Sc",section:"Planning"},
+    {id:"courses",route:"courses",label:"My Courses",icon:"Cr",section:"Learning"},
+    {id:"orders",route:"orders",label:"Orders",icon:"Or",section:"Account"},
+    {id:"profile",route:"profile",label:"My Profile",icon:"Pr",section:"Account"},
+    {id:"settings",route:"settings",label:"Settings",icon:"St",section:"Account"},
+    {id:"notifications",route:"notifications",label:"Notifications",icon:"Nt",section:"Account"},
+    {id:"messages",route:"messages",label:"Messages",icon:"Ms",section:"Account"},
+    {id:"help",route:"help",label:"Help",icon:"?",section:"Support"},
+    {id:"filevault",route:"filevault",label:"File Vault",icon:"Fv",section:"Documents"},
+    {id:"study",route:"study",label:"Study Schedule",icon:"Sd",section:"Learning"},
+    {id:"ranklist",route:"ranklist",label:"RankList IQ",icon:"RL",section:"Match Prep"},
+    {id:"lor",route:"lor",label:"LOR Writer",icon:"LR",section:"Match Prep"},
+    {id:"storyforge",route:"storyforge",label:"StoryForge",icon:"SF",section:"Match Prep"},
+    {id:"arena",route:"arena",label:"Arena",icon:"Ar",section:"Training"}
+  ]
+};
+/* keep the harness offline: never let the runtime hit a real endpoint */
+window.fetch = function(){ return new Promise(function(){}); };
+</script>
+<script src="/assets/student-os.js"></script>
+</body></html>

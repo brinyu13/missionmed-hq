@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mx008c-harness",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8899",
+        "--directory",
+        "_TICKETS/MX-LOGIN-UX-008C/evidence/serve"
+      ],
+      "port": 8899
+    }
+  ]
+}
