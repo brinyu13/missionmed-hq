@@ -2306,11 +2306,11 @@ class D1411AKernelElement extends HostHTMLElement{
     // text - the defect the Founder saw in the upper-right of exported artifacts.
     // Fit immediately before capture; the pass restores the baseline first, so this is
     // safe whether or not it already ran for this render.
+    // Only the flag fit is needed here. The legend was already placed when this render
+    // completed, and re-running the board scan at capture time added latency to the one
+    // operation a student waits on without changing where anything lands.
     const childDocument=this.shadowRoot?.querySelector("iframe")?.contentDocument;
-    if(childDocument){
-      this._fitMilestoneFlags(childDocument);
-      this._avoidFurnitureObstruction(childDocument);
-    }
+    if(childDocument)this._fitMilestoneFlags(childDocument);
     return this._kernel.exportBoard(request);
   }
 
