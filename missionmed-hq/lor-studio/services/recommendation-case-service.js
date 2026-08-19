@@ -6,6 +6,7 @@ import {
   completeBuilderStep,
   createRecommendationCase,
 } from '../domain/recommendation-case.js';
+import { createConsentReceipt, createWaiverReceipt } from '../domain/receipts.js';
 import {
   assertNonEmptyString,
   assertPlainObject,
@@ -54,15 +55,63 @@ import { assertPort } from './ports.js';
 const buildMetadataServiceEvent = createMetadataServiceEvent;
 
 /**
+ * @typedef {{
+ *   id?: string,
+ *   caseId: string,
+ *   studentId: string,
+ *   scopes: unknown,
+ *   policyVersion: unknown,
+ *   recordedAt?: Date | string | number,
+ * }} ConsentReceiptInput
+ */
+
+/**
+ * @typedef {{
+ *   id?: string,
+ *   caseId: string,
+ *   studentId: string,
+ *   waived: unknown,
+ *   policyVersion: unknown,
+ *   priorReceiptId?: unknown,
+ *   acknowledgment: unknown,
+ *   recordedAt?: Date | string | number,
+ * }} WaiverReceiptInput
+ */
+
+/**
  * @type {(input: RecommendationCaseInput) => ReturnType<typeof createRecommendationCase>}
  */
 const buildRecommendationCase = createRecommendationCase;
+
+/**
+ * @type {(input: ConsentReceiptInput) => ReturnType<typeof createConsentReceipt>}
+ */
+const buildConsentReceipt = createConsentReceipt;
+
+/**
+ * @type {(input: WaiverReceiptInput) => ReturnType<typeof createWaiverReceipt>}
+ */
+const buildWaiverReceipt = createWaiverReceipt;
+
+/**
+ * @type {(prefix: string, idFactory?: () => string) => string}
+ */
+const buildId = makeId;
 
 function assertStudentActor(actor) {
   if (!actor || actor.role !== 'student' || typeof actor.id !== 'string' || actor.id.length === 0) {
     throw new AuthorizationDeniedError('STUDENT_ACTOR_REQUIRED');
   }
 }
+
+// The only receipt fields a client is permitted to assert. Receipt identity, the recorded
+// timestamp, the owning case, the acting principal, and the integrity hash are all minted
+// server-side: a client that could choose them could backdate a FERPA waiver, forge a
+// supersession chain, or re-file a decision the student already replaced.
+const CLIENT_SUPPLIED_RECEIPT_FIELDS = new Map([
+  ['consent', Object.freeze(['policyVersion', 'scopes'])],
+  ['waiver', Object.freeze(['acknowledgment', 'policyVersion', 'priorReceiptId', 'waived'])],
+]);
 
 function requestMetadata(operation, caseId, actorId, idempotencyKey, payload) {
   if (typeof idempotencyKey !== 'string' || idempotencyKey.trim() === '') {
@@ -316,13 +365,84 @@ export class RecommendationCaseService {
     });
   }
 
+  /**
+   * Narrow an untrusted receipt payload to the fields a client may assert.
+   *
+   * @param {unknown} receiptType
+   * @param {unknown} receiptData
+   */
+  #assertClientReceiptFields(receiptType, receiptData) {
+    const allowed = CLIENT_SUPPLIED_RECEIPT_FIELDS.get(
+      typeof receiptType === 'string' ? receiptType : '',
+    );
+    if (!allowed) throw new ValidationError('Unknown receipt type');
+    const input = assertPlainObject(receiptData, 'receipt data');
+    const unexpectedKeys = Object.keys(input).filter((key) => !allowed.includes(key));
+    if (unexpectedKeys.length > 0) {
+      throw new ValidationError('Receipt identity, timestamps, and integrity hashes are server-generated');
+    }
+    return input;
+  }
+
+  /**
+   * Derive a receipt identifier from the request that asks for it.
+   *
+   * Receipts live in an append-only log with no identifier ledger of its own, so a random ID
+   * would make an interrupted retry indistinguishable from a second decision: the consent log
+   * would grow a duplicate entry, and a waiver retry would fail closed on the supersession chain
+   * with no way for the student to clear it. Deriving the ID from the case, the principal, the
+   * idempotency key, and the asserted payload means the same request re-derives the same
+   * identifier while any change of intent derives a different one.
+   *
+   * @param {{ caseId: string, actorId: string, idempotencyKey: string, receiptType: string, input: Record<string, unknown> }} request
+   */
+  #deriveReceiptId({ caseId, actorId, idempotencyKey, receiptType, input }) {
+    return buildId(receiptType, () => hashValue({
+      operation: `${receiptType}.record`,
+      caseId,
+      actorId,
+      idempotencyKey,
+      receiptData: input,
+    }));
+  }
+
+  /**
+   * @param {{ id: string, caseId: string, studentId: string, receiptType: string, input: Record<string, unknown> }} request
+   */
+  #mintReceipt({ id, caseId, studentId, receiptType, input }) {
+    const recordedAt = toIso(this.clock(), 'receipt recordedAt');
+    if (receiptType === 'consent') {
+      return buildConsentReceipt({
+        id,
+        caseId,
+        studentId,
+        scopes: input.scopes,
+        policyVersion: input.policyVersion,
+        recordedAt,
+      });
+    }
+    return buildWaiverReceipt({
+      id,
+      caseId,
+      studentId,
+      waived: input.waived,
+      policyVersion: input.policyVersion,
+      // Never inferred from the tail of the chain. A waiver decision may only be replaced by a
+      // request that names the receipt it replaces, so a stale client cannot silently flip a
+      // decision it never saw.
+      priorReceiptId: input.priorReceiptId ?? null,
+      acknowledgment: input.acknowledgment,
+      recordedAt,
+    });
+  }
+
   async recordReceipt({
     caseId,
     actor,
     expectedRevision,
     idempotencyKey,
     receiptType,
-    receipt,
+    receiptData,
   }) {
     const current = await this.repository.getById(caseId);
     const entitlement = await this.#entitlement(current.studentId);
@@ -333,16 +453,38 @@ export class RecommendationCaseService {
       entitlement,
       requireCanary: this.requireCanary,
     });
-    if (receipt.caseId !== caseId || receipt.actorId !== actor.id) {
-      throw new AuthorizationDeniedError('RECEIPT_RESOURCE_BINDING_MISMATCH');
-    }
+    const input = this.#assertClientReceiptFields(receiptType, receiptData);
     const metadata = requestMetadata(
       `${receiptType}.record`,
       caseId,
       actor.id,
       idempotencyKey,
-      { receiptType, receiptHash: receipt.receiptHash },
+      { receiptType, receiptData: input },
     );
+    const receiptId = this.#deriveReceiptId({
+      caseId: current.id,
+      actorId: actor.id,
+      idempotencyKey: metadata.idempotencyKey,
+      receiptType,
+      input,
+    });
+    const field = receiptType === 'consent' ? 'consentReceipts' : 'waiverReceipts';
+    if (current[field].some((recorded) => recorded.id === receiptId)) {
+      // This exact request already landed in the append-only log. Replaying it must neither
+      // append a second decision nor fail the student closed on a chain rule it already
+      // satisfied, so the committed record is returned unchanged and no second event is emitted.
+      return current;
+    }
+    const receipt = this.#mintReceipt({
+      id: receiptId,
+      caseId: current.id,
+      studentId: actor.id,
+      receiptType,
+      input,
+    });
+    if (receipt.caseId !== caseId || receipt.actorId !== actor.id) {
+      throw new AuthorizationDeniedError('RECEIPT_RESOURCE_BINDING_MISMATCH');
+    }
     const next = appendReceipt(current, {
       actorId: actor.id,
       receiptType,

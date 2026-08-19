@@ -7,6 +7,7 @@ import { readZipEntries } from '../../lor-studio/documents/ooxml-zip.mjs';
 import { renderRecommendationDocx, renderRecommendationPdf } from '../../lor-studio/documents/recommendation-artifacts.mjs';
 import { createWaiverReceipt } from '../../lor-studio/domain/receipts.js';
 import { createLorStudioHealthSnapshot, evaluateLorStudioAlerts } from '../../lor-studio/observability/health.mjs';
+import { ACTOR_ROLES } from '../../lor-studio/security/authorization-policy.js';
 
 function model(overrides = {}) {
   return {
@@ -68,6 +69,32 @@ test('artifact renderers escape markup and reject non-final or unapproved output
   assert.throws(() => renderRecommendationDocx(model({ documentState: 'ai_proposal' })), /faculty-final/u);
   assert.throws(() => renderRecommendationDocx(model({ facultyApproval: { approved: false } })), /Faculty approval/u);
   assert.throws(() => renderRecommendationPdf(model()), /explicit approved-output/u);
+});
+
+test('PDF renderer transliterates non-ASCII names instead of mangling them', () => {
+  // The base-14 PDF font is single-byte, so the output alphabet is ASCII. That must degrade by
+  // TRANSLITERATION, not by destroying the name: the previous implementation ran NFKD and then
+  // mapped every non-ASCII code point to '?', so the combining marks NFKD had just produced
+  // became literal question marks and 'José Álvarez' rendered as 'Jose? A?lvarez'.
+  const artifact = renderRecommendationPdf(model({
+    studentDisplayName: 'José Álvarez',
+    facultyDisplayName: 'François Müller-Lefèvre',
+    sections: [{
+      heading: 'Clinical Evaluation',
+      paragraphs: ['Trained at Hôpital Saint-Louis — “excellent” throughout…'],
+    }],
+  }), { pdfApproved: true });
+  const text = artifact.buffer.toString('latin1');
+
+  assert.match(text, /Jose Alvarez/u, 'accented Latin names must transliterate to their base letters');
+  assert.match(text, /Francois Muller-Lefevre/u);
+  assert.match(text, /Hopital Saint-Louis/u);
+  assert.match(text, /"excellent"/u, 'smart quotes must become ASCII quotes');
+  assert.match(text, /\.\.\./u, 'an ellipsis must become three periods');
+
+  // The specific regression: no stray '?' introduced where a letter was transliterated.
+  assert.equal(/Jose\?|A\?lvarez|Mu\?ller|Lefe\?vre/u.test(text), false,
+    'combining marks must be stripped, never rendered as question marks');
 });
 
 test('PDF renderer emits a structurally complete PDF only after explicit approval', () => {
@@ -315,4 +342,55 @@ test('alert decisions use low-cardinality aggregate metrics only', () => {
     { code: 'lor_auth_denial_rate_high', severity: 'warning' },
   ]);
   assert.throws(() => evaluateLorStudioAlerts({ errorRate: -1 }), /nonnegative aggregates/u);
+});
+
+test('operational redaction gates numeric and boolean scalars by field name', () => {
+  assert.deepEqual(redactForOperationalTelemetry({
+    wpUserId: 4471,
+    studentId: 90_210,
+    isPaidAccount: true,
+    latencyMs: 12,
+    retryCount: 2,
+    errorRate: 0.06,
+    durable: true,
+    killSwitch: false,
+    nested: { wpUserId: 4471, mrn: 8_675_309, durationMs: 40, truncated: true },
+    wpUserIds: [4471, 4472],
+    counts: [1, 2],
+  }), {
+    wpUserId: '[REDACTED]',
+    studentId: '[REDACTED]',
+    isPaidAccount: '[REDACTED]',
+    latencyMs: 12,
+    retryCount: 2,
+    errorRate: 0.06,
+    durable: true,
+    killSwitch: false,
+    nested: { wpUserId: '[REDACTED]', mrn: '[REDACTED]', durationMs: 40, truncated: true },
+    wpUserIds: ['[REDACTED]', '[REDACTED]'],
+    counts: ['[REDACTED]', '[REDACTED]'],
+  });
+  assert.equal(redactForOperationalTelemetry(4471), '[REDACTED]');
+  assert.deepEqual(redactForOperationalTelemetry({ latencyMs: Number.NaN }), { latencyMs: '[REDACTED]' });
+});
+
+test('audit actor roles cover every operational role the authorization policy recognizes', () => {
+  for (const role of ACTOR_ROLES) {
+    const event = createAuditEvent({
+      type: 'artifact.accessed',
+      actor: { id: `${role}-1`, role },
+      caseId: 'case-100',
+      outcome: 'success',
+    });
+    assert.equal(event.actorRole, role);
+  }
+  assert.throws(
+    () => createAuditEvent({
+      type: 'artifact.accessed',
+      actor: { id: 'ghost-1', role: 'ghost' },
+      caseId: 'case-100',
+      outcome: 'success',
+    }),
+    /not allowlisted/u,
+  );
 });

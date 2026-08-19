@@ -19,6 +19,7 @@ const SAFE_ERROR_MESSAGES = Object.freeze({
  * @property {(input: { caseId: unknown, actor: unknown }) => Promise<unknown>} resumeBuilder
  * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, stepId: unknown, stepData: unknown }) => Promise<unknown>} autosaveBuilder
  * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, stepId: unknown }) => Promise<unknown>} completeBuilderStep
+ * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, receiptType: unknown, receiptData: unknown }) => Promise<unknown>} recordReceipt
  */
 
 /**
@@ -116,6 +117,18 @@ function mapError(error) {
       },
     };
   }
+  if (code === 'INVITATION_DENIED') {
+    // The denial reason stays on the thrown error for server-side audit and telemetry.
+    // It is never echoed to the client: distinguishing token, recipient, OTP, expiry, and
+    // lockout denials would turn this response into an invitation-state probing oracle.
+    return {
+      status: 403,
+      body: {
+        error: 'invitation_denied',
+        message: SAFE_ERROR_MESSAGES.INVITATION_DENIED,
+      },
+    };
+  }
   const status = {
     AUTHORIZATION_DENIED: 403,
     DOMAIN_INVARIANT: 409,
@@ -138,12 +151,15 @@ function mapError(error) {
 }
 
 function routeCase(pathname) {
-  const match = pathname.match(/^\/api\/lor-studio\/cases\/([^/]+)(?:\/(builder)(?:\/(complete))?)?$/u);
+  const match = pathname.match(
+    /^\/api\/lor-studio\/cases\/([^/]+)(?:\/(?:(builder)(?:\/(complete))?|(receipts)))?$/u,
+  );
   if (!match) return null;
   return {
     caseId: decodeURIComponent(match[1]),
     builder: match[2] === 'builder',
     complete: match[3] === 'complete',
+    receipts: match[4] === 'receipts',
   };
 }
 
@@ -203,7 +219,7 @@ export function createLorApplicationAdapter({
       const route = routeCase(url.pathname);
       if (!route) return { status: 404, body: { error: 'lor_route_not_found' } };
 
-      if (!route.builder && method === 'GET') {
+      if (!route.builder && !route.receipts && method === 'GET') {
         const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
         return { status: 200, body: { case: projection } };
       }
@@ -240,6 +256,24 @@ export function createLorApplicationAdapter({
         });
         const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
         return { status: 200, body: { case: projection } };
+      }
+
+      if (route.receipts && method === 'POST') {
+        const payload = await readJsonBody(request);
+        assertExactKeys(payload, ['expectedRevision', 'receiptType', 'receiptData']);
+        // Only the decision itself crosses the wire. Receipt identity, the recorded timestamp,
+        // the owning case, the acting principal, and the integrity hash are minted by the
+        // service; the supersession chain is enforced by the aggregate, not relaxed here.
+        await caseService.recordReceipt({
+          caseId: route.caseId,
+          actor,
+          expectedRevision: payload.expectedRevision,
+          idempotencyKey: idempotencyKey(request),
+          receiptType: payload.receiptType,
+          receiptData: payload.receiptData,
+        });
+        const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
+        return { status: 201, body: { case: projection } };
       }
 
       return {

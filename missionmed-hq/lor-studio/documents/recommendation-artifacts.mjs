@@ -95,9 +95,29 @@ function makeDocx(model) {
   ]);
 }
 
+// The PDF writer uses a base-14 font with single-byte encoding, so the output alphabet is
+// necessarily ASCII; full Unicode would require embedding a font subset. That constraint does
+// NOT justify mangling names. The previous implementation decomposed with NFKD and then mapped
+// every non-ASCII code point to '?', which turned the combining marks NFKD had just produced
+// into literal question marks: 'José' rendered as 'Jose?', and 'Müller' as 'Mu?ller'.
+// Stripping the marks after decomposition transliterates instead: 'José' -> 'Jose'.
+const PDF_PUNCTUATION = new Map([
+  ['‘', "'"], ['’', "'"], ['‚', "'"], ['‛', "'"],
+  ['“', '"'], ['”', '"'], ['„', '"'], ['‟', '"'],
+  ['–', '-'], ['—', '--'], ['―', '--'], ['−', '-'],
+  ['…', '...'], [' ', ' '], ['•', '*'], ['·', '*'],
+]);
+
 function pdfEscape(value) {
   return String(value)
+    // Typographic punctuation first: these have faithful ASCII equivalents and would
+    // otherwise survive NFKD unchanged and be replaced with '?'.
+    .replace(/[‘-‟–-―−… •·]/gu, (ch) => PDF_PUNCTUATION.get(ch) ?? ch)
     .normalize('NFKD')
+    // Drop the combining marks NFKD just separated out, keeping the base letters.
+    .replace(/\p{M}/gu, '')
+    // Anything with no ASCII representation at all (CJK, emoji) still degrades, but only
+    // after transliteration has had its chance.
     .replace(/[^\x20-\x7e]/gu, '?')
     .replaceAll('\\', '\\\\')
     .replaceAll('(', '\\(')

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 export const CANONICAL_PROTOTYPE_SHA256 = '8560559341895f2973c51bdf7d7ba28ba7a9890d70c6bc6eb5976fc67371e037';
 export const PRODUCTION_ADAPTER_VERSION = 6;
+export const PROTOTYPE_SOURCE_ENV_VAR = 'LOR_STUDIO_PROTOTYPE_SOURCE';
 
 const UNSAFE_TOAST_IMPLEMENTATION = "function toast(m,ms){const t=$('#toast');t.innerHTML=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),ms||3200)}";
 const SAFE_TOAST_IMPLEMENTATION = "function toast(m,ms){const t=$('#toast');t.textContent=String(m??'');t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),ms||3200)}";
@@ -15,6 +16,31 @@ const runtimeDirectory = path.resolve(scriptDirectory, '..', '..');
 const defaultSource = '/Users/brianb/MissionMed/F2-LOR-1003-functional-prototype.html';
 const defaultOutput = path.join(runtimeDirectory, 'public', 'lor-studio', 'index.html');
 const defaultManifest = path.join(runtimeDirectory, 'public', 'lor-studio', 'FROZEN_PRESENTATION_MANIFEST.json');
+const MISSING_SOURCE_CODES = new Set(['ENOENT', 'ENOTDIR', 'EISDIR']);
+
+export function resolvePrototypeSource(environment = process.env) {
+  const configured = environment[PROTOTYPE_SOURCE_ENV_VAR];
+  if (typeof configured === 'string' && configured.trim() !== '') {
+    return path.resolve(configured.trim());
+  }
+  return defaultSource;
+}
+
+async function readPrototypeSource(sourcePath) {
+  try {
+    return await readFile(sourcePath);
+  } catch (error) {
+    if (error && MISSING_SOURCE_CODES.has(error.code)) {
+      throw new Error(
+        `Canonical frozen prototype was not readable at ${sourcePath}. `
+        + `Set ${PROTOTYPE_SOURCE_ENV_VAR} to the path of the frozen prototype `
+        + `(SHA-256 ${CANONICAL_PROTOTYPE_SHA256}), or pass the path as the first argument.`,
+        { cause: error },
+      );
+    }
+    throw error;
+  }
+}
 
 function digest(value) {
   return createHash('sha256').update(value).digest('hex');
@@ -73,11 +99,11 @@ export function materializeFrozenPrototype(sourceHtml) {
 }
 
 export async function materialize({
-  sourcePath = defaultSource,
+  sourcePath = resolvePrototypeSource(),
   outputPath = defaultOutput,
   manifestPath = defaultManifest,
 } = {}) {
-  const source = await readFile(sourcePath);
+  const source = await readPrototypeSource(sourcePath);
   const generated = materializeFrozenPrototype(source.toString('utf8'));
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, generated);
@@ -95,9 +121,15 @@ export async function materialize({
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const result = await materialize({
-    sourcePath: process.argv[2] || process.env.LOR_STUDIO_PROTOTYPE_SOURCE || defaultSource,
-    outputPath: process.argv[3] || defaultOutput,
-  });
+  let result;
+  try {
+    result = await materialize({
+      sourcePath: process.argv[2] || resolvePrototypeSource(),
+      outputPath: process.argv[3] || defaultOutput,
+    });
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }

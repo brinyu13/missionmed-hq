@@ -32,11 +32,19 @@ import {
 } from '../../lor-studio/domain/recommendation-case.js';
 import { createWaiverReceipt } from '../../lor-studio/domain/receipts.js';
 import { sha256 } from '../../lor-studio/domain/value-utils.js';
+import { createAuditEvent } from '../../lor-studio/audit/audit-events.mjs';
 import { InMemoryFacultyInvitationRepository } from '../../lor-studio/repositories/in-memory-faculty-invitation-repository.js';
 import {
+  ADMINISTRATIVE_GRANT_CONTRACT,
+  createAdministrativeGrant,
+  createAdministrativeGrantActivation,
+} from '../../lor-studio/repositories/immutable-administrative-grant-repository.mjs';
+import {
+  CASE_ACTIONS,
   assertProjectionOmitsFacultyPrivateContent,
   authorizeCaseAction,
   evaluateStudentEntitlement,
+  privilegedAccessAuditInput,
   projectCaseForActor,
 } from '../../lor-studio/security/authorization-policy.js';
 import {
@@ -78,11 +86,59 @@ function verifiedOtpProof(invitation, principalId = 'faculty-1', overrides = {})
   };
 }
 
-function buildPrivateCase({ waived = true } = {}) {
+const OPERATIONAL_PROJECTION_KEYS = [
+  'schemaVersion',
+  'caseId',
+  'status',
+  'revision',
+  'createdAt',
+  'updatedAt',
+  'closedAt',
+  'builderProgress',
+  'deliveryStatus',
+];
+
+/**
+ * Mints the case-scoped operational-metadata capability DR-119 clause 9 requires: the
+ * canonical immutable grant plus proof its revocation ledger entry was just read.
+ */
+function operationalGrantFor({
+  granteeId = 'admin-1',
+  caseId = 'case-private',
+  operation = 'read_operational_case_metadata',
+  purpose = 'dr-119-operational-metadata-review',
+  issuedAt = '2026-08-09T11:00:00.000Z',
+  expiresAt = '2026-08-09T13:00:00.000Z',
+  checkedAt = T0,
+} = {}) {
+  const grant = createAdministrativeGrant({
+    grantId: `grant:${granteeId}:${caseId}:${operation}`,
+    granteeId,
+    caseId,
+    operation,
+    purpose,
+    privacyAuthority: 'privacy-authority:founder-approved-operational-review',
+    issuedAt,
+    expiresAt,
+    auditEventRef: sha256(`operational-grant:${granteeId}:${caseId}:${operation}`),
+  });
+  return {
+    grant,
+    activation: createAdministrativeGrantActivation({ grant, revoked: false, checkedAt }),
+  };
+}
+
+function deniedWith(reasonCode) {
+  return (error) => error instanceof AuthorizationDeniedError
+    && error.code === 'AUTHORIZATION_DENIED'
+    && error.details.reasonCode === reasonCode;
+}
+
+function buildPrivateCase({ waived = true, id = 'case-private' } = {}) {
   let sequence = 0;
   const idFactory = () => `fixture-${++sequence}`;
   let record = createRecommendationCase({
-    id: 'case-private',
+    id,
     studentId: 'student-1',
     now: T0,
     idFactory,
@@ -260,17 +316,18 @@ test('authorization is resource-bound and structural projections enforce the wai
     deliveryStatus: 'not_started',
   });
 
+  // Operational roles are resource-bound exactly like every other role: membership alone
+  // opens nothing. The granted path is exercised in the DR-119 clause 9 tests below.
   for (const role of ['admin', 'founder', 'support']) {
-    const projection = projectCaseForActor({
-      actor: { id: `${role}-1`, role },
-      caseRecord: record,
-      entitlement: null,
-    });
-    const serialized = JSON.stringify(projection);
-    assert.equal(projection.schemaVersion, 'missionmed.lor.operational-projection.v1');
-    assert.equal(serialized.includes('FACULTY'), false);
-    assert.equal('studentEvidence' in projection, false);
-    assert.equal('facultyPrivate' in projection, false);
+    assert.throws(
+      () => projectCaseForActor({
+        actor: { id: `${role}-1`, role },
+        caseRecord: record,
+        entitlement: null,
+      }),
+      deniedWith('OPERATIONAL_METADATA_GRANT_REQUIRED'),
+      `${role} membership alone must not bind to a case`,
+    );
   }
 
   const serviceGrant = {
@@ -300,6 +357,311 @@ test('authorization is resource-bound and structural projections enforce the wai
     }),
     AuthorizationDeniedError,
   );
+});
+
+test('operational roles are denied every content action and reach metadata only through a case-scoped grant', () => {
+  const record = buildPrivateCase({ waived: false });
+  const entitlement = eligible(record.studentId);
+  const contentActions = CASE_ACTIONS.filter((action) => action !== 'read_operational_metadata');
+
+  for (const role of ['admin', 'founder', 'support']) {
+    const actor = { id: `${role}-1`, role };
+    for (const action of contentActions) {
+      assert.throws(
+        () => authorizeCaseAction({ actor, action, caseRecord: record, entitlement, now: T0 }),
+        deniedWith('ROUTINE_OPERATIONAL_ROLE_CONTENT_DENIED'),
+        `${role} must not reach ${action}`,
+      );
+    }
+
+    // DR-119 clause 9. Role membership is not case authorisation: without a grant an
+    // operational actor cannot enumerate this case's metadata, and the denial is the same
+    // AuthorizationDeniedError the HTTP layer already collapses to an undifferentiated 404.
+    assert.throws(
+      () => authorizeCaseAction({
+        actor,
+        action: 'read_operational_metadata',
+        caseRecord: record,
+        entitlement,
+        now: T0,
+      }),
+      deniedWith('OPERATIONAL_METADATA_GRANT_REQUIRED'),
+      `${role} must not authorise a grant-free metadata read`,
+    );
+    assert.throws(
+      () => projectCaseForActor({ actor, caseRecord: record, entitlement, now: T0 }),
+      deniedWith('OPERATIONAL_METADATA_GRANT_REQUIRED'),
+      `${role} must not project a grant-free case`,
+    );
+
+    // Properly granted access is allowed - and still yields metadata only.
+    const operationalGrant = operationalGrantFor({ granteeId: actor.id, caseId: record.id });
+    const projection = projectCaseForActor({
+      actor,
+      caseRecord: record,
+      entitlement,
+      operationalGrant,
+      now: T0,
+    });
+    assert.deepEqual(
+      Object.keys(projection),
+      OPERATIONAL_PROJECTION_KEYS,
+      `${role} must receive the operational metadata projection shape only`,
+    );
+    assertProjectionOmitsFacultyPrivateContent(projection);
+    const serialized = JSON.stringify(projection);
+    for (const protectedValue of [
+      record.studentId,
+      'Student-authorized summary',
+      'Student-authored option',
+      'FACULTY SECRET ANSWER',
+      'FACULTY PRIVATE NOTE',
+      'FACULTY PRIVATE DRAFT',
+      'FACULTY FINAL LETTER',
+    ]) {
+      assert.equal(serialized.includes(protectedValue), false, `${role} metadata must omit ${protectedValue}`);
+    }
+
+    // A grant does not widen the action set either: content stays denied while one is held.
+    for (const action of contentActions) {
+      assert.throws(
+        () => authorizeCaseAction({
+          actor,
+          action,
+          caseRecord: record,
+          entitlement,
+          operationalGrant,
+          now: T0,
+        }),
+        deniedWith('ROUTINE_OPERATIONAL_ROLE_CONTENT_DENIED'),
+        `${role} must not reach ${action} while holding a metadata grant`,
+      );
+    }
+  }
+});
+
+test('an operational metadata grant is case-, actor-, class-, and time-scoped and fails closed', () => {
+  const caseAlpha = buildPrivateCase({ waived: false, id: 'case-alpha' });
+  const caseBeta = buildPrivateCase({ waived: false, id: 'case-beta' });
+  const actor = { id: 'admin-1', role: 'admin' };
+  const grantForAlpha = operationalGrantFor({ granteeId: 'admin-1', caseId: 'case-alpha' });
+
+  const allowed = projectCaseForActor({
+    actor,
+    caseRecord: caseAlpha,
+    entitlement: null,
+    operationalGrant: grantForAlpha,
+    now: T0,
+  });
+  assert.equal(allowed.caseId, 'case-alpha');
+
+  // The whole point of clause 9: a grant for one case does not open another.
+  assert.throws(
+    () => projectCaseForActor({
+      actor,
+      caseRecord: caseBeta,
+      entitlement: null,
+      operationalGrant: grantForAlpha,
+      now: T0,
+    }),
+    deniedWith('ADMINISTRATIVE_GRANT_BINDING_MISMATCH'),
+    'a grant for case-alpha must not open case-beta',
+  );
+
+  // Nor may a different operational actor borrow someone else's grant.
+  assert.throws(
+    () => projectCaseForActor({
+      actor: { id: 'support-9', role: 'support' },
+      caseRecord: caseAlpha,
+      entitlement: null,
+      operationalGrant: grantForAlpha,
+      now: T0,
+    }),
+    deniedWith('ADMINISTRATIVE_GRANT_BINDING_MISMATCH'),
+  );
+
+  // A content grant is a different capability class and must not be read as a metadata grant.
+  assert.throws(
+    () => projectCaseForActor({
+      actor,
+      caseRecord: caseAlpha,
+      entitlement: null,
+      operationalGrant: operationalGrantFor({
+        granteeId: 'admin-1',
+        caseId: 'case-alpha',
+        operation: 'read_case_content_for_privacy_request',
+      }),
+      now: T0,
+    }),
+    deniedWith('ADMINISTRATIVE_GRANT_OPERATION_CLASS_MISMATCH'),
+  );
+
+  assert.throws(
+    () => projectCaseForActor({
+      actor,
+      caseRecord: caseAlpha,
+      entitlement: null,
+      operationalGrant: operationalGrantFor({
+        granteeId: 'admin-1',
+        caseId: 'case-alpha',
+        issuedAt: '2026-08-09T09:00:00.000Z',
+        expiresAt: '2026-08-09T10:00:00.000Z',
+        checkedAt: '2026-08-09T09:30:00.000Z',
+      }),
+      now: T0,
+    }),
+    deniedWith('ADMINISTRATIVE_GRANT_EXPIRED_OR_NOT_YET_VALID'),
+  );
+
+  // A revocation check goes stale: an old activation proof cannot be replayed indefinitely
+  // against a grant that may have been revoked since.
+  assert.throws(
+    () => projectCaseForActor({
+      actor,
+      caseRecord: caseAlpha,
+      entitlement: null,
+      operationalGrant: operationalGrantFor({
+        granteeId: 'admin-1',
+        caseId: 'case-alpha',
+        checkedAt: '2026-08-09T11:50:00.000Z',
+      }),
+      now: T0,
+    }),
+    deniedWith('ADMINISTRATIVE_GRANT_REVOCATION_STALE'),
+  );
+
+  for (const [label, tampered] of [
+    ['missing activation', { grant: grantForAlpha.grant, activation: null }],
+    ['flipped revocation flag', {
+      grant: grantForAlpha.grant,
+      activation: { ...grantForAlpha.activation, revoked: true },
+    }],
+    ['unchecked ledger', {
+      grant: grantForAlpha.grant,
+      activation: { ...grantForAlpha.activation, revocationLedgerChecked: false },
+    }],
+  ]) {
+    assert.throws(
+      () => projectCaseForActor({
+        actor,
+        caseRecord: caseAlpha,
+        entitlement: null,
+        operationalGrant: tampered,
+        now: T0,
+      }),
+      deniedWith('ADMINISTRATIVE_GRANT_REVOCATION_UNPROVEN'),
+      label,
+    );
+  }
+
+  // Editing a field of the immutable grant breaks its canonical hash.
+  assert.throws(
+    () => projectCaseForActor({
+      actor,
+      caseRecord: caseBeta,
+      entitlement: null,
+      operationalGrant: {
+        grant: { ...grantForAlpha.grant, caseId: 'case-beta' },
+        activation: grantForAlpha.activation,
+      },
+      now: T0,
+    }),
+    deniedWith('ADMINISTRATIVE_GRANT_INVALID'),
+  );
+
+  assert.throws(
+    () => createAdministrativeGrantActivation({ grant: grantForAlpha.grant, checkedAt: T0 }),
+    deniedWith('ADMINISTRATIVE_GRANT_REVOKED'),
+    'an omitted revoked flag must never read as "not revoked"',
+  );
+});
+
+test('privileged operational metadata reads are separately classed, break-glass aware, and auditable', () => {
+  const record = buildPrivateCase({ waived: false, id: 'case-audit' });
+
+  // The metadata class is additive: routine WordPress administrator access is still not a
+  // content grant, and a metadata operation is never listed as a content operation.
+  assert.equal(ADMINISTRATIVE_GRANT_CONTRACT.routineWordPressAdministratorAccess, 'not_a_content_grant');
+  assert.equal(ADMINISTRATIVE_GRANT_CONTRACT.operationalMetadataGrant, 'not_a_content_grant');
+  assert.ok(
+    ADMINISTRATIVE_GRANT_CONTRACT.operationClasses.operational_metadata.includes('read_operational_case_metadata'),
+  );
+  assert.equal(
+    ADMINISTRATIVE_GRANT_CONTRACT.operationClasses.case_content.includes('read_operational_case_metadata'),
+    false,
+  );
+  for (const contentOperation of ADMINISTRATIVE_GRANT_CONTRACT.operationClasses.case_content) {
+    assert.equal(
+      ADMINISTRATIVE_GRANT_CONTRACT.operationClasses.operational_metadata.includes(contentOperation),
+      false,
+      `${contentOperation} must not be reachable as an operational metadata capability`,
+    );
+  }
+
+  for (const role of ['admin', 'founder', 'support']) {
+    const actor = { id: `${role}-1`, role };
+    const decision = authorizeCaseAction({
+      actor,
+      action: 'read_operational_metadata',
+      caseRecord: record,
+      entitlement: null,
+      operationalGrant: operationalGrantFor({ granteeId: actor.id, caseId: record.id }),
+      now: T0,
+    });
+    assert.equal(decision.privilegedAccess.operationClass, 'operational_metadata');
+    assert.equal(decision.privilegedAccess.breakGlass, false);
+
+    // audit-events.mjs already allowlists founder and support alongside admin, so a
+    // privileged read by any of the three is structurally capable of being audited.
+    const event = createAuditEvent(privilegedAccessAuditInput(decision, { at: T0 }));
+    assert.equal(event.actorRole, role);
+    assert.equal(event.outcome, 'success');
+    assert.equal(event.metadata.action, 'read_operational_metadata');
+    assert.equal(event.metadata.result, 'authorized_grant');
+    assert.notEqual(event.targetRef, '', 'the audit event must bind to the grant that allowed the read');
+    const serialized = JSON.stringify(event);
+    for (const identifier of [actor.id, record.id, record.studentId]) {
+      assert.equal(serialized.includes(identifier), false, 'audit references must stay digested');
+    }
+  }
+
+  // Break glass is an explicit, named, separately labelled capability - never a side effect
+  // of holding an operational role.
+  const breakGlass = authorizeCaseAction({
+    actor: { id: 'founder-1', role: 'founder' },
+    action: 'read_operational_metadata',
+    caseRecord: record,
+    entitlement: null,
+    operationalGrant: operationalGrantFor({
+      granteeId: 'founder-1',
+      caseId: record.id,
+      operation: 'emergency_operational_case_metadata_break_glass',
+      purpose: 'incident-2026-08-09-delivery-outage',
+    }),
+    now: T0,
+  });
+  assert.equal(breakGlass.privilegedAccess.breakGlass, true);
+  assert.ok(
+    ADMINISTRATIVE_GRANT_CONTRACT.breakGlassOperations.includes(
+      'emergency_operational_case_metadata_break_glass',
+    ),
+  );
+  assert.equal(
+    createAuditEvent(privilegedAccessAuditInput(breakGlass, { at: T0 })).metadata.result,
+    'break_glass',
+    'emergency access must be distinguishable from routine authorised access in the audit log',
+  );
+
+  // Non-privileged decisions carry no privileged-access record and cannot fake one.
+  const studentDecision = authorizeCaseAction({
+    actor: { id: record.studentId, role: 'student' },
+    action: 'read_student_projection',
+    caseRecord: record,
+    entitlement: eligible(record.studentId),
+    now: T0,
+  });
+  assert.equal(studentDecision.privilegedAccess, null);
+  assert.throws(() => privilegedAccessAuditInput(studentDecision, { at: T0 }), ValidationError);
 });
 
 test('a non-waived final document is visible only after explicit faculty release', () => {

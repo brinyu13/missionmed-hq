@@ -1,4 +1,5 @@
 import { ValidationError } from '../domain/errors.js';
+import { CASE_STATUSES } from '../domain/recommendation-case.js';
 import {
   assertNonEmptyString,
   deepFreeze,
@@ -13,9 +14,18 @@ const ALLOWED_EVENT_TYPES = new Set([
   'builder.autosaved',
   'builder.step_completed',
   'consent.recorded',
+  'faculty.invited',
+  'faculty.private_content_updated',
   'faculty.verification_denied',
   'faculty.verified',
+  'strategy.metadata_updated',
+  'student.material_updated',
   'waiver.recorded',
+  // transitionRecommendationCase emits `case.${toStatus}` (recommendation-case.js:465) for
+  // every reachable status. Derive that family from the canonical vocabulary rather than
+  // restating it: a hand-maintained copy is exactly how the previous seven-entry allowlist
+  // fell out of step with the domain and would have thrown on the first lifecycle write.
+  ...CASE_STATUSES.map((status) => `case.${status}`),
 ]);
 const ALLOWED_ACTOR_ROLES = new Set([
   'student',

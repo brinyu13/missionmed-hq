@@ -1,7 +1,8 @@
 import { AuthorizationDeniedError, ValidationError } from '../domain/errors.js';
 import { builderProgress } from '../domain/recommendation-case.js';
 import { currentWaiverState } from '../domain/receipts.js';
-import { assertNonEmptyString, cloneFrozen, deepFreeze } from '../domain/value-utils.js';
+import { assertNonEmptyString, cloneFrozen, deepFreeze, toIso } from '../domain/value-utils.js';
+import { assertOperationalMetadataGrant } from '../repositories/immutable-administrative-grant-repository.mjs';
 
 export const ACTOR_ROLES = deepFreeze([
   'student',
@@ -109,12 +110,48 @@ function requireServiceGrant({ actor, action, caseRecord, serviceGrant, now }) {
   }
 }
 
+/**
+ * DR-119 clause 9. Belonging to an operational role is not authorisation for a case.
+ *
+ * Every other branch of authorizeCaseAction binds the actor to the specific resource -
+ * students by ownership, faculty by invitation, mentors by assignment, services by grant.
+ * This branch was the outlier: any admin/founder/support actor read operational metadata for
+ * any case, which turned GET /api/lor-studio/cases/{caseId} into an enumeration oracle over
+ * every student's case, and contradicted artifact-access-policy.mjs and
+ * private-versioned-storage-adapter.mjs, both of which already demand a per-case grant.
+ *
+ * A metadata read now needs a case-scoped, expiring, revocation-checked administrative grant
+ * of the operational_metadata class. Denial raises AuthorizationDeniedError, which the HTTP
+ * layer maps to the same 404 body a missing case returns, so a caller cannot learn from a
+ * refusal whether the case exists.
+ *
+ * @param {{
+ *   actor: { id: string, role: string },
+ *   caseRecord: { id: string },
+ *   operationalGrant: { grant?: Record<string, unknown>, activation?: Record<string, unknown> } | null,
+ *   now: Date | string | number,
+ * }} options
+ */
+function requireOperationalMetadataGrant({ actor, caseRecord, operationalGrant, now }) {
+  if (!operationalGrant || typeof operationalGrant !== 'object') {
+    throw new AuthorizationDeniedError('OPERATIONAL_METADATA_GRANT_REQUIRED');
+  }
+  return assertOperationalMetadataGrant({
+    grant: operationalGrant.grant,
+    activation: operationalGrant.activation,
+    granteeId: actor.id,
+    caseId: caseRecord.id,
+    now,
+  });
+}
+
 export function authorizeCaseAction({
   actor,
   action,
   caseRecord,
   entitlement,
   serviceGrant = null,
+  operationalGrant = null,
   requireCanary = false,
   now = new Date(),
 }) {
@@ -124,6 +161,7 @@ export function authorizeCaseAction({
     throw new AuthorizationDeniedError('RESOURCE_INVALID');
   }
 
+  let privilegedAccess = null;
   if (actor.role === 'student') {
     if (actor.id !== caseRecord.studentId) throw new AuthorizationDeniedError('CASE_OWNERSHIP_MISMATCH');
     requireEligibleCase(entitlement, caseRecord, requireCanary);
@@ -149,12 +187,54 @@ export function authorizeCaseAction({
     if (action !== 'read_operational_metadata') {
       throw new AuthorizationDeniedError('ROUTINE_OPERATIONAL_ROLE_CONTENT_DENIED');
     }
+    privilegedAccess = requireOperationalMetadataGrant({ actor, caseRecord, operationalGrant, now });
   } else if (actor.role === 'service') {
     requireEligibleCase(entitlement, caseRecord, requireCanary);
     if (action !== 'service_operation') throw new AuthorizationDeniedError('ROLE_ACTION_DENIED');
     requireServiceGrant({ actor, action, caseRecord, serviceGrant, now });
   }
-  return deepFreeze({ allowed: true, actorId: actor.id, action, caseId: caseRecord.id });
+  return deepFreeze({
+    allowed: true,
+    actorId: actor.id,
+    actorRole: actor.role,
+    action,
+    caseId: caseRecord.id,
+    // null for ordinary authorisations; a grant summary when a privileged read was allowed,
+    // so the caller has everything an audit record needs without re-reading the ledger.
+    privilegedAccess,
+  });
+}
+
+/**
+ * Audit input for a privileged operational-metadata read, shaped for createAuditEvent.
+ *
+ * audit-events.mjs owns the event-type, actor-role, and metadata allowlists; every field here
+ * is drawn from them, so a caller can hand the result straight to createAuditEvent. Its
+ * ACTOR_ROLES already admits founder and support alongside admin, so all three operational
+ * roles are auditable. Break-glass reads are labelled distinctly - an auditor must be able to
+ * separate emergency access from routine authorised access.
+ *
+ * @param {{ actorId?: string, actorRole?: string, action?: string, caseId?: string, privilegedAccess?: Record<string, unknown> | null }} decision
+ * @param {{ at?: Date | string | number }} [options]
+ */
+export function privilegedAccessAuditInput(decision, { at = new Date() } = {}) {
+  const privilegedAccess = decision?.privilegedAccess;
+  if (!privilegedAccess || privilegedAccess.granted !== true) {
+    throw new ValidationError('Privileged access audit requires a granted privileged decision');
+  }
+  return deepFreeze({
+    type: 'artifact.accessed',
+    actor: { id: decision.actorId, role: decision.actorRole },
+    caseId: decision.caseId,
+    targetId: privilegedAccess.grantId,
+    outcome: 'success',
+    metadata: {
+      action: decision.action,
+      result: privilegedAccess.breakGlass === true ? 'break_glass' : 'authorized_grant',
+    },
+    // Normalised so the returned record can be frozen without freezing the caller's Date.
+    at: toIso(at, 'at'),
+  });
 }
 
 function operationalProjection(caseRecord) {
@@ -195,6 +275,7 @@ export function projectCaseForActor({
   caseRecord,
   entitlement,
   serviceGrant = null,
+  operationalGrant = null,
   requireCanary = false,
   now = new Date(),
 }) {
@@ -280,6 +361,7 @@ export function projectCaseForActor({
       action: 'read_operational_metadata',
       caseRecord,
       entitlement,
+      operationalGrant,
       requireCanary,
       now,
     });

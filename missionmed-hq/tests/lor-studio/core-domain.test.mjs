@@ -11,6 +11,7 @@ import {
 } from '../../lor-studio/domain/errors.js';
 import {
   BUILDER_STEPS,
+  CASE_STATUSES,
   autosaveBuilderStep,
   bindFacultyInvitation,
   bindVerifiedFaculty,
@@ -579,4 +580,41 @@ test('consent and waiver receipts are explicit, hash-sealed, versioned, and appe
     () => currentWaiverState([waived, retroactive]),
     /retroactively timestamped/u,
   );
+});
+
+test('every event type the domain can emit is accepted by the metadata sink', async () => {
+  // Derived, not restated. The previous seven-entry allowlist had drifted out of step with the
+  // domain, so the first lifecycle or faculty write would have thrown
+  // ValidationError('Unknown metadata event type'). This test reads the aggregate's own source
+  // so the two can never diverge again without failing here.
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const source = readFileSync(
+    fileURLToPath(new URL('../../lor-studio/domain/recommendation-case.js', import.meta.url)),
+    'utf8',
+  );
+
+  const emitted = new Set();
+  for (const [, literal] of source.matchAll(/eventType:\s*'([a-z_]+\.[a-z_]+)'/gu)) {
+    emitted.add(literal);
+  }
+  // Dynamic families: `case.${toStatus}` and `${receiptType}.recorded`.
+  for (const status of CASE_STATUSES) emitted.add(`case.${status}`);
+  for (const receiptType of ['consent', 'waiver']) emitted.add(`${receiptType}.recorded`);
+
+  assert.ok(emitted.size >= 15, `expected the domain to emit many event types, saw ${emitted.size}`);
+
+  for (const eventType of [...emitted].sort()) {
+    assert.doesNotThrow(
+      () => createMetadataServiceEvent({
+        eventType,
+        caseId: 'case-1',
+        actorId: 'student-1',
+        actorRole: 'student',
+        correlationId: 'corr-1',
+        occurredAt: new Date('2026-01-01T00:00:00.000Z'),
+      }),
+      `metadata sink rejects '${eventType}', which the domain emits`,
+    );
+  }
 });

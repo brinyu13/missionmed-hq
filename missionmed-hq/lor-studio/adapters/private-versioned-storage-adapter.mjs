@@ -149,6 +149,24 @@ function assertAdministrativeGrantProof(grant, capability, request, operation, n
   assertActiveWindow(grant, nowMs, 'ADMINISTRATIVE_GRANT');
 }
 
+// TRUST BOUNDARY - READ BEFORE IMPLEMENTING capabilityProvider.
+//
+// assertCapability below proves the capability is INTERNALLY CONSISTENT with the request:
+// same caseId, same objectId, same objectKey, same operation, live time window, and for a
+// student that capability.studentId === capability.actorId. Those checks are complete for
+// what this layer can see.
+//
+// What this layer CANNOT see, and therefore CANNOT verify, is the join between the actor and
+// the case: that the requesting actor is genuinely entitled to THIS caseId. A capability that
+// is perfectly self-consistent but names a case the actor does not own will pass every check
+// here. That join is delegated wholly to the injected capabilityProvider, which the
+// `authoritySource === 'trusted_server_capability_provider'` check takes on trust.
+//
+// No capabilityProvider implementation exists yet, so nothing is currently exploitable - every
+// route returns 503. But whoever writes it MUST enforce, server-side and against durable
+// state, that the authenticated actor is authorised for request.caseId before returning
+// authorized: true. Omitting that check yields cross-student access to private LOR artifacts
+// with no second line of defence, because this adapter will not catch it.
 function assertCapability(capability, request, operation, nowMs) {
   if (
     !capability

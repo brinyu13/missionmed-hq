@@ -18,12 +18,17 @@ import {
 } from '../domain/value-utils.js';
 import { RecommendationCaseRepositoryPort } from '../services/ports.js';
 import { validateMetadataServiceEvent } from '../services/metadata-events.js';
+import {
+  LOR_TARGET_BINDING_CONTRACT,
+  assertValidatedLorTargetBinding,
+} from '../adapters/lor-target-binding.mjs';
 
-const RANKLISTIQ_PROJECT_REF = 'fglyvdykwgbuivikqoah';
-const LOR_STAGING_BRANCH_ID = 'mftguikkftmrxjxrkdln';
-const LOR_SCHEMA = 'lor_studio';
-const LOR_STAGING_BRANCH = 'lor-staging';
-const RANKLISTIQ_MAIN_BRANCH = 'main';
+// DR-119 clause 7: the Supabase target identity is NOT a module constant here.
+// This repository previously hard-coded the RankListIQ production project ref and
+// the historical no-touch branch id, which made production the only reachable
+// target. The target now arrives only as a binding validated by
+// adapters/lor-target-binding.mjs, which has no default and denies both of those
+// identifiers outright.
 const SERVER_SCOPE_SCHEMA = 'missionmed.lor.server-query-scope.v1';
 const DRIVER_AUTHORIZATION_SCHEMA = 'missionmed.lor.driver-authorization-binding.v1';
 const CREATION_RESERVATION_RECEIPT_SCHEMA = 'missionmed.lor.case-creation-reservation-receipt.v1';
@@ -70,40 +75,11 @@ function assertSha256(value, fieldName) {
 }
 
 function assertBinding(binding) {
-  if (
-    !binding
-    || binding.providerResourceBound !== true
-    || binding.independentlyVerified !== true
-    || binding.health !== 'ready'
-    || binding.environmentBound !== true
-    || binding.schema !== LOR_SCHEMA
-  ) {
-    throw new IntegrationDisabledError('lor_supabase_repository', 'RESOURCE_BINDING_REQUIRED');
-  }
-
-  const staging = binding.environment === 'staging'
-    && binding.projectRef === LOR_STAGING_BRANCH_ID
-    && binding.parentProjectRef === RANKLISTIQ_PROJECT_REF
-    && binding.branchName === LOR_STAGING_BRANCH
-    && binding.branchId === LOR_STAGING_BRANCH_ID
-    && binding.dataCopied === false;
-  const production = binding.environment === 'production'
-    && binding.projectRef === RANKLISTIQ_PROJECT_REF
-    && binding.branchName === RANKLISTIQ_MAIN_BRANCH
-    && binding.branchId === RANKLISTIQ_PROJECT_REF
-    && binding.productionDataBindingPassed === true;
-  if (!staging && !production) {
-    throw new IntegrationDisabledError('lor_supabase_repository', 'ENVIRONMENT_TARGET_BINDING_REQUIRED');
-  }
-
-  return deepFreeze({
-    environment: binding.environment,
-    projectRef: binding.projectRef,
-    parentProjectRef: staging ? binding.parentProjectRef : null,
-    branchName: binding.branchName,
-    branchId: binding.branchId,
-    schema: binding.schema,
-  });
+  // Fail closed unless the caller injected a target binding that
+  // resolveLorTargetBinding() actually validated. A plain object that merely
+  // looks like a binding is rejected: there is no shape a call site can hand-roll
+  // to reach a Supabase project from here.
+  return assertValidatedLorTargetBinding(binding, 'lor_supabase_repository');
 }
 
 function assertDriver(driver) {
@@ -519,25 +495,14 @@ export class SupabaseDurableRecommendationCaseRepository extends RecommendationC
 }
 
 export const SUPABASE_LOR_REPOSITORY_CONTRACT = deepFreeze({
-  rankListIqProjectRef: RANKLISTIQ_PROJECT_REF,
-  targets: {
-    staging: {
-      environment: 'staging',
-      projectRef: LOR_STAGING_BRANCH_ID,
-      parentProjectRef: RANKLISTIQ_PROJECT_REF,
-      branchName: LOR_STAGING_BRANCH,
-      branchId: LOR_STAGING_BRANCH_ID,
-      dataCopied: false,
-    },
-    production: {
-      environment: 'production',
-      projectRef: RANKLISTIQ_PROJECT_REF,
-      branchName: RANKLISTIQ_MAIN_BRANCH,
-      branchId: RANKLISTIQ_PROJECT_REF,
-      productionDataBindingPassed: true,
-    },
-  },
-  schema: LOR_SCHEMA,
+  // No target descriptors are published here. Exporting a ready-made production
+  // target is itself an implicit binding path, so callers must build and ratify a
+  // configuration and resolve it through the target-binding adapter.
+  targetBinding: 'injected_validated_lor_target_binding',
+  targetBindingSchema: LOR_TARGET_BINDING_CONTRACT.schemaVersion,
+  targetBindingAuthority: LOR_TARGET_BINDING_CONTRACT.authority,
+  defaultTarget: null,
+  schema: LOR_TARGET_BINDING_CONTRACT.schema,
   serverScopeSchema: SERVER_SCOPE_SCHEMA,
   driverAuthorizationSchema: DRIVER_AUTHORIZATION_SCHEMA,
   creationReservationReceiptSchema: CREATION_RESERVATION_RECEIPT_SCHEMA,

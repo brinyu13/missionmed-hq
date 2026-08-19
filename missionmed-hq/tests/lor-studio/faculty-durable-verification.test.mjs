@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import {
+  LOR_TARGET_BINDING_SCHEMA,
+  resolveLorTargetBinding,
+} from '../../lor-studio/adapters/lor-target-binding.mjs';
 import { hashValue, sha256 } from '../../lor-studio/domain/value-utils.js';
 import { createFacultyInvitation, hashFacultyEmail } from '../../lor-studio/security/faculty-invitations.js';
 import { InMemoryFacultyInvitationRepository } from '../../lor-studio/repositories/in-memory-faculty-invitation-repository.js';
@@ -19,32 +23,64 @@ const FACULTY_EMAIL = 'faculty@example.test';
 const OTP_CODE = '538291';
 const CHALLENGE_ID = 'otp_challenge_server_1';
 
-const STAGING_BINDING = Object.freeze({
-  providerResourceBound: true,
-  independentlyVerified: true,
-  health: 'ready',
-  environment: 'staging',
-  environmentBound: true,
-  projectRef: 'mftguikkftmrxjxrkdln',
-  parentProjectRef: 'fglyvdykwgbuivikqoah',
-  branchName: 'lor-staging',
-  branchId: 'mftguikkftmrxjxrkdln',
-  schema: 'lor_studio',
-  dataCopied: false,
-});
+// DR-119 clause 7. There is no ambient LOR Studio target: a binding exists only where
+// an explicit, ratified configuration is validated by the target-binding adapter, and a
+// hand-rolled look-alike is not a binding. These two identifiers appear here ONLY as
+// values that must be REJECTED - `fglyvdykwgbuivikqoah` is the RankListIQ production
+// project and `mftguikkftmrxjxrkdln` is the historical no-touch branch. Nothing in this
+// file may assert that either one is a reachable target.
+const RANKLISTIQ_PRODUCTION_PROJECT_REF = 'fglyvdykwgbuivikqoah';
+const HISTORICAL_NO_TOUCH_BRANCH_ID = 'mftguikkftmrxjxrkdln';
 
-const PRODUCTION_BINDING = Object.freeze({
-  providerResourceBound: true,
-  independentlyVerified: true,
-  health: 'ready',
-  environment: 'production',
-  environmentBound: true,
-  projectRef: 'fglyvdykwgbuivikqoah',
-  branchName: 'main',
-  branchId: 'fglyvdykwgbuivikqoah',
-  schema: 'lor_studio',
-  productionDataBindingPassed: true,
-});
+/** A complete, explicitly ratified, non-denied staging target configuration. */
+function stagingTargetConfiguration(overrides = {}) {
+  return {
+    schemaVersion: LOR_TARGET_BINDING_SCHEMA,
+    ratified: true,
+    decisionRecord: 'DR-119',
+    environment: 'staging',
+    projectRef: 'lor-faculty-staging-child',
+    parentProjectRef: 'lor-faculty-parent-project',
+    branchName: 'lor-staging',
+    branchId: 'lor-faculty-staging-child',
+    schema: 'lor_studio',
+    migrationLedger: 'lor_studio/migrations/staging',
+    providerResourceBound: true,
+    independentlyVerified: true,
+    health: 'ready',
+    environmentBound: true,
+    dataCopied: false,
+    productionDataBindingPassed: false,
+    ...overrides,
+  };
+}
+
+/** A complete, explicitly ratified, non-denied production target configuration. */
+function productionTargetConfiguration(overrides = {}) {
+  return stagingTargetConfiguration({
+    environment: 'production',
+    projectRef: 'lor-faculty-production-target',
+    parentProjectRef: null,
+    branchName: 'main',
+    branchId: 'lor-faculty-production-target',
+    migrationLedger: 'lor_studio/migrations/production',
+    productionDataBindingPassed: true,
+    ...overrides,
+  });
+}
+
+const STAGING_BINDING = resolveLorTargetBinding(stagingTargetConfiguration());
+const PRODUCTION_BINDING = resolveLorTargetBinding(productionTargetConfiguration());
+
+function failClosedStatus(fn) {
+  try {
+    fn();
+  } catch (error) {
+    assert.equal(error.code, 'INTEGRATION_DISABLED');
+    return error.details.status;
+  }
+  return assert.fail('expected the durable faculty target to fail closed');
+}
 
 function metadataRef(namespace, value) {
   return `${namespace}_${sha256(`lor-studio:${namespace}:${value}`)}`;
@@ -370,12 +406,50 @@ test('durable faculty repository fails closed without exact target, atomic drive
     }),
     /integration is unavailable/u,
   );
-  for (const binding of [
+  // The target must be one this process actually resolved. A look-alike literal, a spread
+  // copy of a validated binding, and a copy with an arbitrary branch swapped in are all
+  // rejected, so no call site can hand the repository a target that was never validated.
+  for (const forged of [
+    stagingTargetConfiguration(),
+    { ...STAGING_BINDING },
     { ...STAGING_BINDING, branchName: 'arbitrary-preview' },
-    { ...STAGING_BINDING, projectRef: 'fglyvdykwgbuivikqoah' },
-    { ...PRODUCTION_BINDING, productionDataBindingPassed: false },
+    { ...PRODUCTION_BINDING },
+    { ...STAGING_BINDING, projectRef: RANKLISTIQ_PRODUCTION_PROJECT_REF },
   ]) {
-    assert.throws(() => repository({ binding }), /integration is unavailable/u);
+    assert.equal(
+      failClosedStatus(() => repository({ binding: forged })),
+      'VALIDATED_TARGET_BINDING_REQUIRED',
+    );
+  }
+
+  // A configuration that fails the DR-119 target contract yields no binding at all, so a
+  // repository on the denied production project, the denied no-touch branch, an unverified
+  // environment binding, or production without its own evidence cannot even be built.
+  for (const [overrides, expected] of [
+    [
+      { projectRef: RANKLISTIQ_PRODUCTION_PROJECT_REF, branchId: RANKLISTIQ_PRODUCTION_PROJECT_REF },
+      'TARGET_BINDING_DENIED_RANKLISTIQ_PRODUCTION_PROJECT',
+    ],
+    [
+      { projectRef: HISTORICAL_NO_TOUCH_BRANCH_ID, branchId: HISTORICAL_NO_TOUCH_BRANCH_ID },
+      'TARGET_BINDING_DENIED_LOR_HISTORICAL_NO_TOUCH_BRANCH',
+    ],
+    [
+      { parentProjectRef: RANKLISTIQ_PRODUCTION_PROJECT_REF },
+      'TARGET_BINDING_DENIED_RANKLISTIQ_PRODUCTION_PROJECT',
+    ],
+    [{ environmentBound: false }, 'TARGET_BINDING_RESOURCE_UNVERIFIED'],
+    [
+      { environment: 'production', productionDataBindingPassed: false },
+      'TARGET_BINDING_PRODUCTION_EVIDENCE_MISMATCH',
+    ],
+  ]) {
+    let resolved = null;
+    const status = failClosedStatus(() => {
+      resolved = resolveLorTargetBinding(stagingTargetConfiguration(overrides));
+    });
+    assert.equal(status, expected, `${JSON.stringify(overrides)} must fail closed`);
+    assert.equal(resolved, null, 'a failed resolution must not yield any binding');
   }
 
   const staging = repository();
