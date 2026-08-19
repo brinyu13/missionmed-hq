@@ -1253,18 +1253,19 @@ class D1411AKernelElement extends HostHTMLElement{
     }
     // Nearest-first scan, so the legend lands as close to its designed home as the
     // composition allows and the result is identical for identical input.
-    const step=24;
-    let best=null;
+    // Search outward from home and stop at the first position that clears, so the legend
+    // still lands as close to its designed place as the composition allows without
+    // evaluating the whole board every render.
+    const step=32;
+    const candidates=[];
     for(let y=8;y+height<=1072;y+=step){
-      for(let x=8;x+width<=1912;x+=step){
-        if(!clear(x,y))continue;
-        const distance=Math.hypot(x-home.x,y-home.y);
-        if(!best||distance<best.distance)best={x,y,distance};
-      }
+      for(let x=8;x+width<=1912;x+=step)candidates.push({x,y,distance:Math.hypot(x-home.x,y-home.y)});
     }
-    if(!best)return;
-    key.style.left=`${best.x}px`;
-    key.style.top=`${best.y}px`;
+    candidates.sort((left,right)=>left.distance-right.distance);
+    const placed=candidates.find((candidate)=>clear(candidate.x,candidate.y));
+    if(!placed)return;
+    key.style.left=`${placed.x}px`;
+    key.style.top=`${placed.y}px`;
   }
 
   _fitProtectedFurnitureText(childDocument){
@@ -2279,11 +2280,11 @@ class D1411AKernelElement extends HostHTMLElement{
     // that reuse a mounted kernel can settle after the post-render pass. Re-apply here:
     // resize() runs at mount, after each projection update, and on container changes,
     // and the pass restores the protected baseline before fitting, so it is idempotent.
+    // Only the cheap per-flag fit belongs here: resize() runs on every container change,
+    // and the furniture scan measures every arrow part, so running it here thrashed layout.
+    // It runs on render completion and immediately before export instead.
     const flagDocument=this.shadowRoot?.querySelector("iframe")?.contentDocument;
-    if(flagDocument){
-      this._fitMilestoneFlags(flagDocument);
-      this._avoidFurnitureObstruction(flagDocument);
-    }
+    if(flagDocument)this._fitMilestoneFlags(flagDocument);
     const result={
       scale,
       cssWidth:1920*scale,

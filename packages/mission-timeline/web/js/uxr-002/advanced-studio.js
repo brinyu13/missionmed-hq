@@ -1499,6 +1499,16 @@ export function setAdvancedObjectGeometry(document={},target={},changes={}){
   for(const field of ["x","y","width","height"]){
     next[field]=Object.hasOwn(changes,field)?finite(changes[field],box[field]):box[field];
   }
+  /* Proportional lock has to hold here too. Typing a width into the size field while the
+     lock is on previously changed only that axis, which is precisely the surprise the lock
+     exists to prevent. Whichever dimension the student edited drives the other. */
+  if(item.aspectLocked===true&&box.width>0&&box.height>0){
+    const ratio=box.width/box.height;
+    const changedWidth=Object.hasOwn(changes,"width");
+    const changedHeight=Object.hasOwn(changes,"height");
+    if(changedWidth&&!changedHeight)next.height=next.width/ratio;
+    else if(changedHeight&&!changedWidth)next.width=next.height*ratio;
+  }
   items[index]={...item,...constrainAdvancedObjectToBoard(next)};
   return state;
 }
