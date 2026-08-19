@@ -45,8 +45,18 @@ export function monthIndex(value){
   return year*12+month-1;
 }
 
+/*
+ * CVs overwhelmingly write ranges without spaces: "07/2021-12/2022", "Jan 2023-Jun 2024",
+ * "2021-2023". The range splitter below requires whitespace on both sides of the dash,
+ * while the CV parser's own capture allows none - so those entries arrived with BOTH
+ * dates blank and the student had to retype every one. The lookahead only fires when the
+ * dash is followed by another date token, so ISO values ("2023-01", "2023-01-15") are
+ * left exactly as they are.
+ */
+const RANGE_JOIN=/((?:19|20)\d{2})\s*[-\u2013\u2014]\s*(?=(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(?:19|20)\d{2}|spring|summer|fall|autumn|winter|early|mid|late|present|current|ongoing|now|\d{1,2}\/(?:19|20)\d{2}|(?:19|20)\d{2}\b)/gi;
+
 export function normalizeDateRange(raw){
-  const value=String(raw||"").trim();
+  const value=String(raw||"").trim().replace(RANGE_JOIN,"$1 - ");
   const separator=/\s+(?:-|–|—|to|through|until)\s+/i;
   const parts=value.split(separator).filter(Boolean);
   let start,end;

@@ -5323,6 +5323,8 @@ export async function boot407FEngineeringAdapter({
   reflectStoreStatus=()=>{
     const save=document.getElementById("hudSave");
     if(!save)return;
+    // Claim the badge so the legacy shell stops repainting over the real sync state.
+    save.dataset.d1407fOwned="1";
     const status=store.saveStatus;
     const remoteState=String(remoteSyncStatus?.syncState||remoteSyncStatus?.state||"");
     const remotePresentation=remoteSyncPresentation(remoteState);

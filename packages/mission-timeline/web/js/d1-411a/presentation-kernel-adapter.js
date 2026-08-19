@@ -132,7 +132,12 @@ function toRenderModel(doc){
   const laneOcc={}; for(let l=0;l<=LANE_MAX;l++) laneOcc[l]=[];
   arrows.sort((a,b)=>monthsX(a)-monthsX(b));
   arrows.forEach(a=>{
-    if(a._ovr!==null){ a.lane=a._ovr; laneOcc[a.lane].push(a); return; }
+    /* An override wins only when the lane is actually free. Accepting it blindly
+       bypassed the entire Lane Assignment Law and let two events share one lane. */
+    if(a._ovr!==null){
+      if(!laneOcc[a._ovr].some(o=>overlap(o,a))){ a.lane=a._ovr; laneOcc[a.lane].push(a); return; }
+      warnings.push('EVENT_LANE_OVERRIDE_REJECTED:'+a.id+':'+a._ovr);
+    }
     const band=BANDS[a.cat]||[6];
     let placed=false;
     for(const l of band){

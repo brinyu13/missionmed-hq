@@ -9,11 +9,23 @@ const EXPLICIT_USCE=/\b(?:usce|united states clinical experience)\b/;
 const NONFINAL_USCE=/\b(?:no|not|never|without|lack(?:s|ed|ing)?)\s+(?:\w+\s+){0,3}(?:usce|united states clinical experience)\b|\b(?:usce|united states clinical experience)\s+(?:is\s+|was\s+)?(?:not|none|absent|pending|planned|prospective|incomplete|unconfirmed)\b/;
 
 function structuredLocation(record){return [record.location,record.cityState,record.state,record.country].filter(Boolean).join(", ").trim();}
+function looksUnitedStates(value){
+  const candidate=String(value||"").trim();
+  if(!candidate)return false;
+  return US_MARKER.test(candidate)||US_STATE_NAME.test(candidate)||US_STATE_CODE.test(candidate);
+}
+/*
+ * Ordinary (non pipe-delimited) CV text leaves `location` empty and puts the whole
+ * "Mount Sinai Hospital, New York, NY" string in `organization`, so geography-only
+ * evidence used to be invisible and every US rotation was quarantined as unclassified.
+ * The state regexes are anchored to the END of the string they are given, so each
+ * candidate must be tested on its own - concatenating them would push a trailing
+ * state code into the middle and stop it matching at all.
+ */
 function hasUnitedStatesContext(record){
-  const location=structuredLocation(record);
   const country=String(record.country||"").trim();
   if(country&&!US_MARKER.test(country))return false;
-  return US_MARKER.test(location)||US_STATE_NAME.test(location)||US_STATE_CODE.test(location);
+  return looksUnitedStates(structuredLocation(record))||looksUnitedStates(record.organization);
 }
 function unverifiedClinical(common,reason="Clinical-experience wording was found, but a United States setting was not confirmed.",warning="Do not label this event USCE without explicit positive USCE wording or confirmed United States geography"){
   return result("UNCLASSIFIED","work","duration",reason,{...common,warnings:["Clinical experience needs human review",warning]});
@@ -51,13 +63,17 @@ export function classifyEvent(record,dateRange){
     record.section==="honors"||
     /\b(?:award|honou?r|distinction|prize|scholarship|dean'?s list|valedictorian|cum laude)\b/.test(text)
   )return result("AWARD_HONOR","education",hasRange?"duration":"milestone","Award or honor wording detected.",common);
-  if(
-    record.section==="education"||
-    /\b(?:bachelor(?:'s)?|master(?:'s)?|doctorate|ph\.?d\.?|b\.?s\.?|b\.?a\.?|m\.?s\.?|university|college|secondary school)\b/.test(text)
-  )return result("EDUCATION","education",hasRange?"duration":"milestone","Education wording or an education source section was detected.",common);
+  /* Research staff overwhelmingly work at universities, so an employer name must not
+     imply a degree. The research-section rule is tested first, and "university"/"college"
+     only implies education when it appears in the entry's own title. */
   if(record.section==="research"&&/\b(?:research|fellow|investigator|laboratory|study)\b/.test(text)){
     return result("RESEARCH_EXPERIENCE","res",hasRange?"duration":"milestone","Research-section context was detected and takes precedence over ambiguous fellowship wording.",common);
   }
+  if(
+    record.section==="education"||
+    /\b(?:bachelor(?:'s)?|master(?:'s)?|doctorate|ph\.?d\.?|b\.?s\.?|b\.?a\.?|m\.?s\.?)\b/.test(text)||
+    /\b(?:university|college|secondary school)\b/.test(String(record.title||"").toLowerCase())
+  )return result("EDUCATION","education",hasRange?"duration":"milestone","Education wording or an education source section was detected.",common);
   if(/\bfellow(?:ship)?\b/.test(text))return result("RESIDENCY_FELLOWSHIP","work",hasRange?"duration":"milestone","Fellowship training wording detected.",common);
   if(/\bresiden(?:cy|t)\b/.test(text))return result("RESIDENCY_FELLOWSHIP","work",hasRange?"duration":"milestone","Residency training wording detected.",common);
   if(/\bintern(?:ship)?\b|\bhouse officer\b/.test(text))return result("INTERNSHIP_HOUSE_OFFICER","work",hasRange?"duration":"milestone","Internship or house-officer wording detected.",common);

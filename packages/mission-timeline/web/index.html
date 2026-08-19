@@ -1213,7 +1213,10 @@ function applyZoom(){
 }
 function renderHud(){
   const save=$('#hudSave');
-  if(save){
+  // The D1-407F adapter reports the real sync state (offline, syncing, conflict). The
+  // legacy shell flag only tracks its own 2021-era save path and is always true here,
+  // so repainting unconditionally overwrote the truth with "ALL CHANGES SAVED".
+  if(save&&save.dataset.d1407fOwned!=='1'){
     save.textContent=state.saved?'ALL CHANGES SAVED':'SAVING…';
     save.className='saveState '+(state.saved?'isSaved':'isSaving');
   }

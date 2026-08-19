@@ -5563,7 +5563,11 @@ section[data-view="canvas"]{
 }
 
 .canvas407FHost .advanced-visual-asset img,
+.canvas407FHost .advanced-asset-rail-list.advanced-visual-asset-grid button img,
 .canvas407FHost .advanced-visual-asset-preview{
+  /* The rail-list image selector is required: uploaded media tiles are plain buttons
+     holding a raw img with no asset class, so without it they rendered at the image's
+     natural size and a tall photo became an enormous vertical preview in the rail. */
   align-items:center;
   background:linear-gradient(145deg,#19263a,#0b111d);
   border-radius:5px;

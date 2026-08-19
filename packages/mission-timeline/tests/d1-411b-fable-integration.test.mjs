@@ -365,7 +365,11 @@ test("RC1 protected text overlay enters direct edit before selection reconciliat
 test("D1-411B server keeps top-level framing denied and allows only the protected same-origin kernel",async()=>{
   const source=await readFile(new URL("../scripts/serve.mjs",webRoot),"utf8");
   assert.match(source,/frame-ancestors 'none'/);
-  assert.match(source,/pathname\.startsWith\("\/web\/presentation\/d1-409h-a1\/"\)/);
+  // The framing exemption must cover every mount the kernel is served from. It
+  // previously matched only /web/, so the app's own /timeline/ mount was refused and
+  // the canonical timeline never rendered.
+  assert.match(source,/"\/web\/presentation\/d1-409h-a1\/"/);
+  assert.match(source,/"\/timeline\/presentation\/d1-409h-a1\/"/);
   assert.match(source,/frame-ancestors 'self'/);
   assert.match(source,/"x-frame-options": "SAMEORIGIN"/);
 });

@@ -2163,10 +2163,35 @@ export function installCanvas(
     });
   };
 
+  // Committing on change re-renders once, so the field settles on the clamped value.
+  const onZoomCommit = (event) => {
+    if(!event.target.matches?.("[data-canvas-zoom-percent]"))return;
+    const value=Number(event.target.value);
+    if(!Number.isFinite(value))return;
+    setState({
+      ...state,
+      zoom:updateCanvasZoom(state.zoom,{kind:"direct",percent:value}),
+      liveAnnouncement:`Zoom ${Math.min(400,Math.max(25,Math.round(value)))} percent`
+    });
+  };
+
   const onInput = (event) => {
     if(event.target.matches?.("[data-canvas-zoom-percent]")){
+      // A full re-render replaces every toolbar child, which detached this very input
+      // mid-keystroke and made the field impossible to type in. Apply the viewport
+      // change in place instead: the kernel's ResizeObserver refits the board from the
+      // same inline width/data attributes renderCanvas writes, with no re-projection.
       const value=Number(event.target.value);
-      if(Number.isFinite(value))setState({...state,zoom:updateCanvasZoom(state.zoom,{kind:"direct",percent:value}),liveAnnouncement:`Zoom ${Math.min(400,Math.max(25,Math.round(value)))} percent`});
+      if(!Number.isFinite(value)||value<25||value>400)return;
+      state={...state,zoom:updateCanvasZoom(state.zoom,{kind:"direct",percent:value})};
+      const application=root.querySelector?.(".canvas-application");
+      if(application){
+        application.style.width=`${1920*state.zoom.percent/100}px`;
+        application.style.maxWidth="none";
+        application.dataset.zoomMode="percent";
+        application.dataset.zoomPercent=String(state.zoom.percent);
+      }
+      onStateChange(state);
       return;
     }
     if(!isEditable(state))return;
@@ -2451,6 +2476,7 @@ export function installCanvas(
   root.addEventListener("dblclick",onDoubleClick);
   root.addEventListener("contextmenu",onContextMenu);
   root.addEventListener("input",onInput);
+  root.addEventListener("change",onZoomCommit);
   root.addEventListener("submit",onSubmit);
   root.addEventListener("focusin",onFocusIn);
   root.addEventListener("keydown",onKeyDown);
@@ -2482,6 +2508,7 @@ export function installCanvas(
       root.removeEventListener("dblclick",onDoubleClick);
       root.removeEventListener("contextmenu",onContextMenu);
       root.removeEventListener("input",onInput);
+      root.removeEventListener("change",onZoomCommit);
       root.removeEventListener("submit",onSubmit);
       root.removeEventListener("focusin",onFocusIn);
       root.removeEventListener("keydown",onKeyDown);

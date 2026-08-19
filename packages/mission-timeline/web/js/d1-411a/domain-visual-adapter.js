@@ -137,7 +137,10 @@ function audienceVisible(event,audience){
 
 function presentationOverrides(event){
   const result={};
-  if(Number.isInteger(event?.lane))result.lane=Math.max(0,Math.min(6,event.lane));
+  // Only a genuinely legal lane may be forwarded as an override. autoArrange's
+  // interval packer is unbounded, and silently clamping lane 7/8/9 to 6 stacked every
+  // overflowing event on the same y with fully overlapping labels.
+  if(Number.isInteger(event?.lane)&&event.lane>=0&&event.lane<=6)result.lane=event.lane;
   const position=clean(event?.fields?.labelPosition);
   if(["below","left"].includes(position))result.labelPosition=position;
   if(event?.fields?.highlight===true)result.highlight=true;

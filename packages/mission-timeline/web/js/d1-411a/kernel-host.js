@@ -98,6 +98,179 @@ export function omitFailedMediaFromKernelModel(model,path){
   return{model,omitted:false,warning:""};
 }
 
+export function outOfBoundsObjectIds(error){
+  const text=String(error?.message||"");
+  const marker="objects out of bounds:";
+  const index=text.indexOf(marker);
+  if(index<0)return[];
+  return[...new Set(text.slice(index+marker.length).split(",").map((id)=>id.trim()).filter(Boolean))];
+}
+
+const OUT_OF_BOUNDS_LOCATION_FLOOR=14;
+
+/*
+ * The protected D1-409H kernel places an event's location label either inside the
+ * arrow ("below") or to its left ("left"), and then fails the whole render if any
+ * label lands outside the 1920x1080 board. A left-placed label on an event that
+ * starts near the board's left edge therefore blanks the entire timeline - which a
+ * student experiences as "We could not display your timeline".
+ *
+ * The kernel is byte-protected, so recovery belongs here. Recover progressively and
+ * truthfully: first move the label inside the arrow, then shorten it, and only then
+ * drop it. Each step returns a changed model so the render can be retried.
+ */
+export function relocateOutOfBoundsLabels(model,error){
+  const ids=new Set(outOfBoundsObjectIds(error));
+  if(!ids.size||!Array.isArray(model?.events))return{model,changed:false,warning:""};
+  const next=structuredClone(model);
+  const moved=[],shortened=[],dropped=[];
+  for(const event of next.events){
+    if(!ids.has(String(event?.id||"")))continue;
+    if(event.lp!=="below"){event.lp="below";moved.push(event.id);continue;}
+    const location=String(event.loc||"");
+    if(location.length>OUT_OF_BOUNDS_LOCATION_FLOOR){
+      event.loc=`${location.slice(0,OUT_OF_BOUNDS_LOCATION_FLOOR).trim()}\u2026`;
+      shortened.push(event.id);
+      continue;
+    }
+    if(location){delete event.loc;dropped.push(event.id);continue;}
+    // The bounds law also measures the arrow's `.date` node, which sits above the
+    // arrow and runs right. A late-axis event can therefore breach the right edge
+    // with no location involved at all. `date` is a host-produced display string
+    // (presentation-kernel-adapter displayDate), so trimming it to the start date
+    // changes nothing the student stored.
+    const date=String(event.date||"");
+    if(date.includes("-")){
+      const start=date.split("-")[0].trim();
+      if(start&&start!==date){
+        event.date=`${start}\u2026`;
+        shortened.push(event.id);
+        continue;
+      }
+    }
+  }
+  const changed=moved.length>0||shortened.length>0||dropped.length>0;
+  if(!changed)return{model,changed:false,warning:""};
+  const parts=[];
+  if(moved.length)parts.push(`LABEL_MOVED_INSIDE:${moved.join(",")}`);
+  if(shortened.length)parts.push(`LABEL_SHORTENED:${shortened.join(",")}`);
+  if(dropped.length)parts.push(`LABEL_OMITTED:${dropped.join(",")}`);
+  return{model:next,changed:true,warning:parts.join("|")};
+}
+
+/*
+ * Compose the one line a student actually reads after a fail-soft render. Layout
+ * adjustments the host made on the student's behalf are deliberately silent - moving
+ * a location label inside its arrow loses nothing and narrating it would only make a
+ * working timeline feel broken. Only real content loss is reported, in plain language.
+ */
+export function failSoftRenderMessage(warnings,recoveredExistingLayout){
+  const list=Array.isArray(warnings)?warnings.map(String):[];
+  if(recoveredExistingLayout)return INITIAL_LAYOUT_RECOVERY_MESSAGE;
+  const media=list.filter((entry)=>entry.startsWith("MEDIA_OMITTED:")).length;
+  const trimmed=list.filter((entry)=>/LABEL_SHORTENED:|LABEL_OMITTED:/.test(entry)).length;
+  const parts=[];
+  if(media)parts.push(`${media} image${media===1?" was":"s were"} unavailable and left out. Your timeline is safe \u2014 re-add ${media===1?"it":"them"} to restore ${media===1?"it":"them"}.`);
+  if(trimmed)parts.push("We shortened a location label so it fits neatly on your timeline.");
+  return parts.join(" ");
+}
+
+const KERNEL_LANE_MAX=6;
+
+/*
+ * Lane preference when an arrow has to move off a piece of fixed furniture.
+ * The protected board keeps the Color Key at y300-622 and the profile sheet below
+ * it on the left, and the logo/interview chrome on the right, so the two top lanes
+ * are the only ones that clear the left-hand furniture outright. Lane position is
+ * layout-only - the frozen category/colour mapping is untouched by moving an arrow.
+ */
+const LANE_RELOCATION_ORDER=[0,1,5,6,2,3,4];
+
+/* Mirrors the frozen protected geometry (D1-409H_VISUAL_MASTER.js LANE_Y and
+   FURNITURE_RECTS). Read-only copies: the kernel owns these values, we only need to
+   reason about them to pick a lane that actually escapes the furniture. */
+const LANE_Y=[196,252,316,382,448,506,564];
+const LANE_TOP_OFFSET=7;
+const ARROW_HEIGHT=48;
+const FURNITURE_BANDS={
+  "color-key":[300,622],
+  "profile-sheet":[634,1062],
+  "logo-mount":[238,350],
+  "logo-slip":[356,382],
+  "interview-ribbon":[394,450],
+  "interview-date":[458,480]
+};
+
+/*
+ * The collision we are recovering from is geometric, so a candidate lane is only
+ * useful if it moves the arrow out of the vertical band of the furniture it actually
+ * hit. Horizontal position needs no recomputation: the kernel already told us these
+ * two objects overlap at the arrow's current x.
+ */
+function laneClearsFurniture(lane,furnitureIds){
+  const top=LANE_Y[lane]-LANE_TOP_OFFSET;
+  const bottom=top+ARROW_HEIGHT;
+  return [...furnitureIds].every((id)=>{
+    const band=FURNITURE_BANDS[id];
+    if(!band)return true;
+    return bottom<=band[0]||top>=band[1];
+  });
+}
+
+function arrowMonthSpan(arrow){
+  return{
+    start:monthIndex(arrow?.sy,arrow?.sm),
+    end:monthIndex(arrow?.ey ?? arrow?.sy,arrow?.em ?? arrow?.sm)
+  };
+}
+
+function arrowsOverlap(a,b){
+  const left=arrowMonthSpan(a),right=arrowMonthSpan(b);
+  return left.start<=right.end&&right.start<=left.end;
+}
+
+/*
+ * The protected kernel fails a render when an event arrow lands on fixed furniture.
+ * Rather than immediately surrendering to the overlap-tolerant policy - which leaves
+ * the student staring at an event hidden behind the Color Key and a banner telling
+ * them to fix the layout themselves - try to place the offending arrows in a lane
+ * that is genuinely free. `tried` carries state across retries so each arrow walks
+ * its candidate lanes at most once.
+ */
+export function relocateCollidingArrows(model,error,tried=new Map()){
+  const pairs=[...protectedCollisionPairs(error)];
+  if(!pairs.length||!Array.isArray(model?.events))return{model,changed:false,warning:""};
+  const struckFurniture=new Map();
+  for(const pair of pairs){
+    const [arrowId,furnitureId]=pair.split("~");
+    if(!arrowId)continue;
+    if(!struckFurniture.has(arrowId))struckFurniture.set(arrowId,new Set());
+    if(furnitureId)struckFurniture.get(arrowId).add(furnitureId);
+  }
+  const offenders=[...struckFurniture.keys()];
+  const next=structuredClone(model);
+  const movedIds=[];
+  for(const id of offenders){
+    const arrow=next.events.find((event)=>String(event?.id||"")===id);
+    if(!arrow)continue;
+    const seen=tried.get(id)||new Set([arrow.lane]);
+    const furnitureIds=struckFurniture.get(id)||new Set();
+    const candidate=LANE_RELOCATION_ORDER.find((lane)=>{
+      if(seen.has(lane)||lane>KERNEL_LANE_MAX)return false;
+      if(!laneClearsFurniture(lane,furnitureIds))return false;
+      return !next.events.some((other)=>
+        other!==arrow&&other.lane===lane&&arrowsOverlap(other,arrow));
+    });
+    if(candidate===undefined)continue;
+    seen.add(candidate);
+    tried.set(id,seen);
+    arrow.lane=candidate;
+    movedIds.push(`${id}:${candidate}`);
+  }
+  if(!movedIds.length)return{model,changed:false,warning:""};
+  return{model:next,changed:true,warning:`EVENT_LANE_RELOCATED:${movedIds.join(",")}`};
+}
+
 function monthIndex(year,month){return Number(year)*12+(Number(month)||1)-1;}
 function finite(value,fallback=0){const number=Number(value);return Number.isFinite(number)?number:fallback;}
 function cssNumber(value,fallback=0){const number=Number.parseFloat(String(value??""));return Number.isFinite(number)?number:fallback;}
@@ -196,9 +369,38 @@ class D1411AKernelElement extends HostHTMLElement{
       output[data-render-warning][hidden]{display:none}
     </style><iframe title="${escapeAttribute(record.label)}" src="${escapeAttribute(MASTER_URL)}"></iframe><output data-loading role="status">Preparing your timeline…</output><output data-render-warning role="status" hidden></output>`;
     const iframe=this.shadowRoot.querySelector("iframe");
+    /*
+     * The protected frame can finish loading before these listeners attach - a cached
+     * document, a same-origin load that completes within the same task, or a surface
+     * being re-mounted. `load` does not fire again, so waiting on it alone left the
+     * mount pending forever with no error, and the student sat in front of
+     * "Preparing your timeline…" indefinitely. Resolve on whichever comes first: the
+     * load event, or the frame having demonstrably arrived (its document is complete
+     * and the protected kernel object exists - about:blank satisfies neither).
+     */
     await new Promise((resolve,reject)=>{
-      iframe.addEventListener("load",resolve,{once:true});
-      iframe.addEventListener("error",()=>reject(new Error("Canonical timeline frame failed to load.")),{once:true});
+      let settled=false;
+      const finish=()=>{
+        if(settled)return;
+        settled=true;
+        clearInterval(poll);
+        resolve();
+      };
+      const alreadyLoaded=()=>{
+        try{
+          return iframe.contentDocument?.readyState==="complete"&&
+            Boolean(iframe.contentWindow?.D1409H);
+        }catch(_){return false;}
+      };
+      const poll=setInterval(()=>{if(alreadyLoaded())finish();},50);
+      iframe.addEventListener("load",finish,{once:true});
+      iframe.addEventListener("error",()=>{
+        if(settled)return;
+        settled=true;
+        clearInterval(poll);
+        reject(new Error("Canonical timeline frame failed to load."));
+      },{once:true});
+      if(alreadyLoaded())finish();
     });
     const child=iframe.contentWindow;
     const K=child?.D1409H;
@@ -236,8 +438,13 @@ class D1411AKernelElement extends HostHTMLElement{
     let response=null;
     const failSoftWarnings=[];
     let layoutRetryCount=0;
+    let boundsRecoveryCount=0;
+    let laneRelocationCount=0;
+    const laneRelocationState=new Map();
     let recoveredExistingLayout=false;
-    for(let attempt=0;attempt<13;attempt+=1){
+    // Budget covers every bounded recovery path: text-fit refits, out-of-bounds label
+    // relocation, furniture lane relocation, and media omission, plus headroom.
+    for(let attempt=0;attempt<26;attempt+=1){
       try{
         response=await K.rerender(kernelModel,{
           renderId:record.renderId,
@@ -261,6 +468,15 @@ class D1411AKernelElement extends HostHTMLElement{
           });
           continue;
         }
+        if(FAIL_SOFT_LAYOUT_CODES.has(String(error?.code||""))&&laneRelocationCount<5){
+          const relocation=relocateCollidingArrows(kernelModel,error,laneRelocationState);
+          if(relocation.changed){
+            laneRelocationCount+=1;
+            kernelModel=relocation.model;
+            failSoftWarnings.push(relocation.warning);
+            continue;
+          }
+        }
         if(
           FAIL_SOFT_LAYOUT_CODES.has(String(error?.code||""))&&
           allowExistingLayoutRecovery
@@ -273,6 +489,15 @@ class D1411AKernelElement extends HostHTMLElement{
           recoveredExistingLayout=true;
           failSoftWarnings.push("EXISTING_LAYOUT_OVERLAP_RECOVERED");
           break;
+        }
+        if(String(error?.code||"")==="OBJECT_OUT_OF_BOUNDS"&&boundsRecoveryCount<6){
+          const relocation=relocateOutOfBoundsLabels(kernelModel,error);
+          if(relocation.changed){
+            boundsRecoveryCount+=1;
+            kernelModel=relocation.model;
+            failSoftWarnings.push(relocation.warning);
+            continue;
+          }
         }
         if(!FAIL_SOFT_MEDIA_CODES.has(String(error?.code||""))){
           this.dataset.lastFailureContext=JSON.stringify({
@@ -299,6 +524,9 @@ class D1411AKernelElement extends HostHTMLElement{
       this._applyPresentationOverrides(childDocument,record);
       this._fitProtectedFurnitureText(childDocument);
       this._applyAdvancedOverlay(childDocument,record);
+      // Runs last: the overlay pass can settle the child document after the protected
+      // render, and buildFlags recreates the flag row on every render.
+      this._fitMilestoneFlags(childDocument);
     }
     delete this.dataset.error;
     delete this.dataset.errorMessage;
@@ -307,16 +535,27 @@ class D1411AKernelElement extends HostHTMLElement{
     else delete this.dataset.layoutRetryCount;
     this.dataset.fingerprint=response.fingerprint;
     this.dataset.renderId=record.renderId;
+    // Flags are the one layer the protected renderer rebuilds wholesale and never
+    // de-collides. Re-apply the host pass once the render is committed, and once more
+    // on the next frame so any late settling in the child document is picked up. The
+    // pass restores the protected baseline before fitting, so repeats are safe.
+    if(childDocument){
+      this._fitMilestoneFlags(childDocument);
+      const frame=childDocument.defaultView?.requestAnimationFrame;
+      if(frame)childDocument.defaultView.requestAnimationFrame(()=>{
+        const current=this.shadowRoot?.querySelector("iframe")?.contentDocument;
+        if(current)this._fitMilestoneFlags(current);
+      });
+    }
     this.dataset.protectedKernel=K.kernelId;
     const projectionWarnings=[...(record.projection.warnings||[]),...failSoftWarnings];
     this.dataset.projectionWarnings=JSON.stringify(projectionWarnings);
     this.dataset.projectionDropped=JSON.stringify(record.projection.dropped||[]);
-    if(failSoftWarnings.length){
+    const studentMessage=failSoftRenderMessage(failSoftWarnings,recoveredExistingLayout);
+    if(studentMessage){
       const warning=this.shadowRoot.querySelector("[data-render-warning]");
       warning.hidden=false;
-      warning.textContent=recoveredExistingLayout
-        ?INITIAL_LAYOUT_RECOVERY_MESSAGE
-        :`${failSoftWarnings.length} unavailable media asset${failSoftWarnings.length===1?" was":"s were"} omitted. Your timeline remains available; re-add the affected media to restore it.`;
+      warning.textContent=studentMessage;
     }else{
       const warning=this.shadowRoot.querySelector("[data-render-warning]");
       if(warning){warning.hidden=true;warning.textContent="";}
@@ -408,6 +647,7 @@ class D1411AKernelElement extends HostHTMLElement{
           this._applyPresentationOverrides(childDocument,previous);
           this._fitProtectedFurnitureText(childDocument);
           this._applyAdvancedOverlay(childDocument,previous);
+          this._fitMilestoneFlags(childDocument);
         }
         this.resize();
         if(iframe)this._installChildInteractions(iframe);
@@ -784,6 +1024,125 @@ class D1411AKernelElement extends HostHTMLElement{
     }
   }
 
+  /*
+   * Milestone flags are the one composed layer the protected kernel neither
+   * bounds-checks nor de-collides: buildFlags pins every flag to a single row at
+   * top:82px anchored to its date, and postRenderChecks only inspects `.arrow`
+   * parts. Two milestones a few months apart therefore render their labels straight
+   * through each other, and a late milestone runs off the right edge - silently, so
+   * automated checks pass while the student and the export both show jumbled text.
+   *
+   * Fit them here using the kernel's own established remedy for crowded locations
+   * (shrink, then ellipsis), which preserves each flag's chronological anchor. Flags
+   * are rebuilt from scratch on every render, so no baseline restore is needed.
+   */
+  _fitMilestoneFlags(childDocument){
+    const BOARD_WIDTH=1920;
+    const RIGHT_MARGIN=10;
+    const MIN_GAP=16;
+    const BASE_FONT=19;
+    const MIN_FONT=13;
+    const MIN_LABEL_CHARS=6;
+    // Stack upward from the frozen 82px row. 48 and 14 stay clear of the axis at
+    // y=112 and of the arrow lanes (LANE_Y[0]=196); rows above the base may only be
+    // used where the title plaque is not in the way.
+    const ROW_TOPS=[82,48,14];
+    const BASE_TOP=ROW_TOPS[0];
+    const BASE_STEM_HEIGHT=8;
+    const flags=[...childDocument.querySelectorAll("#flagLayer .flag")]
+      .map((el)=>({el,left:cssNumber(el.style.left,0)}))
+      .sort((a,b)=>a.left-b.left);
+    // Leaves a cheap trace of how often the pass ran and over how many flags, so a
+    // future regression in render ordering is visible without re-instrumenting.
+    const root=childDocument.documentElement;
+    root.dataset.d1FlagFitRuns=String(Number(root.dataset.d1FlagFitRuns||0)+1);
+    root.dataset.d1FlagFitCount=String(flags.length);
+    if(!flags.length)return;
+    // Restore each flag to its protected baseline first. The pass runs on every layout
+    // settle, and without this a second run would shrink an already-shortened label
+    // again ("USMLE Step 1" -> "USMLE…" -> "USM…").
+    for(const flag of flags){
+      const label=flag.el.querySelector(".lbl");
+      if(!label)continue;
+      const textNode=[...label.childNodes].reverse().find((node)=>node.nodeType===3);
+      if(textNode){
+        if(label.dataset.d1FullLabel===undefined)label.dataset.d1FullLabel=textNode.textContent;
+        else textNode.textContent=label.dataset.d1FullLabel;
+      }
+      label.style.fontSize="";
+      flag.el.style.top=`${BASE_TOP}px`;
+      const stem=flag.el.querySelector(".stem");
+      if(stem)stem.style.height=`${BASE_STEM_HEIGHT}px`;
+    }
+
+    // The title plaque owns the top strip across the middle of the board. A flag may
+    // only use the raised row where it clears that plaque horizontally.
+    const plaque=childDocument.querySelector("#titleWrap")||childDocument.querySelector("#title");
+    let plaqueLeft=Infinity,plaqueRight=-Infinity;
+    if(plaque){
+      const board=childDocument.getElementById("board");
+      const boardRect=board?.getBoundingClientRect();
+      const plaqueRect=plaque.getBoundingClientRect();
+      const scale=boardRect&&boardRect.width?boardRect.width/BOARD_WIDTH:1;
+      if(boardRect&&scale>0){
+        plaqueLeft=(plaqueRect.left-boardRect.left)/scale;
+        plaqueRight=plaqueLeft+plaqueRect.width/scale;
+      }
+    }
+
+    // Pass 1 - stagger. Walk left to right keeping the last occupied right edge for
+    // each row; a flag that cannot fit beside its neighbour moves to the raised row
+    // when the plaque allows, which is what keeps clustered exam milestones legible.
+    const lastRight=ROW_TOPS.map(()=>-Infinity);
+    for(const flag of flags){
+      const width=flag.el.offsetWidth;
+      const clearsPlaque=flag.left+width<plaqueLeft||flag.left>plaqueRight;
+      // Take the lowest row that is genuinely free. Rows above the base may only be
+      // used where the title plaque is not in the way; if no row is free, fall back to
+      // the emptiest one and let the fitting pass below shrink the label.
+      const usable=ROW_TOPS.map((_,index)=>index).filter((index)=>index===0||clearsPlaque);
+      let rowIndex=usable.find((index)=>flag.left>=lastRight[index]+MIN_GAP);
+      if(rowIndex===undefined){
+        rowIndex=usable.reduce((best,index)=>lastRight[index]<lastRight[best]?index:best,usable[0]);
+      }
+      const row=ROW_TOPS[rowIndex];
+      flag.row=row;
+      flag.el.style.top=`${row}px`;
+      flag.el.style.zIndex=String(5+rowIndex);
+      const stem=flag.el.querySelector(".stem");
+      if(stem)stem.style.height=`${BASE_STEM_HEIGHT+(BASE_TOP-row)}px`;
+      lastRight[rowIndex]=flag.left+width;
+    }
+
+    // Pass 2 - fit whatever still crowds its neighbour on the same row, using the
+    // kernel's own remedy for crowded labels: shrink first, ellipsis only if needed.
+    flags.forEach((flag,index)=>{
+      const label=flag.el.querySelector(".lbl");
+      if(!label)return;
+      const next=flags.slice(index+1).find((candidate)=>candidate.row===flag.row);
+      const available=next
+        ?Math.max(0,next.left-flag.left-MIN_GAP)
+        :Math.max(0,BOARD_WIDTH-RIGHT_MARGIN-flag.left);
+      if(available<=0||flag.el.offsetWidth<=available)return;
+      let size=BASE_FONT;
+      while(size>MIN_FONT&&flag.el.offsetWidth>available){
+        size-=1;
+        label.style.fontSize=`${size}px`;
+      }
+      if(flag.el.offsetWidth<=available)return;
+      const textNode=[...label.childNodes].reverse().find(
+        (node)=>node.nodeType===3&&node.textContent.trim()
+      );
+      if(!textNode)return;
+      const original=textNode.textContent.trim();
+      let length=original.length;
+      while(length>MIN_LABEL_CHARS&&flag.el.offsetWidth>available){
+        length-=1;
+        textNode.textContent=`${original.slice(0,length).trim()}\u2026`;
+      }
+    });
+  }
+
   _applyAdvancedOverlay(childDocument,record=this._record){
     if(this._advancedTextEditing===true&&childDocument.activeElement?.matches?.(".d1411aAdvancedText[contenteditable=\"true\"]"))return;
     const retainedAdvancedSelection=this._advancedSelection||null;
@@ -902,19 +1261,29 @@ class D1411AKernelElement extends HostHTMLElement{
     };
     const fitTextNode=(node)=>{
       if(!node?.classList?.contains("d1411aAdvancedText")||node.isContentEditable)return;
-      const requested=Math.max(10,finite(node.dataset.requestedFontSize,24));
-      const minimum=clamp(finite(node.dataset.minFontSize,10),8,requested);
-      let size=requested;
-      node.style.fontSize=`${size}px`;
-      if(node.dataset.fitMode==="auto"){
-        while(size>minimum&&(node.scrollWidth>node.clientWidth+1||node.scrollHeight>node.clientHeight+1)){
-          size=Math.max(minimum,size-1);
-          node.style.fontSize=`${size}px`;
+      // Selection handles are appended as children of the selected node and are
+      // positioned outside its box, so they add scrollable overflow. Measuring with
+      // them attached made merely selecting a text object shrink it to the minimum
+      // size and flag it as overflowing. Hide the chrome across the measurement.
+      const chrome=[...node.querySelectorAll(".d1411aHandle")];
+      for(const control of chrome)control.style.display="none";
+      try{
+        const requested=Math.max(10,finite(node.dataset.requestedFontSize,24));
+        const minimum=clamp(finite(node.dataset.minFontSize,10),8,requested);
+        let size=requested;
+        node.style.fontSize=`${size}px`;
+        if(node.dataset.fitMode==="auto"){
+          while(size>minimum&&(node.scrollWidth>node.clientWidth+1||node.scrollHeight>node.clientHeight+1)){
+            size=Math.max(minimum,size-1);
+            node.style.fontSize=`${size}px`;
+          }
         }
+        const overflow=node.scrollWidth>node.clientWidth+1||node.scrollHeight>node.clientHeight+1;
+        node.dataset.overflow=String(overflow);
+        node.title=overflow?"Text does not fit. Resize the text box or choose Auto fit text.":"";
+      }finally{
+        for(const control of chrome)control.style.display="";
       }
-      const overflow=node.scrollWidth>node.clientWidth+1||node.scrollHeight>node.clientHeight+1;
-      node.dataset.overflow=String(overflow);
-      node.title=overflow?"Text does not fit. Resize the text box or choose Auto fit text.":"";
     };
     for(const item of items.sort((left,right)=>finite(left.zIndex,finite(left.layerIndex))-finite(right.zIndex,finite(right.layerIndex))))overlay.append(makeElement(item));
     board.append(overlay);
@@ -1614,6 +1983,12 @@ class D1411AKernelElement extends HostHTMLElement{
       iframe.style.transform=scale===1?"":`scale(${scale})`;
     }
     this._kernel.resize({scale:1});
+    // buildFlags rebuilds the flag row on every protected render, and the render paths
+    // that reuse a mounted kernel can settle after the post-render pass. Re-apply here:
+    // resize() runs at mount, after each projection update, and on container changes,
+    // and the pass restores the protected baseline before fitting, so it is idempotent.
+    const flagDocument=this.shadowRoot?.querySelector("iframe")?.contentDocument;
+    if(flagDocument)this._fitMilestoneFlags(flagDocument);
     const result={
       scale,
       cssWidth:1920*scale,
@@ -1630,6 +2005,13 @@ class D1411AKernelElement extends HostHTMLElement{
   async exportBoard(request){
     if(!this._kernel)throw new Error("Timeline export is not ready.");
     await this._kernel.whenStable(this._record.renderId);
+    // The protected renderer rebuilds the milestone row on every render and never
+    // de-collides it, so an export could otherwise capture overlapping, clipped flag
+    // text - the defect the Founder saw in the upper-right of exported artifacts.
+    // Fit immediately before capture; the pass restores the baseline first, so this is
+    // safe whether or not it already ran for this render.
+    const childDocument=this.shadowRoot?.querySelector("iframe")?.contentDocument;
+    if(childDocument)this._fitMilestoneFlags(childDocument);
     return this._kernel.exportBoard(request);
   }
 

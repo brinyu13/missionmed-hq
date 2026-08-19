@@ -42,7 +42,8 @@ const securityHeaders = Object.freeze({
 });
 
 function responseSecurityHeaders(pathname) {
-  if (!pathname.startsWith("/web/presentation/d1-409h-a1/")) return securityHeaders;
+  const framedPresentationPrefixes = ["/web/presentation/d1-409h-a1/", "/timeline/presentation/d1-409h-a1/"];
+  if (!framedPresentationPrefixes.some((prefix) => pathname.startsWith(prefix))) return securityHeaders;
   return {
     ...securityHeaders,
     "content-security-policy": securityHeaders["content-security-policy"]

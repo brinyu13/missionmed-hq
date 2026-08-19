@@ -396,7 +396,9 @@ export function assignStableLanes(events,{previousLaneById={}}={}){
         occupant.event.categoryId===item.event.categoryId
       )
     );
-    const laneIndex=(affinity[0]??legal[0]??existingLaneCount);
+    // The protected board has exactly seven lanes; emitting more produced lanes the
+    // renderer could only collapse back onto lane 6, stacking events on one another.
+    const laneIndex=Math.min(6,(affinity[0]??legal[0]??existingLaneCount));
     place(item,laneIndex);
   }
 

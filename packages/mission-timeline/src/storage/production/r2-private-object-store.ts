@@ -362,6 +362,11 @@ export class R2PrivateObjectStore implements PrivateObjectStore {
   async signDownload(context: PrincipalContext, objectId: string): Promise<SignedDownload> {
     this.assertAuthenticated(context);
     const record = await this.requireAuthorizedRecord(context, objectId);
+    // A SOURCE object is the student's own uploaded CV. The in-memory reference store
+    // refuses to mint a download URL for anyone but its owner (or a SERVICE principal);
+    // this path had lost that check, so any principal able to read the document could
+    // presign the private file. MEDIA stays document-scoped so shared boards still load.
+    if (record.objectClass === "SOURCE") this.assertMutableBy(context, record);
     if (record.status !== "CONFIRMED") throw new TimelineError("OBJECT_NOT_FOUND", "Object not found.", 404);
     const expiresAt = new Date(this.clock().getTime() + this.signedUrlSeconds * 1_000).toISOString();
     const command = new GetObjectCommand({

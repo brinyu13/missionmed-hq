@@ -937,7 +937,11 @@ export function createMediaElement({
   if(!validation.valid)throw new TypeError(validation.error);
   const naturalAspect=positive(naturalWidth,320)/positive(naturalHeight,180);
   const isLogo=kind==="logo";
-  const width=isLogo?120:Math.min(480,positive(naturalWidth,320));
+  // Constrain both axes. Width-only clamping let a tall photo (e.g. 1000x5000) resolve
+  // to height 2400 on a 1080 board and centre itself at y=-660, off the canvas.
+  const maxWidth=isLogo?120:480;
+  const maxHeight=isLogo?120/naturalAspect:360;
+  const width=isLogo?120:Math.min(maxWidth,positive(naturalWidth,320),maxHeight*naturalAspect);
   const height=width/naturalAspect;
   const x=isLogo?finite(boardWidth,1920)-finite(boardMargin,64)-width:
     (finite(boardWidth,1920)-width)/2;

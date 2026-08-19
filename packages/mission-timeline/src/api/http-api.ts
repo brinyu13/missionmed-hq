@@ -262,7 +262,17 @@ export class TimelineHttpApi {
     const confirmMatch = url.pathname.match(/^\/v1\/objects\/([^/]+)\/confirm$/);
     if (confirmMatch && request.method === "POST") {
       const input = await body(request);
-      return json(await this.objectStore.confirmUpload(context, confirmMatch[1]!, String(input.uploadToken ?? "")));
+      const confirmed = await this.objectStore.confirmUpload(context, confirmMatch[1]!, String(input.uploadToken ?? ""));
+      // Project the record: the full ObjectRecord carries `storageKey`, the live private
+      // bucket path, which must never reach browser-visible state.
+      return json({
+        id: confirmed.id,
+        objectClass: confirmed.objectClass,
+        mimeType: confirmed.mimeType,
+        byteSize: confirmed.expectedBytes,
+        status: confirmed.status,
+        ...(confirmed.confirmedAt ? { confirmedAt: confirmed.confirmedAt } : {}),
+      });
     }
     const downloadMatch = url.pathname.match(/^\/v1\/objects\/([^/]+)\/download$/);
     if (downloadMatch && request.method === "POST") {
