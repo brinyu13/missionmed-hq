@@ -45,6 +45,7 @@ function recordFromFreeLine(block){
    the direction once per section, and never adopt a line that reads as prose. */
 /* Past-tense duty verbs only. Matching verb STEMS rejected ordinary job titles -
    "Rotating Internship" and "Research Assistant" are entries, not descriptions. */
+const INSTITUTION_HINT=/\b(?:hospital|clinic|university|college|centre|center|medical|institute|school|health|foundation|academy|laborator(?:y|ies)|trust|sciences)\b/i;
 const PROSE_OPENER=/^(?:shadowed|shadowing|assisted|assisting|performed|performing|managed|managing|presented|presenting|participated|participating|conducted|conducting|observed|observing|attended|attending to|prepared|preparing|collected|collecting|analy[sz]ed|analy[sz]ing|reviewed|reviewing|authored|co-authored|developed|developing|designed|designing|implemented|implementing|supported|supporting|provided|providing|delivered|delivering|collaborated|coordinated|responsible|duties included)\b/i;
 
 function adoptableEntryLine(text){
@@ -54,7 +55,12 @@ function adoptableEntryLine(text){
   if(/^[^:]{2,36}:\s*.+$/.test(value))return false;
   /* A trailing sentence full stop marks prose; an abbreviation does not. */
   if(/[.!?]$/.test(value)&&!/\b(?:inc|llc|ltd|co|univ|dept)\.$/i.test(value))return false;
-  return value.split(/\s+/).length<=14;
+  const words=value.split(/\s+/);
+  /* A lone word with no comma is a heading the section detector did not recognise
+     ("Miscellaneous", "Publications"), not an institution. Adopting it put a section
+     title on the student's event as its organization. */
+  if(words.length<=1&&!value.includes(",")&&!INSTITUTION_HINT.test(value))return false;
+  return words.length<=14;
 }
 
 function sectionEntryOrientation(blocks){

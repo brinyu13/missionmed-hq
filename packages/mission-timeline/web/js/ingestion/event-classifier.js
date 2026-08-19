@@ -49,6 +49,12 @@ export function classifyEvent(record,dateRange){
     if(ECFMG_NONFINAL.test(text))return result("UNCLASSIFIED","usmle","milestone","ECFMG wording was negated, uncertain, expired, provisional, or otherwise non-final.",{...common,warnings:["ECFMG status needs human review","Non-final ECFMG language must not be treated as certification"]});
     const certified=/\becfmg[- ]certified\b|\bcertified by (?:the )?ecfmg\b|\becfmg certification (?:is )?(?:complete|completed|issued|obtained|awarded|confirmed)\b|\b(?:completed|obtained|received) (?:my )?ecfmg certification\b|\bstandard ecfmg certificate (?:issued|received)\b/.test(text);
     if(certified)return result("ECFMG_CERTIFICATION","usmle","milestone","Explicit completed ECFMG certification wording was detected.",common);
+    /* A bare "ECFMG Certification" listed under the student's own Certifications heading
+       with a date is an affirmative statement that they hold it. Every negation, pending,
+       expired, application and Pathway guard above still runs first, so this only rescues
+       the plainly affirmative case a student should not have to reclassify by hand. */
+    if(record.section==="certifications")
+      return result("ECFMG_CERTIFICATION","usmle","milestone","ECFMG certification was listed under the document's certifications section without any pending or negated wording.",common);
     return result("UNCLASSIFIED","usmle","milestone","ECFMG wording was detected, but it does not establish completed certification.",{...common,warnings:["ECFMG status needs human review","Application, eligibility, Pathway, and pending language must not be treated as certification"]});
   }
   if(/\b(application cycle|eras cycle)\b/.test(text))return result("APPLICATION_CYCLE","usmle",hasRange?"duration":"milestone","Application cycle wording detected.",common);

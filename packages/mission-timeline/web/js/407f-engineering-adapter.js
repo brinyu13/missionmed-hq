@@ -4513,9 +4513,10 @@ export async function boot407FEngineeringAdapter({
        no control - the student assumes the board is broken, not the field. */
     onGeometry:(changes,target)=>{
       try{
-        const result=setAdvancedObjectGeometry(store.document,target,changes);
-        if(!result.changed)return;
-        store.replace(result.document,{label:result.mutation?.label||"Resize Timeline object"});
+        // setAdvancedObjectGeometry returns the next document itself, the same shape
+        // updateTextContainerPresentation uses - not a {document,changed} result.
+        const next=setAdvancedObjectGeometry(store.document,target,changes);
+        store.replace(next,{label:"Set position and size"});
         syncBridgeStateFromStore();
         canvasController?.setUiState({advancedSelection:target});
         reselectAdvancedKernel(target?.type,target?.id);
