@@ -1246,9 +1246,16 @@ class D1411AKernelElement extends HostHTMLElement{
     const height=key.offsetHeight||322;
     const home={x:18,y:300};
     const clear=(x,y)=>!obstacles.some((obstacle)=>intersects({x,y,w:width,h:height},obstacle,8));
+    /* Write only when the value actually changes. Restyling the legend on every render is
+       a layout write the renderer does not need, and a needless one inside a render
+       completion path invites a settle loop. */
+    const place=(x,y)=>{
+      const left=`${x}px`,top=`${y}px`;
+      if(key.style.left!==left)key.style.left=left;
+      if(key.style.top!==top)key.style.top=top;
+    };
     if(clear(home.x,home.y)){
-      key.style.left=`${home.x}px`;
-      key.style.top=`${home.y}px`;
+      place(home.x,home.y);
       return;
     }
     // Nearest-first scan, so the legend lands as close to its designed home as the
@@ -1264,8 +1271,7 @@ class D1411AKernelElement extends HostHTMLElement{
     candidates.sort((left,right)=>left.distance-right.distance);
     const placed=candidates.find((candidate)=>clear(candidate.x,candidate.y));
     if(!placed)return;
-    key.style.left=`${placed.x}px`;
-    key.style.top=`${placed.y}px`;
+    place(placed.x,placed.y);
   }
 
   _fitProtectedFurnitureText(childDocument){

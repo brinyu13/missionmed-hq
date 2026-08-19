@@ -512,7 +512,9 @@ for(const scenario of SCENARIOS){
     .screenshot({path:path.join(captureDir,`${scenario.key}_EXPORT_PREVIEW.png`)});
 
   const exportFailures=[];
-  if(!renderFailed){
+  /* Composition can be judged from the board itself. D1_SKIP_EXPORTS answers the geometry
+     question in a couple of minutes when the artifacts are not what is being checked. */
+  if(!renderFailed&&process.env.D1_SKIP_EXPORTS!=="1"){
     for(const [format,filename] of [
       ["png-1920x1080",`${scenario.key}_1920x1080.png`],
       ["pdf-letter-landscape",`${scenario.key}_LETTER.pdf`],
