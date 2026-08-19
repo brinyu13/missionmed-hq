@@ -37,7 +37,10 @@ if ($path[0] !== '/') {
 
 $has_approved_360_attestation = static function ($user_id) use ($approved_360_attestation_source) {
     $sent_at = trim((string) get_user_meta($user_id, '_mmed_welcome_email_sent_at_360elite', true));
-    $sent_by = absint(get_user_meta($user_id, '_mmed_welcome_email_sent_by_360elite', true));
+    // The approved Session A welcome batch is dispatched by a scheduled system
+    // process, so its recorded actor is 0. Require the attestation actor to be
+    // recorded, not to be a logged-in user, or every batch member is rejected.
+    $sent_by_recorded = metadata_exists('user', $user_id, '_mmed_welcome_email_sent_by_360elite');
     $subject = trim((string) get_user_meta($user_id, '_mmed_welcome_email_subject_360elite', true));
     $source = sanitize_key((string) get_user_meta(
         $user_id,
@@ -47,7 +50,7 @@ $has_approved_360_attestation = static function ($user_id) use ($approved_360_at
     $sent_at_timestamp = $sent_at === '' ? false : strtotime($sent_at . ' UTC');
 
     return $source === $approved_360_attestation_source
-        && $sent_by > 0
+        && $sent_by_recorded
         && $subject !== ''
         && $sent_at_timestamp !== false
         && $sent_at_timestamp <= time();
