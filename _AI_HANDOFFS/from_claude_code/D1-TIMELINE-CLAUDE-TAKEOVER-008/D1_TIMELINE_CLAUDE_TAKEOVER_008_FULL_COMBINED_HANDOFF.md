@@ -138,3 +138,100 @@ Export gate:
 ```bash
 D1_CAPTURE_DIR=/tmp/gate node web/tests/run_takeover_008_export_density.mjs
 ```
+
+---
+
+# CONTINUATION — D1-TIMELINE-CLAUDE-TAKEOVER-008-COMPLETION
+
+Appended, not overwritten. Prior sections above remain the record of the first run.
+
+**RESULT: PARTIAL.** Commits `6ea20c0`, `e1797fe`, `48c2831`, `e2cb864` on
+`codex/timeline-rc1-stabilization-001`. Regression **748/748** (600 JS, 148 TS), typecheck
+clean, `check-release` and the WordPress runtime build both pass, protected D1-409H bytes
+unchanged.
+
+## Correction to the first run's report
+
+The four `TIMELINE_AI_*` variables are **present** in Railway production, not absent. That
+claim came from the inherited Codex handoff and was stale. `production-server.ts` refuses to
+start on partial configuration, so the service being Online proves them valid: **the OpenAI
+CV intelligence provider is live**. One of the two gates I attributed to the Founder does not
+exist.
+
+## What changed
+
+**Last-good render (P0).** The law was inverted: `_fail()` cleared `data-ready`, which
+un-hid the opaque loading panel and drew it *over* the render being retained. A successful
+render is now marked durable and can never be covered again; a hard failure genuinely
+re-renders the last good model (necessary, because the protected kernel builds its DOM
+*before* running its post-render laws, so a failed render leaves the broken layout on the
+board); recalculation shows a translucent "Updating your timeline…" pill over the previous
+timeline. `TEXT_FIT_UNRESOLVED` now degrades instead of failing — profile values are
+compacted when the card cannot fit, and crowded arrow labels are shortened when the kernel's
+stability probe never settles, which is what same-month and overlapping timelines produce.
+
+**Asset integrity (P0).** `build-wordpress-runtime.mjs` silently left unresolvable JS asset
+literals relative while the CSS and HTML rewriters threw — one missed rewrite reached
+students as a 404, and a 404 on a core texture blanks the board. It now fails the build (the
+five private photo fixtures `check-release` deliberately excludes are allowlisted).
+`check-release` verifies 24 runtime-critical assets. Both pass.
+
+**Found by operating the editor, not by tests:** Fit did not fit (the stage grid sized itself
+to the board's intrinsic 1920px, so the board rendered wider than its own viewport); the zoom
+percentage field is now typable and keeps focus; text alignment works (the text box was a
+*row* flex container). Note `uxr-002.css` is **not loaded** by the app — only
+`407f-upgrade.css` is.
+
+**Four lanes delivered** Smart Fill review wiring, confidence-driven review lanes, File Vault
+ingestion with the real student principal, and a student-language translation layer. See
+`13_*` for what survived verification and what did not.
+
+## The verification pass earned its cost
+
+Every lane left the suite green; every verifier still found something. Three changes were
+**worse than the bugs they replaced** and are corrected here: the parser began stating wrong
+institutions with confidence in the one-click accept path; drag-to-canvas announced a success
+that never happened; the new review surfaces had no CSS. `dist-api/server.mjs` was also still
+serving a File Vault cross-student existence oracle from an intermediate build (rebuilt).
+
+## Export evidence
+
+Ten shapes — zero events, sparse, medium, dense, milestone-heavy, long labels, same-month,
+overlapping chronology, future events, mixed categories — each from a **fresh page**, 50
+artifacts, opened and inspected:
+
+- **0 console errors** across the whole run
+- background present in all 10; **0 flags off board; 0 arrow parts out of bounds**
+- 1 residual same-row flag overlap, in the most extreme milestone case only
+- zero-event state shows "Your timeline will appear here." with no jargon
+- **4 arrows hidden behind the Color Key** in 2 of 10 shapes — newly measured, see below
+
+## The one composition defect still open
+
+In `same-month` and `overlapping`, event arrows draw underneath the Color Key with their
+labels unreadable. This is a genuine capacity limit, not a bug in the recovery: only lanes 0
+and 1 clear the Color Key's vertical band (y300–622), so once three or more events overlap in
+time at the left edge, some must land beneath it. The gate now measures this, so it is
+tracked rather than invisible.
+
+Two remedies exist and both need a product decision rather than a quiet code change: the
+Color Key is already directly manipulable by the student, and
+`setColorKeyGeometryPresentationOverride` exists for an automated relocation. I did not move
+approved furniture automatically, because the ticket requires preserving the MissionMed
+visual identity.
+
+## Still open
+
+Grouped-text containment is breakable (a text row near the bottom of a container hangs
+outside after a proportional shrink); the new position/size and wrapping controls are inert
+(no shell implementation, no renderer reads `wrap`); duplicate flags can appear three times in
+SERVER_AI mode; D-12's redundant round trip remains; dragging flags/plaque/photos/logo/sticky
+is still unimplemented; direct manipulation is off below 40% scale; the intake evidence panel
+still shows confidence-engine reason strings verbatim.
+
+## Production
+
+**Unchanged.** No backup created or deleted, no release installed, no deploy triggered. The
+remaining gates are in `14_FOUNDER_GATES.md`: the Kinsta backup slot needs one authorization
+sentence, and an authenticated session is needed for live verification — starting with the
+three core texture URLs, which is a five-minute check that de-risks the entire release.
