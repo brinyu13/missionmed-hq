@@ -23,6 +23,9 @@ const MMTL_REST_FILEVAULT_SOURCES_ROUTE = '/file-vault/sources';
 const MMTL_COURSE_ID = 3893;
 const MMTL_VERSION = '500.0.4';
 const MMTL_PRINCIPAL_NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+// Smart Fill is bounded by the browser parser that reads the handed-off bytes, not by the
+// larger Timeline SOURCE custody ceiling, so the chooser and the transfer agree on one limit.
+const MMTL_FILEVAULT_SMART_FILL_MAX_BYTES = 20 * 1024 * 1024;
 
 function mmtl_defaults() {
     return array(
@@ -555,6 +558,20 @@ function mmtl_filevault_source_allowed_type($value) {
 }
 
 /**
+ * One predicate for "Smart Fill will actually accept this". The chooser and the ingestion
+ * route must agree, or the list offers documents the very next click provably rejects.
+ */
+function mmtl_filevault_source_smart_fill_ready($descriptor) {
+    return is_array($descriptor)
+        && in_array((string) $descriptor['mimeType'], array(
+            'application/pdf',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ), true)
+        && ($descriptor['sizeBytes'] === null
+            || ($descriptor['sizeBytes'] > 0 && $descriptor['sizeBytes'] <= MMTL_FILEVAULT_SMART_FILL_MAX_BYTES));
+}
+
+/**
  * Return a storage-opaque descriptor. Signed URLs, object keys, document
  * contents, comments, advisor notes, and unrelated metadata are never copied.
  */
@@ -603,9 +620,28 @@ function mmtl_filevault_sources_endpoint($request) {
     $query = trim(sanitize_text_field((string) $request->get_param('query')));
     $query = function_exists('mb_substr') ? mb_substr($query, 0, 80) : substr($query, 0, 80);
     $documents = array();
+    $detail_lookups = 0;
     foreach ((array) ($upstream['files'] ?? array()) as $record) {
-        $descriptor = mmtl_filevault_source_descriptor($record, $owner_id, false);
-        if ($descriptor === null || ($query !== '' && stripos($descriptor['name'], $query) === false)) {
+        $descriptor = mmtl_filevault_source_descriptor($record, $owner_id, true);
+        if ($descriptor === null
+            && $detail_lookups < 20
+            && is_array($record)
+            && !isset($record['versions'])
+            && absint($record['owner_id'] ?? 0) === absint($owner_id)) {
+            $detail_lookups++;
+            // A summary listing that omits per-version detail would otherwise hide every
+            // document, so resolve those candidates through the same owner-scoped detail read.
+            $id = sanitize_text_field((string) ($record['id'] ?? ''));
+            if (preg_match('/^[0-9a-fA-F-]{8,64}$/', $id)) {
+                $detail = mmtl_filevault_source_dispatch('/mmed/v1/files/' . rawurlencode($id));
+                $descriptor = is_wp_error($detail)
+                    ? null
+                    : mmtl_filevault_source_descriptor($detail['file'] ?? $detail, $owner_id, true);
+            }
+        }
+        if ($descriptor === null
+            || !mmtl_filevault_source_smart_fill_ready($descriptor)
+            || ($query !== '' && stripos($descriptor['name'], $query) === false)) {
             continue;
         }
         $documents[] = $descriptor;
@@ -654,11 +690,17 @@ function mmtl_filevault_ingestion_endpoint($request) {
     if ($descriptor === null || !hash_equals((string) $descriptor['versionId'], $requested_version_id)) {
         return mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404);
     }
-    if (!in_array((string) $descriptor['mimeType'], array(
-        'application/pdf',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    ), true)) {
-        return mmtl_filevault_source_error('timeline_filevault_source_type_denied', 'Choose a PDF or DOCX document for Smart Fill.', 415);
+    if (!mmtl_filevault_source_smart_fill_ready($descriptor)) {
+        return in_array((string) $descriptor['mimeType'], array(
+            'application/pdf',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ), true)
+            ? mmtl_filevault_source_error(
+                'timeline_filevault_source_size_denied',
+                sprintf('Smart Fill reads documents up to %d MB. You can still upload a smaller CV from this device.', MMTL_FILEVAULT_SMART_FILL_MAX_BYTES / 1024 / 1024),
+                413
+            )
+            : mmtl_filevault_source_error('timeline_filevault_source_type_denied', 'Choose a PDF or DOCX document for Smart Fill.', 415);
     }
     $download = mmtl_filevault_source_dispatch('/mmed/v1/files/' . rawurlencode($id) . '/download');
     $download_url = is_wp_error($download) ? '' : esc_url_raw((string) ($download['url'] ?? ''));
@@ -669,15 +711,19 @@ function mmtl_filevault_ingestion_endpoint($request) {
         'timeout' => 30,
         'redirection' => 0,
         'reject_unsafe_urls' => true,
-        'limit_response_size' => 25 * 1024 * 1024 + 1,
+        'limit_response_size' => MMTL_FILEVAULT_SMART_FILL_MAX_BYTES + 1,
     ));
     if (is_wp_error($source_response) || (int) wp_remote_retrieve_response_code($source_response) !== 200) {
         return mmtl_filevault_source_error('timeline_filevault_unavailable', 'File Vault is temporarily unavailable. You can still upload a CV from this device.', 503);
     }
     $bytes = (string) wp_remote_retrieve_body($source_response);
     $byte_size = strlen($bytes);
-    if ($byte_size < 1 || $byte_size > 25 * 1024 * 1024) {
-        return mmtl_filevault_source_error('timeline_filevault_source_size_denied', 'That File Vault document is too large for Smart Fill.', 413);
+    if ($byte_size < 1 || $byte_size > MMTL_FILEVAULT_SMART_FILL_MAX_BYTES) {
+        return mmtl_filevault_source_error(
+            'timeline_filevault_source_size_denied',
+            sprintf('Smart Fill reads documents up to %d MB. You can still upload a smaller CV from this device.', MMTL_FILEVAULT_SMART_FILL_MAX_BYTES / 1024 / 1024),
+            413
+        );
     }
     $sha256 = hash('sha256', $bytes);
     $user = wp_get_current_user();
@@ -710,6 +756,21 @@ function mmtl_filevault_ingestion_endpoint($request) {
     $status = is_wp_error($timeline_response) ? 0 : (int) wp_remote_retrieve_response_code($timeline_response);
     $payload = $status > 0 ? json_decode((string) wp_remote_retrieve_body($timeline_response), true) : null;
     if ($status < 200 || $status >= 300 || !is_array($payload) || empty($payload['source']['objectId'])) {
+        // A rejected transfer must not read as a generic outage: the student needs to know
+        // whether the document was too large or the wrong type before they retry it.
+        if ($status === 413) {
+            return mmtl_filevault_source_error(
+                'timeline_filevault_source_size_denied',
+                sprintf('Smart Fill reads documents up to %d MB. You can still upload a smaller CV from this device.', MMTL_FILEVAULT_SMART_FILL_MAX_BYTES / 1024 / 1024),
+                413
+            );
+        }
+        if ($status === 415) {
+            return mmtl_filevault_source_error('timeline_filevault_source_type_denied', 'Choose a PDF or DOCX document for Smart Fill.', 415);
+        }
+        if ($status === 404) {
+            return mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404);
+        }
         return mmtl_filevault_source_error('timeline_filevault_ingestion_failed', 'Timeline could not safely import that File Vault document. You can still upload it from this device.', 503);
     }
     return mmtl_filevault_source_response(array(
@@ -718,6 +779,7 @@ function mmtl_filevault_ingestion_endpoint($request) {
             'objectId' => sanitize_text_field((string) $payload['source']['objectId']),
             'sha256' => $sha256,
             'mimeType' => (string) $descriptor['mimeType'],
+            'byteSize' => $byte_size,
         ),
         'contentBase64' => base64_encode($bytes),
     ), 201);
