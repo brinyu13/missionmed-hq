@@ -497,6 +497,27 @@ function normalizeAdvisorState(advisor={}){
   return{kind:"not-requested",date:null,editedSince:false,comments:unresolvedComments};
 }
 
+/*
+ * One reason, in the student's words, for every state that greys the export
+ * button out. A disabled control with no explanation next to it reads as a
+ * broken app. Entitlement blocks are excluded: they carry their own paragraph.
+ */
+function exportBlockReason({
+  empty,
+  exporting,
+  hasStudentName,
+  detailsComplete,
+  audience,
+  entitlementBlocked
+}={}){
+  if(entitlementBlocked)return null;
+  if(empty)return"Add at least one event in Builder, then come back here to export.";
+  if(!hasStudentName)return"Add your name in Builder before exporting.";
+  if(!detailsComplete)return`Fill in the ${audience.label} recipient details above before exporting.`;
+  if(exporting)return"Preparing your file…";
+  return null;
+}
+
 export function buildExportScreenModel(document,state={},options={}){
   const normalized=normalizeExportState(state);
   const format=exportFormat(normalized.formatId);
@@ -532,6 +553,14 @@ export function buildExportScreenModel(document,state={},options={}){
     eventCount,
     controlsDisabled:empty||normalized.exporting||entitlement.canMutate!==true,
     exportActionDisabled:empty||normalized.exporting||!detailsComplete||!hasStudentName||entitlementBlocked,
+    exportBlockedReason:exportBlockReason({
+      empty,
+      exporting:normalized.exporting,
+      hasStudentName,
+      detailsComplete,
+      audience,
+      entitlementBlocked
+    }),
     entitlementBlocked,
     entitlementReason:String(entitlement.reason||"Timeline export is unavailable."),
     entitlementHasExistingTimeline:entitlement.hasExistingTimeline!==false,
@@ -577,7 +606,7 @@ function renderAudienceDetails(model){
     }).join("")}
     <p class="export-audience-required" role="status">${model.audienceDetailsComplete
       ?"Recipient details complete."
-      :"Complete every recipient field to enable export."}</p>
+      :"Add every recipient detail above before you export."}</p>
   </fieldset>`;
 }
 
@@ -689,7 +718,7 @@ function renderPreview(model,previewHtml){
   const loading=model.preview.status==="loading";
   return`<section class="export-preview-panel" aria-label="Live export preview" data-export-preview aria-busy="${String(loading)}">
     <div class="export-preview-loading" role="status" data-export-preview-loading data-max-duration-ms="${EXPORT_PREVIEW_LOADING_MAX_MS}" ${loading?"":"hidden"}>
-      <span class="spinner" aria-hidden="true"></span><span>Rendering preview…</span>
+      <span class="spinner" aria-hidden="true"></span><span>Updating your preview…</span>
     </div>
     <div class="export-preview-content" data-export-preview-content>${previewHtml||""}</div>
     ${model.showPrintMarginToggle&&model.state.showPrintMargins?`<div class="print-margin-overlay" aria-hidden="true" data-print-margin-mm="${EXPORT_PRINT_MARGIN_MM}"></div>`:""}
@@ -711,15 +740,15 @@ export function renderExportScreen(document,{
         ${renderThemeCard(model)}
         ${renderFormatCard(model)}
         ${renderAdvisorCard(model)}
-        ${!model.empty&&!model.hasStudentName
-          ?'<p class="export-blocker" role="status">Add your name in Builder before exporting.</p>'
+        ${model.exportBlockedReason
+          ?`<p class="export-blocker" role="status" id="export-blocked-reason" data-export-blocked-reason>${escapeHtml(model.exportBlockedReason)}</p>`
           :""}
         ${model.entitlementBlocked
           ?`<p class="export-blocker" role="status">${escapeHtml(model.entitlementReason)} ${model.entitlementHasExistingTimeline
             ?"Existing timeline data remains available to view."
             :"Timeline creation and export are disabled."}</p>`
           :""}
-        <button type="button" class="button primary export-action" data-export-action${disabledAttribute(model.exportActionDisabled)}>Export ${model.format.kind}</button>
+        <button type="button" class="button primary export-action"${model.exportBlockedReason?' aria-describedby="export-blocked-reason"':""} data-export-action${disabledAttribute(model.exportActionDisabled)}>Export ${model.format.kind}</button>
       </section>
       ${renderPreview(model,previewHtml)}
     </div>
@@ -934,16 +963,32 @@ export function installExportScreen(root,document,{
     if(status){
       status.textContent=complete
         ?"Recipient details complete."
-        :"Complete every recipient field to enable export.";
+        :"Add every recipient detail above before you export.";
+    }
+    const currentEntitlement=getEntitlement?.()||{};
+    const empty=!Array.isArray(document?.events)||document.events.length===0;
+    const hasStudentName=Boolean(String(document?.studentProfile?.fullName||"").trim());
+    // The greying-out and the sentence that explains it are recomputed together,
+    // so a student never sees a dead button beside a stale reason.
+    const reason=exportBlockReason({
+      empty,
+      exporting:current.exporting,
+      hasStudentName,
+      detailsComplete:complete,
+      audience:exportAudience(current.audience),
+      entitlementBlocked:currentEntitlement.canExport!==true
+    });
+    const blocker=root.querySelector?.("[data-export-blocked-reason]");
+    if(blocker){
+      blocker.textContent=reason||"";
+      blocker.hidden=!reason;
     }
     if(exportButton){
-      const currentEntitlement=getEntitlement?.()||{};
       exportButton.disabled=
-        !Array.isArray(document?.events)||
-        document.events.length===0||
+        empty||
         current.exporting||
         !complete||
-        !String(document?.studentProfile?.fullName||"").trim()||
+        !hasStudentName||
         currentEntitlement.canExport!==true;
     }
   };
@@ -1004,7 +1049,14 @@ export function installExportScreen(root,document,{
             source:"export-pdf-suggestion"
           });
         };
-        const dismiss=()=>resolveExportAdvisorPaperSuggestion(document,evaluation,"dismiss");
+        // Dismissal is a resolution, not a no-op: persist it so the interstitial
+        // cannot reappear on the very next format switch of the same session.
+        const dismiss=()=>{
+          const resolution=resolveExportAdvisorPaperSuggestion(document,evaluation,"dismiss");
+          onSuggestionStateChange(clone(resolution.suggestionState));
+          updateRecipientGate();
+          return resolution;
+        };
         if(typeof onAdvisorPaperSuggestion==="function"){
           onAdvisorPaperSuggestion({...evaluation.suggestion,apply,dismiss});
         }else{
@@ -1067,8 +1119,10 @@ export function installExportScreen(root,document,{
         await requestVersion(request.version.label,request.version.kind,{request});
       }
       closeAdvisorSheet();
-    }catch(error){
-      toast(String(error?.message||error),{tone:"danger"});
+    }catch(_error){
+      // The boundary errors on this path name adapters and contracts; a student
+      // reading "An automatic version request adapter is required" learns nothing.
+      toast("We couldn't send this for review — try again",{tone:"danger"});
     }finally{
       setButtonBusy(button,false,"Send for review");
     }

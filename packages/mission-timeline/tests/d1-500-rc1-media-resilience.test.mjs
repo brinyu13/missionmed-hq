@@ -137,5 +137,5 @@ test("RC1 visible Media workflow replaces transient source state and retires onl
   assert.match(adapter,/private-media-retirement:/);
   assert.match(adapter,/!referenced\.has\(String\(objectId\)\)/);
   assert.match(adapter,/flushPendingSave\("RETIRE_PRIVATE_MEDIA"\)/);
-  assert.match(adapter,/private-file deletion will retry after sync/);
+  assert.match(adapter,/We are still deleting the stored file, and your timeline is safe\./);
 });

@@ -53,7 +53,7 @@ test("M12 conceals prototype state until canonical hydration completes",()=>{
   assert.match(index,/html\.d1-hydrating body>\*\{visibility:hidden\}/);
   assert.match(
     index,
-    /<div id="d1HydrationGate" role="status" aria-live="polite">Loading local timeline…<\/div>/
+    /<div id="d1HydrationGate" role="status" aria-live="polite">Getting your timeline ready…<\/div>/
   );
   assert.match(
     adapter,

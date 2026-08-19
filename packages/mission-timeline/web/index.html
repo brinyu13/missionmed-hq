@@ -278,8 +278,17 @@ textarea{font-family:var(--disp);font-weight:400;min-height:64px;resize:vertical
 #modalBk.on{display:grid}
 #modal{width:min(480px,92vw)}
 #toast{position:fixed;bottom:36px;left:50%;transform:translate(-50%,80px);z-index:150;background:linear-gradient(160deg,var(--card),#111827);
-  border:1px solid var(--em);border-radius:10px;padding:13px 26px;font-weight:700;font-size:13px;transition:.3s;opacity:0}
+  border:1px solid var(--em);border-radius:10px;padding:13px 26px;font-weight:700;font-size:13px;transition:.3s;opacity:0;
+  display:flex;align-items:center;gap:14px;max-width:min(560px,92vw);pointer-events:none}
 #toast.on{transform:translate(-50%,0);opacity:1}
+#toast.isPersistent{border-color:var(--rd);pointer-events:auto}
+#toastText{flex:1;font-weight:700}
+#toastDismiss{flex:none;min-height:32px;padding:0 12px;border:1px solid var(--edge2);border-radius:6px;
+  font-family:var(--num);font-weight:700;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--mid)}
+#toastDismiss:hover{color:var(--tx);border-color:var(--em)}
+#canvasResponsiveNotice407F:empty{display:none}
+#canvasResponsiveNotice407F{margin-bottom:12px}
+.responsive407FNoticeHint{margin-top:8px;color:var(--dim);font-family:var(--num);font-weight:600;font-size:12px;text-align:center}
 .hist{font-family:var(--num);font-weight:600;font-size:11.5px;color:var(--dim);padding:7px 0;border-bottom:1px solid var(--edge);display:flex;gap:10px}
 .hist b{color:var(--mid)}
 .canvasCtl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
@@ -500,7 +509,40 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 <link rel="stylesheet" href="./styles/407f-upgrade.css">
 </head>
 <body>
-<div id="d1HydrationGate" role="status" aria-live="polite">Loading local timeline…</div>
+<div id="d1HydrationGate" role="status" aria-live="polite">Getting your timeline ready…</div>
+<script>
+/* The engineering module can fail to execute at all - blocked, missing, or unparseable -
+   and then nothing ever removes this gate. Arm a timeout and a global failure hook here,
+   in plain inline script, so a student is never left on a dead full-screen loader. */
+(function(){
+  var armed=true,timer=null;
+  function standDown(){armed=false;clearTimeout(timer)}
+  function recover(){
+    if(!armed)return;
+    armed=false;clearTimeout(timer);
+    var gate=document.getElementById('d1HydrationGate');
+    if(!gate||gate.classList.contains('d1Recovery'))return;
+    if(!document.documentElement.classList.contains('d1-hydrating'))return;
+    gate.classList.add('d1Recovery');
+    gate.innerHTML='<section class="d1RecoveryPanel" role="alert">'+
+      '<p class="d1RecoveryEyebrow">MissionMed Timeline Builder</p>'+
+      '<h1>Your timeline is taking longer than usual.</h1>'+
+      '<p>Your work on this device is still safe. Try again, or go back to Matrix and open Timeline Builder from there.</p>'+
+      '<div class="d1RecoveryActions"><button type="button" id="d1RecoveryRetry">Try again</button>'+
+      '<a href="/member-dashboard/">Return to Matrix</a></div></section>';
+    var retry=document.getElementById('d1RecoveryRetry');
+    if(retry)retry.onclick=function(){window.location.reload()};
+  }
+  /* A stray error is not proof the boot failed, so give the running boot a short grace
+     period instead of replacing a screen that is about to work. */
+  function stumbled(){if(!armed)return;clearTimeout(timer);timer=setTimeout(recover,2500)}
+  timer=setTimeout(recover,15000);
+  document.addEventListener('d1:407f-engineering-ready',standDown,{once:true});
+  document.addEventListener('d1:407f-engineering-error',standDown,{once:true});
+  window.addEventListener('error',stumbled,true);
+  window.addEventListener('unhandledrejection',stumbled);
+})();
+</script>
 <canvas id="bgfx"></canvas><div class="vg"></div>
 
 <header class="d1404Header">
@@ -636,6 +678,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 
 <!-- ================= CANVAS EDITOR ================= -->
 <section data-view="canvas">
+  <div id="canvasResponsiveNotice407F"></div>
   <div id="canvas407F" class="canvas407FHost" aria-live="off"></div>
 </section>
 
@@ -712,17 +755,17 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
   </div></div>
   <div class="grid2" style="margin-top:18px">
     <div class="panelD"><div class="pi">
-      <div class="subt" style="margin-bottom:12px">CANONICAL RENDER · DEMO DATA · READ-ONLY</div>
+      <div class="subt" style="margin-bottom:12px">SAMPLE TIMELINE · READ-ONLY</div>
       <div id="boardReference"></div>
     </div></div>
     <div class="panelD"><div class="pi">
-      <div class="subt" style="margin-bottom:12px">CANONICAL 400G CLONE IMAGE</div>
-      <img id="refImg" alt="400g renderer sample" style="width:100%;border-radius:12px;border:1px solid var(--edge2);display:none">
+      <div class="subt" style="margin-bottom:12px">SAMPLE TIMELINE IMAGE</div>
+      <img id="refImg" alt="Sample timeline" style="width:100%;border-radius:12px;border:1px solid var(--edge2);display:none">
       <div id="refPh" style="border:1px dashed var(--edge2);border-radius:12px;padding:48px 22px;text-align:center">
-        <div style="font-weight:800;font-size:14px;margin-bottom:8px">400g clone preview goes here</div>
-        <div class="subt" style="letter-spacing:.2em;line-height:2">PLACE renderer_400g_best.png NEXT TO THIS FILE<br>400G CLONE PREVIEW · REVIEW GRADE · TEMPLATE NOT FROZEN</div>
+        <div style="font-weight:800;font-size:14px;margin-bottom:8px">The sample image appears here</div>
+        <div class="subt" style="letter-spacing:.2em;line-height:2">THIS SAMPLE IS NEVER PART OF YOUR OWN TIMELINE</div>
       </div>
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><span class="chip">400G · PSNR 36.16 · READY FOR BRIAN REVIEW · NOT FROZEN</span><span class="chip em">KEYNOTE CLASSIC · 402A VECTOR KIT ACTIVE · VECTOR PARITY PENDING</span></div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><span class="chip">EXAMPLE ONLY</span><span class="chip em">KEYNOTE CLASSIC STYLE</span></div>
     </div></div>
   </div>
 </section>
@@ -738,7 +781,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 </aside>
 <div id="globalLive407F" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <div id="printOv"><div id="printBar"><span class="subt">PRINT PREVIEW · INTERVIEWER-SAFE FILTER APPLIED · SELECTED THEME</span><button class="btnD go sm" id="printGo">PRINT ▸</button><button class="btnD alt sm" id="printClose">CLOSE</button></div><div id="boardPrint"></div></div>
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite" aria-atomic="true"><span id="toastText"></span><button type="button" id="toastDismiss" hidden>Dismiss</button></div>
 <script>
 /* ============ SHARED HELPERS (theme verbatim) ============ */
 const $=s=>document.querySelector(s),$$=s=>document.querySelectorAll(s);
@@ -1089,7 +1132,7 @@ function renderInspector(){
    +ovHtml
    +'<label class="f"><span class="fl">LANE</span><input type="text" id="iL" value="'+(rec.lane==null?'auto':rec.lane)+'"></label>'
    +'<label class="f"><span class="fl">NOTES / SOURCE</span><textarea id="iN">'+esc(rec.notes||'')+'</textarea></label>'
-   +(rec.src?'<div class="candQ">'+esc(rec.q||'')+'</div><div style="display:flex;gap:8px;margin-bottom:12px"><span class="chip cy">'+esc(rec.src)+'</span><button class="btnD alt sm" id="iProv">PROVENANCE ▸</button></div>':'')
+   +(rec.src?'<div class="candQ">'+esc(rec.q||'')+'</div><div style="display:flex;gap:8px;margin-bottom:12px"><span class="chip cy">'+esc(rec.src)+'</span><button class="btnD alt sm" id="iProv">WHY THIS WAS SUGGESTED ▸</button></div>':'')
    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'
    +'<button class="btnD alt sm" id="iEarlier">◂ EARLIER</button><button class="btnD alt sm" id="iLater">LATER ▸</button>'
    +(!rec.mile?'<button class="btnD alt sm" id="iShort">SHORTEN</button><button class="btnD alt sm" id="iLong">EXTEND</button>':'')
@@ -1324,7 +1367,7 @@ function renderVCompare(){
     const removed=oldT.filter(t=>newT.indexOf(t)<0).slice(0,6);
     diffHtml='<div class="chkRow"><span class="chip gn">ADDED SINCE</span><span style="font-size:12px">'+(added.length?esc(added.join(' · ')):'·')+'</span></div>'
       +'<div class="chkRow"><span class="chip rd">REMOVED SINCE</span><span style="font-size:12px">'+(removed.length?esc(removed.join(' · ')):'·')+'</span></div>';
-  }else diffHtml='<div class="chkRow"><span class="chip">LEGACY</span><span style="font-size:12px">Pre-407F sandbox version · label only, no restorable snapshot</span></div>';
+  }else diffHtml='<div class="chkRow"><span class="chip">EARLIER</span><span style="font-size:12px">Saved before this version history existed · the name is kept, but this one cannot be restored</span></div>';
   host.innerHTML='<div style="display:flex;gap:10px;align-items:center;margin-bottom:10px"><input type="text" id="vName" value="'+esc(v.v)+'" style="max-width:180px"><button class="btnD alt sm" id="vRename">RENAME</button>'
    +(v.doc?'<button class="btnD go sm" id="vRestore">RESTORE ▸</button>':'')+'</div>'
    +'<div class="chkRow"><span class="chip cy">VERSION</span><span style="font-size:12px">'+v.n+' events · '+esc(v.t)+'</span></div>'
@@ -1338,7 +1381,7 @@ function saveVersion(label){
   state.versions.push({id:Date.now(),v:label||('V'+state.draft),t:new Date().toISOString().slice(0,16).replace('T',' '),n:snap.events.length,doc:snap});
   state.saved=true;renderVersionsPanel();renderHist();renderHud();
 }
-$('#vSaveDraft').onclick=()=>{state.saved=true;toast('Draft saved · in-memory only');renderHud()};
+$('#vSaveDraft').onclick=()=>{state.saved=true;toast('Draft saved on this device');renderHud()};
 $('#vSaveVersion').onclick=()=>{saveVersion();toast('Saved as version V'+state.draft)};
 $('#vExportJson').onclick=()=>{
   const json=JSON.stringify({format:'d1-timeline-407f',sandbox:true,doc:snapshotDoc()},null,2);
@@ -1346,7 +1389,7 @@ $('#vExportJson').onclick=()=>{
   $('#vjClose').onclick=closeModal;
 };
 $('#vImportJson').onclick=()=>{
-  openModal('<div class="subt" style="margin-bottom:10px">IMPORT JSON · REPLACES CURRENT DRAFT</div><textarea id="vJson" placeholder="Paste a d1-timeline-407f JSON export" style="min-height:220px;font-family:var(--num);font-size:11px"></textarea><div style="display:flex;gap:10px;margin-top:12px"><button class="btnD go" id="vjApply">APPLY ▸</button><button class="btnD alt" id="vjClose">CANCEL</button></div>');
+  openModal('<div class="subt" style="margin-bottom:10px">IMPORT JSON · REPLACES CURRENT DRAFT</div><textarea id="vJson" placeholder="Paste a Timeline JSON export" style="min-height:220px;font-family:var(--num);font-size:11px"></textarea><div style="display:flex;gap:10px;margin-top:12px"><button class="btnD go" id="vjApply">APPLY ▸</button><button class="btnD alt" id="vjClose">CANCEL</button></div>');
   $('#vjClose').onclick=closeModal;
   $('#vjApply').onclick=()=>{
     try{const p=JSON.parse($('#vJson').value);const doc=p.doc||p;
@@ -1383,7 +1426,7 @@ function openCatModal(k){
   openModal('<div class="subt" style="margin-bottom:10px">COLOR KEY CATEGORY</div>'
    +'<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px"><span style="width:22px;height:16px;border-radius:3px;display:inline-block;background:'+c.c+';box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)"></span><b style="font-size:15px">'+esc(c.n)+'</b></div>'
    +'<label class="f"><span class="fl">CATEGORY LABEL</span><input type="text" id="ckName" value="'+esc(c.n)+'"></label>'
-   +'<div class="helper" style="margin-bottom:14px;letter-spacing:.08em">CANONICAL COLOR LOCKED TO THE KEYNOTE TEMPLATE · CUSTOM COLORS ARRIVE WITH FUTURE TEMPLATES</div>'
+   +'<div class="helper" style="margin-bottom:14px;letter-spacing:.08em">THIS COLOR COMES WITH THE TIMELINE STYLE YOU CHOSE · YOU CAN RENAME THE CATEGORY HERE</div>'
    +'<div style="display:flex;gap:10px"><button class="btnD go sm" id="ckSave">SAVE ▸</button><button class="btnD alt sm" id="ckCancel">CANCEL</button></div>');
   $('#ckSave').onclick=()=>{const v=$('#ckName').value.trim();if(v)CATS[k].n=v;closeModal();toast('Category renamed · '+v);renderAll()};
   $('#ckCancel').onclick=closeModal;
@@ -2383,7 +2426,7 @@ function showCoreErrors(focusInvalid){
 }
 function runExamAction404(method){
   const examApi=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.exam;
-  if(!examApi||typeof examApi[method]!=='function'){toast('Exam engineering is still initializing');return false}
+  if(!examApi||typeof examApi[method]!=='function'){toast('Timeline is still getting ready. Give it a moment and try again.');return false}
   const args=Array.prototype.slice.call(arguments,1);
   examApi[method].apply(examApi,args);
   return true;
@@ -2395,13 +2438,13 @@ function touchExamField404(recordId,field){
 }
 function runDomainAction404(method){
   const domainApi=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.domain;
-  if(!domainApi||typeof domainApi[method]!=='function'){toast('Builder engineering is still initializing');return null}
+  if(!domainApi||typeof domainApi[method]!=='function'){toast('Timeline is still getting ready. Give it a moment and try again.');return null}
   const args=Array.prototype.slice.call(arguments,1);
   return domainApi[method].apply(domainApi,args);
 }
 function runLorAction404(method){
   const lorApi=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.lor;
-  if(!lorApi||typeof lorApi[method]!=='function'){toast('LOR workflow is still initializing');return null}
+  if(!lorApi||typeof lorApi[method]!=='function'){toast('Timeline is still getting ready. Give it a moment and try again.');return null}
   const args=Array.prototype.slice.call(arguments,1);
   return lorApi[method].apply(lorApi,args);
 }
@@ -3112,7 +3155,7 @@ function candAct(id,act){
   renderCands();renderBoards();renderHud();renderEvList();
 }
 function openProv(c){
-  openModal('<div class="subt" style="margin-bottom:10px">PROVENANCE · WHY THIS WAS PROPOSED</div>'
+  openModal('<div class="subt" style="margin-bottom:10px">WHY THIS WAS SUGGESTED</div>'
    +'<div style="font-weight:800;font-size:16px;margin-bottom:10px">'+esc(c.t)+'</div>'
    +'<div class="chkRow"><span class="chip cy">FILE</span><span style="font-size:12.5px">'+esc(c.file)+' · page '+c.page+'</span></div>'
    +'<div class="chkRow"><span class="chip cy">SECTION</span><span style="font-size:12.5px">'+esc(c.section||'·')+'</span></div>'
@@ -3245,7 +3288,7 @@ function renderExport(){
     {t:'FULL STORY PNG',s:'FOR STUDENT AND ADVISOR ONLY<br>'+(c.safe+c.full)+' EVENTS · APPROVED PERSONAL CONTEXT INCLUDED',need:['personal'],scope:'full'},
     {t:'ADVISOR PACKET PDF',s:'FOR BRIAN AND MENTOR PREP<br>BOARD + CHEAT SHEET + QUESTIONS + '+state.comments.length+' COMMENTS · WATERMARKED',need:[],scope:'advisor'},
     {t:'PRINT-READY PDF',s:'FOR THE MOCK INTERVIEW PACKET<br>HIGH RESOLUTION · '+state.exSize+' BASE',need:[],scope:'safe'},
-    {t:'STUDENT ARCHIVE',s:'FOR THE STUDENT · TIMELINE + SOURCE AND PROVENANCE SUMMARY + VERSION LIST',need:[],scope:'editor'},
+    {t:'STUDENT ARCHIVE',s:'FOR YOU · TIMELINE + WHERE EACH ITEM CAME FROM + VERSION LIST',need:[],scope:'editor'},
     {t:'KEYNOTE / PPTX',s:'FUTURE EDITABLE EXPORT · ARRIVES AFTER TEMPLATE PACKAGE FREEZE',lk:true}
   ];
   host.innerHTML=cards.map((k,i)=>{
@@ -3286,7 +3329,15 @@ function openModal(html){$('#modalIn').innerHTML=html;$('#modalBk').classList.ad
 function closeModal(){$('#modalBk').classList.remove('on');if(state.selCat){state.selCat=null;renderBoards()}}
 $('#modalBk').onclick=e=>{if(e.target.id==='modalBk')closeModal()};
 let toastT=null;
-function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),2600)}
+function dismissToast(){clearTimeout(toastT);toastT=null;const t=$('#toast');t.classList.remove('on');t.classList.remove('isPersistent');$('#toastDismiss').hidden=true}
+function toast(msg,opts){const t=$('#toast'),body=$('#toastText'),close=$('#toastDismiss');
+  /* A 2.6s auto-hide is unreadable for anyone using a screen reader or reading slowly, so
+     anything that reports a problem stays until the student dismisses it. */
+  const persist=!!opts&&(opts.persist===true||opts.tone==='danger'||opts.tone==='warning');
+  body.textContent=msg;t.classList.add('on');t.classList.toggle('isPersistent',persist);close.hidden=!persist;
+  if(opts&&opts.diagnostic)t.dataset.diagnostic=String(opts.diagnostic);else delete t.dataset.diagnostic;
+  clearTimeout(toastT);toastT=persist?null:setTimeout(()=>{t.classList.remove('on');$('#toastDismiss').hidden=true},2600)}
+$('#toastDismiss').onclick=dismissToast;
 
 /* ============ REFERENCE IMAGE FALLBACK ============ */
 (function(){const im=$('#refImg');im.onload=()=>{im.style.display='block';$('#refPh').style.display='none'};im.onerror=()=>{im.style.display='none'}})();

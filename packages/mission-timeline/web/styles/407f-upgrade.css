@@ -4566,6 +4566,97 @@ section[data-view="canvas"]{
   gap:10px;
 }
 
+/* Smart Fill review surfaces. The quality panel, the confidence lanes and the compact
+   "needs your help" card shipped with no styling at all, so they rendered as unstyled
+   blocks - and wrapping the cards in .candidate-lane sections took the card gap with it. */
+.intake407FHost .candidate-lane{
+  display:grid;
+  gap:10px;
+  margin-block-end:18px;
+}
+
+.intake407FHost .candidate-lane-head{
+  align-items:baseline;
+  color:var(--mid);
+  display:flex;
+  flex-wrap:wrap;
+  font-family:var(--num);
+  font-size:11px;
+  gap:8px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+
+.intake407FHost .candidate-lane-head strong{
+  color:var(--ink);
+  font-size:13px;
+  letter-spacing:.02em;
+  text-transform:none;
+}
+
+.intake407FHost .intake-suggestions{
+  background:#111a2a;
+  border:1px solid var(--edge);
+  border-radius:12px;
+  display:grid;
+  gap:12px;
+  margin-block-end:18px;
+  padding:16px;
+}
+
+.intake407FHost .suggestion-list{
+  display:grid;
+  gap:10px;
+}
+
+.intake407FHost .intake-suggestion{
+  background:#0f1522;
+  border:1px solid var(--edge);
+  border-radius:10px;
+  display:grid;
+  gap:8px;
+  padding:12px 14px;
+}
+
+.intake407FHost .suggestion-head{
+  align-items:baseline;
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  justify-content:space-between;
+}
+
+.intake407FHost .suggestion-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.intake407FHost .candidate-questions{
+  background:#131c2c;
+  border:1px solid var(--edge);
+  border-radius:10px;
+  display:grid;
+  gap:10px;
+  padding:12px 14px;
+}
+
+.intake407FHost .candidate-questions-clear{
+  color:var(--mid);
+  font-size:12px;
+}
+
+.intake407FHost .candidate-toggle{
+  align-items:center;
+  display:inline-flex;
+  gap:6px;
+}
+
+/* The compact card asks one question, so the two-column field grid does not apply. */
+.intake407FHost .candidate-fields.needs-help{
+  grid-template-columns:minmax(0,1fr);
+}
+
 .intake407FHost .candidate-card,
 .intake407FHost .candidate-row{
   background:#0f1522;

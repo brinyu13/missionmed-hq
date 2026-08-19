@@ -23,6 +23,8 @@ import {
   applyAdvancedObjectAction,
   applyAdvancedTypography,
   applyModeSwitch,
+  advancedGroupBounds,
+  advancedObjectByTarget,
   buildAdvancedSelectionModel,
   buildColorPickerModel,
   buildInsertStripModel,
@@ -33,9 +35,11 @@ import {
   createMediaElement,
   createPresetBackground,
   createTextBlock,
+  createAdvancedElement,
   createUploadedBackground,
   deleteMediaElement,
   eyedropperAvailable,
+  groupAdvancedObjects,
   installAdvancedStudio,
   layoutPolicy,
   moveMediaElement,
@@ -52,11 +56,14 @@ import {
   renderColorPicker,
   renderInsertStrip,
   renderModeDialog,
+  placeAdvancedObjectAt,
+  resizeAdvancedGroup,
   resizeMediaElement,
   sampleEyeDropper,
   scrimCss,
   snapAdvancedObjectToBoard,
   setBackgroundDim,
+  setAdvancedObjectGeometry,
   setLayoutLock,
   setMediaAspectLock,
   studioVisibility,
@@ -1032,4 +1039,169 @@ test("007 heterogeneous layer actions share one z-order",()=>{
   const result=applyAdvancedObjectAction(source,{type:"element",id:"shape-1"},"bring-forward");
   assert.equal(result.changed,true);
   assert.ok(result.document.advanced.elements[0].zIndex>result.document.advanced.textBlocks[0].zIndex);
+});
+
+test("A10 every rail tile drags a payload a board drop handler accepts, with the drop point respected",()=>{
+  const media=createMediaElement({id:"media-1",kind:"image",file:png("rail.png"),naturalWidth:800,naturalHeight:400});
+  const advanced=documentFixture({mode:"advanced",advanced:{
+    media:[{...media,placed:false}],
+    textBlocks:[createTextBlock({id:"text-1",text:"Interview arc"})],
+    elements:[createAdvancedElement({id:"shape-1",kind:"circle"})]
+  }});
+  const rail=renderAdvancedAssetRail(advanced,null,{activePanel:"uploads"});
+  assert.equal((rail.match(/data-advanced-drag-object/g)||[]).length,3);
+
+  const listeners=new Map();
+  const payloads=[];
+  installAdvancedStudio({
+    addEventListener(type,listener){listeners.set(type,listener);},
+    removeEventListener(){}
+  },{onDragStart:(payload)=>payloads.push(payload)});
+  const transfer={data:{},setData(key,value){this.data[key]=value;},effectAllowed:""};
+  listeners.get("dragstart")({
+    dataTransfer:transfer,
+    target:{
+      dataset:{advancedTargetType:"media",advancedTargetId:"media-1"},
+      closest(selector){return selector==="[data-advanced-drag-object]"?this:null;}
+    }
+  });
+  const payload=JSON.parse(transfer.data["application/x-missionmed-timeline-asset"]);
+  // The board drop handlers accept kind:"insert" only; "object" was silently dropped.
+  assert.equal(payload.kind,"insert");
+  assert.equal(payload.action,"place");
+  assert.deepEqual(payload.target,{type:"media",id:"media-1"});
+  // dropEffect "copy" against a move-only effectAllowed makes the browser veto the drop.
+  assert.equal(transfer.effectAllowed,"copyMove");
+  assert.deepEqual(payloads,[payload]);
+
+  for(const target of [{type:"media",id:"media-1"},{type:"text",id:"text-1"},{type:"element",id:"shape-1"}]){
+    const dropped=placeAdvancedObjectAt(advanced,target,{x:1200,y:700});
+    assert.equal(dropped.changed,true);
+    assert.deepEqual(dropped.selection,target);
+    const item=advancedObjectByTarget(dropped.document,target);
+    assert.equal(Math.round(item.x+item.width/2),1200);
+    assert.equal(Math.round(item.y+item.height/2),700);
+  }
+  assert.equal(
+    placeAdvancedObjectAt(advanced,{type:"media",id:"media-1"},{x:10,y:10}).document.advanced.media[0].placed,
+    true
+  );
+  const clamped=placeAdvancedObjectAt(advanced,{type:"element",id:"shape-1"},{x:1919,y:1079});
+  const shape=clamped.document.advanced.elements[0];
+  assert.equal(shape.x+shape.width,1920);
+  assert.equal(shape.y+shape.height,1080);
+  assert.equal(placeAdvancedObjectAt(advanced,{type:"media",id:"missing"},{x:1,y:1}).changed,false);
+  assert.throws(()=>placeAdvancedObjectAt(documentFixture(),{type:"text",id:"text-1"},{x:1,y:1}),/only in Advanced Studio/);
+});
+
+test("grouped text is centred in its container and reflows when the container is resized",()=>{
+  const source=documentFixture({mode:"advanced",advanced:{
+    elements:[createAdvancedElement({id:"key-box",kind:"rounded-rectangle",x:18,y:300,width:416,height:322})],
+    textBlocks:[createTextBlock({id:"key-label",text:"US Clinical Experience",x:40,y:330,width:360,height:40,size:24})]
+  }});
+  const grouped=groupAdvancedObjects(source,[
+    {type:"element",id:"key-box"},
+    {type:"text",id:"key-label"}
+  ],{id:"color-key"});
+  assert.equal(grouped.document.advanced.textBlocks[0].alignment,"center");
+  assert.deepEqual(advancedGroupBounds(grouped.document,"color-key"),{x:18,y:300,width:416,height:322});
+
+  const halved=resizeAdvancedGroup(grouped.document,"color-key",{x:18,y:300,width:208,height:161});
+  assert.equal(halved.changed,true);
+  assert.equal(halved.mutation.label,"Resize Timeline group");
+  assert.deepEqual(halved.selection,{type:"group",id:"color-key"});
+  const label=halved.document.advanced.textBlocks[0];
+  const box=halved.document.advanced.elements[0];
+  assert.equal(label.size,12);
+  assert.ok(label.x>=box.x&&label.y>=box.y);
+  assert.ok(label.x+label.width<=box.x+box.width);
+  assert.ok(label.y+label.height<=box.y+box.height);
+  assert.equal(resizeAdvancedGroup(grouped.document,"missing",{width:10,height:10}).changed,false);
+  assert.equal(
+    resizeAdvancedGroup(grouped.document,"color-key",{x:200,y:200,width:416,height:322},{kind:"move"}).mutation.label,
+    "Move Timeline group"
+  );
+
+  // Text a student has already aligned survives grouping untouched.
+  const explicit=documentFixture({mode:"advanced",advanced:{
+    elements:[createAdvancedElement({id:"key-box",kind:"rounded-rectangle",x:18,y:300,width:416,height:322})],
+    textBlocks:[createTextBlock({id:"key-label",text:"Right",x:40,y:330,width:360,height:40,alignment:"right"})]
+  }});
+  assert.equal(
+    groupAdvancedObjects(explicit,[{type:"element",id:"key-box"},{type:"text",id:"key-label"}],{id:"g"})
+      .document.advanced.textBlocks[0].alignment,
+    "right"
+  );
+});
+
+test("ungrouped text keeps independent font, alignment, spacing, wrapping, width, and position controls",()=>{
+  const advanced=documentFixture({mode:"advanced",advanced:{
+    textBlocks:[createTextBlock({id:"text-1",text:"Label",x:100,y:120,width:280,height:64})]
+  }});
+  const html=renderAdvancedSelectionControls(advanced,{
+    selection:{type:"text",id:"text-1"},
+    environment:{}
+  });
+  for(const probe of [
+    'data-advanced-typography-field="font"',
+    'data-advanced-typography-field="size"',
+    'data-advanced-typography-field="weight"',
+    'data-advanced-alignment="left"',
+    'data-advanced-alignment="center"',
+    'data-advanced-alignment="right"',
+    'data-advanced-text-layout="lineHeight"',
+    'data-advanced-text-layout="wrap"',
+    'data-advanced-geometry="x"',
+    'data-advanced-geometry="y"',
+    'data-advanced-geometry="width"',
+    'data-advanced-geometry="height"'
+  ])assert.ok(html.includes(probe),`missing text control: ${probe}`);
+  // The headline has no box of its own, so it must not offer position and size.
+  assert.equal(
+    renderAdvancedSelectionControls(advanced,{selection:{type:"headline"},environment:{}})
+      .includes("data-advanced-geometry"),
+    false
+  );
+
+  const spaced=updateTextContainerPresentation(advanced,{type:"text",id:"text-1"},{
+    lineHeight:1.45,
+    wrap:"nowrap"
+  });
+  assert.equal(spaced.advanced.textBlocks[0].lineHeight,1.45);
+  assert.equal(spaced.advanced.textBlocks[0].wrap,"nowrap");
+  assert.throws(()=>updateTextContainerPresentation(advanced,{type:"text",id:"text-1"},{wrap:"sideways"}),/wrap or nowrap/);
+
+  const resized=setAdvancedObjectGeometry(spaced,{type:"text",id:"text-1"},{width:420,x:1700});
+  assert.equal(resized.advanced.textBlocks[0].width,420);
+  assert.equal(resized.advanced.textBlocks[0].x,1500);
+  assert.equal(resized.advanced.textBlocks[0].y,120);
+
+  const listeners=new Map();
+  const calls=[];
+  installAdvancedStudio({
+    addEventListener(type,listener){listeners.set(type,listener);},
+    removeEventListener(){}
+  },{
+    onTextLayout:(patch,target)=>calls.push(["layout",patch,target]),
+    onGeometry:(patch,target)=>calls.push(["geometry",patch,target])
+  });
+  const control=(selector,dataset,properties)=>({
+    dataset,
+    ...properties,
+    closest(query){return query===selector?this:null;}
+  });
+  listeners.get("change")({target:control("[data-advanced-text-layout]",{
+    advancedTextLayout:"lineHeight",
+    advancedTargetType:"text",
+    advancedTargetId:"text-1"
+  },{value:"1.45"})});
+  listeners.get("change")({target:control("[data-advanced-geometry]",{
+    advancedGeometry:"width",
+    advancedTargetType:"text",
+    advancedTargetId:"text-1"
+  },{value:"420"})});
+  assert.deepEqual(calls,[
+    ["layout",{lineHeight:1.45},{type:"text",id:"text-1"}],
+    ["geometry",{width:420},{type:"text",id:"text-1"}]
+  ]);
 });

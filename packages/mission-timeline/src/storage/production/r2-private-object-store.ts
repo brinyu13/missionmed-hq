@@ -18,11 +18,12 @@ import type { ObjectRecord, PrincipalContext } from "../../contracts/types.js";
 import { clone, newId, now, sha256 } from "../../core/canonical.js";
 import { TimelineError } from "../../core/errors.js";
 import { postgresClaimsFromPrincipal } from "../../persistence/postgres/types.js";
-import type {
-  PrivateObjectStore,
-  SignedDownload,
-  SignedUpload,
-  UploadRequest,
+import {
+  assertOwnedObjectIngestion,
+  type PrivateObjectStore,
+  type SignedDownload,
+  type SignedUpload,
+  type UploadRequest,
 } from "../private-object-store.js";
 
 const MAX_SIGNED_URL_SECONDS = 5 * 60;
@@ -390,6 +391,15 @@ export class R2PrivateObjectStore implements PrivateObjectStore {
     if (bytes.byteLength !== request.byteSize || sha256(bytes) !== request.sha256.toLowerCase()) {
       throw new TimelineError("OBJECT_SERVICE_BYTES_INVALID", "Service object integrity is invalid.", 400);
     }
+    return this.writeSignedBytes(context, request, bytes);
+  }
+
+  async putOwnedObject(context: PrincipalContext, request: UploadRequest, bytes: Uint8Array): Promise<ObjectRecord> {
+    assertOwnedObjectIngestion(context, request, bytes);
+    return this.writeSignedBytes(context, request, bytes);
+  }
+
+  private async writeSignedBytes(context: PrincipalContext, request: UploadRequest, bytes: Uint8Array): Promise<ObjectRecord> {
     const signed = await this.signUpload(context, request);
     const pending = await this.requireAuthorizedRecord(context, signed.objectId);
     try {

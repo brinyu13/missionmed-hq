@@ -25,7 +25,7 @@ function looksUnitedStates(value){
 function hasUnitedStatesContext(record){
   const country=String(record.country||"").trim();
   if(country&&!US_MARKER.test(country))return false;
-  return looksUnitedStates(structuredLocation(record))||looksUnitedStates(record.organization);
+  return looksUnitedStates(structuredLocation(record))||looksUnitedStates(record.organization)||looksUnitedStates(record.title);
 }
 function unverifiedClinical(common,reason="Clinical-experience wording was found, but a United States setting was not confirmed.",warning="Do not label this event USCE without explicit positive USCE wording or confirmed United States geography"){
   return result("UNCLASSIFIED","work","duration",reason,{...common,warnings:["Clinical experience needs human review",warning]});
@@ -76,7 +76,9 @@ export function classifyEvent(record,dateRange){
   )return result("EDUCATION","education",hasRange?"duration":"milestone","Education wording or an education source section was detected.",common);
   if(/\bfellow(?:ship)?\b/.test(text))return result("RESIDENCY_FELLOWSHIP","work",hasRange?"duration":"milestone","Fellowship training wording detected.",common);
   if(/\bresiden(?:cy|t)\b/.test(text))return result("RESIDENCY_FELLOWSHIP","work",hasRange?"duration":"milestone","Residency training wording detected.",common);
-  if(/\bintern(?:ship)?\b|\bhouse officer\b/.test(text))return result("INTERNSHIP_HOUSE_OFFICER","work",hasRange?"duration":"milestone","Internship or house-officer wording detected.",common);
+  /* A sub-internship is a US clinical rotation, not a house-officer post; the substring
+     "internship" inside it used to claim the entry before the rotation rule ran. */
+  if(!/\bsub[- ]?internship\b/.test(text)&&(/\bintern(?:ship)?\b|\bhouse officer\b/.test(text)))return result("INTERNSHIP_HOUSE_OFFICER","work",hasRange?"duration":"milestone","Internship or house-officer wording detected.",common);
   if(/\bobservership\b|\bexternship\b|\bsub[- ]?internship\b|\bclerkship\b|\b(?:usce|united states clinical experience)\b|\bclinical rotations?\b|\brotations?\b|\bclinical assistant\b/.test(text)){
     const explicitUsce=EXPLICIT_USCE.test(text);
     if(explicitUsce&&NONFINAL_USCE.test(text))return unverifiedClinical(common,"USCE wording was negated or uncertain, so no completed United States clinical experience was inferred.","Negated or uncertain USCE wording must remain unclassified until human confirmation");

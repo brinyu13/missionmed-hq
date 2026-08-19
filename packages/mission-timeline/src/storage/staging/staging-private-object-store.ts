@@ -3,7 +3,7 @@ import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypt
 import type { ObjectRecord, PrincipalContext } from "../../contracts/types.js";
 import { clone, newId, now, sha256 } from "../../core/canonical.js";
 import { TimelineError } from "../../core/errors.js";
-import type { PrivateObjectStore, SignedDownload, SignedUpload, UploadRequest } from "../private-object-store.js";
+import { assertOwnedObjectIngestion, type PrivateObjectStore, type SignedDownload, type SignedUpload, type UploadRequest } from "../private-object-store.js";
 import { ExifStrippingJpegSanitizer, hasJpegPrivacyMetadata, matchesDeclaredMimeType } from "./content-validation.js";
 import type {
   MalwareScanResult,
@@ -493,6 +493,27 @@ export class StagingPrivateObjectStore implements PrivateObjectStore {
         checksumSha256: sha256(bytes),
         metadata: this.storageMetadata(state),
         idempotencyKey: `service-upload:${state.record.id}`,
+        ifNoneMatch: true,
+      }),
+    );
+    await this.retry(() => this.client.revokeObjectGrants(state.record.storageKey));
+    return this.confirmUpload(context, state.record.id, signed.uploadToken);
+  }
+
+  async putOwnedObject(context: PrincipalContext, request: StagingUploadRequest, bytes: Uint8Array): Promise<ObjectRecord> {
+    this.requireAuthenticatedContext(context);
+    assertOwnedObjectIngestion(context, request, bytes);
+    const signed = await this.signUpload(context, request);
+    const state = this.requireState(signed.objectId);
+    await this.authorizeState(context, state, "WRITE");
+    await this.retry(() =>
+      this.client.putObject({
+        key: state.record.storageKey,
+        bytes,
+        contentType: request.mimeType,
+        checksumSha256: sha256(bytes),
+        metadata: this.storageMetadata(state),
+        idempotencyKey: `owner-upload:${state.record.id}`,
         ifNoneMatch: true,
       }),
     );

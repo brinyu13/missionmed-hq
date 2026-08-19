@@ -15,6 +15,7 @@ import {
 import {parseErasBlocks} from "../ingestion/eras-parser.js";
 import {PARSER_VERSION} from "../ingestion/ingestion-state.js";
 import {detectSections} from "../ingestion/section-detector.js";
+import {buildQualitySuggestions} from "../ingestion/quality-review.js";
 
 const UXR_VISIBILITY=Object.freeze({
   INTERVIEWER_SAFE:"INTERVIEWER_SAFE",
@@ -467,18 +468,19 @@ export function createD1408PdfIntakeAdapter({
       const records=parseRecords(effectiveType,sectionResult.blocks);
       const legacyCandidates=buildCandidates(records,sourceDocument);
       const candidates=legacyCandidates.map(mapD1408CandidateToUxr);
+      const sourceBlocks=sectionResult.blocks.map((block)=>({
+        id:String(block.id),
+        pageId:String(block.pageId||""),
+        pageNumber:Number(block.pageNumber)||null,
+        section:String(block.section||"unknown"),
+        text:String(block.text||"")
+      }));
       return{
         readable:true,
         outcome:candidates.length?"ready-for-review":"empty",
         candidates,
         sourceDocument,
-        sourceBlocks:sectionResult.blocks.map((block)=>({
-          id:String(block.id),
-          pageId:String(block.pageId||""),
-          pageNumber:Number(block.pageNumber)||null,
-          section:String(block.section||"unknown"),
-          text:String(block.text||"")
-        })),
+        sourceBlocks,
         parser:{
           version:PARSER_VERSION,
           detectedType:detection.detectedType,
@@ -486,7 +488,9 @@ export function createD1408PdfIntakeAdapter({
           sections:[...sectionResult.sections],
           recordCount:records.length,
           candidateCount:candidates.length,
-          networkCalls:false
+          networkCalls:false,
+          qualitySuggestions:buildQualitySuggestions(candidates,{sourceBlocks}),
+          unresolvedQuestions:[]
         }
       };
     }
@@ -568,11 +572,18 @@ export function createProductionCvIntakeAdapter({
           };
         }
         activeSourceObjectId=objectId;
+        const aiCandidates=analysis.candidates.map((candidate)=>mapCvIntelligenceCandidateToUxr(candidate,{
+          sourceDocument:{...source,objectId},sourceBlocks:local.sourceBlocks
+        }));
+        /* The server suggestions are computed against the AI candidate set, so the local
+           deterministic pass has to be re-run against that same set - the local candidate
+           ids it was built from no longer exist once AI candidates replace them. */
+        const serverSuggestions=(Array.isArray(analysis.qualitySuggestions)?analysis.qualitySuggestions:[])
+          .filter((item)=>item&&typeof item==="object")
+          .map((item)=>({...item,proposal:null}));
         return{
           ...local,
-          candidates:analysis.candidates.map((candidate)=>mapCvIntelligenceCandidateToUxr(candidate,{
-            sourceDocument:{...source,objectId},sourceBlocks:local.sourceBlocks
-          })),
+          candidates:aiCandidates,
           sourceDocument:{...source,objectId,custody:"TIMELINE_PRIVATE_SOURCE",analysisId:analysis.analysisId},
           parser:{
             ...local.parser,
@@ -583,7 +594,10 @@ export function createProductionCvIntakeAdapter({
             schemaVersion:analysis.schemaVersion,
             promptVersion:analysis.promptVersion,
             rejectedCandidateCount:Number(analysis.rejectedCandidateCount)||0,
-            qualitySuggestions:Array.isArray(analysis.qualitySuggestions)?analysis.qualitySuggestions:[],
+            qualitySuggestions:[
+              ...serverSuggestions,
+              ...buildQualitySuggestions(aiCandidates,{sourceBlocks:local.sourceBlocks})
+            ],
             unresolvedQuestions:Array.isArray(analysis.unresolvedQuestions)?analysis.unresolvedQuestions:[]
           }
         };

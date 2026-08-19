@@ -145,4 +145,80 @@ test("owner-authenticated File Vault handoff stores one exact private SOURCE wit
     body: bytes,
   });
   assert.equal((await api.handle(tampered)).status, 409);
+
+  // The custody write must run under the real student, never a forged SERVICE principal:
+  // SERVICE is the one role that waives owner checks and no RLS policy accepts it here.
+  await assert.rejects(
+    objectStore.putOwnedObject(
+      { ...student, role: "SERVICE" },
+      { documentId: "timeline_filevault_http", ownerPrincipalId: student.principalId, objectClass: "SOURCE", mimeType: "application/pdf", byteSize: bytes.byteLength, sha256: digest },
+      bytes,
+    ),
+    (error: { code?: string }) => error.code === "OBJECT_OWNER_ROLE_REQUIRED",
+  );
+
+  const oversize = new Uint8Array(20 * 1024 * 1024 + 1);
+  const tooLarge = new Request("https://timeline.local/v1/documents/timeline_filevault_http/file-vault/ingestions", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/pdf",
+      "content-length": String(oversize.byteLength),
+      "x-content-sha256": sha256(oversize),
+      "x-file-vault-id": "11111111-1111-4111-8111-111111111111",
+      "x-file-vault-version": "22222222-2222-4222-8222-222222222222",
+    },
+    body: oversize,
+  });
+  const tooLargeResponse = await api.handle(tooLarge);
+  assert.equal(tooLargeResponse.status, 413);
+  assert.equal((await tooLargeResponse.json()).error.code, "FILE_VAULT_INGEST_SIZE_DENIED");
+
+  const deleted = await api.handle(httpRequest(`/v1/objects/${payload.source.objectId}`, "DELETE", token));
+  assert.equal(deleted.status, 204);
+  const released = await objectStore.getAuthorizedObject(student, payload.source.objectId);
+  assert.equal(released?.status, "DELETED");
+  assert.equal(released?.bytes, undefined);
+  assert.equal((await api.handle(httpRequest(`/v1/objects/${payload.source.objectId}`, "DELETE", token))).status, 204);
+});
+
+test("File Vault ingestion and source deletion answer alike for a document that is not the student's", async () => {
+  const repository = new InMemoryTimelineRepository();
+  const service = new TimelineService(repository, fixedClock);
+  const directory = new InMemoryPrincipalDirectory();
+  directory.register({ principalId: student.principalId, wpUserId: 42, role: "STUDENT", programIds: student.programIds, assignedDocumentIds: [], active: true });
+  directory.register({ principalId: "principal_other_student", wpUserId: 77, role: "STUDENT", programIds: student.programIds, assignedDocumentIds: [], active: true });
+  const identity = new MatrixSessionExchange(directory, { verify: async () => true }, "0123456789abcdef0123456789abcdef", 600, fixedClock);
+  const objectStore = new InMemoryPrivateObjectStore("test", "0123456789abcdef0123456789abcdef", fixedClock);
+  const api = new TimelineHttpApi(service, identity, objectStore, new PrivacySafeTelemetry(new InMemoryTelemetrySink(), "test", fixedClock), "test", false);
+  const owner = (await (await api.handle(httpRequest("/v1/session/exchange", "POST", undefined), { wpUserId: 42, displayName: "Student", nonceVerified: true, sessionId: "matrix_session" })).json()).token;
+  const intruder = (await (await api.handle(httpRequest("/v1/session/exchange", "POST", undefined), { wpUserId: 77, displayName: "Other", nonceVerified: true, sessionId: "matrix_session_2" })).json()).token;
+  await api.handle(httpRequest("/v1/documents", "POST", owner, { id: "timeline_owned", programId: student.programIds[0], title: "Timeline", document: { events: [] } }));
+
+  const bytes = new TextEncoder().encode("exact private File Vault CV bytes");
+  const ingest = (token: string, documentId: string) => new Request(`https://timeline.local/v1/documents/${documentId}/file-vault/ingestions`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/pdf",
+      "content-length": String(bytes.byteLength),
+      "x-content-sha256": sha256(bytes),
+      "x-file-vault-id": "11111111-1111-4111-8111-111111111111",
+      "x-file-vault-version": "22222222-2222-4222-8222-222222222222",
+    },
+    body: bytes,
+  });
+  const crossOwner = await api.handle(ingest(intruder, "timeline_owned"));
+  const absent = await api.handle(ingest(intruder, "timeline_never_created"));
+  assert.equal(crossOwner.status, 404);
+  assert.deepEqual(await crossOwner.json(), await absent.json());
+  assert.equal(absent.status, 404);
+
+  const objectId = (await (await api.handle(ingest(owner, "timeline_owned"))).json()).source.objectId;
+  const crossDelete = await api.handle(httpRequest(`/v1/objects/${objectId}`, "DELETE", intruder));
+  const absentDelete = await api.handle(httpRequest("/v1/objects/object_never_created", "DELETE", intruder));
+  assert.equal(crossDelete.status, 404);
+  assert.equal(absentDelete.status, 404);
+  assert.deepEqual(await crossDelete.json(), await absentDelete.json());
+  assert.equal((await objectStore.getAuthorizedObject(student, objectId))?.status, "CONFIRMED");
 });

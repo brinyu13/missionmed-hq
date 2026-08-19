@@ -252,11 +252,18 @@ const exportOnce=async(format,filename)=>{
   await clearModal();
   // A freshly reloaded page resolves entitlement asynchronously, so the export controls
   // start disabled. Wait for the real enabled state rather than racing it.
-  await page.waitForFunction(()=>{
-    const radio=document.querySelector('[name="export-format"]');
-    const action=document.querySelector("[data-export-action]");
-    return Boolean(radio&&!radio.disabled&&action&&!action.disabled);
-  },undefined,{timeout:60000});
+  // The interstitial can reappear between exports and it disables the controls while it
+  // is up, so clear and re-check rather than waiting once on a state the modal owns.
+  for(let attempt=0;attempt<12;attempt+=1){
+    const ready=await page.evaluate(()=>{
+      const radio=document.querySelector('[name="export-format"]');
+      const action=document.querySelector("[data-export-action]");
+      return Boolean(radio&&!radio.disabled&&action&&!action.disabled);
+    });
+    if(ready)break;
+    await clearModal();
+    await page.waitForTimeout(1000);
+  }
   if(format)await page.locator(`[name="export-format"][value="${format}"]`).check();
   await clearModal();
   const action=page.locator("[data-export-action]");
@@ -479,14 +486,20 @@ for(const scenario of SCENARIOS){
   await exportHost.locator("iframe").contentFrame().locator("#board")
     .screenshot({path:path.join(captureDir,`${scenario.key}_EXPORT_PREVIEW.png`)});
 
+  const exportFailures=[];
   if(!renderFailed){
-    await exportOnce("png-1920x1080",`${scenario.key}_1920x1080.png`);
-    await exportOnce("pdf-letter-landscape",`${scenario.key}_LETTER.pdf`);
-    await exportOnce("pdf-a4-landscape",`${scenario.key}_A4.pdf`);
+    for(const [format,filename] of [
+      ["png-1920x1080",`${scenario.key}_1920x1080.png`],
+      ["pdf-letter-landscape",`${scenario.key}_LETTER.pdf`],
+      ["pdf-a4-landscape",`${scenario.key}_A4.pdf`]
+    ]){
+      try{await exportOnce(format,filename);}
+      catch(error){exportFailures.push(`${filename}: ${String(error?.message||error).slice(0,120)}`);}
+    }
   }
 
   results.push({
-    renderFailed,failureState,
+    renderFailed,failureState,exportFailures,
     scenario:scenario.key,events:scenario.events.length,arrows:geometry.arrows,
     flags:geometry.flags.length,flagRowOverlaps:geometry.overlaps,
     flagsOffBoard:geometry.offBoard,arrowPartsOutOfBounds:geometry.arrowOverflow,
@@ -511,7 +524,8 @@ const failures=[
   ...r.flagsOffBoard.map((id)=>`${r.scenario}: flag off board ${id}`),
   ...r.arrowPartsOutOfBounds.map((id)=>`${r.scenario}: arrow part out of bounds ${id}`),
   ...(r.backgroundPresent?[]:[`${r.scenario}: missing background`]),
-  ...(r.renderFailed?[`${r.scenario}: never committed a render (${r.failureState?.error||"unknown"})`]:[])
+  ...(r.renderFailed?[`${r.scenario}: never committed a render (${r.failureState?.error||"unknown"})`]:[]),
+  ...(r.exportFailures||[]).map((entry)=>`${r.scenario}: export failed ${entry}`)
 ])];
 if(failures.length){console.error("GATE FAILURES:\n"+failures.join("\n"));process.exitCode=1;}
 await context.close();

@@ -29,7 +29,39 @@ export const INTAKE_COPY=Object.freeze({
   unreadable:"We couldn't read text in this document. If it's a scan, export a text PDF from MyERAS or your CV app and try again.",
   empty:"We read it, but didn't find dated events we're confident about. The guided builder takes about 10 minutes.",
   doneBody:"Your document has been processed. You can delete it now or keep it for another pass.",
-  fileError:"PDF or DOCX, up to 20MB."
+  fileError:"PDF or DOCX, up to 20MB.",
+  suggestionsSubline:"We checked your document before you start. Nothing here changes your history unless you apply it, and every applied change can be undone.",
+  suggestionsClear:"We checked your document and found nothing to flag.",
+  questionsClear:"Your document already answers everything we need for this one."
+});
+
+export const SUGGESTION_LABELS=Object.freeze({
+  POSSIBLE_DUPLICATE:"Possible duplicate",
+  CATEGORY_REVIEW:"Category needs you",
+  CHRONOLOGY_REVIEW:"Dates disagree",
+  MISSING_END_DATE:"Missing end date",
+  SOURCE_ITEM_NOT_INCLUDED:"Line we did not use",
+  LABEL_READABILITY:"Label too long",
+  VISUAL_OVERLAP:"Crowded timeline"
+});
+
+/* C-09: HIGH/MEDIUM/LOW must change what the student is asked to DO, not just the tag
+   colour. HIGH is bulk-acceptable, MEDIUM is prefilled but confirmed one by one, and LOW
+   asks only for the facts the document does not already state. */
+export const REVIEW_LANES=Object.freeze([
+  Object.freeze({id:"high",title:"Ready to accept",hint:"Your document states these outright. Accept them together."}),
+  Object.freeze({id:"medium",title:"Confirm these",hint:"Prefilled from your document. Give each one a quick look."}),
+  Object.freeze({id:"low",title:"Needs your help",hint:"We are missing something here, so we ask only for that."})
+]);
+
+const PROPOSABLE_FIELDS=Object.freeze(["title","categoryId","startDate","endDate","openEnded","eventType"]);
+const ONGOING_FIELD_BY_CATEGORY=Object.freeze({clinical:"currentlyOnRotation",work:"stillWorking",research:"ongoing"});
+const INSTITUTION_FIELD_BY_CATEGORY=Object.freeze({education:"medicalSchool",clinical:"institution",work:"organization",research:"institution"});
+const INSTITUTION_QUESTIONS=Object.freeze({
+  education:"Which school was this?",
+  clinical:"Which hospital or clinic was this?",
+  work:"Which organization was this?",
+  research:"Which institution or lab was this?"
 });
 
 export const INTAKE_ADAPTER_CONTRACT=Object.freeze({
@@ -194,6 +226,101 @@ function normalizedDecision(value){
   return"undecided";
 }
 
+function normalizeProposal(value){
+  if(!value||typeof value!=="object")return null;
+  const source=value.patch&&typeof value.patch==="object"?value.patch:{};
+  const patch={};
+  for(const field of PROPOSABLE_FIELDS)if(Object.hasOwn(source,field))patch[field]=clone(source[field]);
+  if(!Object.keys(patch).length)return null;
+  return{
+    candidateId:String(value.candidateId||""),
+    patch,
+    label:String(value.label||"Apply this"),
+    evidence:String(value.evidence||"")
+  };
+}
+
+function normalizeSuggestion(value,index){
+  const status=String(value?.status||"open").toLowerCase();
+  return{
+    id:String(value?.id||`suggestion-${index+1}`),
+    type:String(value?.type||"CATEGORY_REVIEW").toUpperCase(),
+    severity:String(value?.severity||"REVIEW").toUpperCase()==="INFO"?"INFO":"REVIEW",
+    candidateIds:Array.isArray(value?.candidateIds)?value.candidateIds.map(String):[],
+    eventIds:Array.isArray(value?.eventIds)?value.eventIds.map(String):[],
+    sourceBlockIds:Array.isArray(value?.sourceBlockIds)?value.sourceBlockIds.map(String):[],
+    reason:String(value?.reason||"").trim(),
+    recommendation:String(value?.recommendation||"").trim(),
+    source:String(value?.source||"AI_REVIEW").toUpperCase()==="DETERMINISTIC"?"DETERMINISTIC":"AI_REVIEW",
+    proposal:normalizeProposal(value?.proposal),
+    status:["applied","dismissed"].includes(status)?status:"open",
+    previous:value?.previous&&typeof value.previous==="object"?clone(value.previous):null
+  };
+}
+
+export function normalizeSuggestions(list){
+  const normalized=(list||[])
+    .filter((value)=>value&&typeof value==="object")
+    .map(normalizeSuggestion)
+    .filter((suggestion)=>suggestion.reason);
+  return[...new Map(normalized.map((suggestion)=>[suggestion.id,suggestion])).values()];
+}
+
+export function openSuggestions(state){
+  return(state?.suggestions||[]).filter((suggestion)=>suggestion.status==="open");
+}
+
+export function suggestionsForCandidate(state,candidateId){
+  return openSuggestions(state).filter((suggestion)=>suggestion.candidateIds.includes(candidateId));
+}
+
+function flaggedCandidateIds(state){
+  const ids=new Set();
+  for(const suggestion of openSuggestions(state)){
+    if(suggestion.severity!=="REVIEW")continue;
+    for(const id of suggestion.candidateIds)ids.add(id);
+  }
+  return ids;
+}
+
+/* A flagged entry can only ever be demoted out of the bulk-acceptable lane; a LOW entry is
+   never promoted because something was flagged on it. */
+export function reviewClassOf(candidate,flagged=new Set()){
+  const level=candidate?.confidence==="high"?"high":candidate?.confidence==="medium"?"medium":"low";
+  if(level==="high"&&(candidate?.duplicate||flagged.has(candidate?.id)))return"medium";
+  return level;
+}
+
+export function reviewLanes(state){
+  const flagged=flaggedCandidateIds(state);
+  const lanes={high:[],medium:[],low:[],decided:[]};
+  for(const candidate of state?.candidates||[]){
+    if(candidate.decision!=="undecided"||candidate.reviewLater){lanes.decided.push(candidate);continue;}
+    lanes[reviewClassOf(candidate,flagged)].push(candidate);
+  }
+  return lanes;
+}
+
+export function candidateQuestions(candidate){
+  const fields=candidate?.fields||{};
+  const questions=[];
+  if(!String(candidate?.title||"").trim())questions.push({key:"title",kind:"text",field:"title",label:"What should we call this?"});
+  if(!candidate?.startDate)questions.push({key:"startDate",kind:"month",field:"startDate",label:"When did it start?"});
+  if(candidate?.eventType==="duration"&&candidate?.startDate&&!candidate?.endDate&&candidate?.openEnded!==true){
+    questions.push({key:"endDate",kind:"month",field:"endDate",label:"When did it end?"});
+    const ongoing=ONGOING_FIELD_BY_CATEGORY[candidate.categoryId];
+    if(ongoing)questions.push({key:ongoing,kind:"toggle",extra:ongoing,label:"I am still doing this"});
+  }
+  if(fields.mappingReviewRequired===true||String(fields.canonicalType||"").toUpperCase()==="UNCLASSIFIED"){
+    questions.push({key:"categoryId",kind:"category",field:"categoryId",label:"Which part of your story is this?"});
+  }
+  const institution=INSTITUTION_FIELD_BY_CATEGORY[candidate?.categoryId];
+  if(institution&&!String(fields[institution]||"").trim()){
+    questions.push({key:institution,kind:"text",extra:institution,label:INSTITUTION_QUESTIONS[candidate.categoryId]});
+  }
+  return questions;
+}
+
 function normalizeCandidate(value,index,existingEvents){
   const candidate={
     id:String(value?.id||`candidate-${index+1}`),
@@ -290,7 +417,7 @@ export function intakeCapabilityMetadata(adapter){
   });
 }
 
-export function createIntakeState({file=null,candidates=[],existingEvents=[]}={}){
+export function createIntakeState({file=null,candidates=[],existingEvents=[],suggestions=[]}={}){
   const validated=file?validateIntakeFile(file):null;
   const acceptedFile=validated?.valid?validated.metadata:null;
   return{
@@ -302,6 +429,7 @@ export function createIntakeState({file=null,candidates=[],existingEvents=[]}={}
     fileError:file&&!validated?.valid?INTAKE_COPY.fileError:null,
     extraction:{statusIndex:0,completed:false,errorCode:null,errorMessage:null,sourceDocument:null,parser:null},
     candidates:(candidates||[]).map((candidate,index)=>normalizeCandidate(candidate,index,existingEvents)),
+    suggestions:normalizeSuggestions(suggestions),
     filter:"all",
     failure:null,
     approval:{inFlight:false,applied:false,versionSaved:false,versionName:null,fileName:null,errorCode:null,appliedCount:0},
@@ -311,7 +439,7 @@ export function createIntakeState({file=null,candidates=[],existingEvents=[]}={}
 
 export function hydrateIntakeState(value,{existingEvents=[]}={}){
   const source=value&&typeof value==="object"?clone(value):{};
-  const base=createIntakeState({file:source.file,candidates:source.candidates||[],existingEvents});
+  const base=createIntakeState({file:source.file,candidates:source.candidates||[],existingEvents,suggestions:source.suggestions||[]});
   const stage=Object.values(INTAKE_STAGES).includes(source.stage)?source.stage:INTAKE_STAGES.UPLOAD;
   const progressIndex={upload:0,extraction:1,review:2,done:3}[stage];
   const hydrated={
@@ -321,6 +449,7 @@ export function hydrateIntakeState(value,{existingEvents=[]}={}){
     progressIndex:Number.isInteger(source.progressIndex)?source.progressIndex:progressIndex,
     extraction:{...base.extraction,...(source.extraction||{})},
     candidates:(source.candidates||[]).map((candidate,index)=>normalizeCandidate(candidate,index,existingEvents)),
+    suggestions:normalizeSuggestions(source.suggestions||[]),
     filter:INTAKE_FILTERS.includes(source.filter)?source.filter:"all",
     approval:{...base.approval,...(source.approval||{})}
   };
@@ -340,10 +469,15 @@ export function acceptedCount(state){
   return(state?.candidates||[]).filter((candidate)=>positiveDecision(candidate.decision)).length;
 }
 
-export function highConfidenceCount(state){
+export function bulkAcceptableCandidates(state){
+  const flagged=flaggedCandidateIds(state);
   return(state?.candidates||[]).filter((candidate)=>
-    candidate.decision==="undecided"&&!candidate.reviewLater&&candidate.confidence==="high"&&!candidate.duplicate
-  ).length;
+    candidate.decision==="undecided"&&!candidate.reviewLater&&reviewClassOf(candidate,flagged)==="high"
+  );
+}
+
+export function highConfidenceCount(state){
+  return bulkAcceptableCandidates(state).length;
 }
 
 export function decidedCount(state){
@@ -366,6 +500,7 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       state.progressIndex=0;
       state.failure=null;
       state.candidates=[];
+      state.suggestions=[];
       state.consent=false;
       state.extraction={statusIndex:0,completed:false,errorCode:null,errorMessage:null,sourceDocument:null,parser:null};
       state.approval={inFlight:false,applied:false,versionSaved:false,versionName:null,fileName:null,errorCode:null,appliedCount:0};
@@ -410,6 +545,8 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       state.extraction.completed=true;
       state.extraction.sourceDocument=action.sourceDocument?clone(action.sourceDocument):null;
       state.extraction.parser=action.parser?clone(action.parser):null;
+      /* C-06: the quality review the server already computed used to stop at the adapter. */
+      state.suggestions=normalizeSuggestions(action.qualitySuggestions||action.parser?.qualitySuggestions||[]);
       return state;
     case"EXTRACTION_UNREADABLE":
       state.stage=INTAKE_STAGES.EXTRACTION;
@@ -484,20 +621,55 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       candidate.expanded=false;
       return state;
     }
-    case"ACCEPT_HIGH_CONFIDENCE":
+    case"ACCEPT_HIGH_CONFIDENCE":{
+      const acceptable=new Set(bulkAcceptableCandidates(state).map(({id})=>id));
       for(const candidate of state.candidates){
-        if(candidate.decision==="undecided"&&!candidate.reviewLater&&candidate.confidence==="high"&&!candidate.duplicate){
-          candidate.decision="accepted";
-          candidate.expanded=false;
-        }
+        if(!acceptable.has(candidate.id))continue;
+        candidate.decision="accepted";
+        candidate.expanded=false;
       }
       return state;
+    }
+    case"APPLY_SUGGESTION":{
+      const suggestion=state.suggestions.find(({id})=>id===action.id);
+      if(!suggestion||suggestion.status!=="open"||!suggestion.proposal)return state;
+      const index=state.candidates.findIndex(({id})=>id===suggestion.proposal.candidateId);
+      if(index<0)return state;
+      const candidate=state.candidates[index];
+      const previous={};
+      for(const field of Object.keys(suggestion.proposal.patch))previous[field]=clone(candidate[field]??null);
+      Object.assign(candidate,clone(suggestion.proposal.patch));
+      if(candidate.openEnded===true)candidate.endDate=null;
+      suggestion.previous=previous;
+      suggestion.status="applied";
+      state.candidates=refreshDuplicates(state.candidates,existingEvents);
+      return state;
+    }
+    case"DISMISS_SUGGESTION":{
+      const suggestion=state.suggestions.find(({id})=>id===action.id);
+      if(!suggestion||suggestion.status!=="open")return state;
+      suggestion.status="dismissed";
+      return state;
+    }
+    case"UNDO_SUGGESTION":{
+      const suggestion=state.suggestions.find(({id})=>id===action.id);
+      if(!suggestion||suggestion.status==="open")return state;
+      if(suggestion.status==="applied"&&suggestion.previous){
+        const index=state.candidates.findIndex(({id})=>id===suggestion.proposal?.candidateId);
+        if(index>=0)Object.assign(state.candidates[index],clone(suggestion.previous));
+      }
+      suggestion.previous=null;
+      suggestion.status="open";
+      state.candidates=refreshDuplicates(state.candidates,existingEvents);
+      return state;
+    }
     case"RESET_UPLOAD":{
       const reset=createIntakeState();
       return reset;
     }
     case"DISCARD_ALL":
       state.candidates=[];
+      state.suggestions=[];
       state.stage=INTAKE_STAGES.UPLOAD;
       state.progressIndex=0;
       state.file=null;
@@ -580,7 +752,14 @@ function candidateEvent(candidate,id,fileName=""){
     endDate:candidate.endDate,
     openEnded:candidate.openEnded,
     visibilityState:candidate.visibilityState||VISIBILITY.INTERVIEWER_SAFE,
-    siteName:String(candidate.fields?.institution||candidate.fields?.employer||candidate.fields?.siteName||""),
+    siteName:String(
+      candidate.fields?.institution||
+      candidate.fields?.medicalSchool||
+      candidate.fields?.organization||
+      candidate.fields?.employer||
+      candidate.fields?.siteName||
+      ""
+    ),
     notes:candidate.notes,
     lane:null,
     sourceType:"document-intake",
@@ -669,6 +848,7 @@ export function buildApprovalBatch(state,existingEvents,{idFactory=(prefix)=>`${
     additions,
     merges,
     acceptedCandidateIds:positive.map(({id})=>id),
+    qualitySuggestions:(state.suggestions||[]).map((suggestion)=>clone(suggestion)),
     candidateDecisions:state.candidates.map(({id,decision})=>({id,decision})),
     remainingCandidates:state.candidates.filter(({decision})=>decision==="undecided").map((candidate)=>clone(candidate)),
     acceptedCount:positive.length,
@@ -698,6 +878,7 @@ export function applyApprovalBatchToDocument(document,batch){
     stage:INTAKE_STAGES.DONE,
     file:batch.sourceDocument?clone(batch.sourceDocument):null,
     candidates:batch.remainingCandidates.map((candidate)=>clone(candidate)),
+    suggestions:(batch.qualitySuggestions||[]).map((suggestion)=>clone(suggestion)),
     filter:"all",
     lastImport:{
       at:batch.createdAt,
@@ -780,6 +961,9 @@ export class IntakeStateMachine{
   toggleEdit(id){return this.dispatch({type:"TOGGLE_EDIT",id});}
   decideCandidate(id,decision){return this.dispatch({type:"DECIDE_CANDIDATE",id,decision});}
   acceptAllHighConfidence(){return this.dispatch({type:"ACCEPT_HIGH_CONFIDENCE"});}
+  applySuggestion(id){return this.dispatch({type:"APPLY_SUGGESTION",id});}
+  dismissSuggestion(id){return this.dispatch({type:"DISMISS_SUGGESTION",id});}
+  undoSuggestion(id){return this.dispatch({type:"UNDO_SUGGESTION",id});}
 
   resetUpload(){
     this.abortController?.abort();
@@ -816,7 +1000,13 @@ export class IntakeStateMachine{
       }
       const candidates=Array.isArray(response)?response:(response?.candidates||[]);
       if(!candidates.length)return this.dispatch({type:"EXTRACTION_EMPTY"});
-      return this.dispatch({type:"EXTRACTION_SUCCEEDED",candidates,sourceDocument:response?.sourceDocument||null,parser:response?.parser||null});
+      return this.dispatch({
+        type:"EXTRACTION_SUCCEEDED",
+        candidates,
+        sourceDocument:response?.sourceDocument||null,
+        parser:response?.parser||null,
+        qualitySuggestions:response?.qualitySuggestions||response?.parser?.qualitySuggestions||[]
+      });
     }catch(error){
       if(error?.name==="AbortError"||run!==this.runSequence)return this.snapshot();
       const code=String(error?.code||"").toLowerCase();
@@ -947,7 +1137,11 @@ const INTERNAL_CANDIDATE_FIELDS=new Set([
   "extractionConfidence",
   "datePrecision",
   "mappingRationale",
+  "mappingReviewRequired",
   "extractionWarnings",
+  "inferredFields",
+  "duplicateGroupIds",
+  "conflictIds",
   "privacy"
 ]);
 
@@ -964,7 +1158,7 @@ function reviewField(candidate,field){
   return`<label>${escapeHtml(field.label)} <input type="${field.type==="number"?"number":"text"}" value="${escapeHtml(value)}" ${attributes}></label>`;
 }
 
-function expandedFields(candidate){
+function expandedFields(candidate,{includeIdentity=false}={}){
   const schema=CATEGORY_REVIEW_FIELDS[candidate.categoryId]||[];
   const schemaKeys=new Set(schema.map(({key})=>key));
   const frozen=schema.map((field)=>reviewField(candidate,field)).join("");
@@ -975,8 +1169,14 @@ function expandedFields(candidate){
   ).map(([key,value])=>`<label>${escapeHtml(fieldLabel(key))}
     <input type="text" value="${escapeHtml(value)}" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-extra="${escapeHtml(key)}">
   </label>`).join("");
+  /* The compact "needs your help" card hides the always-on title and category inputs, so
+     Edit has to bring them back or those entries would become uneditable. */
+  const identity=includeIdentity
+    ?`<label>Category <select data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="categoryId">${categoryOptions(candidate.categoryId)}</select></label>
+    <label>Proposed title <input type="text" value="${escapeHtml(candidate.title)}" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="title"></label>`
+    :"";
   return`<div class="candidate-expanded" data-candidate-expanded>
-    ${frozen}${extra}
+    ${identity}${frozen}${extra}
     <label>Notes <textarea data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="notes">${escapeHtml(candidate.notes)}</textarea></label>
   </div>`;
 }
@@ -1023,7 +1223,72 @@ function candidateEvidenceMarkup(candidate){
   </div>`;
 }
 
-function candidateMarkup(candidate){
+function suggestionLabel(type){
+  return SUGGESTION_LABELS[type]||"Review suggestion";
+}
+
+function suggestionMarkup(suggestion){
+  const resolved=suggestion.status!=="open";
+  const attributes=`data-suggestion-id="${escapeHtml(suggestion.id)}"`;
+  return`<li class="intake-suggestion" data-suggestion="${escapeHtml(suggestion.id)}" data-suggestion-status="${escapeHtml(suggestion.status)}" data-suggestion-severity="${escapeHtml(suggestion.severity)}">
+    <p class="suggestion-head">
+      <span class="status-chip${suggestion.severity==="REVIEW"?" gold":""}">${escapeHtml(suggestionLabel(suggestion.type))}</span>
+      <span class="secondary-body">${suggestion.source==="AI_REVIEW"?"AI review":"Document check"}</span>
+      ${suggestion.status==="applied"?'<span class="status-badge success">Applied</span>':""}
+      ${suggestion.status==="dismissed"?'<span class="status-badge">Dismissed</span>':""}
+    </p>
+    <p>${escapeHtml(suggestion.reason)}</p>
+    <p class="secondary-body">${escapeHtml(suggestion.recommendation)}</p>
+    ${suggestion.proposal?.evidence&&!resolved?`<p class="secondary-body">${escapeHtml(suggestion.proposal.evidence)}</p>`:""}
+    <span class="suggestion-actions">
+      ${!resolved&&suggestion.proposal?`<button type="button" class="button secondary small" ${attributes} data-suggestion-action="apply">${escapeHtml(suggestion.proposal.label)}</button>`:""}
+      ${resolved
+        ?`<button type="button" class="button tertiary small" ${attributes} data-suggestion-action="undo">Undo</button>`
+        :`<button type="button" class="button tertiary small" ${attributes} data-suggestion-action="dismiss">Dismiss</button>`}
+    </span>
+  </li>`;
+}
+
+function suggestionsMarkup(state){
+  const suggestions=state.suggestions||[];
+  if(!suggestions.length){
+    return`<section class="intake-suggestions empty" aria-label="Document check"><p class="secondary-body">${INTAKE_COPY.suggestionsClear}</p></section>`;
+  }
+  const open=openSuggestions(state).length;
+  return`<section class="intake-suggestions" aria-label="Document check">
+    <h2>Before you review: ${open} thing${open===1?"":"s"} we noticed</h2>
+    <p class="secondary-body">${INTAKE_COPY.suggestionsSubline}</p>
+    <ul class="suggestion-list">${suggestions.map(suggestionMarkup).join("")}</ul>
+  </section>`;
+}
+
+function candidateSuggestionsMarkup(suggestions){
+  return(suggestions||[]).map((suggestion)=>
+    `<p class="duplicate-banner" data-candidate-suggestion="${escapeHtml(suggestion.id)}">${escapeHtml(suggestionLabel(suggestion.type))}: ${escapeHtml(suggestion.recommendation)}</p>`
+  ).join("");
+}
+
+function questionMarkup(candidate,question){
+  const attributes=`data-candidate-id="${escapeHtml(candidate.id)}"`;
+  if(question.kind==="month")return candidateMonthField(candidate,question.field,question.label,candidate[question.field]);
+  if(question.kind==="category")return`<label>${escapeHtml(question.label)} <select ${attributes} data-candidate-field="categoryId">${categoryOptions(candidate.categoryId)}</select></label>`;
+  if(question.kind==="toggle")return`<label class="candidate-toggle"><input type="checkbox" ${attributes} data-candidate-extra="${escapeHtml(question.extra)}"> <span>${escapeHtml(question.label)}</span></label>`;
+  if(question.field)return`<label>${escapeHtml(question.label)} <input type="text" value="${escapeHtml(candidate[question.field]||"")}" ${attributes} data-candidate-field="${escapeHtml(question.field)}"></label>`;
+  return`<label>${escapeHtml(question.label)} <input type="text" value="${escapeHtml(candidate.fields?.[question.extra]||"")}" ${attributes} data-candidate-extra="${escapeHtml(question.extra)}"></label>`;
+}
+
+/* LOW confidence must not mean "open the same 30-field form again": ask only for what the
+   document leaves genuinely unanswered, and say so when it answers everything. */
+function candidateQuestionsMarkup(candidate){
+  const questions=candidateQuestions(candidate);
+  if(!questions.length)return`<p class="secondary-body candidate-questions-clear">${INTAKE_COPY.questionsClear}</p>`;
+  return`<div class="candidate-questions" data-candidate-questions="${escapeHtml(candidate.id)}">
+    <p class="secondary-body">We need ${questions.length} answer${questions.length===1?"":"s"} from you. Everything else came from your document.</p>
+    ${questions.map((question)=>questionMarkup(candidate,question)).join("")}
+  </div>`;
+}
+
+function candidateMarkup(candidate,{lane="medium",suggestions=[]}={}){
   const positive=positiveDecision(candidate.decision);
   if(positive){
     return`<article class="candidate-row accepted" data-candidate-card="${escapeHtml(candidate.id)}">
@@ -1046,20 +1311,29 @@ function candidateMarkup(candidate){
   }
   const confidenceLabel=candidate.confidence[0].toUpperCase()+candidate.confidence.slice(1);
   const confidenceClass=candidate.confidence==="high"?"success":candidate.confidence==="medium"?"gold":"tertiary";
-  return`<article class="candidate-card" data-candidate-card="${escapeHtml(candidate.id)}">
-    ${candidate.duplicate?`<div class="duplicate-banner">Looks like a duplicate of '${escapeHtml(candidate.duplicate.eventTitle)}'</div>`:""}
-    <div class="candidate-fields">
+  const fields=lane==="low"
+    ?`<div class="candidate-fields needs-help">
+      <strong>${escapeHtml(candidate.title||"Untitled entry")}</strong>
+      <span class="status-badge">NEEDS YOUR HELP</span>
+      <span class="confidence-tag ${confidenceClass}">${confidenceLabel}</span>
+    </div>
+    ${candidateQuestionsMarkup(candidate)}`
+    :`<div class="candidate-fields">
       <label>Category <select data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="categoryId">${categoryOptions(candidate.categoryId)}</select></label>
       <label>Proposed title <input type="text" value="${escapeHtml(candidate.title)}" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="title"></label>
       ${candidateMonthField(candidate,"startDate","Start",candidate.startDate)}
       ${candidateMonthField(candidate,"endDate","End",candidate.endDate)}
       <span class="confidence-tag ${confidenceClass}">${confidenceLabel}</span>
-    </div>
+    </div>`;
+  return`<article class="candidate-card" data-candidate-card="${escapeHtml(candidate.id)}" data-review-lane="${escapeHtml(lane)}">
+    ${candidate.duplicate?`<div class="duplicate-banner">Looks like a duplicate of '${escapeHtml(candidate.duplicate.eventTitle)}'</div>`:""}
+    ${candidateSuggestionsMarkup(suggestions)}
+    ${fields}
     <details class="source-snippet" title="${escapeHtml(candidate.sourceSnippet)}">
       <summary>“${escapeHtml(candidate.sourceSnippet)}”</summary>
     </details>
     ${candidateEvidenceMarkup(candidate)}
-    ${candidate.expanded?expandedFields(candidate):""}
+    ${candidate.expanded?expandedFields(candidate,{includeIdentity:lane==="low"}):""}
     <div class="candidate-actions">
       ${candidate.duplicate?`<button type="button" class="button primary small" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-action="merge">Merge</button>
       <button type="button" class="button secondary small" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-action="add-anyway">Add anyway</button>`:`<button type="button" class="button primary small" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-action="accepted">Accept</button>`}
@@ -1068,6 +1342,27 @@ function candidateMarkup(candidate){
       <button type="button" class="button tertiary small" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-action="deferred">Review later</button>
     </div>
   </article>`;
+}
+
+function candidateListMarkup(state){
+  const visible=new Set(filteredCandidates(state).map(({id})=>id));
+  const lanes=reviewLanes(state);
+  const sections=REVIEW_LANES.map((lane)=>{
+    const members=lanes[lane.id].filter(({id})=>visible.has(id));
+    if(!members.length)return"";
+    return`<section class="candidate-lane" data-review-lane="${lane.id}">
+      <div class="candidate-lane-head">
+        <h2>${escapeHtml(lane.title)} (${members.length})</h2>
+        <p class="secondary-body">${escapeHtml(lane.hint)}</p>
+      </div>
+      ${members.map((candidate)=>candidateMarkup(candidate,{lane:lane.id,suggestions:suggestionsForCandidate(state,candidate.id)})).join("")}
+    </section>`;
+  }).join("");
+  const decided=lanes.decided
+    .filter(({id})=>visible.has(id))
+    .map((candidate)=>candidateMarkup(candidate,{lane:"decided",suggestions:[]}))
+    .join("");
+  return sections+decided||'<p class="secondary-body">No suggestions in this filter.</p>';
 }
 
 function reviewMarkup(state,{renderPreview=null,existingEvents=[]}={}){
@@ -1083,13 +1378,14 @@ function reviewMarkup(state,{renderPreview=null,existingEvents=[]}={}){
       <h1 id="intake-title">Review ${total} suggestions</h1>
       <p>${INTAKE_COPY.reviewSubline}</p>
     </div>
+    ${suggestionsMarkup(state)}
     <div class="intake-review-toolbar">
-      <button type="button" class="button secondary" data-intake-action="accept-high"${high?"":" disabled"}>Accept all high-confidence (${high})</button>
+      <button type="button" class="button secondary" data-intake-action="accept-high"${high?"":" disabled"}>${high?`Accept all ${high} high-confidence entries`:"No high-confidence entries to accept"}</button>
       <div class="filter-chips" aria-label="Suggestion filters">${INTAKE_FILTERS.map((filter)=>`<button type="button" class="filter-chip${state.filter===filter?" selected":""}" data-intake-filter="${filter}"${state.filter===filter?' aria-pressed="true"':' aria-pressed="false"'}>${filter[0].toUpperCase()+filter.slice(1)}</button>`).join("")}</div>
       <span>${decidedCount(state)} of ${total} decided</span>
     </div>
     <div class="intake-review-grid">
-      <div class="candidate-list">${filteredCandidates(state).map(candidateMarkup).join("")||'<p class="secondary-body">No suggestions in this filter.</p>'}</div>
+      <div class="candidate-list">${candidateListMarkup(state)}</div>
       <aside class="intake-live-preview" aria-label="Live board preview">${preview}</aside>
     </div>
     <footer class="intake-review-footer">
@@ -1176,6 +1472,15 @@ export function installIntake(root,machine,{
     const filter=closest(event.target,"[data-intake-filter]");
     if(filter){
       machine.setFilter(filter.dataset.intakeFilter);
+      return;
+    }
+    const suggestionAction=closest(event.target,"[data-suggestion-action]");
+    if(suggestionAction){
+      const {suggestionId}=suggestionAction.dataset;
+      const action=suggestionAction.dataset.suggestionAction;
+      if(action==="apply")machine.applySuggestion(suggestionId);
+      else if(action==="dismiss")machine.dismissSuggestion(suggestionId);
+      else if(action==="undo")machine.undoSuggestion(suggestionId);
       return;
     }
     const candidateAction=closest(event.target,"[data-candidate-action]");

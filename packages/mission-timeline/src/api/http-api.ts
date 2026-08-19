@@ -13,6 +13,10 @@ export interface TimelineIdentityVerifier {
 
 export type TimelineServiceProvider = TimelineService | ((context: PrincipalContext) => TimelineService | Promise<TimelineService>);
 
+// The bundled browser PDF/DOCX parser refuses anything over 20 MB, so accepting the 25 MB
+// SOURCE ceiling here only produced a band of files that ingest and then fail on review.
+export const FILE_VAULT_SMART_FILL_MAX_BYTES = 20 * 1024 * 1024;
+
 function json(value: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(value), {
     status,
@@ -136,16 +140,20 @@ export class TimelineHttpApi {
     }
     const fileVaultIngestMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/file-vault\/ingestions$/);
     if (fileVaultIngestMatch && request.method === "POST") {
-      const record = await service.getDocument(context, fileVaultIngestMatch[1]!);
+      // A document owned by someone else and a document that does not exist must be one
+      // answer, or the handoff becomes a cross-student existence oracle.
+      const record = await service.getDocument(context, fileVaultIngestMatch[1]!).catch(() => {
+        throw new TimelineError("FILE_VAULT_INGEST_TARGET_NOT_FOUND", "That Timeline document is not available.", 404);
+      });
       if (record.document.studentOwnerId !== context.principalId || context.role !== "STUDENT") {
-        throw new TimelineError("FILE_VAULT_INGEST_OWNER_REQUIRED", "Student ownership is required for File Vault ingestion.", 403);
+        throw new TimelineError("FILE_VAULT_INGEST_TARGET_NOT_FOUND", "That Timeline document is not available.", 404);
       }
       const byteSize = Number(request.headers.get("content-length") ?? 0);
       const mimeType = String(request.headers.get("content-type") ?? "").split(";", 1)[0]!.trim().toLowerCase();
       const expectedSha256 = String(request.headers.get("x-content-sha256") ?? "").trim().toLowerCase();
       const vaultFileId = String(request.headers.get("x-file-vault-id") ?? "").trim();
       const versionId = String(request.headers.get("x-file-vault-version") ?? "").trim();
-      if (!Number.isInteger(byteSize) || byteSize < 1 || byteSize > 25 * 1024 * 1024) {
+      if (!Number.isInteger(byteSize) || byteSize < 1 || byteSize > FILE_VAULT_SMART_FILL_MAX_BYTES) {
         throw new TimelineError("FILE_VAULT_INGEST_SIZE_DENIED", "File Vault source size is outside the allowed range.", 413);
       }
       if (!["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(mimeType)) {
@@ -158,8 +166,8 @@ export class TimelineHttpApi {
       if (bytes.byteLength !== byteSize || sha256(bytes) !== expectedSha256) {
         throw new TimelineError("FILE_VAULT_INGEST_INTEGRITY_FAILED", "File Vault source integrity could not be verified.", 409);
       }
-      const sourceObject = await this.objectStore.putServiceObject(
-        { ...context, role: "SERVICE" },
+      const sourceObject = await this.objectStore.putOwnedObject(
+        context,
         {
           documentId: record.document.id,
           ownerPrincipalId: context.principalId,
@@ -280,7 +288,13 @@ export class TimelineHttpApi {
     }
     const objectMatch = url.pathname.match(/^\/v1\/objects\/([^/]+)$/);
     if (objectMatch && request.method === "DELETE") {
-      await this.objectStore.deleteObject(context, objectMatch[1]!);
+      // Releasing File-Vault-ingested CV bytes has to be repeatable and must not tell a
+      // caller whether an object they cannot own exists.
+      await this.objectStore.deleteObject(context, objectMatch[1]!).catch((error) => {
+        const timelineError = asTimelineError(error);
+        if (timelineError.status !== 403 && timelineError.status !== 404) throw error;
+        throw new TimelineError("OBJECT_NOT_FOUND", "Object not found.", 404);
+      });
       return empty();
     }
     throw new TimelineError("ROUTE_NOT_FOUND", "Timeline route not found.", 404);

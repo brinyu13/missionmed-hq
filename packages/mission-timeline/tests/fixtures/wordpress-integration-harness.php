@@ -140,8 +140,22 @@ $checks['filevault_source_storage_opaque'] = is_array($vault_descriptor)
     && !isset($vault_descriptor['r2_key'])
     && !isset($vault_descriptor['url']);
 $checks['filevault_source_cross_owner_denied'] = mmtl_filevault_source_descriptor($vault_record, 102, true) === null;
+$checks['filevault_source_smart_fill_ready'] = mmtl_filevault_source_smart_fill_ready($vault_descriptor) === true;
+$oversize = $vault_record;
+$oversize['versions'][0]['file_size'] = MMTL_FILEVAULT_SMART_FILL_MAX_BYTES + 1;
+$checks['filevault_source_oversize_not_listed'] = mmtl_filevault_source_smart_fill_ready(
+    mmtl_filevault_source_descriptor($oversize, 101, true)
+) === false;
+$wrong_type = $vault_record;
+$wrong_type['versions'][0]['mime_type'] = 'image/png';
+$checks['filevault_source_wrong_type_not_listed'] = mmtl_filevault_source_smart_fill_ready(
+    mmtl_filevault_source_descriptor($wrong_type, 101, true)
+) === false;
 $vault_record['versions'][0]['upload_confirmed'] = false;
 $checks['filevault_source_unconfirmed_denied'] = mmtl_filevault_source_descriptor($vault_record, 101, true) === null;
+$checks['filevault_source_unconfirmed_not_listed'] = mmtl_filevault_source_smart_fill_ready(
+    mmtl_filevault_source_descriptor($vault_record, 101, true)
+) === false;
 
 $pass = !in_array(false, $checks, true);
 echo json_encode(array('pass' => $pass, 'checks' => $checks)) . "\n";

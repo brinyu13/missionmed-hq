@@ -890,6 +890,7 @@ export const MEDIA_CONTEXT_ACTIONS=freezeDeep([
 export const MEDIA_FIT_MODES=freezeDeep(["cover","contain"]);
 export const TEXT_FIT_MODES=freezeDeep(["auto","fixed"]);
 export const TEXT_VERTICAL_ALIGNMENTS=freezeDeep(["top","center","bottom"]);
+export const TEXT_WRAP_MODES=freezeDeep(["wrap","nowrap"]);
 
 export function validateMediaUpload(file,{kind="image"}={}){
   const normalizedKind=String(kind).toLowerCase();
@@ -1172,6 +1173,7 @@ export function createTextBlock({
   minFontSize=10,
   lineHeight=1.2,
   verticalAlign="center",
+  wrap="wrap",
   layerIndex=0
 }={}){
   const typography=validateTypography({font,size,weight,color,alignment});
@@ -1189,6 +1191,7 @@ export function createTextBlock({
     minFontSize:Math.min(72,Math.max(8,finite(minFontSize,10))),
     lineHeight:Math.min(2,Math.max(.8,finite(lineHeight,1.2))),
     verticalAlign:TEXT_VERTICAL_ALIGNMENTS.includes(verticalAlign)?verticalAlign:"center",
+    wrap:TEXT_WRAP_MODES.includes(wrap)?wrap:"wrap",
     overflow:"clip",
     locked:false,
     aspectLocked:false,
@@ -1215,6 +1218,11 @@ export function updateTextContainerPresentation(document,target,changes={}){
     const alignment=String(changes.verticalAlign||"");
     if(!TEXT_VERTICAL_ALIGNMENTS.includes(alignment))throw new TypeError("Unsupported vertical text alignment.");
     block.verticalAlign=alignment;
+  }
+  if(Object.hasOwn(changes,"wrap")){
+    const wrap=String(changes.wrap||"");
+    if(!TEXT_WRAP_MODES.includes(wrap))throw new TypeError("Text wrapping must be wrap or nowrap.");
+    block.wrap=wrap;
   }
   return state;
 }
@@ -1294,6 +1302,33 @@ function itemTargets(state){
   return["media","text","element"].flatMap((type)=>state.advanced[advancedCollectionName(type)].map((item)=>({type,id:String(item.id),item})));
 }
 
+function objectBox(item){
+  return{x:finite(item?.x,0),y:finite(item?.y,0),width:positive(item?.width,1),height:positive(item?.height,1)};
+}
+
+/*
+ * A text object grouped with a shape reads as that container's label — the Color
+ * Key box and its rows are the motivating case — and a label pinned to the left
+ * edge of its box looks like a mistake. Only text still at the creation defaults
+ * is re-centred, so a student who deliberately chose an alignment keeps it.
+ */
+function centreTextInsideContainers(members){
+  const containers=members.filter((entry)=>entry.type!=="text").map((entry)=>objectBox(entry.item));
+  if(!containers.length)return;
+  for(const entry of members){
+    if(entry.type!=="text")continue;
+    const item=entry.item;
+    if(item.alignment!==DEFAULT_FREE_TEXT_TYPOGRAPHY.alignment||item.verticalAlign!=="center")continue;
+    const box=objectBox(item);
+    const contained=containers.some((container)=>
+      box.x>=container.x&&box.y>=container.y&&
+      box.x+box.width<=container.x+container.width&&
+      box.y+box.height<=container.y+container.height
+    );
+    if(contained)item.alignment="center";
+  }
+}
+
 export function advancedGroupBounds(document={},groupId){
   const state=normalizeAdvancedStudioDocument(document);
   const group=state.advanced.groups.find((item)=>String(item.id)===String(groupId));
@@ -1320,11 +1355,55 @@ export function groupAdvancedObjects(document={},targets=[],{id=""}={}){
   const groupId=String(id||"").trim();
   if(!groupId||state.advanced.groups.some((group)=>String(group.id)===groupId))throw new TypeError("A unique group ID is required.");
   const children=selected.map(targetKey);
-  for(const entry of entries){
-    if(children.includes(targetKey(entry)))entry.item.groupId=groupId;
-  }
+  const members=entries.filter((entry)=>children.includes(targetKey(entry)));
+  for(const entry of members)entry.item.groupId=groupId;
+  centreTextInsideContainers(members);
   state.advanced.groups.push({id:groupId,type:"group",children,aspectLocked:true,locked:false});
   return{document:state,selection:{type:"group",id:groupId},changed:true};
+}
+
+/*
+ * One authoritative proportional transform for a group. Text scales on the
+ * smaller axis, so a glyph can never outgrow the box it sits in — that is what
+ * keeps a Color Key label inside its container when the container is resized.
+ */
+export function resizeAdvancedGroup(document={},groupId,geometry={},{kind="resize"}={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  if(state.mode!==ADVANCED_MODE)throw new Error("Group transforms are available only in Advanced Studio.");
+  const group=state.advanced.groups.find((item)=>String(item.id)===String(groupId));
+  const current=advancedGroupBounds(state,groupId);
+  if(!group||!current)return{document:state,changed:false,mutation:null,selection:null};
+  const next={
+    x:finite(geometry.x,current.x),
+    y:finite(geometry.y,current.y),
+    width:positive(geometry.width,current.width),
+    height:positive(geometry.height,current.height)
+  };
+  const scaleX=next.width/Math.max(1,current.width);
+  const scaleY=next.height/Math.max(1,current.height);
+  const textScale=Math.min(scaleX,scaleY);
+  const children=new Set((group.children||[]).map(childTargetKey));
+  for(const entry of itemTargets(state)){
+    if(!children.has(targetKey(entry)))continue;
+    const item=entry.item;
+    // Mirror the board renderer's 32x24 floors rather than the 48px insertion floor,
+    // so a divider or thin rule inside a group does not silently become a block.
+    const width=Math.max(32,positive(item.width,32)*scaleX);
+    const height=Math.max(24,positive(item.height,24)*scaleY);
+    item.x=Math.max(0,Math.min(1920-width,next.x+(finite(item.x,0)-current.x)*scaleX));
+    item.y=Math.max(0,Math.min(1080-height,next.y+(finite(item.y,0)-current.y)*scaleY));
+    item.width=width;
+    item.height=height;
+    if(entry.type!=="text")continue;
+    item.size=Math.min(FREE_TEXT_SIZE.max,Math.max(FREE_TEXT_SIZE.min,Math.round(finite(item.size,24)*textScale)));
+    item.minFontSize=Math.min(72,Math.max(8,Math.round(finite(item.minFontSize,10)*textScale)));
+  }
+  return{
+    document:state,
+    changed:true,
+    mutation:{label:kind==="move"?"Move Timeline group":"Resize Timeline group",history:true,undoSteps:1},
+    selection:{type:"group",id:String(groupId)}
+  };
 }
 
 export function ungroupAdvancedObjects(document={},groupId){
@@ -1360,6 +1439,53 @@ export function setAdvancedObjectAspectLock(document={},target={},aspectLocked){
   const collection=target.type==="group"?state.advanced.groups:state.advanced[advancedCollectionName(target.type)];
   const index=collection.findIndex((candidate)=>String(candidate.id)===String(target.id));
   collection[index]={...collection[index],aspectLocked:!!aspectLocked};
+  return state;
+}
+
+/*
+ * A rail drag ends as one durable placement: the object is centred on the drop
+ * point and clamped to the board, and an upload that was never placed becomes
+ * placed. Keeping it pure means the drop handler owns no geometry rules.
+ */
+export function placeAdvancedObjectAt(document={},target={},{x,y}={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  if(state.mode!==ADVANCED_MODE)throw new Error("Placement is available only in Advanced Studio.");
+  const collection=advancedCollectionName(target?.type);
+  const items=collection?state.advanced[collection]:null;
+  const index=items?items.findIndex((item)=>String(item.id)===String(target?.id||"")):-1;
+  if(index<0)return{document:state,changed:false,mutation:null,selection:null};
+  const item=items[index];
+  const selection={type:String(target.type),id:String(target.id)};
+  if(item.locked===true)return{document:state,changed:false,mutation:null,selection};
+  const box=objectBox(item);
+  const placed=constrainAdvancedObjectToBoard({
+    ...item,
+    x:finite(x,box.x+box.width/2)-box.width/2,
+    y:finite(y,box.y+box.height/2)-box.height/2
+  });
+  items[index]={...item,...placed,...(target.type==="media"?{placed:true}:{})};
+  return{
+    document:state,
+    changed:true,
+    mutation:{label:`Place Timeline ${target.type}`,history:true,undoSteps:1},
+    selection
+  };
+}
+
+export function setAdvancedObjectGeometry(document={},target={},changes={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  if(state.mode!==ADVANCED_MODE)throw new Error("Position and size controls are available only in Advanced Studio.");
+  const collection=advancedCollectionName(target?.type);
+  const items=collection?state.advanced[collection]:null;
+  const index=items?items.findIndex((item)=>String(item.id)===String(target?.id||"")):-1;
+  if(index<0)throw new Error("Advanced object not found.");
+  const item=items[index];
+  const box=objectBox(item);
+  const next={};
+  for(const field of ["x","y","width","height"]){
+    next[field]=Object.hasOwn(changes,field)?finite(changes[field],box[field]):box[field];
+  }
+  items[index]={...item,...constrainAdvancedObjectToBoard(next)};
   return state;
 }
 
@@ -1805,8 +1931,13 @@ export function renderAdvancedSelectionControls(document={},{
   const mediaPresentation=model.target.type==="media"
     ?`<fieldset class="advanced-media-presentation" data-advanced-media-presentation${target}><legend>Image placement</legend><label><span>Fit</span><select data-advanced-media-fit${target}><option value="cover"${model.element.fit!=="contain"?" selected":""}>Crop to frame</option><option value="contain"${model.element.fit==="contain"?" selected":""}>Fit inside frame</option></select></label><label><span>Crop horizontal</span><input type="range" min="0" max="100" step="1" value="${Number(model.element.crop?.x??50)}" data-advanced-media-crop="x"${target}></label><label><span>Crop vertical</span><input type="range" min="0" max="100" step="1" value="${Number(model.element.crop?.y??50)}" data-advanced-media-crop="y"${target}></label><label><span>Crop zoom</span><input type="range" min="1" max="4" step="0.05" value="${Number(model.element.crop?.zoom??1)}" data-advanced-media-crop="zoom"${target}></label></fieldset>`
     :"";
+  const geometry=model.element&&["media","text","element"].includes(model.target.type)
+    ?`<fieldset class="advanced-object-geometry" data-advanced-object-geometry${target}><legend>Position &amp; size</legend>${[
+      ["x","Left"],["y","Top"],["width","Width"],["height","Height"]
+    ].map(([field,label])=>`<label><span>${label}</span><input type="number" min="0" max="${field==="y"||field==="height"?1080:1920}" step="1" value="${Math.round(Number(model.element[field]??0))}" data-advanced-geometry="${field}"${target}></label>`).join("")}</fieldset>`
+    :"";
   if(!model.typography){
-    return`<section class="advanced-selection-controls" data-advanced-selection-controls${target}>${actions}${objectLock}${aspectLock}${mediaPresentation}</section>`;
+    return`<section class="advanced-selection-controls" data-advanced-selection-controls${target}>${actions}${objectLock}${aspectLock}${geometry}${mediaPresentation}</section>`;
   }
   const typography=model.typography;
   const textContent=model.editableText
@@ -1816,7 +1947,7 @@ export function renderAdvancedSelectionControls(document={},{
   const weightOptions=FREE_TEXT_WEIGHTS.map((weight)=>`<option value="${weight}"${weight===typography.weight?" selected":""}>${weight}</option>`).join("");
   const alignments=FREE_TEXT_ALIGNMENTS.map(({id,label})=>`<button type="button" class="button secondary compact" data-advanced-alignment="${id}" aria-pressed="${String(id===typography.alignment)}"${target}>${label}</button>`).join("");
   const textLayout=model.editableText
-    ?`<label><span>Text fit</span><select data-advanced-text-layout="fitMode"${target}><option value="auto"${model.element.fitMode!=="fixed"?" selected":""}>Auto fit text</option><option value="fixed"${model.element.fitMode==="fixed"?" selected":""}>Fixed font size</option></select></label><label><span>Vertical alignment</span><select data-advanced-text-layout="verticalAlign"${target}>${TEXT_VERTICAL_ALIGNMENTS.map((alignment)=>`<option value="${alignment}"${model.element.verticalAlign===alignment?" selected":""}>${alignment[0].toUpperCase()+alignment.slice(1)}</option>`).join("")}</select></label><label><span>Minimum readable size</span><input type="number" min="8" max="72" step="1" value="${Number(model.element.minFontSize??10)}" data-advanced-text-layout="minFontSize"${target}></label>`
+    ?`<label><span>Text fit</span><select data-advanced-text-layout="fitMode"${target}><option value="auto"${model.element.fitMode!=="fixed"?" selected":""}>Auto fit text</option><option value="fixed"${model.element.fitMode==="fixed"?" selected":""}>Fixed font size</option></select></label><label><span>Vertical alignment</span><select data-advanced-text-layout="verticalAlign"${target}>${TEXT_VERTICAL_ALIGNMENTS.map((alignment)=>`<option value="${alignment}"${model.element.verticalAlign===alignment?" selected":""}>${alignment[0].toUpperCase()+alignment.slice(1)}</option>`).join("")}</select></label><label><span>Line spacing</span><input type="number" min="0.8" max="2" step="0.05" value="${Number(model.element.lineHeight??1.2)}" data-advanced-text-layout="lineHeight"${target}></label><label><span>Wrapping</span><select data-advanced-text-layout="wrap"${target}><option value="wrap"${model.element.wrap!=="nowrap"?" selected":""}>Wrap inside the box</option><option value="nowrap"${model.element.wrap==="nowrap"?" selected":""}>Keep on one line</option></select></label><label><span>Minimum readable size</span><input type="number" min="8" max="72" step="1" value="${Number(model.element.minFontSize??10)}" data-advanced-text-layout="minFontSize"${target}></label>`
     :"";
   const colorPicker=renderColorPicker({
     themeSwatches,
@@ -1827,7 +1958,7 @@ export function renderAdvancedSelectionControls(document={},{
     value:typography.color
   });
   return`<section class="advanced-selection-controls" data-advanced-selection-controls${target}>
-    ${actions}${objectLock}
+    ${actions}${objectLock}${geometry}
     <fieldset class="advanced-typography-controls" data-advanced-typography-controls${target}>
       <legend>Typography</legend>
       ${textContent}
@@ -2136,10 +2267,20 @@ export function installAdvancedStudio(root,hooks={}){
       hooks.onMediaPresentation?.({crop:{[String(mediaCrop.dataset.advancedMediaCrop||"x")]:Number(mediaCrop.value)}},delegatedTarget(mediaCrop),event);
       return;
     }
+    const objectGeometry=closest(event.target,"[data-advanced-geometry]");
+    if(objectGeometry){
+      hooks.onGeometry?.(
+        {[String(objectGeometry.dataset.advancedGeometry||"width")]:Number(objectGeometry.value)},
+        delegatedTarget(objectGeometry),
+        event
+      );
+      return;
+    }
     const textLayout=closest(event.target,"[data-advanced-text-layout]");
     if(textLayout){
       const field=String(textLayout.dataset.advancedTextLayout||"");
-      hooks.onTextLayout?.({[field]:field==="minFontSize"?Number(textLayout.value):String(textLayout.value||"")},delegatedTarget(textLayout),event);
+      const numeric=field==="minFontSize"||field==="lineHeight";
+      hooks.onTextLayout?.({[field]:numeric?Number(textLayout.value):String(textLayout.value||"")},delegatedTarget(textLayout),event);
       return;
     }
     const typography=closest(event.target,"[data-advanced-typography-field]");
@@ -2193,9 +2334,16 @@ export function installAdvancedStudio(root,hooks={}){
     if(object){
       const target=delegatedTarget(object);
       if(!target)return;
-      event.dataTransfer?.setData?.("application/x-missionmed-timeline-asset",JSON.stringify({kind:"object",target}));
-      event.dataTransfer.effectAllowed="move";
-      hooks.onDragStart?.({kind:"object",target},event);
+      // Every board drop handler accepts kind:"insert" only, so a rail tile that
+      // advertises drag has to speak that dialect or the drop is silently rejected;
+      // action:"place" tells the handler this is an object the student already owns.
+      const payload={kind:"insert",action:"place",assetKind:target.type,symbol:"",target};
+      event.dataTransfer?.setData?.("application/x-missionmed-timeline-asset",JSON.stringify(payload));
+      event.dataTransfer?.setData?.("text/plain",target.id);
+      // The drop side sets dropEffect="copy"; a "move"-only effectAllowed makes the
+      // browser veto that pairing and the drop event never fires at all.
+      event.dataTransfer.effectAllowed="copyMove";
+      hooks.onDragStart?.(payload,event);
     }
   };
   root.addEventListener("click",click);

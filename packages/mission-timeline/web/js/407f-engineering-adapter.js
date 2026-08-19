@@ -97,6 +97,7 @@ import {
   setBackgroundDim,
   setAxisPresentationOverride,
   setAxisSegmentWeights,
+  placeAdvancedObjectAt,
   setCategoryKeyPresentationOverride,
   setColorKeyGeometryPresentationOverride,
   setLayoutLock,
@@ -170,8 +171,15 @@ import {
   buildResponsiveModel,
   focusScreenHeading,
   installFocusTrap,
-  installResponsiveRuntime
+  installResponsiveRuntime,
+  renderResponsiveNotice
 } from "./uxr-002/responsive.js";
+import {
+  studentAccessMessage,
+  studentDiagnostic,
+  studentError,
+  studentMessage
+} from "./uxr-002/student-language.js";
 import {
   LOR_GUIDED_STATUS_OPTIONS,
   createLocalQueuedLorBuilderAdapter,
@@ -1247,7 +1255,10 @@ export function installProductionMatrixReturn({store,productionRuntime,locationO
     }catch(error){
       back.dataset.returning="false";
       back.removeAttribute("aria-disabled");
-      window.D1_407F_TEST?.toast?.(String(error?.message||error));
+      window.D1_407F_TEST?.toast?.(studentMessage(error,{context:"save"}),{
+        tone:"danger",
+        diagnostic:studentDiagnostic(error)
+      });
     }
   };
   return Object.freeze({mode:"MATRIX_PRODUCTION",returnUrl:target.href});
@@ -1583,7 +1594,7 @@ export async function boot407FEngineeringAdapter({
 
   if(entitlement.canMutate&&(init.restored||entitlement.canCreate)){
     store.mutate(
-      "Normalize canonical exam workflow",
+      "Tidy up your exam entries",
       (document)=>normalizeExamDocument(document),
       {history:false,material:false}
     );
@@ -1598,6 +1609,17 @@ export async function boot407FEngineeringAdapter({
   bridge.renderAll();
   lastState=stableState(bridge.state);
   applying=false;
+
+  /* Every student-facing failure leaves this file through here. The untranslated text goes
+     to the console and onto the toast as a data attribute for support; only the translated
+     sentence reaches the screen. */
+  const toastStudentError=(error,context="generic")=>{
+    const translated=studentError(error,{context});
+    console.warn("Timeline student-facing error",translated.diagnostic,error);
+    bridge.toast(translated.message,{tone:"danger",diagnostic:translated.diagnostic});
+    return translated.message;
+  };
+  const entitlementStudentReason=()=>entitlementStatusMarkup(store.entitlement).reason;
 
   let pending=false;
   const entitlementViewControl=(control)=>control?.matches?.([
@@ -1741,7 +1763,7 @@ export async function boot407FEngineeringAdapter({
     lastState=stableState(bridge.state);
     applying=false;
     applyEntitlementSurface();
-    bridge.toast(store.entitlement.reason);
+    bridge.toast(entitlementStudentReason(),{tone:"warning",diagnostic:store.entitlement.reason});
   };
   for(const eventName of ["click","input","change","drop"]){
     document.addEventListener(eventName,onEntitlementCapture,true);
@@ -1775,7 +1797,7 @@ export async function boot407FEngineeringAdapter({
       lastState=nextState;
       if(store.entitlement.canMutate===true){
         store.mutate(
-          "407F canonical UI change",
+          "Timeline edit",
           (document)=>apply407FStateToDocument(bridge.state,document)
         );
       }else{
@@ -1812,7 +1834,7 @@ export async function boot407FEngineeringAdapter({
     if(nextState!==lastState&&store.entitlement.canMutate===true){
       lastState=nextState;
       store.mutate(
-        "407F page exit",
+        "Timeline edit",
         (document)=>apply407FStateToDocument(bridge.state,document)
       );
     }
@@ -2359,7 +2381,7 @@ export async function boot407FEngineeringAdapter({
   };
   const replaceMediaLibraryItem=async(id)=>{
     const current=mediaItems().find((item)=>String(item.id)===String(id));
-    if(!current)throw new Error("The Media asset is no longer available.");
+    if(!current)throw new Error("That image is no longer in your timeline.");
     const file=await chooseLocalFile(MEDIA_LIBRARY_ACCEPT.join(","));
     if(!file)return false;
     const metrics=await imageMetrics(file,{kind:mediaKindForFile(file)});
@@ -2388,7 +2410,7 @@ export async function boot407FEngineeringAdapter({
             current.id,
             replacement
           );
-          if(!result.changed)throw new Error("The Media asset is no longer available.");
+          if(!result.changed)throw new Error("That image is no longer in your timeline.");
           document.advanced.media=result.media;
         },
         {blobs:[persistence.blob],reason:"REPLACE_MEDIA_ASSET"}
@@ -2406,15 +2428,15 @@ export async function boot407FEngineeringAdapter({
       cleanupComplete=await retireDurableMediaObject(priorObjectId);
     }
     const message=cleanupComplete
-      ?"Media asset replaced"
-      :"Media asset replaced; prior-file cleanup will retry after sync";
+      ?"Image replaced"
+      :"Image replaced. We are still tidying up the old file, and your timeline is safe.";
     bridge.toast(message);
     announceGlobal(message);
     return true;
   };
   const deleteMediaLibraryItem=async(id)=>{
     const current=mediaItems().find((item)=>String(item.id)===String(id));
-    if(!current)throw new Error("The Media asset is no longer available.");
+    if(!current)throw new Error("That image is no longer in your timeline.");
     const priorObjectId=current.source?.objectId;
     if(priorObjectId)await queueDurableMediaRetirement(priorObjectId);
     try{
@@ -2441,8 +2463,8 @@ export async function boot407FEngineeringAdapter({
       cleanupComplete=await retireDurableMediaObject(priorObjectId);
     }
     const message=cleanupComplete
-      ?"Media asset permanently deleted"
-      :"Media asset removed; private-file deletion will retry after sync";
+      ?"Image deleted"
+      :"Image removed. We are still deleting the stored file, and your timeline is safe.";
     bridge.toast(message);
     announceGlobal(message);
     return true;
@@ -2450,14 +2472,14 @@ export async function boot407FEngineeringAdapter({
   const openDeleteMediaLibraryDialog=(id)=>{
     const current=mediaItems().find((item)=>String(item.id)===String(id));
     if(!current)return;
-    const name=escapeMarkup(current.source?.name||"this asset");
+    const name=escapeMarkup(current.source?.name||"this image");
     const dialog=openStandardModal(`<section class="export407FSuggestionDialog" role="dialog" aria-modal="true" aria-labelledby="media407FDeleteTitle" data-media-delete-dialog>
-      <p class="k">PERMANENT MEDIA DELETION</p>
+      <p class="k">DELETE THIS IMAGE</p>
       <h2 id="media407FDeleteTitle">Delete ${name}?</h2>
-      <p>This removes the asset from every Timeline placement and permanently deletes its private stored file after the updated timeline is safely synced.</p>
+      <p>This takes the image off your timeline everywhere it appears, and deletes the stored copy once your timeline is safely saved.</p>
       <div class="export407FDialogActions">
         <button type="button" class="btnD alt" data-media-delete-cancel>Cancel</button>
-        <button type="button" class="btnD go" data-media-delete-confirm>Delete asset</button>
+        <button type="button" class="btnD go" data-media-delete-confirm>Delete image</button>
       </div>
     </section>`,"[data-media-delete-dialog]");
     dialog?.querySelector("[data-media-delete-cancel]")?.addEventListener(
@@ -2475,9 +2497,8 @@ export async function boot407FEngineeringAdapter({
           closeStandardModal({restoreFocus:false});
         }catch(error){
           confirm.disabled=false;
-          const message=String(error?.message||error);
-          bridge.toast(message);
-          announceGlobal(`Media could not be deleted: ${message}`);
+          const message=toastStudentError(error,"media");
+          announceGlobal(`That image could not be deleted. ${message}`);
         }
       },
       {once:true}
@@ -2506,9 +2527,8 @@ export async function boot407FEngineeringAdapter({
       event.preventDefault();
       replaceMediaLibraryItem(replace.dataset.mediaReplace)
         .catch((error)=>{
-          const message=String(error?.message||error);
-          bridge.toast(message);
-          announceGlobal(`Media could not be replaced: ${message}`);
+          const message=toastStudentError(error,"media");
+          announceGlobal(`That image could not be replaced. ${message}`);
         });
       return;
     }
@@ -2601,9 +2621,8 @@ export async function boot407FEngineeringAdapter({
         blobs.push(persistence.blob);
         rollbacks.push(persistence.rollback);
       }catch(error){
-        const message=String(error?.message||error);
-        bridge.toast(message);
-        announceGlobal(`${file.name} could not be added: ${message}`);
+        const message=toastStudentError(error,"media");
+        announceGlobal(`${file.name} could not be added. ${message}`);
       }
     }
     if(!additions.length)return;
@@ -2615,17 +2634,16 @@ export async function boot407FEngineeringAdapter({
       );
     }catch(error){
       await Promise.allSettled(rollbacks.map((rollback)=>rollback()));
-      const message=String(error?.message||error);
-      bridge.toast(message);
-      announceGlobal("Media could not be added");
+      toastStudentError(error,"media");
+      announceGlobal("Those images could not be added.");
       return;
     }
     additions.forEach((asset,index)=>mediaUrls.set(asset.id,blobs[index].blob));
     syncBridgeFromStore();
     renderMediaLibrarySurfaces();
-    bridge.toast(`${additions.length} Media asset${additions.length===1?"":"s"} added`);
+    bridge.toast(`${additions.length} image${additions.length===1?"":"s"} added`);
     announceGlobal(
-      `${additions.length} Media asset${additions.length===1?"":"s"} added`
+      `${additions.length} image${additions.length===1?"":"s"} added`
     );
   };
   onMediaLibraryDragStart=(event)=>{
@@ -2747,7 +2765,7 @@ export async function boot407FEngineeringAdapter({
     return`<section class="m9LogoEditor" aria-labelledby="m9LogoTitle">
       <div>
         <div class="builderVariantEyebrow" id="m9LogoTitle">PROGRAM LOGO · LOCAL MEDIA</div>
-        <p>PNG, JPG, or WEBP. The original local asset stays in Media; this timeline stores only its reference and placement.</p>
+        <p>PNG, JPG, or WEBP. Your original image stays in Media, and this timeline just shows it where you place it.</p>
       </div>
       ${asset?`<div class="m9LogoPreview">${url?`<img src="${escapeMarkup(url)}" alt="Current program logo preview">`:""}<strong>${escapeMarkup(asset.source?.name||"Program logo")}</strong></div>`:"<div class=\"m9LogoEmpty\">No program logo selected.</div>"}
       <label class="btnD alt sm m9LogoUpload">CHOOSE OR REPLACE LOGO<input type="file" accept="image/png,image/jpeg,image/webp" data-interview-logo-upload aria-describedby="m9LogoError"></label>
@@ -2943,7 +2961,7 @@ export async function boot407FEngineeringAdapter({
       }catch(error){
         finishLater.disabled=false;
         finishLater.textContent="RETRY SAVE AND FINISH LATER";
-        bridge.toast(String(error?.message||error));
+        toastStudentError(error,"save");
       }
       return;
     }
@@ -2957,7 +2975,7 @@ export async function boot407FEngineeringAdapter({
       store.saveNow("BUILDER_SAVE_AND_CONTINUE")
         .then(()=>store.adapter?.flush?.())
         .then(()=>announceGlobal("Progress saved"))
-        .catch((error)=>bridge.toast(String(error?.message||error)));
+        .catch((error)=>toastStudentError(error,"save"));
     }
     const create=event.target.closest?.("[data-explanation-create]");
     if(create){
@@ -3183,8 +3201,7 @@ export async function boot407FEngineeringAdapter({
       announceGlobal("Program logo added to the active interview timeline");
     }catch(error){
       await rollbackUpload();
-      const message=String(error?.message||error);
-      bridge.toast(message);
+      const message=toastStudentError(error,"media");
       setM9InlineError(input,logoError,message);
     }
   };
@@ -3393,7 +3410,7 @@ export async function boot407FEngineeringAdapter({
         interactive
       });
     }catch(error){
-      bridge.toast(String(error?.message||error));
+      toastStudentError(error,"open");
     }
     if(!rendered?.html&&host.querySelector("[data-builder-preview-surface]")){
       host.dataset.builderPreviewError="true";
@@ -3520,7 +3537,7 @@ export async function boot407FEngineeringAdapter({
   };
   const activateBuilderPreviewOwner=(attributes,{fromLightbox=false}={})=>{
     if(store.entitlement.canMutate!==true){
-      bridge.toast(store.entitlement.reason);
+      bridge.toast(entitlementStudentReason(),{tone:"warning",diagnostic:store.entitlement.reason});
       return false;
     }
     const route=resolveBuilderPreviewOwner(store.document,attributes);
@@ -3534,7 +3551,7 @@ export async function boot407FEngineeringAdapter({
       requestAnimationFrame(()=>requestAnimationFrame(()=>{
         document.querySelector(route.focusSelector)?.focus?.();
       }));
-      announceGlobal("Opened Media for this timeline asset");
+      announceGlobal("Opened Media for this image");
       return true;
     }
     if(route.kind==="interview-target"||route.kind==="explanation"){
@@ -3577,7 +3594,7 @@ export async function boot407FEngineeringAdapter({
   };
   const activateBuilderPreviewRetake=(targetAttemptId,{fromLightbox=false}={})=>{
     if(store.entitlement.canMutate!==true){
-      bridge.toast(store.entitlement.reason);
+      bridge.toast(entitlementStudentReason(),{tone:"warning",diagnostic:store.entitlement.reason});
       return false;
     }
     const id=String(targetAttemptId||"");
@@ -3697,7 +3714,7 @@ export async function boot407FEngineeringAdapter({
         bridge.toast(result.announcement||"Timeline updated");
       }
     }catch(error){
-      bridge.toast(String(error?.message||error));
+      toastStudentError(error,"layout");
     }
   };
   const normalizeFurnitureGeometry=(value,fallback)=>{
@@ -3901,7 +3918,10 @@ export async function boot407FEngineeringAdapter({
     if(Number(kernelManager.projection()?.model?.revision)!==Number(detail.revision))return;
     const entry=store.undo();
     if(entry)syncBridgeStateFromStore();
-    const message=String(detail.message||"We kept your last working layout.");
+    const message=studentMessage(detail,{
+      context:"layout",
+      fallback:"We kept your last working layout."
+    });
     canvasController?.setUiState((state)=>({...state,liveAnnouncement:message}));
     bridge.toast(message);
   };
@@ -4042,7 +4062,7 @@ export async function boot407FEngineeringAdapter({
     if(plan.status==="noop")return;
     if(plan.status==="ready"){
       applyModeDecision(plan,"confirm")
-        .catch((error)=>bridge.toast(String(error?.message||error)));
+        .catch((error)=>toastStudentError(error));
       return;
     }
     if(typeof bridge.openModal!=="function")return;
@@ -4054,13 +4074,13 @@ export async function boot407FEngineeringAdapter({
       closeStandardModal();
       const decision=targetMode==="advanced"?"stay-guided":"cancel";
       applyModeDecision(plan,decision)
-        .catch((error)=>bridge.toast(String(error?.message||error)));
+        .catch((error)=>toastStudentError(error));
     },{once:true});
     document.querySelector("[data-mode-dialog-primary]")?.addEventListener("click",()=>{
       closeStandardModal();
       const decision=targetMode==="advanced"?"enter-advanced":"return-guided";
       applyModeDecision(plan,decision)
-        .catch((error)=>bridge.toast(String(error?.message||error)));
+        .catch((error)=>toastStudentError(error));
     },{once:true});
   };
   const addAdvancedMedia=async(kind)=>{
@@ -4126,7 +4146,7 @@ export async function boot407FEngineeringAdapter({
     syncBridgeStateFromStore();
     if(priorObjectId){
       retireDurableMediaObject(priorObjectId)
-        .catch((error)=>bridge.toast(String(error?.message||error)));
+        .catch((error)=>toastStudentError(error,"media"));
     }
   };
   const currentTypography=(target)=>{
@@ -4338,7 +4358,7 @@ export async function boot407FEngineeringAdapter({
         canvasController?.setUiState({advancedSelection:result.selection,advancedTextEdit:null});
         reselectAdvancedKernel("group",result.selection.id);
         announceGlobal("Objects grouped");
-      }catch(error){bridge.toast(String(error?.message||error));}
+      }catch(error){toastStudentError(error,"layout");}
     },
     onClearSelection:()=>canvasController?.setUiState({advancedSelection:null,advancedTextEdit:null}),
     onAction:(action,_event,control)=>{
@@ -4369,7 +4389,7 @@ export async function boot407FEngineeringAdapter({
         });
       }else if(["image","gif","logo"].includes(action)){
         addAdvancedMedia(action)
-          .catch((error)=>bridge.toast(String(error?.message||error)));
+          .catch((error)=>toastStudentError(error,"media"));
       }else if(action==="asset"){
         insertAdvancedAsset(
           String(control?.dataset?.advancedKind||"rectangle"),
@@ -4378,7 +4398,17 @@ export async function boot407FEngineeringAdapter({
       }
     },
     onAssetDrop:(payload,{x,y}={})=>{
-      if(payload?.kind!=="insert")return;
+      if(payload?.kind!=="insert")return false;
+      /* Dragging an object the student already owns is a move, not an insert. Without
+         this branch the drop silently did nothing while the app announced success. */
+      if(payload.action==="place"&&payload.target){
+        const result=placeAdvancedObjectAt(store.document,payload.target,{x,y});
+        if(!result.changed)return false;
+        store.replace(result.document,{label:result.mutation?.label||"Place Timeline object"});
+        syncBridgeStateFromStore();
+        canvasController?.setUiState({advancedSelection:result.selection||null});
+        return true;
+      }
       if(payload.action==="text"||payload.action==="symbol"){
         const id=uid("advanced-text");
         store.mutate("Add text",(document)=>{
@@ -4389,13 +4419,15 @@ export async function boot407FEngineeringAdapter({
         });
         syncBridgeStateFromStore();
         canvasController?.setUiState({advancedSelection:{type:"text",id},advancedTextEdit:{id,draft:payload.symbol||"Add your text"}});
-        return;
+        return true;
       }
       if(payload.action==="asset"){
         insertAdvancedAsset(payload.assetKind||"rectangle",{
           x,y,countryCode:payload.symbol||"US"
         });
+        return true;
       }
+      return false;
     },
     onObjectAction:(action,target)=>{
       if(action==="ungroup"&&target?.type==="group"){
@@ -4446,13 +4478,13 @@ export async function boot407FEngineeringAdapter({
             canvasController?.render();
           })
           .catch(()=>{
-            announceGlobal("The duplicated asset will reload after its private source is available.");
+            announceGlobal("The copied image will appear as soon as it finishes loading.");
           });
       }
       if(priorObjectId){
         mediaUrls.revoke(target.id);
         retireDurableMediaObject(priorObjectId)
-          .catch((error)=>bridge.toast(String(error?.message||error)));
+          .catch((error)=>toastStudentError(error,"media"));
       }
     },
     onAspectLock:(locked,target)=>{
@@ -4472,7 +4504,7 @@ export async function boot407FEngineeringAdapter({
         syncBridgeStateFromStore();
         canvasController?.setUiState({advancedSelection:target});
         reselectAdvancedKernel("media",target.id);
-      }catch(error){bridge.toast(String(error?.message||error));}
+      }catch(error){toastStudentError(error,"layout");}
     },
     onTypography:(changes,target)=>applyTypographyChange(changes,target),
     onTextLayout:(changes,target)=>{
@@ -4482,13 +4514,23 @@ export async function boot407FEngineeringAdapter({
         syncBridgeStateFromStore();
         canvasController?.setUiState({advancedSelection:target});
         reselectAdvancedKernel("text",target.id);
-      }catch(error){bridge.toast(String(error?.message||error));}
+      }catch(error){toastStudentError(error,"layout");}
     },
-    onTextContent:(text,target)=>{
+    onTextContent:(text,target,event)=>{
+      const field=event?.target;
+      const caret=field?.selectionStart??null;
       const result=updateTextBlockContent(store.document,target,text);
       store.replace(result,{label:"Edit Advanced text"});
       syncBridgeStateFromStore();
       canvasController?.setUiState({advancedSelection:target});
+      // The inspector is rebuilt on every keystroke and detaches this textarea mid-word,
+      // so put the caret back the way the asset search field does.
+      queueMicrotask(()=>{
+        const restored=canvasHost?.querySelector?.("[data-advanced-text-content]");
+        if(!restored||restored===field)return;
+        restored.focus?.();
+        if(caret!=null)restored.setSelectionRange?.(caret,caret);
+      });
     },
     onBackgroundTab:(backgroundTab)=>canvasController?.setUiState({backgroundTab}),
     onBackgroundPreset:(presetId)=>{
@@ -4499,12 +4541,12 @@ export async function boot407FEngineeringAdapter({
       syncBridgeStateFromStore();
       if(priorObjectId){
         retireDurableMediaObject(priorObjectId)
-          .catch((error)=>bridge.toast(String(error?.message||error)));
+          .catch((error)=>toastStudentError(error,"media"));
       }
     },
     onBackgroundUpload:(file)=>{
       addAdvancedBackground(file)
-        .catch((error)=>bridge.toast(String(error?.message||error)));
+        .catch((error)=>toastStudentError(error,"media"));
     },
     onBackgroundDim:(dim)=>{
       store.mutate("Adjust background readability",(document)=>{
@@ -4525,7 +4567,7 @@ export async function boot407FEngineeringAdapter({
       syncBridgeStateFromStore();
       if(priorObjectId){
         retireDurableMediaObject(priorObjectId)
-          .catch((error)=>bridge.toast(String(error?.message||error)));
+          .catch((error)=>toastStudentError(error,"media"));
       }
     },
     onHex:(color)=>{
@@ -4542,7 +4584,7 @@ export async function boot407FEngineeringAdapter({
           }
         })
         .catch((error)=>{
-          if(error?.name!=="AbortError")bridge.toast(String(error?.message||error));
+          if(error?.name!=="AbortError")toastStudentError(error);
         });
     },
     onLayoutLock:(locked)=>{
@@ -4675,6 +4717,17 @@ export async function boot407FEngineeringAdapter({
     higherContrast:window.matchMedia?.("(prefers-contrast: more)")?.matches,
     forcedColors:window.matchMedia?.("(forced-colors: active)")?.matches
   });
+  /* The phone stylesheet hides the canvas toolbar outright. Without this notice the board
+     just looks broken, so render the banner the responsive model already computes. */
+  const renderCanvasResponsiveNotice=()=>{
+    const host=document.getElementById("canvasResponsiveNotice407F");
+    if(!host)return;
+    const notice=renderResponsiveNotice(currentResponsiveModel(),"canvas");
+    const markup=notice
+      ?`${notice}<p class="responsive407FNoticeHint">You can still read your timeline here. Open Timeline Builder on a laptop or desktop to edit it.</p>`
+      :"";
+    if(host.innerHTML!==markup)host.innerHTML=markup;
+  };
   function renderExportHost(){
     const exportHost=document.getElementById("export407F");
     if(!exportHost)return;
@@ -4687,7 +4740,7 @@ export async function boot407FEngineeringAdapter({
           buildExportPreviewInput(exportDocument,exportState)
         );
       }catch(error){
-        bridge.toast(String(error?.message||error));
+        toastStudentError(error,"export");
       }
     }
     const responsive=currentResponsiveModel();
@@ -4715,7 +4768,10 @@ export async function boot407FEngineeringAdapter({
       getEntitlement:()=>store.entitlement,
       renderPreview:renderExportPreview,
       exportAdapter,
-      toast:(message)=>bridge.toast(message),
+      toast:(message,options)=>bridge.toast(
+        studentMessage(message,{context:"export"}),
+        options?{...options,diagnostic:studentDiagnostic(message)}:options
+      ),
       requestVersion:(label,kind)=>store.saveVersion(label,kind),
       onStateChange:(state,reason)=>{
         exportState=state;
@@ -4818,7 +4874,7 @@ export async function boot407FEngineeringAdapter({
     try{
       return action();
     }catch(error){
-      bridge.toast(String(error?.message||error));
+      toastStudentError(error);
       return null;
     }
   };
@@ -4844,7 +4900,7 @@ export async function boot407FEngineeringAdapter({
     try{
       boardHtml=advisorBoardHtml();
     }catch(error){
-      bridge.toast(String(error?.message||error));
+      toastStudentError(error,"open");
     }
     advisorHost.innerHTML=renderAdvisorSession(store.document,{
       route:store.document.advisor?.route,
@@ -5309,7 +5365,8 @@ export async function boot407FEngineeringAdapter({
           status.textContent="Recovery complete. Reloading the saved Timeline…";
           window.location.reload();
         }catch(error){
-          status.textContent=String(error?.message||error);
+          status.textContent=studentMessage(error,{context:"save"});
+          status.dataset.diagnostic=studentDiagnostic(error);
           buttons.forEach((item)=>{item.disabled=false;});
         }
       };
@@ -5459,7 +5516,7 @@ export async function boot407FEngineeringAdapter({
         bridge.toast("Theme applied");
       },
       onDropReflow:syncCanvasDocument,
-      onToast:(message)=>bridge.toast(message)
+      onToast:(message)=>bridge.toast(studentMessage(message,{context:"layout"}))
     });
     api.canvas=canvasController;
     removeAdvanced=installAdvancedStudio(canvasHost,advancedHooks());
@@ -5990,7 +6047,7 @@ export async function boot407FEngineeringAdapter({
             x:Math.max(0,Math.min(1840,(event.clientX-bounds.left)*1920/bounds.width)),
             y:Math.max(0,Math.min(1000,(event.clientY-bounds.top)*1080/bounds.height))
           });
-          bridge.toast("Asset added to Timeline");
+          bridge.toast("Added to your timeline");
         }
         return;
       }
@@ -6055,8 +6112,9 @@ export async function boot407FEngineeringAdapter({
       event.preventDefault();
       const x=Math.max(0,Math.min(1840,(event.clientX-bounds.left)*1920/bounds.width));
       const y=Math.max(0,Math.min(1000,(event.clientY-bounds.top)*1080/bounds.height));
-      advancedHooks().onAssetDrop(payload,{x,y});
-      bridge.toast("Asset added to Timeline");
+      /* Only confirm a drop that actually landed. Announcing success for a payload no
+         handler accepts is worse than silence: the student believes the asset is there. */
+      if(advancedHooks().onAssetDrop(payload,{x,y})===true)bridge.toast("Added to your timeline");
     };
     onAdvancedRailNativeDragStart=(event)=>{
       const tile=event.target.closest?.("[data-advanced-insert-asset]");
@@ -6078,7 +6136,7 @@ export async function boot407FEngineeringAdapter({
         x:Math.max(0,Math.min(1840,(event.clientX-bounds.left)*1920/bounds.width)),
         y:Math.max(0,Math.min(1000,(event.clientY-bounds.top)*1080/bounds.height))
       });
-      bridge.toast("Asset added to Timeline");
+      bridge.toast("Added to your timeline");
     };
     canvasHost.addEventListener("click",onCanvasDetailsClick);
     canvasHost.addEventListener("click",onAdvancedObjectClick);
@@ -6102,13 +6160,13 @@ export async function boot407FEngineeringAdapter({
         :null,
       onError:(error,{id})=>{
         console.warn("Timeline media hydration omitted one asset",{id,error});
-        announceGlobal("One media asset could not be loaded. The rest of your timeline remains available.");
+        announceGlobal("One image could not be loaded. The rest of your timeline is fine.");
       }
     })
       .then((changed)=>{
         if(changed)canvasController?.render();
       })
-      .catch((error)=>bridge.toast(String(error?.message||error)));
+      .catch((error)=>toastStudentError(error,"media"));
   }
   if(document.getElementById("export407F"))renderExportHost();
   if(document.getElementById("advisor407F"))renderAdvisorHost();
@@ -6129,6 +6187,25 @@ export async function boot407FEngineeringAdapter({
         :localIntakeAdapter
     );
     window.D1_TIMELINE_INTAKE_ADAPTER=intakeAdapter;
+    /* intake.js copies a rejection message straight into state.fileError, which renders as
+       the red field error under the CV dropzone. That message has to already be student
+       language by the time it leaves this adapter, so translate it at the boundary. */
+    const studentSafeIntakeAdapter=Object.freeze({
+      ...intakeAdapter,
+      async extract(input){
+        try{
+          return await intakeAdapter.extract(input);
+        }catch(error){
+          if(error?.name==="AbortError")throw error;
+          const translated=studentError(error,{context:"document"});
+          console.warn("Timeline student-facing error",translated.diagnostic,error);
+          const safe=new Error(translated.message);
+          safe.code=translated.code||"DOCUMENT_UNREADABLE";
+          safe.diagnostic=translated.diagnostic;
+          throw safe;
+        }
+      }
+    });
     const renderIntakePreview=(previewEvents)=>{
       const replacementIds=new Set((previewEvents||[]).map(({id})=>String(id)));
       const events=[
@@ -6179,7 +6256,7 @@ export async function boot407FEngineeringAdapter({
       },{once:true});
     };
     intakeMachine=new IntakeStateMachine({
-      adapter:intakeAdapter,
+      adapter:studentSafeIntakeAdapter,
       initialState:store.document.intake,
       existingEvents:store.document.events
     });
@@ -6196,8 +6273,8 @@ export async function boot407FEngineeringAdapter({
         bridge.renderAll();
       },
       onNavigate:(route)=>bridge.go(route),
-      onToast:(message)=>bridge.toast(message),
-      onError:(error)=>bridge.toast(String(error?.message||error)),
+      onToast:(message)=>bridge.toast(studentMessage(message,{context:"document"})),
+      onError:(error)=>toastStudentError(error,"document"),
       openDialog:openIntakeDialog,
       saveVersion:(name,kind)=>store.saveVersion(name,kind),
       applyBatch:async(batch,contract)=>{
@@ -6295,7 +6372,7 @@ export async function boot407FEngineeringAdapter({
         bridge.go("intake");
         bridge.toast("File Vault document ready for your review");
       }catch(error){
-        bridge.toast(String(error?.message||error));
+        toastStudentError(error,"document");
       }
     });
     let searchTimer=null;
@@ -6310,7 +6387,7 @@ export async function boot407FEngineeringAdapter({
     }
   };
   onHomeFileVault=()=>openFileVaultSource().catch((error)=>{
-    bridge.toast(String(error?.message||error));
+    toastStudentError(error,"document");
   });
   document.getElementById("homeFileVault")?.addEventListener("click",onHomeFileVault);
   const openShortcuts=()=>{
@@ -6347,7 +6424,7 @@ export async function boot407FEngineeringAdapter({
     if(command&&lower==="z"&&!isEditableTarget(event.target)){
       event.preventDefault();
       if(store.entitlement.canMutate!==true){
-        bridge.toast(store.entitlement.reason);
+        bridge.toast(entitlementStudentReason(),{tone:"warning",diagnostic:store.entitlement.reason});
         return;
       }
       (event.shiftKey?api.redo:api.undo)();
@@ -6449,9 +6526,12 @@ export async function boot407FEngineeringAdapter({
         ()=>updateBuilderPreviewHitTargets(document.getElementById("boardWizard"))
       ));
     }
-    if(view==="canvas")requestAnimationFrame(()=>requestAnimationFrame(
-      ()=>canvasController?.refreshEffectiveHitTargets?.()
-    ));
+    if(view==="canvas"){
+      renderCanvasResponsiveNotice();
+      requestAnimationFrame(()=>requestAnimationFrame(
+        ()=>canvasController?.refreshEffectiveHitTargets?.()
+      ));
+    }
     if(!["builder","canvas"].includes(view))closeMediaLibrary();
     if(["builder","canvas","media"].includes(view))renderMediaLibrarySurfaces();
     if(view==="command"&&productionRuntime){
@@ -6478,6 +6558,7 @@ export async function boot407FEngineeringAdapter({
     onChange:(model)=>{
       api.responsive=model;
       canvasController?.setResponsiveWidth(model.viewport.width);
+      renderCanvasResponsiveNotice();
       const active=document.querySelector("section[data-view].live");
       if(active){
         const screen=bridge.state.view==="command"?"home":bridge.state.view;
@@ -6547,9 +6628,10 @@ if(typeof window!=="undefined"){
       panel.append(eyebrow,title,detail,actions);
       gate.append(panel);
       gate.dataset.errorCode=String(error?.code||"TIMELINE_BOOTSTRAP_FAILED");
+      gate.dataset.diagnostic=studentDiagnostic(error);
     }
     document.dispatchEvent(new CustomEvent("d1:407f-engineering-error",{
-      detail:{message:String(error?.message||error)}
+      detail:{message:studentMessage(error,{context:"open"}),diagnostic:studentDiagnostic(error)}
     }));
   });
 }

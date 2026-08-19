@@ -91,7 +91,8 @@ test("Founder Media renders one draggable library with keyboard-equivalent place
   assert.match(html,/draggable="true"/);
   assert.match(html,/data-media-asset="asset-1"/);
   assert.match(html,/data-media-place="asset-1"/);
-  assert.match(html,/keyboard placement at the timeline center/);
+  assert.match(html,/drop it in the middle of the timeline/);
+  assert.doesNotMatch(html,/Replace asset|Delete asset|asset reference|Drag an asset/i);
   assert.match(html,/blob:missionmed-local/);
   assert.match(html,/PNG, JPG, WEBP, or GIF/);
   assert.doesNotMatch(html,/tabindex="0"/);
@@ -354,7 +355,7 @@ test("Founder Media retains 407F hierarchy, 44px actions, non-modal drawer acces
   assert.match(index,/data-open-media-library aria-controls="mediaDrawer407F" aria-expanded="false" aria-haspopup="dialog"/);
   assert.match(adapter,/announceGlobal\("Media placed on timeline"\)/);
   assert.match(adapter,/live\.textContent="";[\s\S]*?queueMicrotask/);
-  assert.match(adapter,/announceGlobal\(`\$\{file\.name\} could not be added:/);
+  assert.match(adapter,/announceGlobal\(`\$\{file\.name\} could not be added\./);
   assert.match(adapter,/const mediaFocusState=/);
   assert.match(adapter,/onMotionChange:\(motion\)=>\{[\s\S]*?renderMediaLibrarySurfaces\(\)[\s\S]*?canvasController\?\.render\(\)/);
   assert.match(adapter,/if\(!\["builder","canvas"\]\.includes\(view\)\)closeMediaLibrary\(\)/);

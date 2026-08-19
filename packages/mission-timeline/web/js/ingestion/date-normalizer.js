@@ -16,9 +16,15 @@ export function parseDatePoint(raw,{edge="start"}={}){
   }
   match=value.match(/^(\d{1,2})\/(\d{4})$/);
   if(match)return {...point,timelineMonth:monthString(+match[2],+match[1]),precision:"MONTH",confidence:"HIGH"};
+  match=value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(match)return {...point,timelineMonth:monthString(+match[1],+match[2]),isoDate:match[1]+"-"+match[2]+"-"+match[3],precision:"DAY",confidence:"HIGH"};
   match=value.match(/^(\d{4})-(\d{2})$/);
   if(match)return {...point,timelineMonth:monthString(+match[1],+match[2]),precision:"MONTH",confidence:"HIGH"};
-  match=value.match(/^([A-Za-z]+)\s+(\d{4})$/);
+  /* "Sept. 2019" and "Sep 12, 2019" are the two commonest CV month spellings; the trailing
+     period and the day number both used to fall through to "Unrecognized date format". */
+  match=value.match(/^([A-Za-z]+)\.?\s+(\d{1,2})\s+(\d{4})$/);
+  if(match&&MONTHS[match[1].toLowerCase()])return {...point,timelineMonth:monthString(+match[3],MONTHS[match[1].toLowerCase()]),isoDate:match[3]+"-"+String(MONTHS[match[1].toLowerCase()]).padStart(2,"0")+"-"+String(match[2]).padStart(2,"0"),precision:"DAY",confidence:"HIGH"};
+  match=value.match(/^([A-Za-z]+)\.?\s+(\d{4})$/);
   if(match&&MONTHS[match[1].toLowerCase()])return {...point,timelineMonth:monthString(+match[2],MONTHS[match[1].toLowerCase()]),precision:"MONTH",confidence:"HIGH"};
   match=value.match(/^(spring|summer|fall|autumn|winter)\s+(\d{4})$/i);
   if(match){

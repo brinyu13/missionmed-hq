@@ -482,3 +482,118 @@ test("M12 installed action re-enables after failure and uses only the frozen fai
   assert.equal(button.textContent,"Export PNG");
   assert.deepEqual(messages,["Export failed — try again"]);
 });
+
+test("every disabled export state names a human, actionable reason next to the button",()=>{
+  const cases=[
+    [{...fixture(),events:[]},{},"Add at least one event in Builder, then come back here to export."],
+    [(()=>{const document=fixture();document.studentProfile.fullName="";return document;})(),{},"Add your name in Builder before exporting."],
+    [fixture(),{audience:"LOR_WRITER"},"Fill in the LOR writer recipient details above before exporting."],
+    [fixture(),{exporting:true},"Preparing your file…"]
+  ];
+  for(const [document,state,reason] of cases){
+    const model=buildExportScreenModel(document,state,{now:fixedNow});
+    assert.equal(model.exportActionDisabled,true);
+    assert.equal(model.exportBlockedReason,reason);
+    const html=renderExportScreen(document,{state,now:fixedNow});
+    assert.match(html,/data-export-blocked-reason/);
+    assert.match(html,/aria-describedby="export-blocked-reason" data-export-action/);
+    assert.ok(html.includes(reason),`missing reason on screen: ${reason}`);
+  }
+  const ready=buildExportScreenModel(fixture(),{audience:"LOR_WRITER",audienceDetails:lorDetails},{now:fixedNow});
+  assert.equal(ready.exportActionDisabled,false);
+  assert.equal(ready.exportBlockedReason,null);
+  const readyHtml=renderExportScreen(fixture(),{
+    state:{audience:"LOR_WRITER",audienceDetails:lorDetails},
+    now:fixedNow
+  });
+  assert.doesNotMatch(readyHtml,/data-export-blocked-reason/);
+  assert.doesNotMatch(readyHtml,/aria-describedby="export-blocked-reason"/);
+});
+
+test("student-facing export copy stays out of engineering language",()=>{
+  const html=renderExportScreen(fixture(),{
+    state:{audience:"LOR_WRITER"},
+    previewHtml:"<div></div>",
+    now:fixedNow
+  });
+  assert.match(html,/Updating your preview…/);
+  for(const jargon of [
+    "Rendering preview",
+    "adapter",
+    "execution",
+    "boundary",
+    "contract",
+    "to enable export"
+  ])assert.ok(!html.includes(jargon),`engineering language on the export screen: ${jargon}`);
+});
+
+test("a student who exports once can immediately export another format, interstitial or not",async()=>{
+  class FakeNode{
+    constructor(value=""){
+      this.value=value;
+      this.textContent="";
+      this.hidden=false;
+      this.disabled=false;
+      this.attributes=new Map();
+      this.listeners=new Map();
+    }
+    addEventListener(type,handler){this.listeners.set(type,handler);}
+    setAttribute(name,value){this.attributes.set(name,String(value));}
+    async fire(type){await this.listeners.get(type)?.({currentTarget:this,target:this});}
+  }
+  const button=new FakeNode();
+  button.textContent="Export PNG";
+  const blocker=new FakeNode();
+  const pdf=new FakeNode("pdf-letter-landscape");
+  const root={
+    querySelector(selector){
+      if(selector==="[data-export-action]")return button;
+      if(selector==="[data-export-blocked-reason]")return blocker;
+      return null;
+    },
+    querySelectorAll(selector){
+      return selector==='[name="export-format"]'?[pdf]:[];
+    }
+  };
+  const document=fixture();
+  const entitlement={canExport:true,canMutate:true,reason:"Verified test entitlement."};
+  const toasts=[];
+  const suggestions=[];
+  const suggestionStates=[];
+  const controller=installExportScreen(root,document,{
+    state:{},
+    entitlement,
+    getEntitlement:()=>entitlement,
+    now:()=>fixedNow,
+    exportAdapter:{
+      executionMode:"local",
+      generate:async()=>({}),
+      download:async()=>({downloaded:true})
+    },
+    requestVersion:async()=>{},
+    toast:(message)=>toasts.push(message),
+    onSuggestionStateChange:(state)=>suggestionStates.push(state),
+    onAdvisorPaperSuggestion:(suggestion)=>suggestions.push(suggestion)
+  });
+
+  await button.fire("click");
+  assert.deepEqual(toasts,["Exported · Osei_Amara_Timeline_2026-07-29.png"]);
+  assert.equal(button.disabled,false);
+  assert.equal(blocker.hidden,true);
+
+  await pdf.fire("change");
+  assert.equal(suggestions.length,1);
+  assert.match(suggestions[0].message,/Advisor Paper prints best/);
+  suggestions[0].dismiss();
+  assert.equal(suggestionStates.at(-1).advisorPaperPdfSuggestionShown,true);
+  assert.equal(button.disabled,false);
+
+  await button.fire("click");
+  assert.deepEqual(toasts,[
+    "Exported · Osei_Amara_Timeline_2026-07-29.png",
+    "Exported · Osei_Amara_Timeline_2026-07-29.pdf"
+  ]);
+  assert.equal(controller.state.formatId,"pdf-letter-landscape");
+  assert.equal(controller.state.exporting,false);
+  assert.equal(button.disabled,false);
+});

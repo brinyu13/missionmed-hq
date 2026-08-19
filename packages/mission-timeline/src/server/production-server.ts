@@ -39,6 +39,7 @@ class UnconfiguredPrivateObjectStore implements PrivateObjectStore {
   async confirmUpload(_context: PrincipalContext, _objectId: string, _token: string): Promise<ObjectRecord> { return this.unavailable(); }
   async signDownload(_context: PrincipalContext, _objectId: string): Promise<SignedDownload> { return this.unavailable(); }
   async putServiceObject(_context: PrincipalContext, _request: UploadRequest, _bytes: Uint8Array): Promise<ObjectRecord> { return this.unavailable(); }
+  async putOwnedObject(_context: PrincipalContext, _request: UploadRequest, _bytes: Uint8Array): Promise<ObjectRecord> { return this.unavailable(); }
   async getObject(_objectId: string): Promise<ObjectRecord | null> { return this.unavailable(); }
   async getAuthorizedObject(_context: PrincipalContext, _objectId: string): Promise<ObjectRecord | null> { return this.unavailable(); }
   async deleteObject(_context: PrincipalContext, _objectId: string): Promise<void> { return this.unavailable(); }
