@@ -169,7 +169,116 @@ These cannot be closed by engineering alone.
 
 ---
 
-## Work completed this cycle
+## Revision 3 — 2026-08-19, commits `48bce97` + `4a738a5`
+
+**Tests: 198 passing, 0 failing** (from 116). `lor:check` passes.
+**The application is mounted.** `server.mjs` composes and passes `application`; the composition
+root is mutation-verified.
+
+### Why nothing is marked WORKING
+
+`WORKING` requires the full chain **UI → frontend contract → API → service/domain → persistence →
+response → UI re-render**. The **frontend hydration UI does not exist** — `production-adapter.js`
+still calls `blockUnhydratedLiveRuntime()` by design, and no `ProductionProjectionUi` was ever
+built. So no feature can honestly be WORKING yet, regardless of how much backend is now reachable.
+
+What *did* change is that the backend half of that chain is now **proven reachable through the
+real runtime**, not through a bespoke test harness.
+
+### Counts
+
+| State | Count | Change |
+|---|---|---|
+| WORKING | **0** | — |
+| PARTIAL | **13** | +8 |
+| MISSING | 4 | — |
+| EXTERNALLY BLOCKED | 3 | +2 |
+| STUB | 1 | — |
+| MISSING BINDING | 1 | −5 |
+| BROKEN | 0 | −3 |
+| DEAD-ABANDONED | 0 | −1 |
+
+### The biggest move: #8 waiver-gated release, BROKEN → PARTIAL
+
+Previously "a permanently closed door with no key" — nothing anywhere set `releasedToStudentAt`.
+Now a release **commits through the real HTTP route**, emits exactly one
+`faculty.final_document_released` event, and becomes visible to the student. Backend chain proven
+end to end. Not WORKING only because no UI renders it.
+
+Also proven reachable through the real runtime: case creation, builder autosave / sequential
+completion / resume, consent and waiver receipts, role-scoped projections, and optimistic
+concurrency.
+
+### Newly EXTERNALLY BLOCKED (was MISSING BINDING — a more honest classification)
+
+- **Durability.** No atomic RLS driver exists, so `SupabaseDurableRecommendationCaseRepository`
+  cannot be constructed and `createLorApplicationAdapter` refuses a non-durable repository outside
+  a test harness. Needs the driver **and** a ratified Supabase target.
+- **Entitlement.** `WordPressEntitlementConsumer` needs injected server-side readers plus the
+  exact LearnDash 360 contract.
+- **AI provider.** Grounding architecture is now correct and fails closed; no provider account.
+
+### Still open
+
+- Faculty invitation *issuance* and OTP issuance do not exist (only verification).
+- Export has no HTTP route; the OOXML writer remains unreachable.
+- `purpose` is unchecked at the authorization gate, so a metadata capability minted for one
+  purpose authorises an export under another. Pre-existing and confirmed unchanged at baseline;
+  worth a follow-up.
+- Two competing health implementations still disagree on `schemaVersion` type.
+
+---
+
+## Revision 2 — 2026-08-19, commit `3d99ea1`
+
+**Tests: 116 → 170, all passing. `lor:check` passes.** DR-119 filed canonically at
+`MissionMed_OS 8c403cd` and pushed.
+
+Still **zero features WORKING**, and the reason is unchanged and singular: the composition root
+(critical-path step 15) is not built. `server.mjs` still omits `application`, so every route
+returns 503. Everything below moved a layer closer without crossing that line.
+
+| Feature | Was | Now | What changed |
+|---|---|---|---|
+| #4 Consent + FERPA waiver | MISSING BINDING | **PARTIAL** | `POST /cases/:id/receipts` exists; service mints receipts server-side behind a client-field allowlist so a consent receipt cannot be forged. Waiver state is now reachable — the precondition for letter release |
+| #10 AI drafting | MISSING BINDING | **PARTIAL** | Identity invariant replaced with a structured factual/connective model. Entailment port fails closed when unbound. The old denylist admitted 16 of 18 ordinary factual sentences ungrounded; now 0 of 16 |
+| #21 Operational metadata read | BROKEN | **PARTIAL** | Case-scoped grant now required; role membership alone binds to nothing. Independently verified SOUND with no bypass found |
+| #22 Build pipeline | BROKEN | **PARTIAL** | Materializer host-portable via `LOR_STUDIO_PROTOTYPE_SOURCE`; frozen digest byte-identical |
+| #13 DOCX/PDF | MISSING | MISSING | PDF no longer destroys non-ASCII names (`Jose? A?lvarez` → `Jose Alvarez`); delivery path still absent |
+| #14 Writer Depot | STUB | STUB | Storage capability trust boundary documented; the ownership join remains the unwritten provider's obligation |
+
+### Adversarial findings caught before they shipped
+
+Three defects were found *in the fixes themselves* by independent falsification, not by the
+implementing agents:
+
+1. **TOCTOU against the target denylist.** A configuration whose `projectRef` was an accessor
+   returned a benign value to the denylist check and `fglyvdykwgbuivikqoah` — RankListIQ
+   **production** — to the binding constructor. Closed by snapshotting to inert plain data and
+   re-checking the constructed binding. Re-verified: 24 variants (4 fields × 2 denied refs ×
+   direct/getter/Proxy) yield zero bindings containing a denied identifier.
+2. **Salutation slot as a free-text channel.** `"Dear Committee Smith Fails Boards,"` validated
+   **mid-letter** with no provenance — a fabricated disciplinary claim about a named person. The
+   verb guard barred only `-ed`/`-ing`, so third-person present tense passed. Addressee is now a
+   closed grammar; 14 attack payloads rejected, 9 legitimate salutations still accepted.
+3. **A test that ratified a vulnerability.** An earlier lane declined to fix the admin
+   authorization hole and then asserted its behaviour was correct, which would have made the real
+   fix look like a regression. Every lane now runs a mandatory test-ratification audit.
+
+### Still-open items surfaced by this cycle
+
+- `export-service.js` has no `operationalGrant` parameter, so the granted export path cannot yet
+  be exercised end to end. Its ungranted path correctly denies.
+- Administrative grants are forgeable **in-process** — `createAdministrativeGrant` is a public
+  export over an unkeyed hash. Not reachable at any current trust boundary, but it becomes
+  reachable the moment a wiring lane forwards a caller-supplied grant object.
+- Letter delivery remains structurally dead: nothing sets
+  `facultyPrivate.finalDocument.releasedToStudentAt`. No service method, no domain helper, no
+  route. This is the next lane.
+
+---
+
+## Work completed in revision 1
 
 Six file-disjoint unblocked defects, all local, no external gates touched:
 
