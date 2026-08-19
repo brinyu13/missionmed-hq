@@ -18,6 +18,10 @@ import {
   createUnavailableLorEntitlementResolver,
   isLorStudioRequestPath,
 } from './lor-studio/http/runtime.mjs';
+import {
+  createLorStudioApplication,
+  readLorTargetConfiguration,
+} from './lor-studio/composition.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -264,6 +268,25 @@ const STARTUP_VALIDATION = buildEnvValidation();
 const SESSION_KEY = buildSessionKey(SESSION_SECRET);
 assertStartupConfiguration();
 
+// LOR Studio composition root. The application is constructed here, from an EXPLICIT target
+// configuration only (DR-119 clause 7) - there is deliberately no default target and no fallback.
+// When the target is unconfigured, or no durable driver exists, composition declines and the
+// runtime keeps returning 503 - but now for a reported, truthful reason instead of because the
+// `application` option was silently omitted, which is what left the whole product dark.
+const LOR_STUDIO_COMPOSITION = createLorStudioApplication({
+  targetConfiguration: readLorTargetConfiguration(process.env),
+  // No production entitlement port is bound yet: WordPressEntitlementConsumer requires injected
+  // server-side readers and the exact LearnDash 360 contract, which remains unratified.
+  entitlementPort: null,
+});
+
+if (LOR_STUDIO_COMPOSITION.application === null) {
+  // Reason codes only - never a configured value.
+  console.warn(`[lor-studio] application not composed: ${LOR_STUDIO_COMPOSITION.reason}${
+    LOR_STUDIO_COMPOSITION.detail ? ` (${LOR_STUDIO_COMPOSITION.detail})` : ''
+  }`);
+}
+
 const LOR_STUDIO_RUNTIME = createLorStudioRuntime({
   publicDirectory: path.join(PUBLIC_DIR, 'lor-studio'),
   flags: {
@@ -272,6 +295,7 @@ const LOR_STUDIO_RUNTIME = createLorStudioRuntime({
     requireCanary: envFlag('MMHQ_LOR_STUDIO_REQUIRE_CANARY', true),
   },
   entitlementResolver: createUnavailableLorEntitlementResolver('exact_learndash_360_contract_unverified'),
+  application: LOR_STUDIO_COMPOSITION.application,
   validateCsrf,
 });
 
@@ -330,10 +354,11 @@ const server = http.createServer(async (request, response) => {
 
     if (isLorStudioRequestPath(pathname)) {
       const session = authenticateApiRequest(request);
-      await LOR_STUDIO_RUNTIME.handle(request, response, {
-        pathname,
-        searchParams: url.searchParams,
-      }, { session });
+      // Pass the real URL. This previously handed the runtime a synthetic
+      // { pathname, searchParams } literal, so `url.href`, `url.origin`, `url.searchParams`
+      // beyond a plain read, and any `instanceof URL` check would have behaved differently in
+      // production than in every test - which all construct a genuine URL.
+      await LOR_STUDIO_RUNTIME.handle(request, response, url, { session });
       return;
     }
 
