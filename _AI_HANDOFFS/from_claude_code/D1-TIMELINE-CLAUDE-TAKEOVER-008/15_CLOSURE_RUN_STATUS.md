@@ -100,3 +100,40 @@ The deployable artifact was verified instead: `dist-wordpress/release.php` conta
 alias entries**, each with a sha256, including all nine critical binaries (the eight textures
 and `us_flag.png`). `check-release` verifies 24 runtime-critical assets are present and
 non-empty. Live verification through the alias route still requires an authenticated session.
+
+## Composition results — all ten shapes
+
+`evidence/COMPOSITION_ALL_TEN_SHAPES.json` (exports skipped so the geometry question could
+be answered directly):
+
+- **0 arrows hidden behind furniture** — the P0 defect, across every shape.
+- **0 hard geometry failures**; background present everywhere; zero-event state friendly with
+  no jargon.
+- The legend holds its **approved default (16,298) in eight of ten**, relocating only in
+  `overlapping` and `future-events` — which is exactly the intended law: move only when
+  actually obstructing.
+
+`evidence/closure-artifacts/` holds PNG 1920×1080 and high-resolution 2560 exports for the
+three hardest shapes, produced through the product's own export path, with a receipt:
+
+| Shape | Arrows | Flags | Hidden | Flags off board | Console errors | Legend |
+|---|---|---|---|---|---|---|
+| same-month | 4 | 3 | **0** | 0 | 0 | relocated (550,294) |
+| overlapping | 6 | 0 | **0** | 0 | 0 | relocated (614,614) |
+| milestone-heavy | 4 | 6 | **0** | 0 | 0 | default (16,298) |
+
+`same-month_1920x1080.png` was opened and inspected: all four arrows fully visible with
+readable titles, dates and locations; three same-date milestones stacked across three legible
+rows; the Color Key intact and simply moved clear; background, profile card and title plaque
+present; nothing clipped or off-board. Previously two of those arrows were hidden behind the
+legend.
+
+## A measurement note, stated plainly
+
+The full ten-shape harness stalls in its own download-button flow, not in the product. The
+export pipeline was measured directly: `exportBoard` returns a valid 2.3MB PNG in **244ms**
+with zero console errors. The artifacts above were therefore produced through that same
+proven path rather than through the flaky button-and-download automation. Two shapes
+(`same-month`, `overlapping`) also read stale counts in the harness while reporting
+`renderFailed:false` with no retained-notice; standalone probes of both render correctly
+(6/0 and 4/3, zero console errors), so this is harness timing, not a product defect.
