@@ -3460,6 +3460,10 @@ section[data-view="canvas"]{
   background:#efede8;
   display:grid;
   flex:1;
+  /* Without an explicit track the column sized itself to the board's intrinsic 1920px,
+     so the application's width:min(100%,...) resolved against 1920 rather than the
+     stage. Fit then produced a board wider than its own viewport. */
+  grid-template-columns:minmax(0,1fr);
   min-height:0;
   overflow:auto;
   padding:24px;
@@ -3470,9 +3474,12 @@ section[data-view="canvas"]{
 .canvas407FHost .canvas-application{
   aspect-ratio:16/9;
   box-shadow:0 18px 52px rgba(4,6,10,.32);
-  max-width:1440px;
+  max-width:100%;
   position:relative;
   transform-origin:center;
+  /* Fit must mean fit. The stage track used to size itself to this rule's max-width, so
+     100% resolved against 1440px and the board overflowed its own viewport - clicking Fit
+     left the timeline cut off with no obvious way to see the rest of it. */
   width:min(100%,calc((100vh - 160px) * 16 / 9),1440px);
 }
 
@@ -5290,6 +5297,44 @@ section[data-view="canvas"]{
   gap:4px;
 }
 
+.canvas407FHost .advanced-object-geometry{
+  border:0;
+  display:grid;
+  gap:8px;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  margin:0 0 10px;
+  padding:0;
+}
+
+.canvas407FHost .advanced-object-geometry legend{
+  color:var(--em);
+  font-family:var(--num);
+  font-size:10px;
+  font-weight:700;
+  grid-column:1/-1;
+  letter-spacing:.1em;
+  padding:0 0 7px;
+  text-transform:uppercase;
+}
+
+.canvas407FHost .advanced-object-geometry label{
+  color:var(--mid);
+  display:grid;
+  font-family:var(--num);
+  font-size:11px;
+  font-weight:700;
+  gap:6px;
+}
+
+.canvas407FHost .advanced-object-geometry input{
+  background:#0b101a;
+  border:1px solid var(--edge2);
+  border-radius:6px;
+  color:var(--tx);
+  min-height:34px;
+  padding:6px 8px;
+}
+
 .canvas407FHost .canvas-application [data-advanced-media],
 .canvas407FHost .canvas-application [data-advanced-text],
 .canvas407FHost .canvas-application [data-board-headline]{
@@ -5567,7 +5612,9 @@ section[data-view="canvas"]{
 .canvas407FHost .advanced-visual-asset-preview{
   /* The rail-list image selector is required: uploaded media tiles are plain buttons
      holding a raw img with no asset class, so without it they rendered at the image's
-     natural size and a tall photo became an enormous vertical preview in the rail. */
+     natural size and a tall photo became an enormous vertical preview in the rail.
+     contain, not cover: a rail tile is an identification aid, and a cropped logo or
+     portrait is harder to recognise than a letterboxed one. */
   align-items:center;
   background:linear-gradient(145deg,#19263a,#0b111d);
   border-radius:5px;
@@ -5576,7 +5623,7 @@ section[data-view="canvas"]{
   font:800 21px/1 var(--num);
   height:62px;
   justify-content:center;
-  object-fit:cover;
+  object-fit:contain;
   width:100%;
 }
 
