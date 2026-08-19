@@ -118,6 +118,12 @@ export function createLorStudioApplication({
   eventSink = null,
   clock = () => new Date(),
   requireCanary = true,
+  // Readiness assertions, both DEFAULT FALSE so the honest answer is the automatic one. They are
+  // caller assertions rather than measurements - see the operational-readiness dependency probes,
+  // which are not yet implemented - so nothing may set them true except a caller that genuinely
+  // knows. Production composition never does.
+  providersReady = false,
+  allAcceptedFunctionsOperational = false,
 } = {}) {
   if (!targetConfiguration) {
     return { application: null, reason: LOR_COMPOSITION_REASONS.TARGET_NOT_CONFIGURED };
@@ -169,6 +175,8 @@ export function createLorStudioApplication({
       caseService,
       repository,
       allowNonDurableForTests,
+      providersReady,
+      allAcceptedFunctionsOperational,
     });
     return { application, binding, repository, caseService };
   } catch (error) {
