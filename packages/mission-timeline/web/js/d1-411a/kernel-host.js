@@ -620,6 +620,7 @@ class D1411AKernelElement extends HostHTMLElement{
       // Runs last: the overlay pass can settle the child document after the protected
       // render, and buildFlags recreates the flag row on every render.
       this._fitMilestoneFlags(childDocument);
+      this._avoidFurnitureObstruction(childDocument,record);
     }
     delete this.dataset.error;
     delete this.dataset.errorMessage;
@@ -819,6 +820,7 @@ class D1411AKernelElement extends HostHTMLElement{
           this._fitProtectedFurnitureText(childDocument);
           this._applyAdvancedOverlay(childDocument,previous);
           this._fitMilestoneFlags(childDocument);
+          this._avoidFurnitureObstruction(childDocument,previous);
         }
         this.resize();
         if(iframe)this._installChildInteractions(iframe);
@@ -1194,6 +1196,77 @@ class D1411AKernelElement extends HostHTMLElement{
     }
   }
 
+  /*
+   * Composition law: protected furniture and timeline events are spatial participants in
+   * the same board, not independent layers. The board offers only two event lanes that
+   * clear the Color Key's default band, so once three or more events overlap in time over
+   * the same stretch of axis, some arrow must otherwise be drawn underneath it with its
+   * label unreadable.
+   *
+   * Chronology is not negotiable and the arrow lanes are frozen, so the participant that
+   * moves is the one whose position carries no meaning: the Color Key legend. It is
+   * relocated only when it is actually obstructing, only when the student has not placed it
+   * themselves, and only to the nearest position that clears every arrow, flag and other
+   * piece of furniture - so the approved default survives every composition that fits.
+   *
+   * This is presentation-only. The student's document is never mutated, so a reload with
+   * fewer events puts the legend back where the design intends.
+   */
+  _avoidFurnitureObstruction(childDocument,record=this._record){
+    const overrides=record?.projection?.visualDocument?.presentation?.manualOverrides||{};
+    // A legend the student positioned themselves is their decision, not ours to override.
+    if(overrides.colorKeyGeometry&&typeof overrides.colorKeyGeometry==="object")return;
+    const board=childDocument.getElementById("board");
+    const key=childDocument.getElementById("key");
+    if(!board||!key)return;
+    const boardRect=board.getBoundingClientRect();
+    if(!boardRect.width)return;
+    const scale=boardRect.width/1920;
+    const toBoard=(node)=>{
+      const r=node.getBoundingClientRect();
+      return{x:(r.left-boardRect.left)/scale,y:(r.top-boardRect.top)/scale,w:r.width/scale,h:r.height/scale};
+    };
+    const intersects=(a,b,pad=0)=>
+      a.x<b.x+b.w+pad&&a.x+a.w+pad>b.x&&a.y<b.y+b.h+pad&&a.y+a.h+pad>b.y;
+
+    // Everything the legend must not sit on: every arrow with its labels, every milestone
+    // flag, and the other furniture whose positions are fixed by the design.
+    const obstacles=[];
+    childDocument.querySelectorAll("#arrowLayer .arrow").forEach((arrow)=>{
+      obstacles.push(toBoard(arrow));
+      arrow.querySelectorAll(".die,.date,.loc,.al").forEach((part)=>obstacles.push(toBoard(part)));
+    });
+    childDocument.querySelectorAll("#flagLayer .flag").forEach((flag)=>obstacles.push(toBoard(flag)));
+    for(const selector of ["#profile","#titleWrap","#axis","#ivrWrap","#logoMount"]){
+      const node=childDocument.querySelector(selector);
+      if(node&&node.offsetParent!==null)obstacles.push(toBoard(node));
+    }
+
+    const width=key.offsetWidth||416;
+    const height=key.offsetHeight||322;
+    const home={x:18,y:300};
+    const clear=(x,y)=>!obstacles.some((obstacle)=>intersects({x,y,w:width,h:height},obstacle,8));
+    if(clear(home.x,home.y)){
+      key.style.left=`${home.x}px`;
+      key.style.top=`${home.y}px`;
+      return;
+    }
+    // Nearest-first scan, so the legend lands as close to its designed home as the
+    // composition allows and the result is identical for identical input.
+    const step=24;
+    let best=null;
+    for(let y=8;y+height<=1072;y+=step){
+      for(let x=8;x+width<=1912;x+=step){
+        if(!clear(x,y))continue;
+        const distance=Math.hypot(x-home.x,y-home.y);
+        if(!best||distance<best.distance)best={x,y,distance};
+      }
+    }
+    if(!best)return;
+    key.style.left=`${best.x}px`;
+    key.style.top=`${best.y}px`;
+  }
+
   _fitProtectedFurnitureText(childDocument){
     const title=childDocument.querySelector("#title span");
     if(title){
@@ -1418,6 +1491,10 @@ class D1411AKernelElement extends HostHTMLElement{
           ?String(item.alignment)
           :"center";
         node.style.lineHeight=String(clamp(finite(item.lineHeight,1.2),.8,2));
+        /* The wrapping control persisted a field no renderer read, so "Keep on one line"
+           changed nothing on the board. Overflow stays hidden either way, so the auto-fit
+           pass still shrinks a single line to fit rather than clipping it. */
+        node.style.whiteSpace=item.wrap==="nowrap"?"pre":"pre-wrap";
         node.style.justifyContent=item.verticalAlign==="top"?"flex-start":item.verticalAlign==="bottom"?"flex-end":"center";
         node.dataset.fitMode=item.fitMode==="fixed"?"fixed":"auto";
         node.dataset.requestedFontSize=String(Math.max(10,finite(item.size,24)));
@@ -2203,7 +2280,10 @@ class D1411AKernelElement extends HostHTMLElement{
     // resize() runs at mount, after each projection update, and on container changes,
     // and the pass restores the protected baseline before fitting, so it is idempotent.
     const flagDocument=this.shadowRoot?.querySelector("iframe")?.contentDocument;
-    if(flagDocument)this._fitMilestoneFlags(flagDocument);
+    if(flagDocument){
+      this._fitMilestoneFlags(flagDocument);
+      this._avoidFurnitureObstruction(flagDocument);
+    }
     const result={
       scale,
       cssWidth:1920*scale,
@@ -2226,7 +2306,10 @@ class D1411AKernelElement extends HostHTMLElement{
     // Fit immediately before capture; the pass restores the baseline first, so this is
     // safe whether or not it already ran for this render.
     const childDocument=this.shadowRoot?.querySelector("iframe")?.contentDocument;
-    if(childDocument)this._fitMilestoneFlags(childDocument);
+    if(childDocument){
+      this._fitMilestoneFlags(childDocument);
+      this._avoidFurnitureObstruction(childDocument);
+    }
     return this._kernel.exportBoard(request);
   }
 

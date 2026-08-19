@@ -98,6 +98,7 @@ import {
   setAxisPresentationOverride,
   setAxisSegmentWeights,
   placeAdvancedObjectAt,
+  setAdvancedObjectGeometry,
   setCategoryKeyPresentationOverride,
   setColorKeyGeometryPresentationOverride,
   setLayoutLock,
@@ -4507,6 +4508,19 @@ export async function boot407FEngineeringAdapter({
       }catch(error){toastStudentError(error,"layout");}
     },
     onTypography:(changes,target)=>applyTypographyChange(changes,target),
+    /* The position and size inputs rendered and fired, but nothing implemented this hook,
+       so typing a width moved nothing. A visible control that does nothing is worse than
+       no control - the student assumes the board is broken, not the field. */
+    onGeometry:(changes,target)=>{
+      try{
+        const result=setAdvancedObjectGeometry(store.document,target,changes);
+        if(!result.changed)return;
+        store.replace(result.document,{label:result.mutation?.label||"Resize Timeline object"});
+        syncBridgeStateFromStore();
+        canvasController?.setUiState({advancedSelection:target});
+        reselectAdvancedKernel(target?.type,target?.id);
+      }catch(error){toastStudentError(error,"layout");}
+    },
     onTextLayout:(changes,target)=>{
       try{
         const next=updateTextContainerPresentation(store.document,target,changes);

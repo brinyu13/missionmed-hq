@@ -116,8 +116,11 @@ test("E-05 no adapter call site toasts a raw error message any more",()=>{
   assert.doesNotMatch(adapter,/bridge\.toast\(store\.entitlement\.reason\)/);
   assert.match(adapter,/const toastStudentError=\(error,context="generic"\)=>\{/);
   assert.match(adapter,/bridge\.toast\(translated\.message,\{tone:"danger",diagnostic:translated\.diagnostic\}\)/);
-  /* 24 identical raw-toast call sites plus the five that built their own message string. */
-  assert.equal((adapter.match(/toastStudentError\(error/g)||[]).length,29);
+  /* The invariant is that every catch routes through the translator, not that there is
+     some particular number of them - a new handler must not fail this test for existing. */
+  assert.ok((adapter.match(/toastStudentError\(error/g)||[]).length>=29);
+  const rawCatchToasts=adapter.match(/catch\s*\([^)]*\)\s*\{[^}]*bridge\.toast\([^)]*error[^)]*\)/g)||[];
+  assert.deepEqual(rawCatchToasts,[],"a catch block must never toast the error itself");
 });
 
 test("E-04 denial banners, tooltips and toasts never repeat the configuration rule",()=>{

@@ -1390,13 +1390,27 @@ export function resizeAdvancedGroup(document={},groupId,geometry={},{kind="resiz
     // so a divider or thin rule inside a group does not silently become a block.
     const width=Math.max(32,positive(item.width,32)*scaleX);
     const height=Math.max(24,positive(item.height,24)*scaleY);
-    item.x=Math.max(0,Math.min(1920-width,next.x+(finite(item.x,0)-current.x)*scaleX));
-    item.y=Math.max(0,Math.min(1080-height,next.y+(finite(item.y,0)-current.y)*scaleY));
+    /*
+     * Those floors mean a child does not always shrink by the full scale factor, so a
+     * child low in the group could end up extending past the group's new bottom edge -
+     * a Color-Key-style label hanging outside its box after a proportional shrink. Scale
+     * the position, then clamp the child back inside the group it belongs to. Containment
+     * is what makes a group a container rather than objects that merely move together.
+     */
+    const scaledX=next.x+(finite(item.x,0)-current.x)*scaleX;
+    const scaledY=next.y+(finite(item.y,0)-current.y)*scaleY;
+    const withinGroupX=Math.min(Math.max(scaledX,next.x),next.x+Math.max(0,next.width-width));
+    const withinGroupY=Math.min(Math.max(scaledY,next.y),next.y+Math.max(0,next.height-height));
+    item.x=Math.max(0,Math.min(1920-width,withinGroupX));
+    item.y=Math.max(0,Math.min(1080-height,withinGroupY));
     item.width=width;
     item.height=height;
     if(entry.type!=="text")continue;
     item.size=Math.min(FREE_TEXT_SIZE.max,Math.max(FREE_TEXT_SIZE.min,Math.round(finite(item.size,24)*textScale)));
     item.minFontSize=Math.min(72,Math.max(8,Math.round(finite(item.minFontSize,10)*textScale)));
+    /* A narrower box must rewrap rather than clip, and auto-fit is what shrinks the type
+       to match. Fixed-fit text inside a shrinking container would just lose its tail. */
+    if(scaleX<1||scaleY<1)item.fitMode="auto";
   }
   return{
     document:state,

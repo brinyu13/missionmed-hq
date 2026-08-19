@@ -470,7 +470,16 @@ for(const scenario of SCENARIOS){
        host only has two lanes that clear the left-hand furniture. A board with several
        same-month events therefore CAN still draw an arrow underneath the Color Key, where
        its label is unreadable. Measure it so it is tracked rather than invisible. */
-    const FURNITURE=[{id:"color-key",x:18,y:300,w:416,h:322},{id:"profile-sheet",x:18,y:634,w:566,h:428}];
+    /* Measure where the furniture ACTUALLY is. The host relocates the Color Key when the
+       composition demands it, so hardcoded design coordinates would report phantom
+       obstructions and miss real ones. */
+    const furnitureBox=(selector,id)=>{
+      const node=board.querySelector(selector);
+      if(!node||node.offsetParent===null)return null;
+      const r=node.getBoundingClientRect();
+      return{id,x:(r.left-rect.left)/scale,y:(r.top-rect.top)/scale,w:r.width/scale,h:r.height/scale};
+    };
+    const FURNITURE=[furnitureBox("#key","color-key"),furnitureBox("#profile","profile-sheet")].filter(Boolean);
     const furnitureOverlaps=[];
     board.querySelectorAll(".arrow").forEach((arrow)=>{
       const r=arrow.getBoundingClientRect();
@@ -481,8 +490,9 @@ for(const scenario of SCENARIOS){
           furnitureOverlaps.push(`${arrow.dataset.objectId}~${f.id}`);
       });
     });
+    const colorKeyBox=FURNITURE.find((f)=>f.id==="color-key")||null;
     const titleSpan=board.querySelector("#title span");
-    return{flags,overlaps:overlapsOf(flags),offBoard:offOf(flags),arrowOverflow,furnitureOverlaps,
+    return{flags,overlaps:overlapsOf(flags),offBoard:offOf(flags),arrowOverflow,furnitureOverlaps,colorKeyBox,
       autoPassApplied:JSON.stringify(asRendered)===JSON.stringify(flags),
       fitRuns,fitCount,editHosts,
       asRenderedOverlaps:overlapsOf(asRendered),asRenderedOffBoard:offOf(asRendered),
@@ -520,6 +530,7 @@ for(const scenario of SCENARIOS){
     flagsOffBoard:geometry.offBoard,arrowPartsOutOfBounds:geometry.arrowOverflow,
     backgroundPresent:Boolean(geometry.background&&geometry.background!=="none"),
     furnitureOverlaps:geometry.furnitureOverlaps,
+    colorKeyBox:geometry.colorKeyBox&&{x:Math.round(geometry.colorKeyBox.x),y:Math.round(geometry.colorKeyBox.y)},
     hostOverridesRan:geometry.hostOverridesRan,titleFontSize:geometry.titleFontSize,
     autoPassApplied:geometry.autoPassApplied,refitError:geometry.refitError,
     fitRuns:geometry.fitRuns,fitCount:geometry.fitCount,editHosts:geometry.editHosts,
