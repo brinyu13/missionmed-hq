@@ -175,6 +175,63 @@ export function failSoftRenderMessage(warnings,recoveredExistingLayout){
   return parts.join(" ");
 }
 
+const PROFILE_TEXT_FIELDS=Object.freeze([
+  "name","visaStatus","aamc","step1","step2Ck","step2Cs","step3",
+  "usce","research","languages","hobbies"
+]);
+const PROFILE_COMPACTION_WIDTHS=Object.freeze([null,42,24]);
+
+/*
+ * The protected kernel fails the whole render with TEXT_FIT_UNRESOLVED when the profile
+ * card's text cannot satisfy its in-box and photo-mat-exclusion laws even at the floor
+ * font size, and its four host retries cannot change any measured input - they only
+ * re-fit the container. The profile card is the ONLY thing that law measures, and every
+ * one of its values is host-supplied, so compacting those values is the one lever that
+ * can actually change the outcome. All eleven fields are schema-required strings, so
+ * rows are never dropped: long values are folded onto one line and then shortened.
+ */
+const ARROW_LABEL_WIDTHS=Object.freeze([48,32,20]);
+
+/*
+ * The kernel raises TEXT_FIT_UNRESOLVED for two quite different reasons, and only its
+ * message distinguishes them: the profile card cannot satisfy its mat-exclusion law, or
+ * "layout did not settle" - its two-frame stability probe never saw two identical
+ * measurements within 30 frames. The stability signature is built from each arrow label's
+ * width, so a crowded board of same-month or heavily overlapping events can oscillate
+ * forever. Shortening the labels removes the oscillation; the titles are host-produced
+ * display strings, so nothing the student stored is altered.
+ */
+export function compactArrowLabelsForFit(model,stage){
+  if(stage>=ARROW_LABEL_WIDTHS.length||!Array.isArray(model?.events))return{model,changed:false,warning:""};
+  const width=ARROW_LABEL_WIDTHS[stage];
+  const next=structuredClone(model);
+  const shortened=[];
+  for(const event of next.events){
+    const label=String(event?.t||"");
+    if(label.length<=width)continue;
+    event.t=`${label.slice(0,width).trim()}\u2026`;
+    shortened.push(event.id);
+  }
+  if(!shortened.length)return{model,changed:false,warning:""};
+  return{model:next,changed:true,warning:`EVENT_LABEL_COMPACTED:${shortened.join(",")}`};
+}
+
+export function compactProfileForFit(model,stage){
+  const profile=model?.profile;
+  if(!profile||stage>=PROFILE_COMPACTION_WIDTHS.length)return{model,changed:false,warning:""};
+  const width=PROFILE_COMPACTION_WIDTHS[stage];
+  const next=structuredClone(model);
+  let changed=false;
+  for(const field of PROFILE_TEXT_FIELDS){
+    const value=String(next.profile?.[field]??"");
+    let folded=value.includes("\n")?value.split("\n").map((part)=>part.trim()).filter(Boolean).join(", "):value;
+    if(width&&folded.length>width)folded=`${folded.slice(0,width).trim()}\u2026`;
+    if(folded!==value){next.profile[field]=folded;changed=true;}
+  }
+  if(!changed)return{model,changed:false,warning:""};
+  return{model:next,changed:true,warning:`PROFILE_TEXT_COMPACTED:${stage}`};
+}
+
 const KERNEL_LANE_MAX=6;
 
 /*
@@ -363,11 +420,24 @@ class D1411AKernelElement extends HostHTMLElement{
     this.shadowRoot.innerHTML=`<style>
       :host{display:block;position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:#c8d8e1}
       iframe{display:block;width:100%;height:100%;border:0;background:#c8d8e1}
+      /* The opaque panel is the FIRST-LOAD state only. Once a timeline has rendered
+         successfully it must never be covered again: a student who has seen their
+         timeline should never watch it turn back into a grey rectangle. */
       output[data-loading]{position:absolute;inset:0;display:grid;place-items:center;background:#c8d8e1;color:#19334f;font:700 13px/1.5 system-ui,sans-serif;letter-spacing:.03em}
-      :host([data-ready="true"]) output[data-loading]{display:none}
+      :host([data-has-render="true"]) output[data-loading]{display:none}
+      /* Recalculation overlay: deliberately small and translucent so the previous
+         timeline stays readable underneath while the next one is being built. */
+      output[data-updating]{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:1200;display:flex;align-items:center;gap:8px;padding:8px 14px;border:1px solid rgba(25,51,79,.18);border-radius:999px;background:rgba(255,255,255,.94);color:#19334f;font:700 12px/1.2 system-ui,sans-serif;box-shadow:0 4px 14px rgba(25,51,79,.14)}
+      output[data-updating][hidden]{display:none}
+      output[data-updating]::before{content:"";width:11px;height:11px;border-radius:50%;border:2px solid rgba(25,51,79,.25);border-top-color:#19334f;animation:d1411aSpin .8s linear infinite}
+      @keyframes d1411aSpin{to{transform:rotate(360deg)}}
+      @media (prefers-reduced-motion:reduce){output[data-updating]::before{animation:none}}
+      output[data-last-good-alert]{position:absolute;left:12px;bottom:12px;z-index:1150;display:grid;gap:2px;max-width:min(460px,calc(100% - 24px));padding:10px 12px;border:1px solid rgba(180,83,9,.3);border-radius:8px;background:rgba(255,251,235,.97);color:#7c2d12;font:600 12px/1.45 system-ui,sans-serif;box-shadow:0 4px 16px rgba(25,51,79,.12)}
+      output[data-last-good-alert][hidden]{display:none}
+      output[data-last-good-alert] strong{font-weight:800}
       output[data-render-warning]{position:absolute;right:12px;bottom:12px;z-index:1100;max-width:min(460px,calc(100% - 24px));padding:10px 12px;border:1px solid rgba(25,51,79,.22);border-radius:8px;background:rgba(255,255,255,.96);color:#19334f;font:700 12px/1.4 system-ui,sans-serif;box-shadow:0 4px 16px rgba(25,51,79,.12)}
       output[data-render-warning][hidden]{display:none}
-    </style><iframe title="${escapeAttribute(record.label)}" src="${escapeAttribute(MASTER_URL)}"></iframe><output data-loading role="status">Preparing your timeline…</output><output data-render-warning role="status" hidden></output>`;
+    </style><iframe title="${escapeAttribute(record.label)}" src="${escapeAttribute(MASTER_URL)}"></iframe><output data-loading role="status">Building your timeline…</output><output data-updating role="status" hidden>Updating your timeline…</output><output data-last-good-alert role="status" hidden></output><output data-render-warning role="status" hidden></output>`;
     const iframe=this.shadowRoot.querySelector("iframe");
     /*
      * The protected frame can finish loading before these listeners attach - a cached
@@ -440,6 +510,8 @@ class D1411AKernelElement extends HostHTMLElement{
     let layoutRetryCount=0;
     let boundsRecoveryCount=0;
     let laneRelocationCount=0;
+    let profileCompactionStage=0;
+    let labelCompactionStage=0;
     const laneRelocationState=new Map();
     let recoveredExistingLayout=false;
     // Budget covers every bounded recovery path: text-fit refits, out-of-bounds label
@@ -452,6 +524,27 @@ class D1411AKernelElement extends HostHTMLElement{
         });
         break;
       }catch(error){
+        if(String(error?.code||"")==="TEXT_FIT_UNRESOLVED"&&layoutRetryCount>=4){
+          const settleFailure=/did not settle/i.test(String(error?.message||""));
+          if(settleFailure&&labelCompactionStage<ARROW_LABEL_WIDTHS.length){
+            const compaction=compactArrowLabelsForFit(kernelModel,labelCompactionStage);
+            labelCompactionStage+=1;
+            if(compaction.changed){
+              kernelModel=compaction.model;
+              failSoftWarnings.push(compaction.warning);
+              continue;
+            }
+          }
+          if(profileCompactionStage<PROFILE_COMPACTION_WIDTHS.length){
+            const compaction=compactProfileForFit(kernelModel,profileCompactionStage);
+            profileCompactionStage+=1;
+            if(compaction.changed){
+              kernelModel=compaction.model;
+              failSoftWarnings.push(compaction.warning);
+              continue;
+            }
+          }
+        }
         if(String(error?.code||"")==="TEXT_FIT_UNRESOLVED"&&layoutRetryCount<4){
           layoutRetryCount+=1;
           // The protected renderer measures its profile card against the
@@ -535,6 +628,11 @@ class D1411AKernelElement extends HostHTMLElement{
     else delete this.dataset.layoutRetryCount;
     this.dataset.fingerprint=response.fingerprint;
     this.dataset.renderId=record.renderId;
+    // From here on a real timeline exists on screen; the first-load panel must never
+    // cover it again, and any later failure keeps this render rather than replacing it.
+    this.dataset.hasRender="true";
+    this._setUpdating(false);
+    this._clearLastGoodNotice();
     // Flags are the one layer the protected renderer rebuilds wholesale and never
     // de-collides. Re-apply the host pass once the render is committed, and once more
     // on the next frame so any late settling in the child document is picked up. The
@@ -561,6 +659,71 @@ class D1411AKernelElement extends HostHTMLElement{
       if(warning){warning.hidden=true;warning.textContent="";}
     }
     return{response,projectionWarnings,recoveredExistingLayout};
+  }
+
+  /*
+   * The governing law for this element: a timeline that has rendered once stays on
+   * screen. Recalculation shows a small overlay ON TOP of the previous timeline, and a
+   * failed recalculation leaves that previous timeline exactly where it was. Nothing
+   * here ever returns the student to an empty rectangle.
+   */
+  /*
+   * A failed render is not a no-op: the protected kernel builds its DOM and only then
+   * runs its post-render laws, so the board is already showing the layout that failed.
+   * Restoring the student's previous timeline therefore means genuinely re-rendering the
+   * last good model, not merely leaving the frame alone. Collisions are tolerated here
+   * because the retained render may itself have been an accepted-overlap layout.
+   */
+  async _restoreLastGoodRender(){
+    const record=this._lastGoodRecord;
+    const K=this._kernel;
+    if(!record||!K)return false;
+    try{
+      await K.rerender(structuredClone(record.projection.model),{
+        renderId:record.renderId,
+        reason:"last-good-restore",
+        options:{collisionPolicy:"warn"}
+      });
+      await K.whenStable(record.renderId);
+      const childDocument=this.shadowRoot?.querySelector("iframe")?.contentDocument;
+      if(childDocument){
+        this._applyPresentationOverrides(childDocument,record);
+        this._fitProtectedFurnitureText(childDocument);
+        this._applyAdvancedOverlay(childDocument,record);
+        this._fitMilestoneFlags(childDocument);
+      }
+      this._record=record;
+      this.resize();
+      return true;
+    }catch(_){
+      return false;
+    }
+  }
+
+  _setUpdating(active){
+    const node=this.shadowRoot?.querySelector?.("[data-updating]");
+    if(!node)return;
+    if(active&&this.dataset.hasRender==="true"){node.hidden=false;this.dataset.updating="true";}
+    else{node.hidden=true;delete this.dataset.updating;}
+  }
+
+  _showLastGoodNotice(message){
+    const node=this.shadowRoot?.querySelector?.("[data-last-good-alert]");
+    if(!node)return;
+    node.hidden=false;
+    node.innerHTML="";
+    const title=this.ownerDocument.createElement("strong");
+    title.textContent="We kept your timeline as it was.";
+    const detail=this.ownerDocument.createElement("span");
+    detail.textContent=message;
+    node.append(title,detail);
+  }
+
+  _clearLastGoodNotice(){
+    const node=this.shadowRoot?.querySelector?.("[data-last-good-alert]");
+    if(!node)return;
+    node.hidden=true;
+    node.textContent="";
   }
 
   _showRenderWarning(message){
@@ -599,6 +762,7 @@ class D1411AKernelElement extends HostHTMLElement{
         return this.diagnostics();
       }
       const previous=this._record;
+      this._setUpdating(true);
       try{
         const rendered=await this._renderRecord(next);
         for(const cleanup of this._childCleanup.splice(0))cleanup();
@@ -617,7 +781,14 @@ class D1411AKernelElement extends HostHTMLElement{
         this._dispatchReady(rendered,next);
         return this.diagnostics();
       }catch(error){
-        if(!previous||!FAIL_SOFT_LAYOUT_CODES.has(String(error?.code||"")))throw error;
+        if(!previous||!FAIL_SOFT_LAYOUT_CODES.has(String(error?.code||""))){
+          // Put the student's previous timeline back on the board before reporting.
+          if(await this._restoreLastGoodRender()){
+            this._fail(error);
+            return this.diagnostics();
+          }
+          throw error;
+        }
         if(isExistingCollisionRecovery(this._lastGoodRender?.response?.warnings,error)){
           const rendered=await this._renderRecord(next,{allowExistingLayoutRecovery:true});
           for(const cleanup of this._childCleanup.splice(0))cleanup();
@@ -655,6 +826,7 @@ class D1411AKernelElement extends HostHTMLElement{
         this.dataset.ready="true";
         delete this.dataset.error;
         delete this.dataset.errorMessage;
+        this._setUpdating(false);
         this._showRenderWarning(LAYOUT_RECOVERY_MESSAGE);
         this.dispatchEvent(new CustomEvent("d1-411a:rejected",{
           bubbles:true,
@@ -687,6 +859,17 @@ class D1411AKernelElement extends HostHTMLElement{
     };
     childDocument.addEventListener("d1-409h:interaction",interaction);
     this._childCleanup.push(()=>childDocument.removeEventListener("d1-409h:interaction",interaction));
+    // A wheel over the board is delivered to the protected document, not to the host, so
+    // ctrl/cmd+wheel zoom was simply dead over the one surface a student would use it on.
+    const wheelZoom=(event)=>{
+      if(!event.ctrlKey&&!event.metaKey)return;
+      event.preventDefault();
+      this.dispatchEvent(new CustomEvent("d1-411a:wheel-zoom",{
+        bubbles:true,composed:true,detail:{deltaY:Number(event.deltaY||0)}
+      }));
+    };
+    childDocument.addEventListener("wheel",wheelZoom,{passive:false});
+    this._childCleanup.push(()=>childDocument.removeEventListener("wheel",wheelZoom));
     // Native rail drag events do not bubble across the protected iframe
     // boundary.  Forward just the typed Timeline asset payload, mapped to
     // board coordinates, so the host can make one durable insertion on drop.
@@ -1013,14 +1196,38 @@ class D1411AKernelElement extends HostHTMLElement{
 
   _fitProtectedFurnitureText(childDocument){
     const title=childDocument.querySelector("#title span");
-    if(!title)return;
-    title.style.whiteSpace="nowrap";
-    title.style.lineHeight="1";
-    let size=34;
-    title.style.fontSize=`${size}px`;
-    while(size>18&&title.scrollWidth>540){
-      size-=1;
+    if(title){
+      title.style.whiteSpace="nowrap";
+      title.style.lineHeight="1";
+      let size=34;
       title.style.fontSize=`${size}px`;
+      while(size>18&&title.scrollWidth>540){
+        size-=1;
+        title.style.fontSize=`${size}px`;
+      }
+    }
+    // The interview ribbon sits in a fixed 232px plate and is not covered by any of the
+    // kernel's fit laws, so a realistic programme name was simply clipped mid-word in the
+    // top right - the second contributor to crowded, broken-looking upper-right text.
+    const ribbon=childDocument.querySelector("#ivr span");
+    if(ribbon){
+      ribbon.style.whiteSpace="nowrap";
+      let size=22;
+      ribbon.style.fontSize=`${size}px`;
+      while(size>13&&ribbon.scrollWidth>ribbon.clientWidth+1){
+        size-=1;
+        ribbon.style.fontSize=`${size}px`;
+      }
+      if(ribbon.scrollWidth>ribbon.clientWidth+1){
+        const full=String(ribbon.dataset.d1FullLabel??ribbon.textContent??"");
+        ribbon.dataset.d1FullLabel=full;
+        let length=full.length;
+        while(length>4&&ribbon.scrollWidth>ribbon.clientWidth+1){
+          length-=1;
+          ribbon.textContent=`${full.slice(0,length).trim()}\u2026`;
+        }
+        ribbon.title=full;
+      }
     }
   }
 
@@ -1165,7 +1372,7 @@ class D1411AKernelElement extends HostHTMLElement{
     else board.style.removeProperty("background");
     if(!items.length)return;
     const style=childDocument.createElement("style");
-    style.textContent=`#d1411a-advanced-overlay{position:absolute;inset:0;z-index:1001;pointer-events:none}#d1411a-advanced-overlay .d1411aAdvanced{box-sizing:border-box;position:absolute;pointer-events:auto;touch-action:none;cursor:move;user-select:none}#d1411a-advanced-overlay .d1411aAdvanced[data-selected="true"]{outline:3px solid #39d6ff;outline-offset:2px;box-shadow:0 0 0 1px rgba(7,17,31,.85),0 0 14px rgba(57,214,255,.52)}#d1411a-advanced-overlay .d1411aAdvancedText{background:transparent;border:0;color:#191c21;display:flex;font:400 24px/1.2 Inter,sans-serif;min-width:32px;overflow:hidden;overflow-wrap:anywhere;white-space:pre-wrap}#d1411a-advanced-overlay .d1411aAdvancedText[data-overflow="true"]{outline:3px dashed #c03d2e}#d1411a-advanced-overlay .d1411aAdvancedText[contenteditable="true"]{cursor:text;display:block;outline:3px solid #ffad42;overflow:auto;user-select:text;white-space:pre-wrap}#d1411a-advanced-overlay .d1411aAdvancedElement{align-items:center;border:3px solid #17324a;display:flex;justify-content:center;overflow:visible}#d1411a-advanced-overlay .d1411aAdvancedMedia{background:rgba(11,19,32,.12);border:0;overflow:hidden}#d1411a-advanced-overlay .d1411aAdvancedMedia img{display:block;height:100%;max-width:none;pointer-events:none;transform-origin:center;width:100%}#d1411a-advanced-overlay .kind-circle{border-radius:50%}.d1411aHandle{appearance:none;background:radial-gradient(circle,#fff 0 5px,#18799e 6px 8px,transparent 9px);border:0;height:28px;margin:0;padding:0;position:absolute;width:28px;z-index:2}.d1411aHandle[data-handle="nw"]{left:-15px;top:-15px}.d1411aHandle[data-handle="n"]{left:calc(50% - 14px);top:-15px}.d1411aHandle[data-handle="ne"]{right:-15px;top:-15px}.d1411aHandle[data-handle="e"]{right:-15px;top:calc(50% - 14px)}.d1411aHandle[data-handle="se"]{bottom:-15px;right:-15px}.d1411aHandle[data-handle="s"]{bottom:-15px;left:calc(50% - 14px)}.d1411aHandle[data-handle="sw"]{bottom:-15px;left:-15px}.d1411aHandle[data-handle="w"]{left:-15px;top:calc(50% - 14px)}.d1411aGroupBox{box-sizing:border-box;border:3px dashed #39d6ff;pointer-events:none;position:absolute;z-index:10000}.d1411aGroupBox:focus-visible{outline:4px solid #fff;outline-offset:3px}.d1411aGroupBox .d1411aHandle{pointer-events:auto;position:absolute}.d1411aSnapGuide{background:#ff7a45;box-shadow:0 0 0 1px rgba(255,255,255,.9);pointer-events:none;position:absolute;z-index:4}.d1411aSnapGuide[data-axis="x"]{bottom:0;top:0;width:2px}.d1411aSnapGuide[data-axis="y"]{height:2px;left:0;right:0}.d1411aMarquee{background:rgba(57,214,255,.12);border:2px solid #39d6ff;box-sizing:border-box;pointer-events:none;position:absolute;z-index:5}`;
+    style.textContent=`#d1411a-advanced-overlay{position:absolute;inset:0;z-index:1001;pointer-events:none}#d1411a-advanced-overlay .d1411aAdvanced{box-sizing:border-box;position:absolute;pointer-events:auto;touch-action:none;cursor:move;user-select:none}#d1411a-advanced-overlay .d1411aAdvanced[data-selected="true"]{outline:3px solid #39d6ff;outline-offset:2px;box-shadow:0 0 0 1px rgba(7,17,31,.85),0 0 14px rgba(57,214,255,.52)}#d1411a-advanced-overlay .d1411aAdvancedText{background:transparent;border:0;color:#191c21;display:flex;flex-direction:column;align-items:stretch;font:400 24px/1.2 Inter,sans-serif;min-width:32px;overflow:hidden;overflow-wrap:anywhere;white-space:pre-wrap}#d1411a-advanced-overlay .d1411aAdvancedText[data-overflow="true"]{outline:3px dashed #c03d2e}#d1411a-advanced-overlay .d1411aAdvancedText[contenteditable="true"]{cursor:text;display:block;outline:3px solid #ffad42;overflow:auto;user-select:text;white-space:pre-wrap}#d1411a-advanced-overlay .d1411aAdvancedElement{align-items:center;border:3px solid #17324a;display:flex;justify-content:center;overflow:visible}#d1411a-advanced-overlay .d1411aAdvancedMedia{background:rgba(11,19,32,.12);border:0;overflow:hidden}#d1411a-advanced-overlay .d1411aAdvancedMedia img{display:block;height:100%;max-width:none;pointer-events:none;transform-origin:center;width:100%}#d1411a-advanced-overlay .kind-circle{border-radius:50%}.d1411aHandle{appearance:none;background:radial-gradient(circle,#fff 0 5px,#18799e 6px 8px,transparent 9px);border:0;height:28px;margin:0;padding:0;position:absolute;width:28px;z-index:2}.d1411aHandle[data-handle="nw"]{left:-15px;top:-15px}.d1411aHandle[data-handle="n"]{left:calc(50% - 14px);top:-15px}.d1411aHandle[data-handle="ne"]{right:-15px;top:-15px}.d1411aHandle[data-handle="e"]{right:-15px;top:calc(50% - 14px)}.d1411aHandle[data-handle="se"]{bottom:-15px;right:-15px}.d1411aHandle[data-handle="s"]{bottom:-15px;left:calc(50% - 14px)}.d1411aHandle[data-handle="sw"]{bottom:-15px;left:-15px}.d1411aHandle[data-handle="w"]{left:-15px;top:calc(50% - 14px)}.d1411aGroupBox{box-sizing:border-box;border:3px dashed #39d6ff;pointer-events:none;position:absolute;z-index:10000}.d1411aGroupBox:focus-visible{outline:4px solid #fff;outline-offset:3px}.d1411aGroupBox .d1411aHandle{pointer-events:auto;position:absolute}.d1411aSnapGuide{background:#ff7a45;box-shadow:0 0 0 1px rgba(255,255,255,.9);pointer-events:none;position:absolute;z-index:4}.d1411aSnapGuide[data-axis="x"]{bottom:0;top:0;width:2px}.d1411aSnapGuide[data-axis="y"]{height:2px;left:0;right:0}.d1411aMarquee{background:rgba(57,214,255,.12);border:2px solid #39d6ff;box-sizing:border-box;pointer-events:none;position:absolute;z-index:5}`;
     const overlay=childDocument.createElement("div");
     overlay.id="d1411a-advanced-overlay";
     // D1-409H exports a clone of #board rather than the child document head.
@@ -1201,7 +1408,15 @@ class D1411AKernelElement extends HostHTMLElement{
         node.style.fontSize=`${Math.max(10,finite(item.size,24))}px`;
         node.style.fontWeight=String(finite(item.weight,400));
         node.style.color=String(item.color||"#191c21");
-        node.style.textAlign=String(item.alignment||"left");
+        // The box is a COLUMN flex container (see the overlay stylesheet). That is what
+        // makes these two lines mean what they say: the anonymous text item stretches to
+        // the full width so text-align actually aligns the text, and justify-content runs
+        // down the main axis so vertical alignment is genuinely vertical. As a row
+        // container the alignment control did nothing and the vertical control moved text
+        // sideways.
+        node.style.textAlign=["left","center","right"].includes(String(item.alignment))
+          ?String(item.alignment)
+          :"center";
         node.style.lineHeight=String(clamp(finite(item.lineHeight,1.2),.8,2));
         node.style.justifyContent=item.verticalAlign==="top"?"flex-start":item.verticalAlign==="bottom"?"flex-end":"center";
         node.dataset.fitMode=item.fitMode==="fixed"?"fixed":"auto";
@@ -2016,21 +2231,27 @@ class D1411AKernelElement extends HostHTMLElement{
   }
 
   _fail(error){
-    this.dataset.ready="false";
+    // Diagnostics stay on the element for support; they are never shown to a student.
     this.dataset.error=String(error?.code||error?.message||error);
-    this.dataset.errorMessage="We could not display your timeline. Your saved information is still safe.";
-    if(this.shadowRoot){
-      const retained=this.shadowRoot.querySelector("iframe");
-      if(retained){
-        let alert=this.shadowRoot.querySelector("[data-last-good-alert]");
-        if(!alert){alert=this.ownerDocument.createElement("output");alert.dataset.lastGoodAlert="true";alert.setAttribute("role","alert");this.shadowRoot.append(alert);}
-        alert.innerHTML='<strong>We kept your last working timeline visible.</strong><span>That change could not be displayed. Try adjusting the selected item or undo the last change.</span>';
-      }else{
+    this._setUpdating(false);
+    const hasRender=this.dataset.hasRender==="true";
+    if(hasRender){
+      // A timeline is already on screen. Keep it, keep the element interactive, and say
+      // plainly that the change did not land - do NOT clear data-ready, because that
+      // uncovers the opaque first-load panel and hides the very render we retained.
+      delete this.dataset.errorMessage;
+      this._showLastGoodNotice(
+        "That change could not be laid out, so nothing moved. Try adjusting the item you just changed, or undo it."
+      );
+    }else{
+      this.dataset.ready="false";
+      this.dataset.errorMessage="We could not display your timeline. Your saved information is still safe.";
+      if(this.shadowRoot&&!this.shadowRoot.querySelector("iframe")){
         this.shadowRoot.innerHTML='<output role="alert"><strong>We could not display your timeline.</strong><span>Your saved information is still safe. Refresh this page, or contact support if the problem continues.</span></output>';
       }
     }
     this.dispatchEvent(new CustomEvent("d1-411a:error",{
-      bubbles:true,composed:true,detail:{surface:this._record?.surface,error}
+      bubbles:true,composed:true,detail:{surface:this._record?.surface,error,retainedLastGood:hasRender}
     }));
   }
 }
@@ -2095,7 +2316,7 @@ export function createD1411AKernelManager({resolveObjectUrl=()=>null}={}){
     if(!projection.model.events.length){
       return{
         kind:"d1-411a-empty",
-        html:'<div class="d1411AEmpty" role="status"><strong>No timeline events are visible for this audience.</strong><span>Add an event or change its visibility in Builder.</span></div>',
+        html:'<div class="d1411AEmpty" role="status"><strong>Your timeline will appear here.</strong><span>Add your first event and Timeline will lay it out for you.</span></div>',
         projection,
         warnings:projection.warnings,
         dropped:projection.dropped,

@@ -154,7 +154,10 @@ function toRenderModel(doc){
     }
     if(!placed){ a.lane=band[band.length-1]; laneOcc[a.lane].push(a);
       warnings.push('EVENT_LANE_SATURATED:'+a.id); }
-    else if(band.length>1) warnings.push('EVENT_LANE_AUTOASSIGNED:'+a.id+':'+a.lane);
+    /* Only report a lane choice that actually departed from the category's first
+       preference. Warning for every multi-lane category meant a perfectly clean board
+       reported a fistful of layout warnings and buried the real ones. */
+    else if(band.length>1&&a.lane!==band[0]) warnings.push('EVENT_LANE_AUTOASSIGNED:'+a.id+':'+a.lane);
   });
   arrows.forEach(a=>{ delete a._ovr; });
 

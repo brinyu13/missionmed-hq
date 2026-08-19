@@ -3,6 +3,9 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+/* Mirrors the private-fixture exclusion enforced by scripts/check-release.mjs. */
+const EXCLUDED_PRIVATE_FIXTURES=["karaoke.jpg","newborn.jpg","nicu.jpg","profile_sample.jpg","ski.jpg","wedding.jpg"];
+
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const dist=join(root,"dist");
 const output=join(root,"dist-wordpress","release.php");
@@ -61,11 +64,23 @@ for(const entry of raw.values()){
 
 for(const entry of raw.values()){
   if(!entry.path.endsWith(".js"))continue;
+  // An unresolvable asset literal used to be left relative and shipped silently, while
+  // the CSS and HTML rewriters throw for the same condition. Relative asset paths do not
+  // resolve under the production /timeline/_asset/ scheme, so one missed rewrite reaches
+  // students as a 404 - and a 404 on a core protected texture blanks the whole board.
+  // Fail the build instead.
+  const unresolved=[];
   let rewritten=entry.bytes.toString("utf8").replace(/(["'])(assets\/[A-Za-z0-9._\/-]+)\1/g,(match,quote,value)=>{
     const target=posix.normalize(posix.join(posix.dirname(entry.path),value));
     const asset=byPath.get(target);
-    return asset?`${quote}/timeline/_asset/${asset.alias}${quote}`:match;
+    if(!asset){unresolved.push(target);return match;}
+    return `${quote}/timeline/_asset/${asset.alias}${quote}`;
   });
+  // The protected kernel's standalone demo fixtures reference the Founder's private
+  // family photographs, which check-release.mjs deliberately refuses to ship. Those five
+  // are the only literals allowed to stay unresolved; anything else is a real omission.
+  const genuinelyMissing=[...new Set(unresolved)].filter((target)=>!EXCLUDED_PRIVATE_FIXTURES.some((name)=>target.endsWith(`/assets/photos/${name}`)));
+  if(genuinelyMissing.length)throw new Error(`TIMELINE_RUNTIME_JS_ASSET_MISSING:${entry.path}:${genuinelyMissing.join(",")}`);
   for(const value of ["D1-409H_VISUAL_MASTER.css"]){
     const singleQuoted=`'${value}'`;const doubleQuoted=`"${value}"`;
     if(!rewritten.includes(singleQuoted)&&!rewritten.includes(doubleQuoted))continue;

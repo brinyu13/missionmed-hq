@@ -793,7 +793,7 @@ test("M8 install owns delegated Canvas listeners, canonical rendering, responsiv
   assert.match(root.innerHTML,/Timeline visualization, 6 events; use Tab to move between events/);
   assert.deepEqual(
     [...root.listeners.keys()].sort(),
-    ["change","click","contextmenu","dblclick","focusin","input","keydown","pointerdown","submit","wheel"].sort()
+    ["change","click","contextmenu","d1-411a:wheel-zoom","dblclick","focusin","input","keydown","pointerdown","submit","wheel"].sort()
   );
   controller.setResponsiveWidth(900);
   assert.equal(controller.state.responsive.viewOnly,true);

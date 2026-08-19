@@ -243,6 +243,20 @@ export function createCanvasZoom(value = "fit") {
   });
 }
 
+const ZOOM_SHORTCUTS=Object.freeze({
+  "=":{change:{kind:"step",delta:10}},
+  "+":{change:{kind:"step",delta:10}},
+  "-":{change:{kind:"step",delta:-10}},
+  "_":{change:{kind:"step",delta:-10}},
+  "0":{change:{kind:"preset",value:"fit"}}
+});
+
+function isTypingTarget(target){
+  if(!target)return false;
+  if(target.isContentEditable)return true;
+  return ["INPUT","TEXTAREA","SELECT"].includes(String(target.tagName||"").toUpperCase());
+}
+
 export function updateCanvasZoom(zoom,change) {
   const prior = zoom?.mode === "percent" ? zoom.percent : 100;
   if (change?.kind === "preset") {
@@ -2268,6 +2282,17 @@ export function installCanvas(
   const onKeyDown = (event) => {
     if (state.toolbarFocus && trapToolbarTab(event,root)) return;
     if(trapCanvasDialogTab(event,root))return;
+    // Zoom shortcuts every visual editor is expected to answer. Skipped while typing so
+    // they never steal a keystroke from a text field or an inline label editor.
+    if((event.metaKey||event.ctrlKey)&&!event.altKey&&!isTypingTarget(event.target)){
+      const zoomKey=ZOOM_SHORTCUTS[event.key];
+      if(zoomKey){
+        event.preventDefault();
+        const zoom=updateCanvasZoom(state.zoom,zoomKey.change);
+        setState({...state,zoom,liveAnnouncement:zoom.mode==="fit"?"Zoom fit to screen":`Zoom ${zoom.percent} percent`});
+        return;
+      }
+    }
     if (event.key === "Escape") {
       if (state.themeOpen) {
         event.preventDefault();
@@ -2357,11 +2382,21 @@ export function installCanvas(
     }
   };
 
+  const applyTrackpadZoom = (deltaY) => {
+    const delta = deltaY < 0 ? 5 : -5;
+    setState({...state,zoom:updateCanvasZoom(state.zoom,{kind:"trackpad",delta})});
+  };
+
   const onWheel = (event) => {
     if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
-    const delta = event.deltaY < 0 ? 5 : -5;
-    setState({...state,zoom:updateCanvasZoom(state.zoom,{kind:"trackpad",delta})});
+    applyTrackpadZoom(event.deltaY);
+  };
+
+  // The board lives in a separate document, so a wheel over it never reaches this
+  // listener. The kernel host forwards the modifier-wheel out as a typed event.
+  const onKernelWheelZoom = (event) => {
+    applyTrackpadZoom(Number(event.detail?.deltaY||0));
   };
 
   const onPointerDown = (event) => {
@@ -2481,6 +2516,7 @@ export function installCanvas(
   root.addEventListener("focusin",onFocusIn);
   root.addEventListener("keydown",onKeyDown);
   root.addEventListener("wheel",onWheel,{passive:false});
+  root.addEventListener("d1-411a:wheel-zoom",onKernelWheelZoom);
   root.addEventListener("pointerdown",onPointerDown);
   globalThis.document?.addEventListener("pointermove",onPointerMove);
   globalThis.document?.addEventListener("pointerup",onPointerUp);
@@ -2513,6 +2549,7 @@ export function installCanvas(
       root.removeEventListener("focusin",onFocusIn);
       root.removeEventListener("keydown",onKeyDown);
       root.removeEventListener("wheel",onWheel);
+      root.removeEventListener("d1-411a:wheel-zoom",onKernelWheelZoom);
       root.removeEventListener("pointerdown",onPointerDown);
       globalThis.document?.removeEventListener("pointermove",onPointerMove);
       globalThis.document?.removeEventListener("pointerup",onPointerUp);

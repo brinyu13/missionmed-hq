@@ -91,6 +91,62 @@ const SCENARIOS=[
     ]
   },
   {
+    key:"long-labels",title:"Long Label Timeline",
+    events:[
+      ev("g1","Bachelor of Medicine, Bachelor of Surgery (MBBS), Faculty of Medicine and Allied Health Sciences","education","2015-09","2021-06","Dow University of Health Sciences, Karachi, Sindh, Pakistan"),
+      ev("g2","Clinical Observership in Adult Inpatient Internal Medicine and Hospitalist Services","clinical","2022-02","2022-08","Mount Sinai Beth Israel Medical Center, New York, NY"),
+      ev("g3","Multicenter Retrospective Cardiology Outcomes Research Programme","research","2022-09","2024-03","Cleveland Clinic Foundation, Cleveland, OH"),
+      ms("g4","Educational Commission for Foreign Medical Graduates Certification Granted","exams","2024-05")
+    ]
+  },
+  {
+    key:"same-month",title:"Same Month Timeline",
+    events:[
+      ev("s1","Observership A","clinical","2023-03","2023-06","Newark, NJ"),
+      ev("s2","Observership B","clinical","2023-03","2023-06","Trenton, NJ"),
+      ev("s3","Research Project","research","2023-03","2023-06","Boston, MA"),
+      ev("s4","Volunteer Clinic","personal","2023-03","2023-06","Newark, NJ"),
+      ms("s5","Step 1","exams","2023-03"),
+      ms("s6","Step 2 CK","exams","2023-03"),
+      ms("s7","ECFMG","exams","2023-03")
+    ]
+  },
+  {
+    key:"overlapping",title:"Overlapping Chronology Timeline",
+    events:[
+      ev("o1","Internal Medicine Externship","clinical","2022-01","2023-06","Newark, NJ"),
+      ev("o2","Cardiology Research Fellow","research","2022-04","2023-09","Cleveland, OH"),
+      ev("o3","Hospitalist Extern","work","2022-06","2023-03","Houston, TX"),
+      ev("o4","Teaching Hospital Rotation","clinical","2022-09","2023-12","Detroit, MI"),
+      ev("o5","Quality Improvement Project","research","2022-11","2023-08","Boston, MA"),
+      ev("o6","Volunteer Coordinator","personal","2022-02","2023-05","Newark, NJ")
+    ]
+  },
+  {
+    key:"future-events",title:"Future Events Timeline",
+    events:[
+      ev("f1","MBBS","education","2016-09","2021-12","Karachi, Pakistan"),
+      ev("f2","Research Assistant","research","2023-01","2024-06","Cleveland, OH"),
+      ms("f3","ERAS Submitted","personal","2025-09"),
+      ms("f4","Interview Season","personal","2026-01"),
+      ms("f5","Match Day","personal","2026-03"),
+      ev("f6","Residency Preparation","education","2026-04","2026-06","MissionMed Institute")
+    ]
+  },
+  {
+    key:"mixed-categories",title:"Mixed Category Timeline",
+    events:[
+      ev("x1","MBBS","education","2016-09","2021-12","Karachi, Pakistan"),
+      ev("x2","House Officer","work","2022-01","2022-12","Karachi, Pakistan"),
+      ev("x3","Observership","clinical","2023-02","2023-05","Newark, NJ"),
+      ev("x4","Cardiology Research","research","2023-06","2024-04","Cleveland, OH"),
+      ev("x5","Volunteer Clinic","personal","2024-01","2024-08","Newark, NJ"),
+      ms("x6","Step 1","exams","2022-06"),
+      ms("x7","Step 2 CK","exams","2023-01"),
+      ms("x8","ECFMG","exams","2024-05")
+    ]
+  },
+  {
     key:"long-chronology",title:"Long Chronology Timeline",
     events:[
       ev("l1","Premedical Studies","education","2008-09","2012-06","Lahore, Pakistan"),
@@ -142,15 +198,25 @@ const fingerprintOf=async(surface)=>page.evaluate((expected)=>{
  * "true" and waiting on it alone samples the PREVIOUS render. Wait for the content
  * fingerprint to move off the one captured before the document was replaced.
  */
-const kernel=async(surface,previousFingerprint)=>{
+/*
+ * Waiting on a changed fingerprint proved unreliable across back-to-back scenarios: a
+ * baseline read at the wrong moment let the check pass against the previous board, and the
+ * receipt then described a timeline that was never on screen. Wait instead for the board
+ * to actually contain this scenario's own arrow and flag counts - an unambiguous signal
+ * that the render being measured is the one just requested.
+ */
+const kernel=async(surface,expectedCounts)=>{
   const host=page.locator(`d1-timeline-kernel[data-surface="${surface}"]:visible`).first();
   await host.waitFor({state:"visible",timeout:40000});
-  await page.waitForFunction(({expected,previous})=>{
+  await page.waitForFunction(({expected,counts})=>{
     const node=[...document.querySelectorAll(`d1-timeline-kernel[data-surface="${expected}"]`)].find((n)=>n.offsetWidth||n.offsetHeight);
     if(node?.dataset.ready!=="true")return false;
-    const current=node?.dataset.fingerprint||null;
-    return previous===undefined?true:current!==previous;
-  },{expected:surface,previous:previousFingerprint??null},{timeout:40000});
+    if(!counts)return true;
+    const doc=node.shadowRoot?.querySelector("iframe")?.contentDocument;
+    if(!doc)return false;
+    return doc.querySelectorAll(".arrow").length===counts.arrows&&
+      doc.querySelectorAll("#flagLayer .flag").length===counts.flags;
+  },{expected:surface,counts:expectedCounts??null},{timeout:45000});
   return host;
 };
 
@@ -184,6 +250,13 @@ const clearModal=async()=>{
 };
 const exportOnce=async(format,filename)=>{
   await clearModal();
+  // A freshly reloaded page resolves entitlement asynchronously, so the export controls
+  // start disabled. Wait for the real enabled state rather than racing it.
+  await page.waitForFunction(()=>{
+    const radio=document.querySelector('[name="export-format"]');
+    const action=document.querySelector("[data-export-action]");
+    return Boolean(radio&&!radio.disabled&&action&&!action.disabled);
+  },undefined,{timeout:60000});
   if(format)await page.locator(`[name="export-format"][value="${format}"]`).check();
   await clearModal();
   const action=page.locator("[data-export-action]");
@@ -256,10 +329,51 @@ const exportOnce=async(format,filename)=>{
   await clearModal();
 };
 
+/*
+ * Zero events is a real student state (a brand-new account). The protected renderer
+ * requires at least one arrow event, so this must land on the friendly empty state
+ * rather than a crash or a dead grey rectangle - and it must say something a student
+ * understands.
+ */
+await page.evaluate(()=>{
+  const api=window.D1_407F_ENGINEERING;
+  const doc=api.store.snapshot();
+  doc.mode="advanced";doc.title="Zero Event Timeline";doc.events=[];
+  doc.advanced={media:[],recentColors:[],background:{kind:"preset",preset:"gradient-dawn",dim:0},groups:[],textBlocks:[],elements:[]};
+  api.store.replace(doc,{label:"takeover-008 zero-event fixture",history:false});
+  api.applyDocument();
+});
+await navigate("canvas");
+await page.waitForTimeout(2500);
+const zeroEventState=await page.evaluate(()=>{
+  const empty=document.querySelector(".d1411AEmpty");
+  const banned=["canonical","kernel","D1-409H","D1-411A","fingerprint","principal","renderer","audience","projection","UUID"];
+  const text=(empty?.textContent||"").trim();
+  return{
+    emptyStateShown:Boolean(empty),
+    text,
+    leaks:banned.filter((term)=>text.toLowerCase().includes(term.toLowerCase())),
+    crashed:Boolean(document.querySelector('d1-timeline-kernel[data-surface="edit"][data-error]'))
+  };
+});
+const zeroEventErrors=consoleErrors.slice();
+
 const results=[];
 for(const scenario of SCENARIOS){
   const scenarioErrorMark=consoleErrors.length;
-  const priorEditFingerprint=await fingerprintOf("edit");
+  // Capture the baseline while the edit surface is actually mounted. Reading it from the
+  // export screen returned null, which made the "wait for a new render" check pass
+  // immediately and measure the PREVIOUS scenario's board.
+  // Each scenario starts from a fresh page. Replacing the document ten times inside one
+  // session accumulates state a real student never has, and it was that contamination -
+  // not the renderer - that made earlier receipts describe the wrong board.
+  await page.goto(appUrl,{waitUntil:"networkidle"});
+  await page.waitForFunction(()=>!!window.D1_407F_ENGINEERING);
+  await navigate("canvas");
+  const expectedCounts={
+    arrows:scenario.events.filter((entry)=>entry.eventType!=="milestone").length,
+    flags:scenario.events.filter((entry)=>entry.eventType==="milestone").length
+  };
   await page.evaluate((data)=>{
     const api=window.D1_407F_ENGINEERING;
     const doc=api.store.snapshot();
@@ -275,7 +389,26 @@ for(const scenario of SCENARIOS){
   },scenario);
 
   await navigate("canvas");
-  const editHost=await kernel("edit",priorEditFingerprint);
+  // A scenario that never commits a new render is a real product failure, not a reason to
+  // abandon the run: record it and keep going so the receipt covers every shape.
+  let renderFailed=false;
+  let editHost=null;
+  try{
+    editHost=await kernel("edit",expectedCounts);
+  }catch(error){
+    renderFailed=true;
+    editHost=page.locator('d1-timeline-kernel[data-surface="edit"]:visible').first();
+  }
+  const failureState=await page.evaluate(()=>{
+    const host=[...document.querySelectorAll('d1-timeline-kernel[data-surface="edit"]')].find((n)=>n.offsetWidth||n.offsetHeight);
+    const notice=host?.shadowRoot?.querySelector("[data-last-good-alert]");
+    return{
+      error:host?.dataset?.error||null,
+      hasRender:host?.dataset?.hasRender||null,
+      retainedNoticeShown:Boolean(notice&&!notice.hidden),
+      retainedNoticeText:(notice?.textContent||"").trim().slice(0,200)
+    };
+  });
   const frame=editHost.locator("iframe").contentFrame();
 
   // Geometry the protected kernel never validates. Measured from the main frame so the
@@ -342,15 +475,18 @@ for(const scenario of SCENARIOS){
   await frame.locator("#board").screenshot({path:path.join(captureDir,`${scenario.key}_EDITOR.png`)});
 
   await navigate("export");
-  const exportHost=await kernel("export",undefined);
+  const exportHost=await kernel("export",null);
   await exportHost.locator("iframe").contentFrame().locator("#board")
     .screenshot({path:path.join(captureDir,`${scenario.key}_EXPORT_PREVIEW.png`)});
 
-  await exportOnce("png-1920x1080",`${scenario.key}_1920x1080.png`);
-  await exportOnce("pdf-letter-landscape",`${scenario.key}_LETTER.pdf`);
-  await exportOnce("pdf-a4-landscape",`${scenario.key}_A4.pdf`);
+  if(!renderFailed){
+    await exportOnce("png-1920x1080",`${scenario.key}_1920x1080.png`);
+    await exportOnce("pdf-letter-landscape",`${scenario.key}_LETTER.pdf`);
+    await exportOnce("pdf-a4-landscape",`${scenario.key}_A4.pdf`);
+  }
 
   results.push({
+    renderFailed,failureState,
     scenario:scenario.key,events:scenario.events.length,arrows:geometry.arrows,
     flags:geometry.flags.length,flagRowOverlaps:geometry.overlaps,
     flagsOffBoard:geometry.offBoard,arrowPartsOutOfBounds:geometry.arrowOverflow,
@@ -364,15 +500,19 @@ for(const scenario of SCENARIOS){
   });
 }
 
-const receipt={generatedAt:new Date().toISOString(),appUrl,results,consoleErrors,modalNotices,diagnostics};
+const receipt={generatedAt:new Date().toISOString(),appUrl,zeroEventState,zeroEventConsoleErrors:zeroEventErrors,results,consoleErrors,modalNotices,diagnostics};
 writeFileSync(path.join(captureDir,"TAKEOVER_008_EXPORT_DENSITY_RECEIPT.json"),`${JSON.stringify(receipt,null,2)}\n`);
 console.log(JSON.stringify(receipt,null,2));
 
-const failures=results.flatMap((r)=>[
+const failures=[
+  ...(zeroEventState.emptyStateShown?[]:["zero-events: friendly empty state not shown"]),
+  ...zeroEventState.leaks.map((term)=>`zero-events: empty state leaks "${term}"`),
+  ...results.flatMap((r)=>[
   ...r.flagsOffBoard.map((id)=>`${r.scenario}: flag off board ${id}`),
   ...r.arrowPartsOutOfBounds.map((id)=>`${r.scenario}: arrow part out of bounds ${id}`),
-  ...(r.backgroundPresent?[]:[`${r.scenario}: missing background`])
-]);
+  ...(r.backgroundPresent?[]:[`${r.scenario}: missing background`]),
+  ...(r.renderFailed?[`${r.scenario}: never committed a render (${r.failureState?.error||"unknown"})`]:[])
+])];
 if(failures.length){console.error("GATE FAILURES:\n"+failures.join("\n"));process.exitCode=1;}
 await context.close();
 await browser.close();

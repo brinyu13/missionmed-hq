@@ -202,7 +202,8 @@ test("D1-411B empty audience state does not invoke a fallback renderer",()=>{
   const rendered=manager.render(document,{surface:"home",audience:"INTERVIEWER_SAFE"});
   assert.equal(rendered.kind,"d1-411a-empty");
   assert.doesNotMatch(rendered.html,/d1-timeline-kernel/);
-  assert.match(rendered.html,/No timeline events are visible for this audience/);
+  assert.match(rendered.html,/Your timeline will appear here/);
+  assert.doesNotMatch(rendered.html,/audience|canonical|kernel|renderer/i);
 });
 
 test("D1-411B fails soft before the protected kernel for a milestone-only timeline",()=>{
@@ -214,7 +215,8 @@ test("D1-411B fails soft before the protected kernel for a milestone-only timeli
   assert.equal(rendered.projection.model.flags.length,1);
   assert.equal(rendered.kind,"d1-411a-empty");
   assert.doesNotMatch(rendered.html,/d1-timeline-kernel/);
-  assert.match(rendered.html,/No timeline events are visible for this audience/);
+  assert.match(rendered.html,/Your timeline will appear here/);
+  assert.doesNotMatch(rendered.html,/audience|canonical|kernel|renderer/i);
 });
 
 test("D1-411B active application routes five product surfaces and export through the same kernel",async()=>{
@@ -246,7 +248,14 @@ test("007 kernel overlay owns media geometry, keyboard commands, marquee selecti
   assert.match(source,/record\.resolveObjectUrl\?\.\(item\.id,item\)/);
   assert.match(source,/new CustomEvent\("d1-411a:advanced-command"/);
   assert.match(source,/className="d1411aMarquee"/);
-  assert.match(source,/We kept your last working timeline visible/);
+  // The last-good law, not one particular sentence: a render that has succeeded is
+  // marked durable, a later failure keeps it on screen instead of clearing data-ready,
+  // and the student is told plainly that nothing moved.
+  assert.match(source,/We kept your timeline as it was/);
+  assert.match(source,/this\.dataset\.hasRender="true"/);
+  assert.match(source,/_restoreLastGoodRender/);
+  assert.match(source,/reason:"last-good-restore"/);
+  assert.match(source,/Updating your timeline/);
 });
 
 test("D1-411B direct presentation editor exposes only implemented handles and persists through the adapter",async()=>{
