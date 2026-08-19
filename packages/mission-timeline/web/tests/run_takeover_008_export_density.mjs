@@ -466,8 +466,23 @@ for(const scenario of SCENARIOS){
           arrowOverflow.push(`${arrow.dataset.objectId}.${cls}`);
       });
     });
+    /* The kernel's own furniture law can be downgraded to "warn" during recovery, and the
+       host only has two lanes that clear the left-hand furniture. A board with several
+       same-month events therefore CAN still draw an arrow underneath the Color Key, where
+       its label is unreadable. Measure it so it is tracked rather than invisible. */
+    const FURNITURE=[{id:"color-key",x:18,y:300,w:416,h:322},{id:"profile-sheet",x:18,y:634,w:566,h:428}];
+    const furnitureOverlaps=[];
+    board.querySelectorAll(".arrow").forEach((arrow)=>{
+      const r=arrow.getBoundingClientRect();
+      const x=(r.left-rect.left)/scale,y=(r.top-rect.top)/scale;
+      const w=r.width/scale,h=r.height/scale;
+      FURNITURE.forEach((f)=>{
+        if(x<f.x+f.w&&x+w>f.x&&y<f.y+f.h&&y+h>f.y)
+          furnitureOverlaps.push(`${arrow.dataset.objectId}~${f.id}`);
+      });
+    });
     const titleSpan=board.querySelector("#title span");
-    return{flags,overlaps:overlapsOf(flags),offBoard:offOf(flags),arrowOverflow,
+    return{flags,overlaps:overlapsOf(flags),offBoard:offOf(flags),arrowOverflow,furnitureOverlaps,
       autoPassApplied:JSON.stringify(asRendered)===JSON.stringify(flags),
       fitRuns,fitCount,editHosts,
       asRenderedOverlaps:overlapsOf(asRendered),asRenderedOffBoard:offOf(asRendered),
@@ -504,6 +519,7 @@ for(const scenario of SCENARIOS){
     flags:geometry.flags.length,flagRowOverlaps:geometry.overlaps,
     flagsOffBoard:geometry.offBoard,arrowPartsOutOfBounds:geometry.arrowOverflow,
     backgroundPresent:Boolean(geometry.background&&geometry.background!=="none"),
+    furnitureOverlaps:geometry.furnitureOverlaps,
     hostOverridesRan:geometry.hostOverridesRan,titleFontSize:geometry.titleFontSize,
     autoPassApplied:geometry.autoPassApplied,refitError:geometry.refitError,
     fitRuns:geometry.fitRuns,fitCount:geometry.fitCount,editHosts:geometry.editHosts,
@@ -525,7 +541,8 @@ const failures=[
   ...r.arrowPartsOutOfBounds.map((id)=>`${r.scenario}: arrow part out of bounds ${id}`),
   ...(r.backgroundPresent?[]:[`${r.scenario}: missing background`]),
   ...(r.renderFailed?[`${r.scenario}: never committed a render (${r.failureState?.error||"unknown"})`]:[]),
-  ...(r.exportFailures||[]).map((entry)=>`${r.scenario}: export failed ${entry}`)
+  ...(r.exportFailures||[]).map((entry)=>`${r.scenario}: export failed ${entry}`),
+  ...(r.furnitureOverlaps||[]).map((entry)=>`${r.scenario}: arrow hidden behind furniture ${entry}`)
 ])];
 if(failures.length){console.error("GATE FAILURES:\n"+failures.join("\n"));process.exitCode=1;}
 await context.close();
