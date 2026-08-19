@@ -20,6 +20,7 @@ const SAFE_ERROR_MESSAGES = Object.freeze({
  * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, stepId: unknown, stepData: unknown }) => Promise<unknown>} autosaveBuilder
  * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, stepId: unknown }) => Promise<unknown>} completeBuilderStep
  * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, receiptType: unknown, receiptData: unknown }) => Promise<unknown>} recordReceipt
+ * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, documentId: unknown }) => Promise<unknown>} releaseFinalDocument
  */
 
 /**
@@ -152,7 +153,7 @@ function mapError(error) {
 
 function routeCase(pathname) {
   const match = pathname.match(
-    /^\/api\/lor-studio\/cases\/([^/]+)(?:\/(?:(builder)(?:\/(complete))?|(receipts)))?$/u,
+    /^\/api\/lor-studio\/cases\/([^/]+)(?:\/(?:(builder)(?:\/(complete))?|(receipts)|(final-document)\/(release)))?$/u,
   );
   if (!match) return null;
   return {
@@ -160,6 +161,9 @@ function routeCase(pathname) {
     builder: match[2] === 'builder',
     complete: match[3] === 'complete',
     receipts: match[4] === 'receipts',
+    // Only the explicit two-segment release path routes. `/final-document` on its own is not a
+    // resource here, so it falls through to the not-found body rather than to the projection.
+    releaseFinalDocument: match[5] === 'final-document' && match[6] === 'release',
   };
 }
 
@@ -219,7 +223,7 @@ export function createLorApplicationAdapter({
       const route = routeCase(url.pathname);
       if (!route) return { status: 404, body: { error: 'lor_route_not_found' } };
 
-      if (!route.builder && !route.receipts && method === 'GET') {
+      if (!route.builder && !route.receipts && !route.releaseFinalDocument && method === 'GET') {
         const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
         return { status: 200, body: { case: projection } };
       }
@@ -274,6 +278,24 @@ export function createLorApplicationAdapter({
         });
         const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
         return { status: 201, body: { case: projection } };
+      }
+
+      if (route.releaseFinalDocument && method === 'POST') {
+        const payload = await readJsonBody(request);
+        assertExactKeys(payload, ['expectedRevision', 'documentId']);
+        // Exactly two facts cross the wire: the revision the caller reasoned about, and the
+        // document that revision names. There is deliberately no field here for the acting
+        // writer, the release time, or `releasedToStudentAt` - student visibility is derived by
+        // the aggregate from its own release record, so no request body can assert it.
+        await caseService.releaseFinalDocument({
+          caseId: route.caseId,
+          actor,
+          expectedRevision: payload.expectedRevision,
+          idempotencyKey: idempotencyKey(request),
+          documentId: payload.documentId,
+        });
+        const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
+        return { status: 200, body: { case: projection } };
       }
 
       return {

@@ -12,12 +12,17 @@ import {
 import {
   BUILDER_STEPS,
   CASE_STATUSES,
+  appendReceipt,
+  assertRecommendationCase,
   autosaveBuilderStep,
   bindFacultyInvitation,
   bindVerifiedFaculty,
   builderProgress,
   completeBuilderStep,
   createRecommendationCase,
+  finalDocumentContentHash,
+  releaseFinalDocument,
+  setFacultyPrivateContent,
   transitionRecommendationCase,
 } from '../../lor-studio/domain/recommendation-case.js';
 import {
@@ -26,6 +31,7 @@ import {
   currentWaiverState,
 } from '../../lor-studio/domain/receipts.js';
 import { sha256 } from '../../lor-studio/domain/value-utils.js';
+import { projectCaseForActor } from '../../lor-studio/security/authorization-policy.js';
 import { InMemoryRecommendationCaseRepository } from '../../lor-studio/repositories/in-memory-recommendation-case-repository.js';
 import {
   createMetadataServiceEvent,
@@ -617,4 +623,366 @@ test('every event type the domain can emit is accepted by the metadata sink', as
       `metadata sink rejects '${eventType}', which the domain emits`,
     );
   }
+});
+
+
+// ---------------------------------------------------------------------------
+// Final-document release state machine.
+//
+// Before this lane, setFacultyPrivateContent structuredCloned whatever `finalDocument` a caller
+// passed straight into the aggregate - releasedToStudentAt included - and assertRecommendationCase
+// never looked at facultyPrivate at all. authorization-policy.js:296 reads
+// facultyPrivate.finalDocument.releasedToStudentAt as the gate deciding whether a student may see
+// the final letter, so one unvalidated field granted a student sight of an unapproved letter with
+// no release, no approval and no attestation anywhere in the aggregate. These tests hold that shut.
+// ---------------------------------------------------------------------------
+
+const FINAL_TEXT = 'FINAL LETTER WORDING';
+const WAIVER_AT = new Date('2026-08-09T12:00:00.000Z');
+const APPROVED_AT = '2026-08-09T14:30:00.000Z';
+const RELEASE_AT = new Date('2026-08-09T15:00:00.000Z');
+
+function approvalFixture(overrides = {}) {
+  return {
+    approved: true,
+    approvedAt: APPROVED_AT,
+    facultyId: 'faculty-1',
+    signatureAttested: true,
+    ...overrides,
+  };
+}
+
+function releasableCase({
+  waived = false,
+  waiverDecided = true,
+  documentState = 'faculty_final',
+  facultyApproval = approvalFixture(),
+  finalDocument = { id: 'document-1', text: FINAL_TEXT },
+} = {}) {
+  const idFactory = deterministicIdFactory();
+  let record = createRecommendationCase({
+    id: 'case-release',
+    studentId: 'student-1',
+    now: T0,
+    idFactory,
+  });
+  if (waiverDecided) {
+    record = appendReceipt(record, {
+      actorId: 'student-1',
+      receiptType: 'waiver',
+      receipt: createWaiverReceipt({
+        caseId: 'case-release',
+        studentId: 'student-1',
+        waived,
+        policyVersion: 'dr-119-v1',
+        acknowledgment: waived ? 'I waive access.' : 'I retain access to the final letter.',
+        recordedAt: WAIVER_AT,
+        idFactory,
+      }),
+      now: T0,
+    });
+  }
+  record = completeBuilder(record);
+  const recipientEmailHash = sha256('writer@example.test');
+  record = bindFacultyInvitation(record, {
+    actorId: 'student-1',
+    invitationId: 'invite-release',
+    recipientEmailHash,
+    now: new Date('2026-08-09T13:00:00Z'),
+  });
+  record = bindVerifiedFaculty(record, {
+    actorId: 'faculty-1',
+    invitationId: 'invite-release',
+    facultyId: 'faculty-1',
+    recipientEmailHash,
+    now: new Date('2026-08-09T13:05:00Z'),
+  });
+  record = transitionRecommendationCase(record, {
+    actorId: 'faculty-1',
+    toStatus: 'faculty_review',
+    now: new Date('2026-08-09T13:10:00Z'),
+  });
+  if (finalDocument === null) return record;
+  return setFacultyPrivateContent(record, {
+    actorId: 'faculty-1',
+    facultyId: 'faculty-1',
+    draftText: 'FACULTY PRIVATE DRAFT',
+    finalDocument,
+    documentState,
+    facultyApproval,
+    now: new Date('2026-08-09T14:30:00Z'),
+  });
+}
+
+function studentSees(record) {
+  return projectCaseForActor({
+    actor: { id: record.studentId, role: 'student' },
+    caseRecord: record,
+    entitlement: eligible(record.studentId),
+    now: RELEASE_AT,
+  }).finalDocument;
+}
+
+function release(record, overrides = {}) {
+  return releaseFinalDocument(record, {
+    actorId: 'faculty-1',
+    facultyId: 'faculty-1',
+    caseId: record.id,
+    documentId: 'document-1',
+    expectedRevision: record.revision,
+    now: RELEASE_AT,
+    ...overrides,
+  });
+}
+
+test('releasedToStudentAt is not writable through faculty content and cannot be forged into the aggregate', () => {
+  // The exact call that used to grant a student sight of an unapproved letter.
+  const record = releasableCase({
+    documentState: undefined,
+    facultyApproval: undefined,
+    finalDocument: {
+      id: 'document-1',
+      text: FINAL_TEXT,
+      releasedToStudentAt: '2026-08-09T14:00:00.000Z',
+    },
+  });
+  assert.equal(record.facultyPrivate.finalDocument.releasedToStudentAt, null);
+  assert.equal(record.finalDocumentState.release, null);
+  assert.equal(studentSees(record), null, 'a content write must never grant student visibility');
+
+  // Shape is now validated, so unknown or mistyped document fields cannot ride along.
+  assert.throws(
+    () => setFacultyPrivateContent(record, {
+      actorId: 'faculty-1',
+      facultyId: 'faculty-1',
+      finalDocument: { id: 'document-1', text: FINAL_TEXT, smuggled: 'ARBITRARY' },
+      now: RELEASE_AT,
+    }),
+    ValidationError,
+  );
+  assert.throws(
+    () => setFacultyPrivateContent(record, {
+      actorId: 'faculty-1',
+      facultyId: 'faculty-1',
+      finalDocument: { id: 'document-1', text: { nested: 'not a string' } },
+      now: RELEASE_AT,
+    }),
+    ValidationError,
+  );
+  assert.throws(
+    () => setFacultyPrivateContent(record, {
+      actorId: 'faculty-1',
+      facultyId: 'faculty-1',
+      finalDocument: { id: 'document-1', text: FINAL_TEXT },
+      documentState: 'released_to_student',
+      now: RELEASE_AT,
+    }),
+    ValidationError,
+    'the domain must not accept invented wording states',
+  );
+  assert.throws(
+    () => setFacultyPrivateContent(record, {
+      actorId: 'faculty-1',
+      facultyId: 'faculty-1',
+      finalDocument: null,
+      documentState: 'faculty_final',
+      facultyApproval: approvalFixture(),
+      now: RELEASE_AT,
+    }),
+    ValidationError,
+    'approval cannot exist without a document to approve',
+  );
+
+  // And a record forged around the domain - the shape a compromised store or a hand-built row
+  // could produce - is rejected outright, because student visibility is a pure mirror of release.
+  const forged = structuredClone(record);
+  forged.facultyPrivate.finalDocument.releasedToStudentAt = '2026-08-09T14:00:00.000Z';
+  assert.throws(
+    () => assertRecommendationCase(forged),
+    /releasedToStudentAt must mirror the recorded final-document release/u,
+  );
+});
+
+test('an approval never survives a rewrite of the wording it attests to', () => {
+  const record = releasableCase();
+  assert.equal(record.finalDocumentState.documentState, 'faculty_final');
+  assert.equal(record.finalDocumentState.facultyApproval.approved, true);
+
+  const edited = setFacultyPrivateContent(record, {
+    actorId: 'faculty-1',
+    facultyId: 'faculty-1',
+    finalDocument: { id: 'document-1', text: 'SILENTLY REWORDED LETTER' },
+    now: new Date('2026-08-09T14:45:00Z'),
+  });
+  assert.equal(edited.finalDocumentState.documentState, null);
+  assert.equal(edited.finalDocumentState.facultyApproval, null);
+  assert.throws(
+    () => release(edited, { expectedRevision: edited.revision }),
+    /Only faculty-final wording may be released/u,
+  );
+
+  // An unrelated edit that leaves the wording untouched keeps the attestation.
+  const noteOnly = setFacultyPrivateContent(record, {
+    actorId: 'faculty-1',
+    facultyId: 'faculty-1',
+    notes: [{ id: 'note-1', text: 'FACULTY PRIVATE NOTE' }],
+    now: new Date('2026-08-09T14:45:00Z'),
+  });
+  assert.equal(noteOnly.finalDocumentState.documentState, 'faculty_final');
+  assert.equal(noteOnly.finalDocumentState.facultyApproval.approved, true);
+});
+
+test('releaseFinalDocument rejects every invalid release', () => {
+  const record = releasableCase();
+
+  assert.throws(() => release(record, { caseId: 'case-other' }), DomainInvariantError);
+  assert.throws(() => release(record, { caseId: '' }), ValidationError);
+  assert.throws(() => release(record, { facultyId: 'faculty-2' }), DomainInvariantError);
+  assert.throws(() => release(record, { documentId: 'document-2' }), DomainInvariantError);
+  assert.throws(() => release(record, { expectedRevision: 'latest' }), ValidationError);
+  assert.throws(() => release(record, { expectedRevision: record.revision - 1 }), StaleRevisionError);
+  assert.throws(
+    () => release(record, { now: new Date('2026-08-09T11:00:00Z') }),
+    /A release cannot predate the waiver decision/u,
+  );
+
+  assert.throws(
+    () => release(releasableCase({ finalDocument: null })),
+    /There is no final document to release/u,
+  );
+  assert.throws(
+    () => release(releasableCase({ documentState: 'ai_proposal' })),
+    /Only faculty-final wording may be released/u,
+  );
+  assert.throws(
+    () => release(releasableCase({ facultyApproval: approvalFixture({ approved: false }) })),
+    /Faculty approval and signature attestation are required/u,
+  );
+  assert.throws(
+    () => release(releasableCase({ facultyApproval: approvalFixture({ signatureAttested: false }) })),
+    /Faculty approval and signature attestation are required/u,
+  );
+  assert.throws(
+    () => release(releasableCase({ finalDocument: { id: 'document-1', text: '   ' } })),
+    /An empty final document cannot be released/u,
+  );
+  assert.throws(
+    () => release(releasableCase({ waiverDecided: false })),
+    /before the student records a waiver decision/u,
+  );
+  assert.throws(
+    () => release(releasableCase({ waived: true })),
+    /A waived final document can never be released/u,
+  );
+
+  const cancelled = transitionRecommendationCase(record, {
+    actorId: 'faculty-1',
+    toStatus: 'cancelled',
+    now: new Date('2026-08-09T14:40:00Z'),
+  });
+  assert.throws(
+    () => release(cancelled, { expectedRevision: cancelled.revision }),
+    /Terminal recommendation cases are immutable/u,
+  );
+
+  // Nothing above may have leaked visibility as a side effect.
+  assert.equal(studentSees(record), null);
+});
+
+test('a released final document is versioned, waiver-bound, student-visible, and idempotent to re-release', () => {
+  const record = releasableCase();
+  assert.equal(studentSees(record), null, 'approval alone is not release');
+
+  const released = release(record);
+  assert.ok(Object.isFrozen(released));
+  assert.equal(released.revision, record.revision + 1);
+  assert.equal(released.facultyPrivate.finalDocument.releasedToStudentAt, '2026-08-09T15:00:00.000Z');
+  assert.deepEqual(released.finalDocumentState.release, {
+    documentHash: finalDocumentContentHash(record.facultyPrivate.finalDocument),
+    documentId: 'document-1',
+    releasedAt: '2026-08-09T15:00:00.000Z',
+    releasedAtRevision: released.revision,
+    waiverReceiptId: currentWaiverState(released.waiverReceipts).receiptId,
+  });
+
+  const entry = released.versionHistory.at(-1);
+  assert.equal(entry.eventType, 'faculty.final_document_released');
+  assert.equal(entry.revision, released.revision);
+  assert.deepEqual(entry.changedFields, ['facultyPrivate', 'finalDocumentState']);
+  assert.equal(released.versionHistory.length, released.revision + 1);
+  assert.equal(
+    JSON.stringify(released.versionHistory).includes(FINAL_TEXT),
+    false,
+    'version history stays metadata-only',
+  );
+
+  assert.equal(studentSees(released).text, FINAL_TEXT);
+  assert.equal(studentSees(released).releasedToStudentAt, '2026-08-09T15:00:00.000Z');
+
+  // Re-release is a replay, not a second mutation - even from the pre-release revision.
+  const replayed = release(released, { expectedRevision: released.revision });
+  assert.equal(replayed, released);
+  const staleReplay = release(released, { expectedRevision: record.revision });
+  assert.equal(staleReplay.revision, released.revision);
+  assert.equal(staleReplay.versionHistory.length, released.versionHistory.length);
+  assert.equal(staleReplay.finalDocumentState.release.releasedAt, '2026-08-09T15:00:00.000Z');
+
+  // A "replay" naming a different document is a re-scope attempt, not a replay.
+  assert.throws(
+    () => release(released, { documentId: 'document-2', expectedRevision: released.revision }),
+    /cannot be re-scoped to a different version/u,
+  );
+});
+
+test('a post-release edit cannot retroactively change what was released', () => {
+  const released = release(releasableCase());
+  const releasedHash = released.finalDocumentState.release.documentHash;
+
+  assert.throws(
+    () => setFacultyPrivateContent(released, {
+      actorId: 'faculty-1',
+      facultyId: 'faculty-1',
+      finalDocument: { id: 'document-1', text: 'RETROACTIVELY SUBSTITUTED LETTER' },
+      now: new Date('2026-08-09T16:00:00Z'),
+    }),
+    /A released final document and its approval are immutable/u,
+  );
+  assert.throws(
+    () => setFacultyPrivateContent(released, {
+      actorId: 'faculty-1',
+      facultyId: 'faculty-1',
+      documentState: 'ai_proposal',
+      now: new Date('2026-08-09T16:00:00Z'),
+    }),
+    /A released final document and its approval are immutable/u,
+  );
+  assert.throws(
+    () => setFacultyPrivateContent(released, {
+      actorId: 'faculty-1',
+      facultyId: 'faculty-1',
+      facultyApproval: null,
+      now: new Date('2026-08-09T16:00:00Z'),
+    }),
+    /A released final document and its approval are immutable/u,
+  );
+
+  // Faculty-private working material stays editable, and the release survives untouched.
+  const stillReleased = setFacultyPrivateContent(released, {
+    actorId: 'faculty-1',
+    facultyId: 'faculty-1',
+    notes: [{ id: 'note-2', text: 'POST RELEASE PRIVATE NOTE' }],
+    now: new Date('2026-08-09T16:00:00Z'),
+  });
+  assert.equal(stillReleased.finalDocumentState.release.documentHash, releasedHash);
+  assert.equal(stillReleased.facultyPrivate.finalDocument.releasedToStudentAt, '2026-08-09T15:00:00.000Z');
+  assert.equal(studentSees(stillReleased).text, FINAL_TEXT);
+
+  // Substituting the wording underneath a release outside the domain fails validation, so the
+  // released digest can never end up describing a document the student was never released.
+  const forged = structuredClone(released);
+  forged.facultyPrivate.finalDocument.text = 'RETROACTIVELY SUBSTITUTED LETTER';
+  assert.throws(
+    () => assertRecommendationCase(forged),
+    /immutably bound to the exact released version/u,
+  );
 });

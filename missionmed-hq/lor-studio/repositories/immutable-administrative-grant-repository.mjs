@@ -17,6 +17,41 @@ import {
 const GRANT_SCHEMA = 'missionmed.lor.administrative-grant.v1';
 const REVOCATION_SCHEMA = 'missionmed.lor.administrative-grant-revocation.v1';
 const ACTIVATION_SCHEMA = 'missionmed.lor.administrative-grant-activation.v1';
+const CAPABILITY_SCHEMA = 'missionmed.lor.operational-metadata-capability.v1';
+
+/**
+ * Capabilities this module actually ISSUED, after reading the revocation ledger.
+ *
+ * WHY THIS EXISTS. `createAdministrativeGrant` and `createAdministrativeGrantActivation` are
+ * public and build over an UNKEYED sha256. The hash proves a record is internally consistent;
+ * it proves NOTHING about provenance, because anybody who can call the constructor can compute
+ * a matching hash. A never-issued, never-persisted grant built at a call site therefore used to
+ * satisfy every check `assertOperationalMetadataGrant` made and yield the full operational
+ * projection. That is only an in-process capability today, but it becomes a request-level
+ * forgery the moment the composition root forwards a caller-supplied grant object.
+ *
+ * The fix is provenance by OBJECT IDENTITY, the same property adapters/lor-target-binding.mjs
+ * relies on. Membership here cannot be computed, guessed, serialised, or copied: a spread copy
+ * is a different object, and a JSON body deserialised from an HTTP request is a different
+ * object. Only the issuing path below adds to this set.
+ *
+ * WHY THE WEAKSET GUARDS THE CAPABILITY AND NOT THE GRANT. Registering grants at construction
+ * would be vacuous - the constructor is the public export, so a forgery would be registered too.
+ * Registering grants after a durable read would break instead: a grant is DURABLE data that
+ * crosses Supabase and comes back as a fresh object with fresh identity, so no WeakSet can
+ * recognise it. The two concerns are therefore split by lifetime:
+ *
+ *   - the GRANT record crosses the persistence boundary, and is defended by its canonical hash
+ *     plus the append-only revocation ledger (integrity, NOT authenticity);
+ *   - the CAPABILITY is in-process and request-scoped, never persisted, never serialised, and
+ *     is defended by unforgeable object identity (authenticity).
+ *
+ * A WeakSet alone would NOT have been sufficient had it been applied to the grant. Applied to
+ * the capability it is sufficient, and it is the strongest model available here without
+ * introducing a keyed MAC - which would require a server secret this architecture does not
+ * hold, and which the founder security model explicitly does not want surfaced to callers.
+ */
+const ISSUED_CAPABILITIES = new WeakSet();
 
 // Grants come in two disjoint capability classes and neither implies the other.
 //
@@ -170,14 +205,94 @@ export function createAdministrativeGrant({
   return deepFreeze({ ...unsigned, grantHash: hashGrant(unsigned) });
 }
 
-export function validateAdministrativeGrant(grant) {
-  if (!grant || grant.schemaVersion !== GRANT_SCHEMA) {
+const GRANT_FIELDS = Object.freeze([
+  'schemaVersion',
+  'grantId',
+  'granteeId',
+  'caseId',
+  'operation',
+  'purpose',
+  'privacyAuthority',
+  'issuedAt',
+  'expiresAt',
+  'auditEventRef',
+  'revokedAt',
+  'grantHash',
+]);
+
+/**
+ * Copy a candidate grant into an inert, own-properties-only, plain-data record.
+ *
+ * Two attacks are closed here and neither is theoretical.
+ *
+ * PROTOTYPE POLLUTION. Every read below is `Object.hasOwn`-guarded, so a grant-shaped object
+ * that carries no `revokedAt`/`schemaVersion`/`grantHash` of its own cannot inherit one from a
+ * polluted `Object.prototype` and be validated on the strength of fields it does not have.
+ *
+ * ACCESSOR TIME-OF-CHECK/TIME-OF-USE. The previous implementation read the caller's object
+ * repeatedly - once through `createAdministrativeGrant`, again through `canonicalize`, and
+ * later again when the projection was assembled. A `caseId` defined as a getter (or a Proxy)
+ * could return the grantee's own case to the binding check and a victim's case to the
+ * projection afterwards. Every field is now read EXACTLY ONCE, here, and every later read is
+ * from this frozen copy, so no value can change underneath a check that already passed.
+ *
+ * Unknown or non-enumerable own properties fail closed rather than being silently dropped,
+ * which is what keeps the canonical-record comparison downstream honest.
+ *
+ * @param {unknown} grant
+ * @returns {Record<string, unknown> | null} null when the shape is not a plain grant record.
+ */
+function snapshotGrant(grant) {
+  if (!grant || typeof grant !== 'object' || Array.isArray(grant)) return null;
+  const snapshot = {};
+  let owned = 0;
+  for (const field of GRANT_FIELDS) {
+    if (!Object.hasOwn(grant, field)) continue;
+    snapshot[field] = grant[field];
+    owned += 1;
+  }
+  // EXACT own-property shape, in both directions.
+  //
+  // Every field must be present as an OWN property (`owned === GRANT_FIELDS.length`). This is
+  // not pedantry: the snapshot is itself an ordinary object inheriting from Object.prototype,
+  // so had a field been allowed to stay absent, reading `snapshot.revokedAt` would fall through
+  // to the very polluted prototype this function exists to defend against, and the snapshot
+  // would launder the pollution instead of blocking it.
+  //
+  // And no field may be present that GRANT_FIELDS does not name. Object.keys sees own
+  // ENUMERABLE keys only, so comparing its length against the hasOwn count rejects unexpected
+  // extra fields and non-enumerable fields smuggled in via defineProperty alike.
+  if (owned !== GRANT_FIELDS.length) return null;
+  if (Object.keys(grant).length !== owned) return null;
+  return snapshot;
+}
+
+/**
+ * Validate a candidate grant and return the module's own canonical reconstruction of it.
+ *
+ * The returned object is built here, never handed in, so callers downstream of this function
+ * are reading module-owned plain data rather than the caller's object.
+ *
+ * @param {unknown} grant
+ * @returns {Readonly<Record<string, unknown>>}
+ */
+function canonicalGrant(grant) {
+  const snapshot = snapshotGrant(grant);
+  if (!snapshot || snapshot.schemaVersion !== GRANT_SCHEMA) {
     throw new DomainInvariantError('Unsupported administrative grant schema');
   }
-  const reconstructed = createAdministrativeGrant(grant);
-  if (grant.grantHash !== reconstructed.grantHash || canonicalize(grant) !== canonicalize(reconstructed)) {
+  const reconstructed = createAdministrativeGrant(snapshot);
+  if (
+    snapshot.grantHash !== reconstructed.grantHash
+    || canonicalize(snapshot) !== canonicalize(reconstructed)
+  ) {
     throw new DomainInvariantError('Administrative grant is not the immutable canonical record');
   }
+  return reconstructed;
+}
+
+export function validateAdministrativeGrant(grant) {
+  canonicalGrant(grant);
   return true;
 }
 
@@ -228,26 +343,101 @@ export function createAdministrativeGrantActivation({ grant, revoked, checkedAt 
   return deepFreeze({ ...unsigned, activationHash: hashGrant(unsigned) });
 }
 
+const ACTIVATION_FIELDS = Object.freeze([
+  'schemaVersion',
+  'grantId',
+  'grantHash',
+  'revocationLedgerChecked',
+  'revoked',
+  'checkedAt',
+  'activationHash',
+]);
+
+/**
+ * Same own-properties-only snapshot discipline as `snapshotGrant`, for the activation proof.
+ *
+ * This one matters especially: the proof is read field by field and then re-hashed from its own
+ * rest-spread. A rest spread copies only OWN enumerable properties, so an activation whose
+ * `revoked: false` and `revocationLedgerChecked: true` came from a polluted `Object.prototype`
+ * used to hash as the empty object - and an attacker who pollutes `activationHash` to match
+ * `sha256(canonicalize({}))` would have cleared the hash check with an EMPTY proof object.
+ * Own-property gating removes that entirely.
+ */
+function snapshotActivation(activation) {
+  if (!activation || typeof activation !== 'object' || Array.isArray(activation)) return null;
+  const snapshot = {};
+  let owned = 0;
+  for (const field of ACTIVATION_FIELDS) {
+    if (!Object.hasOwn(activation, field)) continue;
+    snapshot[field] = activation[field];
+    owned += 1;
+  }
+  // Exact own-property shape, for the same two reasons as snapshotGrant: a missing field would
+  // otherwise be read off a polluted prototype, and an extra one would slip past the re-hash.
+  if (owned !== ACTIVATION_FIELDS.length) return null;
+  if (Object.keys(activation).length !== owned) return null;
+  return snapshot;
+}
+
 function assertActivationProof(activation, grant, nowMs, maxAgeMs) {
+  const proof = snapshotActivation(activation);
   if (
-    !activation
-    || typeof activation !== 'object'
-    || activation.schemaVersion !== ACTIVATION_SCHEMA
-    || activation.grantId !== grant.grantId
-    || activation.grantHash !== grant.grantHash
-    || activation.revocationLedgerChecked !== true
-    || activation.revoked !== false
+    !proof
+    || proof.schemaVersion !== ACTIVATION_SCHEMA
+    || proof.grantId !== grant.grantId
+    || proof.grantHash !== grant.grantHash
+    || proof.revocationLedgerChecked !== true
+    || proof.revoked !== false
   ) {
     throw new AuthorizationDeniedError('ADMINISTRATIVE_GRANT_REVOCATION_UNPROVEN');
   }
-  const { activationHash, ...unsigned } = activation;
+  const { activationHash, ...unsigned } = proof;
   if (activationHash !== hashGrant(unsigned)) {
     throw new AuthorizationDeniedError('ADMINISTRATIVE_GRANT_REVOCATION_UNPROVEN');
   }
-  const checkedMs = Date.parse(String(activation.checkedAt ?? ''));
+  const checkedMs = Date.parse(String(proof.checkedAt ?? ''));
   if (!Number.isFinite(checkedMs) || checkedMs > nowMs || nowMs - checkedMs > maxAgeMs) {
     throw new AuthorizationDeniedError('ADMINISTRATIVE_GRANT_REVOCATION_STALE');
   }
+}
+
+/**
+ * Mint the in-process operational-metadata capability.
+ *
+ * MODULE-PRIVATE ON PURPOSE. This is the ONLY function that adds to `ISSUED_CAPABILITIES`, and
+ * it is not exported, so the sole way to obtain a capability is to go through
+ * `ImmutableAdministrativeGrantRepository.getActiveOperationalMetadataGrant` - which resolves
+ * the grant from the append-only ledger, rejects a revoked or expired one, and mints the
+ * activation proof itself. Exporting this, or calling it anywhere the grant did not come from a
+ * ledger read, would reopen exactly the forgery boundary it exists to close.
+ *
+ * @param {{ grant: Readonly<Record<string, unknown>>, activation: Readonly<Record<string, unknown>> }} issued
+ */
+function issueOperationalMetadataCapability({ grant, activation }) {
+  const capability = deepFreeze({
+    schemaVersion: CAPABILITY_SCHEMA,
+    // Denormalised binding fields, so an audit or log line never has to reach into `grant`.
+    grantId: grant.grantId,
+    granteeId: grant.granteeId,
+    caseId: grant.caseId,
+    operation: grant.operation,
+    grant,
+    activation,
+  });
+  ISSUED_CAPABILITIES.add(capability);
+  return capability;
+}
+
+/**
+ * True only for a capability this module issued from a ledger read. Exported so a composition
+ * root can fail a request early, and so the boundary is assertable from outside.
+ *
+ * @param {unknown} capability
+ */
+export function isIssuedOperationalMetadataCapability(capability) {
+  return Boolean(capability)
+    && typeof capability === 'object'
+    && ISSUED_CAPABILITIES.has(capability);
 }
 
 /**
@@ -256,9 +446,13 @@ function assertActivationProof(activation, grant, nowMs, maxAgeMs) {
  * wrong way round - and the HTTP layer collapses that error to an undifferentiated 404, so a
  * denial here cannot be used to probe whether a case exists.
  *
+ * The capability must be one this module ISSUED. A caller-supplied object is refused before any
+ * field of it is examined, so a request body can never argue its way to authority no matter how
+ * well-formed it is. Every check after the identity gate is defence in depth against a bug on
+ * the issuing path, not the primary defence.
+ *
  * @param {{
- *   grant?: Record<string, unknown>,
- *   activation?: Record<string, unknown>,
+ *   capability?: Record<string, unknown>,
  *   granteeId?: string,
  *   caseId?: string,
  *   purpose?: string,
@@ -267,16 +461,21 @@ function assertActivationProof(activation, grant, nowMs, maxAgeMs) {
  * }} [request]
  */
 export function assertOperationalMetadataGrant({
-  grant,
-  activation,
+  capability,
   granteeId,
   caseId,
   purpose,
   now = new Date(),
   maxActivationAgeMs = DEFAULT_ACTIVATION_MAX_AGE_MS,
 } = {}) {
+  // THE GATE. Identity first, before any property of the candidate is trusted or even read.
+  if (!isIssuedOperationalMetadataCapability(capability)) {
+    throw new AuthorizationDeniedError('OPERATIONAL_METADATA_CAPABILITY_NOT_ISSUED');
+  }
+  const activation = capability.activation;
+  let grant;
   try {
-    validateAdministrativeGrant(grant);
+    grant = canonicalGrant(capability.grant);
   } catch {
     // Canonical-record failures are folded into the same denial as every other failure below:
     // a caller learns only that access was refused.
@@ -446,10 +645,15 @@ export class ImmutableAdministrativeGrantRepository {
   }
 
   /**
-   * Resolves the capability an operational-metadata read needs: the live grant plus proof the
-   * revocation ledger was just consulted. Reaching the activation line means getActiveGrant
-   * already rejected a revoked, expired, or mis-bound grant, which is why `revoked: false` can
-   * be asserted here rather than guessed.
+   * THE SOLE ISSUING PATH for an operational-metadata capability.
+   *
+   * Resolves the live grant from the append-only ledger and proves the revocation ledger was
+   * just consulted. Reaching the activation line means getActiveGrant already rejected a
+   * revoked, expired, or mis-bound grant, which is why `revoked: false` can be asserted here
+   * rather than guessed - and it is why this, and only this, is allowed to mint.
+   *
+   * The returned capability is unforgeable by identity: callers may pass it on to downstream
+   * services, but they cannot construct, copy, or deserialise an equivalent one.
    *
    * @param {ActiveAdministrativeGrantRequest} [request]
    */
@@ -458,7 +662,7 @@ export class ImmutableAdministrativeGrantRepository {
       throw new AuthorizationDeniedError('ADMINISTRATIVE_GRANT_OPERATION_CLASS_MISMATCH');
     }
     const grant = await this.getActiveGrant({ grantId, granteeId, caseId, operation, purpose });
-    return deepFreeze({
+    return issueOperationalMetadataCapability({
       grant,
       activation: createAdministrativeGrantActivation({
         grant,
@@ -473,6 +677,16 @@ export const ADMINISTRATIVE_GRANT_CONTRACT = deepFreeze({
   grantSchema: GRANT_SCHEMA,
   revocationSchema: REVOCATION_SCHEMA,
   activationSchema: ACTIVATION_SCHEMA,
+  capabilitySchema: CAPABILITY_SCHEMA,
+  // A grant record is durable data authenticated by nothing but an UNKEYED hash. Saying so
+  // plainly is the point: the hash is an integrity check across the persistence boundary, and
+  // must never be mistaken for proof that a grant was ever issued.
+  grantRecordProof: 'unkeyed_canonical_hash_integrity_only',
+  // Authority rides on the capability, whose provenance is object identity and therefore cannot
+  // be constructed, spread, or deserialised by a caller.
+  capabilityProof: 'module_private_issued_capability_registry',
+  capabilityIssuedBy: 'repository_get_active_operational_metadata_grant_only',
+  capabilitySubmittableByCaller: false,
   operations: [...ALLOWED_OPERATIONS],
   operationClasses: {
     case_content: [...CONTENT_OPERATIONS],

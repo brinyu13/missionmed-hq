@@ -14,6 +14,7 @@ const ALLOWED_EVENT_TYPES = new Set([
   'builder.autosaved',
   'builder.step_completed',
   'consent.recorded',
+  'faculty.final_document_released',
   'faculty.invited',
   'faculty.private_content_updated',
   'faculty.verification_denied',

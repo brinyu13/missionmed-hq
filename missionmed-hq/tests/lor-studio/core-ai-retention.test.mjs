@@ -25,10 +25,10 @@ import {
 } from '../../lor-studio/domain/recommendation-case.js';
 import { createWaiverReceipt } from '../../lor-studio/domain/receipts.js';
 import {
+  ImmutableAdministrativeGrantRepository,
   createAdministrativeGrant,
   createAdministrativeGrantActivation,
 } from '../../lor-studio/repositories/immutable-administrative-grant-repository.mjs';
-import { projectCaseForActor } from '../../lor-studio/security/authorization-policy.js';
 import {
   RETENTION_POLICY,
   backupDeletionDeadline,
@@ -37,7 +37,7 @@ import {
   evaluateRetention,
   retentionDeadline,
 } from '../../lor-studio/domain/retention.js';
-import { sha256 } from '../../lor-studio/domain/value-utils.js';
+import { hashValue, sha256 } from '../../lor-studio/domain/value-utils.js';
 import { AiProposalService } from '../../lor-studio/services/ai-proposal-service.js';
 import { planCaseExport } from '../../lor-studio/services/export-service.js';
 
@@ -56,21 +56,44 @@ function eligible(studentId = 'student-1') {
   };
 }
 
-/**
- * Mints the case-scoped operational-metadata capability DR-119 clause 9 requires: the
- * canonical immutable grant plus proof its revocation ledger entry was just read.
- * Mirrors operationalGrantFor() in core-security.test.mjs.
- */
-function operationalGrantFor({
+const GRANT_LEDGER_BINDING = {
+  providerResourceBound: true,
+  independentlyVerified: true,
+  appendOnly: true,
+  auditBound: true,
+  revocationLedger: true,
+};
+
+/** Append-only grant ledger standing in for the durable provider. */
+function grantLedger() {
+  const grants = new Map();
+  const revocations = new Map();
+  return {
+    appendOnly: true,
+    async appendGrant(grant) {
+      grants.set(grant.grantId, structuredClone(grant));
+      return { appended: true, auditBound: true, immutable: true, grant };
+    },
+    async appendRevocation(revocation) {
+      revocations.set(revocation.grantId, structuredClone(revocation));
+      return { appended: true, auditBound: true, immutable: true, revocation };
+    },
+    async readGrantWithRevocation({ grantId }) {
+      return { grant: grants.get(grantId), revocation: revocations.get(grantId) ?? null };
+    },
+  };
+}
+
+/** The canonical immutable grant RECORD - durable data, carrying no authority by itself. */
+function administrativeGrantRecord({
   granteeId = 'admin-1',
-  caseId = 'case-private',
+  caseId = 'case-export',
   operation = 'read_operational_case_metadata',
   purpose = 'dr-119-operational-metadata-review',
   issuedAt = '2026-08-09T11:00:00.000Z',
   expiresAt = '2026-08-09T13:00:00.000Z',
-  checkedAt = T0,
 } = {}) {
-  const grant = createAdministrativeGrant({
+  return createAdministrativeGrant({
     grantId: `grant:${granteeId}:${caseId}:${operation}`,
     granteeId,
     caseId,
@@ -81,10 +104,49 @@ function operationalGrantFor({
     expiresAt,
     auditEventRef: sha256(`operational-grant:${granteeId}:${caseId}:${operation}`),
   });
-  return {
-    grant,
-    activation: createAdministrativeGrantActivation({ grant, revoked: false, checkedAt }),
-  };
+}
+
+/**
+ * Obtains the case-scoped operational-metadata capability DR-119 clause 9 requires, THROUGH THE
+ * TRUSTED ISSUING PATH: the grant is appended to the ledger, then the repository reads it back,
+ * confirms it is live and unrevoked, and mints the capability itself. Mirrors
+ * operationalGrantFor() in core-security.test.mjs.
+ *
+ * Hand-assembling `{ grant, activation }` is exactly the forgery the capability boundary
+ * refuses, so it is never used to build a capability that is expected to WORK here - only as a
+ * negative fixture below.
+ */
+async function operationalGrantFor({
+  granteeId = 'admin-1',
+  caseId = 'case-export',
+  operation = 'read_operational_case_metadata',
+  purpose = 'dr-119-operational-metadata-review',
+  issuedAt = '2026-08-09T11:00:00.000Z',
+  expiresAt = '2026-08-09T13:00:00.000Z',
+  checkedAt = T0,
+  ledger = grantLedger(),
+} = {}) {
+  const grant = administrativeGrantRecord({ granteeId, caseId, operation, purpose, issuedAt, expiresAt });
+  const repository = new ImmutableAdministrativeGrantRepository({
+    binding: GRANT_LEDGER_BINDING,
+    driver: ledger,
+    clock: () => new Date(checkedAt),
+  });
+  await repository.create(grant);
+  return repository.getActiveOperationalMetadataGrant({
+    grantId: grant.grantId,
+    granteeId,
+    caseId,
+    operation,
+    purpose,
+  });
+}
+
+/** Mirrors deniedWith() in core-security.test.mjs: pins the exact denial, not merely "threw". */
+function deniedWith(reasonCode) {
+  return (error) => error instanceof AuthorizationDeniedError
+    && error.code === 'AUTHORIZATION_DENIED'
+    && error.details.reasonCode === reasonCode;
 }
 
 // --- DR-119 clause 8: the grounding invariant -------------------------------
@@ -1055,7 +1117,7 @@ test('retention classifications and deadlines implement DR-019 without deleting 
   );
 });
 
-test('export planning is an authorization-scoped projection plus immutable intent, never remote mutation', () => {
+test('export planning is an authorization-scoped projection plus immutable intent, never remote mutation', async () => {
   let record = createRecommendationCase({
     id: 'case-export',
     studentId: 'student-1',
@@ -1100,54 +1162,284 @@ test('export planning is an authorization-scoped projection plus immutable inten
   assert.match(studentPlan.exportIntent.projectionHash, /^[a-f0-9]{64}$/u);
   assert.equal(studentPlan.projection.finalDocument, null);
 
-  // DR-119 clause 9: an operational role no longer reads case metadata on the
-  // strength of its role. A grant-free admin export is denied, and the denial is
-  // the undifferentiated one that cannot be used to probe whether a case exists.
-  assert.throws(
-    () => planCaseExport({
-      id: 'export-ops-ungranted',
-      caseRecord: record,
-      actor: { id: 'admin-1', role: 'admin' },
-      entitlement: null,
-      purpose: 'operational_review',
-      destinationClass: 'operations_metadata_workspace',
-      now: T0,
+  // The export intent is what audit and telemetry consume, so its shape is pinned once here and
+  // re-checked below for the granted operational export: propagating a new capability through
+  // this layer must not add, drop, rename, or reorder a single reported field.
+  const EXPORT_INTENT_KEYS = [
+    'schemaVersion',
+    'id',
+    'actorId',
+    'actorRole',
+    'caseId',
+    'projectionHash',
+    'destinationClass',
+    'purpose',
+    'plannedAt',
+    'remoteMutationPerformed',
+  ];
+  assert.deepEqual(Object.keys(studentPlan.exportIntent), EXPORT_INTENT_KEYS);
+  assert.equal(studentPlan.exportIntent.projectionHash, hashValue(studentPlan.projection));
+
+  // A second, unrelated case for the cross-case checks below.
+  const otherRecord = createRecommendationCase({
+    id: 'case-export-other',
+    studentId: 'student-2',
+    now: T0,
+    idFactory: () => 'builder-export-other',
+  });
+
+  const opsExport = {
+    purpose: 'operational_review',
+    destinationClass: 'operations_metadata_workspace',
+  };
+  const planOpsExport = (operationalGrant, overrides = {}) => planCaseExport({
+    caseRecord: record,
+    actor: { id: 'admin-1', role: 'admin' },
+    entitlement: null,
+    operationalGrant,
+    ...opsExport,
+    now: T0,
+    ...overrides,
+  });
+
+  // DR-119 clause 9: an operational role no longer reads case metadata on the strength of its
+  // role. A capability-free export is denied for every operational role, and the denial is the
+  // undifferentiated one that cannot be used to probe whether a case exists.
+  for (const role of ['admin', 'founder', 'support']) {
+    for (const absent of [undefined, null, false, 0, '']) {
+      assert.throws(
+        () => planOpsExport(absent, {
+          id: `export-ops-ungranted-${role}`,
+          actor: { id: `${role}-1`, role },
+        }),
+        deniedWith('OPERATIONAL_METADATA_GRANT_REQUIRED'),
+        `${role} must not export case metadata on role membership alone`,
+      );
+    }
+  }
+
+  const capability = await operationalGrantFor({ granteeId: 'admin-1', caseId: record.id });
+
+  // Forged capabilities. Authority here is object identity, so a capability that this process
+  // did not ISSUE is refused before a single one of its fields is examined - no matter how
+  // perfectly its contents reproduce a real one.
+  const grantRecord = administrativeGrantRecord({ granteeId: 'admin-1', caseId: record.id });
+  const forged = [
+    // Shaped like a capability, contents empty.
+    {},
+    // The pre-hardening hand-assembled shape, built from the public constructors with a
+    // genuinely canonical grant and a genuinely canonical activation. Content is not authority.
+    {
+      grant: grantRecord,
+      activation: createAdministrativeGrantActivation({ grant: grantRecord, revoked: false, checkedAt: T0 }),
+    },
+    // A field-for-field copy of a REAL issued capability. Copying breaks identity.
+    { ...capability },
+    // The same capability after a serialisation round trip - i.e. what would arrive in a
+    // request body if the composition root ever forwarded caller-supplied JSON.
+    JSON.parse(JSON.stringify(capability)),
+    // Prototype-delegating impostor: every property resolves to the real capability's value.
+    Object.create(capability),
+  ];
+  for (const [index, impostor] of forged.entries()) {
+    assert.throws(
+      () => planOpsExport(impostor),
+      deniedWith('OPERATIONAL_METADATA_CAPABILITY_NOT_ISSUED'),
+      `forged capability ${index} must not authorise an export`,
+    );
+  }
+
+  // Issued, but bound to the wrong thing, or no longer in force. Every one of these is a REAL
+  // capability minted by the repository, so nothing but the binding, expiry, and freshness
+  // checks can refuse them - and each does, with its own reason code.
+  const misboundCapabilities = [
+    // A capability for another case is not a capability for this one.
+    ['ADMINISTRATIVE_GRANT_BINDING_MISMATCH', await operationalGrantFor({ granteeId: 'admin-1', caseId: 'case-someone-else' })],
+    // One operator's capability is not another operator's.
+    ['ADMINISTRATIVE_GRANT_BINDING_MISMATCH', await operationalGrantFor({ granteeId: 'admin-2', caseId: record.id })],
+    // Issued while live, expired by the time the export is planned.
+    ['ADMINISTRATIVE_GRANT_EXPIRED_OR_NOT_YET_VALID', await operationalGrantFor({
+      granteeId: 'admin-1',
+      caseId: record.id,
+      issuedAt: '2026-08-09T09:00:00.000Z',
+      expiresAt: '2026-08-09T11:00:00.000Z',
+      checkedAt: '2026-08-09T10:00:00.000Z',
+    })],
+    // Issued for a window that has not opened yet.
+    ['ADMINISTRATIVE_GRANT_EXPIRED_OR_NOT_YET_VALID', await operationalGrantFor({
+      granteeId: 'admin-1',
+      caseId: record.id,
+      issuedAt: '2026-08-09T13:00:00.000Z',
+      expiresAt: '2026-08-09T15:00:00.000Z',
+      checkedAt: '2026-08-09T13:30:00.000Z',
+    })],
+    // In force, but carrying an hours-old revocation-ledger read: not evidence the grant is
+    // live NOW, and a stale proof must not be replayable.
+    ['ADMINISTRATIVE_GRANT_REVOCATION_STALE', await operationalGrantFor({
+      granteeId: 'admin-1',
+      caseId: record.id,
+      checkedAt: '2026-08-09T11:58:00.000Z',
+    })],
+  ];
+  for (const [reasonCode, misbound] of misboundCapabilities) {
+    assert.throws(
+      () => planOpsExport(misbound),
+      deniedWith(reasonCode),
+      `export must be denied with ${reasonCode}`,
+    );
+  }
+
+  // Wrong operation. A content-class operation is not a metadata capability, so the issuing path
+  // refuses to mint one at all - there is no object an export could even be attempted with.
+  await assert.rejects(
+    () => operationalGrantFor({
+      granteeId: 'admin-1',
+      caseId: record.id,
+      operation: 'read_case_content_for_privacy_request',
     }),
-    (error) => error instanceof AuthorizationDeniedError
-      && error.details.reasonCode === 'OPERATIONAL_METADATA_GRANT_REQUIRED',
+    deniedWith('ADMINISTRATIVE_GRANT_OPERATION_CLASS_MISMATCH'),
+  );
+  // ...and wrapping that content grant by hand does not manufacture one either.
+  const contentGrant = administrativeGrantRecord({
+    granteeId: 'admin-1',
+    caseId: record.id,
+    operation: 'read_case_content_for_privacy_request',
+  });
+  assert.throws(
+    () => planOpsExport({
+      grant: contentGrant,
+      activation: createAdministrativeGrantActivation({ grant: contentGrant, revoked: false, checkedAt: T0 }),
+    }),
+    deniedWith('OPERATIONAL_METADATA_CAPABILITY_NOT_ISSUED'),
   );
 
-  // With the case-scoped, expiring, revocation-checked grant clause 9 requires,
-  // the operational metadata projection is produced and stays metadata-only.
-  //
-  // NOTE: this exercises projectCaseForActor directly because planCaseExport()
-  // forwards only `serviceGrant`; it has no `operationalGrant` parameter, so an
-  // admin export cannot presently be planned at all. That plumbing gap lives in
-  // lor-studio/services/export-service.js, which this lane does not own - it is
-  // reported, not worked around, and no gate is relaxed to hide it.
-  const adminProjection = projectCaseForActor({
-    actor: { id: 'admin-1', role: 'admin' },
+  // Revocation: once the authority revokes the grant, the issuing path stops minting, so no
+  // fresh capability exists for an export to be planned with.
+  const revokedLedger = grantLedger();
+  await operationalGrantFor({ granteeId: 'admin-1', caseId: record.id, ledger: revokedLedger });
+  const revokedRepository = new ImmutableAdministrativeGrantRepository({
+    binding: GRANT_LEDGER_BINDING,
+    driver: revokedLedger,
+    clock: () => T0,
+  });
+  await revokedRepository.revoke({
+    grantId: administrativeGrantRecord({ granteeId: 'admin-1', caseId: record.id }).grantId,
+    revokedByAuthority: 'privacy-authority:founder-approved-operational-review',
+    reasonCode: 'REVIEW_COMPLETE',
+    auditEventRef: sha256('operational-grant-revocation'),
+  });
+  await assert.rejects(
+    () => operationalGrantFor({ granteeId: 'admin-1', caseId: record.id, ledger: revokedLedger }),
+    deniedWith('ADMINISTRATIVE_GRANT_REVOKED'),
+  );
+
+  // The granted export really is planned through planCaseExport - the workaround that called
+  // projectCaseForActor directly is gone - and what it exports is the metadata projection: no
+  // student identity, no student evidence, no faculty-private material.
+  const adminPlan = planCaseExport({
+    id: 'export-ops-granted',
     caseRecord: record,
+    actor: { id: 'admin-1', role: 'admin' },
     entitlement: null,
-    operationalGrant: operationalGrantFor({ granteeId: 'admin-1', caseId: record.id }),
+    operationalGrant: capability,
+    ...opsExport,
     now: T0,
   });
-  assert.equal(adminProjection.schemaVersion, 'missionmed.lor.operational-projection.v1');
-  assert.equal('studentEvidence' in adminProjection, false);
-  assert.equal('applicantOptions' in adminProjection, false);
-  assert.equal(JSON.stringify(adminProjection).includes('Student-authored option'), false);
+  assert.equal(adminPlan.projection.schemaVersion, 'missionmed.lor.operational-projection.v1');
+  assert.equal(adminPlan.projection.caseId, record.id);
+  assert.equal('studentEvidence' in adminPlan.projection, false);
+  assert.equal('applicantOptions' in adminPlan.projection, false);
+  const adminSerialized = JSON.stringify(adminPlan.projection);
+  for (const withheld of ['student-1', 'Student-visible evidence', 'Student-authored option']) {
+    assert.equal(adminSerialized.includes(withheld), false, `operational export must omit ${withheld}`);
+  }
 
-  // A grant minted for a different case does not authorize this one.
+  // Cross-case: the capability that authorises THIS case authorises only this case. The very
+  // same object replayed against another case record is refused.
   assert.throws(
-    () => projectCaseForActor({
+    () => planCaseExport({
+      id: 'export-ops-cross-case',
+      caseRecord: otherRecord,
       actor: { id: 'admin-1', role: 'admin' },
-      caseRecord: record,
       entitlement: null,
-      operationalGrant: operationalGrantFor({ granteeId: 'admin-1', caseId: 'case-someone-else' }),
+      operationalGrant: capability,
+      ...opsExport,
       now: T0,
     }),
-    AuthorizationDeniedError,
+    deniedWith('ADMINISTRATIVE_GRANT_BINDING_MISMATCH'),
   );
+
+  // Audit/telemetry unchanged: identical intent shape, same schema version, still no remote
+  // mutation, and the hash still covers exactly the projection that was authorised.
+  assert.deepEqual(Object.keys(adminPlan.exportIntent), EXPORT_INTENT_KEYS);
+  assert.equal(adminPlan.exportIntent.schemaVersion, studentPlan.exportIntent.schemaVersion);
+  assert.equal(adminPlan.exportIntent.remoteMutationPerformed, false);
+  assert.equal(adminPlan.exportIntent.actorId, 'admin-1');
+  assert.equal(adminPlan.exportIntent.actorRole, 'admin');
+  assert.equal(adminPlan.exportIntent.caseId, record.id);
+  assert.equal(adminPlan.exportIntent.projectionHash, hashValue(adminPlan.projection));
+  assert.notEqual(adminPlan.exportIntent.projectionHash, studentPlan.exportIntent.projectionHash);
+  assert.equal(Object.isFrozen(adminPlan.exportIntent), true);
+
+  // The capability is a gate credential, not telemetry: none of it may ride into the intent
+  // record that audit consumers persist.
+  const intentSerialized = JSON.stringify(adminPlan.exportIntent);
+  for (const withheld of [
+    capability.schemaVersion,
+    capability.grantId,
+    capability.grant.privacyAuthority,
+    capability.grant.auditEventRef,
+    capability.grant.grantHash,
+    capability.activation.activationHash,
+    'operationalGrant',
+    'privilegedAccess',
+  ]) {
+    assert.equal(intentSerialized.includes(withheld), false, `export intent must not carry ${withheld}`);
+  }
+
+  // Break glass is a named metadata operation, so it authorises - and it buys nothing extra:
+  // same metadata-only projection, same intent shape.
+  const breakGlassCapability = await operationalGrantFor({
+    granteeId: 'founder-1',
+    caseId: record.id,
+    operation: 'emergency_operational_case_metadata_break_glass',
+  });
+  const breakGlassPlan = planCaseExport({
+    id: 'export-ops-break-glass',
+    caseRecord: record,
+    actor: { id: 'founder-1', role: 'founder' },
+    entitlement: null,
+    operationalGrant: breakGlassCapability,
+    ...opsExport,
+    now: T0,
+  });
+  assert.equal(breakGlassPlan.projection.schemaVersion, 'missionmed.lor.operational-projection.v1');
+  assert.deepEqual(Object.keys(breakGlassPlan.exportIntent), EXPORT_INTENT_KEYS);
+  assert.deepEqual(Object.keys(breakGlassPlan.projection), Object.keys(adminPlan.projection));
+
+  // Holding a capability does not widen the role's export rules: the purpose/destination pair is
+  // still the only one an operational role may plan.
+  assert.throws(
+    () => planOpsExport(capability, {
+      purpose: 'institution_delivery',
+      destinationClass: 'approved_institution_channel',
+    }),
+    ValidationError,
+  );
+
+  // And the new parameter is inert on every other path: a student export planned with an
+  // operational capability attached produces a byte-identical intent.
+  const studentPlanWithCapability = planCaseExport({
+    id: 'export-1',
+    caseRecord: record,
+    actor: { id: 'student-1', role: 'student' },
+    entitlement: eligible('student-1'),
+    operationalGrant: capability,
+    purpose: 'student_copy',
+    destinationClass: 'actor_private_download',
+    now: T0,
+  });
+  assert.deepEqual(studentPlanWithCapability.exportIntent, studentPlan.exportIntent);
 
   assert.throws(
     () => planCaseExport({

@@ -5,6 +5,7 @@ import {
   builderProgress,
   completeBuilderStep,
   createRecommendationCase,
+  releaseFinalDocument,
 } from '../domain/recommendation-case.js';
 import { createConsentReceipt, createWaiverReceipt } from '../domain/receipts.js';
 import {
@@ -219,6 +220,19 @@ export class RecommendationCaseService {
         event,
       });
     }
+    // Fail closed before the write. The durable branch above mints its metadata event first, so a
+    // write whose event the metadata vocabulary refuses can never reach durable storage. This
+    // branch has to refuse in the same order: minting the event only after the save would leave
+    // committed state that no event describes - `durable_state_before_event` (ports.js:16) in
+    // reverse - and for a final-document release that unrecorded state is the student's sight of
+    // the letter. The event is rebuilt from the stored result below so a replayed write still
+    // reports the revision that was actually persisted.
+    this.#buildEvent({
+      eventType,
+      caseRecord: candidate,
+      actor,
+      idempotencyKey: metadata.idempotencyKey,
+    });
     const stored = operation === 'create'
       ? await this.repository.create(candidate, metadata)
       : await this.repository.save(candidate, { expectedRevision, ...metadata });
@@ -497,6 +511,77 @@ export class RecommendationCaseService {
       expectedRevision,
       metadata,
       eventType: `${receiptType}.recorded`,
+      actor,
+    });
+  }
+
+  /**
+   * Release the approved final document to the student.
+   *
+   * This is the only operation that can grant a student sight of the letter, so every fact it
+   * turns on is resolved server-side: the acting principal from the authenticated actor, the
+   * recipient binding and the document itself from the stored case, the release timestamp from
+   * the service clock, and `releasedToStudentAt` from the aggregate's own release record. A
+   * request contributes exactly two things - the revision the caller reasoned about, and the
+   * document that revision names - and neither can widen who may see the letter.
+   *
+   * Authorisation is the existing `release_letter` case action, which the policy already binds to
+   * the recipient-verified faculty writer (authorization-policy.js:37-42,176-185); the aggregate
+   * then re-checks that binding rather than trusting this layer.
+   *
+   * @param {{
+   *   caseId: string,
+   *   actor: { id: string, role: string },
+   *   expectedRevision: unknown,
+   *   idempotencyKey: string,
+   *   documentId: unknown,
+   * }} input
+   */
+  async releaseFinalDocument({
+    caseId,
+    actor,
+    expectedRevision,
+    idempotencyKey,
+    documentId,
+  }) {
+    const current = await this.repository.getById(caseId);
+    const entitlement = await this.#entitlement(current.studentId);
+    authorizeCaseAction({
+      actor,
+      action: 'release_letter',
+      caseRecord: current,
+      entitlement,
+      requireCanary: this.requireCanary,
+    });
+    const metadata = requestMetadata(
+      'faculty.final_document_release',
+      caseId,
+      actor.id,
+      idempotencyKey,
+      { documentId },
+    );
+    // facultyId is never client-asserted: it is the authenticated principal the policy above just
+    // bound to this case's verified invitation, and the aggregate checks that binding again.
+    const next = releaseFinalDocument(current, {
+      actorId: actor.id,
+      facultyId: actor.id,
+      caseId: current.id,
+      documentId,
+      expectedRevision,
+      now: this.clock(),
+    });
+    if (next === current) {
+      // The aggregate recognised this as a replay of the release it already recorded and returned
+      // the committed record untouched. Honour that: a retry must not mint a second revision, a
+      // second release timestamp, or a second event, exactly as a replayed receipt does not.
+      return current;
+    }
+    return this.#commitWrite({
+      operation: 'save',
+      candidate: next,
+      expectedRevision,
+      metadata,
+      eventType: 'faculty.final_document_released',
       actor,
     });
   }

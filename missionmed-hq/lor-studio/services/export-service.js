@@ -39,12 +39,35 @@ const ROLE_EXPORT_RULES = {
   service: new Set([]),
 };
 
+/**
+ * DR-119 clause 9. An export is a projection plus an intent record; the projection is produced
+ * by projectCaseForActor, so every capability that projection needs has to reach it from here.
+ *
+ * `operationalGrant` is carried exactly as `serviceGrant` already is: accepted, defaulted to
+ * null, and forwarded VERBATIM - the identical object reference, never a copy. This layer
+ * neither mints, rebinds, normalises, validates, nor inspects it. Two reasons, and both matter:
+ *
+ *   1. the case-scoped, expiring, revocation-checked decision belongs to authorization-policy.js
+ *      and the grant repository. A missing or mis-bound capability raises AuthorizationDeniedError
+ *      from there, rather than becoming an export this layer decided was acceptable; and
+ *   2. an operational-metadata capability carries its authority by OBJECT IDENTITY, so spreading,
+ *      cloning, or re-wrapping it here would silently destroy the authority it is meant to prove.
+ *      Pass it on untouched or not at all.
+ *
+ * Without this parameter a legitimately granted admin/founder/support actor could not export at
+ * all: the capability had no path through the service layer to the gate that demands it.
+ *
+ * The capability contributes nothing to the returned export intent - intent fields are unchanged,
+ * so audit and telemetry consumers see exactly the record shape they saw before, and no grant
+ * material leaks into a record they persist.
+ */
 export function planCaseExport({
   id,
   caseRecord,
   actor,
   entitlement,
   serviceGrant = null,
+  operationalGrant = null,
   purpose,
   destinationClass,
   requireCanary = false,
@@ -66,6 +89,7 @@ export function planCaseExport({
     caseRecord,
     entitlement,
     serviceGrant,
+    operationalGrant,
     requireCanary,
     now,
   });

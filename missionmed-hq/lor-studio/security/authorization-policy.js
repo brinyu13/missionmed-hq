@@ -125,10 +125,18 @@ function requireServiceGrant({ actor, action, caseRecord, serviceGrant, now }) {
  * layer maps to the same 404 body a missing case returns, so a caller cannot learn from a
  * refusal whether the case exists.
  *
+ * `operationalGrant` is an ISSUED CAPABILITY, not a grant document. The distinction is the
+ * whole security property: this function accepts only an object minted inside the trusted
+ * server boundary by the grant repository, after it read the revocation ledger. A grant-shaped
+ * object arriving from a request body - however well-formed, however correctly hashed - is
+ * refused, because authority here is carried by object identity rather than by content that a
+ * caller could reproduce. That is what stops the composition root, once it starts forwarding
+ * caller-supplied data, from turning a forged document into authority.
+ *
  * @param {{
  *   actor: { id: string, role: string },
  *   caseRecord: { id: string },
- *   operationalGrant: { grant?: Record<string, unknown>, activation?: Record<string, unknown> } | null,
+ *   operationalGrant: Record<string, unknown> | null,
  *   now: Date | string | number,
  * }} options
  */
@@ -137,8 +145,7 @@ function requireOperationalMetadataGrant({ actor, caseRecord, operationalGrant, 
     throw new AuthorizationDeniedError('OPERATIONAL_METADATA_GRANT_REQUIRED');
   }
   return assertOperationalMetadataGrant({
-    grant: operationalGrant.grant,
-    activation: operationalGrant.activation,
+    capability: operationalGrant,
     granteeId: actor.id,
     caseId: caseRecord.id,
     now,

@@ -1,4 +1,5 @@
-import { DomainInvariantError, ValidationError } from './errors.js';
+import { DomainInvariantError, StaleRevisionError, ValidationError } from './errors.js';
+import { currentWaiverState } from './receipts.js';
 import {
   assertNonEmptyString,
   assertPlainObject,
@@ -63,6 +64,31 @@ const ALLOWED_TRANSITIONS = deepFreeze({
   cancelled: [],
 });
 
+/**
+ * The only final-wording states this codebase names. `faculty_final` is the single state the
+ * release renderer will export (documents/recommendation-artifacts.mjs:29) and `ai_proposal` is
+ * the non-final state that module's own contract rejects. Nothing further is invented here: the
+ * case lifecycle is already modelled by CASE_STATUSES and is not duplicated per document.
+ */
+export const FINAL_DOCUMENT_STATES = deepFreeze(['ai_proposal', 'faculty_final']);
+
+/**
+ * `releasedToStudentAt` is deliberately absent from the content fields. It is not content, it is
+ * the derived mirror of finalDocumentState.release, and releaseFinalDocument is the only writer.
+ */
+const FINAL_DOCUMENT_CONTENT_FIELDS = deepFreeze(['contentHash', 'id', 'mimeType', 'text']);
+const FINAL_DOCUMENT_FIELDS = deepFreeze([...FINAL_DOCUMENT_CONTENT_FIELDS, 'releasedToStudentAt']);
+const FACULTY_APPROVAL_FIELDS = deepFreeze(['approved', 'approvedAt', 'facultyId', 'signatureAttested']);
+const FINAL_DOCUMENT_RELEASE_FIELDS = deepFreeze([
+  'documentHash',
+  'documentId',
+  'releasedAt',
+  'releasedAtRevision',
+  'waiverReceiptId',
+]);
+const FINAL_DOCUMENT_STATE_FIELDS = deepFreeze(['documentState', 'facultyApproval', 'release']);
+const FACULTY_PRIVATE_FIELDS = deepFreeze(['answers', 'draftText', 'finalDocument', 'notes']);
+
 const TERMINAL_STATUSES = new Set(['closed', 'cancelled']);
 const INVITED_STATUSES = new Set([
   'faculty_invited',
@@ -79,6 +105,76 @@ const VERIFIED_FACULTY_STATUSES = new Set([
   'delivered',
   'closed',
 ]);
+
+function hasExactKeys(value, fields) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const actual = Object.keys(value).sort();
+  const expected = [...fields].sort();
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+}
+
+function finalDocumentContent(finalDocument) {
+  return {
+    contentHash: finalDocument.contentHash ?? null,
+    id: finalDocument.id ?? null,
+    mimeType: finalDocument.mimeType ?? null,
+    text: finalDocument.text ?? null,
+  };
+}
+
+/**
+ * The identity a release is bound to. Release records this digest, and the invariant below
+ * re-derives it on every write, so a later edit of the wording cannot silently re-scope what was
+ * already released to the student: the edited record simply fails validation.
+ *
+ * @param {Record<string, unknown> | null} finalDocument
+ * @returns {string | null}
+ */
+export function finalDocumentContentHash(finalDocument) {
+  return finalDocument === null || finalDocument === undefined
+    ? null
+    : hashValue(finalDocumentContent(finalDocument));
+}
+
+function normalizeFinalDocumentInput(finalDocument) {
+  if (finalDocument === null || finalDocument === undefined) return null;
+  assertPlainObject(finalDocument, 'finalDocument');
+  for (const key of Object.keys(finalDocument)) {
+    if (!FINAL_DOCUMENT_FIELDS.includes(key)) {
+      throw new ValidationError('finalDocument contains an unsupported field', { fieldName: key });
+    }
+  }
+  for (const key of FINAL_DOCUMENT_CONTENT_FIELDS) {
+    const value = finalDocument[key];
+    if (value !== undefined && value !== null && typeof value !== 'string') {
+      throw new ValidationError(`finalDocument.${key} must be a string or null`, { fieldName: key });
+    }
+  }
+  if (typeof finalDocument.text === 'string' && Buffer.byteLength(finalDocument.text, 'utf8') > 256_000) {
+    throw new ValidationError('finalDocument.text exceeds the local safety limit');
+  }
+  // releasedToStudentAt is accepted syntactically and then discarded. It is never honoured from a
+  // caller: student visibility of the final letter is granted by releaseFinalDocument alone.
+  return finalDocumentContent(finalDocument);
+}
+
+function normalizeFacultyApprovalInput(facultyApproval) {
+  if (facultyApproval === null || facultyApproval === undefined) return null;
+  assertPlainObject(facultyApproval, 'facultyApproval');
+  if (!hasExactKeys(facultyApproval, FACULTY_APPROVAL_FIELDS)) {
+    throw new ValidationError('facultyApproval must declare approved, signatureAttested, approvedAt, and facultyId');
+  }
+  if (typeof facultyApproval.approved !== 'boolean' || typeof facultyApproval.signatureAttested !== 'boolean') {
+    throw new ValidationError('facultyApproval approval and signature attestation must be explicit booleans');
+  }
+  assertNonEmptyString(facultyApproval.facultyId, 'facultyApproval.facultyId', { maxLength: 200 });
+  return {
+    approved: facultyApproval.approved,
+    approvedAt: toIso(facultyApproval.approvedAt, 'facultyApproval.approvedAt'),
+    facultyId: facultyApproval.facultyId,
+    signatureAttested: facultyApproval.signatureAttested,
+  };
+}
 
 function validateStepData(stepData) {
   assertPlainObject(stepData, 'stepData');
@@ -153,6 +249,11 @@ export function createRecommendationCase({
       draftText: null,
       finalDocument: null,
     },
+    finalDocumentState: {
+      documentState: null,
+      facultyApproval: null,
+      release: null,
+    },
     delivery: {
       status: 'not_started',
       destinationClass: null,
@@ -170,6 +271,104 @@ export function createRecommendationCase({
     }),
   );
   return deepFreeze(initial);
+}
+
+/**
+ * facultyPrivate was previously unvalidated: assertRecommendationCase never inspected it, so a
+ * caller could structuredClone any shape at all into the aggregate - including a
+ * `releasedToStudentAt` of its own choosing, which authorization-policy.js:296 reads as the gate
+ * controlling whether a student may see the final letter. These invariants close that: the shape
+ * is now fixed, and student visibility is a pure mirror of a release record that only
+ * releaseFinalDocument can create.
+ *
+ * @param {Record<string, any>} record
+ */
+function assertFinalDocumentInvariants(record) {
+  const facultyPrivate = record.facultyPrivate;
+  if (!hasExactKeys(facultyPrivate, FACULTY_PRIVATE_FIELDS)) {
+    throw new DomainInvariantError('facultyPrivate must hold exactly answers, notes, draftText, and finalDocument');
+  }
+  if (!Array.isArray(facultyPrivate.answers) || !Array.isArray(facultyPrivate.notes)) {
+    throw new DomainInvariantError('Faculty private answers and notes must be arrays');
+  }
+  if (facultyPrivate.draftText !== null && typeof facultyPrivate.draftText !== 'string') {
+    throw new DomainInvariantError('Faculty private draft text must be a string or null');
+  }
+  const finalDocument = facultyPrivate.finalDocument;
+  if (finalDocument !== null) {
+    if (!hasExactKeys(finalDocument, FINAL_DOCUMENT_FIELDS)) {
+      throw new DomainInvariantError(
+        'finalDocument must hold exactly id, text, contentHash, mimeType, and releasedToStudentAt',
+      );
+    }
+    for (const field of FINAL_DOCUMENT_CONTENT_FIELDS) {
+      if (finalDocument[field] !== null && typeof finalDocument[field] !== 'string') {
+        throw new DomainInvariantError(`finalDocument.${field} must be a string or null`);
+      }
+    }
+  }
+  const lifecycle = record.finalDocumentState;
+  if (!hasExactKeys(lifecycle, FINAL_DOCUMENT_STATE_FIELDS)) {
+    throw new DomainInvariantError(
+      'finalDocumentState must hold exactly documentState, facultyApproval, and release',
+    );
+  }
+  if (lifecycle.documentState !== null && !FINAL_DOCUMENT_STATES.includes(lifecycle.documentState)) {
+    throw new DomainInvariantError('Final document state must be a canonical wording state');
+  }
+  const approval = lifecycle.facultyApproval;
+  if (approval !== null) {
+    if (
+      !hasExactKeys(approval, FACULTY_APPROVAL_FIELDS) ||
+      typeof approval.approved !== 'boolean' ||
+      typeof approval.signatureAttested !== 'boolean' ||
+      typeof approval.facultyId !== 'string' ||
+      approval.facultyId.length === 0
+    ) {
+      throw new DomainInvariantError('Faculty approval must record explicit approval, attestation, time, and writer');
+    }
+    toIso(approval.approvedAt, 'finalDocumentState.facultyApproval.approvedAt');
+  }
+  const release = lifecycle.release;
+  if (release !== null) {
+    if (!hasExactKeys(release, FINAL_DOCUMENT_RELEASE_FIELDS)) {
+      throw new DomainInvariantError('A final document release must hold exactly its canonical fields');
+    }
+    toIso(release.releasedAt, 'finalDocumentState.release.releasedAt');
+    if (!/^[a-f0-9]{64}$/u.test(release.documentHash ?? '')) {
+      throw new DomainInvariantError('A released final document must be bound by a content digest');
+    }
+    assertNonEmptyString(release.documentId, 'finalDocumentState.release.documentId', { maxLength: 200 });
+    assertNonEmptyString(release.waiverReceiptId, 'finalDocumentState.release.waiverReceiptId', { maxLength: 200 });
+    if (!Number.isSafeInteger(release.releasedAtRevision) || release.releasedAtRevision < 0) {
+      throw new DomainInvariantError('A final document release revision must be a non-negative integer');
+    }
+  }
+  if (finalDocument === null && (lifecycle.documentState !== null || approval !== null || release !== null)) {
+    throw new DomainInvariantError('Final document lifecycle state cannot exist without a final document');
+  }
+  if (release !== null) {
+    if (
+      lifecycle.documentState !== 'faculty_final' ||
+      approval?.approved !== true ||
+      approval?.signatureAttested !== true
+    ) {
+      throw new DomainInvariantError('Only an approved, signature-attested faculty-final document can be released');
+    }
+    if (
+      release.documentId !== finalDocument.id ||
+      release.documentHash !== finalDocumentContentHash(finalDocument)
+    ) {
+      throw new DomainInvariantError('A released final document is immutably bound to the exact released version');
+    }
+  }
+  // The gate authorization-policy.js:296 actually reads. Student visibility is a mirror of the
+  // release record and nothing else, so there is no shape of this aggregate in which a student
+  // can see a final letter that was never released through releaseFinalDocument.
+  const releasedToStudentAt = finalDocument === null ? null : finalDocument.releasedToStudentAt;
+  if (releasedToStudentAt !== (release === null ? null : release.releasedAt)) {
+    throw new DomainInvariantError('releasedToStudentAt must mirror the recorded final-document release');
+  }
 }
 
 export function assertRecommendationCase(record) {
@@ -227,6 +426,7 @@ export function assertRecommendationCase(record) {
   if (!Array.isArray(record.consentReceipts) || !Array.isArray(record.waiverReceipts)) {
     throw new DomainInvariantError('Consent and waiver receipts must be append-only arrays');
   }
+  assertFinalDocumentInvariants(record);
   const strategy = record.strategyMetadata ?? {};
   if (
     strategy.mentorIds !== undefined &&
@@ -524,6 +724,24 @@ function currentWaiverStateForAppend(receipts) {
   }
 }
 
+/**
+ * Faculty authoring. This writes wording, not permission: `releasedToStudentAt` supplied by a
+ * caller is stripped here and re-derived from the aggregate's own release record, so the one
+ * field authorization-policy.js:296 trusts cannot be forged through the content path.
+ *
+ * @param {Record<string, any>} record
+ * @param {{
+ *   actorId: string,
+ *   facultyId: string,
+ *   answers?: unknown[],
+ *   notes?: unknown[],
+ *   draftText?: string | null,
+ *   finalDocument?: Record<string, unknown> | null,
+ *   documentState?: string | null,
+ *   facultyApproval?: Record<string, unknown> | null,
+ *   now?: Date | string | number,
+ * }} input
+ */
 export function setFacultyPrivateContent(record, {
   actorId,
   facultyId,
@@ -531,19 +749,174 @@ export function setFacultyPrivateContent(record, {
   notes = record.facultyPrivate.notes,
   draftText = record.facultyPrivate.draftText,
   finalDocument = record.facultyPrivate.finalDocument,
+  documentState,
+  facultyApproval,
   now = new Date(),
 }) {
   assertRecommendationCase(record);
   if (!record.faculty.facultyId || record.faculty.facultyId !== facultyId) {
     throw new DomainInvariantError('Only the recipient-bound verified faculty writer may change private content');
   }
+  const lifecycle = record.finalDocumentState;
+  const nextDocument = normalizeFinalDocumentInput(finalDocument);
+  const contentUnchanged =
+    finalDocumentContentHash(nextDocument) === finalDocumentContentHash(record.facultyPrivate.finalDocument);
+  // An approval attests to exact wording. Rewriting the wording drops the attestation with it
+  // unless this same call re-attests; approval is never inherited across a content change.
+  const nextState = documentState === undefined
+    ? (contentUnchanged ? lifecycle.documentState : null)
+    : documentState;
+  const nextApproval = facultyApproval === undefined
+    ? (contentUnchanged ? lifecycle.facultyApproval : null)
+    : normalizeFacultyApprovalInput(facultyApproval);
+  if (nextState !== null && !FINAL_DOCUMENT_STATES.includes(nextState)) {
+    throw new ValidationError('documentState must be a canonical wording state');
+  }
+  if (nextDocument === null && (nextState !== null || nextApproval !== null)) {
+    throw new ValidationError('Wording state and faculty approval require a final document');
+  }
+  if (
+    lifecycle.release !== null &&
+    (!contentUnchanged ||
+      nextState !== lifecycle.documentState ||
+      hashValue(nextApproval) !== hashValue(lifecycle.facultyApproval))
+  ) {
+    throw new DomainInvariantError('A released final document and its approval are immutable');
+  }
   return mutateRecommendationCase(record, {
     actorId,
     eventType: 'faculty.private_content_updated',
     changes: {
-      facultyPrivate: structuredClone({ answers, notes, draftText, finalDocument }),
+      facultyPrivate: structuredClone({
+        answers,
+        notes,
+        draftText,
+        finalDocument: nextDocument === null
+          ? null
+          : { ...nextDocument, releasedToStudentAt: lifecycle.release === null ? null : lifecycle.release.releasedAt },
+      }),
+      finalDocumentState: structuredClone({
+        documentState: nextState,
+        facultyApproval: nextApproval,
+        release: lifecycle.release,
+      }),
     },
     now,
+  });
+}
+
+/**
+ * The only writer of facultyPrivate.finalDocument.releasedToStudentAt, and therefore the only way
+ * a student can ever be granted sight of the final letter (authorization-policy.js:296).
+ *
+ * Every gate a release depends on is enforced here rather than at a caller: the case identity,
+ * the aggregate version the caller reasoned about, the recipient-bound writer, the student's
+ * current waiver decision, and the document's own exportable state - `faculty_final`, approved,
+ * signature attested - which is exactly the shape documents/recommendation-artifacts.mjs:29-32
+ * demands before it will render a release artifact.
+ *
+ * Re-releasing the same document is idempotent: it returns the record untouched rather than
+ * minting a second revision, a second version entry, and a second release timestamp.
+ *
+ * @param {Record<string, any>} record
+ * @param {{
+ *   actorId: string,
+ *   facultyId: string,
+ *   caseId: string,
+ *   documentId: string,
+ *   expectedRevision: number,
+ *   now?: Date | string | number,
+ * }} input
+ */
+export function releaseFinalDocument(record, {
+  actorId,
+  facultyId,
+  caseId,
+  documentId,
+  expectedRevision,
+  now = new Date(),
+}) {
+  assertRecommendationCase(record);
+  assertNonEmptyString(caseId, 'caseId', { maxLength: 200 });
+  assertNonEmptyString(documentId, 'documentId', { maxLength: 200 });
+  if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
+    throw new ValidationError('expectedRevision must be a non-negative integer');
+  }
+  if (caseId !== record.id) {
+    throw new DomainInvariantError('A final document can only be released against its own case');
+  }
+  if (!record.faculty.facultyId || record.faculty.facultyId !== facultyId) {
+    throw new DomainInvariantError('Only the recipient-bound verified faculty writer may release the final document');
+  }
+  const lifecycle = record.finalDocumentState;
+  const finalDocument = record.facultyPrivate.finalDocument;
+  // Idempotent replay is decided before the revision check, because a caller replaying a release
+  // necessarily still holds the pre-release revision. A replay that names a different document is
+  // not a replay - it is an attempt to re-scope what was released - and is refused.
+  if (lifecycle.release !== null) {
+    if (
+      lifecycle.release.documentId !== documentId ||
+      lifecycle.release.documentHash !== finalDocumentContentHash(finalDocument)
+    ) {
+      throw new DomainInvariantError('A released final document cannot be re-scoped to a different version');
+    }
+    return record;
+  }
+  if (expectedRevision !== record.revision) {
+    throw new StaleRevisionError({
+      caseId: record.id,
+      expectedRevision,
+      actualRevision: record.revision,
+    });
+  }
+  if (finalDocument === null) {
+    throw new DomainInvariantError('There is no final document to release');
+  }
+  if (finalDocument.id !== documentId) {
+    throw new DomainInvariantError('A release must name the exact current final document');
+  }
+  if (lifecycle.documentState !== 'faculty_final') {
+    throw new DomainInvariantError('Only faculty-final wording may be released to the student');
+  }
+  if (lifecycle.facultyApproval?.approved !== true || lifecycle.facultyApproval?.signatureAttested !== true) {
+    throw new DomainInvariantError('Faculty approval and signature attestation are required before release');
+  }
+  if (typeof finalDocument.text !== 'string' || finalDocument.text.trim() === '') {
+    throw new DomainInvariantError('An empty final document cannot be released');
+  }
+  const waiver = currentWaiverState(record.waiverReceipts);
+  if (waiver.decided !== true) {
+    throw new DomainInvariantError('A final document cannot be released before the student records a waiver decision');
+  }
+  if (waiver.waived !== false) {
+    throw new DomainInvariantError('A waived final document can never be released to the student');
+  }
+  const releasedAt = toIso(now, 'now');
+  const latestWaiverRecordedAt = record.waiverReceipts.at(-1).recordedAt;
+  if (new Date(releasedAt).valueOf() < new Date(latestWaiverRecordedAt).valueOf()) {
+    throw new DomainInvariantError('A release cannot predate the waiver decision it relies on');
+  }
+  return mutateRecommendationCase(record, {
+    actorId,
+    eventType: 'faculty.final_document_released',
+    changes: {
+      facultyPrivate: structuredClone({
+        ...record.facultyPrivate,
+        finalDocument: { ...finalDocumentContent(finalDocument), releasedToStudentAt: releasedAt },
+      }),
+      finalDocumentState: structuredClone({
+        documentState: lifecycle.documentState,
+        facultyApproval: lifecycle.facultyApproval,
+        release: {
+          documentHash: finalDocumentContentHash(finalDocument),
+          documentId,
+          releasedAt,
+          releasedAtRevision: record.revision + 1,
+          waiverReceiptId: waiver.receiptId,
+        },
+      }),
+    },
+    now: releasedAt,
   });
 }
 
