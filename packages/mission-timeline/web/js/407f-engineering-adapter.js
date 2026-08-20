@@ -4186,18 +4186,31 @@ export async function boot407FEngineeringAdapter({
     syncBridgeStateFromStore();
     canvasController?.setUiState({advancedSelection:target});
   };
-  const applyPresentationControlResult=(result)=>{
-    if(result?.error){
-      bridge.toast(result.error);
+  const applyPresentationControlResult=(resultOrFactory)=>{
+    const deferred=typeof resultOrFactory==="function";
+    const initialResult=deferred?null:resultOrFactory;
+    if(initialResult?.error){
+      bridge.toast(initialResult.error);
       setTimeout(()=>canvasController?.render(),0);
       return false;
     }
-    if(!result?.changed)return false;
+    if(!deferred&&!initialResult?.changed)return false;
     // Do not replace the control subtree from inside its own change/blur
     // dispatch. Safari and Chromium can otherwise attempt to continue a
     // native input event against a node the render just detached.
     const presentationSelection=canvasController?.state?.advancedSelection;
     setTimeout(()=>{
+      // Text and color controls can commit during the same browser turn. Resolve
+      // factories here, after the preceding deferred mutation has reached the
+      // store, so the later change rebases on the latest presentation document
+      // instead of restoring a stale sibling field.
+      const result=deferred?resultOrFactory():initialResult;
+      if(result?.error){
+        bridge.toast(result.error);
+        canvasController?.render();
+        return;
+      }
+      if(!result?.changed)return;
       store.replace(result.document,{label:result.mutation?.label||"Change timeline presentation"});
       syncBridgeStateFromStore();
       if(["axis","color-key"].includes(presentationSelection?.type)){
@@ -4261,7 +4274,7 @@ export async function boot407FEngineeringAdapter({
     },
     onCategoryKeyChange:(id,changes)=>{
       applyPresentationControlResult(
-        setCategoryKeyPresentationOverride(store.document,id,changes)
+        ()=>setCategoryKeyPresentationOverride(store.document,id,changes)
       );
     },
     onCategoryKeyReset:()=>{
