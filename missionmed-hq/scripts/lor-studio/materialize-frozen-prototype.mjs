@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const CANONICAL_PROTOTYPE_SHA256 = '8560559341895f2973c51bdf7d7ba28ba7a9890d70c6bc6eb5976fc67371e037';
-export const PRODUCTION_ADAPTER_VERSION = 6;
+export const PRODUCTION_ADAPTER_VERSION = 7;
 export const PROTOTYPE_SOURCE_ENV_VAR = 'LOR_STUDIO_PROTOTYPE_SOURCE';
 
 const UNSAFE_TOAST_IMPLEMENTATION = "function toast(m,ms){const t=$('#toast');t.innerHTML=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),ms||3200)}";
@@ -73,7 +73,11 @@ export function materializeFrozenPrototype(sourceHtml) {
   </div>
 </section>
 `;
+  // Order matters. production-projection-ui.js publishes the renderer factory the adapter looks
+  // for; loading it second would leave the adapter with no renderer on first paint and fall back
+  // to the closed state. Both are classic scripts, so this is load order, not module resolution.
   const scriptMarker = `
+<script src="/lor-studio/production-projection-ui.js?v=${PRODUCTION_ADAPTER_VERSION}"></script>
 <script src="/lor-studio/production-adapter.js?v=${PRODUCTION_ADAPTER_VERSION}"></script>
 `;
 
@@ -91,7 +95,7 @@ export function materializeFrozenPrototype(sourceHtml) {
   generated = generated.replace(/<body([^>]*)>/u, `<body$1>${bodyMarker}`);
   generated = replaceLast(generated, '</body>', `${scriptMarker}</body>`);
 
-  if (generated === sourceHtml || !generated.includes('id="lorRuntimeGate"') || !generated.includes('production-adapter.js')) {
+  if (generated === sourceHtml || !generated.includes('id="lorRuntimeGate"') || !generated.includes('production-adapter.js') || !generated.includes('production-projection-ui.js')) {
     throw new Error('Production adapter injection failed.');
   }
 

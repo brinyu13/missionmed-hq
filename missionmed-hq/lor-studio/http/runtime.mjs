@@ -11,7 +11,12 @@ const ASSET_CONTENT_TYPES = Object.freeze({
   '.js': 'application/javascript; charset=utf-8',
 });
 
-const SAFE_ASSETS = new Set(['index.html', 'production-adapter.css', 'production-adapter.js']);
+const SAFE_ASSETS = new Set([
+  'index.html',
+  'production-adapter.css',
+  'production-adapter.js',
+  'production-projection-ui.js',
+]);
 const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /**
@@ -68,7 +73,7 @@ const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 /**
  * @typedef {object} LorApplicationContract
  * @property {(input: { actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement>, session: LorSession }) => Promise<LorApplicationBootstrap>} [getBootstrap]
- * @property {(input: { request: import('node:http').IncomingMessage, url: URL, actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement>, session: LorSession }) => Promise<{ status?: number, body?: unknown }>} [handleRequest]
+ * @property {(input: { request: import('node:http').IncomingMessage, url: URL, actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement>, session: LorSession }) => Promise<{ status?: number, body?: unknown, binary?: { body: Buffer | Uint8Array | ArrayBuffer, contentType: string, filename?: string } }>} [handleRequest]
  */
 
 /**
@@ -232,7 +237,7 @@ export function evaluateLorEntitlement(entitlement, { requireCanary = true } = {
 function commonHeaders(contentType) {
   return {
     'Cache-Control': 'no-store, max-age=0',
-    'Content-Security-Policy': "default-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'",
+    'Content-Security-Policy': "default-src 'self'; base-uri 'none'; font-src 'self' https://fonts.gstatic.com; form-action 'self'; frame-ancestors 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline'; connect-src 'self'",
     'Content-Type': contentType,
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Resource-Policy': 'same-origin',
@@ -257,6 +262,71 @@ function sendJson(response, status, payload, extraHeaders = {}) {
     ...extraHeaders,
   });
   response.end(JSON.stringify(payload));
+}
+
+/**
+ * Binary export responses are allowlisted by content type. The list is deliberately narrow and
+ * deliberately excludes anything the browser could treat as active content on this origin: an
+ * export route must never become an HTML/SVG/script delivery channel for the protected surface.
+ */
+const BINARY_CONTENT_TYPES = new Set([
+  'application/pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/zip',
+]);
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
+function sanitizeDownloadFilename(value) {
+  const base = path.basename(String(value ?? ''))
+    .replace(/[^A-Za-z0-9._-]/gu, '_')
+    .replace(/^[._]+/u, '')
+    .slice(0, 128);
+  return base || 'download';
+}
+
+/**
+ * @param {unknown} body
+ * @returns {Buffer | null}
+ */
+function toResponseBuffer(body) {
+  if (Buffer.isBuffer(body)) return body;
+  if (body instanceof Uint8Array) return Buffer.from(body);
+  if (body instanceof ArrayBuffer) return Buffer.from(new Uint8Array(body));
+  return null;
+}
+
+/**
+ * Binary sibling of sendJson. It carries the identical security header set (including nosniff,
+ * no-store, and the LOR CSP) and adds only Content-Type/Length/Disposition. It performs no
+ * authorization of its own and must therefore only ever be reached after handleApi's
+ * authorize -> CSRF -> application-availability sequence has already passed.
+ *
+ * @param {import('node:http').ServerResponse} response
+ * @param {number} status
+ * @param {unknown} body
+ * @param {{ contentType?: string, filename?: string }} [options]
+ */
+function sendBuffer(response, status, body, { contentType = '', filename = '' } = {}) {
+  const buffer = toResponseBuffer(body);
+  const normalizedType = String(contentType || '').trim().toLowerCase();
+  if (!buffer || !BINARY_CONTENT_TYPES.has(normalizedType)) {
+    sendJson(response, 500, {
+      error: 'lor_binary_response_rejected',
+      message: 'The LOR Studio binary response did not satisfy the export contract.',
+    });
+    return;
+  }
+
+  const safeName = sanitizeDownloadFilename(filename);
+  response.writeHead(status, {
+    ...commonHeaders(normalizedType),
+    'Content-Disposition': `attachment; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(safeName)}`,
+    'Content-Length': String(buffer.byteLength),
+  });
+  response.end(buffer);
 }
 
 function escapeHtml(value = '') {
@@ -498,6 +568,13 @@ export function createLorStudioRuntime({
       return;
     }
     const status = Number.isInteger(result?.status) ? result.status : 200;
+    if (result?.binary && typeof result.binary === 'object') {
+      sendBuffer(response, status, result.binary.body, {
+        contentType: result.binary.contentType,
+        filename: result.binary.filename,
+      });
+      return;
+    }
     sendJson(response, status, result?.body ?? result ?? {});
   }
 

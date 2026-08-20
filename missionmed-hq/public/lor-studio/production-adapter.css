@@ -3,6 +3,29 @@ html[data-lor-runtime="checking"] body > :not(#lorRuntimeGate):not(script) {
   visibility: hidden !important;
 }
 
+/* Live mode is production-projection-only: the frozen prototype markup that ships in the same
+   document stays visually hidden (and inert, enforced by the adapter) while the hydrated
+   projection owns the viewport. */
+html[data-lor-runtime="live"] body > :not(#lorProductionRoot):not(script) {
+  visibility: hidden !important;
+}
+
+.lor-production-root {
+  background: #07181a;
+  box-sizing: border-box;
+  color: #f7fbfb;
+  inset: 0;
+  overflow: auto;
+  position: fixed;
+  visibility: visible !important;
+  width: 100%;
+  z-index: 2147483646;
+}
+
+html:not([data-lor-runtime="live"]) .lor-production-root {
+  display: none !important;
+}
+
 .lor-runtime-gate {
   align-items: center;
   background:

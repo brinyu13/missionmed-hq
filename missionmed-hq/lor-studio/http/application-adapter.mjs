@@ -1,3 +1,5 @@
+import { createRecommendationArtifactService } from '../services/artifact-service.js';
+
 const SAFE_ERROR_MESSAGES = Object.freeze({
   AUTHORIZATION_DENIED: 'Access to this recommendation case was denied.',
   DOMAIN_INVARIANT: 'The requested case transition is not valid.',
@@ -21,18 +23,29 @@ const SAFE_ERROR_MESSAGES = Object.freeze({
  * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, stepId: unknown }) => Promise<unknown>} completeBuilderStep
  * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, receiptType: unknown, receiptData: unknown }) => Promise<unknown>} recordReceipt
  * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, documentId: unknown }) => Promise<unknown>} releaseFinalDocument
+ * @property {{ getStudentEntitlement: (input: { studentId: string }) => Promise<any> }} [entitlementPort] read, never invoked for an authorization decision - see createLorApplicationAdapter
+ * @property {() => Date | string | number} [clock]
+ * @property {boolean} [requireCanary]
  */
 
 /**
  * @typedef {object} RecommendationCaseRepositoryContract
  * @property {boolean} [isDurable]
  * @property {string} [durability]
+ * @property {(caseId: string) => Promise<Record<string, unknown>>} [getById]
+ */
+
+/**
+ * @typedef {object} RecommendationArtifactServiceContract
+ * @property {(input: { actor: unknown, caseId: string }) => Promise<{ artifact: { buffer: Buffer, mimeType: string }, filename: string }>} exportFinalDocumentArtifact
  */
 
 /**
  * @typedef {object} LorApplicationAdapterOptions
  * @property {RecommendationCaseServiceContract} [caseService]
  * @property {RecommendationCaseRepositoryContract} [repository]
+ * @property {RecommendationArtifactServiceContract | null} [artifactService]
+ * @property {{ emit: (event: unknown) => Promise<unknown> } | null} [artifactAuditSink]
  * @property {boolean} [providersReady]
  * @property {boolean} [allAcceptedFunctionsOperational]
  * @property {boolean} [allowNonDurableForTests]
@@ -41,7 +54,7 @@ const SAFE_ERROR_MESSAGES = Object.freeze({
 /**
  * @typedef {object} LorApplicationContract
  * @property {(context?: unknown) => Promise<Record<string, unknown>>} getBootstrap
- * @property {(input: { request: ApplicationRequest, url: URL, actor: unknown }) => Promise<{ status: number, body: unknown }>} handleRequest
+ * @property {(input: { request: ApplicationRequest, url: URL, actor: unknown }) => Promise<{ status: number, body?: unknown, binary?: { body: Buffer, contentType: string, filename: string } }>} handleRequest
  */
 
 /**
@@ -153,7 +166,7 @@ function mapError(error) {
 
 function routeCase(pathname) {
   const match = pathname.match(
-    /^\/api\/lor-studio\/cases\/([^/]+)(?:\/(?:(builder)(?:\/(complete))?|(receipts)|(final-document)\/(release)))?$/u,
+    /^\/api\/lor-studio\/cases\/([^/]+)(?:\/(?:(builder)(?:\/(complete))?|(receipts)|(final-document)\/(release|export)))?$/u,
   );
   if (!match) return null;
   return {
@@ -161,9 +174,10 @@ function routeCase(pathname) {
     builder: match[2] === 'builder',
     complete: match[3] === 'complete',
     receipts: match[4] === 'receipts',
-    // Only the explicit two-segment release path routes. `/final-document` on its own is not a
-    // resource here, so it falls through to the not-found body rather than to the projection.
+    // Only the explicit two-segment paths route. `/final-document` on its own is not a resource
+    // here, so it falls through to the not-found body rather than to the projection.
     releaseFinalDocument: match[5] === 'final-document' && match[6] === 'release',
+    exportFinalDocument: match[5] === 'final-document' && match[6] === 'export',
   };
 }
 
@@ -174,6 +188,8 @@ function routeCase(pathname) {
 export function createLorApplicationAdapter({
   caseService,
   repository,
+  artifactService = null,
+  artifactAuditSink = null,
   providersReady = false,
   allAcceptedFunctionsOperational = false,
   allowNonDurableForTests = false,
@@ -182,6 +198,49 @@ export function createLorApplicationAdapter({
   if (!repository) throw new Error('Recommendation case repository is required.');
   if (repository.isDurable !== true && allowNonDurableForTests !== true) {
     throw new Error('Non-durable LOR repositories may only be used by an explicit test harness.');
+  }
+
+  /**
+   * The artifact export path. An injected service wins; otherwise one is built from the two
+   * dependencies this adapter already holds, so the export route is live wherever the rest of the
+   * API is live rather than needing a separate composition change to stop being dark.
+   *
+   * The entitlement port is read off the case service because that is the ONLY dependency the
+   * artifact service needs which this adapter is not given directly, and reading it is a data
+   * lookup, not an authorisation decision - every access decision still happens in
+   * security/authorization-policy.js and documents/artifact-access-policy.mjs.
+   *
+   * `requireCanary` is mirrored only when the case service states it as an explicit boolean.
+   * Coercing an absent value would silently evaluate entitlement with a WEAKER canary requirement
+   * than the rest of the application, and a weaker gate reached by accident is still a weaker
+   * gate; absence therefore falls through to the artifact service's fail-closed default.
+   */
+  let resolvedArtifactService = null;
+  if (artifactService) {
+    if (typeof artifactService.exportFinalDocumentArtifact !== 'function') {
+      throw new Error('An injected LOR artifact service must implement exportFinalDocumentArtifact.');
+    }
+    resolvedArtifactService = artifactService;
+  } else if (
+    typeof repository.getById === 'function'
+    && typeof caseService?.entitlementPort?.getStudentEntitlement === 'function'
+  ) {
+    // Narrowed deliberately: the `typeof repository.getById === 'function'` guard above has
+    // already established the shape the artifact service requires, but the guard narrows the
+    // property rather than the object it is read from.
+    const artifactRepository = /** @type {{ getById: (caseId: string) => Promise<Record<string, any>> }} */ (
+      /** @type {unknown} */ (repository)
+    );
+    const artifactOptions = {
+      repository: artifactRepository,
+      entitlementPort: caseService.entitlementPort,
+    };
+    if (artifactAuditSink) artifactOptions.auditSink = artifactAuditSink;
+    if (typeof caseService.clock === 'function') artifactOptions.clock = caseService.clock;
+    if (typeof caseService.requireCanary === 'boolean') {
+      artifactOptions.requireCanary = caseService.requireCanary;
+    }
+    resolvedArtifactService = createRecommendationArtifactService(artifactOptions);
   }
 
   async function getBootstrap() {
@@ -223,9 +282,48 @@ export function createLorApplicationAdapter({
       const route = routeCase(url.pathname);
       if (!route) return { status: 404, body: { error: 'lor_route_not_found' } };
 
-      if (!route.builder && !route.receipts && !route.releaseFinalDocument && method === 'GET') {
+      if (
+        !route.builder
+        && !route.receipts
+        && !route.releaseFinalDocument
+        && !route.exportFinalDocument
+        && method === 'GET'
+      ) {
         const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
         return { status: 200, body: { case: projection } };
+      }
+
+      if (route.exportFinalDocument && method === 'GET') {
+        // A download, so GET - which also means the runtime's CSRF gate does not apply and must
+        // not be relied on here. Nothing about this request is trusted except the path: the
+        // authenticated actor comes from the runtime, and EVERY other input the export turns on
+        // (privacy class, purpose, destination, entitlement, waiver state, release state) is
+        // resolved server-side from the stored case.
+        //
+        // The query string is therefore empty by contract. Rejecting rather than ignoring extra
+        // parameters is what keeps `?privacyGrant=...`, `?privacyClass=...`, or `?actor=...` from
+        // ever becoming something a future reader of this route mistakes for input.
+        if ([...url.searchParams.keys()].length > 0) {
+          throw validationError('The final-document export accepts no query parameters.');
+        }
+        if (!resolvedArtifactService) {
+          throw Object.assign(
+            new Error('The LOR artifact export service is not configured.'),
+            { code: 'INTEGRATION_DISABLED' },
+          );
+        }
+        const exported = await resolvedArtifactService.exportFinalDocumentArtifact({
+          actor,
+          caseId: route.caseId,
+        });
+        return {
+          status: 200,
+          binary: {
+            body: exported.artifact.buffer,
+            contentType: exported.artifact.mimeType,
+            filename: exported.filename,
+          },
+        };
       }
 
       if (route.builder && !route.complete && method === 'GET') {

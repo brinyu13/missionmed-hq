@@ -2,9 +2,9 @@
   "sourceName": "F2-LOR-1003-functional-prototype.html",
   "sourceSha256": "8560559341895f2973c51bdf7d7ba28ba7a9890d70c6bc6eb5976fc67371e037",
   "sourceBytes": 332807,
-  "outputSha256": "458357e3dc5ff8479a862188e7c606b4224cdb5cdd094fa8e97093a4d89ec4ac",
-  "outputBytes": 333723,
-  "adapterVersion": 6,
+  "outputSha256": "a9ac6af59acbacedf23d8603f43a90aa6209017ab9b4d1a19503b588f5e946f8",
+  "outputBytes": 333791,
+  "adapterVersion": 7,
   "securityTransforms": [
     "toast_text_only",
     "prototype_script_execution_quarantine"
