@@ -93,6 +93,22 @@ test("server CV intelligence binds fields to source evidence and permits only ev
   assert.doesNotMatch(JSON.stringify(response), /fixture CV/);
 });
 
+test("source-identical provider repeats collapse to one semantic candidate", async () => {
+  const repeated = result();
+  repeated.candidates.push({ ...structuredClone(repeated.candidates[0]!), localId: "education_2" });
+  const service = new CvIntelligenceService({
+    provider: provider(repeated),
+    expectedConsentVersion: "d1-ux-007-ai-v1",
+  });
+  const response = await service.analyze(student, document(), sourceObject, request());
+  assert.equal(response.candidates.length, 1);
+  assert.equal(response.candidates[0]!.safeToBulkAccept, true);
+  assert.equal(
+    response.qualitySuggestions.filter((suggestion) => suggestion.type === "POSSIBLE_DUPLICATE").length,
+    0,
+  );
+});
+
 test("taxonomy guard prevents an award from remaining in Work", async () => {
   const excerpt = "2019 Dean's Award for Clinical Excellence";
   const awardResult = result({

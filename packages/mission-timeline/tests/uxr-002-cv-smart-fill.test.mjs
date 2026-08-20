@@ -461,7 +461,7 @@ test("end to end: a two-page IMG CV produces categorised, dated, institution-bea
   assert.ok(candidates.every(({startDate})=>startDate),"every candidate carries a start date");
 });
 
-test("C-06 and C-12: server AI review and the local document check are merged, not replaced",async()=>{
+test("C-06 and C-12: server AI review survives while source-identical candidates collapse before review",async()=>{
   const file={name:"kulkarni_cv.pdf",type:"application/pdf",size:22222,arrayBuffer:async()=>new ArrayBuffer(8)};
   const localAdapter=createD1408PdfIntakeAdapter({pdfExtractor:async()=>syntheticExtraction()});
   const apiClient={
@@ -502,11 +502,13 @@ test("C-06 and C-12: server AI review and the local document check are merged, n
   const adapter=createProductionCvIntakeAdapter({localAdapter,apiClient,documentId:"timeline-1",existingEvents:()=>[]});
   const result=await adapter.extract({file,documentType:"CV"});
   assert.equal(result.parser.intelligenceMode,"SERVER_AI");
+  assert.equal(result.candidates.length,1,"one source fact must produce one semantic candidate");
   const ids=result.parser.qualitySuggestions.map(({id})=>id);
   assert.ok(ids.includes("cv_quality_server"),"the server quality review must survive");
-  assert.ok(
-    result.parser.qualitySuggestions.some(({type,source})=>type==="POSSIBLE_DUPLICATE"&&source==="DETERMINISTIC"),
-    "the within-document duplicate check must also run over the AI candidates"
+  assert.equal(
+    result.parser.qualitySuggestions.filter(({type})=>type==="POSSIBLE_DUPLICATE").length,
+    0,
+    "an exact provider repeat must not become three duplicate flags"
   );
   assert.equal(result.parser.qualitySuggestions.find(({id})=>id==="cv_quality_server").proposal,null,"server text alone never becomes an automatic edit");
   assert.deepEqual(result.parser.unresolvedQuestions,["Which rotation was the sub-internship?"]);

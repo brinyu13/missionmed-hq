@@ -284,10 +284,17 @@ function parseCandidate(value: unknown, request: CvIntelligenceRequest): { local
     source: request.source.sha256,
     type: canonicalType,
     categoryId,
+    timelineKind,
     title: normalizedKey(title),
     organization: normalizedKey(organization),
+    location: normalizedKey(location),
+    country: normalizedKey(country),
+    specialty: normalizedKey(specialty),
+    experienceType: normalizedKey(experienceType),
     startDate,
     endDate,
+    datePrecision,
+    openEnded: providerCandidate.openEnded,
     blocks: [...new Set(providerCandidate.evidence.flatMap((entry) => entry.sourceBlockIds))].sort(),
   }));
   const confidence = evidenceConfidence(providerCandidate, providerCandidate.evidence, missingFields, duplicateOfEventIds, correctedCategory);
@@ -318,6 +325,34 @@ function parseCandidate(value: unknown, request: CvIntelligenceRequest): { local
     safeToBulkAccept: false,
   };
   return { localId, candidate };
+}
+
+function mergeSourceIdenticalCandidate(
+  target: CvValidatedCandidate,
+  duplicate: CvValidatedCandidate,
+): void {
+  const evidence = new Map(target.evidence.map((item) => [stableStringify(item), item]));
+  for (const item of duplicate.evidence) evidence.set(stableStringify(item), item);
+  target.evidence = [...evidence.values()];
+  target.uncertainty = [...new Set([...target.uncertainty, ...duplicate.uncertainty])];
+  target.warnings = [...new Set([...target.warnings, ...duplicate.warnings])];
+  target.missingFields = [...new Set([...target.missingFields, ...duplicate.missingFields])];
+  target.duplicateOfEventIds = [...new Set([
+    ...target.duplicateOfEventIds,
+    ...duplicate.duplicateOfEventIds,
+  ])];
+  target.confidence.score = Math.min(target.confidence.score, duplicate.confidence.score);
+  target.confidence.level = target.confidence.score >= 85
+    ? "HIGH"
+    : target.confidence.score >= 65
+      ? "MEDIUM"
+      : target.confidence.score >= 40
+        ? "LOW"
+        : "NEEDS_REVIEW";
+  target.confidence.reasons = [...new Set([
+    ...target.confidence.reasons,
+    ...duplicate.confidence.reasons,
+  ])];
 }
 
 function parseProviderSuggestion(value: unknown): CvProviderQualitySuggestion | null {
@@ -366,6 +401,7 @@ export function postValidateCvProviderResult(value: unknown, request: CvIntellig
     throw new TimelineError("CV_PROVIDER_OUTPUT_INVALID", "CV intelligence output is invalid.", 502);
   }
   const candidates: CvValidatedCandidate[] = [];
+  const candidatesByFingerprint = new Map<string, CvValidatedCandidate>();
   const localIdMap = new Map<string, string>();
   let rejectedCandidateCount = 0;
   for (const input of result.candidates) {
@@ -375,6 +411,12 @@ export function postValidateCvProviderResult(value: unknown, request: CvIntellig
       continue;
     }
     localIdMap.set(parsed.localId, parsed.candidate.id);
+    const existing = candidatesByFingerprint.get(parsed.candidate.fingerprint);
+    if (existing) {
+      mergeSourceIdenticalCandidate(existing, parsed.candidate);
+      continue;
+    }
+    candidatesByFingerprint.set(parsed.candidate.fingerprint, parsed.candidate);
     candidates.push(parsed.candidate);
   }
   candidateDuplicates(candidates);

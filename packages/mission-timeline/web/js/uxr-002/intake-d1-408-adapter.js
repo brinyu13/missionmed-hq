@@ -170,6 +170,89 @@ function sourceSnippet(provenance){
     .join("\n");
 }
 
+function semanticText(value){
+  return String(value||"")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g," ")
+    .trim();
+}
+
+function serverCandidateSourceIdentity(candidate){
+  const evidence=(candidate?.evidence||[]).map((item)=>[
+    String(item?.field||""),
+    [...new Set((item?.sourceBlockIds||[]).map(String))].sort(),
+    semanticText(item?.excerpt)
+  ]).sort((left,right)=>JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  return JSON.stringify([
+    String(candidate?.canonicalType||""),
+    String(candidate?.categoryId||""),
+    String(candidate?.timelineKind||""),
+    semanticText(candidate?.title),
+    semanticText(candidate?.organization),
+    semanticText(candidate?.location),
+    String(candidate?.startDate||""),
+    String(candidate?.endDate||""),
+    candidate?.openEnded===true,
+    evidence
+  ]);
+}
+
+function collapseSourceIdenticalServerCandidates(candidates){
+  const canonical=[];
+  const byIdentity=new Map();
+  const aliases=new Map();
+  for(const candidate of candidates||[]){
+    const copy=structuredClone(candidate);
+    const identity=String(candidate?.fingerprint||serverCandidateSourceIdentity(candidate));
+    const existing=byIdentity.get(identity);
+    if(!existing){
+      byIdentity.set(identity,copy);
+      canonical.push(copy);
+      aliases.set(String(copy.id),String(copy.id));
+      continue;
+    }
+    aliases.set(String(copy.id),String(existing.id));
+    const evidence=new Map((existing.evidence||[]).map((item)=>[JSON.stringify(item),item]));
+    for(const item of copy.evidence||[])evidence.set(JSON.stringify(item),item);
+    existing.evidence=[...evidence.values()];
+    existing.warnings=[...new Set([...(existing.warnings||[]),...(copy.warnings||[])])];
+    existing.uncertainty=[...new Set([...(existing.uncertainty||[]),...(copy.uncertainty||[])])];
+  }
+  return{candidates:canonical,aliases};
+}
+
+function normalizedServerSuggestions(suggestions,aliases){
+  const unique=new Map();
+  for(const item of suggestions||[]){
+    if(!item||typeof item!=="object")continue;
+    const candidateIds=[...new Set((item.candidateIds||[]).map((id)=>aliases.get(String(id))||String(id)))];
+    if(item.type==="POSSIBLE_DUPLICATE"&&candidateIds.length<2)continue;
+    const mapped={...item,candidateIds,proposal:null};
+    const key=JSON.stringify([
+      String(mapped.type||""),
+      [...candidateIds].sort(),
+      [...new Set((mapped.eventIds||[]).map(String))].sort()
+    ]);
+    if(!unique.has(key))unique.set(key,mapped);
+  }
+  return[...unique.values()];
+}
+
+function dedupeQualitySuggestions(suggestions){
+  const unique=new Map();
+  for(const item of suggestions||[]){
+    const key=JSON.stringify([
+      String(item?.type||""),
+      [...new Set((item?.candidateIds||[]).map(String))].sort(),
+      [...new Set((item?.eventIds||[]).map(String))].sort()
+    ]);
+    if(!unique.has(key))unique.set(key,item);
+  }
+  return[...unique.values()];
+}
+
 function explicitUsCityState(location){
   const parts=String(location||"").split(",").map((part)=>part.trim()).filter(Boolean);
   if(parts.length<2)return{};
@@ -572,15 +655,17 @@ export function createProductionCvIntakeAdapter({
           };
         }
         activeSourceObjectId=objectId;
-        const aiCandidates=analysis.candidates.map((candidate)=>mapCvIntelligenceCandidateToUxr(candidate,{
+        const collapsed=collapseSourceIdenticalServerCandidates(analysis.candidates);
+        const aiCandidates=collapsed.candidates.map((candidate)=>mapCvIntelligenceCandidateToUxr(candidate,{
           sourceDocument:{...source,objectId},sourceBlocks:local.sourceBlocks
         }));
         /* The server suggestions are computed against the AI candidate set, so the local
            deterministic pass has to be re-run against that same set - the local candidate
            ids it was built from no longer exist once AI candidates replace them. */
-        const serverSuggestions=(Array.isArray(analysis.qualitySuggestions)?analysis.qualitySuggestions:[])
-          .filter((item)=>item&&typeof item==="object")
-          .map((item)=>({...item,proposal:null}));
+        const serverSuggestions=normalizedServerSuggestions(
+          Array.isArray(analysis.qualitySuggestions)?analysis.qualitySuggestions:[],
+          collapsed.aliases
+        );
         return{
           ...local,
           candidates:aiCandidates,
@@ -594,10 +679,10 @@ export function createProductionCvIntakeAdapter({
             schemaVersion:analysis.schemaVersion,
             promptVersion:analysis.promptVersion,
             rejectedCandidateCount:Number(analysis.rejectedCandidateCount)||0,
-            qualitySuggestions:[
+            qualitySuggestions:dedupeQualitySuggestions([
               ...serverSuggestions,
               ...buildQualitySuggestions(aiCandidates,{sourceBlocks:local.sourceBlocks})
-            ],
+            ]),
             unresolvedQuestions:Array.isArray(analysis.unresolvedQuestions)?analysis.unresolvedQuestions:[]
           }
         };
