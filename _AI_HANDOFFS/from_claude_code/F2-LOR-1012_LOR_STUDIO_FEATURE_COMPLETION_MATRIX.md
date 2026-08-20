@@ -169,6 +169,71 @@ These cannot be closed by engineering alone.
 
 ---
 
+## Revision 4 — 2026-08-19, commit `eab31f1`
+
+**Tests: 259 passing, 0 failing** (from 116). `lor:check` passes.
+**LOR Studio renders real server state in a real browser.**
+
+### Verified in a browser, not a harness
+
+Against the local verification server (`scripts/lor-studio/dev-server.mjs`):
+
+| Step | Evidence |
+|---|---|
+| Page hydrates | Closed card replaced by an authenticated, entitled workspace |
+| Create case | Clicked in-page → server allocated `case_ed8970ba-92b2-4fa3-889c-537247cc72c6` |
+| Persist | Two writes → `VERSION 0` → `VERSION 2` |
+| **Re-entry** | **Fresh page load** shows `1 OF 8 COMPLETE`, *"Case basics — Complete and saved"* |
+| Isolation | **`localStorage` key count: 0** — proven in a browser, not a unit test |
+| Quarantine | `__LOR_FROZEN_PROTOTYPE_READY__ === false` throughout |
+| Honest state | Renders *"NOT RELEASED"*, *"Waiver decision: NOT DECIDED"* rather than inventing readiness |
+
+Adversarial review returned **SOUND**: no cross-student read/write, no forged `operationalGrant`
+or administrative grant accepted, no release-timestamp injection, no prototype pollution in
+either realm, hostile projections sanitised rather than injected, stale writes 409 with the first
+write surviving. The reviewer re-executed each lane's mutation claim rather than trusting it.
+
+### Why the count still shows no WORKING
+
+Applying the stated rule — *"if the full stack works locally but only an external production
+binding is missing: EXTERNALLY BLOCKED, with the exact binding named"* — the features whose full
+chain now works end to end are classified **EXTERNALLY BLOCKED on the Supabase durable target**,
+not WORKING. That is a promotion, not a downgrade: it means done except the binding.
+
+The verification server's `LocalVerificationDurableRepository` satisfies the *shape* of the
+durable contract in memory. It has no transaction, no RLS, and no storage. Calling anything
+WORKING on that basis would be exactly the inflation to avoid.
+
+| State | Count | Change |
+|---|---|---|
+| WORKING | 0 | — |
+| **EXTERNALLY BLOCKED** | **8** | **+5** |
+| PARTIAL | 9 | −4 |
+| MISSING | 4 | — |
+| STUB | 1 | — |
+| MISSING BINDING | 0 | −1 |
+
+**EXTERNALLY BLOCKED on `SUPABASE_DURABLE_TARGET`** (full local chain proven): workspace
+hydration; case creation; builder progress and re-entry; consent/waiver receipt state; final-letter
+release state; optimistic concurrency; role-scoped projection; audit event emission.
+
+**Still PARTIAL** — backend reachable, no UI action yet: autosave *initiated from the UI* (proven
+over HTTP, but the renderer is read-mostly), receipt recording, release initiation, export
+initiation, lifecycle transitions, applicant variants, evidence import, mentor views, retention.
+
+**Also externally blocked:** entitlement (`LEARNDASH_360_CONTRACT`), AI drafting
+(`AI_PROVIDER_ACCOUNT` with a no-training commitment).
+
+### The integration gap this cycle exposed
+
+The materializer injected only `production-adapter.js`. The renderer bundle was **never loaded by
+the page**, so the browser showed the closed card regardless of what had been built — every lane
+could have reported success while Studio stayed dark. Script order is now load-bearing and
+asserted: `production-projection-ui.js` must precede `production-adapter.js`, both pinned in the
+frozen snapshot test.
+
+---
+
 ## Revision 3 — 2026-08-19, commits `48bce97` + `4a738a5`
 
 **Tests: 198 passing, 0 failing** (from 116). `lor:check` passes.
