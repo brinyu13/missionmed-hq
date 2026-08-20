@@ -20,7 +20,8 @@ checklist is in §12.
 
 | | |
 |---|---|
-| Deployed commit | `2f4bd25` on `mx-login-ux-008c-production` (see §2) |
+| Deployed code commit | `056d199` on `mx-login-ux-008c-production` (see §2) |
+| Deployment record commit | `e117c5d` |
 | Runtime artifact | `assets/student-os.809093d2b5b2bc05.js` |
 | Runtime manifest | **RE-BASELINED** (twice: pre-deploy to reality, post-deploy to shipped) |
 | Rollback | **READY** — `/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/MX-LOGIN-UX-008F/20260820T182018Z` |
@@ -36,9 +37,13 @@ global site header.
 
 Branch `mx-login-ux-008c-production`, three commits ahead of `origin/main`:
 
+The bytes that went to production were built at `056d199`; `e117c5d` is the commit that
+records the deployment itself (report + post-deploy manifest baseline). The authoritative
+identifier for what is running is the artifact hash `809093d2b5b2bc05…`.
+
 | Commit | Subject |
 |---|---|
-| `2f4bd25` | MX-LOGIN-UX-008F: deploy Matrix student experience to production |
+| `e117c5d` | MX-LOGIN-UX-008F: deploy Matrix student experience to production |
 | `056d199` | MX-LOGIN-UX-008F: apply founder decisions and prepare deployment |
 | `af54732` | MX-LOGIN-UX-008C: use a Matrix screenshot as the front-door card artwork |
 | `e50c597` | MX-LOGIN-UX-008C: refresh Matrix student entry experience |
