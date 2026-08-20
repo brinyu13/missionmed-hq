@@ -35,6 +35,7 @@ if (mmcRuntime) {
 const ownershipRuntime = window.MMCOwnershipLayer
   ? window.MMCOwnershipLayer.createRuntime({ demoStudents: students, activeMentorId: 'mentor-brian' })
   : null;
+let ownershipHydrationPromise = Promise.resolve(false);
 if (ownershipRuntime) {
   students = ownershipRuntime.hydrateDirectory(students);
   window.MMC_OWNERSHIP_RUNTIME = ownershipRuntime;
@@ -42,8 +43,26 @@ if (ownershipRuntime) {
   document.documentElement.dataset.mmcOwnershipStatus = ownershipRuntime.status;
   document.documentElement.dataset.mmcOwnershipMode = ownershipRuntime.mode;
   document.documentElement.dataset.mmcLocalOwnedWritesEnabled = String(ownershipRuntime.gate.localOwnedWritesEnabled);
-  document.documentElement.dataset.mmcLocalStorageEnabled = String(ownershipRuntime.validationSummary().storage.enabled);
+  document.documentElement.dataset.mmcLocalStorageEnabled = String(ownershipRuntime.validationSummary().localStorageEnabled);
+  document.documentElement.dataset.mmcSchemaPersistenceEnabled = String(ownershipRuntime.validationSummary().schemaPersistenceEnabled);
+  document.documentElement.dataset.mmcSchemaPersistenceStatus = ownershipRuntime.validationSummary().persistence.status;
   document.documentElement.dataset.mmcExternalWritesEnabled = String(ownershipRuntime.gate.externalWritesEnabled);
+  document.documentElement.dataset.mmcMentorIntelligenceStatus = 'MENTOR_INTELLIGENCE_READY';
+  document.documentElement.dataset.mmcBriefingSource = 'mmc-owned-schema-with-fixture-fallback';
+  document.documentElement.dataset.mmcProfilePhotoStatus = 'local-internal-pilot-only';
+  ownershipHydrationPromise = ownershipRuntime.hydratePersistence()
+    .then((loaded) => {
+      students = ownershipRuntime.hydrateDirectory(students);
+      document.documentElement.dataset.mmcSchemaPersistenceStatus = ownershipRuntime.validationSummary().persistence.status;
+      document.documentElement.dataset.mmcSchemaPersistenceLoaded = String(Boolean(loaded));
+      refreshOwnershipViews();
+      return loaded;
+    })
+    .catch(() => {
+      document.documentElement.dataset.mmcSchemaPersistenceStatus = ownershipRuntime.validationSummary().persistence.status;
+      refreshOwnershipViews();
+      return false;
+    });
 }
 
 const programLabels = {usce:'USCE Navigator',match:'Match Ready',interview:'Interview Forge'};
@@ -102,6 +121,34 @@ function timelineDotClass(tone) {
   return 'cyan';
 }
 
+function getProfilePhoto(studentId) {
+  return ownershipRuntime && ownershipRuntime.getProfilePhoto
+    ? ownershipRuntime.getProfilePhoto(studentId)
+    : null;
+}
+
+function photoAvatarMarkup(student, className) {
+  const photo = getProfilePhoto(student.id);
+  const classNames = className || 'avatar';
+  if (photo && photo.hasPhoto && photo.dataUrl) {
+    return `<div class="${classNames} has-photo"><img src="${escapeHtml(photo.dataUrl)}" alt="${escapeHtml(student.name)} profile photo"></div>`;
+  }
+  return `<div class="${classNames}">${escapeHtml(student.initials)}</div>`;
+}
+
+function updatePhotoAvatar(node, student, className) {
+  if (!node || !student) return;
+  const photo = getProfilePhoto(student.id);
+  node.className = className || 'avatar';
+  if (photo && photo.hasPhoto && photo.dataUrl) {
+    node.classList.add('has-photo');
+    node.innerHTML = `<img src="${escapeHtml(photo.dataUrl)}" alt="${escapeHtml(student.name)} profile photo">`;
+  } else {
+    node.classList.remove('has-photo');
+    node.textContent = student.initials;
+  }
+}
+
 function updateOwnershipStats() {
   if (!ownershipRuntime) return;
   const stats = ownershipRuntime.getStats();
@@ -115,6 +162,132 @@ function updateOwnershipStats() {
   if (reviews) reviews.textContent = String(stats.documentReviews);
   if (dueToday) dueToday.textContent = String(stats.dueToday);
   if (actionBadge) actionBadge.textContent = String(stats.openActions);
+}
+
+function refreshOwnershipViews() {
+  if (!ownershipRuntime) return;
+  renderOwnedActions();
+  renderOwnedProfile(activePrepStudent);
+  renderMemoryContent(activePrepStudent);
+  renderMemorySearchResults();
+  renderSessionItems();
+  renderPostSessionReview();
+  renderSessionCommand(activePrepStudent);
+  filterStudents();
+  updateOwnershipStats();
+  renderPilotReadiness();
+}
+
+function updateSchemaPersistenceStatus() {
+  if (!ownershipRuntime) return;
+  const summary = ownershipRuntime.validationSummary();
+  document.documentElement.dataset.mmcSchemaPersistenceStatus = summary.persistence.status;
+  document.documentElement.dataset.mmcSchemaPersistenceLastSavedAt = summary.persistence.lastSavedAt || '';
+  document.documentElement.dataset.mmcSchemaPersistenceError = summary.persistence.error || '';
+  const indicator = document.getElementById('persistence-indicator');
+  const label = document.getElementById('persistence-status-label');
+  const dot = document.getElementById('persistence-status-dot');
+  const status = summary.persistence.status || 'initializing';
+  const display = status === 'connected'
+    ? 'Schema Connected'
+    : status === 'saving'
+      ? 'Saving'
+      : status === 'error'
+        ? 'Persistence Attention'
+        : 'Fixture Fallback';
+  if (label) label.textContent = display;
+  if (indicator) indicator.className = 'sync-indicator ' + status;
+  if (dot) dot.className = 'sync-dot ' + status;
+}
+
+function flushOwnershipPersistence() {
+  if (!ownershipRuntime || !ownershipRuntime.flushPersistence) return Promise.resolve(null);
+  return ownershipRuntime.flushPersistence().then((result) => {
+    updateSchemaPersistenceStatus();
+    renderPilotReadiness();
+    return result;
+  });
+}
+
+function formatTimestamp(value) {
+  if (!value) return 'Not yet';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function renderPilotReadiness() {
+  if (!ownershipRuntime || !ownershipRuntime.getLaunchReadiness) return;
+  const readiness = ownershipRuntime.getLaunchReadiness();
+  const summary = ownershipRuntime.validationSummary();
+  updateSchemaPersistenceStatus();
+  const setText = (id, text) => {
+    const node = document.getElementById(id);
+    if (node) node.textContent = text;
+  };
+  const stateClass = readiness.status === 'PRIVATE_ALPHA_LAUNCH_READY' ? 'badge-green' : 'badge-orange';
+  const state = document.getElementById('pilot-readiness-state');
+  if (state) {
+    state.className = 'badge ' + stateClass;
+    state.textContent = readiness.status === 'PRIVATE_ALPHA_LAUNCH_READY' ? 'Launch Ready' : 'Needs Review';
+  }
+  setText('pilot-persistence-state', `${summary.persistence.status} · writes ${summary.persistence.lastWriteCount || 0} · last save ${formatTimestamp(summary.persistence.lastSavedAt)}`);
+  setText('pilot-assignment-state', `${readiness.assignmentCount} assigned students · ${summary.stats.memoryItems} memory items · ${summary.stats.goals} goals`);
+  setText('pilot-session-recovery-state', readiness.activeSession
+    ? `Recoverable ${readiness.activeSession.status} session for ${studentName(readiness.activeSession.studentId)}`
+    : 'No active session to recover');
+  setText('pilot-export-state', readiness.exportReady ? 'Snapshot export ready' : 'Snapshot export unavailable');
+  const blockers = document.getElementById('pilot-blockers');
+  if (blockers) {
+    blockers.innerHTML = readiness.blockers.length
+      ? readiness.blockers.map(item => `<span class="badge badge-orange">${escapeHtml(item)}</span>`).join('')
+      : '<span class="badge badge-green">No alpha blockers detected</span>';
+  }
+}
+
+function exportPilotSnapshot() {
+  if (!ownershipRuntime || !ownershipRuntime.exportPilotSnapshot) return null;
+  const snapshot = ownershipRuntime.exportPilotSnapshot();
+  const state = document.getElementById('pilot-export-state');
+  const fileName = `mmc-private-alpha-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`;
+  const serialized = JSON.stringify(snapshot, null, 2);
+  if (typeof Blob !== 'undefined' && typeof URL !== 'undefined' && URL.createObjectURL && typeof document !== 'undefined') {
+    const blob = new Blob([serialized], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  if (state) state.textContent = `Snapshot prepared: ${fileName}`;
+  renderPilotReadiness();
+  showToast('Private alpha snapshot prepared.');
+  return snapshot;
+}
+
+function recoverSession() {
+  if (!ownershipRuntime || !ownershipRuntime.recoverLatestSession) {
+    showToast('No recoverable session found.');
+    return null;
+  }
+  const session = ownershipRuntime.recoverLatestSession(activePrepStudent);
+  if (!session) {
+    showToast('No recoverable session found.');
+    renderPilotReadiness();
+    return null;
+  }
+  activePrepStudent = session.studentId;
+  const notes = document.getElementById('session-notes');
+  if (notes) notes.value = session.privateNotes || session.summary || '';
+  renderSessionCommand(activePrepStudent);
+  renderSessionItems();
+  renderPilotReadiness();
+  showToast('Recovered active session for ' + studentName(activePrepStudent) + '.');
+  switchScreen('sessioncmd');
+  return session;
 }
 
 // =============================================
@@ -163,7 +336,7 @@ function renderStudentTable(data) {
     <tr class="clickable" onclick="openProfile('${s.id}')"${index === 0 ? ' data-testid="directory-row"' : ''}>
       <td>
         <div class="flex-row">
-          <div class="avatar" style="width:28px;height:28px;font-size:10px">${s.initials}</div>
+          ${photoAvatarMarkup(s, 'avatar directory-avatar')}
           <div>
             <div style="font-weight:500">${s.name}</div>
             <div style="font-size:11px;color:var(--text-dim)">${s.school}</div>
@@ -230,6 +403,8 @@ function renderOwnedProfile(studentId) {
   if (!ownershipRuntime) return;
   const bundle = ownershipRuntime.getStudentBundle(studentId);
   if (!bundle || !bundle.student) return;
+  const photo = bundle.profilePhoto || getProfilePhoto(studentId);
+  const profilePhotoState = document.getElementById('profile-photo-state');
   const fallbackGoal = {
     title: `Create active coaching goal for ${bundle.student.name}`,
     milestone: 'No formal MMC-owned milestone has been captured yet',
@@ -248,6 +423,12 @@ function renderOwnedProfile(studentId) {
   const timelinePanel = document.getElementById('profile-journey-timeline');
   if (mentor) {
     mentor.textContent = `Mentor: Brian Biruk · MMC-owned tasks ${bundle.openTasks.length} · Memory ${bundle.memory.length}`;
+  }
+  updatePhotoAvatar(document.getElementById('profile-avatar'), bundle.student, 'avatar profile-header-avatar');
+  if (profilePhotoState) {
+    profilePhotoState.textContent = photo && photo.hasPhoto
+      ? `Local profile photo saved · ${photo.visibility} · production storage ${photo.productionStorage}`
+      : `Initials fallback active · source ${photo ? photo.source : 'local MMC profile photo'} · production storage future unresolved`;
   }
   if (strategy) {
     strategy.innerHTML = `
@@ -309,6 +490,166 @@ function renderOwnedProfile(studentId) {
       </div>
     `).join('') || '<div style="font-size:12px;color:var(--text-dim)">No MMC-owned timeline records yet.</div>';
   }
+  renderStudentBriefing(studentId);
+}
+
+function renderBriefingRows(items, emptyText, renderItem) {
+  if (!items || !items.length) {
+    return `<div class="briefing-empty">${escapeHtml(emptyText)}</div>`;
+  }
+  return items.map(renderItem).join('');
+}
+
+function renderStudentBriefing(studentId) {
+  if (!ownershipRuntime || !ownershipRuntime.getStudentBriefing) return;
+  const briefing = ownershipRuntime.getStudentBriefing(studentId);
+  if (!briefing) return;
+  const setHtml = (id, html) => {
+    const node = document.getElementById(id);
+    if (node) node.innerHTML = html;
+  };
+  const setText = (id, text) => {
+    const node = document.getElementById(id);
+    if (node) node.textContent = text;
+  };
+  const riskClass = badgeClassForRisk(briefing.riskSummary.level);
+  const readinessClass = badgeClassForReadiness(briefing.riskSummary.readinessStatus);
+  const photo = briefing.profilePhoto || getProfilePhoto(studentId);
+  const student = students.find(s => s.id === briefing.studentId) || students[0];
+  setText('briefing-student-name', briefing.studentName);
+  setText('briefing-confidence', briefing.confidence);
+  updatePhotoAvatar(document.getElementById('briefing-profile-photo'), student, 'avatar briefing-profile-photo');
+  setHtml('briefing-photo-metadata', `
+    <div><strong>source:</strong> ${escapeHtml(photo.source)}</div>
+    <div><strong>visibility:</strong> ${escapeHtml(photo.visibility)}</div>
+    <div><strong>production storage:</strong> ${escapeHtml(photo.productionStorage)}</div>
+    <div><strong>student upload:</strong> ${escapeHtml(photo.studentUploadStatus)}</div>
+  `);
+  setHtml('briefing-who', `
+    <div class="briefing-kicker">WHO IS THIS PERSON?</div>
+    <div class="briefing-lead">${escapeHtml(briefing.who)}</div>
+    <div class="briefing-meta-line">${escapeHtml(briefing.primaryGoal)}</div>
+  `);
+  setHtml('briefing-next-best-move', `
+    <div class="briefing-kicker">NEXT BEST MOVE</div>
+    <div class="briefing-lead" style="color:var(--gold)">${escapeHtml(briefing.nextBestMove.title)}</div>
+    <div class="briefing-meta-line">${escapeHtml(briefing.nextBestMove.action)}</div>
+    <div class="briefing-why">${briefing.nextBestMove.why.map(item => `<span>${escapeHtml(item)}</span>`).join('')}</div>
+  `);
+  setHtml('briefing-personal-context', `
+    <div class="briefing-label">PERSONAL CONTEXT</div>
+    <div class="briefing-text">${escapeHtml(briefing.personalContext)}</div>
+  `);
+  setHtml('briefing-professional-context', `
+    <div class="briefing-label">PROFESSIONAL CONTEXT</div>
+    <div class="briefing-text">${escapeHtml(briefing.professionalContext)}</div>
+  `);
+  setHtml('briefing-last-meeting', `
+    <div class="briefing-label">LAST MEETING</div>
+    <div class="briefing-text">${escapeHtml(briefing.lastMeeting)}</div>
+  `);
+  setHtml('briefing-advice-history', `
+    <div class="briefing-label">LAST ADVICE</div>
+    <div class="briefing-text">${escapeHtml(briefing.lastAdvice)}</div>
+    <div class="briefing-sublist">
+      ${renderBriefingRows(briefing.adviceHistory.notActedUpon.slice(0, 3), 'No unresolved advice loop detected.', item => `
+        <div class="briefing-row"><span>${escapeHtml(item.title)}</span><strong>${escapeHtml(item.status)}</strong></div>
+      `)}
+    </div>
+  `);
+  setHtml('briefing-promises', `
+    <div class="briefing-label">PROMISES MADE</div>
+    ${renderBriefingRows(briefing.promises.made.slice(0, 4), 'No promises captured yet.', item => `
+      <div class="briefing-row">
+        <span>${escapeHtml(item.title)}</span>
+        <strong>${escapeHtml(item.status === 'complete' ? 'DONE' : item.dueLabel)}</strong>
+      </div>
+    `)}
+  `);
+  setHtml('briefing-promises-overdue', `
+    <div class="briefing-label">PROMISES OVERDUE</div>
+    ${renderBriefingRows(briefing.promises.overdue.slice(0, 3), 'No overdue promises.', item => `
+      <div class="briefing-row danger">
+        <span>${escapeHtml(item.title)}</span>
+        <strong>${escapeHtml(item.dueLabel)}</strong>
+      </div>
+    `)}
+  `);
+  setHtml('briefing-open-loops', `
+    <div class="briefing-label">OPEN LOOPS</div>
+    ${renderBriefingRows(briefing.openLoops.slice(0, 5), 'No open loops captured yet.', item => `
+      <div class="briefing-row">
+        <span>${escapeHtml(item.title)}</span>
+        <strong>${escapeHtml(item.status)}</strong>
+      </div>
+    `)}
+  `);
+  setHtml('briefing-deadlines', `
+    <div class="briefing-label">DEADLINES</div>
+    ${renderBriefingRows(briefing.deadlines.slice(0, 4), 'No dated deadlines captured.', item => `
+      <div class="briefing-row">
+        <span>${escapeHtml(item.title)}</span>
+        <strong>${escapeHtml(item.date)}</strong>
+      </div>
+    `)}
+  `);
+  setHtml('briefing-risk-summary', `
+    <div class="briefing-label">RISK</div>
+    <div class="briefing-scoreline">
+      <span class="badge ${riskClass}">${escapeHtml(briefing.riskSummary.level)} Risk</span>
+      <span class="badge ${readinessClass}">${escapeHtml(briefing.riskSummary.readinessStatus)}</span>
+    </div>
+    <div class="briefing-text">${escapeHtml(briefing.riskSummary.summary)}</div>
+  `);
+  setHtml('briefing-relationship-context', `
+    <div class="briefing-label">RELATIONSHIP CONTEXT</div>
+    <div class="briefing-scoreline"><span class="badge badge-gold">${escapeHtml(briefing.relationship.trustSignal)}</span></div>
+    <div class="briefing-text">${escapeHtml(briefing.relationship.communicationStyle)}</div>
+  `);
+  setHtml('briefing-timeline-summary', `
+    <div class="briefing-label">TIMELINE SUMMARY</div>
+    <div class="briefing-text">${escapeHtml(briefing.timelineSummary.summary)}</div>
+    <div class="briefing-sublist">
+      ${renderBriefingRows(briefing.timelineSummary.recent.slice(0, 3), 'No timeline records captured.', item => `
+        <div class="briefing-row"><span>${escapeHtml(item.title)}</span><strong>${escapeHtml(item.kind)}</strong></div>
+      `)}
+    </div>
+  `);
+}
+
+function handleProfilePhotoUpload(input) {
+  if (!ownershipRuntime || !ownershipRuntime.setProfilePhoto || !input || !input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const state = document.getElementById('profile-photo-state');
+  if (!file.type || !file.type.startsWith('image/')) {
+    if (state) state.textContent = 'Profile photo not saved: image file required.';
+    return;
+  }
+  if (file.size > 1600000) {
+    if (state) state.textContent = 'Profile photo not saved: local pilot limit is 1.6 MB.';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const record = ownershipRuntime.setProfilePhoto({
+      studentId: activePrepStudent,
+      dataUrl: reader.result,
+      fileName: file.name,
+      mimeType: file.type,
+      size: file.size
+    });
+    if (record) {
+      renderOwnedProfile(activePrepStudent);
+      filterStudents();
+      if (state) state.textContent = `Local profile photo saved for ${studentName(activePrepStudent)} · mentor/admin review only.`;
+      showToast('Local profile photo saved.');
+      renderPilotReadiness();
+    }
+  };
+  reader.onerror = () => {
+    if (state) state.textContent = 'Profile photo not saved: local file could not be read.';
+  };
+  reader.readAsDataURL(file);
 }
 
 function renderMemoryContent(studentId) {
@@ -464,6 +805,41 @@ function runMemorySearch() {
   renderMemorySearchResults();
 }
 
+function renderSessionCommand(studentId) {
+  if (!ownershipRuntime) return;
+  const bundle = ownershipRuntime.getStudentBundle(studentId);
+  if (!bundle || !bundle.student) return;
+  const student = bundle.student;
+  const briefing = ownershipRuntime.getStudentBriefing(student.id);
+  const risk = ownershipRuntime.getRisk(student.id);
+  const readiness = ownershipRuntime.getReadiness(student.id);
+  const openTasks = bundle.openTasks.slice(0, 3);
+  const setText = (id, text) => {
+    const node = document.getElementById(id);
+    if (node) node.textContent = text;
+  };
+  setText('session-student-name', student.name);
+  setText('session-step2', student.step2 || 'TBD');
+  setText('session-program', programLabels[student.program] || student.program || 'Program');
+  setText('session-readiness', `${readiness.score}%`);
+  setText('session-current-focus', briefing ? briefing.nextBestMove.action : 'Use MMC-owned memory and open loops to steer the call.');
+  const riskBadge = document.getElementById('session-risk');
+  if (riskBadge) {
+    riskBadge.className = 'badge ' + badgeClassForRisk(risk.level);
+    riskBadge.textContent = risk.level + ' Risk';
+  }
+  const sensitive = bundle.sensitiveMemory[0];
+  setText('session-sensitive-context', sensitive ? sensitive.content : 'No sensitive context captured for this student.');
+  const followThrough = document.getElementById('session-follow-through');
+  if (followThrough) {
+    followThrough.innerHTML = openTasks.map((task) => {
+      const surface = surfaceForTask(task);
+      const owner = task.owner === 'mentor' ? 'Brian' : student.name.split(' ')[0];
+      return `<div style="padding:8px 10px;border-radius:6px;background:${surface[0]};border-left:3px solid ${surface[1]};font-size:12px"><strong>${escapeHtml(owner)}:</strong> ${escapeHtml(task.title)}</div>`;
+    }).join('') || '<div style="font-size:12px;color:var(--text-dim)">No open follow-through items.</div>';
+  }
+}
+
 function renderSessionItems() {
   if (!ownershipRuntime) return;
   const bundle = ownershipRuntime.getStudentBundle(activePrepStudent);
@@ -527,7 +903,9 @@ function openCallPrep(id) {
 function startSessionCommand() {
   if (ownershipRuntime) {
     ownershipRuntime.startSession(activePrepStudent);
+    renderSessionCommand(activePrepStudent);
     renderSessionItems();
+    renderPilotReadiness();
   }
   switchScreen('sessioncmd');
 }
@@ -539,6 +917,7 @@ function endSessionCommand() {
   if (ownershipRuntime) {
     ownershipRuntime.endSession(notes ? notes.value : '');
     renderPostSessionReview();
+    renderPilotReadiness();
   }
   switchScreen('postsession');
 }
@@ -547,12 +926,15 @@ function savePostSession() {
   if (ownershipRuntime) {
     const summary = document.getElementById('post-session-summary');
     const visibility = document.getElementById('student-visibility-toggle');
+    const privateNotes = document.getElementById('post-session-private-notes');
     ownershipRuntime.savePostSession({
       summary: summary ? summary.value : '',
+      privateNotes: privateNotes ? privateNotes.value.trim() : '',
       studentVisible: visibility ? visibility.checked : false
     });
     renderOwnedActions();
     renderMemoryContent(activePrepStudent);
+    renderPilotReadiness();
   }
   showToast('Post-session capture saved. Returning to Today.');
   switchScreen('dashboard');
@@ -572,6 +954,7 @@ function completeAction(checkbox) {
   const state = document.getElementById('action-save-state');
   if (state) state.textContent = checkbox.checked ? 'Action completed in MMC ownership layer.' : 'Action reopened in MMC ownership layer.';
   updateOwnershipStats();
+  renderPilotReadiness();
 }
 
 function addSessionItem(type) {
@@ -584,6 +967,7 @@ function addSessionItem(type) {
     renderSessionItems();
     renderOwnedActions();
     renderMemoryContent(activePrepStudent);
+    renderSessionCommand(activePrepStudent);
   } else {
     sessionItemCounter += 1;
     const list = document.getElementById('session-items');
@@ -598,6 +982,7 @@ function addSessionItem(type) {
   }
   const saveState = document.getElementById('session-save-state');
   if (saveState) saveState.textContent = ownershipRuntime ? 'Saved to MMC ownership' : 'Saved in demo';
+  renderPilotReadiness();
 }
 
 function setQuickCaptureType(el, type) {
@@ -637,6 +1022,7 @@ function saveQuickCapture() {
       renderSessionItems();
       renderMemorySearchResults();
     }
+    renderPilotReadiness();
   }
   if (state) state.textContent = quickCaptureType + ' saved for ' + student.name + '.';
   closeQuickCapture();
@@ -657,9 +1043,33 @@ function saveProfileCapture() {
     renderOwnedProfile(activePrepStudent);
     renderMemoryContent(activePrepStudent);
     renderMemorySearchResults();
+    renderPilotReadiness();
   }
   if (state) state.textContent = 'Saved: ' + text;
   showToast('Profile capture saved.');
+  if (input) input.value = '';
+}
+
+function saveProfileGoal() {
+  const input = document.getElementById('profile-workflow-input');
+  const state = document.getElementById('profile-capture-state');
+  const text = input && input.value.trim() ? input.value.trim() : 'New coaching goal captured';
+  if (ownershipRuntime && ownershipRuntime.createGoal) {
+    ownershipRuntime.createGoal({
+      studentId: activePrepStudent,
+      title: text,
+      milestone: 'Captured from Student Intelligence Profile workflow',
+      progress: 0,
+      velocity: 'Needs mentor definition',
+      readinessInputs: ['mentor-defined goal', 'follow-up milestone needed', 'MMC-owned goal']
+    });
+    renderOwnedProfile(activePrepStudent);
+    renderMemoryContent(activePrepStudent);
+    renderMemorySearchResults();
+    renderPilotReadiness();
+  }
+  if (state) state.textContent = 'Goal saved: ' + text;
+  showToast('Goal saved to MMC ownership.');
   if (input) input.value = '';
 }
 
@@ -690,11 +1100,51 @@ window.MMC_DEMO_PARITY = {
   source: 'ported-from-approved-demo',
   approvedBaseline: 'MMC-008B',
   integrationLayer: 'MMC-010 reality hydration guard',
-  ownershipLayer: ownershipRuntime ? 'MMC-MEGARUN-012 local ownership intelligence' : 'not-loaded',
+  ownershipLayer: ownershipRuntime ? 'MMC-021 mmc.* persistence ownership intelligence' : 'not-loaded',
+  mentorIntelligenceLayer: ownershipRuntime ? 'MMC-016 Student Briefing Engine backed by MMC-021 persistence' : 'not-loaded',
   productionDependencies: false,
-  backend: false,
-  apiCalls: false,
+  backend: ownershipRuntime ? 'same-origin MMC persistence only' : false,
+  apiCalls: ownershipRuntime ? 'same-origin /api/mmc/persistence only' : false,
   adapterMode: mmcRuntime ? mmcRuntime.mode : 'not-loaded'
+};
+
+window.MMC_MENTOR_INTELLIGENCE = {
+  authority: 'MMC-016',
+  status: ownershipRuntime ? 'MENTOR_INTELLIGENCE_READY' : 'not-loaded',
+  source: 'mmc-owned-local-only',
+  engines: [
+    'Student Briefing Engine',
+    'Open Loop Detector',
+    'Promise Engine',
+    'Advice History Engine',
+    'Relationship Context Engine',
+    'Timeline Summarizer',
+    'Risk Summary Engine',
+    'Next Best Move Engine'
+  ],
+  profilePhotoSupport: 'local-internal-pilot-only',
+  profilePhotoSource: 'local MMC profile photo',
+  profilePhotoVisibility: 'mentor/admin review only for now',
+  productionPhotoUpload: false,
+  productionPhotoStorage: 'future unresolved',
+  studentPhotoUploadPublic: false,
+  productionDependencies: false,
+  apiCalls: ownershipRuntime ? 'same-origin /api/mmc/persistence only' : false,
+  externalRequestsEnabled: false,
+  externalWritesEnabled: false
+};
+
+window.MMC_PRIVATE_ALPHA = {
+  authority: 'MMC-MEGARUN-100',
+  status: ownershipRuntime ? 'PRIVATE_ALPHA_LAUNCH_READY_CANDIDATE' : 'not-loaded',
+  persistence: ownershipRuntime ? 'same-origin /api/mmc/persistence' : false,
+  localStorageFallback: false,
+  productionHydration: false,
+  sessionRecovery: true,
+  snapshotExport: true,
+  mentorBootstrap: true,
+  assignmentManagement: 'MMC-owned assignment model only',
+  forbiddenIntegrations: ['Webex', 'transcripts', 'StoryForge', 'Drills', 'Arena', 'private object storage', 'Scheduler mutation', 'Calendar mutation', 'privileged DB runtime keys']
 };
 
 window.MMCApp = {
@@ -703,30 +1153,86 @@ window.MMCApp = {
   openCallPrep,
   startSessionCommand,
   endSessionCommand,
+  savePostSession,
   openQuickCapture,
   closeQuickCapture,
   saveQuickCapture,
   runMemorySearch,
+  recoverSession,
+  exportPilotSnapshot,
+  renderPilotReadiness,
   validateNoExternalIntegrations() {
     return {
       productionDependencies: false,
-      backend: false,
-      apiCalls: false,
+      backend: ownershipRuntime ? 'same-origin MMC persistence only' : false,
+      apiCalls: ownershipRuntime ? 'same-origin /api/mmc/persistence only' : false,
+      productionHydration: false,
+      externalProductionRequests: false,
       capturedRequests: [],
       adapter: mmcRuntime ? mmcRuntime.validationSummary() : null,
       ownership: ownershipRuntime ? ownershipRuntime.validationSummary() : null
     };
   },
+  hydratePersistence() {
+    return ownershipHydrationPromise;
+  },
+  flushPersistence: flushOwnershipPersistence,
   getRealityRuntime() {
     return mmcRuntime ? mmcRuntime.validationSummary() : null;
   },
   getOwnershipRuntime() {
     return ownershipRuntime ? ownershipRuntime.validationSummary() : null;
   },
+  validatePrivateAlphaLaunch() {
+    const requiredScreens = [
+      'screen-dashboard',
+      'screen-actions',
+      'screen-directory',
+      'screen-profile',
+      'screen-memory',
+      'screen-sessioncmd',
+      'screen-postsession',
+      'screen-studentview'
+    ];
+    const requiredHooks = [
+      'pilot-readiness-panel',
+      'pilot-persistence-state',
+      'pilot-assignment-state',
+      'pilot-session-recovery-state',
+      'pilot-export-state',
+      'actions-list',
+      'student-briefing-card',
+      'session-items',
+      'post-session-action-review'
+    ];
+    const summary = ownershipRuntime ? ownershipRuntime.validationSummary() : null;
+    return {
+      status: summary && summary.launchReadiness ? summary.launchReadiness.status : 'not-loaded',
+      requiredScreensPresent: requiredScreens.every(id => Boolean(document.getElementById(id))),
+      requiredHooksPresent: requiredHooks.every(id => Boolean(document.getElementById(id))),
+      persistenceStatus: summary ? summary.persistence.status : 'not-loaded',
+      localStorageFallbackEnabled: summary ? summary.localStorageFallbackEnabled : null,
+      assignedStudents: summary ? summary.stats.assignedStudents : 0,
+      externalRequestsEnabled: false,
+      productionHydration: false,
+      snapshotExport: Boolean(ownershipRuntime && ownershipRuntime.exportPilotSnapshot),
+      sessionRecovery: Boolean(ownershipRuntime && ownershipRuntime.recoverLatestSession)
+    };
+  },
+  getStudentBriefing(studentId) {
+    return ownershipRuntime ? ownershipRuntime.getStudentBriefing(studentId || activePrepStudent) : null;
+  },
+  getProfilePhoto(studentId) {
+    return getProfilePhoto(studentId || activePrepStudent);
+  },
+  handleProfilePhotoUpload,
+  saveProfileGoal,
   renderOwnedActions,
   renderMemoryContent,
   renderMemorySearchResults,
-  renderOwnedProfile
+  renderOwnedProfile,
+  renderSessionCommand,
+  renderStudentBriefing
 };
 
 if (ownershipRuntime) {
@@ -736,6 +1242,7 @@ if (ownershipRuntime) {
   renderMemorySearchResults();
   renderSessionItems();
   renderPostSessionReview();
-  }
+  renderPilotReadiness();
+}
 
 renderStudentTable(students);

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "missionmed.lor.schema-design.v1",
+  "status": "DESIGN_ONLY_NOT_EXECUTABLE",
+  "targetProject": null,
+  "targetEnvironment": null,
+  "targetSchema": null,
+  "migrationLedger": null,
+  "migrationFileAuthorized": false,
+  "rootSupabaseMigrationAuthorized": false,
+  "blockingDecision": "Select and ratify the exact LOR database project, environment, schema, migration ledger, backup, restore, and rollback mechanism.",
+  "proposedRelations": [
+    "recommendation_cases",
+    "case_revisions",
+    "builder_sessions",
+    "evidence_links",
+    "letter_variants",
+    "consent_receipts",
+    "waiver_receipts",
+    "faculty_invitations",
+    "faculty_private_content",
+    "writer_depot_artifacts",
+    "idempotency_records",
+    "audit_events",
+    "deletion_intents"
+  ],
+  "requiredSecurityProperties": [
+    "RLS identity derives only from the selected Supabase Auth session",
+    "students are confined to their own nonwaived projections",
+    "waived and faculty-private content is never present in a student projection",
+    "faculty access is resource-bound to a verified recipient invitation",
+    "administrator protected-content access requires a case-bound privacy grant",
+    "all writes enforce revision preconditions and idempotency",
+    "artifact bytes remain in private encrypted versioned storage",
+    "audit rows contain metadata only and never letter, story, evidence, prompt, token, email, or signature content"
+  ]
+}

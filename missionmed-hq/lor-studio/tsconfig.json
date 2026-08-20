@@ -1,0 +1,58 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2022",
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [
+      "node"
+    ],
+    "strict": false
+  },
+  "files": [
+    "./adapters/deterministic-ai-provider.js",
+    "./adapters/disabled-adapters.js",
+    "./adapters/faculty-otp-postmark-adapters.mjs",
+    "./adapters/operational-readiness-adapters.mjs",
+    "./adapters/private-versioned-storage-adapter.mjs",
+    "./adapters/production-hydration-adapter.mjs",
+    "./adapters/test-adapters.js",
+    "./adapters/wordpress-entitlement-consumer.mjs",
+    "./audit/audit-events.mjs",
+    "./documents/artifact-access-policy.mjs",
+    "./documents/ooxml-zip.mjs",
+    "./documents/recommendation-artifacts.mjs",
+    "./domain/applicant-variants.js",
+    "./domain/claim-validator.js",
+    "./domain/errors.js",
+    "./domain/provenance.js",
+    "./domain/receipts.js",
+    "./domain/recommendation-case.js",
+    "./domain/retention.js",
+    "./domain/value-utils.js",
+    "./http/application-adapter.mjs",
+    "./http/runtime.mjs",
+    "./observability/health.mjs",
+    "./repositories/immutable-administrative-grant-repository.mjs",
+    "./repositories/in-memory-faculty-invitation-repository.js",
+    "./repositories/in-memory-recommendation-case-repository.js",
+    "./repositories/supabase-durable-faculty-invitation-repository.mjs",
+    "./repositories/supabase-durable-recommendation-case-repository.mjs",
+    "./security/authorization-policy.js",
+    "./security/faculty-invitations.js",
+    "./services/ai-proposal-service.js",
+    "./services/export-service.js",
+    "./services/metadata-events.js",
+    "./services/ports.js",
+    "./services/durable-faculty-invitation-verification-service.mjs",
+    "./services/recommendation-case-service.js",
+    "../lib/auth/session-token.mjs",
+    "../public/lor-studio/production-adapter.js"
+  ]
+}
