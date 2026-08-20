@@ -4,7 +4,7 @@ import test from 'node:test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { JSDOM } from 'jsdom';
+import { JSDOM, VirtualConsole } from 'jsdom';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const adapterSource = await readFile(path.resolve(testDirectory, '..', '..', 'public', 'lor-studio', 'production-adapter.js'), 'utf8');
@@ -68,16 +68,38 @@ function studentProjection(overrides = {}) {
 }
 
 function stubProjectionUi(overrides = {}) {
-  const calls = { block: [], render: [] };
+  const calls = { block: [], render: [], commands: [] };
   const ui = {
     presentationIsolation: 'production_projection_only',
     usesLocalStorage: false,
     canRevealPrototype: false,
     async block(input) { calls.block.push(input); },
     async renderProductionProjection(projection, meta) { calls.render.push({ projection, meta }); },
+    attachCommands(commands) { calls.commands.push(commands); return { attached: Object.keys(commands || {}) }; },
     ...overrides,
   };
-  return { ui, calls };
+  return {
+    ui,
+    calls,
+    /** The transport the adapter handed the renderer, which is what the write tests drive. */
+    get commands() {
+      return calls.commands[calls.commands.length - 1] || null;
+    },
+  };
+}
+
+/**
+ * jsdom has no navigation, so following a blob: download link raises a jsdomError that says so.
+ * That one message is expected in the export test and is dropped; every other jsdom error still
+ * reaches the console, because silencing the class wholesale would hide real page failures.
+ */
+function quietNavigationConsole() {
+  const virtualConsole = new VirtualConsole();
+  virtualConsole.sendTo(console, { omitJSDOMErrors: true });
+  virtualConsole.on('jsdomError', (error) => {
+    if (!/Not implemented: navigation/u.test(String(error?.message || ''))) console.error(error);
+  });
+  return virtualConsole;
 }
 
 /**
@@ -90,7 +112,7 @@ async function runProductionAdapter({
   ui = null,
   factory = false,
 } = {}) {
-  const dom = new JSDOM(shell, { runScripts: 'dangerously', url });
+  const dom = new JSDOM(shell, { runScripts: 'dangerously', url, virtualConsole: quietNavigationConsole() });
   const requests = [];
   dom.window.fetch = async (input, init = {}) => {
     requests.push({ path: String(input), init });
@@ -499,4 +521,332 @@ test('end to end: the real projection UI bundle hydrates production without ever
   assertPrototypeNeverRevealed(dom);
   assert.deepEqual({ ...dom.window.__LOR_STUDIO_RUNTIME__ }, { mode: 'live', operational: true });
   assert.equal(dom.window.localStorage.length, 0, 'production hydration wrote nothing to localStorage');
+});
+
+/* ------------------------------------------------------- the write transport the UI is handed */
+
+/**
+ * The projection UI is deliberately network-blind: it has no reference to fetch and a test in
+ * production-projection-ui.test.mjs enforces that. So every write the Studio can perform is a
+ * command this adapter builds, and these tests are the only place the real HTTP shape of an edit,
+ * a completion, a receipt, a release and an export is pinned down.
+ */
+async function liveAdapterWithCommands({
+  routes = {},
+  projection = studentProjection(),
+  url = 'https://hq.example.test/lor-studio/?case=case-42',
+} = {}) {
+  const harness = stubProjectionUi();
+  const { dom, requests } = await runProductionAdapter({
+    url,
+    ui: harness.ui,
+    routes: {
+      '/api/lor-studio/bootstrap': jsonResponse(200, LIVE_BOOTSTRAP),
+      '/api/lor-studio/cases/case-42': jsonResponse(200, { case: projection }),
+      ...routes,
+    },
+  });
+  assert.notEqual(harness.commands, null, 'the adapter must hand the renderer a transport');
+  return { dom, requests, harness, commands: harness.commands };
+}
+
+function writeRequest(requests, path) {
+  const entry = requests.find((item) => item.path === path && item.init?.method !== 'GET' && item.init?.method);
+  assert.notEqual(entry, undefined, `expected a write to ${path}`);
+  return entry;
+}
+
+test('the transport handed to the renderer is exactly the six case commands', async () => {
+  const { commands } = await liveAdapterWithCommands();
+  assert.deepEqual(Object.keys(commands).sort(), [
+    'autosaveBuilderStep',
+    'completeBuilderStep',
+    'exportFinalDocument',
+    'recordReceipt',
+    'releaseFinalDocument',
+    'reloadCase',
+  ]);
+});
+
+test('an autosave is a PATCH to the builder route carrying the revision, CSRF and an idempotency key', async () => {
+  const { commands, requests, dom } = await liveAdapterWithCommands({
+    routes: {
+      '/api/lor-studio/cases/case-42/builder': jsonResponse(200, { case: studentProjection({ revision: 4 }) }),
+    },
+  });
+
+  const outcome = await commands.autosaveBuilderStep({
+    caseId: 'case-42',
+    expectedRevision: 3,
+    stepId: 'case_basics',
+    stepData: { programType: 'md', summary: 'Typed by the student' },
+  });
+
+  const patch = writeRequest(requests, '/api/lor-studio/cases/case-42/builder');
+  assert.equal(patch.init.method, 'PATCH');
+  assert.equal(patch.init.credentials, 'same-origin');
+  assert.equal(patch.init.cache, 'no-store');
+  assert.equal(patch.init.headers['X-MMHQ-CSRF'], 'csrf-value');
+  assert.match(String(patch.init.headers['Idempotency-Key']), /^.{8,200}$/u);
+  assert.equal(patch.init.headers['Content-Type'], 'application/json');
+  // The server's builder route allowlists exactly these three fields and rejects anything else.
+  assert.deepEqual(JSON.parse(patch.init.body), {
+    expectedRevision: 3,
+    stepId: 'case_basics',
+    stepData: { programType: 'md', summary: 'Typed by the student' },
+  });
+
+  assert.equal(outcome.reached, true);
+  assert.equal(outcome.status, 200);
+  assert.equal(outcome.body.case.revision, 4);
+  // The token stayed in the adapter closure: it is on the wire, never on the page's globals.
+  assert.equal(JSON.stringify(dom.window.__LOR_STUDIO_RUNTIME__).includes('csrf-value'), false);
+  assertPrototypeNeverRevealed(dom);
+});
+
+test('two writes in a row each carry a fresh idempotency key', async () => {
+  const { commands, requests } = await liveAdapterWithCommands({
+    routes: {
+      '/api/lor-studio/cases/case-42/builder': jsonResponse(200, { case: studentProjection({ revision: 4 }) }),
+    },
+  });
+  await commands.autosaveBuilderStep({ caseId: 'case-42', expectedRevision: 3, stepId: 'case_basics', stepData: { a: '1' } });
+  await commands.autosaveBuilderStep({ caseId: 'case-42', expectedRevision: 4, stepId: 'case_basics', stepData: { a: '2' } });
+  const keys = requests
+    .filter((entry) => entry.path === '/api/lor-studio/cases/case-42/builder')
+    .map((entry) => String(entry.init.headers['Idempotency-Key']));
+  assert.equal(keys.length, 2);
+  assert.notEqual(keys[0], keys[1]);
+});
+
+test('step completion and receipts post exactly the fields their routes allow', async () => {
+  const { commands, requests } = await liveAdapterWithCommands({
+    routes: {
+      '/api/lor-studio/cases/case-42/builder/complete': jsonResponse(200, { case: studentProjection({ revision: 4 }) }),
+      '/api/lor-studio/cases/case-42/receipts': jsonResponse(201, { case: studentProjection({ revision: 5 }) }),
+    },
+  });
+
+  await commands.completeBuilderStep({ caseId: 'case-42', expectedRevision: 3, stepId: 'case_basics' });
+  const complete = writeRequest(requests, '/api/lor-studio/cases/case-42/builder/complete');
+  assert.equal(complete.init.method, 'POST');
+  assert.deepEqual(JSON.parse(complete.init.body), { expectedRevision: 3, stepId: 'case_basics' });
+
+  const receiptOutcome = await commands.recordReceipt({
+    caseId: 'case-42',
+    expectedRevision: 4,
+    receiptType: 'waiver',
+    receiptData: { waived: false, policyVersion: 'dr-119-v1', acknowledgment: 'I keep my access.', priorReceiptId: null },
+  });
+  const receipt = writeRequest(requests, '/api/lor-studio/cases/case-42/receipts');
+  assert.equal(receipt.init.method, 'POST');
+  assert.deepEqual(Object.keys(JSON.parse(receipt.init.body)).sort(), ['expectedRevision', 'receiptData', 'receiptType']);
+  // Receipt identity, timestamp and integrity hash are server-minted and must never be asserted.
+  const receiptBody = JSON.parse(receipt.init.body);
+  for (const forbidden of ['id', 'recordedAt', 'receiptHash', 'actorId', 'caseId']) {
+    assert.equal(forbidden in receiptBody.receiptData, false, `receiptData must not carry ${forbidden}`);
+  }
+  assert.equal(receiptOutcome.status, 201);
+});
+
+test('a release posts the revision and the document, and no release time in any form', async () => {
+  const { commands, requests } = await liveAdapterWithCommands({
+    routes: {
+      '/api/lor-studio/cases/case-42/final-document/release': jsonResponse(200, { case: studentProjection({ revision: 9 }) }),
+    },
+  });
+
+  await commands.releaseFinalDocument({ caseId: 'case-42', expectedRevision: 8, documentId: 'document-1' });
+  const release = writeRequest(requests, '/api/lor-studio/cases/case-42/final-document/release');
+  assert.equal(release.init.method, 'POST');
+  assert.deepEqual(JSON.parse(release.init.body), { expectedRevision: 8, documentId: 'document-1' });
+  const raw = String(release.init.body);
+  for (const forbidden of ['releasedToStudentAt', 'releasedAt', 'timestamp', 'occurredAt', 'now']) {
+    assert.ok(!raw.includes(forbidden), `the release body must not carry ${forbidden}`);
+  }
+});
+
+test('the export is a bare GET on the real route and hands the browser a real file', async () => {
+  const bytes = new Uint8Array([80, 75, 3, 4, 9, 9]);
+  const exportPath = '/api/lor-studio/cases/case-42/final-document/export';
+  const created = [];
+  const revoked = [];
+
+  const harness = stubProjectionUi();
+  const dom = new JSDOM(shell, {
+    runScripts: 'dangerously',
+    url: 'https://hq.example.test/lor-studio/?case=case-42',
+    virtualConsole: quietNavigationConsole(),
+  });
+  dom.window.URL.createObjectURL = (blob) => {
+    created.push(blob);
+    return 'blob:https://hq.example.test/exported-letter';
+  };
+  dom.window.URL.revokeObjectURL = (href) => { revoked.push(href); };
+
+  const requests = [];
+  dom.window.fetch = async (input, init = {}) => {
+    requests.push({ path: String(input), init });
+    if (String(input) === '/api/lor-studio/bootstrap') return jsonResponse(200, LIVE_BOOTSTRAP);
+    if (String(input) === '/api/lor-studio/cases/case-42') return jsonResponse(200, { case: studentProjection() });
+    if (String(input) === exportPath) {
+      return {
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name) => (String(name).toLowerCase() === 'content-disposition'
+            // Deliberately hostile: a traversal attempt inside the server-supplied filename.
+            ? 'attachment; filename="../../etc/letter final.docx"; filename*=UTF-8\'\'%2E%2E%2F%2E%2E%2Fetc%2Fletter%20final.docx'
+            : null),
+        },
+        blob: async () => new dom.window.Blob([bytes], { type: 'application/octet-stream' }),
+        json: async () => ({}),
+      };
+    }
+    return jsonResponse(404, { error: 'route_not_stubbed' });
+  };
+  dom.window.LorProductionProjectionUi = harness.ui;
+  dom.window.eval(adapterSource);
+  for (let tick = 0; tick < 16; tick += 1) {
+    await new Promise((resolve) => dom.window.setTimeout(resolve, 0));
+  }
+
+  const anchors = [];
+  const originalClick = dom.window.HTMLAnchorElement.prototype.click;
+  dom.window.HTMLAnchorElement.prototype.click = function recordClick() {
+    anchors.push({ href: this.href, download: this.download, connected: this.isConnected });
+    return originalClick.call(this);
+  };
+
+  const outcome = await harness.commands.exportFinalDocument({ caseId: 'case-42' });
+
+  const exported = requests.filter((entry) => entry.path === exportPath);
+  assert.equal(exported.length, 1);
+  // The route rejects ANY query parameter, precisely so a grant or privacy class can never be
+  // smuggled in as one. The adapter therefore sends none.
+  assert.equal(exported[0].path.includes('?'), false);
+  assert.equal(exported[0].init.method, 'GET');
+  assert.equal(exported[0].init.credentials, 'same-origin');
+  assert.equal(exported[0].init.headers['X-MMHQ-CSRF'], undefined, 'a download is a GET and carries no CSRF header');
+
+  assert.equal(outcome.reached, true);
+  assert.equal(outcome.status, 200);
+  assert.equal(outcome.downloadStarted, true);
+  assert.equal(created.length, 1, 'the bytes were turned into an object URL');
+  assert.equal(anchors.length, 1);
+  assert.equal(anchors[0].download, 'letter_final.docx', 'the traversal is stripped to a bare, separator-free basename');
+  assert.equal(anchors[0].connected, true, 'the anchor must be in the document for the click to count');
+  assert.equal(dom.window.document.querySelector('a[download]'), null, 'the anchor is removed again');
+
+  dom.window.HTMLAnchorElement.prototype.click = originalClick;
+  assertPrototypeNeverRevealed(dom);
+});
+
+test('an export the server refuses comes back as a status, not as a thrown error or a file', async () => {
+  const exportPath = '/api/lor-studio/cases/case-42/final-document/export';
+  const { commands } = await liveAdapterWithCommands({
+    routes: { [exportPath]: jsonResponse(404, { error: 'not_found', message: 'The requested recommendation case was not found.' }) },
+  });
+  const outcome = await commands.exportFinalDocument({ caseId: 'case-42' });
+  assert.equal(outcome.reached, true);
+  assert.equal(outcome.status, 404);
+  assert.equal(outcome.downloadStarted, false);
+});
+
+test('a transport failure is an outcome, never an exception, so the renderer can speak plainly', async () => {
+  const harness = stubProjectionUi();
+  const dom = new JSDOM(shell, {
+    runScripts: 'dangerously',
+    url: 'https://hq.example.test/lor-studio/?case=case-42',
+    virtualConsole: quietNavigationConsole(),
+  });
+  let live = true;
+  dom.window.fetch = async (input) => {
+    if (!live) throw new TypeError('Failed to fetch');
+    if (String(input) === '/api/lor-studio/bootstrap') return jsonResponse(200, LIVE_BOOTSTRAP);
+    if (String(input) === '/api/lor-studio/cases/case-42') return jsonResponse(200, { case: studentProjection() });
+    return jsonResponse(404, { error: 'route_not_stubbed' });
+  };
+  dom.window.LorProductionProjectionUi = harness.ui;
+  dom.window.eval(adapterSource);
+  for (let tick = 0; tick < 16; tick += 1) {
+    await new Promise((resolve) => dom.window.setTimeout(resolve, 0));
+  }
+  live = false;
+
+  for (const outcome of [
+    await harness.commands.autosaveBuilderStep({ caseId: 'case-42', expectedRevision: 3, stepId: 'case_basics', stepData: {} }),
+    await harness.commands.reloadCase({ caseId: 'case-42' }),
+    await harness.commands.exportFinalDocument({ caseId: 'case-42' }),
+  ]) {
+    assert.equal(outcome.reached, false);
+    assert.equal(outcome.status, 0);
+  }
+});
+
+test('a command naming a case this page was not authorized for is refused before any request', async () => {
+  const { commands, requests } = await liveAdapterWithCommands();
+  const before = requests.length;
+  for (const outcome of [
+    await commands.autosaveBuilderStep({ caseId: 'case-99', expectedRevision: 3, stepId: 'case_basics', stepData: {} }),
+    await commands.completeBuilderStep({ caseId: 'case-99', expectedRevision: 3, stepId: 'case_basics' }),
+    await commands.recordReceipt({ caseId: 'case-99', expectedRevision: 3, receiptType: 'consent', receiptData: {} }),
+    await commands.releaseFinalDocument({ caseId: 'case-99', expectedRevision: 3, documentId: 'document-1' }),
+    await commands.exportFinalDocument({ caseId: 'case-99' }),
+    await commands.reloadCase({ caseId: 'case-99' }),
+  ]) {
+    assert.equal(outcome.reached, false);
+  }
+  assert.equal(requests.length, before, 'nothing may leave the page for another case');
+});
+
+test('reloading the case is a plain GET of the authoritative projection', async () => {
+  const { commands, requests } = await liveAdapterWithCommands();
+  const outcome = await commands.reloadCase({ caseId: 'case-42' });
+  const reads = requests.filter((entry) => entry.path === '/api/lor-studio/cases/case-42');
+  assert.equal(reads.length, 2, 'the initial hydration read, then the reload');
+  assert.equal(reads[1].init.method, 'GET');
+  assert.equal(reads[1].init.cache, 'no-store');
+  assert.equal(outcome.status, 200);
+});
+
+test('the actor role handed to the renderer is read off the projection the server chose', async () => {
+  const { harness } = await liveAdapterWithCommands();
+  assert.equal(harness.calls.render[0].meta.actorRole, 'student');
+
+  const faculty = stubProjectionUi();
+  const facultyProjection = {
+    schemaVersion: 'missionmed.lor.faculty-projection.v1',
+    caseId: 'case-42',
+    revision: 7,
+    status: 'faculty_review',
+    studentShared: { evidence: [], applicantOptions: [], consentReceipts: [], waiverState: { decided: true, waived: false, receiptId: 'w-1' } },
+    facultyPrivate: { answers: [], notes: [], draftText: null, finalDocument: { id: 'document-1', text: 'x', contentHash: 'h', mimeType: 'text/plain', releasedToStudentAt: null } },
+    delivery: { status: 'not_started', destinationClass: null, deliveredAt: null },
+  };
+  await runProductionAdapter({
+    ui: faculty.ui,
+    routes: {
+      '/api/lor-studio/bootstrap': jsonResponse(200, LIVE_BOOTSTRAP),
+      '/api/lor-studio/cases/case-42': jsonResponse(200, { case: facultyProjection }),
+    },
+  });
+  assert.equal(faculty.calls.render.length, 1);
+  assert.equal(faculty.calls.render[0].meta.actorRole, 'faculty');
+});
+
+test('a projection schema the page cannot present is refused rather than guessed at', async () => {
+  const { ui, calls } = stubProjectionUi();
+  const { dom } = await runProductionAdapter({
+    ui,
+    routes: {
+      '/api/lor-studio/bootstrap': jsonResponse(200, LIVE_BOOTSTRAP),
+      '/api/lor-studio/cases/case-42': jsonResponse(200, {
+        case: studentProjection({ schemaVersion: 'missionmed.lor.operational-projection.v1' }),
+      }),
+    },
+  });
+  assert.equal(calls.render.length, 0);
+  assert.equal(dom.window.document.documentElement.dataset.lorRuntime, 'gated');
+  assertPrototypeNeverRevealed(dom);
 });

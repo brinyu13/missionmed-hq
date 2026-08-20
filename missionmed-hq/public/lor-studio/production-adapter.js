@@ -19,6 +19,27 @@
   const PROTOTYPE_MARKER_KEYS = /^(?:demo|fixture|fixtureData|localStorage|prototypeState|synthetic|syntheticData)$/u;
   const PRODUCTION_MOUNT_ID = 'lorProductionRoot';
 
+  /**
+   * The only two projections this page knows how to present, and the actor role each one implies.
+   *
+   * The role is READ OFF THE SERVER'S ANSWER, never off anything the browser decides.
+   * security/authorization-policy.js chooses which projection to emit from the authenticated
+   * actor's role, and it emits the faculty projection only to the recipient-bound, verified
+   * faculty writer of that case. So "the server sent a faculty projection" is the server saying
+   * "this actor is that writer"; the adapter merely relays which surface to paint. Every write the
+   * resulting surface can issue is authorized again, server side, on its own route.
+   */
+  const PROJECTION_ACTOR_ROLES = new Map([
+    ['missionmed.lor.student-projection.v1', 'student'],
+    ['missionmed.lor.faculty-projection.v1', 'faculty'],
+  ]);
+
+  const EXPORT_FILENAME_FALLBACK = 'recommendation-letter.docx';
+
+  /** Live binding for the authorized case. Commands refuse to address anything else. */
+  let activeCaseId = '';
+  let activeCsrfToken = '';
+
   function setUnderlyingState(blocked) {
     for (const element of document.body.children) {
       if (element === gate || element.tagName === 'SCRIPT') continue;
@@ -170,10 +191,14 @@
   function acceptProjection(payload, caseId) {
     const projection = payload?.case;
     if (!projection || typeof projection !== 'object') return null;
-    if (typeof projection.schemaVersion !== 'string' || !projection.schemaVersion.startsWith('missionmed.lor.')) return null;
+    if (typeof projection.schemaVersion !== 'string' || !PROJECTION_ACTOR_ROLES.has(projection.schemaVersion)) return null;
     if (String(projection.caseId ?? '') !== String(caseId)) return null;
     if (containsPrototypeMarker(projection)) return null;
     return projection;
+  }
+
+  function projectionActorRole(projection) {
+    return PROJECTION_ACTOR_ROLES.get(String(projection?.schemaVersion ?? '')) || 'student';
   }
 
   function requestedCaseId() {
@@ -211,6 +236,192 @@
     }
   }
 
+  /**
+   * One request, one outcome object, never a thrown error.
+   *
+   * The projection UI has no network API of its own and cannot inspect a Response; it reasons
+   * about `{ reached, status, body }` and nothing else. Collapsing every transport failure into
+   * `reached: false` is what lets it say "MissionMed was not reached, so nothing was stored"
+   * without ever seeing an exception, a URL or a reason code.
+   */
+  async function commandRequest(path, options) {
+    try {
+      const { response, payload } = await requestApi(path, options);
+      return { reached: true, status: Number(response.status), body: payload };
+    } catch (error) {
+      return { reached: false, status: 0, body: null, timedOut: error?.name === 'AbortError' };
+    }
+  }
+
+  /**
+   * A download filename is server-supplied text. It is reduced to a bounded, separator-free name
+   * before it is ever used as `a.download`, so a hostile or malformed Content-Disposition cannot
+   * steer where the browser writes.
+   */
+  function safeDownloadName(value) {
+    const raw = String(value || '').split(/[\\/]/u).pop() || '';
+    const cleaned = raw.replace(/[^A-Za-z0-9._-]/gu, '_').replace(/^[._]+/u, '').slice(0, 120);
+    return cleaned || EXPORT_FILENAME_FALLBACK;
+  }
+
+  function filenameFromResponse(response) {
+    const disposition = String(response?.headers?.get?.('content-disposition') || '');
+    const encoded = disposition.match(/filename\*=UTF-8''([^;]+)/iu);
+    if (encoded) {
+      try {
+        return safeDownloadName(decodeURIComponent(encoded[1].trim()));
+      } catch {
+        /* fall through to the quoted form */
+      }
+    }
+    const quoted = disposition.match(/filename="([^"]*)"/iu);
+    return safeDownloadName(quoted ? quoted[1] : EXPORT_FILENAME_FALLBACK);
+  }
+
+  /** Hand the bytes to the browser as a file. Returns whether the handoff actually happened. */
+  function startDownload(blob, filename) {
+    const urlApi = window.URL || window.webkitURL;
+    if (!blob || !urlApi || typeof urlApi.createObjectURL !== 'function') return false;
+    const href = urlApi.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.download = filename;
+    anchor.rel = 'noopener';
+    anchor.hidden = true;
+    document.body.appendChild(anchor);
+    try {
+      anchor.click();
+    } catch {
+      anchor.remove();
+      urlApi.revokeObjectURL?.(href);
+      return false;
+    }
+    anchor.remove();
+    window.setTimeout(() => urlApi.revokeObjectURL?.(href), 30_000);
+    return true;
+  }
+
+  /**
+   * The final-document export.
+   *
+   * GET with an empty query string, by contract: the route rejects any query parameter precisely
+   * so that `?privacyGrant=`, `?privacyClass=` or `?actor=` can never become inputs. Nothing is
+   * constructed client side except the case path; purpose, destination, privacy class, entitlement
+   * and release state are all resolved server side from the stored case.
+   */
+  async function exportFinalDocument(caseId) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 30_000);
+    try {
+      const response = await window.fetch(
+        `/api/lor-studio/cases/${encodeURIComponent(caseId)}/final-document/export`,
+        {
+          credentials: 'same-origin',
+          headers: { Accept: 'application/octet-stream' },
+          method: 'GET',
+          cache: 'no-store',
+          signal: controller.signal,
+        },
+      );
+      const status = Number(response.status);
+      if (status !== 200) {
+        return { reached: true, status, body: await readJsonSafe(response), downloadStarted: false };
+      }
+      const blob = typeof response.blob === 'function' ? await response.blob() : null;
+      return {
+        reached: true,
+        status,
+        body: null,
+        downloadStarted: startDownload(blob, filenameFromResponse(response)),
+      };
+    } catch (error) {
+      return { reached: false, status: 0, body: null, timedOut: error?.name === 'AbortError' };
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+
+  function casePath(caseId) {
+    return `/api/lor-studio/cases/${encodeURIComponent(caseId)}`;
+  }
+
+  /**
+   * The write transport handed to the projection UI.
+   *
+   * Every command is bound to the one case this page was authorized for: a request naming any
+   * other case is refused here rather than sent. That is defence in depth, not the boundary - the
+   * server re-authorizes the actor against the case on every route - but it means a bug in the
+   * renderer cannot turn into a cross-case request.
+   *
+   * Two things are deliberately absent. There is no command that asserts a release timestamp, and
+   * no command that carries a grant, a purpose or a privacy class: those are server-minted, and a
+   * field for them here would be the first step to a client that decides them.
+   */
+  function buildCommands() {
+    const bound = (caseId) => (String(caseId ?? '') === activeCaseId && activeCaseId !== '' ? activeCaseId : null);
+    const refused = { reached: false, status: 0, body: null };
+    return {
+      autosaveBuilderStep: async ({ caseId, expectedRevision, stepId, stepData }) => {
+        const id = bound(caseId);
+        if (!id) return refused;
+        return commandRequest(`${casePath(id)}/builder`, {
+          method: 'PATCH',
+          csrfToken: activeCsrfToken,
+          body: { expectedRevision, stepId, stepData },
+        });
+      },
+      completeBuilderStep: async ({ caseId, expectedRevision, stepId }) => {
+        const id = bound(caseId);
+        if (!id) return refused;
+        return commandRequest(`${casePath(id)}/builder/complete`, {
+          method: 'POST',
+          csrfToken: activeCsrfToken,
+          body: { expectedRevision, stepId },
+        });
+      },
+      recordReceipt: async ({ caseId, expectedRevision, receiptType, receiptData }) => {
+        const id = bound(caseId);
+        if (!id) return refused;
+        return commandRequest(`${casePath(id)}/receipts`, {
+          method: 'POST',
+          csrfToken: activeCsrfToken,
+          body: { expectedRevision, receiptType, receiptData },
+        });
+      },
+      releaseFinalDocument: async ({ caseId, expectedRevision, documentId }) => {
+        const id = bound(caseId);
+        if (!id) return refused;
+        // expectedRevision and documentId only. The aggregate mints releasedToStudentAt.
+        return commandRequest(`${casePath(id)}/final-document/release`, {
+          method: 'POST',
+          csrfToken: activeCsrfToken,
+          body: { expectedRevision, documentId },
+        });
+      },
+      exportFinalDocument: async ({ caseId }) => {
+        const id = bound(caseId);
+        if (!id) return refused;
+        return exportFinalDocument(id);
+      },
+      reloadCase: async ({ caseId }) => {
+        const id = bound(caseId);
+        if (!id) return refused;
+        return commandRequest(casePath(id));
+      },
+    };
+  }
+
+  function attachCommands(ui) {
+    if (!ui || typeof ui.attachCommands !== 'function') return false;
+    try {
+      ui.attachCommands(buildCommands());
+      return true;
+    } catch {
+      // A UI that cannot take a transport stays exactly as capable as it was: read only.
+      return false;
+    }
+  }
+
   function revealProductionRuntime() {
     root.dataset.lorRuntime = 'live';
     // Deliberately still `true`: only the production mount and the gate are exempt from the
@@ -244,10 +455,15 @@
   }
 
   async function renderProjection(ui, projection, caseId) {
+    // Bind the transport to this case BEFORE the surface that can use it exists, so there is never
+    // a moment where a control is on screen and the command layer is pointed somewhere else.
+    activeCaseId = String(caseId);
+    attachCommands(ui);
     try {
       await ui.renderProductionProjection(projection, {
         runtimeMode: 'live',
         caseId,
+        actorRole: projectionActorRole(projection),
         projectionSchema: projection.schemaVersion,
         revealPrototype: false,
         persistToLocalStorage: false,
@@ -342,6 +558,11 @@
       return;
     }
 
+    // Held in the adapter closure, never published on the runtime global and never handed to the
+    // projection UI: the renderer issues no requests, so it has no use for a CSRF token and is
+    // therefore never given one to leak.
+    activeCsrfToken = String(bootstrap?.csrfToken || '');
+
     try {
       await ui.block({ reasonCode: 'HYDRATION_PENDING', revealPrototype: false });
     } catch {
@@ -355,14 +576,13 @@
       return;
     }
 
-    const csrfToken = String(bootstrap?.csrfToken || '');
     showState({
       heading: 'Start your recommendation case',
       detail: 'You are signed in and entitled. Open an existing case link, or start a new case to continue.',
       reason: 'case_not_selected',
     });
-    if (csrfToken) {
-      addAction('Start a recommendation case', () => { void startProductionCase(ui, csrfToken); });
+    if (activeCsrfToken) {
+      addAction('Start a recommendation case', () => { void startProductionCase(ui, activeCsrfToken); });
     }
   }
 

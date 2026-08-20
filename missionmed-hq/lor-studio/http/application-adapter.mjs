@@ -41,10 +41,18 @@ const SAFE_ERROR_MESSAGES = Object.freeze({
  */
 
 /**
+ * @typedef {object} AiDraftingServiceContract
+ * @property {(input: { actor: unknown, caseId: string, idempotencyKey: string, factIds?: string[] | null }) => Promise<Record<string, unknown>>} requestProposal
+ * @property {(input: { actor: unknown, caseId: string, proposalId: string, idempotencyKey: string, action: string, resultingText?: string | null }) => Promise<Record<string, unknown>>} recordProposalDecision
+ * @property {(input: { actor: unknown, caseId: string, proposalId: string }) => Promise<Record<string, unknown>>} getProposal
+ */
+
+/**
  * @typedef {object} LorApplicationAdapterOptions
  * @property {RecommendationCaseServiceContract} [caseService]
  * @property {RecommendationCaseRepositoryContract} [repository]
  * @property {RecommendationArtifactServiceContract | null} [artifactService]
+ * @property {AiDraftingServiceContract | null} [aiDraftingService]
  * @property {{ emit: (event: unknown) => Promise<unknown> } | null} [artifactAuditSink]
  * @property {boolean} [providersReady]
  * @property {boolean} [allAcceptedFunctionsOperational]
@@ -166,7 +174,7 @@ function mapError(error) {
 
 function routeCase(pathname) {
   const match = pathname.match(
-    /^\/api\/lor-studio\/cases\/([^/]+)(?:\/(?:(builder)(?:\/(complete))?|(receipts)|(final-document)\/(release|export)))?$/u,
+    /^\/api\/lor-studio\/cases\/([^/]+)(?:\/(?:(builder)(?:\/(complete))?|(receipts)|(final-document)\/(release|export)|(ai-proposals)(?:\/([^/]+)(?:\/(decision))?)?))?$/u,
   );
   if (!match) return null;
   return {
@@ -178,6 +186,11 @@ function routeCase(pathname) {
     // here, so it falls through to the not-found body rather than to the projection.
     releaseFinalDocument: match[5] === 'final-document' && match[6] === 'release',
     exportFinalDocument: match[5] === 'final-document' && match[6] === 'export',
+    // `/ai-proposals` is the collection, `/ai-proposals/:id` one proposal, and
+    // `/ai-proposals/:id/decision` the mandatory human decision on it. Nothing deeper routes.
+    aiProposals: match[7] === 'ai-proposals',
+    proposalId: match[8] === undefined ? null : decodeURIComponent(match[8]),
+    proposalDecision: match[9] === 'decision',
   };
 }
 
@@ -189,6 +202,7 @@ export function createLorApplicationAdapter({
   caseService,
   repository,
   artifactService = null,
+  aiDraftingService = null,
   artifactAuditSink = null,
   providersReady = false,
   allAcceptedFunctionsOperational = false,
@@ -243,6 +257,24 @@ export function createLorApplicationAdapter({
     resolvedArtifactService = createRecommendationArtifactService(artifactOptions);
   }
 
+  /**
+   * The AI drafting plane. Unlike the artifact export above, NOTHING is auto-constructed here.
+   * Building a drafting service means choosing a proposal provider and a durable proposal store,
+   * and those are composition decisions with a credential and a persistence contract behind
+   * them - an HTTP adapter that quietly picked defaults would be deciding, on a deployment's
+   * behalf, that AI drafting is available. Absence therefore means the routes below fail closed
+   * with INTEGRATION_DISABLED rather than behaving as though drafting merely returned nothing.
+   */
+  let resolvedAiDraftingService = null;
+  if (aiDraftingService) {
+    for (const method of ['requestProposal', 'recordProposalDecision', 'getProposal']) {
+      if (typeof (/** @type {any} */ (aiDraftingService))[method] !== 'function') {
+        throw new Error(`An injected LOR AI drafting service must implement ${method}.`);
+      }
+    }
+    resolvedAiDraftingService = aiDraftingService;
+  }
+
   async function getBootstrap() {
     const storageMode = repository.isDurable === true ? 'durable' : String(repository.durability || 'NON_DURABLE_TEST_ONLY');
     const operational = repository.isDurable === true
@@ -287,6 +319,7 @@ export function createLorApplicationAdapter({
         && !route.receipts
         && !route.releaseFinalDocument
         && !route.exportFinalDocument
+        && !route.aiProposals
         && method === 'GET'
       ) {
         const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
@@ -324,6 +357,60 @@ export function createLorApplicationAdapter({
             filename: exported.filename,
           },
         };
+      }
+
+      if (route.aiProposals) {
+        if (!resolvedAiDraftingService) {
+          throw Object.assign(
+            new Error('The LOR AI drafting service is not configured.'),
+            { code: 'INTEGRATION_DISABLED' },
+          );
+        }
+
+        if (route.proposalId === null && method === 'POST') {
+          const payload = await readJsonBody(request);
+          // The whole request surface for drafting is an optional narrowing of evidence the case
+          // ALREADY holds under consent. There is deliberately no field here for fact text, for
+          // an evidence reference, for a template, for a provider, or - the one that matters
+          // most - for a decision: a generate request cannot make its own output into content.
+          assertExactKeys(payload, ['factIds']);
+          const proposal = await resolvedAiDraftingService.requestProposal({
+            actor,
+            caseId: route.caseId,
+            idempotencyKey: idempotencyKey(request),
+            factIds: payload.factIds ?? null,
+          });
+          return { status: 201, body: { proposal } };
+        }
+
+        if (route.proposalId !== null && !route.proposalDecision && method === 'GET') {
+          const proposal = await resolvedAiDraftingService.getProposal({
+            actor,
+            caseId: route.caseId,
+            proposalId: route.proposalId,
+          });
+          return { status: 200, body: { proposal } };
+        }
+
+        if (route.proposalDecision && method === 'POST') {
+          const payload = await readJsonBody(request);
+          // Two facts cross the wire: which way the human decided, and - for an edit only - the
+          // wording they wrote. The deciding principal, the decision timestamp, the proposal
+          // output hash the decision binds to, and the resulting-text hash are all minted
+          // server-side, so no request body can assert who decided or what they decided about.
+          assertExactKeys(payload, ['action', 'resultingText']);
+          const proposal = await resolvedAiDraftingService.recordProposalDecision({
+            actor,
+            caseId: route.caseId,
+            proposalId: route.proposalId,
+            idempotencyKey: idempotencyKey(request),
+            action: payload.action,
+            resultingText: payload.resultingText ?? null,
+          });
+          return { status: 201, body: { proposal } };
+        }
+
+        return { status: 405, body: { error: 'method_not_allowed' } };
       }
 
       if (route.builder && !route.complete && method === 'GET') {

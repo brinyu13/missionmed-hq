@@ -60,10 +60,91 @@
   });
 
   const STUDENT_PROJECTION_SCHEMA = 'missionmed.lor.student-projection.v1';
+  const FACULTY_PROJECTION_SCHEMA = 'missionmed.lor.faculty-projection.v1';
   const PRODUCTION_MOUNT_ID = 'lorProductionRoot';
   const FROZEN_PROTOTYPE_SCRIPT_ID = 'lorFrozenPrototypeRuntime';
   const FROZEN_PROTOTYPE_SCRIPT_TYPE = 'application/x-lor-frozen-prototype';
   const VALUE_DISPLAY_LIMIT = 240;
+
+  /**
+   * Autosave settle window. Long enough that ordinary typing is one write rather than one write
+   * per keystroke, short enough that a student who stops typing learns the outcome immediately.
+   */
+  const AUTOSAVE_DEBOUNCE_MS = 700;
+
+  /**
+   * The two client-supplied receipt facts this build asserts, and nothing else. Receipt identity,
+   * the recorded timestamp, the acting principal and the integrity hash are all minted by the
+   * server (services/recommendation-case-service.js #mintReceipt); the request body carries only
+   * the decision itself, and the server's field allowlist rejects anything more.
+   */
+  const CONSENT_POLICY_VERSION = 'dr-119-v1';
+  const CONSENT_SCOPES = Object.freeze(['builder_autosave', 'faculty_handoff']);
+
+  /**
+   * The editable shape of each builder step.
+   *
+   * The domain stores step data as free-form JSON (domain/recommendation-case.js validateStepData),
+   * so this table is a PRESENTATION choice about which fields the Studio offers. It is never a
+   * validation boundary and never an authorization one. Anything already stored under a key that
+   * is not listed here is preserved verbatim on every write (composeStepPayload): a builder PATCH
+   * replaces the whole step object, so dropping unknown keys would silently delete saved work.
+   */
+  const STEP_FIELDS = Object.freeze({
+    case_basics: Object.freeze([
+      Object.freeze({ key: 'programType', label: 'Program you are applying to', control: 'text' }),
+      Object.freeze({ key: 'applicationCycle', label: 'Application cycle', control: 'text' }),
+      Object.freeze({ key: 'summary', label: 'What this letter needs to prove', control: 'textarea' }),
+    ]),
+    writer_relationship: Object.freeze([
+      Object.freeze({ key: 'writerRole', label: 'How you know this writer', control: 'text' }),
+      Object.freeze({ key: 'relationshipSummary', label: 'What they have seen you do', control: 'textarea' }),
+    ]),
+    evidence_selection: Object.freeze([
+      Object.freeze({ key: 'priorityEvidence', label: 'The evidence that matters most', control: 'text' }),
+      Object.freeze({ key: 'evidenceSummary', label: 'Why that evidence matters', control: 'textarea' }),
+    ]),
+    timeline_highlights: Object.freeze([
+      Object.freeze({ key: 'standoutMoment', label: 'The moment you want named', control: 'text' }),
+      Object.freeze({ key: 'timelineSummary', label: 'How that moment unfolded', control: 'textarea' }),
+    ]),
+    writer_preferences: Object.freeze([
+      Object.freeze({ key: 'tonePreference', label: 'Tone you are asking for', control: 'text' }),
+      Object.freeze({ key: 'notesForWriter', label: 'Anything else the writer should know', control: 'textarea' }),
+    ]),
+    consent_and_waiver: Object.freeze([
+      Object.freeze({ key: 'understanding', label: 'What you understand this letter will be used for', control: 'textarea' }),
+    ]),
+    review: Object.freeze([
+      Object.freeze({ key: 'reviewNotes', label: 'Anything you still want to change', control: 'textarea' }),
+    ]),
+    faculty_handoff: Object.freeze([
+      Object.freeze({ key: 'deadline', label: 'Date you need this by', control: 'text' }),
+      Object.freeze({ key: 'handoffMessage', label: 'Message to your writer', control: 'textarea' }),
+    ]),
+  });
+
+  /**
+   * Transport outcomes and HTTP statuses, mapped to the presentation vocabulary above.
+   *
+   * Nothing in this table is a reason code, and no branch of it falls through to a raw status: an
+   * unrecognised status lands on `server_failure`, which is the most conservative honest thing the
+   * renderer can say about a request it does not understand.
+   */
+  const STATUS_STATES = Object.freeze({
+    400: 'save_failed',
+    401: 'unauthorized',
+    403: 'unauthorized',
+    404: 'case_not_found',
+    409: 'version_conflict',
+    413: 'save_failed',
+    422: 'save_failed',
+    423: 'durable_runtime_unavailable',
+    500: 'server_failure',
+    502: 'provider_unavailable',
+    503: 'provider_unavailable',
+    504: 'network_failure',
+  });
 
   /**
    * Every state this renderer can honestly express, with the words a student actually reads.
@@ -339,6 +420,52 @@
   }
 
   /**
+   * The faculty writer's surface has its own, much smaller shape check.
+   *
+   * Reaching this at all means the SERVER chose to answer this actor with a faculty projection,
+   * and security/authorization-policy.js only does that after `read_faculty_projection` has
+   * proven the actor is the recipient-bound, verified faculty writer for this exact case. The
+   * renderer therefore never decides who the writer is; it refuses to paint a writer surface
+   * unless the server already answered that question by sending one.
+   */
+  function assertRenderableFacultyProjection(projection) {
+    if (!isPlainObject(projection)) {
+      throw new TypeError('A production projection object is required');
+    }
+    if (projection.schemaVersion !== FACULTY_PROJECTION_SCHEMA) {
+      throw new TypeError('This surface presents the faculty case projection only');
+    }
+    if (!isNonEmptyString(projection.caseId) || !isNonEmptyString(projection.status)) {
+      throw new TypeError('The case projection is missing its identity or status');
+    }
+    if (!Number.isSafeInteger(projection.revision) || projection.revision < 0) {
+      throw new TypeError('The case projection is missing a durable revision');
+    }
+    if (!isPlainObject(projection.studentShared) || !isPlainObject(projection.facultyPrivate)) {
+      throw new TypeError('The faculty projection is missing its authorized sections');
+    }
+    if (!isPlainObject(projection.delivery) || !isNonEmptyString(projection.delivery.status)) {
+      throw new TypeError('The case projection is missing its delivery state');
+    }
+    return projection;
+  }
+
+  /** @param {unknown} projection */
+  function projectionKind(projection) {
+    if (!isPlainObject(projection)) return null;
+    if (projection.schemaVersion === STUDENT_PROJECTION_SCHEMA) return 'student';
+    if (projection.schemaVersion === FACULTY_PROJECTION_SCHEMA) return 'faculty';
+    return null;
+  }
+
+  /** @param {unknown} projection @param {'student' | 'faculty'} kind */
+  function assertRenderableProjection(projection, kind) {
+    return kind === 'faculty'
+      ? assertRenderableFacultyProjection(projection)
+      : assertRenderableStudentProjection(projection);
+  }
+
+  /**
    * Display-side reading of the waiver chain. The server already verified the chain's integrity
    * (domain/receipts.js currentWaiverState, re-run inside the hydration adapter); this only reads
    * the decision that survived that verification so the screen can describe it.
@@ -376,10 +503,42 @@
     let mount = null;
     let currentState = 'loading';
     let renderedProjection = null;
+    let renderedKind = 'student';
     let selectedStepId = null;
     /** Baseline revision captured when a write left the browser; null when no write is in flight. */
     let pendingSaveBaselineRevision = null;
     let pendingSaveStepId = null;
+
+    /**
+     * Transport handed in by public/lor-studio/production-adapter.js.
+     *
+     * This file issues no requests of its own - it has no reference to any network API, and a test
+     * asserts that. Commands are how an edit becomes an HTTP write: the renderer decides WHAT to
+     * ask for and what the answer entitles it to say, the adapter decides HOW to ask. Absent
+     * commands the surface renders exactly as it did before: durable state, read only.
+     */
+    let commands = null;
+
+    /**
+     * Typed-but-unconfirmed field values, keyed by step then field.
+     *
+     * This is the only place a student's in-progress wording exists on the client, it lives in a
+     * closure for the lifetime of the page and nowhere else, and it is cleared only when the
+     * SERVER has confirmed the exact values that were sent. It is deliberately not cleared by a
+     * re-render, a conflict, or a reload: losing typed content silently is the failure this whole
+     * editing path is written to prevent.
+     */
+    const draftEdits = new Map();
+    /** Bumped on every keystroke, so an acknowledgement can tell "still current" from "stale". */
+    let editSequence = 0;
+    let debounceHandle = null;
+    let debounceStepId = null;
+    let writeInFlight = false;
+    /** null | 'detected' | 'reloaded' - drives the conflict recovery copy and its controls. */
+    let conflictPhase = null;
+    let conflictStepId = null;
+    /** Safe, non-technical sentence about the last export attempt. Never a reason code. */
+    let exportNotice = null;
 
     function resolveMount() {
       if (mount && mount.isConnected !== false) return mount;
@@ -438,6 +597,404 @@
       node.appendChild(main);
       if (trailing) node.appendChild(trailing);
       return node;
+    }
+
+    /**
+     * A control, never an inline handler and never a link the browser can follow on its own.
+     * Every button this renderer creates goes through here, so "no onclick attribute anywhere in
+     * the production surface" is a property of the construction rather than of a review.
+     */
+    function button(label, className, handler, { disabled = false, describedBy = '' } = {}) {
+      const control = doc.createElement('button');
+      control.type = 'button';
+      control.className = className;
+      control.textContent = label;
+      if (disabled) control.disabled = true;
+      if (describedBy) control.setAttribute('aria-describedby', describedBy);
+      control.addEventListener('click', handler);
+      return control;
+    }
+
+    function field(stepId, spec, value, { disabled = false } = {}) {
+      const wrapper = el('div', 'fld');
+      const control = doc.createElement(spec.control === 'textarea' ? 'textarea' : 'input');
+      const id = `lorField-${stepId}-${spec.key}`;
+      const label = el('label', null, spec.label);
+      label.setAttribute('for', id);
+      control.id = id;
+      if (spec.control !== 'textarea') control.type = 'text';
+      control.dataset.step = stepId;
+      control.dataset.field = spec.key;
+      // .value, not a text node: student wording is data the control holds, never markup the
+      // document parses.
+      control.value = value === undefined || value === null ? '' : String(value);
+      if (disabled) control.disabled = true;
+      control.addEventListener('input', () => {
+        recordEdit(stepId, spec.key, control.value);
+      });
+      wrapper.appendChild(label);
+      wrapper.appendChild(control);
+      return wrapper;
+    }
+
+    /* -------------------------------------------------------------- edit buffer */
+
+    function editsFor(stepId) {
+      return draftEdits.get(stepId) || null;
+    }
+
+    function hasEdits(stepId) {
+      const edits = editsFor(stepId);
+      return Boolean(edits) && Object.keys(edits).length > 0;
+    }
+
+    /**
+     * The step object the SERVER holds. During a render the projection being painted is passed in
+     * explicitly, because `renderedProjection` is not adopted until that render has succeeded.
+     */
+    function savedStepData(stepId, projection = renderedProjection) {
+      const stored = projection?.builder?.stepData?.[stepId];
+      return isPlainObject(stored) ? stored : {};
+    }
+
+    /**
+     * What a builder PATCH must carry.
+     *
+     * autosaveBuilderStep replaces `builder.stepData[stepId]` wholesale, so the payload is the
+     * stored object with the edited fields laid over it. Sending only the edited fields would
+     * delete every other field the student had already saved for that step.
+     */
+    function composeStepPayload(stepId) {
+      // Null-prototype for the same reason as recordEdit: a `__proto__` key must merge as data,
+      // never as a prototype mutation. Spread creates own properties so this is belt and braces,
+      // but the whole edit path is now uniformly prototype-free rather than relying on that.
+      return Object.assign(Object.create(null), savedStepData(stepId), editsFor(stepId) || {});
+    }
+
+    function recordEdit(stepId, key, value) {
+      // Object.create(null), not {}. On a normal object literal `edits['__proto__'] = value`
+      // does not create an own property - it hits the prototype setter and the edit vanishes.
+      // The student would then type into a field, see "Up to date", and lose the content
+      // silently. A null-prototype buffer has no such setter, so every key is stored as data.
+      const edits = editsFor(stepId) || Object.create(null);
+      Object.defineProperty(edits, key, {
+        value, writable: true, enumerable: true, configurable: true,
+      });
+      draftEdits.set(stepId, edits);
+      editSequence += 1;
+      scheduleAutosave(stepId);
+      markUnsavedIndicator();
+    }
+
+    /** The unsaved marker is a DOM touch-up, not a re-render: re-rendering would drop the caret. */
+    function markUnsavedIndicator() {
+      const host = resolveMount();
+      const unsaved = hasEdits(selectedStepId);
+      const marker = host.querySelector('#lorUnsavedMarker');
+      if (marker) marker.textContent = unsaved ? 'Not saved yet' : 'Up to date';
+      const saveControl = host.querySelector('#lorSaveNow');
+      if (saveControl) saveControl.disabled = !unsaved;
+    }
+
+    function clearDebounce() {
+      if (debounceHandle !== null && win && typeof win.clearTimeout === 'function') {
+        win.clearTimeout(debounceHandle);
+      }
+      debounceHandle = null;
+      debounceStepId = null;
+    }
+
+    function scheduleAutosave(stepId) {
+      if (!commands || typeof commands.autosaveBuilderStep !== 'function') return;
+      clearDebounce();
+      debounceStepId = stepId;
+      if (!win || typeof win.setTimeout !== 'function') return;
+      debounceHandle = win.setTimeout(() => {
+        debounceHandle = null;
+        debounceStepId = null;
+        void autosaveStep(stepId);
+      }, AUTOSAVE_DEBOUNCE_MS);
+    }
+
+    /* ------------------------------------------------------------- write plumbing */
+
+    /**
+     * Turn one command outcome into one presentation state.
+     *
+     * A 2xx is handed to markSaved, which is the ONLY function permitted to conclude "Saved" and
+     * which re-checks the server's revision before it does. Everything else - a rejection, a
+     * timeout, an unreachable network - goes to markSaveFailed. There is no path from here to a
+     * saved badge that skips the server's answer.
+     */
+    function settleWrite(outcome) {
+      if (!isPlainObject(outcome) || outcome.reached !== true) {
+        // The request never produced a server answer. Whatever the cause, the honest statement is
+        // the same one: MissionMed was not reached, so nothing was stored.
+        return markSaveFailed('network_failure');
+      }
+      const status = Number(outcome.status);
+      if (status === 200 || status === 201) {
+        return markSaved({ status, body: outcome.body });
+      }
+      const state = Object.prototype.hasOwnProperty.call(STATUS_STATES, status)
+        ? STATUS_STATES[status]
+        : 'server_failure';
+      // The server's own body is never read for display. Only its status selects the words.
+      return markSaveFailed(state);
+    }
+
+    /**
+     * Run one durable write end to end.
+     *
+     * Serialised on purpose: two builder writes in flight against the same revision would make one
+     * of them a guaranteed stale-revision rejection, and the student would read a conflict that
+     * their own interface caused.
+     */
+    async function runWrite({ stepId = null, invoke, conflictStep = null }) {
+      if (!renderedProjection || !commands) return Object.freeze({ ran: false });
+      if (writeInFlight) return Object.freeze({ ran: false });
+      writeInFlight = true;
+      const sequenceAtSend = editSequence;
+      const expectedRevision = renderedProjection.revision;
+      const caseId = renderedProjection.caseId;
+      let outcome;
+      try {
+        markSaving(stepId ? { stepId } : {});
+        outcome = await invoke({ expectedRevision, caseId });
+      } catch {
+        // A command that throws is a transport that failed. Nothing left the browser that the
+        // server acknowledged, so this is reported exactly like an unreachable network.
+        outcome = { reached: false };
+      } finally {
+        writeInFlight = false;
+      }
+      const result = settleWrite(outcome);
+      const saved = result?.saved === true;
+      if (saved) {
+        conflictPhase = null;
+        conflictStepId = null;
+        // Only the values the server actually confirmed are dropped. Anything typed while the
+        // write was in flight stays, and is written on the next pass.
+        if (stepId && editSequence === sequenceAtSend) draftEdits.delete(stepId);
+        else if (stepId) scheduleAutosave(stepId);
+      } else {
+        if (currentState === 'version_conflict') {
+          conflictPhase = 'detected';
+          conflictStepId = conflictStep || stepId;
+        }
+        // The durable truth may still have come back on a rejected write (a replayed release, for
+        // instance). Adopting it keeps the screen honest; the failure banner above it stands.
+        const adopted = adoptAcknowledgedProjection(outcome, caseId);
+        // A full-surface failure state has already torn the workspace down, and renderedProjection
+        // is null there; only an inline failure still has a workspace to re-draw with its recovery
+        // controls, and it must be re-drawn or the student is told to act with no way to act.
+        if (!adopted && renderedProjection) renderCase(renderedProjection, currentState);
+      }
+      return Object.freeze({ ran: true, saved });
+    }
+
+    /**
+     * Re-paint from a projection the server returned alongside a rejection, when it is genuinely
+     * this case and genuinely the shape being displayed. Never claims anything was saved.
+     */
+    function adoptAcknowledgedProjection(outcome, caseId) {
+      const body = isPlainObject(outcome) ? outcome.body : null;
+      const candidate = isPlainObject(body) ? body.case : null;
+      if (projectionKind(candidate) !== renderedKind) return false;
+      let renderable;
+      try {
+        renderable = assertRenderableProjection(candidate, renderedKind);
+      } catch {
+        return false;
+      }
+      if (renderable.caseId !== caseId) return false;
+      renderCase(renderable, currentState);
+      return true;
+    }
+
+    async function autosaveStep(stepId) {
+      if (!hasEdits(stepId)) return;
+      await runWrite({
+        stepId,
+        conflictStep: stepId,
+        invoke: ({ expectedRevision, caseId }) => commands.autosaveBuilderStep({
+          caseId,
+          expectedRevision,
+          stepId,
+          stepData: composeStepPayload(stepId),
+        }),
+      });
+    }
+
+    /** Flush a pending debounce immediately - used by the explicit "save now" controls. */
+    async function saveNow(stepId) {
+      clearDebounce();
+      await autosaveStep(stepId);
+    }
+
+    async function completeStep(stepId) {
+      clearDebounce();
+      if (hasEdits(stepId)) {
+        const first = await runWrite({
+          stepId,
+          conflictStep: stepId,
+          invoke: ({ expectedRevision, caseId }) => commands.autosaveBuilderStep({
+            caseId,
+            expectedRevision,
+            stepId,
+            stepData: composeStepPayload(stepId),
+          }),
+        });
+        // Completing a step whose wording was not stored would mark it done on the server while
+        // the student's latest words existed only on their screen.
+        if (!first.saved) return;
+      }
+      await runWrite({
+        stepId,
+        invoke: ({ expectedRevision, caseId }) => commands.completeBuilderStep({
+          caseId,
+          expectedRevision,
+          stepId,
+        }),
+      });
+    }
+
+    async function recordConsent() {
+      const existing = renderedProjection?.consentReceipts;
+      const prior = Array.isArray(existing) && existing.length > 0
+        ? existing[existing.length - 1]
+        : null;
+      const policyVersion = isPlainObject(prior) && isNonEmptyString(prior.policyVersion)
+        ? prior.policyVersion
+        : CONSENT_POLICY_VERSION;
+      await runWrite({
+        invoke: ({ expectedRevision, caseId }) => commands.recordReceipt({
+          caseId,
+          expectedRevision,
+          receiptType: 'consent',
+          receiptData: { policyVersion, scopes: [...CONSENT_SCOPES] },
+        }),
+      });
+    }
+
+    async function recordWaiverDecision(waived) {
+      const waiver = readWaiverState(renderedProjection?.waiverReceipts);
+      const receiptData = {
+        waived,
+        policyVersion: CONSENT_POLICY_VERSION,
+        acknowledgment: waived
+          ? 'I waive my right to read the finished letter.'
+          : 'I keep my right to read the finished letter.',
+        // The supersession chain is the server's rule; this only names the receipt the student can
+        // see they are superseding. A first decision supersedes nothing.
+        priorReceiptId: waiver.receiptId,
+      };
+      await runWrite({
+        invoke: ({ expectedRevision, caseId }) => commands.recordReceipt({
+          caseId,
+          expectedRevision,
+          receiptType: 'waiver',
+          receiptData,
+        }),
+      });
+    }
+
+    /**
+     * Release, from the verified faculty writer's surface.
+     *
+     * Exactly two facts leave the browser: the revision this screen was reasoning about, and the
+     * document that revision names. There is deliberately no release timestamp here and no field
+     * that could carry one - the aggregate mints `releasedToStudentAt` itself, and the student's
+     * screen reads it back out of the server's projection. A UI-asserted release time would be a
+     * client claim about durable state, which is the one thing this whole file refuses to make.
+     */
+    async function releaseFinalDocumentToStudent(documentId) {
+      if (!isNonEmptyString(documentId)) return;
+      await runWrite({
+        invoke: ({ expectedRevision, caseId }) => commands.releaseFinalDocument({
+          caseId,
+          expectedRevision,
+          documentId,
+        }),
+      });
+    }
+
+    /**
+     * Reload the durable case and keep every typed character.
+     *
+     * This is the recovery half of conflict handling. It replaces what is on screen with what the
+     * server actually holds and then lays the student's unsaved wording back over it, so nothing
+     * is lost and nothing is written. The re-save is a separate, explicit press: an automatic
+     * re-PATCH here would be exactly the silent overwrite the conflict state exists to prevent.
+     */
+    async function reloadAndReapply() {
+      if (!commands || typeof commands.reloadCase !== 'function' || !renderedProjection) return;
+      clearDebounce();
+      const caseId = renderedProjection.caseId;
+      let outcome;
+      try {
+        outcome = await commands.reloadCase({ caseId });
+      } catch {
+        outcome = { reached: false };
+      }
+      if (!isPlainObject(outcome) || outcome.reached !== true) {
+        applyState('network_failure');
+        return;
+      }
+      const status = Number(outcome.status);
+      if (status !== 200) {
+        applyState(
+          Object.prototype.hasOwnProperty.call(STATUS_STATES, status)
+            ? STATUS_STATES[status]
+            : 'server_failure',
+        );
+        return;
+      }
+      if (!adoptAcknowledgedProjection(outcome, caseId)) {
+        applyState('server_failure');
+        return;
+      }
+      conflictPhase = 'reloaded';
+      renderCase(renderedProjection, 'version_conflict');
+    }
+
+    /**
+     * Ask the adapter to fetch the export route and hand the browser a file.
+     *
+     * No grant, purpose, destination or privacy class is constructed here or sent: the export
+     * route accepts no query parameters at all and resolves every one of those from the stored
+     * case against the authenticated actor. This control can only ask; the server decides.
+     */
+    async function exportFinalDocument() {
+      if (!commands || typeof commands.exportFinalDocument !== 'function' || !renderedProjection) return;
+      const caseId = renderedProjection.caseId;
+      exportNotice = 'Preparing your download.';
+      renderCase(renderedProjection, currentState);
+      let outcome;
+      try {
+        outcome = await commands.exportFinalDocument({ caseId });
+      } catch {
+        outcome = { reached: false };
+      }
+      if (isPlainObject(outcome) && outcome.reached === true && Number(outcome.status) === 200) {
+        exportNotice = outcome.downloadStarted === true
+          ? 'Your download has started. Nothing on your account changed.'
+          : 'MissionMed prepared the file, but this browser did not start the download.';
+        renderCase(renderedProjection, currentState);
+        return;
+      }
+      exportNotice = null;
+      if (!isPlainObject(outcome) || outcome.reached !== true) {
+        applyState('network_failure');
+        return;
+      }
+      const status = Number(outcome.status);
+      // 400/409 here mean the server refused to build a letter this control believed existed.
+      // That is a server-side condition, not something the student did, so it reads as one.
+      const state = status === 400 || status === 409
+        ? 'server_failure'
+        : (Object.prototype.hasOwnProperty.call(STATUS_STATES, status) ? STATUS_STATES[status] : 'server_failure');
+      applyState(state);
     }
 
     function stateBanner(name) {
@@ -567,22 +1124,162 @@
       return pipe;
     }
 
-    function buildStepDetail(projection) {
+    /**
+     * Which of a step's keys the student can type into.
+     *
+     * Declared fields always appear. A stored key that is not declared appears too, but only when
+     * its stored value is a string: turning a number or a boolean into a text box would send back
+     * a different JSON type than the one the server stored. Everything else is shown read only and
+     * carried through every write untouched.
+     */
+    function editableFieldSpecs(stepId, projection) {
+      const declared = STEP_FIELDS[stepId] || [];
+      const specs = [...declared];
+      const declaredKeys = new Set(declared.map((spec) => spec.key));
+      const stored = savedStepData(stepId, projection);
+      for (const key of Object.keys(stored)) {
+        if (declaredKeys.has(key)) continue;
+        if (typeof stored[key] !== 'string') continue;
+        specs.push({
+          key,
+          label: humanize(key),
+          control: stored[key].length > 90 ? 'textarea' : 'text',
+        });
+      }
+      return specs;
+    }
+
+    /**
+     * Why a step is read only, in the student's words, or null when it is editable.
+     *
+     * Every reason here restates a rule the SERVER enforces (status must be draft; steps cannot be
+     * skipped). Hiding a control the server would refuse is courtesy. It is not the gate, and the
+     * write path does not consult this function.
+     */
+    function readOnlyReason(projection, stepId, completedCount) {
+      if (!commands || typeof commands.autosaveBuilderStep !== 'function') {
+        return 'This case is open for reading only.';
+      }
+      if (projection.status !== 'draft') {
+        return 'Your case is with your faculty writer now, so the builder is locked. Nothing you saved was lost.';
+      }
+      if (BUILDER_STEP_IDS.indexOf(stepId) > completedCount) {
+        return 'Finish the earlier steps first. MissionMed keeps the builder in order.';
+      }
+      return null;
+    }
+
+    function buildConflictRecovery(stepId) {
+      const box = el('div', 'warnBox');
+      box.id = 'lorConflictRecovery';
+      box.appendChild(el(
+        'p',
+        'sub',
+        conflictPhase === 'reloaded'
+          ? 'This is the version MissionMed has stored. Your unsaved wording is still in the boxes above — check it, then save it.'
+          : 'Your wording is still here and has not been thrown away. MissionMed did not store it because this case was updated somewhere else. Load the stored version first so you do not overwrite it by accident.',
+      ));
+      const actions = el('div', 'lorProductionActions');
+      if (conflictPhase !== 'reloaded' && commands && typeof commands.reloadCase === 'function') {
+        actions.appendChild(button('Load the stored version', 'btn alt sm', () => { void reloadAndReapply(); }));
+      }
+      actions.appendChild(button('Save my wording again', 'btn pri sm', () => { void saveNow(stepId); }));
+      box.appendChild(actions);
+      return box;
+    }
+
+    function buildStepDetail(projection, completedCount) {
       const container = el('div', 'lorProductionStepDetail');
       if (!selectedStepId) {
         container.appendChild(el('p', 'sub', 'Nothing has been saved in the builder yet.'));
         return container;
       }
-      container.appendChild(el('div', 'h2', BUILDER_STEP_LABELS[selectedStepId]));
-      const stepData = projection.builder.stepData[selectedStepId];
-      if (!isPlainObject(stepData) || Object.keys(stepData).length === 0) {
-        container.appendChild(el('p', 'sub', 'Nothing has been saved for this step yet.'));
+      const stepId = selectedStepId;
+      const head = el('div', 'pHead');
+      head.appendChild(el('div', 'h2', BUILDER_STEP_LABELS[stepId]));
+      const marker = el('span', 'chip dashed', hasEdits(stepId) ? 'Not saved yet' : 'Up to date');
+      marker.id = 'lorUnsavedMarker';
+      head.appendChild(marker);
+      container.appendChild(head);
+
+      const stored = savedStepData(stepId, projection);
+      const locked = readOnlyReason(projection, stepId, completedCount);
+      const edits = editsFor(stepId) || {};
+
+      if (locked) {
+        container.appendChild(el('p', 'sub', locked));
+        if (Object.keys(stored).length === 0) {
+          container.appendChild(el('p', 'sub', 'Nothing has been saved for this step yet.'));
+        }
+        for (const key of Object.keys(stored)) {
+          container.appendChild(row(humanize(key), describeValue(stored[key])));
+        }
         return container;
       }
-      for (const key of Object.keys(stepData)) {
-        container.appendChild(row(humanize(key), describeValue(stepData[key])));
+
+      const specs = editableFieldSpecs(stepId, projection);
+      const form = el('div', 'lorProductionStepForm');
+      for (const spec of specs) {
+        const value = Object.prototype.hasOwnProperty.call(edits, spec.key)
+          ? edits[spec.key]
+          : stored[spec.key];
+        form.appendChild(field(stepId, spec, value));
+      }
+      container.appendChild(form);
+
+      const editableKeys = new Set(specs.map((spec) => spec.key));
+      for (const key of Object.keys(stored)) {
+        if (editableKeys.has(key)) continue;
+        container.appendChild(row(humanize(key), describeValue(stored[key])));
+      }
+
+      container.appendChild(el(
+        'p',
+        'micNote',
+        'Your typing is sent to MissionMed a moment after you stop. It is only stored once MissionMed confirms it.',
+      ));
+
+      const actions = el('div', 'lorProductionActions');
+      const saveControl = button('Save now', 'btn alt sm', () => { void saveNow(stepId); }, {
+        disabled: !hasEdits(stepId),
+      });
+      saveControl.id = 'lorSaveNow';
+      actions.appendChild(saveControl);
+      const nextStepId = BUILDER_STEP_IDS[completedCount] || null;
+      if (nextStepId === stepId && typeof commands.completeBuilderStep === 'function') {
+        actions.appendChild(button('Save and mark this step complete', 'btn pri sm', () => {
+          void completeStep(stepId);
+        }));
+      }
+      container.appendChild(actions);
+
+      if (conflictPhase && conflictStepId === stepId) {
+        container.appendChild(buildConflictRecovery(stepId));
       }
       return container;
+    }
+
+    /**
+     * The compact save indicator.
+     *
+     * It reads `currentState` and nothing else, so the word "Saved" appears here for exactly one
+     * reason: markSaved - the only function that checks the server's answer - set that state. No
+     * other caller can reach it, because showState refuses the name outright.
+     */
+    function buildSaveStateChip() {
+      const labels = Object.freeze({
+        saving: ['chip cy', 'Saving…'],
+        saved: ['chip gn', 'Saved'],
+        save_failed: ['chip rd', 'Not saved'],
+        version_conflict: ['chip em', 'Not saved — out of date'],
+        network_failure: ['chip em', 'Not saved — offline'],
+      });
+      const entry = labels[currentState];
+      if (!entry) return null;
+      const chip = el('span', entry[0], entry[1]);
+      chip.id = 'lorSaveIndicator';
+      chip.dataset.saveState = currentState;
+      return chip;
     }
 
     function buildBuilderPanel(projection) {
@@ -620,7 +1317,7 @@
         children.push(row(BUILDER_STEP_LABELS[stepId], detail, marker));
       }
 
-      children.push(buildStepDetail(projection));
+      children.push(buildStepDetail(projection, completedCount));
 
       if (autosavedAt) {
         children.push(el('p', 'sub', `Last change stored by MissionMed: ${autosavedAt}.`));
@@ -632,6 +1329,8 @@
         el('span', 'chip cy', `${completedCount} of ${BUILDER_STEP_IDS.length} complete`),
       ];
       if (nextStepId) extras.push(el('span', 'chip dashed', `Next: ${BUILDER_STEP_LABELS[nextStepId]}`));
+      const saveChip = buildSaveStateChip();
+      if (saveChip) extras.push(saveChip);
       return panel('Eight-step builder', children, extras);
     }
 
@@ -672,12 +1371,48 @@
         ));
       }
 
+      const canRecord = Boolean(commands) && typeof commands.recordReceipt === 'function';
+      if (canRecord) {
+        const actions = el('div', 'lorProductionActions');
+        actions.id = 'lorReceiptActions';
+        if (consent.length === 0) {
+          actions.appendChild(button('Record my consent', 'btn pri sm', () => { void recordConsent(); }));
+        }
+        actions.appendChild(button(
+          waiver.decided && waiver.waived === true ? 'Change to: keep my access' : 'Keep my access to the letter',
+          'btn alt sm',
+          () => { void recordWaiverDecision(false); },
+          { disabled: waiver.decided && waiver.waived === false },
+        ));
+        actions.appendChild(button(
+          waiver.decided && waiver.waived === false ? 'Change to: waive my access' : 'Waive my access to the letter',
+          'btn alt sm',
+          () => { void recordWaiverDecision(true); },
+          { disabled: waiver.decided && waiver.waived === true },
+        ));
+        children.push(actions);
+        children.push(el(
+          'p',
+          'micNote',
+          'Waiving means you will not be shown the finished letter. MissionMed records the decision and the time; this screen does not.',
+        ));
+      }
+
       const extras = [el(
         'span',
         'chip',
         `${consent.length} consent · ${projection.waiverReceipts.length} waiver`,
       )];
       return panel('Consent & waiver receipts', children, extras);
+    }
+
+    function buildExportControl() {
+      if (!commands || typeof commands.exportFinalDocument !== 'function') return null;
+      const wrapper = el('div', 'lorProductionActions');
+      wrapper.id = 'lorExportActions';
+      wrapper.appendChild(button('Download a copy', 'btn alt sm', () => { void exportFinalDocument(); }));
+      if (exportNotice) wrapper.appendChild(el('p', 'micNote', exportNotice));
+      return wrapper;
     }
 
     function buildFinalDocumentPanel(projection) {
@@ -722,7 +1457,8 @@
       }
       card.appendChild(foot);
 
-      return panel('Final letter', [card], [el('span', 'chip gn', 'Released')]);
+      const children = [card, buildExportControl()].filter(Boolean);
+      return panel('Final letter', children, [el('span', 'chip gn', 'Released')]);
     }
 
     function buildDeliveryPanel(projection) {
@@ -778,7 +1514,147 @@
       return firstWithData || null;
     }
 
+    /**
+     * The writer's release surface.
+     *
+     * Reaching this means the server answered this actor with a faculty projection, which
+     * security/authorization-policy.js only does for the recipient-bound, verified faculty writer
+     * of this case. Nothing here decides that; nothing here can.
+     */
+    function buildFacultyRelease(projection) {
+      const finalDocument = isPlainObject(projection.facultyPrivate?.finalDocument)
+        ? projection.facultyPrivate.finalDocument
+        : null;
+      const releasedAt = finalDocument ? formatTimestamp(finalDocument.releasedToStudentAt) : null;
+      const waiverState = isPlainObject(projection.studentShared?.waiverState)
+        ? projection.studentShared.waiverState
+        : { decided: false, waived: null };
+      const children = [];
+
+      children.push(row(
+        'Student access decision',
+        waiverState.decided === true
+          ? (waiverState.waived === true
+            ? 'The student waived access, so a release will not show them the letter.'
+            : 'The student kept access to the finished letter.')
+          : 'The student has not recorded a decision yet.',
+        el(
+          'span',
+          waiverState.decided === true ? (waiverState.waived === true ? 'chip em' : 'chip gn') : 'chip dashed',
+          waiverState.decided === true ? (waiverState.waived === true ? 'Waived' : 'Not waived') : 'Not decided',
+        ),
+      ));
+
+      if (!finalDocument) {
+        children.push(el('p', 'sub', 'There is no finished letter on this case yet, so there is nothing to release.'));
+        return panel('Release to the student', children, [el('span', 'chip dashed', 'Nothing to release')]);
+      }
+
+      children.push(row(
+        'Finished letter',
+        releasedAt
+          ? `Released to the student ${releasedAt}. MissionMed recorded that time.`
+          : 'Ready. The student cannot see it until you release it.',
+        el('span', releasedAt ? 'chip gn' : 'chip dashed', releasedAt ? 'Released' : 'Held'),
+      ));
+
+      if (commands && typeof commands.releaseFinalDocument === 'function') {
+        const actions = el('div', 'lorProductionActions');
+        actions.id = 'lorReleaseActions';
+        actions.appendChild(button(
+          'Release this letter to the student',
+          'btn pri sm',
+          () => { void releaseFinalDocumentToStudent(finalDocument.id); },
+          { disabled: Boolean(releasedAt) || !isNonEmptyString(finalDocument.id) },
+        ));
+        children.push(actions);
+        children.push(el(
+          'p',
+          'micNote',
+          'MissionMed records the release and its time. This screen never sets or sends a release time.',
+        ));
+      }
+      const exportControl = buildExportControl();
+      if (exportControl) children.push(exportControl);
+
+      return panel(
+        'Release to the student',
+        children,
+        [el('span', releasedAt ? 'chip gn' : 'chip cy', releasedAt ? 'Released' : 'Held')],
+      );
+    }
+
+    function renderFacultyCase(projection, stateName) {
+      const host = resolveMount();
+      clear(host);
+      const view = el('section', 'live');
+      view.dataset.view = 'case';
+      view.dataset.actor = 'faculty';
+      if (stateName && Object.prototype.hasOwnProperty.call(STATE_COPY, stateName)) {
+        view.appendChild(stateBanner(stateName));
+      }
+      const header = el('div', 'lorProductionHeader');
+      header.appendChild(el('p', 'eyebrow', 'MissionMed LOR Studio · Faculty writer'));
+      const heading = el('h1', 'h1');
+      heading.appendChild(doc.createTextNode('Recommendation '));
+      heading.appendChild(el('em', null, 'case'));
+      header.appendChild(heading);
+      const strip = el('div', 'pHead');
+      strip.appendChild(el('span', TONE_STAGE_CLASS[CASE_STATUS_TONES[projection.status] || 'info'], humanize(projection.status)));
+      strip.appendChild(el('span', 'chip', `Case ${projection.caseId}`));
+      strip.appendChild(el('span', 'chip', `Version ${projection.revision}`));
+      const saveChip = buildSaveStateChip();
+      if (saveChip) strip.appendChild(saveChip);
+      header.appendChild(strip);
+      view.appendChild(header);
+
+      view.appendChild(buildFacultyRelease(projection));
+      view.appendChild(buildDeliveryPanel(projection));
+      host.appendChild(view);
+      renderedProjection = projection;
+    }
+
+    /**
+     * Re-rendering from server truth is how this renderer stays honest, but a rebuild during
+     * autosave would rip the caret out of the box the student is typing in. The focused field and
+     * its selection are therefore restored afterwards - purely a DOM courtesy, and only ever onto
+     * the same step and field it came from.
+     */
+    function captureFocus() {
+      const active = doc.activeElement;
+      if (!active || !active.dataset || !active.dataset.field) return null;
+      return {
+        step: active.dataset.step || '',
+        field: active.dataset.field,
+        start: typeof active.selectionStart === 'number' ? active.selectionStart : null,
+        end: typeof active.selectionEnd === 'number' ? active.selectionEnd : null,
+      };
+    }
+
+    function restoreFocus(snapshot) {
+      if (!snapshot) return;
+      const host = resolveMount();
+      const selector = `[data-step="${snapshot.step}"][data-field="${snapshot.field}"]`;
+      const target = host.querySelector(selector);
+      if (!target || typeof target.focus !== 'function') return;
+      target.focus();
+      if (snapshot.start !== null && typeof target.setSelectionRange === 'function') {
+        const limit = String(target.value ?? '').length;
+        try {
+          target.setSelectionRange(Math.min(snapshot.start, limit), Math.min(snapshot.end ?? snapshot.start, limit));
+        } catch {
+          /* selection restoration is a nicety; never let it break a render */
+        }
+      }
+    }
+
     function renderCase(projection, stateName) {
+      const focus = captureFocus();
+      if (renderedKind === 'faculty') {
+        renderFacultyCase(projection, stateName);
+        restoreFocus(focus);
+        return;
+      }
       const host = resolveMount();
       selectedStepId = pickSelectedStep(projection);
       clear(host);
@@ -802,6 +1678,7 @@
       view.appendChild(grid);
       host.appendChild(view);
       renderedProjection = projection;
+      restoreFocus(focus);
     }
 
     /**
@@ -817,6 +1694,9 @@
         : 'durable_runtime_unavailable';
       pendingSaveBaselineRevision = null;
       pendingSaveStepId = null;
+      // A closed surface must not keep a timer alive that would fire a write into it.
+      clearDebounce();
+      exportNotice = null;
       // Close first, argue second: even a caller asking for a reveal gets the closed screen before
       // the refusal is raised.
       applyState(state);
@@ -851,7 +1731,11 @@
         applyState('durable_runtime_unavailable');
         throw new TypeError('LOR Studio production rendering requires the live runtime');
       }
-      if (ctx.actorRole !== undefined && ctx.actorRole !== 'student') {
+      // Two surfaces, one renderer. `faculty` is admitted only when the SERVER named the actor a
+      // faculty writer AND answered with the faculty projection; every other role is refused, and
+      // an unstated role still means the student view, exactly as before.
+      const kind = ctx.actorRole === 'faculty' ? 'faculty' : 'student';
+      if (ctx.actorRole !== undefined && ctx.actorRole !== 'student' && ctx.actorRole !== 'faculty') {
         applyState('durable_runtime_unavailable');
         throw new TypeError('This renderer presents the student case view only');
       }
@@ -861,7 +1745,7 @@
       }
       let renderable;
       try {
-        renderable = assertRenderableStudentProjection(projection);
+        renderable = assertRenderableProjection(projection, kind);
         if (ctx.projectionSchema !== undefined && ctx.projectionSchema !== renderable.schemaVersion) {
           throw new TypeError('The case projection does not match the schema the runtime authorized');
         }
@@ -876,6 +1760,12 @@
       pendingSaveBaselineRevision = null;
       pendingSaveStepId = null;
       selectedStepId = null;
+      conflictPhase = null;
+      conflictStepId = null;
+      exportNotice = null;
+      // A projection for a different case cannot inherit another case's unsaved wording.
+      if (renderedProjection && renderedProjection.caseId !== renderable.caseId) draftEdits.clear();
+      renderedKind = kind;
       currentState = 'loaded';
       renderCase(renderable, null);
       return Object.freeze({
@@ -945,7 +1835,7 @@
         : (isPlainObject(acknowledgement.body) ? acknowledgement.body.case : null);
       let renderable;
       try {
-        renderable = assertRenderableStudentProjection(acknowledged);
+        renderable = assertRenderableProjection(acknowledged, renderedKind);
       } catch {
         return refuse('acknowledgement_not_a_case_projection');
       }
@@ -960,7 +1850,9 @@
 
       pendingSaveBaselineRevision = null;
       pendingSaveStepId = null;
-      selectedStepId = null;
+      // The step the student is working in is deliberately NOT reset here: jumping them to the
+      // server's idea of the current step in the middle of an autosave would move the page under
+      // their cursor. Which step is displayed is presentation; what is displayed is the server's.
       currentState = 'saved';
       renderCase(renderable, 'saved');
       return Object.freeze({
@@ -984,10 +1876,53 @@
     function showEmptyWorkspace() {
       pendingSaveBaselineRevision = null;
       pendingSaveStepId = null;
+      clearDebounce();
       return applyState('empty');
     }
 
+    const COMMAND_NAMES = Object.freeze([
+      'autosaveBuilderStep',
+      'completeBuilderStep',
+      'recordReceipt',
+      'releaseFinalDocument',
+      'exportFinalDocument',
+      'reloadCase',
+    ]);
+
+    /**
+     * Hand the renderer its transport.
+     *
+     * Only the named commands are kept, and only if they are functions, so an object carrying
+     * anything else - a token, a grant, a projection, a storage handle - contributes nothing. The
+     * renderer still issues no requests itself; it decides what to ask for and what the answer
+     * permits it to say. Every control this unlocks is additive: without commands the surface
+     * renders precisely the read-only screen it rendered before, which is also what happens if a
+     * caller attaches an empty object.
+     *
+     * @param {Record<string, unknown>} [request]
+     */
+    function attachCommands(request) {
+      if (!isPlainObject(request)) {
+        commands = null;
+        clearDebounce();
+        if (renderedProjection) renderCase(renderedProjection, null);
+        return Object.freeze({ attached: Object.freeze([]) });
+      }
+      const next = {};
+      const attached = [];
+      for (const name of COMMAND_NAMES) {
+        if (typeof request[name] === 'function') {
+          next[name] = request[name];
+          attached.push(name);
+        }
+      }
+      commands = attached.length > 0 ? Object.freeze(next) : null;
+      if (renderedProjection) renderCase(renderedProjection, null);
+      return Object.freeze({ attached: Object.freeze(attached) });
+    }
+
     const ui = {
+      attachCommands,
       block,
       renderProductionProjection,
       showState,
@@ -1006,6 +1941,19 @@
       },
       get saveInFlight() {
         return pendingSaveBaselineRevision !== null;
+      },
+      get renderedSurface() {
+        return renderedProjection ? renderedKind : null;
+      },
+      /** True while a student has typed something the server has not confirmed. */
+      get hasUnsavedEdits() {
+        for (const edits of draftEdits.values()) {
+          if (Object.keys(edits).length > 0) return true;
+        }
+        return false;
+      },
+      get conflictRecoveryPhase() {
+        return conflictPhase;
       },
       stateNames: STATE_NAMES,
       builderStepIds: BUILDER_STEP_IDS,

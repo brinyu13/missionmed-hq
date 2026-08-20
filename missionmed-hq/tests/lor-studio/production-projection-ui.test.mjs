@@ -160,7 +160,7 @@ function draftCase() {
 }
 
 /** A case carried all the way through faculty approval and an explicit release to the student. */
-function releasedCase({ waived = false } = {}) {
+function releasedCase({ waived = false, released = true } = {}) {
   const idFactory = deterministicIdFactory('rid');
   let record = createRecommendationCase({
     id: CASE_ID,
@@ -231,7 +231,7 @@ function releasedCase({ waived = false } = {}) {
   });
   // The aggregate refuses outright to release a waived letter, so a waived fixture stops here:
   // approved and finished, but never handed to the student.
-  if (waived) return record;
+  if (waived || !released) return record;
   return releaseFinalDocument(record, {
     actorId: 'faculty-1',
     facultyId: 'faculty-1',
@@ -245,6 +245,20 @@ function releasedCase({ waived = false } = {}) {
 function studentProjection(record) {
   return projectCaseForActor({
     actor: { id: STUDENT_ID, role: 'student' },
+    caseRecord: record,
+    entitlement: eligible(),
+    now: NOW,
+  });
+}
+
+/**
+ * The faculty projection, produced by the same authorization policy the API uses. Obtaining one
+ * at all is the server's statement that this actor is the recipient-bound, verified writer: if the
+ * binding did not hold, projectCaseForActor would throw rather than return.
+ */
+function facultyProjection(record) {
+  return projectCaseForActor({
+    actor: { id: 'faculty-1', role: 'faculty' },
     caseRecord: record,
     entitlement: eligible(),
     now: NOW,
@@ -920,4 +934,655 @@ test('the factory creates its own mount when the page has not provided one', asy
   assert.ok(mount, 'the renderer must establish its own production mount');
   assert.equal(mount.className, 'lor-production-root');
   assert.match(mount.textContent, /Eight-step builder/u);
+});
+
+/* --------------------------------------------------------------- writing, not just reading */
+
+/**
+ * The injected transport. It is the ONLY way this renderer can reach a server, which is the point:
+ * every request below is one the renderer decided to make, with the exact payload it decided on,
+ * and `harness.networkCalls` proves it never went around the transport to a real network API.
+ */
+function commandRecorder(responders = {}) {
+  const calls = [];
+  const command = (name) => async (input) => {
+    calls.push({ name, input });
+    const responder = responders[name];
+    if (typeof responder === 'function') return responder(input, calls.length);
+    if (responder) return responder;
+    return { reached: true, status: 200, body: {} };
+  };
+  return {
+    calls,
+    named(name) {
+      return calls.filter((entry) => entry.name === name);
+    },
+    commands: {
+      autosaveBuilderStep: command('autosaveBuilderStep'),
+      completeBuilderStep: command('completeBuilderStep'),
+      recordReceipt: command('recordReceipt'),
+      releaseFinalDocument: command('releaseFinalDocument'),
+      exportFinalDocument: command('exportFinalDocument'),
+      reloadCase: command('reloadCase'),
+    },
+  };
+}
+
+function accepted(projection, { status = 200, revision } = {}) {
+  return {
+    reached: true,
+    status,
+    body: { case: { ...projection, revision: revision ?? projection.revision + 1 } },
+  };
+}
+
+async function settle(harness, ticks = 8) {
+  for (let tick = 0; tick < ticks; tick += 1) {
+    await new Promise((resolve) => harness.win.setTimeout(resolve, 0));
+  }
+}
+
+async function editableHarness(responders = {}) {
+  const harness = createHarness();
+  const projection = plain(studentProjection(draftCase()));
+  const recorder = commandRecorder(responders);
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+  return { harness, projection, recorder };
+}
+
+/**
+ * JSDOM objects come from another realm, so deepStrictEqual would reject an identical array or
+ * object purely on prototype identity. Comparing the JSON projection keeps the assertions about
+ * the payload rather than about which realm built it.
+ */
+function plainCopy(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+/** A real activation, so a disabled control genuinely does nothing. */
+function press(control) {
+  assert.notEqual(control, null, 'expected the control to exist');
+  control.click();
+}
+
+function fieldControl(harness, stepId, key) {
+  return harness.mount.querySelector(`[data-step="${stepId}"][data-field="${key}"]`);
+}
+
+function typeInto(harness, stepId, key, value) {
+  const control = fieldControl(harness, stepId, key);
+  assert.notEqual(control, null, `expected an editable ${key} control on ${stepId}`);
+  control.value = value;
+  control.dispatchEvent(new harness.win.Event('input', { bubbles: true }));
+  return control;
+}
+
+function controlLabelled(harness, label) {
+  return [...harness.mount.querySelectorAll('button')].find(
+    (button) => button.textContent.trim() === label,
+  ) || null;
+}
+
+test('the current step is editable and the rest of the saved step object survives a write', async () => {
+  const stepId = 'timeline_highlights';
+  const { harness, projection, recorder } = await editableHarness({
+    autosaveBuilderStep: (input) => accepted(projection),
+  });
+
+  // The fixture stored `summary`, which is not a declared field for this step. It must still be
+  // editable rather than stranded, and its saved value must be what the box starts with.
+  assert.equal(fieldControl(harness, stepId, 'summary').value, 'Step 4 content');
+
+  typeInto(harness, stepId, 'standoutMoment', 'The night the ICU was short a resident');
+  press(controlLabelled(harness, 'Save now'));
+  await settle(harness);
+
+  const [write] = recorder.named('autosaveBuilderStep');
+  assert.equal(write.input.caseId, CASE_ID);
+  assert.equal(write.input.stepId, stepId);
+  assert.equal(write.input.expectedRevision, projection.revision);
+  assert.deepEqual(plainCopy(write.input.stepData), {
+    // Everything the server already held for this step, carried through untouched...
+    acknowledged: true,
+    index: 3,
+    summary: 'Step 4 content',
+    // ...plus the one field that was typed. A payload of only the edit would delete the rest.
+    standoutMoment: 'The night the ICU was short a resident',
+  });
+  assert.equal(harness.storageTouches.length, 0);
+  assert.equal(harness.networkCalls.length, 0, 'the renderer must reach the server only through commands');
+  assertPrototypeStillQuarantined(harness);
+  assertNoInlineHandlers(harness);
+  assertNoInternalLeak(harness);
+});
+
+test('typing autosaves after it settles, and claims saved only once the server advanced the revision', async () => {
+  const stepId = 'timeline_highlights';
+  const { harness, projection, recorder } = await editableHarness({
+    autosaveBuilderStep: () => accepted(projection),
+  });
+
+  typeInto(harness, stepId, 'standoutMoment', 'A');
+  typeInto(harness, stepId, 'standoutMoment', 'A d');
+  typeInto(harness, stepId, 'standoutMoment', 'A debounced sentence');
+  assert.equal(recorder.named('autosaveBuilderStep').length, 0, 'keystrokes must not each be a write');
+  assert.ok(!harness.text().includes('Saved to your account'));
+
+  await new Promise((resolve) => harness.win.setTimeout(resolve, 900));
+  await settle(harness);
+
+  assert.equal(recorder.named('autosaveBuilderStep').length, 1, 'a settled burst is one write');
+  assert.equal(
+    recorder.named('autosaveBuilderStep')[0].input.stepData.standoutMoment,
+    'A debounced sentence',
+  );
+  assert.equal(harness.ui.state, 'saved');
+  assert.equal(harness.ui.hasUnsavedEdits, false);
+  assert.match(harness.text(), /Saved to your account/u);
+  assert.equal(harness.mount.querySelector('#lorSaveIndicator').dataset.saveState, 'saved');
+  assertNoInternalLeak(harness);
+});
+
+test('an accepted status whose revision did not advance never shows saved, and the typing stays', async () => {
+  const stepId = 'timeline_highlights';
+  const { harness, projection, recorder } = await editableHarness({
+    // 200, a real case projection, same revision: the server stored nothing.
+    autosaveBuilderStep: () => accepted(projection, { revision: projection.revision }),
+  });
+
+  typeInto(harness, stepId, 'standoutMoment', 'Wording the server did not keep');
+  press(controlLabelled(harness, 'Save now'));
+  await settle(harness);
+
+  assert.equal(recorder.named('autosaveBuilderStep').length, 1);
+  assert.ok(!harness.text().includes('Saved to your account'), 'a stalled revision is not a save');
+  assert.equal(harness.ui.state, 'version_conflict');
+  assert.equal(harness.ui.hasUnsavedEdits, true);
+  assert.equal(fieldControl(harness, stepId, 'standoutMoment').value, 'Wording the server did not keep');
+});
+
+test('re-entering a case with an empty builder still offers somewhere to type', async () => {
+  // Re-entry to a pristine case is the state most likely to strand a student: nothing saved, so
+  // any "show the step that has data" heuristic has nothing to latch onto, and buildStepDetail
+  // renders no editing surface at all without a selected step. It works today because
+  // pickSelectedStep falls back to projection.builder.currentStepId, which the server sets to the
+  // next actionable step - but nothing pinned that, so a change to either side could strand a
+  // returning student silently. This pins it.
+  //
+  // Recorded because it is instructive: I first read this as a live defect while driving a
+  // browser, then found the browser tab was reporting visibilityState 'hidden', which was the
+  // real cause of the missing fields. A mutation check settled it - the assertion below passes
+  // with and without the change I had made, which is what proved the change unnecessary.
+  const harness = createHarness();
+  // A pristine case: created and never touched. draftCase() already has autosaves and a receipt,
+  // which is precisely the state that masked this bug.
+  const pristine = createRecommendationCase({
+    id: CASE_ID,
+    studentId: STUDENT_ID,
+    now: T0,
+    builderSessionId: 'builder-session-1',
+    idFactory: deterministicIdFactory('id'),
+  });
+  const projection = plain(studentProjection(pristine));
+  assert.equal(projection.builder.completedStepIds.length, 0, 'fixture must be an untouched case');
+  assert.equal(Object.keys(projection.builder.stepData || {}).length, 0);
+
+  harness.ui.attachCommands(commandRecorder({}).commands);
+  await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+
+  const fields = [...harness.mount.querySelectorAll('[data-step][data-field]')];
+  assert.ok(fields.length > 0, 'a re-entered empty case must render editable fields');
+  assert.ok(
+    fields.every((f) => f.dataset.step === 'case_basics'),
+    'the first incomplete step is the only one the server would accept next',
+  );
+});
+
+test('a server field named __proto__ is edited as data and never silently discarded', async () => {
+  // Regression. An adversarial review reproduced this end to end: a step field named `__proto__`
+  // rendered as an editable control, but the edit buffer was a plain object literal, so
+  // `edits['__proto__'] = value` hit the prototype setter instead of creating an own property.
+  // The typed text vanished, no PATCH was issued, and the interface reported "Up to date" with
+  // Save-now disabled - a student losing content while being told it was saved. That is a
+  // data-loss bug regardless of how odd the key is, so the buffer is now prototype-free.
+  const stepId = 'timeline_highlights';
+  const harness = createHarness();
+  const base = plain(studentProjection(draftCase()));
+  // JSON.parse, not a literal: `{ __proto__: 'x' }` hits the prototype setter and creates no own
+  // property, so the fixture would not even reproduce the bug. A JSON body from the server does
+  // create the own property - which is exactly how this reaches the renderer in production.
+  const hostileStep = JSON.parse('{"__proto__":"server stored this"}');
+  const projection = plain({
+    ...base,
+    builder: {
+      ...base.builder,
+      stepData: Object.assign(Object.create(null), base.builder.stepData || {}, { [stepId]: hostileStep }),
+    },
+  });
+  const recorder = commandRecorder({
+    autosaveBuilderStep: () => accepted(projection, { revision: projection.revision + 1 }),
+  });
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+
+  typeInto(harness, stepId, '__proto__', 'TYPED BY STUDENT');
+
+  assert.equal(harness.ui.hasUnsavedEdits, true, 'the edit must register, not vanish');
+  assert.equal(
+    fieldControl(harness, stepId, '__proto__').value,
+    'TYPED BY STUDENT',
+    'the typed value must survive in the control',
+  );
+
+  press(controlLabelled(harness, 'Save now'));
+  await settle(harness);
+
+  const sent = recorder.named('autosaveBuilderStep');
+  assert.equal(sent.length, 1, 'a real edit must produce exactly one write');
+  // Read the own property descriptor: plain member access on `__proto__` would consult the
+  // prototype getter rather than the stored datum, which is the whole hazard under test.
+  assert.equal(
+    Object.getOwnPropertyDescriptor(sent[0].input.stepData, '__proto__')?.value,
+    'TYPED BY STUDENT',
+    'the write must carry the typed value as an own property',
+  );
+
+  // The prototype chain must be untouched in the process.
+  assert.equal({}.TYPED, undefined);
+  assert.equal(Object.prototype.TYPED, undefined);
+});
+
+test('a 409 shows the conflict state, keeps every typed character, and never silently overwrites', async () => {
+  const stepId = 'timeline_highlights';
+  const typed = 'Two sentences I do not want to lose.';
+  const { harness, projection, recorder } = await editableHarness({
+    autosaveBuilderStep: (input, callNumber) => (callNumber === 1
+      ? { reached: true, status: 409, body: { error: 'stale_revision', message: 'The case changed after it was loaded. Reload before retrying.' } }
+      : accepted({ ...projection, revision: projection.revision + 4 })),
+    reloadCase: () => ({
+      reached: true,
+      status: 200,
+      body: { case: { ...projection, revision: projection.revision + 4 } },
+    }),
+  });
+
+  typeInto(harness, stepId, 'standoutMoment', typed);
+  press(controlLabelled(harness, 'Save now'));
+  await settle(harness);
+
+  // The conflict is stated in words a student can act on, the typing is still on screen, and the
+  // renderer has NOT written anything over the newer stored version.
+  assert.equal(harness.ui.state, 'version_conflict');
+  assert.equal(harness.ui.conflictRecoveryPhase, 'detected');
+  assert.match(harness.text(), /This case changed somewhere else/u);
+  assert.match(harness.text(), /Your wording is still here and has not been thrown away/u);
+  assert.equal(fieldControl(harness, stepId, 'standoutMoment').value, typed);
+  assert.equal(harness.ui.hasUnsavedEdits, true);
+  assert.ok(!harness.text().includes('Saved to your account'));
+  assert.equal(recorder.named('autosaveBuilderStep').length, 1, 'a conflict must not be retried behind the student');
+  assertNoInternalLeak(harness);
+
+  // Recovery step one: load the stored version. It reloads, it does not write.
+  press(controlLabelled(harness, 'Load the stored version'));
+  await settle(harness);
+  assert.equal(recorder.named('reloadCase').length, 1);
+  assert.equal(recorder.named('autosaveBuilderStep').length, 1, 'reloading must not re-send the change');
+  assert.equal(harness.ui.renderedRevision, projection.revision + 4);
+  assert.equal(fieldControl(harness, stepId, 'standoutMoment').value, typed, 'reloading must not discard typing');
+  assert.equal(harness.ui.conflictRecoveryPhase, 'reloaded');
+  assert.match(harness.text(), /Your unsaved wording is still in the boxes above/u);
+
+  // Recovery step two: the student, not the renderer, decides to reapply.
+  press(controlLabelled(harness, 'Save my wording again'));
+  await settle(harness);
+  const retry = recorder.named('autosaveBuilderStep')[1];
+  assert.equal(retry.input.expectedRevision, projection.revision + 4, 'the retry is based on the reloaded revision');
+  assert.equal(retry.input.stepData.standoutMoment, typed);
+  assert.equal(harness.ui.state, 'saved');
+  assert.equal(harness.ui.hasUnsavedEdits, false);
+  assert.equal(harness.ui.conflictRecoveryPhase, null);
+});
+
+test('completing a step saves the pending wording first and stops if that save is refused', async () => {
+  const stepId = 'timeline_highlights';
+  const { harness, projection, recorder } = await editableHarness({
+    autosaveBuilderStep: () => ({ reached: true, status: 409, body: { error: 'stale_revision' } }),
+  });
+
+  typeInto(harness, stepId, 'standoutMoment', 'Not stored yet');
+  press(controlLabelled(harness, 'Save and mark this step complete'));
+  await settle(harness);
+
+  assert.equal(recorder.named('autosaveBuilderStep').length, 1);
+  assert.equal(
+    recorder.named('completeBuilderStep').length,
+    0,
+    'a step must not be marked complete while its latest wording exists only on screen',
+  );
+  assert.equal(harness.ui.state, 'version_conflict');
+});
+
+test('step completion posts the next canonical step against the durable revision', async () => {
+  const { harness, projection, recorder } = await editableHarness({
+    completeBuilderStep: () => accepted(projection),
+  });
+
+  press(controlLabelled(harness, 'Save and mark this step complete'));
+  await settle(harness);
+
+  const [complete] = recorder.named('completeBuilderStep');
+  assert.deepEqual([...Object.keys(complete.input)].sort(), ['caseId', 'expectedRevision', 'stepId']);
+  // Three steps are complete in the fixture, so the fourth is the only step the server will accept.
+  assert.equal(complete.input.stepId, BUILDER_STEPS[3]);
+  assert.equal(complete.input.expectedRevision, projection.revision);
+  assert.equal(harness.ui.state, 'saved');
+});
+
+test('a step the server would refuse offers no editor and says why in plain words', async () => {
+  const harness = createHarness();
+  const recorder = commandRecorder();
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(plain(studentProjection(draftCase())), liveContext(CASE_ID));
+
+  harness.mount
+    .querySelector('button[data-step="faculty_handoff"]')
+    .dispatchEvent(new harness.win.Event('click', { bubbles: true }));
+
+  assert.equal(fieldControl(harness, 'faculty_handoff', 'handoffMessage'), null);
+  assert.match(harness.text(), /Finish the earlier steps first/u);
+  assertNoInternalLeak(harness);
+});
+
+test('a case that has left the student builder is read only and says so without blaming the student', async () => {
+  const harness = createHarness();
+  harness.ui.attachCommands(commandRecorder().commands);
+  await harness.ui.renderProductionProjection(plain(studentProjection(releasedCase())), liveContext(CASE_ID));
+
+  assert.equal(harness.mount.querySelector('.lorProductionStepForm'), null);
+  assert.match(harness.text(), /Your case is with your faculty writer now/u);
+  assert.match(harness.text(), /Nothing you saved was lost/u);
+});
+
+test('consent and the waiver decision are recorded through the receipts route', async () => {
+  const projectionSource = plain(studentProjection(draftCase()));
+  const harness = createHarness();
+  const recorder = commandRecorder({ recordReceipt: () => accepted(projectionSource) });
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(projectionSource, liveContext(CASE_ID));
+
+  press(controlLabelled(harness, 'Waive my access to the letter'));
+  await settle(harness);
+
+  const [waiver] = recorder.named('recordReceipt');
+  assert.equal(waiver.input.receiptType, 'waiver');
+  assert.equal(waiver.input.expectedRevision, projectionSource.revision);
+  assert.deepEqual(
+    [...Object.keys(waiver.input.receiptData)].sort(),
+    ['acknowledgment', 'policyVersion', 'priorReceiptId', 'waived'],
+    'only the four fields the server allows a client to supply may cross the wire',
+  );
+  assert.equal(waiver.input.receiptData.waived, true);
+  // A first decision supersedes nothing, and the renderer must not invent a prior receipt.
+  assert.equal(waiver.input.receiptData.priorReceiptId, null);
+  // Receipt identity, the recorded time and the integrity hash are the server's to mint.
+  for (const forbidden of ['id', 'recordedAt', 'receiptHash', 'actorId', 'caseId']) {
+    assert.equal(forbidden in waiver.input.receiptData, false, `receiptData must not carry ${forbidden}`);
+  }
+});
+
+test('a waiver change names the receipt it supersedes, exactly as the chain requires', async () => {
+  const projectionSource = plain(studentProjection(releasedCase({ waived: true })));
+  const priorId = projectionSource.waiverReceipts[projectionSource.waiverReceipts.length - 1].id;
+  const harness = createHarness();
+  const recorder = commandRecorder({ recordReceipt: () => accepted(projectionSource) });
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(projectionSource, liveContext(CASE_ID));
+
+  press(controlLabelled(harness, 'Change to: keep my access'));
+  await settle(harness);
+
+  const [waiver] = recorder.named('recordReceipt');
+  assert.equal(waiver.input.receiptData.waived, false);
+  assert.equal(waiver.input.receiptData.priorReceiptId, priorId);
+});
+
+test('consent is offered only until it is on file, and carries just the policy and the scopes', async () => {
+  const projectionSource = plain(studentProjection(draftCase()));
+  const harness = createHarness();
+  const recorder = commandRecorder({ recordReceipt: () => accepted(projectionSource) });
+  harness.ui.attachCommands(recorder.commands);
+
+  const withoutConsent = { ...projectionSource, consentReceipts: [] };
+  await harness.ui.renderProductionProjection(withoutConsent, liveContext(CASE_ID));
+  press(controlLabelled(harness, 'Record my consent'));
+  await settle(harness);
+
+  const [consent] = recorder.named('recordReceipt');
+  assert.equal(consent.input.receiptType, 'consent');
+  assert.deepEqual([...Object.keys(consent.input.receiptData)].sort(), ['policyVersion', 'scopes']);
+  assert.deepEqual(plainCopy(consent.input.receiptData.scopes), ['builder_autosave', 'faculty_handoff']);
+});
+
+/* --------------------------------------------------------------------- release and export */
+
+test('the faculty writer surface releases with two fields and never a timestamp', async () => {
+  const record = releasedCase({ released: false });
+  const projection = plain(facultyProjection(record));
+  assert.equal(projection.schemaVersion, 'missionmed.lor.faculty-projection.v1');
+  assert.equal(projection.facultyPrivate.finalDocument.releasedToStudentAt, null);
+
+  const harness = createHarness();
+  const recorder = commandRecorder({
+    releaseFinalDocument: () => ({
+      reached: true,
+      status: 200,
+      body: {
+        case: {
+          ...projection,
+          revision: projection.revision + 1,
+          facultyPrivate: {
+            ...projection.facultyPrivate,
+            finalDocument: {
+              ...projection.facultyPrivate.finalDocument,
+              releasedToStudentAt: '2026-08-09T15:00:00.000Z',
+            },
+          },
+        },
+      },
+    }),
+  });
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(projection, {
+    ...liveContext(CASE_ID),
+    actorRole: 'faculty',
+    projectionSchema: 'missionmed.lor.faculty-projection.v1',
+  });
+  assert.equal(harness.ui.renderedSurface, 'faculty');
+
+  press(controlLabelled(harness, 'Release this letter to the student'));
+  await settle(harness);
+
+  const [release] = recorder.named('releaseFinalDocument');
+  assert.deepEqual(
+    [...Object.keys(release.input)].sort(),
+    ['caseId', 'expectedRevision', 'documentId'].sort(),
+    'the release request carries the revision and the document, and nothing else',
+  );
+  assert.equal(release.input.documentId, 'document-1');
+  assert.equal(release.input.expectedRevision, projection.revision);
+  const serialized = JSON.stringify(release.input);
+  for (const forbidden of ['releasedToStudentAt', 'releasedAt', 'timestamp', 'now', 'occurredAt']) {
+    assert.ok(!serialized.includes(forbidden), `the release request must not carry ${forbidden}`);
+  }
+
+  // The release time on screen is the server's, read back out of its own projection.
+  assert.equal(harness.ui.state, 'saved');
+  assert.match(harness.text(), /Released to the student 2026-08-09 15:00 UTC/u);
+  assertNoInternalLeak(harness);
+});
+
+test('the release control is inert once the server says the letter is already released', async () => {
+  const projection = plain(facultyProjection(releasedCase()));
+  const harness = createHarness();
+  const recorder = commandRecorder();
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(projection, {
+    ...liveContext(CASE_ID),
+    actorRole: 'faculty',
+    projectionSchema: 'missionmed.lor.faculty-projection.v1',
+  });
+
+  const control = controlLabelled(harness, 'Release this letter to the student');
+  assert.equal(control.disabled, true);
+  control.click();
+  await settle(harness);
+  assert.equal(recorder.named('releaseFinalDocument').length, 0);
+});
+
+test('a student never sees a release control, whatever the case looks like', async () => {
+  for (const record of [draftCase(), releasedCase(), releasedCase({ released: false })]) {
+    const harness = createHarness();
+    harness.ui.attachCommands(commandRecorder().commands);
+    await harness.ui.renderProductionProjection(plain(studentProjection(record)), liveContext(CASE_ID));
+    assert.equal(harness.ui.renderedSurface, 'student');
+    assert.equal(harness.mount.querySelector('#lorReleaseActions'), null);
+    assert.equal(controlLabelled(harness, 'Release this letter to the student'), null);
+  }
+});
+
+test('export asks the export command for this case and only claims a download the browser took', async () => {
+  const projection = plain(studentProjection(releasedCase()));
+  const harness = createHarness();
+  const recorder = commandRecorder({
+    exportFinalDocument: () => ({ reached: true, status: 200, downloadStarted: true }),
+  });
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+
+  press(controlLabelled(harness, 'Download a copy'));
+  await settle(harness);
+
+  assert.deepEqual(plainCopy(recorder.named('exportFinalDocument').map((entry) => entry.input)), [{ caseId: CASE_ID }]);
+  assert.match(harness.text(), /Your download has started/u);
+  assert.equal(harness.networkCalls.length, 0);
+  assertNoInternalLeak(harness);
+});
+
+test('an export the browser refused to take is not described as a download', async () => {
+  const projection = plain(studentProjection(releasedCase()));
+  const harness = createHarness();
+  harness.ui.attachCommands(commandRecorder({
+    exportFinalDocument: () => ({ reached: true, status: 200, downloadStarted: false }),
+  }).commands);
+  await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+
+  press(controlLabelled(harness, 'Download a copy'));
+  await settle(harness);
+  assert.ok(!harness.text().includes('Your download has started'));
+  assert.match(harness.text(), /did not start the download/u);
+});
+
+/* ------------------------------------------------------------------- failure vocabulary */
+
+test('every write failure maps to safe copy and leaks no status, reason code or message', async () => {
+  const expectations = [
+    [{ reached: false }, 'network_failure', 'We could not reach MissionMed'],
+    [{ reached: true, status: 400, body: { error: 'validation_failed', message: 'The request payload is invalid.' } }, 'save_failed', 'That change was not saved'],
+    [{ reached: true, status: 401, body: { error: 'session_expired' } }, 'unauthorized', 'Sign in again to continue'],
+    [{ reached: true, status: 403, body: { error: 'csrf_validation_failed' } }, 'unauthorized', 'Sign in again to continue'],
+    [{ reached: true, status: 404, body: { error: 'not_found', message: 'The requested recommendation case was not found.' } }, 'case_not_found', 'We could not open this case'],
+    [{ reached: true, status: 409, body: { error: 'stale_revision' } }, 'version_conflict', 'This case changed somewhere else'],
+    [{ reached: true, status: 423, body: { error: 'lor_kill_switch_active' } }, 'durable_runtime_unavailable', 'LOR Studio cannot open your case right now'],
+    [{ reached: true, status: 503, body: { error: 'integration_disabled' } }, 'provider_unavailable', 'A service LOR Studio depends on is offline'],
+    [{ reached: true, status: 500, body: { error: 'lor_application_request_failed' } }, 'server_failure', 'Something went wrong on our side'],
+    [{ reached: true, status: 418, body: { error: 'unmapped_status' } }, 'server_failure', 'Something went wrong on our side'],
+  ];
+
+  for (const [outcome, expectedState, expectedCopy] of expectations) {
+    const { harness } = await editableHarness({ autosaveBuilderStep: () => outcome });
+    typeInto(harness, 'timeline_highlights', 'standoutMoment', 'A sentence');
+    press(controlLabelled(harness, 'Save now'));
+    await settle(harness);
+
+    assert.equal(harness.ui.state, expectedState, `status ${outcome.status ?? 'unreachable'}`);
+    assert.ok(harness.text().includes(expectedCopy), `status ${outcome.status ?? 'unreachable'} copy`);
+    assert.ok(!harness.text().includes('Saved to your account'));
+    assert.ok(harness.ui.hasUnsavedEdits, 'a failed write must never discard what was typed');
+    assertNoInternalLeak(harness);
+    // Nothing the server said about itself may appear on screen.
+    for (const token of [String(outcome.status ?? ''), 'stale_revision', 'csrf', 'validation_failed', 'payload']) {
+      if (!token) continue;
+      assert.ok(!harness.text().includes(token), `server detail leaked: ${token}`);
+    }
+  }
+});
+
+/* -------------------------------------------------------------------- isolation, still */
+
+test('attaching commands keeps every isolation property and cannot install anything else', async () => {
+  const { harness } = await editableHarness();
+  assert.equal(harness.ui.presentationIsolation, 'production_projection_only');
+  assert.equal(harness.ui.usesLocalStorage, false);
+  assert.equal(harness.ui.canRevealPrototype, false);
+  assert.throws(() => { harness.ui.canRevealPrototype = true; }, TypeError);
+
+  // Only the six named commands are kept; anything else in the object is discarded.
+  const receipt = harness.ui.attachCommands({
+    autosaveBuilderStep: async () => ({ reached: true, status: 200, body: {} }),
+    revealPrototype: () => true,
+    persistToLocalStorage: () => true,
+    csrfToken: 'csrf-value',
+  });
+  assert.deepEqual([...receipt.attached], ['autosaveBuilderStep']);
+  assert.equal(harness.storageTouches.length, 0);
+  assert.equal(harness.networkCalls.length, 0);
+  assertPrototypeStillQuarantined(harness);
+  assertNoInlineHandlers(harness);
+});
+
+test('with no commands attached the surface is exactly the read-only screen it was before', async () => {
+  const harness = createHarness();
+  await harness.ui.renderProductionProjection(plain(studentProjection(draftCase())), liveContext(CASE_ID));
+  assert.equal(harness.mount.querySelector('.lorProductionStepForm'), null);
+  assert.equal(harness.mount.querySelector('#lorReceiptActions'), null);
+  assert.equal(harness.mount.querySelector('#lorExportActions'), null);
+  assert.match(harness.text(), /This case is open for reading only\./u);
+
+  harness.ui.attachCommands({});
+  assert.equal(harness.mount.querySelector('.lorProductionStepForm'), null);
+});
+
+test('typed content is held as a control value and never becomes markup', async () => {
+  const stepId = 'timeline_highlights';
+  const { harness, recorder } = await editableHarness({
+    autosaveBuilderStep: () => ({ reached: true, status: 409, body: {} }),
+  });
+
+  const hostile = '<img src=x onerror="window.__XSS__=true"><script>window.__XSS2__=true</script>';
+  typeInto(harness, stepId, 'standoutMoment', hostile);
+  press(controlLabelled(harness, 'Save now'));
+  await settle(harness);
+
+  assert.equal(harness.mount.querySelector('img'), null);
+  assert.equal(harness.mount.querySelector('script'), null);
+  assert.equal(harness.win.__XSS__, undefined);
+  assert.equal(harness.win.__XSS2__, undefined);
+  // It survived the conflict re-render as data, in the control, not in the document.
+  assert.equal(fieldControl(harness, stepId, 'standoutMoment').value, hostile);
+  assert.equal(recorder.named('autosaveBuilderStep')[0].input.stepData.standoutMoment, hostile);
+  assertNoInlineHandlers(harness);
+  assertPrototypeStillQuarantined(harness);
+});
+
+test('blocking the surface cancels a pending autosave rather than letting it fire into a closed screen', async () => {
+  const { harness, recorder } = await editableHarness();
+  typeInto(harness, 'timeline_highlights', 'standoutMoment', 'Typed, then blocked');
+  await assert.rejects(
+    () => harness.ui.block({ reasonCode: 'UNAUTHORIZED', revealPrototype: true }),
+    /cannot reveal the frozen prototype/u,
+  );
+  await new Promise((resolve) => harness.win.setTimeout(resolve, 900));
+  assert.equal(recorder.named('autosaveBuilderStep').length, 0);
+  assert.equal(harness.ui.state, 'unauthorized');
 });

@@ -26,6 +26,37 @@ html:not([data-lor-runtime="live"]) .lor-production-root {
   display: none !important;
 }
 
+/* Editing affordances. Layout only: every colour, border, radius and type scale comes from the
+   frozen presentation's own .fld / .btn / .chip / .warnBox rules, which are in the same document
+   and already cascade into the production mount. Nothing here introduces a second design system. */
+.lorProductionActions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.lorProductionActions .micNote {
+  flex-basis: 100%;
+  margin-top: 0;
+}
+
+.lorProductionStepForm {
+  margin-top: 14px;
+}
+
+.lorProductionStepDetail > .pHead {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lorProductionStepDetail .warnBox {
+  margin-top: 16px;
+}
+
 .lor-runtime-gate {
   align-items: center;
   background:
