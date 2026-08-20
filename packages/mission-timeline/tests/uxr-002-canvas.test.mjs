@@ -50,6 +50,21 @@ const canvasSource=await readFile(
   "utf8"
 );
 
+test("persistent canvas patch tolerates blur-triggered nested renders",()=>{
+  assert.match(
+    canvasSource,
+    /child!==currentKernel&&child\.parentNode===currentApplication/
+  );
+  assert.match(
+    canvasSource,
+    /child!==currentApplication&&child\.parentNode===currentStage/
+  );
+  assert.match(
+    canvasSource,
+    /child!==currentStage&&child\.parentNode===currentScreen/
+  );
+});
+
 class MemoryVersionAdapter {
   constructor() {
     this.versions = new Map();

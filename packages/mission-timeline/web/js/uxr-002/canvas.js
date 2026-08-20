@@ -1671,14 +1671,18 @@ export function installCanvas(
     copyElementAttributes(currentApplication,nextApplication);
 
     for(const child of [...currentApplication.children]){
-      if(child!==currentKernel)child.remove();
+      // Removing a focused inspector/editor node can synchronously fire blur,
+      // which may trigger a nested render that already detaches later nodes in
+      // this snapshot. Recheck ownership before every removal so the outer
+      // patch remains idempotent under that re-entrant render.
+      if(child!==currentKernel&&child.parentNode===currentApplication)child.remove();
     }
     for(const child of [...nextApplication.children]){
       if(child!==nextKernel)currentApplication.append(child);
     }
 
     for(const child of [...currentStage.children]){
-      if(child!==currentApplication)child.remove();
+      if(child!==currentApplication&&child.parentNode===currentStage)child.remove();
     }
     for(const child of [...nextStage.children]){
       if(child!==nextApplication)currentStage.append(child);
@@ -1686,7 +1690,7 @@ export function installCanvas(
 
     const nextStageIndex=[...nextScreen.children].indexOf(nextStage);
     for(const child of [...currentScreen.children]){
-      if(child!==currentStage)child.remove();
+      if(child!==currentStage&&child.parentNode===currentScreen)child.remove();
     }
     [...nextScreen.children].forEach((child,index)=>{
       if(child===nextStage)return;
