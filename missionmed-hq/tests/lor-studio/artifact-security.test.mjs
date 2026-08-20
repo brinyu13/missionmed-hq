@@ -396,6 +396,207 @@ test('operational redaction gates numeric and boolean scalars by field name', ()
   assert.deepEqual(redactForOperationalTelemetry({ latencyMs: Number.NaN }), { latencyMs: '[REDACTED]' });
 });
 
+// ---------------------------------------------------------------------------
+// Grounded AI drafting: the events reach a real audit record, and nothing the model wrote or
+// read reaches telemetry. core-domain.test.mjs proves both vocabularies PERMIT the two AI types;
+// these prove the rest of the path.
+// ---------------------------------------------------------------------------
+
+const AI_EVENT_TYPES = ['ai.proposal_generated', 'ai.proposal_decision_recorded'];
+
+test('AI drafting events reach an audit record carrying accountability but no drafting content', async () => {
+  const sink = new InMemoryAuditEventSink();
+  const emitted = [];
+  for (const type of AI_EVENT_TYPES) {
+    const event = createAuditEvent({
+      type,
+      actor: { id: 'faculty-private-id', role: 'faculty' },
+      caseId: 'case-private-id',
+      targetId: 'proposal-private-id',
+      outcome: 'success',
+      metadata: type === 'ai.proposal_generated'
+        ? { providerClass: 'primary', result: 'proposal_recorded', durationBucket: 'lt_2s' }
+        : { action: 'accepted', result: 'decision_recorded' },
+      at: new Date('2026-08-09T16:00:00.000Z'),
+    });
+    // AUDITED: the sink re-checks the type on emit, so a vocabulary that accepted the type at
+    // construction but not at emit would still drop the record on the floor.
+    const receipt = await sink.emit(event);
+    assert.equal(receipt.accepted, true);
+    emitted.push(event);
+  }
+
+  const stored = sink.list();
+  assert.equal(stored.length, AI_EVENT_TYPES.length);
+  assert.deepEqual(stored.map((record) => record.type), AI_EVENT_TYPES);
+
+  for (const record of stored) {
+    // The fields the sink requires, all present and all pseudonymized.
+    assert.equal(record.schemaVersion, 1);
+    assert.match(record.eventId, /^[0-9a-f-]{36}$/u);
+    assert.equal(record.at, '2026-08-09T16:00:00.000Z');
+    assert.equal(record.actorRole, 'faculty');
+    assert.match(record.actorRef, /^[a-f0-9]{24}$/u);
+    assert.match(record.caseRef, /^[a-f0-9]{24}$/u);
+    assert.match(record.targetRef, /^[a-f0-9]{24}$/u);
+    assert.equal(record.outcome, 'success');
+    // Accountability survives: which proposal, by whom, is still joinable via the digests.
+    assert.doesNotMatch(
+      JSON.stringify(record),
+      /faculty-private-id|case-private-id|proposal-private-id/u,
+    );
+  }
+  assert.equal(stored[1].metadata.action, 'accepted');
+  assert.equal(stored[0].metadata.providerClass, 'primary');
+
+  // The audit metadata bag is an allowlist, and drafting content is what it exists to keep out.
+  for (const metadata of [
+    { letterText: 'Jane Doe is the strongest student I have supervised.' },
+    { claimText: 'She led the code team during a cardiac arrest.' },
+    { studentId: 'wp:4471' },
+    { recommenderId: 'faculty-77' },
+    { prompt: 'Draft a letter grounded in the following facts' },
+  ]) {
+    assert.throws(
+      () => createAuditEvent({
+        type: 'ai.proposal_generated',
+        actor: { id: 'faculty-1', role: 'faculty' },
+        caseId: 'case-1',
+        outcome: 'success',
+        metadata,
+      }),
+      /not allowlisted/u,
+      `audit metadata accepted ${Object.keys(metadata)[0]}`,
+    );
+  }
+
+  // MALFORMED FAILS SAFE on the audit plane: a mistyped scalar is refused, not stringified, and
+  // an outcome the AI plane might reach for but this vocabulary does not carry is refused too.
+  assert.throws(
+    () => createAuditEvent({
+      type: 'ai.proposal_generated',
+      actor: { id: 'faculty-1', role: 'faculty' },
+      caseId: 'case-1',
+      outcome: 'success',
+      metadata: { result: { nested: 'object' } },
+    }),
+    /must be scalar/u,
+  );
+  assert.throws(
+    () => createAuditEvent({
+      type: 'ai.proposal_decision_recorded',
+      actor: { id: 'faculty-1', role: 'faculty' },
+      caseId: 'case-1',
+      outcome: 'idempotent_replay',
+    }),
+    /not allowlisted/u,
+  );
+  // A bare emit of an unvalidated object must not enter the log either.
+  await assert.rejects(
+    () => sink.emit({ type: 'ai.proposal_generated', actorRole: 'faculty' }),
+    /Validated audit event is required/u,
+  );
+  assert.equal(sink.list().length, AI_EVENT_TYPES.length);
+});
+
+test('a realistic AI drafting telemetry payload survives redaction with no prose in it', () => {
+  const LETTER = 'Jane Doe is the strongest student I have supervised in twelve years.';
+  const CLAIM_ONE = 'She led the code team during a cardiac arrest.';
+  const CLAIM_TWO = 'She scored in the 98th percentile.';
+  const STUDENT = 'wp:4471';
+  const RECOMMENDER = 'faculty-77';
+
+  // Shaped the way an emitter would plausibly build it: the proposal record nested whole, a
+  // per-recommender counter map, and - the careless-emitter case - the model's own output
+  // dropped into `result`, which IS an allowlisted telemetry key.
+  const payload = {
+    eventType: 'ai.proposal_generated',
+    providerClass: 'primary',
+    templateVersion: 'missionmed.lor.draft-template.v1',
+    latencyMs: 820,
+    factCount: 4,
+    proposal: {
+      letterText: LETTER,
+      outputHash: 'a'.repeat(64),
+      claims: [
+        { text: CLAIM_ONE, supportId: 'fact-1' },
+        { text: CLAIM_TWO, supportId: 'fact-2' },
+      ],
+    },
+    studentId: STUDENT,
+    recommenderId: RECOMMENDER,
+    'jane.doe@example.test': 3,
+    [RECOMMENDER]: 2,
+    result: 'The student described protected patient details.',
+    reasonCode: 'proposal_generated',
+  };
+
+  const redacted = redactForOperationalTelemetry(payload);
+  assert.deepEqual(redacted, {
+    // Even the event type does not survive: `eventType` is not an allowlisted telemetry string
+    // key. Telemetry is default-deny by field name, and nothing here is special-cased for AI.
+    eventType: '[REDACTED]',
+    providerClass: 'primary',
+    templateVersion: '[REDACTED]',
+    latencyMs: 820,
+    factCount: '[REDACTED]',
+    proposal: {
+      letterText: '[REDACTED]',
+      outputHash: '[REDACTED]',
+      claims: [
+        { text: '[REDACTED]', supportId: '[REDACTED]' },
+        { text: '[REDACTED]', supportId: '[REDACTED]' },
+      ],
+    },
+    studentId: '[REDACTED]',
+    recommenderId: '[REDACTED]',
+    // Prose under an ALLOWLISTED key. This is the load-bearing assertion: the field-name
+    // allowlist alone does not save this one, SAFE_TELEMETRY_VALUE does, by refusing a value
+    // with spaces in it. Widen that pattern and the letter ships to telemetry verbatim.
+    result: '[REDACTED]',
+    reasonCode: 'proposal_generated',
+    // Keys that ARE identifiers - an email and `faculty-77` - are dropped whole and counted,
+    // because redacting only their values would still publish the identifier.
+    redactedKeys: 2,
+  });
+
+  // Shape-independent backstop: no fragment of protected material anywhere in the output.
+  const serialized = JSON.stringify(redacted);
+  for (const secret of [LETTER, CLAIM_ONE, CLAIM_TWO, STUDENT, RECOMMENDER, 'jane.doe@example.test']) {
+    assert.equal(serialized.includes(secret), false, `telemetry leaked ${secret}`);
+  }
+  for (const word of ['Jane', 'Doe', 'cardiac', 'percentile', 'supervised', 'patient']) {
+    assert.doesNotMatch(serialized, new RegExp(word, 'u'), `telemetry leaked the word ${word}`);
+  }
+
+  // The decision side carries the human's edited wording, which is the other prose that must
+  // never reach telemetry - it is human authorship, but it is still the letter.
+  const EDITED = 'I have revised this to say she led the resuscitation team.';
+  const decision = redactForOperationalTelemetry({
+    eventType: 'ai.proposal_decision_recorded',
+    action: 'edited',
+    result: 'decision_recorded',
+    resultingText: EDITED,
+    acceptedContent: { text: EDITED, textHash: 'b'.repeat(64), groundedAsAttested: false },
+    decidedBy: RECOMMENDER,
+  });
+  assert.deepEqual(decision, {
+    eventType: '[REDACTED]',
+    // `action` is allowlisted and 'edited' is token-shaped, so the operational signal survives.
+    action: 'edited',
+    result: 'decision_recorded',
+    resultingText: '[REDACTED]',
+    // Collapsed WHOLE, not walked into: `acceptedContent` matches PROTECTED_KEY on "content",
+    // so the subtree never gets the chance to have a member vouched for. This is the one place
+    // PROTECTED_KEY does work the field-name allowlist does not - for a scalar it is only
+    // defence in depth, since an unlisted key is already denied, but for an object it is the
+    // difference between dropping the branch and recursing into it.
+    acceptedContent: '[REDACTED]',
+    decidedBy: '[REDACTED]',
+  });
+  assert.equal(JSON.stringify(decision).includes(EDITED), false);
+});
+
 test('audit actor roles cover every operational role the authorization policy recognizes', () => {
   for (const role of ACTOR_ROLES) {
     const event = createAuditEvent({

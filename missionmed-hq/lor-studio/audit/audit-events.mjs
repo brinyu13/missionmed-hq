@@ -1,6 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
 
 const EVENT_TYPES = new Set([
+  // Grounded AI drafting, kept in step with ALLOWED_EVENT_TYPES in services/metadata-events.js.
+  // The two vocabularies stay separate on purpose (different outcomes, different record shapes)
+  // but must be JOINTLY closed over the AI plane: an event the ledger accepts and the audit sink
+  // rejects is an unauditable state change. core-domain.test.mjs asserts both accept both.
+  'ai.proposal_decision_recorded',
+  'ai.proposal_generated',
   'case.created',
   'builder.saved',
   'builder.conflict',

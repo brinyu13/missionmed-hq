@@ -19,10 +19,13 @@ import { fileURLToPath } from 'node:url';
 import { createLorStudioApplication } from '../../lor-studio/composition.mjs';
 import { createLorStudioRuntime } from '../../lor-studio/http/runtime.mjs';
 import { InMemoryRecommendationCaseRepository } from '../../lor-studio/repositories/in-memory-recommendation-case-repository.js';
+import { DeterministicAiProposalAdapter } from '../../lor-studio/adapters/deterministic-ai-provider.js';
 import {
   MetadataOnlyEventBuffer,
   StaticEntitlementTestAdapter,
 } from '../../lor-studio/adapters/test-adapters.js';
+import { IdempotencyConflictError, NotFoundError } from '../../lor-studio/domain/errors.js';
+import { aiProposalAlreadyDecided } from '../../lor-studio/services/ai-proposal-service.js';
 
 if (process.env.LOR_STUDIO_DEV_SERVER !== '1') {
   console.error('Refusing to start: set LOR_STUDIO_DEV_SERVER=1 to run the local verification server.');
@@ -101,6 +104,79 @@ class LocalVerificationDurableRepository {
   }
 }
 
+/**
+ * The AI proposal store contract, in memory. LOCAL VERIFICATION ONLY.
+ *
+ * Same standing as LocalVerificationDurableRepository above, and the same warning: this is NOT
+ * persistence. It satisfies the SHAPE of the conditional-atomic-write contract so a browser can
+ * drive draft -> read -> decide, and it loses every proposal when the process exits.
+ *
+ * The two conditional writes are honoured rather than approximated, because approximating them
+ * is precisely how a local server teaches the wrong lesson about the contract:
+ *
+ *   putProposal    - replays on a repeat of (caseId, idempotencyKey) with the same requestHash,
+ *                    conflicts on a different one, and refuses a record that arrives decided.
+ *   attachDecision - tests "still undecided" INSIDE the write. A read-then-write here would let
+ *                    two concurrent decisions both observe null and both commit, which is the
+ *                    one thing the store exists to prevent.
+ */
+class LocalVerificationAiProposalStore {
+  constructor() {
+    this.isDurable = false;
+    this.durability = 'LOCAL_VERIFICATION_NOT_DURABLE_IN_FACT';
+    this.records = new Map();
+    this.idempotency = new Map();
+  }
+
+  static key(caseId, id) {
+    return `${caseId} ${id}`;
+  }
+
+  #replay(caseId, idempotencyKey, requestHash) {
+    const reserved = this.idempotency.get(LocalVerificationAiProposalStore.key(caseId, idempotencyKey));
+    if (!reserved) return null;
+    if (reserved.requestHash !== requestHash) throw new IdempotencyConflictError({ idempotencyKey });
+    const stored = this.records.get(LocalVerificationAiProposalStore.key(caseId, reserved.proposalId));
+    return { record: structuredClone(stored), replayed: true };
+  }
+
+  #reserve(caseId, idempotencyKey, requestHash, proposalId) {
+    this.idempotency.set(
+      LocalVerificationAiProposalStore.key(caseId, idempotencyKey),
+      { requestHash, proposalId },
+    );
+  }
+
+  async putProposal({ caseId, idempotencyKey, requestHash, record }) {
+    // A proposal may never arrive already decided: the decision is a separate, human act.
+    if (record.decision !== null || record.acceptedContent !== null) {
+      throw new Error('A stored AI proposal may not arrive already decided');
+    }
+    const replay = this.#replay(caseId, idempotencyKey, requestHash);
+    if (replay) return replay;
+    this.#reserve(caseId, idempotencyKey, requestHash, record.id);
+    this.records.set(LocalVerificationAiProposalStore.key(caseId, record.id), structuredClone(record));
+    return { record: structuredClone(record), replayed: false };
+  }
+
+  async getProposal({ caseId, proposalId }) {
+    const stored = this.records.get(LocalVerificationAiProposalStore.key(caseId, proposalId));
+    return stored ? structuredClone(stored) : null;
+  }
+
+  async attachDecision({ caseId, proposalId, idempotencyKey, requestHash, record }) {
+    const replay = this.#replay(caseId, idempotencyKey, requestHash);
+    if (replay) return replay;
+    const key = LocalVerificationAiProposalStore.key(caseId, proposalId);
+    const stored = this.records.get(key);
+    if (!stored) throw new NotFoundError('ai_proposal', proposalId);
+    if (stored.decision !== null) throw aiProposalAlreadyDecided(proposalId);
+    this.#reserve(caseId, idempotencyKey, requestHash, proposalId);
+    this.records.set(key, structuredClone(record));
+    return { record: structuredClone(record), replayed: false };
+  }
+}
+
 function entitlementRecord(studentId) {
   return {
     studentId,
@@ -120,6 +196,12 @@ const composed = createLorStudioApplication({
   // The durable branch of RecommendationCaseService forbids an event sink, because a durable
   // repository commits state and audit atomically in one transaction.
   testRepository: new LocalVerificationDurableRepository(),
+  // AI drafting, exercisable in a browser. The store is the in-memory one above; the provider is
+  // the deterministic local adapter - the same one the composition root defaults to - named here
+  // so the local server's provider choice is visible at its own composition site rather than
+  // inherited silently. Neither binds a credential nor opens a socket.
+  aiProposalStore: new LocalVerificationAiProposalStore(),
+  aiProposalProvider: new DeterministicAiProposalAdapter(),
   // Asserted true ONLY here, so the browser can exercise the hydration path. These are caller
   // assertions, not measurements - the dependency probes that would measure them are unbuilt.
   // Production composition leaves both false, which is why production still declines.
@@ -188,5 +270,5 @@ const server = http.createServer(async (request, response) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`LOR Studio local verification server: http://127.0.0.1:${PORT}/lor-studio`);
   console.log(`  subject: ${SUBJECT}   target: ${TARGET_CONFIGURATION.projectRef} (${TARGET_CONFIGURATION.environment})`);
-  console.log('  TEST ONLY - fixed session, static entitlement, non-durable repository.');
+  console.log('  TEST ONLY - fixed session, static entitlement, non-durable repository and proposal store.');
 });

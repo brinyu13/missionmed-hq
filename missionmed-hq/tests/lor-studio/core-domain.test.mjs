@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { MetadataOnlyEventBuffer, StaticEntitlementTestAdapter } from '../../lor-studio/adapters/test-adapters.js';
+// The AI drafting vocabulary spans two planes; the joint-closure test below needs both.
+import { createAuditEvent } from '../../lor-studio/audit/audit-events.mjs';
 import {
   AuthorizationDeniedError,
   DomainInvariantError,
@@ -623,6 +625,190 @@ test('every event type the domain can emit is accepted by the metadata sink', as
       `metadata sink rejects '${eventType}', which the domain emits`,
     );
   }
+});
+
+
+// ---------------------------------------------------------------------------
+// Grounded AI drafting event vocabulary.
+//
+// The drafting lane shipped emitting NO events at all rather than mint a type the vocabulary
+// would reject, so every AI proposal and every human decision on one was invisible to the event
+// ledger AND to the audit sink. Closing that is not "append two strings": the types have to be
+// derived from what the service actually does, and accepted by BOTH vocabularies. They are two
+// separate Sets in two separate files (services/metadata-events.js and audit/audit-events.mjs)
+// and they have drifted before, so a type accepted by one and refused by the other is a state
+// change that either cannot be recorded or cannot be audited.
+// ---------------------------------------------------------------------------
+
+/**
+ * Read the state-changing AI operations out of the drafting service's own source and map each to
+ * the event type it owes. Derived, not restated, for the same reason the domain test above is:
+ * a hand-maintained list is exactly how the previous allowlist fell out of step.
+ */
+async function deriveAiDraftingEventTypes() {
+  const { readFileSync } = await import('node:fs');
+  const { fileURLToPath } = await import('node:url');
+  const source = readFileSync(
+    fileURLToPath(new URL('../../lor-studio/services/ai-proposal-service.js', import.meta.url)),
+    'utf8',
+  );
+  const operations = new Set();
+  for (const [, literal] of source.matchAll(/operation:\s*'(ai\.[a-z_.]+)'/gu)) {
+    operations.add(literal);
+  }
+  // A TOTAL mapping is the point. A new `ai.*` operation added to the service with no entry here
+  // fails the assertion below rather than silently going unrecorded, which is the failure mode
+  // that produced an AI plane with no events in the first place.
+  const eventTypeByOperation = new Map([
+    ['ai.proposal.generate', 'ai.proposal_generated'],
+    ['ai.proposal.decide', 'ai.proposal_decision_recorded'],
+  ]);
+  return { operations, eventTypeByOperation };
+}
+
+test('every AI drafting operation the service performs maps to an event type both vocabularies accept', async () => {
+  const { operations, eventTypeByOperation } = await deriveAiDraftingEventTypes();
+
+  // Guard the derivation itself. If the `operation:` literals are renamed or moved out of
+  // ai-proposal-service.js, an empty set would make every assertion below vacuously pass - a
+  // green test proving nothing is worse than no test.
+  assert.deepEqual(
+    [...operations].sort(),
+    ['ai.proposal.decide', 'ai.proposal.generate'],
+    'the derivation can no longer see the drafting operations it exists to cover',
+  );
+
+  for (const operation of [...operations].sort()) {
+    const eventType = eventTypeByOperation.get(operation);
+    assert.ok(
+      eventType,
+      `the service performs '${operation}' but no event type is mapped to it, so it would emit nothing`,
+    );
+
+    // PERMITTED, plane 1 of 2: the metadata event ledger, which the durable repositories
+    // validate at the persistence boundary.
+    assert.doesNotThrow(
+      () => createMetadataServiceEvent({
+        eventType,
+        caseId: 'case-ai-1',
+        actorId: 'faculty-1',
+        actorRole: 'faculty',
+        correlationId: 'correlation-ai-1',
+        occurredAt: T0,
+      }),
+      `the metadata ledger rejects '${eventType}', which the AI drafting plane must emit`,
+    );
+
+    // PERMITTED, plane 2 of 2: the audit sink. Checked independently and deliberately - a test
+    // that asserted only plane 1 would stay green through exactly the drift being guarded here.
+    assert.doesNotThrow(
+      () => createAuditEvent({
+        type: eventType,
+        actor: { id: 'faculty-1', role: 'faculty' },
+        caseId: 'case-ai-1',
+        outcome: 'success',
+        metadata: { action: 'record', result: 'ok' },
+        at: T0,
+      }),
+      `the audit sink rejects '${eventType}', which the AI drafting plane must emit`,
+    );
+  }
+
+  // The OPERATION name is not itself an event type. This keeps the mapping honest: without it,
+  // adding the raw `ai.proposal.generate` string to both allowlists would satisfy the loop above
+  // while leaving the two planes describing operations instead of recorded facts.
+  for (const operation of operations) {
+    assert.throws(
+      () => createMetadataServiceEvent({
+        eventType: operation,
+        caseId: 'case-ai-1',
+        actorId: 'faculty-1',
+        actorRole: 'faculty',
+        correlationId: 'correlation-ai-1',
+        occurredAt: T0,
+      }),
+      ValidationError,
+      `the metadata ledger accepts the raw operation name '${operation}' as an event type`,
+    );
+    assert.throws(
+      () => createAuditEvent({
+        type: operation,
+        actor: { id: 'faculty-1', role: 'faculty' },
+        caseId: 'case-ai-1',
+        outcome: 'success',
+      }),
+      /not allowlisted/u,
+      `the audit sink accepts the raw operation name '${operation}' as an event type`,
+    );
+  }
+});
+
+test('a malformed AI drafting ledger event is rejected, never coerced', () => {
+  const valid = createMetadataServiceEvent({
+    eventType: 'ai.proposal_generated',
+    caseId: 'case-ai-1',
+    actorId: 'faculty-1',
+    actorRole: 'faculty',
+    correlationId: 'correlation-ai-1',
+    revision: 3,
+    occurredAt: T0,
+  });
+  assert.equal(valid.eventType, 'ai.proposal_generated');
+  assert.equal(validateMetadataServiceEvent(valid), true);
+
+  // MISSING. The field-count check is what catches this; dropping a field must not leave a
+  // partially-formed event that still validates.
+  for (const field of Object.keys(valid)) {
+    const { [field]: _removed, ...missing } = valid;
+    assert.throws(
+      () => validateMetadataServiceEvent(missing),
+      ValidationError,
+      `a ledger event missing '${field}' validated anyway`,
+    );
+  }
+
+  // EXTRA. An AI event is the one most likely to be handed a prose field by a careless emitter,
+  // so the two that matter most are named explicitly rather than left to the generic case.
+  for (const [field, value] of [
+    ['letterText', 'Jane Doe is the strongest student I have supervised.'],
+    ['claimText', 'She led the code team during a cardiac arrest.'],
+    ['prompt', 'Draft a letter for...'],
+    ['proposalId', 'proposal-1'],
+  ]) {
+    assert.throws(
+      () => validateMetadataServiceEvent({ ...valid, [field]: value }),
+      ValidationError,
+      `a ledger event carrying '${field}' validated anyway`,
+    );
+  }
+
+  // MISTYPED. Each of these is a value a coercing validator would happily accept.
+  assert.throws(() => validateMetadataServiceEvent({ ...valid, revision: '3' }), ValidationError);
+  assert.throws(() => validateMetadataServiceEvent({ ...valid, revision: 3.5 }), ValidationError);
+  assert.throws(() => validateMetadataServiceEvent({ ...valid, revision: -1 }), ValidationError);
+  assert.throws(() => validateMetadataServiceEvent({ ...valid, outcome: 'generated' }), ValidationError);
+  assert.throws(() => validateMetadataServiceEvent({ ...valid, actorRole: 'ai' }), ValidationError);
+  assert.throws(() => validateMetadataServiceEvent({ ...valid, occurredAt: 'whenever' }), ValidationError);
+  assert.throws(() => validateMetadataServiceEvent({ ...valid, schemaVersion: 2 }), ValidationError);
+
+  // A raw, unhashed identifier in a reference slot is the leak the digest pattern exists to stop.
+  assert.throws(
+    () => validateMetadataServiceEvent({ ...valid, caseRef: 'case-ai-1' }),
+    ValidationError,
+  );
+
+  // `service` is the role a machine-initiated drafting run would use; `ai` is not a role at all.
+  assert.throws(
+    () => createMetadataServiceEvent({
+      eventType: 'ai.proposal_decision_recorded',
+      caseId: 'case-ai-1',
+      actorId: 'faculty-1',
+      actorRole: 'ai',
+      correlationId: 'correlation-ai-1',
+      occurredAt: T0,
+    }),
+    ValidationError,
+  );
 });
 
 

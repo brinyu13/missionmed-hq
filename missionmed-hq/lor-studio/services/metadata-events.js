@@ -10,6 +10,14 @@ import {
 
 const ALLOWED_OUTCOMES = new Set(['success', 'denied', 'failed', 'idempotent_replay']);
 const ALLOWED_EVENT_TYPES = new Set([
+  // Grounded AI drafting. createAiDraftingService performs exactly two state-changing
+  // operations - `ai.proposal.generate` and `ai.proposal.decide` (ai-proposal-service.js:524,
+  // 622) - and each needs a ledger event. The drafting lane emitted nothing at all rather than
+  // mint a type this vocabulary would reject, so the AI plane was invisible to the event
+  // ledger. core-domain.test.mjs derives these from the service's own source: a third
+  // operation added there fails that test rather than silently going unrecorded.
+  'ai.proposal_decision_recorded',
+  'ai.proposal_generated',
   'case.created',
   'builder.autosaved',
   'builder.step_completed',
