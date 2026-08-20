@@ -41,6 +41,7 @@ const OBJECT_CLASSES = new Set<ObjectRecord["objectClass"]>([
 const ALLOWED_MIME = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "application/json",
   "application/zip",
   "image/png",
@@ -433,6 +434,35 @@ export class R2PrivateObjectStore implements PrivateObjectStore {
   async getAuthorizedObject(context: PrincipalContext, objectId: string): Promise<ObjectRecord | null> {
     this.assertAuthenticated(context);
     return this.options.repository.getAuthorized(context, objectId);
+  }
+
+  async getAuthorizedObjectBytes(context: PrincipalContext, objectId: string): Promise<{record: ObjectRecord; bytes: Uint8Array}> {
+    this.assertAuthenticated(context);
+    const record = await this.requireAuthorizedRecord(context, objectId);
+    if (record.status !== "CONFIRMED") throw new TimelineError("OBJECT_NOT_FOUND", "Object not found.", 404);
+    if (record.objectClass === "SOURCE") this.assertMutableBy(context, record);
+    try {
+      const result = await this.options.client.send(new GetObjectCommand({
+        Bucket: this.options.bucket,
+        Key: record.storageKey,
+        ChecksumMode: "ENABLED",
+      }));
+      const bytes = new Uint8Array(await result.Body!.transformToByteArray());
+      const mismatch = this.integrityMismatch(record, {
+        contentLength: result.ContentLength,
+        contentType: result.ContentType,
+        checksumSha256: result.ChecksumSHA256,
+        metadata: result.Metadata,
+      });
+      if (mismatch || bytes.byteLength !== record.expectedBytes || sha256(bytes) !== record.expectedSha256) {
+        throw new TimelineError("OBJECT_INTEGRITY_MISMATCH", "Object integrity does not match its confirmed record.", 409);
+      }
+      return { record: clone(record), bytes };
+    } catch (error) {
+      if (error instanceof TimelineError) throw error;
+      if (this.isNotFound(error)) throw new TimelineError("OBJECT_NOT_FOUND", "Object not found.", 404);
+      throw this.storageUnavailable(error);
+    }
   }
 
   async deleteObject(context: PrincipalContext, objectId: string): Promise<void> {

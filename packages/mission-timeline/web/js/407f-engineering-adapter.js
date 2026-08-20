@@ -25,6 +25,12 @@ import {
   computeStoryChecks
 } from "./uxr-002/review.js";
 import {
+  analyzeTimelineQuality,
+  applySafeQualityFixes,
+  qualityGuardianViewer,
+  renderQualityGuardian
+} from "./uxr-002/quality-guardian.js";
+import {
   beginCanvasDrag,
   commitCanvasDrag,
   createCanvasState,
@@ -1567,6 +1573,7 @@ export async function boot407FEngineeringAdapter({
   let onM9BuilderClick=()=>{};
   let onM9BuilderChange=()=>{};
   let onEntitlementCapture=()=>{};
+  let onQualityGuardianCapture=()=>{};
   let renderM9BuilderSurfaces=()=>{};
   let onRouteRendered=()=>{};
   let responsiveRuntime=null;
@@ -1854,6 +1861,7 @@ export async function boot407FEngineeringAdapter({
     for(const eventName of ["click","input","change","drop"]){
       document.removeEventListener(eventName,onEntitlementCapture,true);
     }
+    document.removeEventListener("click",onQualityGuardianCapture,true);
     document.getElementById("canvas407F")?.removeEventListener("click",onCanvasDetailsClick);
     document.getElementById("canvas407F")?.removeEventListener("click",onAdvancedObjectClick);
     document.getElementById("canvas407F")?.removeEventListener("keydown",onAdvancedObjectKeyDown);
@@ -3268,6 +3276,102 @@ export async function boot407FEngineeringAdapter({
     );
     return dialog;
   };
+  const qualityGuardianControls=Object.freeze({
+    secondary:"btnD alt sm",
+    tertiary:"homeTertiary",
+    primary:"btnD go sm"
+  });
+  const openQualityGuardian407F=(stage="DURING_BUILDING")=>{
+    const report=analyzeTimelineQuality(store.document,{stage});
+    const dialog=openStandardModal(`<section class="export407FSuggestionDialog" role="dialog" aria-modal="true" aria-labelledby="quality-guardian-title" data-quality-guardian-dialog style="width:min(860px,calc(100vw - 40px));max-height:min(820px,calc(100vh - 40px));overflow:auto">
+      ${renderQualityGuardian(report,{
+        viewer:qualityGuardianViewer(store.entitlement,bridge.state.view),
+        canFix:store.entitlement.canMutate===true,
+        controlClasses:qualityGuardianControls
+      })}
+    </section>`,"[data-quality-guardian-dialog]");
+    if(!dialog)return report;
+    dialog.querySelector("[data-quality-close]")?.addEventListener(
+      "click",
+      ()=>closeStandardModal(),
+      {once:true}
+    );
+    dialog.querySelectorAll("[data-quality-review]").forEach((button)=>{
+      button.addEventListener("click",()=>{
+        const finding=report.findings.find(({id})=>id===button.dataset.qualityReview);
+        closeStandardModal({restoreFocus:false});
+        if(finding?.code==="ACCEPTED_SOURCE_ITEM_OMITTED"){
+          bridge.go("intake");
+          return;
+        }
+        const event=store.document.events.find(({id})=>finding?.elementIds.includes(String(id)));
+        const step={education:1,exams:2,clinical:3,work:4,research:5,personal:6}[event?.categoryId]||7;
+        if(store.entitlement.canMutate===true){
+          store.mutate("Open Quality Guardian review",(document)=>{
+            document.builder=document.builder||{};
+            document.builder.step=step;
+            document.builder.reviewFocus={
+              eventId:event?.id||null,
+              findingId:finding?.id||null
+            };
+          },{history:false,material:false});
+          syncBridgeFromStore();
+        }
+        bridge.go("builder");
+      },{once:true});
+    });
+    dialog.querySelectorAll("[data-quality-fix]").forEach((button)=>{
+      button.addEventListener("click",()=>{
+        const selected=report.findings.find(({id})=>id===button.dataset.qualityFix);
+        if(!selected||selected.actionMode!=="FIX_FOR_ME"||store.entitlement.canMutate!==true)return;
+        const result=applySafeQualityFixes(store.document,{
+          ...report,
+          findings:report.findings.filter(({id})=>id===selected.id)
+        });
+        if(!result.changed)return;
+        store.replace(result.document,{label:"Quality Guardian: safe layout fix"});
+        syncBridgeFromStore();
+        closeStandardModal({restoreFocus:false});
+        queueMicrotask(()=>openQualityGuardian407F("AFTER_SAFE_FIX"));
+      },{once:true});
+    });
+    dialog.querySelector("[data-quality-continue-export]")?.addEventListener(
+      "click",
+      ()=>{
+        closeStandardModal({restoreFocus:false});
+        bridge.go("export");
+        announceGlobal("Quality Check complete. Opened Export.");
+      },
+      {once:true}
+    );
+    return report;
+  };
+  const qualityGuardianButton=document.createElement("button");
+  qualityGuardianButton.type="button";
+  qualityGuardianButton.id="qualityGuardian407F";
+  qualityGuardianButton.className="btnD alt sm";
+  qualityGuardianButton.dataset.qualityGuardianOpen="true";
+  qualityGuardianButton.textContent="CHECK MY TIMELINE";
+  document.getElementById("hudExport")?.before(qualityGuardianButton);
+  onQualityGuardianCapture=(event)=>{
+    const trigger=event.target?.closest?.(
+      "[data-quality-guardian-open],#hudExport,#rail [data-v='export'],[data-nav='export'],[data-review-export]"
+    );
+    if(!trigger)return;
+    if(trigger.matches("button:disabled,[aria-disabled='true']"))return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    openQualityGuardian407F(
+      trigger.hasAttribute("data-quality-guardian-open")
+        ?"DURING_BUILDING"
+        :"BEFORE_EXPORT"
+    );
+  };
+  document.addEventListener("click",onQualityGuardianCapture,true);
+  api.qualityGuardian=Object.freeze({
+    analyze:(stage="DURING_BUILDING")=>analyzeTimelineQuality(store.document,{stage}),
+    open:openQualityGuardian407F
+  });
   const updateBuilderPreviewHitTargets=(root)=>{
     const surface=root?.matches?.("[data-builder-preview-surface]")
       ?root
@@ -4445,11 +4549,23 @@ export async function boot407FEngineeringAdapter({
     },
     onObjectAction:(action,target)=>{
       if(action==="ungroup"&&target?.type==="group"){
+        const group=store.document.advanced?.groups?.find(
+          (item)=>String(item.id)===String(target.id)
+        );
+        const members=(Array.isArray(group?.children)?group.children:[])
+          .filter((member)=>["media","text","element"].includes(member?.type)&&member?.id)
+          .map((member)=>({type:String(member.type),id:String(member.id)}));
         const result=ungroupAdvancedObjects(store.document,target.id);
         if(!result.changed)return;
         store.replace(result.document,{label:"Ungroup Timeline objects"});
         syncBridgeStateFromStore();
-        canvasController?.setUiState({advancedSelection:null});
+        const selection=members.length>1
+          ?{type:"multi",members}
+          :members[0]||null;
+        canvasController?.setUiState({advancedSelection:selection});
+        canvasHost?.querySelector?.(
+          'd1-timeline-kernel[data-surface="edit"]'
+        )?.releaseAdvancedGroup?.(target.id,members);
         return;
       }
       if(action==="lock"||action==="unlock"){
@@ -6263,6 +6379,16 @@ export async function boot407FEngineeringAdapter({
         existingEvents:store.document.events,
         renderPreview:renderIntakePreview
       });
+      if(state.stage==="upload"&&productionRuntime&&privateMediaStorageEnabled){
+        intakeHost.insertAdjacentHTML("beforeend",`<section class="intake-stage intake407FRescue" aria-labelledby="timelineRescueTitle">
+          <p class="micro407F">TIMELINE RESCUE</p>
+          <h2 id="timelineRescueTitle">Import an existing Timeline</h2>
+          <p>Recover editable events from a PowerPoint, PDF, or image. MissionMed restores the approved template; you review every recovered fact before anything is added.</p>
+          <label class="btnD alt" for="timelineRescueFile">Choose existing Timeline</label>
+          <input id="timelineRescueFile" type="file" accept=".pptx,.pdf,.png,.jpg,.jpeg,.key,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf,image/png,image/jpeg" data-timeline-rescue-file hidden>
+          <p class="micro407F">Using Keynote? Choose the .key file for exact export guidance. Native .key parsing is not claimed.</p>
+        </section>`);
+      }
     };
     const openIntakeDialog=(dialog)=>{
       if(typeof bridge.openModal!=="function")return;
@@ -6287,6 +6413,31 @@ export async function boot407FEngineeringAdapter({
       adapter:studentSafeIntakeAdapter,
       initialState:store.document.intake,
       existingEvents:store.document.events
+    });
+    intakeHost.addEventListener("change",(event)=>{
+      const input=event.target?.closest?.("[data-timeline-rescue-file]");
+      const file=input?.files?.[0];
+      if(!file)return;
+      input.value="";
+      if(String(file.name||"").toLowerCase().endsWith(".key")){
+        openIntakeDialog({
+          title:"Export from Keynote first",
+          body:"In Keynote choose File > Export To > PowerPoint (preferred) or PDF, then upload that exported file here. Timeline Builder does not claim unreliable native .key parsing.",
+          primaryLabel:"I’ll export it",secondaryLabel:"Close"
+        });
+        return;
+      }
+      openIntakeDialog({
+        title:"Analyze this existing Timeline?",
+        body:`MissionMed will privately process ${file.name} to recover structured events and presentation evidence. Nothing is added until you review and accept it.`,
+        primaryLabel:"Analyze safely",secondaryLabel:"Cancel",
+        onPrimary:()=>{
+          Object.defineProperty(file,"timelineRescue",{value:true,configurable:true});
+          intakeMachine.receiveFile(file);
+          intakeMachine.setConsent(true);
+          intakeMachine.startExtraction().catch((error)=>toastStudentError(error,"document"));
+        }
+      });
     });
     intakeCleanup=installIntake(intakeHost,intakeMachine,{
       onChange:(state)=>{
@@ -6460,8 +6611,8 @@ export async function boot407FEngineeringAdapter({
     }
     if(command&&lower==="e"){
       event.preventDefault();
-      bridge.go("export");
-      announceGlobal("Opened Export");
+      openQualityGuardian407F("BEFORE_EXPORT");
+      announceGlobal("Opened Quality Check before Export");
       return;
     }
     if(key==="?"&&!event.metaKey&&!event.ctrlKey&&!event.altKey&&!isEditableTarget(event.target)){

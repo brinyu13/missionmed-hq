@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "d1-409h-canonical-visual-golden/1",
+  "authority": {
+    "presentation": "D1-409H-A1",
+    "founderReference": "407G Preview 6",
+    "orientation": "landscape",
+    "width": 1920,
+    "height": 1080
+  },
+  "acceptedEvidence": {
+    "screenshot": "D1-409H_EVIDENCE/01_full_board.jpg",
+    "screenshotSha256": "08590cf374a363879d8311053a8854e641a22cbf433020f25a372411ba889bff",
+    "background": "presentation/d1-409h-a1/assets/tex/board_denim.jpg",
+    "backgroundSha256": "9ac898468cf2844247d1c4285565f95341a1c62b45d244d8ffd753e30b87ae75"
+  },
+  "protectedSource": {
+    "D1-409H_FINAL_VISUAL_MASTER.html": "bb471c57223c4a8d6c44d2398cc3c2a0da4467b61e7a2d779323c5be38e52c24",
+    "D1-409H_VISUAL_MASTER.css": "4efd5088696a93914d5f6c3b7e14e98426239453b16712f152eb5bfe68598ef7",
+    "D1-409H_VISUAL_MASTER.js": "ed46fdf21588554aaaadbeaebacd81321177d45ad357c7e8cb8570a20786cb32"
+  },
+  "cleanFixture": {
+    "id": "CANONICAL VISUAL REGRESSION FIXTURE",
+    "normalizedVisualDigestSha256": "0d116e2617a66cf30a8bc0c561748b348d6cde12d1d44bfe69e6d9aefaed43f2",
+    "minimumPngSimilarity": 0.97,
+    "renderedColorKeyRows": 5,
+    "invariants": [
+      "denim board background",
+      "title plaque",
+      "year axis",
+      "protected Color Key composition (six semantic IDs mapped to five rendered rows)",
+      "profile card"
+    ]
+  },
+  "nonAuthorityFixtures": [
+    "Brian RC1 Canary",
+    "torture fixture"
+  ]
+}

@@ -217,6 +217,9 @@ export class TimelineProductionAuthClient{
   analyzeCv(documentId,input){
     return this.request(`/documents/${encodeURIComponent(documentId)}/intake/analyze`,{method:"POST",body:input,timeoutMs:65_000});
   }
+  rescueTimeline(documentId,input){
+    return this.request(`/documents/${encodeURIComponent(documentId)}/intake/rescue`,{method:"POST",body:input,timeoutMs:65_000});
+  }
   signObjectUpload(documentId,{mimeType,byteSize,sha256,objectClass="MEDIA"}={}){
     return this.request("/objects/sign",{method:"POST",body:{documentId,objectClass,mimeType,byteSize,sha256}});
   }

@@ -363,6 +363,7 @@ class D1411AKernelElement extends HostHTMLElement{
     this._selectedObjectId=null;
     this._advancedOverlayCleanup=()=>{};
     this.selectAdvancedObject=()=>{};
+    this.releaseAdvancedGroup=()=>false;
     this._lastGoodRecord=null;
     this._lastGoodRender=null;
     this.attachShadow({mode:"open"});
@@ -398,6 +399,7 @@ class D1411AKernelElement extends HostHTMLElement{
     this._advancedOverlayCleanup();
     this._advancedOverlayCleanup=()=>{};
     this.selectAdvancedObject=()=>{};
+    this.releaseAdvancedGroup=()=>false;
     this._kernel?.destroy?.();
     this._kernel=null;
     delete this.dataset.interactionsReady;
@@ -1436,6 +1438,7 @@ class D1411AKernelElement extends HostHTMLElement{
     this._advancedOverlayCleanup();
     this._advancedOverlayCleanup=()=>{};
     this.selectAdvancedObject=()=>{};
+    this.releaseAdvancedGroup=()=>false;
     childDocument.getElementById("d1411a-advanced-overlay")?.remove();
     const advanced=record?.document?.mode==="advanced"?record.document.advanced:null;
     if(!advanced)return;
@@ -1669,6 +1672,25 @@ class D1411AKernelElement extends HostHTMLElement{
     };
     const select=(node)=>markSelected(node);
     this.selectAdvancedObject=(type,id)=>type==="group"?markGroup(id,{announce:false}):markSelected(nodeFor(type,id),{announce:false});
+    this.releaseAdvancedGroup=(groupId,members=[])=>{
+      const normalized=(Array.isArray(members)?members:[])
+        .map((member)=>nodeFor(String(member?.type||""),String(member?.id||"")))
+        .filter(Boolean);
+      const nodes=normalized.length?normalized:membersForGroup(groupId);
+      if(!nodes.length)return false;
+      overlay.querySelectorAll(".d1411aHandle").forEach((control)=>control.remove());
+      clearGroupBox();
+      selectedGroupId=null;
+      for(const node of nodes){
+        if(String(node.dataset.groupId)===String(groupId))node.dataset.groupId="";
+      }
+      selectedNodes=new Set(nodes);
+      overlay.querySelectorAll(".d1411aAdvanced").forEach((candidate)=>candidate.dataset.selected=String(selectedNodes.has(candidate)));
+      selected=selectedNodes.size===1?nodes[0]:null;
+      const selection=nodes.map((node)=>({type:node.dataset.advancedType,id:node.dataset.advancedId}));
+      this._advancedSelection=selection.length>1?{type:"multi",members:selection}:selection[0]||null;
+      return true;
+    };
     const geometry=(node)=>({x:cssNumber(node.style.left),y:cssNumber(node.style.top),width:cssNumber(node.style.width,1),height:cssNumber(node.style.height,1)});
     const clearSnapGuides=()=>overlay.querySelectorAll(".d1411aSnapGuide").forEach((guide)=>guide.remove());
     const showSnapGuides=(guides)=>{
@@ -1981,7 +2003,7 @@ class D1411AKernelElement extends HostHTMLElement{
       selectedNodes=new Set((retainedAdvancedSelection.members||[]).map((member)=>nodeFor(member.type,member.id)).filter(Boolean));
       overlay.querySelectorAll(".d1411aAdvanced").forEach((candidate)=>candidate.dataset.selected=String(selectedNodes.has(candidate)));
     }else if(retainedAdvancedSelection?.type&&retainedAdvancedSelection?.id)markSelected(nodeFor(retainedAdvancedSelection.type,retainedAdvancedSelection.id),{announce:false});
-    this._advancedOverlayCleanup=()=>{if(frame)childDocument.defaultView.cancelAnimationFrame(frame);marquee?.box?.remove();overlay.removeEventListener("pointerdown",down);childDocument.removeEventListener("pointerdown",backgroundDown);childDocument.removeEventListener("pointermove",move);childDocument.removeEventListener("pointermove",marqueeMove);childDocument.removeEventListener("pointerup",up);childDocument.removeEventListener("pointerup",marqueeUp);childDocument.removeEventListener("pointercancel",up);childDocument.removeEventListener("pointercancel",marqueeUp);childDocument.removeEventListener("dblclick",dblclick,true);overlay.removeEventListener("focusout",blur);overlay.removeEventListener("input",input);overlay.removeEventListener("keydown",keydown);this.selectAdvancedObject=()=>{};style.remove();overlay.remove();};
+    this._advancedOverlayCleanup=()=>{if(frame)childDocument.defaultView.cancelAnimationFrame(frame);marquee?.box?.remove();overlay.removeEventListener("pointerdown",down);childDocument.removeEventListener("pointerdown",backgroundDown);childDocument.removeEventListener("pointermove",move);childDocument.removeEventListener("pointermove",marqueeMove);childDocument.removeEventListener("pointerup",up);childDocument.removeEventListener("pointerup",marqueeUp);childDocument.removeEventListener("pointercancel",up);childDocument.removeEventListener("pointercancel",marqueeUp);childDocument.removeEventListener("dblclick",dblclick,true);overlay.removeEventListener("focusout",blur);overlay.removeEventListener("input",input);overlay.removeEventListener("keydown",keydown);this.selectAdvancedObject=()=>{};this.releaseAdvancedGroup=()=>false;style.remove();overlay.remove();};
   }
 
   _pointMonth(event,childDocument){
@@ -2489,6 +2511,17 @@ export function createD1411AKernelExportAdapter({kernelManager}={}){
   // destination. Keep the object URL alive for that bounded dialog; revoking it
   // after five seconds made Chrome disable Save for larger exports.
   const downloadUrlLifetimeMs=5*60*1000;
+  const captureDeadlineMs=60*1000;
+  let cachedCapture=null;
+  const captureWithinDeadline=(element,request)=>new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>reject(new Error(
+      `Timeline export capture did not finish within ${captureDeadlineMs/1000} seconds.`
+    )),captureDeadlineMs);
+    Promise.resolve().then(()=>element.exportBoard(request)).then(
+      (value)=>{clearTimeout(timer);resolve(value);},
+      (error)=>{clearTimeout(timer);reject(error);}
+    );
+  });
   const download=(blob,filename)=>{
     const url=URL.createObjectURL(blob);
     const anchor=document.createElement("a");
@@ -2518,10 +2551,14 @@ export function createD1411AKernelExportAdapter({kernelManager}={}){
       const pixelRatio=format==="pdf"
         ?2
         :Number(output.width||1920)>1920?2:1;
-      let result=await element.exportBoard({
-        format:format==="pdf"?"png":format,
-        pixelRatio
-      });
+      const captureKey=`${expectedRenderId}:${expectedFingerprint}:${pixelRatio}`;
+      let result;
+      if(cachedCapture?.key===captureKey){
+        result={...cachedCapture.result};
+      }else{
+        result=await captureWithinDeadline(element,{format:"png",pixelRatio});
+        cachedCapture={key:captureKey,result:{...result}};
+      }
       if(format==="pdf"){
         const page=exportPdfPageDimensions(output);
         const canvas=await pngBlobCanvas(result.blob);

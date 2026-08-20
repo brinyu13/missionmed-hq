@@ -225,7 +225,12 @@ await check("8 zoom is viewport-only and keeps the canvas mounted",async()=>{
 
 await check("9 undo and redo direct manipulation",async()=>{
   const before=await geometry("ux007-icon");
-  await dragLocator(object("ux007-icon"),24,0);
+  await object("ux007-icon").click();
+  await page.waitForTimeout(100);
+  // Earlier resize coverage can leave this object flush against the right edge.
+  // Exercise history in the available direction so the gesture represents a real
+  // mutation instead of a correctly clamped no-op.
+  await dragLocator(object("ux007-icon"),-24,0);
   const moved=await geometry("ux007-icon");
   await page.locator('[data-canvas-action="undo"]').click();await page.waitForTimeout(120);
   const undone=await geometry("ux007-icon");

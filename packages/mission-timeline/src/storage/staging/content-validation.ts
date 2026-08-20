@@ -140,6 +140,7 @@ export function matchesDeclaredMimeType(mimeType: string, bytes: Uint8Array): bo
     case "application/json":
       return isJson(bytes);
     case "application/zip":
+    case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
       return (
         startsWith(bytes, [0x50, 0x4b, 0x03, 0x04]) ||
         startsWith(bytes, [0x50, 0x4b, 0x05, 0x06]) ||

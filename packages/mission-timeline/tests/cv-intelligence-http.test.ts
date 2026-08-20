@@ -182,6 +182,40 @@ test("owner-authenticated File Vault handoff stores one exact private SOURCE wit
   assert.equal((await api.handle(httpRequest(`/v1/objects/${payload.source.objectId}`, "DELETE", token))).status, 204);
 });
 
+test("owner-authenticated Timeline Rescue reads the exact private source and returns review-only semantic events", async () => {
+  const repository = new InMemoryTimelineRepository();
+  const service = new TimelineService(repository, fixedClock);
+  const directory = new InMemoryPrincipalDirectory();
+  directory.register({ principalId: student.principalId, wpUserId: 42, role: "STUDENT", programIds: student.programIds, assignedDocumentIds: [], active: true });
+  const identity = new MatrixSessionExchange(directory, { verify: async () => true }, "0123456789abcdef0123456789abcdef", 600, fixedClock);
+  const objectStore = new InMemoryPrivateObjectStore("test", "0123456789abcdef0123456789abcdef", fixedClock);
+  const api = new TimelineHttpApi(service, identity, objectStore, new PrivacySafeTelemetry(new InMemoryTelemetrySink(), "test", fixedClock), "test", false);
+  const exchange = await api.handle(httpRequest("/v1/session/exchange", "POST"), { wpUserId: 42, displayName: "Student", nonceVerified: true, sessionId: "matrix_session" });
+  const { token } = await exchange.json();
+  await api.handle(httpRequest("/v1/documents", "POST", token, { id: "timeline_rescue_http", programId: student.programIds[0], title: "Timeline", document: { events: [] } }));
+
+  const content = "BT 1 0 0 1 72 720 Tm (Research Fellow 2021-2023) Tj ET";
+  const bytes = new TextEncoder().encode(`%PDF-1.4\n1 0 obj <</Type /Page>> endobj\n2 0 obj << /Length ${content.length} >> stream\n${content}\nendstream\nendobj\n%%EOF`);
+  const digest = sha256(bytes);
+  const signed = await (await api.handle(httpRequest("/v1/objects/sign", "POST", token, {
+    documentId: "timeline_rescue_http", objectClass: "SOURCE", mimeType: "application/pdf", byteSize: bytes.byteLength, sha256: digest,
+  }))).json();
+  await objectStore.acceptTestUpload(signed.objectId, signed.uploadToken, bytes, "application/pdf");
+  await api.handle(httpRequest(`/v1/objects/${signed.objectId}/confirm`, "POST", token, { uploadToken: signed.uploadToken }));
+  const payload = { source: { objectId: signed.objectId, filename: "existing-timeline.pdf", mimeType: "application/pdf", sha256: digest } };
+  assert.equal((await api.handle(httpRequest("/v1/documents/timeline_rescue_http/intake/rescue", "POST", undefined, payload))).status, 401);
+  const response = await api.handle(httpRequest("/v1/documents/timeline_rescue_http/intake/rescue", "POST", token, payload));
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.equal(result.source.sha256, digest);
+  assert.equal(result.rescue.format, "PDF");
+  assert.equal(result.rescue.candidates[0].title, "Research Fellow");
+  assert.equal(result.rescue.candidates[0].categoryId, "res");
+  assert.equal(result.rescue.candidates[0].reviewState, "REQUIRED");
+  assert.equal(result.rescue.candidates[0].safeToAutoAccept, false);
+  assert.equal(result.rescue.cleanupProposal.factualMutationAllowed, false);
+});
+
 test("File Vault ingestion and source deletion answer alike for a document that is not the student's", async () => {
   const repository = new InMemoryTimelineRepository();
   const service = new TimelineService(repository, fixedClock);

@@ -34,12 +34,14 @@ export interface PrivateObjectStore {
   putOwnedObject(context: PrincipalContext, request: UploadRequest, bytes: Uint8Array): Promise<ObjectRecord>;
   getObject(objectId: string): Promise<ObjectRecord | null>;
   getAuthorizedObject(context: PrincipalContext, objectId: string): Promise<ObjectRecord | null>;
+  getAuthorizedObjectBytes(context: PrincipalContext, objectId: string): Promise<{record: ObjectRecord; bytes: Uint8Array}>;
   deleteObject(context: PrincipalContext, objectId: string): Promise<void>;
 }
 
 const ALLOWED_MIME = new Set([
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "application/json",
   "application/zip",
   "image/png",
@@ -194,6 +196,17 @@ export class InMemoryPrivateObjectStore implements PrivateObjectStore {
       throw new TimelineError("OBJECT_ACCESS_DENIED", "Object access denied.", 403);
     }
     return clone(pending.record);
+  }
+
+  async getAuthorizedObjectBytes(context: PrincipalContext, objectId: string): Promise<{record: ObjectRecord; bytes: Uint8Array}> {
+    const pending = this.objects.get(objectId);
+    if (!pending || pending.record.status !== "CONFIRMED" || !pending.record.bytes) {
+      throw new TimelineError("OBJECT_NOT_FOUND", "Object not found.", 404);
+    }
+    if (pending.record.ownerPrincipalId !== context.principalId && context.role !== "SERVICE") {
+      throw new TimelineError("OBJECT_ACCESS_DENIED", "Object access denied.", 403);
+    }
+    return { record: clone(pending.record), bytes: new Uint8Array(pending.record.bytes) };
   }
 
   async deleteObject(context: PrincipalContext, objectId: string): Promise<void> {

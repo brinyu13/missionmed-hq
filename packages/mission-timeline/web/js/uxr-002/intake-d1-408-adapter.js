@@ -603,6 +603,91 @@ export function createProductionCvIntakeAdapter({
       networkCalls:true
     }),
     async extract(input={}){
+      if(input.file?.timelineRescue===true&&typeof apiClient.rescueTimeline==="function"){
+        const file=input.file;
+        const extension=String(file.name||"").toLowerCase().split(".").pop();
+        const mimeType=String(file.type||({
+          pptx:"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          pdf:"application/pdf",png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg"
+        }[extension]||""));
+        if(!mimeType)throw Object.assign(new Error("Choose a PPTX, PDF, PNG, or JPEG Timeline."),{code:"TIMELINE_RESCUE_TYPE_DENIED"});
+        const digest=await crypto.subtle.digest("SHA-256",await file.arrayBuffer());
+        const sha256=[...new Uint8Array(digest)].map((byte)=>byte.toString(16).padStart(2,"0")).join("");
+        let objectId="";
+        try{
+          await ensureRemoteDocument();
+          const grant=await apiClient.signObjectUpload(String(documentId),{
+            mimeType,byteSize:Number(file.size),sha256,objectClass:"SOURCE"
+          });
+          objectId=String(grant?.objectId||"");
+          if(!objectId)throw new Error("Timeline Rescue authorization did not return an object ID.");
+          await apiClient.uploadSignedObject(grant,file);
+          const confirmed=await apiClient.confirmObjectUpload(objectId,grant.uploadToken);
+          if(String(confirmed?.status||"")!=="CONFIRMED")throw new Error("Timeline Rescue source upload could not be confirmed.");
+          const response=await apiClient.rescueTimeline(String(documentId),{
+            source:{objectId,filename:String(file.name||"existing-timeline"),mimeType,sha256}
+          });
+          const rescue=response?.rescue||{};
+          const candidates=(Array.isArray(rescue.candidates)?rescue.candidates:[]).map((candidate)=>({
+            id:String(candidate.id),
+            categoryId:CATEGORY_BY_LEGACY_ID[String(candidate.categoryId)]||"personal",
+            title:String(candidate.title||""),
+            startDate:String(candidate.startDate||""),
+            endDate:candidate.endDate?String(candidate.endDate):null,
+            openEnded:false,
+            eventType:candidate.timelineKind==="milestone"?"milestone":"duration",
+            confidence:Number(candidate.confidence?.score||0),
+            confidenceDetails:{
+              summary:Array.isArray(candidate.confidence?.reasons)?candidate.confidence.reasons:[],
+              source:"Timeline Rescue"
+            },
+            sourceSnippet:String(candidate.provenance?.[0]?.sourceText||""),
+            provenance:(Array.isArray(candidate.provenance)?candidate.provenance:[]).map((item)=>({
+              ...item,
+              sourceDocumentName:String(file.name||"Existing Timeline"),
+              sourceExcerpt:String(item.sourceText||"")
+            })),
+            inferredFields:(Array.isArray(candidate.provenance)?candidate.provenance:[])
+              .filter(({support})=>support!=="SOURCE_FACT")
+              .map(()=>({field:"dates",reason:"Recovered from visual geometry; confirm before accepting."})),
+            warnings:Array.isArray(candidate.uncertainties)?candidate.uncertainties:[],
+            notes:"",
+            visibilityState:UXR_VISIBILITY.INTERVIEWER_SAFE,
+            fields:{
+              rescueReviewRequired:true,
+              rescueArtifactSha256:String(rescue.artifactSha256||sha256),
+              rescueFormat:String(rescue.format||""),
+              cleanupAuthority:String(rescue.cleanupProposal?.authority||"MISSIONMED_D1_409H_CANONICAL_PRESENTATION")
+            },
+            decision:"undecided"
+          }));
+          activeSourceObjectId=objectId;
+          return{
+            readable:true,
+            outcome:candidates.length?"ready-for-review":"empty",
+            candidates,
+            sourceDocument:{
+              name:String(file.name||"Existing Timeline"),mimeType,fileSize:Number(file.size),sha256,
+              objectId,custody:"TIMELINE_PRIVATE_SOURCE",effectiveType:"TIMELINE_RESCUE"
+            },
+            sourceBlocks:[],
+            parser:{
+              version:String(rescue.schemaVersion||"d1-timeline-rescue-1"),
+              detectedType:"TIMELINE_RESCUE",effectiveType:"TIMELINE_RESCUE",
+              sections:[],recordCount:Number(rescue.objects?.length||0),candidateCount:candidates.length,
+              networkCalls:true,intelligenceMode:"TIMELINE_RESCUE",
+              qualitySuggestions:[],
+              unresolvedQuestions:Array.isArray(rescue.unresolvedQuestions)?rescue.unresolvedQuestions:[],
+              warnings:Array.isArray(rescue.warnings)?rescue.warnings:[],
+              cleanupProposal:rescue.cleanupProposal||null,
+              reconciliation:Array.isArray(rescue.reconciliation)?rescue.reconciliation:[]
+            }
+          };
+        }catch(error){
+          if(objectId)await deleteObject(objectId);
+          throw error;
+        }
+      }
       const local=await localAdapter.extract(input);
       if(local?.readable!==true||!local?.sourceDocument?.sha256||!local?.sourceBlocks?.length)return local;
       const file=input.file;

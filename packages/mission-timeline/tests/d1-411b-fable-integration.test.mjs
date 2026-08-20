@@ -232,11 +232,11 @@ test("D1-411B active application routes five product surfaces and export through
 test("D1-411B kernel host destroys discarded kernels and exports from committed DOM",async()=>{
   const source=await readFile(new URL("js/d1-411a/kernel-host.js",webRoot),"utf8");
   assert.match(source,/this\._kernel\?\.destroy\?\.\(\)/);
-  assert.match(source,/await element\.exportBoard\(\{/);
+  assert.match(source,/captureWithinDeadline\(element,\{format:"png",pixelRatio\}\)/);
+  assert.match(source,/cachedCapture\?\.key===captureKey/);
   assert.match(source,/const downloadUrlLifetimeMs=5\*60\*1000/);
   assert.match(source,/setTimeout\(\(\)=>URL\.revokeObjectURL\(url\),downloadUrlLifetimeMs\)/);
   assert.match(source,/renderer:"D1-409H-A1"/);
-  assert.match(source,/format:format==="pdf"\?"png":format/);
   assert.match(source,/buildImagePdf\(\[/);
   assert.doesNotMatch(source,/serializeKeynoteClassicSvg|renderKeynoteClassicBoard/);
 });

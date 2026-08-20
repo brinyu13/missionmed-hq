@@ -3,6 +3,8 @@ import { sha256 } from "../core/canonical.js";
 import { asTimelineError, TimelineError } from "../core/errors.js";
 import type { TimelineService } from "../domain/timeline-service.js";
 import { CvIntelligenceService } from "../intelligence/cv-intelligence-service.js";
+import { analyzeTimelineRescue } from "../intelligence/timeline-rescue-service.js";
+import type { RescueCvCandidate } from "../intelligence/timeline-rescue-schema.js";
 import type { PrivateObjectStore } from "../storage/private-object-store.js";
 import type { PrivacySafeTelemetry } from "../telemetry/telemetry.js";
 
@@ -137,6 +139,60 @@ export class TimelineHttpApi {
         : {};
       const sourceObject = await this.objectStore.getAuthorizedObject(context, String(source.objectId ?? ""));
       return json(await this.cvIntelligence.analyze(context, record.document, sourceObject, input), 200);
+    }
+    const rescueMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/intake\/rescue$/);
+    if (rescueMatch && request.method === "POST") {
+      const input = await body(request);
+      const record = await service.getDocument(context, rescueMatch[1]!);
+      if (record.document.studentOwnerId !== context.principalId || context.role !== "STUDENT") {
+        throw new TimelineError("TIMELINE_RESCUE_OWNER_REQUIRED", "Student ownership is required for Timeline Rescue.", 403);
+      }
+      const source = input.source && typeof input.source === "object" && !Array.isArray(input.source)
+        ? input.source as Record<string, unknown>
+        : {};
+      const objectId = String(source.objectId ?? "");
+      const filename = String(source.filename ?? "").trim().slice(0, 255);
+      const expectedSha256 = String(source.sha256 ?? "").toLowerCase();
+      const expectedMimeType = String(source.mimeType ?? "").toLowerCase();
+      if (!filename || !/^[a-f0-9]{64}$/.test(expectedSha256)) {
+        throw new TimelineError("TIMELINE_RESCUE_SOURCE_INVALID", "Timeline Rescue source metadata is invalid.", 400);
+      }
+      const authorized = await this.objectStore.getAuthorizedObjectBytes(context, objectId);
+      if (
+        authorized.record.documentId !== record.document.id ||
+        authorized.record.ownerPrincipalId !== context.principalId ||
+        authorized.record.objectClass !== "SOURCE" ||
+        authorized.record.status !== "CONFIRMED"
+      ) throw new TimelineError("TIMELINE_RESCUE_SOURCE_DENIED", "Timeline Rescue source is not available.", 404);
+      if (
+        authorized.record.expectedSha256 !== expectedSha256 ||
+        authorized.record.mimeType !== expectedMimeType ||
+        sha256(authorized.bytes) !== expectedSha256
+      ) throw new TimelineError("TIMELINE_RESCUE_SOURCE_INTEGRITY", "Timeline Rescue source integrity does not match.", 409);
+      const intake = record.document.intake && typeof record.document.intake === "object"
+        ? record.document.intake as Record<string, unknown>
+        : {};
+      const cvCandidates: RescueCvCandidate[] = (Array.isArray(intake.candidates) ? intake.candidates : [])
+        .filter((candidate): candidate is Record<string, unknown> => Boolean(candidate && typeof candidate === "object" && !Array.isArray(candidate)))
+        .filter((candidate) => ["accepted", "merge", "keep-both"].includes(String(candidate.decision ?? "")))
+        .map((candidate) => ({
+          id: String(candidate.id ?? ""),
+          title: String(candidate.title ?? ""),
+          categoryId: String(candidate.categoryId ?? ""),
+          startDate: candidate.startDate ? String(candidate.startDate) : null,
+          endDate: candidate.endDate ? String(candidate.endDate) : null,
+          provenance: candidate.provenance,
+        }))
+        .filter((candidate) => Boolean(candidate.id && candidate.title));
+      const rescue = analyzeTimelineRescue({
+        filename,
+        mimeType: expectedMimeType,
+        bytes: authorized.bytes,
+      }, cvCandidates);
+      return json({
+        source: {objectId, filename, mimeType: expectedMimeType, sha256: expectedSha256},
+        rescue,
+      });
     }
     const fileVaultIngestMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/file-vault\/ingestions$/);
     if (fileVaultIngestMatch && request.method === "POST") {

@@ -25,6 +25,7 @@ const DEFAULT_DOWNLOAD_EXPIRY_MS = 60 * 1_000;
 
 const ALLOWED_MIME = new Set([
   "application/pdf",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "application/json",
   "application/zip",
   "image/png",
@@ -540,6 +541,26 @@ export class StagingPrivateObjectStore implements PrivateObjectStore {
       await this.authorizeState(context, state, "READ");
       await this.audit(context, "OBJECT_READ", objectId, "SUCCESS", null, { record_status: state.record.status });
       return clone(state.record);
+    } catch (error) {
+      await this.auditFailure(context, "OBJECT_READ", objectId, error);
+      throw error;
+    }
+  }
+
+  async getAuthorizedObjectBytes(context: PrincipalContext, objectId: string): Promise<{record: ObjectRecord; bytes: Uint8Array}> {
+    try {
+      this.requireAuthenticatedContext(context);
+      const state = this.requireState(objectId);
+      await this.authorizeState(context, state, "READ");
+      if (state.record.status !== "CONFIRMED") throw new TimelineError("OBJECT_NOT_FOUND", "Object not found.", 404);
+      const stored = await this.retry(() => this.client.getObject(state.record.storageKey));
+      const bytes = new Uint8Array(stored.value.bytes);
+      if (
+        bytes.byteLength !== state.record.expectedBytes ||
+        sha256(bytes) !== state.record.expectedSha256
+      ) throw new TimelineError("OBJECT_INTEGRITY_MISMATCH", "Object integrity does not match its confirmed record.", 409);
+      await this.audit(context, "OBJECT_READ", objectId, "SUCCESS", null, { record_status: state.record.status });
+      return {record:clone(state.record),bytes};
     } catch (error) {
       await this.auditFailure(context, "OBJECT_READ", objectId, error);
       throw error;

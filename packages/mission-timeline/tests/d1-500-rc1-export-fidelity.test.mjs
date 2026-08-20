@@ -6,7 +6,10 @@ import {
   buildImagePdf,
   fitImageToPage
 } from "../web/js/export/pdf-writer.js";
-import {exportPdfPageDimensions} from "../web/js/d1-411a/kernel-host.js";
+import {
+  createD1411AKernelExportAdapter,
+  exportPdfPageDimensions
+} from "../web/js/d1-411a/kernel-host.js";
 
 test("RC1 centers the canonical 16:9 board on true Letter and A4 landscape pages",()=>{
   assert.deepEqual(exportPdfPageDimensions({page:{name:"Letter"}}),{
@@ -52,6 +55,38 @@ test("RC1 PDF writer preserves board geometry instead of stretching to the paper
   assert.match(text,/\/MediaBox \[0 0 792 612\]/);
   assert.match(text,/792 0 0 445\.5 0 83\.25 cm/);
   assert.doesNotMatch(text,/792 0 0 612 0 0 cm/);
+});
+
+test("RC1 reuses the identical mounted 2x board capture across repeated high-resolution exports",async()=>{
+  let captures=0;
+  const element={
+    dataset:{fingerprint:"same-board",renderId:"render-7"},
+    async exportBoard(){
+      captures+=1;
+      return{
+        format:"png",width:3840,height:2160,
+        blob:new Blob(["same-board"],{type:"image/png"}),
+        fingerprint:"same-board",renderId:"render-7"
+      };
+    }
+  };
+  const adapter=createD1411AKernelExportAdapter({
+    kernelManager:{
+      whenStable:async()=>{},
+      elements:()=>[element]
+    }
+  });
+  const request={
+    renderInput:{
+      output:{kind:"PNG",width:3840,height:2160},
+      timeline:{title:"Cache proof"}
+    }
+  };
+  const first=await adapter.generate(request);
+  const second=await adapter.generate(request);
+  assert.equal(captures,1);
+  assert.equal(first.blob,second.blob);
+  assert.equal(second.fingerprint,"same-board");
 });
 
 test("RC1 WordPress runtime makes the protected capture stylesheet self-contained",async()=>{
