@@ -3,6 +3,7 @@ import { sha256 } from "../core/canonical.js";
 import { asTimelineError, TimelineError } from "../core/errors.js";
 import type { TimelineService } from "../domain/timeline-service.js";
 import { CvIntelligenceService } from "../intelligence/cv-intelligence-service.js";
+import { TimelineAiWorkflowService } from "../intelligence/timeline-ai-workflow-service.js";
 import { analyzeTimelineRescue } from "../intelligence/timeline-rescue-service.js";
 import type { RescueCvCandidate } from "../intelligence/timeline-rescue-schema.js";
 import type { PrivateObjectStore } from "../storage/private-object-store.js";
@@ -49,6 +50,7 @@ export class TimelineHttpApi {
     private readonly releaseVersion = "412.0.0-rc.0",
     private readonly productionWrites = false,
     private readonly cvIntelligence = new CvIntelligenceService(),
+    private readonly timelineAiWorkflows = new TimelineAiWorkflowService(),
   ) {}
 
   async handle(request: Request, trustedMatrixIdentity?: MatrixIdentity): Promise<Response> {
@@ -140,6 +142,30 @@ export class TimelineHttpApi {
       const sourceObject = await this.objectStore.getAuthorizedObject(context, String(source.objectId ?? ""));
       return json(await this.cvIntelligence.analyze(context, record.document, sourceObject, input), 200);
     }
+    const qualityAnalyzeMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/quality\/analyze$/);
+    if (qualityAnalyzeMatch && request.method === "POST") {
+      const input = await body(request);
+      const record = await service.getDocument(context, qualityAnalyzeMatch[1]!);
+      const deterministicFindings = Array.isArray(input.deterministicFindings)
+        ? input.deterministicFindings.slice(0, 100).flatMap((item) => {
+          if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+          const value = item as Record<string, unknown>;
+          const category = String(value.category ?? "");
+          const severity = String(value.severity ?? "");
+          const id = String(value.id ?? "").trim().slice(0, 160);
+          const code = String(value.code ?? "").trim().slice(0, 100);
+          const message = String(value.message ?? "").trim().slice(0, 1_000);
+          if (!id || !message || !["CONTENT", "CHRONOLOGY", "LAYOUT", "READABILITY", "MISSIONMED_FORMAT", "EXPORT"].includes(category) || !["BLOCK_EXPORT", "REVIEW", "INFO"].includes(severity)) return [];
+          return [{ id, category, code, severity, elementIds: Array.isArray(value.elementIds) ? value.elementIds.map(String).slice(0, 100) : [], message }];
+        })
+        : [];
+      return json(await this.timelineAiWorkflows.analyzeQuality(
+        context,
+        record.document,
+        deterministicFindings as never,
+        request.headers.get("x-timeline-synthetic-fixture") === "1",
+      ), 200);
+    }
     const rescueMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/intake\/rescue$/);
     if (rescueMatch && request.method === "POST") {
       const input = await body(request);
@@ -172,9 +198,16 @@ export class TimelineHttpApi {
       const intake = record.document.intake && typeof record.document.intake === "object"
         ? record.document.intake as Record<string, unknown>
         : {};
-      const cvCandidates: RescueCvCandidate[] = (Array.isArray(intake.candidates) ? intake.candidates : [])
+      const lastImport = intake.lastImport && typeof intake.lastImport === "object" && !Array.isArray(intake.lastImport)
+        ? intake.lastImport as Record<string, unknown>
+        : {};
+      const hasAcceptedImport = Array.isArray(lastImport.acceptedCandidates);
+      const acceptedCvCandidates: unknown[] = hasAcceptedImport
+        ? lastImport.acceptedCandidates as unknown[]
+        : Array.isArray(intake.candidates) ? intake.candidates : [];
+      const cvCandidates: RescueCvCandidate[] = acceptedCvCandidates
         .filter((candidate): candidate is Record<string, unknown> => Boolean(candidate && typeof candidate === "object" && !Array.isArray(candidate)))
-        .filter((candidate) => ["accepted", "merge", "keep-both"].includes(String(candidate.decision ?? "")))
+        .filter((candidate) => hasAcceptedImport || ["accepted", "merge", "add-anyway", "keep-both"].includes(String(candidate.decision ?? "")))
         .map((candidate) => ({
           id: String(candidate.id ?? ""),
           title: String(candidate.title ?? ""),
@@ -184,13 +217,35 @@ export class TimelineHttpApi {
           provenance: candidate.provenance,
         }))
         .filter((candidate) => Boolean(candidate.id && candidate.title));
-      const rescue = analyzeTimelineRescue({
+      const initial = analyzeTimelineRescue({
         filename,
         mimeType: expectedMimeType,
         bytes: authorized.bytes,
       }, cvCandidates);
+      const syntheticAiRequested = request.headers.get("x-timeline-synthetic-fixture") === "1";
+      const ai = initial.format === "KEYNOTE" || !syntheticAiRequested
+        ? null
+        : await this.timelineAiWorkflows.observeRescue(context, record.document, {
+          artifactSha256: initial.artifactSha256,
+          format: initial.format,
+          pageOrSlideCount: initial.slideOrPageCount,
+          objects: initial.objects,
+          image: initial.format === "IMAGE" && ["image/png", "image/jpeg"].includes(expectedMimeType)
+            ? { mimeType: expectedMimeType as "image/png" | "image/jpeg", bytes: authorized.bytes }
+            : null,
+        }, true);
+      const rescue = ai?.status === "COMPLETE"
+        ? analyzeTimelineRescue({
+          filename,
+          mimeType: expectedMimeType,
+          bytes: authorized.bytes,
+          visualObservations: ai.observations,
+        }, cvCandidates)
+        : initial;
+      if (ai?.unresolvedQuestions.length) rescue.unresolvedQuestions = [...new Set([...rescue.unresolvedQuestions, ...ai.unresolvedQuestions])];
       return json({
         source: {objectId, filename, mimeType: expectedMimeType, sha256: expectedSha256},
+        ai,
         rescue,
       });
     }
@@ -368,6 +423,7 @@ export class TimelineHttpApi {
     if (pathname.includes("/versions")) return "versions";
     if (pathname.includes("/checkpoints")) return "checkpoints";
     if (pathname.includes("/intake/")) return "intake";
+    if (pathname.includes("/quality/")) return "intake";
     if (pathname.includes("/file-vault/")) return "intake";
     if (pathname.includes("/documents")) return "documents";
     if (pathname.includes("/objects")) return "objects";

@@ -69,6 +69,14 @@ test("gateway uses an immutable existing or deterministic first-use principal an
   assert.match(plugin, /X-MissionMed-Timeline-Gateway-Secret/);
 });
 
+test("gateway derives synthetic AI authority server-side and gives AI routes a bounded provider deadline", () => {
+  assert.match(plugin, /\$is_ai_route = preg_match/);
+  assert.match(plugin, /get_user_meta\(\(int\) \$user->ID, MMTL_SYNTHETIC_TEST_META, true\) === '1'/);
+  assert.match(plugin, /\$outbound_headers\['X-Timeline-Synthetic-Fixture'\] = '1'/);
+  assert.match(plugin, /'timeout' => \$is_ai_route \? 60 : 20/);
+  assert.doesNotMatch(plugin, /HTTP_X_TIMELINE_SYNTHETIC_FIXTURE/);
+});
+
 test("anonymous entry returns through Matrix rather than the default WordPress login", () => {
   assert.match(plugin, /function mmtl_login_url/);
   assert.match(plugin, /timeline_return_to/);

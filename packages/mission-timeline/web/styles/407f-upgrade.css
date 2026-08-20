@@ -587,6 +587,61 @@
   width:min(720px,92vw);
 }
 
+#modal:has([data-quality-guardian-dialog]),
+#modal:has([data-quality-guardian-loading]){
+  width:min(900px,96vw);
+}
+
+[data-quality-guardian-dialog]{
+  box-sizing:border-box;
+  width:100%!important;
+}
+
+.quality-guardian{
+  display:grid;
+  gap:14px;
+}
+
+.quality-guardian>h2,
+.quality-guardian>p,
+.quality-guardian-sections h3,
+.quality-guardian-sections p{
+  margin:0;
+}
+
+.quality-guardian-sections{
+  display:grid;
+  gap:12px;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+
+.quality-guardian-sections>section{
+  background:rgba(255,255,255,.035);
+  border:1px solid var(--edge2);
+  border-radius:10px;
+  display:grid;
+  gap:9px;
+  min-width:0;
+  padding:14px 16px;
+}
+
+.quality-guardian-sections ul{
+  display:grid;
+  gap:10px;
+  list-style:none;
+  margin:0;
+  padding:0;
+}
+
+.quality-guardian-sections li{
+  display:grid;
+  gap:8px;
+}
+
+@media(max-width:720px){
+  .quality-guardian-sections{grid-template-columns:1fr}
+}
+
 .fileVaultSourceDialog>header,
 .fileVaultSourceDialog>footer{
   align-items:center;

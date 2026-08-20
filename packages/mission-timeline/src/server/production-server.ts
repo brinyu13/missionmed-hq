@@ -8,6 +8,8 @@ import { TimelineError } from "../core/errors.js";
 import { TimelineService } from "../domain/timeline-service.js";
 import { CvIntelligenceService } from "../intelligence/cv-intelligence-service.js";
 import { OpenAiCvIntelligenceProvider } from "../intelligence/openai-cv-intelligence.js";
+import { OpenAiTimelineWorkflowProvider } from "../intelligence/openai-timeline-ai-workflows.js";
+import { TimelineAiWorkflowService } from "../intelligence/timeline-ai-workflow-service.js";
 import { PostgresTimelinePrincipalDirectory } from "../identity/postgres-principal-directory.js";
 import { WordPressTimelineJwtVerifier } from "../identity/wordpress-timeline-jwt.js";
 import { PostgresTimelineRepository } from "../persistence/postgres/repository.js";
@@ -92,12 +94,22 @@ const cvIntelligence = new CvIntelligenceService({
   provider: aiProviderName === "openai" ? new OpenAiCvIntelligenceProvider({ apiKey: aiApiKey, model: aiModel }) : null,
   expectedConsentVersion: aiProviderName ? aiConsentVersion : null,
 });
+const syntheticAiPrincipals = new Set(
+  (process.env.TIMELINE_AI_SYNTHETIC_PRINCIPAL_IDS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean),
+);
+const timelineAiWorkflows = new TimelineAiWorkflowService(
+  aiProviderName === "openai" ? new OpenAiTimelineWorkflowProvider({ apiKey: aiApiKey, model: aiModel }) : null,
+  syntheticAiPrincipals,
+);
 const serviceProvider = (context: PrincipalContext) => new TimelineService(new PostgresTimelineRepository(pool, {
   rlsClaims: postgresClaimsFromPrincipal(context),
   runtimeRole,
   expectedSchemaVersion: POSTGRES_TIMELINE_PRODUCTION_SCHEMA_VERSION,
 }));
-const api = new TimelineHttpApi(serviceProvider, identity, objectStore, telemetry, RELEASE_VERSION, true, cvIntelligence);
+const api = new TimelineHttpApi(serviceProvider, identity, objectStore, telemetry, RELEASE_VERSION, true, cvIntelligence, timelineAiWorkflows);
 
 await new PostgresTimelineRepository(pool, { expectedSchemaVersion: POSTGRES_TIMELINE_PRODUCTION_SCHEMA_VERSION }).initialize();
 const productionSchema = await pool.query("select to_regclass('timeline.admin_resource_grants') is not null as admin_grants_ready");

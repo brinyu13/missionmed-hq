@@ -10,7 +10,7 @@ export const QUALITY_GUARDIAN_SECTIONS=Object.freeze([
   {id:"CHRONOLOGY",label:"Chronology"},
   {id:"LAYOUT",label:"Layout"},
   {id:"READABILITY",label:"Readability"},
-  {id:"MISSIONMED_FORMAT",label:"MissionMed format"},
+  {id:"MISSIONMED_FORMAT",label:"MissionMed Format"},
   {id:"EXPORT",label:"Export"}
 ]);
 export const QUALITY_GUARDIAN_BASES=Object.freeze({
@@ -374,6 +374,95 @@ export function analyzeTimelineQuality(document,{stage="DURING_BUILDING"}={}){
   });
 }
 
+export function deterministicFindingsForAi(report){
+  return safeArray(report?.findings).slice(0,100).map((finding)=>Object.freeze({
+    id:clean(finding.id).slice(0,160),
+    category:clean(finding.section).slice(0,100),
+    code:clean(finding.code).slice(0,100),
+    severity:clean(finding.severity).slice(0,40),
+    elementIds:Object.freeze(safeArray(finding.elementIds).map(String).slice(0,100)),
+    message:clean(finding.message).slice(0,1000)
+  }));
+}
+
+export function mergeAiQualityAnalysis(localReport,analysis){
+  const aiStatus=analysis?.status==="COMPLETE"&&analysis?.mode==="SERVER_AI"
+    ?"COMPLETE"
+    :"UNAVAILABLE";
+  const existing=new Set(safeArray(localReport?.findings).map((finding)=>
+    [finding.section,finding.code,...safeArray(finding.elementIds).map(String).sort()].join("|")
+  ));
+  const aiFindings=aiStatus==="COMPLETE"
+    ?safeArray(analysis?.findings).flatMap((finding)=>{
+      const section=clean(finding?.category);
+      const code=clean(finding?.code);
+      const elementIds=safeArray(finding?.elementIds).map(String);
+      const key=[section,code,...elementIds.slice().sort()].join("|");
+      if(!QUALITY_GUARDIAN_SECTIONS.some(({id})=>id===section)||existing.has(key))return[];
+      const actionMode=finding?.actionMode==="FIX_FOR_ME"?"FIX_FOR_ME":"REVIEW";
+      const basis=[
+        QUALITY_GUARDIAN_BASES.SOURCE_FACT,
+        QUALITY_GUARDIAN_BASES.AI_INFERENCE,
+        QUALITY_GUARDIAN_BASES.PRESENTATION
+      ].includes(finding?.basis)?finding.basis:QUALITY_GUARDIAN_BASES.AI_INFERENCE;
+      if(actionMode==="FIX_FOR_ME"&&basis!==QUALITY_GUARDIAN_BASES.PRESENTATION)return[];
+      return[Object.freeze({
+        id:clean(finding.id)||findingId(section,code,elementIds),
+        section,
+        code,
+        severity:["BLOCK_EXPORT","REVIEW","INFO"].includes(finding?.severity)?finding.severity:"REVIEW",
+        basis,
+        elementIds:Object.freeze(elementIds),
+        message:clean(finding?.message),
+        recommendation:clean(finding?.recommendation),
+        actionMode,
+        fixKind:actionMode==="FIX_FOR_ME"?clean(finding?.fixKind)||null:null,
+        evidence:Object.freeze({
+          confidence:Number(finding?.confidence)||0,
+          provider:clean(analysis?.provider),
+          model:clean(analysis?.model),
+          promptVersion:clean(analysis?.promptVersion),
+          standardVersion:clean(analysis?.standardVersion)
+        })
+      })];
+    })
+    :[];
+  const findings=Object.freeze([...safeArray(localReport?.findings),...aiFindings]);
+  const sections=Object.freeze(QUALITY_GUARDIAN_SECTIONS.map((definition)=>{
+    const sectionFindings=findings.filter(({section})=>section===definition.id);
+    return Object.freeze({...definition,state:sectionState(sectionFindings),findings:Object.freeze(sectionFindings)});
+  }));
+  const state=sectionState(findings);
+  const prior=localReport?.oversight||{};
+  const unresolved=Number(prior.unresolvedFactualQuestions||0)+safeArray(analysis?.unresolvedQuestions).length+
+    aiFindings.filter(({actionMode,basis})=>actionMode==="REVIEW"&&basis===QUALITY_GUARDIAN_BASES.AI_INFERENCE).length;
+  return Object.freeze({
+    ...localReport,
+    state,
+    headline:state==="READY"?"READY TO EXPORT":state==="BLOCKED"?"NOT READY TO EXPORT":`${findings.length} ${findings.length===1?"thing":"things"} to review`,
+    exportReady:!findings.some(({severity})=>severity==="BLOCK_EXPORT"),
+    findingCount:findings.length,
+    sections,
+    findings,
+    ai:Object.freeze({
+      status:aiStatus,
+      provider:aiStatus==="COMPLETE"?clean(analysis.provider):null,
+      model:aiStatus==="COMPLETE"?clean(analysis.model):null,
+      promptVersion:clean(analysis?.promptVersion),
+      standardVersion:clean(analysis?.standardVersion),
+      unavailableMessage:aiStatus==="UNAVAILABLE"
+        ?clean(analysis?.unavailableMessage)||"Timeline AI is temporarily unavailable. Your Timeline was not changed."
+        :null
+    }),
+    oversight:Object.freeze({
+      ...prior,
+      issueCount:findings.length,
+      unresolvedFactualQuestions:unresolved,
+      exportReady:!findings.some(({severity})=>severity==="BLOCK_EXPORT")
+    })
+  });
+}
+
 function clampObject(item){
   const box=geometry(item);
   if(!Object.values(box).every(Number.isFinite))return false;
@@ -458,6 +547,9 @@ export function renderQualityGuardian(report,{
     <p class="micro-label">Timeline Quality Guardian · ${escapeHtml(viewer)}</p>
     <h2 id="quality-guardian-title">${escapeHtml(report.headline)}</h2>
     <p>Source facts, AI inferences, and presentation recommendations are shown separately. Fix for me never changes your biography.</p>
+    ${report.ai?`<p class="status-chip" data-quality-ai-status="${escapeHtml(report.ai.status)}">${report.ai.status==="COMPLETE"
+      ?`Live AI review · ${escapeHtml(report.ai.model)} · Standard ${escapeHtml(report.ai.standardVersion)}`
+      :escapeHtml(report.ai.unavailableMessage)}</p>`:""}
     ${reviewViewer?`<section data-quality-oversight aria-label="Founder and mentor quality summary">
       <h3>Review summary</h3>
       <dl>

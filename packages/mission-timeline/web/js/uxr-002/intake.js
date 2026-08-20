@@ -322,9 +322,15 @@ export function candidateQuestions(candidate){
 }
 
 function normalizeCandidate(value,index,existingEvents){
+  const sourceFields=value?.fields&&typeof value.fields==="object"?clone(value.fields):{};
+  const sourceCategory=String(value?.categoryId||"");
+  const categoryResolved=CATEGORIES.some(({id})=>id===sourceCategory);
+  const categoryNeedsReview=sourceFields.mappingReviewRequired===true||
+    String(sourceFields.canonicalType||value?.canonicalType||"").toUpperCase()==="UNCLASSIFIED"||
+    sourceCategory.toLowerCase()==="unclassified";
   const candidate={
     id:String(value?.id||`candidate-${index+1}`),
-    categoryId:CATEGORIES.some(({id})=>id===value?.categoryId)?value.categoryId:"personal",
+    categoryId:categoryResolved?sourceCategory:categoryNeedsReview?"":"personal",
     title:String(value?.title||"").trim(),
     startDate:String(value?.startDate||value?.date||""),
     endDate:value?.endDate?String(value.endDate):null,
@@ -338,7 +344,7 @@ function normalizeCandidate(value,index,existingEvents){
     warnings:Array.isArray(value?.warnings)?value.warnings.map(String):[],
     notes:String(value?.notes||""),
     visibilityState:value?.visibilityState||value?.visibilityRecommendation||VISIBILITY.INTERVIEWER_SAFE,
-    fields:value?.fields&&typeof value.fields==="object"?clone(value.fields):{},
+    fields:sourceFields,
     decision:normalizedDecision(value?.decision),
     reviewLater:value?.reviewLater===true,
     expanded:!!value?.expanded,
@@ -579,7 +585,7 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
         if(Object.hasOwn(patch,field))candidate[field]=patch[field];
       }
       if(patch.fields&&typeof patch.fields==="object")candidate.fields={...candidate.fields,...patch.fields};
-      if(!CATEGORIES.some(({id})=>id===candidate.categoryId))candidate.categoryId="personal";
+      if(!CATEGORIES.some(({id})=>id===candidate.categoryId))candidate.categoryId="";
       if(candidate.categoryId==="education")candidate.eventType="milestone";
       if(candidate.categoryId==="personal"){
         candidate.visibilityState=candidate.fields.visibility==="Advisor only"?VISIBILITY.ADVISOR_ONLY:VISIBILITY.INTERVIEWER_SAFE;
@@ -613,6 +619,9 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
         candidate.reviewLater=true;
         candidate.expanded=false;
         return state;
+      }
+      if(["accepted","merge","add-anyway"].includes(decision)&&!CATEGORIES.some(({id})=>id===candidate.categoryId)){
+        throw new Error("Choose a category before accepting this suggestion.");
       }
       if(decision==="accepted"&&candidate.duplicate)throw new Error("Resolve the duplicate with Merge or Add anyway.");
       if(decision==="merge"&&!candidate.duplicate)throw new Error("Merge is available only for duplicate candidates.");
@@ -791,6 +800,7 @@ function mergePatch(existing,candidate,fileName){
 export function validateCandidateForApproval(candidate){
   const errors={};
   if(!String(candidate?.title||"").trim())errors.title="Required.";
+  if(!CATEGORIES.some(({id})=>id===candidate?.categoryId))errors.categoryId="Choose a category.";
   const start=monthIndex(candidate?.startDate);
   const end=candidate?.endDate?monthIndex(candidate.endDate):null;
   if(!Number.isFinite(start))errors.startDate="Enter a month and year, like 'Jun 2023'.";
@@ -848,6 +858,15 @@ export function buildApprovalBatch(state,existingEvents,{idFactory=(prefix)=>`${
     additions,
     merges,
     acceptedCandidateIds:positive.map(({id})=>id),
+    acceptedCandidates:positive.map((candidate)=>({
+      id:String(candidate.id),
+      decision:String(candidate.decision),
+      title:String(candidate.title||""),
+      categoryId:String(candidate.categoryId||""),
+      startDate:candidate.startDate?String(candidate.startDate):null,
+      endDate:candidate.endDate?String(candidate.endDate):null,
+      provenance:clone(candidate.provenance||[])
+    })),
     qualitySuggestions:(state.suggestions||[]).map((suggestion)=>clone(suggestion)),
     candidateDecisions:state.candidates.map(({id,decision})=>({id,decision})),
     remainingCandidates:state.candidates.filter(({decision})=>decision==="undecided").map((candidate)=>clone(candidate)),
@@ -885,7 +904,8 @@ export function applyApprovalBatchToDocument(document,batch){
       fileName:batch.sourceDocument?.name||"",
       acceptedCount:batch.acceptedCount,
       addedCount:batch.addedCount,
-      mergedCount:batch.mergedCount
+      mergedCount:batch.mergedCount,
+      acceptedCandidates:(batch.acceptedCandidates||[]).map((candidate)=>clone(candidate))
     }
   };
   document.events=nextEvents;
@@ -1123,7 +1143,10 @@ function extractionMarkup(state){
 }
 
 function categoryOptions(selected){
-  return CATEGORIES.map(({id,label})=>`<option value="${escapeHtml(id)}"${id===selected?" selected":""}>${escapeHtml(label)}</option>`).join("");
+  const unresolved=!CATEGORIES.some(({id})=>id===selected)
+    ?'<option value="" selected disabled>Choose a category</option>'
+    :"";
+  return unresolved+CATEGORIES.map(({id,label})=>`<option value="${escapeHtml(id)}"${id===selected?" selected":""}>${escapeHtml(label)}</option>`).join("");
 }
 
 function fieldLabel(key){
@@ -1142,7 +1165,8 @@ const INTERNAL_CANDIDATE_FIELDS=new Set([
   "inferredFields",
   "duplicateGroupIds",
   "conflictIds",
-  "privacy"
+  "privacy",
+  "aiOriginalSemantic"
 ]);
 
 function reviewField(candidate,field){
@@ -1439,6 +1463,7 @@ export function installIntake(root,machine,{
   saveVersion=null,
   applyBatch=null,
   deleteSource=async()=>{},
+  onCandidateDecision=null,
   setIntervalFn=setInterval,
   clearIntervalFn=clearInterval
 }={}){
@@ -1488,7 +1513,14 @@ export function installIntake(root,machine,{
       const {candidateId}=candidateAction.dataset;
       const action=candidateAction.dataset.candidateAction;
       if(action==="edit")machine.toggleEdit(candidateId);
-      else machine.decideCandidate(candidateId,action);
+      else{
+        machine.decideCandidate(candidateId,action);
+        if(action==="rejected"&&typeof onCandidateDecision==="function"){
+          const state=machine.snapshot();
+          const candidate=state.candidates.find(({id})=>String(id)===String(candidateId));
+          await onCandidateDecision({candidate,decision:action,state});
+        }
+      }
       return;
     }
     const target=closest(event.target,"[data-intake-action]");

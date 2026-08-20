@@ -70,6 +70,7 @@ export class TimelineProductionAuthClient{
       principalId:String(data.user?.principal_id||"").toLowerCase(),
       wpUserId:Number(data.user?.wp_user_id),
       role:String(data.user?.role||""),
+      syntheticFixture:data.user?.synthetic_fixture===true,
       remoteSyncConsent:data.remote_sync_consent===true,
       remoteSyncAllowed:data.remote_sync_allowed===true||data.remote_sync_consent===true,
       consentRequired:data.consent_required===true,
@@ -217,8 +218,17 @@ export class TimelineProductionAuthClient{
   analyzeCv(documentId,input){
     return this.request(`/documents/${encodeURIComponent(documentId)}/intake/analyze`,{method:"POST",body:input,timeoutMs:65_000});
   }
+  analyzeQuality(documentId,input){
+    return this.request(`/documents/${encodeURIComponent(documentId)}/quality/analyze`,{
+      method:"POST",body:input,timeoutMs:65_000,
+      headers:this.bootstrapState?.syntheticFixture?{"x-timeline-synthetic-fixture":"1"}:{}
+    });
+  }
   rescueTimeline(documentId,input){
-    return this.request(`/documents/${encodeURIComponent(documentId)}/intake/rescue`,{method:"POST",body:input,timeoutMs:65_000});
+    return this.request(`/documents/${encodeURIComponent(documentId)}/intake/rescue`,{
+      method:"POST",body:input,timeoutMs:65_000,
+      headers:this.bootstrapState?.syntheticFixture?{"x-timeline-synthetic-fixture":"1"}:{}
+    });
   }
   signObjectUpload(documentId,{mimeType,byteSize,sha256,objectClass="MEDIA"}={}){
     return this.request("/objects/sign",{method:"POST",body:{documentId,objectClass,mimeType,byteSize,sha256}});

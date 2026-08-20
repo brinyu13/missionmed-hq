@@ -419,7 +419,7 @@ export function mapCvIntelligenceCandidateToUxr(candidate,{sourceDocument=null,s
       };
     });
   });
-  return mapD1408CandidateToUxr({
+  const mapped=mapD1408CandidateToUxr({
     ...candidate,
     provenance,
     dateRange:{openEnded:candidate.openEnded===true},
@@ -437,6 +437,13 @@ export function mapCvIntelligenceCandidateToUxr(candidate,{sourceDocument=null,s
       .filter((item)=>item.support==="INFERRED")
       .map((item)=>({field:item.field,reason:item.reason,uncertainty:item.uncertainty||null}))
   });
+  mapped.fields.aiOriginalSemantic={
+    title:mapped.title,
+    categoryId:mapped.categoryId,
+    startDate:mapped.startDate,
+    endDate:mapped.endDate
+  };
+  return mapped;
 }
 
 async function bundledPdfExtractor(file,options){
@@ -628,9 +635,32 @@ export function createProductionCvIntakeAdapter({
             source:{objectId,filename:String(file.name||"existing-timeline"),mimeType,sha256}
           });
           const rescue=response?.rescue||{};
+          const rescueSuggestions=[];
+          for(const action of rescue.cleanupProposal?.actions||[]){
+            rescueSuggestions.push({
+              id:String(action.id||`rescue-cleanup-${rescueSuggestions.length+1}`),
+              type:action.kind==="RESOLVE_LAYOUT_COLLISION"?"VISUAL_OVERLAP":"LABEL_READABILITY",
+              severity:"REVIEW",
+              candidateIds:Array.isArray(action.candidateIds)?action.candidateIds.map(String):[],
+              reason:String(action.reason||"Review this presentation-only cleanup proposal."),
+              recommendation:"Review this MissionMed presentation proposal. It will not change biography facts automatically.",
+              source:"DETERMINISTIC"
+            });
+          }
+          for(const item of rescue.reconciliation||[]){
+            rescueSuggestions.push({
+              id:`rescue-reconcile-${String(item.timelineCandidateId||"none")}-${String(item.cvCandidateId||"none")}-${String(item.state||"review")}`,
+              type:item.state==="DATE_CONFLICT"?"CHRONOLOGY_REVIEW":item.state==="CATEGORY_CONFLICT"?"CATEGORY_REVIEW":"SOURCE_ITEM_NOT_INCLUDED",
+              severity:item.state==="MATCH"?"INFO":"REVIEW",
+              candidateIds:item.timelineCandidateId?[String(item.timelineCandidateId)]:[],
+              reason:`Timeline Rescue reconciliation: ${String(item.state||"REVIEW").replaceAll("_"," ").toLowerCase()}.`,
+              recommendation:String(item.recommendation||"Review the source comparison before importing."),
+              source:"DETERMINISTIC"
+            });
+          }
           const candidates=(Array.isArray(rescue.candidates)?rescue.candidates:[]).map((candidate)=>({
             id:String(candidate.id),
-            categoryId:CATEGORY_BY_LEGACY_ID[String(candidate.categoryId)]||"personal",
+            categoryId:CATEGORY_BY_LEGACY_ID[String(candidate.categoryId)]||"",
             title:String(candidate.title||""),
             startDate:String(candidate.startDate||""),
             endDate:candidate.endDate?String(candidate.endDate):null,
@@ -644,6 +674,7 @@ export function createProductionCvIntakeAdapter({
             sourceSnippet:String(candidate.provenance?.[0]?.sourceText||""),
             provenance:(Array.isArray(candidate.provenance)?candidate.provenance:[]).map((item)=>({
               ...item,
+              pageNumber:Number(item.pageOrSlide)||null,
               sourceDocumentName:String(file.name||"Existing Timeline"),
               sourceExcerpt:String(item.sourceText||"")
             })),
@@ -655,6 +686,14 @@ export function createProductionCvIntakeAdapter({
             visibilityState:UXR_VISIBILITY.INTERVIEWER_SAFE,
             fields:{
               rescueReviewRequired:true,
+              mappingReviewRequired:String(candidate.categoryId)==="unclassified",
+              canonicalType:String(candidate.categoryId)==="unclassified"?"UNCLASSIFIED":"TIMELINE_RESCUE_EVENT",
+              aiOriginalSemantic:{
+                title:String(candidate.title||""),
+                categoryId:CATEGORY_BY_LEGACY_ID[String(candidate.categoryId)]||"",
+                startDate:String(candidate.startDate||""),
+                endDate:candidate.endDate?String(candidate.endDate):null
+              },
               rescueArtifactSha256:String(rescue.artifactSha256||sha256),
               rescueFormat:String(rescue.format||""),
               cleanupAuthority:String(rescue.cleanupProposal?.authority||"MISSIONMED_D1_409H_CANONICAL_PRESENTATION")
@@ -675,13 +714,21 @@ export function createProductionCvIntakeAdapter({
               version:String(rescue.schemaVersion||"d1-timeline-rescue-1"),
               detectedType:"TIMELINE_RESCUE",effectiveType:"TIMELINE_RESCUE",
               sections:[],recordCount:Number(rescue.objects?.length||0),candidateCount:candidates.length,
-              networkCalls:true,intelligenceMode:"TIMELINE_RESCUE",
-              qualitySuggestions:[],
+              networkCalls:true,
+              intelligenceMode:response?.ai?.mode==="SERVER_AI"?"SERVER_AI":"TIMELINE_RESCUE",
+              analysisId:String(response?.ai?.analysisId||""),
+              provider:String(response?.ai?.provider||""),
+              model:String(response?.ai?.model||""),
+              promptVersion:String(response?.ai?.promptVersion||"d1-timeline-rescue-ai.1"),
+              aiStatus:String(response?.ai?.status||"NOT_RUN"),
+              aiUnavailableMessage:String(response?.ai?.unavailableMessage||""),
+              qualitySuggestions:rescueSuggestions,
               unresolvedQuestions:Array.isArray(rescue.unresolvedQuestions)?rescue.unresolvedQuestions:[],
               warnings:Array.isArray(rescue.warnings)?rescue.warnings:[],
               cleanupProposal:rescue.cleanupProposal||null,
               reconciliation:Array.isArray(rescue.reconciliation)?rescue.reconciliation:[]
-            }
+            },
+            qualitySuggestions:rescueSuggestions
           };
         }catch(error){
           if(objectId)await deleteObject(objectId);

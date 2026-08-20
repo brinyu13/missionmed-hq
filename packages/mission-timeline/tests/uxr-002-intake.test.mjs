@@ -343,6 +343,10 @@ test("zero timeline writes occur before one versioned approval callback applies 
   assert.equal(document.events[0].notes,"Existing note\nImported research source.");
   assert.equal(document.events[1].title,"Senior clinical coordinator");
   assert.equal(document.intake.lastImport.acceptedCount,2);
+  assert.equal(document.intake.lastImport.acceptedCandidates.length,2);
+  assert.equal(document.intake.lastImport.acceptedCandidates[1].title,"Senior clinical coordinator");
+  assert.equal(document.intake.lastImport.acceptedCandidates[0].decision,"merge");
+  assert.equal(document.intake.lastImport.acceptedCandidates[1].decision,"accepted");
   assert.equal(machine.state.stage,INTAKE_STAGES.DONE);
   assert.equal(machine.state.approval.appliedCount,2);
   assert.match(renderIntake(machine.state),/Added 2 events from Synthetic_CV\.pdf\./);
@@ -427,7 +431,7 @@ test("cancel confirmation, discard, Done actions, deletion, and preview all rema
   assert.match(renderIntake(done.state),/Added 1 events from Synthetic_CV\.pdf\./);
 });
 
-test("installIntake delegates state actions and cleans up every installed listener",async()=>{
+test("installIntake delegates state actions, records rejected AI decisions, and cleans up every installed listener",async()=>{
   const state=hydrateIntakeState({
     stage:INTAKE_STAGES.REVIEW,
     file:validateIntakeFile(pdf()).metadata,
@@ -448,7 +452,11 @@ test("installIntake delegates state actions and cleans up every installed listen
     }
   };
   const changes=[];
-  const cleanup=installIntake(root,machine,{onChange:(value)=>changes.push(value)});
+  const rejected=[];
+  const cleanup=installIntake(root,machine,{
+    onChange:(value)=>changes.push(value),
+    onCandidateDecision:(value)=>rejected.push(value)
+  });
   assert.deepEqual([...listeners.keys()],["click","change","dragover","drop"]);
   const target={
     dataset:{intakeAction:"accept-high"},
@@ -456,6 +464,13 @@ test("installIntake delegates state actions and cleans up every installed listen
   };
   await listeners.get("click")({target});
   assert.equal(machine.state.candidates[0].decision,"accepted");
+  const rejectedTarget={
+    dataset:{candidateId:"candidate-1",candidateAction:"rejected"},
+    closest(selector){return selector==="[data-candidate-action]"?this:null;}
+  };
+  await listeners.get("click")({target:rejectedTarget});
+  assert.equal(rejected.length,1);
+  assert.equal(rejected[0].candidate.decision,"rejected");
   assert.ok(changes.length>=2);
   cleanup();
   assert.deepEqual(removals,["click","change","dragover","drop"]);
@@ -488,10 +503,11 @@ test("buildApprovalBatch keeps undecided suggestions and gives Add anyway a new 
   assert.equal(batch.remainingCandidates[0].id,"undecided");
   assert.equal(batch.version.name,"Before CV import · Jul 29, 2026");
 
-  assert.deepEqual(validateCandidateForApproval({title:"",startDate:"bad",endDate:"2021-01"}),{
+  assert.deepEqual(validateCandidateForApproval({title:"",categoryId:"work",startDate:"bad",endDate:"2021-01"}),{
     title:"Required.",
     startDate:"Enter a month and year, like 'Jun 2023'."
   });
+  assert.equal(validateCandidateForApproval({title:"Unclassified",categoryId:"",startDate:"2021-01"}).categoryId,"Choose a category.");
   const invalid=await extractedMachine({candidates:[candidate({startDate:""})]});
   invalid.decideCandidate("candidate-1","accepted");
   assert.throws(

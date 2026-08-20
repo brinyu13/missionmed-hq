@@ -15,6 +15,7 @@ if (!defined('ABSPATH')) {
 const MMTL_OPTION = 'missionmed_timeline_settings';
 const MMTL_RATE_KEYS_OPTION = 'missionmed_timeline_rate_keys';
 const MMTL_PRINCIPAL_META = '_missionmed_timeline_principal_id';
+const MMTL_SYNTHETIC_TEST_META = '_missionmed_timeline_synthetic_test';
 const MMTL_CONSENT_META = '_missionmed_timeline_remote_sync_consent';
 const MMTL_CONSENT_AT_META = '_missionmed_timeline_remote_sync_consented_at';
 const MMTL_REST_NAMESPACE = 'missionmed-timeline/v1';
@@ -850,6 +851,7 @@ function mmtl_ajax_bootstrap() {
             'wp_user_id' => (int) $user->ID,
             'principal_id' => $principal,
             'role' => (string) $access['role'],
+            'synthetic_fixture' => get_user_meta((int) $user->ID, MMTL_SYNTHETIC_TEST_META, true) === '1',
         ),
     ));
 }
@@ -982,18 +984,23 @@ function mmtl_proxy_api_request() {
         $target = add_query_arg($query, $target);
     }
     $request_id = sanitize_text_field($_SERVER['HTTP_X_REQUEST_ID'] ?? wp_generate_uuid4());
+    $is_ai_route = preg_match('#/(?:quality/analyze|intake/(?:analyze|rescue))$#', $path) === 1;
+    $outbound_headers = array(
+        'Authorization' => 'Bearer ' . $token,
+        'Content-Type' => 'application/json',
+        'X-Request-Id' => $request_id,
+        'X-MissionMed-Timeline-Gateway' => 'wordpress',
+        'X-MissionMed-Timeline-Gateway-Secret' => $gateway_secret,
+    );
+    if ($is_ai_route && get_user_meta((int) $user->ID, MMTL_SYNTHETIC_TEST_META, true) === '1') {
+        $outbound_headers['X-Timeline-Synthetic-Fixture'] = '1';
+    }
     $args = array(
         'method' => $method,
-        'timeout' => 20,
+        'timeout' => $is_ai_route ? 60 : 20,
         'redirection' => 0,
         'reject_unsafe_urls' => true,
-        'headers' => array(
-            'Authorization' => 'Bearer ' . $token,
-            'Content-Type' => 'application/json',
-            'X-Request-Id' => $request_id,
-            'X-MissionMed-Timeline-Gateway' => 'wordpress',
-            'X-MissionMed-Timeline-Gateway-Secret' => $gateway_secret,
-        ),
+        'headers' => $outbound_headers,
     );
     if (!in_array($method, array('GET', 'DELETE'), true)) {
         $args['body'] = file_get_contents('php://input');

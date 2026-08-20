@@ -27,9 +27,15 @@ import {
 import {
   analyzeTimelineQuality,
   applySafeQualityFixes,
+  deterministicFindingsForAi,
+  mergeAiQualityAnalysis,
   qualityGuardianViewer,
   renderQualityGuardian
 } from "./uxr-002/quality-guardian.js";
+import {
+  appendTimelineAiFeedback,
+  classifyTimelineAiCandidateOutcome
+} from "./uxr-002/ai-feedback.js";
 import {
   beginCanvasDrag,
   commitCanvasDrag,
@@ -3281,8 +3287,41 @@ export async function boot407FEngineeringAdapter({
     tertiary:"homeTertiary",
     primary:"btnD go sm"
   });
-  const openQualityGuardian407F=(stage="DURING_BUILDING")=>{
-    const report=analyzeTimelineQuality(store.document,{stage});
+  const openQualityGuardian407F=async(stage="DURING_BUILDING")=>{
+    let report=analyzeTimelineQuality(store.document,{stage});
+    const syntheticAi=productionRuntime?.authClient?.bootstrapState?.syntheticFixture===true;
+    if(syntheticAi){
+      const requestedRevision=Number(store.document.revision||0);
+      openStandardModal(`<section class="export407FSuggestionDialog" role="dialog" aria-modal="true" aria-labelledby="quality-guardian-loading" data-quality-guardian-loading style="width:min(640px,calc(100vw - 40px))">
+        <p class="micro-label">Timeline Quality Guardian</p>
+        <h2 id="quality-guardian-loading">Checking your Timeline…</h2>
+        <p>Running the live MissionMed AI review. Your Timeline stays unchanged until you approve a safe action.</p>
+      </section>`,"[data-quality-guardian-loading]");
+      try{
+        const analysis=await productionRuntime.authClient.analyzeQuality(store.document.id,{
+          deterministicFindings:deterministicFindingsForAi(report)
+        });
+        if(Number(analysis?.documentRevision)!==requestedRevision||Number(store.document.revision||0)!==requestedRevision){
+          const stale=new Error("Timeline changed while AI review was running. Run Check My Timeline again.");
+          stale.code="TIMELINE_AI_STALE_DOCUMENT";
+          throw stale;
+        }
+        report=mergeAiQualityAnalysis(report,analysis);
+      }catch(error){
+        report=mergeAiQualityAnalysis(report,{
+          status:"AI_UNAVAILABLE",
+          mode:"UNAVAILABLE",
+          promptVersion:"d1-timeline-quality-guardian-ai.1",
+          standardVersion:"D1-409H-A1+D1-411A",
+          unavailableMessage:error?.code==="TIMELINE_AI_STALE_DOCUMENT"
+            ?"Timeline changed while AI review was running. Run Check My Timeline again."
+            :"Timeline AI is temporarily unavailable. Your Timeline was not changed.",
+          findings:[],
+          unresolvedQuestions:[]
+        });
+      }
+      closeStandardModal({restoreFocus:false});
+    }
     const dialog=openStandardModal(`<section class="export407FSuggestionDialog" role="dialog" aria-modal="true" aria-labelledby="quality-guardian-title" data-quality-guardian-dialog style="width:min(860px,calc(100vw - 40px));max-height:min(820px,calc(100vh - 40px));overflow:auto">
       ${renderQualityGuardian(report,{
         viewer:qualityGuardianViewer(store.entitlement,bridge.state.view),
@@ -3329,10 +3368,25 @@ export async function boot407FEngineeringAdapter({
           findings:report.findings.filter(({id})=>id===selected.id)
         });
         if(!result.changed)return;
+        if(report.ai?.status==="COMPLETE"&&String(selected.id).startsWith("qg-ai:")){
+          appendTimelineAiFeedback(result.document,{
+            workflow:"QUALITY_GUARDIAN",
+            workflowVersion:report.ai.promptVersion,
+            modelVersion:report.ai.model,
+            suggestionId:selected.id,
+            suggestionType:selected.code,
+            confidence:Number(selected.evidence?.confidence)||0,
+            outcome:"ACCEPTED",
+            layoutFix:selected.fixKind,
+            layoutFixAccepted:true,
+            actorKind:qualityGuardianViewer(store.entitlement,bridge.state.view).startsWith("Founder")?"FOUNDER":"STUDENT",
+            finalCanonicalReference:`document:${store.document.id}@revision:${Number(store.document.revision||0)+1}`
+          });
+        }
         store.replace(result.document,{label:"Quality Guardian: safe layout fix"});
         syncBridgeFromStore();
         closeStandardModal({restoreFocus:false});
-        queueMicrotask(()=>openQualityGuardian407F("AFTER_SAFE_FIX"));
+        queueMicrotask(()=>void openQualityGuardian407F("AFTER_SAFE_FIX"));
       },{once:true});
     });
     dialog.querySelector("[data-quality-continue-export]")?.addEventListener(
@@ -3361,7 +3415,7 @@ export async function boot407FEngineeringAdapter({
     if(trigger.matches("button:disabled,[aria-disabled='true']"))return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    openQualityGuardian407F(
+    void openQualityGuardian407F(
       trigger.hasAttribute("data-quality-guardian-open")
         ?"DURING_BUILDING"
         :"BEFORE_EXPORT"
@@ -6458,11 +6512,57 @@ export async function boot407FEngineeringAdapter({
       saveVersion:(name,kind)=>store.saveVersion(name,kind),
       applyBatch:async(batch,contract)=>{
         let result=null;
+        const feedbackState=intakeMachine.snapshot();
         store.mutate(contract?.label||"Add document suggestions",(document)=>{
           result=applyApprovalBatchToDocument(document,batch);
+          const feedbackParser=feedbackState?.extraction?.parser||feedbackState?.parser||null;
+          if(feedbackParser?.intelligenceMode==="SERVER_AI"){
+            const candidates=new Map((feedbackState.candidates||[]).map((candidate)=>[String(candidate.id),candidate]));
+            for(const decision of batch.candidateDecisions||[]){
+              if(["undecided","rejected"].includes(decision.decision))continue;
+              const candidate=candidates.get(String(decision.id));
+              if(!candidate)continue;
+              const outcome=classifyTimelineAiCandidateOutcome(candidate,decision.decision);
+              const confidence=Number(candidate.confidence?.score??candidate.confidence??0);
+              appendTimelineAiFeedback(document,{
+                workflow:feedbackParser.detectedType==="TIMELINE_RESCUE"
+                  ?"TIMELINE_RESCUE"
+                  :"CV_SMART_FILL",
+                workflowVersion:String(feedbackParser.promptVersion||feedbackParser.schemaVersion||"d1-timeline-cv-ai.1"),
+                modelVersion:String(feedbackParser.model||"unknown-model"),
+                suggestionId:String(candidate.id),
+                suggestionType:String(candidate.fields?.canonicalType||candidate.canonicalType||candidate.type||"TIMELINE_EVENT"),
+                confidence:Number.isFinite(confidence)?Math.max(0,Math.min(1,confidence>1?confidence/100:confidence)):0,
+                outcome,
+                correctedCategory:outcome==="MODIFIED"?String(candidate.categoryId||"")||null:null,
+                correctedStartDate:outcome==="MODIFIED"?candidate.startDate||null:null,
+                correctedEndDate:outcome==="MODIFIED"?candidate.endDate||null:null,
+                actorKind:qualityGuardianViewer(store.entitlement,bridge.state.view).startsWith("Founder")?"FOUNDER":"STUDENT",
+                finalCanonicalReference:`candidate:${candidate.id}@document:${document.id}:revision:${Number(document.revision||0)+1}`
+              });
+            }
+          }
         });
         syncBridgeFromStore();
         return result;
+      },
+      onCandidateDecision:async({candidate,decision,state})=>{
+        const feedbackParser=state?.extraction?.parser||null;
+        if(decision!=="rejected"||!candidate||feedbackParser?.intelligenceMode!=="SERVER_AI")return;
+        store.mutate("Record rejected AI suggestion",(document)=>{
+          const confidence=Number(candidate.confidence?.score??candidate.confidence??0);
+          appendTimelineAiFeedback(document,{
+            workflow:feedbackParser.detectedType==="TIMELINE_RESCUE"?"TIMELINE_RESCUE":"CV_SMART_FILL",
+            workflowVersion:String(feedbackParser.promptVersion||feedbackParser.schemaVersion||"d1-timeline-cv-ai.1"),
+            modelVersion:String(feedbackParser.model||"unknown-model"),
+            suggestionId:String(candidate.id),
+            suggestionType:String(candidate.fields?.canonicalType||candidate.canonicalType||"TIMELINE_EVENT"),
+            confidence:Number.isFinite(confidence)?Math.max(0,Math.min(1,confidence>1?confidence/100:confidence)):0,
+            outcome:"REJECTED",
+            actorKind:qualityGuardianViewer(store.entitlement,bridge.state.view).startsWith("Founder")?"FOUNDER":"STUDENT",
+            finalCanonicalReference:`candidate:${candidate.id}@document:${document.id}:revision:${Number(document.revision||0)}`
+          });
+        },{history:false,material:false});
       },
       deleteSource:async(file)=>{
         if(typeof intakeAdapter.deleteSource==="function"){

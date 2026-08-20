@@ -13,6 +13,8 @@ import {MAX_FILE_BYTES} from "../web/js/ingestion/file-inspector.js";
 import {
   INTAKE_STAGES,
   IntakeStateMachine,
+  createIntakeState,
+  validateCandidateForApproval,
   renderIntake
 } from "../web/js/uxr-002/intake.js";
 import {extractDocx} from "../web/js/ingestion/docx-text-extractor.js";
@@ -406,4 +408,41 @@ test("CV intelligence mapping is conservative when evidence is inferred",()=>{
   assert.equal(mapped.confidence,"medium");
   assert.equal(mapped.visibilityState,"ADVISOR_ONLY");
   assert.equal(mapped.inferredFields[0].field,"title");
+});
+
+test("Timeline Rescue keeps unclassified facts unresolved and exposes slide, cleanup, and reconciliation review",async()=>{
+  const file=pdfFile({name:"synthetic-existing-timeline.pdf",timelineRescue:true});
+  const apiClient={
+    async signObjectUpload(){return{objectId:"rescue-source",uploadToken:"rescue-token"};},
+    async uploadSignedObject(){},
+    async confirmObjectUpload(){return{status:"CONFIRMED"};},
+    async analyzeCv(){return{mode:"LOCAL_LIMITED",candidates:[]};},
+    async rescueTimeline(){return{
+      ai:{status:"COMPLETE",mode:"SERVER_AI",analysisId:"rescue-analysis",provider:"openai",model:"synthetic-model",promptVersion:"rescue-prompt"},
+      rescue:{
+        schemaVersion:"d1-timeline-rescue-1",format:"PDF",artifactSha256:"b".repeat(64),objects:[{id:"o1"}],warnings:[],unresolvedQuestions:[],
+        candidates:[{
+          id:"rescue-unclassified",categoryId:"unclassified",title:"Community chapter",startDate:"2021-01",endDate:null,
+          timelineKind:"milestone",confidence:{score:.35,reasons:["No reliable category term"]},
+          provenance:[{pageOrSlide:3,sourceText:"Community chapter 2021",support:"SOURCE_FACT"}],uncertainties:["Confirm category"]
+        }],
+        cleanupProposal:{authority:"MISSIONMED_D1_409H_CANONICAL_PRESENTATION",actions:[{id:"cleanup-bg",kind:"RESTORE_CANONICAL_BACKGROUND",candidateIds:[],reason:"Restore presentation only."}]},
+        reconciliation:[{timelineCandidateId:"rescue-unclassified",cvCandidateId:"cv-1",state:"CATEGORY_CONFLICT",recommendation:"Review both categories."}]
+      }
+    }},
+    async deleteObject(){throw new Error("successful source remains private");}
+  };
+  const adapter=createProductionCvIntakeAdapter({apiClient,documentId:"timeline-rescue",ensureRemoteDocument:async()=>{}});
+  const result=await adapter.extract({file,documentType:"CV"});
+  assert.equal(result.candidates[0].categoryId,"");
+  assert.equal(result.candidates[0].fields.mappingReviewRequired,true);
+  assert.equal(result.candidates[0].provenance[0].pageNumber,3);
+  assert.equal(result.parser.qualitySuggestions.length,2);
+  assert.ok(result.parser.qualitySuggestions.some(({type})=>type==="CATEGORY_REVIEW"));
+  const review=createIntakeState({candidates:result.candidates,suggestions:result.qualitySuggestions});
+  review.stage=INTAKE_STAGES.REVIEW;
+  assert.match(renderIntake(review),/Page 3/);
+  review.candidates[0].decision="accepted";
+  assert.equal(validateCandidateForApproval(review.candidates[0]).categoryId,"Choose a category.");
+  assert.match(renderIntake(review),/Review this MissionMed presentation proposal/);
 });

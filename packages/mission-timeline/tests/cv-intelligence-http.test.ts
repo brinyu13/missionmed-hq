@@ -7,6 +7,8 @@ import { TimelineService } from "../src/domain/timeline-service.js";
 import { InMemoryPrincipalDirectory, MatrixSessionExchange } from "../src/identity/matrix-identity.js";
 import { CvIntelligenceService } from "../src/intelligence/cv-intelligence-service.js";
 import type { CvIntelligenceProvider } from "../src/intelligence/cv-intelligence-provider.js";
+import { TimelineAiWorkflowService } from "../src/intelligence/timeline-ai-workflow-service.js";
+import type { TimelineAiWorkflowProvider } from "../src/intelligence/timeline-ai-workflow-provider.js";
 import { InMemoryTimelineRepository } from "../src/persistence/repository.js";
 import { InMemoryPrivateObjectStore } from "../src/storage/private-object-store.js";
 import { InMemoryTelemetrySink, PrivacySafeTelemetry } from "../src/telemetry/telemetry.js";
@@ -189,10 +191,39 @@ test("owner-authenticated Timeline Rescue reads the exact private source and ret
   directory.register({ principalId: student.principalId, wpUserId: 42, role: "STUDENT", programIds: student.programIds, assignedDocumentIds: [], active: true });
   const identity = new MatrixSessionExchange(directory, { verify: async () => true }, "0123456789abcdef0123456789abcdef", 600, fixedClock);
   const objectStore = new InMemoryPrivateObjectStore("test", "0123456789abcdef0123456789abcdef", fixedClock);
-  const api = new TimelineHttpApi(service, identity, objectStore, new PrivacySafeTelemetry(new InMemoryTelemetrySink(), "test", fixedClock), "test", false);
+  const api = new TimelineHttpApi(
+    service,
+    identity,
+    objectStore,
+    new PrivacySafeTelemetry(new InMemoryTelemetrySink(), "test", fixedClock),
+    "test",
+    false,
+    new CvIntelligenceService(),
+    new TimelineAiWorkflowService(null, [student.principalId]),
+  );
   const exchange = await api.handle(httpRequest("/v1/session/exchange", "POST"), { wpUserId: 42, displayName: "Student", nonceVerified: true, sessionId: "matrix_session" });
   const { token } = await exchange.json();
-  await api.handle(httpRequest("/v1/documents", "POST", token, { id: "timeline_rescue_http", programId: student.programIds[0], title: "Timeline", document: { events: [] } }));
+  await api.handle(httpRequest("/v1/documents", "POST", token, {
+    id: "timeline_rescue_http",
+    programId: student.programIds[0],
+    title: "Timeline",
+    document: {
+      events: [],
+      intake: {
+        lastImport: {
+          acceptedCandidates: [{
+            id: "cv-research-fellow",
+            decision: "accepted",
+            title: "Research Fellow",
+            categoryId: "res",
+            startDate: "2021",
+            endDate: "2023",
+            provenance: [{ pageNumber: 1, excerpt: "Research Fellow 2021-2023" }],
+          }],
+        },
+      },
+    },
+  }));
 
   const content = "BT 1 0 0 1 72 720 Tm (Research Fellow 2021-2023) Tj ET";
   const bytes = new TextEncoder().encode(`%PDF-1.4\n1 0 obj <</Type /Page>> endobj\n2 0 obj << /Length ${content.length} >> stream\n${content}\nendstream\nendobj\n%%EOF`);
@@ -204,7 +235,22 @@ test("owner-authenticated Timeline Rescue reads the exact private source and ret
   await api.handle(httpRequest(`/v1/objects/${signed.objectId}/confirm`, "POST", token, { uploadToken: signed.uploadToken }));
   const payload = { source: { objectId: signed.objectId, filename: "existing-timeline.pdf", mimeType: "application/pdf", sha256: digest } };
   assert.equal((await api.handle(httpRequest("/v1/documents/timeline_rescue_http/intake/rescue", "POST", undefined, payload))).status, 401);
-  const response = await api.handle(httpRequest("/v1/documents/timeline_rescue_http/intake/rescue", "POST", token, payload));
+  const ordinaryOwner = await api.handle(httpRequest("/v1/documents/timeline_rescue_http/intake/rescue", "POST", token, payload));
+  assert.equal(ordinaryOwner.status, 200);
+  const ordinaryResult = await ordinaryOwner.json();
+  assert.equal(ordinaryResult.ai, null);
+  assert.equal(ordinaryResult.rescue.candidates[0].reviewState, "REQUIRED");
+  assert.equal(ordinaryResult.rescue.reconciliation[0].cvCandidateId, "cv-research-fellow");
+  assert.match(ordinaryResult.rescue.reconciliation[0].state, /^(MATCH|DATE_CONFLICT|CATEGORY_CONFLICT)$/);
+  const response = await api.handle(new Request("https://timeline.local/v1/documents/timeline_rescue_http/intake/rescue", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+      "x-timeline-synthetic-fixture": "1",
+    },
+    body: JSON.stringify(payload),
+  }));
   assert.equal(response.status, 200);
   const result = await response.json();
   assert.equal(result.source.sha256, digest);
@@ -214,6 +260,52 @@ test("owner-authenticated Timeline Rescue reads the exact private source and ret
   assert.equal(result.rescue.candidates[0].reviewState, "REQUIRED");
   assert.equal(result.rescue.candidates[0].safeToAutoAccept, false);
   assert.equal(result.rescue.cleanupProposal.factualMutationAllowed, false);
+});
+
+test("Quality Guardian HTTP route invokes real structured AI only for the marked synthetic principal", async () => {
+  const repository = new InMemoryTimelineRepository();
+  const service = new TimelineService(repository, fixedClock);
+  const directory = new InMemoryPrincipalDirectory();
+  directory.register({ principalId: student.principalId, wpUserId: 42, role: "STUDENT", programIds: student.programIds, assignedDocumentIds: [], active: true });
+  const identity = new MatrixSessionExchange(directory, { verify: async () => true }, "0123456789abcdef0123456789abcdef", 600, fixedClock);
+  const objectStore = new InMemoryPrivateObjectStore("test", "0123456789abcdef0123456789abcdef", fixedClock);
+  let calls = 0;
+  const provider: TimelineAiWorkflowProvider = {
+    descriptor: { provider: "test-ai", model: "test-quality-model" },
+    async analyzeQuality() {
+      calls += 1;
+      return { findings: [{
+        id: "restore-bg", category: "MISSIONMED_FORMAT", code: "RESTORE_BACKGROUND", severity: "BLOCK_EXPORT",
+        basis: "PRESENTATION_RECOMMENDATION", elementIds: [], message: "Background is missing.",
+        recommendation: "Restore the canonical background.", confidence: 0.99, actionMode: "FIX_FOR_ME",
+        fixKind: "RESTORE_THEME_BACKGROUND",
+      }], unresolvedQuestions: [] };
+    },
+    async observeRescue() { return { observations: [], unresolvedQuestions: [] }; },
+  };
+  const api = new TimelineHttpApi(
+    service, identity, objectStore,
+    new PrivacySafeTelemetry(new InMemoryTelemetrySink(), "test", fixedClock),
+    "test", false, new CvIntelligenceService(), new TimelineAiWorkflowService(provider, [student.principalId]),
+  );
+  const exchange = await api.handle(httpRequest("/v1/session/exchange", "POST"), { wpUserId: 42, displayName: "Synthetic Student", nonceVerified: true, sessionId: "matrix_session" });
+  const { token } = await exchange.json();
+  await api.handle(httpRequest("/v1/documents", "POST", token, { id: "timeline_quality_http", programId: student.programIds[0], title: "Synthetic Timeline", document: { events: [] } }));
+  const path = "/v1/documents/timeline_quality_http/quality/analyze";
+  const denied = await api.handle(httpRequest(path, "POST", token, { deterministicFindings: [] }));
+  assert.equal(denied.status, 403);
+  assert.equal(calls, 0);
+  const allowed = await api.handle(new Request(`https://timeline.local${path}`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json", "x-timeline-synthetic-fixture": "1" },
+    body: JSON.stringify({ deterministicFindings: [] }),
+  }));
+  assert.equal(allowed.status, 200);
+  const result = await allowed.json();
+  assert.equal(result.mode, "SERVER_AI");
+  assert.equal(result.provider, "test-ai");
+  assert.equal(result.findings[0].fixKind, "RESTORE_THEME_BACKGROUND");
+  assert.equal(calls, 1);
 });
 
 test("File Vault ingestion and source deletion answer alike for a document that is not the student's", async () => {

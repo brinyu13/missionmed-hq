@@ -101,6 +101,13 @@ async function seed(page,count,{persist=false,label="Browser kernel fixture"}={}
 
 async function navigate(page,route){
   await page.locator(`#rail [data-v="${route}"]`).click();
+  if(route==="export"){
+    const qualityDialog=page.locator("[data-quality-guardian-dialog]");
+    await qualityDialog.waitFor({state:"visible",timeout:12000});
+    const proceed=qualityDialog.locator("[data-quality-continue-export]");
+    assert(await proceed.count()===1,"Quality Guardian blocked the canonical browser fixture from Export");
+    await proceed.click();
+  }
   await page.waitForFunction((route)=>document.querySelector('#rail [aria-current="page"]')?.dataset.v===route,route);
 }
 
@@ -486,6 +493,12 @@ for(const persona of personas){
     await page.locator('[data-axis-override-field="startYear"]').fill("2008");
     await page.locator('[data-axis-override-field="startYear"]').press("Tab");
     await page.waitForFunction(()=>window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis?.startYear===2008);
+    await page.waitForFunction(()=>{
+      const host=[...document.querySelectorAll('d1-timeline-kernel[data-surface="edit"]')]
+        .find((node)=>node.offsetWidth||node.offsetHeight);
+      return host?.shadowRoot?.querySelector("iframe")?.contentDocument
+        ?.querySelector("#axis .yseg span")?.textContent==="2008";
+    });
     let evidence=await kernelEvidence(await kernel(page,"edit"));
     const axisLabels=await evidence.frame.locator("#axis .yseg span").allTextContents();
     assert(axisLabels[0]==="2008",`manual axis did not render 2008: ${axisLabels.join(",")}`);
@@ -499,6 +512,12 @@ for(const persona of personas){
     await education.locator('[data-category-key-field="color"]').fill("#123abc");
     await education.locator('[data-category-key-field="color"]').press("Tab");
     await page.waitForFunction(()=>window.D1_407F_ENGINEERING.store.document.presentationOverrides?.categoryKey?.[0]?.color==="#123ABC");
+    await page.waitForFunction(()=>{
+      const host=[...document.querySelectorAll('d1-timeline-kernel[data-surface="edit"]')]
+        .find((node)=>node.offsetWidth||node.offsetHeight);
+      return getComputedStyle(host?.shadowRoot?.querySelector("iframe")?.contentDocument
+        ?.querySelector("#key .row .sw")).backgroundColor==="rgb(18, 58, 188)";
+    });
     await page.waitForFunction((label)=>{
       const host=[...document.querySelectorAll('d1-timeline-kernel[data-surface="edit"]')]
         .find((node)=>node.offsetWidth||node.offsetHeight);

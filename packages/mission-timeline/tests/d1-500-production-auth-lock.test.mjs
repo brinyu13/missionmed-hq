@@ -13,11 +13,11 @@ const token=(subject=principalId,wpUserId=42,role="STUDENT")=>`${encode({alg:"HS
 })}.signature`;
 
 const locationObject={origin:"https://missionmed.example",pathname:"/timeline/",search:"",hash:"",reload(){}};
-const bootstrap=()=>new Response(JSON.stringify({success:true,data:{
+const bootstrap=(syntheticFixture=false)=>new Response(JSON.stringify({success:true,data:{
   nonce:"nonce",token_endpoint:"https://missionmed.example/wp-json/missionmed-timeline/v1/token",
   api_base:"https://missionmed.example/timeline/api/v1",matrix_url:"https://missionmed.example/member-dashboard/",
   remote_sync_consent:true,consent_version:"d1-500-v1",
-  user:{wp_user_id:42,principal_id:principalId,role:"STUDENT"}
+  user:{wp_user_id:42,principal_id:principalId,role:"STUDENT",synthetic_fixture:syntheticFixture}
 }}),{status:200,headers:{"content-type":"application/json"}});
 const tokenResponse=(value=token())=>new Response(JSON.stringify({token:value,nonce:"next"}),{status:200,headers:{"content-type":"application/json"}});
 
@@ -163,6 +163,24 @@ test("concurrent near-expiry callers share one refresh and publish the renewed c
   assert.equal(renewed.length,1);
   assert.ok(Number(renewed[0].exp)*1000>Date.now());
   unsubscribe();
+  client.close();
+});
+
+test("only a server-marked synthetic principal sends the synthetic AI request marker",async()=>{
+  const calls=[];
+  const client=new TimelineProductionAuthClient({locationObject,documentObject:null,fetchImpl:async(url,options={})=>{
+    calls.push({url:String(url),options});
+    if(String(url).includes("admin-ajax.php"))return bootstrap(true);
+    if(String(url).includes("/token"))return tokenResponse();
+    return new Response(JSON.stringify({status:"COMPLETE",mode:"SERVER_AI",findings:[],unresolvedQuestions:[]}),{status:200,headers:{"content-type":"application/json"}});
+  }});
+  const state=await client.initialize();
+  assert.equal(state.syntheticFixture,true);
+  await client.analyzeQuality("timeline-synthetic",{deterministicFindings:[]});
+  await client.rescueTimeline("timeline-synthetic",{source:{objectId:"object-synthetic"}});
+  const aiCalls=calls.filter(({url})=>url.includes("/quality/analyze")||url.includes("/intake/rescue"));
+  assert.equal(aiCalls.length,2);
+  assert.ok(aiCalls.every(({options})=>new Headers(options.headers).get("x-timeline-synthetic-fixture")==="1"));
   client.close();
 });
 

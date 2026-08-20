@@ -8,6 +8,8 @@ import {
   QUALITY_GUARDIAN_SECTIONS,
   analyzeTimelineQuality,
   applySafeQualityFixes,
+  deterministicFindingsForAi,
+  mergeAiQualityAnalysis,
   qualityGuardianViewer,
   renderQualityGuardian
 } from "../web/js/uxr-002/quality-guardian.js";
@@ -60,7 +62,7 @@ test("Quality Guardian always reports the six explicit release sections without 
     "CONTENT","CHRONOLOGY","LAYOUT","READABILITY","MISSIONMED_FORMAT","EXPORT"
   ]);
   assert.deepEqual(QUALITY_GUARDIAN_SECTIONS.map(({label})=>label),[
-    "Content","Chronology","Layout","Readability","MissionMed format","Export"
+    "Content","Chronology","Layout","Readability","MissionMed Format","Export"
   ]);
   assert.equal(Object.hasOwn(report,"score"),false);
   for(const section of report.sections)assert.ok(["READY","REVIEW","BLOCKED"].includes(section.state));
@@ -169,7 +171,7 @@ test("rendered panel exposes every section, evidence basis, semantic Review, and
     sourceType:"ai",confidence:.2,provenance:[]
   }]}));
   const html=renderQualityGuardian(report,{viewer:"Founder / administrator view"});
-  for(const label of ["Content","Chronology","Layout","Readability","MissionMed format","Export"]){
+  for(const label of ["Content","Chronology","Layout","Readability","MissionMed Format","Export"]){
     assert.match(html,new RegExp(label));
   }
   assert.match(html,/Founder \/ administrator view/);
@@ -201,6 +203,37 @@ test("read-only mentor view exposes findings but never exposes a mutation contro
   assert.doesNotMatch(html,/data-quality-fix=/);
 });
 
+test("live AI findings merge into the versioned MissionMed Format while unsafe factual fixes are absent",()=>{
+  const local=analyzeTimelineQuality(timeline());
+  const requestFindings=deterministicFindingsForAi(local);
+  assert.ok(requestFindings.every(({category})=>QUALITY_GUARDIAN_SECTIONS.some(({id})=>id===category)));
+  const merged=mergeAiQualityAnalysis(local,{
+    status:"COMPLETE",mode:"SERVER_AI",provider:"openai",model:"gpt-test-pinned",
+    promptVersion:"d1-timeline-quality-guardian-ai.1",standardVersion:"D1-409H-A1+D1-411A",
+    findings:[{
+      id:"qg-ai:test",category:"READABILITY",code:"LONG_LABEL",severity:"REVIEW",
+      basis:"AI_INFERENCE",elementIds:["event-1"],message:"The event label may clip.",
+      recommendation:"Review the wording without changing the fact.",confidence:.86,
+      actionMode:"REVIEW",fixKind:null
+    }],
+    unresolvedQuestions:["Confirm whether the shortened label preserves meaning."]
+  });
+  assert.equal(merged.ai.status,"COMPLETE");
+  assert.equal(merged.ai.standardVersion,"D1-409H-A1+D1-411A");
+  assert.ok(merged.findings.some(({id})=>id==="qg-ai:test"));
+  assert.match(renderQualityGuardian(merged),/Live AI review/);
+});
+
+test("provider-unavailable quality state shows the truth and adds no canned AI findings",()=>{
+  const local=analyzeTimelineQuality(timeline());
+  const merged=mergeAiQualityAnalysis(local,{
+    status:"AI_UNAVAILABLE",mode:"UNAVAILABLE",findings:[],unresolvedQuestions:[],
+    unavailableMessage:"Timeline AI is temporarily unavailable. Your Timeline was not changed."
+  });
+  assert.equal(merged.findings.length,local.findings.length);
+  assert.match(renderQualityGuardian(merged),/Timeline AI is temporarily unavailable/);
+});
+
 test("the production 407F entry exposes a visible release gate and an explicit proceed-to-export action",async()=>{
   const adapter=await readFile(new URL("../web/js/407f-engineering-adapter.js",import.meta.url),"utf8");
   assert.match(adapter,/from "\.\/uxr-002\/quality-guardian\.js"/);
@@ -210,6 +243,10 @@ test("the production 407F entry exposes a visible release gate and an explicit p
   assert.match(adapter,/openQualityGuardian407F\("BEFORE_EXPORT"\)/);
   assert.match(adapter,/\[data-quality-continue-export\][\s\S]*bridge\.go\("export"\)/);
   assert.match(adapter,/applySafeQualityFixes\(store\.document/);
+  assert.match(adapter,/TIMELINE_AI_STALE_DOCUMENT/);
+  assert.match(adapter,/Number\(analysis\?\.documentRevision\)!==requestedRevision/);
+  assert.match(adapter,/classifyTimelineAiCandidateOutcome\(candidate,decision\.decision\)/);
+  assert.match(adapter,/onCandidateDecision:async/);
   assert.match(adapter,/store\.entitlement\.canMutate===true/);
   assert.match(adapter,/document\.removeEventListener\("click",onQualityGuardianCapture,true\)/);
 });
