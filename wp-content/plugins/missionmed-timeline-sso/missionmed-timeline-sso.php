@@ -21,7 +21,7 @@ const MMTL_REST_NAMESPACE = 'missionmed-timeline/v1';
 const MMTL_REST_TOKEN_ROUTE = '/token';
 const MMTL_REST_FILEVAULT_SOURCES_ROUTE = '/file-vault/sources';
 const MMTL_COURSE_ID = 3893;
-const MMTL_VERSION = '500.0.4';
+const MMTL_VERSION = '500.0.5';
 const MMTL_PRINCIPAL_NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 // Smart Fill is bounded by the browser parser that reads the handed-off bytes, not by the
 // larger Timeline SOURCE custody ceiling, so the chooser and the transfer agree on one limit.

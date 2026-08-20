@@ -122,10 +122,12 @@ test("Matrix launch adapter creates one eligible-only Timeline entry without cha
   assert.match(plugin, /wp_script_is\(\$handle, 'done'\)/);
   assert.match(plugin, /add_action\('wp_footer', 'mmtl_render_matrix_launch_adapter_fallback', 1\)/);
   assert.match(matrixLaunch, /data-missionmed-product="timeline"/);
+  assert.match(matrixLaunch, /a\.sos-nav-link\[href="#timeline"\]/);
+  assert.match(matrixLaunch, /addEventListener\("hashchange"/);
   assert.match(matrixLaunch, /a\.sos-nav-link\[href="#storyforge"\]/);
   assert.match(matrixLaunch, /link\.dataset\.missionmedProduct = "timeline"/);
   assert.match(matrixLaunch, /link\.dataset\.appId = "timeline"/);
   assert.match(matrixLaunch, /matchPrepList\.insertBefore\(item, storyForgeItem\.nextSibling\)/);
   assert.match(matrixLaunch, /document\.readyState === "loading"/);
-  assert.match(matrixLaunch, /window\.location\.hash === "#timeline"/);
+  assert.match(matrixLaunch, /window\.location\.hash\.toLowerCase\(\) === "#timeline"/);
 });
