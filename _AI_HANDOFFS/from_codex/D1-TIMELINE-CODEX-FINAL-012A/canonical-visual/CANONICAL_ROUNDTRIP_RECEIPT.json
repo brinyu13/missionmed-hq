@@ -1,0 +1,906 @@
+{
+  "generatedAt": "2026-08-20T18:07:23.543Z",
+  "fixture": {
+    "id": "CANONICAL VISUAL REGRESSION FIXTURE",
+    "immutableDuringTest": true,
+    "source": "D1-409H-A1 plus deterministic seven-event D1-411B representative fixture"
+  },
+  "appUrl": "http://127.0.0.1:8793/web/?matrixAppMode=local&returnUrl=%2Fmatrix%2Fdemo%2F&entitlement=administrator",
+  "sourceCommit": "f5f63c2e782adc0bb9b0da92455fc7bb90281592",
+  "protectedKernel": "D1-409H-A1",
+  "matrixTarget": "/matrix/demo/",
+  "panelsVisited": [
+    "elements",
+    "uploads",
+    "photos",
+    "logos",
+    "text",
+    "backgrounds",
+    "brand",
+    "shapes",
+    "icons",
+    "flags",
+    "timeline"
+  ],
+  "zoomSequence": [
+    "100",
+    "150",
+    "fit"
+  ],
+  "stateBeforeDigest": "3879eb205752130e330a18e9b3b24377040e37b6e125b1c302e2062bcac781cc",
+  "stateAfterDigest": "ad6c3f62e4712d9c45ff1c9b452bdee2280f06a8f42ee582f4dfaaded5d8f75f",
+  "stateDigestStable": false,
+  "visualDigest": "996c8bcf6f0ce0b367a880eaa53840f7ca3787fab88acf28696ddc9f63090dcd",
+  "rendererFingerprints": {
+    "baseline": "1b39ab48b6fdd73a4309a8bce391c7b20cdb1b199dcd2844220daf918c456991",
+    "editorEntry": "1b39ab48b6fdd73a4309a8bce391c7b20cdb1b199dcd2844220daf918c456991",
+    "afterPanelZoom": "1b39ab48b6fdd73a4309a8bce391c7b20cdb1b199dcd2844220daf918c456991",
+    "afterReload": "777148736fcd1b5114a55826a7dbdd7fc252c75109f97fd244248c8f60562e93",
+    "exportPreview": "777148736fcd1b5114a55826a7dbdd7fc252c75109f97fd244248c8f60562e93"
+  },
+  "modelDigestStable": true,
+  "rendererFingerprintStableWithinEquivalentViews": false,
+  "evidence": {
+    "baseline": {
+      "host": {
+        "fingerprint": "1b39ab48b6fdd73a4309a8bce391c7b20cdb1b199dcd2844220daf918c456991",
+        "renderId": "full-preview-d1-uxr-002-local-timeline-3",
+        "protectedKernel": "D1-409H-A1",
+        "projectionWarnings": "[]",
+        "source": "http://127.0.0.1:8793/web/presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html?defer=1"
+      },
+      "visual": {
+        "visualModel": {
+          "schemaVersion": "d1-409h-render-model/1",
+          "documentId": "d1-uxr-002-local-timeline",
+          "title": "Browser Kernel Student",
+          "axisMode": "adaptive",
+          "events": [
+            {
+              "id": "ev-d1-411b-browser-0",
+              "t": "Event 1",
+              "cat": "work",
+              "sy": 2010,
+              "sm": 1,
+              "ey": 2010,
+              "em": 3,
+              "date": "1/10-3/10",
+              "lp": "below",
+              "lane": 0,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-1",
+              "t": "Event 2",
+              "cat": "usce",
+              "sy": 2011,
+              "sm": 2,
+              "ey": 2011,
+              "em": 4,
+              "date": "2/11-4/11",
+              "lane": 1,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-2",
+              "t": "Event 3",
+              "cat": "work",
+              "sy": 2012,
+              "sm": 3,
+              "ey": 2012,
+              "em": 5,
+              "date": "3/12-5/12",
+              "lp": "below",
+              "lane": 2,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-3",
+              "t": "Event 4",
+              "cat": "res",
+              "sy": 2013,
+              "sm": 4,
+              "ey": 2013,
+              "em": 6,
+              "date": "4/13-6/13",
+              "lane": 3,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-4",
+              "t": "Event 5",
+              "cat": "usmle",
+              "sy": 2014,
+              "sm": 5,
+              "ey": 2014,
+              "em": 7,
+              "date": "5/14-7/14",
+              "lane": 4,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-5",
+              "t": "Event 6",
+              "cat": "personal",
+              "sy": 2015,
+              "sm": 6,
+              "ey": 2015,
+              "em": 8,
+              "date": "6/15-8/15",
+              "lane": 5,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-6",
+              "t": "Event 7",
+              "cat": "work",
+              "sy": 2016,
+              "sm": 7,
+              "ey": 2016,
+              "em": 9,
+              "date": "7/16-9/16",
+              "lp": "below",
+              "lane": 6,
+              "hl": false
+            }
+          ],
+          "flags": [],
+          "profile": {
+            "name": "Browser Kernel Student",
+            "visaStatus": "—",
+            "aamc": "—",
+            "step1": "—",
+            "step2Ck": "—",
+            "step2Cs": "—",
+            "step3": "—",
+            "usce": "—",
+            "research": "—",
+            "languages": "—",
+            "hobbies": "—",
+            "portrait": null
+          },
+          "sticky": {
+            "text": "",
+            "targetObjectId": null,
+            "visibility": "hide"
+          },
+          "logo": {
+            "media": null,
+            "visibility": "hide"
+          },
+          "interview": {
+            "label": "My Big Interview!",
+            "date": "",
+            "visibility": "hide"
+          },
+          "photos": []
+        },
+        "backgroundImage": "url(\"http://127.0.0.1:8793/web/presentation/d1-409h-a1/assets/tex/board_denim.jpg\")",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "className": "",
+        "width": 1920,
+        "height": 1080,
+        "title": "",
+        "axis": [
+          "2010",
+          "2011",
+          "2012",
+          "2013",
+          "2014",
+          "2015",
+          "2016",
+          "FUTURE"
+        ],
+        "arrows": 7,
+        "colorKeyRows": 5,
+        "profilePresent": true
+      },
+      "visualDigest": "996c8bcf6f0ce0b367a880eaa53840f7ca3787fab88acf28696ddc9f63090dcd"
+    },
+    "editorEntry": {
+      "host": {
+        "fingerprint": "1b39ab48b6fdd73a4309a8bce391c7b20cdb1b199dcd2844220daf918c456991",
+        "renderId": "edit-d1-uxr-002-local-timeline-3",
+        "protectedKernel": "D1-409H-A1",
+        "projectionWarnings": "[]",
+        "source": "http://127.0.0.1:8793/web/presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html?defer=1"
+      },
+      "visual": {
+        "visualModel": {
+          "schemaVersion": "d1-409h-render-model/1",
+          "documentId": "d1-uxr-002-local-timeline",
+          "title": "Browser Kernel Student",
+          "axisMode": "adaptive",
+          "events": [
+            {
+              "id": "ev-d1-411b-browser-0",
+              "t": "Event 1",
+              "cat": "work",
+              "sy": 2010,
+              "sm": 1,
+              "ey": 2010,
+              "em": 3,
+              "date": "1/10-3/10",
+              "lp": "below",
+              "lane": 0,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-1",
+              "t": "Event 2",
+              "cat": "usce",
+              "sy": 2011,
+              "sm": 2,
+              "ey": 2011,
+              "em": 4,
+              "date": "2/11-4/11",
+              "lane": 1,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-2",
+              "t": "Event 3",
+              "cat": "work",
+              "sy": 2012,
+              "sm": 3,
+              "ey": 2012,
+              "em": 5,
+              "date": "3/12-5/12",
+              "lp": "below",
+              "lane": 2,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-3",
+              "t": "Event 4",
+              "cat": "res",
+              "sy": 2013,
+              "sm": 4,
+              "ey": 2013,
+              "em": 6,
+              "date": "4/13-6/13",
+              "lane": 3,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-4",
+              "t": "Event 5",
+              "cat": "usmle",
+              "sy": 2014,
+              "sm": 5,
+              "ey": 2014,
+              "em": 7,
+              "date": "5/14-7/14",
+              "lane": 4,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-5",
+              "t": "Event 6",
+              "cat": "personal",
+              "sy": 2015,
+              "sm": 6,
+              "ey": 2015,
+              "em": 8,
+              "date": "6/15-8/15",
+              "lane": 5,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-6",
+              "t": "Event 7",
+              "cat": "work",
+              "sy": 2016,
+              "sm": 7,
+              "ey": 2016,
+              "em": 9,
+              "date": "7/16-9/16",
+              "lp": "below",
+              "lane": 6,
+              "hl": false
+            }
+          ],
+          "flags": [],
+          "profile": {
+            "name": "Browser Kernel Student",
+            "visaStatus": "—",
+            "aamc": "—",
+            "step1": "—",
+            "step2Ck": "—",
+            "step2Cs": "—",
+            "step3": "—",
+            "usce": "—",
+            "research": "—",
+            "languages": "—",
+            "hobbies": "—",
+            "portrait": null
+          },
+          "sticky": {
+            "text": "",
+            "targetObjectId": null,
+            "visibility": "hide"
+          },
+          "logo": {
+            "media": null,
+            "visibility": "hide"
+          },
+          "interview": {
+            "label": "My Big Interview!",
+            "date": "",
+            "visibility": "hide"
+          },
+          "photos": []
+        },
+        "backgroundImage": "url(\"http://127.0.0.1:8793/web/presentation/d1-409h-a1/assets/tex/board_denim.jpg\")",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "className": "",
+        "width": 1920,
+        "height": 1080,
+        "title": "",
+        "axis": [
+          "2010",
+          "2011",
+          "2012",
+          "2013",
+          "2014",
+          "2015",
+          "2016",
+          "FUTURE"
+        ],
+        "arrows": 7,
+        "colorKeyRows": 5,
+        "profilePresent": true
+      },
+      "visualDigest": "996c8bcf6f0ce0b367a880eaa53840f7ca3787fab88acf28696ddc9f63090dcd"
+    },
+    "afterPanelZoom": {
+      "host": {
+        "fingerprint": "1b39ab48b6fdd73a4309a8bce391c7b20cdb1b199dcd2844220daf918c456991",
+        "renderId": "edit-d1-uxr-002-local-timeline-3",
+        "protectedKernel": "D1-409H-A1",
+        "projectionWarnings": "[]",
+        "source": "http://127.0.0.1:8793/web/presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html?defer=1"
+      },
+      "visual": {
+        "visualModel": {
+          "schemaVersion": "d1-409h-render-model/1",
+          "documentId": "d1-uxr-002-local-timeline",
+          "title": "Browser Kernel Student",
+          "axisMode": "adaptive",
+          "events": [
+            {
+              "id": "ev-d1-411b-browser-0",
+              "t": "Event 1",
+              "cat": "work",
+              "sy": 2010,
+              "sm": 1,
+              "ey": 2010,
+              "em": 3,
+              "date": "1/10-3/10",
+              "lp": "below",
+              "lane": 0,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-1",
+              "t": "Event 2",
+              "cat": "usce",
+              "sy": 2011,
+              "sm": 2,
+              "ey": 2011,
+              "em": 4,
+              "date": "2/11-4/11",
+              "lane": 1,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-2",
+              "t": "Event 3",
+              "cat": "work",
+              "sy": 2012,
+              "sm": 3,
+              "ey": 2012,
+              "em": 5,
+              "date": "3/12-5/12",
+              "lp": "below",
+              "lane": 2,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-3",
+              "t": "Event 4",
+              "cat": "res",
+              "sy": 2013,
+              "sm": 4,
+              "ey": 2013,
+              "em": 6,
+              "date": "4/13-6/13",
+              "lane": 3,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-4",
+              "t": "Event 5",
+              "cat": "usmle",
+              "sy": 2014,
+              "sm": 5,
+              "ey": 2014,
+              "em": 7,
+              "date": "5/14-7/14",
+              "lane": 4,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-5",
+              "t": "Event 6",
+              "cat": "personal",
+              "sy": 2015,
+              "sm": 6,
+              "ey": 2015,
+              "em": 8,
+              "date": "6/15-8/15",
+              "lane": 5,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-6",
+              "t": "Event 7",
+              "cat": "work",
+              "sy": 2016,
+              "sm": 7,
+              "ey": 2016,
+              "em": 9,
+              "date": "7/16-9/16",
+              "lp": "below",
+              "lane": 6,
+              "hl": false
+            }
+          ],
+          "flags": [],
+          "profile": {
+            "name": "Browser Kernel Student",
+            "visaStatus": "—",
+            "aamc": "—",
+            "step1": "—",
+            "step2Ck": "—",
+            "step2Cs": "—",
+            "step3": "—",
+            "usce": "—",
+            "research": "—",
+            "languages": "—",
+            "hobbies": "—",
+            "portrait": null
+          },
+          "sticky": {
+            "text": "",
+            "targetObjectId": null,
+            "visibility": "hide"
+          },
+          "logo": {
+            "media": null,
+            "visibility": "hide"
+          },
+          "interview": {
+            "label": "My Big Interview!",
+            "date": "",
+            "visibility": "hide"
+          },
+          "photos": []
+        },
+        "backgroundImage": "url(\"http://127.0.0.1:8793/web/presentation/d1-409h-a1/assets/tex/board_denim.jpg\")",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "className": "",
+        "width": 1920,
+        "height": 1080,
+        "title": "",
+        "axis": [
+          "2010",
+          "2011",
+          "2012",
+          "2013",
+          "2014",
+          "2015",
+          "2016",
+          "FUTURE"
+        ],
+        "arrows": 7,
+        "colorKeyRows": 5,
+        "profilePresent": true
+      },
+      "visualDigest": "996c8bcf6f0ce0b367a880eaa53840f7ca3787fab88acf28696ddc9f63090dcd"
+    },
+    "afterReload": {
+      "host": {
+        "fingerprint": "777148736fcd1b5114a55826a7dbdd7fc252c75109f97fd244248c8f60562e93",
+        "renderId": "full-preview-d1-uxr-002-local-timeline-4",
+        "protectedKernel": "D1-409H-A1",
+        "projectionWarnings": "[]",
+        "source": "http://127.0.0.1:8793/web/presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html?defer=1"
+      },
+      "visual": {
+        "visualModel": {
+          "schemaVersion": "d1-409h-render-model/1",
+          "documentId": "d1-uxr-002-local-timeline",
+          "title": "Browser Kernel Student",
+          "axisMode": "adaptive",
+          "events": [
+            {
+              "id": "ev-d1-411b-browser-0",
+              "t": "Event 1",
+              "cat": "work",
+              "sy": 2010,
+              "sm": 1,
+              "ey": 2010,
+              "em": 3,
+              "date": "1/10-3/10",
+              "lp": "below",
+              "lane": 0,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-1",
+              "t": "Event 2",
+              "cat": "usce",
+              "sy": 2011,
+              "sm": 2,
+              "ey": 2011,
+              "em": 4,
+              "date": "2/11-4/11",
+              "lane": 1,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-2",
+              "t": "Event 3",
+              "cat": "work",
+              "sy": 2012,
+              "sm": 3,
+              "ey": 2012,
+              "em": 5,
+              "date": "3/12-5/12",
+              "lp": "below",
+              "lane": 2,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-3",
+              "t": "Event 4",
+              "cat": "res",
+              "sy": 2013,
+              "sm": 4,
+              "ey": 2013,
+              "em": 6,
+              "date": "4/13-6/13",
+              "lane": 3,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-4",
+              "t": "Event 5",
+              "cat": "usmle",
+              "sy": 2014,
+              "sm": 5,
+              "ey": 2014,
+              "em": 7,
+              "date": "5/14-7/14",
+              "lane": 4,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-5",
+              "t": "Event 6",
+              "cat": "personal",
+              "sy": 2015,
+              "sm": 6,
+              "ey": 2015,
+              "em": 8,
+              "date": "6/15-8/15",
+              "lane": 5,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-6",
+              "t": "Event 7",
+              "cat": "work",
+              "sy": 2016,
+              "sm": 7,
+              "ey": 2016,
+              "em": 9,
+              "date": "7/16-9/16",
+              "lp": "below",
+              "lane": 6,
+              "hl": false
+            }
+          ],
+          "flags": [],
+          "profile": {
+            "name": "Browser Kernel Student",
+            "visaStatus": "—",
+            "aamc": "—",
+            "step1": "—",
+            "step2Ck": "—",
+            "step2Cs": "—",
+            "step3": "—",
+            "usce": "—",
+            "research": "—",
+            "languages": "—",
+            "hobbies": "—",
+            "portrait": null
+          },
+          "sticky": {
+            "text": "",
+            "targetObjectId": null,
+            "visibility": "hide"
+          },
+          "logo": {
+            "media": null,
+            "visibility": "hide"
+          },
+          "interview": {
+            "label": "My Big Interview!",
+            "date": "",
+            "visibility": "hide"
+          },
+          "photos": []
+        },
+        "backgroundImage": "url(\"http://127.0.0.1:8793/web/presentation/d1-409h-a1/assets/tex/board_denim.jpg\")",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "className": "",
+        "width": 1920,
+        "height": 1080,
+        "title": "",
+        "axis": [
+          "2010",
+          "2011",
+          "2012",
+          "2013",
+          "2014",
+          "2015",
+          "2016",
+          "FUTURE"
+        ],
+        "arrows": 7,
+        "colorKeyRows": 5,
+        "profilePresent": true
+      },
+      "visualDigest": "996c8bcf6f0ce0b367a880eaa53840f7ca3787fab88acf28696ddc9f63090dcd"
+    },
+    "exportPreview": {
+      "host": {
+        "fingerprint": "777148736fcd1b5114a55826a7dbdd7fc252c75109f97fd244248c8f60562e93",
+        "renderId": "export-d1-uxr-002-local-timeline-4",
+        "protectedKernel": "D1-409H-A1",
+        "projectionWarnings": "[]",
+        "source": "http://127.0.0.1:8793/web/presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html?defer=1"
+      },
+      "visual": {
+        "visualModel": {
+          "schemaVersion": "d1-409h-render-model/1",
+          "documentId": "d1-uxr-002-local-timeline",
+          "title": "Browser Kernel Student",
+          "axisMode": "adaptive",
+          "events": [
+            {
+              "id": "ev-d1-411b-browser-0",
+              "t": "Event 1",
+              "cat": "work",
+              "sy": 2010,
+              "sm": 1,
+              "ey": 2010,
+              "em": 3,
+              "date": "1/10-3/10",
+              "lp": "below",
+              "lane": 0,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-1",
+              "t": "Event 2",
+              "cat": "usce",
+              "sy": 2011,
+              "sm": 2,
+              "ey": 2011,
+              "em": 4,
+              "date": "2/11-4/11",
+              "lane": 1,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-2",
+              "t": "Event 3",
+              "cat": "work",
+              "sy": 2012,
+              "sm": 3,
+              "ey": 2012,
+              "em": 5,
+              "date": "3/12-5/12",
+              "lp": "below",
+              "lane": 2,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-3",
+              "t": "Event 4",
+              "cat": "res",
+              "sy": 2013,
+              "sm": 4,
+              "ey": 2013,
+              "em": 6,
+              "date": "4/13-6/13",
+              "lane": 3,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-4",
+              "t": "Event 5",
+              "cat": "usmle",
+              "sy": 2014,
+              "sm": 5,
+              "ey": 2014,
+              "em": 7,
+              "date": "5/14-7/14",
+              "lane": 4,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-5",
+              "t": "Event 6",
+              "cat": "personal",
+              "sy": 2015,
+              "sm": 6,
+              "ey": 2015,
+              "em": 8,
+              "date": "6/15-8/15",
+              "lane": 5,
+              "hl": false
+            },
+            {
+              "id": "ev-d1-411b-browser-6",
+              "t": "Event 7",
+              "cat": "work",
+              "sy": 2016,
+              "sm": 7,
+              "ey": 2016,
+              "em": 9,
+              "date": "7/16-9/16",
+              "lp": "below",
+              "lane": 6,
+              "hl": false
+            }
+          ],
+          "flags": [],
+          "profile": {
+            "name": "Browser Kernel Student",
+            "visaStatus": "—",
+            "aamc": "—",
+            "step1": "—",
+            "step2Ck": "—",
+            "step2Cs": "—",
+            "step3": "—",
+            "usce": "—",
+            "research": "—",
+            "languages": "—",
+            "hobbies": "—",
+            "portrait": null
+          },
+          "sticky": {
+            "text": "",
+            "targetObjectId": null,
+            "visibility": "hide"
+          },
+          "logo": {
+            "media": null,
+            "visibility": "hide"
+          },
+          "interview": {
+            "label": "My Big Interview!",
+            "date": "",
+            "visibility": "hide"
+          },
+          "photos": []
+        },
+        "backgroundImage": "url(\"http://127.0.0.1:8793/web/presentation/d1-409h-a1/assets/tex/board_denim.jpg\")",
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "className": "",
+        "width": 1920,
+        "height": 1080,
+        "title": "",
+        "axis": [
+          "2010",
+          "2011",
+          "2012",
+          "2013",
+          "2014",
+          "2015",
+          "2016",
+          "FUTURE"
+        ],
+        "arrows": 7,
+        "colorKeyRows": 5,
+        "profilePresent": true
+      },
+      "visualDigest": "996c8bcf6f0ce0b367a880eaa53840f7ca3787fab88acf28696ddc9f63090dcd"
+    }
+  },
+  "comparisons": [
+    {
+      "reference": "01_CANONICAL_BASELINE_BEFORE_EDITOR.png",
+      "candidate": "02_CANONICAL_EDITOR_ENTRY_NO_EDITS.png",
+      "diffPixels": 10771,
+      "totalPixels": 518400,
+      "diffRatio": 0.02077739,
+      "similarity": 0.97922261
+    },
+    {
+      "reference": "01_CANONICAL_BASELINE_BEFORE_EDITOR.png",
+      "candidate": "03_CANONICAL_AFTER_SAVE_RELOAD_MATRIX_RETURN.png",
+      "diffPixels": 0,
+      "totalPixels": 518400,
+      "diffRatio": 0,
+      "similarity": 1
+    },
+    {
+      "reference": "01_CANONICAL_BASELINE_BEFORE_EDITOR.png",
+      "candidate": "04_CANONICAL_EXPORT_PREVIEW.png",
+      "diffPixels": 18569,
+      "totalPixels": 518400,
+      "diffRatio": 0.03581983,
+      "similarity": 0.96418017
+    },
+    {
+      "reference": "01_CANONICAL_BASELINE_BEFORE_EDITOR.png",
+      "candidate": "05_CANONICAL_EXPORT_1920x1080.png",
+      "diffPixels": 11850,
+      "totalPixels": 518400,
+      "diffRatio": 0.0228588,
+      "similarity": 0.9771412
+    },
+    {
+      "reference": "01_CANONICAL_BASELINE_BEFORE_EDITOR.png",
+      "candidate": "D1-411B_FULL_PREVIEW_ARTIFACT.png",
+      "diffPixels": 22866,
+      "totalPixels": 518400,
+      "diffRatio": 0.0441088,
+      "similarity": 0.9558912
+    }
+  ],
+  "browserErrors": [],
+  "artifacts": [
+    {
+      "file": "01_CANONICAL_BASELINE_BEFORE_EDITOR.png",
+      "sha256": "ec47445231989f00e2c8105c1c2f2de6ee0b1b9461a8df47c14fa81a33dc88bb"
+    },
+    {
+      "file": "02_CANONICAL_EDITOR_ENTRY_NO_EDITS.png",
+      "sha256": "fb03e6fab6cb3bed8528d4221f4a960b5e4dfb402daa76ad98bd9ec25a4634a7"
+    },
+    {
+      "file": "02A_CANONICAL_EDITOR_ENTRY_NO_EDITS_FULL_UI.png",
+      "sha256": "40a63072bc3ab2226992bda7b62efe1cacbcd957c05103985277891ede2e50e6"
+    },
+    {
+      "file": "03_CANONICAL_AFTER_SAVE_RELOAD_MATRIX_RETURN.png",
+      "sha256": "ec47445231989f00e2c8105c1c2f2de6ee0b1b9461a8df47c14fa81a33dc88bb"
+    },
+    {
+      "file": "04_CANONICAL_EXPORT_PREVIEW.png",
+      "sha256": "3c3cc141308eef1cd8be5ccf17553ee6cc3b3f33645321705f770d7c064e85b9"
+    },
+    {
+      "file": "04A_CANONICAL_EXPORT_PREVIEW_FULL_UI.png",
+      "sha256": "cae9243029dce39d62a96d60e3402739938988bf33a0e2df613c2520d0bba31b"
+    },
+    {
+      "file": "05_CANONICAL_EXPORT_1920x1080.png",
+      "sha256": "b6a8b1f385d360843a1b76bffd755e7cba4ed419b2f3c23f14e2bc8ffda882af"
+    },
+    {
+      "file": "06_CANONICAL_EXPORT_LETTER.pdf",
+      "sha256": "1038116ee0761b6a1b6ee89993b2013aaadf792ed81a389fa1af7820a0dac226"
+    },
+    {
+      "file": "07_CANONICAL_EXPORT_A4.pdf",
+      "sha256": "c90394ceabe94eba5c24a0aeb0ad6189b7177784a8d243ce699e68fdb20ed81b"
+    }
+  ]
+}

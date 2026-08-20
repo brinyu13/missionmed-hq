@@ -1,0 +1,42 @@
+{
+  "ticket": "D1-TIMELINE-CODEX-FINAL-012A",
+  "generated_at": "2026-08-20T18:49:10Z",
+  "result": "PARTIAL",
+  "stop_state": "STOP_SAFE",
+  "timeline_direct_route": "LIVE",
+  "student_rollout_certified": false,
+  "source_commit": "5e67978f3706fe3d67cf04c933d122190a1ef89d",
+  "static_release": "timeline-d8814ebb10970b5a",
+  "wordpress_release": "timeline-wp-ff038960c8959bbc",
+  "wordpress_payload_sha256": "a912818234f230efbfc119b01e5120550af0c97d65b38f0faa83513e6fa497f3",
+  "railway_deployment": "c65e49f7-81c9-4dca-a87f-50f9e21a0c1a",
+  "api_release": "timeline-c9eda9eeb7d6cf98",
+  "schema_version": "d1-timeline-db-500.1",
+  "live_url": "https://missionmedinstitute.com/timeline/",
+  "rollback_wordpress_release": "timeline-wp-d50e948061818321",
+  "tests": {
+    "focused_javascript": {"passed": 76, "failed": 0},
+    "focused_typescript_api_rescue": {"passed": 18, "failed": 0},
+    "local_chrome_editor_groups": {"passed": 9, "failed": 0}
+  },
+  "live_gates": {
+    "authenticated_admin_direct_route": "PASS",
+    "canonical_visual_authority": "PASS",
+    "quality_guardian": "PASS",
+    "anonymous_denial": "PASS",
+    "direct_api_denial": "PASS",
+    "health": "PASS",
+    "unrelated_application_impact": "NONE",
+    "matrix_navigation": "FAIL_PLACEHOLDER",
+    "remote_persistence": "FAIL_LOCAL_ONLY",
+    "fresh_ai_cv_smart_fill": "UNPROVEN_PRESERVED_EXISTING_REVIEW_QUEUE",
+    "file_vault_exact_file_ingest": "UNPROVEN_NO_ELIGIBLE_DOCUMENT",
+    "timeline_rescue_live_upload": "UNPROVEN_PRESERVED_EXISTING_REVIEW_QUEUE",
+    "eligible_student_post_release": "UNPROVEN_NO_SEPARATE_SESSION",
+    "cross_student_isolation_post_release": "UNPROVEN_NO_SEPARATE_SESSION",
+    "live_downloaded_artifact_open": "UNPROVEN_BROWSER_BLOB_PATH_UNAVAILABLE"
+  },
+  "production_preserved": true,
+  "rollback_required": false,
+  "unrelated_application_impact": "NONE"
+}
