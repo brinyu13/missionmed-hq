@@ -38,6 +38,8 @@ function check(id, desc, cond, detail) {
 const nav = M.MATRIX_APPROVED_NAV;
 const labels = nav.map(n => n.label);
 const routes = nav.map(n => n.route);
+/* MX-LOGIN-UX-008F founder authority: File Vault is VISIBLE + UNLOCKED (real-world
+   beta), so it moves into the unlocked block at position 9. */
 const expected = ["Dashboard Home","My Profile","Calendar","Scheduler","My Appointments",
   "StoryForge","Timeline Builder","Arena","File Vault","LOR Writer","IV Prep On-Call",
   "Med Messenger","Dr J Live Drills","Settings"];
@@ -53,18 +55,23 @@ check("AC-26","My Profile is item 2", labels[1] === "My Profile", labels[1]);
 check("AC-27","Settings is last", labels[13] === "Settings", labels[13]);
 check("AC-28","My Appointments follows Scheduler", labels[labels.indexOf("Scheduler")+1] === "My Appointments");
 check("AC-29","unlocked set exact", JSON.stringify(unlocked) === JSON.stringify(
-  ["Dashboard Home","My Profile","Calendar","Scheduler","My Appointments","StoryForge","Timeline Builder","Arena"]), JSON.stringify(unlocked));
+  ["Dashboard Home","My Profile","Calendar","Scheduler","My Appointments","StoryForge","Timeline Builder","Arena","File Vault"]), JSON.stringify(unlocked));
 check("AC-30","locked set exact", JSON.stringify(locked) === JSON.stringify(
-  ["File Vault","LOR Writer","IV Prep On-Call","Med Messenger","Dr J Live Drills","Settings"]), JSON.stringify(locked));
+  ["LOR Writer","IV Prep On-Call","Med Messenger","Dr J Live Drills","Settings"]), JSON.stringify(locked));
 check("AC-31","Med Messenger locked", nav.find(n=>n.route==="messages").state === "locked");
 const hidden = ["courses","orders","notifications","help","study","ranklist","cam","interview-prep"];
 check("AC-32","hidden routes absent from nav", hidden.every(r => !routes.includes(r)),
   hidden.filter(r=>routes.includes(r)).join(","));
-check("AC-34","five section headers, exact members",
+check("AC-34","section headers, exact members",
   JSON.stringify([...new Set(nav.map(n=>n.section))]) ===
   JSON.stringify(["HOME","PLAN","MATCH TOOLS","COMING / LOCKED","ACCOUNT"]),
   JSON.stringify([...new Set(nav.map(n=>n.section))]));
 check("-","no duplicate routes", new Set(routes).size === routes.length);
+check("008F-1","File Vault VISIBLE + UNLOCKED", nav.find(n=>n.route==="filevault").state==="unlocked");
+check("008F-2","CAM absent from student navigation", !routes.includes("cam"));
+check("008F-3","Timeline Builder VISIBLE + UNLOCKED", nav.find(n=>n.route==="timeline").state==="unlocked");
+check("008F-4","IV Prep On-Call VISIBLE + LOCKED", nav.find(n=>n.route==="ivprep").state==="locked");
+check("008F-5","IV Prep On-Call is its own route, not CAM", nav.find(n=>n.route==="ivprep").route!=="cam");
 
 // ================= DR J LIVE DRILLS =================
 const drj = nav.find(n => n.route === "drjlivedrills");

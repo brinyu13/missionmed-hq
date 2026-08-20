@@ -109,7 +109,7 @@
 		{ route: "storyforge",    label: "StoryForge",       icon: "SF", section: "MATCH TOOLS",     state: "unlocked" },
 		{ route: "timeline",      label: "Timeline Builder", icon: "TB", section: "MATCH TOOLS",     state: "unlocked" },
 		{ route: "arena",         label: "Arena",            icon: "Ar", section: "MATCH TOOLS",     state: "unlocked" },
-		{ route: "filevault",     label: "File Vault",       icon: "Fv", section: "COMING / LOCKED", state: "locked" },
+		{ route: "filevault",     label: "File Vault",       icon: "Fv", section: "MATCH TOOLS",     state: "unlocked" },
 		{ route: "lor",           label: "LOR Writer",       icon: "LR", section: "COMING / LOCKED", state: "locked" },
 		{ route: "ivprep",        label: "IV Prep On-Call",  icon: "IV", section: "COMING / LOCKED", state: "locked" },
 		{ route: "messages",      label: "Med Messenger",    icon: "Ms", section: "COMING / LOCKED", state: "locked" },

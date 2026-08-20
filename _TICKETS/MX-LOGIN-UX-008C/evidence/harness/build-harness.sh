@@ -12,7 +12,7 @@ cp "$WT/wp-content/plugins/missionmed-hub/assets/student-os.js"  "$EV/serve/asse
 cp "$WT/wp-content/plugins/missionmed-hub/assets/student-os.css" "$EV/serve/assets/"
 cp "$EV/../baselines/prod_untouched/student-os.16ca42c53ca2e890.js" "$EV/serve/baseline/assets/student-os.js"
 cp "$EV/../baselines/prod_untouched/student-os.css"                 "$EV/serve/baseline/assets/student-os.css"
-cp "$HERE/matrix.html" "$EV/serve/index.html"
+sed "s/__CB__/$(date +%s)/g" "$HERE/matrix.html" > "$EV/serve/index.html"
 
 python3 - "$EV" <<'PY'
 import sys, pathlib

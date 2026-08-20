@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "status": "ACTIVE",
   "lock_name": "MissionMed Matrix Runtime Known-Good Lock",
-  "last_updated_utc": "2026-08-18T00:00:00Z",
+  "last_updated_utc": "2026-08-04T21:43:09Z",
   "owner": "Brian",
   "purpose": "Prevent AI/worktree/source/deploy drift from silently replacing Brian-validated Matrix-owned App Mode runtimes with older or embedded versions.",
   "canonical_worktrees": [
@@ -57,33 +57,32 @@
       "app": "matrix-shell",
       "role": "student Matrix router, App Mode protocol, Dashboard widgets, Messages/StoryForge shell routes",
       "source_path": "wp-content/plugins/missionmed-hub/assets/student-os.js",
-      "production_path": "assets/student-os.16ca42c53ca2e890.js",
-      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os.16ca42c53ca2e890.js",
-      "approved_sha256": "0b112c74e770e3b8decc2c7d8e6a6b73570647aa5f759a3a85cea68ec82f4201",
-      "approved_version": "20260817T141100Z",
-      "approved_state": "MX-LOGIN-UX-008F pre-deploy re-baseline to VERIFIED CURRENT PRODUCTION. The previous record (c1d97237eab4936d014ec00549deb2358a056d5b8f430fe7713f5dd2ac39e76a) was stale: production had moved on twice and the file named student-os.c1d97237eab4936d.js was overwritten in place and now contains 16ca42c53ca2e890a1e791fc2731fc3b0c86a9082f5f801198fc1a12274593fa. The enqueued runtime is student-os.16ca42c53ca2e890.js, whose content hash is 0b112c74..., confirmed at origin over SSH and via cache-busted public URL. Includes the Aug 16-17 IV Prep On-Call module and File Vault v2 work, which this re-baseline exists to preserve.",
-      "source_reference_path": "wp-content/plugins/missionmed-hub/assets/student-os.16ca42c53ca2e890.js",
+      "production_path": "assets/student-os.c1d97237eab4936d.js",
+      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os.c1d97237eab4936d.js",
+      "approved_sha256": "c1d97237eab4936d014ec00549deb2358a056d5b8f430fe7713f5dd2ac39e76a",
+      "approved_version": "20260715T042946Z",
+      "approved_state": "Y1-CAM-4005R fingerprinted Matrix launch boundary: exactly one CAM module uses the HTTPS HQ auth-start route, credential and identity query values remain absent, and unrelated Matrix modules remain intact.",
+      "source_reference_path": "wp-content/plugins/missionmed-hub/assets/student-os.c1d97237eab4936d.js",
       "source_reference_commit": "60e7169b544e6c93eb41f0de9717d8e61d2d49d0",
       "source_reference_tree": "291a1f4dff573e2f64635ddd069ac9275f3984ff",
-      "source_reference_sha256": "0b112c74e770e3b8decc2c7d8e6a6b73570647aa5f759a3a85cea68ec82f4201",
+      "source_reference_sha256": "c1d97237eab4936d014ec00549deb2358a056d5b8f430fe7713f5dd2ac39e76a",
       "runtime_artifact_path": "wp-content/plugins/missionmed-hub/assets/student-os.c1d97237eab4936d.js",
       "runtime_version_strategy": "immutable filename; WordPress enqueue version is null",
-      "source_owner": "MX-LOGIN-UX-008F (re-baselined from live production)",
-      "source_provenance": "_TICKETS/MX-LOGIN-UX-008C/baselines/prod_untouched/student-os.16ca42c53ca2e890.js",
+      "source_owner": "Y1-CAM-4005R",
+      "source_provenance": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4005R/candidates/matrix/student-os.js",
       "production_evidence": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4005R/evidence/4005r_final_live_hashes.json",
       "approved_backup_path": "/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/Y1-CAM-4005R/20260715T044929Z",
       "normalization_backup_path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4005R/backups/predeployment-20260715T020324Z/",
-      "validation_ticket": "MX-LOGIN-UX-008F",
-      "validated_utc": "2026-08-18T00:00:00Z",
-      "rollback_sha256": "0b112c74e770e3b8decc2c7d8e6a6b73570647aa5f759a3a85cea68ec82f4201",
-      "rollback_production_path": "assets/student-os.16ca42c53ca2e890.js",
+      "validation_ticket": "Y1-CAM-4005R",
+      "validated_utc": "2026-07-15T04:49:29Z",
+      "rollback_sha256": "646e3598d284fff31d22dec98c70c1800e74743276872bb65f1afeeda1c17e5a",
+      "rollback_production_path": "assets/student-os.646e3598d284fff3.js",
       "allowed_scoped_changes": [
         "route-level Matrix App Mode guard fixes",
         "Dashboard overview widgets with no app-mode regression",
         "Messages/StoryForge shell route work under explicit scoped ticket"
       ],
-      "requires_brian_validation": true,
-      "filename_integrity_warning": "assets/student-os.c1d97237eab4936d.js and assets/student-os.16ca42c53ca2e890.js were both overwritten in place, so neither filename matches its own content hash. Do not trust a hashed filename as a content assertion for those two legacy files. New assets must be published under a filename derived from their own content hash and never overwritten."
+      "requires_brian_validation": true
     },
     "student_os_css": {
       "app": "matrix-shell",
@@ -110,21 +109,21 @@
       "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-student-os.php",
       "production_path": "includes/class-mmed-student-os.php",
       "public_url": null,
-      "approved_sha256": "80d510b4bb5531b7ad23689084f7173372dfbd5d5c7102365d85ab3e645f7a51",
-      "approved_version": "20260817T141100Z",
-      "approved_state": "MX-LOGIN-UX-008F pre-deploy re-baseline to VERIFIED CURRENT PRODUCTION. Previous record (5ed6e92eb9bf748a01f475bc5a6a72e249e21a2b7560d07d2acf66f8058e8d95) was stale. Live file registers the ivprep module and enqueues student-os.16ca42c53ca2e890.js.",
+      "approved_sha256": "5ed6e92eb9bf748a01f475bc5a6a72e249e21a2b7560d07d2acf66f8058e8d95",
+      "approved_version": "20260715T114351Z",
+      "approved_state": "Y1-CAM-4006 nested Matrix CAM launch repair: RFC3986 encoding preserves the complete nested final URL and #dashboard return fragment without credential-bearing query values.",
       "source_reference_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-student-os.php",
       "source_reference_commit": "60e7169b544e6c93eb41f0de9717d8e61d2d49d0",
       "source_reference_tree": "291a1f4dff573e2f64635ddd069ac9275f3984ff",
-      "source_reference_sha256": "80d510b4bb5531b7ad23689084f7173372dfbd5d5c7102365d85ab3e645f7a51",
+      "source_reference_sha256": "5ed6e92eb9bf748a01f475bc5a6a72e249e21a2b7560d07d2acf66f8058e8d95",
       "source_owner": "Y1-CAM-4006",
-      "source_provenance": "_TICKETS/MX-LOGIN-UX-008C/baselines/prod_untouched/class-mmed-student-os.php",
+      "source_provenance": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4006/candidates/matrix/class-mmed-student-os.php",
       "production_evidence": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4006/evidence/4006_production_release.json",
       "approved_backup_path": "/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/Y1-CAM-4006/20260715T114348Z",
       "normalization_backup_path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4006/backups/production-release-20260715T114259Z/",
-      "validation_ticket": "MX-LOGIN-UX-008F",
-      "validated_utc": "2026-08-18T00:00:00Z",
-      "rollback_sha256": "80d510b4bb5531b7ad23689084f7173372dfbd5d5c7102365d85ab3e645f7a51",
+      "validation_ticket": "Y1-CAM-4006",
+      "validated_utc": "2026-07-15T11:43:51.670Z",
+      "rollback_sha256": "b514638b6089b12057ab53e715bc18c13b0dc21cba64e63d04be0a14cc0739d2",
       "allowed_scoped_changes": [
         "Runtime v2 asset map additions under scoped ticket",
         "Version/hash localization fixes with route regression proof"
@@ -332,23 +331,5 @@
       "return_target": "#dashboard",
       "status": "route-level app-mode canon protected; separate visual lock pending"
     }
-  },
-  "rebaseline_history": [
-    {
-      "ticket": "MX-LOGIN-UX-008F",
-      "utc": "2026-08-18T00:00:00Z",
-      "authorization": "Founder authorization, MX-LOGIN-UX-008F decision 10: re-baseline the Matrix runtime manifest ONLY to verified current production state required for MX-LOGIN-UX-008.",
-      "reason": "Manifest was stale against live production. Deploying against the stale record would have reverted the Aug 16-17 IV Prep On-Call and File Vault v2 work.",
-      "verification": "origin SHA256 over SSH plus cache-busted public URL, both matching, for student_os_js and student_os_css.",
-      "before": {
-        "student_os_js": "c1d97237eab4936d014ec00549deb2358a056d5b8f430fe7713f5dd2ac39e76a",
-        "class_mmed_student_os_php": "5ed6e92eb9bf748a01f475bc5a6a72e249e21a2b7560d07d2acf66f8058e8d95"
-      },
-      "after": {
-        "student_os_js": "0b112c74e770e3b8decc2c7d8e6a6b73570647aa5f759a3a85cea68ec82f4201",
-        "class_mmed_student_os_php": "80d510b4bb5531b7ad23689084f7173372dfbd5d5c7102365d85ab3e645f7a51"
-      },
-      "scope": "student_os_js and class_mmed_student_os_php baselines only. No other asset touched."
-    }
-  ]
+  }
 }
