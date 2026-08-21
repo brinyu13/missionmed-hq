@@ -307,26 +307,26 @@
       "id": "storyforge_v5_index",
       "system": "storyforge_v5",
       "url": "https://missionmedinstitute.com/storyforge/",
-      "approved_sha256": "caee12d92a6bfe6bfc99463c96db8f27058c4bafe2b79a858276ea988b68f907",
+      "approved_sha256": "c62affeb6a6f587bac1cc408a5fde2650f40783867cba1e93ccfee94aa808651",
       "required_markers": [
         "StoryForge V5 · MissionMed",
         "MATCH PREP ON-CALL",
         "Opening your private story workspace"
       ],
-      "local_source_note": "B1-515R2 production asset from immutable release v-693db9354e71b908 and exact committed source 084ce55c1ce377595314580ab979c213f1c0405f; live bytes independently verified in authenticated desktop and mobile Chrome canaries."
+      "local_source_note": "B1-517 production asset from immutable release v-c8c3ee7800e054fb and exact deployed source f0f858f8d656683460126399923736882fe4b89e; live bytes verified through the WordPress gateway and authenticated in-app Browser canaries."
     },
     {
       "id": "storyforge_v5_app_bundle",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/071134bd72de",
-      "approved_sha256": "071134bd72de646453a3bb867766169c1a4291098e2555b91208665340bca304",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/6bc7f9341a22",
+      "approved_sha256": "6bc7f9341a2232723269f00df910f00e402cbdee39e15d0b5335d82e21ce7a62",
       "required_markers": [
         "Back to Matrix",
         "Mentor review unavailable",
         "StoryForge could not open safely"
       ],
-      "local_source_path": "storyforge-v5/dist/assets/app.071134bd72de.js",
-      "local_source_note": "B1-515R2 production asset from immutable release v-693db9354e71b908 and exact committed source 084ce55c1ce377595314580ab979c213f1c0405f; live bytes independently verified in authenticated desktop and mobile Chrome canaries."
+      "local_source_path": "storyforge-v5/dist/assets/app.6bc7f9341a22.js",
+      "local_source_note": "B1-517 production asset from immutable release v-c8c3ee7800e054fb and exact deployed source f0f858f8d656683460126399923736882fe4b89e; live bytes verified through the WordPress gateway and authenticated in-app Browser canaries."
     },
     {
       "id": "storyforge_v5_auth_bundle",
@@ -344,15 +344,15 @@
     {
       "id": "storyforge_v5_styles",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/71c94547613b",
-      "approved_sha256": "71c94547613b1b2cf1360c7c965a3989aca142f82619e68e6c70543c4b305ac6",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/03dfd2fc42f0",
+      "approved_sha256": "03dfd2fc42f0a80d9adf01805be094383421333e19c6fa62e4c6d9436e999409",
       "required_markers": [
         ".homeGrid",
         ".wsGrid",
         "prefers-reduced-motion"
       ],
-      "local_source_path": "storyforge-v5/dist/assets/styles.71c94547613b.css",
-      "local_source_note": "B1-515R2 production asset from immutable release v-693db9354e71b908 and exact committed source 084ce55c1ce377595314580ab979c213f1c0405f; live bytes independently verified in authenticated desktop and mobile Chrome canaries."
+      "local_source_path": "storyforge-v5/dist/assets/styles.03dfd2fc42f0.css",
+      "local_source_note": "B1-517 production asset from immutable release v-c8c3ee7800e054fb and exact deployed source f0f858f8d656683460126399923736882fe4b89e; live bytes verified through the WordPress gateway and authenticated in-app Browser canaries."
     },
     {
       "id": "storyforge_v5_font_archivo_normal",
@@ -575,7 +575,7 @@
     {
       "id": "storyforge_app_extensionless_alias",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/071134bd72de",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/6bc7f9341a22",
       "method": "GET",
       "expected_status": 200,
       "expected_headers": {
