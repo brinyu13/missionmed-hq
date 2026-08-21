@@ -268,6 +268,12 @@ test('E10 returns only the caller capability and E11 routes preserve admin servi
     taxonomy: false,
     inlinePriority: false,
     storySearch: false,
+    erasTaxonomy: false,
+    myerasWorkspace: false,
+    clinicalCaseMetadata: false,
+    useRanking: false,
+    myerasVersions: false,
+    aiCondensation: false,
   });
   assert.equal(session.body.user.id, studentId);
   assert.equal(session.body.user.first_name, 'Dr');

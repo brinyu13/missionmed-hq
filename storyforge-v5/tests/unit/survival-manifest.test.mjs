@@ -5,6 +5,7 @@ import {
   childSummary,
   compareSurvivalManifests,
   resolvedAudioObjectKeys,
+  rowHash,
   safeDifferenceReport,
   sha256,
   sortedSetHash,
@@ -219,6 +220,25 @@ test('candidate table additions must be explicit and empty', () => {
   added.protectedTables.sf_b1_515_candidate = protectedTable([{ id: 'row-a', value: 'seed' }]);
   assert.equal(compareSurvivalManifests(manifest(), added, {
     expectedTableAdditions: ['sf_b1_515_candidate'],
+  }).pass, false);
+});
+
+test('candidate populated table additions require an exact whole-table hash', () => {
+  const added = postManifest();
+  added.protectedTables.sf_b1_517_profile = protectedTable([
+    { id: 'profile-a', value: 'governed seed' },
+  ]);
+  const expectedHash = rowHash(added.protectedTables.sf_b1_517_profile);
+  assert.equal(compareSurvivalManifests(manifest(), added).pass, false);
+  assert.equal(compareSurvivalManifests(manifest(), added, {
+    expectedPopulatedTableAdditions: [['sf_b1_517_profile', expectedHash]],
+  }).pass, true);
+  assert.equal(compareSurvivalManifests(manifest(), added, {
+    expectedPopulatedTableAdditions: [['sf_b1_517_profile', sha256('wrong table')]],
+  }).pass, false);
+  assert.equal(compareSurvivalManifests(manifest(), added, {
+    expectedTableAdditions: ['sf_b1_517_profile'],
+    expectedPopulatedTableAdditions: [['sf_b1_517_profile', expectedHash]],
   }).pass, false);
 });
 

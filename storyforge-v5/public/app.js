@@ -190,6 +190,7 @@ const NAV = Object.freeze({
   student: [
     ['home', 'Home', '⌂'],
     ['library', 'Story Library', '▤'],
+    ['myeras', 'MyERAS Experiences', '▦'],
     ['inspiration', 'Inspiration', '✦'],
     ['requests', 'Request a Story', '↗'],
     ['classmates', 'Classmate Thoughts', '◎'],
@@ -223,7 +224,31 @@ const ADMIN_CONSOLE_NAV = Object.freeze([
 const ADMIN_SUBJECT_NAV = Object.freeze([
   ['home', 'Home', '⌂'],
   ['library', 'Story Library', '▤'],
+  ['myeras', 'MyERAS Experiences', '▦'],
 ]);
+
+const PURPOSEFUL_VERSION_META = Object.freeze({
+  thirty_second: Object.freeze({
+    label: '30-Second Version',
+    description: 'Shape the essential moment for a concise interview response. Aim for about 75–90 spoken words (≈30 seconds).',
+    limitKey: null,
+  }),
+  nnq_setup: Object.freeze({
+    label: 'NNQ Setup',
+    description: 'Set up the story so it naturally ends on a question you want the interviewer to ask.',
+    limitKey: null,
+  }),
+  myeras_experience: Object.freeze({
+    label: 'MyERAS Experience',
+    description: 'Shape this true story into a focused MyERAS experience description. The original and Full Story remain unchanged.',
+    limitKey: 'experience_description_chars',
+  }),
+  myeras_impactful: Object.freeze({
+    label: 'Impactful',
+    description: 'Shape the reflection that explains why this experience mattered. Keep the same truth and preserve prior tellings.',
+    limitKey: 'most_meaningful_chars',
+  }),
+});
 
 const SUITABILITY = Object.freeze({
   ps_only: 'Personal Statement only',
@@ -260,6 +285,12 @@ const state = {
     peerShare: false,
     storyPromotions: false,
     storyFollowup: false,
+    erasTaxonomy: false,
+    myerasWorkspace: false,
+    clinicalCaseMetadata: false,
+    useRanking: false,
+    myerasVersions: false,
+    aiCondensation: false,
   }),
   lockout: null,
   route: 'home',
@@ -272,6 +303,8 @@ const state = {
   selectedStudent: null,
   storyDetail: null,
   storyVersions: [],
+  storyEras: { tags: [], suggestions: [], clinicalCase: null, storyFit: null },
+  myeras: { profile: null, workspace: null, experiences: [], impactful: null, storyFit: [], taxonomy: [], error: '' },
   versionVoice: null,
   storyCompletionIntent: null,
   settingsPreview: {
@@ -726,6 +759,25 @@ const api = Object.freeze({
   saveStoryVersion: (id, key, body) => auth.request(`/api/stories/${id}/versions/${key}`, jsonOptions('PATCH', body)),
   restoreStoryVersion: (id, body) => auth.request(`/api/stories/${id}/version-restore`, jsonOptions('POST', body)),
   attachVersionRecording: (storyId, recordingId) => auth.request(`/api/stories/${storyId}/version-recordings/${recordingId}/attach`, jsonOptions('POST', {})),
+  erasProfile: () => auth.request('/api/eras/profile'),
+  erasTaxonomy: (dimension = '') => auth.request(`/api/eras/taxonomy${dimension ? `?dimension=${encodeURIComponent(dimension)}` : ''}`),
+  storyErasTags: (id) => auth.request(`/api/stories/${id}/eras-tags`),
+  updateStoryErasTags: (id, body) => auth.request(`/api/stories/${id}/eras-tags`, jsonOptions('PATCH', body)),
+  storyErasSuggestions: (id) => auth.request(`/api/stories/${id}/eras-suggestions`),
+  storyClinicalCase: (id) => auth.request(`/api/stories/${id}/clinical-case`),
+  updateStoryClinicalCase: (id, body) => auth.request(`/api/stories/${id}/clinical-case`, jsonOptions('PATCH', body)),
+  updateStoryUseRank: (id, useId, body) => auth.request(`/api/stories/${id}/use-ranks/${useId}`, jsonOptions('PATCH', body)),
+  myerasWorkspace: () => auth.request('/api/myeras/workspace'),
+  myerasStoryFit: () => auth.request('/api/myeras/story-fit'),
+  createMyerasExperience: (body) => auth.request('/api/myeras/experiences', jsonOptions('POST', body)),
+  updateMyerasExperience: (id, body) => auth.request(`/api/myeras/experiences/${id}`, jsonOptions('PATCH', body)),
+  reorderMyerasExperiences: (experienceIds) => auth.request('/api/myeras/experiences/order', jsonOptions('POST', { experienceIds })),
+  setMyerasMeaningful: (id, body) => auth.request(`/api/myeras/experiences/${id}/most-meaningful`, jsonOptions('POST', body)),
+  linkMyerasStory: (experienceId, storyId, linkRole = 'supporting') => auth.request(`/api/myeras/experiences/${experienceId}/stories/${storyId}`, jsonOptions('POST', { linkRole })),
+  unlinkMyerasStory: (experienceId, storyId) => auth.request(`/api/myeras/experiences/${experienceId}/stories/${storyId}`, { method: 'DELETE' }),
+  updateMyerasImpactful: (body) => auth.request('/api/myeras/impactful', jsonOptions('PATCH', body)),
+  promoteMyerasImpactful: (storyId, expectedVersion) => auth.request(`/api/myeras/impactful/promote/${storyId}`, jsonOptions('POST', { expectedVersion })),
+  condensation: (body) => auth.request('/api/condensation', jsonOptions('POST', body)),
   inspirationBrowse: (query = '', layout = 'list') => auth.request(`/api/inspiration/browse?query=${encodeURIComponent(query)}&layout=${encodeURIComponent(layout)}`),
   inspirationNext: (body) => auth.request('/api/inspiration/next', jsonOptions('POST', body)),
   inspirationFavorite: (id, enabled) => auth.request(`/api/inspiration/favorites/${id}`, { method: enabled ? 'POST' : 'DELETE', ...(enabled ? { body: '{}' } : {}) }),
@@ -822,6 +874,7 @@ const api = Object.freeze({
   adminSubjectHome: (id) => auth.request(`/api/admin/console/subjects/${id}/home`),
   adminSubjectStories: (id) => auth.request(`/api/admin/console/subjects/${id}/stories`),
   adminSubjectStory: (studentId, storyId) => auth.request(`/api/admin/console/subjects/${studentId}/stories/${storyId}`),
+  adminSubjectMyeras: (id) => auth.request(`/api/admin/console/subjects/${id}/myeras`),
   adminQueue: (query = '') => auth.request(`/api/admin/console/queue${query ? `?${query}` : ''}`),
   adminDirectory: (query = '') => auth.request(`/api/admin/console/directory${query ? `?${query}` : ''}`),
   adminDirectoryGroups: () => auth.request('/api/admin/console/groups'),
@@ -1382,6 +1435,7 @@ function routeTitle(route = state.route) {
   const names = {
     home: 'Home',
     library: 'Story Library',
+    myeras: 'MyERAS Experiences',
     notifications: 'Notifications',
     settings: 'Settings',
     prep: 'Interview Prep',
@@ -1449,6 +1503,7 @@ function renderShell() {
       && (route !== 'requests' || state.capabilities?.requestAStory === true)
       && (route !== 'classmates' || state.capabilities?.peerShare === true)
       && (route !== 'content' || state.capabilities?.inspirationAdmin === true)
+      && (route !== 'myeras' || state.capabilities?.myerasWorkspace === true)
     ));
   rail.innerHTML = `
     <div class="logo" aria-label="StoryForge">Story<b>Forge</b></div><div class="logoSub">MissionMed</div>
@@ -2140,6 +2195,227 @@ function renderLibraryRowsOnly() {
   if (count) count.textContent = `${list.length} of ${state.stories.length}`;
   const status = $('#librarySearchStatus');
   if (status) status.textContent = `${list.length} ${list.length === 1 ? 'story' : 'stories'} shown.`;
+}
+
+function myerasLimits() {
+  return state.myeras?.profile?.limits || {
+    max_experiences: 10,
+    max_most_meaningful: 3,
+    experience_description_chars: 750,
+    most_meaningful_chars: 300,
+    impactful_chars: 750,
+  };
+}
+
+function myerasTerms(dimension) {
+  return asArray(state.myeras?.taxonomy).filter((term) => term.dimension === dimension);
+}
+
+function myerasTermLabel(dimension, value) {
+  return myerasTerms(dimension).find((term) => term.termId === value)?.label
+    || String(value || '').replaceAll('_', ' ');
+}
+
+function myerasSelect(dimension, value, label, { required = false } = {}) {
+  const terms = myerasTerms(dimension);
+  const field = ({ experience_type: 'experienceType', primary_focus: 'primaryFocus', key_characteristic: 'keyCharacteristic' })[dimension] || dimension;
+  return `<label>${esc(label)}<select data-myeras-field="${attr(field)}" ${required ? 'required' : ''}><option value="">Choose ${esc(label.toLowerCase())}</option>${terms.map((term) => `<option value="${attr(term.termId)}" ${term.termId === value ? 'selected' : ''}>${esc(term.label)}</option>`).join('')}</select></label>`;
+}
+
+function myerasAdvisoryCounter(value, limit, key) {
+  const count = String(value || '').length;
+  const target = Number(limit || 0);
+  return `<span class="countNote b1517AdvisoryCount ${target && count > target ? 'over' : ''}" data-myeras-counter="${attr(key)}" aria-live="polite">${count}/${target} characters${target && count > target ? ' · over ERAS target; nothing is truncated' : ' · advisory target'}</span>`;
+}
+
+async function loadMyeras() {
+  state.myeras = { ...state.myeras, error: '' };
+  try {
+    const subject = isAdminSubjectContext() ? subjectStudent() : null;
+    const [workspacePayload, taxonomyPayload] = await Promise.all([
+      subject ? api.adminSubjectMyeras(subject.id) : api.myerasWorkspace(),
+      state.capabilities?.erasTaxonomy ? api.erasTaxonomy().catch(() => ({ terms: [] })) : Promise.resolve({ terms: [] }),
+    ]);
+    const payload = workspacePayload?.myeras || workspacePayload || {};
+    state.myeras = {
+      profile: payload.profile || null,
+      workspace: payload.workspace || null,
+      experiences: asArray(payload.experiences),
+      impactful: payload.impactful || null,
+      storyFit: asArray(payload.storyFit),
+      taxonomy: asArray(taxonomyPayload?.terms),
+      error: '',
+      editingId: null,
+    };
+  } catch (error) {
+    state.myeras = { ...state.myeras, error: error.message || 'MyERAS Experiences is temporarily unavailable.' };
+  }
+}
+
+function myerasExperienceForm(experience = null) {
+  const limits = myerasLimits();
+  const item = experience || {};
+  const linkedIds = new Set(asArray(item.linkedStories).map((link) => String(link.storyId)));
+  return `<form id="myerasExperienceForm" class="railCard b1517ExperienceForm" data-experience-id="${attr(item.id || '')}" data-row-version="${Number(item.rowVersion || 0)}" data-most-meaningful="${item.mostMeaningful ? 'true' : 'false'}" data-most-meaningful-rank="${Number(item.mostMeaningfulRank || 0)}">
+    <div class="b1515SectionHead"><div><span class="eyebrow">${item.id ? 'Edit experience' : 'Add an experience'}</span><h2>${item.id ? esc(item.organization || 'Untitled experience') : 'Build from the truth you already captured'}</h2></div>${item.id ? '<button class="rowBtn" type="button" data-myeras-cancel-edit>Cancel</button>' : ''}</div>
+    <div class="b1517EditorGrid">
+      <div class="b1517EditorFields">
+        <div class="b1517FieldGrid">
+          <label>Organization<input data-myeras-field="organization" maxlength="200" value="${attr(item.organization || '')}" required></label>
+          ${myerasSelect('experience_type', item.experienceType || '', 'Experience type', { required: true })}
+          <label>Position or role<input data-myeras-field="positionTitle" maxlength="200" value="${attr(item.positionTitle || '')}" required></label>
+          <label class="b1517Check"><input data-myeras-field="isCurrent" type="checkbox" ${item.isCurrent ? 'checked' : ''}> This experience is current</label>
+          <label>Start month<input data-myeras-field="startMonth" type="date" value="${attr(item.startMonth || '')}"></label>
+          <label>End month<input data-myeras-field="endMonth" type="date" value="${attr(item.endMonth || '')}" ${item.isCurrent ? 'disabled' : ''}></label>
+          <label>Country<input data-myeras-field="country" maxlength="120" value="${attr(item.country || '')}"></label>
+          <label>State or province<input data-myeras-field="stateProvince" maxlength="120" value="${attr(item.stateProvince || '')}"></label>
+          <label>City<input data-myeras-field="city" maxlength="120" value="${attr(item.city || '')}"></label>
+          <label>Postal code<input data-myeras-field="postalCode" maxlength="32" value="${attr(item.postalCode || '')}"></label>
+          ${myerasSelect('setting', item.setting || '', 'Setting')}
+          ${myerasSelect('primary_focus', item.primaryFocus || '', 'Primary focus')}
+          ${myerasSelect('key_characteristic', item.keyCharacteristic || '', 'Key characteristic')}
+        </div>
+        <div class="privacyBoundary">Participation frequency remains unavailable until the authenticated AAMC field set is verified. StoryForge will not invent a value.</div>
+        <label>Context, roles &amp; responsibilities ${myerasAdvisoryCounter(item.descriptionText, limits.experience_description_chars || 750, 'descriptionText')}<textarea data-myeras-field="descriptionText" data-myeras-advisory="descriptionText" data-myeras-limit="${Number(limits.experience_description_chars || 750)}" required>${esc(item.descriptionText || '')}</textarea></label>
+        ${item.mostMeaningful ? `<label>Most meaningful reflection ${myerasAdvisoryCounter(item.mostMeaningfulText, limits.most_meaningful_chars || 300, 'mostMeaningfulText')}<textarea data-myeras-field="mostMeaningfulText" data-myeras-advisory="mostMeaningfulText" data-myeras-limit="${Number(limits.most_meaningful_chars || 300)}">${esc(item.mostMeaningfulText || '')}</textarea></label>` : ''}
+      </div>
+      <aside class="b1517EditorStories" aria-label="Your stories">
+        <div><span class="eyebrow">Your stories</span><h3>Back this experience with StoryForge truth</h3><p>Linking never changes the original story.</p></div>
+        ${item.id ? (state.myeras.storyFit.length ? state.myeras.storyFit.map((story) => `<article><div><strong>${esc(story.title || 'Story')}</strong><small>${Number(story.tagCompleteness || 0)} of 3 ERAS tags · ${story.hasThirtySecond ? '30-second ready' : '30-second needed'} · ${story.hasFullStory ? 'Full Story ready' : 'Full Story needed'}${story.hasAudio ? ' · audio' : ''}</small></div>${linkedIds.has(String(story.storyId)) ? '<span class="cohortChip">Linked</span>' : `<form data-myeras-link-form="${attr(item.id)}"><input type="hidden" data-myeras-link-story value="${attr(story.storyId)}"><button class="rowBtn" type="submit">Link</button></form>`}</article>`).join('') : '<p class="storyEmpty">No observable stories yet.</p>') : '<p class="storyEmpty">Save the experience first, then connect the StoryForge moments that support it.</p>'}
+        ${state.capabilities?.aiCondensation ? '<div class="privacyBoundary">Condense from story appears only after an explicit source selection and redaction review.</div>' : '<small>AI condensing is off. Manual writing remains fully available.</small>'}
+      </aside>
+    </div>
+    <button class="btnSave" type="submit">${item.id ? 'Save experience' : 'Add experience'}</button>
+  </form>`;
+}
+
+function myerasExperienceCard(experience, index, readOnly) {
+  const limits = myerasLimits();
+  const links = asArray(experience.linkedStories);
+  const linkedIds = new Set(links.map((link) => String(link.storyId)));
+  const availableStories = state.stories.filter((story) => !linkedIds.has(String(story.id)));
+  return `<article class="b1517Experience" data-myeras-experience="${attr(experience.id)}">
+    <div class="b1517ExperienceHead"><span class="b1517Slot">${index + 1}</span><div><span class="eyebrow">${esc(myerasTermLabel('experience_type', experience.experienceType))}</span><h2>${esc(experience.organization || 'Untitled experience')}</h2><p>${esc(experience.positionTitle || '')}</p></div>${experience.mostMeaningful ? `<span class="cohortChip">Most meaningful ${Number(experience.mostMeaningfulRank || 1)} of ${Number(limits.max_most_meaningful || 3)}</span>` : ''}</div>
+    <div class="b1517ExperienceMeta">${[experience.setting && myerasTermLabel('setting', experience.setting), experience.primaryFocus && myerasTermLabel('primary_focus', experience.primaryFocus), experience.keyCharacteristic && myerasTermLabel('key_characteristic', experience.keyCharacteristic), experience.startMonth, experience.isCurrent ? 'Current' : experience.endMonth].filter(Boolean).map((value) => `<span>${esc(value)}</span>`).join('')}</div>
+    <div class="b1517ExperienceCount">${myerasAdvisoryCounter(experience.descriptionText, limits.experience_description_chars || 750, `card-${experience.id}`)} · backed by ${links.length} stor${links.length === 1 ? 'y' : 'ies'}</div>
+    <p class="b1517ExperienceText">${experience.descriptionText ? esc(experience.descriptionText) : '<span class="storyEmpty">No description yet.</span>'}</p>
+    ${experience.mostMeaningful ? `<div class="b1517MeaningfulText"><span class="fLbl">Most meaningful reflection</span>${myerasAdvisoryCounter(experience.mostMeaningfulText, limits.most_meaningful_chars || 300, `meaningful-${experience.id}`)}<p>${experience.mostMeaningfulText ? esc(experience.mostMeaningfulText) : '<span class="storyEmpty">Reflection not started.</span>'}</p></div>` : ''}
+    ${links.length ? `<div class="b1517LinkedStories"><span class="fLbl">Linked StoryForge truth</span>${links.map((link) => { const story = state.stories.find((item) => String(item.id) === String(link.storyId)); return `<span>${esc(story?.title || 'Linked story')} · ${esc(link.linkRole || 'supporting')}${readOnly ? '' : ` <button type="button" data-myeras-unlink="${attr(experience.id)}:${attr(link.storyId)}" aria-label="Unlink ${attr(story?.title || 'story')}">×</button>`}</span>`; }).join('')}</div>` : ''}
+    ${readOnly ? '' : `<div class="inlineActions"><button class="rowBtn" type="button" data-myeras-edit="${attr(experience.id)}">Edit</button><button class="rowBtn" type="button" data-myeras-move="-1" data-experience-id="${attr(experience.id)}" ${index === 0 ? 'disabled' : ''}>Move up</button><button class="rowBtn" type="button" data-myeras-move="1" data-experience-id="${attr(experience.id)}" ${index === state.myeras.experiences.length - 1 ? 'disabled' : ''}>Move down</button><button class="rowBtn ${experience.mostMeaningful ? 'on' : ''}" type="button" data-myeras-meaningful="${attr(experience.id)}">${experience.mostMeaningful ? 'Remove most meaningful' : 'Mark most meaningful'}</button></div>
+      ${availableStories.length ? `<form class="b1517LinkForm" data-myeras-link-form="${attr(experience.id)}"><label>Connect an existing story<select data-myeras-link-story required><option value="">Choose a story</option>${availableStories.map((story) => `<option value="${attr(story.id)}">${esc(story.title)}</option>`).join('')}</select></label><button class="rowBtn" type="submit">Link story</button></form>` : ''}`}
+  </article>`;
+}
+
+function myerasStoryFitCard(item, readOnly) {
+  const story = state.stories.find((entry) => String(entry.id) === String(item.storyId));
+  const uses = asArray(item.uses);
+  return `<article class="b1517FitCard"><div><span class="eyebrow">Story fit</span><h3>${esc(item.title || story?.title || 'Story')}</h3><p>${Number(item.tagCompleteness || 0)} of 3 core ERAS tags · ${item.hasFullStory ? 'Full Story ready' : 'Full Story needed'} · ${item.hasThirtySecond ? '30-second ready' : '30-second needed'}</p></div>${readOnly ? '' : `<div class="b1517UseRanks">${uses.map((use) => `<label>${esc(String(use.useId || '').replaceAll('_', ' '))}<input type="number" min="1" max="99" value="${Number(use.studentRank || 1)}" data-use-rank="${attr(item.storyId)}:${attr(use.useId)}" data-row-version="${Number(use.rowVersion || 0)}"><button type="button" class="rowBtn ${use.studentPinned ? 'on' : ''}" data-use-pin="${attr(item.storyId)}:${attr(use.useId)}" data-rank="${Number(use.studentRank || 1)}" data-row-version="${Number(use.rowVersion || 0)}">${use.studentPinned ? 'Pinned' : 'Pin'}</button></label>`).join('')}</div>`}</article>`;
+}
+
+function renderMyeras() {
+  const readOnly = isAdminSubjectContext();
+  const subject = subjectStudent();
+  const limits = myerasLimits();
+  const experiences = asArray(state.myeras.experiences);
+  const meaningfulCount = experiences.filter((item) => item.mostMeaningful).length;
+  const editing = experiences.find((item) => item.id === state.myeras.editingId) || null;
+  const owner = readOnly ? subject?.first || 'Student' : firstName();
+  main.innerHTML = `<section data-view="myeras" class="live b1517Myeras ${readOnly ? 'b1515SubjectSurface' : ''}">
+    ${readOnly ? subjectContextBannerMarkup() : ''}
+    ${pageIntroMarkup({ eyebrow: readOnly ? 'Administrator · authorized subject context' : 'MyERAS alignment workspace', title: `${esc(owner)}’s <em>experiences</em>.`, value: 'Turn existing StoryForge truth into a structured MyERAS workspace without changing the original story.', how: 'Connect stories, classify each experience with the active ERAS profile, choose up to three most meaningful experiences, and keep every purposeful telling in version history.', action: readOnly ? '<span class="cohortChip">Read-only mirror</span>' : '<button class="btnSave" type="button" data-myeras-add>Add an experience</button>' })}
+    <div class="b1517ProfileBadge"><span>Active profile</span><strong>${esc(state.myeras.profile?.label || 'ERAS 2027')}</strong><small>Profile limits guide your draft; StoryForge never truncates saved truth.</small></div>
+    ${state.myeras.error ? `<div class="releaseError" role="status">${esc(state.myeras.error)} Existing StoryForge stories are unchanged.</div>` : `<div class="forgeStats b1517Stats"><div class="fstat"><div class="n">${experiences.length}/${Number(limits.max_experiences || 10)}</div><div class="l">Experiences</div></div><div class="fstat"><div class="n">${meaningfulCount}/${Number(limits.max_most_meaningful || 3)}</div><div class="l">Most meaningful</div></div><div class="fstat"><div class="n">${state.myeras.storyFit.filter((item) => Number(item.tagCompleteness || 0) >= 3).length}</div><div class="l">Core-tag ready stories</div></div></div>
+      ${!readOnly && (editing || state.myeras.editingId === 'new') ? myerasExperienceForm(editing) : ''}
+      <div class="b1517ExperienceList">${experiences.length ? experiences.map((item, index) => myerasExperienceCard(item, index, readOnly)).join('') : emptyState('No MyERAS experiences yet.', readOnly ? 'The student has not built this workspace.' : 'Start with one experience and connect the StoryForge moments that prove it.', '<button class="btnSave" type="button" data-myeras-add>Add the first experience</button>')}</div>
+      <section class="railCard b1517Impactful"><span class="eyebrow">Impactful experience</span><h2>What shaped the path you are on?</h2>${readOnly ? `<p>${state.myeras.impactful?.bodyText ? esc(state.myeras.impactful.bodyText) : '<span class="storyEmpty">Not started.</span>'}</p>` : `<form id="myerasImpactfulForm" data-row-version="${Number(state.myeras.impactful?.rowVersion || 0)}"><label for="myerasImpactfulText">Impactful experience ${myerasAdvisoryCounter(state.myeras.impactful?.bodyText, limits.impactful_chars || 750, 'impactfulText')}</label><textarea id="myerasImpactfulText" data-myeras-advisory="impactfulText" data-myeras-limit="${Number(limits.impactful_chars || 750)}" placeholder="Keep the truth specific and reflective.">${esc(state.myeras.impactful?.bodyText || '')}</textarea><button class="btnSave" type="submit">Save impactful experience</button></form>`}</section>
+      <section class="b1517Fit"><div class="b1515SectionHead"><div><span class="eyebrow">StoryForge fit</span><h2>Use the stories you already have</h2></div><p>Readiness is calculated from durable story data, not generated copy.</p></div>${state.myeras.storyFit.length ? state.myeras.storyFit.map((item) => myerasStoryFitCard(item, readOnly)).join('') : emptyState('No observable stories yet.', 'Capture and develop stories first; this workspace never creates synthetic experiences.')}</section>
+      ${state.capabilities?.aiCondensation ? '<div class="privacyBoundary">Condensing assistance is available only after explicit student selection and redaction. Suggestions never overwrite saved text.</div>' : '<div class="privacyBoundary">AI condensing is off. You can complete every MyERAS field manually.</div>'}`}
+  </section>`;
+}
+
+async function refreshMyeras(message = '') {
+  await loadMyeras();
+  renderShell();
+  renderMyeras();
+  if (message) notify(message, '✓');
+}
+
+async function saveMyerasExperience(form) {
+  const value = (key) => form.querySelector(`[data-myeras-field="${key}"]`)?.value || '';
+  const experience = {
+    organization: value('organization'),
+    positionTitle: value('positionTitle'),
+    experienceType: value('experienceType') || null,
+    setting: value('setting') || null,
+    primaryFocus: value('primaryFocus') || null,
+    keyCharacteristic: value('keyCharacteristic') || null,
+    startMonth: value('startMonth') || null,
+    endMonth: form.querySelector('[data-myeras-field="isCurrent"]')?.checked ? null : value('endMonth') || null,
+    isCurrent: form.querySelector('[data-myeras-field="isCurrent"]')?.checked === true,
+    country: value('country') || null,
+    stateProvince: value('stateProvince') || null,
+    city: value('city') || null,
+    postalCode: value('postalCode') || null,
+    descriptionText: value('descriptionText'),
+    mostMeaningful: form.dataset.mostMeaningful === 'true',
+    mostMeaningfulRank: Number(form.dataset.mostMeaningfulRank || 0) || null,
+    mostMeaningfulText: value('mostMeaningfulText'),
+  };
+  const id = form.dataset.experienceId || '';
+  const request = { expectedVersion: Number(form.dataset.rowVersion || 0), experience };
+  await withBusy(() => id ? api.updateMyerasExperience(id, request) : api.createMyerasExperience(request));
+  state.myeras.editingId = null;
+  await refreshMyeras(id ? 'Experience updated.' : 'Experience added.');
+}
+
+async function reorderMyerasExperience(id, delta) {
+  const ids = state.myeras.experiences.map((item) => String(item.id));
+  const index = ids.indexOf(String(id));
+  const next = index + Number(delta);
+  if (index < 0 || next < 0 || next >= ids.length) return;
+  [ids[index], ids[next]] = [ids[next], ids[index]];
+  await withBusy(() => api.reorderMyerasExperiences(ids));
+  await refreshMyeras('Experience order saved.');
+}
+
+async function toggleMyerasMeaningful(id) {
+  const item = state.myeras.experiences.find((experience) => experience.id === id);
+  if (!item) return;
+  const enabled = !item.mostMeaningful;
+  const current = state.myeras.experiences.filter((experience) => experience.mostMeaningful);
+  const max = Number(myerasLimits().max_most_meaningful || 3);
+  if (enabled && current.length >= max) throw new Error(`Choose no more than ${max} most meaningful experiences.`);
+  const used = new Set(current.map((experience) => Number(experience.mostMeaningfulRank)).filter(Boolean));
+  let rank = 1;
+  while (used.has(rank) && rank <= max) rank += 1;
+  await withBusy(() => api.setMyerasMeaningful(id, {
+    mostMeaningful: enabled,
+    rank: enabled ? rank : null,
+    expectedVersion: Number(item.rowVersion || 0),
+  }));
+  await refreshMyeras(enabled ? 'Most meaningful experience saved.' : 'Most meaningful selection removed.');
+}
+
+async function saveMyerasImpactful(form) {
+  await withBusy(() => api.updateMyerasImpactful({
+    bodyText: $('#myerasImpactfulText', form)?.value || '',
+    sourceStoryId: state.myeras.impactful?.sourceStoryId || null,
+    expectedVersion: Number(form.dataset.rowVersion || 0),
+  }));
+  await refreshMyeras('Impactful experience saved.');
+}
+
+async function saveMyerasUseRank(target, pinned = null) {
+  const [storyId, useId] = String(target.dataset.useRank || target.dataset.usePin || '').split(':');
+  if (!storyId || !useId) return;
+  const input = target.matches('input') ? target : document.querySelector(`[data-use-rank="${CSS.escape(storyId)}:${CSS.escape(useId)}"]`);
+  const rank = Number(input?.value || target.dataset.rank || 1);
+  await withBusy(() => api.updateStoryUseRank(storyId, useId, {
+    rank,
+    pinned: pinned == null ? Boolean(target.closest('label')?.querySelector('[data-use-pin].on')) : pinned,
+    expectedVersion: Number(target.dataset.rowVersion || input?.dataset.rowVersion || 0),
+  }));
+  await refreshMyeras('Story use priority saved.');
 }
 
 function replaceStoryInState(story) {
@@ -5011,6 +5287,47 @@ function storyHistoryMarkup(story) {
     : ''}`;
 }
 
+function b1517ClinicalStory(story) {
+  const values = [story?.classification, ...asArray(story?.categories), ...asArray(story?.themes)]
+    .map((value) => String(value || '').toLowerCase());
+  return values.some((value) => value === 'clinical' || value.includes('clinical'));
+}
+
+async function loadStoryErasMetadata(story) {
+  state.storyEras = { tags: [], suggestions: [], clinicalCase: null, storyFit: null, error: '' };
+  if (!story?.id) return;
+  try {
+    const profilePromise = state.myeras.profile
+      ? Promise.resolve({ profile: state.myeras.profile })
+      : api.erasProfile().catch(() => ({ profile: null }));
+    const taxonomyPromise = state.myeras.taxonomy?.length
+      ? Promise.resolve({ terms: state.myeras.taxonomy })
+      : api.erasTaxonomy().catch(() => ({ terms: [] }));
+    const [profilePayload, taxonomyPayload, tagsPayload, suggestionsPayload, clinicalPayload] = await Promise.all([
+      profilePromise,
+      taxonomyPromise,
+      state.capabilities?.erasTaxonomy ? api.storyErasTags(story.id) : Promise.resolve({ tags: [] }),
+      state.capabilities?.erasTaxonomy ? api.storyErasSuggestions(story.id).catch(() => ({ suggestions: [] })) : Promise.resolve({ suggestions: [] }),
+      state.capabilities?.clinicalCaseMetadata && b1517ClinicalStory(story)
+        ? api.storyClinicalCase(story.id).catch(() => ({ clinicalCase: null }))
+        : Promise.resolve({ clinicalCase: null }),
+    ]);
+    state.myeras.profile = profilePayload?.profile || state.myeras.profile;
+    state.myeras.taxonomy = asArray(taxonomyPayload?.terms).length
+      ? asArray(taxonomyPayload.terms)
+      : asArray(state.myeras.taxonomy);
+    state.storyEras = {
+      tags: asArray(tagsPayload?.tags),
+      suggestions: asArray(suggestionsPayload?.suggestions),
+      clinicalCase: clinicalPayload?.clinicalCase || null,
+      storyFit: null,
+      error: '',
+    };
+  } catch (error) {
+    state.storyEras = { ...state.storyEras, error: error.message || 'ERAS details are temporarily unavailable.' };
+  }
+}
+
 async function fetchStoryDetail(id, surface = 'workspace') {
   if (isMentor()) {
     try {
@@ -5033,6 +5350,9 @@ async function fetchStoryDetail(id, surface = 'workspace') {
   if (state.capabilities?.storyVersions) {
     const payload = await api.storyVersions(id);
     state.storyVersions = asArray(payload?.versions);
+  }
+  if (state.capabilities?.erasTaxonomy || state.capabilities?.clinicalCaseMetadata || state.capabilities?.myerasVersions) {
+    await loadStoryErasMetadata(story);
   }
   return story;
 }
@@ -5244,6 +5564,91 @@ function adminReviewWorkspaceMarkup(story) {
   </form>${mentorNotesMarkup(story)}<div class="railCard adminInternalNotes"><div class="rLbl">Private admin note history</div>${notes.length ? notes.map((note) => `<div class="noteItem"><div class="nt">${esc(note.body)}</div><div class="nd">${esc(firstDefined(note.adminName, note.admin_name, 'Administrator'))} · ${esc(formatDateTime(firstDefined(note.createdAt, note.created_at)))}</div></div>`).join('') : '<div class="stageHint">No private admin notes.</div>'}</div></section>`;
 }
 
+function erasClassificationMarkup(story, readOnly) {
+  if (!state.capabilities?.erasTaxonomy) return '';
+  const dimensions = [
+    ['experience_type', 'Experience type'],
+    ['primary_focus', 'Primary focus'],
+    ['key_characteristic', 'Key characteristic'],
+  ];
+  const selected = new Map(asArray(state.storyEras?.tags).map((tag) => [tag.dimension, tag.termId]));
+  const controls = dimensions.map(([dimension, label]) => {
+    const terms = myerasTerms(dimension);
+    const current = selected.get(dimension) || '';
+    if (readOnly) return `<div class="b1517ReadField"><span>${esc(label)}</span><strong>${esc(myerasTermLabel(dimension, current) || 'Not selected')}</strong></div>`;
+    return `<label>${esc(label)}<select data-eras-tag="${attr(dimension)}"><option value="">Not selected</option>${terms.map((term) => `<option value="${attr(term.termId)}" ${term.termId === current ? 'selected' : ''}>${esc(term.label)}</option>`).join('')}</select></label>`;
+  }).join('');
+  const suggestions = asArray(state.storyEras?.suggestions)
+    .filter((suggestion) => !selected.has(suggestion.dimension));
+  const legacy = asArray(story.themes);
+  return `<section class="b1517ErasCard" aria-labelledby="erasClassificationTitle">
+    <div class="b1515SectionHead"><div><span class="eyebrow">ERAS profile · ${esc(state.myeras.profile?.label || 'active profile')}</span><h2 id="erasClassificationTitle">ERAS classification</h2></div><span class="cohortChip">Three single-select fields</span></div>
+    <p>Classify this story in ERAS vocabulary without changing the original StoryForge categories.</p>
+    ${state.storyEras?.error ? `<div class="releaseError" role="status">${esc(state.storyEras.error)}</div>` : ''}
+    ${readOnly ? `<div class="b1517FieldGrid">${controls}</div>` : `<form id="storyErasForm" class="b1517FieldGrid">${controls}<button class="rowBtn pri" type="submit">Save ERAS classification</button></form>`}
+    ${suggestions.length && !readOnly ? `<details class="b1517Suggestions"><summary>Suggested from your original themes</summary><p>Suggestions never save themselves.</p><div class="inlineActions">${suggestions.map((suggestion) => `<button type="button" class="rowBtn" data-eras-accept="${attr(suggestion.dimension)}:${attr(suggestion.termId)}">Use ${esc(suggestion.label)}</button>`).join('')}</div></details>` : ''}
+    ${legacy.length ? `<details class="b1517LegacyThemes"><summary>Original themes</summary><p>${legacy.map(esc).join(' · ')}</p><small>Read-only history. B1-517 never rewrites these values.</small></details>` : ''}
+  </section>`;
+}
+
+function clinicalCaseMarkup(story, readOnly) {
+  if (!state.capabilities?.clinicalCaseMetadata || !b1517ClinicalStory(story)) return '';
+  const clinical = state.storyEras?.clinicalCase || {};
+  const taxonomySelect = (dimension, value, label) => `<label>${esc(label)}<select data-clinical-field="${attr(({ clinical_specialty: 'specialty', clinical_setting: 'careSetting', clinical_acuity: 'acuity', clinical_role: 'roleInCase' })[dimension])}"><option value="">Not selected</option>${myerasTerms(dimension).map((term) => `<option value="${attr(term.termId)}" ${term.termId === value ? 'selected' : ''}>${esc(term.label)}</option>`).join('')}</select></label>`;
+  const display = [
+    ['Specialty', clinical.specialty, 'clinical_specialty'],
+    ['Care setting', clinical.careSetting, 'clinical_setting'],
+    ['Acuity', clinical.acuity, 'clinical_acuity'],
+    ['Role in case', clinical.roleInCase, 'clinical_role'],
+  ];
+  return `<details class="b1517ClinicalCard"><summary>Clinical case <span>optional · collapsed by default</span></summary>
+    <div class="privacyBoundary"><strong>De-identify before saving.</strong> Do not include a patient name, MRN, exact date, or facility identifier. Clinical details are excluded from AI payloads by default.</div>
+    ${readOnly ? `<div class="b1517FieldGrid">${display.map(([label, value, dimension]) => `<div class="b1517ReadField"><span>${esc(label)}</span><strong>${esc(value ? myerasTermLabel(dimension, value) : 'Not selected')}</strong></div>`).join('')}</div><div class="b1517ClinicalText"><p><strong>Patient context</strong><br>${esc(clinical.patientContext || 'Not provided')}</p><p><strong>Outcome focus</strong><br>${esc(clinical.outcomeFocus || 'Not provided')}</p></div>` : `<form id="storyClinicalForm" data-row-version="${Number(clinical.rowVersion || 0)}"><div class="b1517FieldGrid">${taxonomySelect('clinical_specialty', clinical.specialty, 'Specialty')}${taxonomySelect('clinical_setting', clinical.careSetting, 'Care setting')}${taxonomySelect('clinical_acuity', clinical.acuity, 'Acuity')}${taxonomySelect('clinical_role', clinical.roleInCase, 'Role in case')}</div><label>De-identified patient context<textarea data-clinical-field="patientContext" maxlength="500">${esc(clinical.patientContext || '')}</textarea></label><label>Outcome focus<textarea data-clinical-field="outcomeFocus" maxlength="500">${esc(clinical.outcomeFocus || '')}</textarea></label><label class="b1517Check"><input data-clinical-field="deidentConfirmed" type="checkbox" ${clinical.deidentConfirmed ? 'checked' : ''}> I confirm this text contains no patient name, MRN, exact date, or facility identifier.</label><button class="rowBtn pri" type="submit">Save clinical details</button></form>`}
+  </details>`;
+}
+
+async function saveStoryEras(form) {
+  const tags = $$('[data-eras-tag]', form)
+    .filter((select) => select.value)
+    .map((select) => ({ dimension: select.dataset.erasTag, termId: select.value, source: 'student' }));
+  await withBusy(() => api.updateStoryErasTags(state.storyDetail.id, {
+    profileKey: state.myeras.profile?.profileKey || 'eras_2027',
+    tags,
+  }));
+  await reloadStorySurface('workspace');
+  notify('ERAS classification saved. Original StoryForge categories are unchanged.', '✓');
+}
+
+async function acceptErasSuggestion(button) {
+  const [dimension, termId] = String(button.dataset.erasAccept || '').split(':');
+  const tags = asArray(state.storyEras?.tags)
+    .filter((tag) => tag.dimension !== dimension)
+    .map((tag) => ({ dimension: tag.dimension, termId: tag.termId, source: tag.source || 'student' }));
+  tags.push({ dimension, termId, source: 'mapped_accepted' });
+  await withBusy(() => api.updateStoryErasTags(state.storyDetail.id, {
+    profileKey: state.myeras.profile?.profileKey || 'eras_2027',
+    tags,
+  }));
+  await reloadStorySurface('workspace');
+  notify('Suggestion accepted and attributed. Original themes remain unchanged.', '✓');
+}
+
+async function saveStoryClinical(form) {
+  const value = (key) => form.querySelector(`[data-clinical-field="${key}"]`)?.value || '';
+  await withBusy(() => api.updateStoryClinicalCase(state.storyDetail.id, {
+    specialty: value('specialty') || null,
+    careSetting: value('careSetting') || null,
+    acuity: value('acuity') || null,
+    roleInCase: value('roleInCase') || null,
+    patientContext: value('patientContext'),
+    outcomeFocus: value('outcomeFocus'),
+    deidentConfirmed: form.querySelector('[data-clinical-field="deidentConfirmed"]')?.checked === true,
+    expectedVersion: Number(form.dataset.rowVersion || 0),
+  }));
+  await reloadStorySurface('workspace');
+  notify('De-identified clinical details saved.', '✓');
+}
+
 function renderStoryRoom({ adminStory = null, subjectStory = null } = {}) {
   const story = adminStory || subjectStory || state.storyDetail;
   if (!story) return;
@@ -5251,7 +5656,11 @@ function renderStoryRoom({ adminStory = null, subjectStory = null } = {}) {
   const subjectReviewer = Boolean(subjectStory);
   const mentor = isMentor() || adminReviewer || subjectReviewer;
   const host = adminReviewer || subjectReviewer ? main : room;
-  const versionTab = ['thirty_second', 'nnq_setup'].includes(state.storyTab) ? state.storyTab : null;
+  const versionKeys = state.capabilities?.myerasVersions
+    ? Object.keys(PURPOSEFUL_VERSION_META)
+    : ['thirty_second', 'nnq_setup'];
+  const versionTab = versionKeys.includes(state.storyTab) ? state.storyTab : null;
+  const versionMeta = versionTab ? PURPOSEFUL_VERSION_META[versionTab] : null;
   const selectedVersion = versionTab
     ? state.storyVersions.find((version) => version.key === versionTab) || null
     : null;
@@ -5260,6 +5669,7 @@ function renderStoryRoom({ adminStory = null, subjectStory = null } = {}) {
   const title = originalTab ? story.originalTitle : story.title;
   const text = versionTab ? selectedVersion?.body || '' : originalTab ? story.originalText : story.text;
   const versionWords = versionTab ? text.trim().split(/\s+/).filter(Boolean).length : 0;
+  const versionLimit = versionMeta?.limitKey ? Number(myerasLimits()[versionMeta.limitKey] || 0) : 0;
   const completionMissing = state.storyCompletionIntent
     ? storyCompletionMissing(story, state.storyCompletionIntent)
     : [];
@@ -5300,12 +5710,12 @@ function renderStoryRoom({ adminStory = null, subjectStory = null } = {}) {
         <div class="voiceTabs" role="tablist" aria-label="Story versions">
           <button type="button" role="tab" class="${originalTab ? 'on' : ''}" aria-selected="${originalTab}" data-story-tab="original">Original telling</button>
           <button type="button" role="tab" class="${workingTab ? 'on' : ''}" aria-selected="${workingTab}" data-story-tab="working">Full Story <span class="srOnly">— Working version</span></button>
-          ${state.capabilities?.storyVersions ? `<button type="button" role="tab" class="${versionTab === 'thirty_second' ? 'on' : ''}" aria-selected="${versionTab === 'thirty_second'}" data-story-tab="thirty_second">30-Second Version</button><button type="button" role="tab" class="${versionTab === 'nnq_setup' ? 'on' : ''}" aria-selected="${versionTab === 'nnq_setup'}" data-story-tab="nnq_setup">NNQ Setup</button>` : ''}
+          ${state.capabilities?.storyVersions ? versionKeys.map((key) => `<button type="button" role="tab" class="${versionTab === key ? 'on' : ''}" aria-selected="${versionTab === key}" data-story-tab="${attr(key)}">${esc(PURPOSEFUL_VERSION_META[key].label)}</button>`).join('') : ''}
         </div>
         ${versionTab ? `<form id="storyVersionForm" data-version-key="${attr(versionTab)}" data-row-version="${attr(selectedVersion?.rowVersion || 0)}" data-save-mode="save">
-          <div class="b1514VersionIntro"><div><span class="eyebrow">Purposeful telling</span><h2>${versionTab === 'thirty_second' ? '30-Second Version' : 'NNQ Setup'}</h2><p>${versionTab === 'thirty_second' ? 'Shape the essential moment for a concise interview response. Aim for about 75–90 spoken words (≈30 seconds).' : 'Set up the story so it naturally ends on a question you want the interviewer to ask.'}</p></div>${selectedVersion ? `<span class="cohortChip">Started ${esc(formatDate(selectedVersion.createdAt))} · ${selectedVersion.source === 'voice' ? '🎙 voice' : '⌨ typed'} · saved ${esc(formatDateTime(selectedVersion.updatedAt))}</span>` : '<span class="cohortChip">Not started — type it, or tell it out loud</span>'}</div>
-          ${mentor ? `<div class="storyProse" data-empty="${text ? 'false' : 'true'}">${text ? esc(text) : '<span class="storyEmpty">This purposeful version has not been written yet.</span>'}</div>` : `<label class="srOnly" for="storyVersionText">${versionTab === 'thirty_second' ? '30-Second Version' : 'NNQ Setup'}</label><textarea class="storyProse storyProseEdit b1514VersionEditor" id="storyVersionText" maxlength="20000" placeholder="Keep the same truth. Shape this telling for its purpose.">${esc(text)}</textarea><div class="inlineActions"><button class="btnSave" type="submit">Save this version</button>${state.capabilities?.voiceCapture ? '<button class="rowBtn" type="button" data-version-voice>🎙 Start recording</button><button class="rowBtn" type="button" data-version-voice-pause hidden>Pause</button>' : ''}${selectedVersion ? '<button class="rowBtn" type="button" data-version-mode="append">Append</button><button class="rowBtn" type="button" data-version-mode="retell">Retell from scratch</button>' : ''}<span class="saveState" data-version-voice-status>Microphone off. Every saved change remains in version history.</span></div>${selectedVersion?.audioAssetId ? `<div class="b1514VersionAudio"><button class="rowBtn" type="button" data-version-audio="${attr(selectedVersion.audioAssetId)}">▶ Play original telling</button><div data-version-audio-host></div></div>` : ''}`}
-          ${!mentor ? `<div class="b1514VersionCount" data-version-word-count aria-live="polite">${versionWords ? `≈ ${versionWords} words${versionTab === 'thirty_second' ? ` · ${versionWords <= 95 ? 'inside' : 'over'} the ~30-second target` : ''}` : ''}</div><div class="origNote">Append adds to what’s here. Retell starts fresh — your previous telling is kept in this version’s history and can be restored.</div>` : ''}
+          <div class="b1514VersionIntro"><div><span class="eyebrow">Purposeful telling</span><h2>${esc(versionMeta.label)}</h2><p>${esc(versionMeta.description)}</p></div>${selectedVersion ? `<span class="cohortChip">Started ${esc(formatDate(selectedVersion.createdAt))} · ${selectedVersion.source === 'voice' ? '🎙 voice' : '⌨ typed'} · saved ${esc(formatDateTime(selectedVersion.updatedAt))}</span>` : '<span class="cohortChip">Not started — type it, or tell it out loud</span>'}</div>
+          ${mentor ? `<div class="storyProse" data-empty="${text ? 'false' : 'true'}">${text ? esc(text) : '<span class="storyEmpty">This purposeful version has not been written yet.</span>'}</div>` : `<label class="srOnly" for="storyVersionText">${esc(versionMeta.label)}</label><textarea class="storyProse storyProseEdit b1514VersionEditor" id="storyVersionText" maxlength="20000" placeholder="Keep the same truth. Shape this telling for its purpose.">${esc(text)}</textarea><div class="inlineActions"><button class="btnSave" type="submit">Save this version</button>${state.capabilities?.voiceCapture ? '<button class="rowBtn" type="button" data-version-voice>🎙 Start recording</button><button class="rowBtn" type="button" data-version-voice-pause hidden>Pause</button>' : ''}${selectedVersion ? '<button class="rowBtn" type="button" data-version-mode="append">Append</button><button class="rowBtn" type="button" data-version-mode="retell">Retell from scratch</button>' : ''}${versionTab === 'myeras_impactful' ? '<button class="rowBtn" type="button" data-myeras-promote-impactful>Promote to my MyERAS Impactful Experience</button>' : ''}<span class="saveState" data-version-voice-status>Microphone off. Every saved change remains in version history.</span></div>${selectedVersion?.audioAssetId ? `<div class="b1514VersionAudio"><button class="rowBtn" type="button" data-version-audio="${attr(selectedVersion.audioAssetId)}">▶ Play original telling</button><div data-version-audio-host></div></div>` : ''}`}
+          ${!mentor ? `<div class="b1514VersionCount" data-version-word-count aria-live="polite">${versionLimit ? `${text.length}/${versionLimit} characters${text.length > versionLimit ? ' · over the active ERAS profile target; no text was truncated' : ''}` : versionWords ? `≈ ${versionWords} words${versionTab === 'thirty_second' ? ` · ${versionWords <= 95 ? 'inside' : 'over'} the ~30-second target` : ''}` : ''}</div><div class="origNote">Append adds to what’s here. Retell starts fresh — your previous telling is kept in this version’s history and can be restored.</div>` : ''}
           ${selectedVersion?.history?.length ? `<details class="b1514VersionHistory"><summary>Earlier tellings (${selectedVersion.history.length})</summary>${selectedVersion.history.map((revision) => `<article><p>${esc(revision.body)}</p><div class="inlineActions"><small>${esc(formatDateTime(revision.savedAt))} · ${revision.source === 'voice' ? '🎙 voice' : '⌨ typed'}</small>${revision.audioAssetId ? `<button class="rowBtn" type="button" data-version-audio="${attr(revision.audioAssetId)}">▶ Play original telling</button><div data-version-audio-host></div>` : ''}${!mentor ? `<button class="rowBtn" type="button" data-version-restore="${attr(revision.id)}">Restore this telling</button>` : ''}</div></article>`).join('')}</details>` : ''}
         </form>` : !mentor && workingTab ? `<form id="storyEditForm">
           <label class="srOnly" for="storyEditTitle">Story title</label>
@@ -5329,6 +5739,8 @@ function renderStoryRoom({ adminStory = null, subjectStory = null } = {}) {
             <div class="lessonTxt">${story.lesson ? esc(story.lesson) : '<span class="storyEmpty">No lesson added yet.</span>'}</div>
           </div>` : ''}`}
 
+        ${erasClassificationMarkup(story, mentor)}
+        ${clinicalCaseMarkup(story, mentor)}
         ${adminReviewer || subjectReviewer ? adminReviewWorkspaceMarkup(story) : ''}
 
         ${storyMediaMarkup(story)}
@@ -7612,6 +8024,9 @@ async function loadAdminSubjectStory(storyId) {
   state.storyTab = story.revised ? 'working' : 'original';
   state.storyDetail = story;
   adminConsoleState().story = story;
+  if (state.capabilities?.erasTaxonomy || state.capabilities?.clinicalCaseMetadata || state.capabilities?.myerasVersions) {
+    await loadStoryErasMetadata(story);
+  }
   renderStoryRoom({ subjectStory: story });
 }
 
@@ -7676,6 +8091,9 @@ async function loadAdminStory(id) {
   state.storyVersions = asArray(versionsPayload?.versions);
   state.storyTab = 'working';
   adminConsoleState().story = story;
+  if (state.capabilities?.erasTaxonomy || state.capabilities?.clinicalCaseMetadata || state.capabilities?.myerasVersions) {
+    await loadStoryErasMetadata(story);
+  }
 }
 
 function renderAdminHome() {
@@ -8347,6 +8765,12 @@ async function renderRoute() {
       await Promise.all([loadStories(), loadNotifications().catch(() => [])]);
       renderShell();
       renderLibrary();
+      return;
+    }
+    if (state.route === 'myeras' && state.capabilities?.myerasWorkspace) {
+      await Promise.all([loadStories(), loadMyeras()]);
+      renderShell();
+      renderMyeras();
       return;
     }
     if (state.route === 'inspiration' && state.capabilities?.inspiration) {
@@ -9197,7 +9621,71 @@ document.addEventListener('click', async (event) => {
       if (!isAdminSubjectContext()) return;
       state.route = button.dataset.subjectRoute;
       if (state.route === 'home') renderHome();
-      else renderLibrary();
+      else if (state.route === 'myeras' && state.capabilities?.myerasWorkspace) {
+        await withBusy(async () => {
+          await loadMyeras();
+          renderShell();
+          renderMyeras();
+        });
+      } else renderLibrary();
+      return;
+    }
+    if (button.matches('[data-myeras-add]')) {
+      if (isAdminSubjectContext()) return;
+      state.myeras.editingId = 'new';
+      renderMyeras();
+      $('#myerasExperienceForm input')?.focus();
+      return;
+    }
+    if (button.matches('[data-myeras-cancel-edit]')) {
+      state.myeras.editingId = null;
+      renderMyeras();
+      return;
+    }
+    if (button.matches('[data-myeras-edit]')) {
+      if (isAdminSubjectContext()) return;
+      state.myeras.editingId = button.dataset.myerasEdit;
+      renderMyeras();
+      $('#myerasExperienceForm input')?.focus();
+      return;
+    }
+    if (button.matches('[data-myeras-move]')) {
+      if (isAdminSubjectContext()) return;
+      await reorderMyerasExperience(button.dataset.experienceId, button.dataset.myerasMove);
+      return;
+    }
+    if (button.matches('[data-myeras-meaningful]')) {
+      if (isAdminSubjectContext()) return;
+      await toggleMyerasMeaningful(button.dataset.myerasMeaningful);
+      return;
+    }
+    if (button.matches('[data-myeras-unlink]')) {
+      if (isAdminSubjectContext()) return;
+      const [experienceId, storyId] = String(button.dataset.myerasUnlink || '').split(':');
+      if (experienceId && storyId) {
+        await withBusy(() => api.unlinkMyerasStory(experienceId, storyId));
+        await refreshMyeras('Story link removed. The original story is unchanged.');
+      }
+      return;
+    }
+    if (button.matches('[data-use-pin]')) {
+      if (isAdminSubjectContext()) return;
+      await saveMyerasUseRank(button, !button.classList.contains('on'));
+      return;
+    }
+    if (button.matches('[data-eras-accept]')) {
+      if (!isStudent()) return;
+      await acceptErasSuggestion(button);
+      return;
+    }
+    if (button.matches('[data-myeras-promote-impactful]')) {
+      if (!isStudent() || !state.storyDetail?.id) return;
+      await loadMyeras();
+      await withBusy(() => api.promoteMyerasImpactful(
+        state.storyDetail.id,
+        Number(state.myeras.impactful?.rowVersion || 0),
+      ));
+      notify('This telling is now the MyERAS Impactful draft. Its source story and version remain preserved.', '✓');
       return;
     }
     if (button.matches('[data-admin-subject-story]')) {
@@ -10271,6 +10759,32 @@ document.addEventListener('drop', async (event) => {
 
 document.addEventListener('submit', async (event) => {
   try {
+    if (event.target.id === 'storyErasForm') {
+      event.preventDefault();
+      if (isStudent()) await saveStoryEras(event.target);
+    }
+    if (event.target.id === 'storyClinicalForm') {
+      event.preventDefault();
+      if (isStudent()) await saveStoryClinical(event.target);
+    }
+    if (event.target.id === 'myerasExperienceForm') {
+      event.preventDefault();
+      if (!isAdminSubjectContext()) await saveMyerasExperience(event.target);
+    }
+    if (event.target.matches('[data-myeras-link-form]')) {
+      event.preventDefault();
+      if (!isAdminSubjectContext()) {
+        const experienceId = event.target.dataset.myerasLinkForm;
+        const storyId = $('[data-myeras-link-story]', event.target)?.value || '';
+        if (!storyId) throw new Error('Choose a story to connect.');
+        await withBusy(() => api.linkMyerasStory(experienceId, storyId));
+        await refreshMyeras('Story linked without changing the original.');
+      }
+    }
+    if (event.target.id === 'myerasImpactfulForm') {
+      event.preventDefault();
+      if (!isAdminSubjectContext()) await saveMyerasImpactful(event.target);
+    }
     if (event.target.id === 'captureForm') {
       event.preventDefault();
       await saveCapture(event.target);
@@ -10487,6 +11001,15 @@ document.addEventListener('input', (event) => {
   const target = event.target;
   if (target.id === 'mentorNoteText' && state.mentorNoteRecording) {
     state.mentorNoteRecording.transcript = target.value;
+  } else if (target.matches?.('[data-myeras-advisory]')) {
+    const key = target.dataset.myerasAdvisory;
+    const limit = Number(target.dataset.myerasLimit || 0);
+    const counter = target.form?.querySelector(`[data-myeras-counter="${key}"]`);
+    if (counter) {
+      const count = target.value.length;
+      counter.classList.toggle('over', Boolean(limit && count > limit));
+      counter.textContent = `${count}/${limit} characters${limit && count > limit ? ' · over ERAS target; nothing is truncated' : ' · advisory target'}`;
+    }
   } else if (target.id === 'storyVersionText') {
     if (state.versionVoice && ['recording', 'paused'].includes(state.versionVoice.phase)) {
       state.versionVoice.transcript = target.value;
@@ -10494,9 +11017,11 @@ document.addEventListener('input', (event) => {
     const words = target.value.trim().split(/\s+/).filter(Boolean).length;
     const counter = $('[data-version-word-count]', target.form);
     const key = target.form?.dataset.versionKey;
-    if (counter) counter.textContent = words
-      ? `≈ ${words} words${key === 'thirty_second' ? ` · ${words <= 95 ? 'inside' : 'over'} the ~30-second target` : ''}`
-      : '';
+    const meta = PURPOSEFUL_VERSION_META[key];
+    const limit = meta?.limitKey ? Number(myerasLimits()[meta.limitKey] || 0) : 0;
+    if (counter) counter.textContent = limit
+      ? `${target.value.length}/${limit} characters${target.value.length > limit ? ' · over the active ERAS profile target; no text was truncated' : ''}`
+      : words ? `≈ ${words} words${key === 'thirty_second' ? ` · ${words <= 95 ? 'inside' : 'over'} the ~30-second target` : ''}` : '';
   } else if (room.contains(target) && ['storyEditText', 'storyLesson'].includes(target.id) && state.storyCompletionIntent) {
     updateStoryCompletionGuidance(target.form);
   } else if (capture.contains(target) && ['capTitle', 'capBody', 'capLesson'].includes(target.id)) {
@@ -10563,7 +11088,15 @@ document.addEventListener('focusin', (event) => {
 document.addEventListener('change', async (event) => {
   const target = event.target;
   try {
-    if (target.matches?.('[data-consent-confirm]')) {
+    if (target.matches?.('[data-use-rank]')) {
+      if (!isAdminSubjectContext()) await saveMyerasUseRank(target);
+    } else if (target.matches?.('[data-myeras-field="isCurrent"]')) {
+      const end = target.form?.querySelector('[data-myeras-field="endMonth"]');
+      if (end) {
+        end.disabled = target.checked;
+        if (target.checked) end.value = '';
+      }
+    } else if (target.matches?.('[data-consent-confirm]')) {
       const accept = document.querySelector('[data-consent-decision="accept"]');
       if (accept) accept.disabled = !target.checked;
     } else if (target.matches('[data-admin-suitability]')) {
@@ -11505,6 +12038,12 @@ async function bootstrapSession() {
     peerShare: Boolean(session?.capabilities?.peerShare),
     storyPromotions: Boolean(session?.capabilities?.storyPromotions),
     storyFollowup: false,
+    erasTaxonomy: Boolean(session?.capabilities?.erasTaxonomy),
+    myerasWorkspace: Boolean(session?.capabilities?.myerasWorkspace),
+    clinicalCaseMetadata: Boolean(session?.capabilities?.clinicalCaseMetadata),
+    useRanking: Boolean(session?.capabilities?.useRanking),
+    myerasVersions: Boolean(session?.capabilities?.myerasVersions) && Boolean(session?.capabilities?.storyVersions),
+    aiCondensation: Boolean(session?.capabilities?.aiCondensation),
   });
   state.library.sort = state.capabilities.inlinePriority ? 'priority' : 'new';
   state.captureRecovering = false;

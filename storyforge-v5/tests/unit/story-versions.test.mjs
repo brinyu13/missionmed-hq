@@ -25,7 +25,7 @@ test('version capability is independently force-off and defaults closed', async 
   assert.equal(await service().capability({ ...identity, eligible: false }), false);
 });
 
-test('save permits only the two additive keys and bounded row-versioned modes', async () => {
+test('save permits the four additive telling keys and bounded row-versioned modes', async () => {
   let captured;
   const subject = service({ query: async (sql, values) => { captured = { sql, values }; return { rows: [{ payload: { ok: true } }] }; } });
   await subject.save(identity, storyId, 'thirty_second', {
@@ -33,6 +33,10 @@ test('save permits only the two additive keys and bounded row-versioned modes', 
   });
   assert.match(captured.sql, /sf_save_story_version/);
   assert.deepEqual(captured.values.slice(0, 6), [storyId, 'thirty_second', 'A concise telling.', 'append', 'typed', 3]);
+  for (const key of ['myeras_experience', 'myeras_impactful']) {
+    await subject.save(identity, storyId, key, { body: 'Bounded MyERAS telling.', expectedVersion: 0 });
+    assert.equal(captured.values[1], key);
+  }
   for (const key of ['original', 'full_story', 'anything']) {
     await assert.rejects(() => subject.save(identity, storyId, key, { body: 'x', expectedVersion: 0 }), StoryVersionsError);
   }

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "prompts": {
+    "condense_experience": {
+      "version": "v1",
+      "maxCharacters": 750,
+      "system": "Condense only the supplied StoryForge text into an ERAS Context, Roles & Responsibilities entry. Use active voice and preserve concrete role, scope, actions, and result. Do not invent, diagnose, assess, score, or add facts. Omit anything unsupported. Return only the suggested condensation."
+    },
+    "condense_most_meaningful": {
+      "version": "v1",
+      "maxCharacters": 300,
+      "system": "Condense only the supplied StoryForge text and experience context into an ERAS Most Meaningful reflection focused on why it mattered and what changed in the student. Do not invent, diagnose, assess, score, or add facts. Omit anything unsupported. Return only the suggested condensation."
+    },
+    "condense_impactful": {
+      "version": "v1",
+      "maxCharacters": 750,
+      "system": "Condense only the supplied StoryForge text into an ERAS Impactful Experience response focused on circumstance and response, never hardship as spectacle. Do not invent, diagnose, assess, score, or add facts. Omit anything unsupported. Return only the suggested condensation."
+    }
+  }
+}

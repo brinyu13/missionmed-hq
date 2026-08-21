@@ -97,6 +97,7 @@ function parseArgs(argv) {
     command,
     expectedLedgerAddition: [],
     expectedTableAddition: [],
+    expectedPopulatedTableAddition: [],
     expectedFeatureFlagAddition: [],
   };
   for (let index = 0; index < rest.length; index += 1) {
@@ -107,6 +108,7 @@ function parseArgs(argv) {
     else if (key === '--expected-arena-avatar-columns') values.expectedArenaAvatarColumns = true;
     else if (key === '--expected-ledger-addition') values.expectedLedgerAddition.push(rest[++index]);
     else if (key === '--expected-table-addition') values.expectedTableAddition.push(rest[++index]);
+    else if (key === '--expected-populated-table-addition') values.expectedPopulatedTableAddition.push(rest[++index]);
     else if (key === '--expected-feature-flag-addition') values.expectedFeatureFlagAddition.push(rest[++index]);
     else values[key.slice(2)] = rest[++index];
   }
@@ -610,6 +612,17 @@ function parseTableAdditions(values) {
   });
 }
 
+function parsePopulatedTableAdditions(values) {
+  const additions = parseHashAdditions(values, '--expected-populated-table-addition');
+  for (const [table] of additions) {
+    if (!/^sf_[a-z0-9_]+$/.test(table)
+        || ['sf_schema_migrations', 'sf_feature_flags'].includes(table)) {
+      throw new Error('--expected-populated-table-addition must name a candidate sf_* data table');
+    }
+  }
+  return additions;
+}
+
 async function compare(args) {
   if (!args.pre || !args.post) throw new Error('--pre and --post are required');
   const before = JSON.parse(await readFile(path.resolve(args.pre), 'utf8'));
@@ -617,6 +630,9 @@ async function compare(args) {
   const report = safeDifferenceReport(compareSurvivalManifests(before, after, {
     expectedLedgerAdditions: parseLedgerAdditions(args.expectedLedgerAddition),
     expectedTableAdditions: parseTableAdditions(args.expectedTableAddition),
+    expectedPopulatedTableAdditions: parsePopulatedTableAdditions(
+      args.expectedPopulatedTableAddition,
+    ),
     expectedFeatureFlagAdditions: parseHashAdditions(
       args.expectedFeatureFlagAddition,
       '--expected-feature-flag-addition',

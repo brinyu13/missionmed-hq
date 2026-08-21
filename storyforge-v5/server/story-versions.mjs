@@ -1,5 +1,10 @@
 const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
-const versionKeys = new Set(['thirty_second', 'nnq_setup']);
+const versionKeys = new Set([
+  'thirty_second',
+  'nnq_setup',
+  'myeras_experience',
+  'myeras_impactful',
+]);
 const modes = new Set(['save', 'append', 'retell']);
 const sources = new Set(['typed', 'voice']);
 

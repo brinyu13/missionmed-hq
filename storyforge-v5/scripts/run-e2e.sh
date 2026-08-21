@@ -100,6 +100,8 @@ phase_one_migrations=(
   "20260813140000_b1_515r_arena_avatar_directory_groups.sql"
   "20260813150000_b1_515r_inspiration_recommendation_publish_fix.sql"
   "20260814120000_b1_515r2_admin_population_avatar_sound.sql"
+  "20260819220000_b1_515r4_admin_population_scope_repair.sql"
+  "20260820120000_b1_517_myeras_alignment.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \
@@ -132,6 +134,12 @@ export STORYFORGE_INSPIRATION_ADMIN_FORCE_OFF=0
 export STORYFORGE_CONTENT_DISPLAY_FORCE_OFF=0
 export STORYFORGE_STORY_MEDIA_FORCE_OFF=0
 export STORYFORGE_MENTOR_NOTES_FORCE_OFF=0
+export STORYFORGE_ERAS_TAXONOMY_FORCE_OFF=0
+export STORYFORGE_MYERAS_WORKSPACE_FORCE_OFF=0
+export STORYFORGE_CLINICAL_CASE_METADATA_FORCE_OFF=0
+export STORYFORGE_USE_RANKING_FORCE_OFF=0
+export STORYFORGE_MYERAS_VERSIONS_FORCE_OFF=0
+export STORYFORGE_AI_CONDENSATION_FORCE_OFF=0
 export STORYFORGE_JWT_ISSUER="storyforge-local-e2e"
 export STORYFORGE_JWT_AUDIENCE="storyforge"
 

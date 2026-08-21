@@ -89,6 +89,13 @@ export const config = Object.freeze({
       'whisper-1',
     ),
   }),
+  condensation: Object.freeze({
+    provider: text('STORYFORGE_CONDENSE_PROVIDER', 'none').toLowerCase() || 'none',
+    apiKey: text('STORYFORGE_CONDENSE_API_KEY'),
+    model: text('STORYFORGE_CONDENSE_MODEL'),
+    timeoutMs: boundedInteger('STORYFORGE_CONDENSE_TIMEOUT_MS', 20_000, 1_000, 20_000),
+    maxPerDay: boundedInteger('STORYFORGE_CONDENSE_MAX_PER_DAY', 40, 1, 40),
+  }),
   assemblyExecutor: text('STORYFORGE_ASSEMBLY_EXECUTOR').toLowerCase(),
   audioReconciliation: text('STORYFORGE_AUDIO_RECONCILIATION', 'off').toLowerCase() || 'off',
   audioReconciliationSuspended: text('STORYFORGE_AUDIO_RECONCILIATION_SUSPENDED'),
@@ -136,6 +143,21 @@ export function validateConfig() {
   }
   if (!fixedTranscriptionModels.has(config.transcription.fallbackModel)) {
     errors.push('STORYFORGE_TRANSCRIBE_FALLBACK_MODEL must use the fixed StoryForge model pair');
+  }
+  if (!['none', 'openai', 'anthropic'].includes(config.condensation.provider)) {
+    errors.push('STORYFORGE_CONDENSE_PROVIDER must be none, openai, or anthropic');
+  }
+  if (config.condensation.provider !== 'none' && !config.condensation.apiKey) {
+    errors.push('STORYFORGE_CONDENSE_API_KEY is required when the condensation provider is enabled');
+  }
+  const fixedCondensationModels = new Set([
+    'gpt-4.1-mini',
+    'gpt-5-mini',
+    'claude-sonnet-4-5',
+    'claude-haiku-4-5',
+  ]);
+  if (config.condensation.provider !== 'none' && !fixedCondensationModels.has(config.condensation.model)) {
+    errors.push('STORYFORGE_CONDENSE_MODEL must use the fixed StoryForge model allowlist');
   }
   return errors;
 }

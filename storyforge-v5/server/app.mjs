@@ -22,6 +22,8 @@ import { createMentorNotesService } from './mentor-notes.mjs';
 import { createVisibilityService } from './visibility.mjs';
 import { createActivityService } from './activity.mjs';
 import { createStoryVersionsService } from './story-versions.mjs';
+import { createMyerasService } from './myeras.mjs';
+import { createCondensationService } from './condensation.mjs';
 import { createInspirationService } from './inspiration.mjs';
 import { createRequestsService } from './requests.mjs';
 import {
@@ -613,6 +615,8 @@ async function api(request, response, url, {
   visibilityService,
   activityService,
   storyVersionsService,
+  myerasService,
+  condensationService,
   inspirationService,
   requestsService,
   guestVoiceService,
@@ -1035,6 +1039,24 @@ async function api(request, response, url, {
     );
   }
 
+  const b1517AdminFeatureRoute = url.pathname.match(
+    /^\/api\/admin\/features\/b1-517\/(eras_taxonomy|myeras_workspace|clinical_case_metadata|use_ranking|myeras_versions|ai_condensation)$/i,
+  );
+  if (request.method === 'GET' && b1517AdminFeatureRoute) {
+    return sendJson(response, 200, {
+      flag: await myerasService.getFeature(identity, b1517AdminFeatureRoute[1].toLowerCase()),
+    });
+  }
+  if (request.method === 'POST' && b1517AdminFeatureRoute) {
+    return sendJson(response, 200, {
+      flag: await myerasService.updateFeature(
+        identity,
+        b1517AdminFeatureRoute[1].toLowerCase(),
+        await readJson(request),
+      ),
+    });
+  }
+
   if (request.method === 'PATCH' && url.pathname === '/api/admin/console/population-settings') {
     return sendJson(
       response,
@@ -1148,6 +1170,15 @@ async function api(request, response, url, {
     ));
   }
 
+  const adminSubjectMyerasRoute = url.pathname.match(
+    /^\/api\/admin\/console\/subjects\/([a-f0-9-]+)\/myeras$/i,
+  );
+  if (request.method === 'GET' && adminSubjectMyerasRoute) {
+    return sendJson(response, 200, {
+      myeras: await myerasService.workspace(identity, adminSubjectMyerasRoute[1]),
+    });
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/admin/console/queue') {
     const query = Object.fromEntries(url.searchParams);
     const scaled = ['q', 'session', 'sort', 'page', 'pageSize'].some((key) => url.searchParams.has(key));
@@ -1217,6 +1248,118 @@ async function api(request, response, url, {
     ) });
   }
 
+  if (request.method === 'GET' && url.pathname === '/api/eras/profile') {
+    return sendJson(response, 200, { profile: await myerasService.activeProfile(identity) });
+  }
+  if (request.method === 'GET' && url.pathname === '/api/eras/taxonomy') {
+    return sendJson(response, 200, {
+      terms: await myerasService.taxonomy(identity, url.searchParams.get('dimension')),
+    });
+  }
+
+  const storyErasTagsRoute = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/eras-tags$/i);
+  if (request.method === 'GET' && storyErasTagsRoute) {
+    return sendJson(response, 200, { tags: await myerasService.listTags(identity, storyErasTagsRoute[1]) });
+  }
+  if (request.method === 'PATCH' && storyErasTagsRoute) {
+    return sendJson(response, 200, await myerasService.setTags(
+      identity, storyErasTagsRoute[1], await readJson(request),
+    ));
+  }
+  const storyErasSuggestionsRoute = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/eras-suggestions$/i);
+  if (request.method === 'GET' && storyErasSuggestionsRoute) {
+    return sendJson(response, 200, {
+      suggestions: await myerasService.legacySuggestions(identity, storyErasSuggestionsRoute[1]),
+    });
+  }
+  const storyClinicalCaseRoute = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/clinical-case$/i);
+  if (request.method === 'GET' && storyClinicalCaseRoute) {
+    return sendJson(response, 200, {
+      clinicalCase: await myerasService.getClinicalCase(identity, storyClinicalCaseRoute[1]),
+    });
+  }
+  if (request.method === 'PATCH' && storyClinicalCaseRoute) {
+    return sendJson(response, 200, {
+      clinicalCase: await myerasService.setClinicalCase(
+        identity, storyClinicalCaseRoute[1], await readJson(request),
+      ),
+    });
+  }
+  const storyUseRankRoute = url.pathname.match(
+    /^\/api\/stories\/([a-f0-9-]+)\/use-ranks\/(ps|iv|letter|myeras_experiences|myeras_most_impactful|later)$/i,
+  );
+  if (request.method === 'PATCH' && storyUseRankRoute) {
+    return sendJson(response, 200, {
+      useRank: await myerasService.setUseRank(
+        identity, storyUseRankRoute[1], storyUseRankRoute[2].toLowerCase(), await readJson(request),
+      ),
+    });
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/myeras/workspace') {
+    return sendJson(response, 200, { myeras: await myerasService.workspace(identity) });
+  }
+  if (request.method === 'GET' && url.pathname === '/api/myeras/story-fit') {
+    return sendJson(response, 200, { storyFit: await myerasService.storyFit(identity) });
+  }
+  if (request.method === 'POST' && url.pathname === '/api/myeras/experiences') {
+    return sendJson(response, 201, {
+      experience: await myerasService.upsertExperience(identity, null, await readJson(request)),
+    });
+  }
+  if (request.method === 'POST' && url.pathname === '/api/myeras/experiences/order') {
+    return sendJson(response, 200, await myerasService.reorderExperiences(identity, await readJson(request)));
+  }
+  const myerasExperienceRoute = url.pathname.match(/^\/api\/myeras\/experiences\/([a-f0-9-]+)$/i);
+  if (request.method === 'PATCH' && myerasExperienceRoute) {
+    return sendJson(response, 200, {
+      experience: await myerasService.upsertExperience(
+        identity, myerasExperienceRoute[1], await readJson(request),
+      ),
+    });
+  }
+  const myerasMeaningfulRoute = url.pathname.match(
+    /^\/api\/myeras\/experiences\/([a-f0-9-]+)\/most-meaningful$/i,
+  );
+  if (request.method === 'POST' && myerasMeaningfulRoute) {
+    return sendJson(response, 200, {
+      experience: await myerasService.setMostMeaningful(
+        identity, myerasMeaningfulRoute[1], await readJson(request),
+      ),
+    });
+  }
+  const myerasExperienceStoryRoute = url.pathname.match(
+    /^\/api\/myeras\/experiences\/([a-f0-9-]+)\/stories\/([a-f0-9-]+)$/i,
+  );
+  if (request.method === 'POST' && myerasExperienceStoryRoute) {
+    return sendJson(response, 200, await myerasService.linkStory(
+      identity, myerasExperienceStoryRoute[1], myerasExperienceStoryRoute[2], await readJson(request),
+    ));
+  }
+  if (request.method === 'DELETE' && myerasExperienceStoryRoute) {
+    return sendJson(response, 200, await myerasService.unlinkStory(
+      identity, myerasExperienceStoryRoute[1], myerasExperienceStoryRoute[2],
+    ));
+  }
+  if (request.method === 'PATCH' && url.pathname === '/api/myeras/impactful') {
+    return sendJson(response, 200, {
+      impactful: await myerasService.setImpactful(identity, await readJson(request)),
+    });
+  }
+  const myerasPromoteRoute = url.pathname.match(/^\/api\/myeras\/impactful\/promote\/([a-f0-9-]+)$/i);
+  if (request.method === 'POST' && myerasPromoteRoute) {
+    return sendJson(response, 200, {
+      impactful: await myerasService.promoteImpactful(
+        identity, myerasPromoteRoute[1], await readJson(request),
+      ),
+    });
+  }
+  if (request.method === 'POST' && url.pathname === '/api/condensation') {
+    return sendJson(response, 200, {
+      suggestion: await condensationService.request(identity, await readJson(request)),
+    });
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/session') {
     const user = await withIdentity(identity, async (client) => {
       try {
@@ -1243,7 +1386,7 @@ async function api(request, response, url, {
       voiceCapture, adminConsole, mentorNotes, mentorNotesRead, storyMedia,
       mentorship, activityTracking, storyVersions, inspiration, inspirationAdmin,
       adminV2, requestAStory, storyFollowup, avatarIdentity, collaboration,
-      b1511, adminB1511,
+      b1511, adminB1511, b1517,
     ] = await Promise.all([
       flagService.voiceCapture(identity),
       adminConsoleService.capability(identity),
@@ -1280,6 +1423,7 @@ async function api(request, response, url, {
           }
         }, { adminMode: true })
         : Promise.resolve({}),
+      myerasService.capabilities(identity),
     ]);
     return sendJson(response, 200, {
       user: {
@@ -1312,6 +1456,12 @@ async function api(request, response, url, {
         taxonomy: b1511.taxonomy === true || adminB1511.taxonomy === true,
         inlinePriority: b1511.inlinePriority === true,
         storySearch: b1511.storySearch === true,
+        erasTaxonomy: b1517.erasTaxonomy === true,
+        myerasWorkspace: b1517.myerasWorkspace === true,
+        clinicalCaseMetadata: b1517.clinicalCaseMetadata === true,
+        useRanking: b1517.useRanking === true,
+        myerasVersions: storyVersions && b1517.myerasVersions === true,
+        aiCondensation: b1517.aiCondensation === true,
       },
       mentorship: {
         policy: mentorship.policy,
@@ -1460,7 +1610,7 @@ async function api(request, response, url, {
     ));
   }
   const storyVersionRoute = url.pathname.match(
-    /^\/api\/stories\/([a-f0-9-]+)\/versions\/(thirty_second|nnq_setup)$/i,
+    /^\/api\/stories\/([a-f0-9-]+)\/versions\/(thirty_second|nnq_setup|myeras_experience|myeras_impactful)$/i,
   );
   if (request.method === 'PATCH' && storyVersionRoute) {
     return sendJson(response, 200, {
@@ -3333,6 +3483,8 @@ export function createAppServer({
   visibilityService = null,
   activityService = null,
   storyVersionsService = null,
+  myerasService = null,
+  condensationService = null,
   inspirationService = null,
   requestsService = null,
   guestVoiceService = null,
@@ -3381,6 +3533,14 @@ export function createAppServer({
   });
   const resolvedStoryVersionsService = storyVersionsService || createStoryVersionsService({
     withIdentity: identityTransaction,
+  });
+  const resolvedCondensationService = condensationService || createCondensationService({
+    withIdentity: identityTransaction,
+    configuration: config.condensation,
+  });
+  const resolvedMyerasService = myerasService || createMyerasService({
+    withIdentity: identityTransaction,
+    condensationProviderAvailable: resolvedCondensationService.configured,
   });
   const resolvedInspirationService = inspirationService || createInspirationService({
     withIdentity: identityTransaction,
@@ -3433,6 +3593,8 @@ export function createAppServer({
     visibilityService: resolvedVisibilityService,
     activityService: resolvedActivityService,
     storyVersionsService: resolvedStoryVersionsService,
+    myerasService: resolvedMyerasService,
+    condensationService: resolvedCondensationService,
     inspirationService: resolvedInspirationService,
     requestsService: resolvedRequestsService,
     guestVoiceService: resolvedGuestVoiceService,

@@ -14,7 +14,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { sha256 } from '../../scripts/survival-manifest-lib.mjs';
+import { rowHash, sha256 } from '../../scripts/survival-manifest-lib.mjs';
 import {
   migrationSql,
   startEphemeralStoryForgeDatabase,
@@ -393,9 +393,47 @@ test('survival CLI enforces private artifacts and a populated PostgreSQL 18 V2 b
         '--expected-arena-avatar-columns',
       ], { evidenceRoot, connectionString });
       assert.equal(withAllowlist.status, 0, withAllowlist.stderr);
+
+      await database.client.query(
+        `CREATE TABLE public.sf_eras_seed_test (
+           id uuid PRIMARY KEY,
+           term_id text NOT NULL
+         )`,
+      );
+      await database.client.query(
+        `INSERT INTO public.sf_eras_seed_test (id, term_id)
+         VALUES ('51400000-0000-4514-8514-000000000099', 'exact-seed')`,
+      );
+      const populatedCandidatePath = path.join(evidenceRoot, 'POST-POPULATED-CANDIDATE.json');
+      const populatedCapture = runCli(captureArgs('post', populatedCandidatePath), {
+        evidenceRoot, connectionString,
+      });
+      assert.equal(populatedCapture.status, 0, populatedCapture.stderr);
+      const populatedManifest = JSON.parse(readFileSync(populatedCandidatePath, 'utf8'));
+      const tableHash = rowHash(populatedManifest.protectedTables.sf_eras_seed_test);
+      const populatedAllowlist = runCli([
+        'compare', '--pre', path.join(evidenceRoot, 'PRE.json'), '--post', populatedCandidatePath,
+        '--expected-table-addition', 'sf_peer_feedback',
+        '--expected-populated-table-addition', `sf_eras_seed_test:${tableHash}`,
+        '--expected-feature-flag-addition', `peer_review_test_gate:${flagHash}`,
+        '--expected-contribution-review-columns',
+        '--expected-arena-avatar-columns',
+      ], { evidenceRoot, connectionString });
+      assert.equal(populatedAllowlist.status, 0, populatedAllowlist.stderr);
+      const wrongHash = runCli([
+        'compare', '--pre', path.join(evidenceRoot, 'PRE.json'), '--post', populatedCandidatePath,
+        '--expected-table-addition', 'sf_peer_feedback',
+        '--expected-populated-table-addition', `sf_eras_seed_test:${sha256('wrong')}`,
+        '--expected-feature-flag-addition', `peer_review_test_gate:${flagHash}`,
+        '--expected-contribution-review-columns',
+        '--expected-arena-avatar-columns',
+      ], { evidenceRoot, connectionString });
+      assert.notEqual(wrongHash.status, 0);
       assertNoPrivateProse(capture.stdout, capture.stderr, withoutAllowlist.stdout,
         withoutAllowlist.stderr, withAllowlist.stdout, withAllowlist.stderr,
-        readFileSync(candidatePath, 'utf8'));
+        populatedCapture.stdout, populatedCapture.stderr, populatedAllowlist.stdout,
+        populatedAllowlist.stderr, wrongHash.stdout, wrongHash.stderr,
+        readFileSync(candidatePath, 'utf8'), readFileSync(populatedCandidatePath, 'utf8'));
     });
 
     await t.test('mutating a populated V2 row fails without emitting private prose', async () => {

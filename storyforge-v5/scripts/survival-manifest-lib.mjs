@@ -116,10 +116,21 @@ function compareProtectedTables(
   pre = {},
   post = {},
   expectedTableAdditions = [],
+  expectedPopulatedTableAdditions = [],
   expectedContributionReviewColumns = false,
   expectedArenaAvatarColumns = false,
 ) {
   const expected = new Set(expectedTableAdditions || []);
+  const expectedPopulated = new Map(expectedPopulatedTableAdditions || []);
+  for (const table of expected) {
+    if (expectedPopulated.has(table)) {
+      difference(differences, {
+        table,
+        field: 'protectedTable',
+        reason: 'conflicting_table_addition_contracts',
+      });
+    }
+  }
   for (const [table, before] of Object.entries(pre).sort()) {
     const after = post?.[table];
     if (!after) {
@@ -150,15 +161,24 @@ function compareProtectedTables(
   }
   for (const [table, after] of Object.entries(post || {}).sort()) {
     if (pre?.[table]) continue;
-    if (!expected.has(table)) {
+    if (!expected.has(table) && !expectedPopulated.has(table)) {
       difference(differences, { table, field: 'protectedTable', reason: 'unexpected_table_addition', after });
-    } else if (Number(after?.count || 0) !== 0) {
+    } else if (expected.has(table) && Number(after?.count || 0) !== 0) {
       difference(differences, {
         table,
         field: 'protectedTable.count',
         reason: 'expected_table_not_empty',
         before: 0,
         after: after?.count,
+      });
+    } else if (expectedPopulated.has(table)
+      && rowHash(after) !== expectedPopulated.get(table)) {
+      difference(differences, {
+        table,
+        field: 'protectedTable',
+        reason: 'expected_populated_table_hash_mismatch',
+        before: expectedPopulated.get(table),
+        after: rowHash(after),
       });
     }
   }
@@ -169,6 +189,17 @@ function compareProtectedTables(
         field: 'protectedTable',
         reason: pre?.[table] ? 'expected_table_already_existed' : 'expected_table_addition_missing',
         before: pre?.[table] || null,
+        after: post?.[table] || null,
+      });
+    }
+  }
+  for (const [table, expectedHash] of expectedPopulated) {
+    if (pre?.[table] || !post?.[table]) {
+      difference(differences, {
+        table,
+        field: 'protectedTable',
+        reason: pre?.[table] ? 'expected_table_already_existed' : 'expected_populated_table_addition_missing',
+        before: pre?.[table] || expectedHash,
         after: post?.[table] || null,
       });
     }
@@ -279,6 +310,7 @@ function compareLedger(differences, pre, post, expectedLedgerAdditions) {
 export function compareSurvivalManifests(pre, post, {
   expectedLedgerAdditions = [],
   expectedTableAdditions = [],
+  expectedPopulatedTableAdditions = [],
   expectedFeatureFlagAdditions = [],
   expectedContributionReviewColumns = false,
   expectedArenaAvatarColumns = false,
@@ -299,6 +331,7 @@ export function compareSurvivalManifests(pre, post, {
     pre.protectedTables,
     post.protectedTables,
     expectedTableAdditions,
+    expectedPopulatedTableAdditions,
     expectedContributionReviewColumns,
     expectedArenaAvatarColumns,
   );
