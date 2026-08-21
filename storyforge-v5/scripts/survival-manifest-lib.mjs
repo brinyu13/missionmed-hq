@@ -117,11 +117,17 @@ function compareProtectedTables(
   post = {},
   expectedTableAdditions = [],
   expectedPopulatedTableAdditions = [],
+  expectedProtectedRowAdditions = [],
   expectedContributionReviewColumns = false,
   expectedArenaAvatarColumns = false,
 ) {
   const expected = new Set(expectedTableAdditions || []);
   const expectedPopulated = new Map(expectedPopulatedTableAdditions || []);
+  const expectedRows = new Map();
+  for (const [table, rowKey, rowHashValue] of expectedProtectedRowAdditions || []) {
+    if (!expectedRows.has(table)) expectedRows.set(table, new Map());
+    expectedRows.get(table).set(rowKey, rowHashValue);
+  }
   for (const table of expected) {
     if (expectedPopulated.has(table)) {
       difference(differences, {
@@ -137,7 +143,24 @@ function compareProtectedTables(
       difference(differences, { table, field: 'protectedTable', reason: 'table_missing', before });
       continue;
     }
-    if (table === 'sf_story_contributions' && expectedContributionReviewColumns) {
+    if (expectedRows.has(table)) {
+      const additions = expectedRows.get(table);
+      const rows = { ...(before?.rows || {}) };
+      for (const [rowKey, rowHashValue] of additions) {
+        if (rows[rowKey] != null) {
+          difference(differences, {
+            table, rowKey, field: 'protectedTable.row', reason: 'expected_row_already_existed',
+            before: rows[rowKey], after: after?.rows?.[rowKey] ?? null,
+          });
+        }
+        rows[rowKey] = rowHashValue;
+      }
+      compareExact(differences, { table, field: 'protectedTable' }, {
+        columnNamesHash: before?.columnNamesHash,
+        count: Number(before?.count || 0) + additions.size,
+        rows,
+      }, after);
+    } else if (table === 'sf_story_contributions' && expectedContributionReviewColumns) {
       const beforeEvolution = before.contributionReviewEvolution;
       const afterEvolution = after.contributionReviewEvolution;
       compareExact(differences, { table, field: 'baseColumnNamesHash' }, beforeEvolution?.baseColumnNamesHash, afterEvolution?.baseColumnNamesHash);
@@ -311,6 +334,7 @@ export function compareSurvivalManifests(pre, post, {
   expectedLedgerAdditions = [],
   expectedTableAdditions = [],
   expectedPopulatedTableAdditions = [],
+  expectedProtectedRowAdditions = [],
   expectedFeatureFlagAdditions = [],
   expectedContributionReviewColumns = false,
   expectedArenaAvatarColumns = false,
@@ -332,6 +356,7 @@ export function compareSurvivalManifests(pre, post, {
     post.protectedTables,
     expectedTableAdditions,
     expectedPopulatedTableAdditions,
+    expectedProtectedRowAdditions,
     expectedContributionReviewColumns,
     expectedArenaAvatarColumns,
   );

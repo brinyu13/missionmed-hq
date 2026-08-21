@@ -75,6 +75,7 @@ for spec in \
   [[ "$(sha256_file "$file")" = "$expected" ]] || fail "recovery or rehearsal evidence hash differs: $file"
 done
 [[ -f "$STORYFORGE_SURVIVAL_PRE_MANIFEST" && ! -L "$STORYFORGE_SURVIVAL_PRE_MANIFEST" ]] || fail 'PRE survival manifest is absent or symlinked'
+(cd "$PACKAGE_DIR" && node --input-type=module -e "await import('pg')") >/dev/null 2>&1 || fail 'survival runtime dependency pg is unavailable'
 
 actual_head="$(git -C "$REPOSITORY_DIR" rev-parse HEAD^{commit})"
 [[ "$actual_head" = "$STORYFORGE_DEPLOY_GIT_COMMIT" ]] || fail 'Git HEAD differs from deploy commit'

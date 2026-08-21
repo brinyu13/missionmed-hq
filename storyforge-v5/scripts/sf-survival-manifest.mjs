@@ -103,6 +103,7 @@ function parseArgs(argv) {
     expectedLedgerAddition: [],
     expectedTableAddition: [],
     expectedPopulatedTableAddition: [],
+    expectedProtectedRowAddition: [],
     expectedFeatureFlagAddition: [],
   };
   for (let index = 0; index < rest.length; index += 1) {
@@ -114,6 +115,7 @@ function parseArgs(argv) {
     else if (key === '--expected-ledger-addition') values.expectedLedgerAddition.push(rest[++index]);
     else if (key === '--expected-table-addition') values.expectedTableAddition.push(rest[++index]);
     else if (key === '--expected-populated-table-addition') values.expectedPopulatedTableAddition.push(rest[++index]);
+    else if (key === '--expected-protected-row-addition') values.expectedProtectedRowAddition.push(rest[++index]);
     else if (key === '--expected-feature-flag-addition') values.expectedFeatureFlagAddition.push(rest[++index]);
     else values[key.slice(2)] = rest[++index];
   }
@@ -628,6 +630,16 @@ function parsePopulatedTableAdditions(values) {
   return additions;
 }
 
+function parseProtectedRowAdditions(values) {
+  return (values || []).map((value) => {
+    const match = /^([^:]+):([a-f0-9]{64}):([a-f0-9]{64})$/.exec(String(value));
+    if (!match || match[1] !== 'sf_activity_sessions') {
+      throw new Error('--expected-protected-row-addition is limited to sf_activity_sessions:ROW_KEY:ROW_HASH');
+    }
+    return [match[1], match[2], match[3]];
+  });
+}
+
 async function compare(args) {
   if (!args.pre || !args.post) throw new Error('--pre and --post are required');
   const before = JSON.parse(await readFile(path.resolve(args.pre), 'utf8'));
@@ -637,6 +649,9 @@ async function compare(args) {
     expectedTableAdditions: parseTableAdditions(args.expectedTableAddition),
     expectedPopulatedTableAdditions: parsePopulatedTableAdditions(
       args.expectedPopulatedTableAddition,
+    ),
+    expectedProtectedRowAdditions: parseProtectedRowAdditions(
+      args.expectedProtectedRowAddition,
     ),
     expectedFeatureFlagAdditions: parseHashAdditions(
       args.expectedFeatureFlagAddition,
