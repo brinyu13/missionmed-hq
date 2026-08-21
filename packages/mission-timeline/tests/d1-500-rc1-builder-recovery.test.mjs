@@ -19,6 +19,10 @@ test("RC1 Builder exposes truthful save, finish-later, Home progress, and exact-
   assert.match(adapter,/SAVE AND CONTINUE/);
   assert.match(adapter,/data-builder-finish-later/);
   assert.match(adapter,/BUILDER_FINISH_LATER/);
+  assert.match(
+    adapter,
+    /Save Builder progress[\s\S]*apply407FStateToDocument\(bridge\.state,document\)[\s\S]*saveNow\("BUILDER_FINISH_LATER"\)/
+  );
   assert.match(adapter,/store\.adapter\?\.flush/);
   assert.match(adapter,/homeCompletion407F/);
   assert.match(adapter,/Next recommended:/);

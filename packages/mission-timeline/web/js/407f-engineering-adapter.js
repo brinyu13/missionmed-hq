@@ -2980,6 +2980,12 @@ export async function boot407FEngineeringAdapter({
       finishLater.disabled=true;
       finishLater.textContent="SAVING…";
       try{
+        lastState=stableState(bridge.state);
+        store.mutate(
+          "Save Builder progress",
+          (document)=>apply407FStateToDocument(bridge.state,document),
+          {history:false}
+        );
         await store.saveNow("BUILDER_FINISH_LATER");
         const result=await store.adapter?.flush?.();
         if(Number(result?.pending||0)>0)throw new Error("Timeline is still syncing.");
