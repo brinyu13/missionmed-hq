@@ -243,6 +243,31 @@ test("private media reports a bounded network error without leaking the signed U
   );
 });
 
+test("private media same-origin fallback keeps bytes and bearer token off the R2 origin",async()=>{
+  const calls=[];
+  const client=new TimelineProductionAuthClient({locationObject,documentObject:null,fetchImpl:async(url,options={})=>{
+    calls.push({url:String(url),options});
+    if(String(url).includes("admin-ajax.php"))return bootstrap();
+    if(String(url).includes("/token"))return tokenResponse();
+    if(String(url).endsWith("/objects/upload"))return new Response(JSON.stringify({
+      id:"object_fallback",objectClass:"MEDIA",mimeType:"image/png",byteSize:3,status:"CONFIRMED"
+    }),{status:201,headers:{"content-type":"application/json"}});
+    return new Response(null,{status:404});
+  }});
+  await client.initialize();
+  const blob=new Blob([new Uint8Array([1,2,3])],{type:"image/png"});
+  const result=await client.uploadOwnedObject("timeline_test",blob,{sha256:"a".repeat(64)});
+  assert.equal(result.status,"CONFIRMED");
+  const upload=calls.find(({url})=>url.endsWith("/objects/upload"));
+  assert.equal(upload.url.startsWith(locationObject.origin),true);
+  assert.equal(upload.options.body,blob);
+  const headers=new Headers(upload.options.headers);
+  assert.match(headers.get("authorization"),/^Bearer /);
+  assert.equal(headers.get("x-timeline-document-id"),"timeline_test");
+  assert.equal(headers.get("x-timeline-object-class"),"MEDIA");
+  client.close();
+});
+
 for(const [code,status] of [
   ["canary_access_required",403],
   ["administrator_approval_required",403],

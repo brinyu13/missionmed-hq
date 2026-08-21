@@ -5,6 +5,7 @@ import type { TimelineHttpApi } from "../api/http-api.js";
 import { TimelineError } from "../core/errors.js";
 
 const MAX_REQUEST_BYTES = 2 * 1024 * 1024;
+const MAX_MEDIA_UPLOAD_BYTES = 15 * 1024 * 1024;
 
 export interface TimelineHealthDependency {
   schemaVersion: string;
@@ -31,19 +32,19 @@ function requestId(message: IncomingMessage): string {
   return /^[A-Za-z0-9._:-]{1,128}$/.test(supplied) ? supplied : randomUUID();
 }
 
-async function requestBody(message: IncomingMessage): Promise<string | undefined> {
+async function requestBody(message: IncomingMessage, maxBytes = MAX_REQUEST_BYTES): Promise<Buffer | undefined> {
   if (message.method === "GET" || message.method === "HEAD") return undefined;
   const declared = Number(message.headers["content-length"] ?? 0);
-  if (declared > MAX_REQUEST_BYTES) throw new TimelineError("REQUEST_TOO_LARGE", "Request is too large.", 413);
+  if (declared > maxBytes) throw new TimelineError("REQUEST_TOO_LARGE", "Request is too large.", 413);
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of message) {
     const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     size += bytes.byteLength;
-    if (size > MAX_REQUEST_BYTES) throw new TimelineError("REQUEST_TOO_LARGE", "Request is too large.", 413);
+    if (size > maxBytes) throw new TimelineError("REQUEST_TOO_LARGE", "Request is too large.", 413);
     chunks.push(bytes);
   }
-  return chunks.length ? Buffer.concat(chunks).toString("utf8") : undefined;
+  return chunks.length ? Buffer.concat(chunks) : undefined;
 }
 
 function nodeHeaders(message: IncomingMessage, id: string): Headers {
@@ -130,11 +131,12 @@ export function createTimelineProductionHttpHandler(options: TimelineProductionH
         await send(response, json({ error: { code: "GATEWAY_REQUIRED", message: "Timeline gateway is required." } }, 403), id);
         return;
       }
-      const body = await requestBody(message);
+      const mediaUpload = path === "/v1/objects/upload" && message.method === "POST";
+      const body = await requestBody(message, mediaUpload ? MAX_MEDIA_UPLOAD_BYTES : MAX_REQUEST_BYTES);
       const request = new Request(`http://timeline.internal${message.url ?? "/"}`, {
         method: message.method,
         headers: nodeHeaders(message, id),
-        ...(body ? { body } : {}),
+        ...(body ? { body: new Uint8Array(body) } : {}),
       });
       await send(response, await options.api.handle(request), id);
     } catch (error) {

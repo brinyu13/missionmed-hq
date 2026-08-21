@@ -83,6 +83,34 @@ test("production HTTP boundary denies direct access and strips WordPress cookies
   assert.equal(oversized.status, 413);
   assert.equal((await oversized.json()).error.code, "REQUEST_TOO_LARGE");
 
+  const fallbackBytes = new Uint8Array(2 * 1024 * 1024 + 1);
+  const acceptedMediaFallback = await fetch(`${origin}/v1/objects/upload`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer valid-token",
+      "x-missionmed-timeline-gateway-secret": gatewaySecret,
+      "content-type": "image/png",
+      "x-timeline-document-id": "timeline_media_test",
+      "x-timeline-object-class": "MEDIA",
+      "x-content-sha256": "a".repeat(64),
+    },
+    body: fallbackBytes,
+  });
+  assert.equal(acceptedMediaFallback.status, 200);
+  assert.equal(await calls.at(-1)?.arrayBuffer().then((value) => value.byteLength), fallbackBytes.byteLength);
+
+  const oversizedMediaFallback = await fetch(`${origin}/v1/objects/upload`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer valid-token",
+      "x-missionmed-timeline-gateway-secret": gatewaySecret,
+      "content-type": "image/png",
+    },
+    body: new Uint8Array(15 * 1024 * 1024 + 1),
+  });
+  assert.equal(oversizedMediaFallback.status, 413);
+  assert.equal((await oversizedMediaFallback.json()).error.code, "REQUEST_TOO_LARGE");
+
   const serializedLogs = JSON.stringify(logs);
   assert.equal(serializedLogs.includes(gatewaySecret), false);
   assert.equal(serializedLogs.includes("valid-token"), false);

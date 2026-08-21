@@ -19,6 +19,7 @@ export type TimelineServiceProvider = TimelineService | ((context: PrincipalCont
 // The bundled browser PDF/DOCX parser refuses anything over 20 MB, so accepting the 25 MB
 // SOURCE ceiling here only produced a band of files that ingest and then fail on review.
 export const FILE_VAULT_SMART_FILL_MAX_BYTES = 20 * 1024 * 1024;
+export const PRIVATE_MEDIA_UPLOAD_MAX_BYTES = 15 * 1024 * 1024;
 
 function json(value: unknown, status = 200, headers: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(value), {
@@ -377,6 +378,38 @@ export class TimelineHttpApi {
         }),
         201,
       );
+    }
+    if (url.pathname === "/v1/objects/upload" && request.method === "POST") {
+      const documentId = String(request.headers.get("x-timeline-document-id") ?? "");
+      const objectClass = String(request.headers.get("x-timeline-object-class") ?? "");
+      const mimeType = String(request.headers.get("content-type") ?? "").split(";", 1)[0]!.trim().toLowerCase();
+      const expectedSha256 = String(request.headers.get("x-content-sha256") ?? "").trim().toLowerCase();
+      const declaredBytes = Number(request.headers.get("content-length") ?? 0);
+      if (objectClass !== "MEDIA") throw new TimelineError("OBJECT_UPLOAD_CLASS_DENIED", "Only Timeline media may use this upload path.", 415);
+      if (!Number.isSafeInteger(declaredBytes) || declaredBytes < 1 || declaredBytes > PRIVATE_MEDIA_UPLOAD_MAX_BYTES) {
+        throw new TimelineError("OBJECT_UPLOAD_SIZE_DENIED", "Timeline media must be 15 MB or smaller.", 413);
+      }
+      const record = await service.getDocument(context, documentId);
+      if (record.document.studentOwnerId !== context.principalId || context.role !== "STUDENT") {
+        throw new TimelineError("OBJECT_UPLOAD_OWNER_REQUIRED", "Student ownership is required.", 403);
+      }
+      const bytes = new Uint8Array(await request.arrayBuffer());
+      if (bytes.byteLength !== declaredBytes) throw new TimelineError("OBJECT_UPLOAD_SIZE_MISMATCH", "Timeline media size did not match the request.", 409);
+      const confirmed = await this.objectStore.putOwnedObject(context, {
+        documentId: record.document.id,
+        objectClass: "MEDIA",
+        mimeType,
+        byteSize: bytes.byteLength,
+        sha256: expectedSha256,
+      }, bytes);
+      return json({
+        id: confirmed.id,
+        objectClass: confirmed.objectClass,
+        mimeType: confirmed.mimeType,
+        byteSize: confirmed.expectedBytes,
+        status: confirmed.status,
+        ...(confirmed.confirmedAt ? { confirmedAt: confirmed.confirmedAt } : {}),
+      }, 201);
     }
     const confirmMatch = url.pathname.match(/^\/v1\/objects\/([^/]+)\/confirm$/);
     if (confirmMatch && request.method === "POST") {

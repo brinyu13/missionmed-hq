@@ -969,7 +969,9 @@ function mmtl_proxy_api_request() {
         mmtl_gateway_error('method_not_allowed', 'Timeline API method is not allowed.', 405);
     }
     $content_length = absint($_SERVER['CONTENT_LENGTH'] ?? 0);
-    if ($content_length > 2 * 1024 * 1024) {
+    $is_media_upload = $method === 'POST' && $path === 'v1/objects/upload';
+    $max_request_bytes = $is_media_upload ? 15 * 1024 * 1024 : 2 * 1024 * 1024;
+    if ($content_length > $max_request_bytes) {
         mmtl_gateway_error('request_too_large', 'Timeline request is too large.', 413);
     }
     $target = $settings['api_origin'] . '/' . $path;
@@ -985,9 +987,16 @@ function mmtl_proxy_api_request() {
     }
     $request_id = sanitize_text_field($_SERVER['HTTP_X_REQUEST_ID'] ?? wp_generate_uuid4());
     $is_ai_route = preg_match('#/(?:quality/analyze|intake/(?:analyze|rescue))$#', $path) === 1;
+    $content_type = 'application/json';
+    if ($is_media_upload) {
+        $content_type = strtolower(trim((string) wp_unslash($_SERVER['CONTENT_TYPE'] ?? '')));
+        if (!in_array($content_type, array('image/png', 'image/jpeg', 'image/webp', 'image/gif'), true)) {
+            mmtl_gateway_error('object_upload_type_denied', 'Choose a PNG, JPG, WEBP, or GIF image.', 415);
+        }
+    }
     $outbound_headers = array(
         'Authorization' => 'Bearer ' . $token,
-        'Content-Type' => 'application/json',
+        'Content-Type' => $content_type,
         'X-Request-Id' => $request_id,
         'X-MissionMed-Timeline-Gateway' => 'wordpress',
         'X-MissionMed-Timeline-Gateway-Secret' => $gateway_secret,
@@ -995,9 +1004,20 @@ function mmtl_proxy_api_request() {
     if ($is_ai_route && get_user_meta((int) $user->ID, MMTL_SYNTHETIC_TEST_META, true) === '1') {
         $outbound_headers['X-Timeline-Synthetic-Fixture'] = '1';
     }
+    if ($is_media_upload) {
+        $document_id = sanitize_text_field((string) wp_unslash($_SERVER['HTTP_X_TIMELINE_DOCUMENT_ID'] ?? ''));
+        $object_class = strtoupper(sanitize_key((string) wp_unslash($_SERVER['HTTP_X_TIMELINE_OBJECT_CLASS'] ?? '')));
+        $content_sha256 = strtolower(sanitize_text_field((string) wp_unslash($_SERVER['HTTP_X_CONTENT_SHA256'] ?? '')));
+        if (!preg_match('/^timeline_[A-Za-z0-9._~-]{1,160}$/', $document_id) || $object_class !== 'MEDIA' || !preg_match('/^[a-f0-9]{64}$/', $content_sha256)) {
+            mmtl_gateway_error('object_upload_metadata_invalid', 'Timeline media metadata is invalid.', 400);
+        }
+        $outbound_headers['X-Timeline-Document-Id'] = $document_id;
+        $outbound_headers['X-Timeline-Object-Class'] = $object_class;
+        $outbound_headers['X-Content-Sha256'] = $content_sha256;
+    }
     $args = array(
         'method' => $method,
-        'timeout' => $is_ai_route ? 60 : 20,
+        'timeout' => ($is_ai_route || $is_media_upload) ? 60 : 20,
         'redirection' => 0,
         'reject_unsafe_urls' => true,
         'headers' => $outbound_headers,

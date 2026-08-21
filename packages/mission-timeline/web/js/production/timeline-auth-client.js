@@ -259,6 +259,30 @@ export class TimelineProductionAuthClient{
     if(!response.ok)throw new TimelineProductionAuthError("OBJECT_UPLOAD_FAILED","Timeline media could not be uploaded.",response.status);
     return true;
   }
+  async uploadOwnedObject(documentId,blob,{sha256,objectClass="MEDIA",retry=true}={}){
+    const token=await this.validToken();
+    const response=await this.fetchImpl(`${this.bootstrapState.apiBase}/objects/upload`,{
+      method:"POST",credentials:"same-origin",cache:"no-store",
+      headers:{
+        accept:"application/json",authorization:`Bearer ${token}`,
+        "content-type":String(blob?.type||"application/octet-stream"),
+        "x-timeline-document-id":String(documentId||""),
+        "x-timeline-object-class":String(objectClass||"MEDIA"),
+        "x-content-sha256":String(sha256||"")
+      },
+      body:blob,signal:AbortSignal.timeout(60_000)
+    });
+    if(response.status===401&&retry){
+      await this.refreshToken();
+      return this.uploadOwnedObject(documentId,blob,{sha256,objectClass,retry:false});
+    }
+    const payload=await response.json().catch(()=>({}));
+    const errorCode=payload?.error?.code||"OBJECT_UPLOAD_FAILED";
+    if(response.status===401)this.lock("api_session_invalid");
+    else if(isAuthorityRevocation(errorCode))this.lock(`api_${String(errorCode).toLowerCase()}`);
+    if(!response.ok)throw new TimelineProductionAuthError(errorCode,payload?.error?.message||"Timeline media could not be uploaded.",response.status);
+    return payload;
+  }
   confirmObjectUpload(objectId,uploadToken){
     return this.request(`/objects/${encodeURIComponent(objectId)}/confirm`,{method:"POST",body:{uploadToken}});
   }

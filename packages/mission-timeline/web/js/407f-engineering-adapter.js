@@ -1412,11 +1412,24 @@ export async function boot407FEngineeringAdapter({
         {mimeType:file.type,byteSize:file.size,sha256:contentSha256,objectClass:"MEDIA"}
       );
       objectId=String(grant.objectId||"");
-      await productionRuntime.authClient.uploadSignedObject(grant,file);
-      const confirmed=await productionRuntime.authClient.confirmObjectUpload(
-        objectId,
-        grant.uploadToken
-      );
+      let confirmed;
+      try{
+        await productionRuntime.authClient.uploadSignedObject(grant,file);
+        confirmed=await productionRuntime.authClient.confirmObjectUpload(
+          objectId,
+          grant.uploadToken
+        );
+      }catch(error){
+        if(String(error?.code||"")!=="OBJECT_UPLOAD_NETWORK_FAILED")throw error;
+        await productionRuntime.authClient.deleteObject(objectId).catch(()=>{});
+        objectId="";
+        confirmed=await productionRuntime.authClient.uploadOwnedObject(
+          store.document.id,
+          file,
+          {sha256:contentSha256,objectClass:"MEDIA"}
+        );
+        objectId=String(confirmed?.id||"");
+      }
       if(String(confirmed?.status||"")!=="CONFIRMED"){
         throw new Error("Timeline media upload could not be confirmed.");
       }

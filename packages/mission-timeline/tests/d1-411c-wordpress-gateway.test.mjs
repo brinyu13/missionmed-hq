@@ -73,8 +73,18 @@ test("gateway derives synthetic AI authority server-side and gives AI routes a b
   assert.match(plugin, /\$is_ai_route = preg_match/);
   assert.match(plugin, /get_user_meta\(\(int\) \$user->ID, MMTL_SYNTHETIC_TEST_META, true\) === '1'/);
   assert.match(plugin, /\$outbound_headers\['X-Timeline-Synthetic-Fixture'\] = '1'/);
-  assert.match(plugin, /'timeout' => \$is_ai_route \? 60 : 20/);
+  assert.match(plugin, /'timeout' => \(\$is_ai_route \|\| \$is_media_upload\) \? 60 : 20/);
   assert.doesNotMatch(plugin, /HTTP_X_TIMELINE_SYNTHETIC_FIXTURE/);
+});
+
+test("gateway provides a bounded private-media fallback without weakening ordinary request limits", () => {
+  assert.match(plugin, /\$is_media_upload = \$method === 'POST' && \$path === 'v1\/objects\/upload'/);
+  assert.match(plugin, /\$max_request_bytes = \$is_media_upload \? 15 \* 1024 \* 1024 : 2 \* 1024 \* 1024/);
+  assert.match(plugin, /array\('image\/png', 'image\/jpeg', 'image\/webp', 'image\/gif'\)/);
+  assert.match(plugin, /X-Timeline-Document-Id/);
+  assert.match(plugin, /X-Timeline-Object-Class/);
+  assert.match(plugin, /X-Content-Sha256/);
+  assert.match(plugin, /\$object_class !== 'MEDIA'/);
 });
 
 test("anonymous entry returns through Matrix rather than the default WordPress login", () => {

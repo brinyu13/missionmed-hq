@@ -140,3 +140,51 @@ test("private media exposes owner-authenticated download and deletion grants", a
   assert.equal(missing.status, 404);
   assert.equal((await missing.json()).error.code, "OBJECT_NOT_FOUND");
 });
+
+test("private media can fail over to an owner-authenticated same-origin upload", async () => {
+  const { api, matrixIdentity, objectStore } = await setupApi();
+  const exchange = await api.handle(request("/v1/session/exchange", "POST"), matrixIdentity);
+  const { token } = await exchange.json();
+  await api.handle(request("/v1/documents", "POST", token, {
+    id: "timeline_media_fallback",
+    programId: "program_internal_medicine",
+    title: "Mission Timeline",
+    document: { events: [] },
+  }));
+  const bytes = new TextEncoder().encode("private same-origin timeline image");
+  const digest = (await import("node:crypto")).createHash("sha256").update(bytes).digest("hex");
+  const uploaded = await api.handle(new Request("https://timeline.local/v1/objects/upload", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "image/png",
+      "content-length": String(bytes.byteLength),
+      "x-timeline-document-id": "timeline_media_fallback",
+      "x-timeline-object-class": "MEDIA",
+      "x-content-sha256": digest,
+    },
+    body: bytes,
+  }));
+  assert.equal(uploaded.status, 201);
+  const payload = await uploaded.json();
+  assert.equal(payload.status, "CONFIRMED");
+  assert.equal(payload.objectClass, "MEDIA");
+  assert.equal("storageKey" in payload, false);
+  const stored = await objectStore.getAuthorizedObjectBytes(student, payload.id);
+  assert.deepEqual(stored.bytes, bytes);
+
+  const sourceDenied = await api.handle(new Request("https://timeline.local/v1/objects/upload", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/pdf",
+      "content-length": String(bytes.byteLength),
+      "x-timeline-document-id": "timeline_media_fallback",
+      "x-timeline-object-class": "SOURCE",
+      "x-content-sha256": digest,
+    },
+    body: bytes,
+  }));
+  assert.equal(sourceDenied.status, 415);
+  assert.equal((await sourceDenied.json()).error.code, "OBJECT_UPLOAD_CLASS_DENIED");
+});
