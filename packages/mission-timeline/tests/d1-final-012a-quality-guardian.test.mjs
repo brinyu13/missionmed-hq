@@ -164,6 +164,27 @@ test("off-canvas repair clamps only presentation geometry",()=>{
   assert.deepEqual(fixed.document.events,source.events);
 });
 
+test("automatic layout repair commits only when measured collision warnings decrease",()=>{
+  const shared={
+    categoryId:"work",eventType:"duration",startDate:"2020-01",endDate:"2020-12",
+    visibilityState:"INTERVIEWER_SAFE",sourceType:"manual",provenance:[],lane:0
+  };
+  const source=timeline({events:[
+    {...shared,id:"anchor-start",title:"Start",eventType:"milestone",startDate:"2016-01",endDate:null},
+    {...shared,id:"work-a",title:"Clinical Coordinator"},
+    {...shared,id:"work-b",title:"Research Assistant"},
+    {...shared,id:"anchor-end",title:"End",eventType:"milestone",startDate:"2024-01",endDate:null}
+  ]});
+  const report=analyzeTimelineQuality(source);
+  const before=report.findings.find(({code})=>code==="COLLISION_RISK")?.evidence?.collisionCount;
+  assert.ok(Number(before)>0);
+  const fixed=applySafeQualityFixes(source,report);
+  const after=fixed.review.findings.find(({code})=>code==="COLLISION_RISK")?.evidence?.collisionCount||0;
+  assert.equal(fixed.changed,true);
+  assert.ok(Number(after)<Number(before));
+  assert.deepEqual(fixed.document.events.map(({id,title,startDate,endDate})=>({id,title,startDate,endDate})),source.events.map(({id,title,startDate,endDate})=>({id,title,startDate,endDate})));
+});
+
 test("rendered panel exposes every section, evidence basis, semantic Review, and safe Fix for me",()=>{
   const report=analyzeTimelineQuality(timeline({advanced:{background:null},events:[{
     id:"bad-date",title:"Award",categoryId:"work",eventType:"milestone",

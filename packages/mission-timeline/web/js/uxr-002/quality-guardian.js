@@ -477,6 +477,47 @@ function clampObject(item){
   return true;
 }
 
+function collisionCount(document){
+  try{
+    return safeArray(analyzeCollisionLayout(document,{scope:"FULL_STORY"})?.warnings)
+      .filter(({severity})=>severity!=="INFO").length;
+  }catch{return Number.POSITIVE_INFINITY;}
+}
+
+function autoArrangeWithoutWorsening(document){
+  const events=safeArray(document?.events);
+  const originals=events.map((event)=>({event,lane:event.lane,manualOffset:clone(event.manualOffset)}));
+  const before=collisionCount(document);
+  const arranged=deterministicAutoArrange(events,{scope:"FULL_STORY"});
+  const ordered=events.slice().sort((left,right)=>String(left.id).localeCompare(String(right.id)));
+  const laneLimit=Math.max(1,Math.min(10,ordered.length));
+  for(let pass=0;pass<4;pass+=1){
+    let improved=false;
+    for(const event of ordered){
+      const currentLane=Number.isInteger(event.lane)?event.lane:0;
+      let bestLane=currentLane;
+      let bestScore=collisionCount(document);
+      for(let lane=0;lane<laneLimit;lane+=1){
+        event.lane=lane;
+        const score=collisionCount(document);
+        if(score<bestScore){bestScore=score;bestLane=lane;}
+      }
+      event.lane=bestLane;
+      if(bestLane!==currentLane)improved=true;
+    }
+    if(!improved)break;
+  }
+  const after=collisionCount(document);
+  if(!(after<before)){
+    for(const {event,lane,manualOffset} of originals){
+      if(lane===undefined)delete event.lane;else event.lane=lane;
+      if(manualOffset===undefined)delete event.manualOffset;else event.manualOffset=manualOffset;
+    }
+    return{...arranged,changed:false,before,after:before};
+  }
+  return{...arranged,changed:true,before,after};
+}
+
 export function applySafeQualityFixes(document,report=analyzeTimelineQuality(document)){
   const next=clone(document);
   const requested=new Set(report.findings.filter(({actionMode})=>actionMode==="FIX_FOR_ME").map(({fixKind})=>fixKind));
@@ -491,8 +532,10 @@ export function applySafeQualityFixes(document,report=analyzeTimelineQuality(doc
     changes.push({kind:"RESTORE_THEME_BACKGROUND",scope:"PRESENTATION",message:"Restored the selected MissionMed theme background."});
   }
   if(requested.has("AUTO_ARRANGE_EVENTS")){
-    const result=deterministicAutoArrange(safeArray(next.events),{scope:"FULL_STORY"});
-    changes.push({kind:"AUTO_ARRANGE_EVENTS",scope:"PRESENTATION",message:`Reflowed ${result.placed} visible events across ${result.laneCount} lanes.`});
+    const result=autoArrangeWithoutWorsening(next);
+    if(result.changed){
+      changes.push({kind:"AUTO_ARRANGE_EVENTS",scope:"PRESENTATION",message:`Reflowed ${result.placed} visible events and reduced collision warnings from ${result.before} to ${result.after}.`});
+    }
   }
   if(requested.has("CLAMP_OBJECTS")){
     let count=0;
