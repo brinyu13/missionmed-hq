@@ -349,6 +349,7 @@ test("RC1 rail pointer bridge targets the protected shadow iframe and uses the d
 
 test("RC1 protected text overlay enters direct edit before selection reconciliation",async()=>{
   const host=await readFile(new URL("../web/js/d1-411a/kernel-host.js",import.meta.url),"utf8");
+  const adapter=await readFile(new URL("../web/js/407f-engineering-adapter.js",import.meta.url),"utf8");
   assert.match(host,/const beginTextEdit=\(node,event=null\)=>/);
   assert.match(host,/const placeTextCaret=\(node,event\)=>/);
   assert.match(host,/event\.detail>=2/);
@@ -359,6 +360,8 @@ test("RC1 protected text overlay enters direct edit before selection reconciliat
   assert.match(host,/d1411aSnapGuide/);
   assert.match(host,/profile-card-move/);
   assert.match(host,/profile-card-resize/);
+  assert.match(host,/restorePresentationGeometry\(\{colorKeyGeometry=null,profileGeometry=null\}=\{\}\)/);
+  assert.match(adapter,/kernel\?\.restorePresentationGeometry\?\.\(\{[\s\S]*?colorKeyGeometry:furnitureGeometryFor\(store\.document,"colorKeyGeometry"\)[\s\S]*?profileGeometry:furnitureGeometryFor\(store\.document,"profileGeometry"\)/);
   assert.match(host,/profileGeometry/);
   assert.match(host,/_fitProtectedFurnitureText\(childDocument\)/);
   assert.match(host,/title\.scrollWidth>540/);

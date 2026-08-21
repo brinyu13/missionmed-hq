@@ -1130,6 +1130,28 @@ class D1411AKernelElement extends HostHTMLElement{
     return this._selectedObjectId;
   }
 
+  restorePresentationGeometry({colorKeyGeometry=null,profileGeometry=null}={}){
+    const childDocument=this.shadowRoot?.querySelector("iframe")?.contentDocument;
+    if(!childDocument)return false;
+    const apply=(selector,geometry)=>{
+      const node=childDocument.querySelector(selector);
+      if(!node||!geometry)return;
+      for(const field of ["x","y","width","height"]){
+        if(!Number.isFinite(Number(geometry[field])))return;
+      }
+      Object.assign(node.style,{
+        left:`${Number(geometry.x)}px`,
+        top:`${Number(geometry.y)}px`,
+        width:`${Number(geometry.width)}px`,
+        height:`${Number(geometry.height)}px`
+      });
+    };
+    apply("#key",colorKeyGeometry);
+    apply("#profile",profileGeometry);
+    if(this._hitLayer)this._refreshHits(childDocument);
+    return true;
+  }
+
   _axisLayout(childDocument,weights=null){
     const axis=childDocument.getElementById("axis");
     const segments=[...(axis?.querySelectorAll(".yseg")||[])];

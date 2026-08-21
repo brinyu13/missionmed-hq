@@ -3935,6 +3935,11 @@ export async function boot407FEngineeringAdapter({
     canvasController?.setUiState({
       selectedEventId:null,detailsEventId:null,advancedSelection:selection,advancedPanel:"timeline"
     });
+    const kernel=canvasHost?.querySelector?.('d1-timeline-kernel[data-surface="edit"]');
+    kernel?.restorePresentationGeometry?.({
+      colorKeyGeometry:furnitureGeometryFor(store.document,"colorKeyGeometry"),
+      profileGeometry:furnitureGeometryFor(store.document,"profileGeometry")
+    });
     bridge.toast("Keep the Color Key and profile card separate so your Timeline stays readable.");
   };
   const onKernelPresentationGesture=(event)=>{
