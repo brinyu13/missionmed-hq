@@ -13,6 +13,10 @@
    No visual constant, asset, geometry, or law was altered.
    Codex: consume verbatim. Hash transition recorded in
    D1-411A_PROTECTED_HASH_MANIFEST.json.
+   RC1 Founder addendum: optional manual year-axis range and exact
+   six-ID/order-preserving category label/color overrides are permitted.
+   When those optional fields are absent, the accepted five-row key,
+   adaptive axis, rendering model, geometry, and visual output are unchanged.
    ============================================================ */
 'use strict';
 (function(){
@@ -26,6 +30,9 @@ const jitter=(id,min,max)=>{const r=rng(id)();return min+r*(max-min)};
 const CATS={work:{label:'Work Experience'},personal:{label:'Personal (Not on CV)'},
   usmle:{label:'USMLE Studies'},usce:{label:'US Clinical Experience'},res:{label:'Research'}};
 const CAT_KEYS=['work','personal','usmle','usce','res'];
+const CATEGORY_KEY_IDS=['education','exams','clinical','work','research','personal'];
+const CATEGORY_KEY_MAP={education:'work',exams:'usmle',clinical:'usce',work:'work',research:'res',personal:'personal'};
+const HEX_COLOR=/^#[0-9A-F]{6}$/i;
 
 /* ---------- FROZEN default dataset (Dr Brian SAMPLE) — UNCHANGED ---------- */
 const DEFAULT_YEARS=[
@@ -116,8 +123,15 @@ function fixtureSignature(events,flags){
          (flags||[]).map(f=>f.id+':'+f.year+'.'+f.m).join('|');
 }
 const APPROVED_DEFAULT_SIG=fixtureSignature(DEFAULT_EVENTS,DEFAULT_FLAGS);
-function axisFor(events,flags,axisMode){
+function axisFor(events,flags,axisMode,axisOverride){
   if(axisMode==='frozen-default') return DEFAULT_YEARS.map(o=>({...o}));
+  if(axisOverride&&axisOverride.mode==='manual'){
+    const years=[];
+    for(let y=axisOverride.startYear;y<=axisOverride.endYear;y++)years.push({y:String(y)});
+    if(axisOverride.includeFuture)years.push({y:'FUTURE'});
+    const width=1904/years.length;
+    return years.map(o=>({y:o.y,w:width}));
+  }
   let y0=9999,y1=0;
   events.forEach(e=>{y0=Math.min(y0,e.sy);y1=Math.max(y1,e.ey)});
   (flags||[]).forEach(f=>{y0=Math.min(y0,f.year);y1=Math.max(y1,f.year)});
@@ -160,6 +174,22 @@ function validateModel(m){
   if(!Number.isInteger(m.revision)||m.revision<0)fail('INVALID_SCHEMA','revision must be a non-negative integer','revision');
   if(typeof m.title!=='string')fail('INVALID_SCHEMA','title required','title');
   if(m.axisMode!=='frozen-default'&&m.axisMode!=='adaptive')fail('INVALID_SCHEMA','axisMode must be frozen-default|adaptive','axisMode');
+  if(m.axisOverride!==undefined){
+    const a=m.axisOverride;
+    if(!a||a.mode!=='manual'||!Number.isInteger(a.startYear)||!Number.isInteger(a.endYear)||a.startYear<1900||a.endYear>2200||a.startYear>a.endYear||a.endYear-a.startYear>30||typeof a.includeFuture!=='boolean')
+      fail('INVALID_AXIS_OVERRIDE','manual axis requires a 1900–2200 ordered range of at most 31 years','axisOverride');
+  }
+  if(m.categoryKey!==undefined){
+    if(!Array.isArray(m.categoryKey)||m.categoryKey.length!==CATEGORY_KEY_IDS.length)
+      fail('INVALID_CATEGORY_KEY','categoryKey must contain exactly six entries','categoryKey');
+    m.categoryKey.forEach((item,index)=>{
+      const id=CATEGORY_KEY_IDS[index],p='categoryKey['+index+']';
+      if(!item||item.id!==id||item.order!==index||item.mapsTo!==CATEGORY_KEY_MAP[id])
+        fail('INVALID_CATEGORY_KEY','category IDs, order, and mappings are immutable',p);
+      if(typeof item.label!=='string'||!item.label.trim()||item.label.length>32||!HEX_COLOR.test(item.color||''))
+        fail('INVALID_CATEGORY_KEY','category label/color is invalid',p);
+    });
+  }
   if(!Array.isArray(m.events)||m.events.length<1)fail('INVALID_SCHEMA','events[] required','events');
   const ids=new Set();
   const okM=v=>Number.isInteger(v)&&v>=1&&v<=12;
@@ -173,6 +203,12 @@ function validateModel(m){
     if(!Number.isInteger(e.lane)||e.lane<0||e.lane>6)fail('INVALID_LANE','lane must be 0..6',p+'.lane');
     if(typeof e.t!=='string'||typeof e.date!=='string')fail('INVALID_SCHEMA','t/date display strings required',p);
     if(e.lp&&e.lp!=='below'&&e.lp!=='left')fail('INVALID_SCHEMA','lp must be below|left',p+'.lp');
+    if(m.categoryKey!==undefined){
+      if(!CATEGORY_KEY_IDS.includes(e.categoryId))
+        fail('INVALID_CATEGORY_KEY','event categoryId required for category overrides',p+'.categoryId');
+      if(CATEGORY_KEY_MAP[e.categoryId]!==e.cat)
+        fail('INVALID_CATEGORY_KEY','event categoryId is incompatible with its render category',p+'.categoryId');
+    }
   });
   (m.flags||[]).forEach((f,i)=>{const p='flags['+i+']';
     if(!f.id)fail('INVALID_SCHEMA','flag id required',p);
@@ -205,6 +241,11 @@ function validateModel(m){
   });
   if(m.axisMode==='frozen-default'&&fixtureSignature(m.events,m.flags||[])!==APPROVED_DEFAULT_SIG)
     fail('INVALID_SCHEMA','axisMode frozen-default is legal only for the exact approved fixture','axisMode');
+  if(m.axisOverride){
+    const outside=m.events.find(e=>e.sy<m.axisOverride.startYear||e.ey>m.axisOverride.endYear)||
+      (m.flags||[]).find(f=>f.year<m.axisOverride.startYear||f.year>m.axisOverride.endYear);
+    if(outside)fail('INVALID_AXIS_OVERRIDE','manual axis must include every visible object','axisOverride');
+  }
   return true;
 }
 
@@ -242,7 +283,7 @@ async function fingerprintOf(model){
    ============================================================ */
 let timeX=function(){return AX_LEFT};
 function buildAxis(model){
-  const YEARS=axisFor(model.events,model.flags||[],model.axisMode);
+  const YEARS=axisFor(model.events,model.flags||[],model.axisMode,model.axisOverride);
   let acc=AX_LEFT;const YPOS={};
   YEARS.forEach(o=>{o.x0=acc;YPOS[o.y]=o;acc+=o.w});
   K.YEARS=YEARS;K.YPOS=YPOS;
@@ -279,14 +320,30 @@ function buildArrows(model){
     a.style.setProperty('--sat',jitter(e.id+'s',0.985,1.02).toFixed(3));
     a.style.setProperty('--gx',Math.round(jitter(e.id+'x',0,140))+'px');
     a.style.setProperty('--gy',Math.round(jitter(e.id+'y',0,140))+'px');
+    const categoryOverride=(model.categoryKey||[]).find(item=>item.id===e.categoryId);
+    if(categoryOverride){
+      const color=categoryOverride.color;
+      a.style.setProperty('--ci',color);
+      a.style.setProperty('--ci-hi',shadeHex(color,7));
+      a.style.setProperty('--ci-lo',shadeHex(color,-7));
+      const rgb=hexRgb(color),luma=(.2126*rgb.r+.7152*rgb.g+.0722*rgb.b)/255;
+      a.dataset.categoryId=e.categoryId;
+      a.style.setProperty('--category-label-ink',luma>.62?'#25282C':'#FFFFFF');
+    }
     const die=document.createElement('div');die.className='die';a.appendChild(die);
     if(e.hl){const hb=document.createElement('div');hb.className='hlbox';a.appendChild(hb)}
     const dt=document.createElement('div');dt.className='date';dt.textContent=e.date;a.appendChild(dt);
     const al=document.createElement('div');al.className='al';
+    if(categoryOverride){al.style.color='var(--category-label-ink)';al.style.textShadow='none'}
     const alt=document.createElement('span');alt.className='alt';alt.textContent=e.t;al.appendChild(alt);a.appendChild(al);
     if(e.loc){const lc=document.createElement('div');lc.className='loc '+(e.lp||'below');lc.textContent=e.loc;a.appendChild(lc)}
     arL.appendChild(a);
   });
+}
+function hexRgb(value){const n=parseInt(String(value).slice(1),16);return{r:(n>>16)&255,g:(n>>8)&255,b:n&255}}
+function shadeHex(value,percent){
+  const rgb=hexRgb(value),factor=(100+percent)/100;
+  return '#'+[rgb.r,rgb.g,rgb.b].map(channel=>Math.max(0,Math.min(255,Math.round(channel*factor))).toString(16).padStart(2,'0')).join('').toUpperCase();
 }
 /* leather corners + stitching — UNCHANGED construction, built once (static) */
 function leatherCorner(host,pos,size,idSeed){
@@ -364,6 +421,7 @@ function buildPhotos(model){
   });
 }
 function hydrateFurniture(model){
+  hydrateCategoryKey(model.categoryKey);
   document.querySelector('#title span').textContent='Timeline: '+model.title;
   const P=model.profile,txt=document.querySelector('#profile .txt');
   txt.textContent='';
@@ -406,6 +464,37 @@ function hydrateFurniture(model){
   const ivOn=model.interview.visibility==='show';
   iw.style.display=ivOn?'':'none';idt.style.display=ivOn?'':'none';
   if(ivOn){document.querySelector('#ivr span').textContent=model.interview.label;idt.textContent=model.interview.date}
+}
+function hydrateCategoryKey(categoryKey){
+  const inner=document.querySelector('#key .inner');
+  if(!inner)return;
+  const existing=[...inner.querySelectorAll('.row')];
+  if(!categoryKey){
+    if(existing.length===5&&existing.every(row=>row.dataset.override!=='true'))return;
+    const defaults=[
+      ['work','Work Experience'],['personal','Personal (Not on CV)'],['usmle','USMLE Studies'],
+      ['usce','US Clinical Experience'],['res','Research']
+    ];
+    existing.forEach(row=>row.remove());
+    defaults.forEach(([id,label])=>appendCategoryKeyRow(inner,{id,label,color:null},false));
+    return;
+  }
+  existing.forEach(row=>row.remove());
+  categoryKey.forEach(item=>appendCategoryKeyRow(inner,item,true));
+}
+function appendCategoryKeyRow(inner,item,override){
+  const row=document.createElement('div');row.className='row';row.dataset.override=String(override);row.dataset.categoryId=item.id;
+  const swatch=document.createElement('div');swatch.className='sw '+(override?'':'c-'+item.id);
+  if(override)swatch.style.background=item.color;
+  const label=document.createElement('span');label.textContent=item.label;
+  if(override){
+    row.style.margin='3px 0';swatch.style.height='32px';
+    label.style.fontSize=(item.label.length<=20?20:item.label.length<=26?18:16)+'px';
+  }
+  row.append(swatch,label);inner.appendChild(row);
+  const index=[...inner.querySelectorAll('.row')].length-1;
+  const d=Math.round(jitter('sw'+index,12,20)),e=Math.round(jitter('swe'+index,74,88));
+  swatch.style.clipPath='polygon(0 0,100% 0,100% 100%,'+d+'% 100%,0 '+e+'%)';
 }
 
 /* ---------- bounded-text fit engine — UNCHANGED rules ---------- */

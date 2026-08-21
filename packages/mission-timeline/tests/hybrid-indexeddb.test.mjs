@@ -44,7 +44,118 @@ test("hybrid adapter saves locally without queuing remote work before consent", 
   const result = await adapter.flush();
   assert.equal(result.consentRequired, true);
   assert.equal(states.includes("REMOTE_CONSENT_REQUIRED"), true);
+  assert.equal(states.includes("LOCAL_SAVED"), true);
+  assert.equal(adapter.getSyncStatus().state, "LOCAL_ONLY");
   adapter.close();
+});
+
+test("local save remains pending until the remote acknowledgement completes", async () => {
+  const statuses = [];
+  let acknowledgeRemote;
+  let reportSyncing;
+  const remoteAcknowledgement = new Promise((resolve) => { acknowledgeRemote = resolve; });
+  const syncing = new Promise((resolve) => { reportSyncing = resolve; });
+  const apiClient = {
+    configured: true,
+    async createDocument() {
+      await remoteAcknowledgement;
+      return { document: { revision: 0 } };
+    },
+  };
+  const adapter = new HybridIndexedDbAdapter({
+    name: `hybrid-ack-${Date.now()}`,
+    apiClient,
+    programId: "program_internal_medicine",
+    remoteSyncConsent: true,
+    onStatus: (status) => {
+      statuses.push(status);
+      if(status.syncState==="SYNCING")reportSyncing();
+    },
+  });
+  await adapter.open();
+  const record = localRecord("timeline_ack");
+  await adapter.atomicPut([{ store: "documents", key: record.id, value: record }]);
+  assert.deepEqual(
+    statuses.filter(({ state }) => ["LOCAL_SAVED", "SYNC_PENDING"].includes(state)).map(({ state, syncState }) => [state, syncState]),
+    [["LOCAL_SAVED", "LOCAL_SAVED"], ["SYNC_PENDING", "SYNC_PENDING"]],
+  );
+  assert.equal(adapter.getSyncStatus().state, "SYNC_PENDING");
+
+  const flushing = adapter.flush();
+  await syncing;
+  assert.equal(adapter.getSyncStatus().state, "SYNCING");
+  assert.equal(statuses.some(({ syncState }) => syncState === "SYNCED"), false);
+
+  acknowledgeRemote();
+  assert.deepEqual(await flushing, { synced: 1, pending: 0 });
+  assert.equal(adapter.getSyncStatus().state, "SYNCED");
+  assert.equal(statuses.at(-1).syncState, "SYNCED");
+  adapter.close();
+});
+
+test("twenty rapid local edits coalesce to one acknowledged remote checkpoint", async () => {
+  let versionCalls = 0;
+  const apiClient = {
+    configured: true,
+    async createVersion(_documentId, revision, snapshot) {
+      versionCalls += 1;
+      assert.equal(snapshot.title, "Rapid edit 20");
+      return { revision: revision + 1 };
+    },
+  };
+  const adapter = new HybridIndexedDbAdapter({
+    name: `hybrid-coalesce-20-${Date.now()}`,
+    apiClient,
+    programId: "program_internal_medicine",
+    remoteSyncConsent: true,
+  });
+  await adapter.open();
+  const record = localRecord("timeline_coalesce_20");
+  await adapter.put("settings", {
+    id: `remote-revision:${record.id}`,
+    documentId: record.id,
+    revision: 7,
+    updatedAt: new Date().toISOString(),
+  });
+  for (let sequence = 1; sequence <= 20; sequence += 1) {
+    const value = structuredClone(record);
+    value.sequence = sequence;
+    value.document.title = `Rapid edit ${sequence}`;
+    await adapter.atomicPut([{ store: "documents", key: value.id, value }]);
+  }
+  assert.equal((await adapter.pending()).length, 20);
+  assert.equal(adapter.getSyncStatus().state, "SYNC_PENDING");
+  assert.deepEqual(await adapter.flush(), { synced: 1, pending: 0 });
+  assert.equal(versionCalls, 1);
+  assert.equal(adapter.getSyncStatus().state, "SYNCED");
+  assert.equal(await adapter.getRemoteRevision(record.id), 8);
+  assert.equal((await adapter.get("documents", record.id)).document.title, "Rapid edit 20");
+  adapter.close();
+});
+
+test("configured remote sync reports OFFLINE while queued work remains local", async (t) => {
+  const navigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, "navigator");
+  Object.defineProperty(globalThis, "navigator", {
+    configurable: true,
+    value: { onLine: false },
+  });
+  t.after(() => {
+    if (navigatorDescriptor) Object.defineProperty(globalThis, "navigator", navigatorDescriptor);
+    else delete globalThis.navigator;
+  });
+  const adapter = new HybridIndexedDbAdapter({
+    name: `hybrid-offline-${Date.now()}`,
+    apiClient: { configured: true },
+    programId: "program_internal_medicine",
+    remoteSyncConsent: true,
+  });
+  await adapter.open();
+  t.after(() => adapter.close());
+  const record = localRecord("timeline_offline");
+  await adapter.atomicPut([{ store: "documents", key: record.id, value: record }]);
+  assert.deepEqual(await adapter.flush(), { synced: 0, pending: 1 });
+  assert.equal(adapter.getSyncStatus().state, "OFFLINE");
+  assert.equal((await adapter.pending()).length, 1);
 });
 
 test("hybrid adapter creates remote document, coalesces checkpoints, and syncs named version", async () => {
@@ -157,6 +268,10 @@ test("hybrid adapter leaves unsupported schemas queued as explicit errors withou
   const [record] = await adapter.pending();
   assert.equal(record.status, "ERROR");
   assert.equal(record.errorCode, "DOCUMENT_SCHEMA_UNSUPPORTED");
+  assert.equal(adapter.getSyncStatus().state, "ERROR");
+  const second = await adapter.flush();
+  assert.equal(second.pending, 1);
+  assert.equal(adapter.getSyncStatus().state, "ERROR");
   adapter.close();
 });
 
@@ -189,8 +304,10 @@ test("hybrid adapter keeps revision conflict for explicit recovery", async () =>
   const result = await adapter.flush();
   assert.equal(result.pending, 1);
   assert.equal((await adapter.pending())[0].status, "CONFLICT");
+  assert.equal(adapter.getSyncStatus().state, "CONFLICT");
   const second = await adapter.flush();
   assert.equal(second.conflict, true);
+  assert.equal(adapter.getSyncStatus().state, "CONFLICT");
   adapter.close();
 });
 
@@ -213,5 +330,60 @@ test("authoritative reload preserves pending local edits and records a divergent
   assert.equal((await adapter.get("documents", local.id)).document.title, "Hybrid Timeline");
   assert.equal((await adapter.pending())[0].status, "CONFLICT");
   assert.equal((await adapter.get("settings", `remote-conflict:${local.id}`)).serverSnapshot.title, "Older server copy");
+  adapter.close();
+});
+
+test("conflict recovery can preserve the local copy and save it on top of the server revision", async () => {
+  let savedSnapshot = null;
+  const adapter = new HybridIndexedDbAdapter({
+    name: `hybrid-reconcile-local-${Date.now()}`,
+    apiClient: {
+      configured: true,
+      async createVersion(_documentId, revision, snapshot) {
+        savedSnapshot = structuredClone(snapshot);
+        assert.equal(revision, 2);
+        return { revision: 3 };
+      },
+    },
+    programId: "program_internal_medicine",
+    remoteSyncConsent: true,
+  });
+  await adapter.open();
+  const local = localRecord("timeline_reconcile_local");
+  local.document.title = "Unsynced local title";
+  await adapter.put("settings", { id: `remote-revision:${local.id}`, documentId: local.id, revision: 1, updatedAt: new Date().toISOString() });
+  await adapter.atomicPut([{ store: "documents", key: local.id, value: local }]);
+  const server = { ...structuredClone(local.document), title: "Newer server title", revision: 2 };
+  await adapter.reconcileAuthoritative([], { documentId: local.id, serverRevision: 2, serverSnapshot: server });
+  const result = await adapter.resolveConflict(local.id, "KEEP_LOCAL");
+  assert.equal(result.pending, 0);
+  assert.equal(savedSnapshot.title, "Unsynced local title");
+  assert.equal(savedSnapshot.revision, 2);
+  assert.equal(await adapter.get("settings", `remote-conflict:${local.id}`), undefined);
+  const recovery = await adapter.get("versions", result.recoveryVersionId);
+  assert.equal(recovery.documentSnapshot.title, "Newer server title");
+  adapter.close();
+});
+
+test("conflict recovery can use the server copy while retaining the local copy as a recovery version", async () => {
+  const adapter = new HybridIndexedDbAdapter({
+    name: `hybrid-reconcile-server-${Date.now()}`,
+    apiClient: { configured: true },
+    programId: "program_internal_medicine",
+    remoteSyncConsent: true,
+  });
+  await adapter.open();
+  const local = localRecord("timeline_reconcile_server");
+  local.document.title = "Unsynced local title";
+  await adapter.put("settings", { id: `remote-revision:${local.id}`, documentId: local.id, revision: 1, updatedAt: new Date().toISOString() });
+  await adapter.atomicPut([{ store: "documents", key: local.id, value: local }]);
+  const server = { ...structuredClone(local.document), title: "Authoritative server title", revision: 2 };
+  await adapter.reconcileAuthoritative([], { documentId: local.id, serverRevision: 2, serverSnapshot: server });
+  const result = await adapter.resolveConflict(local.id, "USE_SERVER");
+  assert.equal(result.pending, 0);
+  assert.equal((await adapter.get("documents", local.id)).document.title, "Authoritative server title");
+  assert.equal((await adapter.pending()).length, 0);
+  const recovery = await adapter.get("versions", result.recoveryVersionId);
+  assert.equal(recovery.documentSnapshot.title, "Unsynced local title");
   adapter.close();
 });

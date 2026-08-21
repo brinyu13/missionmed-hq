@@ -27,6 +27,7 @@ export const EXAM_SYSTEMS=Object.freeze({
     exams:Object.freeze([
       Object.freeze({id:"step-1",name:"Step 1",passFailOnly:true}),
       Object.freeze({id:"step-2-ck",name:"Step 2 CK",passFailOnly:false}),
+      Object.freeze({id:"step-2-cs",name:"Step 2 CS",passFailOnly:true,historical:true}),
       Object.freeze({id:"step-3",name:"Step 3",passFailOnly:false})
     ])
   }),
@@ -41,8 +42,36 @@ export const EXAM_SYSTEMS=Object.freeze({
 });
 
 export const PERSONAL_ICONS=Object.freeze([
-  "heart","home","plane","baby","ring","star","flag","globe","shield","sun","book","sparkle"
+  "heart","home","plane","baby","ring","star","flag","globe","shield","sun","book","sparkle",
+  "graduation","certificate","hospital","memorial","award","research","career","family"
 ]);
+
+export const PERSONAL_EVENT_PRESETS=Object.freeze([
+  "Medical school graduation","Other graduation","ECFMG certification",
+  "Moved to the United States","Moved to another country","Became a U.S. citizen",
+  "Received permanent residency / green card","Married","Engaged","Pregnancy",
+  "Birth of first child","Birth of another child","Divorce or separation",
+  "Serious illness","Hospitalization","Death of a loved one","Passed an exam",
+  "Failed an exam","Major career transition","Started residency","Completed residency",
+  "Started fellowship","Completed fellowship","Major award","Major research milestone"
+]);
+
+function personalDateRange(entry={}){
+  return ["Date range","A period"].includes(String(entry.whenKind||""));
+}
+
+function personalCountryMode(value=""){
+  const label=String(value||"").trim().toLocaleLowerCase();
+  if(label.startsWith("moved to "))return"from-to";
+  if(label.includes("citizen")||label.includes("permanent residency")||label.includes("green card"))return"to";
+  return"none";
+}
+
+export function countryFlag(code=""){
+  const value=String(code||"").trim().toUpperCase();
+  if(!/^[A-Z]{2}$/.test(value))return"";
+  return String.fromCodePoint(...[...value].map((character)=>127397+character.charCodeAt(0)));
+}
 
 export const WORK_AUTHORIZATION_OPTIONS=Object.freeze([
   "U.S. Citizen",
@@ -218,7 +247,13 @@ function blankDraft(domain){
     whenKind:"One date",
     startDate:"",
     endDate:"",
+    ongoing:false,
+    fromCountry:"",
+    fromCountryCode:"",
+    toCountry:"",
+    toCountryCode:"",
     icon:"star",
+    iconStyle:"Color",
     visibilityState:VISIBILITY.INTERVIEWER_SAFE
   };
 }
@@ -312,7 +347,7 @@ export function validateBuilderEntry(domain,entry={}){
       entry.rotationStartDate,
       entry.rotationEndDate
     )===1?"End date is before the start date.":null)
-    :(!entry.current&&!entry.ongoing&&entry.whenKind!=="One date"
+    :(!entry.current&&!entry.ongoing&&(domain!=="personal"||personalDateRange(entry))
       ?dateOrderError(entry.startDate,entry.endDate)
       :null);
   if(domain==="clinical"){
@@ -335,6 +370,7 @@ export function validateBuilderEntry(domain,entry={}){
     }
   }else if(domain==="personal"){
     if(!String(entry.happened||"").trim())errors.happened="Required.";
+    if(personalCountryMode(entry.happened)!=="none"&&!String(entry.toCountry||"").trim())errors.toCountry="Required.";
   }
   if(orderError)errors.endDate=orderError;
   if(orderError&&exactRotation){
@@ -370,6 +406,7 @@ function stepHasStarted(document,step){
     if(domain==="research"&&key==="publicationStatus")return value!=="Not published";
     if(domain==="personal"&&key==="whenKind")return value!=="One date";
     if(domain==="personal"&&key==="icon")return value!=="star";
+    if(domain==="personal"&&key==="iconStyle")return value!=="Color";
     if(domain==="personal"&&key==="visibilityState")return value!==VISIBILITY.INTERVIEWER_SAFE;
     return hasValue(value);
   });
@@ -534,15 +571,22 @@ export function eventFromBuilderEntry(domain,entry,{entryId=null,eventId=null,id
     domain:"personal",
     categoryId:"personal",
     title:entry.happened||"",
-    eventType:entry.whenKind==="A period"?"duration":"milestone",
+    eventType:personalDateRange(entry)?"duration":"milestone",
     startDate:entry.startDate,
-    endDate:entry.whenKind==="A period"?entry.endDate:null,
-    openEnded:false,
+    endDate:personalDateRange(entry)&&!entry.ongoing?entry.endDate:null,
+    openEnded:personalDateRange(entry)&&entry.ongoing===true,
     visibilityState:entry.visibilityState||VISIBILITY.INTERVIEWER_SAFE,
     fields:{
       happened:entry.happened||"",
-      whenKind:entry.whenKind||"One date",
-      icon:entry.icon||"star"
+      whenKind:personalDateRange(entry)?"Date range":"One date",
+      fromCountry:entry.fromCountry||"",
+      fromCountryCode:entry.fromCountryCode||"",
+      fromCountryFlag:countryFlag(entry.fromCountryCode),
+      toCountry:entry.toCountry||"",
+      toCountryCode:entry.toCountryCode||"",
+      toCountryFlag:countryFlag(entry.toCountryCode),
+      icon:entry.icon||"star",
+      iconStyle:entry.iconStyle==="Monochrome"?"Monochrome":"Color"
     }
   });
 }
@@ -665,10 +709,16 @@ export function entryFromBuilderEvent(event){
   return{
     ...blankDraft("personal"),
     happened:fields.happened||event?.title||"",
-    whenKind:event?.eventType==="duration"?"A period":"One date",
+    whenKind:event?.eventType==="duration"?"Date range":"One date",
     startDate:event?.startDate||"",
     endDate:event?.endDate||"",
+    ongoing:!!event?.openEnded,
+    fromCountry:fields.fromCountry||"",
+    fromCountryCode:fields.fromCountryCode||"",
+    toCountry:fields.toCountry||"",
+    toCountryCode:fields.toCountryCode||"",
     icon:fields.icon||"star",
+    iconStyle:fields.iconStyle==="Monochrome"?"Monochrome":"Color",
     visibilityState:event?.visibilityState||VISIBILITY.INTERVIEWER_SAFE
   };
 }
@@ -791,9 +841,11 @@ function textField({id,label,value="",required=false,placeholder="",type="text",
 
 function typeaheadField({id,label,value="",provider,context,required=false,placeholder="",allowFreeText=true}){
   const listId=`${id}-options`;
+  const hasToggle=provider==="specialties";
   return`<div class="field typeahead-field" data-typeahead-field data-typeahead-provider="${escapeHtml(provider)}" data-typeahead-context="${escapeHtml(context)}" data-allow-free-text="${String(allowFreeText)}">
     <label for="${escapeHtml(id)}">${escapeHtml(label)}${required?requiredMark():""}</label>
-    <input id="${escapeHtml(id)}" name="${escapeHtml(id)}" type="search" role="combobox" aria-autocomplete="list" aria-controls="${escapeHtml(listId)}" aria-expanded="false" aria-describedby="${escapeHtml(id)}-error" autocomplete="off" value="${escapeHtml(value)}" ${placeholder?`placeholder="${escapeHtml(placeholder)}"`:""} ${required?"required":""}>
+    <div class="typeahead-input-wrap ${hasToggle?"has-toggle":""}"><input id="${escapeHtml(id)}" name="${escapeHtml(id)}" type="search" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-controls="${escapeHtml(listId)}" aria-expanded="false" aria-describedby="${escapeHtml(id)}-error" autocomplete="off" value="${escapeHtml(value)}" ${placeholder?`placeholder="${escapeHtml(placeholder)}"`:""} ${required?"required":""}>
+    ${hasToggle?`<button type="button" class="typeahead-toggle" data-typeahead-toggle aria-label="Show ${escapeHtml(label)} choices">⌄</button>`:""}</div>
     <ul id="${escapeHtml(listId)}" class="typeahead-options" role="listbox" hidden></ul>
     ${errorMarkup(id)}
   </div>`;
@@ -929,16 +981,20 @@ function renderExamCard(exam){
   return`<article class="exam-card" data-exam-card data-exam-id="${escapeHtml(exam.id)}">
     <header><h3>${escapeHtml(title)}</h3><button type="button" class="button tertiary" data-delete-exam="${escapeHtml(exam.id)}">Delete</button></header>
     <div class="exam-primary-row">
-      ${segmented({legend:"Result",name:`result-${exam.id}`,values:["Passed","Failed","Awaiting result"],selected:exam.result,required:true,attributes:'data-exam-result-group'})}
+      ${monthFieldMarkup({id:`exam-study-${exam.id}`,label:"Started studying (optional)",value:exam.studyStartDate})}
+      ${monthFieldMarkup({id:`exam-date-${exam.id}`,label:exam.result==="Awaiting result"?"Exam date (taken)":"Exam date",value:exam.examDate,required:true})}
+    </div>
+    <div class="exam-secondary-row">
+      ${segmented({legend:"Result",name:`result-${exam.id}`,values:[
+        "Passed",
+        "Failed",
+        {label:"Awaiting results",value:"Awaiting result"}
+      ],selected:exam.result,required:true,attributes:'data-exam-result-group'})}
       ${definition.passFailOnly?"":`<div class="field score-field">
         <label for="score-${escapeHtml(exam.id)}">Score${scoreRequired?requiredMark():""}</label>
         <input id="score-${escapeHtml(exam.id)}" name="score" data-exam-field="score" inputmode="numeric" pattern="[0-9]{1,3}" maxlength="3" value="${escapeHtml(exam.score||"")}" aria-describedby="score-${escapeHtml(exam.id)}-error" ${scoreRequired?'required aria-required="true"':""}>
         <p class="field-error" id="score-${escapeHtml(exam.id)}-error" data-error-for="score" aria-live="polite">${escapeHtml(scoreError)}</p>
       </div>`}
-    </div>
-    <div class="exam-secondary-row">
-      ${monthFieldMarkup({id:`exam-date-${exam.id}`,label:exam.result==="Awaiting result"?"Exam date (taken)":"Exam date",value:exam.examDate,required:true})}
-      ${monthFieldMarkup({id:`exam-study-${exam.id}`,label:"Started studying (optional)",value:exam.studyStartDate})}
     </div>
     ${definition.passFailOnly?"":`<label class="check-row"><input type="checkbox" name="showScoreOnTimeline" data-exam-field="showScoreOnTimeline" ${exam.showScoreOnTimeline?"checked":""} ${exam.result==="Failed"?"disabled":""}><span>Show score on timeline</span></label>`}
   </article>`;
@@ -981,7 +1037,8 @@ function clinicalForm(draft,editing){
   return`<form class="entry-card" data-entry-form="clinical" novalidate>
     <h2>${editing?"Edit rotation":"Add a rotation"}</h2>
     ${typeaheadField({id:"clinicalInstitution",label:"Institution",value:draft.institution,provider:"usTeachingInstitutions",context:"clinical-institution"})}
-    ${typeaheadField({id:"clinicalSpecialty",label:"Specialty",value:draft.specialty,provider:"specialties",context:"clinical-specialty",required:true,allowFreeText:false})}
+    ${typeaheadField({id:"clinicalSpecialty",label:"Specialty",value:draft.specialty,provider:"specialties",context:"clinical-specialty",required:true,placeholder:"Choose or search a specialty",allowFreeText:false})}
+    <p class="field-help">Start typing to find another specialty.</p>
     ${selectField({id:"clinicalRotationType",label:"Rotation type",value:draft.rotationType,options:["Elective","Sub-internship","Observership","Externship","Clerkship (core)","Other"]})}
     <div class="field-row">
       ${textField({id:"clinicalCity",label:"City",value:draft.city,attributes:entryInputAttributes("clinical","city")})}
@@ -1041,19 +1098,33 @@ function researchForm(draft,editing){
 }
 
 const PERSONAL_GLYPHS=Object.freeze({
-  heart:"♥",home:"⌂",plane:"✈",baby:"●",ring:"◯",star:"★",flag:"⚑",globe:"◎",shield:"⬟",sun:"☀",book:"▤",sparkle:"✦"
+  heart:{color:"❤️",mono:"♥"},home:{color:"🏠",mono:"⌂"},plane:{color:"✈️",mono:"✈"},baby:{color:"👶",mono:"●"},
+  ring:{color:"💍",mono:"◯"},star:{color:"🌟",mono:"★"},flag:{color:"🚩",mono:"⚑"},globe:{color:"🌍",mono:"◎"},
+  shield:{color:"🛡️",mono:"⬟"},sun:{color:"☀️",mono:"☀"},book:{color:"📘",mono:"▤"},sparkle:{color:"✨",mono:"✦"},
+  graduation:{color:"🎓",mono:"◇"},certificate:{color:"📜",mono:"▱"},hospital:{color:"🏥",mono:"✚"},memorial:{color:"🕯️",mono:"†"},
+  award:{color:"🏆",mono:"◆"},research:{color:"🔬",mono:"⌕"},career:{color:"💼",mono:"▣"},family:{color:"👨‍👩‍👧",mono:"◉"}
 });
 
 function personalForm(draft,editing){
+  const range=personalDateRange(draft);
+  const whenKind=range?"Date range":"One date";
+  const countryMode=personalCountryMode(draft.happened);
   return`<form class="entry-card" data-entry-form="personal" novalidate>
     <h2>${editing?"Edit personal event":"Add personal event"}</h2>
-    ${textField({id:"personalHappened",label:"What happened",value:draft.happened,required:true,placeholder:"e.g., Moved to the US · Became a parent · Military service",attributes:entryInputAttributes("personal","happened")})}
-    ${segmented({legend:"When",name:"whenKind",values:["One date","A period"],selected:draft.whenKind||"One date",attributes:'data-draft-group="personal"'})}
+    ${textField({id:"personalHappened",label:"What happened",value:draft.happened,required:true,placeholder:"Search common events or enter your own",attributes:`list="personal-event-presets" ${entryInputAttributes("personal","happened")}`})}
+    <datalist id="personal-event-presets">${PERSONAL_EVENT_PRESETS.map((event)=>`<option value="${escapeHtml(event)}"></option>`).join("")}</datalist>
+    <p class="field-help">Choose a common event or enter your own.</p>
+    ${countryMode==="from-to"?typeaheadField({id:"personalFromCountry",label:"From country",value:draft.fromCountry,provider:"countries",context:"personal-from-country",allowFreeText:false,placeholder:"Search all countries"}):""}
+    ${countryMode!=="none"?typeaheadField({id:"personalToCountry",label:countryMode==="from-to"?"To country":"Country",value:draft.toCountry,provider:"countries",context:"personal-to-country",required:true,allowFreeText:false,placeholder:"Search all countries"}):""}
+    ${countryMode!=="none"&&(draft.fromCountryCode||draft.toCountryCode)?`<p class="field-help" aria-label="Selected countries">${draft.fromCountryCode?`${countryFlag(draft.fromCountryCode)} ${escapeHtml(draft.fromCountry)}`:""}${draft.fromCountryCode&&draft.toCountryCode?" → ":""}${draft.toCountryCode?`${countryFlag(draft.toCountryCode)} ${escapeHtml(draft.toCountry)}`:""}</p>`:""}
+    ${segmented({legend:"When",name:"whenKind",values:["One date","Date range"],selected:whenKind,attributes:'data-draft-group="personal"'})}
     <div class="field-row">
-      ${monthFieldMarkup({id:"personal-start",label:draft.whenKind==="A period"?"Start":"Date",value:draft.startDate})}
-      ${draft.whenKind==="A period"?monthFieldMarkup({id:"personal-end",label:"End",value:draft.endDate}):""}
+      ${monthFieldMarkup({id:"personal-start",label:range?"Start":"Date",value:draft.startDate})}
+      ${range&&!draft.ongoing?monthFieldMarkup({id:"personal-end",label:"End",value:draft.endDate}):""}
     </div>
-    <fieldset class="field icon-picker"><legend>Icon</legend><div class="personal-icons">${PERSONAL_ICONS.map((name)=>`<label title="${escapeHtml(name)}"><input type="radio" name="icon" value="${escapeHtml(name)}" ${(draft.icon||"star")===name?"checked":""}><span aria-hidden="true">${PERSONAL_GLYPHS[name]}</span><span class="sr-only">${escapeHtml(name)}</span></label>`).join("")}</div></fieldset>
+    ${range?`<label class="check-row"><input type="checkbox" name="ongoing" data-draft-domain="personal" data-draft-field="ongoing" ${draft.ongoing?"checked":""}><span>Ongoing</span></label>`:""}
+    ${segmented({legend:"Icon style",name:"iconStyle",values:["Color","Monochrome"],selected:draft.iconStyle||"Color",attributes:'data-draft-group="personal"'})}
+    <fieldset class="field icon-picker" data-icon-style="${draft.iconStyle==="Monochrome"?"monochrome":"color"}"><legend>Icon</legend><div class="personal-icons">${PERSONAL_ICONS.map((name)=>`<label title="${escapeHtml(name)}"><input type="radio" name="icon" value="${escapeHtml(name)}" ${(draft.icon||"star")===name?"checked":""}><span aria-hidden="true">${draft.iconStyle==="Monochrome"?PERSONAL_GLYPHS[name].mono:PERSONAL_GLYPHS[name].color}</span><span class="sr-only">${escapeHtml(name)}</span></label>`).join("")}</div></fieldset>
     ${segmented({legend:"Visibility",name:"visibilityState",values:[
       {label:"Show everyone",value:VISIBILITY.INTERVIEWER_SAFE},
       {label:"Advisor only",value:VISIBILITY.ADVISOR_ONLY}
@@ -1171,6 +1242,7 @@ function setInlineErrors(form,errors){
     },
     personal:{
       happened:"personalHappened",
+      toCountry:"personalToCountry",
       endDate:"personal-end"
     },
     clinical:{
@@ -1272,19 +1344,19 @@ function draftFromForm(form,domain,current={}){
     clinical:["clinicalInstitution","clinicalSpecialty","clinicalRotationType","clinicalCity","clinicalState","clinicalNotes"],
     work:["workRole","workOrganization","workCountry","workCity","kind","workDescription"],
     research:["researchProjectTitle","researchInstitution","researchRole","researchRoleOther","publicationStatus","researchJournal","researchPublicationYear","researchAuthorPosition","researchDoiOrPmid"],
-    personal:["personalHappened","whenKind","icon","visibilityState"]
+    personal:["personalHappened","personalFromCountry","personalToCountry","whenKind","iconStyle","icon","visibilityState"]
   }[domain]||[];
   const maps={
     clinical:{clinicalInstitution:"institution",clinicalSpecialty:"specialty",clinicalRotationType:"rotationType",clinicalCity:"city",clinicalState:"state",clinicalNotes:"notes"},
     work:{workRole:"role",workOrganization:"organization",workCountry:"country",workCity:"city",workDescription:"description"},
     research:{researchProjectTitle:"projectTitle",researchInstitution:"institution",researchRole:"role",researchRoleOther:"roleOther",researchJournal:"journal",researchPublicationYear:"publicationYear",researchAuthorPosition:"authorPosition",researchDoiOrPmid:"doiOrPmid"},
-    personal:{personalHappened:"happened"}
+    personal:{personalHappened:"happened",personalFromCountry:"fromCountry",personalToCountry:"toCountry"}
   }[domain]||{};
   for(const field of fields){
     const key=maps[field]||field,value=formValue(form,field);
     if(value!==""||Object.hasOwn(next,key))next[key]=typeof value==="string"?value.trim():value;
   }
-  const booleanName={clinical:"current",work:"current",research:"ongoing"}[domain];
+  const booleanName={clinical:"current",work:"current",research:"ongoing",personal:"ongoing"}[domain];
   if(booleanName)next[booleanName]=!!formValue(form,booleanName);
   if(domain==="research")next.markPublication=!!formValue(form,"markPublication");
   if(domain==="clinical"){
@@ -1413,7 +1485,14 @@ function installTypeahead(root,store,providers){
             draft.institution=row.value;
             draft.institutionShortName=row.shortName||row.value;
           }else if(context==="work-country")draft.country=row.value;
-          markStepTouched(document,{clinical:3,work:4,research:5}[domain]);
+          else if(context==="personal-from-country"){
+            draft.fromCountry=row.value;
+            draft.fromCountryCode=row.kind==="match"?String(row.code||""):"";
+          }else if(context==="personal-to-country"){
+            draft.toCountry=row.value;
+            draft.toCountryCode=row.kind==="match"?String(row.code||""):"";
+          }
+          markStepTouched(document,{clinical:3,work:4,research:5,personal:6}[domain]);
         }
       });
     };
@@ -1430,7 +1509,7 @@ function installTypeahead(root,store,providers){
     };
     const search=async()=>{
       const query=input.value.trim(),token=++request;
-      if(query.length<2){rows=[];paint();return;}
+      if(providerKey!=="specialties"&&query.length<2){rows=[];paint();return;}
       const schoolCountry=root.querySelector(
         '[name="schoolCountryFilter"]'
       )?.value;
@@ -1447,17 +1526,30 @@ function installTypeahead(root,store,providers){
       if(providerKey==="countries")matches=rankCountryMatches(Array.isArray(matches)?matches:matches?.items||[],{
         schoolCountry:store.document.studentProfile?.medicalSchoolCountry
       });
-      rows=typeaheadRows(query,matches,{allowFreeText,limit:8});
+      rows=typeaheadRows(query,matches,{
+        allowFreeText,
+        limit:providerKey==="specialties"?12:8,
+        minQueryLength:providerKey==="specialties"?0:2
+      });
       active=-1;
       paint();
     };
     input.addEventListener("input",()=>{search().catch(()=>{rows=typeaheadRows(input.value,[],{allowFreeText,limit:8});paint();});});
+    if(providerKey==="specialties"){
+      input.addEventListener("focus",()=>{
+        if(!input.value.trim())search().catch(()=>{});
+      });
+      field.querySelector("[data-typeahead-toggle]")?.addEventListener("click",()=>{
+        input.focus();
+        search().catch(()=>{});
+      });
+    }
     input.addEventListener("keydown",(event)=>{
       if(event.key==="ArrowDown"&&rows.length){event.preventDefault();active=(active+1)%rows.length;paint();}
       else if(event.key==="ArrowUp"&&rows.length){event.preventDefault();active=(active-1+rows.length)%rows.length;paint();}
       else if(event.key==="Enter"&&rows.length){
         event.preventDefault();
-        commit(rows[active>=0?active:rows.length-1]);
+        commit(rows[active>=0?active:(allowFreeText?rows.length-1:0)]);
       }else if(event.key==="Escape"){event.preventDefault();close();}
     });
     input.addEventListener("blur",()=>{
@@ -1653,6 +1745,17 @@ export function installBuilder(root,store,{
 
   root.querySelectorAll("[data-entry-form]").forEach((form)=>{
     const domain=form.dataset.entryForm;
+    if(domain==="personal"){
+      form.querySelector("#personalHappened")?.addEventListener("input",(event)=>{
+        const current=builderView(store.document).drafts.personal;
+        if(personalCountryMode(current.happened)===personalCountryMode(event.currentTarget.value))return;
+        const draft=draftFromForm(form,"personal",current);
+        store.mutate("Update personal event type",(document)=>{
+          ensureBuilderState(document).drafts.personal=draft;
+          markStepTouched(document,6);
+        });
+      });
+    }
     form.querySelectorAll("[data-draft-field],select,input[type='radio']").forEach((control)=>{
       if(control.closest?.("[data-month-field]"))return;
       const eventName=control.matches?.("input[type='text'],input[type='search'],input:not([type])")?"blur":"change";

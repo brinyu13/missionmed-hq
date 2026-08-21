@@ -1,4 +1,5 @@
 import {dateLabel,escapeHtml} from "./utils.js";
+import {browserCountryRows} from "./datasets.js";
 
 const freezeDeep=(value)=>{
   if(!value||typeof value!=="object"||Object.isFrozen(value))return value;
@@ -15,6 +16,21 @@ export const MAX_MEDIA_BYTES=20*1024*1024;
 export const DEFAULT_BACKGROUND_DIM=20;
 export const MIN_BACKGROUND_DIM=0;
 export const MAX_BACKGROUND_DIM=60;
+export const PRESENTATION_CATEGORY_IDS=freezeDeep([
+  "education","exams","clinical","work","research","personal"
+]);
+export const PRESENTATION_CATEGORY_DEFAULTS=freezeDeep([
+  {id:"education",label:"Medical Education",color:"#2C6E8F"},
+  {id:"exams",label:"USMLE Studies",color:"#3A78C9"},
+  {id:"clinical",label:"US Clinical Experience",color:"#C8641C"},
+  {id:"work",label:"Work Experience",color:"#3F9B52"},
+  {id:"research",label:"Research",color:"#C9A227"},
+  {id:"personal",label:"Personal (Not on CV)",color:"#8A5BBF"}
+]);
+export const COLOR_KEY_GEOMETRY_DEFAULT=freezeDeep({x:18,y:300,width:416,height:322});
+export const COLOR_KEY_GEOMETRY_LIMITS=freezeDeep({
+  boardWidth:1920,boardHeight:1080,minWidth:300,minHeight:240,maxWidth:760,maxHeight:720
+});
 
 export const ADVANCED_ENTRY_DIALOG=freezeDeep({
   id:"advanced-studio-entry",
@@ -54,6 +70,115 @@ export const ADVANCED_INSERT_STRIP=freezeDeep([
   {kind:"divider",id:"advanced-insert-divider"},
   {kind:"toggle",id:"layout-lock",label:"Layout lock"}
 ]);
+
+export const ADVANCED_EDITOR_PANELS=freezeDeep([
+  {id:"elements",label:"Elements",icon:"◇"},
+  {id:"uploads",label:"Uploads",icon:"↑"},
+  {id:"photos",label:"Photos",icon:"▧"},
+  {id:"logos",label:"Logos",icon:"◆"},
+  {id:"text",label:"Text",icon:"T"},
+  {id:"backgrounds",label:"Backgrounds",icon:"▨"},
+  {id:"brand",label:"Brand",icon:"M"},
+  {id:"shapes",label:"Shapes",icon:"●"},
+  {id:"icons",label:"Icons",icon:"✦"},
+  {id:"flags",label:"Flags",icon:"⚑"},
+  {id:"timeline",label:"Timeline",icon:"↔"}
+]);
+
+/*
+ * RC1 intentionally keeps this library local, vector-first, and export-safe.
+ * It is a starter system rather than a third-party clip-art catalogue: every
+ * tile creates a real SVG element in the Timeline document and is therefore
+ * movable, resizeable, groupable, undoable, and serialised by the same board
+ * renderer as uploaded media.
+ */
+export const ADVANCED_BUILT_IN_ASSETS=freezeDeep({
+  elements:[
+    {id:"rectangle",label:"Rectangle",symbol:"▭",kind:"rectangle"},
+    {id:"rounded-rectangle",label:"Rounded rectangle",symbol:"▰",kind:"rounded-rectangle"},
+    {id:"circle",label:"Circle",symbol:"●",kind:"circle"},
+    {id:"frame",label:"Photo frame",symbol:"□",kind:"frame"},
+    {id:"callout",label:"Callout",symbol:"▱",kind:"callout"},
+    {id:"arrow-right",label:"Right arrow",symbol:"→",kind:"arrow-right"},
+    {id:"arrow-curved",label:"Curved arrow",symbol:"↪",kind:"arrow-curved"},
+    {id:"milestone",label:"Milestone pointer",symbol:"◆",kind:"milestone"},
+    {id:"hospital",label:"Hospital",symbol:"✚",kind:"hospital"},
+    {id:"research",label:"Research",symbol:"⌕",kind:"research"},
+    {id:"graduation",label:"Graduation",symbol:"◆",kind:"graduation"},
+    {id:"text",label:"Text",symbol:"T",action:"text"},
+    {id:"background",label:"Background",symbol:"▨",action:"background"}
+  ],
+  uploads:[
+    {id:"image",label:"Upload image",symbol:"▧",action:"image"},
+    {id:"gif",label:"Upload GIF",symbol:"GIF",action:"gif"},
+    {id:"logo",label:"Upload logo",symbol:"◆",action:"logo"}
+  ],
+  photos:[{id:"photo",label:"Upload photo",symbol:"▧",action:"image"}],
+  logos:[{id:"logo",label:"Upload logo",symbol:"◆",action:"logo"}],
+  text:[
+    {id:"heading",label:"Add a heading",symbol:"H",action:"symbol",value:"Add a heading"},
+    {id:"body",label:"Add body text",symbol:"T",action:"symbol",value:"Add body text"}
+  ],
+  brand:[{id:"missionmed",label:"MissionMed wordmark",symbol:"MM",kind:"missionmed-wordmark"}],
+  shapes:[
+    {id:"rectangle",label:"Rectangle",symbol:"▭",kind:"rectangle"},
+    {id:"rounded-rectangle",label:"Rounded rectangle",symbol:"▰",kind:"rounded-rectangle"},
+    {id:"circle",label:"Circle",symbol:"●",kind:"circle"},
+    {id:"line",label:"Line",symbol:"━",kind:"line"},
+    {id:"divider",label:"Divider",symbol:"╍",kind:"line"},
+    {id:"separator",label:"Separator",symbol:"─",kind:"separator"},
+    {id:"badge",label:"Badge",symbol:"⬟",kind:"badge"},
+    {id:"label",label:"Label",symbol:"▱",kind:"label"},
+    {id:"callout",label:"Callout",symbol:"▱",kind:"callout"},
+    {id:"frame",label:"Frame",symbol:"□",kind:"frame"},
+    {id:"arrow-right",label:"Right arrow",symbol:"→",kind:"arrow-right"},
+    {id:"arrow-curved",label:"Curved arrow",symbol:"↪",kind:"arrow-curved"},
+    {id:"arrow-thin",label:"Thin arrow",symbol:"⟶",kind:"arrow-thin"},
+    {id:"arrow-thick",label:"Thick arrow",symbol:"➜",kind:"arrow-thick"},
+    {id:"arrow-double",label:"Double arrow",symbol:"↔",kind:"arrow-double"},
+    {id:"milestone",label:"Milestone pointer",symbol:"◆",kind:"milestone"},
+    {id:"ribbon",label:"Ribbon",symbol:"▰",kind:"ribbon"},
+    {id:"pin",label:"Pin",symbol:"●",kind:"pin"},
+    {id:"marker",label:"Marker",symbol:"◆",kind:"marker"},
+    {id:"shadow",label:"Soft shadow",symbol:"▰",kind:"shadow"}
+  ],
+  icons:[
+    {id:"hospital",label:"Hospital",symbol:"✚",kind:"hospital"},
+    {id:"stethoscope",label:"Stethoscope",symbol:"⚕",kind:"stethoscope"},
+    {id:"medicine",label:"Medicine",symbol:"✦",kind:"medicine"},
+    {id:"research",label:"Research",symbol:"⌕",kind:"research"},
+    {id:"microscope",label:"Microscope",symbol:"⌬",kind:"microscope"},
+    {id:"graduation",label:"Graduation",symbol:"⌂",kind:"graduation"},
+    {id:"certification",label:"Certification",symbol:"◈",kind:"certification"},
+    {id:"award",label:"Award",symbol:"★",kind:"award"},
+    {id:"marriage",label:"Marriage",symbol:"♡",kind:"marriage"},
+    {id:"pregnancy",label:"Pregnancy",symbol:"◉",kind:"pregnancy"},
+    {id:"baby",label:"Baby",symbol:"●",kind:"baby"},
+    {id:"family",label:"Family",symbol:"♧",kind:"family"},
+    {id:"home",label:"Home",symbol:"⌂",kind:"home"},
+    {id:"travel",label:"Travel",symbol:"✈",kind:"travel"},
+    {id:"relocation",label:"Relocation",symbol:"↔",kind:"relocation"},
+    {id:"citizenship",label:"Citizenship",symbol:"◎",kind:"citizenship"},
+    {id:"green-card",label:"Green card",symbol:"▣",kind:"green-card"},
+    {id:"remembrance",label:"Remembrance",symbol:"✦",kind:"remembrance"},
+    {id:"calendar",label:"Calendar",symbol:"▦",kind:"calendar"},
+    {id:"book",label:"Study",symbol:"▤",kind:"book"},
+    {id:"interview",label:"Interview",symbol:"◫",kind:"interview"},
+    {id:"community",label:"Community",symbol:"◉",kind:"community"},
+    {id:"leadership",label:"Leadership",symbol:"♛",kind:"leadership"},
+    {id:"presentation",label:"Presentation",symbol:"▥",kind:"presentation"},
+    {id:"computer",label:"Technology",symbol:"▣",kind:"computer"},
+    {id:"heart",label:"Wellbeing",symbol:"♥",kind:"heart"},
+    {id:"globe",label:"International",symbol:"◎",kind:"globe"},
+    {id:"language",label:"Language",symbol:"A",kind:"language"}
+  ],
+  flags:[
+    {id:"country-flag",label:"Country flag",symbol:"⚑",kind:"country-flag"},
+    {id:"milestone-flag",label:"Milestone flag",symbol:"⚑",kind:"milestone-flag"}
+  ]
+});
+/* Backwards-compatible exported name used by focused RC1 tests. */
+const VISUAL_INSERT_ASSETS=ADVANCED_BUILT_IN_ASSETS;
 
 export const BACKGROUND_TABS=freezeDeep(["Presets","Upload","Color"]);
 
@@ -207,6 +332,8 @@ const DEFAULT_ADVANCED_STATE=freezeDeep({
   },
   media:[],
   textBlocks:[],
+  elements:[],
+  groups:[],
   recentColors:[],
   gifStillNoticeSeen:false
 });
@@ -237,6 +364,8 @@ export function advancedStudioState(document={}){
     },
     media:clone(safeArray(source.media)),
     textBlocks:clone(safeArray(source.textBlocks)),
+    elements:clone(safeArray(source.elements)),
+    groups:clone(safeArray(source.groups)),
     headlineTypography:source.headlineTypography&&typeof source.headlineTypography==="object"
       ?clone(source.headlineTypography)
       :null,
@@ -255,6 +384,168 @@ export function normalizeAdvancedStudioDocument(document={}){
     advancedDialogSeen:!!next.preferences?.advancedDialogSeen
   };
   return next;
+}
+
+function eventYearRange(document={}){
+  const years=(document.events||[]).flatMap((event)=>[
+    Number(String(event.startDate||event.fields?.rotationStartDate||"").slice(0,4)),
+    Number(String(event.endDate||event.fields?.rotationEndDate||event.startDate||"").slice(0,4))
+  ]).filter(Number.isInteger);
+  const current=new Date().getUTCFullYear();
+  return{
+    startYear:years.length?Math.min(...years):current-1,
+    endYear:years.length?Math.max(...years):current+1
+  };
+}
+
+export function effectiveAxisOverride(document={}){
+  const value=document.presentationOverrides?.axis;
+  if(value?.mode!=="manual")return null;
+  const startYear=Number(value.startYear),endYear=Number(value.endYear);
+  if(!Number.isInteger(startYear)||!Number.isInteger(endYear)||startYear<1900||endYear>2200||startYear>endYear||endYear-startYear>30)return null;
+  const result={mode:"manual",startYear,endYear,includeFuture:value.includeFuture!==false};
+  const ids=[];
+  for(let year=startYear;year<=endYear;year+=1)ids.push(String(year));
+  if(result.includeFuture)ids.push("FUTURE");
+  if(Array.isArray(value.segmentWeights)&&value.segmentWeights.length===ids.length){
+    const weights=value.segmentWeights.map((item,index)=>({
+      id:String(item?.id||""),weight:Number(item?.weight)
+    }));
+    if(weights.every((item,index)=>item.id===ids[index]&&Number.isFinite(item.weight)&&item.weight>=.25&&item.weight<=8)){
+      result.segmentWeights=weights;
+    }
+  }
+  return result;
+}
+
+export function setAxisPresentationOverride(document={},changes={}){
+  const next=normalizeAdvancedStudioDocument(document);
+  if(next.mode!==ADVANCED_MODE)return{document:next,changed:false,error:"Axis editing is available in Advanced Studio."};
+  const fallback=eventYearRange(next);
+  const prior=effectiveAxisOverride(next)||{mode:"manual",...fallback,includeFuture:true};
+  const candidate={...prior,...changes,mode:"manual"};
+  candidate.startYear=Number(candidate.startYear);
+  candidate.endYear=Number(candidate.endYear);
+  if(!Number.isInteger(candidate.startYear)||!Number.isInteger(candidate.endYear)||candidate.startYear<1900||candidate.endYear>2200||candidate.startYear>candidate.endYear||candidate.endYear-candidate.startYear>30){
+    return{document:next,changed:false,error:"Choose a 1900–2200 ordered axis range of no more than 31 years."};
+  }
+  const required=eventYearRange(next);
+  if(candidate.startYear>required.startYear||candidate.endYear<required.endYear){
+    return{document:next,changed:false,error:`Axis must include all visible dates (${required.startYear}–${required.endYear}).`};
+  }
+  next.presentationOverrides={...(next.presentationOverrides||{}),axis:{
+    mode:"manual",startYear:candidate.startYear,endYear:candidate.endYear,
+    includeFuture:candidate.includeFuture!==false,
+    ...(Array.isArray(candidate.segmentWeights)?{segmentWeights:clone(candidate.segmentWeights)}:{})
+  }};
+  return{document:next,changed:true,mutation:{label:"Change year axis",history:true,undoSteps:1}};
+}
+
+export function setAxisSegmentWeights(document={},segmentWeights=[]){
+  const next=normalizeAdvancedStudioDocument(document);
+  if(next.mode!==ADVANCED_MODE)return{document:next,changed:false,error:"Axis editing is available in Advanced Studio."};
+  const prior=effectiveAxisOverride(next);
+  if(!prior)return{document:next,changed:false,error:"Choose a manual year range before resizing year segments."};
+  const ids=[];
+  for(let year=prior.startYear;year<=prior.endYear;year+=1)ids.push(String(year));
+  if(prior.includeFuture)ids.push("FUTURE");
+  const normalized=safeArray(segmentWeights).map((item)=>({
+    id:String(item?.id||""),weight:Number(item?.weight)
+  }));
+  if(normalized.length!==ids.length||!normalized.every((item,index)=>
+    item.id===ids[index]&&Number.isFinite(item.weight)&&item.weight>=.25&&item.weight<=8
+  )){
+    return{document:next,changed:false,error:"Year-segment widths must preserve the current ordered axis and remain within safe bounds."};
+  }
+  next.presentationOverrides={...(next.presentationOverrides||{}),axis:{
+    ...prior,segmentWeights:normalized
+  }};
+  return{document:next,changed:true,mutation:{label:"Resize year axis segments",history:true,undoSteps:1}};
+}
+
+export function resetAxisPresentationOverride(document={}){
+  const next=normalizeAdvancedStudioDocument(document);
+  if(!next.presentationOverrides?.axis)return{document:next,changed:false};
+  next.presentationOverrides={...(next.presentationOverrides||{})};
+  delete next.presentationOverrides.axis;
+  return{document:next,changed:true,mutation:{label:"Reset year axis",history:true,undoSteps:1}};
+}
+
+export function effectiveCategoryKey(document={}){
+  const stored=new Map((document.categories||[]).map((item)=>[item?.id,item]));
+  const explicit=Array.isArray(document.presentationOverrides?.categoryKey)
+    ?new Map(document.presentationOverrides.categoryKey.map((item)=>[item?.id,item]))
+    :new Map();
+  return PRESENTATION_CATEGORY_DEFAULTS.map((fallback,index)=>{
+    const value=explicit.get(fallback.id)||stored.get(fallback.id)||fallback;
+    return{
+      id:fallback.id,
+      order:index,
+      label:String(value.label||fallback.label).trim().slice(0,32)||fallback.label,
+      color:normalizeHex(value.color)||fallback.color
+    };
+  });
+}
+
+export function setCategoryKeyPresentationOverride(document={},id,changes={}){
+  const next=normalizeAdvancedStudioDocument(document);
+  if(next.mode!==ADVANCED_MODE)return{document:next,changed:false,error:"Color-key editing is available in Advanced Studio."};
+  if(!PRESENTATION_CATEGORY_IDS.includes(id))return{document:next,changed:false,error:"Unknown category."};
+  const key=effectiveCategoryKey(next);
+  const entry=key.find((item)=>item.id===id);
+  if(Object.hasOwn(changes,"label")){
+    const label=String(changes.label||"").trim();
+    if(!label||label.length>32)return{document:next,changed:false,error:"Category labels must be 1–32 characters."};
+    entry.label=label;
+  }
+  if(Object.hasOwn(changes,"color")){
+    const color=normalizeHex(changes.color);
+    if(!color)return{document:next,changed:false,error:"Enter a six-digit hex color."};
+    entry.color=color;
+  }
+  next.presentationOverrides={...(next.presentationOverrides||{}),categoryKey:key};
+  return{document:next,changed:true,mutation:{label:"Change color key",history:true,undoSteps:1}};
+}
+
+export function resetCategoryKeyPresentationOverride(document={}){
+  const next=normalizeAdvancedStudioDocument(document);
+  if(!next.presentationOverrides?.categoryKey)return{document:next,changed:false};
+  next.presentationOverrides={...(next.presentationOverrides||{})};
+  delete next.presentationOverrides.categoryKey;
+  return{document:next,changed:true,mutation:{label:"Reset color key",history:true,undoSteps:1}};
+}
+
+function clampColorKeyGeometry(value={}){
+  const limits=COLOR_KEY_GEOMETRY_LIMITS;
+  const source={...COLOR_KEY_GEOMETRY_DEFAULT,...value};
+  const width=Math.min(limits.maxWidth,Math.max(limits.minWidth,Number(source.width)||COLOR_KEY_GEOMETRY_DEFAULT.width));
+  const height=Math.min(limits.maxHeight,Math.max(limits.minHeight,Number(source.height)||COLOR_KEY_GEOMETRY_DEFAULT.height));
+  const x=Math.min(limits.boardWidth-width,Math.max(0,Number(source.x)||0));
+  const y=Math.min(limits.boardHeight-height,Math.max(0,Number(source.y)||0));
+  return{x:Math.round(x),y:Math.round(y),width:Math.round(width),height:Math.round(height)};
+}
+
+export function effectiveColorKeyGeometry(document={}){
+  const value=document.presentationOverrides?.colorKeyGeometry;
+  if(!value||typeof value!=="object")return null;
+  return clampColorKeyGeometry(value);
+}
+
+export function setColorKeyGeometryPresentationOverride(document={},changes={}){
+  const next=normalizeAdvancedStudioDocument(document);
+  if(next.mode!==ADVANCED_MODE)return{document:next,changed:false,error:"Color-key placement is available in Advanced Studio."};
+  const prior=effectiveColorKeyGeometry(next)||COLOR_KEY_GEOMETRY_DEFAULT;
+  next.presentationOverrides={...(next.presentationOverrides||{}),
+    colorKeyGeometry:clampColorKeyGeometry({...prior,...changes})};
+  return{document:next,changed:true,mutation:{label:"Move or resize color key",history:true,undoSteps:1}};
+}
+
+export function resetColorKeyGeometryPresentationOverride(document={}){
+  const next=normalizeAdvancedStudioDocument(document);
+  if(!next.presentationOverrides?.colorKeyGeometry)return{document:next,changed:false};
+  next.presentationOverrides={...(next.presentationOverrides||{})};
+  delete next.presentationOverrides.colorKeyGeometry;
+  return{document:next,changed:true,mutation:{label:"Reset color-key position",history:true,undoSteps:1}};
 }
 
 export function planModeSwitch(document,targetMode,{clock=()=>new Date()}={}){
@@ -590,7 +881,16 @@ export function validateBackgroundPresetCatalog(catalog=ADVANCED_BACKGROUND_PRES
 }
 
 export const MEDIA_KINDS=freezeDeep(["image","gif","logo"]);
-export const MEDIA_CONTEXT_ACTIONS=freezeDeep(["bring-forward","send-backward","delete"]);
+export const MEDIA_CONTEXT_ACTIONS=freezeDeep([
+  "bring-forward",
+  "send-backward",
+  "duplicate",
+  "delete"
+]);
+export const MEDIA_FIT_MODES=freezeDeep(["cover","contain"]);
+export const TEXT_FIT_MODES=freezeDeep(["auto","fixed"]);
+export const TEXT_VERTICAL_ALIGNMENTS=freezeDeep(["top","center","bottom"]);
+export const TEXT_WRAP_MODES=freezeDeep(["wrap","nowrap"]);
 
 export function validateMediaUpload(file,{kind="image"}={}){
   const normalizedKind=String(kind).toLowerCase();
@@ -638,7 +938,11 @@ export function createMediaElement({
   if(!validation.valid)throw new TypeError(validation.error);
   const naturalAspect=positive(naturalWidth,320)/positive(naturalHeight,180);
   const isLogo=kind==="logo";
-  const width=isLogo?120:Math.min(480,positive(naturalWidth,320));
+  // Constrain both axes. Width-only clamping let a tall photo (e.g. 1000x5000) resolve
+  // to height 2400 on a 1080 board and centre itself at y=-660, off the canvas.
+  const maxWidth=isLogo?120:480;
+  const maxHeight=isLogo?120/naturalAspect:360;
+  const width=isLogo?120:Math.min(maxWidth,positive(naturalWidth,320),maxHeight*naturalAspect);
   const height=width/naturalAspect;
   const x=isLogo?finite(boardWidth,1920)-finite(boardMargin,64)-width:
     (finite(boardWidth,1920)-width)/2;
@@ -663,7 +967,12 @@ export function createMediaElement({
     height,
     naturalAspect,
     aspectLocked:true,
+    locked:false,
+    placed:true,
+    fit:"cover",
+    crop:{x:50,y:50,zoom:1},
     layerIndex:Math.trunc(finite(layerIndex,0)),
+    zIndex:Math.trunc(finite(layerIndex,0)),
     placement:isLogo?"top-right-board-margin":"board-center",
     resizeHandles:"corners",
     horizontalMonthSnapping:false,
@@ -671,8 +980,74 @@ export function createMediaElement({
   };
 }
 
+function normalizeMediaCrop(value={}){
+  const source=value&&typeof value==="object"?value:{};
+  return{
+    x:Math.min(100,Math.max(0,finite(source.x,50))),
+    y:Math.min(100,Math.max(0,finite(source.y,50))),
+    zoom:Math.min(4,Math.max(1,finite(source.zoom,1)))
+  };
+}
+
+export function updateMediaPresentation(document,target,changes={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  const id=typeof target==="string"?target:target?.id;
+  const item=state.advanced.media.find((candidate)=>String(candidate.id)===String(id));
+  if(!item)throw new Error("Media element not found.");
+  if(Object.hasOwn(changes,"fit")){
+    const fit=String(changes.fit||"");
+    if(!MEDIA_FIT_MODES.includes(fit))throw new TypeError("Media fit must be cover or contain.");
+    item.fit=fit;
+  }
+  if(Object.hasOwn(changes,"crop"))item.crop=normalizeMediaCrop({...item.crop,...changes.crop});
+  return state;
+}
+
 export function moveMediaElement(element,{x,y}={}){
   return{...clone(element),x:finite(x,element?.x||0),y:finite(y,element?.y||0)};
+}
+
+export function snapAdvancedObjectToBoard(element,{
+  boardWidth=1920,
+  boardHeight=1080,
+  threshold=12,
+  visualBounds=null
+}={}){
+  const next=clone(element||{});
+  const bounds=visualBounds&&typeof visualBounds==="object"
+    ?{
+      x:finite(visualBounds.x,finite(next.x,0)),
+      y:finite(visualBounds.y,finite(next.y,0)),
+      width:positive(visualBounds.width,positive(next.width,1)),
+      height:positive(visualBounds.height,positive(next.height,1))
+    }
+    :{
+      x:finite(next.x,0),y:finite(next.y,0),
+      width:positive(next.width,1),height:positive(next.height,1)
+    };
+  const limit=Math.max(0,finite(threshold,12));
+  const nearest=(candidates)=>candidates
+    .filter(({delta})=>Math.abs(delta)<=limit)
+    .sort((left,right)=>Math.abs(left.delta)-Math.abs(right.delta))[0]||null;
+  const vertical=nearest([
+    {delta:-bounds.x,position:0,target:"left-edge"},
+    {delta:boardWidth/2-(bounds.x+bounds.width/2),position:boardWidth/2,target:"horizontal-center"},
+    {delta:boardWidth-(bounds.x+bounds.width),position:boardWidth,target:"right-edge"}
+  ]);
+  const horizontal=nearest([
+    {delta:-bounds.y,position:0,target:"top-edge"},
+    {delta:boardHeight/2-(bounds.y+bounds.height/2),position:boardHeight/2,target:"vertical-center"},
+    {delta:boardHeight-(bounds.y+bounds.height),position:boardHeight,target:"bottom-edge"}
+  ]);
+  if(vertical)next.x=finite(next.x,0)+vertical.delta;
+  if(horizontal)next.y=finite(next.y,0)+horizontal.delta;
+  return{
+    element:next,
+    guides:{
+      vertical:vertical?{position:vertical.position,target:vertical.target}:null,
+      horizontal:horizontal?{position:horizontal.position,target:horizontal.target}:null
+    }
+  };
 }
 
 export function resizeMediaElement(element,{width,height,shiftKey=false}={}){
@@ -684,6 +1059,42 @@ export function resizeMediaElement(element,{width,height,shiftKey=false}={}){
   next.aspectLocked=!shiftKey;
   next.resizeGesture=shiftKey?"free-aspect":"locked-aspect";
   return next;
+}
+
+export function constrainAdvancedObjectToBoard(element,{
+  boardWidth=1920,
+  boardHeight=1080,
+  minimumSize=48
+}={}){
+  const next=clone(element||{});
+  const maxWidth=Math.max(minimumSize,finite(boardWidth,1920));
+  const maxHeight=Math.max(minimumSize,finite(boardHeight,1080));
+  next.width=Math.min(maxWidth,Math.max(minimumSize,positive(next.width,minimumSize)));
+  next.height=Math.min(maxHeight,Math.max(minimumSize,positive(next.height,minimumSize)));
+  next.x=Math.max(0,Math.min(
+    maxWidth-next.width,
+    finite(next.x,0)
+  ));
+  next.y=Math.max(0,Math.min(
+    maxHeight-next.height,
+    finite(next.y,0)
+  ));
+  return next;
+}
+
+export function setMediaAspectLock(document,target,locked){
+  const state=normalizeAdvancedStudioDocument(document);
+  if(state.mode!==ADVANCED_MODE){
+    throw new Error("Media ratio controls are available only in Advanced Studio.");
+  }
+  const id=typeof target==="string"?target:target?.id;
+  const item=state.advanced.media.find(
+    (candidate)=>String(candidate.id)===String(id)
+  );
+  if(!item)throw new Error("Media element not found.");
+  item.aspectLocked=!!locked;
+  item.resizeGesture=item.aspectLocked?"locked-aspect":"free-aspect";
+  return state;
 }
 
 export function changeMediaZOrder(media,id,direction){
@@ -758,6 +1169,11 @@ export function createTextBlock({
   alignment="left",
   width=320,
   height=72,
+  fitMode="auto",
+  minFontSize=10,
+  lineHeight=1.2,
+  verticalAlign="center",
+  wrap="wrap",
   layerIndex=0
 }={}){
   const typography=validateTypography({font,size,weight,color,alignment});
@@ -771,10 +1187,330 @@ export function createTextBlock({
     width:positive(width,320),
     height:positive(height,72),
     ...typography.value,
+    fitMode:TEXT_FIT_MODES.includes(fitMode)?fitMode:"auto",
+    minFontSize:Math.min(72,Math.max(8,finite(minFontSize,10))),
+    lineHeight:Math.min(2,Math.max(.8,finite(lineHeight,1.2))),
+    verticalAlign:TEXT_VERTICAL_ALIGNMENTS.includes(verticalAlign)?verticalAlign:"center",
+    wrap:TEXT_WRAP_MODES.includes(wrap)?wrap:"wrap",
+    overflow:"clip",
+    locked:false,
+    aspectLocked:false,
     resizeHandles:8,
     layerIndex:Math.trunc(finite(layerIndex,0)),
+    zIndex:Math.trunc(finite(layerIndex,0)),
     contextActions:clone(MEDIA_CONTEXT_ACTIONS)
   };
+}
+
+export function updateTextContainerPresentation(document,target,changes={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  const id=typeof target==="string"?target:target?.id;
+  const block=state.advanced.textBlocks.find((item)=>String(item.id)===String(id));
+  if(!block)throw new Error("Text block not found.");
+  if(Object.hasOwn(changes,"fitMode")){
+    const mode=String(changes.fitMode||"");
+    if(!TEXT_FIT_MODES.includes(mode))throw new TypeError("Text fit mode must be auto or fixed.");
+    block.fitMode=mode;
+  }
+  if(Object.hasOwn(changes,"minFontSize"))block.minFontSize=Math.min(72,Math.max(8,finite(changes.minFontSize,10)));
+  if(Object.hasOwn(changes,"lineHeight"))block.lineHeight=Math.min(2,Math.max(.8,finite(changes.lineHeight,1.2)));
+  if(Object.hasOwn(changes,"verticalAlign")){
+    const alignment=String(changes.verticalAlign||"");
+    if(!TEXT_VERTICAL_ALIGNMENTS.includes(alignment))throw new TypeError("Unsupported vertical text alignment.");
+    block.verticalAlign=alignment;
+  }
+  if(Object.hasOwn(changes,"wrap")){
+    const wrap=String(changes.wrap||"");
+    if(!TEXT_WRAP_MODES.includes(wrap))throw new TypeError("Text wrapping must be wrap or nowrap.");
+    block.wrap=wrap;
+  }
+  return state;
+}
+
+const ADVANCED_ELEMENT_KINDS=freezeDeep([
+  "rectangle","rounded-rectangle","circle","line","badge","label","callout","frame",
+  "arrow-right","arrow-curved","arrow-thin","arrow-thick","arrow-double","milestone",
+  "ribbon","pin","marker","separator","shadow",
+  "hospital","stethoscope","medicine","research","microscope","graduation","certification","award",
+  "marriage","pregnancy","baby","family","home","travel","relocation","citizenship","green-card","remembrance",
+  "calendar","book","interview","community","leadership","presentation","computer","heart","globe","language",
+  "country-flag","milestone-flag","missionmed-wordmark"
+]);
+
+function defaultElementGeometry(kind){
+  if(kind==="missionmed-wordmark")return{width:320,height:88};
+  if(["line","separator"].includes(kind))return{width:300,height:18};
+  if(["arrow-right","arrow-curved","arrow-thin","arrow-thick","arrow-double"].includes(kind))return{width:220,height:96};
+  if(["circle","badge","pin","marker","hospital","stethoscope","medicine","research","microscope","graduation","certification","award","marriage","pregnancy","baby","family","home","travel","relocation","citizenship","green-card","remembrance","calendar","book","interview","community","leadership","presentation","computer","heart","globe","language","country-flag","milestone-flag"].includes(kind))return{width:112,height:112};
+  return{width:200,height:104};
+}
+
+export function createAdvancedElement({
+  id,
+  kind="rectangle",
+  x=860,
+  y=480,
+  width,
+  height,
+  fill="#2C6E8F",
+  stroke="#17324A",
+  label="",
+  countryCode="US",
+  layerIndex=0
+}={}){
+  const normalizedKind=String(kind||"");
+  if(!ADVANCED_ELEMENT_KINDS.includes(normalizedKind))throw new RangeError("Unsupported Timeline asset.");
+  const defaults=defaultElementGeometry(normalizedKind);
+  return{
+    id:String(id||""),
+    type:"element",
+    kind:normalizedKind,
+    x:finite(x,860),
+    y:finite(y,480),
+    width:positive(width,defaults.width),
+    height:positive(height,defaults.height),
+    fill:normalizeHex(fill)||"#2C6E8F",
+    stroke:normalizeHex(stroke)||"#17324A",
+    label:String(label||""),
+    countryCode:String(countryCode||"US").toUpperCase().slice(0,2),
+    aspectLocked:true,
+    locked:false,
+    layerIndex:Math.trunc(finite(layerIndex,0)),
+    zIndex:Math.trunc(finite(layerIndex,0)),
+    resizeHandles:8,
+    contextActions:clone(MEDIA_CONTEXT_ACTIONS)
+  };
+}
+
+function advancedCollectionName(type){
+  return type==="media"?"media":type==="text"?"textBlocks":type==="element"?"elements":null;
+}
+
+export function advancedObjectByTarget(document={},target={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  const type=String(target?.type||"");
+  const id=String(target?.id||"");
+  if(type==="group")return state.advanced.groups.find((item)=>String(item.id)===id)||null;
+  const collection=advancedCollectionName(type);
+  return collection?state.advanced[collection].find((item)=>String(item.id)===id)||null:null;
+}
+
+function targetKey(target){return`${String(target?.type||"")}:${String(target?.id||"")}`;}
+function childTargetKey(child){return typeof child==="string"?child:targetKey(child);}
+
+function itemTargets(state){
+  return["media","text","element"].flatMap((type)=>state.advanced[advancedCollectionName(type)].map((item)=>({type,id:String(item.id),item})));
+}
+
+function objectBox(item){
+  return{x:finite(item?.x,0),y:finite(item?.y,0),width:positive(item?.width,1),height:positive(item?.height,1)};
+}
+
+/*
+ * A text object grouped with a shape reads as that container's label — the Color
+ * Key box and its rows are the motivating case — and a label pinned to the left
+ * edge of its box looks like a mistake. Only text still at the creation defaults
+ * is re-centred, so a student who deliberately chose an alignment keeps it.
+ */
+function centreTextInsideContainers(members){
+  const containers=members.filter((entry)=>entry.type!=="text").map((entry)=>objectBox(entry.item));
+  if(!containers.length)return;
+  for(const entry of members){
+    if(entry.type!=="text")continue;
+    const item=entry.item;
+    if(item.alignment!==DEFAULT_FREE_TEXT_TYPOGRAPHY.alignment||item.verticalAlign!=="center")continue;
+    const box=objectBox(item);
+    const contained=containers.some((container)=>
+      box.x>=container.x&&box.y>=container.y&&
+      box.x+box.width<=container.x+container.width&&
+      box.y+box.height<=container.y+container.height
+    );
+    if(contained)item.alignment="center";
+  }
+}
+
+export function advancedGroupBounds(document={},groupId){
+  const state=normalizeAdvancedStudioDocument(document);
+  const group=state.advanced.groups.find((item)=>String(item.id)===String(groupId));
+  if(!group)return null;
+  const keyed=new Map(itemTargets(state).map((entry)=>[targetKey(entry),entry.item]));
+  const children=(group.children||[]).map((child)=>keyed.get(childTargetKey(child))).filter(Boolean);
+  if(!children.length)return null;
+  const left=Math.min(...children.map((item)=>finite(item.x,0)));
+  const top=Math.min(...children.map((item)=>finite(item.y,0)));
+  const right=Math.max(...children.map((item)=>finite(item.x,0)+positive(item.width,1)));
+  const bottom=Math.max(...children.map((item)=>finite(item.y,0)+positive(item.height,1)));
+  return{x:left,y:top,width:right-left,height:bottom-top};
+}
+
+export function groupAdvancedObjects(document={},targets=[],{id=""}={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  if(state.mode!==ADVANCED_MODE)throw new Error("Grouping is available only in Advanced Studio.");
+  const selected=[...new Map(safeArray(targets).map((target)=>[targetKey(target),target])).values()]
+    .filter((target)=>advancedCollectionName(target?.type));
+  if(selected.length<2)throw new TypeError("Select at least two objects to group.");
+  const entries=itemTargets(state);
+  const keys=new Set(entries.map((entry)=>targetKey(entry)));
+  if(!selected.every((target)=>keys.has(targetKey(target))))throw new Error("A selected object is no longer available.");
+  const groupId=String(id||"").trim();
+  if(!groupId||state.advanced.groups.some((group)=>String(group.id)===groupId))throw new TypeError("A unique group ID is required.");
+  const children=selected.map(targetKey);
+  const members=entries.filter((entry)=>children.includes(targetKey(entry)));
+  for(const entry of members)entry.item.groupId=groupId;
+  centreTextInsideContainers(members);
+  state.advanced.groups.push({id:groupId,type:"group",children,aspectLocked:true,locked:false});
+  return{document:state,selection:{type:"group",id:groupId},changed:true};
+}
+
+/*
+ * One authoritative proportional transform for a group. Text scales on the
+ * smaller axis, so a glyph can never outgrow the box it sits in — that is what
+ * keeps a Color Key label inside its container when the container is resized.
+ */
+export function resizeAdvancedGroup(document={},groupId,geometry={},{kind="resize"}={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  if(state.mode!==ADVANCED_MODE)throw new Error("Group transforms are available only in Advanced Studio.");
+  const group=state.advanced.groups.find((item)=>String(item.id)===String(groupId));
+  const current=advancedGroupBounds(state,groupId);
+  if(!group||!current)return{document:state,changed:false,mutation:null,selection:null};
+  const next={
+    x:finite(geometry.x,current.x),
+    y:finite(geometry.y,current.y),
+    width:positive(geometry.width,current.width),
+    height:positive(geometry.height,current.height)
+  };
+  const scaleX=next.width/Math.max(1,current.width);
+  const scaleY=next.height/Math.max(1,current.height);
+  const textScale=Math.min(scaleX,scaleY);
+  const children=new Set((group.children||[]).map(childTargetKey));
+  for(const entry of itemTargets(state)){
+    if(!children.has(targetKey(entry)))continue;
+    const item=entry.item;
+    // Mirror the board renderer's 32x24 floors rather than the 48px insertion floor,
+    // so a divider or thin rule inside a group does not silently become a block.
+    const width=Math.max(32,positive(item.width,32)*scaleX);
+    const height=Math.max(24,positive(item.height,24)*scaleY);
+    /*
+     * Those floors mean a child does not always shrink by the full scale factor, so a
+     * child low in the group could end up extending past the group's new bottom edge -
+     * a Color-Key-style label hanging outside its box after a proportional shrink. Scale
+     * the position, then clamp the child back inside the group it belongs to. Containment
+     * is what makes a group a container rather than objects that merely move together.
+     */
+    const scaledX=next.x+(finite(item.x,0)-current.x)*scaleX;
+    const scaledY=next.y+(finite(item.y,0)-current.y)*scaleY;
+    const withinGroupX=Math.min(Math.max(scaledX,next.x),next.x+Math.max(0,next.width-width));
+    const withinGroupY=Math.min(Math.max(scaledY,next.y),next.y+Math.max(0,next.height-height));
+    item.x=Math.max(0,Math.min(1920-width,withinGroupX));
+    item.y=Math.max(0,Math.min(1080-height,withinGroupY));
+    item.width=width;
+    item.height=height;
+    if(entry.type!=="text")continue;
+    item.size=Math.min(FREE_TEXT_SIZE.max,Math.max(FREE_TEXT_SIZE.min,Math.round(finite(item.size,24)*textScale)));
+    item.minFontSize=Math.min(72,Math.max(8,Math.round(finite(item.minFontSize,10)*textScale)));
+    /* A narrower box must rewrap rather than clip, and auto-fit is what shrinks the type
+       to match. Fixed-fit text inside a shrinking container would just lose its tail. */
+    if(scaleX<1||scaleY<1)item.fitMode="auto";
+  }
+  return{
+    document:state,
+    changed:true,
+    mutation:{label:kind==="move"?"Move Timeline group":"Resize Timeline group",history:true,undoSteps:1},
+    selection:{type:"group",id:String(groupId)}
+  };
+}
+
+export function ungroupAdvancedObjects(document={},groupId){
+  const state=normalizeAdvancedStudioDocument(document);
+  const index=state.advanced.groups.findIndex((group)=>String(group.id)===String(groupId));
+  if(index<0)return{document:state,selection:null,changed:false};
+  const group=state.advanced.groups[index];
+  const children=new Set((group.children||[]).map(childTargetKey));
+  for(const entry of itemTargets(state)){
+    if(children.has(targetKey(entry)))delete entry.item.groupId;
+  }
+  state.advanced.groups.splice(index,1);
+  return{document:state,selection:null,changed:true};
+}
+
+export function setAdvancedObjectLock(document={},target={},locked){
+  const state=normalizeAdvancedStudioDocument(document);
+  const item=advancedObjectByTarget(state,target);
+  if(!item)throw new Error("Advanced object not found.");
+  const collection=target.type==="group"?state.advanced.groups:state.advanced[advancedCollectionName(target.type)];
+  const index=collection.findIndex((candidate)=>String(candidate.id)===String(target.id));
+  collection[index]={...collection[index],locked:!!locked};
+  return state;
+}
+
+// Object locking and proportion locking are intentionally independent.  A
+// student may keep an image's aspect ratio while still moving it, or lock the
+// object in place without changing its resize behavior.
+export function setAdvancedObjectAspectLock(document={},target={},aspectLocked){
+  const state=normalizeAdvancedStudioDocument(document);
+  const item=advancedObjectByTarget(state,target);
+  if(!item)throw new Error("Advanced object not found.");
+  const collection=target.type==="group"?state.advanced.groups:state.advanced[advancedCollectionName(target.type)];
+  const index=collection.findIndex((candidate)=>String(candidate.id)===String(target.id));
+  collection[index]={...collection[index],aspectLocked:!!aspectLocked};
+  return state;
+}
+
+/*
+ * A rail drag ends as one durable placement: the object is centred on the drop
+ * point and clamped to the board, and an upload that was never placed becomes
+ * placed. Keeping it pure means the drop handler owns no geometry rules.
+ */
+export function placeAdvancedObjectAt(document={},target={},{x,y}={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  if(state.mode!==ADVANCED_MODE)throw new Error("Placement is available only in Advanced Studio.");
+  const collection=advancedCollectionName(target?.type);
+  const items=collection?state.advanced[collection]:null;
+  const index=items?items.findIndex((item)=>String(item.id)===String(target?.id||"")):-1;
+  if(index<0)return{document:state,changed:false,mutation:null,selection:null};
+  const item=items[index];
+  const selection={type:String(target.type),id:String(target.id)};
+  if(item.locked===true)return{document:state,changed:false,mutation:null,selection};
+  const box=objectBox(item);
+  const placed=constrainAdvancedObjectToBoard({
+    ...item,
+    x:finite(x,box.x+box.width/2)-box.width/2,
+    y:finite(y,box.y+box.height/2)-box.height/2
+  });
+  items[index]={...item,...placed,...(target.type==="media"?{placed:true}:{})};
+  return{
+    document:state,
+    changed:true,
+    mutation:{label:`Place Timeline ${target.type}`,history:true,undoSteps:1},
+    selection
+  };
+}
+
+export function setAdvancedObjectGeometry(document={},target={},changes={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  if(state.mode!==ADVANCED_MODE)throw new Error("Position and size controls are available only in Advanced Studio.");
+  const collection=advancedCollectionName(target?.type);
+  const items=collection?state.advanced[collection]:null;
+  const index=items?items.findIndex((item)=>String(item.id)===String(target?.id||"")):-1;
+  if(index<0)throw new Error("Advanced object not found.");
+  const item=items[index];
+  const box=objectBox(item);
+  const next={};
+  for(const field of ["x","y","width","height"]){
+    next[field]=Object.hasOwn(changes,field)?finite(changes[field],box[field]):box[field];
+  }
+  /* Proportional lock has to hold here too. Typing a width into the size field while the
+     lock is on previously changed only that axis, which is precisely the surprise the lock
+     exists to prevent. Whichever dimension the student edited drives the other. */
+  if(item.aspectLocked===true&&box.width>0&&box.height>0){
+    const ratio=box.width/box.height;
+    const changedWidth=Object.hasOwn(changes,"width");
+    const changedHeight=Object.hasOwn(changes,"height");
+    if(changedWidth&&!changedHeight)next.height=next.width/ratio;
+    else if(changedHeight&&!changedWidth)next.width=next.height*ratio;
+  }
+  items[index]={...item,...constrainAdvancedObjectToBoard(next)};
+  return state;
 }
 
 export function applyAdvancedTypography(document,target,typography){
@@ -803,29 +1539,97 @@ export function updateTextBlockContent(document,target,text){
   return state;
 }
 
-export function applyAdvancedObjectAction(document,target,action){
+export function applyAdvancedObjectAction(document,target,action,{
+  duplicateId="",
+  duplicateOffset=24
+}={}){
   const state=normalizeAdvancedStudioDocument(document);
   if(state.mode!==ADVANCED_MODE)throw new Error("Advanced object actions are available only in Advanced Studio.");
   const type=target?.type;
-  if(type!=="media"&&type!=="text")throw new TypeError("A selected media or text target is required.");
+  if(type==="group"){
+    const groupIndex=state.advanced.groups.findIndex((group)=>String(group.id)===String(target?.id||""));
+    if(groupIndex<0)throw new Error("Advanced group not found.");
+    if(!["duplicate","delete"].includes(action))throw new RangeError("Unsupported Advanced group action.");
+    const group=state.advanced.groups[groupIndex];
+    const children=new Set((group.children||[]).map(childTargetKey));
+    if(action==="delete"){
+      for(const collection of ["media","textBlocks","elements"]){
+        const childType={media:"media",textBlocks:"text",elements:"element"}[collection];
+        state.advanced[collection]=state.advanced[collection].filter((item)=>!children.has(targetKey({type:item.type||childType,id:item.id})));
+      }
+      state.advanced.groups.splice(groupIndex,1);
+      return{document:state,changed:true,mutation:{label:"Delete group",history:true,undoSteps:1},selection:null};
+    }
+    const nextGroupId=String(duplicateId||"").trim();
+    if(!nextGroupId||state.advanced.groups.some((candidate)=>String(candidate.id)===nextGroupId))throw new TypeError("A unique duplicate group ID is required.");
+    const nextChildren=[];
+    let childIndex=0;
+    for(const collection of ["media","textBlocks","elements"]){
+      const additions=[];
+      for(const item of state.advanced[collection]){
+        const childType=item.type||({media:"media",textBlocks:"text",elements:"element"}[collection]);
+        if(!children.has(targetKey({type:childType,id:item.id})))continue;
+        childIndex+=1;
+        const id=`${nextGroupId}-${childType}-${childIndex}`;
+        additions.push({...clone(item),id,groupId:nextGroupId,x:finite(item.x,0)+finite(duplicateOffset,24),y:finite(item.y,0)+finite(duplicateOffset,24)});
+        nextChildren.push(targetKey({type:childType,id}));
+      }
+      state.advanced[collection].push(...additions);
+    }
+    state.advanced.groups.push({...clone(group),id:nextGroupId,children:nextChildren,locked:false});
+    return{document:state,changed:true,mutation:{label:"Duplicate group",history:true,undoSteps:1},selection:{type:"group",id:nextGroupId}};
+  }
+  if(type!=="media"&&type!=="text"&&type!=="element")throw new TypeError("A selected media, text, or Timeline asset is required.");
   if(!MEDIA_CONTEXT_ACTIONS.includes(action))throw new RangeError("Unsupported Advanced object action.");
-  const key=type==="media"?"media":"textBlocks";
+  const key=type==="media"?"media":type==="text"?"textBlocks":"elements";
   const items=state.advanced[key];
   const id=String(target?.id||"");
   const index=items.findIndex((item)=>String(item.id)===id);
   if(index<0)throw new Error(type==="media"?"Media element not found.":"Text block not found.");
-  const changed=action==="delete"||
-    action==="bring-forward"&&index<items.length-1||
-    action==="send-backward"&&index>0;
+  const scene=itemTargets(state).sort((left,right)=>finite(left.item.zIndex,finite(left.item.layerIndex,0))-finite(right.item.zIndex,finite(right.item.layerIndex,0)));
+  const sceneIndex=scene.findIndex((entry)=>entry.type===type&&String(entry.id)===id);
+  const changed=action==="delete"||action==="duplicate"||
+    action==="bring-forward"&&sceneIndex<scene.length-1||
+    action==="send-backward"&&sceneIndex>0;
   if(!changed){
     return{document:state,changed:false,mutation:null,selection:clone(target)};
   }
-  state.advanced[key]=action==="delete"
-    ?deleteMediaElement(items,id)
-    :changeMediaZOrder(items,id,action);
+  let nextSelection=clone(target);
+  if(action==="duplicate"){
+    const nextId=String(duplicateId||"").trim();
+    if(!nextId)throw new TypeError("A unique duplicate object ID is required.");
+    if(items.some((item)=>String(item.id)===nextId)){
+      throw new Error("The duplicate object ID already exists.");
+    }
+    const source=items[index];
+    const duplicate=constrainAdvancedObjectToBoard({
+      ...clone(source),
+      id:nextId,
+      x:finite(source.x,0)+finite(duplicateOffset,24),
+      y:finite(source.y,0)+finite(duplicateOffset,24),
+      layerIndex:items.length,
+      zIndex:scene.length
+    });
+    state.advanced[key]=[...items,duplicate];
+    nextSelection={type,id:nextId};
+  }else{
+    if(action==="delete"){
+      state.advanced[key]=deleteMediaElement(items,id);
+      const removed=targetKey({type,id});
+      state.advanced.groups=state.advanced.groups.map((group)=>({...group,children:(group.children||[]).filter((child)=>childTargetKey(child)!==removed)})).filter((group)=>(group.children||[]).length>1);
+    }else{
+      const targetScene=action==="bring-forward"?sceneIndex+1:sceneIndex-1;
+      [scene[sceneIndex],scene[targetScene]]=[scene[targetScene],scene[sceneIndex]];
+      scene.forEach((entry,zIndex)=>{entry.item.zIndex=zIndex;});
+      for(const collection of ["media","textBlocks","elements"]){
+        state.advanced[collection].sort((left,right)=>finite(left.zIndex,finite(left.layerIndex,0))-finite(right.zIndex,finite(right.layerIndex,0))).forEach((item,layerIndex)=>{item.layerIndex=layerIndex;});
+      }
+    }
+  }
   const actionLabel={
     "bring-forward":"Bring",
     "send-backward":"Send",
+    duplicate:"Duplicate",
     delete:"Delete"
   }[action];
   return{
@@ -836,7 +1640,7 @@ export function applyAdvancedObjectAction(document,target,action){
       history:true,
       undoSteps:1
     },
-    selection:action==="delete"?null:clone(target)
+    selection:action==="delete"?null:nextSelection
   };
 }
 
@@ -996,6 +1800,26 @@ export function buildAdvancedSelectionModel(document={},selection={}){
       typography:normalizedTypographyValue(element)
     }:null;
   }
+  if(type==="element"){
+    const element=state.advanced.elements.find((item)=>String(item.id)===id);
+    return element?{
+      target:{type,id},
+      element:clone(element),
+      actions:clone(MEDIA_CONTEXT_ACTIONS),
+      editableText:false,
+      typography:null
+    }:null;
+  }
+  if(type==="group"){
+    const group=state.advanced.groups.find((item)=>String(item.id)===id);
+    return group?{
+      target:{type,id},
+      element:clone(group),
+      actions:["duplicate","delete","ungroup"],
+      editableText:false,
+      typography:null
+    }:null;
+  }
   if(type==="headline"){
     const typography=state.advanced.headlineTypography||
       selection.typography||
@@ -1015,8 +1839,94 @@ function objectActionLabel(action){
   return{
     "bring-forward":"Bring forward",
     "send-backward":"Send backward",
-    delete:"Delete"
+    duplicate:"Duplicate",
+    delete:"Delete",
+    ungroup:"Ungroup"
   }[action]||action;
+}
+
+function advancedAssetItems(state,panel){
+  const media=state.advanced.media.map((item)=>({
+    type:"media",
+    id:String(item.id),
+    label:String(item.source?.name||item.kind||"Media asset"),
+    detail:String(item.kind||"media").toUpperCase(),
+    kind:String(item.kind||"image"),
+    placed:item.placed!==false
+  }));
+  const text=state.advanced.textBlocks.map((item,index)=>({
+    type:"text",
+    id:String(item.id),
+    label:String(item.text||`Text ${index+1}`),
+    detail:"TEXT",
+    kind:"text"
+  }));
+  const elements=state.advanced.elements.map((item,index)=>({
+    type:"element",
+    id:String(item.id),
+    label:String(item.label||item.kind||`Asset ${index+1}`),
+    detail:"ELEMENT",
+    kind:String(item.kind||"element")
+  }));
+  if(panel==="uploads")return[...media,...text,...elements];
+  if(panel==="photos")return media.filter(({kind})=>kind==="image");
+  if(panel==="logos")return media.filter(({kind})=>kind==="logo");
+  if(panel==="text")return text;
+  if(panel==="elements")return[...media.slice(-6),...text.slice(-4),...elements.slice(-8)];
+  return[];
+}
+
+function insertAssetTile(item){
+  const action=item.action||"asset";
+  return`<button type="button" draggable="true" class="advanced-visual-asset" data-advanced-insert-asset data-advanced-action="${escapeHtml(action)}"${item.kind?` data-advanced-kind="${escapeHtml(item.kind)}"`:""}${item.value?` data-advanced-symbol="${escapeHtml(item.value)}"`:""} aria-label="${escapeHtml(item.label)}"><span class="advanced-visual-asset-preview" aria-hidden="true">${escapeHtml(item.symbol)}</span><span>${escapeHtml(item.label)}</span></button>`;
+}
+
+export function renderAdvancedToolRail(activePanel="elements"){
+  return`<nav class="advanced-tool-rail" aria-label="Editor tools" data-advanced-tool-rail>${ADVANCED_EDITOR_PANELS.map((panel)=>`<button type="button" data-advanced-panel="${panel.id}" aria-pressed="${String(panel.id===activePanel)}" title="${escapeHtml(panel.label)}"><span aria-hidden="true">${escapeHtml(panel.icon)}</span><small>${escapeHtml(panel.label)}</small></button>`).join("")}</nav>`;
+}
+
+export function renderAdvancedAssetRail(document={},selection=null,{
+  activePanel="elements",
+  query="",
+  resolveObjectUrl=()=>null
+}={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  if(state.mode!==ADVANCED_MODE)return"";
+  const normalizedQuery=String(query||"").trim().toLowerCase();
+  const items=advancedAssetItems(state,activePanel).filter((item)=>
+    !normalizedQuery||`${item.label} ${item.detail}`.toLowerCase().includes(normalizedQuery)
+  );
+  const countryFlags=activePanel==="flags"
+    ?browserCountryRows().map((country)=>({
+      id:`flag-${country.code.toLowerCase()}`,
+      label:country.label,
+      symbol:String.fromCodePoint(...[...country.code].map((character)=>127397+character.charCodeAt(0))),
+      kind:"country-flag",
+      value:country.code
+    }))
+    :[];
+  const inserts=[...(VISUAL_INSERT_ASSETS[activePanel]||[]),...countryFlags].filter((item)=>
+    !normalizedQuery||item.label.toLowerCase().includes(normalizedQuery)
+  );
+  return`<section class="advanced-asset-rail" aria-label="${escapeHtml(activePanel)} assets" data-advanced-asset-rail>
+    <div class="advanced-asset-rail-heading"><strong>${escapeHtml(activePanel)}</strong><span>${items.length+inserts.length}</span></div>
+    <label class="advanced-asset-search"><span class="sr-only">Search ${escapeHtml(activePanel)}</span><input type="search" placeholder="Search ${escapeHtml(activePanel)}" value="${escapeHtml(query)}" data-advanced-asset-search></label>
+    ${inserts.length?`<div class="advanced-visual-asset-grid">${inserts.map(insertAssetTile).join("")}</div>`:""}
+    ${items.length
+      ?`<div class="advanced-asset-rail-list advanced-visual-asset-grid">${items.map((item)=>{
+        const selected=selection?.type===item.type&&String(selection?.id)===item.id;
+        const url=item.type==="media"?resolveObjectUrl(item.id):"";
+        const preview=url
+          ?`<img src="${escapeHtml(url)}" alt="">`
+          :`<span class="advanced-visual-asset-preview" aria-hidden="true">${item.type==="text"?"T":"▧"}</span>`;
+        const dragAttributes=` draggable="true" data-advanced-drag-object`;
+        const mediaAttributes=item.type==="media"
+          ?` data-media-asset="${escapeHtml(item.id)}"${item.placed===false?` data-media-place="${escapeHtml(item.id)}"`:""}`
+          :"";
+        return`<button type="button"${dragAttributes}${mediaAttributes} data-advanced-select-object data-advanced-target-type="${item.type}" data-advanced-target-id="${escapeHtml(item.id)}" aria-pressed="${String(selected)}">${preview}<span>${escapeHtml(item.label)}</span><small>${item.detail}</small></button>`;
+      }).join("")}</div>`
+      :(!inserts.length?'<p class="advanced-asset-rail-empty">No matching assets.</p>':"")}
+  </section>`;
 }
 
 export function renderAdvancedSelectionControls(document={},{
@@ -1025,14 +1935,33 @@ export function renderAdvancedSelectionControls(document={},{
   environment=globalThis
 }={}){
   const state=normalizeAdvancedStudioDocument(document);
+  if(selection?.type==="multi"){
+    const members=safeArray(selection.members).filter((item)=>advancedCollectionName(item?.type));
+    if(members.length<2)return"";
+    return`<section class="advanced-selection-controls" data-advanced-selection-controls data-advanced-multi-selection><strong>${members.length} objects selected</strong><div class="advanced-object-actions" role="toolbar" aria-label="Selected objects actions"><button type="button" class="button secondary compact" data-advanced-group-members="${escapeHtml(encodeURIComponent(JSON.stringify(members)))}">Group</button><button type="button" class="button secondary compact" data-advanced-clear-selection>Clear selection</button></div></section>`;
+  }
   const model=buildAdvancedSelectionModel(state,selection);
   if(!model)return"";
   const target=targetAttributes(model.target);
   const actions=model.actions.length
     ?`<div class="advanced-object-actions" role="toolbar" aria-label="Selected ${escapeHtml(model.target.type)} actions" data-advanced-object-actions${target}>${model.actions.map((action)=>`<button type="button" class="button secondary compact" data-advanced-object-action="${escapeHtml(action)}"${target}>${escapeHtml(objectActionLabel(action))}</button>`).join("")}</div>`
     :"";
+  const aspectLock=["media","element","group"].includes(model.target.type)
+    ?`<label class="advanced-aspect-lock"><input type="checkbox" data-advanced-aspect-lock${target} ${model.element.aspectLocked!==false?"checked":""}><span>Lock proportions</span></label>`
+    :"";
+  const objectLock=["media","text","element","group"].includes(model.target.type)
+    ?`<button type="button" class="button secondary compact" data-advanced-object-action="${model.element.locked?"unlock":"lock"}"${target}>${model.element.locked?"Unlock":"Lock"}</button>`
+    :"";
+  const mediaPresentation=model.target.type==="media"
+    ?`<fieldset class="advanced-media-presentation" data-advanced-media-presentation${target}><legend>Image placement</legend><label><span>Fit</span><select data-advanced-media-fit${target}><option value="cover"${model.element.fit!=="contain"?" selected":""}>Crop to frame</option><option value="contain"${model.element.fit==="contain"?" selected":""}>Fit inside frame</option></select></label><label><span>Crop horizontal</span><input type="range" min="0" max="100" step="1" value="${Number(model.element.crop?.x??50)}" data-advanced-media-crop="x"${target}></label><label><span>Crop vertical</span><input type="range" min="0" max="100" step="1" value="${Number(model.element.crop?.y??50)}" data-advanced-media-crop="y"${target}></label><label><span>Crop zoom</span><input type="range" min="1" max="4" step="0.05" value="${Number(model.element.crop?.zoom??1)}" data-advanced-media-crop="zoom"${target}></label></fieldset>`
+    :"";
+  const geometry=model.element&&["media","text","element"].includes(model.target.type)
+    ?`<fieldset class="advanced-object-geometry" data-advanced-object-geometry${target}><legend>Position &amp; size</legend>${[
+      ["x","Left"],["y","Top"],["width","Width"],["height","Height"]
+    ].map(([field,label])=>`<label><span>${label}</span><input type="number" min="0" max="${field==="y"||field==="height"?1080:1920}" step="1" value="${Math.round(Number(model.element[field]??0))}" data-advanced-geometry="${field}"${target}></label>`).join("")}</fieldset>`
+    :"";
   if(!model.typography){
-    return`<section class="advanced-selection-controls" data-advanced-selection-controls${target}>${actions}</section>`;
+    return`<section class="advanced-selection-controls" data-advanced-selection-controls${target}>${actions}${objectLock}${aspectLock}${geometry}${mediaPresentation}</section>`;
   }
   const typography=model.typography;
   const textContent=model.editableText
@@ -1041,6 +1970,9 @@ export function renderAdvancedSelectionControls(document={},{
   const fontOptions=FREE_TEXT_FONTS.map((font)=>`<option value="${font}"${font===typography.font?" selected":""}>${font}</option>`).join("");
   const weightOptions=FREE_TEXT_WEIGHTS.map((weight)=>`<option value="${weight}"${weight===typography.weight?" selected":""}>${weight}</option>`).join("");
   const alignments=FREE_TEXT_ALIGNMENTS.map(({id,label})=>`<button type="button" class="button secondary compact" data-advanced-alignment="${id}" aria-pressed="${String(id===typography.alignment)}"${target}>${label}</button>`).join("");
+  const textLayout=model.editableText
+    ?`<label><span>Text fit</span><select data-advanced-text-layout="fitMode"${target}><option value="auto"${model.element.fitMode!=="fixed"?" selected":""}>Auto fit text</option><option value="fixed"${model.element.fitMode==="fixed"?" selected":""}>Fixed font size</option></select></label><label><span>Vertical alignment</span><select data-advanced-text-layout="verticalAlign"${target}>${TEXT_VERTICAL_ALIGNMENTS.map((alignment)=>`<option value="${alignment}"${model.element.verticalAlign===alignment?" selected":""}>${alignment[0].toUpperCase()+alignment.slice(1)}</option>`).join("")}</select></label><label><span>Line spacing</span><input type="number" min="0.8" max="2" step="0.05" value="${Number(model.element.lineHeight??1.2)}" data-advanced-text-layout="lineHeight"${target}></label><label><span>Wrapping</span><select data-advanced-text-layout="wrap"${target}><option value="wrap"${model.element.wrap!=="nowrap"?" selected":""}>Wrap inside the box</option><option value="nowrap"${model.element.wrap==="nowrap"?" selected":""}>Keep on one line</option></select></label><label><span>Minimum readable size</span><input type="number" min="8" max="72" step="1" value="${Number(model.element.minFontSize??10)}" data-advanced-text-layout="minFontSize"${target}></label>`
+    :"";
   const colorPicker=renderColorPicker({
     themeSwatches,
     recentColors:state.advanced.recentColors,
@@ -1050,13 +1982,14 @@ export function renderAdvancedSelectionControls(document={},{
     value:typography.color
   });
   return`<section class="advanced-selection-controls" data-advanced-selection-controls${target}>
-    ${actions}
+    ${actions}${objectLock}${geometry}
     <fieldset class="advanced-typography-controls" data-advanced-typography-controls${target}>
       <legend>Typography</legend>
       ${textContent}
       <label><span>Font</span><select data-advanced-typography-field="font"${target}>${fontOptions}</select></label>
       <label><span>Size</span><input type="number" min="${FREE_TEXT_SIZE.min}" max="${FREE_TEXT_SIZE.max}" step="1" value="${typography.size}" data-advanced-typography-field="size"${target}></label>
       <label><span>Weight</span><select data-advanced-typography-field="weight"${target}>${weightOptions}</select></label>
+      ${textLayout}
       <div role="group" aria-label="Text alignment" data-advanced-alignments>${alignments}</div>
       ${colorPicker}
     </fieldset>
@@ -1093,10 +2026,94 @@ export function renderBackgroundPanel(document={},{
   </section>`;
 }
 
+export function renderAdvancedPresentationControls(document={}){
+  const state=normalizeAdvancedStudioDocument(document);
+  if(state.mode!==ADVANCED_MODE)return"";
+  const automatic=eventYearRange(state);
+  const axis=effectiveAxisOverride(state);
+  const key=effectiveCategoryKey(state);
+  const customKey=Array.isArray(state.presentationOverrides?.categoryKey);
+  const keyGeometry=effectiveColorKeyGeometry(state)||COLOR_KEY_GEOMETRY_DEFAULT;
+  const customKeyGeometry=!!effectiveColorKeyGeometry(state);
+  const segmentWeights=axis?.segmentWeights||(()=>{
+    if(!axis)return[];
+    const items=[];
+    for(let year=axis.startYear;year<=axis.endYear;year+=1)items.push({id:String(year),weight:1});
+    if(axis.includeFuture)items.push({id:"FUTURE",weight:1});
+    return items;
+  })();
+  return`<section class="advanced-presentation-controls" aria-label="Timeline presentation" data-advanced-presentation-controls>
+    <div class="advanced-presentation-heading"><div><strong>Year axis &amp; color key</strong><span>Presentation only. Timeline dates and category IDs do not change.</span></div></div>
+    <fieldset class="advanced-axis-controls">
+      <legend>Year axis</legend>
+      <label><span>Mode</span><select data-axis-override-mode><option value="automatic"${axis?"":" selected"}>Automatic</option><option value="manual"${axis?" selected":""}>Manual range</option></select></label>
+      <label><span>Start year</span><input type="number" min="1900" max="2200" step="1" value="${axis?.startYear??automatic.startYear}" data-axis-override-field="startYear" ${axis?"":"disabled"}></label>
+      <label><span>End year</span><input type="number" min="1900" max="2200" step="1" value="${axis?.endYear??automatic.endYear}" data-axis-override-field="endYear" ${axis?"":"disabled"}></label>
+      <label class="advanced-axis-future"><input type="checkbox" data-axis-override-field="includeFuture" ${axis?.includeFuture!==false?"checked":""} ${axis?"":"disabled"}><span>Include FUTURE</span></label>
+      <button type="button" class="button secondary compact" data-axis-override-reset ${axis?"":"disabled"}>Reset automatic axis</button>
+      ${axis?`<div class="advanced-axis-weight-grid" aria-label="Relative year widths">${segmentWeights.map((item)=>`<label><span>${escapeHtml(item.id)}</span><input type="number" min="0.25" max="8" step="0.05" value="${Number(item.weight).toFixed(2)}" data-axis-segment-weight="${escapeHtml(item.id)}"></label>`).join("")}</div><button type="button" class="button secondary compact" data-axis-weight-reset ${axis.segmentWeights?"":"disabled"}>Equalize year widths</button>`:""}
+    </fieldset>
+    <fieldset class="advanced-category-key-controls">
+      <legend>Color key — fixed six-category order</legend>
+      <div class="advanced-category-key-grid">${key.map((item)=>`<div class="advanced-category-key-row" data-category-key-id="${item.id}"><span class="advanced-category-key-id">${escapeHtml(item.id)}</span><label><span class="sr-only">${escapeHtml(item.id)} label</span><input type="text" maxlength="32" value="${escapeHtml(item.label)}" data-category-key-field="label"></label><label class="advanced-category-key-color"><span class="sr-only">${escapeHtml(item.id)} color</span><input type="color" value="${item.color}" data-category-key-field="color"><code>${item.color}</code></label></div>`).join("")}</div>
+      <button type="button" class="button secondary compact" data-category-key-reset ${customKey?"":"disabled"}>Reset color key</button>
+      <div class="advanced-color-key-geometry" aria-label="Color key position and size">${["x","y","width","height"].map((field)=>`<label><span>${field[0].toUpperCase()+field.slice(1)}</span><input type="number" min="0" max="${field==="x"?1620:field==="y"?840:field==="width"?760:720}" step="1" value="${keyGeometry[field]}" data-color-key-geometry-field="${field}"></label>`).join("")}</div>
+      <button type="button" class="button secondary compact" data-color-key-geometry-reset ${customKeyGeometry?"":"disabled"}>Reset position &amp; size</button>
+    </fieldset>
+  </section>`;
+}
+
+function renderTimelineAssetPanel(selection){
+  const items=[
+    {type:"axis",id:"axis",label:"Year axis",symbol:"2024 ↔ 2027"},
+    {type:"color-key",id:"color-key",label:"Color key",symbol:"● ● ●"},
+    {type:"profile",id:"profile",label:"Profile card",symbol:"▤"},
+    {type:"portrait",id:"portrait",label:"Portrait",symbol:"◉"},
+    {type:"event",id:"events",label:"Event arrows",symbol:"➜"},
+    {type:"flag",id:"flags",label:"Milestone flags",symbol:"⚑"}
+  ];
+  return`<section class="advanced-asset-rail" data-advanced-asset-rail aria-label="Timeline-specific assets"><div class="advanced-asset-rail-heading"><strong>Timeline</strong><span>${items.length}</span></div><div class="advanced-visual-asset-grid">${items.map((item)=>`<button type="button" class="advanced-visual-asset" data-advanced-select-object data-advanced-target-type="${item.type}" data-advanced-target-id="${item.id}" aria-pressed="${String(selection?.type===item.type)}"><span class="advanced-visual-asset-preview" aria-hidden="true">${item.symbol}</span><span>${item.label}</span></button>`).join("")}</div></section>`;
+}
+
+function renderContextualPresentationControls(document,selection){
+  if(!["axis","color-key"].includes(selection?.type))return"";
+  const full=renderAdvancedPresentationControls(document);
+  if(selection.type==="axis"){
+    const fieldset=full.match(/<fieldset class="advanced-axis-controls">[\s\S]*?<\/fieldset>/)?.[0]||"";
+    return`<section class="advanced-context-panel" data-advanced-context="axis"><header><strong>Year axis</strong><span>Presentation range</span></header>${fieldset}<p>Use the start and end controls to expand or contract the authorized overall range.</p></section>`;
+  }
+  const fieldset=full.match(/<fieldset class="advanced-category-key-controls">[\s\S]*?<\/fieldset>/)?.[0]||"";
+  return`<section class="advanced-context-panel" data-advanced-context="color-key"><header><strong>Color key</strong><span>Fixed six-category identity and order</span></header>${fieldset}<div class="advanced-palette-presets" role="group" aria-label="Harmonious color palettes"><button type="button" data-category-key-palette="missionmed">MissionMed</button><button type="button" data-category-key-palette="coastal">Coastal</button><button type="button" data-category-key-palette="heritage">Heritage</button></div></section>`;
+}
+
 export function renderAdvancedStudio(document={},options={}){
   const state=normalizeAdvancedStudioDocument(document);
   if(state.mode!==ADVANCED_MODE)return"";
-  return`${renderInsertStrip(state)}${options.backgroundOpen?renderBackgroundPanel(state,options):""}${renderAdvancedSelectionControls(state,options)}`;
+  const requestedPanel=options.backgroundOpen?"backgrounds":options.activePanel;
+  const activePanel=ADVANCED_EDITOR_PANELS.some(({id})=>id===requestedPanel)
+    ?requestedPanel
+    :"elements";
+  const hasObjectContext=["media","text","element","group","multi","headline"].includes(options.selection?.type);
+  const contextual=renderContextualPresentationControls(state,options.selection)||
+    (hasObjectContext
+      ?renderAdvancedSelectionControls(state,options)
+      :"");
+  let panel=contextual;
+  if(panel&&hasObjectContext){
+    panel+=renderAdvancedAssetRail(state,options.selection,{
+      activePanel:"uploads",
+      query:options.query,
+      resolveObjectUrl:options.resolveObjectUrl
+    });
+  }
+  if(!panel&&activePanel==="backgrounds")panel=renderBackgroundPanel(state,{...options,activeTab:options.activeTab||"Presets"});
+  if(!panel&&activePanel==="timeline")panel=renderTimelineAssetPanel(options.selection);
+  if(!panel)panel=renderAdvancedAssetRail(state,options.selection,{
+    activePanel,
+    query:options.query,
+    resolveObjectUrl:options.resolveObjectUrl
+  });
+  return`<aside class="advanced-editor-sidebar" data-advanced-editor-sidebar>${renderAdvancedToolRail(activePanel)}<div class="advanced-content-panel" data-advanced-content-panel>${panel}</div><div class="advanced-legacy-insert-contract" hidden aria-hidden="true">${renderInsertStrip(state)}</div></aside>`;
 }
 
 /*
@@ -1109,7 +2126,7 @@ export function installAdvancedStudio(root,hooks={}){
   const closest=(target,selector)=>target?.closest?.(selector)||null;
   const delegatedTarget=(control)=>{
     const type=String(control?.dataset?.advancedTargetType||"");
-    if(!["media","text","headline"].includes(type))return null;
+    if(!["media","text","element","group","headline","axis","color-key","profile","portrait","event","flag"].includes(type))return null;
     return{type,id:String(control?.dataset?.advancedTargetId||type)};
   };
   const colorContext=(control)=>({
@@ -1117,9 +2134,49 @@ export function installAdvancedStudio(root,hooks={}){
     target:delegatedTarget(control)
   });
   const click=(event)=>{
+    const panel=closest(event.target,"[data-advanced-panel]");
+    if(panel){
+      hooks.onPanel?.(String(panel.dataset.advancedPanel||"elements"),event);
+      return;
+    }
+    const palette=closest(event.target,"[data-category-key-palette]");
+    if(palette){
+      hooks.onCategoryKeyPalette?.(String(palette.dataset.categoryKeyPalette||""),event);
+      return;
+    }
+    const group=closest(event.target,"[data-advanced-group-members]");
+    if(group){
+      try{hooks.onGroup?.(JSON.parse(decodeURIComponent(group.dataset.advancedGroupMembers||"")),event);}catch{}
+      return;
+    }
+    if(closest(event.target,"[data-advanced-clear-selection]")){
+      hooks.onClearSelection?.(event);
+      return;
+    }
+    if(closest(event.target,"[data-axis-override-reset]")){
+      hooks.onAxisReset?.(event);
+      return;
+    }
+    if(closest(event.target,"[data-axis-weight-reset]")){
+      hooks.onAxisWeightReset?.(event);
+      return;
+    }
+    if(closest(event.target,"[data-category-key-reset]")){
+      hooks.onCategoryKeyReset?.(event);
+      return;
+    }
+    if(closest(event.target,"[data-color-key-geometry-reset]")){
+      hooks.onColorKeyGeometryReset?.(event);
+      return;
+    }
+    const selectObject=closest(event.target,"[data-advanced-select-object]");
+    if(selectObject){
+      hooks.onSelectObject?.(delegatedTarget(selectObject),event);
+      return;
+    }
     const action=closest(event.target,"[data-advanced-action]");
     if(action){
-      hooks.onAction?.(action.dataset.advancedAction,event);
+      hooks.onAction?.(action.dataset.advancedAction,event,action);
       return;
     }
     const objectAction=closest(event.target,"[data-advanced-object-action]");
@@ -1175,6 +2232,36 @@ export function installAdvancedStudio(root,hooks={}){
     }
   };
   const change=(event)=>{
+    const axisMode=closest(event.target,"[data-axis-override-mode]");
+    if(axisMode){
+      hooks.onAxisMode?.(String(axisMode.value||"automatic"),event);
+      return;
+    }
+    const axisField=closest(event.target,"[data-axis-override-field]");
+    if(axisField){
+      const field=String(axisField.dataset.axisOverrideField||"");
+      const value=field==="includeFuture"?!!axisField.checked:Number(axisField.value);
+      hooks.onAxisChange?.({[field]:value},event);
+      return;
+    }
+    const axisWeight=closest(event.target,"[data-axis-segment-weight]");
+    if(axisWeight){
+      hooks.onAxisWeightChange?.(String(axisWeight.dataset.axisSegmentWeight||""),Number(axisWeight.value),event);
+      return;
+    }
+    const categoryField=closest(event.target,"[data-category-key-field]");
+    if(categoryField){
+      const row=categoryField.closest("[data-category-key-id]");
+      const id=String(row?.dataset?.categoryKeyId||"");
+      const field=String(categoryField.dataset.categoryKeyField||"");
+      hooks.onCategoryKeyChange?.(id,{[field]:String(categoryField.value||"")},event);
+      return;
+    }
+    const colorKeyGeometry=closest(event.target,"[data-color-key-geometry-field]");
+    if(colorKeyGeometry){
+      hooks.onColorKeyGeometryChange?.({[String(colorKeyGeometry.dataset.colorKeyGeometryField||"")]:Number(colorKeyGeometry.value)},event);
+      return;
+    }
     const upload=closest(event.target,"[data-background-upload]");
     if(upload){
       hooks.onBackgroundUpload?.(upload.files?.[0]||null,event);
@@ -1183,6 +2270,41 @@ export function installAdvancedStudio(root,hooks={}){
     const lock=closest(event.target,"[data-layout-lock]");
     if(lock){
       hooks.onLayoutLock?.(!!lock.checked,event);
+      return;
+    }
+    const aspectLock=closest(event.target,"[data-advanced-aspect-lock]");
+    if(aspectLock){
+      hooks.onAspectLock?.(
+        !!aspectLock.checked,
+        delegatedTarget(aspectLock),
+        event
+      );
+      return;
+    }
+    const mediaFit=closest(event.target,"[data-advanced-media-fit]");
+    if(mediaFit){
+      hooks.onMediaPresentation?.({fit:String(mediaFit.value||"cover")},delegatedTarget(mediaFit),event);
+      return;
+    }
+    const mediaCrop=closest(event.target,"[data-advanced-media-crop]");
+    if(mediaCrop){
+      hooks.onMediaPresentation?.({crop:{[String(mediaCrop.dataset.advancedMediaCrop||"x")]:Number(mediaCrop.value)}},delegatedTarget(mediaCrop),event);
+      return;
+    }
+    const objectGeometry=closest(event.target,"[data-advanced-geometry]");
+    if(objectGeometry){
+      hooks.onGeometry?.(
+        {[String(objectGeometry.dataset.advancedGeometry||"width")]:Number(objectGeometry.value)},
+        delegatedTarget(objectGeometry),
+        event
+      );
+      return;
+    }
+    const textLayout=closest(event.target,"[data-advanced-text-layout]");
+    if(textLayout){
+      const field=String(textLayout.dataset.advancedTextLayout||"");
+      const numeric=field==="minFontSize"||field==="lineHeight";
+      hooks.onTextLayout?.({[field]:numeric?Number(textLayout.value):String(textLayout.value||"")},delegatedTarget(textLayout),event);
       return;
     }
     const typography=closest(event.target,"[data-advanced-typography-field]");
@@ -1204,6 +2326,11 @@ export function installAdvancedStudio(root,hooks={}){
     }
   };
   const input=(event)=>{
+    const search=closest(event.target,"[data-advanced-asset-search]");
+    if(search){
+      hooks.onAssetSearch?.(String(search.value||""),event);
+      return;
+    }
     const text=closest(event.target,"[data-advanced-text-content]");
     if(text){
       hooks.onTextContent?.(String(text.value??""),delegatedTarget(text),event);
@@ -1212,12 +2339,45 @@ export function installAdvancedStudio(root,hooks={}){
     const dim=closest(event.target,"[data-background-dim]");
     if(dim)hooks.onBackgroundDim?.(normalizeDim(dim.value),event);
   };
+  const dragstart=(event)=>{
+    const insert=closest(event.target,"[data-advanced-insert-asset]");
+    if(insert){
+      const payload={
+        kind:"insert",
+        action:String(insert.dataset.advancedAction||"asset"),
+        assetKind:String(insert.dataset.advancedKind||""),
+        symbol:String(insert.dataset.advancedSymbol||"")
+      };
+      event.dataTransfer?.setData?.("application/x-missionmed-timeline-asset",JSON.stringify(payload));
+      event.dataTransfer?.setData?.("text/plain",payload.assetKind||payload.action);
+      event.dataTransfer.effectAllowed="copy";
+      hooks.onDragStart?.(payload,event);
+      return;
+    }
+    const object=closest(event.target,"[data-advanced-drag-object]");
+    if(object){
+      const target=delegatedTarget(object);
+      if(!target)return;
+      // Every board drop handler accepts kind:"insert" only, so a rail tile that
+      // advertises drag has to speak that dialect or the drop is silently rejected;
+      // action:"place" tells the handler this is an object the student already owns.
+      const payload={kind:"insert",action:"place",assetKind:target.type,symbol:"",target};
+      event.dataTransfer?.setData?.("application/x-missionmed-timeline-asset",JSON.stringify(payload));
+      event.dataTransfer?.setData?.("text/plain",target.id);
+      // The drop side sets dropEffect="copy"; a "move"-only effectAllowed makes the
+      // browser veto that pairing and the drop event never fires at all.
+      event.dataTransfer.effectAllowed="copyMove";
+      hooks.onDragStart?.(payload,event);
+    }
+  };
   root.addEventListener("click",click);
   root.addEventListener("change",change);
   root.addEventListener("input",input);
+  root.addEventListener("dragstart",dragstart);
   return()=>{
     root.removeEventListener("click",click);
     root.removeEventListener("change",change);
     root.removeEventListener("input",input);
+    root.removeEventListener("dragstart",dragstart);
   };
 }

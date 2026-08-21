@@ -1,5 +1,5 @@
 import {createRequire} from "node:module";
-import {existsSync,mkdirSync,statSync} from "node:fs";
+import {existsSync,mkdirSync,readFileSync,statSync} from "node:fs";
 
 const require=createRequire(import.meta.url);
 const playwrightRuntime=process.env.CODEX_PLAYWRIGHT_RUNTIME||
@@ -101,6 +101,13 @@ async function seed(page,count,{persist=false,label="Browser kernel fixture"}={}
 
 async function navigate(page,route){
   await page.locator(`#rail [data-v="${route}"]`).click();
+  if(route==="export"){
+    const qualityDialog=page.locator("[data-quality-guardian-dialog]");
+    await qualityDialog.waitFor({state:"visible",timeout:12000});
+    const proceed=qualityDialog.locator("[data-quality-continue-export]");
+    assert(await proceed.count()===1,"Quality Guardian blocked the canonical browser fixture from Export");
+    await proceed.click();
+  }
   await page.waitForFunction((route)=>document.querySelector('#rail [aria-current="page"]')?.dataset.v===route,route);
 }
 
@@ -115,6 +122,13 @@ async function kernel(page,surface,{visible=true}={}){
   },{surface,visible},{timeout:12000});
   const state=await locator.evaluate((element)=>({...element.dataset}));
   assert(state.ready==="true"&&state.protectedKernel==="D1-409H-A1",`kernel ${surface} failed: ${JSON.stringify(state)}`);
+  if(state.interactive==="true"){
+    await page.waitForFunction(({surface,visible})=>{
+      const candidates=[...document.querySelectorAll(`d1-timeline-kernel[data-surface="${surface}"]`)];
+      const element=candidates.find((node)=>!visible||!!(node.offsetWidth||node.offsetHeight));
+      return element?.dataset.interactionsReady==="true";
+    },{surface,visible},{timeout:12000});
+  }
   return locator;
 }
 
@@ -136,7 +150,12 @@ async function kernelEvidence(host){
     photos:board.querySelectorAll(".photoTile[data-object-id]").length,
     axis:board.querySelectorAll("#axis").length,
     hitTargets:board.querySelectorAll("[data-d1-411a-hit]").length,
-    diagnostics:board.ownerDocument.defaultView.D1409H.diagnostics()
+    diagnostics:board.ownerDocument.defaultView.D1409H.diagnostics(),
+    visualModel:JSON.stringify((()=>{
+      const snapshot=board.ownerDocument.defaultView.D1409H.getSnapshot();
+      if(snapshot)delete snapshot.revision;
+      return snapshot;
+    })())
   }));
   return{host:hostData,child,frame};
 }
@@ -174,7 +193,8 @@ for(const persona of personas){
       canMutate:window.D1_407F_ENGINEERING.store.entitlement.canMutate,
       labels:[...document.querySelectorAll("#rail [data-v]")].map((node)=>node.textContent.trim()),
       current:document.querySelectorAll('#rail [aria-current="page"]').length,
-      duplicateIds:[...document.querySelectorAll("[id]")].map((node)=>node.id).filter((id,index,all)=>all.indexOf(id)!==index)
+      duplicateIds:[...document.querySelectorAll("[id]")].map((node)=>node.id).filter((id,index,all)=>all.indexOf(id)!==index),
+      profile:{...window.D1_407F_ENGINEERING.store.document.studentProfile}
     }));
     assert(result.access===persona.expectedAccess,`expected ${persona.expectedAccess}, received ${result.access}`);
     assert(result.canMutate===persona.writable,`mutation capability mismatch: ${result.canMutate}`);
@@ -205,7 +225,11 @@ for(const persona of personas){
       const evidence=await kernelEvidence(await kernel(page,"builder"));
       assert(evidence.child.arrows===count,`expected ${count} arrows, received ${evidence.child.arrows}`);
       assert(evidence.child.axis===1,"adaptive axis is missing or duplicated");
-      rendered.push({count,fingerprint:evidence.host.fingerprint});
+      const collisionWarnings=(evidence.child.diagnostics.warnings||[]).filter((warning)=>
+        /COLLISION|OUT_OF_BOUNDS|TEXT_FIT/i.test(String(warning))
+      );
+      assert(collisionWarnings.length===0,`dense render warnings: ${collisionWarnings.join(", ")}`);
+      rendered.push({count,fingerprint:evidence.host.fingerprint,collisionWarnings:0});
     }
     if(persona.writable)await seed(page,7);
     return rendered;
@@ -213,20 +237,27 @@ for(const persona of personas){
 
   await runCheck(persona,"4 · five-surface single-kernel parity",async()=>{
     const fingerprints=[];
+    const visualModels=[];
     await navigate(page,"command");
     let surfaceHost=await kernel(page,"home");
-    fingerprints.push((await kernelEvidence(surfaceHost)).host.fingerprint);
+    let surfaceEvidence=await kernelEvidence(surfaceHost);
+    fingerprints.push(surfaceEvidence.host.fingerprint);
+    visualModels.push(surfaceEvidence.child.visualModel);
     if(captureDir&&persona.id==="administrator"){
       await page.screenshot({path:`${captureDir}/D1-411B_HOME.png`,fullPage:true});
       await surfaceHost.screenshot({path:`${captureDir}/D1-411B_HOME_ARTIFACT.png`});
     }
     await navigate(page,"builder");
     surfaceHost=await kernel(page,"builder");
-    fingerprints.push((await kernelEvidence(surfaceHost)).host.fingerprint);
+    surfaceEvidence=await kernelEvidence(surfaceHost);
+    fingerprints.push(surfaceEvidence.host.fingerprint);
+    visualModels.push(surfaceEvidence.child.visualModel);
     if(captureDir&&persona.id==="administrator")await page.screenshot({path:`${captureDir}/D1-411B_BUILDER.png`,fullPage:true});
     await page.locator("#builderPreviewToggle").click();
     surfaceHost=await kernel(page,"full-preview");
-    fingerprints.push((await kernelEvidence(surfaceHost)).host.fingerprint);
+    surfaceEvidence=await kernelEvidence(surfaceHost);
+    fingerprints.push(surfaceEvidence.host.fingerprint);
+    visualModels.push(surfaceEvidence.child.visualModel);
     if(captureDir&&persona.id==="administrator"){
       await page.screenshot({path:`${captureDir}/D1-411B_FULL_PREVIEW.png`,fullPage:true});
       await surfaceHost.screenshot({path:`${captureDir}/D1-411B_FULL_PREVIEW_ARTIFACT.png`});
@@ -234,19 +265,45 @@ for(const persona of personas){
     await page.locator("[data-builder-preview-close]").click();
     await navigate(page,"canvas");
     surfaceHost=await kernel(page,"edit");
-    fingerprints.push((await kernelEvidence(surfaceHost)).host.fingerprint);
+    surfaceEvidence=await kernelEvidence(surfaceHost);
+    fingerprints.push(surfaceEvidence.host.fingerprint);
+    visualModels.push(surfaceEvidence.child.visualModel);
     if(captureDir&&persona.id==="administrator")await page.screenshot({path:`${captureDir}/D1-411B_EDIT_TIMELINE.png`,fullPage:true});
     await navigate(page,"export");
     surfaceHost=await kernel(page,"export");
-    fingerprints.push((await kernelEvidence(surfaceHost)).host.fingerprint);
-    if(captureDir&&persona.id==="administrator")await page.screenshot({path:`${captureDir}/D1-411B_EXPORT.png`,fullPage:true});
-    assert(new Set(fingerprints).size===1,`surface fingerprints diverged: ${fingerprints.join(", ")}`);
-    return{surfaces:5,fingerprint:fingerprints[0]};
+    surfaceEvidence=await kernelEvidence(surfaceHost);
+    fingerprints.push(surfaceEvidence.host.fingerprint);
+    visualModels.push(surfaceEvidence.child.visualModel);
+    if(captureDir&&persona.id==="administrator"){
+      await page.screenshot({path:`${captureDir}/D1-411B_EXPORT.png`,fullPage:true});
+      await surfaceHost.screenshot({path:`${captureDir}/D1-411B_EXPORT_ARTIFACT.png`});
+    }
+    assert(new Set(visualModels).size===1,"surface presentation models diverged");
+    return{surfaces:5,presentationModels:new Set(visualModels).size,fingerprints:[...new Set(fingerprints)]};
   });
 
   await runCheck(persona,"5 · hydration, rerender, and lifecycle stability",async()=>{
     await navigate(page,"builder");
-    const before=(await kernelEvidence(await kernel(page,"builder"))).host.fingerprint;
+    const initialHost=await kernel(page,"builder");
+    const before=(await kernelEvidence(initialHost)).host.fingerprint;
+    const nonvisualProbe=await page.evaluate((writable)=>{
+      window.__d1411PreviewBefore=document.querySelector('d1-timeline-kernel[data-surface="builder"]');
+      try{
+        window.D1_407F_ENGINEERING.store.mutate(
+          "Nonvisual save-status probe",
+          (document)=>{document.metadata.nonvisualSaveProbe=(document.metadata.nonvisualSaveProbe||0)+1;},
+          {history:false,material:false}
+        );
+        return{mutated:true,error:""};
+      }catch(error){
+        return{mutated:false,error:String(error?.code||error?.name||error)};
+      }
+    },persona.writable);
+    if(persona.writable)assert(nonvisualProbe.mutated,"writable nonvisual probe was rejected");
+    else assert(!nonvisualProbe.mutated&&/ENTITLEMENT|TimelineEntitlementError/i.test(nonvisualProbe.error),"read-only nonvisual probe did not fail closed");
+    await page.waitForTimeout(120);
+    assert(await page.evaluate(()=>window.__d1411PreviewBefore===document.querySelector('d1-timeline-kernel[data-surface="builder"]')),"nonvisual save replaced the last-good preview");
+    assert(await initialHost.evaluate((element)=>element.dataset.ready==="true"&&element.shadowRoot?.querySelector("[data-loading]")?.checkVisibility()===false),"nonvisual save exposed the loading replacement");
     await page.evaluate(()=>{window.D1_407F_ENGINEERING.applyDocument();window.D1_407F_ENGINEERING.applyDocument();});
     const afterEvidence=await kernelEvidence(await kernel(page,"builder"));
     assert(afterEvidence.host.fingerprint===before,"unchanged document fingerprint changed");
@@ -270,7 +327,7 @@ for(const persona of personas){
     }
     await hits.first().waitFor({state:"visible",timeout:1200});
     assert(await hits.count()>=7,"Builder interaction proxies are missing");
-    await hits.first().click();
+    await evidence.frame.locator('[data-d1-411a-hit][data-source-object-id="ev-d1-411b-browser-0"]').click();
     await page.waitForTimeout(150);
     const after=await page.evaluate(()=>JSON.stringify(window.D1_407F_ENGINEERING.store.document.events.map(
       ({id,title,categoryId,startDate,endDate})=>({id,title,categoryId,startDate,endDate})
@@ -304,12 +361,16 @@ for(const persona of personas){
     await navigate(page,"canvas");
     const evidence=await kernelEvidence(await kernel(page,"edit"));
     const hits=evidence.frame.locator("[data-d1-411a-hit]");
+    const hitLayerCount=await evidence.frame.locator("[data-d1-411a-hit-layer]").count();
     if(!persona.writable){
+      assert(hitLayerCount===0,`read-only Edit Timeline exposed ${hitLayerCount} interaction overlays`);
       assert(await hits.count()===0,"read-only Edit Timeline exposed proxies");
       assert(await page.locator('[data-screen="canvas"][data-view-only="true"]').count()===1,"read-only Canvas contract missing");
       return"read-only Canvas blocks selection and mutation";
     }
-    await hits.first().click();
+    assert(hitLayerCount===1,`Edit Timeline accumulated ${hitLayerCount} interaction overlays`);
+    await evidence.frame.locator('[data-d1-411a-hit][data-source-object-id="ev-d1-411b-browser-0"]').click();
+    await page.locator('[data-protected-context-toolbar] [data-canvas-action="details"]').click();
     const sheet=page.locator("[data-details-sheet]");
     await sheet.waitFor({state:"visible"});
     const eventId=await sheet.getAttribute("data-event-id");
@@ -331,18 +392,18 @@ for(const persona of personas){
       return"read-only dates and history unchanged";
     }
     const before=await page.evaluate(()=>window.D1_407F_ENGINEERING.store.document.events[0].startDate);
-    let hit=evidence.frame.locator("[data-d1-411a-hit]").first();
+    let hit=evidence.frame.locator('[data-d1-411a-hit][data-source-object-id="ev-d1-411b-browser-0"]');
     await hit.focus();
     await hit.press("Shift+ArrowRight");
     await page.waitForFunction((before)=>window.D1_407F_ENGINEERING.store.document.events[0].startDate!==before,before);
     const moved=await page.evaluate(()=>window.D1_407F_ENGINEERING.store.document.events[0].startDate);
     evidence=await kernelEvidence(await kernel(page,"edit"));
-    hit=evidence.frame.locator("[data-d1-411a-hit]").first();
+    hit=evidence.frame.locator('[data-d1-411a-hit][data-source-object-id="ev-d1-411b-browser-0"]');
     await hit.focus();
     await hit.press("Meta+z");
     await page.waitForFunction((before)=>window.D1_407F_ENGINEERING.store.document.events[0].startDate===before,before);
     evidence=await kernelEvidence(await kernel(page,"edit"));
-    hit=evidence.frame.locator("[data-d1-411a-hit]").first();
+    hit=evidence.frame.locator('[data-d1-411a-hit][data-source-object-id="ev-d1-411b-browser-0"]');
     await hit.focus();
     await hit.press("Meta+Shift+z");
     await page.waitForFunction((moved)=>window.D1_407F_ENGINEERING.store.document.events[0].startDate===moved,moved);
@@ -410,38 +471,220 @@ for(const persona of personas){
     return{viewport:"390x844",ratio:+(box.width/box.height).toFixed(4),reducedMotion:motion};
   });
 
-  await runCheck(persona,"13 · same-DOM PNG/PDF export and fresh browser errors",async()=>{
+  await runCheck(persona,"13 · Advanced manual axis and fixed-six color key",async()=>{
+    if(!persona.writable)return"read-only persona has no Advanced presentation controls";
+    await page.setViewportSize({width:1440,height:1000});
+    await navigate(page,"canvas");
+    await page.evaluate(()=>{
+      const api=window.D1_407F_ENGINEERING;
+      const document=api.store.snapshot();
+      document.mode="advanced";
+      document.advanced={...(document.advanced||{}),enteredBefore:true};
+      api.store.replace(document,{label:"Enter Advanced presentation proof",history:false});
+      api.applyDocument();
+    });
+    await page.locator('[data-advanced-panel="timeline"]').click();
+    await page.locator('[data-advanced-target-type="axis"]').click();
+    assert((await page.locator("[data-protected-context-toolbar]:visible").textContent()).includes("Year axis"),"axis rail selection left a stale event toolbar");
+    const mode=page.locator("[data-axis-override-mode]");
+    await mode.waitFor({state:"visible"});
+    await mode.selectOption("manual");
+    await page.waitForFunction(()=>window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis?.mode==="manual");
+    await page.locator('[data-axis-override-field="startYear"]').fill("2008");
+    await page.locator('[data-axis-override-field="startYear"]').press("Tab");
+    await page.waitForFunction(()=>window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis?.startYear===2008);
+    await page.waitForFunction(()=>{
+      const host=[...document.querySelectorAll('d1-timeline-kernel[data-surface="edit"]')]
+        .find((node)=>node.offsetWidth||node.offsetHeight);
+      return host?.shadowRoot?.querySelector("iframe")?.contentDocument
+        ?.querySelector("#axis .yseg span")?.textContent==="2008";
+    });
+    let evidence=await kernelEvidence(await kernel(page,"edit"));
+    const axisLabels=await evidence.frame.locator("#axis .yseg span").allTextContents();
+    assert(axisLabels[0]==="2008",`manual axis did not render 2008: ${axisLabels.join(",")}`);
+    await page.locator('[data-advanced-panel="timeline"]').click();
+    await page.locator('[data-advanced-target-type="color-key"]').click();
+    assert((await page.locator("[data-protected-context-toolbar]:visible").textContent()).includes("Color key"),"Color Key rail selection left a stale event toolbar");
+    let education=page.locator('[data-category-key-id="education"]');
+    const fittedLabel="Medical training milestones 2026";
+    await education.locator('[data-category-key-field="label"]').fill(fittedLabel);
+    await education.locator('[data-category-key-field="label"]').press("Tab");
+    await education.locator('[data-category-key-field="color"]').fill("#123abc");
+    await education.locator('[data-category-key-field="color"]').press("Tab");
+    await page.waitForFunction(()=>window.D1_407F_ENGINEERING.store.document.presentationOverrides?.categoryKey?.[0]?.color==="#123ABC");
+    await page.waitForFunction(()=>{
+      const host=[...document.querySelectorAll('d1-timeline-kernel[data-surface="edit"]')]
+        .find((node)=>node.offsetWidth||node.offsetHeight);
+      return getComputedStyle(host?.shadowRoot?.querySelector("iframe")?.contentDocument
+        ?.querySelector("#key .row .sw")).backgroundColor==="rgb(18, 58, 188)";
+    });
+    await page.waitForFunction((label)=>{
+      const host=[...document.querySelectorAll('d1-timeline-kernel[data-surface="edit"]')]
+        .find((node)=>node.offsetWidth||node.offsetHeight);
+      return host?.shadowRoot?.querySelector("iframe")?.contentDocument
+        ?.querySelector("#key .row span")?.textContent===label;
+    },fittedLabel);
+    const advancedHost=await kernel(page,"edit");
+    evidence=await kernelEvidence(advancedHost);
+    const key=await evidence.frame.locator("#key").evaluate((node)=>({
+      rows:node.querySelectorAll(".row").length,
+      labels:[...node.querySelectorAll(".row span")].map((item)=>item.textContent),
+      colors:[...node.querySelectorAll(".row .sw")].map((item)=>getComputedStyle(item).backgroundColor),
+      sizes:[...node.querySelectorAll(".row span")].map((item)=>getComputedStyle(item).fontSize)
+    }));
+    assert(key.rows===6,`expected six key rows, received ${key.rows}`);
+    assert(key.labels[0]===fittedLabel,`category label not rendered: ${key.labels[0]}`);
+    assert(key.colors[0]==="rgb(18, 58, 188)",`category color not rendered: ${key.colors[0]}`);
+    assert(key.sizes[0]==="16px",`long category label did not use deterministic fit: ${key.sizes[0]}`);
+    assert((await page.locator("[data-protected-context-toolbar]:visible").textContent()).includes("Color key"),"Color Key presentation mutation restored a stale event toolbar");
+    if(captureDir&&persona.id==="administrator"){
+      await page.screenshot({path:`${captureDir}/D1-411A_ADVANCED_CONTROLS.png`,fullPage:true});
+      await advancedHost.screenshot({path:`${captureDir}/D1-411A_MANUAL_AXIS_COLOR_KEY_ARTIFACT.png`});
+    }
+    await page.locator("[data-category-key-reset]").click();
+    await page.locator('[data-advanced-panel="timeline"]').click();
+    await page.locator('[data-advanced-target-type="axis"]').click();
+    await page.locator("[data-axis-override-reset]").click();
+    await page.waitForFunction(()=>!window.D1_407F_ENGINEERING.store.document.presentationOverrides?.categoryKey&&!window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis);
+    evidence=await kernelEvidence(await kernel(page,"edit"));
+    assert(await evidence.frame.locator("#key .row").count()===5,"reset did not restore accepted five-row key");
+    await mode.selectOption("manual");
+    await page.locator('[data-axis-override-field="startYear"]').fill("2008");
+    await page.locator('[data-axis-override-field="startYear"]').press("Tab");
+    await page.locator('[data-advanced-panel="timeline"]').click();
+    await page.locator('[data-advanced-target-type="color-key"]').click();
+    education=page.locator('[data-category-key-id="education"]');
+    await education.locator('[data-category-key-field="label"]').fill(fittedLabel);
+    await education.locator('[data-category-key-field="label"]').press("Tab");
+    await education.locator('[data-category-key-field="color"]').fill("#123abc");
+    await education.locator('[data-category-key-field="color"]').press("Tab");
+    await page.waitForFunction(()=>
+      window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis?.startYear===2008&&
+      window.D1_407F_ENGINEERING.store.document.presentationOverrides?.categoryKey?.[0]?.color==="#123ABC"
+    );
+    evidence=await kernelEvidence(await kernel(page,"edit"));
+    const axisHit=evidence.frame.locator('[data-source-object-id="year-axis"]');
+    await axisHit.click({position:{x:24,y:24}});
+    assert((await page.locator("[data-protected-context-toolbar]:visible").textContent()).includes("Year axis"),"axis selection left a stale event toolbar");
+    const boundary=axisHit.locator('[data-axis-boundary-index="0"]');
+    const boundaryBox=await boundary.boundingBox();
+    assert(boundaryBox,"axis boundary handle is unavailable");
+    await page.evaluate(()=>{
+      window.__d1411aPresentationGestures=[];
+      document.addEventListener("d1-411a:presentation-gesture",(event)=>window.__d1411aPresentationGestures.push(event.detail),{once:true});
+    });
+    await page.mouse.move(boundaryBox.x+boundaryBox.width/2,boundaryBox.y+boundaryBox.height/2);
+    await page.mouse.down();
+    assert(await (await kernel(page,"edit")).evaluate((element)=>element._gesture?.kind==="axis-boundary"),"axis boundary pointerdown did not begin a gesture");
+    await page.mouse.move(boundaryBox.x+boundaryBox.width/2+32,boundaryBox.y+boundaryBox.height/2,{steps:4});
+    assert(await (await kernel(page,"edit")).evaluate((element)=>Array.isArray(element._gesture?.segmentWeights)),"axis boundary pointermove did not preview weights");
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    const axisGestureEvidence=await page.evaluate(()=>({
+      gestures:window.__d1411aPresentationGestures,
+      axis:window.D1_407F_ENGINEERING.store.document.presentationOverrides?.axis
+    }));
+    assert(Array.isArray(axisGestureEvidence.axis?.segmentWeights),`direct axis-boundary drag did not persist segment weights: ${JSON.stringify(axisGestureEvidence)}`);
+    evidence=await kernelEvidence(await kernel(page,"edit"));
+    const keyHit=evidence.frame.locator('[data-source-object-id="color-key"]');
+    await keyHit.click({position:{x:80,y:80}});
+    assert((await page.locator("[data-protected-context-toolbar]:visible").textContent()).includes("Color key"),"Color Key selection left a stale event toolbar");
+    const keyBox=await keyHit.boundingBox();
+    assert(keyBox,"Color Key hit target is unavailable");
+    await page.mouse.move(keyBox.x+80,keyBox.y+80);
+    await page.mouse.down();
+    await page.mouse.move(keyBox.x+112,keyBox.y+80,{steps:4});
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    assert(await page.evaluate(()=>Number(window.D1_407F_ENGINEERING.store.document.presentationOverrides?.colorKeyGeometry?.x)>18),"direct Color Key drag did not persist geometry");
+    evidence=await kernelEvidence(await kernel(page,"edit"));
+    const resizeHandle=evidence.frame.locator('[data-source-object-id="color-key"] [data-handle="se"]');
+    const resizeBox=await resizeHandle.boundingBox();
+    assert(resizeBox,"Color Key resize handle is unavailable");
+    const resizeHitProbe=await resizeHandle.evaluate((node)=>{
+      const bounds=node.getBoundingClientRect();
+      const target=node.ownerDocument.elementFromPoint(bounds.left+bounds.width/2,bounds.top+bounds.height/2);
+      return{tag:target?.tagName||null,handle:target?.dataset?.handle||null,source:target?.closest?.("[data-d1-411a-hit]")?.dataset?.sourceObjectId||null};
+    });
+    await page.evaluate(()=>{
+      window.__d1411aPresentationGestures=[];
+      document.addEventListener("d1-411a:presentation-gesture",(event)=>window.__d1411aPresentationGestures.push(event.detail),{once:true});
+    });
+    await page.mouse.move(resizeBox.x+resizeBox.width/2,resizeBox.y+resizeBox.height/2);
+    await page.mouse.down();
+    const resizeGesture=await (await kernel(page,"edit")).evaluate((element)=>element._gesture&&({kind:element._gesture.kind,startX:element._gesture.startX,startY:element._gesture.startY}));
+    assert(resizeGesture?.kind==="color-key-resize",`Color Key resize handle did not begin a resize gesture: ${JSON.stringify({resizeGesture,resizeHitProbe})}`);
+    await page.mouse.move(resizeBox.x+resizeBox.width/2+30,resizeBox.y+resizeBox.height/2,{steps:4});
+    assert(await (await kernel(page,"edit")).evaluate((element)=>Number(element._gesture?.nextGeometry?.width)>416),"Color Key pointermove did not preview a wider geometry");
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+    const colorKeyResizeEvidence=await page.evaluate(()=>({
+      gestures:window.__d1411aPresentationGestures,
+      geometry:window.D1_407F_ENGINEERING.store.document.presentationOverrides?.colorKeyGeometry
+    }));
+    assert(Number(colorKeyResizeEvidence.geometry?.width)>416,`direct Color Key resize did not persist width: ${JSON.stringify(colorKeyResizeEvidence)}`);
+    return{
+      manualAxisStart:2008,fixedCategoryOrder:6,resetRows:5,
+      directAxisWeights:true,directColorKeyMoveResize:true,staleEventToolbarCleared:true,
+      customStateRestoredForExport:true
+    };
+  });
+
+  await runCheck(persona,"14 · same-DOM PNG/PDF export and fresh browser errors",async()=>{
     await navigate(page,"export");
     const host=await kernel(page,"export");
     const fingerprint=await host.getAttribute("data-fingerprint");
     const button=page.locator("[data-export-action]");
+    const exportDurations={};
     if(!persona.writable){
       assert(await button.isDisabled(),"read-only Export action is enabled");
     }else{
+      const pngStarted=performance.now();
       const [png]=await Promise.all([
         page.waitForEvent("download",{timeout:30000}),
         button.click()
       ]);
+      exportDurations.pngMs=+(performance.now()-pngStarted).toFixed(1);
       assert(png.suggestedFilename().endsWith(".png"),`unexpected PNG filename: ${png.suggestedFilename()}`);
       const pngPath=await png.path();
       assert(pngPath&&statSync(pngPath).size>1000,"PNG export is empty");
+      if(captureDir&&persona.id==="administrator")await png.saveAs(`${captureDir}/D1-411B_EXPORT_1920x1080.png`);
       if(persona.id==="administrator"){
         await page.locator('[name="export-format"][value="pdf-letter-landscape"]').check();
         const suggestion=page.locator("[data-export-suggestion-dismiss]");
         if(await suggestion.count())await suggestion.click();
+        const letterStarted=performance.now();
         const [pdf]=await Promise.all([
           page.waitForEvent("download",{timeout:60000}),
           page.locator("[data-export-action]").click()
         ]);
+        exportDurations.letterPdfMs=+(performance.now()-letterStarted).toFixed(1);
         assert(pdf.suggestedFilename().endsWith(".pdf"),`unexpected PDF filename: ${pdf.suggestedFilename()}`);
         const pdfPath=await pdf.path();
         assert(pdfPath&&statSync(pdfPath).size>1000,"PDF export is empty");
+        const letterBytes=readFileSync(pdfPath).toString("latin1");
+        assert(letterBytes.includes("/MediaBox [0 0 792 612]"),"Letter export is not a true Letter landscape page");
+        assert(letterBytes.includes("792 0 0 445.5 0 83.25 cm"),"Letter export stretched the canonical 16:9 board");
+        if(captureDir)await pdf.saveAs(`${captureDir}/D1-411B_EXPORT_LETTER.pdf`);
+        await page.locator('[name="export-format"][value="pdf-a4-landscape"]').check();
+        const a4Started=performance.now();
+        const [a4]=await Promise.all([
+          page.waitForEvent("download",{timeout:60000}),
+          page.locator("[data-export-action]").click()
+        ]);
+        exportDurations.a4PdfMs=+(performance.now()-a4Started).toFixed(1);
+        const a4Path=await a4.path();
+        assert(a4Path&&statSync(a4Path).size>1000,"A4 PDF export is empty");
+        const a4Bytes=readFileSync(a4Path).toString("latin1");
+        assert(a4Bytes.includes("/MediaBox [0 0 841.89 595.28]"),"A4 export is not a true A4 landscape page");
+        assert(/841\.89 0 0 473\.56312\d* 0 60\.85843\d* cm/.test(a4Bytes),"A4 export stretched the canonical 16:9 board");
+        if(captureDir)await a4.saveAs(`${captureDir}/D1-411B_EXPORT_A4.pdf`);
       }
       const currentExportHost=await kernel(page,"export");
       assert(await currentExportHost.getAttribute("data-protected-kernel")==="D1-409H-A1","Export preview left the protected kernel after download");
     }
     assert(browserErrors.length===0,browserErrors.join("\n"));
-    return persona.writable?{fingerprint,downloads:persona.id==="administrator"?["png","pdf"]:["png"],browserErrors:0}:{fingerprint,downloads:[],browserErrors:0};
+    return persona.writable?{fingerprint,downloads:persona.id==="administrator"?["png","letter-pdf","a4-pdf"]:["png"],durations:exportDurations,browserErrors:0}:{fingerprint,downloads:[],browserErrors:0};
   });
 
   await context.close();
@@ -453,8 +696,8 @@ const summary={
   appUrl,
   generatedAt:new Date().toISOString(),
   personas:personas.map(({id})=>id),
-  workflowsPerPersona:13,
-  expected:personas.length*13,
+  workflowsPerPersona:14,
+  expected:personas.length*14,
   passed:checks.length-failed.length,
   failed:failed.length,
   checks

@@ -31,17 +31,23 @@ export interface PrivateObjectStore {
   confirmUpload(context: PrincipalContext, objectId: string, uploadToken: string): Promise<ObjectRecord>;
   signDownload(context: PrincipalContext, objectId: string): Promise<SignedDownload>;
   putServiceObject(context: PrincipalContext, request: UploadRequest, bytes: Uint8Array): Promise<ObjectRecord>;
+  putOwnedObject(context: PrincipalContext, request: UploadRequest, bytes: Uint8Array): Promise<ObjectRecord>;
   getObject(objectId: string): Promise<ObjectRecord | null>;
+  getAuthorizedObject(context: PrincipalContext, objectId: string): Promise<ObjectRecord | null>;
+  getAuthorizedObjectBytes(context: PrincipalContext, objectId: string): Promise<{record: ObjectRecord; bytes: Uint8Array}>;
   deleteObject(context: PrincipalContext, objectId: string): Promise<void>;
 }
 
 const ALLOWED_MIME = new Set([
   "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "application/json",
   "application/zip",
   "image/png",
   "image/jpeg",
   "image/webp",
+  "image/gif",
   "text/html",
   "text/plain",
 ]);
@@ -53,6 +59,19 @@ const MAX_BYTES: Record<ObjectRecord["objectClass"], number> = {
   PREVIEW: 5 * 1024 * 1024,
   TEMP: 50 * 1024 * 1024,
 };
+
+// Server-mediated ingestion (File Vault handoff) must run under the authenticated owner.
+// SERVICE is the one role every owner check waives, so it may never be substituted for the
+// student: doing so both forges custody and is rejected by every RLS policy in production.
+export function assertOwnedObjectIngestion(context: PrincipalContext, request: UploadRequest, bytes: Uint8Array): void {
+  if (context.role !== "STUDENT") throw new TimelineError("OBJECT_OWNER_ROLE_REQUIRED", "An owning student principal is required.", 403);
+  if (request.ownerPrincipalId && request.ownerPrincipalId !== context.principalId) {
+    throw new TimelineError("OBJECT_OWNER_MISMATCH", "Object owner mismatch.", 403);
+  }
+  if (bytes.byteLength !== request.byteSize || sha256(bytes) !== request.sha256.toLowerCase()) {
+    throw new TimelineError("OBJECT_OWNED_BYTES_INVALID", "Ingested object integrity is invalid.", 400);
+  }
+}
 
 interface PendingUpload {
   record: ObjectRecord;
@@ -158,14 +177,42 @@ export class InMemoryPrivateObjectStore implements PrivateObjectStore {
     return this.confirmUpload(context, signed.objectId, signed.uploadToken);
   }
 
+  async putOwnedObject(context: PrincipalContext, request: UploadRequest, bytes: Uint8Array): Promise<ObjectRecord> {
+    assertOwnedObjectIngestion(context, request, bytes);
+    const signed = await this.signUpload(context, request);
+    await this.acceptTestUpload(signed.objectId, signed.uploadToken, bytes, request.mimeType);
+    return this.confirmUpload(context, signed.objectId, signed.uploadToken);
+  }
+
   async getObject(objectId: string): Promise<ObjectRecord | null> {
     const pending = this.objects.get(objectId);
     return pending ? clone(pending.record) : null;
   }
 
+  async getAuthorizedObject(context: PrincipalContext, objectId: string): Promise<ObjectRecord | null> {
+    const pending = this.objects.get(objectId);
+    if (!pending) return null;
+    if (pending.record.ownerPrincipalId !== context.principalId && context.role !== "SERVICE") {
+      throw new TimelineError("OBJECT_ACCESS_DENIED", "Object access denied.", 403);
+    }
+    return clone(pending.record);
+  }
+
+  async getAuthorizedObjectBytes(context: PrincipalContext, objectId: string): Promise<{record: ObjectRecord; bytes: Uint8Array}> {
+    const pending = this.objects.get(objectId);
+    if (!pending || pending.record.status !== "CONFIRMED" || !pending.record.bytes) {
+      throw new TimelineError("OBJECT_NOT_FOUND", "Object not found.", 404);
+    }
+    if (pending.record.ownerPrincipalId !== context.principalId && context.role !== "SERVICE") {
+      throw new TimelineError("OBJECT_ACCESS_DENIED", "Object access denied.", 403);
+    }
+    return { record: clone(pending.record), bytes: new Uint8Array(pending.record.bytes) };
+  }
+
   async deleteObject(context: PrincipalContext, objectId: string): Promise<void> {
     const pending = this.objects.get(objectId);
-    if (!pending) return;
+    // Absent and not-yours answer alike, so deletion cannot enumerate another student's objects.
+    if (!pending) throw new TimelineError("OBJECT_NOT_FOUND", "Object not found.", 404);
     if (pending.record.ownerPrincipalId !== context.principalId && context.role !== "SERVICE") {
       throw new TimelineError("OBJECT_ACCESS_DENIED", "Object deletion denied.", 403);
     }

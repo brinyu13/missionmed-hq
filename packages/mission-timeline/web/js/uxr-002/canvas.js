@@ -188,7 +188,10 @@ function control(id,label,extra = {}) {
 
 export function canvasResponsiveContract(viewportWidth = 1440) {
   const width = Number.isFinite(Number(viewportWidth)) ? Number(viewportWidth) : 1440;
-  if (width >= 1024) {
+  // A maximized 13-inch Retina Chrome window exposes 983 CSS px after the
+  // browser frame. Keep that real desktop usable without opening editing on
+  // the established 900 px tablet contract.
+  if (width >= 960) {
     return freeze({
       range:"desktop",
       viewOnly:false,
@@ -231,7 +234,7 @@ export function createCanvasZoom(value = "fit") {
   if (String(value).toLowerCase() === "fit") {
     return freeze({mode:"fit",percent:null,label:"Fit",snappingIndicator:false});
   }
-  const percent = Math.min(200,Math.max(50,Math.round(Number(value) || 100)));
+  const percent = Math.min(400,Math.max(25,Math.round(Number(value) || 100)));
   return freeze({
     mode:"percent",
     percent,
@@ -240,22 +243,38 @@ export function createCanvasZoom(value = "fit") {
   });
 }
 
+const ZOOM_SHORTCUTS=Object.freeze({
+  "=":{change:{kind:"step",delta:10}},
+  "+":{change:{kind:"step",delta:10}},
+  "-":{change:{kind:"step",delta:-10}},
+  "_":{change:{kind:"step",delta:-10}},
+  "0":{change:{kind:"preset",value:"fit"}}
+});
+
+function isTypingTarget(target){
+  if(!target)return false;
+  if(target.isContentEditable)return true;
+  return ["INPUT","TEXTAREA","SELECT"].includes(String(target.tagName||"").toUpperCase());
+}
+
 export function updateCanvasZoom(zoom,change) {
   const prior = zoom?.mode === "percent" ? zoom.percent : 100;
   if (change?.kind === "preset") {
     const preset = String(change.value).toLowerCase();
     if (preset === "fit") return createCanvasZoom("fit");
-    if (preset === "100" || preset === "100%") return createCanvasZoom(100);
-    if (preset === "150" || preset === "150%") return createCanvasZoom(150);
-    throw new TypeError("Canvas zoom preset must be Fit, 100%, or 150%.");
+    if(preset==="in")return updateCanvasZoom(zoom,{kind:"step",delta:10});
+    if(preset==="out")return updateCanvasZoom(zoom,{kind:"step",delta:-10});
+    const numeric=Number.parseFloat(preset);
+    if(Number.isFinite(numeric))return createCanvasZoom(numeric);
+    throw new TypeError("Canvas zoom must be Fit or a percentage.");
   }
-  if (change?.kind !== "trackpad") {
-    throw new TypeError("Canvas zoom change must be a preset or trackpad change.");
+  if (!["trackpad","step","direct"].includes(change?.kind)) {
+    throw new TypeError("Canvas zoom change must be a preset, percentage, step, or trackpad change.");
   }
   const requested = change.percent == null
     ? prior + Number(change.delta || 0)
     : Number(change.percent);
-  const percent = Math.min(200,Math.max(50,Math.round(requested)));
+  const percent = Math.min(400,Math.max(25,Math.round(requested)));
   const crossed100 = (prior < 100 && percent >= 100) || (prior > 100 && percent <= 100);
   return freeze({
     mode:"percent",
@@ -286,11 +305,15 @@ export function createCanvasState({
     commentsOpen:false,
     activeAdvisorPinId:null,
     advancedSelection:null,
+    advancedTextEdit:null,
+    advancedPanel:"elements",
+    advancedAssetQuery:"",
     contextMenu:null,
     inlineEdit:null,
     toolbarFocus:false,
     drag:null,
     zoom:createCanvasZoom(zoom),
+    viewport:{x:0,y:0,panning:false},
     liveAnnouncement:"",
     responsive:canvasResponsiveContract(viewportWidth)
   };
@@ -1166,13 +1189,12 @@ function renderModeSwitch(state,disabled) {
 }
 
 function renderZoom(zoom) {
-  const active = zoom?.mode === "fit" ? "fit" : String(zoom?.percent);
+  const value=zoom?.mode==="fit"?100:Number(zoom?.percent||100);
   return `<div class="canvas-zoom" role="group" aria-label="Timeline zoom">
-    ${[
-      ["fit","Fit"],
-      ["100","100%"],
-      ["150","150%"]
-    ].map(([value,label]) => `<button type="button" data-canvas-zoom="${value}" aria-pressed="${active === value}">${label}</button>`).join("")}
+    <button type="button" data-canvas-zoom="out" aria-label="Zoom out">−</button>
+    <label><span class="sr-only">Zoom percentage</span><input type="number" min="25" max="400" step="5" value="${value}" data-canvas-zoom-percent aria-label="Zoom percentage"><span aria-hidden="true">%</span></label>
+    <button type="button" data-canvas-zoom="in" aria-label="Zoom in">+</button>
+    <button type="button" data-canvas-zoom="fit" aria-pressed="${zoom?.mode==="fit"}">Fit</button>
     ${zoom?.snappingIndicator ? '<span class="zoom-snap-indicator" role="status">100%</span>' : ""}
   </div>`;
 }
@@ -1260,6 +1282,25 @@ export function renderContextualToolbar(event,sceneEvent,state) {
   </div>`.replaceAll("<button ","<button tabindex=\"" + focusable + "\" ");
 }
 
+function renderProtectedSelectionToolbar(event,advancedSelection,state){
+  if(!isEditable(state))return"";
+  const labels={
+    axis:"Year axis",
+    "color-key":"Color key",
+    headline:"Timeline title",
+    profile:"Profile card",
+    portrait:"Portrait"
+  };
+  const label=labels[advancedSelection?.type];
+  if(label){
+    return`<div class="canvas-protected-context-toolbar" data-protected-context-toolbar role="toolbar" aria-label="${escapeHtml(label)} controls"><strong>${escapeHtml(label)}</strong><span>Selected · edit in the left panel</span></div>`;
+  }
+  if(event){
+    return`<div class="canvas-protected-context-toolbar" data-protected-context-toolbar role="toolbar" aria-label="${escapeHtml(event.title||"Event")} controls"><strong>${escapeHtml(event.title||"Untitled event")}</strong><button type="button" data-canvas-action="details">Details</button><button type="button" data-canvas-action="duplicate">Duplicate</button><button type="button" data-canvas-action="delete" aria-label="Delete">⌫</button></div>`;
+  }
+  return"";
+}
+
 export function renderCanvasContextMenu(event,state) {
   if (!event || !state.contextMenu || state.contextMenu.eventId !== String(event.id)) return "";
   const items = contextMenuForEvent(event,{mode:"guided"});
@@ -1275,6 +1316,21 @@ function renderInlineEditor(state,sceneEvent) {
   return `<form class="canvas-inline-label" data-inline-label-form style="--canvas-x:${x};--canvas-y:${y}">
     <label class="sr-only" for="canvas-inline-label-input">Event label</label>
     <input id="canvas-inline-label-input" data-inline-label-input value="${escapeHtml(state.inlineEdit.draft)}" autocomplete="off">
+  </form>`;
+}
+
+function renderAdvancedTextEditor(document,state){
+  const edit=state?.advancedTextEdit;
+  if(!edit||state?.mode!=="advanced")return"";
+  const block=(document?.advanced?.textBlocks||[]).find(
+    (item)=>String(item.id)===String(edit.id)
+  );
+  if(!block)return"";
+  const left=Math.max(0,Math.min(100,Number(block.x||0)/1920*100));
+  const top=Math.max(0,Math.min(100,Number(block.y||0)/1080*100));
+  return`<form class="canvas-advanced-text-editor" data-advanced-inline-text-form data-advanced-target-id="${escapeHtml(block.id)}" style="--advanced-text-left:${left}%;--advanced-text-top:${top}%">
+    <label><span class="sr-only">Edit selected text</span><textarea data-advanced-inline-text-input rows="3">${escapeHtml(edit.draft)}</textarea></label>
+    <div><button type="submit">Save text</button><button type="button" data-canvas-action="cancel-advanced-text">Cancel</button></div>
   </form>`;
 }
 
@@ -1413,6 +1469,7 @@ export function renderCanvas({
   let board = emptyBoardMarkup(viewState);
   let scene = null;
   let selectedSceneEvent = null;
+  let usingProtectedPresentation=false;
 
   if ((document?.events || []).length) {
     const rendered = renderBoard(document,{
@@ -1437,6 +1494,7 @@ export function renderCanvas({
         ""
       );
     const protectedPresentation=String(rendered.kind||"").startsWith("d1-411a-");
+    usingProtectedPresentation=protectedPresentation;
     const presentation=protectedPresentation
       ?rendered.html
       :interactiveBoardSvg(rendered.svg,scene,viewState);
@@ -1444,6 +1502,7 @@ export function renderCanvas({
       ${presentation}
       ${renderSelectionHandles(selected,selectedSceneEvent,viewState)}
       ${renderInlineEditor(viewState,selectedSceneEvent)}
+      ${renderAdvancedTextEditor(document,viewState)}
       ${viewState.drag?.active ? `<output class="canvas-date-tooltip" role="status">${escapeHtml(viewState.drag.liveTooltip)}</output>` : ""}
     </div>`;
   }
@@ -1458,6 +1517,8 @@ export function renderCanvas({
     ? String(renderAdvanced(document,{
       backgroundOpen:!!viewState.backgroundOpen,
       activeTab:viewState.backgroundTab,
+      activePanel:viewState.advancedPanel,
+      query:viewState.advancedAssetQuery,
       selection:viewState.advancedSelection
     }) || "")
     : "";
@@ -1476,6 +1537,7 @@ export function renderCanvas({
       ${board}
       ${commentMarkup}
       ${renderContextualToolbar(selected,selectedSceneEvent,viewState)}
+      ${usingProtectedPresentation?renderProtectedSelectionToolbar(selected,viewState.advancedSelection,viewState):""}
       ${renderCanvasContextMenu(selected,viewState)}
     </div>
     <div class="sr-only" aria-live="polite" aria-atomic="true" data-canvas-live>${escapeHtml(viewState.liveAnnouncement)}</div>
@@ -1566,7 +1628,90 @@ export function installCanvas(
   let versions = [];
   let destroyed = false;
   let pointer = null;
+  let panPointer = null;
   let effectiveHitFrame=0;
+
+  const copyElementAttributes=(target,source)=>{
+    if(!target?.attributes||!source?.attributes)return;
+    for(const attribute of [...target.attributes]){
+      if(!source.hasAttribute(attribute.name))target.removeAttribute(attribute.name);
+    }
+    for(const attribute of [...source.attributes]){
+      target.setAttribute(attribute.name,attribute.value);
+    }
+  };
+
+  const patchPersistentCanvas=(markup)=>{
+    if(
+      !globalThis.document?.createElement||
+      !root.querySelector||
+      !root.replaceChildren
+    )return false;
+    const currentScreen=root.querySelector(":scope > .canvas-screen");
+    if(!currentScreen)return false;
+    const template=globalThis.document.createElement("template");
+    template.innerHTML=markup;
+    const nextScreen=template.content.firstElementChild;
+    if(!nextScreen?.matches?.(".canvas-screen"))return false;
+    if(currentScreen.dataset.mode!==nextScreen.dataset.mode)return false;
+    const currentStage=currentScreen.querySelector(":scope > .canvas-stage");
+    const nextStage=nextScreen.querySelector(":scope > .canvas-stage");
+    const currentApplication=currentStage?.querySelector(":scope > .canvas-application");
+    const nextApplication=nextStage?.querySelector(":scope > .canvas-application");
+    const currentKernel=currentApplication?.querySelector(":scope > d1-timeline-kernel");
+    const nextKernel=nextApplication?.querySelector(":scope > d1-timeline-kernel");
+    if(
+      !currentStage||!nextStage||!currentApplication||!nextApplication||
+      !currentKernel||!nextKernel||
+      currentKernel.dataset.kernelToken!==nextKernel.dataset.kernelToken
+    )return false;
+
+    copyElementAttributes(currentScreen,nextScreen);
+    copyElementAttributes(currentStage,nextStage);
+    copyElementAttributes(currentApplication,nextApplication);
+
+    for(const child of [...currentApplication.children]){
+      // Removing a focused inspector/editor node can synchronously fire blur,
+      // which may trigger a nested render that already detaches later nodes in
+      // this snapshot. Recheck ownership before every removal so the outer
+      // patch remains idempotent under that re-entrant render.
+      if(child!==currentKernel&&child.parentNode===currentApplication)child.remove();
+    }
+    for(const child of [...nextApplication.children]){
+      if(child!==nextKernel)currentApplication.append(child);
+    }
+
+    for(const child of [...currentStage.children]){
+      if(child!==currentApplication&&child.parentNode===currentStage)child.remove();
+    }
+    for(const child of [...nextStage.children]){
+      if(child!==nextApplication)currentStage.append(child);
+    }
+
+    const nextStageIndex=[...nextScreen.children].indexOf(nextStage);
+    for(const child of [...currentScreen.children]){
+      if(child!==currentStage&&child.parentNode===currentScreen)child.remove();
+    }
+    [...nextScreen.children].forEach((child,index)=>{
+      if(child===nextStage)return;
+      if(index<nextStageIndex)currentScreen.insertBefore(child,currentStage);
+      else currentScreen.append(child);
+    });
+    Promise.resolve(currentKernel.updateProjection?.()).catch((error)=>{
+      currentKernel.dataset.error=String(error?.code||error?.message||error);
+      currentKernel.dataset.errorMessage="We could not apply that layout change. Your last working timeline is still available.";
+      currentKernel.dispatchEvent?.(new CustomEvent("d1-411a:error",{
+        bubbles:true,
+        composed:true,
+        detail:{surface:currentKernel.dataset.surface,error}
+      }));
+      console.error("Timeline canvas update unavailable",{
+        surface:currentKernel.dataset.surface,
+        code:String(error?.code||"RENDER_UNAVAILABLE")
+      });
+    });
+    return true;
+  };
 
   const installEffectiveHitTargets=()=>{
     const priorProxies=[...(root.querySelectorAll?.(
@@ -1625,7 +1770,7 @@ export function installCanvas(
     }
     if(!rootBounds?.width||!rootBounds?.height)return;
     const targets=root.querySelectorAll?.(
-      "[data-canvas-event],[data-advanced-media],[data-advanced-text]"
+      "[data-canvas-event],[data-advanced-media],[data-advanced-text],[data-advanced-element]"
     )||[];
     let proxySequence=0;
     for(const target of targets){
@@ -1650,6 +1795,7 @@ export function installCanvas(
         "data-event-id",
         "data-advanced-media",
         "data-advanced-text",
+        "data-advanced-element",
         "data-media-kind",
         "aria-selected"
       ]){
@@ -1701,7 +1847,9 @@ export function installCanvas(
       renderCommentLayer,
       renderDetails
     });
-    const commit=()=>{root.innerHTML=markup;};
+    const commit=()=>{
+      if(!patchPersistentCanvas(markup))root.innerHTML=markup;
+    };
     if(animateLayout&&typeof globalThis.document?.startViewTransition==="function"){
       globalThis.document.startViewTransition(commit);
     }else{
@@ -1730,6 +1878,10 @@ export function installCanvas(
         root.querySelector?.("[data-context-toolbar] button")?.focus();
       } else if (focus === "inline") {
         root.querySelector?.("[data-inline-label-input]")?.focus();
+      } else if (focus === "advanced-text") {
+        const input=root.querySelector?.("[data-advanced-inline-text-input]");
+        input?.focus();
+        input?.select?.();
       } else if (focus === "history") {
         root.querySelector?.(".history-slide-over button")?.focus();
       } else if (focus === "details") {
@@ -1854,7 +2006,7 @@ export function installCanvas(
       return;
     }
     if (zoomTarget) {
-      setState({...state,zoom:updateCanvasZoom(state.zoom,{kind:"preset",value:zoomTarget.dataset.canvasZoom})});
+      setState({...state,zoom:updateCanvasZoom(state.zoom,{kind:"preset",value:zoomTarget.dataset.canvasZoom}),addEventOpen:false,themeOpen:false});
       return;
     }
     if (restoreTarget) {
@@ -1918,22 +2070,25 @@ export function installCanvas(
         event.target.closest?.(".canvas-stage") &&
         !event.target.closest?.("[data-context-toolbar],.canvas-context-menu")
       ) {
-        setState(deselectCanvas(state));
+        setState({...deselectCanvas(state),addEventOpen:false,themeOpen:false,categoryMenuOpen:false,contextMenu:null});
       }
       return;
     }
     if (EDITING_ACTIONS.has(action)) assertEditable(state);
 
     if (action === "add-event") {
-      setState({...state,addEventOpen:!state.addEventOpen,contextMenu:null});
+      setState({...state,addEventOpen:!state.addEventOpen,themeOpen:false,contextMenu:null});
     } else if (action === "undo") {
       announceResult(undoCanvas(store).announcement);
     } else if (action === "redo") {
       announceResult(redoCanvas(store).announcement);
+    } else if (action === "duplicate"&&state.selectedEventId) {
+      const result=duplicateCanvasEvent(store,state.selectedEventId);
+      setState({...state,selectedEventId:result.event.id,liveAnnouncement:result.announcement});
     } else if (action === "theme") {
       const opening=!state.themeOpen;
       setState(
-        {...state,themeOpen:opening},
+        {...state,themeOpen:opening,addEventOpen:false,contextMenu:null},
         {focus:opening&&isEditable(state)?"theme-picker":"theme-trigger"}
       );
       onTheme({state,document:store.document});
@@ -1964,6 +2119,8 @@ export function installCanvas(
     } else if (action === "guided") {
       if (store.document?.mode === "advanced") onGuided({state,document:store.document});
       else announceResult("Guided Mode selected");
+    } else if (action === "cancel-advanced-text") {
+      setState({...state,advancedTextEdit:null,liveAnnouncement:"Text edit canceled"});
     } else if (action === "open-builder") {
       onOpenBuilder();
     } else if (action === "details") {
@@ -2024,10 +2181,49 @@ export function installCanvas(
     });
   };
 
+  // Committing on change re-renders once, so the field settles on the clamped value.
+  const onZoomCommit = (event) => {
+    if(!event.target.matches?.("[data-canvas-zoom-percent]"))return;
+    const value=Number(event.target.value);
+    if(!Number.isFinite(value))return;
+    setState({
+      ...state,
+      zoom:updateCanvasZoom(state.zoom,{kind:"direct",percent:value}),
+      liveAnnouncement:`Zoom ${Math.min(400,Math.max(25,Math.round(value)))} percent`
+    });
+  };
+
   const onInput = (event) => {
+    if(event.target.matches?.("[data-canvas-zoom-percent]")){
+      // A full re-render replaces every toolbar child, which detached this very input
+      // mid-keystroke and made the field impossible to type in. Apply the viewport
+      // change in place instead: the kernel's ResizeObserver refits the board from the
+      // same inline width/data attributes renderCanvas writes, with no re-projection.
+      const value=Number(event.target.value);
+      if(!Number.isFinite(value)||value<25||value>400)return;
+      state={...state,zoom:updateCanvasZoom(state.zoom,{kind:"direct",percent:value})};
+      const application=root.querySelector?.(".canvas-application");
+      if(application){
+        application.style.width=`${1920*state.zoom.percent/100}px`;
+        application.style.maxWidth="none";
+        application.dataset.zoomMode="percent";
+        application.dataset.zoomPercent=String(state.zoom.percent);
+      }
+      onStateChange(state);
+      return;
+    }
     if(!isEditable(state))return;
     if (event.target.matches?.("[data-inline-label-input]")) {
       state = updateInlineLabelDraft(state,event.target.value);
+      onStateChange(state);
+    } else if(event.target.matches?.("[data-advanced-inline-text-input]")){
+      state={
+        ...state,
+        advancedTextEdit:{
+          ...state.advancedTextEdit,
+          draft:String(event.target.value??"")
+        }
+      };
       onStateChange(state);
     } else if (event.target.name === "versionName") {
       state = {...state,historyName:event.target.value};
@@ -2044,6 +2240,21 @@ export function installCanvas(
       event.preventDefault();
       const result = commitInlineLabelEdit(store,state);
       setState(result.state,{focus:"selected"});
+    } else if(event.target.matches?.("[data-advanced-inline-text-form]")){
+      event.preventDefault();
+      const edit=state.advancedTextEdit;
+      if(!edit)return;
+      const changed=store.mutate("Edit Advanced text",(document)=>{
+        const block=(document.advanced?.textBlocks||[]).find(
+          (item)=>String(item.id)===String(edit.id)
+        );
+        if(block)block.text=String(edit.draft??"");
+      });
+      setState({
+        ...state,
+        advancedTextEdit:null,
+        liveAnnouncement:changed?"Text updated":"Text unchanged"
+      });
     } else if (event.target.matches?.("[data-history-name-form]")) {
       event.preventDefault();
       const version = await saveManualCanvasVersion(store,state.historyName,{now:now()});
@@ -2075,6 +2286,17 @@ export function installCanvas(
   const onKeyDown = (event) => {
     if (state.toolbarFocus && trapToolbarTab(event,root)) return;
     if(trapCanvasDialogTab(event,root))return;
+    // Zoom shortcuts every visual editor is expected to answer. Skipped while typing so
+    // they never steal a keystroke from a text field or an inline label editor.
+    if((event.metaKey||event.ctrlKey)&&!event.altKey&&!isTypingTarget(event.target)){
+      const zoomKey=ZOOM_SHORTCUTS[event.key];
+      if(zoomKey){
+        event.preventDefault();
+        const zoom=updateCanvasZoom(state.zoom,zoomKey.change);
+        setState({...state,zoom,liveAnnouncement:zoom.mode==="fit"?"Zoom fit to screen":`Zoom ${zoom.percent} percent`});
+        return;
+      }
+    }
     if (event.key === "Escape") {
       if (state.themeOpen) {
         event.preventDefault();
@@ -2131,6 +2353,13 @@ export function installCanvas(
       }
       return;
     }
+    if(event.target.matches?.("[data-advanced-inline-text-input]")){
+      if(event.key==="Escape"){
+        event.preventDefault();
+        setState({...state,advancedTextEdit:null,liveAnnouncement:"Text edit canceled"});
+      }
+      return;
+    }
     const insideCanvas = event.target.closest?.(".canvas-application,[data-canvas-event],[data-context-toolbar]");
     const commandUndo = isEditable(state) && (
       (event.metaKey || event.ctrlKey) &&
@@ -2157,14 +2386,31 @@ export function installCanvas(
     }
   };
 
-  const onWheel = (event) => {
-    if (!event.ctrlKey && !event.metaKey) return;
-    event.preventDefault();
-    const delta = event.deltaY < 0 ? 5 : -5;
+  const applyTrackpadZoom = (deltaY) => {
+    const delta = deltaY < 0 ? 5 : -5;
     setState({...state,zoom:updateCanvasZoom(state.zoom,{kind:"trackpad",delta})});
   };
 
+  const onWheel = (event) => {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    applyTrackpadZoom(event.deltaY);
+  };
+
+  // The board lives in a separate document, so a wheel over it never reaches this
+  // listener. The kernel host forwards the modifier-wheel out as a typed event.
+  const onKernelWheelZoom = (event) => {
+    applyTrackpadZoom(Number(event.detail?.deltaY||0));
+  };
+
   const onPointerDown = (event) => {
+    const stage=event.target.closest?.(".canvas-stage");
+    if(stage&&event.button===1){
+      panPointer={stage,startX:event.clientX,startY:event.clientY,scrollLeft:stage.scrollLeft,scrollTop:stage.scrollTop};
+      stage.setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+      return;
+    }
     if (!isEditable(state) || event.button !== 0) return;
     const handle = event.target.closest?.("[data-drag-kind]");
     const target = handle
@@ -2196,6 +2442,12 @@ export function installCanvas(
   };
 
   const onPointerMove = (event) => {
+    if(panPointer){
+      panPointer.stage.scrollLeft=panPointer.scrollLeft-(event.clientX-panPointer.startX);
+      panPointer.stage.scrollTop=panPointer.scrollTop-(event.clientY-panPointer.startY);
+      event.preventDefault();
+      return;
+    }
     if (!pointer) return;
     if(!isEditable(state)){
       pointer=null;
@@ -2240,6 +2492,7 @@ export function installCanvas(
   };
 
   const onPointerUp = () => {
+    if(panPointer){panPointer=null;return;}
     if (!pointer) return;
     if(!isEditable(state)){
       pointer=null;
@@ -2262,10 +2515,12 @@ export function installCanvas(
   root.addEventListener("dblclick",onDoubleClick);
   root.addEventListener("contextmenu",onContextMenu);
   root.addEventListener("input",onInput);
+  root.addEventListener("change",onZoomCommit);
   root.addEventListener("submit",onSubmit);
   root.addEventListener("focusin",onFocusIn);
   root.addEventListener("keydown",onKeyDown);
   root.addEventListener("wheel",onWheel,{passive:false});
+  root.addEventListener("d1-411a:wheel-zoom",onKernelWheelZoom);
   root.addEventListener("pointerdown",onPointerDown);
   globalThis.document?.addEventListener("pointermove",onPointerMove);
   globalThis.document?.addEventListener("pointerup",onPointerUp);
@@ -2293,10 +2548,12 @@ export function installCanvas(
       root.removeEventListener("dblclick",onDoubleClick);
       root.removeEventListener("contextmenu",onContextMenu);
       root.removeEventListener("input",onInput);
+      root.removeEventListener("change",onZoomCommit);
       root.removeEventListener("submit",onSubmit);
       root.removeEventListener("focusin",onFocusIn);
       root.removeEventListener("keydown",onKeyDown);
       root.removeEventListener("wheel",onWheel);
+      root.removeEventListener("d1-411a:wheel-zoom",onKernelWheelZoom);
       root.removeEventListener("pointerdown",onPointerDown);
       globalThis.document?.removeEventListener("pointermove",onPointerMove);
       globalThis.document?.removeEventListener("pointerup",onPointerUp);

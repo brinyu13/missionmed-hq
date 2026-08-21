@@ -13,6 +13,23 @@ const expected=Object.keys(manifest.files).sort();if(JSON.stringify(actual)!==JS
 for(const path of expected){const file=join(dist,path);const bytes=await readFile(file);const details=await stat(file);const entry=manifest.files[path];if(details.size!==entry.bytes||createHash("sha256").update(bytes).digest("hex")!==entry.sha256)throw new Error(`RELEASE_HASH_MISMATCH:${path}`);}
 for(const forbidden of ["js/uxr-002/locked-407f-artifact.js","js/uxr-002/board-renderer.js","js/uxr-002/app.js","styles/legacy-406a.css"]){if(expected.includes(forbidden))throw new Error(`LEGACY_RELEASE_PATH_PRESENT:${forbidden}`);}
 for(const privateFixture of ["karaoke.jpg","newborn.jpg","nicu.jpg","profile_sample.jpg","ski.jpg","wedding.jpg"]){if(expected.some((path)=>path.endsWith(`/assets/photos/${privateFixture}`)))throw new Error(`PRIVATE_FIXTURE_PRESENT:${privateFixture}`);}
+/* Runtime-critical assets. The protected kernel probes three of these textures before it
+   will render at all and throws ASSET_LOAD_FAILED if any is missing - a failure the host
+   cannot recover from on a first load - so a release that omits one blanks every student's
+   timeline. They live only in the accepted-asset root, never in web/, which is exactly why
+   their absence is easy to ship unnoticed. Fail the release instead. */
+const REQUIRED_RUNTIME_ASSETS=[
+  ...["board_denim.jpg","leather_pebble.png","paper_bond.png","paper_hotpress.png","paper_rc.png","print_grain.png","satin.png","sticky_pulp.jpg"].map((name)=>`presentation/d1-409h-a1/assets/tex/${name}`),
+  "presentation/d1-409h-a1/assets/photos/us_flag.png",
+  ...["ptserif-400","ptserif-700","ptserif-700i","archivo-600","archivo-800","quicksand-500","quicksand-700","cutive-400","caveat-700"].map((name)=>`presentation/d1-409h-a1/assets/fonts/${name}.woff2`),
+  ...["axis_left_end_cap_exact_crop_402a.png","axis_chevron_body_segment_exact_crop_402a.png","axis_right_end_cap_exact_crop_402a.png"].map((name)=>`assets/keynote_classic_402a/axis/${name}`),
+  ...["title_plaque_exact_layer_402a.png","color_key_panel_exact_layer_402a.png","profile_card_exact_layer_402a.png"].map((name)=>`assets/keynote_classic_402a/chrome/${name}`)
+];
+const missingRuntimeAssets=REQUIRED_RUNTIME_ASSETS.filter((path)=>!manifest.files[path]||!(manifest.files[path].bytes>0));
+if(missingRuntimeAssets.length)throw new Error(`RELEASE_RUNTIME_ASSET_MISSING:${missingRuntimeAssets.join(",")}`);
+const CORE_PROTECTED_TEXTURES=["board_denim.jpg","paper_bond.png","leather_pebble.png"].map((name)=>`presentation/d1-409h-a1/assets/tex/${name}`);
+const missingCoreTextures=CORE_PROTECTED_TEXTURES.filter((path)=>!manifest.files[path]);
+if(missingCoreTextures.length)throw new Error(`RELEASE_CORE_TEXTURE_MISSING:${missingCoreTextures.join(",")}`);
 const index=await readFile(join(dist,"index.html"),"utf8");if(!index.includes('<base href="/timeline/">')||!index.includes('D1_TIMELINE_RUNTIME_MODE="production"'))throw new Error("CANONICAL_PRODUCTION_BOOT_MISSING");
 if(!index.includes('timelineLegacyStateScrubbed="true"'))throw new Error("PRODUCTION_LEGACY_STATE_SCRUB_MISSING");
-console.log(JSON.stringify({ok:true,release_id:manifest.release_id,files:expected.length,hashes_verified:expected.length}));
+console.log(JSON.stringify({ok:true,release_id:manifest.release_id,files:expected.length,hashes_verified:expected.length,runtime_assets_verified:REQUIRED_RUNTIME_ASSETS.length}));

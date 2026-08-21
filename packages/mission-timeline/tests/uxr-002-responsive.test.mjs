@@ -228,8 +228,8 @@ test("M14 1024–1279 stacks Home and collapses Builder preview while preserving
   }
 });
 
-test("M14 768–1023 tablet uses five bottom tabs and exact Canvas view-only capabilities without over-disabling",() => {
-  for (const [width,height] of [[1023,768],[768,1024]]) {
+test("M14 tablet navigation preserves view-only Canvas below the 960px desktop-editor floor",() => {
+  for (const [width,height] of [[959,768],[768,1024]]) {
     const model = modelAt(width,{height,touch:true});
     assert.equal(model.navigation.placement,"bottom-tab-bar");
     assert.equal(model.navigation.itemCount,5);
@@ -260,6 +260,17 @@ test("M14 768–1023 tablet uses five bottom tabs and exact Canvas view-only cap
     assert.equal(isResponsiveCapabilityAllowed(model,"canvas","pan"),true);
     assert.equal(isResponsiveCapabilityAllowed(model,"canvas","zoom"),true);
     assert.equal(isResponsiveCapabilityAllowed(model,"canvas","theme"),true);
+  }
+});
+
+test("M14 a maximized Retina Chrome viewport keeps tablet navigation while enabling the desktop editor",()=>{
+  for(const width of [960,983,1023]){
+    const model=modelAt(width,{height:810,touch:false});
+    assert.equal(model.tier.id,"tablet");
+    assert.equal(model.navigation.placement,"bottom-tab-bar");
+    assert.equal(model.screens.canvas.contentMode,"interactive");
+    assert.equal(model.screens.canvas.editing,true);
+    assert.equal(model.screens.canvas.banner,null);
   }
 });
 
@@ -410,7 +421,7 @@ test("M14 render hooks select full, view-only, or preview content and emit only 
   assert.match(desktopHtml,/<main>interactive<\/main>/);
   assert.doesNotMatch(desktopHtml,/data-responsive-banner/);
 
-  const tablet = modelAt(1023,{height:768,touch:true});
+  const tablet = modelAt(900,{height:768,touch:true});
   const tabletHtml = renderResponsiveFrame({
     model:tablet,
     screen:"canvas",

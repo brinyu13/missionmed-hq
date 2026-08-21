@@ -85,7 +85,7 @@ test("the 407F engineering adapter owns IntakeStateMachine, D1-408 extraction, r
   );
   assert.match(
     engineeringAdapter,
-    /import\s*\{\s*createD1408PdfIntakeAdapter\s*\}\s*from\s*"\.\/uxr-002\/intake-d1-408-adapter\.js"/
+    /import\s*\{[\s\S]*\bcreateD1408PdfIntakeAdapter\b[\s\S]*\bcreateProductionCvIntakeAdapter\b[\s\S]*\}\s*from\s*"\.\/uxr-002\/intake-d1-408-adapter\.js"/
   );
   assert.match(engineeringAdapter,/new IntakeStateMachine\s*\(/);
   assert.match(engineeringAdapter,/createD1408PdfIntakeAdapter\s*\(/);

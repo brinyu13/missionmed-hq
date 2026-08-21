@@ -3,6 +3,7 @@ import {readFile} from "node:fs/promises";
 import test from "node:test";
 
 import {
+  ALL_ROTATION_SPECIALTIES,
   PINNED_ROTATION_SPECIALTIES,
   normalizeSpecialtyId,
   rankSpecialtyMatches,
@@ -18,19 +19,21 @@ const index=await readFile(
   "utf8"
 );
 
-test("M7 pins the ten founder-specified common specialties in alphabetical order",()=>{
+test("RC1 opens with the eleven Founder-specified residency-facing specialties",()=>{
   assert.deepEqual(PINNED_ROTATION_SPECIALTIES,[
-    "Anesthesiology",
-    "Diagnostic Radiology",
-    "Family Medicine",
-    "General Surgery",
     "Internal Medicine",
-    "Interventional Radiology",
-    "Neurology",
-    "Obstetrics and Gynecology",
+    "Family Medicine",
     "Pediatrics",
-    "Psychiatry"
+    "Psychiatry",
+    "General Surgery",
+    "Obstetrics and Gynecology",
+    "Emergency Medicine",
+    "Neurology",
+    "Anesthesiology",
+    "Radiology",
+    "Pathology"
   ]);
+  assert.ok(ALL_ROTATION_SPECIALTIES.length>=130);
   const matches=[
     "Vascular Surgery",
     "Pediatrics",
@@ -41,9 +44,9 @@ test("M7 pins the ten founder-specified common specialties in alphabetical order
   assert.deepEqual(
     rankSpecialtyMatches(matches).map(({value})=>value),
     [
-      "Anesthesiology",
       "Internal Medicine",
       "Pediatrics",
+      "Anesthesiology",
       "Dermatology",
       "Vascular Surgery"
     ]
@@ -66,7 +69,7 @@ test("M7 stores a stable normalized specialty ID with the factual rotation",()=>
   assert.equal(event.fields.specialtyId,"acgme:internal-medicine");
 });
 
-test("M7 specialty selector opens with pinned choices and prohibits unsupported free text",()=>{
+test("M7 specialty selector opens with unlabeled pinned choices and prohibits unsupported free text",()=>{
   const rows=typeaheadRows("",[
     specialtyOption("Anesthesiology"),
     specialtyOption("Internal Medicine")
@@ -81,6 +84,8 @@ test("M7 specialty selector opens with pinned choices and prohibits unsupported 
     index,
     /domainTypeahead404\('Specialty','specialty',draft\.specialty,'specialties',\{required:true,allowFreeText:false\}\)/
   );
-  assert.match(index,/builderTypeaheadPinned/);
+  assert.match(index,/Start typing to find another specialty\./);
+  assert.match(index,/data-typeahead-toggle404/);
+  assert.doesNotMatch(index,/builderTypeaheadPinned">COMMON/);
   assert.match(index,/changes\.specialtyId=/);
 });

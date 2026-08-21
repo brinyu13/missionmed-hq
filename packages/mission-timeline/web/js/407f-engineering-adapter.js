@@ -25,6 +25,18 @@ import {
   computeStoryChecks
 } from "./uxr-002/review.js";
 import {
+  analyzeTimelineQuality,
+  applySafeQualityFixes,
+  deterministicFindingsForAi,
+  mergeAiQualityAnalysis,
+  qualityGuardianViewer,
+  renderQualityGuardian
+} from "./uxr-002/quality-guardian.js";
+import {
+  appendTimelineAiFeedback,
+  classifyTimelineAiCandidateOutcome
+} from "./uxr-002/ai-feedback.js";
+import {
   beginCanvasDrag,
   commitCanvasDrag,
   createCanvasState,
@@ -56,11 +68,14 @@ import {
   monthFieldMarkup
 } from "./uxr-002/month-field.js";
 import {
+  MEDIA_LIBRARY_ACCEPT,
   createMediaLibraryAsset,
   mediaKindForFile,
   mediaLibraryMarkup,
   nudgeMediaLibraryAsset,
   placeMediaLibraryAsset,
+  removeMediaLibraryAsset,
+  replaceMediaLibraryAsset,
   unplaceMediaLibraryAsset
 } from "./uxr-002/media-library.js";
 import {assignStableLanes} from "./uxr-002/adaptive-layout.js";
@@ -69,22 +84,42 @@ import {
   applyAdvancedObjectAction,
   applyAdvancedTypography,
   applyModeSwitch,
+  advancedGroupBounds,
+  constrainAdvancedObjectToBoard,
   createFlatColorBackground,
+  createAdvancedElement,
   createMediaElement,
   createPresetBackground,
   createTextBlock,
   createUploadedBackground,
   installAdvancedStudio,
+  groupAdvancedObjects,
   moveMediaElement,
   planModeSwitch,
   recordRecentColor,
   renderAdvancedStudio,
   renderModeDialog,
+  resetAxisPresentationOverride,
+  resetColorKeyGeometryPresentationOverride,
+  resetCategoryKeyPresentationOverride,
   resizeMediaElement,
   relativeLuminanceFromRgb,
   sampleEyeDropper,
+  snapAdvancedObjectToBoard,
   setBackgroundDim,
+  setAxisPresentationOverride,
+  setAxisSegmentWeights,
+  placeAdvancedObjectAt,
+  setAdvancedObjectGeometry,
+  setCategoryKeyPresentationOverride,
+  setColorKeyGeometryPresentationOverride,
   setLayoutLock,
+  setAdvancedObjectLock,
+  setAdvancedObjectAspectLock,
+  setMediaAspectLock,
+  ungroupAdvancedObjects,
+  updateMediaPresentation,
+  updateTextContainerPresentation,
   updateTextBlockContent,
   validateBackgroundUpload,
   validateMediaUpload
@@ -135,7 +170,10 @@ import {
   installIntake,
   renderIntake
 } from "./uxr-002/intake.js";
-import {createD1408PdfIntakeAdapter} from "./uxr-002/intake-d1-408-adapter.js";
+import {
+  createD1408PdfIntakeAdapter,
+  createProductionCvIntakeAdapter
+} from "./uxr-002/intake-d1-408-adapter.js";
 import {
   queryFileVaultSource,
   renderFileVaultSourceChooser,
@@ -146,8 +184,15 @@ import {
   buildResponsiveModel,
   focusScreenHeading,
   installFocusTrap,
-  installResponsiveRuntime
+  installResponsiveRuntime,
+  renderResponsiveNotice
 } from "./uxr-002/responsive.js";
+import {
+  studentAccessMessage,
+  studentDiagnostic,
+  studentError,
+  studentMessage
+} from "./uxr-002/student-language.js";
 import {
   LOR_GUIDED_STATUS_OPTIONS,
   createLocalQueuedLorBuilderAdapter,
@@ -717,6 +762,75 @@ function escapeMarkup(value){
   })[character]);
 }
 
+export function productionPrivacyControlMarkup(identity){
+  if(identity?.role!=="STUDENT")return"";
+  const action=escapeMarkup(identity.consentAction);
+  const endpoint=escapeMarkup(identity.consentEndpoint||identity.consentAction);
+  const nonce=escapeMarkup(identity.consentNonce);
+  if(identity.remoteSyncConsent!==true){
+    return`<aside class="timelineSecureSaveCard" data-timeline-privacy-control role="region" aria-labelledby="timelineSecureSaveTitle">
+      <p class="timelineSecureSaveEyebrow">Secure access across devices</p>
+      <h2 id="timelineSecureSaveTitle">Keep your Timeline with you.</h2>
+      <p>Your work is already safe on this device. Turn on secure saving when you want to reopen it on your other authorized MissionMed devices.</p>
+      <form method="post" action="${action}" data-consent-endpoint="${endpoint}" class="timelineSecureSaveForm">
+        <input type="hidden" name="action" value="missionmed_timeline_consent">
+        <input type="hidden" name="_wpnonce" value="${nonce}">
+        <input type="hidden" name="timeline_remote_sync_action" value="grant">
+        <label><input required type="checkbox" name="timeline_remote_sync_consent" value="grant"> <span>I agree to securely save my Timeline in my private MissionMed account.</span></label>
+        <div class="timelineSecureSaveActions">
+          <button type="submit" class="btnD go">TURN ON SECURE SAVING ▸</button>
+          <a href="${escapeMarkup(identity.matrixUrl)}">Not now — return to Matrix</a>
+        </div>
+        <p class="timelineSecureSaveStatus" data-consent-status role="status" aria-live="polite"></p>
+      </form>
+    </aside>`;
+  }
+  return`<details class="timelineSecureSaveManage" data-timeline-privacy-control>
+    <summary>Secure saving is on · Privacy settings</summary>
+    <div>
+      <p>Your Timeline is available on your authorized MissionMed devices. Turning this off keeps this device copy and stops remote saving.</p>
+      <form method="post" action="${action}" data-consent-endpoint="${endpoint}">
+        <input type="hidden" name="action" value="missionmed_timeline_consent">
+        <input type="hidden" name="_wpnonce" value="${nonce}">
+        <input type="hidden" name="timeline_remote_sync_action" value="withdraw">
+        <button type="submit" class="homeTertiary">Turn off secure saving</button>
+        <p class="timelineSecureSaveStatus" data-consent-status role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </details>`;
+}
+
+function installProductionPrivacyControl(identity){
+  if(identity?.role!=="STUDENT")return;
+  const host=document.querySelector(".homeBuildRegion>.pi");
+  if(!host||host.querySelector("[data-timeline-privacy-control]"))return;
+  host.insertAdjacentHTML("beforeend",productionPrivacyControlMarkup(identity));
+  const form=host.querySelector("[data-timeline-privacy-control] form");
+  if(!form)return;
+  form.addEventListener("submit",async(event)=>{
+    event.preventDefault();
+    if(form.dataset.submitting==="true")return;
+    const button=form.querySelector('button[type="submit"]');
+    const status=form.querySelector("[data-consent-status]");
+    form.dataset.submitting="true";
+    if(button)button.disabled=true;
+    if(status)status.textContent="Updating secure saving…";
+    try{
+      const response=await fetch(form.dataset.consentEndpoint||form.action,{
+        method:"POST",credentials:"same-origin",cache:"no-store",
+        headers:{accept:"application/json"},body:new FormData(form),signal:AbortSignal.timeout(20_000)
+      });
+      const payload=await response.json().catch(()=>({}));
+      if(!response.ok||payload?.success!==true)throw new Error(String(payload?.data?.code||"TIMELINE_CONSENT_UPDATE_FAILED"));
+      location.reload();
+    }catch(error){
+      form.dataset.submitting="false";
+      if(button)button.disabled=false;
+      if(status)status.textContent="Secure saving could not be updated. Try again.";
+    }
+  });
+}
+
 function persistedIntakeState(state){
   const value=clone(state);
   if(value.stage==="done"){
@@ -807,17 +921,40 @@ function createObjectUrlRegistry(){
       if(prior)URL.revokeObjectURL(prior);
       urls.delete(key);
     },
-    async hydrate(store,document){
+    async hydrate(store,document,{remoteLoader=null,onError=()=>{}}={}){
       const advanced=document?.advanced||{};
-      const ids=[
-        advanced.background?.kind==="upload"?advanced.background.mediaId:null,
-        ...(advanced.media||[]).map((item)=>item.id)
-      ].filter(Boolean);
+      const objects=[
+        advanced.background?.kind==="upload"
+          ?{
+            id:advanced.background.mediaId,
+            blobKey:advanced.background.source?.blobKey,
+            objectId:advanced.background.source?.objectId
+          }
+          :null,
+        ...(advanced.media||[]).map((item)=>({
+          id:item.id,
+          blobKey:item.source?.blobKey,
+          objectId:item.source?.objectId
+        }))
+      ].filter((item)=>item?.id);
       let changed=false;
-      for(const id of ids){
+      for(const {id,blobKey,objectId} of objects){
         if(urls.has(String(id)))continue;
-        const blob=await store.adapter.getBlob(String(id));
-        if(blob){this.set(id,blob);changed=true;}
+        try{
+          let blob=await store.adapter.getBlob(String(blobKey||id));
+          if(!blob&&objectId&&typeof remoteLoader==="function"){
+            blob=await remoteLoader(String(objectId));
+            if(blob)await store.adapter.putBlob(String(id),blob,{
+              kind:"private-media-cache",
+              objectId:String(objectId),
+              localOnly:false,
+              cachedAt:new Date().toISOString()
+            });
+          }
+          if(blob){this.set(id,blob);changed=true;}
+        }catch(error){
+          onError(error,{id:String(id),objectId:String(objectId||"")});
+        }
       }
       return changed;
     },
@@ -826,6 +963,48 @@ function createObjectUrlRegistry(){
       urls.clear();
     }
   };
+}
+
+export function productionMediaSource(objectId,contentSha256){
+  const durableId=String(objectId||"").trim();
+  const checksum=String(contentSha256||"").trim().toLowerCase();
+  if(!durableId)throw new TypeError("A durable private-media object ID is required.");
+  if(!/^[a-f0-9]{64}$/.test(checksum))throw new TypeError("A private-media SHA-256 checksum is required.");
+  return Object.freeze({
+    objectId:durableId,
+    contentSha256:checksum,
+    localOnly:false,
+    url:null
+  });
+}
+
+export function remoteSyncPresentation(state){
+  const result={
+    LOCAL_SAVED:["SAVED LOCALLY — SYNC PENDING","isSaving"],
+    SYNC_PENDING:["SAVED LOCALLY — SYNC PENDING","isSaving"],
+    SYNCING:["SYNCING…","isSaving"],
+    SYNCED:["SAVED & SYNCED","isSaved"],
+    CONFLICT:["SYNC CONFLICT — REVIEW","isError"],
+    ERROR:["LOCAL SAVE — SYNC RETRY","isError"],
+    OFFLINE:["SAVED LOCALLY — OFFLINE","isSaving"],
+    LOCAL_ONLY:["SAVED LOCALLY","isSaved"]
+  }[String(state||"")];
+  return result?Object.freeze({text:result[0],className:result[1]}):null;
+}
+
+export function timelineRenderSignature(document){
+  return JSON.stringify({
+    id:document?.id||"",
+    theme:document?.theme||"",
+    mode:document?.mode||"",
+    title:document?.title||"",
+    studentProfile:document?.studentProfile||null,
+    events:document?.events||[],
+    advanced:document?.advanced||null,
+    presentationOverrides:document?.presentationOverrides||null,
+    interview:document?.metadata?.interview||null,
+    specialties:document?.specialties||document?.specialtyVariants||null
+  });
 }
 
 const MAX_IMAGE_DIMENSION=8192;
@@ -908,7 +1087,15 @@ function chooseLocalFile(accept){
     const input=document.createElement("input");
     input.type="file";
     input.accept=accept;
-    input.addEventListener("change",()=>resolve(input.files?.[0]||null),{once:true});
+    input.tabIndex=-1;
+    input.style.cssText="position:fixed;left:-10000px;top:auto;width:1px;height:1px;opacity:0;pointer-events:none;";
+    document.body.append(input);
+    const finish=(file)=>{
+      input.remove();
+      resolve(file||null);
+    };
+    input.addEventListener("change",()=>finish(input.files?.[0]),{once:true});
+    input.addEventListener("cancel",()=>finish(null),{once:true});
     input.click();
   });
 }
@@ -1057,6 +1244,39 @@ function installLocalMatrixAppMode({store,locationObject=window.location}={}){
   return runtime;
 }
 
+export function installProductionMatrixReturn({store,productionRuntime,locationObject=window.location}={}){
+  const back=document.getElementById("matrixBack");
+  const matrixUrl=productionRuntime?.authClient?.bootstrapState?.matrixUrl;
+  if(!back||!matrixUrl)return null;
+  const target=new URL(matrixUrl,locationObject.href);
+  if(target.origin!==locationObject.origin)throw new Error("Timeline Matrix return target must be same-origin.");
+  back.href=target.href;
+  back.title="Return to Matrix";
+  back.setAttribute("aria-label","Save and return to Matrix dashboard");
+  back.onclick=async(event)=>{
+    event.preventDefault();
+    if(back.dataset.returning==="true")return;
+    back.dataset.returning="true";
+    back.setAttribute("aria-disabled","true");
+    try{
+      await store.flushPendingSave("RETURN_TO_MATRIX");
+      const result=await store.adapter?.flush?.();
+      if(Number(result?.pending||0)>0){
+        throw new Error("Timeline is still syncing. Try returning to Matrix again in a moment.");
+      }
+      locationObject.assign(target.href);
+    }catch(error){
+      back.dataset.returning="false";
+      back.removeAttribute("aria-disabled");
+      window.D1_407F_TEST?.toast?.(studentMessage(error,{context:"save"}),{
+        tone:"danger",
+        diagnostic:studentDiagnostic(error)
+      });
+    }
+  };
+  return Object.freeze({mode:"MATRIX_PRODUCTION",returnUrl:target.href});
+}
+
 export async function boot407FEngineeringAdapter({
   bridge=window.D1_407F_TEST,
   store=null
@@ -1075,6 +1295,7 @@ export async function boot407FEngineeringAdapter({
   const productionRuntime=runtimeMode==="production"
     ?await prepareTimelineProductionRuntime()
     :null;
+  const privateMediaStorageEnabled=productionRuntime?.privateMediaStorageEnabled===true;
   if(productionRuntime){
     window.D1_TIMELINE_PRODUCTION_ASSERTION=productionRuntime.assertion;
     window.D1_TIMELINE_PRODUCTION_BINDING=productionRuntime.expectedBinding;
@@ -1085,9 +1306,9 @@ export async function boot407FEngineeringAdapter({
   if(runtimeMode==="production"){
     store.document.metadata={
       ...(store.document.metadata||{}),
-      localOnly:false,
-      productionWrites:true,
-      authority:"timeline-server"
+      localOnly:!productionRuntime?.remotePersistenceAllowed,
+      productionWrites:productionRuntime?.remotePersistenceAllowed===true,
+      authority:productionRuntime?.remotePersistenceAllowed?"timeline-server":"timeline-device"
     };
   }
   const entitlementAdapter=runtimeMode==="production"
@@ -1122,9 +1343,175 @@ export async function boot407FEngineeringAdapter({
     expectedBinding:entitlementAdapter.expectedBinding||null
   });
   store.setEntitlement(entitlement);
+  let unsubscribeAuthClaims=()=>{};
+  let reflectStoreStatus=()=>{};
+  let syncConflictDialog=null;
+  let closeSyncConflictDialog=()=>{};
+  let remoteSyncStatus=productionRuntime?.adapter?.getSyncStatus?.()||null;
+  const onRemoteSyncStatus=(event)=>{
+    remoteSyncStatus=event?.detail||productionRuntime?.adapter?.getSyncStatus?.()||null;
+    reflectStoreStatus();
+  };
+  if(productionRuntime){
+    unsubscribeAuthClaims=productionRuntime.authClient.subscribeClaims((claims)=>{
+      const renewedAssertion=productionRuntime.assertionForClaims(claims);
+      const renewedEntitlement=evaluateTimelineEntitlement(renewedAssertion,{
+        mode:runtimeMode,
+        hasExistingTimeline:true,
+        expectedBinding:productionRuntime.expectedBinding
+      });
+      store.setEntitlement(renewedEntitlement);
+    });
+    window.addEventListener("mission-timeline-sync",onRemoteSyncStatus);
+  }
   const runtimeDatasets=createRuntimeDatasets();
   const lorBuilderAdapter=createLocalQueuedLorBuilderAdapter();
   const mediaUrls=createObjectUrlRegistry();
+  const ensureRemoteDocumentForMedia=async()=>{
+    if(!privateMediaStorageEnabled)return;
+    const stateKey=`remote-revision:${store.document.id}`;
+    if(await store.adapter.get("settings",stateKey))return;
+    await store.saveNow("PREPARE_PRIVATE_MEDIA_UPLOAD");
+    const result=await store.adapter.flush();
+    if(Number(result?.pending||0)>0||!(await store.adapter.get("settings",stateKey))){
+      throw new Error("Timeline must finish syncing before media can be uploaded.");
+    }
+  };
+  const MAX_PRODUCTION_MEDIA_BYTES=15*1024*1024;
+  const prepareMediaPersistence=async(file,{id,kind,contentSha256})=>{
+    const metadata={
+      kind,
+      name:file.name,
+      type:file.type,
+      size:file.size,
+      localOnly:!privateMediaStorageEnabled
+    };
+    if(!privateMediaStorageEnabled){
+      return{
+        source:{
+          name:file.name,
+          type:file.type,
+          size:file.size,
+          blobKey:id,
+          contentSha256,
+          localOnly:true,
+          url:null
+        },
+        blob:{key:id,blob:file,metadata},
+        rollback:async()=>{}
+      };
+    }
+    if(file.size>MAX_PRODUCTION_MEDIA_BYTES){
+      throw new TypeError("Timeline media must be 15 MB or smaller for secure syncing.");
+    }
+    await ensureRemoteDocumentForMedia();
+    let objectId="";
+    try{
+      const grant=await productionRuntime.authClient.signObjectUpload(
+        store.document.id,
+        {mimeType:file.type,byteSize:file.size,sha256:contentSha256,objectClass:"MEDIA"}
+      );
+      objectId=String(grant.objectId||"");
+      let confirmed;
+      try{
+        await productionRuntime.authClient.uploadSignedObject(grant,file);
+        confirmed=await productionRuntime.authClient.confirmObjectUpload(
+          objectId,
+          grant.uploadToken
+        );
+      }catch(error){
+        if(String(error?.code||"")!=="OBJECT_UPLOAD_NETWORK_FAILED")throw error;
+        await productionRuntime.authClient.deleteObject(objectId).catch(()=>{});
+        objectId="";
+        confirmed=await productionRuntime.authClient.uploadOwnedObject(
+          store.document.id,
+          file,
+          {sha256:contentSha256,objectClass:"MEDIA"}
+        );
+        objectId=String(confirmed?.id||"");
+      }
+      if(String(confirmed?.status||"")!=="CONFIRMED"){
+        throw new Error("Timeline media upload could not be confirmed.");
+      }
+      return{
+        source:{
+          name:file.name,
+          type:file.type,
+          size:file.size,
+          ...productionMediaSource(objectId,contentSha256)
+        },
+        blob:{
+          key:id,
+          blob:file,
+          metadata:{...metadata,localOnly:false,objectId,confirmedAt:confirmed.confirmedAt||new Date().toISOString()}
+        },
+        rollback:async()=>{
+          await productionRuntime.authClient.deleteObject(objectId).catch(()=>{});
+        }
+      };
+    }catch(error){
+      if(objectId)await productionRuntime.authClient.deleteObject(objectId).catch(()=>{});
+      throw error;
+    }
+  };
+  const mediaRetirementKey=(objectId)=>
+    `private-media-retirement:${store.document.id}:${String(objectId)}`;
+  const mediaObjectIdsInDocument=(timeline)=>new Set([
+    timeline?.advanced?.background?.kind==="upload"
+      ?timeline.advanced.background.source?.objectId
+      :null,
+    ...(timeline?.advanced?.media||[]).map((item)=>item.source?.objectId)
+  ].filter(Boolean).map(String));
+  const queueDurableMediaRetirement=async(objectId)=>{
+    if(!privateMediaStorageEnabled||!objectId)return false;
+    const id=mediaRetirementKey(objectId);
+    await store.adapter.put("settings",{
+      id,
+      documentId:store.document.id,
+      objectId:String(objectId),
+      createdAt:new Date().toISOString(),
+      reason:"USER_MEDIA_REPLACEMENT_OR_DELETION"
+    });
+    return true;
+  };
+  const cancelDurableMediaRetirement=async(objectId)=>{
+    if(!privateMediaStorageEnabled||!objectId)return;
+    await store.adapter.delete("settings",mediaRetirementKey(objectId));
+  };
+  const processDurableMediaRetirements=async()=>{
+    if(!privateMediaStorageEnabled)return{deleted:0,pending:0};
+    const prefix=`private-media-retirement:${store.document.id}:`;
+    const records=await store.adapter.list(
+      "settings",
+      (record)=>String(record?.id||"").startsWith(prefix)
+    );
+    const referenced=mediaObjectIdsInDocument(store.document);
+    const eligible=records.filter(({objectId})=>!referenced.has(String(objectId)));
+    if(!eligible.length)return{deleted:0,pending:records.length};
+    await store.flushPendingSave("RETIRE_PRIVATE_MEDIA");
+    const result=await store.adapter.flush();
+    if(Number(result?.pending||0)>0){
+      return{deleted:0,pending:records.length};
+    }
+    let deleted=0;
+    for(const record of eligible){
+      await productionRuntime.authClient.deleteObject(String(record.objectId));
+      await store.adapter.delete("settings",record.id);
+      deleted+=1;
+    }
+    return{deleted,pending:records.length-deleted};
+  };
+  const retireDurableMediaObject=async(objectId)=>{
+    if(!privateMediaStorageEnabled||!objectId)return false;
+    await queueDurableMediaRetirement(objectId);
+    const result=await processDurableMediaRetirements();
+    return result.deleted>0;
+  };
+  queueMicrotask(()=>{
+    processDurableMediaRetirements().catch(()=>{
+      console.warn("Timeline private-media cleanup remains queued for a later synced session.");
+    });
+  });
   const matrixCalendarAdapter=createUnavailableMatrixCalendarAdapter();
   const matrixCalendarState=await matrixCalendarAdapter
     .listScheduledInterviews();
@@ -1170,6 +1557,18 @@ export async function boot407FEngineeringAdapter({
   let onAdvancedPointerDown=()=>{};
   let onAdvancedPointerMove=()=>{};
   let onAdvancedPointerUp=()=>{};
+  let onAdvancedRailDragOver=()=>{};
+  let onAdvancedRailDrop=()=>{};
+  let onAdvancedRailNativeDragStart=()=>{};
+  let onAdvancedRailNativeDragEnd=()=>{};
+  let onKernelAdvancedSelect=()=>{};
+  let onKernelAdvancedGesture=()=>{};
+  let onKernelAdvancedTextEditing=()=>{};
+  let onKernelAdvancedText=()=>{};
+  let onKernelAdvancedDrop=()=>{};
+  let onKernelAdvancedCommand=()=>{};
+  let onKernelRejected=()=>{};
+  let advancedTextSelectionTimer=null;
   let onCanvasResize=()=>{};
   let on407FRendered=()=>{};
   let onAdvisorHashChange=()=>{};
@@ -1193,6 +1592,7 @@ export async function boot407FEngineeringAdapter({
   let onM9BuilderClick=()=>{};
   let onM9BuilderChange=()=>{};
   let onEntitlementCapture=()=>{};
+  let onQualityGuardianCapture=()=>{};
   let renderM9BuilderSurfaces=()=>{};
   let onRouteRendered=()=>{};
   let responsiveRuntime=null;
@@ -1221,7 +1621,7 @@ export async function boot407FEngineeringAdapter({
 
   if(entitlement.canMutate&&(init.restored||entitlement.canCreate)){
     store.mutate(
-      "Normalize canonical exam workflow",
+      "Tidy up your exam entries",
       (document)=>normalizeExamDocument(document),
       {history:false,material:false}
     );
@@ -1236,6 +1636,17 @@ export async function boot407FEngineeringAdapter({
   bridge.renderAll();
   lastState=stableState(bridge.state);
   applying=false;
+
+  /* Every student-facing failure leaves this file through here. The untranslated text goes
+     to the console and onto the toast as a data attribute for support; only the translated
+     sentence reaches the screen. */
+  const toastStudentError=(error,context="generic")=>{
+    const translated=studentError(error,{context});
+    console.warn("Timeline student-facing error",translated.diagnostic,error);
+    bridge.toast(translated.message,{tone:"danger",diagnostic:translated.diagnostic});
+    return translated.message;
+  };
+  const entitlementStudentReason=()=>entitlementStatusMarkup(store.entitlement).reason;
 
   let pending=false;
   const entitlementViewControl=(control)=>control?.matches?.([
@@ -1379,7 +1790,7 @@ export async function boot407FEngineeringAdapter({
     lastState=stableState(bridge.state);
     applying=false;
     applyEntitlementSurface();
-    bridge.toast(store.entitlement.reason);
+    bridge.toast(entitlementStudentReason(),{tone:"warning",diagnostic:store.entitlement.reason});
   };
   for(const eventName of ["click","input","change","drop"]){
     document.addEventListener(eventName,onEntitlementCapture,true);
@@ -1413,7 +1824,7 @@ export async function boot407FEngineeringAdapter({
       lastState=nextState;
       if(store.entitlement.canMutate===true){
         store.mutate(
-          "407F canonical UI change",
+          "Timeline edit",
           (document)=>apply407FStateToDocument(bridge.state,document)
         );
       }else{
@@ -1450,7 +1861,7 @@ export async function boot407FEngineeringAdapter({
     if(nextState!==lastState&&store.entitlement.canMutate===true){
       lastState=nextState;
       store.mutate(
-        "407F page exit",
+        "Timeline edit",
         (document)=>apply407FStateToDocument(bridge.state,document)
       );
     }
@@ -1460,18 +1871,31 @@ export async function boot407FEngineeringAdapter({
     advisorCleanup();
     clearTimeout(advisorHighlightTimer);
     intakeCleanup();
+    closeSyncConflictDialog();
     mediaUrls.revokeAll();
     unsubscribeStore();
+    unsubscribeAuthClaims();
+    window.removeEventListener("mission-timeline-sync",onRemoteSyncStatus);
     entitlementObserver?.disconnect();
     for(const eventName of ["click","input","change","drop"]){
       document.removeEventListener(eventName,onEntitlementCapture,true);
     }
+    document.removeEventListener("click",onQualityGuardianCapture,true);
     document.getElementById("canvas407F")?.removeEventListener("click",onCanvasDetailsClick);
     document.getElementById("canvas407F")?.removeEventListener("click",onAdvancedObjectClick);
     document.getElementById("canvas407F")?.removeEventListener("keydown",onAdvancedObjectKeyDown);
-    document.getElementById("canvas407F")?.removeEventListener("pointerdown",onAdvancedPointerDown);
+    canvasHost?.removeEventListener("pointerdown",onAdvancedPointerDown);
+    canvasHost?.removeEventListener("mousedown",onAdvancedPointerDown);
+    canvasHost?.removeEventListener("dragover",onAdvancedRailDragOver);
+    canvasHost?.removeEventListener("drop",onAdvancedRailDrop);
+    canvasHost?.removeEventListener("dragstart",onAdvancedRailNativeDragStart);
+    document.removeEventListener("dragend",onAdvancedRailNativeDragEnd);
     document.removeEventListener("pointermove",onAdvancedPointerMove);
+    document.removeEventListener("mousemove",onAdvancedPointerMove);
     document.removeEventListener("pointerup",onAdvancedPointerUp);
+    document.removeEventListener("mouseup",onAdvancedPointerUp);
+    document.removeEventListener("pointercancel",onAdvancedPointerUp);
+    document.querySelectorAll("[data-advanced-alignment-guides]").forEach((node)=>node.remove());
     window.removeEventListener("resize",onCanvasResize);
     document.removeEventListener("d1:407f-rendered",on407FRendered);
     document.removeEventListener("d1:407f-rendered",onRouteRendered);
@@ -1500,8 +1924,17 @@ export async function boot407FEngineeringAdapter({
     document.removeEventListener("drop",onMediaLibraryDrop);
     document.removeEventListener("d1-411a:interaction",onKernelInteraction);
     document.removeEventListener("d1-411a:gesture",onKernelGesture);
+    document.removeEventListener("d1-411a:presentation-gesture",onKernelPresentationGesture);
+    document.removeEventListener("d1-411a:advanced-select",onKernelAdvancedSelect);
+    document.removeEventListener("d1-411a:advanced-gesture",onKernelAdvancedGesture);
+    document.removeEventListener("d1-411a:advanced-text-editing",onKernelAdvancedTextEditing);
+    document.removeEventListener("d1-411a:advanced-text",onKernelAdvancedText);
+    document.removeEventListener("d1-411a:advanced-drop",onKernelAdvancedDrop);
+    document.removeEventListener("d1-411a:advanced-command",onKernelAdvancedCommand);
+    document.removeEventListener("d1-411a:rejected",onKernelRejected);
     document.removeEventListener("d1-411a:command",onKernelCommand);
     document.removeEventListener("d1-411a:media-drop",onKernelMediaDrop);
+    clearTimeout(advancedTextSelectionTimer);
     document.removeEventListener("click",onSpecialtyVariantClick);
     document.removeEventListener("change",onSpecialtyVariantChange);
     document.getElementById("modalBk")?.removeEventListener(
@@ -1790,9 +2223,15 @@ export async function boot407FEngineeringAdapter({
       announceGlobal(`${result.active.name} is now active`);
     });
   };
-  const syncBridgeFromStore=()=>{
+  const syncBridgeStateFromStore=()=>{
     applying=true;
     applyDocumentTo407FState(store.document,bridge.state);
+    lastState=stableState(bridge.state);
+    applying=false;
+  };
+  const syncBridgeFromStore=()=>{
+    syncBridgeStateFromStore();
+    applying=true;
     bridge.renderAll();
     renderSpecialtyVariantBar();
     renderM9BuilderSurfaces();
@@ -1837,13 +2276,17 @@ export async function boot407FEngineeringAdapter({
     if(!root)return null;
     const card=active.closest?.("[data-media-asset]");
     const action=active.closest?.(
-      "[data-media-place], [data-media-unplace], [data-media-nudge], [data-media-upload]"
+      "[data-media-place], [data-media-unplace], [data-media-replace], [data-media-delete], [data-media-nudge], [data-media-upload]"
     );
     return{
       rootId:root.id,
       assetId:card?.dataset.mediaAsset||null,
       action:action?.hasAttribute("data-media-nudge")
         ?`nudge-${action.dataset.mediaNudge}`
+        :action?.hasAttribute("data-media-delete")
+          ?"delete"
+          :action?.hasAttribute("data-media-replace")
+            ?"replace"
         :action?.hasAttribute("data-media-unplace")
         ?"unplace"
         :action?.hasAttribute("data-media-place")
@@ -1866,6 +2309,10 @@ export async function boot407FEngineeringAdapter({
       target=card?.querySelector(
         state.action?.startsWith("nudge-")
           ?`[data-media-nudge="${CSS.escape(state.action.slice(6))}"]`
+          :state.action==="delete"
+            ?"[data-media-delete]"
+            :state.action==="replace"
+              ?"[data-media-replace]"
           :state.action==="unplace"
             ?"[data-media-unplace], [data-media-place]"
             :"[data-media-place], [data-media-unplace]"
@@ -1880,17 +2327,25 @@ export async function boot407FEngineeringAdapter({
     )?.matches;
     const page=document.getElementById("media407F");
     const drawer=document.getElementById("mediaDrawer407FContent");
+    const mediaBadge=document.querySelector(".media407FLocalBadge");
+    if(mediaBadge){
+      mediaBadge.textContent=privateMediaStorageEnabled
+        ?"PRIVATE · SECURELY SYNCED"
+        :"LOCAL DEVICE ONLY";
+    }
     if(page){
       page.innerHTML=mediaLibraryMarkup(mediaItems(),{
         resolveObjectUrl:(id)=>mediaUrls.get(id),
-        reducedMotion
+        reducedMotion,
+        durableOnline:privateMediaStorageEnabled
       });
     }
     if(drawer){
       drawer.innerHTML=mediaLibraryMarkup(mediaItems(),{
         resolveObjectUrl:(id)=>mediaUrls.get(id),
         compact:true,
-        reducedMotion
+        reducedMotion,
+        durableOnline:privateMediaStorageEnabled
       });
     }
     const canvasHost=document.getElementById("canvas407F");
@@ -1937,7 +2392,7 @@ export async function boot407FEngineeringAdapter({
       if(placed)document.advanced.media=result.media;
     });
     if(!placed)return false;
-    syncBridgeFromStore();
+    syncBridgeStateFromStore();
     renderMediaLibrarySurfaces();
     bridge.toast("Media placed on timeline");
     announceGlobal("Media placed on timeline");
@@ -1951,6 +2406,131 @@ export async function boot407FEngineeringAdapter({
       x:Math.max(0,Math.min(1920,(event.clientX-bounds.left)/bounds.width*1920)),
       y:Math.max(0,Math.min(1080,(event.clientY-bounds.top)/bounds.height*1080))
     };
+  };
+  const replaceMediaLibraryItem=async(id)=>{
+    const current=mediaItems().find((item)=>String(item.id)===String(id));
+    if(!current)throw new Error("That image is no longer in your timeline.");
+    const file=await chooseLocalFile(MEDIA_LIBRARY_ACCEPT.join(","));
+    if(!file)return false;
+    const metrics=await imageMetrics(file,{kind:mediaKindForFile(file)});
+    const replacement=createMediaLibraryAsset({
+      id:current.id,
+      file,
+      naturalWidth:metrics.width,
+      naturalHeight:metrics.height,
+      layerIndex:current.layerIndex
+    });
+    const contentSha256=await sha256File(file);
+    const persistence=await prepareMediaPersistence(file,{
+      id:current.id,
+      kind:"media-library",
+      contentSha256
+    });
+    replacement.source=persistence.source;
+    const priorObjectId=current.source?.objectId;
+    if(priorObjectId)await queueDurableMediaRetirement(priorObjectId);
+    try{
+      await store.mutateWithBlobs(
+        "Replace Media asset",
+        (document)=>{
+          const result=replaceMediaLibraryAsset(
+            document.advanced.media,
+            current.id,
+            replacement
+          );
+          if(!result.changed)throw new Error("That image is no longer in your timeline.");
+          document.advanced.media=result.media;
+        },
+        {blobs:[persistence.blob],reason:"REPLACE_MEDIA_ASSET"}
+      );
+    }catch(error){
+      if(priorObjectId)await cancelDurableMediaRetirement(priorObjectId);
+      await persistence.rollback();
+      throw error;
+    }
+    mediaUrls.set(current.id,file);
+    syncBridgeFromStore();
+    renderMediaLibrarySurfaces();
+    let cleanupComplete=true;
+    if(priorObjectId){
+      cleanupComplete=await retireDurableMediaObject(priorObjectId);
+    }
+    const message=cleanupComplete
+      ?"Image replaced"
+      :"Image replaced. We are still tidying up the old file, and your timeline is safe.";
+    bridge.toast(message);
+    announceGlobal(message);
+    return true;
+  };
+  const deleteMediaLibraryItem=async(id)=>{
+    const current=mediaItems().find((item)=>String(item.id)===String(id));
+    if(!current)throw new Error("That image is no longer in your timeline.");
+    const priorObjectId=current.source?.objectId;
+    if(priorObjectId)await queueDurableMediaRetirement(priorObjectId);
+    try{
+      await store.mutateWithBlobs(
+        "Delete Media asset",
+        (document)=>{
+          document.advanced.media=removeMediaLibraryAsset(
+            document.advanced.media,
+            current.id
+          );
+        },
+        {blobs:[],reason:"DELETE_MEDIA_ASSET"}
+      );
+    }catch(error){
+      if(priorObjectId)await cancelDurableMediaRetirement(priorObjectId);
+      throw error;
+    }
+    mediaUrls.revoke(current.id);
+    await store.adapter.deleteBlob(String(current.id)).catch(()=>{});
+    syncBridgeFromStore();
+    renderMediaLibrarySurfaces();
+    let cleanupComplete=true;
+    if(priorObjectId){
+      cleanupComplete=await retireDurableMediaObject(priorObjectId);
+    }
+    const message=cleanupComplete
+      ?"Image deleted"
+      :"Image removed. We are still deleting the stored file, and your timeline is safe.";
+    bridge.toast(message);
+    announceGlobal(message);
+    return true;
+  };
+  const openDeleteMediaLibraryDialog=(id)=>{
+    const current=mediaItems().find((item)=>String(item.id)===String(id));
+    if(!current)return;
+    const name=escapeMarkup(current.source?.name||"this image");
+    const dialog=openStandardModal(`<section class="export407FSuggestionDialog" role="dialog" aria-modal="true" aria-labelledby="media407FDeleteTitle" data-media-delete-dialog>
+      <p class="k">DELETE THIS IMAGE</p>
+      <h2 id="media407FDeleteTitle">Delete ${name}?</h2>
+      <p>This takes the image off your timeline everywhere it appears, and deletes the stored copy once your timeline is safely saved.</p>
+      <div class="export407FDialogActions">
+        <button type="button" class="btnD alt" data-media-delete-cancel>Cancel</button>
+        <button type="button" class="btnD go" data-media-delete-confirm>Delete image</button>
+      </div>
+    </section>`,"[data-media-delete-dialog]");
+    dialog?.querySelector("[data-media-delete-cancel]")?.addEventListener(
+      "click",
+      ()=>closeStandardModal(),
+      {once:true}
+    );
+    dialog?.querySelector("[data-media-delete-confirm]")?.addEventListener(
+      "click",
+      async()=>{
+        const confirm=dialog.querySelector("[data-media-delete-confirm]");
+        confirm.disabled=true;
+        try{
+          await deleteMediaLibraryItem(id);
+          closeStandardModal({restoreFocus:false});
+        }catch(error){
+          confirm.disabled=false;
+          const message=toastStudentError(error,"media");
+          announceGlobal(`That image could not be deleted. ${message}`);
+        }
+      },
+      {once:true}
+    );
   };
   onMediaLibraryClick=(event)=>{
     const open=event.target.closest?.("[data-open-media-library]");
@@ -1968,6 +2548,22 @@ export async function boot407FEngineeringAdapter({
     if(place){
       event.preventDefault();
       commitMediaPlacement(place.dataset.mediaPlace);
+      return;
+    }
+    const replace=event.target.closest?.("[data-media-replace]");
+    if(replace){
+      event.preventDefault();
+      replaceMediaLibraryItem(replace.dataset.mediaReplace)
+        .catch((error)=>{
+          const message=toastStudentError(error,"media");
+          announceGlobal(`That image could not be replaced. ${message}`);
+        });
+      return;
+    }
+    const remove=event.target.closest?.("[data-media-delete]");
+    if(remove){
+      event.preventDefault();
+      openDeleteMediaLibraryDialog(remove.dataset.mediaDelete);
       return;
     }
     const unplace=event.target.closest?.("[data-media-unplace]");
@@ -2022,6 +2618,7 @@ export async function boot407FEngineeringAdapter({
     const existing=mediaItems();
     const additions=[];
     const blobs=[];
+    const rollbacks=[];
     for(const file of files){
       if([...existing,...additions].some((item)=>
         item.source?.name===file.name&&
@@ -2043,24 +2640,17 @@ export async function boot407FEngineeringAdapter({
           naturalHeight:metrics.height,
           layerIndex:existing.length+additions.length
         });
-        asset.source.blobKey=id;
-        asset.source.contentSha256=await sha256File(file);
-        additions.push(asset);
-        blobs.push({
-          key:id,
-          blob:file,
-          metadata:{
-            kind:"media-library",
-            name:file.name,
-            type:file.type,
-            size:file.size,
-            localOnly:true
-          }
+        const contentSha256=await sha256File(file);
+        const persistence=await prepareMediaPersistence(file,{
+          id,kind:"media-library",contentSha256
         });
+        asset.source=persistence.source;
+        additions.push(asset);
+        blobs.push(persistence.blob);
+        rollbacks.push(persistence.rollback);
       }catch(error){
-        const message=String(error?.message||error);
-        bridge.toast(message);
-        announceGlobal(`${file.name} could not be added: ${message}`);
+        const message=toastStudentError(error,"media");
+        announceGlobal(`${file.name} could not be added. ${message}`);
       }
     }
     if(!additions.length)return;
@@ -2071,17 +2661,17 @@ export async function boot407FEngineeringAdapter({
         {blobs,reason:"ADD_MEDIA_ASSETS"}
       );
     }catch(error){
-      const message=String(error?.message||error);
-      bridge.toast(message);
-      announceGlobal("Media could not be added");
+      await Promise.allSettled(rollbacks.map((rollback)=>rollback()));
+      toastStudentError(error,"media");
+      announceGlobal("Those images could not be added.");
       return;
     }
     additions.forEach((asset,index)=>mediaUrls.set(asset.id,blobs[index].blob));
     syncBridgeFromStore();
     renderMediaLibrarySurfaces();
-    bridge.toast(`${additions.length} Media asset${additions.length===1?"":"s"} added`);
+    bridge.toast(`${additions.length} image${additions.length===1?"":"s"} added`);
     announceGlobal(
-      `${additions.length} Media asset${additions.length===1?"":"s"} added`
+      `${additions.length} image${additions.length===1?"":"s"} added`
     );
   };
   onMediaLibraryDragStart=(event)=>{
@@ -2095,7 +2685,7 @@ export async function boot407FEngineeringAdapter({
     event.dataTransfer.setData("text/plain",card.dataset.mediaAsset);
   };
   onMediaLibraryDragOver=(event)=>{
-    const target=event.target.closest?.("#boardWizard, #canvas407F");
+    const target=event.target.closest?.("#boardWizard, #canvas407F .canvas-application");
     if(!target||!event.dataTransfer)return;
     const types=[...(event.dataTransfer.types||[])];
     if(!types.includes("application/x-missionmed-media-id"))return;
@@ -2108,13 +2698,13 @@ export async function boot407FEngineeringAdapter({
       .forEach((target)=>target.removeAttribute("data-media-drop-active"));
   };
   onMediaLibraryDragLeave=(event)=>{
-    const target=event.target.closest?.("#boardWizard, #canvas407F");
+    const target=event.target.closest?.("#boardWizard, #canvas407F .canvas-application");
     if(!target||target.contains(event.relatedTarget))return;
     target.removeAttribute("data-media-drop-active");
   };
   onMediaLibraryDragEnd=clearMediaDropTargets;
   onMediaLibraryDrop=(event)=>{
-    const target=event.target.closest?.("#boardWizard, #canvas407F");
+    const target=event.target.closest?.("#boardWizard, #canvas407F .canvas-application");
     if(!target||!event.dataTransfer)return;
     const id=event.dataTransfer.getData("application/x-missionmed-media-id");
     clearMediaDropTargets();
@@ -2203,7 +2793,7 @@ export async function boot407FEngineeringAdapter({
     return`<section class="m9LogoEditor" aria-labelledby="m9LogoTitle">
       <div>
         <div class="builderVariantEyebrow" id="m9LogoTitle">PROGRAM LOGO · LOCAL MEDIA</div>
-        <p>PNG, JPG, or WEBP. The original local asset stays in Media; this timeline stores only its reference and placement.</p>
+        <p>PNG, JPG, or WEBP. Your original image stays in Media, and this timeline just shows it where you place it.</p>
       </div>
       ${asset?`<div class="m9LogoPreview">${url?`<img src="${escapeMarkup(url)}" alt="Current program logo preview">`:""}<strong>${escapeMarkup(asset.source?.name||"Program logo")}</strong></div>`:"<div class=\"m9LogoEmpty\">No program logo selected.</div>"}
       <label class="btnD alt sm m9LogoUpload">CHOOSE OR REPLACE LOGO<input type="file" accept="image/png,image/jpeg,image/webp" data-interview-logo-upload aria-describedby="m9LogoError"></label>
@@ -2220,7 +2810,59 @@ export async function boot407FEngineeringAdapter({
       ${asset?'<button type="button" class="homeTertiary" data-interview-logo-remove>Remove from this interview timeline</button>':""}
     </section>`;
   };
+  const renderBuilderPersistenceActions=()=>{
+    const continueButton=document.getElementById("builderContinue");
+    const footer=continueButton?.closest?.(".builderFooter");
+    if(!continueButton||!footer)return;
+    const step=Math.max(1,Math.min(7,Number(store.document.builder?.step)||1));
+    if(step<7)continueButton.textContent="SAVE AND CONTINUE →";
+    let finish=footer.querySelector("[data-builder-finish-later]");
+    if(!finish){
+      finish=document.createElement("button");
+      finish.type="button";
+      finish.className="homeTertiary builderFinishLater";
+      finish.dataset.builderFinishLater="true";
+      footer.insertBefore(finish,continueButton);
+    }
+    finish.textContent="SAVE AND FINISH LATER";
+    finish.hidden=step===7;
+  };
+  const renderHomeCompletionStatus=()=>{
+    const host=document.querySelector(".homeBuildRegion .pi");
+    if(!host)return;
+    const summary=buildCompletenessSummary(store.document);
+    const complete=summary.filter(({state})=>state==="complete");
+    const pending=summary.filter(({state})=>state!=="complete"&&state!=="skipped");
+    const next=pending[0]||null;
+    const resumeStep=Math.max(1,Math.min(7,Number(store.document.builder?.step)||1));
+    const resumeLabel=summary.find(({step})=>step===resumeStep)?.label||"Builder";
+    const updated=new Date(store.document.updatedAt||Date.now());
+    const savedLabel=Number.isNaN(updated.getTime())
+      ?"Saved recently"
+      :`Last saved ${new Intl.DateTimeFormat("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}).format(updated)}`;
+    const remoteState=String(remoteSyncStatus?.syncState||remoteSyncStatus?.state||"").toUpperCase();
+    const syncLabel=store.saveStatus==="error"
+      ?"Save needs attention"
+      :store.saveStatus==="saving"||remoteState.includes("PENDING")
+        ?"Saving securely…"
+        :productionRuntime?.remotePersistenceAllowed
+          ?"Saved and securely synced"
+          :"Saved on this device";
+    let panel=document.getElementById("homeCompletion407F");
+    if(!panel){
+      panel=document.createElement("section");
+      panel.id="homeCompletion407F";
+      panel.className="homeCompletion407F";
+      panel.setAttribute("aria-label","Timeline progress");
+      host.querySelector(".homeJourneyStrip")?.before(panel);
+    }
+    panel.innerHTML=`<div><strong>${complete.length} of ${summary.length} sections complete</strong><span>${escapeMarkup(syncLabel)} · ${escapeMarkup(savedLabel)}</span></div>
+      <p>${complete.length?`Completed: ${escapeMarkup(complete.map(({label})=>label).join(", "))}.`:"Your first section is ready to begin."}</p>
+      <p>${pending.length?`Still to review: ${escapeMarkup(pending.map(({label})=>label).join(", "))}. Next recommended: ${escapeMarkup(next.label)}.`:"All guided sections are ready for final review."}</p>
+      <button type="button" class="btnD go sm" data-home-resume-builder>${pending.length?`RESUME ${escapeMarkup(resumeLabel.toUpperCase())} →`:"REVIEW TIMELINE →"}</button>`;
+  };
   renderM9BuilderSurfaces=()=>{
+    renderBuilderPersistenceActions();
     const explanationHost=document.getElementById("explanationBuilder407F");
     const interviewHost=document.getElementById("interviewConfig407F");
     if(!explanationHost||!interviewHost)return;
@@ -2324,12 +2966,50 @@ export async function boot407FEngineeringAdapter({
     if(bridge.state.view==="export")queueExportRender();
     if(focusSelector)queueMicrotask(()=>document.querySelector(focusSelector)?.focus());
   };
-  onM9BuilderClick=(event)=>{
+  onM9BuilderClick=async(event)=>{
+    const resume=event.target.closest?.("[data-home-resume-builder]");
+    if(resume){
+      const pending=buildCompletenessSummary(store.document).some(
+        ({state})=>state!=="complete"&&state!=="skipped"
+      );
+      bridge.go(pending?"builder":"canvas");
+      return;
+    }
+    const finishLater=event.target.closest?.("[data-builder-finish-later]");
+    if(finishLater){
+      finishLater.disabled=true;
+      finishLater.textContent="SAVING…";
+      try{
+        lastState=stableState(bridge.state);
+        store.mutate(
+          "Save Builder progress",
+          (document)=>apply407FStateToDocument(bridge.state,document),
+          {history:false}
+        );
+        await store.saveNow("BUILDER_FINISH_LATER");
+        const result=await store.adapter?.flush?.();
+        if(Number(result?.pending||0)>0)throw new Error("Timeline is still syncing.");
+        bridge.go("command");
+        bridge.toast("Progress saved. Resume anytime from Home.");
+        announceGlobal("Progress saved and Home opened");
+      }catch(error){
+        finishLater.disabled=false;
+        finishLater.textContent="RETRY SAVE AND FINISH LATER";
+        toastStudentError(error,"save");
+      }
+      return;
+    }
     if(
       event.target.closest?.('[data-builder-step="7"]')||
       event.target.closest?.("#builderContinue")
     ){
       queueMicrotask(renderM9BuilderSurfaces);
+    }
+    if(event.target.closest?.("#builderContinue")){
+      store.saveNow("BUILDER_SAVE_AND_CONTINUE")
+        .then(()=>store.adapter?.flush?.())
+        .then(()=>announceGlobal("Progress saved"))
+        .catch((error)=>toastStudentError(error,"save"));
     }
     const create=event.target.closest?.("[data-explanation-create]");
     if(create){
@@ -2515,6 +3195,7 @@ export async function boot407FEngineeringAdapter({
       setM9InlineError(input,logoError,message);
       return;
     }
+    let rollbackUpload=async()=>{};
     try{
       const id=uid("interview-logo");
       const metrics=await imageMetrics(file,{kind:"logo"});
@@ -2525,8 +3206,12 @@ export async function boot407FEngineeringAdapter({
         naturalHeight:metrics.height,
         layerIndex:mediaItems().length
       });
-      asset.source.blobKey=id;
-      asset.source.contentSha256=await sha256File(file);
+      const contentSha256=await sha256File(file);
+      const persistence=await prepareMediaPersistence(file,{
+        id,kind:"interview-program-logo",contentSha256
+      });
+      rollbackUpload=persistence.rollback;
+      asset.source=persistence.source;
       asset.role="interview-program-logo-source";
       const active=activeSpecialtyVariant(store.document);
       await store.mutateWithBlobs(
@@ -2539,17 +3224,7 @@ export async function boot407FEngineeringAdapter({
           });
         },
         {
-          blobs:[{
-            key:id,
-            blob:file,
-            metadata:{
-              kind:"interview-program-logo",
-              name:file.name,
-              type:file.type,
-              size:file.size,
-              localOnly:true
-            }
-          }],
+          blobs:[persistence.blob],
           reason:"ADD_INTERVIEW_PROGRAM_LOGO"
         }
       );
@@ -2559,14 +3234,15 @@ export async function boot407FEngineeringAdapter({
       bridge.toast("Program logo added locally");
       announceGlobal("Program logo added to the active interview timeline");
     }catch(error){
-      const message=String(error?.message||error);
-      bridge.toast(message);
+      await rollbackUpload();
+      const message=toastStudentError(error,"media");
       setM9InlineError(input,logoError,message);
     }
   };
   document.addEventListener("click",onM9BuilderClick);
   document.addEventListener("change",onM9BuilderChange);
   renderM9BuilderSurfaces();
+  renderHomeCompletionStatus();
   const previewBackgroundInert=(active)=>{
     for(const element of [
       document.querySelector("header"),
@@ -2625,6 +3301,164 @@ export async function boot407FEngineeringAdapter({
     );
     return dialog;
   };
+  const qualityGuardianControls=Object.freeze({
+    secondary:"btnD alt sm",
+    tertiary:"homeTertiary",
+    primary:"btnD go sm"
+  });
+  const openQualityGuardian407F=async(stage="DURING_BUILDING")=>{
+    let report=analyzeTimelineQuality(store.document,{stage});
+    const syntheticAi=productionRuntime?.authClient?.bootstrapState?.syntheticFixture===true;
+    if(syntheticAi){
+      openStandardModal(`<section class="export407FSuggestionDialog" role="dialog" aria-modal="true" aria-labelledby="quality-guardian-loading" data-quality-guardian-loading style="width:min(640px,calc(100vw - 40px))">
+        <p class="micro-label">Timeline Quality Guardian</p>
+        <h2 id="quality-guardian-loading">Checking your Timeline…</h2>
+        <p>Running the live MissionMed AI review. Your Timeline stays unchanged until you approve a safe action.</p>
+      </section>`,"[data-quality-guardian-loading]");
+      try{
+        const syncResult=await store.adapter.flush?.();
+        if(Number(syncResult?.pending||0)>0||syncResult?.conflict===true){
+          const unsynced=new Error("Save and sync this Timeline before running the AI review.");
+          unsynced.code="TIMELINE_AI_DOCUMENT_NOT_SYNCED";
+          throw unsynced;
+        }
+        const requestedRevision=await store.adapter.getRemoteRevision?.(store.document.id);
+        if(!Number.isInteger(requestedRevision)){
+          const unsynced=new Error("Save and sync this Timeline before running the AI review.");
+          unsynced.code="TIMELINE_AI_DOCUMENT_NOT_SYNCED";
+          throw unsynced;
+        }
+        const requestedDocument=JSON.stringify(store.document);
+        const analysis=await productionRuntime.authClient.analyzeQuality(store.document.id,{
+          deterministicFindings:deterministicFindingsForAi(report)
+        });
+        if(Number(analysis?.documentRevision)!==requestedRevision||JSON.stringify(store.document)!==requestedDocument){
+          const stale=new Error("Timeline changed while AI review was running. Run Check My Timeline again.");
+          stale.code="TIMELINE_AI_STALE_DOCUMENT";
+          throw stale;
+        }
+        report=mergeAiQualityAnalysis(report,analysis);
+      }catch(error){
+        report=mergeAiQualityAnalysis(report,{
+          status:"AI_UNAVAILABLE",
+          mode:"UNAVAILABLE",
+          promptVersion:"d1-timeline-quality-guardian-ai.1",
+          standardVersion:"D1-409H-A1+D1-411A",
+          unavailableMessage:error?.code==="TIMELINE_AI_STALE_DOCUMENT"
+            ?"Timeline changed while AI review was running. Run Check My Timeline again."
+            :error?.code==="TIMELINE_AI_DOCUMENT_NOT_SYNCED"
+              ?"Save and sync this Timeline before running the AI review."
+            :"Timeline AI is temporarily unavailable. Your Timeline was not changed.",
+          findings:[],
+          unresolvedQuestions:[]
+        });
+      }
+      closeStandardModal({restoreFocus:false});
+    }
+    const dialog=openStandardModal(`<section class="export407FSuggestionDialog" role="dialog" aria-modal="true" aria-labelledby="quality-guardian-title" data-quality-guardian-dialog style="width:min(860px,calc(100vw - 40px));max-height:min(820px,calc(100vh - 40px));overflow:auto">
+      ${renderQualityGuardian(report,{
+        viewer:qualityGuardianViewer(store.entitlement,bridge.state.view),
+        canFix:store.entitlement.canMutate===true,
+        controlClasses:qualityGuardianControls
+      })}
+    </section>`,"[data-quality-guardian-dialog]");
+    if(!dialog)return report;
+    dialog.querySelector("[data-quality-close]")?.addEventListener(
+      "click",
+      ()=>closeStandardModal(),
+      {once:true}
+    );
+    dialog.querySelectorAll("[data-quality-review]").forEach((button)=>{
+      button.addEventListener("click",()=>{
+        const finding=report.findings.find(({id})=>id===button.dataset.qualityReview);
+        closeStandardModal({restoreFocus:false});
+        if(finding?.code==="ACCEPTED_SOURCE_ITEM_OMITTED"){
+          bridge.go("intake");
+          return;
+        }
+        const event=store.document.events.find(({id})=>finding?.elementIds.includes(String(id)));
+        const step={education:1,exams:2,clinical:3,work:4,research:5,personal:6}[event?.categoryId]||7;
+        if(store.entitlement.canMutate===true){
+          store.mutate("Open Quality Guardian review",(document)=>{
+            document.builder=document.builder||{};
+            document.builder.step=step;
+            document.builder.reviewFocus={
+              eventId:event?.id||null,
+              findingId:finding?.id||null
+            };
+          },{history:false,material:false});
+          syncBridgeFromStore();
+        }
+        bridge.go("builder");
+      },{once:true});
+    });
+    dialog.querySelectorAll("[data-quality-fix]").forEach((button)=>{
+      button.addEventListener("click",()=>{
+        const selected=report.findings.find(({id})=>id===button.dataset.qualityFix);
+        if(!selected||selected.actionMode!=="FIX_FOR_ME"||store.entitlement.canMutate!==true)return;
+        const result=applySafeQualityFixes(store.document,{
+          ...report,
+          findings:report.findings.filter(({id})=>id===selected.id)
+        });
+        if(!result.changed)return;
+        if(report.ai?.status==="COMPLETE"&&String(selected.id).startsWith("qg-ai:")){
+          appendTimelineAiFeedback(result.document,{
+            workflow:"QUALITY_GUARDIAN",
+            workflowVersion:report.ai.promptVersion,
+            modelVersion:report.ai.model,
+            suggestionId:selected.id,
+            suggestionType:selected.code,
+            confidence:Number(selected.evidence?.confidence)||0,
+            outcome:"ACCEPTED",
+            layoutFix:selected.fixKind,
+            layoutFixAccepted:true,
+            actorKind:qualityGuardianViewer(store.entitlement,bridge.state.view).startsWith("Founder")?"FOUNDER":"STUDENT",
+            finalCanonicalReference:`document:${store.document.id}@revision:${Number(store.document.revision||0)+1}`
+          });
+        }
+        store.replace(result.document,{label:"Quality Guardian: safe layout fix"});
+        syncBridgeFromStore();
+        closeStandardModal({restoreFocus:false});
+        queueMicrotask(()=>void openQualityGuardian407F("AFTER_SAFE_FIX"));
+      },{once:true});
+    });
+    dialog.querySelector("[data-quality-continue-export]")?.addEventListener(
+      "click",
+      ()=>{
+        closeStandardModal({restoreFocus:false});
+        bridge.go("export");
+        announceGlobal("Quality Check complete. Opened Export.");
+      },
+      {once:true}
+    );
+    return report;
+  };
+  const qualityGuardianButton=document.createElement("button");
+  qualityGuardianButton.type="button";
+  qualityGuardianButton.id="qualityGuardian407F";
+  qualityGuardianButton.className="btnD alt sm";
+  qualityGuardianButton.dataset.qualityGuardianOpen="true";
+  qualityGuardianButton.textContent="CHECK MY TIMELINE";
+  document.getElementById("hudExport")?.before(qualityGuardianButton);
+  onQualityGuardianCapture=(event)=>{
+    const trigger=event.target?.closest?.(
+      "[data-quality-guardian-open],#hudExport,#rail [data-v='export'],[data-nav='export'],[data-review-export]"
+    );
+    if(!trigger)return;
+    if(trigger.matches("button:disabled,[aria-disabled='true']"))return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    void openQualityGuardian407F(
+      trigger.hasAttribute("data-quality-guardian-open")
+        ?"DURING_BUILDING"
+        :"BEFORE_EXPORT"
+    );
+  };
+  document.addEventListener("click",onQualityGuardianCapture,true);
+  api.qualityGuardian=Object.freeze({
+    analyze:(stage="DURING_BUILDING")=>analyzeTimelineQuality(store.document,{stage}),
+    open:openQualityGuardian407F
+  });
   const updateBuilderPreviewHitTargets=(root)=>{
     const surface=root?.matches?.("[data-builder-preview-surface]")
       ?root
@@ -2751,11 +3585,9 @@ export async function boot407FEngineeringAdapter({
   }={})=>{
     if(!host)return false;
     const signature=[
+      namespace,
       surface,
-      store.document?.id,
-      store.document?.updatedAt,
-      store.document?.theme,
-      store.document?.mode,
+      timelineRenderSignature(store.document),
       store.entitlement.canMutate
     ].join("|");
     if(
@@ -2770,15 +3602,22 @@ export async function boot407FEngineeringAdapter({
         interactive
       });
     }catch(error){
-      bridge.toast(String(error?.message||error));
+      toastStudentError(error,"open");
+    }
+    if(!rendered?.html&&host.querySelector("[data-builder-preview-surface]")){
+      host.dataset.builderPreviewError="true";
+      return false;
     }
     host.dataset.builderPreviewSignature=signature;
-    host.innerHTML=rendered?.html
+    delete host.dataset.builderPreviewError;
+    const next=document.createElement("div");
+    next.innerHTML=rendered?.html
       ?`<div class="builderPreviewSurface" data-builder-preview-surface="${surface}" data-interactive="${interactive}" role="region" aria-label="${interactive
         ?"Interactive timeline preview. Use arrow keys to move between timeline items and Enter to edit."
         :"Timeline preview. Editing is unavailable in read-only access."
       }" data-presentation-kernel="D1-409H-A1">${rendered.html}</div>`
       :`<div class="builderPreviewTrueEmpty" role="status"><strong>Your timeline preview will appear here.</strong><span>Add information in Builder to create the final 16:9 artifact.</span></div>`;
+    host.replaceChildren(...next.childNodes);
     return true;
   };
   const renderBuilderEmbeddedPreview=({force=false}={})=>
@@ -2890,7 +3729,7 @@ export async function boot407FEngineeringAdapter({
   };
   const activateBuilderPreviewOwner=(attributes,{fromLightbox=false}={})=>{
     if(store.entitlement.canMutate!==true){
-      bridge.toast(store.entitlement.reason);
+      bridge.toast(entitlementStudentReason(),{tone:"warning",diagnostic:store.entitlement.reason});
       return false;
     }
     const route=resolveBuilderPreviewOwner(store.document,attributes);
@@ -2904,7 +3743,7 @@ export async function boot407FEngineeringAdapter({
       requestAnimationFrame(()=>requestAnimationFrame(()=>{
         document.querySelector(route.focusSelector)?.focus?.();
       }));
-      announceGlobal("Opened Media for this timeline asset");
+      announceGlobal("Opened Media for this image");
       return true;
     }
     if(route.kind==="interview-target"||route.kind==="explanation"){
@@ -2947,7 +3786,7 @@ export async function boot407FEngineeringAdapter({
   };
   const activateBuilderPreviewRetake=(targetAttemptId,{fromLightbox=false}={})=>{
     if(store.entitlement.canMutate!==true){
-      bridge.toast(store.entitlement.reason);
+      bridge.toast(entitlementStudentReason(),{tone:"warning",diagnostic:store.entitlement.reason});
       return false;
     }
     const id=String(targetAttemptId||"");
@@ -2985,10 +3824,30 @@ export async function boot407FEngineeringAdapter({
           toolbarFocus:false,
           categoryMenuOpen:false,
           contextMenu:null,
-          detailsEventId:domainId
+          detailsEventId:detail.op==="edit-requested"?domainId:null,
+          advancedSelection:null
         };
         canvasController?.setUiState(next);
-      }else if(detail.op==="edit-requested"){
+      }else{
+        const selectionByObject={
+          "year-axis":{type:"axis",id:"axis"},
+          "color-key":{type:"color-key",id:"color-key"},
+          "title-plaque":{type:"headline",id:"headline"},
+          "profile-sheet":{type:"profile",id:"profile"},
+          "profile-photo-well":{type:"portrait",id:"portrait"}
+        };
+        const selection=selectionByObject[String(detail.objectId||"")]||null;
+        if(detail.op==="select"){
+          canvasController?.setUiState({
+            selectedEventId:null,
+            detailsEventId:null,
+            advancedSelection:selection,
+            advancedPanel:selection?.type==="axis"||selection?.type==="color-key"
+              ?"timeline"
+              :"elements"
+          });
+        }
+        if(detail.op==="edit-requested"){
         if(detail.objectType==="profile"||detail.objectType==="profile-photo"){
           activateBuilderPreviewOwner({ownerKind:"core-profile",ownerId:"profile"});
         }else if(detail.objectType==="logo"){
@@ -3000,6 +3859,7 @@ export async function boot407FEngineeringAdapter({
             (item)=>item?.fields?.builderDomain==="explanation"||item?.eventType==="explanation"
           );
           if(explanation)activateBuilderPreviewOwner({eventId:explanation.id});
+        }
         }
       }
       return;
@@ -3042,12 +3902,225 @@ export async function boot407FEngineeringAdapter({
         :{monthDelta:detail.monthDelta});
       const result=commitCanvasDrag(store,transaction);
       if(result.changed){
-        syncBridgeFromStore();
+        syncBridgeStateFromStore();
         bridge.toast(result.announcement||"Timeline updated");
       }
     }catch(error){
-      bridge.toast(String(error?.message||error));
+      toastStudentError(error,"layout");
     }
+  };
+  const normalizeFurnitureGeometry=(value,fallback)=>{
+    const source=value&&typeof value==="object"?value:{};
+    return{
+      x:Number.isFinite(Number(source.x))?Number(source.x):fallback.x,
+      y:Number.isFinite(Number(source.y))?Number(source.y):fallback.y,
+      width:Number.isFinite(Number(source.width))?Number(source.width):fallback.width,
+      height:Number.isFinite(Number(source.height))?Number(source.height):fallback.height
+    };
+  };
+  const furnitureOverlaps=(first,second,gap=12)=>!(
+    first.x+first.width+gap<=second.x||
+    second.x+second.width+gap<=first.x||
+    first.y+first.height+gap<=second.y||
+    second.y+second.height+gap<=first.y
+  );
+  const furnitureGeometryFor=(document,key)=>normalizeFurnitureGeometry(
+    document?.presentationOverrides?.[key],
+    key==="colorKeyGeometry"
+      ?{x:18,y:300,width:416,height:322}
+      :{x:18,y:634,width:566,height:428}
+  );
+  const rejectFurnitureCollision=(selection)=>{
+    canvasController?.render?.();
+    canvasController?.setUiState({
+      selectedEventId:null,detailsEventId:null,advancedSelection:selection,advancedPanel:"timeline"
+    });
+    const kernel=canvasHost?.querySelector?.('d1-timeline-kernel[data-surface="edit"]');
+    kernel?.restorePresentationGeometry?.({
+      colorKeyGeometry:furnitureGeometryFor(store.document,"colorKeyGeometry"),
+      profileGeometry:furnitureGeometryFor(store.document,"profileGeometry")
+    });
+    bridge.toast("Keep the Color Key and profile card separate so your Timeline stays readable.");
+  };
+  const onKernelPresentationGesture=(event)=>{
+    const detail=event.detail||{};
+    if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
+    let result=null;
+    if(detail.kind==="axis-boundary"){
+      const range=setAxisPresentationOverride(store.document,{
+        startYear:Number(detail.startYear),endYear:Number(detail.endYear),
+        includeFuture:detail.includeFuture!==false
+      });
+      result=range.changed
+        ?setAxisSegmentWeights(range.document,detail.segmentWeights)
+        :range;
+    }else if(detail.kind==="color-key-move"||detail.kind==="color-key-resize"){
+      result=setColorKeyGeometryPresentationOverride(store.document,detail.geometry||{});
+      const nextKey=furnitureGeometryFor(result.document,"colorKeyGeometry");
+      const profile=furnitureGeometryFor(store.document,"profileGeometry");
+      if(furnitureOverlaps(nextKey,profile)){
+        rejectFurnitureCollision({type:"color-key",id:"color-key"});
+        return;
+      }
+    }else if(detail.kind==="profile-card-move"||detail.kind==="profile-card-resize"){
+      const geometry=detail.geometry||{};
+      const document=clone(store.document);
+      const width=Math.max(360,Math.min(900,Number(geometry.width)||566));
+      const height=Math.max(272,Math.min(680,Number(geometry.height)||428));
+      document.presentationOverrides={...(document.presentationOverrides||{}),profileGeometry:{
+        x:Math.max(0,Math.min(1920-width,Number(geometry.x)||0)),
+        y:Math.max(0,Math.min(1080-height,Number(geometry.y)||0)),
+        width,height
+      }};
+      result={document,changed:true,mutation:{label:"Change profile card presentation"}};
+      const key=furnitureGeometryFor(store.document,"colorKeyGeometry");
+      const nextProfile=furnitureGeometryFor(document,"profileGeometry");
+      if(furnitureOverlaps(key,nextProfile)){
+        rejectFurnitureCollision({type:"profile",id:"profile"});
+        return;
+      }
+    }
+    if(!result)return;
+    if(result.error){bridge.toast(result.error);return;}
+    if(!result.changed)return;
+    store.replace(result.document,{label:result.mutation?.label||"Change timeline presentation"});
+    syncBridgeStateFromStore();
+    const selection=detail.kind==="axis-boundary"
+      ?{type:"axis",id:"axis"}
+      :detail.kind.startsWith("profile-card-")
+        ?{type:"profile",id:"profile"}
+        :{type:"color-key",id:"color-key"};
+    canvasController?.setUiState({
+      selectedEventId:null,detailsEventId:null,advancedSelection:selection,advancedPanel:"timeline"
+    });
+    bridge.toast(detail.kind==="axis-boundary"?"Year widths updated":"Color key updated");
+  };
+  const reselectAdvancedKernel=(type,id,attempt=0)=>{
+    const kernel=canvasHost?.querySelector?.('d1-timeline-kernel[data-surface="edit"]');
+    if(kernel?.selectAdvancedObject?.(type,id))return;
+    if(attempt<12)setTimeout(()=>reselectAdvancedKernel(type,id,attempt+1),80);
+  };
+  onKernelAdvancedSelect=(event)=>{
+    const detail=event.detail||{};
+    if(detail.surface!=="edit"||!detail.type)return;
+    clearTimeout(advancedTextSelectionTimer);
+    if(detail.type==="multi"){
+      const members=(Array.isArray(detail.members)?detail.members:[])
+        .filter((member)=>["media","text","element"].includes(member?.type)&&member?.id);
+      if(members.length<2)return;
+      canvasController?.setUiState({
+        selectedEventId:null,detailsEventId:null,
+        advancedSelection:{type:"multi",members},advancedTextEdit:null
+      });
+      return;
+    }
+    if(!detail.id)return;
+    const reconcileSelection=()=>{
+      canvasController?.setUiState({
+        selectedEventId:null,
+        detailsEventId:null,
+        advancedSelection:{type:String(detail.type),id:String(detail.id)},
+        advancedTextEdit:null
+      });
+      reselectAdvancedKernel(detail.type,detail.id);
+    };
+    // Text inside a composition reports the enclosing group on the first
+    // click. Defer inspector reconciliation long enough for the protected
+    // kernel to receive a second click and enter contenteditable mode. The
+    // advanced-text-editing event cancels this timer, so the live text node is
+    // never replaced between the two clicks.
+    if(detail.type==="text"||detail.type==="group"){
+      advancedTextSelectionTimer=setTimeout(reconcileSelection,900);
+      return;
+    }
+    reconcileSelection();
+  };
+  onKernelAdvancedGesture=(event)=>{
+    const detail=event.detail||{};
+    if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
+    if(detail.type==="group"){
+      const before=advancedGroupBounds(store.document,detail.id);
+      const after=detail.geometry;
+      if(!before||!after)return;
+      store.mutate(detail.kind==="resize"?"Resize Timeline group":"Move Timeline group",(document)=>{
+        const current=advancedGroupBounds(document,detail.id);
+        if(!current)return;
+        const scaleX=Number(after.width)/Math.max(1,current.width);
+        const scaleY=Number(after.height)/Math.max(1,current.height);
+        for(const collection of [document.advanced.media,document.advanced.textBlocks,document.advanced.elements]){
+          for(const item of collection||[]){
+            if(String(item.groupId)!==String(detail.id))continue;
+            item.x=Number(after.x)+(Number(item.x)-current.x)*scaleX;
+            item.y=Number(after.y)+(Number(item.y)-current.y)*scaleY;
+            item.width=Math.max(32,Number(item.width)*scaleX);
+            item.height=Math.max(24,Number(item.height)*scaleY);
+          }
+        }
+      });
+      syncBridgeStateFromStore();
+      canvasController?.setUiState({advancedSelection:{type:"group",id:String(detail.id)}});
+      reselectAdvancedKernel("group",detail.id);
+      return;
+    }
+    const collection=detail.type==="text"
+      ?store.document.advanced?.textBlocks
+      :detail.type==="element"
+        ?store.document.advanced?.elements
+        :detail.type==="media"
+          ?store.document.advanced?.media
+          :null;
+    const geometry=detail.geometry;
+    if(!collection||!geometry)return;
+    const index=collection.findIndex((item)=>String(item.id)===String(detail.id));
+    if(index<0)return;
+    store.mutate(detail.kind==="resize"?"Resize Timeline object":"Move Timeline object",(document)=>{
+      const target=detail.type==="text"?document.advanced.textBlocks:detail.type==="element"?document.advanced.elements:document.advanced.media;
+      const item=target.find((candidate)=>String(candidate.id)===String(detail.id));
+      if(item)Object.assign(item,geometry);
+    });
+    syncBridgeStateFromStore();
+    canvasController?.setUiState({advancedSelection:{type:detail.type,id:String(detail.id)}});
+    reselectAdvancedKernel(detail.type,detail.id);
+  };
+  onKernelAdvancedText=(event)=>{
+    clearTimeout(advancedTextSelectionTimer);
+    const detail=event.detail||{};
+    if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
+    const text=String(detail.text||"");
+    store.mutate("Edit Advanced text",(document)=>{
+      const block=(document.advanced?.textBlocks||[]).find((item)=>String(item.id)===String(detail.id));
+      if(block)block.text=text;
+    });
+    syncBridgeStateFromStore();
+    canvasController?.setUiState({advancedSelection:{type:"text",id:String(detail.id)}});
+  };
+  onKernelAdvancedTextEditing=(event)=>{
+    const detail=event.detail||{};
+    if(detail.surface==="edit")clearTimeout(advancedTextSelectionTimer);
+  };
+  onKernelAdvancedDrop=(event)=>{
+    const detail=event.detail||{};
+    if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
+    advancedHooks().onAssetDrop(detail.payload,{x:detail.x,y:detail.y});
+  };
+  onKernelAdvancedCommand=(event)=>{
+    const detail=event.detail||{};
+    if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
+    if(!["duplicate","delete"].includes(detail.command)||!detail.target)return;
+    advancedHooks().onObjectAction(detail.command,detail.target);
+  };
+  onKernelRejected=(event)=>{
+    const detail=event.detail||{};
+    if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
+    if(Number(kernelManager.projection()?.model?.revision)!==Number(detail.revision))return;
+    const entry=store.undo();
+    if(entry)syncBridgeStateFromStore();
+    const message=studentMessage(detail,{
+      context:"layout",
+      fallback:"We kept your last working layout."
+    });
+    canvasController?.setUiState((state)=>({...state,liveAnnouncement:message}));
+    bridge.toast(message);
   };
   const onKernelCommand=(event)=>{
     const detail=event.detail||{};
@@ -3062,7 +4135,7 @@ export async function boot407FEngineeringAdapter({
     else if(detail.command==="delete"){
       announcement=deleteCanvasEvent(store,detail.domainId).announcement;
     }else return;
-    syncBridgeFromStore();
+    syncBridgeStateFromStore();
     canvasController?.setUiState((state)=>({
       ...state,
       selectedEventId:detail.command==="delete"?null:state.selectedEventId,
@@ -3079,6 +4152,14 @@ export async function boot407FEngineeringAdapter({
   };
   document.addEventListener("d1-411a:interaction",onKernelInteraction);
   document.addEventListener("d1-411a:gesture",onKernelGesture);
+  document.addEventListener("d1-411a:presentation-gesture",onKernelPresentationGesture);
+  document.addEventListener("d1-411a:advanced-select",onKernelAdvancedSelect);
+  document.addEventListener("d1-411a:advanced-gesture",onKernelAdvancedGesture);
+  document.addEventListener("d1-411a:advanced-text-editing",onKernelAdvancedTextEditing);
+  document.addEventListener("d1-411a:advanced-text",onKernelAdvancedText);
+  document.addEventListener("d1-411a:advanced-drop",onKernelAdvancedDrop);
+  document.addEventListener("d1-411a:advanced-command",onKernelAdvancedCommand);
+  document.addEventListener("d1-411a:rejected",onKernelRejected);
   document.addEventListener("d1-411a:command",onKernelCommand);
   document.addEventListener("d1-411a:media-drop",onKernelMediaDrop);
   onBuilderPreviewInteraction=(event)=>{
@@ -3178,7 +4259,7 @@ export async function boot407FEngineeringAdapter({
     if(plan.status==="noop")return;
     if(plan.status==="ready"){
       applyModeDecision(plan,"confirm")
-        .catch((error)=>bridge.toast(String(error?.message||error)));
+        .catch((error)=>toastStudentError(error));
       return;
     }
     if(typeof bridge.openModal!=="function")return;
@@ -3190,26 +4271,15 @@ export async function boot407FEngineeringAdapter({
       closeStandardModal();
       const decision=targetMode==="advanced"?"stay-guided":"cancel";
       applyModeDecision(plan,decision)
-        .catch((error)=>bridge.toast(String(error?.message||error)));
+        .catch((error)=>toastStudentError(error));
     },{once:true});
     document.querySelector("[data-mode-dialog-primary]")?.addEventListener("click",()=>{
       closeStandardModal();
       const decision=targetMode==="advanced"?"enter-advanced":"return-guided";
       applyModeDecision(plan,decision)
-        .catch((error)=>bridge.toast(String(error?.message||error)));
+        .catch((error)=>toastStudentError(error));
     },{once:true});
   };
-  const advancedBlobRecord=(id,file,kind)=>({
-    key:id,
-    blob:file,
-    metadata:{
-      kind,
-      name:file.name,
-      type:file.type,
-      size:file.size,
-      localOnly:true
-    }
-  });
   const addAdvancedMedia=async(kind)=>{
     const accept=kind==="gif"
       ?".gif,image/gif"
@@ -3228,36 +4298,53 @@ export async function boot407FEngineeringAdapter({
       naturalHeight:metrics.height,
       layerIndex:store.document.advanced?.media?.length||0
     });
-    media.source.blobKey=id;
-    media.source.contentSha256=await sha256File(file);
-    await store.mutateWithBlobs(
-      `Add ${kind}`,
-      (document)=>document.advanced.media.push(media),
-      {blobs:[advancedBlobRecord(id,file,kind)],reason:"ADD_ADVANCED_MEDIA"}
-    );
+    const contentSha256=await sha256File(file);
+    const persistence=await prepareMediaPersistence(file,{id,kind,contentSha256});
+    media.source=persistence.source;
+    try{
+      await store.mutateWithBlobs(
+        `Add ${kind}`,
+        (document)=>document.advanced.media.push(media),
+        {blobs:[persistence.blob],reason:"ADD_ADVANCED_MEDIA"}
+      );
+    }catch(error){
+      await persistence.rollback();
+      throw error;
+    }
     mediaUrls.set(id,file);
-    syncBridgeFromStore();
+    syncBridgeStateFromStore();
     canvasController?.setUiState({advancedSelection:{type:"media",id}});
   };
   const addAdvancedBackground=async(file)=>{
     if(!file)return;
+    const priorObjectId=store.document.advanced?.background?.source?.objectId;
     const id=uid("advanced-background");
     const metrics=await imageMetrics(file,{sample:true,background:true});
     const background=createUploadedBackground(file,{
       id,
       luminance:metrics.luminance
     });
-    background.source.blobKey=id;
-    await store.mutateWithBlobs(
-      "Change background",
-      (document)=>{document.advanced.background=background;},
-      {
-        blobs:[advancedBlobRecord(id,file,"background")],
-        reason:"CHANGE_ADVANCED_BACKGROUND"
-      }
-    );
+    const contentSha256=await sha256File(file);
+    const persistence=await prepareMediaPersistence(file,{
+      id,kind:"background",contentSha256
+    });
+    background.source=persistence.source;
+    try{
+      await store.mutateWithBlobs(
+        "Change background",
+        (document)=>{document.advanced.background=background;},
+        {blobs:[persistence.blob],reason:"CHANGE_ADVANCED_BACKGROUND"}
+      );
+    }catch(error){
+      await persistence.rollback();
+      throw error;
+    }
     mediaUrls.set(id,file);
-    syncBridgeFromStore();
+    syncBridgeStateFromStore();
+    if(priorObjectId){
+      retireDurableMediaObject(priorObjectId)
+        .catch((error)=>toastStudentError(error,"media"));
+    }
   };
   const currentTypography=(target)=>{
     if(target?.type==="headline"){
@@ -3292,27 +4379,216 @@ export async function boot407FEngineeringAdapter({
       );
     }
     store.replace(result,{label:"Change Advanced typography"});
-    syncBridgeFromStore();
+    syncBridgeStateFromStore();
     canvasController?.setUiState({advancedSelection:target});
   };
+  const applyPresentationControlResult=(resultOrFactory)=>{
+    const deferred=typeof resultOrFactory==="function";
+    const initialResult=deferred?null:resultOrFactory;
+    if(initialResult?.error){
+      bridge.toast(initialResult.error);
+      setTimeout(()=>canvasController?.render(),0);
+      return false;
+    }
+    if(!deferred&&!initialResult?.changed)return false;
+    // Do not replace the control subtree from inside its own change/blur
+    // dispatch. Safari and Chromium can otherwise attempt to continue a
+    // native input event against a node the render just detached.
+    const presentationSelection=canvasController?.state?.advancedSelection;
+    setTimeout(()=>{
+      // Text and color controls can commit during the same browser turn. Resolve
+      // factories here, after the preceding deferred mutation has reached the
+      // store, so the later change rebases on the latest presentation document
+      // instead of restoring a stale sibling field.
+      const result=deferred?resultOrFactory():initialResult;
+      if(result?.error){
+        bridge.toast(result.error);
+        canvasController?.render();
+        return;
+      }
+      if(!result?.changed)return;
+      store.replace(result.document,{label:result.mutation?.label||"Change timeline presentation"});
+      syncBridgeStateFromStore();
+      if(["axis","color-key"].includes(presentationSelection?.type)){
+        canvasController?.setUiState({
+          selectedEventId:null,detailsEventId:null,
+          advancedSelection:presentationSelection,advancedPanel:"timeline"
+        });
+      }
+    },0);
+    return true;
+  };
+  const insertAdvancedAsset=(kind,{x=860,y=480,countryCode="US"}={})=>{
+    const id=uid("advanced-element");
+    store.mutate("Add Timeline asset",(document)=>{
+      document.advanced.elements=document.advanced.elements||[];
+      document.advanced.elements.push(createAdvancedElement({
+        id,
+        kind,
+        x,y,
+        countryCode,
+        label:"",
+        layerIndex:(document.advanced.elements||[]).length
+      }));
+    });
+    syncBridgeStateFromStore();
+    canvasController?.setUiState({
+      advancedSelection:{type:"element",id},
+      advancedTextEdit:null
+    });
+    setTimeout(()=>canvasHost?.querySelector?.('d1-timeline-kernel[data-surface="edit"]')?.selectAdvancedObject?.("element",id),180);
+    return id;
+  };
   const advancedHooks=()=>({
-    onAction:(action)=>{
+    onAxisMode:(mode)=>{
+      const result=mode==="manual"
+        ?setAxisPresentationOverride(store.document,{})
+        :resetAxisPresentationOverride(store.document);
+      applyPresentationControlResult(result);
+    },
+    onAxisChange:(changes)=>{
+      applyPresentationControlResult(
+        setAxisPresentationOverride(store.document,changes)
+      );
+    },
+    onAxisReset:()=>{
+      applyPresentationControlResult(resetAxisPresentationOverride(store.document));
+    },
+    onAxisWeightChange:(id,weight)=>{
+      const axis=store.document.presentationOverrides?.axis;
+      if(axis?.mode!=="manual")return;
+      const ids=[];
+      for(let year=Number(axis.startYear);year<=Number(axis.endYear);year+=1)ids.push(String(year));
+      if(axis.includeFuture!==false)ids.push("FUTURE");
+      const prior=new Map((axis.segmentWeights||[]).map((item)=>[String(item.id),Number(item.weight)]));
+      applyPresentationControlResult(setAxisSegmentWeights(store.document,ids.map((segmentId)=>({
+        id:segmentId,weight:segmentId===id?weight:(prior.get(segmentId)||1)
+      }))));
+    },
+    onAxisWeightReset:()=>{
+      applyPresentationControlResult(setAxisPresentationOverride(store.document,{segmentWeights:null}));
+    },
+    onCategoryKeyChange:(id,changes)=>{
+      applyPresentationControlResult(
+        ()=>setCategoryKeyPresentationOverride(store.document,id,changes)
+      );
+    },
+    onCategoryKeyReset:()=>{
+      applyPresentationControlResult(resetCategoryKeyPresentationOverride(store.document));
+    },
+    onColorKeyGeometryChange:(changes)=>{
+      const candidate=setColorKeyGeometryPresentationOverride(store.document,changes);
+      if(
+        candidate.changed&&
+        furnitureOverlaps(
+          furnitureGeometryFor(candidate.document,"colorKeyGeometry"),
+          furnitureGeometryFor(store.document,"profileGeometry")
+        )
+      ){
+        rejectFurnitureCollision({type:"color-key",id:"color-key"});
+        return;
+      }
+      applyPresentationControlResult(candidate);
+    },
+    onColorKeyGeometryReset:()=>{
+      applyPresentationControlResult(
+        resetColorKeyGeometryPresentationOverride(store.document)
+      );
+    },
+    onPanel:(advancedPanel)=>{
+      canvasController?.setUiState({
+        advancedPanel,
+        advancedAssetQuery:"",
+        advancedSelection:null,
+        advancedTextEdit:null,
+        backgroundOpen:advancedPanel==="backgrounds"
+      });
+    },
+    onAssetSearch:(advancedAssetQuery)=>{
+      canvasController?.setUiState({advancedAssetQuery});
+      queueMicrotask(()=>{
+        const field=canvasHost?.querySelector?.("[data-advanced-asset-search]");
+        field?.focus?.();
+        field?.setSelectionRange?.(field.value.length,field.value.length);
+      });
+    },
+    onCategoryKeyPalette:(paletteId)=>{
+      const palettes={
+        missionmed:["#2C6E8F","#3A78C9","#C8641C","#3F9B52","#C9A227","#8A5BBF"],
+        coastal:["#1F6F8B","#4C8CCB","#D4772B","#4F8A6A","#D1A93B","#7656A7"],
+        heritage:["#315B6E","#466F9E","#A95E2A","#4D7A4B","#A4872E","#74518A"]
+      };
+      const colors=palettes[paletteId];
+      if(!colors)return;
+      const ids=["education","exams","clinical","work","research","personal"];
+      let next=store.document;
+      ids.forEach((id,index)=>{
+        const result=setCategoryKeyPresentationOverride(next,id,{color:colors[index]});
+        if(result.changed)next=result.document;
+      });
+      store.replace(next,{label:"Apply color key palette"});
+      syncBridgeStateFromStore();
+      canvasController?.setUiState({
+        selectedEventId:null,detailsEventId:null,
+        advancedSelection:{type:"color-key",id:"color-key"}
+      });
+    },
+    onSelectObject:(target)=>{
+      if(!target)return;
+      canvasController?.setUiState({
+        selectedEventId:null,detailsEventId:null,advancedSelection:target,advancedTextEdit:null
+      });
+      queueMicrotask(()=>{
+        const protectedObjectId={
+          axis:"year-axis",
+          "color-key":"color-key",
+          headline:"title-plaque",
+          profile:"profile-sheet",
+          portrait:"profile-photo-well"
+        }[target.type]||null;
+        const kernel=canvasHost?.querySelector?.(
+          'd1-timeline-kernel[data-surface="edit"]'
+        );
+        if(protectedObjectId)kernel?.selectObject?.(protectedObjectId);
+        const escaped=globalThis.CSS?.escape?CSS.escape(target.id):target.id;
+        const selector=target.type==="media"
+          ?`[data-advanced-media="${escaped}"]`
+          :target.type==="text"
+            ?`[data-advanced-text="${escaped}"]`
+            :`[data-advanced-canonical="${target.type}"]`;
+        canvasHost?.querySelector(selector)?.focus?.();
+      });
+    },
+    onGroup:(members)=>{
+      try{
+        const result=groupAdvancedObjects(store.document,members,{id:uid("advanced-group")});
+        if(!result.changed)return;
+        store.replace(result.document,{label:"Group Timeline objects"});
+        syncBridgeStateFromStore();
+        canvasController?.setUiState({advancedSelection:result.selection,advancedTextEdit:null});
+        reselectAdvancedKernel("group",result.selection.id);
+        announceGlobal("Objects grouped");
+      }catch(error){toastStudentError(error,"layout");}
+    },
+    onClearSelection:()=>canvasController?.setUiState({advancedSelection:null,advancedTextEdit:null}),
+    onAction:(action,_event,control)=>{
       if(action==="background"){
-        canvasController?.setUiState((state)=>({
-          ...state,
-          backgroundOpen:!state.backgroundOpen
-        }));
-      }else if(action==="text"){
+        canvasController?.setUiState({advancedPanel:"backgrounds",backgroundOpen:true,advancedSelection:null});
+      }else if(action==="text"||action==="symbol"){
         const id=uid("advanced-text");
+        const text=action==="symbol"
+          ?String(control?.dataset?.advancedSymbol||"Add your text")
+          :"Add your text";
         store.mutate("Add text",(document)=>{
           document.advanced.textBlocks.push(createTextBlock({
             id,
-            text:"Add your text",
+            text,
             layerIndex:document.advanced.textBlocks.length
           }));
         });
-        syncBridgeFromStore();
+        syncBridgeStateFromStore();
         canvasController?.setUiState({advancedSelection:{type:"text",id}});
+        reselectAdvancedKernel("text",id);
         queueMicrotask(()=>{
           const escaped=globalThis.CSS?.escape?CSS.escape(id):id;
           const field=canvasHost?.querySelector?.(
@@ -3323,42 +4599,200 @@ export async function boot407FEngineeringAdapter({
         });
       }else if(["image","gif","logo"].includes(action)){
         addAdvancedMedia(action)
-          .catch((error)=>bridge.toast(String(error?.message||error)));
+          .catch((error)=>toastStudentError(error,"media"));
+      }else if(action==="asset"){
+        insertAdvancedAsset(
+          String(control?.dataset?.advancedKind||"rectangle"),
+          {countryCode:String(control?.dataset?.advancedSymbol||"US")}
+        );
       }
     },
+    onAssetDrop:(payload,{x,y}={})=>{
+      if(payload?.kind!=="insert")return false;
+      /* Dragging an object the student already owns is a move, not an insert. Without
+         this branch the drop silently did nothing while the app announced success. */
+      if(payload.action==="place"&&payload.target){
+        const result=placeAdvancedObjectAt(store.document,payload.target,{x,y});
+        if(!result.changed)return false;
+        store.replace(result.document,{label:result.mutation?.label||"Place Timeline object"});
+        syncBridgeStateFromStore();
+        canvasController?.setUiState({advancedSelection:result.selection||null});
+        return true;
+      }
+      if(payload.action==="text"||payload.action==="symbol"){
+        const id=uid("advanced-text");
+        store.mutate("Add text",(document)=>{
+          document.advanced.textBlocks.push(createTextBlock({
+            id,text:payload.symbol||"Add your text",x,y,
+            layerIndex:document.advanced.textBlocks.length
+          }));
+        });
+        syncBridgeStateFromStore();
+        canvasController?.setUiState({advancedSelection:{type:"text",id},advancedTextEdit:{id,draft:payload.symbol||"Add your text"}});
+        return true;
+      }
+      if(payload.action==="asset"){
+        insertAdvancedAsset(payload.assetKind||"rectangle",{
+          x,y,countryCode:payload.symbol||"US"
+        });
+        return true;
+      }
+      return false;
+    },
     onObjectAction:(action,target)=>{
-      const result=applyAdvancedObjectAction(store.document,target,action);
+      if(action==="ungroup"&&target?.type==="group"){
+        const group=store.document.advanced?.groups?.find(
+          (item)=>String(item.id)===String(target.id)
+        );
+        const members=(Array.isArray(group?.children)?group.children:[])
+          .filter((member)=>["media","text","element"].includes(member?.type)&&member?.id)
+          .map((member)=>({type:String(member.type),id:String(member.id)}));
+        const result=ungroupAdvancedObjects(store.document,target.id);
+        if(!result.changed)return;
+        store.replace(result.document,{label:"Ungroup Timeline objects"});
+        syncBridgeStateFromStore();
+        const selection=members.length>1
+          ?{type:"multi",members}
+          :members[0]||null;
+        canvasController?.setUiState({advancedSelection:selection});
+        canvasHost?.querySelector?.(
+          'd1-timeline-kernel[data-surface="edit"]'
+        )?.releaseAdvancedGroup?.(target.id,members);
+        return;
+      }
+      if(action==="lock"||action==="unlock"){
+        const result=setAdvancedObjectLock(store.document,target,action==="lock");
+        store.replace(result,{label:action==="lock"?"Lock Timeline object":"Unlock Timeline object"});
+        syncBridgeStateFromStore();
+        canvasController?.setUiState({advancedSelection:target});
+        return;
+      }
+      const priorObjectId=action==="delete"&&target?.type==="media"
+        ?store.document.advanced?.media?.find(
+          (item)=>String(item.id)===String(target.id)
+        )?.source?.objectId
+        :null;
+      const result=applyAdvancedObjectAction(store.document,target,action,{
+        duplicateId:action==="duplicate"
+          ?uid(`advanced-${target?.type||"object"}`)
+          :""
+      });
       if(!result.changed)return;
       store.replace(result.document,{label:result.mutation.label});
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
       canvasController?.setUiState({advancedSelection:result.selection});
+      if(action==="duplicate"&&target?.type==="media"&&result.selection?.id){
+        const duplicateId=result.selection.id;
+        const source=(store.document.advanced?.media||[]).find(
+          (item)=>String(item.id)===String(target.id)
+        );
+        Promise.resolve(store.adapter.getBlob(String(
+          source?.source?.blobKey||target.id
+        )))
+          .then((blob)=>blob||(
+            source?.source?.objectId&&productionRuntime
+              ?productionRuntime.authClient.downloadPrivateObject(source.source.objectId)
+              :null
+          ))
+          .then((blob)=>{
+            if(!blob)return;
+            mediaUrls.set(duplicateId,blob);
+            canvasController?.render();
+          })
+          .catch(()=>{
+            announceGlobal("The copied image will appear as soon as it finishes loading.");
+          });
+      }
+      if(priorObjectId){
+        mediaUrls.revoke(target.id);
+        retireDurableMediaObject(priorObjectId)
+          .catch((error)=>toastStudentError(error,"media"));
+      }
+    },
+    onAspectLock:(locked,target)=>{
+      if(target?.type!=="media"&&target?.type!=="element"&&target?.type!=="group")return;
+      const result=target.type==="media"
+        ?setMediaAspectLock(store.document,target,locked)
+        :setAdvancedObjectAspectLock(store.document,target,locked);
+      store.replace(result,{label:locked?"Lock Media proportions":"Unlock Media proportions"});
+      syncBridgeStateFromStore();
+      canvasController?.setUiState({advancedSelection:target});
+      announceGlobal(locked?"Media proportions locked":"Media proportions unlocked");
+    },
+    onMediaPresentation:(changes,target)=>{
+      try{
+        const next=updateMediaPresentation(store.document,target,changes);
+        store.replace(next,{label:"Adjust media presentation"});
+        syncBridgeStateFromStore();
+        canvasController?.setUiState({advancedSelection:target});
+        reselectAdvancedKernel("media",target.id);
+      }catch(error){toastStudentError(error,"layout");}
     },
     onTypography:(changes,target)=>applyTypographyChange(changes,target),
-    onTextContent:(text,target)=>{
+    /* The position and size inputs rendered and fired, but nothing implemented this hook,
+       so typing a width moved nothing. A visible control that does nothing is worse than
+       no control - the student assumes the board is broken, not the field. */
+    onGeometry:(changes,target)=>{
+      try{
+        // setAdvancedObjectGeometry returns the next document itself, the same shape
+        // updateTextContainerPresentation uses - not a {document,changed} result.
+        const next=setAdvancedObjectGeometry(store.document,target,changes);
+        store.replace(next,{label:"Set position and size"});
+        syncBridgeStateFromStore();
+        canvasController?.setUiState({advancedSelection:target});
+        reselectAdvancedKernel(target?.type,target?.id);
+      }catch(error){toastStudentError(error,"layout");}
+    },
+    onTextLayout:(changes,target)=>{
+      try{
+        const next=updateTextContainerPresentation(store.document,target,changes);
+        store.replace(next,{label:"Adjust text layout"});
+        syncBridgeStateFromStore();
+        canvasController?.setUiState({advancedSelection:target});
+        reselectAdvancedKernel("text",target.id);
+      }catch(error){toastStudentError(error,"layout");}
+    },
+    onTextContent:(text,target,event)=>{
+      const field=event?.target;
+      const caret=field?.selectionStart??null;
       const result=updateTextBlockContent(store.document,target,text);
       store.replace(result,{label:"Edit Advanced text"});
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
       canvasController?.setUiState({advancedSelection:target});
+      // The inspector is rebuilt on every keystroke and detaches this textarea mid-word,
+      // so put the caret back the way the asset search field does.
+      queueMicrotask(()=>{
+        const restored=canvasHost?.querySelector?.("[data-advanced-text-content]");
+        if(!restored||restored===field)return;
+        restored.focus?.();
+        if(caret!=null)restored.setSelectionRange?.(caret,caret);
+      });
     },
     onBackgroundTab:(backgroundTab)=>canvasController?.setUiState({backgroundTab}),
     onBackgroundPreset:(presetId)=>{
+      const priorObjectId=store.document.advanced?.background?.source?.objectId;
       store.mutate("Change background",(document)=>{
         document.advanced.background=createPresetBackground(presetId);
       });
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
+      if(priorObjectId){
+        retireDurableMediaObject(priorObjectId)
+          .catch((error)=>toastStudentError(error,"media"));
+      }
     },
     onBackgroundUpload:(file)=>{
       addAdvancedBackground(file)
-        .catch((error)=>bridge.toast(String(error?.message||error)));
+        .catch((error)=>toastStudentError(error,"media"));
     },
     onBackgroundDim:(dim)=>{
       store.mutate("Adjust background readability",(document)=>{
         document.advanced.background=setBackgroundDim(document.advanced.background,dim);
       });
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
     },
     onColor:(color)=>{
       if(!color)return;
+      const priorObjectId=store.document.advanced?.background?.source?.objectId;
       store.mutate("Change background color",(document)=>{
         document.advanced.background=createFlatColorBackground(color);
         document.advanced.recentColors=recordRecentColor(
@@ -3366,7 +4800,11 @@ export async function boot407FEngineeringAdapter({
           color
         );
       });
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
+      if(priorObjectId){
+        retireDurableMediaObject(priorObjectId)
+          .catch((error)=>toastStudentError(error,"media"));
+      }
     },
     onHex:(color)=>{
       if(color)advancedHooks().onColor(color);
@@ -3382,7 +4820,7 @@ export async function boot407FEngineeringAdapter({
           }
         })
         .catch((error)=>{
-          if(error?.name!=="AbortError")bridge.toast(String(error?.message||error));
+          if(error?.name!=="AbortError")toastStudentError(error);
         });
     },
     onLayoutLock:(locked)=>{
@@ -3390,7 +4828,7 @@ export async function boot407FEngineeringAdapter({
       if(!result.changed)return;
       if(result.effects?.rerunAutoArrange)autoArrange(result.document);
       store.replace(result.document,{label:result.mutation.label});
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
     }
   });
   const renderExportPreview=(input)=>{
@@ -3515,6 +4953,17 @@ export async function boot407FEngineeringAdapter({
     higherContrast:window.matchMedia?.("(prefers-contrast: more)")?.matches,
     forcedColors:window.matchMedia?.("(forced-colors: active)")?.matches
   });
+  /* The phone stylesheet hides the canvas toolbar outright. Without this notice the board
+     just looks broken, so render the banner the responsive model already computes. */
+  const renderCanvasResponsiveNotice=()=>{
+    const host=document.getElementById("canvasResponsiveNotice407F");
+    if(!host)return;
+    const notice=renderResponsiveNotice(currentResponsiveModel(),"canvas");
+    const markup=notice
+      ?`${notice}<p class="responsive407FNoticeHint">You can still read your timeline here. Open Timeline Builder on a laptop or desktop to edit it.</p>`
+      :"";
+    if(host.innerHTML!==markup)host.innerHTML=markup;
+  };
   function renderExportHost(){
     const exportHost=document.getElementById("export407F");
     if(!exportHost)return;
@@ -3527,7 +4976,7 @@ export async function boot407FEngineeringAdapter({
           buildExportPreviewInput(exportDocument,exportState)
         );
       }catch(error){
-        bridge.toast(String(error?.message||error));
+        toastStudentError(error,"export");
       }
     }
     const responsive=currentResponsiveModel();
@@ -3555,7 +5004,10 @@ export async function boot407FEngineeringAdapter({
       getEntitlement:()=>store.entitlement,
       renderPreview:renderExportPreview,
       exportAdapter,
-      toast:(message)=>bridge.toast(message),
+      toast:(message,options)=>bridge.toast(
+        studentMessage(message,{context:"export"}),
+        options?{...options,diagnostic:studentDiagnostic(message)}:options
+      ),
       requestVersion:(label,kind)=>store.saveVersion(label,kind),
       onStateChange:(state,reason)=>{
         exportState=state;
@@ -3658,7 +5110,7 @@ export async function boot407FEngineeringAdapter({
     try{
       return action();
     }catch(error){
-      bridge.toast(String(error?.message||error));
+      toastStudentError(error);
       return null;
     }
   };
@@ -3684,7 +5136,7 @@ export async function boot407FEngineeringAdapter({
     try{
       boardHtml=advisorBoardHtml();
     }catch(error){
-      bridge.toast(String(error?.message||error));
+      toastStudentError(error,"open");
     }
     advisorHost.innerHTML=renderAdvisorSession(store.document,{
       route:store.document.advisor?.route,
@@ -3778,7 +5230,10 @@ export async function boot407FEngineeringAdapter({
   }
   on407FRendered=()=>{
     applyEntitlementSurface();
-    if(bridge.state.view==="command")queueMicrotask(renderHomePreview);
+    if(bridge.state.view==="command")queueMicrotask(()=>{
+      renderHomePreview();
+      renderHomeCompletionStatus();
+    });
     if(bridge.state.view==="export")queueExportRender();
     if(bridge.state.view==="advisor")queueMicrotask(renderAdvisorHost);
     if(bridge.state.view==="builder"){
@@ -3787,6 +5242,12 @@ export async function boot407FEngineeringAdapter({
     }
     if(["builder","canvas","media"].includes(bridge.state.view)){
       queueMicrotask(renderMediaLibrarySurfaces);
+    }
+    if(bridge.state.view==="canvas"){
+      const selection=canvasController?.state?.advancedSelection;
+      if(selection?.type&&selection.type!=="multi"&&selection.id){
+        reselectAdvancedKernel(selection.type,selection.id);
+      }
     }
     requestAnimationFrame(applyEntitlementSurface);
   };
@@ -4092,13 +5553,110 @@ export async function boot407FEngineeringAdapter({
       };
     }
   });
-  const reflectStoreStatus=()=>{
+  closeSyncConflictDialog=()=>{
+    if(!syncConflictDialog)return;
+    if(typeof syncConflictDialog.close==="function"&&syncConflictDialog.open){
+      syncConflictDialog.close();
+    }
+    syncConflictDialog.remove();
+    syncConflictDialog=null;
+  };
+  const openSyncConflictRecovery=async()=>{
+    const conflict=await store.adapter?.getConflict?.(store.document.id);
+    if(!conflict){
+      await store.adapter?.flush?.();
+      return;
+    }
+    closeSyncConflictDialog();
+    const dialog=document.createElement("dialog");
+    dialog.id="timelineSyncConflictRecovery";
+    dialog.setAttribute("aria-labelledby","timelineSyncConflictTitle");
+    dialog.style.cssText="max-width:620px;width:calc(100% - 32px);border:1px solid rgba(100,220,255,.35);border-radius:14px;background:#111827;color:#f8fafc;padding:0;box-shadow:0 24px 80px rgba(0,0,0,.65)";
+    dialog.innerHTML=`<div style="padding:24px">
+      <p style="margin:0 0 8px;color:#6ee7f9;font:700 11px/1.3 var(--num);letter-spacing:.16em">SAVE CONFLICT RECOVERY</p>
+      <h2 id="timelineSyncConflictTitle" style="margin:0 0 12px;font-size:24px">Choose which Timeline to continue with.</h2>
+      <p style="margin:0 0 12px;line-height:1.55;color:#cbd5e1">Another tab or device saved a newer version while this copy still had unsynced changes. Both copies will be preserved in History.</p>
+      <p data-conflict-status role="status" aria-live="polite" style="min-height:22px;margin:0 0 18px;color:#fbbf24"></p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button type="button" class="btnD go" data-conflict-strategy="KEEP_LOCAL">KEEP THIS COPY &amp; SYNC</button>
+        <button type="button" class="btnD alt" data-conflict-strategy="USE_SERVER">USE LATEST SAVED COPY</button>
+        <button type="button" class="btnD alt" data-conflict-cancel>CANCEL</button>
+      </div>
+    </div>`;
+    const status=dialog.querySelector("[data-conflict-status]");
+    const buttons=[...dialog.querySelectorAll("button")];
+    dialog.querySelector("[data-conflict-cancel]").onclick=closeSyncConflictDialog;
+    dialog.querySelectorAll("[data-conflict-strategy]").forEach((button)=>{
+      button.onclick=async()=>{
+        buttons.forEach((item)=>{item.disabled=true;});
+        status.textContent="Preserving both copies and completing recovery…";
+        try{
+          const result=await store.adapter.resolveConflict(
+            store.document.id,
+            button.dataset.conflictStrategy
+          );
+          if(Number(result?.pending||0)>0){
+            throw new Error("Timeline recovery is still syncing. Please try again.");
+          }
+          status.textContent="Recovery complete. Reloading the saved Timeline…";
+          window.location.reload();
+        }catch(error){
+          status.textContent=studentMessage(error,{context:"save"});
+          status.dataset.diagnostic=studentDiagnostic(error);
+          buttons.forEach((item)=>{item.disabled=false;});
+        }
+      };
+    });
+    document.body.append(dialog);
+    syncConflictDialog=dialog;
+    if(typeof dialog.showModal==="function")dialog.showModal();
+    else dialog.setAttribute("open","");
+    dialog.querySelector("[data-conflict-strategy]")?.focus();
+  };
+  reflectStoreStatus=()=>{
     const save=document.getElementById("hudSave");
     if(!save)return;
+    // Claim the badge so the legacy shell stops repainting over the real sync state.
+    save.dataset.d1407fOwned="1";
     const status=store.saveStatus;
-    save.textContent=status==="error"?"COULDN’T SAVE — RETRY":status==="saving"?"SAVING…":"SAVED JUST NOW";
-    save.className=`saveState ${status==="saved"?"isSaved":status==="saving"?"isSaving":"isError"}`;
+    const remoteState=String(remoteSyncStatus?.syncState||remoteSyncStatus?.state||"");
+    const remotePresentation=remoteSyncPresentation(remoteState);
+    if(status==="error"){
+      save.textContent="COULDN’T SAVE — RETRY";
+      save.className="saveState isError";
+    }else if(status==="saving"){
+      save.textContent="SAVING…";
+      save.className="saveState isSaving";
+    }else if(productionRuntime&&remotePresentation){
+      save.textContent=remotePresentation.text;
+      save.className=`saveState ${remotePresentation.className}`;
+    }else{
+      save.textContent="SAVED JUST NOW";
+      save.className="saveState isSaved";
+    }
+    const recoverable=productionRuntime&&remoteState==="CONFLICT"&&
+      typeof store.adapter?.resolveConflict==="function";
+    save.onclick=recoverable?()=>{openSyncConflictRecovery().catch(()=>{});}:null;
+    save.onkeydown=recoverable?(event)=>{
+      if(event.key==="Enter"||event.key===" "){
+        event.preventDefault();
+        openSyncConflictRecovery().catch(()=>{});
+      }
+    }:null;
+    if(recoverable){
+      save.setAttribute("role","button");
+      save.setAttribute("tabindex","0");
+      save.setAttribute("aria-label","Review and resolve Timeline save conflict");
+      save.title="Review and resolve the Timeline save conflict";
+    }else{
+      save.setAttribute("role","status");
+      save.removeAttribute("tabindex");
+      save.setAttribute("aria-label",save.textContent);
+      save.removeAttribute("title");
+    }
+    if(bridge.state.view==="command")renderHomeCompletionStatus();
   };
+  let lastStoreRenderSignature=timelineRenderSignature(store.document);
   unsubscribeStore=store.subscribe(()=>{
     reflectStoreStatus();
     applyEntitlementSurface();
@@ -4112,8 +5670,13 @@ export async function boot407FEngineeringAdapter({
         entitlementEditable
       }));
     }
-    queueBuilderEmbeddedPreview();
-    if(bridge.state.view==="canvas")canvasController?.render();
+    const renderSignature=timelineRenderSignature(store.document);
+    const documentPresentationChanged=renderSignature!==lastStoreRenderSignature;
+    if(documentPresentationChanged){
+      lastStoreRenderSignature=renderSignature;
+      queueBuilderEmbeddedPreview();
+      if(bridge.state.view==="canvas")canvasController?.render();
+    }
     if(store.entitlement.canMutate!==true)return;
     if(approvalReconciling)return;
     const approval=reconcileApprovalFingerprint(store.document);
@@ -4128,10 +5691,13 @@ export async function boot407FEngineeringAdapter({
 
   const canvasHost=document.getElementById("canvas407F");
   if(canvasHost){
-    const syncCanvasDocument=()=>{
+    const syncCanvasDocument=(canvasState)=>{
       if(canvasSyncing)return;
       canvasSyncing=true;
-      syncBridgeFromStore();
+      // Canvas-only UI state (selection, panels, zoom and transient gestures)
+      // must not ask the legacy bridge to rebuild the active route. Canonical
+      // document mutations already synchronize through their owning hooks and
+      // the store subscription below.
       reflectStoreStatus();
       queueMicrotask(()=>api.dateControls.install(canvasHost));
       canvasSyncing=false;
@@ -4140,7 +5706,8 @@ export async function boot407FEngineeringAdapter({
       state:{
         ...createCanvasState({
           viewportWidth:window.innerWidth,
-          mode:store.document.mode
+          mode:store.document.mode,
+          zoom:store.document.preferences?.canvasZoom||"fit"
         }),
         entitlementEditable:store.entitlement.canMutate===true
       },
@@ -4148,7 +5715,8 @@ export async function boot407FEngineeringAdapter({
       renderTheme:(document)=>renderThemePicker(document),
       renderAdvanced:(document,options)=>renderAdvancedStudio(document,{
         ...options,
-        themeSwatches:THEMES_BY_ID[document.theme]
+        themeSwatches:THEMES_BY_ID[document.theme],
+        resolveObjectUrl:(id)=>mediaUrls.get(id)
       }),
       renderCommentLayer:(document,state)=>renderStudentCommentLayer(document,{
         visible:state.commentsOpen,
@@ -4180,11 +5748,11 @@ export async function boot407FEngineeringAdapter({
         store.mutate("Change theme",(document)=>{
           document.theme=themeId;
         });
-        syncBridgeFromStore();
+        syncBridgeStateFromStore();
         bridge.toast("Theme applied");
       },
       onDropReflow:syncCanvasDocument,
-      onToast:(message)=>bridge.toast(message)
+      onToast:(message)=>bridge.toast(studentMessage(message,{context:"layout"}))
     });
     api.canvas=canvasController;
     removeAdvanced=installAdvancedStudio(canvasHost,advancedHooks());
@@ -4309,6 +5877,7 @@ export async function boot407FEngineeringAdapter({
     onAdvancedObjectClick=(event)=>{
       const media=event.target.closest?.("[data-advanced-media]");
       const text=event.target.closest?.("[data-advanced-text]");
+      const element=event.target.closest?.("[data-advanced-element]");
       const headline=event.target.closest?.(
         "[data-board-headline],[data-artifact-chrome='title']"
       );
@@ -4316,22 +5885,130 @@ export async function boot407FEngineeringAdapter({
         ?{type:"media",id:media.dataset.advancedMedia}
         :text
           ?{type:"text",id:text.dataset.advancedText}
+          :element
+            ?{type:"element",id:element.dataset.advancedElement}
           :headline
             ?{type:"headline",id:"headline"}
             :null;
-      if(selection)canvasController?.setUiState({advancedSelection:selection});
+      if(selection){
+        if(selection.type==="text"&&Number(event.detail)>=2){
+          const block=(store.document.advanced?.textBlocks||[]).find(
+            (item)=>String(item.id)===String(selection.id)
+          );
+          canvasController?.setUiState({
+            advancedSelection:selection,
+            advancedTextEdit:{id:selection.id,draft:String(block?.text||"")}
+          });
+          queueMicrotask(()=>{
+            const field=canvasHost.querySelector("[data-advanced-inline-text-input]");
+            field?.focus?.();
+            field?.select?.();
+          });
+        }else if(event.shiftKey||event.metaKey||event.ctrlKey){
+          const prior=canvasController?.state?.advancedSelection;
+          const members=prior?.type==="multi"?prior.members.slice():prior?[prior]:[];
+          const key=`${selection.type}:${selection.id}`;
+          const index=members.findIndex((item)=>`${item.type}:${item.id}`===key);
+          if(index>=0)members.splice(index,1);else members.push(selection);
+          canvasController?.setUiState({
+            advancedSelection:members.length>1?{type:"multi",members}:members[0]||null,
+            advancedTextEdit:null
+          });
+          if(members.length===1)showAdvancedDirectSelection(members[0]);
+          else clearAdvancedDirectSelection();
+        }else{
+          canvasController?.setUiState({advancedSelection:selection,advancedTextEdit:null});
+          showAdvancedDirectSelection(selection);
+        }
+      }
     };
     let advancedPointer=null;
+    let railPointer=null;
+    let nativeRailDrag=null;
+    const advancedEditIframe=()=>canvasHost
+      ?.querySelector?.('d1-timeline-kernel[data-surface="edit"]')
+      ?.shadowRoot
+      ?.querySelector?.("iframe");
+    const clearAdvancedDirectSelection=()=>document.querySelectorAll?.("[data-advanced-direct-selection]").forEach((node)=>node.remove());
+    const showAdvancedDirectSelection=(target)=>queueMicrotask(()=>{
+      clearAdvancedDirectSelection();
+      if(!target||target.type==="multi"||target.type==="group")return;
+      const escaped=globalThis.CSS?.escape?CSS.escape(target.id):target.id;
+      const source=canvasHost?.querySelector?.(
+        target.type==="media"?`[data-advanced-media="${escaped}"]`:
+        target.type==="text"?`[data-advanced-text="${escaped}"]`:
+        target.type==="element"?`[data-advanced-element="${escaped}"]`:""
+      );
+      const bounds=source?.getBoundingClientRect?.();
+      if(!bounds?.width||!bounds?.height)return;
+      const overlay=document.createElement("div");
+      overlay.className="advancedDirectSelection";
+      overlay.dataset.advancedDirectSelection="true";
+      overlay.dataset.advancedTargetType=target.type;
+      overlay.dataset.advancedTargetId=target.id;
+      overlay.style.left=`${bounds.left}px`;
+      overlay.style.top=`${bounds.top}px`;
+      overlay.style.width=`${bounds.width}px`;
+      overlay.style.height=`${bounds.height}px`;
+      overlay.innerHTML=["nw","n","ne","e","se","s","sw","w"].map((handle)=>`<button type="button" aria-label="Resize ${handle}" data-advanced-direct-handle="${handle}" data-advanced-target-type="${target.type}" data-advanced-target-id="${target.id}"></button>`).join("");
+      document.body.append(overlay);
+    });
+    const clearAdvancedAlignmentGuides=(svg=null)=>{
+      const scope=svg||canvasHost;
+      scope?.querySelectorAll?.("[data-advanced-alignment-guides]")
+        .forEach((node)=>node.remove());
+    };
+    const showAdvancedAlignmentGuides=(svg,guides={})=>{
+      clearAdvancedAlignmentGuides(svg);
+      if(!svg||(!guides.vertical&&!guides.horizontal))return;
+      const layer=document.createElementNS("http://www.w3.org/2000/svg","g");
+      layer.dataset.advancedAlignmentGuides="true";
+      layer.setAttribute("aria-hidden","true");
+      if(guides.vertical){
+        const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+        line.dataset.advancedAlignmentGuide="vertical";
+        line.setAttribute("x1",String(guides.vertical.position));
+        line.setAttribute("x2",String(guides.vertical.position));
+        line.setAttribute("y1","0");
+        line.setAttribute("y2","1080");
+        layer.append(line);
+      }
+      if(guides.horizontal){
+        const line=document.createElementNS("http://www.w3.org/2000/svg","line");
+        line.dataset.advancedAlignmentGuide="horizontal";
+        line.setAttribute("x1","0");
+        line.setAttribute("x2","1920");
+        line.setAttribute("y1",String(guides.horizontal.position));
+        line.setAttribute("y2",String(guides.horizontal.position));
+        layer.append(line);
+      }
+      svg.append(layer);
+    };
     const advancedSourceElement=(type,id,fallback)=>{
       if(!fallback?.hasAttribute?.("data-canvas-effective-hit-proxy"))return fallback;
       const escaped=globalThis.CSS?.escape?CSS.escape(id):id;
       return canvasHost.querySelector(
         type==="media"
           ?`[data-advanced-media="${escaped}"][data-canvas-effective-hit-source]`
-          :`[data-advanced-text="${escaped}"][data-canvas-effective-hit-source]`
+          :type==="text"
+            ?`[data-advanced-text="${escaped}"][data-canvas-effective-hit-source]`
+            :`[data-advanced-element="${escaped}"][data-canvas-effective-hit-source]`
       )||fallback;
     };
     const advancedObjectForTarget=(target)=>{
+      const directHandle=target.closest?.("[data-advanced-direct-handle]");
+      if(directHandle){
+        const type=String(directHandle.dataset.advancedTargetType||"");
+        const id=String(directHandle.dataset.advancedTargetId||"");
+        const source=canvasHost.querySelector(
+          type==="media"?`[data-advanced-media="${globalThis.CSS?.escape?CSS.escape(id):id}"]`:
+          type==="text"?`[data-advanced-text="${globalThis.CSS?.escape?CSS.escape(id):id}"]`:
+          `[data-advanced-element="${globalThis.CSS?.escape?CSS.escape(id):id}"]`
+        );
+        const collection=type==="media"?store.document.advanced?.media:type==="text"?store.document.advanced?.textBlocks:store.document.advanced?.elements;
+        const item=(collection||[]).find((candidate)=>String(candidate.id)===id);
+        return item&&source?{type,id,item,element:source,handle:String(directHandle.dataset.advancedDirectHandle||"")}:null;
+      }
       const media=target.closest?.("[data-advanced-media]");
       if(media){
         const id=String(media.dataset.advancedMedia||"");
@@ -4356,6 +6033,18 @@ export async function boot407FEngineeringAdapter({
           element:advancedSourceElement("text",id,text)
         }:null;
       }
+      const element=target.closest?.("[data-advanced-element]");
+      if(element){
+        const id=String(element.dataset.advancedElement||"");
+        const item=(store.document.advanced?.elements||[])
+          .find((candidate)=>String(candidate.id)===id);
+        return item?{
+          type:"element",
+          id,
+          item,
+          element:advancedSourceElement("element",id,element)
+        }:null;
+      }
       return null;
     };
     const restoreAdvancedObjectFocus=(type,id)=>queueMicrotask(()=>{
@@ -4363,7 +6052,9 @@ export async function boot407FEngineeringAdapter({
       canvasHost.querySelector(
         type==="media"
           ?`[data-canvas-effective-hit-proxy][data-advanced-media="${escaped}"], [data-advanced-media="${escaped}"]`
-          :`[data-canvas-effective-hit-proxy][data-advanced-text="${escaped}"], [data-advanced-text="${escaped}"]`
+          :type==="text"
+            ?`[data-canvas-effective-hit-proxy][data-advanced-text="${escaped}"], [data-advanced-text="${escaped}"]`
+            :`[data-canvas-effective-hit-proxy][data-advanced-element="${escaped}"], [data-advanced-element="${escaped}"]`
       )?.focus?.();
     });
     onAdvancedObjectKeyDown=(event)=>{
@@ -4372,11 +6063,24 @@ export async function boot407FEngineeringAdapter({
       const key=String(event.key||"");
       if(key==="Enter"||key===" "){
         event.preventDefault();
-        canvasController?.setUiState({
-          advancedSelection:{type:object.type,id:object.id}
-        });
-        announceGlobal(`${object.type==="media"?"Media":"Text"} selected`);
-        restoreAdvancedObjectFocus(object.type,object.id);
+        if(key==="Enter"&&object.type==="text"){
+          canvasController?.setUiState({
+            advancedSelection:{type:object.type,id:object.id},
+            advancedTextEdit:{id:object.id,draft:String(object.item.text||"")}
+          });
+          queueMicrotask(()=>{
+            const field=canvasHost.querySelector("[data-advanced-inline-text-input]");
+            field?.focus?.();
+            field?.select?.();
+          });
+          announceGlobal("Text editing opened");
+        }else{
+          canvasController?.setUiState({
+            advancedSelection:{type:object.type,id:object.id}
+          });
+          announceGlobal(`${object.type==="media"?"Media":"Text"} selected`);
+          restoreAdvancedObjectFocus(object.type,object.id);
+        }
         return;
       }
       if(!["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"].includes(key))return;
@@ -4392,33 +6096,35 @@ export async function boot407FEngineeringAdapter({
       const original=clone(object.item);
       let next;
       let label;
-      if(event.shiftKey&&object.type==="media"){
-        next=resizeMediaElement(original,{
-          width:Math.max(48,Number(original.width||1)+delta.x),
-          height:Math.max(48,Number(original.height||1)+delta.y),
-          shiftKey:true
-        });
-        label="Resize Media asset";
+      if(event.shiftKey&&["media","element","text"].includes(object.type)){
+        const width=Math.max(48,Number(original.width||1)+delta.x);
+        const unlocked=original.aspectLocked===false;
+        next=constrainAdvancedObjectToBoard(object.type==="media"
+          ?resizeMediaElement(original,{width,height:Math.max(32,Number(original.height||1)+delta.y),shiftKey:unlocked})
+          :{...original,width,height:unlocked?Math.max(32,Number(original.height||1)+delta.y):width/(Number(original.width||1)/Number(original.height||1))});
+        label=`Resize ${object.type==="element"?"Timeline asset":object.type==="text"?"text":"Media asset"}`;
       }else{
         const width=Number(original.width||0);
         const height=Number(original.height||0);
         const x=Math.max(0,Math.min(1920-width,Number(original.x||0)+delta.x));
         const y=Math.max(0,Math.min(1080-height,Number(original.y||0)+delta.y));
-        next=object.type==="media"
+        next=constrainAdvancedObjectToBoard(object.type==="media"
           ?moveMediaElement(original,{x,y})
-          :{...original,x,y};
+          :{...original,x,y});
         label=`Move Advanced ${object.type}`;
       }
       store.mutate(label,(document)=>{
         const collection=object.type==="media"
           ?document.advanced.media
-          :document.advanced.textBlocks;
+          :object.type==="element"
+            ?document.advanced.elements
+            :document.advanced.textBlocks;
         const index=collection.findIndex(
           (candidate)=>String(candidate.id)===object.id
         );
         if(index>=0)collection[index]={...collection[index],...clone(next)};
       });
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
       canvasController?.setUiState({
         advancedSelection:{type:object.type,id:object.id}
       });
@@ -4430,18 +6136,51 @@ export async function boot407FEngineeringAdapter({
       restoreAdvancedObjectFocus(object.type,object.id);
     };
     onAdvancedPointerDown=(event)=>{
-      if(event.button!==0||store.document.layoutLock!==false)return;
+      if(event.button!==0||railPointer||advancedPointer)return;
+      const railAsset=event.target.closest?.("[data-advanced-insert-asset]");
+      if(railAsset&&store.entitlement.canMutate===true){
+        const ghost=document.createElement("div");
+        ghost.className="advancedRailDragGhost";
+        ghost.textContent=railAsset.innerText?.trim()?.split("\n").at(-1)||"Timeline asset";
+        ghost.style.left=`${event.clientX+14}px`;
+        ghost.style.top=`${event.clientY+14}px`;
+        document.body.append(ghost);
+        railPointer={
+          startX:event.clientX,startY:event.clientY,moved:false,ghost,
+          source:railAsset,pointerId:event.pointerId,
+          payload:{
+            kind:"insert",action:String(railAsset.dataset.advancedAction||"asset"),
+            assetKind:String(railAsset.dataset.advancedKind||"rectangle"),
+            symbol:String(railAsset.dataset.advancedSymbol||"")
+          }
+        };
+        railAsset.setPointerCapture?.(event.pointerId);
+        event.preventDefault();
+        return;
+      }
+      if(store.document.layoutLock!==false)return;
       const object=advancedObjectForTarget(event.target);
       if(!object)return;
       const svg=object.element.closest("svg");
       const svgBounds=svg?.getBoundingClientRect?.();
       const objectBounds=object.element.getBoundingClientRect?.();
       if(!svgBounds?.width||!svgBounds?.height||!objectBounds)return;
+      clearAdvancedAlignmentGuides(svg);
+      let modelBounds={
+        x:Number(object.item.x||0),y:Number(object.item.y||0),
+        width:Number(object.item.width||1),height:Number(object.item.height||1)
+      };
+      try{
+        const box=object.element.getBBox?.();
+        if(box&&Number.isFinite(box.x)&&Number.isFinite(box.y)&&box.width>0&&box.height>0){
+          modelBounds={x:box.x,y:box.y,width:box.width,height:box.height};
+        }
+      }catch{}
       const resizeZone=Math.max(
         6,
         Math.min(18,objectBounds.width*.25,objectBounds.height*.25)
       );
-      const resize=object.type==="media"&&(
+      const resize=["media","element","text"].includes(object.type)&&(
         event.clientX>=objectBounds.right-resizeZone&&
         event.clientY>=objectBounds.bottom-resizeZone
       );
@@ -4452,15 +6191,28 @@ export async function boot407FEngineeringAdapter({
         startY:event.clientY,
         scaleX:1920/svgBounds.width,
         scaleY:1080/svgBounds.height,
+        svg,
+        visualOffsetX:modelBounds.x-Number(object.item.x||0),
+        visualOffsetY:modelBounds.y-Number(object.item.y||0),
+        visualWidth:modelBounds.width,
+        visualHeight:modelBounds.height,
         original:clone(object.item),
         preview:clone(object.item),
         moved:false
       };
       object.element.dataset.advancedDragging=advancedPointer.kind;
       canvasController?.setUiState({advancedSelection:{type:object.type,id:object.id}});
+      showAdvancedDirectSelection({type:object.type,id:object.id});
       event.preventDefault();
     };
     onAdvancedPointerMove=(event)=>{
+      if(railPointer){
+        railPointer.ghost.style.left=`${event.clientX+14}px`;
+        railPointer.ghost.style.top=`${event.clientY+14}px`;
+        railPointer.moved=railPointer.moved||Math.hypot(event.clientX-railPointer.startX,event.clientY-railPointer.startY)>5;
+        event.preventDefault();
+        return;
+      }
       if(!advancedPointer)return;
       const dx=(event.clientX-advancedPointer.startX)*advancedPointer.scaleX;
       const dy=(event.clientY-advancedPointer.startY)*advancedPointer.scaleY;
@@ -4468,75 +6220,228 @@ export async function boot407FEngineeringAdapter({
       advancedPointer.moved=true;
       const original=advancedPointer.original;
       let next;
-      if(advancedPointer.type==="media"&&advancedPointer.kind==="resize"){
-        next=resizeMediaElement(original,{
-          width:Math.max(48,Number(original.width||1)+dx),
-          height:Math.max(48,Number(original.height||1)+dy),
-          shiftKey:event.shiftKey
-        });
-        advancedPointer.element.setAttribute("width",String(next.width));
-        advancedPointer.element.setAttribute("height",String(next.height));
+      if(["media","element","text"].includes(advancedPointer.type)&&advancedPointer.kind==="resize"){
+        const freeAspect=original.aspectLocked===false
+          ?!event.shiftKey
+          :event.shiftKey;
+        const width=Math.max(48,Number(original.width||1)+dx);
+        const height=Math.max(32,Number(original.height||1)+dy);
+        next=constrainAdvancedObjectToBoard(advancedPointer.type==="media"
+          ?resizeMediaElement(original,{width,height,shiftKey:freeAspect})
+          :{...clone(original),width,height:freeAspect?height:width/(Number(original.width||1)/Number(original.height||1))});
+        if(advancedPointer.type==="media"){
+          advancedPointer.element.setAttribute("width",String(next.width));
+          advancedPointer.element.setAttribute("height",String(next.height));
+        }else if(advancedPointer.type==="element"){
+          const scaleX=next.width/Math.max(1,Number(original.width||1));
+          const scaleY=next.height/Math.max(1,Number(original.height||1));
+          advancedPointer.element.setAttribute("transform",`translate(${next.x} ${next.y}) scale(${scaleX} ${scaleY})`);
+        }else{
+          advancedPointer.element.setAttribute("x",String(next.x));
+          advancedPointer.element.setAttribute("y",String(next.y));
+          advancedPointer.element.setAttribute("font-size",String(Math.max(10,Number(original.size||24)*(next.height/Math.max(1,Number(original.height||72))))));
+        }
       }else{
         const width=Number(original.width||0);
         const height=Number(original.height||0);
         const x=Math.max(0,Math.min(1920-width,Number(original.x||0)+dx));
         const y=Math.max(0,Math.min(1080-height,Number(original.y||0)+dy));
-        next=advancedPointer.type==="media"
+        next=constrainAdvancedObjectToBoard(advancedPointer.type==="media"
           ?moveMediaElement(original,{x,y})
-          :{...clone(original),x,y};
-        advancedPointer.element.setAttribute("x",String(next.x));
-        advancedPointer.element.setAttribute("y",String(next.y));
+          :{...clone(original),x,y});
+        const snapped=snapAdvancedObjectToBoard(next,{
+          threshold:12,
+          visualBounds:{
+            x:Number(next.x||0)+advancedPointer.visualOffsetX,
+            y:Number(next.y||0)+advancedPointer.visualOffsetY,
+            width:advancedPointer.visualWidth,
+            height:advancedPointer.visualHeight
+          }
+        });
+        next=constrainAdvancedObjectToBoard(snapped.element);
+        showAdvancedAlignmentGuides(advancedPointer.svg,snapped.guides);
+        if(advancedPointer.type==="element"){
+          advancedPointer.element.setAttribute("transform",`translate(${next.x} ${next.y})`);
+        }else{
+          advancedPointer.element.setAttribute("x",String(next.x));
+          advancedPointer.element.setAttribute("y",String(next.y));
+        }
       }
       advancedPointer.preview=next;
       event.preventDefault();
     };
-    onAdvancedPointerUp=()=>{
+    onAdvancedPointerUp=(event)=>{
+      if(railPointer){
+        const pending=railPointer;
+        railPointer=null;
+        pending.source?.releasePointerCapture?.(pending.pointerId);
+        pending.ghost.remove();
+        const iframe=advancedEditIframe();
+        const bounds=iframe?.getBoundingClientRect?.();
+        if(pending.moved&&bounds&&event.clientX>=bounds.left&&event.clientX<=bounds.right&&event.clientY>=bounds.top&&event.clientY<=bounds.bottom){
+          advancedHooks().onAssetDrop(pending.payload,{
+            x:Math.max(0,Math.min(1840,(event.clientX-bounds.left)*1920/bounds.width)),
+            y:Math.max(0,Math.min(1000,(event.clientY-bounds.top)*1080/bounds.height))
+          });
+          bridge.toast("Added to your timeline");
+        }
+        return;
+      }
       if(!advancedPointer)return;
       const pointer=advancedPointer;
       advancedPointer=null;
+      clearAdvancedAlignmentGuides(pointer.svg);
       delete pointer.element.dataset.advancedDragging;
+      clearAdvancedDirectSelection();
+      if(event?.type==="pointercancel"){
+        pointer.element.setAttribute("x",String(pointer.original.x));
+        pointer.element.setAttribute("y",String(pointer.original.y));
+        if(pointer.type==="media"){
+          pointer.element.setAttribute("width",String(pointer.original.width));
+          pointer.element.setAttribute("height",String(pointer.original.height));
+        }else if(pointer.type==="element"){
+          pointer.element.setAttribute("transform",`translate(${pointer.original.x} ${pointer.original.y})`);
+        }
+        return;
+      }
       if(!pointer.moved)return;
       store.mutate(
         pointer.kind==="resize"?"Resize Media asset":`Move Advanced ${pointer.type}`,
         (document)=>{
           const collection=pointer.type==="media"
             ?document.advanced.media
-            :document.advanced.textBlocks;
+            :pointer.type==="element"
+              ?document.advanced.elements
+              :document.advanced.textBlocks;
           const index=collection.findIndex(
             (candidate)=>String(candidate.id)===pointer.id
           );
           if(index>=0)collection[index]={...collection[index],...clone(pointer.preview)};
         }
       );
-      syncBridgeFromStore();
+      syncBridgeStateFromStore();
       canvasController?.setUiState({
         advancedSelection:{type:pointer.type,id:pointer.id}
       });
+      showAdvancedDirectSelection({type:pointer.type,id:pointer.id});
       const message=pointer.kind==="resize"?"Media resized":`${pointer.type==="media"?"Media":"Text"} moved`;
       bridge.toast(message);
       announceGlobal(message);
+    };
+    const railPayload=(event)=>{
+      try{
+        return JSON.parse(event.dataTransfer?.getData?.("application/x-missionmed-timeline-asset")||"");
+      }catch{return null;}
+    };
+    onAdvancedRailDragOver=(event)=>{
+      const payload=railPayload(event);
+      if(payload?.kind!=="insert"||store.entitlement.canMutate!==true)return;
+      event.preventDefault();
+      if(event.dataTransfer)event.dataTransfer.dropEffect="copy";
+    };
+    onAdvancedRailDrop=(event)=>{
+      const payload=railPayload(event);
+      if(payload?.kind!=="insert"||store.entitlement.canMutate!==true)return;
+      const svg=event.target.closest?.("svg")||canvasHost.querySelector("svg");
+      const bounds=svg?.getBoundingClientRect?.();
+      if(!bounds?.width||!bounds?.height)return;
+      event.preventDefault();
+      const x=Math.max(0,Math.min(1840,(event.clientX-bounds.left)*1920/bounds.width));
+      const y=Math.max(0,Math.min(1000,(event.clientY-bounds.top)*1080/bounds.height));
+      /* Only confirm a drop that actually landed. Announcing success for a payload no
+         handler accepts is worse than silence: the student believes the asset is there. */
+      if(advancedHooks().onAssetDrop(payload,{x,y})===true)bridge.toast("Added to your timeline");
+    };
+    onAdvancedRailNativeDragStart=(event)=>{
+      const tile=event.target.closest?.("[data-advanced-insert-asset]");
+      if(!tile||store.entitlement.canMutate!==true)return;
+      nativeRailDrag={
+        action:String(tile.dataset.advancedAction||"asset"),
+        assetKind:String(tile.dataset.advancedKind||"rectangle"),
+        symbol:String(tile.dataset.advancedSymbol||"")
+      };
+    };
+    onAdvancedRailNativeDragEnd=(event)=>{
+      const pending=nativeRailDrag;
+      nativeRailDrag=null;
+      if(!pending||event.dataTransfer?.dropEffect!=="none")return;
+      const iframe=advancedEditIframe();
+      const bounds=iframe?.getBoundingClientRect?.();
+      if(!bounds||event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom)return;
+      advancedHooks().onAssetDrop({kind:"insert",...pending},{
+        x:Math.max(0,Math.min(1840,(event.clientX-bounds.left)*1920/bounds.width)),
+        y:Math.max(0,Math.min(1000,(event.clientY-bounds.top)*1080/bounds.height))
+      });
+      bridge.toast("Added to your timeline");
     };
     canvasHost.addEventListener("click",onCanvasDetailsClick);
     canvasHost.addEventListener("click",onAdvancedObjectClick);
     canvasHost.addEventListener("keydown",onAdvancedObjectKeyDown);
     canvasHost.addEventListener("pointerdown",onAdvancedPointerDown);
+    canvasHost.addEventListener("mousedown",onAdvancedPointerDown);
+    canvasHost.addEventListener("dragover",onAdvancedRailDragOver);
+    canvasHost.addEventListener("drop",onAdvancedRailDrop);
+    canvasHost.addEventListener("dragstart",onAdvancedRailNativeDragStart);
+    document.addEventListener("dragend",onAdvancedRailNativeDragEnd);
     document.addEventListener("pointermove",onAdvancedPointerMove);
+    document.addEventListener("mousemove",onAdvancedPointerMove);
     document.addEventListener("pointerup",onAdvancedPointerUp);
+    document.addEventListener("mouseup",onAdvancedPointerUp);
+    document.addEventListener("pointercancel",onAdvancedPointerUp);
     onCanvasResize=()=>canvasController?.setResponsiveWidth(window.innerWidth);
     window.addEventListener("resize",onCanvasResize);
-    mediaUrls.hydrate(store,store.document)
+    mediaUrls.hydrate(store,store.document,{
+      remoteLoader:productionRuntime
+        ?(objectId)=>productionRuntime.authClient.downloadPrivateObject(objectId)
+        :null,
+      onError:(error,{id})=>{
+        console.warn("Timeline media hydration omitted one asset",{id,error});
+        announceGlobal("One image could not be loaded. The rest of your timeline is fine.");
+      }
+    })
       .then((changed)=>{
         if(changed)canvasController?.render();
       })
-      .catch((error)=>bridge.toast(String(error?.message||error)));
+      .catch((error)=>toastStudentError(error,"media"));
   }
   if(document.getElementById("export407F"))renderExportHost();
   if(document.getElementById("advisor407F"))renderAdvisorHost();
   onAdvisorHashChange();
   const intakeHost=document.getElementById("intake407F");
   if(intakeHost){
-    const intakeAdapter=window.D1_TIMELINE_INTAKE_ADAPTER||createD1408PdfIntakeAdapter();
+    const localIntakeAdapter=createD1408PdfIntakeAdapter();
+    const intakeAdapter=window.D1_TIMELINE_INTAKE_ADAPTER||(
+      productionRuntime&&privateMediaStorageEnabled
+        ?createProductionCvIntakeAdapter({
+          localAdapter:localIntakeAdapter,
+          apiClient:productionRuntime.authClient,
+          documentId:store.document.id,
+          existingEvents:()=>clone(store.document.events||[]),
+          consentVersion:"d1-ux-007-ai-v1",
+          ensureRemoteDocument:ensureRemoteDocumentForMedia
+        })
+        :localIntakeAdapter
+    );
     window.D1_TIMELINE_INTAKE_ADAPTER=intakeAdapter;
+    /* intake.js copies a rejection message straight into state.fileError, which renders as
+       the red field error under the CV dropzone. That message has to already be student
+       language by the time it leaves this adapter, so translate it at the boundary. */
+    const studentSafeIntakeAdapter=Object.freeze({
+      ...intakeAdapter,
+      async extract(input){
+        try{
+          return await intakeAdapter.extract(input);
+        }catch(error){
+          if(error?.name==="AbortError")throw error;
+          const translated=studentError(error,{context:"document"});
+          console.warn("Timeline student-facing error",translated.diagnostic,error);
+          const safe=new Error(translated.message);
+          safe.code=translated.code||"DOCUMENT_UNREADABLE";
+          safe.diagnostic=translated.diagnostic;
+          throw safe;
+        }
+      }
+    });
     const renderIntakePreview=(previewEvents)=>{
       const replacementIds=new Set((previewEvents||[]).map(({id})=>String(id)));
       const events=[
@@ -4566,6 +6471,16 @@ export async function boot407FEngineeringAdapter({
         existingEvents:store.document.events,
         renderPreview:renderIntakePreview
       });
+      if(state.stage==="upload"&&productionRuntime&&privateMediaStorageEnabled){
+        intakeHost.insertAdjacentHTML("beforeend",`<section class="intake-stage intake407FRescue" aria-labelledby="timelineRescueTitle">
+          <p class="micro407F">TIMELINE RESCUE</p>
+          <h2 id="timelineRescueTitle">Import an existing Timeline</h2>
+          <p>Recover editable events from a PowerPoint, PDF, or image. MissionMed restores the approved template; you review every recovered fact before anything is added.</p>
+          <label class="btnD alt" for="timelineRescueFile">Choose existing Timeline</label>
+          <input id="timelineRescueFile" type="file" accept=".pptx,.pdf,.png,.jpg,.jpeg,.key,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/pdf,image/png,image/jpeg" data-timeline-rescue-file hidden>
+          <p class="micro407F">Using Keynote? Choose the .key file for exact export guidance. Native .key parsing is not claimed.</p>
+        </section>`);
+      }
     };
     const openIntakeDialog=(dialog)=>{
       if(typeof bridge.openModal!=="function")return;
@@ -4587,9 +6502,34 @@ export async function boot407FEngineeringAdapter({
       },{once:true});
     };
     intakeMachine=new IntakeStateMachine({
-      adapter:intakeAdapter,
+      adapter:studentSafeIntakeAdapter,
       initialState:store.document.intake,
       existingEvents:store.document.events
+    });
+    intakeHost.addEventListener("change",(event)=>{
+      const input=event.target?.closest?.("[data-timeline-rescue-file]");
+      const file=input?.files?.[0];
+      if(!file)return;
+      input.value="";
+      if(String(file.name||"").toLowerCase().endsWith(".key")){
+        openIntakeDialog({
+          title:"Export from Keynote first",
+          body:"In Keynote choose File > Export To > PowerPoint (preferred) or PDF, then upload that exported file here. Timeline Builder does not claim unreliable native .key parsing.",
+          primaryLabel:"I’ll export it",secondaryLabel:"Close"
+        });
+        return;
+      }
+      openIntakeDialog({
+        title:"Analyze this existing Timeline?",
+        body:`MissionMed will privately process ${file.name} to recover structured events and presentation evidence. Nothing is added until you review and accept it.`,
+        primaryLabel:"Analyze safely",secondaryLabel:"Cancel",
+        onPrimary:()=>{
+          Object.defineProperty(file,"timelineRescue",{value:true,configurable:true});
+          intakeMachine.receiveFile(file);
+          intakeMachine.setConsent(true);
+          intakeMachine.startExtraction().catch((error)=>toastStudentError(error,"document"));
+        }
+      });
     });
     intakeCleanup=installIntake(intakeHost,intakeMachine,{
       onChange:(state)=>{
@@ -4604,17 +6544,63 @@ export async function boot407FEngineeringAdapter({
         bridge.renderAll();
       },
       onNavigate:(route)=>bridge.go(route),
-      onToast:(message)=>bridge.toast(message),
-      onError:(error)=>bridge.toast(String(error?.message||error)),
+      onToast:(message)=>bridge.toast(studentMessage(message,{context:"document"})),
+      onError:(error)=>toastStudentError(error,"document"),
       openDialog:openIntakeDialog,
       saveVersion:(name,kind)=>store.saveVersion(name,kind),
       applyBatch:async(batch,contract)=>{
         let result=null;
+        const feedbackState=intakeMachine.snapshot();
         store.mutate(contract?.label||"Add document suggestions",(document)=>{
           result=applyApprovalBatchToDocument(document,batch);
+          const feedbackParser=feedbackState?.extraction?.parser||feedbackState?.parser||null;
+          if(feedbackParser?.intelligenceMode==="SERVER_AI"){
+            const candidates=new Map((feedbackState.candidates||[]).map((candidate)=>[String(candidate.id),candidate]));
+            for(const decision of batch.candidateDecisions||[]){
+              if(["undecided","rejected"].includes(decision.decision))continue;
+              const candidate=candidates.get(String(decision.id));
+              if(!candidate)continue;
+              const outcome=classifyTimelineAiCandidateOutcome(candidate,decision.decision);
+              const confidence=Number(candidate.confidence?.score??candidate.confidence??0);
+              appendTimelineAiFeedback(document,{
+                workflow:feedbackParser.detectedType==="TIMELINE_RESCUE"
+                  ?"TIMELINE_RESCUE"
+                  :"CV_SMART_FILL",
+                workflowVersion:String(feedbackParser.promptVersion||feedbackParser.schemaVersion||"d1-timeline-cv-ai.1"),
+                modelVersion:String(feedbackParser.model||"unknown-model"),
+                suggestionId:String(candidate.id),
+                suggestionType:String(candidate.fields?.canonicalType||candidate.canonicalType||candidate.type||"TIMELINE_EVENT"),
+                confidence:Number.isFinite(confidence)?Math.max(0,Math.min(1,confidence>1?confidence/100:confidence)):0,
+                outcome,
+                correctedCategory:outcome==="MODIFIED"?String(candidate.categoryId||"")||null:null,
+                correctedStartDate:outcome==="MODIFIED"?candidate.startDate||null:null,
+                correctedEndDate:outcome==="MODIFIED"?candidate.endDate||null:null,
+                actorKind:qualityGuardianViewer(store.entitlement,bridge.state.view).startsWith("Founder")?"FOUNDER":"STUDENT",
+                finalCanonicalReference:`candidate:${candidate.id}@document:${document.id}:revision:${Number(document.revision||0)+1}`
+              });
+            }
+          }
         });
         syncBridgeFromStore();
         return result;
+      },
+      onCandidateDecision:async({candidate,decision,state})=>{
+        const feedbackParser=state?.extraction?.parser||null;
+        if(decision!=="rejected"||!candidate||feedbackParser?.intelligenceMode!=="SERVER_AI")return;
+        store.mutate("Record rejected AI suggestion",(document)=>{
+          const confidence=Number(candidate.confidence?.score??candidate.confidence??0);
+          appendTimelineAiFeedback(document,{
+            workflow:feedbackParser.detectedType==="TIMELINE_RESCUE"?"TIMELINE_RESCUE":"CV_SMART_FILL",
+            workflowVersion:String(feedbackParser.promptVersion||feedbackParser.schemaVersion||"d1-timeline-cv-ai.1"),
+            modelVersion:String(feedbackParser.model||"unknown-model"),
+            suggestionId:String(candidate.id),
+            suggestionType:String(candidate.fields?.canonicalType||candidate.canonicalType||"TIMELINE_EVENT"),
+            confidence:Number.isFinite(confidence)?Math.max(0,Math.min(1,confidence>1?confidence/100:confidence)):0,
+            outcome:"REJECTED",
+            actorKind:qualityGuardianViewer(store.entitlement,bridge.state.view).startsWith("Founder")?"FOUNDER":"STUDENT",
+            finalCanonicalReference:`candidate:${candidate.id}@document:${document.id}:revision:${Number(document.revision||0)}`
+          });
+        },{history:false,material:false});
       },
       deleteSource:async(file)=>{
         if(typeof intakeAdapter.deleteSource==="function"){
@@ -4692,11 +6678,18 @@ export async function boot407FEngineeringAdapter({
       const selected=document.querySelector('input[name="file-vault-source"]:checked');
       if(!selected)return;
       try{
-        await selectFileVaultSourceDocument(fileVaultSource,selected.value);
+        const selectedDescriptor=await fileVaultSource.select(selected.value);
+        const imported=await selectFileVaultSourceDocument(fileVaultSource,selected.value,{
+          timelineDocumentId:store.document.id,
+          versionId:String(selectedDescriptor?.versionId||"")
+        });
+        if(!imported.file||!intakeMachine)throw new Error("Timeline could not open that File Vault document for Smart Fill.");
+        intakeMachine.receiveFile(imported.file);
         closeOwnedModal();
         bridge.go("intake");
+        bridge.toast("File Vault document ready for your review");
       }catch(error){
-        bridge.toast(String(error?.message||error));
+        toastStudentError(error,"document");
       }
     });
     let searchTimer=null;
@@ -4711,7 +6704,7 @@ export async function boot407FEngineeringAdapter({
     }
   };
   onHomeFileVault=()=>openFileVaultSource().catch((error)=>{
-    bridge.toast(String(error?.message||error));
+    toastStudentError(error,"document");
   });
   document.getElementById("homeFileVault")?.addEventListener("click",onHomeFileVault);
   const openShortcuts=()=>{
@@ -4748,7 +6741,7 @@ export async function boot407FEngineeringAdapter({
     if(command&&lower==="z"&&!isEditableTarget(event.target)){
       event.preventDefault();
       if(store.entitlement.canMutate!==true){
-        bridge.toast(store.entitlement.reason);
+        bridge.toast(entitlementStudentReason(),{tone:"warning",diagnostic:store.entitlement.reason});
         return;
       }
       (event.shiftKey?api.redo:api.undo)();
@@ -4756,8 +6749,8 @@ export async function boot407FEngineeringAdapter({
     }
     if(command&&lower==="e"){
       event.preventDefault();
-      bridge.go("export");
-      announceGlobal("Opened Export");
+      openQualityGuardian407F("BEFORE_EXPORT");
+      announceGlobal("Opened Quality Check before Export");
       return;
     }
     if(key==="?"&&!event.metaKey&&!event.ctrlKey&&!event.altKey&&!isEditableTarget(event.target)){
@@ -4850,11 +6843,17 @@ export async function boot407FEngineeringAdapter({
         ()=>updateBuilderPreviewHitTargets(document.getElementById("boardWizard"))
       ));
     }
-    if(view==="canvas")requestAnimationFrame(()=>requestAnimationFrame(
-      ()=>canvasController?.refreshEffectiveHitTargets?.()
-    ));
+    if(view==="canvas"){
+      renderCanvasResponsiveNotice();
+      requestAnimationFrame(()=>requestAnimationFrame(
+        ()=>canvasController?.refreshEffectiveHitTargets?.()
+      ));
+    }
     if(!["builder","canvas"].includes(view))closeMediaLibrary();
     if(["builder","canvas","media"].includes(view))renderMediaLibrarySurfaces();
+    if(view==="command"&&productionRuntime){
+      installProductionPrivacyControl(productionRuntime.identity);
+    }
     if(view===lastFocusedView)return;
     cancelAnimationFrame(routeFocusFrame);
     routeFocusFrame=requestAnimationFrame(()=>{
@@ -4876,6 +6875,7 @@ export async function boot407FEngineeringAdapter({
     onChange:(model)=>{
       api.responsive=model;
       canvasController?.setResponsiveWidth(model.viewport.width);
+      renderCanvasResponsiveNotice();
       const active=document.querySelector("section[data-view].live");
       if(active){
         const screen=bridge.state.view==="command"?"home":bridge.state.view;
@@ -4898,7 +6898,9 @@ export async function boot407FEngineeringAdapter({
   api.responsive=responsiveRuntime.state;
   onRouteRendered();
 
-  const matrixAppMode=installLocalMatrixAppMode({store});
+  const matrixAppMode=runtimeMode==="production"
+    ?installProductionMatrixReturn({store,productionRuntime})
+    :installLocalMatrixAppMode({store});
   window.D1_407F_ENGINEERING=api;
   bridge.renderAll();
   document.documentElement.classList.remove("d1-hydrating");
@@ -4917,9 +6919,36 @@ if(typeof window!=="undefined"){
   boot407FEngineeringAdapter().catch((error)=>{
     console.error("407F engineering adapter failed",error);
     const gate=document.getElementById("d1HydrationGate");
-    if(gate)gate.textContent="Timeline could not be loaded safely.";
+    if(gate){
+      gate.textContent="";
+      gate.classList.add("d1Recovery");
+      const panel=document.createElement("section");
+      panel.className="d1RecoveryPanel";
+      panel.setAttribute("role","alert");
+      const eyebrow=document.createElement("p");
+      eyebrow.className="d1RecoveryEyebrow";
+      eyebrow.textContent="MissionMed Timeline Builder";
+      const title=document.createElement("h1");
+      title.textContent="Your Timeline needs a fresh connection.";
+      const detail=document.createElement("p");
+      detail.textContent="Your work on this device is still safe. Try again, or return to Matrix and reopen Timeline Builder.";
+      const actions=document.createElement("div");
+      actions.className="d1RecoveryActions";
+      const retry=document.createElement("button");
+      retry.type="button";
+      retry.textContent="Retry";
+      retry.addEventListener("click",()=>window.location.reload(),{once:true});
+      const back=document.createElement("a");
+      back.href=new URL("/member-dashboard/",window.location.origin).href;
+      back.textContent="Return to Matrix";
+      actions.append(retry,back);
+      panel.append(eyebrow,title,detail,actions);
+      gate.append(panel);
+      gate.dataset.errorCode=String(error?.code||"TIMELINE_BOOTSTRAP_FAILED");
+      gate.dataset.diagnostic=studentDiagnostic(error);
+    }
     document.dispatchEvent(new CustomEvent("d1:407f-engineering-error",{
-      detail:{message:String(error?.message||error)}
+      detail:{message:studentMessage(error,{context:"open"}),diagnostic:studentDiagnostic(error)}
     }));
   });
 }

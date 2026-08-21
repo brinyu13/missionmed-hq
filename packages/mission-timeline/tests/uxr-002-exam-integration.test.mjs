@@ -30,6 +30,25 @@ test("M5/M6 integration keeps independent system selection and adds no exam unti
   assert.equal(document.events.length,0,"an incomplete card must not project a timeline event");
 });
 
+test("historical USMLE Step 2 CS survives Builder workflow round trips as pass/fail-only",()=>{
+  const document=defaultDocument();
+  setBuilderExamSystem(document,"USMLE",true);
+  addBuilderExam(document,"USMLE","step-2-cs");
+  assert.equal(document.exams[0].name,"Step 2 CS");
+  assert.equal(document.exams[0].passFailOnly,true);
+  updateBuilderExamAttempt(document,document.exams[0].id,{
+    result:"Passed",
+    examDate:"2019-06",
+    studyStartDate:"2019-01"
+  });
+  assert.equal(completedBuilderExamAttempts(document).length,1);
+  assert.equal(document.events.some(({title})=>title==="Step 2 CS"),true);
+  const before=structuredClone(document);
+  normalizeExamDocument(document);
+  assert.deepEqual(document.exams,before.exams);
+  assert.deepEqual(document.events,before.events);
+});
+
 test("M5/M6 integration applies the failed-attempt transition atomically to cards and projected board events",()=>{
   const document=defaultDocument();
   setBuilderExamSystem(document,"USMLE",true);

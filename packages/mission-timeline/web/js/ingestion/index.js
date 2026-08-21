@@ -13,6 +13,7 @@ import {detectPrivacy} from "./privacy-detector.js";
 import {buildCandidates} from "./candidate-builder.js";
 import {detectDuplicates,similarity,normalizeIdentity} from "./duplicate-detector.js";
 import {detectConflicts} from "./conflict-detector.js";
+import {buildQualitySuggestions} from "./quality-review.js";
 import {INGESTION_SCHEMA_VERSION,PARSER_VERSION} from "./ingestion-state.js";
 import {assessOcrRequirement,runLocalOcr,OCR_ADAPTER_VERSION} from "./ocr-adapter.js";
 
@@ -42,7 +43,7 @@ export function install408Ingestion(api){
     correctDocumentType:(id,type)=>controller.correctDocumentType(id,type),
     setCandidateVisibility:(id,visibility)=>controller.setCandidateVisibility(id,visibility),
     reviewProgress:()=>controller.reviewProgress(),
-    pure:{detectDocumentType,inspectFile,textItemsToLines,detectSections,classifyHeading,normalizeDateRange,parseDatePoint,monthIndex,parseErasBlocks,parseCvBlocks,parseResumeBlocks,parseUnknownBlocks,classifyEvent,scoreConfidence,detectPrivacy,buildCandidates,detectDuplicates,detectConflicts,similarity,normalizeIdentity,assessOcrRequirement,runLocalOcr},
+    pure:{detectDocumentType,inspectFile,textItemsToLines,detectSections,classifyHeading,normalizeDateRange,parseDatePoint,monthIndex,parseErasBlocks,parseCvBlocks,parseResumeBlocks,parseUnknownBlocks,classifyEvent,scoreConfidence,detectPrivacy,buildCandidates,detectDuplicates,detectConflicts,buildQualitySuggestions,similarity,normalizeIdentity,assessOcrRequirement,runLocalOcr},
     ocrAdapterVersion:OCR_ADAPTER_VERSION,
     limits:{MAX_FILE_BYTES,MAX_PAGES}
   };

@@ -4,6 +4,10 @@ import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const packageRoot = resolve(fileURLToPath(new URL("../", import.meta.url)));
+const acceptedWebAssetRoot = String(process.env.TIMELINE_ACCEPTED_WEB_ASSET_ROOT || "").trim();
+if (acceptedWebAssetRoot && resolve(acceptedWebAssetRoot) !== acceptedWebAssetRoot) {
+  throw new Error("TIMELINE_ACCEPTED_WEB_ASSET_ROOT_MUST_BE_ABSOLUTE");
+}
 const port = Number(process.env.PORT || 8792);
 const host = process.env.HOST || "127.0.0.1";
 
@@ -30,7 +34,7 @@ const mime = {
 };
 
 const securityHeaders = Object.freeze({
-  "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' blob:; frame-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+  "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' blob: https://eeaaf73d1670b47a162d251ca67e7cfa.r2.cloudflarestorage.com; frame-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
   "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
   "referrer-policy": "no-referrer",
   "x-content-type-options": "nosniff",
@@ -38,7 +42,8 @@ const securityHeaders = Object.freeze({
 });
 
 function responseSecurityHeaders(pathname) {
-  if (!pathname.startsWith("/web/presentation/d1-409h-a1/")) return securityHeaders;
+  const framedPresentationPrefixes = ["/web/presentation/d1-409h-a1/", "/timeline/presentation/d1-409h-a1/"];
+  if (!framedPresentationPrefixes.some((prefix) => pathname.startsWith(prefix))) return securityHeaders;
   return {
     ...securityHeaders,
     "content-security-policy": securityHeaders["content-security-policy"]
@@ -84,7 +89,13 @@ const server = createServer((request, response) => {
     sendJson(response, 404, { error: { code: "NOT_FOUND", message: "Local demo route not found." } });
     return;
   }
-  const target = safeFile(mount.root, url.pathname.slice(mount.prefix.length));
+  const relativePath = url.pathname.slice(mount.prefix.length);
+  let target = safeFile(mount.root, relativePath);
+  if (
+    (!target || !existsSync(target) || !statSync(target).isFile()) &&
+    acceptedWebAssetRoot &&
+    ["/web/", "/timeline/"].includes(mount.prefix)
+  ) target = safeFile(acceptedWebAssetRoot, relativePath);
   if (!target || !existsSync(target) || !statSync(target).isFile()) {
     sendJson(response, 404, { error: { code: "ASSET_NOT_FOUND", message: "Local demo asset not found." } });
     return;

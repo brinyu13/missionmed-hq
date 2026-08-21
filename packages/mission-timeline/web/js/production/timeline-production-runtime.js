@@ -7,6 +7,28 @@ function cacheName(origin,principalId,role){
   return `missionmed-timeline:${environment}:principal:${principalId}:persona:${persona}:v3`;
 }
 
+export function productionEntitlementAssertion(identity,currentUsage){
+  const claims=identity.claims||{};
+  const issuedAt=new Date(Number(claims.iat)*1000).toISOString();
+  const expiresAt=new Date(Number(claims.exp)*1000).toISOString();
+  const administrator=claims.is_wordpress_administrator===true;
+  return Object.freeze({
+    schemaVersion:"d1-405.timeline-entitlement.1",verified:true,enabled:true,eligible:true,
+    allowance:administrator?"unlimited":1,currentUsage,
+    source:administrator?"wordpress-administrator":"learndash-course-3893",
+    subjectKind:administrator?"administrator":"eligible-360",
+    reason:administrator?"WordPress administrator eligibility verified.":"LearnDash course 3893 eligibility verified.",
+    principalId:identity.principalId,wpUserId:identity.wpUserId,
+    issuer:String(claims.iss||""),audience:String(claims.aud||""),
+    membershipVersion:"learndash-course-3893:v1",decisionId:String(claims.jti||""),
+    verifiedAt:issuedAt,expiresAt
+  });
+}
+
+export function productionRemotePersistenceAllowed(identity){
+  return identity?.role==="STUDENT"&&identity?.remoteSyncAllowed===true;
+}
+
 export async function prepareTimelineProductionRuntime({fetchImpl=globalThis.fetch.bind(globalThis),locationObject=globalThis.location}={}){
   let adapter=null;
   const authClient=new TimelineProductionAuthClient({
@@ -19,7 +41,10 @@ export async function prepareTimelineProductionRuntime({fetchImpl=globalThis.fet
     }
   });
   const identity=await authClient.initialize();
-  const listing=await authClient.listDocuments();
+  const remotePersistenceAllowed=productionRemotePersistenceAllowed(identity);
+  const listing=remotePersistenceAllowed
+    ?await authClient.listDocuments()
+    :{documents:[]};
   const documents=Array.isArray(listing?.documents)?listing.documents:[];
   const active=documents[0]||null;
   const newDocumentId=`timeline_${crypto.randomUUID()}`;
@@ -40,24 +65,17 @@ export async function prepareTimelineProductionRuntime({fetchImpl=globalThis.fet
       {store:"settings",key:`remote-revision:${active.document.id}`,value:{id:`remote-revision:${active.document.id}`,revision:Number(active.document.revision||0),documentId:active.document.id,updatedAt:savedAt}}
     ],{documentId:active.document.id,serverRevision:Number(active.document.revision||0),serverSnapshot:active.document});
   }
-  if(identity.remoteSyncAllowed)adapter.setRemoteSyncConsent(true);
-  const issuedAt=new Date(Number(identity.claims.iat)*1000).toISOString();
-  const expiresAt=new Date(Number(identity.claims.exp)*1000).toISOString();
-  const administrator=identity.claims.is_wordpress_administrator===true;
-  const assertion=Object.freeze({
-    schemaVersion:"d1-405.timeline-entitlement.1",verified:true,enabled:true,eligible:true,
-    allowance:administrator?"unlimited":1,currentUsage:documents.length,
-    source:administrator?"wordpress-administrator":"learndash-course-3893",
-    subjectKind:administrator?"administrator":"eligible-360",
-    reason:administrator?"WordPress administrator eligibility verified.":"LearnDash course 3893 eligibility verified.",
-    principalId:identity.principalId,wpUserId:identity.wpUserId,
-    issuer:String(identity.claims.iss||""),audience:String(identity.claims.aud||""),
-    membershipVersion:"learndash-course-3893:v1",decisionId:String(identity.claims.jti||""),
-    verifiedAt:issuedAt,expiresAt
-  });
+  if(remotePersistenceAllowed)adapter.setRemoteSyncConsent(true);
+  const assertionForClaims=(claims)=>productionEntitlementAssertion(
+    {...identity,claims},documents.length
+  );
+  const assertion=assertionForClaims(identity.claims);
   const expectedBinding=Object.freeze({
     principalId:identity.principalId,issuer:assertion.issuer,audience:assertion.audience,
     membershipVersion:assertion.membershipVersion
   });
-  return Object.freeze({adapter,authClient,identity,documents,assertion,expectedBinding});
+  return Object.freeze({
+    adapter,authClient,identity,documents,assertion,assertionForClaims,expectedBinding,
+    remotePersistenceAllowed,privateMediaStorageEnabled:remotePersistenceAllowed
+  });
 }

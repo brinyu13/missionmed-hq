@@ -15,6 +15,7 @@ import {
 import {parseErasBlocks} from "../ingestion/eras-parser.js";
 import {PARSER_VERSION} from "../ingestion/ingestion-state.js";
 import {detectSections} from "../ingestion/section-detector.js";
+import {buildQualitySuggestions} from "../ingestion/quality-review.js";
 
 const UXR_VISIBILITY=Object.freeze({
   INTERVIEWER_SAFE:"INTERVIEWER_SAFE",
@@ -35,8 +36,11 @@ const CATEGORY_BY_LEGACY_ID=Object.freeze({
 });
 
 const CATEGORY_BY_CANONICAL_TYPE=Object.freeze({
+  EDUCATION:"education",
   MEDICAL_DEGREE:"education",
   GRADUATION:"education",
+  AWARD_HONOR:"education",
+  CERTIFICATION:"education",
   STEP_1:"exams",
   STEP_2_CK:"exams",
   STEP_3:"exams",
@@ -166,6 +170,89 @@ function sourceSnippet(provenance){
     .join("\n");
 }
 
+function semanticText(value){
+  return String(value||"")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g," ")
+    .trim();
+}
+
+function serverCandidateSourceIdentity(candidate){
+  const evidence=(candidate?.evidence||[]).map((item)=>[
+    String(item?.field||""),
+    [...new Set((item?.sourceBlockIds||[]).map(String))].sort(),
+    semanticText(item?.excerpt)
+  ]).sort((left,right)=>JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  return JSON.stringify([
+    String(candidate?.canonicalType||""),
+    String(candidate?.categoryId||""),
+    String(candidate?.timelineKind||""),
+    semanticText(candidate?.title),
+    semanticText(candidate?.organization),
+    semanticText(candidate?.location),
+    String(candidate?.startDate||""),
+    String(candidate?.endDate||""),
+    candidate?.openEnded===true,
+    evidence
+  ]);
+}
+
+function collapseSourceIdenticalServerCandidates(candidates){
+  const canonical=[];
+  const byIdentity=new Map();
+  const aliases=new Map();
+  for(const candidate of candidates||[]){
+    const copy=structuredClone(candidate);
+    const identity=String(candidate?.fingerprint||serverCandidateSourceIdentity(candidate));
+    const existing=byIdentity.get(identity);
+    if(!existing){
+      byIdentity.set(identity,copy);
+      canonical.push(copy);
+      aliases.set(String(copy.id),String(copy.id));
+      continue;
+    }
+    aliases.set(String(copy.id),String(existing.id));
+    const evidence=new Map((existing.evidence||[]).map((item)=>[JSON.stringify(item),item]));
+    for(const item of copy.evidence||[])evidence.set(JSON.stringify(item),item);
+    existing.evidence=[...evidence.values()];
+    existing.warnings=[...new Set([...(existing.warnings||[]),...(copy.warnings||[])])];
+    existing.uncertainty=[...new Set([...(existing.uncertainty||[]),...(copy.uncertainty||[])])];
+  }
+  return{candidates:canonical,aliases};
+}
+
+function normalizedServerSuggestions(suggestions,aliases){
+  const unique=new Map();
+  for(const item of suggestions||[]){
+    if(!item||typeof item!=="object")continue;
+    const candidateIds=[...new Set((item.candidateIds||[]).map((id)=>aliases.get(String(id))||String(id)))];
+    if(item.type==="POSSIBLE_DUPLICATE"&&candidateIds.length<2)continue;
+    const mapped={...item,candidateIds,proposal:null};
+    const key=JSON.stringify([
+      String(mapped.type||""),
+      [...candidateIds].sort(),
+      [...new Set((mapped.eventIds||[]).map(String))].sort()
+    ]);
+    if(!unique.has(key))unique.set(key,mapped);
+  }
+  return[...unique.values()];
+}
+
+function dedupeQualitySuggestions(suggestions){
+  const unique=new Map();
+  for(const item of suggestions||[]){
+    const key=JSON.stringify([
+      String(item?.type||""),
+      [...new Set((item?.candidateIds||[]).map(String))].sort(),
+      [...new Set((item?.eventIds||[]).map(String))].sort()
+    ]);
+    if(!unique.has(key))unique.set(key,item);
+  }
+  return[...unique.values()];
+}
+
 function explicitUsCityState(location){
   const parts=String(location||"").split(",").map((part)=>part.trim()).filter(Boolean);
   if(parts.length<2)return{};
@@ -191,12 +278,15 @@ function categoryFields(candidate,categoryId,provenance){
     sourceProvenance:provenance,
     extractionConfidence:candidate?.confidence?structuredClone(candidate.confidence):null,
     datePrecision:candidate?.datePrecision?structuredClone(candidate.datePrecision):null,
+    inferredFields:[...(candidate?.inferredFields||[])].map((item)=>structuredClone(item)),
     mappingRationale:String(candidate?.mappingRationale||""),
     mappingReviewRequired:MAPPING_REVIEW_REQUIRED.has(
       String(candidate?.canonicalType||"").toUpperCase()
     ),
     extractionWarnings:[...(candidate?.warnings||[])].map(String),
-    privacy:candidate?.privacy?structuredClone(candidate.privacy):null
+    privacy:candidate?.privacy?structuredClone(candidate.privacy):null,
+    duplicateGroupIds:[...(candidate?.duplicateGroupIds||[])].map(String),
+    conflictIds:[...(candidate?.conflictIds||[])].map(String)
   };
 
   if(categoryId==="education"){
@@ -295,6 +385,8 @@ export function mapD1408CandidateToUxr(candidate){
     confidenceDetails:candidate.confidence?structuredClone(candidate.confidence):null,
     sourceSnippet:sourceSnippet(provenance),
     provenance,
+    inferredFields:[...(candidate?.inferredFields||[])].map((item)=>structuredClone(item)),
+    warnings:[...(candidate?.warnings||[])].map(String),
     notes:"",
     visibilityState,
     fields:categoryFields(candidate,categoryId,provenance),
@@ -303,65 +395,118 @@ export function mapD1408CandidateToUxr(candidate){
   };
 }
 
+export function mapCvIntelligenceCandidateToUxr(candidate,{sourceDocument=null,sourceBlocks=[]}={}){
+  if(!candidate||typeof candidate!=="object")throw new TypeError("A CV intelligence candidate is required.");
+  const blocks=new Map((sourceBlocks||[]).map((block)=>[String(block.id),block]));
+  const provenance=(candidate.evidence||[]).flatMap((evidence,evidenceIndex)=>{
+    const ids=Array.isArray(evidence?.sourceBlockIds)?evidence.sourceBlockIds:[];
+    return ids.map((blockId,blockIndex)=>{
+      const block=blocks.get(String(blockId))||{};
+      return{
+        id:`${String(candidate.id)}:${evidenceIndex}:${blockIndex}`,
+        sourceDocumentId:String(sourceDocument?.id||sourceDocument?.objectId||""),
+        fileName:String(sourceDocument?.fileName||sourceDocument?.name||""),
+        documentType:String(sourceDocument?.effectiveType||sourceDocument?.userDeclaredType||"CV"),
+        detectedDocumentType:String(sourceDocument?.detectedType||""),
+        userDeclaredType:String(sourceDocument?.userDeclaredType||""),
+        pageNumber:Number(block.pageNumber)||null,
+        pageId:String(block.pageId||""),
+        section:String(block.section||""),
+        sourceBlockId:String(blockId),
+        sourceExcerpt:String(evidence?.excerpt||""),
+        extractionMethod:"SERVER_AI_EVIDENCE_BOUND",
+        parserVersion:String(sourceDocument?.parserVersion||PARSER_VERSION)
+      };
+    });
+  });
+  const mapped=mapD1408CandidateToUxr({
+    ...candidate,
+    provenance,
+    dateRange:{openEnded:candidate.openEnded===true},
+    visibilityRecommendation:UXR_VISIBILITY.ADVISOR_ONLY,
+    originalExtraction:{
+      title:String(candidate.title||""),
+      location:String(candidate.location||""),
+      description:"",
+      rawText:provenance.map((item)=>item.sourceExcerpt).filter(Boolean).join("\n")
+    },
+    mappingRationale:String(candidate.classificationReason||"Evidence-bound server analysis"),
+    privacy:{reviewRequired:true},
+    warnings:[...(candidate.warnings||[]),...(candidate.uncertainty||[])],
+    inferredFields:(candidate.evidence||[])
+      .filter((item)=>item.support==="INFERRED")
+      .map((item)=>({field:item.field,reason:item.reason,uncertainty:item.uncertainty||null}))
+  });
+  mapped.fields.aiOriginalSemantic={
+    title:mapped.title,
+    categoryId:mapped.categoryId,
+    startDate:mapped.startDate,
+    endDate:mapped.endDate
+  };
+  return mapped;
+}
+
 async function bundledPdfExtractor(file,options){
   const {extractPdf}=await import("../ingestion/pdf-text-extractor.js");
   return extractPdf(file,options);
+}
+
+async function bundledDocxExtractor(file,options){
+  const {extractDocx}=await import("../ingestion/docx-text-extractor.js");
+  return extractDocx(file,options);
 }
 
 function validateAdapterFile(file,metadata){
   if(!file)throw new IngestionFileError("NO_FILE","Choose a local PDF to continue.");
   const extension=fileExtension(file);
   const mime=String(file.type||metadata?.type||"").toLowerCase();
-  if(
-    extension==="docx"||
-    mime==="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-  ){
-    throw new IngestionFileError(
-      "UNSUPPORTED_DOCX",
-      "DOCX extraction is not available in the local D1-408 adapter. Export a text PDF and try again."
-    );
-  }
-  if(extension!=="pdf"&&mime!=="application/pdf"){
+  const docx=extension==="docx"||mime==="application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  const pdf=extension==="pdf"||mime==="application/pdf";
+  if(!pdf&&!docx){
     throw new IngestionFileError(
       "UNSUPPORTED_FILE",
-      "Only native-text PDF documents are supported by the local D1-408 adapter."
+      "Choose a PDF or DOCX document."
     );
+  }
+  if(extension==="pdf"&&docx||extension==="docx"&&pdf){
+    throw new IngestionFileError("UNSUPPORTED_FILE","The file extension and document type do not match.");
   }
   const size=Number(file.size??metadata?.size);
   if(Number.isFinite(size)&&size>MAX_FILE_BYTES){
     throw new IngestionFileError(
       "FILE_TOO_LARGE",
-      `The local D1-408 PDF parser is limited to ${Math.round(MAX_FILE_BYTES/1024/1024)}MB.`,
+      `The local document parser is limited to ${Math.round(MAX_FILE_BYTES/1024/1024)}MB.`,
       {size,max:MAX_FILE_BYTES}
     );
   }
+  return docx?"docx":"pdf";
 }
 
 export function createD1408PdfIntakeAdapter({
-  pdfExtractor=bundledPdfExtractor
+  pdfExtractor=bundledPdfExtractor,
+  docxExtractor=bundledDocxExtractor
 }={}){
-  if(typeof pdfExtractor!=="function"){
-    throw new TypeError("pdfExtractor must be a function.");
-  }
+  if(typeof pdfExtractor!=="function")throw new TypeError("pdfExtractor must be a function.");
+  if(typeof docxExtractor!=="function")throw new TypeError("docxExtractor must be a function.");
   return Object.freeze({
     capability:Object.freeze({
-      mode:"local-native-text-pdf",
-      productionReady:false,
+      mode:"local-native-document",
+      productionReady:true,
       simulated:false,
       source:"bundled-d1-408-parser",
       bundledExtractor:true,
       bundledFixtures:false,
       parserVersion:PARSER_VERSION,
       networkCalls:false,
-      formats:Object.freeze(["application/pdf"]),
-      docx:false,
+      formats:Object.freeze(["application/pdf","application/vnd.openxmlformats-officedocument.wordprocessingml.document"]),
+      docx:true,
       ocr:false,
       maxBytes:MAX_FILE_BYTES
     }),
     async extract({file,metadata=null,documentType="CV",signal=null}={}){
       throwIfAborted(signal);
-      validateAdapterFile(file,metadata);
-      const extraction=await pdfExtractor(file,{
+      const kind=validateAdapterFile(file,metadata);
+      const extraction=await (kind==="docx"?docxExtractor:pdfExtractor)(file,{
         onStatus:()=>throwIfAborted(signal)
       });
       throwIfAborted(signal);
@@ -413,11 +558,19 @@ export function createD1408PdfIntakeAdapter({
       const records=parseRecords(effectiveType,sectionResult.blocks);
       const legacyCandidates=buildCandidates(records,sourceDocument);
       const candidates=legacyCandidates.map(mapD1408CandidateToUxr);
+      const sourceBlocks=sectionResult.blocks.map((block)=>({
+        id:String(block.id),
+        pageId:String(block.pageId||""),
+        pageNumber:Number(block.pageNumber)||null,
+        section:String(block.section||"unknown"),
+        text:String(block.text||"")
+      }));
       return{
         readable:true,
         outcome:candidates.length?"ready-for-review":"empty",
         candidates,
         sourceDocument,
+        sourceBlocks,
         parser:{
           version:PARSER_VERSION,
           detectedType:detection.detectedType,
@@ -425,9 +578,259 @@ export function createD1408PdfIntakeAdapter({
           sections:[...sectionResult.sections],
           recordCount:records.length,
           candidateCount:candidates.length,
-          networkCalls:false
+          networkCalls:false,
+          qualitySuggestions:buildQualitySuggestions(candidates,{sourceBlocks}),
+          unresolvedQuestions:[]
         }
       };
+    }
+  });
+}
+
+export function createProductionCvIntakeAdapter({
+  localAdapter=createD1408PdfIntakeAdapter(),
+  apiClient,
+  documentId,
+  existingEvents=()=>[],
+  consentVersion="d1-ux-007-ai-v1",
+  ensureRemoteDocument=async()=>{}
+}={}){
+  if(typeof localAdapter?.extract!=="function")throw new TypeError("A local intake adapter is required.");
+  if(!apiClient||typeof apiClient.analyzeCv!=="function")return localAdapter;
+  const confirmedSources=new Map();
+  let activeSourceObjectId="";
+  const deleteObject=async(objectId)=>{
+    if(objectId&&typeof apiClient.deleteObject==="function")await apiClient.deleteObject(objectId).catch(()=>{});
+  };
+  return Object.freeze({
+    capability:Object.freeze({
+      ...localAdapter.capability,
+      mode:"server-ai-with-local-limited-fallback",
+      source:"timeline-owned-server-ai",
+      networkCalls:true
+    }),
+    async extract(input={}){
+      if(input.file?.timelineRescue===true&&typeof apiClient.rescueTimeline==="function"){
+        const file=input.file;
+        const extension=String(file.name||"").toLowerCase().split(".").pop();
+        const mimeType=String(file.type||({
+          pptx:"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          pdf:"application/pdf",png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg"
+        }[extension]||""));
+        if(!mimeType)throw Object.assign(new Error("Choose a PPTX, PDF, PNG, or JPEG Timeline."),{code:"TIMELINE_RESCUE_TYPE_DENIED"});
+        const digest=await crypto.subtle.digest("SHA-256",await file.arrayBuffer());
+        const sha256=[...new Uint8Array(digest)].map((byte)=>byte.toString(16).padStart(2,"0")).join("");
+        let objectId="";
+        try{
+          await ensureRemoteDocument();
+          const grant=await apiClient.signObjectUpload(String(documentId),{
+            mimeType,byteSize:Number(file.size),sha256,objectClass:"SOURCE"
+          });
+          objectId=String(grant?.objectId||"");
+          if(!objectId)throw new Error("Timeline Rescue authorization did not return an object ID.");
+          await apiClient.uploadSignedObject(grant,file);
+          const confirmed=await apiClient.confirmObjectUpload(objectId,grant.uploadToken);
+          if(String(confirmed?.status||"")!=="CONFIRMED")throw new Error("Timeline Rescue source upload could not be confirmed.");
+          const response=await apiClient.rescueTimeline(String(documentId),{
+            source:{objectId,filename:String(file.name||"existing-timeline"),mimeType,sha256}
+          });
+          const rescue=response?.rescue||{};
+          const rescueSuggestions=[];
+          for(const action of rescue.cleanupProposal?.actions||[]){
+            rescueSuggestions.push({
+              id:String(action.id||`rescue-cleanup-${rescueSuggestions.length+1}`),
+              type:action.kind==="RESOLVE_LAYOUT_COLLISION"?"VISUAL_OVERLAP":"LABEL_READABILITY",
+              severity:"REVIEW",
+              candidateIds:Array.isArray(action.candidateIds)?action.candidateIds.map(String):[],
+              reason:String(action.reason||"Review this presentation-only cleanup proposal."),
+              recommendation:"Review this MissionMed presentation proposal. It will not change biography facts automatically.",
+              source:"DETERMINISTIC"
+            });
+          }
+          for(const item of rescue.reconciliation||[]){
+            rescueSuggestions.push({
+              id:`rescue-reconcile-${String(item.timelineCandidateId||"none")}-${String(item.cvCandidateId||"none")}-${String(item.state||"review")}`,
+              type:item.state==="DATE_CONFLICT"?"CHRONOLOGY_REVIEW":item.state==="CATEGORY_CONFLICT"?"CATEGORY_REVIEW":"SOURCE_ITEM_NOT_INCLUDED",
+              severity:item.state==="MATCH"?"INFO":"REVIEW",
+              candidateIds:item.timelineCandidateId?[String(item.timelineCandidateId)]:[],
+              reason:`Timeline Rescue reconciliation: ${String(item.state||"REVIEW").replaceAll("_"," ").toLowerCase()}.`,
+              recommendation:String(item.recommendation||"Review the source comparison before importing."),
+              source:"DETERMINISTIC"
+            });
+          }
+          const candidates=(Array.isArray(rescue.candidates)?rescue.candidates:[]).map((candidate)=>({
+            id:String(candidate.id),
+            categoryId:CATEGORY_BY_LEGACY_ID[String(candidate.categoryId)]||"",
+            title:String(candidate.title||""),
+            startDate:String(candidate.startDate||""),
+            endDate:candidate.endDate?String(candidate.endDate):null,
+            openEnded:false,
+            eventType:candidate.timelineKind==="milestone"?"milestone":"duration",
+            confidence:Number(candidate.confidence?.score||0),
+            confidenceDetails:{
+              summary:Array.isArray(candidate.confidence?.reasons)?candidate.confidence.reasons:[],
+              source:"Timeline Rescue"
+            },
+            sourceSnippet:String(candidate.provenance?.[0]?.sourceText||""),
+            provenance:(Array.isArray(candidate.provenance)?candidate.provenance:[]).map((item)=>({
+              ...item,
+              pageNumber:Number(item.pageOrSlide)||null,
+              sourceDocumentName:String(file.name||"Existing Timeline"),
+              sourceExcerpt:String(item.sourceText||"")
+            })),
+            inferredFields:(Array.isArray(candidate.provenance)?candidate.provenance:[])
+              .filter(({support})=>support!=="SOURCE_FACT")
+              .map(()=>({field:"dates",reason:"Recovered from visual geometry; confirm before accepting."})),
+            warnings:Array.isArray(candidate.uncertainties)?candidate.uncertainties:[],
+            notes:"",
+            visibilityState:UXR_VISIBILITY.INTERVIEWER_SAFE,
+            fields:{
+              rescueReviewRequired:true,
+              mappingReviewRequired:String(candidate.categoryId)==="unclassified",
+              canonicalType:String(candidate.categoryId)==="unclassified"?"UNCLASSIFIED":"TIMELINE_RESCUE_EVENT",
+              aiOriginalSemantic:{
+                title:String(candidate.title||""),
+                categoryId:CATEGORY_BY_LEGACY_ID[String(candidate.categoryId)]||"",
+                startDate:String(candidate.startDate||""),
+                endDate:candidate.endDate?String(candidate.endDate):null
+              },
+              rescueArtifactSha256:String(rescue.artifactSha256||sha256),
+              rescueFormat:String(rescue.format||""),
+              cleanupAuthority:String(rescue.cleanupProposal?.authority||"MISSIONMED_D1_409H_CANONICAL_PRESENTATION")
+            },
+            decision:"undecided"
+          }));
+          activeSourceObjectId=objectId;
+          return{
+            readable:true,
+            outcome:candidates.length?"ready-for-review":"empty",
+            candidates,
+            sourceDocument:{
+              name:String(file.name||"Existing Timeline"),mimeType,fileSize:Number(file.size),sha256,
+              objectId,custody:"TIMELINE_PRIVATE_SOURCE",effectiveType:"TIMELINE_RESCUE"
+            },
+            sourceBlocks:[],
+            parser:{
+              version:String(rescue.schemaVersion||"d1-timeline-rescue-1"),
+              detectedType:"TIMELINE_RESCUE",effectiveType:"TIMELINE_RESCUE",
+              sections:[],recordCount:Number(rescue.objects?.length||0),candidateCount:candidates.length,
+              networkCalls:true,
+              intelligenceMode:response?.ai?.mode==="SERVER_AI"?"SERVER_AI":"TIMELINE_RESCUE",
+              analysisId:String(response?.ai?.analysisId||""),
+              provider:String(response?.ai?.provider||""),
+              model:String(response?.ai?.model||""),
+              promptVersion:String(response?.ai?.promptVersion||"d1-timeline-rescue-ai.1"),
+              aiStatus:String(response?.ai?.status||"NOT_RUN"),
+              aiUnavailableMessage:String(response?.ai?.unavailableMessage||""),
+              qualitySuggestions:rescueSuggestions,
+              unresolvedQuestions:Array.isArray(rescue.unresolvedQuestions)?rescue.unresolvedQuestions:[],
+              warnings:Array.isArray(rescue.warnings)?rescue.warnings:[],
+              cleanupProposal:rescue.cleanupProposal||null,
+              reconciliation:Array.isArray(rescue.reconciliation)?rescue.reconciliation:[]
+            },
+            qualitySuggestions:rescueSuggestions
+          };
+        }catch(error){
+          if(objectId)await deleteObject(objectId);
+          throw error;
+        }
+      }
+      const local=await localAdapter.extract(input);
+      if(local?.readable!==true||!local?.sourceDocument?.sha256||!local?.sourceBlocks?.length)return local;
+      const file=input.file;
+      const source=local.sourceDocument;
+      const sha256=String(source.sha256).toLowerCase();
+      const handedOffSource=file?.timelineSourceObject;
+      let objectId=(String(handedOffSource?.sha256||"").toLowerCase()===sha256&&String(handedOffSource?.objectId||""))||confirmedSources.get(sha256)||"";
+      let created=false;
+      try{
+        await ensureRemoteDocument();
+        if(!objectId){
+          const grant=await apiClient.signObjectUpload(String(documentId),{
+            mimeType:String(source.mimeType),
+            byteSize:Number(source.fileSize),
+            sha256,
+            objectClass:"SOURCE"
+          });
+          objectId=String(grant?.objectId||"");
+          if(!objectId)throw new Error("Timeline source authorization did not return an object ID.");
+          created=true;
+          await apiClient.uploadSignedObject(grant,file);
+          const confirmed=await apiClient.confirmObjectUpload(objectId,grant.uploadToken);
+          if(String(confirmed?.status||"")!=="CONFIRMED")throw new Error("Timeline source upload could not be confirmed.");
+          confirmedSources.set(sha256,objectId);
+        }
+        const eventSummary=(typeof existingEvents==="function"?existingEvents():existingEvents||[]).map((event)=>({
+          id:String(event.id),
+          title:String(event.title||""),
+          categoryId:String(event.categoryId||""),
+          startDate:String(event.startDate||""),
+          endDate:event.endDate?String(event.endDate):null,
+          organization:String(event.siteName||event.fields?.institution||event.fields?.organization||"")||null
+        }));
+        const analysis=await apiClient.analyzeCv(String(documentId),{
+          source:{objectId,sha256,mimeType:String(source.mimeType)},
+          blocks:local.sourceBlocks.map((block)=>({
+            id:String(block.id),pageNumber:block.pageNumber||null,
+            section:block.section||null,text:String(block.text||"")
+          })),
+          documentType:String(source.effectiveType||"CV")==="MYERAS"?"MYERAS":String(source.effectiveType||"CV")==="RESUME"?"RESUME":"CV",
+          existingEvents:eventSummary,
+          consentVersion:String(consentVersion),
+          idempotencyKey:`cv_${sha256.slice(0,32)}`
+        });
+        if(analysis?.mode!=="SERVER_AI"||!Array.isArray(analysis.candidates)||!analysis.candidates.length){
+          if(created){await deleteObject(objectId);confirmedSources.delete(sha256);}
+          return{
+            ...local,
+            parser:{...local.parser,intelligenceMode:"LOCAL_LIMITED",fallbackReason:analysis?.fallbackReason||"AI_EMPTY"}
+          };
+        }
+        activeSourceObjectId=objectId;
+        const collapsed=collapseSourceIdenticalServerCandidates(analysis.candidates);
+        const aiCandidates=collapsed.candidates.map((candidate)=>mapCvIntelligenceCandidateToUxr(candidate,{
+          sourceDocument:{...source,objectId},sourceBlocks:local.sourceBlocks
+        }));
+        /* The server suggestions are computed against the AI candidate set, so the local
+           deterministic pass has to be re-run against that same set - the local candidate
+           ids it was built from no longer exist once AI candidates replace them. */
+        const serverSuggestions=normalizedServerSuggestions(
+          Array.isArray(analysis.qualitySuggestions)?analysis.qualitySuggestions:[],
+          collapsed.aliases
+        );
+        return{
+          ...local,
+          candidates:aiCandidates,
+          sourceDocument:{...source,objectId,custody:"TIMELINE_PRIVATE_SOURCE",analysisId:analysis.analysisId},
+          parser:{
+            ...local.parser,
+            intelligenceMode:"SERVER_AI",
+            analysisId:analysis.analysisId,
+            provider:analysis.provider,
+            model:analysis.model,
+            schemaVersion:analysis.schemaVersion,
+            promptVersion:analysis.promptVersion,
+            rejectedCandidateCount:Number(analysis.rejectedCandidateCount)||0,
+            qualitySuggestions:dedupeQualitySuggestions([
+              ...serverSuggestions,
+              ...buildQualitySuggestions(aiCandidates,{sourceBlocks:local.sourceBlocks})
+            ]),
+            unresolvedQuestions:Array.isArray(analysis.unresolvedQuestions)?analysis.unresolvedQuestions:[]
+          }
+        };
+      }catch(error){
+        if(created){await deleteObject(objectId);confirmedSources.delete(sha256);}
+        return{
+          ...local,
+          parser:{...local.parser,intelligenceMode:"LOCAL_LIMITED",fallbackReason:String(error?.code||"PROVIDER_UNAVAILABLE")}
+        };
+      }
+    },
+    async deleteSource(){
+      const objectId=activeSourceObjectId;
+      activeSourceObjectId="";
+      for(const [hash,id] of confirmedSources.entries())if(id===objectId)confirmedSources.delete(hash);
+      await deleteObject(objectId);
     }
   });
 }

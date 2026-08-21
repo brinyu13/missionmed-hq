@@ -123,10 +123,37 @@ export function removeMediaLibraryAsset(media,id){
   return deleteMediaElement(media,id);
 }
 
+export function replaceMediaLibraryAsset(media,id,replacement){
+  let changed=false;
+  const items=(media||[]).map((item)=>{
+    if(String(item.id)!==String(id))return item;
+    const width=Number(item.width)||Number(replacement?.width)||480;
+    const naturalAspect=Number(replacement?.naturalAspect)||
+      Number(item.naturalAspect)||16/9;
+    changed=true;
+    return{
+      ...replacement,
+      id:item.id,
+      x:item.x,
+      y:item.y,
+      width,
+      height:width/naturalAspect,
+      layerIndex:item.layerIndex,
+      placed:item.placed,
+      guidedVisible:item.guidedVisible,
+      libraryAsset:item.libraryAsset,
+      libraryAddedAt:item.libraryAddedAt,
+      placement:item.placement
+    };
+  });
+  return{changed,media:items};
+}
+
 export function mediaLibraryMarkup(media,{
   resolveObjectUrl=()=>null,
   compact=false,
-  reducedMotion=false
+  reducedMotion=false,
+  durableOnline=false
 }={}){
   const helpId=compact?"media407FDrawerDragHelp":"media407FPageDragHelp";
   const items=(media||[]).filter((item)=>item?.type==="media");
@@ -147,6 +174,8 @@ export function mediaLibraryMarkup(media,{
       <div class="media407FActions">
         ${placed?"":`<button type="button" data-media-place="${escapeHtml(item.id)}" aria-describedby="${helpId}">Place on timeline</button>`}
         ${placed?`<button type="button" data-media-unplace="${escapeHtml(item.id)}">Remove from timeline</button>`:""}
+        <button type="button" data-media-replace="${escapeHtml(item.id)}">Replace image</button>
+        <button type="button" data-media-delete="${escapeHtml(item.id)}">Delete image</button>
         ${placed?`<div class="media407FNudges" role="group" aria-label="Position ${escapeHtml(name)}">
           <button type="button" data-media-nudge="left" data-media-id="${escapeHtml(item.id)}" aria-label="Move ${escapeHtml(name)} left">←</button>
           <button type="button" data-media-nudge="up" data-media-id="${escapeHtml(item.id)}" aria-label="Move ${escapeHtml(name)} up">↑</button>
@@ -157,23 +186,25 @@ export function mediaLibraryMarkup(media,{
     </article>`;
   }).join("");
   return`<div class="media407FLibrary ${compact?"isCompact":""}">
-    <p class="sr-only" id="${helpId}">Drag an asset onto the timeline, or use its Place on timeline button for keyboard placement at the timeline center.</p>
+    <p class="sr-only" id="${helpId}">Drag an image onto the timeline, or use its Place on timeline button to drop it in the middle of the timeline.</p>
     <div class="media407FToolbar">
       <div>
-        <p>LOCAL MEDIA</p>
-        <h2>${compact?"Drag onto the timeline":"Your timeline assets"}</h2>
-        <span class="media407FFormatHint">PNG, JPG, WEBP, or GIF · stored only on this device</span>
+        <p>${durableOnline?"PRIVATE MEDIA":"LOCAL MEDIA"}</p>
+        <h2>${compact?"Drag onto the timeline":"Your timeline images"}</h2>
+        <span class="media407FFormatHint">${durableOnline
+          ?"PNG, JPG, WEBP, or GIF · securely synced across your authorized devices"
+          :"PNG, JPG, WEBP, or GIF · stored only on this device"}</span>
       </div>
       <label class="btnD go sm media407FUpload">
         UPLOAD
-        <input type="file" data-media-upload aria-label="Upload timeline media" accept="${MEDIA_LIBRARY_ACCEPT.join(",")}" multiple>
+        <input type="file" data-media-upload aria-label="Upload an image for your timeline" accept="${MEDIA_LIBRARY_ACCEPT.join(",")}" multiple>
       </label>
     </div>
     ${items.length
       ?`<div class="media407FGrid">${cards}</div>`
       :`<div class="media407FEmpty">
         <strong>Add images to use on your timeline.</strong>
-        <span>Upload once, then reuse the same asset reference.</span>
+        <span>Upload once, then reuse the same image anywhere on your timeline.</span>
       </div>`}
   </div>`;
 }

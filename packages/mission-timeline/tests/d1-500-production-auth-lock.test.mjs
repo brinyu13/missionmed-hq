@@ -13,11 +13,11 @@ const token=(subject=principalId,wpUserId=42,role="STUDENT")=>`${encode({alg:"HS
 })}.signature`;
 
 const locationObject={origin:"https://missionmed.example",pathname:"/timeline/",search:"",hash:"",reload(){}};
-const bootstrap=()=>new Response(JSON.stringify({success:true,data:{
+const bootstrap=(syntheticFixture=false)=>new Response(JSON.stringify({success:true,data:{
   nonce:"nonce",token_endpoint:"https://missionmed.example/wp-json/missionmed-timeline/v1/token",
   api_base:"https://missionmed.example/timeline/api/v1",matrix_url:"https://missionmed.example/member-dashboard/",
   remote_sync_consent:true,consent_version:"d1-500-v1",
-  user:{wp_user_id:42,principal_id:principalId,role:"STUDENT"}
+  user:{wp_user_id:42,principal_id:principalId,role:"STUDENT",synthetic_fixture:syntheticFixture}
 }}),{status:200,headers:{"content-type":"application/json"}});
 const tokenResponse=(value=token())=>new Response(JSON.stringify({token:value,nonce:"next"}),{status:200,headers:{"content-type":"application/json"}});
 
@@ -99,6 +99,172 @@ test("an ordinary resource 403 does not destroy a valid session",async()=>{
   await assert.rejects(client.listDocuments(),(error)=>error.code==="FORBIDDEN"&&error.status===403);
   assert.equal(client.configured,true);
   assert.deepEqual(locks,[]);
+  client.close();
+});
+
+test("File Vault source adapter is same-origin, nonce-bound, metadata-only, and removed on close",async()=>{
+  const calls=[];
+  const globalObject={};
+  const id="11111111-1111-4111-8111-111111111111";
+  const client=new TimelineProductionAuthClient({locationObject,documentObject:null,globalObject,fetchImpl:async(url,options={})=>{
+    calls.push({url:String(url),options});
+    if(String(url).includes("admin-ajax.php"))return bootstrap();
+    if(String(url).includes("/token"))return tokenResponse();
+    if(String(url).endsWith(`/file-vault/sources/${id}/ingestions`))return new Response(JSON.stringify({document:{
+      id,name:"CV.pdf",provider:"missionmed-filevault-v1",documentType:"cv",
+      versionId:"22222222-2222-4222-8222-222222222222",mimeType:"application/pdf"
+    },source:{objectId:"object_filevault_12345678",sha256:"a".repeat(64),mimeType:"application/pdf"},contentBase64:Buffer.from("cv bytes").toString("base64")}),{status:201,headers:{"content-type":"application/json"}});
+    if(String(url).endsWith(`/file-vault/sources/${id}`))return new Response(JSON.stringify({document:{
+      id,name:"CV.pdf",provider:"missionmed-filevault-v1",documentType:"cv",
+      versionId:"22222222-2222-4222-8222-222222222222",mimeType:"application/pdf"
+    }}),{status:200,headers:{"content-type":"application/json"}});
+    if(String(url).includes("/file-vault/sources"))return new Response(JSON.stringify({documents:[{id,name:"CV.pdf"}]}),{status:200,headers:{"content-type":"application/json"}});
+    throw new Error(`Unexpected request ${String(url)}`);
+  }});
+  await client.initialize();
+  const adapter=globalObject.MISSIONMED_FILEVAULT_SOURCE_ADAPTER;
+  assert.equal(adapter.connected,true);
+  assert.equal((await adapter.search("CV"))[0].id,id);
+  assert.equal((await adapter.select(id)).versionId,"22222222-2222-4222-8222-222222222222");
+  const imported=await adapter.select(id,{timelineDocumentId:"timeline_filevault_1",versionId:"22222222-2222-4222-8222-222222222222"});
+  assert.equal(imported.file.timelineSourceObject.objectId,"object_filevault_12345678");
+  const sourceCalls=calls.filter(({url})=>url.includes("/file-vault/sources"));
+  assert.equal(sourceCalls.length,3);
+  assert.equal(sourceCalls.every(({url})=>url.startsWith(locationObject.origin)),true);
+  assert.equal(sourceCalls.every(({options})=>options.credentials==="same-origin"&&options.cache==="no-store"),true);
+  assert.equal(sourceCalls.every(({options})=>new Headers(options.headers).get("x-wp-nonce")==="next"),true);
+  assert.equal(sourceCalls.every(({options})=>!new Headers(options.headers).has("authorization")),true);
+  assert.equal(sourceCalls.at(-1).options.method,"POST");
+  assert.deepEqual(JSON.parse(sourceCalls.at(-1).options.body),{timelineDocumentId:"timeline_filevault_1",versionId:"22222222-2222-4222-8222-222222222222"});
+  client.close();
+  assert.equal("MISSIONMED_FILEVAULT_SOURCE_ADAPTER" in globalObject,false);
+});
+
+test("concurrent near-expiry callers share one refresh and publish the renewed claims",async()=>{
+  let tokenCalls=0;
+  let apiCalls=0;
+  const renewed=[];
+  const client=new TimelineProductionAuthClient({locationObject,documentObject:null,fetchImpl:async(url)=>{
+    if(String(url).includes("admin-ajax.php"))return bootstrap();
+    if(String(url).includes("/token")){
+      tokenCalls+=1;
+      await new Promise((resolve)=>setTimeout(resolve,5));
+      return tokenResponse();
+    }
+    apiCalls+=1;
+    return new Response(JSON.stringify({documents:[]}),{status:200,headers:{"content-type":"application/json"}});
+  }});
+  await client.initialize();
+  const unsubscribe=client.subscribeClaims((claims)=>renewed.push(claims));
+  client.claims={...client.claims,exp:Math.floor(Date.now()/1000)+1};
+  await Promise.all(Array.from({length:25},()=>client.listDocuments()));
+  assert.equal(tokenCalls,2,"initialize plus exactly one shared renewal");
+  assert.equal(apiCalls,25);
+  assert.equal(renewed.length,1);
+  assert.ok(Number(renewed[0].exp)*1000>Date.now());
+  unsubscribe();
+  client.close();
+});
+
+test("only a server-marked synthetic principal sends the synthetic AI request marker",async()=>{
+  const calls=[];
+  const client=new TimelineProductionAuthClient({locationObject,documentObject:null,fetchImpl:async(url,options={})=>{
+    calls.push({url:String(url),options});
+    if(String(url).includes("admin-ajax.php"))return bootstrap(true);
+    if(String(url).includes("/token"))return tokenResponse();
+    return new Response(JSON.stringify({status:"COMPLETE",mode:"SERVER_AI",findings:[],unresolvedQuestions:[]}),{status:200,headers:{"content-type":"application/json"}});
+  }});
+  const state=await client.initialize();
+  assert.equal(state.syntheticFixture,true);
+  await client.analyzeQuality("timeline-synthetic",{deterministicFindings:[]});
+  await client.rescueTimeline("timeline-synthetic",{source:{objectId:"object-synthetic"}});
+  const aiCalls=calls.filter(({url})=>url.includes("/quality/analyze")||url.includes("/intake/rescue"));
+  assert.equal(aiCalls.length,2);
+  assert.ok(aiCalls.every(({options})=>new Headers(options.headers).get("x-timeline-synthetic-fixture")==="1"));
+  client.close();
+});
+
+test("private media uses authenticated API grants and direct private R2 transfers without bearer leakage",async()=>{
+  const calls=[];
+  const objectId="object_11111111-1111-4111-8111-111111111111";
+  const expiresAt=new Date(Date.now()+60_000).toISOString();
+  const r2Origin="https://0123456789abcdef.r2.cloudflarestorage.com";
+  const client=new TimelineProductionAuthClient({locationObject,documentObject:null,fetchImpl:async(url,options={})=>{
+    calls.push({url:String(url),options});
+    if(String(url).includes("admin-ajax.php"))return bootstrap();
+    if(String(url).includes("/token"))return tokenResponse();
+    if(String(url).endsWith("/objects/sign"))return new Response(JSON.stringify({
+      objectId,uploadUrl:`${r2Origin}/private-upload`,uploadToken:"one-time-token",expiresAt,
+      requiredHeaders:{"content-type":"image/png","content-length":"3"}
+    }),{status:201,headers:{"content-type":"application/json"}});
+    if(String(url).includes("/confirm"))return new Response(JSON.stringify({id:objectId,status:"CONFIRMED"}),{status:200,headers:{"content-type":"application/json"}});
+    if(String(url).includes("/download"))return new Response(JSON.stringify({downloadUrl:`${r2Origin}/private-download`,expiresAt}),{status:200,headers:{"content-type":"application/json"}});
+    if(String(url)===`${r2Origin}/private-upload`)return new Response(null,{status:200});
+    if(String(url)===`${r2Origin}/private-download`)return new Response(new Uint8Array([1,2,3]),{status:200,headers:{"content-type":"image/png"}});
+    return new Response(null,{status:204});
+  }});
+  await client.initialize();
+  const grant=await client.signObjectUpload("timeline_test",{mimeType:"image/png",byteSize:3,sha256:"a".repeat(64)});
+  await client.uploadSignedObject(grant,new Blob([new Uint8Array([1,2,3])],{type:"image/png"}));
+  await client.confirmObjectUpload(grant.objectId,grant.uploadToken);
+  const downloaded=await client.downloadPrivateObject(grant.objectId);
+  assert.equal(downloaded.size,3);
+  await client.deleteObject(grant.objectId);
+  const directCalls=calls.filter(({url})=>url.startsWith(r2Origin));
+  assert.equal(directCalls.length,2);
+  assert.equal(directCalls.every(({options})=>options.credentials==="omit"),true);
+  assert.equal(directCalls.every(({options})=>!new Headers(options.headers).has("authorization")),true);
+  assert.equal(new Headers(directCalls[0].options.headers).has("content-length"),false);
+  client.close();
+});
+
+test("private media rejects a signed transfer URL outside the private R2 endpoint",async()=>{
+  const client=new TimelineProductionAuthClient({locationObject,documentObject:null,fetchImpl:async()=>new Response(null,{status:200})});
+  await assert.rejects(
+    client.uploadSignedObject({uploadUrl:"https://public.example/upload",expiresAt:new Date(Date.now()+60_000).toISOString()},new Blob(["x"])),
+    (error)=>error.code==="PRIVATE_OBJECT_URL_INVALID"
+  );
+  client.close();
+});
+
+test("private media reports a bounded network error without leaking the signed URL",async()=>{
+  const client=new TimelineProductionAuthClient({
+    locationObject,
+    documentObject:null,
+    fetchImpl:async()=>{throw new TypeError("Failed to fetch https://signed-secret.invalid");}
+  });
+  await assert.rejects(
+    client.uploadSignedObject({
+      uploadUrl:"https://0123456789abcdef.r2.cloudflarestorage.com/private-upload",
+      expiresAt:new Date(Date.now()+60_000).toISOString()
+    },new Blob(["x"],{type:"image/png"})),
+    (error)=>error.code==="OBJECT_UPLOAD_NETWORK_FAILED"&&
+      !error.message.includes("signed-secret")
+  );
+});
+
+test("private media same-origin fallback keeps bytes and bearer token off the R2 origin",async()=>{
+  const calls=[];
+  const client=new TimelineProductionAuthClient({locationObject,documentObject:null,fetchImpl:async(url,options={})=>{
+    calls.push({url:String(url),options});
+    if(String(url).includes("admin-ajax.php"))return bootstrap();
+    if(String(url).includes("/token"))return tokenResponse();
+    if(String(url).endsWith("/objects/upload"))return new Response(JSON.stringify({
+      id:"object_fallback",objectClass:"MEDIA",mimeType:"image/png",byteSize:3,status:"CONFIRMED"
+    }),{status:201,headers:{"content-type":"application/json"}});
+    return new Response(null,{status:404});
+  }});
+  await client.initialize();
+  const blob=new Blob([new Uint8Array([1,2,3])],{type:"image/png"});
+  const result=await client.uploadOwnedObject("timeline_test",blob,{sha256:"a".repeat(64)});
+  assert.equal(result.status,"CONFIRMED");
+  const upload=calls.find(({url})=>url.endsWith("/objects/upload"));
+  assert.equal(upload.url.startsWith(locationObject.origin),true);
+  assert.equal(upload.options.body,blob);
+  const headers=new Headers(upload.options.headers);
+  assert.match(headers.get("authorization"),/^Bearer /);
+  assert.equal(headers.get("x-timeline-document-id"),"timeline_test");
+  assert.equal(headers.get("x-timeline-object-class"),"MEDIA");
   client.close();
 });
 

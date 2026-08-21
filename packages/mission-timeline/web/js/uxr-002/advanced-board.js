@@ -124,6 +124,47 @@ function textMarkup(blocks){
     .join("");
 }
 
+function flagEmoji(code="US"){
+  const value=String(code||"").toUpperCase();
+  return/^[A-Z]{2}$/.test(value)
+    ?String.fromCodePoint(...[...value].map((character)=>127397+character.charCodeAt(0)))
+    :"⚑";
+}
+
+function elementBody(item){
+  const width=number(item.width,120),height=number(item.height,80);
+  const fill=xml(item.fill||"#2C6E8F"),stroke=xml(item.stroke||"#17324A");
+  const label=xml(item.label||"");
+  const common=`fill="${fill}" stroke="${stroke}" stroke-width="3" vector-effect="non-scaling-stroke"`;
+  switch(item.kind){
+    case"rounded-rectangle":return`<rect width="${width}" height="${height}" rx="18" ${common}/>`;
+    case"circle":return`<ellipse cx="${width/2}" cy="${height/2}" rx="${width/2}" ry="${height/2}" ${common}/>`;
+    case"line":case"separator":return`<line x1="0" y1="${height/2}" x2="${width}" y2="${height/2}" ${common} stroke-width="6"/>`;
+    case"badge":return`<path d="M${width*.5} 0 L${width*.92} ${height*.25} L${width*.82} ${height*.82} L${width*.5} ${height} L${width*.18} ${height*.82} L${width*.08} ${height*.25}Z" ${common}/>`;
+    case"label":return`<path d="M0 0H${width*.82}L${width} ${height/2}L${width*.82} ${height}H0Z" ${common}/>`;
+    case"callout":return`<path d="M0 0H${width}V${height*.75}H${width*.35}L${width*.2} ${height}V${height*.75}H0Z" ${common}/>`;
+    case"frame":return`<rect x="3" y="3" width="${width-6}" height="${height-6}" fill="none" stroke="${stroke}" stroke-width="8" vector-effect="non-scaling-stroke"/>`;
+    case"arrow-right":case"arrow-thin":case"arrow-thick":return`<path d="M0 ${height*.5}H${width*.73}V${height*.18}L${width} ${height*.5}L${width*.73} ${height*.82}V${height*.5}H0Z" ${common}/>`;
+    case"arrow-double":return`<path d="M0 ${height*.5}L${width*.24} ${height*.12}V${height*.34}H${width*.76}V${height*.12}L${width} ${height*.5}L${width*.76} ${height*.88}V${height*.66}H${width*.24}V${height*.88}Z" ${common}/>`;
+    case"arrow-curved":return`<path d="M${width*.1} ${height*.8}C${width*.15} ${height*.14},${width*.72} ${height*.14},${width*.78} ${height*.46}L${width*.61} ${height*.28}M${width*.78} ${height*.46}L${width*.54} ${height*.5}" fill="none" stroke="${stroke}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>`;
+    case"milestone":case"marker":case"pin":case"milestone-flag":return`<path d="M${width*.5} 0L${width} ${height*.5}L${width*.5} ${height}L0 ${height*.5}Z" ${common}/>`;
+    case"ribbon":return`<path d="M0 ${height*.16}H${width}V${height*.84}H0L${width*.12} ${height*.5}Z" ${common}/>`;
+    case"shadow":return`<ellipse cx="${width/2}" cy="${height/2}" rx="${width*.48}" ry="${height*.24}" fill="rgba(0,0,0,.18)"/>`;
+    case"hospital":return`<rect x="${width*.12}" y="${height*.12}" width="${width*.76}" height="${height*.76}" rx="10" ${common}/><path d="M${width*.5} ${height*.25}V${height*.75}M${width*.25} ${height*.5}H${width*.75}" stroke="#fff" stroke-width="10" vector-effect="non-scaling-stroke"/>`;
+    case"graduation":return`<path d="M0 ${height*.34}L${width*.5} 0L${width} ${height*.34}L${width*.5} ${height*.67}Z" ${common}/><path d="M${width*.22} ${height*.52}V${height*.78}Q${width*.5} ${height} ${width*.78} ${height*.78}V${height*.52}" fill="none" stroke="${stroke}" stroke-width="5"/>`;
+    case"country-flag":return`<rect width="${width}" height="${height}" rx="8" fill="#fff" stroke="${stroke}" stroke-width="3"/><text x="${width/2}" y="${height*.72}" text-anchor="middle" font-size="${Math.min(width,height)*.7}">${flagEmoji(item.countryCode)}</text>`;
+    case"missionmed-wordmark":return`<rect width="${width}" height="${height}" rx="${height*.18}" fill="#0B1320" stroke="#2B3A50" stroke-width="2"/><text x="${width*.08}" y="${height*.65}" fill="#F5F7FA" font-family="Inter,Arial,sans-serif" font-size="${height*.42}" font-style="italic" font-weight="800">MissionMed</text><text x="${width*.72}" y="${height*.65}" fill="#FF9F36" font-family="Inter,Arial,sans-serif" font-size="${height*.42}" font-style="italic" font-weight="900">//</text>`;
+    default:return`<rect width="${width}" height="${height}" rx="${Math.min(16,height/5)}" ${common}/><text x="${width/2}" y="${height*.62}" text-anchor="middle" fill="#fff" font-family="Inter" font-size="${Math.min(width,height)*.36}" font-weight="700">${label||xml(item.kind||"Asset")}</text>`;
+  }
+}
+
+function elementMarkup(elements){
+  return[...elements]
+    .sort((left,right)=>number(left.layerIndex)-number(right.layerIndex))
+    .map((item)=>`<g data-advanced-element="${xml(item.id)}" data-advanced-kind="${xml(item.kind)}" transform="translate(${number(item.x)} ${number(item.y)})" role="button" tabindex="0" aria-label="${xml(`${item.label||item.kind||"Timeline asset"}; press Enter to select and use arrow keys to move`)}">${elementBody(item)}</g>`)
+    .join("");
+}
+
 function applyHeadlineTypography(svg,typography){
   if(!typography)return svg;
   const nativeUpdated=svg.replace(
@@ -181,7 +222,7 @@ export function renderAdvancedBoard(
     svg=svg.replace(/<rect data-board-background="true"[^>]*\/>/,background);
   }
   svg=applyHeadlineTypography(svg,state.headlineTypography);
-  const layers=`<g data-advanced-layer="true">${mediaMarkup(state.media,resolveObjectUrl,{reducedMotion:!!options.reducedMotion})}${textMarkup(state.textBlocks)}</g>`;
+  const layers=`<g data-advanced-layer="true">${mediaMarkup(state.media,resolveObjectUrl,{reducedMotion:!!options.reducedMotion})}${textMarkup(state.textBlocks)}${elementMarkup(state.elements)}</g>`;
   svg=svg.replace("</svg>",`${layers}</svg>`);
   return{
     ...rendered,
@@ -197,7 +238,8 @@ export function renderAdvancedBoard(
       visible:true,
       backgroundKind:state.background.kind,
       mediaCount:state.media.length,
-      textCount:state.textBlocks.length
+      textCount:state.textBlocks.length,
+      elementCount:state.elements.length
     }
   };
 }

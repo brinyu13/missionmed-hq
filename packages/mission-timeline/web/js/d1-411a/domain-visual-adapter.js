@@ -18,6 +18,7 @@ const CATEGORY_LABELS=Object.freeze({
   personal:"Personal (Not on CV)"
 });
 
+const CATEGORY_IDS=Object.freeze(Object.keys(CATEGORY_MAP));
 export class DomainVisualProjectionError extends Error{
   constructor(code,message,path=""){
     super(message);
@@ -28,6 +29,63 @@ export class DomainVisualProjectionError extends Error{
 }
 
 function clean(value){return String(value??"").trim();}
+
+function validYearMonth(value){
+  const match=/^(\d{4})-(\d{2})$/.exec(clean(value));
+  if(!match)return null;
+  const year=Number(match[1]);
+  const month=Number(match[2]);
+  if(year<1900||year>2200||month<1||month>12)return null;
+  return{year,month,index:year*12+month-1};
+}
+
+function sanitizeFurniturePresentation(overrides,warnings){
+  const next=clone(overrides||{});
+  const normalize=(value,fallback)=>{
+    const source=value&&typeof value==="object"?value:{};
+    return{
+      x:Number.isFinite(Number(source.x))?Number(source.x):fallback.x,
+      y:Number.isFinite(Number(source.y))?Number(source.y):fallback.y,
+      width:Number.isFinite(Number(source.width))?Number(source.width):fallback.width,
+      height:Number.isFinite(Number(source.height))?Number(source.height):fallback.height
+    };
+  };
+  const gap=12;
+  const overlaps=(first,second)=>!(
+    first.x+first.width+gap<=second.x||
+    second.x+second.width+gap<=first.x||
+    first.y+first.height+gap<=second.y||
+    second.y+second.height+gap<=first.y
+  );
+  const key=normalize(next.colorKeyGeometry,{x:18,y:300,width:416,height:322});
+  const profile=normalize(next.profileGeometry,{x:18,y:634,width:566,height:428});
+  if(!overlaps(key,profile))return next;
+  const raisedKey={...key,y:Math.max(0,profile.y-gap-key.height)};
+  if(!overlaps(raisedKey,profile))next.colorKeyGeometry=raisedKey;
+  else{
+    const loweredProfile={...profile,y:Math.min(1080-profile.height,key.y+key.height+gap)};
+    if(!overlaps(key,loweredProfile))next.profileGeometry=loweredProfile;
+    else{
+      next.colorKeyGeometry={x:18,y:300,width:416,height:322};
+      next.profileGeometry={x:18,y:634,width:566,height:428};
+    }
+  }
+  warnings.push("PRESENTATION_FURNITURE_COLLISION_REPAIRED");
+  return next;
+}
+
+function profileVisaDisplay(value){
+  const display=clean(value);
+  if(display.length<=18)return display;
+  const words=display.split(/\s+/);
+  let first="";
+  while(words.length){
+    const candidate=[first,words[0]].filter(Boolean).join(" ");
+    if(first&&candidate.length>18)break;
+    first=candidate;words.shift();
+  }
+  return words.length?`${first}\n${words.join(" ")}`:display;
+}
 function clone(value){return value==null?value:structuredClone(value);}
 
 function stableId(prefix,value,index){
@@ -79,7 +137,10 @@ function audienceVisible(event,audience){
 
 function presentationOverrides(event){
   const result={};
-  if(Number.isInteger(event?.lane))result.lane=Math.max(0,Math.min(6,event.lane));
+  // Only a genuinely legal lane may be forwarded as an override. autoArrange's
+  // interval packer is unbounded, and silently clamping lane 7/8/9 to 6 stacked every
+  // overflowing event on the same y with fully overlapping labels.
+  if(Number.isInteger(event?.lane)&&event.lane>=0&&event.lane<=6)result.lane=event.lane;
   const position=clean(event?.fields?.labelPosition);
   if(["below","left"].includes(position))result.labelPosition=position;
   if(event?.fields?.highlight===true)result.highlight=true;
@@ -126,29 +187,39 @@ export function projectTimelineDocument(document,{
     const milestone=event?.eventType==="milestone"||event?.mile===true;
     const visualId=stableId(milestone?"fl":"ev",domainId,index);
     if(visualToDomain.has(visualId)){
-      throw new DomainVisualProjectionError(
-        "DUPLICATE_VISUAL_ID",
-        `Two timeline events resolve to ${visualId}.`,
-        `events[${index}].id`
-      );
+      warnings.push(`EVENT_HIDDEN_DUPLICATE_ID:${domainId}`);
+      dropped.push({id:domainId,reason:"duplicate-visual-id"});
+      return;
     }
-    visualToDomain.set(visualId,domainId);
-    domainToVisual.set(domainId,visualId);
     const categoryId=clean(event?.categoryId)||"personal";
     if(!CATEGORY_MAP[categoryId]){
-      throw new DomainVisualProjectionError(
-        "UNSUPPORTED_CATEGORY",
-        `Unsupported domain category ${categoryId}.`,
-        `events[${index}].categoryId`
-      );
+      warnings.push(`EVENT_HIDDEN_UNSUPPORTED_CATEGORY:${domainId}`);
+      dropped.push({id:domainId,reason:"unsupported-category"});
+      return;
     }
     const startDate=clean(event?.fields?.rotationStartDate||event?.startDate);
-    if(!startDate){
-      warnings.push(`EVENT_WITHOUT_DATE_HIDDEN:${domainId}`);
-      dropped.push({id:domainId,reason:"missing-start-date"});
+    const parsedStart=validYearMonth(startDate);
+    if(!parsedStart){
+      warnings.push(`EVENT_HIDDEN_INVALID_START_DATE:${domainId}`);
+      dropped.push({id:domainId,reason:"invalid-start-date"});
       return;
     }
     const exactEnd=clean(event?.fields?.rotationEndDate||event?.endDate);
+    const parsedEnd=milestone||event?.openEnded===true||event?.fields?.ongoing===true
+      ?parsedStart
+      :validYearMonth(exactEnd||startDate);
+    if(!parsedEnd){
+      warnings.push(`EVENT_HIDDEN_INVALID_END_DATE:${domainId}`);
+      dropped.push({id:domainId,reason:"invalid-end-date"});
+      return;
+    }
+    if(!milestone&&parsedEnd.index<parsedStart.index){
+      warnings.push(`EVENT_HIDDEN_END_BEFORE_START:${domainId}`);
+      dropped.push({id:domainId,reason:"end-before-start"});
+      return;
+    }
+    visualToDomain.set(visualId,domainId);
+    domainToVisual.set(domainId,visualId);
     const visible=audienceVisible(event,audience)&&
       event?.fields?.hiddenInActiveVariant!==true;
     events.push({
@@ -170,7 +241,7 @@ export function projectTimelineDocument(document,{
     });
   });
 
-  const categories=Object.keys(CATEGORY_MAP).map((id,index)=>({
+  const categories=CATEGORY_IDS.map((id,index)=>({
     id,
     label:CATEGORY_LABELS[id],
     shortLabel:id==="education"?"Medical Degree":undefined,
@@ -179,6 +250,28 @@ export function projectTimelineDocument(document,{
     visible:true,
     arrowWordingRule:"keep"
   }));
+
+  const presentationState=document.presentationOverrides&&
+    typeof document.presentationOverrides==="object"
+    ?sanitizeFurniturePresentation(document.presentationOverrides,warnings)
+    :{};
+  const axisOverride=Object.hasOwn(presentationState,"axis")
+    ?clone(presentationState.axis)
+    :null;
+  const categoryKeyOverride=Object.hasOwn(presentationState,"categoryKey")
+    ?(Array.isArray(presentationState.categoryKey)
+      ?presentationState.categoryKey.map((item,index)=>{
+      const id=item?.id;
+      return{
+        id,
+        mapsTo:CATEGORY_MAP[id],
+        order:item?.order??index,
+        label:clean(item?.label),
+        color:clean(item?.color)
+      };
+    })
+      :clone(presentationState.categoryKey))
+    :null;
 
   const media=mediaCollections(document);
   const profileMedia=media.find((item)=>
@@ -190,11 +283,11 @@ export function projectTimelineDocument(document,{
     item?.role==="interview-program-logo"||
     item?.role==="interview-program-logo-source"
   );
-  const visiblePhotos=media
+  const visiblePhotoCandidates=media
     .filter((item)=>item?.type==="media"&&item?.placed!==false&&
-      item!==profileMedia&&item!==logoMedia)
-    .slice(0,5);
-  if(media.filter((item)=>item?.type==="media"&&item?.placed!==false).length>5){
+      item!==profileMedia&&item!==logoMedia&&document.mode!=="advanced");
+  const visiblePhotos=visiblePhotoCandidates.slice(0,5);
+  if(visiblePhotoCandidates.length>5){
     warnings.push("EXTRA_PHOTOS_REPORTED");
   }
   const photos=[];
@@ -256,7 +349,7 @@ export function projectTimelineDocument(document,{
     student:{
       displayName:clean(profile.fullName),
       profilePhoto:mediaRef(profileMedia,resolveObjectUrl,warnings,"student.profilePhoto"),
-      visaStatus:clean(profile.currentUsWorkAuthorization||profile.visaStatus),
+      visaStatus:profileVisaDisplay(profile.currentUsWorkAuthorization||profile.visaStatus),
       aamcDisplay:clean(profile.aamcDisplay||profile.aamcId),
       stepScores:{
         step1:examValue(document,"step-1"),
@@ -297,7 +390,9 @@ export function projectTimelineDocument(document,{
       theme:"keynote-classic-409h",
       photoStyleDefault:"scrapbook",
       captionDefault:"none",
-      manualOverrides:clone(document.presentationOverrides||{}),
+      manualOverrides:clone(presentationState),
+      axisOverride,
+      categoryKeyOverride,
       resetToAutomatic:false
     },
     metadata:{

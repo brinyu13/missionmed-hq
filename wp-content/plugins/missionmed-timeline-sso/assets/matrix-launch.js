@@ -30,11 +30,19 @@
     matchPrepList.insertBefore(item, storyForgeItem.nextSibling);
   };
 
+  const isTimelineHash = () => window.location.hash.toLowerCase() === "#timeline";
+
   document.addEventListener("click", (event) => {
-    const trigger = event.target.closest('[data-missionmed-product="timeline"], [data-app-id="timeline"]');
+    const trigger = event.target.closest(
+      '[data-missionmed-product="timeline"], [data-app-id="timeline"], a.sos-nav-link[href="#timeline"]'
+    );
     if (!trigger) return;
     event.preventDefault();
     openTimeline();
+  });
+
+  window.addEventListener("hashchange", () => {
+    if (isTimelineHash()) openTimeline();
   });
 
   if (document.readyState === "loading") {
@@ -43,5 +51,5 @@
     ensureNavigationEntry();
   }
 
-  if (window.location.hash === "#timeline") openTimeline();
+  if (isTimelineHash()) openTimeline();
 })();

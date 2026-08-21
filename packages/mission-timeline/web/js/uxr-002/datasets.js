@@ -1,4 +1,10 @@
 import {createMedicalSchoolProvider} from "./medical-school-registry.js";
+import {
+  ALL_ROTATION_SPECIALTIES,
+  PINNED_ROTATION_SPECIALTIES,
+  rankSpecialtyMatches,
+  specialtyOption
+} from "./specialty-taxonomy.js";
 
 const NON_COUNTRY_REGION_CODES=new Set(["EU","EZ","UN","XA","XB","ZZ"]);
 
@@ -48,9 +54,26 @@ export function createCountryProvider(options={}){
   });
 }
 
+export function createSpecialtyProvider(){
+  const rows=ALL_ROTATION_SPECIALTIES.map(specialtyOption);
+  return Object.freeze({
+    kind:"governed-local-specialty-taxonomy",
+    localOnly:true,
+    networkRequests:false,
+    async search(query,{limit=12}={}){
+      const needle=String(query||"").trim();
+      const matches=needle
+        ?rankSpecialtyMatches(rows,{query:needle})
+        :PINNED_ROTATION_SPECIALTIES.map(specialtyOption);
+      return matches.slice(0,Math.max(1,Number(limit)||12));
+    }
+  });
+}
+
 export function createRuntimeDatasets(options={}){
   return Object.freeze({
     countries:createCountryProvider(options),
-    schools:createMedicalSchoolProvider(options.medicalSchools||{})
+    schools:createMedicalSchoolProvider(options.medicalSchools||{}),
+    specialties:createSpecialtyProvider()
   });
 }

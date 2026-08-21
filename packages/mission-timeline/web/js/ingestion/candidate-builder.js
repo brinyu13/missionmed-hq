@@ -57,6 +57,7 @@ export function buildCandidates(records,sourceDocument){
         title,
         organization:record.organization||"",
         location:record.location||"",
+        description:record.description||"",
         dates:record.dates||"",
         rawText:record.rawText||"",
         sourceBlockIds:(record.sourceBlocks||[]).map((block)=>block.id)

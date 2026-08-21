@@ -1,5 +1,33 @@
 const SOURCE_KIND="missionmed-filevault-source";
 const UNAVAILABLE_CODE="FILE_VAULT_SOURCE_UNAVAILABLE";
+// Smart Fill is bounded by the bundled browser parser, not by the 25MB SOURCE custody
+// ceiling: anything between the two used to ingest and then fail on the review screen.
+const SMART_FILL_MAX_BYTES=20*1024*1024;
+const SMART_FILL_MIME=new Set([
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+]);
+// base64 quanta are four characters wide, so chunking on a multiple of four never splits one.
+const BASE64_CHUNK_CHARS=0x10000;
+
+function decodeBase64ToBytes(encoded){
+  const normalized=String(encoded||"");
+  // Runtimes that ship the native decoder skip the interpreted pass entirely, which is
+  // where the real win is. The chunked fallback avoids holding one 20MB binary string
+  // beside the base64 source; measured against a flat per-character loop on Node 24 it is
+  // marginally slower and not measurably lighter, so treat it as equivalent, not faster.
+  if(typeof Uint8Array.fromBase64==="function"){
+    try{return Uint8Array.fromBase64(normalized);}catch{/* fall through to the portable path */}
+  }
+  const bytes=new Uint8Array(Math.ceil(normalized.length/4)*3);
+  let written=0;
+  for(let offset=0;offset<normalized.length;offset+=BASE64_CHUNK_CHARS){
+    const chunk=atob(normalized.slice(offset,offset+BASE64_CHUNK_CHARS));
+    for(let index=0;index<chunk.length;index+=1)bytes[written+index]=chunk.charCodeAt(index);
+    written+=chunk.length;
+  }
+  return written===bytes.length?bytes:bytes.subarray(0,written);
+}
 
 function escapeHtml(value){
   return String(value??"")
@@ -42,6 +70,54 @@ export function resolveFileVaultSourceAdapter(candidate){
   return createUnavailableFileVaultSourceAdapter();
 }
 
+export function createAuthenticatedFileVaultSourceAdapter({request}={}){
+  if(typeof request!=="function")return createUnavailableFileVaultSourceAdapter();
+  const load=async(query="")=>{
+    const normalized=String(query||"").trim();
+    const payload=await request(normalized?`?query=${encodeURIComponent(normalized)}`:"");
+    return Array.isArray(payload?.documents)?payload.documents:[];
+  };
+  return Object.freeze({
+    kind:SOURCE_KIND,
+    connected:true,
+    provider:"missionmed-filevault-v1",
+    async listRecent(){return load();},
+    async search(query){return load(query);},
+    async select(documentId,{timelineDocumentId,versionId}={}){
+      const id=String(documentId||"").trim();
+      if(!/^[0-9a-fA-F-]{8,64}$/.test(id)){
+        throw stableUnavailableError("That File Vault document is not available.");
+      }
+      if(timelineDocumentId&&versionId){
+        const payload=await request(`/${encodeURIComponent(id)}/ingestions`,{
+          method:"POST",body:{timelineDocumentId:String(timelineDocumentId),versionId:String(versionId)}
+        });
+        const document=payload?.document||null;
+        const source=payload?.source||null;
+        const encoded=String(payload?.contentBase64||"");
+        if(!document||!source?.objectId||!encoded)throw stableUnavailableError("Timeline could not safely import that File Vault document.");
+        const mimeType=String(document.mimeType||source.mimeType||"");
+        if(!SMART_FILL_MIME.has(mimeType))throw stableUnavailableError("Smart Fill reads PDF and DOCX documents only.");
+        const bytes=decodeBase64ToBytes(encoded);
+        const declared=Number(source.byteSize);
+        if(!bytes.byteLength||(Number.isFinite(declared)&&declared>0&&bytes.byteLength!==declared)){
+          throw stableUnavailableError("Timeline could not safely import that File Vault document.");
+        }
+        if(bytes.byteLength>SMART_FILL_MAX_BYTES){
+          throw stableUnavailableError(`Smart Fill reads documents up to ${Math.round(SMART_FILL_MAX_BYTES/1024/1024)} MB.`);
+        }
+        const file=new File([bytes],String(document.name||"MissionMed document"),{
+          type:mimeType,lastModified:Date.parse(String(document.updatedAt||""))||Date.now()
+        });
+        Object.defineProperty(file,"timelineSourceObject",{value:Object.freeze({...source,provider:"missionmed-filevault-v1",vaultFileId:id,versionId:String(document.versionId||versionId)}),enumerable:false});
+        return{...document,file,source:file.timelineSourceObject};
+      }
+      const payload=await request(`/${encodeURIComponent(id)}`);
+      return payload?.document||null;
+    }
+  });
+}
+
 export function normalizeFileVaultSourceDocument(record){
   const id=String(record?.id||"").trim();
   const name=String(record?.name||"").trim();
@@ -49,7 +125,11 @@ export function normalizeFileVaultSourceDocument(record){
   return Object.freeze({
     id,
     name,
-    fileType:String(record?.fileType||record?.mimeType||"Document"),
+    provider:String(record?.provider||"missionmed-filevault-v1"),
+    documentType:String(record?.documentType||"other"),
+    versionId:String(record?.versionId||""),
+    mimeType:String(record?.mimeType||""),
+    fileType:String(record?.fileType||record?.mimeType||record?.documentType||"Document"),
     updatedAt:String(record?.updatedAt||""),
     sizeBytes:Number.isFinite(Number(record?.sizeBytes))
       ?Math.max(0,Number(record.sizeBytes))
@@ -85,12 +165,13 @@ export async function queryFileVaultSource(adapter,{query=""}={}){
   });
 }
 
-export async function selectFileVaultSourceDocument(adapter,documentId){
+export async function selectFileVaultSourceDocument(adapter,documentId,options={}){
   const source=resolveFileVaultSourceAdapter(adapter);
   if(!source.connected)throw stableUnavailableError(source.reason);
-  const selected=normalizeFileVaultSourceDocument(await source.select(String(documentId||"")));
+  const raw=await source.select(String(documentId||""),options);
+  const selected=normalizeFileVaultSourceDocument(raw);
   if(!selected)throw stableUnavailableError("File Vault returned an invalid document descriptor.");
-  return selected;
+  return Object.freeze({...selected,...(raw?.file?{file:raw.file,source:raw.source}:{} )});
 }
 
 export function renderFileVaultSourceChooser(model){
@@ -100,7 +181,7 @@ export function renderFileVaultSourceChooser(model){
     ?`<fieldset class="fileVaultSourceRows">
         <legend class="sr-only">File Vault documents</legend>
         ${documents.map((document)=>`<label class="fileVaultSourceRow">
-          <input type="radio" name="file-vault-source" value="${escapeHtml(document.id)}">
+          <input type="radio" name="file-vault-source" value="${escapeHtml(document.id)}" data-file-vault-version="${escapeHtml(document.versionId)}">
           <span class="fileVaultSourceIcon" aria-hidden="true">▤</span>
           <span><strong>${escapeHtml(document.name)}</strong><small>${escapeHtml(document.fileType)}${document.updatedAt?` · ${escapeHtml(document.updatedAt)}`:""}</small></span>
         </label>`).join("")}
@@ -134,5 +215,20 @@ export function renderFileVaultSourceChooser(model){
   </section>`;
 }
 
+/**
+ * The chooser already knows the exact version of every row it drew, so selection must not
+ * spend a second round trip asking the detail route for it again.
+ */
+export function readFileVaultSourceSelection(root){
+  const selected=root?.querySelector?.('input[name="file-vault-source"]:checked')||null;
+  if(!selected)return null;
+  return Object.freeze({
+    documentId:String(selected.value||""),
+    versionId:String(selected.dataset?.fileVaultVersion||selected.getAttribute?.("data-file-vault-version")||"")
+  });
+}
+
 export const FILE_VAULT_SOURCE_KIND=SOURCE_KIND;
 export const FILE_VAULT_SOURCE_UNAVAILABLE=UNAVAILABLE_CODE;
+export const FILE_VAULT_SMART_FILL_MAX_BYTES=SMART_FILL_MAX_BYTES;
+export const FILE_VAULT_SMART_FILL_MIME_TYPES=Object.freeze([...SMART_FILL_MIME]);

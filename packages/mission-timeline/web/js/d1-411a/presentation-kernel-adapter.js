@@ -14,8 +14,20 @@ const LANE_MAX = 6;
    ongoing/community work:5, res:6, personal: first free of [6,5,3,2].
    Within a band, x-overlapping events cascade to the next lane of the band.
    presentationOverride.lane always wins. If no lane clears, the adapter
-   keeps the last band lane and lets the kernel's collision law fail closed. */
+   uses the nearest otherwise-free display lane before reporting saturation.
+   This overflow is layout-only: category/color/semantic mapping remain frozen.
+   If every lane is occupied, it keeps the last canonical lane and lets the
+   kernel's collision law fail closed. */
 const BANDS = { work:[0,5], usmle:[1], usce:[2,3,4], res:[6], personal:[6,5,3,2] };
+const OVERFLOW_LANES = {
+  work:[1,2,3,4,6],
+  usmle:[2,0,3,4,5,6],
+  usce:[1,5,6,0],
+  res:[5,4,3,2,1,0],
+  personal:[4,1,0]
+};
+const CATEGORY_KEY_IDS=['education','exams','clinical','work','research','personal'];
+const HEX_COLOR=/^#[0-9A-F]{6}$/i;
 
 class AdapterError extends Error {
   constructor(code, message, path){ super(message); this.name='AdapterError'; this.code=code; this.path=path; }
@@ -45,13 +57,40 @@ function toRenderModel(doc){
     if(!c.mapsTo) throw new AdapterError('INVALID_CATEGORY','category '+c.id+' has no mapsTo', 'categories');
     catMap[c.id]=c;
   });
+  const presentation=doc.presentation||{};
+  let axisOverride;
+  if(presentation.axisOverride!=null){
+    const axis=presentation.axisOverride;
+    if(axis?.mode!=='manual')
+      throw new AdapterError('INVALID_AXIS_OVERRIDE','axis override mode must be manual','presentation.axisOverride.mode');
+    const startYear=Number(axis.startYear),endYear=Number(axis.endYear);
+    if(!Number.isInteger(startYear)||!Number.isInteger(endYear)||startYear<1900||endYear>2200||startYear>endYear||endYear-startYear>30)
+      throw new AdapterError('INVALID_AXIS_OVERRIDE','manual axis requires a 1900–2200 ordered range of at most 31 years','presentation.axisOverride');
+    axisOverride={mode:'manual',startYear,endYear,includeFuture:axis.includeFuture!==false};
+  }
+  let categoryKey;
+  if(presentation.categoryKeyOverride!=null){
+    const supplied=presentation.categoryKeyOverride;
+    if(!Array.isArray(supplied)||supplied.length!==CATEGORY_KEY_IDS.length)
+      throw new AdapterError('INVALID_CATEGORY_KEY','category key must contain exactly six entries','presentation.categoryKeyOverride');
+    categoryKey=supplied.map((item,index)=>{
+      const id=CATEGORY_KEY_IDS[index];
+      if(item?.id!==id||Number(item?.order)!==index)
+        throw new AdapterError('INVALID_CATEGORY_KEY','category key IDs and order are fixed','presentation.categoryKeyOverride['+index+']');
+      if(!item.label||String(item.label).length>32||!HEX_COLOR.test(String(item.color||'')))
+        throw new AdapterError('INVALID_CATEGORY_KEY','category label/color is invalid','presentation.categoryKeyOverride['+index+']');
+      if(item.mapsTo!==undefined&&item.mapsTo!==catMap[id]?.mapsTo)
+        throw new AdapterError('INVALID_CATEGORY_KEY','category mapping cannot be changed','presentation.categoryKeyOverride['+index+'].mapsTo');
+      return{id,label:String(item.label),color:String(item.color).toUpperCase(),mapsTo:catMap[id].mapsTo,order:index};
+    });
+  }
 
   /* ---- events (visible only; hidden NEVER reach the kernel) ---- */
   const vis=(doc.events||[]).filter(e=>(e.visibility||'visible')==='visible');
   const nowEnd = (()=>{ // ongoing events end at the last explicit year in the doc
     let maxY=0; vis.forEach(e=>{ const s=parseYM(e.startDate,'events'); maxY=Math.max(maxY,s.y);
       if(e.endDate){ const q=parseYM(e.endDate,'events'); maxY=Math.max(maxY,q.y); }});
-    return {y:maxY, m:12};
+    return axisOverride?{y:axisOverride.endYear,m:12}:{y:maxY, m:12};
   })();
 
   const arrows=[], flags=[];
@@ -72,7 +111,7 @@ function toRenderModel(doc){
       const re=new RegExp('\\s*'+cat.shortLabel.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\s*$','i');
       const ded=label.replace(re,'').trim(); if(ded) label=ded;
     }
-    arrows.push({ id:ev.id, t:label, cat:cat.mapsTo, sy:s.y, sm:s.m, ey:e.y, em:e.m,
+    arrows.push({ id:ev.id, t:label, cat:cat.mapsTo, ...(categoryKey?{categoryId:ev.categoryId}:{}), sy:s.y, sm:s.m, ey:e.y, em:e.m,
       date: displayDate(ev,s,e),
       loc: ev.location||ev.institution||undefined,
       lp: (ev.presentationOverride&&ev.presentationOverride.labelPosition)||(cat.mapsTo==='work'?'below':(ev.location||ev.institution)?'left':undefined),
@@ -93,15 +132,32 @@ function toRenderModel(doc){
   const laneOcc={}; for(let l=0;l<=LANE_MAX;l++) laneOcc[l]=[];
   arrows.sort((a,b)=>monthsX(a)-monthsX(b));
   arrows.forEach(a=>{
-    if(a._ovr!==null){ a.lane=a._ovr; laneOcc[a.lane].push(a); return; }
+    /* An override wins only when the lane is actually free. Accepting it blindly
+       bypassed the entire Lane Assignment Law and let two events share one lane. */
+    if(a._ovr!==null){
+      if(!laneOcc[a._ovr].some(o=>overlap(o,a))){ a.lane=a._ovr; laneOcc[a.lane].push(a); return; }
+      warnings.push('EVENT_LANE_OVERRIDE_REJECTED:'+a.id+':'+a._ovr);
+    }
     const band=BANDS[a.cat]||[6];
     let placed=false;
     for(const l of band){
       if(!laneOcc[l].some(o=>overlap(o,a))){ a.lane=l; laneOcc[l].push(a); placed=true; break; }
     }
+    if(!placed){
+      for(const l of OVERFLOW_LANES[a.cat]||[]){
+        if(!laneOcc[l].some(o=>overlap(o,a))){
+          a.lane=l; laneOcc[l].push(a); placed=true;
+          warnings.push('EVENT_LANE_OVERFLOW:'+a.id+':'+a.lane);
+          break;
+        }
+      }
+    }
     if(!placed){ a.lane=band[band.length-1]; laneOcc[a.lane].push(a);
       warnings.push('EVENT_LANE_SATURATED:'+a.id); }
-    else if(band.length>1) warnings.push('EVENT_LANE_AUTOASSIGNED:'+a.id+':'+a.lane);
+    /* Only report a lane choice that actually departed from the category's first
+       preference. Warning for every multi-lane category meant a perfectly clean board
+       reported a fistful of layout warnings and buried the real ones. */
+    else if(band.length>1&&a.lane!==band[0]) warnings.push('EVENT_LANE_AUTOASSIGNED:'+a.id+':'+a.lane);
   });
   arrows.forEach(a=>{ delete a._ovr; });
 
@@ -151,6 +207,8 @@ function toRenderModel(doc){
   const model={ schemaVersion:'d1-409h-render-model/1',
     documentId: doc.timelineId, revision: doc.revision||0,
     title: doc.title, axisMode:'adaptive',
+    ...(axisOverride?{axisOverride}:{}),
+    ...(categoryKey?{categoryKey}:{}),
     events: arrows, flags, profile, sticky, logo, interview, photos };
   return { model, warnings, dropped: [] };
 }

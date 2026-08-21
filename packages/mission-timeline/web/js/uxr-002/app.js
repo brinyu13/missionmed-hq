@@ -68,6 +68,7 @@ import {createD1408PdfIntakeAdapter} from "./intake-d1-408-adapter.js";
 import {monthFieldMarkup,installMonthFields} from "./month-field.js";
 import {announce,closeOverlay,openDialog,showToast} from "./overlays.js";
 import {canonicalBoardPreview} from "./preview.js";
+import {openQualityGuardian} from "./quality-guardian.js";
 import {
   installFocusTrap,
   installResponsiveRuntime,
@@ -329,6 +330,7 @@ function renderShell(store,screen){
       </div>
       <div class="header-actions">
         <span class="autosave-indicator" data-autosave>${autosaveText(store)}</span>
+        <button type="button" class="button secondary compact" data-quality-check>Check my timeline</button>
         <span class="export-button-wrap" ${store.document.events.length?"":'title="Add at least one event first"'}>
           <button type="button" class="button primary header-export" data-header-export ${store.document.events.length?"":'disabled aria-describedby="export-disabled-help"'}>Export</button>
         </span>
@@ -489,12 +491,25 @@ function renderScreen(store){
 }
 
 function installGlobal(root,store){
-  root.querySelectorAll("[data-route]").forEach((button)=>button.addEventListener("click",()=>store.navigate(button.dataset.route)));
+  const qualityCheck=(stage="DURING_BUILDING",opener=document.activeElement)=>
+    openQualityGuardian(store,{stage,opener});
+  root.querySelectorAll("[data-route]").forEach((button)=>button.addEventListener("click",()=>{
+    if(button.dataset.route==="export"){
+      qualityCheck("BEFORE_EXPORT",button);
+      return;
+    }
+    store.navigate(button.dataset.route);
+  }));
   root.querySelector("[data-matrix-link]")?.addEventListener("click",()=>{
     window.dispatchEvent(new CustomEvent("navigate:matrix",{detail:{source:"timeline-builder"}}));
     announce("Returning to Matrix");
   });
-  root.querySelector("[data-header-export]")?.addEventListener("click",()=>store.navigate("export"));
+  root.querySelector("[data-quality-check]")?.addEventListener("click",(event)=>
+    qualityCheck("DURING_BUILDING",event.currentTarget)
+  );
+  root.querySelector("[data-header-export]")?.addEventListener("click",(event)=>
+    qualityCheck("BEFORE_EXPORT",event.currentTarget)
+  );
   root.querySelector("[data-rail-pin]")?.addEventListener("click",()=>store.mutate("Navigation preference",(document)=>{document.preferences.railPinned=!document.preferences.railPinned;},{history:false,material:false}));
   root.querySelector("[data-retry-save]")?.addEventListener("click",()=>store.saveNow("RETRY").catch((error)=>showToast(String(error?.message||error),{tone:"danger"})));
   root.querySelector("[data-cancel-intake]")?.addEventListener("click",()=>store.navigate("home"));

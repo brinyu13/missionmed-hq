@@ -12,6 +12,9 @@ test("WordPress canary, consent, and JWT seams execute in a bounded harness", ()
   assert.equal(receipt.pass, true);
   assert.deepEqual(receipt.checks, {
     student_canary: true,
+    first_use_principal_is_valid: true,
+    first_use_principal_is_stable: true,
+    first_use_principal_does_not_write_meta: true,
     admin_canary: true,
     nonallowlisted_denied: true,
     consent_denied: true,
@@ -19,6 +22,16 @@ test("WordPress canary, consent, and JWT seams execute in a bounded harness", ()
     consent_withdrawn: true,
     jwt_round_trip: true,
     jwt_remote_sync_allowed: true,
+    first_use_jwt_issued: true,
+    first_use_jwt_is_local_only: true,
     entitlement_change_rejects_token: true,
+    filevault_source_owner_bound: true,
+    filevault_source_storage_opaque: true,
+    filevault_source_cross_owner_denied: true,
+    filevault_source_unconfirmed_denied: true,
+    filevault_source_smart_fill_ready: true,
+    filevault_source_oversize_not_listed: true,
+    filevault_source_wrong_type_not_listed: true,
+    filevault_source_unconfirmed_not_listed: true,
   });
 });

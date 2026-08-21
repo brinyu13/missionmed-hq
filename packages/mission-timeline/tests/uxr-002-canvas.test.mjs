@@ -50,6 +50,21 @@ const canvasSource=await readFile(
   "utf8"
 );
 
+test("persistent canvas patch tolerates blur-triggered nested renders",()=>{
+  assert.match(
+    canvasSource,
+    /child!==currentKernel&&child\.parentNode===currentApplication/
+  );
+  assert.match(
+    canvasSource,
+    /child!==currentApplication&&child\.parentNode===currentStage/
+  );
+  assert.match(
+    canvasSource,
+    /child!==currentStage&&child\.parentNode===currentScreen/
+  );
+});
+
 class MemoryVersionAdapter {
   constructor() {
     this.versions = new Map();
@@ -507,6 +522,8 @@ test("M8 add-event popover contains the shared six-category dataset and adds one
   assert.equal(result.changed,true);
   assert.equal(added.categoryId,"research");
   assert.equal(added.startDate,"2023-08");
+  assert.equal(added.endDate,null);
+  assert.equal(added.eventType,"milestone");
   assert.equal(added.sourceType,"canvas-guided");
   assert.equal(added.fields.builderDomain,"research");
   assert.equal(result.detailsRoute.step,5);
@@ -613,7 +630,7 @@ test("M8 History supports manual and all four automatic version actions, restore
   assert.equal(await store.adapter.get("versions",manual.id),null);
 });
 
-test("M8 zoom exposes Fit, 100%, and 150% presets plus clamped 50–200% trackpad state and the 100% crossing indicator",() => {
+test("007 zoom exposes Fit, direct percentage, +/- steps, and clamped 25–400% trackpad state",() => {
   let zoom = createCanvasState().zoom;
   assert.deepEqual(zoom,{mode:"fit",percent:null,label:"Fit",snappingIndicator:false});
   zoom = updateCanvasZoom(zoom,{kind:"preset",value:"150"});
@@ -622,17 +639,63 @@ test("M8 zoom exposes Fit, 100%, and 150% presets plus clamped 50–200% trackpa
   assert.equal(zoom.percent,90);
   assert.equal(zoom.snappingIndicator,true);
   zoom = updateCanvasZoom(zoom,{kind:"trackpad",percent:500});
-  assert.equal(zoom.percent,200);
+  assert.equal(zoom.percent,400);
   zoom = updateCanvasZoom(zoom,{kind:"trackpad",percent:-10});
-  assert.equal(zoom.percent,50);
+  assert.equal(zoom.percent,25);
   assert.equal(updateCanvasZoom(zoom,{kind:"preset",value:"100%"}).percent,100);
+  assert.equal(updateCanvasZoom(zoom,{kind:"preset",value:"in"}).percent,35);
+  assert.equal(updateCanvasZoom(zoom,{kind:"direct",percent:137}).percent,137);
+});
+
+test("Advanced text opens a genuine on-canvas editor with explicit save and cancel",()=>{
+  const document=defaultDocument();
+  document.mode="advanced";
+  document.events=[{
+    id:"work",
+    title:"Clinical work",
+    categoryId:"work",
+    eventType:"duration",
+    startDate:"2025-01",
+    endDate:"2026-01",
+    visibilityState:VISIBILITY.INTERVIEWER_SAFE
+  }];
+  document.advanced.textBlocks=[{
+    id:"advanced-text",
+    type:"text",
+    text:"Interview story",
+    x:960,
+    y:540,
+    width:320,
+    height:72,
+    font:"Inter",
+    size:24,
+    weight:400,
+    color:"#191C21",
+    alignment:"left",
+    layerIndex:0
+  }];
+  const state={
+    ...createCanvasState({mode:"advanced"}),
+    advancedSelection:{type:"text",id:"advanced-text"},
+    advancedTextEdit:{id:"advanced-text",draft:"Interview story revised"}
+  };
+  const html=renderCanvas({document,state,currentMonth:"2026-07"});
+  assert.match(html,/data-advanced-inline-text-form/);
+  assert.match(html,/data-advanced-inline-text-input/);
+  assert.match(html,/Interview story revised/);
+  assert.match(html,/Save text/);
+  assert.match(html,/data-canvas-action="cancel-advanced-text"/);
+  assert.match(canvasSource,/store\.mutate\("Edit Advanced text"/);
 });
 
 test("M8 tablet and phone Canvas contracts are view-only with the exact banner and no email affordance",() => {
   const desktop = canvasResponsiveContract(1024);
+  const retinaChromeDesktop = canvasResponsiveContract(983);
   const tablet = canvasResponsiveContract(900);
   const phone = canvasResponsiveContract(500);
   assert.equal(desktop.editing,true);
+  assert.equal(retinaChromeDesktop.editing,true);
+  assert.equal(retinaChromeDesktop.range,"desktop");
   assert.deepEqual(
     {
       range:tablet.range,
@@ -745,7 +808,7 @@ test("M8 install owns delegated Canvas listeners, canonical rendering, responsiv
   assert.match(root.innerHTML,/Timeline visualization, 6 events; use Tab to move between events/);
   assert.deepEqual(
     [...root.listeners.keys()].sort(),
-    ["click","contextmenu","dblclick","focusin","input","keydown","pointerdown","submit","wheel"].sort()
+    ["change","click","contextmenu","d1-411a:wheel-zoom","dblclick","focusin","input","keydown","pointerdown","submit","wheel"].sort()
   );
   controller.setResponsiveWidth(900);
   assert.equal(controller.state.responsive.viewOnly,true);

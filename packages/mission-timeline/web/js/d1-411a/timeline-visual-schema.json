@@ -72,7 +72,36 @@
       "frozen-default",
       "adaptive"
      ],
-     "description": "frozen-default is legal ONLY for the exact approved fixture (signature-enforced)"
+      "description": "frozen-default is legal ONLY for the exact approved fixture (signature-enforced)"
+    },
+    "axisOverride": {
+     "type": "object",
+     "required": ["mode", "startYear", "endYear", "includeFuture"],
+     "properties": {
+      "mode": {"const": "manual"},
+      "startYear": {"type": "integer", "minimum": 1900, "maximum": 2200},
+      "endYear": {"type": "integer", "minimum": 1900, "maximum": 2200},
+      "includeFuture": {"type": "boolean"}
+     },
+     "additionalProperties": false
+    },
+    "categoryKey": {
+     "type": "array",
+     "minItems": 6,
+     "maxItems": 6,
+     "description": "Optional D1-411A bounded override. IDs and order remain education, exams, clinical, work, research, personal.",
+     "items": {
+      "type": "object",
+      "required": ["id", "label", "color", "mapsTo", "order"],
+      "properties": {
+       "id": {"enum": ["education", "exams", "clinical", "work", "research", "personal"]},
+       "label": {"type": "string", "minLength": 1, "maxLength": 32},
+       "color": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"},
+       "mapsTo": {"enum": ["work", "personal", "usmle", "usce", "res"]},
+       "order": {"type": "integer", "minimum": 0, "maximum": 5}
+      },
+      "additionalProperties": false
+     }
     },
     "events": {
      "type": "array",
@@ -105,6 +134,9 @@
          "usce",
          "res"
         ]
+       },
+       "categoryId": {
+        "enum": ["education", "exams", "clinical", "work", "research", "personal"]
        },
        "sy": {
         "type": "integer"
@@ -850,6 +882,28 @@
       "manualOverrides": {
        "type": "object",
        "description": "per-object presentation overrides"
+      },
+      "axisOverride": {
+       "anyOf": [
+        {"type": "null"},
+        {
+         "type": "object",
+         "required": ["mode", "startYear", "endYear", "includeFuture"],
+         "properties": {
+          "mode": {"const": "manual"},
+          "startYear": {"type": "integer", "minimum": 1900, "maximum": 2200},
+          "endYear": {"type": "integer", "minimum": 1900, "maximum": 2200},
+          "includeFuture": {"type": "boolean"}
+         },
+         "additionalProperties": false
+        }
+       ]
+      },
+      "categoryKeyOverride": {
+       "anyOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/RenderModel/properties/categoryKey"}
+       ]
       },
       "resetToAutomatic": {
        "type": "boolean",

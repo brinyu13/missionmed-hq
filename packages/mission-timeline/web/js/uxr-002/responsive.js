@@ -258,8 +258,11 @@ function intakeCapability() {
   });
 }
 
-function canvasCapability(tier) {
-  if (tier.id === "tablet") {
+function canvasCapability(tier,viewportWidth) {
+  // A maximized 13-inch Retina Chrome window exposes 983 CSS px after browser
+  // chrome. Preserve the established 900 px tablet contract while keeping the
+  // actual desktop editing surface usable from 960 px upward.
+  if (tier.id === "tablet" && viewportWidth < 960) {
     return freezeDeep({
       functional:true,
       contentMode:"view-only",
@@ -359,7 +362,7 @@ export function buildResponsiveModel({
       home:homeCapability(tier),
       builder:builderCapability(tier),
       intake:intakeCapability(),
-      canvas:canvasCapability(tier),
+      canvas:canvasCapability(tier,viewport.width),
       media:intakeCapability(),
       export:exportCapability(tier)
     }),
@@ -419,7 +422,9 @@ export function responsiveRenderContract(model,screen) {
 export function renderResponsiveNotice(model,screen) {
   const contract = responsiveRenderContract(model,screen);
   if (!contract.banner) return "";
-  return `<div class="responsive-accessibility-banner" role="status" data-responsive-banner>${escapeHtml(contract.banner)}</div>`;
+  // Carries the 407F shell class too: index.html loads only 407f-upgrade.css, so the
+  // uxr-002 class alone renders this notice unstyled inside the app.
+  return `<div class="responsive-accessibility-banner responsive407FBanner" role="status" data-responsive-banner>${escapeHtml(contract.banner)}</div>`;
 }
 
 function attributeMarkup(attributes) {

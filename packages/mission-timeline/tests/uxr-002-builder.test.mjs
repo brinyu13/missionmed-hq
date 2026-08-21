@@ -9,6 +9,7 @@ import {
   builderStepState,
   builderStepStates,
   commitBuilderEntry,
+  countryFlag,
   deleteBuilderEntry,
   ensureBuilderState,
   eventFromBuilderEntry,
@@ -210,14 +211,15 @@ test("Core validation uses only frozen messages and creates the canonical Educat
   assert.equal(document.events.length,1,"Core edits must upsert rather than duplicate the degree");
 });
 
-test("USMLE and COMLEX are independent, chip-added, and retain score/result/date priority",()=>{
+test("USMLE and COMLEX are independent, chip-added, and preserve study-to-exam-to-result chronology",()=>{
   const document=defaultDocument();
   const builder=ensureBuilderState(document);
   builder.step=2;
   builder.examSystems=["USMLE","COMLEX-USA"];
 
   const emptyHtml=renderBuilder({document});
-  assert.equal((emptyHtml.match(/data-add-exam-system=/g)||[]).length,6);
+  assert.equal((emptyHtml.match(/data-add-exam-system=/g)||[]).length,7);
+  assert.match(emptyHtml,/\+ Add Step 2 CS/);
   assert.match(emptyHtml,/>USMLE<\/span>/);
   assert.match(emptyHtml,/>COMLEX-USA<\/span>/);
   assert.match(emptyHtml,/>No exams added yet\.<\/p>/);
@@ -256,9 +258,10 @@ test("USMLE and COMLEX are independent, chip-added, and retain score/result/date
   assert.doesNotMatch(stepOne,/Score \(optional\)/,"pass/fail-only exams hide score");
 
   const levelTwo=html.slice(html.indexOf('data-exam-id="level-two"'),html.indexOf("</article>",html.indexOf('data-exam-id="level-two"')));
+  assert.ok(levelTwo.indexOf("Started studying (optional)")<levelTwo.indexOf("Exam date (taken)"));
+  assert.ok(levelTwo.indexOf("Exam date (taken)")<levelTwo.indexOf("<legend>Result"));
   assert.ok(levelTwo.indexOf("<legend>Result")<levelTwo.indexOf(">Score<"));
-  assert.ok(levelTwo.indexOf(">Score<")<levelTwo.indexOf("Exam date (taken)"));
-  assert.ok(levelTwo.indexOf("Exam date (taken)")<levelTwo.indexOf("Started studying (optional)"));
+  assert.match(levelTwo,/Awaiting results/);
   assert.match(levelTwo,/Show score on timeline/);
 
   assert.equal(validateExam({system:"USMLE",result:"Passed",examDate:"2024-01",score:"301"}).score,"USMLE scores run 1–300.");
@@ -316,6 +319,9 @@ test("Clinical, Work, Research, and Personal render exact frozen field order and
   for(const type of ["Elective","Sub-internship","Observership","Externship","Clerkship (core)","Other"])assert.ok(html.includes(`>${type}</option>`));
   assert.match(html,/data-typeahead-provider="usTeachingInstitutions"/);
   assert.match(html,/data-typeahead-provider="specialties"/);
+  assert.equal((html.match(/data-typeahead-toggle/g)||[]).length,1);
+  assert.doesNotMatch(html,/data-typeahead-toggle[^>]*tabindex="-1"/);
+  assert.match(html,/Start typing to find another specialty\./);
 
   const research=ensureBuilderState(document).drafts.research;
   research.publicationStatus="Published";
@@ -327,8 +333,12 @@ test("Clinical, Work, Research, and Personal render exact frozen field order and
 
   ensureBuilderState(document).step=6;
   html=renderBuilder({document});
-  assert.equal((html.match(/name="icon"/g)||[]).length,12);
-  assert.deepEqual(PERSONAL_ICONS,["heart","home","plane","baby","ring","star","flag","globe","shield","sun","book","sparkle"]);
+  assert.equal((html.match(/name="icon"/g)||[]).length,20);
+  assert.deepEqual(PERSONAL_ICONS,["heart","home","plane","baby","ring","star","flag","globe","shield","sun","book","sparkle","graduation","certificate","hospital","memorial","award","research","career","family"]);
+  assert.match(html,/Icon style/);
+  assert.match(html,/Choose a common event or enter your own\./);
+  assert.match(html,/value="Date range"/);
+  assert.doesNotMatch(html,/value="A period"/);
   assert.match(html,/value="INTERVIEWER_SAFE"/);
   assert.match(html,/value="ADVISOR_ONLY"/);
 });
@@ -394,6 +404,7 @@ test("Entry validation uses frozen required and date-order messages without addi
     authorPosition:"Required."
   });
   assert.deepEqual(validateBuilderEntry("personal",{happened:""}),{happened:"Required."});
+  assert.deepEqual(validateBuilderEntry("personal",{happened:"Moved to the United States"}),{toCountry:"Required."});
   assert.deepEqual(validateBuilderEntry("clinical",{startDate:"2025-04",endDate:"2025-03"}),{
     endDate:"End date is before the start date."
   });
@@ -476,6 +487,10 @@ test("Unlimited entry commits preserve canonical category, visibility, advisor-o
     whenKind:"One date",
     startDate:"2024-06",
     endDate:"",
+    fromCountry:"Ghana",
+    fromCountryCode:"GH",
+    toCountry:"United States",
+    toCountryCode:"US",
     icon:"plane",
     visibilityState:VISIBILITY.ADVISOR_ONLY
   },{idFactory});
@@ -484,6 +499,9 @@ test("Unlimited entry commits preserve canonical category, visibility, advisor-o
   assert.equal(personal.event.eventType,"milestone");
   assert.equal(personal.event.visibilityState,"ADVISOR_ONLY");
   assert.equal(personal.event.fields.icon,"plane");
+  assert.equal(personal.event.fields.fromCountryFlag,"🇬🇭");
+  assert.equal(personal.event.fields.toCountryFlag,"🇺🇸");
+  assert.equal(countryFlag("US"),"🇺🇸");
   assert.ok(!("imgStatus" in personal.event.fields),"country data must not infer IMG status");
   assert.ok(!("residencyStatus" in personal.event.fields),"journey data must not infer residency status");
 

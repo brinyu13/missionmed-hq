@@ -1,3 +1,5 @@
+import {studentAccessMessage} from "./student-language.js";
+
 export const TIMELINE_ENTITLEMENT_SCHEMA="d1-405.timeline-entitlement.1";
 export const TIMELINE_ENTITLEMENT_PERMISSION="timeline.access";
 export const UNLIMITED_TIMELINES="unlimited";
@@ -472,7 +474,12 @@ export function entitlementStatusMarkup(access){
   return{
     label,
     allowance,
-    reason:access.reason,
+    // access.reason is the administrator record: WordPress roles, cohort ids, config
+    // rules. Students see the consequence and the one action that fixes it instead.
+    reason:studentAccessMessage(access.denialCode,{
+      readOnly:access.access===ENTITLEMENT_ACCESS.READ_ONLY
+    }),
+    diagnosticReason:access.reason,
     tone:access.access===ENTITLEMENT_ACCESS.FULL?"success":"warning"
   };
 }

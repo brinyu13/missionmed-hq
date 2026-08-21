@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "d1-final-012a-canonical-visual-fingerprint/1",
+  "authority": {
+    "presentation": "D1-409H-A1",
+    "founderReference": "407G Preview 6",
+    "canvas": {
+      "orientation": "landscape",
+      "width": 1920,
+      "height": 1080
+    }
+  },
+  "acceptedEvidence": {
+    "screenshotPath": "/Users/brianb/Downloads/D1-409H_EVIDENCE/01_full_board.jpg",
+    "screenshotSha256": "08590cf374a363879d8311053a8854e641a22cbf433020f25a372411ba889bff",
+    "backgroundPath": "/Users/brianb/Downloads/D1-409H_VISUAL_MASTER_PACKAGE/assets/tex/board_denim.jpg",
+    "backgroundSha256": "9ac898468cf2844247d1c4285565f95341a1c62b45d244d8ffd753e30b87ae75"
+  },
+  "protectedSource": {
+    "D1-409H_FINAL_VISUAL_MASTER.html": "bb471c57223c4a8d6c44d2398cc3c2a0da4467b61e7a2d779323c5be38e52c24",
+    "D1-409H_VISUAL_MASTER.css": "4efd5088696a93914d5f6c3b7e14e98426239453b16712f152eb5bfe68598ef7",
+    "D1-409H_VISUAL_MASTER.js": "ed46fdf21588554aaaadbeaebacd81321177d45ad357c7e8cb8570a20786cb32"
+  },
+  "deterministicCleanFixture": {
+    "id": "CANONICAL VISUAL REGRESSION FIXTURE",
+    "normalizedVisualDigestSha256": "0d116e2617a66cf30a8bc0c561748b348d6cde12d1d44bfe69e6d9aefaed43f2",
+    "normalization": "Replace the computed absolute board background URL with presentation/d1-409h-a1/assets/tex/board_denim.jpg before stable-key JSON hashing.",
+    "minimumGeneratedPngSimilarity": 0.97,
+    "observedGeneratedPngSimilarity": 0.9771412,
+    "baselineReloadSimilarity": 1,
+    "fixedExportPreviewSimilarity": 0.96418017,
+    "browserErrors": 0
+  },
+  "classification": {
+    "canonicalFixture": "CANONICAL VISUAL REGRESSION FIXTURE",
+    "notAuthority": [
+      "Brian RC1 Canary",
+      "torture fixture",
+      "any student document carrying an explicit Advanced Studio background or furniture override"
+    ]
+  }
+}

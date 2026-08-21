@@ -3,7 +3,7 @@ import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypt
 import type { ObjectRecord, PrincipalContext } from "../../contracts/types.js";
 import { clone, newId, now, sha256 } from "../../core/canonical.js";
 import { TimelineError } from "../../core/errors.js";
-import type { PrivateObjectStore, SignedDownload, SignedUpload, UploadRequest } from "../private-object-store.js";
+import { assertOwnedObjectIngestion, type PrivateObjectStore, type SignedDownload, type SignedUpload, type UploadRequest } from "../private-object-store.js";
 import { ExifStrippingJpegSanitizer, hasJpegPrivacyMetadata, matchesDeclaredMimeType } from "./content-validation.js";
 import type {
   MalwareScanResult,
@@ -25,11 +25,13 @@ const DEFAULT_DOWNLOAD_EXPIRY_MS = 60 * 1_000;
 
 const ALLOWED_MIME = new Set([
   "application/pdf",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   "application/json",
   "application/zip",
   "image/png",
   "image/jpeg",
   "image/webp",
+  "image/gif",
   "text/html",
   "text/plain",
 ]);
@@ -499,6 +501,27 @@ export class StagingPrivateObjectStore implements PrivateObjectStore {
     return this.confirmUpload(context, state.record.id, signed.uploadToken);
   }
 
+  async putOwnedObject(context: PrincipalContext, request: StagingUploadRequest, bytes: Uint8Array): Promise<ObjectRecord> {
+    this.requireAuthenticatedContext(context);
+    assertOwnedObjectIngestion(context, request, bytes);
+    const signed = await this.signUpload(context, request);
+    const state = this.requireState(signed.objectId);
+    await this.authorizeState(context, state, "WRITE");
+    await this.retry(() =>
+      this.client.putObject({
+        key: state.record.storageKey,
+        bytes,
+        contentType: request.mimeType,
+        checksumSha256: sha256(bytes),
+        metadata: this.storageMetadata(state),
+        idempotencyKey: `owner-upload:${state.record.id}`,
+        ifNoneMatch: true,
+      }),
+    );
+    await this.retry(() => this.client.revokeObjectGrants(state.record.storageKey));
+    return this.confirmUpload(context, state.record.id, signed.uploadToken);
+  }
+
   async getObject(_objectId: string): Promise<ObjectRecord | null> {
     throw new TimelineError(
       "OBJECT_AUTHORIZATION_CONTEXT_REQUIRED",
@@ -518,6 +541,26 @@ export class StagingPrivateObjectStore implements PrivateObjectStore {
       await this.authorizeState(context, state, "READ");
       await this.audit(context, "OBJECT_READ", objectId, "SUCCESS", null, { record_status: state.record.status });
       return clone(state.record);
+    } catch (error) {
+      await this.auditFailure(context, "OBJECT_READ", objectId, error);
+      throw error;
+    }
+  }
+
+  async getAuthorizedObjectBytes(context: PrincipalContext, objectId: string): Promise<{record: ObjectRecord; bytes: Uint8Array}> {
+    try {
+      this.requireAuthenticatedContext(context);
+      const state = this.requireState(objectId);
+      await this.authorizeState(context, state, "READ");
+      if (state.record.status !== "CONFIRMED") throw new TimelineError("OBJECT_NOT_FOUND", "Object not found.", 404);
+      const stored = await this.retry(() => this.client.getObject(state.record.storageKey));
+      const bytes = new Uint8Array(stored.value.bytes);
+      if (
+        bytes.byteLength !== state.record.expectedBytes ||
+        sha256(bytes) !== state.record.expectedSha256
+      ) throw new TimelineError("OBJECT_INTEGRITY_MISMATCH", "Object integrity does not match its confirmed record.", 409);
+      await this.audit(context, "OBJECT_READ", objectId, "SUCCESS", null, { record_status: state.record.status });
+      return {record:clone(state.record),bytes};
     } catch (error) {
       await this.auditFailure(context, "OBJECT_READ", objectId, error);
       throw error;

@@ -3618,3 +3618,20 @@ and reconciliation dry-run progression.
 **Verdict:** READY FOR FINAL PHASE 1 IMPLEMENTATION
 
 **Status:** STORYFORGE REMAINS AT SAFE ROLLOUT RUNG 0
+
+---
+
+### TIMELINE-UX-IMPLEMENTATION-006 / CANONICAL-BASELINE-006 closure
+**Date:** 2026-08-09
+**Agent:** Codex GPT-5.6 Sol
+**Mission:** Complete the Timeline RC1 human-experience recovery and re-establish the canonical visual baseline after the live editor-torture document raised fidelity doubt.
+
+**Scope:** Timeline-owned source, immutable WordPress runtime, authenticated/read-only live browser verification, isolated canonical visual roundtrip, export inspection, and evidence closure. No production document, Matrix, StoryForge, Arena, DNS, CDN, API, database, or unrelated application mutation during the canonical gate.
+
+**Result:** COMPLETE. Final source `14fb4dd3258fb8bf920910fc066495e9835503f5`, static `timeline-390aab3459459825`, WordPress `timeline-wp-ed84301a63d1ed11`, app SHA-256 `745937a8bdf7bb522af520cfb45794b6032142d2924c3c9e15b6d73d34888134`. The live `Brian RC1 Canary` is classified `EDITOR TORTURE FIXTURE - NOT VISUAL AUTHORITY`. A separate isolated `CANONICAL VISUAL REGRESSION FIXTURE` preserved the D1-409H-A1 visual model across editor entry, 11 panels, zoom, save, reload, Matrix return, PNG, Letter PDF, and A4 PDF. Baseline/reload normalized pixel diff was zero. All exports were opened. No product/default/render/export drift was found; no corrective deployment was required.
+
+**Verification:** 689/689 authoritative regression, 21/21 final focused contract, 42/42 latest affected browser suite, 32/32 local and live editor acceptance, 40/40 controlling human gate, canonical model 5/5 stable, current live Chrome zero warnings/errors, homepage/StoryForge/Arena 200, anonymous direct API 401.
+
+**Rollback:** immediate WordPress `releases/timeline-wp-7890b335cbbbe44e`; provider backup `TIMELINE-RC1-EDITOR-UX-004-PRE-20260808T161951Z`; scoped snapshot `/www/theresidencyacademy_209/private/timeline-rc1-recovery-backups/20260809T181853Z-timeline-ux-006`.
+
+**Canonical receipt:** `_AI_HANDOFFS/from_codex/TIMELINE-UX-IMPLEMENTATION-006/TIMELINE_UX_IMPLEMENTATION_006_FULL_COMBINED_HANDOFF.md`

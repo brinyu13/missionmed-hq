@@ -24,10 +24,10 @@ export const EXAM_WORKFLOW_COPY=Object.freeze({
 });
 
 export const EXAM_CARD_FIELD_ORDER=Object.freeze([
-  Object.freeze({id:"result",row:1,order:1,priority:"primary",required:true}),
-  Object.freeze({id:"score",row:1,order:2,priority:"primary",required:false,typography:"18px/650"}),
-  Object.freeze({id:"examDate",row:2,order:3,priority:"secondary",required:true}),
-  Object.freeze({id:"studyPeriodStart",row:2,order:4,priority:"secondary",required:false})
+  Object.freeze({id:"studyPeriodStart",row:1,order:1,priority:"secondary",required:false}),
+  Object.freeze({id:"examDate",row:1,order:2,priority:"secondary",required:true}),
+  Object.freeze({id:"result",row:2,order:3,priority:"primary",required:true}),
+  Object.freeze({id:"score",row:2,order:4,priority:"primary",required:false,typography:"18px/650"})
 ]);
 
 export const EXAM_SYSTEMS=Object.freeze([
@@ -53,10 +53,19 @@ export const EXAM_TYPES=Object.freeze([
     scoreRange:Object.freeze({min:1,max:300,message:"USMLE scores run 1–300."})
   }),
   Object.freeze({
+    id:"usmle-step-2-cs",
+    systemId:EXAM_SYSTEM_IDS.USMLE,
+    label:"Step 2 CS",
+    order:3,
+    passFailOnly:true,
+    historical:true,
+    scoreRange:null
+  }),
+  Object.freeze({
     id:"usmle-step-3",
     systemId:EXAM_SYSTEM_IDS.USMLE,
     label:"Step 3",
-    order:3,
+    order:4,
     passFailOnly:false,
     scoreRange:Object.freeze({min:1,max:300,message:"USMLE scores run 1–300."})
   }),
@@ -64,7 +73,7 @@ export const EXAM_TYPES=Object.freeze([
     id:"comlex-level-1",
     systemId:EXAM_SYSTEM_IDS.COMLEX,
     label:"Level 1",
-    order:4,
+    order:5,
     passFailOnly:true,
     scoreRange:null
   }),
@@ -72,7 +81,7 @@ export const EXAM_TYPES=Object.freeze([
     id:"comlex-level-2-ce",
     systemId:EXAM_SYSTEM_IDS.COMLEX,
     label:"Level 2-CE",
-    order:5,
+    order:6,
     passFailOnly:false,
     scoreRange:Object.freeze({min:9,max:999,message:"COMLEX scores run 9–999."})
   }),
@@ -80,7 +89,7 @@ export const EXAM_TYPES=Object.freeze([
     id:"comlex-level-3",
     systemId:EXAM_SYSTEM_IDS.COMLEX,
     label:"Level 3",
-    order:6,
+    order:7,
     passFailOnly:false,
     scoreRange:Object.freeze({min:9,max:999,message:"COMLEX scores run 9–999."})
   })

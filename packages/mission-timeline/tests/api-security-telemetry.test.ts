@@ -36,14 +36,15 @@ async function setupApi() {
   const identity = new MatrixSessionExchange(directory, { verify: async () => true }, "0123456789abcdef0123456789abcdef", 600, fixedClock);
   const sink = new InMemoryTelemetrySink();
   const telemetry = new PrivacySafeTelemetry(sink, "test", fixedClock);
+  const objectStore = new InMemoryPrivateObjectStore("test", "0123456789abcdef0123456789abcdef", fixedClock);
   const api = new TimelineHttpApi(
     service,
     identity,
-    new InMemoryPrivateObjectStore("test", "0123456789abcdef0123456789abcdef", fixedClock),
+    objectStore,
     telemetry,
   );
   const matrixIdentity = { wpUserId: 42, displayName: "Student", nonceVerified: true, sessionId: "matrix_session" };
-  return { api, sink, matrixIdentity };
+  return { api, sink, matrixIdentity, objectStore };
 }
 
 test("health is public but every document route requires a Timeline session", async () => {
@@ -100,4 +101,90 @@ test("HTTP errors expose stable codes without internal stack details", async () 
   assert.equal(missing.status, 404);
   assert.equal(payload.error.code, "ROUTE_NOT_FOUND");
   assert.equal("stack" in payload.error, false);
+});
+
+test("private media exposes owner-authenticated download and deletion grants", async () => {
+  const { api, matrixIdentity, objectStore } = await setupApi();
+  const exchange = await api.handle(request("/v1/session/exchange", "POST"), matrixIdentity);
+  const { token } = await exchange.json();
+  await api.handle(request("/v1/documents", "POST", token, {
+    id: "timeline_media_test",
+    programId: "program_internal_medicine",
+    title: "Mission Timeline",
+    document: { events: [] },
+  }));
+  const bytes = new TextEncoder().encode("private timeline image");
+  const sha256 = (await import("node:crypto")).createHash("sha256").update(bytes).digest("hex");
+  const signed = await api.handle(request("/v1/objects/sign", "POST", token, {
+    documentId: "timeline_media_test",
+    objectClass: "MEDIA",
+    mimeType: "image/png",
+    byteSize: bytes.byteLength,
+    sha256,
+  }));
+  assert.equal(signed.status, 201);
+  const grant = await signed.json();
+  await objectStore.acceptTestUpload(grant.objectId, grant.uploadToken, bytes, "image/png");
+  const confirmed = await api.handle(request(`/v1/objects/${grant.objectId}/confirm`, "POST", token, {
+    uploadToken: grant.uploadToken,
+  }));
+  assert.equal(confirmed.status, 200);
+
+  const download = await api.handle(request(`/v1/objects/${grant.objectId}/download`, "POST", token));
+  assert.equal(download.status, 200);
+  assert.match((await download.json()).downloadUrl, /^https:\/\/private-objects\.invalid\/download\//);
+
+  const deleted = await api.handle(request(`/v1/objects/${grant.objectId}`, "DELETE", token));
+  assert.equal(deleted.status, 204);
+  const missing = await api.handle(request(`/v1/objects/${grant.objectId}/download`, "POST", token));
+  assert.equal(missing.status, 404);
+  assert.equal((await missing.json()).error.code, "OBJECT_NOT_FOUND");
+});
+
+test("private media can fail over to an owner-authenticated same-origin upload", async () => {
+  const { api, matrixIdentity, objectStore } = await setupApi();
+  const exchange = await api.handle(request("/v1/session/exchange", "POST"), matrixIdentity);
+  const { token } = await exchange.json();
+  await api.handle(request("/v1/documents", "POST", token, {
+    id: "timeline_media_fallback",
+    programId: "program_internal_medicine",
+    title: "Mission Timeline",
+    document: { events: [] },
+  }));
+  const bytes = new TextEncoder().encode("private same-origin timeline image");
+  const digest = (await import("node:crypto")).createHash("sha256").update(bytes).digest("hex");
+  const uploaded = await api.handle(new Request("https://timeline.local/v1/objects/upload", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "image/png",
+      "content-length": String(bytes.byteLength),
+      "x-timeline-document-id": "timeline_media_fallback",
+      "x-timeline-object-class": "MEDIA",
+      "x-content-sha256": digest,
+    },
+    body: bytes,
+  }));
+  assert.equal(uploaded.status, 201);
+  const payload = await uploaded.json();
+  assert.equal(payload.status, "CONFIRMED");
+  assert.equal(payload.objectClass, "MEDIA");
+  assert.equal("storageKey" in payload, false);
+  const stored = await objectStore.getAuthorizedObjectBytes(student, payload.id);
+  assert.deepEqual(stored.bytes, bytes);
+
+  const sourceDenied = await api.handle(new Request("https://timeline.local/v1/objects/upload", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/pdf",
+      "content-length": String(bytes.byteLength),
+      "x-timeline-document-id": "timeline_media_fallback",
+      "x-timeline-object-class": "SOURCE",
+      "x-content-sha256": digest,
+    },
+    body: bytes,
+  }));
+  assert.equal(sourceDenied.status, 415);
+  assert.equal((await sourceDenied.json()).error.code, "OBJECT_UPLOAD_CLASS_DENIED");
 });

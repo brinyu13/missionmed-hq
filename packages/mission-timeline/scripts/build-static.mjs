@@ -47,7 +47,7 @@ await build({
   format:"esm",
   platform:"browser",
   target:"es2022",
-  minify:false,
+  minify:mode==="release"||process.env.TIMELINE_MINIFY==="1",
   sourcemap:false,
   // The protected Fable adapter includes a guarded CommonJS export for its
   // standalone test harness. In a browser ESM bundle `module` is intentionally

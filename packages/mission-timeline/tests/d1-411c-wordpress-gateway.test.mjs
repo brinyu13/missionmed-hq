@@ -37,9 +37,12 @@ test("canary is exact-allowlist only and student entry requires verified course 
   assert.match(plugin, /function mmtl_user_can_enter\(\) \{\s*return is_user_logged_in\(\) && !is_wp_error\(mmtl_eligibility_state\(wp_get_current_user\(\)\)\);\s*\}/);
   assert.match(route, /missionmed_timeline_remote_sync_consent/);
   assert.match(route, /wp_verify_nonce/);
-  assert.match(route, /Agree and open Timeline Builder/);
-  assert.match(route, /function mmtlr_render_consent\(\$user\)[\s\S]*?status_header\(200\);[\s\S]*?Cache-Control: no-store, private/);
-  assert.match(route, /function mmtlr_render_consent\(\$user\)[\s\S]*?Referrer-Policy: same-origin/);
+  assert.match(route, /function mmtlr_handle_consent_post\(\$user\)/);
+  assert.match(route, /timeline_remote_sync_action/);
+  assert.match(route, /mmtl_record_remote_sync_consent/);
+  assert.match(route, /mmtl_withdraw_remote_sync_consent/);
+  assert.doesNotMatch(route, /Save your Timeline securely/);
+  assert.doesNotMatch(route, /Consent version:/);
   assert.match(plugin, /administrator_approval_required/);
   assert.match(plugin, /\$settings\['rollout_stage'\] === 'eligible_360' && !\$administrator && empty\(\$settings\['eligibility_verified'\]\)/);
   assert.match(plugin, /eligibility_unverified/);
@@ -56,12 +59,32 @@ test("token route uses real permission checks, nonce, origin, no-store, and boun
   assert.match(plugin, /Cache-Control: no-store, private/);
 });
 
-test("gateway requires the immutable mapped principal and a Timeline bearer token", () => {
+test("gateway uses an immutable existing or deterministic first-use principal and a Timeline bearer token", () => {
   assert.match(plugin, /_missionmed_timeline_principal_id/);
-  assert.match(plugin, /timeline_identity_unmapped/);
+  assert.match(plugin, /function mmtl_uuid_v5/);
+  assert.match(plugin, /function mmtl_derived_principal_for_user/);
+  assert.match(plugin, /missionmedinstitute\.com\/timeline\/wp-user\//);
   assert.doesNotMatch(plugin, /add_user_meta/);
   assert.match(plugin, /mmtl_verify_jwt\(\$token, \$principal, \(int\) \$user->ID, \$access\)/);
   assert.match(plugin, /X-MissionMed-Timeline-Gateway-Secret/);
+});
+
+test("gateway derives synthetic AI authority server-side and gives AI routes a bounded provider deadline", () => {
+  assert.match(plugin, /\$is_ai_route = preg_match/);
+  assert.match(plugin, /get_user_meta\(\(int\) \$user->ID, MMTL_SYNTHETIC_TEST_META, true\) === '1'/);
+  assert.match(plugin, /\$outbound_headers\['X-Timeline-Synthetic-Fixture'\] = '1'/);
+  assert.match(plugin, /'timeout' => \(\$is_ai_route \|\| \$is_media_upload\) \? 60 : 20/);
+  assert.doesNotMatch(plugin, /HTTP_X_TIMELINE_SYNTHETIC_FIXTURE/);
+});
+
+test("gateway provides a bounded private-media fallback without weakening ordinary request limits", () => {
+  assert.match(plugin, /\$is_media_upload = \$method === 'POST' && \$path === 'v1\/objects\/upload'/);
+  assert.match(plugin, /\$max_request_bytes = \$is_media_upload \? 15 \* 1024 \* 1024 : 2 \* 1024 \* 1024/);
+  assert.match(plugin, /array\('image\/png', 'image\/jpeg', 'image\/webp', 'image\/gif'\)/);
+  assert.match(plugin, /X-Timeline-Document-Id/);
+  assert.match(plugin, /X-Timeline-Object-Class/);
+  assert.match(plugin, /X-Content-Sha256/);
+  assert.match(plugin, /\$object_class !== 'MEDIA'/);
 });
 
 test("anonymous entry returns through Matrix rather than the default WordPress login", () => {
@@ -86,7 +109,7 @@ test("Kinsta route uses a Timeline-owned execution-private bundle and extensionl
   assert.match(route, /base64_decode/);
   assert.match(route, /hash\('sha256', \$bytes\)/);
   assert.match(route, /X-MissionMed-Timeline-Release/);
-  assert.equal(route.match(/status_header\(200\)/g)?.length, 3);
+  assert.equal(route.match(/status_header\(200\)/g)?.length, 2);
   assert.doesNotMatch(route, /MISSIONMED_TIMELINE_RELEASE_ROOT/);
   assert.doesNotMatch(route, /readfile\(/);
 });
@@ -94,6 +117,8 @@ test("Kinsta route uses a Timeline-owned execution-private bundle and extensionl
 test("WordPress packaging rewrites the protected kernel export stylesheet to an immutable alias", () => {
   assert.match(runtimeBuilder, /D1-409H_VISUAL_MASTER\.css/);
   assert.match(runtimeBuilder, /TIMELINE_RUNTIME_JS_ASSET_MISSING/);
+  assert.match(runtimeBuilder, /TIMELINE_RUNTIME_INDEX_CSS_ASSET_MISSING/);
+  assert.match(runtimeBuilder, /TIMELINE_RUNTIME_INDEX_CSS_PATH_REMAINS/);
   assert.match(runtimeBuilder, /\/timeline\/_asset\/\$\{asset\.alias\}/);
   assert.match(runtimeBuilder, /sourceCommit:manifest\.source_commit/);
 });
@@ -115,10 +140,12 @@ test("Matrix launch adapter creates one eligible-only Timeline entry without cha
   assert.match(plugin, /wp_script_is\(\$handle, 'done'\)/);
   assert.match(plugin, /add_action\('wp_footer', 'mmtl_render_matrix_launch_adapter_fallback', 1\)/);
   assert.match(matrixLaunch, /data-missionmed-product="timeline"/);
+  assert.match(matrixLaunch, /a\.sos-nav-link\[href="#timeline"\]/);
+  assert.match(matrixLaunch, /addEventListener\("hashchange"/);
   assert.match(matrixLaunch, /a\.sos-nav-link\[href="#storyforge"\]/);
   assert.match(matrixLaunch, /link\.dataset\.missionmedProduct = "timeline"/);
   assert.match(matrixLaunch, /link\.dataset\.appId = "timeline"/);
   assert.match(matrixLaunch, /matchPrepList\.insertBefore\(item, storyForgeItem\.nextSibling\)/);
   assert.match(matrixLaunch, /document\.readyState === "loading"/);
-  assert.match(matrixLaunch, /window\.location\.hash === "#timeline"/);
+  assert.match(matrixLaunch, /window\.location\.hash\.toLowerCase\(\) === "#timeline"/);
 });

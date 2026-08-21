@@ -11,7 +11,13 @@ export async function buildImagePdf(pages,{title="Mission Timeline",author="Miss
     objects.push({id:pageId,bytes:ascii(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /Im${index} ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>`)});
     const jpeg=page.jpegBytes instanceof Uint8Array?page.jpegBytes:new Uint8Array(page.jpegBytes);
     objects.push({id:imageId,bytes:concat([ascii(`<< /Type /XObject /Subtype /Image /Width ${page.pixelWidth} /Height ${page.pixelHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`),jpeg,ascii("\nendstream")])});
-    const stream=`q\n${pageWidth} 0 0 ${pageHeight} 0 0 cm\n/Im${index} Do\nQ\n`;
+    const placement=page.imagePlacement||fitImageToPage({
+      pixelWidth:page.pixelWidth,
+      pixelHeight:page.pixelHeight,
+      pageWidth,
+      pageHeight
+    });
+    const stream=`q\n1 1 1 rg\n0 0 ${pageWidth} ${pageHeight} re f\nQ\nq\n${placement.width} 0 0 ${placement.height} ${placement.x} ${placement.y} cm\n/Im${index} Do\nQ\n`;
     objects.push({id:contentId,bytes:ascii(`<< /Length ${ascii(stream).length} >>\nstream\n${stream}endstream`)});
   }
   const infoId=nextId++;objects.push({id:1,bytes:ascii("<< /Type /Catalog /Pages 2 0 R >>")});objects.push({id:2,bytes:ascii(`<< /Type /Pages /Kids [${pageRefs.join(" ")}] /Count ${pages.length} >>`)});objects.push({id:infoId,bytes:ascii(`<< /Title (${title.replace(/[()]/g,"")}) /Author (${author.replace(/[()]/g,"")}) /Creator (D1-409 Local Export Engine) >>`)});
@@ -21,7 +27,41 @@ export async function buildImagePdf(pages,{title="Mission Timeline",author="Miss
   parts.push(ascii(xref+`trailer\n<< /Size ${maxId+1} /Root 1 0 R /Info ${infoId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`));return new Blob(parts,{type:"application/pdf"});
 }
 
+export function fitImageToPage({pixelWidth,pixelHeight,pageWidth=792,pageHeight=612}={}){
+  const sourceWidth=Number(pixelWidth);
+  const sourceHeight=Number(pixelHeight);
+  const targetWidth=Number(pageWidth);
+  const targetHeight=Number(pageHeight);
+  if(
+    !Number.isFinite(sourceWidth)||sourceWidth<=0||
+    !Number.isFinite(sourceHeight)||sourceHeight<=0||
+    !Number.isFinite(targetWidth)||targetWidth<=0||
+    !Number.isFinite(targetHeight)||targetHeight<=0
+  )throw new TypeError("PDF image and page dimensions must be positive finite numbers.");
+  const scale=Math.min(targetWidth/sourceWidth,targetHeight/sourceHeight);
+  const width=sourceWidth*scale;
+  const height=sourceHeight*scale;
+  return Object.freeze({
+    x:(targetWidth-width)/2,
+    y:(targetHeight-height)/2,
+    width,
+    height
+  });
+}
+
 export async function canvasJpegPage(canvas,{pageWidth=792,pageHeight=612,quality=.94}={}){
   const blob=await new Promise((resolve,reject)=>canvas.toBlob((value)=>value?resolve(value):reject(new Error("JPEG conversion failed.")),"image/jpeg",quality));
-  return {jpegBytes:new Uint8Array(await blob.arrayBuffer()),pixelWidth:canvas.width,pixelHeight:canvas.height,pageWidth,pageHeight};
+  return {
+    jpegBytes:new Uint8Array(await blob.arrayBuffer()),
+    pixelWidth:canvas.width,
+    pixelHeight:canvas.height,
+    pageWidth,
+    pageHeight,
+    imagePlacement:fitImageToPage({
+      pixelWidth:canvas.width,
+      pixelHeight:canvas.height,
+      pageWidth,
+      pageHeight
+    })
+  };
 }

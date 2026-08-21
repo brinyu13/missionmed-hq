@@ -4,7 +4,10 @@ import test from "node:test";
 import "fake-indexeddb/auto";
 import {IDBFactory} from "fake-indexeddb";
 
-import {prepareTimelineProductionRuntime} from "../web/js/production/timeline-production-runtime.js";
+import {
+  prepareTimelineProductionRuntime,
+  productionRemotePersistenceAllowed,
+} from "../web/js/production/timeline-production-runtime.js";
 import {TimelineStore} from "../web/js/uxr-002/store.js";
 
 const principalId="9d8d7a7a-c915-4d36-a657-910ad2221001";
@@ -14,6 +17,11 @@ const token=()=>`${encode({alg:"HS256",typ:"JWT",kid:"timeline-v1"})}.${encode({
   iss:"https://missionmed.example/timeline/",aud:"mission-timeline",sub:principalId,
   wp_user_id:42,timeline_role:"STUDENT",is_wordpress_administrator:false,
   has_learndash_3893_access:true,iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+120,jti
+})}.signature`;
+const administratorToken=()=>`${encode({alg:"HS256",typ:"JWT",kid:"timeline-v1"})}.${encode({
+  iss:"https://missionmed.example/timeline/",aud:"mission-timeline",sub:principalId,
+  wp_user_id:42,timeline_role:"PROGRAM_ADMIN",is_wordpress_administrator:true,
+  has_learndash_3893_access:false,iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+120,jti
 })}.signature`;
 
 function locationObject(){
@@ -32,8 +40,69 @@ test("production bootstrap fails before IndexedDB opens when WordPress identity 
   }finally{indexedDB.open=prior;}
 });
 
+test("approved administrators keep Timeline authoring device-local and never enqueue remote media or document writes",async()=>{
+  const originalIndexedDb=globalThis.indexedDB;
+  let writeRequests=0;
+  const fetchImpl=async(url,options={})=>{
+    const href=String(url);
+    if(href.includes("admin-ajax.php"))return new Response(JSON.stringify({success:true,data:{
+      nonce:"nonce",token_endpoint:"https://missionmed.example/wp-json/missionmed-timeline/v1/token",
+      api_base:"https://missionmed.example/timeline/api/v1",matrix_url:"https://missionmed.example/member-dashboard/",
+      remote_sync_allowed:true,remote_sync_consent:false,consent_version:"d1-500-v1",
+      user:{wp_user_id:42,principal_id:principalId,role:"PROGRAM_ADMIN"}
+    }}),{status:200,headers:{"content-type":"application/json"}});
+    if(href.includes("/token"))return new Response(JSON.stringify({token:administratorToken(),nonce:"next"}),{status:200,headers:{"content-type":"application/json"}});
+    if(href.endsWith("/documents")&&(options.method||"GET")==="GET")return new Response(JSON.stringify({documents:[]}),{status:200,headers:{"content-type":"application/json"}});
+    writeRequests+=1;
+    throw new Error(`unexpected administrator write ${href}`);
+  };
+  try{
+    globalThis.indexedDB=new IDBFactory();
+    const runtime=await prepareTimelineProductionRuntime({fetchImpl,locationObject:locationObject()});
+    assert.equal(productionRemotePersistenceAllowed(runtime.identity),false);
+    assert.equal(runtime.remotePersistenceAllowed,false);
+    assert.equal(runtime.privateMediaStorageEnabled,false);
+    assert.equal(runtime.adapter.remoteSyncConsent,false);
+    assert.deepEqual(await runtime.adapter.flush(),{synced:0,pending:0,consentRequired:true});
+    assert.equal(writeRequests,0);
+    runtime.adapter.close();
+  }finally{globalThis.indexedDB=originalIndexedDb;}
+});
+
+test("eligible first-use students open the accepted Timeline locally before granting secure saving",async()=>{
+  const originalIndexedDb=globalThis.indexedDB;
+  const requests=[];
+  const fetchImpl=async(url,options={})=>{
+    const href=String(url);
+    requests.push({href,method:options.method||"GET"});
+    if(href.includes("admin-ajax.php"))return new Response(JSON.stringify({success:true,data:{
+      nonce:"nonce",token_endpoint:"https://missionmed.example/wp-json/missionmed-timeline/v1/token",
+      api_base:"https://missionmed.example/timeline/api/v1",matrix_url:"https://missionmed.example/member-dashboard/",
+      remote_sync_allowed:false,remote_sync_consent:false,consent_required:true,consent_version:"d1-500-v1",
+      consent_nonce:"consent-nonce",consent_action:"https://missionmed.example/timeline/",
+      user:{wp_user_id:42,principal_id:principalId,role:"STUDENT"}
+    }}),{status:200,headers:{"content-type":"application/json"}});
+    if(href.includes("/token"))return new Response(JSON.stringify({token:token(),nonce:"next"}),{status:200,headers:{"content-type":"application/json"}});
+    throw new Error(`unexpected first-use remote request ${href}`);
+  };
+  try{
+    globalThis.indexedDB=new IDBFactory();
+    const runtime=await prepareTimelineProductionRuntime({fetchImpl,locationObject:locationObject()});
+    assert.equal(runtime.identity.consentRequired,true);
+    assert.equal(runtime.identity.consentNonce,"consent-nonce");
+    assert.equal(runtime.identity.consentAction,"https://missionmed.example/timeline/");
+    assert.equal(runtime.remotePersistenceAllowed,false);
+    assert.equal(runtime.privateMediaStorageEnabled,false);
+    assert.equal(runtime.adapter.remoteSyncConsent,false);
+    assert.deepEqual(requests.map(({method})=>method),["GET","POST"]);
+    assert.equal(requests.some(({href})=>href.endsWith("/documents")),false);
+    runtime.adapter.close();
+  }finally{globalThis.indexedDB=originalIndexedDb;}
+});
+
 test("authenticated runtime uses a principal-and-resource scoped recovery cache and server hydration",async()=>{
   const requests=[];
+  let issuedToken="";
   const document={id:"timeline_server_1",schemaVersion:"d1-timeline-document-409.1",studentOwnerId:principalId,programId:"missionmed-360:3893",title:"Server timeline",theme:"keynote",revision:2,events:[],metadata:{}};
   const fetchImpl=async(url,options={})=>{
     requests.push({url:String(url),method:options.method||"GET",headers:options.headers||{},body:options.body});
@@ -43,7 +112,10 @@ test("authenticated runtime uses a principal-and-resource scoped recovery cache 
       remote_sync_consent:true,consent_version:"d1-500-v1",
       user:{wp_user_id:42,principal_id:principalId,role:"STUDENT"}
     }}),{status:200,headers:{"content-type":"application/json"}});
-    if(String(url).includes("/token"))return new Response(JSON.stringify({token:token(),nonce:"next"}),{status:200,headers:{"content-type":"application/json"}});
+    if(String(url).includes("/token")){
+      issuedToken=token();
+      return new Response(JSON.stringify({token:issuedToken,nonce:"next"}),{status:200,headers:{"content-type":"application/json"}});
+    }
     if(String(url).endsWith("/documents"))return new Response(JSON.stringify({documents:[{document,updatedAt:new Date().toISOString()}]}),{status:200,headers:{"content-type":"application/json"}});
     if(String(url).endsWith("/documents/timeline_server_1/versions"))return new Response(JSON.stringify({revision:3}),{status:201,headers:{"content-type":"application/json"}});
     throw new Error(`unexpected request ${url}`);
@@ -60,7 +132,7 @@ test("authenticated runtime uses a principal-and-resource scoped recovery cache 
   assert.deepEqual(flushed,{synced:1,pending:0});
   const versionRequest=requests.find(({url})=>url.endsWith("/documents/timeline_server_1/versions"));
   assert.equal(versionRequest.method,"POST");
-  assert.equal(versionRequest.headers.authorization,`Bearer ${token()}`);
+  assert.equal(versionRequest.headers.authorization,`Bearer ${issuedToken}`);
   assert.equal(JSON.parse(versionRequest.body).baseRevision,2);
   assert.equal((await runtime.adapter.get("settings","remote-revision:timeline_server_1")).revision,3);
   assert.deepEqual(requests.map(({method})=>method),["GET","POST","GET","POST"]);

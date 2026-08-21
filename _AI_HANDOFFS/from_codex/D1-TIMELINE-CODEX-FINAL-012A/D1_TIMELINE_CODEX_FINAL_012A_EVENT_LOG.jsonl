@@ -1,0 +1,9 @@
+{"at":"2026-08-20T17:53:00Z","event":"source_sealed","commit":"5e67978f3706fe3d67cf04c933d122190a1ef89d","result":"PASS"}
+{"at":"2026-08-20T18:03:00Z","event":"wordpress_cutover","release":"timeline-wp-ff038960c8959bbc","payload_sha256":"a912818234f230efbfc119b01e5120550af0c97d65b38f0faa83513e6fa497f3","rollback":"timeline-wp-d50e948061818321","result":"PASS"}
+{"at":"2026-08-20T18:03:00Z","event":"railway_cutover","deployment":"c65e49f7-81c9-4dca-a87f-50f9e21a0c1a","image":"sha256:c7bd92a4fe1922e118e73884ba434b6fa96077a59fe0594f4c9adbe737234685","result":"PASS"}
+{"at":"2026-08-20T18:15:00Z","event":"admin_live_canary","quality_guardian":"PASS","editor_controls":"PASS","existing_review_queue_preserved":true,"result":"PASS_BOUNDED"}
+{"at":"2026-08-20T18:39:00Z","event":"live_export_generation","png":"EXPORTED","letter_pdf":"EXPORTED","a4_pdf":"EXPORTED","downloaded_artifact_open":"UNPROVEN_BROWSER_BLOB_PATH_UNAVAILABLE","result":"PARTIAL"}
+{"at":"2026-08-20T18:42:00Z","event":"matrix_round_trip","matrix_entry":"Timeline Builder is being connected","result":"FAIL_PLACEHOLDER"}
+{"at":"2026-08-20T18:45:00Z","event":"live_persistence_inspection","header":"SAVED LOCALLY","media":"LOCAL DEVICE ONLY","result":"FAIL_LOCAL_ONLY"}
+{"at":"2026-08-20T18:47:00Z","event":"security_health_smoke","anonymous_timeline":303,"same_origin_documents":401,"direct_origin_documents":403,"origin_root":404,"health":200,"unrelated_impact":"NONE","result":"PASS"}
+{"at":"2026-08-20T18:49:10Z","event":"final_verdict","result":"PARTIAL","stop_state":"STOP_SAFE","production_preserved":true,"rollback_required":false}

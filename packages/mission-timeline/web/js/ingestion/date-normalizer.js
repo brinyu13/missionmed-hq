@@ -16,9 +16,15 @@ export function parseDatePoint(raw,{edge="start"}={}){
   }
   match=value.match(/^(\d{1,2})\/(\d{4})$/);
   if(match)return {...point,timelineMonth:monthString(+match[2],+match[1]),precision:"MONTH",confidence:"HIGH"};
+  match=value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(match)return {...point,timelineMonth:monthString(+match[1],+match[2]),isoDate:match[1]+"-"+match[2]+"-"+match[3],precision:"DAY",confidence:"HIGH"};
   match=value.match(/^(\d{4})-(\d{2})$/);
   if(match)return {...point,timelineMonth:monthString(+match[1],+match[2]),precision:"MONTH",confidence:"HIGH"};
-  match=value.match(/^([A-Za-z]+)\s+(\d{4})$/);
+  /* "Sept. 2019" and "Sep 12, 2019" are the two commonest CV month spellings; the trailing
+     period and the day number both used to fall through to "Unrecognized date format". */
+  match=value.match(/^([A-Za-z]+)\.?\s+(\d{1,2})\s+(\d{4})$/);
+  if(match&&MONTHS[match[1].toLowerCase()])return {...point,timelineMonth:monthString(+match[3],MONTHS[match[1].toLowerCase()]),isoDate:match[3]+"-"+String(MONTHS[match[1].toLowerCase()]).padStart(2,"0")+"-"+String(match[2]).padStart(2,"0"),precision:"DAY",confidence:"HIGH"};
+  match=value.match(/^([A-Za-z]+)\.?\s+(\d{4})$/);
   if(match&&MONTHS[match[1].toLowerCase()])return {...point,timelineMonth:monthString(+match[2],MONTHS[match[1].toLowerCase()]),precision:"MONTH",confidence:"HIGH"};
   match=value.match(/^(spring|summer|fall|autumn|winter)\s+(\d{4})$/i);
   if(match){
@@ -45,8 +51,18 @@ export function monthIndex(value){
   return year*12+month-1;
 }
 
+/*
+ * CVs overwhelmingly write ranges without spaces: "07/2021-12/2022", "Jan 2023-Jun 2024",
+ * "2021-2023". The range splitter below requires whitespace on both sides of the dash,
+ * while the CV parser's own capture allows none - so those entries arrived with BOTH
+ * dates blank and the student had to retype every one. The lookahead only fires when the
+ * dash is followed by another date token, so ISO values ("2023-01", "2023-01-15") are
+ * left exactly as they are.
+ */
+const RANGE_JOIN=/((?:19|20)\d{2})\s*[-\u2013\u2014]\s*(?=(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(?:19|20)\d{2}|spring|summer|fall|autumn|winter|early|mid|late|present|current|ongoing|now|\d{1,2}\/(?:19|20)\d{2}|(?:19|20)\d{2}\b)/gi;
+
 export function normalizeDateRange(raw){
-  const value=String(raw||"").trim();
+  const value=String(raw||"").trim().replace(RANGE_JOIN,"$1 - ");
   const separator=/\s+(?:-|–|—|to|through|until)\s+/i;
   const parts=value.split(separator).filter(Boolean);
   let start,end;

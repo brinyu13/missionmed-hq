@@ -9,11 +9,23 @@ const EXPLICIT_USCE=/\b(?:usce|united states clinical experience)\b/;
 const NONFINAL_USCE=/\b(?:no|not|never|without|lack(?:s|ed|ing)?)\s+(?:\w+\s+){0,3}(?:usce|united states clinical experience)\b|\b(?:usce|united states clinical experience)\s+(?:is\s+|was\s+)?(?:not|none|absent|pending|planned|prospective|incomplete|unconfirmed)\b/;
 
 function structuredLocation(record){return [record.location,record.cityState,record.state,record.country].filter(Boolean).join(", ").trim();}
+function looksUnitedStates(value){
+  const candidate=String(value||"").trim();
+  if(!candidate)return false;
+  return US_MARKER.test(candidate)||US_STATE_NAME.test(candidate)||US_STATE_CODE.test(candidate);
+}
+/*
+ * Ordinary (non pipe-delimited) CV text leaves `location` empty and puts the whole
+ * "Mount Sinai Hospital, New York, NY" string in `organization`, so geography-only
+ * evidence used to be invisible and every US rotation was quarantined as unclassified.
+ * The state regexes are anchored to the END of the string they are given, so each
+ * candidate must be tested on its own - concatenating them would push a trailing
+ * state code into the middle and stop it matching at all.
+ */
 function hasUnitedStatesContext(record){
-  const location=structuredLocation(record);
   const country=String(record.country||"").trim();
   if(country&&!US_MARKER.test(country))return false;
-  return US_MARKER.test(location)||US_STATE_NAME.test(location)||US_STATE_CODE.test(location);
+  return looksUnitedStates(structuredLocation(record))||looksUnitedStates(record.organization)||looksUnitedStates(record.title);
 }
 function unverifiedClinical(common,reason="Clinical-experience wording was found, but a United States setting was not confirmed.",warning="Do not label this event USCE without explicit positive USCE wording or confirmed United States geography"){
   return result("UNCLASSIFIED","work","duration",reason,{...common,warnings:["Clinical experience needs human review",warning]});
@@ -37,6 +49,12 @@ export function classifyEvent(record,dateRange){
     if(ECFMG_NONFINAL.test(text))return result("UNCLASSIFIED","usmle","milestone","ECFMG wording was negated, uncertain, expired, provisional, or otherwise non-final.",{...common,warnings:["ECFMG status needs human review","Non-final ECFMG language must not be treated as certification"]});
     const certified=/\becfmg[- ]certified\b|\bcertified by (?:the )?ecfmg\b|\becfmg certification (?:is )?(?:complete|completed|issued|obtained|awarded|confirmed)\b|\b(?:completed|obtained|received) (?:my )?ecfmg certification\b|\bstandard ecfmg certificate (?:issued|received)\b/.test(text);
     if(certified)return result("ECFMG_CERTIFICATION","usmle","milestone","Explicit completed ECFMG certification wording was detected.",common);
+    /* A bare "ECFMG Certification" listed under the student's own Certifications heading
+       with a date is an affirmative statement that they hold it. Every negation, pending,
+       expired, application and Pathway guard above still runs first, so this only rescues
+       the plainly affirmative case a student should not have to reclassify by hand. */
+    if(record.section==="certifications")
+      return result("ECFMG_CERTIFICATION","usmle","milestone","ECFMG certification was listed under the document's certifications section without any pending or negated wording.",common);
     return result("UNCLASSIFIED","usmle","milestone","ECFMG wording was detected, but it does not establish completed certification.",{...common,warnings:["ECFMG status needs human review","Application, eligibility, Pathway, and pending language must not be treated as certification"]});
   }
   if(/\b(application cycle|eras cycle)\b/.test(text))return result("APPLICATION_CYCLE","usmle",hasRange?"duration":"milestone","Application cycle wording detected.",common);
@@ -47,9 +65,26 @@ export function classifyEvent(record,dateRange){
     const type=/graduat/.test(String(record.title||"").toLowerCase())?"GRADUATION":"MEDICAL_DEGREE";
     return result(type,"usmle","milestone","Medical degree or graduation wording detected.",common);
   }
+  if(
+    record.section==="honors"||
+    /\b(?:award|honou?r|distinction|prize|scholarship|dean'?s list|valedictorian|cum laude)\b/.test(text)
+  )return result("AWARD_HONOR","education",hasRange?"duration":"milestone","Award or honor wording detected.",common);
+  /* Research staff overwhelmingly work at universities, so an employer name must not
+     imply a degree. The research-section rule is tested first, and "university"/"college"
+     only implies education when it appears in the entry's own title. */
+  if(record.section==="research"&&/\b(?:research|fellow|investigator|laboratory|study)\b/.test(text)){
+    return result("RESEARCH_EXPERIENCE","res",hasRange?"duration":"milestone","Research-section context was detected and takes precedence over ambiguous fellowship wording.",common);
+  }
+  if(
+    record.section==="education"||
+    /\b(?:bachelor(?:'s)?|master(?:'s)?|doctorate|ph\.?d\.?|b\.?s\.?|b\.?a\.?|m\.?s\.?)\b/.test(text)||
+    /\b(?:university|college|secondary school)\b/.test(String(record.title||"").toLowerCase())
+  )return result("EDUCATION","education",hasRange?"duration":"milestone","Education wording or an education source section was detected.",common);
   if(/\bfellow(?:ship)?\b/.test(text))return result("RESIDENCY_FELLOWSHIP","work",hasRange?"duration":"milestone","Fellowship training wording detected.",common);
   if(/\bresiden(?:cy|t)\b/.test(text))return result("RESIDENCY_FELLOWSHIP","work",hasRange?"duration":"milestone","Residency training wording detected.",common);
-  if(/\bintern(?:ship)?\b|\bhouse officer\b/.test(text))return result("INTERNSHIP_HOUSE_OFFICER","work",hasRange?"duration":"milestone","Internship or house-officer wording detected.",common);
+  /* A sub-internship is a US clinical rotation, not a house-officer post; the substring
+     "internship" inside it used to claim the entry before the rotation rule ran. */
+  if(!/\bsub[- ]?internship\b/.test(text)&&(/\bintern(?:ship)?\b|\bhouse officer\b/.test(text)))return result("INTERNSHIP_HOUSE_OFFICER","work",hasRange?"duration":"milestone","Internship or house-officer wording detected.",common);
   if(/\bobservership\b|\bexternship\b|\bsub[- ]?internship\b|\bclerkship\b|\b(?:usce|united states clinical experience)\b|\bclinical rotations?\b|\brotations?\b|\bclinical assistant\b/.test(text)){
     const explicitUsce=EXPLICIT_USCE.test(text);
     if(explicitUsce&&NONFINAL_USCE.test(text))return unverifiedClinical(common,"USCE wording was negated or uncertain, so no completed United States clinical experience was inferred.","Negated or uncertain USCE wording must remain unclassified until human confirmation");
@@ -63,6 +98,7 @@ export function classifyEvent(record,dateRange){
   if(/\bresearch\b/.test(text))return result("RESEARCH_EXPERIENCE","res",hasRange?"duration":"milestone","Research wording detected.",common);
   if(/\bvolunteer|community service\b/.test(text))return result("VOLUNTEER_EXPERIENCE",/\bclinic|clinical|hospital\b/.test(text)?"cl":"work",hasRange?"duration":"milestone","Volunteer wording detected.",common);
   if(/\bleadership|president|chair|coordinator\b/.test(text))return result("LEADERSHIP","work",hasRange?"duration":"milestone","Leadership wording detected.",common);
+  if(/\b(?:certification|certificate|certified)\b/.test(text))return result("CERTIFICATION","education",hasRange?"duration":"milestone","General certification wording detected.",common);
   if(/\b(?:pregnan(?:t|cy)|parental(?: leave)?|maternity|paternity|daughter|son|child(?:care)?|baby|family (?:transition|reasons?|care|caregiving|responsibilit(?:y|ies)|circumstances?)|spouse|husband|wife|caregiver|in-laws?)\b/.test(text)||record.section==="personal")return result("PERSONAL_NOT_ON_CV","personal",hasRange?"duration":"milestone","Personal or family context detected.",common);
   if(["work","experiences"].includes(record.section)||/\b(work|employment|driver|scribe|medical officer|physician|assistant)\b/.test(text))return result("WORK_EXPERIENCE","work",hasRange?"duration":"milestone","Work section or employment wording detected.",common);
   return result("UNCLASSIFIED","work",hasRange?"duration":"milestone","No canonical taxonomy rule was strong enough.",{...common,warnings:["Category needs human review"]});

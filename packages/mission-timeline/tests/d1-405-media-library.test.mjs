@@ -11,6 +11,7 @@ import {
   nudgeMediaLibraryAsset,
   placeMediaLibraryAsset,
   removeMediaLibraryAsset,
+  replaceMediaLibraryAsset,
   unplaceMediaLibraryAsset
 } from "../web/js/uxr-002/media-library.js";
 import {MemoryPersistenceAdapter} from "../web/js/persistence/memory-adapter.js";
@@ -90,12 +91,63 @@ test("Founder Media renders one draggable library with keyboard-equivalent place
   assert.match(html,/draggable="true"/);
   assert.match(html,/data-media-asset="asset-1"/);
   assert.match(html,/data-media-place="asset-1"/);
-  assert.match(html,/keyboard placement at the timeline center/);
+  assert.match(html,/drop it in the middle of the timeline/);
+  assert.doesNotMatch(html,/Replace asset|Delete asset|asset reference|Drag an asset/i);
   assert.match(html,/blob:missionmed-local/);
   assert.match(html,/PNG, JPG, WEBP, or GIF/);
   assert.doesNotMatch(html,/tabindex="0"/);
-  assert.doesNotMatch(html,/data-media-delete/);
+  assert.match(html,/data-media-replace="asset-1"/);
+  assert.match(html,/data-media-delete="asset-1"/);
   assert.doesNotMatch(html,/cloud|upload anywhere|server/i);
+});
+
+test("Founder Media replacement preserves placement while swapping the asset source",()=>{
+  const original=createMediaLibraryAsset({
+    id:"replace-asset",
+    file:file("original.png","image/png"),
+    naturalWidth:1200,
+    naturalHeight:800,
+    layerIndex:4
+  });
+  const placed=placeMediaLibraryAsset([original],"replace-asset",{x:800,y:420});
+  const replacement=createMediaLibraryAsset({
+    id:"replace-asset",
+    file:file("replacement.webp","image/webp"),
+    naturalWidth:1600,
+    naturalHeight:900
+  });
+  replacement.source={
+    name:"replacement.webp",
+    type:"image/webp",
+    size:1024,
+    objectId:"object_replacement",
+    contentSha256:"a".repeat(64),
+    localOnly:false,
+    url:null
+  };
+  const result=replaceMediaLibraryAsset(
+    placed.media,
+    "replace-asset",
+    replacement
+  );
+  assert.equal(result.changed,true);
+  assert.equal(result.media.length,1);
+  assert.equal(result.media[0].id,"replace-asset");
+  assert.equal(result.media[0].placed,true);
+  assert.equal(result.media[0].x,placed.media[0].x);
+  assert.equal(result.media[0].y,placed.media[0].y);
+  assert.equal(result.media[0].width,placed.media[0].width);
+  assert.equal(result.media[0].height,placed.media[0].width/(16/9));
+  assert.equal(result.media[0].layerIndex,4);
+  assert.equal(result.media[0].source.objectId,"object_replacement");
+  assert.equal("blobKey" in result.media[0].source,false);
+});
+
+test("production Media truthfully describes private cross-device persistence",()=>{
+  const html=mediaLibraryMarkup([],{durableOnline:true});
+  assert.match(html,/PRIVATE MEDIA/);
+  assert.match(html,/securely synced across your authorized devices/);
+  assert.doesNotMatch(html,/stored only on this device/);
 });
 
 test("Founder Media keyboard nudges can position a placed asset without new records or blobs",()=>{
@@ -205,9 +257,14 @@ test("Founder Media uses one local persistence collection and one drag/drop seam
   assert.match(index,/data-open-media-library/);
   assert.match(adapter,/document\.advanced\.media\.push\(\.\.\.additions\)/);
   assert.match(adapter,/application\/x-missionmed-media-id/);
-  assert.match(adapter,/closest\?\.\("#boardWizard, #canvas407F"\)/);
+  assert.match(
+    adapter,
+    /closest\?\.\("#boardWizard, #canvas407F \.canvas-application"\)/
+  );
   assert.match(adapter,/store\.mutateWithBlobs/);
-  assert.doesNotMatch(adapter,/store\.adapter\.deleteBlob/);
+  assert.match(adapter,/store\.adapter\.deleteBlob/);
+  assert.match(adapter,/private-media-retirement:/);
+  assert.match(adapter,/processDurableMediaRetirements/);
   assert.match(adapter,/document\.addEventListener\("dragleave",onMediaLibraryDragLeave\)/);
   assert.match(adapter,/document\.addEventListener\("dragend",onMediaLibraryDragEnd\)/);
   assert.match(adapter,/querySelectorAll\("\[data-media-drop-active\]"\)/);
@@ -298,7 +355,7 @@ test("Founder Media retains 407F hierarchy, 44px actions, non-modal drawer acces
   assert.match(index,/data-open-media-library aria-controls="mediaDrawer407F" aria-expanded="false" aria-haspopup="dialog"/);
   assert.match(adapter,/announceGlobal\("Media placed on timeline"\)/);
   assert.match(adapter,/live\.textContent="";[\s\S]*?queueMicrotask/);
-  assert.match(adapter,/announceGlobal\(`\$\{file\.name\} could not be added:/);
+  assert.match(adapter,/announceGlobal\(`\$\{file\.name\} could not be added\./);
   assert.match(adapter,/const mediaFocusState=/);
   assert.match(adapter,/onMotionChange:\(motion\)=>\{[\s\S]*?renderMediaLibrarySurfaces\(\)[\s\S]*?canvasController\?\.render\(\)/);
   assert.match(adapter,/if\(!\["builder","canvas"\]\.includes\(view\)\)closeMediaLibrary\(\)/);

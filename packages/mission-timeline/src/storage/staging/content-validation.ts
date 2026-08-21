@@ -140,6 +140,7 @@ export function matchesDeclaredMimeType(mimeType: string, bytes: Uint8Array): bo
     case "application/json":
       return isJson(bytes);
     case "application/zip":
+    case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
       return (
         startsWith(bytes, [0x50, 0x4b, 0x03, 0x04]) ||
         startsWith(bytes, [0x50, 0x4b, 0x05, 0x06]) ||
@@ -156,6 +157,8 @@ export function matchesDeclaredMimeType(mimeType: string, bytes: Uint8Array): bo
       }
     case "image/webp":
       return bytes.byteLength >= 12 && startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && startsWith(bytes, [0x57, 0x45, 0x42, 0x50], 8);
+    case "image/gif":
+      return startsWith(bytes, [0x47, 0x49, 0x46, 0x38, 0x37, 0x61]) || startsWith(bytes, [0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
     case "text/html":
       return isHtml(bytes);
     case "text/plain":
