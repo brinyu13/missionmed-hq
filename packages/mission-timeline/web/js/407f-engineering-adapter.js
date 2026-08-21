@@ -3304,17 +3304,29 @@ export async function boot407FEngineeringAdapter({
     let report=analyzeTimelineQuality(store.document,{stage});
     const syntheticAi=productionRuntime?.authClient?.bootstrapState?.syntheticFixture===true;
     if(syntheticAi){
-      const requestedRevision=Number(store.document.revision||0);
       openStandardModal(`<section class="export407FSuggestionDialog" role="dialog" aria-modal="true" aria-labelledby="quality-guardian-loading" data-quality-guardian-loading style="width:min(640px,calc(100vw - 40px))">
         <p class="micro-label">Timeline Quality Guardian</p>
         <h2 id="quality-guardian-loading">Checking your Timeline…</h2>
         <p>Running the live MissionMed AI review. Your Timeline stays unchanged until you approve a safe action.</p>
       </section>`,"[data-quality-guardian-loading]");
       try{
+        const syncResult=await store.adapter.flush?.();
+        if(Number(syncResult?.pending||0)>0||syncResult?.conflict===true){
+          const unsynced=new Error("Save and sync this Timeline before running the AI review.");
+          unsynced.code="TIMELINE_AI_DOCUMENT_NOT_SYNCED";
+          throw unsynced;
+        }
+        const requestedRevision=await store.adapter.getRemoteRevision?.(store.document.id);
+        if(!Number.isInteger(requestedRevision)){
+          const unsynced=new Error("Save and sync this Timeline before running the AI review.");
+          unsynced.code="TIMELINE_AI_DOCUMENT_NOT_SYNCED";
+          throw unsynced;
+        }
+        const requestedDocument=JSON.stringify(store.document);
         const analysis=await productionRuntime.authClient.analyzeQuality(store.document.id,{
           deterministicFindings:deterministicFindingsForAi(report)
         });
-        if(Number(analysis?.documentRevision)!==requestedRevision||Number(store.document.revision||0)!==requestedRevision){
+        if(Number(analysis?.documentRevision)!==requestedRevision||JSON.stringify(store.document)!==requestedDocument){
           const stale=new Error("Timeline changed while AI review was running. Run Check My Timeline again.");
           stale.code="TIMELINE_AI_STALE_DOCUMENT";
           throw stale;
@@ -3328,6 +3340,8 @@ export async function boot407FEngineeringAdapter({
           standardVersion:"D1-409H-A1+D1-411A",
           unavailableMessage:error?.code==="TIMELINE_AI_STALE_DOCUMENT"
             ?"Timeline changed while AI review was running. Run Check My Timeline again."
+            :error?.code==="TIMELINE_AI_DOCUMENT_NOT_SYNCED"
+              ?"Save and sync this Timeline before running the AI review."
             :"Timeline AI is temporarily unavailable. Your Timeline was not changed.",
           findings:[],
           unresolvedQuestions:[]

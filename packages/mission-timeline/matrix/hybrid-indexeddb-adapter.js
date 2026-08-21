@@ -358,6 +358,12 @@ export class HybridIndexedDbAdapter extends IndexedDbAdapter {
     return structuredClone(this.syncStatus);
   }
 
+  async getRemoteRevision(documentId) {
+    const remote = await super.get("settings", `remote-revision:${documentId}`);
+    const revision = Number(remote?.revision);
+    return Number.isInteger(revision) && revision >= 0 ? revision : null;
+  }
+
   setRemoteSyncConsent(consent) {
     this.remoteSyncConsent = consent === true;
     if (!this.remoteSyncConsent) {

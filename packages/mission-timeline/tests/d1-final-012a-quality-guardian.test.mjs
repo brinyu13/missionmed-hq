@@ -265,7 +265,9 @@ test("the production 407F entry exposes a visible release gate and an explicit p
   assert.match(adapter,/\[data-quality-continue-export\][\s\S]*bridge\.go\("export"\)/);
   assert.match(adapter,/applySafeQualityFixes\(store\.document/);
   assert.match(adapter,/TIMELINE_AI_STALE_DOCUMENT/);
+  assert.match(adapter,/store\.adapter\.getRemoteRevision\?\.\(store\.document\.id\)/);
   assert.match(adapter,/Number\(analysis\?\.documentRevision\)!==requestedRevision/);
+  assert.match(adapter,/JSON\.stringify\(store\.document\)!==requestedDocument/);
   assert.match(adapter,/classifyTimelineAiCandidateOutcome\(candidate,decision\.decision\)/);
   assert.match(adapter,/onCandidateDecision:async/);
   assert.match(adapter,/store\.entitlement\.canMutate===true/);

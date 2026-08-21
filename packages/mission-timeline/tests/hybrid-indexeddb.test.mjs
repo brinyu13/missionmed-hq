@@ -128,6 +128,7 @@ test("twenty rapid local edits coalesce to one acknowledged remote checkpoint", 
   assert.deepEqual(await adapter.flush(), { synced: 1, pending: 0 });
   assert.equal(versionCalls, 1);
   assert.equal(adapter.getSyncStatus().state, "SYNCED");
+  assert.equal(await adapter.getRemoteRevision(record.id), 8);
   assert.equal((await adapter.get("documents", record.id)).document.title, "Rapid edit 20");
   adapter.close();
 });
