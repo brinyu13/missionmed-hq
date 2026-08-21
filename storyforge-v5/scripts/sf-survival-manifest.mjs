@@ -82,6 +82,11 @@ const V2_PROTECTED_STORY_RELATIONSHIPS = Object.freeze([
   ['sf_story_trash', 'story_id'],
   ['sf_peer_story_grants', 'story_id'],
   ['sf_peer_feedback', 'story_id'],
+  ['sf_myeras_experience_stories', 'story_id'],
+  ['sf_myeras_impactful', 'promoted_story_id'],
+  ['sf_story_clinical_case', 'story_id'],
+  ['sf_story_eras_tags', 'story_id'],
+  ['sf_story_use_ranks', 'story_id'],
 ]);
 
 const CONTRIBUTION_REVIEW_COLUMNS = Object.freeze([

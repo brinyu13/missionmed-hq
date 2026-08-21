@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   SURVIVAL_SCHEMA,
@@ -10,6 +11,23 @@ import {
   sha256,
   sortedSetHash,
 } from '../../scripts/survival-manifest-lib.mjs';
+
+const survivalCliSource = readFileSync(
+  new URL('../../scripts/sf-survival-manifest.mjs', import.meta.url),
+  'utf8',
+);
+
+test('B1-517 story relationships are explicitly classified for fail-closed capture', () => {
+  for (const [table, column] of [
+    ['sf_myeras_experience_stories', 'story_id'],
+    ['sf_myeras_impactful', 'promoted_story_id'],
+    ['sf_story_clinical_case', 'story_id'],
+    ['sf_story_eras_tags', 'story_id'],
+    ['sf_story_use_ranks', 'story_id'],
+  ]) {
+    assert.match(survivalCliSource, new RegExp(`\\['${table}', '${column}'\\]`));
+  }
+});
 
 function story(overrides = {}) {
   const revision = childSummary([{ id: 'revision-a', bodyHash: sha256('private revision') }]);

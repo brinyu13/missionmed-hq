@@ -115,6 +115,23 @@ test('survival CLI enforces private artifacts and a populated PostgreSQL 18 V2 b
     for (const migration of b1514Migrations) {
       await database.client.query(migrationSql(migration).replace(/^\\set .*$/gm, ''));
     }
+    await database.client.query(`
+      CREATE TABLE public.sf_myeras_experience_stories (
+        id uuid PRIMARY KEY, story_id uuid NOT NULL REFERENCES public.sf_stories(id)
+      );
+      CREATE TABLE public.sf_myeras_impactful (
+        id uuid PRIMARY KEY, promoted_story_id uuid REFERENCES public.sf_stories(id)
+      );
+      CREATE TABLE public.sf_story_clinical_case (
+        id uuid PRIMARY KEY, story_id uuid NOT NULL REFERENCES public.sf_stories(id)
+      );
+      CREATE TABLE public.sf_story_eras_tags (
+        id uuid PRIMARY KEY, story_id uuid NOT NULL REFERENCES public.sf_stories(id)
+      );
+      CREATE TABLE public.sf_story_use_ranks (
+        id uuid PRIMARY KEY, story_id uuid NOT NULL REFERENCES public.sf_stories(id)
+      );
+    `);
     await database.client.query(
       `INSERT INTO public.sf_story_versions (
          id, story_id, version_key, body, source
@@ -213,6 +230,8 @@ test('survival CLI enforces private artifacts and a populated PostgreSQL 18 V2 b
         'sf_story_invitation_provider_messages', 'sf_story_invitation_delivery_attempts',
         'sf_story_contributions', 'sf_contribution_audio_assets', 'sf_guest_voice_sessions',
         'sf_guest_voice_segments', 'sf_guest_voice_events', 'sf_guest_voice_cleanup_intents',
+        'sf_myeras_experience_stories', 'sf_myeras_impactful', 'sf_story_clinical_case',
+        'sf_story_eras_tags', 'sf_story_use_ranks',
       ]) assert.ok(manifest.protectedTables[table], table);
       assert.equal(manifest.protectedTables.sf_story_versions.count, 1);
       assert.equal(manifest.protectedTables.sf_story_contributions.count, 1);
