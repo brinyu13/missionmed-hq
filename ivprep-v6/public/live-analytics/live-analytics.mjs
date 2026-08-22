@@ -35,6 +35,8 @@ const VOICE_MODULES = Object.freeze(['volume', 'speed', 'modulation', 'pitch']);
 const FIXTURE_QUERY = 'deterministic-local-signals';
 const FIXTURE_SAMPLE_RATE = 48_000;
 const FIXTURE_FRAME_SAMPLES = 2_048;
+const VOCAL_VARIATION_WINDOW_MS = 60_000;
+const VOCAL_VARIATION_MAX_SAMPLES = 1_200;
 
 function fixtureLandmarks(frameIndex) {
   const phase = frameIndex / 9;
@@ -281,6 +283,7 @@ export class LiveAnalyticsRuntime {
     this.counts = { audio: 0, pitch: 0, wpm: 0, face: 0, body: 0, hand: 0 };
     this.latestAt = { audio: null, vision: null, transcript: null };
     this.metricEvents = Object.fromEntries(['VOLUME', 'SPEED_WPM', 'VOLUME_MODULATION', 'PITCH', 'HEAD_FACE', 'BODY_HANDS'].map((name) => [name, 0]));
+    this.vocalVariationHistory = { volume: [], pitch: [], speed: [] };
     this.overlayVisibility = { face: true, hands: true, body: true, framing: true };
     this.overlayExpiryTimer = null;
     this.workerOverlayFresh = false;
@@ -358,12 +361,12 @@ export class LiveAnalyticsRuntime {
       this.applyPresentation();
     });
     this.elements.interview?.addEventListener('click', () => {
-      this.presentation.selectPreset('interview');
+      this.presentation.setMode('interview');
       this.applyPresentation();
     });
     this.elements.hideAll?.addEventListener('click', () => {
       const allHidden = this.presentation.snapshot().visibleMetricIds.length === 0;
-      this.presentation.selectPreset(allHidden ? 'full' : 'interview');
+      this.presentation.setMode(allHidden ? 'coaching' : 'interview');
       this.applyPresentation();
     });
     this.elements.restoreVision?.addEventListener('click', () => {
@@ -505,8 +508,8 @@ export class LiveAnalyticsRuntime {
     this.elements.shell.dataset.rightCollapsed = String(rightCollapsed);
     if (this.elements.restoreVision) this.elements.restoreVision.hidden = !leftCollapsed && snapshot.mode !== 'interview';
     if (this.elements.restoreVoice) this.elements.restoreVoice.hidden = !rightCollapsed && snapshot.mode !== 'interview';
-    this.elements.coaching?.setAttribute('aria-pressed', String(snapshot.preset === 'full'));
-    this.elements.interview?.setAttribute('aria-pressed', String(snapshot.preset === 'interview'));
+    this.elements.coaching?.setAttribute('aria-pressed', String(snapshot.mode === 'coaching'));
+    this.elements.interview?.setAttribute('aria-pressed', String(snapshot.mode === 'interview'));
     for (const button of this.document.querySelectorAll('[data-preset]')) {
       button.setAttribute('aria-pressed', String(button.dataset.preset === snapshot.preset));
     }
@@ -717,6 +720,7 @@ export class LiveAnalyticsRuntime {
     this.counts = { audio: 0, pitch: 0, wpm: 0, face: 0, body: 0, hand: 0 };
     this.latestAt = { audio: null, vision: null, transcript: null };
     this.metricEvents = Object.fromEntries(['VOLUME', 'SPEED_WPM', 'VOLUME_MODULATION', 'PITCH', 'HEAD_FACE', 'BODY_HANDS'].map((name) => [name, 0]));
+    this.vocalVariationHistory = { volume: [], pitch: [], speed: [] };
     this.#clearOverlays();
     this.render(this.projector.latest);
     this.updateDiagnostics();
@@ -732,6 +736,7 @@ export class LiveAnalyticsRuntime {
       this.counts.audio += 1;
       if (detail.pitch?.voiced === true) this.counts.pitch += 1;
       for (const name of ['VOLUME', 'VOLUME_MODULATION', 'PITCH']) this.metricEvents[name] += 1;
+      this.#recordVocalVariationAudio(snapshot, detail.atMs);
     }
     if (detail.modality === 'vision' && detail.geometry) {
       if (detail.geometry.face?.present) this.counts.face += 1;
@@ -753,9 +758,67 @@ export class LiveAnalyticsRuntime {
     if (Number.isFinite(evidence?.atMs)) this.latestAt.transcript = evidence.atMs;
     this.metricEvents.SPEED_WPM += 1;
     if (snapshot.metrics.SPEED_WPM.available) this.counts.wpm += 1;
+    this.#recordVocalVariationSpeed(snapshot, evidence?.atMs);
     this.render(snapshot);
     this.updateDiagnostics();
     return snapshot;
+  }
+
+  #appendVocalVariationSample(traceName, atMs, value) {
+    if (!Number.isFinite(atMs) || !Object.hasOwn(this.vocalVariationHistory, traceName)) return false;
+    const trace = this.vocalVariationHistory[traceName];
+    const sample = Object.freeze({
+      atMs: Number(atMs),
+      value: Number.isFinite(value) ? Number(value) : null,
+    });
+    if (Number.isFinite(trace.at(-1)?.atMs) && sample.atMs < trace.at(-1).atMs) return false;
+    if (trace.at(-1)?.atMs === sample.atMs) trace[trace.length - 1] = sample;
+    else trace.push(sample);
+    const cutoff = sample.atMs - VOCAL_VARIATION_WINDOW_MS;
+    while (trace.length && (trace[0].atMs < cutoff || trace.length > VOCAL_VARIATION_MAX_SAMPLES)) trace.shift();
+    return true;
+  }
+
+  #recordVocalVariationAudio(snapshot, atMs) {
+    const volume = snapshot?.metrics?.VOLUME;
+    const pitch = snapshot?.metrics?.PITCH;
+    this.#appendVocalVariationSample('volume', atMs, volume?.available === true ? volume.dbfs : null);
+    this.#appendVocalVariationSample(
+      'pitch',
+      atMs,
+      pitch?.available === true && pitch.voiced === true ? pitch.semitonesFromSpeakerMedian : null,
+    );
+  }
+
+  #recordVocalVariationSpeed(snapshot, atMs) {
+    const speed = snapshot?.metrics?.SPEED_WPM;
+    this.#appendVocalVariationSample('speed', atMs, speed?.available === true ? speed.wordsPerMinute : null);
+  }
+
+  #vocalVariationFrame({ modulation, pitch, speed }) {
+    const clone = (trace) => trace.map((sample) => ({ ...sample }));
+    return {
+      available: true,
+      windowMs: VOCAL_VARIATION_WINDOW_MS,
+      histories: {
+        volume: clone(this.vocalVariationHistory.volume),
+        pitch: clone(this.vocalVariationHistory.pitch),
+        speed: clone(this.vocalVariationHistory.speed),
+      },
+      signalAvailability: {
+        volume: modulation?.available === true,
+        pitch: pitch?.available === true && pitch.voiced === true,
+        pitchUnvoiced: pitch?.available === true && pitch.voiced === false,
+        speed: speed?.available === true,
+      },
+      sources: {
+        volume: modulation?.source || 'MIC_RMS_HISTORY',
+        pitch: pitch?.source || 'VALIDATED_F0',
+        speed: speed?.timingSource || null,
+      },
+      label: speed?.available === true ? 'NORMALIZED LIVE HISTORY · VOLUME + PITCH + SPEED' : 'NORMALIZED LIVE HISTORY · SPEED UNAVAILABLE',
+      state: 'live',
+    };
   }
 
   consumeTranscriptTimingState(state) {
@@ -865,12 +928,7 @@ export class LiveAnalyticsRuntime {
         zone: speed.wordsPerMinute >= 110 && speed.wordsPerMinute <= 160 ? 'target' : 'neutral',
         label: `${speed.fixture ? 'DETERMINISTIC TEST TIMING' : 'OBSERVED WORD TIMING'} · ${speed.windowDurationMs} MS`,
       },
-      modulation: modulation.available === false ? modulation : {
-        ...modulation,
-        history: modulation.trace.map((frame) => frame.dbfs),
-        state: modulation.flat ? 'warn' : 'ok',
-        label: modulation.flat ? 'LOW RMS VARIATION' : 'LIVE RMS ENVELOPE',
-      },
+      modulation: this.#vocalVariationFrame({ modulation, pitch, speed }),
       pitch: pitch.available === false ? pitch : {
         ...pitch,
         semitones: pitch.semitonesFromSpeakerMedian,

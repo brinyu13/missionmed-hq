@@ -219,6 +219,54 @@ test('reopening analytics keeps the latest metric values rather than resetting t
   assert.equal(renderer.frames.at(-1).volume.dbfs, latest.metrics.VOLUME.dbfs);
 });
 
+test('Vocal Variation keeps genuine raw histories while its presentation is hidden', () => {
+  const { runtime, renderer } = runtimeHarness();
+  const pitch = (f0Hz) => ({
+    voiced: true,
+    f0Hz,
+    summary: {
+      available: true,
+      medianHz: 200,
+      rangeSemitones: 5,
+      variationSemitones: 1.4,
+      voicedRatio: 0.8,
+    },
+  });
+  runtime.consumeDiagnostic({ modality: 'audio', atMs: 1_000, rms: 0.05, peak: 0.1, clippedFraction: 0, pitch: pitch(200) });
+  runtime.consumeDiagnostic({ modality: 'audio', atMs: 1_050, rms: 0.1, peak: 0.2, clippedFraction: 0, pitch: pitch(220) });
+  runtime.consumeTranscriptTiming({
+    atMs: 2_000,
+    windowStartedAtMs: 0,
+    windowEndedAtMs: 2_000,
+    wordCount: 4,
+    provenance: { kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, source: 'LOCAL_TIMED_TRANSCRIPT' },
+  });
+  const before = renderer.frames.at(-1).modulation;
+  assert.deepEqual(before.histories.volume.map((sample) => sample.value), [-26.02, -20]);
+  assert.equal(before.histories.pitch.length, 2);
+  assert.deepEqual(before.histories.speed.map((sample) => sample.value), [120]);
+  assert.equal(before.sources.volume, 'MIC_RMS_HISTORY');
+  assert.equal(before.sources.pitch, 'VALIDATED_F0');
+  assert.equal(before.sources.speed, 'LOCAL_TIMED_TRANSCRIPT');
+
+  runtime.presentation.setModuleVisible('modulation', false);
+  runtime.applyPresentation();
+  runtime.consumeDiagnostic({ modality: 'audio', atMs: 1_100, rms: 0.2, peak: 0.3, clippedFraction: 0, pitch: pitch(240) });
+  const whileHidden = renderer.frames.at(-1).modulation;
+  assert.equal(whileHidden.histories.volume.length, 3, 'hidden trace measurement must continue');
+  assert.equal(whileHidden.histories.pitch.length, 3, 'hidden pitch history must continue');
+
+  runtime.consumeDiagnostic({ modality: 'audio', atMs: 900, rms: 0.3, peak: 0.4, clippedFraction: 0, pitch: pitch(260) });
+  const afterStaleFrame = renderer.frames.at(-1).modulation;
+  assert.deepEqual(afterStaleFrame.histories, whileHidden.histories, 'stale frames must not roll history backward');
+
+  runtime.presentation.setModuleVisible('modulation', true);
+  runtime.applyPresentation();
+  runtime.render(runtime.projector.latest);
+  const restored = renderer.frames.at(-1).modulation;
+  assert.deepEqual(restored.histories, whileHidden.histories, 'restoring presentation must not reset history');
+});
+
 test('restore controls transfer focus before their restored UI hides the trigger', () => {
   const { runtime, documentRef } = runtimeHarness();
   const stable = documentRef.byId.get('hide-all-analytics');

@@ -47,6 +47,44 @@ const STATE_COLOR = Object.freeze({
   live: COLORS.cyan,
 });
 
+export const VOCAL_VARIATION_TRACES = Object.freeze(['volume', 'pitch', 'speed']);
+
+export function normalizeVocalVariationValue(trace, value) {
+  if (!finite(value)) return null;
+  if (trace === 'volume') return clamp((value + 60) / 60);
+  if (trace === 'pitch') return clamp((value + 6) / 12);
+  if (trace === 'speed') return clamp(value / 240);
+  throw new RangeError(`Unknown Vocal Variation trace: ${trace}`);
+}
+
+export class VocalVariationTraceVisibility {
+  constructor(visible = VOCAL_VARIATION_TRACES) {
+    this.visible = new Set(visible.filter((trace) => VOCAL_VARIATION_TRACES.includes(trace)));
+  }
+
+  set(trace, visible) {
+    if (!VOCAL_VARIATION_TRACES.includes(trace)) throw new RangeError(`Unknown Vocal Variation trace: ${trace}`);
+    if (visible) this.visible.add(trace);
+    else this.visible.delete(trace);
+    return this.snapshot();
+  }
+
+  toggle(trace) { return this.set(trace, !this.visible.has(trace)); }
+
+  setAll(visible) {
+    this.visible = new Set(visible ? VOCAL_VARIATION_TRACES : []);
+    return this.snapshot();
+  }
+
+  snapshot() {
+    const visible = Object.freeze(VOCAL_VARIATION_TRACES.filter((trace) => this.visible.has(trace)));
+    return Object.freeze({
+      visible,
+      hidden: Object.freeze(VOCAL_VARIATION_TRACES.filter((trace) => !this.visible.has(trace))),
+    });
+  }
+}
+
 const FACE_CONTOUR = Object.freeze([10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109]);
 const LEFT_EYE = Object.freeze([33, 160, 158, 133, 153, 144, 33]);
 const RIGHT_EYE = Object.freeze([362, 385, 387, 263, 373, 380, 362]);
@@ -806,46 +844,103 @@ export class SpeedHudRenderer extends HudRenderer {
   }
 }
 
-export class ModulationHudRenderer extends HudRenderer {
-  constructor(root) { super(root, 'modulation'); }
+export class VocalVariationHudRenderer extends HudRenderer {
+  constructor(root) {
+    super(root, 'modulation');
+    this.traceVisibility = new VocalVariationTraceVisibility();
+    this.controls = [...(root.querySelectorAll?.('[data-vocal-trace-toggle]') || [])];
+    for (const control of this.controls) {
+      control.addEventListener('click', () => {
+        const trace = control.dataset.vocalTraceToggle;
+        if (trace === 'all') {
+          const allVisible = this.traceVisibility.snapshot().visible.length === VOCAL_VARIATION_TRACES.length;
+          this.traceVisibility.setAll(!allVisible);
+        } else {
+          this.traceVisibility.toggle(trace);
+        }
+        this.#paintControls(this.lastFrame);
+        if (this.lastFrame?.available !== false) this.draw(this.lastFrame);
+      });
+    }
+    this.#paintControls(null);
+  }
+
+  traceSnapshot() { return this.traceVisibility.snapshot(); }
+
+  #paintControls(frame) {
+    const visible = new Set(this.traceVisibility.snapshot().visible);
+    for (const control of this.controls) {
+      const trace = control.dataset.vocalTraceToggle;
+      const pressed = trace === 'all'
+        ? visible.size === VOCAL_VARIATION_TRACES.length
+        : visible.has(trace);
+      control.setAttribute('aria-pressed', String(pressed));
+      control.dataset.state = pressed ? 'visible' : 'hidden';
+      if (trace !== 'all') {
+        const available = frame?.histories?.[trace]?.some((sample) => finite(sample?.value)) === true;
+        control.dataset.available = String(available);
+      }
+      if (trace === 'all') control.textContent = visible.size === VOCAL_VARIATION_TRACES.length ? 'Hide all' : 'Show all';
+    }
+  }
 
   draw(frame) {
-    const history = (frame.history || frame.rmsHistory || []).map(Number).filter(Number.isFinite);
-    if (history.length < 2) {
-      this.unavailable(frame.reason || 'CAPTURED_HISTORY_REQUIRED');
-      return;
-    }
     const fit = this.context();
     if (!fit) return;
     clearScreen(fit.context, fit.width, fit.height);
-    // A fixed 16 dB, baseline-relative display window makes real modulation visible
-    // without min/max auto-fitting or changing the observed numeric range.
-    const baseline = history.reduce((total, value) => total + value, 0) / history.length;
-    const windowDb = 16;
-    let low = baseline - windowDb / 2;
-    let high = baseline + windowDb / 2;
-    if (low < -60) { high += -60 - low; low = -60; }
-    if (high > -6) { low -= high + 6; high = -6; }
-    const spread = high - low;
-    fit.context.beginPath();
-    history.forEach((sample, index) => {
-      const x = history.length === 1 ? 0 : index / (history.length - 1) * fit.width;
-      const y = fit.height - (clamp((sample - low) / spread) * (fit.height * .72) + fit.height * .14);
-      if (index === 0) fit.context.moveTo(x, y);
-      else fit.context.lineTo(x, y);
-    });
-    const gradient = fit.context.createLinearGradient(0, 0, fit.width, 0);
-    gradient.addColorStop(0, COLORS.orange);
-    gradient.addColorStop(.55, COLORS.gold);
-    gradient.addColorStop(1, stateColor(frame.state || 'ok'));
-    fit.context.strokeStyle = gradient;
-    fit.context.lineWidth = 2;
-    fit.context.stroke();
-    const rangeDb = finite(frame.rangeDb) ? Number(frame.rangeDb) : Math.max(...history) - Math.min(...history);
-    setText(this.value, `${formatNumber(rangeDb, 1)}`, frame.state || 'neutral');
-    setText(this.status, frame.label || 'LIVE RMS ENVELOPE', frame.state || 'neutral');
+    this.#paintControls(frame);
+    const histories = frame.histories || {};
+    const visible = new Set(this.traceVisibility.snapshot().visible);
+    const samples = VOCAL_VARIATION_TRACES
+      .flatMap((trace) => Array.isArray(histories[trace]) ? histories[trace] : [])
+      .filter((sample) => finite(sample?.atMs));
+    const endAtMs = samples.length ? Math.max(...samples.map((sample) => sample.atMs)) : 0;
+    const earliestAtMs = samples.length ? Math.min(...samples.map((sample) => sample.atMs)) : 0;
+    const startAtMs = Math.max(0, endAtMs - (finite(frame.windowMs) ? frame.windowMs : 60_000), earliestAtMs);
+    const durationMs = Math.max(1, endAtMs - startAtMs);
+    const colors = { volume: COLORS.cyan, pitch: COLORS.orange, speed: COLORS.ok };
+    let drawnTraces = 0;
+
+    for (const trace of VOCAL_VARIATION_TRACES) {
+      if (!visible.has(trace)) continue;
+      const history = (Array.isArray(histories[trace]) ? histories[trace] : [])
+        .filter((sample) => finite(sample?.atMs) && sample.atMs >= startAtMs)
+        .sort((a, b) => a.atMs - b.atMs);
+      let segmentOpen = false;
+      let pointCount = 0;
+      fit.context.beginPath();
+      for (const sample of history) {
+        const normalized = normalizeVocalVariationValue(trace, sample.value);
+        if (!finite(normalized)) { segmentOpen = false; continue; }
+        const x = ((sample.atMs - startAtMs) / durationMs) * fit.width;
+        const y = fit.height - (normalized * fit.height * .76 + fit.height * .12);
+        if (!segmentOpen) fit.context.moveTo(x, y);
+        else fit.context.lineTo(x, y);
+        segmentOpen = true;
+        pointCount += 1;
+      }
+      if (pointCount >= 2) {
+        fit.context.strokeStyle = colors[trace];
+        fit.context.lineWidth = trace === 'volume' ? 2 : 1.7;
+        fit.context.shadowColor = colors[trace];
+        fit.context.shadowBlur = 4;
+        fit.context.stroke();
+        fit.context.shadowBlur = 0;
+        drawnTraces += 1;
+      }
+    }
+
+    if (visible.size === 0) {
+      setText(this.status, 'ALL TRACES HIDDEN · MEASUREMENT CONTINUES', 'neutral');
+    } else if (drawnTraces === 0) {
+      setText(this.status, 'WAITING FOR GENUINE MEASURED HISTORY', 'unavailable');
+    } else {
+      setText(this.status, frame.label || 'NORMALIZED LIVE HISTORY', frame.state || 'live');
+    }
   }
 }
+
+export const ModulationHudRenderer = VocalVariationHudRenderer;
 
 export class PitchHudRenderer extends HudRenderer {
   constructor(root) { super(root, 'pitch'); }
@@ -924,7 +1019,7 @@ export class LiveHudRenderers {
       body: new BodyHudRenderer(root),
       volume: new VolumeHudRenderer(root),
       speed: new SpeedHudRenderer(root),
-      modulation: new ModulationHudRenderer(root),
+      modulation: new VocalVariationHudRenderer(root),
       pitch: new PitchHudRenderer(root),
     });
     this.resizeObserver = typeof ResizeObserver === 'function'

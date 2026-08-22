@@ -321,18 +321,23 @@
           <button class="collapsed-tab" type="button" data-module-restore="speed" aria-label="Show Speaking Speed analytics"><span>SPD</span><strong>Speed / WPM</strong><i aria-hidden="true">‹</i></button>
         </section>
 
-        <section class="telemetry-card voice-card" data-module="modulation" data-visibility-metric="voice-delivery.volume-modulation" data-collapsed="false" aria-labelledby="modulation-title">
+        <section class="telemetry-card voice-card vocal-variation-card" data-module="modulation" data-visibility-metric="voice-delivery.volume-modulation" data-collapsed="false" aria-labelledby="modulation-title">
           <header class="module-head">
             <span class="instrument-icon" aria-hidden="true">◉</span>
-            <div class="module-title-wrap"><h2 id="modulation-title">Volume Modulation</h2><span class="module-source">RMS envelope history</span></div>
-            <button class="module-toggle" type="button" data-module-toggle="modulation" aria-label="Hide Volume Modulation analytics" aria-expanded="true" aria-controls="modulation-body"><span class="sr-only">Hide Volume Modulation analytics</span><span class="toggle-glyph" aria-hidden="true">›</span></button>
+            <div class="module-title-wrap"><h2 id="modulation-title">Vocal Variation</h2><span class="module-source">Normalized voice history · time</span></div>
+            <button class="module-toggle" type="button" data-module-toggle="modulation" aria-label="Hide Vocal Variation analytics" aria-expanded="true" aria-controls="modulation-body"><span class="sr-only">Hide Vocal Variation analytics</span><span class="toggle-glyph" aria-hidden="true">›</span></button>
           </header>
           <div class="module-body" id="modulation-body">
-            <div class="trace-readout"><span class="hud-value" data-hud-value="modulation">UNAVAILABLE</span><span data-hud-unit="modulation">dB range</span></div>
-            <canvas class="hud-canvas instrument-canvas trace-canvas" data-hud-canvas="modulation" aria-label="Live vocal energy modulation trace"></canvas>
-            <p class="instrument-status" data-hud-state="modulation" data-state="unavailable">UNAVAILABLE — captured history required</p>
+            <div class="vocal-variation-controls" role="group" aria-label="Vocal Variation trace visibility">
+              <button type="button" data-vocal-trace-toggle="volume" aria-pressed="true"><i aria-hidden="true"></i>Volume</button>
+              <button type="button" data-vocal-trace-toggle="pitch" aria-pressed="true"><i aria-hidden="true"></i>Pitch</button>
+              <button type="button" data-vocal-trace-toggle="speed" aria-pressed="true"><i aria-hidden="true"></i>Speed</button>
+              <button type="button" data-vocal-trace-toggle="all" aria-pressed="true">Hide all</button>
+            </div>
+            <canvas class="hud-canvas instrument-canvas trace-canvas" data-hud-canvas="modulation" aria-label="Normalized recent history of measured volume, validated pitch, and observed speaking speed"></canvas>
+            <p class="instrument-status" data-hud-state="modulation" data-state="unavailable">WAITING FOR GENUINE MEASURED HISTORY</p>
           </div>
-          <button class="collapsed-tab" type="button" data-module-restore="modulation" aria-label="Show Volume Modulation analytics"><span>MOD</span><strong>Modulation</strong><i aria-hidden="true">‹</i></button>
+          <button class="collapsed-tab" type="button" data-module-restore="modulation" aria-label="Show Vocal Variation analytics"><span>VAR</span><strong>Vocal Variation</strong><i aria-hidden="true">‹</i></button>
         </section>
 
         <section class="telemetry-card voice-card" data-module="pitch" data-visibility-metric="voice-delivery.pitch" data-collapsed="false" aria-labelledby="pitch-title">
@@ -390,7 +395,7 @@
         <fieldset data-customizer-family="voice-delivery"><legend><label><input type="checkbox" data-family-checkbox="voice-delivery"> Voice / Delivery</label></legend>
           <label><input type="checkbox" data-visibility-toggle="voice-delivery.volume"> Volume</label>
           <label><input type="checkbox" data-visibility-toggle="voice-delivery.speaking-speed"> Speaking speed</label>
-          <label><input type="checkbox" data-visibility-toggle="voice-delivery.volume-modulation"> Volume modulation</label>
+          <label><input type="checkbox" data-visibility-toggle="voice-delivery.volume-modulation"> Vocal variation</label>
           <label><input type="checkbox" data-visibility-toggle="voice-delivery.pitch"> Pitch</label>
         </fieldset>
         <fieldset data-customizer-family="video-overlays"><legend>Student video overlays</legend>

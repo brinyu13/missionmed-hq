@@ -793,6 +793,47 @@ a:focus-visible {
 
 .trace-canvas { min-height: 62px; }
 
+.vocal-variation-card .module-body {
+  display: grid;
+  grid-template-rows: 20px minmax(0, 1fr) 20px;
+  gap: 4px;
+}
+
+.vocal-variation-controls {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 3px;
+}
+
+.vocal-variation-controls button {
+  min-width: 0;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 4px;
+  border: 1px solid #263b50;
+  border-radius: 2px;
+  background: #07111e;
+  color: #74889c;
+  cursor: pointer;
+  font-family: var(--font-data);
+  font-size: 7px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.vocal-variation-controls button[aria-pressed="true"] { color: #d8e5ef; border-color: #38536b; }
+.vocal-variation-controls button[data-available="false"] { opacity: .72; }
+.vocal-variation-controls i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.vocal-variation-controls [data-vocal-trace-toggle="volume"] i { background: var(--cyan); }
+.vocal-variation-controls [data-vocal-trace-toggle="pitch"] i { background: var(--orange); }
+.vocal-variation-controls [data-vocal-trace-toggle="speed"] i { background: var(--ok); }
+.vocal-variation-controls button[aria-pressed="false"] i { background: #364a5e; }
+.vocal-variation-card .trace-canvas { width: 100%; min-height: 0; height: 100%; }
+
 .pitch-layout {
   min-height: 67px;
   flex: 1 1 auto;
@@ -2208,6 +2249,7 @@ body {
 .dial-readout .hud-value { font-size: 27px; }
 .speed-target { color: #8da1b7; font-family: var(--font-data); font-size: 8px; text-align: center; text-transform: uppercase; }
 .trace-canvas { min-height: 76px; }
+.vocal-variation-card .trace-canvas { min-height: 0; }
 .pitch-layout,
 .pitch-canvas { min-height: 92px; }
 .pitch-readout span { font-size: 8px; }
