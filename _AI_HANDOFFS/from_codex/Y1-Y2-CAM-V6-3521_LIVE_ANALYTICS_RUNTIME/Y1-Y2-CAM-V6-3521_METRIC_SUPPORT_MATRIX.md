@@ -64,7 +64,7 @@ Route: `/iv-prep-on-call/live-analytics/`
 
 ## Evidence snapshot
 
-Worktree HEAD: `6857fb48e5f7c7408d747bd1cae212e69b6dfee1` with scoped uncommitted 3521 changes.
+Implementation source snapshot: commit `e1b2eee49cc13c4ddb109bc79400369924cfc5ab` on `codex/y1-y2-cam-v6-3521-live-analytics-runtime`. This matrix is part of the subsequent handoff-only branch update.
 
 Key audited SHA-256 values:
 

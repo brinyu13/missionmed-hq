@@ -15,6 +15,7 @@ The local runtime and deterministic QA mode are functional. Release acceptance r
 - Worktree: `/Users/brianb/MissionMed_worktrees/Y1-Y2-CAM-V6-3521`
 - Branch: `codex/y1-y2-cam-v6-3521-live-analytics-runtime`
 - Clean base SHA: `6857fb48e5f7c7408d747bd1cae212e69b6dfee1`
+- Implementation source commit: `e1b2eee49cc13c4ddb109bc79400369924cfc5ab`
 - Donor/reference only: `/Users/brianb/MissionMed_worktrees/Y1-Y2-CAM-V6-3440`
 - 3440 modified by this run: **NO**
 - Production/Railway/database modified: **NO**
@@ -86,6 +87,8 @@ Added:
 - `ivprep-v6/test/3521/media-bridge.test.mjs`
 - `ivprep-v6/test/3521/shared-runtime-recovery.test.mjs`
 - All artifacts in this handoff directory.
+
+The PNG checkpoint files are intentionally local handoff evidence under the repository's existing `_AI_HANDOFFS/**` binary ignore policy; the six Markdown handoff records are committed on the branch.
 
 ## Verification
 
