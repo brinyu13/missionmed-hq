@@ -167,7 +167,10 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     //     user activation does not survive that await.
     const hasMic = Boolean(media.mic && media.AC?.state === 'running' && media.analyser && media.data && media.stream?.getAudioTracks?.().some((track) => track.readyState === 'live' && track.enabled));
     const video = videoElement || document.getElementById('pipvid') || document.getElementById('stationvid');
-    const hasCamera = Boolean(media.cam && media.stream?.getVideoTracks?.().some((track) => track.readyState === 'live' && track.enabled && track.muted !== true) && video);
+    // A fresh camera track may be temporarily muted before its first frame. Start
+    // the bounded vision scheduler from track ownership/liveness; per-frame capture
+    // still fails closed in visionSourceIsLive() until the track actually unmutes.
+    const hasCamera = Boolean(media.cam && media.stream?.getVideoTracks?.().some((track) => track.readyState === 'live' && track.enabled) && video);
     const session = this.ensureSession();
     this.answer = session.beginAnswer({ answerId: answerId || randomId('answer'), hasMic, hasCamera, mediaId, mediaStartedAt });
     this.hiddenAt = document.hidden ? this.answer.startedAtMs : null;

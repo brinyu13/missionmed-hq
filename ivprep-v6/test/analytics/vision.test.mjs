@@ -26,10 +26,24 @@ const primaryLock=(overrides={})=>({state:'PRIMARY_LOCKED',zoneStatus:'primary_i
 test('derives bounded geometry without raw landmarks', () => {
   const value = deriveCompactGeometry(sourceResult(), { faceCount: 1 });
   assert.equal(value.face.present, true);
+  assert.equal(value.pose.upperBodyPresent, true);
+  assert.equal(value.pose.torsoPresent, true);
   assert.ok(Math.abs(value.pose.lateralLeanDeg) < 0.01);
   assert.equal(value.hands.left.zone, 'chest');
   assert.equal(assertCompactGeometry(value), true);
   assert.doesNotMatch(JSON.stringify(value), /landmark|blendshape/iu);
+});
+
+test('upper-body geometry remains observable when a webcam crop excludes hips', () => {
+  const source = sourceResult();
+  source.poseLandmarks[0][23] = null;
+  source.poseLandmarks[0][24] = null;
+  const value = deriveCompactGeometry(source, { faceCount: 1 });
+  assert.equal(value.pose.upperBodyPresent, true);
+  assert.equal(value.pose.torsoPresent, false);
+  assert.equal(Number.isFinite(value.pose.centerX), true);
+  assert.equal(Number.isFinite(value.pose.shoulderWidth), true);
+  assert.equal(value.pose.lateralLeanDeg, null);
 });
 
 test('sustained lean emits an episode while one frame does not stretch', () => {

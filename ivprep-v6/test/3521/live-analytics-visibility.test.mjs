@@ -64,7 +64,7 @@ function visionFrame(atMs, movement = 0.2) {
       },
       movementVariability: { value: movement },
     },
-    live: { gestureActive: 'both', postureMovementActive: true },
+    live: { gestureActive: movement >= 0.2 ? 'both' : null, postureMovementActive: true },
   };
 }
 
@@ -188,15 +188,31 @@ test('metric histories and counters advance while their presentation IDs are hid
     'head-face.smile-events',
     'head-face.camera-facing-balance',
     'head-face.geometry-trend',
+    'body-posture.alignment',
+    'body-posture.hands-visible',
+    'body-posture.gesture-activity',
   ]) state.setMetricVisible(id, false);
   const before = projector.latest.metrics.HEAD_FACE;
+  const beforeBody = projector.latest.metrics.BODY_HANDS;
   projector.ingest(visionFrame(2_000, 0.2));
   projector.ingest(visionFrame(3_000, 0.3));
   const after = projector.latest.metrics.HEAD_FACE;
+  const afterBody = projector.latest.metrics.BODY_HANDS;
   assert.equal(state.snapshot().familyState['head-face'], 'mixed');
+  assert.equal(state.snapshot().familyState['body-posture'], 'mixed');
+  for (const id of [
+    'head-face.smile-events',
+    'head-face.camera-facing-balance',
+    'head-face.geometry-trend',
+    'body-posture.alignment',
+    'body-posture.hands-visible',
+    'body-posture.gesture-activity',
+  ]) assert.equal(state.snapshot().visibleMetricIds.includes(id), false);
   assert.ok(after.smileEvents.count > before.smileEvents.count);
+  assert.ok(after.cameraFacingDwell.longestFacingRunMs > before.cameraFacingDwell.longestFacingRunMs);
   assert.ok(after.geometryTrend.values.length > before.geometryTrend.values.length);
-  assert.ok(projector.latest.metrics.BODY_HANDS.movementTrend.values.length >= 2);
+  assert.ok(afterBody.movementTrend.values.length > (beforeBody.movementTrend.values?.length || 0));
+  assert.ok(afterBody.gestureEvents.count > beforeBody.gestureEvents.count);
 });
 
 test('visibility state has no capture, detector, network, provider, or reset path', async () => {

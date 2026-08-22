@@ -10,6 +10,7 @@ import { estimateF0, PitchTrack } from '../analytics/pitch-f0.mjs';
 import { SessionClock } from '../analytics/session-clock.mjs';
 import { deriveCompactGeometry } from '../analytics/vision-geometry.mjs';
 import { LiveHudRenderers } from './hud-renderers.mjs';
+import { LocalTranscriptTimingProducer } from './local-transcript-timing.mjs';
 import { LiveMetricProjector } from './live-metric-projector.mjs';
 import { createLiveAnalyticsMediaBridge } from './media-bridge.mjs';
 import {
@@ -252,6 +253,7 @@ export class LiveAnalyticsRuntime {
     projector = new LiveMetricProjector(),
     presentation = new AnalyticsVisibilityState(),
     renderer = null,
+    transcriptTimingProducer = null,
     fixtureMode = false,
     fixture = null,
   } = {}) {
@@ -262,6 +264,8 @@ export class LiveAnalyticsRuntime {
     this.projector = projector;
     this.presentation = presentation;
     this.renderer = renderer || new LiveHudRenderers(documentRef);
+    this.transcriptTiming = transcriptTimingProducer || new LocalTranscriptTimingProducer();
+    this.transcriptTimingState = Object.freeze({ state: 'idle', reason: 'LOCAL_TRANSCRIPT_TIMING_IDLE' });
     this.fixtureMode = Boolean(fixtureMode);
     this.fixture = fixture || (this.fixtureMode ? new DeterministicLocalSignalFixture() : null);
     this.fixtureConnected = false;
@@ -643,6 +647,10 @@ export class LiveAnalyticsRuntime {
         this.pipeline?.reselectPrimary?.();
         if (!this.pipeline?.visionTimer) this.pipeline?.startVision?.(this.elements.video);
       }
+      if (kind === 'microphone' && this.active) {
+        this.transcriptTiming.stop();
+        await this.#startTranscriptTiming();
+      }
       setText(this.elements.status, `${kind === 'camera' ? 'Camera' : 'Microphone'} switched · measurement continuous`);
       this.updateDiagnostics();
       return media;
@@ -682,7 +690,24 @@ export class LiveAnalyticsRuntime {
     setText(this.elements.measurement, this.fixtureMode ? 'TEST INPUT · measurement live' : 'Measurement live');
     this.#startClockDisplay();
     this.updateDiagnostics();
+    if (!this.fixtureMode) void this.#startTranscriptTiming();
     return true;
+  }
+
+  async #startTranscriptTiming() {
+    const clock = this.activeClock;
+    const stream = this.bridge.media.stream;
+    const started = await this.transcriptTiming.start({
+      stream,
+      clock,
+      onTiming: (evidence) => this.consumeTranscriptTiming(evidence),
+      onState: (state) => this.consumeTranscriptTimingState(state),
+    });
+    if (!this.active || clock !== this.activeClock) {
+      this.transcriptTiming.stop();
+      return false;
+    }
+    return started;
   }
 
   #resetMeasurementSession() {
@@ -708,7 +733,7 @@ export class LiveAnalyticsRuntime {
     }
     if (detail.modality === 'vision' && detail.geometry) {
       if (detail.geometry.face?.present) this.counts.face += 1;
-      if (detail.geometry.pose?.torsoPresent) this.counts.body += 1;
+      if (detail.geometry.pose?.upperBodyPresent || detail.geometry.pose?.torsoPresent) this.counts.body += 1;
       if (detail.geometry.hands?.left?.present || detail.geometry.hands?.right?.present) this.counts.hand += 1;
       for (const name of ['HEAD_FACE', 'BODY_HANDS']) this.metricEvents[name] += 1;
       if (this.fixtureMode) this.#drawFixtureGeometry(detail.geometry);
@@ -729,6 +754,17 @@ export class LiveAnalyticsRuntime {
     this.render(snapshot);
     this.updateDiagnostics();
     return snapshot;
+  }
+
+  consumeTranscriptTimingState(state) {
+    this.transcriptTimingState = Object.freeze({
+      state: state?.state || 'unavailable',
+      reason: state?.reason || 'LOCAL_TRANSCRIPT_TIMING_UNAVAILABLE',
+      ...(state?.detail ? { detail: Object.freeze({ ...state.detail }) } : {}),
+    });
+    if (this.active && !this.fixtureMode) this.render(this.projector.latest);
+    this.updateDiagnostics();
+    return this.transcriptTimingState;
   }
 
   consumePipelineState(detail) {
@@ -787,7 +823,22 @@ export class LiveAnalyticsRuntime {
   render(snapshot) {
     const metrics = snapshot?.metrics || {};
     const volume = metrics.VOLUME || { available: false, reason: 'NO_AUDIO_FRAMES' };
-    const speed = metrics.SPEED_WPM || { available: false, reason: 'NO_TRUSTWORTHY_TRANSCRIPT_TIMING' };
+    const projectedSpeed = metrics.SPEED_WPM || { available: false, reason: 'NO_TRUSTWORTHY_TRANSCRIPT_TIMING' };
+    const timingFailure = ['unavailable', 'partial'].includes(this.transcriptTimingState.state);
+    const timingWaiting = ['ready', 'live'].includes(this.transcriptTimingState.state)
+      && projectedSpeed.reason === 'NO_TRUSTWORTHY_TRANSCRIPT_TIMING';
+    const speed = projectedSpeed.available === false && this.active && !this.fixtureMode
+      ? {
+          ...projectedSpeed,
+          reason: timingFailure
+            ? this.transcriptTimingState.reason
+            : timingWaiting
+              ? (this.transcriptTimingState.reason === 'NEED_MORE_TIMED_WORDS'
+                  ? 'NEED_MORE_TIMED_WORDS'
+                  : 'WAITING_FOR_LOCAL_TIMED_WORDS')
+              : projectedSpeed.reason,
+        }
+      : projectedSpeed;
     const modulation = metrics.VOLUME_MODULATION || { available: false, reason: 'NEED_MORE_RMS_HISTORY' };
     const pitch = metrics.PITCH || { available: false, reason: 'NO_VALIDATED_F0' };
     const headFace = metrics.HEAD_FACE || { available: false, reason: 'NO_VISION_FRAMES' };
@@ -846,7 +897,7 @@ export class LiveAnalyticsRuntime {
       },
       body: bodyHands.available === false ? bodyHands : {
         available: true,
-        present: bodyHands.torsoPresent || bodyHands.hands?.left?.present || bodyHands.hands?.right?.present,
+        present: bodyHands.upperBodyPresent || bodyHands.torsoPresent || bodyHands.hands?.left?.present || bodyHands.hands?.right?.present,
         centered: Number.isFinite(bodyHands.bodyCenter?.x) ? bodyHands.bodyCenter.x >= 0.35 && bodyHands.bodyCenter.x <= 0.65 : null,
         shoulderLabel: Number.isFinite(bodyHands.lateralLeanDeg) ? `${bodyHands.lateralLeanDeg.toFixed(1)}° LATERAL LEAN` : 'UNAVAILABLE',
         handsLabel: bodyHands.hands?.available
@@ -889,7 +940,7 @@ export class LiveAnalyticsRuntime {
       if (name === 'VOLUME_MODULATION') return `${name}:${metric.rangeDb}dB`;
       if (name === 'PITCH') return `${name}:${metric.voiced ? `${metric.semitonesFromSpeakerMedian}st` : 'unvoiced'}`;
       if (name === 'HEAD_FACE') return `${name}:${metric.facePresent ? 'face' : 'no-face'}`;
-      if (name === 'BODY_HANDS') return `${name}:${metric.torsoPresent ? 'torso' : 'no-torso'}/${metric.hands?.bothPresent ? 'both-hands' : 'partial-hands'}`;
+      if (name === 'BODY_HANDS') return `${name}:${metric.torsoPresent ? 'torso' : metric.upperBodyPresent ? 'upper-body' : 'no-body'}/${metric.hands?.bothPresent ? 'both-hands' : 'partial-hands'}`;
       return `${name}:AVAILABLE`;
     };
     const projected = this.projector.latest?.metrics || {};
@@ -899,7 +950,7 @@ export class LiveAnalyticsRuntime {
       : `MEDIA · CAM ${trackState(media.cameraTrack)} ID ${deviceId(cameraSettings.deviceId)} · MIC ${trackState(media.microphoneTrack)} ID ${deviceId(microphoneSettings.deviceId)} · VIDEO ${cameraSettings.width || this.elements.video?.videoWidth || '—'}×${cameraSettings.height || this.elements.video?.videoHeight || '—'}@${cameraSettings.frameRate || '—'} · PROVIDERS 0`);
     write('audio', `AUDIO · AC ${media.AC?.state || (this.fixtureMode ? 'TEST DSP' : 'NO CONTEXT')} @${media.AC?.sampleRate || (this.fixtureMode ? FIXTURE_SAMPLE_RATE : '—')}Hz · RMS FRAMES ${this.counts.audio} · LAST ${at(this.latestAt.audio)}`);
     write('pitch', `PITCH · F0 FRAMES ${this.counts.pitch} · ${metricValue('PITCH', projected.PITCH)}`);
-    write('wpm', `TRANSCRIPT TIMING · WINDOWS ${this.counts.wpm} · ${metricValue('SPEED_WPM', projected.SPEED_WPM)} · LAST ${at(this.latestAt.transcript)}`);
+    write('wpm', `TRANSCRIPT TIMING · WINDOWS ${this.counts.wpm} · ${metricValue('SPEED_WPM', projected.SPEED_WPM)} · LAST ${at(this.latestAt.transcript)} · PRODUCER ${this.transcriptTimingState.state.toUpperCase()}/${this.transcriptTimingState.reason}`);
     write('face', `VISION · WORKER ${pipeline?.workerReady ? 'READY' : (this.fixtureMode ? 'TEST INPUT' : 'IDLE')} · FACE WORKER ${pipeline?.faceWorkerReady ? 'READY' : (this.fixtureMode ? 'TEST INPUT' : 'IDLE')} · FACE FRAMES ${this.counts.face} · LOCK ${pipeline?.primaryLock?.state || (this.fixtureMode && this.active ? 'TEST PRIMARY' : 'UNAVAILABLE')} · LAST ${at(this.latestAt.vision)}`);
     write('body', `BODY FRAMES ${this.counts.body} · HAND FRAMES ${this.counts.hand} · TARGET FPS ${pipeline?.targetFps || (this.fixtureMode ? 8 : '—')} · DROPPED ${pipeline?.droppedFrames || 0} · STALE GUARD ACTIVE`);
     write('metrics', `METRIC BUS · ${Object.entries(projected).map(([name, metric]) => `${metricValue(name, metric)} · events ${this.metricEvents[name] || 0} · at ${at(metric?.atMs ?? this.projector.latest?.atMs)}`).join('  |  ')}`);
@@ -925,6 +976,7 @@ export class LiveAnalyticsRuntime {
     if (this.fixtureMode) {
       this.fixture.stop();
     } else {
+      this.transcriptTiming.stop();
       this.bridge.endAnalytics({ transcript: '', mediaAvailable: Boolean(this.bridge.media.stream) });
       this.pipeline?.removeEventListener?.('diagnostic', this.boundDiagnostic);
       this.pipeline?.removeEventListener?.('state', this.boundPipelineState);
@@ -934,6 +986,7 @@ export class LiveAnalyticsRuntime {
     this.active = false;
     this.activeClock = null;
     this.pipeline = null;
+    this.transcriptTimingState = Object.freeze({ state: 'idle', reason: 'LOCAL_TRANSCRIPT_TIMING_IDLE' });
     this.elements.end.disabled = true;
     this.elements.start.disabled = this.fixtureMode ? !this.fixtureConnected : true;
     this.elements.connect.disabled = this.fixtureMode ? true : false;
@@ -959,6 +1012,7 @@ export class LiveAnalyticsRuntime {
     clearTimeout(this.overlayExpiryTimer);
     this.overlayExpiryTimer = null;
     this.fixture?.stop?.();
+    this.transcriptTiming.stop();
     this.pipeline?.removeEventListener?.('diagnostic', this.boundDiagnostic);
     this.pipeline?.removeEventListener?.('state', this.boundPipelineState);
     this.bridge.destroy?.();
@@ -1263,6 +1317,7 @@ if (typeof document !== 'undefined' && document.getElementById('live-analytics-a
         metrics: runtime.projector.latest,
         counts: Object.freeze({ ...runtime.counts }),
         latestAt: Object.freeze({ ...runtime.latestAt }),
+        transcriptTiming: runtime.transcriptTimingState,
       }),
     });
   }

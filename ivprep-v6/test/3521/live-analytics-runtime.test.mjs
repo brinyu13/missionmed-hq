@@ -80,11 +80,23 @@ function fakeDocument() {
   };
 }
 
-function runtimeHarness({ fixtureMode = false, fixture = null } = {}) {
+function runtimeHarness({ fixtureMode = false, fixture = null, transcriptTimingProducer = null } = {}) {
   const documentRef = fakeDocument();
   const calls = { prime: 0, gum: 0, visibility: [], destroy: 0 };
   const bridge = {
     media: { cam: false, mic: false, stream: null, AC: null },
+    sessionClock: { sessionMs: () => 0 },
+    addEventListener() {},
+    removeEventListener() {},
+    ensureAnalytics() {
+      return {
+        addEventListener() {}, removeEventListener() {}, setOverlayConsumer() {}, setInstrumentation() {}, diagnostics() { return {}; },
+      };
+    },
+    startAnalytics() { return true; },
+    endAnalytics() { return true; },
+    stopMedia() { this.media.stream = null; },
+    switchDevice() { return Promise.resolve(this.media); },
     setPresentationVisibility(value) { calls.visibility.push(value); return value; },
     primeAudioContext() { calls.prime += 1; },
     requestMedia() { calls.gum += 1; return Promise.reject(new Error('not granted')); },
@@ -98,9 +110,72 @@ function runtimeHarness({ fixtureMode = false, fixture = null } = {}) {
     renderer,
     fixtureMode,
     fixture,
+    transcriptTimingProducer,
   }).mount();
   return { runtime, bridge, calls, renderer, documentRef };
 }
+
+test('physical runtime starts and stops the fail-closed local transcript timing producer', async () => {
+  const calls = { start: 0, stop: 0 };
+  const producer = {
+    async start({ onState, onTiming }) {
+      calls.start += 1;
+      onState({ state: 'live', reason: 'LOCAL_TRANSCRIPT_TIMING_LIVE' });
+      onTiming({
+        atMs: 2_000,
+        windowStartedAtMs: 0,
+        windowEndedAtMs: 2_000,
+        wordCount: 6,
+        provenance: { kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, source: 'LOCAL_TIMED_TRANSCRIPT' },
+      });
+      return true;
+    },
+    stop() { calls.stop += 1; return true; },
+  };
+  const { runtime, bridge } = runtimeHarness({ transcriptTimingProducer: producer });
+  bridge.media = {
+    cam: true,
+    mic: true,
+    stream: { getAudioTracks: () => [{ readyState: 'live', enabled: true }] },
+    AC: { state: 'running', sampleRate: 48_000 },
+  };
+  await runtime.start();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(calls.start, 1);
+  assert.equal(runtime.projector.latest.metrics.SPEED_WPM.available, true);
+  assert.equal(runtime.projector.latest.metrics.SPEED_WPM.wordsPerMinute, 180);
+  assert.equal(runtime.transcriptTimingState.reason, 'LOCAL_TRANSCRIPT_TIMING_LIVE');
+  await runtime.finish();
+  assert.ok(calls.stop >= 1);
+});
+
+test('physical WPM waiting state never renders the contradictory producer-live reason', () => {
+  const { runtime, renderer } = runtimeHarness();
+  runtime.active = true;
+  runtime.consumeTranscriptTimingState({ state: 'live', reason: 'LOCAL_TRANSCRIPT_TIMING_LIVE' });
+  assert.equal(renderer.frames.at(-1).speed.available, false);
+  assert.equal(renderer.frames.at(-1).speed.reason, 'WAITING_FOR_LOCAL_TIMED_WORDS');
+});
+
+test('switching the active microphone restarts local timing on the replacement track', async () => {
+  const calls = { start: 0, stop: 0 };
+  const producer = {
+    async start() { calls.start += 1; return true; },
+    stop() { calls.stop += 1; return true; },
+  };
+  const { runtime, bridge } = runtimeHarness({ transcriptTimingProducer: producer });
+  bridge.media = {
+    cam: true,
+    mic: true,
+    stream: { getAudioTracks: () => [{ readyState: 'live', enabled: true }] },
+    AC: { state: 'running', sampleRate: 48_000 },
+  };
+  runtime.active = true;
+  runtime.activeClock = { sessionMs: () => 1_000 };
+  await runtime.switchDevice('microphone', 'replacement-microphone');
+  assert.equal(calls.stop, 1);
+  assert.equal(calls.start, 1);
+});
 
 test('all six analytics modules are independently hideable and restore their prior presentation state', () => {
   const state = new LiveAnalyticsPresentationState();

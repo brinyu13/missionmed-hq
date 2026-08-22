@@ -287,12 +287,28 @@ test('blocked worker egress attempts are retained without a URL',()=>{
   pipeline.destroy();
 });
 
-test('muted media tracks are unavailable and a newly muted microphone creates a gap',()=>{
+test('a transiently muted camera starts recovery polling and a newly muted microphone creates a gap',()=>{
+  const priorWorker=globalThis.Worker;
+  const priorSetTimeout=globalThis.setTimeout;
+  const priorClearTimeout=globalThis.clearTimeout;
+  globalThis.Worker=class FakeWorker{postMessage(){}terminate(){}};
+  globalThis.setTimeout=()=>1;
+  globalThis.clearTimeout=()=>{};
   const mutedVideo={readyState:'live',enabled:true,muted:true};
   const cameraPipeline=new BrowserAnalyticsPipeline({bridge:{media:{cam:true,stream:{getVideoTracks:()=>[mutedVideo],getAudioTracks:()=>[]}}},now:()=>0});
-  cameraPipeline.beginAnswer({answerId:'camera',videoElement:{}});
-  assert.equal(cameraPipeline.session.active.hasCamera,false);
-  cameraPipeline.destroy();
+  try{
+    cameraPipeline.beginAnswer({answerId:'camera',videoElement:{readyState:0,videoWidth:0,videoHeight:0}});
+    assert.equal(cameraPipeline.session.active.hasCamera,true);
+    assert.equal(cameraPipeline.cameraMediaIsLive(),false);
+    assert.notEqual(cameraPipeline.visionTimer,null);
+    mutedVideo.muted=false;
+    assert.equal(cameraPipeline.cameraMediaIsLive(),true);
+  }finally{
+    cameraPipeline.destroy();
+    globalThis.Worker=priorWorker;
+    globalThis.setTimeout=priorSetTimeout;
+    globalThis.clearTimeout=priorClearTimeout;
+  }
 
   let now=0;let audioTick=null;const priorSetInterval=globalThis.setInterval;
   globalThis.setInterval=(callback)=>{audioTick=callback;return 1};

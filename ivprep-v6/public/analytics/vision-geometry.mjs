@@ -85,9 +85,12 @@ export function deriveCompactGeometry(result, { faceCount = null } = {}) {
   const shoulderCenter = midpoint(leftShoulder, rightShoulder);
   const hipCenter = midpoint(leftHip, rightHip);
   const shoulderWidth = distance(leftShoulder, rightShoulder);
-  const torsoVisible = Boolean(
-    shoulderCenter && hipCenter && shoulderWidth
+  const upperBodyVisible = Boolean(
+    shoulderCenter && shoulderWidth
     && leftShoulder.visibility >= 0.5 && rightShoulder.visibility >= 0.5
+  );
+  const torsoVisible = Boolean(
+    upperBodyVisible && hipCenter
     && leftHip.visibility >= 0.4 && rightHip.visibility >= 0.4
   );
 
@@ -114,6 +117,7 @@ export function deriveCompactGeometry(result, { faceCount = null } = {}) {
       rollProxyDeg: round(rollProxy, 2),
     }),
     pose: Object.freeze({
+      upperBodyPresent: upperBodyVisible,
       torsoPresent: torsoVisible,
       shoulderWidth: round(shoulderWidth),
       centerX: round(shoulderCenter?.x),

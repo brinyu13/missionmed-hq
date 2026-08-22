@@ -503,6 +503,7 @@ export class LiveMetricProjector {
 
     return deepFreeze({
       available: true,
+      upperBodyPresent: pose?.upperBodyPresent === true || pose?.torsoPresent === true,
       torsoPresent: pose?.torsoPresent === true,
       bodyCenter: Number.isFinite(pose?.centerX) && Number.isFinite(pose?.centerY)
         ? { x: pose.centerX, y: pose.centerY }

@@ -241,6 +241,7 @@ test('vision maps the emitted proxy field names and live face-family cartridges'
 test('body and hand presentation remains observable and unsupported interpretations stay unavailable', () => {
   const body = new LiveMetricProjector().ingest(vision()).metrics.BODY_HANDS;
   assert.equal(body.available, true);
+  assert.equal(body.upperBodyPresent, true);
   assert.equal(body.torsoPresent, true);
   assert.deepEqual(body.bodyCenter, { x: 0.51, y: 0.48 });
   assert.equal(body.lateralLeanDeg, 1.5);
@@ -251,6 +252,18 @@ test('body and hand presentation remains observable and unsupported interpretati
   assert.equal(body.gestureClassification.available, false);
   assert.equal(body.noteTakingClassification.available, false);
   assert.equal(body.fidgetClassification.available, false);
+
+  const upperBodyOnly = new LiveMetricProjector().ingest(vision({
+    geometry: {
+      face: { present: true },
+      pose: { upperBodyPresent: true, torsoPresent: false, shoulderWidth: 0.3, centerX: 0.5, centerY: 0.45, lateralLeanDeg: null },
+      hands: { left: { present: false }, right: { present: false } },
+    },
+  })).metrics.BODY_HANDS;
+  assert.equal(upperBodyOnly.available, true);
+  assert.equal(upperBodyOnly.upperBodyPresent, true);
+  assert.equal(upperBodyOnly.torsoPresent, false);
+  assert.equal(upperBodyOnly.lateralLeanDeg, null);
 
   for (const claim of Object.values(UNSUPPORTED_LIVE_CLAIMS)) {
     assert.equal(claim.available, false);
