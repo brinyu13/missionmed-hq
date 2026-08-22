@@ -9,6 +9,7 @@
   "scripts": {
     "start": "node server/serve.mjs",
     "start:3440-harness": "node scripts/3440/start-hq-mount-harness.mjs",
+    "start:3521-live-analytics": "node scripts/3521/start-live-analytics-harness.mjs",
     "start:3440-profile-b-worker": "node server/agents/start-profile-b-worker.mjs",
     "start:3441r-founder-proof": "node scripts/3441r/start-founder-proof-harness.mjs",
     "start:3441r-t1-r3": "node scripts/3441r/start-founder-proof-harness.mjs",
@@ -24,7 +25,8 @@
     "probe:liveavatar-origin": "node scripts/probe-liveavatar-origin.mjs",
     "probe:liveavatar-targets": "node scripts/avatar/verify-liveavatar-targets.mjs",
     "probe:avatar-transport-endurance": "node scripts/avatar/run-liveavatar-transport-endurance.mjs",
-    "test": "node --test --test-concurrency=1 test/*.test.mjs test/avatar/*.test.mjs test/analytics/*.test.mjs test/3440/*.test.mjs test/3441r/*.test.mjs test/questions/*.test.mjs",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs test/avatar/*.test.mjs test/analytics/*.test.mjs test/3440/*.test.mjs test/3441r/*.test.mjs test/3521/*.test.mjs test/questions/*.test.mjs",
+    "test:3521": "node --test --test-concurrency=1 test/3521/*.test.mjs",
     "test:3441r-t1-r3": "node --test --test-concurrency=1 test/3441r/t1-durable-lease-keeper.test.mjs test/3441r/founder-proof-runtime.test.mjs test/3441r/founder-proof-ui.test.mjs"
   },
   "dependencies": {

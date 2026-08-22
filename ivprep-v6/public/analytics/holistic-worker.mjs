@@ -9,6 +9,9 @@ let activeAnswerEpoch = 0;
 let overlayEnabled = false;
 let faceOverlayEnabled = true;
 let bodyHandsOverlayEnabled = true;
+let handsOverlayEnabled = true;
+let bodyOverlayEnabled = true;
+let framingOverlayEnabled = true;
 let overlayCanvas = null;
 let overlayContext = null;
 let inferenceCanvas = null;
@@ -164,16 +167,18 @@ function renderOverlay(result, geometry, width, height) {
     primitiveCount += drawConnections(context, face, visionModule?.HolisticLandmarker?.FACE_LANDMARKS_TESSELATION, 'rgba(72,220,255,.32)', 0.7);
     primitiveCount += drawConnections(context, face, visionModule?.HolisticLandmarker?.FACE_LANDMARKS_CONTOURS, 'rgba(94,255,208,.95)', 1.2);
   }
-  if (bodyHandsOverlayEnabled) {
+  if (bodyOverlayEnabled) {
     primitiveCount += drawConnections(context, pose, visionModule?.HolisticLandmarker?.POSE_CONNECTIONS, 'rgba(94,255,208,.92)', 2, true);
     primitiveCount += drawPoints(context, pose, 'rgba(220,255,247,.98)', 2, true);
+  }
+  if (handsOverlayEnabled) {
     primitiveCount += drawConnections(context, leftHand, visionModule?.HolisticLandmarker?.HAND_CONNECTIONS, 'rgba(65,214,255,.98)', 1.5);
     primitiveCount += drawPoints(context, leftHand, 'rgba(65,214,255,.98)', 1.8);
     primitiveCount += drawConnections(context, rightHand, visionModule?.HolisticLandmarker?.HAND_CONNECTIONS, 'rgba(195,115,255,.98)', 1.5);
     primitiveCount += drawPoints(context, rightHand, 'rgba(220,175,255,.98)', 1.8);
   }
   const box = geometry?.face?.box;
-  if (faceOverlayEnabled && box) {
+  if (framingOverlayEnabled && box) {
     context.strokeStyle = 'rgba(94,255,208,.98)';
     context.lineWidth = 1.5;
     context.strokeRect(box.left * canvas.width, box.top * canvas.height, box.width * canvas.width, box.height * canvas.height);
@@ -203,6 +208,9 @@ async function initialize(message) {
   overlayEnabled = Boolean(message.overlayEnabled);
   faceOverlayEnabled = message.faceOverlayEnabled !== false;
   bodyHandsOverlayEnabled = message.bodyHandsOverlayEnabled !== false;
+  handsOverlayEnabled = message.handsOverlayEnabled === undefined ? bodyHandsOverlayEnabled : Boolean(message.handsOverlayEnabled);
+  bodyOverlayEnabled = message.bodyOverlayEnabled === undefined ? bodyHandsOverlayEnabled : Boolean(message.bodyOverlayEnabled);
+  framingOverlayEnabled = message.framingOverlayEnabled === undefined ? faceOverlayEnabled : Boolean(message.framingOverlayEnabled);
   visionModule = await import(message.bundleUrl);
   holistic = await createHolistic(visionModule, message.wasmRoot, message.holisticModelUrl);
   ready = true;
@@ -318,6 +326,9 @@ function configureInstrumentation(message) {
   overlayEnabled = Boolean(message.overlayEnabled);
   faceOverlayEnabled = message.faceOverlayEnabled !== false;
   bodyHandsOverlayEnabled = message.bodyHandsOverlayEnabled !== false;
+  handsOverlayEnabled = message.handsOverlayEnabled === undefined ? bodyHandsOverlayEnabled : Boolean(message.handsOverlayEnabled);
+  bodyOverlayEnabled = message.bodyOverlayEnabled === undefined ? bodyHandsOverlayEnabled : Boolean(message.bodyOverlayEnabled);
+  framingOverlayEnabled = message.framingOverlayEnabled === undefined ? faceOverlayEnabled : Boolean(message.framingOverlayEnabled);
 }
 
 self.onmessage = (event) => {

@@ -106,16 +106,29 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     return this.session;
   }
 
-  setInstrumentation({ overlayEnabled = false, faceOverlayEnabled = true, bodyHandsOverlayEnabled = true } = {}) {
+  setInstrumentation({
+    overlayEnabled = false,
+    faceOverlayEnabled = true,
+    bodyHandsOverlayEnabled = true,
+    handsOverlayEnabled = bodyHandsOverlayEnabled,
+    bodyOverlayEnabled = bodyHandsOverlayEnabled,
+    framingOverlayEnabled = faceOverlayEnabled,
+  } = {}) {
     this.overlayEnabled = Boolean(overlayEnabled);
     this.faceOverlayEnabled = Boolean(faceOverlayEnabled);
     this.bodyHandsOverlayEnabled = Boolean(bodyHandsOverlayEnabled);
+    this.handsOverlayEnabled = Boolean(handsOverlayEnabled);
+    this.bodyOverlayEnabled = Boolean(bodyOverlayEnabled);
+    this.framingOverlayEnabled = Boolean(framingOverlayEnabled);
     this.worker?.postMessage?.({
       type: 'instrumentation',
       generation: this.generation,
       overlayEnabled: this.overlayEnabled,
       faceOverlayEnabled: this.faceOverlayEnabled,
       bodyHandsOverlayEnabled: this.bodyHandsOverlayEnabled,
+      handsOverlayEnabled: this.handsOverlayEnabled,
+      bodyOverlayEnabled: this.bodyOverlayEnabled,
+      framingOverlayEnabled: this.framingOverlayEnabled,
     });
   }
 
@@ -304,6 +317,9 @@ export class BrowserAnalyticsPipeline extends EventTarget {
         overlayEnabled: this.overlayEnabled,
         faceOverlayEnabled: this.faceOverlayEnabled,
         bodyHandsOverlayEnabled: this.bodyHandsOverlayEnabled,
+        handsOverlayEnabled: this.handsOverlayEnabled,
+        bodyOverlayEnabled: this.bodyOverlayEnabled,
+        framingOverlayEnabled: this.framingOverlayEnabled,
       });
     } else this.worker.postMessage({ type: 'reset', generation, answerEpoch });
     if (!this.faceWorker) {
@@ -328,7 +344,9 @@ export class BrowserAnalyticsPipeline extends EventTarget {
       this.visionTimer = setTimeout(async () => {
         if (!this.answer || this.answerSealed || generation !== this.generation || answerEpoch !== this.answerEpoch) return;
         if (!this.visionSourceIsLive(video)) {
-          this.markVisionUnavailable(this.visionSourceMode === 'playback' ? 'playback_stopped' : 'camera_disconnected');
+          if (this.visionDisconnectedAt === null) this.markVisionUnavailable(this.visionSourceMode === 'playback' ? 'playback_stopped' : 'camera_disconnected');
+          this.visionTimer = null;
+          schedule();
           return;
         }
         const faceSafetySettled = this.faceWorkerReady || !this.faceWorker;
@@ -349,7 +367,9 @@ export class BrowserAnalyticsPipeline extends EventTarget {
               bitmap = null;
               if (captureSequence === this.visionCaptureSequence) this.frameInFlight = false;
               if (!this.visionSourceIsLive(video)) {
-                this.markVisionUnavailable(this.visionSourceMode === 'playback' ? 'playback_stopped' : 'camera_disconnected');
+                if (this.visionDisconnectedAt === null) this.markVisionUnavailable(this.visionSourceMode === 'playback' ? 'playback_stopped' : 'camera_disconnected');
+                this.visionTimer = null;
+                schedule();
                 return;
               }
             } else {
@@ -364,7 +384,9 @@ export class BrowserAnalyticsPipeline extends EventTarget {
                   bitmap = null;
                   if (captureSequence === this.visionCaptureSequence) this.frameInFlight = false;
                   if (!this.visionSourceIsLive(video)) {
-                    this.markVisionUnavailable(this.visionSourceMode === 'playback' ? 'playback_stopped' : 'camera_disconnected');
+                    if (this.visionDisconnectedAt === null) this.markVisionUnavailable(this.visionSourceMode === 'playback' ? 'playback_stopped' : 'camera_disconnected');
+                    this.visionTimer = null;
+                    schedule();
                     return;
                   }
                 } else {
@@ -607,6 +629,16 @@ export class BrowserAnalyticsPipeline extends EventTarget {
         return;
       }
       try {
+        if (this.visionDisconnectedAt !== null) {
+          this.session.observationGap({
+            startMs: this.visionDisconnectedAt,
+            endMs: message.timestampMs,
+            reason: 'camera_or_vision_disconnected',
+            modality: 'vision',
+          });
+          this.visionDisconnectedAt = null;
+          this.dispatch('state', { state: 'recovered', subsystem: 'vision', atMs: message.timestampMs });
+        }
         this.session.ingestVision({
           atMs: message.timestampMs,
           geometry: message.geometry,

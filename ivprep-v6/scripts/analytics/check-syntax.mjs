@@ -2,7 +2,15 @@ import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-const roots = ['analytics', 'public/analytics', 'scripts/analytics', 'public/questions', 'scripts/questions'];
+const roots = [
+  'analytics',
+  'public/analytics',
+  'public/live-analytics',
+  'scripts/3521',
+  'scripts/analytics',
+  'public/questions',
+  'scripts/questions',
+];
 const files = [];
 for (const root of roots) {
   for (const name of await readdir(root)) if (name.endsWith('.mjs')) files.push(join(root, name));

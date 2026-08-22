@@ -34,7 +34,7 @@ test('FaceDetector and Holistic use isolated workers and join only ephemeral pri
   assert.match(holistic,/holistic\.detectForVideo\(inferenceSurface, message\.timestampMs\)/u);
   assert.match(holistic,/remapPrimaryResult\(/u);
   assert.match(holistic,/primaryAssociated: Boolean\(result\)/u);
-  assert.match(holistic,/if \(faceOverlayEnabled\)[\s\S]{0,900}if \(bodyHandsOverlayEnabled\)/u);
+  assert.match(holistic,/if \(faceOverlayEnabled\)[\s\S]{0,900}if \(bodyOverlayEnabled\)[\s\S]{0,900}if \(handsOverlayEnabled\)[\s\S]{0,900}if \(framingOverlayEnabled && box\)/u);
   assert.match(holistic,/canvas\.transferToImageBitmap\(\)/u);
   assert.match(holistic,/self\.postMessage\(response, overlayBitmap \? \[overlayBitmap\] : \[\]\)/u);
   assert.doesNotMatch(holistic,/Float32Array|overlayVectors|connectionVectors/iu);

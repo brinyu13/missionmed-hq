@@ -13,6 +13,7 @@ const PUBLIC_ROOT = normalize(join(MODULE_DIR, '..', 'public'));
 const LIVEKIT_BROWSER_UMD = normalize(join(MODULE_DIR, '..', 'node_modules', 'livekit-client', 'dist', 'livekit-client.umd.js'));
 const MAX_BODY_BYTES = 64 * 1024;
 const PRODUCT_PREFIX = '/iv-prep-on-call';
+const LIVE_ANALYTICS_PREFIX = `${PRODUCT_PREFIX}/live-analytics`;
 const API_PREFIX = '/api/ivprep-v6';
 
 const MIME = Object.freeze({
@@ -131,6 +132,8 @@ function staticFile(pathname) {
   // /iv-prep-on-call/legacy/ for comparison and rollback, but it is no longer what the
   // hosted route serves.
   if (pathname === PRODUCT_PREFIX || pathname === `${PRODUCT_PREFIX}/`) relativePath = 'studio/index.html';
+  else if (pathname === `${LIVE_ANALYTICS_PREFIX}/`) relativePath = 'live-analytics/index.html';
+  else if (pathname.startsWith(`${LIVE_ANALYTICS_PREFIX}/`)) relativePath = `live-analytics/${pathname.slice(`${LIVE_ANALYTICS_PREFIX}/`.length)}`;
   else if (pathname === `${PRODUCT_PREFIX}/legacy` || pathname === `${PRODUCT_PREFIX}/legacy/`) relativePath = 'aaa/index.html';
   else if (pathname === `${PRODUCT_PREFIX}/assets/vendor/livekit-client.umd.js`) {
     return existsSync(LIVEKIT_BROWSER_UMD) && statSync(LIVEKIT_BROWSER_UMD).isFile() ? LIVEKIT_BROWSER_UMD : null;
@@ -226,6 +229,12 @@ export function createIvPrepHqHandler({
       return true;
     }
 
+    if (pathname === LIVE_ANALYTICS_PREFIX) {
+      response.writeHead(308, headers({ Location: `${LIVE_ANALYTICS_PREFIX}/` }));
+      response.end();
+      return true;
+    }
+
     if (pathname.startsWith(`${PRODUCT_PREFIX}/`)) {
       if (request.method !== 'GET' && request.method !== 'HEAD') {
         response.writeHead(405, headers({ Allow: 'GET, HEAD' }));
@@ -240,7 +249,7 @@ export function createIvPrepHqHandler({
       response.writeHead(200, headers({
         'Cache-Control': 'no-cache',
         'Content-Type': MIME[extname(file).toLowerCase()] || 'application/octet-stream',
-      }, sealedLiveKitSignalOrigin));
+      }, pathname.startsWith(LIVE_ANALYTICS_PREFIX) ? null : sealedLiveKitSignalOrigin));
       if (request.method === 'HEAD') response.end();
       else createReadStream(file).pipe(response);
       return true;
