@@ -10,6 +10,7 @@
 <body data-analytics-mode="coaching">
   <a class="skip-link" href="#live-meeting">Skip to interview room</a>
 
+  <!-- Founder screenshot-conformance shell; analytics producers remain independent. -->
   <div class="live-runtime" id="live-analytics-app">
     <header class="runtime-bar" aria-label="Live interview controls">
       <div class="brand-lockup" aria-label="MissionMed IV Prep On-Call">
@@ -64,7 +65,7 @@
                 <canvas class="hud-canvas" data-hud-canvas="head-face" aria-label="Head and face observable geometry display"></canvas>
                 <canvas class="live-scan-overlay" data-live-scan-overlay="face" aria-hidden="true"></canvas>
                 <div class="scan-reticle" aria-hidden="true"></div>
-                <span class="scan-label scan-label-top">Facial region map</span>
+                <span class="scan-label scan-label-top">Face scan</span>
                 <span class="scan-label scan-label-bottom" data-hud-state="head-face">NO CAMERA SIGNAL</span>
               </div>
               <div class="face-region-list" aria-label="Observable facial signal regions">
@@ -80,21 +81,21 @@
 
             <section class="metric-module smile-pattern-module" data-visibility-metric="head-face.smile-pattern">
               <button class="metric-eye" type="button" data-metric-toggle="head-face.smile-pattern" aria-label="Hide smile geometry activity" aria-pressed="true">◉</button>
-              <h3>Smile-geometry activity</h3>
+              <h3>Smile-pattern activity</h3>
               <div class="metric-arc" data-face-smile-gauge><span data-face-smile-value>—</span><small>Observed pattern</small></div>
               <p data-face-smile-status>Unavailable</p>
             </section>
 
             <section class="metric-module smile-events-module" data-visibility-metric="head-face.smile-events">
               <button class="metric-eye" type="button" data-metric-toggle="head-face.smile-events" aria-label="Hide smile pattern events" aria-pressed="true">◉</button>
-              <h3>Smile pattern events</h3>
+              <h3>Smile-pattern events</h3>
               <strong class="event-value" data-face-smile-events>—</strong>
               <p>Observable mouth-corner events</p>
             </section>
 
             <section class="metric-module camera-facing-module" data-visibility-metric="head-face.camera-facing-balance">
               <button class="metric-eye" type="button" data-metric-toggle="head-face.camera-facing-balance" aria-label="Hide camera-facing dwell proxy" aria-pressed="true">◉</button>
-              <h3>Camera-facing dwell proxy</h3>
+              <h3>Camera-facing balance</h3>
               <div class="balance-labels"><span><b data-face-facing>—</b> Facing</span><span>Away <b data-face-away>—</b></span></div>
               <div class="balance-track"><i data-face-balance></i><em aria-hidden="true"></em></div>
               <p>Distribution only · no eye-contact target</p>
@@ -115,7 +116,7 @@
 
             <section class="metric-module face-trend-module" data-visibility-metric="head-face.geometry-trend">
               <button class="metric-eye" type="button" data-metric-toggle="head-face.geometry-trend" aria-label="Hide facial geometry activity trend" aria-pressed="true">◉</button>
-              <h3>Facial-geometry activity trend <span>Last 60s</span></h3>
+              <h3>Expression / geometry trend <span>Last 60s</span></h3>
               <canvas class="metric-trend" data-face-trend aria-label="Observed facial geometry activity history"></canvas>
               <div class="trend-key"><span><i class="good"></i>Observed</span><span><i class="gap"></i>Signal gap</span></div>
             </section>
@@ -147,14 +148,19 @@
               <button class="metric-eye" type="button" data-metric-toggle="body-posture.wireframe" aria-label="Hide body wireframe" aria-pressed="true">◉</button>
               <canvas class="hud-canvas" data-hud-canvas="body" aria-label="Body, posture, and hand observable geometry display"></canvas>
               <canvas class="live-scan-overlay" data-live-scan-overlay="body" aria-hidden="true"></canvas>
-              <span class="scan-label scan-label-top">Upper-body geometry</span>
+              <span class="scan-label scan-label-top">Body scan</span>
               <span class="scan-label scan-label-bottom" data-hud-state="body">NO CAMERA SIGNAL</span>
             </section>
             <section class="metric-module body-alignment-module" data-visibility-metric="body-posture.alignment">
               <button class="metric-eye" type="button" data-metric-toggle="body-posture.alignment" aria-label="Hide alignment proxy" aria-pressed="true">◉</button>
-              <h3>Upper-body alignment proxy</h3>
+              <h3>Framing / alignment proxy</h3>
               <div class="alignment-gauge"><i data-body-alignment-needle></i><strong data-body-alignment>—</strong></div>
-              <p data-hud-readout="body:shoulders">UNAVAILABLE</p>
+              <dl class="posture-status-list">
+                <div><dt>Torso framing</dt><dd data-body-spine>UNAVAILABLE</dd></div>
+                <div><dt>Shoulder line</dt><dd data-hud-readout="body:shoulders">UNAVAILABLE</dd></div>
+                <div><dt>Body center</dt><dd data-body-head-position>UNAVAILABLE</dd></div>
+                <div><dt>Centered in frame</dt><dd data-body-centered-summary>UNAVAILABLE</dd></div>
+              </dl>
             </section>
             <section class="metric-module body-status-module" data-visibility-metric="body-posture.in-frame">
               <button class="metric-eye" type="button" data-metric-toggle="body-posture.in-frame" aria-label="Hide in-frame status" aria-pressed="true">◉</button>
@@ -180,13 +186,14 @@
               <button class="metric-eye" type="button" data-metric-toggle="body-posture.notes-detection" aria-label="Hide notes detection" aria-pressed="true">◉</button>
               <h3>Notes detection</h3><strong>UNAVAILABLE</strong>
             </section>
-            <section class="metric-module body-trend-module" data-visibility-metric="body-posture.movement-trend">
+            <section class="metric-module embedded-metric-trend" data-visibility-metric="body-posture.movement-trend">
               <button class="metric-eye" type="button" data-metric-toggle="body-posture.movement-trend" aria-label="Hide movement trend" aria-pressed="true">◉</button>
-              <h3>Movement over time</h3><canvas class="metric-trend" data-body-trend aria-label="Observed upper-body movement history"></canvas>
+              <h3>Movement over time</h3>
+              <canvas class="metric-trend" data-body-trend aria-label="Observed upper-body movement history"></canvas>
             </section>
-            <section class="metric-module body-status-module" data-visibility-metric="body-posture.notes-confidence">
+            <section class="metric-module notes-confidence-inline" data-visibility-metric="body-posture.notes-confidence">
               <button class="metric-eye" type="button" data-metric-toggle="body-posture.notes-confidence" aria-label="Hide notes confidence" aria-pressed="true">◉</button>
-              <h3>Notes confidence</h3><strong>NO VALIDATED PROXY</strong>
+              <h3>Notes confidence</h3><i aria-hidden="true"></i><span>NO VALIDATED PROXY</span>
             </section>
           </div>
           <button class="collapsed-tab" type="button" data-module-restore="body" aria-label="Show Body and Posture analytics">
@@ -290,8 +297,9 @@
           <div class="module-body" id="volume-body">
             <div class="instrument-readout"><span class="instrument-target">Reference corridor</span><span class="hud-value" data-hud-value="volume">UNAVAILABLE</span><span data-hud-unit="volume">dBFS</span></div>
             <canvas class="hud-canvas instrument-canvas" data-hud-canvas="volume" aria-label="Captured microphone signal level gauge"></canvas>
+            <div class="volume-state-cue" data-volume-state-cue data-state="unavailable">UNAVAILABLE</div>
             <div class="instrument-scale"><span>Quiet</span><span>Reference corridor</span><span>Loud</span></div>
-            <p class="instrument-status unavailable-state" data-hud-state="volume">UNAVAILABLE — connect microphone</p>
+            <p class="instrument-status" data-hud-state="volume" data-state="unavailable">UNAVAILABLE — connect microphone</p>
           </div>
           <button class="collapsed-tab" type="button" data-module-restore="volume" aria-label="Show Volume analytics"><span>VOL</span><strong>Volume</strong><i aria-hidden="true">‹</i></button>
         </section>
@@ -308,7 +316,7 @@
               <div class="dial-readout"><span class="hud-value" data-hud-value="speed">—</span><span>WPM</span></div>
             </div>
             <div class="speed-target">Reference range 110–160 WPM</div>
-            <p class="instrument-status unavailable-state" data-hud-state="speed">UNAVAILABLE — validated transcript timing required</p>
+            <p class="instrument-status" data-hud-state="speed" data-state="unavailable">UNAVAILABLE — validated transcript timing required</p>
           </div>
           <button class="collapsed-tab" type="button" data-module-restore="speed" aria-label="Show Speaking Speed analytics"><span>SPD</span><strong>Speed / WPM</strong><i aria-hidden="true">‹</i></button>
         </section>
@@ -322,7 +330,7 @@
           <div class="module-body" id="modulation-body">
             <div class="trace-readout"><span class="hud-value" data-hud-value="modulation">UNAVAILABLE</span><span data-hud-unit="modulation">dB range</span></div>
             <canvas class="hud-canvas instrument-canvas trace-canvas" data-hud-canvas="modulation" aria-label="Live vocal energy modulation trace"></canvas>
-            <p class="instrument-status unavailable-state" data-hud-state="modulation">UNAVAILABLE — captured history required</p>
+            <p class="instrument-status" data-hud-state="modulation" data-state="unavailable">UNAVAILABLE — captured history required</p>
           </div>
           <button class="collapsed-tab" type="button" data-module-restore="modulation" aria-label="Show Volume Modulation analytics"><span>MOD</span><strong>Modulation</strong><i aria-hidden="true">‹</i></button>
         </section>
@@ -338,7 +346,7 @@
               <canvas class="hud-canvas instrument-canvas pitch-canvas" data-hud-canvas="pitch" aria-label="Speaker-relative pitch register"></canvas>
               <div class="pitch-readout"><span class="hud-value" data-hud-value="pitch">—</span><span>semitones from your median</span></div>
             </div>
-            <p class="instrument-status unavailable-state" data-hud-state="pitch">UNAVAILABLE — voiced F0 frames required</p>
+            <p class="instrument-status" data-hud-state="pitch" data-state="unavailable">UNAVAILABLE — voiced F0 frames required</p>
           </div>
           <button class="collapsed-tab" type="button" data-module-restore="pitch" aria-label="Show Pitch analytics"><span>PIT</span><strong>Pitch</strong><i aria-hidden="true">‹</i></button>
         </section>

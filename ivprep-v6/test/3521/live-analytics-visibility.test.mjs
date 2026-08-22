@@ -215,6 +215,23 @@ test('metric histories and counters advance while their presentation IDs are hid
   assert.ok(afterBody.gestureEvents.count > beforeBody.gestureEvents.count);
 });
 
+test('paired body presentation metrics remain independently addressable', () => {
+  for (const [primary, companion] of [
+    ['body-posture.gesture-activity', 'body-posture.movement-trend'],
+    ['body-posture.notes-detection', 'body-posture.notes-confidence'],
+  ]) {
+    const first = new AnalyticsVisibilityState({ preset: 'full', storage: new MemoryStorage() });
+    first.setMetricVisible(primary, false);
+    assert.equal(first.snapshot().visibleMetricIds.includes(primary), false);
+    assert.equal(first.snapshot().visibleMetricIds.includes(companion), true);
+
+    const second = new AnalyticsVisibilityState({ preset: 'full', storage: new MemoryStorage() });
+    second.setMetricVisible(companion, false);
+    assert.equal(second.snapshot().visibleMetricIds.includes(companion), false);
+    assert.equal(second.snapshot().visibleMetricIds.includes(primary), true);
+  }
+});
+
 test('visibility state has no capture, detector, network, provider, or reset path', async () => {
   const source = await readFile(new URL('../../public/live-analytics/visibility-state.mjs', import.meta.url), 'utf8');
   for (const forbidden of [

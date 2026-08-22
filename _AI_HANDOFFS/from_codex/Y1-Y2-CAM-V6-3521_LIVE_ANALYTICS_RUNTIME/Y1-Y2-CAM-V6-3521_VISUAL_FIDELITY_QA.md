@@ -1,4 +1,6 @@
-# Y1-Y2-CAM-V6-3521 Visual Fidelity QA
+# Y1-Y2-CAM-V6-3521 Visual Fidelity QA — SUPERSEDED
+
+> **SUPERSEDED:** The PASS recorded below used the earlier broad visual-fidelity method and is no longer authoritative. The definitive screenshot-conformance evaluation is `/Users/brianb/MissionMed_worktrees/Y1-Y2-CAM-V6-3521/_AI_HANDOFFS/from_codex/Y1-Y2-CAM-V6-3521_VISUAL_CONFORMANCE/Y1-Y2-CAM-V6-3521_VISUAL_CONFORMANCE_REPORT.md`. That stricter evaluation uses normalized reference/current images, side-by-side and overlay evidence, measured region bounds, and two independent screenshot reviewers; its final verdict is PASS.
 
 ## Authority and method
 

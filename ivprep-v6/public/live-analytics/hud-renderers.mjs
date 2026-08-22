@@ -1,4 +1,4 @@
-// Y1-Y2-CAM-V6-3521 — presentation-only live HUD renderers.
+// Y1-Y2-CAM-V6-3521 — Founder-conformant, presentation-only live HUD renderers (visual pass 4).
 //
 // These renderers consume already-derived observable frames. They do not own media,
 // inference, thresholds, coaching policy, or session lifecycle. A hidden HUD may stop
@@ -16,18 +16,18 @@ export const HUD_METRICS = Object.freeze([
 ]);
 
 const COLORS = Object.freeze({
-  screen: '#070b12',
-  grid: 'rgba(49,64,111,.34)',
-  line: '#31406f',
+  screen: '#020914',
+  grid: 'rgba(35,72,98,.28)',
+  line: '#1c3046',
   ink: '#ffffff',
   soft: '#cbd5ee',
-  dim: '#7e8aac',
+  dim: '#8da1b7',
   orange: '#ff8a1e',
-  gold: '#ffc24b',
-  ok: '#2fbf63',
-  warn: '#ffa928',
+  gold: '#ffb300',
+  ok: '#65d21f',
+  warn: '#ffb300',
   bad: '#e5484d',
-  cyan: '#39d6ff',
+  cyan: '#23c5e8',
   violet: '#8b7cf7',
 });
 
@@ -221,9 +221,9 @@ function drawTrend(canvas, values, { color = COLORS.cyan, floor = null, ceiling 
 
 function drawCanonicalFace(context, width, height, frame) {
   const cx = width * .5;
-  const cy = height * .51;
-  const rx = width * .24;
-  const ry = height * .37;
+  const cy = height * .53;
+  const rx = width * .34;
+  const ry = height * .44;
   const point = (x, y) => ({ x: cx + x * rx, y: cy + y * ry });
   const path = (vertices, close = false) => {
     context.beginPath();
@@ -246,6 +246,24 @@ function drawCanonicalFace(context, width, height, frame) {
   context.bezierCurveTo(cx - rx * 1.04, cy - ry * .34, cx - rx * .78, cy - ry * .96, cx, cy - ry);
   context.closePath();
   context.stroke();
+  for (const side of [-1, 1]) {
+    context.beginPath();
+    context.ellipse(cx + side * rx * .93, cy - ry * .02, rx * .16, ry * .22, 0, 0, Math.PI * 2);
+    context.stroke();
+  }
+  context.globalAlpha = .34;
+  for (const fraction of [-.66, -.33, 0, .33, .66]) {
+    context.beginPath();
+    context.ellipse(cx, cy, rx * (1 - Math.abs(fraction) * .24), ry, fraction * .28, Math.PI * .10, Math.PI * .90);
+    context.stroke();
+  }
+  for (const fraction of [-.62, -.32, 0, .32, .62]) {
+    context.beginPath();
+    context.moveTo(cx - rx * .86, cy + ry * fraction);
+    context.quadraticCurveTo(cx, cy + ry * (fraction + .12), cx + rx * .86, cy + ry * fraction);
+    context.stroke();
+  }
+  context.globalAlpha = 1;
   const mesh = [
     [[0,-1],[-.46,-.70],[-.78,-.28],[-.72,.18],[-.46,.62],[0,1]],
     [[0,-1],[.46,-.70],[.78,-.28],[.72,.18],[.46,.62],[0,1]],
@@ -310,7 +328,7 @@ function drawCanonicalBody(context, width, height, frame) {
   const handsVisible = /L|R|BOTH/i.test(frame.handsLabel || '');
   context.save();
   context.strokeStyle = 'rgba(57,214,255,.82)';
-  context.fillStyle = 'rgba(57,214,255,.08)';
+  context.fillStyle = 'rgba(35,197,232,.16)';
   context.lineWidth = 1.15;
 
   context.beginPath();
@@ -318,12 +336,33 @@ function drawCanonicalBody(context, width, height, frame) {
   context.bezierCurveTo(cx + width * .045, top, cx + width * .055, top + height * .10, cx, top + height * .13);
   context.bezierCurveTo(cx - width * .055, top + height * .10, cx - width * .045, top, cx, top);
   context.closePath();
+  context.fill();
   context.stroke();
   context.beginPath();
   context.moveTo(cx - shoulderHalf, shoulderY);
   context.quadraticCurveTo(cx, shoulderY - height * .08, cx + shoulderHalf, shoulderY);
   context.lineTo(cx + hipHalf, hipY);
   context.lineTo(cx - hipHalf, hipY);
+  context.closePath();
+  context.fill();
+  context.stroke();
+
+  context.fillStyle = 'rgba(35,197,232,.12)';
+  context.beginPath();
+  context.moveTo(cx - hipHalf, hipY);
+  context.lineTo(cx - width * .045, kneeY);
+  context.lineTo(cx - width * .075, footY);
+  context.lineTo(cx - width * .15, footY);
+  context.lineTo(cx - width * .12, kneeY);
+  context.closePath();
+  context.fill();
+  context.stroke();
+  context.beginPath();
+  context.moveTo(cx + hipHalf, hipY);
+  context.lineTo(cx + width * .045, kneeY);
+  context.lineTo(cx + width * .075, footY);
+  context.lineTo(cx + width * .15, footY);
+  context.lineTo(cx + width * .12, kneeY);
   context.closePath();
   context.fill();
   context.stroke();
@@ -376,9 +415,18 @@ function drawCanonicalBody(context, width, height, frame) {
   }
 
   context.strokeStyle = 'rgba(47,191,99,.72)';
+  context.fillStyle = 'rgba(101,210,31,.24)';
   context.beginPath();
   context.ellipse(cx, shoulderY + height * .11, width * .105, height * .095, 0, 0, Math.PI * 2);
+  context.fill();
   context.stroke();
+  context.fillStyle = 'rgba(101,210,31,.18)';
+  for (const side of [-1, 1]) {
+    context.beginPath();
+    context.ellipse(cx + side * width * .078, shoulderY + height * .035, width * .065, height * .055, 0, 0, Math.PI * 2);
+    context.fill();
+    context.stroke();
+  }
   context.strokeStyle = 'rgba(255,194,75,.72)';
   context.beginPath();
   context.moveTo(cx - shoulderHalf * .72, shoulderY + height * .015);
@@ -475,8 +523,12 @@ export class HeadFaceHudRenderer extends HudRenderer {
       return;
     }
 
-    clearScreen(fit.context, fit.width, fit.height);
+    // The Founder scanner plate is a presentation-only anatomical reference.
+    // Keep this layer transparent so actual observed geometry can paint over it.
+    fit.context.clearRect(0, 0, fit.width, fit.height);
     if (points.length >= 50) {
+      fit.context.save();
+      fit.context.globalAlpha = .66;
       fit.context.lineWidth = 1;
       const regionState = frame.regionStates || {};
       drawPolyline(fit.context, points, FACE_CONTOUR, fit.width, fit.height, stateColor(regionState.face || frame.state || 'live'), true);
@@ -485,7 +537,8 @@ export class HeadFaceHudRenderer extends HudRenderer {
       BROWS.forEach((indices) => drawPolyline(fit.context, points, indices, fit.width, fit.height, stateColor(regionState.brows || 'live')));
       drawPolyline(fit.context, points, LIPS, fit.width, fit.height, stateColor(regionState.mouth || 'live'), true);
       drawLandmarks(fit.context, points.filter((_, index) => index % 5 === 0), fit.width, fit.height, 'rgba(57,214,255,.55)', 1);
-    } else drawCanonicalFace(fit.context, fit.width, fit.height, frame);
+      fit.context.restore();
+    }
 
     const yaw = frame.yawProxyDeg ?? frame.yawDeg;
     const pitch = frame.pitchProxyDeg ?? frame.pitchDeg;
@@ -561,6 +614,9 @@ export class BodyHudRenderer extends HudRenderer {
     this.readouts = Object.fromEntries(['centered', 'shoulders', 'hands', 'gesture'].map((key) => [key, root.querySelector(`[data-hud-readout="body:${key}"]`)]));
     this.alignment = root.querySelector('[data-body-alignment]');
     this.alignmentNeedle = root.querySelector('[data-body-alignment-needle]');
+    this.spine = root.querySelector('[data-body-spine]');
+    this.headPosition = root.querySelector('[data-body-head-position]');
+    this.centeredSummary = root.querySelector('[data-body-centered-summary]');
     this.movement = root.querySelector('[data-body-movement]');
     this.trend = root.querySelector('[data-body-trend]');
   }
@@ -571,6 +627,9 @@ export class BodyHudRenderer extends HudRenderer {
     setText(this.captureState, idle ? '● Idle' : '● Signal gap', idle ? 'idle' : 'unavailable');
     Object.values(this.readouts).forEach((node) => setText(node, 'UNAVAILABLE', 'unavailable'));
     setText(this.alignment, '—', 'unavailable');
+    setText(this.spine, 'UNAVAILABLE', 'unavailable');
+    setText(this.headPosition, 'UNAVAILABLE', 'unavailable');
+    setText(this.centeredSummary, 'UNAVAILABLE', 'unavailable');
     setText(this.movement, 'UNAVAILABLE', 'unavailable');
     if (this.alignmentNeedle) this.alignmentNeedle.style.transform = 'rotate(0deg)';
     drawTrend(this.trend, []);
@@ -587,10 +646,14 @@ export class BodyHudRenderer extends HudRenderer {
       return;
     }
 
-    clearScreen(fit.context, fit.width, fit.height);
+    // Preserve the anatomical scanner plate and paint only observed live geometry.
+    fit.context.clearRect(0, 0, fit.width, fit.height);
     if (pose.length) {
+      fit.context.save();
+      fit.context.globalAlpha = .72;
       drawConnections(fit.context, pose, POSE_CONNECTIONS, fit.width, fit.height, stateColor(frame.postureState || frame.state || 'live'));
       drawLandmarks(fit.context, pose, fit.width, fit.height, COLORS.cyan, 1.8);
+      fit.context.restore();
     }
     if (leftHand.length) {
       drawConnections(fit.context, leftHand, HAND_CONNECTIONS, fit.width, fit.height, stateColor(frame.leftHandState || 'live'));
@@ -600,10 +663,6 @@ export class BodyHudRenderer extends HudRenderer {
       drawConnections(fit.context, rightHand, HAND_CONNECTIONS, fit.width, fit.height, stateColor(frame.rightHandState || 'live'));
       drawLandmarks(fit.context, rightHand, fit.width, fit.height, COLORS.orange, 1.1);
     }
-    if (!pose.length && !leftHand.length && !rightHand.length) {
-      drawCanonicalBody(fit.context, fit.width, fit.height, frame);
-    }
-
     const centered = frame.centeredLabel || (typeof frame.centered === 'boolean' ? (frame.centered ? 'CENTERED' : 'OFF CENTER') : 'UNAVAILABLE');
     const shoulders = frame.shoulderLabel || (finite(frame.shoulderTiltDeg) ? `${formatNumber(frame.shoulderTiltDeg, 1)}° TILT` : 'UNAVAILABLE');
     const hands = frame.handsLabel || ((leftHand.length || rightHand.length) ? `${leftHand.length ? 'L' : '—'} / ${rightHand.length ? 'R' : '—'} VISIBLE` : 'UNAVAILABLE');
@@ -612,6 +671,9 @@ export class BodyHudRenderer extends HudRenderer {
     setText(this.readouts.shoulders, shoulders, frame.shoulderState || 'neutral');
     setText(this.readouts.hands, hands, frame.handsState || 'neutral');
     setText(this.readouts.gesture, gesture, frame.gestureState || 'neutral');
+    setText(this.spine, centered, frame.centeredState || frame.state || 'neutral');
+    setText(this.headPosition, centered, frame.centeredState || frame.state || 'neutral');
+    setText(this.centeredSummary, centered, frame.centeredState || frame.state || 'neutral');
     setText(this.status, frame.transientOverlay ? 'TRANSIENT WORKER OVERLAY' : (pose.length || leftHand.length || rightHand.length ? 'LIVE LANDMARKS' : 'COMPACT GEOMETRY PROXY'), frame.state || 'ok');
     setText(this.captureState, '● Live', 'live');
     const lean = Number(frame.shoulderLabel?.match?.(/-?\d+(?:\.\d+)?/)?.[0]);
@@ -624,7 +686,15 @@ export class BodyHudRenderer extends HudRenderer {
 }
 
 export class VolumeHudRenderer extends HudRenderer {
-  constructor(root) { super(root, 'volume'); }
+  constructor(root) {
+    super(root, 'volume');
+    this.cue = root.querySelector('[data-volume-state-cue]');
+  }
+
+  unavailable(reason = 'NO_AUDIO_FRAMES') {
+    super.unavailable(reason);
+    setText(this.cue, 'UNAVAILABLE', 'unavailable');
+  }
 
   draw(frame) {
     const dbfs = frame.dbfs ?? frame.rmsDb;
@@ -636,7 +706,7 @@ export class VolumeHudRenderer extends HudRenderer {
     if (!fit) return;
     clearScreen(fit.context, fit.width, fit.height, { grid: false });
     const normalized = finite(frame.normalized) ? clamp(frame.normalized) : clamp((Number(dbfs) + 60) / 60);
-    const segments = 18;
+    const segments = 16;
     const gap = 3;
     const segmentWidth = Math.max(2, (fit.width - gap * (segments - 1)) / segments);
     const lit = Math.round(normalized * segments);
@@ -672,8 +742,17 @@ export class VolumeHudRenderer extends HudRenderer {
       fit.context.lineTo(x + direction * 8, fit.height - 10);
       fit.context.stroke();
     }
-    setText(this.value, `${formatNumber(dbfs, 1)}`, frame.zone || frame.state || 'neutral');
-    setText(this.status, frame.label || String(frame.zone || 'LIVE LEVEL').replaceAll('_', ' '), frame.zone || frame.state || 'neutral');
+    const zone = stateName(frame.zone || frame.state || 'neutral');
+    const cue = zone === 'target' || zone === 'ok'
+      ? 'TARGET — HOLD'
+      : zone === 'quiet' || zone === 'warn'
+        ? 'QUIET — LIFT'
+        : zone === 'loud' || zone === 'bad'
+          ? 'LOUD — EASE'
+          : 'LIVE LEVEL';
+    setText(this.value, `${formatNumber(dbfs, 1)}`, zone);
+    setText(this.cue, cue, zone);
+    setText(this.status, frame.label || String(frame.zone || 'LIVE LEVEL').replaceAll('_', ' '), zone);
   }
 }
 

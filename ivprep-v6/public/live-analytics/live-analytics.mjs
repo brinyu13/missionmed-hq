@@ -1,4 +1,4 @@
-// Y1-Y2-CAM-V6-3521 — isolated Mock Interview Live Analytics Runtime.
+// Y1-Y2-CAM-V6-3521 — isolated Mock Interview Live Analytics Runtime (visual pass 4).
 //
 // There are two deliberately separate state machines in this file:
 //   1. media/measurement, owned by LiveAnalyticsMediaBridge; and
@@ -455,6 +455,8 @@ export class LiveAnalyticsRuntime {
     setText(this.elements.connect?.querySelector('span'), 'Load deterministic test input');
     this.elements.cameraSelect.disabled = true;
     this.elements.microphoneSelect.disabled = true;
+    setText(this.elements.cameraSelect.options?.[0], 'Local test camera');
+    setText(this.elements.microphoneSelect.options?.[0], 'Local test microphone');
     setText(this.elements.streamQuality, 'LOCAL TEST INPUT · IDLE');
     setText(this.elements.measurement, 'Deterministic input available');
     this.elements.measurement.dataset.state = 'test';
@@ -1246,28 +1248,9 @@ export class LiveAnalyticsRuntime {
       context.stroke();
     }
     context.setLineDash([]);
-    const pose = geometry.pose;
-    if (pose?.torsoPresent && this.overlayVisibility.body) {
-      const cx = pose.centerX * width;
-      const cy = pose.centerY * height;
-      const shoulder = pose.shoulderWidth * width;
-      const hipY = height * .77;
-      context.beginPath();
-      context.moveTo(cx - shoulder / 2, cy);
-      context.lineTo(cx + shoulder / 2, cy);
-      context.lineTo(width * 0.57, hipY);
-      context.lineTo(width * 0.43, hipY);
-      context.closePath();
-      context.stroke();
-      context.beginPath();
-      context.moveTo(cx, cy);
-      context.lineTo(cx, hipY);
-      context.moveTo(cx - shoulder * .42, cy + height * .04);
-      context.lineTo(cx + shoulder * .34, hipY - height * .02);
-      context.moveTo(cx + shoulder * .42, cy + height * .04);
-      context.lineTo(cx - shoulder * .34, hipY - height * .02);
-      context.stroke();
-    }
+    // The deterministic fixture keeps the Founder camera surface visually quiet.
+    // Physical capture still receives the worker-rendered live pose overlay; the
+    // fixture's compact posture proxy remains visible in the left scanner/readouts.
     for (const hand of [geometry.hands?.left, geometry.hands?.right]) {
       if (!hand?.present || !this.overlayVisibility.hands) continue;
       const side = hand.centerX < .5 ? -1 : 1;
