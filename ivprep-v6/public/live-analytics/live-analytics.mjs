@@ -253,7 +253,9 @@ export class LiveAnalyticsRuntime {
     windowRef = globalThis.window,
     bridge = createLiveAnalyticsMediaBridge(),
     projector = new LiveMetricProjector(),
-    presentation = new AnalyticsVisibilityState(),
+    // Physical and deterministic sources feed one Founder-approved HUD. Signal
+    // availability changes readouts only; it must never select a smaller layout.
+    presentation = new AnalyticsVisibilityState({ preset: 'full' }),
     renderer = null,
     transcriptTimingProducer = null,
     fixtureMode = false,
@@ -452,8 +454,6 @@ export class LiveAnalyticsRuntime {
   }
 
   #configureFixtureSurface() {
-    this.presentation.selectPreset('full');
-    this.applyPresentation();
     this.elements.app.dataset.input = 'deterministic-test';
     setText(this.elements.connect?.querySelector('span'), 'Load deterministic test input');
     this.elements.cameraSelect.disabled = true;

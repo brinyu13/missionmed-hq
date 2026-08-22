@@ -532,7 +532,10 @@ export class HeadFaceHudRenderer extends HudRenderer {
   }
 
   unavailable(reason = 'NO_CAMERA_SIGNAL') {
-    super.unavailable(reason);
+    this.lastFrame = Object.freeze({ available: false, reason });
+    const fit = this.context();
+    if (fit) fit.context.clearRect(0, 0, fit.width, fit.height);
+    setText(this.status, `ACQUIRING — ${labelReason(reason)}`, 'unavailable');
     const idle = ['NO_VISION_FRAMES', 'NO_CAMERA_SIGNAL'].includes(reason);
     setText(this.captureState, idle ? '● Idle' : '● Signal gap', idle ? 'idle' : 'unavailable');
     Object.values(this.readouts).forEach((node) => setText(node, 'UNAVAILABLE', 'unavailable'));
@@ -660,7 +663,10 @@ export class BodyHudRenderer extends HudRenderer {
   }
 
   unavailable(reason = 'NO_CAMERA_SIGNAL') {
-    super.unavailable(reason);
+    this.lastFrame = Object.freeze({ available: false, reason });
+    const fit = this.context();
+    if (fit) fit.context.clearRect(0, 0, fit.width, fit.height);
+    setText(this.status, `ACQUIRING — ${labelReason(reason)}`, 'unavailable');
     const idle = ['NO_VISION_FRAMES', 'NO_CAMERA_SIGNAL'].includes(reason);
     setText(this.captureState, idle ? '● Idle' : '● Signal gap', idle ? 'idle' : 'unavailable');
     Object.values(this.readouts).forEach((node) => setText(node, 'UNAVAILABLE', 'unavailable'));

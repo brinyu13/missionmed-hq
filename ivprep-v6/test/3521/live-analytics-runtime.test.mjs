@@ -115,6 +115,42 @@ function runtimeHarness({ fixtureMode = false, fixture = null, transcriptTimingP
   return { runtime, bridge, calls, renderer, documentRef };
 }
 
+test('physical and deterministic sources mount the identical full Founder presentation before measurement', async () => {
+  const physical = runtimeHarness();
+  const deterministic = runtimeHarness({ fixtureMode: true });
+  const physicalPresentation = physical.runtime.presentation.snapshot();
+  const deterministicPresentation = deterministic.runtime.presentation.snapshot();
+
+  assert.equal(physicalPresentation.preset, 'full');
+  assert.deepEqual(physicalPresentation, deterministicPresentation);
+  assert.deepEqual(physicalPresentation.visible, LIVE_ANALYTICS_MODULES);
+  assert.deepEqual(physical.documentRef.byId.get('runtime-main').dataset, deterministic.documentRef.byId.get('runtime-main').dataset);
+  assert.equal(physical.documentRef.byId.get('runtime-main').dataset.leftCollapsed, 'false');
+  assert.equal(physical.documentRef.byId.get('runtime-main').dataset.rightCollapsed, 'false');
+  assert.equal(physical.documentRef.modules.get('head-face').dataset.collapsed, 'false');
+  assert.equal(physical.documentRef.modules.get('body').dataset.collapsed, 'false');
+
+  const source = await readFile(new URL('../../public/live-analytics/live-analytics.mjs', import.meta.url), 'utf8');
+  const fixtureConfiguration = source.split('  #configureFixtureSurface() {')[1]?.split('\n  applyPresentation() {')[0] || '';
+  assert.doesNotMatch(fixtureConfiguration, /selectPreset|setMode|setMetricVisible|setFamilyVisible/u);
+
+  const html = await readFile(new URL('../../public/live-analytics/index.html', import.meta.url), 'utf8');
+  const css = await readFile(new URL('../../public/live-analytics/live-analytics.css', import.meta.url), 'utf8');
+  assert.match(css, /founder-face-scanner\.png/u);
+  assert.match(css, /founder-body-scanner\.png/u);
+  const renderers = await readFile(new URL('../../public/live-analytics/hud-renderers.mjs', import.meta.url), 'utf8');
+  const headUnavailable = renderers.split('export class HeadFaceHudRenderer')[1]?.split('  draw(frame) {')[0] || '';
+  const bodyUnavailable = renderers.split('export class BodyHudRenderer')[1]?.split('  draw(frame) {')[0] || '';
+  for (const unavailablePath of [headUnavailable, bodyUnavailable]) {
+    assert.match(unavailablePath, /clearRect\(0, 0, fit\.width, fit\.height\)/u);
+    assert.doesNotMatch(unavailablePath, /super\.unavailable/u, 'scanner assets must not be covered by the generic unavailable painter');
+  }
+  const rightOrder = ['data-module="volume"', 'data-module="speed"', 'data-module="modulation"', 'data-module="pitch"']
+    .map((marker) => html.indexOf(marker));
+  assert.ok(rightOrder.every((position) => position >= 0));
+  assert.deepEqual([...rightOrder].sort((a, b) => a - b), rightOrder);
+});
+
 test('physical runtime starts and stops the fail-closed local transcript timing producer', async () => {
   const calls = { start: 0, stop: 0 };
   const producer = {
