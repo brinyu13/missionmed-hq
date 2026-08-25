@@ -123,7 +123,11 @@ const DR133_RECEIPT_KEYS = Object.freeze([
   'rlsSha256',
   'runnerCode',
 ]);
-const DR133_RECEIPT_MODES = Object.freeze(['migration', 'runtime-login']);
+const DR133_RECEIPT_MODES = Object.freeze([
+  'migration',
+  'runtime-login',
+  'runtime-login-deprovision',
+]);
 const DR133_RECEIPT_RESULTS = Object.freeze([
   'NO_MUTATION',
   'FOUNDATION_ROLLED_BACK',
@@ -138,6 +142,17 @@ const DR133_RECEIPT_RESULTS = Object.freeze([
   'RUNTIME_LOGIN_COMMITTED_POSTFLIGHT_REJECTED',
   'RUNTIME_LOGIN_COMMITTED_VERIFIED_CLEANUP_FAILED',
   'RUNTIME_LOGIN_COMMITTED_VERIFIED',
+  'RUNTIME_LOGIN_DEPROVISION_ROLLED_BACK',
+  'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_OUTCOME_UNKNOWN',
+  'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_COMMITTED_POSTFLIGHT_REJECTED',
+  'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_COMMITTED_VERIFICATION_UNKNOWN',
+  'RUNTIME_LOGIN_DEPROVISION_QUARANTINED_SESSIONS_ACTIVE',
+  'RUNTIME_LOGIN_DEPROVISION_QUARANTINED_ONLY',
+  'RUNTIME_LOGIN_DEPROVISION_OUTCOME_UNKNOWN',
+  'RUNTIME_LOGIN_DEPROVISION_COMMITTED_POSTFLIGHT_REJECTED',
+  'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFICATION_UNKNOWN',
+  'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED_CLEANUP_FAILED',
+  'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED',
 ]);
 
 export const DR133_RUNNER_ENV_KEYS = Object.freeze([
@@ -241,8 +256,10 @@ export function parsePrivateDatabaseUrl(rawValue, expectedUser) {
 
 export function resolveDr133RunnerEnvironment(rawEnvironment, { mode }) {
   if (!rawEnvironment || typeof rawEnvironment !== 'object') failDr133('ENVIRONMENT_REQUIRED');
-  if (!['migration', 'runtime-login'].includes(mode)) failDr133('MODE_INVALID');
-  const expectedKeys = mode === 'migration' ? DR133_RUNNER_ENV_KEYS : DR133_RUNTIME_ENV_KEYS;
+  if (!['migration', 'runtime-login', 'runtime-login-deprovision'].includes(mode)) {
+    failDr133('MODE_INVALID');
+  }
+  const expectedKeys = mode === 'runtime-login' ? DR133_RUNTIME_ENV_KEYS : DR133_RUNNER_ENV_KEYS;
   for (const key of expectedKeys) requiredString(rawEnvironment[key], `${key}_REQUIRED`);
 
   const expectedLorKeys = expectedKeys.filter((key) => key.startsWith('LOR_DR133_')).sort();
@@ -459,6 +476,143 @@ export function assertRuntimeAdminRow(row) {
   ) failDr133('RUNTIME_LOGIN_CATALOG_INVALID');
 }
 
+function parseCanonicalCountText(value, code) {
+  if (!/^(?:0|[1-9][0-9]{0,9})$/u.test(value)) failDr133(code);
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed > 100_000) failDr133(code);
+  return parsed;
+}
+
+function assertCanonicalOidText(value, code) {
+  if (!/^[1-9][0-9]{0,9}$/u.test(value)) failDr133(code);
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed > 4_294_967_295) failDr133(code);
+  return value;
+}
+
+function runtimeDeprovisionRoleState(row, code) {
+  const activeRoleSafe = row?.runtime_role_active_safe;
+  const quarantinedRoleSafe = row?.runtime_role_quarantined_safe;
+  if (
+    !row
+    || typeof row !== 'object'
+    || row.database_name !== DR133_TARGET.databaseName
+    || row.current_user !== DR133_TARGET.databaseAdmin
+    || row.session_user !== DR133_TARGET.databaseAdmin
+    || row.database_owner !== DR133_TARGET.databaseAdmin
+    || ![16, 18].includes(row.postgres_major)
+    || row.private_server_address !== true
+    || row.ssl_active !== true
+    || typeof row.ssl_version !== 'string'
+    || row.ssl_version.length === 0
+    || typeof row.ssl_cipher !== 'string'
+    || row.ssl_cipher.length === 0
+    || row.schema_sentinel !== expectedDr133Sentinel()
+    || row.app_role_count !== '1'
+    || row.command_owner_count !== '1'
+    || row.runtime_login_count !== '1'
+    || typeof activeRoleSafe !== 'boolean'
+    || typeof quarantinedRoleSafe !== 'boolean'
+    || activeRoleSafe === quarantinedRoleSafe
+    || row.membership_safe !== true
+    || row.membership_count !== '1'
+    || row.runtime_owned_object_count !== '0'
+    || row.runtime_default_acl_count !== '0'
+    || row.runtime_unsafe_dependency_count !== '0'
+  ) failDr133(code);
+  const runtimeRoleOid = assertCanonicalOidText(row.runtime_role_oid, code);
+  const activeSessionCount = parseCanonicalCountText(row.runtime_active_session_count, code);
+  const startingClientBackendCount = parseCanonicalCountText(
+    row.starting_unauthenticated_client_backend_count,
+    code,
+  );
+  const authenticationTimeoutSeconds = parseCanonicalCountText(
+    row.authentication_timeout_seconds,
+    code,
+  );
+  if (
+    authenticationTimeoutSeconds < 1
+    || authenticationTimeoutSeconds > 120
+    || row.pre_auth_delay_seconds !== '0'
+    || row.post_auth_delay_seconds !== '0'
+  ) failDr133(code);
+  return Object.freeze({
+    runtimeRoleOid,
+    activeSessionCount,
+    startingClientBackendCount,
+    authenticationTimeoutSeconds,
+    roleState: activeRoleSafe ? 'active' : 'quarantined',
+  });
+}
+
+export function assertRuntimeDeprovisionPreflightRow(row) {
+  return runtimeDeprovisionRoleState(row, 'RUNTIME_LOGIN_DEPROVISION_PREFLIGHT_INVALID');
+}
+
+export function assertRuntimeDeprovisionQuarantinedRow(
+  row,
+  expectedRuntimeRoleOid,
+  { requireNoSessions = false } = {},
+) {
+  const expectedOid = assertCanonicalOidText(
+    expectedRuntimeRoleOid,
+    'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_INVALID',
+  );
+  const state = runtimeDeprovisionRoleState(
+    row,
+    'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_INVALID',
+  );
+  if (
+    state.runtimeRoleOid !== expectedOid
+    || state.roleState !== 'quarantined'
+    || (requireNoSessions && (
+      state.activeSessionCount !== 0
+      || state.startingClientBackendCount !== 0
+    ))
+  ) failDr133('RUNTIME_LOGIN_DEPROVISION_QUARANTINE_INVALID');
+  return state;
+}
+
+export function assertRuntimeDeprovisionAbsentRow(row, expectedRuntimeRoleOid) {
+  const expectedOid = assertCanonicalOidText(
+    expectedRuntimeRoleOid,
+    'RUNTIME_LOGIN_DEPROVISION_ABSENCE_INVALID',
+  );
+  if (
+    !row
+    || typeof row !== 'object'
+    || row.checked_runtime_oid !== expectedOid
+    || row.runtime_name_count !== '0'
+    || row.runtime_oid_count !== '0'
+    || row.membership_count !== '0'
+    || row.runtime_active_session_count !== '0'
+    || row.starting_unauthenticated_client_backend_count !== '0'
+    || row.runtime_owned_object_count !== '0'
+    || row.runtime_default_acl_count !== '0'
+    || row.runtime_unsafe_dependency_count !== '0'
+  ) failDr133('RUNTIME_LOGIN_DEPROVISION_ABSENCE_INVALID');
+}
+
+export function assertRuntimeDeprovisionRevokedRow(row, expectedRuntimeRoleOid) {
+  const expectedOid = assertCanonicalOidText(
+    expectedRuntimeRoleOid,
+    'RUNTIME_LOGIN_DEPROVISION_REVOKE_INVALID',
+  );
+  if (
+    !row
+    || typeof row !== 'object'
+    || row.checked_runtime_oid !== expectedOid
+    || row.runtime_name_count !== '1'
+    || row.runtime_oid_count !== '1'
+    || row.membership_count !== '0'
+    || row.runtime_active_session_count !== '0'
+    || row.starting_unauthenticated_client_backend_count !== '0'
+    || row.runtime_owned_object_count !== '0'
+    || row.runtime_default_acl_count !== '0'
+    || row.runtime_unsafe_dependency_count !== '0'
+  ) failDr133('RUNTIME_LOGIN_DEPROVISION_REVOKE_INVALID');
+}
+
 export function assertRuntimeIdentityRow(row) {
   if (
     !row
@@ -508,7 +662,7 @@ export function buildNonemptyRelationsSql() {
   ].join('\n');
 }
 
-export function extractRollbackGuardVerificationSql(source) {
+function splitVerifiedRollbackGuard(source) {
   if (typeof source !== 'string') failDr133('ROLLBACK_GUARD_SOURCE_INVALID');
   const rollbackArtifact = DR133_ARTIFACTS.find((artifact) => artifact.id === 'rls-rollback');
   if (sha256Bytes(source) !== rollbackArtifact.sha256) failDr133('ROLLBACK_ARTIFACT_HASH_MISMATCH');
@@ -525,5 +679,26 @@ export function extractRollbackGuardVerificationSql(source) {
       'REVOKE EXECUTE ON FUNCTION lor_studio.commit_student_case_create',
     )
   ) failDr133('ROLLBACK_GUARD_BOUNDARY_INVALID');
+  return Object.freeze({ prefix, destructiveTail });
+}
+
+export function extractRollbackGuardVerificationSql(source) {
+  const { prefix } = splitVerifiedRollbackGuard(source);
   return `${prefix}\n\nROLLBACK;\n`;
+}
+
+export function extractRollbackGuardTransactionBodySql(source) {
+  const { prefix } = splitVerifiedRollbackGuard(source);
+  const outerBegin = '\nBEGIN;\n\n';
+  const beginIndex = prefix.indexOf(outerBegin);
+  if (beginIndex < 0 || beginIndex !== prefix.lastIndexOf(outerBegin)) {
+    failDr133('ROLLBACK_GUARD_TRANSACTION_BOUNDARY_INVALID');
+  }
+  const body = prefix.slice(beginIndex + outerBegin.length);
+  if (
+    !body.startsWith('DO $identity_guard$\n')
+    || !body.endsWith('END\n$catalog_guard$;')
+    || body.includes(ROLLBACK_LITERAL_MARKER)
+  ) failDr133('ROLLBACK_GUARD_TRANSACTION_BOUNDARY_INVALID');
+  return `${body}\n`;
 }
