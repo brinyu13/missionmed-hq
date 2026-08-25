@@ -1,5 +1,12 @@
 # D1-TIMELINE-FOUNDER-REANCHOR-015 — Bounded Authority and Registration Packet
 
+> Historical preauthorization record. The governing conflicts and requested
+> Founder action documented below were subsequently resolved by DR-127/DR-128
+> and the explicit unit-23 approval recorded in
+> `06_FOUNDER_ACCEPTANCE_AND_PRODUCTION_AUTHORIZATION.md`. Preserve this packet
+> as provenance; do not interpret its earlier stop language as the current
+> execution state.
+
 ## Governing conflict
 
 The Founder ticket and recovered context supersede the old presentation premise, but MissionMed OS still binds D1-500 to D1-409H-A1, worktree `D1-Timeline-Production-500`, base `49ba56d`, and DR-016/017/018. The new ticket is absent from `missions.json`, `authority_index.json`, `products_index.json`, `CURRENT.md`, and the Timeline passport. The current package `AGENTS.md` also cites “DR-021,” while canonical MissionMed OS DR-021 belongs to StoryForge.
