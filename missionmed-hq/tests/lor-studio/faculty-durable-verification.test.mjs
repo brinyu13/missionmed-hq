@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   LOR_TARGET_BINDING_SCHEMA,
+  LOR_TARGET_IDENTITY_FIELDS,
   resolveLorTargetBinding,
 } from '../../lor-studio/adapters/lor-target-binding.mjs';
 import { hashValue, sha256 } from '../../lor-studio/domain/value-utils.js';
@@ -23,26 +24,28 @@ const FACULTY_EMAIL = 'faculty@example.test';
 const OTP_CODE = '538291';
 const CHALLENGE_ID = 'otp_challenge_server_1';
 
-// DR-119 clause 7. There is no ambient LOR Studio target: a binding exists only where
+// DR-133. There is no ambient LOR Studio target: a binding exists only where
 // an explicit, ratified configuration is validated by the target-binding adapter, and a
 // hand-rolled look-alike is not a binding. These two identifiers appear here ONLY as
 // values that must be REJECTED - `fglyvdykwgbuivikqoah` is the RankListIQ production
 // project and `mftguikkftmrxjxrkdln` is the historical no-touch branch. Nothing in this
 // file may assert that either one is a reachable target.
-const RANKLISTIQ_PRODUCTION_PROJECT_REF = 'fglyvdykwgbuivikqoah';
-const HISTORICAL_NO_TOUCH_BRANCH_ID = 'mftguikkftmrxjxrkdln';
+const RANKLISTIQ_PRODUCTION_IDENTIFIER = 'fglyvdykwgbuivikqoah';
+const HISTORICAL_NO_TOUCH_IDENTIFIER = 'mftguikkftmrxjxrkdln';
 
 /** A complete, explicitly ratified, non-denied staging target configuration. */
 function stagingTargetConfiguration(overrides = {}) {
   return {
     schemaVersion: LOR_TARGET_BINDING_SCHEMA,
     ratified: true,
-    decisionRecord: 'DR-119',
+    decisionRecord: 'DR-133',
     environment: 'staging',
-    projectRef: 'lor-faculty-staging-child',
-    parentProjectRef: 'lor-faculty-parent-project',
-    branchName: 'lor-staging',
-    branchId: 'lor-faculty-staging-child',
+    provider: 'railway-postgres',
+    projectId: 'lor-faculty-staging-project',
+    environmentId: 'lor-faculty-staging-environment',
+    serviceId: 'lor-faculty-staging-service',
+    databaseName: 'railway',
+    region: 'us-west2',
     schema: 'lor_studio',
     migrationLedger: 'lor_studio/migrations/staging',
     providerResourceBound: true,
@@ -59,10 +62,9 @@ function stagingTargetConfiguration(overrides = {}) {
 function productionTargetConfiguration(overrides = {}) {
   return stagingTargetConfiguration({
     environment: 'production',
-    projectRef: 'lor-faculty-production-target',
-    parentProjectRef: null,
-    branchName: 'main',
-    branchId: 'lor-faculty-production-target',
+    projectId: 'lor-faculty-production-project',
+    environmentId: 'lor-faculty-production-environment',
+    serviceId: 'lor-faculty-production-service',
     migrationLedger: 'lor_studio/migrations/production',
     productionDataBindingPassed: true,
     ...overrides,
@@ -407,14 +409,14 @@ test('durable faculty repository fails closed without exact target, atomic drive
     /integration is unavailable/u,
   );
   // The target must be one this process actually resolved. A look-alike literal, a spread
-  // copy of a validated binding, and a copy with an arbitrary branch swapped in are all
+  // copy of a validated binding, and a copy with an arbitrary service swapped in are all
   // rejected, so no call site can hand the repository a target that was never validated.
   for (const forged of [
     stagingTargetConfiguration(),
     { ...STAGING_BINDING },
-    { ...STAGING_BINDING, branchName: 'arbitrary-preview' },
+    { ...STAGING_BINDING, serviceId: 'arbitrary-service' },
     { ...PRODUCTION_BINDING },
-    { ...STAGING_BINDING, projectRef: RANKLISTIQ_PRODUCTION_PROJECT_REF },
+    { ...STAGING_BINDING, projectId: RANKLISTIQ_PRODUCTION_IDENTIFIER },
   ]) {
     assert.equal(
       failClosedStatus(() => repository({ binding: forged })),
@@ -422,23 +424,24 @@ test('durable faculty repository fails closed without exact target, atomic drive
     );
   }
 
-  // A configuration that fails the DR-119 target contract yields no binding at all, so a
+  // A configuration that fails the DR-133 target contract yields no binding at all, so a
   // repository on the denied production project, the denied no-touch branch, an unverified
   // environment binding, or production without its own evidence cannot even be built.
+  for (const field of LOR_TARGET_IDENTITY_FIELDS) {
+    for (const denied of [RANKLISTIQ_PRODUCTION_IDENTIFIER, HISTORICAL_NO_TOUCH_IDENTIFIER]) {
+      let resolved = null;
+      const status = failClosedStatus(() => {
+        resolved = resolveLorTargetBinding(stagingTargetConfiguration({ [field]: denied }));
+      });
+      assert.match(status, /^TARGET_BINDING_DENIED_/u, `${field}=${denied} must fail closed`);
+      assert.equal(resolved, null, 'a denied identity must never yield a binding');
+    }
+  }
+
   for (const [overrides, expected] of [
-    [
-      { projectRef: RANKLISTIQ_PRODUCTION_PROJECT_REF, branchId: RANKLISTIQ_PRODUCTION_PROJECT_REF },
-      'TARGET_BINDING_DENIED_RANKLISTIQ_PRODUCTION_PROJECT',
-    ],
-    [
-      { projectRef: HISTORICAL_NO_TOUCH_BRANCH_ID, branchId: HISTORICAL_NO_TOUCH_BRANCH_ID },
-      'TARGET_BINDING_DENIED_LOR_HISTORICAL_NO_TOUCH_BRANCH',
-    ],
-    [
-      { parentProjectRef: RANKLISTIQ_PRODUCTION_PROJECT_REF },
-      'TARGET_BINDING_DENIED_RANKLISTIQ_PRODUCTION_PROJECT',
-    ],
     [{ environmentBound: false }, 'TARGET_BINDING_RESOURCE_UNVERIFIED'],
+    [{ provider: 'supabase-postgres' }, 'TARGET_BINDING_PROVIDER_INVALID'],
+    [{ decisionRecord: 'DR-119' }, 'TARGET_BINDING_DECISION_RECORD_INVALID'],
     [
       { environment: 'production', productionDataBindingPassed: false },
       'TARGET_BINDING_PRODUCTION_EVIDENCE_MISMATCH',
@@ -453,15 +456,24 @@ test('durable faculty repository fails closed without exact target, atomic drive
   }
 
   const staging = repository();
-  assert.equal(staging.describePersistence().productionEligible, false);
-  assert.equal(staging.describePersistence().privateSessionIssued, false);
+  const stagingPersistence = staging.describePersistence();
+  assert.equal(stagingPersistence.productionEligible, false);
+  assert.equal(stagingPersistence.provider, 'railway-postgres');
+  assert.equal(stagingPersistence.projectId, 'lor-faculty-staging-project');
+  assert.equal(stagingPersistence.environmentId, 'lor-faculty-staging-environment');
+  assert.equal(stagingPersistence.serviceId, 'lor-faculty-staging-service');
+  assert.equal(stagingPersistence.databaseName, 'railway');
+  assert.equal(stagingPersistence.region, 'us-west2');
+  assert.equal(stagingPersistence.privateSessionIssued, false);
   assert.throws(() => staging.assertProductionReady(), /integration is unavailable/u);
   await assert.rejects(() => staging.create(), /integration is unavailable/u);
   await assert.rejects(() => staging.getById(), /integration is unavailable/u);
   await assert.rejects(() => staging.save(), /integration is unavailable/u);
 
   const production = repository({ binding: PRODUCTION_BINDING });
-  assert.equal(production.assertProductionReady().productionEligible, true);
+  const productionPersistence = production.assertProductionReady();
+  assert.equal(productionPersistence.productionEligible, true);
+  assert.equal(productionPersistence.projectId, 'lor-faculty-production-project');
   assert.equal(SUPABASE_DURABLE_FACULTY_INVITATION_CONTRACT.privateSessionIssued, false);
   assert.throws(
     () => new DurableFacultyInvitationVerificationService({

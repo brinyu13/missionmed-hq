@@ -37,14 +37,16 @@ const PORT = Number(process.env.LOR_STUDIO_DEV_PORT || 8181);
 
 /** Explicit, ratified, NON-denied local target. There is deliberately no default. */
 const TARGET_CONFIGURATION = {
-  schemaVersion: 'missionmed.lor.target-binding.v1',
+  schemaVersion: 'missionmed.lor.target-binding.v2',
   ratified: true,
-  decisionRecord: 'DR-119',
+  decisionRecord: 'DR-133',
   environment: 'local',
-  projectRef: 'lor-local-verification-target',
-  parentProjectRef: null,
-  branchName: 'main',
-  branchId: 'lor-local-verification-target',
+  provider: 'railway-postgres',
+  projectId: 'lor-local-verification-project',
+  environmentId: 'lor-local-verification-environment',
+  serviceId: 'lor-local-verification-service',
+  databaseName: 'railway',
+  region: 'us-west2',
   schema: 'lor_studio',
   migrationLedger: 'lor-local-verification-ledger',
   providerResourceBound: true,
@@ -65,9 +67,9 @@ const TARGET_CONFIGURATION = {
  *
  * This is NOT a durability claim and must never be mistaken for one. It has no transaction, no
  * RLS, and no storage; it satisfies the SHAPE of the durable contract so the wiring above it can
- * be exercised. Real durability still requires the atomic RLS driver and a ratified Supabase
- * target. It lives in scripts/, is imported by no product code, and the process refuses to start
- * without an explicit opt-in flag.
+ * be exercised. Real durability still requires the atomic RLS driver and an explicitly validated
+ * Railway PostgreSQL target. It lives in scripts/, is imported by no product code, and the process
+ * refuses to start without an explicit opt-in flag.
  */
 class LocalVerificationDurableRepository {
   constructor() {
@@ -269,6 +271,6 @@ const server = http.createServer(async (request, response) => {
 // Loopback only - never expose this process on a routable interface.
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`LOR Studio local verification server: http://127.0.0.1:${PORT}/lor-studio`);
-  console.log(`  subject: ${SUBJECT}   target: ${TARGET_CONFIGURATION.projectRef} (${TARGET_CONFIGURATION.environment})`);
+  console.log(`  subject: ${SUBJECT}   target: ${TARGET_CONFIGURATION.projectId} (${TARGET_CONFIGURATION.environment})`);
   console.log('  TEST ONLY - fixed session, static entitlement, non-durable repository and proposal store.');
 });

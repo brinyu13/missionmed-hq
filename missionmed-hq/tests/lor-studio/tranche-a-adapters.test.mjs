@@ -13,6 +13,7 @@ import {
 } from '../../lor-studio/adapters/faculty-otp-postmark-adapters.mjs';
 import {
   LOR_TARGET_BINDING_SCHEMA,
+  LOR_TARGET_IDENTITY_FIELDS,
   isDeniedTargetIdentifier,
   resolveLorTargetBinding,
 } from '../../lor-studio/adapters/lor-target-binding.mjs';
@@ -39,26 +40,28 @@ import { RecommendationCaseService } from '../../lor-studio/services/recommendat
 
 const T0 = new Date('2026-08-09T12:00:00.000Z');
 
-// DR-119 clause 7. The durable repositories carry no target identity of their own: a
+// DR-133. The durable repositories carry no target identity of their own: a
 // binding exists only where an explicit, ratified configuration is validated by the
 // target-binding adapter, and a hand-rolled look-alike is not a binding. These two
 // identifiers appear here ONLY as values that must be REJECTED - `fglyvdykwgbuivikqoah`
 // is the RankListIQ production project and `mftguikkftmrxjxrkdln` is the historical
 // no-touch branch. Nothing in this file may assert that either is a reachable target.
-const RANKLISTIQ_PRODUCTION_PROJECT_REF = 'fglyvdykwgbuivikqoah';
-const HISTORICAL_NO_TOUCH_BRANCH_ID = 'mftguikkftmrxjxrkdln';
+const RANKLISTIQ_PRODUCTION_IDENTIFIER = 'fglyvdykwgbuivikqoah';
+const HISTORICAL_NO_TOUCH_IDENTIFIER = 'mftguikkftmrxjxrkdln';
 
 /** A complete, explicitly ratified, non-denied staging target configuration. */
 function stagingTargetConfiguration(overrides = {}) {
   return {
     schemaVersion: LOR_TARGET_BINDING_SCHEMA,
     ratified: true,
-    decisionRecord: 'DR-119',
+    decisionRecord: 'DR-133',
     environment: 'staging',
-    projectRef: 'lor-tranche-staging-child',
-    parentProjectRef: 'lor-tranche-parent-project',
-    branchName: 'lor-staging',
-    branchId: 'lor-tranche-staging-child',
+    provider: 'railway-postgres',
+    projectId: 'lor-tranche-staging-project',
+    environmentId: 'lor-tranche-staging-environment',
+    serviceId: 'lor-tranche-staging-service',
+    databaseName: 'railway',
+    region: 'us-west2',
     schema: 'lor_studio',
     migrationLedger: 'lor_studio/migrations/staging',
     providerResourceBound: true,
@@ -75,10 +78,9 @@ function stagingTargetConfiguration(overrides = {}) {
 function productionTargetConfiguration(overrides = {}) {
   return stagingTargetConfiguration({
     environment: 'production',
-    projectRef: 'lor-tranche-production-target',
-    parentProjectRef: null,
-    branchName: 'main',
-    branchId: 'lor-tranche-production-target',
+    projectId: 'lor-tranche-production-project',
+    environmentId: 'lor-tranche-production-environment',
+    serviceId: 'lor-tranche-production-service',
     migrationLedger: 'lor_studio/migrations/production',
     productionDataBindingPassed: true,
     ...overrides,
@@ -677,10 +679,10 @@ test('durable repository denies the RankListIQ production project and the no-tou
   // 1. Both denied identifiers fail closed in EVERY identity field, so neither the
   //    RankListIQ production project nor the historical no-touch branch can be resolved
   //    into a binding - not even when a caller passes one explicitly.
-  assert.equal(isDeniedTargetIdentifier(RANKLISTIQ_PRODUCTION_PROJECT_REF), true);
-  assert.equal(isDeniedTargetIdentifier(HISTORICAL_NO_TOUCH_BRANCH_ID), true);
-  for (const field of ['projectRef', 'parentProjectRef', 'branchId', 'branchName']) {
-    for (const denied of [RANKLISTIQ_PRODUCTION_PROJECT_REF, HISTORICAL_NO_TOUCH_BRANCH_ID]) {
+  assert.equal(isDeniedTargetIdentifier(RANKLISTIQ_PRODUCTION_IDENTIFIER), true);
+  assert.equal(isDeniedTargetIdentifier(HISTORICAL_NO_TOUCH_IDENTIFIER), true);
+  for (const field of LOR_TARGET_IDENTITY_FIELDS) {
+    for (const denied of [RANKLISTIQ_PRODUCTION_IDENTIFIER, HISTORICAL_NO_TOUCH_IDENTIFIER]) {
       let resolved = null;
       const status = failClosedStatus(() => {
         resolved = resolveLorTargetBinding(stagingTargetConfiguration({ [field]: denied }));
@@ -690,20 +692,18 @@ test('durable repository denies the RankListIQ production project and the no-tou
     }
   }
 
-  // The exact production main and staging child shapes the repositories used to hard-code
-  // are denied outright, however complete and ratified the surrounding configuration is.
+  // Both historical identifiers remain denied in complete, ratified v2 configurations.
   assert.equal(
     failClosedStatus(() => resolveLorTargetBinding(productionTargetConfiguration({
-      projectRef: RANKLISTIQ_PRODUCTION_PROJECT_REF,
-      branchId: RANKLISTIQ_PRODUCTION_PROJECT_REF,
+      projectId: RANKLISTIQ_PRODUCTION_IDENTIFIER,
+      serviceId: RANKLISTIQ_PRODUCTION_IDENTIFIER,
     }))),
     'TARGET_BINDING_DENIED_RANKLISTIQ_PRODUCTION_PROJECT',
   );
   assert.equal(
     failClosedStatus(() => resolveLorTargetBinding(stagingTargetConfiguration({
-      projectRef: HISTORICAL_NO_TOUCH_BRANCH_ID,
-      branchId: HISTORICAL_NO_TOUCH_BRANCH_ID,
-      parentProjectRef: RANKLISTIQ_PRODUCTION_PROJECT_REF,
+      projectId: HISTORICAL_NO_TOUCH_IDENTIFIER,
+      environmentId: RANKLISTIQ_PRODUCTION_IDENTIFIER,
     }))),
     'TARGET_BINDING_DENIED_LOR_HISTORICAL_NO_TOUCH_BRANCH',
   );
@@ -714,16 +714,19 @@ test('durable repository denies the RankListIQ production project and the no-tou
   for (const forged of [
     stagingTargetConfiguration(),
     { ...SUPABASE_BINDING },
-    { ...SUPABASE_BINDING, projectRef: RANKLISTIQ_PRODUCTION_PROJECT_REF },
-    { ...SUPABASE_BINDING, branchId: HISTORICAL_NO_TOUCH_BRANCH_ID },
-    { ...SUPABASE_BINDING, parentProjectRef: 'different-parent' },
-    { ...SUPABASE_BINDING, branchName: 'arbitrary-preview' },
+    { ...SUPABASE_BINDING, projectId: RANKLISTIQ_PRODUCTION_IDENTIFIER },
+    { ...SUPABASE_BINDING, serviceId: HISTORICAL_NO_TOUCH_IDENTIFIER },
+    { ...SUPABASE_BINDING, environmentId: 'different-environment' },
+    { ...SUPABASE_BINDING, region: 'different-region' },
     { ...SUPABASE_PRODUCTION_BINDING },
     {
       environment: 'production',
-      projectRef: RANKLISTIQ_PRODUCTION_PROJECT_REF,
-      branchId: RANKLISTIQ_PRODUCTION_PROJECT_REF,
-      branchName: 'main',
+      provider: 'railway-postgres',
+      projectId: RANKLISTIQ_PRODUCTION_IDENTIFIER,
+      environmentId: 'unvalidated-production-environment',
+      serviceId: 'unvalidated-production-service',
+      databaseName: 'railway',
+      region: 'us-west2',
       schema: 'lor_studio',
     },
   ]) {
@@ -737,13 +740,14 @@ test('durable repository denies the RankListIQ production project and the no-tou
   }
 
   // 3. Incoherent or unverified configurations yield nothing either, so an unbound
-  //    environment, a branch that is not the target's own project, a target seeded from
-  //    copied data, and production without its own evidence all stay unreachable.
+  //    environment, a non-Railway provider, a target seeded from copied data, and production
+  //    without its own evidence all stay unreachable.
   for (const [overrides, expected] of [
     [{ environmentBound: false }, 'TARGET_BINDING_RESOURCE_UNVERIFIED'],
     [{ independentlyVerified: false }, 'TARGET_BINDING_RESOURCE_UNVERIFIED'],
     [{ ratified: false }, 'TARGET_BINDING_NOT_RATIFIED'],
-    [{ branchId: 'lor-tranche-different-child' }, 'TARGET_BINDING_BRANCH_IDENTITY_MISMATCH'],
+    [{ provider: 'supabase-postgres' }, 'TARGET_BINDING_PROVIDER_INVALID'],
+    [{ decisionRecord: 'DR-119' }, 'TARGET_BINDING_DECISION_RECORD_INVALID'],
     [{ dataCopied: true }, 'TARGET_BINDING_DATA_COPY_FORBIDDEN'],
     [{ productionDataBindingPassed: true }, 'TARGET_BINDING_PRODUCTION_EVIDENCE_MISMATCH'],
     [
@@ -765,9 +769,15 @@ test('durable repository denies the RankListIQ production project and the no-tou
     ...durableOptions(),
     binding: SUPABASE_BINDING,
   });
-  assert.equal(staging.describePersistence().environment, 'staging');
-  assert.equal(staging.describePersistence().projectRef, 'lor-tranche-staging-child');
-  assert.equal(staging.describePersistence().productionEligible, false);
+  const stagingPersistence = staging.describePersistence();
+  assert.equal(stagingPersistence.environment, 'staging');
+  assert.equal(stagingPersistence.provider, 'railway-postgres');
+  assert.equal(stagingPersistence.projectId, 'lor-tranche-staging-project');
+  assert.equal(stagingPersistence.environmentId, 'lor-tranche-staging-environment');
+  assert.equal(stagingPersistence.serviceId, 'lor-tranche-staging-service');
+  assert.equal(stagingPersistence.databaseName, 'railway');
+  assert.equal(stagingPersistence.region, 'us-west2');
+  assert.equal(stagingPersistence.productionEligible, false);
   assert.throws(() => staging.assertProductionReady(), /integration is unavailable/u);
 
   // 5. Production is reachable only as its own explicitly ratified, non-denied target, and
@@ -779,11 +789,12 @@ test('durable repository denies the RankListIQ production project and the no-tou
   const persistence = production.assertProductionReady();
   assert.equal(persistence.environment, 'production');
   assert.equal(persistence.productionEligible, true);
-  assert.equal(persistence.projectRef, 'lor-tranche-production-target');
-  assert.equal(isDeniedTargetIdentifier(persistence.projectRef), false);
-  assert.equal(isDeniedTargetIdentifier(persistence.branchId), false);
-  assert.equal(JSON.stringify(persistence).includes(RANKLISTIQ_PRODUCTION_PROJECT_REF), false);
-  assert.equal(JSON.stringify(persistence).includes(HISTORICAL_NO_TOUCH_BRANCH_ID), false);
+  assert.equal(persistence.projectId, 'lor-tranche-production-project');
+  for (const field of LOR_TARGET_IDENTITY_FIELDS) {
+    assert.equal(isDeniedTargetIdentifier(persistence[field]), false, `${field} must be non-denied`);
+  }
+  assert.equal(JSON.stringify(persistence).includes(RANKLISTIQ_PRODUCTION_IDENTIFIER), false);
+  assert.equal(JSON.stringify(persistence).includes(HISTORICAL_NO_TOUCH_IDENTIFIER), false);
 });
 
 test('durable server-only creation reservation survives service restart and cross-instance retries without process-local growth', async () => {
@@ -1207,8 +1218,8 @@ test('durable repository binds reads and atomic state-plus-audit writes to the v
   assert.equal(calls[0].command.scope.caseId, 'case-1');
   assert.equal(calls[1].command.event.schemaVersion, 'missionmed.lor.service-event.v1');
   assert.equal(calls[1].command.binding.schema, 'lor_studio');
-  assert.equal(calls[1].command.binding.projectRef, 'lor-tranche-staging-child');
-  assert.equal(calls[1].command.binding.parentProjectRef, 'lor-tranche-parent-project');
+  assert.equal(calls[1].command.binding.projectId, 'lor-tranche-staging-project');
+  assert.equal(calls[1].command.binding.environmentId, 'lor-tranche-staging-environment');
 });
 
 test('durable repository denies cross-case scope and any receipt that cannot prove one atomic transaction', async () => {

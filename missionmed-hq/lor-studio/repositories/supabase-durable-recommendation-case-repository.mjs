@@ -759,9 +759,12 @@ export class SupabaseDurableRecommendationCaseRepository extends RecommendationC
       atomicStateAndEvent: true,
       actorSafeCommands: true,
       rlsBound: true,
-      projectRef: this.binding.projectRef,
-      branchName: this.binding.branchName,
-      branchId: this.binding.branchId,
+      provider: this.binding.provider,
+      projectId: this.binding.projectId,
+      environmentId: this.binding.environmentId,
+      serviceId: this.binding.serviceId,
+      databaseName: this.binding.databaseName,
+      region: this.binding.region,
       schema: this.binding.schema,
     });
   }

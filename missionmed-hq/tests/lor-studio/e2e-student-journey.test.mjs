@@ -72,16 +72,18 @@ const TEST_PRINCIPAL_HEADER = 'x-mmhq-lor-e2e-principal';
  * denied RankListIQ production project and historical no-touch branch are never named here -
  * not even as a negative fixture, which production-composition.test.mjs already owns.
  */
-const E2E_TARGET_PROJECT_REF = 'lor-e2e-student-journey-target';
+const E2E_TARGET_PROJECT_ID = 'lor-e2e-student-journey-project';
 const E2E_TARGET_CONFIGURATION = Object.freeze({
-  schemaVersion: 'missionmed.lor.target-binding.v1',
+  schemaVersion: 'missionmed.lor.target-binding.v2',
   ratified: true,
-  decisionRecord: 'DR-119',
+  decisionRecord: 'DR-133',
   environment: 'test',
-  projectRef: E2E_TARGET_PROJECT_REF,
-  parentProjectRef: null,
-  branchName: 'main',
-  branchId: E2E_TARGET_PROJECT_REF,
+  provider: 'railway-postgres',
+  projectId: E2E_TARGET_PROJECT_ID,
+  environmentId: 'lor-e2e-student-journey-environment',
+  serviceId: 'lor-e2e-student-journey-service',
+  databaseName: 'railway',
+  region: 'us-west2',
   schema: 'lor_studio',
   migrationLedger: 'lor-e2e-student-journey-ledger',
   providerResourceBound: true,
@@ -207,7 +209,7 @@ async function startJourneyHarness() {
   });
   assert.ok(composed.application, `composition must build an application (reason: ${composed.reason})`);
   assert.equal(composed.binding.environment, 'test', 'the journey must never bind a production target');
-  assert.equal(composed.binding.projectRef, E2E_TARGET_PROJECT_REF);
+  assert.equal(composed.binding.projectId, E2E_TARGET_PROJECT_ID);
 
   const sessions = new Map(
     Object.entries(PRINCIPAL_FIXTURES).map(([name, fixture]) => [name, buildSession(fixture)]),
