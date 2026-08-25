@@ -285,6 +285,98 @@ async function rapidStudentSwitchFlow(browser) {
 	}
 }
 
+async function lateMatrixTakeoverRecoveryFlow(browser) {
+	const { context, page, diagnostics } = await createPage(browser, { role: "student" }, { width: 1280, height: 800 });
+	try {
+		await page.evaluate(() => {
+			const harness = window.__FV2_HARNESS__;
+			const fixturePrefix = "/__fv2_runtime_fixture__";
+			const nativeFetch = window.fetch.bind(window);
+			history.replaceState(null, "", "#filevault");
+			window.mmedFileVaultV2Config.restUrl = window.location.origin + fixturePrefix;
+			window.fetch = function (input, options) {
+				const url = new URL(String(input), window.location.href);
+				if (url.origin !== window.location.origin || url.pathname.indexOf(fixturePrefix) !== 0) return nativeFetch(input, options);
+				let body = null;
+				try { body = options && options.body ? JSON.parse(options.body) : null; } catch (error) { body = null; }
+				const query = {};
+				url.searchParams.forEach((value, key) => { query[key] = value; });
+				return harness.api({
+					method: options && options.method ? options.method : "GET",
+					path: url.pathname.slice(fixturePrefix.length) || "/",
+					body: body,
+					query: query,
+					signal: options && options.signal
+				}).then(function (payload) {
+					return new Response(JSON.stringify(payload), { status: 200, headers: { "Content-Type": "application/json" } });
+				}, function (error) {
+					return new Response(JSON.stringify({ message: error.message || "Fixture request failed." }), { status: error.status || 500, headers: { "Content-Type": "application/json" } });
+				});
+			};
+
+			const legacyModule = {
+				id: "filevault-v1",
+				route: "filevault",
+				load: function () { return Promise.resolve(); },
+				mount: function () { window.MMED_FILE_VAULT_V1.render(); },
+				unmount: function () {}
+			};
+			window.MMED_OS = { render: { fileVault: window.MMED_FILE_VAULT_V1.render } };
+			window.MatrixRuntime = {
+				enabled: true,
+				modules: { filevault: legacyModule },
+				current: { route: "filevault", module: legacyModule, mounted: true },
+				navigationCount: 0,
+				completedMountCount: 0,
+				register: function (module) { this.modules[module.route] = module; },
+				navigate: function (route) {
+					const module = this.modules[route];
+					const previous = this.current;
+					if (previous && previous.route === route && previous.mounted) return;
+					if (previous && previous.module && typeof previous.module.unmount === "function") previous.module.unmount();
+					const controller = new AbortController();
+					const current = { route: route, module: module, mounted: false };
+					this.current = current;
+					this.navigationCount += 1;
+					document.getElementById("sos-content").innerHTML = '<section data-runtime-skeleton role="status">Loading File Vault</section>';
+					return Promise.resolve(module.load({ refs: { content: document.getElementById("sos-content") }, signal: controller.signal }))
+						.then(function () { return new Promise(resolve => window.setTimeout(resolve, 25)); })
+						.then(function () { return module.mount({ refs: { content: document.getElementById("sos-content") }, signal: controller.signal }); })
+						.then(() => { current.mounted = true; this.completedMountCount += 1; });
+				}
+			};
+			harness.v1FallbackRendered = false;
+			window.MMED_FILE_VAULT_V1.render();
+		});
+
+		await page.waitForSelector("[data-fv2-app]", { timeout: 3000 });
+		await page.getByRole("heading", { name: "Avery Rivera (Fixture)", exact: true }).waitFor();
+		const firstRecovery = await page.evaluate(() => ({
+			v1Rendered: window.__FV2_HARNESS__.v1FallbackRendered === true,
+			moduleId: window.MatrixRuntime.current.module.id,
+			navigationCount: window.MatrixRuntime.navigationCount,
+			completedMountCount: window.MatrixRuntime.completedMountCount
+		}));
+		assert(firstRecovery.v1Rendered, "Matrix takeover: fixture did not reproduce the late V1 overwrite");
+		assert(firstRecovery.moduleId === "filevault-v2", `Matrix takeover: recovery kept ${firstRecovery.moduleId}`);
+		assert(firstRecovery.navigationCount === 1 && firstRecovery.completedMountCount === 1, `Matrix takeover: expected one completed recovery ${JSON.stringify(firstRecovery)}`);
+
+		await page.waitForTimeout(9300);
+		assert(await page.evaluate(() => window.MatrixRuntime.navigationCount === 1 && window.MatrixRuntime.completedMountCount === 1), "Matrix takeover: bounded retry caused a duplicate recovery");
+		await page.evaluate(() => {
+			window.MatrixRuntime.current.mounted = true;
+			window.MMED_FILE_VAULT_V1.render();
+		});
+		await page.waitForSelector("[data-fv2-app]", { timeout: 3000 });
+		await page.getByRole("heading", { name: "Avery Rivera (Fixture)", exact: true }).waitFor();
+		assert(await page.evaluate(() => window.MatrixRuntime.navigationCount === 2 && window.MatrixRuntime.completedMountCount === 2), "Matrix takeover: a later distinct overwrite did not recover exactly once");
+		assert(await page.locator("[data-fv2-app]").count() === 1, "Matrix takeover: recovery left duplicate V2 roots");
+		assert(diagnostics.length === 0, `Matrix takeover: browser diagnostics ${diagnostics.join(" | ")}`);
+	} finally {
+		await context.close();
+	}
+}
+
 async function matrixShellIntegrationFlow(browser) {
 	for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
 		const label = `Matrix shell ${viewport.width}x${viewport.height}`;
@@ -499,10 +591,14 @@ async function stateAndFallbackFlow(browser) {
 
 	const { context, page, diagnostics } = await createPage(browser, { role: "student", scenario: "error" }, { width: 1024, height: 800 });
 	try {
+		await page.evaluate(() => history.replaceState(null, "", "#filevault"));
 		await page.getByRole("button", { name: "Use classic File Vault" }).click();
 		await page.waitForSelector("[data-v1-fallback]");
 		assert(await page.getByText("Classic File Vault fallback rendered.").isVisible(), "fallback: classic renderer did not run");
 		assert(await page.evaluate(() => window.__FV2_HARNESS__.v1FallbackRendered === true), "fallback: harness did not record V1 renderer");
+		await page.evaluate(() => window.dispatchEvent(new HashChangeEvent("hashchange")));
+		await page.waitForTimeout(650);
+		assert(await page.locator("[data-v1-fallback]").count() === 1 && await page.locator("[data-fv2-app]").count() === 0, "fallback: observer or deferred route retry replaced the explicit classic fallback");
 		await saveEvidence(page, "10-error-v1-fallback.png");
 		assert(diagnostics.length === 0, `fallback: browser diagnostics ${diagnostics.join(" | ")}`);
 	} finally {
@@ -552,6 +648,7 @@ async function main() {
 	try {
 		await studentFlow(browser);
 		await rapidStudentSwitchFlow(browser);
+		await lateMatrixTakeoverRecoveryFlow(browser);
 		await matrixShellIntegrationFlow(browser);
 		await adminFlow(browser);
 		await staffPaginationFlow(browser);
