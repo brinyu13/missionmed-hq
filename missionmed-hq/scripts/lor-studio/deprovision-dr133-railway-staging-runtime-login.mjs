@@ -14,8 +14,8 @@ import {
   assertRuntimeDeprovisionRevokedRow,
   buildNonemptyRelationsSql,
   classifySafeFailure,
-  extractRollbackGuardTransactionBodySql,
-  extractRollbackGuardVerificationSql,
+  extractIdentityScopeRollbackGuardTransactionBodySql,
+  extractIdentityScopeRollbackGuardVerificationSql,
   failDr133,
   resolveDr133RunnerEnvironment,
   sha256Bytes,
@@ -395,8 +395,10 @@ RESTRICT
 export const DR133_RUNTIME_DEPROVISION_DROP_SQL =
   'DROP ROLE lor_studio_runtime_login';
 
-async function loadVerifiedRlsRollback(readFileFn) {
-  const contract = DR133_ARTIFACTS.find((artifact) => artifact.id === 'rls-rollback');
+async function loadVerifiedIdentityScopeRollback(readFileFn) {
+  const contract = DR133_ARTIFACTS.find(
+    (artifact) => artifact.id === 'identity-scope-rollback',
+  );
   if (!contract) failDr133('ARTIFACT_INVENTORY_INVALID');
   let bytes;
   try {
@@ -505,10 +507,12 @@ export async function deprovisionDr133RailwayStagingRuntimeLogin({
     const resolved = resolveDr133RunnerEnvironment(environment, {
       mode: 'runtime-login-deprovision',
     });
-    rollbackArtifact = await loadVerifiedRlsRollback(readFileFn);
+    rollbackArtifact = await loadVerifiedIdentityScopeRollback(readFileFn);
     const rollbackSource = rollbackArtifact.bytes.toString('utf8');
-    const guardBodySql = extractRollbackGuardTransactionBodySql(rollbackSource);
-    const guardVerificationSql = extractRollbackGuardVerificationSql(rollbackSource);
+    const guardBodySql = extractIdentityScopeRollbackGuardTransactionBodySql(rollbackSource);
+    const guardVerificationSql = extractIdentityScopeRollbackGuardVerificationSql(
+      rollbackSource,
+    );
     stage = 'ARTIFACT_VERIFIED';
 
     adminClient = new ClientClass({
@@ -739,7 +743,9 @@ export async function deprovisionDr133RailwayStagingRuntimeLogin({
       }),
       runnerCode: safeFailure.runnerCode,
       postgresCode: safeFailure.postgresCode,
-      ...(rollbackArtifact ? { rlsSha256: rollbackArtifact.sha256 } : {}),
+      ...(rollbackArtifact
+        ? { identityScopeRollbackSha256: rollbackArtifact.sha256 }
+        : {}),
       ...(postgresMajor === null ? {} : { postgresMajor }),
     });
     failDr133(
@@ -753,7 +759,7 @@ export async function deprovisionDr133RailwayStagingRuntimeLogin({
     contract: DR133_RUNNER_CONTRACT,
     mode: 'runtime-login-deprovision',
     result: 'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED',
-    rlsSha256: rollbackArtifact.sha256,
+    identityScopeRollbackSha256: rollbackArtifact.sha256,
     postgresMajor,
   });
   return Object.freeze({

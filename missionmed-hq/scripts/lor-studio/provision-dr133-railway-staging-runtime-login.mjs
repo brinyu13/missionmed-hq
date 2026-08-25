@@ -8,14 +8,15 @@ import {
   DR133_ARTIFACTS,
   DR133_RUNNER_CONTRACT,
   DR133_RUNTIME_LOGIN,
+  Dr133RunnerError,
   assertRuntimeAdminRow,
   assertRuntimeCleanupRow,
   assertRuntimeIdentityRow,
   assertRuntimeSetRoleRow,
+  assertSuccessorSchemaPreflightRow,
   buildNonemptyRelationsSql,
   classifySafeFailure,
-  expectedDr133Sentinel,
-  extractRollbackGuardVerificationSql,
+  extractIdentityScopeRollbackGuardVerificationSql,
   failDr133,
   postgresOutcomeIsUnknown,
   resolveDr133RunnerEnvironment,
@@ -84,6 +85,16 @@ SELECT
     FROM pg_catalog.pg_namespace AS namespace
     WHERE namespace.nspname = 'lor_studio'
   ) AS schema_sentinel,
+  (
+    SELECT pg_catalog.pg_get_userbyid(namespace.nspowner)::text
+    FROM pg_catalog.pg_namespace AS namespace
+    WHERE namespace.nspname = 'lor_studio'
+  ) AS schema_owner,
+  (
+    SELECT pg_catalog.count(*)::text
+    FROM pg_catalog.pg_namespace
+    WHERE nspname = 'lor_studio'
+  ) AS schema_count,
   (
     SELECT pg_catalog.count(*)::text
     FROM pg_catalog.pg_roles
@@ -256,24 +267,11 @@ export const DR133_RUNTIME_ROLE_HARDENING_SQL = Object.freeze([
 ]);
 
 function assertRuntimeAdminPreflightRow(row) {
-  if (
-    !row
-    || row.database_name !== 'railway'
-    || row.current_user !== 'postgres'
-    || row.session_user !== 'postgres'
-    || row.database_owner !== 'postgres'
-    || ![16, 18].includes(row.postgres_major)
-    || row.private_server_address !== true
-    || row.ssl_active !== true
-    || typeof row.ssl_version !== 'string'
-    || row.ssl_version.length === 0
-    || typeof row.ssl_cipher !== 'string'
-    || row.ssl_cipher.length === 0
-    || row.schema_sentinel !== expectedDr133Sentinel()
-    || row.app_role_count !== '1'
-    || row.command_owner_count !== '1'
-    || row.runtime_login_count !== '0'
-  ) failDr133('RUNTIME_ADMIN_PREFLIGHT_INVALID');
+  try {
+    assertSuccessorSchemaPreflightRow(row);
+  } catch {
+    failDr133('RUNTIME_ADMIN_PREFLIGHT_INVALID');
+  }
 }
 
 async function loadVerifiedArtifacts(readFileFn) {
@@ -310,7 +308,11 @@ function resultForFailure(stage, error, runtimeTransactionRolledBack) {
   if (stage === 'RUNTIME_SMOKE_VERIFIED') {
     return 'RUNTIME_LOGIN_COMMITTED_VERIFIED_CLEANUP_FAILED';
   }
-  return 'RUNTIME_LOGIN_COMMITTED_POSTFLIGHT_REJECTED';
+  const { postgresCode } = classifySafeFailure(error);
+  return error instanceof Dr133RunnerError
+      || ['28000', '28P01', '42501', '55000'].includes(postgresCode)
+    ? 'RUNTIME_LOGIN_COMMITTED_POSTFLIGHT_REJECTED'
+    : 'RUNTIME_LOGIN_COMMITTED_VERIFICATION_UNKNOWN';
 }
 
 async function closeClient(client) {
@@ -338,15 +340,16 @@ export async function provisionDr133RailwayStagingRuntimeLogin({
   let locked = false;
   let runtimeTransactionRolledBack = false;
   let artifacts;
+  let rollbackArtifact = null;
 
   try {
     const resolved = resolveDr133RunnerEnvironment(environment, { mode: 'runtime-login' });
     artifacts = await loadVerifiedArtifacts(readFileFn);
     stage = 'ARTIFACTS_VERIFIED';
-    const rollback = artifacts.get('rls-rollback');
-    if (!rollback) failDr133('ARTIFACT_INVENTORY_INVALID');
-    const guardVerificationSql = extractRollbackGuardVerificationSql(
-      rollback.bytes.toString('utf8'),
+    rollbackArtifact = artifacts.get('identity-scope-rollback');
+    if (!rollbackArtifact) failDr133('ARTIFACT_INVENTORY_INVALID');
+    const guardVerificationSql = extractIdentityScopeRollbackGuardVerificationSql(
+      rollbackArtifact.bytes.toString('utf8'),
     );
 
     adminClient = new ClientClass({
@@ -497,6 +500,9 @@ export async function provisionDr133RailwayStagingRuntimeLogin({
       result: resultForFailure(stage, primaryError, runtimeTransactionRolledBack),
       runnerCode: safeFailure.runnerCode,
       postgresCode: safeFailure.postgresCode,
+      ...(rollbackArtifact
+        ? { identityScopeRollbackSha256: rollbackArtifact.sha256 }
+        : {}),
     });
     failDr133(
       safeFailure.postgresCode
@@ -509,6 +515,7 @@ export async function provisionDr133RailwayStagingRuntimeLogin({
     contract: DR133_RUNNER_CONTRACT,
     mode: 'runtime-login',
     result: 'RUNTIME_LOGIN_COMMITTED_VERIFIED',
+    identityScopeRollbackSha256: rollbackArtifact.sha256,
   });
   return Object.freeze({ result: 'RUNTIME_LOGIN_COMMITTED_VERIFIED' });
 }

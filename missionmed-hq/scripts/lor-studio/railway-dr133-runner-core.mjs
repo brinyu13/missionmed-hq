@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-export const DR133_RUNNER_CONTRACT = 'missionmed.lor.railway-dr133-runner.v1';
+export const DR133_RUNNER_CONTRACT = 'missionmed.lor.railway-dr133-runner.v2';
 export const DR133_RUNTIME_LOGIN = 'lor_studio_runtime_login';
 export const DR133_APPLICATION_ROLE = 'lor_studio_app';
 export const DR133_COMMAND_OWNER_ROLE = 'lor_studio_command_owner';
@@ -49,6 +49,20 @@ export const DR133_ARTIFACTS = Object.freeze([
       'rollbacks/20260825010100_f2_lor_1012_production_rls_projection_grants.rollback.sql',
     sha256: '695b20972beabed9d8db1350b5f01ef0107d5ecfda9ea8f9cddbc7072e90db84',
   }),
+  Object.freeze({
+    id: 'identity-scope',
+    purpose: 'forward-successor',
+    relativePath:
+      'migrations/20260825010300_f2_lor_1012_production_identity_scope_commands.sql',
+    sha256: '016f4ee81e4618ae509bc6b5015d9fb99ffd7f937501a67cfb6ed5bd60e69fdc',
+  }),
+  Object.freeze({
+    id: 'identity-scope-rollback',
+    purpose: 'recovery-custody-and-successor-guard-verification',
+    relativePath:
+      'rollbacks/20260825010300_f2_lor_1012_production_identity_scope_commands.rollback.sql',
+    sha256: '119bebff1c39722fc4b53ee9917f454f93dbc0d2a7c8303cdb014224bd9c847d',
+  }),
 ]);
 
 export const DR133_RELATIONS = Object.freeze([
@@ -93,6 +107,18 @@ export const DR133_APPROVED_DEFINER_IDENTITIES = Object.freeze([
   'read_mentor_case_projection()',
 ]);
 
+export const DR133_IDENTITY_SCOPE_DEFINER_IDENTITIES = Object.freeze([
+  'ensure_student_auth_binding(text,text,text)',
+  'resolve_faculty_case_scope(text,text,text)',
+  'resolve_mentor_case_scope(text,text,text)',
+  'revoke_student_auth_binding(text,text)',
+]);
+
+export const DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES = Object.freeze([
+  ...DR133_APPROVED_DEFINER_IDENTITIES,
+  ...DR133_IDENTITY_SCOPE_DEFINER_IDENTITIES,
+].sort());
+
 const DENIED_IDENTIFIERS = Object.freeze([
   'fglyvdykwgbuivikqoah',
   'mftguikkftmrxjxrkdln',
@@ -111,10 +137,16 @@ const RUNTIME_PASSWORD_PATTERN = /^[A-Za-z0-9_-]{43,128}$/u;
 const CONTROL_CHARACTER_PATTERN = /[\u0000-\u001f\u007f]/u;
 const ROLLBACK_LITERAL_MARKER =
   '-- Literal reverse operations follow. This marker is consumed by static custody tests.';
+const IDENTITY_SCOPE_ROLLBACK_FIRST_DESTRUCTIVE_STATEMENT = [
+  'REVOKE EXECUTE ON FUNCTION lor_studio.ensure_student_auth_binding(text, text, text)',
+  'FROM lor_studio_app;',
+].join('\n');
 const DR133_RECEIPT_KEYS = Object.freeze([
   'contract',
   'definerCount',
   'foundationSha256',
+  'identityScopeRollbackSha256',
+  'identityScopeSha256',
   'mode',
   'postgresCode',
   'postgresMajor',
@@ -125,35 +157,53 @@ const DR133_RECEIPT_KEYS = Object.freeze([
 ]);
 const DR133_RECEIPT_MODES = Object.freeze([
   'migration',
+  'schema-verifier',
   'runtime-login',
   'runtime-login-deprovision',
 ]);
-const DR133_RECEIPT_RESULTS = Object.freeze([
-  'NO_MUTATION',
-  'FOUNDATION_ROLLED_BACK',
-  'FOUNDATION_OUTCOME_UNKNOWN',
-  'FOUNDATION_ONLY_COMMITTED',
-  'RLS_OUTCOME_UNKNOWN',
-  'BOTH_COMMITTED_POSTFLIGHT_REJECTED',
-  'BOTH_COMMITTED_VERIFIED_CLEANUP_FAILED',
-  'BOTH_COMMITTED_VERIFIED',
-  'RUNTIME_LOGIN_ROLLED_BACK',
-  'RUNTIME_LOGIN_OUTCOME_UNKNOWN',
-  'RUNTIME_LOGIN_COMMITTED_POSTFLIGHT_REJECTED',
-  'RUNTIME_LOGIN_COMMITTED_VERIFIED_CLEANUP_FAILED',
-  'RUNTIME_LOGIN_COMMITTED_VERIFIED',
-  'RUNTIME_LOGIN_DEPROVISION_ROLLED_BACK',
-  'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_OUTCOME_UNKNOWN',
-  'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_COMMITTED_POSTFLIGHT_REJECTED',
-  'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_COMMITTED_VERIFICATION_UNKNOWN',
-  'RUNTIME_LOGIN_DEPROVISION_QUARANTINED_SESSIONS_ACTIVE',
-  'RUNTIME_LOGIN_DEPROVISION_QUARANTINED_ONLY',
-  'RUNTIME_LOGIN_DEPROVISION_OUTCOME_UNKNOWN',
-  'RUNTIME_LOGIN_DEPROVISION_COMMITTED_POSTFLIGHT_REJECTED',
-  'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFICATION_UNKNOWN',
-  'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED_CLEANUP_FAILED',
-  'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED',
-]);
+const DR133_RECEIPT_RESULTS_BY_MODE = Object.freeze({
+  migration: Object.freeze([
+    'NO_MUTATION',
+    'FOUNDATION_ROLLED_BACK',
+    'FOUNDATION_OUTCOME_UNKNOWN',
+    'FOUNDATION_ONLY_COMMITTED',
+    'RLS_OUTCOME_UNKNOWN',
+    'BASE_SCHEMA_ONLY_COMMITTED',
+    'IDENTITY_SCOPE_OUTCOME_UNKNOWN',
+    'ALL_THREE_COMMITTED_POSTFLIGHT_REJECTED',
+    'ALL_THREE_COMMITTED_VERIFICATION_UNKNOWN',
+    'ALL_THREE_COMMITTED_VERIFIED_CLEANUP_FAILED',
+    'ALL_THREE_COMMITTED_VERIFIED',
+  ]),
+  'schema-verifier': Object.freeze([
+    'NO_MUTATION',
+    'SCHEMA_VERIFIED_NO_MUTATION',
+    'SCHEMA_VERIFIED_NO_MUTATION_CLEANUP_FAILED',
+  ]),
+  'runtime-login': Object.freeze([
+    'NO_MUTATION',
+    'RUNTIME_LOGIN_ROLLED_BACK',
+    'RUNTIME_LOGIN_OUTCOME_UNKNOWN',
+    'RUNTIME_LOGIN_COMMITTED_POSTFLIGHT_REJECTED',
+    'RUNTIME_LOGIN_COMMITTED_VERIFICATION_UNKNOWN',
+    'RUNTIME_LOGIN_COMMITTED_VERIFIED_CLEANUP_FAILED',
+    'RUNTIME_LOGIN_COMMITTED_VERIFIED',
+  ]),
+  'runtime-login-deprovision': Object.freeze([
+    'NO_MUTATION',
+    'RUNTIME_LOGIN_DEPROVISION_ROLLED_BACK',
+    'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_OUTCOME_UNKNOWN',
+    'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_COMMITTED_POSTFLIGHT_REJECTED',
+    'RUNTIME_LOGIN_DEPROVISION_QUARANTINE_COMMITTED_VERIFICATION_UNKNOWN',
+    'RUNTIME_LOGIN_DEPROVISION_QUARANTINED_SESSIONS_ACTIVE',
+    'RUNTIME_LOGIN_DEPROVISION_QUARANTINED_ONLY',
+    'RUNTIME_LOGIN_DEPROVISION_OUTCOME_UNKNOWN',
+    'RUNTIME_LOGIN_DEPROVISION_COMMITTED_POSTFLIGHT_REJECTED',
+    'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFICATION_UNKNOWN',
+    'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED_CLEANUP_FAILED',
+    'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED',
+  ]),
+});
 
 export const DR133_RUNNER_ENV_KEYS = Object.freeze([
   'LOR_DR133_ADMIN_DATABASE_URL',
@@ -256,7 +306,12 @@ export function parsePrivateDatabaseUrl(rawValue, expectedUser) {
 
 export function resolveDr133RunnerEnvironment(rawEnvironment, { mode }) {
   if (!rawEnvironment || typeof rawEnvironment !== 'object') failDr133('ENVIRONMENT_REQUIRED');
-  if (!['migration', 'runtime-login', 'runtime-login-deprovision'].includes(mode)) {
+  if (![
+    'migration',
+    'schema-verifier',
+    'runtime-login',
+    'runtime-login-deprovision',
+  ].includes(mode)) {
     failDr133('MODE_INVALID');
   }
   const expectedKeys = mode === 'runtime-login' ? DR133_RUNTIME_ENV_KEYS : DR133_RUNNER_ENV_KEYS;
@@ -331,6 +386,10 @@ export function expectedDr133Sentinel() {
   ].join('|');
 }
 
+export function expectedDr133SuccessorSentinel() {
+  return `${expectedDr133Sentinel()}|identityScope=20260825010300`;
+}
+
 export function targetGucEntries() {
   return Object.freeze([
     Object.freeze(['missionmed.lor.target_provider', DR133_TARGET.provider]),
@@ -386,7 +445,7 @@ export function writeDr133Receipt(stream, payload) {
   if (
     payload.contract !== DR133_RUNNER_CONTRACT
     || !DR133_RECEIPT_MODES.includes(payload.mode)
-    || !DR133_RECEIPT_RESULTS.includes(payload.result)
+    || !DR133_RECEIPT_RESULTS_BY_MODE[payload.mode]?.includes(payload.result)
   ) failDr133('OUTPUT_RECEIPT_INVALID');
   if (
     payload.runnerCode !== undefined
@@ -400,7 +459,12 @@ export function writeDr133Receipt(stream, payload) {
       || !POSTGRES_CODE_PATTERN.test(payload.postgresCode)
       || !POSTGRES_CODE_CLASSES.has(payload.postgresCode.slice(0, 2)))
   ) failDr133('OUTPUT_RECEIPT_INVALID');
-  for (const hashKey of ['foundationSha256', 'rlsSha256']) {
+  for (const hashKey of [
+    'foundationSha256',
+    'identityScopeRollbackSha256',
+    'identityScopeSha256',
+    'rlsSha256',
+  ]) {
     if (payload[hashKey] !== undefined && !SHA256_PATTERN.test(payload[hashKey])) {
       failDr133('OUTPUT_RECEIPT_INVALID');
     }
@@ -409,6 +473,54 @@ export function writeDr133Receipt(stream, payload) {
     if (payload[integerKey] !== undefined && !isCanonicalInteger(payload[integerKey])) {
       failDr133('OUTPUT_RECEIPT_INVALID');
     }
+  }
+  const has = (key) => Object.hasOwn(payload, key);
+  const requireKeys = (requiredKeys) => {
+    if (requiredKeys.some((key) => !has(key))) failDr133('OUTPUT_RECEIPT_INVALID');
+  };
+  const successResults = new Set([
+    'ALL_THREE_COMMITTED_VERIFIED',
+    'RUNTIME_LOGIN_COMMITTED_VERIFIED',
+    'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED',
+    'SCHEMA_VERIFIED_NO_MUTATION',
+  ]);
+  if (payload.mode === 'migration') {
+    requireKeys([
+      'foundationSha256',
+      'identityScopeRollbackSha256',
+      'identityScopeSha256',
+      'rlsSha256',
+    ]);
+    if (payload.result === 'ALL_THREE_COMMITTED_VERIFIED') {
+      requireKeys(['definerCount', 'postgresMajor', 'relationCount']);
+    }
+  }
+  if (payload.mode === 'schema-verifier') {
+    requireKeys([
+      'foundationSha256',
+      'identityScopeRollbackSha256',
+      'identityScopeSha256',
+      'rlsSha256',
+    ]);
+    if (payload.result === 'SCHEMA_VERIFIED_NO_MUTATION') {
+      requireKeys(['definerCount', 'postgresMajor', 'relationCount']);
+    }
+  }
+  if (
+    payload.mode === 'runtime-login'
+    && payload.result !== 'NO_MUTATION'
+  ) requireKeys(['identityScopeRollbackSha256']);
+  if (
+    payload.mode === 'runtime-login-deprovision'
+    && payload.result !== 'NO_MUTATION'
+  ) requireKeys(['identityScopeRollbackSha256']);
+  if (payload.result === 'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED') {
+    requireKeys(['postgresMajor']);
+  }
+  if (successResults.has(payload.result)) {
+    if (has('runnerCode') || has('postgresCode')) failDr133('OUTPUT_RECEIPT_INVALID');
+  } else {
+    requireKeys(['runnerCode', 'postgresCode']);
   }
   stream.write(`${JSON.stringify(payload)}\n`);
 }
@@ -440,16 +552,40 @@ export function assertFoundationSentinelRow(row) {
   }
 }
 
+export function assertSuccessorSchemaPreflightRow(row) {
+  if (!row || typeof row !== 'object') failDr133('SUCCESSOR_PREFLIGHT_RESULT_INVALID');
+  if (
+    row.database_name !== DR133_TARGET.databaseName
+    || row.current_user !== DR133_TARGET.databaseAdmin
+    || row.session_user !== DR133_TARGET.databaseAdmin
+    || row.database_owner !== DR133_TARGET.databaseAdmin
+    || ![16, 18].includes(row.postgres_major)
+    || row.private_server_address !== true
+    || row.ssl_active !== true
+    || typeof row.ssl_version !== 'string'
+    || row.ssl_version.length === 0
+    || typeof row.ssl_cipher !== 'string'
+    || row.ssl_cipher.length === 0
+    || row.schema_sentinel !== expectedDr133SuccessorSentinel()
+    || row.schema_owner !== DR133_TARGET.databaseAdmin
+    || row.schema_count !== '1'
+    || row.app_role_count !== '1'
+    || row.command_owner_count !== '1'
+    || row.runtime_login_count !== '0'
+  ) failDr133('SUCCESSOR_PREFLIGHT_TARGET_INVALID');
+}
+
 export function assertPostflightRow(row) {
   if (!row || typeof row !== 'object') failDr133('POSTFLIGHT_RESULT_INVALID');
   const observedDefiners = Array.isArray(row.definer_identities) ? row.definer_identities : [];
   const observedRelations = Array.isArray(row.relation_names) ? row.relation_names : [];
   if (
-    row.schema_sentinel !== expectedDr133Sentinel()
+    row.schema_sentinel !== expectedDr133SuccessorSentinel()
     || row.schema_owner !== DR133_TARGET.databaseAdmin
     || row.relation_count !== String(DR133_RELATIONS.length)
     || row.forced_rls_count !== String(DR133_RELATIONS.length)
-    || row.definer_count !== String(DR133_APPROVED_DEFINER_IDENTITIES.length)
+    || row.definer_count !== String(DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES.length)
+    || row.app_execute_count !== String(DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES.length)
     || row.public_function_execute_count !== '0'
     || row.public_table_privilege_count !== '0'
     || row.nonempty_relation_count !== '0'
@@ -461,7 +597,7 @@ export function assertPostflightRow(row) {
     || row.nologin_role_membership_count !== '0'
     || JSON.stringify(observedRelations) !== JSON.stringify([...DR133_RELATIONS].sort())
     || JSON.stringify(observedDefiners)
-      !== JSON.stringify([...DR133_APPROVED_DEFINER_IDENTITIES].sort())
+      !== JSON.stringify([...DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES].sort())
   ) failDr133('POSTFLIGHT_CATALOG_INVALID');
 }
 
@@ -507,7 +643,7 @@ function runtimeDeprovisionRoleState(row, code) {
     || row.ssl_version.length === 0
     || typeof row.ssl_cipher !== 'string'
     || row.ssl_cipher.length === 0
-    || row.schema_sentinel !== expectedDr133Sentinel()
+    || row.schema_sentinel !== expectedDr133SuccessorSentinel()
     || row.app_role_count !== '1'
     || row.command_owner_count !== '1'
     || row.runtime_login_count !== '1'
@@ -682,6 +818,28 @@ function splitVerifiedRollbackGuard(source) {
   return Object.freeze({ prefix, destructiveTail });
 }
 
+function splitVerifiedIdentityScopeRollbackGuard(source) {
+  if (typeof source !== 'string') failDr133('IDENTITY_ROLLBACK_GUARD_SOURCE_INVALID');
+  const rollbackArtifact = DR133_ARTIFACTS.find(
+    (artifact) => artifact.id === 'identity-scope-rollback',
+  );
+  if (sha256Bytes(source) !== rollbackArtifact.sha256) {
+    failDr133('IDENTITY_ROLLBACK_ARTIFACT_HASH_MISMATCH');
+  }
+  const boundaryIndex = source.indexOf(IDENTITY_SCOPE_ROLLBACK_FIRST_DESTRUCTIVE_STATEMENT);
+  if (
+    boundaryIndex < 0
+    || boundaryIndex !== source.lastIndexOf(IDENTITY_SCOPE_ROLLBACK_FIRST_DESTRUCTIVE_STATEMENT)
+  ) failDr133('IDENTITY_ROLLBACK_GUARD_BOUNDARY_INVALID');
+  const prefix = source.slice(0, boundaryIndex).trimEnd();
+  const destructiveTail = source.slice(boundaryIndex).trimStart();
+  if (
+    !prefix.endsWith('END\n$catalog_guard$;')
+    || !destructiveTail.startsWith(IDENTITY_SCOPE_ROLLBACK_FIRST_DESTRUCTIVE_STATEMENT)
+  ) failDr133('IDENTITY_ROLLBACK_GUARD_BOUNDARY_INVALID');
+  return Object.freeze({ prefix, destructiveTail });
+}
+
 export function extractRollbackGuardVerificationSql(source) {
   const { prefix } = splitVerifiedRollbackGuard(source);
   return `${prefix}\n\nROLLBACK;\n`;
@@ -700,5 +858,26 @@ export function extractRollbackGuardTransactionBodySql(source) {
     || !body.endsWith('END\n$catalog_guard$;')
     || body.includes(ROLLBACK_LITERAL_MARKER)
   ) failDr133('ROLLBACK_GUARD_TRANSACTION_BOUNDARY_INVALID');
+  return `${body}\n`;
+}
+
+export function extractIdentityScopeRollbackGuardVerificationSql(source) {
+  const { prefix } = splitVerifiedIdentityScopeRollbackGuard(source);
+  return `${prefix}\n\nROLLBACK;\n`;
+}
+
+export function extractIdentityScopeRollbackGuardTransactionBodySql(source) {
+  const { prefix } = splitVerifiedIdentityScopeRollbackGuard(source);
+  const outerBegin = '\nBEGIN;\n\n';
+  const beginIndex = prefix.indexOf(outerBegin);
+  if (beginIndex < 0 || beginIndex !== prefix.lastIndexOf(outerBegin)) {
+    failDr133('IDENTITY_ROLLBACK_GUARD_TRANSACTION_BOUNDARY_INVALID');
+  }
+  const body = prefix.slice(beginIndex + outerBegin.length);
+  if (
+    !body.startsWith('DO $identity_guard$\n')
+    || !body.endsWith('END\n$catalog_guard$;')
+    || body.includes(IDENTITY_SCOPE_ROLLBACK_FIRST_DESTRUCTIVE_STATEMENT)
+  ) failDr133('IDENTITY_ROLLBACK_GUARD_TRANSACTION_BOUNDARY_INVALID');
   return `${body}\n`;
 }

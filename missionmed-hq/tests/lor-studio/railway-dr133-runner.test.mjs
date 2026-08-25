@@ -19,6 +19,7 @@ import {
   DR133_RELATIONS,
   DR133_RUNNER_CONTRACT,
   DR133_RUNTIME_LOGIN,
+  DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES,
   DR133_TARGET,
   Dr133RunnerError,
   assertPostflightRow,
@@ -30,6 +31,9 @@ import {
   assertRuntimeDeprovisionRevokedRow,
   buildNonemptyRelationsSql,
   expectedDr133Sentinel,
+  expectedDr133SuccessorSentinel,
+  extractIdentityScopeRollbackGuardTransactionBodySql,
+  extractIdentityScopeRollbackGuardVerificationSql,
   extractRollbackGuardTransactionBodySql,
   extractRollbackGuardVerificationSql,
   parsePrivateDatabaseUrl,
@@ -44,7 +48,9 @@ import {
   DR133_FOUNDATION_SENTINEL_SQL,
   DR133_POSTFLIGHT_CATALOG_SQL,
   DR133_PREFLIGHT_SQL,
+  DR133_SUCCESSOR_PREFLIGHT_SQL,
   runDr133StagingMigration,
+  verifyDr133StagingSuccessorSchema,
 } from '../../scripts/lor-studio/run-dr133-railway-staging-migrations.mjs';
 import {
   DR133_RUNTIME_ADMIN_POSTFLIGHT_SQL,
@@ -120,6 +126,12 @@ function captureStream() {
   };
 }
 
+function artifactHash(id) {
+  const artifact = DR133_ARTIFACTS.find((candidate) => candidate.id === id);
+  assert.ok(artifact, id);
+  return artifact.sha256;
+}
+
 function runnerError(code) {
   return (error) => error instanceof Dr133RunnerError && error.code === code;
 }
@@ -144,14 +156,15 @@ function preflightRow() {
 
 function postflightRow(overrides = {}) {
   return {
-    schema_sentinel: expectedDr133Sentinel(),
+    schema_sentinel: expectedDr133SuccessorSentinel(),
     schema_owner: 'postgres',
     relation_names: [...DR133_RELATIONS].sort(),
     relation_count: String(DR133_RELATIONS.length),
     forced_rls_count: String(DR133_RELATIONS.length),
-    definer_identities: [...DR133_APPROVED_DEFINER_IDENTITIES].sort(),
-    definer_count: String(DR133_APPROVED_DEFINER_IDENTITIES.length),
+    definer_identities: [...DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES].sort(),
+    definer_count: String(DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES.length),
     definer_custody_safe: true,
+    app_execute_count: String(DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES.length),
     public_function_execute_count: '0',
     public_table_privilege_count: '0',
     nonempty_relation_count: '0',
@@ -164,7 +177,7 @@ function postflightRow(overrides = {}) {
   };
 }
 
-function runtimeAdminPreflightRow() {
+function runtimeAdminPreflightRow(overrides = {}) {
   return {
     database_name: 'railway',
     current_user: 'postgres',
@@ -175,10 +188,13 @@ function runtimeAdminPreflightRow() {
     ssl_active: true,
     ssl_version: 'TLSv1.3',
     ssl_cipher: 'TLS_AES_256_GCM_SHA384',
-    schema_sentinel: expectedDr133Sentinel(),
+    schema_sentinel: expectedDr133SuccessorSentinel(),
+    schema_owner: 'postgres',
+    schema_count: '1',
     app_role_count: '1',
     command_owner_count: '1',
     runtime_login_count: '0',
+    ...overrides,
   };
 }
 
@@ -208,7 +224,7 @@ function runtimeDeprovisionPreflightRow(overrides = {}) {
     ssl_active: true,
     ssl_version: 'TLSv1.3',
     ssl_cipher: 'TLS_AES_256_GCM_SHA384',
-    schema_sentinel: expectedDr133Sentinel(),
+    schema_sentinel: expectedDr133SuccessorSentinel(),
     app_role_count: '1',
     command_owner_count: '1',
     runtime_login_count: '1',
@@ -272,6 +288,8 @@ test('binds exact forward and rollback artifacts and extracts only the rollback 
     'rls',
     'foundation-rollback',
     'rls-rollback',
+    'identity-scope',
+    'identity-scope-rollback',
   ]);
   for (const artifact of DR133_ARTIFACTS) {
     const bytes = await readFile(
@@ -297,6 +315,22 @@ test('binds exact forward and rollback artifacts and extracts only the rollback 
       assert.doesNotMatch(guardBody, /\bBEGIN;\s*$/u);
       assert.doesNotMatch(guardBody, /\bROLLBACK;/u);
       assert.doesNotMatch(guardBody, /DROP POLICY/u);
+    }
+    if (artifact.id === 'identity-scope-rollback') {
+      const source = bytes.toString('utf8');
+      const guard = extractIdentityScopeRollbackGuardVerificationSql(source);
+      const guardBody = extractIdentityScopeRollbackGuardTransactionBodySql(source);
+      assert.match(guard, /^-- Rollback:/u);
+      assert.match(guard, /\$semantic_catalog_guard\$;/u);
+      assert.match(guard, /\$catalog_guard\$;/u);
+      assert.match(guard, /ROLLBACK;\n$/u);
+      assert.doesNotMatch(guard, /REVOKE EXECUTE ON FUNCTION lor_studio\.ensure_student/u);
+      assert.doesNotMatch(guard, /DROP POLICY/u);
+      assert.match(guardBody, /^DO \$identity_guard\$/u);
+      assert.match(guardBody, /\$semantic_catalog_guard\$;/u);
+      assert.match(guardBody, /\$catalog_guard\$;\n$/u);
+      assert.doesNotMatch(guardBody, /REVOKE EXECUTE/u);
+      assert.doesNotMatch(guardBody, /DROP FUNCTION/u);
     }
   }
 });
@@ -381,6 +415,10 @@ test('receipt writer accepts only its fixed evidence schema and cannot emit a cr
     result: 'NO_MUTATION',
     runnerCode: 'SYNTHETIC_FAILURE',
     postgresCode: null,
+    foundationSha256: artifactHash('foundation'),
+    rlsSha256: artifactHash('rls'),
+    identityScopeSha256: artifactHash('identity-scope'),
+    identityScopeRollbackSha256: artifactHash('identity-scope-rollback'),
   });
   assert.deepEqual(JSON.parse(capture.value()), {
     contract: DR133_RUNNER_CONTRACT,
@@ -388,6 +426,10 @@ test('receipt writer accepts only its fixed evidence schema and cannot emit a cr
     result: 'NO_MUTATION',
     runnerCode: 'SYNTHETIC_FAILURE',
     postgresCode: null,
+    foundationSha256: artifactHash('foundation'),
+    rlsSha256: artifactHash('rls'),
+    identityScopeSha256: artifactHash('identity-scope'),
+    identityScopeRollbackSha256: artifactHash('identity-scope-rollback'),
   });
   assert.throws(
     () => writeDr133Receipt(capture.stream, {
@@ -395,6 +437,56 @@ test('receipt writer accepts only its fixed evidence schema and cannot emit a cr
       mode: 'migration',
       result: 'NO_MUTATION',
       databaseUrl: privateUrl('postgres', ADMIN_PASSWORD),
+    }),
+    runnerError('OUTPUT_RECEIPT_INVALID'),
+  );
+  assert.throws(
+    () => writeDr133Receipt(capture.stream, {
+      contract: DR133_RUNNER_CONTRACT,
+      mode: 'schema-verifier',
+      result: 'SCHEMA_VERIFIED_NO_MUTATION',
+    }),
+    runnerError('OUTPUT_RECEIPT_INVALID'),
+  );
+  assert.throws(
+    () => writeDr133Receipt(capture.stream, {
+      contract: DR133_RUNNER_CONTRACT,
+      mode: 'runtime-login',
+      result: 'ALL_THREE_COMMITTED_VERIFIED',
+      foundationSha256: artifactHash('foundation'),
+      rlsSha256: artifactHash('rls'),
+      identityScopeSha256: artifactHash('identity-scope'),
+      identityScopeRollbackSha256: artifactHash('identity-scope-rollback'),
+      relationCount: 28,
+      definerCount: 12,
+    }),
+    runnerError('OUTPUT_RECEIPT_INVALID'),
+  );
+  assert.throws(
+    () => writeDr133Receipt(capture.stream, {
+      contract: DR133_RUNNER_CONTRACT,
+      mode: 'schema-verifier',
+      result: 'RUNTIME_LOGIN_COMMITTED_VERIFIED',
+      foundationSha256: artifactHash('foundation'),
+      rlsSha256: artifactHash('rls'),
+      identityScopeSha256: artifactHash('identity-scope'),
+      identityScopeRollbackSha256: artifactHash('identity-scope-rollback'),
+      relationCount: 28,
+      definerCount: 12,
+    }),
+    runnerError('OUTPUT_RECEIPT_INVALID'),
+  );
+  assert.throws(
+    () => writeDr133Receipt(capture.stream, {
+      contract: DR133_RUNNER_CONTRACT,
+      mode: 'migration',
+      result: 'BOTH_COMMITTED_VERIFIED',
+      foundationSha256: artifactHash('foundation'),
+      rlsSha256: artifactHash('rls'),
+      identityScopeSha256: artifactHash('identity-scope'),
+      identityScopeRollbackSha256: artifactHash('identity-scope-rollback'),
+      relationCount: 28,
+      definerCount: 12,
     }),
     runnerError('OUTPUT_RECEIPT_INVALID'),
   );
@@ -470,11 +562,16 @@ test('preflight and postflight assertions reject coercible or incomplete catalog
   );
 });
 
-function createMigrationFake({ failurePoint = null, postflightOverrides = {} } = {}) {
+function createMigrationFake({
+  failurePoint = null,
+  postflightOverrides = {},
+  successorPreflightOverrides = {},
+} = {}) {
   const calls = [];
   const instances = [];
   const foundationPrefix = '-- Migration: 20260825010000';
   const rlsPrefix = '-- Migration: 20260825010100';
+  const identityScopePrefix = '-- Migration: 20260825010300';
   class FakeClient {
     constructor(options) {
       this.options = options;
@@ -516,13 +613,48 @@ function createMigrationFake({ failurePoint = null, postflightOverrides = {} } =
       if (text.startsWith(rlsPrefix) && failurePoint === 'rls-57P01') {
         throw syntheticPgError('57P01');
       }
+      if (text.startsWith(identityScopePrefix) && failurePoint === 'identity-pg') {
+        throw syntheticPgError('55000');
+      }
+      if (text.startsWith(identityScopePrefix) && failurePoint === 'identity-transport') {
+        const error = new Error('synthetic identity transport failure');
+        error.code = 'EPIPE';
+        throw error;
+      }
+      if (text.startsWith(identityScopePrefix) && failurePoint === 'identity-57P01') {
+        throw syntheticPgError('57P01');
+      }
+      if (text.startsWith('-- Rollback: 20260825010300')) {
+        if (failurePoint === 'successor-guard-transport') {
+          const error = new Error('synthetic successor verification transport failure');
+          error.code = 'ECONNRESET';
+          throw error;
+        }
+        if (failurePoint === 'successor-guard-57P01') throw syntheticPgError('57P01');
+        if (failurePoint === 'successor-guard-57014') throw syntheticPgError('57014');
+        if (failurePoint === 'successor-guard-semantic') throw syntheticPgError('55000');
+      }
       if (text === DR133_PREFLIGHT_SQL) return { rows: [preflightRow()] };
+      if (text === DR133_SUCCESSOR_PREFLIGHT_SQL) {
+        return { rows: [runtimeAdminPreflightRow(successorPreflightOverrides)] };
+      }
       if (text === DR133_ADVISORY_LOCK_SQL) return { rows: [{ acquired: true }] };
-      if (text === DR133_ADVISORY_UNLOCK_SQL) return { rows: [{ released: true }] };
+      if (text === DR133_ADVISORY_UNLOCK_SQL) {
+        if (failurePoint === 'unlock-transport') throw syntheticPgError('08006');
+        return { rows: [{ released: true }] };
+      }
       if (text === DR133_FOUNDATION_SENTINEL_SQL) {
         return { rows: [{ schema_sentinel: expectedDr133Sentinel() }] };
       }
       if (text === DR133_POSTFLIGHT_CATALOG_SQL) {
+        if (failurePoint === 'postflight-transport') {
+          const error = new Error('synthetic catalog transport failure');
+          error.code = 'ECONNRESET';
+          throw error;
+        }
+        if (failurePoint === 'postflight-57P01') throw syntheticPgError('57P01');
+        if (failurePoint === 'postflight-55P03') throw syntheticPgError('55P03');
+        if (failurePoint === 'postflight-semantic') throw syntheticPgError('55000');
         return { rows: [postflightRow(postflightOverrides)] };
       }
       if (text === buildNonemptyRelationsSql()) {
@@ -537,7 +669,7 @@ function createMigrationFake({ failurePoint = null, postflightOverrides = {} } =
   return { ClientClass: FakeClient, calls, instances };
 }
 
-test('migration runner verifies, serializes, applies once in order, and emits no secret', async () => {
+test('migration runner verifies, serializes, applies all three once in order, and emits no secret', async () => {
   const fake = createMigrationFake();
   const capture = captureStream();
   const result = await runDr133StagingMigration({
@@ -545,11 +677,14 @@ test('migration runner verifies, serializes, applies once in order, and emits no
     ClientClass: fake.ClientClass,
     output: capture.stream,
   });
-  assert.equal(result.result, 'BOTH_COMMITTED_VERIFIED');
+  assert.equal(result.result, 'ALL_THREE_COMMITTED_VERIFIED');
   const receipt = JSON.parse(capture.value());
-  assert.equal(receipt.result, 'BOTH_COMMITTED_VERIFIED');
+  assert.equal(receipt.result, 'ALL_THREE_COMMITTED_VERIFIED');
   assert.equal(receipt.relationCount, 28);
-  assert.equal(receipt.definerCount, 8);
+  assert.equal(receipt.definerCount, 12);
+  assert.equal(receipt.identityScopeSha256, DR133_ARTIFACTS.find(
+    (artifact) => artifact.id === 'identity-scope',
+  ).sha256);
   assert.doesNotMatch(capture.value(), new RegExp(ADMIN_PASSWORD, 'u'));
   assert.equal(fake.instances.length, 1);
   assert.equal(fake.instances[0].options.ssl.rejectUnauthorized, false);
@@ -561,12 +696,17 @@ test('migration runner verifies, serializes, applies once in order, and emits no
   const rlsIndexes = texts
     .map((text, index) => text.startsWith('-- Migration: 20260825010100') ? index : -1)
     .filter((index) => index >= 0);
+  const identityScopeIndexes = texts
+    .map((text, index) => text.startsWith('-- Migration: 20260825010300') ? index : -1)
+    .filter((index) => index >= 0);
   assert.equal(foundationIndexes.length, 1);
   assert.equal(rlsIndexes.length, 1);
+  assert.equal(identityScopeIndexes.length, 1);
   assert.ok(texts.indexOf(DR133_ADVISORY_LOCK_SQL) < foundationIndexes[0]);
   assert.ok(foundationIndexes[0] < texts.indexOf(DR133_FOUNDATION_SENTINEL_SQL));
   assert.ok(texts.indexOf(DR133_FOUNDATION_SENTINEL_SQL) < rlsIndexes[0]);
-  assert.ok(rlsIndexes[0] < texts.indexOf(DR133_POSTFLIGHT_CATALOG_SQL));
+  assert.ok(rlsIndexes[0] < identityScopeIndexes[0]);
+  assert.ok(identityScopeIndexes[0] < texts.indexOf(DR133_POSTFLIGHT_CATALOG_SQL));
   assert.equal(fake.calls.filter((call) => call.text.includes('set_config($1, $2, false)')).length, 8);
 });
 
@@ -578,6 +718,9 @@ test('migration runner reports truthful no-retry partial-commit states', async (
     ['rls-pg', 'FOUNDATION_ONLY_COMMITTED', '55000'],
     ['rls-transport', 'RLS_OUTCOME_UNKNOWN', null],
     ['rls-57P01', 'RLS_OUTCOME_UNKNOWN', '57P01'],
+    ['identity-pg', 'BASE_SCHEMA_ONLY_COMMITTED', '55000'],
+    ['identity-transport', 'IDENTITY_SCOPE_OUTCOME_UNKNOWN', null],
+    ['identity-57P01', 'IDENTITY_SCOPE_OUTCOME_UNKNOWN', '57P01'],
   ]) {
     const fake = createMigrationFake({ failurePoint });
     const capture = captureStream();
@@ -615,14 +758,95 @@ test('migration runner reports truthful no-retry partial-commit states', async (
   }));
   assert.equal(
     JSON.parse(rejectedCapture.value()).result,
-    'BOTH_COMMITTED_POSTFLIGHT_REJECTED',
+    'ALL_THREE_COMMITTED_POSTFLIGHT_REJECTED',
   );
+
+  for (const [failurePoint, expectedResult, expectedPostgresCode] of [
+    ['successor-guard-transport', 'ALL_THREE_COMMITTED_VERIFICATION_UNKNOWN', null],
+    ['successor-guard-57P01', 'ALL_THREE_COMMITTED_VERIFICATION_UNKNOWN', '57P01'],
+    ['successor-guard-57014', 'ALL_THREE_COMMITTED_VERIFICATION_UNKNOWN', '57014'],
+    ['postflight-transport', 'ALL_THREE_COMMITTED_VERIFICATION_UNKNOWN', null],
+    ['postflight-57P01', 'ALL_THREE_COMMITTED_VERIFICATION_UNKNOWN', '57P01'],
+    ['postflight-55P03', 'ALL_THREE_COMMITTED_VERIFICATION_UNKNOWN', '55P03'],
+    ['successor-guard-semantic', 'ALL_THREE_COMMITTED_POSTFLIGHT_REJECTED', '55000'],
+    ['postflight-semantic', 'ALL_THREE_COMMITTED_POSTFLIGHT_REJECTED', '55000'],
+  ]) {
+    const verificationFailure = createMigrationFake({ failurePoint });
+    const verificationCapture = captureStream();
+    await assert.rejects(runDr133StagingMigration({
+      environment: environment(),
+      ClientClass: verificationFailure.ClientClass,
+      output: verificationCapture.stream,
+    }));
+    const receipt = JSON.parse(verificationCapture.value());
+    assert.equal(receipt.result, expectedResult, failurePoint);
+    assert.equal(receipt.postgresCode, expectedPostgresCode, failurePoint);
+    assert.equal(receipt.identityScopeSha256, artifactHash('identity-scope'));
+  }
+});
+
+test('successor verifier proves exact 10300 custody without dispatching forward SQL', async () => {
+  const fake = createMigrationFake();
+  const capture = captureStream();
+  assert.deepEqual(await verifyDr133StagingSuccessorSchema({
+    environment: environment('schema-verifier'),
+    ClientClass: fake.ClientClass,
+    output: capture.stream,
+  }), { result: 'SCHEMA_VERIFIED_NO_MUTATION' });
+  const receipt = JSON.parse(capture.value());
+  assert.equal(receipt.mode, 'schema-verifier');
+  assert.equal(receipt.result, 'SCHEMA_VERIFIED_NO_MUTATION');
+  assert.equal(receipt.definerCount, 12);
+  const texts = fake.calls.map((call) => call.text);
+  for (const prefix of [
+    '-- Migration: 20260825010000',
+    '-- Migration: 20260825010100',
+    '-- Migration: 20260825010300',
+  ]) assert.equal(texts.some((text) => text.startsWith(prefix)), false);
+  for (const destructivePattern of [
+    /\nREVOKE EXECUTE ON FUNCTION lor_studio\.ensure_student_auth_binding/u,
+    /\nDROP POLICY/u,
+    /\nDROP FUNCTION/u,
+  ]) assert.equal(texts.some((text) => destructivePattern.test(text)), false);
+  assert.equal(texts.filter((text) => text === DR133_SUCCESSOR_PREFLIGHT_SQL).length, 2);
+  assert.ok(texts.includes(DR133_ADVISORY_LOCK_SQL));
+  assert.ok(texts.includes(DR133_ADVISORY_UNLOCK_SQL));
+  assert.doesNotMatch(capture.value(), new RegExp(ADMIN_PASSWORD, 'u'));
+
+  const stale = createMigrationFake({
+    successorPreflightOverrides: { schema_sentinel: expectedDr133Sentinel() },
+  });
+  const staleCapture = captureStream();
+  await assert.rejects(verifyDr133StagingSuccessorSchema({
+    environment: environment('schema-verifier'),
+    ClientClass: stale.ClientClass,
+    output: staleCapture.stream,
+  }), runnerError('SUCCESSOR_PREFLIGHT_TARGET_INVALID'));
+  assert.equal(JSON.parse(staleCapture.value()).result, 'NO_MUTATION');
+  assert.equal(stale.calls.some((call) => (
+    call.text.startsWith('-- Migration: 20260825010300')
+  )), false);
+
+  const cleanupFailure = createMigrationFake({ failurePoint: 'unlock-transport' });
+  const cleanupCapture = captureStream();
+  await assert.rejects(verifyDr133StagingSuccessorSchema({
+    environment: environment('schema-verifier'),
+    ClientClass: cleanupFailure.ClientClass,
+    output: cleanupCapture.stream,
+  }), runnerError('POSTGRES_08006'));
+  const cleanupReceipt = JSON.parse(cleanupCapture.value());
+  assert.equal(cleanupReceipt.result, 'SCHEMA_VERIFIED_NO_MUTATION_CLEANUP_FAILED');
+  assert.equal(cleanupReceipt.identityScopeRollbackSha256, artifactHash(
+    'identity-scope-rollback',
+  ));
 });
 
 function createRuntimeFake({
   grantFailure = false,
   allowDirectRead = false,
   commitFailure = false,
+  adminPostflightFailureCode = null,
+  runtimeConnectFailureCode = null,
 } = {}) {
   const calls = [];
   const instances = [];
@@ -636,6 +860,9 @@ function createRuntimeFake({
 
     async connect() {
       calls.push({ kind: this.kind, text: 'CONNECT' });
+      if (this.kind === 'runtime' && runtimeConnectFailureCode) {
+        throw syntheticPgError(runtimeConnectFailureCode);
+      }
     }
 
     async end() {
@@ -652,6 +879,7 @@ function createRuntimeFake({
         if (text === DR133_RUNTIME_ADVISORY_LOCK_SQL) return { rows: [{ acquired: true }] };
         if (text === DR133_RUNTIME_ADVISORY_UNLOCK_SQL) return { rows: [{ released: true }] };
         if (text === DR133_RUNTIME_ADMIN_POSTFLIGHT_SQL) {
+          if (adminPostflightFailureCode) throw syntheticPgError(adminPostflightFailureCode);
           return { rows: [{
             runtime_role_safe: true,
             membership_safe: true,
@@ -760,6 +988,45 @@ test('runtime-login runner rolls back DDL errors and rejects inherited direct re
     'RUNTIME_LOGIN_OUTCOME_UNKNOWN',
   );
   assert.equal(uncertainCommit.instances.length, 1);
+
+  for (const [options, expectedResult, expectedPostgresCode] of [
+    [
+      { adminPostflightFailureCode: '08006' },
+      'RUNTIME_LOGIN_COMMITTED_VERIFICATION_UNKNOWN',
+      '08006',
+    ],
+    [
+      { adminPostflightFailureCode: '57014' },
+      'RUNTIME_LOGIN_COMMITTED_VERIFICATION_UNKNOWN',
+      '57014',
+    ],
+    [
+      { runtimeConnectFailureCode: '08006' },
+      'RUNTIME_LOGIN_COMMITTED_VERIFICATION_UNKNOWN',
+      '08006',
+    ],
+    [
+      { runtimeConnectFailureCode: '28P01' },
+      'RUNTIME_LOGIN_COMMITTED_POSTFLIGHT_REJECTED',
+      '28P01',
+    ],
+    [
+      { adminPostflightFailureCode: '55000' },
+      'RUNTIME_LOGIN_COMMITTED_POSTFLIGHT_REJECTED',
+      '55000',
+    ],
+  ]) {
+    const postcommitFailure = createRuntimeFake(options);
+    const postcommitCapture = captureStream();
+    await assert.rejects(provisionDr133RailwayStagingRuntimeLogin({
+      environment: environment('runtime-login'),
+      ClientClass: postcommitFailure.ClientClass,
+      output: postcommitCapture.stream,
+    }));
+    const postcommitReceipt = JSON.parse(postcommitCapture.value());
+    assert.equal(postcommitReceipt.result, expectedResult, expectedPostgresCode);
+    assert.equal(postcommitReceipt.postgresCode, expectedPostgresCode);
+  }
 
   const inherited = createRuntimeFake({ allowDirectRead: true });
   const inheritedCapture = captureStream();
@@ -1393,6 +1660,7 @@ async function configureExactTargetGucs(client) {
 
 async function runExactCanonicalRollbacks({
   ClientClass,
+  identityScopeRollback,
   rlsRollback,
   foundationRollback,
 }) {
@@ -1413,6 +1681,7 @@ async function runExactCanonicalRollbacks({
     await configureExactTargetGucs(client);
     const nonempty = await client.query(buildNonemptyRelationsSql());
     assert.equal(nonempty.rows[0].nonempty_relation_count, '0');
+    await client.query(identityScopeRollback);
     await client.query(rlsRollback);
     await client.query(foundationRollback);
     const inventory = await client.query(`SELECT
@@ -1443,7 +1712,9 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
   }
   const rlsRollback = artifactSources.get('rls-rollback');
   const foundationRollback = artifactSources.get('foundation-rollback');
+  const identityScopeRollback = artifactSources.get('identity-scope-rollback');
   for (const [id, source] of [
+    ['identity-scope-rollback', identityScopeRollback],
     ['rls-rollback', rlsRollback],
     ['foundation-rollback', foundationRollback],
   ]) {
@@ -1510,9 +1781,10 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
             ClientClass,
             output: migrationCapture.stream,
           }),
-          { result: 'BOTH_COMMITTED_VERIFIED' },
+          { result: 'ALL_THREE_COMMITTED_VERIFIED' },
         );
         assert.equal(JSON.parse(migrationCapture.value()).relationCount, 28);
+        assert.equal(JSON.parse(migrationCapture.value()).definerCount, 12);
 
         const foundationCatalog = await inspectorClient.query(DR133_POSTFLIGHT_CATALOG_SQL);
         const foundationEmpty = await inspectorClient.query(buildNonemptyRelationsSql());
@@ -1520,6 +1792,25 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
           ...foundationCatalog.rows[0],
           ...foundationEmpty.rows[0],
         });
+
+        const verifierCapture = captureStream();
+        assert.deepEqual(await verifyDr133StagingSuccessorSchema({
+          environment: environment('schema-verifier'),
+          ClientClass,
+          output: verifierCapture.stream,
+        }), { result: 'SCHEMA_VERIFIED_NO_MUTATION' });
+        assert.equal(
+          JSON.parse(verifierCapture.value()).result,
+          'SCHEMA_VERIFIED_NO_MUTATION',
+        );
+
+        const replayCapture = captureStream();
+        await assert.rejects(runDr133StagingMigration({
+          environment: environment('migration'),
+          ClientClass,
+          output: replayCapture.stream,
+        }), runnerError('PREFLIGHT_TARGET_INVALID'));
+        assert.equal(JSON.parse(replayCapture.value()).result, 'NO_MUTATION');
 
         const provisionCapture = captureStream();
         assert.deepEqual(
@@ -1757,6 +2048,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
 
         await runExactCanonicalRollbacks({
           ClientClass,
+          identityScopeRollback,
           rlsRollback,
           foundationRollback,
         });
@@ -1768,9 +2060,10 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
             ClientClass,
             output: reapplyCapture.stream,
           }),
-          { result: 'BOTH_COMMITTED_VERIFIED' },
+          { result: 'ALL_THREE_COMMITTED_VERIFIED' },
         );
         assert.equal(JSON.parse(reapplyCapture.value()).relationCount, 28);
+        assert.equal(JSON.parse(reapplyCapture.value()).definerCount, 12);
         const reappliedCatalog = await inspectorClient.query(DR133_POSTFLIGHT_CATALOG_SQL);
         const reappliedEmpty = await inspectorClient.query(buildNonemptyRelationsSql());
         assertPostflightRow({
@@ -1780,6 +2073,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
 
         await runExactCanonicalRollbacks({
           ClientClass,
+          identityScopeRollback,
           rlsRollback,
           foundationRollback,
         });
