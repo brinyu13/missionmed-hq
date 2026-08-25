@@ -131,6 +131,103 @@ async function saveEvidence(page, filename) {
 	await page.screenshot({ path: path.join(evidenceDir, filename), fullPage: false });
 }
 
+async function nonceRecoveryFlow(browser) {
+	const { context, page, diagnostics } = await createPage(browser, { role: "student" });
+	let recoveryRequests = 0;
+	let failedRequests = 0;
+	let refreshRequests = 0;
+	let recoveredNonce = "";
+	try {
+		await page.route("**/__fv2_nonce__", async route => {
+			refreshRequests += 1;
+			await route.fulfill({
+				status: 200,
+				contentType: "application/json",
+				body: JSON.stringify({ success: true, data: { nonce: "fresh-fixture-nonce" } })
+			});
+		});
+		await page.route("**/__fv2_rest__/**", async route => {
+			const pathname = new URL(route.request().url()).pathname;
+			if (pathname.endsWith("/recover")) {
+				recoveryRequests += 1;
+				if (recoveryRequests === 1) {
+					await route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ code: "rest_cookie_invalid_nonce" }) });
+					return;
+				}
+				recoveredNonce = route.request().headers()["x-wp-nonce"] || "";
+				await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ recovered: true }) });
+				return;
+			}
+			failedRequests += 1;
+			await route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ code: "rest_cookie_invalid_nonce" }) });
+		});
+
+		const recovered = await page.evaluate(async () => {
+			const instance = window.__FV2_HARNESS__.instance;
+			instance.injectedApi = null;
+			instance.config.restUrl = window.location.origin + "/__fv2_rest__";
+			instance.config.nonceRefreshUrl = window.location.origin + "/__fv2_nonce__";
+			instance.config.nonce = "expired-fixture-nonce";
+			return instance.fetchRequest("GET", "/recover");
+		});
+		assert(recovered.recovered === true && recoveryRequests === 2 && refreshRequests === 1, "student: expired nonce did not recover through exactly one authenticated refresh");
+		assert(recoveredNonce === "fresh-fixture-nonce", "student: retried request did not use the refreshed nonce");
+
+		const failed = await page.evaluate(async () => {
+			const instance = window.__FV2_HARNESS__.instance;
+			instance.config.nonce = "expired-again";
+			try {
+				await instance.fetchRequest("GET", "/always-fails");
+				return { rejected: false };
+			} catch (error) {
+				return { rejected: true, status: error.status, code: error.code };
+			}
+		});
+		assert(failed.rejected === true && failed.status === 403 && failed.code === "rest_cookie_invalid_nonce", "student: repeated nonce rejection did not fail closed");
+		assert(failedRequests === 2 && refreshRequests === 2, "student: repeated nonce rejection exceeded one refresh retry");
+		const unexpectedDiagnostics = diagnostics.filter(item => !/Failed to load resource: the server responded with a status of 403/.test(item));
+		assert(diagnostics.length === 3 && unexpectedDiagnostics.length === 0, `nonce recovery: unexpected browser diagnostics ${diagnostics.join(" | ")}`);
+	} finally {
+		await context.close();
+	}
+}
+
+async function abortedMountRemountFlow(browser) {
+	const { context, page, diagnostics } = await createPage(browser, { role: "student" });
+	try {
+		const result = await page.evaluate(async () => {
+			const harness = window.__FV2_HARNESS__;
+			const root = document.getElementById("sos-content");
+			let releaseFirst = null;
+			window.MMED_FILE_VAULT_V2.unmount();
+			const firstMount = window.MMED_FILE_VAULT_V2.mountHarness(root, {
+				api: function (request) {
+					return new Promise((resolve, reject) => {
+						releaseFirst = function () { harness.api(request).then(resolve, reject); };
+					});
+				}
+			});
+			while (!releaseFirst) await new Promise(resolve => window.setTimeout(resolve, 0));
+			window.MMED_FILE_VAULT_V2.unmount();
+			const secondInstance = await window.MMED_FILE_VAULT_V2.mountHarness(root, { api: harness.api });
+			releaseFirst();
+			const firstInstance = await firstMount;
+			return {
+				distinct: firstInstance !== secondInstance,
+				firstDestroyed: firstInstance.destroyed,
+				secondDestroyed: secondInstance.destroyed,
+				appCount: root.querySelectorAll("[data-fv2-app]").length,
+				hasHome: !!root.querySelector(".fv2-upload-launcher")
+			};
+		});
+		assert(result.distinct && result.firstDestroyed && !result.secondDestroyed, `Matrix takeover: aborted mount was reused ${JSON.stringify(result)}`);
+		assert(result.appCount === 1 && result.hasHome, `Matrix takeover: immediate remount did not remain usable ${JSON.stringify(result)}`);
+		assert(diagnostics.length === 0, `Matrix takeover abort: browser diagnostics ${diagnostics.join(" | ")}`);
+	} finally {
+		await context.close();
+	}
+}
+
 async function studentFlow(browser) {
 	const { context, page, diagnostics } = await createPage(browser, { role: "student" });
 	try {
@@ -957,10 +1054,14 @@ async function main() {
 	assert(fs.existsSync(destinationArt), "destination artwork is absent from the release source");
 	assert(fs.readFileSync(mutableCss, "utf8").includes(path.basename(destinationArt)), "mutable CSS does not reference the destination artwork");
 	const mutableJsSource = fs.readFileSync(mutableJs, "utf8");
-	assert(mutableJsSource.includes("mountPromise") && mutableJsSource.includes("activationTimer"), "Matrix takeover is missing single-flight mount and activation guards");
+	assert(mutableJsSource.includes("mountPromise") && mutableJsSource.includes("mountRoot"), "Matrix takeover is missing single-flight mount guards");
+	assert(mutableJsSource.includes("nonceRefreshUrl") && mutableJsSource.includes("refreshNonce"), "student: invalid REST nonces do not have an authenticated recovery path");
+	assert(mutableJsSource.includes("rest_cookie_invalid_nonce") && mutableJsSource.includes("nonceRetried"), "student: nonce recovery is not bounded to one retry");
 	const executablePath = process.env.FV2_BROWSER_PATH || (fs.existsSync(systemChrome) ? systemChrome : undefined);
 	const browser = await chromium.launch({ headless: true, executablePath });
 	try {
+		await nonceRecoveryFlow(browser);
+		await abortedMountRemountFlow(browser);
 		await studentFlow(browser);
 		await rapidStudentSwitchFlow(browser);
 		await failedStudentSwitchFlow(browser);
