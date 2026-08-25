@@ -170,7 +170,7 @@ SELECT
   pg_catalog.pg_get_userbyid(namespace.nspowner)::text AS schema_owner,
   (
     SELECT COALESCE(
-      pg_catalog.array_agg(relation_name ORDER BY relation_name),
+      pg_catalog.array_agg(relation_name ORDER BY relation_name COLLATE "C"),
       ARRAY[]::text[]
     )
     FROM relation_inventory
@@ -183,7 +183,7 @@ SELECT
   ) AS forced_rls_count,
   (
     SELECT COALESCE(
-      pg_catalog.array_agg(function_identity ORDER BY function_identity),
+      pg_catalog.array_agg(function_identity ORDER BY function_identity COLLATE "C"),
       ARRAY[]::text[]
     )
     FROM definer_inventory

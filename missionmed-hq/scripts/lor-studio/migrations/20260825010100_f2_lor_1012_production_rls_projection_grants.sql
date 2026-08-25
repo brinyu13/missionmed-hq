@@ -1183,7 +1183,9 @@ BEGIN
     OR observed_policies IS DISTINCT FROM ARRAY[]::text[]
     OR observed_triggers IS DISTINCT FROM expected_triggers
     OR observed_rls IS DISTINCT FROM (
-      SELECT pg_catalog.array_agg(relation_name || ':false:false' ORDER BY relation_name)
+      SELECT pg_catalog.array_agg(
+        relation_name || ':false:false' ORDER BY relation_name COLLATE "C"
+      )
       FROM pg_catalog.unnest(expected_relations) AS relation_name
     )
     OR (

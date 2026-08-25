@@ -17,6 +17,11 @@ const rlsPath = path.join(
   'migrations',
   '20260820180800_f2_lor_1012_rls_projection_grants.sql',
 );
+const productionRlsPath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260825010100_f2_lor_1012_production_rls_projection_grants.sql',
+);
 const foundationRollbackPath = path.join(
   scriptDirectory,
   'rollbacks',
@@ -226,6 +231,27 @@ test('both rollback files have the same sentinel-bound disposable identity guard
   }
   assert.match(foundation, new RegExp(sentinel.replaceAll('.', '\\.'), 'u'));
   assert.match(rls, /lor_studio_command_owner/u);
+});
+
+test('RLS guard relation ordering is C-canonical in every forward and rollback artifact', async () => {
+  for (const sqlPath of [
+    rlsPath,
+    productionRlsPath,
+    foundationRollbackPath,
+    productionFoundationRollbackPath,
+    rlsRollbackPath,
+    productionRlsRollbackPath,
+  ]) {
+    const sql = await readFile(sqlPath, 'utf8');
+    assert.match(
+      sql,
+      /relation_name \|\| ':(?:false:false|true:true)' ORDER BY relation_name COLLATE "C"/u,
+    );
+    assert.doesNotMatch(
+      sql,
+      /relation_name \|\| ':(?:false:false|true:true)' ORDER BY relation_name\)/u,
+    );
+  }
 });
 
 test('rollback SQL contains no optional or scope-expanding destructive form', async () => {

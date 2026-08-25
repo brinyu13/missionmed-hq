@@ -412,6 +412,14 @@ test('receipt writer accepts only its fixed evidence schema and cannot emit a cr
 });
 
 test('preflight and postflight assertions reject coercible or incomplete catalog rows', () => {
+  assert.match(
+    DR133_POSTFLIGHT_CATALOG_SQL,
+    /array_agg\(relation_name ORDER BY relation_name COLLATE "C"\)/u,
+  );
+  assert.match(
+    DR133_POSTFLIGHT_CATALOG_SQL,
+    /array_agg\(function_identity ORDER BY function_identity COLLATE "C"\)/u,
+  );
   assert.doesNotThrow(() => assertPreflightRow(preflightRow()));
   assert.doesNotThrow(() => assertPostflightRow(postflightRow()));
   assert.throws(

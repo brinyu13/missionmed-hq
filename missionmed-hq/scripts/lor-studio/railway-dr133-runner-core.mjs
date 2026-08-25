@@ -33,21 +33,21 @@ export const DR133_ARTIFACTS = Object.freeze([
     id: 'rls',
     purpose: 'forward',
     relativePath: 'migrations/20260825010100_f2_lor_1012_production_rls_projection_grants.sql',
-    sha256: '2330e9f1cc8ccc23a4b498e9be62ea383d450d7d27d0f2ae26a1f540a2cd9a0a',
+    sha256: '4f9eba1912f7b4d54eb7a7f12d2e5877500ba8eee5405ac400ef4178a999f33f',
   }),
   Object.freeze({
     id: 'foundation-rollback',
     purpose: 'recovery-custody',
     relativePath:
       'rollbacks/20260825010000_f2_lor_1012_production_schema_foundation.rollback.sql',
-    sha256: '3b197ff5f5a84692f2bb9d29e846a6dac2d4d3cda265a4149e9a0b6c3754fdf8',
+    sha256: '207442ca66ee1840ebf6ff50bb5d8fe9bbcf6bdae0f83074025ce4427a4a0515',
   }),
   Object.freeze({
     id: 'rls-rollback',
     purpose: 'recovery-custody-and-guard-verification',
     relativePath:
       'rollbacks/20260825010100_f2_lor_1012_production_rls_projection_grants.rollback.sql',
-    sha256: '0960ab73642eb7c0b27b16289025509ad21a7253bd93800c55c12b751b6f1d04',
+    sha256: '695b20972beabed9d8db1350b5f01ef0107d5ecfda9ea8f9cddbc7072e90db84',
   }),
 ]);
 
