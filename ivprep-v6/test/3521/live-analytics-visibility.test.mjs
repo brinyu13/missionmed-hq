@@ -28,6 +28,7 @@ function visionFrame(atMs, movement = 0.2) {
     atMs,
     primaryLock: { state: 'PRIMARY_LOCKED', selectionRequired: false, bystanderCount: 0 },
     geometry: {
+      primaryAssociated: true,
       face: {
         present: true,
         box: { left: 0.35, top: 0.2, width: 0.3, height: 0.45, centerX: 0.5, centerY: 0.425 },
