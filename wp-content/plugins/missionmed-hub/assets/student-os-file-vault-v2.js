@@ -403,7 +403,8 @@
 		return Promise.resolve(promise).then(function (value) { finish(); return value; }, function (error) { finish(); throw error; });
 	};
 
-	FileVaultV2.prototype.fetchRequest = function (method, path, body, query, signal) {
+	FileVaultV2.prototype.fetchRequest = function (method, path, body, query, signal, nonceRetried) {
+		var self = this;
 		var base = String(this.config.restUrl || "").replace(/\/$/, "");
 		if (!base) return Promise.reject(new Error("File Vault REST configuration is unavailable."));
 		var url;
@@ -432,12 +433,50 @@
 					try { payload = JSON.parse(text); } catch (error) { payload = null; }
 				}
 				if (!response.ok) {
+					var code = payload && payload.code ? String(payload.code) : "";
+					if (!nonceRetried && response.status === 403 && ["rest_cookie_invalid_nonce", "mmed_file_vault_v2_nonce_required", "mmed_file_vault_v2_nonce_invalid"].indexOf(code) !== -1) {
+						return self.refreshNonce(signal).then(function () {
+							return self.fetchRequest(method, path, body, query, signal, true);
+						});
+					}
 					var requestError = new Error(payload && payload.message ? payload.message : "File Vault request failed (" + response.status + ").");
 					requestError.status = response.status;
-					requestError.code = payload && payload.code ? payload.code : "";
+					requestError.code = code;
 					throw requestError;
 				}
 				return payload === null ? {} : payload;
+			});
+		});
+	};
+
+	FileVaultV2.prototype.refreshNonce = function (signal) {
+		var self = this;
+		var configured = String(this.config.nonceRefreshUrl || "");
+		var url;
+		try {
+			url = new URL(configured, window.location.href);
+		} catch (error) {
+			return Promise.reject(new Error("File Vault session refresh is unavailable."));
+		}
+		var loopbackHttp = url.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].indexOf(url.hostname) !== -1;
+		if (!configured || url.origin !== window.location.origin || (url.protocol !== "https:" && !loopbackHttp)) {
+			return Promise.reject(new Error("File Vault session refresh is unavailable."));
+		}
+		return window.fetch(url.toString(), {
+			method: "GET",
+			headers: { Accept: "application/json" },
+			credentials: "same-origin",
+			signal: signal || undefined
+		}).then(function (response) {
+			return response.text().then(function (text) {
+				var payload = null;
+				if (text) {
+					try { payload = JSON.parse(text); } catch (error) { payload = null; }
+				}
+				var nonce = payload && payload.success === true && payload.data ? String(payload.data.nonce || "") : "";
+				if (!response.ok || !nonce) throw new Error("File Vault session refresh failed.");
+				self.config.nonce = nonce;
+				return nonce;
 			});
 		});
 	};

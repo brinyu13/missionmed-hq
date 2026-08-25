@@ -36,6 +36,7 @@ class MMED_File_Vault_V2 {
 		}
 		add_action( 'rest_api_init', array( __CLASS__, 'register_routes' ) );
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ), 30 );
+		add_action( 'wp_ajax_mmed_file_vault_v2_nonce', array( __CLASS__, 'refresh_nonce' ) );
 	}
 
 	/**
@@ -113,7 +114,8 @@ class MMED_File_Vault_V2 {
 				'role'        => self::role_for_user(),
 				'restUrl'     => untrailingslashit( rest_url( self::NAMESPACE . '/file-vault' ) ),
 				'nonce'       => wp_create_nonce( 'wp_rest' ),
-				'maxFileSize' => MMED_File_Vault_V2_Repository::MAX_FILE_SIZE,
+				'maxFileSize'     => MMED_File_Vault_V2_Repository::MAX_FILE_SIZE,
+				'nonceRefreshUrl' => admin_url( 'admin-ajax.php?action=mmed_file_vault_v2_nonce' ),
 				'v1'          => array(
 					'css' => MMED_HUB_URL . 'assets/student-os-file-vault.css',
 					'js'  => MMED_HUB_URL . 'assets/student-os-file-vault.js',
@@ -131,6 +133,25 @@ class MMED_File_Vault_V2 {
 		$value = defined( 'MMED_FILE_VAULT_V2_MODE' ) ? MMED_FILE_VAULT_V2_MODE : get_option( self::OPTION_MODE, 'off' );
 		$value = sanitize_key( $value );
 		return in_array( $value, array( 'off', 'internal', 'beta', 'on' ), true ) ? $value : 'off';
+	}
+
+	/**
+	 * Refresh the REST nonce for an authenticated eligible browser session.
+	 *
+	 * Long-lived Matrix tabs can outlive a WordPress REST nonce. The refresh
+	 * endpoint is cookie-authenticated and intentionally returns no Vault data.
+	 *
+	 * @return void
+	 */
+	public static function refresh_nonce() {
+		nocache_headers();
+		if ( ! is_user_logged_in() || ! get_current_user_id() ) {
+			wp_send_json_error( array( 'code' => 'mmed_file_vault_v2_auth_required' ), 401 );
+		}
+		if ( ! self::is_user_eligible() ) {
+			wp_send_json_error( array( 'code' => 'rest_no_route' ), 404 );
+		}
+		wp_send_json_success( array( 'nonce' => wp_create_nonce( 'wp_rest' ) ) );
 	}
 
 	/**
