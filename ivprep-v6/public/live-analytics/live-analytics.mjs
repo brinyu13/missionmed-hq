@@ -294,6 +294,7 @@ export class LiveAnalyticsRuntime {
     this.baselineStore = baselineStore;
     this.fetchImpl = fetchImpl;
     this.admittedIdentity = null;
+    this.mutationCsrfToken = null;
     this.baselineRecord = null;
     this.diagnosticsAllowed = false;
     this.latestBehavior = behavior.latest;
@@ -334,8 +335,8 @@ export class LiveAnalyticsRuntime {
       bodyOverlay: byId('body-overlay'),
       faceOverlay: byId('face-overlay'),
       headOverlay: byId('head-overlay'),
-      scanFaceOverlay: this.document.querySelector('[data-live-scan-overlay="face"]'),
-      scanBodyOverlay: this.document.querySelector('[data-live-scan-overlay="body"]'),
+      conversationState: byId('conversation-state'),
+      bodyNotes: this.document.querySelector('[data-body-notes]'),
       status: byId('runtime-status'),
       captureIndicator: byId('capture-indicator'),
       clock: byId('session-clock'),
@@ -419,12 +420,18 @@ export class LiveAnalyticsRuntime {
       });
       const payload = await response.json();
       const identity = payload?.admitted === true ? payload.identity : null;
-      if (!response.ok || !/^wp:[1-9][0-9]{0,15}$/u.test(String(identity?.subject || ''))) throw new Error('Admission identity unavailable.');
+      const mutationCsrfToken = String(payload?.mutationCsrfToken || '');
+      if (!response.ok
+        || !/^wp:[1-9][0-9]{0,15}$/u.test(String(identity?.subject || ''))
+        || !/^[A-Za-z0-9_-]{16,256}$/u.test(mutationCsrfToken)) {
+        throw new Error('Admission identity unavailable.');
+      }
       this.admittedIdentity = Object.freeze({
         subject: identity.subject,
         founder: identity.founder === true,
         roles: Object.freeze(Array.isArray(identity.roles) ? identity.roles.filter((role) => typeof role === 'string').slice(0, 24) : []),
       });
+      this.mutationCsrfToken = mutationCsrfToken;
       this.diagnosticsAllowed = this.admittedIdentity.founder
         || this.admittedIdentity.roles.some((role) => ['administrator', 'admin'].includes(role.toLowerCase()));
       this.#applyRoleGates();
@@ -432,6 +439,7 @@ export class LiveAnalyticsRuntime {
       return this.admittedIdentity;
     } catch {
       this.admittedIdentity = null;
+      this.mutationCsrfToken = null;
       this.diagnosticsAllowed = false;
       this.#applyRoleGates();
       return null;
@@ -751,6 +759,7 @@ export class LiveAnalyticsRuntime {
   }
 
   async connect() {
+    if (this.elements.status?.dataset) delete this.elements.status.dataset.mediaErrorDetail;
     if (this.fixtureMode) {
       this.fixtureConnected = true;
       this.elements.start.disabled = false;
@@ -799,7 +808,11 @@ export class LiveAnalyticsRuntime {
       if (this.elements.cameraEmpty) this.elements.cameraEmpty.hidden = false;
       if (this.elements.start) this.elements.start.disabled = true;
       if (this.elements.stopCapture) this.elements.stopCapture.disabled = true;
-      setText(this.elements.status, `Media unavailable · ${error?.name || 'request failed'}`);
+      const errorDetail = String(error?.message || 'No browser error detail was provided.').slice(0, 140);
+      setText(this.elements.status, `Media unavailable · ${error?.name || 'request failed'} · ${errorDetail}`);
+      if (this.elements.status?.dataset) {
+        this.elements.status.dataset.mediaErrorDetail = errorDetail;
+      }
       setText(this.elements.streamQuality, 'CAMERA IDLE');
       this.elements.connect.disabled = false;
       return false;
@@ -915,7 +928,9 @@ export class LiveAnalyticsRuntime {
     const stream = this.bridge.media.stream;
     const started = await this.transcriptTiming.start({
       stream,
+      pipeline: this.pipeline,
       clock,
+      csrfToken: this.mutationCsrfToken,
       onTiming: (evidence) => this.consumeTranscriptTiming(evidence),
       onState: (state) => this.consumeTranscriptTimingState(state),
     });
@@ -1074,9 +1089,19 @@ export class LiveAnalyticsRuntime {
 
   #renderBehavior(snapshot) {
     if (!snapshot) return;
+    const conversationState = snapshot.conversation?.state || 'UNKNOWN';
     if (this.elements.stage) {
       this.elements.stage.dataset.setupReady = String(snapshot.setup?.ready === true);
-      this.elements.stage.dataset.conversationState = snapshot.conversation?.state || 'UNKNOWN';
+      this.elements.stage.dataset.conversationState = conversationState;
+    }
+    if (this.elements.conversationState) {
+      this.elements.conversationState.dataset.state = conversationState;
+      this.elements.conversationState.textContent = `State · ${conversationState.replaceAll('_', ' ')}`;
+    }
+    if (this.elements.bodyNotes) {
+      const notesActive = snapshot.notes?.available === true && snapshot.notes.active === true;
+      setText(this.elements.bodyNotes, notesActive ? 'ACTIVE' : 'INACTIVE');
+      this.elements.bodyNotes.dataset.state = notesActive ? 'live' : 'neutral';
     }
     if (this.captureMeasuring && !this.active && !this.fixtureMode) {
       if (this.elements.start) this.elements.start.disabled = snapshot.setup?.ready !== true;
@@ -1306,8 +1331,10 @@ export class LiveAnalyticsRuntime {
         cameraFacingDwell: headFace.cameraFacingDwell,
         blinkRate: headFace.blinkRate,
         geometryTrend: headFace.geometryTrend,
+        facialActivity: headFace.facialActivity,
+        orientationBehavior: headFace.orientationState,
         headNods: headFace.headNods,
-        transientOverlay: this.workerOverlayFresh,
+        conversationState: headFace.state || this.latestBehavior?.conversation?.state,
         state: headFace.facePresent ? 'live' : 'unavailable',
       },
       body: bodyHands.available === false ? bodyHands : {
@@ -1326,7 +1353,11 @@ export class LiveAnalyticsRuntime {
         movementTrend: bodyHands.movementTrend,
         gestureEvents: bodyHands.gestureEvents,
         gestureUnits: bodyHands.gestureUnits,
-        transientOverlay: this.workerOverlayFresh,
+        leftHandPresent: bodyHands.hands?.left?.present === true,
+        rightHandPresent: bodyHands.hands?.right?.present === true,
+        activeRegion: bodyHands.observableActivity?.handRegionActive || null,
+        notes: this.latestBehavior?.notes,
+        conversationState: bodyHands.state || this.latestBehavior?.conversation?.state,
         state: 'live',
       },
     });
@@ -1460,6 +1491,7 @@ export class LiveAnalyticsRuntime {
     this.active = false;
     this.activeClock = null;
     this.pipeline = null;
+    this.mutationCsrfToken = null;
     if (this.window && this.window.__IVPREP_3522_EXPORT_DERIVED__) delete this.window.__IVPREP_3522_EXPORT_DERIVED__;
     if (this.window && this.window.__IVPREP_3522_SET_NOTES_ACTIVE__) delete this.window.__IVPREP_3522_SET_NOTES_ACTIVE__;
     if (this.window && this.window.__IVPREP_3522_INTERVIEWER_EVENT__) delete this.window.__IVPREP_3522_INTERVIEWER_EVENT__;
@@ -1478,45 +1510,8 @@ export class LiveAnalyticsRuntime {
     const drawWidth = bitmapWidth * scale;
     const drawHeight = bitmapHeight * scale;
     context.drawImage(bitmap, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
-    const face = geometry?.face?.box;
-    this.#drawWorkerScanBitmap(this.elements.scanFaceOverlay, bitmap, face ? {
-      left: face.left - face.width * .18,
-      top: face.top - face.height * .16,
-      width: face.width * 1.36,
-      height: face.height * 1.34,
-    } : null);
-    this.#drawWorkerScanBitmap(this.elements.scanBodyOverlay, bitmap, {
-      left: .12,
-      top: .08,
-      width: .76,
-      height: .84,
-    });
     clearTimeout(this.overlayExpiryTimer);
     this.overlayExpiryTimer = setTimeout(() => this.#clearOverlays(), 1_500);
-  }
-
-  #drawWorkerScanBitmap(canvas, bitmap, crop) {
-    if (!canvas || !bitmap || !crop) return;
-    const { width, height } = canvasSize(canvas);
-    const context = canvas.getContext('2d');
-    context.clearRect(0, 0, width, height);
-    const bitmapWidth = Number(bitmap.width) || width;
-    const bitmapHeight = Number(bitmap.height) || height;
-    const left = Math.max(0, Math.min(1, Number(crop.left) || 0));
-    const top = Math.max(0, Math.min(1, Number(crop.top) || 0));
-    const cropWidth = Math.max(.01, Math.min(1 - left, Number(crop.width) || 1));
-    const cropHeight = Math.max(.01, Math.min(1 - top, Number(crop.height) || 1));
-    context.drawImage(
-      bitmap,
-      left * bitmapWidth,
-      top * bitmapHeight,
-      cropWidth * bitmapWidth,
-      cropHeight * bitmapHeight,
-      0,
-      0,
-      width,
-      height,
-    );
   }
 
   #clearOverlays() {
@@ -1527,8 +1522,6 @@ export class LiveAnalyticsRuntime {
       this.elements.bodyOverlay,
       this.elements.faceOverlay,
       this.elements.headOverlay,
-      this.elements.scanFaceOverlay,
-      this.elements.scanBodyOverlay,
     ]) {
       if (!canvas?.getContext) continue;
       const context = canvas.getContext('2d');

@@ -1,0 +1,7 @@
+{
+  "name": "@missionmed/vendor-sherpa-onnx-node",
+  "version": "1.13.6",
+  "private": true,
+  "type": "commonjs",
+  "license": "Apache-2.0"
+}

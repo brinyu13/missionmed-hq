@@ -542,6 +542,8 @@ export class LiveMetricProjector {
       geometryTrend: this.#faceHistory.length
         ? { available: true, values: this.#faceHistory.map((entry) => ({ ...entry })), source: 'FACE_MOVEMENT_VARIABILITY_HISTORY' }
         : unavailable('NEED_MORE_FACE_HISTORY'),
+      facialActivity: behavior?.facialActivity || unavailable('NO_STATE_GATED_FACE_ACTIVITY'),
+      orientationState: behavior?.orientation || unavailable('NO_ORIENTATION_STATE'),
       headNods: behavior?.nod || unavailable('NO_VALIDATED_HEAD_NOD_DETECTOR'),
       affectClassification: unavailable(UNSUPPORTED_REASON),
       genuineSmileClassification: unavailable(UNSUPPORTED_REASON),

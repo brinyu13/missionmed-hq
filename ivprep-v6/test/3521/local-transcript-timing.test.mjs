@@ -3,252 +3,208 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  encodeFloat32Le,
+  LOCAL_SHERPA_TIMING_SOURCE,
   LOCAL_TRANSCRIPT_TIMING_SOURCE,
   LocalTranscriptTimingProducer,
+  resamplePcm,
 } from '../../public/live-analytics/local-transcript-timing.mjs';
 
 const response = (payload, ok = true) => ({ ok, async json() { return payload; } });
+const liveStream = () => ({ getAudioTracks: () => [{ kind: 'audio', readyState: 'live', enabled: true }] });
+const capability = () => ({
+  available: true,
+  source: LOCAL_SHERPA_TIMING_SOURCE,
+  persistence: 'MEMORY_ONLY',
+  providerSessions: 0,
+});
 
-class FakeMediaStream {
-  constructor(tracks) { this.tracks = tracks; }
-  getAudioTracks() { return this.tracks; }
+class FakePipeline {
+  setPcmConsumer(consumer) { this.consumer = consumer; }
+  push(frame) { return this.consumer?.(frame); }
 }
 
-class FakeMediaRecorder {
-  static instances = [];
-
-  constructor(stream) {
-    this.stream = stream;
-    this.state = 'inactive';
-    this.mimeType = 'audio/webm';
-    FakeMediaRecorder.instances.push(this);
-  }
-
-  start() { this.state = 'recording'; }
-
-  stop() {
-    this.ondataavailable?.({ data: new Blob(['observed-audio'], { type: this.mimeType }) });
-    this.state = 'inactive';
-    this.onstop?.();
+function pushSpeechWindow(pipeline, { durationMs = 4_000, sampleRate = 16_000 } = {}) {
+  const frameMs = 100;
+  const frame = new Float32Array(sampleRate * frameMs / 1_000).fill(0.1);
+  for (let atMs = 0; atMs < durationMs; atMs += frameMs) {
+    pipeline.push({ atMs, sampleRate, samples: frame, speaking: true, speechProbability: 0.95 });
   }
 }
 
-function liveStream() {
-  return { getAudioTracks: () => [{ kind: 'audio', readyState: 'live', enabled: true }] };
-}
-
-test('local timing producer emits only trusted per-word observed timing', async () => {
-  FakeMediaRecorder.instances = [];
-  let now = 0;
-  let scheduled = null;
+test('local timing producer emits only authenticated, timing-only observed evidence from AudioWorklet PCM', async () => {
+  let now = 4_000;
   const calls = [];
   const timings = [];
   const states = [];
+  const pipeline = new FakePipeline();
+  const words = Array.from({ length: 8 }, (_, index) => ({
+    startMs: 100 + index * 350,
+    endMs: 250 + index * 350,
+    probability: 0.9,
+  }));
   const producer = new LocalTranscriptTimingProducer({
-    MediaRecorderClass: FakeMediaRecorder,
-    MediaStreamClass: FakeMediaStream,
-    windowMs: 2_000,
-    setTimeoutFn(callback) { scheduled = callback; return 1; },
-    clearTimeoutFn() {},
+    windowMs: 4_000,
     async fetchImpl(url, options) {
       calls.push({ url, options });
-      if (options.method === 'GET') return response({
-        available: true,
-        source: 'LOCAL_FASTER_WHISPER_WORD_TIMESTAMPS',
-        persistence: 'MEMORY_ONLY',
-        providerSessions: 0,
-      });
+      if (options.method === 'GET') return response(capability());
       return response({
         available: true,
-        source: 'LOCAL_FASTER_WHISPER_WORD_TIMESTAMPS',
-        wordCount: 8,
-        words: Array.from({ length: 8 }, (_, index) => ({ startMs: 100 + index * 200, endMs: 200 + index * 200, probability: 0.9 })),
-        speechDurationMs: 1_600,
         providerSessions: 0,
-        rawTextReturned: false,
         rawAudioPersisted: false,
+        rawTextReturned: false,
+        source: LOCAL_SHERPA_TIMING_SOURCE,
+        speechDurationMs: 4_000,
+        wordCount: words.length,
+        words,
       });
     },
   });
 
   assert.equal(await producer.start({
     stream: liveStream(),
+    pipeline,
     clock: { sessionMs: () => now },
+    csrfToken: 'local_harness_csrf_3521',
     onTiming: (timing) => timings.push(timing),
     onState: (state) => states.push(state),
   }), true);
-  now = 2_000;
-  scheduled();
+  pushSpeechWindow(pipeline);
   await producer.queue;
 
   assert.equal(calls.length, 2);
-  assert.equal(calls[1].url.endsWith('/local-transcript-timing'), true);
+  assert.equal(calls[1].url, '/api/ivprep-v6/live-analytics/word-timing');
   assert.equal(calls[1].options.credentials, 'same-origin');
+  assert.equal(calls[1].options.headers['X-MMHQ-CSRF'], 'local_harness_csrf_3521');
+  assert.equal(calls[1].options.headers['Content-Type'], 'application/vnd.missionmed.pcm-f32le');
+  assert.equal(calls[1].options.body instanceof ArrayBuffer, true);
+  assert.equal(calls[1].options.body.byteLength, 4_000 * 16 * 4);
   assert.equal(timings.length, 1);
   assert.deepEqual(timings[0], {
-    atMs: 2_000,
+    atMs: 4_000,
     windowStartedAtMs: 0,
-    windowEndedAtMs: 2_000,
-    speechDurationMs: 1_600,
-    coverage: 0.8,
-    words: Array.from({ length: 8 }, (_, index) => ({ startMs: 100 + index * 200, endMs: 200 + index * 200, probability: 0.9 })),
+    windowEndedAtMs: 4_000,
+    speechDurationMs: 4_000,
+    coverage: 1,
+    words,
     wordCount: 8,
     provenance: {
       kind: 'OBSERVED_TRANSCRIPT_TIMING',
       observed: true,
-      tier: 'B',
+      tier: 'A_PRIME',
       wordTimestampsValidated: true,
       source: LOCAL_TRANSCRIPT_TIMING_SOURCE,
-      engine: 'FASTER_WHISPER_LOCAL_SNAPSHOT',
-      transport: 'LOOPBACK_SAME_ORIGIN',
+      engine: 'SHERPA_ONNX_1.13.6_LOCAL_WASM',
+      transport: 'SAME_ORIGIN_AUTHENTICATED',
       rawTextRetained: false,
       rawAudioPersisted: false,
     },
   });
-  assert.doesNotMatch(JSON.stringify({ timings, states }), /transcriptText|recognizedText|observed-audio/u);
+  assert.doesNotMatch(JSON.stringify({ timings, states }), /transcriptText|recognizedText|must never|observed-audio/u);
   producer.stop();
+  assert.equal(pipeline.consumer, null);
+  now = 5_000;
 });
 
-test('missing local sidecar fails closed before opening an audio recorder', async () => {
-  FakeMediaRecorder.instances = [];
-  const producer = new LocalTranscriptTimingProducer({
-    MediaRecorderClass: FakeMediaRecorder,
-    MediaStreamClass: FakeMediaStream,
-    async fetchImpl() {
-      return response({ available: false, reason: 'LOCAL_WHISPER_RUNTIME_NOT_CONFIGURED', providerSessions: 0 });
-    },
-  });
-  assert.equal(await producer.start({
-    stream: liveStream(),
-    clock: { sessionMs: () => 0 },
-    onTiming() {},
-  }), false);
-  assert.equal(producer.state.reason, 'LOCAL_WHISPER_RUNTIME_NOT_CONFIGURED');
-  assert.equal(FakeMediaRecorder.instances.length, 0);
-});
+test('producer fails closed without a live mic, PCM lane, CSRF, or exact local capability', async () => {
+  const cases = [
+    { stream: { getAudioTracks: () => [] }, pipeline: new FakePipeline(), csrfToken: 'local_harness_csrf_3521', reason: 'LIVE_MICROPHONE_TRACK_REQUIRED' },
+    { stream: liveStream(), pipeline: null, csrfToken: 'local_harness_csrf_3521', reason: 'AUDIO_WORKLET_PCM_CONSUMER_REQUIRED' },
+    { stream: liveStream(), pipeline: new FakePipeline(), csrfToken: '', reason: 'AUTHENTICATED_MUTATION_CSRF_REQUIRED' },
+  ];
+  for (const entry of cases) {
+    const producer = new LocalTranscriptTimingProducer({ fetchImpl: async () => response(capability()) });
+    assert.equal(await producer.start({ ...entry, clock: { sessionMs: () => 0 }, onTiming() {} }), false);
+    assert.equal(producer.state.reason, entry.reason);
+  }
 
-test('status capability must attest the exact local source and memory-only persistence', async () => {
   for (const payload of [
-    { available: true, source: 'LOCAL_FASTER_WHISPER_WORD_TIMESTAMPS', persistence: 'DISK', providerSessions: 0 },
-    { available: true, source: 'UNTRUSTED_TIMING_ENGINE', persistence: 'MEMORY_ONLY', providerSessions: 0 },
+    { ...capability(), persistence: 'DISK' },
+    { ...capability(), source: 'UNTRUSTED_TIMING_ENGINE' },
+    { ...capability(), providerSessions: 1 },
   ]) {
-    const producer = new LocalTranscriptTimingProducer({
-      MediaRecorderClass: FakeMediaRecorder,
-      MediaStreamClass: FakeMediaStream,
-      async fetchImpl() { return response(payload); },
-    });
+    const producer = new LocalTranscriptTimingProducer({ fetchImpl: async () => response(payload) });
     assert.equal(await producer.start({
       stream: liveStream(),
+      pipeline: new FakePipeline(),
+      csrfToken: 'local_harness_csrf_3521',
       clock: { sessionMs: () => 0 },
       onTiming() {},
     }), false);
-    assert.equal(producer.state.reason, 'LOCAL_TRANSCRIPT_SIDECAR_UNAVAILABLE');
+    assert.equal(producer.state.state, 'unavailable');
   }
 });
 
-test('payloads that return raw text or omit aggregate provenance are rejected', async () => {
-  let now = 0;
-  let scheduled = null;
-  const timings = [];
-  const producer = new LocalTranscriptTimingProducer({
-    MediaRecorderClass: FakeMediaRecorder,
-    MediaStreamClass: FakeMediaStream,
-    windowMs: 2_000,
-    setTimeoutFn(callback) { scheduled = callback; return 1; },
-    clearTimeoutFn() {},
-    async fetchImpl(_url, options) {
-      if (options.method === 'GET') return response({
-        available: true,
-        source: 'LOCAL_FASTER_WHISPER_WORD_TIMESTAMPS',
-        providerSessions: 0,
-        persistence: 'MEMORY_ONLY',
-      });
-      return response({ available: true, wordCount: 20, providerSessions: 0, rawTextReturned: true, transcript: 'must be rejected' });
+test('undeclared response fields, raw text, and invalid timing never cross the aggregate boundary', async () => {
+  for (const invalidPayload of [
+    {
+      available: true, providerSessions: 0, rawAudioPersisted: false, rawTextReturned: true,
+      source: LOCAL_SHERPA_TIMING_SOURCE, speechDurationMs: 4_000, wordCount: 0, words: [], transcript: 'must never cross',
     },
-  });
-  await producer.start({ stream: liveStream(), clock: { sessionMs: () => now }, onTiming: (value) => timings.push(value) });
-  now = 2_000;
-  scheduled();
-  await producer.queue;
-  assert.equal(timings.length, 0);
-  assert.equal(producer.state.reason, 'LOCAL_TRANSCRIPT_WINDOW_REJECTED');
-  producer.stop();
+    {
+      available: true, providerSessions: 0, rawAudioPersisted: false, rawTextReturned: false,
+      source: LOCAL_SHERPA_TIMING_SOURCE, speechDurationMs: 4_000, wordCount: 1,
+      words: [{ startMs: 900, endMs: 800, probability: 0.9 }],
+    },
+  ]) {
+    const pipeline = new FakePipeline();
+    const timings = [];
+    const producer = new LocalTranscriptTimingProducer({
+      windowMs: 4_000,
+      fetchImpl: async (_url, options) => response(options.method === 'GET' ? capability() : invalidPayload),
+    });
+    await producer.start({
+      stream: liveStream(), pipeline, csrfToken: 'local_harness_csrf_3521',
+      clock: { sessionMs: () => 4_000 }, onTiming: (timing) => timings.push(timing),
+    });
+    pushSpeechWindow(pipeline);
+    await producer.queue;
+    assert.equal(timings.length, 0);
+    assert.equal(producer.state.state, 'partial');
+    producer.stop();
+  }
 });
 
-test('payloads with undeclared fields are rejected even when rawTextReturned is false', async () => {
-  let now = 0;
-  let scheduled = null;
-  const timings = [];
-  const producer = new LocalTranscriptTimingProducer({
-    MediaRecorderClass: FakeMediaRecorder,
-    MediaStreamClass: FakeMediaStream,
-    windowMs: 2_000,
-    setTimeoutFn(callback) { scheduled = callback; return 1; },
-    clearTimeoutFn() {},
-    async fetchImpl(_url, options) {
-      if (options.method === 'GET') return response({
-        available: true,
-        source: 'LOCAL_FASTER_WHISPER_WORD_TIMESTAMPS',
-        providerSessions: 0,
-        persistence: 'MEMORY_ONLY',
-      });
-      return response({
-        available: true,
-        speechDurationMs: 1_500,
-        words: Array.from({ length: 5 }, (_, index) => ({ startMs: 100 + index * 200, endMs: 200 + index * 200, probability: 0.9 })),
-        providerSessions: 0,
-        rawAudioPersisted: false,
-        rawTextReturned: false,
-        source: 'LOCAL_FASTER_WHISPER_WORD_TIMESTAMPS',
-        transcript: 'must never cross the aggregate boundary',
-        wordCount: 5,
-      });
-    },
-  });
-  await producer.start({ stream: liveStream(), clock: { sessionMs: () => now }, onTiming: (value) => timings.push(value) });
-  now = 2_000;
-  scheduled();
-  await producer.queue;
-  assert.equal(timings.length, 0);
-  assert.equal(producer.state.reason, 'LOCAL_TRANSCRIPT_WINDOW_REJECTED');
-  producer.stop();
-});
-
-test('stopping while the capability probe is pending cannot reactivate recording', async () => {
-  FakeMediaRecorder.instances = [];
+test('stopping while capability is pending cannot reactivate the PCM consumer', async () => {
   let resolveProbe;
+  const pipeline = new FakePipeline();
   const producer = new LocalTranscriptTimingProducer({
-    MediaRecorderClass: FakeMediaRecorder,
-    MediaStreamClass: FakeMediaStream,
     fetchImpl: () => new Promise((resolve) => { resolveProbe = resolve; }),
   });
-  const started = producer.start({ stream: liveStream(), clock: { sessionMs: () => 0 }, onTiming() {} });
+  const started = producer.start({
+    stream: liveStream(), pipeline, csrfToken: 'local_harness_csrf_3521',
+    clock: { sessionMs: () => 0 }, onTiming() {},
+  });
   producer.stop();
-  resolveProbe(response({
-    available: true,
-    source: 'LOCAL_FASTER_WHISPER_WORD_TIMESTAMPS',
-    persistence: 'MEMORY_ONLY',
-    providerSessions: 0,
-  }));
+  resolveProbe(response(capability()));
   assert.equal(await started, false);
   assert.equal(producer.active, false);
-  assert.equal(producer.state.reason, 'LOCAL_TRANSCRIPT_TIMING_IDLE');
-  assert.equal(FakeMediaRecorder.instances.length, 0);
+  assert.equal(pipeline.consumer, null);
 });
 
-test('offline sidecar source cannot select providers, download models, persist audio, or return text', async () => {
-  const python = await readFile(new URL('../../scripts/3521/local-whisper-timing.py', import.meta.url), 'utf8');
+test('PCM conversion is bounded, finite, normalized, and sample-rate explicit', () => {
+  const source = new Float32Array([2, 1, 0, -1, -2]);
+  const resampled = resamplePcm(source, 10_000, 20_000);
+  assert.equal(resampled.length, 10);
+  const encoded = encodeFloat32Le(resampled);
+  const view = new DataView(encoded);
+  for (let index = 0; index < resampled.length; index += 1) {
+    assert.equal(Number.isFinite(view.getFloat32(index * 4, true)), true);
+    assert.equal(Math.abs(view.getFloat32(index * 4, true)) <= 1, true);
+  }
+  assert.throws(() => encodeFloat32Le(new Float32Array([Number.NaN])), /finite/u);
+});
+
+test('vendored runtime and harness are local-only, memory-only, and provider-free', async () => {
   const harness = await readFile(new URL('../../scripts/3521/start-live-analytics-harness.mjs', import.meta.url), 'utf8');
-  assert.match(python, /local_files_only=True/u);
-  assert.match(python, /EXPECTED_MODEL_BIN_SHA256 = "1a5afae06a4db91c975c9a9d78be5cc110ee4ea022ad57d55492e4550e936b2a"/u);
-  assert.match(python, /io\.BytesIO\(audio_bytes\)/u);
-  assert.match(python, /"rawTextReturned": False/u);
-  assert.match(python, /"rawAudioPersisted": False/u);
-  assert.doesNotMatch(python, /OpenAI|api\.openai\.com|NamedTemporaryFile|write_bytes/u);
-  assert.match(harness, /HF_HUB_OFFLINE: '1'/u);
-  assert.match(harness, /TRANSFORMERS_OFFLINE: '1'/u);
-  assert.match(harness, /request\.headers\.origin !== sealedOrigin/u);
-  assert.match(harness, /projectLocalWordTiming/u);
-  assert.match(harness, /get available\(\)/u);
-  assert.doesNotMatch(harness, /OPENAI_API_KEY/u);
+  const worker = await readFile(new URL('../../server/local-word-timing-worker.cjs', import.meta.url), 'utf8');
+  const manifest = JSON.parse(await readFile(new URL('../../vendor/sherpa-onnx-node/1.13.6/manifest.json', import.meta.url), 'utf8'));
+  assert.match(harness, /createLocalWordTimingRuntime/u);
+  assert.match(harness, /PROVIDER_SESSIONS=0/u);
+  assert.doesNotMatch(harness, /spawn|faster-whisper|OPENAI_API_KEY|fetch\(/iu);
+  assert.match(worker, /LOCAL_WORD_TIMING_ASSET_HASH_MISMATCH/u);
+  assert.doesNotMatch(worker, /https?:|fetch\(|writeFile|createWriteStream|OpenAI/iu);
+  assert.equal(manifest.runtime.version, '1.13.6');
+  assert.equal(manifest.model.license, 'Apache-2.0');
+  assert.match(manifest.model.revision, /^[a-f0-9]{40}$/u);
 });

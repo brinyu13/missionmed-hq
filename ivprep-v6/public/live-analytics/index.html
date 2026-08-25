@@ -65,7 +65,6 @@
               <button class="metric-eye" type="button" data-metric-toggle="head-face.region-status" aria-label="Hide facial region status" aria-pressed="true">◉</button>
               <div class="scan-well scan-well-face">
                 <canvas class="hud-canvas" data-hud-canvas="head-face" aria-label="Head and face observable geometry display"></canvas>
-                <canvas class="live-scan-overlay" data-live-scan-overlay="face" aria-hidden="true"></canvas>
                 <div class="scan-reticle" aria-hidden="true"></div>
                 <span class="scan-label scan-label-top">Face scan</span>
                 <span class="scan-label scan-label-bottom" data-hud-state="head-face">NO CAMERA SIGNAL</span>
@@ -92,7 +91,7 @@
               <button class="metric-eye" type="button" data-metric-toggle="head-face.smile-events" aria-label="Hide smile pattern events" aria-pressed="true">◉</button>
               <h3>Smile-pattern events</h3>
               <strong class="event-value" data-face-smile-events>—</strong>
-              <p>Observable mouth-corner events</p>
+              <p>Qualifying observable patterns</p>
             </section>
 
             <section class="metric-module camera-facing-module" data-visibility-metric="head-face.camera-facing-balance">
@@ -113,12 +112,12 @@
             </section>
             <section class="metric-module compact-readout" data-visibility-metric="head-face.head-nods">
               <button class="metric-eye" type="button" data-metric-toggle="head-face.head-nods" aria-label="Hide head nod count" aria-pressed="true">◉</button>
-              <h3>Head nods</h3><strong data-face-head-nods>—</strong><p>Detector unavailable</p>
+              <h3>Head nods</h3><strong data-face-head-nods>—</strong><p>Listening-only cycles</p>
             </section>
 
             <section class="metric-module face-trend-module" data-visibility-metric="head-face.geometry-trend">
               <button class="metric-eye" type="button" data-metric-toggle="head-face.geometry-trend" aria-label="Hide facial geometry activity trend" aria-pressed="true">◉</button>
-              <h3>Expression / geometry trend <span>Last 60s</span></h3>
+              <h3>Facial activity trend <span data-face-activity-state>STATE GATED</span></h3>
               <canvas class="metric-trend" data-face-trend aria-label="Observed facial geometry activity history"></canvas>
               <div class="trend-key"><span><i class="good"></i>Observed</span><span><i class="gap"></i>Signal gap</span></div>
             </section>
@@ -149,7 +148,6 @@
             <section class="metric-module body-wireframe-module" data-visibility-metric="body-posture.wireframe">
               <button class="metric-eye" type="button" data-metric-toggle="body-posture.wireframe" aria-label="Hide body wireframe" aria-pressed="true">◉</button>
               <canvas class="hud-canvas" data-hud-canvas="body" aria-label="Body, posture, and hand observable geometry display"></canvas>
-              <canvas class="live-scan-overlay" data-live-scan-overlay="body" aria-hidden="true"></canvas>
               <span class="scan-label scan-label-top">Body scan</span>
               <span class="scan-label scan-label-bottom" data-hud-state="body">NO CAMERA SIGNAL</span>
             </section>
@@ -186,7 +184,7 @@
             </section>
             <section class="metric-module body-status-module" data-visibility-metric="body-posture.notes-detection">
               <button class="metric-eye" type="button" data-metric-toggle="body-posture.notes-detection" aria-label="Hide notes detection" aria-pressed="true">◉</button>
-              <h3>Notes detection</h3><strong>UNAVAILABLE</strong>
+              <h3>Notes state</h3><strong data-body-notes>INACTIVE</strong>
             </section>
             <section class="metric-module embedded-metric-trend" data-visibility-metric="body-posture.movement-trend">
               <button class="metric-eye" type="button" data-metric-toggle="body-posture.movement-trend" aria-label="Hide movement trend" aria-pressed="true">◉</button>
@@ -231,6 +229,7 @@
 
           <div class="stage-topline">
             <span class="participant-label"><i class="status-pin" aria-hidden="true"></i> You · analytics source</span>
+            <span class="conversation-state-chip" id="conversation-state" data-state="SETUP">State · Setup</span>
             <span class="quality-label" id="stream-quality">CAMERA IDLE</span>
           </div>
 

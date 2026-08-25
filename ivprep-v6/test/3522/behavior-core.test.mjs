@@ -157,10 +157,20 @@ test('baseline store keeps only derived, versioned, expiring values', () => {
   };
   let now = 10_000;
   const store = new BaselineStore({ storage, now: () => now });
+  store.save('wp:1', { speechLufsK: -26 });
+  assert.equal(store.load('wp:1').derived.speechLufsK, -26);
+  assert.throws(() => store.save('wp:0', { speechLufsK: -25 }), /opaque admitted identifier/);
+  assert.throws(() => store.save('short', { speechLufsK: -25 }), /opaque admitted identifier/);
   store.save('student:opaque-123', { speechLufsK: -25, pitchMedianHz: 130 });
   assert.equal(store.load('student:opaque-123').derived.speechLufsK, -25);
   store.save('student:opaque-123', { speechLufsK: -25 }, { deviceProfile: { audio: { sampleRate: 48_000 } } });
   assert.equal(store.load('student:opaque-123', { deviceProfile: { audio: { sampleRate: 44_100 } } }), null);
+  const physicalProfile = {
+    audio: { sampleRate: 48_000, channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+    video: { width: 1_280, height: 720, frameRate: 30 },
+  };
+  store.save('student:opaque-123', { speechLufsK: -25 }, { deviceProfile: physicalProfile });
+  assert.deepEqual(store.load('student:opaque-123', { deviceProfile: physicalProfile }).deviceProfile, physicalProfile);
   assert.throws(() => store.save('student:opaque-123', { speechLufsK: -25 }, { deviceProfile: { deviceId: 'forbidden' } }), /rejected/);
   assert.throws(() => store.save('student:opaque-123', { rawPcmSamples: [1, 2] }), /rejected/);
   now += (COACHING_CONFIG.baseline.staleAfterDays + 1) * 86_400_000;

@@ -7,6 +7,12 @@ import { admissionRegistry } from './admission-registry.mjs';
 import { publicAdmissionState, strictProjectHqSession, validateIvPrepMutation } from './admission-contract.mjs';
 import { FOUNDER_TEST_AVATAR_PARTICIPANT_ID } from './founder-paid-test-gate.mjs';
 import { createHostedHqDependenciesFromEnvironment } from './providers/supabase-durable-adapter.mjs';
+import {
+  createLocalWordTimingRuntime,
+  decodeFloat32Le,
+  LOCAL_WORD_TIMING_SAMPLE_RATE,
+  MAXIMUM_PCM_BYTES,
+} from './local-word-timing-runtime.mjs';
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 const PUBLIC_ROOT = normalize(join(MODULE_DIR, '..', 'public'));
@@ -125,6 +131,26 @@ async function readJson(request) {
   return value;
 }
 
+async function readPcm(request) {
+  const chunks = [];
+  let bytes = 0;
+  for await (const chunk of request) {
+    bytes += chunk.length;
+    if (bytes > MAXIMUM_PCM_BYTES) {
+      const error = new TypeError('PCM body is too large.');
+      error.code = 'LOCAL_WORD_TIMING_BODY_TOO_LARGE';
+      throw error;
+    }
+    chunks.push(chunk);
+  }
+  if (bytes === 0 || bytes % 4 !== 0) {
+    const error = new TypeError('PCM body must contain aligned float32 samples.');
+    error.code = 'LOCAL_WORD_TIMING_BODY_INVALID';
+    throw error;
+  }
+  return Buffer.concat(chunks, bytes);
+}
+
 function staticFile(pathname) {
   let relativePath;
   // Y1-Y2-CAM-V6-3506: the product surface is now the approved 3492 Performance Studio
@@ -174,6 +200,7 @@ export function createIvPrepHqHandler({
     providerSessionsCreatedAtReadiness: 0,
     paidProviderCreationEnabled: false,
   }),
+  wordTimingRuntime = createLocalWordTimingRuntime(),
 } = {}) {
   const interviews = new Map();
   const sealedLiveKitSignalOrigin = liveKitSignalOrigin == null ? null : trustedWebSocketOrigin(liveKitSignalOrigin);
@@ -284,9 +311,71 @@ export function createIvPrepHqHandler({
       return true;
     }
 
+    if (request.method === 'GET' && pathname === `${API_PREFIX}/live-analytics/word-timing/status`) {
+      let capability;
+      try { capability = await wordTimingRuntime.probe(); }
+      catch { capability = null; }
+      if (!capability?.available) {
+        sendJson(response, 503, {
+          available: false,
+          reason: capability?.reason || 'LOCAL_WORD_TIMING_UNAVAILABLE',
+          source: 'LOCAL_SHERPA_ONNX_WORD_TIMESTAMPS',
+          providerSessions: 0,
+          persistence: 'MEMORY_ONLY',
+        });
+        return true;
+      }
+      sendJson(response, 200, {
+        available: true,
+        source: capability.source,
+        providerSessions: 0,
+        persistence: capability.persistence,
+      });
+      return true;
+    }
+
     const sealedOrigin = trustedOrigin(expectedOrigin);
     if (!sealedOrigin) {
       sendJson(response, 403, { error: 'ivprep_admission_denied' });
+      return true;
+    }
+
+    if (request.method === 'POST' && pathname === `${API_PREFIX}/live-analytics/word-timing`) {
+      const mutation = validateIvPrepMutation({ request, admission, expectedOrigin: sealedOrigin });
+      if (!mutation.ok) { sendAdmissionError(response, mutation); return true; }
+      const contentType = String(request.headers['content-type'] || '').toLowerCase().trim();
+      const sampleRate = Number(request.headers['x-ivprep-sample-rate']);
+      const speechDurationMs = Number(request.headers['x-ivprep-speech-duration-ms']);
+      if (contentType !== 'application/vnd.missionmed.pcm-f32le') {
+        sendJson(response, 415, { error: 'ivprep_word_timing_media_type_unsupported' });
+        return true;
+      }
+      if (sampleRate !== LOCAL_WORD_TIMING_SAMPLE_RATE || !Number.isFinite(speechDurationMs) || speechDurationMs < 0) {
+        sendJson(response, 400, { error: 'ivprep_word_timing_request_invalid' });
+        return true;
+      }
+      let samples = null;
+      try {
+        const body = await readPcm(request);
+        samples = decodeFloat32Le(body);
+        const audioDurationMs = samples.length / sampleRate * 1_000;
+        if (speechDurationMs > audioDurationMs + 20) throw new TypeError('Speech duration exceeds the PCM window.');
+        const timing = await wordTimingRuntime.transcribe({ samples, sampleRate, speechDurationMs });
+        sendJson(response, 200, timing);
+      } catch (error) {
+        const status = error?.code === 'LOCAL_WORD_TIMING_BODY_TOO_LARGE'
+          ? 413
+          : error instanceof TypeError
+            ? 400
+            : error?.message === 'LOCAL_WORD_TIMING_BACKPRESSURE'
+              ? 429
+              : error?.message === 'LOCAL_WORD_TIMING_UNAVAILABLE'
+                ? 503
+                : 422;
+        sendJson(response, status, { error: status === 429 ? 'ivprep_word_timing_busy' : status === 503 ? 'ivprep_word_timing_unavailable' : 'ivprep_word_timing_failed' });
+      } finally {
+        samples?.fill?.(0);
+      }
       return true;
     }
 
@@ -645,8 +734,11 @@ export function createIvPrepHqHandler({
       }));
     }
     const settled = await Promise.allSettled(terminal);
+    let timingClosed = true;
+    try { await wordTimingRuntime.close?.(); }
+    catch { timingClosed = false; }
     return Object.freeze({
-      ok: settled.every((entry) => entry.status === 'fulfilled' && entry.value === true),
+      ok: timingClosed && settled.every((entry) => entry.status === 'fulfilled' && entry.value === true),
       stopped: settled.length,
     });
   };

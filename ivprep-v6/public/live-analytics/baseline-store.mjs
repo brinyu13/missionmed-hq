@@ -11,12 +11,23 @@ function safeDerivedRecord(value) {
   return value;
 }
 
-function safeDeviceProfile(value) {
+const DEVICE_PROFILE_FIELDS = Object.freeze({
+  root: new Set(['audio', 'video']),
+  audio: new Set(['sampleRate', 'channelCount', 'echoCancellation', 'noiseSuppression', 'autoGainControl']),
+  video: new Set(['width', 'height', 'frameRate']),
+});
+
+function safeDeviceProfile(value, scope = 'root') {
   if (value === null) return null;
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new TypeError('Device profile must be a derived object.');
+  const allowed = DEVICE_PROFILE_FIELDS[scope];
+  if (!allowed) throw new TypeError(`Unknown device profile scope rejected: ${scope}`);
   for (const [key, child] of Object.entries(value)) {
-    if (/(?:id|label|name|token|secret|credential|key)/iu.test(key)) throw new TypeError(`Identifying device field rejected: ${key}`);
-    if (child && typeof child === 'object') safeDeviceProfile(child);
+    if (!allowed.has(key)) throw new TypeError(`Identifying or unsupported device field rejected: ${key}`);
+    if (child && typeof child === 'object') {
+      if (scope !== 'root') throw new TypeError(`Nested device field rejected: ${key}`);
+      safeDeviceProfile(child, key);
+    }
     else if (child !== null && !['number', 'boolean'].includes(typeof child)) throw new TypeError('Device profile values must be derived scalars.');
   }
   return value;
@@ -30,8 +41,11 @@ export class BaselineStore {
   }
 
   #key(identityKey) {
-    if (!/^[a-zA-Z0-9._:-]{8,160}$/.test(String(identityKey || ''))) throw new TypeError('Baseline identityKey must be an opaque admitted identifier.');
-    return `${this.namespace}:${identityKey}`;
+    const admittedKey = String(identityKey || '');
+    const wordpressSubject = /^wp:[1-9][0-9]{0,155}$/u.test(admittedKey);
+    const opaqueSubject = /^[a-zA-Z0-9._:-]{8,160}$/u.test(admittedKey);
+    if (!wordpressSubject && !opaqueSubject) throw new TypeError('Baseline identityKey must be an opaque admitted identifier.');
+    return `${this.namespace}:${admittedKey}`;
   }
 
   save(identityKey, derived = {}, { deviceProfile = null } = {}) {

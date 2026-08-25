@@ -522,6 +522,7 @@ test('default instruments fail closed and deterministic data is prominently iden
   const html = await readFile(new URL('../../public/live-analytics/index.html', import.meta.url), 'utf8');
   const runtime = await readFile(new URL('../../public/live-analytics/live-analytics.mjs', import.meta.url), 'utf8');
   const css = await readFile(new URL('../../public/live-analytics/live-analytics.css', import.meta.url), 'utf8');
+  const renderers = await readFile(new URL('../../public/live-analytics/hud-renderers.mjs', import.meta.url), 'utf8');
   assert.match(html, /UNAVAILABLE — validated transcript timing required/u);
   assert.match(html, /UNAVAILABLE — voiced F0 frames required/u);
   assert.match(runtime, /DETERMINISTIC TEST INPUT · LOCAL/u);
@@ -529,7 +530,12 @@ test('default instruments fail closed and deterministic data is prominently iden
   assert.match(css, /\[data-mode="interview"\] \.stage-overlay \{ opacity: 0; \}/u);
   assert.match(html, /class="fixture-backdrop"/u);
   assert.doesNotMatch(css, /\[data-mode="interview"\] \.fixture-backdrop/u);
-  assert.equal((html.match(/data-live-scan-overlay=/gu) || []).length, 2);
-  assert.match(runtime, /#drawWorkerScanBitmap\(this\.elements\.scanFaceOverlay, bitmap/u);
+  assert.equal((html.match(/data-live-scan-overlay=/gu) || []).length, 0);
+  assert.match(html, /id="body-overlay"/u);
+  assert.match(html, /id="conversation-state"/u);
+  assert.match(html, /data-face-activity-state/u);
+  assert.doesNotMatch(runtime, /scanFaceOverlay|scanBodyOverlay|#drawWorkerScanBitmap/u);
+  assert.match(renderers, /TEACHING HUD/u);
+  assert.doesNotMatch(renderers, /pointsFrom|drawConnections|drawLandmarks|POSE_CONNECTIONS|HAND_CONNECTIONS/u);
   assert.doesNotMatch(html, /placeholder metric|demo score|fake signal/iu);
 });

@@ -88,6 +88,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.faceOverlayEnabled = true;
     this.bodyHandsOverlayEnabled = true;
     this.overlayConsumer = null;
+    this.pcmConsumer = null;
     // Y1-Y2-CAM-V6-3504: FACE is a family, not one lane. Derives its cartridges from
     // the blendshape categories the worker now forwards.
     this.faceFamily = new FaceFamily();
@@ -149,6 +150,11 @@ export class BrowserAnalyticsPipeline extends EventTarget {
   setOverlayConsumer(consumer = null) {
     if (consumer !== null && typeof consumer !== 'function') throw new TypeError('Overlay consumer must be a function or null.');
     this.overlayConsumer = consumer;
+  }
+
+  setPcmConsumer(consumer = null) {
+    if (consumer !== null && typeof consumer !== 'function') throw new TypeError('PCM consumer must be a function or null.');
+    this.pcmConsumer = consumer;
   }
 
   beginAnswer({ answerId = null, mediaId = null, mediaStartedAt = null, videoElement = null } = {}) {
@@ -421,6 +427,20 @@ export class BrowserAnalyticsPipeline extends EventTarget {
       loudness,
       estimatedSyllableRate,
     });
+    if (this.pcmConsumer) {
+      try {
+        this.pcmConsumer(Object.freeze({
+          atMs,
+          sampleRate: Number(frame.sampleRate),
+          samples: frame.samples,
+          speaking,
+          speechProbability: this.sileroState?.probability ?? null,
+          provenance: Object.freeze({ source: 'MICROPHONE', method: 'AUDIO_WORKLET_PCM' }),
+        }));
+      } catch (error) {
+        this.recordWorkerError(`PCM consumer: ${error?.message || error}`);
+      }
+    }
   }
 
   stopAdvancedAudio() {

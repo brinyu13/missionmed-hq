@@ -85,25 +85,6 @@ export class VocalVariationTraceVisibility {
   }
 }
 
-const FACE_CONTOUR = Object.freeze([10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109]);
-const LEFT_EYE = Object.freeze([33, 160, 158, 133, 153, 144, 33]);
-const RIGHT_EYE = Object.freeze([362, 385, 387, 263, 373, 380, 362]);
-const BROWS = Object.freeze([[70, 63, 105, 66, 107], [336, 296, 334, 293, 300]]);
-const LIPS = Object.freeze([61, 40, 37, 0, 267, 270, 291, 321, 314, 17, 84, 91, 61]);
-
-const POSE_CONNECTIONS = Object.freeze([
-  [11, 12], [11, 13], [13, 15], [12, 14], [14, 16],
-  [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28],
-]);
-
-const HAND_CONNECTIONS = Object.freeze([
-  [0, 1], [1, 2], [2, 3], [3, 4],
-  [0, 5], [5, 6], [6, 7], [7, 8],
-  [5, 9], [9, 10], [10, 11], [11, 12],
-  [9, 13], [13, 14], [14, 15], [15, 16],
-  [13, 17], [17, 18], [18, 19], [19, 20], [0, 17],
-]);
-
 // Strict on purpose: null and the empty string coerce to numeric zero, which would
 // turn a missing measurement into a plausible-looking value.
 const finite = (value) => typeof value === 'number' && Number.isFinite(value);
@@ -120,19 +101,6 @@ function setText(node, text, state) {
 
 function formatNumber(value, digits = 1) {
   return finite(value) ? Number(value).toFixed(digits) : 'UNAVAILABLE';
-}
-
-function pointsFrom(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map((point) => point && finite(point.x) && finite(point.y) ? point : null);
-}
-
-function canvasPoint(point, width, height) {
-  const normalized = Math.abs(Number(point.x)) <= 1.25 && Math.abs(Number(point.y)) <= 1.25;
-  return {
-    x: normalized ? Number(point.x) * width : Number(point.x),
-    y: normalized ? Number(point.y) * height : Number(point.y),
-  };
 }
 
 function fitCanvas(canvas) {
@@ -194,43 +162,20 @@ function drawUnavailable(context, width, height, reason) {
   context.fillText(message, width / 2, height / 2, Math.max(80, width - 18));
 }
 
-function drawPolyline(context, points, indices, width, height, color, close = false) {
-  const usable = indices.map((index) => points[index]).filter(Boolean);
-  if (usable.length < 2) return;
+function paintTeachingRegion(context, width, height, { x, y, rx, ry, color, active = false }) {
+  context.save();
+  const centerX = width * x;
+  const centerY = height * y;
+  context.globalAlpha = active ? .56 : .18;
+  context.fillStyle = color;
   context.beginPath();
-  usable.forEach((point, index) => {
-    const mapped = canvasPoint(point, width, height);
-    if (index === 0) context.moveTo(mapped.x, mapped.y);
-    else context.lineTo(mapped.x, mapped.y);
-  });
-  if (close) context.closePath();
+  context.ellipse(centerX, centerY, width * rx, height * ry, 0, 0, Math.PI * 2);
+  context.fill();
+  context.globalAlpha = active ? .92 : .36;
+  context.lineWidth = active ? 1.7 : 1;
   context.strokeStyle = color;
   context.stroke();
-}
-
-function drawConnections(context, points, connections, width, height, color) {
-  context.strokeStyle = color;
-  context.lineWidth = 1.25;
-  connections.forEach(([from, to]) => {
-    if (!points[from] || !points[to]) return;
-    const a = canvasPoint(points[from], width, height);
-    const b = canvasPoint(points[to], width, height);
-    context.beginPath();
-    context.moveTo(a.x, a.y);
-    context.lineTo(b.x, b.y);
-    context.stroke();
-  });
-}
-
-function drawLandmarks(context, points, width, height, color, radius = 1.3) {
-  context.fillStyle = color;
-  points.forEach((point) => {
-    if (!point) return;
-    const mapped = canvasPoint(point, width, height);
-    context.beginPath();
-    context.arc(mapped.x, mapped.y, radius, 0, Math.PI * 2);
-    context.fill();
-  });
+  context.restore();
 }
 
 function drawTrend(canvas, values, { color = COLORS.cyan, floor = null, ceiling = null } = {}) {
@@ -529,6 +474,7 @@ export class HeadFaceHudRenderer extends HudRenderer {
     this.blinkRate = root.querySelector('[data-face-blink-rate]');
     this.headNods = root.querySelector('[data-face-head-nods]');
     this.trend = root.querySelector('[data-face-trend]');
+    this.activityState = root.querySelector('[data-face-activity-state]');
   }
 
   unavailable(reason = 'NO_CAMERA_SIGNAL') {
@@ -557,29 +503,26 @@ export class HeadFaceHudRenderer extends HudRenderer {
   draw(frame) {
     const fit = this.context();
     if (!fit) return;
-    const points = pointsFrom(frame.landmarks || frame.faceLandmarks || frame.mesh);
-    const hasGeometry = frame.present === true || points.length > 0;
-    if (!hasGeometry) {
+    if (frame.present !== true) {
       this.unavailable(frame.reason || 'FACE_NOT_DETECTED');
       return;
     }
 
-    // The Founder scanner plate is a presentation-only anatomical reference.
-    // Keep this layer transparent so actual observed geometry can paint over it.
+    // This left-rail plate is an interpreted anatomical teaching instrument.
+    // Raw landmarks and camera pixels belong only on the center camera.
     fit.context.clearRect(0, 0, fit.width, fit.height);
-    if (points.length >= 50) {
-      fit.context.save();
-      fit.context.globalAlpha = .66;
-      fit.context.lineWidth = 1;
-      const regionState = frame.regionStates || {};
-      drawPolyline(fit.context, points, FACE_CONTOUR, fit.width, fit.height, stateColor(regionState.face || frame.state || 'live'), true);
-      drawPolyline(fit.context, points, LEFT_EYE, fit.width, fit.height, stateColor(regionState.eyes || 'live'));
-      drawPolyline(fit.context, points, RIGHT_EYE, fit.width, fit.height, stateColor(regionState.eyes || 'live'));
-      BROWS.forEach((indices) => drawPolyline(fit.context, points, indices, fit.width, fit.height, stateColor(regionState.brows || 'live')));
-      drawPolyline(fit.context, points, LIPS, fit.width, fit.height, stateColor(regionState.mouth || 'live'), true);
-      drawLandmarks(fit.context, points.filter((_, index) => index % 5 === 0), fit.width, fit.height, 'rgba(57,214,255,.55)', 1);
-      fit.context.restore();
-    }
+    const mouthActive = frame.mouthCornerElevation?.active === true;
+    const browActive = frame.movementLabel === 'OBSERVED';
+    const periocularActive = frame.periocularContraction?.active === true;
+    const gazeAvailable = frame.gazeProxy?.available === true;
+    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .39, y: .38, rx: .11, ry: .055, color: COLORS.ok, active: gazeAvailable });
+    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .61, y: .38, rx: .11, ry: .055, color: COLORS.ok, active: gazeAvailable });
+    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .39, y: .29, rx: .13, ry: .035, color: COLORS.cyan, active: browActive });
+    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .61, y: .29, rx: .13, ry: .035, color: COLORS.cyan, active: browActive });
+    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .30, y: .56, rx: .12, ry: .10, color: COLORS.orange, active: periocularActive });
+    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .70, y: .56, rx: .12, ry: .10, color: COLORS.orange, active: periocularActive });
+    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .50, y: .68, rx: .19, ry: .07, color: COLORS.bad, active: mouthActive });
+    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .50, y: .84, rx: .13, ry: .055, color: COLORS.cyan, active: true });
 
     const yaw = frame.yawProxyDeg ?? frame.yawDeg;
     const pitch = frame.pitchProxyDeg ?? frame.pitchDeg;
@@ -611,7 +554,8 @@ export class HeadFaceHudRenderer extends HudRenderer {
     setText(this.readouts.orientation, orientation, frame.orientationState || 'neutral');
     setText(this.readouts.movement, movement, frame.movementState || 'neutral');
     setText(this.readouts.events, events, frame.eventsState || 'neutral');
-    setText(this.status, frame.transientOverlay ? 'TRANSIENT WORKER OVERLAY' : (points.length ? 'LIVE LANDMARKS' : 'COMPACT GEOMETRY PROXY'), frame.state || 'ok');
+    const conversationState = String(frame.conversationState || 'UNKNOWN').replaceAll('_', ' ');
+    setText(this.status, `TEACHING HUD · ${conversationState}`, frame.state || 'ok');
     setText(this.captureState, '● Live', 'live');
 
     const regionStatus = {
@@ -644,6 +588,8 @@ export class HeadFaceHudRenderer extends HudRenderer {
     if (this.balance) this.balance.style.width = facingRatio === null ? '0%' : `${Math.round(facingRatio * 100)}%`;
     setText(this.blinkRate, frame.blinkRate?.available ? Math.round(frame.blinkRate.eventsPerMinute) : '—', frame.blinkRate?.available ? 'ok' : 'unavailable');
     setText(this.headNods, frame.headNods?.available ? frame.headNods.count : '—', frame.headNods?.available ? 'ok' : 'unavailable');
+    const activityState = String(frame.facialActivity?.state || frame.conversationState || 'UNKNOWN').replaceAll('_', ' ');
+    setText(this.activityState, `${activityState} WINDOW`, frame.facialActivity?.available ? 'live' : 'unavailable');
     drawTrend(this.trend, frame.geometryTrend?.available ? frame.geometryTrend.values : []);
   }
 }
@@ -682,34 +628,28 @@ export class BodyHudRenderer extends HudRenderer {
   draw(frame) {
     const fit = this.context();
     if (!fit) return;
-    const pose = pointsFrom(frame.poseLandmarks || frame.landmarks || frame.pose);
-    const leftHand = pointsFrom(frame.leftHandLandmarks || frame.leftHand);
-    const rightHand = pointsFrom(frame.rightHandLandmarks || frame.rightHand);
-    if (!pose.length && !leftHand.length && !rightHand.length && frame.present !== true) {
+    const leftHandPresent = frame.leftHandPresent === true;
+    const rightHandPresent = frame.rightHandPresent === true;
+    if (frame.present !== true && !leftHandPresent && !rightHandPresent) {
       this.unavailable(frame.reason || 'BODY_NOT_DETECTED');
       return;
     }
 
-    // Preserve the anatomical scanner plate and paint only observed live geometry.
+    // This left-rail plate is an interpreted anatomical teaching instrument.
+    // Raw landmarks and camera pixels belong only on the center camera.
     fit.context.clearRect(0, 0, fit.width, fit.height);
-    if (pose.length) {
-      fit.context.save();
-      fit.context.globalAlpha = .72;
-      drawConnections(fit.context, pose, POSE_CONNECTIONS, fit.width, fit.height, stateColor(frame.postureState || frame.state || 'live'));
-      drawLandmarks(fit.context, pose, fit.width, fit.height, COLORS.cyan, 1.8);
-      fit.context.restore();
-    }
-    if (leftHand.length) {
-      drawConnections(fit.context, leftHand, HAND_CONNECTIONS, fit.width, fit.height, stateColor(frame.leftHandState || 'live'));
-      drawLandmarks(fit.context, leftHand, fit.width, fit.height, COLORS.gold, 1.1);
-    }
-    if (rightHand.length) {
-      drawConnections(fit.context, rightHand, HAND_CONNECTIONS, fit.width, fit.height, stateColor(frame.rightHandState || 'live'));
-      drawLandmarks(fit.context, rightHand, fit.width, fit.height, COLORS.orange, 1.1);
-    }
+    const centeredObserved = frame.centered === true;
+    const movementActive = frame.movementLevel?.active === true;
+    const activeRegion = ['left', 'right', 'both'].includes(frame.activeRegion) ? frame.activeRegion : null;
+    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .50, y: .37, rx: .14, ry: .15, color: COLORS.ok, active: centeredObserved });
+    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .42, y: .27, rx: .09, ry: .06, color: COLORS.cyan, active: frame.present === true });
+    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .58, y: .27, rx: .09, ry: .06, color: COLORS.cyan, active: frame.present === true });
+    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .21, y: .61, rx: .08, ry: .09, color: COLORS.gold, active: leftHandPresent || ['left', 'both'].includes(activeRegion) });
+    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .79, y: .61, rx: .08, ry: .09, color: COLORS.orange, active: rightHandPresent || ['right', 'both'].includes(activeRegion) });
+    paintTeachingRegion(fit.context, fit.width, fit.height, { x: .50, y: .62, rx: .12, ry: .12, color: COLORS.warn, active: movementActive });
     const centered = frame.centeredLabel || (typeof frame.centered === 'boolean' ? (frame.centered ? 'CENTERED' : 'OFF CENTER') : 'UNAVAILABLE');
     const shoulders = frame.shoulderLabel || (finite(frame.shoulderTiltDeg) ? `${formatNumber(frame.shoulderTiltDeg, 1)}° TILT` : 'UNAVAILABLE');
-    const hands = frame.handsLabel || ((leftHand.length || rightHand.length) ? `${leftHand.length ? 'L' : '—'} / ${rightHand.length ? 'R' : '—'} VISIBLE` : 'UNAVAILABLE');
+    const hands = frame.handsLabel || ((leftHandPresent || rightHandPresent) ? `${leftHandPresent ? 'L' : '—'} / ${rightHandPresent ? 'R' : '—'} VISIBLE` : 'UNAVAILABLE');
     const gesture = frame.gestureLabel || (typeof frame.gestureActive === 'boolean' ? (frame.gestureActive ? 'MOTION ACTIVE' : 'NO MOTION EVENT') : 'UNAVAILABLE');
     setText(this.readouts.centered, centered, frame.centeredState || frame.state || 'neutral');
     setText(this.readouts.shoulders, shoulders, frame.shoulderState || 'neutral');
@@ -718,7 +658,8 @@ export class BodyHudRenderer extends HudRenderer {
     setText(this.spine, centered, frame.centeredState || frame.state || 'neutral');
     setText(this.headPosition, centered, frame.centeredState || frame.state || 'neutral');
     setText(this.centeredSummary, centered, frame.centeredState || frame.state || 'neutral');
-    setText(this.status, frame.transientOverlay ? 'TRANSIENT WORKER OVERLAY' : (pose.length || leftHand.length || rightHand.length ? 'LIVE LANDMARKS' : 'COMPACT GEOMETRY PROXY'), frame.state || 'ok');
+    const conversationState = String(frame.conversationState || 'UNKNOWN').replaceAll('_', ' ');
+    setText(this.status, `TEACHING HUD · ${conversationState}`, frame.state || 'ok');
     setText(this.captureState, '● Live', 'live');
     const lean = Number(frame.shoulderLabel?.match?.(/-?\d+(?:\.\d+)?/)?.[0]);
     setText(this.alignment, Number.isFinite(lean) ? `${Math.abs(lean).toFixed(0)}°` : (frame.centered ? 'CENTERED' : '—'), frame.centered ? 'ok' : 'warn');
