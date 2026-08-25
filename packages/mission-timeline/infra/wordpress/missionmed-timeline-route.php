@@ -62,7 +62,7 @@ function mmtlr_matrix_launch_markup() {
     ));
     $source = plugins_url('missionmed-timeline-sso/assets/matrix-launch.js');
     return '<script>window.MissionMedTimelineLaunch=' . $config . ';</script>'
-        . '<script src="' . esc_url($source) . '?ver=500.0.7"></script>';
+        . '<script src="' . esc_url($source) . '?ver=500.0.8"></script>';
 }
 
 function mmtlr_render_matrix_launch_adapter() {
