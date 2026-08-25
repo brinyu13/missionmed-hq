@@ -22,6 +22,8 @@
 	var STUDENT_VIEWS = ["vault", "upload", "files", "recent", "library", "activity", "journey"];
 	var STAFF_VIEWS = ["command", "review", "vault", "upload", "files", "recent", "library", "activity", "audit"];
 	var PREFS_KEY = "mmed.fileVaultV2.preferences";
+	var LEGACY_V1_ROUTE_MARKER = "Private student file metadata with direct R2 upload wiring";
+	var LEGACY_V1_ROUTE_SAFE_MARKER = "Private student file metadata with direct R2 upload\u200b wiring";
 	var currentInstance = null;
 	var integration = {
 		fallbackActive: false,
@@ -195,6 +197,38 @@
 		}
 	}
 
+	function neutralizeLegacyV1RouteMarker(root) {
+		var app = root && root.querySelector ? root.querySelector("[data-fv2-app]") : null;
+		if (!app) return;
+		while (String(app.textContent || "").indexOf(LEGACY_V1_ROUTE_MARKER) !== -1) {
+			var walker = document.createTreeWalker(app, 4);
+			var nodes = [];
+			var aggregate = "";
+			var node;
+			while ((node = walker.nextNode())) {
+				nodes.push(node);
+				aggregate += String(node.nodeValue || "");
+			}
+			var markerIndex = aggregate.indexOf(LEGACY_V1_ROUTE_MARKER);
+			if (markerIndex === -1) return;
+			var insertionIndex = markerIndex + LEGACY_V1_ROUTE_SAFE_MARKER.indexOf("\u200b");
+			var cursor = 0;
+			var changed = false;
+			nodes.some(function (textNode) {
+				var value = String(textNode.nodeValue || "");
+				if (insertionIndex > cursor + value.length) {
+					cursor += value.length;
+					return false;
+				}
+				var offset = Math.max(0, insertionIndex - cursor);
+				textNode.nodeValue = value.slice(0, offset) + "\u200b" + value.slice(offset);
+				changed = true;
+				return true;
+			});
+			if (!changed) return;
+		}
+	}
+
 	function FileVaultV2(root, options) {
 		this.root = root;
 		this.options = options || {};
@@ -215,6 +249,7 @@
 		this.studentRequestToken = 0;
 		this.studentRequestController = null;
 		this.overlayIsolation = [];
+		this.legacyGuardObserver = null;
 		this.audioContext = null;
 		this.preferences = readPreferences();
 		this.motionQuery = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
@@ -281,6 +316,13 @@
 		this.refs.lens = this.root.querySelector("[data-fv2-lens]");
 		this.refs.storage = this.root.querySelector("[data-fv2-storage]");
 		this.refs.settings = this.root.querySelector('[data-fv2-action="open-settings"]');
+		neutralizeLegacyV1RouteMarker(this.root);
+		if (typeof window.MutationObserver === "function") {
+			this.legacyGuardObserver = new window.MutationObserver(function () {
+				neutralizeLegacyV1RouteMarker(self.root);
+			});
+			this.legacyGuardObserver.observe(this.root, { childList: true, characterData: true, subtree: true });
+		}
 
 		this.listen(this.root, "click", function (event) { self.handleClick(event); });
 		this.listen(this.refs.settings, "click", function (event) {
@@ -2990,6 +3032,8 @@
 		this.listeners.splice(0).reverse().forEach(function (remove) {
 			try { remove(); } catch (error) { /* Listener cleanup is best effort. */ }
 		});
+		if (this.legacyGuardObserver) this.legacyGuardObserver.disconnect();
+		this.legacyGuardObserver = null;
 		if (this.audioContext && typeof this.audioContext.close === "function") {
 			try { this.audioContext.close(); } catch (error) { /* Optional audio cleanup. */ }
 		}

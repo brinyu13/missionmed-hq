@@ -708,6 +708,16 @@ async function lateMatrixTakeoverRecoveryFlow(browser) {
 
 		await page.waitForTimeout(9300);
 		assert(await page.evaluate(() => window.MatrixRuntime.navigationCount === 2 && window.MatrixRuntime.completedMountCount === 2 && window.__FV2_RUNTIME_REQUESTS__.maxActiveBootstrap === 1), "Matrix takeover: bounded retry caused a duplicate or overlapping recovery");
+		const legacyMarker = "Private student file metadata with direct R2 upload wiring";
+		await page.evaluate(marker => {
+			const documentCard = document.querySelector(".fv2-home-record");
+			if (!documentCard) throw new Error("Fixture document card is unavailable.");
+			documentCard.querySelector("strong").textContent = marker.slice(0, -3);
+			documentCard.querySelector("small").textContent = marker.slice(-3);
+		}, legacyMarker);
+		await page.waitForTimeout(0);
+		assert(await page.evaluate(marker => !String(document.getElementById("sos-content").textContent || "").includes(marker), legacyMarker), "Matrix takeover: user-controlled document text can impersonate the legacy route marker");
+		assert(await page.locator(".fv2-home-record").first().evaluate((row, marker) => String(row.textContent || "").replace(/\u200b/g, "").includes(marker), legacyMarker), "Matrix takeover: collision defense changed the visible document name");
 		await page.evaluate(() => {
 			window.__FV2_PERSISTENT_LEGACY_GUARD__ = { writes: 0, active: true };
 			const timer = window.setInterval(function () {
