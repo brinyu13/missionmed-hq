@@ -15,6 +15,7 @@ import {
   resolveLorTargetBinding,
 } from '../../lor-studio/adapters/lor-target-binding.mjs';
 import {
+  NODE_POSTGRES_DATABASE_ROLE,
   createNodePostgresExecutor,
 } from '../../lor-studio/adapters/node-postgres-executor.mjs';
 import {
@@ -63,6 +64,11 @@ const foundationRollbackPath = path.join(
   'rollbacks',
   '20260820180700_f2_lor_1012_schema_foundation.rollback.sql',
 );
+const productionFoundationPath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260825010000_f2_lor_1012_production_schema_foundation.sql',
+);
 
 const RUN_REAL_MATRIX = process.env.LOR_RUN_REAL_POSTGRES_MATRIX === '1';
 const TOOLCHAINS = Object.freeze([
@@ -102,12 +108,14 @@ const OPERATIONAL_AUTH_UID = '8a5b8f6c-5d5e-4ea1-9e5e-1f4041309c05';
 const BINDING = resolveLorTargetBinding({
   schemaVersion: LOR_TARGET_BINDING_SCHEMA,
   ratified: true,
-  decisionRecord: 'DR-120',
+  decisionRecord: 'DR-133',
   environment: 'staging',
-  projectRef: 'lor-disposable-pg-matrix',
-  parentProjectRef: 'lor-disposable-parent',
-  branchName: 'lor-staging',
-  branchId: 'lor-disposable-pg-matrix',
+  provider: 'railway-postgres',
+  projectId: '29afe885-b9b1-425d-8fd8-8611cd275409',
+  environmentId: 'f5705d38-393c-4176-9cc2-0d1dbad42c93',
+  serviceId: 'b49a52e7-df15-4417-b67a-a64403aa5db7',
+  databaseName: 'railway',
+  region: 'us-west2',
   schema: 'lor_studio',
   migrationLedger: 'lor_studio/migrations/disposable-local',
   providerResourceBound: true,
@@ -381,6 +389,16 @@ async function withHarness(toolchain, operation) {
 async function applyForward(harness) {
   await harness.applySqlFile(foundationPath);
   await harness.applySqlFile(rlsPath);
+}
+
+async function assertProductionFoundationRejectsDisposableTarget({ harness, pool }) {
+  await assert.rejects(() => harness.applySqlFile(productionFoundationPath), isSqlApplyFailure);
+  const { rows: [state] } = await pool.query(`SELECT
+    (SELECT pg_catalog.count(*) FROM pg_catalog.pg_namespace
+      WHERE nspname = 'lor_studio') AS schema_count,
+    (SELECT pg_catalog.count(*) FROM pg_catalog.pg_roles
+      WHERE rolname LIKE 'lor_studio_%') AS role_count`);
+  assert.deepEqual(state, { schema_count: '0', role_count: '0' });
 }
 
 async function assertFoundationSetRoleLookalikeRejected({ harness, pool }) {
@@ -1271,7 +1289,10 @@ async function proveActorSafeStudentCommand(pool) {
     proofHash: sha256('synthetic-local-other-binding-proof'),
   });
 
-  const executor = createNodePostgresExecutor({ pool });
+  const executor = createNodePostgresExecutor({
+    pool,
+    databaseRole: NODE_POSTGRES_DATABASE_ROLE,
+  });
   const driver = createAtomicRlsCaseDriver({ binding: BINDING, executor });
   const createIdempotencyKey = 'idem-disposable-pg-matrix-create';
   const creationRef = `case_creation_${hashValue({
@@ -1980,7 +2001,10 @@ async function seedSyntheticFacultyPrerequisites(pool) {
 
 async function proveActorSafeFacultyRelease(pool) {
   const preReleasePrivateRecord = await seedSyntheticFacultyPrerequisites(pool);
-  const executor = createNodePostgresExecutor({ pool });
+  const executor = createNodePostgresExecutor({
+    pool,
+    databaseRole: NODE_POSTGRES_DATABASE_ROLE,
+  });
   const driver = createAtomicRlsCaseDriver({ binding: BINDING, executor });
 
   const studentBeforeRelease = await driver.readStudentSafeCase({
@@ -3133,6 +3157,10 @@ test('DR-120 real disposable PostgreSQL 16/18 apply, RLS, rollback, and reapply 
   for (const toolchain of TOOLCHAINS) {
     await matrix.test(`PostgreSQL ${toolchain.major}`, { timeout: 120_000 }, async () => {
       await assertToolchainPresent(toolchain);
+
+      await withHarness(toolchain, async ({ harness, pool }) => {
+        await assertProductionFoundationRejectsDisposableTarget({ harness, pool });
+      });
 
       await withHarness(toolchain, async ({ harness, pool }) => {
         await assertFoundationSetRoleLookalikeRejected({ harness, pool });

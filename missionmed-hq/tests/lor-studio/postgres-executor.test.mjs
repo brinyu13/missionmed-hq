@@ -4,9 +4,18 @@ import test from 'node:test';
 
 import {
   NODE_POSTGRES_EXECUTOR_CONTRACT,
+  NODE_POSTGRES_DATABASE_ROLE,
+  NODE_POSTGRES_SET_LOCAL_ROLE_SQL,
   NodePostgresExecutorError,
-  createNodePostgresExecutor,
+  createNodePostgresExecutor as createNodePostgresExecutorRaw,
 } from '../../lor-studio/adapters/node-postgres-executor.mjs';
+
+function createNodePostgresExecutor(options = {}) {
+  return createNodePostgresExecutorRaw({
+    databaseRole: NODE_POSTGRES_DATABASE_ROLE,
+    ...options,
+  });
+}
 
 function result(rows = [], fields = []) {
   return { rows, fields };
@@ -75,10 +84,50 @@ test('module is dependency-injected and does not import or resolve pg', () => {
     'values',
   ]);
   assert.deepEqual(NODE_POSTGRES_EXECUTOR_CONTRACT.forwardedQueryShape, ['text', 'values']);
+  assert.equal(NODE_POSTGRES_EXECUTOR_CONTRACT.authority, 'DR-133');
+  assert.equal(NODE_POSTGRES_EXECUTOR_CONTRACT.databaseRole, 'lor_studio_app');
+  assert.equal(NODE_POSTGRES_EXECUTOR_CONTRACT.setLocalRoleSql, 'SET LOCAL ROLE lor_studio_app');
+  assert.equal(NODE_POSTGRES_SET_LOCAL_ROLE_SQL, 'SET LOCAL ROLE lor_studio_app');
+  assert.doesNotMatch(source, /set_config\('role'/u);
+});
+
+test('SET LOCAL ROLE is first after BEGIN and failure rolls back before any GUC or handler query', async () => {
+  const roleError = new Error('role marker');
+  let handlerCalled = false;
+  const fake = createFakePool({
+    query(input) {
+      if (input === NODE_POSTGRES_SET_LOCAL_ROLE_SQL) throw roleError;
+      return result();
+    },
+  });
+  const executor = createNodePostgresExecutor({ pool: fake.pool });
+  await assert.rejects(
+    executor.withConnection((connection) => connection.transaction(() => {
+      handlerCalled = true;
+    })),
+    (error) => error === roleError,
+  );
+  assert.equal(handlerCalled, false);
+  assert.deepEqual(fake.calls, [
+    'BEGIN ISOLATION LEVEL READ COMMITTED',
+    NODE_POSTGRES_SET_LOCAL_ROLE_SQL,
+    'ROLLBACK',
+  ]);
+  assert.deepEqual(fake.releases, [[]]);
 });
 
 test('factory fails closed without an injected Pool and on unbounded timeouts', () => {
   assert.throws(() => createNodePostgresExecutor(), isExecutorError('POOL_REQUIRED'));
+  assert.throws(
+    () => createNodePostgresExecutorRaw({ pool: { connect() {} } }),
+    isExecutorError('DATABASE_ROLE_INVALID'),
+  );
+  for (const databaseRole of ['', 'postgres', 'lor_studio_owner', null, undefined]) {
+    assert.throws(
+      () => createNodePostgresExecutorRaw({ pool: { connect() {} }, databaseRole }),
+      isExecutorError('DATABASE_ROLE_INVALID'),
+    );
+  }
   assert.throws(
     () => createNodePostgresExecutor({ pool: { connect() {} }, connectionString: 'forbidden' }),
     isExecutorError('EXECUTOR_OPTIONS_UNRECOGNIZED'),
@@ -136,17 +185,19 @@ test('forwards text and values only, binds local timeouts, and normalizes bigint
   assert.equal(executor.serverOnly, true);
   assert.equal(executor.transactional, true);
   assert.equal(executor.preparedStatements, false);
+  assert.equal(executor.databaseRole, NODE_POSTGRES_DATABASE_ROLE);
   assert.equal(fake.stats().connections, 1);
   assert.equal(fake.calls[0], 'BEGIN ISOLATION LEVEL READ COMMITTED');
-  assert.match(fake.calls[1].text, /pg_catalog\.set_config\('statement_timeout', \$1, true\)/u);
-  assert.deepEqual(fake.calls[1].values, ['5000ms', '2000ms', '5000ms']);
-  assert.deepEqual(fake.calls[2], {
+  assert.equal(fake.calls[1], NODE_POSTGRES_SET_LOCAL_ROLE_SQL);
+  assert.match(fake.calls[2].text, /pg_catalog\.set_config\('statement_timeout', \$1, true\)/u);
+  assert.deepEqual(fake.calls[2].values, ['5000ms', '2000ms', '5000ms']);
+  assert.deepEqual(fake.calls[3], {
     text: statement().text,
     values: statement().values,
   });
-  assert.equal(Object.hasOwn(fake.calls[2], 'statementId'), false);
-  assert.equal(Object.hasOwn(fake.calls[2], 'name'), false);
-  assert.equal(fake.calls[3], 'COMMIT');
+  assert.equal(Object.hasOwn(fake.calls[3], 'statementId'), false);
+  assert.equal(Object.hasOwn(fake.calls[3], 'name'), false);
+  assert.equal(fake.calls[4], 'COMMIT');
   assert.deepEqual(fake.releases, [[]]);
   assert.equal(fake.calls.some((call) => call === 'DISCARD ALL'), false);
 });
@@ -162,8 +213,8 @@ test('uses caller-selected bounded timeout values without interpolating them int
   await executor.withConnection((connection) => connection.transaction(
     (transaction) => transaction.execute(statement()),
   ));
-  assert.deepEqual(fake.calls[1].values, ['8000ms', '3000ms', '9000ms']);
-  assert.doesNotMatch(fake.calls[1].text, /8000|3000|9000/u);
+  assert.deepEqual(fake.calls[2].values, ['8000ms', '3000ms', '9000ms']);
+  assert.doesNotMatch(fake.calls[2].text, /8000|3000|9000/u);
 });
 
 test('rolls back and rethrows the exact handler error', async () => {
@@ -204,8 +255,9 @@ test('a caught query failure still poisons the transaction and is rethrown after
 
   assert.deepEqual(fake.calls, [
     'BEGIN ISOLATION LEVEL READ COMMITTED',
+    NODE_POSTGRES_SET_LOCAL_ROLE_SQL,
     {
-      text: fake.calls[1].text,
+      text: fake.calls[2].text,
       values: ['5000ms', '2000ms', '5000ms'],
     },
     { text: 'SELECT broken', values: [] },
@@ -449,7 +501,12 @@ test('an unawaited transaction becomes abort-only before commit and drains befor
   await beginStarted;
   finishBegin();
   await assert.rejects(pending, isExecutorError('TRANSACTION_LEAKED'));
-  assert.deepEqual(events, ['BEGIN ISOLATION LEVEL READ COMMITTED', 'ROLLBACK', 'RELEASE']);
+  assert.deepEqual(events, [
+    'BEGIN ISOLATION LEVEL READ COMMITTED',
+    NODE_POSTGRES_SET_LOCAL_ROLE_SQL,
+    'ROLLBACK',
+    'RELEASE',
+  ]);
   assert.equal(fake.calls.includes('COMMIT'), false);
 });
 

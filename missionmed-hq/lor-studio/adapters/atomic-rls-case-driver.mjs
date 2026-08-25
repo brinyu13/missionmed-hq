@@ -25,6 +25,7 @@ import {
 } from '../domain/value-utils.js';
 import { validateMetadataServiceEvent } from '../services/metadata-events.js';
 import {
+  LOR_TARGET_IDENTITY_FIELDS,
   assertValidatedLorTargetBinding,
   isDeniedTargetIdentifier,
 } from './lor-target-binding.mjs';
@@ -47,7 +48,7 @@ const SERVER_SCOPE_SCHEMA = 'missionmed.lor.server-query-scope.v1';
 const DRIVER_AUTHORIZATION_SCHEMA = 'missionmed.lor.driver-authorization-binding.v1';
 const CREATION_RESERVATION_RECEIPT_SCHEMA = 'missionmed.lor.case-creation-reservation-receipt.v1';
 const ATOMIC_COMMAND_RECEIPT_SCHEMA = 'missionmed.lor.atomic-command-receipt.v2';
-const TARGET_BINDING_SCHEMA = 'missionmed.lor.target-binding.v1';
+const TARGET_BINDING_SCHEMA = 'missionmed.lor.target-binding.v2';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const STUDENT_SUBJECT_PATTERN = /^wp:[1-9][0-9]*$/u;
@@ -161,30 +162,26 @@ const BINDING_IDENTITY_FIELDS = Object.freeze([
   'schemaVersion',
   'decisionRecord',
   'environment',
-  'projectRef',
-  'parentProjectRef',
-  'branchName',
-  'branchId',
+  ...LOR_TARGET_IDENTITY_FIELDS,
   'schema',
   'migrationLedger',
 ]);
 const BINDING_KEYS = new Set(BINDING_IDENTITY_FIELDS);
 
 const BIND_IDENTITY_SQL = `SELECT
-  pg_catalog.set_config('role', $1, true) AS database_role,
-  pg_catalog.set_config('request.jwt.claim.sub', $2, true) AS auth_uid,
-  pg_catalog.set_config('${LOR_SCHEMA}.student_auth_subject', $3, true) AS student_auth_subject,
-  pg_catalog.set_config('${LOR_SCHEMA}.actor_role', $4, true) AS actor_role,
-  pg_catalog.set_config('${LOR_SCHEMA}.resource_student_id', $5, true) AS resource_student_id,
-  pg_catalog.set_config('${LOR_SCHEMA}.case_id', $6, true) AS case_id,
-  pg_catalog.set_config('${LOR_SCHEMA}.operation', $7, true) AS operation,
-  pg_catalog.set_config('${LOR_SCHEMA}.purpose', $8, true) AS purpose,
-  pg_catalog.set_config('${LOR_SCHEMA}.invitation_id', $9, true) AS invitation_id,
-  pg_catalog.set_config('${LOR_SCHEMA}.assignment_id', $10, true) AS assignment_id,
-  pg_catalog.set_config('${LOR_SCHEMA}.administrative_grant_id', $11, true) AS administrative_grant_id,
-  pg_catalog.set_config('${LOR_SCHEMA}.entitlement_verified', $12, true) AS entitlement_verified,
-  pg_catalog.set_config('${LOR_SCHEMA}.lor_enabled', $13, true) AS lor_enabled,
-  pg_catalog.set_config('${LOR_SCHEMA}.canary_authorized', $14, true) AS canary_authorized`;
+  pg_catalog.set_config('request.jwt.claim.sub', $1, true) AS auth_uid,
+  pg_catalog.set_config('${LOR_SCHEMA}.student_auth_subject', $2, true) AS student_auth_subject,
+  pg_catalog.set_config('${LOR_SCHEMA}.actor_role', $3, true) AS actor_role,
+  pg_catalog.set_config('${LOR_SCHEMA}.resource_student_id', $4, true) AS resource_student_id,
+  pg_catalog.set_config('${LOR_SCHEMA}.case_id', $5, true) AS case_id,
+  pg_catalog.set_config('${LOR_SCHEMA}.operation', $6, true) AS operation,
+  pg_catalog.set_config('${LOR_SCHEMA}.purpose', $7, true) AS purpose,
+  pg_catalog.set_config('${LOR_SCHEMA}.invitation_id', $8, true) AS invitation_id,
+  pg_catalog.set_config('${LOR_SCHEMA}.assignment_id', $9, true) AS assignment_id,
+  pg_catalog.set_config('${LOR_SCHEMA}.administrative_grant_id', $10, true) AS administrative_grant_id,
+  pg_catalog.set_config('${LOR_SCHEMA}.entitlement_verified', $11, true) AS entitlement_verified,
+  pg_catalog.set_config('${LOR_SCHEMA}.lor_enabled', $12, true) AS lor_enabled,
+  pg_catalog.set_config('${LOR_SCHEMA}.canary_authorized', $13, true) AS canary_authorized`;
 
 const TRANSACTION_ID_SQL = 'SELECT pg_catalog.pg_current_xact_id()::text AS transaction_id';
 
@@ -392,6 +389,7 @@ function assertExecutor(executor) {
     !executor
     || executor.serverOnly !== true
     || executor.transactional !== true
+    || executor.databaseRole !== APPLICATION_DB_ROLE
     || typeof executor.withConnection !== 'function'
   ) failClosed('SQL_EXECUTOR_PORT_REQUIRED');
   return executor;
@@ -416,7 +414,7 @@ function assertTargetBinding(binding, target) {
   for (const field of BINDING_IDENTITY_FIELDS) {
     if (binding[field] !== target[field]) failClosed('TARGET_BINDING_MISMATCH');
   }
-  for (const field of ['projectRef', 'parentProjectRef', 'branchId', 'branchName']) {
+  for (const field of LOR_TARGET_IDENTITY_FIELDS) {
     if (isDeniedTargetIdentifier(binding[field])) failClosed('TARGET_BINDING_DENIED');
   }
 }
@@ -502,7 +500,6 @@ function assertScopeEnvelope(rawScope, { operation, caseId, actorRole }) {
 
 function deriveRlsIdentity(scope) {
   return Object.freeze({
-    databaseRole: APPLICATION_DB_ROLE,
     authUid: scope.authUid,
     studentAuthSubject: scope.authenticatedSubject,
     actorRole: scope.actorRole,
@@ -522,7 +519,6 @@ function deriveRlsIdentity(scope) {
 function bindIdentityStatement(scope) {
   const identity = deriveRlsIdentity(scope);
   return statement(ATOMIC_RLS_CASE_STATEMENTS.bindIdentity, BIND_IDENTITY_SQL, [
-    identity.databaseRole,
     identity.authUid,
     identity.studentAuthSubject,
     identity.actorRole,
@@ -984,7 +980,7 @@ export class AtomicRlsCaseDriver {
     );
     if (validated.schemaVersion !== TARGET_BINDING_SCHEMA) failClosed('TARGET_BINDING_REQUIRED');
     if (validated.schema !== LOR_SCHEMA) failClosed('TARGET_SCHEMA_MISMATCH');
-    for (const field of ['projectRef', 'parentProjectRef', 'branchId', 'branchName']) {
+    for (const field of LOR_TARGET_IDENTITY_FIELDS) {
       if (isDeniedTargetIdentifier(validated[field])) failClosed('TARGET_BINDING_DENIED');
     }
     this.target = deepFreeze(
@@ -1347,14 +1343,14 @@ export function createAtomicRlsCaseDriver(options) {
 
 export const ATOMIC_RLS_CASE_DRIVER_CONTRACT = deepFreeze({
   integration: ATOMIC_RLS_CASE_DRIVER_INTEGRATION,
-  authority: 'DR-120',
+  authority: 'DR-133',
   relations: RELATIONS,
   relationOwnership: 'sole_layer_that_names_tables_or_columns',
   statements: ATOMIC_RLS_CASE_STATEMENTS,
   parameterization: 'all_caller_values_bound_never_interpolated',
   applicationDatabaseRole: APPLICATION_DB_ROLE,
   identitySource: 'server_verified_scope_only',
-  identityScope: 'exact_14_axis_transaction_local_set_config',
+  identityScope: 'exact_13_axis_transaction_local_set_config_after_executor_set_local_role',
   identityReset: null,
   studentRead: 'one_fixed_student_safe_projection_statement',
   facultyRead: 'one_fixed_seven_field_security_definer_function',
@@ -1385,5 +1381,7 @@ export const ATOMIC_RLS_CASE_DRIVER_CONTRACT = deepFreeze({
     withConnection: 'exclusive_connection_for_the_handler',
     transaction: 'commit_on_resolve_rollback_and_rethrow_on_reject',
     statementShape: ['statementId', 'text', 'values'],
+    databaseRole: APPLICATION_DB_ROLE,
+    roleBindingOwner: 'node_postgres_executor_set_local_role',
   },
 });

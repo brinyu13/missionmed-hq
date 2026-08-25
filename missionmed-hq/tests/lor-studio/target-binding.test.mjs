@@ -5,6 +5,7 @@ import {
   DENIED_TARGET_IDENTIFIERS,
   LOR_TARGET_BINDING_CONTRACT,
   LOR_TARGET_BINDING_SCHEMA,
+  LOR_TARGET_IDENTITY_FIELDS,
   assertValidatedLorTargetBinding,
   isDeniedTargetIdentifier,
   resolveLorTargetBinding,
@@ -18,7 +19,7 @@ import {
   SupabaseDurableFacultyInvitationRepository,
 } from '../../lor-studio/repositories/supabase-durable-faculty-invitation-repository.mjs';
 
-// DR-119 clause 7. These identifiers are asserted ONLY as values that must be
+// DR-133. These identifiers are asserted ONLY as values that must be
 // rejected. Nothing in this file may assert that either one is a reachable target.
 const RANKLISTIQ_PRODUCTION_PROJECT_REF = 'fglyvdykwgbuivikqoah';
 const HISTORICAL_NO_TOUCH_BRANCH_ID = 'mftguikkftmrxjxrkdln';
@@ -28,12 +29,14 @@ function localTargetConfiguration(overrides = {}) {
   return {
     schemaVersion: LOR_TARGET_BINDING_SCHEMA,
     ratified: true,
-    decisionRecord: 'DR-119',
+    decisionRecord: 'DR-133',
     environment: 'local',
-    projectRef: 'lor-local-target-a',
-    parentProjectRef: null,
-    branchName: 'lor-local',
-    branchId: 'lor-local-target-a',
+    provider: 'railway-postgres',
+    projectId: 'lor-local-project-a',
+    environmentId: 'lor-local-environment-a',
+    serviceId: 'lor-local-service-a',
+    databaseName: 'railway',
+    region: 'us-west2',
     schema: 'lor_studio',
     migrationLedger: 'lor_studio/migrations/local',
     providerResourceBound: true,
@@ -99,6 +102,9 @@ test('absent target configuration fails closed and yields no project identity', 
 });
 
 test('the module publishes no default or fallback target', () => {
+  assert.equal(LOR_TARGET_BINDING_SCHEMA, 'missionmed.lor.target-binding.v2');
+  assert.equal(LOR_TARGET_BINDING_CONTRACT.authority, 'DR-133');
+  assert.equal(LOR_TARGET_BINDING_CONTRACT.provider, 'railway-postgres');
   assert.equal(LOR_TARGET_BINDING_CONTRACT.defaultTarget, null);
   assert.equal(LOR_TARGET_BINDING_CONTRACT.fallbackTarget, null);
   assert.equal(LOR_TARGET_BINDING_CONTRACT.selection, 'explicit_ratified_configuration_only');
@@ -144,6 +150,7 @@ test('partial and malformed target configuration fails closed', () => {
     [{ ratified: undefined }, 'TARGET_BINDING_NOT_RATIFIED'],
     [{ decisionRecord: '' }, 'TARGET_BINDING_DECISION_RECORD_REQUIRED'],
     [{ decisionRecord: 'pending' }, 'TARGET_BINDING_DECISION_RECORD_REQUIRED'],
+    [{ decisionRecord: 'DR-120' }, 'TARGET_BINDING_DECISION_RECORD_INVALID'],
     [{ providerResourceBound: false }, 'TARGET_BINDING_RESOURCE_UNVERIFIED'],
     [{ independentlyVerified: false }, 'TARGET_BINDING_RESOURCE_UNVERIFIED'],
     [{ environmentBound: false }, 'TARGET_BINDING_RESOURCE_UNVERIFIED'],
@@ -151,14 +158,17 @@ test('partial and malformed target configuration fails closed', () => {
     [{ environment: 'preview' }, 'TARGET_BINDING_ENVIRONMENT_INVALID'],
     [{ environment: null }, 'TARGET_BINDING_ENVIRONMENT_INVALID'],
     [{ schema: 'public' }, 'TARGET_BINDING_SCHEMA_INVALID'],
-    [{ projectRef: '' }, 'TARGET_BINDING_PROJECT_REF_INVALID'],
-    [{ projectRef: 'ab' }, 'TARGET_BINDING_PROJECT_REF_INVALID'],
-    [{ projectRef: 'Bad Ref' }, 'TARGET_BINDING_PROJECT_REF_INVALID'],
-    [{ branchName: '' }, 'TARGET_BINDING_BRANCH_NAME_INVALID'],
+    [{ provider: 'supabase' }, 'TARGET_BINDING_PROVIDER_INVALID'],
+    [{ projectId: '' }, 'TARGET_BINDING_PROJECT_ID_INVALID'],
+    [{ projectId: 'ab' }, 'TARGET_BINDING_PROJECT_ID_INVALID'],
+    [{ projectId: 'Bad Ref' }, 'TARGET_BINDING_PROJECT_ID_INVALID'],
+    [{ environmentId: '' }, 'TARGET_BINDING_ENVIRONMENT_ID_INVALID'],
+    [{ serviceId: '' }, 'TARGET_BINDING_SERVICE_ID_INVALID'],
+    [{ databaseName: '' }, 'TARGET_BINDING_DATABASE_NAME_INVALID'],
+    [{ databaseName: 'Bad-Name' }, 'TARGET_BINDING_DATABASE_NAME_INVALID'],
+    [{ region: '' }, 'TARGET_BINDING_REGION_INVALID'],
     [{ migrationLedger: null }, 'TARGET_BINDING_MIGRATION_LEDGER_REQUIRED'],
     [{ migrationLedger: '' }, 'TARGET_BINDING_MIGRATION_LEDGER_REQUIRED'],
-    [{ parentProjectRef: 'Bad Parent' }, 'TARGET_BINDING_PARENT_PROJECT_REF_INVALID'],
-    [{ branchId: 'lor-local-other-branch' }, 'TARGET_BINDING_BRANCH_IDENTITY_MISMATCH'],
     [{ dataCopied: true }, 'TARGET_BINDING_DATA_COPY_FORBIDDEN'],
     [{ productionDataBindingPassed: true }, 'TARGET_BINDING_PRODUCTION_EVIDENCE_MISMATCH'],
   ];
@@ -181,38 +191,59 @@ test('a production-declared configuration still needs its own production evidenc
   );
 });
 
+test('local, test, staging, and production declarations each resolve only from complete v2 input', () => {
+  for (const environment of ['local', 'test', 'staging', 'production']) {
+    const binding = resolveLorTargetBinding(localTargetConfiguration({
+      environment,
+      projectId: `lor-${environment}-project`,
+      environmentId: `lor-${environment}-environment`,
+      serviceId: `lor-${environment}-service`,
+      migrationLedger: `lor_studio/migrations/${environment}`,
+      productionDataBindingPassed: environment === 'production',
+    }));
+    assert.equal(binding.environment, environment);
+    assert.equal(binding.projectId, `lor-${environment}-project`);
+    assert.equal(binding.provider, 'railway-postgres');
+  }
+});
+
 test('an explicit ratified test target resolves to exactly what was configured', () => {
   const binding = resolveLorTargetBinding(localTargetConfiguration({
     environment: 'test',
-    projectRef: 'lor-test-target-b',
-    branchId: 'lor-test-target-b',
-    branchName: 'lor-test',
+    projectId: 'lor-test-project-b',
+    environmentId: 'lor-test-environment-b',
+    serviceId: 'lor-test-service-b',
     migrationLedger: 'lor_studio/migrations/test',
   }));
 
   assert.deepEqual({ ...binding }, {
     schemaVersion: LOR_TARGET_BINDING_SCHEMA,
-    decisionRecord: 'DR-119',
+    decisionRecord: 'DR-133',
     environment: 'test',
-    projectRef: 'lor-test-target-b',
-    parentProjectRef: null,
-    branchName: 'lor-test',
-    branchId: 'lor-test-target-b',
+    provider: 'railway-postgres',
+    projectId: 'lor-test-project-b',
+    environmentId: 'lor-test-environment-b',
+    serviceId: 'lor-test-service-b',
+    databaseName: 'railway',
+    region: 'us-west2',
     schema: 'lor_studio',
     migrationLedger: 'lor_studio/migrations/test',
   });
   assert.equal(Object.isFrozen(binding), true);
 
-  // A validated staging child under an explicitly ratified, non-denied parent.
+  // The exact DR-133 staging resource identity resolves without aliases.
   const staging = resolveLorTargetBinding(localTargetConfiguration({
     environment: 'staging',
-    projectRef: 'lor-staging-child-c',
-    branchId: 'lor-staging-child-c',
-    parentProjectRef: 'lor-parent-project-c',
-    branchName: 'lor-staging',
+    projectId: '29afe885-b9b1-425d-8fd8-8611cd275409',
+    environmentId: 'f5705d38-393c-4176-9cc2-0d1dbad42c93',
+    serviceId: 'b49a52e7-df15-4417-b67a-a64403aa5db7',
+    databaseName: 'railway',
+    region: 'us-west2',
     migrationLedger: 'lor_studio/migrations/staging',
   }));
-  assert.equal(staging.parentProjectRef, 'lor-parent-project-c');
+  assert.equal(staging.projectId, '29afe885-b9b1-425d-8fd8-8611cd275409');
+  assert.equal(staging.environmentId, 'f5705d38-393c-4176-9cc2-0d1dbad42c93');
+  assert.equal(staging.serviceId, 'b49a52e7-df15-4417-b67a-a64403aa5db7');
   assert.equal(staging.environment, 'staging');
 });
 
@@ -247,9 +278,7 @@ test('the historical production project and no-touch branch are denied even when
   assert.equal(
     failClosedStatus(() => resolveLorTargetBinding(localTargetConfiguration({
       environment: 'production',
-      projectRef: RANKLISTIQ_PRODUCTION_PROJECT_REF,
-      branchId: RANKLISTIQ_PRODUCTION_PROJECT_REF,
-      branchName: 'main',
+      projectId: RANKLISTIQ_PRODUCTION_PROJECT_REF,
       productionDataBindingPassed: true,
       migrationLedger: 'lor_studio/migrations/production',
     }))),
@@ -260,16 +289,14 @@ test('the historical production project and no-touch branch are denied even when
   assert.equal(
     failClosedStatus(() => resolveLorTargetBinding(localTargetConfiguration({
       environment: 'staging',
-      projectRef: HISTORICAL_NO_TOUCH_BRANCH_ID,
-      branchId: HISTORICAL_NO_TOUCH_BRANCH_ID,
-      parentProjectRef: RANKLISTIQ_PRODUCTION_PROJECT_REF,
-      branchName: 'lor-staging',
+      serviceId: HISTORICAL_NO_TOUCH_BRANCH_ID,
     }))),
     'TARGET_BINDING_DENIED_LOR_HISTORICAL_NO_TOUCH_BRANCH',
   );
 
   // A denied identifier hidden in any single identity field is still denied.
-  for (const field of ['projectRef', 'parentProjectRef', 'branchId', 'branchName']) {
+  assert.deepEqual(LOR_TARGET_BINDING_CONTRACT.identityFields, LOR_TARGET_IDENTITY_FIELDS);
+  for (const field of LOR_TARGET_IDENTITY_FIELDS) {
     for (const denied of [RANKLISTIQ_PRODUCTION_PROJECT_REF, HISTORICAL_NO_TOUCH_BRANCH_ID]) {
       const status = failClosedStatus(
         () => resolveLorTargetBinding(localTargetConfiguration({ [field]: denied })),
@@ -294,7 +321,7 @@ test('the case repository cannot be constructed without a validated binding', ()
   // A hand-rolled look-alike is not a binding, however complete it appears.
   for (const forged of [
     localTargetConfiguration(),
-    { environment: 'production', projectRef: RANKLISTIQ_PRODUCTION_PROJECT_REF, schema: 'lor_studio' },
+    { environment: 'production', projectId: RANKLISTIQ_PRODUCTION_PROJECT_REF, schema: 'lor_studio' },
     { ...resolveLorTargetBinding(localTargetConfiguration()) },
   ]) {
     const status = failClosedStatus(
@@ -310,7 +337,6 @@ test('the case repository cannot be constructed without a validated binding', ()
   const persistence = repository.describePersistence();
   assert.equal(persistence.environment, 'test');
   assert.equal(persistence.productionEligible, false);
-  assert.equal(persistence.projectRef, 'lor-local-target-a');
   assert.throws(() => repository.assertProductionReady(), /integration is unavailable/u);
 });
 
@@ -329,7 +355,7 @@ test('the faculty repository cannot be constructed without a validated binding',
 
   for (const forged of [
     localTargetConfiguration(),
-    { environment: 'production', projectRef: RANKLISTIQ_PRODUCTION_PROJECT_REF, schema: 'lor_studio' },
+    { environment: 'production', projectId: RANKLISTIQ_PRODUCTION_PROJECT_REF, schema: 'lor_studio' },
     { ...resolveLorTargetBinding(localTargetConfiguration()) },
   ]) {
     const status = failClosedStatus(

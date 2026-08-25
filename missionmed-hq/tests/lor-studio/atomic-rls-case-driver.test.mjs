@@ -42,12 +42,14 @@ function targetConfiguration(overrides = {}) {
   return {
     schemaVersion: LOR_TARGET_BINDING_SCHEMA,
     ratified: true,
-    decisionRecord: 'DR-120',
+    decisionRecord: 'DR-133',
     environment: 'staging',
-    projectRef: 'lor-case-driver-staging',
-    parentProjectRef: 'lor-case-driver-parent',
-    branchName: 'lor-staging',
-    branchId: 'lor-case-driver-staging',
+    provider: 'railway-postgres',
+    projectId: '29afe885-b9b1-425d-8fd8-8611cd275409',
+    environmentId: 'f5705d38-393c-4176-9cc2-0d1dbad42c93',
+    serviceId: 'b49a52e7-df15-4417-b67a-a64403aa5db7',
+    databaseName: 'railway',
+    region: 'us-west2',
     schema: 'lor_studio',
     migrationLedger: 'lor_studio/migrations/staging',
     providerResourceBound: true,
@@ -413,6 +415,7 @@ function createFakeExecutor({ respond } = {}) {
   return {
     serverOnly: true,
     transactional: true,
+    databaseRole: 'lor_studio_app',
     log,
     metrics,
     async withConnection(handler) {
@@ -478,7 +481,7 @@ async function captureRejection(operation) {
 }
 
 test('contract freezes Option A v2 surface and exactly eight privileged read/command functions', () => {
-  assert.equal(ATOMIC_RLS_CASE_DRIVER_CONTRACT.authority, 'DR-120');
+  assert.equal(ATOMIC_RLS_CASE_DRIVER_CONTRACT.authority, 'DR-133');
   assert.equal(
     ATOMIC_RLS_CASE_DRIVER_CONTRACT.commandReceiptSchema,
     'missionmed.lor.atomic-command-receipt.v2',
@@ -593,7 +596,7 @@ test('real durable repository calls the real driver with the exact nine-key one-
   ]);
 });
 
-test('identity bind is first and contains exactly the 14 frozen transaction-local axes', async () => {
+test('identity bind is first and contains exactly the 13 non-role transaction-local axes', async () => {
   const entry = COMMAND_CASES[0];
   const executor = createFakeExecutor({
     respond({ statement, transactionId }) {
@@ -604,9 +607,8 @@ test('identity bind is first and contains exactly the 14 frozen transaction-loca
   await driver.commitStudentCaseCreate(commandFor(entry));
   const bind = executor.log[0];
   const settings = [...bind.text.matchAll(/set_config\('([^']+)',\s*\$([0-9]+),\s*(true|false)\)/gu)];
-  assert.equal([...bind.text.matchAll(/pg_catalog\.set_config\(/gu)].length, 14);
+  assert.equal([...bind.text.matchAll(/pg_catalog\.set_config\(/gu)].length, 13);
   assert.deepEqual(settings.map((match) => match[1]), [
-    'role',
     'request.jwt.claim.sub',
     'lor_studio.student_auth_subject',
     'lor_studio.actor_role',
@@ -622,8 +624,8 @@ test('identity bind is first and contains exactly the 14 frozen transaction-loca
     'lor_studio.canary_authorized',
   ]);
   assert.equal(settings.every((match) => match[3] === 'true'), true);
+  assert.doesNotMatch(bind.text, /set_config\('role'/u);
   assert.deepEqual(bind.values, [
-    'lor_studio_app',
     AUTH_UID,
     STUDENT,
     'student',
@@ -815,7 +817,7 @@ test('faculty release calls the six-argument command ABI and treats database has
   ]);
   assert.equal(rpc.values.length, 6);
   assert.equal(rpc.values[5], hashValue(JSON.parse(rpc.values[4])));
-  assert.deepEqual(executor.log[0].values.slice(2, 14), [
+  assert.deepEqual(executor.log[0].values.slice(1, 13), [
     FACULTY,
     'faculty',
     STUDENT,
@@ -857,7 +859,7 @@ test('target, case, subject, role evidence, and pseudonym binding all fail close
   const entry = COMMAND_CASES[0];
   const base = commandFor(entry);
   const attempts = [
-    { label: 'target', command: { ...base, binding: { ...BINDING, projectRef: 'other-target' } } },
+    { label: 'target', command: { ...base, binding: { ...BINDING, projectId: 'other-target' } } },
     { label: 'case', command: { ...base, scope: { ...base.scope, caseId: 'case-other' } } },
     { label: 'subject', command: { ...base, scope: { ...base.scope, resourceStudentId: 'wp:99' } } },
     { label: 'actor', command: { ...base, scope: { ...base.scope, actorId: 'wp:99' } } },
@@ -1147,4 +1149,14 @@ test('unvalidated constructor bindings and malformed executor contracts are reje
     (error) => error.code === 'INTEGRATION_DISABLED'
       && error.details.status === 'SQL_EXECUTOR_PORT_REQUIRED',
   );
+  for (const databaseRole of [undefined, 'postgres', 'lor_studio_owner']) {
+    assert.throws(
+      () => createAtomicRlsCaseDriver({
+        binding: BINDING,
+        executor: { ...executor, databaseRole },
+      }),
+      (error) => error.code === 'INTEGRATION_DISABLED'
+        && error.details.status === 'SQL_EXECUTOR_PORT_REQUIRED',
+    );
+  }
 });

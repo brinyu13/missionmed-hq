@@ -1,8 +1,11 @@
 const EXECUTOR_INTEGRATION = 'lor_node_postgres_executor';
+export const NODE_POSTGRES_DATABASE_ROLE = 'lor_studio_app';
+export const NODE_POSTGRES_SET_LOCAL_ROLE_SQL = 'SET LOCAL ROLE lor_studio_app';
 
 const STATEMENT_KEYS = new Set(['statementId', 'text', 'values']);
 const OPTION_KEYS = new Set([
   'pool',
+  'databaseRole',
   'statementTimeoutMs',
   'lockTimeoutMs',
   'idleInTransactionSessionTimeoutMs',
@@ -58,6 +61,11 @@ function assertTimeout(value, name) {
   if (!Number.isSafeInteger(value) || value < 1 || value > 120_000) {
     fail(`${name.toUpperCase()}_INVALID`);
   }
+  return value;
+}
+
+function assertDatabaseRole(value) {
+  if (value !== NODE_POSTGRES_DATABASE_ROLE) fail('DATABASE_ROLE_INVALID');
   return value;
 }
 
@@ -165,6 +173,7 @@ class NodePostgresExecutor {
     if (!hasExactKeys(options, OPTION_KEYS)) fail('EXECUTOR_OPTIONS_UNRECOGNIZED');
     if (!options.pool || typeof options.pool.connect !== 'function') fail('POOL_REQUIRED');
     this.pool = options.pool;
+    this.databaseRole = assertDatabaseRole(options.databaseRole);
     this.timeouts = Object.freeze({
       statementTimeoutMs: assertTimeout(options.statementTimeoutMs, 'statement_timeout'),
       lockTimeoutMs: assertTimeout(options.lockTimeoutMs, 'lock_timeout'),
@@ -288,6 +297,13 @@ class NodePostgresExecutor {
 
             let value;
             try {
+              // This is deliberately a constant SQL statement, not an identifier
+              // supplied by a caller. PostgreSQL role identifiers cannot be bound
+              // as values, and allowing interpolation here would turn target
+              // configuration into privilege selection. It must be the first
+              // statement after BEGIN so every later GUC and application query
+              // executes under the fixed least-privilege application role.
+              await client.query(NODE_POSTGRES_SET_LOCAL_ROLE_SQL);
               if (transactionRecord.abortOnly || state.outerHandlerSettled) {
                 throw transactionRecord.abortErrorSet
                   ? transactionRecord.abortError
@@ -430,12 +446,14 @@ export function createNodePostgresExecutor(options = {}) {
   }
   const {
     pool,
+    databaseRole,
     statementTimeoutMs = DEFAULT_TIMEOUTS.statementTimeoutMs,
     lockTimeoutMs = DEFAULT_TIMEOUTS.lockTimeoutMs,
     idleInTransactionSessionTimeoutMs = DEFAULT_TIMEOUTS.idleInTransactionSessionTimeoutMs,
   } = options;
   return new NodePostgresExecutor({
     pool,
+    databaseRole,
     statementTimeoutMs,
     lockTimeoutMs,
     idleInTransactionSessionTimeoutMs,
@@ -444,6 +462,7 @@ export function createNodePostgresExecutor(options = {}) {
 
 export const NODE_POSTGRES_EXECUTOR_CONTRACT = Object.freeze({
   integration: EXECUTOR_INTEGRATION,
+  authority: 'DR-133',
   dependencyImport: 'none_pool_is_injected',
   serverOnly: true,
   transactional: true,
@@ -453,6 +472,10 @@ export const NODE_POSTGRES_EXECUTOR_CONTRACT = Object.freeze({
   forwardedQueryShape: ['text', 'values'],
   resultShape: ['rows'],
   preparedStatements: 'disabled_for_transaction_pooling',
+  databaseRole: NODE_POSTGRES_DATABASE_ROLE,
+  roleSelection: 'fixed_explicit_constructor_option',
+  roleBinding: 'constant_set_local_role_immediately_after_begin',
+  setLocalRoleSql: NODE_POSTGRES_SET_LOCAL_ROLE_SQL,
   identityCleanup: 'transaction_local_commit_or_rollback',
   unsafeConnectionCleanup: 'release_with_truthy_error_destroys_client_exact_failure_rethrown',
   leakedWork: 'abort_only_and_drained_before_release',

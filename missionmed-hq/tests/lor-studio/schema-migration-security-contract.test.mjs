@@ -26,6 +26,16 @@ const foundationRollbackPath = path.join(
   'rollbacks',
   '20260820180700_f2_lor_1012_schema_foundation.rollback.sql',
 );
+const productionFoundationPath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260825010000_f2_lor_1012_production_schema_foundation.sql',
+);
+const productionRlsPath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260825010100_f2_lor_1012_production_rls_projection_grants.sql',
+);
 
 const RELATIONS = Object.freeze([
   'student_auth_bindings',
@@ -303,4 +313,72 @@ test('rollback is reverse ordered, local-harness guarded, and empty-schema only'
   assert.match(foundationRollback, /DROP SCHEMA lor_studio;/u);
   assert.doesNotMatch(foundationRollback, /\bCASCADE\b/u);
   assert.match(foundationRollback, /DROP ROLE lor_studio_app/u);
+});
+
+test('DR-133 production baseline is target-bound while preserving accepted DR-120 bodies byte-for-byte', async () => {
+  const [foundation, rls, productionFoundation, productionRls] = await Promise.all([
+    readFile(foundationPath, 'utf8'),
+    readFile(rlsPath, 'utf8'),
+    readFile(productionFoundationPath, 'utf8'),
+    readFile(productionRlsPath, 'utf8'),
+  ]);
+
+  const foundationBodyMarker = 'ALTER DEFAULT PRIVILEGES IN SCHEMA lor_studio';
+  const rlsBodyMarker = 'LOCK TABLE\n';
+  assert.equal(
+    productionFoundation.slice(productionFoundation.indexOf(foundationBodyMarker)),
+    foundation.slice(foundation.indexOf(foundationBodyMarker)),
+  );
+  assert.equal(
+    productionRls.slice(productionRls.indexOf(rlsBodyMarker)),
+    rls.slice(rls.indexOf(rlsBodyMarker)),
+  );
+
+  for (const sql of [productionFoundation, productionRls]) {
+    assert.match(sql, /Authority: F2-LOR-1012 \/ DR-133/u);
+    for (const setting of [
+      'target_provider',
+      'target_project_id',
+      'target_environment_id',
+      'target_service_id',
+      'target_database_name',
+      'target_region',
+      'target_decision_record',
+      'target_data_copied',
+    ]) {
+      assert.match(sql, new RegExp(`missionmed\\.lor\\.${setting}`, 'u'), setting);
+    }
+    for (const exactIdentity of [
+      'railway-postgres',
+      '29afe885-b9b1-425d-8fd8-8611cd275409',
+      'f5705d38-393c-4176-9cc2-0d1dbad42c93',
+      'b49a52e7-df15-4417-b67a-a64403aa5db7',
+      'railway',
+      'postgres',
+      'us-west2',
+      'DR-133',
+      'false',
+    ]) {
+      assert.match(sql, new RegExp(exactIdentity, 'u'), exactIdentity);
+    }
+    for (const deniedTarget of [
+      'mftguikkftmrxjxrkdln',
+      'fglyvdykwgbuivikqoah',
+    ]) {
+      assert.match(sql, new RegExp(deniedTarget, 'u'), deniedTarget);
+    }
+    assert.match(sql, /session_user IS DISTINCT FROM current_user/u);
+    assert.match(sql, /database_owner IS DISTINCT FROM current_user/u);
+    assert.match(sql, /inet_server_addr\(\) IS NULL/u);
+    assert.match(sql, /inet_server_addr\(\) << pg_catalog\.inet '10\.0\.0\.0\/8'/u);
+    assert.match(sql, /current_setting\('ssl'\) IS DISTINCT FROM 'on'/u);
+    assert.match(sql, /FROM pg_catalog\.pg_stat_ssl AS ssl_session/u);
+    assert.match(sql, /ssl_session\.pid = pg_catalog\.pg_backend_pid\(\)/u);
+    assert.match(sql, /AND ssl_session\.ssl/u);
+    assert.match(sql, /missionmed\.lor\.railway-postgres-target\.v1/u);
+    assert.match(sql, /foundation=20260825010000/u);
+  }
+
+  assert.match(productionFoundation, /requires a fresh lor_studio schema/u);
+  assert.match(productionRls, /observed_sentinel IS DISTINCT FROM expected_sentinel/u);
 });

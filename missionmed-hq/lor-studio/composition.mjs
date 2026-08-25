@@ -11,7 +11,7 @@
  * dependency graph is constructed in ONE place that both server.mjs and the integration tests
  * exercise, which makes "is the application actually wired?" a testable question.
  *
- * DR-119 clause 7 governs the target: no implicit project identity, explicit configuration
+ * DR-133 governs the target: no implicit project identity, explicit configuration
  * only, fail closed when absent. Nothing here ever falls back to a default target.
  */
 
@@ -28,10 +28,12 @@ export const LOR_TARGET_ENV_KEYS = Object.freeze({
   ratified: 'MMHQ_LOR_STUDIO_TARGET_RATIFIED',
   decisionRecord: 'MMHQ_LOR_STUDIO_TARGET_DECISION_RECORD',
   environment: 'MMHQ_LOR_STUDIO_TARGET_ENVIRONMENT',
-  projectRef: 'MMHQ_LOR_STUDIO_TARGET_PROJECT_REF',
-  parentProjectRef: 'MMHQ_LOR_STUDIO_TARGET_PARENT_PROJECT_REF',
-  branchName: 'MMHQ_LOR_STUDIO_TARGET_BRANCH_NAME',
-  branchId: 'MMHQ_LOR_STUDIO_TARGET_BRANCH_ID',
+  provider: 'MMHQ_LOR_STUDIO_TARGET_PROVIDER',
+  projectId: 'MMHQ_LOR_STUDIO_TARGET_PROJECT_ID',
+  environmentId: 'MMHQ_LOR_STUDIO_TARGET_ENVIRONMENT_ID',
+  serviceId: 'MMHQ_LOR_STUDIO_TARGET_SERVICE_ID',
+  databaseName: 'MMHQ_LOR_STUDIO_TARGET_DATABASE_NAME',
+  region: 'MMHQ_LOR_STUDIO_TARGET_REGION',
   schema: 'MMHQ_LOR_STUDIO_TARGET_SCHEMA',
   migrationLedger: 'MMHQ_LOR_STUDIO_TARGET_MIGRATION_LEDGER',
   providerResourceBound: 'MMHQ_LOR_STUDIO_TARGET_PROVIDER_RESOURCE_BOUND',
@@ -75,15 +77,18 @@ function readBoolean(raw) {
  * @returns {Record<string, unknown> | null}
  */
 export function readLorTargetConfiguration(env = process.env) {
-  // The project ref is the sentinel: with no target named, there is nothing to validate.
-  if (!env[LOR_TARGET_ENV_KEYS.projectRef]) return null;
+  // Only a wholly absent configuration is the expected disabled state. If even
+  // one key is present (including an explicit empty string), return the exact
+  // partial shape so the resolver rejects it; no single identity field acts as
+  // a sentinel and no missing value can be inferred from another one.
+  if (Object.values(LOR_TARGET_ENV_KEYS).every((envKey) => env[envKey] === undefined)) {
+    return null;
+  }
 
   const configuration = {};
   for (const [key, envKey] of Object.entries(LOR_TARGET_ENV_KEYS)) {
     const raw = env[envKey];
-    if (key === 'parentProjectRef') {
-      configuration[key] = raw === undefined || raw === '' ? null : raw;
-    } else if (BOOLEAN_KEYS.has(key)) {
+    if (BOOLEAN_KEYS.has(key)) {
       configuration[key] = readBoolean(raw);
     } else {
       configuration[key] = raw;
@@ -139,7 +144,7 @@ export function createLorStudioApplication({
     return { application: null, reason: LOR_COMPOSITION_REASONS.TARGET_NOT_CONFIGURED };
   }
 
-  // DR-119 clause 7: the only route to a target identity. Denied identifiers, unratified
+  // DR-133: the only route to a target identity. Denied identifiers, unratified
   // configurations, and partial configurations all throw here rather than resolving.
   let binding;
   try {

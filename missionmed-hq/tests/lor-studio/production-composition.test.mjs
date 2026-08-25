@@ -32,7 +32,12 @@ import {
   createLorStudioApplication,
   readLorTargetConfiguration,
   LOR_COMPOSITION_REASONS,
+  LOR_TARGET_ENV_KEYS,
 } from '../../lor-studio/composition.mjs';
+import {
+  LOR_TARGET_BINDING_SCHEMA,
+  LOR_TARGET_IDENTITY_FIELDS,
+} from '../../lor-studio/adapters/lor-target-binding.mjs';
 import { createLorStudioRuntime } from '../../lor-studio/http/runtime.mjs';
 import { InMemoryRecommendationCaseRepository } from '../../lor-studio/repositories/in-memory-recommendation-case-repository.js';
 import {
@@ -68,14 +73,16 @@ const HISTORICAL_NO_TOUCH_BRANCH_ID = 'mftguikkftmrxjxrkdln';
 /** An explicit, ratified, NON-denied test target. There is no default target by design. */
 function testTargetConfiguration(overrides = {}) {
   return {
-    schemaVersion: 'missionmed.lor.target-binding.v1',
+    schemaVersion: LOR_TARGET_BINDING_SCHEMA,
     ratified: true,
-    decisionRecord: 'DR-119',
+    decisionRecord: 'DR-133',
     environment: 'test',
-    projectRef: 'lor-composition-test-target',
-    parentProjectRef: null,
-    branchName: 'main',
-    branchId: 'lor-composition-test-target',
+    provider: 'railway-postgres',
+    projectId: 'lor-composition-test-project',
+    environmentId: 'lor-composition-test-environment',
+    serviceId: 'lor-composition-test-service',
+    databaseName: 'railway',
+    region: 'us-west2',
     schema: 'lor_studio',
     migrationLedger: 'lor-composition-test-ledger',
     providerResourceBound: true,
@@ -272,12 +279,39 @@ test('composition fails closed when no target is configured', () => {
   assert.equal(composed.reason, LOR_COMPOSITION_REASONS.TARGET_NOT_CONFIGURED);
 });
 
+test('environment reader exposes only the exact provider-neutral v2 configuration', () => {
+  assert.equal(readLorTargetConfiguration({}), null);
+  assert.deepEqual(Object.keys(LOR_TARGET_ENV_KEYS), Object.keys(testTargetConfiguration()));
+
+  const expected = testTargetConfiguration({
+    environment: 'staging',
+    projectId: '29afe885-b9b1-425d-8fd8-8611cd275409',
+    environmentId: 'f5705d38-393c-4176-9cc2-0d1dbad42c93',
+    serviceId: 'b49a52e7-df15-4417-b67a-a64403aa5db7',
+  });
+  const env = Object.fromEntries(Object.entries(LOR_TARGET_ENV_KEYS).map(([key, envKey]) => [
+    envKey,
+    typeof expected[key] === 'boolean' ? String(expected[key]) : expected[key],
+  ]));
+  assert.deepEqual(readLorTargetConfiguration(env), expected);
+
+  // Presence of any one key is a partial configuration, never an implicit
+  // disabled state or a trigger for defaults from another identity field.
+  const partial = readLorTargetConfiguration({ [LOR_TARGET_ENV_KEYS.region]: '' });
+  assert.ok(partial);
+  assert.equal(partial.region, '');
+  assert.equal(partial.projectId, undefined);
+  assert.equal(createLorStudioApplication({
+    targetConfiguration: partial,
+    entitlementPort: new StaticEntitlementTestAdapter([]),
+  }).reason, LOR_COMPOSITION_REASONS.TARGET_REJECTED);
+});
+
 test('composition fails closed for the denied RankListIQ production project and no-touch branch', () => {
-  for (const [field, denied] of [
-    ['projectRef', RANKLISTIQ_PRODUCTION_PROJECT_REF],
-    ['branchId', HISTORICAL_NO_TOUCH_BRANCH_ID],
-    ['parentProjectRef', RANKLISTIQ_PRODUCTION_PROJECT_REF],
-  ]) {
+  for (const [index, field] of LOR_TARGET_IDENTITY_FIELDS.entries()) {
+    const denied = index % 2 === 0
+      ? RANKLISTIQ_PRODUCTION_PROJECT_REF
+      : HISTORICAL_NO_TOUCH_BRANCH_ID;
     const composed = createLorStudioApplication({
       targetConfiguration: testTargetConfiguration({ [field]: denied }),
       entitlementPort: new StaticEntitlementTestAdapter([]),
@@ -313,7 +347,7 @@ test('composition declines without a durable driver rather than silently degradi
   assert.equal(composed.application, null);
   assert.equal(composed.reason, LOR_COMPOSITION_REASONS.DURABLE_DRIVER_UNAVAILABLE);
   // The binding still resolved - the refusal is about durability, not about the target.
-  assert.equal(composed.binding.projectRef, 'lor-composition-test-target');
+  assert.equal(composed.binding.projectId, 'lor-composition-test-project');
 });
 
 test('composition catches dependency construction failures without exposing error text', () => {
@@ -329,7 +363,7 @@ test('composition catches dependency construction failures without exposing erro
   assert.equal(composed.reason, LOR_COMPOSITION_REASONS.COMPOSITION_FAILED);
   assert.equal(Object.hasOwn(composed, 'detail'), false);
   assert.equal(JSON.stringify(composed).includes(secretBearingMessage), false);
-  assert.equal(composed.binding.projectRef, 'lor-composition-test-target');
+  assert.equal(composed.binding.projectId, 'lor-composition-test-project');
 });
 
 test('composition constructs the actor-safe durable repository only from an explicit driver and scope provider', () => {
@@ -361,7 +395,7 @@ test('composition constructs the actor-safe durable repository only from an expl
     scopeProvider,
   });
   assert.ok(composed.application);
-  assert.equal(composed.binding.projectRef, 'lor-composition-test-target');
+  assert.equal(composed.binding.projectId, 'lor-composition-test-project');
 });
 
 test('composition builds a real application from an explicit validated target', () => {
@@ -369,7 +403,7 @@ test('composition builds a real application from an explicit validated target', 
   assert.ok(composed.application, 'an application must be constructed');
   assert.equal(typeof composed.application.handleRequest, 'function');
   assert.equal(typeof composed.application.getBootstrap, 'function');
-  assert.equal(composed.binding.projectRef, 'lor-composition-test-target');
+  assert.equal(composed.binding.projectId, 'lor-composition-test-project');
 });
 
 // ---------------------------------------------------------------------------
@@ -651,7 +685,7 @@ test('an absent AI proposal store disables drafting only, and does not take the 
   assert.equal(composed.draftingAvailable, false);
   assert.equal(composed.draftingUnavailableReason, LOR_COMPOSITION_REASONS.AI_PROPOSAL_STORE_UNAVAILABLE,
     'an operator must learn the specific cause, not infer it from a generic 503');
-  assert.equal(composed.binding.projectRef, 'lor-composition-test-target');
+  assert.equal(composed.binding.projectId, 'lor-composition-test-project');
 });
 
 test('the composed application carries a drafting service, and the adapter accepted it', async () => {

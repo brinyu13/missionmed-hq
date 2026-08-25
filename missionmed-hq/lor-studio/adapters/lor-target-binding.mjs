@@ -2,23 +2,26 @@ import { IntegrationDisabledError } from '../domain/errors.js';
 import { deepFreeze } from '../domain/value-utils.js';
 
 /**
- * DR-119 clause 7 - explicit, configuration-driven, validated, fail-closed LOR
+ * DR-133 - explicit, provider-neutral, configuration-driven, fail-closed LOR
  * Studio target binding.
  *
- * Before this adapter the durable repositories carried the Supabase target
- * identity as module constants, so the ONLY reachable production target was the
- * RankListIQ production project. There is now no default, no fallback, and no
- * ambient target: a binding exists only when a caller supplies a complete,
- * ratified target configuration and this resolver validates every field of it.
+ * The binding names every Railway PostgreSQL resource axis separately through
+ * provider-neutral fields. There is no default, fallback, inherited project, or
+ * ambient target: a binding exists only when the caller supplies and this module
+ * validates the complete identity.
  */
 
-export const LOR_TARGET_BINDING_SCHEMA = 'missionmed.lor.target-binding.v1';
+export const LOR_TARGET_BINDING_SCHEMA = 'missionmed.lor.target-binding.v2';
 export const LOR_TARGET_BINDING_INTEGRATION = 'lor_target_binding';
 
 const LOR_SCHEMA = 'lor_studio';
+const LOR_TARGET_AUTHORITY = 'DR-133';
+const LOR_TARGET_PROVIDER = 'railway-postgres';
 const ENVIRONMENTS = new Set(['local', 'test', 'staging', 'production']);
-const IDENTIFIER_PATTERN = /^[a-z0-9][a-z0-9-]{2,62}[a-z0-9]$/u;
-const BRANCH_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,62}$/u;
+const PROVIDER_PATTERN = /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/u;
+const RESOURCE_ID_PATTERN = /^[a-z0-9][a-z0-9-]{2,62}[a-z0-9]$/u;
+const DATABASE_NAME_PATTERN = /^[a-z][a-z0-9_]{0,62}$/u;
+const REGION_PATTERN = /^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/u;
 const MIGRATION_LEDGER_PATTERN = /^[a-z0-9][a-z0-9._/-]{2,127}$/u;
 const DECISION_RECORD_PATTERN = /^[A-Z][A-Z0-9]*-[0-9]{1,6}$/u;
 
@@ -26,14 +29,14 @@ const DECISION_RECORD_PATTERN = /^[A-Z][A-Z0-9]*-[0-9]{1,6}$/u;
  * Identifiers that can never be selected as a LOR Studio target by this
  * resolver.
  *
- * `fglyvdykwgbuivikqoah` is the RankListIQ PRODUCTION project - live Arena/STAT
- * data that LOR Studio has never been ratified to write to. `mftguikkftmrxjxrkdln`
- * is the historical `lor-staging` child that the LOR product passport declares
- * "historical no-touch and not a release target".
+ * `fglyvdykwgbuivikqoah` is the RankListIQ production project identity - live
+ * Arena/STAT data that LOR Studio has never been ratified to write to.
+ * `mftguikkftmrxjxrkdln` is the historical `lor-staging` child identity that the
+ * LOR product passport declares "historical no-touch and not a release target".
  *
  * These fail closed even when passed EXPLICITLY. Binding LOR Studio to either
  * one is a separately ratified founder decision and is outside the authority of
- * DR-119 clause 7 to enable; re-enabling them requires amending this denylist
+ * DR-133 to enable; re-enabling them requires amending this denylist
  * under that later decision, not passing them through at a call site.
  */
 export const DENIED_TARGET_IDENTIFIERS = deepFreeze({
@@ -41,25 +44,34 @@ export const DENIED_TARGET_IDENTIFIERS = deepFreeze({
   mftguikkftmrxjxrkdln: 'LOR_HISTORICAL_NO_TOUCH_BRANCH',
 });
 
-const IDENTITY_FIELDS = Object.freeze(['projectRef', 'parentProjectRef', 'branchId', 'branchName']);
+export const LOR_TARGET_IDENTITY_FIELDS = Object.freeze([
+  'provider',
+  'projectId',
+  'environmentId',
+  'serviceId',
+  'databaseName',
+  'region',
+]);
 
 const CONFIGURATION_KEYS = new Set([
-  'branchId',
-  'branchName',
+  'databaseName',
   'dataCopied',
   'decisionRecord',
   'environment',
+  'environmentId',
   'environmentBound',
   'health',
   'independentlyVerified',
   'migrationLedger',
-  'parentProjectRef',
+  'projectId',
   'productionDataBindingPassed',
-  'projectRef',
+  'provider',
   'providerResourceBound',
   'ratified',
+  'region',
   'schema',
   'schemaVersion',
+  'serviceId',
 ]);
 
 /**
@@ -75,10 +87,12 @@ const VALIDATED_BINDINGS = new WeakSet();
  * @property {boolean} ratified
  * @property {string} decisionRecord
  * @property {string} environment
- * @property {string} projectRef
- * @property {string | null} parentProjectRef
- * @property {string} branchName
- * @property {string} branchId
+ * @property {string} provider
+ * @property {string} projectId
+ * @property {string} environmentId
+ * @property {string} serviceId
+ * @property {string} databaseName
+ * @property {string} region
  * @property {string} schema
  * @property {string} migrationLedger
  * @property {boolean} providerResourceBound
@@ -112,7 +126,7 @@ function assertPattern(value, pattern, status) {
 
 /** Every identity string is checked, so a denied ref cannot hide in any field. */
 function assertNotDenied(configuration) {
-  for (const field of IDENTITY_FIELDS) {
+  for (const field of LOR_TARGET_IDENTITY_FIELDS) {
     const value = configuration[field];
     if (typeof value === 'string' && Object.hasOwn(DENIED_TARGET_IDENTIFIERS, value)) {
       failClosed(`TARGET_BINDING_DENIED_${DENIED_TARGET_IDENTIFIERS[value]}`);
@@ -137,7 +151,7 @@ export function resolveLorTargetBinding(rawConfiguration) {
   }
 
   // SNAPSHOT BEFORE VALIDATING. Reading the caller's object more than once is a
-  // time-of-check/time-of-use hole: a configuration whose `projectRef` is an accessor
+  // time-of-check/time-of-use hole: a configuration whose `projectId` is an accessor
   // (or a Proxy) can return a benign value to the denylist check and the denied
   // RankListIQ production ref to the binding constructor afterwards. Every subsequent
   // read below is from this inert plain-data copy, so each field is read exactly once
@@ -158,6 +172,9 @@ export function resolveLorTargetBinding(rawConfiguration) {
     DECISION_RECORD_PATTERN,
     'TARGET_BINDING_DECISION_RECORD_REQUIRED',
   );
+  if (configuration.decisionRecord !== LOR_TARGET_AUTHORITY) {
+    failClosed('TARGET_BINDING_DECISION_RECORD_INVALID');
+  }
 
   if (
     configuration.providerResourceBound !== true
@@ -171,32 +188,26 @@ export function resolveLorTargetBinding(rawConfiguration) {
   if (!ENVIRONMENTS.has(configuration.environment)) failClosed('TARGET_BINDING_ENVIRONMENT_INVALID');
   if (configuration.schema !== LOR_SCHEMA) failClosed('TARGET_BINDING_SCHEMA_INVALID');
 
-  assertPattern(configuration.projectRef, IDENTIFIER_PATTERN, 'TARGET_BINDING_PROJECT_REF_INVALID');
-  assertPattern(configuration.branchId, IDENTIFIER_PATTERN, 'TARGET_BINDING_BRANCH_ID_INVALID');
-  assertPattern(configuration.branchName, BRANCH_NAME_PATTERN, 'TARGET_BINDING_BRANCH_NAME_INVALID');
+  assertPattern(configuration.provider, PROVIDER_PATTERN, 'TARGET_BINDING_PROVIDER_INVALID');
+  if (configuration.provider !== LOR_TARGET_PROVIDER) failClosed('TARGET_BINDING_PROVIDER_INVALID');
+  assertPattern(configuration.projectId, RESOURCE_ID_PATTERN, 'TARGET_BINDING_PROJECT_ID_INVALID');
+  assertPattern(
+    configuration.environmentId,
+    RESOURCE_ID_PATTERN,
+    'TARGET_BINDING_ENVIRONMENT_ID_INVALID',
+  );
+  assertPattern(configuration.serviceId, RESOURCE_ID_PATTERN, 'TARGET_BINDING_SERVICE_ID_INVALID');
+  assertPattern(
+    configuration.databaseName,
+    DATABASE_NAME_PATTERN,
+    'TARGET_BINDING_DATABASE_NAME_INVALID',
+  );
+  assertPattern(configuration.region, REGION_PATTERN, 'TARGET_BINDING_REGION_INVALID');
   assertPattern(
     configuration.migrationLedger,
     MIGRATION_LEDGER_PATTERN,
     'TARGET_BINDING_MIGRATION_LEDGER_REQUIRED',
   );
-  if (configuration.parentProjectRef !== null) {
-    assertPattern(
-      configuration.parentProjectRef,
-      IDENTIFIER_PATTERN,
-      'TARGET_BINDING_PARENT_PROJECT_REF_INVALID',
-    );
-    if (configuration.parentProjectRef === configuration.projectRef) {
-      failClosed('TARGET_BINDING_PARENT_PROJECT_REF_INVALID');
-    }
-  }
-
-  // A Supabase branch is itself addressed by a project ref, so the target's own
-  // branch id and project ref must be the same resource. A configuration that
-  // names one project but points writes at a different branch is ambiguous about
-  // where DDL lands, which is exactly the hazard this clause closes.
-  if (configuration.branchId !== configuration.projectRef) {
-    failClosed('TARGET_BINDING_BRANCH_IDENTITY_MISMATCH');
-  }
 
   // LOR Studio never binds a target seeded from copied production data.
   if (configuration.dataCopied !== false) failClosed('TARGET_BINDING_DATA_COPY_FORBIDDEN');
@@ -211,10 +222,12 @@ export function resolveLorTargetBinding(rawConfiguration) {
     schemaVersion: LOR_TARGET_BINDING_SCHEMA,
     decisionRecord: configuration.decisionRecord,
     environment: configuration.environment,
-    projectRef: configuration.projectRef,
-    parentProjectRef: configuration.parentProjectRef,
-    branchName: configuration.branchName,
-    branchId: configuration.branchId,
+    provider: configuration.provider,
+    projectId: configuration.projectId,
+    environmentId: configuration.environmentId,
+    serviceId: configuration.serviceId,
+    databaseName: configuration.databaseName,
+    region: configuration.region,
     schema: configuration.schema,
     migrationLedger: configuration.migrationLedger,
   });
@@ -249,12 +262,14 @@ export function isDeniedTargetIdentifier(value) {
 
 export const LOR_TARGET_BINDING_CONTRACT = deepFreeze({
   schemaVersion: LOR_TARGET_BINDING_SCHEMA,
-  authority: 'DR-119',
+  authority: LOR_TARGET_AUTHORITY,
+  provider: LOR_TARGET_PROVIDER,
   selection: 'explicit_ratified_configuration_only',
   defaultTarget: null,
   fallbackTarget: null,
   environments: [...ENVIRONMENTS],
   schema: LOR_SCHEMA,
+  identityFields: [...LOR_TARGET_IDENTITY_FIELDS],
   requiredConfigurationKeys: [...CONFIGURATION_KEYS].sort(),
   deniedIdentifiers: DENIED_TARGET_IDENTIFIERS,
   deniedEvenWhenExplicit: true,

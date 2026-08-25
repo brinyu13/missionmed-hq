@@ -27,6 +27,16 @@ const rlsRollbackPath = path.join(
   'rollbacks',
   '20260820180800_f2_lor_1012_rls_projection_grants.rollback.sql',
 );
+const productionFoundationRollbackPath = path.join(
+  scriptDirectory,
+  'rollbacks',
+  '20260825010000_f2_lor_1012_production_schema_foundation.rollback.sql',
+);
+const productionRlsRollbackPath = path.join(
+  scriptDirectory,
+  'rollbacks',
+  '20260825010100_f2_lor_1012_production_rls_projection_grants.rollback.sql',
+);
 
 const RELATIONS = Object.freeze([
   'student_auth_bindings',
@@ -550,5 +560,63 @@ test('forward and rollback custody fingerprints owner-inclusive schema, relation
     'acl_is_null OR actual_acl IS DISTINCT FROM expected_acl',
   ]) {
     assert.equal(rlsRollbackSql.includes(required), true, required);
+  }
+});
+
+test('DR-133 production rollbacks preserve exact no-CASCADE bodies and require the forward target sentinel', async () => {
+  const [
+    foundationRollback,
+    rlsRollback,
+    productionFoundationRollback,
+    productionRlsRollback,
+  ] = await Promise.all([
+    readFile(foundationRollbackPath, 'utf8'),
+    readFile(rlsRollbackPath, 'utf8'),
+    readFile(productionFoundationRollbackPath, 'utf8'),
+    readFile(productionRlsRollbackPath, 'utf8'),
+  ]);
+
+  const bodyMarker = 'LOCK TABLE\n';
+  assert.equal(
+    productionFoundationRollback.slice(productionFoundationRollback.indexOf(bodyMarker)),
+    foundationRollback.slice(foundationRollback.indexOf(bodyMarker)),
+  );
+  assert.equal(
+    productionRlsRollback.slice(productionRlsRollback.indexOf(bodyMarker)),
+    rlsRollback.slice(rlsRollback.indexOf(bodyMarker)),
+  );
+
+  for (const sql of [productionFoundationRollback, productionRlsRollback]) {
+    assert.match(sql, /Authority: F2-LOR-1012 \/ DR-133/u);
+    assert.match(sql, /missionmed\.lor\.railway-postgres-target\.v1/u);
+    assert.match(sql, /foundation=20260825010000/u);
+    assert.match(sql, /observed_sentinel IS DISTINCT FROM expected_sentinel/u);
+    assert.match(sql, /session_user IS DISTINCT FROM current_user/u);
+    assert.match(sql, /database_owner IS DISTINCT FROM current_user/u);
+    assert.match(sql, /schema_owner IS DISTINCT FROM current_user/u);
+    for (const exactIdentity of [
+      '29afe885-b9b1-425d-8fd8-8611cd275409',
+      'f5705d38-393c-4176-9cc2-0d1dbad42c93',
+      'b49a52e7-df15-4417-b67a-a64403aa5db7',
+      'postgres',
+    ]) {
+      assert.match(sql, new RegExp(exactIdentity, 'u'), exactIdentity);
+    }
+    assert.match(sql, /inet_server_addr\(\) IS NULL/u);
+    assert.match(sql, /inet_server_addr\(\) << pg_catalog\.inet '10\.0\.0\.0\/8'/u);
+    assert.match(sql, /current_setting\('ssl'\) IS DISTINCT FROM 'on'/u);
+    assert.match(sql, /FROM pg_catalog\.pg_stat_ssl AS ssl_session/u);
+    assert.match(sql, /ssl_session\.pid = pg_catalog\.pg_backend_pid\(\)/u);
+    assert.match(sql, /AND ssl_session\.ssl/u);
+    for (const deniedTarget of [
+      'mftguikkftmrxjxrkdln',
+      'fglyvdykwgbuivikqoah',
+    ]) {
+      assert.match(sql, new RegExp(deniedTarget, 'u'), deniedTarget);
+    }
+    const destructiveSql = withoutLineComments(sql);
+    assert.doesNotMatch(destructiveSql, /\bCASCADE\b/iu);
+    assert.doesNotMatch(destructiveSql, /\bDROP\s+OWNED\s+BY\b/iu);
+    assert.doesNotMatch(destructiveSql, /\bREASSIGN\s+OWNED\b/iu);
   }
 });
