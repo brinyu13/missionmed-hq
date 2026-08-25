@@ -22,6 +22,8 @@ class MMED_File_Vault_V2 {
 	const CAP_MANAGE        = 'mmed_manage_file_vault';
 	const CAP_FINALIZE      = 'mmed_finalize_file_vault';
 	const CAP_AUDIT         = 'mmed_view_file_vault_audit';
+	const ASSET_CSS         = 'student-os-file-vault-v2.25f924966f07f82d.css';
+	const ASSET_JS          = 'student-os-file-vault-v2.035a896b2e3bf201.js';
 
 	/**
 	 * Register runtime hooks.
@@ -72,8 +74,8 @@ class MMED_File_Vault_V2 {
 			return;
 		}
 
-		$css_path = MMED_HUB_PATH . 'assets/student-os-file-vault-v2.css';
-		$js_path  = MMED_HUB_PATH . 'assets/student-os-file-vault-v2.js';
+		$css_path = MMED_HUB_PATH . 'assets/' . self::ASSET_CSS;
+		$js_path  = MMED_HUB_PATH . 'assets/' . self::ASSET_JS;
 		if ( ! file_exists( $css_path ) || ! file_exists( $js_path ) ) {
 			return;
 		}
@@ -87,9 +89,9 @@ class MMED_File_Vault_V2 {
 
 		wp_enqueue_style(
 			'mmed-student-os-file-vault-v2-css',
-			MMED_HUB_URL . 'assets/student-os-file-vault-v2.css',
+			MMED_HUB_URL . 'assets/' . self::ASSET_CSS,
 			array( 'mmed-student-os-css' ),
-			(string) filemtime( $css_path )
+			null
 		);
 
 		$dependencies = array( 'mmed-student-os-js' );
@@ -98,9 +100,9 @@ class MMED_File_Vault_V2 {
 		}
 		wp_enqueue_script(
 			'mmed-student-os-file-vault-v2-js',
-			MMED_HUB_URL . 'assets/student-os-file-vault-v2.js',
+			MMED_HUB_URL . 'assets/' . self::ASSET_JS,
 			$dependencies,
-			(string) filemtime( $js_path ),
+			null,
 			true
 		);
 		wp_localize_script(

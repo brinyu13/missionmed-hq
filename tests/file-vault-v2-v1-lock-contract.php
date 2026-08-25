@@ -28,6 +28,31 @@ foreach ( $files as $path => $expected ) {
 	fv2_v1_assert( $expected === hash_file( 'sha256', $absolute ), "locked V1 hash matches: {$path}" );
 }
 
+$immutable_assets = array(
+	'wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.js' => array(
+		'wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.035a896b2e3bf201.js',
+		'035a896b2e3bf201801192141dd6856c667a304b4ac3a178de9509fa4e64a5a8',
+	),
+	'wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.css' => array(
+		'wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.25f924966f07f82d.css',
+		'25f924966f07f82de7c5c720affeb6151cd1e8459343a705916e5f2d4b83ad78',
+	),
+);
+foreach ( $immutable_assets as $canonical => $lock ) {
+	$canonical_path = $root . '/' . $canonical;
+	$immutable_path = $root . '/' . $lock[0];
+	$canonical_hash = hash_file( 'sha256', $canonical_path );
+	fv2_v1_assert( is_file( $immutable_path ), "immutable V2 asset exists: {$lock[0]}" );
+	fv2_v1_assert( $lock[1] === $canonical_hash, "canonical V2 asset matches approved release bytes: {$canonical}" );
+	fv2_v1_assert( $canonical_hash === hash_file( 'sha256', $immutable_path ), "immutable V2 asset matches canonical source: {$lock[0]}" );
+	fv2_v1_assert( false !== strpos( basename( $lock[0] ), substr( $canonical_hash, 0, 16 ) ), "immutable V2 filename matches its content hash: {$lock[0]}" );
+}
+
+$v2_controller = file_get_contents( $root . '/wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2.php' );
+fv2_v1_assert( false !== strpos( $v2_controller, "const ASSET_JS          = 'student-os-file-vault-v2.035a896b2e3bf201.js';" ), 'V2 controller pins the immutable JavaScript asset' );
+fv2_v1_assert( false !== strpos( $v2_controller, "const ASSET_CSS         = 'student-os-file-vault-v2.25f924966f07f82d.css';" ), 'V2 controller pins the immutable CSS asset' );
+fv2_v1_assert( false === strpos( $v2_controller, 'filemtime( $js_path )' ) && false === strpos( $v2_controller, 'filemtime( $css_path )' ), 'immutable V2 assets do not depend on mutable filemtime cache keys' );
+
 $rest = file_get_contents( $root . '/wp-content/plugins/missionmed-hub/includes/class-mmed-rest-api.php' );
 $contracts = array(
 	"'/files'" => "'callback'            => array( __CLASS__, 'get_files' )",
