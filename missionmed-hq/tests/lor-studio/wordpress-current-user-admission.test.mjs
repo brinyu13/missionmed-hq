@@ -3,17 +3,15 @@ import test from 'node:test';
 
 import {
   WORDPRESS_LOR_ADMISSION_CONTRACT,
-  WORDPRESS_LOR_ADMISSION_GRANT_PROVENANCE,
   WORDPRESS_LOR_ADMISSION_PATH,
+  WORDPRESS_LOR_BINDING_PROVENANCE,
   WordPressCurrentUserAdmissionError,
   createWordPressCurrentUserAdmission,
 } from '../../lor-studio/adapters/wordpress-current-user-admission.mjs';
 import { runWithTrustedRequestContext } from '../../lor-studio/security/trusted-request-context.mjs';
 
-const ORIGIN = 'https://missionmed.example.test';
-const ENDPOINT = `${ORIGIN}${WORDPRESS_LOR_ADMISSION_PATH}`;
 const NOW = Date.parse('2026-08-25T16:00:00.000Z');
-const GRANT = `${'g'.repeat(64)}.${'a'.repeat(64)}`;
+const BINDING = `lorb1_${'a'.repeat(43)}`;
 
 function receipt(overrides = {}) {
   return {
@@ -26,70 +24,45 @@ function receipt(overrides = {}) {
   };
 }
 
-function response(body = receipt(), overrides = {}) {
-  const bytes = Buffer.from(JSON.stringify(body));
-  const headers = new Headers({
-    'cache-control': 'private, no-store, max-age=0',
-    'content-length': String(bytes.byteLength),
-    'content-type': 'application/json; charset=utf-8',
-    ...(overrides.headers ?? {}),
-  });
-  return {
-    status: overrides.status ?? 200,
-    redirected: overrides.redirected ?? false,
-    url: overrides.url ?? ENDPOINT,
-    headers,
-    body: new ReadableStream({
-      start(controller) {
-        controller.enqueue(bytes);
-        controller.close();
-      },
-    }),
-  };
-}
-
 function session(overrides = {}) {
   return {
-    user: { id: 123, roles: ['subscriber'] },
-    lorAdmissionGrant: GRANT,
-    lorAdmissionGrantProvenance: WORDPRESS_LOR_ADMISSION_GRANT_PROVENANCE,
+    user: { id: 'wp:123', role: 'student', roles: ['student'] },
+    lorAdmissionBindingId: BINDING,
+    lorAdmissionBindingProvenance: WORDPRESS_LOR_BINDING_PROVENANCE,
+    lorAdmissionBindingExpiresAt: '2026-08-25T20:00:00.000Z',
     ...overrides,
   };
 }
 
-function admission(fetchImplementation) {
+function admission(client = { async admit() { return receipt(); } }) {
   return createWordPressCurrentUserAdmission({
-    origin: ORIGIN,
-    fetchImplementation,
+    s2sClient: client,
     clock: () => new Date(NOW),
   });
 }
 
-async function resolvesToContext({ receiptOverrides = {}, sessionOverrides = {} } = {}) {
-  const adapter = admission(async () => response(receipt(receiptOverrides)));
-  const projection = await adapter.resolve({ subject: 'wp:123', session: session(sessionOverrides) });
+async function resolvesToContext(overrides = {}) {
+  const adapter = admission({ async admit() { return receipt(overrides.receipt); } });
+  const projection = await adapter.resolve({
+    subject: 'wp:123',
+    session: session(overrides.session),
+  });
   return { adapter, projection, context: adapter.consumeTrustedRequestContext(projection) };
 }
 
-test('uses one exact no-cookie, no-redirect server request and keeps the opaque grant private', async () => {
+test('uses a non-secret binding for one fresh signed-client admission and never returns it', async () => {
   let observed;
-  const adapter = admission(async (url, options) => {
-    observed = { url, options };
-    return response();
+  const adapter = admission({
+    async admit(input) {
+      observed = input;
+      return receipt();
+    },
   });
   const projection = await adapter.resolve({ subject: 'wp:123', session: session() });
-
-  assert.equal(observed.url, ENDPOINT);
-  assert.equal(observed.options.method, 'GET');
-  assert.equal(observed.options.redirect, 'manual');
-  assert.equal(observed.options.credentials, 'omit');
-  assert.equal(observed.options.cache, 'no-store');
-  assert.equal(observed.options.headers['X-MissionMed-LOR-Admission'], GRANT);
-  assert.equal(observed.options.headers.Accept, 'application/json');
-  assert.equal(JSON.stringify(projection).includes(GRANT), false);
-
+  assert.deepEqual(observed, { bindingId: BINDING, subject: 'wp:123' });
+  assert.equal(JSON.stringify(projection).includes(BINDING), false);
   const context = adapter.consumeTrustedRequestContext(projection);
-  assert.equal(JSON.stringify(context).includes(GRANT), false);
+  assert.equal(JSON.stringify(context).includes(BINDING), false);
   assert.equal(context.authenticatedSubject, 'wp:123');
   assert.equal(context.actorRole, 'student');
   assert.match(context.sourceReferenceHash, /^[a-f0-9]{64}$/u);
@@ -97,27 +70,26 @@ test('uses one exact no-cookie, no-redirect server request and keeps the opaque 
   assert.equal(context.clientAsserted, false);
 });
 
-test('derives stable database proof hashes without receipt timestamps or refresh grants', async () => {
+test('stable database identity proof excludes ephemeral binding and receipt time', async () => {
   const first = await resolvesToContext();
   const second = await resolvesToContext({
-    receiptOverrides: {
+    receipt: {
       evaluatedAt: '2026-08-25T15:59:45.000Z',
       expiresAt: '2026-08-25T16:04:00.000Z',
     },
-    sessionOverrides: { lorAdmissionGrant: `${'z'.repeat(64)}.${'b'.repeat(64)}` },
+    session: { lorAdmissionBindingId: `lorb1_${'b'.repeat(43)}` },
   });
   assert.equal(first.context.sourceReferenceHash, second.context.sourceReferenceHash);
   assert.equal(first.context.proofHash, second.context.proofHash);
 });
 
-test('trusted context can be consumed once and a hand-built projection cannot be branded', async () => {
-  const adapter = admission(async () => response());
+test('trusted context is single-use and cannot be forged', async () => {
+  const adapter = admission();
   const projection = await adapter.resolve({ subject: 'wp:123', session: session() });
   adapter.consumeTrustedRequestContext(projection);
   assert.throws(
     () => adapter.consumeTrustedRequestContext(projection),
-    (error) => error instanceof WordPressCurrentUserAdmissionError
-      && error.code === 'TRUSTED_CONTEXT_UNAVAILABLE',
+    /TRUSTED_CONTEXT_UNAVAILABLE/u,
   );
   assert.throws(
     () => adapter.consumeTrustedRequestContext({ ...projection }),
@@ -125,13 +97,11 @@ test('trusted context can be consumed once and a hand-built projection cannot be
   );
 });
 
-test('case-service entitlement port is request-context bound and subject exact', async () => {
+test('case-service entitlement remains request-context bound and subject exact', async () => {
   const { adapter, context } = await resolvesToContext();
   await assert.rejects(adapter.getStudentEntitlement({ studentId: 'wp:123' }), /TRUSTED_CONTEXT_UNAVAILABLE/u);
-
   await runWithTrustedRequestContext(context, async () => {
-    const entitlement = await adapter.getStudentEntitlement({ studentId: 'wp:123' });
-    assert.deepEqual(entitlement, {
+    assert.deepEqual(await adapter.getStudentEntitlement({ studentId: 'wp:123' }), {
       studentId: 'wp:123',
       active: true,
       tier: 'tier3_360',
@@ -139,7 +109,7 @@ test('case-service entitlement port is request-context bound and subject exact',
       revoked: false,
       canaryEnabled: true,
       canaryConsented: true,
-      producerStatus: 'WORDPRESS_ADMISSION_V2_VERIFIED',
+      producerStatus: 'WORDPRESS_ADMISSION_V2_SIGNED_S2S',
     });
     await assert.rejects(
       adapter.getStudentEntitlement({ studentId: 'wp:456' }),
@@ -148,140 +118,65 @@ test('case-service entitlement port is request-context bound and subject exact',
   });
 });
 
-test('rejects noncanonical and cross-subject sessions before transport', async () => {
+test('rejects noncanonical/cross-subject sessions before the client call', async () => {
   let calls = 0;
-  const adapter = admission(async () => { calls += 1; return response(); });
+  const adapter = admission({ async admit() { calls += 1; return receipt(); } });
   for (const input of [
     { subject: '123', session: session() },
-    { subject: 'wp:123', session: session({ user: { id: 'wp:456', roles: ['subscriber'] } }) },
-    { subject: 'wp:123', session: session({ user: { id: 'student-123', roles: ['subscriber'] } }) },
+    { subject: 'wp:123', session: session({ user: { id: 'wp:456', role: 'student' } }) },
+    { subject: 'wp:123', session: session({ user: { id: 'student-123', role: 'student' } }) },
   ]) {
     await assert.rejects(adapter.resolve(input), WordPressCurrentUserAdmissionError);
   }
   assert.equal(calls, 0);
 });
 
-test('the student admission receipt, not a fictional singular session role, is role-authoritative', async () => {
-  const adapter = admission(async () => response());
-  const projection = await adapter.resolve({
-    subject: 'wp:123',
-    session: session({ user: { id: 123, roles: ['subscriber', 'student'] } }),
-  });
-  assert.equal(projection.role, 'student');
-  assert.equal(adapter.consumeTrustedRequestContext(projection).actorRole, 'student');
-});
-
-test('requires the exact session grant provenance and never emits the grant in errors', async () => {
-  const adapter = admission(async () => response());
+test('requires exact binding shape, provenance, and unexpired server session', async () => {
+  const adapter = admission();
   for (const overrides of [
-    { lorAdmissionGrant: '' },
-    { lorAdmissionGrant: 'x'.repeat(63) },
-    { lorAdmissionGrant: `${'x'.repeat(64)}\n` },
-    { lorAdmissionGrantProvenance: 'client_header' },
+    { lorAdmissionBindingId: '' },
+    { lorAdmissionBindingId: `lorb1_${'x'.repeat(42)}` },
+    { lorAdmissionBindingProvenance: 'browser_assertion' },
+    { lorAdmissionBindingExpiresAt: '2026-08-25T16:00:00.000Z' },
+    { lorAdmissionBindingExpiresAt: 'not-an-instant' },
   ]) {
     await assert.rejects(
       adapter.resolve({ subject: 'wp:123', session: session(overrides) }),
       (error) => error instanceof WordPressCurrentUserAdmissionError
-        && error.code === 'REFRESH_GRANT_UNAVAILABLE'
-        && !error.message.includes(GRANT),
+        && error.code === 'BINDING_UNAVAILABLE'
+        && !error.message.includes(BINDING),
     );
   }
 });
 
-test('rejects redirects, origin drift, denial, oversized responses, and unsafe headers', async () => {
-  const scenarios = [
-    response(receipt(), { status: 403 }),
-    response(receipt(), { redirected: true }),
-    response(receipt(), { url: `${ORIGIN}/different` }),
-    response(receipt(), { headers: { 'content-type': 'text/html' } }),
-    response(receipt(), { headers: { 'content-type': 'application/json; charset=utf-8; profile=x' } }),
-    response(receipt(), { headers: { 'cache-control': 'public, max-age=60' } }),
-    response(receipt(), { headers: { 'cache-control': 'private, no-storeish' } }),
-    response(receipt(), { headers: { 'content-length': '4097' } }),
-  ];
-  for (const candidate of scenarios) {
-    const adapter = admission(async () => candidate);
-    await assert.rejects(
-      adapter.resolve({ subject: 'wp:123', session: session() }),
-      WordPressCurrentUserAdmissionError,
-    );
-  }
-});
-
-test('transport deadline aborts stalled admission and returns only a safe code', async () => {
-  let observedSignal;
-  const adapter = createWordPressCurrentUserAdmission({
-    origin: ORIGIN,
-    clock: () => new Date(NOW),
-    transportTimeoutMs: 50,
-    fetchImplementation: async (_url, options) => {
-      observedSignal = options.signal;
-      return new Promise(() => {});
-    },
-  });
-  const started = Date.now();
+test('maps transport/provider details to one safe admission denial', async () => {
+  const secretText = 'provider detail containing credential-like material';
+  const adapter = admission({ async admit() { throw new Error(secretText); } });
   await assert.rejects(
     adapter.resolve({ subject: 'wp:123', session: session() }),
     (error) => error instanceof WordPressCurrentUserAdmissionError
-      && error.code === 'TRANSPORT_TIMEOUT'
-      && !error.message.includes(GRANT),
-  );
-  assert.equal(observedSignal.aborted, true);
-  assert.ok(Date.now() - started < 1_000);
-});
-
-test('streaming response cap rejects a lying or absent content length before buffering beyond the limit', async () => {
-  const candidate = response();
-  candidate.headers.delete('content-length');
-  const oversized = Buffer.alloc(2_200, 0x61);
-  candidate.body = new ReadableStream({
-    start(controller) {
-      controller.enqueue(oversized);
-      controller.enqueue(oversized);
-      controller.close();
-    },
-  });
-  const adapter = admission(async () => candidate);
-  await assert.rejects(
-    adapter.resolve({ subject: 'wp:123', session: session() }),
-    (error) => error instanceof WordPressCurrentUserAdmissionError
-      && error.code === 'RESPONSE_TOO_LARGE',
+      && error.code === 'ADMISSION_DENIED'
+      && !error.message.includes(secretText),
   );
 });
 
-test('accepts only the exact fresh five-field receipt contract', async () => {
-  const invalidReceipts = [
-    { ...receipt(), evidence: 'private' },
+test('rejects malformed client receipts even if the client is replaced', async () => {
+  for (const candidate of [
+    null,
     { ...receipt(), subject: 'wp:456' },
     { ...receipt(), admitted: false },
     { ...receipt(), contract: 'missionmed.lor.wordpress-admission.v1' },
-    { ...receipt(), evaluatedAt: '2026-08-25T16:01:00.000Z' },
-    { ...receipt(), evaluatedAt: '2026-08-25T15:50:00.000Z' },
-    { ...receipt(), expiresAt: '2026-08-25T16:00:00.000Z' },
-    { ...receipt(), expiresAt: '2026-08-25T16:10:00.000Z' },
-    { ...receipt(), evaluatedAt: '2026-08-25T15:59:30+00:00' },
-  ];
-  for (const candidate of invalidReceipts) {
-    const adapter = admission(async () => response(candidate));
+  ]) {
+    const adapter = admission({ async admit() { return candidate; } });
     await assert.rejects(
       adapter.resolve({ subject: 'wp:123', session: session() }),
-      WordPressCurrentUserAdmissionError,
+      /ADMISSION_DENIED/u,
     );
   }
 });
 
-test('requires an exact HTTPS origin with no path, credentials, query, or fragment', () => {
-  for (const origin of [
-    'http://missionmed.example.test',
-    'https://missionmed.example.test/',
-    'https://missionmed.example.test/path',
-    'https://user:pass@missionmed.example.test',
-    'https://missionmed.example.test?query=1',
-    'https://missionmed.example.test#fragment',
-  ]) {
-    assert.throws(
-      () => createWordPressCurrentUserAdmission({ origin, fetchImplementation: async () => response() }),
-      /ORIGIN_INVALID/u,
-    );
-  }
+test('contract is signed POST and never a reusable browser grant', () => {
+  assert.equal(WORDPRESS_LOR_ADMISSION_PATH, '/wp-json/missionmed/v1/lor-studio/current-user-admission');
+  const source = String(createWordPressCurrentUserAdmission);
+  assert.doesNotMatch(source, /lorAdmissionGrant|X-MissionMed-LOR-Admission/u);
 });

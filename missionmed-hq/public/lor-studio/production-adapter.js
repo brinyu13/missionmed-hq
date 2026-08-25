@@ -83,7 +83,7 @@
     if (message) message.textContent = detail;
     if (code) code.textContent = reason ? `Reference: ${reason}` : '';
     clearActions();
-    if (login) addAction('Sign in through MissionMed', null, { href: '/api/auth/start?final=%2Flor-studio%2F' });
+    if (login) addAction('Sign in through MissionMed', null, { href: '/api/lor-studio/auth/start' });
     if (retry) addAction('Try again', checkRuntime);
   }
 

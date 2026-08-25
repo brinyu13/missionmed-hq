@@ -1,95 +1,220 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(testDirectory, '..', '..', '..');
-const contractPath = path.join(
-  repositoryRoot,
-  'wp-content',
-  'mu-plugins',
-  'missionmed-lor-studio-contract.php',
-);
-const phpProbe = spawnSync('php', ['--version'], { encoding: 'utf8' });
-const phpAvailable = phpProbe.status === 0;
+const contractPath = path.join(repositoryRoot, 'wp-content', 'mu-plugins', 'missionmed-lor-studio-contract.php');
+const phpAvailable = spawnSync('php', ['--version'], { encoding: 'utf8' }).status === 0;
 
-function phpProgram({ constants = '', producer = '', body }) {
+const enabledConstants = `
+define('MMHQ_HANDOFF_SECRET', '0123456789abcdef0123456789abcdef0123456789abcdef');
+define('MMHQ_LOR_STUDIO_WORDPRESS_CONTRACT_ENABLED', true);
+define('MMHQ_LOR_STUDIO_VERIFIED_COURSE_IDS', '4000');
+define('MMHQ_LOR_STUDIO_VERIFIED_PROGRAM_TIERS', '360_match_mentorship');
+define('MMHQ_LOR_STUDIO_REQUIRED_CONSENT_VERSION', 'lor-consent-v1');
+define('MMHQ_LOR_STUDIO_ENTITLEMENT_MAX_AGE_SECONDS', 300);
+`;
+
+function phpProgram({ constants = enabledConstants, body }) {
   return `
 define('ABSPATH', ${JSON.stringify(repositoryRoot + path.sep)});
 ${constants}
 class WP_Error {
-    public $code;
-    public $message;
-    public $data;
+    public $code; public $message; public $data;
     public function __construct($code, $message, $data = array()) {
-        $this->code = $code;
-        $this->message = $message;
-        $this->data = $data;
+        $this->code = $code; $this->message = $message; $this->data = $data;
     }
-    public function get_error_code() {
-        return $this->code;
-    }
+    public function get_error_data() { return $this->data; }
 }
 class Lor_Test_Rest_Response {
-    public $data;
-    public $headers = array();
-    public function __construct($data) {
-        $this->data = $data;
-    }
-    public function header($name, $value) {
-        $this->headers[$name] = $value;
-    }
+    public $data; public $headers = array();
+    public function __construct($data) { $this->data = $data; }
+    public function header($name, $value) { $this->headers[$name] = $value; }
 }
 class Lor_Test_Rest_Request {
-    public $route;
-    public $client_assertions = array();
-    public function __construct($route) {
-        $this->route = $route;
+    private $route; private $method; private $body; private $headers;
+    public function __construct($route, $method = 'POST', $body = '', $headers = array()) {
+        $this->route = $route; $this->method = $method; $this->body = $body; $this->headers = $headers;
     }
-    public function get_route() {
-        return $this->route;
+    public function get_route() { return $this->route; }
+    public function get_method() { return $this->method; }
+    public function get_body() { return $this->body; }
+    public function get_header($name) {
+        foreach ($this->headers as $key => $value) {
+            if (strtolower($key) === strtolower($name)) return $value;
+        }
+        return '';
     }
 }
-$GLOBALS['lor_actions'] = array();
-$GLOBALS['lor_filters'] = array();
-$GLOBALS['lor_routes'] = array();
-$GLOBALS['lor_user_id'] = 123;
-$GLOBALS['lor_meta'] = array();
-function add_action($hook, $callback) {
-    $GLOBALS['lor_actions'][$hook][] = $callback;
+class Lor_Test_Wpdb {
+    public $options = 'wp_options';
+    public function prepare($query, ...$args) { return array('query' => $query, 'args' => $args); }
+    public function get_var($prepared) {
+        $name = $prepared['args'][0] ?? '';
+		$value = array_key_exists($name, $GLOBALS['lor_options']) ? $GLOBALS['lor_options'][$name] : null;
+		if (!empty($GLOBALS['lor_after_get_var']) && is_callable($GLOBALS['lor_after_get_var'])) {
+			$hook = $GLOBALS['lor_after_get_var'];
+			$GLOBALS['lor_after_get_var'] = null;
+			$hook($name, $value);
+		}
+		return $value;
+    }
+    public function query($prepared) {
+		$is_orphan_timeout_delete = 0 === strpos($prepared['query'], 'DELETE timeout_row FROM ');
+		if ($is_orphan_timeout_delete) {
+			$value_name = $prepared['args'][0] ?? '';
+			$timeout_name = $prepared['args'][1] ?? '';
+			$expected_timeout = $prepared['args'][2] ?? '';
+			foreach (array($value_name, $timeout_name) as $name) {
+				$fail_once = array_search($name, $GLOBALS['lor_query_fail_once_names'], true);
+				if (false !== $fail_once) {
+					unset($GLOBALS['lor_query_fail_once_names'][$fail_once]);
+					$GLOBALS['lor_query_fail_once_names'] = array_values($GLOBALS['lor_query_fail_once_names']);
+					return false;
+				}
+				if (in_array($name, $GLOBALS['lor_query_fail_names'], true)) return false;
+			}
+			if (!empty($GLOBALS['lor_before_cas']) && is_callable($GLOBALS['lor_before_cas'])) {
+				$hook = $GLOBALS['lor_before_cas'];
+				$GLOBALS['lor_before_cas'] = null;
+				$hook($timeout_name, $expected_timeout);
+			}
+			if (
+				array_key_exists($value_name, $GLOBALS['lor_options'])
+				|| !array_key_exists($timeout_name, $GLOBALS['lor_options'])
+				|| $GLOBALS['lor_options'][$timeout_name] !== $expected_timeout
+			) return 0;
+			unset($GLOBALS['lor_options'][$timeout_name]);
+			return 1;
+		}
+		$is_pair_delete = 0 === strpos($prepared['query'], 'DELETE value_row, timeout_row ');
+		if ($is_pair_delete) {
+			$timeout_name = $prepared['args'][0] ?? '';
+			$expected_timeout = $prepared['args'][1] ?? '';
+			$value_name = $prepared['args'][2] ?? '';
+			$expected_value = $prepared['args'][3] ?? '';
+			foreach (array($value_name, $timeout_name) as $name) {
+				$fail_once = array_search($name, $GLOBALS['lor_query_fail_once_names'], true);
+				if (false !== $fail_once) {
+					unset($GLOBALS['lor_query_fail_once_names'][$fail_once]);
+					$GLOBALS['lor_query_fail_once_names'] = array_values($GLOBALS['lor_query_fail_once_names']);
+					return false;
+				}
+				if (in_array($name, $GLOBALS['lor_query_fail_names'], true)) return false;
+			}
+			if (!empty($GLOBALS['lor_before_pair_delete']) && is_callable($GLOBALS['lor_before_pair_delete'])) {
+				$hook = $GLOBALS['lor_before_pair_delete'];
+				$GLOBALS['lor_before_pair_delete'] = null;
+				$hook($value_name, $expected_value, $timeout_name, $expected_timeout);
+			}
+			if (
+				!array_key_exists($value_name, $GLOBALS['lor_options'])
+				|| !array_key_exists($timeout_name, $GLOBALS['lor_options'])
+				|| $GLOBALS['lor_options'][$value_name] !== $expected_value
+				|| $GLOBALS['lor_options'][$timeout_name] !== $expected_timeout
+			) return 0;
+			unset($GLOBALS['lor_options'][$value_name], $GLOBALS['lor_options'][$timeout_name]);
+			return 2;
+		}
+        $is_update = 0 === strpos($prepared['query'], 'UPDATE ');
+        $replacement = $is_update ? ($prepared['args'][0] ?? '') : '';
+        $name = $is_update ? ($prepared['args'][1] ?? '') : ($prepared['args'][0] ?? '');
+        $expected = $is_update ? ($prepared['args'][2] ?? '') : ($prepared['args'][1] ?? '');
+        $fail_once = array_search($name, $GLOBALS['lor_query_fail_once_names'], true);
+        if (false !== $fail_once) {
+            unset($GLOBALS['lor_query_fail_once_names'][$fail_once]);
+            $GLOBALS['lor_query_fail_once_names'] = array_values($GLOBALS['lor_query_fail_once_names']);
+            return false;
+        }
+        if (in_array($name, $GLOBALS['lor_query_fail_names'], true)) return false;
+        if (!empty($GLOBALS['lor_before_cas']) && is_callable($GLOBALS['lor_before_cas'])) {
+            $hook = $GLOBALS['lor_before_cas']; $GLOBALS['lor_before_cas'] = null; $hook($name, $expected);
+        }
+        if (!array_key_exists($name, $GLOBALS['lor_options']) || $GLOBALS['lor_options'][$name] !== $expected) return 0;
+        if ($is_update) $GLOBALS['lor_options'][$name] = $replacement;
+        else unset($GLOBALS['lor_options'][$name]);
+        return 1;
+    }
 }
+$GLOBALS['wpdb'] = new Lor_Test_Wpdb();
+$GLOBALS['lor_actions'] = array(); $GLOBALS['lor_filters'] = array(); $GLOBALS['lor_routes'] = array();
+$GLOBALS['lor_options'] = array(); $GLOBALS['lor_user_id'] = 123; $GLOBALS['lor_meta'] = array();
+$GLOBALS['lor_query_fail_names'] = array(); $GLOBALS['lor_query_fail_once_names'] = array();
+$GLOBALS['lor_fail_add_contains'] = '';
+$GLOBALS['lor_entitlement_calls'] = 0; $GLOBALS['lor_after_add_option'] = null;
+$GLOBALS['lor_before_pair_delete'] = null;
+$GLOBALS['lor_after_get_var'] = null;
+function add_action($hook, $callback) { $GLOBALS['lor_actions'][$hook][] = $callback; }
 function add_filter($hook, $callback, $priority = 10, $accepted_args = 1) {
     $GLOBALS['lor_filters'][$hook][] = array($callback, $priority, $accepted_args);
 }
-function register_rest_route($namespace, $route, $arguments) {
-    $GLOBALS['lor_routes'][] = array($namespace, $route, $arguments);
-}
+function register_rest_route($namespace, $route, $arguments) { $GLOBALS['lor_routes'][] = array($namespace, $route, $arguments); }
+function __return_true() { return true; }
 function wp_get_current_user() {
-    return (object) array('ID' => $GLOBALS['lor_user_id']);
+    return (object) array('ID' => $GLOBALS['lor_user_id'], 'user_email' => 'student@example.test', 'user_login' => 'student', 'display_name' => 'Student', 'roles' => array('subscriber'));
 }
-function is_user_logged_in() {
-    return (int) $GLOBALS['lor_user_id'] > 0;
-}
-function get_user_meta($user_id, $key, $single) {
-    return array_key_exists($key, $GLOBALS['lor_meta']) ? $GLOBALS['lor_meta'][$key] : '';
-}
-function is_wp_error($value) {
-    return $value instanceof WP_Error;
-}
-function rest_ensure_response($value) {
-    return new Lor_Test_Rest_Response($value);
-}
+function get_user_meta($user_id, $key, $single) { return $GLOBALS['lor_meta'][$key] ?? ''; }
+function is_wp_error($value) { return $value instanceof WP_Error; }
+function rest_ensure_response($value) { return new Lor_Test_Rest_Response($value); }
 function rest_convert_error_to_response($error) {
-    return new Lor_Test_Rest_Response(array(
-        'code' => $error->code,
-        'message' => $error->message,
-        'data' => $error->data,
-    ));
+    return new Lor_Test_Rest_Response(array('code' => $error->code, 'message' => $error->message, 'data' => $error->data));
 }
-${producer}
+function wp_json_encode($value) { return json_encode($value, JSON_UNESCAPED_SLASHES); }
+function esc_url_raw($value) { return filter_var($value, FILTER_VALIDATE_URL) ? $value : ''; }
+function wp_parse_url($value, $component = -1) { return parse_url($value, $component); }
+function mmhq_handoff_is_allowed_return_url($value) { return parse_url($value, PHP_URL_HOST) === 'missionmed.example.test'; }
+function mmhq_handoff_secret() { return MMHQ_HANDOFF_SECRET; }
+function wp_cache_delete($key, $group = '') { return true; }
+function add_option($name, $value = '', $deprecated = '', $autoload = 'yes') {
+    if ('' !== $GLOBALS['lor_fail_add_contains'] && false !== strpos($name, $GLOBALS['lor_fail_add_contains'])) return false;
+    if (array_key_exists($name, $GLOBALS['lor_options'])) return false;
+    $GLOBALS['lor_options'][$name] = is_string($value) ? $value : (string) $value;
+    if (!empty($GLOBALS['lor_after_add_option']) && is_callable($GLOBALS['lor_after_add_option'])) {
+        $hook = $GLOBALS['lor_after_add_option']; $GLOBALS['lor_after_add_option'] = null; $hook($name);
+    }
+    return true;
+}
+function delete_option($name) { if (!array_key_exists($name, $GLOBALS['lor_options'])) return false; unset($GLOBALS['lor_options'][$name]); return true; }
+function mmhq_cam_build_entitlement($user_id) {
+    $GLOBALS['lor_entitlement_calls']++;
+    $entitlement = $GLOBALS['lor_entitlement'];
+    if (is_array($entitlement)) $entitlement['subject'] = 'wp:' . $user_id;
+    return $entitlement;
+}
+function wp_using_ext_object_cache() { return true; }
+function lor_headers($path, $raw_body, $nonce) {
+    $timestamp = (string) time();
+    $canonical = implode("\\n", array(
+        'missionmed.lor.s2s.request.v1', 'POST', $path, hash('sha256', $raw_body),
+        $timestamp, $nonce, 'lor-studio'
+    ));
+    $key = hash_hmac('sha256', 'missionmed.lor.s2s.key.v1', MMHQ_HANDOFF_SECRET, true);
+    return array(
+        'X-MissionMed-LOR-S2S-Timestamp' => $timestamp,
+        'X-MissionMed-LOR-S2S-Nonce' => $nonce,
+        'X-MissionMed-LOR-S2S-Audience' => 'lor-studio',
+        'X-MissionMed-LOR-S2S-Signature' => 'v1=' . hash_hmac('sha256', $canonical, $key),
+    );
+}
+function lor_valid_fixture() {
+    $GLOBALS['lor_meta'] = array(
+        '_missionmed_lor_enabled' => '1', '_missionmed_lor_canary_enabled' => '1',
+        '_missionmed_lor_consent_accepted' => '1', '_missionmed_lor_consent_version' => 'lor-consent-v1',
+        '_missionmed_lor_consent_at' => gmdate('c', time() - 60),
+        '_missionmed_lor_consent_revoked_at' => '', '_missionmed_lor_revoked_at' => '',
+    );
+    $GLOBALS['lor_entitlement'] = array(
+        'product' => 'cam', 'source' => 'wordpress_learndash_handoff', 'verified' => true,
+        'trusted' => true, 'active' => true, 'status' => 'active', 'course_ids' => array('4000'),
+        'program_tier' => '360_match_mentorship', 'restricted' => false, 'revoked' => false,
+        'current_access_verified' => true, 'purchase_verified' => true,
+        'expires_at' => gmdate('c', time() + 3600), 'evaluated_at' => gmdate('c', time() - 30),
+    );
+}
 require ${JSON.stringify(contractPath)};
 ${body}
 `;
@@ -98,432 +223,831 @@ ${body}
 function runPhp(program) {
   const result = spawnSync('php', ['-d', 'display_errors=1', '-r', program], {
     encoding: 'utf8',
-    maxBuffer: 1024 * 1024,
+    maxBuffer: 2 * 1024 * 1024,
   });
-  assert.equal(
-    result.status,
-    0,
-    `PHP harness failed\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
-  );
+  assert.equal(result.status, 0, `PHP failed\nstdout:${result.stdout}\nstderr:${result.stderr}`);
   assert.equal(result.stderr, '');
   return JSON.parse(result.stdout);
 }
 
-const enabledConstants = `
-define('MMHQ_LOR_STUDIO_WORDPRESS_CONTRACT_ENABLED', true);
-define('MMHQ_LOR_STUDIO_VERIFIED_COURSE_IDS', '4000');
-define('MMHQ_LOR_STUDIO_VERIFIED_PROGRAM_TIERS', '360_match_mentorship');
-define('MMHQ_LOR_STUDIO_REQUIRED_CONSENT_VERSION', 'lor-consent-v1');
-define('MMHQ_LOR_STUDIO_ENTITLEMENT_MAX_AGE_SECONDS', 300);
-`;
-
-const injectableProducer = `
-function mmhq_cam_build_entitlement($user_id) {
-    if (!empty($GLOBALS['lor_producer_throws'])) {
-        throw new RuntimeException('producer unavailable');
-    }
-    $GLOBALS['lor_last_producer_user_id'] = $user_id;
-    $entitlement = $GLOBALS['lor_entitlement'];
-    if (is_array($entitlement)) {
-        $entitlement['subject'] = array_key_exists('lor_producer_subject_override', $GLOBALS)
-            ? $GLOBALS['lor_producer_subject_override']
-            : 'wp:' . $user_id;
-    }
-    return $entitlement;
-}
-`;
-
-test('candidate is isolated, current-user-only, and has no outbound or mutation seam', async () => {
+test('source exposes only signed POST routes, atomic exact CAS, and no browser grant', async () => {
   const source = await readFile(contractPath, 'utf8');
-
-  assert.match(source, /missionmed\.lor\.wordpress-entitlement\.v1/u);
-  assert.match(source, /'\/lor-studio\/identity-entitlement'/u);
-  assert.match(source, /true === constant\('MMHQ_LOR_STUDIO_WORDPRESS_CONTRACT_ENABLED'\)/u);
-  assert.match(source, /function mmhq_lor_studio_current_identity_entitlement\(\)/u);
-  assert.match(source, /\$expected_subject !== \(\$entitlement\['subject'\] \?\? null\)/u);
-  assert.match(source, /add_filter\('rest_post_dispatch', 'mmhq_lor_studio_contract_post_dispatch', 10, 3\)/u);
-  assert.doesNotMatch(source, /\$_(?:GET|POST|REQUEST|COOKIE)/u);
-  assert.doesNotMatch(source, /(?:get_param|get_json_params|get_body_params)\s*\(/u);
-  assert.doesNotMatch(source, /\b(?:wp_mail|mail|wp_remote_get|wp_remote_post|curl_exec)\s*\(/u);
-  assert.doesNotMatch(source, /\b(?:add|update|delete|register)_user_meta\s*\(/u);
-  assert.doesNotMatch(source, /add_filter\s*\(\s*['"](?:determine_current_user|rest_authentication_errors)/u);
-  assert.doesNotMatch(source, /hash_hmac|openssl_encrypt|Authorization:\s*Bearer/iu);
+  assert.match(source, /\/lor-studio\/bootstrap\/redeem/u);
+  assert.match(source, /\/lor-studio\/current-user-admission/u);
+  assert.match(source, /\/lor-studio\/binding\/revoke/u);
+  assert.match(source, /'methods' => 'POST'/u);
+  assert.match(source, /BINARY option_value = BINARY %s/u);
+  assert.match(source, /DELETE value_row, timeout_row FROM/u);
+  assert.match(source, /DELETE timeout_row FROM/u);
+  assert.match(source, /count\(\$kept\) >= 1024/u);
+  assert.match(source, /mmhq_lor_transient_registry_v1/u);
+  assert.match(source, /hash_equals\(\$expected_signature, \$signature\)/u);
+  assert.match(source, /missionmed\.lor\.s2s\.key\.v1/u);
+  assert.doesNotMatch(source, /lorAdmissionGrant|refresh_grant|Authorization:\s*Bearer/iu);
+  assert.doesNotMatch(source, /DELETE[^\n]+LIKE|DELETE[^\n]+prefix/iu);
 });
 
-test('feature-off default registers no REST route', { skip: !phpAvailable }, () => {
+test('feature-off default registers no route; enabled mode registers exactly three POST routes', { skip: !phpAvailable }, () => {
+  const off = runPhp(phpProgram({
+    constants: '',
+    body: `mmhq_lor_studio_register_rest_contract(); echo json_encode(array('routes' => count($GLOBALS['lor_routes']), 'enabled' => mmhq_lor_studio_contract_enabled()));`,
+  }));
+  assert.deepEqual(off, { routes: 0, enabled: false });
+  const on = runPhp(phpProgram({
+    body: `mmhq_lor_studio_register_rest_contract(); echo json_encode(array_map(function($route) { return array($route[0], $route[1], $route[2]['methods'], $route[2]['permission_callback']); }, $GLOBALS['lor_routes']));`,
+  }));
+  assert.deepEqual(on, [
+    ['missionmed/v1', '/lor-studio/bootstrap/redeem', 'POST', '__return_true'],
+    ['missionmed/v1', '/lor-studio/current-user-admission', 'POST', '__return_true'],
+    ['missionmed/v1', '/lor-studio/binding/revoke', 'POST', '__return_true'],
+  ]);
+});
+
+test('one-time code redeems once, returns non-secret binding, and later admission reevaluates gates', { skip: !phpAvailable }, () => {
   const result = runPhp(phpProgram({
     body: `
-mmhq_lor_studio_register_rest_contract();
+lor_valid_fixture();
+$state = str_repeat('a', 64);
+$callback = 'https://missionmed.example.test/api/lor-studio/auth/callback?audience=lor-studio&state=' . $state;
+$issued = mmhq_lor_studio_issue_browser_bootstrap_code(wp_get_current_user(), $callback);
+$code_names = mmhq_lor_studio_transient_names('code_v1', hash('sha256', $issued['code']));
+$redeem_body = wp_json_encode(array(
+    'contract' => 'missionmed.lor.wordpress-bootstrap-redemption-request.v1',
+    'audience' => 'lor-studio', 'code' => $issued['code'], 'stateHash' => $state, 'callback' => $callback,
+));
+$redeem = mmhq_lor_studio_bootstrap_redeem(new Lor_Test_Rest_Request(
+    '/missionmed/v1/lor-studio/bootstrap/redeem', 'POST', $redeem_body,
+    lor_headers('/wp-json/missionmed/v1/lor-studio/bootstrap/redeem', $redeem_body, 'lorn1_' . str_repeat('n', 43))
+));
+$binding = $redeem->data['bindingId'];
+$admit_body = wp_json_encode(array(
+    'contract' => 'missionmed.lor.wordpress-admission-request.v1',
+    'audience' => 'lor-studio', 'bindingId' => $binding, 'subject' => 'wp:123',
+));
+$admit = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Request(
+    '/missionmed/v1/lor-studio/current-user-admission', 'POST', $admit_body,
+    lor_headers('/wp-json/missionmed/v1/lor-studio/current-user-admission', $admit_body, 'lorn1_' . str_repeat('m', 43))
+));
+$GLOBALS['lor_meta']['_missionmed_lor_revoked_at'] = gmdate('c', time() - 1);
+$revoked = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Request(
+    '/missionmed/v1/lor-studio/current-user-admission', 'POST', $admit_body,
+    lor_headers('/wp-json/missionmed/v1/lor-studio/current-user-admission', $admit_body, 'lorn1_' . str_repeat('r', 43))
+));
+$fresh_replay_headers = lor_headers('/wp-json/missionmed/v1/lor-studio/bootstrap/redeem', $redeem_body, 'lorn1_' . str_repeat('q', 43));
+$code_replay = mmhq_lor_studio_bootstrap_redeem(new Lor_Test_Rest_Request('/missionmed/v1/lor-studio/bootstrap/redeem', 'POST', $redeem_body, $fresh_replay_headers));
+$option_values = implode("\n", array_values($GLOBALS['lor_options']));
 echo json_encode(array(
-    'enabled' => mmhq_lor_studio_contract_enabled(),
-    'routes' => count($GLOBALS['lor_routes']),
-    'filters' => count($GLOBALS['lor_filters']),
+    'code_pattern' => preg_match('/^lorc1_[A-Za-z0-9_-]{43}$/D', $issued['code']) === 1,
+    'bootstrap' => $redeem->data, 'admission' => $admit->data,
+    'revoked_code' => $revoked->code, 'replay_code' => $code_replay->code,
+    'raw_code_stored' => strpos($option_values, $issued['code']) !== false,
+    'code_value_exists' => array_key_exists($code_names[0], $GLOBALS['lor_options']),
+    'code_timeout_exists' => array_key_exists($code_names[1], $GLOBALS['lor_options']),
 ));
 `,
   }));
-
-  assert.deepEqual(result, { enabled: false, routes: 0, filters: 0 });
+  assert.equal(result.code_pattern, true);
+  assert.equal(result.bootstrap.contract, 'missionmed.lor.wordpress-bootstrap-redemption.v1');
+  assert.match(result.bootstrap.bindingId, /^lorb1_[A-Za-z0-9_-]{43}$/u);
+  assert.equal(result.bootstrap.subject, 'wp:123');
+  assert.equal(result.admission.contract, 'missionmed.lor.wordpress-admission.v2');
+  assert.equal(result.admission.admitted, true);
+  assert.equal(result.revoked_code, 'missionmed_lor_contract_unavailable');
+  assert.equal(result.replay_code, 'missionmed_lor_contract_unavailable');
+  assert.equal(result.raw_code_stored, false);
+  assert.equal(result.code_value_exists, false);
+  assert.equal(result.code_timeout_exists, false);
 });
 
-test('missing producer fails with one generic denial and no protected evidence', { skip: !phpAvailable }, () => {
+test('a real binding admits once, then rejects signature/body replay and a fresh wrong subject', { skip: !phpAvailable }, () => {
   const result = runPhp(phpProgram({
-    constants: enabledConstants,
     body: `
-$GLOBALS['lor_meta'] = array(
-    '_missionmed_lor_enabled' => '1',
-    '_missionmed_lor_canary_enabled' => '1',
-    '_missionmed_lor_consent_accepted' => '1',
-    '_missionmed_lor_consent_version' => 'lor-consent-v1',
-    '_missionmed_lor_consent_at' => gmdate('c', time() - 60),
-);
-$projection = mmhq_lor_studio_current_identity_entitlement();
+lor_valid_fixture();
+$state = str_repeat('a', 64);
+$callback = 'https://missionmed.example.test/api/lor-studio/auth/callback?audience=lor-studio&state=' . $state;
+$issued = mmhq_lor_studio_issue_browser_bootstrap_code(wp_get_current_user(), $callback);
+$redeem_body = wp_json_encode(array(
+    'contract' => 'missionmed.lor.wordpress-bootstrap-redemption-request.v1',
+    'audience' => 'lor-studio', 'code' => $issued['code'], 'stateHash' => $state, 'callback' => $callback,
+));
+$redeem = mmhq_lor_studio_bootstrap_redeem(new Lor_Test_Rest_Request(
+    '/missionmed/v1/lor-studio/bootstrap/redeem', 'POST', $redeem_body,
+    lor_headers('/wp-json/missionmed/v1/lor-studio/bootstrap/redeem', $redeem_body, 'lorn1_' . str_repeat('r', 43))
+));
+$binding = $redeem->data['bindingId'];
+$body = wp_json_encode(array(
+    'contract' => 'missionmed.lor.wordpress-admission-request.v1', 'audience' => 'lor-studio',
+    'bindingId' => $binding, 'subject' => 'wp:123',
+));
+$nonce = 'lorn1_' . str_repeat('z', 43);
+$headers = lor_headers('/wp-json/missionmed/v1/lor-studio/current-user-admission', $body, $nonce);
+$tampered = $headers; $tampered['X-MissionMed-LOR-S2S-Signature'] = 'v1=' . str_repeat('0', 64);
+$wrong_signature = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Request('/missionmed/v1/lor-studio/current-user-admission', 'POST', $body, $tampered));
+$first = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Request('/missionmed/v1/lor-studio/current-user-admission', 'POST', $body, $headers));
+$replay = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Request('/missionmed/v1/lor-studio/current-user-admission', 'POST', $body, $headers));
+$tampered_body = wp_json_encode(array(
+    'contract' => 'missionmed.lor.wordpress-admission-request.v1', 'audience' => 'lor-studio',
+    'bindingId' => $binding, 'subject' => 'wp:124',
+));
+$tampered_headers = lor_headers('/wp-json/missionmed/v1/lor-studio/current-user-admission', $body, 'lorn1_' . str_repeat('t', 43));
+$body_tamper = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Request('/missionmed/v1/lor-studio/current-user-admission', 'POST', $tampered_body, $tampered_headers));
+$wrong_subject_headers = lor_headers('/wp-json/missionmed/v1/lor-studio/current-user-admission', $tampered_body, 'lorn1_' . str_repeat('w', 43));
+$wrong_subject = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Request('/missionmed/v1/lor-studio/current-user-admission', 'POST', $tampered_body, $wrong_subject_headers));
+$nonce_names = mmhq_lor_studio_transient_names('nonce_v1', hash('sha256', $nonce));
 echo json_encode(array(
-    'is_error' => is_wp_error($projection),
-    'code' => $projection->code,
-    'message' => $projection->message,
-    'data' => $projection->data,
+    'wrong_signature' => $wrong_signature->code,
+    'first_admitted' => $first->data['admitted'],
+    'replay' => $replay->code,
+    'body_tamper' => $body_tamper->code,
+    'wrong_subject' => $wrong_subject->code,
+    'nonce_value_exists' => array_key_exists($nonce_names[0], $GLOBALS['lor_options']),
+    'nonce_timeout_exists' => array_key_exists($nonce_names[1], $GLOBALS['lor_options']),
+    'entitlement_calls' => $GLOBALS['lor_entitlement_calls'],
 ));
 `,
   }));
-
   assert.deepEqual(result, {
-    is_error: true,
-    code: 'missionmed_lor_contract_unavailable',
-    message: 'LOR Studio access is unavailable.',
-    data: { status: 403 },
+    wrong_signature: 'missionmed_lor_contract_unavailable',
+    first_admitted: true,
+    replay: 'missionmed_lor_contract_unavailable',
+    body_tamper: 'missionmed_lor_contract_unavailable',
+    wrong_subject: 'missionmed_lor_contract_unavailable',
+    nonce_value_exists: true,
+    nonce_timeout_exists: true,
+    entitlement_calls: 3,
   });
-  assert.doesNotMatch(JSON.stringify(result), /wp:123|course|purchase|consent|revok/iu);
 });
 
-test('entitlement validation denies stale, malformed, inactive, revoked, expired, and purchase-invalid evidence', { skip: !phpAvailable }, () => {
+test('binary CAS rejects case-only and trailing-space interleaving replacements', { skip: !phpAvailable }, () => {
   const result = runPhp(phpProgram({
     body: `
-$now = strtotime('2026-08-09T16:00:00Z');
-$base = array(
-    'subject' => 'wp:123',
-    'product' => 'cam',
-    'source' => 'wordpress_learndash_handoff',
-    'verified' => true,
-    'trusted' => true,
-    'active' => true,
-    'status' => 'active',
-    'course_ids' => array('4000'),
-    'program_tier' => '360_match_mentorship',
-    'restricted' => false,
-    'revoked' => false,
-    'current_access_verified' => true,
-    'purchase_verified' => true,
-    'expires_at' => '2026-08-09T17:00:00Z',
-    'evaluated_at' => '2026-08-09T15:59:00Z',
-);
-$cases = array('valid' => $base);
-$case = $base; unset($case['subject']); $cases['missing_subject'] = $case;
-$case = $base; $case['subject'] = 'wp:999'; $cases['cross_subject_123_vs_999'] = $case;
-$case = $base; unset($case['evaluated_at']); $cases['missing_evaluated_at'] = $case;
-$case = $base; $case['evaluated_at'] = '2026-08-09T15:00:00Z'; $cases['stale'] = $case;
-$case = $base; $case['evaluated_at'] = 'yesterday'; $cases['malformed_time'] = $case;
-$case = $base; $case['evaluated_at'] = '2026-02-31T15:59:00Z'; $cases['invalid_calendar_time'] = $case;
-$case = $base; $case['evaluated_at'] = '2026-08-09T16:01:00Z'; $cases['future_time'] = $case;
-$case = $base; $case['verified'] = false; $cases['unverified'] = $case;
-$case = $base; $case['trusted'] = false; $cases['untrusted'] = $case;
-$case = $base; $case['active'] = false; $cases['inactive'] = $case;
-$case = $base; $case['restricted'] = true; $cases['restricted'] = $case;
-$case = $base; $case['revoked'] = true; $cases['revoked'] = $case;
-$case = $base; $case['status'] = 'expired'; $cases['expired_status'] = $case;
-$case = $base; $case['status'] = 'refunded'; $cases['refunded_status'] = $case;
-$case = $base; $case['status'] = 'cancelled'; $cases['cancelled_status'] = $case;
-$case = $base; $case['purchase_verified'] = false; $cases['purchase_invalid'] = $case;
-$case = $base; $case['current_access_verified'] = false; $cases['access_invalid'] = $case;
-$case = $base; $case['course_ids'] = array('4000', 'invalid'); $cases['malformed_courses'] = $case;
-$case = $base; $case['course_ids'] = array('999999999999999999999999'); $cases['overflow_course'] = $case;
-$case = $base; $case['course_ids'] = array('3893'); $cases['unverified_3893'] = $case;
-$case = $base; $case['course_ids'] = array('4000', '3893'); $cases['mixed_unverified_3893'] = $case;
-$case = $base; $case['program_tier'] = ''; $cases['unverified_tier'] = $case;
-$case = $base; unset($case['expires_at']); $cases['missing_expiry_shape'] = $case;
-$case = $base; $case['expires_at'] = 'not-an-instant'; $cases['malformed_expiry'] = $case;
-$case = $base; $case['expires_at'] = '2026-08-09T15:59:00Z'; $cases['expired'] = $case;
-$case = $base; $case['source'] = 'browser_assertion'; $cases['wrong_source'] = $case;
-$out = array();
-foreach ($cases as $name => $candidate) {
-    $out[$name] = mmhq_lor_studio_entitlement_allows(
-        $candidate,
-        'wp:123',
-        $now,
-        array(4000),
-        array('360_match_mentorship'),
-        300
-    );
-}
-echo json_encode($out);
+$case_name = '_transient_mmhq_lor_code_v1_' . str_repeat('a', 64);
+$space_name = '_transient_mmhq_lor_code_v1_' . str_repeat('b', 64);
+$GLOBALS['lor_options'][$case_name] = 'ExactValue';
+$GLOBALS['lor_options'][$space_name] = 'ExactValue';
+$GLOBALS['lor_before_cas'] = function($option_name, $expected) { $GLOBALS['lor_options'][$option_name] = 'exactvalue'; };
+$case_delete = mmhq_lor_studio_delete_exact_option($case_name, 'ExactValue');
+$GLOBALS['lor_before_cas'] = function($option_name, $expected) { $GLOBALS['lor_options'][$option_name] = 'ExactValue '; };
+$space_delete = mmhq_lor_studio_delete_exact_option($space_name, 'ExactValue');
+echo json_encode(array(
+    'case_delete' => $case_delete, 'case_value' => $GLOBALS['lor_options'][$case_name],
+    'space_delete' => $space_delete, 'space_value' => $GLOBALS['lor_options'][$space_name],
+));
 `,
   }));
+  assert.deepEqual(result, {
+    case_delete: false,
+    case_value: 'exactvalue',
+    space_delete: false,
+    space_value: 'ExactValue ',
+  });
+});
 
-  assert.equal(result.valid, true);
-  for (const [name, allowed] of Object.entries(result)) {
-    if (name !== 'valid') {
-      assert.equal(allowed, false, `${name} must fail closed`);
+test('a live claim serializes concurrent same-subject issue-window writers', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+$digest = hash('sha256', 'wp:123');
+$names = mmhq_lor_studio_transient_names('issue_v1', $digest);
+$record = array(
+    'contract' => 'missionmed.lor.wordpress-bootstrap-issue-window.v1',
+    'issuedAt' => time(), 'expiresAt' => time() + 60, 'epoch' => 'dr133-s2s-v1',
+);
+$second = null;
+$GLOBALS['lor_after_add_option'] = function($option_name) use (&$second, $names, $digest, $record) {
+    if ($option_name === $names[1]) {
+        $second = mmhq_lor_studio_store_once('issue_v1', $digest, $record, time() + 60);
     }
-  }
-});
-
-test('current wp:123 rejects producer wp:999, requires every LOR gate, and ignores client assertions', { skip: !phpAvailable }, () => {
-  const result = runPhp(phpProgram({
-    constants: enabledConstants,
-    producer: injectableProducer,
-    body: `
-$GLOBALS['lor_meta'] = array(
-    '_missionmed_lor_enabled' => '1',
-    '_missionmed_lor_canary_enabled' => '1',
-    '_missionmed_lor_consent_accepted' => '1',
-    '_missionmed_lor_consent_version' => 'lor-consent-v1',
-    '_missionmed_lor_consent_at' => gmdate('c', time() - 60),
-    '_missionmed_lor_consent_revoked_at' => '',
-    '_missionmed_lor_revoked_at' => '',
-);
-$GLOBALS['lor_entitlement'] = array(
-    'product' => 'cam',
-    'source' => 'wordpress_learndash_handoff',
-    'verified' => true,
-    'trusted' => true,
-    'active' => true,
-    'status' => 'active',
-    'course_ids' => array('4000'),
-    'program_tier' => '360_match_mentorship',
-    'restricted' => false,
-    'revoked' => false,
-    'current_access_verified' => true,
-    'purchase_verified' => true,
-    'expires_at' => gmdate('c', time() + 3600),
-    'evaluated_at' => gmdate('c', time() - 60),
-);
-$valid_meta = $GLOBALS['lor_meta'];
-$projection = mmhq_lor_studio_current_identity_entitlement();
-$request = new Lor_Test_Rest_Request('/missionmed/v1/lor-studio/identity-entitlement');
-$request->client_assertions = array(
-    'user_id' => 999,
-    'subject' => 'wp:999',
-    'role' => 'administrator',
-    'entitlement' => array('active' => true),
-    'consent' => true,
-);
-$rest = mmhq_lor_studio_contract_rest_response($request);
-$out = array(
-    'projection' => $projection,
-    'rest_projection' => $rest->data,
-    'cache_control' => $rest->headers['Cache-Control'],
-    'permission' => mmhq_lor_studio_contract_permission(),
-    'producer_user_id' => $GLOBALS['lor_last_producer_user_id'],
-);
-foreach (array(
-    '_missionmed_lor_enabled',
-    '_missionmed_lor_canary_enabled',
-    '_missionmed_lor_consent_accepted',
-    '_missionmed_lor_consent_version',
-    '_missionmed_lor_consent_at'
-) as $key) {
-    $GLOBALS['lor_meta'] = $valid_meta;
-    unset($GLOBALS['lor_meta'][$key]);
-    $denied = mmhq_lor_studio_current_identity_entitlement();
-    $out['missing:' . $key] = is_wp_error($denied) ? $denied->code : 'admitted';
-}
-$GLOBALS['lor_meta'] = $valid_meta;
-$GLOBALS['lor_meta']['_missionmed_lor_consent_revoked_at'] = gmdate('c', time() - 10);
-$out['consent_revoked'] = is_wp_error(mmhq_lor_studio_current_identity_entitlement());
-$GLOBALS['lor_meta'] = $valid_meta;
-$GLOBALS['lor_meta']['_missionmed_lor_revoked_at'] = gmdate('c', time() - 10);
-$out['lor_revoked'] = is_wp_error(mmhq_lor_studio_current_identity_entitlement());
-$GLOBALS['lor_meta'] = $valid_meta;
-$GLOBALS['lor_producer_subject_override'] = 'wp:999';
-$out['cross_subject_current_123_producer_999'] = is_wp_error(
-    mmhq_lor_studio_current_identity_entitlement()
-);
-unset($GLOBALS['lor_producer_subject_override']);
-$GLOBALS['lor_user_id'] = 0;
-$out['anonymous'] = is_wp_error(mmhq_lor_studio_current_identity_entitlement());
-$GLOBALS['lor_user_id'] = 123;
-$GLOBALS['lor_entitlement'] = 'malformed';
-$out['malformed_producer'] = is_wp_error(mmhq_lor_studio_current_identity_entitlement());
-$GLOBALS['lor_producer_throws'] = true;
-$out['throwing_producer'] = is_wp_error(mmhq_lor_studio_current_identity_entitlement());
-echo json_encode($out);
+};
+$first = mmhq_lor_studio_store_once('issue_v1', $digest, $record, time() + 60);
+$third = mmhq_lor_studio_store_once('issue_v1', $digest, $record, time() + 60);
+$registry_name = mmhq_lor_studio_registry_name('issue_v1', $digest);
+$registry = json_decode($GLOBALS['lor_options'][$registry_name], true);
+$timeout = $GLOBALS['lor_options'][$names[1]] ?? '';
+$stored_envelope = mmhq_lor_studio_decode_storage_envelope($GLOBALS['lor_options'][$names[0]] ?? '');
+echo json_encode(array(
+    'first' => $first, 'second' => $second, 'third' => $third,
+    'value_exists' => array_key_exists($names[0], $GLOBALS['lor_options']),
+    'timeout_exists' => array_key_exists($names[1], $GLOBALS['lor_options']),
+    'timeout_finalized' => false === mmhq_lor_studio_claim_started_at($timeout) && (int) $timeout > time(),
+    'record_exact' => is_array($stored_envelope) && $stored_envelope['record'] === $record,
+    'registry_entries' => count($registry['entries']),
+    'registry_value' => $registry['entries'][0]['valueName'],
+));
 `,
   }));
+  assert.deepEqual(result, {
+    first: true,
+    second: false,
+    third: false,
+    value_exists: true,
+    timeout_exists: true,
+    timeout_finalized: true,
+    record_exact: true,
+    registry_entries: 1,
+    registry_value: `_transient_mmhq_lor_issue_v1_${result.registry_value.slice(-64)}`,
+  });
+  assert.match(result.registry_value, /^_transient_mmhq_lor_issue_v1_[a-f0-9]{64}$/u);
+});
 
-  const expectedProjection = {
+test('partial code mint failure removes every transient pair without a broad delete', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+lor_valid_fixture();
+$GLOBALS['lor_fail_add_contains'] = '_transient_mmhq_lor_code_v1_';
+$state = str_repeat('a', 64);
+$callback = 'https://missionmed.example.test/api/lor-studio/auth/callback?audience=lor-studio&state=' . $state;
+$issued = mmhq_lor_studio_issue_browser_bootstrap_code(wp_get_current_user(), $callback);
+$transient_names = array_values(array_filter(array_keys($GLOBALS['lor_options']), function($name) {
+    return 0 === strpos($name, '_transient_');
+}));
+$registry_names = array_values(array_filter(array_keys($GLOBALS['lor_options']), function($name) {
+    return 0 === strpos($name, 'mmhq_lor_transient_registry_v1_');
+}));
+echo json_encode(array(
+    'error' => $issued->code,
+    'status' => $issued->get_error_data()['status'],
+    'transient_names' => $transient_names,
+    'registry_exists' => count($registry_names) > 0,
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    error: 'missionmed_lor_contract_unavailable',
+    status: 503,
+    transient_names: [],
+    registry_exists: true,
+  });
+});
+
+test('bounded registry prunes expired LOR pairs even with an external object cache', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+$old_digest = str_repeat('a', 64);
+$new_digest = 'aa' . str_repeat('b', 62);
+$old_names = mmhq_lor_studio_transient_names('nonce_v1', $old_digest);
+$new_names = mmhq_lor_studio_transient_names('nonce_v1', $new_digest);
+$registry_name = mmhq_lor_studio_registry_name('nonce_v1', $old_digest);
+$old_raw = '{"expired":true}';
+$GLOBALS['lor_options'][$old_names[0]] = $old_raw;
+$GLOBALS['lor_options'][$old_names[1]] = (string) (time() - 5);
+$GLOBALS['lor_options'][$registry_name] = wp_json_encode(mmhq_lor_studio_registry_record(array(array(
+    'valueName' => $old_names[0], 'timeoutName' => $old_names[1], 'expiresAt' => time() - 5,
+	'valueHash' => hash('sha256', $old_raw),
+))));
+$stored = mmhq_lor_studio_store_once('nonce_v1', $new_digest, array('fresh' => true), time() + 60);
+$registry = json_decode($GLOBALS['lor_options'][$registry_name], true);
+echo json_encode(array(
+    'external_cache' => wp_using_ext_object_cache(), 'stored' => $stored,
+    'old_value' => array_key_exists($old_names[0], $GLOBALS['lor_options']),
+    'old_timeout' => array_key_exists($old_names[1], $GLOBALS['lor_options']),
+    'new_value' => array_key_exists($new_names[0], $GLOBALS['lor_options']),
+    'new_timeout' => array_key_exists($new_names[1], $GLOBALS['lor_options']),
+    'registry_count' => count($registry['entries']),
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    external_cache: true,
+    stored: true,
+    old_value: false,
+    old_timeout: false,
+    new_value: true,
+    new_timeout: true,
+    registry_count: 1,
+  });
+});
+
+test('a full cleanup shard cannot exhaust an unrelated nonce shard', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+$entries = array(); $expires = time() + 90;
+for ($index = 0; $index < 1024; $index++) {
+    $digest = 'aa' . str_pad(dechex($index), 62, '0', STR_PAD_LEFT);
+    $names = mmhq_lor_studio_transient_names('nonce_v1', $digest);
+    $GLOBALS['lor_options'][$names[0]] = '{"occupied":true}';
+    $GLOBALS['lor_options'][$names[1]] = (string) $expires;
+    $entries[] = array(
+		'valueName' => $names[0], 'timeoutName' => $names[1], 'expiresAt' => $expires,
+		'valueHash' => hash('sha256', '{"occupied":true}'),
+	);
+}
+$full_registry = mmhq_lor_studio_registry_name('nonce_v1', str_repeat('a', 64));
+$GLOBALS['lor_options'][$full_registry] = wp_json_encode(mmhq_lor_studio_registry_record($entries));
+$clean_digest = 'bb' . str_repeat('c', 62);
+$clean_registry = mmhq_lor_studio_registry_name('nonce_v1', $clean_digest);
+$stored = mmhq_lor_studio_store_once('nonce_v1', $clean_digest, array('fresh' => true), $expires);
+echo json_encode(array(
+    'registries_distinct' => $full_registry !== $clean_registry,
+    'stored' => $stored,
+    'clean_registry_exists' => array_key_exists($clean_registry, $GLOBALS['lor_options']),
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    registries_distinct: true,
+    stored: true,
+    clean_registry_exists: true,
+  });
+});
+
+test('cleanup failure fails closed and removes the newly attempted exact pair', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+$old_digest = str_repeat('c', 64);
+$new_digest = 'cc' . str_repeat('d', 62);
+$old_names = mmhq_lor_studio_transient_names('binding_v1', $old_digest);
+$new_names = mmhq_lor_studio_transient_names('binding_v1', $new_digest);
+$registry_name = mmhq_lor_studio_registry_name('binding_v1', $old_digest);
+$old_raw = '{"expired":true}';
+$GLOBALS['lor_options'][$old_names[0]] = $old_raw;
+$GLOBALS['lor_options'][$old_names[1]] = (string) (time() - 5);
+$GLOBALS['lor_options'][$registry_name] = wp_json_encode(mmhq_lor_studio_registry_record(array(array(
+    'valueName' => $old_names[0], 'timeoutName' => $old_names[1], 'expiresAt' => time() - 5,
+	'valueHash' => hash('sha256', $old_raw),
+))));
+$GLOBALS['lor_query_fail_names'][] = $old_names[0];
+$stored = mmhq_lor_studio_store_once('binding_v1', $new_digest, array('fresh' => true), time() + 60);
+echo json_encode(array(
+    'stored' => $stored,
+    'old_value' => array_key_exists($old_names[0], $GLOBALS['lor_options']),
+    'old_timeout' => array_key_exists($old_names[1], $GLOBALS['lor_options']),
+    'new_value' => array_key_exists($new_names[0], $GLOBALS['lor_options']),
+    'new_timeout' => array_key_exists($new_names[1], $GLOBALS['lor_options']),
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    stored: false,
+    old_value: true,
+    old_timeout: true,
+    new_value: false,
+    new_timeout: false,
+  });
+});
+
+test('a failed atomic pair delete preserves the complete live generation', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+$old_digest = str_repeat('e', 64);
+$new_digest = 'ee' . str_repeat('f', 62);
+$old_names = mmhq_lor_studio_transient_names('binding_v1', $old_digest);
+$new_names = mmhq_lor_studio_transient_names('binding_v1', $new_digest);
+$old_record = array('binding' => 'old');
+$old_expiry = time() + 8 * 60 * 60;
+$old_raw = '';
+$created = mmhq_lor_studio_store_once('binding_v1', $old_digest, $old_record, $old_expiry, $old_raw);
+$GLOBALS['lor_query_fail_once_names'][] = $old_names[1];
+$deleted = mmhq_lor_studio_delete_exact_pair('binding_v1', $old_digest, $old_raw);
+$half_before = array(
+    array_key_exists($old_names[0], $GLOBALS['lor_options']),
+    array_key_exists($old_names[1], $GLOBALS['lor_options']),
+);
+$later = mmhq_lor_studio_store_once('binding_v1', $new_digest, array('fresh' => true), time() + 90);
+$orphan_after_heal = array(
+    array_key_exists($old_names[0], $GLOBALS['lor_options']),
+    array_key_exists($old_names[1], $GLOBALS['lor_options']),
+);
+$retry = mmhq_lor_studio_store_once('binding_v1', $old_digest, array('binding' => 'replacement'), time() + 120);
+echo json_encode(array(
+    'created' => $created, 'deleted' => $deleted, 'half_before' => $half_before,
+    'orphan_after_heal' => $orphan_after_heal,
+    'later' => $later,
+    'later_value' => array_key_exists($new_names[0], $GLOBALS['lor_options']),
+    'later_timeout' => array_key_exists($new_names[1], $GLOBALS['lor_options']),
+    'retry' => $retry,
+    'retry_value' => array_key_exists($old_names[0], $GLOBALS['lor_options']),
+    'retry_timeout' => array_key_exists($old_names[1], $GLOBALS['lor_options']),
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    created: true,
+    deleted: false,
+    half_before: [true, true],
+    orphan_after_heal: [true, true],
+    later: true,
+    later_value: true,
+    later_timeout: true,
+    retry: false,
+    retry_value: true,
+    retry_timeout: true,
+  });
+});
+
+test('stale registry cleanup adopts a recreated finalized generation instead of deleting it', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+$first_digest = 'ab' . str_repeat('a', 62);
+$second_digest = 'ab' . str_repeat('b', 62);
+$first_names = mmhq_lor_studio_transient_names('nonce_v1', $first_digest);
+$second_names = mmhq_lor_studio_transient_names('nonce_v1', $second_digest);
+$registry_name = mmhq_lor_studio_registry_name('nonce_v1', $first_digest);
+$old_expiry = time() - 5;
+$old_raw = wp_json_encode(mmhq_lor_studio_storage_envelope(array('generation' => 'old'), $old_expiry));
+$new_expiry = time() + 120;
+$new_raw = wp_json_encode(mmhq_lor_studio_storage_envelope(array('generation' => 'new'), $new_expiry));
+$GLOBALS['lor_options'][$first_names[0]] = $new_raw;
+$GLOBALS['lor_options'][$first_names[1]] = (string) $new_expiry;
+$GLOBALS['lor_options'][$registry_name] = wp_json_encode(mmhq_lor_studio_registry_record(array(array(
+	'valueName' => $first_names[0], 'timeoutName' => $first_names[1],
+	'expiresAt' => $old_expiry, 'valueHash' => hash('sha256', $old_raw),
+))));
+$stored = mmhq_lor_studio_store_once('nonce_v1', $second_digest, array('fresh' => true), time() + 90);
+$registry = json_decode($GLOBALS['lor_options'][$registry_name], true);
+$first_entry = null;
+foreach ($registry['entries'] as $entry) {
+	if ($entry['valueName'] === $first_names[0]) $first_entry = $entry;
+}
+echo json_encode(array(
+	'stored' => $stored,
+	'first_value_preserved' => ($GLOBALS['lor_options'][$first_names[0]] ?? '') === $new_raw,
+	'first_timeout_preserved' => ($GLOBALS['lor_options'][$first_names[1]] ?? '') === (string) $new_expiry,
+	'second_complete' => array_key_exists($second_names[0], $GLOBALS['lor_options'])
+		&& array_key_exists($second_names[1], $GLOBALS['lor_options']),
+	'registry_count' => count($registry['entries']),
+	'adopted_hash' => is_array($first_entry) ? $first_entry['valueHash'] : '',
+	'adopted_expiry' => is_array($first_entry) ? $first_entry['expiresAt'] : 0,
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    stored: true,
+    first_value_preserved: true,
+    first_timeout_preserved: true,
+    second_complete: true,
+    registry_count: 2,
+    adopted_hash: result.adopted_hash,
+    adopted_expiry: result.adopted_expiry,
+  });
+  assert.match(result.adopted_hash, /^[a-f0-9]{64}$/u);
+  assert.ok(result.adopted_expiry > Math.floor(Date.now() / 1000));
+});
+
+test('atomic pair deletion cannot remove a same-expiry recreated generation', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+$digest = str_repeat('d', 64);
+$names = mmhq_lor_studio_transient_names('binding_v1', $digest);
+$expiry = time() + 120;
+$first_raw = '';
+$created = mmhq_lor_studio_store_once('binding_v1', $digest, array('version' => 1), $expiry, $first_raw);
+$replacement_raw = wp_json_encode(mmhq_lor_studio_storage_envelope(array('version' => 2), $expiry));
+$GLOBALS['lor_before_pair_delete'] = function($value_name, $expected_value, $timeout_name, $expected_timeout) use ($replacement_raw, $expiry) {
+	$GLOBALS['lor_options'][$value_name] = $replacement_raw;
+	$GLOBALS['lor_options'][$timeout_name] = (string) $expiry;
+};
+$deleted = mmhq_lor_studio_delete_exact_pair('binding_v1', $digest, $first_raw);
+list($record) = mmhq_lor_studio_read_record_by_digest('binding_v1', $digest);
+echo json_encode(array(
+	'created' => $created, 'deleted' => $deleted,
+	'replacement_value_preserved' => ($GLOBALS['lor_options'][$names[0]] ?? '') === $replacement_raw,
+	'replacement_timeout_preserved' => ($GLOBALS['lor_options'][$names[1]] ?? '') === (string) $expiry,
+	'read_version' => is_array($record) ? $record['version'] : 0,
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    created: true,
+    deleted: false,
+    replacement_value_preserved: true,
+    replacement_timeout_preserved: true,
+    read_version: 2,
+  });
+});
+
+test('same-second claim replacement has a distinct owner token and survives stale-owner cleanup', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+$issued = time() - 31;
+$first_claim = mmhq_lor_studio_claim_timeout_value($issued);
+$second_claim = mmhq_lor_studio_claim_timeout_value($issued);
+$digest = str_repeat('f', 64);
+$names = mmhq_lor_studio_transient_names('issue_v1', $digest);
+$GLOBALS['lor_options'][$names[1]] = $first_claim;
+$GLOBALS['lor_before_cas'] = function($option_name, $expected) use ($names, $second_claim) {
+	if ($option_name === $names[1]) $GLOBALS['lor_options'][$option_name] = $second_claim;
+};
+$prepared = mmhq_lor_studio_prepare_transient_slot('issue_v1', $digest);
+echo json_encode(array(
+	'distinct' => $first_claim !== $second_claim,
+	'first_started' => mmhq_lor_studio_claim_started_at($first_claim),
+	'second_started' => mmhq_lor_studio_claim_started_at($second_claim),
+	'prepared' => $prepared,
+	'replacement_preserved' => ($GLOBALS['lor_options'][$names[1]] ?? '') === $second_claim,
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    distinct: true,
+    first_started: result.first_started,
+    second_started: result.second_started,
+    prepared: false,
+    replacement_preserved: true,
+  });
+  assert.equal(result.first_started, result.second_started);
+  assert.ok(result.first_started > 0);
+});
+
+test('stale-claim cleanup cannot delete a pair finalized after observation', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+$digest = str_repeat('e', 64);
+$names = mmhq_lor_studio_transient_names('issue_v1', $digest);
+$expiry = time() + 120;
+$record = array('contract' => 'missionmed.lor.wordpress-bootstrap-issue-window.v1');
+$value_raw = wp_json_encode(mmhq_lor_studio_storage_envelope($record, $expiry));
+$stale_claim = mmhq_lor_studio_claim_timeout_value(time() - 31);
+$GLOBALS['lor_options'][$names[0]] = $value_raw;
+$GLOBALS['lor_options'][$names[1]] = $stale_claim;
+$GLOBALS['lor_before_pair_delete'] = function($value_name, $expected_value, $timeout_name, $expected_timeout) use ($expiry) {
+	$GLOBALS['lor_options'][$timeout_name] = (string) $expiry;
+};
+$prepared = mmhq_lor_studio_prepare_transient_slot('issue_v1', $digest);
+$registered = mmhq_lor_studio_register_transient_pair(
+	'issue_v1', $digest, $names[0], $names[1], $expiry, hash('sha256', $value_raw)
+);
+$retry_prepared = mmhq_lor_studio_prepare_transient_slot('issue_v1', $digest);
+echo json_encode(array(
+	'prepared' => $prepared,
+	'pair_survives' => ($GLOBALS['lor_options'][$names[0]] ?? '') === $value_raw
+		&& ($GLOBALS['lor_options'][$names[1]] ?? '') === (string) $expiry,
+	'registered' => $registered,
+	'retry_prepared' => $retry_prepared,
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    prepared: false,
+    pair_survives: true,
+    registered: true,
+    retry_prepared: false,
+  });
+});
+
+test('split observation cannot orphan a writer that finalizes between value and timeout reads', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+$digest = str_repeat('c', 64);
+$names = mmhq_lor_studio_transient_names('issue_v1', $digest);
+$expiry = time() + 120;
+$record = array('contract' => 'missionmed.lor.wordpress-bootstrap-issue-window.v1');
+$value_raw = wp_json_encode(mmhq_lor_studio_storage_envelope($record, $expiry));
+$GLOBALS['lor_options'][$names[1]] = mmhq_lor_studio_claim_timeout_value(time() - 31);
+$GLOBALS['lor_after_get_var'] = function($option_name, $observed_value) use ($names, $value_raw, $expiry) {
+	if ($option_name === $names[0] && null === $observed_value) {
+		$GLOBALS['lor_options'][$names[0]] = $value_raw;
+		$GLOBALS['lor_options'][$names[1]] = (string) $expiry;
+	}
+};
+$prepared = mmhq_lor_studio_prepare_transient_slot('issue_v1', $digest);
+$registered = mmhq_lor_studio_register_transient_pair(
+	'issue_v1', $digest, $names[0], $names[1], $expiry, hash('sha256', $value_raw)
+);
+$retry_prepared = mmhq_lor_studio_prepare_transient_slot('issue_v1', $digest);
+echo json_encode(array(
+	'prepared' => $prepared,
+	'pair_survives' => ($GLOBALS['lor_options'][$names[0]] ?? '') === $value_raw
+		&& ($GLOBALS['lor_options'][$names[1]] ?? '') === (string) $expiry,
+	'registered' => $registered,
+	'retry_prepared' => $retry_prepared,
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    prepared: false,
+    pair_survives: true,
+    registered: true,
+    retry_prepared: false,
+  });
+});
+
+test('value collision cannot let a displaced writer delete the live claim and strand the value', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+$digest = str_repeat('b', 64);
+$names = mmhq_lor_studio_transient_names('issue_v1', $digest);
+$expiry = time() + 120;
+$intruder_raw = wp_json_encode(mmhq_lor_studio_storage_envelope(array('writer' => 'stale'), $expiry));
+$GLOBALS['lor_after_add_option'] = function($option_name) use ($names, $intruder_raw) {
+	if ($option_name === $names[1]) {
+		$GLOBALS['lor_options'][$names[0]] = $intruder_raw;
+	}
+};
+$stored = mmhq_lor_studio_store_once(
+	'issue_v1',
+	$digest,
+	array('writer' => 'current'),
+	$expiry
+);
+$claim = $GLOBALS['lor_options'][$names[1]] ?? '';
+$claim_preserved = false !== mmhq_lor_studio_claim_started_at($claim);
+$value_preserved = ($GLOBALS['lor_options'][$names[0]] ?? '') === $intruder_raw;
+$value_only = array_key_exists($names[0], $GLOBALS['lor_options'])
+	&& !array_key_exists($names[1], $GLOBALS['lor_options']);
+if ($claim_preserved) {
+	$GLOBALS['lor_options'][$names[1]] = '8'
+		. str_pad((string) (time() - 31), 10, '0', STR_PAD_LEFT)
+		. substr($claim, -8);
+}
+$prepared = mmhq_lor_studio_prepare_transient_slot('issue_v1', $digest);
+echo json_encode(array(
+	'stored' => $stored,
+	'claim_preserved' => $claim_preserved,
+	'value_preserved' => $value_preserved,
+	'value_only' => $value_only,
+	'prepared' => $prepared,
+	'empty_after_recovery' => !array_key_exists($names[0], $GLOBALS['lor_options'])
+		&& !array_key_exists($names[1], $GLOBALS['lor_options']),
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    stored: false,
+    claim_preserved: true,
+    value_preserved: true,
+    value_only: false,
+    prepared: true,
+    empty_after_recovery: true,
+  });
+});
+
+test('one active issue window rate-bounds a subject without minting another code', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+lor_valid_fixture();
+$state = str_repeat('a', 64);
+$callback = 'https://missionmed.example.test/api/lor-studio/auth/callback?audience=lor-studio&state=' . $state;
+$first = mmhq_lor_studio_issue_browser_bootstrap_code(wp_get_current_user(), $callback);
+$before = count($GLOBALS['lor_options']);
+$second = mmhq_lor_studio_issue_browser_bootstrap_code(wp_get_current_user(), $callback);
+echo json_encode(array(
+    'first_code' => preg_match('/^lorc1_[A-Za-z0-9_-]{43}$/D', $first['code']) === 1,
+    'second_error' => $second->code,
+    'second_status' => $second->get_error_data()['status'],
+    'option_count_unchanged' => $before === count($GLOBALS['lor_options']),
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    first_code: true,
+    second_error: 'missionmed_lor_contract_unavailable',
+    second_status: 503,
+    option_count_unchanged: true,
+  });
+});
+
+test('an expired deterministic issue window retries without unrelated traffic', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+lor_valid_fixture();
+$state = str_repeat('a', 64);
+$callback = 'https://missionmed.example.test/api/lor-studio/auth/callback?audience=lor-studio&state=' . $state;
+$first = mmhq_lor_studio_issue_browser_bootstrap_code(wp_get_current_user(), $callback);
+$issue_names = mmhq_lor_studio_transient_names('issue_v1', hash('sha256', 'wp:123'));
+$GLOBALS['lor_options'][$issue_names[1]] = (string) (time() - 1);
+$second = mmhq_lor_studio_issue_browser_bootstrap_code(wp_get_current_user(), $callback);
+echo json_encode(array(
+    'first' => preg_match('/^lorc1_[A-Za-z0-9_-]{43}$/D', $first['code']) === 1,
+    'second' => preg_match('/^lorc1_[A-Za-z0-9_-]{43}$/D', $second['code']) === 1,
+    'different' => $first['code'] !== $second['code'],
+    'issue_value' => array_key_exists($issue_names[0], $GLOBALS['lor_options']),
+    'issue_timeout' => array_key_exists($issue_names[1], $GLOBALS['lor_options']),
+));
+`,
+  }));
+  assert.deepEqual(result, {
+    first: true,
+    second: true,
+    different: true,
+    issue_value: true,
+    issue_timeout: true,
+  });
+});
+
+test('signed revocation invalidates a copied binding and removes binding custody', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+lor_valid_fixture();
+$state = str_repeat('a', 64);
+$callback = 'https://missionmed.example.test/api/lor-studio/auth/callback?audience=lor-studio&state=' . $state;
+$issued = mmhq_lor_studio_issue_browser_bootstrap_code(wp_get_current_user(), $callback);
+$redeem_body = wp_json_encode(array(
+    'contract' => 'missionmed.lor.wordpress-bootstrap-redemption-request.v1',
+    'audience' => 'lor-studio', 'code' => $issued['code'], 'stateHash' => $state, 'callback' => $callback,
+));
+$redeem = mmhq_lor_studio_bootstrap_redeem(new Lor_Test_Rest_Request(
+    '/missionmed/v1/lor-studio/bootstrap/redeem', 'POST', $redeem_body,
+    lor_headers('/wp-json/missionmed/v1/lor-studio/bootstrap/redeem', $redeem_body, 'lorn1_' . str_repeat('r', 43))
+));
+$binding = $redeem->data['bindingId'];
+$admit_body = wp_json_encode(array(
+    'contract' => 'missionmed.lor.wordpress-admission-request.v1', 'audience' => 'lor-studio',
+    'bindingId' => $binding, 'subject' => 'wp:123',
+));
+$first = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Request(
+    '/missionmed/v1/lor-studio/current-user-admission', 'POST', $admit_body,
+    lor_headers('/wp-json/missionmed/v1/lor-studio/current-user-admission', $admit_body, 'lorn1_' . str_repeat('a', 43))
+));
+$revoke_body = wp_json_encode(array(
+    'contract' => 'missionmed.lor.wordpress-binding-revocation-request.v1', 'audience' => 'lor-studio',
+    'bindingId' => $binding, 'subject' => 'wp:123',
+));
+$revoke = mmhq_lor_studio_revoke_binding(new Lor_Test_Rest_Request(
+    '/missionmed/v1/lor-studio/binding/revoke', 'POST', $revoke_body,
+    lor_headers('/wp-json/missionmed/v1/lor-studio/binding/revoke', $revoke_body, 'lorn1_' . str_repeat('v', 43))
+));
+$copied = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Request(
+    '/missionmed/v1/lor-studio/current-user-admission', 'POST', $admit_body,
+    lor_headers('/wp-json/missionmed/v1/lor-studio/current-user-admission', $admit_body, 'lorn1_' . str_repeat('c', 43))
+));
+$binding_names = mmhq_lor_studio_transient_names('binding_v1', hash('sha256', $binding));
+$index_names = mmhq_lor_studio_transient_names('binding_subject_v1', hash('sha256', 'wp:123'));
+echo json_encode(array(
+    'first_admitted' => $first->data['admitted'],
+    'revocation' => $revoke->data,
+    'copied_error' => $copied->code,
+    'binding_value' => array_key_exists($binding_names[0], $GLOBALS['lor_options']),
+    'binding_timeout' => array_key_exists($binding_names[1], $GLOBALS['lor_options']),
+    'index_value' => array_key_exists($index_names[0], $GLOBALS['lor_options']),
+    'index_timeout' => array_key_exists($index_names[1], $GLOBALS['lor_options']),
+));
+`,
+  }));
+  assert.equal(result.first_admitted, true);
+  assert.deepEqual(result.revocation, {
+    contract: 'missionmed.lor.wordpress-binding-revocation.v1',
+    audience: 'lor-studio',
+    subject: 'wp:123',
+    bindingId: result.revocation.bindingId,
+    revoked: true,
+    revokedAt: result.revocation.revokedAt,
+  });
+  assert.match(result.revocation.bindingId, /^lorb1_[A-Za-z0-9_-]{43}$/u);
+  assert.match(result.revocation.revokedAt, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/u);
+  assert.equal(result.copied_error, 'missionmed_lor_contract_unavailable');
+  assert.deepEqual({
+    binding_value: result.binding_value,
+    binding_timeout: result.binding_timeout,
+    index_value: result.index_value,
+    index_timeout: result.index_timeout,
+  }, {
+    binding_value: false,
+    binding_timeout: false,
+    index_value: false,
+    index_timeout: false,
+  });
+});
+
+test('entitlement remains server-resolved, current, explicit-course, and gate complete', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+lor_valid_fixture();
+$valid = mmhq_lor_studio_identity_entitlement_for_user(123);
+$GLOBALS['lor_entitlement']['course_ids'] = array('3893');
+$wrong_course = mmhq_lor_studio_identity_entitlement_for_user(123);
+lor_valid_fixture(); unset($GLOBALS['lor_meta']['_missionmed_lor_consent_accepted']);
+$missing_gate = mmhq_lor_studio_identity_entitlement_for_user(123);
+echo json_encode(array(
+    'valid' => $valid, 'wrong_course' => is_wp_error($wrong_course),
+    'missing_gate' => is_wp_error($missing_gate),
+));
+`,
+  }));
+  assert.deepEqual(result.valid, {
     contract: 'missionmed.lor.wordpress-entitlement.v1',
     subject: 'wp:123',
     admitted: true,
-  };
-  assert.deepEqual(result.projection, expectedProjection);
-  assert.deepEqual(result.rest_projection, expectedProjection);
-  assert.equal(result.cache_control, 'private, no-store, max-age=0');
-  assert.equal(result.permission, true);
-  assert.equal(result.producer_user_id, 123);
-  for (const [name, value] of Object.entries(result)) {
-    if (name.startsWith('missing:')) {
-      assert.equal(value, 'missionmed_lor_contract_unavailable');
-    }
-  }
-  assert.equal(result.consent_revoked, true);
-  assert.equal(result.lor_revoked, true);
-  assert.equal(result.cross_subject_current_123_producer_999, true);
-  assert.equal(result.anonymous, true);
-  assert.equal(result.malformed_producer, true);
-  assert.equal(result.throwing_producer, true);
+  });
+  assert.equal(result.wrong_course, true);
+  assert.equal(result.missing_gate, true);
 });
 
-test('exact-route no-store invariant covers success, generic denial, and permission denial', { skip: !phpAvailable }, () => {
+test('no-store applies to all three S2S routes and unrelated responses are byte-identical', { skip: !phpAvailable }, () => {
   const result = runPhp(phpProgram({
-    constants: enabledConstants,
-    producer: injectableProducer,
     body: `
-$GLOBALS['lor_meta'] = array(
-    '_missionmed_lor_enabled' => '1',
-    '_missionmed_lor_canary_enabled' => '1',
-    '_missionmed_lor_consent_accepted' => '1',
-    '_missionmed_lor_consent_version' => 'lor-consent-v1',
-    '_missionmed_lor_consent_at' => gmdate('c', time() - 60),
+$routes = array(
+    '/missionmed/v1/lor-studio/bootstrap/redeem',
+    '/missionmed/v1/lor-studio/current-user-admission',
+    '/missionmed/v1/lor-studio/binding/revoke',
 );
-$GLOBALS['lor_entitlement'] = array(
-    'product' => 'cam',
-    'source' => 'wordpress_learndash_handoff',
-    'verified' => true,
-    'trusted' => true,
-    'active' => true,
-    'status' => 'active',
-    'course_ids' => array('4000'),
-    'program_tier' => '360_match_mentorship',
-    'restricted' => false,
-    'revoked' => false,
-    'current_access_verified' => true,
-    'purchase_verified' => true,
-    'expires_at' => gmdate('c', time() + 3600),
-    'evaluated_at' => gmdate('c', time() - 60),
-);
-$route_request = new Lor_Test_Rest_Request('/missionmed/v1/lor-studio/identity-entitlement');
-$success = mmhq_lor_studio_contract_rest_response($route_request);
-$success = mmhq_lor_studio_contract_post_dispatch($success, null, $route_request);
-$GLOBALS['lor_producer_subject_override'] = 'wp:999';
-$denial = mmhq_lor_studio_contract_rest_response($route_request);
-$denial_was_error = is_wp_error($denial);
-$denial = mmhq_lor_studio_contract_post_dispatch($denial, null, $route_request);
-unset($GLOBALS['lor_producer_subject_override']);
-$GLOBALS['lor_user_id'] = 0;
-$permission_allowed = mmhq_lor_studio_contract_permission();
-$permission_denial = new WP_Error('rest_forbidden', 'Forbidden.', array('status' => 401));
-$permission_denial = mmhq_lor_studio_contract_post_dispatch(
-    $permission_denial,
-    null,
-    $route_request
-);
-$unrelated_request = new Lor_Test_Rest_Request('/wp/v2/users');
+$headers = array();
+foreach ($routes as $route) {
+    $request = new Lor_Test_Rest_Request($route);
+    $response = mmhq_lor_studio_contract_post_dispatch(new WP_Error('denied', 'Denied', array('status' => 403)), null, $request);
+    $headers[] = $response->headers['Cache-Control'];
+}
 $unrelated = new Lor_Test_Rest_Response(array('ok' => true));
-$unrelated_after = mmhq_lor_studio_contract_post_dispatch($unrelated, null, $unrelated_request);
-echo json_encode(array(
-    'success_cache_control' => $success->headers['Cache-Control'],
-    'denial_was_error' => $denial_was_error,
-    'denial_code' => $denial->data['code'],
-    'denial_cache_control' => $denial->headers['Cache-Control'],
-    'permission_allowed' => $permission_allowed,
-    'permission_code' => $permission_denial->data['code'],
-    'permission_cache_control' => $permission_denial->headers['Cache-Control'],
-    'unrelated_same_object' => $unrelated_after === $unrelated,
-    'unrelated_headers' => $unrelated_after->headers,
-));
+$same = mmhq_lor_studio_contract_post_dispatch($unrelated, null, new Lor_Test_Rest_Request('/wp/v2/users'));
+echo json_encode(array('headers' => $headers, 'same' => $same === $unrelated, 'unrelated_headers' => $same->headers));
 `,
   }));
-
   assert.deepEqual(result, {
-    success_cache_control: 'private, no-store, max-age=0',
-    denial_was_error: true,
-    denial_code: 'missionmed_lor_contract_unavailable',
-    denial_cache_control: 'private, no-store, max-age=0',
-    permission_allowed: false,
-    permission_code: 'rest_forbidden',
-    permission_cache_control: 'private, no-store, max-age=0',
-    unrelated_same_object: true,
+    headers: [
+      'private, no-store, max-age=0',
+      'private, no-store, max-age=0',
+      'private, no-store, max-age=0',
+    ],
+    same: true,
     unrelated_headers: [],
-  });
-});
-
-test('course 3893 admits only when exact server configuration explicitly lists it', { skip: !phpAvailable }, () => {
-  const constants = `
-define('MMHQ_LOR_STUDIO_WORDPRESS_CONTRACT_ENABLED', true);
-define('MMHQ_LOR_STUDIO_VERIFIED_COURSE_IDS', '3893');
-define('MMHQ_LOR_STUDIO_VERIFIED_PROGRAM_TIERS', '360_match_mentorship');
-define('MMHQ_LOR_STUDIO_REQUIRED_CONSENT_VERSION', 'lor-consent-v1');
-`;
-  const result = runPhp(phpProgram({
-    constants,
-    producer: injectableProducer,
-    body: `
-$GLOBALS['lor_meta'] = array(
-    '_missionmed_lor_enabled' => '1',
-    '_missionmed_lor_canary_enabled' => '1',
-    '_missionmed_lor_consent_accepted' => '1',
-    '_missionmed_lor_consent_version' => 'lor-consent-v1',
-    '_missionmed_lor_consent_at' => gmdate('c', time() - 60),
-);
-$GLOBALS['lor_entitlement'] = array(
-    'product' => 'cam',
-    'source' => 'wordpress_learndash_handoff',
-    'verified' => true,
-    'trusted' => true,
-    'active' => true,
-    'status' => 'active',
-    'course_ids' => array('3893'),
-    'program_tier' => '360_match_mentorship',
-    'restricted' => false,
-    'revoked' => false,
-    'current_access_verified' => true,
-    'purchase_verified' => true,
-    'expires_at' => '',
-    'evaluated_at' => gmdate('c', time() - 60),
-);
-$projection = mmhq_lor_studio_current_identity_entitlement();
-echo json_encode(array(
-    'verified_course_ids' => mmhq_lor_studio_verified_course_ids(),
-    'projection' => $projection,
-));
-`,
-  }));
-
-  assert.deepEqual(result.verified_course_ids, [3893]);
-  assert.deepEqual(result.projection, {
-    contract: 'missionmed.lor.wordpress-entitlement.v1',
-    subject: 'wp:123',
-    admitted: true,
-  });
-});
-
-test('enabled route is singular, versioned, non-enumerating, and current-user protected', { skip: !phpAvailable }, () => {
-  const result = runPhp(phpProgram({
-    constants: enabledConstants,
-    producer: injectableProducer,
-    body: `
-mmhq_lor_studio_register_rest_contract();
-$route = $GLOBALS['lor_routes'][0];
-echo json_encode(array(
-    'count' => count($GLOBALS['lor_routes']),
-    'namespace' => $route[0],
-    'route' => $route[1],
-    'methods' => $route[2]['methods'],
-    'callback' => $route[2]['callback'],
-    'permission_callback' => $route[2]['permission_callback'],
-    'has_args' => array_key_exists('args', $route[2]),
-    'post_dispatch_filters' => $GLOBALS['lor_filters']['rest_post_dispatch'],
-));
-`,
-  }));
-
-  assert.deepEqual(result, {
-    count: 1,
-    namespace: 'missionmed/v1',
-    route: '/lor-studio/identity-entitlement',
-    methods: 'GET',
-    callback: 'mmhq_lor_studio_contract_rest_response',
-    permission_callback: 'mmhq_lor_studio_contract_permission',
-    has_args: false,
-    post_dispatch_filters: [['mmhq_lor_studio_contract_post_dispatch', 10, 3]],
   });
 });

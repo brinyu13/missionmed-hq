@@ -182,7 +182,7 @@ test('authentication response offers the same-origin MissionMed login handoff', 
   });
   const link = dom.window.document.querySelector('#lorRuntimeGateActions a');
   assert.equal(dom.window.document.getElementById('lorRuntimeGateTitle').textContent, 'Sign in to continue');
-  assert.equal(link.getAttribute('href'), '/api/auth/start?final=%2Flor-studio%2F');
+  assert.equal(link.getAttribute('href'), '/api/lor-studio/auth/start');
 });
 
 test('adapter keeps frozen presentation blocked even when backend reports live without an authorized hydration adapter', async () => {
@@ -470,7 +470,7 @@ test('every fail-closed gate branch is unchanged by hydration', async () => {
   });
   assert.equal(
     login.dom.window.document.querySelector('#lorRuntimeGateActions a').getAttribute('href'),
-    '/api/auth/start?final=%2Flor-studio%2F',
+    '/api/lor-studio/auth/start',
   );
 });
 

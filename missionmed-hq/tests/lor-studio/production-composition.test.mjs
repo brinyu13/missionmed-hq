@@ -29,7 +29,9 @@ import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
 
 import {
+  createLorStudioShutdownCoordinator,
   createLorStudioApplication,
+  createReadinessGatedLorStudioApplication,
   readLorTargetConfiguration,
   LOR_COMPOSITION_REASONS,
   LOR_TARGET_ENV_KEYS,
@@ -1012,15 +1014,130 @@ test('NEGATIVE CONTROL: removing the store turns drafting off and leaves the res
   assert.notEqual(read.status, 503, 'a case read must not be collateral damage of absent drafting');
 });
 
+test('readiness wrapper allocates only after target and entitlement validation', async () => {
+  let factoryCalls = 0;
+  const factory = () => {
+    factoryCalls += 1;
+    throw new Error('must not be reached');
+  };
+  const missingTarget = await createReadinessGatedLorStudioApplication({
+    targetConfiguration: null,
+    entitlementPort: new StaticEntitlementTestAdapter([eligibleStudent('wp:1')]),
+    runtimeDependencyFactory: factory,
+  });
+  const missingEntitlement = await createReadinessGatedLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPort: null,
+    runtimeDependencyFactory: factory,
+  });
+  assert.equal(missingTarget.reason, LOR_COMPOSITION_REASONS.TARGET_NOT_CONFIGURED);
+  assert.equal(missingEntitlement.reason, LOR_COMPOSITION_REASONS.ENTITLEMENT_PORT_UNAVAILABLE);
+  assert.equal(factoryCalls, 0);
+});
+
+test('one exact green runtime readiness receipt retains the durable application', async () => {
+  let probes = 0;
+  let closes = 0;
+  const result = await createReadinessGatedLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPort: new StaticEntitlementTestAdapter([eligibleStudent('wp:1')]),
+    runtimeDependencyFactory: () => ({
+      driver: actorSafeDriver(),
+      scopeProvider: async () => ({}),
+      readiness: {
+        async probe() {
+          probes += 1;
+          return { ready: true, reasonCode: 'READY', checks: { database: true } };
+        },
+      },
+      async close() { closes += 1; },
+    }),
+  });
+  assert.ok(result.application);
+  assert.ok(result.runtimeDependencies);
+  assert.equal(probes, 1);
+  assert.equal(closes, 0);
+});
+
+test('false, malformed, and throwing readiness close once and expose one safe reason', async () => {
+  const candidates = [
+    async () => ({ ready: false, reasonCode: 'secret provider detail', checks: { database: false } }),
+    async () => ({ ready: true, reasonCode: 'READY', checks: {} }),
+    async () => { throw new Error('credential-like provider detail'); },
+  ];
+  for (const probe of candidates) {
+    let closes = 0;
+    const result = await createReadinessGatedLorStudioApplication({
+      targetConfiguration: testTargetConfiguration(),
+      entitlementPort: new StaticEntitlementTestAdapter([eligibleStudent('wp:1')]),
+      runtimeDependencyFactory: () => ({
+        driver: actorSafeDriver(),
+        scopeProvider: async () => ({}),
+        readiness: { probe },
+        async close() { closes += 1; },
+      }),
+    });
+    assert.equal(result.application, null);
+    assert.equal(result.reason, LOR_COMPOSITION_REASONS.RUNTIME_READINESS_FAILED);
+    assert.equal(JSON.stringify(result).includes('credential'), false);
+    assert.equal(JSON.stringify(result).includes('secret provider'), false);
+    assert.equal(closes, 1);
+  }
+});
+
+test('startup abort closes the allocated runtime while readiness is pending', async () => {
+  const controller = new AbortController();
+  let closeCount = 0;
+  const pending = createReadinessGatedLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPort: new StaticEntitlementTestAdapter([eligibleStudent('wp:1')]),
+    signal: controller.signal,
+    runtimeDependencyFactory() {
+      return {
+        driver: actorSafeDriver(),
+        scopeProvider: async () => ({}),
+        readiness: { probe: () => new Promise(() => {}) },
+        async close() { closeCount += 1; },
+      };
+    },
+  });
+  controller.abort();
+  const result = await pending;
+  assert.equal(result.application, null);
+  assert.equal(result.reason, LOR_COMPOSITION_REASONS.RUNTIME_READINESS_FAILED);
+  assert.equal(closeCount, 1);
+});
+
+test('shutdown is one shared promise, closes HTTP before pool, and attempts both on error', async () => {
+  const order = [];
+  const shutdown = createLorStudioShutdownCoordinator({
+    closeHttp: async () => { order.push('http'); },
+    runtimeDependencies: { async close() { order.push('pool'); } },
+  });
+  const first = shutdown();
+  const second = shutdown();
+  assert.equal(first, second);
+  await first;
+  assert.deepEqual(order, ['http', 'pool']);
+
+  const failingOrder = [];
+  const failing = createLorStudioShutdownCoordinator({
+    closeHttp: async () => { failingOrder.push('http'); throw new Error('private detail'); },
+    runtimeDependencies: { async close() { failingOrder.push('pool'); } },
+  });
+  await assert.rejects(failing(), (error) => error.message === 'LOR_RUNTIME_SHUTDOWN_FAILED');
+  assert.deepEqual(failingOrder, ['http', 'pool']);
+});
+
 // ---------------------------------------------------------------------------
 // SOURCE GUARD - the check that would have caught the original defect
 // ---------------------------------------------------------------------------
 
-test('SOURCE GUARD: server.mjs composes and passes an application to the runtime', () => {
+test('SOURCE GUARD: server.mjs readiness-gates and passes an application to the runtime', () => {
   const source = readFileSync(fileURLToPath(new URL('../../server.mjs', import.meta.url)), 'utf8');
 
-  assert.match(source, /createLorStudioApplication\(/u,
-    'server.mjs must construct the application through the composition root');
+  assert.match(source, /await createReadinessGatedLorStudioApplication\(/u,
+    'server.mjs must construct and readiness-gate the application through the production wrapper');
   assert.match(source, /readLorTargetConfiguration\(/u,
     'the target must come from explicit configuration');
 
@@ -1045,6 +1162,22 @@ test('SOURCE GUARD: server.mjs composes and passes an application to the runtime
   // The runtime must receive a real URL, not a synthetic { pathname, searchParams } literal.
   assert.match(source, /LOR_STUDIO_RUNTIME\.handle\(request,\s*response,\s*url,/u,
     'the runtime must be handed the genuine URL object');
+  assert.match(source, /createProductionPostgresRuntimeDependencies/u);
+  assert.match(source, /createWordPressCurrentUserAdmission/u);
+  assert.match(source, /readLorStudioSession\(request\)/u);
+  assert.match(source, /!session[\s\S]*?LOR_HTML_ENTRY_PATHS\.has\(pathname\)[\s\S]*?sendRedirect\(response, LOR_AUTH_START_PATH, 302\)/u,
+    'an unauthenticated canonical LOR page must enter the isolated LOR auth lane');
+  assert.match(source, /process\.once\('SIGTERM', requestGracefulShutdown\)/u);
+  assert.match(source, /process\.once\('SIGINT', requestGracefulShutdown\)/u);
+  assert.ok(
+    source.indexOf("process.once('SIGTERM', requestGracefulShutdown)")
+      < source.indexOf('await createReadinessGatedLorStudioApplication('),
+    'signal handlers must be installed before the network-bound readiness probe',
+  );
+  assert.match(source, /server\.on\('error',[\s\S]*?process\.exitCode = 1/u,
+    'a fatal listen error must leave a non-zero process exit status');
+  assert.match(source, /LOR_STUDIO_SHUTDOWN\(\)\.catch\(\(\) => \{[\s\S]*?process\.exitCode = 1/u,
+    'a graceful-signal cleanup failure must leave a non-zero process exit status');
 });
 
 test('SOURCE GUARD: the composition root passes a drafting service to the application adapter', () => {

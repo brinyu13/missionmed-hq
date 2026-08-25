@@ -52,6 +52,7 @@ export const LOR_COMPOSITION_REASONS = Object.freeze({
   AI_PROPOSAL_STORE_UNAVAILABLE: 'lor_ai_proposal_store_unavailable',
   AI_PROVIDER_UNAVAILABLE: 'lor_ai_provider_unavailable',
   ENTITLEMENT_PORT_UNAVAILABLE: 'lor_entitlement_port_unavailable',
+  RUNTIME_READINESS_FAILED: 'lor_runtime_readiness_failed',
   COMPOSITION_FAILED: 'lor_composition_failed',
 });
 
@@ -298,4 +299,125 @@ export function createLorStudioApplication({
       binding,
     };
   }
+}
+
+async function closeRuntimeDependencies(runtimeDependencies) {
+  if (!runtimeDependencies || typeof runtimeDependencies.close !== 'function') return;
+  try {
+    await runtimeDependencies.close();
+  } catch {
+    // Startup readiness exposes one constant reason only.
+  }
+}
+
+/**
+ * Production startup wrapper. Target and entitlement validation still happen
+ * before the runtime factory is invoked. If a pool is allocated, one redacted
+ * catalog-fingerprint probe must pass before the application is retained.
+ */
+export async function createReadinessGatedLorStudioApplication(options = {}) {
+  const { signal = null, ...compositionOptions } = options;
+  if (
+    signal !== null
+    && (
+      typeof signal !== 'object'
+      || typeof signal.addEventListener !== 'function'
+      || typeof signal.removeEventListener !== 'function'
+      || typeof signal.aborted !== 'boolean'
+    )
+  ) {
+    return {
+      application: null,
+      reason: LOR_COMPOSITION_REASONS.RUNTIME_READINESS_FAILED,
+    };
+  }
+  const composition = createLorStudioApplication(compositionOptions);
+  if (composition.application === null) return composition;
+
+  const dependencies = composition.runtimeDependencies;
+  if (
+    !dependencies
+    || typeof dependencies !== 'object'
+    || !dependencies.readiness
+    || typeof dependencies.readiness.probe !== 'function'
+    || typeof dependencies.close !== 'function'
+  ) {
+    await closeRuntimeDependencies(dependencies);
+    return {
+      application: null,
+      binding: composition.binding,
+      reason: LOR_COMPOSITION_REASONS.RUNTIME_READINESS_FAILED,
+    };
+  }
+
+  let abortReadiness = null;
+  try {
+    if (signal?.aborted) throw new TypeError('startup aborted');
+    const readiness = dependencies.readiness.probe();
+    const receipt = signal
+      ? await Promise.race([
+        readiness,
+        new Promise((_, reject) => {
+          abortReadiness = () => reject(new TypeError('startup aborted'));
+          signal.addEventListener('abort', abortReadiness, { once: true });
+        }),
+      ])
+      : await readiness;
+    const checks = receipt?.checks;
+    if (
+      receipt?.ready !== true
+      || receipt?.reasonCode !== 'READY'
+      || !checks
+      || typeof checks !== 'object'
+      || Array.isArray(checks)
+      || Object.keys(checks).length < 1
+      || Object.values(checks).some((value) => value !== true)
+    ) {
+      throw new TypeError('readiness rejected');
+    }
+    return composition;
+  } catch {
+    await closeRuntimeDependencies(dependencies);
+    return {
+      application: null,
+      binding: composition.binding,
+      reason: LOR_COMPOSITION_REASONS.RUNTIME_READINESS_FAILED,
+    };
+  } finally {
+    if (abortReadiness) signal.removeEventListener('abort', abortReadiness);
+  }
+}
+
+/**
+ * One shutdown promise for signals, listen failures, and tests. HTTP admission
+ * closes first; the database pool is attempted even if HTTP closure fails.
+ */
+export function createLorStudioShutdownCoordinator({
+  closeHttp = async () => {},
+  runtimeDependencies = null,
+} = {}) {
+  if (typeof closeHttp !== 'function') {
+    throw new TypeError('closeHttp must be a function');
+  }
+  let shutdownPromise = null;
+  return function shutdown() {
+    if (shutdownPromise) return shutdownPromise;
+    shutdownPromise = (async () => {
+      let failed = false;
+      try {
+        await closeHttp();
+      } catch {
+        failed = true;
+      }
+      try {
+        await runtimeDependencies?.close?.();
+      } catch {
+        failed = true;
+      }
+      if (failed) {
+        throw new Error('LOR_RUNTIME_SHUTDOWN_FAILED');
+      }
+    })();
+    return shutdownPromise;
+  };
 }

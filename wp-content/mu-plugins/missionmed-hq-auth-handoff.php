@@ -138,6 +138,41 @@ function mmhq_handoff_handle() {
         wp_die('Invalid return_to target.');
     }
 
+    // Exact LOR-only branch. It issues one opaque, one-time browser code and
+    // never places identity, entitlement evidence, or a reusable credential in
+    // the URL. Every other audience continues through the byte-compatible
+    // Arena/STAT/HQ token branch below.
+    $audience_raw = isset($_GET['audience']) && is_string($_GET['audience'])
+        ? wp_unslash($_GET['audience'])
+        : '';
+    if ('lor-studio' === $audience_raw) {
+        if (!function_exists('mmhq_lor_studio_issue_browser_bootstrap_code')) {
+            status_header(503);
+            wp_die('LOR Studio access is unavailable.');
+        }
+        $issued = mmhq_lor_studio_issue_browser_bootstrap_code(
+            wp_get_current_user(),
+            $return_to
+        );
+        if (is_wp_error($issued) || !is_array($issued) || empty($issued['code']) || empty($issued['callback'])) {
+            $failure_status = 403;
+            if (is_wp_error($issued) && method_exists($issued, 'get_error_data')) {
+                $failure_data = $issued->get_error_data();
+                if (is_array($failure_data) && 503 === ($failure_data['status'] ?? null)) {
+                    $failure_status = 503;
+                }
+            }
+            status_header($failure_status);
+            wp_die('LOR Studio access is unavailable.');
+        }
+        $target = add_query_arg(array('code' => $issued['code']), $issued['callback']);
+        if (function_exists('nocache_headers')) {
+            nocache_headers();
+        }
+        wp_safe_redirect($target, 303);
+        exit;
+    }
+
     $final_raw = isset($_GET['final']) ? (string) wp_unslash($_GET['final']) : '';
     $final = mmhq_handoff_normalize_final($final_raw);
 

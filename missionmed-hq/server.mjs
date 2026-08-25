@@ -19,9 +19,18 @@ import {
   isLorStudioRequestPath,
 } from './lor-studio/http/runtime.mjs';
 import {
-  createLorStudioApplication,
+  createLorStudioShutdownCoordinator,
+  createReadinessGatedLorStudioApplication,
   readLorTargetConfiguration,
 } from './lor-studio/composition.mjs';
+import { createProductionPostgresRuntimeDependencies } from './lor-studio/adapters/production-postgres-runtime.mjs';
+import { createWordPressCurrentUserAdmission } from './lor-studio/adapters/wordpress-current-user-admission.mjs';
+import {
+  createWordPressLorAuthState,
+  createWordPressLorS2sClient,
+  WORDPRESS_LOR_AUDIENCE,
+  WORDPRESS_LOR_BINDING_PROVENANCE,
+} from './lor-studio/adapters/wordpress-lor-s2s-protocol.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -34,6 +43,15 @@ const ENV_FILE = path.join(__dirname, '.env');
 const ENV_LOCAL_FILE = path.join(__dirname, '.env.local');
 const INTERNAL_REQUEST_ORIGIN = 'http://internal.invalid';
 const WORDPRESS_AUTH_REDIRECT_ACTION = 'mmac_hq_auth_redirect';
+const LOR_AUTH_START_PATH = '/api/lor-studio/auth/start';
+const LOR_AUTH_CALLBACK_PATH = '/api/lor-studio/auth/callback';
+const LOR_AUTH_LOGOUT_PATH = '/api/lor-studio/auth/logout';
+const LOR_AUTH_FINAL_PATH = '/lor-studio/';
+const LOR_HTML_ENTRY_PATHS = new Set(['/lor-studio', '/lor-studio/', '/lor-studio/index.html']);
+const LOR_SESSION_COOKIE_PRODUCTION = '__Host-mmhq_lor_session';
+const LOR_STATE_COOKIE_PRODUCTION = '__Host-mmhq_lor_state';
+const LOR_SESSION_COOKIE_LOCAL = 'mmhq_lor_session_local';
+const LOR_STATE_COOKIE_LOCAL = 'mmhq_lor_state_local';
 const MMC_PRIVATE_ROUTE_PREFIX = '/mmc-private';
 const MMC_PRIVATE_INDEX_PATH = `${MMC_PRIVATE_ROUTE_PREFIX}/index.html`;
 const RUNTIME_ENV = String(process.env.NODE_ENV || 'development').trim().toLowerCase() || 'development';
@@ -266,6 +284,16 @@ const REQUIRED_ENV_VARIABLES = [
 const STARTUP_VALIDATION = buildEnvValidation();
 
 const SESSION_KEY = buildSessionKey(SESSION_SECRET);
+const LOR_SESSION_KEY = Buffer.byteLength(CONFIGURED_SESSION_SECRET, 'utf8') >= 32
+  ? createHmac('sha256', CONFIGURED_SESSION_SECRET)
+    .update('missionmed.lor.session.key.v1')
+    .digest()
+  : null;
+const LOR_STATE_KEY = Buffer.byteLength(CONFIGURED_SESSION_SECRET, 'utf8') >= 32
+  ? createHmac('sha256', CONFIGURED_SESSION_SECRET)
+    .update('missionmed.lor.state.key.v1')
+    .digest()
+  : null;
 assertStartupConfiguration();
 
 // LOR Studio composition root. The application is constructed here, from an EXPLICIT target
@@ -273,11 +301,48 @@ assertStartupConfiguration();
 // When the target is unconfigured, or no durable driver exists, composition declines and the
 // runtime keeps returning 503 - but now for a reported, truthful reason instead of because the
 // `application` option was silently omitted, which is what left the whole product dark.
-const LOR_STUDIO_COMPOSITION = createLorStudioApplication({
+let LOR_WORDPRESS_S2S_CLIENT = null;
+let LOR_WORDPRESS_ADMISSION = null;
+const LOR_STARTUP_ABORT = new AbortController();
+let LOR_STUDIO_SHUTDOWN = null;
+let lorShutdownRequested = false;
+
+function requestGracefulShutdown() {
+  lorShutdownRequested = true;
+  LOR_STARTUP_ABORT.abort();
+  if (LOR_STUDIO_SHUTDOWN) {
+    void LOR_STUDIO_SHUTDOWN().catch(() => {
+      process.exitCode = 1;
+      console.error('MISSIONMED_RUNTIME_SHUTDOWN_FAILED');
+    });
+  }
+}
+
+process.once('SIGTERM', requestGracefulShutdown);
+process.once('SIGINT', requestGracefulShutdown);
+
+try {
+  LOR_WORDPRESS_S2S_CLIENT = createWordPressLorS2sClient({
+    origin: new URL(CONFIG.wpBase).origin,
+    sharedSecret: AUTH_HANDOFF_SECRET,
+  });
+  LOR_WORDPRESS_ADMISSION = createWordPressCurrentUserAdmission({
+    s2sClient: LOR_WORDPRESS_S2S_CLIENT,
+  });
+} catch {
+  // Missing/weak configuration keeps the product dark without exposing which
+  // credential or endpoint was unavailable.
+  LOR_WORDPRESS_S2S_CLIENT = null;
+  LOR_WORDPRESS_ADMISSION = null;
+}
+
+const LOR_STUDIO_COMPOSITION = await createReadinessGatedLorStudioApplication({
   targetConfiguration: readLorTargetConfiguration(process.env),
-  // No production entitlement port is bound yet: WordPressEntitlementConsumer requires injected
-  // server-side readers and the exact LearnDash 360 contract, which remains unratified.
-  entitlementPort: null,
+  entitlementPort: LOR_WORDPRESS_ADMISSION,
+  runtimeDependencyFactory: createProductionPostgresRuntimeDependencies,
+  providersReady: false,
+  allAcceptedFunctionsOperational: false,
+  signal: LOR_STARTUP_ABORT.signal,
 });
 
 if (LOR_STUDIO_COMPOSITION.application === null) {
@@ -294,7 +359,8 @@ const LOR_STUDIO_RUNTIME = createLorStudioRuntime({
     killSwitch: envFlag('MMHQ_LOR_STUDIO_KILL_SWITCH', true),
     requireCanary: envFlag('MMHQ_LOR_STUDIO_REQUIRE_CANARY', true),
   },
-  entitlementResolver: createUnavailableLorEntitlementResolver('exact_learndash_360_contract_unverified'),
+  entitlementResolver: LOR_WORDPRESS_ADMISSION
+    ?? createUnavailableLorEntitlementResolver('wordpress_lor_s2s_admission_unavailable'),
   application: LOR_STUDIO_COMPOSITION.application,
   validateCsrf,
 });
@@ -352,8 +418,22 @@ const server = http.createServer(async (request, response) => {
       return;
     }
 
+    if (await handleLorStudioAuthRoute(request, response, url)) {
+      return;
+    }
+
     if (isLorStudioRequestPath(pathname)) {
-      const session = authenticateApiRequest(request);
+      // LOR accepts only its separate, cookie-only binding session. Generic HQ,
+      // Arena, Scheduler, bearer, and WordPress cookies cannot substitute.
+      const session = readLorStudioSession(request);
+      if (
+        !session
+        && request.method === 'GET'
+        && LOR_HTML_ENTRY_PATHS.has(pathname)
+      ) {
+        sendRedirect(response, LOR_AUTH_START_PATH, 302);
+        return;
+      }
       // Pass the real URL. This previously handed the runtime a synthetic
       // { pathname, searchParams } literal, so `url.href`, `url.origin`, `url.searchParams`
       // beyond a plain read, and any `instanceof URL` check would have behaved differently in
@@ -374,11 +454,40 @@ const server = http.createServer(async (request, response) => {
   }
 });
 
+function closeHttpAdmission() {
+  for (const timer of [dbocTranscribeWorkerTimer, dbocEncodeWorkerTimer, dbocMetricsWorkerTimer]) {
+    if (timer) clearTimeout(timer);
+  }
+  dbocTranscribeWorkerTimer = null;
+  dbocEncodeWorkerTimer = null;
+  dbocMetricsWorkerTimer = null;
+  return new Promise((resolve, reject) => {
+    if (!server.listening) {
+      resolve();
+      return;
+    }
+    server.close((error) => {
+      if (error && error.code !== 'ERR_SERVER_NOT_RUNNING') reject(new Error('HTTP_ADMISSION_CLOSE_FAILED'));
+      else resolve();
+    });
+  });
+}
+
+LOR_STUDIO_SHUTDOWN = createLorStudioShutdownCoordinator({
+  closeHttp: closeHttpAdmission,
+  runtimeDependencies: LOR_STUDIO_COMPOSITION.runtimeDependencies,
+});
+
 server.on('error', (err) => {
+  process.exitCode = 1;
   console.error('FATAL START ERROR:', err);
+  requestGracefulShutdown();
 });
 
 try {
+  if (lorShutdownRequested) {
+    await LOR_STUDIO_SHUTDOWN();
+  } else {
   console.log('STARTING SERVER...');
   console.log('PORT:', PORT);
   console.log('STATIC ROOT:', STATIC_ROOT);
@@ -399,8 +508,13 @@ try {
   server.listen(PORT, '0.0.0.0', () => {
     console.log('HQ server running on port:', PORT);
   });
+  }
 } catch (err) {
+  process.exitCode = 1;
   console.error('FATAL START ERROR:', err);
+  await LOR_STUDIO_SHUTDOWN().catch(() => {
+    console.error('MISSIONMED_RUNTIME_SHUTDOWN_FAILED');
+  });
 }
 
 function getCachedValue(key) {
@@ -992,6 +1106,208 @@ function shouldUseSecureCookies(request) {
   return !host.includes('localhost') && !host.includes('127.0.0.1');
 }
 
+function lorCookieNames(request) {
+  const production = shouldUseSecureCookies(request);
+  return {
+    session: production ? LOR_SESSION_COOKIE_PRODUCTION : LOR_SESSION_COOKIE_LOCAL,
+    state: production ? LOR_STATE_COOKIE_PRODUCTION : LOR_STATE_COOKIE_LOCAL,
+  };
+}
+
+function exactCookieValue(request, cookieName) {
+  const matches = String(request?.headers?.cookie || '')
+    .split(';')
+    .map((chunk) => chunk.trim())
+    .filter(Boolean)
+    .filter((chunk) => chunk.slice(0, chunk.indexOf('=')).trim() === cookieName);
+  if (matches.length !== 1) return '';
+  const equals = matches[0].indexOf('=');
+  if (equals < 1) return '';
+  try {
+    return decodeURIComponent(matches[0].slice(equals + 1).trim());
+  } catch {
+    return '';
+  }
+}
+
+function createLorSealedToken(payload, key, prefix) {
+  if (!Buffer.isBuffer(key) || key.length !== 32) throw new Error('LOR_AUTH_UNAVAILABLE');
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const ciphertext = Buffer.concat([cipher.update(JSON.stringify(payload), 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `${prefix}.${base64UrlEncode(iv)}.${base64UrlEncode(ciphertext)}.${base64UrlEncode(tag)}`;
+}
+
+function readLorSealedToken(token, key, prefix) {
+  if (!Buffer.isBuffer(key) || key.length !== 32) throw new Error('LOR_AUTH_UNAVAILABLE');
+  const parts = String(token || '').split('.');
+  if (parts.length !== 4 || parts[0] !== prefix) throw new Error('LOR_AUTH_INVALID');
+  const iv = base64UrlDecode(parts[1]);
+  const ciphertext = base64UrlDecode(parts[2]);
+  const tag = base64UrlDecode(parts[3]);
+  if (iv.length !== 12 || tag.length !== 16 || ciphertext.length < 2 || ciphertext.length > 8_192) {
+    throw new Error('LOR_AUTH_INVALID');
+  }
+  const decipher = createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+  const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+  return JSON.parse(plaintext);
+}
+
+function buildLorCookie(request, cookieName, value, maxAge) {
+  return serializeCookie(cookieName, value, {
+    httpOnly: true,
+    maxAge,
+    path: '/',
+    sameSite: 'Lax',
+    secure: shouldUseSecureCookies(request),
+  });
+}
+
+function clearLorCookie(request, cookieName) {
+  return buildLorCookie(request, cookieName, '', 0);
+}
+
+function createLorStateCookie(request, stateHash, callback) {
+  const names = lorCookieNames(request);
+  const issuedAt = new Date();
+  const expiresAt = new Date(issuedAt.getTime() + 60_000);
+  const token = createLorSealedToken({
+    schemaVersion: 'missionmed.lor.auth-state.v1',
+    stateHash,
+    callback,
+    issuedAt: issuedAt.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+  }, LOR_STATE_KEY, 'lors1');
+  return buildLorCookie(request, names.state, token, 60);
+}
+
+function readLorStateCookie(request) {
+  const names = lorCookieNames(request);
+  const token = exactCookieValue(request, names.state);
+  if (!token) return null;
+  try {
+    const state = readLorSealedToken(token, LOR_STATE_KEY, 'lors1');
+    const exactKeys = ['schemaVersion', 'stateHash', 'callback', 'issuedAt', 'expiresAt'];
+    const issuedAt = exactLorInstant(state?.issuedAt);
+    const expiresAt = exactLorInstant(state?.expiresAt);
+    if (
+      !state
+      || typeof state !== 'object'
+      || Array.isArray(state)
+      || Object.keys(state).length !== exactKeys.length
+      || exactKeys.some((key) => !Object.hasOwn(state, key))
+      || state.schemaVersion !== 'missionmed.lor.auth-state.v1'
+      || !/^[a-f0-9]{64}$/u.test(state.stateHash ?? '')
+      || issuedAt === null
+      || expiresAt === null
+      || expiresAt <= Date.now()
+      || issuedAt > Date.now() + 30_000
+      || expiresAt <= issuedAt
+      || expiresAt - issuedAt > 60_000
+    ) return null;
+    return state;
+  } catch {
+    return null;
+  }
+}
+
+function createLorSessionCookie(request, bootstrap) {
+  const names = lorCookieNames(request);
+  const now = new Date();
+  const bindingExpiry = Date.parse(bootstrap.bindingExpiresAt);
+  const expiresAt = new Date(Math.min(
+    bindingExpiry,
+    now.getTime() + CONFIG.sessionTtlSeconds * 1_000,
+  ));
+  if (!Number.isFinite(bindingExpiry) || expiresAt.getTime() <= now.getTime()) {
+    throw new Error('LOR_AUTH_INVALID');
+  }
+  const session = {
+    schemaVersion: 'missionmed.lor.session-binding.v1',
+    issuedAt: now.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+    csrfToken: base64UrlEncode(randomBytes(18)),
+    authSource: 'wordpress-lor-s2s',
+    audience: WORDPRESS_LOR_AUDIENCE,
+    apiScope: 'lor-studio',
+    lorAdmissionBindingId: bootstrap.bindingId,
+    lorAdmissionBindingProvenance: WORDPRESS_LOR_BINDING_PROVENANCE,
+    lorAdmissionBindingExpiresAt: bootstrap.bindingExpiresAt,
+    user: {
+      id: bootstrap.subject,
+      role: 'student',
+      roles: ['student'],
+    },
+  };
+  const token = createLorSealedToken(session, LOR_SESSION_KEY, 'lor1');
+  return buildLorCookie(
+    request,
+    names.session,
+    token,
+    Math.max(1, Math.floor((expiresAt.getTime() - now.getTime()) / 1_000)),
+  );
+}
+
+function readLorStudioSession(request) {
+  const names = lorCookieNames(request);
+  const token = exactCookieValue(request, names.session);
+  if (!token) return null;
+  try {
+    const session = readLorSealedToken(token, LOR_SESSION_KEY, 'lor1');
+    const exactKeys = [
+      'schemaVersion', 'issuedAt', 'expiresAt', 'csrfToken', 'authSource',
+      'audience', 'apiScope', 'lorAdmissionBindingId',
+      'lorAdmissionBindingProvenance', 'lorAdmissionBindingExpiresAt', 'user',
+    ];
+    const issuedAt = exactLorInstant(session?.issuedAt);
+    const expiresAt = exactLorInstant(session?.expiresAt);
+    const bindingExpiresAt = exactLorInstant(session?.lorAdmissionBindingExpiresAt);
+    if (
+      !session
+      || typeof session !== 'object'
+      || Array.isArray(session)
+      || Object.keys(session).length !== exactKeys.length
+      || exactKeys.some((key) => !Object.hasOwn(session, key))
+      || session.schemaVersion !== 'missionmed.lor.session-binding.v1'
+      || session.audience !== WORDPRESS_LOR_AUDIENCE
+      || session.apiScope !== 'lor-studio'
+      || session.authSource !== 'wordpress-lor-s2s'
+      || session.lorAdmissionBindingProvenance !== WORDPRESS_LOR_BINDING_PROVENANCE
+      || !/^lorb1_[A-Za-z0-9_-]{43}$/u.test(session.lorAdmissionBindingId ?? '')
+      || !/^[A-Za-z0-9_-]{24}$/u.test(session.csrfToken ?? '')
+      || !/^wp:[1-9][0-9]*$/u.test(session.user?.id ?? '')
+      || session.user?.role !== 'student'
+      || Object.keys(session.user ?? {}).length !== 3
+      || !Array.isArray(session.user?.roles)
+      || session.user.roles.length !== 1
+      || session.user.roles[0] !== 'student'
+      || issuedAt === null
+      || expiresAt === null
+      || bindingExpiresAt === null
+      || expiresAt <= Date.now()
+      || issuedAt > Date.now() + 30_000
+      || bindingExpiresAt <= Date.now()
+      || expiresAt <= issuedAt
+      || expiresAt > bindingExpiresAt
+    ) return null;
+    return session;
+  } catch {
+    return null;
+  }
+}
+
+function exactLorInstant(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(value)) {
+    return null;
+  }
+  const milliseconds = Date.parse(value);
+  return Number.isFinite(milliseconds) && new Date(milliseconds).toISOString() === value
+    ? milliseconds
+    : null;
+}
+
 function getRequestOrigin(request) {
   const protocol = String(request.headers['x-forwarded-proto'] || '').trim() || (shouldUseSecureCookies(request) ? 'https' : 'http');
   const host = String(request.headers['x-forwarded-host'] || request.headers.host || '').trim() || new URL(INTERNAL_REQUEST_ORIGIN).host;
@@ -1176,6 +1492,158 @@ function buildWordPressAuthRedirectUrl(returnTo = '') {
   }
 
   return target.toString();
+}
+
+function buildWordPressLorAuthRedirectUrl(callback) {
+  if (!CONFIG.wpBase) return '';
+  const target = new URL('/wp-admin/admin-post.php', CONFIG.wpBase);
+  target.searchParams.set('action', WORDPRESS_AUTH_REDIRECT_ACTION);
+  target.searchParams.set('return_to', callback);
+  target.searchParams.set('audience', WORDPRESS_LOR_AUDIENCE);
+  return target.toString();
+}
+
+function canonicalLorHqOrigin(request) {
+  const candidate = CONFIG.hqBaseUrl || (!IS_PRODUCTION ? getRequestOrigin(request) : '');
+  const origin = candidate ? new URL(candidate).origin : '';
+  if (!origin || new URL(origin).protocol !== 'https:') throw new Error('LOR_AUTH_UNAVAILABLE');
+  return origin;
+}
+
+function lorRequestBodyIsEmpty(request) {
+  const transferEncoding = String(request.headers['transfer-encoding'] || '').trim();
+  const contentLength = request.headers['content-length'];
+  return transferEncoding === ''
+    && (contentLength === undefined || String(contentLength).trim() === '0');
+}
+
+function hasExactSearchKeys(searchParams, expected) {
+  const keys = [...searchParams.keys()];
+  return keys.length === expected.length
+    && new Set(keys).size === expected.length
+    && expected.every((key) => keys.includes(key));
+}
+
+async function handleLorStudioAuthRoute(request, response, url) {
+  const { pathname, searchParams } = url;
+  if (![LOR_AUTH_START_PATH, LOR_AUTH_CALLBACK_PATH, LOR_AUTH_LOGOUT_PATH].includes(pathname)) {
+    return false;
+  }
+
+  const names = lorCookieNames(request);
+  if (pathname === LOR_AUTH_START_PATH) {
+    if (request.method !== 'GET') {
+      sendMethodNotAllowed(response, ['GET']);
+      return true;
+    }
+    try {
+      if (
+        !LOR_WORDPRESS_S2S_CLIENT
+        || !LOR_STATE_KEY
+        || !LOR_SESSION_KEY
+        || !hasExactSearchKeys(searchParams, [])
+      ) throw new Error('LOR_AUTH_UNAVAILABLE');
+      const hqOrigin = canonicalLorHqOrigin(request);
+      if (IS_PRODUCTION && url.origin !== hqOrigin) throw new Error('LOR_AUTH_UNAVAILABLE');
+      const stateHash = createWordPressLorAuthState();
+      const callback = new URL(LOR_AUTH_CALLBACK_PATH, hqOrigin);
+      callback.searchParams.set('audience', WORDPRESS_LOR_AUDIENCE);
+      callback.searchParams.set('state', stateHash);
+      const redirect = buildWordPressLorAuthRedirectUrl(callback.toString());
+      if (!redirect) throw new Error('LOR_AUTH_UNAVAILABLE');
+      sendRedirect(response, redirect, 302, {
+        'Set-Cookie': [
+          clearLorCookie(request, names.session),
+          createLorStateCookie(request, stateHash, callback.toString()),
+        ],
+      });
+    } catch {
+      sendJson(response, 503, { error: 'lor_auth_unavailable' }, {
+        'Set-Cookie': [
+          clearLorCookie(request, names.session),
+          clearLorCookie(request, names.state),
+        ],
+      });
+    }
+    return true;
+  }
+
+  if (pathname === LOR_AUTH_LOGOUT_PATH) {
+    if (request.method !== 'POST') {
+      sendMethodNotAllowed(response, ['POST']);
+      return true;
+    }
+    const session = readLorStudioSession(request);
+    if (
+      !session
+      || !LOR_WORDPRESS_S2S_CLIENT
+      || !hasExactSearchKeys(searchParams, [])
+      || !lorRequestBodyIsEmpty(request)
+      || !validateCsrf(request, session)
+    ) {
+      sendJson(response, 403, { error: 'lor_logout_denied' });
+      return true;
+    }
+    try {
+      await LOR_WORDPRESS_S2S_CLIENT.revokeBinding({
+        bindingId: session.lorAdmissionBindingId,
+        subject: session.user.id,
+      });
+    } catch {
+      sendJson(response, 503, { error: 'lor_logout_unavailable' });
+      return true;
+    }
+    response.writeHead(204, {
+      'Cache-Control': 'no-store',
+      'Set-Cookie': [
+        clearLorCookie(request, names.session),
+        clearLorCookie(request, names.state),
+      ],
+    });
+    response.end();
+    return true;
+  }
+
+  const clearState = clearLorCookie(request, names.state);
+  if (request.method !== 'GET') {
+    sendJson(response, 405, { error: 'lor_auth_failed' }, {
+      Allow: 'GET',
+      'Set-Cookie': [clearLorCookie(request, names.session), clearState],
+    });
+    return true;
+  }
+  try {
+    if (
+      !LOR_WORDPRESS_S2S_CLIENT
+      || !hasExactSearchKeys(searchParams, ['audience', 'state', 'code'])
+      || searchParams.get('audience') !== WORDPRESS_LOR_AUDIENCE
+      || !/^[a-f0-9]{64}$/u.test(searchParams.get('state') ?? '')
+      || !/^lorc1_[A-Za-z0-9_-]{43}$/u.test(searchParams.get('code') ?? '')
+    ) throw new Error('LOR_AUTH_INVALID');
+    const state = readLorStateCookie(request);
+    const hqOrigin = canonicalLorHqOrigin(request);
+    if (IS_PRODUCTION && url.origin !== hqOrigin) throw new Error('LOR_AUTH_INVALID');
+    const callback = state ? new URL(state.callback) : null;
+    if (
+      !state
+      || callback.origin !== hqOrigin
+      || !safeTimingEqual(state.stateHash, searchParams.get('state'))
+    ) throw new Error('LOR_AUTH_INVALID');
+    const bootstrap = await LOR_WORDPRESS_S2S_CLIENT.redeemBootstrap({
+      code: searchParams.get('code'),
+      state: searchParams.get('state'),
+      callback: state.callback,
+    });
+    const sessionCookie = createLorSessionCookie(request, bootstrap);
+    sendRedirect(response, LOR_AUTH_FINAL_PATH, 303, {
+      'Set-Cookie': [clearState, sessionCookie],
+    });
+  } catch {
+    sendJson(response, 401, { error: 'lor_auth_failed' }, {
+      'Set-Cookie': [clearLorCookie(request, names.session), clearState],
+    });
+  }
+  return true;
 }
 
 function getLoginHints(request = null) {
