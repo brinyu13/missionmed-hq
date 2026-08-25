@@ -22,6 +22,7 @@ import {
   DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES,
   DR133_TARGET,
   Dr133RunnerError,
+  assertBaseSchemaPreflightRow,
   assertPostflightRow,
   assertPreflightRow,
   assertRuntimeAdminRow,
@@ -50,6 +51,7 @@ import {
   DR133_PREFLIGHT_SQL,
   DR133_SUCCESSOR_PREFLIGHT_SQL,
   runDr133StagingMigration,
+  runDr133StagingSuccessorMigration,
   verifyDr133StagingSuccessorSchema,
 } from '../../scripts/lor-studio/run-dr133-railway-staging-migrations.mjs';
 import {
@@ -362,6 +364,12 @@ test('private database URL parser requires exact private TLS target and clean de
 test('environment resolver pins every Railway axis and separates runtime credentials', () => {
   assert.equal(resolveDr133RunnerEnvironment(environment(), { mode: 'migration' }).mode, 'migration');
   assert.equal(
+    resolveDr133RunnerEnvironment(environment('successor-migration'), {
+      mode: 'successor-migration',
+    }).mode,
+    'successor-migration',
+  );
+  assert.equal(
     resolveDr133RunnerEnvironment(environment('runtime-login-deprovision'), {
       mode: 'runtime-login-deprovision',
     }).runtimePgConnectionString,
@@ -513,6 +521,13 @@ test('preflight and postflight assertions reject coercible or incomplete catalog
     /array_agg\(function_identity ORDER BY function_identity COLLATE "C"\)/u,
   );
   assert.doesNotThrow(() => assertPreflightRow(preflightRow()));
+  assert.doesNotThrow(() => assertBaseSchemaPreflightRow(runtimeAdminPreflightRow({
+    schema_sentinel: expectedDr133Sentinel(),
+  })));
+  assert.throws(
+    () => assertBaseSchemaPreflightRow(runtimeAdminPreflightRow()),
+    runnerError('BASE_SCHEMA_PREFLIGHT_TARGET_INVALID'),
+  );
   assert.doesNotThrow(() => assertPostflightRow(postflightRow()));
   assert.throws(
     () => assertPreflightRow({ ...preflightRow(), schema_count: 0 }),
@@ -566,9 +581,11 @@ function createMigrationFake({
   failurePoint = null,
   postflightOverrides = {},
   successorPreflightOverrides = {},
+  successorPreflightSequence = null,
 } = {}) {
   const calls = [];
   const instances = [];
+  let successorPreflightIndex = 0;
   const foundationPrefix = '-- Migration: 20260825010000';
   const rlsPrefix = '-- Migration: 20260825010100';
   const identityScopePrefix = '-- Migration: 20260825010300';
@@ -634,9 +651,20 @@ function createMigrationFake({
         if (failurePoint === 'successor-guard-57014') throw syntheticPgError('57014');
         if (failurePoint === 'successor-guard-semantic') throw syntheticPgError('55000');
       }
+      if (
+        text.startsWith('-- Rollback: 20260825010100')
+        && failurePoint === 'base-guard-semantic'
+      ) throw syntheticPgError('55000');
       if (text === DR133_PREFLIGHT_SQL) return { rows: [preflightRow()] };
       if (text === DR133_SUCCESSOR_PREFLIGHT_SQL) {
-        return { rows: [runtimeAdminPreflightRow(successorPreflightOverrides)] };
+        const overrides = Array.isArray(successorPreflightSequence)
+          ? successorPreflightSequence[Math.min(
+            successorPreflightIndex,
+            successorPreflightSequence.length - 1,
+          )]
+          : successorPreflightOverrides;
+        successorPreflightIndex += 1;
+        return { rows: [runtimeAdminPreflightRow(overrides)] };
       }
       if (text === DR133_ADVISORY_LOCK_SQL) return { rows: [{ acquired: true }] };
       if (text === DR133_ADVISORY_UNLOCK_SQL) {
@@ -708,6 +736,119 @@ test('migration runner verifies, serializes, applies all three once in order, an
   assert.ok(rlsIndexes[0] < identityScopeIndexes[0]);
   assert.ok(identityScopeIndexes[0] < texts.indexOf(DR133_POSTFLIGHT_CATALOG_SQL));
   assert.equal(fake.calls.filter((call) => call.text.includes('set_config($1, $2, false)')).length, 8);
+});
+
+test('successor migration accepts only the exact base schema and dispatches only 10300', async () => {
+  const fake = createMigrationFake({
+    successorPreflightOverrides: { schema_sentinel: expectedDr133Sentinel() },
+  });
+  const capture = captureStream();
+  assert.deepEqual(await runDr133StagingSuccessorMigration({
+    environment: environment('successor-migration'),
+    ClientClass: fake.ClientClass,
+    output: capture.stream,
+  }), { result: 'SUCCESSOR_COMMITTED_VERIFIED' });
+  const receipt = JSON.parse(capture.value());
+  assert.equal(receipt.mode, 'successor-migration');
+  assert.equal(receipt.result, 'SUCCESSOR_COMMITTED_VERIFIED');
+  assert.equal(receipt.relationCount, 28);
+  assert.equal(receipt.definerCount, 12);
+  const texts = fake.calls.map((call) => call.text);
+  assert.equal(texts.some((text) => text.startsWith('-- Migration: 20260825010000')), false);
+  assert.equal(texts.some((text) => text.startsWith('-- Migration: 20260825010100')), false);
+  assert.equal(texts.filter((text) => text.startsWith('-- Migration: 20260825010300')).length, 1);
+  assert.equal(texts.filter((text) => text === DR133_SUCCESSOR_PREFLIGHT_SQL).length, 2);
+  assert.ok(texts.includes(DR133_ADVISORY_LOCK_SQL));
+  assert.ok(texts.includes(DR133_ADVISORY_UNLOCK_SQL));
+  assert.ok(texts.indexOf(DR133_ADVISORY_LOCK_SQL) < texts.findIndex((text) => (
+    text.startsWith('-- Migration: 20260825010300')
+  )));
+  assert.doesNotMatch(capture.value(), new RegExp(ADMIN_PASSWORD, 'u'));
+
+  const alreadyAdvanced = createMigrationFake();
+  const advancedCapture = captureStream();
+  assert.deepEqual(await runDr133StagingSuccessorMigration({
+    environment: environment('successor-migration'),
+    ClientClass: alreadyAdvanced.ClientClass,
+    output: advancedCapture.stream,
+  }), { result: 'SUCCESSOR_ALREADY_COMMITTED_VERIFIED' });
+  assert.equal(
+    JSON.parse(advancedCapture.value()).result,
+    'SUCCESSOR_ALREADY_COMMITTED_VERIFIED',
+  );
+  assert.equal(alreadyAdvanced.calls.some((call) => (
+    call.text.startsWith('-- Migration: 20260825010300')
+  )), false);
+
+  const raced = createMigrationFake({
+    successorPreflightSequence: [
+      { schema_sentinel: expectedDr133Sentinel() },
+      {},
+    ],
+  });
+  const racedCapture = captureStream();
+  assert.deepEqual(await runDr133StagingSuccessorMigration({
+    environment: environment('successor-migration'),
+    ClientClass: raced.ClientClass,
+    output: racedCapture.stream,
+  }), { result: 'SUCCESSOR_ALREADY_COMMITTED_VERIFIED' });
+  assert.equal(raced.calls.some((call) => (
+    call.text.startsWith('-- Migration: 20260825010300')
+  )), false);
+});
+
+test('successor migration classifies failures and never expands beyond 10300', async () => {
+  for (const [failurePoint, expectedResult, expectedPostgresCode] of [
+    ['base-guard-semantic', 'NO_MUTATION', '55000'],
+    ['identity-pg', 'SUCCESSOR_ROLLED_BACK', '55000'],
+    ['identity-transport', 'SUCCESSOR_OUTCOME_UNKNOWN', null],
+    ['identity-57P01', 'SUCCESSOR_OUTCOME_UNKNOWN', '57P01'],
+    ['successor-guard-semantic', 'SUCCESSOR_COMMITTED_POSTFLIGHT_REJECTED', '55000'],
+    ['successor-guard-transport', 'SUCCESSOR_COMMITTED_VERIFICATION_UNKNOWN', null],
+    ['postflight-semantic', 'SUCCESSOR_COMMITTED_POSTFLIGHT_REJECTED', '55000'],
+    ['postflight-transport', 'SUCCESSOR_COMMITTED_VERIFICATION_UNKNOWN', null],
+    ['unlock-transport', 'SUCCESSOR_COMMITTED_VERIFIED_CLEANUP_FAILED', '08006'],
+  ]) {
+    const fake = createMigrationFake({
+      failurePoint,
+      successorPreflightOverrides: { schema_sentinel: expectedDr133Sentinel() },
+    });
+    const capture = captureStream();
+    await assert.rejects(runDr133StagingSuccessorMigration({
+      environment: environment('successor-migration'),
+      ClientClass: fake.ClientClass,
+      output: capture.stream,
+    }), Dr133RunnerError, failurePoint);
+    const receipt = JSON.parse(capture.value());
+    assert.equal(receipt.result, expectedResult, failurePoint);
+    assert.equal(receipt.postgresCode, expectedPostgresCode, failurePoint);
+    const texts = fake.calls.map((call) => call.text);
+    assert.equal(texts.some((text) => text.startsWith('-- Migration: 20260825010000')), false);
+    assert.equal(texts.some((text) => text.startsWith('-- Migration: 20260825010100')), false);
+    assert.equal(
+      texts.filter((text) => text.startsWith('-- Migration: 20260825010300')).length,
+      ['base-guard-semantic'].includes(failurePoint) ? 0 : 1,
+      failurePoint,
+    );
+    assert.doesNotMatch(capture.value(), new RegExp(ADMIN_PASSWORD, 'u'));
+  }
+
+  for (const overrides of [
+    { schema_sentinel: 'partial' },
+    { schema_sentinel: expectedDr133Sentinel(), runtime_login_count: '1' },
+  ]) {
+    const rejected = createMigrationFake({ successorPreflightOverrides: overrides });
+    const capture = captureStream();
+    await assert.rejects(runDr133StagingSuccessorMigration({
+      environment: environment('successor-migration'),
+      ClientClass: rejected.ClientClass,
+      output: capture.stream,
+    }), runnerError('SUCCESSOR_MIGRATION_PREFLIGHT_TARGET_INVALID'));
+    assert.equal(JSON.parse(capture.value()).result, 'NO_MUTATION');
+    assert.equal(rejected.calls.some((call) => (
+      call.text.startsWith('-- Migration: 20260825010300')
+    )), false);
+  }
 });
 
 test('migration runner reports truthful no-retry partial-commit states', async () => {
@@ -1803,6 +1944,45 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
           JSON.parse(verifierCapture.value()).result,
           'SCHEMA_VERIFIED_NO_MUTATION',
         );
+
+        let identityRollbackLocked = false;
+        try {
+          const identityRollbackLock = await inspectorClient.query(DR133_ADVISORY_LOCK_SQL);
+          assert.equal(identityRollbackLock.rows[0].acquired, true);
+          identityRollbackLocked = true;
+          await configureExactTargetGucs(inspectorClient);
+          await inspectorClient.query(identityScopeRollback);
+        } finally {
+          if (identityRollbackLocked) {
+            const released = await inspectorClient.query(DR133_ADVISORY_UNLOCK_SQL);
+            assert.equal(released.rows[0].released, true);
+          }
+        }
+        const exactBase = await inspectorClient.query(DR133_SUCCESSOR_PREFLIGHT_SQL);
+        assertBaseSchemaPreflightRow(exactBase.rows[0]);
+
+        const successorCapture = captureStream();
+        assert.deepEqual(await runDr133StagingSuccessorMigration({
+          environment: environment('successor-migration'),
+          ClientClass,
+          output: successorCapture.stream,
+        }), { result: 'SUCCESSOR_COMMITTED_VERIFIED' });
+        assert.equal(
+          JSON.parse(successorCapture.value()).result,
+          'SUCCESSOR_COMMITTED_VERIFIED',
+        );
+        const successorReplayCapture = captureStream();
+        assert.deepEqual(await runDr133StagingSuccessorMigration({
+          environment: environment('successor-migration'),
+          ClientClass,
+          output: successorReplayCapture.stream,
+        }), { result: 'SUCCESSOR_ALREADY_COMMITTED_VERIFIED' });
+        const successorCatalog = await inspectorClient.query(DR133_POSTFLIGHT_CATALOG_SQL);
+        const successorEmpty = await inspectorClient.query(buildNonemptyRelationsSql());
+        assertPostflightRow({
+          ...successorCatalog.rows[0],
+          ...successorEmpty.rows[0],
+        });
 
         const replayCapture = captureStream();
         await assert.rejects(runDr133StagingMigration({

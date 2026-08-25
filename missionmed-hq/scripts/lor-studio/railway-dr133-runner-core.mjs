@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-export const DR133_RUNNER_CONTRACT = 'missionmed.lor.railway-dr133-runner.v2';
+export const DR133_RUNNER_CONTRACT = 'missionmed.lor.railway-dr133-runner.v3';
 export const DR133_RUNTIME_LOGIN = 'lor_studio_runtime_login';
 export const DR133_APPLICATION_ROLE = 'lor_studio_app';
 export const DR133_COMMAND_OWNER_ROLE = 'lor_studio_command_owner';
@@ -157,6 +157,7 @@ const DR133_RECEIPT_KEYS = Object.freeze([
 ]);
 const DR133_RECEIPT_MODES = Object.freeze([
   'migration',
+  'successor-migration',
   'schema-verifier',
   'runtime-login',
   'runtime-login-deprovision',
@@ -174,6 +175,17 @@ const DR133_RECEIPT_RESULTS_BY_MODE = Object.freeze({
     'ALL_THREE_COMMITTED_VERIFICATION_UNKNOWN',
     'ALL_THREE_COMMITTED_VERIFIED_CLEANUP_FAILED',
     'ALL_THREE_COMMITTED_VERIFIED',
+  ]),
+  'successor-migration': Object.freeze([
+    'NO_MUTATION',
+    'SUCCESSOR_ROLLED_BACK',
+    'SUCCESSOR_OUTCOME_UNKNOWN',
+    'SUCCESSOR_COMMITTED_POSTFLIGHT_REJECTED',
+    'SUCCESSOR_COMMITTED_VERIFICATION_UNKNOWN',
+    'SUCCESSOR_COMMITTED_VERIFIED_CLEANUP_FAILED',
+    'SUCCESSOR_COMMITTED_VERIFIED',
+    'SUCCESSOR_ALREADY_COMMITTED_VERIFIED_CLEANUP_FAILED',
+    'SUCCESSOR_ALREADY_COMMITTED_VERIFIED',
   ]),
   'schema-verifier': Object.freeze([
     'NO_MUTATION',
@@ -308,6 +320,7 @@ export function resolveDr133RunnerEnvironment(rawEnvironment, { mode }) {
   if (!rawEnvironment || typeof rawEnvironment !== 'object') failDr133('ENVIRONMENT_REQUIRED');
   if (![
     'migration',
+    'successor-migration',
     'schema-verifier',
     'runtime-login',
     'runtime-login-deprovision',
@@ -480,6 +493,8 @@ export function writeDr133Receipt(stream, payload) {
   };
   const successResults = new Set([
     'ALL_THREE_COMMITTED_VERIFIED',
+    'SUCCESSOR_COMMITTED_VERIFIED',
+    'SUCCESSOR_ALREADY_COMMITTED_VERIFIED',
     'RUNTIME_LOGIN_COMMITTED_VERIFIED',
     'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED',
     'SCHEMA_VERIFIED_NO_MUTATION',
@@ -492,6 +507,20 @@ export function writeDr133Receipt(stream, payload) {
       'rlsSha256',
     ]);
     if (payload.result === 'ALL_THREE_COMMITTED_VERIFIED') {
+      requireKeys(['definerCount', 'postgresMajor', 'relationCount']);
+    }
+  }
+  if (payload.mode === 'successor-migration') {
+    requireKeys([
+      'foundationSha256',
+      'identityScopeRollbackSha256',
+      'identityScopeSha256',
+      'rlsSha256',
+    ]);
+    if ([
+      'SUCCESSOR_COMMITTED_VERIFIED',
+      'SUCCESSOR_ALREADY_COMMITTED_VERIFIED',
+    ].includes(payload.result)) {
       requireKeys(['definerCount', 'postgresMajor', 'relationCount']);
     }
   }
@@ -573,6 +602,29 @@ export function assertSuccessorSchemaPreflightRow(row) {
     || row.command_owner_count !== '1'
     || row.runtime_login_count !== '0'
   ) failDr133('SUCCESSOR_PREFLIGHT_TARGET_INVALID');
+}
+
+export function assertBaseSchemaPreflightRow(row) {
+  if (!row || typeof row !== 'object') failDr133('BASE_SCHEMA_PREFLIGHT_RESULT_INVALID');
+  if (
+    row.database_name !== DR133_TARGET.databaseName
+    || row.current_user !== DR133_TARGET.databaseAdmin
+    || row.session_user !== DR133_TARGET.databaseAdmin
+    || row.database_owner !== DR133_TARGET.databaseAdmin
+    || ![16, 18].includes(row.postgres_major)
+    || row.private_server_address !== true
+    || row.ssl_active !== true
+    || typeof row.ssl_version !== 'string'
+    || row.ssl_version.length === 0
+    || typeof row.ssl_cipher !== 'string'
+    || row.ssl_cipher.length === 0
+    || row.schema_sentinel !== expectedDr133Sentinel()
+    || row.schema_owner !== DR133_TARGET.databaseAdmin
+    || row.schema_count !== '1'
+    || row.app_role_count !== '1'
+    || row.command_owner_count !== '1'
+    || row.runtime_login_count !== '0'
+  ) failDr133('BASE_SCHEMA_PREFLIGHT_TARGET_INVALID');
 }
 
 export function assertPostflightRow(row) {
