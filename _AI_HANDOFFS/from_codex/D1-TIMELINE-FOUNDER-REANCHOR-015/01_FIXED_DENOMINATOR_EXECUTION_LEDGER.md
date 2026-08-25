@@ -52,7 +52,12 @@ Evidence added since the prior checkpoint:
 - local WordPress runtime: `timeline-wp-bc3f6d5dcc0157dc`
 - integration/build receipt: `05_INTEGRATION_BUILD_AND_RELEASE_CANDIDATE_RECEIPT.md`
 - Founder acceptance and final-production authority receipt: `06_FOUNDER_ACCEPTANCE_AND_PRODUCTION_AUTHORIZATION.md`
+- immutable accepted candidate after Timeline-owned cache-key rotation: source `5161196686b566013f2bd8c7b0ead635f47e1e95`, static `timeline-0123e6d04c8082e7`, WordPress `timeline-wp-786b0330f1a9686b`
+- provider-native PostgreSQL pre-release backup: `39d25b5e-2090-4b91-b8d0-d945645bcdce` / `D1-TIMELINE-FOUNDER-REANCHOR-015-PRE-20260825T155613Z`
+- production preflight and backup receipt: `07_PRODUCTION_PREFLIGHT_AND_BACKUP_RECEIPT.md`
 
 Founder acceptance is complete. Unit 24 production execution is authorized and in progress.
+
+Current release hold: live shared systems reconcile to later accepted releases, but the latest Matrix custody (`aeebff0`) and Critical Systems custody (`396e45`) are split across divergent branches. D1-015 cannot silently select or merge those shared-owner authorities. Production remains unchanged pending a clean governing reconciliation or exact Founder authorization to use both immutable commits as read-only Unit 24 gate baselines with zero shared-runtime mutation.
 
 Privacy boundary: completion-run provider transmission remains synthetic-only. Units 10 and 19 require genuine provider proof with synthetic fixtures and do not authorize real-student content transmission.
