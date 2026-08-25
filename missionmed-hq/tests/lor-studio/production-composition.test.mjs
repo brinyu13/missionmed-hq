@@ -108,6 +108,27 @@ function eligibleStudent(studentId) {
   };
 }
 
+function actorSafeDriver() {
+  return {
+    atomicStateAndAudit: true,
+    rlsEnforced: true,
+    serverOnly: true,
+    actorSafeCommands: true,
+    async selectCase() {},
+    async readStudentSafeCase() {},
+    async readFacultyCaseProjection() {},
+    async readMentorCaseProjection() {},
+    async reserveCaseCreation() {},
+    async commitStudentCaseCreate() {},
+    async commitStudentBuilderAutosave() {},
+    async commitStudentBuilderComplete() {},
+    async commitStudentConsentReceipt() {},
+    async commitStudentWaiverReceipt() {},
+    async commitFacultyFinalDocumentRelease() {},
+    async executeAtomicCaseCommand() {},
+  };
+}
+
 /**
  * The runtime's entitlement contract is FLAT - evaluateLorEntitlement reads `available`,
  * `sourceVerified`, `revoked`, `active`, `tier`, `lorEnabled`, `studentId` and `actorId` off the
@@ -367,24 +388,7 @@ test('composition catches dependency construction failures without exposing erro
 });
 
 test('composition constructs the actor-safe durable repository only from an explicit driver and scope provider', () => {
-  const driver = {
-    atomicStateAndAudit: true,
-    rlsEnforced: true,
-    serverOnly: true,
-    actorSafeCommands: true,
-    async selectCase() {},
-    async readStudentSafeCase() {},
-    async readFacultyCaseProjection() {},
-    async readMentorCaseProjection() {},
-    async reserveCaseCreation() {},
-    async commitStudentCaseCreate() {},
-    async commitStudentBuilderAutosave() {},
-    async commitStudentBuilderComplete() {},
-    async commitStudentConsentReceipt() {},
-    async commitStudentWaiverReceipt() {},
-    async commitFacultyFinalDocumentRelease() {},
-    async executeAtomicCaseCommand() {},
-  };
+  const driver = actorSafeDriver();
   const scopeProvider = async () => {
     throw new Error('scope must be resolved only when a case operation executes');
   };
@@ -396,6 +400,75 @@ test('composition constructs the actor-safe durable repository only from an expl
   });
   assert.ok(composed.application);
   assert.equal(composed.binding.projectId, 'lor-composition-test-project');
+});
+
+test('production runtime dependencies are constructed only after target and entitlement validation', () => {
+  let calls = 0;
+  const runtimeDependencies = Object.freeze({
+    driver: actorSafeDriver(),
+    scopeProvider: async () => { throw new Error('not executed during composition'); },
+    close: async () => {},
+  });
+  const factory = (binding) => {
+    calls += 1;
+    assert.equal(binding.projectId, 'lor-composition-test-project');
+    return runtimeDependencies;
+  };
+
+  const invalidTarget = createLorStudioApplication({
+    targetConfiguration: testTargetConfiguration({ ratified: false }),
+    entitlementPort: new StaticEntitlementTestAdapter([]),
+    runtimeDependencyFactory: factory,
+  });
+  assert.equal(invalidTarget.reason, LOR_COMPOSITION_REASONS.TARGET_REJECTED);
+  assert.equal(calls, 0);
+
+  const missingEntitlement = createLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPort: null,
+    runtimeDependencyFactory: factory,
+  });
+  assert.equal(missingEntitlement.reason, LOR_COMPOSITION_REASONS.ENTITLEMENT_PORT_UNAVAILABLE);
+  assert.equal(calls, 0);
+
+  const composed = createLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPort: new StaticEntitlementTestAdapter([]),
+    runtimeDependencyFactory: factory,
+  });
+  assert.ok(composed.application);
+  assert.equal(calls, 1);
+  assert.equal(composed.runtimeDependencies, runtimeDependencies);
+});
+
+test('runtime dependency construction failures are redacted', () => {
+  const secret = 'postgresql://runtime:do-not-emit@private.example.test/railway';
+  const composed = createLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPort: new StaticEntitlementTestAdapter([]),
+    runtimeDependencyFactory() { throw new Error(secret); },
+  });
+  assert.equal(composed.application, null);
+  assert.equal(composed.reason, LOR_COMPOSITION_REASONS.COMPOSITION_FAILED);
+  assert.equal(JSON.stringify(composed).includes(secret), false);
+});
+
+test('allocated runtime dependencies are closed when later composition fails', () => {
+  let closes = 0;
+  const composed = createLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPort: new StaticEntitlementTestAdapter([]),
+    runtimeDependencyFactory() {
+      return {
+        driver: {},
+        scopeProvider: async () => null,
+        async close() { closes += 1; },
+      };
+    },
+  });
+  assert.equal(composed.application, null);
+  assert.equal(composed.reason, LOR_COMPOSITION_REASONS.COMPOSITION_FAILED);
+  assert.equal(closes, 1);
 });
 
 test('composition builds a real application from an explicit validated target', () => {
@@ -688,6 +761,21 @@ test('an absent AI proposal store disables drafting only, and does not take the 
   assert.equal(composed.binding.projectId, 'lor-composition-test-project');
 });
 
+test('production composition never falls back to deterministic AI when a store appears without a provider', () => {
+  const composed = createLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPort: new StaticEntitlementTestAdapter([]),
+    driver: actorSafeDriver(),
+    scopeProvider: async () => { throw new Error('not executed during composition'); },
+    aiProposalStore: new InMemoryAiProposalStore(),
+    allowNonDurableForTests: false,
+  });
+  assert.ok(composed.application);
+  assert.equal(composed.aiDraftingService, null);
+  assert.equal(composed.draftingAvailable, false);
+  assert.equal(composed.draftingUnavailableReason, LOR_COMPOSITION_REASONS.AI_PROVIDER_UNAVAILABLE);
+});
+
 test('the composed application carries a drafting service, and the adapter accepted it', async () => {
   const { composed } = await composeDraftingApplication();
   assert.ok(composed.application, `composition declined: ${composed.reason}`);
@@ -971,10 +1059,11 @@ test('SOURCE GUARD: the composition root passes a drafting service to the applic
     'the adapter MUST receive aiDraftingService - omitting it is what leaves clause 8 dark');
 
   // The store is a dependency, never a default. A composition root that constructed its own
-  // store would be deciding, on a deployment's behalf, that losing proposals is acceptable - so
-  // drafting must be gated on the store being SUPPLIED, and gated by nothing else.
-  assert.match(source, /const draftingAvailable = Boolean\(aiProposalStore\)/u,
-    'drafting availability must be derived from the supplied store');
+  // store would be deciding, on a deployment's behalf, that losing proposals is acceptable.
+  // Production also requires an explicit privacy-approved provider; the deterministic adapter
+  // exists only behind the explicit non-durable test gate.
+  assert.match(source, /const draftingAvailable = Boolean\(aiProposalStore && proposalProvider\)/u,
+    'drafting availability must require both a store and an approved provider');
   assert.match(source, /draftingAvailable\s*\?\s*createAiDraftingService\(\{/u,
     'the drafting service must be constructed only when a store was supplied');
   assert.equal(
@@ -992,6 +1081,11 @@ test('SOURCE GUARD: the composition root passes a drafting service to the applic
     assert.equal(draftingBlock.includes(forbidden), false,
       `the drafting composition must not reference ${forbidden}`);
   }
-  assert.match(draftingBlock, /new DeterministicAiProposalAdapter\(\)/u,
-    'the default provider must be the deterministic local adapter');
+  assert.match(
+    source,
+    /allowNonDurableForTests \? new DeterministicAiProposalAdapter\(\) : null/u,
+    'the deterministic provider must be reachable only through the explicit non-durable test gate',
+  );
+  assert.equal(/aiProposalProvider \?\? new DeterministicAiProposalAdapter/u.test(source), false,
+    'production must never silently fall back to deterministic AI');
 });

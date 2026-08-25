@@ -9,11 +9,13 @@ import { fileURLToPath } from 'node:url';
 
 import {
   createLorStudioRuntime,
+  canonicalizeLorSessionSubject,
   evaluateLorEntitlement,
   isLorStudioRequestPath,
   resolveLorStudioFlags,
   validateFreshLorSession,
 } from '../../lor-studio/http/runtime.mjs';
+import { readTrustedRequestContext } from '../../lor-studio/security/trusted-request-context.mjs';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const publicDirectory = path.resolve(testDirectory, '..', '..', 'public', 'lor-studio');
@@ -58,7 +60,7 @@ function session(overrides = {}) {
     expiresAt: '2026-08-09T17:00:00.000Z',
     csrfToken: 'csrf-test-value',
     authSource: 'wp_cookie',
-    user: { id: 'student-1', roles: ['subscriber'] },
+    user: { id: 'wp:1', roles: ['subscriber'] },
     ...overrides,
   };
 }
@@ -67,8 +69,8 @@ function entitlement(overrides = {}) {
   return {
     available: true,
     sourceVerified: true,
-    studentId: 'student-1',
-    actorId: 'student-1',
+    studentId: 'wp:1',
+    actorId: 'wp:1',
     role: 'student',
     active: true,
     tier: 'tier3_360',
@@ -126,6 +128,25 @@ test('fresh-session validation rejects anonymous, malformed, future, and expired
   assert.equal(validateFreshLorSession(session(), NOW).ok, true);
 });
 
+test('session identity is canonicalized to wp:<id> and rejects ambiguous identifiers', () => {
+  for (const [input, expected] of [
+    [123, 'wp:123'],
+    ['123', 'wp:123'],
+    ['wp:123', 'wp:123'],
+  ]) assert.equal(canonicalizeLorSessionSubject(input), expected);
+  for (const input of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, '', '0', '01', 'wp:0', 'wp:01', 'student-1']) {
+    assert.equal(canonicalizeLorSessionSubject(input), null);
+  }
+  assert.equal(validateFreshLorSession(session({ user: { id: 1 } }), NOW).subject, 'wp:1');
+  assert.equal(validateFreshLorSession(session({ user: { id: '1' } }), NOW).subject, 'wp:1');
+  assert.equal(validateFreshLorSession(
+    session({ user: { id: 'student-1' } }),
+    NOW,
+    { requireCanonicalSubject: true },
+  ).error, 'invalid_session');
+  assert.equal(validateFreshLorSession(session({ user: { id: 'student-1' } }), NOW).subject, 'student-1');
+});
+
 test('entitlement evaluation requires authoritative, active, explicit, unrevoked 360 proof', () => {
   assert.equal(evaluateLorEntitlement(null).error, 'entitlement_contract_unavailable');
   assert.equal(evaluateLorEntitlement(entitlement({ sourceVerified: false })).error, 'entitlement_contract_unavailable');
@@ -171,8 +192,8 @@ test('unknown, revoked, ineligible, nonconsenting, and mismatched entitlements f
     [entitlement({ revoked: true }), 403, 'lor_entitlement_revoked'],
     [entitlement({ lorEnabled: false }), 403, 'lor_entitlement_required'],
     [entitlement({ canaryConsented: false }), 403, 'lor_canary_consent_required'],
-    [entitlement({ actorId: 'student-2' }), 403, 'entitlement_subject_mismatch'],
-    [entitlement({ actorId: 'faculty-2', role: 'faculty' }), 403, 'entitlement_subject_mismatch'],
+    [entitlement({ actorId: 'wp:2' }), 403, 'entitlement_subject_mismatch'],
+    [entitlement({ actorId: 'wp:2', role: 'faculty' }), 403, 'entitlement_subject_mismatch'],
   ];
 
   for (const [projection, expectedStatus, expectedError] of cases) {
@@ -233,6 +254,122 @@ test('bootstrap will not claim live mode without a durable verified application'
     capabilities: { builder: true },
     csrfToken: 'csrf-test-value',
   });
+});
+
+test('a branded production resolver opens trusted context only around application dispatch', async () => {
+  const projection = entitlement();
+  let observedContext = null;
+  let applicationInput = null;
+  const activeRuntime = runtime({
+    entitlementResolver: {
+      requiresTrustedRequestContext: true,
+      resolve: async () => projection,
+      consumeTrustedRequestContext(value) {
+        assert.equal(value, projection);
+        return {
+          schemaVersion: 'missionmed.lor.trusted-request-context.v1',
+          authenticatedSubject: 'wp:1',
+          actorRole: 'student',
+          sourceReferenceHash: 'a'.repeat(64),
+          proofHash: 'b'.repeat(64),
+          entitlementVerified: true,
+          lorEnabled: true,
+          canaryAuthorized: true,
+          clientAsserted: false,
+        };
+      },
+    },
+    application: {
+      getBootstrap: async (input) => {
+        applicationInput = input;
+        observedContext = readTrustedRequestContext();
+        return {
+          operational: true,
+          runtimeMode: 'live',
+          storageMode: 'durable',
+          providersReady: true,
+        };
+      },
+    },
+  });
+  const response = await invoke(activeRuntime, '/api/lor-studio/bootstrap', {
+    activeSession: session({
+      lorAdmissionGrant: 'must-not-cross-application-boundary',
+      wpAuthorization: 'must-not-cross-application-boundary',
+    }),
+  });
+  assert.equal(response.statusCode, 200);
+  assert.equal(observedContext.authenticatedSubject, 'wp:1');
+  assert.deepEqual(Object.keys(applicationInput).sort(), ['actor', 'entitlement']);
+  assert.equal(JSON.stringify(applicationInput).includes('must-not-cross'), false);
+  assert.throws(() => readTrustedRequestContext(), /unavailable/u);
+});
+
+test('a resolver declaring trusted context fails closed when its context cannot be consumed', async () => {
+  const activeRuntime = runtime({
+    entitlementResolver: {
+      requiresTrustedRequestContext: true,
+      resolve: async () => entitlement(),
+      consumeTrustedRequestContext() { throw new Error('unbranded'); },
+    },
+  });
+  const response = await invoke(activeRuntime, '/api/lor-studio/bootstrap');
+  assert.equal(response.statusCode, 503);
+  assert.equal(JSON.parse(response.body).error, 'entitlement_lookup_failed');
+});
+
+test('a branded resolver must supply an exact identity-bound context before authorization succeeds', async () => {
+  const cases = [
+    [undefined, 503, 'entitlement_lookup_failed'],
+    [{
+      schemaVersion: 'missionmed.lor.trusted-request-context.v1',
+      authenticatedSubject: 'wp:2',
+      actorRole: 'student',
+      sourceReferenceHash: 'a'.repeat(64),
+      proofHash: 'b'.repeat(64),
+      entitlementVerified: true,
+      lorEnabled: true,
+      canaryAuthorized: true,
+      clientAsserted: false,
+    }, 403, 'trusted_context_identity_mismatch'],
+    [{
+      schemaVersion: 'missionmed.lor.trusted-request-context.v1',
+      authenticatedSubject: 'wp:1',
+      actorRole: 'mentor',
+      sourceReferenceHash: 'a'.repeat(64),
+      proofHash: 'b'.repeat(64),
+      entitlementVerified: true,
+      lorEnabled: true,
+      canaryAuthorized: true,
+      clientAsserted: false,
+    }, 403, 'trusted_context_identity_mismatch'],
+  ];
+  for (const [context, status, code] of cases) {
+    const activeRuntime = runtime({
+      entitlementResolver: {
+        requiresTrustedRequestContext: true,
+        resolve: async () => entitlement(),
+        consumeTrustedRequestContext: () => context,
+      },
+    });
+    const response = await invoke(activeRuntime, '/api/lor-studio/bootstrap');
+    assert.equal(response.statusCode, status);
+    assert.equal(JSON.parse(response.body).error, code);
+  }
+});
+
+test('authorize returns no decrypted session credentials', async () => {
+  const activeRuntime = runtime();
+  const access = await activeRuntime.authorize(
+    { method: 'GET', headers: {} },
+    session({
+      lorAdmissionGrant: 'private-admission-grant',
+      wpAuthorization: 'private-service-credential',
+    }),
+  );
+  assert.equal(access.ok, true);
+  assert.equal(Object.hasOwn(access, 'session'), false);
+  assert.equal(JSON.stringify(access).includes('private-'), false);
 });
 
 test('every mutation requires the LOR CSRF header before application dispatch', async () => {

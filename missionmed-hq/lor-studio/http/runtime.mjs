@@ -2,6 +2,11 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
 
+import {
+  createTrustedRequestContext,
+  runWithTrustedRequestContext,
+} from '../security/trusted-request-context.mjs';
+
 export const LOR_STUDIO_ROUTE_PREFIX = '/lor-studio';
 export const LOR_STUDIO_API_PREFIX = '/api/lor-studio';
 
@@ -54,11 +59,13 @@ const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 /** @typedef {{ id: string, role: string }} LorActor */
 /** @typedef {{ studentId: string, active: true, tier: 'tier3_360', lorEnabled: true, revoked: false, canaryEnabled: boolean, canaryConsented: boolean }} LorAcceptedEntitlement */
 /** @typedef {{ ok: true, actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement> }} LorEntitlementAccess */
-/** @typedef {{ ok: true, actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement>, session: LorSession }} LorAccessGrant */
+/** @typedef {{ ok: true, actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement> }} LorAccessGrant */
 
 /**
  * @typedef {object} LorEntitlementResolver
  * @property {(input: { subject: string, session: LorSession, request: import('node:http').IncomingMessage }) => Promise<LorEntitlementProjection>} resolve
+ * @property {boolean} [requiresTrustedRequestContext]
+ * @property {(projection: LorEntitlementProjection) => Readonly<Record<string, unknown>>} [consumeTrustedRequestContext]
  */
 
 /**
@@ -72,8 +79,8 @@ const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /**
  * @typedef {object} LorApplicationContract
- * @property {(input: { actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement>, session: LorSession }) => Promise<LorApplicationBootstrap>} [getBootstrap]
- * @property {(input: { request: import('node:http').IncomingMessage, url: URL, actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement>, session: LorSession }) => Promise<{ status?: number, body?: unknown, binary?: { body: Buffer | Uint8Array | ArrayBuffer, contentType: string, filename?: string } }>} [handleRequest]
+ * @property {(input: { actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement> }) => Promise<LorApplicationBootstrap>} [getBootstrap]
+ * @property {(input: { request: import('node:http').IncomingMessage, url: URL, actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement> }) => Promise<{ status?: number, body?: unknown, binary?: { body: Buffer | Uint8Array | ArrayBuffer, contentType: string, filename?: string } }>} [handleRequest]
  */
 
 /**
@@ -146,14 +153,21 @@ function accessFailure(status, error, message, extra = {}) {
 /**
  * @param {LorSession | null | undefined} session
  * @param {Date | number} [now]
+ * @param {{ requireCanonicalSubject?: boolean }} [options]
  * @returns {LorAccessFailure | LorFreshSession}
  */
-export function validateFreshLorSession(session, now = new Date()) {
+export function validateFreshLorSession(
+  session,
+  now = new Date(),
+  { requireCanonicalSubject = false } = {},
+) {
   if (!session || typeof session !== 'object') {
     return accessFailure(401, 'authentication_required', 'A fresh MissionMed session is required.');
   }
 
-  const subject = String(session?.user?.id ?? '').trim();
+  const canonicalSubject = canonicalizeLorSessionSubject(session?.user?.id);
+  const legacySubject = String(session?.user?.id ?? '').trim();
+  const subject = canonicalSubject ?? (requireCanonicalSubject ? null : legacySubject);
   const expiresAt = Date.parse(String(session.expiresAt || ''));
   const issuedAt = Date.parse(String(session.issuedAt || ''));
   const nowMs = now instanceof Date ? now.getTime() : Number(now);
@@ -175,6 +189,32 @@ export function validateFreshLorSession(session, now = new Date()) {
     subject,
     session,
   };
+}
+
+/**
+ * Canonicalize the authenticated WordPress identity at the trusted server
+ * boundary. A browser cannot select this value: it comes from the encrypted HQ
+ * session after WordPress handoff verification.
+ *
+ * @param {unknown} value
+ * @returns {string | null}
+ */
+export function canonicalizeLorSessionSubject(value) {
+  let digits;
+  if (typeof value === 'number') {
+    if (!Number.isSafeInteger(value) || value <= 0) return null;
+    digits = String(value);
+  } else if (typeof value === 'string') {
+    if (value.trim() !== value || value === '') return null;
+    const match = /^(?:wp:)?([1-9][0-9]*)$/u.exec(value);
+    if (!match) return null;
+    digits = match[1];
+  } else {
+    return null;
+  }
+  const identifier = Number(digits);
+  if (!Number.isSafeInteger(identifier) || identifier <= 0 || String(identifier) !== digits) return null;
+  return `wp:${digits}`;
 }
 
 /**
@@ -427,6 +467,19 @@ export function createLorStudioRuntime({
   if (!entitlementResolver || typeof entitlementResolver.resolve !== 'function') {
     throw new Error('LOR Studio entitlementResolver.resolve is required.');
   }
+  if (
+    entitlementResolver.requiresTrustedRequestContext === true
+    && typeof entitlementResolver.consumeTrustedRequestContext !== 'function'
+  ) {
+    throw new Error('LOR Studio trusted entitlement resolver context consumer is required.');
+  }
+  const trustedGrantContexts = new WeakMap();
+
+  async function runApplicationWithAccess(access, operation) {
+    const context = trustedGrantContexts.get(access);
+    if (!context) return operation();
+    return runWithTrustedRequestContext(context, operation);
+  }
 
   /**
    * @param {import('node:http').IncomingMessage} request
@@ -434,7 +487,9 @@ export function createLorStudioRuntime({
    * @returns {Promise<LorAccessFailure | LorAccessGrant>}
    */
   async function authorize(request, session) {
-    const freshSession = validateFreshLorSession(session, clock());
+    const freshSession = validateFreshLorSession(session, clock(), {
+      requireCanonicalSubject: entitlementResolver.requiresTrustedRequestContext === true,
+    });
     if (freshSession.ok === false) return freshSession;
 
     if (flags.enabled !== true) {
@@ -445,12 +500,18 @@ export function createLorStudioRuntime({
     }
 
     let entitlement;
+    let trustedContext = null;
     try {
       entitlement = await entitlementResolver.resolve({
         subject: freshSession.subject,
         session: freshSession.session,
         request,
       });
+      if (entitlementResolver.requiresTrustedRequestContext === true) {
+        trustedContext = createTrustedRequestContext(
+          entitlementResolver.consumeTrustedRequestContext(entitlement),
+        );
+      }
     } catch {
       return accessFailure(503, 'entitlement_lookup_failed', 'The authoritative LOR entitlement lookup failed closed.');
     }
@@ -464,8 +525,23 @@ export function createLorStudioRuntime({
         'The LOR authorization projection does not match the authenticated principal.',
       );
     }
+    if (
+      trustedContext
+      && (
+        trustedContext.authenticatedSubject !== freshSession.subject
+        || trustedContext.actorRole !== evaluated.actor.role
+      )
+    ) {
+      return accessFailure(
+        403,
+        'trusted_context_identity_mismatch',
+        'The trusted LOR request context does not match the authenticated principal.',
+      );
+    }
 
-    return { ...evaluated, session: freshSession.session };
+    const access = { ...evaluated };
+    if (trustedContext) trustedGrantContexts.set(access, trustedContext);
+    return access;
   }
 
   /**
@@ -508,11 +584,10 @@ export function createLorStudioRuntime({
 
       let applicationPayload;
       try {
-        applicationPayload = await application.getBootstrap({
+        applicationPayload = await runApplicationWithAccess(access, () => application.getBootstrap({
           actor: access.actor,
           entitlement: access.entitlement,
-          session,
-        });
+        }));
       } catch {
         sendJson(response, 503, {
           error: 'lor_application_bootstrap_failed',
@@ -553,13 +628,12 @@ export function createLorStudioRuntime({
 
     let result;
     try {
-      result = await application.handleRequest({
+      result = await runApplicationWithAccess(access, () => application.handleRequest({
         request,
         url,
         actor: access.actor,
         entitlement: access.entitlement,
-        session,
-      });
+      }));
     } catch {
       sendJson(response, 500, {
         error: 'lor_application_request_failed',

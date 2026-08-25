@@ -50,6 +50,7 @@ export const LOR_COMPOSITION_REASONS = Object.freeze({
   TARGET_REJECTED: 'lor_target_rejected',
   DURABLE_DRIVER_UNAVAILABLE: 'lor_durable_driver_unavailable',
   AI_PROPOSAL_STORE_UNAVAILABLE: 'lor_ai_proposal_store_unavailable',
+  AI_PROVIDER_UNAVAILABLE: 'lor_ai_provider_unavailable',
   ENTITLEMENT_PORT_UNAVAILABLE: 'lor_entitlement_port_unavailable',
   COMPOSITION_FAILED: 'lor_composition_failed',
 });
@@ -64,6 +65,18 @@ function readBoolean(raw) {
   if (raw === 'true') return true;
   if (raw === 'false') return false;
   return raw; // preserved verbatim so the resolver rejects it rather than us coercing
+}
+
+function closeRuntimeDependenciesSafely(runtimeDependencies) {
+  if (!runtimeDependencies || typeof runtimeDependencies.close !== 'function') return;
+  try {
+    const settlement = runtimeDependencies.close();
+    if (settlement && typeof settlement.catch === 'function') {
+      void settlement.catch(() => {});
+    }
+  } catch {
+    // Composition failures expose only the safe reason code below.
+  }
 }
 
 /**
@@ -109,12 +122,13 @@ export function readLorTargetConfiguration(env = process.env) {
  * @param {object} [options.entitlementPort]
  * @param {object|null} [options.driver] durable case driver; absent means no durable repository
  * @param {object|null} [options.scopeProvider] RLS scope provider paired with the driver
+ * @param {(binding: object) => object} [options.runtimeDependencyFactory] production driver/scope factory
  * @param {(binding: object) => object} [options.durableRepositoryFactory]
  * @param {object|null} [options.testRepository] explicit non-durable repository, tests only
  * @param {boolean} [options.allowNonDurableForTests]
  * @param {object|null} [options.eventSink]
  * @param {object|null} [options.aiProposalStore] durable proposal store; absent means no drafting
- * @param {object|null} [options.aiProposalProvider] proposal provider; defaults to the deterministic one
+ * @param {object|null} [options.aiProposalProvider] explicit production provider; deterministic only in non-durable tests
  * @param {() => Date} [options.clock]
  * @param {boolean} [options.requireCanary]
  */
@@ -123,6 +137,7 @@ export function createLorStudioApplication({
   entitlementPort = null,
   driver = null,
   scopeProvider = null,
+  runtimeDependencyFactory = null,
   durableRepositoryFactory = null,
   testRepository = null,
   allowNonDurableForTests = false,
@@ -161,7 +176,29 @@ export function createLorStudioApplication({
     return { application: null, reason: LOR_COMPOSITION_REASONS.ENTITLEMENT_PORT_UNAVAILABLE, binding };
   }
 
+  let runtimeDependencies = null;
   try {
+    let resolvedDriver = driver;
+    let resolvedScopeProvider = scopeProvider;
+    if (
+      !testRepository
+      && !durableRepositoryFactory
+      && (!resolvedDriver || !resolvedScopeProvider)
+      && typeof runtimeDependencyFactory === 'function'
+    ) {
+      runtimeDependencies = runtimeDependencyFactory(binding);
+      if (
+        !runtimeDependencies
+        || typeof runtimeDependencies !== 'object'
+        || typeof runtimeDependencies.driver !== 'object'
+        || typeof runtimeDependencies.scopeProvider !== 'function'
+      ) {
+        throw new TypeError('Production runtime dependencies are incomplete');
+      }
+      resolvedDriver = runtimeDependencies.driver;
+      resolvedScopeProvider = runtimeDependencies.scopeProvider;
+    }
+
     let repository;
     if (testRepository) {
       // Tests supply an explicit non-durable repository. The adapter still enforces
@@ -169,11 +206,11 @@ export function createLorStudioApplication({
       repository = testRepository;
     } else if (durableRepositoryFactory) {
       repository = durableRepositoryFactory(binding);
-    } else if (driver && scopeProvider) {
+    } else if (resolvedDriver && resolvedScopeProvider) {
       repository = new SupabaseDurableRecommendationCaseRepository({
         binding,
-        driver,
-        scopeProvider,
+        driver: resolvedDriver,
+        scopeProvider: resolvedScopeProvider,
       });
     } else {
       // Production does not synthesize a target, SQL executor, scope provider, or credential.
@@ -181,26 +218,22 @@ export function createLorStudioApplication({
       return { application: null, reason: LOR_COMPOSITION_REASONS.DURABLE_DRIVER_UNAVAILABLE, binding };
     }
 
-  // AI DRAFTING PERSISTENCE, gated exactly as durability is gated above.
+    // AI DRAFTING PERSISTENCE, gated exactly as durability is gated above.
   //
-  // `putProposal` and `attachDecision` are conditional atomic writes: they are what make a
+    // `putProposal` and `attachDecision` are conditional atomic writes: they are what make a
   // proposal replayable under an idempotency key and what make "exactly one human decision"
-  // enforceable inside the write rather than in a caller's read-then-write. No durable
-  // implementation of that contract exists yet, in the same sense that no atomic RLS case driver
-  // exists yet.
+    // enforceable inside the write rather than in a caller's read-then-write.
   //
-  // Composing over a scratch in-memory store WOULD be wrong - a faculty writer's proposal and the
-  // human decision recorded against it could vanish between two requests while the product
-  // reported itself live - so an absent store still disables drafting outright.
+    // Composing over a scratch in-memory store WOULD be wrong - a faculty writer's proposal and the
+    // human decision recorded against it could vanish between two requests while the product
+    // reported itself live - so an absent store still disables drafting outright.
   //
-  // But it disables DRAFTING, not the product. Declining the whole composition here made an
-  // unconfigured drafting plane fatal to case creation, the builder, receipts and release, none
-  // of which touch a proposal: it took the E2E student journey down the moment it landed. Blast
-  // radius belongs to the feature that is missing its dependency. The adapter already answers
-  // /ai-proposals with 503 INTEGRATION_DISABLED when no drafting service is supplied, which is
-  // the correct visible behaviour; the reason is reported on the composition result so an
-  // operator learns the specific cause rather than inferring it from a generic 503.
-  const draftingAvailable = Boolean(aiProposalStore);
+    // But it disables DRAFTING, not the product. Production additionally requires an explicit,
+    // privacy-approved provider. The deterministic provider remains reachable only through the
+    // explicit non-durable test gate and can never appear because a production store was bound.
+    const proposalProvider = aiProposalProvider
+      ?? (allowNonDurableForTests ? new DeterministicAiProposalAdapter() : null);
+    const draftingAvailable = Boolean(aiProposalStore && proposalProvider);
 
     // The event sink is OMITTED, not passed as null: the service rejects a null sink, and its
     // durable branch forbids a sink outright because a durable repository commits state and
@@ -210,23 +243,11 @@ export function createLorStudioApplication({
     if (eventSink) serviceOptions.eventSink = eventSink;
     const caseService = new RecommendationCaseService(serviceOptions);
 
-    // THE PROVIDER IS CHOSEN HERE, and it is the deterministic local adapter.
-    //
-    // ai-proposal-service.js states plainly that it never constructs a provider, and the HTTP
-    // adapter states plainly that it never picks one either, because choosing one is a
-    // composition decision. This is that decision, and it is the conservative one: the
-    // deterministic adapter reproduces approved evidence verbatim, holds no credential, reads no
-    // environment key, and opens no socket (`externalNetworkUsed: false`). Binding a network
-    // model would need a credential, a data-processing decision, and a retention decision that
-    // no decision record has made, so nothing here reaches for one.
-    //
-    // The grounding gate does not soften because the provider is tame: AiProposalService still
-    // runs the entailment and connective checks over whatever the provider returns, so the
-    // moment a ratified provider replaces this line the same invariant covers it unchanged.
-    const proposalService = new AiProposalService({
-      provider: aiProposalProvider ?? new DeterministicAiProposalAdapter(),
-      clock,
-    });
+    // Provider choice is a composition decision. AiProposalService continues to apply the same
+    // grounding and connective checks to an explicitly injected production provider.
+    const proposalService = proposalProvider
+      ? new AiProposalService({ provider: proposalProvider, clock })
+      : null;
 
     // `requireCanary` is the SAME value the case service received. Passing anything weaker here
     // would let a writer draft over a student whose canary consent the rest of the application
@@ -259,12 +280,18 @@ export function createLorStudioApplication({
       caseService,
       aiDraftingService,
       draftingAvailable,
+      runtimeDependencies,
       // Present only when drafting is off, so an operator sees the specific cause.
       ...(draftingAvailable
         ? {}
-        : { draftingUnavailableReason: LOR_COMPOSITION_REASONS.AI_PROPOSAL_STORE_UNAVAILABLE }),
+        : {
+          draftingUnavailableReason: aiProposalStore
+            ? LOR_COMPOSITION_REASONS.AI_PROVIDER_UNAVAILABLE
+            : LOR_COMPOSITION_REASONS.AI_PROPOSAL_STORE_UNAVAILABLE,
+        }),
     };
   } catch {
+    closeRuntimeDependenciesSafely(runtimeDependencies);
     return {
       application: null,
       reason: LOR_COMPOSITION_REASONS.COMPOSITION_FAILED,
