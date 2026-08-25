@@ -131,67 +131,6 @@ async function saveEvidence(page, filename) {
 	await page.screenshot({ path: path.join(evidenceDir, filename), fullPage: false });
 }
 
-async function nonceRecoveryFlow(browser) {
-	const { context, page, diagnostics } = await createPage(browser, { role: "student" });
-	let recoveryRequests = 0;
-	let failedRequests = 0;
-	let refreshRequests = 0;
-	let recoveredNonce = "";
-	try {
-		await page.route("**/__fv2_nonce__", async route => {
-			refreshRequests += 1;
-			await route.fulfill({
-				status: 200,
-				contentType: "application/json",
-				body: JSON.stringify({ success: true, data: { nonce: "fresh-fixture-nonce" } })
-			});
-		});
-		await page.route("**/__fv2_rest__/**", async route => {
-			const pathname = new URL(route.request().url()).pathname;
-			if (pathname.endsWith("/recover")) {
-				recoveryRequests += 1;
-				if (recoveryRequests === 1) {
-					await route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ code: "rest_cookie_invalid_nonce" }) });
-					return;
-				}
-				recoveredNonce = route.request().headers()["x-wp-nonce"] || "";
-				await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ recovered: true }) });
-				return;
-			}
-			failedRequests += 1;
-			await route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ code: "rest_cookie_invalid_nonce" }) });
-		});
-
-		const recovered = await page.evaluate(async () => {
-			const instance = window.__FV2_HARNESS__.instance;
-			instance.injectedApi = null;
-			instance.config.restUrl = window.location.origin + "/__fv2_rest__";
-			instance.config.nonceRefreshUrl = window.location.origin + "/__fv2_nonce__";
-			instance.config.nonce = "expired-fixture-nonce";
-			return instance.fetchRequest("GET", "/recover");
-		});
-		assert(recovered.recovered === true && recoveryRequests === 2 && refreshRequests === 1, "student: expired nonce did not recover through exactly one authenticated refresh");
-		assert(recoveredNonce === "fresh-fixture-nonce", "student: retried request did not use the refreshed nonce");
-
-		const failed = await page.evaluate(async () => {
-			const instance = window.__FV2_HARNESS__.instance;
-			instance.config.nonce = "expired-again";
-			try {
-				await instance.fetchRequest("GET", "/always-fails");
-				return { rejected: false };
-			} catch (error) {
-				return { rejected: true, status: error.status, code: error.code };
-			}
-		});
-		assert(failed.rejected === true && failed.status === 403 && failed.code === "rest_cookie_invalid_nonce", "student: repeated nonce rejection did not fail closed");
-		assert(failedRequests === 2 && refreshRequests === 2, "student: repeated nonce rejection exceeded one refresh retry");
-		const unexpectedDiagnostics = diagnostics.filter(item => !/Failed to load resource: the server responded with a status of 403/.test(item));
-		assert(diagnostics.length === 3 && unexpectedDiagnostics.length === 0, `nonce recovery: unexpected browser diagnostics ${diagnostics.join(" | ")}`);
-	} finally {
-		await context.close();
-	}
-}
-
 async function studentFlow(browser) {
 	const { context, page, diagnostics } = await createPage(browser, { role: "student" });
 	try {
@@ -566,9 +505,16 @@ async function lateMatrixTakeoverRecoveryFlow(browser) {
 			const nativeFetch = window.fetch.bind(window);
 			history.replaceState(null, "", "#filevault");
 			window.mmedFileVaultV2Config.restUrl = window.location.origin + fixturePrefix;
+			window.__FV2_RUNTIME_REQUESTS__ = { bootstrapCount: 0, activeBootstrap: 0, maxActiveBootstrap: 0 };
 			window.fetch = function (input, options) {
 				const url = new URL(String(input), window.location.href);
 				if (url.origin !== window.location.origin || url.pathname.indexOf(fixturePrefix) !== 0) return nativeFetch(input, options);
+				const isBootstrap = url.pathname.endsWith("/bootstrap");
+				if (isBootstrap) {
+					window.__FV2_RUNTIME_REQUESTS__.bootstrapCount += 1;
+					window.__FV2_RUNTIME_REQUESTS__.activeBootstrap += 1;
+					window.__FV2_RUNTIME_REQUESTS__.maxActiveBootstrap = Math.max(window.__FV2_RUNTIME_REQUESTS__.maxActiveBootstrap, window.__FV2_RUNTIME_REQUESTS__.activeBootstrap);
+				}
 				let body = null;
 				try { body = options && options.body ? JSON.parse(options.body) : null; } catch (error) { body = null; }
 				const query = {};
@@ -580,8 +526,12 @@ async function lateMatrixTakeoverRecoveryFlow(browser) {
 					query: query,
 					signal: options && options.signal
 				}).then(function (payload) {
+					return isBootstrap ? new Promise(resolve => window.setTimeout(function () { resolve(payload); }, 700)) : payload;
+				}).then(function (payload) {
+					if (isBootstrap) window.__FV2_RUNTIME_REQUESTS__.activeBootstrap -= 1;
 					return new Response(JSON.stringify(payload), { status: 200, headers: { "Content-Type": "application/json" } });
 				}, function (error) {
+					if (isBootstrap) window.__FV2_RUNTIME_REQUESTS__.activeBootstrap -= 1;
 					return new Response(JSON.stringify({ message: error.message || "Fixture request failed." }), { status: error.status || 500, headers: { "Content-Type": "application/json" } });
 				});
 			};
@@ -619,29 +569,37 @@ async function lateMatrixTakeoverRecoveryFlow(browser) {
 			};
 			harness.v1FallbackRendered = false;
 			window.MMED_FILE_VAULT_V1.render();
+			window.setTimeout(function () {
+				if (window.MatrixRuntime.current && !window.MatrixRuntime.current.mounted) {
+					document.getElementById("sos-content").innerHTML = '<section data-late-overwrite role="status">Restoring File Vault</section>';
+				}
+			}, 120);
 		});
 
-		await page.waitForSelector("[data-fv2-app]", { timeout: 3000 });
-		await page.getByRole("heading", { name: "What type of document would you like to upload?", exact: true }).waitFor();
+		await page.waitForSelector("[data-fv2-app]", { timeout: 5000 });
+		await page.getByRole("heading", { name: "What type of document would you like to upload?", exact: true }).waitFor({ timeout: 5000 });
 		const firstRecovery = await page.evaluate(() => ({
 			v1Rendered: window.__FV2_HARNESS__.v1FallbackRendered === true,
 			moduleId: window.MatrixRuntime.current.module.id,
 			navigationCount: window.MatrixRuntime.navigationCount,
-			completedMountCount: window.MatrixRuntime.completedMountCount
+			completedMountCount: window.MatrixRuntime.completedMountCount,
+			bootstrapCount: window.__FV2_RUNTIME_REQUESTS__.bootstrapCount,
+			maxActiveBootstrap: window.__FV2_RUNTIME_REQUESTS__.maxActiveBootstrap
 		}));
 		assert(firstRecovery.v1Rendered, "Matrix takeover: fixture did not reproduce the late V1 overwrite");
 		assert(firstRecovery.moduleId === "filevault-v2", `Matrix takeover: recovery kept ${firstRecovery.moduleId}`);
-		assert(firstRecovery.navigationCount === 1 && firstRecovery.completedMountCount === 1, `Matrix takeover: expected one completed recovery ${JSON.stringify(firstRecovery)}`);
+		assert(firstRecovery.maxActiveBootstrap === 1, `Matrix takeover: bootstrap requests overlapped ${JSON.stringify(firstRecovery)}`);
+		assert(firstRecovery.navigationCount === 2 && firstRecovery.completedMountCount === 2 && firstRecovery.bootstrapCount === 2, `Matrix takeover: expected one sequential recovery after the in-flight overwrite ${JSON.stringify(firstRecovery)}`);
 
 		await page.waitForTimeout(9300);
-		assert(await page.evaluate(() => window.MatrixRuntime.navigationCount === 1 && window.MatrixRuntime.completedMountCount === 1), "Matrix takeover: bounded retry caused a duplicate recovery");
+		assert(await page.evaluate(() => window.MatrixRuntime.navigationCount === 2 && window.MatrixRuntime.completedMountCount === 2 && window.__FV2_RUNTIME_REQUESTS__.maxActiveBootstrap === 1), "Matrix takeover: bounded retry caused a duplicate or overlapping recovery");
 		await page.evaluate(() => {
 			window.MatrixRuntime.current.mounted = true;
 			window.MMED_FILE_VAULT_V1.render();
 		});
 		await page.waitForSelector("[data-fv2-app]", { timeout: 3000 });
 		await page.getByRole("heading", { name: "What type of document would you like to upload?", exact: true }).waitFor();
-		assert(await page.evaluate(() => window.MatrixRuntime.navigationCount === 2 && window.MatrixRuntime.completedMountCount === 2), "Matrix takeover: a later distinct overwrite did not recover exactly once");
+		assert(await page.evaluate(() => window.MatrixRuntime.navigationCount === 3 && window.MatrixRuntime.completedMountCount === 3 && window.__FV2_RUNTIME_REQUESTS__.bootstrapCount === 3 && window.__FV2_RUNTIME_REQUESTS__.maxActiveBootstrap === 1), "Matrix takeover: a later distinct overwrite did not recover exactly once without overlap");
 		assert(await page.locator("[data-fv2-app]").count() === 1, "Matrix takeover: recovery left duplicate V2 roots");
 		assert(diagnostics.length === 0, `Matrix takeover: browser diagnostics ${diagnostics.join(" | ")}`);
 	} finally {
@@ -999,12 +957,10 @@ async function main() {
 	assert(fs.existsSync(destinationArt), "destination artwork is absent from the release source");
 	assert(fs.readFileSync(mutableCss, "utf8").includes(path.basename(destinationArt)), "mutable CSS does not reference the destination artwork");
 	const mutableJsSource = fs.readFileSync(mutableJs, "utf8");
-	assert(mutableJsSource.includes("nonceRefreshUrl") && mutableJsSource.includes("refreshNonce"), "student: invalid REST nonces do not have an authenticated recovery path");
-	assert(mutableJsSource.includes("rest_cookie_invalid_nonce") && mutableJsSource.includes("nonceRetried"), "student: nonce recovery is not bounded to one retry");
+	assert(mutableJsSource.includes("mountPromise") && mutableJsSource.includes("activationTimer"), "Matrix takeover is missing single-flight mount and activation guards");
 	const executablePath = process.env.FV2_BROWSER_PATH || (fs.existsSync(systemChrome) ? systemChrome : undefined);
 	const browser = await chromium.launch({ headless: true, executablePath });
 	try {
-		await nonceRecoveryFlow(browser);
 		await studentFlow(browser);
 		await rapidStudentSwitchFlow(browser);
 		await failedStudentSwitchFlow(browser);

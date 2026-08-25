@@ -153,8 +153,6 @@ $controller_source = file_get_contents( dirname( __DIR__ ) . '/wp-content/plugin
 $repository_source = file_get_contents( dirname( __DIR__ ) . '/wp-content/plugins/missionmed-hub/includes/class-mmed-file-vault-v2-repository.php' );
 fv2_assert( false !== strpos( $controller_source, 'wp_add_inline_script' ), 'eligible V2 users receive a pre-router Matrix access bootstrap' );
 fv2_assert( false !== strpos( $controller_source, 'module_permissions.filevault=true' ), 'Matrix access bootstrap opens only the File Vault route' );
-fv2_assert( false !== strpos( $controller_source, 'wp_ajax_mmed_file_vault_v2_nonce' ) && false !== strpos( $controller_source, 'nonceRefreshUrl' ), 'eligible browsers receive a cookie-authenticated REST nonce refresh path' );
-fv2_assert( false !== strpos( $controller_source, "wp_send_json_success( array( 'nonce' => wp_create_nonce( 'wp_rest' ) ) )" ), 'nonce refresh returns only a fresh REST nonce' );
 fv2_assert( false !== strpos( $controller_source, 'require_verified_current_version' ), 'review workflow rejects unverified legacy bytes' );
 fv2_assert( false !== strpos( $repository_source, 'mmed_file_vault_v2_staging_lifecycle_verified' ), 'production storage readiness requires a verified staging lifecycle' );
 fv2_assert( false !== strpos( $repository_source, 'release_owned_lock' ), 'confirmation uses an owner-token lock release' );

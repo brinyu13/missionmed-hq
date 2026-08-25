@@ -33,7 +33,11 @@
 		originalRuntimeModule: null,
 		observedRoot: null,
 		rootObserver: null,
-		takeoverPendingUntil: 0
+		takeoverPendingUntil: 0,
+		activationTimer: null,
+		activationAt: 0,
+		mountPromise: null,
+		mountRoot: null
 	};
 
 	var ICONS = {
@@ -403,8 +407,7 @@
 		return Promise.resolve(promise).then(function (value) { finish(); return value; }, function (error) { finish(); throw error; });
 	};
 
-	FileVaultV2.prototype.fetchRequest = function (method, path, body, query, signal, nonceRetried) {
-		var self = this;
+	FileVaultV2.prototype.fetchRequest = function (method, path, body, query, signal) {
 		var base = String(this.config.restUrl || "").replace(/\/$/, "");
 		if (!base) return Promise.reject(new Error("File Vault REST configuration is unavailable."));
 		var url;
@@ -434,49 +437,12 @@
 				}
 				if (!response.ok) {
 					var code = payload && payload.code ? String(payload.code) : "";
-					if (!nonceRetried && response.status === 403 && ["rest_cookie_invalid_nonce", "mmed_file_vault_v2_nonce_required", "mmed_file_vault_v2_nonce_invalid"].indexOf(code) !== -1) {
-						return self.refreshNonce(signal).then(function () {
-							return self.fetchRequest(method, path, body, query, signal, true);
-						});
-					}
 					var requestError = new Error(payload && payload.message ? payload.message : "File Vault request failed (" + response.status + ").");
 					requestError.status = response.status;
 					requestError.code = code;
 					throw requestError;
 				}
 				return payload === null ? {} : payload;
-			});
-		});
-	};
-
-	FileVaultV2.prototype.refreshNonce = function (signal) {
-		var self = this;
-		var configured = String(this.config.nonceRefreshUrl || "");
-		var url;
-		try {
-			url = new URL(configured, window.location.href);
-		} catch (error) {
-			return Promise.reject(new Error("File Vault session refresh is unavailable."));
-		}
-		var loopbackHttp = url.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].indexOf(url.hostname) !== -1;
-		if (!configured || url.origin !== window.location.origin || (url.protocol !== "https:" && !loopbackHttp)) {
-			return Promise.reject(new Error("File Vault session refresh is unavailable."));
-		}
-		return window.fetch(url.toString(), {
-			method: "GET",
-			headers: { Accept: "application/json" },
-			credentials: "same-origin",
-			signal: signal || undefined
-		}).then(function (response) {
-			return response.text().then(function (text) {
-				var payload = null;
-				if (text) {
-					try { payload = JSON.parse(text); } catch (error) { payload = null; }
-				}
-				var nonce = payload && payload.success === true && payload.data ? String(payload.data.nonce || "") : "";
-				if (!response.ok || !nonce) throw new Error("File Vault session refresh failed.");
-				self.config.nonce = nonce;
-				return nonce;
 			});
 		});
 	};
@@ -3172,10 +3138,17 @@
 	}
 
 	function scheduleReplacementActivation(delay) {
-		window.setTimeout(function () {
+		var wait = Math.max(0, Number(delay) || 0);
+		var activateAt = Date.now() + wait;
+		if (integration.activationTimer && integration.activationAt <= activateAt) return;
+		if (integration.activationTimer) window.clearTimeout(integration.activationTimer);
+		integration.activationAt = activateAt;
+		integration.activationTimer = window.setTimeout(function () {
+			integration.activationTimer = null;
+			integration.activationAt = 0;
 			installReplacementGuard();
 			activateReplacementForCurrentRoute();
-		}, Math.max(0, Number(delay) || 0));
+		}, wait);
 	}
 
 	function installReplacementGuard() {
@@ -3197,6 +3170,7 @@
 		installLegacyPatch();
 		registerRuntimeModule();
 		if (replacementIsMounted()) return true;
+		if (integration.mountPromise) return false;
 		if (Date.now() < integration.takeoverPendingUntil) return false;
 
 		var runtime = integration.runtime;
@@ -3217,9 +3191,31 @@
 	function publicMount(target, options) {
 		var root = resolveRoot(target);
 		if (!root) return Promise.reject(new Error("File Vault mount point was not found."));
+		if (integration.mountPromise && integration.mountRoot === root) return integration.mountPromise;
+		if (currentInstance && !currentInstance.destroyed && currentInstance.root === root && root.querySelector("[data-fv2-app]")) {
+			return Promise.resolve(currentInstance);
+		}
 		if (currentInstance) currentInstance.unmount();
-		currentInstance = new FileVaultV2(root, options || {});
-		return currentInstance.mount().then(function () { return currentInstance; });
+		var instance = new FileVaultV2(root, options || {});
+		currentInstance = instance;
+		integration.mountRoot = root;
+		var mountPromise = instance.mount().then(function () { return instance; });
+		integration.mountPromise = mountPromise;
+		return mountPromise.then(function (value) {
+			if (integration.mountPromise === mountPromise) {
+				integration.mountPromise = null;
+				integration.mountRoot = null;
+			}
+			if (!replacementIsMounted() && isFileVaultRoute()) scheduleReplacementActivation(0);
+			return value;
+		}, function (error) {
+			if (integration.mountPromise === mountPromise) {
+				integration.mountPromise = null;
+				integration.mountRoot = null;
+			}
+			if (!replacementIsMounted() && isFileVaultRoute()) scheduleReplacementActivation(0);
+			throw error;
+		});
 	}
 
 	function publicUnmount() {
