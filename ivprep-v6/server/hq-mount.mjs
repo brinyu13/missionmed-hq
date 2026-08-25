@@ -164,6 +164,9 @@ function staticFile(pathname) {
   else if (pathname === `${PRODUCT_PREFIX}/assets/vendor/livekit-client.umd.js`) {
     return existsSync(LIVEKIT_BROWSER_UMD) && statSync(LIVEKIT_BROWSER_UMD).isFile() ? LIVEKIT_BROWSER_UMD : null;
   }
+  else if (pathname.startsWith(`${PRODUCT_PREFIX}/assets/vendor/vad-web/`)) {
+    relativePath = `assets/vendor/vad-web/${pathname.slice(`${PRODUCT_PREFIX}/assets/vendor/vad-web/`.length)}`;
+  }
   else if (pathname.startsWith(`${PRODUCT_PREFIX}/assets/`)) relativePath = pathname.slice(`${PRODUCT_PREFIX}/assets/`.length);
   else return null;
   let decoded;

@@ -61,6 +61,9 @@ test('dedicated live analytics HTML and module assets are served inside the auth
   const html = await invoke('/iv-prep-on-call/live-analytics/');
   const module = await invoke('/iv-prep-on-call/assets/live-analytics/live-analytics.mjs');
   const style = await invoke('/iv-prep-on-call/assets/live-analytics/live-analytics.css');
+  const vadRuntime = await invoke('/iv-prep-on-call/assets/vendor/vad-web/0.0.30/bundle.min.js');
+  const vadWorklet = await invoke('/iv-prep-on-call/assets/vendor/vad-web/0.0.30/vad.worklet.bundle.min.js');
+  const vadModel = await invoke('/iv-prep-on-call/assets/vendor/vad-web/0.0.30/silero_vad_v5.onnx');
   assert.equal(html.status, 200);
   assert.match(html.headers['Content-Type'], /text\/html/u);
   assert.match(html.headers['Content-Security-Policy'], /connect-src 'self';/u);
@@ -68,6 +71,12 @@ test('dedicated live analytics HTML and module assets are served inside the auth
   assert.match(module.headers['Content-Type'], /text\/javascript/u);
   assert.equal(style.status, 200);
   assert.match(style.headers['Content-Type'], /text\/css/u);
+  assert.equal(vadRuntime.status, 200);
+  assert.match(vadRuntime.headers['Content-Type'], /text\/javascript/u);
+  assert.equal(vadWorklet.status, 200);
+  assert.match(vadWorklet.headers['Content-Type'], /text\/javascript/u);
+  assert.equal(vadModel.status, 200);
+  assert.match(vadModel.headers['Content-Type'], /application\/octet-stream/u);
 });
 
 test('3521 localhost harness cannot create provider sessions or enable a paid provider', async () => {
