@@ -5,7 +5,6 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>File Vault V2 deterministic harness</title>
 	<link rel="icon" href="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
-	<link rel="stylesheet" href="../../wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.css">
 	<style>
 		html,
 		body,
@@ -20,6 +19,11 @@
 			background: #090b0f;
 		}
 
+		#student-os-root {
+			width: 100%;
+			height: 100%;
+		}
+
 		.fv1-harness-fallback {
 			display: grid;
 			place-items: center;
@@ -29,10 +33,69 @@
 			background: #090b0f;
 			font: 700 16px/1.5 system-ui, sans-serif;
 		}
+
+		body.admin-bar.matrix-app-mode-file-vault #wpadminbar {
+			position: fixed;
+			z-index: 2147483647;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 32px;
+			color: #f0f0f1;
+			background: #1d2327;
+		}
+
+		body.admin-bar.matrix-app-mode-file-vault #wpadminbar .quicklinks {
+			height: 32px;
+		}
+
+		body.admin-bar.matrix-app-mode-file-vault #wp-admin-bar-top-secondary {
+			position: relative;
+			top: 32px;
+			float: right;
+			margin: 0;
+			padding: 0;
+			list-style: none;
+		}
+
+		body.admin-bar.matrix-app-mode-file-vault #wp-admin-bar-my-account > a {
+			display: flex;
+			align-items: center;
+			height: 32px;
+			padding: 0 12px;
+			color: inherit;
+			background: #1d2327;
+			text-decoration: none;
+		}
+
+		body.admin-bar.matrix-app-mode-file-vault #student-os-root {
+			position: fixed;
+			inset: 32px 0 0;
+			width: 100vw;
+			height: calc(100vh - 32px);
+			overflow: hidden;
+		}
+
+		.sos-matrix-app-return {
+			position: fixed;
+			z-index: 50;
+			top: 46px;
+			left: 16px;
+			display: none;
+			padding: 8px;
+			color: #fff;
+			background: #1d2327;
+		}
+
+		body.admin-bar.matrix-app-mode-file-vault .sos-matrix-app-return {
+			display: block;
+		}
 	</style>
+	<link rel="stylesheet" href="../../wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.css">
 </head>
 <body>
-	<div id="sos-content"></div>
+	<div id="wpadminbar" hidden><div id="wp-toolbar" class="quicklinks"><ul id="wp-admin-bar-top-secondary"><li id="wp-admin-bar-my-account"><a class="ab-item" href="#account">Account</a></li></ul></div></div>
+	<div id="student-os-root"><a id="mmed-matrix-app-return" class="sos-matrix-app-return" href="#dashboard">Matrix Dashboard</a><div id="sos-content"></div></div>
 	<script>
 		(function () {
 			"use strict";
@@ -40,7 +103,12 @@
 			var params = new URLSearchParams(window.location.search);
 			var role = ["student", "mentor", "admin"].indexOf(params.get("role")) !== -1 ? params.get("role") : "student";
 			var scenario = params.get("scenario") || "default";
+			var shell = params.get("shell") || "";
 			var fail = params.get("fail") || "";
+			if (shell === "adminbar") {
+				document.body.classList.add("admin-bar", "matrix-app-mode-file-vault");
+				document.getElementById("wpadminbar").hidden = false;
+			}
 			var now = "2026-07-15T14:00:00Z";
 			var students = [
 				{ id: 101, display_name: "Avery Rivera (Fixture)", document_count: 4, coverage_percent: 80, needs_attention: 1 },
@@ -352,6 +420,26 @@
 				return Promise.reject(error);
 			}
 
+			function delayedResolve(value, delay, signal) {
+				return new Promise(function (resolve, rejectDelay) {
+					var settled = false;
+					var timer = window.setTimeout(function () {
+						settled = true;
+						resolve(value);
+					}, delay);
+					if (!signal || typeof signal.addEventListener !== "function") return;
+					var abort = function () {
+						if (settled) return;
+						window.clearTimeout(timer);
+						var error = new Error("Fixture request aborted.");
+						error.name = "AbortError";
+						rejectDelay(error);
+					};
+					if (signal.aborted) abort();
+					else signal.addEventListener("abort", abort, { once: true });
+				});
+			}
+
 			var harness = {
 				ready: false,
 				role: role,
@@ -430,6 +518,7 @@
 				if (studentMatch && method === "GET") {
 					var studentId = Number(studentMatch[1]);
 					if (!studentById(studentId)) return reject("Student Vault not found.", 404);
+					if (scenario === "switch-race") return delayedResolve(studentScope(role, studentId, false), studentId === 101 ? 180 : 20, request.signal);
 					return Promise.resolve(studentScope(role, studentId, false));
 				}
 				if (path === "/audit" && method === "GET") {

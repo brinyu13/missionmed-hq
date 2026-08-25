@@ -20,6 +20,7 @@
 		jpeg: "image/jpeg"
 	};
 	var STUDENT_VIEWS = ["vault", "journey", "library", "activity"];
+	var STUDENT_NAV_VIEWS = ["vault", "library", "activity"];
 	var STAFF_VIEWS = ["command", "vault", "audit"];
 	var PREFS_KEY = "mmed.fileVaultV2.preferences";
 	var currentInstance = null;
@@ -180,6 +181,9 @@
 		this.requests = new Set();
 		this.transfers = new Set();
 		this.timers = new Set();
+		this.studentRequestToken = 0;
+		this.studentRequestController = null;
+		this.overlayIsolation = [];
 		this.audioContext = null;
 		this.preferences = readPreferences();
 		this.motionQuery = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
@@ -236,8 +240,14 @@
 		this.refs.student = this.root.querySelector("[data-fv2-student]");
 		this.refs.lens = this.root.querySelector("[data-fv2-lens]");
 		this.refs.storage = this.root.querySelector("[data-fv2-storage]");
+		this.refs.settings = this.root.querySelector('[data-fv2-action="open-settings"]');
 
 		this.listen(this.root, "click", function (event) { self.handleClick(event); });
+		this.listen(this.refs.settings, "click", function (event) {
+			event.preventDefault();
+			event.stopPropagation();
+			self.openOverlay("settings");
+		});
 		this.listen(this.root, "change", function (event) { self.handleChange(event); });
 		this.listen(this.root, "input", function (event) { self.handleInput(event); });
 		this.listen(this.root, "submit", function (event) { self.handleSubmit(event); });
@@ -528,7 +538,7 @@
 
 	FileVaultV2.prototype.updateHeader = function () {
 		if (!this.refs.lens) return;
-		var labels = { vault: "Vault", journey: "Journey", library: "Library", activity: "Activity", command: "Command", audit: "Audit", docdocs: "Doc Docs" };
+		var labels = { vault: "Vault", journey: "Journey", library: "Files From MissionMed", activity: "Activity", command: "Command", audit: "Activity", docdocs: "Doc Docs" };
 		this.refs.lens.textContent = labels[this.state.view] || "File Vault";
 		var student = this.state.data && this.state.data.student;
 		this.refs.student.textContent = student && student.display_name ? String(student.display_name) : (this.roleIsStaff() ? "Staff review" : "");
@@ -565,7 +575,7 @@
 		var role = this.role();
 		var items = isStaffRole(role)
 			? [["command", "users", "Command"], ["vault", "vault", "Vault"], ["audit", "activity", "Activity"]]
-			: [["vault", "vault", "Vault"], ["journey", "journey", "Journey"], ["library", "library", "Library"], ["activity", "activity", "Activity"]];
+			: [["vault", "vault", "Vault"], ["library", "library", "Files From MissionMed"], ["activity", "activity", "Activity"]];
 		var queueCount = this.state.data && Array.isArray(this.state.data.review_queue) ? this.state.data.review_queue.length : 0;
 		var markup = items.map(function (item, index) {
 			var count = item[0] === "command" && queueCount ? '<span class="fv2-nav-count">' + esc(queueCount) + "</span>" : '<span class="fv2-nav-key" aria-hidden="true">' + (index + 1) + "</span>";
@@ -590,10 +600,15 @@
 	FileVaultV2.prototype.pageHeadingMarkup = function (kicker, title, subtitle, actions) {
 		return [
 			'<header class="fv2-page-heading">',
-			'<div><span class="fv2-kicker">' + esc(kicker) + "</span><h1>" + esc(title) + "</h1><p>" + esc(subtitle || "") + "</p></div>",
+			'<div><span class="fv2-kicker">' + esc(kicker) + '</span><h1 tabindex="-1" data-fv2-page-heading>' + esc(title) + "</h1><p>" + esc(subtitle || "") + "</p></div>",
 			'<div class="fv2-heading-actions">' + (actions || "") + "</div>",
 			"</header>"
 		].join("");
+	};
+
+	FileVaultV2.prototype.focusViewHeading = function () {
+		var heading = this.refs.stage && this.refs.stage.querySelector("[data-fv2-page-heading]");
+		if (heading && typeof heading.focus === "function") heading.focus({ preventScroll: true });
 	};
 
 	FileVaultV2.prototype.nextActionMarkup = function () {
@@ -611,6 +626,29 @@
 			'<div class="fv2-next-marker">' + icon("journey") + "</div>",
 			'<div><span>Server next action</span><h2 id="fv2-next-action-title">' + esc(action.title) + "</h2><p>" + esc(action.detail || "") + "</p></div>",
 			button,
+			"</section>"
+		].join("");
+	};
+
+	FileVaultV2.prototype.homeActionsMarkup = function () {
+		var data = this.state.data || {};
+		var sharedCount = Array.isArray(data.library) ? data.library.length : 0;
+		var canUpload = this.capability("upload") && this.storageReady();
+		var uploadDetail = canUpload ? "Start a guided private upload" : (this.storageReady() ? "Unavailable for this role" : "Private storage is unavailable");
+		return [
+			'<section class="fv2-home-actions" aria-label="Vault primary actions">',
+			'<button type="button" class="fv2-home-action fv2-home-action-primary" data-fv2-action="open-upload"' + (canUpload ? "" : " disabled") + '><span class="fv2-home-action-icon">' + icon("upload") + '</span><span><small>Primary action</small><strong>Add Document</strong><em>' + esc(uploadDetail) + "</em></span>" + icon("arrowRight") + "</button>",
+			'<button type="button" class="fv2-home-action" data-fv2-action="navigate" data-fv2-view="library"><span class="fv2-home-action-icon">' + icon("library") + '</span><span><small>Shared with you</small><strong>Files From MissionMed</strong><em>' + esc(sharedCount + (sharedCount === 1 ? " authorized file" : " authorized files")) + "</em></span>" + icon("arrowRight") + "</button>",
+			"</section>"
+		].join("");
+	};
+
+	FileVaultV2.prototype.vaultSecondaryActionsMarkup = function (dropzone) {
+		return [
+			'<section class="fv2-vault-secondary" aria-label="Additional Vault actions">',
+			'<button type="button" class="fv2-journey-shortcut" data-fv2-action="navigate" data-fv2-view="journey">' + icon("journey") + '<span><small>Application record</small><strong>Open application journey</strong></span>' + icon("arrowRight") + "</button>",
+			this.nextActionMarkup(),
+			dropzone || "",
 			"</section>"
 		].join("");
 	};
@@ -633,7 +671,7 @@
 				this.stateMessageMarkup("empty", "Choose a student", "Open a student from Command or use the student selector above.", '<button type="button" class="fv2-button fv2-button-primary" data-fv2-action="navigate" data-fv2-view="command">' + icon("users") + "Open Command</button>");
 		}
 		if (this.state.studentLoading) {
-			return this.pageHeadingMarkup("Staff review", "Loading student Vault", "Checking the selected server scope.", "") + this.loadingMarkup();
+			return this.pageHeadingMarkup("Staff review", "Loading student Vault", "Checking the selected server scope.", this.studentPickerMarkup()) + this.loadingMarkup();
 		}
 
 		var studentName = data.student && data.student.display_name ? data.student.display_name : "Student Vault";
@@ -676,8 +714,9 @@
 
 		var selected = this.getDocument(this.state.selectedDocumentId);
 		var desktopDetail = selected && !this.mobileQuery.matches ? this.documentDetailMarkup(selected, false) : "";
-		return heading + storageNotice + this.nextActionMarkup() + dropzone +
-			'<div class="fv2-vault-layout' + (desktopDetail ? " has-detail" : "") + '"><section class="fv2-list-panel" aria-labelledby="fv2-document-list-title"><div class="fv2-section-heading"><div><span>Application record</span><h2 id="fv2-document-list-title">Documents and requirements</h2></div><strong>' + esc(rows.length) + " rows</strong></div>" + listBody + "</section>" + desktopDetail + "</div>";
+		return heading + storageNotice + this.homeActionsMarkup() +
+			'<div class="fv2-vault-layout' + (desktopDetail ? " has-detail" : "") + '"><section class="fv2-list-panel" aria-labelledby="fv2-document-list-title"><div class="fv2-section-heading"><div><span>Private record</span><h2 id="fv2-document-list-title">My Documents</h2></div><strong>' + esc(rows.length) + " rows</strong></div>" + listBody + "</section>" + desktopDetail + "</div>" +
+			this.vaultSecondaryActionsMarkup(dropzone);
 	};
 
 	FileVaultV2.prototype.inlineNoticeMarkup = function (kind, title, message) {
@@ -769,7 +808,7 @@
 			var canDownload = this.capability("download") && documentItem.download_available !== false && this.storageReady();
 			return '<article class="fv2-library-row"><span class="fv2-file-glyph">' + icon("library") + '</span><div><h2>' + esc(documentItem.name || "Shared document") + "</h2><p>" + esc([documentItem.original_name || "Private file", "v" + Math.max(1, positiveInt(documentItem.version)), formatSize(documentItem.file_size)].join(" / ")) + "</p></div>" + statusBadge(documentItem.status, documentItem.status_label) + (canDownload ? '<button type="button" class="fv2-icon-button" data-fv2-action="download" data-fv2-document-id="' + id + '" aria-label="Securely download ' + escAttr(documentItem.name || "document") + '" title="Download">' + icon("download") + "</button>" : '<span class="fv2-library-blocked">Unavailable</span>') + "</article>";
 		}, this).join("") + "</div>" : this.stateMessageMarkup("empty", "No shared Library documents", "Server-authorized shared files will appear here.", "");
-		return this.pageHeadingMarkup("Shared resources", "Library", "Only documents returned in your authorized shared Library are shown.", "") + '<section class="fv2-section"><div class="fv2-section-heading"><div><span>Authorized rows</span><h2>Shared with this Vault</h2></div><strong>' + esc(rows.length) + " files</strong></div>" + body + "</section>";
+		return this.pageHeadingMarkup("Shared resources", "Files From MissionMed", "Only documents returned in your authorized shared Library are shown.", "") + '<section class="fv2-section"><div class="fv2-section-heading"><div><span>Authorized rows</span><h2>Shared with this Vault</h2></div><strong>' + esc(rows.length) + " files</strong></div>" + body + "</section>";
 	};
 
 	FileVaultV2.prototype.activityMarkup = function () {
@@ -1251,7 +1290,7 @@
 		}
 		if (isTypingTarget(event.target) || event.altKey || event.ctrlKey || event.metaKey) return;
 		var number = parseInt(event.key, 10);
-		var views = this.roleIsStaff() ? STAFF_VIEWS : STUDENT_VIEWS;
+		var views = this.roleIsStaff() ? STAFF_VIEWS : STUDENT_NAV_VIEWS;
 		if (number >= 1 && number <= views.length) {
 			event.preventDefault();
 			this.navigate(views[number - 1]);
@@ -1279,7 +1318,8 @@
 		if (this.state.overlay) this.closeOverlay({ restoreFocus: false });
 		this.state.view = view;
 		this.state.documentError = "";
-		this.render({ focusKey: "nav-" + view });
+		this.render({ focusKey: "" });
+		this.focusViewHeading();
 		if (view === "audit" && this.state.audit === null && !this.state.auditLoading) this.loadAudit();
 	};
 
@@ -1307,12 +1347,27 @@
 
 	FileVaultV2.prototype.loadStudent = function (studentId, options) {
 		var self = this;
-		if (!this.roleIsStaff() || !studentId || this.state.studentLoading) return Promise.resolve();
+		if (!this.roleIsStaff() || !studentId) return Promise.resolve();
+		if (this.studentRequestController && typeof this.studentRequestController.abort === "function") this.studentRequestController.abort();
+		var requestToken = ++this.studentRequestToken;
+		var requestController = typeof window.AbortController === "function" ? new window.AbortController() : null;
+		this.studentRequestController = requestController;
+		if (this.state.overlay) this.closeOverlay({ restoreFocus: false });
 		this.state.studentLoading = true;
+		this.state.selectedStudentId = studentId;
 		this.state.view = options && options.view === "docdocs" ? "command" : "vault";
+		this.state.selectedDocumentId = 0;
+		this.state.documentDetail = null;
+		this.state.documentLoading = false;
+		this.state.documentError = "";
+		this.state.workspaceTab = "score";
+		this.state.reviewStatus = "reviewed";
+		this.state.reviewNote = "";
+		this.state.scoreDraft = {};
+		this.state.scoreNotes = "";
 		this.render();
-		return this.request("GET", "/students/" + studentId).then(function (scoped) {
-			if (self.destroyed) return;
+		return this.request("GET", "/students/" + studentId, null, null, requestController && requestController.signal).then(function (scoped) {
+			if (self.destroyed || requestToken !== self.studentRequestToken || self.state.selectedStudentId !== studentId) return;
 			if (!scoped || typeof scoped !== "object" || Array.isArray(scoped)) throw new Error("File Vault returned malformed student scope data.");
 			var staff = self.state.staffData || self.state.data || {};
 			scoped = Object.assign({}, scoped);
@@ -1321,14 +1376,15 @@
 			scoped.review_queue = Array.isArray(staff.review_queue) ? staff.review_queue : [];
 			scoped.command = staff.command || {};
 			scoped.staff_pagination = staff.staff_pagination || { page: 1, per_page: 50, has_more: false, next_page: null, scope_complete: true };
-			self.state.selectedStudentId = studentId;
+			self.studentRequestController = null;
 			self.state.studentLoading = false;
 			self.acceptBootstrap(self.validateBootstrap(scoped), true);
-			self.state.view = options && options.view === "docdocs" ? "vault" : "vault";
+			self.state.view = "vault";
 			self.render();
 			if (options && options.documentId) self.openWorkspace(options.documentId);
 		}).catch(function (error) {
-			if (self.destroyed || (error && error.name === "AbortError")) return;
+			if (self.destroyed || requestToken !== self.studentRequestToken || self.state.selectedStudentId !== studentId || (error && error.name === "AbortError")) return;
+			self.studentRequestController = null;
 			self.state.studentLoading = false;
 			self.state.view = "command";
 			self.render();
@@ -1761,6 +1817,7 @@
 	};
 
 	FileVaultV2.prototype.openOverlay = function (type, options) {
+		if (!this.refs.overlay || !document.contains(this.refs.overlay)) this.refs.overlay = this.root.querySelector("[data-fv2-overlay]");
 		if (!this.refs.overlay) return;
 		if (!this.state.overlay || !(options && options.preserveReturnFocus)) this.returnFocus = document.activeElement;
 		this.state.overlay = type;
@@ -1772,7 +1829,41 @@
 			this.refs.frame.setAttribute("inert", "");
 			this.refs.frame.setAttribute("aria-hidden", "true");
 		}
+		this.setExternalOverlayIsolation(true);
 		this.renderOverlay();
+	};
+
+	FileVaultV2.prototype.setExternalOverlayIsolation = function (active) {
+		if (active) {
+			if (document.body && document.body.classList) document.body.classList.add("mmed-fv2-overlay-open");
+			if (this.overlayIsolation.length) return;
+			var nodes = [document.getElementById("mmed-matrix-app-return"), document.getElementById("wpadminbar")].filter(Boolean);
+			this.overlayIsolation = nodes.map(function (node) {
+				var previous = {
+					node: node,
+					hadInert: node.hasAttribute("inert"),
+					ariaHidden: node.getAttribute("aria-hidden")
+				};
+				node.inert = true;
+				node.setAttribute("inert", "");
+				node.setAttribute("aria-hidden", "true");
+				return previous;
+			});
+			return;
+		}
+		if (document.body && document.body.classList) document.body.classList.remove("mmed-fv2-overlay-open");
+		this.overlayIsolation.splice(0).forEach(function (previous) {
+			if (!previous.node || !document.contains(previous.node)) return;
+			if (previous.hadInert) {
+				previous.node.inert = true;
+				previous.node.setAttribute("inert", "");
+			} else {
+				previous.node.inert = false;
+				previous.node.removeAttribute("inert");
+			}
+			if (previous.ariaHidden === null) previous.node.removeAttribute("aria-hidden");
+			else previous.node.setAttribute("aria-hidden", previous.ariaHidden);
+		});
 	};
 
 	FileVaultV2.prototype.closeOverlay = function (options) {
@@ -1790,6 +1881,7 @@
 			this.refs.frame.removeAttribute("inert");
 			this.refs.frame.removeAttribute("aria-hidden");
 		}
+		this.setExternalOverlayIsolation(false);
 		var returnFocus = this.returnFocus;
 		this.returnFocus = null;
 		if (options.restoreFocus !== false && returnFocus && document.contains(returnFocus) && typeof returnFocus.focus === "function") {
@@ -1799,8 +1891,13 @@
 
 	FileVaultV2.prototype.renderOverlay = function () {
 		var self = this;
+		if (!this.refs.overlay || !document.contains(this.refs.overlay)) this.refs.overlay = this.root.querySelector("[data-fv2-overlay]");
 		if (!this.refs.overlay || !this.state.overlay) return;
 		var type = this.state.overlay;
+		var settingsFocus = "";
+		if (type === "settings" && document.activeElement && this.refs.overlay.contains(document.activeElement)) {
+			settingsFocus = document.activeElement.getAttribute("data-fv2-settings-focus") || "";
+		}
 		var content = "";
 		var panelClass = "fv2-modal";
 		var label = "File Vault dialog";
@@ -1824,7 +1921,13 @@
 		this.refs.overlay.innerHTML = '<div class="fv2-scrim" data-fv2-action="close-overlay" aria-hidden="true"></div><section class="fv2-overlay-panel ' + panelClass + '" data-fv2-overlay-panel role="dialog" aria-modal="true" aria-label="' + escAttr(label) + '">' + content + "</section>";
 		window.requestAnimationFrame(function () {
 			if (self.destroyed || !self.state.overlay) return;
-			var preferred = self.refs.overlay.querySelector("[data-fv2-autofocus]");
+			var preferred = null;
+			if (settingsFocus) {
+				preferred = Array.prototype.slice.call(self.refs.overlay.querySelectorAll("[data-fv2-settings-focus]")).find(function (candidate) {
+					return candidate.getAttribute("data-fv2-settings-focus") === settingsFocus;
+				}) || null;
+			}
+			preferred = preferred || self.refs.overlay.querySelector("[data-fv2-autofocus]");
 			var focusable = preferred || self.focusableElements(self.refs.overlay)[0] || self.refs.overlay.querySelector("[data-fv2-overlay-panel]");
 			if (focusable) {
 				if (!focusable.hasAttribute("tabindex") && focusable.matches("[data-fv2-overlay-panel]")) focusable.setAttribute("tabindex", "-1");
@@ -1867,17 +1970,18 @@
 		var systemReduced = !!(this.motionQuery && this.motionQuery.matches);
 		var reducedOn = systemReduced || this.preferences.reducedMotion;
 		return [
-			'<header class="fv2-overlay-header"><div><span>Preferences</span><h1>Settings</h1></div><button type="button" class="fv2-icon-button" data-fv2-action="close-overlay" data-fv2-autofocus aria-label="Close settings">' + icon("close") + "</button></header>",
+			'<header class="fv2-overlay-header"><div><span>Preferences</span><h1>Settings</h1></div><button type="button" class="fv2-icon-button" data-fv2-action="close-overlay" data-fv2-settings-focus="close" data-fv2-autofocus aria-label="Close settings">' + icon("close") + "</button></header>",
 			'<div class="fv2-settings-body">',
+			'<p class="fv2-settings-note">Preferences are saved on this device.</p>',
 			'<section><h2>Appearance</h2>',
-			'<div class="fv2-setting-row"><div><strong>Reduced motion</strong><span>' + (systemReduced ? "On because your operating system requests it." : "Reduce interface transitions and progress motion.") + '</span></div><button type="button" class="fv2-switch' + (reducedOn ? " is-on" : "") + '" role="switch" aria-checked="' + (reducedOn ? "true" : "false") + '" data-fv2-action="setting-reduced"' + (systemReduced ? " disabled" : "") + '><span></span><span class="fv2-sr-only">Toggle reduced motion</span></button></div>',
-			'<div class="fv2-setting-row"><div><strong>Density</strong><span>Choose row spacing for repeated document work.</span></div><div class="fv2-segmented" role="group" aria-label="Interface density"><button type="button" data-fv2-action="setting-density" data-fv2-density="comfortable" class="' + (this.preferences.density === "comfortable" ? "is-active" : "") + '">Comfortable</button><button type="button" data-fv2-action="setting-density" data-fv2-density="compact" class="' + (this.preferences.density === "compact" ? "is-active" : "") + '">Compact</button></div></div>',
+			'<div class="fv2-setting-row"><div><strong>Reduced motion</strong><span>' + (systemReduced ? "On because your operating system requests it." : "Reduce interface transitions and progress motion.") + '</span></div><button type="button" class="fv2-switch' + (reducedOn ? " is-on" : "") + '" role="switch" aria-checked="' + (reducedOn ? "true" : "false") + '" data-fv2-action="setting-reduced" data-fv2-settings-focus="reduced"' + (systemReduced ? " disabled" : "") + '><span></span><span class="fv2-sr-only">Toggle reduced motion</span></button></div>',
+			'<div class="fv2-setting-row"><div><strong>Density</strong><span>Choose row spacing for repeated document work.</span></div><div class="fv2-segmented" role="group" aria-label="Interface density"><button type="button" data-fv2-action="setting-density" data-fv2-density="comfortable" data-fv2-settings-focus="density-comfortable" aria-pressed="' + (this.preferences.density === "comfortable" ? "true" : "false") + '" class="' + (this.preferences.density === "comfortable" ? "is-active" : "") + '">Comfortable</button><button type="button" data-fv2-action="setting-density" data-fv2-density="compact" data-fv2-settings-focus="density-compact" aria-pressed="' + (this.preferences.density === "compact" ? "true" : "false") + '" class="' + (this.preferences.density === "compact" ? "is-active" : "") + '">Compact</button></div></div>',
 			"</section>",
 			'<section><h2>Sound</h2>',
-			'<div class="fv2-setting-row"><div><strong>Completion sound</strong><span>Off by default. Plays only for visible-tab success states.</span></div><button type="button" class="fv2-switch' + (this.preferences.sound ? " is-on" : "") + '" role="switch" aria-checked="' + (this.preferences.sound ? "true" : "false") + '" data-fv2-action="setting-sound"><span></span><span class="fv2-sr-only">Toggle completion sounds</span></button></div>',
-			'<label class="fv2-setting-row fv2-volume"><div><strong>Volume</strong><span>' + esc(Math.round(this.preferences.volume * 100)) + '%</span></div><input type="range" min="0" max="1" step="0.05" value="' + escAttr(this.preferences.volume) + '" data-fv2-volume' + (this.preferences.sound ? "" : " disabled") + ' aria-label="Completion sound volume"></label>',
+			'<div class="fv2-setting-row"><div><strong>Completion sound</strong><span>Off by default. Plays only for visible-tab success states.</span></div><button type="button" class="fv2-switch' + (this.preferences.sound ? " is-on" : "") + '" role="switch" aria-checked="' + (this.preferences.sound ? "true" : "false") + '" data-fv2-action="setting-sound" data-fv2-settings-focus="sound"><span></span><span class="fv2-sr-only">Toggle completion sounds</span></button></div>',
+			'<label class="fv2-setting-row fv2-volume"><div><strong>Volume</strong><span>' + esc(Math.round(this.preferences.volume * 100)) + '%</span></div><input type="range" min="0" max="1" step="0.05" value="' + escAttr(this.preferences.volume) + '" data-fv2-volume data-fv2-settings-focus="volume"' + (this.preferences.sound ? "" : " disabled") + ' aria-label="Completion sound volume"></label>',
 			"</section>",
-			'<button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="reset-settings">Reset preferences</button>',
+			'<button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="reset-settings" data-fv2-settings-focus="reset">Reset preferences</button>',
 			"</div>"
 		].join("");
 	};
@@ -2391,6 +2495,9 @@
 	FileVaultV2.prototype.unmount = function () {
 		if (this.destroyed) return;
 		this.destroyed = true;
+		this.studentRequestToken += 1;
+		if (this.studentRequestController && typeof this.studentRequestController.abort === "function") this.studentRequestController.abort();
+		this.studentRequestController = null;
 		this.requests.forEach(function (controller) {
 			if (controller && typeof controller.abort === "function") controller.abort();
 		});
@@ -2409,6 +2516,7 @@
 		}
 		this.audioContext = null;
 		this.returnFocus = null;
+		this.setExternalOverlayIsolation(false);
 		if (this.refs.frame) {
 			this.refs.frame.inert = false;
 			this.refs.frame.removeAttribute("inert");

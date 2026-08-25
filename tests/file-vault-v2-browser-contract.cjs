@@ -100,6 +100,10 @@ async function studentFlow(browser) {
 	const { context, page, diagnostics } = await createPage(browser, { role: "student" });
 	try {
 		assert(await page.getByRole("heading", { name: "Avery Rivera (Fixture)", exact: true }).isVisible(), "student: Vault heading missing");
+		const primaryActions = await page.locator(".fv2-home-action strong").allTextContents();
+		assert(primaryActions.join("|") === "Add Document|Files From MissionMed", `student: primary action hierarchy is incorrect ${primaryActions.join("|")}`);
+		assert(await page.getByRole("button", { name: "Journey", exact: true }).count() === 0, "student: Journey remains an equal top-level destination");
+		assert(await page.getByRole("heading", { name: "My Documents", exact: true }).isVisible(), "student: My Documents heading missing");
 		assert(await page.locator('[data-fv2-action="next-action"]').count() === 1, "student: expected one highlighted next action");
 		assert(await page.locator('[data-fv2-action="select-document"]').count() === 4, "student: expected four document rows");
 		assert(await page.evaluate(() => window.__FV2_HARNESS__.instance.safeDownloadUrl("http://unsafe.example/file") === ""), "student: HTTP download URL was not rejected");
@@ -136,12 +140,28 @@ async function studentFlow(browser) {
 		await page.getByRole("button", { name: /Back to Vault/ }).click();
 		const settingsButton = page.locator('[data-fv2-action="open-settings"]');
 		await settingsButton.focus();
-		await settingsButton.click();
+		await page.keyboard.press("Enter");
 		await page.waitForSelector('[role="dialog"][aria-label="File Vault settings"]');
+		assert(await page.getByText("Preferences are saved on this device.", { exact: true }).isVisible(), "student: settings persistence scope is not disclosed");
 		assert(await page.locator('[data-fv2-action="setting-sound"]').getAttribute("aria-checked") === "false", "student: sound should default off");
 		await page.locator('[data-fv2-action="setting-density"][data-fv2-density="compact"]').click();
+		const compactDensity = page.locator('[data-fv2-action="setting-density"][data-fv2-density="compact"]');
+		assert(await compactDensity.getAttribute("aria-pressed") === "true", "student: compact density state is not announced");
+		await page.waitForFunction(() => document.activeElement && document.activeElement.getAttribute("data-fv2-settings-focus") === "density-compact");
+		assert(await compactDensity.evaluate(button => document.activeElement === button), "student: density rerender lost control focus");
+		const soundSwitch = page.locator('[data-fv2-action="setting-sound"]');
+		await soundSwitch.focus();
+		await page.keyboard.press("Space");
+		assert(await soundSwitch.getAttribute("aria-checked") === "true", "student: Space did not activate the sound switch");
+		await page.waitForFunction(() => document.activeElement && document.activeElement.getAttribute("data-fv2-settings-focus") === "sound");
+		assert(await soundSwitch.evaluate(button => document.activeElement === button), "student: sound rerender lost control focus");
+		const closeSettings = page.getByRole("button", { name: "Close settings" });
+		const resetSettings = page.getByRole("button", { name: "Reset preferences" });
+		await closeSettings.focus();
+		await page.keyboard.press("Shift+Tab");
+		assert(await resetSettings.evaluate(button => document.activeElement === button), "student: Shift+Tab did not wrap to the last settings control");
 		await page.keyboard.press("Tab");
-		assert(await page.evaluate(() => !!document.activeElement.closest('[role="dialog"]')), "student: focus escaped settings dialog");
+		assert(await closeSettings.evaluate(button => document.activeElement === button), "student: Tab did not wrap to the first settings control");
 		await saveEvidence(page, "08-settings.png");
 		await page.keyboard.press("Escape");
 		assert(await settingsButton.evaluate(button => document.activeElement === button), "student: settings focus did not return to trigger");
@@ -150,8 +170,9 @@ async function studentFlow(browser) {
 		await page.reload({ waitUntil: "domcontentloaded" });
 		await waitForHarness(page);
 		assert(await page.locator(".mmed-fv2.fv2-density-compact").count() === 1, "student: density preference did not persist");
-		await page.getByRole("button", { name: "Journey", exact: true }).click();
+		await page.getByRole("button", { name: /Open application journey/ }).click();
 		assert(await page.getByRole("heading", { name: "Journey", exact: true }).isVisible(), "student: Journey navigation failed");
+		assert(await page.getByRole("heading", { name: "Journey", exact: true }).evaluate(heading => document.activeElement === heading), "student: Journey navigation did not focus the page heading");
 		assert(await page.getByText("Source: Deterministic browser fixture", { exact: true }).isVisible(), "student: assigned requirement provenance is missing");
 		await saveEvidence(page, "07-journey.png");
 
@@ -210,6 +231,65 @@ async function studentFlow(browser) {
 		assert(diagnostics.length === 0, `student: browser diagnostics ${diagnostics.join(" | ")}`);
 	} finally {
 		await context.close();
+	}
+}
+
+async function rapidStudentSwitchFlow(browser) {
+	const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "switch-race" }, { width: 1280, height: 800 });
+	try {
+		await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').click();
+		const picker = page.locator("[data-fv2-student-picker]");
+		await picker.waitFor();
+		await picker.selectOption("102");
+		await page.getByRole("heading", { name: "Jordan Lee (Fixture)", exact: true }).waitFor();
+		await page.waitForTimeout(240);
+		assert(await page.getByRole("heading", { name: "Jordan Lee (Fixture)", exact: true }).isVisible(), "admin switching: stale first response replaced the latest student");
+		assert(await page.evaluate(() => window.__FV2_HARNESS__.instance.state.selectedStudentId === 102), "admin switching: selected student ID is stale");
+		assert(await page.locator('[data-fv2-action="select-document"][data-fv2-document-id="1101"]').count() === 0, "admin switching: previous student document state leaked into the new Vault");
+		assert(await page.evaluate(() => window.__FV2_HARNESS__.calls.filter(call => /^\/students\/(101|102)$/.test(call.path)).length === 2), "admin switching: rapid selections did not issue both scoped requests");
+		assert(diagnostics.length === 0, `admin switching: browser diagnostics ${diagnostics.join(" | ")}`);
+	} finally {
+		await context.close();
+	}
+}
+
+async function matrixShellIntegrationFlow(browser) {
+	for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
+		const label = `Matrix shell ${viewport.width}x${viewport.height}`;
+		const { context, page, diagnostics } = await createPage(browser, { role: "admin", shell: "adminbar" }, viewport);
+		try {
+			const geometry = await page.locator('[data-fv2-action="open-settings"]').evaluate(button => {
+				const root = document.getElementById("student-os-root").getBoundingClientRect();
+				const app = document.querySelector(".mmed-fv2").getBoundingClientRect();
+				const rect = button.getBoundingClientRect();
+				const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+				return {
+					rootTop: Math.round(root.top),
+					rootBottom: Math.round(root.bottom),
+					appBottom: Math.round(app.bottom),
+					viewportBottom: window.innerHeight,
+					hitSettings: !!(hit && hit.closest('[data-fv2-action="open-settings"]'))
+				};
+			});
+			const expectedTop = viewport.width <= 782 ? 46 : 32;
+			assert(geometry.rootTop === expectedTop, `${label}: admin offset is wrong ${JSON.stringify(geometry)}`);
+			assert(Math.abs(geometry.rootBottom - geometry.viewportBottom) <= 1 && Math.abs(geometry.appBottom - geometry.rootBottom) <= 1, `${label}: V2 canvas exceeds the Matrix shell ${JSON.stringify(geometry)}`);
+			assert(geometry.hitSettings, `${label}: WordPress admin UI intercepts the Settings hit target`);
+			await page.locator('[data-fv2-action="open-settings"]').click();
+			await page.waitForSelector('[role="dialog"][aria-label="File Vault settings"]');
+			const isolation = await page.evaluate(() => ({
+				bodyClass: document.body.classList.contains("mmed-fv2-overlay-open"),
+				adminInert: document.getElementById("wpadminbar").hasAttribute("inert"),
+				returnInert: document.getElementById("mmed-matrix-app-return").hasAttribute("inert"),
+				returnVisibility: getComputedStyle(document.getElementById("mmed-matrix-app-return")).visibility
+			}));
+			assert(isolation.bodyClass && isolation.adminInert && isolation.returnInert && isolation.returnVisibility === "hidden", `${label}: dialog did not isolate external Matrix controls ${JSON.stringify(isolation)}`);
+			await page.getByRole("button", { name: "Close settings" }).click();
+			assert(await page.evaluate(() => !document.getElementById("wpadminbar").hasAttribute("inert") && !document.getElementById("mmed-matrix-app-return").hasAttribute("inert") && !document.body.classList.contains("mmed-fv2-overlay-open")), `${label}: external Matrix controls were not restored`);
+			assert(diagnostics.length === 0, `${label}: browser diagnostics ${diagnostics.join(" | ")}`);
+		} finally {
+			await context.close();
+		}
 	}
 }
 
@@ -374,7 +454,7 @@ async function stateAndFallbackFlow(browser) {
 			if (scenario === "empty") {
 				assert(await page.locator(".fv2-document-row.is-missing").count() === 5, "empty: requirement placeholders missing");
 			} else if (scenario === "blocked") {
-				assert(await page.getByText("Private storage is unavailable").isVisible(), "blocked: storage notice missing");
+				assert(await page.locator(".fv2-inline-notice").getByText("Private storage is unavailable", { exact: true }).isVisible(), "blocked: storage notice missing");
 				assert(await page.locator('[data-fv2-action="open-upload"]:not([disabled])').count() === 0, "blocked: enabled upload control should be absent");
 			} else {
 				assert(await page.getByRole("heading", { name: "File Vault is unavailable" }).isVisible(), "malformed: fail-closed state missing");
@@ -402,6 +482,7 @@ async function responsiveFlow(browser) {
 	for (const viewport of [
 		{ width: 320, height: 720 },
 		{ width: 375, height: 812 },
+		{ width: 390, height: 844 },
 		{ width: 760, height: 900 },
 		{ width: 768, height: 600 },
 		{ width: 1024, height: 768 },
@@ -438,6 +519,8 @@ async function main() {
 	const browser = await chromium.launch({ headless: true, executablePath });
 	try {
 		await studentFlow(browser);
+		await rapidStudentSwitchFlow(browser);
+		await matrixShellIntegrationFlow(browser);
 		await adminFlow(browser);
 		await staffPaginationFlow(browser);
 		await auditCursorBoundaryFlow(browser);
