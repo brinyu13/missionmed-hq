@@ -22,8 +22,8 @@ class MMED_File_Vault_V2 {
 	const CAP_MANAGE        = 'mmed_manage_file_vault';
 	const CAP_FINALIZE      = 'mmed_finalize_file_vault';
 	const CAP_AUDIT         = 'mmed_view_file_vault_audit';
-	const ASSET_CSS         = 'student-os-file-vault-v2.ae1565b00ffaae2e.css';
-	const ASSET_JS          = 'student-os-file-vault-v2.f9146267b14e9722.js';
+	const ASSET_CSS         = 'student-os-file-vault-v2.ea5100ed2573a88a.css';
+	const ASSET_JS          = 'student-os-file-vault-v2.71ca598156639c3c.js';
 
 	/**
 	 * Register runtime hooks.
