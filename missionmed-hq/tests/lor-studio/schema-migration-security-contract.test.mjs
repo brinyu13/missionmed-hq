@@ -36,6 +36,16 @@ const productionRlsPath = path.join(
   'migrations',
   '20260825010100_f2_lor_1012_production_rls_projection_grants.sql',
 );
+const identityScopePath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260825010200_f2_lor_1012_identity_scope_commands.sql',
+);
+const productionIdentityScopePath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260825010300_f2_lor_1012_production_identity_scope_commands.sql',
+);
 
 const RELATIONS = Object.freeze([
   'student_auth_bindings',
@@ -77,6 +87,25 @@ const APPROVED_SECURITY_DEFINER_FUNCTIONS = Object.freeze([
   'read_mentor_case_projection()',
   'read_faculty_case_projection()',
   'commit_faculty_final_document_release(bigint,text,text,text,jsonb,text)',
+]);
+
+const APPROVED_IDENTITY_SCOPE_DEFINERS = Object.freeze([
+  'ensure_student_auth_binding(text,text,text)',
+  'revoke_student_auth_binding(text,text)',
+  'resolve_faculty_case_scope(text,text,text)',
+  'resolve_mentor_case_scope(text,text,text)',
+]);
+
+const IDENTITY_SCOPE_POLICIES = Object.freeze([
+  'student_auth_bindings_identity_command_select',
+  'student_auth_bindings_identity_command_insert',
+  'student_auth_binding_revocations_identity_command_select',
+  'student_auth_binding_revocations_identity_command_insert',
+  'faculty_invitations_scope_resolution_select',
+  'faculty_otp_verification_scope_resolution_select',
+  'faculty_otp_revocations_scope_resolution_select',
+  'mentor_assignments_scope_resolution_select',
+  'mentor_assignment_revocations_scope_resolution_select',
 ]);
 
 function functionDeclarations(sql) {
@@ -381,4 +410,88 @@ test('DR-133 production baseline is target-bound while preserving accepted DR-12
 
   assert.match(productionFoundation, /requires a fresh lor_studio schema/u);
   assert.match(productionRls, /observed_sentinel IS DISTINCT FROM expected_sentinel/u);
+});
+
+test('DR-133 identity bootstrap and actor-scope ABI is DB-owned, allowlisted, and fail closed', async () => {
+  const sql = await readFile(identityScopePath, 'utf8');
+  const declarations = functionDeclarations(sql);
+  const definers = declarations.filter((declaration) => (
+    /SECURITY\s+DEFINER/u.test(declaration.properties)
+  ));
+
+  assert.deepEqual(
+    definers.map((declaration) => declaration.identity),
+    APPROVED_IDENTITY_SCOPE_DEFINERS,
+  );
+  assert.deepEqual(
+    commandOwnerFunctionIdentities(sql),
+    APPROVED_IDENTITY_SCOPE_DEFINERS,
+  );
+  for (const declaration of definers) {
+    assert.match(declaration.properties, /SET search_path = ''/u, declaration.identity);
+  }
+  for (const policy of IDENTITY_SCOPE_POLICIES) {
+    assert.match(sql, new RegExp(`CREATE POLICY ${policy}`, 'u'), policy);
+  }
+  for (const functionIdentity of APPROVED_IDENTITY_SCOPE_DEFINERS) {
+    const escaped = functionIdentity.replaceAll(/[()[\]]/gu, '\\$&').replaceAll(',', ', ');
+    assert.match(
+      sql,
+      new RegExp(`REVOKE ALL ON FUNCTION lor_studio\\.${escaped} FROM PUBLIC`, 'u'),
+      functionIdentity,
+    );
+  }
+  assert.match(sql, /canonical_uid := pg_catalog\.gen_random_uuid\(\)/u);
+  assert.doesNotMatch(sql, /canonical_wp_auth_uid/u);
+  assert.doesNotMatch(sql, /missionmed\.lor\.student-auth-uid\.v1/u);
+  assert.doesNotMatch(sql, /candidate_(?:auth_)?uid/iu);
+  assert.doesNotMatch(sql, /rotate_student_auth_binding/u);
+  assert.match(sql, /LOR_IDENTITY_REBIND_REQUIRES_SUCCESSOR_AUTHORITY/u);
+  assert.match(sql, /trusted_service_actor[\s\S]*wordpress-admission-v2/u);
+  assert.match(sql, /identity_resolution_verified/u);
+  assert.match(sql, /FROM pg_catalog\.pg_auth_members AS membership/u);
+  assert.match(sql, /granted_role\.rolname IN \('lor_studio_app', 'lor_studio_command_owner'\)/u);
+  assert.match(sql, /faculty_otp_proof_revocations/u);
+  assert.match(sql, /mentor_case_assignment_revocations/u);
+  assert.match(sql, /eligible_count <> 1/u);
+  assert.match(sql, /candidate_operation <> ALL \(ARRAY\['read', 'save'\]::text\[\]\)/u);
+  assert.doesNotMatch(sql, /'release'/u);
+  assert.match(sql, /pg_catalog\.length\(candidate_subject\) > 200/u);
+  assert.match(sql, /pg_catalog\.length\(candidate_faculty_subject\) > 200/u);
+  assert.match(sql, /pg_catalog\.length\(candidate_mentor_subject\) > 200/u);
+  assert.match(sql, /pg_catalog\.length\(assignment\.purpose\) BETWEEN 1 AND 160/u);
+  assert.match(sql, /identityScope=20260825010200/u);
+  assert.doesNotMatch(sql, /\b(?:TO|GRANT)\s+(?:anon|authenticated|service_role)\b/iu);
+  assert.doesNotMatch(sql, /GRANT\s+[^;]+\s+TO\s+PUBLIC/iu);
+  assert.doesNotMatch(sql, /\bCASCADE\b/iu);
+});
+
+test('DR-133 production identity/scope migration preserves the reviewed local command body', async () => {
+  const [localSql, productionSql] = await Promise.all([
+    readFile(identityScopePath, 'utf8'),
+    readFile(productionIdentityScopePath, 'utf8'),
+  ]);
+  const bodyMarker = 'LOCK TABLE\n';
+  assert.equal(
+    productionSql.slice(productionSql.indexOf(bodyMarker)).replaceAll(
+      'identityScope=20260825010300',
+      'identityScope=20260825010200',
+    ).trimEnd(),
+    localSql.slice(localSql.indexOf(bodyMarker)).trimEnd(),
+  );
+  for (const required of [
+    'missionmed.lor.railway-postgres-target.v1',
+    '29afe885-b9b1-425d-8fd8-8611cd275409',
+    'f5705d38-393c-4176-9cc2-0d1dbad42c93',
+    'b49a52e7-df15-4417-b67a-a64403aa5db7',
+    'mftguikkftmrxjxrkdln',
+    'fglyvdykwgbuivikqoah',
+    'foundation=20260825010000',
+    'identityScope=20260825010300',
+  ]) {
+    assert.match(productionSql, new RegExp(required.replaceAll('.', '\\.'), 'u'), required);
+  }
+  assert.match(productionSql, /inet_server_addr\(\) IS NULL/u);
+  assert.match(productionSql, /current_setting\('ssl'\) IS DISTINCT FROM 'on'/u);
+  assert.match(productionSql, /observed_sentinel IS DISTINCT FROM expected_sentinel/u);
 });

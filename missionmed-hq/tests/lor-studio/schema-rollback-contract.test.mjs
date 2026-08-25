@@ -42,6 +42,16 @@ const productionRlsRollbackPath = path.join(
   'rollbacks',
   '20260825010100_f2_lor_1012_production_rls_projection_grants.rollback.sql',
 );
+const identityScopeRollbackPath = path.join(
+  scriptDirectory,
+  'rollbacks',
+  '20260825010200_f2_lor_1012_identity_scope_commands.rollback.sql',
+);
+const productionIdentityScopeRollbackPath = path.join(
+  scriptDirectory,
+  'rollbacks',
+  '20260825010300_f2_lor_1012_production_identity_scope_commands.rollback.sql',
+);
 
 const RELATIONS = Object.freeze([
   'student_auth_bindings',
@@ -645,4 +655,114 @@ test('DR-133 production rollbacks preserve exact no-CASCADE bodies and require t
     assert.doesNotMatch(destructiveSql, /\bDROP\s+OWNED\s+BY\b/iu);
     assert.doesNotMatch(destructiveSql, /\bREASSIGN\s+OWNED\b/iu);
   }
+});
+
+test('identity/scope rollback is exact, data preserving, and no-CASCADE', async () => {
+  const sql = await readFile(identityScopeRollbackPath, 'utf8');
+  const semanticGuardStart = sql.indexOf('DO $semantic_catalog_guard$');
+  const semanticGuardEnd = sql.indexOf('$semantic_catalog_guard$;', semanticGuardStart);
+  const firstReverseDdl = sql.indexOf('REVOKE EXECUTE ON FUNCTION');
+  assert.ok(semanticGuardStart > 0);
+  assert.ok(semanticGuardEnd > semanticGuardStart);
+  assert.ok(firstReverseDdl > semanticGuardEnd);
+  const semanticGuard = sql.slice(semanticGuardStart, semanticGuardEnd);
+  for (const required of [
+    'expected_inventory_count constant bigint := 22',
+    'expected_function_count constant bigint := 51',
+    'expected_definer_count constant bigint := 12',
+    'expected_policy_count constant bigint := 100',
+    'expected_nonowner_relation_acl_count constant bigint := 11',
+    'expected_column_acl_count constant bigint := 0',
+    '99b0910c25caa8c6b5e16bdee2fbb6dcef3000a4360880f86e73f3c134fb409c',
+    'b161095ce9d6529ed1e2ddacb2a86d5b59bff455400f51b927bd569dd7e66705',
+    'pg_catalog.pg_get_functiondef',
+    'procedure.prokind',
+    'procedure.proconfig',
+    'procedure.proacl IS NULL',
+    'pg_catalog.aclexplode',
+    'pg_catalog.pg_get_expr(policy.polqual',
+    'pg_catalog.pg_get_expr(policy.polwithcheck',
+    'class.relacl IS NULL',
+    'class.relrowsecurity',
+    'class.relforcerowsecurity',
+    'FROM pg_catalog.pg_attribute AS attribute',
+    'pg_catalog.aclexplode(attribute.attacl)',
+    'observed_column_acl_count IS DISTINCT FROM expected_column_acl_count',
+    'ORDER BY sort_key COLLATE "C"',
+    'observed_fingerprint IS DISTINCT FROM expected_fingerprint',
+  ]) {
+    assert.equal(semanticGuard.includes(required), true, required);
+  }
+  for (const functionIdentity of [
+    'ensure_student_auth_binding(text, text, text)',
+    'revoke_student_auth_binding(text, text)',
+    'resolve_faculty_case_scope(text, text, text)',
+    'resolve_mentor_case_scope(text, text, text)',
+    'identity_bootstrap_context_allows(text, text[])',
+    'actor_scope_resolution_context_allows(text, text, text[], text)',
+  ]) {
+    assert.equal(
+      semanticGuard.includes(`'${functionIdentity.slice(0, functionIdentity.indexOf('('))}'`),
+      true,
+      `semantic fingerprint ${functionIdentity}`,
+    );
+    assert.match(
+      sql,
+      new RegExp(`DROP FUNCTION lor_studio\\.${functionIdentity.replaceAll(/[()[\]]/gu, '\\$&')};`, 'u'),
+      functionIdentity,
+    );
+  }
+  for (const policy of [
+    'student_auth_bindings_identity_command_select',
+    'student_auth_bindings_identity_command_insert',
+    'student_auth_binding_revocations_identity_command_select',
+    'student_auth_binding_revocations_identity_command_insert',
+    'faculty_invitations_scope_resolution_select',
+    'faculty_otp_verification_scope_resolution_select',
+    'faculty_otp_revocations_scope_resolution_select',
+    'mentor_assignments_scope_resolution_select',
+    'mentor_assignment_revocations_scope_resolution_select',
+  ]) {
+    assert.match(sql, new RegExp(`DROP POLICY ${policy}`, 'u'), policy);
+  }
+  assert.match(sql, /REVOKE INSERT ON TABLE[\s\S]*student_auth_bindings/u);
+  assert.match(sql, /identityScope=20260825010200/u);
+  assert.match(sql, /FROM pg_catalog\.pg_auth_members AS membership/u);
+  assert.match(sql, /rolname = 'lor_studio_app'[\s\S]*NOT rolsuper[\s\S]*NOT rolinherit[\s\S]*NOT rolcanlogin[\s\S]*NOT rolbypassrls/u);
+  assert.match(sql, /rolname = 'lor_studio_command_owner'[\s\S]*NOT rolsuper[\s\S]*NOT rolinherit[\s\S]*NOT rolcanlogin[\s\S]*NOT rolbypassrls/u);
+  assert.match(sql, /regexp_replace\([\s\S]*identityScope=20260825010200\$/u);
+  const destructiveSql = withoutLineComments(sql);
+  assert.doesNotMatch(destructiveSql, /\bCASCADE\b/iu);
+  assert.doesNotMatch(destructiveSql, /\b(?:DELETE|TRUNCATE)\b/iu);
+  assert.doesNotMatch(destructiveSql, /\bDROP\s+(?:TABLE|SCHEMA|ROLE)\b/iu);
+});
+
+test('production identity/scope rollback preserves local reverse operations and exact target custody', async () => {
+  const [localSql, productionSql] = await Promise.all([
+    readFile(identityScopeRollbackPath, 'utf8'),
+    readFile(productionIdentityScopeRollbackPath, 'utf8'),
+  ]);
+  const bodyMarker = 'LOCK TABLE\n';
+  assert.equal(
+    productionSql.slice(productionSql.indexOf(bodyMarker)).replaceAll(
+      'identityScope=20260825010300',
+      'identityScope=20260825010200',
+    ).trimEnd(),
+    localSql.slice(localSql.indexOf(bodyMarker)).trimEnd(),
+  );
+  for (const required of [
+    'missionmed.lor.railway-postgres-target.v1',
+    '29afe885-b9b1-425d-8fd8-8611cd275409',
+    'f5705d38-393c-4176-9cc2-0d1dbad42c93',
+    'b49a52e7-df15-4417-b67a-a64403aa5db7',
+    'mftguikkftmrxjxrkdln',
+    'fglyvdykwgbuivikqoah',
+    'foundation=20260825010000',
+    'identityScope=20260825010300',
+  ]) {
+    assert.match(productionSql, new RegExp(required.replaceAll('.', '\\.'), 'u'), required);
+  }
+  const destructiveSql = withoutLineComments(productionSql);
+  assert.doesNotMatch(destructiveSql, /\bCASCADE\b/iu);
+  assert.doesNotMatch(destructiveSql, /\bDROP\s+(?:TABLE|SCHEMA|ROLE)\b/iu);
 });

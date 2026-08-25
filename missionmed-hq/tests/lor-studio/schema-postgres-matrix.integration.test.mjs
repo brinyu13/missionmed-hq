@@ -69,6 +69,21 @@ const productionFoundationPath = path.join(
   'migrations',
   '20260825010000_f2_lor_1012_production_schema_foundation.sql',
 );
+const identityScopePath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260825010200_f2_lor_1012_identity_scope_commands.sql',
+);
+const productionIdentityScopePath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260825010300_f2_lor_1012_production_identity_scope_commands.sql',
+);
+const identityScopeRollbackPath = path.join(
+  scriptDirectory,
+  'rollbacks',
+  '20260825010200_f2_lor_1012_identity_scope_commands.rollback.sql',
+);
 
 const RUN_REAL_MATRIX = process.env.LOR_RUN_REAL_POSTGRES_MATRIX === '1';
 const TOOLCHAINS = Object.freeze([
@@ -104,6 +119,13 @@ const FACULTY_RELEASED_AT = '2026-08-20T12:06:00.000Z';
 const FACULTY_FIXTURE_EXPIRES_AT = '2099-01-01T00:00:00.000Z';
 const OPERATIONAL_ACTOR = 'service:lor-local-security-harness';
 const OPERATIONAL_AUTH_UID = '8a5b8f6c-5d5e-4ea1-9e5e-1f4041309c05';
+const IDENTITY_SUBJECT = 'wp:141';
+const IDENTITY_SOURCE_HASH = sha256('synthetic-local-wordpress-admission-source');
+const IDENTITY_PROOF_HASH = sha256('synthetic-local-wordpress-admission-proof');
+const MENTOR = 'wp:96';
+const MENTOR_AUTH_UID = '9b6c907d-6e6f-4fb2-af6f-20515241ad06';
+const MENTOR_ASSIGNMENT_ID = 'assignment_disposable_pg_matrix_0001';
+const MENTOR_ASSIGNMENT_ID_TWO = 'assignment_disposable_pg_matrix_0002';
 
 const BINDING = resolveLorTargetBinding({
   schemaVersion: LOR_TARGET_BINDING_SCHEMA,
@@ -389,6 +411,45 @@ async function withHarness(toolchain, operation) {
 async function applyForward(harness) {
   await harness.applySqlFile(foundationPath);
   await harness.applySqlFile(rlsPath);
+}
+
+async function withIdentityResolutionContext(pool, {
+  actorRole,
+  subject,
+  caseId = '',
+  operation,
+  purpose,
+  trustedServiceActor = '',
+}, handler) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+    await client.query('SET LOCAL ROLE lor_studio_app');
+    await client.query({
+      text: `SELECT
+        pg_catalog.set_config('request.jwt.claim.sub', '', true),
+        pg_catalog.set_config('lor_studio.student_auth_subject', $1, true),
+        pg_catalog.set_config('lor_studio.actor_role', $2, true),
+        pg_catalog.set_config('lor_studio.resource_student_id', $1, true),
+        pg_catalog.set_config('lor_studio.case_id', $3, true),
+        pg_catalog.set_config('lor_studio.operation', $4, true),
+        pg_catalog.set_config('lor_studio.purpose', $5, true),
+        pg_catalog.set_config('lor_studio.trusted_service_actor', $6, true),
+        pg_catalog.set_config('lor_studio.identity_resolution_verified', 'true', true),
+        pg_catalog.set_config('lor_studio.entitlement_verified', 'true', true),
+        pg_catalog.set_config('lor_studio.lor_enabled', 'true', true),
+        pg_catalog.set_config('lor_studio.canary_authorized', 'true', true)`,
+      values: [subject, actorRole, caseId, operation, purpose, trustedServiceActor],
+    });
+    const result = await handler(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function assertProductionFoundationRejectsDisposableTarget({ harness, pool }) {
@@ -1999,6 +2060,413 @@ async function seedSyntheticFacultyPrerequisites(pool) {
   }
 }
 
+async function proveIdentityScopeSuccessor({ harness, pool, contract, postgresMajor }) {
+  await applyForward(harness);
+  await assert.rejects(
+    () => harness.applySqlFile(productionIdentityScopePath),
+    isSqlApplyFailure,
+  );
+  const { rows: [rejectedProductionState] } = await pool.query(`SELECT
+    pg_catalog.to_regprocedure(
+      'lor_studio.ensure_student_auth_binding(text,text,text)'
+    ) IS NULL AS successor_absent,
+    pg_catalog.obj_description(namespace.oid, 'pg_namespace')
+      NOT LIKE '%|identityScope=%' AS base_sentinel_unchanged
+    FROM pg_catalog.pg_namespace AS namespace
+    WHERE namespace.nspname = 'lor_studio'`);
+  assert.deepEqual(rejectedProductionState, {
+    successor_absent: true,
+    base_sentinel_unchanged: true,
+  });
+  await pool.query('GRANT lor_studio_command_owner TO lor_studio_app');
+  await assert.rejects(
+    () => harness.applySqlFile(identityScopePath),
+    isSqlApplyFailure,
+  );
+  const { rows: [membershipRejectedState] } = await pool.query(`SELECT
+    pg_catalog.to_regprocedure(
+      'lor_studio.ensure_student_auth_binding(text,text,text)'
+    ) IS NULL AS successor_absent,
+    pg_catalog.obj_description(namespace.oid, 'pg_namespace')
+      NOT LIKE '%|identityScope=%' AS base_sentinel_unchanged
+    FROM pg_catalog.pg_namespace AS namespace
+    WHERE namespace.nspname = 'lor_studio'`);
+  assert.deepEqual(membershipRejectedState, rejectedProductionState);
+  await pool.query('REVOKE lor_studio_command_owner FROM lor_studio_app');
+  await harness.applySqlFile(identityScopePath);
+
+  const missingContextClient = await pool.connect();
+  try {
+    await missingContextClient.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+    await missingContextClient.query('SET LOCAL ROLE lor_studio_app');
+    await assert.rejects(
+      () => missingContextClient.query({
+        text: `SELECT lor_studio.ensure_student_auth_binding($1, $2, $3) AS result`,
+        values: [IDENTITY_SUBJECT, IDENTITY_SOURCE_HASH, IDENTITY_PROOF_HASH],
+      }),
+      (error) => error?.code === 'P1101',
+    );
+  } finally {
+    await missingContextClient.query('ROLLBACK').catch(() => {});
+    missingContextClient.release();
+  }
+
+  const oversizedWordPressSubject = `wp:${'1'.repeat(198)}`;
+  assert.equal(oversizedWordPressSubject.length, 201);
+  await assert.rejects(
+    () => withIdentityResolutionContext(pool, {
+      actorRole: 'service',
+      subject: oversizedWordPressSubject,
+      operation: 'ensure_student_binding',
+      purpose: 'wordpress_verified_bootstrap',
+      trustedServiceActor: 'wordpress-admission-v2',
+    }, (client) => client.query({
+      text: `SELECT lor_studio.ensure_student_auth_binding($1, $2, $3) AS result`,
+      values: [oversizedWordPressSubject, IDENTITY_SOURCE_HASH, IDENTITY_PROOF_HASH],
+    })),
+    (error) => error?.code === 'P1105',
+  );
+
+  await assertDirectAppDmlDenied(
+    pool,
+    `INSERT INTO lor_studio.student_auth_bindings
+      (binding_id, student_auth_subject, student_auth_uid, binding_source,
+       source_reference_hash, proof_hash, bound_at, expires_at)
+      VALUES ('forbidden_direct_identity_binding', $1,
+        '00000000-0000-5000-a000-000000000000'::uuid,
+        'wordpress_verified_bootstrap', $2, $3,
+        pg_catalog.statement_timestamp(), NULL)`,
+    [IDENTITY_SUBJECT, IDENTITY_SOURCE_HASH, IDENTITY_PROOF_HASH],
+  );
+
+  const ensureBinding = () => withIdentityResolutionContext(pool, {
+    actorRole: 'service',
+    subject: IDENTITY_SUBJECT,
+    operation: 'ensure_student_binding',
+    purpose: 'wordpress_verified_bootstrap',
+    trustedServiceActor: 'wordpress-admission-v2',
+  }, async (client) => (await client.query({
+    text: `SELECT lor_studio.ensure_student_auth_binding($1, $2, $3) AS result`,
+    values: [IDENTITY_SUBJECT, IDENTITY_SOURCE_HASH, IDENTITY_PROOF_HASH],
+  })).rows[0].result);
+
+  const ensured = await ensureBinding();
+  assert.equal(ensured.schemaVersion, 'missionmed.lor.student-auth-binding-receipt.v1');
+  assert.equal(ensured.studentAuthSubject, IDENTITY_SUBJECT);
+  assert.equal(ensured.bindingSource, 'wordpress_verified_bootstrap');
+  assert.equal(ensured.sourceReferenceHash, IDENTITY_SOURCE_HASH);
+  assert.equal(ensured.replayed, false);
+  assert.match(ensured.studentAuthUid, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u);
+  assert.match(ensured.bindingId, /^binding_[a-f0-9]{64}$/u);
+  assert.equal('proofHash' in ensured, false);
+
+  const ensureReplay = await ensureBinding();
+  assert.deepEqual(ensureReplay, { ...ensured, replayed: true });
+
+  await assert.rejects(
+    () => withIdentityResolutionContext(pool, {
+      actorRole: 'service',
+      subject: IDENTITY_SUBJECT,
+      operation: 'ensure_student_binding',
+      purpose: 'wordpress_verified_bootstrap',
+      trustedServiceActor: 'wordpress-admission-v2',
+    }, (client) => client.query({
+      text: `SELECT lor_studio.ensure_student_auth_binding($1, $2, $3) AS result`,
+      values: [IDENTITY_SUBJECT, IDENTITY_SOURCE_HASH, sha256('conflicting-proof')],
+    })),
+    (error) => error?.code === 'P1102',
+  );
+
+  const revokeBinding = () => withIdentityResolutionContext(pool, {
+    actorRole: 'service',
+    subject: IDENTITY_SUBJECT,
+    operation: 'revoke_student_binding',
+    purpose: 'wordpress_verified_bootstrap',
+    trustedServiceActor: 'wordpress-admission-v2',
+  }, async (client) => (await client.query({
+    text: `SELECT lor_studio.revoke_student_auth_binding($1, $2) AS result`,
+    values: [IDENTITY_SUBJECT, 'WORDPRESS_ACCESS_REVOKED'],
+  })).rows[0].result);
+
+  const revoked = await revokeBinding();
+  assert.equal(revoked.schemaVersion, 'missionmed.lor.student-auth-binding-revocation-receipt.v1');
+  assert.equal(revoked.studentAuthSubject, IDENTITY_SUBJECT);
+  assert.equal(revoked.studentAuthUid, ensured.studentAuthUid);
+  assert.equal(revoked.bindingId, ensured.bindingId);
+  assert.match(revoked.authorityRef, /^authority_[a-f0-9]{64}$/u);
+  assert.equal(revoked.reasonCode, 'WORDPRESS_ACCESS_REVOKED');
+  assert.match(revoked.revocationHash, /^[a-f0-9]{64}$/u);
+  assert.equal(revoked.replayed, false);
+  assert.deepEqual(await revokeBinding(), { ...revoked, replayed: true });
+  await assert.rejects(
+    () => withIdentityResolutionContext(pool, {
+      actorRole: 'service',
+      subject: IDENTITY_SUBJECT,
+      operation: 'revoke_student_binding',
+      purpose: 'wordpress_verified_bootstrap',
+      trustedServiceActor: 'wordpress-admission-v2',
+    }, (client) => client.query({
+      text: `SELECT lor_studio.revoke_student_auth_binding($1, $2) AS result`,
+      values: [IDENTITY_SUBJECT, 'DIFFERENT_REVOCATION_REASON'],
+    })),
+    (error) => error?.code === 'P1102',
+  );
+  await assert.rejects(ensureBinding, (error) => error?.code === 'P1102');
+
+  await pool.query({
+    text: `INSERT INTO lor_studio.student_auth_bindings
+      (binding_id, student_auth_subject, student_auth_uid, binding_source,
+       source_reference_hash, proof_hash, bound_at, expires_at)
+      VALUES ('binding_synthetic_ambiguous_identity', $1,
+        '11111111-1111-5111-a111-111111111111'::uuid,
+        'wordpress_verified_bootstrap', $2, $3,
+        '2026-08-20T12:00:00.000Z'::timestamptz, NULL)`,
+    values: [
+      IDENTITY_SUBJECT,
+      sha256('synthetic-local-ambiguous-binding-source'),
+      sha256('synthetic-local-ambiguous-binding-proof'),
+    ],
+  });
+  await assert.rejects(revokeBinding, (error) => error?.code === 'P1102');
+
+  await proveActorSafeStudentCommand(pool);
+  await seedSyntheticFacultyPrerequisites(pool);
+
+  const resolveFaculty = ({
+    subject = FACULTY,
+    caseId = CASE_ID,
+    operation = 'read',
+  } = {}) => withIdentityResolutionContext(pool, {
+    actorRole: 'faculty',
+    subject,
+    caseId,
+    operation,
+    purpose: 'faculty_scope_resolution',
+  }, async (client) => (await client.query({
+    text: `SELECT lor_studio.resolve_faculty_case_scope($1, $2, $3) AS result`,
+    values: [subject, caseId, operation],
+  })).rows[0].result);
+
+  const facultyResolved = await resolveFaculty();
+  assert.deepEqual(facultyResolved, {
+    schemaVersion: 'missionmed.lor.server-query-scope.v1',
+    authoritySource: 'server_verified_session_crosswalk',
+    authenticated: true,
+    roleVerified: true,
+    authUid: FACULTY_AUTH_UID,
+    authenticatedSubject: FACULTY,
+    actorId: FACULTY,
+    actorRole: 'faculty',
+    resourceStudentId: STUDENT,
+    caseId: CASE_ID,
+    operation: 'read',
+    purpose: 'faculty_private_edit',
+    assignmentId: null,
+    invitationId: FACULTY_INVITATION_ID,
+    administrativeGrantId: null,
+    entitlementVerified: true,
+    lorEnabled: true,
+    canaryAuthorized: true,
+  });
+  assert.deepEqual(await resolveFaculty({ operation: 'save' }), {
+    ...facultyResolved,
+    operation: 'save',
+  });
+  await assert.rejects(
+    () => withIdentityResolutionContext(pool, {
+      actorRole: 'faculty',
+      subject: FACULTY,
+      caseId: CASE_ID,
+      operation: 'read',
+      purpose: 'faculty_scope_resolution',
+    }, (client) => client.query({
+      text: `SELECT lor_studio.resolve_faculty_case_scope($1, $2, 'release') AS result`,
+      values: [FACULTY, CASE_ID],
+    })),
+    (error) => error?.code === 'P1205',
+  );
+  await assert.rejects(
+    () => resolveFaculty({ subject: oversizedWordPressSubject }),
+    (error) => error?.code === 'P1205',
+  );
+  assert.equal(await resolveFaculty({ subject: OTHER_FACULTY }), null);
+  assert.equal(await resolveFaculty({ caseId: OTHER_CASE_ID }), null);
+
+  await pool.query({
+    text: `INSERT INTO lor_studio.mentor_case_assignments
+      (assignment_id, case_id, student_auth_subject, mentor_auth_subject,
+       mentor_auth_uid, operation, purpose, assigned_at, expires_at, assignment_hash)
+      VALUES ($1, $2, $3, $4, $5::uuid, 'read', 'mentor_case_read',
+        '2026-08-20T12:07:00.000Z'::timestamptz,
+        '2099-01-01T00:00:00.000Z'::timestamptz, $6)`,
+    values: [
+      MENTOR_ASSIGNMENT_ID,
+      CASE_ID,
+      STUDENT,
+      MENTOR,
+      MENTOR_AUTH_UID,
+      sha256('synthetic-local-mentor-assignment-one'),
+    ],
+  });
+
+  const resolveMentor = ({
+    subject = MENTOR,
+    caseId = CASE_ID,
+    operation = 'read',
+  } = {}) => withIdentityResolutionContext(pool, {
+    actorRole: 'mentor',
+    subject,
+    caseId,
+    operation,
+    purpose: 'mentor_scope_resolution',
+  }, async (client) => (await client.query({
+    text: `SELECT lor_studio.resolve_mentor_case_scope($1, $2, $3) AS result`,
+    values: [subject, caseId, operation],
+  })).rows[0].result);
+
+  assert.deepEqual(await resolveMentor(), {
+    schemaVersion: 'missionmed.lor.server-query-scope.v1',
+    authoritySource: 'server_verified_session_crosswalk',
+    authenticated: true,
+    roleVerified: true,
+    authUid: MENTOR_AUTH_UID,
+    authenticatedSubject: MENTOR,
+    actorId: MENTOR,
+    actorRole: 'mentor',
+    resourceStudentId: STUDENT,
+    caseId: CASE_ID,
+    operation: 'read',
+    purpose: 'mentor_case_read',
+    assignmentId: MENTOR_ASSIGNMENT_ID,
+    invitationId: null,
+    administrativeGrantId: null,
+    entitlementVerified: true,
+    lorEnabled: true,
+    canaryAuthorized: true,
+  });
+  assert.equal(await resolveMentor({ subject: 'wp:97' }), null);
+  assert.equal(await resolveMentor({ caseId: OTHER_CASE_ID }), null);
+  await assert.rejects(
+    () => resolveMentor({ subject: oversizedWordPressSubject }),
+    (error) => error?.code === 'P1205',
+  );
+
+  await pool.query({
+    text: `INSERT INTO lor_studio.mentor_case_assignments
+      (assignment_id, case_id, student_auth_subject, mentor_auth_subject,
+       mentor_auth_uid, operation, purpose, assigned_at, expires_at, assignment_hash)
+      VALUES ('assignment_disposable_pg_matrix_oversized_purpose', $1, $2, 'wp:98',
+        'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'::uuid, 'read', $3,
+        '2026-08-20T12:07:15.000Z'::timestamptz,
+        '2099-01-01T00:00:00.000Z'::timestamptz, $4)`,
+    values: [CASE_ID, STUDENT, 'x'.repeat(161), sha256('oversized-mentor-purpose')],
+  });
+  assert.equal(await resolveMentor({ subject: 'wp:98' }), null);
+
+  await pool.query({
+    text: `INSERT INTO lor_studio.mentor_case_assignments
+      (assignment_id, case_id, student_auth_subject, mentor_auth_subject,
+       mentor_auth_uid, operation, purpose, assigned_at, expires_at, assignment_hash)
+      VALUES ($1, $2, $3, $4, $5::uuid, 'read', 'mentor_case_read',
+        '2026-08-20T12:07:30.000Z'::timestamptz,
+        '2099-01-01T00:00:00.000Z'::timestamptz, $6)`,
+    values: [
+      MENTOR_ASSIGNMENT_ID_TWO,
+      CASE_ID,
+      STUDENT,
+      MENTOR,
+      MENTOR_AUTH_UID,
+      sha256('synthetic-local-mentor-assignment-two'),
+    ],
+  });
+  await assert.rejects(resolveMentor, (error) => error?.code === 'P1202');
+
+  const { rows: [audit] } = await pool.query({
+    text: `SELECT event_ref
+      FROM lor_studio.recommendation_case_audit_events
+      WHERE case_id = $1 AND student_auth_subject = $2
+      ORDER BY revision, event_ref
+      LIMIT 1`,
+    values: [CASE_ID, STUDENT],
+  });
+  assert.ok(audit?.event_ref);
+  await pool.query({
+    text: `INSERT INTO lor_studio.faculty_otp_proof_revocations
+      (receipt_id, case_id, student_auth_subject, revoked_at,
+       reason_code, audit_event_ref, revocation_hash)
+      VALUES ($1, $2, $3, pg_catalog.statement_timestamp(),
+        'SECURITY_REVOKED', $4, $5)`,
+    values: [
+      FACULTY_OTP_RECEIPT_ID,
+      CASE_ID,
+      STUDENT,
+      audit.event_ref,
+      sha256('synthetic-local-faculty-proof-revocation'),
+    ],
+  });
+  assert.equal(await resolveFaculty(), null);
+
+  for (const [assignmentId, suffix] of [
+    [MENTOR_ASSIGNMENT_ID, 'one'],
+    [MENTOR_ASSIGNMENT_ID_TWO, 'two'],
+  ]) {
+    await pool.query({
+      text: `INSERT INTO lor_studio.mentor_case_assignment_revocations
+        (assignment_id, case_id, student_auth_subject, revoked_at, revocation_hash)
+        VALUES ($1, $2, $3, pg_catalog.statement_timestamp(), $4)`,
+      values: [
+        assignmentId,
+        CASE_ID,
+        STUDENT,
+        sha256(`synthetic-local-mentor-assignment-revocation-${suffix}`),
+      ],
+    });
+  }
+  assert.equal(await resolveMentor(), null);
+
+  const snapshot = await catalogSnapshot(pool);
+  assert.equal(snapshot.function_count, contract.expectedFinalFunctionCount + 6);
+  assert.equal(snapshot.definer_count, contract.approvedSecurityDefinerFunctions.length + 4);
+  assert.equal(snapshot.policy_count, contract.expectedFinalPolicyCount + 9);
+  assert.equal(snapshot.forced_rls_count, contract.executableRelations.length);
+  const { rows: [privileges] } = await pool.query(`SELECT
+    pg_catalog.has_table_privilege(
+      'lor_studio_app', 'lor_studio.student_auth_bindings', 'INSERT'
+    ) AS app_binding_insert,
+    pg_catalog.has_table_privilege(
+      'lor_studio_command_owner', 'lor_studio.student_auth_bindings', 'INSERT'
+    ) AS command_binding_insert,
+    pg_catalog.has_function_privilege(
+      'lor_studio_app', 'lor_studio.resolve_faculty_case_scope(text,text,text)', 'EXECUTE'
+    ) AS app_faculty_resolver_execute`);
+  assert.deepEqual(privileges, {
+    app_binding_insert: false,
+    command_binding_insert: true,
+    app_faculty_resolver_execute: true,
+  });
+
+  const { rows: [beforeRollback] } = await pool.query(`SELECT
+    (SELECT pg_catalog.count(*) FROM lor_studio.student_auth_bindings) AS binding_count,
+    (SELECT pg_catalog.count(*) FROM lor_studio.recommendation_cases) AS case_count`);
+  await harness.applySqlFile(identityScopeRollbackPath);
+  await assertFinalCatalog(pool, contract, postgresMajor);
+  const { rows: [afterRollback] } = await pool.query(`SELECT
+    (SELECT pg_catalog.count(*) FROM lor_studio.student_auth_bindings) AS binding_count,
+    (SELECT pg_catalog.count(*) FROM lor_studio.recommendation_cases) AS case_count,
+    pg_catalog.to_regprocedure(
+      'lor_studio.ensure_student_auth_binding(text,text,text)'
+    ) IS NULL AS successor_removed,
+    pg_catalog.obj_description(namespace.oid, 'pg_namespace')
+      NOT LIKE '%|identityScope=%' AS base_sentinel_restored
+    FROM pg_catalog.pg_namespace AS namespace
+    WHERE namespace.nspname = 'lor_studio'`);
+  assert.deepEqual(afterRollback, {
+    ...beforeRollback,
+    successor_removed: true,
+    base_sentinel_restored: true,
+  });
+}
+
 async function proveActorSafeFacultyRelease(pool) {
   const preReleasePrivateRecord = await seedSyntheticFacultyPrerequisites(pool);
   const executor = createNodePostgresExecutor({
@@ -2953,6 +3421,214 @@ function isSqlApplyFailure(error) {
   return error instanceof PostgresHarnessError && error.code === 'SQL_FILE_APPLY_FAILED';
 }
 
+async function assertIdentityScopeFunctionDefinitionDriftRejected({ harness, pool }) {
+  await applyForward(harness);
+  await harness.applySqlFile(identityScopePath);
+  await pool.query(`CREATE OR REPLACE FUNCTION lor_studio.resolve_mentor_case_scope(
+      candidate_mentor_subject text,
+      candidate_case_id text,
+      candidate_operation text
+    ) RETURNS jsonb
+    LANGUAGE plpgsql
+    SECURITY DEFINER
+    SET search_path = ''
+    AS $$ BEGIN RETURN NULL; END $$`);
+  await assert.rejects(
+    () => harness.applySqlFile(identityScopeRollbackPath),
+    isSqlApplyFailure,
+  );
+  const { rows: [state] } = await pool.query(`SELECT
+    pg_catalog.to_regprocedure(
+      'lor_studio.resolve_mentor_case_scope(text,text,text)'
+    ) IS NOT NULL AS altered_function_preserved,
+    pg_catalog.obj_description(namespace.oid, 'pg_namespace')
+      LIKE '%|identityScope=20260825010200' AS successor_sentinel_preserved
+    FROM pg_catalog.pg_namespace AS namespace
+    WHERE namespace.nspname = 'lor_studio'`);
+  assert.deepEqual(state, {
+    altered_function_preserved: true,
+    successor_sentinel_preserved: true,
+  });
+}
+
+async function assertIdentityScopeFunctionConfigDriftRejected({ harness, pool }) {
+  await applyForward(harness);
+  await harness.applySqlFile(identityScopePath);
+  await pool.query(`ALTER FUNCTION lor_studio.identity_bootstrap_context_allows(
+    text, text[]
+  ) RESET search_path`);
+  await assert.rejects(
+    () => harness.applySqlFile(identityScopeRollbackPath),
+    isSqlApplyFailure,
+  );
+  const { rows: [state] } = await pool.query(`SELECT
+    procedure.proconfig IS NULL AS config_reset_preserved,
+    pg_catalog.obj_description(namespace.oid, 'pg_namespace')
+      LIKE '%|identityScope=20260825010200' AS successor_sentinel_preserved
+    FROM pg_catalog.pg_proc AS procedure
+    JOIN pg_catalog.pg_namespace AS namespace
+      ON namespace.oid = procedure.pronamespace
+    WHERE procedure.oid =
+      'lor_studio.identity_bootstrap_context_allows(text,text[])'::pg_catalog.regprocedure`);
+  assert.deepEqual(state, {
+    config_reset_preserved: true,
+    successor_sentinel_preserved: true,
+  });
+}
+
+async function assertIdentityScopeFunctionAclDriftRejected({ harness, pool }) {
+  await applyForward(harness);
+  await harness.applySqlFile(identityScopePath);
+  await pool.query(`GRANT EXECUTE ON FUNCTION
+    lor_studio.identity_bootstrap_context_allows(text, text[])
+    TO lor_studio_app`);
+  await assert.rejects(
+    () => harness.applySqlFile(identityScopeRollbackPath),
+    isSqlApplyFailure,
+  );
+  const { rows: [state] } = await pool.query(`SELECT
+    pg_catalog.has_function_privilege(
+      'lor_studio_app',
+      'lor_studio.identity_bootstrap_context_allows(text,text[])',
+      'EXECUTE'
+    ) AS overbroad_execute_preserved,
+    pg_catalog.obj_description(namespace.oid, 'pg_namespace')
+      LIKE '%|identityScope=20260825010200' AS successor_sentinel_preserved
+    FROM pg_catalog.pg_namespace AS namespace
+    WHERE namespace.nspname = 'lor_studio'`);
+  assert.deepEqual(state, {
+    overbroad_execute_preserved: true,
+    successor_sentinel_preserved: true,
+  });
+}
+
+async function assertIdentityScopeOverloadDriftRejected({ harness, pool }) {
+  await applyForward(harness);
+  await harness.applySqlFile(identityScopePath);
+  await pool.query(`CREATE FUNCTION lor_studio.resolve_mentor_case_scope(text)
+    RETURNS jsonb
+    LANGUAGE sql
+    SECURITY DEFINER
+    SET search_path = ''
+    AS $$ SELECT NULL::jsonb $$`);
+  await pool.query(`ALTER FUNCTION lor_studio.resolve_mentor_case_scope(text)
+    OWNER TO lor_studio_command_owner`);
+  await pool.query(`GRANT EXECUTE ON FUNCTION
+    lor_studio.resolve_mentor_case_scope(text) TO lor_studio_app`);
+  await assert.rejects(
+    () => harness.applySqlFile(identityScopeRollbackPath),
+    isSqlApplyFailure,
+  );
+  const { rows: [state] } = await pool.query(`SELECT
+    pg_catalog.to_regprocedure(
+      'lor_studio.resolve_mentor_case_scope(text)'
+    ) IS NOT NULL AS overload_preserved,
+    pg_catalog.to_regprocedure(
+      'lor_studio.resolve_mentor_case_scope(text,text,text)'
+    ) IS NOT NULL AS expected_function_preserved
+  `);
+  assert.deepEqual(state, {
+    overload_preserved: true,
+    expected_function_preserved: true,
+  });
+}
+
+async function assertIdentityScopePolicyPredicateDriftRejected({ harness, pool }) {
+  await applyForward(harness);
+  await harness.applySqlFile(identityScopePath);
+  await pool.query(`ALTER POLICY mentor_assignments_scope_resolution_select
+    ON lor_studio.mentor_case_assignments USING (false)`);
+  await assert.rejects(
+    () => harness.applySqlFile(identityScopeRollbackPath),
+    isSqlApplyFailure,
+  );
+  const { rows: [state] } = await pool.query(`SELECT
+    pg_catalog.pg_get_expr(policy.polqual, policy.polrelid, false) AS qualifier,
+    pg_catalog.obj_description(namespace.oid, 'pg_namespace')
+      LIKE '%|identityScope=20260825010200' AS successor_sentinel_preserved
+    FROM pg_catalog.pg_policy AS policy
+    JOIN pg_catalog.pg_class AS class ON class.oid = policy.polrelid
+    JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = class.relnamespace
+    WHERE namespace.nspname = 'lor_studio'
+      AND class.relname = 'mentor_case_assignments'
+      AND policy.polname = 'mentor_assignments_scope_resolution_select'`);
+  assert.equal(state.qualifier, 'false');
+  assert.equal(state.successor_sentinel_preserved, true);
+}
+
+async function assertIdentityScopeRelationAclDriftRejected({ harness, pool }) {
+  await applyForward(harness);
+  await harness.applySqlFile(identityScopePath);
+  await pool.query(`GRANT UPDATE ON TABLE lor_studio.faculty_invitations
+    TO lor_studio_app`);
+  await assert.rejects(
+    () => harness.applySqlFile(identityScopeRollbackPath),
+    isSqlApplyFailure,
+  );
+  const { rows: [state] } = await pool.query(`SELECT
+    pg_catalog.has_table_privilege(
+      'lor_studio_app', 'lor_studio.faculty_invitations', 'UPDATE'
+    ) AS overbroad_grant_preserved,
+    pg_catalog.obj_description(namespace.oid, 'pg_namespace')
+      LIKE '%|identityScope=20260825010200' AS successor_sentinel_preserved
+    FROM pg_catalog.pg_namespace AS namespace
+    WHERE namespace.nspname = 'lor_studio'`);
+  assert.deepEqual(state, {
+    overbroad_grant_preserved: true,
+    successor_sentinel_preserved: true,
+  });
+}
+
+async function assertIdentityScopeColumnAclDriftRejected({ harness, pool }) {
+  await applyForward(harness);
+  await harness.applySqlFile(identityScopePath);
+  await pool.query(`GRANT UPDATE (faculty_auth_subject)
+    ON TABLE lor_studio.faculty_invitations TO lor_studio_app`);
+  await assert.rejects(
+    () => harness.applySqlFile(identityScopeRollbackPath),
+    isSqlApplyFailure,
+  );
+  const { rows: [state] } = await pool.query(`SELECT
+    pg_catalog.has_column_privilege(
+      'lor_studio_app',
+      'lor_studio.faculty_invitations',
+      'faculty_auth_subject',
+      'UPDATE'
+    ) AS overbroad_column_grant_preserved,
+    pg_catalog.obj_description(namespace.oid, 'pg_namespace')
+      LIKE '%|identityScope=20260825010200' AS successor_sentinel_preserved
+    FROM pg_catalog.pg_namespace AS namespace
+    WHERE namespace.nspname = 'lor_studio'`);
+  assert.deepEqual(state, {
+    overbroad_column_grant_preserved: true,
+    successor_sentinel_preserved: true,
+  });
+}
+
+async function assertIdentityScopeRoleAttributeDriftRejected({ harness, pool }) {
+  await applyForward(harness);
+  await harness.applySqlFile(identityScopePath);
+  await pool.query('ALTER ROLE lor_studio_app LOGIN INHERIT');
+  await assert.rejects(
+    () => harness.applySqlFile(identityScopeRollbackPath),
+    isSqlApplyFailure,
+  );
+  const { rows: [state] } = await pool.query(`SELECT
+    role.rolcanlogin AS login_preserved,
+    role.rolinherit AS inherit_preserved,
+    pg_catalog.obj_description(namespace.oid, 'pg_namespace')
+      LIKE '%|identityScope=20260825010200' AS successor_sentinel_preserved
+    FROM pg_catalog.pg_roles AS role
+    CROSS JOIN pg_catalog.pg_namespace AS namespace
+    WHERE role.rolname = 'lor_studio_app'
+      AND namespace.nspname = 'lor_studio'`);
+  assert.deepEqual(state, {
+    login_preserved: true,
+    inherit_preserved: true,
+    successor_sentinel_preserved: true,
+  });
+}
+
 async function assertUnexpectedObjectRejected({ harness, pool, createSql, dropSql }) {
   await pool.query(createSql);
   await assert.rejects(() => harness.applySqlFile(rlsRollbackPath), isSqlApplyFailure);
@@ -3160,6 +3836,47 @@ test('DR-120 real disposable PostgreSQL 16/18 apply, RLS, rollback, and reapply 
 
       await withHarness(toolchain, async ({ harness, pool }) => {
         await assertProductionFoundationRejectsDisposableTarget({ harness, pool });
+      });
+
+      await withHarness(toolchain, async ({ harness, pool }) => {
+        await proveIdentityScopeSuccessor({
+          harness,
+          pool,
+          contract,
+          postgresMajor: toolchain.major,
+        });
+      });
+
+      await withHarness(toolchain, async ({ harness, pool }) => {
+        await assertIdentityScopeFunctionDefinitionDriftRejected({ harness, pool });
+      });
+
+      await withHarness(toolchain, async ({ harness, pool }) => {
+        await assertIdentityScopeFunctionConfigDriftRejected({ harness, pool });
+      });
+
+      await withHarness(toolchain, async ({ harness, pool }) => {
+        await assertIdentityScopeFunctionAclDriftRejected({ harness, pool });
+      });
+
+      await withHarness(toolchain, async ({ harness, pool }) => {
+        await assertIdentityScopeOverloadDriftRejected({ harness, pool });
+      });
+
+      await withHarness(toolchain, async ({ harness, pool }) => {
+        await assertIdentityScopePolicyPredicateDriftRejected({ harness, pool });
+      });
+
+      await withHarness(toolchain, async ({ harness, pool }) => {
+        await assertIdentityScopeRelationAclDriftRejected({ harness, pool });
+      });
+
+      await withHarness(toolchain, async ({ harness, pool }) => {
+        await assertIdentityScopeColumnAclDriftRejected({ harness, pool });
+      });
+
+      await withHarness(toolchain, async ({ harness, pool }) => {
+        await assertIdentityScopeRoleAttributeDriftRejected({ harness, pool });
       });
 
       await withHarness(toolchain, async ({ harness, pool }) => {
