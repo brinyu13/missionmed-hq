@@ -22,6 +22,7 @@
     "./adapters/operational-readiness-adapters.mjs",
     "./adapters/private-versioned-storage-adapter.mjs",
     "./adapters/production-hydration-adapter.mjs",
+    "./adapters/production-postgres-runtime.mjs",
     "./adapters/test-adapters.js",
     "./adapters/wordpress-current-user-admission.mjs",
     "./adapters/wordpress-entitlement-consumer.mjs",
