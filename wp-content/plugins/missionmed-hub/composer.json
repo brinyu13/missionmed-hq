@@ -1,0 +1,10 @@
+{
+    "name": "missionmed/missionmed-hub",
+    "description": "MissionMed Hub Plugin",
+    "require": {
+        "aws/aws-sdk-php": "^3.0"
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}
