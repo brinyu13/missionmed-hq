@@ -310,6 +310,7 @@
 	FileVaultV2.prototype.shellMarkup = function () {
 		return [
 			'<section class="mmed-fv2" data-fv2-app aria-label="MissionMed File Vault">',
+			'<span class="sos-filevault-v1 fv2-v1-guard-sentinel" hidden aria-hidden="true"></span>',
 			'<div class="fv2-frame" data-fv2-frame>',
 			'<header class="fv2-hud">',
 			'<div class="fv2-brand" aria-label="Matrix File Vault"><span class="fv2-brand-matrix">MATRIX</span><span class="fv2-brand-slash">/</span><strong>FILE VAULT</strong></div>',

@@ -709,6 +709,25 @@ async function lateMatrixTakeoverRecoveryFlow(browser) {
 		await page.waitForTimeout(9300);
 		assert(await page.evaluate(() => window.MatrixRuntime.navigationCount === 2 && window.MatrixRuntime.completedMountCount === 2 && window.__FV2_RUNTIME_REQUESTS__.maxActiveBootstrap === 1), "Matrix takeover: bounded retry caused a duplicate or overlapping recovery");
 		await page.evaluate(() => {
+			window.__FV2_PERSISTENT_LEGACY_GUARD__ = { writes: 0, active: true };
+			const timer = window.setInterval(function () {
+				const root = document.getElementById("sos-content");
+				if (!root || !window.__FV2_PERSISTENT_LEGACY_GUARD__.active) return;
+				if (!root.querySelector(".sos-filevault-v1") || String(root.textContent || "").indexOf("Private student file metadata with direct R2 upload wiring") !== -1) {
+					window.__FV2_PERSISTENT_LEGACY_GUARD__.writes += 1;
+					window.MMED_FILE_VAULT_V1.render();
+				}
+			}, 40);
+			window.setTimeout(function () {
+				window.__FV2_PERSISTENT_LEGACY_GUARD__.active = false;
+				window.clearInterval(timer);
+			}, 800);
+		});
+		await page.waitForTimeout(1000);
+		assert(await page.evaluate(() => window.__FV2_PERSISTENT_LEGACY_GUARD__.writes === 0), "Matrix takeover: the persistent V1 route guard did not yield custody to V2");
+		assert(await page.locator(".fv2-v1-guard-sentinel[hidden][aria-hidden='true']").count() === 1, "Matrix takeover: V2 compatibility sentinel is absent or exposed");
+		assert(await page.evaluate(() => window.MatrixRuntime.navigationCount === 2 && window.__FV2_RUNTIME_REQUESTS__.bootstrapCount === 2), "Matrix takeover: the persistent V1 route guard restarted V2 bootstrap");
+		await page.evaluate(() => {
 			window.MatrixRuntime.current.mounted = true;
 			window.MMED_FILE_VAULT_V1.render();
 		});
