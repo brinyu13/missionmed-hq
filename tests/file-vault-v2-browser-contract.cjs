@@ -376,6 +376,22 @@ async function studentFlow(browser) {
 		});
 		assert(!(await page.locator("[data-fv2-upload-next]").isDisabled()), "student: valid JPEG application photo did not enable Review");
 		await page.getByRole("button", { name: "Close upload" }).click();
+		await page.evaluate(() => {
+			window.__FV2_HARNESS__.instance.state.data.documents.push({ id: 1999, name: "Legacy filename.pdf", document_type: "other" });
+		});
+		await page.locator('.fv2-dropzone [data-fv2-action="open-upload"]').click();
+		await page.setInputFiles("[data-fv2-upload-file]", {
+			name: "fixture_other.pdf",
+			mimeType: "application/pdf",
+			buffer: Buffer.from("deterministic other-document bytes")
+		});
+		await page.locator("[data-fv2-upload-type]").selectOption("other");
+		await page.locator("[data-fv2-upload-next]").click();
+		assert(await page.locator(".fv2-upload-review").getByText("Other Document", { exact: true }).isVisible(), "student: upload review used an existing filename instead of the server-owned document-type label");
+		await page.getByRole("button", { name: "Close upload" }).click();
+		await page.evaluate(() => {
+			window.__FV2_HARNESS__.instance.state.data.documents = window.__FV2_HARNESS__.instance.state.data.documents.filter(documentItem => Number(documentItem.id) !== 1999);
+		});
 		await page.locator('.fv2-dropzone [data-fv2-action="open-upload"]').click();
 			await page.setInputFiles("[data-fv2-upload-file]", {
 			name: "fixture_cv.pdf",

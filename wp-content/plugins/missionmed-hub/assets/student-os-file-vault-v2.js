@@ -2553,6 +2553,8 @@
 	};
 
 	FileVaultV2.prototype.documentTypeLabel = function (type) {
+		var labels = this.state.data && this.state.data.document_types;
+		if (labels && labels[type]) return String(labels[type]);
 		var journey = this.state.data && this.state.data.journey;
 		var match = (Array.isArray(journey && journey.items) ? journey.items : []).find(function (item) { return item.document_type === type; });
 		if (match && match.label) return match.label;
