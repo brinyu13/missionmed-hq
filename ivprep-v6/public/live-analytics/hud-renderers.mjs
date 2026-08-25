@@ -741,31 +741,33 @@ export class VolumeHudRenderer extends HudRenderer {
   }
 
   draw(frame) {
-    const dbfs = frame.dbfs ?? frame.rmsDb;
-    if (!finite(dbfs)) {
+    const level = frame.level ?? frame.dbfs ?? frame.rmsDb;
+    if (!finite(level)) {
       this.unavailable(frame.reason || 'MIC_LEVEL_REQUIRED');
       return;
     }
     const fit = this.context();
     if (!fit) return;
     clearScreen(fit.context, fit.width, fit.height, { grid: false });
-    const normalized = finite(frame.normalized) ? clamp(frame.normalized) : clamp((Number(dbfs) + 60) / 60);
+    const normalized = finite(frame.normalized) ? clamp(frame.normalized) : clamp((Number(level) + 60) / 60);
     const segments = 16;
     const gap = 3;
     const segmentWidth = Math.max(2, (fit.width - gap * (segments - 1)) / segments);
     const lit = Math.round(normalized * segments);
     const corridor = Array.isArray(frame.corridor) && frame.corridor.length === 2 && frame.corridor.every(finite)
       ? [clamp(frame.corridor[0]), clamp(frame.corridor[1])]
-      : [.47, .73];
+      : null;
     for (let index = 0; index < segments; index += 1) {
       const x = index * (segmentWidth + gap);
       const position = (index + .5) / segments;
       const active = index < lit;
-      const color = position < corridor[0]
-        ? '#1475e8'
-        : position <= corridor[1]
-          ? COLORS.ok
-          : COLORS.bad;
+      const color = corridor
+        ? position < corridor[0]
+          ? '#1475e8'
+          : position <= corridor[1]
+            ? COLORS.ok
+            : COLORS.bad
+        : '#1475e8';
       fit.context.fillStyle = active ? color : 'rgba(33,42,57,.82)';
       fit.context.fillRect(x, 12, segmentWidth, fit.height - 24);
       fit.context.strokeStyle = active ? 'rgba(198,227,255,.86)' : 'rgba(86,100,125,.50)';
@@ -774,27 +776,31 @@ export class VolumeHudRenderer extends HudRenderer {
     }
     fit.context.strokeStyle = COLORS.ink;
     fit.context.lineWidth = 2;
-    const start = corridor[0] * fit.width;
-    const end = corridor[1] * fit.width;
-    for (const [x, direction] of [[start, 1], [end, -1]]) {
-      fit.context.beginPath();
-      fit.context.moveTo(x, 4);
-      fit.context.lineTo(x, 10);
-      fit.context.lineTo(x + direction * 8, 10);
-      fit.context.moveTo(x, fit.height - 4);
-      fit.context.lineTo(x, fit.height - 10);
-      fit.context.lineTo(x + direction * 8, fit.height - 10);
-      fit.context.stroke();
+    if (corridor) {
+      const start = corridor[0] * fit.width;
+      const end = corridor[1] * fit.width;
+      for (const [x, direction] of [[start, 1], [end, -1]]) {
+        fit.context.beginPath();
+        fit.context.moveTo(x, 4);
+        fit.context.lineTo(x, 10);
+        fit.context.lineTo(x + direction * 8, 10);
+        fit.context.moveTo(x, fit.height - 4);
+        fit.context.lineTo(x, fit.height - 10);
+        fit.context.lineTo(x + direction * 8, fit.height - 10);
+        fit.context.stroke();
+      }
     }
     const zone = stateName(frame.zone || frame.state || 'neutral');
-    const cue = zone === 'target' || zone === 'ok'
+    const cue = !corridor
+      ? 'NO BASELINE'
+      : zone === 'target' || zone === 'ok'
       ? 'TARGET — HOLD'
       : zone === 'quiet' || zone === 'warn'
         ? 'QUIET — LIFT'
         : zone === 'loud' || zone === 'bad'
           ? 'LOUD — EASE'
           : 'LIVE LEVEL';
-    setText(this.value, `${formatNumber(dbfs, 1)}`, zone);
+    setText(this.value, `${formatNumber(level, 1)}`, zone);
     setText(this.cue, cue, zone);
     setText(this.status, frame.label || String(frame.zone || 'LIVE LEVEL').replaceAll('_', ' '), zone);
   }
@@ -817,7 +823,7 @@ export class SpeedHudRenderer extends HudRenderer {
     const segments = 28;
     const corridor = Array.isArray(frame.corridor) && frame.corridor.length === 2 && frame.corridor.every(finite)
       ? [clamp(frame.corridor[0]), clamp(frame.corridor[1])]
-      : [110 / 240, 160 / 240];
+      : [.70, .80];
     const normalized = finite(frame.normalized) ? clamp(frame.normalized) : clamp(Number(frame.wpm) / 240);
     for (let index = 0; index < segments; index += 1) {
       const position = index / (segments - 1);
@@ -939,7 +945,7 @@ export class VocalVariationHudRenderer extends HudRenderer {
     if (visible.size === 0) {
       setText(this.status, 'ALL TRACES HIDDEN · MEASUREMENT CONTINUES', 'neutral');
     } else if (drawnTraces === 0) {
-      setText(this.status, 'WAITING FOR GENUINE MEASURED HISTORY', 'unavailable');
+      setText(this.status, 'WAITING FOR OBSERVED MEASURED HISTORY', 'unavailable');
     } else {
       setText(this.status, frame.label || 'NORMALIZED LIVE HISTORY', frame.state || 'live');
     }

@@ -47,6 +47,7 @@ async function createHolistic(module, wasmRoot, modelUrl) {
   const common = {
     runningMode: 'VIDEO',
     outputFaceBlendshapes: true,
+    outputFacialTransformationMatrixes: true,
     outputPoseSegmentationMasks: false,
     minFaceDetectionConfidence: 0.5,
     minFacePresenceConfidence: 0.5,
@@ -184,8 +185,8 @@ function renderOverlay(result, geometry, width, height) {
     context.strokeRect(box.left * canvas.width, box.top * canvas.height, box.width * canvas.width, box.height * canvas.height);
     const centerX = box.centerX * canvas.width;
     const centerY = box.centerY * canvas.height;
-    const yaw = Math.max(-1, Math.min(1, (geometry.face.yawProxyDeg || 0) / 45));
-    const pitch = Math.max(-1, Math.min(1, (geometry.face.pitchProxyDeg || 0) / 35));
+    const yaw = Math.max(-1, Math.min(1, (geometry.face.yawDeg || 0) / 45));
+    const pitch = Math.max(-1, Math.min(1, (geometry.face.pitchDeg || 0) / 35));
     context.strokeStyle = 'rgba(255,209,102,.98)';
     context.beginPath();
     context.moveTo(centerX, centerY);

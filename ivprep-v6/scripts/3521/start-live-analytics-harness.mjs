@@ -49,33 +49,42 @@ function unavailableLocalTiming(reason) {
   });
 }
 
-function projectLocalTimingAggregate(payload) {
+function projectLocalWordTiming(payload) {
   const wordCount = Number.isInteger(payload?.wordCount) ? payload.wordCount : null;
-  const firstWordStartMs = payload?.firstWordStartMs === null ? null : Number(payload?.firstWordStartMs);
-  const lastWordEndMs = payload?.lastWordEndMs === null ? null : Number(payload?.lastWordEndMs);
-  const validEmpty = wordCount === 0 && firstWordStartMs === null && lastWordEndMs === null;
-  const validObserved = Number.isInteger(wordCount)
-    && wordCount > 0
-    && Number.isFinite(firstWordStartMs)
-    && firstWordStartMs >= 0
-    && Number.isFinite(lastWordEndMs)
-    && lastWordEndMs > firstWordStartMs;
+  const speechDurationMs = Number(payload?.speechDurationMs);
+  const words = Array.isArray(payload?.words) ? payload.words.map((word) => Object.freeze({
+    startMs: Number(word?.startMs),
+    endMs: Number(word?.endMs),
+    probability: word?.probability === null ? null : Number(word?.probability),
+  })) : null;
+  const validWords = Array.isArray(words)
+    && words.every((word, index) => Number.isFinite(word.startMs)
+      && word.startMs >= 0
+      && Number.isFinite(word.endMs)
+      && word.endMs > word.startMs
+      && (word.probability === null || (Number.isFinite(word.probability) && word.probability >= 0 && word.probability <= 1))
+      && (index === 0 || word.startMs >= words[index - 1].startMs));
   if (payload?.available !== true
     || payload?.source !== 'LOCAL_FASTER_WHISPER_WORD_TIMESTAMPS'
     || payload?.providerSessions !== 0
     || payload?.rawTextReturned !== false
     || payload?.rawAudioPersisted !== false
-    || (!validEmpty && !validObserved)) {
-    throw Object.assign(new Error('Invalid local transcript aggregate.'), { reason: 'INVALID_LOCAL_TRANSCRIPT_AGGREGATE' });
+    || !Number.isInteger(wordCount)
+    || wordCount < 0
+    || !validWords
+    || words.length !== wordCount
+    || !Number.isFinite(speechDurationMs)
+    || speechDurationMs < 0) {
+    throw Object.assign(new Error('Invalid local per-word transcript timing.'), { reason: 'INVALID_LOCAL_WORD_TIMING' });
   }
   return Object.freeze({
     available: true,
-    firstWordStartMs,
-    lastWordEndMs,
     providerSessions: 0,
     rawAudioPersisted: false,
     rawTextReturned: false,
     source: 'LOCAL_FASTER_WHISPER_WORD_TIMESTAMPS',
+    speechDurationMs,
+    words: Object.freeze(words),
     wordCount,
   });
 }
@@ -255,8 +264,8 @@ const server = http.createServer(async (request, response) => {
     }
     try {
       const audio = await readBoundedBody(request);
-      const aggregate = projectLocalTimingAggregate(await localWhisper.transcribe(audio, contentType));
-      sendJson(response, 200, aggregate);
+      const timing = projectLocalWordTiming(await localWhisper.transcribe(audio, contentType));
+      sendJson(response, 200, timing);
     } catch (error) {
       const status = error?.code === 'AUDIO_WINDOW_TOO_LARGE' ? 413 : error?.code === 'AUDIO_WINDOW_EMPTY' ? 400 : 422;
       sendJson(response, status, { available: false, reason: error?.reason || error?.code || 'LOCAL_TRANSCRIPTION_FAILED', providerSessions: 0 });

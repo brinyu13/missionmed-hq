@@ -20,6 +20,34 @@ function round(value, places = 4) {
   return Number.isFinite(value) ? Number(value.toFixed(places)) : null;
 }
 
+function matrixData(value) {
+  const data = value?.data ?? value;
+  return data && Number.isFinite(data.length) && data.length >= 16
+    ? Array.from(data, Number)
+    : null;
+}
+
+/**
+ * Extract observable head rotation from MediaPipe's facial transformation matrix.
+ * Rotation order is XYZ (pitch, yaw, roll). The matrix is preferred over the older
+ * linear landmark proxy; malformed matrices fail closed.
+ */
+export function eulerFromFacialTransformationMatrix(value) {
+  const m = matrixData(value);
+  if (!m || !m.every(Number.isFinite)) return null;
+  const yaw = Math.asin(Math.max(-1, Math.min(1, -m[8])));
+  const cosine = Math.cos(yaw);
+  const pitch = Math.abs(cosine) > 1e-6 ? Math.atan2(m[9], m[10]) : Math.atan2(-m[6], m[5]);
+  const roll = Math.abs(cosine) > 1e-6 ? Math.atan2(m[4], m[0]) : 0;
+  const toDegrees = (radians) => round(radians * 180 / Math.PI, 2);
+  return Object.freeze({
+    pitchDeg: toDegrees(pitch),
+    yawDeg: toDegrees(yaw),
+    rollDeg: toDegrees(roll),
+    method: 'FACIAL_TRANSFORMATION_MATRIX',
+  });
+}
+
 function faceBox(face) {
   if (!face?.length) return null;
   let left = 1;
@@ -105,6 +133,9 @@ export function deriveCompactGeometry(result, { faceCount = null } = {}) {
   const faceHeight = facePresent ? Math.max(Math.abs(chin.y - eyeCenter.y), 0.01) : null;
   const pitchProxy = facePresent ? (((nose.y - eyeCenter.y) / faceHeight) - 0.45) * 45 : null;
   const rollProxy = facePresent ? Math.atan2(rightEye.y - leftEye.y, rightEye.x - leftEye.x) * 180 / Math.PI : null;
+  const matrixPose = facePresent
+    ? eulerFromFacialTransformationMatrix(result?.facialTransformationMatrixes?.[0])
+    : null;
   const torsoLean = torsoVisible ? angleDegrees(shoulderCenter.x - hipCenter.x, shoulderCenter.y - hipCenter.y) : null;
 
   return Object.freeze({
@@ -115,6 +146,10 @@ export function deriveCompactGeometry(result, { faceCount = null } = {}) {
       yawProxyDeg: round(yawProxy, 2),
       pitchProxyDeg: round(pitchProxy, 2),
       rollProxyDeg: round(rollProxy, 2),
+      yawDeg: matrixPose?.yawDeg ?? round(yawProxy, 2),
+      pitchDeg: matrixPose?.pitchDeg ?? round(pitchProxy, 2),
+      rollDeg: matrixPose?.rollDeg ?? round(rollProxy, 2),
+      headPoseMethod: matrixPose?.method ?? (facePresent ? 'LINEAR_FACE_GEOMETRY_PROXY' : 'UNAVAILABLE'),
     }),
     pose: Object.freeze({
       upperBodyPresent: upperBodyVisible,

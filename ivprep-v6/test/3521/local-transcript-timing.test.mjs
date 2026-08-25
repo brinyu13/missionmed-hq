@@ -37,7 +37,7 @@ function liveStream() {
   return { getAudioTracks: () => [{ kind: 'audio', readyState: 'live', enabled: true }] };
 }
 
-test('local timing producer emits only trusted aggregate observed timing', async () => {
+test('local timing producer emits only trusted per-word observed timing', async () => {
   FakeMediaRecorder.instances = [];
   let now = 0;
   let scheduled = null;
@@ -62,8 +62,8 @@ test('local timing producer emits only trusted aggregate observed timing', async
         available: true,
         source: 'LOCAL_FASTER_WHISPER_WORD_TIMESTAMPS',
         wordCount: 8,
-        firstWordStartMs: 400,
-        lastWordEndMs: 1_900,
+        words: Array.from({ length: 8 }, (_, index) => ({ startMs: 100 + index * 200, endMs: 200 + index * 200, probability: 0.9 })),
+        speechDurationMs: 1_600,
         providerSessions: 0,
         rawTextReturned: false,
         rawAudioPersisted: false,
@@ -87,12 +87,17 @@ test('local timing producer emits only trusted aggregate observed timing', async
   assert.equal(timings.length, 1);
   assert.deepEqual(timings[0], {
     atMs: 2_000,
-    windowStartedAtMs: 400,
-    windowEndedAtMs: 1_900,
+    windowStartedAtMs: 0,
+    windowEndedAtMs: 2_000,
+    speechDurationMs: 1_600,
+    coverage: 0.8,
+    words: Array.from({ length: 8 }, (_, index) => ({ startMs: 100 + index * 200, endMs: 200 + index * 200, probability: 0.9 })),
     wordCount: 8,
     provenance: {
       kind: 'OBSERVED_TRANSCRIPT_TIMING',
       observed: true,
+      tier: 'B',
+      wordTimestampsValidated: true,
       source: LOCAL_TRANSCRIPT_TIMING_SOURCE,
       engine: 'FASTER_WHISPER_LOCAL_SNAPSHOT',
       transport: 'LOOPBACK_SAME_ORIGIN',
@@ -189,8 +194,8 @@ test('payloads with undeclared fields are rejected even when rawTextReturned is 
       });
       return response({
         available: true,
-        firstWordStartMs: 100,
-        lastWordEndMs: 1_900,
+        speechDurationMs: 1_500,
+        words: Array.from({ length: 5 }, (_, index) => ({ startMs: 100 + index * 200, endMs: 200 + index * 200, probability: 0.9 })),
         providerSessions: 0,
         rawAudioPersisted: false,
         rawTextReturned: false,
@@ -243,7 +248,7 @@ test('offline sidecar source cannot select providers, download models, persist a
   assert.match(harness, /HF_HUB_OFFLINE: '1'/u);
   assert.match(harness, /TRANSFORMERS_OFFLINE: '1'/u);
   assert.match(harness, /request\.headers\.origin !== sealedOrigin/u);
-  assert.match(harness, /projectLocalTimingAggregate/u);
+  assert.match(harness, /projectLocalWordTiming/u);
   assert.match(harness, /get available\(\)/u);
   assert.doesNotMatch(harness, /OPENAI_API_KEY/u);
 });

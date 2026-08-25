@@ -1,7 +1,11 @@
 import { AnalyticsSession } from './analytics-session.mjs';
+import { AudioWorkletPcmCapture } from './audio-worklet-capture.mjs';
 import { measurePcmFrame } from './audio-signal.mjs';
 import { FaceFamily } from './face-family.mjs';
+import { KWeightedLoudness } from './k-weighted-loudness.mjs';
 import { PitchTrack, estimateF0 } from './pitch-f0.mjs';
+import { EstimatedSyllableRate } from './syllable-rate.mjs';
+import { SileroVadLane, VadHysteresis } from './vad-silero.mjs';
 
 const IVPREP_ASSET_ROOT = '/iv-prep-on-call/assets';
 const VENDOR_ROOT = `${IVPREP_ASSET_ROOT}/vendor/mediapipe/tasks-vision/1.0.1`;
@@ -87,10 +91,20 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     // Y1-Y2-CAM-V6-3504: FACE is a family, not one lane. Derives its cartridges from
     // the blendshape categories the worker now forwards.
     this.faceFamily = new FaceFamily();
+    this.faceBaselineCapturing = false;
     // Y1-Y2-CAM-V6-3505: real microphone-derived F0. Speaker-relative by law - the
     // track reports semitones against this speaker's own rolling median, never a
     // universal target Hz.
     this.pitchTrack = new PitchTrack();
+    this.pitchCalibrationCapturing = false;
+    this.audioWorkletCapture = null;
+    this.sileroVadLane = null;
+    this.vadHysteresis = new VadHysteresis();
+    this.sileroState = null;
+    this.advancedAudio = null;
+    this.advancedAudioStatus = 'idle';
+    this.kWeightedLoudness = null;
+    this.estimatedSyllableRate = new EstimatedSyllableRate();
     this.lastPrimaryLock = null;
     this.visionSourceMode = 'camera';
     this.visionVideo = null;
@@ -173,11 +187,18 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     const hasCamera = Boolean(media.cam && media.stream?.getVideoTracks?.().some((track) => track.readyState === 'live' && track.enabled) && video);
     const session = this.ensureSession();
     this.answer = session.beginAnswer({ answerId: answerId || randomId('answer'), hasMic, hasCamera, mediaId, mediaStartedAt });
+    this.faceFamily.reset();
+    this.faceBaselineCapturing = false;
+    this.pitchTrack.reset({ preserveCalibration: true });
+    this.pitchCalibrationCapturing = false;
     this.hiddenAt = document.hidden ? this.answer.startedAtMs : null;
     this.visionDisconnectedAt = null;
     this.audioDisconnectedAt = null;
     try {
-      if (hasMic) this.startAudio();
+      if (hasMic) {
+        this.startAudio();
+        void this.startAdvancedAudio();
+      }
       if (hasCamera) this.startVision(video);
     } catch (error) {
       this.stopSampling({ terminateWorker: true });
@@ -264,18 +285,35 @@ export class BrowserAnalyticsPipeline extends EventTarget {
         this.session.observationGap({ startMs: this.audioDisconnectedAt, endMs: resumedAt, reason: 'microphone_or_audio_context_disconnected', modality: 'audio' });
         this.audioDisconnectedAt = null;
       }
-      media.analyser.getFloatTimeDomainData(media.data);
-      const measured = measurePcmFrame(media.data);
       const atMs = this.session.clock.sessionMs();
+      media.analyser.getFloatTimeDomainData(media.data);
+      const fallbackMeasured = measurePcmFrame(media.data);
+      const advanced = this.advancedAudio && atMs - this.advancedAudio.atMs <= 250
+        ? this.advancedAudio
+        : null;
+      const measured = advanced?.measured || fallbackMeasured;
       this.session.ingestAudio({ atMs, ...measured });
       // F0 is computed from the same PCM frame the level meter uses, but by
       // periodicity - never derived from RMS. An unvoiced or low-clarity frame
       // contributes nothing and reports no number.
-      const sampleRate = Number(media.AC?.sampleRate) || 48000;
-      const f0 = estimateF0(media.data, sampleRate);
-      this.pitchTrack.push(f0);
-      const pitchSummary = this.pitchTrack.summary();
       const analyzer = this.session.audio;
+      let deviceProcessing = Object.freeze({ requested: 'UNPROCESSED', actual: 'UNKNOWN' });
+      try {
+        const settings = media.microphoneTrack?.getSettings?.() || {};
+        deviceProcessing = Object.freeze({
+          requested: 'UNPROCESSED',
+          actual: Object.freeze({
+            echoCancellation: settings.echoCancellation ?? null,
+            noiseSuppression: settings.noiseSuppression ?? null,
+            autoGainControl: settings.autoGainControl ?? null,
+            channelCount: settings.channelCount ?? null,
+          }),
+        });
+      } catch {}
+      const sampleRate = Number(media.AC?.sampleRate) || 48000;
+      const f0 = advanced?.f0 || estimateF0(media.data, sampleRate);
+      if (!advanced) this.pitchTrack.push(f0, { speaking: analyzer.speaking });
+      const pitchSummary = advanced?.pitchSummary || this.pitchTrack.summary();
       this.dispatch('diagnostic', {
         modality: 'audio', atMs, available: true, ...measured,
         pitch: Object.freeze({
@@ -287,12 +325,112 @@ export class BrowserAnalyticsPipeline extends EventTarget {
           summary: pitchSummary,
         }),
         speaking: analyzer.speaking,
+        vad: advanced?.vad || Object.freeze({
+          available: false,
+          reason: this.advancedAudioStatus === 'failed' ? 'SILERO_V5_UNAVAILABLE' : 'SILERO_V5_INITIALIZING',
+          provenance: Object.freeze({ source: 'MICROPHONE', method: 'LEGACY_LEVEL_VAD_FALLBACK' }),
+        }),
+        loudness: advanced?.loudness || this.kWeightedLoudness?.summary?.() || Object.freeze({ available: false, reason: 'LUFS_K_INITIALIZING' }),
+        estimatedSyllableRate: advanced?.estimatedSyllableRate || this.estimatedSyllableRate.snapshot(),
+        captureMethod: advanced ? 'AUDIO_WORKLET_PCM' : 'ANALYSER_FALLBACK',
+        deviceProcessing,
         pauseInProgressMs: analyzer.hasSpoken && !analyzer.speaking && analyzer.candidateSilenceStartMs !== null ? Math.max(0, atMs - analyzer.candidateSilenceStartMs) : 0,
         frameCount: analyzer.validFrames,
       });
     };
     tick();
     this.audioTimer = setInterval(tick, 50);
+  }
+
+  async startAdvancedAudio() {
+    this.stopAdvancedAudio();
+    const media = this.bridge.media || {};
+    if (!this.answer || !media.AC || !this.bridge.source || !this.bridge.sink || !media.stream) return false;
+    this.advancedAudioStatus = 'initializing';
+    this.vadHysteresis.reset();
+    this.sileroState = null;
+    this.advancedAudio = null;
+    this.kWeightedLoudness = new KWeightedLoudness({ sampleRate: Number(media.AC.sampleRate) || 48_000 });
+    this.estimatedSyllableRate.reset();
+    const capture = new AudioWorkletPcmCapture({
+      onFrame: (frame) => this.onAdvancedPcmFrame(frame),
+    });
+    this.audioWorkletCapture = capture;
+    try {
+      await capture.start({ context: media.AC, source: this.bridge.source, sink: this.bridge.sink });
+      if (!this.answer || this.audioWorkletCapture !== capture) {
+        capture.stop();
+        return false;
+      }
+      const vadLane = new SileroVadLane({
+        onFrame: (frame) => this.onSileroFrame(frame),
+      });
+      this.sileroVadLane = vadLane;
+      await vadLane.start({ stream: media.stream, audioContext: media.AC });
+      if (!this.answer || this.sileroVadLane !== vadLane) {
+        await vadLane.stop();
+        return false;
+      }
+      this.advancedAudioStatus = 'ready';
+      this.dispatch('state', { state: 'audio-worklet-ready', vad: 'SILERO_V5', loudness: 'LUFS_K' });
+      return true;
+    } catch (error) {
+      if (this.audioWorkletCapture === capture) capture.stop();
+      this.audioWorkletCapture = null;
+      if (this.sileroVadLane) void this.sileroVadLane.stop().catch(() => {});
+      this.sileroVadLane = null;
+      this.advancedAudioStatus = 'failed';
+      this.recordWorkerError(`advanced audio: ${error?.message || error}`);
+      this.dispatch('state', {
+        state: 'partial',
+        subsystem: 'advanced-audio',
+        atMs: this.answer ? this.session.clock.sessionMs() : null,
+        message: 'AudioWorklet/Silero unavailable; legacy local DSP remains active.',
+      });
+      return false;
+    }
+  }
+
+  onSileroFrame(frame) {
+    if (!this.answer || !Number.isFinite(frame?.speechProbability)) return;
+    const atMs = this.session.clock.sessionMs();
+    this.sileroState = this.vadHysteresis.ingest({ atMs, speechProbability: frame.speechProbability });
+  }
+
+  onAdvancedPcmFrame(frame) {
+    if (!this.answer || !(frame?.samples instanceof Float32Array)) return;
+    const atMs = this.session.clock.sessionMs();
+    const measured = measurePcmFrame(frame.samples);
+    const speaking = this.sileroState?.speaking === true;
+    const f0 = estimateF0(frame.samples, frame.sampleRate);
+    this.pitchTrack.push(f0, { speaking });
+    const loudness = this.kWeightedLoudness.ingest(frame.samples, { speaking });
+    const db = measured.rms > 0 ? 20 * Math.log10(measured.rms) : -96;
+    const estimatedSyllableRate = this.estimatedSyllableRate.ingest({ atMs, db, speaking });
+    this.advancedAudio = Object.freeze({
+      atMs,
+      measured,
+      f0,
+      pitchSummary: this.pitchTrack.summary(),
+      vad: Object.freeze({
+        available: Boolean(this.sileroState),
+        speaking,
+        probability: this.sileroState?.probability ?? null,
+        provenance: Object.freeze({ source: 'SILERO_V5', method: 'LOCAL_ONNX_AUDIOWORKLET' }),
+      }),
+      loudness,
+      estimatedSyllableRate,
+    });
+  }
+
+  stopAdvancedAudio() {
+    this.audioWorkletCapture?.stop?.();
+    this.audioWorkletCapture = null;
+    if (this.sileroVadLane) void this.sileroVadLane.stop().catch(() => {});
+    this.sileroVadLane = null;
+    this.sileroState = null;
+    this.advancedAudio = null;
+    this.advancedAudioStatus = 'idle';
   }
 
   startVision(video) {
@@ -666,7 +804,18 @@ export class BrowserAnalyticsPipeline extends EventTarget {
           primitiveCount: message.overlayPrimitiveCount,
           pipelineMs,
         });
-        const faceFamilyFrame = this.faceFamily.update(message.faceCategories, message.timestampMs);
+        const faceState = this.session.audio?.speaking
+          ? 'ANSWERING'
+          : this.session.audio?.hasSpoken
+            ? 'PAUSE'
+            : 'SETUP';
+        const faceFamilyFrame = this.faceFamily.update(message.faceCategories, message.timestampMs, {
+          state: faceState,
+          confidence: message.geometry?.primaryAssociated === true ? 0.9 : 0.4,
+          yawDegrees: message.geometry?.face?.yawDeg ?? message.geometry?.face?.yawProxyDeg,
+          pitchDegrees: message.geometry?.face?.pitchDeg ?? message.geometry?.face?.pitchProxyDeg,
+          faceFraction: message.geometry?.face?.box?.height,
+        });
         this.dispatch('diagnostic', {
           modality: 'vision', atMs: message.timestampMs, geometry: message.geometry, primaryLock: message.primaryLock || null, live,
           faceFamily: faceFamilyFrame,
@@ -737,6 +886,8 @@ export class BrowserAnalyticsPipeline extends EventTarget {
 
   invalidateVision(reason, { subsystem = 'vision', atMs = this.answer ? this.session.clock.sessionMs() : null } = {}) {
     this.visionEpoch += 1;
+    this.faceBaselineCapturing = false;
+    this.pitchCalibrationCapturing = false;
     this.clearPendingVision();
     this.clearVisionFrameWatchdog();
     this.inFlightVision = null;
@@ -875,6 +1026,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
 
   stopSampling({ terminateWorker = false } = {}) {
     clearInterval(this.audioTimer);
+    this.stopAdvancedAudio();
     clearTimeout(this.visionTimer);
     this.audioTimer = null;
     this.visionTimer = null;
@@ -906,6 +1058,9 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     // deliberately retained: it describes the speaker's anatomy, not this session.
     this.faceFamily.reset();
     this.pitchTrack.reset();
+    this.vadHysteresis.reset();
+    this.kWeightedLoudness = null;
+    this.estimatedSyllableRate.reset();
     this.session = null;
     this.droppedFrames = 0;
     this.frameId = 0;
@@ -918,6 +1073,25 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     this.lastPrimaryLock = null;
     this.visionSourceMode = 'camera';
     this.visionVideo = null;
+  }
+
+  setPersonalCalibration(values = {}) {
+    if (Number.isFinite(values.pitchMedianHz)) this.pitchTrack.freezeCalibrationBaseline(values.pitchMedianHz);
+    this.faceFamily.setPersonalBaseline(values);
+    this.faceBaselineCapturing = false;
+    this.pitchCalibrationCapturing = false;
+    return Object.freeze({
+      pitchMedianHz: this.pitchTrack.calibrationMedianHz,
+      faceBaselineAvailable: this.faceFamily.hasPersonalBaseline(),
+    });
+  }
+
+  clearPersonalCalibration() {
+    this.pitchTrack.reset({ preserveCalibration: false });
+    this.faceFamily.clearPersonalBaseline();
+    this.faceBaselineCapturing = false;
+    this.pitchCalibrationCapturing = false;
+    return true;
   }
 
   destroy() {
@@ -949,6 +1123,11 @@ export class BrowserAnalyticsPipeline extends EventTarget {
       workerErrors: [...this.workerErrors],
       blockedEgressAttempts: this.blockedEgressAttempts,
       audioFrameCount: this.session?.audio?.validFrames || 0,
+      advancedAudioStatus: this.advancedAudioStatus,
+      vad: this.advancedAudio?.vad || null,
+      loudness: this.advancedAudio?.loudness || null,
+      faceBaselineCapturing: this.faceBaselineCapturing,
+      pitchCalibrationMedianHz: this.pitchTrack.calibrationMedianHz,
       visualFrameCount: this.session?.vision?.analyzableFrames || 0,
       networkPolicy: 'same-origin-only-worker-guard-and-csp',
     });

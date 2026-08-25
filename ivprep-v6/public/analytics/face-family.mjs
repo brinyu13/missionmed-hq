@@ -27,6 +27,8 @@
 // weaker proxy, so the Flight Recorder can never imply a measurement that did not
 // happen.
 
+import { SmilePatternEventDetector } from './smile-pattern.mjs';
+
 export const FACE_AVAILABILITY = Object.freeze({
   AVAILABLE: 'AVAILABLE',
   PARTIAL: 'PARTIAL',
@@ -267,6 +269,7 @@ function buildRegistry() {
  */
 export class FaceFamily {
   #cartridges = buildRegistry();
+  #smilePattern = new SmilePatternEventDetector();
   #baselineSamples = new Map();
   #baselineCapturing = false;
   #dwell = { facingMs: 0, awayMs: 0, longestFacingMs: 0, currentFacingMs: 0, releases: 0, returns: 0 };
@@ -280,8 +283,37 @@ export class FaceFamily {
 
   get ids() { return this.#cartridges.map((c) => c.id); }
 
+  hasPersonalBaseline() { return Number.isFinite(this.#smilePattern.summary().baseline); }
+
+  setPersonalBaseline(values = {}) {
+    const mapping = {
+      'FACE.SMILE': values.smileBaseline,
+      'FACE.BROW': values.browBaseline,
+      'FACE.PERIOCULAR': values.periocularBaseline,
+    };
+    for (const cartridge of this.#cartridges) {
+      if (Number.isFinite(mapping[cartridge.id])) cartridge.baseline = Number(mapping[cartridge.id]);
+    }
+    if (Number.isFinite(values.smileBaseline)) this.#smilePattern.setBaseline(values.smileBaseline);
+    this.#baselineCapturing = false;
+    return this;
+  }
+
+  clearPersonalBaseline() {
+    for (const cartridge of this.#cartridges) cartridge.baseline = null;
+    this.#smilePattern.clearBaseline();
+    this.#baselineCapturing = false;
+    this.#baselineSamples.clear();
+    return this;
+  }
+
   /** Capture a personal baseline so anatomical differences are not scored. */
-  beginBaseline() { this.#baselineCapturing = true; this.#baselineSamples.clear(); return this; }
+  beginBaseline() {
+    this.#baselineCapturing = true;
+    this.#baselineSamples.clear();
+    this.#smilePattern.beginBaseline();
+    return this;
+  }
 
   endBaseline() {
     this.#baselineCapturing = false;
@@ -289,6 +321,7 @@ export class FaceFamily {
       const samples = this.#baselineSamples.get(cartridge.id);
       if (samples?.length) cartridge.baseline = mean(samples);
     }
+    this.#smilePattern.endBaseline();
     return this;
   }
 
@@ -296,7 +329,7 @@ export class FaceFamily {
    * @param {Array} categories faceBlendshapes[0].categories from the holistic worker
    * @param {number} atMs session clock
    */
-  update(categories, atMs) {
+  update(categories, atMs, { state = 'UNKNOWN', confidence = 0.75, yawDegrees = 0, pitchDegrees = 0, faceFraction = 0 } = {}) {
     const map = categoryMap(categories);
     if (!map.size) {
       this.#lastAtMs = atMs;
@@ -324,9 +357,20 @@ export class FaceFamily {
       frame[cartridge.id] = Object.freeze({ availability, ...value });
     }
 
+    const smile = frame['FACE.SMILE'];
+    const smilePattern = this.#smilePattern.ingest({
+      atMs,
+      bilateral: smile?.bilateral,
+      faceAvailable: smile?.availability !== FACE_AVAILABILITY.UNAVAILABLE,
+      state,
+      confidence,
+      yawDegrees,
+      pitchDegrees,
+      faceFraction,
+    });
     this.#trackGaze(frame['FACE.GAZE'], atMs, deltaMs);
     this.#lastAtMs = atMs;
-    return Object.freeze({ available: true, atMs, frames: this.#frames, ...frame });
+    return Object.freeze({ available: true, atMs, frames: this.#frames, ...frame, smilePattern });
   }
 
   #trackGaze(gaze, atMs, deltaMs) {
@@ -399,6 +443,7 @@ export class FaceFamily {
       cartridges: Object.freeze(perCartridge),
       cameraDwell: dwell,
       gazeShifts: Object.freeze(this.#gazeShifts.slice(-64)),
+      smilePattern: this.#smilePattern.summary(),
       movementVariability: this.#movementVariability(),
     });
   }
@@ -427,6 +472,7 @@ export class FaceFamily {
     this.#lastRegion = null;
     this.#regionSinceMs = null;
     this.#frames = 0;
+    this.#smilePattern.reset();
     return this;
   }
 }

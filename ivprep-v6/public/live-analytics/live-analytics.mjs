@@ -6,13 +6,17 @@
 // Hiding an instrument never calls a media or analytics lifecycle method.
 
 import { measurePcmFrame } from '../analytics/audio-signal.mjs';
+import { COACHING_CONFIG } from '../analytics/coaching-config.mjs';
 import { estimateF0, PitchTrack } from '../analytics/pitch-f0.mjs';
 import { SessionClock } from '../analytics/session-clock.mjs';
 import { deriveCompactGeometry } from '../analytics/vision-geometry.mjs';
+import { BehaviorIntelligenceRuntime } from './behavior-intelligence-runtime.mjs';
+import { BaselineStore } from './baseline-store.mjs';
 import { LiveHudRenderers } from './hud-renderers.mjs';
 import { LocalTranscriptTimingProducer } from './local-transcript-timing.mjs';
 import { LiveMetricProjector } from './live-metric-projector.mjs';
 import { createLiveAnalyticsMediaBridge } from './media-bridge.mjs';
+import { buildPostAnswerCard } from './post-answer-store.mjs';
 import {
   ANALYTICS_FAMILIES,
   ANALYTICS_METRIC_IDS,
@@ -152,8 +156,9 @@ export class DeterministicLocalSignalFixture {
     if (!this.running) return null;
     this.frameIndex += 1;
     const atMs = this.clock.sessionMs();
+    const setupSilence = atMs < 500;
     const f0Hz = 182 + Math.sin(this.frameIndex / 13) * 24 + Math.sin(this.frameIndex / 5) * 7;
-    const amplitude = 0.08 + (Math.sin(this.frameIndex / 7) + 1) * 0.055;
+    const amplitude = setupSilence ? 0.0005 : 0.08 + (Math.sin(this.frameIndex / 7) + 1) * 0.055;
     const pcm = new Float32Array(FIXTURE_FRAME_SAMPLES);
     for (let index = 0; index < pcm.length; index += 1) {
       pcm[index] = amplitude * Math.sin(2 * Math.PI * f0Hz * index / FIXTURE_SAMPLE_RATE);
@@ -172,7 +177,7 @@ export class DeterministicLocalSignalFixture {
         clarity: pitch.confidence,
         summary: this.pitchTrack.summary(),
       }),
-      speaking: true,
+      speaking: !setupSilence,
       pauseInProgressMs: 0,
       frameCount: this.frameIndex,
       inputLabel: 'DETERMINISTIC_LOCAL_TEST_SIGNAL',
@@ -203,20 +208,30 @@ export class DeterministicLocalSignalFixture {
       }));
     }
 
-    if (atMs >= 3_000
+    if (atMs >= 10_000
       && (this.lastTranscriptTimingAtMs === null || atMs - this.lastTranscriptTimingAtMs >= 2_000)
       && this.onTranscriptTiming) {
       this.lastTranscriptTimingAtMs = atMs;
-      const windowStartedAtMs = Math.max(0, atMs - 3_000);
+      const windowStartedAtMs = atMs - 10_000;
       const durationMs = atMs - windowStartedAtMs;
+      const words = Array.from({ length: 20 }, (_, index) => Object.freeze({
+        startMs: windowStartedAtMs + index * 500,
+        endMs: windowStartedAtMs + index * 500 + 250,
+        probability: 1,
+      }));
       this.onTranscriptTiming(Object.freeze({
         atMs,
         windowStartedAtMs,
         windowEndedAtMs: atMs,
-        wordCount: Math.max(3, Math.round(durationMs / 500)),
+        speechDurationMs: 8_000,
+        coverage: 0.9,
+        wordCount: words.length,
+        words: Object.freeze(words),
         provenance: Object.freeze({
           kind: 'DETERMINISTIC_TEST_TRANSCRIPT_TIMING',
           observed: false,
+          wordTimestampsValidated: false,
+          tier: 'TEST',
           source: 'DETERMINISTIC_TEST_TRANSCRIPT_TIMING',
           fixture: 'DETERMINISTIC_LOCAL_TEST_SIGNAL',
         }),
@@ -260,6 +275,9 @@ export class LiveAnalyticsRuntime {
     transcriptTimingProducer = null,
     fixtureMode = false,
     fixture = null,
+    behavior = new BehaviorIntelligenceRuntime(),
+    baselineStore = new BaselineStore(),
+    fetchImpl = windowRef?.fetch?.bind(windowRef) || null,
   } = {}) {
     if (!documentRef) throw new TypeError('Live Analytics requires a document.');
     this.document = documentRef;
@@ -272,7 +290,16 @@ export class LiveAnalyticsRuntime {
     this.transcriptTimingState = Object.freeze({ state: 'idle', reason: 'LOCAL_TRANSCRIPT_TIMING_IDLE' });
     this.fixtureMode = Boolean(fixtureMode);
     this.fixture = fixture || (this.fixtureMode ? new DeterministicLocalSignalFixture() : null);
+    this.behavior = behavior;
+    this.baselineStore = baselineStore;
+    this.fetchImpl = fetchImpl;
+    this.admittedIdentity = null;
+    this.baselineRecord = null;
+    this.diagnosticsAllowed = false;
+    this.latestBehavior = behavior.latest;
+    this.latestAnswerEnvelope = null;
     this.fixtureConnected = false;
+    this.captureMeasuring = false;
     this.active = false;
     this.activeClock = null;
     this.clockTimer = null;
@@ -288,8 +315,11 @@ export class LiveAnalyticsRuntime {
     this.vocalVariationHistory = { volume: [], pitch: [], speed: [] };
     this.overlayVisibility = { face: true, hands: true, body: true, framing: true };
     this.overlayExpiryTimer = null;
+    this.postAnswerTimer = null;
     this.workerOverlayFresh = false;
     this.destroyed = false;
+    this.boundInterviewerStarted = (event) => this.interviewerTurnStarted(event.detail || {});
+    this.boundInterviewerEnded = (event) => this.interviewerTurnEnded(event.detail || {});
     this.elements = {};
   }
 
@@ -328,11 +358,28 @@ export class LiveAnalyticsRuntime {
       diagnostics: byId('founder-diagnostics'),
       toggleDiagnostics: byId('toggle-diagnostics'),
       closeDiagnostics: byId('close-diagnostics'),
+      labControls: byId('admin-lab-controls'),
+      labInterviewerSpeaking: byId('lab-interviewer-speaking'),
+      labWpmMinimum: byId('lab-wpm-minimum'),
+      labWpmMaximum: byId('lab-wpm-maximum'),
+      labLoudnessHalfWidth: byId('lab-loudness-half-width'),
+      applyLabTargets: byId('apply-lab-targets'),
+      labTargetStatus: byId('lab-target-status'),
       customizer: byId('analytics-customizer'),
       toggleCustomize: byId('toggle-customize'),
       closeCustomize: byId('close-customize'),
       resetVisibility: byId('reset-visibility'),
       visibilityAnnouncement: byId('visibility-announcement'),
+      stage: byId('meeting-stage'),
+      coachingCue: byId('live-coaching-cue'),
+      postAnswer: byId('post-answer-card'),
+      postAnswerSummary: byId('post-answer-summary'),
+      postAnswerItems: byId('post-answer-items'),
+      postAnswerGoal: byId('post-answer-goal'),
+      trackPostAnswerGoal: byId('track-post-answer-goal'),
+      replayAnswer: byId('replay-answer'),
+      exportAnswer: byId('export-derived-answer'),
+      notesState: byId('notes-state-control'),
     };
 
     if (!this.elements.app || !this.elements.shell) throw new Error('Live Analytics DOM contract is incomplete.');
@@ -343,16 +390,106 @@ export class LiveAnalyticsRuntime {
     if (this.fixtureMode) this.#configureFixtureSurface();
     this.bridge.addEventListener?.('readinesschange', this.boundReadiness);
     this.bridge.addEventListener?.('devicechange', this.boundDeviceChange);
+    this.document.addEventListener?.('ivprep:interviewer-turn-started', this.boundInterviewerStarted);
+    this.document.addEventListener?.('ivprep:interviewer-turn-ended', this.boundInterviewerEnded);
     this.window?.addEventListener?.('pagehide', this.boundPageHide, { once: true });
+    if (this.window) this.window.__IVPREP_3522_EXPORT_DERIVED__ = () => this.behavior.exportJson();
+    if (this.window) this.window.__IVPREP_3522_SET_NOTES_ACTIVE__ = (active) => {
+      this.latestBehavior = this.behavior.setNotesActive(active, this.activeClock?.sessionMs?.() || 0);
+      this.#renderBehavior(this.latestBehavior);
+      return this.latestBehavior.notes;
+    };
+    if (this.window) this.window.__IVPREP_3522_INTERVIEWER_EVENT__ = (type, detail = {}) => {
+      if (type === 'started') return this.interviewerTurnStarted(detail);
+      if (type === 'ended') return this.interviewerTurnEnded(detail);
+      throw new TypeError('Interviewer event type must be started or ended.');
+    };
+    void this.#loadAdmissionContext();
     return this;
+  }
+
+  async #loadAdmissionContext() {
+    if (typeof this.fetchImpl !== 'function') {
+      this.#applyRoleGates();
+      return null;
+    }
+    try {
+      const response = await this.fetchImpl('/api/ivprep-v6/session', {
+        method: 'GET', cache: 'no-store', credentials: 'same-origin', headers: { Accept: 'application/json' },
+      });
+      const payload = await response.json();
+      const identity = payload?.admitted === true ? payload.identity : null;
+      if (!response.ok || !/^wp:[1-9][0-9]{0,15}$/u.test(String(identity?.subject || ''))) throw new Error('Admission identity unavailable.');
+      this.admittedIdentity = Object.freeze({
+        subject: identity.subject,
+        founder: identity.founder === true,
+        roles: Object.freeze(Array.isArray(identity.roles) ? identity.roles.filter((role) => typeof role === 'string').slice(0, 24) : []),
+      });
+      this.diagnosticsAllowed = this.admittedIdentity.founder
+        || this.admittedIdentity.roles.some((role) => ['administrator', 'admin'].includes(role.toLowerCase()));
+      this.#applyRoleGates();
+      this.#restoreBaselineForCurrentDevice();
+      return this.admittedIdentity;
+    } catch {
+      this.admittedIdentity = null;
+      this.diagnosticsAllowed = false;
+      this.#applyRoleGates();
+      return null;
+    }
+  }
+
+  #applyRoleGates() {
+    if (this.elements.toggleDiagnostics) this.elements.toggleDiagnostics.hidden = !this.diagnosticsAllowed;
+    if (this.elements.labControls) this.elements.labControls.hidden = !this.diagnosticsAllowed;
+    if (!this.diagnosticsAllowed && this.elements.diagnostics) this.elements.diagnostics.hidden = true;
+  }
+
+  #deviceProfile() {
+    const audio = this.bridge.media?.microphoneTrack?.getSettings?.() || {};
+    const video = this.bridge.media?.cameraTrack?.getSettings?.() || {};
+    return Object.freeze({
+      audio: Object.freeze({
+        sampleRate: Number(audio.sampleRate) || null,
+        channelCount: Number(audio.channelCount) || null,
+        echoCancellation: typeof audio.echoCancellation === 'boolean' ? audio.echoCancellation : null,
+        noiseSuppression: typeof audio.noiseSuppression === 'boolean' ? audio.noiseSuppression : null,
+        autoGainControl: typeof audio.autoGainControl === 'boolean' ? audio.autoGainControl : null,
+      }),
+      video: Object.freeze({
+        width: Number(video.width) || null,
+        height: Number(video.height) || null,
+        frameRate: Number(video.frameRate) || null,
+      }),
+    });
+  }
+
+  #restoreBaselineForCurrentDevice() {
+    if (!this.admittedIdentity || !this.bridge.media?.stream) return null;
+    const record = this.baselineStore.load(this.admittedIdentity.subject, { deviceProfile: this.#deviceProfile() });
+    this.baselineRecord = record;
+    this.latestBehavior = this.behavior.setBaseline(record?.derived || null);
+    if (record?.derived) this.pipeline?.setPersonalCalibration?.(record.derived);
+    else this.pipeline?.clearPersonalCalibration?.();
+    return record;
   }
 
   #bindControls() {
     this.elements.connect?.addEventListener('click', () => void this.connect());
     this.elements.stopCapture?.addEventListener('click', () => void this.stopCapture());
     this.elements.refreshDevices?.addEventListener('click', () => void this.refreshDevices().catch(() => false));
-    this.elements.start?.addEventListener('click', () => void this.start());
+    this.elements.start?.addEventListener('click', () => {
+      void this.start().catch((error) => {
+        const reason = String(error?.message || error?.name || 'unknown error').slice(0, 180);
+        setText(this.elements.status, `Interview start failed · ${reason}`);
+        this.updateDiagnostics();
+      });
+    });
     this.elements.end?.addEventListener('click', () => void this.finish());
+    this.elements.notesState?.addEventListener('change', () => {
+      this.latestBehavior = this.behavior.setNotesActive(this.elements.notesState.checked, this.activeClock?.sessionMs?.() || 0);
+      this.#renderBehavior(this.latestBehavior);
+      this.#announce(this.elements.notesState.checked ? 'Notes context active.' : 'Notes context ended.');
+    });
     this.elements.reselectPrimary?.addEventListener('click', () => {
       this.pipeline?.reselectPrimary?.();
       this.#clearOverlays();
@@ -444,11 +581,24 @@ export class LiveAnalyticsRuntime {
       this.applyPresentation();
       this.#announce('Analytics visibility reset to Minimal.');
     });
+    this.elements.exportAnswer?.addEventListener('click', () => this.exportDerivedAnswers());
+    this.elements.trackPostAnswerGoal?.addEventListener('click', () => {
+      const tracked = this.elements.trackPostAnswerGoal.getAttribute('aria-pressed') !== 'true';
+      this.elements.trackPostAnswerGoal.setAttribute('aria-pressed', String(tracked));
+      this.#announce(tracked ? 'Next-answer goal selected.' : 'Next-answer goal unselected.');
+    });
     this.document.addEventListener?.('keydown', (event) => {
       if (event.key === 'Escape' && this.elements.customizer?.hidden === false) this.setCustomizerVisible(false);
     });
     this.elements.toggleDiagnostics?.addEventListener('click', () => this.setDiagnosticsVisible(this.elements.diagnostics?.hidden !== false));
     this.elements.closeDiagnostics?.addEventListener('click', () => this.setDiagnosticsVisible(false));
+    this.elements.labInterviewerSpeaking?.addEventListener('change', () => {
+      if (!this.diagnosticsAllowed) return;
+      const detail = { source: 'MENTOR_MANUAL', questionId: 'physical-qa', atMs: this.activeClock?.sessionMs?.() || 0 };
+      if (this.elements.labInterviewerSpeaking.checked) this.interviewerTurnStarted(detail);
+      else this.interviewerTurnEnded(detail);
+    });
+    this.elements.applyLabTargets?.addEventListener('click', () => this.applyAdminLabTargets());
     this.elements.cameraSelect?.addEventListener('change', () => void this.switchDevice('camera', this.elements.cameraSelect.value));
     this.elements.microphoneSelect?.addEventListener('change', () => void this.switchDevice('microphone', this.elements.microphoneSelect.value));
   }
@@ -519,6 +669,8 @@ export class LiveAnalyticsRuntime {
       snapshot.visibleMetricIds.length === 0 ? 'Measuring · analytics hidden.' : 'Measuring · visible.',
     );
     this.document.body.dataset.analyticsMode = snapshot.preset;
+    this.#applyOverlayInstrumentation();
+    if (snapshot.mode === 'interview') this.#clearOverlays();
     this.window?.requestAnimationFrame?.(() => this.renderer.resize());
     return snapshot;
   }
@@ -552,21 +704,50 @@ export class LiveAnalyticsRuntime {
   }
 
   #applyOverlayInstrumentation() {
+    const presentationAllowsOverlays = this.presentation.snapshot().mode !== 'interview';
+    const anyLayerVisible = Object.values(this.overlayVisibility).some(Boolean);
     this.pipeline?.setInstrumentation?.({
-      overlayEnabled: Object.values(this.overlayVisibility).some(Boolean),
-      faceOverlayEnabled: this.overlayVisibility.face,
-      bodyHandsOverlayEnabled: this.overlayVisibility.body || this.overlayVisibility.hands,
-      handsOverlayEnabled: this.overlayVisibility.hands,
-      bodyOverlayEnabled: this.overlayVisibility.body,
-      framingOverlayEnabled: this.overlayVisibility.framing,
+      overlayEnabled: presentationAllowsOverlays && anyLayerVisible,
+      faceOverlayEnabled: presentationAllowsOverlays && this.overlayVisibility.face,
+      bodyHandsOverlayEnabled: presentationAllowsOverlays && (this.overlayVisibility.body || this.overlayVisibility.hands),
+      handsOverlayEnabled: presentationAllowsOverlays && this.overlayVisibility.hands,
+      bodyOverlayEnabled: presentationAllowsOverlays && this.overlayVisibility.body,
+      framingOverlayEnabled: presentationAllowsOverlays && this.overlayVisibility.framing,
     });
   }
 
   setDiagnosticsVisible(visible) {
+    if (!this.diagnosticsAllowed) return false;
     if (!this.elements.diagnostics) return false;
     this.elements.diagnostics.hidden = !visible;
     this.elements.toggleDiagnostics?.setAttribute('aria-expanded', String(Boolean(visible)));
     return Boolean(visible);
+  }
+
+  applyAdminLabTargets() {
+    if (!this.diagnosticsAllowed) return false;
+    try {
+      const editorRole = this.admittedIdentity?.founder ? 'FOUNDER' : 'ADMIN';
+      this.latestBehavior = this.behavior.setCoachingTargets({
+        wordsPerMinute: {
+          minimum: Number(this.elements.labWpmMinimum?.value),
+          maximum: Number(this.elements.labWpmMaximum?.value),
+        },
+        loudnessHalfWidthLu: Number(this.elements.labLoudnessHalfWidth?.value),
+      }, { editorRole, atMs: this.activeClock?.sessionMs?.() || 0 });
+      this.#renderBehavior(this.latestBehavior);
+      const loudnessReady = this.latestBehavior.corridors?.loudnessLufsK?.basis === 'ADMIN_SESSION_TARGET';
+      setText(
+        this.elements.labTargetStatus,
+        loudnessReady
+          ? 'Session coaching targets applied · measurement unchanged'
+          : 'WPM target applied · loudness target waits for personal calibration · measurement unchanged',
+      );
+      return this.latestBehavior.corridors;
+    } catch (error) {
+      setText(this.elements.labTargetStatus, `Target rejected · ${error.message}`);
+      return false;
+    }
   }
 
   async connect() {
@@ -591,15 +772,23 @@ export class LiveAnalyticsRuntime {
       const audioId = this.elements.microphoneSelect?.value || '';
       const videoId = this.elements.cameraSelect?.value || '';
       const media = await this.bridge.requestMedia({
-        audio: audioId ? { deviceId: { exact: audioId } } : true,
+        audio: {
+          channelCount: 1,
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          ...(audioId ? { deviceId: { exact: audioId } } : {}),
+        },
         video: videoId ? { deviceId: { exact: videoId } } : true,
       });
       this.elements.video.srcObject = media.stream;
       await this.elements.video.play?.();
       this.elements.cameraEmpty.hidden = Boolean(media.cam);
+      if (this.elements.stage) this.elements.stage.dataset.captureReady = String(Boolean(media.cam || media.mic));
       this.elements.start.disabled = !(media.cam || media.mic);
       if (this.elements.stopCapture) this.elements.stopCapture.disabled = false;
-      setText(this.elements.status, media.cam && media.mic ? 'Camera and microphone connected' : 'Partial media connected');
+      await this.#startPhysicalCaptureMeasurement();
+      setText(this.elements.status, media.cam && media.mic ? 'Setup check running · say a sentence and center your face' : 'Partial media connected');
       setText(this.elements.streamQuality, media.cam ? 'CAMERA LIVE · LOCAL' : 'CAMERA UNAVAILABLE');
       await this.refreshDevices().catch(() => false);
       this.updateDiagnostics();
@@ -615,6 +804,25 @@ export class LiveAnalyticsRuntime {
       this.elements.connect.disabled = false;
       return false;
     }
+  }
+
+  #startPhysicalCaptureMeasurement() {
+    if (this.fixtureMode || this.captureMeasuring || !this.bridge.media.stream) return false;
+    this.#resetMeasurementSession();
+    this.pipeline = this.bridge.ensureAnalytics();
+    this.pipeline.addEventListener('diagnostic', this.boundDiagnostic);
+    this.pipeline.addEventListener('state', this.boundPipelineState);
+    this.#applyOverlayInstrumentation();
+    this.pipeline.setOverlayConsumer((frame) => this.#drawWorkerOverlay(frame));
+    this.#restoreBaselineForCurrentDevice();
+    this.bridge.startAnalytics({ videoElement: this.elements.video });
+    this.activeClock = this.bridge.sessionClock;
+    this.captureMeasuring = true;
+    if (this.elements.start) this.elements.start.disabled = true;
+    this.elements.captureIndicator.dataset.state = 'setup';
+    this.elements.measurement.dataset.state = 'setup';
+    setText(this.elements.measurement, 'Setup measurement live');
+    return true;
   }
 
   async refreshDevices() {
@@ -644,6 +852,10 @@ export class LiveAnalyticsRuntime {
     const pipeline = this.pipeline;
     try {
       const media = await this.bridge.switchDevice(kind, deviceId);
+      if (this.admittedIdentity) this.baselineStore.invalidateForDeviceChange(this.admittedIdentity.subject);
+      this.baselineRecord = null;
+      this.latestBehavior = this.behavior.setBaseline(null);
+      this.pipeline?.clearPersonalCalibration?.();
       this.elements.video.srcObject = media.stream;
       await this.elements.video.play?.();
       if (this.active && (clock !== this.activeClock || pipeline !== this.pipeline)) throw new Error('Active analytics identity changed during device switch.');
@@ -674,16 +886,15 @@ export class LiveAnalyticsRuntime {
         onDiagnostic: (detail) => this.consumeDiagnostic(detail),
         onTranscriptTiming: (evidence) => this.consumeTranscriptTiming(evidence),
       });
+      this.latestBehavior = this.behavior.beginInterview(0);
     } else {
       if (!this.bridge.media.stream) return false;
-      this.#resetMeasurementSession();
-      this.pipeline = this.bridge.ensureAnalytics();
-      this.pipeline.addEventListener('diagnostic', this.boundDiagnostic);
-      this.pipeline.addEventListener('state', this.boundPipelineState);
-      this.#applyOverlayInstrumentation();
-      this.pipeline.setOverlayConsumer((frame) => this.#drawWorkerOverlay(frame));
-      this.bridge.startAnalytics({ videoElement: this.elements.video });
-      this.activeClock = this.bridge.sessionClock;
+      this.#startPhysicalCaptureMeasurement();
+      if (!this.latestBehavior?.setup?.ready) {
+        setText(this.elements.status, `Setup blocked · ${this.latestBehavior?.setup?.correction || 'NO_AUDIO_SIGNAL'}`);
+        return false;
+      }
+      this.latestBehavior = this.behavior.beginInterview(this.activeClock?.sessionMs?.() || 0);
     }
     this.active = true;
     this.elements.start.disabled = true;
@@ -717,6 +928,10 @@ export class LiveAnalyticsRuntime {
 
   #resetMeasurementSession() {
     this.projector.reset();
+    this.latestBehavior = this.behavior.reset(0);
+    this.projector.setConversationState(this.latestBehavior.conversation.state);
+    this.latestAnswerEnvelope = null;
+    this.#hidePostAnswer();
     this.counts = { audio: 0, pitch: 0, wpm: 0, face: 0, body: 0, hand: 0 };
     this.latestAt = { audio: null, vision: null, transcript: null };
     this.metricEvents = Object.fromEntries(['VOLUME', 'SPEED_WPM', 'VOLUME_MODULATION', 'PITCH', 'HEAD_FACE', 'BODY_HANDS'].map((name) => [name, 0]));
@@ -727,10 +942,18 @@ export class LiveAnalyticsRuntime {
   }
 
   consumeDiagnostic(detail) {
+    this.behavior.setCoachingMode(this.presentation.snapshot().mode === 'interview' ? 'SIMULATION' : 'TRAINING');
     const enriched = detail.modality === 'vision' && !detail.faceFamilySummary
       ? { ...detail, faceFamilySummary: this.pipeline?.faceFamily?.summary?.() || null }
       : detail;
-    const snapshot = this.projector.ingest(enriched);
+    this.latestBehavior = this.behavior.ingestDiagnostic(enriched);
+    const stateTagged = {
+      ...enriched,
+      conversationState: this.latestBehavior.conversation.state,
+      behavior: this.latestBehavior,
+    };
+    this.projector.setConversationState(this.latestBehavior.conversation.state);
+    const snapshot = this.projector.ingest(stateTagged);
     if (['audio', 'vision'].includes(detail.modality) && Number.isFinite(detail.atMs)) this.latestAt[detail.modality] = detail.atMs;
     if (detail.modality === 'audio' && detail.available !== false) {
       this.counts.audio += 1;
@@ -749,17 +972,21 @@ export class LiveAnalyticsRuntime {
       this.#clearOverlays();
     }
     this.render(snapshot);
+    this.#renderBehavior(this.latestBehavior);
     this.updateDiagnostics();
     return snapshot;
   }
 
   consumeTranscriptTiming(evidence) {
+    this.latestBehavior = this.behavior.ingestWordTiming(evidence, { allowDeterministicFixture: this.fixtureMode });
+    this.projector.setConversationState(this.latestBehavior.conversation.state);
     const snapshot = this.projector.ingestTranscriptTiming(evidence, { allowDeterministicFixture: this.fixtureMode });
     if (Number.isFinite(evidence?.atMs)) this.latestAt.transcript = evidence.atMs;
     this.metricEvents.SPEED_WPM += 1;
     if (snapshot.metrics.SPEED_WPM.available) this.counts.wpm += 1;
     this.#recordVocalVariationSpeed(snapshot, evidence?.atMs);
     this.render(snapshot);
+    this.#renderBehavior(this.latestBehavior);
     this.updateDiagnostics();
     return snapshot;
   }
@@ -845,6 +1072,92 @@ export class LiveAnalyticsRuntime {
     this.updateDiagnostics();
   }
 
+  #renderBehavior(snapshot) {
+    if (!snapshot) return;
+    if (this.elements.stage) {
+      this.elements.stage.dataset.setupReady = String(snapshot.setup?.ready === true);
+      this.elements.stage.dataset.conversationState = snapshot.conversation?.state || 'UNKNOWN';
+    }
+    if (this.captureMeasuring && !this.active && !this.fixtureMode) {
+      if (this.elements.start) this.elements.start.disabled = snapshot.setup?.ready !== true;
+      const setupLabel = snapshot.setup?.ready ? 'SETUP READY' : String(snapshot.setup?.correction || 'CHECK SIGNAL').replaceAll('_', ' ');
+      setText(this.elements.streamQuality, setupLabel);
+      setText(this.elements.status, snapshot.setup?.ready
+        ? 'Setup ready · start interview when ready'
+        : `Setup check · ${setupLabel}`);
+    }
+    const cue = snapshot.cue;
+    const showCue = Boolean(cue?.message)
+      && snapshot.conversation?.state === 'ANSWERING'
+      && this.presentation.snapshot().mode !== 'interview';
+    if (this.elements.coachingCue) {
+      this.elements.coachingCue.hidden = !showCue;
+      this.elements.coachingCue.dataset.state = showCue ? 'ok' : 'idle';
+      const value = this.elements.coachingCue.querySelector('strong');
+      if (value && showCue) value.textContent = cue.message;
+    }
+  }
+
+  exportDerivedAnswers() {
+    const body = this.behavior.exportJson();
+    if (!this.window?.Blob || !this.window?.URL?.createObjectURL) return body;
+    const blob = new this.window.Blob([body], { type: 'application/json' });
+    const url = this.window.URL.createObjectURL(blob);
+    const anchor = this.document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'ivprep-derived-behavior-envelope.json';
+    anchor.click();
+    this.window.URL.revokeObjectURL(url);
+    return body;
+  }
+
+  interviewerTurnStarted(detail = {}) {
+    this.#hidePostAnswer();
+    const atMs = Number(detail.atMs ?? this.activeClock?.sessionMs?.() ?? 0);
+    this.latestBehavior = this.behavior.interviewerTurnStarted({ ...detail, atMs });
+    this.projector.setConversationState(this.latestBehavior.conversation.state);
+    this.#renderBehavior(this.latestBehavior);
+    return this.latestBehavior;
+  }
+
+  interviewerTurnEnded(detail = {}) {
+    const atMs = Number(detail.atMs ?? this.activeClock?.sessionMs?.() ?? 0);
+    this.latestBehavior = this.behavior.interviewerTurnEnded({ ...detail, atMs });
+    this.projector.setConversationState(this.latestBehavior.conversation.state);
+    this.#renderBehavior(this.latestBehavior);
+    return this.latestBehavior;
+  }
+
+  #hidePostAnswer() {
+    clearTimeout(this.postAnswerTimer);
+    this.postAnswerTimer = null;
+    if (this.elements.postAnswer) this.elements.postAnswer.hidden = true;
+  }
+
+  #showPostAnswer(envelope) {
+    if (!this.elements.postAnswer) return null;
+    const card = buildPostAnswerCard(envelope, { displayMs: 15_000 });
+    this.#hidePostAnswer();
+    this.elements.postAnswerItems?.replaceChildren?.(
+      ...card.items.map((item) => {
+        const node = this.document.createElement('li');
+        node.dataset.kind = item.kind;
+        node.textContent = item.text;
+        return node;
+      }),
+    );
+    setText(this.elements.postAnswerSummary, `Derived-only review · ${Math.round(envelope.durationMs / 100) / 10}s answer`);
+    setText(this.elements.postAnswerGoal, card.nextGoal);
+    if (this.elements.trackPostAnswerGoal) this.elements.trackPostAnswerGoal.setAttribute('aria-pressed', 'false');
+    if (this.elements.replayAnswer) {
+      this.elements.replayAnswer.disabled = !card.replay.available;
+      this.elements.replayAnswer.title = card.replay.available ? 'Replay this answer' : 'Replay unavailable because raw media is not retained.';
+    }
+    this.elements.postAnswer.hidden = false;
+    this.postAnswerTimer = setTimeout(() => this.#hidePostAnswer(), card.displayMs);
+    return card;
+  }
+
   consumeReadiness(detail) {
     if (this.destroyed) return false;
     const readiness = detail.readiness || this.bridge.readiness;
@@ -872,10 +1185,22 @@ export class LiveAnalyticsRuntime {
   async stopCapture() {
     if (this.active || this.fixture?.running) await this.finish();
     else if (this.fixtureMode) this.fixtureConnected = false;
-    else this.bridge.stopMedia?.();
+    else {
+      this.pipeline?.removeEventListener?.('diagnostic', this.boundDiagnostic);
+      this.pipeline?.removeEventListener?.('state', this.boundPipelineState);
+      this.bridge.endAnalytics?.({ transcript: '', mediaAvailable: Boolean(this.bridge.media.stream) });
+      this.bridge.stopMedia?.();
+      this.pipeline = null;
+      this.activeClock = null;
+      this.captureMeasuring = false;
+    }
     if (this.elements.video) this.elements.video.srcObject = null;
     if (this.elements.cameraEmpty) this.elements.cameraEmpty.hidden = false;
     if (this.elements.fixtureBackdrop) this.elements.fixtureBackdrop.hidden = true;
+    if (this.elements.stage) {
+      this.elements.stage.dataset.captureReady = 'false';
+      this.elements.stage.dataset.setupReady = 'false';
+    }
     if (this.elements.connect) this.elements.connect.disabled = false;
     if (this.elements.start) this.elements.start.disabled = true;
     if (this.elements.stopCapture) this.elements.stopCapture.disabled = true;
@@ -908,25 +1233,55 @@ export class LiveAnalyticsRuntime {
     const pitch = metrics.PITCH || { available: false, reason: 'NO_VALIDATED_F0' };
     const headFace = metrics.HEAD_FACE || { available: false, reason: 'NO_VISION_FRAMES' };
     const bodyHands = metrics.BODY_HANDS || { available: false, reason: 'NO_VISION_FRAMES' };
+    const personalLoudness = this.latestBehavior?.corridors?.loudnessLufsK || null;
+    const loudnessScale = (value) => Math.max(0, Math.min(1, (Number(value) + 60) / 60));
+    const measuredLoudness = Number.isFinite(volume.speechLufsK) ? volume.speechLufsK : null;
+    const speedCorridor = speed.deliverySpeed?.corridor || {
+      minimum: COACHING_CONFIG.deliverySpeed.globalMinimumWpm,
+      maximum: COACHING_CONFIG.deliverySpeed.globalMaximumWpm,
+    };
+    const speedHighCap = speed.deliverySpeed?.highCap
+      || speedCorridor.maximum + COACHING_CONFIG.deliverySpeed.highCapAdditionalWpm;
+
+    const volumeUnit = this.document.querySelector('[data-hud-unit="volume"]');
+    if (volumeUnit) volumeUnit.textContent = measuredLoudness === null ? 'dBFS' : 'LUFS-K';
+    const volumeSource = this.document.querySelector('#volume-title + .module-source');
+    if (volumeSource) volumeSource.textContent = measuredLoudness === null
+      ? 'Captured level · dBFS diagnostic'
+      : 'Speech-only K-weighted loudness';
+    const speedTarget = this.document.querySelector('.speed-target');
+    if (speedTarget) speedTarget.textContent = speed.deliverySpeed?.corridor?.basis === 'PERSONAL_CALIBRATION'
+      ? `Personal corridor ${Math.round(speedCorridor.minimum)}–${Math.round(speedCorridor.maximum)} WPM`
+      : `Global context ${COACHING_CONFIG.deliverySpeed.globalMinimumWpm}–${COACHING_CONFIG.deliverySpeed.globalMaximumWpm} WPM · no baseline`;
 
     this.renderer.renderAll({
       volume: volume.available === false ? volume : {
         ...volume,
-        corridor: [28 / 60, 44 / 60],
-        zone: this.fixtureMode
-          ? (volume.dbfs < -32 ? 'quiet' : volume.dbfs > -16 ? 'loud' : 'target')
+        level: measuredLoudness ?? volume.dbfs,
+        normalized: measuredLoudness === null ? volume.normalized : loudnessScale(measuredLoudness),
+        corridor: personalLoudness
+          ? [loudnessScale(personalLoudness.minimum), loudnessScale(personalLoudness.maximum)]
+          : null,
+        zone: personalLoudness && measuredLoudness !== null
+          ? measuredLoudness < personalLoudness.minimum
+            ? 'quiet'
+            : measuredLoudness > personalLoudness.maximum
+              ? 'loud'
+              : 'target'
           : 'observed',
-        label: this.fixtureMode
-          ? (volume.dbfs < -32 ? 'TEST LEVEL · BELOW REFERENCE' : volume.dbfs > -16 ? 'TEST LEVEL · ABOVE REFERENCE' : 'TEST LEVEL · REFERENCE BAND')
-          : 'OBSERVED DEVICE LEVEL · NO CALIBRATED TARGET',
+        label: personalLoudness && measuredLoudness !== null
+          ? 'SPEECH-ONLY LUFS-K · PERSONAL CORRIDOR'
+          : `${this.fixtureMode ? 'DETERMINISTIC TEST LEVEL' : 'OBSERVED DEVICE LEVEL'} · NO BASELINE`,
       },
       speed: speed.available === false ? speed : {
         ...speed,
         wpm: speed.wordsPerMinute,
-        normalized: Math.max(0, Math.min(1, speed.wordsPerMinute / 240)),
-        corridor: [110 / 240, 160 / 240],
-        zone: speed.wordsPerMinute >= 110 && speed.wordsPerMinute <= 160 ? 'target' : 'neutral',
-        label: `${speed.fixture ? 'DETERMINISTIC TEST TIMING' : 'OBSERVED WORD TIMING'} · ${speed.windowDurationMs} MS`,
+        normalized: Number.isFinite(speed.deliverySpeed?.score)
+          ? speed.deliverySpeed.score / 100
+          : Math.max(0, Math.min(1, speed.wordsPerMinute / speedHighCap)),
+        corridor: [.70, .80],
+        zone: String(speed.deliverySpeed?.zone || 'neutral').toLowerCase(),
+        label: `${speed.fixture ? 'DETERMINISTIC TEST TIMING' : 'OBSERVED WORD TIMING'} · TIER ${speed.tier} · ${speed.windowDurationMs} MS`,
       },
       modulation: this.#vocalVariationFrame({ modulation, pitch, speed }),
       pitch: pitch.available === false ? pitch : {
@@ -970,6 +1325,7 @@ export class LiveAnalyticsRuntime {
         movementLevel: bodyHands.movementLevel,
         movementTrend: bodyHands.movementTrend,
         gestureEvents: bodyHands.gestureEvents,
+        gestureUnits: bodyHands.gestureUnits,
         transientOverlay: this.workerOverlayFresh,
         state: 'live',
       },
@@ -1033,17 +1389,33 @@ export class LiveAnalyticsRuntime {
     if (!this.active && !this.bridge.media.stream && !this.fixture?.running) return false;
     clearInterval(this.clockTimer);
     this.clockTimer = null;
+    const endedAtMs = this.activeClock?.sessionMs?.() || 0;
+    const deviceProfile = !this.fixtureMode && this.bridge.media?.stream ? this.#deviceProfile() : null;
+    const answerId = this.pipeline?.answer?.answerId || (this.fixtureMode ? 'deterministic-local-answer' : `local-answer-${Math.round(endedAtMs)}`);
+    let analyticsResult = null;
     if (this.fixtureMode) {
       this.fixture.stop();
     } else {
       this.transcriptTiming.stop();
-      this.bridge.endAnalytics({ transcript: '', mediaAvailable: Boolean(this.bridge.media.stream) });
+      analyticsResult = this.bridge.endAnalytics({ transcript: '', mediaAvailable: Boolean(this.bridge.media.stream) });
       this.pipeline?.removeEventListener?.('diagnostic', this.boundDiagnostic);
       this.pipeline?.removeEventListener?.('state', this.boundPipelineState);
       this.bridge.stopMedia();
       if (this.elements.video) this.elements.video.srcObject = null;
     }
+    this.latestAnswerEnvelope = this.behavior.finish({
+      answerId,
+      endedAtMs,
+      metrics: this.projector.latest.metrics,
+      analyticsResult,
+    });
+    const calibrated = this.behavior.calibrationDerived();
+    if (calibrated && this.admittedIdentity && deviceProfile) {
+      this.baselineRecord = this.baselineStore.save(this.admittedIdentity.subject, calibrated, { deviceProfile });
+      this.latestBehavior = this.behavior.setBaseline(this.baselineRecord.derived);
+    }
     this.active = false;
+    this.captureMeasuring = false;
     this.activeClock = null;
     this.pipeline = null;
     this.transcriptTimingState = Object.freeze({ state: 'idle', reason: 'LOCAL_TRANSCRIPT_TIMING_IDLE' });
@@ -1059,6 +1431,7 @@ export class LiveAnalyticsRuntime {
     }
     setText(this.elements.status, 'Measurement stopped · local media released');
     setText(this.elements.measurement, 'Measurement stopped');
+    this.#showPostAnswer(this.latestAnswerEnvelope);
     this.#clearOverlays();
     this.updateDiagnostics();
     return true;
@@ -1071,6 +1444,7 @@ export class LiveAnalyticsRuntime {
     this.clockTimer = null;
     clearTimeout(this.overlayExpiryTimer);
     this.overlayExpiryTimer = null;
+    this.#hidePostAnswer();
     this.fixture?.stop?.();
     this.transcriptTiming.stop();
     this.pipeline?.removeEventListener?.('diagnostic', this.boundDiagnostic);
@@ -1079,11 +1453,16 @@ export class LiveAnalyticsRuntime {
     this.bridge.removeEventListener?.('readinesschange', this.boundReadiness);
     this.bridge.removeEventListener?.('devicechange', this.boundDeviceChange);
     this.window?.removeEventListener?.('pagehide', this.boundPageHide);
+    this.document.removeEventListener?.('ivprep:interviewer-turn-started', this.boundInterviewerStarted);
+    this.document.removeEventListener?.('ivprep:interviewer-turn-ended', this.boundInterviewerEnded);
     this.renderer.destroy?.();
     this.#clearOverlays();
     this.active = false;
     this.activeClock = null;
     this.pipeline = null;
+    if (this.window && this.window.__IVPREP_3522_EXPORT_DERIVED__) delete this.window.__IVPREP_3522_EXPORT_DERIVED__;
+    if (this.window && this.window.__IVPREP_3522_SET_NOTES_ACTIVE__) delete this.window.__IVPREP_3522_SET_NOTES_ACTIVE__;
+    if (this.window && this.window.__IVPREP_3522_INTERVIEWER_EVENT__) delete this.window.__IVPREP_3522_INTERVIEWER_EVENT__;
   }
 
   #drawWorkerOverlay({ bitmap, geometry }) {

@@ -1,7 +1,7 @@
-// Local aggregate word timing for the 3521 Live Analytics Runtime.
+// Local per-word timing for the 3521 Live Analytics Runtime.
 //
 // Audio windows travel only to the same-origin localhost harness. The endpoint is
-// required to return aggregate counts/timestamps and is never allowed to return
+// required to return per-word timing without text and is never allowed to return
 // transcript text. Missing or malformed capability fails closed.
 
 export const LOCAL_TRANSCRIPT_TIMING_SOURCE = 'LOCAL_TIMED_TRANSCRIPT';
@@ -9,15 +9,15 @@ export const LOCAL_TRANSCRIPT_ENDPOINT = '/iv-prep-on-call/live-analytics/local-
 
 const DEFAULT_WINDOW_MS = 6_000;
 const MAX_PENDING_WINDOWS = 2;
-const AGGREGATE_RESPONSE_KEYS = Object.freeze([
+const WORD_TIMING_RESPONSE_KEYS = Object.freeze([
   'available',
-  'firstWordStartMs',
-  'lastWordEndMs',
   'providerSessions',
   'rawAudioPersisted',
   'rawTextReturned',
   'source',
+  'speechDurationMs',
   'wordCount',
+  'words',
 ]);
 
 function frozenState(state, reason, detail = null) {
@@ -201,8 +201,8 @@ export class LocalTranscriptTimingProducer {
     if (!this.active || generation !== this.generation) return false;
     const responseKeys = payload && typeof payload === 'object' ? Object.keys(payload).sort() : [];
     if (!response.ok
-      || responseKeys.length !== AGGREGATE_RESPONSE_KEYS.length
-      || responseKeys.some((key, index) => key !== AGGREGATE_RESPONSE_KEYS[index])
+      || responseKeys.length !== WORD_TIMING_RESPONSE_KEYS.length
+      || responseKeys.some((key, index) => key !== WORD_TIMING_RESPONSE_KEYS[index])
       || payload?.available !== true
       || payload?.source !== 'LOCAL_FASTER_WHISPER_WORD_TIMESTAMPS'
       || payload?.providerSessions !== 0
@@ -213,31 +213,40 @@ export class LocalTranscriptTimingProducer {
     }
     const wordCount = Number.isInteger(payload.wordCount) ? payload.wordCount : null;
     const captureDurationMs = windowEndedAtMs - windowStartedAtMs;
-    const firstOffsetMs = finite(payload.firstWordStartMs);
-    const lastOffsetMs = finite(payload.lastWordEndMs);
-    if (wordCount === null || wordCount < 0 || captureDurationMs <= 0) {
-      this.#setState('partial', 'INVALID_LOCAL_TRANSCRIPT_AGGREGATE');
+    const speechDurationMs = finite(payload.speechDurationMs);
+    const words = Array.isArray(payload.words) ? payload.words.map((word) => ({
+      startMs: windowStartedAtMs + Number(word?.startMs),
+      endMs: windowStartedAtMs + Number(word?.endMs),
+      probability: word?.probability === null ? null : Number(word?.probability),
+    })) : null;
+    const validWords = Array.isArray(words)
+      && words.length === wordCount
+      && words.every((word, index) => Number.isFinite(word.startMs)
+        && word.startMs >= windowStartedAtMs
+        && Number.isFinite(word.endMs)
+        && word.endMs > word.startMs
+        && word.endMs <= windowEndedAtMs
+        && (word.probability === null || (Number.isFinite(word.probability) && word.probability >= 0 && word.probability <= 1))
+        && (index === 0 || word.startMs >= words[index - 1].startMs));
+    if (wordCount === null || wordCount < 0 || captureDurationMs <= 0 || speechDurationMs === null
+      || speechDurationMs < 0 || speechDurationMs > captureDurationMs || !validWords) {
+      this.#setState('partial', 'INVALID_LOCAL_WORD_TIMING');
       return false;
     }
-    const observedStartedAtMs = wordCount > 0 && firstOffsetMs !== null
-      ? windowStartedAtMs + clamp(firstOffsetMs, 0, captureDurationMs)
-      : windowStartedAtMs;
-    const observedEndedAtMs = wordCount > 0 && lastOffsetMs !== null
-      ? windowStartedAtMs + clamp(lastOffsetMs, 0, captureDurationMs)
-      : windowEndedAtMs;
-    if (observedEndedAtMs <= observedStartedAtMs) {
-      this.#setState('partial', 'INVALID_LOCAL_TRANSCRIPT_WORD_TIMESTAMPS');
-      return false;
-    }
-    const atMs = Math.max(observedEndedAtMs, Number(this.clock.sessionMs()));
+    const atMs = Math.max(windowEndedAtMs, Number(this.clock.sessionMs()));
     this.onTiming(Object.freeze({
       atMs,
-      windowStartedAtMs: observedStartedAtMs,
-      windowEndedAtMs: observedEndedAtMs,
+      windowStartedAtMs,
+      windowEndedAtMs,
+      speechDurationMs,
+      coverage: clamp(speechDurationMs / captureDurationMs, 0, 1),
+      words: Object.freeze(words.map((word) => Object.freeze(word))),
       wordCount,
       provenance: Object.freeze({
         kind: 'OBSERVED_TRANSCRIPT_TIMING',
         observed: true,
+        tier: 'B',
+        wordTimestampsValidated: true,
         source: LOCAL_TRANSCRIPT_TIMING_SOURCE,
         engine: 'FASTER_WHISPER_LOCAL_SNAPSHOT',
         transport: 'LOOPBACK_SAME_ORIGIN',
@@ -247,7 +256,7 @@ export class LocalTranscriptTimingProducer {
     }));
     this.#setState('live', wordCount >= 3 ? 'LOCAL_TRANSCRIPT_TIMING_OBSERVED' : 'NEED_MORE_TIMED_WORDS', {
       wordCount,
-      windowDurationMs: Math.round(observedEndedAtMs - observedStartedAtMs),
+      windowDurationMs: Math.round(captureDurationMs),
     });
     return true;
   }

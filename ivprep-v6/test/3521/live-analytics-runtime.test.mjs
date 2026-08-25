@@ -10,6 +10,11 @@ import {
 } from '../../public/live-analytics/live-analytics.mjs';
 import { LiveMetricProjector } from '../../public/live-analytics/live-metric-projector.mjs';
 
+const timedWords = (count, { startMs = 0, spacingMs = 500, durationMs = 250 } = {}) => Array.from(
+  { length: count },
+  (_, index) => ({ startMs: startMs + index * spacingMs, endMs: startMs + index * spacingMs + durationMs, probability: 0.95 }),
+);
+
 class FakeElement {
   constructor(id = '') {
     this.id = id;
@@ -158,11 +163,14 @@ test('physical runtime starts and stops the fail-closed local transcript timing 
       calls.start += 1;
       onState({ state: 'live', reason: 'LOCAL_TRANSCRIPT_TIMING_LIVE' });
       onTiming({
-        atMs: 2_000,
+        atMs: 4_000,
         windowStartedAtMs: 0,
-        windowEndedAtMs: 2_000,
-        wordCount: 6,
-        provenance: { kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, source: 'LOCAL_TIMED_TRANSCRIPT' },
+        windowEndedAtMs: 4_000,
+        speechDurationMs: 3_500,
+        coverage: 0.9,
+        wordCount: 12,
+        words: timedWords(12, { spacingMs: 320, durationMs: 180 }),
+        provenance: { kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, wordTimestampsValidated: true, tier: 'B', source: 'LOCAL_TIMED_TRANSCRIPT' },
       });
       return true;
     },
@@ -175,6 +183,11 @@ test('physical runtime starts and stops the fail-closed local transcript timing 
     stream: { getAudioTracks: () => [{ readyState: 'live', enabled: true }] },
     AC: { state: 'running', sampleRate: 48_000 },
   };
+  bridge.requestMedia = async () => bridge.media;
+  await runtime.connect();
+  runtime.behavior.setup.ingestAudio({ available: true, speechMs: 3_100, noiseFloorDb: -55, speechLevelDb: -25, clippedFraction: 0 });
+  runtime.behavior.setup.ingestVideo({ facePresent: true, faceFraction: 0.28, centerX: 0.5, centerY: 0.4, headPitchDegrees: 0, confidence: 0.9 });
+  runtime.latestBehavior = runtime.behavior.snapshot(4_000);
   await runtime.start();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(calls.start, 1);
@@ -271,11 +284,14 @@ test('Vocal Variation keeps genuine raw histories while its presentation is hidd
   runtime.consumeDiagnostic({ modality: 'audio', atMs: 1_000, rms: 0.05, peak: 0.1, clippedFraction: 0, pitch: pitch(200) });
   runtime.consumeDiagnostic({ modality: 'audio', atMs: 1_050, rms: 0.1, peak: 0.2, clippedFraction: 0, pitch: pitch(220) });
   runtime.consumeTranscriptTiming({
-    atMs: 2_000,
+    atMs: 4_000,
     windowStartedAtMs: 0,
-    windowEndedAtMs: 2_000,
-    wordCount: 4,
-    provenance: { kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, source: 'LOCAL_TIMED_TRANSCRIPT' },
+    windowEndedAtMs: 4_000,
+    speechDurationMs: 3_500,
+    coverage: 0.9,
+    wordCount: 8,
+    words: timedWords(8),
+    provenance: { kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, wordTimestampsValidated: true, tier: 'B', source: 'LOCAL_TIMED_TRANSCRIPT' },
   });
   const before = renderer.frames.at(-1).modulation;
   assert.deepEqual(before.histories.volume.map((sample) => sample.value), [-26.02, -20]);
@@ -345,7 +361,7 @@ test('deterministic fixture runs the production RMS, F0, compact geometry, and t
       projector.ingestTranscriptTiming(evidence, { allowDeterministicFixture: true });
     },
   });
-  for (let index = 0; index < 75; index += 1) {
+  for (let index = 0; index < 220; index += 1) {
     now += 50;
     scheduled();
   }
@@ -361,7 +377,7 @@ test('deterministic fixture runs the production RMS, F0, compact geometry, and t
   assert.equal(snapshot.metrics.SPEED_WPM.available, true);
   assert.equal(snapshot.metrics.SPEED_WPM.source, 'DETERMINISTIC_TEST_FIXTURE');
   assert.equal(snapshot.metrics.SPEED_WPM.fixture, true);
-  assert.ok(diagnostics.filter((detail) => detail.modality === 'audio').length >= 75);
+  assert.ok(diagnostics.filter((detail) => detail.modality === 'audio').length >= 220);
   assert.ok(diagnostics.filter((detail) => detail.modality === 'vision').length >= 20);
   assert.equal(timings.length, 1);
   fixture.stop();
@@ -385,7 +401,18 @@ test('runtime forwards four independent overlay switches to the local worker', (
   });
 });
 
-test('deterministic transcript timing refreshes as labelled aggregate windows without going stale', () => {
+test('Interview Only disables worker overlay production while capture remains owned', () => {
+  const { runtime } = runtimeHarness();
+  const instrumentation = [];
+  runtime.pipeline = { setInstrumentation(value) { instrumentation.push(value); } };
+  runtime.presentation.setMode('interview');
+  runtime.applyPresentation();
+  assert.equal(instrumentation.at(-1).overlayEnabled, false);
+  assert.equal(instrumentation.at(-1).faceOverlayEnabled, false);
+  assert.equal(runtime.active, false);
+});
+
+test('deterministic transcript timing refreshes as labelled per-word windows without going stale', () => {
   let now = 0;
   let scheduled = null;
   const timings = [];
@@ -402,11 +429,12 @@ test('deterministic transcript timing refreshes as labelled aggregate windows wi
       projector.ingestTranscriptTiming(evidence, { allowDeterministicFixture: true });
     },
   });
-  for (let index = 0; index < 240; index += 1) {
+  for (let index = 0; index < 400; index += 1) {
     now += 50;
     scheduled();
   }
   assert.ok(timings.length >= 5);
+  assert.ok(timings.every((timing) => timing.wordCount >= 8 && timing.words.length === timing.wordCount));
   assert.ok(timings.every((timing) => timing.provenance.observed === false));
   assert.ok(timings.every((timing) => timing.provenance.source === 'DETERMINISTIC_TEST_TRANSCRIPT_TIMING'));
   assert.equal(projector.latest.metrics.SPEED_WPM.available, true);
@@ -434,6 +462,20 @@ test('the deterministic visual-QA fixture owns one monotonic session clock and n
   assert.equal(runtime.activeClock.sessionMs(), 500);
   await runtime.finish();
   assert.equal(fixture.running, false);
+});
+
+test('an asynchronous deterministic start failure is visible instead of silently inert', async () => {
+  const fixture = {
+    start() { throw new Error('bounded fixture failure'); },
+  };
+  const { runtime, documentRef } = runtimeHarness({ fixtureMode: true, fixture });
+  await runtime.connect();
+  documentRef.byId.get('start-session').listeners.get('click')();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(
+    documentRef.byId.get('runtime-status').textContent,
+    'Interview start failed · bounded fixture failure',
+  );
 });
 
 test('a second deterministic interview resets histories and accepts its fresh near-zero clock', async () => {
@@ -471,6 +513,9 @@ test('unsupported psychological, intent, hiring, and diagnostic scores are absen
   ]) assert.doesNotMatch(combined, new RegExp(forbidden, 'iu'));
   assert.match(html, /No gaze, emotion, honesty, confidence, or personality inference\./u);
   assert.match(html, /Gesture meaning, fidget, note-taking, and intent remain unavailable/u);
+  const renderers = await readFile(new URL('../../public/live-analytics/hud-renderers.mjs', import.meta.url), 'utf8');
+  assert.match(renderers, /WAITING FOR OBSERVED MEASURED HISTORY/u);
+  assert.doesNotMatch(renderers, /WAITING FOR GENUINE MEASURED HISTORY/u);
 });
 
 test('default instruments fail closed and deterministic data is prominently identified as test input', async () => {

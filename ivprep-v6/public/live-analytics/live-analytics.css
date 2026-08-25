@@ -1360,6 +1360,22 @@ a:focus-visible {
   white-space: normal;
 }
 
+.admin-lab-controls {
+  margin: 9px 0 0;
+  padding: 8px;
+  border: 1px solid #24405a;
+  color: #aebfd0;
+  font-size: 8px;
+}
+.admin-lab-controls[hidden] { display: none; }
+.admin-lab-controls legend { padding: 0 5px; color: var(--gold); text-transform: uppercase; }
+.admin-lab-controls > label { display: flex; align-items: center; gap: 6px; }
+.lab-target-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 7px 0; }
+.lab-target-grid label { display: grid; gap: 3px; }
+.lab-target-grid input { min-width: 0; height: 26px; border: 1px solid #29445e; background: #040c17; color: var(--cyan); font-family: var(--font-data); }
+.admin-lab-controls button { height: 28px; border: 1px solid var(--cyan); background: transparent; color: var(--cyan); cursor: pointer; font: inherit; text-transform: uppercase; }
+.admin-lab-controls output { display: block; margin-top: 6px; color: #8093a7; }
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 1240px) {
@@ -1553,6 +1569,15 @@ body {
 .runtime-shell[data-right-collapsed="true"] .stack-right > :not(.stack-restore),
 .runtime-shell[data-mode="interview"] :is(.stage-overlay, .overlay-controls) {
   display: none !important;
+}
+
+/* The Founder-frozen Training stage is intentionally not resized. Interview Only
+   inherits that exact crop/aspect instead of stretching the camera to 2.38:1. */
+.runtime-shell[data-mode="interview"] .meeting-stage {
+  width: auto;
+  max-width: 100%;
+  aspect-ratio: 1.2548 / 1;
+  justify-self: center;
 }
 
 .analytics-stack { gap: 4px; }
@@ -2120,6 +2145,11 @@ body {
   display: none;
 }
 
+.meeting-stage[data-capture-ready="true"] > .overlay-controls,
+.meeting-stage[data-setup-ready="true"] > .overlay-controls {
+  display: flex;
+}
+
 .overlay-controls button {
   padding: 4px 6px;
   border: 1px solid #29445e;
@@ -2132,6 +2162,34 @@ body {
 }
 
 .overlay-controls button[aria-pressed="true"] { border-color: #299eb8; color: var(--cyan); }
+
+.post-answer-card {
+  position: absolute;
+  z-index: 10;
+  left: 50%;
+  top: 50%;
+  width: min(390px, calc(100% - 36px));
+  padding: 14px;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgb(47 191 99 / 58%);
+  background: rgb(4 13 25 / 96%);
+  box-shadow: 0 18px 60px rgb(0 0 0 / 68%);
+  color: var(--ink);
+  clip-path: var(--chamfer-small);
+}
+
+.post-answer-card[hidden] { display: none; }
+.post-answer-card span { display: block; color: var(--ok); font-size: 8px; letter-spacing: .12em; text-transform: uppercase; }
+.post-answer-card strong { display: block; margin: 6px 0 8px; font-size: 11px; line-height: 1.35; }
+.post-answer-card ul { display: grid; gap: 5px; margin: 0 0 8px; padding: 0; list-style: none; }
+.post-answer-card li { padding-left: 12px; color: #c4d0dc; font-size: 9px; line-height: 1.4; }
+.post-answer-card li::before { content: '◆'; float: left; margin-left: -12px; color: var(--ok); }
+.post-answer-card li[data-kind="unavailable"]::before { color: var(--warn); }
+.post-answer-card p { margin: 0 0 8px; color: var(--gold); font-size: 9px; line-height: 1.4; }
+.post-answer-actions { display: flex; gap: 6px; margin-bottom: 6px; }
+.post-answer-card button { height: 30px; border: 1px solid var(--cyan); background: transparent; color: var(--cyan); cursor: pointer; font-family: var(--font-data); font-size: 8px; text-transform: uppercase; }
+.post-answer-card button[disabled] { border-color: #334454; color: #6c7c8c; cursor: default; }
+.post-answer-card button[aria-pressed="true"] { border-color: var(--ok); color: var(--ok); }
 .primary-reselect {
   position: absolute;
   z-index: 8;
@@ -2312,9 +2370,11 @@ body {
   .runtime-bar { grid-template-columns: minmax(330px, 1fr) auto minmax(270px, 1fr); }
   .brand-name { display: inline; }
   .module-title-wrap h2 { font-size: 12px; }
-  .meeting-toolbar { grid-template-columns: minmax(105px, 1fr) minmax(105px, 1fr) 32px auto auto; }
-  #stop-capture,
-  #end-session { display: none; }
+  .meeting-toolbar { grid-template-columns: minmax(105px, 1fr) minmax(105px, 1fr) 32px auto auto auto; }
+  .live-runtime[data-input="deterministic-test"] .meeting-toolbar {
+    grid-template-columns: minmax(105px, 1fr) minmax(105px, 1fr) auto auto auto;
+  }
+  #stop-capture { display: none; }
 }
 
 @media (pointer: coarse) {

@@ -30,7 +30,8 @@ test('camera loss keeps a bounded vision poll alive and first recovered frame cl
   const video = { readyState: 4, videoWidth: 640, videoHeight: 360 };
   const pipeline = new BrowserAnalyticsPipeline({ bridge, now: () => now });
   const takeVisionPoll = () => {
-    const index = scheduled.findIndex((entry) => entry.delay === 125);
+    const expectedDelay = Math.round(1_000 / pipeline.targetFps);
+    const index = scheduled.findIndex((entry) => entry.delay === expectedDelay);
     assert.notEqual(index, -1, 'a target-FPS vision poll must be scheduled');
     return scheduled.splice(index, 1)[0];
   };
@@ -42,7 +43,7 @@ test('camera loss keeps a bounded vision poll alive and first recovered frame cl
     now = 250;
     await takeVisionPoll().callback();
     assert.notEqual(pipeline.visionDisconnectedAt, null);
-    assert.ok(scheduled.some((entry) => entry.delay === 125), 'camera recovery must keep polling');
+    assert.ok(scheduled.some((entry) => entry.delay === Math.round(1_000 / pipeline.targetFps)), 'camera recovery must keep polling');
 
     track.muted = false;
     now = 500;

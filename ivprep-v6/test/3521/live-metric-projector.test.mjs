@@ -10,6 +10,11 @@ import {
   rmsToDbfs,
 } from '../../public/live-analytics/live-metric-projector.mjs';
 
+const timedWords = (count, { startMs = 0, spacingMs = 500, durationMs = 250 } = {}) => Array.from(
+  { length: count },
+  (_, index) => ({ startMs: startMs + index * spacingMs, endMs: startMs + index * spacingMs + durationMs, probability: 0.95 }),
+);
+
 const audio = (overrides = {}) => ({
   modality: 'audio',
   atMs: 1_000,
@@ -99,7 +104,8 @@ test('volume and modulation project only real mic RMS and keep a bounded envelop
   const { VOLUME, VOLUME_MODULATION } = projector.latest.metrics;
   assert.equal(VOLUME.available, true);
   assert.equal(VOLUME.source, 'MIC_RMS');
-  assert.equal(VOLUME.state, 'observed');
+  assert.equal(VOLUME.state, 'UNKNOWN');
+  assert.equal(VOLUME.windowMs, 950);
   assert.equal(Object.hasOwn(VOLUME, 'inCorridor'), false, 'raw level must not invent a target corridor');
   assert.equal(VOLUME.dbfs, Number((20 * Math.log10(levels[3])).toFixed(2)));
   assert.equal(VOLUME_MODULATION.available, true);
@@ -158,7 +164,7 @@ test('pitch is genuine F0 rendered only against the speaker rolling median', () 
   assert.equal(snapshot.metrics.PITCH.register, null, 'an unvoiced frame must not fabricate a register');
 });
 
-test('WPM fails closed unless aggregate observed transcript timing has trusted provenance', () => {
+test('WPM fails closed unless per-word observed transcript timing has trusted provenance', () => {
   const projector = new LiveMetricProjector();
   const untrusted = projector.ingestTranscriptTiming({
     atMs: 30_000,
@@ -179,10 +185,15 @@ test('WPM fails closed unless aggregate observed transcript timing has trusted p
     windowStartedAtMs: 0,
     windowEndedAtMs: 30_000,
     wordCount: 60,
+    words: timedWords(60),
+    speechDurationMs: 24_000,
+    coverage: 0.9,
     transcript: 'still ignored and never retained',
     provenance: {
       kind: 'OBSERVED_TRANSCRIPT_TIMING',
       observed: true,
+      wordTimestampsValidated: true,
+      tier: 'B',
       source: 'LOCAL_TIMED_TRANSCRIPT',
     },
   });
@@ -199,8 +210,11 @@ test('WPM fails closed unless aggregate observed transcript timing has trusted p
     windowStartedAtMs: 0,
     windowEndedAtMs: 500,
     wordCount: 1,
+    words: timedWords(1),
+    speechDurationMs: 500,
+    coverage: 1,
     provenance: {
-      kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, source: 'OBSERVED_TRANSCRIPT_SEGMENTS',
+      kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, wordTimestampsValidated: true, tier: 'B', source: 'OBSERVED_TRANSCRIPT_SEGMENTS',
     },
   });
   assert.equal(tooThin.metrics.SPEED_WPM.available, false);
@@ -300,20 +314,23 @@ test('person-derived metrics fail closed across primary-lock ambiguity and recov
 test('trusted WPM expires after a bounded shared-clock gap', () => {
   const projector = new LiveMetricProjector({ maximumTranscriptGapMs: 2_000 });
   const timing = projector.ingestTranscriptTiming({
-    atMs: 3_000,
+    atMs: 4_000,
     windowStartedAtMs: 0,
-    windowEndedAtMs: 3_000,
-    wordCount: 6,
+    windowEndedAtMs: 4_000,
+    wordCount: 8,
+    words: timedWords(8),
+    speechDurationMs: 3_500,
+    coverage: 0.9,
     provenance: {
-      kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, source: 'LOCAL_TIMED_TRANSCRIPT',
+      kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, wordTimestampsValidated: true, tier: 'B', source: 'LOCAL_TIMED_TRANSCRIPT',
     },
   });
   assert.equal(timing.metrics.SPEED_WPM.available, true);
 
-  const fresh = projector.ingest(audio({ atMs: 5_000 }));
+  const fresh = projector.ingest(audio({ atMs: 6_000 }));
   assert.equal(fresh.metrics.SPEED_WPM.available, true, 'the exact freshness boundary remains available');
 
-  const expired = projector.ingest(audio({ atMs: 5_001 }));
+  const expired = projector.ingest(audio({ atMs: 6_001 }));
   assert.equal(expired.metrics.SPEED_WPM.available, false);
   assert.equal(expired.metrics.SPEED_WPM.reason, 'STALE_TRANSCRIPT_TIMING');
   assert.deepEqual(expired.metrics.SPEED_WPM.detail, { timingGapMs: 2_001, maximumGapMs: 2_000 });
@@ -350,4 +367,19 @@ test('projector source has no storage, logging, media acquisition, or timer-driv
   ]) {
     assert.ok(!source.includes(forbidden), `projector must not contain ${forbidden}`);
   }
+});
+
+test('every presentation metric carries a state, time, confidence, and provenance window', () => {
+  const projector = new LiveMetricProjector();
+  projector.setConversationState('ANSWERING');
+  const snapshot = projector.ingest(audio({ atMs: 1_000, captureMethod: 'AUDIO_WORKLET_PCM' }));
+  for (const metric of Object.values(snapshot.metrics)) {
+    assert.equal(metric.window.state, 'ANSWERING');
+    assert(Number.isFinite(metric.window.startMs));
+    assert(Number.isFinite(metric.window.endMs));
+    assert(['HIGH', 'MODERATE', 'UNAVAILABLE'].includes(metric.window.confidence));
+    assert.equal(typeof metric.window.provenance.source, 'string');
+    assert.equal(typeof metric.window.provenance.method, 'string');
+  }
+  assert.equal(snapshot.metrics.VOLUME.window.provenance.method, 'AUDIO_WORKLET_PCM');
 });

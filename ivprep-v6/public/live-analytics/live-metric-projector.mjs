@@ -5,6 +5,8 @@
 // person's internal state. It projects compact, already-derived diagnostic fields
 // into the six instruments in the Live Analytics Runtime.
 
+import { evaluateWordTiming } from '../analytics/word-timing-ladder.mjs';
+
 export const LIVE_METRIC_IDS = Object.freeze([
   'VOLUME',
   'SPEED_WPM',
@@ -130,6 +132,13 @@ export class LiveMetricProjector {
   #maximumAudioFrames;
   #minimumModulationFrames;
   #maximumTranscriptGapMs;
+  #conversationState = 'UNKNOWN';
+  #windowStartedAtMs = { audio: null, vision: null, transcript: null };
+  #provenance = {
+    audio: { source: 'MICROPHONE', method: 'ANALYSER_FALLBACK' },
+    vision: { source: 'CAMERA', method: 'COMPACT_VISION_GEOMETRY' },
+    transcript: { source: 'TRANSCRIPT_TIMING', method: 'UNAVAILABLE' },
+  };
 
   constructor({
     maximumAudioFrames = 160,
@@ -158,39 +167,55 @@ export class LiveMetricProjector {
     this.#metrics = initialMetrics();
     this.#lastAcceptedAtMs = { audio: null, vision: null, transcript: null };
     this.#lastTranscriptWindowEndedAtMs = null;
+    this.#conversationState = 'UNKNOWN';
+    this.#windowStartedAtMs = { audio: null, vision: null, transcript: null };
+    this.#provenance = {
+      audio: { source: 'MICROPHONE', method: 'ANALYSER_FALLBACK' },
+      vision: { source: 'CAMERA', method: 'COMPACT_VISION_GEOMETRY' },
+      transcript: { source: 'TRANSCRIPT_TIMING', method: 'UNAVAILABLE' },
+    };
     this.#latest = this.#snapshot(null);
     return this;
   }
 
   /** Feed one BrowserAnalyticsPipeline `diagnostic` event detail. */
   ingest(detail = {}) {
+    if (typeof detail?.conversationState === 'string') this.#conversationState = detail.conversationState;
     if (detail?.modality === 'audio') return this.#ingestAudio(detail);
     if (detail?.modality === 'vision') return this.#ingestVision(detail);
     return this.#latest;
   }
 
-  /**
-   * The only WPM entrance. It accepts aggregate observed timing, never text.
-   * A caller must identify a proven timing source and affirm that the window was
-   * observed. Missing or malformed provenance fails closed.
-   */
+  setConversationState(state) {
+    this.#conversationState = typeof state === 'string' ? state : 'UNKNOWN';
+    this.#latest = this.#snapshot(this.#latest?.atMs);
+    return this.#latest;
+  }
+
+  /** The only WPM entrance. Per-word timing evidence is mandatory; text is ignored. */
   ingestTranscriptTiming(evidence = {}, { allowDeterministicFixture = false } = {}) {
     const startedAtMs = finite(evidence.windowStartedAtMs);
     const endedAtMs = finite(evidence.windowEndedAtMs);
     const atMs = finite(evidence.atMs) ?? endedAtMs;
     const wordCount = Number.isInteger(evidence.wordCount) ? evidence.wordCount : null;
     const provenance = evidence.provenance || null;
-    const observedTrusted = provenance?.kind === 'OBSERVED_TRANSCRIPT_TIMING'
+    const observedCandidate = provenance?.kind === 'OBSERVED_TRANSCRIPT_TIMING'
       && provenance.observed === true
       && TRUSTED_TRANSCRIPT_TIMING_SOURCES.includes(provenance.source);
-    const deterministicTrusted = allowDeterministicFixture === true
+    const deterministicCandidate = allowDeterministicFixture === true
       && provenance?.kind === 'DETERMINISTIC_TEST_TRANSCRIPT_TIMING'
       && provenance.observed === false
       && provenance.source === DETERMINISTIC_TEST_TIMING_SOURCE
       && provenance.fixture === 'DETERMINISTIC_LOCAL_TEST_SIGNAL';
-    const trusted = observedTrusted || deterministicTrusted;
+    const candidate = observedCandidate || deterministicCandidate;
+    if (Number.isFinite(startedAtMs)) this.#windowStartedAtMs.transcript ??= startedAtMs;
+    this.#provenance.transcript = {
+      source: provenance?.source || 'TRANSCRIPT_TIMING',
+      method: candidate ? 'WORD_TIMESTAMP_EVIDENCE_PENDING_VALIDATION' : 'UNAVAILABLE',
+      ...(deterministicCandidate ? { fixture: true } : {}),
+    };
 
-    if (!trusted) {
+    if (!candidate) {
       this.#metrics.SPEED_WPM = unavailable('NO_TRUSTWORTHY_TRANSCRIPT_TIMING');
       this.#latest = this.#snapshot(atMs);
       return this.#latest;
@@ -213,21 +238,32 @@ export class LiveMetricProjector {
         timingGapMs,
         maximumGapMs: this.#maximumTranscriptGapMs,
       });
-    } else if (durationMs < 1_000 || wordCount < 3) {
-      this.#metrics.SPEED_WPM = unavailable('NEED_MORE_TIMED_WORDS');
     } else {
-      const wordsPerMinute = wordCount * 60_000 / durationMs;
-      this.#metrics.SPEED_WPM = deepFreeze({
-        available: true,
-        wordsPerMinute: round(wordsPerMinute, 1),
-        wordCount,
-        windowStartedAtMs: startedAtMs,
-        windowEndedAtMs: endedAtMs,
-        windowDurationMs: durationMs,
-        timingSource: provenance.source,
-        source: deterministicTrusted ? 'DETERMINISTIC_TEST_FIXTURE' : 'TRUSTED_TRANSCRIPT_TIMING',
-        fixture: deterministicTrusted,
-      });
+      const evaluated = evaluateWordTiming(evidence, { allowDeterministicFixture });
+      if (!evaluated.available) {
+        this.#metrics.SPEED_WPM = unavailable(evaluated.reason, {
+          tier: evaluated.tier,
+          ...(evaluated.missingDependency ? { missingDependency: evaluated.missingDependency } : {}),
+        });
+      } else {
+        this.#provenance.transcript.method = evaluated.provenance.method;
+        this.#metrics.SPEED_WPM = deepFreeze({
+          available: true,
+          wordsPerMinute: evaluated.wordsPerMinute,
+          articulationWordsPerMinute: evaluated.articulationWordsPerMinute,
+          deliverySpeed: evaluated.deliverySpeed,
+          wordCount: evaluated.wordCount,
+          speechDurationMs: evaluated.speechDurationMs,
+          coverage: evaluated.coverage,
+          windowStartedAtMs: startedAtMs,
+          windowEndedAtMs: endedAtMs,
+          windowDurationMs: durationMs,
+          timingSource: provenance.source,
+          tier: evaluated.tier,
+          source: deterministicCandidate ? 'DETERMINISTIC_TEST_FIXTURE' : 'TRUSTED_TRANSCRIPT_TIMING',
+          fixture: deterministicCandidate,
+        });
+      }
     }
     this.#lastTranscriptWindowEndedAtMs = endedAtMs;
     this.#lastAcceptedAtMs.transcript = atMs;
@@ -245,6 +281,11 @@ export class LiveMetricProjector {
       return this.#latest;
     }
     if (this.#isStale('audio', atMs)) return this.#latest;
+    this.#windowStartedAtMs.audio ??= atMs;
+    this.#provenance.audio = {
+      source: 'MICROPHONE',
+      method: detail.captureMethod === 'AUDIO_WORKLET_PCM' ? 'AUDIO_WORKLET_PCM' : 'ANALYSER_FALLBACK',
+    };
 
     const rms = finite(detail.rms);
     const dbfs = rms === null ? null : rmsToDbfs(rms);
@@ -262,6 +303,12 @@ export class LiveMetricProjector {
         state: 'observed',
         source: 'MIC_RMS',
         atMs,
+        ...(detail.loudness?.available === true ? {
+          speechLufsK: finite(detail.loudness.speechLufsK),
+          loudnessP10LufsK: finite(detail.loudness.p10LufsK),
+          loudnessP90LufsK: finite(detail.loudness.p90LufsK),
+          loudnessSource: detail.loudness.provenance?.method || 'BS1770_K_WEIGHTING_48K',
+        } : {}),
       });
 
       this.#audioHistory.push(deepFreeze({ atMs, dbfs: round(dbfs, 3) }));
@@ -284,6 +331,10 @@ export class LiveMetricProjector {
           normalized: round(clamp(rangeDb / 24, 0, 1), 4),
           source: 'MIC_RMS_HISTORY',
           atMs,
+          ...(detail.loudness?.available === true ? {
+            speechModulationRangeLu: finite(detail.loudness.modulationRangeLu),
+            speechLoudnessSource: detail.loudness.provenance?.method || 'BS1770_K_WEIGHTING_48K',
+          } : {}),
         });
       }
     }
@@ -304,18 +355,26 @@ export class LiveMetricProjector {
     }
 
     const voiced = pitch?.voiced === true && Number.isFinite(pitch.f0Hz) && pitch.f0Hz > 0;
-    const semitones = voiced ? 12 * Math.log2(pitch.f0Hz / summary.medianHz) : null;
+    const referenceHz = finite(summary.referenceHz) ?? summary.medianHz;
+    const semitones = voiced ? 12 * Math.log2(pitch.f0Hz / referenceHz) : null;
     return deepFreeze({
       available: true,
       voiced,
       f0Hz: voiced ? round(pitch.f0Hz, 3) : null,
       medianHz: round(summary.medianHz, 3),
+      referenceHz: round(referenceHz, 3),
       semitonesFromSpeakerMedian: round(semitones, 3),
       register: pitchRegister(semitones),
       rangeSemitones: finite(summary.rangeSemitones),
       variationSemitones: finite(summary.variationSemitones),
       voicedRatio: finite(summary.voicedRatio),
-      reference: 'SPEAKER_ROLLING_MEDIAN',
+      reference: summary.referenceBasis === 'FIXED_PERSONAL_CALIBRATION_MEDIAN'
+        ? 'FIXED_PERSONAL_CALIBRATION_MEDIAN'
+        : 'SPEAKER_ROLLING_MEDIAN',
+      referenceBasis: summary.referenceBasis || 'CURRENT_OBSERVED_MEDIAN',
+      p10Semitones: finite(summary.p10Semitones),
+      p90Semitones: finite(summary.p90Semitones),
+      p10P90RangeSemitones: finite(summary.p10P90RangeSemitones),
       absoluteHzTarget: null,
       source: 'VALIDATED_F0',
       atMs,
@@ -331,6 +390,11 @@ export class LiveMetricProjector {
       return this.#latest;
     }
     if (this.#isStale('vision', atMs)) return this.#latest;
+    this.#windowStartedAtMs.vision ??= atMs;
+    this.#provenance.vision = {
+      source: 'CAMERA',
+      method: detail.geometry?.face?.headPoseMethod || 'COMPACT_VISION_GEOMETRY',
+    };
 
     const primaryLock = detail.primaryLock || null;
     const primaryLocked = primaryLock?.state === 'PRIMARY_LOCKED'
@@ -353,8 +417,8 @@ export class LiveMetricProjector {
       this.#metrics.HEAD_FACE = unavailable('NO_VISION_GEOMETRY');
       this.#metrics.BODY_HANDS = unavailable('NO_VISION_GEOMETRY');
     } else {
-      this.#metrics.HEAD_FACE = this.#projectHeadFace(geometry.face, detail.faceFamily, detail.faceFamilySummary, atMs);
-      this.#metrics.BODY_HANDS = this.#projectBodyHands(geometry, detail.live, atMs);
+      this.#metrics.HEAD_FACE = this.#projectHeadFace(geometry.face, detail.faceFamily, detail.faceFamilySummary, detail.behavior, atMs);
+      this.#metrics.BODY_HANDS = this.#projectBodyHands(geometry, detail.live, detail.behavior, atMs);
     }
 
     this.#expireTranscriptTiming(atMs);
@@ -363,11 +427,12 @@ export class LiveMetricProjector {
     return this.#latest;
   }
 
-  #projectHeadFace(face, faceFamily, faceSummary, atMs) {
+  #projectHeadFace(face, faceFamily, faceSummary, behavior, atMs) {
     if (!face) return unavailable('NO_FACE_GEOMETRY');
-    const yaw = finite(face.yawProxyDeg);
-    const pitch = finite(face.pitchProxyDeg);
-    const roll = finite(face.rollProxyDeg);
+    const matrixPose = face.headPoseMethod === 'FACIAL_TRANSFORMATION_MATRIX';
+    const yaw = matrixPose ? finite(face.yawDeg) : finite(face.yawProxyDeg);
+    const pitch = matrixPose ? finite(face.pitchDeg) : finite(face.pitchProxyDeg);
+    const roll = matrixPose ? finite(face.rollDeg) : finite(face.rollProxyDeg);
     const box = face.box || null;
     const centered = Number.isFinite(box?.centerX) && Number.isFinite(box?.centerY)
       ? box.centerX >= 0.35 && box.centerX <= 0.65 && box.centerY >= 0.2 && box.centerY <= 0.72
@@ -402,11 +467,14 @@ export class LiveMetricProjector {
         : null,
       orientation: {
         available: [yaw, pitch, roll].some(Number.isFinite),
-        yawProxyDeg: yaw,
-        pitchProxyDeg: pitch,
-        rollProxyDeg: roll,
+        yawProxyDeg: finite(face.yawProxyDeg),
+        pitchProxyDeg: finite(face.pitchProxyDeg),
+        rollProxyDeg: finite(face.rollProxyDeg),
+        yawDeg: matrixPose ? yaw : null,
+        pitchDeg: matrixPose ? pitch : null,
+        rollDeg: matrixPose ? roll : null,
         cameraFacingProxy: yaw === null ? null : Math.abs(yaw) < 18,
-        method: 'LANDMARK_GEOMETRY_PROXY',
+        method: matrixPose ? 'FACIAL_TRANSFORMATION_MATRIX' : 'LINEAR_FACE_GEOMETRY_PROXY',
       },
       mouthCornerElevation: mouth?.availability === 'AVAILABLE' || mouth?.availability === 'PARTIAL'
         ? {
@@ -437,8 +505,15 @@ export class LiveMetricProjector {
           target: null,
         }
         : unavailable('NO_GAZE_PROXY_CHANNELS'),
-      smileEvents: Number.isFinite(smileSummary?.eventCount)
-        ? { available: true, count: Number(smileSummary.eventCount), source: 'FACE_SMILE_EVENT_SUMMARY' }
+      smileEvents: Number.isFinite(faceSummary?.smilePattern?.eventCount)
+        ? {
+          available: faceSummary.smilePattern.available === true,
+          count: Number(faceSummary.smilePattern.eventCount),
+          source: 'PERSONAL_BASELINE_MOUTH_CORNER_PATTERN',
+          claimBoundary: faceSummary.smilePattern.claimBoundary,
+        }
+        : Number.isFinite(smileSummary?.eventCount)
+          ? { available: true, count: Number(smileSummary.eventCount), source: 'LEGACY_MOUTH_CORNER_EVENT_SUMMARY' }
         : unavailable('NO_SMILE_EVENT_SUMMARY'),
       cameraFacingDwell: dwell?.available === true
         && Number.isFinite(dwell.cameraFacingRatio)
@@ -460,12 +535,14 @@ export class LiveMetricProjector {
           eventCount: Number(blinkSummary.eventCount),
           observedDurationMs,
           source: 'FACE_BLINK_EVENT_SUMMARY',
+          confidence: 'LOW',
+          limitation: 'BLINK_RATE_NOT_VALIDATED_FOR_COACHING',
         }
         : unavailable('NEED_MORE_BLINK_HISTORY'),
       geometryTrend: this.#faceHistory.length
         ? { available: true, values: this.#faceHistory.map((entry) => ({ ...entry })), source: 'FACE_MOVEMENT_VARIABILITY_HISTORY' }
         : unavailable('NEED_MORE_FACE_HISTORY'),
-      headNods: unavailable('NO_VALIDATED_HEAD_NOD_DETECTOR'),
+      headNods: behavior?.nod || unavailable('NO_VALIDATED_HEAD_NOD_DETECTOR'),
       affectClassification: unavailable(UNSUPPORTED_REASON),
       genuineSmileClassification: unavailable(UNSUPPORTED_REASON),
       source: 'COMPACT_VISION_GEOMETRY_AND_FACE_CARTRIDGES',
@@ -473,7 +550,7 @@ export class LiveMetricProjector {
     });
   }
 
-  #projectBodyHands(geometry, live, atMs) {
+  #projectBodyHands(geometry, live, behavior, atMs) {
     const pose = geometry.pose || null;
     const hands = geometry.hands || null;
     if (!pose && !hands) return unavailable('NO_BODY_OR_HAND_GEOMETRY');
@@ -546,6 +623,7 @@ export class LiveMetricProjector {
         activeRegion: ['left', 'right', 'both'].includes(live?.gestureActive) ? live.gestureActive : null,
         source: 'OBSERVED_HAND_REGION_ACTIVITY',
       },
+      gestureUnits: behavior?.gesture || unavailable('NO_GESTURE_UNIT_EVIDENCE'),
       gestureClassification: unavailable(UNSUPPORTED_REASON),
       noteTakingClassification: unavailable(UNSUPPORTED_REASON),
       fidgetClassification: unavailable(UNSUPPORTED_REASON),
@@ -573,9 +651,34 @@ export class LiveMetricProjector {
   }
 
   #snapshot(atMs) {
+    const endMs = Number.isFinite(atMs) ? atMs : 0;
+    const decorate = (id, metric) => {
+      const modality = id === 'SPEED_WPM' ? 'transcript'
+        : ['VOLUME', 'VOLUME_MODULATION', 'PITCH'].includes(id) ? 'audio' : 'vision';
+      const startMs = id === 'SPEED_WPM' && Number.isFinite(metric?.windowStartedAtMs)
+        ? metric.windowStartedAtMs
+        : this.#windowStartedAtMs[modality] ?? endMs;
+      const confidence = metric?.available === true
+        ? (modality === 'audio' && this.#provenance.audio.method === 'ANALYSER_FALLBACK' ? 'MODERATE' : 'HIGH')
+        : 'UNAVAILABLE';
+      return deepFreeze({
+        ...metric,
+        state: this.#conversationState,
+        windowMs: Math.max(0, endMs - startMs),
+        confidence,
+        provenance: { ...this.#provenance[modality] },
+        window: {
+          state: this.#conversationState,
+          startMs,
+          endMs,
+          confidence,
+          provenance: { ...this.#provenance[modality] },
+        },
+      });
+    };
     return deepFreeze({
       atMs: Number.isFinite(atMs) ? atMs : null,
-      metrics: { ...this.#metrics },
+      metrics: Object.fromEntries(Object.entries(this.#metrics).map(([id, metric]) => [id, decorate(id, metric)])),
       unsupportedClaims: UNSUPPORTED_LIVE_CLAIMS,
       clock: {
         basis: 'ANALYTICS_SESSION_MS',

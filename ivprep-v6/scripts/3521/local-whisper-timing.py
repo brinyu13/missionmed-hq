@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Local-only aggregate word timing for the 3521 analytics harness.
+"""Local-only per-word timing for the 3521 analytics harness.
 
 The process binds to loopback, loads an explicit on-disk faster-whisper snapshot,
-accepts one in-memory audio window at a time, and returns aggregate timing only.
+accepts one in-memory audio window at a time, and returns timing without word text.
 It never returns or persists transcript text and cannot download a model.
 """
 
@@ -73,7 +73,7 @@ MODEL_DIR = resolve_model_dir()
 MODEL = load_model(MODEL_DIR)
 
 
-def transcribe_aggregate(audio_bytes: bytes) -> dict[str, Any]:
+def transcribe_word_timing(audio_bytes: bytes) -> dict[str, Any]:
     segments_iter, _ = MODEL.transcribe(
         io.BytesIO(audio_bytes),
         language="en",
@@ -87,8 +87,13 @@ def transcribe_aggregate(audio_bytes: bytes) -> dict[str, Any]:
         vad_parameters={"min_silence_duration_ms": 300},
     )
 
-    observed_words: list[tuple[float, float]] = []
+    observed_words: list[dict[str, int | float | None]] = []
+    speech_intervals: list[tuple[float, float]] = []
     for segment in segments_iter:
+        segment_start = finite(getattr(segment, "start", None))
+        segment_end = finite(getattr(segment, "end", None))
+        if segment_start is not None and segment_end is not None and segment_end > segment_start:
+            speech_intervals.append((segment_start, segment_end))
         for word in getattr(segment, "words", ()) or ():
             start = finite(getattr(word, "start", None))
             end = finite(getattr(word, "end", None))
@@ -98,16 +103,27 @@ def transcribe_aggregate(audio_bytes: bytes) -> dict[str, Any]:
                 continue
             if probability is not None and probability < 0.35:
                 continue
-            observed_words.append((start, end))
+            observed_words.append(
+                {
+                    "startMs": round(start * 1_000),
+                    "endMs": round(end * 1_000),
+                    "probability": round(probability, 4) if probability is not None else None,
+                }
+            )
 
-    first = min((start for start, _ in observed_words), default=None)
-    last = max((end for _, end in observed_words), default=None)
+    merged: list[list[float]] = []
+    for start, end in sorted(speech_intervals):
+        if not merged or start > merged[-1][1]:
+            merged.append([start, end])
+        else:
+            merged[-1][1] = max(merged[-1][1], end)
+    speech_duration_ms = round(sum(end - start for start, end in merged) * 1_000)
     return {
         "available": True,
         "source": "LOCAL_FASTER_WHISPER_WORD_TIMESTAMPS",
         "wordCount": len(observed_words),
-        "firstWordStartMs": round(first * 1_000) if first is not None else None,
-        "lastWordEndMs": round(last * 1_000) if last is not None else None,
+        "words": observed_words,
+        "speechDurationMs": speech_duration_ms,
         "providerSessions": 0,
         "rawTextReturned": False,
         "rawAudioPersisted": False,
@@ -162,7 +178,7 @@ class TimingHandler(BaseHTTPRequestHandler):
             self.send_json(400, {"available": False, "reason": "INCOMPLETE_AUDIO_WINDOW"})
             return
         try:
-            payload = transcribe_aggregate(audio_bytes)
+            payload = transcribe_word_timing(audio_bytes)
         except Exception:
             self.send_json(422, {"available": False, "reason": "LOCAL_TRANSCRIPTION_FAILED"})
             return

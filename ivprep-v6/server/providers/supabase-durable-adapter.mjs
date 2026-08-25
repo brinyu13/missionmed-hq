@@ -13,6 +13,9 @@ import { PROFILE_B, PROFILE_B_AGENT_NAME, ProviderSessionController } from './pr
 
 const PRODUCT_PROJECT_REF = 'tufzqxeucfugdovtjyqk';
 const PRODUCT_URL = `https://${PRODUCT_PROJECT_REF}.supabase.co`;
+const HOSTED_ENTITLEMENT_REVISION = 'hosted-3522-matrix-v1';
+const ENTITLEMENT_TTL_MS = 24 * 60 * 60 * 1000;
+const ENTITLEMENT_RENEWAL_WINDOW_MS = 6 * 60 * 60 * 1000;
 const TERMINAL_STATES = new Set(['CLOSED', 'FAILED_CLOSED']);
 const SAFE_VOICES = new Set(['marin', 'coral', 'shimmer']);
 const TABLES = new Set([
@@ -82,6 +85,35 @@ function exactCsvSubjects(value) {
     subjects.add(subject);
   }
   return subjects;
+}
+
+function exactCsvCourseIds(value) {
+  const courseIds = new Set();
+  for (const token of String(value || '').split(',')) {
+    const normalized = token.trim();
+    if (!normalized) continue;
+    const courseId = Number(normalized);
+    if (!Number.isSafeInteger(courseId) || courseId <= 0 || courseId > 2_147_483_647 || courseIds.size >= 24) {
+      throw new Error('IV Prep student course entitlement list is invalid.');
+    }
+    courseIds.add(courseId);
+  }
+  return courseIds;
+}
+
+function exactWordPressBase(value) {
+  try {
+    const parsed = new URL(String(value || ''));
+    return parsed.protocol === 'https:' && !parsed.username && !parsed.password
+      && parsed.pathname === '/' && !parsed.search && !parsed.hash ? parsed.origin : null;
+  } catch {
+    return null;
+  }
+}
+
+function exactWordPressAuthorization(value) {
+  const authorization = String(value || '').trim();
+  return /^(?:Basic|Bearer) [^\r\n]{16,4096}$/u.test(authorization) ? authorization : null;
 }
 
 function boundedReason(value, fallback = 'hosted_runtime') {
@@ -154,11 +186,23 @@ export class IvPrepSupabaseRest {
 }
 
 export class SupabaseAdmissionRegistry extends InMemoryAdmissionRegistry {
-  constructor({ rest, founderSubjects, adminSubjects, videoEnabled = false, now = () => Date.now() } = {}) {
+  constructor({
+    rest,
+    founderSubjects,
+    adminSubjects,
+    studentCourseIds = new Set(),
+    wordPressBase = null,
+    fetchImpl = fetch,
+    videoEnabled = false,
+    now = () => Date.now(),
+  } = {}) {
     super({ now });
     this.rest = rest;
     this.founderSubjects = founderSubjects;
     this.adminSubjects = adminSubjects;
+    this.studentCourseIds = studentCourseIds;
+    this.wordPressBase = wordPressBase;
+    this.fetchImpl = fetchImpl;
     this.videoEnabled = videoEnabled === true;
   }
 
@@ -171,7 +215,7 @@ export class SupabaseAdmissionRegistry extends InMemoryAdmissionRegistry {
         `?subject=eq.${encodeURIComponent(subject)}&select=subject,granted_video_seconds&limit=1`,
       );
       const common = {
-        revision: 'hosted-3472a-v1',
+        revision: HOSTED_ENTITLEMENT_REVISION,
         founder,
         voice_enabled: true,
         video_enabled: this.videoEnabled,
@@ -210,13 +254,101 @@ export class SupabaseAdmissionRegistry extends InMemoryAdmissionRegistry {
     }
   }
 
+  async #hasStudentCourseEntitlement({ subject, hqSession } = {}) {
+    if (!this.studentCourseIds.size || !this.wordPressBase || typeof this.fetchImpl !== 'function') return false;
+    const wpUserId = Number(String(subject || '').replace(/^wp:/u, ''));
+    if (!Number.isSafeInteger(wpUserId) || wpUserId <= 0 || Number(hqSession?.user?.id) !== wpUserId) return false;
+    const authorization = exactWordPressAuthorization(hqSession?.wpAuthorization);
+    if (!authorization) return false;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort('ivprep_wordpress_course_timeout'), 4_000);
+    try {
+      const url = new URL(`/wp-json/ldlms/v2/users/${wpUserId}/courses`, this.wordPressBase);
+      url.searchParams.set('include', [...this.studentCourseIds].join(','));
+      url.searchParams.set('per_page', String(Math.max(1, this.studentCourseIds.size)));
+      const response = await this.fetchImpl(url, {
+        method: 'GET',
+        redirect: 'error',
+        cache: 'no-store',
+        headers: { Authorization: authorization, Accept: 'application/json' },
+        signal: controller.signal,
+      });
+      const text = await response.text();
+      if (!response.ok || text.length > 64 * 1024) return false;
+      const courses = JSON.parse(text);
+      return Array.isArray(courses)
+        && courses.some((course) => this.studentCourseIds.has(Number(course?.id)));
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async #ensureEntitlement({ subject, founder, privileged } = {}) {
+    const existingRows = await this.rest.table(
+      'ivprep_entitlements',
+      `?subject=eq.${encodeURIComponent(subject)}&select=subject,revision,founder,voice_enabled,video_enabled,granted_video_seconds,expires_at&limit=1`,
+    );
+    const existing = Array.isArray(existingRows) ? existingRows[0] : null;
+    const existingExpiryMs = Date.parse(String(existing?.expires_at || ''));
+    const desiredVideo = privileged === true && this.videoEnabled;
+    const stillCurrent = existing?.subject === subject
+      && existing.revision === HOSTED_ENTITLEMENT_REVISION
+      && existing.founder === founder
+      && existing.voice_enabled === true
+      && existing.video_enabled === desiredVideo
+      && Number.isFinite(existingExpiryMs)
+      && existingExpiryMs > this.now() + ENTITLEMENT_RENEWAL_WINDOW_MS;
+    if (stillCurrent) return existing;
+
+    const expiresAt = new Date(this.now() + ENTITLEMENT_TTL_MS).toISOString();
+    const common = {
+      revision: HOSTED_ENTITLEMENT_REVISION,
+      founder,
+      voice_enabled: true,
+      video_enabled: desiredVideo,
+      expires_at: expiresAt,
+      updated_at: new Date(this.now()).toISOString(),
+    };
+    if (existing?.subject === subject) {
+      await this.rest.table('ivprep_entitlements', `?subject=eq.${encodeURIComponent(subject)}`, {
+        method: 'PATCH', prefer: 'return=minimal', body: common,
+      });
+    } else {
+      await this.rest.table('ivprep_entitlements', '', {
+        method: 'POST',
+        prefer: 'return=minimal',
+        body: {
+          subject,
+          ...common,
+          granted_video_seconds: founder
+            ? FOUNDER_TEST_PLAN.reduce((total, entry) => total + entry.maxSeconds, 0)
+            : 0,
+          consumed_video_seconds: 0,
+          reserved_video_seconds: 0,
+        },
+      });
+    }
+    return {
+      subject,
+      ...common,
+      granted_video_seconds: Number(existing?.granted_video_seconds) || (founder
+        ? FOUNDER_TEST_PLAN.reduce((total, entry) => total + entry.maxSeconds, 0)
+        : 0),
+    };
+  }
+
   async refreshSubject({ hqSession, cookieFingerprint } = {}) {
     const subject = exactSubject(`wp:${Number(hqSession?.user?.id)}`);
-    if (!subject || (!this.founderSubjects.has(subject) && !this.adminSubjects.has(subject))) {
-      if (subject) this.revokeEntitlement(subject);
+    if (!subject) return false;
+    if (!exactHash(cookieFingerprint)) return false;
+    const privileged = this.founderSubjects.has(subject) || this.adminSubjects.has(subject);
+    const courseEntitled = privileged ? false : await this.#hasStudentCourseEntitlement({ subject, hqSession });
+    if (!privileged && !courseEntitled) {
+      this.revokeEntitlement(subject);
       return false;
     }
-    if (!exactHash(cookieFingerprint)) return false;
     const revoked = await this.rest.table(
       'ivprep_cookie_revocations',
       `?cookie_fingerprint=eq.${encodeURIComponent(cookieFingerprint)}&expires_at=gt.${encodeURIComponent(new Date(this.now()).toISOString())}&select=cookie_fingerprint&limit=1`,
@@ -225,11 +357,8 @@ export class SupabaseAdmissionRegistry extends InMemoryAdmissionRegistry {
       super.recordLogout({ cookieFingerprint, reason: 'durable_revocation' });
       return false;
     }
-    const rows = await this.rest.table(
-      'ivprep_entitlements',
-      `?subject=eq.${encodeURIComponent(subject)}&select=subject,revision,founder,voice_enabled,video_enabled,granted_video_seconds,expires_at&limit=1`,
-    );
-    const row = Array.isArray(rows) ? rows[0] : null;
+    const founder = this.founderSubjects.has(subject);
+    const row = await this.#ensureEntitlement({ subject, founder, privileged });
     const expiresAtMs = Date.parse(String(row?.expires_at || ''));
     if (row?.subject !== subject || !Number.isFinite(expiresAtMs) || expiresAtMs <= this.now() || row.voice_enabled !== true) {
       this.revokeEntitlement(subject);
@@ -239,9 +368,9 @@ export class SupabaseAdmissionRegistry extends InMemoryAdmissionRegistry {
       subject,
       revision: row.revision,
       expiresAtMs,
-      founder: row.founder === true && this.founderSubjects.has(subject),
+      founder: row.founder === true && founder,
       voice: true,
-      video: row.video_enabled === true && this.videoEnabled,
+      video: row.video_enabled === true && privileged && this.videoEnabled,
       grantedVideoSeconds: Number(row.granted_video_seconds) || 0,
     });
     return true;
@@ -612,14 +741,23 @@ export async function createHostedHqDependenciesFromEnvironment(environment = pr
   const paidEnabled = environment.IVPREP_PAID_TEST1_ENABLED === 'true';
   const founderSubjects = exactCsvSubjects(environment.IVPREP_FOUNDER_WP_USER_IDS);
   const adminSubjects = exactCsvSubjects(environment.IVPREP_ADMIN_WP_USER_IDS);
-  if (!founderSubjects.size || (paidEnabled && !videoEnabled)) {
+  const studentCourseIds = exactCsvCourseIds(environment.IVPREP_STUDENT_COURSE_IDS);
+  const wordPressBase = exactWordPressBase(environment.MMHQ_WP_BASE);
+  if (!founderSubjects.size || (paidEnabled && !videoEnabled) || (studentCourseIds.size && !wordPressBase)) {
     throw new Error('The exact IV Prep hosted admission policy is unavailable.');
   }
   const rest = new IvPrepSupabaseRest({
     url: environment.IVPREP_SUPABASE_URL,
     serviceRoleKey: environment.IVPREP_SUPABASE_SERVICE_ROLE_KEY,
   });
-  const registry = new SupabaseAdmissionRegistry({ rest, founderSubjects, adminSubjects, videoEnabled });
+  const registry = new SupabaseAdmissionRegistry({
+    rest,
+    founderSubjects,
+    adminSubjects,
+    studentCourseIds,
+    wordPressBase,
+    videoEnabled,
+  });
   await registry.bootstrapEntitlements();
   installAdmissionRegistry(registry);
   const worker = createSupabaseHqWorkerAdapter({ rest, healthUrl: environment.IVPREP_WORKER_HEALTH_URL });

@@ -6,6 +6,8 @@
   <meta name="color-scheme" content="dark">
   <title>IV Prep On-Call · Live Analytics Runtime</title>
   <link rel="stylesheet" href="/iv-prep-on-call/assets/live-analytics/live-analytics.css">
+  <script src="/iv-prep-on-call/assets/vendor/vad-web/0.0.30/ort.min.js"></script>
+  <script src="/iv-prep-on-call/assets/vendor/vad-web/0.0.30/bundle.min.js"></script>
 </head>
 <body data-analytics-mode="coaching">
   <a class="skip-link" href="#live-meeting">Skip to interview room</a>
@@ -252,6 +254,18 @@
           <div class="live-correction" id="live-coaching-cue" data-state="idle" hidden>
             <span>Live cue</span><strong>Start speaking to begin measuring</strong>
           </div>
+
+          <section class="post-answer-card" id="post-answer-card" aria-label="Post-answer evidence" hidden>
+            <span>Answer complete · brief review</span>
+            <strong id="post-answer-summary">Derived answer envelope ready · raw media not retained</strong>
+            <ul id="post-answer-items"></ul>
+            <p id="post-answer-goal">Next-answer goal will appear here.</p>
+            <div class="post-answer-actions">
+              <button type="button" id="track-post-answer-goal" aria-pressed="false">Track this goal</button>
+              <button type="button" id="replay-answer" disabled>Replay unavailable</button>
+            </div>
+            <button type="button" id="export-derived-answer">Export derived JSON</button>
+          </section>
         </div>
 
         <div class="meeting-toolbar" aria-label="Camera and microphone setup">
@@ -315,7 +329,7 @@
               <canvas class="hud-canvas instrument-canvas" data-hud-canvas="speed" aria-label="Words per minute speedometer"></canvas>
               <div class="dial-readout"><span class="hud-value" data-hud-value="speed">—</span><span>WPM</span></div>
             </div>
-            <div class="speed-target">Reference range 110–160 WPM</div>
+            <div class="speed-target">Global context 140–180 WPM · no baseline</div>
             <p class="instrument-status" data-hud-state="speed" data-state="unavailable">UNAVAILABLE — validated transcript timing required</p>
           </div>
           <button class="collapsed-tab" type="button" data-module-restore="speed" aria-label="Show Speaking Speed analytics"><span>SPD</span><strong>Speed / WPM</strong><i aria-hidden="true">‹</i></button>
@@ -335,7 +349,7 @@
               <button type="button" data-vocal-trace-toggle="all" aria-pressed="true">Hide all</button>
             </div>
             <canvas class="hud-canvas instrument-canvas trace-canvas" data-hud-canvas="modulation" aria-label="Normalized recent history of measured volume, validated pitch, and observed speaking speed"></canvas>
-            <p class="instrument-status" data-hud-state="modulation" data-state="unavailable">WAITING FOR GENUINE MEASURED HISTORY</p>
+            <p class="instrument-status" data-hud-state="modulation" data-state="unavailable">WAITING FOR OBSERVED MEASURED HISTORY</p>
           </div>
           <button class="collapsed-tab" type="button" data-module-restore="modulation" aria-label="Show Vocal Variation analytics"><span>VAR</span><strong>Vocal Variation</strong><i aria-hidden="true">‹</i></button>
         </section>
@@ -404,16 +418,20 @@
           <label><input type="checkbox" data-overlay-checkbox="body" checked> Body geometry</label>
           <label><input type="checkbox" data-overlay-checkbox="framing" checked> Framing geometry</label>
         </fieldset>
+        <fieldset><legend>Interview context</legend>
+          <label><input type="checkbox" id="notes-state-control"> I am taking notes</label>
+          <p>Explicit context only. Camera movement is never used to infer note-taking.</p>
+        </fieldset>
       </div>
       <footer>
         <p id="visibility-announcement" role="status" aria-live="polite">Measurement continues when a visual is hidden.</p>
-        <p class="sr-only">No gaze, emotion, honesty, confidence, or personality inference. Gesture meaning, fidget, note-taking, and intent remain unavailable.</p>
+        <p class="sr-only">No gaze, emotion, honesty, confidence, or personality inference. Gesture meaning, fidget, note-taking, and intent remain unavailable unless an explicit first-party context is present.</p>
         <button type="button" id="reset-visibility">Reset custom choices</button>
-        <button type="button" id="toggle-diagnostics" aria-expanded="false" aria-controls="founder-diagnostics">Founder diagnostics</button>
+        <button type="button" id="toggle-diagnostics" aria-expanded="false" aria-controls="founder-diagnostics" hidden>Founder diagnostics</button>
       </footer>
     </aside>
 
-    <section class="founder-diagnostics" id="founder-diagnostics" aria-labelledby="diagnostics-title" hidden>
+    <section class="founder-diagnostics" id="founder-diagnostics" data-density="LAB" aria-labelledby="diagnostics-title" hidden>
       <header><div><span class="module-code">DBG</span><h2 id="diagnostics-title">Founder / Admin diagnostics</h2></div><button type="button" id="close-diagnostics">Close</button></header>
       <div class="diagnostic-grid">
         <span class="diagnostic-value" data-diagnostic="media">MEDIA UNAVAILABLE</span>
@@ -424,6 +442,17 @@
         <span class="diagnostic-value" data-diagnostic="body">BODY FRAMES 0</span>
         <span class="diagnostic-value diagnostic-bus" data-diagnostic="metrics">METRIC BUS IDLE</span>
       </div>
+      <fieldset class="admin-lab-controls" id="admin-lab-controls" hidden>
+        <legend>LAB · current admitted session</legend>
+        <label><input type="checkbox" id="lab-interviewer-speaking"> Interviewer speaking (manual physical-QA channel)</label>
+        <div class="lab-target-grid">
+          <label>WPM minimum<input id="lab-wpm-minimum" type="number" min="110" max="209" step="1" value="140"></label>
+          <label>WPM maximum<input id="lab-wpm-maximum" type="number" min="111" max="210" step="1" value="180"></label>
+          <label>Loudness half-width (LU)<input id="lab-loudness-half-width" type="number" min="3" max="10" step="1" value="6"></label>
+        </div>
+        <button type="button" id="apply-lab-targets">Apply session coaching targets</button>
+        <output id="lab-target-status">Targets change coaching corridors only; measurement is immutable.</output>
+      </fieldset>
     </section>
   </div>
 

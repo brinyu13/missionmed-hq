@@ -147,6 +147,15 @@ function median(values) {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+function quantile(values, fraction) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = (sorted.length - 1) * fraction;
+  const low = Math.floor(index);
+  const high = Math.ceil(index);
+  return low === high ? sorted[low] : sorted[low] + (sorted[high] - sorted[low]) * (index - low);
+}
+
 /**
  * Rolling speaker-relative pitch summary.
  *
@@ -160,17 +169,36 @@ export class PitchTrack {
   #frames = 0;
   #maxHistory;
   #minVoicedFrames;
+  #octaveGuardSemitones;
+  #lastAcceptedHz = null;
+  #calibrationMedianHz = null;
+  #octaveCorrections = 0;
 
-  constructor({ maxHistory = 1800, minVoicedFrames = 12 } = {}) {
+  constructor({ maxHistory = 1800, minVoicedFrames = 12, octaveGuardSemitones = 8 } = {}) {
     this.#maxHistory = maxHistory;
     this.#minVoicedFrames = minVoicedFrames;
+    this.#octaveGuardSemitones = octaveGuardSemitones;
   }
 
   /** Feed one estimateF0() result. Unvoiced frames are counted but contribute no F0. */
-  push(estimate) {
+  push(estimate, { speaking = true } = {}) {
     this.#frames += 1;
-    if (estimate?.voiced !== true || !Number.isFinite(estimate.f0Hz)) return this;
-    this.#voiced.push({ f0Hz: estimate.f0Hz, confidence: estimate.confidence ?? 0 });
+    if (!speaking || estimate?.voiced !== true || !Number.isFinite(estimate.f0Hz)) return this;
+    let acceptedHz = estimate.f0Hz;
+    if (Number.isFinite(this.#lastAcceptedHz)) {
+      const jump = Math.abs(semitonesFrom(acceptedHz, this.#lastAcceptedHz));
+      if (jump > this.#octaveGuardSemitones) {
+        const candidates = [acceptedHz / 2, acceptedHz, acceptedHz * 2]
+          .filter((hz) => hz >= F0_MIN_HZ && hz <= F0_MAX_HZ)
+          .map((hz) => ({ hz, distance: Math.abs(semitonesFrom(hz, this.#lastAcceptedHz)) }))
+          .sort((a, b) => a.distance - b.distance);
+        if (!candidates.length || candidates[0].distance > this.#octaveGuardSemitones) return this;
+        if (candidates[0].hz !== acceptedHz) this.#octaveCorrections += 1;
+        acceptedHz = candidates[0].hz;
+      }
+    }
+    this.#lastAcceptedHz = acceptedHz;
+    this.#voiced.push({ f0Hz: acceptedHz, confidence: estimate.confidence ?? 0 });
     if (this.#voiced.length > this.#maxHistory) this.#voiced.shift();
     return this;
   }
@@ -178,6 +206,18 @@ export class PitchTrack {
   get voicedFrameCount() { return this.#voiced.length; }
 
   get voicedRatio() { return this.#frames ? this.#voiced.length / this.#frames : 0; }
+
+  get calibrationMedianHz() { return this.#calibrationMedianHz; }
+
+  /** Freeze the speaker's admitted calibration median; later answers never move it. */
+  freezeCalibrationBaseline(referenceHz = null) {
+    const candidate = Number.isFinite(referenceHz)
+      ? Number(referenceHz)
+      : median(this.#voiced.map((entry) => entry.f0Hz));
+    if (!Number.isFinite(candidate) || candidate <= 0) throw new TypeError('A voiced calibration median is required.');
+    this.#calibrationMedianHz = candidate;
+    return candidate;
+  }
 
   /**
    * @returns {{available:boolean, reason?:string, medianHz?:number, rangeSemitones?:number,
@@ -194,27 +234,40 @@ export class PitchTrack {
     }
     const values = this.#voiced.map((entry) => entry.f0Hz);
     const medianHz = median(values);
-    const semitones = values.map((hz) => semitonesFrom(hz, medianHz)).filter((v) => v !== null);
+    const referenceHz = this.#calibrationMedianHz ?? medianHz;
+    const semitones = values.map((hz) => semitonesFrom(hz, referenceHz)).filter((v) => v !== null);
     const mean = semitones.reduce((sum, v) => sum + v, 0) / semitones.length;
     const variance = semitones.reduce((sum, v) => sum + (v - mean) ** 2, 0) / semitones.length;
     const minHz = Math.min(...values);
     const maxHz = Math.max(...values);
+    const p10Semitones = quantile(semitones, 0.1);
+    const p90Semitones = quantile(semitones, 0.9);
     return Object.freeze({
       available: true,
       medianHz,
+      referenceHz,
+      referenceBasis: this.#calibrationMedianHz === null ? 'CURRENT_OBSERVED_MEDIAN' : 'FIXED_PERSONAL_CALIBRATION_MEDIAN',
+      relativeMedianSemitones: semitonesFrom(medianHz, referenceHz),
       minHz,
       maxHz,
       rangeSemitones: semitonesFrom(maxHz, minHz) ?? 0,
       // Standard deviation in semitones: the speaker-relative "pitch variation" a
       // monotone delivery drives toward zero and a varied delivery raises.
       variationSemitones: Math.sqrt(variance),
+      p10Semitones,
+      p90Semitones,
+      p10P90RangeSemitones: p90Semitones - p10Semitones,
       voicedRatio,
+      octaveCorrections: this.#octaveCorrections,
     });
   }
 
-  reset() {
+  reset({ preserveCalibration = true } = {}) {
     this.#voiced = [];
     this.#frames = 0;
+    this.#lastAcceptedHz = null;
+    this.#octaveCorrections = 0;
+    if (!preserveCalibration) this.#calibrationMedianHz = null;
     return this;
   }
 }
