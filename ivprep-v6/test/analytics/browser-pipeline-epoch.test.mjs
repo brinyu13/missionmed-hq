@@ -158,7 +158,7 @@ test('same-frame FaceDetector result is joined before Holistic inference',()=>{
   pipeline.pendingVisionFrame={bitmap,generation:pipeline.generation,answerEpoch:pipeline.answerEpoch,visionEpoch:pipeline.visionEpoch,frameId:7,timestampMs:125,expectedFrameMs:125,captureStartedAt:0};
   pipeline.frameInFlight=true;
   const lock={state:'PRIMARY_LOCKED',zoneStatus:'primary_inside',continuity:'locked',bystanderCount:0,excludedDurationMs:0,reacquisitionCount:0,selectionRequired:false,withheldIntervals:[]};
-  now=20;pipeline.onFaceWorkerMessage({type:'primary-lock',generation:pipeline.generation,answerEpoch:pipeline.answerEpoch,visionEpoch:pipeline.visionEpoch,frameId:7,timestampMs:125,faceCount:1,primaryTrackId:'primary-1',primaryUsable:true,primaryRoi:{left:.1,top:.1,width:.8,height:.8},primaryLock:lock,faceInferenceMs:18},pipeline.generation);
+  now=20;pipeline.onFaceWorkerMessage({type:'primary-lock',generation:pipeline.generation,answerEpoch:pipeline.answerEpoch,visionEpoch:pipeline.visionEpoch,frameId:7,timestampMs:125,faceCount:1,primaryTrackId:'primary-1',primaryUsable:true,primaryRoi:{left:.1,top:.1,width:.8,height:.8},primaryFaceBox:{left:.42,top:.24,width:.16,height:.22},primaryLock:lock,faceInferenceMs:18},pipeline.generation);
   assert.equal(posted.length,1);
   assert.equal(posted[0].message.faceCount,1);
   assert.equal(posted[0].message.frameId,7);
@@ -166,6 +166,7 @@ test('same-frame FaceDetector result is joined before Holistic inference',()=>{
   assert.equal(posted[0].message.faceInferenceMs,18);
   assert.equal(posted[0].message.primaryTrackId,'primary-1');
   assert.equal(posted[0].message.primaryUsable,true);
+  assert.deepEqual(posted[0].message.primaryFaceBox,{left:.42,top:.24,width:.16,height:.22});
   assert.deepEqual(posted[0].message.primaryLock,lock);
   assert.deepEqual(posted[0].transfer,[bitmap]);
   assert.equal(pipeline.pendingVisionFrame,null);
@@ -549,7 +550,7 @@ test('Holistic-ready startup waits for FaceDetector protection before the first 
     assert.equal(holisticWorker.messages.some((message)=>message.type==='frame'),false);
 
     const primaryLock={state:'PRIMARY_LOCKED',zoneStatus:'primary_inside',continuity:'locked',bystanderCount:0,excludedDurationMs:0,reacquisitionCount:0,selectionRequired:false,withheldIntervals:[]};
-    pipeline.onFaceWorkerMessage({...faceFrame,type:'primary-lock',faceCount:1,primaryTrackId:'primary-1',primaryUsable:true,primaryRoi:{left:.1,top:.1,width:.8,height:.8},primaryLock,faceInferenceMs:5},pipeline.generation);
+    pipeline.onFaceWorkerMessage({...faceFrame,type:'primary-lock',faceCount:1,primaryTrackId:'primary-1',primaryUsable:true,primaryRoi:{left:.1,top:.1,width:.8,height:.8},primaryFaceBox:{left:.42,top:.24,width:.16,height:.22},primaryLock,faceInferenceMs:5},pipeline.generation);
     const holisticFrame=holisticWorker.messages.find((message)=>message.type==='frame');
     assert.equal(holisticFrame.faceCount,1);
     pipeline.onWorkerMessage({
@@ -599,11 +600,12 @@ test('G: playback uses the same FaceDetector-to-primary-ROI worker path and leav
     const holisticWorker=workers.find((worker)=>worker.name?.startsWith('communication-analytics-'));
     const faceFrame=faceWorker.messages.find((message)=>message.type==='frame');
     const primaryLock={state:'PRIMARY_LOCKED',zoneStatus:'primary_inside',continuity:'locked_bystander_excluded',bystanderCount:1,excludedDurationMs:0,reacquisitionCount:0,selectionRequired:false,withheldIntervals:[]};
-    pipeline.onFaceWorkerMessage({...faceFrame,type:'primary-lock',faceCount:2,primaryTrackId:'primary-1',primaryUsable:true,primaryRoi:{left:.1,top:.05,width:.8,height:.9},primaryLock,faceInferenceMs:4},pipeline.generation);
+    pipeline.onFaceWorkerMessage({...faceFrame,type:'primary-lock',faceCount:2,primaryTrackId:'primary-1',primaryUsable:true,primaryRoi:{left:.1,top:.05,width:.8,height:.9},primaryFaceBox:{left:.42,top:.24,width:.16,height:.22},primaryLock,faceInferenceMs:4},pipeline.generation);
     const holisticFrame=holisticWorker.messages.find((message)=>message.type==='frame');
     assert.equal(holisticFrame.faceCount,2);
     assert.equal(holisticFrame.primaryTrackId,'primary-1');
     assert.equal(holisticFrame.primaryUsable,true);
+    assert.deepEqual(holisticFrame.primaryFaceBox,{left:.42,top:.24,width:.16,height:.22});
     assert.equal(holisticFrame.bodyHandsOverlayEnabled,undefined);
     assert.deepEqual(holisticFrame.primaryLock,primaryLock);
     video.paused=true;

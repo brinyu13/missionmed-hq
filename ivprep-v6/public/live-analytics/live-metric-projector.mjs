@@ -16,7 +16,7 @@ export const LIVE_METRIC_IDS = Object.freeze([
   'BODY_HANDS',
 ]);
 
-export const TRUSTED_TRANSCRIPT_TIMING_SOURCES = Object.freeze([
+export const OBSERVED_TRANSCRIPT_TIMING_SOURCES = Object.freeze([
   'LOCAL_TIMED_TRANSCRIPT',
   'OBSERVED_TRANSCRIPT_SEGMENTS',
 ]);
@@ -106,7 +106,7 @@ function initialMetrics() {
   return {
     VOLUME: unavailable('NO_AUDIO_FRAMES'),
     SPEED_WPM: unavailable('NO_TRUSTWORTHY_TRANSCRIPT_TIMING'),
-    VOLUME_MODULATION: unavailable('NEED_MORE_RMS_HISTORY'),
+    VOLUME_MODULATION: unavailable('NEED_MORE_SPEECH_RMS_HISTORY'),
     PITCH: unavailable('NO_VALIDATED_F0'),
     HEAD_FACE: unavailable('NO_VISION_FRAMES'),
     BODY_HANDS: unavailable('NO_VISION_FRAMES'),
@@ -201,7 +201,8 @@ export class LiveMetricProjector {
     const provenance = evidence.provenance || null;
     const observedCandidate = provenance?.kind === 'OBSERVED_TRANSCRIPT_TIMING'
       && provenance.observed === true
-      && TRUSTED_TRANSCRIPT_TIMING_SOURCES.includes(provenance.source);
+      && provenance.wordTimestampsObserved === true
+      && OBSERVED_TRANSCRIPT_TIMING_SOURCES.includes(provenance.source);
     const deterministicCandidate = allowDeterministicFixture === true
       && provenance?.kind === 'DETERMINISTIC_TEST_TRANSCRIPT_TIMING'
       && provenance.observed === false
@@ -211,7 +212,7 @@ export class LiveMetricProjector {
     if (Number.isFinite(startedAtMs)) this.#windowStartedAtMs.transcript ??= startedAtMs;
     this.#provenance.transcript = {
       source: provenance?.source || 'TRANSCRIPT_TIMING',
-      method: candidate ? 'WORD_TIMESTAMP_EVIDENCE_PENDING_VALIDATION' : 'UNAVAILABLE',
+      method: candidate ? 'OBSERVED_WORD_TIMESTAMP_EVIDENCE_PENDING_STRUCTURAL_CHECK' : 'UNAVAILABLE',
       ...(deterministicCandidate ? { fixture: true } : {}),
     };
 
@@ -260,7 +261,8 @@ export class LiveMetricProjector {
           windowDurationMs: durationMs,
           timingSource: provenance.source,
           tier: evaluated.tier,
-          source: deterministicCandidate ? 'DETERMINISTIC_TEST_FIXTURE' : 'TRUSTED_TRANSCRIPT_TIMING',
+          source: deterministicCandidate ? 'DETERMINISTIC_TEST_FIXTURE' : 'OBSERVED_TRANSCRIPT_TIMING',
+          timingAccuracyValidated: deterministicCandidate ? false : evaluated.provenance.timingAccuracyValidated === true,
           fixture: deterministicCandidate,
         });
       }
@@ -311,10 +313,15 @@ export class LiveMetricProjector {
         } : {}),
       });
 
-      this.#audioHistory.push(deepFreeze({ atMs, dbfs: round(dbfs, 3) }));
-      if (this.#audioHistory.length > this.#maximumAudioFrames) this.#audioHistory.shift();
+      const speechObserved = detail.vad?.available === true
+        ? detail.vad.speaking === true
+        : detail.speaking === true;
+      if (speechObserved) {
+        this.#audioHistory.push(deepFreeze({ atMs, dbfs: round(dbfs, 3) }));
+        if (this.#audioHistory.length > this.#maximumAudioFrames) this.#audioHistory.shift();
+      }
       if (this.#audioHistory.length < this.#minimumModulationFrames) {
-        this.#metrics.VOLUME_MODULATION = unavailable('NEED_MORE_RMS_HISTORY', {
+        this.#metrics.VOLUME_MODULATION = unavailable('NEED_MORE_SPEECH_RMS_HISTORY', {
           observedFrames: this.#audioHistory.length,
           requiredFrames: this.#minimumModulationFrames,
         });
@@ -329,7 +336,7 @@ export class LiveMetricProjector {
           rangeDb: round(rangeDb, 3),
           stdDevDb: round(stdDevDb, 3),
           normalized: round(clamp(rangeDb / 24, 0, 1), 4),
-          source: 'MIC_RMS_HISTORY',
+          source: detail.vad?.available === true ? 'VAD_GATED_MIC_RMS_HISTORY' : 'SPEECH_GATED_MIC_RMS_HISTORY',
           atMs,
           ...(detail.loudness?.available === true ? {
             speechModulationRangeLu: finite(detail.loudness.modulationRangeLu),
@@ -416,6 +423,9 @@ export class LiveMetricProjector {
     } else if (!geometry) {
       this.#metrics.HEAD_FACE = unavailable('NO_VISION_GEOMETRY');
       this.#metrics.BODY_HANDS = unavailable('NO_VISION_GEOMETRY');
+    } else if (geometry.primaryAssociated !== true) {
+      this.#metrics.HEAD_FACE = unavailable('PRIMARY_ASSOCIATION_UNVERIFIED');
+      this.#metrics.BODY_HANDS = unavailable('PRIMARY_ASSOCIATION_UNVERIFIED');
     } else {
       this.#metrics.HEAD_FACE = this.#projectHeadFace(geometry.face, detail.faceFamily, detail.faceFamilySummary, detail.behavior, atMs);
       this.#metrics.BODY_HANDS = this.#projectBodyHands(geometry, detail.live, detail.behavior, atMs);
@@ -661,7 +671,11 @@ export class LiveMetricProjector {
         ? metric.windowStartedAtMs
         : this.#windowStartedAtMs[modality] ?? endMs;
       const confidence = metric?.available === true
-        ? (modality === 'audio' && this.#provenance.audio.method === 'ANALYSER_FALLBACK' ? 'MODERATE' : 'HIGH')
+        ? (modality === 'transcript' && metric.timingAccuracyValidated !== true
+            ? 'MODERATE'
+            : modality === 'audio' && this.#provenance.audio.method === 'ANALYSER_FALLBACK'
+              ? 'MODERATE'
+              : 'HIGH')
         : 'UNAVAILABLE';
       return deepFreeze({
         ...metric,

@@ -184,7 +184,10 @@ export class DeterministicLocalSignalFixture {
     }));
 
     if (this.frameIndex === 1 || this.frameIndex % 3 === 0) {
-      const geometry = deriveCompactGeometry(fixtureLandmarks(this.frameIndex), { faceCount: 1 });
+      const geometry = Object.freeze({
+        ...deriveCompactGeometry(fixtureLandmarks(this.frameIndex), { faceCount: 1 }),
+        primaryAssociated: true,
+      });
       this.onDiagnostic(Object.freeze({
         modality: 'vision',
         atMs,
@@ -230,7 +233,8 @@ export class DeterministicLocalSignalFixture {
         provenance: Object.freeze({
           kind: 'DETERMINISTIC_TEST_TRANSCRIPT_TIMING',
           observed: false,
-          wordTimestampsValidated: false,
+          wordTimestampsObserved: false,
+          timingAccuracyValidated: false,
           tier: 'TEST',
           source: 'DETERMINISTIC_TEST_TRANSCRIPT_TIMING',
           fixture: 'DETERMINISTIC_LOCAL_TEST_SIGNAL',
@@ -293,6 +297,7 @@ export class LiveAnalyticsRuntime {
     this.behavior = behavior;
     this.baselineStore = baselineStore;
     this.fetchImpl = fetchImpl;
+    this.admissionPromise = null;
     this.admittedIdentity = null;
     this.mutationCsrfToken = null;
     this.baselineRecord = null;
@@ -335,7 +340,6 @@ export class LiveAnalyticsRuntime {
       bodyOverlay: byId('body-overlay'),
       faceOverlay: byId('face-overlay'),
       headOverlay: byId('head-overlay'),
-      conversationState: byId('conversation-state'),
       bodyNotes: this.document.querySelector('[data-body-notes]'),
       status: byId('runtime-status'),
       captureIndicator: byId('capture-indicator'),
@@ -405,7 +409,7 @@ export class LiveAnalyticsRuntime {
       if (type === 'ended') return this.interviewerTurnEnded(detail);
       throw new TypeError('Interviewer event type must be started or ended.');
     };
-    void this.#loadAdmissionContext();
+    this.admissionPromise = this.#loadAdmissionContext();
     return this;
   }
 
@@ -892,6 +896,7 @@ export class LiveAnalyticsRuntime {
 
   async start() {
     if (this.active) return false;
+    if (!this.fixtureMode && this.admissionPromise) await this.admissionPromise;
     if (this.fixtureMode) {
       if (!this.fixtureConnected) return false;
       this.#resetMeasurementSession();
@@ -974,7 +979,10 @@ export class LiveAnalyticsRuntime {
       this.counts.audio += 1;
       if (detail.pitch?.voiced === true) this.counts.pitch += 1;
       for (const name of ['VOLUME', 'VOLUME_MODULATION', 'PITCH']) this.metricEvents[name] += 1;
-      this.#recordVocalVariationAudio(snapshot, detail.atMs);
+      const speechObserved = detail.vad?.available === true
+        ? detail.vad.speaking === true
+        : detail.speaking === true;
+      this.#recordVocalVariationAudio(snapshot, detail.atMs, speechObserved);
     }
     if (detail.modality === 'vision' && detail.geometry) {
       if (detail.geometry.face?.present) this.counts.face += 1;
@@ -1021,10 +1029,14 @@ export class LiveAnalyticsRuntime {
     return true;
   }
 
-  #recordVocalVariationAudio(snapshot, atMs) {
+  #recordVocalVariationAudio(snapshot, atMs, speechObserved) {
     const volume = snapshot?.metrics?.VOLUME;
     const pitch = snapshot?.metrics?.PITCH;
-    this.#appendVocalVariationSample('volume', atMs, volume?.available === true ? volume.dbfs : null);
+    this.#appendVocalVariationSample(
+      'volume',
+      atMs,
+      speechObserved === true && volume?.available === true ? volume.dbfs : null,
+    );
     this.#appendVocalVariationSample(
       'pitch',
       atMs,
@@ -1054,7 +1066,7 @@ export class LiveAnalyticsRuntime {
         speed: speed?.available === true,
       },
       sources: {
-        volume: modulation?.source || 'MIC_RMS_HISTORY',
+        volume: modulation?.source || 'SPEECH_GATED_MIC_RMS_HISTORY',
         pitch: pitch?.source || 'VALIDATED_F0',
         speed: speed?.timingSource || null,
       },
@@ -1093,10 +1105,6 @@ export class LiveAnalyticsRuntime {
     if (this.elements.stage) {
       this.elements.stage.dataset.setupReady = String(snapshot.setup?.ready === true);
       this.elements.stage.dataset.conversationState = conversationState;
-    }
-    if (this.elements.conversationState) {
-      this.elements.conversationState.dataset.state = conversationState;
-      this.elements.conversationState.textContent = `State · ${conversationState.replaceAll('_', ' ')}`;
     }
     if (this.elements.bodyNotes) {
       const notesActive = snapshot.notes?.available === true && snapshot.notes.active === true;
@@ -1254,7 +1262,7 @@ export class LiveAnalyticsRuntime {
               : projectedSpeed.reason,
         }
       : projectedSpeed;
-    const modulation = metrics.VOLUME_MODULATION || { available: false, reason: 'NEED_MORE_RMS_HISTORY' };
+    const modulation = metrics.VOLUME_MODULATION || { available: false, reason: 'NEED_MORE_SPEECH_RMS_HISTORY' };
     const pitch = metrics.PITCH || { available: false, reason: 'NO_VALIDATED_F0' };
     const headFace = metrics.HEAD_FACE || { available: false, reason: 'NO_VISION_FRAMES' };
     const bodyHands = metrics.BODY_HANDS || { available: false, reason: 'NO_VISION_FRAMES' };
@@ -1492,6 +1500,7 @@ export class LiveAnalyticsRuntime {
     this.activeClock = null;
     this.pipeline = null;
     this.mutationCsrfToken = null;
+    this.admissionPromise = null;
     if (this.window && this.window.__IVPREP_3522_EXPORT_DERIVED__) delete this.window.__IVPREP_3522_EXPORT_DERIVED__;
     if (this.window && this.window.__IVPREP_3522_SET_NOTES_ACTIVE__) delete this.window.__IVPREP_3522_SET_NOTES_ACTIVE__;
     if (this.window && this.window.__IVPREP_3522_INTERVIEWER_EVENT__) delete this.window.__IVPREP_3522_INTERVIEWER_EVENT__;

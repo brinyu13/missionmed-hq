@@ -752,7 +752,7 @@ export class SpeedHudRenderer extends HudRenderer {
 
   draw(frame) {
     if (!finite(frame.wpm)) {
-      this.unavailable(frame.reason || 'VALIDATED_WORD_TIMING_REQUIRED');
+      this.unavailable(frame.reason || 'OBSERVED_WORD_TIMING_REQUIRED');
       return;
     }
     const fit = this.context();
@@ -793,7 +793,7 @@ export class SpeedHudRenderer extends HudRenderer {
     fit.context.arc(cx, cy, 3.2, 0, Math.PI * 2);
     fit.context.fill();
     setText(this.value, `${Math.round(Number(frame.wpm))}`, frame.zone || frame.state || 'neutral');
-    setText(this.status, frame.label || String(frame.zone || 'VALIDATED WORD TIMING').replaceAll('_', ' '), frame.zone || frame.state || 'neutral');
+    setText(this.status, frame.label || String(frame.zone || 'OBSERVED WORD TIMING').replaceAll('_', ' '), frame.zone || frame.state || 'neutral');
   }
 }
 

@@ -84,7 +84,7 @@ export class BehaviorIntelligenceRuntime {
     this.coachingMode = 'TRAINING';
     this.latestCue = null;
     this.audio = Object.freeze({ available: false, reason: 'NO_AUDIO_FRAMES' });
-    this.wordTiming = Object.freeze({ tier: 'E', wordsPerMinute: null, available: false, reason: 'NO_VALIDATED_WORD_TIMESTAMPS' });
+    this.wordTiming = Object.freeze({ tier: 'E', wordsPerMinute: null, available: false, reason: 'NO_OBSERVED_WORD_TIMESTAMPS' });
     this.latest = this.snapshot(atMs);
     return this.latest;
   }

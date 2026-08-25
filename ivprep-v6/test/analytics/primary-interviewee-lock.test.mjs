@@ -6,6 +6,7 @@ import {
   PrimaryIntervieweeLock,
   faceDetectionCandidates,
   paddedPrimaryRoi,
+  primaryFaceAssociation,
   primaryLockDiagnostic,
 } from '../../public/analytics/primary-interviewee-lock.mjs';
 
@@ -28,6 +29,7 @@ test('initial acquisition uses elapsed stability and creates one anonymous sessi
   assert.equal(locked.primaryTrackId, 'primary-1');
   assert.equal(locked.primaryUsable, true);
   assert.ok(locked.primaryRoi.width > 0.5);
+  assert.ok(locked.primaryFaceBox);
   assert.deepEqual(locked.withheldIntervals, [{ startMs: 0, endMs: 650, reason: 'primary_lock_candidate' }]);
 });
 
@@ -222,12 +224,20 @@ test('detector boxes normalize deterministically and the padded ROI stays in fra
   assert.ok(roi.left >= 0 && roi.top >= 0 && roi.left + roi.width <= 1 && roi.top + roi.height <= 1);
 });
 
+test('Holistic face association accepts the locked face and rejects a different person inside the padded ROI', () => {
+  const primary = face(0.42, 0.36, 0.18, 0.24);
+  assert.equal(primaryFaceAssociation(primary, face(0.43, 0.37, 0.16, 0.22)), true);
+  assert.equal(primaryFaceAssociation(primary, face(0.76, 0.34, 0.16, 0.22)), false);
+  assert.equal(primaryFaceAssociation(primary, null), false);
+});
+
 test('Founder diagnostic is bounded and strips track and ROI geometry', () => {
   const tracker = new PrimaryIntervieweeLock({ maximumWithheldIntervals: 2 });
   const snapshot = acquire(tracker);
   const diagnostic = primaryLockDiagnostic(snapshot);
   assert.equal('primaryTrackId' in diagnostic, false);
   assert.equal('primaryRoi' in diagnostic, false);
+  assert.equal('primaryFaceBox' in diagnostic, false);
   assert.equal(JSON.stringify(diagnostic).includes('left'), false);
   assert.equal(diagnostic.state, PRIMARY_LOCK_STATE.PRIMARY_LOCKED);
   assert.equal(Object.isFrozen(diagnostic.withheldIntervals), true);
@@ -241,6 +251,7 @@ test('reset destroys track, geometry, and withheld interval state', () => {
   assert.equal(reset.state, PRIMARY_LOCK_STATE.SEARCHING);
   assert.equal(reset.primaryTrackId, null);
   assert.equal(reset.primaryRoi, null);
+  assert.equal(reset.primaryFaceBox, null);
   assert.deepEqual(reset.withheldIntervals, []);
   assert.equal(reset.reacquisitionCount, 0);
 });

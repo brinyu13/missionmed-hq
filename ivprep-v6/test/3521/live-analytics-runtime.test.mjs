@@ -85,7 +85,7 @@ function fakeDocument() {
   };
 }
 
-function runtimeHarness({ fixtureMode = false, fixture = null, transcriptTimingProducer = null } = {}) {
+function runtimeHarness({ fixtureMode = false, fixture = null, transcriptTimingProducer = null, fetchImpl = null } = {}) {
   const documentRef = fakeDocument();
   const calls = { prime: 0, gum: 0, visibility: [], destroy: 0 };
   const bridge = {
@@ -116,6 +116,8 @@ function runtimeHarness({ fixtureMode = false, fixture = null, transcriptTimingP
     fixtureMode,
     fixture,
     transcriptTimingProducer,
+    fetchImpl,
+    baselineStore: { load() { return null; }, save() { return null; }, invalidateForDeviceChange() {} },
   }).mount();
   return { runtime, bridge, calls, renderer, documentRef };
 }
@@ -170,7 +172,7 @@ test('physical runtime starts and stops the fail-closed local transcript timing 
         coverage: 0.9,
         wordCount: 12,
         words: timedWords(12, { spacingMs: 320, durationMs: 180 }),
-        provenance: { kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, wordTimestampsValidated: true, tier: 'B', source: 'LOCAL_TIMED_TRANSCRIPT' },
+        provenance: { kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, wordTimestampsObserved: true, timingAccuracyValidated: false, tier: 'B', source: 'LOCAL_TIMED_TRANSCRIPT' },
       });
       return true;
     },
@@ -196,6 +198,43 @@ test('physical runtime starts and stops the fail-closed local transcript timing 
   assert.equal(runtime.transcriptTimingState.reason, 'LOCAL_TRANSCRIPT_TIMING_LIVE');
   await runtime.finish();
   assert.ok(calls.stop >= 1);
+});
+
+test('physical WPM start waits for the authenticated admission token instead of losing the producer to a bootstrap race', async () => {
+  let resolveAdmission;
+  const calls = [];
+  const producer = {
+    async start({ csrfToken }) { calls.push(csrfToken); return true; },
+    stop() { return true; },
+  };
+  const fetchImpl = () => new Promise((resolve) => { resolveAdmission = resolve; });
+  const { runtime, bridge } = runtimeHarness({ transcriptTimingProducer: producer, fetchImpl });
+  bridge.media = {
+    cam: true,
+    mic: true,
+    stream: { getAudioTracks: () => [{ readyState: 'live', enabled: true }] },
+    AC: { state: 'running', sampleRate: 48_000 },
+  };
+  bridge.requestMedia = async () => bridge.media;
+  await runtime.connect();
+  runtime.behavior.setup.ingestAudio({ available: true, speechMs: 3_100, noiseFloorDb: -55, speechLevelDb: -25, clippedFraction: 0 });
+  runtime.behavior.setup.ingestVideo({ facePresent: true, faceFraction: 0.28, centerX: 0.5, centerY: 0.4, headPitchDegrees: 0, confidence: 0.9 });
+  runtime.latestBehavior = runtime.behavior.snapshot(4_000);
+  const starting = runtime.start();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(calls, []);
+  resolveAdmission({
+    ok: true,
+    json: async () => ({
+      admitted: true,
+      identity: { subject: 'wp:42', founder: false, roles: ['student'] },
+      mutationCsrfToken: 'authenticated_csrf_token_3522c',
+    }),
+  });
+  assert.equal(await starting, true);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(calls, ['authenticated_csrf_token_3522c']);
+  await runtime.finish();
 });
 
 test('physical WPM waiting state never renders the contradictory producer-live reason', () => {
@@ -281,8 +320,8 @@ test('Vocal Variation keeps genuine raw histories while its presentation is hidd
       voicedRatio: 0.8,
     },
   });
-  runtime.consumeDiagnostic({ modality: 'audio', atMs: 1_000, rms: 0.05, peak: 0.1, clippedFraction: 0, pitch: pitch(200) });
-  runtime.consumeDiagnostic({ modality: 'audio', atMs: 1_050, rms: 0.1, peak: 0.2, clippedFraction: 0, pitch: pitch(220) });
+  runtime.consumeDiagnostic({ modality: 'audio', atMs: 1_000, rms: 0.05, peak: 0.1, clippedFraction: 0, speaking: true, pitch: pitch(200) });
+  runtime.consumeDiagnostic({ modality: 'audio', atMs: 1_050, rms: 0.1, peak: 0.2, clippedFraction: 0, speaking: true, pitch: pitch(220) });
   runtime.consumeTranscriptTiming({
     atMs: 4_000,
     windowStartedAtMs: 0,
@@ -291,24 +330,24 @@ test('Vocal Variation keeps genuine raw histories while its presentation is hidd
     coverage: 0.9,
     wordCount: 8,
     words: timedWords(8),
-    provenance: { kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, wordTimestampsValidated: true, tier: 'B', source: 'LOCAL_TIMED_TRANSCRIPT' },
+    provenance: { kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, wordTimestampsObserved: true, timingAccuracyValidated: false, tier: 'B', source: 'LOCAL_TIMED_TRANSCRIPT' },
   });
   const before = renderer.frames.at(-1).modulation;
   assert.deepEqual(before.histories.volume.map((sample) => sample.value), [-26.02, -20]);
   assert.equal(before.histories.pitch.length, 2);
   assert.deepEqual(before.histories.speed.map((sample) => sample.value), [120]);
-  assert.equal(before.sources.volume, 'MIC_RMS_HISTORY');
+  assert.equal(before.sources.volume, 'SPEECH_GATED_MIC_RMS_HISTORY');
   assert.equal(before.sources.pitch, 'VALIDATED_F0');
   assert.equal(before.sources.speed, 'LOCAL_TIMED_TRANSCRIPT');
 
   runtime.presentation.setModuleVisible('modulation', false);
   runtime.applyPresentation();
-  runtime.consumeDiagnostic({ modality: 'audio', atMs: 1_100, rms: 0.2, peak: 0.3, clippedFraction: 0, pitch: pitch(240) });
+  runtime.consumeDiagnostic({ modality: 'audio', atMs: 1_100, rms: 0.2, peak: 0.3, clippedFraction: 0, speaking: true, pitch: pitch(240) });
   const whileHidden = renderer.frames.at(-1).modulation;
   assert.equal(whileHidden.histories.volume.length, 3, 'hidden trace measurement must continue');
   assert.equal(whileHidden.histories.pitch.length, 3, 'hidden pitch history must continue');
 
-  runtime.consumeDiagnostic({ modality: 'audio', atMs: 900, rms: 0.3, peak: 0.4, clippedFraction: 0, pitch: pitch(260) });
+  runtime.consumeDiagnostic({ modality: 'audio', atMs: 900, rms: 0.3, peak: 0.4, clippedFraction: 0, speaking: true, pitch: pitch(260) });
   const afterStaleFrame = renderer.frames.at(-1).modulation;
   assert.deepEqual(afterStaleFrame.histories, whileHidden.histories, 'stale frames must not roll history backward');
 
@@ -523,7 +562,7 @@ test('default instruments fail closed and deterministic data is prominently iden
   const runtime = await readFile(new URL('../../public/live-analytics/live-analytics.mjs', import.meta.url), 'utf8');
   const css = await readFile(new URL('../../public/live-analytics/live-analytics.css', import.meta.url), 'utf8');
   const renderers = await readFile(new URL('../../public/live-analytics/hud-renderers.mjs', import.meta.url), 'utf8');
-  assert.match(html, /UNAVAILABLE — validated transcript timing required/u);
+  assert.match(html, /UNAVAILABLE — observed word timing required/u);
   assert.match(html, /UNAVAILABLE — voiced F0 frames required/u);
   assert.match(runtime, /DETERMINISTIC TEST INPUT · LOCAL/u);
   assert.match(runtime, /local && requested/u);
@@ -532,7 +571,8 @@ test('default instruments fail closed and deterministic data is prominently iden
   assert.doesNotMatch(css, /\[data-mode="interview"\] \.fixture-backdrop/u);
   assert.equal((html.match(/data-live-scan-overlay=/gu) || []).length, 0);
   assert.match(html, /id="body-overlay"/u);
-  assert.match(html, /id="conversation-state"/u);
+  assert.doesNotMatch(html, /id="conversation-state"/u);
+  assert.match(runtime, /stage\.dataset\.conversationState = conversationState/u);
   assert.match(html, /data-face-activity-state/u);
   assert.doesNotMatch(runtime, /scanFaceOverlay|scanBodyOverlay|#drawWorkerScanBitmap/u);
   assert.match(renderers, /TEACHING HUD/u);

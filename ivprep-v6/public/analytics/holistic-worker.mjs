@@ -1,4 +1,5 @@
 import { assertCompactGeometry, deriveCompactGeometry, facialMovementRate } from './vision-geometry.mjs';
+import { primaryFaceAssociation } from './primary-interviewee-lock.mjs';
 import { resolveVisionFileset } from './vision-fileset.mjs';
 
 let holistic = null;
@@ -242,13 +243,15 @@ async function analyze(message) {
       priorPrimaryTrackId = null;
     }
     const derived = deriveCompactGeometry(result || {}, { faceCount });
-    const faceCategories = result?.faceBlendshapes?.[0]?.categories || null;
+    const primaryAssociated = message.primaryUsable === true
+      && primaryFaceAssociation(message.primaryFaceBox, derived.face?.box);
+    const faceCategories = primaryAssociated ? result?.faceBlendshapes?.[0]?.categories || null : null;
     const movementRatePerSecond = facialMovementRate(faceCategories, priorFaceCategories, message.timestampMs - priorFaceAtMs);
     priorFaceCategories = Array.isArray(faceCategories) ? faceCategories.map((category) => ({ categoryName: category.categoryName, score: category.score })) : null;
-    priorFaceAtMs = result ? message.timestampMs : null;
+    priorFaceAtMs = primaryAssociated ? message.timestampMs : null;
     const geometry = Object.freeze({
       ...derived,
-      primaryAssociated: Boolean(result),
+      primaryAssociated: Boolean(result) && primaryAssociated,
       primaryLockState: typeof message.primaryLock?.state === 'string' ? message.primaryLock.state : 'SEARCHING',
       bystanderCount: Math.max(0, Math.round(Number(message.primaryLock?.bystanderCount) || 0)),
       face: Object.freeze({ ...derived.face, movementRatePerSecond }),

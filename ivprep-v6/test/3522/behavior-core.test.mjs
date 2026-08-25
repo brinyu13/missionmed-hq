@@ -239,7 +239,7 @@ test('word timing requires per-word timestamps and Fable minimum evidence', () =
   const measured = evaluateWordTiming({
     windowStartedAtMs: 0, windowEndedAtMs: 10_000, speechDurationMs: 8_000, coverage: 0.9,
     wordCount: 20, words,
-    provenance: { tier: 'B', observed: true, wordTimestampsValidated: true, source: 'LOCAL_SIDECAR' },
+    provenance: { tier: 'B', observed: true, wordTimestampsObserved: true, timingAccuracyValidated: false, source: 'LOCAL_SIDECAR' },
   });
   assert.equal(measured.wordsPerMinute, 120);
   assert.equal(measured.articulationWordsPerMinute, 150);
@@ -247,12 +247,12 @@ test('word timing requires per-word timestamps and Fable minimum evidence', () =
   assert.equal(evaluateWordTiming({
     windowStartedAtMs: 0, windowEndedAtMs: 3_000, speechDurationMs: 3_000, coverage: 1,
     wordCount: 6, words: words.slice(0, 6),
-    provenance: { tier: 'B', observed: true, wordTimestampsValidated: true },
+    provenance: { tier: 'B', observed: true, wordTimestampsObserved: true, timingAccuracyValidated: false },
   }).reason, 'NEED_MORE_TIMED_WORDS');
   assert.equal(evaluateWordTiming({
     windowStartedAtMs: 0, windowEndedAtMs: 10_000, speechDurationMs: 8_000, coverage: 0.9,
     wordCount: 20,
-    provenance: { tier: 'B', observed: true, wordTimestampsValidated: true },
+    provenance: { tier: 'B', observed: true, wordTimestampsObserved: true, timingAccuracyValidated: false },
   }).reason, 'PER_WORD_TIMESTAMPS_REQUIRED');
   assert.deepEqual(deriveDeliverySpeed(160, { minimum: 140, maximum: 180 }), {
     score: 75, zone: 'CRUISE', corridor: { minimum: 140, maximum: 180 }, highCap: 240, presentationOnly: true,

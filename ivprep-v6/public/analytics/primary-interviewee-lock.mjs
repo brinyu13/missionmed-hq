@@ -110,6 +110,21 @@ export function paddedPrimaryRoi(value) {
   return Object.freeze({ left, top, width, height });
 }
 
+/**
+ * Verify that the face selected by Holistic is the face held by the independent
+ * FaceDetector lock. Both boxes are transient, normalized current-frame geometry.
+ */
+export function primaryFaceAssociation(primaryValue, holisticValue) {
+  const primary = normalizeBox(primaryValue);
+  const holistic = normalizeBox(holisticValue);
+  if (!primary || !holistic) return false;
+  const areaRatio = holistic.area / primary.area;
+  if (areaRatio < 0.2 || areaRatio > 4.5) return false;
+  const associationRadius = Math.max(0.08, Math.sqrt(primary.area) * 0.65);
+  return intersectionOverUnion(primary, holistic) >= 0.2
+    || centerDistance(primary, holistic) <= associationRadius;
+}
+
 export function faceDetectionCandidates(detections, frameWidth, frameHeight) {
   if (!Number.isFinite(frameWidth) || frameWidth <= 0 || !Number.isFinite(frameHeight) || frameHeight <= 0) return [];
   return (Array.isArray(detections) ? detections : []).map((detection) => {
@@ -447,6 +462,7 @@ export class PrimaryIntervieweeLock {
       primaryTrackId: this.primaryTrackId,
       primaryUsable,
       primaryRoi: primaryUsable ? paddedPrimaryRoi(this.primaryBox) : null,
+      primaryFaceBox: primaryUsable ? this.primaryBox : null,
       faceCount: this.lastFaceCount,
       bystanderCount: this.lastBystanderCount,
       zoneStatus,

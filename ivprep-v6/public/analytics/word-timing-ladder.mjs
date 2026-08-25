@@ -84,8 +84,8 @@ export function evaluateWordTiming(evidence = {}, {
   });
   const fixture = tier === 'TEST' || provenance.fixture === 'DETERMINISTIC_LOCAL_TEST_SIGNAL';
   const admittedTier = MEASURED_TIERS.has(tier) || (fixture && allowDeterministicFixture);
-  if (!admittedTier || (MEASURED_TIERS.has(tier) && (provenance.observed !== true || provenance.wordTimestampsValidated !== true))) {
-    return unavailable('NO_VALIDATED_WORD_TIMESTAMPS', tier, {
+  if (!admittedTier || (MEASURED_TIERS.has(tier) && (provenance.observed !== true || provenance.wordTimestampsObserved !== true))) {
+    return unavailable('NO_OBSERVED_WORD_TIMESTAMPS', tier, {
       missingDependency: 'APPROVED_LOCAL_TRANSCRIBER_WITH_WORD_TIMESTAMPS',
     });
   }
@@ -118,8 +118,9 @@ export function evaluateWordTiming(evidence = {}, {
     deliverySpeed: deriveDeliverySpeed(wordsPerMinute, corridor, config),
     provenance: frozen({
       source: provenance.source || WORD_TIMING_TIERS[tier] || 'UNKNOWN',
-      method: fixture ? 'DETERMINISTIC_TEST_WORD_TIMESTAMPS' : 'VALIDATED_WORD_TIMESTAMPS',
-      wordTimestampsValidated: !fixture,
+      method: fixture ? 'DETERMINISTIC_TEST_WORD_TIMESTAMPS' : 'OBSERVED_WORD_TIMESTAMPS',
+      wordTimestampsObserved: !fixture,
+      timingAccuracyValidated: !fixture && provenance.timingAccuracyValidated === true,
       observed: !fixture,
     }),
   });

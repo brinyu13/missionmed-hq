@@ -5,7 +5,7 @@ import test from 'node:test';
 import {
   LIVE_METRIC_IDS,
   LiveMetricProjector,
-  TRUSTED_TRANSCRIPT_TIMING_SOURCES,
+  OBSERVED_TRANSCRIPT_TIMING_SOURCES,
   UNSUPPORTED_LIVE_CLAIMS,
   rmsToDbfs,
 } from '../../public/live-analytics/live-metric-projector.mjs';
@@ -39,6 +39,7 @@ const vision = (overrides = {}) => ({
     selectionRequired: false,
   },
   geometry: {
+    primaryAssociated: true,
     face: {
       present: true,
       box: { left: 0.35, top: 0.2, width: 0.3, height: 0.45, centerX: 0.5, centerY: 0.425 },
@@ -109,12 +110,16 @@ test('volume and modulation project only real mic RMS and keep a bounded envelop
   assert.equal(Object.hasOwn(VOLUME, 'inCorridor'), false, 'raw level must not invent a target corridor');
   assert.equal(VOLUME.dbfs, Number((20 * Math.log10(levels[3])).toFixed(2)));
   assert.equal(VOLUME_MODULATION.available, true);
-  assert.equal(VOLUME_MODULATION.source, 'MIC_RMS_HISTORY');
+  assert.equal(VOLUME_MODULATION.source, 'SPEECH_GATED_MIC_RMS_HISTORY');
   assert.equal(VOLUME_MODULATION.trace.length, 12, 'history must be bounded');
   assert.ok(VOLUME_MODULATION.rangeDb > 10, 'the actual RMS changes must create modulation');
   assert.equal(Object.hasOwn(VOLUME_MODULATION, 'flat'), false, 'raw variation must not invent a flatness judgment');
   assert.ok(VOLUME_MODULATION.trace.every((frame) => Object.keys(frame).join(',') === 'atMs,dbfs'));
   assert.ok(Object.isFrozen(VOLUME_MODULATION.trace));
+
+  const beforeSilence = VOLUME_MODULATION.trace.length;
+  const silence = projector.ingest(audio({ atMs: 2_100, rms: 0.0001, speaking: false }));
+  assert.equal(silence.metrics.VOLUME_MODULATION.trace.length, beforeSilence, 'silence must not become vocal modulation');
 
   const missing = new LiveMetricProjector().ingest(audio({ rms: undefined }));
   assert.equal(missing.metrics.VOLUME.available, false);
@@ -177,7 +182,7 @@ test('WPM fails closed unless per-word observed transcript timing has trusted pr
   assert.equal(untrusted.metrics.SPEED_WPM.reason, 'NO_TRUSTWORTHY_TRANSCRIPT_TIMING');
   assert.doesNotMatch(JSON.stringify(untrusted), /this content/u);
 
-  assert.deepEqual([...TRUSTED_TRANSCRIPT_TIMING_SOURCES], [
+  assert.deepEqual([...OBSERVED_TRANSCRIPT_TIMING_SOURCES], [
     'LOCAL_TIMED_TRANSCRIPT', 'OBSERVED_TRANSCRIPT_SEGMENTS',
   ]);
   const trusted = projector.ingestTranscriptTiming({
@@ -192,7 +197,8 @@ test('WPM fails closed unless per-word observed transcript timing has trusted pr
     provenance: {
       kind: 'OBSERVED_TRANSCRIPT_TIMING',
       observed: true,
-      wordTimestampsValidated: true,
+      wordTimestampsObserved: true,
+      timingAccuracyValidated: false,
       tier: 'B',
       source: 'LOCAL_TIMED_TRANSCRIPT',
     },
@@ -202,7 +208,8 @@ test('WPM fails closed unless per-word observed transcript timing has trusted pr
   assert.equal(speed.wordsPerMinute, 120);
   assert.equal(speed.wordCount, 60);
   assert.equal(speed.windowDurationMs, 30_000);
-  assert.equal(speed.source, 'TRUSTED_TRANSCRIPT_TIMING');
+  assert.equal(speed.source, 'OBSERVED_TRANSCRIPT_TIMING');
+  assert.equal(speed.confidence, 'MODERATE');
   assert.doesNotMatch(JSON.stringify(trusted), /still ignored/u);
 
   const tooThin = new LiveMetricProjector().ingestTranscriptTiming({
@@ -214,7 +221,7 @@ test('WPM fails closed unless per-word observed transcript timing has trusted pr
     speechDurationMs: 500,
     coverage: 1,
     provenance: {
-      kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, wordTimestampsValidated: true, tier: 'B', source: 'OBSERVED_TRANSCRIPT_SEGMENTS',
+      kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, wordTimestampsObserved: true, timingAccuracyValidated: false, tier: 'B', source: 'OBSERVED_TRANSCRIPT_SEGMENTS',
     },
   });
   assert.equal(tooThin.metrics.SPEED_WPM.available, false);
@@ -243,6 +250,7 @@ test('vision maps the emitted proxy field names and live face-family cartridges'
   // the geometry contract's actual yawProxyDeg field.
   const legacyOnly = new LiveMetricProjector().ingest(vision({
     geometry: {
+      primaryAssociated: true,
       face: { present: true, yawDeg: 40 },
       pose: {},
       hands: {},
@@ -269,6 +277,7 @@ test('body and hand presentation remains observable and unsupported interpretati
 
   const upperBodyOnly = new LiveMetricProjector().ingest(vision({
     geometry: {
+      primaryAssociated: true,
       face: { present: true },
       pose: { upperBodyPresent: true, torsoPresent: false, shoulderWidth: 0.3, centerX: 0.5, centerY: 0.45, lateralLeanDeg: null },
       hands: { left: { present: false }, right: { present: false } },
@@ -309,6 +318,13 @@ test('person-derived metrics fail closed across primary-lock ambiguity and recov
   }));
   assert.equal(restored.metrics.HEAD_FACE.available, true, 'a locked primary remains usable with excluded bystanders');
   assert.equal(restored.metrics.BODY_HANDS.available, true);
+
+  const mismatched = projector.ingest(vision({
+    atMs: 2_500,
+    geometry: { ...vision().geometry, primaryAssociated: false },
+  }));
+  assert.equal(mismatched.metrics.HEAD_FACE.reason, 'PRIMARY_ASSOCIATION_UNVERIFIED');
+  assert.equal(mismatched.metrics.BODY_HANDS.reason, 'PRIMARY_ASSOCIATION_UNVERIFIED');
 });
 
 test('trusted WPM expires after a bounded shared-clock gap', () => {
@@ -322,7 +338,7 @@ test('trusted WPM expires after a bounded shared-clock gap', () => {
     speechDurationMs: 3_500,
     coverage: 0.9,
     provenance: {
-      kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, wordTimestampsValidated: true, tier: 'B', source: 'LOCAL_TIMED_TRANSCRIPT',
+      kind: 'OBSERVED_TRANSCRIPT_TIMING', observed: true, wordTimestampsObserved: true, timingAccuracyValidated: false, tier: 'B', source: 'LOCAL_TIMED_TRANSCRIPT',
     },
   });
   assert.equal(timing.metrics.SPEED_WPM.available, true);

@@ -64,7 +64,7 @@ test('behavior runtime gates setup then state-tags answering, pause, orientation
   assert.equal(runtime.latest.orientation.state, 'PAUSE');
 });
 
-test('WPM stays unavailable without validated word timestamps even when aggregate counts exist', () => {
+test('WPM stays unavailable without observed per-word timestamps even when aggregate counts exist', () => {
   const runtime = new BehaviorIntelligenceRuntime({ now: () => 0 });
   runtime.ingestWordTiming({
     atMs: 10_000,
@@ -78,7 +78,7 @@ test('WPM stays unavailable without validated word timestamps even when aggregat
   assert.equal(runtime.latest.wordTiming.missingDependency, 'APPROVED_LOCAL_TRANSCRIBER_WITH_WORD_TIMESTAMPS');
 });
 
-test('validated word timestamps unlock genuine WPM and never retain transcript text', () => {
+test('observed word timestamps unlock genuine WPM and never retain transcript text', () => {
   const runtime = new BehaviorIntelligenceRuntime({ now: () => 0 });
   runtime.ingestWordTiming({
     atMs: 10_000,
@@ -89,7 +89,7 @@ test('validated word timestamps unlock genuine WPM and never retain transcript t
     speechDurationMs: 8_000,
     coverage: 0.85,
     transcript: 'must be ignored',
-    provenance: { observed: true, wordTimestampsValidated: true, tier: 'B', source: 'LOCAL_TIMED_TRANSCRIPT' },
+    provenance: { observed: true, wordTimestampsObserved: true, timingAccuracyValidated: false, tier: 'B', source: 'LOCAL_TIMED_TRANSCRIPT' },
   });
   assert.equal(runtime.latest.wordTiming.wordsPerMinute, 150);
   assert.doesNotMatch(JSON.stringify(runtime.latest), /must be ignored/u);
@@ -163,7 +163,7 @@ test('post-answer card is derived-only, bounded to 10–20 seconds, and never fa
   }, { displayMs: 99_000 });
   assert.equal(card.displayMs, 20_000);
   assert.equal(card.items.length, 2);
-  assert.match(card.items[0].text, /Validated word timing/u);
+  assert.match(card.items[0].text, /Observed local word timing estimated/u);
   assert.equal(card.items[1].kind, 'unavailable');
   assert.match(card.items[1].text, /no validated content-analysis source/u);
   assert.equal(card.replay.available, false);

@@ -13,7 +13,7 @@ const HOLISTIC_MODEL = `${IVPREP_ASSET_ROOT}/vendor/mediapipe/models/holistic_la
 const FACE_MODEL = `${IVPREP_ASSET_ROOT}/vendor/mediapipe/models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite`;
 const ANALYTICS_ROOT = `${IVPREP_ASSET_ROOT}/analytics`;
 const FACE_WORKER = `${ANALYTICS_ROOT}/face-detector-worker.mjs`;
-const WORKER_REVISION = '3440-primary-interviewee-lock-1';
+const WORKER_REVISION = '3522c-primary-face-association-1';
 const FACE_INITIALIZATION_TIMEOUT_MS = 10_000;
 const HOLISTIC_FRAME_TIMEOUT_MIN_MS = 1_000;
 const HOLISTIC_FRAME_TIMEOUT_MAX_MS = 5_000;
@@ -654,6 +654,7 @@ export class BrowserAnalyticsPipeline extends EventTarget {
         primaryTrackId: typeof primary.primaryTrackId === 'string' ? primary.primaryTrackId : null,
         primaryUsable: primary.primaryUsable === true,
         primaryRoi: primary.primaryRoi || null,
+        primaryFaceBox: primary.primaryFaceBox || null,
         primaryLock: primary.primaryLock || null,
         bitmap: pending.bitmap,
       }, [pending.bitmap]);

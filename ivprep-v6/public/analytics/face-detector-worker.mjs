@@ -75,6 +75,7 @@ function analyze(message) {
       primaryTrackId: lock.primaryTrackId,
       primaryUsable: lock.primaryUsable,
       primaryRoi: lock.primaryRoi,
+      primaryFaceBox: lock.primaryFaceBox,
       primaryLock: primaryLockDiagnostic(lock),
       faceInferenceMs: Number((performance.now() - startedAt).toFixed(2)),
     });

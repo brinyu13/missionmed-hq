@@ -28,7 +28,7 @@ function deliveryObservation(envelope = {}) {
     return {
       kind: 'positive',
       category: 'delivery',
-      text: `Validated word timing measured this answer at ${Math.round(wordTiming.wordsPerMinute)} WPM.`,
+      text: `Observed local word timing estimated this answer at ${Math.round(wordTiming.wordsPerMinute)} WPM.`,
     };
   }
   if (loudness.available === true && Number.isFinite(loudness.speechLufsK)) {

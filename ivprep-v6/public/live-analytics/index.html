@@ -229,7 +229,6 @@
 
           <div class="stage-topline">
             <span class="participant-label"><i class="status-pin" aria-hidden="true"></i> You · analytics source</span>
-            <span class="conversation-state-chip" id="conversation-state" data-state="SETUP">State · Setup</span>
             <span class="quality-label" id="stream-quality">CAMERA IDLE</span>
           </div>
 
@@ -254,7 +253,7 @@
             <span>Live cue</span><strong>Start speaking to begin measuring</strong>
           </div>
 
-          <section class="post-answer-card" id="post-answer-card" aria-label="Post-answer evidence" hidden>
+          <section class="post-answer-card" id="post-answer-card" role="status" aria-live="polite" aria-atomic="true" aria-label="Post-answer evidence" hidden>
             <span>Answer complete · brief review</span>
             <strong id="post-answer-summary">Derived answer envelope ready · raw media not retained</strong>
             <ul id="post-answer-items"></ul>
@@ -329,7 +328,7 @@
               <div class="dial-readout"><span class="hud-value" data-hud-value="speed">—</span><span>WPM</span></div>
             </div>
             <div class="speed-target">Global context 140–180 WPM · no baseline</div>
-            <p class="instrument-status" data-hud-state="speed" data-state="unavailable">UNAVAILABLE — validated transcript timing required</p>
+            <p class="instrument-status" data-hud-state="speed" data-state="unavailable">UNAVAILABLE — observed word timing required</p>
           </div>
           <button class="collapsed-tab" type="button" data-module-restore="speed" aria-label="Show Speaking Speed analytics"><span>SPD</span><strong>Speed / WPM</strong><i aria-hidden="true">‹</i></button>
         </section>
@@ -347,7 +346,7 @@
               <button type="button" data-vocal-trace-toggle="speed" aria-pressed="true"><i aria-hidden="true"></i>Speed</button>
               <button type="button" data-vocal-trace-toggle="all" aria-pressed="true">Hide all</button>
             </div>
-            <canvas class="hud-canvas instrument-canvas trace-canvas" data-hud-canvas="modulation" aria-label="Normalized recent history of measured volume, validated pitch, and observed speaking speed"></canvas>
+            <canvas class="hud-canvas instrument-canvas trace-canvas" data-hud-canvas="modulation" aria-label="Normalized recent history of speech-only measured volume, validated pitch, and observed speaking speed"></canvas>
             <p class="instrument-status" data-hud-state="modulation" data-state="unavailable">WAITING FOR OBSERVED MEASURED HISTORY</p>
           </div>
           <button class="collapsed-tab" type="button" data-module-restore="modulation" aria-label="Show Vocal Variation analytics"><span>VAR</span><strong>Vocal Variation</strong><i aria-hidden="true">‹</i></button>
