@@ -170,7 +170,7 @@ Body-content search and in-browser DOCX editing remain future product capabiliti
 
 ## Lease and Custody Closure
 
-Lease V2 epochs 274, 275, 276, and 277 are provider-confirmed released, expired, and inactive. Provider-native active lease count after activation was `0`. Epoch 278 is reserved only for this report transaction and must be released after its exact commit/push.
+Lease V2 epochs 274 through 278 are provider-confirmed released, expired, and inactive. Provider-native active lease count after the activation and initial report transaction was `0`. The final report-only correction uses epoch 279 and must be released after its exact commit/push.
 
 The only unrelated dirty path preserved in the worktree is:
 
