@@ -8,6 +8,8 @@ const { chromium } = require("playwright");
 const baseUrl = process.env.FV2_BASE_URL || "http://127.0.0.1:8765/tests/fixtures/file-vault-v2-harness.html";
 const evidenceDir = process.env.FV2_EVIDENCE_DIR || "";
 const systemChrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const destinationArt = path.join(__dirname, "../wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2-destinations.92ad0e4b287877c4.png");
+const mutableCss = path.join(__dirname, "../wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.css");
 let passed = 0;
 const failures = [];
 
@@ -131,16 +133,20 @@ async function saveEvidence(page, filename) {
 async function studentFlow(browser) {
 	const { context, page, diagnostics } = await createPage(browser, { role: "student" });
 	try {
-		assert(await page.getByRole("heading", { name: "What would you like to upload?", exact: true }).isVisible(), "student: upload-first Home heading missing");
+		assert(await page.getByRole("heading", { name: "What type of document would you like to upload?", exact: true }).isVisible(), "student: upload-first Home heading missing");
 		const navLabels = await page.locator(".fv2-nav-item").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
 		assert(navLabels.join("|") === "Home|Upload|Your Files|Recently Uploaded|Mission Files|Notifications|Settings", `student: navigation is incorrect ${navLabels.join("|")}`);
 		assert(await page.locator(".fv2-nav-key").count() === 0, "student: obsolete numeric shortcut badges remain visible");
 		const primaryActions = await page.locator(".fv2-upload-choice strong").allTextContents();
 		assert(primaryActions.join("|") === "CV|Personal Statement|LOR-Related|Timeline|Score Report|Certification|Miscellaneous", `student: upload categories are incorrect ${primaryActions.join("|")}`);
+		assert(await page.locator(".fv2-upload-choice").nth(3).getAttribute("data-fv2-document-type") === "timeline", "student: Timeline is not a distinct upload type");
+		assert(await page.locator(".fv2-upload-choice").nth(6).getAttribute("data-fv2-document-type") === "other", "student: Miscellaneous upload type changed unexpectedly");
+		assert(await page.locator(".fv2-upload-launcher").isVisible(), "student: dominant document-type launcher missing");
 		assert(await page.locator(".fv2-shortcut-card").count() === 4, "student: expected four first-class visual shortcuts");
 		assert(await page.getByRole("button", { name: "Journey", exact: true }).count() === 0, "student: Journey remains an equal top-level destination");
-		assert(await page.locator('[data-fv2-action="next-action"]').count() === 1, "student: expected one highlighted next action");
+		assert(await page.locator('[data-fv2-action="next-action"]').count() === 0, "student: analytics-like next action still competes with the upload prompt");
 		assert(await page.locator(".fv2-home-record").first().locator("strong").textContent() === "Personal Statement", "student: Home most-recent upload used review-update time instead of upload time");
+		await saveEvidence(page, "00-student-home-founder.png");
 		await page.getByRole("button", { name: "Recently Uploaded", exact: true }).click();
 		const recentFirst = page.locator('.fv2-document-row[data-fv2-document-id="1101"]');
 		assert(await page.locator(".fv2-document-row").first().getAttribute("data-fv2-document-id") === "1101", "student: Recently Uploaded is not ordered by version upload time");
@@ -316,7 +322,7 @@ async function failedStudentSwitchFlow(browser) {
 		await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').click();
 		await page.locator(".fv2-subject-banner").waitFor();
 		await page.locator("[data-fv2-student-picker]").selectOption("102");
-		await page.getByRole("heading", { name: "Students", exact: true }).waitFor();
+		await page.getByRole("heading", { name: "Whose File Vault would you like to open?", exact: true }).waitFor();
 		const state = await page.evaluate(() => {
 			const instance = window.__FV2_HARNESS__.instance;
 			return {
@@ -386,7 +392,7 @@ async function returnedOwnerValidationFlow(browser) {
 		const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "wrong-student-payload" }, { width: 1280, height: 800 });
 		try {
 			await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').click();
-			await page.getByRole("heading", { name: "Students", exact: true }).waitFor();
+			await page.getByRole("heading", { name: "Whose File Vault would you like to open?", exact: true }).waitFor();
 			const state = await page.evaluate(() => window.__FV2_HARNESS__.instance.state);
 			assert(state.selectedStudentId === 0 && state.data.student === null, "admin owner validation: wrong loadStudent payload replaced the staff scope");
 			assert(diagnostics.length === 0, `admin owner validation load: browser diagnostics ${diagnostics.join(" | ")}`);
@@ -475,13 +481,13 @@ async function mobileAdminActivityFlow(browser) {
 		await page.getByRole("button", { name: "Staff activity", exact: true }).click();
 		await page.getByRole("heading", { name: "Activity review", exact: true }).waitFor();
 		assert(await page.locator(".fv2-subject-banner").isVisible(), "mobile admin activity: student context banner missing");
-		assert(await page.getByRole("button", { name: "Return to student Vault", exact: true }).isVisible(), "mobile admin activity: return control missing");
-		assert(await page.getByRole("button", { name: "Exit student Vault", exact: true }).count() >= 1, "mobile admin activity: exit control missing");
-		await page.getByRole("button", { name: "Return to student Vault", exact: true }).click();
-		assert(await page.getByRole("heading", { name: "What would you like to upload?", exact: true }).isVisible(), "mobile admin activity: return did not restore the student Vault");
+		assert(await page.getByRole("button", { name: "Return to student Home", exact: true }).isVisible(), "mobile admin activity: return control missing");
+		assert(await page.getByRole("button", { name: "Back to Students", exact: true }).count() >= 1, "mobile admin activity: exit control missing");
+		await page.getByRole("button", { name: "Return to student Home", exact: true }).click();
+		assert(await page.getByRole("heading", { name: "What type of document would you like to upload?", exact: true }).isVisible(), "mobile admin activity: return did not restore the student Vault");
 		await page.getByRole("button", { name: "Staff activity", exact: true }).click();
-		await page.getByRole("button", { name: "Exit student Vault", exact: true }).last().click();
-		assert(await page.getByRole("heading", { name: "Students", exact: true }).isVisible(), "mobile admin activity: exit did not return to Students");
+		await page.getByRole("button", { name: "Back to Students", exact: true }).last().click();
+		assert(await page.getByRole("heading", { name: "Whose File Vault would you like to open?", exact: true }).isVisible(), "mobile admin activity: exit did not return to Students");
 		await overflowAudit(page, "mobile admin activity");
 		assert(diagnostics.length === 0, `mobile admin activity: browser diagnostics ${diagnostics.join(" | ")}`);
 	} finally {
@@ -554,7 +560,7 @@ async function lateMatrixTakeoverRecoveryFlow(browser) {
 		});
 
 		await page.waitForSelector("[data-fv2-app]", { timeout: 3000 });
-		await page.getByRole("heading", { name: "What would you like to upload?", exact: true }).waitFor();
+		await page.getByRole("heading", { name: "What type of document would you like to upload?", exact: true }).waitFor();
 		const firstRecovery = await page.evaluate(() => ({
 			v1Rendered: window.__FV2_HARNESS__.v1FallbackRendered === true,
 			moduleId: window.MatrixRuntime.current.module.id,
@@ -572,7 +578,7 @@ async function lateMatrixTakeoverRecoveryFlow(browser) {
 			window.MMED_FILE_VAULT_V1.render();
 		});
 		await page.waitForSelector("[data-fv2-app]", { timeout: 3000 });
-		await page.getByRole("heading", { name: "What would you like to upload?", exact: true }).waitFor();
+		await page.getByRole("heading", { name: "What type of document would you like to upload?", exact: true }).waitFor();
 		assert(await page.evaluate(() => window.MatrixRuntime.navigationCount === 2 && window.MatrixRuntime.completedMountCount === 2), "Matrix takeover: a later distinct overwrite did not recover exactly once");
 		assert(await page.locator("[data-fv2-app]").count() === 1, "Matrix takeover: recovery left duplicate V2 roots");
 		assert(diagnostics.length === 0, `Matrix takeover: browser diagnostics ${diagnostics.join(" | ")}`);
@@ -599,7 +605,7 @@ async function matrixShellIntegrationFlow(browser) {
 					hitSettings: !!(hit && hit.closest('[data-fv2-action="open-settings"]'))
 				};
 			});
-			const expectedTop = viewport.width <= 782 ? 46 : 32;
+			const expectedTop = 0;
 			assert(geometry.rootTop === expectedTop, `${label}: admin offset is wrong ${JSON.stringify(geometry)}`);
 			assert(Math.abs(geometry.rootBottom - geometry.viewportBottom) <= 1 && Math.abs(geometry.appBottom - geometry.rootBottom) <= 1, `${label}: V2 canvas exceeds the Matrix shell ${JSON.stringify(geometry)}`);
 			assert(geometry.hitSettings, `${label}: WordPress admin UI intercepts the Settings hit target`);
@@ -624,11 +630,19 @@ async function matrixShellIntegrationFlow(browser) {
 async function adminFlow(browser) {
 	const { context, page, diagnostics } = await createPage(browser, { role: "admin" }, { width: 1440, height: 1000 });
 	try {
-		assert(await page.getByRole("heading", { name: "Students", exact: true }).isVisible(), "admin: Students heading missing");
-		assert(await page.locator(".fv2-metric").count() === 4, "admin: expected four command metrics");
+		assert(await page.getByRole("heading", { name: "Whose File Vault would you like to open?", exact: true }).isVisible(), "admin: Students entry heading missing");
+		assert(await page.locator(".fv2-metric").count() === 0, "admin: dashboard KPI cards still define the Students experience");
+		assert(await page.locator("[data-fv2-command-search]").isVisible(), "admin: prominent student search missing");
+		assert(await page.getByRole("button", { name: /Review Queue/ }).isVisible(), "admin: Review Queue action missing");
+		assert(await page.getByRole("button", { name: "Staff Activity", exact: true }).isVisible(), "admin: Staff Activity action missing");
+		await overflowAudit(page, "admin Students entry");
+		assert(await page.evaluate(() => window.scrollX === 0), "admin: Students entry opened with a horizontal scroll offset");
+		await saveEvidence(page, "04-admin-students-founder.png");
 		await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').click();
 		await page.locator(".fv2-subject-banner").waitFor();
-		assert(await page.getByText("Viewing student's Vault", { exact: true }).isVisible(), "admin: student context banner missing");
+		assert(await page.getByText("Inside Avery Rivera (Fixture)'s File Vault", { exact: true }).isVisible(), "admin: student context banner missing");
+		assert(await page.locator("[data-fv2-page-heading]").evaluate(node => document.activeElement === node), "admin: entering a student Vault did not focus its Home heading");
+		assert(await page.locator("[data-fv2-live]").textContent() === "Opened Avery Rivera (Fixture)'s File Vault.", "admin: entering a student Vault was not announced");
 		await page.getByRole("button", { name: "Your Files", exact: true }).click();
 		assert(await page.locator("[data-fv2-student-picker]").count() === 1, "admin: Your Files renders duplicate student pickers");
 		await page.waitForSelector('[data-fv2-action="select-document"][data-fv2-document-id="1102"]');
@@ -666,18 +680,17 @@ async function staffPaginationFlow(browser) {
 		const label = `staff pagination ${viewport.width}x${viewport.height}`;
 		const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "paged" }, viewport);
 		try {
-			assert(await page.getByText("Server-authorized student roster and review work, loaded in bounded pages.", { exact: true }).isVisible(), `${label}: bounded scope disclosure missing`);
+			assert(await page.getByText("Find a student and open their File Vault.", { exact: true }).isVisible(), `${label}: staff entry copy missing`);
 			assert(await page.locator(".fv2-command-row").count() === 2, `${label}: first roster page is not bounded`);
-			assert(await page.getByText("Loaded Students", { exact: true }).isVisible(), `${label}: partial metrics are not labeled as loaded`);
+			assert(await page.locator(".fv2-metric").count() === 0, `${label}: dashboard KPI cards returned`);
 			await page.getByRole("button", { name: "Load more students" }).click();
 			const loadedStudent = page.getByRole("button", { name: /Sam Okafor/ });
 			await loadedStudent.waitFor();
 			assert(await page.locator(".fv2-command-row").count() === 3, `${label}: second roster page did not merge`);
 			assert(await loadedStudent.evaluate(node => document.activeElement === node), `${label}: keyboard focus did not move to the first newly loaded student`);
 			assert(await page.locator('p[aria-live="polite"]').getByText("1 student loaded.", { exact: true }).isVisible(), `${label}: roster pagination was not announced`);
-			assert(await page.locator(".fv2-metric span").filter({ hasText: /^Students$/ }).isVisible(), `${label}: completed metrics did not return to complete labeling`);
 			assert(await page.evaluate(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/students" && Number(call.query.page) === 2)), `${label}: next server page was not requested`);
-			await page.getByRole("button", { name: "Activity", exact: true }).click();
+			await page.getByRole("button", { name: "Staff Activity", exact: true }).click();
 			await page.locator(".fv2-audit-row").first().waitFor();
 			assert(await page.locator(".fv2-audit-row").count() === 1, `${label}: first audit page is not bounded`);
 			await page.getByRole("button", { name: "Load more activity" }).click();
@@ -700,7 +713,7 @@ async function auditCursorBoundaryFlow(browser) {
 		const label = `audit cursor ${viewport.width}x${viewport.height}`;
 		const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "audit-boundary" }, viewport);
 		try {
-			await page.getByRole("button", { name: "Activity", exact: true }).click();
+			await page.getByRole("button", { name: "Staff Activity", exact: true }).click();
 			await page.waitForFunction(() => document.querySelectorAll(".fv2-audit-row").length === 200);
 			assert(await page.getByRole("button", { name: "Load more activity" }).isVisible(), `${label}: 200-event boundary did not expose the cursor continuation`);
 			await page.getByRole("button", { name: "Load more activity" }).click();
@@ -728,12 +741,16 @@ async function filteredPaginationFocusFlow(browser) {
 	const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "paged" }, { width: 375, height: 812 });
 	try {
 		const commandSearch = page.locator("[data-fv2-command-search]");
-		await commandSearch.fill("Avery");
-		await page.getByRole("button", { name: "Load more students" }).click();
-		await page.waitForFunction(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/students" && Number(call.query.page) === 2));
-		assert(await commandSearch.evaluate(node => document.activeElement === node), "filtered pagination 375x812: hidden incoming roster row did not return focus to student search");
-		assert(await page.locator(".fv2-command-row").count() === 1, "filtered pagination 375x812: loaded-only roster filter was not preserved");
-		await page.getByRole("button", { name: "Activity", exact: true }).click();
+		await commandSearch.fill("Sam");
+		await page.waitForFunction(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/students" && call.query.search === "Sam"));
+		await page.getByRole("button", { name: /Sam Okafor/ }).waitFor();
+		assert(await commandSearch.evaluate(node => document.activeElement === node), "staff search 375x812: server result did not preserve focus in student search");
+		assert(await page.locator(".fv2-command-row").count() === 1, "staff search 375x812: roster-wide result was not isolated");
+		assert(await page.locator('p[aria-live="polite"]').getByText("1 matching student found.", { exact: true }).isVisible(), "staff search 375x812: result count was not announced");
+		assert(await page.getByRole("button", { name: "Load more students" }).count() === 0, "staff search 375x812: complete search still exposes pagination");
+		await commandSearch.fill("");
+		await page.waitForFunction(() => document.querySelectorAll(".fv2-command-row").length === 2);
+		await page.getByRole("button", { name: "Staff Activity", exact: true }).click();
 		await page.locator(".fv2-audit-row").first().waitFor();
 		const auditSearch = page.locator("[data-fv2-audit-search]");
 		await auditSearch.fill("Review note");
@@ -744,6 +761,58 @@ async function filteredPaginationFocusFlow(browser) {
 		assert(await page.locator('p[aria-live="polite"]').getByText("2 activity events loaded.", { exact: true }).isVisible(), "filtered pagination 375x812: hidden incoming activity count was not announced");
 		await overflowAudit(page, "filtered pagination 375x812");
 		assert(diagnostics.length === 0, `filtered pagination 375x812: browser diagnostics ${diagnostics.join(" | ")}`);
+	} finally {
+		await context.close();
+	}
+}
+
+async function staffSearchRaceFlow(browser) {
+	const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "search-race" }, { width: 1280, height: 800 });
+	try {
+		const commandSearch = page.locator("[data-fv2-command-search]");
+		await commandSearch.fill("a");
+		await page.waitForFunction(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/students" && call.query.search === "a" && Number(call.query.page) === 1));
+		await page.getByRole("button", { name: "Load more students" }).click();
+		await page.waitForFunction(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/students" && call.query.search === "a" && Number(call.query.page) === 2));
+		await commandSearch.fill("Jordan");
+		await page.waitForFunction(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/students" && call.query.search === "Jordan"));
+		await page.getByRole("button", { name: /Jordan Lee/ }).waitFor();
+		await page.waitForTimeout(700);
+		assert(await page.locator(".fv2-command-row").count() === 1, "staff search race: stale page continuation replaced the newer result set");
+		assert((await page.locator(".fv2-command-row").first().textContent()).includes("Jordan Lee"), "staff search race: active query does not own the visible roster");
+		assert(await commandSearch.evaluate(node => document.activeElement === node), "staff search race: current query lost focus after stale continuation abort");
+		await commandSearch.fill("a");
+		await page.waitForFunction(() => window.__FV2_HARNESS__.calls.filter(call => call.path === "/students" && call.query.search === "a" && Number(call.query.page) === 1).length >= 2);
+		await page.getByRole("button", { name: "Load more students" }).click();
+		await page.waitForFunction(() => window.__FV2_HARNESS__.calls.filter(call => call.path === "/students" && call.query.search === "a" && Number(call.query.page) === 2).length >= 2);
+		await commandSearch.fill("");
+		await page.waitForTimeout(700);
+		assert(await page.locator(".fv2-command-row").count() === 2, "staff search clear race: base roster was not restored");
+		assert(await page.getByRole("button", { name: "Load more students" }).isEnabled(), "staff search clear race: aborted continuation left roster pagination disabled");
+		assert(diagnostics.length === 0, `staff search race: browser diagnostics ${diagnostics.join(" | ")}`);
+	} finally {
+		await context.close();
+	}
+}
+
+async function staffPaginationStudentRaceFlow(browser) {
+	const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "pagination-student-race" }, { width: 1280, height: 800 });
+	try {
+		await page.getByRole("button", { name: "Load more students" }).click();
+		await page.waitForFunction(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/students" && Number(call.query.page) === 2));
+		await page.getByRole("button", { name: /Jordan Lee/ }).click();
+		await page.getByText("Inside Jordan Lee (Fixture)'s File Vault", { exact: true }).waitFor();
+		await page.waitForTimeout(350);
+		const state = await page.evaluate(() => ({
+			selectedStudentId: window.__FV2_HARNESS__.instance.state.selectedStudentId,
+			studentId: window.__FV2_HARNESS__.instance.state.data.student && window.__FV2_HARNESS__.instance.state.data.student.id,
+			view: window.__FV2_HARNESS__.instance.state.view
+		}));
+		assert(state.selectedStudentId === 102 && state.studentId === 102 && state.view === "vault", `staff pagination race: late roster page replaced the selected student scope ${JSON.stringify(state)}`);
+		assert(await page.getByText("Inside Jordan Lee (Fixture)'s File Vault", { exact: true }).isVisible(), "staff pagination race: selected-student context banner was lost");
+		await page.getByRole("button", { name: "Back to Students" }).click();
+		assert(await page.getByRole("button", { name: "Load more students" }).isEnabled(), "staff pagination race: stale continuation left base-roster pagination disabled");
+		assert(diagnostics.length === 0, `staff pagination race: browser diagnostics ${diagnostics.join(" | ")}`);
 	} finally {
 		await context.close();
 	}
@@ -865,6 +934,8 @@ async function responsiveFlow(browser) {
 }
 
 async function main() {
+	assert(fs.existsSync(destinationArt), "destination artwork is absent from the release source");
+	assert(fs.readFileSync(mutableCss, "utf8").includes(path.basename(destinationArt)), "mutable CSS does not reference the destination artwork");
 	const executablePath = process.env.FV2_BROWSER_PATH || (fs.existsSync(systemChrome) ? systemChrome : undefined);
 	const browser = await chromium.launch({ headless: true, executablePath });
 	try {
@@ -882,6 +953,8 @@ async function main() {
 		await staffPaginationFlow(browser);
 		await auditCursorBoundaryFlow(browser);
 		await filteredPaginationFocusFlow(browser);
+		await staffSearchRaceFlow(browser);
+		await staffPaginationStudentRaceFlow(browser);
 		await mentorFlow(browser);
 		await stateAndFallbackFlow(browser);
 		await responsiveFlow(browser);

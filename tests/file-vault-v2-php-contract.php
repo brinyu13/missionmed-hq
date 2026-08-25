@@ -131,6 +131,7 @@ fv2_assert( 'mentor' === MMED_File_Vault_V2::role_for_user(), 'mentor capability
 
 fv2_assert( 'other' === MMED_File_Vault_V2_Repository::normalize_document_type( 'not-real' ), 'unknown document type is not trusted' );
 fv2_assert( 'personal_statement' === MMED_File_Vault_V2_Repository::normalize_document_type( 'personal_statement' ), 'known document type survives normalization' );
+fv2_assert( 'timeline' === MMED_File_Vault_V2_Repository::normalize_document_type( 'timeline' ), 'Timeline remains a distinct server-owned document type' );
 fv2_assert( 'needs_changes' === MMED_File_Vault_V2_Repository::normalize_workflow_status( 'needs_changes' ), 'known workflow status survives normalization' );
 fv2_assert( 'rejected' === MMED_File_Vault_V2_Repository::legacy_status( 'needs_changes' ), 'needs changes maps to the legacy rejected database state' );
 fv2_assert( 'pending_review' === MMED_File_Vault_V2_Repository::legacy_status( 'submitted' ), 'submitted maps to the legacy pending-review database state' );

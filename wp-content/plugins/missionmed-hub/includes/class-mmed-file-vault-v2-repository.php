@@ -49,6 +49,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		$types = array(
 			'personal_statement'         => array( 'label' => 'Personal Statement', 'category' => 'documents' ),
 			'curriculum_vitae'           => array( 'label' => 'Curriculum Vitae', 'category' => 'documents' ),
+			'timeline'                   => array( 'label' => 'Timeline', 'category' => 'academic' ),
 			'mspe'                       => array( 'label' => 'MSPE', 'category' => 'academic' ),
 			'medical_school_transcript'  => array( 'label' => 'Medical School Transcript', 'category' => 'academic' ),
 			'usmle_transcript'           => array( 'label' => 'USMLE Transcript', 'category' => 'certifications' ),

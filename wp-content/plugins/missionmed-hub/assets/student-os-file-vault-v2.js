@@ -207,6 +207,9 @@
 		this.transfers = new Set();
 		this.timers = new Set();
 		this.fileSearchTimer = 0;
+		this.staffSearchTimer = 0;
+		this.staffSearchToken = 0;
+		this.staffSearchController = null;
 		this.studentRequestToken = 0;
 		this.studentRequestController = null;
 		this.overlayIsolation = [];
@@ -232,6 +235,9 @@
 			auditPagination: null,
 			auditSearch: "",
 			commandSearch: "",
+			staffSearchData: null,
+			staffSearchLoading: false,
+			staffSearchError: "",
 			fileSearch: "",
 			fileType: "",
 			fileStatus: "",
@@ -615,7 +621,7 @@
 			["settings", "settings", "Settings"]
 		];
 		var items = isStaffRole(role) && !subjectMode
-			? [["command", "users", "Students"], ["review", "clock", "Review Queue"], ["audit", "activity", "Activity"], ["settings", "settings", "Settings"]]
+			? [["command", "users", "Students"], ["settings", "settings", "Settings"]]
 			: studentItems;
 		var queueCount = this.state.data && Array.isArray(this.state.data.review_queue) ? this.state.data.review_queue.length : 0;
 		function itemMarkup(item, className) {
@@ -702,14 +708,14 @@
 			["curriculum_vitae", "CV", "Core profile", "file"],
 			["personal_statement", "Personal Statement", "Written narrative", "file"],
 			[lorType, "LOR-Related", "Letters and requests", "comment"],
-			["other", "Timeline", "Application chronology", "journey"],
+			["timeline", "Timeline", "Application chronology", "journey"],
 			["usmle_transcript", "Score Report", "Exam records", "activity"],
 			["ecfmg_status_report", "Certification", "Credential records", "check"],
 			["other", "Miscellaneous", "Name it yourself", "folder"]
 		];
-		return '<div class="fv2-upload-choices" aria-label="Choose what to upload">' + categories.map(function (category) {
+		return '<div class="fv2-upload-launcher"><span class="fv2-upload-launcher-label">Choose a document type</span><div class="fv2-upload-choices" aria-label="Choose what to upload">' + categories.map(function (category) {
 			return '<button type="button" class="fv2-upload-choice" data-fv2-action="open-upload" data-fv2-document-type="' + escAttr(category[0]) + '" data-fv2-display-name="' + (category[1] === "Miscellaneous" ? "" : escAttr(category[1])) + '"' + (canUpload ? "" : " disabled") + '><span>' + icon(category[3]) + '</span><strong>' + esc(category[1]) + '</strong><small>' + esc(category[2]) + "</small>" + icon("arrowRight") + "</button>";
-		}).join("") + "</div>";
+		}).join("") + "</div></div>";
 	};
 
 	FileVaultV2.prototype.studentDocuments = function () {
@@ -740,7 +746,7 @@
 		var documents = this.studentDocuments();
 		var groups = [
 			["Profile", "profile", ["curriculum_vitae", "personal_statement", "application_photo"]],
-			["Academic", "academic", ["mspe", "medical_school_transcript", "usmle_transcript", "ecfmg_status_report"]],
+			["Academic", "academic", ["mspe", "medical_school_transcript", "usmle_transcript", "ecfmg_status_report", "timeline"]],
 			["LOR-Related", "letters", ["letter_of_recommendation_1", "letter_of_recommendation_2", "letter_of_recommendation_3"]],
 			["Miscellaneous", "other", ["other"]]
 		];
@@ -757,16 +763,16 @@
 				? '<button type="button" class="fv2-home-record" data-fv2-action="open-from-home" data-fv2-document-id="' + positiveInt(documentItem.id) + '"><span>' + esc(label) + '</span><strong>' + esc(documentItem.name || "Document") + '</strong><small>' + esc(formatDate(dateValue || documentItem.updated_at)) + "</small>" + icon("arrowRight") + "</button>"
 				: '<div class="fv2-home-record is-empty"><span>' + esc(label) + '</span><strong>Nothing recorded yet</strong><small>Your server record is the source of truth.</small></div>';
 		}
-		return '<section class="fv2-home-summary"><div class="fv2-section-heading"><div><span>At a glance</span><h2>Your Vault</h2></div><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="navigate" data-fv2-view="files">Open all files' + icon("arrowRight") + "</button></div>" + counts + '<div class="fv2-home-records">' + record("Most recently uploaded", recent, documentUploadedAt(recent)) + record("Most recently reviewed", reviewed, reviewed && reviewed.updated_at) + "</div></section>";
+		return '<section class="fv2-home-summary"><div class="fv2-section-heading"><div><span>Document summary</span><h2>Find what changed</h2></div><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="navigate" data-fv2-view="files">Open Your Files' + icon("arrowRight") + "</button></div>" + counts + '<div class="fv2-home-records">' + record("Most recently uploaded", recent, documentUploadedAt(recent)) + record("Most recently reviewed", reviewed, reviewed && reviewed.updated_at) + "</div></section>";
 	};
 
 	FileVaultV2.prototype.staffSubjectBannerMarkup = function () {
 		var student = this.state.data && this.state.data.student;
 		if (!student) return "";
 		var activityAction = this.state.view === "audit"
-			? '<button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="navigate" data-fv2-view="vault">' + icon("arrowLeft") + "Return to student Vault</button>"
+			? '<button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="navigate" data-fv2-view="vault">' + icon("arrowLeft") + "Return to student Home</button>"
 			: '<button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="navigate" data-fv2-view="audit">' + icon("activity") + "Staff activity</button>";
-		return '<aside class="fv2-subject-banner" role="note"><span>' + icon("users") + '</span><div class="fv2-subject-copy"><strong>Viewing student\'s Vault</strong><small>' + esc(student.display_name || "Student") + ' / Staff actions remain server-scoped</small></div><div class="fv2-subject-actions">' + this.studentPickerMarkup() + activityAction + '<button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="exit-student">' + icon("arrowLeft") + "Exit student Vault</button></div></aside>";
+		return '<aside class="fv2-subject-banner" role="note"><span>' + icon("users") + '</span><div class="fv2-subject-copy"><strong>Inside ' + esc(student.display_name || "Student") + '\'s File Vault</strong><small>Reviewing this student\'s files as MissionMed staff.</small></div><div class="fv2-subject-actions">' + this.studentPickerMarkup() + activityAction + '<button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="exit-student">' + icon("arrowLeft") + "Back to Students</button></div></aside>";
 	};
 
 	FileVaultV2.prototype.vaultMarkup = function () {
@@ -778,13 +784,13 @@
 		var statement = this.documentForTypes("personal_statement");
 		var missionCount = Array.isArray(data.library) ? data.library.length : 0;
 		var storageNotice = this.storageReady() ? "" : this.inlineNoticeMarkup("blocked", "Private storage is unavailable", "Existing metadata remains visible. Uploads and secure downloads stay blocked until storage is restored.");
-		return '<section class="fv2-home-hero"><span class="fv2-home-eyebrow">Good to see you, ' + esc(studentName) + '.</span><h1 tabindex="-1" data-fv2-page-heading>What would you like to <em>upload?</em></h1><p>Choose a category to open the existing guided, private upload.</p>' + this.homeActionsMarkup() + "</section>" + storageNotice +
+		return '<section class="fv2-home-hero"><span class="fv2-home-eyebrow">Good to see you, ' + esc(studentName) + '.</span><h1 tabindex="-1" data-fv2-page-heading>What type of document would you like to <em>upload?</em></h1><p>Choose one to begin your private upload.</p>' + this.homeActionsMarkup() + "</section>" + storageNotice +
 			'<section class="fv2-shortcuts" aria-labelledby="fv2-shortcuts-title"><div class="fv2-section-heading"><div><span>Open fast</span><h2 id="fv2-shortcuts-title">Your key files</h2></div></div><div class="fv2-shortcut-grid">' +
 			this.shortcutMarkup("CV", "Profile", "file", cv, { documentType: "curriculum_vitae" }) +
 			this.shortcutMarkup("Timeline", "Application journey", "journey", null, { view: "journey", emptyLabel: "Open journey" }) +
 			this.shortcutMarkup("Personal Statement", "Written narrative", "file", statement, { documentType: "personal_statement" }) +
 			this.shortcutMarkup("Shared by MissionMed", "Mission Files", "library", null, { view: "library", emptyLabel: missionCount + (missionCount === 1 ? " file" : " files") }) +
-			"</div></section>" + this.homeSummaryMarkup() + this.nextActionMarkup();
+			"</div></section>" + this.homeSummaryMarkup();
 	};
 
 	FileVaultV2.prototype.uploadLandingMarkup = function () {
@@ -849,7 +855,7 @@
 		var query = this.state.fileSearch.trim().toLowerCase();
 		var groupTypes = {
 			profile: ["curriculum_vitae", "personal_statement", "application_photo"],
-			academic: ["mspe", "medical_school_transcript", "usmle_transcript", "ecfmg_status_report"],
+			academic: ["mspe", "medical_school_transcript", "usmle_transcript", "ecfmg_status_report", "timeline"],
 			letters: ["letter_of_recommendation_1", "letter_of_recommendation_2", "letter_of_recommendation_3"],
 			other: ["other"]
 		};
@@ -1039,32 +1045,23 @@
 	FileVaultV2.prototype.commandMarkup = function () {
 		if (!this.roleIsStaff()) return this.vaultMarkup();
 		var data = this.state.staffData || this.state.data || {};
-		var command = data.command || {};
-		var pagination = data.staff_pagination && typeof data.staff_pagination === "object" ? data.staff_pagination : { has_more: false, scope_complete: true };
-		var metricPrefix = pagination.scope_complete === false ? "Loaded " : "";
-		var metrics = [
-			[metricPrefix + "Students", command.student_count, "users"],
-			[metricPrefix + "Documents", command.document_count, "file"],
-			[metricPrefix + "Review queue", command.review_count, "clock"],
-			[metricPrefix + "Needs attention", command.attention_count, "alert"]
-		];
-		var metricMarkup = '<div class="fv2-metric-grid">' + metrics.map(function (metric) {
-			var value = Math.max(0, Number(metric[1]) || 0);
-			return '<section class="fv2-metric"><span>' + icon(metric[2]) + esc(metric[0]) + "</span><strong>" + esc(value.toLocaleString()) + "</strong></section>";
-		}).join("") + "</div>";
-		var students = Array.isArray(data.students) ? data.students : [];
 		var query = this.state.commandSearch.trim().toLowerCase();
-		var filtered = query ? students.filter(function (student) { return String(student.display_name || "").toLowerCase().indexOf(query) !== -1; }) : students;
-		var studentRows = filtered.length ? '<div class="fv2-command-list">' + filtered.map(function (student) {
+		var listing = query && this.state.staffSearchData ? this.state.staffSearchData : data;
+		var pagination = listing.staff_pagination && typeof listing.staff_pagination === "object" ? listing.staff_pagination : { has_more: false, scope_complete: true };
+		var students = Array.isArray(listing.students) ? listing.students : [];
+		var studentRows = students.length ? '<div class="fv2-command-list">' + students.map(function (student) {
 			var id = positiveInt(student.id);
-			var coverage = boundedInt(student.coverage_percent, 0, 100);
-			return '<button type="button" class="fv2-command-row" data-fv2-action="load-student" data-fv2-student-id="' + id + '" data-fv2-focus-key="student-' + id + '"><span class="fv2-student-monogram" aria-hidden="true">' + esc(String(student.display_name || "S").charAt(0).toUpperCase()) + "</span><span><strong>" + esc(student.display_name || "Student") + "</strong><small>" + esc(Math.max(0, Number(student.document_count) || 0)) + " documents</small></span><span class=\"fv2-command-progress\"><i style=\"width:" + coverage + '%\"></i><small>' + coverage + "% coverage</small></span><span class=\"fv2-attention-count\">" + esc(Math.max(0, Number(student.needs_attention) || 0)) + " attention</span>" + icon("arrowRight") + "</button>";
-		}).join("") + "</div>" : this.stateMessageMarkup("empty", query ? "No matching students" : "No students in scope", query ? "Try a different search." : "The server returned no students for this staff scope.", "");
-		var queue = Array.isArray(data.review_queue) ? data.review_queue : [];
+			var documentCount = Math.max(0, Number(student.document_count) || 0);
+			var attentionCount = Math.max(0, Number(student.needs_attention) || 0);
+			var detail = documentCount + (documentCount === 1 ? " document" : " documents");
+			if (attentionCount) detail += " / " + attentionCount + " need" + (attentionCount === 1 ? "s" : "") + " attention";
+			return '<button type="button" class="fv2-command-row" data-fv2-action="load-student" data-fv2-student-id="' + id + '" data-fv2-focus-key="student-' + id + '"><span class="fv2-student-monogram" aria-hidden="true">' + esc(String(student.display_name || "S").charAt(0).toUpperCase()) + '</span><span class="fv2-command-student"><strong>' + esc(student.display_name || "Student") + '</strong><small>' + esc(detail) + '</small></span><span class="fv2-command-open">Open File Vault</span>' + icon("arrowRight") + "</button>";
+		}).join("") + "</div>" : this.stateMessageMarkup("empty", query ? "No matching students" : "No students in scope", query ? "Try a different name." : "No students are available in this staff view.", "");
+		if (query && this.state.staffSearchLoading) studentRows = this.stateMessageMarkup("loading", "Searching students", "Checking your MissionMed roster.", "");
+		else if (query && this.state.staffSearchError) studentRows = this.stateMessageMarkup("error", "Student search unavailable", this.state.staffSearchError, "");
 		var loadMore = pagination.has_more || this.state.staffLoadError ? '<div class="fv2-modal-actions">' + (this.state.staffLoadError ? '<span role="alert">' + esc(this.state.staffLoadError) + "</span>" : "") + '<button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="load-more-staff" data-fv2-focus-key="staff-load-more"' + (this.state.staffLoadingMore ? " disabled" : "") + ">" + icon("refresh") + (this.state.staffLoadingMore ? "Loading roster" : "Load more students") + "</button></div>" : "";
-		var headingSubtitle = this.role() === "mentor" ? "Assigned students and review work in your paged server scope." : "Server-authorized student roster and review work, loaded in bounded pages.";
-		var reviewAction = '<button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="navigate" data-fv2-view="review">' + icon("clock") + 'Review queue (' + esc(queue.length) + ')</button>';
-		return this.pageHeadingMarkup("Staff operations", "Students", headingSubtitle, reviewAction) + '<p class="fv2-sr-only" aria-live="polite">' + esc(this.state.paginationAnnouncement) + "</p>" + metricMarkup + '<section class="fv2-section fv2-students-section"><div class="fv2-section-heading"><div><span>Server-scoped roster</span><h2>Find the right 360 student</h2></div><label class="fv2-search">' + icon("search") + '<span class="fv2-sr-only">Search loaded students</span><input type="search" data-fv2-command-search data-fv2-focus-key="command-search" value="' + escAttr(this.state.commandSearch) + '" placeholder="Search loaded students"></label></div>' + studentRows + loadMore + "</section>";
+		var queue = Array.isArray(data.review_queue) ? data.review_queue : [];
+		return '<section class="fv2-staff-entry"><span class="fv2-home-eyebrow">MissionMed staff workspace</span><h1 tabindex="-1" data-fv2-page-heading>Whose File Vault would you like to <em>open?</em></h1><p>Find a student and open their File Vault.</p><label class="fv2-staff-search">' + icon("search") + '<span class="fv2-sr-only">Search students</span><input type="search" data-fv2-command-search data-fv2-focus-key="command-search" value="' + escAttr(this.state.commandSearch) + '" placeholder="Search students by name"></label><div class="fv2-staff-entry-actions"><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="navigate" data-fv2-view="review">' + icon("clock") + 'Review Queue <span>' + esc(queue.length) + '</span></button><button type="button" class="fv2-button fv2-button-secondary" data-fv2-action="navigate" data-fv2-view="audit">' + icon("activity") + 'Staff Activity</button></div></section><p class="fv2-sr-only" aria-live="polite">' + esc(this.state.paginationAnnouncement) + '</p><section class="fv2-section fv2-students-section"><div class="fv2-section-heading"><div><span>Your students</span><h2>Open a student File Vault</h2></div></div>' + studentRows + loadMore + "</section>";
 	};
 
 	FileVaultV2.prototype.auditMarkup = function () {
@@ -1461,8 +1458,25 @@
 			return;
 		}
 		if (target.matches("[data-fv2-command-search]")) {
+			var staffSelf = this;
 			this.state.commandSearch = target.value;
+			if (this.staffSearchTimer) {
+				window.clearTimeout(this.staffSearchTimer);
+				this.timers.delete(this.staffSearchTimer);
+			}
+			if (!this.state.commandSearch.trim()) {
+				this.loadStaffSearch("");
+				return;
+			}
+			this.state.staffSearchLoading = true;
+			this.state.staffSearchError = "";
 			this.render({ focusKey: "command-search" });
+			this.staffSearchTimer = window.setTimeout(function () {
+				staffSelf.timers.delete(staffSelf.staffSearchTimer);
+				staffSelf.staffSearchTimer = 0;
+				staffSelf.loadStaffSearch(staffSelf.state.commandSearch);
+			}, 250);
+			this.timers.add(this.staffSearchTimer);
 			return;
 		}
 		if (target.matches("[data-fv2-audit-search]")) {
@@ -1656,6 +1670,7 @@
 		if (this.state.overlay) this.closeOverlay({ restoreFocus: false });
 		this.state.data = this.state.staffData;
 		this.state.studentLoading = true;
+		this.state.staffLoadingMore = false;
 		this.state.selectedStudentId = studentId;
 		this.state.view = options && options.view === "docdocs" ? "command" : "vault";
 		this.state.selectedDocumentId = 0;
@@ -1688,7 +1703,9 @@
 			self.acceptBootstrap(validated, true);
 			self.state.view = "vault";
 			self.render();
+			if (self.refs.live) self.refs.live.textContent = "Opened " + String(validated.student && validated.student.display_name || "student") + "'s File Vault.";
 			if (options && options.documentId) self.openWorkspace(options.documentId);
+			else self.focusViewHeading();
 		}).catch(function (error) {
 			if (self.destroyed || requestToken !== self.studentRequestToken || self.state.selectedStudentId !== studentId || (error && error.name === "AbortError")) return;
 			self.studentRequestController = null;
@@ -1727,39 +1744,98 @@
 		});
 	};
 
+	FileVaultV2.prototype.loadStaffSearch = function (query) {
+		var self = this;
+		query = String(query || "").trim();
+		if (!this.roleIsStaff()) return Promise.resolve();
+		if (this.staffSearchController && typeof this.staffSearchController.abort === "function") this.staffSearchController.abort();
+		this.staffSearchController = null;
+		var requestToken = ++this.staffSearchToken;
+		if (!query) {
+			this.state.staffSearchData = null;
+			this.state.staffSearchLoading = false;
+			this.state.staffSearchError = "";
+			this.state.staffLoadingMore = false;
+			this.state.staffLoadError = "";
+			this.render({ focusKey: "command-search" });
+			return Promise.resolve();
+		}
+		var controller = typeof window.AbortController === "function" ? new window.AbortController() : null;
+		this.staffSearchController = controller;
+		this.state.staffSearchLoading = true;
+		this.state.staffSearchError = "";
+		this.state.staffLoadError = "";
+		this.state.staffLoadingMore = false;
+		this.render({ focusKey: "command-search" });
+		return this.request("GET", "/students", null, { search: query, page: 1, per_page: 50 }, controller && controller.signal).then(function (payload) {
+			if (self.destroyed || requestToken !== self.staffSearchToken || self.state.commandSearch.trim() !== query) return;
+			if (!payload || typeof payload !== "object" || !Array.isArray(payload.students) || !payload.pagination || typeof payload.pagination !== "object") {
+				throw new Error("File Vault returned malformed student search data.");
+			}
+			self.staffSearchController = null;
+			self.state.staffSearchData = {
+				students: payload.students,
+				staff_pagination: payload.pagination
+			};
+			self.state.staffSearchLoading = false;
+			self.state.paginationAnnouncement = payload.students.length + (payload.students.length === 1 ? " matching student found." : " matching students found.");
+			self.render({ focusKey: "command-search" });
+		}).catch(function (error) {
+			if (self.destroyed || requestToken !== self.staffSearchToken || (error && error.name === "AbortError")) return;
+			self.staffSearchController = null;
+			self.state.staffSearchData = null;
+			self.state.staffSearchLoading = false;
+			self.state.staffSearchError = errorMessage(error, "Student search could not be completed.");
+			self.state.paginationAnnouncement = "Student search unavailable.";
+			self.render({ focusKey: "command-search" });
+		});
+	};
+
 	FileVaultV2.prototype.loadMoreStaff = function () {
 		var self = this;
-		var data = this.state.staffData || this.state.data || {};
+		var searchQuery = this.state.commandSearch.trim();
+		var data = searchQuery && this.state.staffSearchData ? this.state.staffSearchData : (this.state.staffData || this.state.data || {});
 		var pagination = data.staff_pagination || {};
 		var page = positiveInt(pagination.next_page);
 		if (!this.roleIsStaff() || !page || this.state.staffLoadingMore) return Promise.resolve();
+		var searchToken = this.staffSearchToken;
+		var selectedStudentId = positiveInt(this.state.selectedStudentId);
+		var requestController = null;
+		if (searchQuery && typeof window.AbortController === "function") {
+			if (this.staffSearchController && typeof this.staffSearchController.abort === "function") this.staffSearchController.abort();
+			requestController = new window.AbortController();
+			this.staffSearchController = requestController;
+		}
 		this.state.staffLoadingMore = true;
 		this.state.staffLoadError = "";
 		this.state.paginationAnnouncement = "";
 		this.render({ focusKey: "staff-load-more" });
-		return this.request("GET", "/students", null, { page: page, per_page: positiveInt(pagination.per_page) || 50 }).then(function (payload) {
-			if (self.destroyed) return;
+		return this.request("GET", "/students", null, { search: searchQuery, page: page, per_page: positiveInt(pagination.per_page) || 50 }, requestController && requestController.signal).then(function (payload) {
+			if (self.destroyed || positiveInt(self.state.selectedStudentId) !== selectedStudentId || (searchQuery && (searchToken !== self.staffSearchToken || self.state.commandSearch.trim() !== searchQuery))) return;
 			if (!payload || typeof payload !== "object" || !Array.isArray(payload.students) || !Array.isArray(payload.review_queue) || !payload.pagination || typeof payload.pagination !== "object") {
 				throw new Error("File Vault returned malformed staff pagination data.");
 			}
+			if (searchQuery && self.staffSearchController === requestController) self.staffSearchController = null;
 			data.students = self.mergeStaffRows(data.students, payload.students);
-			data.review_queue = self.mergeStaffRows(data.review_queue, payload.review_queue).sort(function (left, right) {
-				return String(left.updated_at || "").localeCompare(String(right.updated_at || ""));
-			});
 			data.staff_pagination = payload.pagination;
-			data.command = self.staffCommand(data.students, data.review_queue);
-			self.state.staffData = data;
-			self.state.data = data;
+			if (searchQuery) self.state.staffSearchData = data;
+			else {
+				data.review_queue = self.mergeStaffRows(data.review_queue, payload.review_queue).sort(function (left, right) {
+					return String(left.updated_at || "").localeCompare(String(right.updated_at || ""));
+				});
+				data.command = self.staffCommand(data.students, data.review_queue);
+				self.state.staffData = data;
+				self.state.data = data;
+			}
 			self.state.staffLoadingMore = false;
 			self.state.paginationAnnouncement = payload.students.length + (payload.students.length === 1 ? " student loaded." : " students loaded.");
 			var studentQuery = self.state.commandSearch.trim().toLowerCase();
-			var firstVisibleStudent = payload.students.find(function (student) {
-				return !studentQuery || String(student.display_name || "").toLowerCase().indexOf(studentQuery) !== -1;
-			});
+			var firstVisibleStudent = payload.students[0];
 			var firstStudentId = positiveInt(firstVisibleStudent && firstVisibleStudent.id);
 			self.render({ focusKey: firstStudentId ? "student-" + firstStudentId : (studentQuery ? "command-search" : (payload.pagination.has_more ? "staff-load-more" : "nav-command")) });
 		}).catch(function (error) {
-			if (self.destroyed || (error && error.name === "AbortError")) return;
+			if (self.destroyed || positiveInt(self.state.selectedStudentId) !== selectedStudentId || (searchQuery && (searchToken !== self.staffSearchToken || self.state.commandSearch.trim() !== searchQuery)) || (error && error.name === "AbortError")) return;
+			if (searchQuery && self.staffSearchController === requestController) self.staffSearchController = null;
 			self.state.staffLoadingMore = false;
 			self.state.staffLoadError = errorMessage(error, "The next roster page could not be loaded.");
 			self.state.paginationAnnouncement = "Roster page not loaded.";
@@ -2848,6 +2924,9 @@
 	FileVaultV2.prototype.unmount = function () {
 		if (this.destroyed) return;
 		this.destroyed = true;
+		this.staffSearchToken += 1;
+		if (this.staffSearchController && typeof this.staffSearchController.abort === "function") this.staffSearchController.abort();
+		this.staffSearchController = null;
 		this.studentRequestToken += 1;
 		if (this.studentRequestController && typeof this.studentRequestController.abort === "function") this.studentRequestController.abort();
 		this.studentRequestController = null;
