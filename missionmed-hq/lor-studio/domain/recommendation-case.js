@@ -7,6 +7,7 @@ import {
   deepFreeze,
   hashValue,
   makeId,
+  sha256,
   toIso,
 } from './value-utils.js';
 
@@ -71,6 +72,119 @@ const ALLOWED_TRANSITIONS = deepFreeze({
  * case lifecycle is already modelled by CASE_STATUSES and is not duplicated per document.
  */
 export const FINAL_DOCUMENT_STATES = deepFreeze(['ai_proposal', 'faculty_final']);
+
+/**
+ * The only case shape a student command or student read may hydrate from durable storage.
+ * Protected faculty state, invitation bindings, mentor assignments, and the protected version
+ * history are deliberately not members of this schema.
+ */
+export const STUDENT_SAFE_CASE_SCHEMA = 'missionmed.lor.student-safe-case.v1';
+export const STUDENT_SAFE_CASE_FIELDS = deepFreeze([
+  'schemaVersion',
+  'id',
+  'studentId',
+  'status',
+  'revision',
+  'createdAt',
+  'updatedAt',
+  'closedAt',
+  'builder',
+  'studentEvidence',
+  'applicantOptions',
+  'consentReceipts',
+  'waiverReceipts',
+  'delivery',
+  'releasedDocument',
+]);
+
+/** The database mentor read is intentionally five fields and nothing else. */
+export const MENTOR_CASE_PROJECTION_FIELDS = deepFreeze([
+  'caseId',
+  'status',
+  'strategyStatus',
+  'nextMilestone',
+  'deliveryStatus',
+]);
+
+/**
+ * The durable faculty boundary preserves the established production transport shape while
+ * excluding the full aggregate, invitation/OTP rows, protected history, and student builder.
+ */
+export const FACULTY_CASE_PROJECTION_SCHEMA = 'missionmed.lor.faculty-projection.v1';
+export const FACULTY_CASE_PROJECTION_FIELDS = deepFreeze([
+  'schemaVersion',
+  'caseId',
+  'revision',
+  'status',
+  'studentShared',
+  'facultyPrivate',
+  'delivery',
+]);
+
+const STUDENT_SAFE_BUILDER_FIELDS = deepFreeze([
+  'sessionId',
+  'totalSteps',
+  'completedStepIds',
+  'currentStepId',
+  'stepData',
+  'autosavedAt',
+]);
+const STUDENT_SAFE_DELIVERY_FIELDS = deepFreeze(['status', 'destinationClass', 'deliveredAt']);
+const STUDENT_SAFE_RELEASE_FIELDS = deepFreeze([
+  'finalDocument',
+  'facultyApproval',
+  'release',
+  'snapshotHash',
+]);
+const STUDENT_SAFE_RELEASED_DOCUMENT_FIELDS = deepFreeze([
+  'id',
+  'text',
+  'contentHash',
+  'mimeType',
+  'releasedToStudentAt',
+]);
+const STUDENT_SAFE_FACULTY_APPROVAL_FIELDS = deepFreeze([
+  'approved',
+  'approvedAt',
+  'facultyRef',
+  'signatureAttested',
+]);
+const STUDENT_SAFE_RELEASE_BINDING_FIELDS = deepFreeze([
+  'documentId',
+  'documentHash',
+  'releasedAt',
+  'releasedAtRevision',
+  'waiverReceiptId',
+]);
+const STUDENT_SAFE_CONSENT_RECEIPT_FIELDS = deepFreeze([
+  'schemaVersion',
+  'id',
+  'caseId',
+  'actorId',
+  'scopes',
+  'policyVersion',
+  'recordedAt',
+  'receiptHash',
+]);
+const STUDENT_SAFE_WAIVER_RECEIPT_FIELDS = deepFreeze([
+  'schemaVersion',
+  'id',
+  'caseId',
+  'actorId',
+  'waived',
+  'policyVersion',
+  'priorReceiptId',
+  'acknowledgment',
+  'recordedAt',
+  'receiptHash',
+]);
+const FACULTY_STUDENT_SHARED_FIELDS = deepFreeze([
+  'evidence',
+  'applicantOptions',
+  'consentReceipts',
+  'waiverState',
+]);
+const FACULTY_WAIVER_STATE_FIELDS = deepFreeze(['decided', 'waived', 'receiptId']);
 
 /**
  * `releasedToStudentAt` is deliberately absent from the content fields. It is not content, it is
@@ -198,13 +312,27 @@ function versionEntry({ revision, eventType, actorId, occurredAt, changes }) {
   });
 }
 
+/**
+ * Build the metadata-only entry that a protected version-history row appends in the database.
+ * Student-safe state never contains the history itself; callers pass this value beside the
+ * state so the command function can append it without accepting any prior protected entries.
+ */
+export function createRecommendationCaseVersionEntry(input) {
+  const entry = assertPlainObject(input, 'version entry input');
+  if (!Number.isSafeInteger(entry.revision) || entry.revision < 0) {
+    throw new ValidationError('Version entry revision must be a non-negative integer');
+  }
+  assertPlainObject(entry.changes, 'version entry changes');
+  return versionEntry(entry);
+}
+
 export function createRecommendationCase({
   id,
   studentId,
   actorId = studentId,
   now = new Date(),
   builderSessionId,
-  idFactory,
+  idFactory = undefined,
 }) {
   assertNonEmptyString(id, 'id', { maxLength: 200 });
   assertNonEmptyString(studentId, 'studentId', { maxLength: 200 });
@@ -271,6 +399,629 @@ export function createRecommendationCase({
     }),
   );
   return deepFreeze(initial);
+}
+
+function assertStudentSafeBuilder(builder, caseId) {
+  if (!hasExactKeys(builder, STUDENT_SAFE_BUILDER_FIELDS)) {
+    throw new DomainInvariantError('Student-safe builder must contain exactly its canonical fields');
+  }
+  assertNonEmptyString(builder.sessionId, 'builder.sessionId', { maxLength: 200 });
+  if (builder.sessionId === caseId) {
+    throw new DomainInvariantError('Case and protected builder identifiers must be distinct');
+  }
+  if (builder.totalSteps !== BUILDER_STEPS.length) {
+    throw new DomainInvariantError('Every builder session must have exactly eight steps');
+  }
+  const completed = builder.completedStepIds;
+  if (!Array.isArray(completed) || completed.some((step, index) => step !== BUILDER_STEPS[index])) {
+    throw new DomainInvariantError('Builder steps must be completed once and in canonical order');
+  }
+  if (builder.currentStepId !== (BUILDER_STEPS[completed.length] ?? null)) {
+    throw new DomainInvariantError('Builder current step must equal the next canonical step');
+  }
+  if (
+    !builder.stepData
+    || typeof builder.stepData !== 'object'
+    || Array.isArray(builder.stepData)
+    || Object.keys(builder.stepData).some((stepId) => !BUILDER_STEPS.includes(stepId))
+    || completed.some((stepId) => !(stepId in builder.stepData))
+  ) {
+    throw new DomainInvariantError('Builder step data must use canonical step identifiers');
+  }
+  for (const value of Object.values(builder.stepData)) validateStepData(value);
+  if (builder.autosavedAt !== null) toIso(builder.autosavedAt, 'builder.autosavedAt');
+}
+
+function assertStudentSafeReceipt(receipt, { caseId, studentId, receiptType }) {
+  const expectedSchema = `missionmed.lor.${receiptType}-receipt.v1`;
+  const expectedFields = receiptType === 'consent'
+    ? STUDENT_SAFE_CONSENT_RECEIPT_FIELDS
+    : STUDENT_SAFE_WAIVER_RECEIPT_FIELDS;
+  if (
+    !hasExactKeys(receipt, expectedFields)
+    || receipt.schemaVersion !== expectedSchema
+    || receipt.caseId !== caseId
+    || receipt.actorId !== studentId
+  ) {
+    throw new DomainInvariantError('Student-safe receipt must match its case, student, type, and schema');
+  }
+  assertNonEmptyString(receipt.id, `${receiptType} receipt id`, { maxLength: 200 });
+  assertNonEmptyString(receipt.policyVersion, `${receiptType} receipt policyVersion`, { maxLength: 200 });
+  if (receiptType === 'consent') {
+    if (
+      !Array.isArray(receipt.scopes)
+      || receipt.scopes.length === 0
+      || receipt.scopes.some((scope) => typeof scope !== 'string' || scope.length === 0)
+    ) {
+      throw new DomainInvariantError('Consent receipt scopes must be non-empty strings');
+    }
+  } else {
+    if (typeof receipt.waived !== 'boolean') {
+      throw new DomainInvariantError('Waiver receipt decision must be explicit');
+    }
+    if (receipt.priorReceiptId !== null) {
+      assertNonEmptyString(receipt.priorReceiptId, 'waiver receipt priorReceiptId', { maxLength: 200 });
+    }
+    assertNonEmptyString(receipt.acknowledgment, 'waiver receipt acknowledgment', { maxLength: 2_000 });
+  }
+  toIso(receipt.recordedAt, `${receiptType} receipt recordedAt`);
+  const receiptPayload = Object.fromEntries(
+    Object.entries(receipt).filter(([key]) => key !== 'receiptHash'),
+  );
+  if (receipt.receiptHash !== hashValue(receiptPayload)) {
+    throw new DomainInvariantError('Student-safe receipt integrity hash is invalid');
+  }
+}
+
+function assertStudentSafeReceipts(record) {
+  if (!Array.isArray(record.consentReceipts) || !Array.isArray(record.waiverReceipts)) {
+    throw new DomainInvariantError('Consent and waiver receipts must be append-only arrays');
+  }
+  const knownIds = new Set();
+  for (const receipt of record.consentReceipts) {
+    assertStudentSafeReceipt(receipt, {
+      caseId: record.id,
+      studentId: record.studentId,
+      receiptType: 'consent',
+    });
+    if (knownIds.has(receipt.id)) throw new DomainInvariantError('Receipt IDs must be unique');
+    knownIds.add(receipt.id);
+  }
+  for (const receipt of record.waiverReceipts) {
+    assertStudentSafeReceipt(receipt, {
+      caseId: record.id,
+      studentId: record.studentId,
+      receiptType: 'waiver',
+    });
+    if (knownIds.has(receipt.id)) throw new DomainInvariantError('Receipt IDs must be unique');
+    knownIds.add(receipt.id);
+  }
+  // This also validates the explicit, chronological supersession chain.
+  currentWaiverState(record.waiverReceipts);
+}
+
+function assertStudentSafeReleasedDocument(releasedDocument, record) {
+  if (releasedDocument === null) return;
+  if (!hasExactKeys(releasedDocument, STUDENT_SAFE_RELEASE_FIELDS)) {
+    throw new DomainInvariantError('Released student document must contain exactly its canonical fields');
+  }
+  const { finalDocument, facultyApproval, release, snapshotHash } = releasedDocument;
+  if (!hasExactKeys(finalDocument, STUDENT_SAFE_RELEASED_DOCUMENT_FIELDS)) {
+    throw new DomainInvariantError('Released final document must contain exactly its canonical fields');
+  }
+  for (const field of ['id', 'text', 'contentHash', 'mimeType']) {
+    if (finalDocument[field] !== null && typeof finalDocument[field] !== 'string') {
+      throw new DomainInvariantError(`Released finalDocument.${field} must be a string or null`);
+    }
+  }
+  toIso(finalDocument.releasedToStudentAt, 'released finalDocument.releasedToStudentAt');
+  if (
+    !hasExactKeys(facultyApproval, STUDENT_SAFE_FACULTY_APPROVAL_FIELDS)
+    || facultyApproval.approved !== true
+    || facultyApproval.signatureAttested !== true
+  ) {
+    throw new DomainInvariantError('Released document requires an approved, attested faculty approval');
+  }
+  if (!/^faculty_[a-f0-9]{64}$/u.test(facultyApproval.facultyRef ?? '')) {
+    throw new DomainInvariantError('Faculty approval must expose only a pseudonymous faculty reference');
+  }
+  toIso(facultyApproval.approvedAt, 'facultyApproval.approvedAt');
+  if (!hasExactKeys(release, STUDENT_SAFE_RELEASE_BINDING_FIELDS)) {
+    throw new DomainInvariantError('Released document binding must contain exactly its canonical fields');
+  }
+  assertNonEmptyString(release.documentId, 'release.documentId', { maxLength: 200 });
+  assertNonEmptyString(release.waiverReceiptId, 'release.waiverReceiptId', { maxLength: 200 });
+  if (!/^[a-f0-9]{64}$/u.test(release.documentHash ?? '')) {
+    throw new DomainInvariantError('Released document binding must contain a SHA-256 document hash');
+  }
+  if (!Number.isSafeInteger(release.releasedAtRevision) || release.releasedAtRevision < 0) {
+    throw new DomainInvariantError('Released document revision must be a non-negative integer');
+  }
+  toIso(release.releasedAt, 'release.releasedAt');
+  if (
+    release.documentId !== finalDocument.id
+    || release.documentHash !== finalDocumentContentHash(finalDocument)
+    || release.releasedAt !== finalDocument.releasedToStudentAt
+    || release.releasedAtRevision > record.revision
+  ) {
+    throw new DomainInvariantError('Released document is not bound to the exact visible version');
+  }
+  if (!/^[a-f0-9]{64}$/u.test(snapshotHash ?? '')) {
+    throw new DomainInvariantError('Released document snapshot hash must be a SHA-256 digest');
+  }
+  const waiver = currentWaiverState(record.waiverReceipts);
+  const releaseWaiver = record.waiverReceipts.find((receipt) => receipt.id === release.waiverReceiptId);
+  if (waiver.decided !== true || waiver.waived !== false || releaseWaiver?.waived !== false) {
+    throw new DomainInvariantError('Released document visibility requires a current non-waiver decision');
+  }
+}
+
+/** Validate, without hydrating or consulting any protected aggregate fields. */
+export function assertStudentSafeRecommendationCase(record) {
+  if (!hasExactKeys(record, STUDENT_SAFE_CASE_FIELDS) || record.schemaVersion !== STUDENT_SAFE_CASE_SCHEMA) {
+    throw new DomainInvariantError('Unsupported student-safe recommendation case schema');
+  }
+  assertNonEmptyString(record.id, 'id', { maxLength: 200 });
+  assertNonEmptyString(record.studentId, 'studentId', { maxLength: 200 });
+  if (!CASE_STATUSES.includes(record.status)) {
+    throw new DomainInvariantError('Invalid recommendation case status');
+  }
+  if (!Number.isSafeInteger(record.revision) || record.revision < 0) {
+    throw new DomainInvariantError('Revision must be a non-negative integer');
+  }
+  const createdAt = toIso(record.createdAt, 'createdAt');
+  const updatedAt = toIso(record.updatedAt, 'updatedAt');
+  if (new Date(updatedAt).valueOf() < new Date(createdAt).valueOf()) {
+    throw new DomainInvariantError('Recommendation case cannot be updated before it is created');
+  }
+  if ((record.status === 'closed') !== (record.closedAt !== null)) {
+    throw new DomainInvariantError('closedAt must exist only for closed cases');
+  }
+  if (record.closedAt !== null) toIso(record.closedAt, 'closedAt');
+  assertStudentSafeBuilder(record.builder, record.id);
+  if (!Array.isArray(record.studentEvidence) || !Array.isArray(record.applicantOptions)) {
+    throw new DomainInvariantError('Student evidence and applicant options must be arrays');
+  }
+  if (!hasExactKeys(record.delivery, STUDENT_SAFE_DELIVERY_FIELDS)) {
+    throw new DomainInvariantError('Student-safe delivery must contain exactly its canonical fields');
+  }
+  assertNonEmptyString(record.delivery.status, 'delivery.status', { maxLength: 100 });
+  for (const field of ['destinationClass', 'deliveredAt']) {
+    if (record.delivery[field] !== null && typeof record.delivery[field] !== 'string') {
+      throw new DomainInvariantError(`delivery.${field} must be a string or null`);
+    }
+  }
+  if (record.delivery.deliveredAt !== null) toIso(record.delivery.deliveredAt, 'delivery.deliveredAt');
+  assertStudentSafeReceipts(record);
+  assertStudentSafeReleasedDocument(record.releasedDocument, record);
+  return record;
+}
+
+function studentSafeReleaseFromAggregate(record) {
+  const waiver = currentWaiverState(record.waiverReceipts);
+  const lifecycle = record.finalDocumentState;
+  const sourceDocument = record.facultyPrivate.finalDocument;
+  if (
+    waiver.decided !== true
+    || waiver.waived !== false
+    || lifecycle.release === null
+    || sourceDocument === null
+    || !sourceDocument.releasedToStudentAt
+  ) return null;
+  const finalDocument = releasedFinalDocumentContent(sourceDocument);
+  const facultyApproval = {
+    approved: lifecycle.facultyApproval.approved,
+    approvedAt: lifecycle.facultyApproval.approvedAt,
+    facultyRef: `faculty_${sha256(`lor-studio:faculty:${lifecycle.facultyApproval.facultyId}`)}`,
+    signatureAttested: lifecycle.facultyApproval.signatureAttested,
+  };
+  const release = structuredClone(lifecycle.release);
+  return {
+    finalDocument,
+    facultyApproval,
+    release,
+    snapshotHash: hashValue({ finalDocument, facultyApproval, release }),
+  };
+}
+
+function releasedFinalDocumentContent(finalDocument) {
+  return {
+    id: finalDocument.id ?? null,
+    text: finalDocument.text ?? null,
+    contentHash: finalDocument.contentHash ?? null,
+    mimeType: finalDocument.mimeType ?? null,
+    releasedToStudentAt: finalDocument.releasedToStudentAt,
+  };
+}
+
+/** Convert a trusted full aggregate into the exact student-safe boundary shape. */
+export function toStudentSafeRecommendationCase(record) {
+  assertRecommendationCase(record);
+  const safe = {
+    schemaVersion: STUDENT_SAFE_CASE_SCHEMA,
+    id: record.id,
+    studentId: record.studentId,
+    status: record.status,
+    revision: record.revision,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    closedAt: record.closedAt,
+    builder: structuredClone(record.builder),
+    studentEvidence: structuredClone(record.studentEvidence),
+    applicantOptions: structuredClone(record.applicantOptions),
+    consentReceipts: structuredClone(record.consentReceipts),
+    waiverReceipts: structuredClone(record.waiverReceipts),
+    delivery: structuredClone(record.delivery),
+    releasedDocument: studentSafeReleaseFromAggregate(record),
+  };
+  assertStudentSafeRecommendationCase(safe);
+  return deepFreeze(safe);
+}
+
+/** Build revision zero without ever constructing faculty-private or strategy state. */
+export function createStudentSafeRecommendationCase({
+  id,
+  studentId,
+  actorId = studentId,
+  now = new Date(),
+  builderSessionId,
+  idFactory = undefined,
+}) {
+  assertNonEmptyString(id, 'id', { maxLength: 200 });
+  assertNonEmptyString(studentId, 'studentId', { maxLength: 200 });
+  assertNonEmptyString(actorId, 'actorId', { maxLength: 200 });
+  const timestamp = toIso(now, 'now');
+  const resolvedBuilderSessionId = builderSessionId ?? makeId('builder', idFactory);
+  assertNonEmptyString(resolvedBuilderSessionId, 'builderSessionId', { maxLength: 200 });
+  const state = {
+    schemaVersion: STUDENT_SAFE_CASE_SCHEMA,
+    id,
+    studentId,
+    status: 'draft',
+    revision: 0,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    closedAt: null,
+    builder: {
+      sessionId: resolvedBuilderSessionId,
+      totalSteps: BUILDER_STEPS.length,
+      completedStepIds: [],
+      currentStepId: BUILDER_STEPS[0],
+      stepData: {},
+      autosavedAt: null,
+    },
+    studentEvidence: [],
+    applicantOptions: [],
+    consentReceipts: [],
+    waiverReceipts: [],
+    delivery: {
+      status: 'not_started',
+      destinationClass: null,
+      deliveredAt: null,
+    },
+    releasedDocument: null,
+  };
+  assertStudentSafeRecommendationCase(state);
+  return deepFreeze({
+    state: deepFreeze(state),
+    versionEntry: createRecommendationCaseVersionEntry({
+      revision: 0,
+      eventType: 'case.created',
+      actorId,
+      occurredAt: timestamp,
+      changes: { status: 'draft', studentId },
+    }),
+  });
+}
+
+function mutateStudentSafeRecommendationCase(record, {
+  actorId,
+  eventType,
+  changes,
+  versionChanges = changes,
+  now = new Date(),
+}) {
+  assertStudentSafeRecommendationCase(record);
+  assertNonEmptyString(actorId, 'actorId', { maxLength: 200 });
+  assertNonEmptyString(eventType, 'eventType', { maxLength: 100 });
+  assertPlainObject(changes, 'changes');
+  assertPlainObject(versionChanges, 'version changes');
+  if (TERMINAL_STATUSES.has(record.status)) {
+    throw new DomainInvariantError('Terminal recommendation cases are immutable');
+  }
+  const timestamp = toIso(now, 'now');
+  const next = structuredClone(record);
+  for (const [field, value] of Object.entries(changes)) next[field] = structuredClone(value);
+  next.revision = record.revision + 1;
+  next.updatedAt = timestamp;
+  assertStudentSafeRecommendationCase(next);
+  return deepFreeze({
+    state: deepFreeze(next),
+    versionEntry: createRecommendationCaseVersionEntry({
+      revision: next.revision,
+      eventType,
+      actorId,
+      occurredAt: timestamp,
+      changes: versionChanges,
+    }),
+  });
+}
+
+export function autosaveStudentSafeBuilderStep(record, {
+  actorId,
+  stepId,
+  stepData,
+  now = new Date(),
+}) {
+  assertStudentSafeRecommendationCase(record);
+  if (record.status !== 'draft') {
+    throw new DomainInvariantError('The student builder is locked after faculty invitation');
+  }
+  if (!BUILDER_STEPS.includes(stepId)) throw new ValidationError('Unknown builder step');
+  const completed = record.builder.completedStepIds;
+  if (BUILDER_STEPS.indexOf(stepId) > completed.length) {
+    throw new DomainInvariantError('Builder steps cannot be skipped');
+  }
+  const timestamp = toIso(now, 'now');
+  const builder = structuredClone(record.builder);
+  builder.stepData[stepId] = validateStepData(stepData);
+  builder.currentStepId = BUILDER_STEPS[completed.length] ?? null;
+  builder.autosavedAt = timestamp;
+  return mutateStudentSafeRecommendationCase(record, {
+    actorId,
+    eventType: 'builder.autosaved',
+    changes: { builder },
+    now: new Date(timestamp),
+  });
+}
+
+export function completeStudentSafeBuilderStep(record, {
+  actorId,
+  stepId,
+  now = new Date(),
+}) {
+  assertStudentSafeRecommendationCase(record);
+  if (record.status !== 'draft') {
+    throw new DomainInvariantError('The student builder is locked after faculty invitation');
+  }
+  const expectedStep = BUILDER_STEPS[record.builder.completedStepIds.length];
+  if (stepId !== expectedStep) {
+    throw new DomainInvariantError('Only the next canonical builder step may be completed');
+  }
+  if (!(stepId in record.builder.stepData)) {
+    throw new DomainInvariantError('A builder step must be autosaved before completion');
+  }
+  const builder = structuredClone(record.builder);
+  builder.completedStepIds.push(stepId);
+  builder.currentStepId = BUILDER_STEPS[builder.completedStepIds.length] ?? null;
+  builder.autosavedAt = toIso(now, 'now');
+  return mutateStudentSafeRecommendationCase(record, {
+    actorId,
+    eventType: 'builder.step_completed',
+    changes: { builder },
+    now,
+  });
+}
+
+export function appendStudentSafeReceipt(record, {
+  actorId,
+  receiptType,
+  receipt,
+  now = new Date(),
+}) {
+  assertStudentSafeRecommendationCase(record);
+  if (!['consent', 'waiver'].includes(receiptType)) throw new ValidationError('Unknown receipt type');
+  assertStudentSafeReceipt(receipt, {
+    caseId: record.id,
+    studentId: record.studentId,
+    receiptType,
+  });
+  const field = receiptType === 'consent' ? 'consentReceipts' : 'waiverReceipts';
+  if (record[field].some((item) => item.id === receipt.id)) {
+    throw new DomainInvariantError('Receipt IDs are append-only and unique');
+  }
+  const receipts = [...record[field], cloneFrozen(receipt)];
+  if (receiptType === 'waiver') currentWaiverState(receipts);
+  const changes = { [field]: receipts };
+  // A newly waived student must not carry previously released wording back through p_state.
+  if (receiptType === 'waiver' && receipt.waived === true && record.releasedDocument !== null) {
+    changes.releasedDocument = null;
+  }
+  return mutateStudentSafeRecommendationCase(record, {
+    actorId,
+    eventType: `${receiptType}.recorded`,
+    changes,
+    versionChanges: { [field]: receipts },
+    now,
+  });
+}
+
+export function studentSafeBuilderProgress(record) {
+  assertStudentSafeRecommendationCase(record);
+  const completedSteps = record.builder.completedStepIds.length;
+  return deepFreeze({
+    sessionId: record.builder.sessionId,
+    completedSteps,
+    totalSteps: BUILDER_STEPS.length,
+    percent: Math.round((completedSteps / BUILDER_STEPS.length) * 100),
+    nextStepId: BUILDER_STEPS[completedSteps] ?? null,
+    autosavedAt: record.builder.autosavedAt,
+  });
+}
+
+/** Preserve the established student HTTP projection without a full aggregate read. */
+export function projectStudentSafeCase(record) {
+  assertStudentSafeRecommendationCase(record);
+  const waiver = currentWaiverState(record.waiverReceipts);
+  const finalDocument = waiver.decided && waiver.waived === false
+    ? record.releasedDocument?.finalDocument ?? null
+    : null;
+  return deepFreeze({
+    schemaVersion: 'missionmed.lor.student-projection.v1',
+    caseId: record.id,
+    revision: record.revision,
+    status: record.status,
+    builder: cloneFrozen(record.builder),
+    studentEvidence: cloneFrozen(record.studentEvidence),
+    applicantOptions: cloneFrozen(record.applicantOptions),
+    consentReceipts: cloneFrozen(record.consentReceipts),
+    waiverReceipts: cloneFrozen(record.waiverReceipts),
+    delivery: cloneFrozen(record.delivery),
+    finalDocument: finalDocument === null ? null : cloneFrozen(finalDocument),
+  });
+}
+
+function assertProjectionObjectArray(value, fieldName) {
+  if (
+    !Array.isArray(value)
+    || value.some((item) => !item || typeof item !== 'object' || Array.isArray(item))
+  ) {
+    throw new DomainInvariantError(`${fieldName} must contain objects only`);
+  }
+}
+
+/** Validate the exact seven-field DTO returned by the durable faculty projection function. */
+export function assertFacultyCaseProjection(projection) {
+  if (
+    !hasExactKeys(projection, FACULTY_CASE_PROJECTION_FIELDS)
+    || projection.schemaVersion !== FACULTY_CASE_PROJECTION_SCHEMA
+  ) {
+    throw new DomainInvariantError('Faculty case projection must contain exactly seven canonical fields');
+  }
+  assertNonEmptyString(projection.caseId, 'faculty projection caseId', { maxLength: 200 });
+  if (!Number.isSafeInteger(projection.revision) || projection.revision < 0) {
+    throw new DomainInvariantError('Faculty projection revision must be a non-negative integer');
+  }
+  if (!CASE_STATUSES.includes(projection.status)) {
+    throw new DomainInvariantError('Faculty projection status must be canonical');
+  }
+
+  const shared = projection.studentShared;
+  if (!hasExactKeys(shared, FACULTY_STUDENT_SHARED_FIELDS)) {
+    throw new DomainInvariantError('Faculty studentShared projection is outside its exact allowlist');
+  }
+  assertProjectionObjectArray(shared.evidence, 'Faculty projection evidence');
+  assertProjectionObjectArray(shared.applicantOptions, 'Faculty projection applicantOptions');
+  if (!Array.isArray(shared.consentReceipts)) {
+    throw new DomainInvariantError('Faculty projection consentReceipts must be an array');
+  }
+  const consentActors = new Set();
+  for (const receipt of shared.consentReceipts) {
+    if (!/^wp:[1-9][0-9]*$/u.test(receipt?.actorId ?? '')) {
+      throw new DomainInvariantError('Faculty projection consent receipt actor must be canonical');
+    }
+    assertStudentSafeReceipt(receipt, {
+      caseId: projection.caseId,
+      studentId: receipt.actorId,
+      receiptType: 'consent',
+    });
+    consentActors.add(receipt.actorId);
+  }
+  if (consentActors.size > 1) {
+    throw new DomainInvariantError('Faculty projection consent receipts cannot cross students');
+  }
+
+  const waiverState = shared.waiverState;
+  if (!hasExactKeys(waiverState, FACULTY_WAIVER_STATE_FIELDS)) {
+    throw new DomainInvariantError('Faculty waiver state must contain exactly its canonical fields');
+  }
+  if (
+    typeof waiverState.decided !== 'boolean'
+    || (waiverState.decided === false && (
+      waiverState.waived !== null
+      || waiverState.receiptId !== null
+    ))
+    || (waiverState.decided === true && (
+      typeof waiverState.waived !== 'boolean'
+      || typeof waiverState.receiptId !== 'string'
+      || waiverState.receiptId.trim() === ''
+    ))
+  ) {
+    throw new DomainInvariantError('Faculty projection waiver state is invalid');
+  }
+
+  const privateState = projection.facultyPrivate;
+  if (!hasExactKeys(privateState, FACULTY_PRIVATE_FIELDS)) {
+    throw new DomainInvariantError('Faculty-private projection is outside its exact allowlist');
+  }
+  assertProjectionObjectArray(privateState.answers, 'Faculty-private answers');
+  assertProjectionObjectArray(privateState.notes, 'Faculty-private notes');
+  if (privateState.draftText !== null && typeof privateState.draftText !== 'string') {
+    throw new DomainInvariantError('Faculty-private draft text must be a string or null');
+  }
+  if (privateState.finalDocument !== null) {
+    if (!hasExactKeys(privateState.finalDocument, FINAL_DOCUMENT_FIELDS)) {
+      throw new DomainInvariantError('Faculty final document must contain exactly its canonical fields');
+    }
+    for (const field of FINAL_DOCUMENT_FIELDS) {
+      if (privateState.finalDocument[field] !== null && typeof privateState.finalDocument[field] !== 'string') {
+        throw new DomainInvariantError(`Faculty finalDocument.${field} must be a string or null`);
+      }
+    }
+    if (privateState.finalDocument.releasedToStudentAt !== null) {
+      toIso(
+        privateState.finalDocument.releasedToStudentAt,
+        'faculty projection finalDocument.releasedToStudentAt',
+      );
+    }
+  }
+
+  if (!hasExactKeys(projection.delivery, STUDENT_SAFE_DELIVERY_FIELDS)) {
+    throw new DomainInvariantError('Faculty delivery projection must contain exactly its canonical fields');
+  }
+  assertNonEmptyString(projection.delivery.status, 'faculty projection delivery.status', {
+    maxLength: 100,
+  });
+  for (const field of ['destinationClass', 'deliveredAt']) {
+    if (projection.delivery[field] !== null && typeof projection.delivery[field] !== 'string') {
+      throw new DomainInvariantError(`Faculty delivery.${field} must be a string or null`);
+    }
+  }
+  if (projection.delivery.deliveredAt !== null) {
+    toIso(projection.delivery.deliveredAt, 'faculty projection delivery.deliveredAt');
+  }
+  return projection;
+}
+
+/** Convert a trusted full aggregate to the established faculty transport without extra custody. */
+export function toFacultyCaseProjection(record) {
+  assertRecommendationCase(record);
+  const projection = {
+    schemaVersion: FACULTY_CASE_PROJECTION_SCHEMA,
+    caseId: record.id,
+    revision: record.revision,
+    status: record.status,
+    studentShared: {
+      evidence: structuredClone(record.studentEvidence),
+      applicantOptions: structuredClone(record.applicantOptions),
+      consentReceipts: structuredClone(record.consentReceipts),
+      waiverState: currentWaiverState(record.waiverReceipts),
+    },
+    facultyPrivate: structuredClone(record.facultyPrivate),
+    delivery: structuredClone(record.delivery),
+  };
+  assertFacultyCaseProjection(projection);
+  return deepFreeze(projection);
+}
+
+export function assertMentorCaseProjection(projection) {
+  if (!hasExactKeys(projection, MENTOR_CASE_PROJECTION_FIELDS)) {
+    throw new DomainInvariantError('Mentor case projection must contain exactly five fields');
+  }
+  assertNonEmptyString(projection.caseId, 'mentor projection caseId', { maxLength: 200 });
+  if (!CASE_STATUSES.includes(projection.status)) {
+    throw new DomainInvariantError('Mentor projection status must be canonical');
+  }
+  if (projection.strategyStatus !== null && !STRATEGY_STATUSES.includes(projection.strategyStatus)) {
+    throw new DomainInvariantError('Mentor projection strategyStatus must be canonical');
+  }
+  if (projection.nextMilestone !== null && !STRATEGY_MILESTONES.includes(projection.nextMilestone)) {
+    throw new DomainInvariantError('Mentor projection nextMilestone must be canonical');
+  }
+  if (projection.deliveryStatus !== null && typeof projection.deliveryStatus !== 'string') {
+    throw new DomainInvariantError('Mentor projection deliveryStatus must be a string or null');
+  }
+  return projection;
 }
 
 /**

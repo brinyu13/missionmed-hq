@@ -1,7 +1,15 @@
 import { AuthorizationDeniedError, ValidationError } from '../domain/errors.js';
-import { builderProgress } from '../domain/recommendation-case.js';
+import {
+  builderProgress,
+  toFacultyCaseProjection,
+} from '../domain/recommendation-case.js';
 import { currentWaiverState } from '../domain/receipts.js';
-import { assertNonEmptyString, cloneFrozen, deepFreeze, toIso } from '../domain/value-utils.js';
+import {
+  assertNonEmptyString,
+  cloneFrozen,
+  deepFreeze,
+  toIso,
+} from '../domain/value-utils.js';
 import { assertOperationalMetadataGrant } from '../repositories/immutable-administrative-grant-repository.mjs';
 
 export const ACTOR_ROLES = deepFreeze([
@@ -40,7 +48,30 @@ const FACULTY_ACTIONS = new Set([
   'approve_letter',
   'release_letter',
 ]);
+const FACULTY_PRIVATE_MUTATION_BLOCKED_STATUSES = new Set([
+  'delivered',
+  'closed',
+  'cancelled',
+]);
 const OPERATIONAL_ROLES = new Set(['admin', 'founder', 'support']);
+
+export const TRUSTED_STUDENT_AUTHORIZATION_SCHEMA =
+  'missionmed.lor.trusted-student-authorization.v1';
+export const TRUSTED_STUDENT_AUTHORIZATION_FIELDS = deepFreeze([
+  'schemaVersion',
+  'authoritySource',
+  'entitlementVerified',
+  'lorEnabled',
+  'canaryAuthorized',
+  'clientAsserted',
+]);
+
+function hasExactAuthorizationKeys(value, fields) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const actual = Object.keys(value).sort();
+  const expected = [...fields].sort();
+  return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+}
 
 /**
  * @param {Record<string, unknown> | null | undefined} record
@@ -78,6 +109,52 @@ export function evaluateStudentEntitlement(record, {
     return deepFreeze({ allowed: false, reasonCode: 'CANARY_CONSENT_MISSING' });
   }
   return deepFreeze({ allowed: true, reasonCode: null });
+}
+
+/**
+ * Resolve the three database-enforced student axes only from the trusted entitlement adapter.
+ * This envelope is never accepted from an HTTP body. The service mints it after a fresh
+ * request-time lookup and the durable repository validates it before mapping the booleans to
+ * transaction-local PostgreSQL settings.
+ *
+ * @param {Record<string, unknown> | null | undefined} entitlement
+ * @param {{ studentId?: string, requireCanary?: boolean }} [options]
+ */
+export function resolveTrustedStudentAuthorization(entitlement, {
+  studentId,
+  requireCanary = false,
+} = {}) {
+  assertNonEmptyString(studentId, 'studentId', { maxLength: 200 });
+  const decision = evaluateStudentEntitlement(entitlement, { studentId, requireCanary });
+  if (!decision.allowed) throw new AuthorizationDeniedError(decision.reasonCode);
+  return deepFreeze({
+    schemaVersion: TRUSTED_STUDENT_AUTHORIZATION_SCHEMA,
+    authoritySource: 'server_verified_entitlement',
+    entitlementVerified: true,
+    lorEnabled: entitlement.lorEnabled === true,
+    // `true` means the current server policy authorizes this request. In a non-canary
+    // environment there is no canary precondition; in a canary environment both verified
+    // producer flags are required by evaluateStudentEntitlement above.
+    canaryAuthorized: requireCanary !== true
+      || (entitlement.canaryEnabled === true && entitlement.canaryConsented === true),
+    clientAsserted: false,
+  });
+}
+
+export function assertTrustedStudentAuthorization(value) {
+  const authorization = value;
+  if (
+    !hasExactAuthorizationKeys(authorization, TRUSTED_STUDENT_AUTHORIZATION_FIELDS)
+    || authorization.schemaVersion !== TRUSTED_STUDENT_AUTHORIZATION_SCHEMA
+    || authorization.authoritySource !== 'server_verified_entitlement'
+    || authorization.entitlementVerified !== true
+    || authorization.lorEnabled !== true
+    || authorization.canaryAuthorized !== true
+    || authorization.clientAsserted !== false
+  ) {
+    throw new AuthorizationDeniedError('TRUSTED_STUDENT_AUTHORIZATION_INVALID');
+  }
+  return authorization;
 }
 
 function assertActor(actor) {
@@ -183,6 +260,12 @@ export function authorizeCaseAction({
       throw new AuthorizationDeniedError('FACULTY_RECIPIENT_BINDING_MISMATCH');
     }
     if (!FACULTY_ACTIONS.has(action)) throw new AuthorizationDeniedError('ROLE_ACTION_DENIED');
+    if (
+      action === 'write_faculty_private'
+      && FACULTY_PRIVATE_MUTATION_BLOCKED_STATUSES.has(caseRecord.status)
+    ) {
+      throw new AuthorizationDeniedError('CASE_STATUS_DENIED');
+    }
   } else if (actor.role === 'mentor') {
     requireEligibleCase(entitlement, caseRecord, requireCanary);
     const mentorIds = caseRecord.strategyMetadata?.mentorIds;
@@ -327,20 +410,7 @@ export function projectCaseForActor({
       requireCanary,
       now,
     });
-    return deepFreeze({
-      schemaVersion: 'missionmed.lor.faculty-projection.v1',
-      caseId: caseRecord.id,
-      revision: caseRecord.revision,
-      status: caseRecord.status,
-      studentShared: {
-        evidence: cloneFrozen(caseRecord.studentEvidence),
-        applicantOptions: cloneFrozen(caseRecord.applicantOptions),
-        consentReceipts: cloneFrozen(caseRecord.consentReceipts),
-        waiverState: currentWaiverState(caseRecord.waiverReceipts),
-      },
-      facultyPrivate: cloneFrozen(caseRecord.facultyPrivate),
-      delivery: permittedDeliveryProjection(caseRecord),
-    });
+    return toFacultyCaseProjection(caseRecord);
   }
 
   if (actor.role === 'mentor') {

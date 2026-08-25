@@ -125,7 +125,7 @@ function assertNotDenied(configuration) {
  * binding. Throws on absent, partial, malformed, unratified, or denied
  * configuration. It never returns a default and never infers a target.
  *
- * @param {LorTargetConfiguration} [configuration]
+ * @param {LorTargetConfiguration} [rawConfiguration]
  * @returns {Readonly<Record<string, unknown>>}
  */
 export function resolveLorTargetBinding(rawConfiguration) {
@@ -223,7 +223,7 @@ export function resolveLorTargetBinding(rawConfiguration) {
   // nothing is registered and no binding escapes.
   assertNotDenied(binding);
   VALIDATED_BINDINGS.add(binding);
-  return binding;
+  return /** @type {Readonly<Record<string, unknown>>} */ (binding);
 }
 
 /**
@@ -239,7 +239,7 @@ export function assertValidatedLorTargetBinding(binding, integration) {
   if (!binding || typeof binding !== 'object' || !VALIDATED_BINDINGS.has(binding)) {
     throw new IntegrationDisabledError(integration, 'VALIDATED_TARGET_BINDING_REQUIRED');
   }
-  return binding;
+  return /** @type {Readonly<Record<string, unknown>>} */ (binding);
 }
 
 /** @param {unknown} value */

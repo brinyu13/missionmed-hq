@@ -18,6 +18,7 @@
 import { DeterministicAiProposalAdapter } from './adapters/deterministic-ai-provider.js';
 import { resolveLorTargetBinding } from './adapters/lor-target-binding.mjs';
 import { createLorApplicationAdapter } from './http/application-adapter.mjs';
+import { SupabaseDurableRecommendationCaseRepository } from './repositories/supabase-durable-recommendation-case-repository.mjs';
 import { AiProposalService, createAiDraftingService } from './services/ai-proposal-service.js';
 import { RecommendationCaseService } from './services/recommendation-case-service.js';
 
@@ -155,22 +156,25 @@ export function createLorStudioApplication({
     return { application: null, reason: LOR_COMPOSITION_REASONS.ENTITLEMENT_PORT_UNAVAILABLE, binding };
   }
 
-  let repository;
-  if (testRepository) {
-    // Tests supply an explicit non-durable repository. The adapter still enforces
-    // allowNonDurableForTests, so this cannot silently become a production path.
-    repository = testRepository;
-  } else if (durableRepositoryFactory) {
-    repository = durableRepositoryFactory(binding);
-  } else if (driver && scopeProvider) {
-    return { application: null, reason: LOR_COMPOSITION_REASONS.DURABLE_DRIVER_UNAVAILABLE, binding };
-  } else {
-    // No atomic RLS driver implementation exists yet, so no durable repository can be built.
-    // This is the honest current production state: the wiring below is complete and proven by
-    // integration tests, and it will construct a durable application unchanged the moment a
-    // driver and a ratified target exist.
-    return { application: null, reason: LOR_COMPOSITION_REASONS.DURABLE_DRIVER_UNAVAILABLE, binding };
-  }
+  try {
+    let repository;
+    if (testRepository) {
+      // Tests supply an explicit non-durable repository. The adapter still enforces
+      // allowNonDurableForTests, so this cannot silently become a production path.
+      repository = testRepository;
+    } else if (durableRepositoryFactory) {
+      repository = durableRepositoryFactory(binding);
+    } else if (driver && scopeProvider) {
+      repository = new SupabaseDurableRecommendationCaseRepository({
+        binding,
+        driver,
+        scopeProvider,
+      });
+    } else {
+      // Production does not synthesize a target, SQL executor, scope provider, or credential.
+      // When any one is absent the durable boundary remains visibly disabled.
+      return { application: null, reason: LOR_COMPOSITION_REASONS.DURABLE_DRIVER_UNAVAILABLE, binding };
+    }
 
   // AI DRAFTING PERSISTENCE, gated exactly as durability is gated above.
   //
@@ -193,7 +197,6 @@ export function createLorStudioApplication({
   // operator learns the specific cause rather than inferring it from a generic 503.
   const draftingAvailable = Boolean(aiProposalStore);
 
-  try {
     // The event sink is OMITTED, not passed as null: the service rejects a null sink, and its
     // durable branch forbids a sink outright because a durable repository commits state and
     // audit atomically in one transaction. A non-durable repository has no such transaction and
@@ -256,11 +259,10 @@ export function createLorStudioApplication({
         ? {}
         : { draftingUnavailableReason: LOR_COMPOSITION_REASONS.AI_PROPOSAL_STORE_UNAVAILABLE }),
     };
-  } catch (error) {
+  } catch {
     return {
       application: null,
       reason: LOR_COMPOSITION_REASONS.COMPOSITION_FAILED,
-      detail: error?.message ?? 'unknown',
       binding,
     };
   }

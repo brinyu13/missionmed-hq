@@ -1,5 +1,12 @@
-import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import {
+  lstat,
+  mkdir,
+  open,
+  readFile,
+  rename,
+  unlink,
+} from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,6 +24,7 @@ const defaultSource = '/Users/brianb/MissionMed/F2-LOR-1003-functional-prototype
 const defaultOutput = path.join(runtimeDirectory, 'public', 'lor-studio', 'index.html');
 const defaultManifest = path.join(runtimeDirectory, 'public', 'lor-studio', 'FROZEN_PRESENTATION_MANIFEST.json');
 const MISSING_SOURCE_CODES = new Set(['ENOENT', 'ENOTDIR', 'EISDIR']);
+const MISSING_OUTPUT_CODES = new Set(['ENOENT', 'ENOTDIR']);
 
 export function resolvePrototypeSource(environment = process.env) {
   const configured = environment[PROTOTYPE_SOURCE_ENV_VAR];
@@ -50,6 +58,45 @@ function replaceLast(value, needle, replacement) {
   const index = value.lastIndexOf(needle);
   if (index < 0) throw new Error(`Required closing marker ${needle} was not found.`);
   return `${value.slice(0, index)}${replacement}${value.slice(index + needle.length)}`;
+}
+
+async function writeAtomicallyIfChanged(targetPath, value) {
+  const content = Buffer.isBuffer(value) ? value : Buffer.from(value);
+  let outputMode = 0o644;
+  try {
+    const outputStat = await lstat(targetPath);
+    if (!outputStat.isFile() || outputStat.isSymbolicLink()) {
+      throw new Error(`Refusing unsafe materialization target at ${targetPath}`);
+    }
+    outputMode = outputStat.mode & 0o777;
+    if ((await readFile(targetPath)).equals(content)) return false;
+  } catch (error) {
+    if (!error || !MISSING_OUTPUT_CODES.has(error.code)) throw error;
+  }
+
+  const temporaryPath = path.join(
+    path.dirname(targetPath),
+    `.${path.basename(targetPath)}.${process.pid}.${randomUUID()}.tmp`,
+  );
+  let handle;
+  try {
+    handle = await open(temporaryPath, 'wx', 0o600);
+    await handle.writeFile(content);
+    await handle.sync();
+    await handle.chmod(outputMode);
+    await handle.close();
+    handle = undefined;
+    await rename(temporaryPath, targetPath);
+    return true;
+  } catch (error) {
+    if (handle) await handle.close().catch(() => {});
+    await unlink(temporaryPath).catch((cleanupError) => {
+      if (!cleanupError || cleanupError.code !== 'ENOENT') {
+        Object.defineProperty(error, 'cleanupError', { value: cleanupError });
+      }
+    });
+    throw error;
+  }
 }
 
 export function materializeFrozenPrototype(sourceHtml) {
@@ -110,7 +157,7 @@ export async function materialize({
   const source = await readPrototypeSource(sourcePath);
   const generated = materializeFrozenPrototype(source.toString('utf8'));
   await mkdir(path.dirname(outputPath), { recursive: true });
-  await writeFile(outputPath, generated);
+  await writeAtomicallyIfChanged(outputPath, generated);
   const result = {
     sourceName: path.basename(sourcePath),
     sourceSha256: digest(source),
@@ -120,7 +167,8 @@ export async function materialize({
     adapterVersion: PRODUCTION_ADAPTER_VERSION,
     securityTransforms: ['toast_text_only', 'prototype_script_execution_quarantine'],
   };
-  await writeFile(manifestPath, `${JSON.stringify(result, null, 2)}\n`);
+  await mkdir(path.dirname(manifestPath), { recursive: true });
+  await writeAtomicallyIfChanged(manifestPath, `${JSON.stringify(result, null, 2)}\n`);
   return { sourcePath, outputPath, manifestPath, ...result };
 }
 

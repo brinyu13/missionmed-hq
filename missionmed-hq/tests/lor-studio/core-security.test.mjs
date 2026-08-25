@@ -47,11 +47,14 @@ import {
 } from '../../lor-studio/repositories/immutable-administrative-grant-repository.mjs';
 import {
   CASE_ACTIONS,
+  TRUSTED_STUDENT_AUTHORIZATION_FIELDS,
+  assertTrustedStudentAuthorization,
   assertProjectionOmitsFacultyPrivateContent,
   authorizeCaseAction,
   evaluateStudentEntitlement,
   privilegedAccessAuditInput,
   projectCaseForActor,
+  resolveTrustedStudentAuthorization,
 } from '../../lor-studio/security/authorization-policy.js';
 import {
   FacultyInvitationVerificationService,
@@ -324,6 +327,35 @@ test('entitlement policy denies missing, ineligible, revoked, disabled, and non-
   assert.equal(evaluateStudentEntitlement(eligible(), { studentId: 'student-1' }).allowed, true);
 });
 
+test('trusted student authorization exposes exactly the three server-verified database axes', () => {
+  const authorization = resolveTrustedStudentAuthorization(eligible(), {
+    studentId: 'student-1',
+    requireCanary: true,
+  });
+  assert.deepEqual(Object.keys(authorization), TRUSTED_STUDENT_AUTHORIZATION_FIELDS);
+  assert.deepEqual(
+    {
+      entitlementVerified: authorization.entitlementVerified,
+      lorEnabled: authorization.lorEnabled,
+      canaryAuthorized: authorization.canaryAuthorized,
+      clientAsserted: authorization.clientAsserted,
+    },
+    { entitlementVerified: true, lorEnabled: true, canaryAuthorized: true, clientAsserted: false },
+  );
+  assert.equal(assertTrustedStudentAuthorization(authorization), authorization);
+  assert.throws(
+    () => assertTrustedStudentAuthorization({ ...authorization, clientAsserted: true }),
+    AuthorizationDeniedError,
+  );
+  assert.throws(
+    () => resolveTrustedStudentAuthorization(eligible('student-1', { canaryConsented: false }), {
+      studentId: 'student-1',
+      requireCanary: true,
+    }),
+    AuthorizationDeniedError,
+  );
+});
+
 test('authorization is resource-bound and structural projections enforce the waived/private negative matrix', () => {
   const record = buildPrivateCase({ waived: true });
   const entitlement = eligible(record.studentId);
@@ -499,6 +531,31 @@ test('operational roles are denied every content action and reach metadata only 
       );
     }
   }
+});
+
+test('faculty private and AI-drafting mutations fail closed after delivery', () => {
+  const record = buildPrivateCase({ waived: false });
+  const delivered = { ...record, status: 'delivered' };
+  assert.throws(
+    () => authorizeCaseAction({
+      actor: { id: 'faculty-1', role: 'faculty' },
+      action: 'write_faculty_private',
+      caseRecord: delivered,
+      entitlement: eligible(delivered.studentId),
+      now: T0,
+    }),
+    deniedWith('CASE_STATUS_DENIED'),
+  );
+  assert.equal(
+    authorizeCaseAction({
+      actor: { id: 'faculty-1', role: 'faculty' },
+      action: 'read_faculty_projection',
+      caseRecord: delivered,
+      entitlement: eligible(delivered.studentId),
+      now: T0,
+    }).allowed,
+    true,
+  );
 });
 
 test('an operational metadata grant is case-, actor-, class-, and time-scoped and fails closed', async () => {

@@ -92,10 +92,14 @@ const E2E_TARGET_CONFIGURATION = Object.freeze({
   productionDataBindingPassed: false,
 });
 
-const STUDENT_A = 'wp:lor-e2e-student-a';
-const STUDENT_B = 'wp:lor-e2e-student-b';
-const FACULTY_A = 'wp:lor-e2e-faculty-a';
-const FACULTY_B = 'wp:lor-e2e-faculty-b';
+// Production WordPress subjects are `wp:<numeric user id>`. Actor-safe faculty projections and
+// PostgreSQL command scopes intentionally reject the symbolic `wp:lor-e2e-*` identifiers this
+// journey used before DR-120, so the socket-level fixture must exercise the canonical identity
+// contract rather than a legacy test-only shape.
+const STUDENT_A = 'wp:910001';
+const STUDENT_B = 'wp:910002';
+const FACULTY_A = 'wp:920001';
+const FACULTY_B = 'wp:920002';
 
 /**
  * A string that exists nowhere except inside the faculty letter. Any student-facing HTTP response
@@ -112,12 +116,12 @@ const PRINCIPAL_FIXTURES = Object.freeze({
   otherStudent: { subject: STUDENT_B, role: 'student', studentId: STUDENT_B, projection: 'eligible' },
   faculty: { subject: FACULTY_A, role: 'faculty', studentId: STUDENT_A, projection: 'eligible' },
   unboundFaculty: { subject: FACULTY_B, role: 'faculty', studentId: STUDENT_A, projection: 'eligible' },
-  unentitled: { subject: 'wp:lor-e2e-student-c', role: 'student', studentId: 'wp:lor-e2e-student-c', projection: 'inactive' },
-  nonCanary: { subject: 'wp:lor-e2e-student-d', role: 'student', studentId: 'wp:lor-e2e-student-d', projection: 'noCanaryConsent' },
+  unentitled: { subject: 'wp:910003', role: 'student', studentId: 'wp:910003', projection: 'inactive' },
+  nonCanary: { subject: 'wp:910004', role: 'student', studentId: 'wp:910004', projection: 'noCanaryConsent' },
   // Its projection claims to be student A while the authenticated subject is student E. The
   // runtime must refuse on the mismatch rather than trusting the projection.
-  impersonator: { subject: 'wp:lor-e2e-student-e', role: 'student', studentId: STUDENT_A, projection: 'impersonating' },
-  expired: { subject: 'wp:lor-e2e-student-f', role: 'student', studentId: 'wp:lor-e2e-student-f', projection: 'eligible', expired: true },
+  impersonator: { subject: 'wp:910005', role: 'student', studentId: STUDENT_A, projection: 'impersonating' },
+  expired: { subject: 'wp:910006', role: 'student', studentId: 'wp:910006', projection: 'eligible', expired: true },
 });
 
 const SUBJECT_TO_FIXTURE = new Map(
@@ -194,7 +198,7 @@ async function startJourneyHarness() {
     entitlementPort: new StaticEntitlementTestAdapter([
       eligibleEntitlementRecord(STUDENT_A),
       eligibleEntitlementRecord(STUDENT_B),
-      eligibleEntitlementRecord('wp:lor-e2e-student-f'),
+      eligibleEntitlementRecord('wp:910006'),
     ]),
     testRepository: repository,
     eventSink: events,

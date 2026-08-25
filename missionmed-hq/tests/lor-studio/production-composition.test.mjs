@@ -316,6 +316,54 @@ test('composition declines without a durable driver rather than silently degradi
   assert.equal(composed.binding.projectRef, 'lor-composition-test-target');
 });
 
+test('composition catches dependency construction failures without exposing error text', () => {
+  const secretBearingMessage = 'postgres://operator:secret@example.test/lor';
+  const composed = createLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPort: new StaticEntitlementTestAdapter([]),
+    durableRepositoryFactory() {
+      throw new Error(secretBearingMessage);
+    },
+  });
+  assert.equal(composed.application, null);
+  assert.equal(composed.reason, LOR_COMPOSITION_REASONS.COMPOSITION_FAILED);
+  assert.equal(Object.hasOwn(composed, 'detail'), false);
+  assert.equal(JSON.stringify(composed).includes(secretBearingMessage), false);
+  assert.equal(composed.binding.projectRef, 'lor-composition-test-target');
+});
+
+test('composition constructs the actor-safe durable repository only from an explicit driver and scope provider', () => {
+  const driver = {
+    atomicStateAndAudit: true,
+    rlsEnforced: true,
+    serverOnly: true,
+    actorSafeCommands: true,
+    async selectCase() {},
+    async readStudentSafeCase() {},
+    async readFacultyCaseProjection() {},
+    async readMentorCaseProjection() {},
+    async reserveCaseCreation() {},
+    async commitStudentCaseCreate() {},
+    async commitStudentBuilderAutosave() {},
+    async commitStudentBuilderComplete() {},
+    async commitStudentConsentReceipt() {},
+    async commitStudentWaiverReceipt() {},
+    async commitFacultyFinalDocumentRelease() {},
+    async executeAtomicCaseCommand() {},
+  };
+  const scopeProvider = async () => {
+    throw new Error('scope must be resolved only when a case operation executes');
+  };
+  const composed = createLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPort: new StaticEntitlementTestAdapter([]),
+    driver,
+    scopeProvider,
+  });
+  assert.ok(composed.application);
+  assert.equal(composed.binding.projectRef, 'lor-composition-test-target');
+});
+
 test('composition builds a real application from an explicit validated target', () => {
   const composed = composeTestApplication();
   assert.ok(composed.application, 'an application must be constructed');

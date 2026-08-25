@@ -1,11 +1,21 @@
 import { AuthorizationDeniedError, ValidationError } from '../domain/errors.js';
 import {
   appendReceipt,
+  appendStudentSafeReceipt,
+  assertFacultyCaseProjection,
+  assertMentorCaseProjection,
+  assertStudentSafeRecommendationCase,
   autosaveBuilderStep,
-  builderProgress,
+  autosaveStudentSafeBuilderStep,
   completeBuilderStep,
+  completeStudentSafeBuilderStep,
+  createRecommendationCaseVersionEntry,
   createRecommendationCase,
+  createStudentSafeRecommendationCase,
+  projectStudentSafeCase,
   releaseFinalDocument,
+  studentSafeBuilderProgress,
+  toStudentSafeRecommendationCase,
 } from '../domain/recommendation-case.js';
 import { createConsentReceipt, createWaiverReceipt } from '../domain/receipts.js';
 import {
@@ -17,9 +27,10 @@ import {
   toIso,
 } from '../domain/value-utils.js';
 import {
+  assertTrustedStudentAuthorization,
   authorizeCaseAction,
-  evaluateStudentEntitlement,
   projectCaseForActor,
+  resolveTrustedStudentAuthorization,
 } from '../security/authorization-policy.js';
 import { createMetadataServiceEvent } from './metadata-events.js';
 import { assertPort } from './ports.js';
@@ -105,6 +116,23 @@ function assertStudentActor(actor) {
   }
 }
 
+function assertMentorActor(actor) {
+  if (!actor || actor.role !== 'mentor' || typeof actor.id !== 'string' || actor.id.length === 0) {
+    throw new AuthorizationDeniedError('MENTOR_ACTOR_REQUIRED');
+  }
+}
+
+function assertFacultyActor(actor) {
+  if (
+    !actor
+    || actor.role !== 'faculty'
+    || typeof actor.id !== 'string'
+    || !/^wp:[1-9][0-9]*$/u.test(actor.id)
+  ) {
+    throw new AuthorizationDeniedError('FACULTY_ACTOR_REQUIRED');
+  }
+}
+
 // The only receipt fields a client is permitted to assert. Receipt identity, the recorded
 // timestamp, the owning case, the acting principal, and the integrity hash are all minted
 // server-side: a client that could choose them could backdate a FERPA waiver, forge a
@@ -138,9 +166,25 @@ export class RecommendationCaseService {
       if (repository.atomicStateAndEvent !== true) {
         throw new TypeError('Durable repositories must declare atomicStateAndEvent=true');
       }
+      if (repository.actorSafeCommands !== true) {
+        throw new TypeError('Durable repositories must declare actorSafeCommands=true');
+      }
       this.repository = assertPort(
         repository,
-        ['reserveCaseCreation', 'getById', 'commitWithEvent'],
+        [
+          'reserveCaseCreation',
+          'readStudentSafeCase',
+          'commitStudentCaseCreate',
+          'commitStudentBuilderAutosave',
+          'commitStudentBuilderComplete',
+          'commitStudentConsentReceipt',
+          'commitStudentWaiverReceipt',
+          'readFacultyCaseProjection',
+          'commitFacultyFinalDocumentRelease',
+          'readMentorCaseProjection',
+          'getById',
+          'commitWithEvent',
+        ],
         'repository',
       );
       if (eventSink !== undefined && eventSink !== null) {
@@ -179,6 +223,45 @@ export class RecommendationCaseService {
 
   async #entitlement(studentId) {
     return this.entitlementPort.getStudentEntitlement({ studentId });
+  }
+
+  async #trustedStudentAuthorization(studentId) {
+    const entitlement = await this.#entitlement(studentId);
+    const authorization = resolveTrustedStudentAuthorization(entitlement, {
+      studentId,
+      requireCanary: this.requireCanary,
+    });
+    return { entitlement, authorization };
+  }
+
+  async #readStudentSafeCase({ caseId, actor }) {
+    assertStudentActor(actor);
+    const { entitlement, authorization } = await this.#trustedStudentAuthorization(actor.id);
+    let state;
+    if (this.persistenceMode === 'DURABLE_ATOMIC_STATE_AND_EVENT') {
+      state = await this.repository.readStudentSafeCase({
+        caseId,
+        studentId: actor.id,
+        studentAccessAuthorization: authorization,
+      });
+      assertStudentSafeRecommendationCase(state);
+    } else {
+      // Explicitly limited to the NON_DURABLE_TEST_ONLY adapter. Production cannot reach this
+      // branch because durable construction requires actorSafeCommands=true and the exact safe
+      // repository methods above.
+      state = toStudentSafeRecommendationCase(await this.repository.getById(caseId));
+    }
+    if (state.id !== caseId || state.studentId !== actor.id) {
+      throw new AuthorizationDeniedError('CASE_OWNERSHIP_MISMATCH');
+    }
+    authorizeCaseAction({
+      actor,
+      action: 'read_student_projection',
+      caseRecord: state,
+      entitlement,
+      requireCanary: this.requireCanary,
+    });
+    return { state, entitlement, authorization };
   }
 
   #buildEvent({ eventType, caseRecord, actor, idempotencyKey, outcome = 'success' }) {
@@ -245,6 +328,46 @@ export class RecommendationCaseService {
     return stored;
   }
 
+  async #commitStudentSafe({
+    method,
+    candidate,
+    versionEntry,
+    expectedRevision = undefined,
+    metadata,
+    eventType,
+    actor,
+    authorization,
+    receipt = undefined,
+  }) {
+    if (this.persistenceMode !== 'DURABLE_ATOMIC_STATE_AND_EVENT') {
+      throw new TypeError('Actor-safe commits are a durable repository operation');
+    }
+    assertStudentSafeRecommendationCase(candidate);
+    assertTrustedStudentAuthorization(authorization);
+    const event = this.#buildEvent({
+      eventType,
+      caseRecord: candidate,
+      actor,
+      idempotencyKey: metadata.idempotencyKey,
+    });
+    const command = {
+      state: candidate,
+      idempotencyKey: metadata.idempotencyKey,
+      requestHash: metadata.requestHash,
+      event,
+      versionEntry,
+      studentWriteAuthorization: authorization,
+    };
+    if (expectedRevision !== undefined) command.expectedRevision = expectedRevision;
+    if (receipt !== undefined) command.receipt = receipt;
+    const stored = await this.repository[method](command);
+    assertStudentSafeRecommendationCase(stored);
+    if (stored.id !== candidate.id || stored.studentId !== candidate.studentId) {
+      throw new AuthorizationDeniedError('CASE_SUBJECT_SCOPE_MISMATCH');
+    }
+    return stored;
+  }
+
   async createCase(input = {}) {
     const request = assertPlainObject(input, 'case create input');
     const unexpectedKeys = Object.keys(request).filter((key) => !['actor', 'idempotencyKey'].includes(key));
@@ -256,12 +379,7 @@ export class RecommendationCaseService {
     if (typeof idempotencyKey !== 'string' || idempotencyKey.trim() === '') {
       throw new ValidationError('Every write requires an idempotency key');
     }
-    const entitlement = await this.#entitlement(actor.id);
-    const decision = evaluateStudentEntitlement(entitlement, {
-      studentId: actor.id,
-      requireCanary: this.requireCanary,
-    });
-    if (!decision.allowed) throw new AuthorizationDeniedError(decision.reasonCode);
+    const { authorization } = await this.#trustedStudentAuthorization(actor.id);
     const creationRequestHash = hashValue({ operation: 'case.create', actorId: actor.id, payload: {} });
     const proposedCaseId = this.caseIdFactory({ actorId: actor.id, idempotencyKey });
     assertNonEmptyString(proposedCaseId, 'caseId', { maxLength: 200 });
@@ -285,6 +403,24 @@ export class RecommendationCaseService {
     );
     const createdAt = toIso(reservation?.createdAt, 'reserved createdAt');
     const metadata = requestMetadata('case.create', caseId, actor.id, idempotencyKey, {});
+    if (this.persistenceMode === 'DURABLE_ATOMIC_STATE_AND_EVENT') {
+      const { state, versionEntry } = createStudentSafeRecommendationCase({
+        id: caseId,
+        studentId: actor.id,
+        actorId: actor.id,
+        now: new Date(createdAt),
+        builderSessionId,
+      });
+      return this.#commitStudentSafe({
+        method: 'commitStudentCaseCreate',
+        candidate: state,
+        versionEntry,
+        metadata,
+        eventType: 'case.created',
+        actor,
+        authorization,
+      });
+    }
     const caseRecord = buildRecommendationCase({
       id: caseId,
       studentId: actor.id,
@@ -292,13 +428,14 @@ export class RecommendationCaseService {
       now: createdAt,
       builderSessionId,
     });
-    return this.#commitWrite({
+    const stored = await this.#commitWrite({
       operation: 'create',
       candidate: caseRecord,
       metadata,
       eventType: 'case.created',
       actor,
     });
+    return toStudentSafeRecommendationCase(stored);
   }
 
   async autosaveBuilder({
@@ -309,6 +446,69 @@ export class RecommendationCaseService {
     stepId,
     stepData,
   }) {
+    if (this.persistenceMode === 'DURABLE_ATOMIC_STATE_AND_EVENT') {
+      const { state: current, entitlement, authorization } = await this.#readStudentSafeCase({
+        caseId,
+        actor,
+      });
+      authorizeCaseAction({
+        actor,
+        action: 'write_builder',
+        caseRecord: current,
+        entitlement,
+        requireCanary: this.requireCanary,
+      });
+      const metadata = requestMetadata(
+        'builder.autosave',
+        caseId,
+        actor.id,
+        idempotencyKey,
+        { stepId, stepData },
+      );
+      // An exact idempotency replay may arrive after later revisions have committed. The
+      // database receipt is authoritative and must be consulted before stale-candidate checks;
+      // sending the current safe DTO lets the command function perform that lookup without
+      // hydrating protected history. A different key has no receipt and is rejected stale inside
+      // the same command function before any mutation.
+      if (
+        Number.isSafeInteger(expectedRevision)
+        && expectedRevision >= 0
+        && current.revision > expectedRevision
+      ) {
+        return this.#commitStudentSafe({
+          method: 'commitStudentBuilderAutosave',
+          candidate: current,
+          versionEntry: createRecommendationCaseVersionEntry({
+            revision: current.revision,
+            eventType: 'builder.autosaved',
+            actorId: actor.id,
+            occurredAt: current.updatedAt,
+            changes: { builder: current.builder },
+          }),
+          expectedRevision,
+          metadata,
+          eventType: 'builder.autosaved',
+          actor,
+          authorization,
+        });
+      }
+      const { state, versionEntry } = autosaveStudentSafeBuilderStep(current, {
+        actorId: actor.id,
+        stepId,
+        stepData,
+        now: this.clock(),
+      });
+      return this.#commitStudentSafe({
+        method: 'commitStudentBuilderAutosave',
+        candidate: state,
+        versionEntry,
+        expectedRevision,
+        metadata,
+        eventType: 'builder.autosaved',
+        actor,
+        authorization,
+      });
+    }
     const current = await this.repository.getById(caseId);
     const entitlement = await this.#entitlement(current.studentId);
     authorizeCaseAction({
@@ -331,7 +531,7 @@ export class RecommendationCaseService {
       stepData,
       now: this.clock(),
     });
-    return this.#commitWrite({
+    const stored = await this.#commitWrite({
       operation: 'save',
       candidate: next,
       expectedRevision,
@@ -339,6 +539,7 @@ export class RecommendationCaseService {
       eventType: 'builder.autosaved',
       actor,
     });
+    return toStudentSafeRecommendationCase(stored);
   }
 
   async completeBuilderStep({
@@ -348,6 +549,68 @@ export class RecommendationCaseService {
     idempotencyKey,
     stepId,
   }) {
+    if (this.persistenceMode === 'DURABLE_ATOMIC_STATE_AND_EVENT') {
+      const { state: current, entitlement, authorization } = await this.#readStudentSafeCase({
+        caseId,
+        actor,
+      });
+      authorizeCaseAction({
+        actor,
+        action: 'write_builder',
+        caseRecord: current,
+        entitlement,
+        requireCanary: this.requireCanary,
+      });
+      const metadata = requestMetadata(
+        'builder.complete_step',
+        caseId,
+        actor.id,
+        idempotencyKey,
+        { stepId },
+      );
+      // An exact retry can read any later committed revision, so running the mutation again would
+      // reject the already-completed step before the repository could consult its idempotency
+      // receipt. Reconstruct only a metadata candidate and let the database distinguish the same
+      // key (replay) from a new key (stale revision). No protected history is needed to do so.
+      if (
+        Number.isSafeInteger(expectedRevision)
+        && expectedRevision >= 0
+        && current.revision > expectedRevision
+        && current.builder.completedStepIds.includes(stepId)
+      ) {
+        return this.#commitStudentSafe({
+          method: 'commitStudentBuilderComplete',
+          candidate: current,
+          versionEntry: createRecommendationCaseVersionEntry({
+            revision: current.revision,
+            eventType: 'builder.step_completed',
+            actorId: actor.id,
+            occurredAt: current.updatedAt,
+            changes: { builder: current.builder },
+          }),
+          expectedRevision,
+          metadata,
+          eventType: 'builder.step_completed',
+          actor,
+          authorization,
+        });
+      }
+      const { state, versionEntry } = completeStudentSafeBuilderStep(current, {
+        actorId: actor.id,
+        stepId,
+        now: this.clock(),
+      });
+      return this.#commitStudentSafe({
+        method: 'commitStudentBuilderComplete',
+        candidate: state,
+        versionEntry,
+        expectedRevision,
+        metadata,
+        eventType: 'builder.step_completed',
+        actor,
+        authorization,
+      });
+    }
     const current = await this.repository.getById(caseId);
     const entitlement = await this.#entitlement(current.studentId);
     authorizeCaseAction({
@@ -369,7 +632,7 @@ export class RecommendationCaseService {
       stepId,
       now: this.clock(),
     });
-    return this.#commitWrite({
+    const stored = await this.#commitWrite({
       operation: 'save',
       candidate: next,
       expectedRevision,
@@ -377,6 +640,7 @@ export class RecommendationCaseService {
       eventType: 'builder.step_completed',
       actor,
     });
+    return toStudentSafeRecommendationCase(stored);
   }
 
   /**
@@ -458,8 +722,19 @@ export class RecommendationCaseService {
     receiptType,
     receiptData,
   }) {
-    const current = await this.repository.getById(caseId);
-    const entitlement = await this.#entitlement(current.studentId);
+    const input = this.#assertClientReceiptFields(receiptType, receiptData);
+    let current;
+    let entitlement;
+    let authorization = null;
+    if (this.persistenceMode === 'DURABLE_ATOMIC_STATE_AND_EVENT') {
+      ({ state: current, entitlement, authorization } = await this.#readStudentSafeCase({
+        caseId,
+        actor,
+      }));
+    } else {
+      current = await this.repository.getById(caseId);
+      entitlement = await this.#entitlement(current.studentId);
+    }
     authorizeCaseAction({
       actor,
       action: 'record_receipt',
@@ -467,7 +742,6 @@ export class RecommendationCaseService {
       entitlement,
       requireCanary: this.requireCanary,
     });
-    const input = this.#assertClientReceiptFields(receiptType, receiptData);
     const metadata = requestMetadata(
       `${receiptType}.record`,
       caseId,
@@ -487,7 +761,9 @@ export class RecommendationCaseService {
       // This exact request already landed in the append-only log. Replaying it must neither
       // append a second decision nor fail the student closed on a chain rule it already
       // satisfied, so the committed record is returned unchanged and no second event is emitted.
-      return current;
+      return this.persistenceMode === 'DURABLE_ATOMIC_STATE_AND_EVENT'
+        ? current
+        : toStudentSafeRecommendationCase(current);
     }
     const receipt = this.#mintReceipt({
       id: receiptId,
@@ -499,13 +775,34 @@ export class RecommendationCaseService {
     if (receipt.caseId !== caseId || receipt.actorId !== actor.id) {
       throw new AuthorizationDeniedError('RECEIPT_RESOURCE_BINDING_MISMATCH');
     }
+    if (this.persistenceMode === 'DURABLE_ATOMIC_STATE_AND_EVENT') {
+      const { state, versionEntry } = appendStudentSafeReceipt(current, {
+        actorId: actor.id,
+        receiptType,
+        receipt,
+        now: this.clock(),
+      });
+      return this.#commitStudentSafe({
+        method: receiptType === 'consent'
+          ? 'commitStudentConsentReceipt'
+          : 'commitStudentWaiverReceipt',
+        candidate: state,
+        versionEntry,
+        expectedRevision,
+        metadata,
+        eventType: `${receiptType}.recorded`,
+        actor,
+        authorization,
+        receipt,
+      });
+    }
     const next = appendReceipt(current, {
       actorId: actor.id,
       receiptType,
       receipt,
       now: this.clock(),
     });
-    return this.#commitWrite({
+    const stored = await this.#commitWrite({
       operation: 'save',
       candidate: next,
       expectedRevision,
@@ -513,6 +810,7 @@ export class RecommendationCaseService {
       eventType: `${receiptType}.recorded`,
       actor,
     });
+    return toStudentSafeRecommendationCase(stored);
   }
 
   /**
@@ -544,6 +842,51 @@ export class RecommendationCaseService {
     idempotencyKey,
     documentId,
   }) {
+    if (this.persistenceMode === 'DURABLE_ATOMIC_STATE_AND_EVENT') {
+      assertFacultyActor(actor);
+      assertNonEmptyString(caseId, 'caseId', { maxLength: 200 });
+      assertNonEmptyString(documentId, 'documentId', { maxLength: 200 });
+      if (
+        typeof expectedRevision !== 'number'
+        || !Number.isSafeInteger(expectedRevision)
+        || expectedRevision < 0
+      ) {
+        throw new ValidationError('expectedRevision must be a non-negative integer');
+      }
+      const releaseRevision = /** @type {number} */ (expectedRevision);
+      const releaseDocumentId = /** @type {string} */ (documentId);
+      const metadata = requestMetadata(
+        'faculty.final_document_release',
+        caseId,
+        actor.id,
+        idempotencyKey,
+        { documentId: releaseDocumentId },
+      );
+      const event = buildMetadataServiceEvent({
+        eventId: `event_${sha256(`${caseId}:faculty.final_document_released:${metadata.idempotencyKey}`).slice(0, 32)}`,
+        eventType: 'faculty.final_document_released',
+        caseId,
+        actorId: actor.id,
+        actorRole: 'faculty',
+        correlationId: sha256(metadata.idempotencyKey).slice(0, 32),
+        revision: releaseRevision + 1,
+        occurredAt: toIso(this.clock(), 'faculty release occurredAt'),
+      });
+      const stored = await this.repository.commitFacultyFinalDocumentRelease({
+        caseId,
+        actorId: actor.id,
+        expectedRevision: releaseRevision,
+        documentId: releaseDocumentId,
+        idempotencyKey: metadata.idempotencyKey,
+        requestHash: metadata.requestHash,
+        event,
+      });
+      assertFacultyCaseProjection(stored);
+      if (stored.caseId !== caseId) {
+        throw new AuthorizationDeniedError('CASE_SUBJECT_SCOPE_MISMATCH');
+      }
+      return stored;
+    }
     const current = await this.repository.getById(caseId);
     const entitlement = await this.#entitlement(current.studentId);
     authorizeCaseAction({
@@ -566,8 +909,8 @@ export class RecommendationCaseService {
       actorId: actor.id,
       facultyId: actor.id,
       caseId: current.id,
-      documentId,
-      expectedRevision,
+      documentId: /** @type {string} */ (documentId),
+      expectedRevision: /** @type {number} */ (expectedRevision),
       now: this.clock(),
     });
     if (next === current) {
@@ -587,27 +930,54 @@ export class RecommendationCaseService {
   }
 
   async resumeBuilder({ caseId, actor }) {
-    const current = await this.repository.getById(caseId);
-    const entitlement = await this.#entitlement(current.studentId);
-    authorizeCaseAction({
-      actor,
-      action: 'read_student_projection',
-      caseRecord: current,
-      entitlement,
-      requireCanary: this.requireCanary,
-    });
+    const { state } = await this.#readStudentSafeCase({ caseId, actor });
     return Object.freeze({
-      progress: builderProgress(current),
-      projection: projectCaseForActor({
-        actor,
-        caseRecord: current,
-        entitlement,
-        requireCanary: this.requireCanary,
-      }),
+      progress: studentSafeBuilderProgress(state),
+      projection: projectStudentSafeCase(state),
     });
   }
 
   async getCaseProjection({ caseId, actor, serviceGrant = null }) {
+    if (actor?.role === 'student') {
+      const { state } = await this.#readStudentSafeCase({ caseId, actor });
+      return projectStudentSafeCase(state);
+    }
+    if (
+      actor?.role === 'faculty'
+      && this.persistenceMode === 'DURABLE_ATOMIC_STATE_AND_EVENT'
+    ) {
+      assertFacultyActor(actor);
+      const projection = await this.repository.readFacultyCaseProjection({
+        caseId,
+        actorId: actor.id,
+      });
+      assertFacultyCaseProjection(projection);
+      if (projection.caseId !== caseId) {
+        throw new AuthorizationDeniedError('CASE_SUBJECT_SCOPE_MISMATCH');
+      }
+      return Object.freeze(structuredClone(projection));
+    }
+    if (
+      actor?.role === 'mentor'
+      && this.persistenceMode === 'DURABLE_ATOMIC_STATE_AND_EVENT'
+    ) {
+      assertMentorActor(actor);
+      const projection = await this.repository.readMentorCaseProjection({
+        caseId,
+        actorId: actor.id,
+      });
+      assertMentorCaseProjection(projection);
+      if (projection.caseId !== caseId) {
+        throw new AuthorizationDeniedError('CASE_SUBJECT_SCOPE_MISMATCH');
+      }
+      // The repository/SQL boundary stays the exact five-field mentor DTO. The established HTTP
+      // hydration transport still uses schemaVersion to select its role-specific renderer, so the
+      // service adds that transport discriminator only after the exact DB result is validated.
+      return Object.freeze({
+        schemaVersion: 'missionmed.lor.mentor-projection.v1',
+        ...structuredClone(projection),
+      });
+    }
     const current = await this.repository.getById(caseId);
     const entitlement = await this.#entitlement(current.studentId);
     return projectCaseForActor({

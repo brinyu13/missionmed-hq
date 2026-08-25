@@ -244,6 +244,7 @@ const GRANT_FIELDS = Object.freeze([
  */
 function snapshotGrant(grant) {
   if (!grant || typeof grant !== 'object' || Array.isArray(grant)) return null;
+  /** @type {Record<string, unknown>} */
   const snapshot = {};
   let owned = 0;
   for (const field of GRANT_FIELDS) {

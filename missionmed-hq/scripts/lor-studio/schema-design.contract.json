@@ -1,36 +1,370 @@
 {
-  "schemaVersion": "missionmed.lor.schema-design.v1",
-  "status": "DESIGN_ONLY_NOT_EXECUTABLE",
+  "schemaVersion": "missionmed.lor.schema-design.v2",
+  "status": "EXECUTABLE_DISPOSABLE_LOCAL_ONLY",
+  "authorityDecision": "DR-120",
+  "sourceDesignArtifact": "missionmed-hq/scripts/lor-studio/schema-design.sql",
+  "sourceDesignStatus": "DESIGN_ONLY_NOT_EXECUTABLE",
   "targetProject": null,
-  "targetEnvironment": null,
-  "targetSchema": null,
-  "migrationLedger": null,
-  "migrationFileAuthorized": false,
+  "targetEnvironment": "DISPOSABLE_SYNTHETIC_LOCAL_POSTGRESQL_ONLY",
+  "targetSchema": "lor_studio",
+  "migrationLedger": [
+    "missionmed-hq/scripts/lor-studio/migrations/20260820180700_f2_lor_1012_schema_foundation.sql",
+    "missionmed-hq/scripts/lor-studio/migrations/20260820180800_f2_lor_1012_rls_projection_grants.sql"
+  ],
+  "rollbackLedger": [
+    "missionmed-hq/scripts/lor-studio/rollbacks/20260820180800_f2_lor_1012_rls_projection_grants.rollback.sql",
+    "missionmed-hq/scripts/lor-studio/rollbacks/20260820180700_f2_lor_1012_schema_foundation.rollback.sql"
+  ],
+  "rollbackVerificationStatus": "DISPOSABLE_LOCAL_POSTGRESQL_16_18_APPLY_RLS_ROLLBACK_REAPPLY_VERIFIED_NO_REMOTE_EVIDENCE",
+  "migrationFileAuthorized": true,
   "rootSupabaseMigrationAuthorized": false,
-  "blockingDecision": "Select and ratify the exact LOR database project, environment, schema, migration ledger, backup, restore, and rollback mechanism.",
-  "proposedRelations": [
+  "remoteMigrationAuthorized": false,
+  "externalTargetBindingAuthorized": false,
+  "blockingDecision": "Founder Gate A must ratify one dedicated external LOR database target, environment, owner, region, migration ledger, backup, restore, and rollback plan before any remote apply or binding.",
+  "canonicalOwnerIdentity": {
+    "subjectColumn": "student_auth_subject",
+    "subjectPattern": "^wp:[1-9][0-9]*$",
+    "supplementalJwtColumn": "student_auth_uid",
+    "ownershipRule": "The textual WordPress subject is canonical; the JWT UUID is a bound supplemental identity and never replaces the owner subject."
+  },
+  "applicationRole": {
+    "name": "lor_studio_app",
+    "login": false,
+    "inherit": false,
+    "bypassRls": false,
+    "ownsSchema": false
+  },
+  "commandOwnerRole": {
+    "name": "lor_studio_command_owner",
+    "login": false,
+    "inherit": false,
+    "superuser": false,
+    "createDatabase": false,
+    "createRole": false,
+    "replication": false,
+    "bypassRls": false,
+    "searchPath": "pg_catalog",
+    "memberships": [],
+    "defaultPrivileges": [],
+    "ownsSchema": false,
+    "ownsTables": false,
+    "ownsOnlyApprovedSecurityDefinerFunctions": true
+  },
+  "approvedSecurityDefinerFunctions": [
+    "commit_student_case_create(jsonb,text,text,jsonb,text,jsonb)",
+    "commit_student_builder_autosave(jsonb,bigint,text,text,jsonb,text,jsonb)",
+    "commit_student_builder_complete(jsonb,bigint,text,text,jsonb,text,jsonb)",
+    "commit_student_consent_receipt(jsonb,bigint,text,text,jsonb,text,jsonb,jsonb)",
+    "commit_student_waiver_receipt(jsonb,bigint,text,text,jsonb,text,jsonb,jsonb)",
+    "read_mentor_case_projection()",
+    "read_faculty_case_projection()",
+    "commit_faculty_final_document_release(bigint,text,text,text,jsonb,text)"
+  ],
+  "commandOwnerPrivileges": {
+    "schema": [
+      "USAGE@lor_studio"
+    ],
+    "selectInsertUpdateRelations": [
+      "recommendation_cases"
+    ],
+    "selectInsertRelations": [
+      "recommendation_case_protected_revision_states",
+      "recommendation_case_audit_events",
+      "recommendation_case_write_receipts",
+      "consent_receipts",
+      "waiver_receipts",
+      "released_student_documents",
+      "recommendation_case_private_write_receipts"
+    ],
+    "selectUpdateRelations": [
+      "faculty_private_content",
+      "recommendation_case_creation_reservations"
+    ],
+    "selectRelations": [
+      "student_auth_bindings",
+      "student_auth_binding_revocations",
+      "mentor_case_assignments",
+      "mentor_case_assignment_revocations",
+      "faculty_invitations",
+      "faculty_otp_verification_receipts",
+      "faculty_otp_proof_revocations"
+    ],
+    "executeHelpers": [
+      "canonical_jsonb_text(jsonb)",
+      "canonical_jsonb_sha256(jsonb)",
+      "release_document_hash(text,text,text,text)",
+      "protected_state_chain_hash(text,text,bigint,text,text,jsonb)",
+      "student_record_is_safe(jsonb)",
+      "private_record_is_complete(jsonb)",
+      "protected_case_state_is_complete(jsonb,bigint)",
+      "audit_event_is_metadata(jsonb)",
+      "text_array_is_sorted_unique(text[])",
+      "student_context_allows(text,text,uuid,text[])",
+      "student_write_axes_satisfied()",
+      "commit_student_case_command(jsonb,bigint,text,text,text,text,jsonb,text,jsonb,text,jsonb)",
+      "mentor_context_allows(text,text,text[])",
+      "faculty_context_allows(text,text,text[])"
+    ],
+    "columnPrivileges": []
+  },
+  "finalApplicationSharedTablePrivileges": {
+    "student_auth_bindings": [
+      "SELECT"
+    ],
+    "student_auth_binding_revocations": [
+      "SELECT"
+    ],
+    "administrative_case_grants": [
+      "SELECT"
+    ],
+    "administrative_case_grant_revocations": [
+      "SELECT"
+    ],
+    "recommendation_cases": [
+      "SELECT"
+    ],
+    "released_student_documents": [
+      "SELECT"
+    ],
+    "consent_receipts": [
+      "SELECT"
+    ],
+    "waiver_receipts": [
+      "SELECT"
+    ],
+    "student_recommendation_case_projection": [
+      "SELECT"
+    ],
+    "recommendation_case_audit_events": [
+      "SELECT",
+      "INSERT"
+    ],
+    "recommendation_case_creation_reservations": [
+      "SELECT",
+      "INSERT"
+    ],
+    "writer_depot_artifacts": [
+      "SELECT"
+    ],
+    "ai_generation_runs": [
+      "SELECT",
+      "INSERT"
+    ],
+    "ai_letter_proposals": [
+      "SELECT",
+      "INSERT"
+    ],
+    "ai_proposal_decisions": [
+      "SELECT"
+    ],
+    "deletion_intents": [
+      "SELECT",
+      "INSERT"
+    ],
+    "deletion_hold_releases": [
+      "SELECT",
+      "INSERT"
+    ],
+    "deletion_receipts": [
+      "SELECT",
+      "INSERT"
+    ]
+  },
+  "finalApplicationPolicyHelperExecutePrivileges": [
+    "student_context_allows(text,text,uuid,text[])",
+    "student_write_axes_satisfied()",
+    "operational_content_context_allows(text,text,text[],text[])",
+    "audit_event_is_metadata(jsonb)",
+    "ai_grounding_manifest_is_complete(jsonb)",
+    "canonical_jsonb_text(jsonb)",
+    "canonical_jsonb_sha256(jsonb)"
+  ],
+  "operationalCaseSerializationProtocol": {
+    "keyFraming": "hashtextextended(jsonb_build_array('missionmed.lor.case-lock.v1',case_id,student_auth_subject)::text,0)",
+    "transactionOrder": "BEGIN_READ_COMMITTED_THEN_BIND_SCOPE_THEN_MUTATE",
+    "aiTriggerEnforcement": "READ_COMMITTED_AND_VOLATILE_TRIGGER_ACQUIRES_EXACT_TRANSACTION_ADVISORY_LOCK_BEFORE_RELEASE_STATE_QUERY",
+    "reason": "At READ COMMITTED a VOLATILE PL/pgSQL trigger obtains a fresh snapshot for each query it executes, so the release-state query after the blocking lock observes a concurrent release; other isolation levels fail closed."
+  },
+  "intentionallyInertOperationalPolicySurfaces": {
+    "status": "FAIL_CLOSED_POLICY_ONLY_NO_APPLICATION_ACL",
+    "reason": "Unsafe direct protected/private restore and privacy DML remains revoked until a successor actor-safe command or projection architecture is ratified.",
+    "policies": [
+      "recommendation_cases_operational_update",
+      "protected_revision_states_operational_select",
+      "protected_revision_states_operational_insert",
+      "faculty_private_content_operational_select",
+      "faculty_private_content_operational_insert",
+      "faculty_private_content_operational_update",
+      "released_student_documents_operational_insert",
+      "private_write_receipts_operational_select",
+      "private_write_receipts_operational_insert",
+      "writer_depot_artifacts_operational_insert",
+      "ai_proposal_decisions_operational_insert"
+    ]
+  },
+  "commandOwnerPolicySurface": [
+    "student_auth_bindings_command_select@student_auth_bindings:SELECT",
+    "student_auth_binding_revocations_command_select@student_auth_binding_revocations:SELECT",
+    "recommendation_cases_student_command_select@recommendation_cases:SELECT",
+    "recommendation_cases_student_command_insert@recommendation_cases:INSERT",
+    "recommendation_cases_student_command_update@recommendation_cases:UPDATE",
+    "case_creation_reservations_student_command_select@recommendation_case_creation_reservations:SELECT",
+    "case_creation_reservations_student_command_lock@recommendation_case_creation_reservations:UPDATE",
+    "recommendation_case_audit_events_student_command_select@recommendation_case_audit_events:SELECT",
+    "recommendation_case_audit_events_student_command_insert@recommendation_case_audit_events:INSERT",
+    "protected_revision_states_student_command_select@recommendation_case_protected_revision_states:SELECT",
+    "protected_revision_states_student_command_insert@recommendation_case_protected_revision_states:INSERT",
+    "recommendation_case_write_receipts_student_command_select@recommendation_case_write_receipts:SELECT",
+    "recommendation_case_write_receipts_student_command_insert@recommendation_case_write_receipts:INSERT",
+    "consent_receipts_student_command_select@consent_receipts:SELECT",
+    "consent_receipts_student_command_insert@consent_receipts:INSERT",
+    "waiver_receipts_student_command_select@waiver_receipts:SELECT",
+    "waiver_receipts_student_command_insert@waiver_receipts:INSERT",
+    "released_student_documents_student_command_select@released_student_documents:SELECT",
+    "recommendation_cases_mentor_command_select@recommendation_cases:SELECT",
+    "protected_revision_states_mentor_command_select@recommendation_case_protected_revision_states:SELECT",
+    "mentor_case_assignments_command_select@mentor_case_assignments:SELECT",
+    "mentor_case_assignment_revocations_command_select@mentor_case_assignment_revocations:SELECT",
+    "recommendation_cases_faculty_command_select@recommendation_cases:SELECT",
+    "recommendation_cases_faculty_command_update@recommendation_cases:UPDATE",
+    "faculty_invitations_faculty_command_select@faculty_invitations:SELECT",
+    "faculty_otp_verification_receipts_faculty_command_select@faculty_otp_verification_receipts:SELECT",
+    "faculty_otp_proof_revocations_faculty_command_select@faculty_otp_proof_revocations:SELECT",
+    "consent_receipts_faculty_command_select@consent_receipts:SELECT",
+    "waiver_receipts_faculty_command_select@waiver_receipts:SELECT",
+    "faculty_private_content_faculty_command_select@faculty_private_content:SELECT",
+    "faculty_private_content_faculty_command_update@faculty_private_content:UPDATE",
+    "released_student_documents_faculty_command_select@released_student_documents:SELECT",
+    "released_student_documents_faculty_command_insert@released_student_documents:INSERT",
+    "private_write_receipts_faculty_command_select@recommendation_case_private_write_receipts:SELECT",
+    "private_write_receipts_faculty_command_insert@recommendation_case_private_write_receipts:INSERT",
+    "recommendation_case_audit_events_faculty_command_select@recommendation_case_audit_events:SELECT",
+    "recommendation_case_audit_events_faculty_command_insert@recommendation_case_audit_events:INSERT",
+    "protected_revision_states_faculty_command_select@recommendation_case_protected_revision_states:SELECT",
+    "protected_revision_states_faculty_command_insert@recommendation_case_protected_revision_states:INSERT",
+    "writer_depot_artifacts_faculty_select@writer_depot_artifacts:SELECT",
+    "writer_depot_artifacts_faculty_insert@writer_depot_artifacts:INSERT",
+    "ai_generation_runs_faculty_select@ai_generation_runs:SELECT",
+    "ai_generation_runs_faculty_insert@ai_generation_runs:INSERT",
+    "ai_letter_proposals_faculty_select@ai_letter_proposals:SELECT",
+    "ai_letter_proposals_faculty_insert@ai_letter_proposals:INSERT",
+    "ai_proposal_decisions_faculty_select@ai_proposal_decisions:SELECT",
+    "ai_proposal_decisions_faculty_insert@ai_proposal_decisions:INSERT"
+  ],
+  "expectedFoundationFunctionCount": 31,
+  "expectedFinalFunctionCount": 45,
+  "expectedFinalPolicyCount": 91,
+  "expectedFinalTriggerCount": 46,
+  "expectedFinalIndexCount": 115,
+  "expectedIndexFingerprintByPostgresMajor": {
+    "16": "6486aa57aebe29f7dd19f48611f4a24958bffbbbe5bf95ff603c16bad2a8f8d6",
+    "18": "6486aa57aebe29f7dd19f48611f4a24958bffbbbe5bf95ff603c16bad2a8f8d6"
+  },
+  "expectedConstraintCountByPostgresMajor": {
+    "16": 306,
+    "18": 616
+  },
+  "expectedConstraintFingerprintByPostgresMajor": {
+    "16": "aa251174fe7dd624049a0a45c46b279cad5757f46e2a355f85b466b53ac1a002",
+    "18": "80aebb352dba03810b876597b83b4224cc391bc9e7688f5ccbac1e3eeae78c8f"
+  },
+  "rollbackCustody": {
+    "sentinelStorage": "COMMENT_ON_SCHEMA",
+    "sentinelSchema": "missionmed.lor.disposable-postgres-harness.v1",
+    "requiresSharedDatabaseAndAdminSuffix": true,
+    "requiresCommonDataAndSocketRoot": true,
+    "requiresExactRelationLocks": true,
+    "requiresExactCatalogInventory": true,
+    "expectedFinalNonownerAclEntryCount": 84,
+    "requiresEmptyRelations": true,
+    "allowsCascade": false,
+    "allowsDynamicDrop": false,
+    "allowsBroadAllObjectRevoke": false
+  },
+  "driverRelations": [
+    "student_recommendation_case_projection",
+    "recommendation_case_creation_reservations",
+    "consent_receipts",
+    "waiver_receipts"
+  ],
+  "projectionViews": [
+    "student_recommendation_case_projection"
+  ],
+  "studentProjectionArchitecture": {
+    "mode": "SECURITY_INVOKER_OVER_STUDENT_SAFE_BASE_AND_RELEASE_SNAPSHOT",
+    "supersedesDesignDefinerProjection": true,
+    "reason": "The executable schema removes faculty private and unreleased letter content from the base case relation, isolates it behind separate FORCE RLS relations with no student policy, and therefore does not require a bypassing projection owner."
+  },
+  "studentWritePrerequisites": [
+    "server_verified_360_entitlement",
+    "lor_feature_enabled",
+    "active_canary_authorization"
+  ],
+  "studentWriteTrustedGucs": [
+    "lor_studio.entitlement_verified",
+    "lor_studio.lor_enabled",
+    "lor_studio.canary_authorized"
+  ],
+  "executableRelations": [
+    "student_auth_bindings",
+    "student_auth_binding_revocations",
     "recommendation_cases",
-    "case_revisions",
-    "builder_sessions",
-    "evidence_links",
-    "letter_variants",
+    "recommendation_case_protected_revision_states",
+    "recommendation_case_creation_reservations",
+    "recommendation_case_audit_events",
+    "recommendation_case_write_receipts",
+    "faculty_invitations",
+    "faculty_otp_challenges",
+    "faculty_otp_challenge_revocations",
+    "faculty_otp_verification_receipts",
+    "faculty_otp_proof_revocations",
     "consent_receipts",
     "waiver_receipts",
-    "faculty_invitations",
     "faculty_private_content",
+    "released_student_documents",
+    "recommendation_case_private_write_receipts",
+    "administrative_case_grants",
+    "administrative_case_grant_revocations",
+    "mentor_case_assignments",
+    "mentor_case_assignment_revocations",
     "writer_depot_artifacts",
-    "idempotency_records",
-    "audit_events",
-    "deletion_intents"
+    "ai_generation_runs",
+    "ai_letter_proposals",
+    "ai_proposal_decisions",
+    "deletion_intents",
+    "deletion_hold_releases",
+    "deletion_receipts"
   ],
+  "designRelationDisposition": {
+    "recommendation_cases": "implemented",
+    "case_revisions": "superseded_by_recommendation_cases_revision_plus_recommendation_case_audit_events_and_write_receipts",
+    "builder_sessions": "superseded_by_the_versioned_builder_state_inside_the_safe_recommendation_case_aggregate",
+    "evidence_links": "superseded_by_case_bound_safe_evidence_state_plus_hash_bound_ai_proposal_source_references",
+    "letter_variants": "superseded_by_ai_letter_proposals_and_faculty_private_content",
+    "consent_receipts": "implemented",
+    "waiver_receipts": "implemented",
+    "faculty_invitations": "implemented_with_durable_otp_supporting_relations",
+    "faculty_private_content": "implemented",
+    "writer_depot_artifacts": "implemented",
+    "idempotency_records": "superseded_by_creation_reservations_base_and_private_write_receipts_and_ai_request_hash_ledgers",
+    "audit_events": "superseded_by_recommendation_case_audit_events",
+    "deletion_intents": "implemented_with_deletion_receipts"
+  },
   "requiredSecurityProperties": [
-    "RLS identity derives only from the selected Supabase Auth session",
-    "students are confined to their own nonwaived projections",
-    "waived and faculty-private content is never present in a student projection",
-    "faculty access is resource-bound to a verified recipient invitation",
-    "administrator protected-content access requires a case-bound privacy grant",
-    "all writes enforce revision preconditions and idempotency",
-    "artifact bytes remain in private encrypted versioned storage",
-    "audit rows contain metadata only and never letter, story, evidence, prompt, token, email, or signature content"
+    "every table has row level security enabled and forced",
+    "PUBLIC has no schema function table sequence or view capability",
+    "anonymous and authenticated convenience roles receive no LOR grants",
+    "students are confined to their exact active WordPress subject and bound JWT UUID",
+    "student writes additionally require trusted transaction local entitlement feature enablement and canary authorization",
+    "student projections omit faculty private data raw invitation material private object locators and unreleased letter text",
+    "released student content is bound to an immutable current nonwaived release snapshot",
+    "faculty access requires the exact consumed recipient bound unexpired unrevoked invitation and OTP proof for the case",
+    "mentor access requires an exact active unrevoked case assignment and never includes faculty private content",
+    "administrator founder support and service roles require an exact active case grant and role alone grants nothing",
+    "all mutable state writes enforce exact optimistic revisions and same transaction audit and replay truth",
+    "student safe state is physically separated from protected faculty strategy and version history state with a hash bound append only revision ledger",
+    "append only ledgers reject update and delete",
+    "audit rows use the closed metadata event vocabulary and never store letter story evidence prompt token email signature or private content",
+    "migration and rollback are executable only in the validated disposable synthetic local PostgreSQL harness until Founder Gate A"
   ]
 }

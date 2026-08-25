@@ -14,17 +14,25 @@ import {
 import {
   BUILDER_STEPS,
   CASE_STATUSES,
+  STUDENT_SAFE_CASE_FIELDS,
   appendReceipt,
+  appendStudentSafeReceipt,
   assertRecommendationCase,
+  assertStudentSafeRecommendationCase,
   autosaveBuilderStep,
+  autosaveStudentSafeBuilderStep,
   bindFacultyInvitation,
   bindVerifiedFaculty,
   builderProgress,
   completeBuilderStep,
+  completeStudentSafeBuilderStep,
   createRecommendationCase,
+  createStudentSafeRecommendationCase,
   finalDocumentContentHash,
+  projectStudentSafeCase,
   releaseFinalDocument,
   setFacultyPrivateContent,
+  toStudentSafeRecommendationCase,
   transitionRecommendationCase,
 } from '../../lor-studio/domain/recommendation-case.js';
 import {
@@ -32,7 +40,7 @@ import {
   createWaiverReceipt,
   currentWaiverState,
 } from '../../lor-studio/domain/receipts.js';
-import { sha256 } from '../../lor-studio/domain/value-utils.js';
+import { canonicalize, sha256 } from '../../lor-studio/domain/value-utils.js';
 import { projectCaseForActor } from '../../lor-studio/security/authorization-policy.js';
 import { InMemoryRecommendationCaseRepository } from '../../lor-studio/repositories/in-memory-recommendation-case-repository.js';
 import {
@@ -42,6 +50,15 @@ import {
 import { RecommendationCaseService } from '../../lor-studio/services/recommendation-case-service.js';
 
 const T0 = new Date('2026-08-09T12:00:00.000Z');
+
+test('canonical JSON matches PostgreSQL jsonb decimal and C-collation semantics', () => {
+  assert.equal(canonicalize(1e-7), '0.0000001');
+  assert.equal(canonicalize(-1.25e+21), '-1250000000000000000000');
+  assert.equal(
+    canonicalize({ '\u{1F600}': 1e-7, '\uE000': 2 }),
+    '{"\uE000":2,"\u{1F600}":0.0000001}',
+  );
+});
 
 function eligible(studentId = 'student-1', overrides = {}) {
   return {
@@ -84,12 +101,17 @@ class DurableAtomicRepositoryTestDouble {
   constructor() {
     this.isDurable = true;
     this.atomicStateAndEvent = true;
+    this.actorSafeCommands = true;
     this.durability = 'DURABLE_ATOMIC_TEST_DOUBLE';
     this.inner = new InMemoryRecommendationCaseRepository();
+    this.safeRecords = new Map();
+    this.idempotency = new Map();
     this.commits = [];
+    this.protectedReads = 0;
   }
 
   async getById(caseId) {
+    this.protectedReads += 1;
     return this.inner.getById(caseId);
   }
 
@@ -115,6 +137,87 @@ class DurableAtomicRepositoryTestDouble {
       event: transaction.event,
     }));
     return stored;
+  }
+
+  async readStudentSafeCase({ caseId, studentId }) {
+    const state = this.safeRecords.get(caseId);
+    if (!state || state.studentId !== studentId) throw new Error('not stored');
+    return structuredClone(state);
+  }
+
+  async #commitStudent(command, operation) {
+    validateMetadataServiceEvent(command.event);
+    assertStudentSafeRecommendationCase(command.state);
+    const replayKey = `${command.state.id}:${command.idempotencyKey}`;
+    const prior = this.idempotency.get(replayKey);
+    if (prior) {
+      if (prior.requestHash !== command.requestHash || prior.operation !== operation) {
+        throw new IdempotencyConflictError({ idempotencyKey: command.idempotencyKey });
+      }
+      return structuredClone(prior.state);
+    }
+    const current = this.safeRecords.get(command.state.id);
+    if (operation === 'create') {
+      if (current || command.state.revision !== 0) throw new Error('already stored');
+    } else if (!current || current.revision !== command.expectedRevision) {
+      throw new StaleRevisionError({
+        caseId: command.state.id,
+        expectedRevision: command.expectedRevision,
+        actualRevision: current?.revision ?? null,
+      });
+    }
+    this.safeRecords.set(command.state.id, structuredClone(command.state));
+    this.idempotency.set(replayKey, {
+      operation,
+      requestHash: command.requestHash,
+      state: structuredClone(command.state),
+    });
+    this.commits.push(structuredClone({
+      operation,
+      expectedRevision: command.expectedRevision ?? null,
+      event: command.event,
+      versionEntry: command.versionEntry,
+      studentWriteAuthorization: command.studentWriteAuthorization,
+    }));
+    return structuredClone(command.state);
+  }
+
+  async commitStudentCaseCreate(command) {
+    return this.#commitStudent(command, 'create');
+  }
+
+  async commitStudentBuilderAutosave(command) {
+    return this.#commitStudent(command, 'save');
+  }
+
+  async commitStudentBuilderComplete(command) {
+    return this.#commitStudent(command, 'save');
+  }
+
+  async commitStudentConsentReceipt(command) {
+    return this.#commitStudent(command, 'save');
+  }
+
+  async commitStudentWaiverReceipt(command) {
+    return this.#commitStudent(command, 'save');
+  }
+
+  async readFacultyCaseProjection() {
+    throw new Error('faculty projection not configured in this student-only test double');
+  }
+
+  async commitFacultyFinalDocumentRelease() {
+    throw new Error('faculty release not configured in this student-only test double');
+  }
+
+  async readMentorCaseProjection({ caseId }) {
+    return {
+      caseId,
+      status: 'draft',
+      strategyStatus: null,
+      nextMilestone: null,
+      deliveryStatus: 'not_started',
+    };
   }
 }
 
@@ -211,6 +314,55 @@ test('RecommendationCase enforces an immutable eight-step builder and valid life
     }),
     DomainInvariantError,
   );
+});
+
+test('student-safe case mutations use an exact 15-key DTO and separate metadata-only version entries', () => {
+  const created = createStudentSafeRecommendationCase({
+    id: 'case-safe',
+    studentId: 'student-1',
+    actorId: 'student-1',
+    builderSessionId: 'builder-safe',
+    now: T0,
+  });
+  assert.deepEqual(Object.keys(created.state), STUDENT_SAFE_CASE_FIELDS);
+  assert.equal('versionHistory' in created.state, false);
+  assert.equal('facultyPrivate' in created.state, false);
+  assert.equal('strategyMetadata' in created.state, false);
+  assert.equal(created.versionEntry.revision, 0);
+
+  const autosaved = autosaveStudentSafeBuilderStep(created.state, {
+    actorId: 'student-1',
+    stepId: BUILDER_STEPS[0],
+    stepData: { narrative: 'Student-controlled private builder material' },
+    now: new Date(T0.valueOf() + 1_000),
+  });
+  assert.equal(autosaved.state.revision, 1);
+  assert.deepEqual(autosaved.versionEntry.changedFields, ['builder']);
+  assert.equal(JSON.stringify(autosaved.versionEntry).includes('Student-controlled'), false);
+
+  const completed = completeStudentSafeBuilderStep(autosaved.state, {
+    actorId: 'student-1',
+    stepId: BUILDER_STEPS[0],
+    now: new Date(T0.valueOf() + 2_000),
+  });
+  const receipt = createConsentReceipt({
+    id: 'consent-safe',
+    caseId: completed.state.id,
+    studentId: completed.state.studentId,
+    scopes: ['storyforge.evidence.read'],
+    policyVersion: 'dr-019-v1',
+    recordedAt: new Date(T0.valueOf() + 3_000),
+  });
+  const recorded = appendStudentSafeReceipt(completed.state, {
+    actorId: 'student-1',
+    receiptType: 'consent',
+    receipt,
+    now: new Date(T0.valueOf() + 3_000),
+  });
+  assert.equal(recorded.state.consentReceipts.length, 1);
+  assert.deepEqual(recorded.versionEntry.changedFields, ['consentReceipts']);
+  assert.equal(projectStudentSafeCase(recorded.state).caseId, 'case-safe');
+  assertStudentSafeRecommendationCase(recorded.state);
 });
 
 test('in-memory repository is truthful, optimistic, append-only, and idempotent', async () => {
@@ -440,24 +592,115 @@ test('durable case writes require and use one atomic state-plus-event repository
     stepId: BUILDER_STEPS[0],
     stepData: { narrative: 'PROTECTED FACULTY LETTER STRING' },
   });
+  const completed = await service.completeBuilderStep({
+    caseId: created.id,
+    actor,
+    expectedRevision: saved.revision,
+    idempotencyKey: 'durable-complete',
+    stepId: BUILDER_STEPS[0],
+  });
+  const completedReplay = await service.completeBuilderStep({
+    caseId: created.id,
+    actor,
+    expectedRevision: saved.revision,
+    idempotencyKey: 'durable-complete',
+    stepId: BUILDER_STEPS[0],
+  });
+  const mentorTransport = await service.getCaseProjection({
+    caseId: created.id,
+    actor: { id: 'mentor-1', role: 'mentor' },
+  });
   assert.equal(saved.revision, 1);
-  assert.equal(repository.commits.length, 2);
-  assert.deepEqual(repository.commits.map((commit) => commit.operation), ['create', 'save']);
+  assert.equal(completedReplay.revision, completed.revision);
+  assert.equal(repository.commits.length, 3);
+  assert.deepEqual(repository.commits.map((commit) => commit.operation), ['create', 'save', 'save']);
   assert.equal(repository.commits[1].expectedRevision, 0);
+  assert.equal(repository.protectedReads, 0, 'durable student paths must never hydrate a full aggregate');
+  assert.deepEqual(Object.keys(mentorTransport), [
+    'schemaVersion',
+    'caseId',
+    'status',
+    'strategyStatus',
+    'nextMilestone',
+    'deliveryStatus',
+  ]);
+  assert.equal(mentorTransport.schemaVersion, 'missionmed.lor.mentor-projection.v1');
+  assert.deepEqual(
+    repository.commits.map((commit) => ({
+      entitlementVerified: commit.studentWriteAuthorization.entitlementVerified,
+      lorEnabled: commit.studentWriteAuthorization.lorEnabled,
+      canaryAuthorized: commit.studentWriteAuthorization.canaryAuthorized,
+      clientAsserted: commit.studentWriteAuthorization.clientAsserted,
+    })),
+    [
+      { entitlementVerified: true, lorEnabled: true, canaryAuthorized: true, clientAsserted: false },
+      { entitlementVerified: true, lorEnabled: true, canaryAuthorized: true, clientAsserted: false },
+      { entitlementVerified: true, lorEnabled: true, canaryAuthorized: true, clientAsserted: false },
+    ],
+  );
   const committedEvents = JSON.stringify(repository.commits.map((commit) => commit.event));
   assert.equal(committedEvents.includes('case-durable-atomic'), false);
   assert.equal(committedEvents.includes('student-1'), false);
   assert.equal(committedEvents.includes('PROTECTED FACULTY LETTER STRING'), false);
   assert.ok(repository.commits.every((commit) => /^case_[a-f0-9]{64}$/u.test(commit.event.caseRef)));
 
+  const later = await service.autosaveBuilder({
+    caseId: created.id,
+    actor,
+    expectedRevision: completed.revision,
+    idempotencyKey: 'durable-autosave-next',
+    stepId: BUILDER_STEPS[1],
+    stepData: { narrative: 'later revision' },
+  });
+  assert.equal(later.revision, 3);
+  const completionAfterLaterRevision = await service.completeBuilderStep({
+    caseId: created.id,
+    actor,
+    expectedRevision: saved.revision,
+    idempotencyKey: 'durable-complete',
+    stepId: BUILDER_STEPS[0],
+  });
+  assert.equal(completionAfterLaterRevision.revision, completed.revision);
+  const autosaveAfterLaterRevision = await service.autosaveBuilder({
+    caseId: created.id,
+    actor,
+    expectedRevision: created.revision,
+    idempotencyKey: 'durable-autosave',
+    stepId: BUILDER_STEPS[0],
+    stepData: { narrative: 'PROTECTED FACULTY LETTER STRING' },
+  });
+  assert.equal(autosaveAfterLaterRevision.revision, saved.revision);
+  await assert.rejects(() => service.autosaveBuilder({
+    caseId: created.id,
+    actor,
+    expectedRevision: created.revision,
+    idempotencyKey: 'different-stale-autosave-key',
+    stepId: BUILDER_STEPS[0],
+    stepData: { narrative: 'PROTECTED FACULTY LETTER STRING' },
+  }), StaleRevisionError);
+  assert.equal(repository.commits.length, 4, 'later replays must not create new commits');
+
   const failingRepository = {
     isDurable: true,
     atomicStateAndEvent: true,
+    actorSafeCommands: true,
     commitCalls: 0,
     async reserveCaseCreation({ proposedIdentifiers }) {
       return { ...proposedIdentifiers, replayed: false };
     },
     async getById() { throw new Error('not stored'); },
+    async readStudentSafeCase() { throw new Error('not stored'); },
+    async commitStudentCaseCreate() {
+      this.commitCalls += 1;
+      throw new Error('atomic event transaction unavailable');
+    },
+    async commitStudentBuilderAutosave() {},
+    async commitStudentBuilderComplete() {},
+    async commitStudentConsentReceipt() {},
+    async commitStudentWaiverReceipt() {},
+    async readFacultyCaseProjection() {},
+    async commitFacultyFinalDocumentRelease() {},
+    async readMentorCaseProjection() {},
     async commitWithEvent() {
       this.commitCalls += 1;
       throw new Error('atomic event transaction unavailable');
@@ -1104,6 +1347,14 @@ test('a released final document is versioned, waiver-bound, student-visible, and
 
   assert.equal(studentSees(released).text, FINAL_TEXT);
   assert.equal(studentSees(released).releasedToStudentAt, '2026-08-09T15:00:00.000Z');
+  const studentSafe = toStudentSafeRecommendationCase(released);
+  assert.equal(studentSafe.releasedDocument.finalDocument.text, FINAL_TEXT);
+  assert.equal(studentSafe.releasedDocument.release.documentId, 'document-1');
+  assert.match(studentSafe.releasedDocument.facultyApproval.facultyRef, /^faculty_[a-f0-9]{64}$/u);
+  assertStudentSafeRecommendationCase(studentSafe);
+  for (const protectedValue of ['FACULTY PRIVATE DRAFT', 'facultyPrivate', 'strategyMetadata']) {
+    assert.equal(JSON.stringify(studentSafe).includes(protectedValue), false);
+  }
 
   // Re-release is a replay, not a second mutation - even from the pre-release revision.
   const replayed = release(released, { expectedRevision: released.revision });

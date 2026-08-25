@@ -61,8 +61,18 @@ function durableCaseDriver() {
     atomicStateAndAudit: true,
     rlsEnforced: true,
     serverOnly: true,
+    actorSafeCommands: true,
     async selectCase() { return null; },
+    async readStudentSafeCase() { return null; },
+    async readFacultyCaseProjection() { return null; },
+    async readMentorCaseProjection() { return null; },
     async reserveCaseCreation() { return null; },
+    async commitStudentCaseCreate() { return null; },
+    async commitStudentBuilderAutosave() { return null; },
+    async commitStudentBuilderComplete() { return null; },
+    async commitStudentConsentReceipt() { return null; },
+    async commitStudentWaiverReceipt() { return null; },
+    async commitFacultyFinalDocumentRelease() { return null; },
     async executeAtomicCaseCommand() { return null; },
   };
 }

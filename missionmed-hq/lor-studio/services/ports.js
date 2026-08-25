@@ -10,7 +10,13 @@ export const PORT_CONTRACTS = deepFreeze({
     concurrency: 'optimistic_revision',
     retries: 'idempotency_key_and_request_hash',
     identifierAllocation: 'server_only_durable_atomic_creation_reservation',
-    durableWriteContract: 'commitWithEvent atomically persists state and its metadata event',
+    durableWriteContract: 'actor-safe student and faculty command methods atomically persist state, protected history, and metadata event',
+    durableStudentCapability: 'actorSafeCommands=true with exact student action-specific methods',
+    durableStudentReadContract: 'readStudentSafeCase returns only the exact 15-key student-safe DTO',
+    durableFacultyReadContract: 'readFacultyCaseProjection returns only the exact seven-field faculty DTO',
+    durableFacultyReleaseContract: 'commitFacultyFinalDocumentRelease accepts no caller state or private payload',
+    durableMentorReadContract: 'readMentorCaseProjection returns only the exact five-field mentor DTO',
+    legacyProtectedContract: 'getById and commitWithEvent remain fail-closed compatibility seams',
     nonDurableTestContract: 'explicit NON_DURABLE_TEST_ONLY repository plus separate test event sink',
     prohibited: [
       'durable_state_before_event',
@@ -91,6 +97,18 @@ class RequiredPort {
 
 export class RecommendationCaseRepositoryPort extends RequiredPort {
   async reserveCaseCreation() { return this.notImplemented('reserveCaseCreation'); }
+  async readStudentSafeCase() { return this.notImplemented('readStudentSafeCase'); }
+  async commitStudentCaseCreate() { return this.notImplemented('commitStudentCaseCreate'); }
+  async commitStudentBuilderAutosave() { return this.notImplemented('commitStudentBuilderAutosave'); }
+  async commitStudentBuilderComplete() { return this.notImplemented('commitStudentBuilderComplete'); }
+  async commitStudentConsentReceipt() { return this.notImplemented('commitStudentConsentReceipt'); }
+  async commitStudentWaiverReceipt() { return this.notImplemented('commitStudentWaiverReceipt'); }
+  async readFacultyCaseProjection() { return this.notImplemented('readFacultyCaseProjection'); }
+  async commitFacultyFinalDocumentRelease() {
+    return this.notImplemented('commitFacultyFinalDocumentRelease');
+  }
+  async readMentorCaseProjection() { return this.notImplemented('readMentorCaseProjection'); }
+  // Full aggregate compatibility methods are never used by actor-safe durable paths.
   async create() { return this.notImplemented('create'); }
   async getById() { return this.notImplemented('getById'); }
   async save() { return this.notImplemented('save'); }

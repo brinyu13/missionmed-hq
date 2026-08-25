@@ -23,6 +23,8 @@ import { createWaiverReceipt } from '../../lor-studio/domain/receipts.js';
 import {
   autosaveBuilderStep,
   createRecommendationCase,
+  createStudentSafeRecommendationCase,
+  toStudentSafeRecommendationCase,
 } from '../../lor-studio/domain/recommendation-case.js';
 import { hashValue, sha256 } from '../../lor-studio/domain/value-utils.js';
 import {
@@ -110,9 +112,24 @@ function serverScope(overrides = {}) {
     caseId: 'case-1',
     operation: 'read',
     purpose: 'case_workflow',
+    assignmentId: null,
+    invitationId: null,
+    administrativeGrantId: null,
+    entitlementVerified: true,
+    lorEnabled: true,
+    canaryAuthorized: true,
     ...overrides,
   };
 }
+
+const TRUSTED_STUDENT_AUTHORIZATION = Object.freeze({
+  schemaVersion: 'missionmed.lor.trusted-student-authorization.v1',
+  authoritySource: 'server_verified_entitlement',
+  entitlementVerified: true,
+  lorEnabled: true,
+  canaryAuthorized: true,
+  clientAsserted: false,
+});
 
 const WP_BINDING = Object.freeze({
   independentlyVerified: true,
@@ -252,6 +269,89 @@ function atomicCommitReceipt(command, overrides = {}) {
   };
 }
 
+const STUDENT_ACTIONS = Object.freeze({
+  'student.case.create': 'case.create',
+  'student.builder.autosave': 'builder.autosave',
+  'student.builder.complete': 'builder.complete_step',
+  'student.consent.record': 'consent.record',
+  'student.waiver.record': 'waiver.record',
+});
+
+function studentCommandReceipt(command, overrides = {}) {
+  const state = overrides.state ?? command.state;
+  const eventHash = overrides.eventHash ?? hashValue(command.event);
+  return {
+    schemaVersion: 'missionmed.lor.atomic-command-receipt.v2',
+    action: STUDENT_ACTIONS[command.commandType],
+    committed: true,
+    replayed: false,
+    sameTransaction: true,
+    caseId: state.id,
+    studentId: state.studentId,
+    revision: state.revision,
+    idempotencyKey: command.idempotencyKey,
+    requestHash: command.requestHash,
+    safeRecordHash: hashValue(state),
+    protectedStateHash: sha256(`protected:${state.id}:${state.revision}`),
+    eventHash,
+    auditEventRef: overrides.auditEventRef ?? command.event.eventRef,
+    transactionId: 'student-command-transaction-test-only',
+    state,
+    ...overrides,
+  };
+}
+
+function facultyProjection(overrides = {}) {
+  return {
+    schemaVersion: 'missionmed.lor.faculty-projection.v1',
+    caseId: 'case-1',
+    revision: 7,
+    status: 'faculty_review',
+    studentShared: {
+      evidence: [],
+      applicantOptions: [],
+      consentReceipts: [],
+      waiverState: { decided: true, waived: false, receiptId: 'waiver-receipt-1' },
+    },
+    facultyPrivate: {
+      answers: [],
+      notes: [],
+      draftText: 'Faculty-private draft',
+      finalDocument: {
+        id: 'document-1',
+        text: 'Approved final letter',
+        contentHash: null,
+        mimeType: null,
+        releasedToStudentAt: null,
+      },
+    },
+    delivery: { status: 'pending', destinationClass: null, deliveredAt: null },
+    ...overrides,
+  };
+}
+
+function facultyReleaseReceipt(command, state, overrides = {}) {
+  return {
+    schemaVersion: 'missionmed.lor.atomic-command-receipt.v2',
+    action: 'faculty.final_document_release',
+    committed: true,
+    replayed: false,
+    sameTransaction: true,
+    caseId: state.caseId,
+    studentId: 'wp:42',
+    revision: state.revision,
+    idempotencyKey: command.idempotencyKey,
+    requestHash: command.requestHash,
+    safeRecordHash: sha256('database-owned-safe-state-hash'),
+    protectedStateHash: sha256('database-owned-protected-state-hash'),
+    eventHash: hashValue(command.event),
+    auditEventRef: command.event.eventRef,
+    transactionId: 'faculty-release-transaction-test-only',
+    state,
+    ...overrides,
+  };
+}
+
 function creationReservationReceipt(command, overrides = {}) {
   return {
     schemaVersion: 'missionmed.lor.case-creation-reservation-receipt.v1',
@@ -274,10 +374,18 @@ function creationReservationReceipt(command, overrides = {}) {
 
 function durableDriver(overrides = {}) {
   const record = caseRecord();
+  const executeStudentCommand = overrides.executeStudentCommand
+    ?? (async (command) => studentCommandReceipt(command));
+  const {
+    executeStudentCommand: ignoredGenericStudentCommand,
+    ...driverOverrides
+  } = overrides;
+  void ignoredGenericStudentCommand;
   return {
     atomicStateAndAudit: true,
     rlsEnforced: true,
     serverOnly: true,
+    actorSafeCommands: true,
     async selectCase(command) {
       return {
         found: true,
@@ -285,13 +393,49 @@ function durableDriver(overrides = {}) {
         record,
       };
     },
+    async readStudentSafeCase() {
+      return { found: true, state: toStudentSafeRecommendationCase(record) };
+    },
+    async readFacultyCaseProjection() {
+      return { found: false, projection: null };
+    },
+    async readMentorCaseProjection(command) {
+      return {
+        found: true,
+        projection: {
+          caseId: command.caseId,
+          status: record.status,
+          strategyStatus: null,
+          nextMilestone: null,
+          deliveryStatus: record.delivery.status,
+        },
+      };
+    },
     async reserveCaseCreation(command) {
       return creationReservationReceipt(command);
+    },
+    async commitStudentCaseCreate(command) {
+      return executeStudentCommand({ ...command, commandType: 'student.case.create' });
+    },
+    async commitStudentBuilderAutosave(command) {
+      return executeStudentCommand({ ...command, commandType: 'student.builder.autosave' });
+    },
+    async commitStudentBuilderComplete(command) {
+      return executeStudentCommand({ ...command, commandType: 'student.builder.complete' });
+    },
+    async commitStudentConsentReceipt(command) {
+      return executeStudentCommand({ ...command, commandType: 'student.consent.record' });
+    },
+    async commitStudentWaiverReceipt(command) {
+      return executeStudentCommand({ ...command, commandType: 'student.waiver.record' });
+    },
+    async commitFacultyFinalDocumentRelease() {
+      throw new Error('faculty release not configured in this student test driver');
     },
     async executeAtomicCaseCommand(command) {
       return atomicCommitReceipt(command);
     },
-    ...overrides,
+    ...driverOverrides,
   };
 }
 
@@ -299,6 +443,8 @@ function persistentDurableCreationDriver() {
   const reservations = new Map();
   const records = new Map();
   const commits = new Map();
+  const safeRecords = new Map();
+  const studentCommits = new Map();
   let reservationCalls = 0;
   return durableDriver({
     async reserveCaseCreation(command) {
@@ -330,6 +476,28 @@ function persistentDurableCreationDriver() {
         }
         : { found: false };
     },
+    async readStudentSafeCase(command) {
+      const state = safeRecords.get(command.caseId);
+      return state
+        ? { found: true, state: structuredClone(state) }
+        : { found: false, state: null };
+    },
+    async executeStudentCommand(command) {
+      const commitKey = `${command.commandType}:${command.state.id}:${command.idempotencyKey}`;
+      const prior = studentCommits.get(commitKey);
+      if (prior) {
+        return studentCommandReceipt(command, {
+          ...structuredClone(prior.receipt),
+          replayed: true,
+        });
+      }
+      const receipt = studentCommandReceipt(command, {
+        transactionId: `student-case-transaction-${studentCommits.size + 1}`,
+      });
+      studentCommits.set(commitKey, { receipt: structuredClone(receipt) });
+      safeRecords.set(command.state.id, structuredClone(command.state));
+      return receipt;
+    },
     async executeAtomicCaseCommand(command) {
       const commitKey = `${command.operation}:${command.record.id}:${command.idempotencyKey}`;
       const prior = commits.get(commitKey);
@@ -355,8 +523,8 @@ function persistentDurableCreationDriver() {
       return {
         reservationCalls,
         reservationRows: reservations.size,
-        recordRows: records.size,
-        commitRows: commits.size,
+        recordRows: new Set([...records.keys(), ...safeRecords.keys()]).size,
+        commitRows: commits.size + studentCommits.size,
       };
     },
   });
@@ -376,6 +544,9 @@ function driverAuthorizationBinding(scope, overrides = {}) {
     invitationId: scope.invitationId,
     assignmentId: scope.assignmentId,
     administrativeGrantId: scope.administrativeGrantId,
+    entitlementVerified: scope.entitlementVerified,
+    lorEnabled: scope.lorEnabled,
+    canaryAuthorized: scope.canaryAuthorized,
     ...overrides,
   };
 }
@@ -691,6 +862,255 @@ test('durable server-only creation reservation survives service restart and cros
   }
 });
 
+test('durable repository exposes only actor-safe DTO reads and validates the exact v2 command receipt', async () => {
+  const { state, versionEntry } = createStudentSafeRecommendationCase({
+    id: 'case-1',
+    studentId: 'wp:42',
+    actorId: 'wp:42',
+    now: T0,
+    builderSessionId: 'builder-1',
+  });
+  const event = caseCreatedEvent();
+  const calls = [];
+  const driver = durableDriver({
+    async readStudentSafeCase(command) {
+      calls.push({ type: 'read', command });
+      return { found: true, state };
+    },
+    async executeStudentCommand(command) {
+      calls.push({ type: 'command', command });
+      return studentCommandReceipt(command);
+    },
+  });
+  const repository = new SupabaseDurableRecommendationCaseRepository({
+    binding: SUPABASE_BINDING,
+    driver,
+    scopeProvider: ({ caseId, operation, resourceStudentId = 'wp:42' }) => serverScope({
+      caseId,
+      operation,
+      authUid: 'auth-uid-student-42',
+      authenticatedSubject: resourceStudentId,
+      actorId: resourceStudentId,
+      resourceStudentId,
+    }),
+  });
+  const read = await repository.readStudentSafeCase({
+    caseId: 'case-1',
+    studentId: 'wp:42',
+    studentAccessAuthorization: TRUSTED_STUDENT_AUTHORIZATION,
+  });
+  assert.deepEqual(read, state);
+  const stored = await repository.commitStudentCaseCreate({
+    state,
+    idempotencyKey: 'actor-safe-create',
+    requestHash: sha256('actor-safe-create-request'),
+    event,
+    versionEntry,
+    studentWriteAuthorization: TRUSTED_STUDENT_AUTHORIZATION,
+  });
+  assert.deepEqual(stored, state);
+  assert.equal(calls[0].command.scope.actorRole, 'student');
+  assert.equal(calls[1].command.expectedRevision, null);
+  assert.equal(calls[1].command.receipt, null);
+  assert.equal(calls[1].command.scope.entitlementVerified, true);
+  assert.equal('studentWriteAuthorization' in calls[1].command, false);
+
+  // A receipt lookup wins over the newly reconstructed candidate. The database-bound
+  // idempotency key/request/action return the original target revision instead of forcing a
+  // retry through stale candidate validation.
+  const replayCandidate = createStudentSafeRecommendationCase({
+    id: 'case-1',
+    studentId: 'wp:42',
+    actorId: 'wp:42',
+    now: T0,
+    builderSessionId: 'builder-reconstructed-after-restart',
+  });
+  const replayRepository = new SupabaseDurableRecommendationCaseRepository({
+    binding: SUPABASE_BINDING,
+    driver: durableDriver({
+      async executeStudentCommand(command) {
+        return studentCommandReceipt(command, { state, replayed: true });
+      },
+    }),
+    scopeProvider: ({ caseId, operation, resourceStudentId = 'wp:42' }) => serverScope({
+      caseId,
+      operation,
+      authenticatedSubject: resourceStudentId,
+      actorId: resourceStudentId,
+      resourceStudentId,
+    }),
+  });
+  assert.deepEqual(await replayRepository.commitStudentCaseCreate({
+    state: replayCandidate.state,
+    idempotencyKey: 'actor-safe-create',
+    requestHash: sha256('actor-safe-create-request'),
+    event,
+    versionEntry: replayCandidate.versionEntry,
+    studentWriteAuthorization: TRUSTED_STUDENT_AUTHORIZATION,
+  }), state);
+});
+
+test('durable faculty service reads and releases through the seven-field DTO without hydrating an aggregate', async () => {
+  const beforeRelease = facultyProjection();
+  const calls = [];
+  let protectedAggregateReads = 0;
+  let entitlementReads = 0;
+  const driver = durableDriver({
+    async selectCase() {
+      protectedAggregateReads += 1;
+      throw new Error('faculty actor-safe paths must not select a full aggregate');
+    },
+    async readFacultyCaseProjection(command) {
+      calls.push({ type: 'read', command });
+      return { found: true, projection: beforeRelease };
+    },
+    async commitFacultyFinalDocumentRelease(command) {
+      calls.push({ type: 'release', command });
+      const state = facultyProjection({
+        revision: command.expectedRevision + 1,
+        facultyPrivate: {
+          ...beforeRelease.facultyPrivate,
+          finalDocument: {
+            ...beforeRelease.facultyPrivate.finalDocument,
+            releasedToStudentAt: command.event.occurredAt,
+          },
+        },
+      });
+      return facultyReleaseReceipt(command, state);
+    },
+  });
+  const repository = new SupabaseDurableRecommendationCaseRepository({
+    binding: SUPABASE_BINDING,
+    driver,
+    scopeProvider: ({ caseId, operation }) => serverScope({
+      caseId,
+      operation,
+      authUid: 'auth-uid-faculty-43',
+      authenticatedSubject: 'wp:43',
+      actorId: 'wp:43',
+      actorRole: 'faculty',
+      resourceStudentId: 'wp:42',
+      purpose: 'faculty_private_edit',
+      invitationId: 'invitation-1',
+    }),
+  });
+  const service = new RecommendationCaseService({
+    repository,
+    entitlementPort: {
+      async getStudentEntitlement() {
+        entitlementReads += 1;
+        throw new Error('faculty actor-safe paths must not perform a student entitlement read');
+      },
+    },
+    clock: () => new Date('2026-08-09T15:00:00.000Z'),
+  });
+
+  const read = await service.getCaseProjection({
+    caseId: 'case-1',
+    actor: { id: 'wp:43', role: 'faculty' },
+  });
+  const released = await service.releaseFinalDocument({
+    caseId: 'case-1',
+    actor: { id: 'wp:43', role: 'faculty' },
+    expectedRevision: 7,
+    documentId: 'document-1',
+    idempotencyKey: 'faculty-release-1',
+  });
+
+  assert.deepEqual(Object.keys(read), [
+    'schemaVersion',
+    'caseId',
+    'revision',
+    'status',
+    'studentShared',
+    'facultyPrivate',
+    'delivery',
+  ]);
+  assert.equal(released.revision, 8);
+  assert.equal(released.facultyPrivate.finalDocument.contentHash, null);
+  assert.equal(released.facultyPrivate.finalDocument.mimeType, null);
+  assert.equal(released.facultyPrivate.finalDocument.releasedToStudentAt, '2026-08-09T15:00:00.000Z');
+  assert.equal(protectedAggregateReads, 0);
+  assert.equal(entitlementReads, 0);
+  assert.deepEqual(calls.map(({ type }) => type), ['read', 'release']);
+  assert.deepEqual(Object.keys(calls[1].command), [
+    'binding',
+    'scope',
+    'expectedRevision',
+    'documentId',
+    'idempotencyKey',
+    'requestHash',
+    'event',
+  ]);
+  assert.equal(calls[1].command.scope.invitationId, 'invitation-1');
+  assert.equal(calls[1].command.scope.purpose, 'faculty_private_edit');
+  assert.equal('record' in calls[1].command, false);
+  assert.equal('facultyPrivate' in calls[1].command, false);
+});
+
+test('durable repository rejects malformed actor-safe command receipts and cross-subject reads', async () => {
+  const { state, versionEntry } = createStudentSafeRecommendationCase({
+    id: 'case-1',
+    studentId: 'wp:42',
+    actorId: 'wp:42',
+    now: T0,
+    builderSessionId: 'builder-1',
+  });
+  const request = {
+    state,
+    idempotencyKey: 'actor-safe-create',
+    requestHash: sha256('actor-safe-create-request'),
+    event: caseCreatedEvent(),
+    versionEntry,
+    studentWriteAuthorization: TRUSTED_STUDENT_AUTHORIZATION,
+  };
+  for (const override of [
+    { schemaVersion: 'missionmed.lor.atomic-command-receipt.invalid' },
+    { action: 'faculty.release' },
+    { committed: false },
+    { sameTransaction: false },
+    { caseId: 'case-other' },
+    { studentId: 'wp:99' },
+    { safeRecordHash: 'not-a-digest' },
+    { protectedStateHash: 'not-a-digest' },
+    { eventHash: sha256('different-event') },
+  ]) {
+    const repository = new SupabaseDurableRecommendationCaseRepository({
+      binding: SUPABASE_BINDING,
+      driver: durableDriver({
+        async executeStudentCommand(command) {
+          return studentCommandReceipt(command, override);
+        },
+      }),
+      scopeProvider: ({ caseId, operation, resourceStudentId = 'wp:42' }) => serverScope({
+        caseId,
+        operation,
+        authenticatedSubject: resourceStudentId,
+        actorId: resourceStudentId,
+        resourceStudentId,
+      }),
+    });
+    await assert.rejects(() => repository.commitStudentCaseCreate(request));
+  }
+
+  const crossSubject = new SupabaseDurableRecommendationCaseRepository({
+    binding: SUPABASE_BINDING,
+    driver: durableDriver(),
+    scopeProvider: ({ caseId, operation }) => serverScope({
+      caseId,
+      operation,
+      authenticatedSubject: 'wp:99',
+      actorId: 'wp:99',
+      resourceStudentId: 'wp:99',
+    }),
+  });
+  await assert.rejects(() => crossSubject.readStudentSafeCase({
+    caseId: 'case-1',
+    studentId: 'wp:42',
+    studentAccessAuthorization: TRUSTED_STUDENT_AUTHORIZATION,
+  }), /Access denied/u);
+});
+
 test('durable creation reservation rejects non-atomic, cross-subject, or unbound identifier receipts', async () => {
   const request = {
     actorId: 'wp:42',
@@ -968,6 +1388,7 @@ test('durable repository authorization receipts bind purpose and the exact role-
         actorId: 'wp:43',
         actorRole: 'faculty',
         invitationId: 'invitation-1',
+        purpose: 'faculty_private_edit',
       }),
       evidenceField: 'invitationId',
     },

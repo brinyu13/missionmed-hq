@@ -4,98 +4,80 @@ import {
   IdempotencyConflictError,
   IntegrationDisabledError,
   LorDomainError,
+  NotFoundError,
+  StaleRevisionError,
   ValidationError,
 } from '../domain/errors.js';
-import { assertRecommendationCase } from '../domain/recommendation-case.js';
+import {
+  assertFacultyCaseProjection,
+  assertMentorCaseProjection,
+  assertStudentSafeRecommendationCase,
+  FACULTY_CASE_PROJECTION_SCHEMA,
+  STUDENT_SAFE_CASE_SCHEMA,
+} from '../domain/recommendation-case.js';
 import {
   assertNonEmptyString,
   canonicalize,
   deepFreeze,
   hashValue,
+  sha256,
   toIso,
 } from '../domain/value-utils.js';
 import { validateMetadataServiceEvent } from '../services/metadata-events.js';
-import { isDeniedTargetIdentifier } from './lor-target-binding.mjs';
+import {
+  assertValidatedLorTargetBinding,
+  isDeniedTargetIdentifier,
+} from './lor-target-binding.mjs';
 
 /**
- * Atomic, RLS-enforced SQL driver for durable LOR Studio recommendation cases.
+ * Actor-safe PostgreSQL/RLS driver for durable LOR recommendation cases.
  *
- * This is the ONLY module in LOR Studio that names a table or a column. Every layer
- * above it - repository, service, HTTP adapter - speaks domain records and receipts.
- * If a relation name appears anywhere else, the persistence boundary has leaked.
- *
- * It exists because SupabaseDurableRecommendationCaseRepository is unconstructible
- * without a driver that can prove four things at once:
- *
- *   1. state and its metadata audit row land in ONE transaction, or neither lands;
- *   2. a save applies only against the exact revision the caller read, so two
- *      competing writers cannot both win;
- *   3. the request identity used for row-level security is established server-side
- *      per transaction, from the verified scope only, and cannot bleed between
- *      users on a pooled connection;
- *   4. an idempotent replay returns the receipt of the original commit instead of
- *      committing a second time.
- *
- * SQL is never assembled from caller data. Every caller value travels as a bound
- * parameter; the only interpolated identifiers are module constants.
+ * Student writes cross the database boundary only through the five DR-120
+ * SECURITY DEFINER command functions. The application role cannot directly
+ * mutate recommendation-case, protected-state, audit, or receipt relations.
+ * Student reads use one fixed projection statement; mentor reads use one fixed
+ * five-field function. No caller value is interpolated into SQL.
  */
 
 export const ATOMIC_RLS_CASE_DRIVER_INTEGRATION = 'lor_atomic_rls_case_driver';
 
 const LOR_SCHEMA = 'lor_studio';
-
-/**
- * The database role the driver runs as inside every transaction.
- *
- * It is a module constant, never a request field. A table owner or superuser
- * BYPASSES row-level security in PostgreSQL, so binding the connection down to an
- * unprivileged application role is what makes the policies load-bearing rather
- * than decorative.
- */
 const APPLICATION_DB_ROLE = 'lor_studio_app';
-
 const SERVER_SCOPE_SCHEMA = 'missionmed.lor.server-query-scope.v1';
 const DRIVER_AUTHORIZATION_SCHEMA = 'missionmed.lor.driver-authorization-binding.v1';
 const CREATION_RESERVATION_RECEIPT_SCHEMA = 'missionmed.lor.case-creation-reservation-receipt.v1';
-const ATOMIC_COMMIT_RECEIPT_SCHEMA = 'missionmed.lor.atomic-commit-receipt.v1';
+const ATOMIC_COMMAND_RECEIPT_SCHEMA = 'missionmed.lor.atomic-command-receipt.v2';
 const TARGET_BINDING_SCHEMA = 'missionmed.lor.target-binding.v1';
 
-const ACTOR_ROLES = new Set(['student', 'faculty', 'mentor', 'admin', 'founder', 'support', 'service']);
-const SCOPE_OPERATIONS = new Set(['read', 'create', 'save']);
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const STUDENT_SUBJECT_PATTERN = /^wp:[1-9][0-9]*$/u;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
+const CREATION_REF_PATTERN = /^case_creation_[a-f0-9]{64}$/u;
 
-/** Relations owned by this driver. Named here and nowhere else in LOR Studio. */
 const RELATIONS = deepFreeze({
-  cases: `${LOR_SCHEMA}.recommendation_cases`,
-  auditEvents: `${LOR_SCHEMA}.recommendation_case_audit_events`,
+  studentCaseProjection: `${LOR_SCHEMA}.student_recommendation_case_projection`,
   creationReservations: `${LOR_SCHEMA}.recommendation_case_creation_reservations`,
-  writeReceipts: `${LOR_SCHEMA}.recommendation_case_write_receipts`,
+  consentReceipts: `${LOR_SCHEMA}.consent_receipts`,
+  waiverReceipts: `${LOR_SCHEMA}.waiver_receipts`,
 });
 
-/**
- * Prepared-statement names. `node-pg` reuses a named statement's plan, which
- * requires one fixed text per name - satisfied because each name maps to exactly
- * one constant below. Tests assert on these names rather than on SQL substrings.
- */
+/** Stable driver-local identifiers; they are not node-pg prepared names. */
 export const ATOMIC_RLS_CASE_STATEMENTS = deepFreeze({
   bindIdentity: 'lor_case_bind_identity',
   transactionId: 'lor_case_transaction_id',
-  selectCase: 'lor_case_select',
-  selectRevision: 'lor_case_select_revision',
-  selectWriteReceipt: 'lor_case_select_write_receipt',
-  insertState: 'lor_case_insert_state',
-  updateState: 'lor_case_update_state',
-  insertAuditEvent: 'lor_case_insert_audit_event',
-  insertWriteReceipt: 'lor_case_insert_write_receipt',
+  readStudentSafeCase: 'lor_case_read_student_safe_case',
+  readFacultyCaseProjection: 'lor_case_read_faculty_projection',
+  readMentorCaseProjection: 'lor_case_read_mentor_projection',
+  commitStudentCaseCreate: 'lor_case_commit_student_case_create',
+  commitStudentBuilderAutosave: 'lor_case_commit_student_builder_autosave',
+  commitStudentBuilderComplete: 'lor_case_commit_student_builder_complete',
+  commitStudentConsentReceipt: 'lor_case_commit_student_consent_receipt',
+  commitStudentWaiverReceipt: 'lor_case_commit_student_waiver_receipt',
+  commitFacultyFinalDocumentRelease: 'lor_case_commit_faculty_final_document_release',
   insertCreationReservation: 'lor_case_insert_creation_reservation',
   selectCreationReservation: 'lor_case_select_creation_reservation',
 });
 
-/**
- * Exactly the fields the durable repository's verified scope carries. An exact-key
- * match is the point: a caller cannot append `rlsRole`, `dbRole`, or any other
- * identity-shaped field and have it reach the connection.
- */
 const SCOPE_KEYS = new Set([
   'schemaVersion',
   'authoritySource',
@@ -112,10 +94,12 @@ const SCOPE_KEYS = new Set([
   'assignmentId',
   'invitationId',
   'administrativeGrantId',
+  'entitlementVerified',
+  'lorEnabled',
+  'canaryAuthorized',
 ]);
-
-const SELECT_CASE_KEYS = new Set(['binding', 'scope', 'caseId']);
-const RESERVE_CREATION_KEYS = new Set([
+const READ_REQUEST_KEYS = new Set(['binding', 'scope', 'caseId']);
+const RESERVATION_REQUEST_KEYS = new Set([
   'binding',
   'scope',
   'operation',
@@ -125,18 +109,54 @@ const RESERVE_CREATION_KEYS = new Set([
   'requestHash',
   'proposedIdentifiers',
 ]);
-const ATOMIC_COMMAND_KEYS = new Set([
+const PROPOSED_IDENTIFIER_KEYS = new Set(['caseId', 'builderSessionId', 'createdAt']);
+const STUDENT_COMMAND_KEYS = new Set([
   'binding',
   'scope',
-  'operation',
-  'record',
+  'state',
   'expectedRevision',
   'idempotencyKey',
   'requestHash',
   'event',
+  'versionEntry',
+  'receipt',
 ]);
-const PROPOSED_IDENTIFIER_KEYS = new Set(['caseId', 'builderSessionId', 'createdAt']);
-
+const FACULTY_RELEASE_COMMAND_KEYS = new Set([
+  'binding',
+  'scope',
+  'expectedRevision',
+  'documentId',
+  'idempotencyKey',
+  'requestHash',
+  'event',
+]);
+const VERSION_ENTRY_KEYS = new Set([
+  'revision',
+  'eventType',
+  'actorId',
+  'occurredAt',
+  'changedFields',
+  'changeHash',
+]);
+const COMMAND_RECEIPT_KEYS = new Set([
+  'schemaVersion',
+  'action',
+  'committed',
+  'replayed',
+  'sameTransaction',
+  'caseId',
+  'studentId',
+  'revision',
+  'idempotencyKey',
+  'requestHash',
+  'safeRecordHash',
+  'protectedStateHash',
+  'eventHash',
+  'auditEventRef',
+  'transactionId',
+  'state',
+]);
+const SAFE_RECORD_KEYS = new Set(['builder', 'studentEvidence', 'applicantOptions', 'delivery']);
 const BINDING_IDENTITY_FIELDS = Object.freeze([
   'schemaVersion',
   'decisionRecord',
@@ -148,20 +168,165 @@ const BINDING_IDENTITY_FIELDS = Object.freeze([
   'schema',
   'migrationLedger',
 ]);
+const BINDING_KEYS = new Set(BINDING_IDENTITY_FIELDS);
 
-/**
- * Internal control-flow signal for an outcome the repository is designed to read
- * off a RESULT (stale revision, not found, idempotency conflict). It is thrown
- * rather than returned so the transaction unwinds: an outcome that is not a commit
- * must never leave a committed row behind, not even an empty one.
- */
-class DriverRejection extends Error {
-  constructor(outcome) {
-    super('atomic case command rejected');
-    this.name = 'DriverRejection';
-    this.outcome = outcome;
-  }
-}
+const BIND_IDENTITY_SQL = `SELECT
+  pg_catalog.set_config('role', $1, true) AS database_role,
+  pg_catalog.set_config('request.jwt.claim.sub', $2, true) AS auth_uid,
+  pg_catalog.set_config('${LOR_SCHEMA}.student_auth_subject', $3, true) AS student_auth_subject,
+  pg_catalog.set_config('${LOR_SCHEMA}.actor_role', $4, true) AS actor_role,
+  pg_catalog.set_config('${LOR_SCHEMA}.resource_student_id', $5, true) AS resource_student_id,
+  pg_catalog.set_config('${LOR_SCHEMA}.case_id', $6, true) AS case_id,
+  pg_catalog.set_config('${LOR_SCHEMA}.operation', $7, true) AS operation,
+  pg_catalog.set_config('${LOR_SCHEMA}.purpose', $8, true) AS purpose,
+  pg_catalog.set_config('${LOR_SCHEMA}.invitation_id', $9, true) AS invitation_id,
+  pg_catalog.set_config('${LOR_SCHEMA}.assignment_id', $10, true) AS assignment_id,
+  pg_catalog.set_config('${LOR_SCHEMA}.administrative_grant_id', $11, true) AS administrative_grant_id,
+  pg_catalog.set_config('${LOR_SCHEMA}.entitlement_verified', $12, true) AS entitlement_verified,
+  pg_catalog.set_config('${LOR_SCHEMA}.lor_enabled', $13, true) AS lor_enabled,
+  pg_catalog.set_config('${LOR_SCHEMA}.canary_authorized', $14, true) AS canary_authorized`;
+
+const TRANSACTION_ID_SQL = 'SELECT pg_catalog.pg_current_xact_id()::text AS transaction_id';
+
+/** The sole student-safe read; protected/private relations never appear here. */
+const READ_STUDENT_SAFE_CASE_SQL = `SELECT
+    projected.case_id,
+    projected.student_auth_subject,
+    projected.revision,
+    projected.status,
+    projected.created_at,
+    projected.updated_at,
+    projected.closed_at,
+    projected.record,
+    projected.final_document_id,
+    projected.final_document_text,
+    projected.final_document_content_hash,
+    projected.final_document_mime_type,
+    projected.approval_approved,
+    projected.approval_at,
+    projected.approval_faculty_ref,
+    projected.approval_signature_attested,
+    projected.release_document_id,
+    projected.release_document_hash,
+    projected.released_at,
+    projected.released_at_revision,
+    projected.waiver_receipt_id,
+    projected.snapshot_hash,
+    COALESCE((
+      SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'schemaVersion', 'missionmed.lor.consent-receipt.v1',
+        'id', consent.receipt_id,
+        'caseId', consent.case_id,
+        'actorId', consent.student_auth_subject,
+        'scopes', pg_catalog.to_jsonb(consent.scopes),
+        'policyVersion', consent.policy_version,
+        'recordedAt', consent.recorded_at,
+        'receiptHash', consent.receipt_hash
+      ) ORDER BY consent.case_revision, consent.recorded_at, consent.receipt_id)
+      FROM ${RELATIONS.consentReceipts} AS consent
+      WHERE consent.case_id = projected.case_id
+        AND consent.student_auth_subject = projected.student_auth_subject
+        AND consent.case_revision <= projected.revision
+    ), '[]'::jsonb) AS consent_receipts,
+    COALESCE((
+      SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
+        'schemaVersion', 'missionmed.lor.waiver-receipt.v1',
+        'id', waiver.receipt_id,
+        'caseId', waiver.case_id,
+        'actorId', waiver.student_auth_subject,
+        'waived', waiver.waived,
+        'policyVersion', waiver.policy_version,
+        'priorReceiptId', waiver.prior_receipt_id,
+        'acknowledgment', waiver.acknowledgment,
+        'recordedAt', waiver.recorded_at,
+        'receiptHash', waiver.receipt_hash
+      ) ORDER BY waiver.case_revision, waiver.recorded_at, waiver.receipt_id)
+      FROM ${RELATIONS.waiverReceipts} AS waiver
+      WHERE waiver.case_id = projected.case_id
+        AND waiver.student_auth_subject = projected.student_auth_subject
+        AND waiver.case_revision <= projected.revision
+    ), '[]'::jsonb) AS waiver_receipts
+  FROM ${RELATIONS.studentCaseProjection} AS projected
+  WHERE projected.case_id = $1 AND projected.student_auth_subject = $2`;
+
+const READ_MENTOR_CASE_PROJECTION_SQL =
+  `SELECT ${LOR_SCHEMA}.read_mentor_case_projection() AS result`;
+const READ_FACULTY_CASE_PROJECTION_SQL =
+  `SELECT ${LOR_SCHEMA}.read_faculty_case_projection() AS result`;
+const COMMIT_FACULTY_FINAL_DOCUMENT_RELEASE_SQL =
+  `SELECT ${LOR_SCHEMA}.commit_faculty_final_document_release(
+    $1::bigint, $2, $3, $4, $5::jsonb, $6
+  ) AS result`;
+
+const INSERT_CREATION_RESERVATION_SQL = `INSERT INTO ${RELATIONS.creationReservations}
+    (creation_ref, student_auth_subject, student_auth_uid, actor_ref, idempotency_key,
+     request_hash, case_id, builder_session_id, created_at, transaction_id, reserved_at)
+  VALUES ($1, $2, $3::uuid, $4, $5, $6, $7, $8, $9::timestamptz,
+     pg_catalog.pg_current_xact_id()::text, pg_catalog.statement_timestamp())
+  ON CONFLICT (creation_ref) DO NOTHING
+  RETURNING case_id, builder_session_id, created_at, request_hash, transaction_id`;
+
+const SELECT_CREATION_RESERVATION_SQL = `SELECT case_id, builder_session_id, created_at,
+    request_hash, transaction_id
+  FROM ${RELATIONS.creationReservations}
+  WHERE creation_ref = $1 AND student_auth_subject = $2 AND student_auth_uid = $3::uuid
+    AND actor_ref = $4`;
+
+const STUDENT_COMMANDS = deepFreeze({
+  commitStudentCaseCreate: {
+    statementId: ATOMIC_RLS_CASE_STATEMENTS.commitStudentCaseCreate,
+    operation: 'create',
+    action: 'case.create',
+    sql: `SELECT ${LOR_SCHEMA}.commit_student_case_create(
+      $1::jsonb, $2, $3, $4::jsonb, $5, $6::jsonb
+    ) AS result`,
+    receipt: false,
+  },
+  commitStudentBuilderAutosave: {
+    statementId: ATOMIC_RLS_CASE_STATEMENTS.commitStudentBuilderAutosave,
+    operation: 'save',
+    action: 'builder.autosave',
+    sql: `SELECT ${LOR_SCHEMA}.commit_student_builder_autosave(
+      $1::jsonb, $2::bigint, $3, $4, $5::jsonb, $6, $7::jsonb
+    ) AS result`,
+    receipt: false,
+  },
+  commitStudentBuilderComplete: {
+    statementId: ATOMIC_RLS_CASE_STATEMENTS.commitStudentBuilderComplete,
+    operation: 'save',
+    action: 'builder.complete_step',
+    sql: `SELECT ${LOR_SCHEMA}.commit_student_builder_complete(
+      $1::jsonb, $2::bigint, $3, $4, $5::jsonb, $6, $7::jsonb
+    ) AS result`,
+    receipt: false,
+  },
+  commitStudentConsentReceipt: {
+    statementId: ATOMIC_RLS_CASE_STATEMENTS.commitStudentConsentReceipt,
+    operation: 'save',
+    action: 'consent.record',
+    sql: `SELECT ${LOR_SCHEMA}.commit_student_consent_receipt(
+      $1::jsonb, $2::bigint, $3, $4, $5::jsonb, $6, $7::jsonb, $8::jsonb
+    ) AS result`,
+    receipt: true,
+  },
+  commitStudentWaiverReceipt: {
+    statementId: ATOMIC_RLS_CASE_STATEMENTS.commitStudentWaiverReceipt,
+    operation: 'save',
+    action: 'waiver.record',
+    sql: `SELECT ${LOR_SCHEMA}.commit_student_waiver_receipt(
+      $1::jsonb, $2::bigint, $3, $4, $5::jsonb, $6, $7::jsonb, $8::jsonb
+    ) AS result`,
+    receipt: true,
+  },
+});
+
+const FACULTY_RELEASE_COMMAND = deepFreeze({
+  statementId: ATOMIC_RLS_CASE_STATEMENTS.commitFacultyFinalDocumentRelease,
+  operation: 'save',
+  action: 'faculty.final_document_release',
+  eventType: 'faculty.final_document_released',
+  sql: COMMIT_FACULTY_FINAL_DOCUMENT_RELEASE_SQL,
+});
 
 function failClosed(status) {
   throw new IntegrationDisabledError(ATOMIC_RLS_CASE_DRIVER_INTEGRATION, status);
@@ -175,8 +340,17 @@ function isPlainObject(value) {
 }
 
 function hasExactKeys(value, expected) {
+  if (!isPlainObject(value)) return false;
   const keys = Object.keys(value);
   return keys.length === expected.size && keys.every((key) => expected.has(key));
+}
+
+/** Snapshot each allowlisted property once before validation. */
+function snapshotExact(value, keys, status) {
+  if (!hasExactKeys(value, keys)) failClosed(status);
+  const snapshot = {};
+  for (const key of keys) snapshot[key] = value[key];
+  return snapshot;
 }
 
 function assertSha256(value, fieldName) {
@@ -186,167 +360,32 @@ function assertSha256(value, fieldName) {
   return value;
 }
 
-/**
- * Build one statement. The placeholder audit is not decoration: it is the
- * mechanical guarantee that every caller value is bound rather than interpolated,
- * so a mismatch between the SQL and the value list fails closed instead of
- * silently sending a statement with a dangling or unused parameter.
- */
-function statement(name, text, values = []) {
-  const indexes = new Set((text.match(/\$\d+/gu) ?? []).map((token) => Number(token.slice(1))));
-  const expected = values.length;
-  if (indexes.size !== expected) failClosed('STATEMENT_PARAMETER_MISMATCH');
-  for (let index = 1; index <= expected; index += 1) {
+function assertUuid(value, fieldName) {
+  if (!UUID_PATTERN.test(value ?? '')) {
+    throw new ValidationError(`${fieldName} must be a UUID`, { fieldName });
+  }
+  return value;
+}
+
+function canonicalClone(value) {
+  return JSON.parse(canonicalize(value));
+}
+
+/** Mechanically prove every caller value occupies one contiguous placeholder. */
+function statement(statementId, text, values = []) {
+  const placeholders = text.match(/\$[0-9]+/gu) ?? [];
+  const indexes = new Set(placeholders.map((token) => Number(token.slice(1))));
+  if (indexes.size !== values.length) failClosed('STATEMENT_PARAMETER_MISMATCH');
+  for (let index = 1; index <= values.length; index += 1) {
     if (!indexes.has(index)) failClosed('STATEMENT_PARAMETER_MISMATCH');
   }
   for (const value of values) {
-    const type = typeof value;
-    if (value !== null && type !== 'string' && type !== 'number' && type !== 'boolean') {
+    if (value !== null && !['string', 'number', 'boolean'].includes(typeof value)) {
       failClosed('STATEMENT_PARAMETER_UNSUPPORTED');
     }
   }
-  return Object.freeze({ name, text, values: Object.freeze([...values]) });
+  return Object.freeze({ statementId, text, values: Object.freeze([...values]) });
 }
-
-/**
- * Issued on the CONNECTION after the transaction has ended, never inside it.
- *
- * `SET LOCAL` / `set_config(..., true)` already unwind at COMMIT or ROLLBACK, so
- * this is the second line of defence for pooled connections. It is deliberately
- * outside the transaction because an aborted transaction rejects every further
- * statement - a reset issued inside it would be skipped in exactly the failure
- * case that makes identity bleed dangerous.
- */
-const RESET_IDENTITY_STATEMENT = Object.freeze({
-  name: null,
-  text: 'DISCARD ALL',
-  values: Object.freeze([]),
-});
-
-const BIND_IDENTITY_SQL = `SELECT
-  set_config('role', $1, true) AS database_role,
-  set_config('request.jwt.claim.sub', $2, true) AS auth_uid,
-  set_config('${LOR_SCHEMA}.authenticated_subject', $3, true) AS authenticated_subject,
-  set_config('${LOR_SCHEMA}.actor_role', $4, true) AS actor_role,
-  set_config('${LOR_SCHEMA}.resource_student_id', $5, true) AS resource_student_id,
-  set_config('${LOR_SCHEMA}.case_id', $6, true) AS case_id,
-  set_config('${LOR_SCHEMA}.operation', $7, true) AS operation,
-  set_config('${LOR_SCHEMA}.purpose', $8, true) AS purpose,
-  set_config('${LOR_SCHEMA}.invitation_id', $9, true) AS invitation_id,
-  set_config('${LOR_SCHEMA}.assignment_id', $10, true) AS assignment_id,
-  set_config('${LOR_SCHEMA}.administrative_grant_id', $11, true) AS administrative_grant_id`;
-
-const TRANSACTION_ID_SQL = 'SELECT pg_current_xact_id()::text AS transaction_id';
-
-const SELECT_CASE_SQL = `SELECT record, revision
-  FROM ${RELATIONS.cases}
-  WHERE case_id = $1 AND student_id = $2`;
-
-const SELECT_REVISION_SQL = `SELECT revision
-  FROM ${RELATIONS.cases}
-  WHERE case_id = $1 AND student_id = $2`;
-
-// student_id is bound here for the same reason SELECT_CASE_SQL and SELECT_REVISION_SQL bind it.
-// Without it the replay path was owner-blind: an idempotency key is only unique within a case, so
-// a caller scoped to one student who guessed or reused a key for another student's case received
-// that student's stored record back. The repository above catches it, but the driver is the layer
-// that owns table access and it must not depend on a caller further up to be safe.
-const SELECT_WRITE_RECEIPT_SQL = `SELECT request_hash, operation, revision, record, record_hash,
-    event_hash, audit_event_ref, transaction_id
-  FROM ${RELATIONS.writeReceipts}
-  WHERE case_id = $1 AND idempotency_key = $2 AND student_id = $3`;
-
-const INSERT_STATE_SQL = `INSERT INTO ${RELATIONS.cases}
-    (case_id, student_id, revision, status, created_at, updated_at, record, record_hash)
-  VALUES ($1, $2, $3, $4, $5::timestamptz, $6::timestamptz, $7::jsonb, $8)
-  ON CONFLICT (case_id) DO NOTHING
-  RETURNING record, revision, pg_current_xact_id()::text AS transaction_id`;
-
-/**
- * The optimistic-concurrency predicate. `revision = $8` is the whole concurrency
- * story: PostgreSQL re-evaluates it after taking the row lock under READ
- * COMMITTED, so of two writers holding the same expectedRevision the loser matches
- * zero rows and is told the revision it actually lost to.
- */
-const UPDATE_STATE_SQL = `UPDATE ${RELATIONS.cases}
-  SET revision = $1, status = $2, updated_at = $3::timestamptz, record = $4::jsonb, record_hash = $5
-  WHERE case_id = $6 AND student_id = $7 AND revision = $8
-  RETURNING record, revision, pg_current_xact_id()::text AS transaction_id`;
-
-const INSERT_AUDIT_EVENT_SQL = `INSERT INTO ${RELATIONS.auditEvents}
-    (event_ref, case_id, case_ref, actor_ref, actor_role, correlation_ref, event_type,
-     outcome, revision, occurred_at, event, event_hash, transaction_id)
-  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::timestamptz, $11::jsonb, $12,
-     pg_current_xact_id()::text)
-  ON CONFLICT (event_ref) DO NOTHING
-  RETURNING event_ref, transaction_id`;
-
-// student_id is stored so the replay lookup can bind an owner predicate, and so an RLS policy on
-// this relation can be expressed at all. Without the column the receipt table is owner-blind and
-// the only ownership evidence is the studentId buried inside the record JSON.
-const INSERT_WRITE_RECEIPT_SQL = `INSERT INTO ${RELATIONS.writeReceipts}
-    (case_id, student_id, idempotency_key, request_hash, operation, revision, record, record_hash,
-     event_hash, audit_event_ref, transaction_id, committed_at)
-  VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, pg_current_xact_id()::text, now())
-  ON CONFLICT (case_id, idempotency_key) DO NOTHING
-  RETURNING transaction_id`;
-
-const INSERT_CREATION_RESERVATION_SQL = `INSERT INTO ${RELATIONS.creationReservations}
-    (creation_ref, actor_ref, idempotency_key, request_hash, case_id, builder_session_id,
-     created_at, transaction_id, reserved_at)
-  VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, pg_current_xact_id()::text, now())
-  ON CONFLICT (creation_ref) DO NOTHING
-  RETURNING case_id, builder_session_id, created_at, request_hash, transaction_id`;
-
-const SELECT_CREATION_RESERVATION_SQL = `SELECT case_id, builder_session_id, created_at,
-    request_hash, transaction_id
-  FROM ${RELATIONS.creationReservations}
-  WHERE creation_ref = $1 AND actor_ref = $2`;
-
-/**
- * @typedef {object} SqlStatement
- * @property {string | null} name prepared-statement name, or null when not preparable
- * @property {string} text
- * @property {ReadonlyArray<string | number | boolean | null>} values
- */
-
-/**
- * @typedef {object} SqlResult
- * @property {Record<string, unknown>[]} rows
- */
-
-/**
- * @typedef {object} SqlTransaction
- * @property {(statement: SqlStatement) => Promise<SqlResult>} execute
- */
-
-/**
- * @typedef {object} SqlConnection
- * @property {(statement: SqlStatement) => Promise<SqlResult>} execute statements outside a transaction
- * @property {(handler: (transaction: SqlTransaction) => Promise<unknown>) => Promise<unknown>} transaction
- */
-
-/**
- * The injected SQL executor port.
- *
- * A real `pg` implementation is mechanical: `withConnection` is
- * `pool.connect()` / `client.release()`, `connection.execute` is
- * `client.query({name, text, values})`, and `connection.transaction` is
- * BEGIN / handler / COMMIT, with ROLLBACK and a rethrow when the handler rejects.
- * PostgREST can implement the same shape over a single stored procedure.
- *
- * Required behaviour, relied on by this driver:
- *   - `transaction` COMMITs only when the handler resolves;
- *   - `transaction` ROLLBACKs and RETHROWS when the handler rejects;
- *   - `withConnection` gives the handler exclusive use of one connection, so the
- *     identity bound inside the transaction and the reset issued afterwards apply
- *     to the same backend.
- *
- * @typedef {object} SqlExecutorPort
- * @property {boolean} serverOnly
- * @property {boolean} transactional
- * @property {(handler: (connection: SqlConnection) => Promise<unknown>) => Promise<unknown>} withConnection
- */
 
 function assertExecutor(executor) {
   if (
@@ -354,18 +393,12 @@ function assertExecutor(executor) {
     || executor.serverOnly !== true
     || executor.transactional !== true
     || typeof executor.withConnection !== 'function'
-  ) {
-    failClosed('SQL_EXECUTOR_PORT_REQUIRED');
-  }
+  ) failClosed('SQL_EXECUTOR_PORT_REQUIRED');
   return executor;
 }
 
 function assertConnection(connection) {
-  if (
-    !connection
-    || typeof connection.execute !== 'function'
-    || typeof connection.transaction !== 'function'
-  ) {
+  if (!connection || typeof connection.transaction !== 'function') {
     failClosed('SQL_CONNECTION_CONTRACT_VIOLATED');
   }
   return connection;
@@ -378,79 +411,100 @@ function assertTransaction(transaction) {
   return transaction;
 }
 
-/**
- * The driver is pinned to ONE target at construction. Requests carry a binding
- * too, and it must match by value.
- *
- * Value equality rather than object identity is deliberate: the repository hands
- * `reserveCaseCreation` a `structuredClone` of its command, which produces a copy
- * that is no longer the object the target-binding registry validated. Comparing
- * the nine identity fields keeps the check meaningful across that clone while
- * still refusing to let a request redirect the driver at another project.
- */
 function assertTargetBinding(binding, target) {
-  if (!binding || typeof binding !== 'object') failClosed('TARGET_BINDING_REQUIRED');
+  if (!hasExactKeys(binding, BINDING_KEYS)) failClosed('TARGET_BINDING_REQUIRED');
   for (const field of BINDING_IDENTITY_FIELDS) {
     if (binding[field] !== target[field]) failClosed('TARGET_BINDING_MISMATCH');
   }
   for (const field of ['projectRef', 'parentProjectRef', 'branchId', 'branchName']) {
     if (isDeniedTargetIdentifier(binding[field])) failClosed('TARGET_BINDING_DENIED');
   }
-  return target;
 }
 
-function assertScopeEnvelope(scope, { operation, caseId }) {
-  if (!isPlainObject(scope)) failClosed('VERIFIED_SERVER_SCOPE_REQUIRED');
-  // Exact keys, checked BEFORE anything is read: an unrecognized field is not
-  // ignored, it is a refusal. This is what stops a caller-supplied value from
-  // reaching the RLS context at all.
-  if (!hasExactKeys(scope, SCOPE_KEYS)) failClosed('SERVER_SCOPE_FIELDS_UNRECOGNIZED');
+function assertCanonicalStudentSubject(value, fieldName) {
+  if (!STUDENT_SUBJECT_PATTERN.test(value ?? '')) {
+    throw new ValidationError(`${fieldName} must be the canonical wp:<id> subject`, { fieldName });
+  }
+  return value;
+}
+
+function assertScopeEnvelope(rawScope, { operation, caseId, actorRole }) {
+  const scope = snapshotExact(rawScope, SCOPE_KEYS, 'SERVER_SCOPE_FIELDS_UNRECOGNIZED');
   if (
     scope.schemaVersion !== SERVER_SCOPE_SCHEMA
     || scope.authoritySource !== 'server_verified_session_crosswalk'
     || scope.authenticated !== true
     || scope.roleVerified !== true
-  ) {
-    failClosed('VERIFIED_SERVER_SCOPE_REQUIRED');
-  }
+  ) failClosed('VERIFIED_SERVER_SCOPE_REQUIRED');
+
+  assertUuid(scope.authUid, 'scope.authUid');
   for (const field of [
-    'authUid',
     'authenticatedSubject',
     'actorId',
     'resourceStudentId',
     'caseId',
     'purpose',
-  ]) {
-    assertNonEmptyString(scope[field], `scope.${field}`, { maxLength: 200 });
-  }
-  if (!ACTOR_ROLES.has(scope.actorRole)) throw new ValidationError('scope.actorRole is not recognized');
-  if (!SCOPE_OPERATIONS.has(scope.operation)) throw new ValidationError('scope.operation is not recognized');
+  ]) assertNonEmptyString(scope[field], `scope.${field}`, { maxLength: 200 });
+  assertCanonicalStudentSubject(scope.resourceStudentId, 'scope.resourceStudentId');
   for (const field of ['assignmentId', 'invitationId', 'administrativeGrantId']) {
-    if (scope[field] !== null) assertNonEmptyString(scope[field], `scope.${field}`, { maxLength: 200 });
+    if (scope[field] !== null) {
+      assertNonEmptyString(scope[field], `scope.${field}`, { maxLength: 200 });
+    }
   }
-  // The identity the driver binds is the AUTHENTICATED subject. A scope whose
-  // actorId has drifted from it is an escalation attempt, not a rounding error.
+  for (const field of ['entitlementVerified', 'lorEnabled', 'canaryAuthorized']) {
+    if (typeof scope[field] !== 'boolean') failClosed('VERIFIED_STUDENT_WRITE_AXES_REQUIRED');
+  }
   if (scope.actorId !== scope.authenticatedSubject) {
     throw new AuthorizationDeniedError('DRIVER_IDENTITY_SUBJECT_MISMATCH');
   }
-  if (scope.operation !== operation || scope.caseId !== caseId) {
-    throw new DomainInvariantError('RLS scope must be bound to the requested case and operation');
+  if (scope.operation !== operation || scope.caseId !== caseId || scope.actorRole !== actorRole) {
+    throw new DomainInvariantError('RLS scope must match the exact actor, case, and operation');
   }
-  return scope;
+  if (actorRole === 'student') {
+    assertCanonicalStudentSubject(scope.authenticatedSubject, 'scope.authenticatedSubject');
+    if (
+      scope.authenticatedSubject !== scope.resourceStudentId
+      || scope.assignmentId !== null
+      || scope.invitationId !== null
+      || scope.administrativeGrantId !== null
+    ) throw new AuthorizationDeniedError('STUDENT_SCOPE_EVIDENCE_INVALID');
+    if (
+      ['create', 'save'].includes(operation)
+      && (
+        scope.entitlementVerified !== true
+        || scope.lorEnabled !== true
+        || scope.canaryAuthorized !== true
+      )
+    ) throw new AuthorizationDeniedError('STUDENT_WRITE_ELIGIBILITY_SCOPE_INVALID');
+  }
+  if (actorRole === 'mentor') {
+    assertCanonicalStudentSubject(scope.authenticatedSubject, 'scope.authenticatedSubject');
+    if (
+      !scope.assignmentId
+      || scope.invitationId !== null
+      || scope.administrativeGrantId !== null
+    ) throw new AuthorizationDeniedError('MENTOR_SCOPE_EVIDENCE_INVALID');
+  }
+  if (actorRole === 'faculty') {
+    assertCanonicalStudentSubject(scope.authenticatedSubject, 'scope.authenticatedSubject');
+    if (
+      !scope.invitationId
+      || scope.assignmentId !== null
+      || scope.administrativeGrantId !== null
+      || scope.purpose !== 'faculty_private_edit'
+      || scope.entitlementVerified !== true
+      || scope.lorEnabled !== true
+      || scope.canaryAuthorized !== true
+    ) throw new AuthorizationDeniedError('FACULTY_SCOPE_EVIDENCE_INVALID');
+  }
+  return deepFreeze(scope);
 }
 
-/**
- * The request identity, derived server-side from the verified scope alone.
- *
- * Nothing here reads the request body, the record, the event, or any field the
- * caller could add: the database role is a module constant and every claim is
- * copied from an allowlisted scope field.
- */
 function deriveRlsIdentity(scope) {
   return Object.freeze({
     databaseRole: APPLICATION_DB_ROLE,
     authUid: scope.authUid,
-    authenticatedSubject: scope.authenticatedSubject,
+    studentAuthSubject: scope.authenticatedSubject,
     actorRole: scope.actorRole,
     resourceStudentId: scope.resourceStudentId,
     caseId: scope.caseId,
@@ -459,14 +513,18 @@ function deriveRlsIdentity(scope) {
     invitationId: scope.invitationId ?? '',
     assignmentId: scope.assignmentId ?? '',
     administrativeGrantId: scope.administrativeGrantId ?? '',
+    entitlementVerified: String(scope.entitlementVerified),
+    lorEnabled: String(scope.lorEnabled),
+    canaryAuthorized: String(scope.canaryAuthorized),
   });
 }
 
-function bindIdentityStatement(identity) {
+function bindIdentityStatement(scope) {
+  const identity = deriveRlsIdentity(scope);
   return statement(ATOMIC_RLS_CASE_STATEMENTS.bindIdentity, BIND_IDENTITY_SQL, [
     identity.databaseRole,
     identity.authUid,
-    identity.authenticatedSubject,
+    identity.studentAuthSubject,
     identity.actorRole,
     identity.resourceStudentId,
     identity.caseId,
@@ -475,11 +533,14 @@ function bindIdentityStatement(identity) {
     identity.invitationId,
     identity.assignmentId,
     identity.administrativeGrantId,
+    identity.entitlementVerified,
+    identity.lorEnabled,
+    identity.canaryAuthorized,
   ]);
 }
 
 function authorizationBinding(scope) {
-  return {
+  return deepFreeze({
     schemaVersion: DRIVER_AUTHORIZATION_SCHEMA,
     authUid: scope.authUid,
     authenticatedSubject: scope.authenticatedSubject,
@@ -492,165 +553,599 @@ function authorizationBinding(scope) {
     invitationId: scope.invitationId,
     assignmentId: scope.assignmentId,
     administrativeGrantId: scope.administrativeGrantId,
-  };
+    entitlementVerified: scope.entitlementVerified,
+    lorEnabled: scope.lorEnabled,
+    canaryAuthorized: scope.canaryAuthorized,
+  });
 }
 
 function firstRow(result) {
-  const rows = result?.rows;
-  if (!Array.isArray(rows)) failClosed('SQL_RESULT_CONTRACT_VIOLATED');
-  if (rows.length > 1) failClosed('SQL_RESULT_NOT_UNIQUE');
-  return rows.length === 1 ? rows[0] : null;
+  if (!Array.isArray(result?.rows)) failClosed('SQL_RESULT_CONTRACT_VIOLATED');
+  if (result.rows.length > 1) failClosed('SQL_RESULT_NOT_UNIQUE');
+  return result.rows.length === 1 ? result.rows[0] : null;
 }
 
-function assertTransactionId(value) {
-  if (typeof value !== 'string' || value.trim() === '') failClosed('TRANSACTION_IDENTITY_UNPROVEN');
-  return value;
+function normalizeRevision(value) {
+  if (Number.isSafeInteger(value) && value >= 0) return value;
+  let bigint;
+  if (typeof value === 'string' && /^(?:0|[1-9][0-9]*)$/u.test(value)) {
+    bigint = BigInt(value);
+  } else if (typeof value === 'bigint' && value >= 0n) {
+    bigint = value;
+  } else {
+    failClosed('PERSISTED_REVISION_INVALID');
+  }
+  if (bigint > BigInt(Number.MAX_SAFE_INTEGER)) failClosed('PERSISTED_REVISION_UNSAFE');
+  return Number(bigint);
 }
 
-/** Same-transaction proof: every write must report the transaction we opened. */
-function assertSameTransaction(observed, expected) {
-  if (assertTransactionId(observed) !== expected) failClosed('ATOMIC_TRANSACTION_SPLIT');
+function normalizeStudentSafeState(value) {
+  if (!isPlainObject(value)) failClosed('STUDENT_SAFE_CASE_FIELDS_INVALID');
+  const normalized = structuredClone(value);
+  normalized.revision = normalizeRevision(value.revision);
+  normalized.createdAt = toIso(value.createdAt, 'studentSafeCase.createdAt');
+  normalized.updatedAt = toIso(value.updatedAt, 'studentSafeCase.updatedAt');
+  normalized.closedAt = value.closedAt === null
+    ? null
+    : toIso(value.closedAt, 'studentSafeCase.closedAt');
+  if (isPlainObject(value.builder)) {
+    normalized.builder.autosavedAt = value.builder.autosavedAt === null
+      ? null
+      : toIso(value.builder.autosavedAt, 'studentSafeCase.builder.autosavedAt');
+  }
+  for (const field of ['consentReceipts', 'waiverReceipts']) {
+    if (!Array.isArray(value[field])) failClosed('STUDENT_SAFE_RECEIPTS_INVALID');
+    normalized[field] = value[field].map((receipt, index) => {
+      if (!isPlainObject(receipt)) failClosed('STUDENT_SAFE_RECEIPTS_INVALID');
+      const normalizedReceipt = structuredClone(receipt);
+      normalizedReceipt.recordedAt = toIso(
+        receipt?.recordedAt,
+        `studentSafeCase.${field}[${index}].recordedAt`,
+      );
+      return normalizedReceipt;
+    });
+  }
+  if (isPlainObject(value.delivery) && value.delivery.deliveredAt !== null) {
+    normalized.delivery.deliveredAt = toIso(
+      value.delivery?.deliveredAt,
+      'studentSafeCase.delivery.deliveredAt',
+    );
+  }
+  if (isPlainObject(value.releasedDocument)) {
+    normalized.releasedDocument.finalDocument.releasedToStudentAt = toIso(
+      value.releasedDocument?.finalDocument?.releasedToStudentAt,
+      'studentSafeCase.releasedDocument.finalDocument.releasedToStudentAt',
+    );
+    normalized.releasedDocument.facultyApproval.approvedAt = toIso(
+      value.releasedDocument?.facultyApproval?.approvedAt,
+      'studentSafeCase.releasedDocument.facultyApproval.approvedAt',
+    );
+    normalized.releasedDocument.release.releasedAt = toIso(
+      value.releasedDocument?.release?.releasedAt,
+      'studentSafeCase.releasedDocument.release.releasedAt',
+    );
+    normalized.releasedDocument.release.releasedAtRevision = normalizeRevision(
+      value.releasedDocument?.release?.releasedAtRevision,
+    );
+  }
+  const canonical = canonicalClone(normalized);
+  assertStudentSafeRecommendationCase(canonical);
+  return deepFreeze(canonical);
 }
 
-function assertStoredRecord(stored, expectedHash) {
-  if (!isPlainObject(stored)) failClosed('PERSISTED_RECORD_UNREADABLE');
-  assertRecommendationCase(stored);
-  // Round-trip proof: what the row now holds hashes to what we intended to store.
-  if (hashValue(stored) !== expectedHash) failClosed('PERSISTED_RECORD_HASH_MISMATCH');
-  return stored;
+const RELEASE_ROW_FIELDS = Object.freeze([
+  'final_document_id',
+  'final_document_text',
+  'final_document_content_hash',
+  'final_document_mime_type',
+  'approval_approved',
+  'approval_at',
+  'approval_faculty_ref',
+  'approval_signature_attested',
+  'release_document_id',
+  'release_document_hash',
+  'released_at',
+  'released_at_revision',
+  'waiver_receipt_id',
+  'snapshot_hash',
+]);
+
+function studentSafeStateFromRow(row) {
+  if (!isPlainObject(row?.record) || !hasExactKeys(row.record, SAFE_RECORD_KEYS)) {
+    failClosed('PERSISTED_SAFE_RECORD_UNREADABLE');
+  }
+  const hasRelease = row.snapshot_hash !== null && row.snapshot_hash !== undefined;
+  if (!hasRelease && RELEASE_ROW_FIELDS.some((field) => row[field] !== null && row[field] !== undefined)) {
+    failClosed('PARTIAL_RELEASE_SNAPSHOT_REJECTED');
+  }
+  const releasedDocument = hasRelease
+    ? {
+      finalDocument: {
+        id: row.final_document_id,
+        text: row.final_document_text,
+        contentHash: row.final_document_content_hash,
+        mimeType: row.final_document_mime_type,
+        releasedToStudentAt: row.released_at,
+      },
+      facultyApproval: {
+        approved: row.approval_approved,
+        approvedAt: row.approval_at,
+        facultyRef: row.approval_faculty_ref,
+        signatureAttested: row.approval_signature_attested,
+      },
+      release: {
+        documentId: row.release_document_id,
+        documentHash: row.release_document_hash,
+        releasedAt: row.released_at,
+        releasedAtRevision: row.released_at_revision,
+        waiverReceiptId: row.waiver_receipt_id,
+      },
+      snapshotHash: row.snapshot_hash,
+    }
+    : null;
+  return normalizeStudentSafeState({
+    schemaVersion: STUDENT_SAFE_CASE_SCHEMA,
+    id: row.case_id,
+    studentId: row.student_auth_subject,
+    status: row.status,
+    revision: row.revision,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    closedAt: row.closed_at ?? null,
+    builder: row.record.builder,
+    studentEvidence: row.record.studentEvidence,
+    applicantOptions: row.record.applicantOptions,
+    consentReceipts: row.consent_receipts,
+    waiverReceipts: row.waiver_receipts,
+    delivery: row.record.delivery,
+    releasedDocument,
+  });
 }
 
-function assertRevision(value) {
-  if (!Number.isSafeInteger(value) || value < 0) failClosed('PERSISTED_REVISION_INVALID');
-  return value;
+function normalizeMentorProjection(value) {
+  const projection = canonicalClone(value);
+  assertMentorCaseProjection(projection);
+  return deepFreeze(projection);
+}
+
+function normalizeFacultyProjection(value) {
+  if (!isPlainObject(value)) failClosed('FACULTY_PROJECTION_FIELDS_INVALID');
+  const normalized = structuredClone(value);
+  normalized.revision = normalizeRevision(value.revision);
+  if (Array.isArray(value.studentShared?.consentReceipts)) {
+    normalized.studentShared.consentReceipts = value.studentShared.consentReceipts.map(
+      (receipt, index) => {
+        if (!isPlainObject(receipt)) failClosed('FACULTY_PROJECTION_CONSENT_INVALID');
+        return {
+          ...structuredClone(receipt),
+          recordedAt: toIso(
+            receipt.recordedAt,
+            `facultyProjection.studentShared.consentReceipts[${index}].recordedAt`,
+          ),
+        };
+      },
+    );
+  }
+  const finalDocument = value.facultyPrivate?.finalDocument;
+  if (isPlainObject(finalDocument) && finalDocument.releasedToStudentAt !== null) {
+    normalized.facultyPrivate.finalDocument.releasedToStudentAt = toIso(
+      finalDocument.releasedToStudentAt,
+      'facultyProjection.facultyPrivate.finalDocument.releasedToStudentAt',
+    );
+  }
+  if (isPlainObject(value.delivery) && value.delivery.deliveredAt !== null) {
+    normalized.delivery.deliveredAt = toIso(
+      value.delivery.deliveredAt,
+      'facultyProjection.delivery.deliveredAt',
+    );
+  }
+  const projection = canonicalClone(normalized);
+  if (projection.schemaVersion !== FACULTY_CASE_PROJECTION_SCHEMA) {
+    failClosed('FACULTY_PROJECTION_SCHEMA_INVALID');
+  }
+  assertFacultyCaseProjection(projection);
+  return deepFreeze(projection);
+}
+
+/** Shape/type checks only; SQL performs semantic checks after replay lookup. */
+function normalizeVersionEntryShape(value) {
+  if (!hasExactKeys(value, VERSION_ENTRY_KEYS)) {
+    failClosed('VERSION_ENTRY_FIELDS_UNRECOGNIZED');
+  }
+  if (!Number.isSafeInteger(value.revision) || value.revision < 0) {
+    throw new ValidationError('versionEntry.revision must be a non-negative integer');
+  }
+  assertNonEmptyString(value.eventType, 'versionEntry.eventType', { maxLength: 100 });
+  assertNonEmptyString(value.actorId, 'versionEntry.actorId', { maxLength: 200 });
+  toIso(value.occurredAt, 'versionEntry.occurredAt');
+  if (
+    !Array.isArray(value.changedFields)
+    || value.changedFields.length === 0
+    || value.changedFields.some((field) => typeof field !== 'string' || field.length === 0)
+    || value.changedFields.some((field, index, all) => index > 0 && field <= all[index - 1])
+  ) throw new ValidationError('versionEntry.changedFields must be sorted and unique');
+  assertSha256(value.changeHash, 'versionEntry.changeHash');
+  return canonicalClone(value);
+}
+
+/**
+ * Deliberately performs only structural/type/authorization checks before SQL.
+ * The function must look up an exact idempotent replay before validating a
+ * reconstructed candidate's revision/event/version semantics.
+ */
+function normalizeStudentCommand(rawCommand, spec, target) {
+  const command = snapshotExact(
+    rawCommand,
+    STUDENT_COMMAND_KEYS,
+    'STUDENT_COMMAND_FIELDS_UNRECOGNIZED',
+  );
+  assertTargetBinding(command.binding, target);
+  const state = normalizeStudentSafeState(command.state);
+  const scope = assertScopeEnvelope(command.scope, {
+    operation: spec.operation,
+    caseId: state.id,
+    actorRole: 'student',
+  });
+  if (state.studentId !== scope.resourceStudentId) {
+    throw new AuthorizationDeniedError('STUDENT_COMMAND_SCOPE_INVALID');
+  }
+  if (spec.operation === 'create') {
+    if (command.expectedRevision !== null) {
+      throw new ValidationError('Create expectedRevision must be null');
+    }
+  } else if (!Number.isSafeInteger(command.expectedRevision) || command.expectedRevision < 0) {
+    throw new ValidationError('Save expectedRevision must be a non-negative integer');
+  }
+  const idempotencyKey = assertNonEmptyString(
+    command.idempotencyKey,
+    'idempotencyKey',
+    { maxLength: 240 },
+  );
+  const requestHash = assertSha256(command.requestHash, 'requestHash');
+  const event = canonicalClone(command.event);
+  validateMetadataServiceEvent(event);
+  if (
+    event.actorRole !== 'student'
+    || event.actorRef !== `actor_${sha256(`lor-studio:actor:${scope.actorId}`)}`
+    || event.caseRef !== `case_${sha256(`lor-studio:case:${state.id}`)}`
+  ) throw new AuthorizationDeniedError('STUDENT_EVENT_SCOPE_INVALID');
+  const versionEntry = normalizeVersionEntryShape(command.versionEntry);
+  if (versionEntry.actorId !== scope.actorId) {
+    throw new AuthorizationDeniedError('STUDENT_VERSION_ENTRY_SCOPE_INVALID');
+  }
+  if (spec.receipt !== (command.receipt !== null)) {
+    throw new ValidationError('Receipt presence does not match the student action');
+  }
+  const receipt = command.receipt === null ? null : canonicalClone(command.receipt);
+  return {
+    state,
+    scope,
+    expectedRevision: command.expectedRevision,
+    idempotencyKey,
+    requestHash,
+    event,
+    eventHash: hashValue(event),
+    versionEntry,
+    receipt,
+  };
+}
+
+function normalizeCommandReceipt(value, { input, spec }) {
+  if (!hasExactKeys(value, COMMAND_RECEIPT_KEYS)) {
+    failClosed('ATOMIC_COMMAND_RECEIPT_FIELDS_INVALID');
+  }
+  const state = normalizeStudentSafeState(value.state);
+  const revision = normalizeRevision(value.revision);
+  const replayed = value.replayed === true;
+  for (const field of ['safeRecordHash', 'protectedStateHash', 'eventHash']) {
+    if (!SHA256_PATTERN.test(value[field] ?? '')) {
+      failClosed('ATOMIC_COMMAND_RECEIPT_HASH_INVALID');
+    }
+  }
+  if (
+    value.schemaVersion !== ATOMIC_COMMAND_RECEIPT_SCHEMA
+    || value.action !== spec.action
+    || value.committed !== true
+    || (value.replayed !== true && value.replayed !== false)
+    || value.sameTransaction !== true
+    || value.caseId !== input.state.id
+    || value.studentId !== input.scope.resourceStudentId
+    || state.id !== value.caseId
+    || state.studentId !== value.studentId
+    || revision !== state.revision
+    || value.idempotencyKey !== input.idempotencyKey
+    || value.requestHash !== input.requestHash
+    || (!replayed && (
+      revision !== input.state.revision
+      || canonicalize(state) !== canonicalize(input.state)
+      || value.eventHash !== input.eventHash
+      || value.auditEventRef !== input.event.eventRef
+    ))
+  ) failClosed('ATOMIC_COMMAND_RECEIPT_BINDING_INVALID');
+  assertNonEmptyString(value.auditEventRef, 'auditEventRef', { maxLength: 200 });
+  assertNonEmptyString(value.transactionId, 'transactionId', { maxLength: 200 });
+  return deepFreeze({ ...value, revision, state });
+}
+
+function normalizeFacultyReleaseCommand(rawCommand, target) {
+  const command = snapshotExact(
+    rawCommand,
+    FACULTY_RELEASE_COMMAND_KEYS,
+    'FACULTY_RELEASE_COMMAND_FIELDS_UNRECOGNIZED',
+  );
+  assertTargetBinding(command.binding, target);
+  const caseId = assertNonEmptyString(command.scope?.caseId, 'scope.caseId', { maxLength: 200 });
+  const scope = assertScopeEnvelope(command.scope, {
+    operation: 'save',
+    caseId,
+    actorRole: 'faculty',
+  });
+  if (!Number.isSafeInteger(command.expectedRevision) || command.expectedRevision < 0) {
+    throw new ValidationError('Faculty release expectedRevision must be a non-negative integer');
+  }
+  const documentId = assertNonEmptyString(command.documentId, 'documentId', { maxLength: 200 });
+  const idempotencyKey = assertNonEmptyString(
+    command.idempotencyKey,
+    'idempotencyKey',
+    { maxLength: 240 },
+  );
+  const requestHash = assertSha256(command.requestHash, 'requestHash');
+  const event = canonicalClone(command.event);
+  validateMetadataServiceEvent(event);
+  if (
+    event.eventType !== FACULTY_RELEASE_COMMAND.eventType
+    || event.actorRole !== 'faculty'
+    || event.actorRef !== `actor_${sha256(`lor-studio:actor:${scope.actorId}`)}`
+    || event.caseRef !== `case_${sha256(`lor-studio:case:${caseId}`)}`
+    || event.revision !== command.expectedRevision + 1
+  ) throw new AuthorizationDeniedError('FACULTY_RELEASE_EVENT_SCOPE_INVALID');
+  return {
+    scope,
+    expectedRevision: command.expectedRevision,
+    documentId,
+    idempotencyKey,
+    requestHash,
+    event,
+    eventHash: hashValue(event),
+  };
+}
+
+function normalizeFacultyReleaseReceipt(value, { input }) {
+  if (!hasExactKeys(value, COMMAND_RECEIPT_KEYS)) {
+    failClosed('ATOMIC_COMMAND_RECEIPT_FIELDS_INVALID');
+  }
+  const state = normalizeFacultyProjection(value.state);
+  const revision = normalizeRevision(value.revision);
+  const replayed = value.replayed === true;
+  for (const field of ['safeRecordHash', 'protectedStateHash', 'eventHash']) {
+    if (!SHA256_PATTERN.test(value[field] ?? '')) {
+      failClosed('ATOMIC_COMMAND_RECEIPT_HASH_INVALID');
+    }
+  }
+  assertNonEmptyString(value.auditEventRef, 'auditEventRef', { maxLength: 200 });
+  assertNonEmptyString(value.transactionId, 'transactionId', { maxLength: 200 });
+  if (
+    value.schemaVersion !== ATOMIC_COMMAND_RECEIPT_SCHEMA
+    || value.action !== FACULTY_RELEASE_COMMAND.action
+    || value.committed !== true
+    || (value.replayed !== true && value.replayed !== false)
+    || value.sameTransaction !== true
+    || value.caseId !== input.scope.caseId
+    || value.studentId !== input.scope.resourceStudentId
+    || state.caseId !== value.caseId
+    || revision !== state.revision
+    || value.idempotencyKey !== input.idempotencyKey
+    || value.requestHash !== input.requestHash
+    || (!replayed && (
+      revision !== input.expectedRevision + 1
+      || value.eventHash !== input.eventHash
+      || value.auditEventRef !== input.event.eventRef
+    ))
+  ) failClosed('ATOMIC_COMMAND_RECEIPT_BINDING_INVALID');
+  return deepFreeze({ ...value, revision, state });
+}
+
+function mapDatabaseError(error, context) {
+  const exact = `${typeof error?.code === 'string' ? error.code : ''}/${
+    typeof error?.message === 'string' ? error.message : ''}`;
+  if (exact === 'P1001/LOR_CASE_NOT_FOUND') {
+    return new NotFoundError('recommendation_case', context.caseId);
+  }
+  if (exact === 'P1002/LOR_STALE_REVISION') {
+    return new StaleRevisionError({
+      caseId: context.caseId,
+      expectedRevision: context.expectedRevision ?? null,
+      actualRevision: null,
+    });
+  }
+  if (exact === 'P1003/LOR_IDEMPOTENCY_CONFLICT') {
+    return new IdempotencyConflictError({ idempotencyKey: context.idempotencyKey });
+  }
+  if (exact === 'P1004/LOR_AUTHORIZATION_DENIED') {
+    return new AuthorizationDeniedError('DATABASE_COMMAND_AUTHORIZATION_DENIED');
+  }
+  if (exact === 'P1005/LOR_COMMAND_INVALID') {
+    return new IntegrationDisabledError(
+      ATOMIC_RLS_CASE_DRIVER_INTEGRATION,
+      'DATABASE_COMMAND_INVALID',
+    );
+  }
+  return new IntegrationDisabledError(
+    ATOMIC_RLS_CASE_DRIVER_INTEGRATION,
+    'ATOMIC_TRANSACTION_FAILED',
+  );
 }
 
 export class AtomicRlsCaseDriver {
-  /**
-   * @param {object} options
-   * @param {Record<string, unknown>} options.binding validated LOR target binding
-   * @param {SqlExecutorPort} options.executor
-   */
   constructor({ binding, executor } = {}) {
-    if (!binding || typeof binding !== 'object' || binding.schemaVersion !== TARGET_BINDING_SCHEMA) {
-      failClosed('TARGET_BINDING_REQUIRED');
-    }
-    if (binding.schema !== LOR_SCHEMA) failClosed('TARGET_SCHEMA_MISMATCH');
+    const validated = assertValidatedLorTargetBinding(
+      binding,
+      ATOMIC_RLS_CASE_DRIVER_INTEGRATION,
+    );
+    if (validated.schemaVersion !== TARGET_BINDING_SCHEMA) failClosed('TARGET_BINDING_REQUIRED');
+    if (validated.schema !== LOR_SCHEMA) failClosed('TARGET_SCHEMA_MISMATCH');
     for (const field of ['projectRef', 'parentProjectRef', 'branchId', 'branchName']) {
-      if (isDeniedTargetIdentifier(binding[field])) failClosed('TARGET_BINDING_DENIED');
+      if (isDeniedTargetIdentifier(validated[field])) failClosed('TARGET_BINDING_DENIED');
     }
     this.target = deepFreeze(
-      Object.fromEntries(BINDING_IDENTITY_FIELDS.map((field) => [field, binding[field]])),
+      Object.fromEntries(BINDING_IDENTITY_FIELDS.map((field) => [field, validated[field]])),
     );
     this.executor = assertExecutor(executor);
-    // Capability declarations the durable repository gates on.
     this.atomicStateAndAudit = true;
     this.rlsEnforced = true;
     this.serverOnly = true;
+    this.actorSafeCommands = true;
     Object.freeze(this);
   }
 
-  /**
-   * Open a connection, bind the RLS identity as the FIRST statement inside a
-   * transaction, run the handler, and reset the connection on the way out -
-   * whether the transaction committed, rolled back, or exploded.
-   */
   async #withRlsTransaction(scope, handler) {
-    const identity = deriveRlsIdentity(scope);
     return this.executor.withConnection(async (rawConnection) => {
       const connection = assertConnection(rawConnection);
-      try {
-        return await connection.transaction(async (rawTransaction) => {
-          const transaction = assertTransaction(rawTransaction);
-          await transaction.execute(bindIdentityStatement(identity));
-          return handler(transaction);
-        });
-      } finally {
-        // Not conditional on success. A poisoned pooled connection is how one
-        // student's identity ends up executing another student's query, so this
-        // runs on the failure path too. A reset that itself fails is surfaced
-        // rather than swallowed: the connection is no longer safe to reuse.
-        await connection.execute(RESET_IDENTITY_STATEMENT);
-      }
+      return connection.transaction(async (rawTransaction) => {
+        const transaction = assertTransaction(rawTransaction);
+        await transaction.execute(bindIdentityStatement(scope));
+        return handler(transaction);
+      });
     });
   }
 
-  async #transact(scope, handler) {
+  async #transact(scope, handler, context = {}) {
     try {
       return await this.#withRlsTransaction(scope, handler);
     } catch (error) {
-      if (error instanceof DriverRejection) return error.outcome;
       if (error instanceof LorDomainError) throw error;
-      // Driver-internal failures never travel outward verbatim: a raw SQL error
-      // can carry row values, parameter contents, and connection details.
-      throw new IntegrationDisabledError(
-        ATOMIC_RLS_CASE_DRIVER_INTEGRATION,
-        'ATOMIC_TRANSACTION_FAILED',
-      );
+      throw mapDatabaseError(error, { caseId: scope.caseId, ...context });
     }
   }
 
   async #captureTransactionId(transaction) {
     const row = firstRow(
       await transaction.execute(
-        statement(ATOMIC_RLS_CASE_STATEMENTS.transactionId, TRANSACTION_ID_SQL, []),
+        statement(ATOMIC_RLS_CASE_STATEMENTS.transactionId, TRANSACTION_ID_SQL),
       ),
     );
-    return assertTransactionId(row?.transaction_id);
+    return assertNonEmptyString(row?.transaction_id, 'transactionId', { maxLength: 200 });
   }
 
-  /** @param {Record<string, unknown>} request */
+  /** Full aggregate reads are permanently closed at this compatibility seam. */
   async selectCase(request) {
-    if (!isPlainObject(request) || !hasExactKeys(request, SELECT_CASE_KEYS)) {
-      failClosed('SELECT_REQUEST_FIELDS_UNRECOGNIZED');
-    }
+    void request;
+    failClosed('FULL_AGGREGATE_READ_REQUIRES_ACTOR_SAFE_ADAPTER');
+  }
+
+  /** Full aggregate writes are permanently closed at this compatibility seam. */
+  async executeAtomicCaseCommand(command) {
+    void command;
+    failClosed('FULL_AGGREGATE_WRITE_REQUIRES_ACTOR_SAFE_COMMAND');
+  }
+
+  async readStudentSafeCase(rawRequest) {
+    const request = snapshotExact(rawRequest, READ_REQUEST_KEYS, 'READ_REQUEST_FIELDS_UNRECOGNIZED');
     assertTargetBinding(request.binding, this.target);
     const caseId = assertNonEmptyString(request.caseId, 'caseId', { maxLength: 200 });
-    const scope = assertScopeEnvelope(request.scope, { operation: 'read', caseId });
+    const scope = assertScopeEnvelope(request.scope, {
+      operation: 'read',
+      caseId,
+      actorRole: 'student',
+    });
     return this.#transact(scope, async (transaction) => {
       const row = firstRow(
         await transaction.execute(
-          statement(ATOMIC_RLS_CASE_STATEMENTS.selectCase, SELECT_CASE_SQL, [
-            caseId,
-            scope.resourceStudentId,
-          ]),
+          statement(
+            ATOMIC_RLS_CASE_STATEMENTS.readStudentSafeCase,
+            READ_STUDENT_SAFE_CASE_SQL,
+            [caseId, scope.resourceStudentId],
+          ),
         ),
       );
-      if (!row) return deepFreeze({ found: false });
-      const record = row.record;
-      if (!isPlainObject(record)) failClosed('PERSISTED_RECORD_UNREADABLE');
-      assertRecommendationCase(record);
-      assertRevision(row.revision);
-      if (record.id !== caseId || record.studentId !== scope.resourceStudentId) {
+      if (!row) return deepFreeze({ found: false, state: null });
+      const state = studentSafeStateFromRow(row);
+      if (state.id !== caseId || state.studentId !== scope.resourceStudentId) {
         throw new AuthorizationDeniedError('DRIVER_CASE_SCOPE_MISMATCH');
       }
-      if (record.revision !== row.revision) failClosed('PERSISTED_REVISION_DIVERGED');
-      return deepFreeze({
-        found: true,
-        record,
-        authorizationBinding: authorizationBinding(scope),
-      });
+      return deepFreeze({ found: true, state });
     });
   }
 
-  /** @param {Record<string, unknown>} request */
-  async reserveCaseCreation(request) {
-    if (!isPlainObject(request) || !hasExactKeys(request, RESERVE_CREATION_KEYS)) {
-      failClosed('RESERVATION_REQUEST_FIELDS_UNRECOGNIZED');
-    }
+  async readFacultyCaseProjection(rawRequest) {
+    const request = snapshotExact(rawRequest, READ_REQUEST_KEYS, 'READ_REQUEST_FIELDS_UNRECOGNIZED');
+    assertTargetBinding(request.binding, this.target);
+    const caseId = assertNonEmptyString(request.caseId, 'caseId', { maxLength: 200 });
+    const scope = assertScopeEnvelope(request.scope, {
+      operation: 'read',
+      caseId,
+      actorRole: 'faculty',
+    });
+    return this.#transact(scope, async (transaction) => {
+      const row = firstRow(
+        await transaction.execute(
+          statement(
+            ATOMIC_RLS_CASE_STATEMENTS.readFacultyCaseProjection,
+            READ_FACULTY_CASE_PROJECTION_SQL,
+          ),
+        ),
+      );
+      if (!row) return deepFreeze({ found: false, projection: null });
+      const projection = normalizeFacultyProjection(row.result);
+      if (projection.caseId !== caseId) failClosed('FACULTY_PROJECTION_CASE_DIVERGED');
+      return deepFreeze({ found: true, projection });
+    });
+  }
+
+  async readMentorCaseProjection(rawRequest) {
+    const request = snapshotExact(rawRequest, READ_REQUEST_KEYS, 'READ_REQUEST_FIELDS_UNRECOGNIZED');
+    assertTargetBinding(request.binding, this.target);
+    const caseId = assertNonEmptyString(request.caseId, 'caseId', { maxLength: 200 });
+    const scope = assertScopeEnvelope(request.scope, {
+      operation: 'read',
+      caseId,
+      actorRole: 'mentor',
+    });
+    return this.#transact(scope, async (transaction) => {
+      const row = firstRow(
+        await transaction.execute(
+          statement(
+            ATOMIC_RLS_CASE_STATEMENTS.readMentorCaseProjection,
+            READ_MENTOR_CASE_PROJECTION_SQL,
+          ),
+        ),
+      );
+      if (!row) return deepFreeze({ found: false, projection: null });
+      const projection = normalizeMentorProjection(row.result);
+      if (projection.caseId !== caseId) failClosed('MENTOR_PROJECTION_CASE_DIVERGED');
+      return deepFreeze({ found: true, projection });
+    });
+  }
+
+  async reserveCaseCreation(rawRequest) {
+    const request = snapshotExact(
+      rawRequest,
+      RESERVATION_REQUEST_KEYS,
+      'RESERVATION_REQUEST_FIELDS_UNRECOGNIZED',
+    );
     assertTargetBinding(request.binding, this.target);
     if (request.operation !== 'reserve_create') {
       throw new ValidationError('Creation reservation operation must be reserve_create');
     }
-    const creationRef = assertNonEmptyString(request.creationRef, 'creationRef', { maxLength: 200 });
-    const actorRef = assertNonEmptyString(request.actorRef, 'actorRef', { maxLength: 200 });
-    const idempotencyKey = assertNonEmptyString(request.idempotencyKey, 'idempotencyKey', { maxLength: 200 });
-    const requestHash = assertSha256(request.requestHash, 'requestHash');
-    const proposed = request.proposedIdentifiers;
-    if (!isPlainObject(proposed) || !hasExactKeys(proposed, PROPOSED_IDENTIFIER_KEYS)) {
-      failClosed('RESERVATION_IDENTIFIERS_UNRECOGNIZED');
+    if (!CREATION_REF_PATTERN.test(request.creationRef ?? '')) {
+      throw new ValidationError('creationRef must be the canonical creation digest');
     }
-    const proposedCaseId = assertNonEmptyString(proposed.caseId, 'proposedIdentifiers.caseId', { maxLength: 200 });
+    const creationRef = request.creationRef;
+    const actorRef = assertNonEmptyString(request.actorRef, 'actorRef', { maxLength: 200 });
+    const idempotencyKey = assertNonEmptyString(
+      request.idempotencyKey,
+      'idempotencyKey',
+      { maxLength: 200 },
+    );
+    const requestHash = assertSha256(request.requestHash, 'requestHash');
+    const proposed = snapshotExact(
+      request.proposedIdentifiers,
+      PROPOSED_IDENTIFIER_KEYS,
+      'RESERVATION_IDENTIFIERS_UNRECOGNIZED',
+    );
+    const proposedCaseId = assertNonEmptyString(proposed.caseId, 'proposedIdentifiers.caseId', {
+      maxLength: 200,
+    });
     const proposedBuilderSessionId = assertNonEmptyString(
       proposed.builderSessionId,
       'proposedIdentifiers.builderSessionId',
@@ -660,13 +1155,17 @@ export class AtomicRlsCaseDriver {
       throw new ValidationError('Case and protected builder identifiers must be distinct');
     }
     const proposedCreatedAt = toIso(proposed.createdAt, 'proposedIdentifiers.createdAt');
-    const scope = assertScopeEnvelope(request.scope, { operation: 'create', caseId: creationRef });
-    if (scope.actorRole !== 'student' || scope.resourceStudentId !== scope.authenticatedSubject) {
-      throw new AuthorizationDeniedError('CASE_CREATION_SUBJECT_SCOPE_MISMATCH');
+    const scope = assertScopeEnvelope(request.scope, {
+      operation: 'create',
+      caseId: creationRef,
+      actorRole: 'student',
+    });
+    if (actorRef !== `actor_${sha256(`lor-studio:actor:${scope.actorId}`)}`) {
+      throw new AuthorizationDeniedError('CASE_CREATION_ACTOR_REF_MISMATCH');
     }
 
     return this.#transact(scope, async (transaction) => {
-      const transactionId = await this.#captureTransactionId(transaction);
+      const currentTransactionId = await this.#captureTransactionId(transaction);
       const inserted = firstRow(
         await transaction.execute(
           statement(
@@ -674,6 +1173,8 @@ export class AtomicRlsCaseDriver {
             INSERT_CREATION_RESERVATION_SQL,
             [
               creationRef,
+              scope.resourceStudentId,
+              scope.authUid,
               actorRef,
               idempotencyKey,
               requestHash,
@@ -685,62 +1186,61 @@ export class AtomicRlsCaseDriver {
         ),
       );
       if (inserted) {
-        assertSameTransaction(inserted.transaction_id, transactionId);
+        if (inserted.transaction_id !== currentTransactionId) failClosed('ATOMIC_TRANSACTION_SPLIT');
         return this.#reservationReceipt({
           row: inserted,
           scope,
-          creationRef,
-          actorRef,
-          idempotencyKey,
-          requestHash,
-          transactionId,
+          request,
+          transactionId: currentTransactionId,
           replayed: false,
+          expected: { proposedCaseId, proposedBuilderSessionId, proposedCreatedAt },
         });
       }
-      // The reservation already exists. Replaying it is the WHOLE point of the
-      // idempotency key: the caller must get back the identifiers it was first
-      // given, never a second, competing pair.
       const existing = firstRow(
         await transaction.execute(
           statement(
             ATOMIC_RLS_CASE_STATEMENTS.selectCreationReservation,
             SELECT_CREATION_RESERVATION_SQL,
-            [creationRef, actorRef],
+            [creationRef, scope.resourceStudentId, scope.authUid, actorRef],
           ),
         ),
       );
       if (!existing) failClosed('CREATION_RESERVATION_UNREADABLE');
-      if (existing.request_hash !== requestHash) throw new IdempotencyConflictError({ idempotencyKey });
+      if (existing.request_hash !== requestHash) {
+        throw new IdempotencyConflictError({ idempotencyKey });
+      }
       return this.#reservationReceipt({
         row: existing,
         scope,
-        creationRef,
-        actorRef,
-        idempotencyKey,
-        requestHash,
-        transactionId: assertTransactionId(existing.transaction_id),
+        request,
+        transactionId: assertNonEmptyString(
+          existing.transaction_id,
+          'reservation transactionId',
+          { maxLength: 200 },
+        ),
         replayed: true,
+        expected: null,
       });
-    });
+    }, { caseId: creationRef, idempotencyKey });
   }
 
-  #reservationReceipt({
-    row,
-    scope,
-    creationRef,
-    actorRef,
-    idempotencyKey,
-    requestHash,
-    transactionId,
-    replayed,
-  }) {
+  #reservationReceipt({ row, scope, request, transactionId, replayed, expected }) {
     const caseId = assertNonEmptyString(row.case_id, 'reservation case_id', { maxLength: 200 });
     const builderSessionId = assertNonEmptyString(
       row.builder_session_id,
       'reservation builder_session_id',
       { maxLength: 200 },
     );
-    if (caseId === builderSessionId) failClosed('CREATION_RESERVATION_IDENTIFIERS_COLLIDED');
+    const createdAt = toIso(row.created_at, 'reservation created_at');
+    if (
+      caseId === builderSessionId
+      || row.request_hash !== request.requestHash
+      || (expected && (
+        caseId !== expected.proposedCaseId
+        || builderSessionId !== expected.proposedBuilderSessionId
+        || createdAt !== expected.proposedCreatedAt
+      ))
+    ) failClosed('CREATION_RESERVATION_BINDING_INVALID');
     return deepFreeze({
       schemaVersion: CREATION_RESERVATION_RECEIPT_SCHEMA,
       reserved: true,
@@ -748,267 +1248,142 @@ export class AtomicRlsCaseDriver {
       sameTransaction: true,
       transactionId,
       replayed,
-      creationRef,
-      actorRef,
-      idempotencyKey,
-      requestHash,
+      creationRef: request.creationRef,
+      actorRef: request.actorRef,
+      idempotencyKey: request.idempotencyKey,
+      requestHash: request.requestHash,
       caseId,
       builderSessionId,
-      createdAt: toIso(row.created_at, 'reservation created_at'),
+      createdAt,
       authorizationBinding: authorizationBinding(scope),
     });
   }
 
-  /** @param {Record<string, unknown>} command */
-  async executeAtomicCaseCommand(command) {
-    if (!isPlainObject(command) || !hasExactKeys(command, ATOMIC_COMMAND_KEYS)) {
-      failClosed('ATOMIC_COMMAND_FIELDS_UNRECOGNIZED');
-    }
-    assertTargetBinding(command.binding, this.target);
-    const operation = command.operation;
-    if (operation !== 'create' && operation !== 'save') {
-      throw new ValidationError('Atomic case operation must be create or save');
-    }
-    const record = command.record;
-    assertRecommendationCase(record);
-    const event = command.event;
-    validateMetadataServiceEvent(event);
-    const idempotencyKey = assertNonEmptyString(command.idempotencyKey, 'idempotencyKey', { maxLength: 200 });
-    const requestHash = assertSha256(command.requestHash, 'requestHash');
-    const expectedRevision = command.expectedRevision;
-    if (operation === 'create') {
-      if (expectedRevision !== null || record.revision !== 0) {
-        throw new DomainInvariantError('Atomic case creation must begin at revision zero');
-      }
-    } else if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
-      throw new ValidationError('expectedRevision must be a non-negative integer');
-    } else if (record.revision !== expectedRevision + 1) {
-      throw new DomainInvariantError('Atomic case save must advance exactly one revision');
-    }
-    const scope = assertScopeEnvelope(command.scope, { operation, caseId: record.id });
-    if (record.studentId !== scope.resourceStudentId) {
-      throw new AuthorizationDeniedError('DRIVER_CASE_SCOPE_MISMATCH');
-    }
-    if (event.revision !== record.revision || event.occurredAt !== record.updatedAt) {
-      throw new DomainInvariantError('Metadata audit event must be bound to the exact case revision');
-    }
-
-    const recordJson = canonicalize(record);
-    const recordHash = hashValue(record);
-    const eventHash = hashValue(event);
-
-    return this.#transact(scope, async (transaction) => {
-      const transactionId = await this.#captureTransactionId(transaction);
-
-      const replay = await this.#replay({
-        transaction,
-        scope,
-        caseId: record.id,
-        idempotencyKey,
-        requestHash,
-      });
-      if (replay) return replay;
-
-      const stateRow = operation === 'create'
-        ? firstRow(
-          await transaction.execute(
-            statement(ATOMIC_RLS_CASE_STATEMENTS.insertState, INSERT_STATE_SQL, [
-              record.id,
-              record.studentId,
-              record.revision,
-              record.status,
-              record.createdAt,
-              record.updatedAt,
-              recordJson,
-              recordHash,
-            ]),
-          ),
-        )
-        : firstRow(
-          await transaction.execute(
-            statement(ATOMIC_RLS_CASE_STATEMENTS.updateState, UPDATE_STATE_SQL, [
-              record.revision,
-              record.status,
-              record.updatedAt,
-              recordJson,
-              recordHash,
-              record.id,
-              record.studentId,
-              expectedRevision,
-            ]),
-          ),
-        );
-      if (!stateRow) await this.#rejectLostWrite({ transaction, scope, record, expectedRevision });
-      assertSameTransaction(stateRow.transaction_id, transactionId);
-      if (assertRevision(stateRow.revision) !== record.revision) failClosed('PERSISTED_REVISION_DIVERGED');
-      const storedRecord = assertStoredRecord(stateRow.record, recordHash);
-
-      // The audit row is written in this same transaction, before the receipt.
-      // If it fails, the whole thing unwinds: state without its audit row is the
-      // exact partial commit the atomicity requirement exists to prevent.
-      const auditRow = firstRow(
-        await transaction.execute(
-          statement(ATOMIC_RLS_CASE_STATEMENTS.insertAuditEvent, INSERT_AUDIT_EVENT_SQL, [
-            event.eventRef,
-            record.id,
-            event.caseRef,
-            event.actorRef,
-            event.actorRole,
-            event.correlationRef,
-            event.eventType,
-            event.outcome,
-            event.revision,
-            event.occurredAt,
-            canonicalize(event),
-            eventHash,
-          ]),
-        ),
+  async #runStudentCommand(rawCommand, spec) {
+    const input = normalizeStudentCommand(rawCommand, spec, this.target);
+    const values = spec.operation === 'create'
+      ? [
+        canonicalize(input.state),
+        input.idempotencyKey,
+        input.requestHash,
+        canonicalize(input.event),
+        input.eventHash,
+        canonicalize(input.versionEntry),
+      ]
+      : [
+        canonicalize(input.state),
+        input.expectedRevision,
+        input.idempotencyKey,
+        input.requestHash,
+        canonicalize(input.event),
+        input.eventHash,
+        canonicalize(input.versionEntry),
+        ...(spec.receipt ? [canonicalize(input.receipt)] : []),
+      ];
+    return this.#transact(input.scope, async (transaction) => {
+      const row = firstRow(
+        await transaction.execute(statement(spec.statementId, spec.sql, values)),
       );
-      if (!auditRow) failClosed('AUDIT_EVENT_NOT_WRITTEN');
-      if (auditRow.event_ref !== event.eventRef) failClosed('AUDIT_EVENT_REF_DIVERGED');
-      assertSameTransaction(auditRow.transaction_id, transactionId);
-
-      const receiptRow = firstRow(
-        await transaction.execute(
-          statement(ATOMIC_RLS_CASE_STATEMENTS.insertWriteReceipt, INSERT_WRITE_RECEIPT_SQL, [
-            record.id,
-            record.studentId,
-            idempotencyKey,
-            requestHash,
-            operation,
-            record.revision,
-            recordJson,
-            recordHash,
-            eventHash,
-            event.eventRef,
-          ]),
-        ),
-      );
-      // The state write already serialised writers for this case, so a receipt
-      // collision here means the same key was reused for a different revision.
-      if (!receiptRow) throw new DriverRejection(deepFreeze({ committed: false, errorCode: 'IDEMPOTENCY_CONFLICT' }));
-      assertSameTransaction(receiptRow.transaction_id, transactionId);
-
-      return deepFreeze({
-        schemaVersion: ATOMIC_COMMIT_RECEIPT_SCHEMA,
-        committed: true,
-        stateCommitted: true,
-        auditCommitted: true,
-        sameTransaction: true,
-        transactionId,
-        replayed: false,
-        operation,
-        caseId: record.id,
-        revision: record.revision,
-        idempotencyKey,
-        requestHash,
-        recordHash,
-        eventHash,
-        auditEventRef: event.eventRef,
-        record: storedRecord,
-        authorizationBinding: authorizationBinding(scope),
-      });
+      if (!row) failClosed('ATOMIC_COMMAND_RECEIPT_MISSING');
+      return normalizeCommandReceipt(row.result, { input, spec });
+    }, {
+      caseId: input.state.id,
+      expectedRevision: input.expectedRevision,
+      idempotencyKey: input.idempotencyKey,
     });
   }
 
-  async #replay({ transaction, scope, caseId, idempotencyKey, requestHash }) {
-    const prior = firstRow(
-      await transaction.execute(
-        statement(ATOMIC_RLS_CASE_STATEMENTS.selectWriteReceipt, SELECT_WRITE_RECEIPT_SQL, [
-          caseId,
-          idempotencyKey,
-          scope.resourceStudentId,
-        ]),
-      ),
-    );
-    if (!prior) return null;
-    if (prior.request_hash !== requestHash) {
-      throw new DriverRejection(deepFreeze({ committed: false, errorCode: 'IDEMPOTENCY_CONFLICT' }));
-    }
-    const priorHash = assertSha256(prior.record_hash, 'stored record_hash');
-    const storedRecord = assertStoredRecord(prior.record, priorHash);
-    // Belt and braces against the row itself, not only the predicate: selectCase already refuses a
-    // record whose owner does not match the scope, and a replay must be held to the same rule.
-    if (storedRecord.studentId !== scope.resourceStudentId) {
-      throw new AuthorizationDeniedError('DRIVER_CASE_SCOPE_MISMATCH');
-    }
-    return deepFreeze({
-      schemaVersion: ATOMIC_COMMIT_RECEIPT_SCHEMA,
-      committed: true,
-      stateCommitted: true,
-      auditCommitted: true,
-      sameTransaction: true,
-      // The transaction that actually committed these rows, not this replay's.
-      transactionId: assertTransactionId(prior.transaction_id),
-      replayed: true,
-      operation: prior.operation,
-      caseId,
-      revision: assertRevision(prior.revision),
-      idempotencyKey,
-      requestHash,
-      recordHash: priorHash,
-      eventHash: assertSha256(prior.event_hash, 'stored event_hash'),
-      auditEventRef: assertNonEmptyString(prior.audit_event_ref, 'stored audit_event_ref', { maxLength: 200 }),
-      record: storedRecord,
-      authorizationBinding: authorizationBinding(scope),
-    });
+  async commitStudentCaseCreate(command) {
+    return this.#runStudentCommand(command, STUDENT_COMMANDS.commitStudentCaseCreate);
   }
 
-  /**
-   * The state write matched no row. Report WHY, with the revision the caller
-   * actually lost to, and unwind: nothing about this command may commit.
-   */
-  async #rejectLostWrite({ transaction, scope, record, expectedRevision }) {
-    const current = firstRow(
-      await transaction.execute(
-        statement(ATOMIC_RLS_CASE_STATEMENTS.selectRevision, SELECT_REVISION_SQL, [
-          record.id,
-          scope.resourceStudentId,
-        ]),
-      ),
-    );
-    if (!current) {
-      throw new DriverRejection(deepFreeze({ committed: false, errorCode: 'NOT_FOUND' }));
-    }
-    throw new DriverRejection(deepFreeze({
-      committed: false,
-      errorCode: 'STALE_REVISION',
-      expectedRevision: expectedRevision ?? null,
-      actualRevision: assertRevision(current.revision),
-    }));
+  async commitStudentBuilderAutosave(command) {
+    return this.#runStudentCommand(command, STUDENT_COMMANDS.commitStudentBuilderAutosave);
+  }
+
+  async commitStudentBuilderComplete(command) {
+    return this.#runStudentCommand(command, STUDENT_COMMANDS.commitStudentBuilderComplete);
+  }
+
+  async commitStudentConsentReceipt(command) {
+    return this.#runStudentCommand(command, STUDENT_COMMANDS.commitStudentConsentReceipt);
+  }
+
+  async commitStudentWaiverReceipt(command) {
+    return this.#runStudentCommand(command, STUDENT_COMMANDS.commitStudentWaiverReceipt);
+  }
+
+  async commitFacultyFinalDocumentRelease(command) {
+    const input = normalizeFacultyReleaseCommand(command, this.target);
+    const values = [
+      input.expectedRevision,
+      input.documentId,
+      input.idempotencyKey,
+      input.requestHash,
+      canonicalize(input.event),
+      input.eventHash,
+    ];
+    return this.#transact(input.scope, async (transaction) => {
+      const row = firstRow(
+        await transaction.execute(statement(
+          FACULTY_RELEASE_COMMAND.statementId,
+          FACULTY_RELEASE_COMMAND.sql,
+          values,
+        )),
+      );
+      if (!row) failClosed('ATOMIC_COMMAND_RECEIPT_MISSING');
+      return normalizeFacultyReleaseReceipt(row.result, { input });
+    }, {
+      caseId: input.scope.caseId,
+      expectedRevision: input.expectedRevision,
+      idempotencyKey: input.idempotencyKey,
+    });
   }
 }
 
-/**
- * @param {object} options
- * @param {Record<string, unknown>} options.binding
- * @param {SqlExecutorPort} options.executor
- */
 export function createAtomicRlsCaseDriver(options) {
   return new AtomicRlsCaseDriver(options);
 }
 
 export const ATOMIC_RLS_CASE_DRIVER_CONTRACT = deepFreeze({
   integration: ATOMIC_RLS_CASE_DRIVER_INTEGRATION,
-  authority: 'DR-119',
+  authority: 'DR-120',
   relations: RELATIONS,
   relationOwnership: 'sole_layer_that_names_tables_or_columns',
   statements: ATOMIC_RLS_CASE_STATEMENTS,
   parameterization: 'all_caller_values_bound_never_interpolated',
   applicationDatabaseRole: APPLICATION_DB_ROLE,
   identitySource: 'server_verified_scope_only',
-  identityScope: 'transaction_local_set_config_plus_connection_reset_on_exit',
-  identityReset: RESET_IDENTITY_STATEMENT.text,
-  atomicity: 'case_state_and_metadata_audit_and_write_receipt_in_one_transaction',
-  concurrency: 'update_where_revision_equals_expected_revision',
-  idempotency: 'case_id_and_idempotency_key_receipt_replay',
-  rollback: 'every_non_commit_outcome_unwinds_the_transaction',
-  atomicCommitReceiptSchema: ATOMIC_COMMIT_RECEIPT_SCHEMA,
+  identityScope: 'exact_14_axis_transaction_local_set_config',
+  identityReset: null,
+  studentRead: 'one_fixed_student_safe_projection_statement',
+  facultyRead: 'one_fixed_seven_field_security_definer_function',
+  mentorRead: 'one_fixed_five_field_security_definer_function',
+  actorSafeMethods: [
+    ...Object.keys(STUDENT_COMMANDS),
+    'commitFacultyFinalDocumentRelease',
+  ],
+  securityDefinerFunctions: [
+    ...Object.values(STUDENT_COMMANDS).map(({ sql }) => (
+      sql.match(/lor_studio\.([a-z_]+)/u)?.[1]
+    )),
+    'read_mentor_case_projection',
+    'read_faculty_case_projection',
+    'commit_faculty_final_document_release',
+  ],
+  commandReceiptSchema: ATOMIC_COMMAND_RECEIPT_SCHEMA,
+  commandReceiptKeys: [...COMMAND_RECEIPT_KEYS],
+  atomicity: 'database_command_state_audit_protected_chain_and_receipt_one_transaction',
+  concurrency: 'database_command_case_lock_and_exact_expected_revision',
+  idempotency: 'database_command_action_and_request_replay_precedes_candidate_validation',
+  compatibility: {
+    selectCase: 'fail_closed',
+    executeAtomicCaseCommand: 'fail_closed',
+  },
   creationReservationReceiptSchema: CREATION_RESERVATION_RECEIPT_SCHEMA,
-  driverAuthorizationSchema: DRIVER_AUTHORIZATION_SCHEMA,
   executorPort: {
     withConnection: 'exclusive_connection_for_the_handler',
     transaction: 'commit_on_resolve_rollback_and_rethrow_on_reject',
-    statementShape: ['name', 'text', 'values'],
+    statementShape: ['statementId', 'text', 'values'],
   },
 });
