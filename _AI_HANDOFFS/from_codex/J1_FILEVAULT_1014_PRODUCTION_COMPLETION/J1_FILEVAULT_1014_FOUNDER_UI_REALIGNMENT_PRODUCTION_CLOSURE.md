@@ -5,7 +5,7 @@ Status: **PRODUCTION FULLY OPERATIONAL FOR THE CURRENT ENTITLED STUDENT COHORT A
 Launch completion: **100% of J1-FILEVAULT-1014 production scope**
 Branch: `codex/j1-filevault-1014-production`
 Canonical worktree: `/Users/brianb/MissionMed_worktrees/J1-FileVault-1014-release`
-Final HEAD and remote: `2d3b3990fbc4d1b1a81b7fd4616141f5feffc3a9`
+Runtime release commit: `2d3b3990fbc4d1b1a81b7fd4616141f5feffc3a9`
 
 ## Executive Result
 
@@ -168,9 +168,11 @@ Independent UI review recorded three P2 items that do not block production:
 
 Body-content search and in-browser DOCX editing remain future product capabilities, not defects in the launched private binary-file V1 scope.
 
+GitHub reported four existing default-branch dependency alerts during push: two high, one moderate, and one low. Their applicability to File Vault was not established in this bounded ticket; they remain a repository-level security triage item and do not change the exact static JS/PHP production evidence above.
+
 ## Lease and Custody Closure
 
-Lease V2 epochs 274 through 278 are provider-confirmed released, expired, and inactive. Provider-native active lease count after the activation and initial report transaction was `0`. The final report-only correction uses epoch 279 and must be released after its exact commit/push.
+Lease V2 epochs 274 through 279 are provider-confirmed released, expired, and inactive. The final documentation-only correction runs under epoch 280; its provider-native release is verified after this report commit.
 
 The only unrelated dirty path preserved in the worktree is:
 
