@@ -52,6 +52,20 @@ export function visionFrameDimensions(sourceWidth, sourceHeight, maximumWidth = 
   });
 }
 
+export function transcriptPcmFrame({ atMs, sampleRate, samples, speaking, speechProbability, f0 } = {}) {
+  return Object.freeze({
+    atMs,
+    sampleRate: Number(sampleRate),
+    samples,
+    speaking: speaking === true,
+    // This is acoustic evidence only. It never becomes a word or WPM without
+    // the local recognizer's separately observed word timestamps.
+    voiced: f0?.voiced === true,
+    speechProbability: Number.isFinite(speechProbability) ? Number(speechProbability) : null,
+    provenance: Object.freeze({ source: 'MICROPHONE', method: 'AUDIO_WORKLET_PCM' }),
+  });
+}
+
 export class BrowserAnalyticsPipeline extends EventTarget {
   constructor({ bridge, now = () => performance.now() } = {}) {
     super();
@@ -429,13 +443,17 @@ export class BrowserAnalyticsPipeline extends EventTarget {
     });
     if (this.pcmConsumer) {
       try {
-        this.pcmConsumer(Object.freeze({
+        this.pcmConsumer(transcriptPcmFrame({
           atMs,
           sampleRate: Number(frame.sampleRate),
           samples: frame.samples,
           speaking,
+          // A validated periodic F0 is independent acoustic evidence that a
+          // microphone frame contains voiced human speech. The transcript lane
+          // may use it to avoid rejecting speech when Silero starts late, but
+          // word timestamps remain mandatory before WPM can become available.
           speechProbability: this.sileroState?.probability ?? null,
-          provenance: Object.freeze({ source: 'MICROPHONE', method: 'AUDIO_WORKLET_PCM' }),
+          f0,
         }));
       } catch (error) {
         this.recordWorkerError(`PCM consumer: ${error?.message || error}`);

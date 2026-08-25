@@ -12,6 +12,10 @@ export const LOCAL_TRANSCRIPT_ENDPOINT = '/api/ivprep-v6/live-analytics/word-tim
 const TARGET_SAMPLE_RATE = 16_000;
 const DEFAULT_WINDOW_MS = 10_000;
 const MAX_PENDING_WINDOWS = 2;
+const MINIMUM_ACOUSTIC_EVIDENCE_MS = 500;
+const MINIMUM_VOICED_SPEECH_PROBABILITY = 0.35;
+const MINIMUM_WORD_PROBABILITY = 0.35;
+const MAXIMUM_PLAUSIBLE_WPM = 360;
 const WORD_TIMING_RESPONSE_KEYS = Object.freeze([
   'available',
   'providerSessions',
@@ -37,6 +41,49 @@ function clamp(value, minimum, maximum) {
 
 function liveAudioTrack(stream) {
   return stream?.getAudioTracks?.().find((track) => track?.readyState === 'live' && track?.enabled !== false) || null;
+}
+
+function admittedLoopbackEndpoint(endpoint, locationHref) {
+  try {
+    const page = new URL(String(locationHref || ''));
+    const target = new URL(String(endpoint || ''), page);
+    const loopback = (hostname) => ['127.0.0.1', 'localhost', '[::1]'].includes(hostname.toLowerCase());
+    return loopback(page.hostname)
+      && loopback(target.hostname)
+      && target.origin === page.origin
+      && target.pathname === LOCAL_TRANSCRIPT_ENDPOINT
+      && target.search === ''
+      && target.hash === ''
+      && target.username === ''
+      && target.password === ''
+      ? target.href
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function timedWordOccupancyMs(words = []) {
+  if (!Array.isArray(words) || words.length === 0) return 0;
+  let total = 0;
+  let openStart = null;
+  let openEnd = null;
+  for (const word of words) {
+    const start = finite(word?.startMs);
+    const end = finite(word?.endMs);
+    if (start === null || end === null || end <= start) return 0;
+    if (openStart === null) {
+      openStart = start;
+      openEnd = end;
+    } else if (start <= openEnd) {
+      openEnd = Math.max(openEnd, end);
+    } else {
+      total += openEnd - openStart;
+      openStart = start;
+      openEnd = end;
+    }
+  }
+  return total + (openStart === null ? 0 : openEnd - openStart);
 }
 
 export function resamplePcm(samples, sourceRate, targetRate = TARGET_SAMPLE_RATE) {
@@ -72,14 +119,18 @@ export function encodeFloat32Le(samples) {
 }
 
 export class LocalTranscriptTimingProducer {
+  #admittedEndpoint = null;
+
   constructor({
     fetchImpl = globalThis.fetch?.bind(globalThis),
     endpoint = LOCAL_TRANSCRIPT_ENDPOINT,
     windowMs = DEFAULT_WINDOW_MS,
+    locationHref = globalThis.location?.href || 'http://127.0.0.1/',
   } = {}) {
     this.fetchImpl = fetchImpl;
-    this.endpoint = endpoint;
+    this.endpoint = String(endpoint || '');
     this.windowMs = Math.max(2_000, Math.min(15_000, Number(windowMs) || DEFAULT_WINDOW_MS));
+    this.locationHref = String(locationHref || '');
     this.active = false;
     this.generation = 0;
     this.clock = null;
@@ -107,7 +158,7 @@ export class LocalTranscriptTimingProducer {
       : this.#setState(state, reason, detail);
     if (typeof this.fetchImpl !== 'function') return publish('unavailable', 'LOCAL_TRANSCRIPT_FETCH_UNAVAILABLE');
     try {
-      const response = await this.fetchImpl(`${this.endpoint}/status`, {
+      const response = await this.fetchImpl(`${this.#admittedEndpoint || this.endpoint}/status`, {
         method: 'GET',
         cache: 'no-store',
         credentials: 'same-origin',
@@ -154,6 +205,16 @@ export class LocalTranscriptTimingProducer {
       this.#setState('unavailable', 'AUTHENTICATED_MUTATION_CSRF_REQUIRED');
       return false;
     }
+    // The admitted implementation is a machine-local Node recognizer. A
+    // relative endpoint on a deployed page would instead upload raw PCM to a
+    // remote MissionMed server, so production fails closed until an on-device
+    // browser runtime or separately authorized first-party media contract exists.
+    const admittedEndpoint = admittedLoopbackEndpoint(this.endpoint, this.locationHref);
+    if (!admittedEndpoint) {
+      this.#setState('unavailable', 'LOCAL_WORD_TIMING_LOOPBACK_REQUIRED');
+      return false;
+    }
+    this.#admittedEndpoint = admittedEndpoint;
     const capability = await this.probe({ generation });
     if (generation !== this.generation || capability.state !== 'ready') return false;
     this.window = null;
@@ -189,7 +250,13 @@ export class LocalTranscriptTimingProducer {
     this.window.sampleCount += copy.length;
     this.window.durationMs += durationMs;
     this.window.lastAtMs = atMs;
-    if (frame.speaking === true) this.window.speechDurationMs += durationMs;
+    // Silero's admitted state is sufficient. A periodic F0 may supplement a
+    // late state transition only when the same frame also carries meaningful
+    // Silero speech probability; a tone by itself is never treated as speech.
+    const softSpeechEvidence = frame.voiced === true
+      && Number.isFinite(frame.speechProbability)
+      && frame.speechProbability >= MINIMUM_VOICED_SPEECH_PROBABILITY;
+    if (frame.speaking === true || softSpeechEvidence) this.window.speechDurationMs += durationMs;
     if (this.window.durationMs >= this.windowMs) this.flush();
     return true;
   }
@@ -209,9 +276,16 @@ export class LocalTranscriptTimingProducer {
     joined.fill(0);
     const endedAtMs = window.startedAtMs + window.durationMs;
     const coverage = clamp(window.speechDurationMs / window.durationMs, 0, 1);
-    if (window.speechDurationMs < 3_000) {
+    // Do not require the VAD/F0 prefilter itself to prove the full three-second
+    // WPM acceptance contract. Its only job is to keep pure-silence windows out
+    // of the local recognizer. Sherpa's returned word timestamps adjudicate the
+    // real speech duration and coverage below.
+    if (window.speechDurationMs < MINIMUM_ACOUSTIC_EVIDENCE_MS) {
       pcm.fill(0);
-      this.#setState('live', 'NEED_MORE_SPEECH_TIME', { speechDurationMs: Math.round(window.speechDurationMs) });
+      this.#setState('live', 'NEED_MORE_SPEECH_TIME', {
+        speechDurationMs: Math.round(window.speechDurationMs),
+        minimumAcousticEvidenceMs: MINIMUM_ACOUSTIC_EVIDENCE_MS,
+      });
       return false;
     }
     return this.#enqueueWindow({
@@ -255,7 +329,7 @@ export class LocalTranscriptTimingProducer {
     const controller = new AbortController();
     this.requestController = controller;
     const body = encodeFloat32Le(pcm);
-    const response = await this.fetchImpl(this.endpoint, {
+    const response = await this.fetchImpl(this.#admittedEndpoint, {
       method: 'POST',
       body,
       cache: 'no-store',
@@ -299,22 +373,41 @@ export class LocalTranscriptTimingProducer {
         && word.endMs > word.startMs
         && word.endMs <= windowEndedAtMs + 25
         && (word.probability === null || (Number.isFinite(word.probability) && word.probability >= 0 && word.probability <= 1))
-        && (index === 0 || word.startMs >= words[index - 1].startMs));
+        && (index === 0 || word.startMs >= words[index - 1].endMs));
     if (wordCount === null || wordCount < 0 || captureDurationMs <= 0
       || observedSpeechDurationMs === null || observedSpeechDurationMs < 0
       || observedSpeechDurationMs > captureDurationMs + 25 || !validWords) {
       this.#setState('partial', 'INVALID_LOCAL_WORD_TIMING');
       return false;
     }
+    // Low-confidence tokens cannot satisfy WPM gates. The threshold is below
+    // the weakest word in the admitted acoustic preflight (0.5312) while still
+    // rejecting zero/very-low-confidence decoder output. Count only the union
+    // of the recognizer's occupied word intervals. The
+    // silence between separated words or episodes is deliberately excluded.
+    // Taking the maximum with acoustic evidence avoids double-counting their
+    // overlap while allowing genuine timed-word occupancy to correct VAD lag.
+    const confidentWords = words.filter((word) => Number.isFinite(word.probability)
+      && word.probability >= MINIMUM_WORD_PROBABILITY);
+    const timedSpeechDurationMs = clamp(timedWordOccupancyMs(confidentWords), 0, captureDurationMs);
+    const admittedSpeechDurationMs = Math.max(observedSpeechDurationMs, timedSpeechDurationMs);
+    const timedWordsPerMinute = admittedSpeechDurationMs > 0
+      ? confidentWords.length / (admittedSpeechDurationMs / 60_000)
+      : 0;
+    if (timedWordsPerMinute > MAXIMUM_PLAUSIBLE_WPM) {
+      this.#setState('partial', 'IMPLAUSIBLE_LOCAL_WORD_TIMING');
+      return false;
+    }
+    const admittedCoverage = Math.max(coverage, clamp(timedSpeechDurationMs / captureDurationMs, 0, 1));
     const atMs = Math.max(windowEndedAtMs, Number(this.clock.sessionMs()));
     this.onTiming(Object.freeze({
       atMs,
       windowStartedAtMs,
       windowEndedAtMs,
-      speechDurationMs: observedSpeechDurationMs,
-      coverage,
-      words: Object.freeze(words.map((word) => Object.freeze(word))),
-      wordCount,
+      speechDurationMs: admittedSpeechDurationMs,
+      coverage: admittedCoverage,
+      words: Object.freeze(confidentWords.map((word) => Object.freeze(word))),
+      wordCount: confidentWords.length,
       provenance: Object.freeze({
         kind: 'OBSERVED_TRANSCRIPT_TIMING',
         observed: true,
@@ -328,8 +421,8 @@ export class LocalTranscriptTimingProducer {
         rawAudioPersisted: false,
       }),
     }));
-    this.#setState('live', wordCount >= 8 ? 'LOCAL_TRANSCRIPT_TIMING_OBSERVED' : 'NEED_MORE_TIMED_WORDS', {
-      wordCount,
+    this.#setState('live', confidentWords.length >= 8 ? 'LOCAL_TRANSCRIPT_TIMING_OBSERVED' : 'NEED_MORE_TIMED_WORDS', {
+      wordCount: confidentWords.length,
       windowDurationMs: Math.round(captureDurationMs),
     });
     return true;
@@ -349,6 +442,7 @@ export class LocalTranscriptTimingProducer {
     this.pipeline = null;
     this.clock = null;
     this.csrfToken = null;
+    this.#admittedEndpoint = null;
     this.onTiming = null;
     if (!preserveState) this.#setState('idle', 'LOCAL_TRANSCRIPT_TIMING_IDLE');
     this.onState = null;
