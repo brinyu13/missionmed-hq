@@ -48,6 +48,37 @@ async function createPage(browser, query, viewport, options = {}) {
 
 async function browserAccessibilityAudit(page, label) {
 	const audit = await page.evaluate(() => {
+		const parseRgb = value => {
+			const match = String(value || "").match(/[\d.]+/g);
+			return match && match.length >= 3 ? match.slice(0, 3).map(Number) : null;
+		};
+		const luminance = rgb => {
+			const channels = rgb.map(value => {
+				const normalized = value / 255;
+				return normalized <= 0.04045 ? normalized / 12.92 : ((normalized + 0.055) / 1.055) ** 2.4;
+			});
+			return (0.2126 * channels[0]) + (0.7152 * channels[1]) + (0.0722 * channels[2]);
+		};
+		const contrast = (foreground, background) => {
+			const lighter = Math.max(luminance(foreground), luminance(background));
+			const darker = Math.min(luminance(foreground), luminance(background));
+			return (lighter + 0.05) / (darker + 0.05);
+		};
+		const lowContrastHeadings = [...document.querySelectorAll(".mmed-fv2 h1,.mmed-fv2 h2")]
+			.filter(heading => heading.getClientRects().length > 0)
+			.map(heading => {
+				const foreground = parseRgb(getComputedStyle(heading).color);
+				let ancestor = heading;
+				let background = null;
+				while (ancestor && !background) {
+					const candidate = getComputedStyle(ancestor).backgroundColor;
+					if (candidate && candidate !== "transparent" && candidate !== "rgba(0, 0, 0, 0)") background = parseRgb(candidate);
+					ancestor = ancestor.parentElement;
+				}
+				const ratio = foreground && background ? contrast(foreground, background) : 0;
+				return { tag: heading.tagName, className: heading.className, ratio };
+			})
+			.filter(heading => heading.ratio < 4.5);
 		const duplicateIds = [...document.querySelectorAll("[id]")]
 			.map(node => node.id)
 			.filter((id, index, ids) => id && ids.indexOf(id) !== index);
@@ -63,13 +94,14 @@ async function browserAccessibilityAudit(page, label) {
 			return rect.width > 0 && rect.height > 0 && (rect.width < 44 || rect.height < 44);
 		}).map(button => ({ text: button.textContent.trim(), width: button.getBoundingClientRect().width, height: button.getBoundingClientRect().height }));
 			const buttonsWithListitemRole = document.querySelectorAll('button[role="listitem"]').length;
-			return { duplicateIds, unnamedButtons, unlabeledFields, smallTargets, buttonsWithListitemRole };
+			return { duplicateIds, unnamedButtons, unlabeledFields, smallTargets, buttonsWithListitemRole, lowContrastHeadings };
 	});
 	assert(audit.duplicateIds.length === 0, `${label}: duplicate DOM IDs: ${audit.duplicateIds.join(", ")}`);
 	assert(audit.unnamedButtons === 0, `${label}: ${audit.unnamedButtons} unnamed buttons`);
 	assert(audit.unlabeledFields === 0, `${label}: ${audit.unlabeledFields} unlabeled fields`);
 	assert(audit.smallTargets.length === 0, `${label}: undersized button targets ${JSON.stringify(audit.smallTargets)}`);
 	assert(audit.buttonsWithListitemRole === 0, `${label}: ${audit.buttonsWithListitemRole} buttons lost button semantics to listitem roles`);
+	assert(audit.lowContrastHeadings.length === 0, `${label}: low-contrast headings ${JSON.stringify(audit.lowContrastHeadings)}`);
 }
 
 async function overflowAudit(page, label) {
