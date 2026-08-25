@@ -1,7 +1,8 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
   "build": {
-    "builder": "RAILPACK"
+    "builder": "RAILPACK",
+    "buildCommand": "node --check missionmed-hq/scripts/lor-studio/run-dr133-railway-staging-migrations.mjs"
   },
   "deploy": {
     "preDeployCommand": [

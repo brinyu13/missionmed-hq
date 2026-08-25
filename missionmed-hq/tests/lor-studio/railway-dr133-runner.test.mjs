@@ -1125,19 +1125,28 @@ test('runtime deprovision classifies rollback, uncertainty, verification, and cl
 });
 
 test('Railway configs are domainless, single-region, no-retry pre-deploy runners', async () => {
-  for (const [filename, expectedCommand] of [
+  for (const [filename, expectedCommand, expectedBuildCommand] of [
     [
       '../../../railway.lor-dr133-migration.json',
       'node missionmed-hq/scripts/lor-studio/run-dr133-railway-staging-migrations.mjs',
+      'node --check missionmed-hq/scripts/lor-studio/run-dr133-railway-staging-migrations.mjs',
     ],
     [
       '../../../railway.lor-dr133-runtime-login.json',
       'node missionmed-hq/scripts/lor-studio/provision-dr133-railway-staging-runtime-login.mjs',
+      'node --check missionmed-hq/scripts/lor-studio/provision-dr133-railway-staging-runtime-login.mjs',
+    ],
+    [
+      '../../../railway.lor-dr133-runtime-login-deprovision.json',
+      'node missionmed-hq/scripts/lor-studio/deprovision-dr133-railway-staging-runtime-login.mjs',
+      'node --check missionmed-hq/scripts/lor-studio/deprovision-dr133-railway-staging-runtime-login.mjs',
     ],
   ]) {
     const config = JSON.parse(await readFile(new URL(filename, import.meta.url), 'utf8'));
     assert.equal(config.$schema, 'https://railway.com/railway.schema.json');
     assert.equal(config.build.builder, 'RAILPACK');
+    assert.equal(config.build.buildCommand, expectedBuildCommand);
+    assert.doesNotMatch(config.build.buildCommand, /npm run build/u);
     assert.deepEqual(config.deploy.preDeployCommand, [expectedCommand]);
     assert.equal(config.deploy.restartPolicyType, 'NEVER');
     assert.deepEqual(config.deploy.multiRegionConfig, { 'us-west2': { numReplicas: 1 } });
