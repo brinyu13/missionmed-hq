@@ -8,6 +8,8 @@ import {
   TIMELINE_QUALITY_PROMPT_VERSION,
   TIMELINE_RESCUE_PROMPT_VERSION,
   qualityInputFromDocument,
+  sanitizeServerApprovedFounderPreferenceRules,
+  type TimelineFounderPreferenceRule,
   type TimelineQualityAiFinding,
   type TimelineQualityAiInput,
   type TimelineRescueAiInput,
@@ -113,13 +115,18 @@ function cleanQuestions(value: unknown): string[] {
 
 export class TimelineAiWorkflowService {
   private readonly syntheticPrincipalIds: ReadonlySet<string>;
+  private readonly serverApprovedFounderPreferences: readonly TimelineFounderPreferenceRule[];
 
   constructor(
     private readonly provider: TimelineAiWorkflowProvider | null = null,
     syntheticPrincipalIds: Iterable<string> = [],
+    serverApprovedFounderPreferences: unknown = [],
   ) {
     this.syntheticPrincipalIds = new Set(
       [...syntheticPrincipalIds].map((value) => String(value).trim()).filter(Boolean),
+    );
+    this.serverApprovedFounderPreferences = Object.freeze(
+      sanitizeServerApprovedFounderPreferenceRules(serverApprovedFounderPreferences),
     );
   }
 
@@ -132,7 +139,7 @@ export class TimelineAiWorkflowService {
   ): Promise<TimelineQualityAnalysisResponse> {
     this.assertOwner(context, document, "TIMELINE_QUALITY_OWNER_REQUIRED");
     this.assertSyntheticAuthorized(context, syntheticFixture);
-    const input = qualityInputFromDocument(document, deterministicFindings);
+    const input = qualityInputFromDocument(document, deterministicFindings, this.serverApprovedFounderPreferences);
     const analysisId = `quality_analysis_${sha256(stableStringify({ documentId: document.id, revision: document.revision, prompt: TIMELINE_QUALITY_PROMPT_VERSION })).slice(0, 24)}`;
     if (!this.provider) return this.qualityUnavailable(document, analysisId);
     try {

@@ -138,6 +138,8 @@ h3{font-size:15px;line-height:20px;font-weight:600;margin-bottom:6px}
 .board-preview text{font-family:"Inter",sans-serif;font-size:2.1px;fill:#2A3442}
 .board-preview .preview-name{font-size:3.1px;font-weight:700}
 .board-preview.ghost{opacity:.4}
+.canonical-board-preview{position:relative}
+.canonical-board-preview.is-last-good .timeline-preview-recovery-status{position:absolute;z-index:5;right:12px;bottom:12px;max-width:min(360px,calc(100% - 24px));padding:8px 11px;border:1px solid rgba(255,255,255,.3);border-radius:8px;background:rgba(12,20,33,.9);box-shadow:0 4px 18px rgba(0,0,0,.28);color:#fff;font-size:12px;font-weight:650;line-height:1.35;pointer-events:none}
 .empty-preview{position:relative;min-height:230px;display:grid;place-items:center;border-radius:10px;overflow:hidden;background:#EEF1F5}
 .empty-preview .board-preview{position:absolute;inset:0;height:100%;border-radius:0}
 .empty-preview-card{position:relative;z-index:2;max-width:420px;padding:22px 24px;border:1px solid var(--shell-border);border-radius:12px;background:rgba(255,255,255,.94);box-shadow:var(--card-shadow);text-align:center}

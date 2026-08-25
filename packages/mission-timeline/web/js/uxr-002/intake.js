@@ -30,6 +30,7 @@ export const INTAKE_COPY=Object.freeze({
   empty:"We read it, but didn't find dated events we're confident about. The guided builder takes about 10 minutes.",
   doneBody:"Your document has been processed. You can delete it now or keep it for another pass.",
   fileError:"PDF or DOCX, up to 20MB.",
+  rescueFileError:"PPTX, PDF, PNG, or JPEG, up to 20MB.",
   suggestionsSubline:"We checked your document before you start. Nothing here changes your history unless you apply it, and every applied change can be undone.",
   suggestionsClear:"We checked your document and found nothing to flag.",
   questionsClear:"Your document already answers everything we need for this one."
@@ -130,6 +131,29 @@ export const CATEGORY_REVIEW_FIELDS=Object.freeze({
 
 function clone(value){
   return structuredClone(value);
+}
+
+function traceOnlySourceCustody(value){
+  if(!value||typeof value!=="object")return null;
+  const reference={
+    schemaVersion:String(value.schemaVersion||""),
+    authority:String(value.authority||""),
+    provider:String(value.provider||""),
+    timelineObjectId:String(value.timelineObjectId||""),
+    sha256:String(value.sha256||"").toLowerCase(),
+    vaultFileId:String(value.vaultFileId||""),
+    versionId:String(value.versionId||"")
+  };
+  if(
+    reference.schemaVersion!=="timeline-source-custody-ref.1"||
+    reference.authority!=="TRACE_ONLY"||
+    reference.provider!=="missionmed-filevault-v2"||
+    !reference.timelineObjectId||
+    !/^[a-f0-9]{64}$/.test(reference.sha256)||
+    !/^[1-9][0-9]{0,18}$/.test(reference.vaultFileId)||
+    !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(reference.versionId)
+  )return null;
+  return reference;
 }
 
 function normalizedText(value){
@@ -377,7 +401,49 @@ export function validateIntakeFile(file){
   const extension=name.toLowerCase().match(/\.([^.]+)$/)?.[1]||"";
   const pdfMime="application/pdf";
   const docxMime="application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  const pptxMime="application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  const pngMime="image/png";
+  const jpegMime="image/jpeg";
   const unknownMime=!type||type==="application/octet-stream";
+  const timelineRescue=file?.timelineRescue===true;
+  if(timelineRescue){
+    const rescueKind=extension==="pptx"&&(unknownMime||type===pptxMime)
+      ?"rescue-pptx"
+      :extension==="pdf"&&(unknownMime||type===pdfMime)
+        ?"rescue-pdf"
+        :extension==="png"&&(unknownMime||type===pngMime)
+          ?"rescue-png"
+          :["jpg","jpeg"].includes(extension)&&(unknownMime||type===jpegMime)
+            ?"rescue-jpeg"
+            :!extension&&type===pptxMime
+              ?"rescue-pptx"
+              :!extension&&type===pdfMime
+                ?"rescue-pdf"
+                :!extension&&type===pngMime
+                  ?"rescue-png"
+                  :!extension&&type===jpegMime
+                    ?"rescue-jpeg"
+                    :null;
+    const validSize=Number.isFinite(size)&&size>=0&&size<=MAX_DOCUMENT_BYTES;
+    if(!rescueKind||!validSize)return{valid:false,error:INTAKE_COPY.rescueFileError};
+    return{
+      valid:true,
+      error:null,
+      kind:rescueKind,
+      metadata:{
+        name,
+        type:type||({
+          "rescue-pptx":pptxMime,
+          "rescue-pdf":pdfMime,
+          "rescue-png":pngMime,
+          "rescue-jpeg":jpegMime
+        })[rescueKind],
+        size,
+        lastModified:Number(file?.lastModified)||null,
+        timelineRescue:true
+      }
+    };
+  }
   const kind=extension==="pdf"&&(unknownMime||type===pdfMime)
     ?"pdf"
     :extension==="docx"&&(unknownMime||type===docxMime)
@@ -551,6 +617,8 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       state.extraction.completed=true;
       state.extraction.sourceDocument=action.sourceDocument?clone(action.sourceDocument):null;
       state.extraction.parser=action.parser?clone(action.parser):null;
+      const sourceCustody=traceOnlySourceCustody(action.sourceDocument?.sourceCustody);
+      if(state.file&&sourceCustody)state.file={...state.file,sourceCustody};
       /* C-06: the quality review the server already computed used to stop at the adapter. */
       state.suggestions=normalizeSuggestions(action.qualitySuggestions||action.parser?.qualitySuggestions||[]);
       return state;
@@ -581,22 +649,67 @@ export function transitionIntake(current,action,{existingEvents=[]}={}){
       if(index<0)return state;
       const patch=action.patch&&typeof action.patch==="object"?clone(action.patch):{};
       const candidate={...state.candidates[index]};
+      const priorCategoryId=candidate.categoryId;
       for(const field of["title","categoryId","startDate","endDate","notes","eventType","openEnded","visibilityState"]){
         if(Object.hasOwn(patch,field))candidate[field]=patch[field];
       }
       if(patch.fields&&typeof patch.fields==="object")candidate.fields={...candidate.fields,...patch.fields};
       if(!CATEGORIES.some(({id})=>id===candidate.categoryId))candidate.categoryId="";
+      if(Object.hasOwn(patch,"visibilityState")){
+        candidate.visibilityState=patch.visibilityState===VISIBILITY.ADVISOR_ONLY
+          ?VISIBILITY.ADVISOR_ONLY
+          :VISIBILITY.INTERVIEWER_SAFE;
+      }
       if(candidate.categoryId==="education")candidate.eventType="milestone";
       if(candidate.categoryId==="personal"){
-        candidate.visibilityState=candidate.fields.visibility==="Advisor only"?VISIBILITY.ADVISOR_ONLY:VISIBILITY.INTERVIEWER_SAFE;
+        if(Object.hasOwn(patch,"visibilityState")){
+          candidate.visibilityState=patch.visibilityState===VISIBILITY.INTERVIEWER_SAFE
+            ?VISIBILITY.INTERVIEWER_SAFE
+            :VISIBILITY.ADVISOR_ONLY;
+          candidate.fields={
+            ...candidate.fields,
+            visibility:candidate.visibilityState===VISIBILITY.ADVISOR_ONLY
+              ?"Advisor only"
+              :"Show everyone"
+          };
+        }else if(Object.hasOwn(patch.fields||{},"visibility")){
+          candidate.visibilityState=candidate.fields.visibility==="Advisor only"
+            ?VISIBILITY.ADVISOR_ONLY
+            :VISIBILITY.INTERVIEWER_SAFE;
+        }else if(priorCategoryId!=="personal"){
+          candidate.visibilityState=VISIBILITY.ADVISOR_ONLY;
+          candidate.fields={...candidate.fields,visibility:"Advisor only"};
+        }
         if(candidate.fields.when){
           candidate.eventType=candidate.fields.when==="A period"?"duration":"milestone";
           if(candidate.eventType==="milestone")candidate.endDate=null;
         }
       }
-      if(candidate.fields.currentlyOnRotation||candidate.fields.stillWorking||candidate.fields.ongoing){
+      /* Imported document adapters can surface boolean-looking values as text.
+         The string "false" must never turn a finished experience into Present.
+         Conversely, entering an explicit end month is the student's direct
+         instruction to close the range, so clear every ongoing alias. */
+      if(Object.hasOwn(patch,"endDate")&&String(patch.endDate||"").trim()){
+        candidate.openEnded=false;
+        candidate.fields={
+          ...candidate.fields,
+          currentlyOnRotation:false,
+          stillWorking:false,
+          ongoing:false
+        };
+      }
+      const ongoingFlag=[
+        candidate.fields.currentlyOnRotation,
+        candidate.fields.stillWorking,
+        candidate.fields.ongoing
+      ].some((value)=>value===true||String(value||"").trim().toLowerCase()==="true");
+      const ongoingFieldPatched=["currentlyOnRotation","stillWorking","ongoing"]
+        .some((field)=>Object.hasOwn(patch.fields||{},field));
+      if(ongoingFlag){
         candidate.openEnded=true;
         candidate.endDate=null;
+      }else if(ongoingFieldPatched){
+        candidate.openEnded=false;
       }
       candidate.title=String(candidate.title||"").trim();
       candidate.startDate=String(candidate.startDate||"");
@@ -777,6 +890,79 @@ function candidateEvent(candidate,id,fileName=""){
   };
 }
 
+function explicitMedicalSchoolFromDegreeTitle(candidate){
+  const canonical=String(candidate?.fields?.canonicalType||"").toUpperCase();
+  const credential=String(candidate?.fields?.degree||"").trim().toUpperCase().replaceAll(".","");
+  const title=String(candidate?.title||"").trim();
+  const isMedicalDegree=canonical==="MEDICAL_DEGREE"||
+    ["MD","DO","MBBS","MBCHB","MBBCH"].includes(credential)||
+    /\b(?:doctor of medicine|doctor of osteopathic medicine|medical degree|mbbs|mbchb|mbbch)\b/i.test(title);
+  if(!isMedicalDegree)return"";
+
+  /* Some source-grounded extractors retain an explicit institution in the
+     reviewed title while leaving the optional organization field blank. Only
+     accept the unambiguous "degree, school" / "degree at school" forms; a
+     bare degree title must stay blank and reviewable rather than be guessed. */
+  const match=title.match(
+    /^(?:doctor of medicine(?:\s*\(md\))?|doctor of osteopathic medicine(?:\s*\(do\))?|medical degree|bachelor of medicine(?:\s+and\s+bachelor of surgery)?|mbbs|mbchb|mbbch)\s*(?:,|\bat\b|[-—])\s*(.+)$/i
+  );
+  return String(match?.[1]||"").trim();
+}
+
+function cvProfilePrefill(candidates=[]){
+  const education=candidates.filter((candidate)=>candidate.categoryId==="education");
+  /* A general undergraduate EDUCATION entry can legitimately precede the
+     medical degree in CV chronology. Profile identity must come from the
+     medical-degree candidate, not whichever education entry appears first. */
+  const medicalDegree=education.find((candidate)=>{
+    const canonical=String(candidate.fields?.canonicalType||"").toUpperCase();
+    const credential=String(candidate.fields?.degree||"").trim().toUpperCase().replaceAll(".","");
+    const title=String(candidate.title||"");
+    return canonical==="MEDICAL_DEGREE"||
+      ["MD","DO","MBBS","MBCHB","MBBCH"].includes(credential)||
+      /\b(?:doctor of medicine|doctor of osteopathic medicine|medical degree|mbbs|mbchb|mbbch)\b/i.test(title);
+  });
+  const graduation=education.find((candidate)=>
+    String(candidate.fields?.canonicalType||"").toUpperCase()==="GRADUATION"
+  );
+  const degree=medicalDegree||graduation||education.find((candidate)=>
+    String(candidate.fields?.canonicalType||"").toUpperCase()==="EDUCATION"
+  );
+  if(!degree)return null;
+  const graduationDate=graduation?.startDate||degree.endDate||(
+    String(degree.fields?.canonicalType||"").toUpperCase()==="GRADUATION"
+      ?degree.startDate
+      :null
+  );
+  return{
+    sourceCandidateId:String(degree.id),
+    medicalSchool:String(
+      degree.fields?.medicalSchool||
+      degree.siteName||
+      explicitMedicalSchoolFromDegreeTitle(degree)||
+      ""
+    ).trim(),
+    medicalSchoolCountry:String(degree.fields?.medicalSchoolCountry||degree.fields?.sourceCountry||"").trim(),
+    graduationDate:graduationDate?String(graduationDate).slice(0,7):"",
+    degree:String(degree.fields?.degree||"").trim(),
+    verificationStatus:"unverified-source-claimed",
+    provenance:approvalProvenance(degree)
+  };
+}
+
+function cvExamReviewQueue(candidates=[]){
+  return candidates.filter((candidate)=>candidate.categoryId==="exams").map((candidate)=>({
+    sourceCandidateId:String(candidate.id),
+    canonicalType:String(candidate.fields?.canonicalType||""),
+    examName:String(candidate.fields?.examName||candidate.title||""),
+    examDate:candidate.startDate?String(candidate.startDate).slice(0,7):"",
+    result:String(candidate.fields?.result||""),
+    score:String(candidate.fields?.score||""),
+    status:"needs-student-confirmation",
+    provenance:approvalProvenance(candidate)
+  }));
+}
+
 function mergePatch(existing,candidate,fileName){
   const existingRange=monthRange(existing),candidateRange=monthRange(candidate);
   const start=existingRange&&candidateRange?Math.min(existingRange.start,candidateRange.start):(existingRange?.start??candidateRange?.start);
@@ -849,7 +1035,7 @@ export function buildApprovalBatch(state,existingEvents,{idFactory=(prefix)=>`${
   }
   const versionName=`Before CV import · ${dateLabel(clock())}`;
   return{
-    schemaVersion:"d1-uxr-002-intake-batch.1",
+    schemaVersion:"d1-uxr-002-intake-batch.2",
     label:"Add document suggestions",
     history:{required:true,undoSteps:1},
     version:{name:versionName,kind:"automatic",requiredBeforeMutation:true},
@@ -857,6 +1043,8 @@ export function buildApprovalBatch(state,existingEvents,{idFactory=(prefix)=>`${
     documentType:state.detectedType,
     additions,
     merges,
+    profilePrefill:cvProfilePrefill(positive),
+    examReviewQueue:cvExamReviewQueue(positive),
     acceptedCandidateIds:positive.map(({id})=>id),
     acceptedCandidates:positive.map((candidate)=>({
       id:String(candidate.id),
@@ -892,6 +1080,36 @@ export function applyApprovalBatchToDocument(document,batch){
     Object.assign(event,clone(merge.patch));
   }
   nextEvents.push(...batch.additions.map((event)=>clone(event)));
+  if(batch.profilePrefill){
+    const current=document.studentProfile&&typeof document.studentProfile==="object"
+      ?document.studentProfile:{};
+    const prefill=batch.profilePrefill;
+    const patch={};
+    for(const field of["medicalSchool","medicalSchoolCountry","graduationDate","degree"]){
+      if(!String(current[field]||"").trim()&&String(prefill[field]||"").trim())patch[field]=prefill[field];
+    }
+    if(patch.medicalSchool){
+      patch.medicalSchoolEntryMode="unlisted";
+      patch.medicalSchoolVerificationStatus=prefill.verificationStatus;
+      patch.medicalSchoolNormalizationStatus="review-required";
+      patch.medicalSchoolAnalyticsEligible=false;
+    }
+    document.studentProfile={...current,...patch};
+  }
+  document.builder=document.builder&&typeof document.builder==="object"?document.builder:{};
+  const priorExamQueue=Array.isArray(document.builder.aiExamReviewQueue)
+    ?document.builder.aiExamReviewQueue:[];
+  const examBySource=new Map(priorExamQueue.map((item)=>[String(item.sourceCandidateId),clone(item)]));
+  for(const item of batch.examReviewQueue||[])examBySource.set(String(item.sourceCandidateId),clone(item));
+  document.builder.aiExamReviewQueue=[...examBySource.values()];
+  document.builder.lastAiPrefill={
+    at:batch.createdAt,
+    sourceFileName:String(batch.sourceDocument?.name||""),
+    acceptedCount:Number(batch.acceptedCount)||0,
+    eventCount:Number(batch.addedCount)||0,
+    profilePrefilled:!!batch.profilePrefill,
+    examReviewCount:(batch.examReviewQueue||[]).length
+  };
   const nextIntake={
     ...(document.intake||{}),
     stage:INTAKE_STAGES.DONE,
@@ -1335,19 +1553,26 @@ function candidateMarkup(candidate,{lane="medium",suggestions=[]}={}){
   }
   const confidenceLabel=candidate.confidence[0].toUpperCase()+candidate.confidence.slice(1);
   const confidenceClass=candidate.confidence==="high"?"success":candidate.confidence==="medium"?"gold":"tertiary";
+  const visibility=`<label class="candidate-visibility">Timeline visibility
+    <select data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="visibilityState">
+      <option value="${VISIBILITY.INTERVIEWER_SAFE}"${candidate.visibilityState===VISIBILITY.INTERVIEWER_SAFE?" selected":""}>Show in interview Timeline</option>
+      <option value="${VISIBILITY.ADVISOR_ONLY}"${candidate.visibilityState===VISIBILITY.ADVISOR_ONLY?" selected":""}>Advisor only</option>
+    </select>
+  </label>`;
   const fields=lane==="low"
     ?`<div class="candidate-fields needs-help">
       <strong>${escapeHtml(candidate.title||"Untitled entry")}</strong>
       <span class="status-badge">NEEDS YOUR HELP</span>
       <span class="confidence-tag ${confidenceClass}">${confidenceLabel}</span>
     </div>
-    ${candidateQuestionsMarkup(candidate)}`
+    ${candidateQuestionsMarkup(candidate)}${visibility}`
     :`<div class="candidate-fields">
       <label>Category <select data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="categoryId">${categoryOptions(candidate.categoryId)}</select></label>
       <label>Proposed title <input type="text" value="${escapeHtml(candidate.title)}" data-candidate-id="${escapeHtml(candidate.id)}" data-candidate-field="title"></label>
       ${candidateMonthField(candidate,"startDate","Start",candidate.startDate)}
       ${candidateMonthField(candidate,"endDate","End",candidate.endDate)}
       <span class="confidence-tag ${confidenceClass}">${confidenceLabel}</span>
+      ${visibility}
     </div>`;
   return`<article class="candidate-card" data-candidate-card="${escapeHtml(candidate.id)}" data-review-lane="${escapeHtml(lane)}">
     ${candidate.duplicate?`<div class="duplicate-banner">Looks like a duplicate of '${escapeHtml(candidate.duplicate.eventTitle)}'</div>`:""}
@@ -1454,6 +1679,32 @@ function closest(target,selector){
   return target?.closest?.(selector)||null;
 }
 
+/* A click can move focus before a text input's change event reaches the state
+   machine (notably under browser automation and fast pointer use). Snapshot the
+   visible review card once immediately before its decision so the event added
+   to the Timeline is always the text the student can see. */
+function commitVisibleCandidateFields(machine,target,candidateId){
+  const card=closest(target,"[data-candidate-card]");
+  if(!card?.querySelectorAll||String(card.dataset?.candidateCard||"")!==String(candidateId||""))return;
+  const patch={},fields={};
+  const controls=card.querySelectorAll(
+    "input[data-candidate-field],select[data-candidate-field],textarea[data-candidate-field],"+
+    "input[data-candidate-extra],select[data-candidate-extra],textarea[data-candidate-extra]"
+  );
+  for(const control of controls){
+    const value=control.type==="checkbox"?control.checked:control.value;
+    if(control.dataset.candidateField){
+      const key=control.dataset.candidateField;
+      if(!Object.hasOwn(patch,key)||String(value||"").trim())patch[key]=value;
+    }else if(control.dataset.candidateExtra){
+      const key=control.dataset.candidateExtra;
+      if(!Object.hasOwn(fields,key)||value===true||String(value||"").trim())fields[key]=value;
+    }
+  }
+  if(Object.keys(fields).length)patch.fields=fields;
+  if(Object.keys(patch).length)machine.editCandidate(candidateId,patch);
+}
+
 export function installIntake(root,machine,{
   onChange=()=>{},
   onNavigate=()=>{},
@@ -1514,6 +1765,7 @@ export function installIntake(root,machine,{
       const action=candidateAction.dataset.candidateAction;
       if(action==="edit")machine.toggleEdit(candidateId);
       else{
+        commitVisibleCandidateFields(machine,candidateAction,candidateId);
         machine.decideCandidate(candidateId,action);
         if(action==="rejected"&&typeof onCandidateDecision==="function"){
           const state=machine.snapshot();

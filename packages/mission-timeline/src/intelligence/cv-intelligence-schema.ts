@@ -1,7 +1,7 @@
 import { TimelineError } from "../core/errors.js";
 
-export const CV_INTELLIGENCE_SCHEMA_VERSION = "d1-timeline-cv-intelligence-1" as const;
-export const CV_INTELLIGENCE_PROMPT_VERSION = "d1-timeline-cv-prompt-1" as const;
+export const CV_INTELLIGENCE_SCHEMA_VERSION = "d1-timeline-cv-intelligence-2" as const;
+export const CV_INTELLIGENCE_PROMPT_VERSION = "d1-timeline-cv-prompt-3" as const;
 
 export const CV_CANONICAL_TYPES = [
   "EDUCATION",
@@ -58,6 +58,8 @@ export interface CvSourceReference {
   objectId: string;
   sha256: string;
   mimeType: "application/pdf" | "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  /** Student-visible label only. The provider receives the hash, not this name. */
+  fileName?: string | null;
 }
 
 export interface CvSourceBlock {
@@ -154,6 +156,42 @@ export interface CvValidatedCandidate extends Omit<CvProviderCandidate, "localId
   duplicateOfEventIds: string[];
   duplicateCandidateIds: string[];
   safeToBulkAccept: boolean;
+  normalizedInterpretation: {
+    canonicalType: CvCanonicalType;
+    categoryId: CvCategoryId;
+    timelineKind: "duration" | "milestone";
+    title: string | null;
+    organization: string | null;
+    location: string | null;
+    country: string | null;
+    specialty: string | null;
+    experienceType: string | null;
+    startDate: string | null;
+    endDate: string | null;
+    datePrecision: "DAY" | "MONTH" | "YEAR" | "UNKNOWN";
+    openEnded: boolean;
+  };
+  provenance: Array<{
+    sourceObjectId: string;
+    sourceSha256: string;
+    sourceFileName: string | null;
+    sourceBlockId: string;
+    pageNumber: number | null;
+    section: string | null;
+    excerpt: string;
+    charStart: number;
+    charEnd: number;
+    fields: CvEvidenceField[];
+    support: "EXPLICIT" | "INFERRED";
+    reason: string;
+    uncertainty: string | null;
+  }>;
+  review: {
+    lane: "HIGH" | "MEDIUM" | "LOW";
+    action: "BULK_ACCEPT" | "QUICK_CONFIRM" | "TARGETED_QUESTION";
+    requiredFields: string[];
+    smallestQuestion: string | null;
+  };
 }
 
 export interface CvQualitySuggestion extends Omit<CvProviderQualitySuggestion, "localId"> {
@@ -175,7 +213,24 @@ export interface CvIntelligenceResponse {
   qualitySuggestions: CvQualitySuggestion[];
   unresolvedQuestions: string[];
   rejectedCandidateCount: number;
-  fallbackReason: "UNCONFIGURED" | "PROVIDER_UNAVAILABLE" | "INVALID_PROVIDER_OUTPUT" | null;
+  fallbackReason:
+    | "UNCONFIGURED"
+    | "PROVIDER_UNAVAILABLE"
+    | "INVALID_PROVIDER_OUTPUT"
+    | "OCR_REQUIRED"
+    | "AI_AUTHORIZATION_REQUIRED"
+    | null;
+  reviewSummary: {
+    high: number;
+    medium: number;
+    low: number;
+    bulkAcceptable: number;
+  };
+  prefillSummary: {
+    timelineEvents: number;
+    profileCandidates: number;
+    examCandidates: number;
+  };
 }
 
 const ID_PATTERN = /^[-_a-zA-Z0-9:.]{1,160}$/;
@@ -211,6 +266,7 @@ export function parseCvIntelligenceRequest(value: unknown): CvIntelligenceReques
   if (!SHA256_PATTERN.test(sourceSha256)) throw new TimelineError("CV_SOURCE_HASH_INVALID", "CV source hash is invalid.", 400);
   const mimeType = requiredString(sourceInput.mimeType, "CV_SOURCE_MIME_INVALID", 120) as CvSourceReference["mimeType"];
   if (!MIME_TYPES.has(mimeType)) throw new TimelineError("CV_SOURCE_MIME_INVALID", "CV source type is invalid.", 400);
+  const fileName = nullableString(sourceInput.fileName, "CV_SOURCE_FILE_NAME_INVALID", 500);
 
   if (!Array.isArray(input.blocks) || input.blocks.length < 1 || input.blocks.length > 500) {
     throw new TimelineError("CV_SOURCE_BLOCKS_INVALID", "CV source blocks are invalid.", 400);
@@ -258,7 +314,7 @@ export function parseCvIntelligenceRequest(value: unknown): CvIntelligenceReques
   const idempotencyKey = requiredString(input.idempotencyKey, "CV_IDEMPOTENCY_KEY_INVALID", 160);
   if (!ID_PATTERN.test(idempotencyKey)) throw new TimelineError("CV_IDEMPOTENCY_KEY_INVALID", "CV idempotency key is invalid.", 400);
   return {
-    source: { objectId, sha256: sourceSha256, mimeType },
+    source: { objectId, sha256: sourceSha256, mimeType, fileName },
     blocks,
     documentType,
     existingEvents,

@@ -140,8 +140,14 @@ export class TimelineHttpApi {
       const source = input.source && typeof input.source === "object" && !Array.isArray(input.source)
         ? input.source as Record<string, unknown>
         : {};
-      const sourceObject = await this.objectStore.getAuthorizedObject(context, String(source.objectId ?? ""));
-      return json(await this.cvIntelligence.analyze(context, record.document, sourceObject, input), 200);
+      const sourceObject = await this.objectStore.getAuthorizedObjectBytes(context, String(source.objectId ?? ""));
+      return json(await this.cvIntelligence.analyze(
+        context,
+        record.document,
+        sourceObject,
+        input,
+        request.headers.get("x-timeline-synthetic-fixture") === "1",
+      ), 200);
     }
     const qualityAnalyzeMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/quality\/analyze$/);
     if (qualityAnalyzeMatch && request.method === "POST") {
@@ -271,7 +277,11 @@ export class TimelineHttpApi {
       if (!["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(mimeType)) {
         throw new TimelineError("FILE_VAULT_INGEST_MIME_DENIED", "File Vault source type is not supported for CV analysis.", 415);
       }
-      if (!/^[a-f0-9]{64}$/.test(expectedSha256) || !/^[0-9a-fA-F-]{8,64}$/.test(vaultFileId) || !/^[0-9a-fA-F-]{8,64}$/.test(versionId)) {
+      if (
+        !/^[a-f0-9]{64}$/.test(expectedSha256) ||
+        !/^[1-9][0-9]{0,18}$/.test(vaultFileId) ||
+        !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(versionId)
+      ) {
         throw new TimelineError("FILE_VAULT_INGEST_PROVENANCE_INVALID", "File Vault source provenance is invalid.", 400);
       }
       const bytes = new Uint8Array(await request.arrayBuffer());
@@ -292,7 +302,7 @@ export class TimelineHttpApi {
       );
       return json({
         source: { objectId: sourceObject.id, sha256: expectedSha256, mimeType },
-        provenance: { provider: "missionmed-filevault-v1", vaultFileId, versionId },
+        provenance: { provider: "missionmed-filevault-v2", vaultFileId, versionId },
       }, 201);
     }
     const checkpointMatch = url.pathname.match(/^\/v1\/documents\/([^/]+)\/checkpoints\/([^/]+)$/);

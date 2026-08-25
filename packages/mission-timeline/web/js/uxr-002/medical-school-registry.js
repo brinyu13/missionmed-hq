@@ -5,6 +5,8 @@ const SEARCH_TEXT_CACHE=new WeakMap();
 
 export const MEDICAL_SCHOOL_DATASET_URL=globalThis.D1_TIMELINE_ASSET_URLS?.["data/medical-schools/us-dapip-2026-07-30.json"]
   ||new URL("../../data/medical-schools/us-dapip-2026-07-30.json",import.meta.url);
+export const GLOBAL_MEDICAL_SCHOOL_DATASET_URL=globalThis.D1_TIMELINE_ASSET_URLS?.["data/medical-schools/global-wikidata-2026-08-24.json"]
+  ||new URL("../../data/medical-schools/global-wikidata-2026-08-24.json",import.meta.url);
 
 function clean(value){
   return String(value||"").replace(/\s+/g," ").trim();
@@ -28,6 +30,7 @@ function recordSearchText(record){
     record.country_code,
     record.state_or_region,
     record.city,
+    ...(record.alternate_cities||[]),
     record.school_type
   ].filter(Boolean).join(" "));
   SEARCH_TEXT_CACHE.set(record,value);
@@ -92,6 +95,9 @@ export function normalizeSchoolRecord(record={}){
     country_code:clean(record.country_code),
     state_or_region:clean(record.state_or_region),
     city:clean(record.city),
+    alternate_cities:Object.freeze(
+      [...new Set((record.alternate_cities||[]).map(clean).filter(Boolean))]
+    ),
     school_type:clean(record.school_type)||"Other",
     display_name_source:clean(record.display_name_source),
     display_name_status:clean(record.display_name_status),
@@ -159,7 +165,7 @@ export function searchMedicalSchools(records,query,{
   const needle=normalizeSchoolSearch(query);
   if(needle.length<2)return[];
   const tokens=needle.split(" ").filter(Boolean);
-  const countryFilter=normalizeSchoolSearch(country);
+  const countryFilter=normalizeSchoolSearch(country)==="all"?"":normalizeSchoolSearch(country);
   const typeFilter=clean(schoolType).toUpperCase();
   return(records||[])
     .map(normalizeSchoolRecord)
@@ -198,11 +204,15 @@ async function defaultFetcher(url){
   return response.json();
 }
 
-export function createMedicalSchoolProvider({
-  rows=null,
-  fetcher=defaultFetcher,
-  url=MEDICAL_SCHOOL_DATASET_URL
-}={}){
+export function createMedicalSchoolProvider(options={}){
+  const rows=options.rows??null;
+  const fetcher=options.fetcher||defaultFetcher;
+  const explicitLegacyUrl=Object.hasOwn(options,"url");
+  const urls=Array.isArray(options.urls)&&options.urls.length
+    ?options.urls
+    :explicitLegacyUrl
+      ?[options.url]
+      :[MEDICAL_SCHOOL_DATASET_URL,GLOBAL_MEDICAL_SCHOOL_DATASET_URL];
   let cache=Array.isArray(rows)?rows.map(normalizeSchoolRecord).filter(Boolean):null;
   let searchIndex=cache?buildTokenIndex(cache):null;
   let manifest=null;
@@ -211,9 +221,9 @@ export function createMedicalSchoolProvider({
   const load=async()=>{
     if(cache)return cache;
     if(pending)return pending;
-    pending=Promise.resolve(fetcher(url)).then((payload)=>{
-      manifest=payload?.manifest||null;
-      cache=(payload?.records||[]).map(normalizeSchoolRecord).filter(Boolean);
+    pending=Promise.all(urls.map((url)=>Promise.resolve(fetcher(url)))).then((payloads)=>{
+      manifest=payloads.map((payload)=>payload?.manifest||null).filter(Boolean);
+      cache=payloads.flatMap((payload)=>payload?.records||[]).map(normalizeSchoolRecord).filter(Boolean);
       searchIndex=buildTokenIndex(cache);
       loadError=null;
       return cache;
@@ -226,7 +236,7 @@ export function createMedicalSchoolProvider({
     return pending;
   };
   return Object.freeze({
-    kind:"local-authoritative-medical-school-registry",
+    kind:"local-governed-medical-school-registry",
     localOnly:true,
     networkRequests:false,
     async search(query,options={}){
@@ -247,6 +257,8 @@ export function createMedicalSchoolProvider({
       await load();
       return Object.freeze({
         manifest,
+        sourceCount:Array.isArray(manifest)?manifest.length:Number(!!manifest),
+        countryCount:new Set((cache||[]).map((record)=>record.country).filter(Boolean)).size,
         recordCount:cache?.length||0,
         indexKind:searchIndex?.kind||null,
         indexTokenCount:searchIndex?.tokens?.size||0,

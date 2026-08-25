@@ -897,6 +897,7 @@ function renderStepper(document){
 
 function renderCore(document){
   const profile=document.studentProfile||{};
+  const aiPrefill=document.builder?.lastAiPrefill;
   const expected=!!profile.expectedGraduation;
   const unlisted=profile.medicalSchoolEntryMode==="unlisted";
   const schoolRecord=profile.medicalSchoolRecord;
@@ -923,10 +924,10 @@ function renderCore(document){
           <h2 id="school-registry-title">Medical school</h2>
           <p class="field-help">Choose one authoritative record. Search also matches source aliases and location.</p>
         </div>
-        <span class="school-source-badge">U.S. DAPIP</span>
+        <span class="school-source-badge">Global CC0 + U.S. DAPIP</span>
       </div>
       <div class="school-filter-row" aria-label="Medical school filters">
-        ${selectField({id:"schoolCountryFilter",label:"Country filter",value:profile.schoolCountryFilter||"",options:[{label:"All available countries",value:"all"},{label:"United States",value:"United States"}]})}
+        ${textField({id:"schoolCountryFilter",label:"Country filter (optional)",value:profile.schoolCountryFilter||"",placeholder:"e.g., Ghana, India, Brazil",attributes:'data-profile-field="schoolCountryFilter"'})}
         ${selectField({id:"schoolTypeFilter",label:"U.S. school type",value:profile.schoolTypeFilter||"",options:[{label:"MD and DO",value:"all"},"MD","DO"]})}
       </div>
       ${typeaheadField({id:"medicalSchool",label:"Search medical schools",value:profile.medicalSchool,provider:"schools",context:"core-school",required:true,placeholder:"School, alias, city, state, or country",allowFreeText:false})}
@@ -941,9 +942,10 @@ function renderCore(document){
         <span class="school-verification">Source-reported</span>
       </article>`:""}
       <button type="button" class="school-not-listed-link" data-school-not-listed>School not listed?</button>
-      <p class="field-help">Current bundled coverage: U.S. MD/DO records reported through the Department of Education. International entries use the normalization queue.</p>
+      <p class="field-help">U.S. MD/DO records use Department of Education source records. Global results are CC0 Wikidata identity matches, not accreditation claims. “School not listed” stays explicitly unverified.</p>
     </section>`;
   return`<form class="core-info-form" data-core-form novalidate>
+    ${aiPrefill?`<aside class="ai-prefill-summary" role="status"><strong>AI did the first pass.</strong> ${Number(aiPrefill.eventCount)||0} Timeline item(s) were built from your approved source. Check only the highlighted details.</aside>`:""}
     ${textField({id:"fullName",label:"Full name",value:profile.fullName,required:true,placeholder:"e.g., Amara Osei",attributes:'data-profile-field="fullName"'})}
     ${schoolSelector}
     ${monthFieldMarkup({id:"core-graduation-date",label:expected?"Expected graduation":"Graduation date",value:profile.graduationDate,required:true})}
@@ -1002,6 +1004,7 @@ function renderExamCard(exam){
 
 function renderExams(document){
   const builder=builderView(document);
+  const aiQueue=(builder.aiExamReviewQueue||[]).filter((item)=>item?.status!=="applied");
   const selected=new Set(builder.examSystems);
   const exams=Array.isArray(document.exams)?document.exams:[];
   const visibleExams=exams.filter((exam)=>selected.has(exam.system));
@@ -1016,6 +1019,7 @@ function renderExams(document){
     }
   }
   return`<section class="exam-step">
+    ${aiQueue.length?`<section class="ai-exam-review" aria-labelledby="ai-exam-review-title"><h2 id="ai-exam-review-title">From your CV — confirm, don't retype</h2><p class="field-help">These dates are already on the Timeline. Confirm the result and score only when needed.</p><ul>${aiQueue.map((item)=>`<li><strong>${escapeHtml(item.examName||"Exam")}</strong><span>${escapeHtml(formatMonth(item.examDate)||item.examDate||"Date needs review")}</span><span class="school-verification unverified">Source-backed · confirmation needed</span></li>`).join("")}</ul></section>`:""}
     <fieldset class="exam-system-selection">
       <legend>Exam systems</legend>
       <div class="exam-system-cards">${Object.values(EXAM_SYSTEMS).map((system)=>`<label class="exam-system-card ${selected.has(system.id)?"selected":""}"><input type="checkbox" data-exam-system="${escapeHtml(system.id)}" ${selected.has(system.id)?"checked":""}><span>${escapeHtml(system.id)}</span></label>`).join("")}</div>

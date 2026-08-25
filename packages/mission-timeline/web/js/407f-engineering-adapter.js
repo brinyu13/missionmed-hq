@@ -84,7 +84,6 @@ import {
   applyAdvancedObjectAction,
   applyAdvancedTypography,
   applyModeSwitch,
-  advancedGroupBounds,
   constrainAdvancedObjectToBoard,
   createFlatColorBackground,
   createAdvancedElement,
@@ -124,6 +123,9 @@ import {
   validateBackgroundUpload,
   validateMediaUpload
 } from "./uxr-002/advanced-studio.js";
+import {applySceneCommandToDocument} from "./editor/scene-commands.js";
+import {sceneGraphFromLegacy} from "./editor/scene-graph.js";
+import {resizeSceneGeometry} from "./editor/scene-interaction.js";
 import {
   renderKeynoteClassicBoard,
   serializeKeynoteClassicSvg
@@ -161,9 +163,13 @@ import {
   renderExportScreen
 } from "./uxr-002/export-screen.js";
 import {
-  createD1411AKernelExportAdapter,
   createD1411AKernelManager
 } from "./d1-411a/kernel-host.js";
+import {createLocalExportAdapter} from "./uxr-002/export-adapter.js";
+import {
+  FOUNDER_PRESENTATION_SERIALIZER,
+  serializeFounderPresentation
+} from "./presentation/founder-presentation-serializer.js";
 import {
   IntakeStateMachine,
   applyApprovalBatchToDocument,
@@ -1521,16 +1527,31 @@ export async function boot407FEngineeringAdapter({
   const renderResponsiveAdvancedBoard=(timeline,options={})=>{
     const surface=options.surface||"edit";
     const editable=surface==="edit"&&store.entitlement.canMutate===true;
-    return kernelManager.render(timelineWithLorPresentation(timeline),{
-      surface,
+    const projected=timelineWithLorPresentation(timeline);
+    const rendered=serializeFounderPresentation(projected,{
       audience:options.audience||"EVERYTHING",
-      interactive:surface==="edit"?editable:options.interactive!==false,
-      editable,
-      acceptsMedia:["builder","edit"].includes(surface),
-      reason:surface==="export"?"export":"preview"
+      currentMonth:options.currentMonth||currentMonth(),
+      resourceNamespace:`timeline-${surface}`
     });
+    const interactive=surface==="edit"?editable:options.interactive!==false;
+    const presentation=["builder","home","full-preview"].includes(surface)
+      ?enhanceBuilderPreviewSvg(rendered.svg,projected,{interactive})
+      :rendered.svg;
+    return{
+      // Canvas owns event/selection semantics on Edit, so it receives the SVG
+      // directly. Read/preview surfaces receive their already-enhanced markup.
+      ...(surface==="edit"?{svg:presentation}:{html:presentation}),
+      kind:"founder-shared-presentation",
+      scene:rendered.scene,
+      warnings:[],
+      serializer:rendered.serializer,
+      renderSignature:timelineRenderSignature(projected),
+      presentationAuthority:"D1-TIMELINE-FOUNDER-REANCHOR-015+DR-127"
+    };
   };
-  const exportAdapter=createD1411AKernelExportAdapter({kernelManager});
+  const exportAdapter=createLocalExportAdapter({
+    resolveObjectUrl:(id)=>mediaUrls.get(id)
+  });
   let exportState=normalizeExportState(store.document.exportState||{
     suggestionState:{
       advisorPaperPdfSuggestionShown:
@@ -1561,8 +1582,10 @@ export async function boot407FEngineeringAdapter({
   let onAdvancedRailDrop=()=>{};
   let onAdvancedRailNativeDragStart=()=>{};
   let onAdvancedRailNativeDragEnd=()=>{};
+  let requestAdvancedDirectSelection=()=>{};
   let onKernelAdvancedSelect=()=>{};
   let onKernelAdvancedGesture=()=>{};
+  let onKernelPresentationEventGesture=()=>{};
   let onKernelAdvancedTextEditing=()=>{};
   let onKernelAdvancedText=()=>{};
   let onKernelAdvancedDrop=()=>{};
@@ -1884,8 +1907,8 @@ export async function boot407FEngineeringAdapter({
     document.getElementById("canvas407F")?.removeEventListener("click",onCanvasDetailsClick);
     document.getElementById("canvas407F")?.removeEventListener("click",onAdvancedObjectClick);
     document.getElementById("canvas407F")?.removeEventListener("keydown",onAdvancedObjectKeyDown);
-    canvasHost?.removeEventListener("pointerdown",onAdvancedPointerDown);
-    canvasHost?.removeEventListener("mousedown",onAdvancedPointerDown);
+    document.removeEventListener("pointerdown",onAdvancedPointerDown,true);
+    document.removeEventListener("mousedown",onAdvancedPointerDown,true);
     canvasHost?.removeEventListener("dragover",onAdvancedRailDragOver);
     canvasHost?.removeEventListener("drop",onAdvancedRailDrop);
     canvasHost?.removeEventListener("dragstart",onAdvancedRailNativeDragStart);
@@ -1896,6 +1919,7 @@ export async function boot407FEngineeringAdapter({
     document.removeEventListener("mouseup",onAdvancedPointerUp);
     document.removeEventListener("pointercancel",onAdvancedPointerUp);
     document.querySelectorAll("[data-advanced-alignment-guides]").forEach((node)=>node.remove());
+    document.querySelectorAll("[data-advanced-direct-selection],[data-advanced-axis-boundary-handle]").forEach((node)=>node.remove());
     window.removeEventListener("resize",onCanvasResize);
     document.removeEventListener("d1:407f-rendered",on407FRendered);
     document.removeEventListener("d1:407f-rendered",onRouteRendered);
@@ -1925,6 +1949,7 @@ export async function boot407FEngineeringAdapter({
     document.removeEventListener("d1-411a:interaction",onKernelInteraction);
     document.removeEventListener("d1-411a:gesture",onKernelGesture);
     document.removeEventListener("d1-411a:presentation-gesture",onKernelPresentationGesture);
+    document.removeEventListener("d1-411a:presentation-event-gesture",onKernelPresentationEventGesture);
     document.removeEventListener("d1-411a:advanced-select",onKernelAdvancedSelect);
     document.removeEventListener("d1-411a:advanced-gesture",onKernelAdvancedGesture);
     document.removeEventListener("d1-411a:advanced-text-editing",onKernelAdvancedTextEditing);
@@ -3343,7 +3368,7 @@ export async function boot407FEngineeringAdapter({
           status:"AI_UNAVAILABLE",
           mode:"UNAVAILABLE",
           promptVersion:"d1-timeline-quality-guardian-ai.1",
-          standardVersion:"D1-409H-A1+D1-411A",
+          standardVersion:"D1-TIMELINE-FOUNDER-REANCHOR-015+DR-127",
           unavailableMessage:error?.code==="TIMELINE_AI_STALE_DOCUMENT"
             ?"Timeline changed while AI review was running. Run Check My Timeline again."
             :error?.code==="TIMELINE_AI_DOCUMENT_NOT_SYNCED"
@@ -3614,8 +3639,10 @@ export async function boot407FEngineeringAdapter({
     next.innerHTML=rendered?.html
       ?`<div class="builderPreviewSurface" data-builder-preview-surface="${surface}" data-interactive="${interactive}" role="region" aria-label="${interactive
         ?"Interactive timeline preview. Use arrow keys to move between timeline items and Enter to edit."
-        :"Timeline preview. Editing is unavailable in read-only access."
-      }" data-presentation-kernel="D1-409H-A1">${rendered.html}</div>`
+        :store.entitlement.canMutate===true
+          ?"Timeline preview. Open Edit Timeline to make changes."
+          :"Timeline preview. Editing is unavailable in read-only access."
+      }" data-presentation-kernel="D1-TIMELINE-FOUNDER-REANCHOR-015+DR-127" data-founder-serializer="${FOUNDER_PRESENTATION_SERIALIZER}">${rendered.html}</div>`
       :`<div class="builderPreviewTrueEmpty" role="status"><strong>Your timeline preview will appear here.</strong><span>Add information in Builder to create the final 16:9 artifact.</span></div>`;
     host.replaceChildren(...next.childNodes);
     return true;
@@ -3927,8 +3954,8 @@ export async function boot407FEngineeringAdapter({
   const furnitureGeometryFor=(document,key)=>normalizeFurnitureGeometry(
     document?.presentationOverrides?.[key],
     key==="colorKeyGeometry"
-      ?{x:18,y:300,width:416,height:322}
-      :{x:18,y:634,width:566,height:428}
+      ?{x:37,y:350,width:247,height:277}
+      :{x:30,y:677,width:512,height:375}
   );
   const rejectFurnitureCollision=(selection)=>{
     canvasController?.render?.();
@@ -3995,6 +4022,38 @@ export async function boot407FEngineeringAdapter({
     });
     bridge.toast(detail.kind==="axis-boundary"?"Year widths updated":"Color key updated");
   };
+  onKernelPresentationEventGesture=(event)=>{
+    const detail=event.detail||{};
+    if(
+      detail.surface!=="edit"||
+      store.entitlement.canMutate!==true||
+      store.document.mode!=="advanced"||
+      !detail.domainId||
+      !detail.geometry
+    )return;
+    const domainId=String(detail.domainId);
+    const semanticEvent=store.document.events.find((item)=>String(item.id)===domainId);
+    if(!semanticEvent)return;
+    const label=String(detail.kind||"").startsWith("resize")
+      ?"Resize Timeline event presentation"
+      :"Move Timeline event presentation";
+    const result=applySceneCommandToDocument(store.document,{
+      kind:"geometry",
+      target:{type:"event",id:domainId},
+      geometry:detail.geometry,
+      create:{
+        type:"event",
+        semanticRef:domainId,
+        aspectLocked:false,
+        presentation:{eventType:semanticEvent.eventType||"duration"}
+      },
+      label
+    });
+    if(!result.changed)return;
+    store.replace(result.document,{label});
+    syncBridgeStateFromStore();
+    bridge.toast(detail.kind==="move"?"Timeline item positioned":"Timeline item resized");
+  };
   const reselectAdvancedKernel=(type,id,attempt=0)=>{
     const kernel=canvasHost?.querySelector?.('d1-timeline-kernel[data-surface="edit"]');
     if(kernel?.selectAdvancedObject?.(type,id))return;
@@ -4038,46 +4097,18 @@ export async function boot407FEngineeringAdapter({
   onKernelAdvancedGesture=(event)=>{
     const detail=event.detail||{};
     if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
-    if(detail.type==="group"){
-      const before=advancedGroupBounds(store.document,detail.id);
-      const after=detail.geometry;
-      if(!before||!after)return;
-      store.mutate(detail.kind==="resize"?"Resize Timeline group":"Move Timeline group",(document)=>{
-        const current=advancedGroupBounds(document,detail.id);
-        if(!current)return;
-        const scaleX=Number(after.width)/Math.max(1,current.width);
-        const scaleY=Number(after.height)/Math.max(1,current.height);
-        for(const collection of [document.advanced.media,document.advanced.textBlocks,document.advanced.elements]){
-          for(const item of collection||[]){
-            if(String(item.groupId)!==String(detail.id))continue;
-            item.x=Number(after.x)+(Number(item.x)-current.x)*scaleX;
-            item.y=Number(after.y)+(Number(item.y)-current.y)*scaleY;
-            item.width=Math.max(32,Number(item.width)*scaleX);
-            item.height=Math.max(24,Number(item.height)*scaleY);
-          }
-        }
-      });
-      syncBridgeStateFromStore();
-      canvasController?.setUiState({advancedSelection:{type:"group",id:String(detail.id)}});
-      reselectAdvancedKernel("group",detail.id);
-      return;
-    }
-    const collection=detail.type==="text"
-      ?store.document.advanced?.textBlocks
-      :detail.type==="element"
-        ?store.document.advanced?.elements
-        :detail.type==="media"
-          ?store.document.advanced?.media
-          :null;
-    const geometry=detail.geometry;
-    if(!collection||!geometry)return;
-    const index=collection.findIndex((item)=>String(item.id)===String(detail.id));
-    if(index<0)return;
-    store.mutate(detail.kind==="resize"?"Resize Timeline object":"Move Timeline object",(document)=>{
-      const target=detail.type==="text"?document.advanced.textBlocks:detail.type==="element"?document.advanced.elements:document.advanced.media;
-      const item=target.find((candidate)=>String(candidate.id)===String(detail.id));
-      if(item)Object.assign(item,geometry);
+    if(!["group","text","element","media"].includes(detail.type)||!detail.id||!detail.geometry)return;
+    const label=detail.kind==="resize"
+      ?detail.type==="group"?"Resize Timeline group":"Resize Timeline object"
+      :detail.type==="group"?"Move Timeline group":"Move Timeline object";
+    const result=applySceneCommandToDocument(store.document,{
+      kind:"geometry",
+      target:{type:String(detail.type),id:String(detail.id)},
+      geometry:detail.geometry,
+      label
     });
+    if(!result.changed)return;
+    store.replace(result.document,{label});
     syncBridgeStateFromStore();
     canvasController?.setUiState({advancedSelection:{type:detail.type,id:String(detail.id)}});
     reselectAdvancedKernel(detail.type,detail.id);
@@ -4087,10 +4118,14 @@ export async function boot407FEngineeringAdapter({
     const detail=event.detail||{};
     if(detail.surface!=="edit"||store.entitlement.canMutate!==true)return;
     const text=String(detail.text||"");
-    store.mutate("Edit Advanced text",(document)=>{
-      const block=(document.advanced?.textBlocks||[]).find((item)=>String(item.id)===String(detail.id));
-      if(block)block.text=text;
+    const result=applySceneCommandToDocument(store.document,{
+      kind:"text",
+      target:{type:"text",id:String(detail.id)},
+      text,
+      label:"Edit Advanced text"
     });
+    if(!result.changed)return;
+    store.replace(result.document,{label:"Edit Advanced text"});
     syncBridgeStateFromStore();
     canvasController?.setUiState({advancedSelection:{type:"text",id:String(detail.id)}});
   };
@@ -4153,6 +4188,7 @@ export async function boot407FEngineeringAdapter({
   document.addEventListener("d1-411a:interaction",onKernelInteraction);
   document.addEventListener("d1-411a:gesture",onKernelGesture);
   document.addEventListener("d1-411a:presentation-gesture",onKernelPresentationGesture);
+  document.addEventListener("d1-411a:presentation-event-gesture",onKernelPresentationEventGesture);
   document.addEventListener("d1-411a:advanced-select",onKernelAdvancedSelect);
   document.addEventListener("d1-411a:advanced-gesture",onKernelAdvancedGesture);
   document.addEventListener("d1-411a:advanced-text-editing",onKernelAdvancedTextEditing);
@@ -4304,7 +4340,12 @@ export async function boot407FEngineeringAdapter({
     try{
       await store.mutateWithBlobs(
         `Add ${kind}`,
-        (document)=>document.advanced.media.push(media),
+        (document)=>{
+          document.advanced.media.push(media);
+          document.advanced.scene=sceneGraphFromLegacy(document.advanced,{
+            revision:document.revision
+          });
+        },
         {blobs:[persistence.blob],reason:"ADD_ADVANCED_MEDIA"}
       );
     }catch(error){
@@ -4418,18 +4459,47 @@ export async function boot407FEngineeringAdapter({
     },0);
     return true;
   };
-  const insertAdvancedAsset=(kind,{x=860,y=480,countryCode="US"}={})=>{
+  const openAdvancedPlacement=(width=200,height=104)=>{
+    const occupied=[
+      ...(store.document.advanced?.media||[]),
+      ...(store.document.advanced?.textBlocks||[]),
+      ...(store.document.advanced?.elements||[])
+    ].filter((item)=>item.placed!==false).map((item)=>({
+      x:Number(item.x)||0,y:Number(item.y)||0,
+      width:Number(item.width)||1,height:Number(item.height)||1
+    }));
+    const overlaps=(candidate,box)=>!(
+      candidate.x+candidate.width+18<=box.x||
+      box.x+box.width+18<=candidate.x||
+      candidate.y+candidate.height+18<=box.y||
+      box.y+box.height+18<=candidate.y
+    );
+    const candidates=[
+      [860,480],[1090,480],[630,480],[860,610],[860,350],
+      [1090,610],[630,610],[1090,350],[630,350],
+      [1380,480],[400,480],[1380,700],[400,700]
+    ].map(([x,y])=>({
+      x:Math.max(0,Math.min(1920-width,x)),
+      y:Math.max(0,Math.min(1080-height,y)),width,height
+    }));
+    return candidates.find((candidate)=>!occupied.some((box)=>overlaps(candidate,box)))||candidates[0];
+  };
+  const insertAdvancedAsset=(kind,{x=null,y=null,countryCode="US"}={})=>{
     const id=uid("advanced-element");
     store.mutate("Add Timeline asset",(document)=>{
       document.advanced.elements=document.advanced.elements||[];
-      document.advanced.elements.push(createAdvancedElement({
-        id,
-        kind,
-        x,y,
+      const prototype=createAdvancedElement({id,kind,x:0,y:0,
         countryCode,
         label:"",
         layerIndex:(document.advanced.elements||[]).length
-      }));
+      });
+      const placement=x!==null&&y!==null&&Number.isFinite(Number(x))&&Number.isFinite(Number(y))
+        ?{x:Number(x),y:Number(y)}
+        :openAdvancedPlacement(prototype.width,prototype.height);
+      document.advanced.elements.push({...prototype,x:placement.x,y:placement.y});
+      document.advanced.scene=sceneGraphFromLegacy(document.advanced,{
+        revision:document.revision
+      });
     });
     syncBridgeStateFromStore();
     canvasController?.setUiState({
@@ -4538,6 +4608,7 @@ export async function boot407FEngineeringAdapter({
       canvasController?.setUiState({
         selectedEventId:null,detailsEventId:null,advancedSelection:target,advancedTextEdit:null
       });
+      requestAdvancedDirectSelection(target);
       queueMicrotask(()=>{
         const protectedObjectId={
           axis:"year-axis",
@@ -4567,6 +4638,7 @@ export async function boot407FEngineeringAdapter({
         syncBridgeStateFromStore();
         canvasController?.setUiState({advancedSelection:result.selection,advancedTextEdit:null});
         reselectAdvancedKernel("group",result.selection.id);
+        requestAdvancedDirectSelection(result.selection);
         announceGlobal("Objects grouped");
       }catch(error){toastStudentError(error,"layout");}
     },
@@ -4580,20 +4652,24 @@ export async function boot407FEngineeringAdapter({
           ?String(control?.dataset?.advancedSymbol||"Add your text")
           :"Add your text";
         store.mutate("Add text",(document)=>{
-          document.advanced.textBlocks.push(createTextBlock({
-            id,
-            text,
+          const prototype=createTextBlock({id,text,
             layerIndex:document.advanced.textBlocks.length
-          }));
+          });
+          const placement=openAdvancedPlacement(prototype.width,prototype.height);
+          document.advanced.textBlocks.push({...prototype,x:placement.x,y:placement.y});
+          document.advanced.scene=sceneGraphFromLegacy(document.advanced,{
+            revision:document.revision
+          });
         });
         syncBridgeStateFromStore();
-        canvasController?.setUiState({advancedSelection:{type:"text",id}});
+        canvasController?.setUiState({
+          advancedSelection:{type:"text",id},
+          advancedTextEdit:{id,draft:text}
+        });
+        requestAdvancedDirectSelection({type:"text",id});
         reselectAdvancedKernel("text",id);
         queueMicrotask(()=>{
-          const escaped=globalThis.CSS?.escape?CSS.escape(id):id;
-          const field=canvasHost?.querySelector?.(
-            `[data-advanced-text-content][data-advanced-target-id="${escaped}"]`
-          );
+          const field=canvasHost?.querySelector?.("[data-advanced-inline-text-input]");
           field?.focus?.();
           field?.select?.();
         });
@@ -4626,6 +4702,9 @@ export async function boot407FEngineeringAdapter({
             id,text:payload.symbol||"Add your text",x,y,
             layerIndex:document.advanced.textBlocks.length
           }));
+          document.advanced.scene=sceneGraphFromLegacy(document.advanced,{
+            revision:document.revision
+          });
         });
         syncBridgeStateFromStore();
         canvasController?.setUiState({advancedSelection:{type:"text",id},advancedTextEdit:{id,draft:payload.symbol||"Add your text"}});
@@ -4645,8 +4724,17 @@ export async function boot407FEngineeringAdapter({
           (item)=>String(item.id)===String(target.id)
         );
         const members=(Array.isArray(group?.children)?group.children:[])
-          .filter((member)=>["media","text","element"].includes(member?.type)&&member?.id)
-          .map((member)=>({type:String(member.type),id:String(member.id)}));
+          .map((member)=>{
+            if(member&&typeof member==="object")return{
+              type:String(member.type||""),id:String(member.id||"")
+            };
+            const value=String(member||"");
+            const separator=value.indexOf(":");
+            return separator>=0
+              ?{type:value.slice(0,separator),id:value.slice(separator+1)}
+              :{type:"",id:value};
+          })
+          .filter((member)=>["media","text","element"].includes(member.type)&&member.id);
         const result=ungroupAdvancedObjects(store.document,target.id);
         if(!result.changed)return;
         store.replace(result.document,{label:"Ungroup Timeline objects"});
@@ -4655,6 +4743,7 @@ export async function boot407FEngineeringAdapter({
           ?{type:"multi",members}
           :members[0]||null;
         canvasController?.setUiState({advancedSelection:selection});
+        if(selection?.type!=="multi")requestAdvancedDirectSelection(selection);
         canvasHost?.querySelector?.(
           'd1-timeline-kernel[data-surface="edit"]'
         )?.releaseAdvancedGroup?.(target.id,members);
@@ -4665,6 +4754,20 @@ export async function boot407FEngineeringAdapter({
         store.replace(result,{label:action==="lock"?"Lock Timeline object":"Unlock Timeline object"});
         syncBridgeStateFromStore();
         canvasController?.setUiState({advancedSelection:target});
+        return;
+      }
+      if(target?.type==="group"&&["bring-forward","send-backward"].includes(action)){
+        const result=applySceneCommandToDocument(store.document,{
+          kind:"layer",
+          target:{type:"group",id:String(target.id)},
+          direction:action,
+          label:action==="bring-forward"?"Bring Timeline group forward":"Send Timeline group backward"
+        });
+        if(!result.changed)return;
+        store.replace(result.document,{label:result.label});
+        syncBridgeStateFromStore();
+        canvasController?.setUiState({advancedSelection:target});
+        reselectAdvancedKernel("group",target.id);
         return;
       }
       const priorObjectId=action==="delete"&&target?.type==="media"
@@ -4837,7 +4940,7 @@ export async function boot407FEngineeringAdapter({
       surface:"export",
       interactive:false
     });
-    return`<div class="board-preview canonical-board-preview export407FBoard" role="img" aria-label="Export preview" data-theme="keynote-classic-409h" data-presentation-kernel="D1-409H-A1">${rendered.html}</div>`;
+    return`<div class="board-preview canonical-board-preview export407FBoard" role="img" aria-label="Export preview" data-theme="founder-keynote-2024" data-presentation-kernel="D1-TIMELINE-FOUNDER-REANCHOR-015+DR-127" data-founder-serializer="${FOUNDER_PRESENTATION_SERIALIZER}">${rendered.html}</div>`;
   };
   const queueExportRender=({focusSelector=null}={})=>{
     if(focusSelector)exportRenderFocusSelector=focusSelector;
@@ -5247,6 +5350,7 @@ export async function boot407FEngineeringAdapter({
       const selection=canvasController?.state?.advancedSelection;
       if(selection?.type&&selection.type!=="multi"&&selection.id){
         reselectAdvancedKernel(selection.type,selection.id);
+        requestAdvancedDirectSelection(selection);
       }
     }
     requestAnimationFrame(applyEntitlementSurface);
@@ -5737,6 +5841,19 @@ export async function boot407FEngineeringAdapter({
         });
       },
       onAdvanced:()=>requestCanvasMode("advanced"),
+      onAdvancedTextCommit:(id,text)=>{
+        const result=applySceneCommandToDocument(store.document,{
+          kind:"text",
+          target:{type:"text",id},
+          text,
+          label:"Edit Advanced text"
+        });
+        if(!result.changed)return false;
+        store.replace(result.document,{label:"Edit Advanced text"});
+        syncBridgeStateFromStore();
+        canvasController?.setUiState({advancedSelection:{type:"text",id}});
+        return true;
+      },
       onGuided:()=>requestCanvasMode("guided"),
       onResolveAdvisorComment:(commentId)=>{
         const result=advisorAction(
@@ -5878,6 +5995,9 @@ export async function boot407FEngineeringAdapter({
       const media=event.target.closest?.("[data-advanced-media]");
       const text=event.target.closest?.("[data-advanced-text]");
       const element=event.target.closest?.("[data-advanced-element]");
+      const colorKey=event.target.closest?.('[data-artifact-chrome="color-key"]');
+      const profile=event.target.closest?.('[data-artifact-chrome="profile"]');
+      const axis=event.target.closest?.('[data-layer="axis"]');
       const headline=event.target.closest?.(
         "[data-board-headline],[data-artifact-chrome='title']"
       );
@@ -5887,10 +6007,29 @@ export async function boot407FEngineeringAdapter({
           ?{type:"text",id:text.dataset.advancedText}
           :element
             ?{type:"element",id:element.dataset.advancedElement}
+          :colorKey
+            ?{type:"color-key",id:"color-key"}
+          :profile
+            ?{type:"profile",id:"profile"}
+          :axis
+            ?{type:"axis",id:"axis"}
           :headline
             ?{type:"headline",id:"headline"}
             :null;
       if(selection){
+        const collection=selection.type==="media"
+          ?store.document.advanced?.media
+          :selection.type==="text"
+            ?store.document.advanced?.textBlocks
+            :selection.type==="element"
+              ?store.document.advanced?.elements
+              :null;
+        const selectedItem=(collection||[]).find(
+          (item)=>String(item.id)===String(selection.id)
+        );
+        const effectiveSelection=selectedItem?.groupId&&Number(event.detail)<2
+          ?{type:"group",id:String(selectedItem.groupId)}
+          :selection;
         if(selection.type==="text"&&Number(event.detail)>=2){
           const block=(store.document.advanced?.textBlocks||[]).find(
             (item)=>String(item.id)===String(selection.id)
@@ -5907,9 +6046,9 @@ export async function boot407FEngineeringAdapter({
         }else if(event.shiftKey||event.metaKey||event.ctrlKey){
           const prior=canvasController?.state?.advancedSelection;
           const members=prior?.type==="multi"?prior.members.slice():prior?[prior]:[];
-          const key=`${selection.type}:${selection.id}`;
+          const key=`${effectiveSelection.type}:${effectiveSelection.id}`;
           const index=members.findIndex((item)=>`${item.type}:${item.id}`===key);
-          if(index>=0)members.splice(index,1);else members.push(selection);
+          if(index>=0)members.splice(index,1);else members.push(effectiveSelection);
           canvasController?.setUiState({
             advancedSelection:members.length>1?{type:"multi",members}:members[0]||null,
             advancedTextEdit:null
@@ -5917,29 +6056,140 @@ export async function boot407FEngineeringAdapter({
           if(members.length===1)showAdvancedDirectSelection(members[0]);
           else clearAdvancedDirectSelection();
         }else{
-          canvasController?.setUiState({advancedSelection:selection,advancedTextEdit:null});
-          showAdvancedDirectSelection(selection);
+          canvasController?.setUiState({advancedSelection:effectiveSelection,advancedTextEdit:null});
+          showAdvancedDirectSelection(effectiveSelection);
         }
       }
     };
     let advancedPointer=null;
+    let axisPointer=null;
     let railPointer=null;
     let nativeRailDrag=null;
     const advancedEditIframe=()=>canvasHost
       ?.querySelector?.('d1-timeline-kernel[data-surface="edit"]')
       ?.shadowRoot
       ?.querySelector?.("iframe");
-    const clearAdvancedDirectSelection=()=>document.querySelectorAll?.("[data-advanced-direct-selection]").forEach((node)=>node.remove());
+    const advancedEditSurface=()=>advancedEditIframe()||canvasHost
+      ?.querySelector?.('.canvas-screen svg[data-founder-serializer]');
+    const sceneVisualNode=(node)=>node?.closest?.("[data-scene-object]")||node;
+    const advancedGroupMembers=(groupId)=>{
+      const group=(store.document.advanced?.groups||[]).find(
+        (candidate)=>String(candidate.id)===String(groupId)
+      );
+      if(!group)return[];
+      const references=(group.children||group.childIds||[]).map((entry)=>{
+        if(entry&&typeof entry==="object")return{
+          type:String(entry.type||""),id:String(entry.id||"")
+        };
+        const value=String(entry||"");
+        const separator=value.indexOf(":");
+        return separator>=0
+          ?{type:value.slice(0,separator),id:value.slice(separator+1)}
+          :{type:"",id:value};
+      });
+      const collections=[
+        ["media",store.document.advanced?.media||[],"advancedMedia"],
+        ["text",store.document.advanced?.textBlocks||[],"advancedText"],
+        ["element",store.document.advanced?.elements||[],"advancedElement"]
+      ];
+      return references.flatMap(({type:expectedType,id})=>collections.flatMap(([type,items,dataset])=>{
+        if(expectedType&&expectedType!==type)return[];
+        const item=items.find((candidate)=>String(candidate.id)===String(id));
+        const raw=item?canvasHost.querySelector(
+          `[data-${dataset.replace(/[A-Z]/g,(match)=>`-${match.toLowerCase()}`)}="${globalThis.CSS?.escape?CSS.escape(id):id}"]`
+        ):null;
+        return item&&raw?[{type,id:String(id),item,element:sceneVisualNode(raw)}]:[];
+      }));
+    };
+    const advancedGroupObject=(groupId)=>{
+      const group=(store.document.advanced?.groups||[]).find(
+        (candidate)=>String(candidate.id)===String(groupId)
+      );
+      const members=advancedGroupMembers(groupId);
+      if(!group||members.length<2)return null;
+      const left=Math.min(...members.map(({item})=>Number(item.x)||0));
+      const top=Math.min(...members.map(({item})=>Number(item.y)||0));
+      const right=Math.max(...members.map(({item})=>(Number(item.x)||0)+(Number(item.width)||1)));
+      const bottom=Math.max(...members.map(({item})=>(Number(item.y)||0)+(Number(item.height)||1)));
+      const domBounds=members.map(({element})=>element.getBoundingClientRect?.()).filter(
+        (box)=>box?.width&&box?.height
+      );
+      const bounds=domBounds.length?{
+        left:Math.min(...domBounds.map((box)=>box.left)),
+        top:Math.min(...domBounds.map((box)=>box.top)),
+        right:Math.max(...domBounds.map((box)=>box.right)),
+        bottom:Math.max(...domBounds.map((box)=>box.bottom))
+      }:null;
+      if(bounds){bounds.width=bounds.right-bounds.left;bounds.height=bounds.bottom-bounds.top;}
+      return{
+        type:"group",id:String(groupId),members,bounds,
+        item:{...group,x:left,y:top,width:right-left,height:bottom-top},
+        element:members[0].element
+      };
+    };
+    const clearAdvancedAxisBoundaryHandles=()=>document.querySelectorAll?.(
+      "[data-advanced-axis-boundary-handle]"
+    ).forEach((node)=>node.remove());
+    const showAdvancedAxisBoundaryHandles=()=>queueMicrotask(()=>{
+      clearAdvancedAxisBoundaryHandles();
+      const surface=advancedEditSurface();
+      const segments=[...(surface?.querySelectorAll?.("[data-axis-segment-id]")||[])];
+      if(segments.length<2)return;
+      segments.slice(0,-1).forEach((segment,index)=>{
+        const next=segments[index+1];
+        const box=segment.getBoundingClientRect?.();
+        const nextBox=next.getBoundingClientRect?.();
+        if(!box?.width||!nextBox?.width)return;
+        const handle=document.createElement("button");
+        handle.type="button";
+        handle.className="advancedAxisBoundaryHandle";
+        handle.dataset.advancedAxisBoundaryHandle=String(index);
+        handle.dataset.axisLeftId=String(segment.dataset.axisSegmentId||"");
+        handle.dataset.axisRightId=String(next.dataset.axisSegmentId||"");
+        handle.setAttribute("aria-label",`Resize ${handle.dataset.axisLeftId} and ${handle.dataset.axisRightId}`);
+        handle.style.left=`${(box.right+nextBox.left)/2-7}px`;
+        handle.style.top=`${Math.min(box.top,nextBox.top)-5}px`;
+        handle.style.height=`${Math.max(box.bottom,nextBox.bottom)-Math.min(box.top,nextBox.top)+10}px`;
+        document.body.append(handle);
+      });
+    });
+    const clearAdvancedDirectSelection=()=>{
+      document.querySelectorAll?.("[data-advanced-direct-selection]").forEach((node)=>node.remove());
+      clearAdvancedAxisBoundaryHandles();
+    };
     const showAdvancedDirectSelection=(target)=>queueMicrotask(()=>{
       clearAdvancedDirectSelection();
-      if(!target||target.type==="multi"||target.type==="group")return;
+      if(!target||target.type==="multi"||target.type==="headline")return;
+      if(target.type==="axis"){
+        showAdvancedAxisBoundaryHandles();
+        return;
+      }
       const escaped=globalThis.CSS?.escape?CSS.escape(target.id):target.id;
-      const source=canvasHost?.querySelector?.(
+      const groupMembers=target.type==="group"?advancedGroupMembers(target.id):[];
+      const rawSource=target.type==="group"?groupMembers[0]?.element:canvasHost?.querySelector?.(
         target.type==="media"?`[data-advanced-media="${escaped}"]`:
         target.type==="text"?`[data-advanced-text="${escaped}"]`:
-        target.type==="element"?`[data-advanced-element="${escaped}"]`:""
+        target.type==="element"?`[data-advanced-element="${escaped}"]`:
+        target.type==="event"?`[data-event-id="${escaped}"]`:
+        target.type==="color-key"?'[data-artifact-chrome="color-key"]':
+        target.type==="profile"?'[data-artifact-chrome="profile"]':""
       );
-      const bounds=source?.getBoundingClientRect?.();
+      const source=target.type==="event"
+        ?rawSource?.querySelector?.("[data-continuous-duration-arrow],image")||rawSource
+        :sceneVisualNode(rawSource);
+      const memberBounds=groupMembers.map(({element})=>element.getBoundingClientRect?.()).filter(
+        (box)=>box?.width&&box?.height
+      );
+      const bounds=memberBounds.length?{
+        left:Math.min(...memberBounds.map((box)=>box.left)),
+        top:Math.min(...memberBounds.map((box)=>box.top)),
+        right:Math.max(...memberBounds.map((box)=>box.right)),
+        bottom:Math.max(...memberBounds.map((box)=>box.bottom))
+      }:source?.getBoundingClientRect?.();
+      if(bounds&&!Object.hasOwn(bounds,"width")){
+        bounds.width=bounds.right-bounds.left;
+        bounds.height=bounds.bottom-bounds.top;
+      }
       if(!bounds?.width||!bounds?.height)return;
       const overlay=document.createElement("div");
       overlay.className="advancedDirectSelection";
@@ -5953,6 +6203,7 @@ export async function boot407FEngineeringAdapter({
       overlay.innerHTML=["nw","n","ne","e","se","s","sw","w"].map((handle)=>`<button type="button" aria-label="Resize ${handle}" data-advanced-direct-handle="${handle}" data-advanced-target-type="${target.type}" data-advanced-target-id="${target.id}"></button>`).join("");
       document.body.append(overlay);
     });
+    requestAdvancedDirectSelection=(target)=>showAdvancedDirectSelection(target);
     const clearAdvancedAlignmentGuides=(svg=null)=>{
       const scope=svg||canvasHost;
       scope?.querySelectorAll?.("[data-advanced-alignment-guides]")
@@ -5985,28 +6236,77 @@ export async function boot407FEngineeringAdapter({
       svg.append(layer);
     };
     const advancedSourceElement=(type,id,fallback)=>{
-      if(!fallback?.hasAttribute?.("data-canvas-effective-hit-proxy"))return fallback;
+      if(!fallback?.hasAttribute?.("data-canvas-effective-hit-proxy"))return sceneVisualNode(fallback);
       const escaped=globalThis.CSS?.escape?CSS.escape(id):id;
-      return canvasHost.querySelector(
+      return sceneVisualNode(canvasHost.querySelector(
         type==="media"
           ?`[data-advanced-media="${escaped}"][data-canvas-effective-hit-source]`
           :type==="text"
             ?`[data-advanced-text="${escaped}"][data-canvas-effective-hit-source]`
             :`[data-advanced-element="${escaped}"][data-canvas-effective-hit-source]`
-      )||fallback;
+      )||fallback);
     };
-    const advancedObjectForTarget=(target)=>{
+    const advancedObjectForTarget=(target,{deep=false}={})=>{
+      const eventPresentationItem=(id)=>{
+        const object=(store.document.advanced?.scene?.objects||[]).find((candidate)=>
+          candidate?.type==="event"&&(
+            String(candidate.semanticRef||"")===String(id)||
+            String(candidate.id||"")===String(id)
+          )
+        );
+        return object?{
+          ...clone(object.geometry),
+          rotation:Number(object.geometry?.rotation)||0,
+          locked:object.locked===true,
+          aspectLocked:object.aspectLocked!==false
+        }:null;
+      };
+      const directPresentationItem=(type)=>{
+        const key=type==="color-key"?"colorKeyGeometry":"profileGeometry";
+        const fallback=type==="color-key"
+          ?{x:37,y:350,width:247,height:277}
+          :{x:30,y:677,width:512,height:375};
+        return{
+          ...fallback,
+          ...(store.document.presentationOverrides?.[key]||{}),
+          rotation:0,locked:false,aspectLocked:true
+        };
+      };
+      const directSource=(type,id)=>{
+        const escaped=globalThis.CSS?.escape?CSS.escape(id):id;
+        const source=canvasHost.querySelector(
+          type==="media"?`[data-advanced-media="${escaped}"]`:
+          type==="text"?`[data-advanced-text="${escaped}"]`:
+          type==="element"?`[data-advanced-element="${escaped}"]`:
+          type==="event"?`[data-event-id="${escaped}"]`:
+          type==="color-key"?'[data-artifact-chrome="color-key"]':
+          type==="profile"?'[data-artifact-chrome="profile"]':""
+        );
+        return sceneVisualNode(source);
+      };
+      const directItem=(type,id)=>{
+        if(type==="event")return eventPresentationItem(id)||{};
+        if(type==="color-key"||type==="profile")return directPresentationItem(type);
+        const collection=type==="media"
+          ?store.document.advanced?.media
+          :type==="text"
+            ?store.document.advanced?.textBlocks
+            :store.document.advanced?.elements;
+        return(collection||[]).find((candidate)=>String(candidate.id)===id)||null;
+      };
       const directHandle=target.closest?.("[data-advanced-direct-handle]");
       if(directHandle){
         const type=String(directHandle.dataset.advancedTargetType||"");
         const id=String(directHandle.dataset.advancedTargetId||"");
-        const source=canvasHost.querySelector(
-          type==="media"?`[data-advanced-media="${globalThis.CSS?.escape?CSS.escape(id):id}"]`:
-          type==="text"?`[data-advanced-text="${globalThis.CSS?.escape?CSS.escape(id):id}"]`:
-          `[data-advanced-element="${globalThis.CSS?.escape?CSS.escape(id):id}"]`
-        );
-        const collection=type==="media"?store.document.advanced?.media:type==="text"?store.document.advanced?.textBlocks:store.document.advanced?.elements;
-        const item=(collection||[]).find((candidate)=>String(candidate.id)===id);
+        if(type==="group"){
+          const groupObject=advancedGroupObject(id);
+          return groupObject?{
+            ...groupObject,
+            handle:String(directHandle.dataset.advancedDirectHandle||"")
+          }:null;
+        }
+        const source=directSource(type,id);
+        const item=directItem(type,id);
         return item&&source?{type,id,item,element:source,handle:String(directHandle.dataset.advancedDirectHandle||"")}:null;
       }
       const media=target.closest?.("[data-advanced-media]");
@@ -6014,6 +6314,7 @@ export async function boot407FEngineeringAdapter({
         const id=String(media.dataset.advancedMedia||"");
         const item=(store.document.advanced?.media||[])
           .find((candidate)=>String(candidate.id)===id);
+        if(item?.groupId&&!deep)return advancedGroupObject(item.groupId);
         return item?{
           type:"media",
           id,
@@ -6026,6 +6327,7 @@ export async function boot407FEngineeringAdapter({
         const id=String(text.dataset.advancedText||"");
         const item=(store.document.advanced?.textBlocks||[])
           .find((candidate)=>String(candidate.id)===id);
+        if(item?.groupId&&!deep)return advancedGroupObject(item.groupId);
         return item?{
           type:"text",
           id,
@@ -6038,6 +6340,7 @@ export async function boot407FEngineeringAdapter({
         const id=String(element.dataset.advancedElement||"");
         const item=(store.document.advanced?.elements||[])
           .find((candidate)=>String(candidate.id)===id);
+        if(item?.groupId&&!deep)return advancedGroupObject(item.groupId);
         return item?{
           type:"element",
           id,
@@ -6045,6 +6348,24 @@ export async function boot407FEngineeringAdapter({
           element:advancedSourceElement("element",id,element)
         }:null;
       }
+      const eventNode=target.closest?.('[data-event-kind="arrow"][data-event-id],[data-event-kind="flag"][data-event-id]');
+      if(eventNode){
+        const id=String(eventNode.dataset.eventId||"");
+        return{
+          type:"event",id,item:eventPresentationItem(id)||{},
+          element:eventNode
+        };
+      }
+      const colorKey=target.closest?.('[data-artifact-chrome="color-key"]');
+      if(colorKey)return{
+        type:"color-key",id:"color-key",item:directPresentationItem("color-key"),
+        element:colorKey
+      };
+      const profile=target.closest?.('[data-artifact-chrome="profile"]');
+      if(profile)return{
+        type:"profile",id:"profile",item:directPresentationItem("profile"),
+        element:profile
+      };
       return null;
     };
     const restoreAdvancedObjectFocus=(type,id)=>queueMicrotask(()=>{
@@ -6113,17 +6434,14 @@ export async function boot407FEngineeringAdapter({
           :{...original,x,y});
         label=`Move Advanced ${object.type}`;
       }
-      store.mutate(label,(document)=>{
-        const collection=object.type==="media"
-          ?document.advanced.media
-          :object.type==="element"
-            ?document.advanced.elements
-            :document.advanced.textBlocks;
-        const index=collection.findIndex(
-          (candidate)=>String(candidate.id)===object.id
-        );
-        if(index>=0)collection[index]={...collection[index],...clone(next)};
+      const result=applySceneCommandToDocument(store.document,{
+        kind:"geometry",
+        target:{type:object.type,id:object.id},
+        geometry:next,
+        label
       });
+      if(!result.changed)return;
+      store.replace(result.document,{label});
       syncBridgeStateFromStore();
       canvasController?.setUiState({
         advancedSelection:{type:object.type,id:object.id}
@@ -6136,7 +6454,7 @@ export async function boot407FEngineeringAdapter({
       restoreAdvancedObjectFocus(object.type,object.id);
     };
     onAdvancedPointerDown=(event)=>{
-      if(event.button!==0||railPointer||advancedPointer)return;
+      if(event.button!==0||railPointer||advancedPointer||axisPointer)return;
       const railAsset=event.target.closest?.("[data-advanced-insert-asset]");
       if(railAsset&&store.entitlement.canMutate===true){
         const ghost=document.createElement("div");
@@ -6156,14 +6474,59 @@ export async function boot407FEngineeringAdapter({
         };
         railAsset.setPointerCapture?.(event.pointerId);
         event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      const axisHandle=event.target.closest?.("[data-advanced-axis-boundary-handle]");
+      if(axisHandle){
+        if(store.document.layoutLock!==false||store.entitlement.canMutate!==true)return;
+        const surface=advancedEditSurface();
+        const segments=[...(surface?.querySelectorAll?.("[data-axis-segment-id]")||[])];
+        const index=Number(axisHandle.dataset.advancedAxisBoundaryHandle);
+        const left=segments[index],right=segments[index+1];
+        if(!left||!right)return;
+        const weights=segments.map((segment)=>({
+          id:String(segment.dataset.axisSegmentId||""),
+          weight:Math.max(.25,Number(segment.dataset.axisSegmentWeight)||1)
+        }));
+        const leftBox=left.getBBox?.(),rightBox=right.getBBox?.();
+        if(!leftBox?.width||!rightBox?.width)return;
+        axisPointer={
+          startX:event.clientX,index,segments,weights,left,right,leftBox,rightBox,
+          pairWeight:weights[index].weight+weights[index+1].weight,
+          pairPixelWidth:Math.max(1,left.getBoundingClientRect().width+right.getBoundingClientRect().width),
+          preview:weights.map((item)=>({...item})),moved:false
+        };
+        left.dataset.advancedAxisDragging="left";
+        right.dataset.advancedAxisDragging="right";
+        event.preventDefault();
+        event.stopPropagation();
         return;
       }
       if(store.document.layoutLock!==false)return;
-      const object=advancedObjectForTarget(event.target);
+      if(
+        (event.shiftKey||event.metaKey||event.ctrlKey)&&
+        !event.target.closest?.("[data-advanced-direct-handle]")
+      )return;
+      const object=advancedObjectForTarget(event.target,{
+        deep:Number(event.detail)>=2||event.altKey===true
+      });
       if(!object)return;
+      if(store.document.mode!=="advanced"&&[
+        "event","color-key","profile"
+      ].includes(object.type))return;
+      if(object.item?.locked===true){
+        bridge.toast("Unlock this Timeline object before moving or resizing it.");
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      const geometryElement=object.type==="event"
+        ?object.element.querySelector?.("[data-continuous-duration-arrow],image")||object.element
+        :object.element;
       const svg=object.element.closest("svg");
       const svgBounds=svg?.getBoundingClientRect?.();
-      const objectBounds=object.element.getBoundingClientRect?.();
+      const objectBounds=object.bounds||geometryElement.getBoundingClientRect?.();
       if(!svgBounds?.width||!svgBounds?.height||!objectBounds)return;
       clearAdvancedAlignmentGuides(svg);
       let modelBounds={
@@ -6171,22 +6534,35 @@ export async function boot407FEngineeringAdapter({
         width:Number(object.item.width||1),height:Number(object.item.height||1)
       };
       try{
-        const box=object.element.getBBox?.();
-        if(box&&Number.isFinite(box.x)&&Number.isFinite(box.y)&&box.width>0&&box.height>0){
+        const box=geometryElement.getBBox?.();
+        if(
+          object.type!=="group"&&
+          !object.element.hasAttribute?.("data-scene-object")&&
+          !["color-key","profile"].includes(object.type)&&
+          box&&Number.isFinite(box.x)&&Number.isFinite(box.y)&&box.width>0&&box.height>0
+        ){
           modelBounds={x:box.x,y:box.y,width:box.width,height:box.height};
         }
       }catch{}
+      if(
+        !Number.isFinite(Number(object.item.x))||
+        !Number.isFinite(Number(object.item.y))||
+        !Number.isFinite(Number(object.item.width))||
+        !Number.isFinite(Number(object.item.height))
+      )object.item={...object.item,...modelBounds};
       const resizeZone=Math.max(
         6,
         Math.min(18,objectBounds.width*.25,objectBounds.height*.25)
       );
-      const resize=["media","element","text"].includes(object.type)&&(
+      const resizeHandle=String(object.handle||"")||(
         event.clientX>=objectBounds.right-resizeZone&&
         event.clientY>=objectBounds.bottom-resizeZone
+          ?"se":""
       );
       advancedPointer={
         ...object,
-        kind:resize?"resize":"move",
+        kind:resizeHandle?"resize":"move",
+        handle:resizeHandle,
         startX:event.clientX,
         startY:event.clientY,
         scaleX:1920/svgBounds.width,
@@ -6196,16 +6572,99 @@ export async function boot407FEngineeringAdapter({
         visualOffsetY:modelBounds.y-Number(object.item.y||0),
         visualWidth:modelBounds.width,
         visualHeight:modelBounds.height,
-        original:clone(object.item),
-        preview:clone(object.item),
+        original:{...clone(object.item),...modelBounds},
+        preview:{...clone(object.item),...modelBounds},
+        originalTransform:object.element.getAttribute?.("transform"),
+        members:(object.members||[]).map((member)=>({
+          ...member,
+          original:clone(member.item),
+          originalTransform:member.element.getAttribute?.("transform")
+        })),
         moved:false
       };
-      object.element.dataset.advancedDragging=advancedPointer.kind;
-      canvasController?.setUiState({advancedSelection:{type:object.type,id:object.id}});
+      const gestureNodes=advancedPointer.members.length
+        ?advancedPointer.members.map(({element})=>element)
+        :[object.element];
+      gestureNodes.forEach((node)=>{
+        node.dataset.advancedDragging=advancedPointer.kind;
+        node.dataset.advancedResizeHandle=resizeHandle||"move";
+      });
+      if(object.type!=="event")canvasController?.setUiState({
+        selectedEventId:null,
+        advancedSelection:{type:object.type,id:object.id}
+      });
       showAdvancedDirectSelection({type:object.type,id:object.id});
       event.preventDefault();
+      event.stopPropagation();
+    };
+    const applyDirectPreviewGeometry=(pointer,next)=>{
+      const node=pointer.element;
+      const original=pointer.original;
+      if(!node?.setAttribute)return;
+      if(pointer.type==="group"){
+        const scaleX=next.width/Math.max(1,Number(original.width)||1);
+        const scaleY=next.height/Math.max(1,Number(original.height)||1);
+        for(const member of pointer.members||[]){
+          const child=member.original;
+          const childNext={
+            ...child,
+            x:next.x+(Number(child.x||0)-Number(original.x||0))*scaleX,
+            y:next.y+(Number(child.y||0)-Number(original.y||0))*scaleY,
+            width:Math.max(1,Number(child.width||1)*scaleX),
+            height:Math.max(1,Number(child.height||1)*scaleY)
+          };
+          applyDirectPreviewGeometry({
+            type:member.type,
+            element:member.element,
+            original:child,
+            members:[]
+          },childNext);
+        }
+        return;
+      }
+      if(pointer.type==="color-key"||pointer.type==="profile"){
+        const base=pointer.type==="color-key"
+          ?{width:247,height:277}
+          :{width:512,height:375};
+        node.setAttribute("transform",`translate(${next.x} ${next.y}) scale(${next.width/base.width} ${next.height/base.height})`);
+        return;
+      }
+      if(pointer.type==="event"){
+        const sx=next.width/Math.max(1,Number(original.width)||1);
+        const sy=next.height/Math.max(1,Number(original.height)||1);
+        node.setAttribute("transform",`translate(${next.x} ${next.y}) rotate(${Number(next.rotation)||0} ${next.width/2} ${next.height/2}) scale(${sx} ${sy}) translate(${-original.x} ${-original.y})`);
+        return;
+      }
+      const sx=next.width/Math.max(1,Number(original.width)||1);
+      const sy=next.height/Math.max(1,Number(original.height)||1);
+      node.setAttribute("transform",`translate(${next.x} ${next.y}) rotate(${Number(next.rotation)||0} ${next.width/2} ${next.height/2}) scale(${sx} ${sy})`);
     };
     onAdvancedPointerMove=(event)=>{
+      if(axisPointer){
+        const pending=axisPointer;
+        const dx=event.clientX-pending.startX;
+        if(!pending.moved&&Math.abs(dx)<3)return;
+        pending.moved=true;
+        const leftOriginal=pending.weights[pending.index].weight;
+        const delta=dx/pending.pairPixelWidth*pending.pairWeight;
+        const leftWeight=Math.max(.25,Math.min(pending.pairWeight-.25,leftOriginal+delta));
+        const rightWeight=pending.pairWeight-leftWeight;
+        pending.preview=pending.weights.map((item,index)=>index===pending.index
+          ?{...item,weight:leftWeight}
+          :index===pending.index+1
+            ?{...item,weight:rightWeight}
+            :{...item});
+        const pairStart=pending.leftBox.x;
+        const pairEnd=pending.rightBox.x+pending.rightBox.width;
+        const pairWidth=Math.max(1,pairEnd-pairStart);
+        const nextLeftWidth=pairWidth*(leftWeight/pending.pairWeight);
+        const nextRightX=pairStart+nextLeftWidth;
+        const nextRightWidth=pairEnd-nextRightX;
+        pending.left.setAttribute("transform",`translate(${pairStart} 0) scale(${nextLeftWidth/Math.max(1,pending.leftBox.width)} 1) translate(${-pending.leftBox.x} 0)`);
+        pending.right.setAttribute("transform",`translate(${nextRightX} 0) scale(${nextRightWidth/Math.max(1,pending.rightBox.width)} 1) translate(${-pending.rightBox.x} 0)`);
+        event.preventDefault();
+        return;
+      }
       if(railPointer){
         railPointer.ghost.style.left=`${event.clientX+14}px`;
         railPointer.ghost.style.top=`${event.clientY+14}px`;
@@ -6220,27 +6679,29 @@ export async function boot407FEngineeringAdapter({
       advancedPointer.moved=true;
       const original=advancedPointer.original;
       let next;
-      if(["media","element","text"].includes(advancedPointer.type)&&advancedPointer.kind==="resize"){
+      if(advancedPointer.kind==="resize"){
         const freeAspect=original.aspectLocked===false
           ?!event.shiftKey
           :event.shiftKey;
-        const width=Math.max(48,Number(original.width||1)+dx);
-        const height=Math.max(32,Number(original.height||1)+dy);
-        next=constrainAdvancedObjectToBoard(advancedPointer.type==="media"
-          ?resizeMediaElement(original,{width,height,shiftKey:freeAspect})
-          :{...clone(original),width,height:freeAspect?height:width/(Number(original.width||1)/Number(original.height||1))});
-        if(advancedPointer.type==="media"){
-          advancedPointer.element.setAttribute("width",String(next.width));
-          advancedPointer.element.setAttribute("height",String(next.height));
-        }else if(advancedPointer.type==="element"){
-          const scaleX=next.width/Math.max(1,Number(original.width||1));
-          const scaleY=next.height/Math.max(1,Number(original.height||1));
-          advancedPointer.element.setAttribute("transform",`translate(${next.x} ${next.y}) scale(${scaleX} ${scaleY})`);
-        }else{
-          advancedPointer.element.setAttribute("x",String(next.x));
-          advancedPointer.element.setAttribute("y",String(next.y));
-          advancedPointer.element.setAttribute("font-size",String(Math.max(10,Number(original.size||24)*(next.height/Math.max(1,Number(original.height||72))))));
+        const resized=resizeSceneGeometry(original,advancedPointer.handle||"se",dx,dy,{
+          aspectLocked:!freeAspect,
+          minimumWidth:advancedPointer.type==="profile"?360:48,
+          minimumHeight:advancedPointer.type==="profile"?272:32
+        });
+        if(!freeAspect&&["e","w"].includes(advancedPointer.handle)){
+          const ratio=original.width/Math.max(1,original.height);
+          resized.height=resized.width/ratio;
+          resized.y=original.y+(original.height-resized.height)/2;
+        }else if(!freeAspect&&["n","s"].includes(advancedPointer.handle)){
+          const ratio=original.width/Math.max(1,original.height);
+          resized.width=resized.height*ratio;
+          resized.x=original.x+(original.width-resized.width)/2;
         }
+        next=constrainAdvancedObjectToBoard({
+          ...clone(original),
+          ...resized
+        });
+        applyDirectPreviewGeometry(advancedPointer,next);
       }else{
         const width=Number(original.width||0);
         const height=Number(original.height||0);
@@ -6260,30 +6721,57 @@ export async function boot407FEngineeringAdapter({
         });
         next=constrainAdvancedObjectToBoard(snapped.element);
         showAdvancedAlignmentGuides(advancedPointer.svg,snapped.guides);
-        if(advancedPointer.type==="element"){
-          advancedPointer.element.setAttribute("transform",`translate(${next.x} ${next.y})`);
-        }else{
-          advancedPointer.element.setAttribute("x",String(next.x));
-          advancedPointer.element.setAttribute("y",String(next.y));
-        }
+        applyDirectPreviewGeometry(advancedPointer,next);
       }
       advancedPointer.preview=next;
       event.preventDefault();
     };
     onAdvancedPointerUp=(event)=>{
+      if(axisPointer){
+        const pending=axisPointer;
+        axisPointer=null;
+        delete pending.left.dataset.advancedAxisDragging;
+        delete pending.right.dataset.advancedAxisDragging;
+        pending.left.removeAttribute("transform");
+        pending.right.removeAttribute("transform");
+        if(event?.type==="pointercancel"||!pending.moved){
+          showAdvancedAxisBoundaryHandles();
+          return;
+        }
+        const years=pending.preview.map(({id})=>id).filter((id)=>/^\d{4}$/.test(id));
+        if(!years.length)return;
+        const range=setAxisPresentationOverride(store.document,{
+          startYear:Number(years[0]),
+          endYear:Number(years.at(-1)),
+          includeFuture:pending.preview.some(({id})=>id==="FUTURE")
+        });
+        const result=setAxisSegmentWeights(range.document,pending.preview);
+        if(result.changed){
+          store.replace(result.document,{label:"Resize Timeline year boundary"});
+          syncBridgeStateFromStore();
+        }
+        canvasController?.setUiState({
+          selectedEventId:null,detailsEventId:null,
+          advancedSelection:{type:"axis",id:"axis"},advancedPanel:"timeline"
+        });
+        showAdvancedAxisBoundaryHandles();
+        bridge.toast("Year widths updated");
+        announceGlobal("Year widths updated");
+        return;
+      }
       if(railPointer){
         const pending=railPointer;
         railPointer=null;
         pending.source?.releasePointerCapture?.(pending.pointerId);
         pending.ghost.remove();
-        const iframe=advancedEditIframe();
-        const bounds=iframe?.getBoundingClientRect?.();
+        const surface=advancedEditSurface();
+        const bounds=surface?.getBoundingClientRect?.();
         if(pending.moved&&bounds&&event.clientX>=bounds.left&&event.clientX<=bounds.right&&event.clientY>=bounds.top&&event.clientY<=bounds.bottom){
-          advancedHooks().onAssetDrop(pending.payload,{
+          const inserted=advancedHooks().onAssetDrop(pending.payload,{
             x:Math.max(0,Math.min(1840,(event.clientX-bounds.left)*1920/bounds.width)),
             y:Math.max(0,Math.min(1000,(event.clientY-bounds.top)*1080/bounds.height))
           });
-          bridge.toast("Added to your timeline");
+          if(inserted===true)bridge.toast("Added to your timeline");
         }
         return;
       }
@@ -6291,40 +6779,78 @@ export async function boot407FEngineeringAdapter({
       const pointer=advancedPointer;
       advancedPointer=null;
       clearAdvancedAlignmentGuides(pointer.svg);
-      delete pointer.element.dataset.advancedDragging;
+      const gestureMembers=pointer.members?.length?pointer.members:[pointer];
+      gestureMembers.forEach(({element})=>{
+        delete element.dataset.advancedDragging;
+        delete element.dataset.advancedResizeHandle;
+      });
       clearAdvancedDirectSelection();
       if(event?.type==="pointercancel"){
-        pointer.element.setAttribute("x",String(pointer.original.x));
-        pointer.element.setAttribute("y",String(pointer.original.y));
-        if(pointer.type==="media"){
-          pointer.element.setAttribute("width",String(pointer.original.width));
-          pointer.element.setAttribute("height",String(pointer.original.height));
-        }else if(pointer.type==="element"){
-          pointer.element.setAttribute("transform",`translate(${pointer.original.x} ${pointer.original.y})`);
-        }
+        if(pointer.members?.length){
+          pointer.members.forEach((member)=>{
+            if(member.originalTransform==null)member.element.removeAttribute?.("transform");
+            else member.element.setAttribute?.("transform",member.originalTransform);
+          });
+        }else if(pointer.originalTransform==null)pointer.element.removeAttribute?.("transform");
+        else pointer.element.setAttribute?.("transform",pointer.originalTransform);
         return;
       }
-      if(!pointer.moved)return;
-      store.mutate(
-        pointer.kind==="resize"?"Resize Media asset":`Move Advanced ${pointer.type}`,
-        (document)=>{
-          const collection=pointer.type==="media"
-            ?document.advanced.media
-            :pointer.type==="element"
-              ?document.advanced.elements
-              :document.advanced.textBlocks;
-          const index=collection.findIndex(
-            (candidate)=>String(candidate.id)===pointer.id
-          );
-          if(index>=0)collection[index]={...collection[index],...clone(pointer.preview)};
+      if(!pointer.moved){
+        showAdvancedDirectSelection({type:pointer.type,id:pointer.id});
+        return;
+      }
+      const label=pointer.kind==="resize"
+        ?"Resize Timeline object"
+        :"Move Timeline object";
+      let result;
+      if(pointer.type==="color-key"){
+        result=setColorKeyGeometryPresentationOverride(store.document,pointer.preview);
+        const nextKey=furnitureGeometryFor(result.document,"colorKeyGeometry");
+        const profile=furnitureGeometryFor(store.document,"profileGeometry");
+        if(furnitureOverlaps(nextKey,profile)){
+          rejectFurnitureCollision({type:"color-key",id:"color-key"});
+          return;
         }
-      );
+      }else if(pointer.type==="profile"){
+        const document=clone(store.document);
+        const width=Math.max(360,Math.min(900,Number(pointer.preview.width)||512));
+        const height=Math.max(272,Math.min(680,Number(pointer.preview.height)||375));
+        document.presentationOverrides={...(document.presentationOverrides||{}),profileGeometry:{
+          x:Math.max(0,Math.min(1920-width,Number(pointer.preview.x)||0)),
+          y:Math.max(0,Math.min(1080-height,Number(pointer.preview.y)||0)),
+          width,height
+        }};
+        const key=furnitureGeometryFor(store.document,"colorKeyGeometry");
+        const nextProfile=furnitureGeometryFor(document,"profileGeometry");
+        if(furnitureOverlaps(key,nextProfile)){
+          rejectFurnitureCollision({type:"profile",id:"profile"});
+          return;
+        }
+        result={document,changed:true,mutation:{label:"Change profile card presentation"}};
+      }else{
+        result=applySceneCommandToDocument(store.document,{
+          kind:"geometry",
+          target:{type:pointer.type,id:pointer.id},
+          geometry:pointer.preview,
+          ...(pointer.type==="event"?{
+            create:{
+              type:"event",semanticRef:pointer.id,aspectLocked:false,
+              presentation:{eventType:store.document.events.find(
+                (item)=>String(item.id)===String(pointer.id)
+              )?.eventType||"duration"}
+            }
+          }:{}),
+          label
+        });
+      }
+      if(!result.changed)return;
+      store.replace(result.document,{label:result.mutation?.label||label});
       syncBridgeStateFromStore();
-      canvasController?.setUiState({
-        advancedSelection:{type:pointer.type,id:pointer.id}
-      });
+      canvasController?.setUiState(pointer.type==="event"
+        ?{selectedEventId:pointer.id,advancedSelection:null}
+        :{selectedEventId:null,advancedSelection:{type:pointer.type,id:pointer.id}});
       showAdvancedDirectSelection({type:pointer.type,id:pointer.id});
-      const message=pointer.kind==="resize"?"Media resized":`${pointer.type==="media"?"Media":"Text"} moved`;
+      const message=pointer.kind==="resize"?"Timeline object resized":"Timeline object moved";
       bridge.toast(message);
       announceGlobal(message);
     };
@@ -6365,20 +6891,23 @@ export async function boot407FEngineeringAdapter({
       const pending=nativeRailDrag;
       nativeRailDrag=null;
       if(!pending||event.dataTransfer?.dropEffect!=="none")return;
-      const iframe=advancedEditIframe();
-      const bounds=iframe?.getBoundingClientRect?.();
+      const surface=advancedEditSurface();
+      const bounds=surface?.getBoundingClientRect?.();
       if(!bounds||event.clientX<bounds.left||event.clientX>bounds.right||event.clientY<bounds.top||event.clientY>bounds.bottom)return;
-      advancedHooks().onAssetDrop({kind:"insert",...pending},{
+      const inserted=advancedHooks().onAssetDrop({kind:"insert",...pending},{
         x:Math.max(0,Math.min(1840,(event.clientX-bounds.left)*1920/bounds.width)),
         y:Math.max(0,Math.min(1000,(event.clientY-bounds.top)*1080/bounds.height))
       });
-      bridge.toast("Added to your timeline");
+      if(inserted===true)bridge.toast("Added to your timeline");
     };
     canvasHost.addEventListener("click",onCanvasDetailsClick);
     canvasHost.addEventListener("click",onAdvancedObjectClick);
     canvasHost.addEventListener("keydown",onAdvancedObjectKeyDown);
-    canvasHost.addEventListener("pointerdown",onAdvancedPointerDown);
-    canvasHost.addEventListener("mousedown",onAdvancedPointerDown);
+    // Capture at the document boundary so selection handles (fixed outside the
+    // canvas subtree) and SVG objects share one gesture path. Recognized editor
+    // gestures stop before the semantic Canvas listener can rewrite chronology.
+    document.addEventListener("pointerdown",onAdvancedPointerDown,true);
+    document.addEventListener("mousedown",onAdvancedPointerDown,true);
     canvasHost.addEventListener("dragover",onAdvancedRailDragOver);
     canvasHost.addEventListener("drop",onAdvancedRailDrop);
     canvasHost.addEventListener("dragstart",onAdvancedRailNativeDragStart);

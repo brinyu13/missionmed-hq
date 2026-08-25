@@ -2,9 +2,13 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, posix, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {FOUNDER_KEYNOTE_CONTRACT} from "../web/js/presentation/founder-keynote-contract.js";
 
 /* Mirrors the private-fixture exclusion enforced by scripts/check-release.mjs. */
 const EXCLUDED_PRIVATE_FIXTURES=["karaoke.jpg","newborn.jpg","nicu.jpg","profile_sample.jpg","ski.jpg","wedding.jpg"];
+const isExcludedPrivateFixture=(target)=>EXCLUDED_PRIVATE_FIXTURES.some((name)=>
+  target===`assets/photos/${name}`||target.endsWith(`/assets/photos/${name}`)
+);
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const dist=join(root,"dist");
@@ -21,6 +25,12 @@ for(const [path,entry] of Object.entries(manifest.files)){
   const bytes=await readFile(join(dist,path));
   if(bytes.byteLength!==entry.bytes||hash(bytes)!==entry.sha256)throw new Error(`TIMELINE_RELEASE_HASH_MISMATCH:${path}`);
   raw.set(path,{path,bytes,contentType:entry.content_type});
+}
+for(const sourceBoundAsset of Object.values(FOUNDER_KEYNOTE_CONTRACT.assets)){
+  const sourceBoundEntry=raw.get(sourceBoundAsset.publicPath);
+  if(!sourceBoundEntry||hash(sourceBoundEntry.bytes)!==sourceBoundAsset.sha256){
+    throw new Error(`TIMELINE_SOURCE_BOUND_ASSET_HASH_MISMATCH:${sourceBoundAsset.publicPath}`);
+  }
 }
 
 const assets=new Map();
@@ -71,15 +81,18 @@ for(const entry of raw.values()){
   // Fail the build instead.
   const unresolved=[];
   let rewritten=entry.bytes.toString("utf8").replace(/(["'])(assets\/[A-Za-z0-9._\/-]+)\1/g,(match,quote,value)=>{
-    const target=posix.normalize(posix.join(posix.dirname(entry.path),value));
-    const asset=byPath.get(target);
-    if(!asset){unresolved.push(target);return match;}
+    const target=[
+      posix.normalize(value),
+      posix.normalize(posix.join(posix.dirname(entry.path),value))
+    ].find((candidate)=>byPath.has(candidate));
+    const asset=target?byPath.get(target):null;
+    if(!asset){unresolved.push(posix.normalize(value));return match;}
     return `${quote}/timeline/_asset/${asset.alias}${quote}`;
   });
   // The protected kernel's standalone demo fixtures reference the Founder's private
   // family photographs, which check-release.mjs deliberately refuses to ship. Those five
   // are the only literals allowed to stay unresolved; anything else is a real omission.
-  const genuinelyMissing=[...new Set(unresolved)].filter((target)=>!EXCLUDED_PRIVATE_FIXTURES.some((name)=>target.endsWith(`/assets/photos/${name}`)));
+  const genuinelyMissing=[...new Set(unresolved)].filter((target)=>!isExcludedPrivateFixture(target));
   if(genuinelyMissing.length)throw new Error(`TIMELINE_RUNTIME_JS_ASSET_MISSING:${entry.path}:${genuinelyMissing.join(",")}`);
   for(const value of ["D1-409H_VISUAL_MASTER.css"]){
     const singleQuoted=`'${value}'`;const doubleQuoted=`"${value}"`;
@@ -129,7 +142,9 @@ if(/url\(\s*["']?\.\/(?:assets|styles)\//.test(indexText))throw new Error("TIMEL
 const runtimeKeys=[
   "vendor/pdfjs/pdf.worker.min.mjs",
   "data/medical-schools/us-dapip-2026-07-30.json",
+  "data/medical-schools/global-wikidata-2026-08-24.json",
   "presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html",
+  ...Object.values(FOUNDER_KEYNOTE_CONTRACT.assets).map((asset)=>asset.publicPath),
   ...[...byPath.keys()].filter((path)=>path.startsWith("assets/keynote_classic_402a/"))
 ];
 const runtimeMap=Object.fromEntries([...new Set(runtimeKeys)].sort().map((path)=>{

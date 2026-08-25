@@ -15,6 +15,7 @@ _BUILD_TEMP/
 *.mov
 *.jpeg
 *.png
+!packages/mission-timeline/web/assets/founder_keynote_2024/flags/USA-Flag.H03-10831.png
 !storyforge-v5/public/missionmed-logo.png
 !storyforge-v5/dist/assets/missionmed-logo.*.png
 
@@ -33,6 +34,7 @@ _SYSTEM/r2.env
 *.m4v
 *.pdf
 *.jpg
+!packages/mission-timeline/web/assets/founder_keynote_2024/background/Magnetboard-1920-107.jpg
 *.csv
 *.xlsx
 _CACHE/

@@ -1,0 +1,20 @@
+{
+  "schema_version": "d1-timeline-source-asset-authority.1",
+  "ticket": "D1-TIMELINE-FOUNDER-REANCHOR-015",
+  "decision_records": [
+    "DR-127",
+    "DR-128"
+  ],
+  "authority": "FOUNDER_AUTHORIZED_BOUNDED_IMPLEMENTATION_SOURCE_CUSTODY",
+  "files": [
+    {
+      "path": "web/data/medical-schools/global-wikidata-2026-08-24.json",
+      "bytes": 1411322,
+      "sha256": "c8a4c4be87b154a997e3b42dc76937baf7f31ee58e63e61ebaeb15caa3379beb",
+      "source_manifest": "web/data/medical-schools/global-manifest.json",
+      "source_manifest_sha256": "091f0113bb5bbb12574625f7d91f291b8e96258108ba558874c8056036494b1b",
+      "license": "Creative Commons CC0 1.0",
+      "verification_scope": "identity_only_no_accreditation_or_active_status_claim"
+    }
+  ]
+}

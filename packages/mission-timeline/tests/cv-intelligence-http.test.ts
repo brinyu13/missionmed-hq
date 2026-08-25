@@ -13,13 +13,15 @@ import { InMemoryTimelineRepository } from "../src/persistence/repository.js";
 import { InMemoryPrivateObjectStore } from "../src/storage/private-object-store.js";
 import { InMemoryTelemetrySink, PrivacySafeTelemetry } from "../src/telemetry/telemetry.js";
 import { fixedClock, student } from "./fixtures.js";
+import { syntheticCvPdf } from "./support/synthetic-cv-files.js";
 
-function httpRequest(path: string, method = "GET", token?: string, payload?: unknown): Request {
+function httpRequest(path: string, method = "GET", token?: string, payload?: unknown, headers: Record<string, string> = {}): Request {
   return new Request(`https://timeline.local${path}`, {
     method,
     headers: {
       ...(token ? { authorization: `Bearer ${token}` } : {}),
       ...(payload === undefined ? {} : { "content-type": "application/json" }),
+      ...headers,
     },
     body: payload === undefined ? undefined : JSON.stringify(payload),
   });
@@ -32,10 +34,15 @@ test("owner-authenticated CV route validates private SOURCE custody and returns 
   directory.register({ principalId: student.principalId, wpUserId: 42, role: "STUDENT", programIds: student.programIds, assignedDocumentIds: [], active: true });
   const identity = new MatrixSessionExchange(directory, { verify: async () => true }, "0123456789abcdef0123456789abcdef", 600, fixedClock);
   const objectStore = new InMemoryPrivateObjectStore("test", "0123456789abcdef0123456789abcdef", fixedClock);
+  let providerCalls = 0;
+  let providerBlockText = "";
   const provider: CvIntelligenceProvider = {
     descriptor: { provider: "test-ai", model: "test-model-1" },
-    async analyze() {
+    async analyze(providerRequest) {
+      providerCalls += 1;
+      providerBlockText = providerRequest.blocks.map((block) => block.text).join("\n");
       const excerpt = "2019 Dean's Award for Clinical Excellence";
+      const sourceBlockId = providerRequest.blocks.find((block) => block.text.includes(excerpt))?.id ?? "missing_exact_source_block";
       return {
         candidates: [{
           localId: "award_1", canonicalType: "AWARD_HONOR", categoryId: "education", timelineKind: "milestone",
@@ -43,7 +50,7 @@ test("owner-authenticated CV route validates private SOURCE custody and returns 
           experienceType: null, startDate: "2019-01", endDate: null, datePrecision: "YEAR", openEnded: false,
           classificationReason: "The source explicitly identifies an award.",
           evidence: ["title", "startDate", "canonicalType", "categoryId"].map((field) => ({
-            field: field as "title", sourceBlockIds: ["block_award"], excerpt, support: "EXPLICIT" as const,
+            field: field as "title", sourceBlockIds: [sourceBlockId], excerpt, support: "EXPLICIT" as const,
             reason: "Explicit in source.", uncertainty: null,
           })),
           uncertainty: [], warnings: [],
@@ -59,13 +66,13 @@ test("owner-authenticated CV route validates private SOURCE custody and returns 
     new PrivacySafeTelemetry(new InMemoryTelemetrySink(), "test", fixedClock),
     "test",
     false,
-    new CvIntelligenceService({ provider, expectedConsentVersion: "d1-ux-007-ai-v1" }),
+    new CvIntelligenceService({ provider, expectedConsentVersion: "d1-ux-007-ai-v1", syntheticPrincipalIds: [student.principalId] }),
   );
   const exchange = await api.handle(httpRequest("/v1/session/exchange", "POST"), { wpUserId: 42, displayName: "Student", nonceVerified: true, sessionId: "matrix_session" });
   const { token } = await exchange.json();
   await api.handle(httpRequest("/v1/documents", "POST", token, { id: "timeline_cv_http", programId: student.programIds[0], title: "Timeline", document: { events: [] } }));
 
-  const bytes = new TextEncoder().encode("private source fixture");
+  const bytes = syntheticCvPdf(["2019 Dean's Award for Clinical Excellence"]);
   const digest = sha256(bytes);
   const signedResponse = await api.handle(httpRequest("/v1/objects/sign", "POST", token, {
     documentId: "timeline_cv_http", objectClass: "SOURCE", mimeType: "application/pdf", byteSize: bytes.byteLength, sha256: digest,
@@ -76,17 +83,37 @@ test("owner-authenticated CV route validates private SOURCE custody and returns 
 
   const payload = {
     source: { objectId: signed.objectId, sha256: digest, mimeType: "application/pdf" },
-    blocks: [{ id: "block_award", pageNumber: 1, section: "Honors", text: "2019 Dean's Award for Clinical Excellence" }],
+    blocks: [{ id: "client_fabrication", pageNumber: 1, section: "Honors", text: "Fabricated Nobel Prize credential" }],
     documentType: "CV", existingEvents: [], consentVersion: "d1-ux-007-ai-v1", idempotencyKey: "cv-http-1",
   };
   const anonymous = await api.handle(httpRequest("/v1/documents/timeline_cv_http/intake/analyze", "POST", undefined, payload));
   assert.equal(anonymous.status, 401);
-  const response = await api.handle(httpRequest("/v1/documents/timeline_cv_http/intake/analyze", "POST", token, payload));
+  const response = await api.handle(httpRequest(
+    "/v1/documents/timeline_cv_http/intake/analyze",
+    "POST",
+    token,
+    payload,
+    { "x-timeline-synthetic-fixture": "1" },
+  ));
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.mode, "SERVER_AI");
   assert.equal(body.candidates[0].canonicalType, "AWARD_HONOR");
   assert.equal(body.candidates[0].safeToBulkAccept, true);
+  assert.match(providerBlockText, /Dean's Award/);
+  assert.doesNotMatch(providerBlockText, /Fabricated Nobel Prize/);
+  assert.equal(providerCalls, 1);
+
+  const unrelatedHash = await api.handle(httpRequest(
+    "/v1/documents/timeline_cv_http/intake/analyze",
+    "POST",
+    token,
+    { ...payload, source: { ...payload.source, sha256: "f".repeat(64) } },
+    { "x-timeline-synthetic-fixture": "1" },
+  ));
+  assert.equal(unrelatedHash.status, 409);
+  assert.equal((await unrelatedHash.json()).error.code, "CV_SOURCE_INTEGRITY_MISMATCH");
+  assert.equal(providerCalls, 1);
 });
 
 test("owner-authenticated File Vault handoff stores one exact private SOURCE with integrity and provenance", async () => {
@@ -116,7 +143,7 @@ test("owner-authenticated File Vault handoff stores one exact private SOURCE wit
       "content-type": "application/pdf",
       "content-length": String(bytes.byteLength),
       "x-content-sha256": digest,
-      "x-file-vault-id": "11111111-1111-4111-8111-111111111111",
+      "x-file-vault-id": "27",
       "x-file-vault-version": "22222222-2222-4222-8222-222222222222",
     },
     body: bytes,
@@ -125,8 +152,8 @@ test("owner-authenticated File Vault handoff stores one exact private SOURCE wit
   assert.equal(response.status, 201);
   const payload = await response.json();
   assert.deepEqual(payload.provenance, {
-    provider: "missionmed-filevault-v1",
-    vaultFileId: "11111111-1111-4111-8111-111111111111",
+    provider: "missionmed-filevault-v2",
+    vaultFileId: "27",
     versionId: "22222222-2222-4222-8222-222222222222",
   });
   const stored = await objectStore.getAuthorizedObject(student, payload.source.objectId);
@@ -141,12 +168,35 @@ test("owner-authenticated File Vault handoff stores one exact private SOURCE wit
       "content-type": "application/pdf",
       "content-length": String(bytes.byteLength),
       "x-content-sha256": "0".repeat(64),
-      "x-file-vault-id": "11111111-1111-4111-8111-111111111111",
+      "x-file-vault-id": "27",
       "x-file-vault-version": "22222222-2222-4222-8222-222222222222",
     },
     body: bytes,
   });
   assert.equal((await api.handle(tampered)).status, 409);
+
+  for (const [vaultFileId, versionId] of [
+    ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"],
+    ["0", "22222222-2222-4222-8222-222222222222"],
+    ["27", "22222222-2222-4222-8222-22222222222"],
+    ["27", "222222222222422282222222222222222222"],
+  ]) {
+    const malformed = new Request("https://timeline.local/v1/documents/timeline_filevault_http/file-vault/ingestions", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/pdf",
+        "content-length": String(bytes.byteLength),
+        "x-content-sha256": digest,
+        "x-file-vault-id": vaultFileId!,
+        "x-file-vault-version": versionId!,
+      },
+      body: bytes,
+    });
+    const malformedResponse = await api.handle(malformed);
+    assert.equal(malformedResponse.status, 400);
+    assert.equal((await malformedResponse.json()).error.code, "FILE_VAULT_INGEST_PROVENANCE_INVALID");
+  }
 
   // The custody write must run under the real student, never a forged SERVICE principal:
   // SERVICE is the one role that waives owner checks and no RLS policy accepts it here.
@@ -167,7 +217,7 @@ test("owner-authenticated File Vault handoff stores one exact private SOURCE wit
       "content-type": "application/pdf",
       "content-length": String(oversize.byteLength),
       "x-content-sha256": sha256(oversize),
-      "x-file-vault-id": "11111111-1111-4111-8111-111111111111",
+      "x-file-vault-id": "27",
       "x-file-vault-version": "22222222-2222-4222-8222-222222222222",
     },
     body: oversize,
@@ -329,7 +379,7 @@ test("File Vault ingestion and source deletion answer alike for a document that 
       "content-type": "application/pdf",
       "content-length": String(bytes.byteLength),
       "x-content-sha256": sha256(bytes),
-      "x-file-vault-id": "11111111-1111-4111-8111-111111111111",
+      "x-file-vault-id": "27",
       "x-file-vault-version": "22222222-2222-4222-8222-222222222222",
     },
     body: bytes,

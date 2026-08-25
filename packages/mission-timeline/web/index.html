@@ -1638,10 +1638,10 @@ function coreInfoMarkup(){
       +'<div class="schoolVerificationState unverified" role="status">UNVERIFIED · NORMALIZATION QUEUED · EXCLUDED FROM VERIFIED ANALYTICS</div>'
       +'</section>'
     :'<section class="schoolRegistryPanel" aria-labelledby="schoolRegistryTitle407F">'
-      +'<div class="schoolRegistryHeading"><div><div class="subt" id="schoolRegistryTitle407F">MEDICAL SCHOOL REGISTRY</div><p>Choose one authoritative record. Search also matches source aliases and location.</p></div><span class="schoolSourceBadge">U.S. DAPIP</span></div>'
+      +'<div class="schoolRegistryHeading"><div><div class="subt" id="schoolRegistryTitle407F">MEDICAL SCHOOL REGISTRY</div><p>Choose a source-reported identity record. Search matches official names, aliases, city, and country.</p></div><span class="schoolSourceBadge">U.S. DAPIP + GLOBAL CC0</span></div>'
       +'<div class="schoolFilterRow" aria-label="Medical school filters">'
-      +'<label class="builderField"><span>Country filter</span><select data-school-filter="country"><option value="">All available countries</option><option value="United States"'+(w.schoolCountryFilter==='United States'?' selected':'')+'>United States</option></select></label>'
-      +'<label class="builderField"><span>U.S. school type</span><select data-school-filter="type"><option value="">MD and DO</option><option value="MD"'+(w.schoolTypeFilter==='MD'?' selected':'')+'>MD</option><option value="DO"'+(w.schoolTypeFilter==='DO'?' selected':'')+'>DO</option></select></label>'
+      +'<label class="builderField"><span>Country filter</span><select data-school-filter="country"><option value="">All available countries</option>'+COUNTRIES.map(c=>'<option value="'+esc(c)+'"'+(w.schoolCountryFilter===c?' selected':'')+'>'+esc(c)+'</option>').join('')+'</select></label>'
+      +'<label class="builderField"><span>U.S. degree type <em>Optional</em></span><select data-school-filter="type"><option value="">All school types</option><option value="MD"'+(w.schoolTypeFilter==='MD'?' selected':'')+'>MD</option><option value="DO"'+(w.schoolTypeFilter==='DO'?' selected':'')+'>DO</option></select></label>'
       +'</div>'
       +'<label class="builderField schoolRegistryCombo" data-school-combobox><span>Search medical schools</span>'
       +'<input type="search" data-school-search role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="schoolRegistryOptions407F" aria-describedby="schoolRegistryHelp407F schoolRegistryError407F" value="'+esc(w.school||'')+'" placeholder="School, alias, city, state, or country" autocomplete="off">'
@@ -1651,7 +1651,7 @@ function coreInfoMarkup(){
       +'<small id="schoolRegistryError407F" data-error="school"></small></label>'
       +(schoolRecord?'<article class="schoolSelectedCard'+(schoolNeedsReview?' needsReview':'')+'" aria-label="Selected medical school"><span class="schoolSelectedCheck" aria-hidden="true">✓</span><div><strong>'+esc(schoolRecord.canonical_name||w.school)+'</strong><span>'+esc([schoolRecord.school_type,[schoolRecord.city,schoolRecord.state_or_region].filter(Boolean).join(', '),schoolRecord.country].filter(Boolean).join(' · '))+'</span></div><span class="schoolVerificationState'+(schoolNeedsReview?' unverified':'')+'">'+(schoolNeedsReview?'NORMALIZATION REVIEW NEEDED':'SOURCE-REPORTED PROGRAM')+'</span></article>':'')
       +'<button type="button" class="schoolNotListedLink" data-school-not-listed>SCHOOL NOT LISTED?</button>'
-      +'<p class="schoolCoverageNote">Current bundled coverage: U.S. MD/DO institutions reported through the Department of Education. International schools use the normalization queue.</p>'
+      +'<p class="schoolCoverageNote">U.S. MD/DO records use Department of Education source data. Global identity results use a versioned CC0 Wikidata snapshot and do not claim accreditation; “School not listed” remains available and explicitly unverified.</p>'
       +'</section>';
   const authorizationOptions=[''].concat(WORK_AUTHORIZATION_404).map(v=>'<option value="'+esc(v)+'"'+(v===w.visa?' selected':'')+'>'+(v||'Select current status')+'</option>').join('');
   return '<div class="builderFields">'
@@ -2802,7 +2802,7 @@ document.addEventListener('input',e=>{
     return;
   }
   const coreText=e.target.closest&&e.target.closest(
-    '[data-core="school"],[data-core="schoolCity"],[data-core="degreeOther"],[data-core="visaOther"]'
+    '[data-core="name"],[data-core="school"],[data-core="schoolCity"],[data-core="degreeOther"],[data-core="visaOther"]'
   );
   if(coreText){
     state.wiz[coreText.dataset.core]=String(coreText.value||'');

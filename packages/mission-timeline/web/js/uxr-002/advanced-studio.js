@@ -1,5 +1,9 @@
 import {dateLabel,escapeHtml} from "./utils.js";
 import {browserCountryRows} from "./datasets.js";
+import {
+  migrateAdvancedScene,
+  reconcileAdvancedScene
+} from "../editor/scene-graph.js";
 
 const freezeDeep=(value)=>{
   if(!value||typeof value!=="object"||Object.isFrozen(value))return value;
@@ -27,9 +31,9 @@ export const PRESENTATION_CATEGORY_DEFAULTS=freezeDeep([
   {id:"research",label:"Research",color:"#C9A227"},
   {id:"personal",label:"Personal (Not on CV)",color:"#8A5BBF"}
 ]);
-export const COLOR_KEY_GEOMETRY_DEFAULT=freezeDeep({x:18,y:300,width:416,height:322});
+export const COLOR_KEY_GEOMETRY_DEFAULT=freezeDeep({x:37,y:350,width:247,height:277});
 export const COLOR_KEY_GEOMETRY_LIMITS=freezeDeep({
-  boardWidth:1920,boardHeight:1080,minWidth:300,minHeight:240,maxWidth:760,maxHeight:720
+  boardWidth:1920,boardHeight:1080,minWidth:180,minHeight:200,maxWidth:760,maxHeight:720
 });
 
 export const ADVANCED_ENTRY_DIALOG=freezeDeep({
@@ -355,7 +359,7 @@ function normalizeDim(value){
 export function advancedStudioState(document={}){
   const source=document?.advanced&&typeof document.advanced==="object"?document.advanced:{};
   const background=source.background&&typeof source.background==="object"?source.background:{};
-  return{
+  const normalized={
     enteredBefore:!!source.enteredBefore,
     background:{
       ...clone(DEFAULT_ADVANCED_STATE.background),
@@ -372,6 +376,11 @@ export function advancedStudioState(document={}){
     recentColors:normalizeRecentColors(source.recentColors),
     gifStillNoticeSeen:!!source.gifStillNoticeSeen
   };
+  normalized.scene=migrateAdvancedScene(
+    {...clone(source),...clone(normalized)},
+    {revision:document?.revision}
+  ).scene;
+  return normalized;
 }
 
 export function normalizeAdvancedStudioDocument(document={}){
@@ -384,6 +393,18 @@ export function normalizeAdvancedStudioDocument(document={}){
     advancedDialogSeen:!!next.preferences?.advancedDialogSeen
   };
   return next;
+}
+
+/* Keep the V1 scene contract in the same transaction as its compatibility
+ * arrays.  The renderer may continue to consume those arrays during the
+ * re-anchor, but save/reload now always carries one versioned scene snapshot. */
+function refreshAdvancedScene(document){
+  if(document?.advanced&&typeof document.advanced==="object"){
+    document.advanced.scene=reconcileAdvancedScene(document.advanced,{
+      revision:document.revision
+    });
+  }
+  return document;
 }
 
 function eventYearRange(document={}){
@@ -1000,7 +1021,7 @@ export function updateMediaPresentation(document,target,changes={}){
     item.fit=fit;
   }
   if(Object.hasOwn(changes,"crop"))item.crop=normalizeMediaCrop({...item.crop,...changes.crop});
-  return state;
+  return refreshAdvancedScene(state);
 }
 
 export function moveMediaElement(element,{x,y}={}){
@@ -1094,7 +1115,7 @@ export function setMediaAspectLock(document,target,locked){
   if(!item)throw new Error("Media element not found.");
   item.aspectLocked=!!locked;
   item.resizeGesture=item.aspectLocked?"locked-aspect":"free-aspect";
-  return state;
+  return refreshAdvancedScene(state);
 }
 
 export function changeMediaZOrder(media,id,direction){
@@ -1224,7 +1245,7 @@ export function updateTextContainerPresentation(document,target,changes={}){
     if(!TEXT_WRAP_MODES.includes(wrap))throw new TypeError("Text wrapping must be wrap or nowrap.");
     block.wrap=wrap;
   }
-  return state;
+  return refreshAdvancedScene(state);
 }
 
 const ADVANCED_ELEMENT_KINDS=freezeDeep([
@@ -1359,7 +1380,7 @@ export function groupAdvancedObjects(document={},targets=[],{id=""}={}){
   for(const entry of members)entry.item.groupId=groupId;
   centreTextInsideContainers(members);
   state.advanced.groups.push({id:groupId,type:"group",children,aspectLocked:true,locked:false});
-  return{document:state,selection:{type:"group",id:groupId},changed:true};
+  return{document:refreshAdvancedScene(state),selection:{type:"group",id:groupId},changed:true};
 }
 
 /*
@@ -1413,7 +1434,7 @@ export function resizeAdvancedGroup(document={},groupId,geometry={},{kind="resiz
     if(scaleX<1||scaleY<1)item.fitMode="auto";
   }
   return{
-    document:state,
+    document:refreshAdvancedScene(state),
     changed:true,
     mutation:{label:kind==="move"?"Move Timeline group":"Resize Timeline group",history:true,undoSteps:1},
     selection:{type:"group",id:String(groupId)}
@@ -1430,7 +1451,7 @@ export function ungroupAdvancedObjects(document={},groupId){
     if(children.has(targetKey(entry)))delete entry.item.groupId;
   }
   state.advanced.groups.splice(index,1);
-  return{document:state,selection:null,changed:true};
+  return{document:refreshAdvancedScene(state),selection:null,changed:true};
 }
 
 export function setAdvancedObjectLock(document={},target={},locked){
@@ -1440,7 +1461,7 @@ export function setAdvancedObjectLock(document={},target={},locked){
   const collection=target.type==="group"?state.advanced.groups:state.advanced[advancedCollectionName(target.type)];
   const index=collection.findIndex((candidate)=>String(candidate.id)===String(target.id));
   collection[index]={...collection[index],locked:!!locked};
-  return state;
+  return refreshAdvancedScene(state);
 }
 
 // Object locking and proportion locking are intentionally independent.  A
@@ -1453,7 +1474,7 @@ export function setAdvancedObjectAspectLock(document={},target={},aspectLocked){
   const collection=target.type==="group"?state.advanced.groups:state.advanced[advancedCollectionName(target.type)];
   const index=collection.findIndex((candidate)=>String(candidate.id)===String(target.id));
   collection[index]={...collection[index],aspectLocked:!!aspectLocked};
-  return state;
+  return refreshAdvancedScene(state);
 }
 
 /*
@@ -1479,7 +1500,7 @@ export function placeAdvancedObjectAt(document={},target={},{x,y}={}){
   });
   items[index]={...item,...placed,...(target.type==="media"?{placed:true}:{})};
   return{
-    document:state,
+    document:refreshAdvancedScene(state),
     changed:true,
     mutation:{label:`Place Timeline ${target.type}`,history:true,undoSteps:1},
     selection
@@ -1510,7 +1531,7 @@ export function setAdvancedObjectGeometry(document={},target={},changes={}){
     else if(changedHeight&&!changedWidth)next.width=next.height*ratio;
   }
   items[index]={...item,...constrainAdvancedObjectToBoard(next)};
-  return state;
+  return refreshAdvancedScene(state);
 }
 
 export function applyAdvancedTypography(document,target,typography){
@@ -1521,12 +1542,12 @@ export function applyAdvancedTypography(document,target,typography){
   const next=clone(state);
   if(target?.type==="headline"){
     next.advanced.headlineTypography=validated.value;
-    return next;
+    return refreshAdvancedScene(next);
   }
   const block=next.advanced.textBlocks.find((item)=>item.id===target?.id);
   if(!block)throw new Error("Text block not found.");
   Object.assign(block,validated.value);
-  return next;
+  return refreshAdvancedScene(next);
 }
 
 export function updateTextBlockContent(document,target,text){
@@ -1536,7 +1557,7 @@ export function updateTextBlockContent(document,target,text){
   const block=state.advanced.textBlocks.find((item)=>String(item.id)===String(id));
   if(!block)throw new Error("Text block not found.");
   block.text=String(text??"");
-  return state;
+  return refreshAdvancedScene(state);
 }
 
 export function applyAdvancedObjectAction(document,target,action,{
@@ -1558,7 +1579,7 @@ export function applyAdvancedObjectAction(document,target,action,{
         state.advanced[collection]=state.advanced[collection].filter((item)=>!children.has(targetKey({type:item.type||childType,id:item.id})));
       }
       state.advanced.groups.splice(groupIndex,1);
-      return{document:state,changed:true,mutation:{label:"Delete group",history:true,undoSteps:1},selection:null};
+      return{document:refreshAdvancedScene(state),changed:true,mutation:{label:"Delete group",history:true,undoSteps:1},selection:null};
     }
     const nextGroupId=String(duplicateId||"").trim();
     if(!nextGroupId||state.advanced.groups.some((candidate)=>String(candidate.id)===nextGroupId))throw new TypeError("A unique duplicate group ID is required.");
@@ -1577,7 +1598,7 @@ export function applyAdvancedObjectAction(document,target,action,{
       state.advanced[collection].push(...additions);
     }
     state.advanced.groups.push({...clone(group),id:nextGroupId,children:nextChildren,locked:false});
-    return{document:state,changed:true,mutation:{label:"Duplicate group",history:true,undoSteps:1},selection:{type:"group",id:nextGroupId}};
+    return{document:refreshAdvancedScene(state),changed:true,mutation:{label:"Duplicate group",history:true,undoSteps:1},selection:{type:"group",id:nextGroupId}};
   }
   if(type!=="media"&&type!=="text"&&type!=="element")throw new TypeError("A selected media, text, or Timeline asset is required.");
   if(!MEDIA_CONTEXT_ACTIONS.includes(action))throw new RangeError("Unsupported Advanced object action.");
@@ -1632,6 +1653,7 @@ export function applyAdvancedObjectAction(document,target,action,{
     duplicate:"Duplicate",
     delete:"Delete"
   }[action];
+  refreshAdvancedScene(state);
   return{
     document:state,
     changed:true,
@@ -1815,7 +1837,7 @@ export function buildAdvancedSelectionModel(document={},selection={}){
     return group?{
       target:{type,id},
       element:clone(group),
-      actions:["duplicate","delete","ungroup"],
+      actions:["bring-forward","send-backward","duplicate","delete","ungroup"],
       editableText:false,
       typography:null
     }:null;

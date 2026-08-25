@@ -20,8 +20,29 @@ class WP_Error {
     public function get_error_message() { return $this->message; }
     public function get_error_data() { return $this->data; }
 }
-class WP_REST_Response {}
+class WP_REST_Response {
+    private $data;
+    private $status;
+    public function __construct($data = array(), $status = 200) { $this->data = $data; $this->status = $status; }
+    public function get_data() { return $this->data; }
+    public function get_status() { return $this->status; }
+    public function header() {}
+}
+class WP_REST_Request {
+    public $method;
+    public $path;
+    public $headers = array();
+    public $params = array();
+    public function __construct($method, $path) { $this->method = $method; $this->path = $path; }
+    public function set_header($key, $value) { $this->headers[strtolower((string) $key)] = (string) $value; }
+    public function get_header($key) { return $this->headers[strtolower((string) $key)] ?? ''; }
+    public function set_param($key, $value) { $this->params[$key] = $value; }
+    public function get_param($key) { return $this->params[$key] ?? null; }
+}
 class WP_REST_Server { const CREATABLE = 'POST'; }
+class MMTL_Test_REST_Server {
+    public function get_routes() { return array('/mmed/v2/file-vault/bootstrap' => array()); }
+}
 
 function add_action() {}
 function add_filter() {}
@@ -49,6 +70,18 @@ function sfwd_lms_has_access($course_id, $user_id) { return $course_id === 3893 
 function is_wp_error($value) { return $value instanceof WP_Error; }
 function wp_generate_uuid4() { return '9d8d7a7a-c915-4d36-a657-910ad2221002'; }
 function wp_json_encode($value) { return json_encode($value); }
+function wp_create_nonce($action) { return $action === 'wp_rest' ? 'test-wp-rest-nonce' : 'wrong-action'; }
+function rest_get_server() { return new MMTL_Test_REST_Server(); }
+function rest_do_request($request) {
+    $GLOBALS['mmtl_last_internal_rest_request'] = $request;
+    // Mirror File Vault V2's browser-auth permission contract closely enough
+    // that omission of the nonce makes this executable integration fail.
+    if ($request->get_header('authorization') !== ''
+        || $request->get_header('x-wp-nonce') !== wp_create_nonce('wp_rest')) {
+        return new WP_REST_Response(array('code' => 'mmed_file_vault_v2_nonce_invalid'), 403);
+    }
+    return new WP_REST_Response(array('student' => array('id' => 101), 'documents' => array()), 200);
+}
 
 require dirname(__DIR__, 4) . '/wp-content/plugins/missionmed-timeline-sso/missionmed-timeline-sso.php';
 
@@ -116,26 +149,43 @@ $changed_access = $student_access;
 $changed_access['entitlement_version'] = 'revoked';
 $checks['entitlement_change_rejects_token'] = is_wp_error(mmtl_verify_jwt($issued['token'], $issued['principal_id'], 101, $changed_access));
 
+$filevault_dispatch = mmtl_filevault_source_dispatch('/mmed/v2/file-vault/bootstrap');
+$checks['filevault_v2_internal_nonce_interop'] = is_array($filevault_dispatch)
+    && ($filevault_dispatch['student']['id'] ?? 0) === 101
+    && ($GLOBALS['mmtl_last_internal_rest_request'] ?? null) instanceof WP_REST_Request
+    && $GLOBALS['mmtl_last_internal_rest_request']->get_header('x-wp-nonce') === wp_create_nonce('wp_rest')
+    && $GLOBALS['mmtl_last_internal_rest_request']->get_header('authorization') === '';
+
 $vault_record = array(
-    'id' => '11111111-1111-4111-8111-111111111111',
+    'id' => 27,
     'owner_id' => 101,
-    'current_version_id' => '22222222-2222-4222-8222-222222222222',
-    'document_type' => 'cv',
-    'original_filename' => 'CV.pdf',
+    'version' => 2,
+    'document_type' => 'curriculum_vitae',
+    'original_name' => 'CV.pdf',
     'updated_at' => '2026-08-10T12:00:00Z',
+    'download_available' => true,
     'r2_key' => 'must-not-escape',
     'versions' => array(array(
-        'id' => '22222222-2222-4222-8222-222222222222',
+        'number' => 2,
+        'version_uuid' => '22222222-2222-4222-8222-222222222222',
+        'verification_state' => 'ready_clean',
         'mime_type' => 'application/pdf',
         'file_size' => 4096,
-        'upload_confirmed' => true,
         'r2_key' => 'must-not-escape',
     )),
 );
 $vault_descriptor = mmtl_filevault_source_descriptor($vault_record, 101, true);
 $checks['filevault_source_owner_bound'] = is_array($vault_descriptor)
-    && $vault_descriptor['id'] === $vault_record['id']
-    && $vault_descriptor['versionId'] === $vault_record['current_version_id'];
+    && $vault_descriptor['id'] === (string) $vault_record['id']
+    && $vault_descriptor['versionId'] === $vault_record['versions'][0]['version_uuid'];
+$clean_v1 = $vault_record;
+$clean_v1['versions'][0]['number'] = 1;
+unset($clean_v1['version']);
+$checks['filevault_source_missing_declared_version_denied'] = mmtl_filevault_source_descriptor($clean_v1, 101, true) === null;
+$clean_v1['version'] = 0;
+$checks['filevault_source_zero_declared_version_denied'] = mmtl_filevault_source_descriptor($clean_v1, 101, true) === null;
+$clean_v1['version'] = '1x';
+$checks['filevault_source_invalid_declared_version_denied'] = mmtl_filevault_source_descriptor($clean_v1, 101, true) === null;
 $checks['filevault_source_storage_opaque'] = is_array($vault_descriptor)
     && !isset($vault_descriptor['r2_key'])
     && !isset($vault_descriptor['url']);
@@ -151,7 +201,7 @@ $wrong_type['versions'][0]['mime_type'] = 'image/png';
 $checks['filevault_source_wrong_type_not_listed'] = mmtl_filevault_source_smart_fill_ready(
     mmtl_filevault_source_descriptor($wrong_type, 101, true)
 ) === false;
-$vault_record['versions'][0]['upload_confirmed'] = false;
+$vault_record['versions'][0]['verification_state'] = 'pending_scan';
 $checks['filevault_source_unconfirmed_denied'] = mmtl_filevault_source_descriptor($vault_record, 101, true) === null;
 $checks['filevault_source_unconfirmed_not_listed'] = mmtl_filevault_source_smart_fill_ready(
     mmtl_filevault_source_descriptor($vault_record, 101, true)

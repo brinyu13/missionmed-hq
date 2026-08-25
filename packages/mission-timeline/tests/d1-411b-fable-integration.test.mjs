@@ -219,14 +219,14 @@ test("D1-411B fails soft before the protected kernel for a milestone-only timeli
   assert.doesNotMatch(rendered.html,/audience|canonical|kernel|renderer/i);
 });
 
-test("D1-411B active application routes five product surfaces and export through the same kernel",async()=>{
+test("D1-411B active application routes five product surfaces and export through the shared Founder serializer",async()=>{
   const source=await readFile(new URL("js/407f-engineering-adapter.js",webRoot),"utf8");
-  assert.match(source,/createD1411AKernelManager\(\{/);
-  assert.match(source,/createD1411AKernelExportAdapter\(\{kernelManager\}\)/);
+  assert.match(source,/serializeFounderPresentation\(projected,\{/);
+  assert.match(source,/const exportAdapter=createLocalExportAdapter\(\{/);
+  assert.match(source,/presentationAuthority:"D1-TIMELINE-FOUNDER-REANCHOR-015\+DR-127"/);
   for(const surface of ["home","builder","full-preview","edit","export"]){
     assert.match(source,new RegExp(`surface[:=][^\\n]{0,80}["']${surface}["']|["']${surface}["'][^\\n]{0,80}surface`),surface);
   }
-  assert.doesNotMatch(source,/createLocalExportAdapter\(/);
 });
 
 test("D1-411B kernel host destroys discarded kernels and exports from committed DOM",async()=>{

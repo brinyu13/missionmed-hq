@@ -44,6 +44,10 @@ const FORCED_CATEGORY: Partial<Record<CvProviderCandidate["canonicalType"], CvCa
   AWARD_HONOR: "education",
   CERTIFICATION: "education",
   VOLUNTEER_EXPERIENCE: "work",
+  LEADERSHIP: "work",
+  WORK_EXPERIENCE: "work",
+  RESIDENCY_FELLOWSHIP: "work",
+  INTERNSHIP_HOUSE_OFFICER: "work",
   STEP_1: "usmle",
   STEP_2_CK: "usmle",
   STEP_3: "usmle",
@@ -54,6 +58,18 @@ const FORCED_CATEGORY: Partial<Record<CvProviderCandidate["canonicalType"], CvCa
   RESEARCH_EXPERIENCE: "res",
   PERSONAL_NOT_ON_CV: "personal",
 };
+
+const MILESTONE_TYPES = new Set<CvProviderCandidate["canonicalType"]>([
+  "GRADUATION",
+  "STEP_1",
+  "STEP_2_CK",
+  "STEP_3",
+  "ECFMG_CERTIFICATION",
+  "INTERVIEW",
+  "MOVE_TO_USA",
+  "AWARD_HONOR",
+  "CERTIFICATION",
+]);
 
 function normalizeExplicitServiceClassification(
   canonicalType: string,
@@ -110,9 +126,12 @@ function providerEvidence(value: unknown, blocks: Map<string, string>): CvProvid
   const uncertainty = text(item.uncertainty, 1_000, true);
   if (!field || !EVIDENCE_FIELDS.has(field) || !sourceBlockIds?.length || !excerpt || !support || !reason) return null;
   if (sourceBlockIds.some((id) => !blocks.has(id))) return null;
-  const normalizedExcerpt = normalizedEvidenceText(excerpt);
-  if (!sourceBlockIds.some((id) => normalizedEvidenceText(blocks.get(id)!).includes(normalizedExcerpt))) return null;
-  return { field, sourceBlockIds, excerpt, support, reason, uncertainty };
+  // Provenance is an exact source-byte claim. Normalized similarity may help with
+  // classification, but it must never manufacture an evidence span that is not
+  // literally present in text recovered from the authenticated stored object.
+  const exactSourceBlockIds = sourceBlockIds.filter((id) => blocks.get(id)!.includes(excerpt));
+  if (!exactSourceBlockIds.length) return null;
+  return { field, sourceBlockIds: exactSourceBlockIds, excerpt, support, reason, uncertainty };
 }
 
 function normalizedKey(value: unknown): string {
@@ -128,20 +147,141 @@ function tokenSimilarity(left: string, right: string): number {
   return intersection / new Set([...a, ...b]).size;
 }
 
-function explicitEvidenceMatches(field: CvEvidenceField, value: string | null, evidence: CvProviderEvidence[], datePrecision: CvProviderCandidate["datePrecision"]): boolean {
+const MONTH_NAMES = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+];
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function normalizedDateIsPresentInEvidence(
+  value: string,
+  excerpt: string,
+  datePrecision: CvProviderCandidate["datePrecision"],
+): boolean {
+  const [year, monthText, dayText] = value.split("-");
+  if (!excerpt.includes(year!)) return false;
+  if (datePrecision === "YEAR") return true;
+  if (!monthText) return false;
+  const month = Number(monthText);
+  const monthName = MONTH_NAMES[month - 1];
+  if (!monthName) return false;
+  const normalized = normalizedKey(excerpt);
+  const monthPrefix = monthName.slice(0, 3);
+  const numericMonth = String(month);
+  const monthYear = new RegExp(`(?:\\b${escapeRegex(monthName)}\\b|\\b${escapeRegex(monthPrefix)}\\w*\\b)\\s+(?:\\d{1,2}\\s+)?${year}\\b|\\b(?:0?${numericMonth})[\\/-]${year}\\b|\\b${year}[\\/-]0?${numericMonth}\\b`, "i");
+  if (!monthYear.test(normalized) && !monthYear.test(excerpt)) return false;
+  if (datePrecision !== "DAY") return true;
+  if (!dayText) return false;
+  const day = Number(dayText);
+  const dayMonthYear = new RegExp(`\\b(?:${escapeRegex(monthName)}|${escapeRegex(monthPrefix)}\\w*)\\s+${day}(?:st|nd|rd|th)?[,]?\\s+${year}\\b|\\b${day}(?:st|nd|rd|th)?\\s+(?:${escapeRegex(monthName)}|${escapeRegex(monthPrefix)}\\w*)\\s+${year}\\b|\\b0?${numericMonth}[\\/-]0?${day}[\\/-]${year}\\b|\\b${year}[\\/-]0?${numericMonth}[\\/-]0?${day}\\b`, "i");
+  return dayMonthYear.test(normalized) || dayMonthYear.test(excerpt);
+}
+
+function evidenceMatches(field: CvEvidenceField, value: string | null, evidence: CvProviderEvidence[], datePrecision: CvProviderCandidate["datePrecision"]): boolean {
   if (value === null || ["canonicalType", "categoryId"].includes(field)) return true;
-  const excerpts = evidence.filter((item) => item.field === field && item.support === "EXPLICIT").map((item) => item.excerpt);
-  if (!excerpts.length) return true;
+  const excerpts = evidence.filter((item) => item.field === field).map((item) => item.excerpt);
+  if (!excerpts.length) return false;
   if (field === "startDate" || field === "endDate") {
-    const year = value.slice(0, 4);
-    if (datePrecision === "YEAR") return excerpts.some((excerpt) => excerpt.includes(year));
-    return excerpts.some((excerpt) => excerpt.includes(year));
+    return excerpts.some((excerpt) => normalizedDateIsPresentInEvidence(value, excerpt, datePrecision));
   }
   const normalizedValue = normalizedEvidenceText(value);
   return excerpts.some((excerpt) => {
     const normalizedExcerpt = normalizedEvidenceText(excerpt);
     return normalizedExcerpt.includes(normalizedValue) || tokenSimilarity(value, excerpt) >= 0.72;
   });
+}
+
+function validNormalizedDate(value: string): boolean {
+  if (!DATE_PATTERN.test(value)) return false;
+  const [yearText, monthText, dayText] = value.split("-");
+  const year = Number(yearText);
+  const month = monthText ? Number(monthText) : null;
+  const day = dayText ? Number(dayText) : null;
+  if (!Number.isInteger(year) || year < 1900 || year > 2200) return false;
+  if (month === null) return true;
+  if (!Number.isInteger(month) || month < 1 || month > 12) return false;
+  if (day === null) return true;
+  const maximum = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return Number.isInteger(day) && day >= 1 && day <= maximum;
+}
+
+function normalizedDatePrecision(value: string | null): "DAY" | "MONTH" | "YEAR" | "UNKNOWN" {
+  if (!value) return "UNKNOWN";
+  return value.length === 10 ? "DAY" : value.length === 7 ? "MONTH" : "YEAR";
+}
+
+function reviewQuestion(candidate: CvValidatedCandidate): string | null {
+  if (candidate.missingFields.includes("title")) return "What should this experience be called on your Timeline?";
+  if (candidate.missingFields.includes("startDate")) return `When did ${candidate.title || "this experience"} start?`;
+  if (candidate.duplicateOfEventIds.length || candidate.duplicateCandidateIds.length) return `Is ${candidate.title || "this item"} already represented on your Timeline?`;
+  if (candidate.canonicalType === "UNCLASSIFIED") return `Which Timeline category best describes ${candidate.title || "this experience"}?`;
+  return candidate.uncertainty[0]
+    || candidate.warnings[0]
+    || `Does ${candidate.title || "this experience"} belong in the ${candidate.categoryId} category?`;
+}
+
+function attachProvenanceAndReview(candidate: CvValidatedCandidate, request: CvIntelligenceRequest): void {
+  const blocks = new Map(request.blocks.map((block) => [block.id, block]));
+  const grouped = new Map<string, CvValidatedCandidate["provenance"][number]>();
+  for (const evidence of candidate.evidence) {
+    for (const blockId of evidence.sourceBlockIds) {
+      const block = blocks.get(blockId);
+      if (!block) continue;
+      const exactStart = block.text.indexOf(evidence.excerpt);
+      const charStart = exactStart >= 0 ? exactStart : -1;
+      const key = stableStringify([blockId, evidence.excerpt, evidence.support, evidence.reason, evidence.uncertainty]);
+      const prior = grouped.get(key);
+      if (prior) {
+        prior.fields = [...new Set([...prior.fields, evidence.field])];
+        continue;
+      }
+      grouped.set(key, {
+        sourceObjectId: request.source.objectId,
+        sourceSha256: request.source.sha256,
+        sourceFileName: request.source.fileName || null,
+        sourceBlockId: blockId,
+        pageNumber: block.pageNumber,
+        section: block.section,
+        excerpt: evidence.excerpt,
+        charStart,
+        charEnd: charStart >= 0 ? charStart + evidence.excerpt.length : -1,
+        fields: [evidence.field],
+        support: evidence.support,
+        reason: evidence.reason,
+        uncertainty: evidence.uncertainty,
+      });
+    }
+  }
+  candidate.provenance = [...grouped.values()];
+  candidate.normalizedInterpretation = {
+    canonicalType: candidate.canonicalType,
+    categoryId: candidate.categoryId,
+    timelineKind: candidate.timelineKind,
+    title: candidate.title,
+    organization: candidate.organization,
+    location: candidate.location,
+    country: candidate.country,
+    specialty: candidate.specialty,
+    experienceType: candidate.experienceType,
+    startDate: candidate.startDate,
+    endDate: candidate.endDate,
+    datePrecision: candidate.datePrecision,
+    openEnded: candidate.openEnded,
+  };
+  const lane = candidate.safeToBulkAccept
+    ? "HIGH"
+    : candidate.confidence.level === "MEDIUM"
+      ? "MEDIUM"
+      : "LOW";
+  candidate.review = {
+    lane,
+    action: lane === "HIGH" ? "BULK_ACCEPT" : lane === "MEDIUM" ? "QUICK_CONFIRM" : "TARGETED_QUESTION",
+    requiredFields: [...candidate.missingFields],
+    smallestQuestion: lane === "LOW" ? reviewQuestion(candidate) : null,
+  };
 }
 
 function duplicateEventIds(candidate: CvProviderCandidate, request: CvIntelligenceRequest): string[] {
@@ -224,12 +364,19 @@ function parseCandidate(value: unknown, request: CvIntelligenceRequest): { local
   const specialty = text(item.specialty, 200, true);
   const experienceType = text(item.experienceType, 200, true);
   const startDate = text(item.startDate, 10, true);
-  const endDate = text(item.endDate, 10, true);
-  if ((startDate && !DATE_PATTERN.test(startDate)) || (endDate && !DATE_PATTERN.test(endDate)) || (startDate && endDate && endDate < startDate)) return null;
+  let endDate = text(item.endDate, 10, true);
+  if ((startDate && !validNormalizedDate(startDate)) || (endDate && !validNormalizedDate(endDate)) || (startDate && endDate && endDate < startDate)) return null;
   const datePrecision = ["DAY", "MONTH", "YEAR", "UNKNOWN"].includes(String(item.datePrecision))
     ? item.datePrecision as CvProviderCandidate["datePrecision"]
     : null;
   if (!datePrecision || typeof item.openEnded !== "boolean") return null;
+  if (item.openEnded === true && endDate !== null) return null;
+  if (item.openEnded === true && !(evidence as CvProviderEvidence[]).some(({excerpt})=>/\b(?:present|current|currently|ongoing)\b/i.test(excerpt))) return null;
+  // Structured models sometimes repeat a milestone's only date as endDate.
+  // The Timeline contract represents that exact same fact with a null end;
+  // normalize this losslessly, but reject a genuinely different duration.
+  if (timelineKind === "milestone" && endDate === startDate) endDate = null;
+  if (timelineKind === "milestone" && (item.openEnded === true || endDate !== null)) return null;
   const uncertainty = stringArray(item.uncertainty, 20, 1_000);
   const warnings = stringArray(item.warnings, 20, 1_000);
   if (!uncertainty || !warnings) return null;
@@ -243,7 +390,7 @@ function parseCandidate(value: unknown, request: CvIntelligenceRequest): { local
     startDate,
     endDate,
   };
-  if (Object.entries(factualValues).some(([field, value]) => !explicitEvidenceMatches(
+  if (Object.entries(factualValues).some(([field, value]) => !evidenceMatches(
     field as CvEvidenceField,
     value ?? null,
     evidence as CvProviderEvidence[],
@@ -258,6 +405,15 @@ function parseCandidate(value: unknown, request: CvIntelligenceRequest): { local
   const correctedWarnings = correctedCategory
     ? [...warnings, ...(classificationNormalization.warning ? [classificationNormalization.warning] : []), `Category corrected from ${categoryInput} to ${categoryId} by the canonical taxonomy.`]
     : warnings;
+  const effectivePrecision = normalizedDatePrecision(startDate);
+  const precisionContradiction = datePrecision === "DAY" && effectivePrecision !== "DAY"
+    || datePrecision === "MONTH" && !["MONTH", "DAY"].includes(effectivePrecision);
+  if (precisionContradiction) {
+    correctedWarnings.push(`Date precision ${datePrecision} does not match normalized start date precision ${effectivePrecision}; confirm the date.`);
+  }
+  if (MILESTONE_TYPES.has(canonicalType as CvProviderCandidate["canonicalType"]) && timelineKind !== "milestone") {
+    correctedWarnings.push(`${canonicalType.replaceAll("_", " ")} is normally a milestone; confirm the duration treatment.`);
+  }
   const providerCandidate: CvProviderCandidate = {
     localId,
     canonicalType: canonicalType as CvProviderCandidate["canonicalType"],
@@ -323,6 +479,9 @@ function parseCandidate(value: unknown, request: CvIntelligenceRequest): { local
     duplicateOfEventIds,
     duplicateCandidateIds: [],
     safeToBulkAccept: false,
+    normalizedInterpretation: null as never,
+    provenance: [],
+    review: null as never,
   };
   return { localId, candidate };
 }
@@ -420,7 +579,10 @@ export function postValidateCvProviderResult(value: unknown, request: CvIntellig
     candidates.push(parsed.candidate);
   }
   candidateDuplicates(candidates);
-  for (const candidate of candidates) finalizeBulkSafety(candidate);
+  for (const candidate of candidates) {
+    finalizeBulkSafety(candidate);
+    attachProvenanceAndReview(candidate, request);
+  }
   const unresolvedQuestions = stringArray(result.unresolvedQuestions, 100, 1_000);
   if (!unresolvedQuestions) throw new TimelineError("CV_PROVIDER_OUTPUT_INVALID", "CV intelligence questions are invalid.", 502);
   if (result.qualitySuggestions.length > 200) throw new TimelineError("CV_PROVIDER_OUTPUT_INVALID", "CV intelligence suggestions are invalid.", 502);

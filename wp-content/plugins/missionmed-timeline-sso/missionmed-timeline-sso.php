@@ -494,6 +494,12 @@ function mmtl_filevault_source_permission($request) {
     if (is_wp_error($access)) {
         return $access;
     }
+    // File Vault source custody is student-owned. Administrators may author a
+    // local canary Timeline, but must never use that privilege to enumerate or
+    // import another student's private Vault documents.
+    if (user_can($user, 'manage_options')) {
+        return new WP_Error('timeline_filevault_student_required', 'File Vault CV import is available from an eligible student session.', array('status' => 403));
+    }
     $principal = mmtl_principal_for_user((int) $user->ID);
     return is_wp_error($principal) ? $principal : true;
 }
@@ -510,12 +516,12 @@ function mmtl_filevault_source_error($code, $message, $status) {
 }
 
 /**
- * Dispatch the already-registered File Vault V1 read contract without
+ * Dispatch the already-registered File Vault V2 read contract without
  * exposing its storage implementation or accepting cross-user parameters.
  */
 function mmtl_filevault_source_dispatch($path, $params = array()) {
     $routes = rest_get_server()->get_routes();
-    if (!isset($routes['/mmed/v1/files'])) {
+    if (!isset($routes['/mmed/v2/file-vault/bootstrap'])) {
         return mmtl_filevault_source_error(
             'timeline_filevault_unavailable',
             'File Vault is temporarily unavailable. You can still upload a CV from this device.',
@@ -523,6 +529,11 @@ function mmtl_filevault_source_dispatch($path, $params = array()) {
         );
     }
     $request = new WP_REST_Request('GET', $path);
+    // File Vault V2 deliberately requires the same browser-auth REST nonce on
+    // every request, including internal GET dispatches. Mint it server-side for
+    // the already-authenticated current user; never accept a browser-supplied
+    // nonce or authorization header for this owner-scoped hop.
+    $request->set_header('X-WP-Nonce', wp_create_nonce('wp_rest'));
     foreach ($params as $key => $value) {
         $request->set_param(sanitize_key($key), sanitize_text_field((string) $value));
     }
@@ -550,6 +561,7 @@ function mmtl_filevault_source_dispatch($path, $params = array()) {
 
 function mmtl_filevault_source_allowed_type($value) {
     return in_array(sanitize_key((string) $value), array(
+        'curriculum_vitae',
         'cv',
         'personal_statement',
         'certificate',
@@ -580,66 +592,112 @@ function mmtl_filevault_source_descriptor($record, $owner_id, $require_version =
     if (!is_array($record) || absint($record['owner_id'] ?? 0) !== absint($owner_id)) {
         return null;
     }
-    $id = sanitize_text_field((string) ($record['id'] ?? ''));
-    $version_id = sanitize_text_field((string) ($record['current_version_id'] ?? ''));
+    $id = absint($record['id'] ?? 0);
     $document_type = sanitize_key((string) ($record['document_type'] ?? ''));
-    if (!preg_match('/^[0-9a-fA-F-]{8,64}$/', $id) || !mmtl_filevault_source_allowed_type($document_type)) {
+    if ($id < 1 || !mmtl_filevault_source_allowed_type($document_type)) {
+        return null;
+    }
+    $declared_current = $record['version'] ?? null;
+    if (!(is_int($declared_current)
+        || (is_string($declared_current) && preg_match('/^[1-9][0-9]*$/', $declared_current)))
+        || (int) $declared_current < 1) {
         return null;
     }
     $version = null;
+    $current_number = (int) $declared_current;
     foreach ((array) ($record['versions'] ?? array()) as $candidate) {
-        if (is_array($candidate) && hash_equals($version_id, sanitize_text_field((string) ($candidate['id'] ?? '')))) {
+        if (is_array($candidate) && absint($candidate['number'] ?? 0) === $current_number) {
             $version = $candidate;
             break;
         }
     }
-    if ($require_version && ($version_id === '' || !is_array($version) || empty($version['upload_confirmed']))) {
+    // Fail closed when File Vault's declared current version is absent. Choosing the
+    // final array entry would silently substitute different bytes and break exact-version
+    // custody even when that fallback happened to be clean and downloadable.
+    if ($version === null && $require_version) {
         return null;
     }
-    $name = sanitize_file_name((string) ($record['original_filename'] ?? ''));
+    $version_id = sanitize_text_field((string) ($version['version_uuid'] ?? ''));
+    $verification_state = sanitize_key((string) ($version['verification_state'] ?? ''));
+    if ($require_version && (
+        !is_array($version)
+        || !preg_match('/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/', $version_id)
+        || $verification_state !== 'ready_clean'
+        || empty($record['download_available'])
+    )) {
+        return null;
+    }
+    $name = sanitize_file_name((string) ($record['original_name'] ?? ''));
     if ($name === '') {
-        $name = sanitize_text_field((string) ($record['display_name'] ?? $record['canonical_name'] ?? 'MissionMed document'));
+        $name = sanitize_text_field((string) ($record['name'] ?? $record['canonical_name'] ?? 'MissionMed document'));
     }
     return array(
-        'id' => $id,
+        'id' => (string) $id,
         'name' => $name,
-        'provider' => 'missionmed-filevault-v1',
+        'provider' => 'missionmed-filevault-v2',
         'documentType' => $document_type,
         'versionId' => $version_id,
-        'mimeType' => sanitize_text_field((string) ($version['mime_type'] ?? '')),
-        'sizeBytes' => isset($version['file_size']) ? absint($version['file_size']) : null,
+        'versionNumber' => absint($version['number'] ?? $current_number),
+        'verificationState' => $verification_state,
+        'mimeType' => sanitize_text_field((string) ($version['mime_type'] ?? $record['mime_type'] ?? '')),
+        'sizeBytes' => isset($version['file_size']) ? absint($version['file_size']) : (isset($record['file_size']) ? absint($record['file_size']) : null),
         'updatedAt' => sanitize_text_field((string) ($record['updated_at'] ?? '')),
     );
 }
 
-function mmtl_filevault_sources_endpoint($request) {
-    $upstream = mmtl_filevault_source_dispatch('/mmed/v1/files');
+/**
+ * Load only the current student's V2 bootstrap and stamp the already
+ * server-scoped records with that verified owner for the descriptor guard.
+ */
+function mmtl_filevault_source_documents_for_owner($owner_id) {
+    $owner_id = absint($owner_id);
+    if ($owner_id < 1) {
+        return mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404);
+    }
+    $upstream = mmtl_filevault_source_dispatch('/mmed/v2/file-vault/bootstrap');
     if (is_wp_error($upstream)) {
         return $upstream;
     }
+    $upstream_owner = absint($upstream['student']['id'] ?? 0);
+    if ($upstream_owner !== $owner_id) {
+        return mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404);
+    }
+    $documents = array();
+    foreach ((array) ($upstream['documents'] ?? array()) as $record) {
+        if (!is_array($record)) {
+            continue;
+        }
+        $record['owner_id'] = $upstream_owner;
+        $documents[] = $record;
+    }
+    return $documents;
+}
+
+function mmtl_filevault_source_record_for_owner($document_id, $owner_id) {
+    $document_id = absint($document_id);
+    $documents = mmtl_filevault_source_documents_for_owner($owner_id);
+    if (is_wp_error($documents)) {
+        return $documents;
+    }
+    foreach ($documents as $record) {
+        if (absint($record['id'] ?? 0) === $document_id) {
+            return $record;
+        }
+    }
+    return mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404);
+}
+
+function mmtl_filevault_sources_endpoint($request) {
     $owner_id = get_current_user_id();
+    $records = mmtl_filevault_source_documents_for_owner($owner_id);
+    if (is_wp_error($records)) {
+        return $records;
+    }
     $query = trim(sanitize_text_field((string) $request->get_param('query')));
     $query = function_exists('mb_substr') ? mb_substr($query, 0, 80) : substr($query, 0, 80);
     $documents = array();
-    $detail_lookups = 0;
-    foreach ((array) ($upstream['files'] ?? array()) as $record) {
+    foreach ($records as $record) {
         $descriptor = mmtl_filevault_source_descriptor($record, $owner_id, true);
-        if ($descriptor === null
-            && $detail_lookups < 20
-            && is_array($record)
-            && !isset($record['versions'])
-            && absint($record['owner_id'] ?? 0) === absint($owner_id)) {
-            $detail_lookups++;
-            // A summary listing that omits per-version detail would otherwise hide every
-            // document, so resolve those candidates through the same owner-scoped detail read.
-            $id = sanitize_text_field((string) ($record['id'] ?? ''));
-            if (preg_match('/^[0-9a-fA-F-]{8,64}$/', $id)) {
-                $detail = mmtl_filevault_source_dispatch('/mmed/v1/files/' . rawurlencode($id));
-                $descriptor = is_wp_error($detail)
-                    ? null
-                    : mmtl_filevault_source_descriptor($detail['file'] ?? $detail, $owner_id, true);
-            }
-        }
         if ($descriptor === null
             || !mmtl_filevault_source_smart_fill_ready($descriptor)
             || ($query !== '' && stripos($descriptor['name'], $query) === false)) {
@@ -654,15 +712,15 @@ function mmtl_filevault_sources_endpoint($request) {
 }
 
 function mmtl_filevault_source_endpoint($request) {
-    $id = sanitize_text_field((string) $request['id']);
-    if (!preg_match('/^[0-9a-fA-F-]{8,64}$/', $id)) {
+    $id = absint($request['id']);
+    if ($id < 1) {
         return mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404);
     }
-    $upstream = mmtl_filevault_source_dispatch('/mmed/v1/files/' . rawurlencode($id));
-    if (is_wp_error($upstream)) {
-        return $upstream;
+    $record = mmtl_filevault_source_record_for_owner($id, get_current_user_id());
+    if (is_wp_error($record)) {
+        return $record;
     }
-    $descriptor = mmtl_filevault_source_descriptor($upstream['file'] ?? $upstream, get_current_user_id(), true);
+    $descriptor = mmtl_filevault_source_descriptor($record, get_current_user_id(), true);
     return $descriptor === null
         ? mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404)
         : mmtl_filevault_source_response(array('document' => $descriptor));
@@ -674,20 +732,22 @@ function mmtl_filevault_source_endpoint($request) {
  * returned to the browser, persisted, logged, or copied into Timeline state.
  */
 function mmtl_filevault_ingestion_endpoint($request) {
-    $id = sanitize_text_field((string) $request['id']);
+    $id = absint($request['id']);
     $params = $request->get_json_params();
     $timeline_document_id = sanitize_text_field((string) ($params['timelineDocumentId'] ?? ''));
     $requested_version_id = sanitize_text_field((string) ($params['versionId'] ?? ''));
-    if (!preg_match('/^[0-9a-fA-F-]{8,64}$/', $id)
+    if ($id < 1
         || !preg_match('/^[-_a-zA-Z0-9]{8,128}$/', $timeline_document_id)
-        || !preg_match('/^[0-9a-fA-F-]{8,64}$/', $requested_version_id)) {
+        || !preg_match('/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/', $requested_version_id)) {
         return mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404);
     }
-    $detail = mmtl_filevault_source_dispatch('/mmed/v1/files/' . rawurlencode($id));
-    if (is_wp_error($detail)) {
-        return $detail;
+    // Re-read the owner-scoped V2 bootstrap at ingestion time. A chooser row is
+    // never authority for a later import, and a version change must fail closed.
+    $record = mmtl_filevault_source_record_for_owner($id, get_current_user_id());
+    if (is_wp_error($record)) {
+        return $record;
     }
-    $descriptor = mmtl_filevault_source_descriptor($detail['file'] ?? $detail, get_current_user_id(), true);
+    $descriptor = mmtl_filevault_source_descriptor($record, get_current_user_id(), true);
     if ($descriptor === null || !hash_equals((string) $descriptor['versionId'], $requested_version_id)) {
         return mmtl_filevault_source_error('timeline_filevault_source_not_found', 'That File Vault document is not available.', 404);
     }
@@ -703,7 +763,10 @@ function mmtl_filevault_ingestion_endpoint($request) {
             )
             : mmtl_filevault_source_error('timeline_filevault_source_type_denied', 'Choose a PDF or DOCX document for Smart Fill.', 415);
     }
-    $download = mmtl_filevault_source_dispatch('/mmed/v1/files/' . rawurlencode($id) . '/download');
+    $download = mmtl_filevault_source_dispatch(
+        '/mmed/v2/file-vault/files/' . rawurlencode((string) $id) . '/download',
+        array('version' => absint($descriptor['versionNumber']))
+    );
     $download_url = is_wp_error($download) ? '' : esc_url_raw((string) ($download['url'] ?? ''));
     if ($download_url === '' || !wp_http_validate_url($download_url) || strtolower((string) wp_parse_url($download_url, PHP_URL_SCHEME)) !== 'https') {
         return mmtl_filevault_source_error('timeline_filevault_unavailable', 'File Vault is temporarily unavailable. You can still upload a CV from this device.', 503);
@@ -800,12 +863,12 @@ function mmtl_register_rest_routes() {
             'query' => array('sanitize_callback' => 'sanitize_text_field'),
         ),
     ));
-    register_rest_route(MMTL_REST_NAMESPACE, MMTL_REST_FILEVAULT_SOURCES_ROUTE . '/(?P<id>[0-9a-fA-F-]{8,64})', array(
+    register_rest_route(MMTL_REST_NAMESPACE, MMTL_REST_FILEVAULT_SOURCES_ROUTE . '/(?P<id>[1-9][0-9]{0,18})', array(
         'methods' => WP_REST_Server::READABLE,
         'callback' => 'mmtl_filevault_source_endpoint',
         'permission_callback' => 'mmtl_filevault_source_permission',
     ));
-    register_rest_route(MMTL_REST_NAMESPACE, MMTL_REST_FILEVAULT_SOURCES_ROUTE . '/(?P<id>[0-9a-fA-F-]{8,64})/ingestions', array(
+    register_rest_route(MMTL_REST_NAMESPACE, MMTL_REST_FILEVAULT_SOURCES_ROUTE . '/(?P<id>[1-9][0-9]{0,18})/ingestions', array(
         'methods' => WP_REST_Server::CREATABLE,
         'callback' => 'mmtl_filevault_ingestion_endpoint',
         'permission_callback' => 'mmtl_filevault_source_permission',

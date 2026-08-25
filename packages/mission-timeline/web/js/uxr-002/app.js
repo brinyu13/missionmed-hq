@@ -68,6 +68,7 @@ import {createD1408PdfIntakeAdapter} from "./intake-d1-408-adapter.js";
 import {monthFieldMarkup,installMonthFields} from "./month-field.js";
 import {announce,closeOverlay,openDialog,showToast} from "./overlays.js";
 import {canonicalBoardPreview} from "./preview.js";
+import {renderLastGoodBuilderPreview} from "./last-good-builder-preview.js";
 import {openQualityGuardian} from "./quality-guardian.js";
 import {
   installFocusTrap,
@@ -422,7 +423,7 @@ function renderIntakeFoundation(store){
 function renderScreen(store){
   if(store.route==="home")return responsiveFrame(store,"home",{fullContent:renderHome(store)});
   if(store.route==="builder"){
-    const previewHtml=store.document.events.length?canonicalBoardPreview(store.document,{
+    const previewHtml=store.document.events.length?renderLastGoodBuilderPreview(store.document,{
       interactive:true,
       label:"Live timeline preview; activate an event to edit it",
       eventTargetAttribute:"data-builder-preview-entry"

@@ -37,6 +37,10 @@ function docx(name="Synthetic_CV.docx",size=1024){
   return{name,type:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",size,lastModified:1};
 }
 
+function rescueFile(name="Synthetic_Timeline.pptx",type="application/vnd.openxmlformats-officedocument.presentationml.presentation",size=1024){
+  return{name,type,size,lastModified:1,timelineRescue:true};
+}
+
 function candidate(overrides={}){
   return{
     id:"candidate-1",
@@ -83,6 +87,22 @@ test("file validation accepts PDF/DOCX through 20 MiB and preserves the frozen e
   assert.equal(detectDocumentType(pdf("MyERAS_export.pdf")),"MyERAS export");
   assert.equal(detectDocumentType(docx("résumé.docx")),"Résumé");
   assert.deepEqual(DOCUMENT_TYPES,["CV","MyERAS export","Résumé"]);
+});
+
+test("Timeline Rescue validation is explicit, bounded, and cannot widen ordinary CV intake",()=>{
+  const pptx=rescueFile();
+  assert.equal(validateIntakeFile(pptx).valid,true);
+  assert.equal(validateIntakeFile(pptx).kind,"rescue-pptx");
+  assert.equal(validateIntakeFile(pptx).metadata.timelineRescue,true);
+  assert.equal(validateIntakeFile({...pptx,timelineRescue:false}).valid,false,"ordinary PPTX must remain outside CV intake");
+  assert.equal(validateIntakeFile(rescueFile("synthetic.pdf","application/pdf")).kind,"rescue-pdf");
+  assert.equal(validateIntakeFile(rescueFile("synthetic.png","image/png")).kind,"rescue-png");
+  assert.equal(validateIntakeFile(rescueFile("synthetic.jpg","image/jpeg")).kind,"rescue-jpeg");
+  assert.equal(validateIntakeFile(rescueFile("synthetic.key","application/x-iwork-keynote-sffkey")).valid,false);
+  assert.equal(validateIntakeFile(rescueFile("synthetic.txt","text/plain")).valid,false);
+  assert.equal(validateIntakeFile(rescueFile("spoofed.pptx","text/plain")).valid,false);
+  assert.equal(validateIntakeFile(rescueFile("too-large.pptx",pptx.type,MAX_DOCUMENT_BYTES+1)).error,INTAKE_COPY.rescueFileError);
+  assert.equal(validateIntakeFile({...docx(),timelineRescue:true}).valid,false,"DOCX is not an Existing Timeline Rescue format");
 });
 
 test("the pure upload state gates extraction on both file and consent without mutating its input",()=>{
@@ -270,6 +290,33 @@ test("review supports filtering, inline edits, high-confidence acceptance, and e
   assert.match(duplicateHtml,/“Research assistant from January through June\.”/);
 });
 
+test("an explicit reviewed end month closes false-like imported ongoing fields",async()=>{
+  const machine=await extractedMachine({candidates:[candidate({
+    id:"reviewed-observership",
+    categoryId:"clinical",
+    title:"Internal Medicine Observership",
+    startDate:"2024-01",
+    endDate:null,
+    openEnded:true,
+    confidence:"low",
+    fields:{currentlyOnRotation:false,stillWorking:"false",ongoing:"false"}
+  })]});
+
+  machine.editCandidate("reviewed-observership",{endDate:"2024-03"});
+  const reviewed=machine.state.candidates[0];
+  assert.equal(reviewed.endDate,"2024-03");
+  assert.equal(reviewed.openEnded,false);
+  assert.equal(reviewed.fields.currentlyOnRotation,false);
+  assert.equal(reviewed.fields.stillWorking,false);
+  assert.equal(reviewed.fields.ongoing,false);
+
+  machine.editCandidate("reviewed-observership",{fields:{currentlyOnRotation:true}});
+  assert.equal(machine.state.candidates[0].openEnded,true);
+  assert.equal(machine.state.candidates[0].endDate,null);
+  machine.editCandidate("reviewed-observership",{fields:{currentlyOnRotation:false}});
+  assert.equal(machine.state.candidates[0].openEnded,false,"clearing the visible ongoing control must restore end-date review");
+});
+
 test("zero timeline writes occur before one versioned approval callback applies one undo batch",async()=>{
   const document={
     events:[{
@@ -357,6 +404,59 @@ test("zero timeline writes occur before one versioned approval callback applies 
   );
   assert.equal(versionCount,1);
   assert.equal(mutationCount,1);
+});
+
+test("trace-only File Vault custody survives review, approval, applied event provenance, and intake file audit",async()=>{
+  const sourceCustody={
+    schemaVersion:"timeline-source-custody-ref.1",
+    authority:"TRACE_ONLY",
+    provider:"missionmed-filevault-v2",
+    timelineObjectId:"object-filevault-27",
+    sha256:"c".repeat(64),
+    vaultFileId:"27",
+    versionId:"22222222-2222-4222-8222-222222222222"
+  };
+  const sourceDocument={
+    id:"source-filevault-27",fileName:"Vault_CV.pdf",fileSize:1024,mimeType:"application/pdf",
+    objectId:sourceCustody.timelineObjectId,sha256:sourceCustody.sha256,sourceCustody
+  };
+  const provenance={
+    sourceDocumentId:sourceDocument.id,
+    sourceObjectId:sourceCustody.timelineObjectId,
+    sourceSha256:sourceCustody.sha256,
+    sourceDocumentName:sourceDocument.fileName,
+    sourceExcerpt:"Synthetic research role",
+    sourceCustody
+  };
+  const machine=new IntakeStateMachine({
+    adapter:{async extract(){return{
+      readable:true,
+      candidates:[candidate({id:"filevault-candidate",provenance:[provenance]})],
+      sourceDocument
+    };}},
+    clock:fixedClock,
+    idFactory:(prefix)=>`${prefix}-filevault`
+  });
+  machine.receiveFile(pdf(sourceDocument.fileName));
+  machine.setConsent(true);
+  await machine.startExtraction();
+  assert.deepEqual(machine.state.extraction.sourceDocument.sourceCustody,sourceCustody);
+  assert.deepEqual(machine.state.file.sourceCustody,sourceCustody);
+  assert.deepEqual(machine.state.candidates[0].provenance[0].sourceCustody,sourceCustody);
+  machine.decideCandidate("filevault-candidate","accepted");
+  const document={events:[],intake:{}};
+  const result=await machine.approveAccepted({
+    async saveVersion(){},
+    async applyBatch(batch){return applyApprovalBatchToDocument(document,batch);}
+  });
+  assert.deepEqual(result.batch.sourceDocument.sourceCustody,sourceCustody);
+  assert.deepEqual(result.batch.additions[0].provenance[0].sourceCustody,sourceCustody);
+  assert.deepEqual(result.batch.acceptedCandidates[0].provenance[0].sourceCustody,sourceCustody);
+  assert.deepEqual(document.events[0].provenance[0].sourceCustody,sourceCustody);
+  assert.equal(document.events[0].provenance[0].sourceObjectId,sourceCustody.timelineObjectId);
+  assert.equal(document.events[0].provenance[0].sourceSha256,sourceCustody.sha256);
+  assert.deepEqual(document.intake.file.sourceCustody,sourceCustody);
+  assert.equal(document.intake.file.sourceCustody.authority,"TRACE_ONLY");
 });
 
 test("a failed approval never writes, and retry reuses the already-created pre-import version",async()=>{
@@ -474,6 +574,44 @@ test("installIntake delegates state actions, records rejected AI decisions, and 
   assert.ok(changes.length>=2);
   cleanup();
   assert.deepEqual(removals,["click","change","dragover","drop"]);
+});
+
+test("Accept commits the reviewed title visible in the card even when the input has not blurred",async()=>{
+  const state=hydrateIntakeState({
+    stage:INTAKE_STAGES.REVIEW,
+    file:validateIntakeFile(pdf()).metadata,
+    candidates:[candidate({id:"observership",categoryId:"work",title:"Internal Medicine Observership — January 2024 to March"})],
+    filter:"all"
+  });
+  const machine=new IntakeStateMachine({initialState:state});
+  const listeners=new Map();
+  const root={
+    addEventListener(type,listener){listeners.set(type,listener);},
+    removeEventListener(){}
+  };
+  const card={
+    dataset:{candidateCard:"observership"},
+    querySelectorAll(){return[
+      {type:"text",value:"Internal Medicine Observership",dataset:{candidateField:"title"}},
+      {type:"text",value:"Lakeside Community Hospital",dataset:{candidateExtra:"employer"}},
+      {type:"text",value:"",dataset:{candidateExtra:"employer"}}
+    ];}
+  };
+  const target={
+    dataset:{candidateId:"observership",candidateAction:"accepted"},
+    closest(selector){
+      if(selector==="[data-candidate-action]")return this;
+      if(selector==="[data-candidate-card]")return card;
+      return null;
+    }
+  };
+  const cleanup=installIntake(root,machine);
+  await listeners.get("click")({target});
+  assert.equal(machine.state.candidates[0].title,"Internal Medicine Observership");
+  const batch=buildApprovalBatch(machine.state,[],{idFactory:()=>"event-observership",clock:fixedClock});
+  assert.equal(batch.additions[0].title,"Internal Medicine Observership");
+  assert.equal(batch.additions[0].fields.employer,"Lakeside Community Hospital");
+  cleanup();
 });
 
 test("buildApprovalBatch keeps undecided suggestions and gives Add anyway a new event",async()=>{

@@ -32,12 +32,16 @@ await page.goto(appUrl,{waitUntil:"networkidle"});
 await page.waitForFunction(()=>!!window.D1_407F_ENGINEERING);
 await page.evaluate(()=>{
   const api=window.D1_407F_ENGINEERING;
-  const document=api.store.snapshot();
-  document.mode="advanced";
-  document.title="UX-007 Editor Interaction Proof";
-  document.studentProfile={...document.studentProfile,fullName:"UX-007 Browser Student",specialtyGoal:"Internal Medicine"};
-  document.events=[{id:"ux007-event",title:"Internal Medicine Residency Preparation",categoryId:"education",eventType:"duration",startDate:"2025-07",endDate:"2026-06",openEnded:false,visibilityState:"INTERVIEWER_SAFE",siteName:"MissionMed Institute",sourceType:"ux007",notes:"",lane:0,fields:{hiddenInActiveVariant:false}}];
-  document.advanced={
+  window.__ux007AdvancedGestureReceipts=[];
+  document.addEventListener("d1-411a:advanced-gesture",(event)=>{
+    if(event.detail?.performance)window.__ux007AdvancedGestureReceipts.push(event.detail.performance);
+  });
+  const timelineDocument=api.store.snapshot();
+  timelineDocument.mode="advanced";
+  timelineDocument.title="UX-007 Editor Interaction Proof";
+  timelineDocument.studentProfile={...timelineDocument.studentProfile,fullName:"UX-007 Browser Student",specialtyGoal:"Internal Medicine"};
+  timelineDocument.events=[{id:"ux007-event",title:"Internal Medicine Residency Preparation",categoryId:"education",eventType:"duration",startDate:"2025-07",endDate:"2026-06",openEnded:false,visibilityState:"INTERVIEWER_SAFE",siteName:"MissionMed Institute",sourceType:"ux007",notes:"",lane:0,fields:{hiddenInActiveVariant:false}}];
+  timelineDocument.advanced={
     media:[],groups:[{id:"ux007-group",type:"group",label:"Story composition",locked:false,aspectLocked:true,children:[{type:"element",id:"ux007-shape"},{type:"text",id:"ux007-text"}]}],recentColors:[],background:{kind:"preset",preset:"gradient-dawn",dim:0},
     textBlocks:[{id:"ux007-text",type:"text",text:"Editable story",x:1080,y:500,width:320,height:90,font:"Inter",size:30,weight:700,color:"#17324A",alignment:"center",fitMode:"auto",minFontSize:10,lineHeight:1.2,verticalAlign:"center",locked:false,aspectLocked:false,layerIndex:5,zIndex:5,groupId:"ux007-group"}],
     elements:[
@@ -45,7 +49,7 @@ await page.evaluate(()=>{
       {id:"ux007-icon",type:"element",kind:"hospital",x:1450,y:650,width:112,height:112,fill:"#2C6E8F",stroke:"#17324A",label:"Hospital",countryCode:"US",locked:false,aspectLocked:true,layerIndex:6,zIndex:6}
     ]
   };
-  api.store.replace(document,{label:"UX-007 interaction fixture",history:false});
+  api.store.replace(timelineDocument,{label:"UX-007 interaction fixture",history:false});
   api.applyDocument();
 });
 await page.locator('#rail [data-v="canvas"]').click();
@@ -82,7 +86,11 @@ await check("1 smooth pointer drag commits once",async()=>{
   await dragLocator(object("ux007-icon"),90,-35);
   const after=await geometry("ux007-icon");
   assert(after.x!==before.x||after.y!==before.y,"pointer drag did not commit");
-  return{before,after};
+  const performance=await page.evaluate(()=>window.__ux007AdvancedGestureReceipts.at(-1)||null);
+  assert(performance?.logicalCommits===1,"pointer drag did not report exactly one logical commit");
+  assert(performance.networkRequestsDuringGesture===0,"pointer drag reported a network request during the gesture");
+  assert(performance.rendererRegenerationsDuringGesture===0,"pointer drag regenerated the protected renderer during the gesture");
+  return{before,after,performance};
 });
 
 await check("2 proportional and freeform resize",async()=>{
@@ -216,11 +224,21 @@ await check("8 zoom is viewport-only and keeps the canvas mounted",async()=>{
   await page.locator('[data-canvas-zoom="in"]').click();
   await page.locator("[data-canvas-zoom-percent]").fill("135");
   await page.locator("[data-canvas-zoom-percent]").press("Enter");
+  const stage=page.locator(".canvas-stage");
+  const stageBox=await stage.boundingBox();
+  assert(stageBox,"zoomed canvas stage has no bounds");
+  const scrollBefore=await stage.evaluate((node)=>({left:node.scrollLeft,top:node.scrollTop}));
+  await page.mouse.move(stageBox.x+stageBox.width*.65,stageBox.y+stageBox.height*.55);
+  await page.mouse.down({button:"middle"});
+  await page.mouse.move(stageBox.x+stageBox.width*.45,stageBox.y+stageBox.height*.45,{steps:8});
+  await page.mouse.up({button:"middle"});
+  const scrollAfter=await stage.evaluate((node)=>({left:node.scrollLeft,top:node.scrollTop}));
+  assert(scrollAfter.left!==scrollBefore.left||scrollAfter.top!==scrollBefore.top,"middle-button canvas pan did not move the viewport");
   await page.locator('[data-canvas-zoom="fit"]').click();
   const state=await page.evaluate(()=>({revision:window.D1_407F_ENGINEERING.store.document.revision,loading:document.body.textContent.includes("LOADING CANONICAL TIMELINE")}));
   const preserved=await host().locator("iframe").getAttribute("data-ux007-identity");
   assert(preserved==="preserved"&&!state.loading&&state.revision===revisionBefore,"zoom remounted or mutated the Timeline document");
-  return{mounted:true,documentRevisionStable:true};
+  return{mounted:true,panned:true,documentRevisionStable:true,scrollBefore,scrollAfter};
 });
 
 await check("9 undo and redo direct manipulation",async()=>{
@@ -238,6 +256,53 @@ await check("9 undo and redo direct manipulation",async()=>{
   const redone=await geometry("ux007-icon");
   assert(moved.x!==before.x&&undone.x===before.x&&redone.x===moved.x,`undo/redo did not preserve direct manipulation history: ${JSON.stringify({before,moved,undone,redone})}`);
   return{before:before.x,moved:moved.x,undone:undone.x,redone:redone.x};
+});
+
+await check("10 freeform event placement preserves semantic chronology",async()=>{
+  const before=await page.evaluate(()=>{
+    const event=window.D1_407F_ENGINEERING.store.document.events[0];
+    return{startDate:event.startDate,endDate:event.endDate,categoryId:event.categoryId};
+  });
+  const eventHit=frame().locator('.d1411AHit:has(.d1411AHandle[data-handle="w"]):has(.d1411AHandle[data-handle="e"])').first();
+  await eventHit.waitFor({state:"visible"});
+  await dragLocator(eventHit,70,32);
+  const after=await page.evaluate(()=>{
+    const document=window.D1_407F_ENGINEERING.store.document;
+    const event=document.events[0];
+    const presentation=document.advanced?.scene?.objects?.find((item)=>item.type==="event"&&item.semanticRef===event.id)||null;
+    return{startDate:event.startDate,endDate:event.endDate,categoryId:event.categoryId,presentation};
+  });
+  const rendered=await frame().locator('.arrow[data-presentation-scene="true"]').first().evaluate((node)=>{
+    const board=node.ownerDocument.getElementById("board");
+    const boardBounds=board.getBoundingClientRect();
+    const bounds=node.getBoundingClientRect();
+    const scale=boardBounds.width/1920;
+    return{x:(bounds.left-boardBounds.left)/scale,y:(bounds.top-boardBounds.top)/scale,width:bounds.width/scale};
+  });
+  assert(after.startDate===before.startDate&&after.endDate===before.endDate&&after.categoryId===before.categoryId,"freeform event placement rewrote semantic chronology");
+  assert(after.presentation?.geometry&&after.presentation.geometry.y>0,"freeform event placement did not persist a presentation scene object");
+  assert(Math.abs(rendered.x-after.presentation.geometry.x)<2&&Math.abs(rendered.y-after.presentation.geometry.y)<2,"the protected board did not rehydrate the event presentation geometry");
+  return{before,after,rendered};
+});
+
+await check("11 versioned scene persists presentation without rewriting semantic dates",async()=>{
+  const result=await page.evaluate(()=>{
+    const document=window.D1_407F_ENGINEERING.store.snapshot();
+    return{
+      schema:document.advanced?.scene?.schema,
+      version:document.advanced?.scene?.version,
+      objects:document.advanced?.scene?.objects?.length||0,
+      startDate:document.events?.[0]?.startDate,
+      endDate:document.events?.[0]?.endDate,
+      categoryId:document.events?.[0]?.categoryId,
+      receipts:window.__ux007AdvancedGestureReceipts
+    };
+  });
+  assert(result.schema==="missionmed.timeline.presentation-scene"&&result.version===1,"browser document did not retain the V1 presentation scene");
+  assert(result.objects>=3,"browser scene did not retain its manipulated objects");
+  assert(result.startDate==="2025-07"&&result.endDate==="2026-06"&&result.categoryId==="education","presentation gestures rewrote semantic Timeline facts");
+  assert(result.receipts.length>=4&&result.receipts.every((item)=>item.logicalCommits===1),"one or more browser gestures produced an invalid commit count");
+  return result;
 });
 
 await host().screenshot({path:path.join(captureDir,"UX007_ADVANCED_STUDIO_AFTER.png")});

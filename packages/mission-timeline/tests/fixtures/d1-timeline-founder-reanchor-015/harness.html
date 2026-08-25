@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Founder Keynote synthetic geometry harness</title>
+  <style>
+    html,body{margin:0;min-height:100%;background:#0a1020;color:#fff;font-family:Inter,system-ui,sans-serif}
+    main{min-height:100vh;display:grid;place-items:center;padding:24px;box-sizing:border-box}
+    #board{width:min(96vw,1600px);aspect-ratio:16/9;box-shadow:0 22px 70px rgba(0,0,0,.42)}
+    #board>svg{display:block;width:100%;height:100%}
+    #status{position:fixed;left:12px;bottom:10px;font-size:12px;color:#b8c5df}
+    body[data-capture="true"] main{width:1920px;height:1080px;min-height:0;padding:0}
+    body[data-capture="true"] #board{width:1920px;height:1080px;box-shadow:none}
+    body[data-capture="true"] #status{display:none}
+  </style>
+</head>
+<body>
+  <main><div id="board" role="img" aria-label="Synthetic Founder Keynote geometry test"></div></main>
+  <div id="status" role="status">Rendering synthetic fixture…</div>
+  <script type="module">
+    addEventListener("unhandledrejection",(event)=>{
+      document.querySelector("#status").textContent=`ERROR: ${event.reason?.message||event.reason}`;
+      document.documentElement.dataset.presentationError=String(event.reason?.message||event.reason||"unknown");
+    });
+    globalThis.D1_TIMELINE_ASSET_URLS=Object.freeze({
+      "assets/founder_keynote_2024/background/Magnetboard-1920-107.jpg":
+        new URL("../../../web/assets/founder_keynote_2024/background/Magnetboard-1920-107.jpg",import.meta.url).href,
+      "assets/founder_keynote_2024/flags/USA-Flag.H03-10831.png":
+        new URL("../../../web/assets/founder_keynote_2024/flags/USA-Flag.H03-10831.png",import.meta.url).href
+    });
+    import {serializeFounderPresentation} from "../../../web/js/presentation/founder-presentation-serializer.js";
+    import {rasterizePresentationSvg} from "../../../web/js/presentation/svg-rasterizer.js";
+    const fixture=await fetch("./synthetic-founder-geometry.json",{cache:"no-store"}).then((response)=>response.json());
+    const rendered=serializeFounderPresentation(fixture,{scope:"INTERVIEWER_SAFE",currentMonth:"2027-01"});
+    const rasterized=await rasterizePresentationSvg(rendered.svg,{width:1920,height:1080});
+    rasterized.canvas.id="export-canvas";
+    rasterized.canvas.style.cssText="display:block;width:100%;height:100%";
+    document.querySelector("#board").replaceChildren(rasterized.canvas);
+    if(new URLSearchParams(location.search).has("capture"))document.body.dataset.capture="true";
+    document.querySelector("#status").textContent=`${rendered.serializer} · synthetic content only · ${rasterized.warnings.length} warnings`;
+    document.documentElement.dataset.exportWidth=String(rasterized.canvas.width);
+    document.documentElement.dataset.exportHeight=String(rasterized.canvas.height);
+    document.documentElement.dataset.presentationReady="true";
+  </script>
+</body>
+</html>

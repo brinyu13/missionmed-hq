@@ -1498,7 +1498,7 @@ export function renderCanvas({
     const presentation=protectedPresentation
       ?rendered.html
       :interactiveBoardSvg(rendered.svg,scene,viewState);
-    board = `<div class="canvas-application" role="${editable?"application":"region"}" aria-label="${escapeHtml(canvasLabel)}" data-logical-width="1920" data-logical-height="1080" data-zoom-mode="${escapeHtml(viewState.zoom?.mode||"fit")}" data-zoom-percent="${Number(viewState.zoom?.percent||0)}" data-presentation-kernel="${protectedPresentation?"D1-409H-A1":"legacy"}" style="${zoomStyle}">
+    board = `<div class="canvas-application" role="${editable?"application":"region"}" aria-label="${escapeHtml(canvasLabel)}" data-logical-width="1920" data-logical-height="1080" data-zoom-mode="${escapeHtml(viewState.zoom?.mode||"fit")}" data-zoom-percent="${Number(viewState.zoom?.percent||0)}" data-presentation-kernel="${protectedPresentation?"D1-409H-A1":String(rendered.kind||"").startsWith("founder-shared")?"D1-TIMELINE-FOUNDER-REANCHOR-015":"legacy"}" data-presentation-signature="${escapeHtml(rendered.renderSignature||"")}" style="${zoomStyle}">
       ${presentation}
       ${renderSelectionHandles(selected,selectedSceneEvent,viewState)}
       ${renderInlineEditor(viewState,selectedSceneEvent)}
@@ -1598,6 +1598,7 @@ export function installCanvas(
     onSelectTheme = () => {},
     onBackgrounds = () => {},
     onAdvanced = () => {},
+    onAdvancedTextCommit = null,
     onGuided = () => {},
     onComments = () => {},
     onAdvisorPin = () => {},
@@ -1660,25 +1661,51 @@ export function installCanvas(
     const nextApplication=nextStage?.querySelector(":scope > .canvas-application");
     const currentKernel=currentApplication?.querySelector(":scope > d1-timeline-kernel");
     const nextKernel=nextApplication?.querySelector(":scope > d1-timeline-kernel");
+    const currentFounder=currentApplication?.querySelector(
+      ':scope > svg[data-founder-serializer]'
+    );
+    const nextFounder=nextApplication?.querySelector(
+      ':scope > svg[data-founder-serializer]'
+    );
+    const sharedFounder=Boolean(currentFounder&&nextFounder);
     if(
       !currentStage||!nextStage||!currentApplication||!nextApplication||
-      !currentKernel||!nextKernel||
-      currentKernel.dataset.kernelToken!==nextKernel.dataset.kernelToken
+      (!sharedFounder&&(
+        !currentKernel||!nextKernel||
+        currentKernel.dataset.kernelToken!==nextKernel.dataset.kernelToken
+      ))
     )return false;
+
+    const founderPresentationChanged=sharedFounder&&(
+      currentApplication.dataset.presentationSignature!==
+      nextApplication.dataset.presentationSignature
+    );
 
     copyElementAttributes(currentScreen,nextScreen);
     copyElementAttributes(currentStage,nextStage);
     copyElementAttributes(currentApplication,nextApplication);
+
+    let persistentPresentation=currentKernel;
+    if(sharedFounder){
+      persistentPresentation=currentFounder;
+      // Viewport-only updates (zoom, panel state, selection-independent chrome)
+      // keep the exact mounted SVG node. A committed document mutation changes
+      // the serialized SVG and swaps it once, after the gesture has completed.
+      if(founderPresentationChanged){
+        currentFounder.replaceWith(nextFounder);
+        persistentPresentation=nextFounder;
+      }
+    }
 
     for(const child of [...currentApplication.children]){
       // Removing a focused inspector/editor node can synchronously fire blur,
       // which may trigger a nested render that already detaches later nodes in
       // this snapshot. Recheck ownership before every removal so the outer
       // patch remains idempotent under that re-entrant render.
-      if(child!==currentKernel&&child.parentNode===currentApplication)child.remove();
+      if(child!==persistentPresentation&&child.parentNode===currentApplication)child.remove();
     }
     for(const child of [...nextApplication.children]){
-      if(child!==nextKernel)currentApplication.append(child);
+      if(child!==nextKernel&&child!==nextFounder)currentApplication.append(child);
     }
 
     for(const child of [...currentStage.children]){
@@ -1697,19 +1724,21 @@ export function installCanvas(
       if(index<nextStageIndex)currentScreen.insertBefore(child,currentStage);
       else currentScreen.append(child);
     });
-    Promise.resolve(currentKernel.updateProjection?.()).catch((error)=>{
-      currentKernel.dataset.error=String(error?.code||error?.message||error);
-      currentKernel.dataset.errorMessage="We could not apply that layout change. Your last working timeline is still available.";
-      currentKernel.dispatchEvent?.(new CustomEvent("d1-411a:error",{
-        bubbles:true,
-        composed:true,
-        detail:{surface:currentKernel.dataset.surface,error}
-      }));
-      console.error("Timeline canvas update unavailable",{
-        surface:currentKernel.dataset.surface,
-        code:String(error?.code||"RENDER_UNAVAILABLE")
+    if(currentKernel){
+      Promise.resolve(currentKernel.updateProjection?.()).catch((error)=>{
+        currentKernel.dataset.error=String(error?.code||error?.message||error);
+        currentKernel.dataset.errorMessage="We could not apply that layout change. Your last working timeline is still available.";
+        currentKernel.dispatchEvent?.(new CustomEvent("d1-411a:error",{
+          bubbles:true,
+          composed:true,
+          detail:{surface:currentKernel.dataset.surface,error}
+        }));
+        console.error("Timeline canvas update unavailable",{
+          surface:currentKernel.dataset.surface,
+          code:String(error?.code||"RENDER_UNAVAILABLE")
+        });
       });
-    });
+    }
     return true;
   };
 
@@ -2244,12 +2273,17 @@ export function installCanvas(
       event.preventDefault();
       const edit=state.advancedTextEdit;
       if(!edit)return;
-      const changed=store.mutate("Edit Advanced text",(document)=>{
-        const block=(document.advanced?.textBlocks||[]).find(
-          (item)=>String(item.id)===String(edit.id)
-        );
-        if(block)block.text=String(edit.draft??"");
-      });
+      const committed=typeof onAdvancedTextCommit==="function"
+        ?onAdvancedTextCommit(String(edit.id),String(edit.draft??""))
+        :undefined;
+      const changed=committed===undefined
+        ?store.mutate("Edit Advanced text",(document)=>{
+          const block=(document.advanced?.textBlocks||[]).find(
+            (item)=>String(item.id)===String(edit.id)
+          );
+          if(block)block.text=String(edit.draft??"");
+        })
+        :committed===true;
       setState({
         ...state,
         advancedTextEdit:null,
@@ -2403,6 +2437,26 @@ export function installCanvas(
     applyTrackpadZoom(Number(event.detail?.deltaY||0));
   };
 
+  // A protected iframe owns the visible board. Its middle-button gesture is
+  // forwarded as viewport-only deltas so panning never rebuilds the Canvas or
+  // enters document history.
+  const onKernelPan = (event) => {
+    const stage=root.querySelector?.(".canvas-stage");
+    if(!stage)return;
+    const phase=String(event.detail?.phase||"");
+    if(phase==="start"){
+      stage.dataset.panning="true";
+      return;
+    }
+    if(phase==="end"){
+      delete stage.dataset.panning;
+      return;
+    }
+    if(phase!=="move")return;
+    stage.scrollLeft-=Number(event.detail?.deltaX||0);
+    stage.scrollTop-=Number(event.detail?.deltaY||0);
+  };
+
   const onPointerDown = (event) => {
     const stage=event.target.closest?.(".canvas-stage");
     if(stage&&event.button===1){
@@ -2521,6 +2575,7 @@ export function installCanvas(
   root.addEventListener("keydown",onKeyDown);
   root.addEventListener("wheel",onWheel,{passive:false});
   root.addEventListener("d1-411a:wheel-zoom",onKernelWheelZoom);
+  root.addEventListener("d1-411a:pan",onKernelPan);
   root.addEventListener("pointerdown",onPointerDown);
   globalThis.document?.addEventListener("pointermove",onPointerMove);
   globalThis.document?.addEventListener("pointerup",onPointerUp);
@@ -2554,6 +2609,7 @@ export function installCanvas(
       root.removeEventListener("keydown",onKeyDown);
       root.removeEventListener("wheel",onWheel);
       root.removeEventListener("d1-411a:wheel-zoom",onKernelWheelZoom);
+      root.removeEventListener("d1-411a:pan",onKernelPan);
       root.removeEventListener("pointerdown",onPointerDown);
       globalThis.document?.removeEventListener("pointermove",onPointerMove);
       globalThis.document?.removeEventListener("pointerup",onPointerUp);

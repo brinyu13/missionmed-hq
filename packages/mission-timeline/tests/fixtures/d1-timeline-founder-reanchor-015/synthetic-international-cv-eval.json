@@ -1,0 +1,42 @@
+{
+  "fixture_id": "d1-reanchor-015-synthetic-international-cv-v1",
+  "privacy": "SYNTHETIC_NON_STUDENT_DATA",
+  "source_file_name": "synthetic-global-img-cv.pdf",
+  "document_type": "CV",
+  "blocks": [
+    {
+      "id": "page_1_education",
+      "pageNumber": 1,
+      "section": "Medical Education",
+      "text": "Bachelor of Medicine and Bachelor of Surgery (MBBS), Kasturba Medical College, Manipal, Karnataka, India — August 2018 – June 2023"
+    },
+    {
+      "id": "page_2_research",
+      "pageNumber": 2,
+      "section": "Research",
+      "text": "Research Assistant, University of Ghana, Accra, Ghana — July 2021 – December 2022"
+    },
+    {
+      "id": "page_3_clinical",
+      "pageNumber": 3,
+      "section": "Clinical Experience",
+      "text": "Clinical Observer, University Hospital of the West Indies, Kingston, Jamaica — January 2024 – March 2024"
+    },
+    {
+      "id": "page_4_exams",
+      "pageNumber": 4,
+      "section": "Licensure Examinations",
+      "text": "USMLE Step 2 CK — Passed — February 2024"
+    }
+  ],
+  "expected": {
+    "countries": ["India", "Ghana", "Jamaica"],
+    "school_searches": [
+      {"query": "Kasturba Medical College", "country": "India"},
+      {"query": "Kwame Nkrumah", "country": "Ghana"}
+    ],
+    "high_confidence_prefill_minimum": 1,
+    "manual_retyping_required_for_high_confidence": false,
+    "unverified_school_entries_analytics_eligible": false
+  }
+}

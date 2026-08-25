@@ -22,6 +22,41 @@ const UXR_VISIBILITY=Object.freeze({
   ADVISOR_ONLY:"ADVISOR_ONLY"
 });
 
+const FILE_VAULT_ID_PATTERN=/^[1-9][0-9]{0,18}$/;
+const UUID_PATTERN=/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+const SHA256_PATTERN=/^[a-f0-9]{64}$/;
+const SOURCE_CUSTODY_SCHEMA="timeline-source-custody-ref.1";
+
+/* Persisted Timeline JSON is student-editable, so this reference is deliberately
+   trace-only. Runtime owner/object/hash verification remains the sole authority for
+   reading File Vault or Timeline private bytes. */
+function sourceCustodyReference(value,{timelineObjectId=null,sha256=null}={}){
+  const source=value?.sourceCustody&&typeof value.sourceCustody==="object"
+    ?value.sourceCustody
+    :value;
+  const provider=String(source?.provider||"");
+  const objectId=String(timelineObjectId??source?.timelineObjectId??source?.objectId??"");
+  const digest=String(sha256??source?.sha256??"").toLowerCase();
+  const vaultFileId=String(source?.vaultFileId||"");
+  const versionId=String(source?.versionId||"");
+  if(
+    provider!=="missionmed-filevault-v2"||
+    !objectId||
+    !SHA256_PATTERN.test(digest)||
+    !FILE_VAULT_ID_PATTERN.test(vaultFileId)||
+    !UUID_PATTERN.test(versionId)
+  )return null;
+  return Object.freeze({
+    schemaVersion:SOURCE_CUSTODY_SCHEMA,
+    authority:"TRACE_ONLY",
+    provider,
+    timelineObjectId:objectId,
+    sha256:digest,
+    vaultFileId,
+    versionId
+  });
+}
+
 const CATEGORY_BY_LEGACY_ID=Object.freeze({
   education:"education",
   usmle:"exams",
@@ -145,21 +180,27 @@ function categoryIdFor(candidate){
 }
 
 function sourceProvenance(candidate){
-  return (candidate?.provenance||[]).map((item)=>Object.freeze({
-    id:String(item?.id||""),
-    sourceDocumentId:String(item?.sourceDocumentId||""),
-    fileName:String(item?.fileName||""),
-    documentType:String(item?.documentType||""),
-    detectedDocumentType:String(item?.detectedDocumentType||""),
-    userDeclaredType:String(item?.userDeclaredType||""),
-    pageNumber:Number(item?.pageNumber)||null,
-    pageId:String(item?.pageId||""),
-    section:String(item?.section||""),
-    sourceBlockId:String(item?.sourceBlockId||""),
-    sourceExcerpt:String(item?.sourceExcerpt||""),
-    extractionMethod:String(item?.extractionMethod||""),
-    parserVersion:String(item?.parserVersion||"")
-  }));
+  return (candidate?.provenance||[]).map((item)=>{
+    const sourceCustody=sourceCustodyReference(item);
+    return Object.freeze({
+      id:String(item?.id||""),
+      sourceDocumentId:String(item?.sourceDocumentId||""),
+      sourceObjectId:String(item?.sourceObjectId||sourceCustody?.timelineObjectId||""),
+      sourceSha256:String(item?.sourceSha256||sourceCustody?.sha256||"").toLowerCase(),
+      fileName:String(item?.fileName||""),
+      documentType:String(item?.documentType||""),
+      detectedDocumentType:String(item?.detectedDocumentType||""),
+      userDeclaredType:String(item?.userDeclaredType||""),
+      pageNumber:Number(item?.pageNumber)||null,
+      pageId:String(item?.pageId||""),
+      section:String(item?.section||""),
+      sourceBlockId:String(item?.sourceBlockId||""),
+      sourceExcerpt:String(item?.sourceExcerpt||""),
+      extractionMethod:String(item?.extractionMethod||""),
+      parserVersion:String(item?.parserVersion||""),
+      ...(sourceCustody?{sourceCustody:structuredClone(sourceCustody)}:{})
+    });
+  });
 }
 
 function sourceSnippet(provenance){
@@ -266,15 +307,47 @@ function exactDegree(candidate){
     candidate?.originalExtraction?.title,
     candidate?.title
   ].map((value)=>String(value||"").trim().toUpperCase());
-  return values.find((value)=>["MD","DO","MBBS"].includes(value))||"";
+  for(const value of values){
+    if(
+      /(?:^|[^A-Z])M\.?\s*B\.?\s*B\.?\s*S\.?(?:$|[^A-Z])/.test(value)||
+      /\bBACHELOR OF MEDICINE\s+(?:AND|&)\s+BACHELOR OF SURGERY\b/.test(value)
+    )return"MBBS";
+    if(
+      /(?:^|[^A-Z])D\.?\s*O\.?(?:$|[^A-Z])/.test(value)||
+      /\bDOCTOR OF OSTEOPATHIC MEDICINE\b/.test(value)
+    )return"DO";
+    if(
+      /(?:^|[^A-Z])M\.?\s*D\.?(?:$|[^A-Z])/.test(value)||
+      /\bDOCTOR OF MEDICINE\b/.test(value)
+    )return"MD";
+  }
+  return"";
+}
+
+function cvCandidateVisibility(candidate,categoryId){
+  if(categoryId==="personal")return UXR_VISIBILITY.ADVISOR_ONLY;
+  const explicit=[
+    candidate?.visibilityRecommendation,
+    candidate?.visibilityState,
+    candidate?.visibility
+  ].map((value)=>String(value||"").trim().toUpperCase()).find(Boolean);
+  // AI/provider candidates without an explicit, reviewed visibility
+  // recommendation stay advisor-only.  Absence of a field must never become
+  // an implicit disclosure-policy upgrade.
+  if(!explicit)return UXR_VISIBILITY.ADVISOR_ONLY;
+  return explicit==="INTERVIEWER_SAFE"||explicit==="VISIBLE"||explicit==="SAFE"
+    ?UXR_VISIBILITY.INTERVIEWER_SAFE
+    :UXR_VISIBILITY.ADVISOR_ONLY;
 }
 
 function categoryFields(candidate,categoryId,provenance){
   const location=String(candidate?.location||candidate?.originalExtraction?.location||"").trim();
   const organization=String(candidate?.siteName||candidate?.organization||"").trim();
+  const sourceCountry=String(candidate?.country||"").trim();
   const common={
     canonicalType:String(candidate?.canonicalType||""),
     sourceLocation:location,
+    sourceCountry,
     sourceProvenance:provenance,
     extractionConfidence:candidate?.confidence?structuredClone(candidate.confidence):null,
     datePrecision:candidate?.datePrecision?structuredClone(candidate.datePrecision):null,
@@ -293,7 +366,7 @@ function categoryFields(candidate,categoryId,provenance){
     return{
       ...common,
       medicalSchool:organization,
-      medicalSchoolCountry:"",
+      medicalSchoolCountry:sourceCountry,
       degree:exactDegree(candidate)
     };
   }
@@ -319,6 +392,7 @@ function categoryFields(candidate,categoryId,provenance){
       ]||"",
       city:cityState.city||"",
       state:cityState.state||"",
+      country:sourceCountry||(cityState.state?"United States":""),
       currentlyOnRotation:candidate?.dateRange?.openEnded===true
     };
   }
@@ -328,8 +402,8 @@ function categoryFields(candidate,categoryId,provenance){
     return{
       ...common,
       organization,
-      country:cityState.state?"United States":"",
-      city:cityState.city||"",
+      country:sourceCountry||(cityState.state?"United States":""),
+      city:cityState.city||(!cityState.state?location.split(",")[0].trim():""),
       kind:["Clinical","Non-clinical"].includes(explicitKind)?explicitKind:"",
       stillWorking:candidate?.dateRange?.openEnded===true,
       description:String(candidate?.originalExtraction?.description||"")
@@ -398,13 +472,16 @@ export function mapD1408CandidateToUxr(candidate){
 export function mapCvIntelligenceCandidateToUxr(candidate,{sourceDocument=null,sourceBlocks=[]}={}){
   if(!candidate||typeof candidate!=="object")throw new TypeError("A CV intelligence candidate is required.");
   const blocks=new Map((sourceBlocks||[]).map((block)=>[String(block.id),block]));
-  const provenance=(candidate.evidence||[]).flatMap((evidence,evidenceIndex)=>{
+  const sourceCustody=sourceCustodyReference(sourceDocument);
+  const evidenceProvenance=(candidate.evidence||[]).flatMap((evidence,evidenceIndex)=>{
     const ids=Array.isArray(evidence?.sourceBlockIds)?evidence.sourceBlockIds:[];
     return ids.map((blockId,blockIndex)=>{
       const block=blocks.get(String(blockId))||{};
       return{
         id:`${String(candidate.id)}:${evidenceIndex}:${blockIndex}`,
         sourceDocumentId:String(sourceDocument?.id||sourceDocument?.objectId||""),
+        sourceObjectId:String(sourceDocument?.objectId||sourceCustody?.timelineObjectId||""),
+        sourceSha256:String(sourceDocument?.sha256||sourceCustody?.sha256||"").toLowerCase(),
         fileName:String(sourceDocument?.fileName||sourceDocument?.name||""),
         documentType:String(sourceDocument?.effectiveType||sourceDocument?.userDeclaredType||"CV"),
         detectedDocumentType:String(sourceDocument?.detectedType||""),
@@ -415,21 +492,47 @@ export function mapCvIntelligenceCandidateToUxr(candidate,{sourceDocument=null,s
         sourceBlockId:String(blockId),
         sourceExcerpt:String(evidence?.excerpt||""),
         extractionMethod:"SERVER_AI_EVIDENCE_BOUND",
-        parserVersion:String(sourceDocument?.parserVersion||PARSER_VERSION)
+        parserVersion:String(sourceDocument?.parserVersion||PARSER_VERSION),
+        ...(sourceCustody?{sourceCustody:structuredClone(sourceCustody)}:{})
       };
     });
   });
+  const provenance=Array.isArray(candidate.provenance)&&candidate.provenance.length
+    ?candidate.provenance.map((item,index)=>({
+      id:`${String(candidate.id)}:server:${index}`,
+      sourceDocumentId:String(sourceDocument?.id||sourceDocument?.objectId||item.sourceObjectId||""),
+      sourceObjectId:String(item.sourceObjectId||sourceDocument?.objectId||sourceCustody?.timelineObjectId||""),
+      sourceSha256:String(item.sourceSha256||sourceDocument?.sha256||sourceCustody?.sha256||"").toLowerCase(),
+      fileName:String(sourceDocument?.fileName||sourceDocument?.name||item.sourceFileName||""),
+      documentType:String(sourceDocument?.effectiveType||sourceDocument?.userDeclaredType||"CV"),
+      detectedDocumentType:String(sourceDocument?.detectedType||""),
+      userDeclaredType:String(sourceDocument?.userDeclaredType||""),
+      pageNumber:Number(item.pageNumber)||null,
+      pageId:"",
+      section:String(item.section||""),
+      sourceBlockId:String(item.sourceBlockId||""),
+      sourceExcerpt:String(item.excerpt||""),
+      sourceSpan:{start:Number(item.charStart)||0,end:Number(item.charEnd)||0},
+      evidenceFields:[...(item.fields||[])].map(String),
+      evidenceSupport:String(item.support||""),
+      extractionMethod:"SERVER_AI_EVIDENCE_BOUND",
+      parserVersion:String(sourceDocument?.parserVersion||PARSER_VERSION),
+      ...(sourceCustody?{sourceCustody:structuredClone(sourceCustody)}:{})
+    }))
+    :evidenceProvenance;
+  const categoryId=categoryIdFor(candidate);
   const mapped=mapD1408CandidateToUxr({
     ...candidate,
     provenance,
     dateRange:{openEnded:candidate.openEnded===true},
-    visibilityRecommendation:UXR_VISIBILITY.ADVISOR_ONLY,
+    visibilityRecommendation:cvCandidateVisibility(candidate,categoryId),
     originalExtraction:{
       title:String(candidate.title||""),
       location:String(candidate.location||""),
       description:"",
       rawText:provenance.map((item)=>item.sourceExcerpt).filter(Boolean).join("\n")
     },
+    country:String(candidate.country||""),
     mappingRationale:String(candidate.classificationReason||"Evidence-bound server analysis"),
     privacy:{reviewRequired:true},
     warnings:[...(candidate.warnings||[]),...(candidate.uncertainty||[])],
@@ -441,8 +544,19 @@ export function mapCvIntelligenceCandidateToUxr(candidate,{sourceDocument=null,s
     title:mapped.title,
     categoryId:mapped.categoryId,
     startDate:mapped.startDate,
-    endDate:mapped.endDate
+    endDate:mapped.endDate,
+    organization:String(candidate.organization||""),
+    country:String(candidate.country||"")
   };
+  mapped.fields.aiReview=candidate.review?structuredClone(candidate.review):{
+    lane:mapped.confidence.toUpperCase(),
+    action:mapped.confidence==="high"?"BULK_ACCEPT":mapped.confidence==="medium"?"QUICK_CONFIRM":"TARGETED_QUESTION",
+    requiredFields:[...(candidate.missingFields||[])],
+    smallestQuestion:(candidate.uncertainty||[])[0]||null
+  };
+  mapped.fields.normalizedInterpretation=candidate.normalizedInterpretation
+    ?structuredClone(candidate.normalizedInterpretation)
+    :null;
   return mapped;
 }
 
@@ -696,7 +810,7 @@ export function createProductionCvIntakeAdapter({
               },
               rescueArtifactSha256:String(rescue.artifactSha256||sha256),
               rescueFormat:String(rescue.format||""),
-              cleanupAuthority:String(rescue.cleanupProposal?.authority||"MISSIONMED_D1_409H_CANONICAL_PRESENTATION")
+              cleanupAuthority:String(rescue.cleanupProposal?.authority||"MISSIONMED_FOUNDER_KEYNOTE_2024_CANONICAL_PRESENTATION")
             },
             decision:"undecided"
           }));
@@ -735,14 +849,32 @@ export function createProductionCvIntakeAdapter({
           throw error;
         }
       }
-      const local=await localAdapter.extract(input);
-      if(local?.readable!==true||!local?.sourceDocument?.sha256||!local?.sourceBlocks?.length)return local;
       const file=input.file;
+      const handedOffSource=file?.timelineSourceObject;
+      const handedOffObjectId=String(handedOffSource?.objectId||"");
+      let local;
+      try{
+        local=await localAdapter.extract(input);
+      }catch(error){
+        if(handedOffObjectId)await deleteObject(handedOffObjectId);
+        throw error;
+      }
+      if(local?.readable!==true||!local?.sourceDocument?.sha256||!local?.sourceBlocks?.length){
+        if(handedOffObjectId)await deleteObject(handedOffObjectId);
+        return local;
+      }
       const source=local.sourceDocument;
       const sha256=String(source.sha256).toLowerCase();
-      const handedOffSource=file?.timelineSourceObject;
-      let objectId=(String(handedOffSource?.sha256||"").toLowerCase()===sha256&&String(handedOffSource?.objectId||""))||confirmedSources.get(sha256)||"";
+      const handedOffCustody=sourceCustodyReference(handedOffSource);
+      const reusableHandoff=Boolean(handedOffCustody&&handedOffCustody.sha256===sha256);
+      if(handedOffObjectId&&!reusableHandoff)await deleteObject(handedOffObjectId);
+      let objectId=(reusableHandoff&&handedOffObjectId)||confirmedSources.get(sha256)||"";
       let created=false;
+      const releaseFailedSource=async()=>{
+        if(!created&&!reusableHandoff)return;
+        await deleteObject(objectId);
+        for(const [hash,id] of confirmedSources.entries())if(id===objectId)confirmedSources.delete(hash);
+      };
       try{
         await ensureRemoteDocument();
         if(!objectId){
@@ -769,7 +901,7 @@ export function createProductionCvIntakeAdapter({
           organization:String(event.siteName||event.fields?.institution||event.fields?.organization||"")||null
         }));
         const analysis=await apiClient.analyzeCv(String(documentId),{
-          source:{objectId,sha256,mimeType:String(source.mimeType)},
+          source:{objectId,sha256,mimeType:String(source.mimeType),fileName:String(source.fileName||file?.name||"")},
           blocks:local.sourceBlocks.map((block)=>({
             id:String(block.id),pageNumber:block.pageNumber||null,
             section:block.section||null,text:String(block.text||"")
@@ -780,16 +912,24 @@ export function createProductionCvIntakeAdapter({
           idempotencyKey:`cv_${sha256.slice(0,32)}`
         });
         if(analysis?.mode!=="SERVER_AI"||!Array.isArray(analysis.candidates)||!analysis.candidates.length){
-          if(created){await deleteObject(objectId);confirmedSources.delete(sha256);}
+          await releaseFailedSource();
           return{
             ...local,
             parser:{...local.parser,intelligenceMode:"LOCAL_LIMITED",fallbackReason:analysis?.fallbackReason||"AI_EMPTY"}
           };
         }
         activeSourceObjectId=objectId;
+        const sourceCustody=handedOffCustody
+          ?sourceCustodyReference(handedOffCustody,{timelineObjectId:objectId,sha256})
+          :null;
+        const analyzedSourceDocument={
+          ...source,
+          objectId,
+          ...(sourceCustody?{sourceCustody:structuredClone(sourceCustody)}:{})
+        };
         const collapsed=collapseSourceIdenticalServerCandidates(analysis.candidates);
         const aiCandidates=collapsed.candidates.map((candidate)=>mapCvIntelligenceCandidateToUxr(candidate,{
-          sourceDocument:{...source,objectId},sourceBlocks:local.sourceBlocks
+          sourceDocument:analyzedSourceDocument,sourceBlocks:local.sourceBlocks
         }));
         /* The server suggestions are computed against the AI candidate set, so the local
            deterministic pass has to be re-run against that same set - the local candidate
@@ -801,7 +941,7 @@ export function createProductionCvIntakeAdapter({
         return{
           ...local,
           candidates:aiCandidates,
-          sourceDocument:{...source,objectId,custody:"TIMELINE_PRIVATE_SOURCE",analysisId:analysis.analysisId},
+          sourceDocument:{...analyzedSourceDocument,custody:"TIMELINE_PRIVATE_SOURCE",analysisId:analysis.analysisId},
           parser:{
             ...local.parser,
             intelligenceMode:"SERVER_AI",
@@ -811,6 +951,8 @@ export function createProductionCvIntakeAdapter({
             schemaVersion:analysis.schemaVersion,
             promptVersion:analysis.promptVersion,
             rejectedCandidateCount:Number(analysis.rejectedCandidateCount)||0,
+            reviewSummary:analysis.reviewSummary?structuredClone(analysis.reviewSummary):null,
+            prefillSummary:analysis.prefillSummary?structuredClone(analysis.prefillSummary):null,
             qualitySuggestions:dedupeQualitySuggestions([
               ...serverSuggestions,
               ...buildQualitySuggestions(aiCandidates,{sourceBlocks:local.sourceBlocks})
@@ -819,7 +961,7 @@ export function createProductionCvIntakeAdapter({
           }
         };
       }catch(error){
-        if(created){await deleteObject(objectId);confirmedSources.delete(sha256);}
+        await releaseFailedSource();
         return{
           ...local,
           parser:{...local.parser,intelligenceMode:"LOCAL_LIMITED",fallbackReason:String(error?.code||"PROVIDER_UNAVAILABLE")}

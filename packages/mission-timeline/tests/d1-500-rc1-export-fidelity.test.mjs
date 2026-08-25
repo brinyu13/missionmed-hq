@@ -55,6 +55,18 @@ test("RC1 PDF writer preserves board geometry instead of stretching to the paper
   assert.match(text,/\/MediaBox \[0 0 792 612\]/);
   assert.match(text,/792 0 0 445\.5 0 83\.25 cm/);
   assert.doesNotMatch(text,/792 0 0 612 0 0 cm/);
+
+  const a4Blob=await buildImagePdf([{
+    jpegBytes:new Uint8Array([0xff,0xd8,0xff,0xd9]),
+    pixelWidth:1920,
+    pixelHeight:1080,
+    pageWidth:841.89,
+    pageHeight:595.28
+  }]);
+  const a4Text=new TextDecoder("latin1").decode(await a4Blob.arrayBuffer());
+  assert.match(a4Text,/\/MediaBox \[0 0 841\.89 595\.28\]/);
+  assert.match(a4Text,/841\.89 0 0 473\.563125 0 60\.858438 cm/);
+  assert.doesNotMatch(a4Text,/\d(?:\.\d+)?e[+-]\d/i);
 });
 
 test("RC1 reuses the identical mounted 2x board capture across repeated high-resolution exports",async()=>{

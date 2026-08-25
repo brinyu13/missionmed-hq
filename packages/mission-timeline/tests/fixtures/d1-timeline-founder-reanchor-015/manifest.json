@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "d1-timeline-founder-reanchor-015-golden-manifest/1",
+  "namespace": "d1-timeline-founder-reanchor-015/synthetic-golden-master/keynote-2024-v1",
+  "authority": {
+    "sourceKind": "FOUNDER_SUPPLIED_2024_KEYNOTE",
+    "sourceSha256": "da6a7fa74a2f5d42f53399a9fc00bfe7283e7e4b79f349fca062da0be106cc19",
+    "verifiedPngSha256": "494694390329b0c050d7b4ca55c32b06e78eadc6375014b8a6b32c17ef36447a",
+    "verifiedPdfSha256": "7d13f2746ff72e678a3a0b9c6a81dc42aedb467bc5266896ed9f253a4cc7e9e1",
+    "boardAsset": {
+      "sourcePath": "Data/Magnetboard-1920-107.jpg",
+      "path": "assets/founder_keynote_2024/background/Magnetboard-1920-107.jpg",
+      "sha256": "f5d28c36504ea8fa0b54a55975b493bd9a0c1d6948ca447eb88a9198b8777cc1",
+      "classification": "TEMPLATE_FURNITURE_NON_PERSONAL"
+    },
+    "usaFlagAsset": {
+      "sourcePath": "Data/USA%20Flag.H03-10831.png",
+      "path": "assets/founder_keynote_2024/flags/USA-Flag.H03-10831.png",
+      "sha256": "d2473ecf794b5e8eb69f8eefb107b04101fdef0da1d2e6830d35ab6815bf2a5d",
+      "classification": "TEMPLATE_FURNITURE_NON_PERSONAL"
+    },
+    "width": 1920,
+    "height": 1080,
+    "orientation": "landscape"
+  },
+  "fixture": {
+    "contentPolicy": "SYNTHETIC_ONLY",
+    "founderImageryPublished": false,
+    "path": "synthetic-founder-geometry.json",
+    "sha256": "fe185c69db634561521a1e8d7b626d1fa3cc9963c7fe6ecb2c1db50837fb0730"
+  },
+  "serializer": {
+    "id": "d1-founder-keynote-portable-svg/1",
+  "syntheticSvgSha256": "00a089a2be666e4caa02870be80772a88d712972b502b98fd4f1da8e259c8477",
+    "requiredComposition": {
+      "defaultBackground": true,
+      "yearRibbon": true,
+      "colorKeyRows": 6,
+      "profileCard": true,
+      "photoFrames": 3
+    }
+  },
+  "acceptance": {
+    "meaning": "deterministic serializer and composition regression only",
+    "founderVisualAcceptanceRequired": true,
+    "pixelFidelityClaim": false
+  }
+}

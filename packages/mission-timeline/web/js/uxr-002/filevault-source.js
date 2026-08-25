@@ -1,5 +1,6 @@
 const SOURCE_KIND="missionmed-filevault-source";
 const UNAVAILABLE_CODE="FILE_VAULT_SOURCE_UNAVAILABLE";
+const UUID_PATTERN=/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 // Smart Fill is bounded by the bundled browser parser, not by the 25MB SOURCE custody
 // ceiling: anything between the two used to ingest and then fail on the review screen.
 const SMART_FILL_MAX_BYTES=20*1024*1024;
@@ -80,22 +81,30 @@ export function createAuthenticatedFileVaultSourceAdapter({request}={}){
   return Object.freeze({
     kind:SOURCE_KIND,
     connected:true,
-    provider:"missionmed-filevault-v1",
+    provider:"missionmed-filevault-v2",
     async listRecent(){return load();},
     async search(query){return load(query);},
     async select(documentId,{timelineDocumentId,versionId}={}){
       const id=String(documentId||"").trim();
-      if(!/^[0-9a-fA-F-]{8,64}$/.test(id)){
+      if(!/^[1-9][0-9]{0,18}$/.test(id)){
         throw stableUnavailableError("That File Vault document is not available.");
       }
       if(timelineDocumentId&&versionId){
+        const requestedVersion=String(versionId||"");
+        if(!UUID_PATTERN.test(requestedVersion)){
+          throw stableUnavailableError("That File Vault document version is not available.");
+        }
         const payload=await request(`/${encodeURIComponent(id)}/ingestions`,{
-          method:"POST",body:{timelineDocumentId:String(timelineDocumentId),versionId:String(versionId)}
+          method:"POST",body:{timelineDocumentId:String(timelineDocumentId),versionId:requestedVersion}
         });
         const document=payload?.document||null;
         const source=payload?.source||null;
         const encoded=String(payload?.contentBase64||"");
         if(!document||!source?.objectId||!encoded)throw stableUnavailableError("Timeline could not safely import that File Vault document.");
+        const returnedVersion=String(document.versionId||"");
+        if(!UUID_PATTERN.test(returnedVersion)||returnedVersion!==requestedVersion){
+          throw stableUnavailableError("Timeline could not safely import that File Vault document version.");
+        }
         const mimeType=String(document.mimeType||source.mimeType||"");
         if(!SMART_FILL_MIME.has(mimeType))throw stableUnavailableError("Smart Fill reads PDF and DOCX documents only.");
         const bytes=decodeBase64ToBytes(encoded);
@@ -109,7 +118,7 @@ export function createAuthenticatedFileVaultSourceAdapter({request}={}){
         const file=new File([bytes],String(document.name||"MissionMed document"),{
           type:mimeType,lastModified:Date.parse(String(document.updatedAt||""))||Date.now()
         });
-        Object.defineProperty(file,"timelineSourceObject",{value:Object.freeze({...source,provider:"missionmed-filevault-v1",vaultFileId:id,versionId:String(document.versionId||versionId)}),enumerable:false});
+        Object.defineProperty(file,"timelineSourceObject",{value:Object.freeze({...source,provider:"missionmed-filevault-v2",vaultFileId:id,versionId:returnedVersion}),enumerable:false});
         return{...document,file,source:file.timelineSourceObject};
       }
       const payload=await request(`/${encodeURIComponent(id)}`);
@@ -125,7 +134,7 @@ export function normalizeFileVaultSourceDocument(record){
   return Object.freeze({
     id,
     name,
-    provider:String(record?.provider||"missionmed-filevault-v1"),
+    provider:String(record?.provider||"missionmed-filevault-v2"),
     documentType:String(record?.documentType||"other"),
     versionId:String(record?.versionId||""),
     mimeType:String(record?.mimeType||""),

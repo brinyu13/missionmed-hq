@@ -1,4 +1,6 @@
 import {visibilityName} from "../core/canonical.js";
+import {serializeFounderPresentationAsync} from "../presentation/founder-presentation-serializer.js";
+import {rasterizePresentationSvg} from "../presentation/svg-rasterizer.js";
 
 const BASE={width:1920,height:1080};
 const imageCache=new Map();
@@ -126,20 +128,23 @@ async function drawMedia(ctx,document,mediaResolver,scope){
 export async function renderTimelineCanvas(document,{scope="INTERVIEWER_SAFE",width=1920,height=1080,mediaResolver=null}={}){
   if(typeof document?.createElement==="function")throw new Error("TimelineDocument expected, not DOM document.");
   if(globalThis.document?.fonts?.ready)await globalThis.document.fonts.ready;
-  const canvas=globalThis.document.createElement("canvas");canvas.width=width;canvas.height=height;const ctx=canvas.getContext("2d",{alpha:false});const scale=width/BASE.width;ctx.scale(scale,height/BASE.height);
-  const events=eventsForScope(document,scope),theme=document.theme||"keynote",categories=categoryMap(document);await drawBackground(ctx,theme);
-  ctx.fillStyle="rgba(20,15,11,.5)";ctx.fillRect(0,0,BASE.width,110);
-  ctx.fillStyle=theme==="paper"?"#241d17":"#f8edcf";ctx.font="700 42px American Typewriter, Baskerville, serif";ctx.textAlign="center";ctx.fillText(document.title||"Mission Timeline",BASE.width/2,72);
-  ctx.font="600 16px Helvetica, sans-serif";ctx.fillStyle=theme==="paper"?"#5b4f40":"#d7c49c";ctx.fillText(`${scope.replaceAll("_"," ")}  |  ${(document.studentProfile?.name||"Student").toUpperCase()}  |  ${(document.metadata?.applicationVersion||"D1-409.1")}`,BASE.width/2,98);
-  const axisInfo=drawAxis(ctx,events,theme),laneBase=340,laneHeight=document.releaseCandidate?.editor?.density==="CONDENSED"?39:69;
-  events.slice().sort((a,b)=>(a.lane??99)-(b.lane??99)||String(a.startDate).localeCompare(String(b.startDate))).forEach((event,index)=>{
-    const position=eventPosition(event,axisInfo),lane=Number.isFinite(event.lane)?event.lane:index%7,y=laneBase+lane*laneHeight+(Number(event.manualOffset?.y)||0),color=categories[event.categoryId]?.color||"#6e86a8";
-    if(event.eventType==="milestone")drawFlag(ctx,event,position,y,color);else drawArrow(ctx,event,position,y,color);
+  const presentation=await serializeFounderPresentationAsync(document,{
+    scope,
+    mediaResolver
   });
-  await drawMedia(ctx,document,mediaResolver,scope);
-  drawLegend(ctx,document);
-  ctx.fillStyle="rgba(15,11,8,.78)";ctx.fillRect(0,1039,BASE.width,41);ctx.fillStyle="#f0dca9";ctx.font="600 13px Helvetica, sans-serif";ctx.textAlign="left";ctx.fillText(`EVENTS ${events.length}  |  THEME ${theme.toUpperCase()}  |  GENERATED LOCALLY  |  HIDDEN ITEMS NEVER RENDER`,32,1065);
-  return {canvas,events,scope,width,height,axis:axisInfo};
+  const rasterized=await rasterizePresentationSvg(presentation.svg,{width,height});
+  return{
+    canvas:rasterized.canvas,
+    events:eventsForScope(document,scope),
+    scope,
+    width,
+    height,
+    axis:presentation.scene.axis,
+    scene:presentation.scene,
+    svg:presentation.svg,
+    serializer:presentation.serializer,
+    warnings:rasterized.warnings
+  };
 }
 
 export async function canvasToBlob(canvas,type="image/png",quality=.96){return new Promise((resolve,reject)=>canvas.toBlob((blob)=>blob?resolve(blob):reject(new Error("Canvas export failed.")),type,quality));}

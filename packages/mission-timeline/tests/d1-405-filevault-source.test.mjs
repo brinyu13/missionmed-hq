@@ -66,7 +66,7 @@ test("D1-405 File Vault source normalizes metadata-only rows and searches throug
   assert.deepEqual(recent.documents[0],{
     id:"cv-1",
     name:"MyERAS.pdf",
-    provider:"missionmed-filevault-v1",
+    provider:"missionmed-filevault-v2",
     documentType:"other",
     versionId:"",
     mimeType:"application/pdf",
@@ -84,15 +84,15 @@ test("D1-405 File Vault source normalizes metadata-only rows and searches throug
 
 test("D1-405 authenticated adapter uses only the bounded source routes",async()=>{
   const calls=[];
-  const id="11111111-1111-4111-8111-111111111111";
+  const id="27";
   const adapter=createAuthenticatedFileVaultSourceAdapter({request:async(suffix)=>{
     calls.push(suffix);
     return suffix.startsWith("/")
-      ?{document:{id,name:"CV.pdf",provider:"missionmed-filevault-v1",documentType:"cv",versionId:"22222222-2222-4222-8222-222222222222"}}
+      ?{document:{id,name:"CV.pdf",provider:"missionmed-filevault-v2",documentType:"curriculum_vitae",versionId:"22222222-2222-4222-8222-222222222222"}}
       :{documents:[{id,name:"CV.pdf"}]};
   }});
   assert.equal(adapter.connected,true);
-  assert.equal(adapter.provider,"missionmed-filevault-v1");
+  assert.equal(adapter.provider,"missionmed-filevault-v2");
   assert.equal((await adapter.listRecent()).length,1);
   assert.equal((await adapter.search(" my cv ")).length,1);
   assert.equal((await adapter.select(id)).versionId,"22222222-2222-4222-8222-222222222222");
@@ -102,13 +102,13 @@ test("D1-405 authenticated adapter uses only the bounded source routes",async()=
 
 test("D1-405 authenticated adapter performs an exact-version one-use ingestion without exposing a signed URL",async()=>{
   const calls=[];
-  const id="11111111-1111-4111-8111-111111111111";
+  const id="27";
   const versionId="22222222-2222-4222-8222-222222222222";
   const contentBase64=Buffer.from("bounded cv bytes").toString("base64");
   const adapter=createAuthenticatedFileVaultSourceAdapter({request:async(suffix,options={})=>{
     calls.push([suffix,options]);
     return{
-      document:{id,name:"CV.pdf",provider:"missionmed-filevault-v1",documentType:"cv",versionId,mimeType:"application/pdf"},
+      document:{id,name:"CV.pdf",provider:"missionmed-filevault-v2",documentType:"curriculum_vitae",versionId,mimeType:"application/pdf"},
       source:{objectId:"object_filevault_12345678",sha256:"a".repeat(64),mimeType:"application/pdf"},
       contentBase64
     };
@@ -118,6 +118,11 @@ test("D1-405 authenticated adapter performs an exact-version one-use ingestion w
   assert.equal(selected.file.timelineSourceObject.objectId,"object_filevault_12345678");
   assert.equal(await selected.file.text(),"bounded cv bytes");
   assert.deepEqual(calls,[[`/${id}/ingestions`,{method:"POST",body:{timelineDocumentId:"timeline_filevault_1",versionId}}]]);
+  await assert.rejects(
+    ()=>selectFileVaultSourceDocument(adapter,id,{timelineDocumentId:"timeline_filevault_1",versionId:versionId.replaceAll("-","")}),
+    (error)=>error.code===FILE_VAULT_SOURCE_UNAVAILABLE
+  );
+  assert.equal(calls.length,1,"a malformed version must fail before any File Vault request");
   assert.equal(JSON.stringify(selected).includes("signed"),false);
 });
 
@@ -129,11 +134,12 @@ test("D1-405 Timeline gateway is read-only, nonce-bound, entitled, and owner-fil
   assert.match(plugin,/mmtl_principal_for_user\(\(int\) \$user->ID\)/);
   assert.match(plugin,/rest_do_request\(\$request\)/);
   assert.match(plugin,/absint\(\$record\['owner_id'\] \?\? 0\) !== absint\(\$owner_id\)/);
-  assert.match(plugin,/provider' => 'missionmed-filevault-v1'/);
-  assert.match(plugin,/current_version_id/);
-  assert.match(plugin,/upload_confirmed/);
-  assert.match(plugin,/\$upstream\['file'\] \?\? \$upstream/);
-  assert.match(plugin,/\$detail\['file'\] \?\? \$detail/);
+  assert.match(plugin,/provider' => 'missionmed-filevault-v2'/);
+  assert.match(plugin,/\/mmed\/v2\/file-vault\/bootstrap/);
+  assert.match(plugin,/\$upstream_owner !== \$owner_id/);
+  assert.match(plugin,/version_uuid/);
+  assert.match(plugin,/verification_state/);
+  assert.match(plugin,/ready_clean/);
   assert.match(plugin,/File Vault is temporarily unavailable\. You can still upload a CV from this device\./);
   assert.match(plugin,/function mmtl_filevault_ingestion_endpoint/);
   assert.match(plugin,/X-File-Vault-Version/);
@@ -141,6 +147,10 @@ test("D1-405 Timeline gateway is read-only, nonce-bound, entitled, and owner-fil
   assert.match(plugin,/limit_response_size' => MMTL_FILEVAULT_SMART_FILL_MAX_BYTES \+ 1/);
   assert.match(plugin,/function mmtl_filevault_source_smart_fill_ready/);
   assert.match(plugin,/mmtl_filevault_source_descriptor\(\$record, \$owner_id, true\)/);
+  assert.doesNotMatch(plugin,/\$current_number = max\(1,/);
+  assert.match(plugin,/\$declared_current = \$record\['version'\] \?\? null;/);
+  assert.match(plugin,/if \(\$version === null && \$require_version\) \{\s*return null;/);
+  assert.doesNotMatch(plugin,/\$version = end\(\$versions\)/);
   assert.match(plugin,/'byteSize' => \$byte_size,/);
   assert.match(plugin,/contentBase64' => base64_encode\(\$bytes\)/);
   const descriptor=plugin.match(/function mmtl_filevault_source_descriptor[\s\S]*?\n}/)?.[0]||"";
@@ -164,13 +174,13 @@ test("D1-405 File Vault chooser is accessible, searchable, recent-first, and tru
   assert.equal(normalizeFileVaultSourceDocument({id:"",name:"bad"}),null);
 });
 
-const VAULT_ID="11111111-1111-4111-8111-111111111111";
+const VAULT_ID="27";
 const VERSION_ID="22222222-2222-4222-8222-222222222222";
 
 function ingestionAdapter({bytes,mimeType="application/pdf",byteSize}={}){
   const body=bytes??Buffer.from("bounded cv bytes");
   return createAuthenticatedFileVaultSourceAdapter({request:async()=>({
-    document:{id:VAULT_ID,name:"CV.pdf",provider:"missionmed-filevault-v1",documentType:"cv",versionId:VERSION_ID,mimeType},
+    document:{id:VAULT_ID,name:"CV.pdf",provider:"missionmed-filevault-v2",documentType:"curriculum_vitae",versionId:VERSION_ID,mimeType},
     source:{objectId:"object_filevault_12345678",sha256:"a".repeat(64),mimeType,...(byteSize===undefined?{}:{byteSize})},
     contentBase64:Buffer.from(body).toString("base64")
   })});

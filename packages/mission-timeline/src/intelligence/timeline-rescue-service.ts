@@ -74,7 +74,7 @@ function categoryFor(value: string): { categoryId: TimelineRescueCategoryId; rea
   if (/\b(observership|externship|clerkship|rotation|clinical|elective|sub[- ]?internship)\b/.test(text)) return { categoryId: "cl", reason: "Explicit clinical experience term.", score: 0.88 };
   if (/\b(teaching hospital|residency|fellowship|house officer|internship)\b/.test(text)) return { categoryId: "th", reason: "Explicit hospital training term.", score: 0.88 };
   if (/\b(university|college|school|degree|graduat|medical education|award|honou?r)\b/.test(text)) return { categoryId: "education", reason: "Explicit education or honor term.", score: 0.86 };
-  if (/\b(marriage|married|baby|birth|family|relocat|citizenship|green card|remembrance|loss)\b/.test(text)) return { categoryId: "personal", reason: "Explicit personal-life term.", score: 0.9 };
+  if (/\b(marriage|married|baby|birth|family|relocat(?:e|ed|es|ing|ion)?|citizenship|green card|remembrance|loss)\b/.test(text)) return { categoryId: "personal", reason: "Explicit personal-life term.", score: 0.9 };
   if (/\b(work|employ|physician|assistant|coordinator|leadership|volunteer|service)\b/.test(text)) return { categoryId: "work", reason: "Explicit work, leadership, or service term.", score: 0.8 };
   return { categoryId: "unclassified", reason: "No reliable MissionMed category term was found.", score: 0.35 };
 }
@@ -103,7 +103,12 @@ function level(score: number): RescueSemanticCandidate["confidence"]["level"] {
 
 function isFurnitureText(text: string): boolean {
   const normalized = normalizedTitle(text).toLowerCase();
-  return !normalized || /^(?:19|20)\d{2}$/.test(normalized) || CATEGORY_LABELS.has(normalized) || normalized.length < 3;
+  if (!normalized || /^(?:19|20)\d{2}$/.test(normalized) || CATEGORY_LABELS.has(normalized) || normalized.length < 3) return true;
+  if (/^timeline\s*:/.test(normalized)) return true;
+  if (/^color key\b/.test(normalized) && /\bwork experience\b/.test(normalized) && /\busmle studies\b/.test(normalized)) return true;
+  if (/\bmedical school\s*:/.test(normalized) && /\bdegree\s*:/.test(normalized) && /\bspecialty\s*:/.test(normalized)) return true;
+  if (/\b(?:synthetic|non-student)\b.*\bqa fixture\b/.test(normalized)) return true;
+  return false;
 }
 
 function geometryDate(object: RescueVisualObject, years: Array<{ year: number; x: number }>): DateEvidence | null {
@@ -209,14 +214,14 @@ function reconcile(timeline: RescueSemanticCandidate[], cv: RescueCvCandidate[])
   return output;
 }
 
-function cleanup(candidates: RescueSemanticCandidate[]): { authority: "MISSIONMED_D1_409H_CANONICAL_PRESENTATION"; mode: "PROPOSAL_ONLY"; factualMutationAllowed: false; actions: RescueCleanupAction[] } {
+function cleanup(candidates: RescueSemanticCandidate[]): { authority: "MISSIONMED_FOUNDER_KEYNOTE_2024_CANONICAL_PRESENTATION"; mode: "PROPOSAL_ONLY"; factualMutationAllowed: false; actions: RescueCleanupAction[] } {
   const base: RescueCleanupAction[] = [
-    { id: "rescue-cleanup-background", kind: "RESTORE_CANONICAL_BACKGROUND", scope: "PRESENTATION_ONLY", reason: "Imported geometry is evidence, but D1-409H remains the presentation authority.", candidateIds: [], requiresReview: true, changesBiography: false },
+    { id: "rescue-cleanup-background", kind: "RESTORE_CANONICAL_BACKGROUND", scope: "PRESENTATION_ONLY", reason: "Imported geometry is evidence, but the checksum-bound 2024 Founder Keynote remains the presentation authority.", candidateIds: [], requiresReview: true, changesBiography: false },
     { id: "rescue-cleanup-furniture", kind: "RESTORE_CANONICAL_FURNITURE", scope: "PRESENTATION_ONLY", reason: "Restore the protected title, year axis, Color Key, profile card, and MissionMed furniture.", candidateIds: [], requiresReview: true, changesBiography: false },
     { id: "rescue-cleanup-typography", kind: "NORMALIZE_TYPOGRAPHY", scope: "PRESENTATION_ONLY", reason: "Normalize imported text to the canonical MissionMed hierarchy without changing wording.", candidateIds: candidates.map((item) => item.id), requiresReview: true, changesBiography: false },
   ];
   for (const candidate of candidates) base.push({ id: `rescue-cleanup-${candidate.id}`, kind: "REBUILD_SEMANTIC_EVENT", scope: "PRESENTATION_ONLY", reason: "Rebuild this reviewed source item as an editable semantic Timeline event instead of preserving student slide geometry blindly.", candidateIds: [candidate.id], requiresReview: true, changesBiography: false });
-  return { authority: "MISSIONMED_D1_409H_CANONICAL_PRESENTATION", mode: "PROPOSAL_ONLY", factualMutationAllowed: false, actions: base };
+  return { authority: "MISSIONMED_FOUNDER_KEYNOTE_2024_CANONICAL_PRESENTATION", mode: "PROPOSAL_ONLY", factualMutationAllowed: false, actions: base };
 }
 
 export function analyzeTimelineRescue(source: TimelineRescueSource, cvCandidates: RescueCvCandidate[] = []): TimelineRescueResult {

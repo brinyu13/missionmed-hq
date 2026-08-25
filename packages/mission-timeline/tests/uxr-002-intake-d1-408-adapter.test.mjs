@@ -63,6 +63,18 @@ function pdfFile(overrides={}){
   };
 }
 
+function timelineRescuePptxFile(overrides={}){
+  const bytes=new TextEncoder().encode("synthetic pptx bytes for adapter-boundary proof");
+  return{
+    name:"synthetic-existing-timeline.pptx",
+    type:"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    size:bytes.byteLength,
+    timelineRescue:true,
+    arrayBuffer:async()=>bytes.buffer.slice(0),
+    ...overrides
+  };
+}
+
 function storedDocx(lines,{compressed=false}={}){
   const encoder=new TextEncoder();
   const name=encoder.encode("word/document.xml");
@@ -393,6 +405,112 @@ test("production CV adapter uploads a private SOURCE and maps evidence-bound AI 
   assert.equal(calls.find(([kind])=>kind==="analyze")[2].consentVersion,"d1-ux-007-ai-v1");
 });
 
+test("File Vault Smart Fill preserves trace-only custody through source and candidate provenance",async()=>{
+  const sha256="a".repeat(64);
+  const sourceCustody={
+    schemaVersion:"timeline-source-custody-ref.1",
+    authority:"TRACE_ONLY",
+    provider:"missionmed-filevault-v2",
+    timelineObjectId:"object-filevault-27",
+    sha256,
+    vaultFileId:"27",
+    versionId:"22222222-2222-4222-8222-222222222222"
+  };
+  const file=pdfFile();
+  Object.defineProperty(file,"timelineSourceObject",{value:{
+    objectId:sourceCustody.timelineObjectId,
+    sha256,
+    provider:sourceCustody.provider,
+    vaultFileId:sourceCustody.vaultFileId,
+    versionId:sourceCustody.versionId
+  }});
+  const localAdapter={
+    capability:createD1408PdfIntakeAdapter().capability,
+    async extract(){return{
+      readable:true,outcome:"ready-for-review",candidates:[],
+      sourceDocument:{
+        id:"source-local",fileName:file.name,fileSize:file.size,mimeType:file.type,
+        sha256,effectiveType:"CV",userDeclaredType:"CV",parserVersion:"408.1.0"
+      },
+      sourceBlocks:[{id:"award-block",pageId:"page-1",pageNumber:1,section:"honors",text:"2019 Dean's Award"}],
+      parser:{version:"408.1.0"}
+    };}
+  };
+  let signCalls=0;
+  const adapter=createProductionCvIntakeAdapter({
+    localAdapter,
+    documentId:"timeline-filevault-lineage",
+    apiClient:{
+      async signObjectUpload(){signCalls+=1;throw new Error("File Vault handoff must be reused");},
+      async analyzeCv(){return{
+        mode:"SERVER_AI",analysisId:"analysis-filevault",provider:"openai",model:"approved-model",
+        schemaVersion:"schema-1",promptVersion:"prompt-1",rejectedCandidateCount:0,
+        candidates:[{
+          id:"award-filevault",canonicalType:"AWARD_HONOR",categoryId:"education",timelineKind:"milestone",
+          title:"Dean's Award",organization:null,location:null,startDate:"2019-01",endDate:null,openEnded:false,
+          confidence:{score:98,level:"HIGH",reasons:["Explicit evidence"]},safeToBulkAccept:true,
+          evidence:[{field:"title",sourceBlockIds:["award-block"],excerpt:"2019 Dean's Award",support:"EXPLICIT",reason:"Explicit",uncertainty:null}],
+          provenance:[{
+            sourceObjectId:sourceCustody.timelineObjectId,sourceSha256:sha256,sourceFileName:file.name,
+            sourceBlockId:"award-block",pageNumber:1,section:"honors",excerpt:"2019 Dean's Award",
+            charStart:0,charEnd:17,fields:["title"],support:"EXPLICIT",reason:"Explicit",uncertainty:null
+          }],
+          classificationReason:"Explicit award",warnings:[],uncertainty:[]
+        }],qualitySuggestions:[],unresolvedQuestions:[]
+      };},
+      async deleteObject(){throw new Error("successful handoff source must be retained");}
+    }
+  });
+  const result=await adapter.extract({file,documentType:"CV"});
+  assert.equal(signCalls,0);
+  assert.deepEqual(result.sourceDocument.sourceCustody,sourceCustody);
+  assert.equal(result.candidates[0].provenance[0].sourceObjectId,sourceCustody.timelineObjectId);
+  assert.equal(result.candidates[0].provenance[0].sourceSha256,sha256);
+  assert.deepEqual(result.candidates[0].provenance[0].sourceCustody,sourceCustody);
+  assert.notEqual(result.candidates[0].provenance[0].sourceCustody,result.sourceDocument.sourceCustody);
+});
+
+test("File Vault flow-owned SOURCE is deleted on local-limited, AI-empty, and provider failure paths",async()=>{
+  const sha256="b".repeat(64);
+  const deleted=[];
+  const fileFor=(objectId)=>{
+    const file=pdfFile();
+    Object.defineProperty(file,"timelineSourceObject",{value:{
+      objectId,sha256,provider:"missionmed-filevault-v2",vaultFileId:"27",
+      versionId:"22222222-2222-4222-8222-222222222222"
+    }});
+    return file;
+  };
+  const localResult=(sourceBlocks)=>({
+    readable:true,outcome:"ready-for-review",candidates:[],
+    sourceDocument:{id:"source-local",fileName:"synthetic_cv.pdf",fileSize:1024,mimeType:"application/pdf",sha256,effectiveType:"CV"},
+    sourceBlocks,parser:{version:"408.1.0"}
+  });
+  const apiClient={
+    async deleteObject(objectId){deleted.push(objectId);},
+    async analyzeCv(_documentId,input){
+      if(input.source.objectId==="object-filevault-catch")throw Object.assign(new Error("provider unavailable"),{code:"PROVIDER_UNAVAILABLE"});
+      return{mode:"SERVER_AI",candidates:[],fallbackReason:"AI_EMPTY"};
+    }
+  };
+  const emptyAdapter=createProductionCvIntakeAdapter({
+    localAdapter:{async extract(){return localResult([{id:"block-1",pageNumber:1,section:"work",text:"Synthetic role"}]);}},
+    apiClient,documentId:"timeline-filevault-empty"
+  });
+  assert.equal((await emptyAdapter.extract({file:fileFor("object-filevault-empty")})).parser.intelligenceMode,"LOCAL_LIMITED");
+  const catchAdapter=createProductionCvIntakeAdapter({
+    localAdapter:{async extract(){return localResult([{id:"block-1",pageNumber:1,section:"work",text:"Synthetic role"}]);}},
+    apiClient,documentId:"timeline-filevault-catch"
+  });
+  assert.equal((await catchAdapter.extract({file:fileFor("object-filevault-catch")})).parser.intelligenceMode,"LOCAL_LIMITED");
+  const localLimitedAdapter=createProductionCvIntakeAdapter({
+    localAdapter:{async extract(){return localResult([]);}},
+    apiClient,documentId:"timeline-filevault-local-limited"
+  });
+  await localLimitedAdapter.extract({file:fileFor("object-filevault-local-limited")});
+  assert.deepEqual(deleted,["object-filevault-empty","object-filevault-catch","object-filevault-local-limited"]);
+});
+
 test("CV intelligence mapping is conservative when evidence is inferred",()=>{
   const mapped=mapCvIntelligenceCandidateToUxr({
     id:"candidate-1",canonicalType:"RESEARCH_EXPERIENCE",categoryId:"res",timelineKind:"duration",
@@ -445,4 +563,49 @@ test("Timeline Rescue keeps unclassified facts unresolved and exposes slide, cle
   review.candidates[0].decision="accepted";
   assert.equal(validateCandidateForApproval(review.candidates[0]).categoryId,"Choose a category.");
   assert.match(renderIntake(review),/Review this MissionMed presentation proposal/);
+});
+
+test("Timeline Rescue PPTX passes IntakeStateMachine validation and reaches the production Rescue adapter only after consent",async()=>{
+  let rescueCalls=0;
+  let analyzeCvCalls=0;
+  const apiClient={
+    async signObjectUpload(){return{objectId:"rescue-source-pptx",uploadToken:"rescue-token-pptx"};},
+    async uploadSignedObject(){},
+    async confirmObjectUpload(){return{status:"CONFIRMED"};},
+    async analyzeCv(){analyzeCvCalls+=1;return{mode:"LOCAL_LIMITED",candidates:[]};},
+    async rescueTimeline(){
+      rescueCalls+=1;
+      return{
+        ai:{status:"COMPLETE",mode:"SERVER_AI",analysisId:"rescue-analysis-pptx",provider:"openai",model:"synthetic-model",promptVersion:"rescue-prompt"},
+        rescue:{
+          schemaVersion:"d1-timeline-rescue-1",format:"PPTX",artifactSha256:"c".repeat(64),objects:[{id:"pptx-object-1"}],warnings:[],unresolvedQuestions:[],
+          candidates:[{
+            id:"rescue-research",categoryId:"res",title:"Synthetic Research Fellowship",startDate:"2021-01",endDate:"2023-12",
+            timelineKind:"duration",confidence:{score:.88,reasons:["Explicit synthetic title and dates"]},
+            provenance:[{pageOrSlide:1,sourceText:"Synthetic Research Fellowship 2021-2023",support:"SOURCE_FACT"}],uncertainties:[]
+          }],
+          cleanupProposal:{authority:"MISSIONMED_FOUNDER_KEYNOTE_2024_CANONICAL_PRESENTATION",factualMutationAllowed:false,actions:[]},
+          reconciliation:[{timelineCandidateId:"rescue-research",cvCandidateId:"synthetic-cv-research",state:"DATE_CONFLICT",recommendation:"Review both dates.",requiresReview:true}]
+        }
+      };
+    },
+    async deleteObject(){throw new Error("successful Rescue source remains private");}
+  };
+  const adapter=createProductionCvIntakeAdapter({apiClient,documentId:"timeline-rescue-pptx",ensureRemoteDocument:async()=>{}});
+  const machine=new IntakeStateMachine({adapter});
+  const file=timelineRescuePptxFile();
+  const received=machine.receiveFile(file);
+  assert.equal(received.file.timelineRescue,true);
+  assert.equal(received.file.type,file.type);
+  await assert.rejects(()=>machine.startExtraction(),/valid file and review consent/);
+  assert.equal(rescueCalls,0);
+  machine.setConsent(true);
+  const state=await machine.startExtraction();
+  assert.equal(state.stage,INTAKE_STAGES.REVIEW);
+  assert.equal(rescueCalls,1);
+  assert.equal(analyzeCvCalls,0);
+  assert.equal(state.candidates.length,1);
+  assert.equal(state.candidates[0].categoryId,"research");
+  assert.equal(state.candidates[0].fields.rescueReviewRequired,true);
+  assert.equal(state.candidates[0].decision,"undecided");
 });

@@ -1,4 +1,5 @@
 import {createMedicalSchoolProvider} from "./medical-school-registry.js";
+import {ISO_3166_ALPHA2} from "./iso-country-codes.js";
 import {
   ALL_ROTATION_SPECIALTIES,
   PINNED_ROTATION_SPECIALTIES,
@@ -6,27 +7,14 @@ import {
   specialtyOption
 } from "./specialty-taxonomy.js";
 
-const NON_COUNTRY_REGION_CODES=new Set(["EU","EZ","UN","XA","XB","ZZ"]);
-
-function regionCodes(){
-  const codes=[];
-  for(let first=65;first<=90;first+=1){
-    for(let second=65;second<=90;second+=1){
-      codes.push(String.fromCharCode(first,second));
-    }
-  }
-  return codes;
-}
-
 export function browserCountryRows({
   DisplayNames=globalThis.Intl?.DisplayNames
 }={}){
-  if(typeof DisplayNames!=="function")return[];
-  const names=new DisplayNames(["en"],{type:"region"});
-  return regionCodes()
-    .filter((code)=>!NON_COUNTRY_REGION_CODES.has(code))
-    .map((code)=>({code,name:String(names.of(code)||"")}))
-    .filter(({code,name})=>name&&name!==code&&!/unknown region/i.test(name))
+  const names=typeof DisplayNames==="function"
+    ?new DisplayNames(["en"],{type:"region"})
+    :null;
+  return ISO_3166_ALPHA2
+    .map(({code,name})=>({code,name:String(names?.of(code)||name)}))
     .sort((left,right)=>left.name.localeCompare(right.name))
     .map(({code,name})=>Object.freeze({
       id:`country-${code.toLowerCase()}`,

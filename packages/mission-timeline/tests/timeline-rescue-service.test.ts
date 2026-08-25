@@ -75,7 +75,28 @@ test("PPTX rescue extracts OOXML geometry, groups, media custody, and review-onl
   assert.equal(clinical?.reviewState, "REQUIRED");
   assert.ok(clinical?.uncertainties.some((item) => /inferred from object geometry/i.test(item)));
   assert.equal(result.cleanupProposal.factualMutationAllowed, false);
+  assert.equal(result.cleanupProposal.authority, "MISSIONMED_FOUNDER_KEYNOTE_2024_CANONICAL_PRESENTATION");
+  assert.match(result.cleanupProposal.actions[0]?.reason ?? "", /2024 Founder Keynote/);
   assert.ok(result.cleanupProposal.actions.every((item) => item.requiresReview && !item.changesBiography));
+});
+
+test("PPTX rescue excludes canonical furniture and classifies relocation as Personal", () => {
+  const result = analyzeTimelineRescue({
+    filename: "existing-timeline.pptx",
+    mimeType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    bytes: zip({
+      "[Content_Types].xml": "<Types/>",
+      "ppt/presentation.xml": '<p:presentation xmlns:p="p"><p:sldSz cx="12192000" cy="6858000"/></p:presentation>',
+      "ppt/slides/slide1.xml": `<p:sld xmlns:p="p" xmlns:a="a"><p:cSld><p:spTree>
+        <p:sp><p:nvSpPr><p:cNvPr id="1" name="Title"/></p:nvSpPr><p:spPr><a:xfrm><a:off x="1000000" y="100000"/><a:ext cx="3000000" cy="500000"/></a:xfrm></p:spPr><p:txBody><a:p><a:r><a:t>Timeline: Synthetic Student</a:t></a:r></a:p></p:txBody></p:sp>
+        <p:sp><p:nvSpPr><p:cNvPr id="2" name="Color Key"/></p:nvSpPr><p:spPr><a:xfrm><a:off x="100000" y="2000000"/><a:ext cx="1000000" cy="2000000"/></a:xfrm></p:spPr><p:txBody><a:p><a:r><a:t>COLOR KEY Work Experience Personal (Not on CV) USMLE Studies</a:t></a:r></a:p></p:txBody></p:sp>
+        <p:sp><p:nvSpPr><p:cNvPr id="3" name="Profile"/></p:nvSpPr><p:spPr><a:xfrm><a:off x="100000" y="4000000"/><a:ext cx="2000000" cy="2000000"/></a:xfrm></p:spPr><p:txBody><a:p><a:r><a:t>Medical school: Global University Degree: MBBS Specialty: Internal Medicine</a:t></a:r></a:p></p:txBody></p:sp>
+        <p:sp><p:nvSpPr><p:cNvPr id="4" name="Personal milestone"/></p:nvSpPr><p:spPr><a:xfrm><a:off x="3000000" y="2000000"/><a:ext cx="1500000" cy="300000"/></a:xfrm></p:spPr><p:txBody><a:p><a:r><a:t>Relocation 2025</a:t></a:r></a:p></p:txBody></p:sp>
+      </p:spTree></p:cSld></p:sld>`,
+    }),
+  });
+  assert.deepEqual(result.candidates.map((candidate) => candidate.title), ["Relocation"]);
+  assert.equal(result.candidates[0]?.categoryId, "personal");
 });
 
 test("PDF rescue recovers directly encoded source text but keeps review and provenance", () => {

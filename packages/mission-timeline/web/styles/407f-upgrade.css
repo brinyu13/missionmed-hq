@@ -5504,7 +5504,7 @@ section[data-view="canvas"]{
   position:absolute;
   top:var(--advanced-text-top);
   transform:translate(-8px,-50%);
-  z-index:28;
+  z-index:100;
 }
 
 .canvas407FHost .canvas-advanced-text-editor textarea{
@@ -6869,6 +6869,17 @@ section[data-view="canvas"]{
   z-index:42;
 }
 
+/* The editing proxy, unlike the read-only preview proxy, is the pointer target for
+   the entire WCAG-sized hit area. Leaving its center click-through made a short
+   one-line text object land on the SVG beneath the proxy in Chromium, so physical
+   double-click and Shift-selection never reached the editor's typed object path. */
+.canvasEffectiveHitProxy{
+  pointer-events:auto;
+}
+.canvasEffectiveHitProxy [data-hit-edge]{
+  pointer-events:none;
+}
+
 .builderPreviewHitProxy [data-hit-edge],
 .canvasEffectiveHitProxy [data-hit-edge]{
   pointer-events:auto;
@@ -6905,6 +6916,16 @@ section[data-view="canvas"]{
   left:calc(50% + var(--effective-source-width) / 2);
   right:0;
   top:calc(50% - var(--effective-source-height) / 2);
+}
+
+/* The full canvas proxy is the one interaction target. Its decorative edge
+   children must not intercept a double-click, and all proxies yield while the
+   on-canvas text editor is active so Save/Cancel remain physically clickable. */
+.canvasEffectiveHitProxy [data-hit-edge]{
+  pointer-events:none;
+}
+.canvas407FHost:has([data-advanced-inline-text-form]) .canvasEffectiveHitProxy{
+  pointer-events:none;
 }
 
 .builderPreviewHitProxy:focus-visible,
@@ -7481,6 +7502,9 @@ main.isEntitlementReadOnly section[data-view] [draggable="true"]{
   .entitlementBanner407F{align-items:flex-start;flex-direction:column;gap:5px}
 }
 
+.canonical-board-preview{position:relative}
+.canonical-board-preview.is-last-good .timeline-preview-recovery-status{position:absolute;z-index:20;right:12px;bottom:12px;max-width:min(360px,calc(100% - 24px));padding:8px 11px;border:1px solid rgba(255,255,255,.3);border-radius:8px;background:rgba(12,20,33,.9);box-shadow:0 4px 18px rgba(0,0,0,.28);color:#fff;font:650 12px/1.35 Inter,system-ui,sans-serif;pointer-events:none}
+
 .canvas407FHost [data-advanced-media],
 .canvas407FHost [data-advanced-text]{
   cursor:move;
@@ -7533,6 +7557,30 @@ main.isEntitlementReadOnly section[data-view] [draggable="true"]{
 .advancedDirectSelection [data-advanced-direct-handle="s"]{bottom:-7px;left:calc(50% - 6px);cursor:ns-resize}
 .advancedDirectSelection [data-advanced-direct-handle="sw"]{bottom:-7px;left:-7px;cursor:nesw-resize}
 .advancedDirectSelection [data-advanced-direct-handle="w"]{left:-7px;top:calc(50% - 6px);cursor:ew-resize}
+.advancedAxisBoundaryHandle{
+  appearance:none;
+  background:linear-gradient(90deg,transparent 5px,#39d6ff 5px,#39d6ff 9px,transparent 9px);
+  border:0;
+  cursor:ew-resize;
+  min-height:36px;
+  padding:0;
+  position:fixed;
+  touch-action:none;
+  width:14px;
+  z-index:121;
+}
+.advancedAxisBoundaryHandle::after{
+  background:#fff;
+  border:2px solid #18799e;
+  border-radius:50%;
+  box-shadow:0 1px 5px rgba(0,0,0,.45);
+  content:"";
+  height:12px;
+  left:1px;
+  position:absolute;
+  top:calc(50% - 6px);
+  width:12px;
+}
 .advancedRailDragGhost{
   background:rgba(7,17,31,.92);
   border:1px solid #39d6ff;

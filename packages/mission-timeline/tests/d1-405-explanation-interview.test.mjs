@@ -243,7 +243,8 @@ test("M9 active 407F UI exposes controlled workflows and local logo reuse",async
   assert.match(adapter,/image\/png,image\/jpeg,image\/webp/);
   assert.match(adapter,/document\.advanced\.media\.push\(asset\)/);
   assert.match(adapter,/setVariantInterviewTarget/);
-  assert.match(adapter,/kernelManager\.render\(timelineWithLorPresentation\(timeline\)/);
+  assert.match(adapter,/serializeFounderPresentation\(projected,\{/);
+  assert.match(adapter,/presentationAuthority:"D1-TIMELINE-FOUNDER-REANCHOR-015\+DR-127"/);
   assert.match(adapter,/panelAttributes\("coordinate"\)/);
   assert.match(adapter,/data-explanation-target-x/);
   assert.match(adapter,/data-explanation-target-y/);

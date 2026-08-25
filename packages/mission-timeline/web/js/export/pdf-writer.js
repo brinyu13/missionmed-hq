@@ -1,6 +1,12 @@
 function ascii(value){return new TextEncoder().encode(value);}
 function concat(parts){const size=parts.reduce((sum,part)=>sum+part.length,0),out=new Uint8Array(size);let offset=0;parts.forEach((part)=>{out.set(part,offset);offset+=part.length;});return out;}
 function pad(value,width){return String(value).padStart(width,"0");}
+function pdfNumber(value){
+  const number=Number(value);
+  if(!Number.isFinite(number))throw new TypeError("PDF geometry must be finite.");
+  if(Math.abs(number)<1e-9)return"0";
+  return String(Number(number.toFixed(6)));
+}
 
 export async function buildImagePdf(pages,{title="Mission Timeline",author="MissionMed Timeline Builder"}={}){
   if(!pages.length)throw new Error("At least one PDF page is required.");
@@ -8,7 +14,7 @@ export async function buildImagePdf(pages,{title="Mission Timeline",author="Miss
   for(let index=0;index<pages.length;index++){
     const page=pages[index],pageId=nextId++,imageId=nextId++,contentId=nextId++;pageRefs.push(`${pageId} 0 R`);
     const pageWidth=page.pageWidth||792,pageHeight=page.pageHeight||612;
-    objects.push({id:pageId,bytes:ascii(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /Im${index} ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>`)});
+    objects.push({id:pageId,bytes:ascii(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pdfNumber(pageWidth)} ${pdfNumber(pageHeight)}] /Resources << /XObject << /Im${index} ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>`)});
     const jpeg=page.jpegBytes instanceof Uint8Array?page.jpegBytes:new Uint8Array(page.jpegBytes);
     objects.push({id:imageId,bytes:concat([ascii(`<< /Type /XObject /Subtype /Image /Width ${page.pixelWidth} /Height ${page.pixelHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`),jpeg,ascii("\nendstream")])});
     const placement=page.imagePlacement||fitImageToPage({
@@ -17,7 +23,7 @@ export async function buildImagePdf(pages,{title="Mission Timeline",author="Miss
       pageWidth,
       pageHeight
     });
-    const stream=`q\n1 1 1 rg\n0 0 ${pageWidth} ${pageHeight} re f\nQ\nq\n${placement.width} 0 0 ${placement.height} ${placement.x} ${placement.y} cm\n/Im${index} Do\nQ\n`;
+    const stream=`q\n1 1 1 rg\n0 0 ${pdfNumber(pageWidth)} ${pdfNumber(pageHeight)} re f\nQ\nq\n${pdfNumber(placement.width)} 0 0 ${pdfNumber(placement.height)} ${pdfNumber(placement.x)} ${pdfNumber(placement.y)} cm\n/Im${index} Do\nQ\n`;
     objects.push({id:contentId,bytes:ascii(`<< /Length ${ascii(stream).length} >>\nstream\n${stream}endstream`)});
   }
   const infoId=nextId++;objects.push({id:1,bytes:ascii("<< /Type /Catalog /Pages 2 0 R >>")});objects.push({id:2,bytes:ascii(`<< /Type /Pages /Kids [${pageRefs.join(" ")}] /Count ${pages.length} >>`)});objects.push({id:infoId,bytes:ascii(`<< /Title (${title.replace(/[()]/g,"")}) /Author (${author.replace(/[()]/g,"")}) /Creator (D1-409 Local Export Engine) >>`)});

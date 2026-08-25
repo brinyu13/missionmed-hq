@@ -195,7 +195,7 @@ test("D1-406 export projection remains raster-safe while retaining locked 407F a
   assert.match(svg,/data-locked-407f-source-sha256=/);
   assert.match(svg,/data-axis-language="407f-powerpoint"/);
   assert.match(svg,/data-event-kind="arrow"/);
-  assert.match(svg,/height="30"/);
+  assert.match(svg,/<path data-continuous-duration-arrow="true"/);
   assert.match(svg,/data-artifact-chrome="color-key"/);
   assert.match(svg,/data-artifact-chrome="profile"/);
   assert.match(svg,/data-artifact-chrome="photo-frames"/);

@@ -30,7 +30,7 @@ function duration(id,startDate,endDate,categoryId="work"){
   };
 }
 
-test("M8 active 407F Canvas delegates rendering to the protected D1-411A kernel",()=>{
+test("M8 active 407F Canvas delegates rendering to the shared Founder presentation serializer",()=>{
   assert.match(adapter,/canvasController=installCanvas\(canvasHost,store,\{/);
   assert.match(
     adapter.slice(adapter.indexOf("canvasController=installCanvas"),adapter.indexOf("api.canvas=canvasController")),
@@ -42,8 +42,10 @@ test("M8 active 407F Canvas delegates rendering to the protected D1-411A kernel"
   );
   assert.match(
     adapter,
-    /kernelManager\.render\(timelineWithLorPresentation\(timeline\),\{/
+    /serializeFounderPresentation\(projected,\{/
   );
+  assert.match(adapter,/resourceNamespace:`timeline-\$\{surface\}`/);
+  assert.match(adapter,/presentationAuthority:"D1-TIMELINE-FOUNDER-REANCHOR-015\+DR-127"/);
   assert.match(index,/<div id="canvas407F" class="canvas407FHost"/);
 });
 

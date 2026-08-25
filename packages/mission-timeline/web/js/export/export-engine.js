@@ -60,13 +60,14 @@ export class ExportEngine{
   async generatePng(key,{width=1920,download=false}={}){
     if(!["INTERVIEWER_SAFE_PNG","FULL_STORY_PNG"].includes(key))throw new Error("PNG export key is invalid.");const def=EXPORT_DEFS[key];this.assertGate(def);
     const document=this.documentProvider(),height=Math.round(width*9/16),rendered=await renderTimelineCanvas(document,{scope:def.scope,width,height,mediaResolver:(item)=>this.mediaResolver(item)}),blob=await canvasToBlob(rendered.canvas,"image/png"),filename=this.filename(document,key,width);
-    const result=await this.recordExport({key,blob,document,filename,dimensions:{width,height},warnings:[]});if(download)downloadBlob(blob,filename);return {...result,eventCount:rendered.events.length,canvas:rendered.canvas};
+    const warnings=[...(rendered.warnings||[]),`SERIALIZER_${rendered.serializer}`];
+    const result=await this.recordExport({key,blob,document,filename,dimensions:{width,height},warnings});if(download)downloadBlob(blob,filename);return {...result,eventCount:rendered.events.length,canvas:rendered.canvas,serializer:rendered.serializer,warnings};
   }
   async generatePdf(key,{width=2560,download=false}={}){
     if(!["PRINT_PDF","ADVISOR_PACKET_PDF"].includes(key))throw new Error("PDF export key is invalid.");const def=EXPORT_DEFS[key];this.assertGate(def);
     const document=this.documentProvider(),height=Math.round(width*9/16),scope=key==="PRINT_PDF"?"INTERVIEWER_SAFE":"ADVISOR_PACKET",rendered=await renderTimelineCanvas(document,{scope,width,height,mediaResolver:(item)=>this.mediaResolver(item)}),pages=[await canvasJpegPage(rendered.canvas)];
     if(key==="ADVISOR_PACKET_PDF"){const advisorCanvas=await renderAdvisorPage(document,{width,height});pages.push(await canvasJpegPage(advisorCanvas));}
-    const blob=await buildImagePdf(pages,{title:document.title||"Mission Timeline"}),filename=this.filename(document,key),result=await this.recordExport({key,blob,document,filename,dimensions:{width,height},pageCount:pages.length,warnings:[]});if(download)downloadBlob(blob,filename);return {...result,eventCount:rendered.events.length};
+    const blob=await buildImagePdf(pages,{title:document.title||"Mission Timeline"}),filename=this.filename(document,key),warnings=[...(rendered.warnings||[]),`SERIALIZER_${rendered.serializer}`],result=await this.recordExport({key,blob,document,filename,dimensions:{width,height},pageCount:pages.length,warnings});if(download)downloadBlob(blob,filename);return {...result,eventCount:rendered.events.length,serializer:rendered.serializer,warnings};
   }
   async generateJson({download=false}={}){
     const key="SOURCE_JSON",document=this.documentProvider(),safeDocument=sanitizeDocumentForExport(document),json=JSON.stringify(safeDocument,null,2),blob=new Blob([json],{type:"application/json"}),filename=this.filename(document,key),result=await this.recordExport({key,blob,document:safeDocument,filename,companionFiles:[]});if(download)downloadBlob(blob,filename);return result;

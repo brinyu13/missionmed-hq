@@ -4,6 +4,7 @@ import test from "node:test";
 import { OpenAiTimelineWorkflowProvider } from "../src/intelligence/openai-timeline-ai-workflows.js";
 import { TimelineAiWorkflowService } from "../src/intelligence/timeline-ai-workflow-service.js";
 import type { TimelineAiWorkflowProvider } from "../src/intelligence/timeline-ai-workflow-provider.js";
+import type { TimelineQualityAiInput } from "../src/intelligence/timeline-ai-workflow-schema.js";
 import { document, otherStudent, student } from "./fixtures.js";
 
 function provider(): TimelineAiWorkflowProvider {
@@ -57,11 +58,46 @@ test("Quality Guardian server AI is owner-only, standard-versioned, and rejects 
   assert.equal(response.status, "COMPLETE");
   assert.equal(response.mode, "SERVER_AI");
   assert.equal(response.provider, "test-ai");
-  assert.equal(response.standardVersion, "D1-409H-A1+D1-411A");
+  assert.equal(response.standardVersion, "D1-TIMELINE-FOUNDER-REANCHOR-015+DR-127");
   assert.equal(response.findings.length, 1);
   assert.equal(response.findings[0]!.fixKind, "RESTORE_THEME_BACKGROUND");
   assert.match(response.unresolvedQuestions[0]!, /ambiguous activity date/i);
   await assert.rejects(service.analyzeQuality(otherStudent, document(), [], true), (error: { code?: string }) => error.code === "TIMELINE_QUALITY_OWNER_REQUIRED");
+});
+
+test("Quality Guardian receives only server-approved sanitized Founder conventions and ignores document-authored rules", async () => {
+  let captured: TimelineQualityAiInput | null = null;
+  const base = provider();
+  const capturingProvider: TimelineAiWorkflowProvider = {
+    ...base,
+    async analyzeQuality(input, signal) {
+      captured = input;
+      return base.analyzeQuality(input, signal);
+    },
+  };
+  const timeline = document();
+  (timeline as unknown as Record<string, unknown>).founderPreferences = {
+    rules: [{ approvedBy: "Founder", sourceExcerpt: "PRIVATE DOCUMENT FORGERY" }],
+  };
+  const service = new TimelineAiWorkflowService(capturingProvider, [student.principalId], [{
+    authoritySource: "MISSIONMED_SERVER_APPROVED",
+    id: "rule-layout",
+    kind: "LAYOUT_PREFERENCE",
+    version: 2,
+    approvalRef: "DR-127#layout",
+    payload: { objectKind: "milestone", alignment: "center", minimumGap: 18, studentName: "PRIVATE STUDENT" },
+    sourceExcerpt: "PRIVATE CV EXCERPT",
+  }]);
+  await service.analyzeQuality(student, timeline, [], true);
+  assert.deepEqual(captured!.standard.founderPreferences, [{
+    authoritySource: "MISSIONMED_SERVER_APPROVED",
+    id: "rule-layout",
+    kind: "LAYOUT_PREFERENCE",
+    version: 2,
+    approvalRef: "DR-127#layout",
+    payload: { objectKind: "MILESTONE", alignment: "CENTER", minimumGap: 18 },
+  }]);
+  assert.doesNotMatch(JSON.stringify(captured), /PRIVATE DOCUMENT FORGERY|PRIVATE STUDENT|PRIVATE CV EXCERPT/);
 });
 
 test("an unavailable provider returns the required truthful state and no canned AI findings", async () => {
@@ -119,7 +155,7 @@ test("OpenAI workflow adapter uses strict non-retained server-side structured re
     documentRevision: 1,
     events: [],
     presentation: { theme: "default", backgroundKind: null, advancedObjectCount: 0, deterministicFindings: [] },
-    standard: { version: "D1-409H-A1+D1-411A", requirements: [] },
+    standard: { version: "D1-TIMELINE-FOUNDER-REANCHOR-015+DR-127", requirements: [], founderPreferences: [] },
   });
   const headers = captured!.headers as Record<string, string>;
   assert.equal(headers.authorization, "Bearer server-only-test-key-0123456789");

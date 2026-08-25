@@ -230,7 +230,7 @@ test("live AI findings merge into the versioned MissionMed Format while unsafe f
   assert.ok(requestFindings.every(({category})=>QUALITY_GUARDIAN_SECTIONS.some(({id})=>id===category)));
   const merged=mergeAiQualityAnalysis(local,{
     status:"COMPLETE",mode:"SERVER_AI",provider:"openai",model:"gpt-test-pinned",
-    promptVersion:"d1-timeline-quality-guardian-ai.1",standardVersion:"D1-409H-A1+D1-411A",
+    promptVersion:"d1-timeline-quality-guardian-ai.1",standardVersion:"D1-TIMELINE-FOUNDER-REANCHOR-015+DR-127",
     findings:[{
       id:"qg-ai:test",category:"READABILITY",code:"LONG_LABEL",severity:"REVIEW",
       basis:"AI_INFERENCE",elementIds:["event-1"],message:"The event label may clip.",
@@ -240,7 +240,7 @@ test("live AI findings merge into the versioned MissionMed Format while unsafe f
     unresolvedQuestions:["Confirm whether the shortened label preserves meaning."]
   });
   assert.equal(merged.ai.status,"COMPLETE");
-  assert.equal(merged.ai.standardVersion,"D1-409H-A1+D1-411A");
+  assert.equal(merged.ai.standardVersion,"D1-TIMELINE-FOUNDER-REANCHOR-015+DR-127");
   assert.ok(merged.findings.some(({id})=>id==="qg-ai:test"));
   assert.match(renderQualityGuardian(merged),/Live AI review/);
 });

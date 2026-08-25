@@ -105,17 +105,17 @@ test("an ordinary resource 403 does not destroy a valid session",async()=>{
 test("File Vault source adapter is same-origin, nonce-bound, metadata-only, and removed on close",async()=>{
   const calls=[];
   const globalObject={};
-  const id="11111111-1111-4111-8111-111111111111";
+  const id="27";
   const client=new TimelineProductionAuthClient({locationObject,documentObject:null,globalObject,fetchImpl:async(url,options={})=>{
     calls.push({url:String(url),options});
     if(String(url).includes("admin-ajax.php"))return bootstrap();
     if(String(url).includes("/token"))return tokenResponse();
     if(String(url).endsWith(`/file-vault/sources/${id}/ingestions`))return new Response(JSON.stringify({document:{
-      id,name:"CV.pdf",provider:"missionmed-filevault-v1",documentType:"cv",
+      id,name:"CV.pdf",provider:"missionmed-filevault-v2",documentType:"curriculum_vitae",
       versionId:"22222222-2222-4222-8222-222222222222",mimeType:"application/pdf"
     },source:{objectId:"object_filevault_12345678",sha256:"a".repeat(64),mimeType:"application/pdf"},contentBase64:Buffer.from("cv bytes").toString("base64")}),{status:201,headers:{"content-type":"application/json"}});
     if(String(url).endsWith(`/file-vault/sources/${id}`))return new Response(JSON.stringify({document:{
-      id,name:"CV.pdf",provider:"missionmed-filevault-v1",documentType:"cv",
+      id,name:"CV.pdf",provider:"missionmed-filevault-v2",documentType:"curriculum_vitae",
       versionId:"22222222-2222-4222-8222-222222222222",mimeType:"application/pdf"
     }}),{status:200,headers:{"content-type":"application/json"}});
     if(String(url).includes("/file-vault/sources"))return new Response(JSON.stringify({documents:[{id,name:"CV.pdf"}]}),{status:200,headers:{"content-type":"application/json"}});

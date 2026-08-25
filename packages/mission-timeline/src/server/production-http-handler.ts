@@ -6,6 +6,7 @@ import { TimelineError } from "../core/errors.js";
 
 const MAX_REQUEST_BYTES = 2 * 1024 * 1024;
 const MAX_MEDIA_UPLOAD_BYTES = 15 * 1024 * 1024;
+const MAX_FILE_VAULT_INGEST_BYTES = 20 * 1024 * 1024;
 
 export interface TimelineHealthDependency {
   schemaVersion: string;
@@ -132,7 +133,11 @@ export function createTimelineProductionHttpHandler(options: TimelineProductionH
         return;
       }
       const mediaUpload = path === "/v1/objects/upload" && message.method === "POST";
-      const body = await requestBody(message, mediaUpload ? MAX_MEDIA_UPLOAD_BYTES : MAX_REQUEST_BYTES);
+      const fileVaultIngest = /^\/v1\/documents\/[^/]+\/file-vault\/ingestions$/.test(path) && message.method === "POST";
+      const body = await requestBody(
+        message,
+        fileVaultIngest ? MAX_FILE_VAULT_INGEST_BYTES : mediaUpload ? MAX_MEDIA_UPLOAD_BYTES : MAX_REQUEST_BYTES,
+      );
       const request = new Request(`http://timeline.internal${message.url ?? "/"}`, {
         method: message.method,
         headers: nodeHeaders(message, id),

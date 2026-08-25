@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { runInNewContext } from "node:vm";
 
 const pluginPath = new URL("../../../wp-content/plugins/missionmed-timeline-sso/missionmed-timeline-sso.php", import.meta.url);
 const plugin = await readFile(pluginPath, "utf8");
@@ -117,6 +118,8 @@ test("Kinsta route uses a Timeline-owned execution-private bundle and extensionl
 test("WordPress packaging rewrites the protected kernel export stylesheet to an immutable alias", () => {
   assert.match(runtimeBuilder, /D1-409H_VISUAL_MASTER\.css/);
   assert.match(runtimeBuilder, /TIMELINE_RUNTIME_JS_ASSET_MISSING/);
+  assert.match(runtimeBuilder, /target===`assets\/photos\/\$\{name\}`\|\|target\.endsWith\(`\/assets\/photos\/\$\{name\}`\)/);
+  assert.match(runtimeBuilder, /filter\(\(target\)=>!isExcludedPrivateFixture\(target\)\)/);
   assert.match(runtimeBuilder, /TIMELINE_RUNTIME_INDEX_CSS_ASSET_MISSING/);
   assert.match(runtimeBuilder, /TIMELINE_RUNTIME_INDEX_CSS_PATH_REMAINS/);
   assert.match(runtimeBuilder, /\/timeline\/_asset\/\$\{asset\.alias\}/);
@@ -141,11 +144,67 @@ test("Matrix launch adapter creates one eligible-only Timeline entry without cha
   assert.match(plugin, /add_action\('wp_footer', 'mmtl_render_matrix_launch_adapter_fallback', 1\)/);
   assert.match(matrixLaunch, /data-missionmed-product="timeline"/);
   assert.match(matrixLaunch, /a\.sos-nav-link\[href="#timeline"\]/);
+  assert.match(matrixLaunch, /normalizeTimelineLink/);
+  assert.match(matrixLaunch, /link\.href = config\.target/);
+  assert.match(matrixLaunch, /stopImmediatePropagation\(\)/);
+  assert.match(matrixLaunch, /}, true\);/);
   assert.match(matrixLaunch, /addEventListener\("hashchange"/);
+  assert.match(matrixLaunch, /addEventListener\("pageshow"/);
+  assert.match(matrixLaunch, /new MutationObserver/);
   assert.match(matrixLaunch, /a\.sos-nav-link\[href="#storyforge"\]/);
   assert.match(matrixLaunch, /link\.dataset\.missionmedProduct = "timeline"/);
   assert.match(matrixLaunch, /link\.dataset\.appId = "timeline"/);
   assert.match(matrixLaunch, /matchPrepList\.insertBefore\(item, storyForgeItem\.nextSibling\)/);
   assert.match(matrixLaunch, /document\.readyState === "loading"/);
   assert.match(matrixLaunch, /window\.location\.hash\.toLowerCase\(\) === "#timeline"/);
+});
+
+test("Matrix launch normalization becomes inert after the label is canonical", async () => {
+  let observerCallback=null;
+  let observing=false;
+  let selfSignals=0;
+  const labelState={value:"Timeline Builder",writes:0};
+  const label={};
+  Object.defineProperty(label,"textContent",{
+    get(){return labelState.value;},
+    set(value){
+      labelState.value=String(value);
+      labelState.writes+=1;
+      if(observing&&observerCallback&&selfSignals<4){
+        selfSignals+=1;
+        queueMicrotask(()=>observerCallback([]));
+      }
+    }
+  });
+  const link={
+    href:"#timeline",dataset:{},
+    matches:(selector)=>selector==="a",
+    querySelector:()=>label,
+    setAttribute(){}
+  };
+  const documentObject={
+    readyState:"complete",body:{},
+    querySelectorAll:()=>[link],
+    querySelector:()=>null,
+    addEventListener(){}
+  };
+  class TestMutationObserver{
+    constructor(callback){observerCallback=callback;}
+    observe(){observing=true;}
+  }
+  const windowObject={
+    MissionMedTimelineLaunch:{target:"https://missionmed.example/timeline/"},
+    location:{hash:"",assign(){}},
+    addEventListener(){}
+  };
+  runInNewContext(matrixLaunch,{
+    window:windowObject,
+    document:documentObject,
+    MutationObserver:TestMutationObserver,
+    queueMicrotask
+  });
+  assert.equal(labelState.writes,1,"initial normalization should write the noncanonical label once");
+  observerCallback([]);
+  await new Promise((resolve)=>setImmediate(resolve));
+  assert.equal(labelState.writes,1,"an observer pass must not rewrite canonical text and trigger itself");
 });

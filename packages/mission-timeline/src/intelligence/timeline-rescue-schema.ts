@@ -98,7 +98,7 @@ export interface RescueCleanupAction {
 }
 
 export interface RescueCleanupProposal {
-  authority: "MISSIONMED_D1_409H_CANONICAL_PRESENTATION";
+  authority: "MISSIONMED_FOUNDER_KEYNOTE_2024_CANONICAL_PRESENTATION";
   mode: "PROPOSAL_ONLY";
   factualMutationAllowed: false;
   actions: RescueCleanupAction[];

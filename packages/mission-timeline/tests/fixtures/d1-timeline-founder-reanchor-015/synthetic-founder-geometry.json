@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "d1-uxr-002/timeline-document/1",
+  "id": "synthetic-founder-geometry",
+  "title": "Timeline: Synthetic Review Student",
+  "theme": "keynote-classic",
+  "studentProfile": {
+    "fullName": "Synthetic Review Student",
+    "medicalSchool": "Global Medical University",
+    "degree": "MD",
+    "visaStatus": "Not applicable",
+    "specialtyGoal": "Internal Medicine",
+    "interviewSeason": "2027-01"
+  },
+  "metadata": {
+    "renderCurrentMonth": "2027-01",
+    "fixturePolicy": "SYNTHETIC_ONLY",
+    "goldenNamespace": "d1-timeline-founder-reanchor-015/synthetic-golden-master/keynote-2024-v1",
+    "interview": {
+      "date": "2027-01",
+      "programName": "Synthetic University Hospital",
+      "label": "YOUR BIG INTERVIEW"
+    }
+  },
+  "events": [
+    {
+      "id": "synthetic-education",
+      "title": "Medical Education",
+      "categoryId": "education",
+      "eventType": "duration",
+      "startDate": "2019-08",
+      "endDate": "2023-05",
+      "visibilityState": "INTERVIEWER_SAFE",
+      "siteName": "Global Medical University"
+    },
+    {
+      "id": "synthetic-exams",
+      "title": "USMLE Study",
+      "categoryId": "exams",
+      "eventType": "duration",
+      "startDate": "2022-09",
+      "endDate": "2023-03",
+      "visibilityState": "INTERVIEWER_SAFE"
+    },
+    {
+      "id": "synthetic-clinical",
+      "title": "Clinical Rotation",
+      "categoryId": "clinical",
+      "eventType": "duration",
+      "startDate": "2024-01",
+      "endDate": "2024-06",
+      "visibilityState": "INTERVIEWER_SAFE",
+      "siteName": "Synthetic Teaching Hospital"
+    },
+    {
+      "id": "synthetic-work",
+      "title": "Clinical Work",
+      "categoryId": "work",
+      "eventType": "duration",
+      "startDate": "2023-06",
+      "endDate": "2024-12",
+      "visibilityState": "INTERVIEWER_SAFE"
+    },
+    {
+      "id": "synthetic-research",
+      "title": "Research Fellowship",
+      "categoryId": "research",
+      "eventType": "duration",
+      "startDate": "2024-07",
+      "endDate": "2026-08",
+      "visibilityState": "INTERVIEWER_SAFE"
+    },
+    {
+      "id": "synthetic-personal",
+      "title": "Relocation",
+      "categoryId": "personal",
+      "eventType": "milestone",
+      "startDate": "2025-02",
+      "endDate": null,
+      "visibilityState": "INTERVIEWER_SAFE"
+    }
+  ],
+  "mediaItems": []
+}

@@ -5,6 +5,7 @@ import { dirname, extname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { build } from "esbuild";
+import {FOUNDER_KEYNOTE_CONTRACT} from "../web/js/presentation/founder-keynote-contract.js";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const web=join(root,"web");
@@ -14,12 +15,30 @@ const head=execFileSync("git",["rev-parse","HEAD"],{cwd:root,encoding:"utf8"}).t
 const acceptedBase="49ba56dacd2cddfc2fb2241839d54a03e85bc271";
 const externalWebRoot=String(process.env.TIMELINE_ACCEPTED_WEB_ASSET_ROOT||"").trim();
 const externalManifestPath=String(process.env.TIMELINE_ACCEPTED_ASSET_MANIFEST||"").trim();
+const reanchorAssetManifestPath=join(root,"release","d1-timeline-founder-reanchor-015-source-assets.json");
 if(externalWebRoot&&resolve(externalWebRoot)!==externalWebRoot)throw new Error("TIMELINE_ACCEPTED_WEB_ASSET_ROOT_MUST_BE_ABSOLUTE");
 if(externalManifestPath&&resolve(externalManifestPath)!==externalManifestPath)throw new Error("TIMELINE_ACCEPTED_ASSET_MANIFEST_MUST_BE_ABSOLUTE");
 if(mode==="release"&&(!externalWebRoot||!externalManifestPath))throw new Error("TIMELINE_ACCEPTED_ASSET_AUTHORITY_REQUIRED");
 const acceptedManifest=JSON.parse(execFileSync("git",["show",`${acceptedBase}:packages/mission-timeline/release/manifest.json`],{cwd:resolve(root,"../.."),encoding:"utf8"}));
 const acceptedFiles=new Map(acceptedManifest.files.map((entry)=>[entry.path,entry]));
 const sha256=(bytes)=>createHash("sha256").update(bytes).digest("hex");
+const reanchorAssetManifestBytes=await readFile(reanchorAssetManifestPath);
+const reanchorAssetManifest=JSON.parse(reanchorAssetManifestBytes.toString("utf8"));
+if(
+  reanchorAssetManifest.schema_version!=="d1-timeline-source-asset-authority.1"||
+  reanchorAssetManifest.ticket!=="D1-TIMELINE-FOUNDER-REANCHOR-015"||
+  !Array.isArray(reanchorAssetManifest.files)
+)throw new Error("TIMELINE_REANCHOR_ASSET_AUTHORITY_INVALID");
+for(const entry of reanchorAssetManifest.files){
+  if(
+    !entry||
+    typeof entry.path!=="string"||
+    !entry.path.startsWith("web/")||
+    !Number.isFinite(entry.bytes)||
+    !/^[a-f0-9]{64}$/.test(String(entry.sha256||""))
+  )throw new Error("TIMELINE_REANCHOR_ASSET_AUTHORITY_ENTRY_INVALID");
+  if(!acceptedFiles.has(entry.path))acceptedFiles.set(entry.path,entry);
+}
 const protectedManifest=await readFile(join(web,"presentation","d1-409h-a1","PROTECTED_HASHES.sha256"),"utf8");
 for(const line of protectedManifest.split(/\r?\n/)){
   const match=line.match(/^([a-f0-9]{64})\s+(.+)$/);if(!match)continue;
@@ -113,6 +132,7 @@ async function acceptedAsset(path){
 const acceptedRuntimeAssets=[
   "vendor/pdfjs/pdf.worker.min.mjs",
   "data/medical-schools/us-dapip-2026-07-30.json",
+  "data/medical-schools/global-wikidata-2026-08-24.json",
   ...["axis_left_end_cap_exact_crop_402a.png","axis_chevron_body_segment_exact_crop_402a.png","axis_right_end_cap_exact_crop_402a.png"].map((name)=>`assets/keynote_classic_402a/axis/${name}`),
   ...["work","usmle","teaching_hospital","personal","research","clinics"].flatMap((slug)=>["left_cap","body_segment","right_head"].map((part)=>`assets/keynote_classic_402a/arrows/${slug}_arrow_${part}_402a.png`)),
   ...["milestone_flag_marker_rebuild_gray_402a.png","milestone_flag_marker_rebuild_personal_402a.png","usa_flag_marker_scaled_34x28_402a.png"].map((name)=>`assets/keynote_classic_402a/flags/${name}`),
@@ -121,6 +141,19 @@ const acceptedRuntimeAssets=[
   "presentation/d1-409h-a1/assets/photos/us_flag.png"
 ];
 for(const asset of acceptedRuntimeAssets)await acceptedAsset(asset);
+
+async function sourceBoundRuntimeAsset(asset){
+  const bytes=await readFile(join(web,asset.publicPath));
+  if(bytes.byteLength<=0||sha256(bytes)!==asset.sha256){
+    throw new Error(`TIMELINE_SOURCE_BOUND_ASSET_HASH_MISMATCH:${asset.publicPath}`);
+  }
+  const target=join(dist,asset.publicPath);
+  await mkdir(dirname(target),{recursive:true});
+  await writeFile(target,bytes);
+}
+for(const asset of Object.values(FOUNDER_KEYNOTE_CONTRACT.assets)){
+  await sourceBoundRuntimeAsset(asset);
+}
 
 async function filesBelow(directory){
   const out=[];for(const entry of (await readdir(directory,{withFileTypes:true})).sort((a,b)=>a.name.localeCompare(b.name))){
@@ -136,6 +169,6 @@ for(const file of await filesBelow(dist)){
   files[path]={sha256:createHash("sha256").update(bytes).digest("hex"),bytes:details.size,content_type:contentType};
 }
 const descriptor=JSON.stringify(files);const releaseId=`timeline-${createHash("sha256").update(descriptor).digest("hex").slice(0,16)}`;
-const manifest={schema_version:"d1-500-release-manifest.1",release_id:releaseId,source_commit:head,accepted_base_commit:acceptedBase,asset_authority_manifest_sha256:externalManifestBytes?sha256(externalManifestBytes):null,mode,canonical_path:"/timeline/",protected_kernel:"D1-409H-A1",files};
+const manifest={schema_version:"d1-500-release-manifest.1",release_id:releaseId,source_commit:head,accepted_base_commit:acceptedBase,asset_authority_manifest_sha256:externalManifestBytes?sha256(externalManifestBytes):null,reanchor_source_asset_authority_manifest_sha256:sha256(reanchorAssetManifestBytes),mode,canonical_path:"/timeline/",protected_kernel:"D1-409H-A1",files};
 await writeFile(join(dist,"release-manifest.json"),`${JSON.stringify(manifest,null,2)}\n`);
 console.log(JSON.stringify({ok:true,release_id:releaseId,source_commit:head,files:Object.keys(files).length,mode}));

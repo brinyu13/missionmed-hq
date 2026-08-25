@@ -10,6 +10,7 @@ import { CvIntelligenceService } from "../intelligence/cv-intelligence-service.j
 import { OpenAiCvIntelligenceProvider } from "../intelligence/openai-cv-intelligence.js";
 import { OpenAiTimelineWorkflowProvider } from "../intelligence/openai-timeline-ai-workflows.js";
 import { TimelineAiWorkflowService } from "../intelligence/timeline-ai-workflow-service.js";
+import { sanitizeServerApprovedFounderPreferenceRules } from "../intelligence/timeline-ai-workflow-schema.js";
 import { PostgresTimelinePrincipalDirectory } from "../identity/postgres-principal-directory.js";
 import { WordPressTimelineJwtVerifier } from "../identity/wordpress-timeline-jwt.js";
 import { PostgresTimelineRepository } from "../persistence/postgres/repository.js";
@@ -90,19 +91,33 @@ if ([aiProviderName, aiApiKey, aiModel, aiConsentVersion].some(Boolean) && ![aiP
   throw new Error("TIMELINE_AI_CONFIGURATION_INCOMPLETE");
 }
 if (aiProviderName && aiProviderName !== "openai") throw new Error("TIMELINE_AI_PROVIDER_UNSUPPORTED");
-const cvIntelligence = new CvIntelligenceService({
-  provider: aiProviderName === "openai" ? new OpenAiCvIntelligenceProvider({ apiKey: aiApiKey, model: aiModel }) : null,
-  expectedConsentVersion: aiProviderName ? aiConsentVersion : null,
-});
 const syntheticAiPrincipals = new Set(
   (process.env.TIMELINE_AI_SYNTHETIC_PRINCIPAL_IDS ?? "")
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean),
 );
+const cvIntelligence = new CvIntelligenceService({
+  provider: aiProviderName === "openai" ? new OpenAiCvIntelligenceProvider({ apiKey: aiApiKey, model: aiModel }) : null,
+  expectedConsentVersion: aiProviderName ? aiConsentVersion : null,
+  syntheticPrincipalIds: syntheticAiPrincipals,
+});
+const founderPreferenceRulesRaw = process.env.TIMELINE_FOUNDER_PREFERENCE_RULES_JSON?.trim() ?? "";
+let founderPreferenceRules: ReturnType<typeof sanitizeServerApprovedFounderPreferenceRules> = [];
+if (founderPreferenceRulesRaw) {
+  try {
+    const parsed: unknown = JSON.parse(founderPreferenceRulesRaw);
+    if (!Array.isArray(parsed)) throw new Error("FOUNDER_PREFERENCES_NOT_ARRAY");
+    founderPreferenceRules = sanitizeServerApprovedFounderPreferenceRules(parsed);
+    if (founderPreferenceRules.length !== parsed.length) throw new Error("FOUNDER_PREFERENCES_INVALID_ENTRY");
+  } catch {
+    throw new Error("TIMELINE_FOUNDER_PREFERENCE_CONFIGURATION_INVALID");
+  }
+}
 const timelineAiWorkflows = new TimelineAiWorkflowService(
   aiProviderName === "openai" ? new OpenAiTimelineWorkflowProvider({ apiKey: aiApiKey, model: aiModel }) : null,
   syntheticAiPrincipals,
+  founderPreferenceRules,
 );
 const serviceProvider = (context: PrincipalContext) => new TimelineService(new PostgresTimelineRepository(pool, {
   rlsClaims: postgresClaimsFromPrincipal(context),

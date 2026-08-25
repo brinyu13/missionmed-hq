@@ -83,6 +83,37 @@ test("production HTTP boundary denies direct access and strips WordPress cookies
   assert.equal(oversized.status, 413);
   assert.equal((await oversized.json()).error.code, "REQUEST_TOO_LARGE");
 
+  const fileVaultBytes = new Uint8Array(2 * 1024 * 1024 + 1);
+  const acceptedFileVaultIngest = await fetch(`${origin}/v1/documents/timeline_filevault_boundary/file-vault/ingestions`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer valid-token",
+      "x-missionmed-timeline-gateway-secret": gatewaySecret,
+      "content-type": "application/pdf",
+      "x-content-sha256": "a".repeat(64),
+      "x-file-vault-id": "27",
+      "x-file-vault-version": "22222222-2222-4222-8222-222222222222",
+    },
+    body: fileVaultBytes,
+  });
+  assert.equal(acceptedFileVaultIngest.status, 200);
+  assert.equal(await calls.at(-1)?.arrayBuffer().then((value) => value.byteLength), fileVaultBytes.byteLength);
+
+  const oversizedFileVaultIngest = await fetch(`${origin}/v1/documents/timeline_filevault_boundary/file-vault/ingestions`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer valid-token",
+      "x-missionmed-timeline-gateway-secret": gatewaySecret,
+      "content-type": "application/pdf",
+      "x-content-sha256": "a".repeat(64),
+      "x-file-vault-id": "27",
+      "x-file-vault-version": "22222222-2222-4222-8222-222222222222",
+    },
+    body: new Uint8Array(20 * 1024 * 1024 + 1),
+  });
+  assert.equal(oversizedFileVaultIngest.status, 413);
+  assert.equal((await oversizedFileVaultIngest.json()).error.code, "REQUEST_TOO_LARGE");
+
   const fallbackBytes = new Uint8Array(2 * 1024 * 1024 + 1);
   const acceptedMediaFallback = await fetch(`${origin}/v1/objects/upload`, {
     method: "POST",

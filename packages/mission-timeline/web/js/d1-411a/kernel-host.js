@@ -1,6 +1,10 @@
 import {projectTimelineDocument} from "./domain-visual-adapter.js";
 import {buildImagePdf,canvasJpegPage} from "../export/pdf-writer.js";
 import {ADVANCED_BACKGROUND_PRESETS} from "../uxr-002/advanced-studio.js";
+import {
+  resizeSceneGeometry,
+  snapSceneGeometry
+} from "../editor/scene-interaction.js";
 
 const MASTER_URL=(globalThis.D1_TIMELINE_ASSET_URLS?.["presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html"]
   ||new URL("../../presentation/d1-409h-a1/D1-409H_FINAL_VISUAL_MASTER.html",import.meta.url).href)+"?defer=1";
@@ -617,6 +621,7 @@ class D1411AKernelElement extends HostHTMLElement{
     const childDocument=this.shadowRoot?.querySelector("iframe")?.contentDocument;
     if(childDocument){
       this._applyPresentationOverrides(childDocument,record);
+      this._applyEventSceneOverrides(childDocument,record);
       this._fitProtectedFurnitureText(childDocument);
       this._applyAdvancedOverlay(childDocument,record);
       // Runs last: the overlay pass can settle the child document after the protected
@@ -691,6 +696,7 @@ class D1411AKernelElement extends HostHTMLElement{
       const childDocument=this.shadowRoot?.querySelector("iframe")?.contentDocument;
       if(childDocument){
         this._applyPresentationOverrides(childDocument,record);
+        this._applyEventSceneOverrides(childDocument,record);
         this._fitProtectedFurnitureText(childDocument);
         this._applyAdvancedOverlay(childDocument,record);
         this._fitMilestoneFlags(childDocument);
@@ -819,6 +825,7 @@ class D1411AKernelElement extends HostHTMLElement{
         const childDocument=iframe?.contentDocument;
         if(childDocument){
           this._applyPresentationOverrides(childDocument,previous);
+          this._applyEventSceneOverrides(childDocument,previous);
           this._fitProtectedFurnitureText(childDocument);
           this._applyAdvancedOverlay(childDocument,previous);
           this._fitMilestoneFlags(childDocument);
@@ -874,6 +881,55 @@ class D1411AKernelElement extends HostHTMLElement{
     };
     childDocument.addEventListener("wheel",wheelZoom,{passive:false});
     this._childCleanup.push(()=>childDocument.removeEventListener("wheel",wheelZoom));
+    // Middle-button panning starts over the protected document, so the outer
+    // Canvas stage never receives those pointer events. Forward only the
+    // transient viewport delta; no Timeline document or presentation geometry
+    // is mutated, and the mounted kernel remains intact.
+    let panPointer=null;
+    const forwardPan=(event)=>{
+      if(event.type==="pointerdown"){
+        if(event.button!==1)return;
+        panPointer={
+          pointerId:event.pointerId,
+          x:Number(event.clientX||0),
+          y:Number(event.clientY||0)
+        };
+        try{event.target?.setPointerCapture?.(event.pointerId);}catch{}
+        event.preventDefault();
+        this.dispatchEvent(new CustomEvent("d1-411a:pan",{
+          bubbles:true,composed:true,detail:{phase:"start",deltaX:0,deltaY:0}
+        }));
+        return;
+      }
+      if(!panPointer||event.pointerId!==panPointer.pointerId)return;
+      event.preventDefault();
+      const frameBounds=iframe.getBoundingClientRect?.();
+      const scaleX=frameBounds?.width&&iframe.clientWidth?frameBounds.width/iframe.clientWidth:1;
+      const scaleY=frameBounds?.height&&iframe.clientHeight?frameBounds.height/iframe.clientHeight:1;
+      const x=Number(event.clientX||0);
+      const y=Number(event.clientY||0);
+      if(event.type==="pointermove"){
+        this.dispatchEvent(new CustomEvent("d1-411a:pan",{
+          bubbles:true,
+          composed:true,
+          detail:{
+            phase:"move",
+            deltaX:(x-panPointer.x)*scaleX,
+            deltaY:(y-panPointer.y)*scaleY
+          }
+        }));
+        panPointer={...panPointer,x,y};
+        return;
+      }
+      this.dispatchEvent(new CustomEvent("d1-411a:pan",{
+        bubbles:true,composed:true,detail:{phase:"end",deltaX:0,deltaY:0}
+      }));
+      panPointer=null;
+    };
+    for(const type of ["pointerdown","pointermove","pointerup","pointercancel"]){
+      childDocument.addEventListener(type,forwardPan,{capture:true});
+      this._childCleanup.push(()=>childDocument.removeEventListener(type,forwardPan,{capture:true}));
+    }
     // Native rail drag events do not bubble across the protected iframe
     // boundary.  Forward just the typed Timeline asset payload, mapped to
     // board coordinates, so the host can make one durable insertion on drop.
@@ -974,6 +1030,35 @@ class D1411AKernelElement extends HostHTMLElement{
           event.preventDefault();
           const horizontal=event.key==="ArrowLeft"||event.key==="ArrowRight";
           const direction=event.key==="ArrowLeft"||event.key==="ArrowUp"?-1:1;
+          if(String(this._record?.document?.mode||"")==="advanced"){
+            const source=childDocument.querySelector(
+              `.arrow[data-object-id="${CSS.escape(visualId)}"]`
+            );
+            const board=childDocument.getElementById("board");
+            const boardBounds=board?.getBoundingClientRect?.();
+            const bounds=source?.getBoundingClientRect?.();
+            const scale=boardBounds?.width?boardBounds.width/1920:1;
+            if(source&&bounds&&boardBounds&&scale){
+              const amount=event.shiftKey?10:1;
+              const geometry={
+                x:(bounds.left-boardBounds.left)/scale,
+                y:(bounds.top-boardBounds.top)/scale,
+                width:bounds.width/scale,
+                height:bounds.height/scale,
+                rotation:0
+              };
+              const kind=event.altKey&&horizontal?"resize-end":"move";
+              if(kind==="resize-end")geometry.width=clamp(geometry.width+direction*amount,88,1920-geometry.x);
+              else if(horizontal)geometry.x=clamp(geometry.x+direction*amount,0,1920-geometry.width);
+              else geometry.y=clamp(geometry.y+direction*amount,0,1080-geometry.height);
+              this.dispatchEvent(new CustomEvent("d1-411a:presentation-event-gesture",{
+                bubbles:true,
+                composed:true,
+                detail:{surface:this._record.surface,domainId,kind,geometry,input:"keyboard"}
+              }));
+            }
+            return;
+          }
           const lane=Math.max(0,Math.min(6,Number(modelEvent.lane||0)+direction));
           this.dispatchEvent(new CustomEvent("d1-411a:gesture",{
             bubbles:true,composed:true,
@@ -1217,6 +1302,30 @@ class D1411AKernelElement extends HostHTMLElement{
       profile.style.top=`${clamp(finite(profileGeometry.y,634),0,1080-height)}px`;
       profile.style.width=`${width}px`;
       profile.style.height=`${height}px`;
+    }
+  }
+
+  _applyEventSceneOverrides(childDocument,record=this._record){
+    const scene=record?.document?.advanced?.scene;
+    if(scene?.schema!=="missionmed.timeline.presentation-scene"||Number(scene.version)!==1)return;
+    const board=childDocument.getElementById("board");
+    if(!board)return;
+    for(const object of Array.isArray(scene.objects)?scene.objects:[]){
+      if(object?.type!=="event")continue;
+      const domainId=String(object.semanticRef||object.id||"");
+      const visualId=record?.projection?.domainToVisual?.get?.(domainId);
+      if(!visualId)continue;
+      const node=childDocument.querySelector(`.arrow[data-object-id="${CSS.escape(visualId)}"]`);
+      const geometry=object.geometry;
+      if(!node||!geometry)continue;
+      const width=clamp(finite(geometry.width,88),88,1920);
+      const height=clamp(finite(geometry.height,48),24,240);
+      node.style.left=`${clamp(finite(geometry.x,0),0,1920-width)}px`;
+      node.style.top=`${clamp(finite(geometry.y,0),0,1080-height)}px`;
+      node.style.width=`${width}px`;
+      node.style.height=`${height}px`;
+      node.style.transform="";
+      node.dataset.presentationScene="true";
     }
   }
 
@@ -1620,6 +1729,10 @@ class D1411AKernelElement extends HostHTMLElement{
     let lastTextPointer={id:"",at:0};
     const nodeFor=(type,id)=>overlay.querySelector(`[data-advanced-type="${CSS.escape(type)}"][data-advanced-id="${CSS.escape(id)}"]`);
     const membersForGroup=(groupId)=>[...overlay.querySelectorAll(`.d1411aAdvanced[data-group-id="${CSS.escape(String(groupId))}"]`)];
+    const parentGroupForNode=(node)=>node?.dataset?.groupId
+      ?groups.get(String(node.dataset.groupId))||null
+      :null;
+    const parentGroupLocked=(node)=>parentGroupForNode(node)?.locked===true;
     const boundsForNodes=(nodes)=>{
       if(!nodes.length)return null;
       const values=nodes.map(geometry);
@@ -1660,6 +1773,8 @@ class D1411AKernelElement extends HostHTMLElement{
       return box;
     };
     const markSelected=(node,{announce=true,add=false}={})=>{
+      const lockedParent=parentGroupLocked(node)?parentGroupForNode(node):null;
+      if(lockedParent)return markGroup(lockedParent.id,{announce});
       overlay.querySelectorAll(".d1411aHandle").forEach((control)=>control.remove());
       clearGroupBox();selectedGroupId=null;
       if(add&&node){
@@ -1727,14 +1842,9 @@ class D1411AKernelElement extends HostHTMLElement{
     };
     const snapMove=(next,currentGesture)=>{
       if(currentGesture.snapDisabled)return{geometry:next,guides:{}};
-      const xTargets=currentGesture.snapTargets?.x||[0,960,1920];
-      const yTargets=currentGesture.snapTargets?.y||[0,540,1080];
-      const xAnchors=[next.x,next.x+next.width/2,next.x+next.width];
-      const yAnchors=[next.y,next.y+next.height/2,next.y+next.height];
-      let bestX=null,bestY=null;
-      for(const target of xTargets)for(const anchor of xAnchors){const distance=Math.abs(target-anchor);if(distance<=12&&(!bestX||distance<bestX.distance))bestX={distance,delta:target-anchor,target};}
-      for(const target of yTargets)for(const anchor of yAnchors){const distance=Math.abs(target-anchor);if(distance<=12&&(!bestY||distance<bestY.distance))bestY={distance,delta:target-anchor,target};}
-      return{geometry:{...next,x:next.x+(bestX?.delta||0),y:next.y+(bestY?.delta||0)},guides:{x:bestX?.target,y:bestY?.target}};
+      return snapSceneGeometry(next,currentGesture.snapTargets||{
+        x:[0,960,1920],y:[0,540,1080]
+      },{threshold:12});
     };
     const cacheSnapTargets=(excludedNodes=[])=>{
       const excluded=new Set(excludedNodes);
@@ -1748,8 +1858,9 @@ class D1411AKernelElement extends HostHTMLElement{
     const update=()=>{
       frame=0;
       if(!gesture)return;
+      gesture.previewFrames=Number(gesture.previewFrames||0)+1;
       const dx=gesture.pendingX-gesture.startX,dy=gesture.pendingY-gesture.startY;
-      const next={...gesture.original};
+      let next={...gesture.original};
       if(gesture.kind==="move"){
         next.x=clamp(next.x+dx,0,1920-next.width);next.y=clamp(next.y+dy,0,1080-next.height);
         const snapped=snapMove(next,gesture);
@@ -1757,15 +1868,13 @@ class D1411AKernelElement extends HostHTMLElement{
         showSnapGuides(snapped.guides);
       }else{
         clearSnapGuides();
-        const horizontal=gesture.handle.includes("w")?-1:gesture.handle.includes("e")?1:0;
-        const vertical=gesture.handle.includes("n")?-1:gesture.handle.includes("s")?1:0;
-        if(horizontal<0){next.x+=dx;next.width-=dx;}else if(horizontal>0)next.width+=dx;
-        if(vertical<0){next.y+=dy;next.height-=dy;}else if(vertical>0)next.height+=dy;
-        next.width=Math.max(32,next.width);next.height=Math.max(24,next.height);
-        if(gesture.aspectLocked!==false&&horizontal&&vertical){
-          const aspect=gesture.original.width/gesture.original.height||1;
-          next.height=next.width/aspect;
-        }
+        next=resizeSceneGeometry(gesture.original,gesture.handle,dx,dy,{
+          aspectLocked:gesture.aspectLocked!==false,
+          minimumWidth:32,
+          minimumHeight:24
+        });
+        next.width=Math.min(1920,next.width);
+        next.height=Math.min(1080,next.height);
         next.x=clamp(next.x,0,1920-next.width);next.y=clamp(next.y,0,1080-next.height);
       }
       gesture.preview=next;
@@ -1816,7 +1925,7 @@ class D1411AKernelElement extends HostHTMLElement{
         node=[...currentOverlay.querySelectorAll(".d1411aAdvancedText")]
           .find((candidate)=>String(candidate.dataset.advancedId)===id)||null;
       }
-      if(!node||!record.editable||node.dataset.locked==="true")return false;
+      if(!node||!record.editable||node.dataset.locked==="true"||parentGroupLocked(node))return false;
       this._advancedTextEditing=true;
       this.dispatchEvent(new CustomEvent("d1-411a:advanced-text-editing",{
         bubbles:true,composed:true,
@@ -1886,6 +1995,7 @@ class D1411AKernelElement extends HostHTMLElement{
         gesture.pendingX=gesture.startX;gesture.pendingY=gesture.startY;
         capturePointer(node,event);event.preventDefault();return;
       }
+      if(parentGroupLocked(node))return;
       markSelected(node,{add:!!(event.shiftKey||event.metaKey)});
       if(selectedNodes.size!==1)return;
       if(!record.editable||node.dataset.locked==="true"||event.button!==0)return;
@@ -1897,6 +2007,7 @@ class D1411AKernelElement extends HostHTMLElement{
     };
     const move=(event)=>{
       if(!gesture)return;
+      gesture.pointerMoves=Number(gesture.pointerMoves||0)+1;
       const bounds=board.getBoundingClientRect();
       gesture.pendingX=(event.clientX-bounds.left)/(bounds.width/1920);gesture.pendingY=(event.clientY-bounds.top)/(bounds.height/1080);
       const distance=Math.hypot(
@@ -1917,7 +2028,17 @@ class D1411AKernelElement extends HostHTMLElement{
       const current=gesture;gesture=null;
       clearSnapGuides();
       const changed=JSON.stringify(current.preview)!==JSON.stringify(current.original);
-      if(changed)this.dispatchEvent(new CustomEvent("d1-411a:advanced-gesture",{bubbles:true,composed:true,detail:{surface:record.surface,type:current.type,id:current.id,kind:current.kind,geometry:current.preview}}));
+      if(changed)this.dispatchEvent(new CustomEvent("d1-411a:advanced-gesture",{bubbles:true,composed:true,detail:{
+        surface:record.surface,type:current.type,id:current.id,kind:current.kind,
+        geometry:current.preview,
+        performance:{
+          pointerMoves:Number(current.pointerMoves||0),
+          previewFrames:Number(current.previewFrames||0),
+          logicalCommits:1,
+          networkRequestsDuringGesture:0,
+          rendererRegenerationsDuringGesture:0
+        }
+      }}));
       event.preventDefault();
     };
     const dblclick=(event)=>{
@@ -2136,6 +2257,14 @@ class D1411AKernelElement extends HostHTMLElement{
       scale,
       startMonth:this._pointMonth(event,childDocument),
       startLane:modelEvent.lane,
+      presentationOnly:String(this._record?.document?.mode||"")==="advanced",
+      geometry:{
+        x:(bounds.left-boardBounds.left)/scale,
+        y:(bounds.top-boardBounds.top)/scale,
+        width:bounds.width/scale,
+        height:bounds.height/scale,
+        rotation:0
+      },
       node,
       originalTransform:node.style.transform||"",
       originalLeft:node.style.left||"",
@@ -2282,6 +2411,34 @@ class D1411AKernelElement extends HostHTMLElement{
       this.dispatchEvent(new CustomEvent("d1-411a:presentation-gesture",{
         bubbles:true,composed:true,
         detail:{surface:this._record.surface,kind:gesture.kind,geometry:gesture.nextGeometry}
+      }));
+      this._refreshHits(childDocument);
+      return;
+    }
+    if(gesture.presentationOnly){
+      const logicalDx=dx/gesture.scale;
+      const logicalDy=dy/gesture.scale;
+      const original=gesture.geometry;
+      let geometry={...original};
+      if(gesture.kind==="move"){
+        geometry.x=clamp(original.x+logicalDx,0,1920-original.width);
+        geometry.y=clamp(original.y+logicalDy,0,1080-original.height);
+      }else if(gesture.kind==="resize-start"){
+        geometry.width=clamp(original.width-logicalDx,88,1920-original.x);
+        geometry.x=clamp(original.x+original.width-geometry.width,0,1920-geometry.width);
+      }else{
+        geometry.width=clamp(original.width+logicalDx,88,1920-original.x);
+      }
+      this.dispatchEvent(new CustomEvent("d1-411a:presentation-event-gesture",{
+        bubbles:true,
+        composed:true,
+        detail:{
+          surface:this._record.surface,
+          domainId:gesture.domainId,
+          kind:gesture.kind,
+          geometry,
+          performance:{logicalCommits:1,networkRequestsDuringGesture:0,rendererRegenerationsDuringGesture:0}
+        }
       }));
       this._refreshHits(childDocument);
       return;
