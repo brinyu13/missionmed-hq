@@ -1,0 +1,18 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "RAILPACK"
+  },
+  "deploy": {
+    "preDeployCommand": [
+      "node missionmed-hq/scripts/lor-studio/run-dr133-railway-staging-migrations.mjs"
+    ],
+    "startCommand": "node -e \"process.stdout.write('missionmed.lor.dr133.staging-migration.one-shot-complete\\n')\"",
+    "restartPolicyType": "NEVER",
+    "multiRegionConfig": {
+      "us-west2": {
+        "numReplicas": 1
+      }
+    }
+  }
+}
