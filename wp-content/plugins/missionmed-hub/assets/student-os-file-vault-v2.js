@@ -295,11 +295,14 @@
 		this.listen(this.root, "dragleave", function (event) { self.handleDragLeave(event); });
 		this.listen(this.root, "drop", function (event) { self.handleDrop(event); });
 		this.listen(document, "keydown", function (event) { self.handleKeydown(event); });
-		this.listenMedia(this.motionQuery, function () { self.applyPreferences(); self.renderOverlay(); });
-		this.listenMedia(this.mobileQuery, function () { self.handleViewportChange(); });
-		if (this.runtimeSignal && typeof this.runtimeSignal.addEventListener === "function") {
-			this.listen(this.runtimeSignal, "abort", function () { self.unmount(); }, { once: true });
-		}
+			this.listenMedia(this.motionQuery, function () { self.applyPreferences(); self.renderOverlay(); });
+			this.listenMedia(this.mobileQuery, function () { self.handleViewportChange(); });
+			if (this.runtimeSignal && typeof this.runtimeSignal.addEventListener === "function") {
+				this.listen(this.runtimeSignal, "abort", function () {
+					if (currentInstance === self) publicUnmount();
+					else self.unmount();
+				}, { once: true });
+			}
 		this.applyPreferences();
 		return this.reload();
 	};

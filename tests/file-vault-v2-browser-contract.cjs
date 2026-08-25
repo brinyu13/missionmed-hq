@@ -198,9 +198,11 @@ async function abortedMountRemountFlow(browser) {
 		const result = await page.evaluate(async () => {
 			const harness = window.__FV2_HARNESS__;
 			const root = document.getElementById("sos-content");
+			const firstController = new AbortController();
 			let releaseFirst = null;
 			window.MMED_FILE_VAULT_V2.unmount();
 			const firstMount = window.MMED_FILE_VAULT_V2.mountHarness(root, {
+				signal: firstController.signal,
 				api: function (request) {
 					return new Promise((resolve, reject) => {
 						releaseFirst = function () { harness.api(request).then(resolve, reject); };
@@ -208,7 +210,7 @@ async function abortedMountRemountFlow(browser) {
 				}
 			});
 			while (!releaseFirst) await new Promise(resolve => window.setTimeout(resolve, 0));
-			window.MMED_FILE_VAULT_V2.unmount();
+			firstController.abort();
 			const secondInstance = await window.MMED_FILE_VAULT_V2.mountHarness(root, { api: harness.api });
 			releaseFirst();
 			const firstInstance = await firstMount;
