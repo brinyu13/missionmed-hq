@@ -133,6 +133,7 @@ test('authenticated HQ endpoint exposes capability and returns timing-only aggre
   assert.equal(calls[0].samples.length, LOCAL_WORD_TIMING_SAMPLE_RATE);
   assert.equal(calls[0].sampleRate, LOCAL_WORD_TIMING_SAMPLE_RATE);
   assert.equal(calls[0].speechDurationMs, 800);
+  assert.equal(body.every((byte) => byte === 0), true, 'request PCM must be zeroed after processing');
 
   const denied = await invoke(handler, {
     path: '/api/ivprep-v6/live-analytics/word-timing', method: 'POST',

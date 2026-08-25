@@ -134,21 +134,27 @@ async function readJson(request) {
 async function readPcm(request) {
   const chunks = [];
   let bytes = 0;
-  for await (const chunk of request) {
-    bytes += chunk.length;
-    if (bytes > MAXIMUM_PCM_BYTES) {
-      const error = new TypeError('PCM body is too large.');
-      error.code = 'LOCAL_WORD_TIMING_BODY_TOO_LARGE';
+  try {
+    for await (const sourceChunk of request) {
+      const chunk = Buffer.isBuffer(sourceChunk) ? sourceChunk : Buffer.from(sourceChunk);
+      bytes += chunk.length;
+      if (bytes > MAXIMUM_PCM_BYTES) {
+        chunk.fill(0);
+        const error = new TypeError('PCM body is too large.');
+        error.code = 'LOCAL_WORD_TIMING_BODY_TOO_LARGE';
+        throw error;
+      }
+      chunks.push(chunk);
+    }
+    if (bytes === 0 || bytes % 4 !== 0) {
+      const error = new TypeError('PCM body must contain aligned float32 samples.');
+      error.code = 'LOCAL_WORD_TIMING_BODY_INVALID';
       throw error;
     }
-    chunks.push(chunk);
+    return Buffer.concat(chunks, bytes);
+  } finally {
+    for (const chunk of chunks) chunk.fill(0);
   }
-  if (bytes === 0 || bytes % 4 !== 0) {
-    const error = new TypeError('PCM body must contain aligned float32 samples.');
-    error.code = 'LOCAL_WORD_TIMING_BODY_INVALID';
-    throw error;
-  }
-  return Buffer.concat(chunks, bytes);
 }
 
 function staticFile(pathname) {
@@ -357,9 +363,10 @@ export function createIvPrepHqHandler({
         sendJson(response, 400, { error: 'ivprep_word_timing_request_invalid' });
         return true;
       }
+      let body = null;
       let samples = null;
       try {
-        const body = await readPcm(request);
+        body = await readPcm(request);
         samples = decodeFloat32Le(body);
         const audioDurationMs = samples.length / sampleRate * 1_000;
         if (speechDurationMs > audioDurationMs + 20) throw new TypeError('Speech duration exceeds the PCM window.');
@@ -378,6 +385,7 @@ export function createIvPrepHqHandler({
         sendJson(response, status, { error: status === 429 ? 'ivprep_word_timing_busy' : status === 503 ? 'ivprep_word_timing_unavailable' : 'ivprep_word_timing_failed' });
       } finally {
         samples?.fill?.(0);
+        body?.fill?.(0);
       }
       return true;
     }

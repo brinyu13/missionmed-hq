@@ -183,8 +183,26 @@ test('WPM fails closed unless per-word observed transcript timing has trusted pr
   assert.doesNotMatch(JSON.stringify(untrusted), /this content/u);
 
   assert.deepEqual([...OBSERVED_TRANSCRIPT_TIMING_SOURCES], [
-    'LOCAL_TIMED_TRANSCRIPT', 'OBSERVED_TRANSCRIPT_SEGMENTS',
+    'LOCAL_TIMED_TRANSCRIPT', 'FIRST_PARTY_TIMED_TRANSCRIPT', 'OBSERVED_TRANSCRIPT_SEGMENTS',
   ]);
+  const firstParty = new LiveMetricProjector().ingestTranscriptTiming({
+    atMs: 30_000,
+    windowStartedAtMs: 0,
+    windowEndedAtMs: 30_000,
+    wordCount: 60,
+    words: timedWords(60),
+    speechDurationMs: 24_000,
+    coverage: 0.9,
+    provenance: {
+      kind: 'OBSERVED_TRANSCRIPT_TIMING',
+      observed: true,
+      wordTimestampsObserved: true,
+      timingAccuracyValidated: false,
+      tier: 'B',
+      source: 'FIRST_PARTY_TIMED_TRANSCRIPT',
+    },
+  });
+  assert.equal(firstParty.metrics.SPEED_WPM.available, true);
   const trusted = projector.ingestTranscriptTiming({
     atMs: 30_000,
     windowStartedAtMs: 0,

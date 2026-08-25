@@ -3,9 +3,12 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import {
+  FIRST_PARTY_TRANSCRIPT_TIMING_SOURCE,
   encodeFloat32Le,
+  FIRST_PARTY_WORD_TIMING_TRANSPORT,
   LOCAL_SHERPA_TIMING_SOURCE,
   LOCAL_TRANSCRIPT_TIMING_SOURCE,
+  LOOPBACK_WORD_TIMING_TRANSPORT,
   LocalTranscriptTimingProducer,
   resamplePcm,
   timedWordOccupancyMs,
@@ -92,10 +95,12 @@ test('local timing producer emits only authenticated, timing-only observed evide
   assert.equal(calls.length, 2);
   assert.equal(calls[1].url, 'http://127.0.0.1/api/ivprep-v6/live-analytics/word-timing');
   assert.equal(calls[1].options.credentials, 'same-origin');
+  assert.equal(calls[1].options.redirect, 'error');
   assert.equal(calls[1].options.headers['X-MMHQ-CSRF'], 'local_harness_csrf_3521');
   assert.equal(calls[1].options.headers['Content-Type'], 'application/vnd.missionmed.pcm-f32le');
   assert.equal(calls[1].options.body instanceof ArrayBuffer, true);
   assert.equal(calls[1].options.body.byteLength, 4_000 * 16 * 4);
+  assert.equal(new Uint8Array(calls[1].options.body).every((byte) => byte === 0), true);
   assert.equal(timings.length, 1);
   assert.deepEqual(timings[0], {
     atMs: 4_000,
@@ -112,8 +117,8 @@ test('local timing producer emits only authenticated, timing-only observed evide
       wordTimestampsObserved: true,
       timingAccuracyValidated: false,
       source: LOCAL_TRANSCRIPT_TIMING_SOURCE,
-      engine: 'SHERPA_ONNX_1.13.6_LOCAL_WASM',
-      transport: 'SAME_ORIGIN_AUTHENTICATED',
+      engine: 'SHERPA_ONNX_1.13.6_WASM',
+      transport: LOOPBACK_WORD_TIMING_TRANSPORT,
       rawTextRetained: false,
       rawAudioPersisted: false,
     },
@@ -248,12 +253,13 @@ test('browser PCM bridge forwards validated voiced evidence without making it WP
   assert.equal(Object.hasOwn(voiced, 'wordsPerMinute'), false);
 });
 
-test('remote pages cannot turn the local adapter into raw microphone upload', async () => {
+test('only the exact secure same-origin production route may receive microphone windows', async () => {
   for (const options of [
-    { locationHref: 'https://matrix.missionmed.example/iv-prep-on-call/live-analytics/' },
     { locationHref: 'http://127.0.0.1:62327/iv-prep-on-call/live-analytics/', endpoint: 'https://receiver.example/upload' },
     { locationHref: 'http://127.0.0.1:62327/iv-prep-on-call/live-analytics/', endpoint: 'http://localhost:62327/api/ivprep-v6/live-analytics/word-timing' },
     { locationHref: 'http://127.0.0.1:62327/iv-prep-on-call/live-analytics/', endpoint: '/api/ivprep-v6/live-analytics/word-timing?forward=1' },
+    { locationHref: 'http://matrix.missionmed.example/iv-prep-on-call/live-analytics/' },
+    { locationHref: 'https://matrix.missionmed.example/iv-prep-on-call/live-analytics/', endpoint: 'https://receiver.example/api/ivprep-v6/live-analytics/word-timing' },
   ]) {
     const calls = [];
     const producer = new LocalTranscriptTimingProducer({
@@ -264,9 +270,49 @@ test('remote pages cannot turn the local adapter into raw microphone upload', as
       stream: liveStream(), pipeline: new FakePipeline(), csrfToken: 'local_harness_csrf_3521',
       clock: { sessionMs: () => 0 }, onTiming() {},
     }), false);
-    assert.equal(producer.state.reason, 'LOCAL_WORD_TIMING_LOOPBACK_REQUIRED');
+    assert.equal(producer.state.reason, 'WORD_TIMING_SAME_ORIGIN_REQUIRED');
     assert.equal(calls.length, 0);
   }
+});
+
+test('secure MissionMed production uses authenticated first-party ephemeral timing', async () => {
+  const calls = [];
+  const timings = [];
+  const pipeline = new FakePipeline();
+  const words = Array.from({ length: 8 }, (_, index) => ({
+    startMs: 100 + index * 350, endMs: 250 + index * 350, probability: 0.9,
+  }));
+  const producer = new LocalTranscriptTimingProducer({
+    locationHref: 'https://hq.missionmed.example/iv-prep-on-call/live-analytics/',
+    windowMs: 4_000,
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return response(options.method === 'GET' ? capability() : {
+        available: true, providerSessions: 0, rawAudioPersisted: false, rawTextReturned: false,
+        source: LOCAL_SHERPA_TIMING_SOURCE, speechDurationMs: 4_000, wordCount: words.length, words,
+      });
+    },
+  });
+  assert.equal(await producer.start({
+    stream: liveStream(), pipeline, csrfToken: 'production_csrf_3522c',
+    clock: { sessionMs: () => 4_000 }, onTiming: (timing) => timings.push(timing),
+  }), true);
+  pushSpeechWindow(pipeline);
+  await producer.queue;
+  assert.deepEqual(calls.map((call) => call.url), [
+    'https://hq.missionmed.example/api/ivprep-v6/live-analytics/word-timing/status',
+    'https://hq.missionmed.example/api/ivprep-v6/live-analytics/word-timing',
+  ]);
+  assert.equal(calls[1].options.credentials, 'same-origin');
+  assert.equal(calls[0].options.redirect, 'error');
+  assert.equal(calls[1].options.redirect, 'error');
+  assert.equal(calls[1].options.headers['X-MMHQ-CSRF'], 'production_csrf_3522c');
+  assert.equal(timings[0].provenance.transport, FIRST_PARTY_WORD_TIMING_TRANSPORT);
+  assert.equal(timings[0].provenance.tier, 'B');
+  assert.equal(timings[0].provenance.source, FIRST_PARTY_TRANSCRIPT_TIMING_SOURCE);
+  assert.equal(timings[0].provenance.rawTextRetained, false);
+  assert.equal(timings[0].provenance.rawAudioPersisted, false);
+  producer.stop();
 });
 
 test('stateful endpoint objects are stringified once before exact-route admission', async () => {

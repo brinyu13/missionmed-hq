@@ -163,7 +163,7 @@ test('post-answer card is derived-only, bounded to 10–20 seconds, and never fa
   }, { displayMs: 99_000 });
   assert.equal(card.displayMs, 20_000);
   assert.equal(card.items.length, 2);
-  assert.match(card.items[0].text, /Observed local word timing estimated/u);
+  assert.match(card.items[0].text, /Observed private word timing estimated/u);
   assert.equal(card.items[1].kind, 'unavailable');
   assert.match(card.items[1].text, /no validated content-analysis source/u);
   assert.equal(card.replay.available, false);

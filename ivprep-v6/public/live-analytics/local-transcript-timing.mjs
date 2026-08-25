@@ -1,13 +1,18 @@
-// Genuine local WPM producer for the 3521/3522C Live Analytics Runtime.
+// Genuine private WPM producer for the 3521/3522C Live Analytics Runtime.
 //
 // The already-admitted AudioWorklet PCM lane supplies bounded in-memory windows.
-// Windows travel only to the authenticated same-origin MissionMed endpoint. The
-// endpoint runs vendored sherpa-onnx in an isolated Node worker and returns timing
-// aggregates only: never transcript text and never persisted audio.
+// Windows travel only to the authenticated, exact same-origin MissionMed endpoint.
+// On loopback this stays on the physical Mac; on a secure hosted origin it reaches
+// the first-party MissionMed process serving the page. The endpoint runs vendored
+// sherpa-onnx in an isolated Node worker and returns timing aggregates only: never
+// transcript text and never persisted audio.
 
 export const LOCAL_TRANSCRIPT_TIMING_SOURCE = 'LOCAL_TIMED_TRANSCRIPT';
+export const FIRST_PARTY_TRANSCRIPT_TIMING_SOURCE = 'FIRST_PARTY_TIMED_TRANSCRIPT';
 export const LOCAL_SHERPA_TIMING_SOURCE = 'LOCAL_SHERPA_ONNX_WORD_TIMESTAMPS';
 export const LOCAL_TRANSCRIPT_ENDPOINT = '/api/ivprep-v6/live-analytics/word-timing';
+export const LOOPBACK_WORD_TIMING_TRANSPORT = 'ON_DEVICE_LOOPBACK';
+export const FIRST_PARTY_WORD_TIMING_TRANSPORT = 'FIRST_PARTY_SAME_ORIGIN_EPHEMERAL';
 
 const TARGET_SAMPLE_RATE = 16_000;
 const DEFAULT_WINDOW_MS = 10_000;
@@ -43,20 +48,27 @@ function liveAudioTrack(stream) {
   return stream?.getAudioTracks?.().find((track) => track?.readyState === 'live' && track?.enabled !== false) || null;
 }
 
-function admittedLoopbackEndpoint(endpoint, locationHref) {
+function admittedWordTimingEndpoint(endpoint, locationHref) {
   try {
     const page = new URL(String(locationHref || ''));
     const target = new URL(String(endpoint || ''), page);
     const loopback = (hostname) => ['127.0.0.1', 'localhost', '[::1]'].includes(hostname.toLowerCase());
-    return loopback(page.hostname)
-      && loopback(target.hostname)
+    const pageIsLoopback = loopback(page.hostname);
+    const admittedProtocol = pageIsLoopback
+      ? ['http:', 'https:'].includes(page.protocol)
+      : page.protocol === 'https:';
+    return admittedProtocol
+      && target.protocol === page.protocol
       && target.origin === page.origin
       && target.pathname === LOCAL_TRANSCRIPT_ENDPOINT
       && target.search === ''
       && target.hash === ''
       && target.username === ''
       && target.password === ''
-      ? target.href
+      ? Object.freeze({
+        url: target.href,
+        transport: pageIsLoopback ? LOOPBACK_WORD_TIMING_TRANSPORT : FIRST_PARTY_WORD_TIMING_TRANSPORT,
+      })
       : null;
   } catch {
     return null;
@@ -120,6 +132,7 @@ export function encodeFloat32Le(samples) {
 
 export class LocalTranscriptTimingProducer {
   #admittedEndpoint = null;
+  #transport = null;
 
   constructor({
     fetchImpl = globalThis.fetch?.bind(globalThis),
@@ -157,11 +170,16 @@ export class LocalTranscriptTimingProducer {
       ? this.state
       : this.#setState(state, reason, detail);
     if (typeof this.fetchImpl !== 'function') return publish('unavailable', 'LOCAL_TRANSCRIPT_FETCH_UNAVAILABLE');
+    const admission = this.#admittedEndpoint
+      ? Object.freeze({ url: this.#admittedEndpoint, transport: this.#transport })
+      : admittedWordTimingEndpoint(this.endpoint, this.locationHref);
+    if (!admission) return publish('unavailable', 'WORD_TIMING_SAME_ORIGIN_REQUIRED');
     try {
-      const response = await this.fetchImpl(`${this.#admittedEndpoint || this.endpoint}/status`, {
+      const response = await this.fetchImpl(`${admission.url}/status`, {
         method: 'GET',
         cache: 'no-store',
         credentials: 'same-origin',
+        redirect: 'error',
         headers: { Accept: 'application/json' },
       });
       const payload = await response.json();
@@ -175,6 +193,7 @@ export class LocalTranscriptTimingProducer {
       return publish('ready', 'LOCAL_SHERPA_WORD_TIMING_READY', {
         source: payload.source,
         persistence: payload.persistence,
+        transport: admission.transport,
       });
     } catch {
       return publish('unavailable', 'LOCAL_SHERPA_WORD_TIMING_UNREACHABLE');
@@ -205,16 +224,17 @@ export class LocalTranscriptTimingProducer {
       this.#setState('unavailable', 'AUTHENTICATED_MUTATION_CSRF_REQUIRED');
       return false;
     }
-    // The admitted implementation is a machine-local Node recognizer. A
-    // relative endpoint on a deployed page would instead upload raw PCM to a
-    // remote MissionMed server, so production fails closed until an on-device
-    // browser runtime or separately authorized first-party media contract exists.
-    const admittedEndpoint = admittedLoopbackEndpoint(this.endpoint, this.locationHref);
-    if (!admittedEndpoint) {
-      this.#setState('unavailable', 'LOCAL_WORD_TIMING_LOOPBACK_REQUIRED');
+    // The only remote form admitted is the exact HTTPS same-origin MissionMed
+    // route already protected by the product session and CSRF contract. Cross-
+    // origin endpoints, insecure hosted pages, redirects and query forwarding
+    // remain impossible. The first-party server retains neither PCM nor text.
+    const admission = admittedWordTimingEndpoint(this.endpoint, this.locationHref);
+    if (!admission) {
+      this.#setState('unavailable', 'WORD_TIMING_SAME_ORIGIN_REQUIRED');
       return false;
     }
-    this.#admittedEndpoint = admittedEndpoint;
+    this.#admittedEndpoint = admission.url;
+    this.#transport = admission.transport;
     const capability = await this.probe({ generation });
     if (generation !== this.generation || capability.state !== 'ready') return false;
     this.window = null;
@@ -329,11 +349,13 @@ export class LocalTranscriptTimingProducer {
     const controller = new AbortController();
     this.requestController = controller;
     const body = encodeFloat32Le(pcm);
-    const response = await this.fetchImpl(this.#admittedEndpoint, {
+    try {
+      const response = await this.fetchImpl(this.#admittedEndpoint, {
       method: 'POST',
       body,
       cache: 'no-store',
       credentials: 'same-origin',
+      redirect: 'error',
       signal: controller.signal,
       headers: {
         Accept: 'application/json',
@@ -343,7 +365,7 @@ export class LocalTranscriptTimingProducer {
         'X-IVPrep-Speech-Duration-Ms': String(Math.round(speechDurationMs)),
       },
     });
-    const payload = await response.json();
+      const payload = await response.json();
     if (!this.active || generation !== this.generation) return false;
     const responseKeys = payload && typeof payload === 'object' ? Object.keys(payload).sort() : [];
     if (!response.ok
@@ -400,6 +422,7 @@ export class LocalTranscriptTimingProducer {
     }
     const admittedCoverage = Math.max(coverage, clamp(timedSpeechDurationMs / captureDurationMs, 0, 1));
     const atMs = Math.max(windowEndedAtMs, Number(this.clock.sessionMs()));
+    const firstParty = this.#transport === FIRST_PARTY_WORD_TIMING_TRANSPORT;
     this.onTiming(Object.freeze({
       atMs,
       windowStartedAtMs,
@@ -411,12 +434,12 @@ export class LocalTranscriptTimingProducer {
       provenance: Object.freeze({
         kind: 'OBSERVED_TRANSCRIPT_TIMING',
         observed: true,
-        tier: 'A_PRIME',
+        tier: firstParty ? 'B' : 'A_PRIME',
         wordTimestampsObserved: true,
         timingAccuracyValidated: false,
-        source: LOCAL_TRANSCRIPT_TIMING_SOURCE,
-        engine: 'SHERPA_ONNX_1.13.6_LOCAL_WASM',
-        transport: 'SAME_ORIGIN_AUTHENTICATED',
+        source: firstParty ? FIRST_PARTY_TRANSCRIPT_TIMING_SOURCE : LOCAL_TRANSCRIPT_TIMING_SOURCE,
+        engine: 'SHERPA_ONNX_1.13.6_WASM',
+        transport: this.#transport,
         rawTextRetained: false,
         rawAudioPersisted: false,
       }),
@@ -425,7 +448,10 @@ export class LocalTranscriptTimingProducer {
       wordCount: confidentWords.length,
       windowDurationMs: Math.round(captureDurationMs),
     });
-    return true;
+      return true;
+    } finally {
+      new Uint8Array(body).fill(0);
+    }
   }
 
   stop({ preserveState = false } = {}) {
@@ -443,6 +469,7 @@ export class LocalTranscriptTimingProducer {
     this.clock = null;
     this.csrfToken = null;
     this.#admittedEndpoint = null;
+    this.#transport = null;
     this.onTiming = null;
     if (!preserveState) this.#setState('idle', 'LOCAL_TRANSCRIPT_TIMING_IDLE');
     this.onState = null;

@@ -920,7 +920,7 @@ export class LiveAnalyticsRuntime {
     this.elements.connect.disabled = true;
     this.elements.captureIndicator.dataset.state = 'live';
     this.elements.measurement.dataset.state = this.fixtureMode ? 'test' : 'live';
-    setText(this.elements.status, this.fixtureMode ? 'Measuring local test input' : 'Live local measurement running');
+    setText(this.elements.status, this.fixtureMode ? 'Measuring local test input' : 'Live private measurement running');
     setText(this.elements.measurement, this.fixtureMode ? 'TEST INPUT · measurement live' : 'Measurement live');
     this.#startClockDisplay();
     this.updateDiagnostics();
