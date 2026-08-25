@@ -211,7 +211,7 @@
 						note: "",
 						review_note: "Verified for this fixture workflow.",
 						created_at: "2026-06-23T10:10:00Z",
-						updated_at: "2026-06-23T10:10:00Z",
+						updated_at: "2026-08-20T10:10:00Z",
 						download_available: true,
 						verification_state: "ready_clean",
 						open_comment_count: 0,
@@ -245,7 +245,30 @@
 						latest_score: null
 					}
 				],
-				102: [],
+				102: [{
+					id: 2101,
+					name: "Jordan Curriculum Vitae",
+					original_name: "jordan_cv.pdf",
+					canonical_name: "curriculum-vitae.pdf",
+					document_type: "curriculum_vitae",
+					category: "student",
+					mime_type: "application/pdf",
+					file_size: 184320,
+					version: 1,
+					status: "uploaded",
+					status_label: "Uploaded",
+					note: "",
+					review_note: "",
+					created_at: "2026-07-10T12:00:00Z",
+					updated_at: "2026-07-10T12:00:00Z",
+					download_available: true,
+					verification_state: "ready_clean",
+					open_comment_count: 0,
+					versions: [{ number: 1, original_name: "jordan_cv.pdf", uploader_name: "Jordan Lee (Fixture)", uploaded_at: "2026-07-10T12:00:00Z", file_size: 184320, note: "" }],
+					comments: [],
+					scores: [],
+					latest_score: null
+				}],
 				103: []
 			};
 
@@ -411,13 +434,9 @@
 				};
 			}
 
-			function findDocument(id) {
-				var result = null;
-				Object.keys(documentsByStudent).some(function (studentId) {
-					result = documentsByStudent[studentId].find(function (documentItem) { return documentItem.id === Number(id); }) || null;
-					return !!result;
-				});
-				return result;
+			function findDocument(studentId, id) {
+				var documents = documentsByStudent[Number(studentId)] || [];
+				return documents.find(function (documentItem) { return documentItem.id === Number(id); }) || null;
 			}
 
 			function reject(message, status) {
@@ -444,6 +463,10 @@
 					if (signal.aborted) abort();
 					else signal.addEventListener("abort", abort, { once: true });
 				});
+			}
+
+			function mutationResponse(value, request) {
+				return scenario === "async-mutation-race" ? delayedResolve(value, 180, request.signal) : Promise.resolve(value);
 			}
 
 			var harness = {
@@ -494,6 +517,9 @@
 				var method = request.method;
 				var path = request.path;
 				var body = request.body || {};
+				var requestStudentId = role === "student"
+					? 101
+					: Number(body.student_id || request.query && request.query.student_id || harness.instance && harness.instance.state.selectedStudentId || 0);
 				harness.calls.push({ method: method, path: path, body: clone(body), query: clone(request.query || {}) });
 				if (request.signal && request.signal.aborted) {
 					var aborted = new Error("Fixture request aborted.");
@@ -505,6 +531,7 @@
 					if (scenario === "malformed") return Promise.resolve({ viewer_role: role });
 					var requestedStudent = Number(request.query && request.query.student_id || 0);
 					if (fail === "refresh" && harness.calls.filter(function (call) { return call.path === "/bootstrap"; }).length > 1) return reject("Fixture refresh failed.", 503);
+					if (scenario === "wrong-refresh-owner" && requestedStudent === 101 && harness.calls.filter(function (call) { return call.path === "/bootstrap"; }).length > 1) return Promise.resolve(studentScope(role, 102, true));
 					if (role === "student") return Promise.resolve(studentScope(role, 101, false));
 					return Promise.resolve(requestedStudent ? studentScope(role, requestedStudent, true) : staffScope(role));
 				}
@@ -524,6 +551,8 @@
 				if (studentMatch && method === "GET") {
 					var studentId = Number(studentMatch[1]);
 					if (!studentById(studentId)) return reject("Student Vault not found.", 404);
+					if (fail === "student-102" && studentId === 102) return reject("Fixture student Vault failed.", 503);
+					if (scenario === "wrong-student-payload" && studentId === 101) return Promise.resolve(studentScope(role, 102, false));
 					if (scenario === "switch-race") return delayedResolve(studentScope(role, studentId, false), studentId === 101 ? 180 : 20, request.signal);
 					return Promise.resolve(studentScope(role, studentId, false));
 				}
@@ -566,18 +595,22 @@
 				var documentMatch = path.match(/^\/files\/(\d+)$/);
 				if (documentMatch && method === "GET") {
 					if (fail === "document") return reject("Fixture document failed.", 503);
-					var documentItem = findDocument(documentMatch[1]);
+					var documentItem = findDocument(requestStudentId, documentMatch[1]);
+					if (scenario === "document-switch-race" && documentItem && Number(documentMatch[1]) === 1102) {
+						return delayedResolve(clone(documentItem), 180, request.signal);
+					}
 					return documentItem ? Promise.resolve(clone(documentItem)) : reject("Document not found.", 404);
 				}
 				var downloadMatch = path.match(/^\/files\/(\d+)\/download$/);
 				if (downloadMatch && method === "GET") {
-					var downloadDocument = findDocument(downloadMatch[1]);
-					return downloadDocument ? Promise.resolve({ url: "https://secure-files.fixture.invalid/download/" + downloadDocument.id, filename: downloadDocument.original_name, expires: 60 }) : reject("Document not found.", 404);
+					var downloadDocument = findDocument(requestStudentId, downloadMatch[1]);
+					return downloadDocument ? mutationResponse({ url: "https://secure-files.fixture.invalid/download/" + downloadDocument.id, filename: downloadDocument.original_name, expires: 60 }, request) : reject("Document not found.", 404);
 				}
 				if ((path === "/uploads" || /^\/files\/\d+\/versions$/.test(path)) && method === "POST") {
 					if (fail === "upload") return reject("Fixture upload signing failed.", 503);
-					harness.pendingUpload = { body: clone(body), documentId: Number((path.match(/^\/files\/(\d+)/) || [])[1] || 0) };
-					return Promise.resolve({
+					if (!studentById(requestStudentId)) return reject("Student Vault not found.", 404);
+					harness.pendingUpload = { body: clone(body), documentId: Number((path.match(/^\/files\/(\d+)/) || [])[1] || 0), studentId: requestStudentId };
+					return mutationResponse({
 						upload_id: "123e4567-e89b-42d3-a456-426614174000",
 						confirm_token: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 						upload_url: "https://secure-files.fixture.invalid/upload/123e4567-e89b-42d3-a456-426614174000",
@@ -585,15 +618,17 @@
 							"Content-Type": body.mime_type,
 							"x-amz-checksum-sha256": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 						}
-					});
+					}, request);
 				}
 				if (path === "/uploads/123e4567-e89b-42d3-a456-426614174000/confirm" && method === "POST") {
 					if (fail === "confirm") return reject("Fixture confirmation failed.", 503);
 					if (body.confirm_token !== "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") return reject("Confirmation token rejected.", 403);
-					var pending = harness.pendingUpload || { body: {}, documentId: 0 };
+					var pending = harness.pendingUpload || { body: {}, documentId: 0, studentId: 0 };
+					if (!pending.studentId || pending.studentId !== requestStudentId) return reject("Student Vault context changed.", 403);
 					var confirmed;
 					if (pending.documentId) {
-						confirmed = findDocument(pending.documentId);
+						confirmed = findDocument(pending.studentId, pending.documentId);
+						if (!confirmed) return reject("Document not found.", 404);
 						confirmed.version += 1;
 						confirmed.original_name = pending.body.filename;
 						confirmed.file_size = pending.body.file_size;
@@ -625,55 +660,55 @@
 							scores: [],
 							latest_score: null
 						};
-						documentsByStudent[101].unshift(confirmed);
+						documentsByStudent[pending.studentId].unshift(confirmed);
 					}
 					harness.mutations.push({ type: "confirm", documentId: confirmed.id });
-					return Promise.resolve(clone(confirmed));
+					return mutationResponse(clone(confirmed), request);
 				}
 				var submitMatch = path.match(/^\/files\/(\d+)\/submit$/);
 				if (submitMatch && method === "POST") {
-					var submitted = findDocument(submitMatch[1]);
+					var submitted = findDocument(requestStudentId, submitMatch[1]);
 					if (!submitted) return reject("Document not found.", 404);
 					submitted.status = "submitted";
 					submitted.status_label = "Submitted";
 					submitted.updated_at = now;
 					harness.mutations.push({ type: "submit", documentId: submitted.id });
-					return Promise.resolve(clone(submitted));
+					return mutationResponse(clone(submitted), request);
 				}
 				var commentMatch = path.match(/^\/files\/(\d+)\/comments$/);
 				if (commentMatch && method === "POST") {
-					var commented = findDocument(commentMatch[1]);
+					var commented = findDocument(requestStudentId, commentMatch[1]);
 					if (!commented) return reject("Document not found.", 404);
 					var comment = { id: "comment-fixture-" + (commented.comments.length + 2), author_name: role === "student" ? "Avery Rivera (Fixture)" : "Staff Fixture", author_role: role, version: commented.version, created_at: now, body: body.body, resolved: false };
 					commented.comments.push(comment);
 					commented.open_comment_count += 1;
 					harness.mutations.push({ type: "comment", documentId: commented.id });
-					return Promise.resolve(clone(comment));
+					return mutationResponse(clone(comment), request);
 				}
 				var resolveMatch = path.match(/^\/files\/(\d+)\/comments\/([^/]+)\/resolve$/);
 				if (resolveMatch && method === "PUT") {
-					var resolvedDocument = findDocument(resolveMatch[1]);
+					var resolvedDocument = findDocument(requestStudentId, resolveMatch[1]);
 					var resolved = resolvedDocument && resolvedDocument.comments.find(function (commentItem) { return commentItem.id === decodeURIComponent(resolveMatch[2]); });
 					if (!resolved) return reject("Comment not found.", 404);
 					resolved.resolved = true;
 					resolvedDocument.open_comment_count = resolvedDocument.comments.filter(function (commentItem) { return !commentItem.resolved; }).length;
 					harness.mutations.push({ type: "resolve", documentId: resolvedDocument.id });
-					return Promise.resolve(clone(resolved));
+					return mutationResponse(clone(resolved), request);
 				}
 				var statusMatch = path.match(/^\/files\/(\d+)\/status$/);
 				if (statusMatch && method === "PUT") {
-					var reviewed = findDocument(statusMatch[1]);
+					var reviewed = findDocument(requestStudentId, statusMatch[1]);
 					if (!reviewed) return reject("Document not found.", 404);
 					reviewed.status = body.status;
 					reviewed.status_label = String(body.status || "").replace(/_/g, " ").replace(/\b\w/g, function (letter) { return letter.toUpperCase(); });
 					reviewed.review_note = body.note || "";
 					reviewed.updated_at = now;
 					harness.mutations.push({ type: "status", documentId: reviewed.id, status: body.status });
-					return Promise.resolve(clone(reviewed));
+					return mutationResponse(clone(reviewed), request);
 				}
 				var scoreMatch = path.match(/^\/files\/(\d+)\/score$/);
 				if (scoreMatch && method === "POST") {
-					var scored = findDocument(scoreMatch[1]);
+					var scored = findDocument(requestStudentId, scoreMatch[1]);
 					if (!scored) return reject("Document not found.", 404);
 						var computedTotal = Object.keys(body.category_scores || {}).reduce(function (sum, key) { return sum + Math.max(0, Math.min(10, Number(body.category_scores[key]) || 0)); }, 0);
 						var maximum = Math.max(10, Object.keys(body.category_scores || {}).length * 10);
@@ -681,7 +716,7 @@
 					scored.scores.push(score);
 					scored.latest_score = score;
 					harness.mutations.push({ type: "score", documentId: scored.id });
-					return Promise.resolve(clone(score));
+					return mutationResponse(clone(score), request);
 				}
 				return reject("Unexpected fixture route: " + method + " " + path, 500);
 			}
@@ -693,7 +728,9 @@
 			harness.uploadTransport = function (options) {
 				var stopped = false;
 				var timer = 0;
+				var rejectTransport = null;
 				var promise = new Promise(function (resolve, rejectUpload) {
+					rejectTransport = rejectUpload;
 					options.onProgress(25);
 					timer = window.setTimeout(function () {
 						if (stopped) {
@@ -703,14 +740,22 @@
 							return;
 						}
 						options.onProgress(100);
+						rejectTransport = null;
 						resolve();
 					}, 35);
 				});
 				return {
 					promise: promise,
 					abort: function () {
+						if (stopped) return;
 						stopped = true;
 						window.clearTimeout(timer);
+						if (rejectTransport) {
+							var aborted = new Error("Fixture upload stopped.");
+							aborted.name = "AbortError";
+							rejectTransport(aborted);
+							rejectTransport = null;
+						}
 					}
 				};
 			};

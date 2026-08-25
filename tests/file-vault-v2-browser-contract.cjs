@@ -131,13 +131,38 @@ async function saveEvidence(page, filename) {
 async function studentFlow(browser) {
 	const { context, page, diagnostics } = await createPage(browser, { role: "student" });
 	try {
-		assert(await page.getByRole("heading", { name: "Avery Rivera (Fixture)", exact: true }).isVisible(), "student: Vault heading missing");
-		const primaryActions = await page.locator(".fv2-home-action strong").allTextContents();
-		assert(primaryActions.join("|") === "Add Document|Files From MissionMed", `student: primary action hierarchy is incorrect ${primaryActions.join("|")}`);
+		assert(await page.getByRole("heading", { name: "What would you like to upload?", exact: true }).isVisible(), "student: upload-first Home heading missing");
+		const navLabels = await page.locator(".fv2-nav-item").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
+		assert(navLabels.join("|") === "Home|Upload|Your Files|Recently Uploaded|Mission Files|Notifications|Settings", `student: navigation is incorrect ${navLabels.join("|")}`);
+		assert(await page.locator(".fv2-nav-key").count() === 0, "student: obsolete numeric shortcut badges remain visible");
+		const primaryActions = await page.locator(".fv2-upload-choice strong").allTextContents();
+		assert(primaryActions.join("|") === "CV|Personal Statement|LOR-Related|Timeline|Score Report|Certification|Miscellaneous", `student: upload categories are incorrect ${primaryActions.join("|")}`);
+		assert(await page.locator(".fv2-shortcut-card").count() === 4, "student: expected four first-class visual shortcuts");
 		assert(await page.getByRole("button", { name: "Journey", exact: true }).count() === 0, "student: Journey remains an equal top-level destination");
-		assert(await page.getByRole("heading", { name: "My Documents", exact: true }).isVisible(), "student: My Documents heading missing");
 		assert(await page.locator('[data-fv2-action="next-action"]').count() === 1, "student: expected one highlighted next action");
+		assert(await page.locator(".fv2-home-record").first().locator("strong").textContent() === "Personal Statement", "student: Home most-recent upload used review-update time instead of upload time");
+		await page.getByRole("button", { name: "Recently Uploaded", exact: true }).click();
+		const recentFirst = page.locator('.fv2-document-row[data-fv2-document-id="1101"]');
+		assert(await page.locator(".fv2-document-row").first().getAttribute("data-fv2-document-id") === "1101", "student: Recently Uploaded is not ordered by version upload time");
+		assert((await recentFirst.textContent()).includes("Uploaded Jul 14, 2026"), "student: Recently Uploaded does not label the upload date");
+		await page.getByRole("button", { name: "Your Files", exact: true }).click();
+		assert(await page.getByRole("heading", { name: "Your Files", exact: true }).isVisible(), "student: Your Files heading missing");
 		assert(await page.locator('[data-fv2-action="select-document"]').count() === 4, "student: expected four document rows");
+		const folderLabels = await page.locator(".fv2-folder-strip button").allTextContents();
+		assert(folderLabels.map(label => label.trim()).join("|") === "All Files|Profile|Academic|LOR-Related|Miscellaneous", `student: folder strip is incorrect ${folderLabels.join("|")}`);
+		assert(await page.locator(".fv2-file-kind-docx small").getByText("DOCX", { exact: true }).count() === 1, "student: DOCX file-kind glyph missing");
+		assert(await page.locator(".fv2-file-kind-pdf small").getByText("PDF", { exact: true }).count() >= 2, "student: PDF file-kind glyphs missing");
+		assert(await page.locator(".fv2-file-kind-image small").getByText("IMG", { exact: true }).count() === 1, "student: image file-kind glyph missing");
+		const finderSearch = page.locator("[data-fv2-file-search]");
+		await finderSearch.pressSequentially("Personal Statement", { delay: 15 });
+		await page.waitForTimeout(220);
+		assert(await finderSearch.inputValue() === "Personal Statement", "student: Finder typing corrupted or reordered the query");
+		assert(await page.locator('[data-fv2-action="select-document"]').count() === 1, "student: Finder search did not filter files");
+		await finderSearch.fill("");
+		await page.waitForTimeout(220);
+		await page.getByRole("button", { name: "Grid view" }).click();
+		assert(await page.locator(".fv2-document-grid").count() === 1, "student: Finder grid mode did not apply");
+		await page.getByRole("button", { name: "List view" }).click();
 		assert(await page.evaluate(() => window.__FV2_HARNESS__.instance.safeDownloadUrl("http://unsafe.example/file") === ""), "student: HTTP download URL was not rejected");
 		await overflowAudit(page, "student desktop");
 		await browserAccessibilityAudit(page, "student Vault");
@@ -169,7 +194,7 @@ async function studentFlow(browser) {
 		if (evidenceDir) await page.waitForTimeout(5300);
 		await saveEvidence(page, "03-doc-docs-workspace.png");
 
-		await page.getByRole("button", { name: /Back to Vault/ }).click();
+		await page.getByRole("button", { name: /Back to Your Files/ }).click();
 		const settingsButton = page.locator('[data-fv2-action="open-settings"]');
 		await settingsButton.focus();
 		await page.keyboard.press("Enter");
@@ -202,14 +227,14 @@ async function studentFlow(browser) {
 		await page.reload({ waitUntil: "domcontentloaded" });
 		await waitForHarness(page);
 		assert(await page.locator(".mmed-fv2.fv2-density-compact").count() === 1, "student: density preference did not persist");
-		await page.getByRole("button", { name: /Open application journey/ }).click();
+		await page.locator(".fv2-shortcut-timeline").click();
 		assert(await page.getByRole("heading", { name: "Journey", exact: true }).isVisible(), "student: Journey navigation failed");
 		assert(await page.getByRole("heading", { name: "Journey", exact: true }).evaluate(heading => document.activeElement === heading), "student: Journey navigation did not focus the page heading");
 		assert(await page.getByText("Source: Deterministic browser fixture", { exact: true }).isVisible(), "student: assigned requirement provenance is missing");
 		await saveEvidence(page, "07-journey.png");
 
-		await page.getByRole("button", { name: "Vault", exact: true }).click();
-		await page.locator('[data-fv2-action="open-upload"]').first().click();
+		await page.getByRole("button", { name: "Your Files", exact: true }).click();
+		await page.locator('.fv2-dropzone [data-fv2-action="open-upload"]').click();
 		await page.locator("[data-fv2-upload-file]").focus();
 		const filePickerFocus = await page.locator(".fv2-upload-file-field > .fv2-button").evaluate(node => {
 			const style = getComputedStyle(node);
@@ -245,7 +270,7 @@ async function studentFlow(browser) {
 		});
 		assert(!(await page.locator("[data-fv2-upload-next]").isDisabled()), "student: valid JPEG application photo did not enable Review");
 		await page.getByRole("button", { name: "Close upload" }).click();
-		await page.locator('[data-fv2-action="open-upload"]').first().click();
+		await page.locator('.fv2-dropzone [data-fv2-action="open-upload"]').click();
 			await page.setInputFiles("[data-fv2-upload-file]", {
 			name: "fixture_cv.pdf",
 			mimeType: "application/pdf",
@@ -273,13 +298,192 @@ async function rapidStudentSwitchFlow(browser) {
 		const picker = page.locator("[data-fv2-student-picker]");
 		await picker.waitFor();
 		await picker.selectOption("102");
-		await page.getByRole("heading", { name: "Jordan Lee (Fixture)", exact: true }).waitFor();
+		await page.locator(".fv2-subject-copy").getByText("Jordan Lee (Fixture)", { exact: false }).waitFor();
 		await page.waitForTimeout(240);
-		assert(await page.getByRole("heading", { name: "Jordan Lee (Fixture)", exact: true }).isVisible(), "admin switching: stale first response replaced the latest student");
+		assert(await page.locator(".fv2-subject-copy").getByText("Jordan Lee (Fixture)", { exact: false }).isVisible(), "admin switching: stale first response replaced the latest student");
 		assert(await page.evaluate(() => window.__FV2_HARNESS__.instance.state.selectedStudentId === 102), "admin switching: selected student ID is stale");
-		assert(await page.locator('[data-fv2-action="select-document"][data-fv2-document-id="1101"]').count() === 0, "admin switching: previous student document state leaked into the new Vault");
+		assert(await page.evaluate(() => !window.__FV2_HARNESS__.instance.state.data.documents.some(document => Number(document.id) === 1101)), "admin switching: previous student document state leaked into the new Vault");
 		assert(await page.evaluate(() => window.__FV2_HARNESS__.calls.filter(call => /^\/students\/(101|102)$/.test(call.path)).length === 2), "admin switching: rapid selections did not issue both scoped requests");
 		assert(diagnostics.length === 0, `admin switching: browser diagnostics ${diagnostics.join(" | ")}`);
+	} finally {
+		await context.close();
+	}
+}
+
+async function failedStudentSwitchFlow(browser) {
+	const { context, page, diagnostics } = await createPage(browser, { role: "admin", fail: "student-102" }, { width: 1280, height: 800 });
+	try {
+		await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').click();
+		await page.locator(".fv2-subject-banner").waitFor();
+		await page.locator("[data-fv2-student-picker]").selectOption("102");
+		await page.getByRole("heading", { name: "Students", exact: true }).waitFor();
+		const state = await page.evaluate(() => {
+			const instance = window.__FV2_HARNESS__.instance;
+			return {
+				selectedStudentId: instance.state.selectedStudentId,
+				student: instance.state.data.student,
+				documentIds: instance.state.data.documents.map(document => document.id),
+				busy: Object.keys(instance.state.busy).filter(key => instance.state.busy[key])
+			};
+		});
+		assert(state.selectedStudentId === 0 && state.student === null, `admin failed switch: stale student identity remains ${JSON.stringify(state)}`);
+		assert(state.documentIds.length === 0, `admin failed switch: prior student files remain ${JSON.stringify(state.documentIds)}`);
+		assert(state.busy.length === 0, `admin failed switch: stale busy state remains ${JSON.stringify(state.busy)}`);
+		assert(await page.locator('[data-fv2-action="open-upload"]:not([disabled])').count() === 0, "admin failed switch: upload remained enabled without an authorized student");
+		assert(diagnostics.length === 0, `admin failed switch: browser diagnostics ${diagnostics.join(" | ")}`);
+	} finally {
+		await context.close();
+	}
+}
+
+async function documentSwitchIsolationFlow(browser) {
+	const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "document-switch-race" }, { width: 1280, height: 800 });
+	try {
+		await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').click();
+		await page.getByRole("button", { name: "Your Files", exact: true }).click();
+		await page.locator('[data-fv2-action="select-document"][data-fv2-document-id="1102"]').click();
+		await page.locator('[data-fv2-action="open-workspace"][data-fv2-document-id="1102"]').click();
+		await page.locator("[data-fv2-student-picker]").selectOption("102");
+		await page.locator(".fv2-subject-copy").getByText("Jordan Lee (Fixture)", { exact: false }).waitFor();
+		await page.waitForTimeout(240);
+		const state = await page.evaluate(() => {
+			const instance = window.__FV2_HARNESS__.instance;
+			return {
+				selectedStudentId: instance.state.selectedStudentId,
+				selectedDocumentId: instance.state.selectedDocumentId,
+				documentDetail: instance.state.documentDetail,
+				documentIds: instance.state.data.documents.map(document => document.id)
+			};
+		});
+		assert(state.selectedStudentId === 102 && state.selectedDocumentId === 0 && state.documentDetail === null, `admin document race: stale workspace state survived ${JSON.stringify(state)}`);
+		assert(state.documentIds.includes(2101) && !state.documentIds.some(id => id >= 1101 && id <= 1199), `admin document race: student A documents leaked into student B ${JSON.stringify(state.documentIds)}`);
+		assert(diagnostics.length === 0, `admin document race: browser diagnostics ${diagnostics.join(" | ")}`);
+	} finally {
+		await context.close();
+	}
+}
+
+async function studentOwnerIsolationFlow(browser) {
+	const { context, page, diagnostics } = await createPage(browser, { role: "student" }, { width: 1280, height: 800 });
+	try {
+		const directIsolation = await page.evaluate(async () => {
+			try {
+				await window.__FV2_HARNESS__.api({ method: "GET", path: "/files/2101", body: {}, query: {} });
+				return { allowed: true };
+			} catch (error) {
+				return { allowed: false, status: error.status };
+			}
+		});
+		assert(!directIsolation.allowed && directIsolation.status === 404, `student owner isolation: authenticated student accessed another owner's document ${JSON.stringify(directIsolation)}`);
+		assert(diagnostics.length === 0, `student owner isolation: browser diagnostics ${diagnostics.join(" | ")}`);
+	} finally {
+		await context.close();
+	}
+}
+
+async function returnedOwnerValidationFlow(browser) {
+	{
+		const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "wrong-student-payload" }, { width: 1280, height: 800 });
+		try {
+			await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').click();
+			await page.getByRole("heading", { name: "Students", exact: true }).waitFor();
+			const state = await page.evaluate(() => window.__FV2_HARNESS__.instance.state);
+			assert(state.selectedStudentId === 0 && state.data.student === null, "admin owner validation: wrong loadStudent payload replaced the staff scope");
+			assert(diagnostics.length === 0, `admin owner validation load: browser diagnostics ${diagnostics.join(" | ")}`);
+		} finally {
+			await context.close();
+		}
+	}
+	{
+		const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "wrong-refresh-owner" }, { width: 1280, height: 800 });
+		try {
+			await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').click();
+			await page.getByRole("button", { name: "Your Files", exact: true }).click();
+			await page.locator('[data-fv2-action="select-document"][data-fv2-document-id="1102"]').click();
+			await page.locator('[data-fv2-action="open-workspace"][data-fv2-document-id="1102"]').click();
+			await page.locator("[data-fv2-review-status]").selectOption("in_review");
+			await page.getByRole("button", { name: /Save status/ }).click();
+			await page.getByText("Record refresh delayed", { exact: true }).waitFor();
+			const state = await page.evaluate(() => window.__FV2_HARNESS__.instance.state);
+			assert(state.selectedStudentId === 101 && Number(state.data.student.id) === 101, "admin owner validation: wrong refresh payload replaced the selected student");
+			assert(!state.data.documents.some(document => Number(document.id) === 2101), "admin owner validation: another student's document entered refreshed state");
+			assert(diagnostics.length === 0, `admin owner validation refresh: browser diagnostics ${diagnostics.join(" | ")}`);
+		} finally {
+			await context.close();
+		}
+	}
+}
+
+async function asyncMutationSwitchIsolationFlow(browser) {
+	const { context, page, diagnostics } = await createPage(browser, { role: "admin", scenario: "async-mutation-race" }, { width: 1280, height: 800 });
+	try {
+		const loadA = async () => {
+			if (await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').count()) {
+				await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').click();
+			} else {
+				await page.locator("[data-fv2-student-picker]").selectOption("101");
+			}
+			await page.locator(".fv2-subject-copy").getByText("Avery Rivera (Fixture)", { exact: false }).waitFor();
+		};
+		const switchToB = async () => {
+			await page.evaluate(() => window.__FV2_HARNESS__.instance.loadStudent(102));
+			await page.locator(".fv2-subject-copy").getByText("Jordan Lee (Fixture)", { exact: false }).waitFor();
+		};
+
+		await loadA();
+		await page.getByRole("button", { name: "Your Files", exact: true }).click();
+		await page.locator('[data-fv2-action="select-document"][data-fv2-document-id="1102"]').click();
+		await page.locator('.fv2-detail-panel [data-fv2-action="download"][data-fv2-document-id="1102"]').click();
+		await switchToB();
+		await page.waitForTimeout(220);
+		assert(await page.evaluate(() => window.__FV2_HARNESS__.downloads.length === 0), "admin async isolation: late student A download issued after switching to student B");
+
+		await loadA();
+		await page.getByRole("button", { name: "Your Files", exact: true }).click();
+		await page.locator('[data-fv2-action="select-document"][data-fv2-document-id="1102"]').click();
+		await page.locator('[data-fv2-action="open-workspace"][data-fv2-document-id="1102"]').click();
+		await page.locator("[data-fv2-review-status]").selectOption("in_review");
+		await page.getByRole("button", { name: /Save status/ }).click();
+		await switchToB();
+		await page.waitForTimeout(220);
+		const reviewState = await page.evaluate(() => window.__FV2_HARNESS__.instance.state);
+		assert(reviewState.selectedStudentId === 102 && reviewState.documentDetail === null && !reviewState.data.documents.some(document => Number(document.id) === 1102), "admin async isolation: late review response contaminated student B state");
+
+		await loadA();
+		await page.getByRole("button", { name: "Upload", exact: true }).click();
+		await page.locator('[data-fv2-action="open-upload"][data-fv2-document-type="curriculum_vitae"]').click();
+		await page.setInputFiles("[data-fv2-upload-file]", { name: "async_cv.pdf", mimeType: "application/pdf", buffer: Buffer.from("async fixture PDF bytes") });
+		await page.locator("[data-fv2-upload-next]").click();
+		await page.locator('[data-fv2-action="upload-start"]').click();
+		await page.waitForFunction(() => window.__FV2_HARNESS__.calls.some(call => call.path === "/uploads" && call.method === "POST"));
+		await switchToB();
+		await page.waitForTimeout(220);
+		const uploadState = await page.evaluate(() => ({ state: window.__FV2_HARNESS__.instance.state, mutations: window.__FV2_HARNESS__.mutations, errors: window.__FV2_HARNESS__.errors }));
+		assert(uploadState.state.selectedStudentId === 102 && uploadState.state.upload === null, "admin async isolation: switched student retained an in-flight upload overlay");
+		assert(!uploadState.mutations.some(mutation => mutation.type === "confirm"), "admin async isolation: switched student confirmed the prior student's upload");
+		assert(uploadState.errors.length === 0, `admin async isolation: upload abort diagnostics ${uploadState.errors.join(" | ")}`);
+		assert(diagnostics.length === 0, `admin async isolation: browser diagnostics ${diagnostics.join(" | ")}`);
+	} finally {
+		await context.close();
+	}
+}
+
+async function mobileAdminActivityFlow(browser) {
+	const { context, page, diagnostics } = await createPage(browser, { role: "admin" }, { width: 375, height: 812 });
+	try {
+		await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').click();
+		await page.getByRole("button", { name: "Staff activity", exact: true }).click();
+		await page.getByRole("heading", { name: "Activity review", exact: true }).waitFor();
+		assert(await page.locator(".fv2-subject-banner").isVisible(), "mobile admin activity: student context banner missing");
+		assert(await page.getByRole("button", { name: "Return to student Vault", exact: true }).isVisible(), "mobile admin activity: return control missing");
+		assert(await page.getByRole("button", { name: "Exit student Vault", exact: true }).count() >= 1, "mobile admin activity: exit control missing");
+		await page.getByRole("button", { name: "Return to student Vault", exact: true }).click();
+		assert(await page.getByRole("heading", { name: "What would you like to upload?", exact: true }).isVisible(), "mobile admin activity: return did not restore the student Vault");
+		await page.getByRole("button", { name: "Staff activity", exact: true }).click();
+		await page.getByRole("button", { name: "Exit student Vault", exact: true }).last().click();
+		assert(await page.getByRole("heading", { name: "Students", exact: true }).isVisible(), "mobile admin activity: exit did not return to Students");
+		await overflowAudit(page, "mobile admin activity");
+		assert(diagnostics.length === 0, `mobile admin activity: browser diagnostics ${diagnostics.join(" | ")}`);
 	} finally {
 		await context.close();
 	}
@@ -350,7 +554,7 @@ async function lateMatrixTakeoverRecoveryFlow(browser) {
 		});
 
 		await page.waitForSelector("[data-fv2-app]", { timeout: 3000 });
-		await page.getByRole("heading", { name: "Avery Rivera (Fixture)", exact: true }).waitFor();
+		await page.getByRole("heading", { name: "What would you like to upload?", exact: true }).waitFor();
 		const firstRecovery = await page.evaluate(() => ({
 			v1Rendered: window.__FV2_HARNESS__.v1FallbackRendered === true,
 			moduleId: window.MatrixRuntime.current.module.id,
@@ -368,7 +572,7 @@ async function lateMatrixTakeoverRecoveryFlow(browser) {
 			window.MMED_FILE_VAULT_V1.render();
 		});
 		await page.waitForSelector("[data-fv2-app]", { timeout: 3000 });
-		await page.getByRole("heading", { name: "Avery Rivera (Fixture)", exact: true }).waitFor();
+		await page.getByRole("heading", { name: "What would you like to upload?", exact: true }).waitFor();
 		assert(await page.evaluate(() => window.MatrixRuntime.navigationCount === 2 && window.MatrixRuntime.completedMountCount === 2), "Matrix takeover: a later distinct overwrite did not recover exactly once");
 		assert(await page.locator("[data-fv2-app]").count() === 1, "Matrix takeover: recovery left duplicate V2 roots");
 		assert(diagnostics.length === 0, `Matrix takeover: browser diagnostics ${diagnostics.join(" | ")}`);
@@ -420,11 +624,15 @@ async function matrixShellIntegrationFlow(browser) {
 async function adminFlow(browser) {
 	const { context, page, diagnostics } = await createPage(browser, { role: "admin" }, { width: 1440, height: 1000 });
 	try {
-		assert(await page.getByRole("heading", { name: "Command", exact: true }).isVisible(), "admin: Command heading missing");
+		assert(await page.getByRole("heading", { name: "Students", exact: true }).isVisible(), "admin: Students heading missing");
 		assert(await page.locator(".fv2-metric").count() === 4, "admin: expected four command metrics");
 		await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').click();
+		await page.locator(".fv2-subject-banner").waitFor();
+		assert(await page.getByText("Viewing student's Vault", { exact: true }).isVisible(), "admin: student context banner missing");
+		await page.getByRole("button", { name: "Your Files", exact: true }).click();
+		assert(await page.locator("[data-fv2-student-picker]").count() === 1, "admin: Your Files renders duplicate student pickers");
 		await page.waitForSelector('[data-fv2-action="select-document"][data-fv2-document-id="1102"]');
-		assert(await page.getByRole("heading", { name: "Avery Rivera (Fixture)", exact: true }).isVisible(), "admin: student Vault lens failed");
+		assert(await page.locator(".fv2-subject-copy").getByText("Avery Rivera (Fixture)", { exact: false }).isVisible(), "admin: student Vault lens failed");
 		await saveEvidence(page, "05-admin-student-vault.png");
 		await page.locator('[data-fv2-action="select-document"][data-fv2-document-id="1102"]').click();
 		await page.locator('[data-fv2-action="open-workspace"][data-fv2-document-id="1102"]').click();
@@ -440,7 +648,7 @@ async function adminFlow(browser) {
 		await page.waitForFunction(() => window.__FV2_HARNESS__.mutations.some(item => item.type === "score"));
 		assert(await page.getByText(/\/40/).first().isVisible(), "admin: document-scoped score denominator missing");
 		await browserAccessibilityAudit(page, "admin Doc Docs");
-			await page.getByRole("button", { name: "Activity", exact: true }).click();
+		await page.getByRole("button", { name: "Staff activity", exact: true }).click();
 		await page.waitForSelector(".fv2-audit-row");
 		await page.locator("[data-fv2-audit-search]").fill("Personal Statement");
 		assert(await page.locator(".fv2-audit-row").count() >= 1, "admin: audit search returned no matching row");
@@ -546,6 +754,7 @@ async function mentorFlow(browser) {
 	try {
 		await page.locator('[data-fv2-action="load-student"][data-fv2-student-id="101"]').click();
 		assert(await page.locator('[data-fv2-action="open-upload"]:not([disabled])').count() === 0, "mentor: enabled upload control should not be exposed");
+		await page.getByRole("button", { name: "Your Files", exact: true }).click();
 		await page.locator('[data-fv2-action="select-document"][data-fv2-document-id="1102"]').click();
 		await page.locator('[data-fv2-action="open-workspace"][data-fv2-document-id="1102"]').click();
 		await page.waitForSelector("[data-fv2-review-status]");
@@ -574,9 +783,10 @@ async function stateAndFallbackFlow(browser) {
 
 	for (const scenario of ["empty", "blocked", "malformed"]) {
 		const { context, page, diagnostics } = await createPage(browser, { role: "student", scenario }, { width: 1024, height: 800 });
-		try {
-			if (scenario === "empty") {
-				assert(await page.locator(".fv2-document-row.is-missing").count() === 5, "empty: requirement placeholders missing");
+			try {
+				if (scenario === "empty") {
+					await page.getByRole("button", { name: "Your Files", exact: true }).click();
+					assert(await page.locator(".fv2-document-row.is-missing").count() === 5, "empty: requirement placeholders missing");
 			} else if (scenario === "blocked") {
 				assert(await page.locator(".fv2-inline-notice").getByText("Private storage is unavailable", { exact: true }).isVisible(), "blocked: storage notice missing");
 				assert(await page.locator('[data-fv2-action="open-upload"]:not([disabled])').count() === 0, "blocked: enabled upload control should be absent");
@@ -626,9 +836,21 @@ async function responsiveFlow(browser) {
 					return { railBottom: Math.round(rail.bottom), viewportBottom: window.innerHeight };
 				});
 				assert(Math.abs(mobileLayout.railBottom - mobileLayout.viewportBottom) <= 2, `responsive ${viewport.width}: mobile rail is not bottom anchored`);
-				if (viewport.width === 320) await saveEvidence(page, "09-mobile-student-vault.png");
+				if (viewport.width === 320) {
+					const visibleNav = await page.locator(".fv2-nav-item:visible, .fv2-nav-more:visible").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
+					assert(visibleNav.join("|") === "Home|Upload|Your Files|Recently Uploaded|More", `responsive 320: primary mobile destinations are not all visible ${visibleNav.join("|")}`);
+					await page.getByRole("button", { name: "More", exact: true }).click();
+					assert(await page.getByRole("group", { name: "More File Vault destinations", exact: true }).isVisible(), "responsive 320: More destinations disclosure did not open");
+					const overflowLabels = await page.locator(".fv2-mobile-nav-option").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
+					assert(overflowLabels.join("|") === "Mission Files|Notifications|Settings", `responsive 320: mobile overflow destinations are incomplete ${overflowLabels.join("|")}`);
+					await page.keyboard.press("Escape");
+					assert(await page.locator(".fv2-mobile-nav-menu").count() === 0, "responsive 320: Escape did not close More destinations");
+					assert(await page.getByRole("button", { name: "More", exact: true }).evaluate(button => document.activeElement === button), "responsive 320: More menu focus did not return to its trigger");
+					await saveEvidence(page, "09-mobile-student-vault.png");
+				}
 			}
 			if (viewport.width <= 980) {
+				await page.getByRole("button", { name: "Your Files", exact: true }).click();
 				await page.locator('[data-fv2-action="select-document"][data-fv2-document-id="1101"]').click();
 				await page.waitForSelector('.fv2-mobile-sheet[role="dialog"]');
 				assert(await page.locator('.fv2-mobile-sheet[role="dialog"]').isVisible(), `responsive ${viewport.width}: detail sheet missing`);
@@ -648,6 +870,12 @@ async function main() {
 	try {
 		await studentFlow(browser);
 		await rapidStudentSwitchFlow(browser);
+		await failedStudentSwitchFlow(browser);
+		await documentSwitchIsolationFlow(browser);
+		await studentOwnerIsolationFlow(browser);
+		await returnedOwnerValidationFlow(browser);
+		await asyncMutationSwitchIsolationFlow(browser);
+		await mobileAdminActivityFlow(browser);
 		await lateMatrixTakeoverRecoveryFlow(browser);
 		await matrixShellIntegrationFlow(browser);
 		await adminFlow(browser);
