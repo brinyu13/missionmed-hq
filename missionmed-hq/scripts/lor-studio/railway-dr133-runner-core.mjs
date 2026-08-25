@@ -1,7 +1,8 @@
-import { createHash } from 'node:crypto';
+import { createHash, X509Certificate } from 'node:crypto';
 
 export const DR133_RUNNER_CONTRACT = 'missionmed.lor.railway-dr133-runner.v3';
 export const DR133_RUNTIME_LOGIN = 'lor_studio_runtime_login';
+export const DR133_DATABASE_CA_ENV_KEY = 'LOR_DR133_RUNTIME_DATABASE_CA';
 export const DR133_APPLICATION_ROLE = 'lor_studio_app';
 export const DR133_COMMAND_OWNER_ROLE = 'lor_studio_command_owner';
 
@@ -219,6 +220,7 @@ const DR133_RECEIPT_RESULTS_BY_MODE = Object.freeze({
 
 export const DR133_RUNNER_ENV_KEYS = Object.freeze([
   'LOR_DR133_ADMIN_DATABASE_URL',
+  DR133_DATABASE_CA_ENV_KEY,
   'LOR_DR133_MODE',
   'RAILWAY_DEPLOYMENT_ID',
   'RAILWAY_ENVIRONMENT_ID',
@@ -328,7 +330,11 @@ export function resolveDr133RunnerEnvironment(rawEnvironment, { mode }) {
     failDr133('MODE_INVALID');
   }
   const expectedKeys = mode === 'runtime-login' ? DR133_RUNTIME_ENV_KEYS : DR133_RUNNER_ENV_KEYS;
-  for (const key of expectedKeys) requiredString(rawEnvironment[key], `${key}_REQUIRED`);
+  for (const key of expectedKeys) {
+    if (key !== DR133_DATABASE_CA_ENV_KEY) {
+      requiredString(rawEnvironment[key], `${key}_REQUIRED`);
+    }
+  }
 
   const expectedLorKeys = expectedKeys.filter((key) => key.startsWith('LOR_DR133_')).sort();
   const observedLorKeys = Object.keys(rawEnvironment)
@@ -369,6 +375,7 @@ export function resolveDr133RunnerEnvironment(rawEnvironment, { mode }) {
   if (runtime && !RUNTIME_PASSWORD_PATTERN.test(runtime.password)) {
     failDr133('RUNTIME_PASSWORD_FORMAT_INVALID');
   }
+  const databaseCa = verifiedDr133DatabaseCa(rawEnvironment[DR133_DATABASE_CA_ENV_KEY]);
 
   return Object.freeze({
     mode,
@@ -376,7 +383,31 @@ export function resolveDr133RunnerEnvironment(rawEnvironment, { mode }) {
     adminPgConnectionString: admin.pgConnectionString,
     runtimePgConnectionString: runtime?.pgConnectionString ?? null,
     runtimePassword: runtime?.password ?? null,
+    databaseCa,
   });
+}
+
+export function verifiedDr133DatabaseCa(rawValue) {
+  if (typeof rawValue !== 'string' || rawValue.length < 256 || rawValue.length > 16_384
+    || rawValue.includes('PRIVATE KEY')
+    || rawValue.match(/-----BEGIN CERTIFICATE-----/gu)?.length !== 1
+    || rawValue.match(/-----END CERTIFICATE-----/gu)?.length !== 1
+    || !rawValue.startsWith('-----BEGIN CERTIFICATE-----')) {
+    failDr133('DATABASE_CA_REJECTED');
+  }
+  try {
+    const certificate = new X509Certificate(rawValue);
+    const now = Date.now();
+    if (certificate.ca !== true || !certificate.checkIssued(certificate)
+      || !certificate.verify(certificate.publicKey)
+      || !(Date.parse(certificate.validFrom) <= now && now < Date.parse(certificate.validTo))) {
+      failDr133('DATABASE_CA_REJECTED');
+    }
+    return certificate.toString();
+  } catch (error) {
+    if (error instanceof Dr133RunnerError) throw error;
+    failDr133('DATABASE_CA_REJECTED');
+  }
 }
 
 export function sha256Bytes(bytes) {

@@ -458,7 +458,8 @@ export async function runDr133StagingMigration({
 
     client = new ClientClass({
       connectionString: resolved.adminPgConnectionString,
-      ssl: { rejectUnauthorized: false },
+      ssl: { ca: resolved.databaseCa, rejectUnauthorized: true, minVersion: 'TLSv1.2' },
+      enableChannelBinding: true,
       application_name: 'missionmed-f2-lor-1012-dr133-staging-migration',
       connectionTimeoutMillis: 15_000,
     });
@@ -654,7 +655,8 @@ export async function runDr133StagingSuccessorMigration({
 
     client = new ClientClass({
       connectionString: resolved.adminPgConnectionString,
-      ssl: { rejectUnauthorized: false },
+      ssl: { ca: resolved.databaseCa, rejectUnauthorized: true, minVersion: 'TLSv1.2' },
+      enableChannelBinding: true,
       application_name: 'missionmed-f2-lor-1012-dr133-staging-successor-migration',
       connectionTimeoutMillis: 15_000,
     });
@@ -793,7 +795,8 @@ export async function verifyDr133StagingSuccessorSchema({
 
     client = new ClientClass({
       connectionString: resolved.adminPgConnectionString,
-      ssl: { rejectUnauthorized: false },
+      ssl: { ca: resolved.databaseCa, rejectUnauthorized: true, minVersion: 'TLSv1.2' },
+      enableChannelBinding: true,
       application_name: 'missionmed-f2-lor-1012-dr133-staging-schema-verifier',
       connectionTimeoutMillis: 15_000,
     });

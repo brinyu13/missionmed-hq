@@ -517,7 +517,8 @@ export async function deprovisionDr133RailwayStagingRuntimeLogin({
 
     adminClient = new ClientClass({
       connectionString: resolved.adminPgConnectionString,
-      ssl: { rejectUnauthorized: false },
+      ssl: { ca: resolved.databaseCa, rejectUnauthorized: true, minVersion: 'TLSv1.2' },
+      enableChannelBinding: true,
       application_name: 'missionmed-f2-lor-1012-dr133-runtime-login-deprovision',
       connectionTimeoutMillis: 15_000,
     });

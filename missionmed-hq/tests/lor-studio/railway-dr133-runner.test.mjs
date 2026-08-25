@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile as execFileCallback } from 'node:child_process';
+import { X509Certificate } from 'node:crypto';
 import { once } from 'node:events';
 import { access, appendFile, chmod, readFile } from 'node:fs/promises';
 import { connect as connectNet } from 'node:net';
@@ -7,7 +8,7 @@ import { networkInterfaces } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
-import { connect as connectTls } from 'node:tls';
+import { connect as connectTls, rootCertificates } from 'node:tls';
 import { promisify } from 'node:util';
 
 import pg from 'pg';
@@ -87,6 +88,18 @@ const ADMIN_PASSWORD = 'a'.repeat(48);
 const RUNTIME_PASSWORD = 'b'.repeat(48);
 const DEPLOYMENT_ID = '11111111-1111-4111-8111-111111111111';
 const RUNTIME_ROLE_OID = '42042';
+const TEST_CA = rootCertificates.find((candidate) => {
+  try {
+    const certificate = new X509Certificate(candidate);
+    const now = Date.now();
+    return certificate.ca === true && certificate.checkIssued(certificate)
+      && certificate.verify(certificate.publicKey)
+      && Date.parse(certificate.validFrom) <= now && now < Date.parse(certificate.validTo);
+  } catch {
+    return false;
+  }
+});
+if (!TEST_CA) throw new Error('Node runtime has no valid self-signed test root CA');
 const { Client: RealPgClient } = pg;
 const execFile = promisify(execFileCallback);
 const RUN_REAL_POSTGRES_MATRIX = process.env.LOR_RUN_REAL_POSTGRES_MATRIX === '1';
@@ -102,6 +115,7 @@ function privateUrl(user, password) {
 function environment(mode = 'migration', overrides = {}) {
   return {
     LOR_DR133_ADMIN_DATABASE_URL: privateUrl('postgres', ADMIN_PASSWORD),
+    LOR_DR133_RUNTIME_DATABASE_CA: TEST_CA,
     LOR_DR133_MODE: mode,
     RAILWAY_DEPLOYMENT_ID: DEPLOYMENT_ID,
     RAILWAY_ENVIRONMENT_ID: DR133_TARGET.environmentId,
@@ -114,6 +128,13 @@ function environment(mode = 'migration', overrides = {}) {
       : {}),
     ...overrides,
   };
+}
+
+function assertPinnedTls(options) {
+  assert.equal(options.enableChannelBinding, true);
+  assert.equal(options.ssl.rejectUnauthorized, true);
+  assert.equal(options.ssl.minVersion, 'TLSv1.2');
+  assert.equal(new X509Certificate(options.ssl.ca).fingerprint256.length > 0, true);
 }
 
 function captureStream() {
@@ -344,9 +365,11 @@ test('private database URL parser requires exact private TLS target and clean de
   const resolved = resolveDr133RunnerEnvironment(environment(), { mode: 'migration' });
   const effectiveClient = new RealPgClient({
     connectionString: resolved.adminPgConnectionString,
-    ssl: { rejectUnauthorized: false },
+    ssl: { ca: resolved.databaseCa, rejectUnauthorized: true, minVersion: 'TLSv1.2' },
+    enableChannelBinding: true,
   });
-  assert.deepEqual(effectiveClient.connectionParameters.ssl, { rejectUnauthorized: false });
+  assert.equal(effectiveClient.connectionParameters.ssl.rejectUnauthorized, true);
+  assert.equal(effectiveClient.connectionParameters.ssl.minVersion, 'TLSv1.2');
   for (const invalid of [
     valid.replace('?sslmode=require', ''),
     `${valid}&sslmode=require`,
@@ -362,7 +385,9 @@ test('private database URL parser requires exact private TLS target and clean de
 });
 
 test('environment resolver pins every Railway axis and separates runtime credentials', () => {
-  assert.equal(resolveDr133RunnerEnvironment(environment(), { mode: 'migration' }).mode, 'migration');
+  const resolvedMigration = resolveDr133RunnerEnvironment(environment(), { mode: 'migration' });
+  assert.equal(resolvedMigration.mode, 'migration');
+  assert.equal(new X509Certificate(resolvedMigration.databaseCa).fingerprint256.length > 0, true);
   assert.equal(
     resolveDr133RunnerEnvironment(environment('successor-migration'), {
       mode: 'successor-migration',
@@ -413,6 +438,19 @@ test('environment resolver pins every Railway axis and separates runtime credent
     }), { mode: 'runtime-login' }),
     runnerError('RUNTIME_PASSWORD_FORMAT_INVALID'),
   );
+  for (const databaseCa of [
+    '',
+    'not-a-certificate',
+    `${TEST_CA}\n${TEST_CA}`,
+    '-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----',
+  ]) {
+    assert.throws(
+      () => resolveDr133RunnerEnvironment(environment('migration', {
+        LOR_DR133_RUNTIME_DATABASE_CA: databaseCa,
+      }), { mode: 'migration' }),
+      Dr133RunnerError,
+    );
+  }
 });
 
 test('receipt writer accepts only its fixed evidence schema and cannot emit a credential field', () => {
@@ -715,7 +753,7 @@ test('migration runner verifies, serializes, applies all three once in order, an
   ).sha256);
   assert.doesNotMatch(capture.value(), new RegExp(ADMIN_PASSWORD, 'u'));
   assert.equal(fake.instances.length, 1);
-  assert.equal(fake.instances[0].options.ssl.rejectUnauthorized, false);
+  assertPinnedTls(fake.instances[0].options);
   assert.equal(fake.instances[0].ended, true);
   const texts = fake.calls.map((call) => call.text);
   const foundationIndexes = texts
@@ -753,6 +791,7 @@ test('successor migration accepts only the exact base schema and dispatches only
   assert.equal(receipt.result, 'SUCCESSOR_COMMITTED_VERIFIED');
   assert.equal(receipt.relationCount, 28);
   assert.equal(receipt.definerCount, 12);
+  assertPinnedTls(fake.instances[0].options);
   const texts = fake.calls.map((call) => call.text);
   assert.equal(texts.some((text) => text.startsWith('-- Migration: 20260825010000')), false);
   assert.equal(texts.some((text) => text.startsWith('-- Migration: 20260825010100')), false);
@@ -938,6 +977,7 @@ test('successor verifier proves exact 10300 custody without dispatching forward 
   assert.equal(receipt.mode, 'schema-verifier');
   assert.equal(receipt.result, 'SCHEMA_VERIFIED_NO_MUTATION');
   assert.equal(receipt.definerCount, 12);
+  assertPinnedTls(fake.instances[0].options);
   const texts = fake.calls.map((call) => call.text);
   for (const prefix of [
     '-- Migration: 20260825010000',
@@ -1086,6 +1126,7 @@ test('runtime-login runner creates a SCRAM login transaction and proves explicit
   assert.equal(result.result, 'RUNTIME_LOGIN_COMMITTED_VERIFIED');
   assert.equal(JSON.parse(capture.value()).result, 'RUNTIME_LOGIN_COMMITTED_VERIFIED');
   assert.equal(fake.instances.length, 2);
+  fake.instances.forEach(({ options }) => assertPinnedTls(options));
   const adminCalls = fake.calls.filter((call) => call.kind === 'admin');
   const runtimeCalls = fake.calls.filter((call) => call.kind === 'runtime');
   const passwordBindCall = adminCalls.find(
@@ -1193,6 +1234,7 @@ function createRuntimeDeprovisionFake({
   initiallyQuarantined = false,
 } = {}) {
   const calls = [];
+  const instances = [];
   let absenceCount = 0;
   let currentTransaction = null;
   let quarantinePhaseComplete = false;
@@ -1202,6 +1244,7 @@ function createRuntimeDeprovisionFake({
   class FakeClient {
     constructor(options) {
       this.options = options;
+      instances.push(this);
     }
 
     async connect() {
@@ -1333,7 +1376,7 @@ function createRuntimeDeprovisionFake({
       return { rows: [] };
     }
   }
-  return { ClientClass: FakeClient, calls };
+  return { ClientClass: FakeClient, calls, instances };
 }
 
 test('runtime deprovision commits quarantine before OID-bound revoke, drop, and guard', async () => {
@@ -1348,6 +1391,7 @@ test('runtime deprovision commits quarantine before OID-bound revoke, drop, and 
   const receipt = JSON.parse(capture.value());
   assert.equal(receipt.result, 'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED');
   assert.equal(receipt.postgresMajor, 18);
+  assertPinnedTls(fake.instances[0].options);
   assert.doesNotMatch(capture.value(), new RegExp(ADMIN_PASSWORD, 'u'));
 
   const texts = fake.calls.map(({ text }) => text);

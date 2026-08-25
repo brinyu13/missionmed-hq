@@ -266,6 +266,39 @@ test('PEM gate rejects private keys, multiple roots, extra bytes, malformed UTF-
   );
 });
 
+test('accepts the Railway OpenSSL text-plus-PEM root format but rejects lookalike prefixes', () => {
+  const opensslPrefix = [
+    'Certificate:',
+    '    Data:',
+    '        Version: 3 (0x2)',
+    '        Serial Number: 1',
+    '        Signature Algorithm: sha256WithRSAEncryption',
+    '        Issuer: CN = Railway CA',
+    '        Validity',
+    '            Not Before: Jan  1 00:00:00 2026 GMT',
+    '            Not After : Jan  1 00:00:00 2036 GMT',
+    '        Subject: CN = Railway CA',
+    '        Subject Public Key Info:',
+    '        X509v3 extensions:',
+    '            X509v3 Basic Constraints: critical',
+    '                CA:TRUE',
+    '    Signature Value:',
+    '',
+  ].join('\n');
+  const value = validateDr133RuntimeRootCa(
+    Buffer.concat([Buffer.from(opensslPrefix), Buffer.from(TEST_CA)]),
+    { now: NOW },
+  );
+  assert.match(value.sha256, /^[0-9a-f]{64}$/u);
+  assert.throws(
+    () => validateDr133RuntimeRootCa(
+      Buffer.concat([Buffer.from('Certificate:\n    Data:\nRAILWAY_API_TOKEN=DO_NOT_EMIT\n'), Buffer.from(TEST_CA)]),
+      { now: NOW },
+    ),
+    transferError('ROOT_CA_REJECTED'),
+  );
+});
+
 test('sink failure is fixed-code, zero-output, and cleans the isolated temp root', async () => {
   await withBase(async (base) => {
     const fake = fixture();

@@ -7,7 +7,6 @@ import {
   mkdir,
   mkdtemp,
   open,
-  readFile,
   readdir,
   realpath,
   rm,
@@ -36,6 +35,13 @@ const MIN_VALIDITY_MS = 30 * 24 * 60 * 60 * 1_000;
 const SAFE_PATH = '/usr/bin:/bin';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const PEM = /^-----BEGIN CERTIFICATE-----\r?\n(?:[A-Za-z0-9+/]{1,76}={0,2}\r?\n)+-----END CERTIFICATE-----\r?\n?$/u;
+const OPENSSL_TEXT_PREFIX = /^Certificate:\r?\n {4}Data:\r?\n/u;
+const OPENSSL_REQUIRED_MARKERS = Object.freeze([
+  'Version:', 'Serial Number:', 'Signature Algorithm:', 'Issuer:', 'Validity',
+  'Not Before:', 'Not After :', 'Subject:', 'Subject Public Key Info:',
+  'X509v3 extensions:', 'X509v3 Basic Constraints:', 'CA:TRUE', 'Signature Value:',
+]);
+const FORBIDDEN_PREFIX_MATERIAL = /(?:^|\n)[A-Z][A-Z0-9_]{2,127}=|(?:https?|postgres(?:ql)?):\/\/|\/proc\/[^\s]*environ|PRIVATE KEY|BEGIN CERTIFICATE|(?:gh[opusr]|github_pat|railway|sk)-(?:[A-Za-z0-9_-]{20,})/u;
 const OPTION_KEYS = new Set(['commandRunner', 'environment', 'now', 'sink']);
 const RUNNER_OPTION_KEYS = new Set(['spawnProcess', 'killGraceMs']);
 const OUTCOME_KEYS = new Set([
@@ -259,11 +265,22 @@ function successfulOutcome(outcome, { allowStdout }) {
 
 async function assertPinnedRailwayBinary() {
   let bytes;
+  let handle;
   try {
     if (await realpath(RAILWAY_BINARY) !== RAILWAY_BINARY) fail('RAILWAY_BINARY_DRIFT');
-    const stat = await lstat(RAILWAY_BINARY);
-    if (!stat.isFile() || stat.isSymbolicLink()) fail('RAILWAY_BINARY_DRIFT');
-    bytes = await readFile(RAILWAY_BINARY);
+    const before = await lstat(RAILWAY_BINARY, { bigint: true });
+    if (!before.isFile() || before.isSymbolicLink()) fail('RAILWAY_BINARY_DRIFT');
+    if (!Number.isInteger(fsConstants.O_NOFOLLOW)) fail('NOFOLLOW_UNAVAILABLE');
+    handle = await open(RAILWAY_BINARY, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const opened = await handle.stat({ bigint: true });
+    if (opened.dev !== before.dev || opened.ino !== before.ino || opened.size !== before.size
+      || opened.mtimeNs !== before.mtimeNs || opened.ctimeNs !== before.ctimeNs) {
+      fail('RAILWAY_BINARY_DRIFT');
+    }
+    bytes = await handle.readFile();
+    const after = await handle.stat({ bigint: true });
+    if (after.size !== opened.size || after.mtimeNs !== opened.mtimeNs
+      || after.ctimeNs !== opened.ctimeNs) fail('RAILWAY_BINARY_DRIFT');
     if (createHash('sha256').update(bytes).digest('hex') !== RAILWAY_BINARY_SHA256) {
       fail('RAILWAY_BINARY_DRIFT');
     }
@@ -272,6 +289,7 @@ async function assertPinnedRailwayBinary() {
     fail('RAILWAY_BINARY_DRIFT');
   } finally {
     bytes?.fill(0);
+    await handle?.close().catch(() => undefined);
   }
 }
 
@@ -321,13 +339,30 @@ export function validateDr133RuntimeRootCa(bytes, { now = Date.now() } = {}) {
   } catch {
     fail('ROOT_CA_REJECTED');
   }
-  if (!PEM.test(text) || text.includes('PRIVATE KEY')
+  const begin = text.indexOf('-----BEGIN CERTIFICATE-----');
+  const endMarker = '-----END CERTIFICATE-----';
+  const end = text.indexOf(endMarker);
+  if (begin < 0 || end < begin
     || text.match(/-----BEGIN CERTIFICATE-----/gu)?.length !== 1
     || text.match(/-----END CERTIFICATE-----/gu)?.length !== 1) {
     fail('ROOT_CA_REJECTED');
   }
+  const prefix = text.slice(0, begin);
+  const pemText = text.slice(begin, end + endMarker.length);
+  const suffix = text.slice(end + endMarker.length);
+  if (!PEM.test(pemText) || !/^\r?\n?$/u.test(suffix) || text.includes('PRIVATE KEY')) {
+    fail('ROOT_CA_REJECTED');
+  }
+  if (prefix !== '') {
+    if (prefix.length > 8_192 || !OPENSSL_TEXT_PREFIX.test(prefix)
+      || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(prefix)
+      || FORBIDDEN_PREFIX_MATERIAL.test(prefix)
+      || OPENSSL_REQUIRED_MARKERS.some((marker) => !prefix.includes(marker))) {
+      fail('ROOT_CA_REJECTED');
+    }
+  }
   try {
-    const certificate = new X509Certificate(text);
+    const certificate = new X509Certificate(pemText);
     const validFrom = Date.parse(certificate.validFrom);
     const validTo = Date.parse(certificate.validTo);
     if (certificate.ca !== true || !certificate.checkIssued(certificate)
@@ -415,10 +450,11 @@ async function executeTransfer({ environment, commandRunner, now, sink }) {
   let operationError;
   let result;
   try {
+    rootSafe = path.dirname(root) === base && ROOT_NAME.test(path.basename(root));
+    if (!rootSafe) fail('TEMP_ROOT_REJECTED');
     await chmod(root, 0o700);
     const resolvedRoot = await realpath(root);
     if (resolvedRoot !== root || !ROOT_NAME.test(path.basename(root))) fail('TEMP_ROOT_REJECTED');
-    rootSafe = true;
     const home = path.join(root, 'home');
     const downloadDirectory = path.join(root, 'download');
     await mkdir(home, { mode: 0o700 });

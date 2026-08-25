@@ -354,7 +354,8 @@ export async function provisionDr133RailwayStagingRuntimeLogin({
 
     adminClient = new ClientClass({
       connectionString: resolved.adminPgConnectionString,
-      ssl: { rejectUnauthorized: false },
+      ssl: { ca: resolved.databaseCa, rejectUnauthorized: true, minVersion: 'TLSv1.2' },
+      enableChannelBinding: true,
       application_name: 'missionmed-f2-lor-1012-dr133-runtime-login-admin',
       connectionTimeoutMillis: 15_000,
     });
@@ -426,7 +427,8 @@ export async function provisionDr133RailwayStagingRuntimeLogin({
 
     runtimeClient = new ClientClass({
       connectionString: resolved.runtimePgConnectionString,
-      ssl: { rejectUnauthorized: false },
+      ssl: { ca: resolved.databaseCa, rejectUnauthorized: true, minVersion: 'TLSv1.2' },
+      enableChannelBinding: true,
       application_name: 'missionmed-f2-lor-1012-dr133-runtime-login-smoke',
       connectionTimeoutMillis: 15_000,
     });
