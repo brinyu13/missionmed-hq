@@ -15,6 +15,10 @@ import {
   DR133_TARGET,
   expectedDr133SuccessorSentinel,
 } from '../../scripts/lor-studio/railway-dr133-runner-core.mjs';
+import {
+  DR133_TARGET as DR133_PRODUCTION_TARGET,
+  expectedDr133SuccessorSentinel as expectedDr133ProductionSuccessorSentinel,
+} from '../../scripts/lor-studio/railway-dr133-production-runner-core.mjs';
 
 function configuration(overrides = {}) {
   return {
@@ -78,26 +82,30 @@ test('resolves the existing exact staging target without importing it as a runti
 test('derives a distinct production sentinel and identity from the validated production binding', () => {
   const binding = resolveLorTargetBinding(configuration({
     environment: 'production',
-    projectId: '11111111-1111-4111-8111-111111111111',
-    environmentId: '22222222-2222-4222-8222-222222222222',
-    serviceId: '33333333-3333-4333-8333-333333333333',
-    region: 'us-east4',
+    projectId: DR133_PRODUCTION_TARGET.projectId,
+    environmentId: DR133_PRODUCTION_TARGET.environmentId,
+    serviceId: DR133_PRODUCTION_TARGET.databaseServiceId,
+    region: DR133_PRODUCTION_TARGET.region,
     migrationLedger: 'lor_studio/migrations/production',
     productionDataBindingPassed: true,
   }));
   const target = resolveProductionRuntimeTarget(binding, environment({
-    [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.environmentName]: 'production',
+    [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.environmentName]: DR133_PRODUCTION_TARGET.environmentName,
     [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.executionServiceId]:
-      '44444444-4444-4444-8444-444444444444',
+      DR133_PRODUCTION_TARGET.applicationServiceId,
+    [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.databaseHost]: DR133_PRODUCTION_TARGET.databaseHost,
   }));
 
   assert.equal(target.deploymentEnvironment, 'production');
   assert.equal(target.projectId, binding.projectId);
   assert.equal(target.databaseServiceId, binding.serviceId);
   assert.equal(target.environmentName, 'production');
-  assert.match(target.successorSentinel, /project=11111111-1111-4111-8111-111111111111/u);
-  assert.match(target.successorSentinel, /service=33333333-3333-4333-8333-333333333333/u);
-  assert.doesNotMatch(target.successorSentinel, new RegExp(DR133_TARGET.projectId, 'u'));
+  assert.equal(target.databaseHost, DR133_PRODUCTION_TARGET.databaseHost);
+  assert.equal(target.successorSentinel, expectedDr133ProductionSuccessorSentinel());
+  assert.match(target.successorSentinel, new RegExp(`project=${DR133_PRODUCTION_TARGET.projectId}`, 'u'));
+  assert.match(target.successorSentinel, new RegExp(`service=${DR133_PRODUCTION_TARGET.databaseServiceId}`, 'u'));
+  assert.doesNotMatch(target.successorSentinel, new RegExp(DR133_TARGET.environmentId, 'u'));
+  assert.doesNotMatch(target.successorSentinel, new RegExp(DR133_TARGET.databaseServiceId, 'u'));
   assert.notEqual(target.successorSentinel, expectedDr133SuccessorSentinel());
 });
 
@@ -124,6 +132,27 @@ test('rejects an exact staging tuple relabeled as production and any alternate s
         '44444444-4444-4444-8444-444444444444',
     })),
     statusIs('RUNTIME_TARGET_STAGING_IDENTITY_MISMATCH'),
+  );
+});
+
+test('rejects any alternate production tuple after the provider target is known', () => {
+  const alternate = resolveLorTargetBinding(configuration({
+    environment: 'production',
+    projectId: DR133_PRODUCTION_TARGET.projectId,
+    environmentId: DR133_PRODUCTION_TARGET.environmentId,
+    serviceId: '33333333-3333-4333-8333-333333333333',
+    region: DR133_PRODUCTION_TARGET.region,
+    migrationLedger: 'lor_studio/migrations/production',
+    productionDataBindingPassed: true,
+  }));
+  assert.throws(
+    () => resolveProductionRuntimeTarget(alternate, environment({
+      [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.environmentName]: DR133_PRODUCTION_TARGET.environmentName,
+      [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.executionServiceId]:
+        DR133_PRODUCTION_TARGET.applicationServiceId,
+      [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.databaseHost]: DR133_PRODUCTION_TARGET.databaseHost,
+    })),
+    statusIs('RUNTIME_TARGET_PRODUCTION_IDENTITY_MISMATCH'),
   );
 });
 
@@ -174,7 +203,11 @@ test('contract exposes no default, fallback, or secret configuration field', () 
   assert.equal(PRODUCTION_RUNTIME_TARGET_CONTRACT.fallbackTarget, null);
   assert.equal(PRODUCTION_RUNTIME_TARGET_CONTRACT.secretConfiguration, 'prohibited');
   assert.equal(PRODUCTION_RUNTIME_TARGET_CONTRACT.runtimeLogin, DR133_RUNTIME_LOGIN);
-  assert.equal(PRODUCTION_RUNTIME_TARGET_CONTRACT.databaseHost, DR133_TARGET.databaseHost);
+  assert.equal(PRODUCTION_RUNTIME_TARGET_CONTRACT.stagingDatabaseHost, DR133_TARGET.databaseHost);
+  assert.equal(
+    PRODUCTION_RUNTIME_TARGET_CONTRACT.productionDatabaseHost,
+    DR133_PRODUCTION_TARGET.databaseHost,
+  );
   assert.equal(PRODUCTION_RUNTIME_TARGET_CONTRACT.databaseAdmin, DR133_TARGET.databaseAdmin);
   assert.equal(
     Object.values(PRODUCTION_RUNTIME_TARGET_ENV_KEYS).some((key) => /secret|token|password/iu.test(key)),

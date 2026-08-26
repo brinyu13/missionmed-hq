@@ -1,5 +1,5 @@
 import pg from 'pg';
-import { X509Certificate } from 'node:crypto';
+import { createHash, X509Certificate } from 'node:crypto';
 
 import {
   AuthorizationDeniedError,
@@ -25,6 +25,9 @@ import {
   DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES,
   DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES,
 } from '../../scripts/lor-studio/railway-dr133-runner-core.mjs';
+import {
+  DR133_PRODUCTION_DATABASE_CA_DER_SHA256,
+} from '../../scripts/lor-studio/railway-dr133-production-runner-core.mjs';
 
 const { Pool } = pg;
 const atomicDriverModuleUrl = new URL('./atomic-rls-case-driver.mjs', import.meta.url);
@@ -610,7 +613,7 @@ function validateBinding(raw) {
   ) throw disabled('DR133_TARGET_BINDING_MISMATCH');
   return binding;
 }
-function verifiedDatabaseCa(rawValue) {
+function verifiedDatabaseCa(rawValue, target) {
   if (typeof rawValue !== 'string' || rawValue.length < 256 || rawValue.length > 16_384
     || rawValue.includes('PRIVATE KEY')
     || rawValue.match(/-----BEGIN CERTIFICATE-----/gu)?.length !== 1
@@ -622,7 +625,12 @@ function verifiedDatabaseCa(rawValue) {
     const now = Date.now();
     if (certificate.ca !== true || !certificate.checkIssued(certificate)
       || !certificate.verify(certificate.publicKey)
-      || !(Date.parse(certificate.validFrom) <= now && now < Date.parse(certificate.validTo))) {
+      || !(Date.parse(certificate.validFrom) <= now && now < Date.parse(certificate.validTo))
+      || (
+        target.deploymentEnvironment === 'production'
+        && createHash('sha256').update(certificate.raw).digest('hex')
+          !== DR133_PRODUCTION_DATABASE_CA_DER_SHA256
+      )) {
       throw new TypeError('untrusted root');
     }
     return certificate.toString();
@@ -719,7 +727,7 @@ function runtimeConfiguration(environment, target) {
     || caDescriptor.enumerable !== true) {
     throw disabled('RUNTIME_DATABASE_CA_REJECTED');
   }
-  const ca = verifiedDatabaseCa(caDescriptor.value);
+  const ca = verifiedDatabaseCa(caDescriptor.value, target);
   try {
     return Object.freeze({
       ca,

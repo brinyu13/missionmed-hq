@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { X509Certificate } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { rootCertificates } from 'node:tls';
 
@@ -35,6 +36,10 @@ import {
   DR133_TARGET,
   expectedDr133Sentinel,
 } from '../../scripts/lor-studio/railway-dr133-runner-core.mjs';
+import {
+  DR133_TARGET as DR133_PRODUCTION_TARGET,
+  expectedDr133SuccessorSentinel as expectedDr133ProductionSuccessorSentinel,
+} from '../../scripts/lor-studio/railway-dr133-production-runner-core.mjs';
 
 const HASH_A = 'a'.repeat(64);
 const HASH_B = 'b'.repeat(64);
@@ -42,6 +47,10 @@ const BINDING_ID = `binding_${'c'.repeat(64)}`;
 const AUTH_UID = '00000000-0000-4000-8000-000000000001';
 const DEPLOYMENT_ID = '00000000-0000-4000-8000-000000000002';
 const PASSWORD = 'd'.repeat(43);
+const PRODUCTION_CA = await readFile(
+  new URL('./dr133-production-root-ca.pem', import.meta.url),
+  'utf8',
+);
 const TEST_CA = rootCertificates.find((candidate) => {
   try {
     const certificate = new X509Certificate(candidate);
@@ -406,24 +415,40 @@ test('constructs one closure-private pool and exposes only the frozen runtime su
 test('binds a distinct production database and execution service without a staging fallback', async () => {
   const productionBinding = binding({
     environment: 'production',
-    projectId: '11111111-1111-4111-8111-111111111111',
-    environmentId: '22222222-2222-4222-8222-222222222222',
-    serviceId: '33333333-3333-4333-8333-333333333333',
-    region: 'us-east4',
+    projectId: DR133_PRODUCTION_TARGET.projectId,
+    environmentId: DR133_PRODUCTION_TARGET.environmentId,
+    serviceId: DR133_PRODUCTION_TARGET.databaseServiceId,
+    region: DR133_PRODUCTION_TARGET.region,
     migrationLedger: 'lor_studio/migrations/production',
     productionDataBindingPassed: true,
   });
   const productionEnvironment = environment({
-    [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.environmentName]: 'production',
+    [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.environmentName]: DR133_PRODUCTION_TARGET.environmentName,
     [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.executionServiceId]:
-      '44444444-4444-4444-8444-444444444444',
+      DR133_PRODUCTION_TARGET.applicationServiceId,
+    [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.databaseHost]: DR133_PRODUCTION_TARGET.databaseHost,
+    LOR_DR133_RUNTIME_DATABASE_CA: PRODUCTION_CA,
+    LOR_DR133_RUNTIME_DATABASE_URL:
+      `postgresql://${DR133_RUNTIME_LOGIN}:${PASSWORD}`
+      + `@${DR133_PRODUCTION_TARGET.databaseHost}:5432/`
+      + `${DR133_PRODUCTION_TARGET.databaseName}?sslmode=require`,
     RAILWAY_ENVIRONMENT_ID: productionBinding.environmentId,
-    RAILWAY_ENVIRONMENT_NAME: 'production',
+    RAILWAY_ENVIRONMENT_NAME: DR133_PRODUCTION_TARGET.environmentName,
     RAILWAY_PROJECT_ID: productionBinding.projectId,
     RAILWAY_REPLICA_REGION: productionBinding.region,
-    RAILWAY_SERVICE_ID: '44444444-4444-4444-8444-444444444444',
+    RAILWAY_SERVICE_ID: DR133_PRODUCTION_TARGET.applicationServiceId,
   });
   const target = resolveProductionRuntimeTarget(productionBinding, productionEnvironment);
+  assert.throws(
+    () => createProductionPostgresRuntimeDependencies(productionBinding, {
+      environment: {
+        ...productionEnvironment,
+        LOR_DR133_RUNTIME_DATABASE_CA: TEST_CA,
+      },
+      PoolClass: FakePool,
+    }),
+    statusIs('RUNTIME_DATABASE_CA_REJECTED'),
+  );
   let readiness = readinessRow({ schema_sentinel: target.successorSentinel });
   resetPool({
     query(input) {
@@ -442,7 +467,9 @@ test('binds a distinct production database and execution service without a stagi
   assert.equal(observed.ready, true);
   assert.equal(FakePool.instances.length, 1);
   assert.equal(target.projectId, productionBinding.projectId);
-  assert.notEqual(target.projectId, DR133_TARGET.projectId);
+  assert.equal(target.projectId, DR133_PRODUCTION_TARGET.projectId);
+  assert.equal(target.databaseHost, DR133_PRODUCTION_TARGET.databaseHost);
+  assert.equal(target.successorSentinel, expectedDr133ProductionSuccessorSentinel());
   assert.notEqual(target.successorSentinel, expectedDr133SuccessorSentinel());
 
   readiness = readinessRow({ schema_sentinel: expectedDr133SuccessorSentinel() });
