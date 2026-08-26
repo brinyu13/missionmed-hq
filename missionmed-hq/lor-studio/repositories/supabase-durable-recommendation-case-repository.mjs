@@ -41,6 +41,7 @@ const DRIVER_AUTHORIZATION_SCHEMA = 'missionmed.lor.driver-authorization-binding
 const CREATION_RESERVATION_RECEIPT_SCHEMA = 'missionmed.lor.case-creation-reservation-receipt.v1';
 const LEGACY_ATOMIC_COMMIT_RECEIPT_SCHEMA = 'missionmed.lor.atomic-commit-receipt.v1';
 const ATOMIC_COMMAND_RECEIPT_SCHEMA = 'missionmed.lor.atomic-command-receipt.v2';
+const FACULTY_DRAFTING_CONTEXT_SCHEMA = 'missionmed.lor.faculty-drafting-context.v1';
 const ACTOR_ROLES = new Set(['student', 'faculty', 'mentor', 'admin', 'founder', 'support', 'service']);
 const HUMAN_ROLES = new Set(['student', 'faculty', 'mentor', 'admin', 'founder', 'support']);
 const STUDENT_COMMAND_SPECS = deepFreeze({
@@ -86,6 +87,12 @@ const FACULTY_RELEASE_SPEC = deepFreeze({
   operation: 'save',
   eventType: 'faculty.final_document_released',
 });
+const FACULTY_PRIVATE_SPEC = deepFreeze({
+  method: 'commitFacultyPrivateContent',
+  action: 'faculty.private_content_update',
+  operation: 'save',
+  eventType: 'faculty.private_content_updated',
+});
 const STUDENT_READ_REQUEST_KEYS = new Set([
   'caseId',
   'studentId',
@@ -93,6 +100,83 @@ const STUDENT_READ_REQUEST_KEYS = new Set([
 ]);
 const MENTOR_READ_REQUEST_KEYS = new Set(['caseId', 'actorId']);
 const FACULTY_READ_REQUEST_KEYS = new Set(['caseId', 'actorId']);
+const FACULTY_DRAFTING_CONTEXT_RESULT_KEYS = new Set(['found', 'context']);
+const FACULTY_DRAFTING_CONTEXT_KEYS = new Set([
+  'schemaVersion',
+  'id',
+  'studentId',
+  'status',
+  'faculty',
+  'consentReceipts',
+  'studentEvidence',
+]);
+const FACULTY_DRAFTING_ACTOR_KEYS = new Set([
+  'facultyId',
+  'verifiedAt',
+  'recipientEmailHash',
+]);
+const FACULTY_DRAFTING_CONSENT_KEYS = new Set(['id']);
+const FACULTY_DRAFTING_EVIDENCE_KEYS = new Set([
+  'id',
+  'caseId',
+  'text',
+  'contentHash',
+  'consentReceiptId',
+]);
+const FINAL_DOCUMENT_EXPORT_REQUEST_KEYS = new Set(['caseId', 'actorId', 'actorRole']);
+const FINAL_DOCUMENT_EXPORT_RESULT_KEYS = new Set(['found', 'exportDto']);
+const FINAL_DOCUMENT_EXPORT_DTO_KEYS = new Set([
+  'schemaVersion',
+  'caseId',
+  'studentId',
+  'actorRef',
+  'actorRole',
+  'revision',
+  'finalDocument',
+  'documentState',
+  'facultyApproval',
+  'waiverState',
+  'release',
+  'exportProjection',
+]);
+const FACULTY_PRIVATE_REQUEST_KEYS = new Set([
+  'caseId',
+  'actorId',
+  'expectedRevision',
+  'content',
+  'idempotencyKey',
+  'requestHash',
+  'event',
+]);
+const FACULTY_PRIVATE_CONTENT_KEYS = new Set([
+  'answers',
+  'notes',
+  'draftText',
+  'finalDocument',
+  'documentState',
+  'facultyApproval',
+]);
+const EXPORT_FINAL_DOCUMENT_KEYS = new Set([
+  'contentHash',
+  'id',
+  'mimeType',
+  'releasedToStudentAt',
+  'text',
+]);
+const EXPORT_FACULTY_APPROVAL_KEYS = new Set([
+  'approved',
+  'approvedAt',
+  'facultyRef',
+  'signatureAttested',
+]);
+const EXPORT_WAIVER_STATE_KEYS = new Set(['decided', 'receiptId', 'waived']);
+const EXPORT_RELEASE_KEYS = new Set([
+  'documentHash',
+  'documentId',
+  'releasedAt',
+  'releasedAtRevision',
+  'waiverReceiptId',
+]);
 const FACULTY_RELEASE_REQUEST_KEYS = new Set([
   'caseId',
   'actorId',
@@ -117,6 +201,15 @@ const STUDENT_SAVE_REQUEST_KEYS = new Set([
 const STUDENT_RECEIPT_REQUEST_KEYS = new Set([
   ...STUDENT_SAVE_REQUEST_KEYS,
   'receipt',
+]);
+const STUDENT_EVIDENCE_REQUEST_KEYS = new Set([
+  'caseId',
+  'studentId',
+  'expectedRevision',
+  'idempotencyKey',
+  'requestHash',
+  'event',
+  'studentWriteAuthorization',
 ]);
 const VERSION_ENTRY_KEYS = new Set([
   'revision',
@@ -177,13 +270,17 @@ const SERVER_SCOPE_KEYS = new Set([
  * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} selectCase
  * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} readStudentSafeCase
  * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} readFacultyCaseProjection
+ * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} readFacultyDraftingContext
  * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} readMentorCaseProjection
+ * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} readFinalDocumentExport
  * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} reserveCaseCreation
  * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} commitStudentCaseCreate
  * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} commitStudentBuilderAutosave
  * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} commitStudentBuilderComplete
  * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} commitStudentConsentReceipt
  * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} commitStudentWaiverReceipt
+ * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} commitStudentEvidencePublication
+ * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} commitFacultyPrivateContent
  * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} commitFacultyFinalDocumentRelease
  * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown> | null | undefined>} executeAtomicCaseCommand
  */
@@ -240,6 +337,7 @@ function assertDriver(driver) {
     || typeof driver.selectCase !== 'function'
     || typeof driver.readStudentSafeCase !== 'function'
     || typeof driver.readFacultyCaseProjection !== 'function'
+    || typeof driver.readFacultyDraftingContext !== 'function'
     || typeof driver.readMentorCaseProjection !== 'function'
     || typeof driver.reserveCaseCreation !== 'function'
     || typeof driver.commitStudentCaseCreate !== 'function'
@@ -570,6 +668,213 @@ function assertAtomicStudentCommandReceipt(result, { spec, command, scope }) {
   return cloneFrozen(result.state);
 }
 
+function assertAtomicStudentEvidenceReceipt(result, { request, scope }) {
+  if (!hasExactKeys(result, ATOMIC_COMMAND_RECEIPT_KEYS)) {
+    throw new IntegrationDisabledError('lor_supabase_repository', 'ATOMIC_COMMAND_RECEIPT_FIELDS_INVALID');
+  }
+  assertStudentSafeRecommendationCase(result.state);
+  for (const field of ['safeRecordHash', 'protectedStateHash', 'eventHash']) {
+    assertSha256(result[field], `atomic evidence receipt ${field}`);
+  }
+  assertNonEmptyString(result.auditEventRef, 'atomic evidence receipt auditEventRef', { maxLength: 200 });
+  assertNonEmptyString(result.transactionId, 'atomic evidence receipt transactionId', { maxLength: 200 });
+  if (
+    result.schemaVersion !== ATOMIC_COMMAND_RECEIPT_SCHEMA
+    || result.action !== 'student.evidence.publish'
+    || result.committed !== true
+    || (result.replayed !== true && result.replayed !== false)
+    || result.sameTransaction !== true
+    || result.caseId !== request.caseId
+    || result.studentId !== request.studentId
+    || result.state.id !== request.caseId
+    || result.state.studentId !== request.studentId
+    || !Number.isSafeInteger(result.revision)
+    || result.revision !== result.state.revision
+    || result.revision !== request.expectedRevision + 1
+    || result.state.studentEvidence.length === 0
+    || result.idempotencyKey !== request.idempotencyKey
+    || result.requestHash !== request.requestHash
+    || (result.replayed === false && (
+      result.eventHash !== hashValue(request.event)
+      || result.auditEventRef !== request.event.eventRef
+      || result.state.updatedAt !== request.event.occurredAt
+    ))
+    || scope.actorRole !== 'student'
+    || scope.actorId !== request.studentId
+    || scope.resourceStudentId !== request.studentId
+  ) {
+    throw new IntegrationDisabledError('lor_supabase_repository', 'ATOMIC_EVIDENCE_RECEIPT_BINDING_INVALID');
+  }
+  return cloneFrozen(result.state);
+}
+
+function assertFacultyPrivateRequest(request) {
+  if (!hasExactKeys(request, FACULTY_PRIVATE_REQUEST_KEYS)) {
+    throw new ValidationError('Faculty-private update contains unrecognized or missing fields');
+  }
+  assertNonEmptyString(request.caseId, 'caseId', { maxLength: 200 });
+  if (!/^wp:[1-9][0-9]*$/u.test(request.actorId ?? '')) {
+    throw new ValidationError('Faculty actorId must be the canonical wp:<id> subject');
+  }
+  if (!Number.isSafeInteger(request.expectedRevision) || request.expectedRevision < 0) {
+    throw new ValidationError('Faculty-private expectedRevision must be a non-negative integer');
+  }
+  if (!hasExactKeys(request.content, FACULTY_PRIVATE_CONTENT_KEYS)) {
+    throw new ValidationError('Faculty-private content must contain exactly its canonical fields');
+  }
+  if (Buffer.byteLength(canonicalize(request.content), 'utf8') > 512_000) {
+    throw new ValidationError('Faculty-private content exceeds the command safety limit');
+  }
+  assertNonEmptyString(request.idempotencyKey, 'idempotencyKey', { maxLength: 240 });
+  assertSha256(request.requestHash, 'requestHash');
+  validateMetadataServiceEvent(request.event);
+  if (
+    request.event.eventType !== FACULTY_PRIVATE_SPEC.eventType
+    || request.event.actorRole !== 'faculty'
+    || request.event.revision !== request.expectedRevision + 1
+  ) throw new DomainInvariantError('Faculty-private event is not bound to the requested revision');
+}
+
+function assertFacultyDraftingContext(context, { caseId, actorId, scope }) {
+  if (!hasExactKeys(context, FACULTY_DRAFTING_CONTEXT_KEYS)) {
+    throw new IntegrationDisabledError(
+      'lor_supabase_repository',
+      'FACULTY_DRAFTING_CONTEXT_FIELDS_INVALID',
+    );
+  }
+  if (
+    context.schemaVersion !== FACULTY_DRAFTING_CONTEXT_SCHEMA
+    || context.id !== caseId
+    || context.studentId !== scope.resourceStudentId
+    || typeof context.status !== 'string'
+    || !hasExactKeys(context.faculty, FACULTY_DRAFTING_ACTOR_KEYS)
+    || context.faculty.facultyId !== actorId
+    || !/^wp:[1-9][0-9]*$/u.test(context.faculty.facultyId ?? '')
+    || !/^[a-f0-9]{64}$/u.test(context.faculty.recipientEmailHash ?? '')
+  ) {
+    throw new AuthorizationDeniedError('FACULTY_DRAFTING_CONTEXT_BINDING_INVALID');
+  }
+  toIso(context.faculty.verifiedAt, 'facultyDraftingContext.faculty.verifiedAt');
+  if (!Array.isArray(context.consentReceipts) || context.consentReceipts.length > 500) {
+    throw new IntegrationDisabledError(
+      'lor_supabase_repository',
+      'FACULTY_DRAFTING_CONTEXT_CONSENT_INVALID',
+    );
+  }
+  const consentIds = new Set();
+  for (const receipt of context.consentReceipts) {
+    if (
+      !hasExactKeys(receipt, FACULTY_DRAFTING_CONSENT_KEYS)
+      || typeof receipt.id !== 'string'
+      || receipt.id.trim() === ''
+      || consentIds.has(receipt.id)
+    ) {
+      throw new IntegrationDisabledError(
+        'lor_supabase_repository',
+        'FACULTY_DRAFTING_CONTEXT_CONSENT_INVALID',
+      );
+    }
+    consentIds.add(receipt.id);
+  }
+  if (!Array.isArray(context.studentEvidence) || context.studentEvidence.length > 500) {
+    throw new IntegrationDisabledError(
+      'lor_supabase_repository',
+      'FACULTY_DRAFTING_CONTEXT_EVIDENCE_INVALID',
+    );
+  }
+  const evidenceIds = new Set();
+  for (const evidence of context.studentEvidence) {
+    if (
+      !hasExactKeys(evidence, FACULTY_DRAFTING_EVIDENCE_KEYS)
+      || typeof evidence.id !== 'string'
+      || evidence.id.trim() === ''
+      || evidence.caseId !== caseId
+      || typeof evidence.text !== 'string'
+      || evidence.text === ''
+      || evidence.text.trim() !== evidence.text
+      || !/^[a-f0-9]{64}$/u.test(evidence.contentHash ?? '')
+      || sha256(evidence.text) !== evidence.contentHash
+      || !consentIds.has(evidence.consentReceiptId)
+      || evidenceIds.has(evidence.id)
+    ) {
+      throw new IntegrationDisabledError(
+        'lor_supabase_repository',
+        'FACULTY_DRAFTING_CONTEXT_EVIDENCE_INVALID',
+      );
+    }
+    evidenceIds.add(evidence.id);
+  }
+  return cloneFrozen(context);
+}
+
+function assertFacultyPrivateScopeBinding(request, scope) {
+  if (
+    scope.actorRole !== 'faculty'
+    || scope.actorId !== request.actorId
+    || scope.authenticatedSubject !== request.actorId
+    || request.event.caseRef !== `case_${sha256(`lor-studio:case:${request.caseId}`)}`
+    || request.event.actorRef !== `actor_${sha256(`lor-studio:actor:${request.actorId}`)}`
+  ) throw new AuthorizationDeniedError('FACULTY_PRIVATE_SCOPE_INVALID');
+}
+
+function assertAtomicFacultyPrivateReceipt(result, { request, scope }) {
+  if (!hasExactKeys(result, ATOMIC_COMMAND_RECEIPT_KEYS)) {
+    throw new IntegrationDisabledError('lor_supabase_repository', 'ATOMIC_COMMAND_RECEIPT_FIELDS_INVALID');
+  }
+  assertFacultyCaseProjection(result.state);
+  for (const field of ['safeRecordHash', 'protectedStateHash', 'eventHash']) {
+    assertSha256(result[field], `atomic receipt ${field}`);
+  }
+  assertNonEmptyString(result.auditEventRef, 'atomic receipt auditEventRef', { maxLength: 200 });
+  assertNonEmptyString(result.transactionId, 'atomic receipt transactionId', { maxLength: 200 });
+  if (
+    result.schemaVersion !== ATOMIC_COMMAND_RECEIPT_SCHEMA
+    || result.action !== FACULTY_PRIVATE_SPEC.action
+    || result.committed !== true
+    || (result.replayed !== true && result.replayed !== false)
+    || result.sameTransaction !== true
+    || result.caseId !== request.caseId
+    || result.studentId !== scope.resourceStudentId
+    || result.state.caseId !== request.caseId
+    || !Number.isSafeInteger(result.revision)
+    || result.revision !== result.state.revision
+    || result.idempotencyKey !== request.idempotencyKey
+    || result.requestHash !== request.requestHash
+    || (result.replayed === false && (
+      result.revision !== request.expectedRevision + 1
+      || result.eventHash !== hashValue(request.event)
+      || result.auditEventRef !== request.event.eventRef
+    ))
+  ) {
+    throw new IntegrationDisabledError('lor_supabase_repository', 'ATOMIC_COMMAND_RECEIPT_BINDING_INVALID');
+  }
+  return cloneFrozen(result.state);
+}
+
+function assertFinalDocumentExportDto(dto, { caseId, actorId, actorRole, scope }) {
+  if (!hasExactKeys(dto, FINAL_DOCUMENT_EXPORT_DTO_KEYS)) {
+    throw new IntegrationDisabledError('lor_supabase_repository', 'FINAL_DOCUMENT_EXPORT_FIELDS_INVALID');
+  }
+  if (
+    dto.schemaVersion !== 'missionmed.lor.final-document-export.v1'
+    || dto.caseId !== caseId
+    || dto.studentId !== scope.resourceStudentId
+    || dto.actorRole !== actorRole
+    || dto.actorRef !== `actor_${sha256(`lor-studio:actor:${actorId}`)}`
+    || dto.exportProjection !== (actorRole === 'student' ? 'student_visible' : 'faculty_owner')
+    || !Number.isSafeInteger(dto.revision)
+    || dto.revision < 0
+    || (dto.finalDocument !== null && !hasExactKeys(dto.finalDocument, EXPORT_FINAL_DOCUMENT_KEYS))
+    || (dto.facultyApproval !== null
+      && !hasExactKeys(dto.facultyApproval, EXPORT_FACULTY_APPROVAL_KEYS))
+    || !hasExactKeys(dto.waiverState, EXPORT_WAIVER_STATE_KEYS)
+    || (dto.release !== null && !hasExactKeys(dto.release, EXPORT_RELEASE_KEYS))
+  ) {
+    throw new IntegrationDisabledError('lor_supabase_repository', 'FINAL_DOCUMENT_EXPORT_BINDING_INVALID');
+  }
+  return cloneFrozen(dto);
+}
+
 function assertFacultyReleaseRequest(request) {
   if (!hasExactKeys(request, FACULTY_RELEASE_REQUEST_KEYS)) {
     throw new ValidationError('Faculty release contains unrecognized or missing fields');
@@ -748,6 +1053,8 @@ export class SupabaseDurableRecommendationCaseRepository extends RecommendationC
     this.isDurable = true;
     this.atomicStateAndEvent = true;
     this.actorSafeCommands = true;
+    this.supportsStudentEvidencePublication =
+      typeof this.driver.commitStudentEvidencePublication === 'function';
     Object.freeze(this);
   }
 
@@ -758,6 +1065,7 @@ export class SupabaseDurableRecommendationCaseRepository extends RecommendationC
       productionEligible: this.binding.environment === 'production',
       atomicStateAndEvent: true,
       actorSafeCommands: true,
+      studentEvidencePublication: this.supportsStudentEvidencePublication,
       rlsBound: true,
       provider: this.binding.provider,
       projectId: this.binding.projectId,
@@ -914,6 +1222,87 @@ export class SupabaseDurableRecommendationCaseRepository extends RecommendationC
     return cloneFrozen(result.projection);
   }
 
+  async readFacultyDraftingContext(request = {}) {
+    if (!hasExactKeys(request, FACULTY_READ_REQUEST_KEYS)) {
+      throw new ValidationError('Faculty drafting context requires exact caseId and actorId fields');
+    }
+    const caseId = assertNonEmptyString(request.caseId, 'caseId', { maxLength: 200 });
+    const actorId = assertNonEmptyString(request.actorId, 'actorId', { maxLength: 200 });
+    if (!/^wp:[1-9][0-9]*$/u.test(actorId)) {
+      throw new ValidationError('Faculty actorId must be the canonical wp:<id> subject');
+    }
+    const scope = assertScope(
+      await this.scopeProvider({ caseId, operation: 'read' }),
+      { caseId, operation: 'read' },
+    );
+    if (
+      scope.actorRole !== 'faculty'
+      || scope.actorId !== actorId
+      || scope.authenticatedSubject !== actorId
+    ) throw new AuthorizationDeniedError('FACULTY_SCOPE_EVIDENCE_INVALID');
+    const result = await this.driver.readFacultyDraftingContext({
+      binding: this.binding,
+      scope,
+      caseId,
+    });
+    if (
+      hasExactKeys(result, FACULTY_DRAFTING_CONTEXT_RESULT_KEYS)
+      && result.found === false
+      && result.context === null
+    ) throw new NotFoundError('recommendation_case', caseId);
+    if (!hasExactKeys(result, FACULTY_DRAFTING_CONTEXT_RESULT_KEYS) || result.found !== true) {
+      throw new IntegrationDisabledError(
+        'lor_supabase_repository',
+        'FACULTY_DRAFTING_CONTEXT_READ_UNPROVEN',
+      );
+    }
+    return assertFacultyDraftingContext(result.context, { caseId, actorId, scope });
+  }
+
+  async readFinalDocumentExport(request = {}) {
+    if (!hasExactKeys(request, FINAL_DOCUMENT_EXPORT_REQUEST_KEYS)) {
+      throw new ValidationError('Final-document export read requires exact case, actor, and role fields');
+    }
+    const caseId = assertNonEmptyString(request.caseId, 'caseId', { maxLength: 200 });
+    const actorId = assertNonEmptyString(request.actorId, 'actorId', { maxLength: 200 });
+    const actorRole = request.actorRole;
+    if (!['student', 'faculty'].includes(actorRole) || !/^wp:[1-9][0-9]*$/u.test(actorId)) {
+      throw new AuthorizationDeniedError('FINAL_DOCUMENT_EXPORT_ACTOR_INVALID');
+    }
+    const scope = assertScope(
+      await this.scopeProvider({ caseId, operation: 'read' }),
+      { caseId, operation: 'read' },
+    );
+    if (
+      scope.actorRole !== actorRole
+      || scope.actorId !== actorId
+      || scope.authenticatedSubject !== actorId
+      || (actorRole === 'student' && scope.resourceStudentId !== actorId)
+    ) throw new AuthorizationDeniedError('FINAL_DOCUMENT_EXPORT_SCOPE_INVALID');
+    if (typeof this.driver.readFinalDocumentExport !== 'function') {
+      throw new IntegrationDisabledError('lor_supabase_repository', 'FINAL_DOCUMENT_EXPORT_DRIVER_REQUIRED');
+    }
+    const result = await this.driver.readFinalDocumentExport({
+      binding: this.binding,
+      scope,
+      caseId,
+    });
+    if (
+      hasExactKeys(result, FINAL_DOCUMENT_EXPORT_RESULT_KEYS)
+      && result.found === false
+      && result.exportDto === null
+    ) throw new NotFoundError('recommendation_case', caseId);
+    if (!hasExactKeys(result, FINAL_DOCUMENT_EXPORT_RESULT_KEYS) || result.found !== true) {
+      throw new IntegrationDisabledError('lor_supabase_repository', 'FINAL_DOCUMENT_EXPORT_READ_UNPROVEN');
+    }
+    return assertFinalDocumentExportDto(result.exportDto, {
+      caseId,
+      actorId,
+      actorRole,
+      scope,
+    });
+  }
+
   async readMentorCaseProjection(request = {}) {
     if (!hasExactKeys(request, MENTOR_READ_REQUEST_KEYS)) {
       throw new ValidationError('Mentor projection read requires exact caseId and actorId fields');
@@ -1001,6 +1390,78 @@ export class SupabaseDurableRecommendationCaseRepository extends RecommendationC
 
   async commitStudentWaiverReceipt(request = {}) {
     return this.#commitStudentCommand('student.waiver.record', request);
+  }
+
+  async commitStudentEvidencePublication(request = {}) {
+    if (!hasExactKeys(request, STUDENT_EVIDENCE_REQUEST_KEYS)) {
+      throw new ValidationError('Student evidence command contains unrecognized or missing fields');
+    }
+    const caseId = assertNonEmptyString(request.caseId, 'caseId', { maxLength: 200 });
+    const studentId = assertNonEmptyString(request.studentId, 'studentId', { maxLength: 200 });
+    if (!/^wp:[1-9][0-9]*$/u.test(studentId)) {
+      throw new ValidationError('studentId must be the canonical wp:<id> subject');
+    }
+    if (!Number.isSafeInteger(request.expectedRevision) || request.expectedRevision < 0) {
+      throw new ValidationError('Student evidence expectedRevision must be a non-negative integer');
+    }
+    assertNonEmptyString(request.idempotencyKey, 'idempotencyKey', { maxLength: 240 });
+    assertSha256(request.requestHash, 'requestHash');
+    assertTrustedStudentAuthorization(request.studentWriteAuthorization);
+    validateMetadataServiceEvent(request.event);
+    if (
+      request.event.eventType !== 'student.material_updated'
+      || request.event.actorRole !== 'student'
+      || request.event.revision !== request.expectedRevision + 1
+      || request.event.caseRef !== `case_${sha256(`lor-studio:case:${caseId}`)}`
+      || request.event.actorRef !== `actor_${sha256(`lor-studio:actor:${studentId}`)}`
+    ) throw new AuthorizationDeniedError('STUDENT_EVIDENCE_EVENT_SCOPE_INVALID');
+
+    const scope = assertScope(
+      await this.scopeProvider({ caseId, operation: 'save', resourceStudentId: studentId }),
+      { caseId, operation: 'save' },
+    );
+    if (
+      scope.actorRole !== 'student'
+      || scope.actorId !== studentId
+      || scope.authenticatedSubject !== studentId
+      || scope.resourceStudentId !== studentId
+    ) throw new AuthorizationDeniedError('STUDENT_EVIDENCE_SCOPE_INVALID');
+    assertStudentAuthorizationScopeBinding(request.studentWriteAuthorization, scope);
+    if (typeof this.driver.commitStudentEvidencePublication !== 'function') {
+      throw new IntegrationDisabledError('lor_supabase_repository', 'STUDENT_EVIDENCE_DRIVER_REQUIRED');
+    }
+    const result = await this.driver.commitStudentEvidencePublication({
+      binding: this.binding,
+      scope,
+      expectedRevision: request.expectedRevision,
+      idempotencyKey: request.idempotencyKey,
+      requestHash: request.requestHash,
+      event: structuredClone(request.event),
+    });
+    return assertAtomicStudentEvidenceReceipt(result, { request, scope });
+  }
+
+  async commitFacultyPrivateContent(request = {}) {
+    assertFacultyPrivateRequest(request);
+    const scope = assertScope(
+      await this.scopeProvider({ caseId: request.caseId, operation: 'save' }),
+      { caseId: request.caseId, operation: 'save' },
+    );
+    assertFacultyPrivateScopeBinding(request, scope);
+    if (typeof this.driver.commitFacultyPrivateContent !== 'function') {
+      throw new IntegrationDisabledError('lor_supabase_repository', 'FACULTY_PRIVATE_DRIVER_REQUIRED');
+    }
+    const command = {
+      binding: this.binding,
+      scope,
+      expectedRevision: request.expectedRevision,
+      content: structuredClone(request.content),
+      idempotencyKey: request.idempotencyKey,
+      requestHash: request.requestHash,
+      event: structuredClone(request.event),
+    };
+    const result = await this.driver.commitFacultyPrivateContent(command);
+    return assertAtomicFacultyPrivateReceipt(result, { request, scope });
   }
 
   async commitFacultyFinalDocumentRelease(request = {}) {
@@ -1103,9 +1564,17 @@ export const SUPABASE_LOR_REPOSITORY_CONTRACT = deepFreeze({
   identifierAllocation: 'durable_atomic_server_only_creation_reservation',
   legacyAtomicCommitReceiptSchema: LEGACY_ATOMIC_COMMIT_RECEIPT_SCHEMA,
   atomicCommandReceiptSchema: ATOMIC_COMMAND_RECEIPT_SCHEMA,
-  actorSafeCommands: [...Object.keys(STUDENT_COMMAND_SPECS), FACULTY_RELEASE_SPEC.action],
+  actorSafeCommands: [
+    ...Object.keys(STUDENT_COMMAND_SPECS),
+    'student.evidence.publish',
+    FACULTY_PRIVATE_SPEC.action,
+    FACULTY_RELEASE_SPEC.action,
+  ],
   studentReadBoundary: 'exact_student_safe_case_v1_only',
   facultyReadBoundary: 'exact_seven_field_faculty_projection_only',
+  facultyDraftingContextBoundary: 'exact_seven_field_faculty_drafting_context_v1_only',
+  finalDocumentExportBoundary: 'exact_actor_safe_final_document_export_v1_only',
+  facultyPrivateWriteBoundary: FACULTY_PRIVATE_SPEC.action,
   facultyReleaseBoundary: FACULTY_RELEASE_SPEC.action,
   mentorReadBoundary: 'exact_five_field_projection_only',
   commandReplay: 'receipt_lookup_and_action_request_binding_before_candidate_validation',

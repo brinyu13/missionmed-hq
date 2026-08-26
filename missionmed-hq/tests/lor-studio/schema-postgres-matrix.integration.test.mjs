@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 
 import pg from 'pg';
 
+import { createAuditEvent } from '../../lor-studio/audit/audit-events.mjs';
+
 import {
   createAtomicRlsCaseDriver,
 } from '../../lor-studio/adapters/atomic-rls-case-driver.mjs';
@@ -19,15 +21,20 @@ import {
   createNodePostgresExecutor,
 } from '../../lor-studio/adapters/node-postgres-executor.mjs';
 import {
+  BUILDER_STEPS,
   appendStudentSafeReceipt,
   autosaveStudentSafeBuilderStep,
   completeStudentSafeBuilderStep,
   createStudentSafeRecommendationCase,
+  STUDENT_CONSENT_GRANT_SCOPES,
+  STUDENT_CONSENT_POLICY_VERSION,
 } from '../../lor-studio/domain/recommendation-case.js';
 import {
   createConsentReceipt,
   createWaiverReceipt,
 } from '../../lor-studio/domain/receipts.js';
+import { SupabaseDurableRecommendationCaseRepository } from '../../lor-studio/repositories/supabase-durable-recommendation-case-repository.mjs';
+import { SupabaseDurableArtifactAuditSink } from '../../lor-studio/repositories/supabase-durable-artifact-audit-sink.mjs';
 import {
   hashValue,
   sha256,
@@ -35,6 +42,11 @@ import {
 import {
   createMetadataServiceEvent,
 } from '../../lor-studio/services/metadata-events.js';
+import {
+  AI_DRAFT_TEMPLATE_VERSION,
+  AI_PROPOSAL_RECORD_SCHEMA,
+  AiProposalService,
+} from '../../lor-studio/services/ai-proposal-service.js';
 import {
   PostgresHarnessError,
   createDisposablePostgresHarness,
@@ -83,6 +95,41 @@ const identityScopeRollbackPath = path.join(
   scriptDirectory,
   'rollbacks',
   '20260825010200_f2_lor_1012_identity_scope_commands.rollback.sql',
+);
+const facultyInvitationPath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260825010400_f2_lor_1012_faculty_invitation_commands.sql',
+);
+const productionFacultyInvitationPath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260825010500_f2_lor_1012_production_faculty_invitation_commands.sql',
+);
+const facultyInvitationRollbackPath = path.join(
+  scriptDirectory,
+  'rollbacks',
+  '20260825010400_f2_lor_1012_faculty_invitation_commands.rollback.sql',
+);
+const facultyPrivateExportPath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260825010600_f2_lor_1012_faculty_private_export_commands.sql',
+);
+const facultyPrivateExportRollbackPath = path.join(
+  scriptDirectory,
+  'rollbacks',
+  '20260825010600_f2_lor_1012_faculty_private_export_commands.rollback.sql',
+);
+const aiProposalCommandsPath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260825010800_f2_lor_1012_ai_proposal_commands.sql',
+);
+const aiProposalCommandsRollbackPath = path.join(
+  scriptDirectory,
+  'rollbacks',
+  '20260825010800_f2_lor_1012_ai_proposal_commands.rollback.sql',
 );
 
 const RUN_REAL_MATRIX = process.env.LOR_RUN_REAL_POSTGRES_MATRIX === '1';
@@ -284,20 +331,20 @@ function expectedConstraintCount(contract, postgresMajor) {
 async function assertFinalCatalog(pool, contract, postgresMajor) {
   const snapshot = await catalogSnapshot(pool);
   assert.deepEqual(snapshot, {
-    table_count: contract.executableRelations.length,
+    table_count: contract.baseSchemaCatalog.relationCount,
     view_count: contract.projectionViews.length,
     function_count: contract.expectedFinalFunctionCount,
-    definer_count: contract.approvedSecurityDefinerFunctions.length,
+    definer_count: contract.baseSchemaCatalog.securityDefinerFunctions.length,
     policy_count: contract.expectedFinalPolicyCount,
     trigger_count: contract.expectedFinalTriggerCount,
-    forced_rls_count: contract.executableRelations.length,
+    forced_rls_count: contract.baseSchemaCatalog.relationCount,
     index_count: contract.expectedFinalIndexCount,
     constraint_count: expectedConstraintCount(contract, postgresMajor),
     role_count: 2,
   });
   assert.deepEqual(
     await definerFunctions(pool),
-    [...contract.approvedSecurityDefinerFunctions].sort(),
+    [...contract.baseSchemaCatalog.securityDefinerFunctions].sort(),
   );
   assert.equal(
     await nonownerAclEntryCount(pool),
@@ -357,7 +404,7 @@ async function assertFinalCatalog(pool, contract, postgresMajor) {
 async function assertFoundationCatalog(pool, contract, postgresMajor) {
   const snapshot = await catalogSnapshot(pool);
   assert.deepEqual(snapshot, {
-    table_count: contract.executableRelations.length,
+    table_count: contract.baseSchemaCatalog.relationCount,
     view_count: 0,
     function_count: contract.expectedFoundationFunctionCount,
     definer_count: 0,
@@ -696,6 +743,43 @@ function facultyScope({
     lorEnabled: true,
     canaryAuthorized: true,
   };
+}
+
+async function withFacultyAiCommandContext(pool, handler) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+    await client.query('SET LOCAL ROLE lor_studio_app');
+    await client.query({
+      text: `SELECT
+        pg_catalog.set_config('request.jwt.claim.sub', $1, true),
+        pg_catalog.set_config('lor_studio.student_auth_subject', $2, true),
+        pg_catalog.set_config('lor_studio.actor_role', 'faculty', true),
+        pg_catalog.set_config('lor_studio.resource_student_id', $3, true),
+        pg_catalog.set_config('lor_studio.case_id', $4, true),
+        pg_catalog.set_config('lor_studio.operation', 'save', true),
+        pg_catalog.set_config('lor_studio.purpose', 'faculty_private_edit', true),
+        pg_catalog.set_config('lor_studio.invitation_id', $5, true),
+        pg_catalog.set_config('lor_studio.assignment_id', '', true),
+        pg_catalog.set_config('lor_studio.administrative_grant_id', '', true),
+        pg_catalog.set_config('lor_studio.entitlement_verified', 'true', true),
+        pg_catalog.set_config('lor_studio.lor_enabled', 'true', true),
+        pg_catalog.set_config('lor_studio.canary_authorized', 'true', true),
+        pg_catalog.set_config(
+          'lor_studio.trusted_service_actor', 'lor-ai-proposal-store-v1', true
+        ),
+        pg_catalog.set_config('lor_studio.identity_resolution_verified', 'true', true)`,
+      values: [FACULTY_AUTH_UID, FACULTY, STUDENT, CASE_ID, FACULTY_INVITATION_ID],
+    });
+    const result = await handler(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 function transitionEvent(transition, { eventId, eventType }) {
@@ -1514,8 +1598,8 @@ async function proveActorSafeStudentCommand(pool) {
     id: CONSENT_RECEIPT_ID,
     caseId: CASE_ID,
     studentId: STUDENT,
-    scopes: ['faculty_handoff', 'letter_drafting'],
-    policyVersion: 'synthetic-local-policy-v1',
+    scopes: STUDENT_CONSENT_GRANT_SCOPES,
+    policyVersion: STUDENT_CONSENT_POLICY_VERSION,
     recordedAt: '2026-08-20T12:03:00.000Z',
   });
   const consented = appendStudentSafeReceipt(completed.state, {
@@ -1814,6 +1898,1067 @@ async function proveActorSafeStudentCommand(pool) {
   assert.equal(persistedWaiver.acknowledgment, waiver.acknowledgment);
   assert.equal(new Date(persistedWaiver.recorded_at).toISOString(), waiver.recordedAt);
   assert.equal(persistedWaiver.receipt_hash, waiver.receiptHash);
+  return waived.state;
+}
+
+async function runInvitationCommand(pool, {
+  actorRole,
+  subject,
+  authUid = '',
+  operation,
+  caseId = '',
+  resourceStudentId = '',
+  invitationId = '',
+  purpose = '',
+  trustedServiceActor = '',
+}, query) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+    await client.query('SET LOCAL ROLE lor_studio_app');
+    await client.query({
+      text: `SELECT
+        pg_catalog.set_config('request.jwt.claim.sub', $1, true),
+        pg_catalog.set_config('lor_studio.student_auth_subject', $2, true),
+        pg_catalog.set_config('lor_studio.actor_role', $3, true),
+        pg_catalog.set_config('lor_studio.resource_student_id', $4, true),
+        pg_catalog.set_config('lor_studio.case_id', $5, true),
+        pg_catalog.set_config('lor_studio.operation', $6, true),
+        pg_catalog.set_config('lor_studio.purpose', $7, true),
+        pg_catalog.set_config('lor_studio.invitation_id', $8, true),
+        pg_catalog.set_config('lor_studio.identity_resolution_verified', $9, true),
+        pg_catalog.set_config('lor_studio.trusted_service_actor', $10, true),
+        pg_catalog.set_config('lor_studio.entitlement_verified', 'true', true),
+        pg_catalog.set_config('lor_studio.lor_enabled', 'true', true),
+        pg_catalog.set_config('lor_studio.canary_authorized', 'true', true)`,
+      values: [
+        authUid,
+        subject,
+        actorRole,
+        resourceStudentId,
+        caseId,
+        operation,
+        purpose || (actorRole === 'student' ? 'student_case_write' : 'faculty_private_edit'),
+        invitationId,
+        actorRole === 'student' ? 'true' : 'false',
+        trustedServiceActor,
+      ],
+    });
+    const result = await query(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function proveArtifactExportAuditCommand(pool) {
+  const scope = facultyScope({ operation: 'read' });
+  const event = createAuditEvent({
+    type: 'artifact.generated',
+    actor: { id: FACULTY, role: 'faculty' },
+    caseId: CASE_ID,
+    targetId: FINAL_DOCUMENT_ID,
+    outcome: 'success',
+    metadata: {
+      action: 'export_final_document',
+      artifactSha256: sha256(FINAL_DOCUMENT_TEXT),
+      artifactFormat: 'docx',
+      releaseDocumentHash: null,
+      result: 'faculty_owner',
+      sourceRevision: 4,
+    },
+    at: new Date(),
+  });
+  const invoke = (candidateEvent) => runInvitationCommand(
+    pool,
+    {
+      actorRole: 'faculty',
+      subject: FACULTY,
+      authUid: FACULTY_AUTH_UID,
+      operation: 'read',
+      caseId: CASE_ID,
+      resourceStudentId: STUDENT,
+      invitationId: FACULTY_INVITATION_ID,
+      purpose: 'faculty_private_edit',
+    },
+    async (client) => (await client.query({
+      text: `SELECT lor_studio.append_artifact_export_audit(
+        $1::jsonb, $2, $3, $4
+      ) AS result`,
+      values: [
+        candidateEvent,
+        hashValue(candidateEvent),
+        hashValue(scope),
+        hashValue(BINDING),
+      ],
+    })).rows[0].result,
+  );
+
+  const accepted = await invoke(event);
+  assert.equal(accepted.schemaVersion, 'missionmed.lor.artifact-audit-receipt.v1');
+  assert.equal(accepted.accepted, true);
+  assert.equal(accepted.replayed, false);
+  assert.equal(accepted.caseId, CASE_ID);
+  assert.equal(accepted.eventId, event.eventId);
+  assert.equal(accepted.eventHash, hashValue(event));
+  assert.equal(accepted.scopeHash, hashValue(scope));
+  assert.equal(accepted.targetBindingHash, hashValue(BINDING));
+  assert.match(accepted.transactionRef, /^txn_[a-f0-9]{64}$/u);
+  assert.equal(new Date(accepted.committedAt).toISOString(), accepted.committedAt);
+
+  const replay = await invoke(event);
+  assert.deepEqual(replay, { ...accepted, replayed: true });
+
+  const studentAuditDriver = {
+    rlsEnforced: true,
+    serverOnly: true,
+    databaseClock: true,
+    appendOnlyArtifactAudit: true,
+    appendArtifactExportAuditAtomic(command) {
+      return runInvitationCommand(
+        pool,
+        {
+          actorRole: 'student',
+          subject: STUDENT,
+          authUid: AUTH_UID,
+          operation: 'read',
+          caseId: CASE_ID,
+          resourceStudentId: STUDENT,
+          purpose: 'student_case_read',
+        },
+        async (client) => (await client.query({
+          text: `SELECT lor_studio.append_artifact_export_audit(
+            $1::jsonb, $2, $3, $4
+          ) AS result`,
+          values: [
+            command.event,
+            command.eventHash,
+            command.scopeHash,
+            command.targetBindingHash,
+          ],
+        })).rows[0].result,
+      );
+    },
+  };
+  const studentSink = new SupabaseDurableArtifactAuditSink({
+    binding: BINDING,
+    driver: studentAuditDriver,
+    async scopeProvider(request) {
+      assert.deepEqual(request, {
+        caseId: CASE_ID,
+        operation: 'read',
+        resourceStudentId: STUDENT,
+      });
+      return studentScope({ operation: 'read' });
+    },
+  });
+  const studentEvent = createAuditEvent({
+    type: 'artifact.generated',
+    actor: { id: STUDENT, role: 'student' },
+    caseId: CASE_ID,
+    targetId: FINAL_DOCUMENT_ID,
+    outcome: 'success',
+    metadata: {
+      action: 'export_final_document',
+      artifactSha256: sha256(FINAL_DOCUMENT_TEXT),
+      artifactFormat: 'docx',
+      releaseDocumentHash: hashValue({
+        contentHash: null,
+        id: FINAL_DOCUMENT_ID,
+        mimeType: null,
+        text: FINAL_DOCUMENT_TEXT,
+      }),
+      result: 'student_visible',
+      sourceRevision: 4,
+    },
+    at: new Date(),
+  });
+  const studentReceipt = await studentSink.emit(studentEvent, {
+    actorId: STUDENT,
+    actorRole: 'student',
+    caseId: CASE_ID,
+  });
+  assert.equal(studentReceipt.accepted, true);
+  assert.equal(studentReceipt.caseId, CASE_ID);
+  assert.equal(studentReceipt.eventId, studentEvent.eventId);
+
+  const conflicting = {
+    ...event,
+    targetRef: sha256('lor-studio:target:conflicting-document').slice(0, 24),
+  };
+  await assert.rejects(() => invoke(conflicting), (error) => error?.code === 'P1002');
+
+  const { rows: [custody] } = await pool.query(`SELECT
+    pg_catalog.has_table_privilege(
+      'lor_studio_app', 'lor_studio.artifact_export_audit_events', 'SELECT'
+    ) AS app_select,
+    pg_catalog.has_table_privilege(
+      'lor_studio_app', 'lor_studio.artifact_export_audit_events', 'INSERT'
+    ) AS app_insert,
+    pg_catalog.has_function_privilege(
+      'lor_studio_app',
+      'lor_studio.append_artifact_export_audit(jsonb,text,text,text)',
+      'EXECUTE'
+    ) AS app_execute`);
+  assert.deepEqual(custody, { app_select: false, app_insert: false, app_execute: true });
+
+  await assert.rejects(
+    () => pool.query({
+      text: `UPDATE lor_studio.artifact_export_audit_events
+        SET event_hash = event_hash WHERE event_id = $1::uuid`,
+      values: [event.eventId],
+    }),
+    (error) => error?.code === '55000',
+  );
+}
+
+async function completeInvitationBuilder(pool, initialState) {
+  const executor = createNodePostgresExecutor({
+    pool,
+    databaseRole: NODE_POSTGRES_DATABASE_ROLE,
+  });
+  const driver = createAtomicRlsCaseDriver({ binding: BINDING, executor });
+  let state = initialState;
+  for (const [index, stepId] of BUILDER_STEPS.slice(1).entries()) {
+    const autosaved = autosaveStudentSafeBuilderStep(state, {
+      actorId: STUDENT,
+      stepId,
+      stepData: { acknowledged: true, stepId },
+      now: new Date(Date.UTC(2026, 7, 21, 12, index * 2, 0)).toISOString(),
+    });
+    await driver.commitStudentBuilderAutosave(studentCommand({
+      transition: autosaved,
+      expectedRevision: state.revision,
+      idempotencyKey: `idem-invitation-autosave-${index}`,
+      requestHash: hashValue({ operation: 'invitation.autosave', stepId, index }),
+      event: transitionEvent(autosaved, {
+        eventId: `invitation-autosave-${index}`,
+        eventType: 'builder.autosaved',
+      }),
+    }));
+    const completed = completeStudentSafeBuilderStep(autosaved.state, {
+      actorId: STUDENT,
+      stepId,
+      now: new Date(Date.UTC(2026, 7, 21, 12, index * 2 + 1, 0)).toISOString(),
+    });
+    await driver.commitStudentBuilderComplete(studentCommand({
+      transition: completed,
+      expectedRevision: autosaved.state.revision,
+      idempotencyKey: `idem-invitation-complete-${index}`,
+      requestHash: hashValue({ operation: 'invitation.complete', stepId, index }),
+      event: transitionEvent(completed, {
+        eventId: `invitation-complete-${index}`,
+        eventType: 'builder.step_completed',
+      }),
+    }));
+    state = completed.state;
+  }
+  assert.deepEqual(state.builder.completedStepIds, BUILDER_STEPS);
+  return state;
+}
+
+function otpAttemptHash(challengeId, otpCode) {
+  return sha256(`lor-studio:otp-attempt:${challengeId}:${otpCode}`);
+}
+
+function facultySubjectUuid(subject) {
+  const digest = sha256(`missionmed.lor.faculty-auth-uid.v1:${subject}`);
+  return `${digest.slice(0, 8)}-${digest.slice(8, 12)}-5${digest.slice(13, 16)}`
+    + `-8${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
+}
+
+async function invitationVerificationStateSnapshot(pool, invitationId) {
+  const { rows: [{ snapshot }] } = await pool.query({
+    text: `SELECT pg_catalog.jsonb_build_object(
+      'case', (
+        SELECT pg_catalog.to_jsonb(recommendation_case)
+        FROM lor_studio.recommendation_cases AS recommendation_case
+        WHERE recommendation_case.case_id = invitation.case_id
+          AND recommendation_case.student_auth_subject = invitation.student_auth_subject
+      ),
+      'invitation', pg_catalog.to_jsonb(invitation),
+      'challenges', (
+        SELECT COALESCE(
+          pg_catalog.jsonb_agg(
+            pg_catalog.to_jsonb(challenge) ORDER BY challenge.challenge_id
+          ),
+          '[]'::jsonb
+        )
+        FROM lor_studio.faculty_otp_challenges AS challenge
+        WHERE challenge.invitation_id = invitation.invitation_id
+      ),
+      'verificationReceipts', (
+        SELECT COALESCE(
+          pg_catalog.jsonb_agg(
+            pg_catalog.to_jsonb(verification) ORDER BY verification.receipt_id
+          ),
+          '[]'::jsonb
+        )
+        FROM lor_studio.faculty_otp_verification_receipts AS verification
+        WHERE verification.invitation_id = invitation.invitation_id
+      ),
+      'commandReceipts', (
+        SELECT COALESCE(
+          pg_catalog.jsonb_agg(
+            pg_catalog.to_jsonb(receipt) ORDER BY receipt.receipt_id
+          ),
+          '[]'::jsonb
+        )
+        FROM lor_studio.faculty_invitation_command_receipts AS receipt
+        WHERE receipt.invitation_id = invitation.invitation_id
+      ),
+      'auditEvents', (
+        SELECT COALESCE(
+          pg_catalog.jsonb_agg(
+            pg_catalog.to_jsonb(audit_event) ORDER BY audit_event.event_ref
+          ),
+          '[]'::jsonb
+        )
+        FROM lor_studio.recommendation_case_audit_events AS audit_event
+        WHERE audit_event.case_id = invitation.case_id
+          AND audit_event.student_auth_subject = invitation.student_auth_subject
+      ),
+      'protectedStates', (
+        SELECT COALESCE(
+          pg_catalog.jsonb_agg(
+            pg_catalog.to_jsonb(protected_state) ORDER BY protected_state.revision
+          ),
+          '[]'::jsonb
+        )
+        FROM lor_studio.recommendation_case_protected_revision_states AS protected_state
+        WHERE protected_state.case_id = invitation.case_id
+          AND protected_state.student_auth_subject = invitation.student_auth_subject
+      )
+    ) AS snapshot
+    FROM lor_studio.faculty_invitations AS invitation
+    WHERE invitation.invitation_id = $1`,
+    values: [invitationId],
+  });
+  assert.ok(snapshot, `missing invitation snapshot for ${invitationId}`);
+  return snapshot;
+}
+
+async function beginConcurrentFacultyVerification(client, {
+  subject,
+  invitationId,
+}) {
+  await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+  await client.query('SET LOCAL ROLE lor_studio_app');
+  await client.query({
+    text: `SELECT
+      pg_catalog.set_config('request.jwt.claim.sub', '', true),
+      pg_catalog.set_config('lor_studio.student_auth_subject', $1, true),
+      pg_catalog.set_config('lor_studio.actor_role', 'faculty', true),
+      pg_catalog.set_config('lor_studio.resource_student_id', '', true),
+      pg_catalog.set_config('lor_studio.case_id', '', true),
+      pg_catalog.set_config('lor_studio.operation', 'verify_faculty_invitation', true),
+      pg_catalog.set_config('lor_studio.purpose', 'faculty_private_edit', true),
+      pg_catalog.set_config('lor_studio.invitation_id', $2, true),
+      pg_catalog.set_config('lor_studio.identity_resolution_verified', 'false', true),
+      pg_catalog.set_config('lor_studio.trusted_service_actor', '', true),
+      pg_catalog.set_config('lor_studio.entitlement_verified', 'true', true),
+      pg_catalog.set_config('lor_studio.lor_enabled', 'true', true),
+      pg_catalog.set_config('lor_studio.canary_authorized', 'true', true)`,
+    values: [subject, invitationId],
+  });
+}
+
+async function proveFacultyInvitationSuccessor({
+  harness,
+  pool,
+  contract,
+  postgresMajor,
+}) {
+  await applyForward(harness);
+  await harness.applySqlFile(identityScopePath);
+  await assert.rejects(
+    () => harness.applySqlFile(productionFacultyInvitationPath),
+    isSqlApplyFailure,
+  );
+  await harness.applySqlFile(facultyInvitationPath);
+
+  const catalog = await catalogSnapshot(pool);
+  assert.deepEqual(catalog, {
+    table_count: contract.facultyInvitationSuccessorCatalog.relationCount,
+    view_count: contract.projectionViews.length,
+    function_count: contract.facultyInvitationSuccessorCatalog.functionCount,
+    definer_count: contract.facultyInvitationSuccessorCatalog.securityDefinerCount,
+    policy_count: contract.facultyInvitationSuccessorCatalog.policyCount,
+    trigger_count: contract.facultyInvitationSuccessorCatalog.triggerCount,
+    forced_rls_count: contract.facultyInvitationSuccessorCatalog.relationCount,
+    index_count: contract.facultyInvitationSuccessorCatalog.indexCount,
+    constraint_count:
+      contract.facultyInvitationSuccessorCatalog.constraintCountByPostgresMajor[postgresMajor],
+    role_count: 2,
+  });
+  assert.equal(
+    await nonownerAclEntryCount(pool),
+    contract.facultyInvitationSuccessorCatalog.nonownerAclEntryCount,
+  );
+
+  const seededState = await proveActorSafeStudentCommand(pool);
+  const completedState = await completeInvitationBuilder(pool, seededState);
+  const recipientEmailHash = sha256('invitation-recipient-binding');
+  const invitationExpiresAt = new Date(Date.now() + 86_400_000).toISOString();
+  const originalInvitationId = 'invitation_successor_original';
+  const originalChallengeId = 'challenge_successor_original';
+  const originalOtp = '123456';
+  const originalTokenHash = sha256('invitation-original-route-token');
+  const originalChallengeExpiresAt = new Date(Date.now() + 600_000).toISOString();
+  const studentContext = (operation) => ({
+    actorRole: 'student',
+    subject: STUDENT,
+    authUid: AUTH_UID,
+    operation,
+    caseId: CASE_ID,
+    resourceStudentId: STUDENT,
+  });
+  const issueValues = [
+    CASE_ID,
+    completedState.revision,
+    originalInvitationId,
+    recipientEmailHash,
+    originalTokenHash,
+    originalChallengeId,
+    otpAttemptHash(originalChallengeId, originalOtp),
+    invitationExpiresAt,
+    originalChallengeExpiresAt,
+    3,
+    600_000,
+    600_000,
+    'idem-invitation-original-issue',
+    sha256('invitation-original-issue-request'),
+  ];
+  const issueSql = `SELECT lor_studio.issue_faculty_invitation(
+    $1, $2::bigint, $3, $4, $5, $6, $7,
+    $8::timestamptz, $9::timestamptz, $10::integer,
+    $11::bigint, $12::bigint, $13, $14
+  ) AS result`;
+  const issue = await runInvitationCommand(
+    pool,
+    studentContext('issue_faculty_invitation'),
+    async (client) => (await client.query({ text: issueSql, values: issueValues })).rows[0].result,
+  );
+  assert.equal(issue.caseRevision, completedState.revision + 1);
+  assert.equal(issue.invitationExpiresAt, invitationExpiresAt);
+  assert.equal(issue.challengeExpiresAt, originalChallengeExpiresAt);
+  assert.deepEqual(
+    Object.keys(issue).sort(),
+    [...contract.facultyInvitationCommandContract.receiptKeys].sort(),
+  );
+  const issueReplay = await runInvitationCommand(
+    pool,
+    studentContext('issue_faculty_invitation'),
+    async (client) => (await client.query({ text: issueSql, values: issueValues })).rows[0].result,
+  );
+  assert.deepEqual(issueReplay, { ...issue, replayed: true });
+
+  const deliverySql =
+    'SELECT lor_studio.commit_faculty_invitation_delivery($1, $2, $3, $4, $5) AS result';
+  const deliveryContext = (operation) => ({
+    actorRole: 'service',
+    subject: 'service:postmark-delivery-v1',
+    operation,
+    caseId: CASE_ID,
+    resourceStudentId: STUDENT,
+    invitationId: originalInvitationId,
+    purpose: 'faculty_invitation_delivery',
+    trustedServiceActor: 'postmark-delivery-v1',
+  });
+  const deliveryKey = 'idem-invitation-original-delivery';
+  const deliveryRequestHash = sha256('invitation-original-delivery-request');
+  const reserveDelivery = () => runInvitationCommand(
+    pool,
+    deliveryContext('reserve_faculty_invitation_delivery'),
+    async (client) => (await client.query({
+      text: deliverySql,
+      values: [
+        CASE_ID,
+        originalInvitationId,
+        'issue',
+        deliveryKey,
+        deliveryRequestHash,
+      ],
+    })).rows[0].result,
+  );
+  const reservation = await reserveDelivery();
+  assert.equal(reservation.status, 'pending');
+  assert.equal(reservation.dispatchGranted, true);
+  assert.equal(reservation.replayed, false);
+  assert.equal(reservation.deliveryAction, 'issue');
+  assert.equal(reservation.providerMessageRefHash, null);
+  assert.equal(reservation.auditEventRef, null);
+  assert.match(reservation.reservationId, /^faculty_delivery_reservation_[a-f0-9]{64}$/u);
+  const pendingReplay = await reserveDelivery();
+  assert.equal(pendingReplay.status, 'pending');
+  assert.equal(pendingReplay.dispatchGranted, false);
+  assert.equal(pendingReplay.replayed, true);
+  await assert.rejects(
+    () => runInvitationCommand(
+      pool,
+      deliveryContext('reserve_faculty_invitation_delivery'),
+      (client) => client.query({
+        text: deliverySql,
+        values: [CASE_ID, originalInvitationId, 'resend', deliveryKey, deliveryRequestHash],
+      }),
+    ),
+    (error) => error?.code === 'P1302',
+  );
+  await assert.rejects(
+    () => runInvitationCommand(
+      pool,
+      deliveryContext('commit_faculty_invitation_delivery'),
+      (client) => client.query({
+        text: deliverySql,
+        values: [
+          CASE_ID,
+          originalInvitationId,
+          sha256('unreserved-provider-message-reference'),
+          'idem-invitation-unreserved-delivery',
+          sha256('invitation-unreserved-delivery-request'),
+        ],
+      }),
+    ),
+    (error) => error?.code === 'P1304',
+  );
+
+  const providerMessageRefHash = sha256('synthetic-postmark-provider-message-reference');
+  const delivery = await runInvitationCommand(
+    pool,
+    deliveryContext('commit_faculty_invitation_delivery'),
+    async (client) => (await client.query({
+      text: deliverySql,
+      values: [
+        CASE_ID,
+        originalInvitationId,
+        providerMessageRefHash,
+        deliveryKey,
+        deliveryRequestHash,
+      ],
+    })).rows[0].result,
+  );
+  assert.equal(delivery.invitationId, originalInvitationId);
+  assert.equal(delivery.caseRevision, issue.caseRevision);
+  const acceptedReplay = await reserveDelivery();
+  assert.equal(acceptedReplay.status, 'accepted');
+  assert.equal(acceptedReplay.dispatchGranted, false);
+  assert.equal(acceptedReplay.replayed, true);
+  assert.equal(acceptedReplay.providerMessageRefHash, providerMessageRefHash);
+  assert.match(acceptedReplay.auditEventRef, /^event_[a-f0-9]{64}$/u);
+
+  const unknownKey = 'idem-invitation-unknown-delivery';
+  const unknownRequestHash = sha256('invitation-unknown-delivery-request');
+  const unknownValues = [
+    CASE_ID, originalInvitationId, 'issue', unknownKey, unknownRequestHash,
+  ];
+  const unknownReservation = await runInvitationCommand(
+    pool,
+    deliveryContext('reserve_faculty_invitation_delivery'),
+    async (client) => (await client.query({
+      text: deliverySql,
+      values: unknownValues,
+    })).rows[0].result,
+  );
+  assert.equal(unknownReservation.dispatchGranted, true);
+  const unknown = await runInvitationCommand(
+    pool,
+    deliveryContext('mark_faculty_invitation_delivery_unknown'),
+    async (client) => (await client.query({
+      text: deliverySql,
+      values: [CASE_ID, originalInvitationId, 'unknown', unknownKey, unknownRequestHash],
+    })).rows[0].result,
+  );
+  assert.equal(unknown.status, 'unknown');
+  assert.equal(unknown.dispatchGranted, false);
+  assert.equal(unknown.replayed, false);
+  const unknownReplay = await runInvitationCommand(
+    pool,
+    deliveryContext('reserve_faculty_invitation_delivery'),
+    async (client) => (await client.query({ text: deliverySql, values: unknownValues })).rows[0].result,
+  );
+  assert.equal(unknownReplay.status, 'unknown');
+  assert.equal(unknownReplay.dispatchGranted, false);
+  assert.equal(unknownReplay.replayed, true);
+  await assert.rejects(
+    () => runInvitationCommand(
+      pool,
+      deliveryContext('commit_faculty_invitation_delivery'),
+      (client) => client.query({
+        text: deliverySql,
+        values: [
+          CASE_ID,
+          originalInvitationId,
+          sha256('unknown-cannot-be-accepted'),
+          unknownKey,
+          unknownRequestHash,
+        ],
+      }),
+    ),
+    (error) => error?.code === 'P1304',
+  );
+
+  const concurrentKey = 'idem-invitation-concurrent-delivery';
+  const concurrentRequestHash = sha256('invitation-concurrent-delivery-request');
+  const concurrentValues = [
+    CASE_ID, originalInvitationId, 'resend', concurrentKey, concurrentRequestHash,
+  ];
+  const concurrentReservations = await Promise.all([0, 1].map(() => runInvitationCommand(
+    pool,
+    deliveryContext('reserve_faculty_invitation_delivery'),
+    async (client) => (await client.query({
+      text: deliverySql,
+      values: concurrentValues,
+    })).rows[0].result,
+  )));
+  assert.deepEqual(
+    concurrentReservations.map((receipt) => receipt.dispatchGranted).sort(),
+    [false, true],
+  );
+
+  await assert.rejects(
+    () => runInvitationCommand(
+      pool,
+      studentContext('issue_faculty_invitation'),
+      (client) => client.query({
+        text: issueSql,
+        values: [
+          ...issueValues.slice(0, 1),
+          completedState.revision,
+          'invitation_successor_stale',
+          ...issueValues.slice(3, 12),
+          'idem-invitation-stale-issue',
+          sha256('invitation-stale-issue-request'),
+        ],
+      }),
+    ),
+    (error) => error?.code === 'P1306',
+  );
+
+  const revoked = await runInvitationCommand(
+    pool,
+    studentContext('revoke_faculty_invitation'),
+    async (client) => (await client.query({
+      text: 'SELECT lor_studio.revoke_faculty_invitation($1, $2, $3) AS result',
+      values: [
+        CASE_ID,
+        'idem-invitation-original-revoke',
+        sha256('invitation-original-revoke-request'),
+      ],
+    })).rows[0].result,
+  );
+  assert.equal(revoked.invitationId, originalInvitationId);
+  assert.equal(revoked.caseRevision, issue.caseRevision);
+
+  await delay(5);
+  const replacementInvitationId = 'invitation_successor_replacement';
+  const replacementChallengeId = 'challenge_successor_replacement';
+  const replacementOtp = '654321';
+  const replacementTokenHash = sha256('invitation-replacement-route-token');
+  const replacementInvitationExpiresAt = new Date(Date.now() + 3_000).toISOString();
+  const replacementChallengeExpiresAt = new Date(Date.now() + 1_500).toISOString();
+  const replacementValues = [
+    CASE_ID,
+    issue.caseRevision,
+    replacementInvitationId,
+    recipientEmailHash,
+    replacementTokenHash,
+    replacementChallengeId,
+    otpAttemptHash(replacementChallengeId, replacementOtp),
+    replacementInvitationExpiresAt,
+    replacementChallengeExpiresAt,
+    3,
+    600_000,
+    600_000,
+    'idem-invitation-replacement-issue',
+    sha256('invitation-replacement-issue-request'),
+  ];
+  const replacement = await runInvitationCommand(
+    pool,
+    studentContext('issue_faculty_invitation'),
+    async (client) => (
+      await client.query({ text: issueSql, values: replacementValues })
+    ).rows[0].result,
+  );
+  assert.equal(replacement.caseRevision, issue.caseRevision + 1);
+
+  await assert.rejects(
+    () => runInvitationCommand(
+      pool,
+      studentContext('resend_faculty_invitation_otp'),
+      (client) => client.query({
+        text: `SELECT lor_studio.resend_faculty_invitation_otp(
+          $1, $2, $3, $4, $5::timestamptz, $6, $7
+        )`,
+        values: [
+          CASE_ID,
+          sha256('wrong-recipient-binding'),
+          'challenge_successor_wrong_recipient',
+          otpAttemptHash('challenge_successor_wrong_recipient', '111111'),
+          replacementChallengeExpiresAt,
+          'idem-invitation-wrong-recipient',
+          sha256('invitation-wrong-recipient-request'),
+        ],
+      }),
+    ),
+    (error) => error?.code === 'P1304',
+  );
+
+  const resentChallengeId = 'challenge_successor_resent';
+  const resentOtp = '777777';
+  const resentChallengeExpiresAt = new Date(Date.now() + 1_500).toISOString();
+  const resent = await runInvitationCommand(
+    pool,
+    studentContext('resend_faculty_invitation_otp'),
+    async (client) => (await client.query({
+      text: `SELECT lor_studio.resend_faculty_invitation_otp(
+        $1, $2, $3, $4, $5::timestamptz, $6, $7
+      ) AS result`,
+      values: [
+        CASE_ID,
+        recipientEmailHash,
+        resentChallengeId,
+        otpAttemptHash(resentChallengeId, resentOtp),
+        resentChallengeExpiresAt,
+        'idem-invitation-resend',
+        sha256('invitation-resend-request'),
+      ],
+    })).rows[0].result,
+  );
+  assert.equal(resent.invitationId, replacementInvitationId);
+  assert.equal(resent.invitationExpiresAt, replacementInvitationExpiresAt);
+  assert.equal(resent.challengeExpiresAt, resentChallengeExpiresAt);
+  const facultyContext = (invitationId) => ({
+    actorRole: 'faculty',
+    subject: FACULTY,
+    operation: 'verify_faculty_invitation',
+    invitationId,
+  });
+  const verifySql = `SELECT lor_studio.verify_faculty_invitation(
+    $1, $2, $3, $4, $5, $6
+  ) AS result`;
+
+  await assert.rejects(
+    () => runInvitationCommand(
+      pool,
+      facultyContext('invitation_successor_opaque_missing'),
+      (client) => client.query({
+        text: verifySql,
+        values: [
+          'invitation_successor_opaque_missing',
+          recipientEmailHash,
+          replacementTokenHash,
+          resentOtp,
+          'idem-invitation-opaque-verify',
+          sha256('invitation-opaque-verify-request'),
+        ],
+      }),
+    ),
+    (error) => error?.code === 'P1303',
+  );
+
+  const beforeSelfVerification = await invitationVerificationStateSnapshot(
+    pool,
+    replacementInvitationId,
+  );
+  await assert.rejects(
+    () => runInvitationCommand(
+      pool,
+      {
+        actorRole: 'faculty',
+        subject: STUDENT,
+        operation: 'verify_faculty_invitation',
+        invitationId: replacementInvitationId,
+      },
+      (client) => client.query({
+        text: verifySql,
+        values: [
+          replacementInvitationId,
+          recipientEmailHash,
+          replacementTokenHash,
+          resentOtp,
+          'idem-invitation-self-verify',
+          sha256('invitation-self-verify-request'),
+        ],
+      }),
+    ),
+    (error) => error?.code === 'P1301'
+      && error?.message === 'LOR_FACULTY_INVITATION_AUTHORIZATION_DENIED',
+  );
+  assert.deepEqual(
+    await invitationVerificationStateSnapshot(pool, replacementInvitationId),
+    beforeSelfVerification,
+  );
+  const preservedStudentAccess = await withIdentityResolutionContext(pool, {
+    actorRole: 'service',
+    subject: STUDENT,
+    caseId: CASE_ID,
+    operation: 'read',
+    purpose: 'actor_case_access_resolution',
+  }, async (client) => (await client.query({
+    text: 'SELECT lor_studio.resolve_lor_actor_case_access($1, $2) AS result',
+    values: [STUDENT, CASE_ID],
+  })).rows[0].result);
+  assert.deepEqual(preservedStudentAccess, {
+    schemaVersion: 'missionmed.lor.actor-case-access.v1',
+    authoritySource: 'database_verified_case_access',
+    actorId: STUDENT,
+    actorRole: 'student',
+    resourceStudentId: STUDENT,
+    caseId: CASE_ID,
+  });
+
+  const crossInvite = await runInvitationCommand(
+    pool,
+    facultyContext(replacementInvitationId),
+    async (client) => (await client.query({
+      text: verifySql,
+      values: [
+        replacementInvitationId,
+        recipientEmailHash,
+        originalTokenHash,
+        resentOtp,
+        'idem-invitation-cross-verify',
+        sha256('invitation-cross-verify-request'),
+      ],
+    })).rows[0].result,
+  );
+  assert.equal(crossInvite.verified, false);
+  assert.equal(crossInvite.reasonCode, 'TOKEN_MISMATCH');
+  assert.equal(crossInvite.caseId, CASE_ID);
+
+  await delay(5);
+  const verifyValues = [
+    replacementInvitationId,
+    recipientEmailHash,
+    replacementTokenHash,
+    resentOtp,
+    'idem-invitation-success-verify',
+    sha256('invitation-success-verify-request'),
+  ];
+  const firstVerifyClient = await pool.connect();
+  const secondVerifyClient = await pool.connect();
+  let firstVerifyCommitted = false;
+  let secondVerifyCommitted = false;
+  let secondVerifyPromise;
+  let verified;
+  try {
+    await beginConcurrentFacultyVerification(firstVerifyClient, {
+      subject: FACULTY,
+      invitationId: replacementInvitationId,
+    });
+    await beginConcurrentFacultyVerification(secondVerifyClient, {
+      subject: FACULTY,
+      invitationId: replacementInvitationId,
+    });
+    verified = (await firstVerifyClient.query({
+      text: verifySql,
+      values: verifyValues,
+    })).rows[0].result;
+    let secondVerifySettled = false;
+    secondVerifyPromise = secondVerifyClient.query({
+      text: verifySql,
+      values: verifyValues,
+    }).then(
+      (result) => {
+        secondVerifySettled = true;
+        return { result };
+      },
+      (error) => {
+        secondVerifySettled = true;
+        return { error };
+      },
+    );
+    await delay(50);
+    assert.equal(
+      secondVerifySettled,
+      false,
+      'second identical verification must wait for the first transaction boundary',
+    );
+    await firstVerifyClient.query('COMMIT');
+    firstVerifyCommitted = true;
+    const secondVerifyOutcome = await secondVerifyPromise;
+    if (secondVerifyOutcome.error) throw secondVerifyOutcome.error;
+    const replayedVerification = secondVerifyOutcome.result.rows[0].result;
+    await secondVerifyClient.query('COMMIT');
+    secondVerifyCommitted = true;
+    assert.deepEqual(replayedVerification, { ...verified, replayed: true });
+  } finally {
+    if (!firstVerifyCommitted) {
+      await firstVerifyClient.query('ROLLBACK').catch(() => {});
+    }
+    if (secondVerifyPromise) await secondVerifyPromise.catch(() => {});
+    if (!secondVerifyCommitted) {
+      await secondVerifyClient.query('ROLLBACK').catch(() => {});
+    }
+    firstVerifyClient.release();
+    secondVerifyClient.release();
+  }
+  assert.equal(verified.verified, true);
+  assert.equal(verified.caseId, CASE_ID);
+  assert.equal(verified.invitationId, replacementInvitationId);
+
+  const expectedFacultyUid = facultySubjectUuid(FACULTY);
+  assert.notEqual(expectedFacultyUid, facultySubjectUuid(OTHER_FACULTY));
+  const { rows: [facultyIdentity] } = await pool.query({
+    text: `SELECT invitation.faculty_auth_uid::text AS faculty_auth_uid,
+      verification.otp_verified_at = invitation.used_at AS db_timestamp_bound,
+      verification.otp_expires_at = challenge.expires_at AS db_expiry_bound,
+      verification.principal_authority,
+      verification.receipt_id,
+      verification.audit_event_ref
+      FROM lor_studio.faculty_invitations AS invitation
+      JOIN lor_studio.faculty_otp_verification_receipts AS verification
+        ON verification.invitation_id = invitation.invitation_id
+      JOIN lor_studio.faculty_otp_challenges AS challenge
+        ON challenge.challenge_id = verification.challenge_id
+      WHERE invitation.invitation_id = $1`,
+    values: [replacementInvitationId],
+  });
+  assert.equal(facultyIdentity.faculty_auth_uid, expectedFacultyUid);
+  assert.equal(facultyIdentity.db_timestamp_bound, true);
+  assert.equal(facultyIdentity.db_expiry_bound, true);
+  assert.equal(
+    facultyIdentity.principal_authority,
+    'database_verified_otp_challenge',
+  );
+  assert.match(facultyIdentity.receipt_id, /^otp_receipt_[a-f0-9]{64}$/u);
+  assert.equal(facultyIdentity.audit_event_ref, verified.auditEventRef);
+
+  await delay(Math.max(0, Date.parse(replacementInvitationExpiresAt) - Date.now() + 100));
+
+  const durableFacultyProjection = await runInvitationCommand(
+    pool,
+    {
+      actorRole: 'faculty',
+      subject: FACULTY,
+      authUid: expectedFacultyUid,
+      operation: 'read',
+      caseId: CASE_ID,
+      resourceStudentId: STUDENT,
+      invitationId: replacementInvitationId,
+    },
+    async (client) => (await client.query({
+      text: 'SELECT lor_studio.read_faculty_case_projection() AS result',
+    })).rows[0].result,
+  );
+  assert.equal(durableFacultyProjection.caseId, CASE_ID);
+
+  const actorAccess = await withIdentityResolutionContext(pool, {
+    actorRole: 'service',
+    subject: FACULTY,
+    caseId: CASE_ID,
+    operation: 'read',
+    purpose: 'actor_case_access_resolution',
+  }, async (client) => (await client.query({
+    text: 'SELECT lor_studio.resolve_lor_actor_case_access($1, $2) AS result',
+    values: [FACULTY, CASE_ID],
+  })).rows[0].result);
+  assert.deepEqual(actorAccess, {
+    schemaVersion: 'missionmed.lor.actor-case-access.v1',
+    authoritySource: 'database_verified_case_access',
+    actorId: FACULTY,
+    actorRole: 'faculty',
+    resourceStudentId: STUDENT,
+    caseId: CASE_ID,
+  });
+
+  await pool.query({
+    text: `INSERT INTO lor_studio.faculty_otp_proof_revocations (
+      receipt_id, case_id, student_auth_subject, revoked_at,
+      reason_code, audit_event_ref, revocation_hash
+    ) VALUES ($1, $2, $3, pg_catalog.transaction_timestamp(), $4, $5, $6)`,
+    values: [
+      facultyIdentity.receipt_id,
+      CASE_ID,
+      STUDENT,
+      'SECURITY_REVOKED',
+      facultyIdentity.audit_event_ref,
+      sha256('synthetic-faculty-proof-revocation'),
+    ],
+  });
+  const revokedActorAccess = await withIdentityResolutionContext(pool, {
+    actorRole: 'service',
+    subject: FACULTY,
+    caseId: CASE_ID,
+    operation: 'read',
+    purpose: 'actor_case_access_resolution',
+  }, async (client) => (await client.query({
+    text: 'SELECT lor_studio.resolve_lor_actor_case_access($1, $2) AS result',
+    values: [FACULTY, CASE_ID],
+  })).rows[0].result);
+  assert.equal(revokedActorAccess, null);
+  await assert.rejects(
+    () => runInvitationCommand(
+      pool,
+      {
+        actorRole: 'faculty',
+        subject: FACULTY,
+        authUid: expectedFacultyUid,
+        operation: 'read',
+        caseId: CASE_ID,
+        resourceStudentId: STUDENT,
+        invitationId: replacementInvitationId,
+      },
+      (client) => client.query(
+        'SELECT lor_studio.read_faculty_case_projection() AS result',
+      ),
+    ),
+    (error) => error?.code === 'P1004',
+  );
+
+  const { rows: [privateContent] } = await pool.query({
+    text: `SELECT pg_catalog.count(*)::integer AS count
+      FROM lor_studio.faculty_private_content
+      WHERE case_id = $1 AND student_auth_subject = $2`,
+    values: [CASE_ID, STUDENT],
+  });
+  assert.equal(privateContent.count, 0);
+  await assertDirectAppDmlDenied(
+    pool,
+    'DELETE FROM lor_studio.faculty_invitation_command_receipts WHERE case_id = $1',
+    [CASE_ID],
+  );
+}
+
+async function proveFacultyInvitationRollback({ harness, pool, contract }) {
+  await applyForward(harness);
+  await harness.applySqlFile(identityScopePath);
+  await harness.applySqlFile(facultyInvitationPath);
+  await harness.applySqlFile(facultyInvitationRollbackPath);
+  const snapshot = await catalogSnapshot(pool);
+  assert.equal(snapshot.table_count, contract.identityScopeSuccessorCatalog.relationCount);
+  assert.equal(snapshot.function_count, contract.identityScopeSuccessorCatalog.functionCount);
+  assert.equal(snapshot.definer_count, contract.identityScopeSuccessorCatalog.securityDefinerCount);
+  assert.equal(snapshot.policy_count, contract.identityScopeSuccessorCatalog.policyCount);
+  assert.equal(snapshot.forced_rls_count, contract.identityScopeSuccessorCatalog.relationCount);
+  const { rows: [state] } = await pool.query(`SELECT
+    pg_catalog.to_regprocedure(
+      'lor_studio.verify_faculty_invitation(text,text,text,text,text,text)'
+    ) IS NULL AS invitation_commands_removed,
+    pg_catalog.obj_description(namespace.oid, 'pg_namespace')
+      NOT LIKE '%|facultyInvitationCommands=%' AS identity_sentinel_restored
+    FROM pg_catalog.pg_namespace AS namespace
+    WHERE namespace.nspname = 'lor_studio'`);
+  assert.deepEqual(state, {
+    invitation_commands_removed: true,
+    identity_sentinel_restored: true,
+  });
+  const { rows: [restoredFacultyContext] } = await pool.query(`SELECT
+    procedure.prosrc LIKE
+      '%invitation.expires_at > pg_catalog.statement_timestamp()%' AS invitation_expiry_restored,
+    procedure.prosrc LIKE
+      '%verification.otp_expires_at > pg_catalog.statement_timestamp()%' AS otp_expiry_restored
+    FROM pg_catalog.pg_proc AS procedure
+    WHERE procedure.oid =
+      'lor_studio.faculty_context_allows(text,text,text[])'::pg_catalog.regprocedure`);
+  assert.deepEqual(restoredFacultyContext, {
+    invitation_expiry_restored: true,
+    otp_expiry_restored: true,
+  });
 }
 
 function syntheticFacultyPrivateRecord({ released = false } = {}) {
@@ -1892,7 +3037,10 @@ function releasedStudentSnapshot() {
   };
 }
 
-async function seedSyntheticFacultyPrerequisites(pool) {
+async function seedSyntheticFacultyPrerequisites(
+  pool,
+  { principalAuthority = 'durable_otp_provider_proof' } = {},
+) {
   // Privileged disposable-local fixture only. This does not claim that invitation or OTP
   // issuance, delivery, verification, or provider binding is operational in any environment.
   const recipientEmailHash = sha256('synthetic-local-faculty-recipient');
@@ -1980,7 +3128,7 @@ async function seedSyntheticFacultyPrerequisites(pool) {
         invitation_used_at, audit_event_ref, transaction_id, receipt_hash, committed_at
       ) VALUES (
         $1, $2, $3, $4, $5, $6, $7::uuid, $8, $9,
-        $10::timestamptz, $11::timestamptz, false, 'durable_otp_provider_proof',
+        $10::timestamptz, $11::timestamptz, false, $15,
         $12::timestamptz, $13, pg_catalog.pg_current_xact_id()::text, $14,
         pg_catalog.transaction_timestamp()
       )`,
@@ -2006,6 +3154,7 @@ async function seedSyntheticFacultyPrerequisites(pool) {
           facultyId: FACULTY,
           facultyAuthUid: FACULTY_AUTH_UID,
         }),
+        principalAuthority,
       ],
     });
 
@@ -2425,10 +3574,10 @@ async function proveIdentityScopeSuccessor({ harness, pool, contract, postgresMa
   assert.equal(await resolveMentor(), null);
 
   const snapshot = await catalogSnapshot(pool);
-  assert.equal(snapshot.function_count, contract.expectedFinalFunctionCount + 6);
-  assert.equal(snapshot.definer_count, contract.approvedSecurityDefinerFunctions.length + 4);
-  assert.equal(snapshot.policy_count, contract.expectedFinalPolicyCount + 9);
-  assert.equal(snapshot.forced_rls_count, contract.executableRelations.length);
+  assert.equal(snapshot.function_count, contract.identityScopeSuccessorCatalog.functionCount);
+  assert.equal(snapshot.definer_count, contract.identityScopeSuccessorCatalog.securityDefinerCount);
+  assert.equal(snapshot.policy_count, contract.identityScopeSuccessorCatalog.policyCount);
+  assert.equal(snapshot.forced_rls_count, contract.identityScopeSuccessorCatalog.relationCount);
   const { rows: [privileges] } = await pool.query(`SELECT
     pg_catalog.has_table_privilege(
       'lor_studio_app', 'lor_studio.student_auth_bindings', 'INSERT'
@@ -3848,6 +4997,19 @@ test('DR-120 real disposable PostgreSQL 16/18 apply, RLS, rollback, and reapply 
       });
 
       await withHarness(toolchain, async ({ harness, pool }) => {
+        await proveFacultyInvitationSuccessor({
+          harness,
+          pool,
+          contract,
+          postgresMajor: toolchain.major,
+        });
+      });
+
+      await withHarness(toolchain, async ({ harness, pool }) => {
+        await proveFacultyInvitationRollback({ harness, pool, contract });
+      });
+
+      await withHarness(toolchain, async ({ harness, pool }) => {
         await assertIdentityScopeFunctionDefinitionDriftRejected({ harness, pool });
       });
 
@@ -4020,6 +5182,718 @@ test('DR-120 real disposable PostgreSQL 16/18 apply, RLS, rollback, and reapply 
         await harness.applySqlFile(rlsRollbackPath);
         await harness.applySqlFile(foundationRollbackPath);
         await assertFullyRemoved(pool);
+      });
+    });
+  }
+});
+
+test('DR-133 real durable faculty drafting context bypasses the closed aggregate seam', {
+  skip: RUN_REAL_MATRIX ? false : 'set LOR_RUN_REAL_POSTGRES_MATRIX=1',
+  timeout: 120_000,
+}, async (matrix) => {
+  for (const toolchain of TOOLCHAINS) {
+    await matrix.test(`PostgreSQL ${toolchain.major} drafting context`, {
+      timeout: 60_000,
+    }, async () => {
+      await assertToolchainPresent(toolchain);
+      await withHarness(toolchain, async ({ harness, pool }) => {
+        await applyForward(harness);
+        await harness.applySqlFile(identityScopePath);
+        await harness.applySqlFile(facultyInvitationPath);
+        await harness.applySqlFile(facultyPrivateExportPath);
+        await harness.applySqlFile(aiProposalCommandsPath);
+        await proveActorSafeStudentCommand(pool);
+        await seedSyntheticFacultyPrerequisites(pool, {
+          principalAuthority: 'database_verified_otp_challenge',
+        });
+
+        const evidenceText = 'The student coordinated a longitudinal community health project.';
+        const evidence = [{
+          id: 'evidence_disposable_pg_matrix_0001',
+          caseId: CASE_ID,
+          text: evidenceText,
+          contentHash: sha256(evidenceText),
+          consentReceiptId: CONSENT_RECEIPT_ID,
+        }];
+        const fixtureClient = await pool.connect();
+        try {
+          await fixtureClient.query('BEGIN');
+          await fixtureClient.query("SET LOCAL session_replication_role = 'replica'");
+          await fixtureClient.query({
+            text: `UPDATE lor_studio.consent_receipts
+              SET scopes = ARRAY['ai_drafting', 'evidence_grounding']::text[]
+              WHERE receipt_id = $1 AND case_id = $2 AND student_auth_subject = $3`,
+            values: [CONSENT_RECEIPT_ID, CASE_ID, STUDENT],
+          });
+          await fixtureClient.query({
+            text: `UPDATE lor_studio.recommendation_cases
+              SET record = pg_catalog.jsonb_set(
+                    record, '{studentEvidence}', $3::jsonb, false
+                  ),
+                  record_hash = lor_studio.canonical_jsonb_sha256(
+                    pg_catalog.jsonb_set(record, '{studentEvidence}', $3::jsonb, false)
+                  )
+              WHERE case_id = $1 AND student_auth_subject = $2`,
+            values: [CASE_ID, STUDENT, JSON.stringify(evidence)],
+          });
+          await fixtureClient.query("SET LOCAL session_replication_role = 'origin'");
+          await fixtureClient.query('COMMIT');
+        } catch (error) {
+          await fixtureClient.query('ROLLBACK').catch(() => {});
+          throw error;
+        } finally {
+          fixtureClient.release();
+        }
+
+        const executor = createNodePostgresExecutor({
+          pool,
+          databaseRole: NODE_POSTGRES_DATABASE_ROLE,
+        });
+        const driver = createAtomicRlsCaseDriver({ binding: BINDING, executor });
+        const repository = new SupabaseDurableRecommendationCaseRepository({
+          binding: BINDING,
+          driver,
+          scopeProvider: async ({ caseId, operation }) => facultyScope({
+            caseId,
+            operation,
+          }),
+        });
+        const context = await repository.readFacultyDraftingContext({
+          caseId: CASE_ID,
+          actorId: FACULTY,
+        });
+        assert.deepEqual(context, {
+          schemaVersion: 'missionmed.lor.faculty-drafting-context.v1',
+          id: CASE_ID,
+          studentId: STUDENT,
+          status: 'faculty_approved',
+          faculty: {
+            facultyId: FACULTY,
+            verifiedAt: '2026-08-20T12:04:40.000Z',
+            recipientEmailHash: sha256('synthetic-local-faculty-recipient'),
+          },
+          consentReceipts: [{ id: CONSENT_RECEIPT_ID }],
+          studentEvidence: evidence,
+        });
+
+        await proveArtifactExportAuditCommand(pool);
+
+        const { rows: [privileges] } = await pool.query(`SELECT
+          pg_catalog.has_function_privilege(
+            'public', 'lor_studio.read_faculty_drafting_context()', 'EXECUTE'
+          ) AS public_execute,
+          pg_catalog.has_function_privilege(
+            'lor_studio_app', 'lor_studio.read_faculty_drafting_context()', 'EXECUTE'
+          ) AS app_execute`);
+        assert.deepEqual(privileges, { public_execute: false, app_execute: true });
+
+        await harness.applySqlFile(aiProposalCommandsRollbackPath);
+        const { rows: [rollback] } = await pool.query(`SELECT
+          pg_catalog.to_regprocedure(
+            'lor_studio.read_faculty_drafting_context()'
+          ) IS NULL AS drafting_context_removed`);
+        assert.deepEqual(rollback, { drafting_context_removed: true });
+
+        await assert.rejects(
+          () => harness.applySqlFile(facultyPrivateExportRollbackPath),
+          isSqlApplyFailure,
+        );
+        const cleanup = await pool.connect();
+        try {
+          await cleanup.query('BEGIN');
+          await cleanup.query("SET LOCAL session_replication_role = 'replica'");
+          await cleanup.query('DELETE FROM lor_studio.artifact_export_audit_events');
+          await cleanup.query("SET LOCAL session_replication_role = 'origin'");
+          await cleanup.query('COMMIT');
+        } catch (error) {
+          await cleanup.query('ROLLBACK').catch(() => {});
+          throw error;
+        } finally {
+          cleanup.release();
+        }
+        await harness.applySqlFile(facultyPrivateExportRollbackPath);
+        const { rows: [artifactRollback] } = await pool.query(`SELECT
+          pg_catalog.to_regclass(
+            'lor_studio.artifact_export_audit_events'
+          ) IS NULL AS audit_table_removed,
+          pg_catalog.to_regprocedure(
+            'lor_studio.append_artifact_export_audit(jsonb,text,text,text)'
+          ) IS NULL AS audit_command_removed`);
+        assert.deepEqual(artifactRollback, {
+          audit_table_removed: true,
+          audit_command_removed: true,
+        });
+      });
+    });
+  }
+});
+
+test('DR-133 real durable AI generation reserves before provider side effects', {
+  skip: RUN_REAL_MATRIX ? false : 'set LOR_RUN_REAL_POSTGRES_MATRIX=1',
+  timeout: 120_000,
+}, async (matrix) => {
+  const generatedAt = '2026-08-25T20:00:00.000Z';
+  const factId = 'evidence_disposable_pg_ai_reservation_0001';
+  const factText = 'The student coordinated a longitudinal community health project.';
+  const requestHash = hashValue({
+    operation: 'ai.proposal.generate',
+    caseId: CASE_ID,
+    actorId: FACULTY,
+    templateVersion: AI_DRAFT_TEMPLATE_VERSION,
+    factIds: [factId],
+  });
+  const scopeHash = hashValue(facultyScope({ operation: 'save' }));
+  const targetBindingHash = hashValue(BINDING);
+
+  for (const toolchain of TOOLCHAINS) {
+    await matrix.test(`PostgreSQL ${toolchain.major} AI reservation`, {
+      timeout: 60_000,
+    }, async () => {
+      await assertToolchainPresent(toolchain);
+      await withHarness(toolchain, async ({ harness, pool }) => {
+        await applyForward(harness);
+        await harness.applySqlFile(identityScopePath);
+        await harness.applySqlFile(facultyInvitationPath);
+        await harness.applySqlFile(facultyPrivateExportPath);
+        await harness.applySqlFile(aiProposalCommandsPath);
+        await proveActorSafeStudentCommand(pool);
+        await seedSyntheticFacultyPrerequisites(pool, {
+          principalAuthority: 'database_verified_otp_challenge',
+        });
+
+        const transition = ({
+          idempotencyKey,
+          operation = 'reserve_generation',
+          candidateRequestHash = requestHash,
+        }) => withFacultyAiCommandContext(pool, async (client) => {
+          const { rows: [row] } = await client.query({
+            text: `SELECT lor_studio.transition_ai_proposal_generation_reservation(
+              $1, $2, $3, $4, $5, $6
+            ) AS result`,
+            values: [
+              CASE_ID,
+              idempotencyKey,
+              candidateRequestHash,
+              scopeHash,
+              targetBindingHash,
+              operation,
+            ],
+          });
+          return row.result;
+        });
+
+        const proposalService = new AiProposalService({
+          provider: {
+            async generateProposal() {
+              return {
+                state: 'proposal',
+                provider: 'openai',
+                model: 'gpt-5.6-terra',
+                text: factText,
+                segments: [{ kind: 'factual', text: factText, supportIds: [factId] }],
+              };
+            },
+          },
+          clock: () => new Date(generatedAt),
+        });
+        const proposal = await proposalService.generate({
+          caseId: CASE_ID,
+          evidenceReferences: [{
+            id: factId,
+            caseId: CASE_ID,
+            contentHash: sha256(factText),
+          }],
+          facts: [{ id: factId, text: factText }],
+          templateVersion: AI_DRAFT_TEMPLATE_VERSION,
+        });
+        const record = {
+          schemaVersion: AI_PROPOSAL_RECORD_SCHEMA,
+          id: proposal.id,
+          caseId: CASE_ID,
+          requestedBy: FACULTY,
+          requestedAt: generatedAt,
+          state: 'proposal',
+          humanDecisionRequired: true,
+          text: proposal.text,
+          segments: structuredClone(proposal.segments),
+          claims: structuredClone(proposal.claims),
+          grounding: structuredClone(proposal.grounding),
+          provenance: structuredClone(proposal.provenance),
+          fallbackUsed: proposal.fallbackUsed,
+          decision: null,
+          acceptedContent: null,
+        };
+        const recordHash = hashValue(record);
+        const providerRunHash = hashValue(record.provenance);
+        const { rows: [databaseBindings] } = await pool.query({
+          text: `SELECT
+            lor_studio.ai_proposal_record_is_complete($1::jsonb) AS record_complete,
+            pg_catalog.jsonb_typeof($1::jsonb) = 'object'
+              AND pg_catalog.octet_length($1::jsonb::text) <= 2097152
+              AND $1::jsonb ?& ARRAY[
+                'schemaVersion', 'id', 'caseId', 'requestedBy', 'requestedAt',
+                'state', 'humanDecisionRequired', 'text', 'segments', 'claims',
+                'grounding', 'provenance', 'fallbackUsed', 'decision', 'acceptedContent'
+              ]::text[]
+              AND (
+                SELECT pg_catalog.count(*)
+                FROM pg_catalog.jsonb_object_keys($1::jsonb)
+              ) = 15
+              AND $1::jsonb ->> 'schemaVersion' =
+                'missionmed.lor.ai-proposal-record.v1'
+              AND ($1::jsonb ->> 'id') ~ '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$'
+              AND ($1::jsonb ->> 'caseId') ~
+                '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$'
+              AND ($1::jsonb ->> 'requestedAt') ~
+                '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$'
+              AND pg_catalog.length($1::jsonb ->> 'requestedBy') BETWEEN 1 AND 200
+              AND pg_catalog.jsonb_typeof($1::jsonb -> 'text') = 'string'
+              AND pg_catalog.octet_length($1::jsonb ->> 'text') BETWEEN 1 AND 40000
+              AND pg_catalog.jsonb_typeof($1::jsonb -> 'fallbackUsed') = 'boolean'
+              AND pg_catalog.jsonb_typeof($1::jsonb -> 'segments') = 'array'
+              AND pg_catalog.jsonb_array_length($1::jsonb -> 'segments')
+                BETWEEN 1 AND 400
+              AND pg_catalog.jsonb_typeof($1::jsonb -> 'claims') = 'array'
+              AS top_level_valid,
+            lor_studio.ai_grounding_manifest_is_complete(
+              $1::jsonb -> 'grounding'
+            ) AS grounding_complete,
+            pg_catalog.jsonb_typeof($1::jsonb -> 'provenance') = 'object'
+              AND ($1::jsonb -> 'provenance') ?& ARRAY[
+                'schemaVersion', 'id', 'caseId', 'state', 'provider', 'model',
+                'templateVersion', 'templateHash', 'sourceReferences', 'sourceSetHash',
+                'outputHash', 'generatedAt'
+              ]::text[]
+              AND (
+                SELECT pg_catalog.count(*)
+                FROM pg_catalog.jsonb_object_keys($1::jsonb -> 'provenance')
+              ) = 12
+              AND $1::jsonb -> 'provenance' ->> 'id' = $1::jsonb ->> 'id'
+              AND $1::jsonb -> 'provenance' ->> 'caseId' = $1::jsonb ->> 'caseId'
+              AND $1::jsonb -> 'provenance' ->> 'state' = 'proposal'
+              AND $1::jsonb -> 'provenance' ->> 'provider' = 'openai'
+              AND $1::jsonb -> 'provenance' ->> 'model' = 'gpt-5.6-terra'
+              AND pg_catalog.length(
+                $1::jsonb -> 'provenance' ->> 'templateVersion'
+              ) BETWEEN 1 AND 200
+              AND $1::jsonb -> 'provenance' ->> 'templateHash' =
+                pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+                  $1::jsonb -> 'provenance' ->> 'templateVersion', 'UTF8'
+                )), 'hex')
+              AND $1::jsonb -> 'provenance' ->> 'outputHash' =
+                pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+                  $1::jsonb ->> 'text', 'UTF8'
+                )), 'hex')
+              AND ($1::jsonb -> 'provenance' ->> 'generatedAt') ~
+                '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$'
+              AND pg_catalog.jsonb_typeof(
+                $1::jsonb -> 'provenance' -> 'sourceReferences'
+              ) = 'array'
+              AND pg_catalog.jsonb_array_length(
+                $1::jsonb -> 'provenance' -> 'sourceReferences'
+              ) BETWEEN 1 AND 500
+              AND ($1::jsonb -> 'provenance' ->> 'sourceSetHash') =
+                lor_studio.canonical_jsonb_sha256(
+                  $1::jsonb -> 'provenance' -> 'sourceReferences'
+                )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM pg_catalog.jsonb_array_elements(
+                  $1::jsonb -> 'provenance' -> 'sourceReferences'
+                ) AS source(reference)
+                WHERE pg_catalog.jsonb_typeof(source.reference) <> 'object'
+                  OR (
+                    SELECT pg_catalog.count(*)
+                    FROM pg_catalog.jsonb_object_keys(source.reference)
+                  ) <> 2
+                  OR (source.reference ->> 'id') !~
+                    '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$'
+                  OR (source.reference ->> 'contentHash') !~ '^[a-f0-9]{64}$'
+              )
+              AND (
+                SELECT pg_catalog.count(*)
+                FROM pg_catalog.jsonb_array_elements(
+                  $1::jsonb -> 'provenance' -> 'sourceReferences'
+                ) AS source(reference)
+              ) = (
+                SELECT pg_catalog.count(DISTINCT source.reference ->> 'id')
+                FROM pg_catalog.jsonb_array_elements(
+                  $1::jsonb -> 'provenance' -> 'sourceReferences'
+                ) AS source(reference)
+              )
+              AND lor_studio.ai_grounding_manifest_is_complete(
+                $1::jsonb -> 'grounding'
+              ) AS provenance_valid,
+            ($1::jsonb -> 'provenance' ->> 'sourceSetHash') =
+              lor_studio.canonical_jsonb_sha256(
+                $1::jsonb -> 'provenance' -> 'sourceReferences'
+              ) AS source_set_hash_matches,
+            ($1::jsonb -> 'grounding' ->> 'attestationHash') =
+              lor_studio.canonical_jsonb_sha256(pg_catalog.jsonb_build_object(
+                'schemaVersion', $1::jsonb -> 'grounding' ->> 'schemaVersion',
+                'valid', true,
+                'claimCount', 1,
+                'segmentCount', pg_catalog.jsonb_array_length($1::jsonb -> 'segments'),
+                'factualSegmentCount', 1,
+                'connectiveSegmentCount', 0,
+                'supportIds', $1::jsonb -> 'grounding' -> 'supportIds',
+                'segments', $1::jsonb -> 'segments',
+                'attestations', $1::jsonb -> 'grounding' -> 'attestations'
+              )) AS grounding_hash_matches,
+            NOT EXISTS (
+              SELECT 1
+              FROM pg_catalog.jsonb_array_elements($1::jsonb -> 'segments')
+                WITH ORDINALITY AS segment_rows(segment, ordinal_position)
+              WHERE pg_catalog.jsonb_typeof(segment_rows.segment) <> 'object'
+                OR NOT segment_rows.segment ?&
+                  ARRAY['kind', 'text', 'separator', 'supportIds']::text[]
+                OR (
+                  SELECT pg_catalog.count(*)
+                  FROM pg_catalog.jsonb_object_keys(segment_rows.segment)
+                ) <> 4
+                OR segment_rows.segment ->> 'kind' NOT IN ('factual', 'connective')
+                OR pg_catalog.jsonb_typeof(segment_rows.segment -> 'text') <> 'string'
+                OR pg_catalog.octet_length(segment_rows.segment ->> 'text')
+                  NOT BETWEEN 1 AND 4000
+                OR pg_catalog.btrim(segment_rows.segment ->> 'text') <>
+                  segment_rows.segment ->> 'text'
+                OR segment_rows.segment ->> 'separator' NOT IN ('paragraph', 'line', 'inline')
+                OR (
+                  segment_rows.ordinal_position = 1
+                  AND segment_rows.segment ->> 'separator' = 'inline'
+                )
+                OR pg_catalog.jsonb_typeof(
+                  segment_rows.segment -> 'supportIds'
+                ) <> 'array'
+                OR pg_catalog.jsonb_array_length(
+                  segment_rows.segment -> 'supportIds'
+                ) > 32
+                OR (
+                  segment_rows.segment ->> 'kind' = 'factual'
+                  AND pg_catalog.jsonb_array_length(
+                    segment_rows.segment -> 'supportIds'
+                  ) = 0
+                )
+                OR (
+                  segment_rows.segment ->> 'kind' = 'connective'
+                  AND pg_catalog.jsonb_array_length(
+                    segment_rows.segment -> 'supportIds'
+                  ) <> 0
+                )
+                OR EXISTS (
+                  SELECT 1
+                  FROM pg_catalog.jsonb_array_elements(
+                    segment_rows.segment -> 'supportIds'
+                  ) AS support(value)
+                  WHERE pg_catalog.jsonb_typeof(support.value) <> 'string'
+                    OR pg_catalog.length(support.value #>> '{}') NOT BETWEEN 1 AND 200
+                    OR NOT EXISTS (
+                      SELECT 1
+                      FROM pg_catalog.jsonb_array_elements(
+                        $1::jsonb -> 'provenance' -> 'sourceReferences'
+                      ) AS source(reference)
+                      WHERE (source.reference ->> 'id') = (support.value #>> '{}')
+                    )
+                )
+                OR (
+                  SELECT pg_catalog.count(*)
+                  FROM pg_catalog.jsonb_array_elements(
+                    segment_rows.segment -> 'supportIds'
+                  )
+                ) <> (
+                  SELECT pg_catalog.count(DISTINCT support.value #>> '{}')
+                  FROM pg_catalog.jsonb_array_elements(
+                    segment_rows.segment -> 'supportIds'
+                  ) AS support(value)
+                )
+            ) AS segments_valid,
+            ($1::jsonb -> 'claims') = pg_catalog.jsonb_build_array(
+              pg_catalog.jsonb_build_object(
+                'text', $1::jsonb -> 'segments' -> 0 ->> 'text',
+                'supportIds', $1::jsonb -> 'segments' -> 0 -> 'supportIds'
+              )
+            ) AS claims_match,
+            (
+              SELECT pg_catalog.string_agg(
+                CASE
+                  WHEN segment_rows.ordinal_position = 1 THEN ''
+                  WHEN segment_rows.segment ->> 'separator' = 'paragraph' THEN E'\n\n'
+                  WHEN segment_rows.segment ->> 'separator' = 'line' THEN E'\n'
+                  ELSE ' '
+                END || (segment_rows.segment ->> 'text'),
+                '' ORDER BY segment_rows.ordinal_position
+              )
+              FROM pg_catalog.jsonb_array_elements($1::jsonb -> 'segments')
+                WITH ORDINALITY AS segment_rows(segment, ordinal_position)
+            ) = ($1::jsonb ->> 'text') AS composed_text_matches,
+            (
+              SELECT COALESCE(
+                pg_catalog.jsonb_agg(support_id ORDER BY support_id), '[]'::jsonb
+              )
+              FROM (
+                SELECT DISTINCT support.value AS support_id
+                FROM pg_catalog.jsonb_array_elements($1::jsonb -> 'segments')
+                  AS segment_rows(segment)
+                CROSS JOIN LATERAL pg_catalog.jsonb_array_elements(
+                  segment_rows.segment -> 'supportIds'
+                ) AS support(value)
+              ) AS unique_support
+            ) = ($1::jsonb -> 'grounding' -> 'supportIds')
+              AS support_ids_match,
+            ($1::jsonb -> 'grounding' -> 'attestations' -> 0 -> 'sourceHashes') =
+              pg_catalog.jsonb_build_array(
+                $1::jsonb -> 'provenance' -> 'sourceReferences' -> 0 -> 'contentHash'
+              ) AS attestation_sources_match,
+            ($1::jsonb -> 'grounding' -> 'attestations' -> 0 -> 'supportIds') =
+              ($1::jsonb -> 'segments' -> 0 -> 'supportIds')
+              AS attestation_support_match,
+            NOT EXISTS (
+              SELECT 1
+              FROM pg_catalog.jsonb_array_elements(
+                $1::jsonb -> 'grounding' -> 'attestations'
+              ) WITH ORDINALITY AS attestation_rows(attestation, ordinal_position)
+              CROSS JOIN LATERAL (
+                SELECT (
+                  $1::jsonb -> 'segments' ->
+                  ((attestation_rows.ordinal_position - 1)::integer)
+                )::jsonb AS matched_segment
+              ) AS matched
+              WHERE (attestation_rows.attestation ->> 'kind') <>
+                  (matched.matched_segment ->> 'kind')
+                OR (attestation_rows.attestation -> 'supportIds') IS DISTINCT FROM
+                  (matched.matched_segment -> 'supportIds')
+                OR (
+                  (matched.matched_segment ->> 'kind') = 'factual'
+                  AND (
+                    (attestation_rows.attestation ->> 'status') <> 'ENTAILED'
+                    OR pg_catalog.length(
+                      attestation_rows.attestation ->> 'verifierId'
+                    ) = 0
+                    OR pg_catalog.jsonb_typeof(
+                      attestation_rows.attestation -> 'rationaleCode'
+                    ) <> 'string'
+                    OR pg_catalog.length(
+                      attestation_rows.attestation ->> 'rationaleCode'
+                    ) NOT BETWEEN 1 AND 200
+                    OR (attestation_rows.attestation -> 'sourceHashes')
+                      IS DISTINCT FROM (
+                        SELECT pg_catalog.jsonb_agg(
+                          source.reference -> 'contentHash'
+                          ORDER BY support.ordinal_position
+                        )
+                        FROM pg_catalog.jsonb_array_elements_text(
+                          matched.matched_segment -> 'supportIds'
+                        ) WITH ORDINALITY AS support(id, ordinal_position)
+                        JOIN pg_catalog.jsonb_array_elements(
+                          $1::jsonb -> 'provenance' -> 'sourceReferences'
+                        ) AS source(reference)
+                          ON (source.reference ->> 'id') = support.id
+                      )
+                  )
+                )
+            ) AS attestations_exact_valid,
+            ($1::jsonb -> 'humanDecisionRequired') = 'true'::jsonb
+              AND pg_catalog.jsonb_typeof($1::jsonb -> 'decision') = 'null'
+              AND pg_catalog.jsonb_typeof($1::jsonb -> 'acceptedContent') = 'null'
+              AS proposal_state_valid,
+            lor_studio.canonical_jsonb_sha256($1::jsonb) AS record_hash,
+            lor_studio.canonical_jsonb_sha256($1::jsonb -> 'provenance')
+              AS provider_run_hash,
+            lor_studio.canonical_jsonb_sha256(pg_catalog.jsonb_build_object(
+              'operation', 'ai.proposal.generate',
+              'caseId', $2::text,
+              'actorId', $3::text,
+              'templateVersion', $1::jsonb -> 'provenance' ->> 'templateVersion',
+              'factIds', (
+                SELECT pg_catalog.jsonb_agg(
+                  source.reference -> 'id' ORDER BY source.ordinal_position
+                )
+                FROM pg_catalog.jsonb_array_elements(
+                  $1::jsonb -> 'provenance' -> 'sourceReferences'
+                ) WITH ORDINALITY AS source(reference, ordinal_position)
+              )
+            )) AS request_hash`,
+          values: [record, CASE_ID, FACULTY],
+        });
+        assert.deepEqual(databaseBindings, {
+          record_complete: true,
+          top_level_valid: true,
+          grounding_complete: true,
+          provenance_valid: true,
+          source_set_hash_matches: true,
+          grounding_hash_matches: true,
+          segments_valid: true,
+          claims_match: true,
+          composed_text_matches: true,
+          support_ids_match: true,
+          attestation_sources_match: true,
+          attestation_support_match: true,
+          attestations_exact_valid: true,
+          proposal_state_valid: true,
+          record_hash: recordHash,
+          provider_run_hash: providerRunHash,
+          request_hash: requestHash,
+        });
+        const finalize = (idempotencyKey) => withFacultyAiCommandContext(
+          pool,
+          async (client) => {
+            const { rows: [row] } = await client.query({
+              text: `SELECT lor_studio.persist_ai_provider_run_and_proposal_atomic(
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb
+              ) AS result`,
+              values: [
+                CASE_ID,
+                record.id,
+                idempotencyKey,
+                requestHash,
+                scopeHash,
+                targetBindingHash,
+                recordHash,
+                providerRunHash,
+                record.provenance.outputHash,
+                record,
+              ],
+            });
+            return row.result;
+          },
+        );
+
+        const uncertainKey = 'ai-real-pg-race-unknown-0001';
+        const concurrent = await Promise.all([
+          transition({ idempotencyKey: uncertainKey }),
+          transition({ idempotencyKey: uncertainKey }),
+        ]);
+        assert.equal(
+          concurrent.filter((receipt) => receipt.providerCallAuthorized === true).length,
+          1,
+        );
+        assert.equal(
+          concurrent.filter((receipt) => receipt.providerCallAuthorized === false).length,
+          1,
+        );
+        assert.deepEqual(
+          concurrent.map((receipt) => receipt.status).sort(),
+          ['pending', 'pending'],
+        );
+        assert.deepEqual(
+          concurrent.map((receipt) => receipt.replayed).sort(),
+          [false, true],
+        );
+
+        const pendingReplay = await transition({ idempotencyKey: uncertainKey });
+        assert.equal(pendingReplay.status, 'pending');
+        assert.equal(pendingReplay.providerCallAuthorized, false);
+        assert.equal(pendingReplay.replayed, true);
+        await assert.rejects(
+          () => transition({
+            idempotencyKey: uncertainKey,
+            candidateRequestHash: sha256('conflicting-real-pg-ai-request'),
+          }),
+          (error) => error?.code === 'P1402',
+        );
+
+        const unknown = await transition({
+          idempotencyKey: uncertainKey,
+          operation: 'mark_generation_unknown',
+        });
+        assert.equal(unknown.status, 'unknown');
+        assert.equal(unknown.providerCallAuthorized, false);
+        assert.equal(unknown.replayed, false);
+        const unknownReplay = await transition({ idempotencyKey: uncertainKey });
+        assert.equal(unknownReplay.status, 'unknown');
+        assert.equal(unknownReplay.providerCallAuthorized, false);
+        assert.equal(unknownReplay.replayed, true);
+        await assert.rejects(
+          () => finalize(uncertainKey),
+          (error) => error?.code === 'P1404',
+        );
+
+        const acceptedKey = 'ai-real-pg-accepted-0001';
+        const acceptedReservation = await transition({ idempotencyKey: acceptedKey });
+        assert.equal(acceptedReservation.status, 'pending');
+        assert.equal(acceptedReservation.providerCallAuthorized, true);
+        assert.equal(acceptedReservation.replayed, false);
+        const committed = await finalize(acceptedKey);
+        assert.equal(committed.operation, 'put_proposal');
+        assert.equal(committed.outcome, 'committed');
+        assert.equal(committed.writeApplied, true);
+        assert.equal(committed.replayed, false);
+        assert.equal(committed.recordHash, recordHash);
+        assert.equal(committed.providerRunHash, providerRunHash);
+        assert.deepEqual(committed.record, record);
+
+        const acceptedReplay = await transition({ idempotencyKey: acceptedKey });
+        assert.equal(acceptedReplay.status, 'accepted');
+        assert.equal(acceptedReplay.providerCallAuthorized, false);
+        assert.equal(acceptedReplay.replayed, true);
+        assert.equal(acceptedReplay.proposalId, record.id);
+        assert.deepEqual(acceptedReplay.record, record);
+        const finalizeReplay = await finalize(acceptedKey);
+        assert.equal(finalizeReplay.outcome, 'replayed');
+        assert.equal(finalizeReplay.writeApplied, false);
+        assert.equal(finalizeReplay.replayed, true);
+
+        const { rows: [counts] } = await pool.query({
+          text: `SELECT
+            (SELECT pg_catalog.count(*)
+              FROM lor_studio.ai_proposal_generation_reservation_receipts
+              WHERE idempotency_key = $1) AS uncertain_reservation_count,
+            (SELECT pg_catalog.count(*)
+              FROM lor_studio.ai_proposal_generation_reservation_receipts
+              WHERE idempotency_key = $2) AS accepted_reservation_count,
+            (SELECT pg_catalog.count(*) FROM lor_studio.ai_generation_runs) AS run_count,
+            (SELECT pg_catalog.count(*) FROM lor_studio.ai_letter_proposals) AS proposal_count,
+            (SELECT pg_catalog.count(*) FROM lor_studio.ai_proposal_command_receipts)
+              AS command_receipt_count`,
+          values: [uncertainKey, acceptedKey],
+        });
+        assert.deepEqual(counts, {
+          uncertain_reservation_count: '2',
+          accepted_reservation_count: '1',
+          run_count: '1',
+          proposal_count: '1',
+          command_receipt_count: '1',
+        });
+
+        const { rows: [privileges] } = await pool.query(`SELECT
+          pg_catalog.has_function_privilege(
+            'public',
+            'lor_studio.transition_ai_proposal_generation_reservation(text,text,text,text,text,text)',
+            'EXECUTE'
+          ) AS public_execute,
+          pg_catalog.has_function_privilege(
+            'lor_studio_app',
+            'lor_studio.transition_ai_proposal_generation_reservation(text,text,text,text,text,text)',
+            'EXECUTE'
+          ) AS app_execute,
+          pg_catalog.has_function_privilege(
+            'lor_studio_command_owner',
+            'lor_studio.ai_grounding_manifest_is_complete(jsonb)',
+            'EXECUTE'
+          ) AS command_owner_grounding_execute,
+          pg_catalog.has_function_privilege(
+            'lor_studio_app',
+            'lor_studio.ai_proposal_record_is_complete(jsonb)',
+            'EXECUTE'
+          ) AS app_record_validator_execute,
+          pg_catalog.has_table_privilege(
+            'lor_studio_app',
+            'lor_studio.ai_proposal_generation_reservation_receipts',
+            'SELECT'
+          ) AS app_select,
+          pg_catalog.has_table_privilege(
+            'lor_studio_app',
+            'lor_studio.ai_proposal_generation_reservation_receipts',
+            'INSERT'
+          ) AS app_insert`);
+        assert.deepEqual(privileges, {
+          public_execute: false,
+          app_execute: true,
+          command_owner_grounding_execute: true,
+          app_record_validator_execute: false,
+          app_select: false,
+          app_insert: false,
+        });
       });
     });
   }

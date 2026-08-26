@@ -9,7 +9,16 @@ import {
 } from '../domain/errors.js';
 import { finalDocumentContentHash } from '../domain/recommendation-case.js';
 import { currentWaiverState } from '../domain/receipts.js';
-import { assertNonEmptyString, assertPlainObject, toIso } from '../domain/value-utils.js';
+import {
+  assertNonEmptyString,
+  assertPlainObject,
+  deepFreeze,
+  hashValue,
+  makeId,
+  sha256,
+  toIso,
+} from '../domain/value-utils.js';
+import { resolveTrustedStudentAuthorization } from '../security/authorization-policy.js';
 import { planCaseExport } from './export-service.js';
 import { assertPort } from './ports.js';
 
@@ -252,10 +261,6 @@ function buildArtifactModel({ caseRecord, projection, profile }) {
   return {
     caseId: caseRecord.id,
     title: 'Letter of Recommendation',
-    // The aggregate holds principals, not profile names: there is no display-name source in this
-    // bounded context. The case's own identifiers are used rather than a fabricated name.
-    studentDisplayName: caseRecord.studentId,
-    facultyDisplayName: caseRecord.faculty?.facultyId ?? approval?.facultyId ?? '',
     documentState: lifecycle.documentState ?? null,
     privacyClass: profile.privacyClass,
     // Computed from the recorded waiver decision rather than asserted. A student-visible artifact
@@ -276,15 +281,179 @@ function buildArtifactModel({ caseRecord, projection, profile }) {
   };
 }
 
-/**
- * @param {{ caseId: unknown, documentId: unknown }} input
- */
-function artifactFilename({ caseId, documentId }) {
-  const parts = ['lor', caseId, documentId]
-    .map((part) => String(part ?? '').replace(/[^A-Za-z0-9._-]/gu, '_'))
-    .filter((part) => part.length > 0);
-  const stem = parts.join('-').replace(/^[._]+/u, '').slice(0, 100);
-  return `${stem || 'recommendation'}.${ARTIFACT_FORMAT}`;
+function hasExactKeys(value, fields) {
+  return Boolean(value)
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && Object.keys(value).length === fields.length
+    && Object.keys(value).every((key) => fields.includes(key));
+}
+
+function assertActorSafeExportDto(value, { actor, caseId }) {
+  const fields = [
+    'schemaVersion', 'caseId', 'studentId', 'actorRef', 'actorRole', 'revision',
+    'finalDocument', 'documentState', 'facultyApproval', 'waiverState', 'release',
+    'exportProjection',
+  ];
+  if (!hasExactKeys(value, fields)) {
+    throw new IntegrationDisabledError('lor_artifact_export', 'ACTOR_SAFE_EXPORT_DTO_INVALID');
+  }
+  if (
+    value.schemaVersion !== 'missionmed.lor.final-document-export.v1'
+    || value.caseId !== caseId
+    || value.actorRole !== actor.role
+    || value.actorRef !== `actor_${sha256(`lor-studio:actor:${actor.id}`)}`
+    || value.exportProjection !== (actor.role === 'student' ? 'student_visible' : 'faculty_owner')
+    || !Number.isSafeInteger(value.revision)
+    || value.revision < 0
+    || (actor.role === 'student' && value.studentId !== actor.id)
+  ) throw new AuthorizationDeniedError('ACTOR_SAFE_EXPORT_DTO_SCOPE_INVALID');
+
+  const waiver = value.waiverState;
+  if (
+    !hasExactKeys(waiver, ['decided', 'receiptId', 'waived'])
+    || typeof waiver.decided !== 'boolean'
+    || (waiver.decided === false && (waiver.receiptId !== null || waiver.waived !== null))
+    || (waiver.decided === true && (
+      typeof waiver.receiptId !== 'string'
+      || waiver.receiptId.length === 0
+      || typeof waiver.waived !== 'boolean'
+    ))
+  ) throw new IntegrationDisabledError('lor_artifact_export', 'ACTOR_SAFE_EXPORT_WAIVER_INVALID');
+
+  const document = value.finalDocument;
+  if (document !== null) {
+    if (!hasExactKeys(
+      document,
+      ['contentHash', 'id', 'mimeType', 'releasedToStudentAt', 'text'],
+    )) throw new IntegrationDisabledError('lor_artifact_export', 'ACTOR_SAFE_EXPORT_DOCUMENT_INVALID');
+    for (const field of ['contentHash', 'id', 'mimeType', 'releasedToStudentAt', 'text']) {
+      if (document[field] !== null && typeof document[field] !== 'string') {
+        throw new IntegrationDisabledError('lor_artifact_export', 'ACTOR_SAFE_EXPORT_DOCUMENT_INVALID');
+      }
+    }
+    if (document.contentHash !== null && !/^[a-f0-9]{64}$/u.test(document.contentHash)) {
+      throw new IntegrationDisabledError('lor_artifact_export', 'ACTOR_SAFE_EXPORT_DOCUMENT_INVALID');
+    }
+    if (document.releasedToStudentAt !== null) {
+      toIso(document.releasedToStudentAt, 'finalDocument.releasedToStudentAt');
+    }
+  }
+
+  const approval = value.facultyApproval;
+  if (approval !== null) {
+    if (
+      !hasExactKeys(approval, ['approved', 'approvedAt', 'facultyRef', 'signatureAttested'])
+      || typeof approval.approved !== 'boolean'
+      || typeof approval.signatureAttested !== 'boolean'
+      || !/^faculty_[a-f0-9]{64}$/u.test(approval.facultyRef ?? '')
+    ) throw new IntegrationDisabledError('lor_artifact_export', 'ACTOR_SAFE_EXPORT_APPROVAL_INVALID');
+    toIso(approval.approvedAt, 'facultyApproval.approvedAt');
+  }
+
+  const release = value.release;
+  if (release !== null) {
+    if (!hasExactKeys(
+      release,
+      ['documentHash', 'documentId', 'releasedAt', 'releasedAtRevision', 'waiverReceiptId'],
+    )) throw new IntegrationDisabledError('lor_artifact_export', 'ACTOR_SAFE_EXPORT_RELEASE_INVALID');
+    if (
+      !/^[a-f0-9]{64}$/u.test(release.documentHash ?? '')
+      || typeof release.documentId !== 'string'
+      || release.documentId.length === 0
+      || typeof release.waiverReceiptId !== 'string'
+      || release.waiverReceiptId.length === 0
+      || !Number.isSafeInteger(release.releasedAtRevision)
+      || release.releasedAtRevision < 0
+      || release.releasedAtRevision > value.revision
+      || document === null
+      || release.documentId !== document.id
+      || release.documentHash !== finalDocumentContentHash(document)
+      || toIso(release.releasedAt, 'release.releasedAt') !== document.releasedToStudentAt
+    ) throw new IntegrationDisabledError('lor_artifact_export', 'ACTOR_SAFE_EXPORT_RELEASE_INVALID');
+  }
+  if (
+    actor.role === 'student'
+    && (
+      document === null
+      || waiver.decided !== true
+      || waiver.waived !== false
+      || release === null
+    )
+  ) throw new AuthorizationDeniedError('FINAL_DOCUMENT_NOT_AVAILABLE_TO_ACTOR');
+  return deepFreeze(structuredClone(value));
+}
+
+function buildActorSafeArtifactModel({ exportDto, actor, profile }) {
+  const finalDocument = exportDto.finalDocument;
+  if (!finalDocument || typeof finalDocument.text !== 'string' || finalDocument.text.trim() === '') {
+    throw new AuthorizationDeniedError('FINAL_DOCUMENT_NOT_AVAILABLE_TO_ACTOR');
+  }
+  if (exportDto.documentState !== 'faculty_final') {
+    throw new DomainInvariantError(
+      'Only faculty-final wording may be exported as a release artifact',
+      { reasonCode: 'FINAL_DOCUMENT_NOT_FACULTY_FINAL' },
+    );
+  }
+  const approval = exportDto.facultyApproval;
+  if (approval?.approved !== true || approval.signatureAttested !== true) {
+    throw new DomainInvariantError(
+      'Faculty approval and signature attestation are required before export',
+      { reasonCode: 'FINAL_DOCUMENT_NOT_APPROVED' },
+    );
+  }
+  const candidates = [
+    { sourceType: 'recommendation_case', sourceRef: exportDto.caseId },
+    { sourceType: 'final_document', sourceRef: finalDocument.id },
+    {
+      sourceType: 'final_document_content_hash',
+      sourceRef: exportDto.release?.documentHash ?? finalDocumentContentHash(finalDocument),
+    },
+    { sourceType: 'faculty_approval', sourceRef: approval.approvedAt },
+    { sourceType: 'waiver_receipt', sourceRef: exportDto.waiverState.receiptId },
+    { sourceType: 'final_document_release', sourceRef: exportDto.release?.releasedAt },
+  ];
+  return {
+    caseId: exportDto.caseId,
+    title: 'Letter of Recommendation',
+    documentState: exportDto.documentState,
+    privacyClass: profile.privacyClass,
+    containsWaivedContent: exportDto.waiverState.waived === true,
+    containsFacultyPrivateContent: profile.facultyPrivateCopy === true,
+    facultyApproval: {
+      approved: approval.approved,
+      signatureAttested: approval.signatureAttested,
+      approvedAt: approval.approvedAt,
+    },
+    sections: [{
+      heading: profile.sectionHeading,
+      paragraphs: letterParagraphs(finalDocument.text),
+    }],
+    provenance: candidates.filter(
+      (item) => usableReference(item.sourceType) && usableReference(item.sourceRef),
+    ),
+  };
+}
+
+function buildActorSafeExportIntent({ exportDto, actor, profile, at, idFactory }) {
+  return deepFreeze({
+    schemaVersion: 'missionmed.lor.export-intent.v1',
+    id: makeId('export', idFactory),
+    actorId: actor.id,
+    actorRole: actor.role,
+    caseId: exportDto.caseId,
+    projectionHash: hashValue(exportDto),
+    destinationClass: profile.destinationClass,
+    purpose: profile.purpose,
+    plannedAt: toIso(at, 'now'),
+    remoteMutationPerformed: false,
+  });
+}
+
+function artifactFilename() {
+  // Case and document identifiers remain in the server-side export intent and audit receipt. A
+  // download name is forwarded with the file, so it must not become a second portable identifier.
+  return `letter-of-recommendation.${ARTIFACT_FORMAT}`;
 }
 
 /**
@@ -302,9 +471,9 @@ function denialReasonCode(error) {
 
 /**
  * @typedef {object} RecommendationArtifactServiceOptions
- * @property {{ getById: (caseId: string) => Promise<Record<string, any>> }} repository
+ * @property {{ isDurable?: boolean, getById?: (caseId: string) => Promise<Record<string, any>>, readFinalDocumentExport?: (input: {caseId: string, actorId: string, actorRole: string}) => Promise<unknown> }} repository
  * @property {{ getStudentEntitlement: (input: { studentId: string }) => Promise<any> }} entitlementPort
- * @property {{ emit: (event: unknown) => Promise<unknown> } | null} [auditSink]
+ * @property {{ emit: (event: unknown, context?: {actorId?: string, actorRole?: string, caseId?: string}) => Promise<unknown>, isDurable?: boolean, serverOnly?: boolean, actorCaseBound?: boolean, appendOnly?: boolean } | null} [auditSink]
  * @property {() => Date | string | number} [clock]
  * @property {boolean} [requireCanary]
  * @property {() => string} [idFactory]
@@ -324,12 +493,24 @@ export function createRecommendationArtifactService({
   requireCanary = true,
   idFactory,
 } = /** @type {any} */ ({})) {
-  assertPort(repository, ['getById'], 'repository');
+  const durableRepository = repository?.isDurable === true;
+  assertPort(
+    repository,
+    durableRepository ? ['readFinalDocumentExport'] : ['getById'],
+    'repository',
+  );
   assertPort(entitlementPort, ['getStudentEntitlement'], 'entitlementPort');
   if (auditSink !== null && auditSink !== undefined) assertPort(auditSink, ['emit'], 'auditSink');
   if (typeof clock !== 'function') throw new TypeError('clock must be a server-side function');
   if (typeof requireCanary !== 'boolean') throw new TypeError('requireCanary must be an explicit boolean');
   const sink = auditSink ?? null;
+  const durableAuditBound = Boolean(
+    sink
+    && sink.isDurable === true
+    && sink.serverOnly === true
+    && sink.actorCaseBound === true
+    && sink.appendOnly === true
+  );
 
   /**
    * A denial is enforced by the error that follows whether or not it could be recorded, and a
@@ -340,41 +521,74 @@ export function createRecommendationArtifactService({
   async function auditDenial({ actor, caseId, reasonCode, at }) {
     if (!sink) return;
     try {
-      await sink.emit(createAuditEvent({
-        type: 'artifact.denied',
-        actor: { id: actor?.id, role: actor?.role },
-        caseId: String(caseId ?? ''),
-        outcome: 'denied',
-        metadata: { action: EXPORT_ACTION, artifactFormat: ARTIFACT_FORMAT, reasonCode },
-        at,
-      }));
+      await sink.emit(
+        createAuditEvent({
+          type: 'artifact.denied',
+          actor: { id: actor?.id, role: actor?.role },
+          caseId: String(caseId ?? ''),
+          outcome: 'denied',
+          metadata: { action: EXPORT_ACTION, artifactFormat: ARTIFACT_FORMAT, reasonCode },
+          at,
+        }),
+        {
+          actorId: actor?.id,
+          actorRole: actor?.role,
+          caseId: String(caseId ?? ''),
+        },
+      );
     } catch {
       // Intentionally swallowed: see above.
     }
   }
 
   /**
-   * @param {{ actor: ArtifactExportActor, caseId: string, targetId: string, result: string, at: Date }} input
+   * @param {{ actor: ArtifactExportActor, caseId: string, targetId: string, result: string, artifactSha256: string, releaseDocumentHash: string | null, sourceRevision: number, at: Date }} input
    */
-  async function auditGeneration({ actor, caseId, targetId, result, at }) {
+  async function auditGeneration({
+    actor,
+    caseId,
+    targetId,
+    result,
+    artifactSha256,
+    releaseDocumentHash,
+    sourceRevision,
+    at,
+  }) {
     const event = createAuditEvent({
       type: 'artifact.generated',
       actor: { id: actor.id, role: actor.role },
       caseId,
       targetId,
       outcome: 'success',
-      metadata: { action: EXPORT_ACTION, artifactFormat: ARTIFACT_FORMAT, result },
+      metadata: {
+        action: EXPORT_ACTION,
+        artifactFormat: ARTIFACT_FORMAT,
+        result,
+        artifactSha256,
+        releaseDocumentHash,
+        sourceRevision,
+      },
       at,
     });
-    if (!sink) return event;
+    if (!sink || (durableRepository && !durableAuditBound)) {
+      if (durableRepository) {
+        throw new IntegrationDisabledError('lor_artifact_audit_sink', 'AUDIT_SINK_REQUIRED');
+      }
+      return Object.freeze({ event, receipt: null });
+    }
+    let receipt;
     try {
-      await sink.emit(event);
+      receipt = await sink.emit(event, {
+        actorId: actor.id,
+        actorRole: actor.role,
+        caseId,
+      });
     } catch {
       // Protected content is about to leave the system. If that cannot be recorded, it does not
       // leave: an unauditable release of a recommendation letter is not a degraded success.
       throw new IntegrationDisabledError('lor_artifact_audit_sink', 'AUDIT_SINK_FAIL_CLOSED');
     }
-    return event;
+    return Object.freeze({ event, receipt: receipt ?? null });
   }
 
   /**
@@ -402,6 +616,55 @@ export function createRecommendationArtifactService({
       const profile = typeof actor?.role === 'string' ? EXPORT_PROFILES[actor.role] : undefined;
       if (!profile || typeof actor?.id !== 'string' || actor.id.trim() === '') {
         throw new AuthorizationDeniedError('ARTIFACT_EXPORT_ROLE_DENIED');
+      }
+
+      if (durableRepository) {
+        const exportDto = assertActorSafeExportDto(
+          await /** @type {Function} */ (repository.readFinalDocumentExport)({
+            caseId,
+            actorId: actor.id,
+            actorRole: actor.role,
+          }),
+          { actor, caseId },
+        );
+        const entitlement = await entitlementPort.getStudentEntitlement({
+          studentId: exportDto.studentId,
+        });
+        resolveTrustedStudentAuthorization(entitlement, {
+          studentId: exportDto.studentId,
+          requireCanary,
+        });
+        const exportIntent = buildActorSafeExportIntent({
+          exportDto,
+          actor,
+          profile,
+          at,
+          idFactory,
+        });
+        const artifact = renderRecommendationDocx(
+          buildActorSafeArtifactModel({ exportDto, actor, profile }),
+        );
+        if (artifact.mimeType !== DOCX_MIME_TYPE) {
+          throw new ValidationError('The rendered artifact did not carry the expected DOCX media type');
+        }
+        const documentId = exportDto.finalDocument?.id ?? exportDto.caseId;
+        const audit = await auditGeneration({
+          actor,
+          caseId: exportDto.caseId,
+          targetId: String(documentId),
+          result: exportDto.exportProjection,
+          artifactSha256: artifact.sha256,
+          releaseDocumentHash: exportDto.release?.documentHash ?? null,
+          sourceRevision: exportDto.revision,
+          at,
+        });
+        return Object.freeze({
+          artifact,
+          filename: artifactFilename(),
+          exportIntent,
+          auditEvent: audit.event,
+          auditReceipt: audit.receipt,
+        });
       }
 
       const caseRecord = await repository.getById(caseId);
@@ -455,19 +718,23 @@ export function createRecommendationArtifactService({
       }
 
       const documentId = profile.readFinalDocument(projection)?.id ?? caseRecord.id;
-      const auditEvent = await auditGeneration({
+      const audit = await auditGeneration({
         actor,
         caseId: caseRecord.id,
         targetId: String(documentId),
         result: String(access.projection),
+        artifactSha256: artifact.sha256,
+        releaseDocumentHash: caseRecord.finalDocumentState?.release?.documentHash ?? null,
+        sourceRevision: caseRecord.revision,
         at,
       });
 
       return Object.freeze({
         artifact,
-        filename: artifactFilename({ caseId: caseRecord.id, documentId }),
+        filename: artifactFilename(),
         exportIntent,
-        auditEvent,
+        auditEvent: audit.event,
+        auditReceipt: audit.receipt,
       });
     } catch (error) {
       await auditDenial({ actor, caseId, reasonCode: denialReasonCode(error), at });
@@ -477,6 +744,11 @@ export function createRecommendationArtifactService({
 
   return Object.freeze({
     artifactMimeType: DOCX_MIME_TYPE,
+    auditMode: durableRepository && durableAuditBound
+      ? 'durable_actor_case_bound_append_only'
+      : durableRepository
+        ? 'unavailable'
+        : 'non_durable_test_only',
     exportFinalDocumentArtifact,
   });
 }

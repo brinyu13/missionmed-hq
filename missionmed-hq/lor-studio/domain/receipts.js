@@ -7,6 +7,8 @@ import {
   toIso,
 } from './value-utils.js';
 
+const CONSENT_WITHDRAWN_SCOPE = 'consent_withdrawn';
+
 function sealReceipt(payload) {
   return deepFreeze({ ...payload, receiptHash: hashValue(payload) });
 }
@@ -23,7 +25,14 @@ export function createConsentReceipt({
   assertNonEmptyString(caseId, 'caseId');
   assertNonEmptyString(studentId, 'studentId');
   assertNonEmptyString(policyVersion, 'policyVersion');
-  if (!Array.isArray(scopes) || scopes.length === 0 || scopes.some((scope) => typeof scope !== 'string')) {
+  if (
+    !Array.isArray(scopes)
+    || scopes.length === 0
+    || scopes.some((scope) => typeof scope !== 'string' || scope.length === 0)
+    || (scopes.includes(CONSENT_WITHDRAWN_SCOPE) && (
+      scopes.length !== 1 || scopes[0] !== CONSENT_WITHDRAWN_SCOPE
+    ))
+  ) {
     throw new ValidationError('Consent requires one or more explicit scopes');
   }
   const payload = {

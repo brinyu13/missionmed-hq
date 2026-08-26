@@ -3,6 +3,7 @@ import { deepFreeze, sha256, toIso } from '../domain/value-utils.js';
 
 const DEPENDENCY_NAMES = Object.freeze([
   'administrativeGrants',
+  'ai',
   'audit',
   'backupRestore',
   'email',
@@ -79,6 +80,7 @@ const SAFE_METADATA_ENUMS = Object.freeze({
   dependency: new Set(DEPENDENCY_NAMES),
   errorCode: new Set([...GENERIC_DEPENDENCY_ERROR_CODES, ...BACKUP_ERROR_CODES]),
   operation: new Set([
+    'ai_proposal',
     'case_create',
     'case_read',
     'case_save',

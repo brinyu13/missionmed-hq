@@ -12,6 +12,7 @@ import {
   assertFacultyCaseProjection,
   assertMentorCaseProjection,
   assertStudentSafeRecommendationCase,
+  CASE_STATUSES,
   FACULTY_CASE_PROJECTION_SCHEMA,
   STUDENT_SAFE_CASE_SCHEMA,
 } from '../domain/recommendation-case.js';
@@ -48,6 +49,7 @@ const SERVER_SCOPE_SCHEMA = 'missionmed.lor.server-query-scope.v1';
 const DRIVER_AUTHORIZATION_SCHEMA = 'missionmed.lor.driver-authorization-binding.v1';
 const CREATION_RESERVATION_RECEIPT_SCHEMA = 'missionmed.lor.case-creation-reservation-receipt.v1';
 const ATOMIC_COMMAND_RECEIPT_SCHEMA = 'missionmed.lor.atomic-command-receipt.v2';
+const FACULTY_DRAFTING_CONTEXT_SCHEMA = 'missionmed.lor.faculty-drafting-context.v1';
 const TARGET_BINDING_SCHEMA = 'missionmed.lor.target-binding.v2';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
@@ -68,12 +70,16 @@ export const ATOMIC_RLS_CASE_STATEMENTS = deepFreeze({
   transactionId: 'lor_case_transaction_id',
   readStudentSafeCase: 'lor_case_read_student_safe_case',
   readFacultyCaseProjection: 'lor_case_read_faculty_projection',
+  readFacultyDraftingContext: 'lor_case_read_faculty_drafting_context',
   readMentorCaseProjection: 'lor_case_read_mentor_projection',
+  readFinalDocumentExport: 'lor_case_read_final_document_export',
   commitStudentCaseCreate: 'lor_case_commit_student_case_create',
   commitStudentBuilderAutosave: 'lor_case_commit_student_builder_autosave',
   commitStudentBuilderComplete: 'lor_case_commit_student_builder_complete',
   commitStudentConsentReceipt: 'lor_case_commit_student_consent_receipt',
   commitStudentWaiverReceipt: 'lor_case_commit_student_waiver_receipt',
+  commitStudentEvidencePublication: 'lor_case_commit_student_evidence_publication',
+  commitFacultyPrivateContent: 'lor_case_commit_faculty_private_content',
   commitFacultyFinalDocumentRelease: 'lor_case_commit_faculty_final_document_release',
   insertCreationReservation: 'lor_case_insert_creation_reservation',
   selectCreationReservation: 'lor_case_select_creation_reservation',
@@ -100,6 +106,28 @@ const SCOPE_KEYS = new Set([
   'canaryAuthorized',
 ]);
 const READ_REQUEST_KEYS = new Set(['binding', 'scope', 'caseId']);
+const FACULTY_DRAFTING_CONTEXT_KEYS = new Set([
+  'schemaVersion',
+  'id',
+  'studentId',
+  'status',
+  'faculty',
+  'consentReceipts',
+  'studentEvidence',
+]);
+const FACULTY_DRAFTING_ACTOR_KEYS = new Set([
+  'facultyId',
+  'verifiedAt',
+  'recipientEmailHash',
+]);
+const FACULTY_DRAFTING_CONSENT_KEYS = new Set(['id']);
+const FACULTY_DRAFTING_EVIDENCE_KEYS = new Set([
+  'id',
+  'caseId',
+  'text',
+  'contentHash',
+  'consentReceiptId',
+]);
 const RESERVATION_REQUEST_KEYS = new Set([
   'binding',
   'scope',
@@ -130,6 +158,65 @@ const FACULTY_RELEASE_COMMAND_KEYS = new Set([
   'idempotencyKey',
   'requestHash',
   'event',
+]);
+const FACULTY_PRIVATE_COMMAND_KEYS = new Set([
+  'binding',
+  'scope',
+  'expectedRevision',
+  'content',
+  'idempotencyKey',
+  'requestHash',
+  'event',
+]);
+const FACULTY_PRIVATE_CONTENT_KEYS = new Set([
+  'answers',
+  'notes',
+  'draftText',
+  'finalDocument',
+  'documentState',
+  'facultyApproval',
+]);
+const FINAL_DOCUMENT_CONTENT_KEYS = new Set(['contentHash', 'id', 'mimeType', 'text']);
+const FACULTY_APPROVAL_KEYS = new Set([
+  'approved',
+  'approvedAt',
+  'facultyId',
+  'signatureAttested',
+]);
+const FINAL_DOCUMENT_EXPORT_KEYS = new Set([
+  'schemaVersion',
+  'caseId',
+  'studentId',
+  'actorRef',
+  'actorRole',
+  'revision',
+  'finalDocument',
+  'documentState',
+  'facultyApproval',
+  'waiverState',
+  'release',
+  'exportProjection',
+]);
+const EXPORT_FINAL_DOCUMENT_KEYS = new Set([
+  'contentHash',
+  'id',
+  'mimeType',
+  'releasedToStudentAt',
+  'text',
+]);
+const EXPORT_FACULTY_APPROVAL_KEYS = new Set([
+  'approved',
+  'approvedAt',
+  'facultyRef',
+  'signatureAttested',
+]);
+const EXPORT_WAIVER_STATE_KEYS = new Set(['decided', 'receiptId', 'waived']);
+const EXPORT_RELEASE_KEYS = new Set([
+  'documentHash',
+  'documentId',
+  'releasedAt',
+  'releasedAtRevision',
+  'waiverReceiptId',
 ]);
 const VERSION_ENTRY_KEYS = new Set([
   'revision',
@@ -250,6 +337,14 @@ const READ_MENTOR_CASE_PROJECTION_SQL =
   `SELECT ${LOR_SCHEMA}.read_mentor_case_projection() AS result`;
 const READ_FACULTY_CASE_PROJECTION_SQL =
   `SELECT ${LOR_SCHEMA}.read_faculty_case_projection() AS result`;
+const READ_FACULTY_DRAFTING_CONTEXT_SQL =
+  `SELECT ${LOR_SCHEMA}.read_faculty_drafting_context() AS result`;
+const READ_FINAL_DOCUMENT_EXPORT_SQL =
+  `SELECT ${LOR_SCHEMA}.read_final_document_export() AS result`;
+const COMMIT_FACULTY_PRIVATE_CONTENT_SQL =
+  `SELECT ${LOR_SCHEMA}.commit_faculty_private_content(
+    $1::bigint, $2::jsonb, $3, $4, $5::jsonb, $6
+  ) AS result`;
 const COMMIT_FACULTY_FINAL_DOCUMENT_RELEASE_SQL =
   `SELECT ${LOR_SCHEMA}.commit_faculty_final_document_release(
     $1::bigint, $2, $3, $4, $5::jsonb, $6
@@ -323,6 +418,28 @@ const FACULTY_RELEASE_COMMAND = deepFreeze({
   action: 'faculty.final_document_release',
   eventType: 'faculty.final_document_released',
   sql: COMMIT_FACULTY_FINAL_DOCUMENT_RELEASE_SQL,
+});
+
+const STUDENT_EVIDENCE_COMMAND_KEYS = new Set([
+  'binding',
+  'scope',
+  'expectedRevision',
+  'idempotencyKey',
+  'requestHash',
+  'event',
+]);
+
+const COMMIT_STUDENT_EVIDENCE_PUBLICATION_SQL =
+  `SELECT ${LOR_SCHEMA}.commit_student_evidence_publication(
+    $1::bigint, $2, $3, $4::jsonb, $5
+  ) AS result`;
+
+const FACULTY_PRIVATE_COMMAND = deepFreeze({
+  statementId: ATOMIC_RLS_CASE_STATEMENTS.commitFacultyPrivateContent,
+  operation: 'save',
+  action: 'faculty.private_content_update',
+  eventType: 'faculty.private_content_updated',
+  sql: COMMIT_FACULTY_PRIVATE_CONTENT_SQL,
 });
 
 function failClosed(status) {
@@ -743,6 +860,280 @@ function normalizeFacultyProjection(value) {
   return deepFreeze(projection);
 }
 
+function normalizeFacultyDraftingContext(value, scope) {
+  const context = snapshotExact(
+    canonicalClone(value),
+    FACULTY_DRAFTING_CONTEXT_KEYS,
+    'FACULTY_DRAFTING_CONTEXT_FIELDS_INVALID',
+  );
+  if (context.schemaVersion !== FACULTY_DRAFTING_CONTEXT_SCHEMA) {
+    failClosed('FACULTY_DRAFTING_CONTEXT_SCHEMA_INVALID');
+  }
+  assertNonEmptyString(context.id, 'facultyDraftingContext.id', { maxLength: 200 });
+  assertCanonicalStudentSubject(
+    context.studentId,
+    'facultyDraftingContext.studentId',
+  );
+  if (!CASE_STATUSES.includes(context.status)) {
+    failClosed('FACULTY_DRAFTING_CONTEXT_STATUS_INVALID');
+  }
+  const faculty = snapshotExact(
+    context.faculty,
+    FACULTY_DRAFTING_ACTOR_KEYS,
+    'FACULTY_DRAFTING_CONTEXT_FACULTY_INVALID',
+  );
+  assertCanonicalStudentSubject(faculty.facultyId, 'facultyDraftingContext.faculty.facultyId');
+  faculty.verifiedAt = toIso(
+    faculty.verifiedAt,
+    'facultyDraftingContext.faculty.verifiedAt',
+  );
+  assertSha256(
+    faculty.recipientEmailHash,
+    'facultyDraftingContext.faculty.recipientEmailHash',
+  );
+  if (!Array.isArray(context.consentReceipts) || context.consentReceipts.length > 500) {
+    failClosed('FACULTY_DRAFTING_CONTEXT_CONSENT_INVALID');
+  }
+  const consentIds = new Set();
+  const consentReceipts = context.consentReceipts.map((rawReceipt) => {
+    const receipt = snapshotExact(
+      rawReceipt,
+      FACULTY_DRAFTING_CONSENT_KEYS,
+      'FACULTY_DRAFTING_CONTEXT_CONSENT_INVALID',
+    );
+    assertNonEmptyString(receipt.id, 'facultyDraftingContext.consentReceipts.id', {
+      maxLength: 200,
+    });
+    if (consentIds.has(receipt.id)) failClosed('FACULTY_DRAFTING_CONTEXT_CONSENT_INVALID');
+    consentIds.add(receipt.id);
+    return receipt;
+  });
+  if (!Array.isArray(context.studentEvidence) || context.studentEvidence.length > 500) {
+    failClosed('FACULTY_DRAFTING_CONTEXT_EVIDENCE_INVALID');
+  }
+  const evidenceIds = new Set();
+  const studentEvidence = context.studentEvidence.map((rawEvidence) => {
+    const evidence = snapshotExact(
+      rawEvidence,
+      FACULTY_DRAFTING_EVIDENCE_KEYS,
+      'FACULTY_DRAFTING_CONTEXT_EVIDENCE_INVALID',
+    );
+    assertNonEmptyString(evidence.id, 'facultyDraftingContext.studentEvidence.id', {
+      maxLength: 200,
+    });
+    assertNonEmptyString(evidence.text, 'facultyDraftingContext.studentEvidence.text', {
+      maxLength: 40_000,
+    });
+    assertNonEmptyString(
+      evidence.consentReceiptId,
+      'facultyDraftingContext.studentEvidence.consentReceiptId',
+      { maxLength: 200 },
+    );
+    assertSha256(
+      evidence.contentHash,
+      'facultyDraftingContext.studentEvidence.contentHash',
+    );
+    if (
+      evidence.caseId !== context.id
+      || evidence.text.trim() !== evidence.text
+      || sha256(evidence.text) !== evidence.contentHash
+      || !consentIds.has(evidence.consentReceiptId)
+      || evidenceIds.has(evidence.id)
+    ) failClosed('FACULTY_DRAFTING_CONTEXT_EVIDENCE_INVALID');
+    evidenceIds.add(evidence.id);
+    return evidence;
+  });
+  if (
+    context.id !== scope.caseId
+    || context.studentId !== scope.resourceStudentId
+    || faculty.facultyId !== scope.actorId
+  ) throw new AuthorizationDeniedError('FACULTY_DRAFTING_CONTEXT_SCOPE_MISMATCH');
+  return deepFreeze({
+    ...context,
+    faculty,
+    consentReceipts,
+    studentEvidence,
+  });
+}
+
+function normalizeFacultyPrivateContent(value, scope) {
+  const content = snapshotExact(
+    value,
+    FACULTY_PRIVATE_CONTENT_KEYS,
+    'FACULTY_PRIVATE_CONTENT_FIELDS_UNRECOGNIZED',
+  );
+  for (const field of ['answers', 'notes']) {
+    if (
+      !Array.isArray(content[field])
+      || content[field].some((item) => !isPlainObject(item))
+    ) throw new ValidationError(`Faculty-private ${field} must contain objects only`);
+  }
+  if (content.draftText !== null && typeof content.draftText !== 'string') {
+    throw new ValidationError('Faculty-private draftText must be a string or null');
+  }
+  if (
+    typeof content.draftText === 'string'
+    && Buffer.byteLength(content.draftText, 'utf8') > 256_000
+  ) throw new ValidationError('Faculty-private draftText exceeds the safety limit');
+
+  if (content.finalDocument !== null) {
+    const document = snapshotExact(
+      content.finalDocument,
+      FINAL_DOCUMENT_CONTENT_KEYS,
+      'FACULTY_PRIVATE_FINAL_DOCUMENT_FIELDS_UNRECOGNIZED',
+    );
+    for (const field of FINAL_DOCUMENT_CONTENT_KEYS) {
+      if (document[field] !== null && typeof document[field] !== 'string') {
+        throw new ValidationError(`Faculty-private finalDocument.${field} must be a string or null`);
+      }
+    }
+    if (document.contentHash !== null) {
+      assertSha256(document.contentHash, 'finalDocument.contentHash');
+    }
+    if (
+      typeof document.text === 'string'
+      && Buffer.byteLength(document.text, 'utf8') > 256_000
+    ) throw new ValidationError('Faculty-private finalDocument.text exceeds the safety limit');
+    content.finalDocument = document;
+  }
+  if (
+    content.documentState !== null
+    && !['ai_proposal', 'faculty_final'].includes(content.documentState)
+  ) throw new ValidationError('Faculty-private documentState must be canonical or null');
+  if (content.facultyApproval !== null) {
+    const approval = snapshotExact(
+      content.facultyApproval,
+      FACULTY_APPROVAL_KEYS,
+      'FACULTY_PRIVATE_APPROVAL_FIELDS_UNRECOGNIZED',
+    );
+    if (
+      approval.approved !== true
+      || approval.signatureAttested !== true
+      || approval.facultyId !== scope.actorId
+    ) throw new AuthorizationDeniedError('FACULTY_PRIVATE_APPROVAL_SCOPE_INVALID');
+    approval.approvedAt = toIso(approval.approvedAt, 'facultyApproval.approvedAt');
+    content.facultyApproval = approval;
+  }
+  if (
+    content.finalDocument === null
+    && (content.documentState !== null || content.facultyApproval !== null)
+  ) throw new ValidationError('Faculty wording state and approval require a final document');
+  const normalized = canonicalClone(content);
+  if (Buffer.byteLength(canonicalize(normalized), 'utf8') > 512_000) {
+    throw new ValidationError('Faculty-private content exceeds the command safety limit');
+  }
+  return deepFreeze(normalized);
+}
+
+function normalizeFinalDocumentExport(value, scope) {
+  const dto = snapshotExact(
+    value,
+    FINAL_DOCUMENT_EXPORT_KEYS,
+    'FINAL_DOCUMENT_EXPORT_FIELDS_UNRECOGNIZED',
+  );
+  if (
+    dto.schemaVersion !== 'missionmed.lor.final-document-export.v1'
+    || dto.caseId !== scope.caseId
+    || dto.studentId !== scope.resourceStudentId
+    || dto.actorRole !== scope.actorRole
+    || dto.actorRef !== `actor_${sha256(`lor-studio:actor:${scope.actorId}`)}`
+    || dto.exportProjection !== (
+      scope.actorRole === 'student' ? 'student_visible' : 'faculty_owner'
+    )
+  ) throw new AuthorizationDeniedError('FINAL_DOCUMENT_EXPORT_SCOPE_INVALID');
+  if (!['student', 'faculty'].includes(scope.actorRole)) {
+    throw new AuthorizationDeniedError('FINAL_DOCUMENT_EXPORT_ROLE_INVALID');
+  }
+  dto.revision = normalizeRevision(dto.revision);
+
+  if (dto.finalDocument !== null) {
+    const document = snapshotExact(
+      dto.finalDocument,
+      EXPORT_FINAL_DOCUMENT_KEYS,
+      'FINAL_DOCUMENT_EXPORT_DOCUMENT_FIELDS_UNRECOGNIZED',
+    );
+    for (const field of ['contentHash', 'id', 'mimeType', 'releasedToStudentAt', 'text']) {
+      if (document[field] !== null && typeof document[field] !== 'string') {
+        failClosed('FINAL_DOCUMENT_EXPORT_DOCUMENT_INVALID');
+      }
+    }
+    if (document.contentHash !== null) assertSha256(document.contentHash, 'finalDocument.contentHash');
+    if (document.releasedToStudentAt !== null) {
+      document.releasedToStudentAt = toIso(
+        document.releasedToStudentAt,
+        'finalDocument.releasedToStudentAt',
+      );
+    }
+    dto.finalDocument = document;
+  }
+  if (
+    dto.documentState !== null
+    && !['ai_proposal', 'faculty_final'].includes(dto.documentState)
+  ) failClosed('FINAL_DOCUMENT_EXPORT_STATE_INVALID');
+
+  if (dto.facultyApproval !== null) {
+    const approval = snapshotExact(
+      dto.facultyApproval,
+      EXPORT_FACULTY_APPROVAL_KEYS,
+      'FINAL_DOCUMENT_EXPORT_APPROVAL_FIELDS_UNRECOGNIZED',
+    );
+    if (
+      typeof approval.approved !== 'boolean'
+      || typeof approval.signatureAttested !== 'boolean'
+      || !/^faculty_[a-f0-9]{64}$/u.test(approval.facultyRef ?? '')
+    ) failClosed('FINAL_DOCUMENT_EXPORT_APPROVAL_INVALID');
+    approval.approvedAt = toIso(approval.approvedAt, 'facultyApproval.approvedAt');
+    dto.facultyApproval = approval;
+  }
+
+  const waiver = snapshotExact(
+    dto.waiverState,
+    EXPORT_WAIVER_STATE_KEYS,
+    'FINAL_DOCUMENT_EXPORT_WAIVER_FIELDS_UNRECOGNIZED',
+  );
+  if (
+    typeof waiver.decided !== 'boolean'
+    || (waiver.decided === false && (waiver.waived !== null || waiver.receiptId !== null))
+    || (waiver.decided === true && (
+      typeof waiver.waived !== 'boolean'
+      || typeof waiver.receiptId !== 'string'
+      || waiver.receiptId.length === 0
+    ))
+  ) failClosed('FINAL_DOCUMENT_EXPORT_WAIVER_INVALID');
+  dto.waiverState = waiver;
+
+  if (dto.release !== null) {
+    const release = snapshotExact(
+      dto.release,
+      EXPORT_RELEASE_KEYS,
+      'FINAL_DOCUMENT_EXPORT_RELEASE_FIELDS_UNRECOGNIZED',
+    );
+    assertSha256(release.documentHash, 'release.documentHash');
+    for (const field of ['documentId', 'waiverReceiptId']) {
+      assertNonEmptyString(release[field], `release.${field}`, { maxLength: 200 });
+    }
+    release.releasedAt = toIso(release.releasedAt, 'release.releasedAt');
+    release.releasedAtRevision = normalizeRevision(release.releasedAtRevision);
+    if (
+      dto.finalDocument === null
+      || release.documentId !== dto.finalDocument.id
+      || release.releasedAt !== dto.finalDocument.releasedToStudentAt
+      || release.releasedAtRevision > dto.revision
+    ) failClosed('FINAL_DOCUMENT_EXPORT_RELEASE_INVALID');
+    dto.release = release;
+  }
+  if (
+    scope.actorRole === 'student'
+    && dto.finalDocument !== null
+    && (
+      waiver.decided !== true
+      || waiver.waived !== false
+      || dto.release === null
+    )
+  ) throw new AuthorizationDeniedError('FINAL_DOCUMENT_EXPORT_STUDENT_VISIBILITY_INVALID');
+  return deepFreeze(canonicalClone(dto));
+}
+
 /** Shape/type checks only; SQL performs semantic checks after replay lookup. */
 function normalizeVersionEntryShape(value) {
   if (!hasExactKeys(value, VERSION_ENTRY_KEYS)) {
@@ -860,6 +1251,161 @@ function normalizeCommandReceipt(value, { input, spec }) {
   ) failClosed('ATOMIC_COMMAND_RECEIPT_BINDING_INVALID');
   assertNonEmptyString(value.auditEventRef, 'auditEventRef', { maxLength: 200 });
   assertNonEmptyString(value.transactionId, 'transactionId', { maxLength: 200 });
+  return deepFreeze({ ...value, revision, state });
+}
+
+function normalizeStudentEvidenceCommand(rawCommand, target) {
+  const command = snapshotExact(
+    rawCommand,
+    STUDENT_EVIDENCE_COMMAND_KEYS,
+    'STUDENT_EVIDENCE_COMMAND_FIELDS_UNRECOGNIZED',
+  );
+  assertTargetBinding(command.binding, target);
+  const caseId = assertNonEmptyString(command.scope?.caseId, 'scope.caseId', { maxLength: 200 });
+  const scope = assertScopeEnvelope(command.scope, {
+    operation: 'save',
+    caseId,
+    actorRole: 'student',
+  });
+  if (!Number.isSafeInteger(command.expectedRevision) || command.expectedRevision < 0) {
+    throw new ValidationError('Student evidence expectedRevision must be a non-negative integer');
+  }
+  const idempotencyKey = assertNonEmptyString(
+    command.idempotencyKey,
+    'idempotencyKey',
+    { maxLength: 240 },
+  );
+  const requestHash = assertSha256(command.requestHash, 'requestHash');
+  const event = canonicalClone(command.event);
+  validateMetadataServiceEvent(event);
+  if (
+    event.eventType !== 'student.material_updated'
+    || event.actorRole !== 'student'
+    || event.actorRef !== `actor_${sha256(`lor-studio:actor:${scope.actorId}`)}`
+    || event.caseRef !== `case_${sha256(`lor-studio:case:${caseId}`)}`
+    || event.revision !== command.expectedRevision + 1
+  ) throw new AuthorizationDeniedError('STUDENT_EVIDENCE_EVENT_SCOPE_INVALID');
+  return {
+    scope,
+    expectedRevision: command.expectedRevision,
+    idempotencyKey,
+    requestHash,
+    event,
+    eventHash: hashValue(event),
+  };
+}
+
+function normalizeStudentEvidenceReceipt(value, { input }) {
+  if (!hasExactKeys(value, COMMAND_RECEIPT_KEYS)) {
+    failClosed('ATOMIC_COMMAND_RECEIPT_FIELDS_INVALID');
+  }
+  const state = normalizeStudentSafeState(value.state);
+  const revision = normalizeRevision(value.revision);
+  const replayed = value.replayed === true;
+  for (const field of ['safeRecordHash', 'protectedStateHash', 'eventHash']) {
+    if (!SHA256_PATTERN.test(value[field] ?? '')) failClosed('ATOMIC_COMMAND_RECEIPT_HASH_INVALID');
+  }
+  assertNonEmptyString(value.auditEventRef, 'auditEventRef', { maxLength: 200 });
+  assertNonEmptyString(value.transactionId, 'transactionId', { maxLength: 200 });
+  if (
+    value.schemaVersion !== ATOMIC_COMMAND_RECEIPT_SCHEMA
+    || value.action !== 'student.evidence.publish'
+    || value.committed !== true
+    || (value.replayed !== true && value.replayed !== false)
+    || value.sameTransaction !== true
+    || value.caseId !== input.scope.caseId
+    || value.studentId !== input.scope.resourceStudentId
+    || state.id !== value.caseId
+    || state.studentId !== value.studentId
+    || revision !== state.revision
+    || revision !== input.expectedRevision + 1
+    || state.studentEvidence.length === 0
+    || value.idempotencyKey !== input.idempotencyKey
+    || value.requestHash !== input.requestHash
+    || (!replayed && (
+      value.eventHash !== input.eventHash
+      || value.auditEventRef !== input.event.eventRef
+      || state.updatedAt !== input.event.occurredAt
+    ))
+  ) failClosed('ATOMIC_EVIDENCE_RECEIPT_BINDING_INVALID');
+  return deepFreeze({ ...value, revision, state });
+}
+
+function normalizeFacultyPrivateCommand(rawCommand, target) {
+  const command = snapshotExact(
+    rawCommand,
+    FACULTY_PRIVATE_COMMAND_KEYS,
+    'FACULTY_PRIVATE_COMMAND_FIELDS_UNRECOGNIZED',
+  );
+  assertTargetBinding(command.binding, target);
+  const caseId = assertNonEmptyString(command.scope?.caseId, 'scope.caseId', { maxLength: 200 });
+  const scope = assertScopeEnvelope(command.scope, {
+    operation: 'save',
+    caseId,
+    actorRole: 'faculty',
+  });
+  if (!Number.isSafeInteger(command.expectedRevision) || command.expectedRevision < 0) {
+    throw new ValidationError('Faculty-private expectedRevision must be a non-negative integer');
+  }
+  const content = normalizeFacultyPrivateContent(command.content, scope);
+  const idempotencyKey = assertNonEmptyString(
+    command.idempotencyKey,
+    'idempotencyKey',
+    { maxLength: 240 },
+  );
+  const requestHash = assertSha256(command.requestHash, 'requestHash');
+  const event = canonicalClone(command.event);
+  validateMetadataServiceEvent(event);
+  if (
+    event.eventType !== FACULTY_PRIVATE_COMMAND.eventType
+    || event.actorRole !== 'faculty'
+    || event.actorRef !== `actor_${sha256(`lor-studio:actor:${scope.actorId}`)}`
+    || event.caseRef !== `case_${sha256(`lor-studio:case:${caseId}`)}`
+    || event.revision !== command.expectedRevision + 1
+  ) throw new AuthorizationDeniedError('FACULTY_PRIVATE_EVENT_SCOPE_INVALID');
+  return {
+    scope,
+    expectedRevision: command.expectedRevision,
+    content,
+    idempotencyKey,
+    requestHash,
+    event,
+    eventHash: hashValue(event),
+  };
+}
+
+function normalizeFacultyPrivateReceipt(value, { input }) {
+  if (!hasExactKeys(value, COMMAND_RECEIPT_KEYS)) {
+    failClosed('ATOMIC_COMMAND_RECEIPT_FIELDS_INVALID');
+  }
+  const state = normalizeFacultyProjection(value.state);
+  const revision = normalizeRevision(value.revision);
+  const replayed = value.replayed === true;
+  for (const field of ['safeRecordHash', 'protectedStateHash', 'eventHash']) {
+    if (!SHA256_PATTERN.test(value[field] ?? '')) {
+      failClosed('ATOMIC_COMMAND_RECEIPT_HASH_INVALID');
+    }
+  }
+  assertNonEmptyString(value.auditEventRef, 'auditEventRef', { maxLength: 200 });
+  assertNonEmptyString(value.transactionId, 'transactionId', { maxLength: 200 });
+  if (
+    value.schemaVersion !== ATOMIC_COMMAND_RECEIPT_SCHEMA
+    || value.action !== FACULTY_PRIVATE_COMMAND.action
+    || value.committed !== true
+    || (value.replayed !== true && value.replayed !== false)
+    || value.sameTransaction !== true
+    || value.caseId !== input.scope.caseId
+    || value.studentId !== input.scope.resourceStudentId
+    || state.caseId !== value.caseId
+    || revision !== state.revision
+    || value.idempotencyKey !== input.idempotencyKey
+    || value.requestHash !== input.requestHash
+    || (!replayed && (
+      revision !== input.expectedRevision + 1
+      || value.eventHash !== input.eventHash
+      || value.auditEventRef !== input.event.eventRef
+    ))
+  ) failClosed('ATOMIC_COMMAND_RECEIPT_BINDING_INVALID');
   return deepFreeze({ ...value, revision, state });
 }
 
@@ -1088,6 +1634,66 @@ export class AtomicRlsCaseDriver {
     });
   }
 
+  async readFacultyDraftingContext(rawRequest) {
+    const request = snapshotExact(rawRequest, READ_REQUEST_KEYS, 'READ_REQUEST_FIELDS_UNRECOGNIZED');
+    assertTargetBinding(request.binding, this.target);
+    const caseId = assertNonEmptyString(request.caseId, 'caseId', { maxLength: 200 });
+    const scope = assertScopeEnvelope(request.scope, {
+      operation: 'read',
+      caseId,
+      actorRole: 'faculty',
+    });
+    return this.#transact(scope, async (transaction) => {
+      const row = firstRow(
+        await transaction.execute(
+          statement(
+            ATOMIC_RLS_CASE_STATEMENTS.readFacultyDraftingContext,
+            READ_FACULTY_DRAFTING_CONTEXT_SQL,
+          ),
+        ),
+      );
+      if (!row || row.result === null || row.result === undefined) {
+        return deepFreeze({ found: false, context: null });
+      }
+      return deepFreeze({
+        found: true,
+        context: normalizeFacultyDraftingContext(row.result, scope),
+      });
+    });
+  }
+
+  async readFinalDocumentExport(rawRequest) {
+    const request = snapshotExact(rawRequest, READ_REQUEST_KEYS, 'READ_REQUEST_FIELDS_UNRECOGNIZED');
+    assertTargetBinding(request.binding, this.target);
+    const caseId = assertNonEmptyString(request.caseId, 'caseId', { maxLength: 200 });
+    const actorRole = request.scope?.actorRole;
+    if (!['student', 'faculty'].includes(actorRole)) {
+      throw new AuthorizationDeniedError('FINAL_DOCUMENT_EXPORT_ROLE_INVALID');
+    }
+    const scope = assertScopeEnvelope(request.scope, {
+      operation: 'read',
+      caseId,
+      actorRole,
+    });
+    return this.#transact(scope, async (transaction) => {
+      const row = firstRow(
+        await transaction.execute(
+          statement(
+            ATOMIC_RLS_CASE_STATEMENTS.readFinalDocumentExport,
+            READ_FINAL_DOCUMENT_EXPORT_SQL,
+          ),
+        ),
+      );
+      if (!row || row.result === null || row.result === undefined) {
+        return deepFreeze({ found: false, exportDto: null });
+      }
+      return deepFreeze({
+        found: true,
+        exportDto: normalizeFinalDocumentExport(row.result, scope),
+      });
+    });
+  }
+
   async readMentorCaseProjection(rawRequest) {
     const request = snapshotExact(rawRequest, READ_REQUEST_KEYS, 'READ_REQUEST_FIELDS_UNRECOGNIZED');
     assertTargetBinding(request.binding, this.target);
@@ -1309,6 +1915,57 @@ export class AtomicRlsCaseDriver {
     return this.#runStudentCommand(command, STUDENT_COMMANDS.commitStudentWaiverReceipt);
   }
 
+  async commitStudentEvidencePublication(command) {
+    const input = normalizeStudentEvidenceCommand(command, this.target);
+    const values = [
+      input.expectedRevision,
+      input.idempotencyKey,
+      input.requestHash,
+      canonicalize(input.event),
+      input.eventHash,
+    ];
+    return this.#transact(input.scope, async (transaction) => {
+      const row = firstRow(await transaction.execute(statement(
+        ATOMIC_RLS_CASE_STATEMENTS.commitStudentEvidencePublication,
+        COMMIT_STUDENT_EVIDENCE_PUBLICATION_SQL,
+        values,
+      )));
+      if (!row) failClosed('ATOMIC_COMMAND_RECEIPT_MISSING');
+      return normalizeStudentEvidenceReceipt(row.result, { input });
+    }, {
+      caseId: input.scope.caseId,
+      expectedRevision: input.expectedRevision,
+      idempotencyKey: input.idempotencyKey,
+    });
+  }
+
+  async commitFacultyPrivateContent(command) {
+    const input = normalizeFacultyPrivateCommand(command, this.target);
+    const values = [
+      input.expectedRevision,
+      canonicalize(input.content),
+      input.idempotencyKey,
+      input.requestHash,
+      canonicalize(input.event),
+      input.eventHash,
+    ];
+    return this.#transact(input.scope, async (transaction) => {
+      const row = firstRow(
+        await transaction.execute(statement(
+          FACULTY_PRIVATE_COMMAND.statementId,
+          FACULTY_PRIVATE_COMMAND.sql,
+          values,
+        )),
+      );
+      if (!row) failClosed('ATOMIC_COMMAND_RECEIPT_MISSING');
+      return normalizeFacultyPrivateReceipt(row.result, { input });
+    }, {
+      caseId: input.scope.caseId,
+      expectedRevision: input.expectedRevision,
+      idempotencyKey: input.idempotencyKey,
+    });
+  }
+
   async commitFacultyFinalDocumentRelease(command) {
     const input = normalizeFacultyReleaseCommand(command, this.target);
     const values = [
@@ -1354,10 +2011,16 @@ export const ATOMIC_RLS_CASE_DRIVER_CONTRACT = deepFreeze({
   identityReset: null,
   studentRead: 'one_fixed_student_safe_projection_statement',
   facultyRead: 'one_fixed_seven_field_security_definer_function',
+  facultyDraftingContextRead: 'one_fixed_seven_field_actor_safe_security_definer_function',
   mentorRead: 'one_fixed_five_field_security_definer_function',
+  finalDocumentExportRead: 'one_fixed_actor_safe_security_definer_function',
   actorSafeMethods: [
     ...Object.keys(STUDENT_COMMANDS),
+    'commitStudentEvidencePublication',
+    'commitFacultyPrivateContent',
     'commitFacultyFinalDocumentRelease',
+    'readFinalDocumentExport',
+    'readFacultyDraftingContext',
   ],
   securityDefinerFunctions: [
     ...Object.values(STUDENT_COMMANDS).map(({ sql }) => (
@@ -1365,6 +2028,10 @@ export const ATOMIC_RLS_CASE_DRIVER_CONTRACT = deepFreeze({
     )),
     'read_mentor_case_projection',
     'read_faculty_case_projection',
+    'read_faculty_drafting_context',
+    'read_final_document_export',
+    'commit_student_evidence_publication',
+    'commit_faculty_private_content',
     'commit_faculty_final_document_release',
   ],
   commandReceiptSchema: ATOMIC_COMMAND_RECEIPT_SCHEMA,

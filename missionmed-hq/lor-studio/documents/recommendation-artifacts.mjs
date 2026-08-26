@@ -50,8 +50,6 @@ function validateModel(model) {
     caseId,
     title,
     privacyClass,
-    studentDisplayName: requiredString(model.studentDisplayName, 'studentDisplayName', 300),
-    facultyDisplayName: requiredString(model.facultyDisplayName, 'facultyDisplayName', 300),
     sections,
     provenance: model.provenance.map((item, index) => ({
       sourceType: requiredString(item?.sourceType, `provenance[${index}].sourceType`, 80),
@@ -71,12 +69,10 @@ function paragraphXml(text, style = '') {
 function makeDocx(model) {
   const body = [
     paragraphXml(model.title, 'Title'),
-    paragraphXml(`Applicant: ${model.studentDisplayName}`),
     ...model.sections.flatMap((section) => [
       paragraphXml(section.heading, 'Heading1'),
       ...section.paragraphs.map((paragraph) => paragraphXml(paragraph)),
     ]),
-    paragraphXml(`Final wording approved and signature attested by ${model.facultyDisplayName}.`),
     '<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>',
   ].join('');
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}</w:body></w:document>`;
@@ -84,7 +80,10 @@ function makeDocx(model) {
   const contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/></Types>';
   const rootRelations = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/></Relationships>';
   const documentRelations = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
-  const core = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${escapeXml(model.title)}</dc:title><dc:creator>MissionMed LOR Studio</dc:creator><cp:keywords>${escapeXml(`case:${model.caseId};privacy:${model.privacyClass}`)}</cp:keywords><dcterms:created xsi:type="dcterms:W3CDTF">${escapeXml(model.approvedAt)}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${escapeXml(model.approvedAt)}</dcterms:modified></cp:coreProperties>`;
+  // The artifact audit receipt retains the actor/case/document binding server-side. Embedding the
+  // database case identifier in a portable Office file adds no reader value and leaks an internal
+  // principal-adjacent locator when the file is forwarded outside MissionMed.
+  const core = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${escapeXml(model.title)}</dc:title><dc:creator>MissionMed LOR Studio</dc:creator><cp:keywords>${escapeXml(`privacy:${model.privacyClass}`)}</cp:keywords><dcterms:created xsi:type="dcterms:W3CDTF">${escapeXml(model.approvedAt)}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${escapeXml(model.approvedAt)}</dcterms:modified></cp:coreProperties>`;
   return createZip([
     ['[Content_Types].xml', contentTypes],
     ['_rels/.rels', rootRelations],
@@ -141,12 +140,11 @@ function wrapLine(value, width = 88) {
 }
 
 function makePdf(model) {
-  const lines = [model.title, '', `Applicant: ${model.studentDisplayName}`, ''];
+  const lines = [model.title, ''];
   for (const section of model.sections) {
     lines.push(section.heading.toUpperCase());
     for (const paragraph of section.paragraphs) lines.push(...wrapLine(paragraph), '');
   }
-  lines.push('', `Final wording approved and signature attested by ${model.facultyDisplayName}.`);
   const pages = [];
   for (let index = 0; index < lines.length; index += 46) pages.push(lines.slice(index, index + 46));
 

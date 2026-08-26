@@ -8,16 +8,26 @@ import {
   OPERATIONAL_READINESS_CONTRACT,
 } from '../../lor-studio/adapters/operational-readiness-adapters.mjs';
 import {
+  PRODUCTION_DEPENDENCY_RECEIPT_SCHEMA,
+  PRODUCTION_OPERATIONAL_READINESS_CONTRACT,
+  createProductionOperationalReadiness,
+  productionOperationalReadinessTargetRef,
+} from '../../lor-studio/adapters/production-operational-readiness.mjs';
+import {
   PostmarkFacultyInvitationAdapter,
   RecipientBoundOtpAdapter,
 } from '../../lor-studio/adapters/faculty-otp-postmark-adapters.mjs';
+import { PostmarkFacultyInvitationTransport } from '../../lor-studio/adapters/postmark-faculty-invitation-transport.mjs';
 import {
   LOR_TARGET_BINDING_SCHEMA,
   LOR_TARGET_IDENTITY_FIELDS,
   isDeniedTargetIdentifier,
   resolveLorTargetBinding,
 } from '../../lor-studio/adapters/lor-target-binding.mjs';
-import { PrivateVersionedStorageAdapter } from '../../lor-studio/adapters/private-versioned-storage-adapter.mjs';
+import {
+  PrivateVersionedStorageAdapter,
+  isVerifiedPrivateVersionedStorageAdapter,
+} from '../../lor-studio/adapters/private-versioned-storage-adapter.mjs';
 import { ProductionHydrationAdapter } from '../../lor-studio/adapters/production-hydration-adapter.mjs';
 import { WordPressEntitlementConsumer } from '../../lor-studio/adapters/wordpress-entitlement-consumer.mjs';
 import { createWaiverReceipt } from '../../lor-studio/domain/receipts.js';
@@ -163,6 +173,65 @@ const POSTMARK_BINDING = Object.freeze({
   invitationRouteTemplate: '/lor-studio/invitations/{invitationId}',
   templateAlias: 'lor-faculty-invitation-v1',
 });
+
+const POSTMARK_TRANSPORT_BINDING = Object.freeze({
+  schemaVersion: 'missionmed.lor.postmark-transport-binding.v1',
+  provider: 'postmark',
+  providerResourceBound: true,
+  independentlyVerified: true,
+  serverId: 'postmark-server-tranche-test',
+  senderIdentityVerified: true,
+  templateVerified: true,
+  fromEmail: 'lor@example.test',
+  replyToEmail: '',
+  invitationOrigin: 'https://example.test',
+  invitationRouteTemplate: '/lor-studio/invitations/{invitationId}',
+  templateAlias: 'lor-faculty-invitation-v1',
+  messageStream: 'outbound',
+});
+
+function postmarkTransport({ onRequest = () => {}, fail = false } = {}) {
+  return new PostmarkFacultyInvitationTransport({
+    binding: POSTMARK_TRANSPORT_BINDING,
+    credentialProvider: {
+      serverOnly: true,
+      async getServerToken() { return 'postmark-tranche-test-token'; },
+    },
+    clock: () => T0,
+    timeoutMs: 100,
+    async fetchImplementation(url, options) {
+      if (fail) throw new Error('POSTMARK_SECRET writer@example.test invitation-error-boundary');
+      const body = JSON.parse(options.body);
+      onRequest({
+        protectedLetterContent: null,
+        invitationUrl: body.TemplateModel.invitation_url,
+        oneTimeCode: body.TemplateModel.one_time_code,
+      });
+      const payload = JSON.stringify({
+        ErrorCode: 0,
+        Message: 'OK',
+        MessageID: 'provider-message-1',
+        SubmittedAt: T0.toISOString(),
+        To: body.To,
+      });
+      return {
+        url,
+        status: 200,
+        ok: true,
+        headers: {
+          get(name) {
+            if (String(name).toLowerCase() === 'content-type') return 'application/json';
+            if (String(name).toLowerCase() === 'content-length') {
+              return String(Buffer.byteLength(payload, 'utf8'));
+            }
+            return null;
+          },
+        },
+        async text() { return payload; },
+      };
+    },
+  });
+}
 
 const STORAGE_BINDING = Object.freeze({
   providerResourceBound: true,
@@ -332,6 +401,30 @@ function facultyProjection(overrides = {}) {
   };
 }
 
+function facultyDraftingContext(overrides = {}) {
+  const text = 'The student coordinated a longitudinal community health project.';
+  return {
+    schemaVersion: 'missionmed.lor.faculty-drafting-context.v1',
+    id: 'case-1',
+    studentId: 'wp:42',
+    status: 'faculty_review',
+    faculty: {
+      facultyId: 'wp:43',
+      verifiedAt: '2026-08-09T14:59:00.000Z',
+      recipientEmailHash: sha256('faculty@example.test'),
+    },
+    consentReceipts: [{ id: 'consent-ai-1' }],
+    studentEvidence: [{
+      id: 'evidence-ai-1',
+      caseId: 'case-1',
+      text,
+      contentHash: sha256(text),
+      consentReceiptId: 'consent-ai-1',
+    }],
+    ...overrides,
+  };
+}
+
 function facultyReleaseReceipt(command, state, overrides = {}) {
   return {
     schemaVersion: 'missionmed.lor.atomic-command-receipt.v2',
@@ -349,6 +442,28 @@ function facultyReleaseReceipt(command, state, overrides = {}) {
     eventHash: hashValue(command.event),
     auditEventRef: command.event.eventRef,
     transactionId: 'faculty-release-transaction-test-only',
+    state,
+    ...overrides,
+  };
+}
+
+function facultyPrivateReceipt(command, state, overrides = {}) {
+  return {
+    schemaVersion: 'missionmed.lor.atomic-command-receipt.v2',
+    action: 'faculty.private_content_update',
+    committed: true,
+    replayed: false,
+    sameTransaction: true,
+    caseId: state.caseId,
+    studentId: 'wp:42',
+    revision: state.revision,
+    idempotencyKey: command.idempotencyKey,
+    requestHash: command.requestHash,
+    safeRecordHash: sha256('database-owned-safe-state-private-hash'),
+    protectedStateHash: sha256('database-owned-protected-state-private-hash'),
+    eventHash: hashValue(command.event),
+    auditEventRef: command.event.eventRef,
+    transactionId: 'faculty-private-transaction-test-only',
     state,
     ...overrides,
   };
@@ -401,6 +516,12 @@ function durableDriver(overrides = {}) {
     async readFacultyCaseProjection() {
       return { found: false, projection: null };
     },
+    async readFacultyDraftingContext() {
+      return { found: false, context: null };
+    },
+    async readFinalDocumentExport() {
+      throw new Error('final-document export not configured in this test driver');
+    },
     async readMentorCaseProjection(command) {
       return {
         found: true,
@@ -430,6 +551,9 @@ function durableDriver(overrides = {}) {
     },
     async commitStudentWaiverReceipt(command) {
       return executeStudentCommand({ ...command, commandType: 'student.waiver.record' });
+    },
+    async commitFacultyPrivateContent() {
+      throw new Error('faculty-private authoring not configured in this student test driver');
     },
     async commitFacultyFinalDocumentRelease() {
       throw new Error('faculty release not configured in this student test driver');
@@ -961,8 +1085,33 @@ test('durable repository exposes only actor-safe DTO reads and validates the exa
   }), state);
 });
 
-test('durable faculty service reads and releases through the seven-field DTO without hydrating an aggregate', async () => {
+test('durable faculty service reads, authors, and releases through actor-safe DTOs without hydrating an aggregate', async () => {
   const beforeRelease = facultyProjection();
+  const exportDto = {
+    schemaVersion: 'missionmed.lor.final-document-export.v1',
+    caseId: 'case-1',
+    studentId: 'wp:42',
+    actorRef: `actor_${sha256('lor-studio:actor:wp:43')}`,
+    actorRole: 'faculty',
+    revision: 7,
+    finalDocument: {
+      contentHash: null,
+      id: 'document-1',
+      mimeType: null,
+      releasedToStudentAt: null,
+      text: 'Approved final letter',
+    },
+    documentState: 'faculty_final',
+    facultyApproval: {
+      approved: true,
+      approvedAt: T0,
+      facultyRef: `faculty_${sha256('lor-studio:faculty:wp:43')}`,
+      signatureAttested: true,
+    },
+    waiverState: { decided: true, receiptId: 'waiver-receipt-1', waived: false },
+    release: null,
+    exportProjection: 'faculty_owner',
+  };
   const calls = [];
   let protectedAggregateReads = 0;
   let entitlementReads = 0;
@@ -974,6 +1123,25 @@ test('durable faculty service reads and releases through the seven-field DTO wit
     async readFacultyCaseProjection(command) {
       calls.push({ type: 'read', command });
       return { found: true, projection: beforeRelease };
+    },
+    async readFinalDocumentExport(command) {
+      calls.push({ type: 'export', command });
+      return { found: true, exportDto };
+    },
+    async commitFacultyPrivateContent(command) {
+      calls.push({ type: 'author', command });
+      return facultyPrivateReceipt(command, facultyProjection({
+        revision: command.expectedRevision + 1,
+        facultyPrivate: {
+          answers: command.content.answers,
+          notes: command.content.notes,
+          draftText: command.content.draftText,
+          finalDocument: {
+            ...command.content.finalDocument,
+            releasedToStudentAt: null,
+          },
+        },
+      }));
     },
     async commitFacultyFinalDocumentRelease(command) {
       calls.push({ type: 'release', command });
@@ -1016,18 +1184,41 @@ test('durable faculty service reads and releases through the seven-field DTO wit
     clock: () => new Date('2026-08-09T15:00:00.000Z'),
   });
 
+  const exportRead = await repository.readFinalDocumentExport({
+    caseId: 'case-1',
+    actorId: 'wp:43',
+    actorRole: 'faculty',
+  });
   const read = await service.getCaseProjection({
     caseId: 'case-1',
     actor: { id: 'wp:43', role: 'faculty' },
   });
-  const released = await service.releaseFinalDocument({
+  const authored = await service.saveFacultyPrivateContent({
     caseId: 'case-1',
     actor: { id: 'wp:43', role: 'faculty' },
     expectedRevision: 7,
+    idempotencyKey: 'faculty-private-1',
+    answers: [],
+    notes: [{ text: 'private note' }],
+    draftText: 'Updated private draft',
+    finalDocument: {
+      contentHash: null,
+      id: 'document-1',
+      mimeType: 'text/plain',
+      text: 'Approved final letter',
+    },
+    documentState: 'faculty_final',
+    facultyApproval: { approved: true, signatureAttested: true },
+  });
+  const released = await service.releaseFinalDocument({
+    caseId: 'case-1',
+    actor: { id: 'wp:43', role: 'faculty' },
+    expectedRevision: 8,
     documentId: 'document-1',
     idempotencyKey: 'faculty-release-1',
   });
 
+  assert.deepEqual(exportRead, exportDto);
   assert.deepEqual(Object.keys(read), [
     'schemaVersion',
     'caseId',
@@ -1037,14 +1228,32 @@ test('durable faculty service reads and releases through the seven-field DTO wit
     'facultyPrivate',
     'delivery',
   ]);
-  assert.equal(released.revision, 8);
+  assert.equal(authored.revision, 8);
+  assert.equal(released.revision, 9);
   assert.equal(released.facultyPrivate.finalDocument.contentHash, null);
   assert.equal(released.facultyPrivate.finalDocument.mimeType, null);
   assert.equal(released.facultyPrivate.finalDocument.releasedToStudentAt, '2026-08-09T15:00:00.000Z');
   assert.equal(protectedAggregateReads, 0);
   assert.equal(entitlementReads, 0);
-  assert.deepEqual(calls.map(({ type }) => type), ['read', 'release']);
-  assert.deepEqual(Object.keys(calls[1].command), [
+  assert.deepEqual(calls.map(({ type }) => type), ['export', 'read', 'author', 'release']);
+  assert.deepEqual(Object.keys(calls[0].command), ['binding', 'scope', 'caseId']);
+  assert.deepEqual(Object.keys(calls[2].command), [
+    'binding',
+    'scope',
+    'expectedRevision',
+    'content',
+    'idempotencyKey',
+    'requestHash',
+    'event',
+  ]);
+  assert.deepEqual(calls[2].command.content.facultyApproval, {
+    approved: true,
+    approvedAt: '2026-08-09T15:00:00.000Z',
+    facultyId: 'wp:43',
+    signatureAttested: true,
+  });
+  assert.equal('releasedToStudentAt' in calls[2].command.content.finalDocument, false);
+  assert.deepEqual(Object.keys(calls[3].command), [
     'binding',
     'scope',
     'expectedRevision',
@@ -1053,10 +1262,63 @@ test('durable faculty service reads and releases through the seven-field DTO wit
     'requestHash',
     'event',
   ]);
-  assert.equal(calls[1].command.scope.invitationId, 'invitation-1');
-  assert.equal(calls[1].command.scope.purpose, 'faculty_private_edit');
-  assert.equal('record' in calls[1].command, false);
-  assert.equal('facultyPrivate' in calls[1].command, false);
+  assert.equal(calls[3].command.scope.invitationId, 'invitation-1');
+  assert.equal(calls[3].command.scope.purpose, 'faculty_private_edit');
+  assert.equal('record' in calls[3].command, false);
+  assert.equal('facultyPrivate' in calls[3].command, false);
+});
+
+test('durable faculty drafting context never hydrates the full aggregate and rejects DTO widening', async () => {
+  let context = facultyDraftingContext();
+  let protectedAggregateReads = 0;
+  const calls = [];
+  const repository = new SupabaseDurableRecommendationCaseRepository({
+    binding: SUPABASE_BINDING,
+    driver: durableDriver({
+      async selectCase() {
+        protectedAggregateReads += 1;
+        throw new Error('full aggregate read must remain fail-closed');
+      },
+      async readFacultyDraftingContext(command) {
+        calls.push(command);
+        return { found: true, context };
+      },
+    }),
+    scopeProvider: ({ caseId, operation }) => serverScope({
+      caseId,
+      operation,
+      authenticatedSubject: 'wp:43',
+      actorId: 'wp:43',
+      actorRole: 'faculty',
+      resourceStudentId: 'wp:42',
+      purpose: 'faculty_private_edit',
+      invitationId: 'invitation-1',
+    }),
+  });
+
+  assert.deepEqual(await repository.readFacultyDraftingContext({
+    caseId: 'case-1',
+    actorId: 'wp:43',
+  }), context);
+  assert.equal(protectedAggregateReads, 0);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(Object.keys(calls[0]), ['binding', 'scope', 'caseId']);
+
+  context = { ...facultyDraftingContext(), facultyPrivate: {} };
+  await assert.rejects(
+    () => repository.readFacultyDraftingContext({ caseId: 'case-1', actorId: 'wp:43' }),
+    /integration is unavailable/u,
+  );
+  context = facultyDraftingContext({
+    studentEvidence: [{
+      ...facultyDraftingContext().studentEvidence[0],
+      consentReceiptId: 'unbound-consent',
+    }],
+  });
+  await assert.rejects(
+    () => repository.readFacultyDraftingContext({ caseId: 'case-1', actorId: 'wp:43' }),
+    /integration is unavailable/u,
+  );
 });
 
 test('durable repository rejects malformed actor-safe command receipts and cross-subject reads', async () => {
@@ -1730,30 +1992,22 @@ test('Postmark adapter requires a verified binding and returns only a recipient/
   const adapter = new PostmarkFacultyInvitationAdapter({
     binding: POSTMARK_BINDING,
     clock: () => T0,
-    transport: {
-      async sendBoundInvitation(request) {
-        sent = request;
-        return {
-          accepted: true,
-          invitationId: request.invitationId,
-          recipientEmailHash: request.recipientEmailHash,
-          invitationPath: new URL(request.invitationUrl).pathname,
-          templateAlias: request.templateAlias,
-          messageId: 'provider-message-1',
-          acceptedAt: T0.toISOString(),
-        };
-      },
-    },
+    transport: postmarkTransport({ onRequest(request) { sent = request; } }),
   });
   const receipt = await adapter.sendFacultyInvitation({
     invitationId: 'invitation-1',
+    invitationToken: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     recipientEmail,
     recipientEmailHash,
     invitationUrl: 'https://example.test/lor-studio/invitations/invitation-1',
+    oneTimeCode: '482901',
+    otpExpiresAt: '2026-08-09T12:10:00.000Z',
     expiresAt: '2026-08-09T13:00:00.000Z',
     templateAlias: 'lor-faculty-invitation-v1',
   });
   assert.equal(sent.protectedLetterContent, null);
+  assert.equal(new URL(sent.invitationUrl).hash, '#token=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
+  assert.equal(sent.oneTimeCode, '482901');
   assert.equal(receipt.recipientAndInvitationBound, true);
   assert.doesNotMatch(JSON.stringify(receipt), /writer@example\.test|invitation-1|provider-message-1/u);
   for (const requestOverride of [
@@ -1764,9 +2018,12 @@ test('Postmark adapter requires a verified binding and returns only a recipient/
     await assert.rejects(
       () => adapter.sendFacultyInvitation({
         invitationId: 'invitation-1',
+        invitationToken: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
         recipientEmail,
         recipientEmailHash,
         invitationUrl: 'https://example.test/lor-studio/invitations/invitation-1',
+        oneTimeCode: '482901',
+        otpExpiresAt: '2026-08-09T12:10:00.000Z',
         expiresAt: '2026-08-09T13:00:00.000Z',
         templateAlias: 'lor-faculty-invitation-v1',
         ...requestOverride,
@@ -1774,34 +2031,6 @@ test('Postmark adapter requires a verified binding and returns only a recipient/
       /exact verified invitation route|template alias/u,
     );
   }
-  const unboundProviderProof = new PostmarkFacultyInvitationAdapter({
-    binding: POSTMARK_BINDING,
-    clock: () => T0,
-    transport: {
-      async sendBoundInvitation(request) {
-        return {
-          accepted: true,
-          invitationId: request.invitationId,
-          recipientEmailHash: request.recipientEmailHash,
-          invitationPath: new URL(request.invitationUrl).pathname,
-          templateAlias: 'wrong-template',
-          messageId: 'provider-message-2',
-          acceptedAt: T0.toISOString(),
-        };
-      },
-    },
-  });
-  await assert.rejects(
-    () => unboundProviderProof.sendFacultyInvitation({
-      invitationId: 'invitation-1',
-      recipientEmail,
-      recipientEmailHash,
-      invitationUrl: 'https://example.test/lor-studio/invitations/invitation-1',
-      expiresAt: '2026-08-09T13:00:00.000Z',
-      templateAlias: 'lor-faculty-invitation-v1',
-    }),
-    /integration is unavailable/u,
-  );
   assert.throws(
     () => new PostmarkFacultyInvitationAdapter({ binding: POSTMARK_BINDING, transport: {} }),
     /integration is unavailable/u,
@@ -1813,20 +2042,19 @@ test('Postmark transport failures and attacker-selected request keys produce onl
   const recipientEmailHash = hashFacultyEmail(recipientEmail);
   const request = {
     invitationId: 'invitation-error-boundary',
+    invitationToken: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
     recipientEmail,
     recipientEmailHash,
     invitationUrl: 'https://example.test/lor-studio/invitations/invitation-error-boundary',
+    oneTimeCode: '735120',
+    otpExpiresAt: '2026-08-09T12:10:00.000Z',
     expiresAt: '2026-08-09T13:00:00.000Z',
     templateAlias: 'lor-faculty-invitation-v1',
   };
   const adapter = new PostmarkFacultyInvitationAdapter({
     binding: POSTMARK_BINDING,
     clock: () => T0,
-    transport: {
-      async sendBoundInvitation() {
-        throw new Error('POSTMARK_SECRET writer@example.test invitation-error-boundary');
-      },
-    },
+    transport: postmarkTransport({ fail: true }),
   });
   await assert.rejects(() => adapter.sendFacultyInvitation(request), (error) => {
     assert.equal(error.code, 'INTEGRATION_DISABLED');
@@ -1980,6 +2208,12 @@ test('private storage uses a trusted capability provider, immutable versions, po
     },
   };
   const adapter = privateStorageAdapter(driver);
+  assert.equal(isVerifiedPrivateVersionedStorageAdapter(adapter), true);
+  assert.equal(isVerifiedPrivateVersionedStorageAdapter({
+    durability: 'DURABLE_PROVIDER_BOUND',
+    async put() {},
+    async get() {},
+  }), false);
   const putReceipt = await adapter.put({
     caseId: 'case-1',
     objectId: 'object-1',
@@ -2326,6 +2560,178 @@ function healthDependencies(overrides = {}) {
     overrides[name] ?? { async probe() { return { state: 'ready', errorCode: '' }; } },
   ]));
 }
+
+function productionDatabaseReadiness(overrides = {}) {
+  return {
+    async probe() {
+      return {
+        ready: true,
+        reasonCode: 'READY',
+        checks: { protectedDiagnostic: 'must-never-escape' },
+        groups: {
+          auditCatalog: true,
+          database: true,
+          repository: true,
+          rls: true,
+        },
+        ...overrides,
+      };
+    },
+  };
+}
+
+function productionProviderReceipts(binding, overrides = {}) {
+  const targetRef = productionOperationalReadinessTargetRef(binding);
+  return Object.fromEntries(
+    PRODUCTION_OPERATIONAL_READINESS_CONTRACT.providerReceiptDependencies.map((dependency) => [
+      dependency,
+      {
+        schemaVersion: PRODUCTION_DEPENDENCY_RECEIPT_SCHEMA,
+        dependency,
+        state: 'ready',
+        errorCode: '',
+        targetRef,
+        evidenceRef: sha256(`production-readiness:${dependency}`),
+        observedAt: '2026-08-09T11:59:00.000Z',
+        expiresAt: '2026-08-09T12:10:00.000Z',
+        ...(overrides[dependency] ?? {}),
+      },
+    ]),
+  );
+}
+
+test('production readiness fails closed for every unwired provider while exposing only boolean database groups', async () => {
+  const readiness = createProductionOperationalReadiness({
+    binding: SUPABASE_PRODUCTION_BINDING,
+    runtimeReadiness: productionDatabaseReadiness(),
+    flags: { enabled: true, killSwitch: false, requireCanary: true },
+    clock: () => T0,
+  });
+  const snapshot = await readiness.snapshot();
+  assert.equal(snapshot.status, 'blocked');
+  assert.equal(snapshot.productionOperational, false);
+  assert.deepEqual(snapshot.databaseProbeGroups, {
+    auditCatalog: true,
+    database: true,
+    repository: true,
+    rls: true,
+  });
+  assert.equal(snapshot.dependencies.repository.state, 'ready');
+  assert.equal(snapshot.dependencies.rls.state, 'ready');
+  for (const dependency of PRODUCTION_OPERATIONAL_READINESS_CONTRACT.providerReceiptDependencies) {
+    assert.equal(snapshot.dependencies[dependency].state, 'unavailable');
+    assert.equal(snapshot.dependencies[dependency].errorCode, 'DEPENDENCY_NOT_BOUND');
+  }
+  assert.equal(Object.isFrozen(snapshot.databaseProbeGroups), true);
+  assert.doesNotMatch(
+    JSON.stringify(snapshot),
+    /must-never-escape|lor-tranche-production|production-readiness/u,
+  );
+});
+
+test('raw caller-created provider receipts cannot mint production readiness', async () => {
+  const receipts = productionProviderReceipts(SUPABASE_PRODUCTION_BINDING);
+  const readiness = createProductionOperationalReadiness({
+    binding: SUPABASE_PRODUCTION_BINDING,
+    runtimeReadiness: productionDatabaseReadiness(),
+    providerReceipts: receipts,
+    flags: { enabled: true, killSwitch: false, requireCanary: false },
+    clock: () => T0.valueOf(),
+  });
+  const snapshot = await readiness.snapshot();
+  assert.equal(snapshot.status, 'blocked');
+  assert.equal(snapshot.productionOperational, false);
+  assert.equal(
+    PRODUCTION_OPERATIONAL_READINESS_CONTRACT.providerReceiptDependencies.every(
+      (dependency) => snapshot.dependencies[dependency].state === 'unavailable',
+    ),
+    true,
+  );
+  assert.doesNotMatch(
+    JSON.stringify(snapshot),
+    new RegExp(productionOperationalReadinessTargetRef(SUPABASE_PRODUCTION_BINDING), 'u'),
+  );
+
+  assert.equal(failClosedStatus(() => createProductionOperationalReadiness({
+    binding: SUPABASE_BINDING,
+    runtimeReadiness: productionDatabaseReadiness(),
+  })), 'PRODUCTION_TARGET_REQUIRED');
+  assert.equal(failClosedStatus(
+    () => productionOperationalReadinessTargetRef({ ...SUPABASE_PRODUCTION_BINDING }),
+  ), 'VALIDATED_TARGET_BINDING_REQUIRED');
+});
+
+test('production readiness rejects stale, future, overlong, cross-target, and non-exact receipts', async () => {
+  const invalidStorageReceipts = [
+    { observedAt: '2026-08-09T11:54:59.000Z' },
+    { observedAt: '2026-08-09T12:00:31.000Z', expiresAt: '2026-08-09T12:10:00.000Z' },
+    { expiresAt: '2026-08-09T12:14:01.000Z' },
+    { expiresAt: '2026-08-09T12:00:00.000Z' },
+    { targetRef: productionOperationalReadinessTargetRef(SUPABASE_BINDING) },
+    { unexpected: 'must-not-escape' },
+  ];
+  for (const receiptOverride of invalidStorageReceipts) {
+    const readiness = createProductionOperationalReadiness({
+      binding: SUPABASE_PRODUCTION_BINDING,
+      runtimeReadiness: productionDatabaseReadiness(),
+      providerReceipts: productionProviderReceipts(SUPABASE_PRODUCTION_BINDING, {
+        storage: receiptOverride,
+      }),
+      flags: { enabled: true, killSwitch: false, requireCanary: true },
+      clock: () => T0,
+    });
+    const snapshot = await readiness.snapshot();
+    assert.equal(snapshot.status, 'blocked');
+    assert.equal(snapshot.dependencies.storage.state, 'unavailable');
+    assert.doesNotMatch(JSON.stringify(snapshot), /must-not-escape/u);
+  }
+});
+
+test('production readiness preserves bounded database diagnostics while failures remain closed', async () => {
+  const runtimeReadiness = productionDatabaseReadiness({
+    ready: false,
+    reasonCode: 'CATALOG_FINGERPRINT_MISMATCH',
+    groups: {
+      auditCatalog: true,
+      database: false,
+      repository: true,
+      rls: false,
+    },
+  });
+  const readiness = createProductionOperationalReadiness({
+    binding: SUPABASE_PRODUCTION_BINDING,
+    runtimeReadiness,
+    providerReceipts: productionProviderReceipts(SUPABASE_PRODUCTION_BINDING),
+    flags: { enabled: true, killSwitch: false, requireCanary: true },
+    clock: () => T0,
+  });
+  const snapshot = await readiness.snapshot();
+  assert.equal(snapshot.status, 'blocked');
+  assert.deepEqual(snapshot.databaseProbeGroups, {
+    auditCatalog: true,
+    database: false,
+    repository: true,
+    rls: false,
+  });
+  assert.equal(snapshot.dependencies.repository.errorCode, 'DEPENDENCY_NOT_DURABLE');
+  assert.equal(snapshot.dependencies.rls.errorCode, 'DEPENDENCY_POLICY_UNVERIFIED');
+  assert.equal(snapshot.dependencies.audit.errorCode, 'DEPENDENCY_POLICY_UNVERIFIED');
+
+  const invalidClock = createProductionOperationalReadiness({
+    binding: SUPABASE_PRODUCTION_BINDING,
+    runtimeReadiness: {
+      async probe() { throw new Error('database-secret'); },
+    },
+    providerReceipts: productionProviderReceipts(SUPABASE_PRODUCTION_BINDING),
+    flags: { enabled: true, killSwitch: false, requireCanary: true },
+    clock: () => new Date(Number.NaN),
+  });
+  const invalidClockSnapshot = await invalidClock.snapshot();
+  assert.equal(invalidClockSnapshot.status, 'blocked');
+  assert.equal(invalidClockSnapshot.at, '1970-01-01T00:00:00.000Z');
+  assert.equal(Object.values(invalidClockSnapshot.databaseProbeGroups).every((value) => !value), true);
+  assert.doesNotMatch(JSON.stringify(invalidClockSnapshot), /database-secret/u);
+});
 
 test('health is dependency-aware and metadata-only, with feature-off and kill-switch truth preserved', async () => {
   const ready = new DependencyAwareMetadataHealthAdapter({

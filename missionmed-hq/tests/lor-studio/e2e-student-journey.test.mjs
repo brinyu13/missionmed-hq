@@ -330,7 +330,14 @@ async function probeUnauthorisedAccess(harness, caseId, checkpoint) {
       pathname: `${casePath(caseId)}/receipts`,
       method: 'POST',
       principal: 'otherStudent',
-      body: { expectedRevision: 0, receiptType: 'consent', receiptData: { policyVersion: 'v1', scopes: ['all'] } },
+      body: {
+        expectedRevision: 0,
+        receiptType: 'consent',
+        receiptData: {
+          policyVersion: 'dr-133-identified-education-record-v1',
+          scopes: ['builder_autosave', 'faculty_handoff', 'ai_drafting', 'evidence_grounding'],
+        },
+      },
       idempotencyKey: key('probe-receipt'),
     }, 404],
     ['otherStudent releases the letter', {
@@ -582,8 +589,8 @@ test('LOR Studio student journey survives a real HTTP round trip end to end', as
       expectedRevision: revision,
       receiptType: 'consent',
       receiptData: {
-        policyVersion: 'missionmed-lor-consent-2026-01',
-        scopes: ['share_academic_record', 'share_clinical_evaluations'],
+        policyVersion: 'dr-133-identified-education-record-v1',
+        scopes: ['builder_autosave', 'faculty_handoff', 'ai_drafting', 'evidence_grounding'],
       },
     };
     const consent = await call(harness, `${casePath(caseId)}/receipts`, {
@@ -608,8 +615,8 @@ test('LOR Studio student journey survives a real HTTP round trip end to end', as
         expectedRevision: revision,
         receiptType: 'consent',
         receiptData: {
-          policyVersion: 'missionmed-lor-consent-2026-01',
-          scopes: ['share_academic_record'],
+          policyVersion: 'dr-133-identified-education-record-v1',
+          scopes: ['builder_autosave', 'faculty_handoff', 'ai_drafting', 'evidence_grounding'],
           recordedAt: '2020-01-01T00:00:00.000Z',
         },
       },

@@ -20,7 +20,7 @@
   const PRODUCTION_MOUNT_ID = 'lorProductionRoot';
 
   /**
-   * The only two projections this page knows how to present, and the actor role each one implies.
+   * The projections this page knows how to present, and the actor role each one implies.
    *
    * The role is READ OFF THE SERVER'S ANSWER, never off anything the browser decides.
    * security/authorization-policy.js chooses which projection to emit from the authenticated
@@ -32,6 +32,7 @@
   const PROJECTION_ACTOR_ROLES = new Map([
     ['missionmed.lor.student-projection.v1', 'student'],
     ['missionmed.lor.faculty-projection.v1', 'faculty'],
+    ['missionmed.lor.mentor-projection.v1', 'mentor'],
   ]);
 
   const EXPORT_FILENAME_FALLBACK = 'recommendation-letter.docx';
@@ -39,6 +40,7 @@
   /** Live binding for the authorized case. Commands refuse to address anything else. */
   let activeCaseId = '';
   let activeCsrfToken = '';
+  let pendingFacultyCandidate = null;
 
   function setUnderlyingState(blocked) {
     for (const element of document.body.children) {
@@ -204,6 +206,192 @@
   function requestedCaseId() {
     const value = String(new URLSearchParams(window.location.search).get('case') || '').trim();
     return /^[A-Za-z0-9_-]{1,200}$/u.test(value) ? value : '';
+  }
+
+  function consumeFacultyCandidateFromLocation() {
+    const match = window.location.pathname.match(
+      /^\/lor-studio\/invitations\/([A-Za-z0-9][A-Za-z0-9_.:-]{0,199})\/?$/u,
+    );
+    if (!match) return null;
+    let invitationId;
+    try {
+      invitationId = decodeURIComponent(match[1]);
+    } catch {
+      invitationId = '';
+    }
+    // The anonymous candidate-entry shell consumes the raw invitation token once, sends it only
+    // to the exact same-origin credential-sealing endpoint, and scrubs the fragment before auth.
+    // A protected page must never receive or retransmit that token. Scrub any unexpected fragment
+    // defensively and rely only on the short-lived HttpOnly server credential context.
+    try {
+      window.history?.replaceState?.(
+        null,
+        '',
+        `${window.location.pathname}${window.location.search}`,
+      );
+    } catch {
+      return { invitationId: '' };
+    }
+    if (!/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u.test(invitationId)) {
+      return { invitationId: '' };
+    }
+    return { invitationId };
+  }
+
+  function element(tag, className = '', text = '') {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text) node.textContent = text;
+    return node;
+  }
+
+  function showCandidateRuntime() {
+    root.dataset.lorRuntime = 'verification';
+    setUnderlyingState(true);
+    if (gate) {
+      gate.hidden = true;
+      gate.style.display = 'none';
+    }
+    Object.assign(window, {
+      __LOR_STUDIO_RUNTIME__: Object.freeze({ mode: 'verification', operational: true }),
+    });
+  }
+
+  async function renderFacultyCandidateVerification(bootstrap) {
+    const candidate = pendingFacultyCandidate;
+    activeCsrfToken = String(bootstrap?.csrfToken || '');
+    const mount = productionMount();
+    mount.replaceChildren();
+    const shell = element('main', 'lorCandidateVerification');
+    const card = element('section', 'lorCandidateVerification__card');
+    card.setAttribute('aria-labelledby', 'lorCandidateVerificationTitle');
+    card.appendChild(element('p', 'lorCandidateVerification__eyebrow', 'MissionMed LOR Studio'));
+    const heading = element('h1', '', 'Verify your invitation');
+    heading.id = 'lorCandidateVerificationTitle';
+    card.appendChild(heading);
+    card.appendChild(element(
+      'p',
+      'lorCandidateVerification__intro',
+      'Use the email address that received this invitation and the six-digit code in the message. Your access is granted only after both are verified.',
+    ));
+
+    if (!candidate?.invitationId || !activeCsrfToken) {
+      const status = element(
+        'div',
+        'lorCandidateVerification__status lorCandidateVerification__status--error',
+        'This invitation link is incomplete or no longer available. Ask the student to send a replacement invitation.',
+      );
+      status.setAttribute('role', 'alert');
+      card.appendChild(status);
+      shell.appendChild(card);
+      mount.appendChild(shell);
+      showCandidateRuntime();
+      return;
+    }
+
+    const form = element('form', 'lorCandidateVerification__form');
+    form.noValidate = true;
+    const emailLabel = element('label', '', 'Invited email address');
+    emailLabel.htmlFor = 'lorCandidateEmail';
+    const email = document.createElement('input');
+    email.id = 'lorCandidateEmail';
+    email.name = 'recipientEmail';
+    email.type = 'email';
+    email.autocomplete = 'email';
+    email.inputMode = 'email';
+    email.required = true;
+    email.maxLength = 320;
+    email.spellcheck = false;
+    const otpLabel = element('label', '', 'Six-digit verification code');
+    otpLabel.htmlFor = 'lorCandidateOtp';
+    const otp = document.createElement('input');
+    otp.id = 'lorCandidateOtp';
+    otp.name = 'otpCode';
+    otp.type = 'text';
+    otp.autocomplete = 'one-time-code';
+    otp.inputMode = 'numeric';
+    otp.pattern = '[0-9]{6}';
+    otp.minLength = 6;
+    otp.maxLength = 6;
+    otp.required = true;
+    const submit = element('button', '', 'Verify and open LOR Studio');
+    submit.type = 'submit';
+    const status = element('div', 'lorCandidateVerification__status');
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    form.append(emailLabel, email, otpLabel, otp, submit, status);
+    card.appendChild(form);
+    card.appendChild(element(
+      'p',
+      'lorCandidateVerification__privacy',
+      'The invitation token and code are used only for this protected verification request and are never stored in this browser.',
+    ));
+    shell.appendChild(card);
+    mount.appendChild(shell);
+    showCandidateRuntime();
+    email.focus();
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const recipientEmail = String(email.value || '').trim();
+      const otpCode = String(otp.value || '').trim();
+      if (!recipientEmail || !/^[0-9]{6}$/u.test(otpCode)) {
+        status.className = 'lorCandidateVerification__status lorCandidateVerification__status--error';
+        status.textContent = 'Enter the invited email address and the complete six-digit code.';
+        return;
+      }
+      submit.disabled = true;
+      email.disabled = true;
+      otp.disabled = true;
+      status.className = 'lorCandidateVerification__status';
+      status.textContent = 'Verifying your invitation securely…';
+      const result = await commandRequest(
+        `/api/lor-studio/invitations/${encodeURIComponent(candidate.invitationId)}/verify`,
+        {
+          method: 'POST',
+          csrfToken: activeCsrfToken,
+          body: { otpCode, recipientEmail },
+        },
+      );
+      const caseId = result.status === 200
+        ? String(result.body?.verification?.caseId || '')
+        : '';
+      if (/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u.test(caseId)
+        && result.body?.verification?.verified === true) {
+        pendingFacultyCandidate = null;
+        status.className = 'lorCandidateVerification__status lorCandidateVerification__status--success';
+        status.textContent = 'Invitation verified. Opening your private letter workspace…';
+        try {
+          window.history?.replaceState?.(null, '', `/lor-studio/?case=${encodeURIComponent(caseId)}`);
+        } catch {
+          /* the verified case is still opened below through its actor-safe API */
+        }
+        const ui = resolveProductionProjectionUi();
+        if (ui) {
+          await loadAndRenderCase(ui, caseId);
+        } else {
+          mount.replaceChildren();
+          showState({
+            heading: 'Invitation verified',
+            detail: 'Your private letter workspace is ready. Continue to LOR Studio.',
+            reason: 'faculty_verification_complete',
+          });
+          addAction('Open LOR Studio', null, {
+            href: `/lor-studio/?case=${encodeURIComponent(caseId)}`,
+          });
+        }
+        return;
+      }
+      submit.disabled = false;
+      email.disabled = false;
+      otp.disabled = false;
+      otp.value = '';
+      status.className = 'lorCandidateVerification__status lorCandidateVerification__status--error';
+      status.textContent = result.reached
+        ? 'We could not verify that invitation. Check the email and code, or ask the student to send a replacement.'
+        : 'MissionMed could not be reached. Nothing was changed; please try again.';
+      otp.focus();
+    });
   }
 
   function newIdempotencyKey() {
@@ -388,6 +576,100 @@
           body: { expectedRevision, receiptType, receiptData },
         });
       },
+      publishStudentEvidence: async ({ caseId, expectedRevision }) => {
+        const id = bound(caseId);
+        if (!id) return refused;
+        return commandRequest(`${casePath(id)}/evidence/publish`, {
+          method: 'POST',
+          csrfToken: activeCsrfToken,
+          // Evidence text, identifiers, hashes, consent bindings, provenance and visibility are
+          // all derived by PostgreSQL from the locked case. The browser sends only its revision.
+          body: { expectedRevision },
+        });
+      },
+      inviteFaculty: async ({ caseId, expectedRevision, recipientEmail }) => {
+        const id = bound(caseId);
+        if (!id) return refused;
+        return commandRequest(`${casePath(id)}/faculty-invitations`, {
+          method: 'POST',
+          csrfToken: activeCsrfToken,
+          // The server derives the student, case, invitation identity and recipient hash.
+          body: { expectedRevision, recipientEmail },
+        });
+      },
+      resendFacultyOtp: async ({ caseId, recipientEmail }) => {
+        const id = bound(caseId);
+        if (!id) return refused;
+        return commandRequest(`${casePath(id)}/faculty-invitations/otp/resend`, {
+          method: 'POST',
+          csrfToken: activeCsrfToken,
+          // The database resolves the active invitation and invalidates every prior challenge.
+          body: { recipientEmail },
+        });
+      },
+      revokeFacultyInvitation: async ({ caseId }) => {
+        const id = bound(caseId);
+        if (!id) return refused;
+        return commandRequest(`${casePath(id)}/faculty-invitations/revoke`, {
+          method: 'POST',
+          csrfToken: activeCsrfToken,
+          // The database resolves the active invitation; no client locator or reason crosses.
+          body: {},
+        });
+      },
+      saveFacultyPrivateContent: async ({
+        caseId,
+        expectedRevision,
+        answers,
+        notes,
+        draftText,
+        finalDocument,
+        documentState,
+        facultyApproval,
+      }) => {
+        const id = bound(caseId);
+        if (!id) return refused;
+        return commandRequest(`${casePath(id)}/faculty-private`, {
+          method: 'PATCH',
+          csrfToken: activeCsrfToken,
+          // Actor identity and approval time are server-owned and intentionally absent.
+          body: {
+            expectedRevision,
+            answers,
+            notes,
+            draftText,
+            finalDocument,
+            documentState,
+            facultyApproval,
+          },
+        });
+      },
+      requestAiProposal: async ({ caseId, factIds = null }) => {
+        const id = bound(caseId);
+        if (!id) return refused;
+        return commandRequest(`${casePath(id)}/ai-proposals`, {
+          method: 'POST',
+          csrfToken: activeCsrfToken,
+          body: { factIds },
+        });
+      },
+      readAiProposal: async ({ caseId, proposalId }) => {
+        const id = bound(caseId);
+        const proposal = String(proposalId ?? '').trim();
+        if (!id || !proposal || proposal.length > 200) return refused;
+        return commandRequest(`${casePath(id)}/ai-proposals/${encodeURIComponent(proposal)}`);
+      },
+      decideAiProposal: async ({ caseId, proposalId, action, resultingText }) => {
+        const id = bound(caseId);
+        const proposal = String(proposalId ?? '').trim();
+        if (!id || !proposal || proposal.length > 200) return refused;
+        return commandRequest(`${casePath(id)}/ai-proposals/${encodeURIComponent(proposal)}/decision`, {
+          method: 'POST',
+          csrfToken: activeCsrfToken,
+          // JSON.stringify omits resultingText when the accepted/rejected contract forbids it.
+          body: { action, resultingText },
+        });
+      },
       releaseFinalDocument: async ({ caseId, expectedRevision, documentId }) => {
         const id = bound(caseId);
         if (!id) return refused;
@@ -552,6 +834,11 @@
       return;
     }
 
+    if (pendingFacultyCandidate !== null) {
+      await renderFacultyCandidateVerification(bootstrap);
+      return;
+    }
+
     const ui = resolveProductionProjectionUi();
     if (!ui) {
       blockUnhydratedLiveRuntime();
@@ -610,7 +897,10 @@
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 10_000);
     try {
-      const response = await window.fetch('/api/lor-studio/bootstrap', {
+      const bootstrapPath = pendingFacultyCandidate?.invitationId
+        ? `/api/lor-studio/invitations/${encodeURIComponent(pendingFacultyCandidate.invitationId)}/bootstrap`
+        : '/api/lor-studio/bootstrap';
+      const response = await window.fetch(bootstrapPath, {
         credentials: 'same-origin',
         headers: { Accept: 'application/json' },
         method: 'GET',
@@ -730,6 +1020,10 @@
     if (wasOpen) labelDialog();
   }
 
+  pendingFacultyCandidate = consumeFacultyCandidateFromLocation();
+  window.addEventListener('pagehide', () => {
+    pendingFacultyCandidate = null;
+  }, { once: true });
   setUnderlyingState(true);
   if (isLocalFixture) {
     if (activateFrozenFixtureRuntime()) {

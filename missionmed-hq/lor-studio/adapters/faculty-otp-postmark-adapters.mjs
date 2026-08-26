@@ -7,6 +7,7 @@ import {
 } from '../domain/value-utils.js';
 import { hashFacultyEmail, normalizeFacultyEmail } from '../security/faculty-invitations.js';
 import { EmailPort, OtpPort } from '../services/ports.js';
+import { isAuthenticPostmarkFacultyInvitationTransport } from './postmark-faculty-invitation-transport.mjs';
 
 const OTP_PROOF_SCHEMA = 'missionmed.lor.otp-proof.v1';
 const DELIVERY_RECEIPT_SCHEMA = 'missionmed.lor.faculty-delivery-receipt.v1';
@@ -17,6 +18,7 @@ const OTP_PROVIDER_UNAVAILABLE = 'OTP_PROVIDER_UNAVAILABLE';
 const OTP_PROVIDER_PROOF_INVALID = 'BOUND_PROVIDER_PROOF_INVALID';
 const POSTMARK_TRANSPORT_UNAVAILABLE = 'DELIVERY_TRANSPORT_UNAVAILABLE';
 const POSTMARK_PROVIDER_PROOF_INVALID = 'BOUND_DELIVERY_PROOF_INVALID';
+const AUTHENTIC_POSTMARK_FACULTY_INVITATION_ADAPTERS = new WeakSet();
 
 /**
  * @typedef {object} OtpProviderProof
@@ -290,7 +292,10 @@ export class PostmarkFacultyInvitationAdapter extends EmailPort {
   constructor({ binding, transport, clock } = {}) {
     super();
     this.deliveryBinding = assertPostmarkBinding(binding);
-    if (!transport || typeof transport.sendBoundInvitation !== 'function') {
+    if (
+      !isAuthenticPostmarkFacultyInvitationTransport(transport)
+      || typeof transport.sendBoundInvitation !== 'function'
+    ) {
       throw new IntegrationDisabledError('postmark', 'INJECTED_TRANSPORT_REQUIRED');
     }
     if (typeof clock !== 'function') {
@@ -300,6 +305,7 @@ export class PostmarkFacultyInvitationAdapter extends EmailPort {
     this.clock = clock;
     this.provider = 'postmark';
     Object.freeze(this);
+    AUTHENTIC_POSTMARK_FACULTY_INVITATION_ADAPTERS.add(this);
   }
 
   async sendFacultyInvitation(request) {
@@ -308,7 +314,10 @@ export class PostmarkFacultyInvitationAdapter extends EmailPort {
       new Set([
         'expiresAt',
         'invitationId',
+        'invitationToken',
         'invitationUrl',
+        'oneTimeCode',
+        'otpExpiresAt',
         'recipientEmail',
         'recipientEmailHash',
         'templateAlias',
@@ -344,16 +353,35 @@ export class PostmarkFacultyInvitationAdapter extends EmailPort {
     if (request.templateAlias !== this.deliveryBinding.templateAlias) {
       throw new ValidationError('Postmark template alias does not match the verified binding');
     }
+    assertNonEmptyString(request.invitationToken, 'invitationToken', { maxLength: 256 });
+    if (!/^[A-Za-z0-9_-]{22,256}$/u.test(request.invitationToken)) {
+      throw new ValidationError('Invitation token is invalid');
+    }
+    assertNonEmptyString(request.oneTimeCode, 'oneTimeCode', { maxLength: 6 });
+    if (!/^[0-9]{6}$/u.test(request.oneTimeCode)) {
+      throw new ValidationError('One-time code must contain exactly six digits');
+    }
     const recipientEmail = normalizeFacultyEmail(request.recipientEmail);
     const recipientEmailHash = hashFacultyEmail(recipientEmail);
     if (recipientEmailHash !== request.recipientEmailHash) {
       throw new ValidationError('Recipient email hash does not match the server-normalized recipient');
     }
     const expiresAt = parseCanonicalIso(request.expiresAt, 'expiresAt');
+    const otpExpiresAt = parseCanonicalIso(request.otpExpiresAt, 'otpExpiresAt');
     const now = new Date(toIso(this.clock(), 'clock')).valueOf();
-    if (expiresAt.timestamp <= now) {
+    if (
+      expiresAt.timestamp <= now
+      || otpExpiresAt.timestamp <= now
+      || otpExpiresAt.timestamp > expiresAt.timestamp
+    ) {
       throw new ValidationError('Invitation expiry is not usable');
     }
+
+    // The opaque invitation token is placed in a URL fragment. Fragments are retained by the
+    // browser but are not sent in the HTTP request line, reverse-proxy logs, or server access
+    // logs. The invitation page consumes it into memory and clears the fragment before verify.
+    const deliveryUrl = new URL(invitationUrl.toString());
+    deliveryUrl.hash = `token=${encodeURIComponent(request.invitationToken)}`;
 
     let providerResult;
     try {
@@ -362,7 +390,9 @@ export class PostmarkFacultyInvitationAdapter extends EmailPort {
         recipientEmail,
         recipientEmailHash,
         invitationId: request.invitationId,
-        invitationUrl: invitationUrl.toString(),
+        invitationUrl: deliveryUrl.toString(),
+        oneTimeCode: request.oneTimeCode,
+        otpExpiresAt: otpExpiresAt.iso,
         expiresAt: expiresAt.iso,
         templateAlias: this.deliveryBinding.templateAlias,
         protectedLetterContent: null,
@@ -406,6 +436,19 @@ export class PostmarkFacultyInvitationAdapter extends EmailPort {
   }
 }
 
+Object.freeze(PostmarkFacultyInvitationAdapter.prototype);
+
+/** @param {unknown} value @returns {boolean} */
+export function isAuthenticPostmarkFacultyInvitationAdapter(value) {
+  if (value === null || (typeof value !== 'object' && typeof value !== 'function')) return false;
+  try {
+    return AUTHENTIC_POSTMARK_FACULTY_INVITATION_ADAPTERS.has(value)
+      && Object.getPrototypeOf(value) === PostmarkFacultyInvitationAdapter.prototype;
+  } catch {
+    return false;
+  }
+}
+
 export const FACULTY_DELIVERY_CONTRACT = deepFreeze({
   otpProofSchema: OTP_PROOF_SCHEMA,
   deliveryReceiptSchema: DELIVERY_RECEIPT_SCHEMA,
@@ -419,4 +462,6 @@ export const FACULTY_DELIVERY_CONTRACT = deepFreeze({
     POSTMARK_PROVIDER_PROOF_INVALID,
   ],
   email: 'postmark_server_side_delivery_is_not_identity_proof',
+  secretDelivery: 'opaque_token_in_url_fragment_plus_separate_six_digit_otp',
+  secretReceipt: 'raw_token_and_otp_never_returned',
 });

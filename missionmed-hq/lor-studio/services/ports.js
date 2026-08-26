@@ -31,6 +31,7 @@ export const PORT_CONTRACTS = deepFreeze({
     concurrency: 'atomic_invitation_otp_audit_transaction',
     retries: 'idempotency_key_and_request_hash',
     identifierAllocation: 'server_only',
+    commandContract: 'issue resend revoke verify and delivery are fixed SECURITY DEFINER commands with database-owned receipts',
     verifiedWriteContract: 'verifyAndCommit atomically consumes the OTP challenge, updates invitation state, and appends metadata audit',
     prohibited: [
       'in_memory_production_fallback',
@@ -116,6 +117,10 @@ export class RecommendationCaseRepositoryPort extends RequiredPort {
 }
 
 export class FacultyInvitationRepositoryPort extends RequiredPort {
+  async issueAndCommit() { return this.notImplemented('issueAndCommit'); }
+  async resendOtpAndCommit() { return this.notImplemented('resendOtpAndCommit'); }
+  async revokeAndCommit() { return this.notImplemented('revokeAndCommit'); }
+  async commitDelivery() { return this.notImplemented('commitDelivery'); }
   async create() { return this.notImplemented('create'); }
   async getById() { return this.notImplemented('getById'); }
   async save() { return this.notImplemented('save'); }

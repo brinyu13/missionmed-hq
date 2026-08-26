@@ -27,12 +27,15 @@ const OUTCOMES = new Set(['success', 'denied', 'conflict', 'degraded', 'failed']
 const SAFE_METADATA_KEYS = new Set([
   'action',
   'artifactFormat',
+  'artifactSha256',
   'durationBucket',
   'errorCode',
   'fromRevision',
   'providerClass',
   'reasonCode',
+  'releaseDocumentHash',
   'result',
+  'sourceRevision',
   'stepId',
   'toRevision',
 ]);
@@ -89,7 +92,10 @@ function safeMetadata(metadata = {}) {
   const output = {};
   for (const [key, value] of Object.entries(metadata)) {
     if (!SAFE_METADATA_KEYS.has(key)) throw new Error(`Audit metadata key ${key} is not allowlisted.`);
-    if (!['string', 'number', 'boolean'].includes(typeof value)) throw new Error(`Audit metadata value ${key} must be scalar.`);
+    if (
+      !['string', 'number', 'boolean'].includes(typeof value)
+      && !(key === 'releaseDocumentHash' && value === null)
+    ) throw new Error(`Audit metadata value ${key} must be scalar.`);
     const normalized = typeof value === 'string' ? value.trim() : value;
     if (typeof normalized === 'string' && normalized.length > 120) throw new Error(`Audit metadata value ${key} is too long.`);
     output[key] = normalized;
@@ -111,7 +117,7 @@ function safeMetadata(metadata = {}) {
  *   caseId?: string,
  *   targetId?: string,
  *   outcome?: string,
- *   metadata?: Record<string, string | number | boolean>,
+ *   metadata?: Record<string, string | number | boolean | null>,
  *   at?: Date | string | number,
  * }} [options]
  */

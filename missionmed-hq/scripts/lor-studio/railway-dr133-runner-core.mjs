@@ -1,6 +1,6 @@
 import { createHash, X509Certificate } from 'node:crypto';
 
-export const DR133_RUNNER_CONTRACT = 'missionmed.lor.railway-dr133-runner.v3';
+export const DR133_RUNNER_CONTRACT = 'missionmed.lor.railway-dr133-runner.v5';
 export const DR133_RUNTIME_LOGIN = 'lor_studio_runtime_login';
 export const DR133_DATABASE_CA_ENV_KEY = 'LOR_DR133_RUNTIME_DATABASE_CA';
 export const DR133_APPLICATION_ROLE = 'lor_studio_app';
@@ -64,6 +64,62 @@ export const DR133_ARTIFACTS = Object.freeze([
       'rollbacks/20260825010300_f2_lor_1012_production_identity_scope_commands.rollback.sql',
     sha256: '119bebff1c39722fc4b53ee9917f454f93dbc0d2a7c8303cdb014224bd9c847d',
   }),
+  Object.freeze({
+    id: 'faculty-invitation',
+    purpose: 'forward-successor',
+    relativePath:
+      'migrations/20260825010500_f2_lor_1012_production_faculty_invitation_commands.sql',
+    sha256: '15299bc4fb5107b6f9ed9b89768b73130abdf0044eabe50b64feb9d00df01769',
+  }),
+  Object.freeze({
+    id: 'faculty-invitation-rollback',
+    purpose: 'recovery-custody-and-successor-guard-verification',
+    relativePath:
+      'rollbacks/20260825010500_f2_lor_1012_production_faculty_invitation_commands.rollback.sql',
+    sha256: '80aab43bc68630f4100af54eeca0e0786b74a6a97fb79d287196083bc14aed57',
+  }),
+  Object.freeze({
+    id: 'faculty-private-export',
+    purpose: 'forward-successor',
+    relativePath:
+      'migrations/20260825010700_f2_lor_1012_production_faculty_private_export_commands.sql',
+    sha256: '7c24017b6f71a89221c8b1e71542f7a1bffbc05bc81143f1c47d9f713d952d04',
+  }),
+  Object.freeze({
+    id: 'faculty-private-export-rollback',
+    purpose: 'recovery-custody-and-successor-guard-verification',
+    relativePath:
+      'rollbacks/20260825010700_f2_lor_1012_production_faculty_private_export_commands.rollback.sql',
+    sha256: '4e0292c04539c906946dee81b6b59ea704ab50f1ed72d41948e6aa0a28928831',
+  }),
+  Object.freeze({
+    id: 'ai-proposal',
+    purpose: 'forward-successor',
+    relativePath:
+      'migrations/20260825010900_f2_lor_1012_production_ai_proposal_commands.sql',
+    sha256: 'a7ab5b9c42f96f0502a457ad065e61c0f33509868c27e19eed50d922d17dd843',
+  }),
+  Object.freeze({
+    id: 'ai-proposal-rollback',
+    purpose: 'recovery-custody-and-successor-guard-verification',
+    relativePath:
+      'rollbacks/20260825010900_f2_lor_1012_production_ai_proposal_commands.rollback.sql',
+    sha256: '86597c302a8eb4c0b10b8dfc91429630f8a88f2d815e61aece8798628f76c24d',
+  }),
+  Object.freeze({
+    id: 'student-evidence',
+    purpose: 'forward-successor',
+    relativePath:
+      'migrations/20260825011100_f2_lor_1012_production_student_evidence_commands.sql',
+    sha256: '40e8fc4e671dc926ef0bbff3021653300e77ae8c4b65a4a1ea6468256e3944e2',
+  }),
+  Object.freeze({
+    id: 'student-evidence-rollback',
+    purpose: 'recovery-custody-and-successor-guard-verification',
+    relativePath:
+      'rollbacks/20260825011100_f2_lor_1012_production_student_evidence_commands.rollback.sql',
+    sha256: 'e66b09a8b1f3fff16a5332af262e5faed7481a334bff882f18e7d42491a151b3',
+  }),
 ]);
 
 export const DR133_RELATIONS = Object.freeze([
@@ -71,12 +127,16 @@ export const DR133_RELATIONS = Object.freeze([
   'administrative_case_grants',
   'ai_generation_runs',
   'ai_letter_proposals',
+  'ai_proposal_command_receipts',
   'ai_proposal_decisions',
+  'ai_proposal_generation_reservation_receipts',
+  'artifact_export_audit_events',
   'consent_receipts',
   'deletion_hold_releases',
   'deletion_intents',
   'deletion_receipts',
   'faculty_invitations',
+  'faculty_invitation_command_receipts',
   'faculty_otp_challenge_revocations',
   'faculty_otp_challenges',
   'faculty_otp_proof_revocations',
@@ -93,6 +153,7 @@ export const DR133_RELATIONS = Object.freeze([
   'released_student_documents',
   'student_auth_binding_revocations',
   'student_auth_bindings',
+  'student_evidence_records',
   'waiver_receipts',
   'writer_depot_artifacts',
 ]);
@@ -115,10 +176,79 @@ export const DR133_IDENTITY_SCOPE_DEFINER_IDENTITIES = Object.freeze([
   'revoke_student_auth_binding(text,text)',
 ]);
 
+export const DR133_FACULTY_INVITATION_DEFINER_IDENTITIES = Object.freeze([
+  'commit_faculty_invitation_delivery(text,text,text,text,text)',
+  'issue_faculty_invitation(text,bigint,text,text,text,text,text,timestamp with time zone,timestamp with time zone,integer,bigint,bigint,text,text)',
+  'resend_faculty_invitation_otp(text,text,text,text,timestamp with time zone,text,text)',
+  'resolve_lor_actor_case_access(text,text)',
+  'revoke_faculty_invitation(text,text,text)',
+  'verify_faculty_invitation(text,text,text,text,text,text)',
+]);
+
+export const DR133_FACULTY_PRIVATE_EXPORT_DEFINER_IDENTITIES = Object.freeze([
+  'append_artifact_export_audit(jsonb,text,text,text)',
+  'commit_faculty_private_content(bigint,jsonb,text,text,jsonb,text)',
+  'read_final_document_export()',
+]);
+
+export const DR133_AI_PROPOSAL_DEFINER_IDENTITIES = Object.freeze([
+  'attach_ai_proposal_decision_if_undecided_atomic(text,text,text,text,text,text,text,text,text,text,text,jsonb)',
+  'persist_ai_provider_run_and_proposal_atomic(text,text,text,text,text,text,text,text,text,jsonb)',
+  'read_actor_safe_ai_proposal(text,text,text,text)',
+  'read_faculty_drafting_context()',
+  'transition_ai_proposal_generation_reservation(text,text,text,text,text,text)',
+]);
+
+export const DR133_STUDENT_EVIDENCE_DEFINER_IDENTITIES = Object.freeze([
+  'commit_student_evidence_publication(bigint,text,text,jsonb,text)',
+  'read_faculty_drafting_context_pre_evidence()',
+]);
+
+export const DR133_PRE_EVIDENCE_DEFINER_IDENTITY =
+  'read_faculty_drafting_context_pre_evidence()';
+
 export const DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES = Object.freeze([
   ...DR133_APPROVED_DEFINER_IDENTITIES,
   ...DR133_IDENTITY_SCOPE_DEFINER_IDENTITIES,
+  ...DR133_FACULTY_INVITATION_DEFINER_IDENTITIES,
+  ...DR133_FACULTY_PRIVATE_EXPORT_DEFINER_IDENTITIES,
+  ...DR133_AI_PROPOSAL_DEFINER_IDENTITIES,
+  ...DR133_STUDENT_EVIDENCE_DEFINER_IDENTITIES,
 ].sort());
+
+export const DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES = Object.freeze(
+  DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES.filter(
+    (identity) => identity !== DR133_PRE_EVIDENCE_DEFINER_IDENTITY,
+  ),
+);
+
+export const DR133_SUCCESSOR_STAGES = Object.freeze([
+  Object.freeze({
+    id: 'identity-scope',
+    rollbackId: 'identity-scope-rollback',
+    sentinelSuffix: 'identityScope=20260825010300',
+  }),
+  Object.freeze({
+    id: 'faculty-invitation',
+    rollbackId: 'faculty-invitation-rollback',
+    sentinelSuffix: 'facultyInvitationCommands=20260825010500',
+  }),
+  Object.freeze({
+    id: 'faculty-private-export',
+    rollbackId: 'faculty-private-export-rollback',
+    sentinelSuffix: 'facultyPrivateExportCommands=20260825010700',
+  }),
+  Object.freeze({
+    id: 'ai-proposal',
+    rollbackId: 'ai-proposal-rollback',
+    sentinelSuffix: 'aiProposalCommands=20260825010900',
+  }),
+  Object.freeze({
+    id: 'student-evidence',
+    rollbackId: 'student-evidence-rollback',
+    sentinelSuffix: 'studentEvidenceCommands=20260825011100',
+  }),
+]);
 
 const DENIED_IDENTIFIERS = Object.freeze([
   'fglyvdykwgbuivikqoah',
@@ -142,9 +272,44 @@ const IDENTITY_SCOPE_ROLLBACK_FIRST_DESTRUCTIVE_STATEMENT = [
   'REVOKE EXECUTE ON FUNCTION lor_studio.ensure_student_auth_binding(text, text, text)',
   'FROM lor_studio_app;',
 ].join('\n');
+const SUCCESSOR_ROLLBACK_GUARD_BOUNDARIES = Object.freeze({
+  'identity-scope-rollback': Object.freeze({
+    firstDestructiveStatement: IDENTITY_SCOPE_ROLLBACK_FIRST_DESTRUCTIVE_STATEMENT,
+    guardTerminator: 'END\n$catalog_guard$;',
+  }),
+  'faculty-invitation-rollback': Object.freeze({
+    firstDestructiveStatement:
+      'REVOKE EXECUTE ON FUNCTION lor_studio.issue_faculty_invitation(',
+    guardTerminator: 'END\n$catalog_guard$;',
+    literalMarker: ROLLBACK_LITERAL_MARKER,
+  }),
+  'faculty-private-export-rollback': Object.freeze({
+    firstDestructiveStatement:
+      'REVOKE EXECUTE ON FUNCTION lor_studio.append_artifact_export_audit(',
+    guardTerminator: 'END\n$exact_catalog_guard$;',
+  }),
+  'ai-proposal-rollback': Object.freeze({
+    firstDestructiveStatement:
+      'REVOKE EXECUTE ON FUNCTION lor_studio.read_faculty_drafting_context()',
+    guardTerminator: 'END\n$catalog_guard$;',
+    literalMarker:
+      '-- Literal reverse operations follow; every dependency is removed explicitly.',
+  }),
+  'student-evidence-rollback': Object.freeze({
+    firstDestructiveStatement:
+      'REVOKE EXECUTE ON FUNCTION lor_studio.commit_student_evidence_publication(',
+    guardTerminator: 'END\n$catalog_guard$;',
+  }),
+});
 const DR133_RECEIPT_KEYS = Object.freeze([
+  'aiProposalRollbackSha256',
+  'aiProposalSha256',
   'contract',
   'definerCount',
+  'facultyInvitationRollbackSha256',
+  'facultyInvitationSha256',
+  'facultyPrivateExportRollbackSha256',
+  'facultyPrivateExportSha256',
   'foundationSha256',
   'identityScopeRollbackSha256',
   'identityScopeSha256',
@@ -155,6 +320,8 @@ const DR133_RECEIPT_KEYS = Object.freeze([
   'result',
   'rlsSha256',
   'runnerCode',
+  'studentEvidenceRollbackSha256',
+  'studentEvidenceSha256',
 ]);
 const DR133_RECEIPT_MODES = Object.freeze([
   'migration',
@@ -171,16 +338,17 @@ const DR133_RECEIPT_RESULTS_BY_MODE = Object.freeze({
     'FOUNDATION_ONLY_COMMITTED',
     'RLS_OUTCOME_UNKNOWN',
     'BASE_SCHEMA_ONLY_COMMITTED',
-    'IDENTITY_SCOPE_OUTCOME_UNKNOWN',
-    'ALL_THREE_COMMITTED_POSTFLIGHT_REJECTED',
-    'ALL_THREE_COMMITTED_VERIFICATION_UNKNOWN',
-    'ALL_THREE_COMMITTED_VERIFIED_CLEANUP_FAILED',
-    'ALL_THREE_COMMITTED_VERIFIED',
+    'SUCCESSOR_PROGRESS_PRESERVED',
+    'SUCCESSOR_PROGRESS_OUTCOME_UNKNOWN',
+    'CUMULATIVE_SCHEMA_COMMITTED_POSTFLIGHT_REJECTED',
+    'CUMULATIVE_SCHEMA_COMMITTED_VERIFICATION_UNKNOWN',
+    'CUMULATIVE_SCHEMA_COMMITTED_VERIFIED_CLEANUP_FAILED',
+    'CUMULATIVE_SCHEMA_COMMITTED_VERIFIED',
   ]),
   'successor-migration': Object.freeze([
     'NO_MUTATION',
-    'SUCCESSOR_ROLLED_BACK',
-    'SUCCESSOR_OUTCOME_UNKNOWN',
+    'SUCCESSOR_NEXT_STEP_ROLLED_BACK',
+    'SUCCESSOR_NEXT_STEP_OUTCOME_UNKNOWN',
     'SUCCESSOR_COMMITTED_POSTFLIGHT_REJECTED',
     'SUCCESSOR_COMMITTED_VERIFICATION_UNKNOWN',
     'SUCCESSOR_COMMITTED_VERIFIED_CLEANUP_FAILED',
@@ -436,7 +604,20 @@ export function expectedDr133Sentinel() {
 }
 
 export function expectedDr133SuccessorSentinel() {
-  return `${expectedDr133Sentinel()}|identityScope=20260825010300`;
+  return DR133_SUCCESSOR_STAGES.reduce(
+    (sentinel, stage) => `${sentinel}|${stage.sentinelSuffix}`,
+    expectedDr133Sentinel(),
+  );
+}
+
+export function expectedDr133SuccessorSentinelAt(stageCount) {
+  if (!Number.isInteger(stageCount) || stageCount < 0 || stageCount > DR133_SUCCESSOR_STAGES.length) {
+    failDr133('SUCCESSOR_STAGE_INVALID');
+  }
+  return DR133_SUCCESSOR_STAGES.slice(0, stageCount).reduce(
+    (sentinel, stage) => `${sentinel}|${stage.sentinelSuffix}`,
+    expectedDr133Sentinel(),
+  );
 }
 
 export function targetGucEntries() {
@@ -509,10 +690,18 @@ export function writeDr133Receipt(stream, payload) {
       || !POSTGRES_CODE_CLASSES.has(payload.postgresCode.slice(0, 2)))
   ) failDr133('OUTPUT_RECEIPT_INVALID');
   for (const hashKey of [
+    'aiProposalRollbackSha256',
+    'aiProposalSha256',
+    'facultyInvitationRollbackSha256',
+    'facultyInvitationSha256',
+    'facultyPrivateExportRollbackSha256',
+    'facultyPrivateExportSha256',
     'foundationSha256',
     'identityScopeRollbackSha256',
     'identityScopeSha256',
     'rlsSha256',
+    'studentEvidenceRollbackSha256',
+    'studentEvidenceSha256',
   ]) {
     if (payload[hashKey] !== undefined && !SHA256_PATTERN.test(payload[hashKey])) {
       failDr133('OUTPUT_RECEIPT_INVALID');
@@ -528,7 +717,7 @@ export function writeDr133Receipt(stream, payload) {
     if (requiredKeys.some((key) => !has(key))) failDr133('OUTPUT_RECEIPT_INVALID');
   };
   const successResults = new Set([
-    'ALL_THREE_COMMITTED_VERIFIED',
+    'CUMULATIVE_SCHEMA_COMMITTED_VERIFIED',
     'SUCCESSOR_COMMITTED_VERIFIED',
     'SUCCESSOR_ALREADY_COMMITTED_VERIFIED',
     'RUNTIME_LOGIN_COMMITTED_VERIFIED',
@@ -537,21 +726,37 @@ export function writeDr133Receipt(stream, payload) {
   ]);
   if (payload.mode === 'migration') {
     requireKeys([
+      'aiProposalRollbackSha256',
+      'aiProposalSha256',
+      'facultyInvitationRollbackSha256',
+      'facultyInvitationSha256',
+      'facultyPrivateExportRollbackSha256',
+      'facultyPrivateExportSha256',
       'foundationSha256',
       'identityScopeRollbackSha256',
       'identityScopeSha256',
       'rlsSha256',
+      'studentEvidenceRollbackSha256',
+      'studentEvidenceSha256',
     ]);
-    if (payload.result === 'ALL_THREE_COMMITTED_VERIFIED') {
+    if (payload.result === 'CUMULATIVE_SCHEMA_COMMITTED_VERIFIED') {
       requireKeys(['definerCount', 'postgresMajor', 'relationCount']);
     }
   }
   if (payload.mode === 'successor-migration') {
     requireKeys([
+      'aiProposalRollbackSha256',
+      'aiProposalSha256',
+      'facultyInvitationRollbackSha256',
+      'facultyInvitationSha256',
+      'facultyPrivateExportRollbackSha256',
+      'facultyPrivateExportSha256',
       'foundationSha256',
       'identityScopeRollbackSha256',
       'identityScopeSha256',
       'rlsSha256',
+      'studentEvidenceRollbackSha256',
+      'studentEvidenceSha256',
     ]);
     if ([
       'SUCCESSOR_COMMITTED_VERIFIED',
@@ -562,10 +767,18 @@ export function writeDr133Receipt(stream, payload) {
   }
   if (payload.mode === 'schema-verifier') {
     requireKeys([
+      'aiProposalRollbackSha256',
+      'aiProposalSha256',
+      'facultyInvitationRollbackSha256',
+      'facultyInvitationSha256',
+      'facultyPrivateExportRollbackSha256',
+      'facultyPrivateExportSha256',
       'foundationSha256',
       'identityScopeRollbackSha256',
       'identityScopeSha256',
       'rlsSha256',
+      'studentEvidenceRollbackSha256',
+      'studentEvidenceSha256',
     ]);
     if (payload.result === 'SCHEMA_VERIFIED_NO_MUTATION') {
       requireKeys(['definerCount', 'postgresMajor', 'relationCount']);
@@ -574,11 +787,11 @@ export function writeDr133Receipt(stream, payload) {
   if (
     payload.mode === 'runtime-login'
     && payload.result !== 'NO_MUTATION'
-  ) requireKeys(['identityScopeRollbackSha256']);
+  ) requireKeys(['studentEvidenceRollbackSha256']);
   if (
     payload.mode === 'runtime-login-deprovision'
     && payload.result !== 'NO_MUTATION'
-  ) requireKeys(['identityScopeRollbackSha256']);
+  ) requireKeys(['studentEvidenceRollbackSha256']);
   if (payload.result === 'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED') {
     requireKeys(['postgresMajor']);
   }
@@ -666,6 +879,9 @@ export function assertBaseSchemaPreflightRow(row) {
 export function assertPostflightRow(row) {
   if (!row || typeof row !== 'object') failDr133('POSTFLIGHT_RESULT_INVALID');
   const observedDefiners = Array.isArray(row.definer_identities) ? row.definer_identities : [];
+  const observedAppDefiners = Array.isArray(row.app_execute_identities)
+    ? row.app_execute_identities
+    : [];
   const observedRelations = Array.isArray(row.relation_names) ? row.relation_names : [];
   if (
     row.schema_sentinel !== expectedDr133SuccessorSentinel()
@@ -673,7 +889,11 @@ export function assertPostflightRow(row) {
     || row.relation_count !== String(DR133_RELATIONS.length)
     || row.forced_rls_count !== String(DR133_RELATIONS.length)
     || row.definer_count !== String(DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES.length)
-    || row.app_execute_count !== String(DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES.length)
+    || row.app_execute_count !== String(
+      DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES.length
+    )
+    || row.pre_evidence_app_execute_denied !== true
+    || row.pre_evidence_public_execute_denied !== true
     || row.public_function_execute_count !== '0'
     || row.public_table_privilege_count !== '0'
     || row.nonempty_relation_count !== '0'
@@ -686,6 +906,8 @@ export function assertPostflightRow(row) {
     || JSON.stringify(observedRelations) !== JSON.stringify([...DR133_RELATIONS].sort())
     || JSON.stringify(observedDefiners)
       !== JSON.stringify([...DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES].sort())
+    || JSON.stringify(observedAppDefiners)
+      !== JSON.stringify([...DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES].sort())
   ) failDr133('POSTFLIGHT_CATALOG_INVALID');
 }
 
@@ -906,26 +1128,34 @@ function splitVerifiedRollbackGuard(source) {
   return Object.freeze({ prefix, destructiveTail });
 }
 
-function splitVerifiedIdentityScopeRollbackGuard(source) {
-  if (typeof source !== 'string') failDr133('IDENTITY_ROLLBACK_GUARD_SOURCE_INVALID');
+function splitVerifiedSuccessorRollbackGuard(source, rollbackArtifactId) {
+  if (typeof source !== 'string') failDr133('SUCCESSOR_ROLLBACK_GUARD_SOURCE_INVALID');
+  const boundary = SUCCESSOR_ROLLBACK_GUARD_BOUNDARIES[rollbackArtifactId];
   const rollbackArtifact = DR133_ARTIFACTS.find(
-    (artifact) => artifact.id === 'identity-scope-rollback',
+    (artifact) => artifact.id === rollbackArtifactId,
   );
+  if (!boundary || !rollbackArtifact) failDr133('SUCCESSOR_ROLLBACK_ARTIFACT_INVALID');
   if (sha256Bytes(source) !== rollbackArtifact.sha256) {
-    failDr133('IDENTITY_ROLLBACK_ARTIFACT_HASH_MISMATCH');
+    failDr133('SUCCESSOR_ROLLBACK_ARTIFACT_HASH_MISMATCH');
   }
-  const boundaryIndex = source.indexOf(IDENTITY_SCOPE_ROLLBACK_FIRST_DESTRUCTIVE_STATEMENT);
+  const boundaryIndex = source.indexOf(boundary.firstDestructiveStatement);
   if (
     boundaryIndex < 0
-    || boundaryIndex !== source.lastIndexOf(IDENTITY_SCOPE_ROLLBACK_FIRST_DESTRUCTIVE_STATEMENT)
-  ) failDr133('IDENTITY_ROLLBACK_GUARD_BOUNDARY_INVALID');
-  const prefix = source.slice(0, boundaryIndex).trimEnd();
+    || boundaryIndex !== source.lastIndexOf(boundary.firstDestructiveStatement)
+  ) failDr133('SUCCESSOR_ROLLBACK_GUARD_BOUNDARY_INVALID');
+  let prefix = source.slice(0, boundaryIndex).trimEnd();
   const destructiveTail = source.slice(boundaryIndex).trimStart();
+  if (boundary.literalMarker) {
+    if (!prefix.endsWith(boundary.literalMarker)) {
+      failDr133('SUCCESSOR_ROLLBACK_GUARD_BOUNDARY_INVALID');
+    }
+    prefix = prefix.slice(0, -boundary.literalMarker.length).trimEnd();
+  }
   if (
-    !prefix.endsWith('END\n$catalog_guard$;')
-    || !destructiveTail.startsWith(IDENTITY_SCOPE_ROLLBACK_FIRST_DESTRUCTIVE_STATEMENT)
-  ) failDr133('IDENTITY_ROLLBACK_GUARD_BOUNDARY_INVALID');
-  return Object.freeze({ prefix, destructiveTail });
+    !prefix.endsWith(boundary.guardTerminator)
+    || !destructiveTail.startsWith(boundary.firstDestructiveStatement)
+  ) failDr133('SUCCESSOR_ROLLBACK_GUARD_BOUNDARY_INVALID');
+  return Object.freeze({ prefix, destructiveTail, boundary });
 }
 
 export function extractRollbackGuardVerificationSql(source) {
@@ -950,22 +1180,30 @@ export function extractRollbackGuardTransactionBodySql(source) {
 }
 
 export function extractIdentityScopeRollbackGuardVerificationSql(source) {
-  const { prefix } = splitVerifiedIdentityScopeRollbackGuard(source);
+  return extractSuccessorRollbackGuardVerificationSql(source, 'identity-scope-rollback');
+}
+
+export function extractSuccessorRollbackGuardVerificationSql(source, rollbackArtifactId) {
+  const { prefix } = splitVerifiedSuccessorRollbackGuard(source, rollbackArtifactId);
   return `${prefix}\n\nROLLBACK;\n`;
 }
 
 export function extractIdentityScopeRollbackGuardTransactionBodySql(source) {
-  const { prefix } = splitVerifiedIdentityScopeRollbackGuard(source);
+  return extractSuccessorRollbackGuardTransactionBodySql(source, 'identity-scope-rollback');
+}
+
+export function extractSuccessorRollbackGuardTransactionBodySql(source, rollbackArtifactId) {
+  const { prefix, boundary } = splitVerifiedSuccessorRollbackGuard(source, rollbackArtifactId);
   const outerBegin = '\nBEGIN;\n\n';
   const beginIndex = prefix.indexOf(outerBegin);
   if (beginIndex < 0 || beginIndex !== prefix.lastIndexOf(outerBegin)) {
-    failDr133('IDENTITY_ROLLBACK_GUARD_TRANSACTION_BOUNDARY_INVALID');
+    failDr133('SUCCESSOR_ROLLBACK_GUARD_TRANSACTION_BOUNDARY_INVALID');
   }
   const body = prefix.slice(beginIndex + outerBegin.length);
   if (
     !body.startsWith('DO $identity_guard$\n')
-    || !body.endsWith('END\n$catalog_guard$;')
-    || body.includes(IDENTITY_SCOPE_ROLLBACK_FIRST_DESTRUCTIVE_STATEMENT)
-  ) failDr133('IDENTITY_ROLLBACK_GUARD_TRANSACTION_BOUNDARY_INVALID');
+    || !body.endsWith(boundary.guardTerminator)
+    || body.includes(boundary.firstDestructiveStatement)
+  ) failDr133('SUCCESSOR_ROLLBACK_GUARD_TRANSACTION_BOUNDARY_INVALID');
   return `${body}\n`;
 }

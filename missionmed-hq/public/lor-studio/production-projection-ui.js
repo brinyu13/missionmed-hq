@@ -61,6 +61,7 @@
 
   const STUDENT_PROJECTION_SCHEMA = 'missionmed.lor.student-projection.v1';
   const FACULTY_PROJECTION_SCHEMA = 'missionmed.lor.faculty-projection.v1';
+  const MENTOR_PROJECTION_SCHEMA = 'missionmed.lor.mentor-projection.v1';
   const PRODUCTION_MOUNT_ID = 'lorProductionRoot';
   const FROZEN_PROTOTYPE_SCRIPT_ID = 'lorFrozenPrototypeRuntime';
   const FROZEN_PROTOTYPE_SCRIPT_TYPE = 'application/x-lor-frozen-prototype';
@@ -78,8 +79,14 @@
    * server (services/recommendation-case-service.js #mintReceipt); the request body carries only
    * the decision itself, and the server's field allowlist rejects anything more.
    */
-  const CONSENT_POLICY_VERSION = 'dr-119-v1';
-  const CONSENT_SCOPES = Object.freeze(['builder_autosave', 'faculty_handoff']);
+  const CONSENT_POLICY_VERSION = 'dr-133-identified-education-record-v1';
+  const CONSENT_WITHDRAWN_SCOPE = 'consent_withdrawn';
+  const CONSENT_SCOPES = Object.freeze([
+    'builder_autosave',
+    'faculty_handoff',
+    'ai_drafting',
+    'evidence_grounding',
+  ]);
 
   /**
    * The editable shape of each builder step.
@@ -450,19 +457,58 @@
     return projection;
   }
 
+  /**
+   * The mentor surface is intentionally the database's exact five-field safe projection plus its
+   * schema discriminator. It has no revision and no private/student-authoring structures, so it is
+   * always rendered read only.
+   */
+  function assertRenderableMentorProjection(projection) {
+    if (!isPlainObject(projection)) {
+      throw new TypeError('A production projection object is required');
+    }
+    const exactFields = [
+      'schemaVersion',
+      'caseId',
+      'status',
+      'strategyStatus',
+      'nextMilestone',
+      'deliveryStatus',
+    ];
+    const actualFields = Object.keys(projection).sort();
+    if (
+      actualFields.length !== exactFields.length
+      || exactFields.some((field) => !actualFields.includes(field))
+    ) {
+      throw new TypeError('The mentor projection is outside its exact safe allowlist');
+    }
+    if (projection.schemaVersion !== MENTOR_PROJECTION_SCHEMA) {
+      throw new TypeError('This surface presents the mentor case projection only');
+    }
+    if (!isNonEmptyString(projection.caseId) || !isNonEmptyString(projection.status)) {
+      throw new TypeError('The case projection is missing its identity or status');
+    }
+    for (const field of ['strategyStatus', 'nextMilestone', 'deliveryStatus']) {
+      if (projection[field] !== null && typeof projection[field] !== 'string') {
+        throw new TypeError(`The mentor projection carries an unreadable ${field}`);
+      }
+    }
+    return projection;
+  }
+
   /** @param {unknown} projection */
   function projectionKind(projection) {
     if (!isPlainObject(projection)) return null;
     if (projection.schemaVersion === STUDENT_PROJECTION_SCHEMA) return 'student';
     if (projection.schemaVersion === FACULTY_PROJECTION_SCHEMA) return 'faculty';
+    if (projection.schemaVersion === MENTOR_PROJECTION_SCHEMA) return 'mentor';
     return null;
   }
 
-  /** @param {unknown} projection @param {'student' | 'faculty'} kind */
+  /** @param {unknown} projection @param {'student' | 'faculty' | 'mentor'} kind */
   function assertRenderableProjection(projection, kind) {
-    return kind === 'faculty'
-      ? assertRenderableFacultyProjection(projection)
-      : assertRenderableStudentProjection(projection);
+    if (kind === 'faculty') return assertRenderableFacultyProjection(projection);
+    if (kind === 'mentor') return assertRenderableMentorProjection(projection);
+    return assertRenderableStudentProjection(projection);
   }
 
   /**
@@ -484,6 +530,27 @@
       receiptId: isNonEmptyString(latest.id) ? latest.id : null,
       recordedAt: isNonEmptyString(latest.recordedAt) ? latest.recordedAt : null,
     };
+  }
+
+  /**
+   * Consent is append-only, so the latest receipt is the complete current decision. An older
+   * grant never survives a later withdrawal and an older policy never silently authorizes the
+   * current provider path.
+   */
+  function readConsentState(consentReceipts) {
+    if (!Array.isArray(consentReceipts) || consentReceipts.length === 0) {
+      return { recorded: false, active: false, withdrawn: false, latest: null };
+    }
+    const latest = consentReceipts[consentReceipts.length - 1];
+    if (!isPlainObject(latest) || !Array.isArray(latest.scopes)) {
+      return { recorded: false, active: false, withdrawn: false, latest: null };
+    }
+    const withdrawn = latest.scopes.length === 1
+      && latest.scopes[0] === CONSENT_WITHDRAWN_SCOPE;
+    const active = !withdrawn
+      && latest.policyVersion === CONSENT_POLICY_VERSION
+      && CONSENT_SCOPES.every((scope) => latest.scopes.includes(scope));
+    return { recorded: true, active, withdrawn, latest };
   }
 
   /**
@@ -539,6 +606,15 @@
     let conflictStepId = null;
     /** Safe, non-technical sentence about the last export attempt. Never a reason code. */
     let exportNotice = null;
+    /** Ephemeral form state only. It is never written to browser storage. */
+    let facultyInvitationEmail = '';
+    let facultyDraftText = null;
+    let facultyFinalText = null;
+    let facultyApproved = false;
+    let facultySignatureAttested = false;
+    let aiProposal = null;
+    let aiEditedText = '';
+    let aiNotice = null;
 
     function resolveMount() {
       if (mount && mount.isConnected !== false) return mount;
@@ -860,19 +936,26 @@
     }
 
     async function recordConsent() {
-      const existing = renderedProjection?.consentReceipts;
-      const prior = Array.isArray(existing) && existing.length > 0
-        ? existing[existing.length - 1]
-        : null;
-      const policyVersion = isPlainObject(prior) && isNonEmptyString(prior.policyVersion)
-        ? prior.policyVersion
-        : CONSENT_POLICY_VERSION;
       await runWrite({
         invoke: ({ expectedRevision, caseId }) => commands.recordReceipt({
           caseId,
           expectedRevision,
           receiptType: 'consent',
-          receiptData: { policyVersion, scopes: [...CONSENT_SCOPES] },
+          receiptData: { policyVersion: CONSENT_POLICY_VERSION, scopes: [...CONSENT_SCOPES] },
+        }),
+      });
+    }
+
+    async function withdrawConsent() {
+      await runWrite({
+        invoke: ({ expectedRevision, caseId }) => commands.recordReceipt({
+          caseId,
+          expectedRevision,
+          receiptType: 'consent',
+          receiptData: {
+            policyVersion: CONSENT_POLICY_VERSION,
+            scopes: [CONSENT_WITHDRAWN_SCOPE],
+          },
         }),
       });
     }
@@ -897,6 +980,168 @@
           receiptData,
         }),
       });
+    }
+
+    async function publishStudentEvidence() {
+      if (!commands || typeof commands.publishStudentEvidence !== 'function') return;
+      await runWrite({
+        invoke: ({ caseId, expectedRevision }) => commands.publishStudentEvidence({
+          caseId,
+          expectedRevision,
+        }),
+      });
+    }
+
+    async function inviteFacultyWriter(recipientEmail) {
+      const email = String(recipientEmail || '').trim();
+      if (!email || !commands || typeof commands.inviteFaculty !== 'function') return;
+      const result = await runWrite({
+        invoke: ({ caseId, expectedRevision }) => commands.inviteFaculty({
+          caseId,
+          expectedRevision,
+          recipientEmail: email,
+        }),
+      });
+      if (result.saved) facultyInvitationEmail = '';
+    }
+
+    async function resendFacultyWriterOtp(recipientEmail) {
+      const email = String(recipientEmail || '').trim();
+      if (!email || !commands || typeof commands.resendFacultyOtp !== 'function') return;
+      await runWrite({
+        invoke: ({ caseId }) => commands.resendFacultyOtp({ caseId, recipientEmail: email }),
+      });
+    }
+
+    async function revokeFacultyWriterInvitation() {
+      if (!commands || typeof commands.revokeFacultyInvitation !== 'function') return;
+      await runWrite({
+        invoke: ({ caseId }) => commands.revokeFacultyInvitation({ caseId }),
+      });
+    }
+
+    async function saveFacultyPrivateWork() {
+      if (!commands || typeof commands.saveFacultyPrivateContent !== 'function') return;
+      const privateState = renderedProjection?.facultyPrivate;
+      if (!isPlainObject(privateState)) return;
+      const storedDocument = isPlainObject(privateState.finalDocument)
+        ? privateState.finalDocument
+        : null;
+      const draftText = String(
+        facultyDraftText === null ? (privateState.draftText ?? '') : facultyDraftText,
+      );
+      const finalText = String(
+        facultyFinalText === null ? (storedDocument?.text ?? '') : facultyFinalText,
+      );
+      const trimmedFinalText = finalText.trim();
+      const approved = facultyApproved === true && facultySignatureAttested === true;
+      const finalDocument = trimmedFinalText
+        ? {
+          contentHash: storedDocument?.text === finalText ? (storedDocument.contentHash ?? null) : null,
+          id: storedDocument?.id ?? null,
+          mimeType: storedDocument?.mimeType ?? 'text/plain',
+          text: finalText,
+        }
+        : null;
+      const result = await runWrite({
+        invoke: ({ expectedRevision, caseId }) => commands.saveFacultyPrivateContent({
+          caseId,
+          expectedRevision,
+          answers: [...privateState.answers],
+          notes: [...privateState.notes],
+          draftText: draftText.trim() ? draftText : null,
+          finalDocument,
+          documentState: approved ? 'faculty_final' : null,
+          // The server mints faculty identity and approval time from the authenticated actor.
+          facultyApproval: approved
+            ? { approved: true, signatureAttested: true }
+            : null,
+        }),
+      });
+      if (result.saved) {
+        facultyDraftText = null;
+        facultyFinalText = null;
+        facultyApproved = false;
+        facultySignatureAttested = false;
+      }
+    }
+
+    function readableAiProposal(outcome) {
+      if (!isPlainObject(outcome) || outcome.reached !== true) return null;
+      if (![200, 201].includes(Number(outcome.status))) return null;
+      const proposal = isPlainObject(outcome.body) && isPlainObject(outcome.body.proposal)
+        ? outcome.body.proposal
+        : null;
+      if (
+        !proposal
+        || !isNonEmptyString(proposal.id)
+        || !['proposal', 'decided'].includes(proposal.state)
+        || !isNonEmptyString(proposal.text)
+        || !isPlainObject(proposal.provenance)
+        || proposal.provenance.caseId !== renderedProjection?.caseId
+      ) {
+        return null;
+      }
+      return proposal;
+    }
+
+    async function runAiCommand(invoke, successNotice) {
+      if (!renderedProjection || renderedKind !== 'faculty' || writeInFlight) return;
+      writeInFlight = true;
+      let outcome;
+      try {
+        outcome = await invoke({ caseId: renderedProjection.caseId });
+      } catch {
+        outcome = { reached: false };
+      } finally {
+        writeInFlight = false;
+      }
+      const proposal = readableAiProposal(outcome);
+      if (proposal) {
+        aiProposal = proposal;
+        aiEditedText = proposal.state === 'proposal' ? proposal.text : '';
+        aiNotice = successNotice;
+      } else if (!isPlainObject(outcome) || outcome.reached !== true) {
+        aiNotice = 'MissionMed could not be reached. No AI proposal action was recorded.';
+      } else {
+        aiNotice = 'MissionMed did not accept that AI proposal action. Nothing was finalized or released.';
+      }
+      renderCase(renderedProjection, null);
+    }
+
+    async function requestAiProposal() {
+      if (!commands || typeof commands.requestAiProposal !== 'function') return;
+      await runAiCommand(
+        ({ caseId }) => commands.requestAiProposal({ caseId, factIds: null }),
+        'AI proposal received for faculty review. It is not final wording.',
+      );
+    }
+
+    async function refreshAiProposal() {
+      if (!commands || typeof commands.readAiProposal !== 'function' || !isNonEmptyString(aiProposal?.id)) return;
+      await runAiCommand(
+        ({ caseId }) => commands.readAiProposal({ caseId, proposalId: aiProposal.id }),
+        'The server proposal record is up to date.',
+      );
+    }
+
+    async function decideAiProposal(action) {
+      if (
+        !commands
+        || typeof commands.decideAiProposal !== 'function'
+        || !isNonEmptyString(aiProposal?.id)
+      ) return;
+      const resultingText = action === 'edited' ? aiEditedText : undefined;
+      if (action === 'edited' && !String(resultingText || '').trim()) return;
+      await runAiCommand(
+        ({ caseId }) => commands.decideAiProposal({
+          caseId,
+          proposalId: aiProposal.id,
+          action,
+          resultingText,
+        }),
+        'Your human decision was recorded. This did not finalize, approve, release, or export the letter.',
+      );
     }
 
     /**
@@ -1337,6 +1582,7 @@
     function buildReceiptsPanel(projection) {
       const children = [];
       const consent = projection.consentReceipts;
+      const consentState = readConsentState(consent);
       if (consent.length === 0) {
         children.push(el('p', 'sub', 'No consent has been recorded for this case yet.'));
       } else {
@@ -1348,7 +1594,12 @@
           if (scopes.length > 0) parts.push(`Scope: ${scopes.join(', ')}`);
           if (isNonEmptyString(receipt.policyVersion)) parts.push(`Policy ${receipt.policyVersion}`);
           if (recordedAt) parts.push(recordedAt);
-          children.push(row('Consent recorded', parts.join(' · ') || 'Recorded.', el('span', 'chip gn', 'On file')));
+          const withdrawn = scopes.length === 1 && scopes[0] === CONSENT_WITHDRAWN_SCOPE;
+          children.push(row(
+            withdrawn ? 'Consent withdrawn' : 'Consent recorded',
+            parts.join(' · ') || 'Recorded.',
+            el('span', withdrawn ? 'chip em' : 'chip gn', withdrawn ? 'Withdrawn' : 'On file'),
+          ));
         }
       }
 
@@ -1375,8 +1626,42 @@
       if (canRecord) {
         const actions = el('div', 'lorProductionActions');
         actions.id = 'lorReceiptActions';
-        if (consent.length === 0) {
-          actions.appendChild(button('Record my consent', 'btn pri sm', () => { void recordConsent(); }));
+        if (!consentState.active) {
+          const disclosure = el('div', 'lorConsentDisclosure');
+          disclosure.id = 'lorConsentDisclosure';
+          disclosure.appendChild(el(
+            'p',
+            'micNote',
+            'Consent version dr-133-identified-education-record-v1: I authorize MissionMed to store the information I enter, share selected evidence with my invited and verified faculty writer, and send that selected evidence to the configured AI provider solely to generate a non-final draft. Automated redaction removes some direct account identifiers but is not a guarantee of de-identification; my evidence may still contain identifiable education or clinical information. I may withdraw future AI use and prevent new sharing at any time. Previously delivered material is not recalled, a pending invitation must be revoked separately, and audit or legal records required for security and compliance remain append-only.',
+          ));
+          const acknowledgment = doc.createElement('input');
+          acknowledgment.type = 'checkbox';
+          acknowledgment.id = 'lorConsentAcknowledgment';
+          const acknowledgmentLabel = el(
+            'label',
+            'micNote',
+            'I have read this disclosure and explicitly agree to these uses.',
+          );
+          acknowledgmentLabel.setAttribute('for', acknowledgment.id);
+          const consentButton = button(
+            consentState.withdrawn ? 'Consent again under the current policy' : 'Record my explicit consent',
+            'btn pri sm',
+            () => { void recordConsent(); },
+            { disabled: true, describedBy: disclosure.id },
+          );
+          acknowledgment.addEventListener('change', () => {
+            consentButton.disabled = acknowledgment.checked !== true;
+          });
+          disclosure.appendChild(acknowledgment);
+          disclosure.appendChild(acknowledgmentLabel);
+          actions.appendChild(disclosure);
+          actions.appendChild(consentButton);
+        } else {
+          actions.appendChild(button(
+            'Withdraw future sharing and AI consent',
+            'btn alt sm',
+            () => { void withdrawConsent(); },
+          ));
         }
         actions.appendChild(button(
           waiver.decided && waiver.waived === true ? 'Change to: keep my access' : 'Keep my access to the letter',
@@ -1404,6 +1689,80 @@
         `${consent.length} consent · ${projection.waiverReceipts.length} waiver`,
       )];
       return panel('Consent & waiver receipts', children, extras);
+    }
+
+    function buildFacultyInvitationPanel(projection) {
+      if (!['draft', 'faculty_invited'].includes(projection.status)) return null;
+      const complete = projection.builder.completedStepIds.length === BUILDER_STEP_IDS.length;
+      const consentActive = readConsentState(projection.consentReceipts).active;
+      const canSend = complete && consentActive;
+      const pending = projection.status === 'faculty_invited';
+      const children = [
+        el(
+          'p',
+          'sub',
+          pending
+            ? 'An invitation is pending. You may resend its one-time code, revoke it, or revoke first and then send a replacement.'
+            : complete && !consentActive
+            ? 'Record the current explicit sharing and AI consent before inviting your faculty writer.'
+            : complete
+            ? 'Send the invitation to the faculty writer who agreed to write this letter.'
+            : 'Finish all eight builder steps before inviting your faculty writer.',
+        ),
+      ];
+      if (commands && typeof commands.inviteFaculty === 'function') {
+        const wrapper = el('div', 'fld');
+        const label = el('label', null, 'Faculty writer email');
+        label.setAttribute('for', 'lorFacultyInvitationEmail');
+        const input = doc.createElement('input');
+        input.id = 'lorFacultyInvitationEmail';
+        input.type = 'email';
+        input.autocomplete = 'email';
+        input.value = facultyInvitationEmail;
+        input.disabled = !canSend;
+        input.addEventListener('input', () => { facultyInvitationEmail = input.value; });
+        wrapper.appendChild(label);
+        wrapper.appendChild(input);
+        children.push(wrapper);
+        const actions = el('div', 'lorProductionActions');
+        actions.id = 'lorFacultyInvitationActions';
+        actions.appendChild(button(
+          pending ? 'Send replacement invitation' : 'Invite faculty writer',
+          'btn pri sm',
+          () => { void inviteFacultyWriter(input.value); },
+          { disabled: !canSend },
+        ));
+        if (pending && typeof commands.resendFacultyOtp === 'function') {
+          actions.appendChild(button(
+            'Resend one-time code',
+            'btn sm',
+            () => { void resendFacultyWriterOtp(input.value); },
+            { disabled: !canSend },
+          ));
+        }
+        if (pending && typeof commands.revokeFacultyInvitation === 'function') {
+          actions.appendChild(button(
+            'Revoke current invitation',
+            'btn sm',
+            () => { void revokeFacultyWriterInvitation(); },
+          ));
+        }
+        children.push(actions);
+        children.push(el(
+          'p',
+          'micNote',
+          'MissionMed binds the invitation to this case. This screen sends only the recipient email.',
+        ));
+      }
+      return panel(
+        'Faculty invitation',
+        children,
+        [el(
+          'span',
+          canSend ? 'chip cy' : 'chip dashed',
+          pending ? 'Invitation pending' : (canSend ? 'Ready' : (complete ? 'Consent required' : 'Builder incomplete')),
+        )],
+      );
     }
 
     function buildExportControl() {
@@ -1495,6 +1854,41 @@
           : `${options.length} ${options.length === 1 ? 'option' : 'options'} saved to your account.`,
         el('span', options.length === 0 ? 'chip dashed' : 'chip gn', String(options.length)),
       ));
+      const requiredSteps = ['evidence_selection', 'timeline_highlights', 'consent_and_waiver'];
+      const stepsReady = requiredSteps.every((stepId) => (
+        projection.builder.completedStepIds.includes(stepId)
+      ));
+      const consentReady = readConsentState(projection.consentReceipts).active;
+      const evidenceSourcePresent = [
+        ['evidence_selection', 'priorityEvidence'],
+        ['evidence_selection', 'evidenceSummary'],
+        ['timeline_highlights', 'standoutMoment'],
+        ['timeline_highlights', 'timelineSummary'],
+      ].some(([stepId, fieldName]) => {
+        const value = projection.builder.stepData?.[stepId]?.[fieldName];
+        return typeof value === 'string' && value.trim().length > 0;
+      });
+      const canRequestPublication = projection.status === 'draft'
+        && stepsReady
+        && consentReady
+        && evidenceSourcePresent
+        && commands
+        && typeof commands.publishStudentEvidence === 'function';
+      children.push(el(
+        'p',
+        'sub',
+        canRequestPublication
+          ? 'Publish the eligible evidence already saved in your builder for your faculty writer. MissionMed applies limited direct-identifier redaction and seals the consent and source hashes in the database; this is not a guarantee of de-identification.'
+          : 'Complete the evidence, timeline, and consent steps, save at least one evidence detail, and record drafting and grounding consent before publishing evidence.',
+      ));
+      const actions = el('div', 'lorProductionActions');
+      actions.appendChild(button(
+        evidence.length === 0 ? 'Publish evidence for my writer' : 'Update published evidence',
+        'btn pri sm',
+        () => { void publishStudentEvidence(); },
+        { disabled: !canRequestPublication },
+      ));
+      children.push(actions);
       return panel('Evidence', children);
     }
 
@@ -1512,6 +1906,180 @@
         (stepId) => Object.prototype.hasOwnProperty.call(stepData, stepId),
       );
       return firstWithData || null;
+    }
+
+    function facultyTextControl({ id, labelText, value, onInput, disabled = false }) {
+      const wrapper = el('div', 'fld');
+      const label = el('label', null, labelText);
+      label.setAttribute('for', id);
+      const control = doc.createElement('textarea');
+      control.id = id;
+      control.dataset.step = 'faculty_private';
+      control.dataset.field = id;
+      control.value = String(value ?? '');
+      control.disabled = disabled;
+      control.addEventListener('input', () => onInput(control.value));
+      wrapper.appendChild(label);
+      wrapper.appendChild(control);
+      return wrapper;
+    }
+
+    function facultyApprovalControl(id, labelText, checked, onChange, disabled) {
+      const wrapper = el('label', 'row');
+      wrapper.setAttribute('for', id);
+      const input = doc.createElement('input');
+      input.type = 'checkbox';
+      input.id = id;
+      input.checked = checked;
+      input.disabled = disabled;
+      input.addEventListener('change', () => onChange(input.checked));
+      wrapper.appendChild(input);
+      wrapper.appendChild(el('span', 'rowT', labelText));
+      return wrapper;
+    }
+
+    function buildFacultyAuthoring(projection) {
+      const privateState = projection.facultyPrivate;
+      const storedDocument = isPlainObject(privateState.finalDocument)
+        ? privateState.finalDocument
+        : null;
+      const released = Boolean(formatTimestamp(storedDocument?.releasedToStudentAt));
+      const canSave = Boolean(commands) && typeof commands.saveFacultyPrivateContent === 'function';
+      const disabled = released || !canSave;
+      const draftValue = facultyDraftText === null ? (privateState.draftText ?? '') : facultyDraftText;
+      const finalValue = facultyFinalText === null ? (storedDocument?.text ?? '') : facultyFinalText;
+      const children = [
+        el(
+          'p',
+          'sub',
+          released
+            ? 'This released wording is immutable.'
+            : 'Your notes and letter remain faculty-private until you explicitly release an approved final document.',
+        ),
+      ];
+      if (canSave || isNonEmptyString(draftValue) || isNonEmptyString(finalValue)) {
+        children.push(facultyTextControl({
+          id: 'lorFacultyDraft',
+          labelText: 'Private working draft',
+          value: draftValue,
+          disabled,
+          onInput: (value) => { facultyDraftText = value; },
+        }));
+        children.push(facultyTextControl({
+          id: 'lorFacultyFinal',
+          labelText: 'Final letter wording',
+          value: finalValue,
+          disabled,
+          onInput: (value) => { facultyFinalText = value; },
+        }));
+      }
+      if (canSave) {
+        children.push(facultyApprovalControl(
+          'lorFacultyApproval',
+          'I reviewed and approve this exact wording.',
+          facultyApproved,
+          (checked) => { facultyApproved = checked; },
+          released,
+        ));
+        children.push(facultyApprovalControl(
+          'lorFacultySignatureAttestation',
+          'I attest that this is my final letter.',
+          facultySignatureAttested,
+          (checked) => { facultySignatureAttested = checked; },
+          released,
+        ));
+        const actions = el('div', 'lorProductionActions');
+        actions.id = 'lorFacultyPrivateActions';
+        actions.appendChild(button(
+          'Save private faculty work',
+          'btn pri sm',
+          () => { void saveFacultyPrivateWork(); },
+          { disabled: released },
+        ));
+        children.push(actions);
+      }
+      children.push(el(
+        'p',
+        'micNote',
+        'AI proposals are never final letters. Only your explicit review and attestation can mark wording faculty-final.',
+      ));
+      return panel(
+        'Private faculty workspace',
+        children,
+        [el('span', released ? 'chip gn' : 'chip cy', released ? 'Released' : 'Faculty private')],
+      );
+    }
+
+    function buildAiProposalPanel() {
+      const canRequest = Boolean(commands) && typeof commands.requestAiProposal === 'function';
+      if (!canRequest && !aiProposal) return null;
+      const children = [
+        el(
+          'p',
+          'sub',
+          'AI can propose grounded wording only. It cannot approve, finalize, release, or export a letter. A faculty writer must review every proposal.',
+        ),
+      ];
+      const actions = el('div', 'lorProductionActions');
+      actions.id = 'lorAiProposalActions';
+      if (canRequest) {
+        actions.appendChild(button(
+          'Generate an AI proposal',
+          'btn alt sm',
+          () => { void requestAiProposal(); },
+        ));
+      }
+      if (aiProposal) {
+        const card = el('div', 'draftCard sel');
+        const head = el('div', 'dHead');
+        head.appendChild(el('div', 'h2', 'AI proposal — human review required'));
+        head.appendChild(el(
+          'span',
+          aiProposal.state === 'proposal' ? 'chip cy' : 'chip gn',
+          aiProposal.state === 'proposal' ? 'Proposal only' : 'Decision recorded',
+        ));
+        card.appendChild(head);
+        card.appendChild(el('div', 'dBody', aiProposal.text));
+        children.push(card);
+        if (commands && typeof commands.readAiProposal === 'function') {
+          actions.appendChild(button(
+            'Refresh this proposal',
+            'btn alt sm',
+            () => { void refreshAiProposal(); },
+          ));
+        }
+        if (aiProposal.state === 'proposal' && commands && typeof commands.decideAiProposal === 'function') {
+          children.push(facultyTextControl({
+            id: 'lorAiEditedWording',
+            labelText: 'Faculty-edited wording (optional)',
+            value: aiEditedText || aiProposal.text,
+            onInput: (value) => { aiEditedText = value; },
+          }));
+          actions.appendChild(button(
+            'Accept proposal verbatim',
+            'btn alt sm',
+            () => { void decideAiProposal('accepted'); },
+          ));
+          actions.appendChild(button(
+            'Record my edited wording',
+            'btn pri sm',
+            () => { void decideAiProposal('edited'); },
+          ));
+          actions.appendChild(button(
+            'Reject this proposal',
+            'btn alt sm',
+            () => { void decideAiProposal('rejected'); },
+          ));
+        }
+      }
+      if (actions.childElementCount > 0) children.push(actions);
+      if (aiNotice) children.push(el('p', 'micNote', aiNotice));
+      children.push(el(
+        'p',
+        'micNote',
+        'Recording a human proposal decision does not save it as the final document. Use the private faculty workspace to review and finalize wording.',
+      ));
+      return panel('AI drafting assistant', children, [el('span', 'chip cy', 'Proposal only')]);
     }
 
     /**
@@ -1608,8 +2176,43 @@
       header.appendChild(strip);
       view.appendChild(header);
 
+      view.appendChild(buildFacultyAuthoring(projection));
+      const aiPanel = buildAiProposalPanel();
+      if (aiPanel) view.appendChild(aiPanel);
       view.appendChild(buildFacultyRelease(projection));
       view.appendChild(buildDeliveryPanel(projection));
+      host.appendChild(view);
+      renderedProjection = projection;
+    }
+
+    function renderMentorCase(projection, stateName) {
+      const host = resolveMount();
+      clear(host);
+      const view = el('section', 'live');
+      view.dataset.view = 'case';
+      view.dataset.actor = 'mentor';
+      if (stateName && Object.prototype.hasOwnProperty.call(STATE_COPY, stateName)) {
+        view.appendChild(stateBanner(stateName));
+      }
+      const header = el('div', 'lorProductionHeader');
+      header.appendChild(el('p', 'eyebrow', 'MissionMed LOR Studio · Mentor'));
+      header.appendChild(el('h1', 'h1', 'Recommendation case'));
+      const strip = el('div', 'pHead');
+      strip.appendChild(el(
+        'span',
+        TONE_STAGE_CLASS[CASE_STATUS_TONES[projection.status] || 'info'],
+        humanize(projection.status),
+      ));
+      strip.appendChild(el('span', 'chip', `Case ${projection.caseId}`));
+      header.appendChild(strip);
+      view.appendChild(header);
+      view.appendChild(panel('Mentor case status', [
+        row('Case stage', humanize(projection.status)),
+        row('Strategy status', projection.strategyStatus === null ? 'Not set.' : humanize(projection.strategyStatus)),
+        row('Next milestone', projection.nextMilestone === null ? 'Not set.' : humanize(projection.nextMilestone)),
+        row('Delivery status', projection.deliveryStatus === null ? 'Not set.' : humanize(projection.deliveryStatus)),
+        el('p', 'micNote', 'This is the exact read-only mentor projection. Student and faculty-private content is not included.'),
+      ], [el('span', 'chip', 'Read only')]));
       host.appendChild(view);
       renderedProjection = projection;
     }
@@ -1650,6 +2253,10 @@
 
     function renderCase(projection, stateName) {
       const focus = captureFocus();
+      if (renderedKind === 'mentor') {
+        renderMentorCase(projection, stateName);
+        return;
+      }
       if (renderedKind === 'faculty') {
         renderFacultyCase(projection, stateName);
         restoreFocus(focus);
@@ -1670,6 +2277,8 @@
       primary.appendChild(buildBuilderPanel(projection));
       const secondary = el('div');
       secondary.appendChild(buildReceiptsPanel(projection));
+      const invitationPanel = buildFacultyInvitationPanel(projection);
+      if (invitationPanel) secondary.appendChild(invitationPanel);
       secondary.appendChild(buildFinalDocumentPanel(projection));
       secondary.appendChild(buildEvidencePanel(projection));
       secondary.appendChild(buildDeliveryPanel(projection));
@@ -1697,6 +2306,14 @@
       // A closed surface must not keep a timer alive that would fire a write into it.
       clearDebounce();
       exportNotice = null;
+      facultyInvitationEmail = '';
+      facultyDraftText = null;
+      facultyFinalText = null;
+      facultyApproved = false;
+      facultySignatureAttested = false;
+      aiProposal = null;
+      aiEditedText = '';
+      aiNotice = null;
       // Close first, argue second: even a caller asking for a reveal gets the closed screen before
       // the refusal is raised.
       applyState(state);
@@ -1731,13 +2348,19 @@
         applyState('durable_runtime_unavailable');
         throw new TypeError('LOR Studio production rendering requires the live runtime');
       }
-      // Two surfaces, one renderer. `faculty` is admitted only when the SERVER named the actor a
-      // faculty writer AND answered with the faculty projection; every other role is refused, and
-      // an unstated role still means the student view, exactly as before.
-      const kind = ctx.actorRole === 'faculty' ? 'faculty' : 'student';
-      if (ctx.actorRole !== undefined && ctx.actorRole !== 'student' && ctx.actorRole !== 'faculty') {
+      // The server-selected schema and role must agree. An unstated role retains the original
+      // student default for the server-side adapter, while the browser adapter always supplies it.
+      const kind = ctx.actorRole === 'faculty'
+        ? 'faculty'
+        : (ctx.actorRole === 'mentor' ? 'mentor' : 'student');
+      if (
+        ctx.actorRole !== undefined
+        && ctx.actorRole !== 'student'
+        && ctx.actorRole !== 'faculty'
+        && ctx.actorRole !== 'mentor'
+      ) {
         applyState('durable_runtime_unavailable');
-        throw new TypeError('This renderer presents the student case view only');
+        throw new TypeError('This renderer cannot present the authorized actor role');
       }
       if (prototypeIsRevealed(doc, win)) {
         applyState('durable_runtime_unavailable');
@@ -1764,7 +2387,20 @@
       conflictStepId = null;
       exportNotice = null;
       // A projection for a different case cannot inherit another case's unsaved wording.
-      if (renderedProjection && renderedProjection.caseId !== renderable.caseId) draftEdits.clear();
+      if (
+        renderedProjection
+        && (renderedProjection.caseId !== renderable.caseId || renderedKind !== kind)
+      ) {
+        draftEdits.clear();
+        facultyInvitationEmail = '';
+        facultyDraftText = null;
+        facultyFinalText = null;
+        facultyApproved = false;
+        facultySignatureAttested = false;
+        aiProposal = null;
+        aiEditedText = '';
+        aiNotice = null;
+      }
       renderedKind = kind;
       currentState = 'loaded';
       renderCase(renderable, null);
@@ -1884,6 +2520,14 @@
       'autosaveBuilderStep',
       'completeBuilderStep',
       'recordReceipt',
+      'publishStudentEvidence',
+      'inviteFaculty',
+      'resendFacultyOtp',
+      'revokeFacultyInvitation',
+      'saveFacultyPrivateContent',
+      'requestAiProposal',
+      'readAiProposal',
+      'decideAiProposal',
       'releaseFinalDocument',
       'exportFinalDocument',
       'reloadCase',
@@ -1937,7 +2581,7 @@
         return renderedProjection ? renderedProjection.caseId : null;
       },
       get renderedRevision() {
-        return renderedProjection ? renderedProjection.revision : null;
+        return Number.isSafeInteger(renderedProjection?.revision) ? renderedProjection.revision : null;
       },
       get saveInFlight() {
         return pendingSaveBaselineRevision !== null;

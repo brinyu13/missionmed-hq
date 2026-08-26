@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { Writable } from 'node:stream';
+import { Readable, Writable } from 'node:stream';
 import test from 'node:test';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,10 +12,13 @@ import {
   canonicalizeLorSessionSubject,
   evaluateLorEntitlement,
   isLorStudioRequestPath,
+  LOR_CANDIDATE_AUTH_START_PATH,
+  LOR_CANDIDATE_HANDOFF_COOKIE_NAME,
   resolveLorStudioFlags,
   validateFreshLorSession,
 } from '../../lor-studio/http/runtime.mjs';
 import { readTrustedRequestContext } from '../../lor-studio/security/trusted-request-context.mjs';
+import { readFacultyCandidateCredentialContext } from '../../lor-studio/security/faculty-candidate-credential-context.mjs';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const publicDirectory = path.resolve(testDirectory, '..', '..', 'public', 'lor-studio');
@@ -82,6 +85,35 @@ function entitlement(overrides = {}) {
   };
 }
 
+function candidateCredential(invitationId = 'invite_abc-123', overrides = {}) {
+  return {
+    schemaVersion: 'missionmed.lor.faculty-candidate-credential.v1',
+    authoritySource: 'server_verified_sealed_candidate_cookie',
+    authenticatedSubject: 'wp:1',
+    invitationId,
+    tokenHash: 'a'.repeat(64),
+    flowNonceHash: 'b'.repeat(64),
+    issuedAt: '2026-08-09T15:55:00.000Z',
+    expiresAt: '2026-08-09T16:05:00.000Z',
+    clientAsserted: false,
+    ...overrides,
+  };
+}
+
+function candidateHandoff(invitationId = 'invite_abc-123', overrides = {}) {
+  return {
+    schemaVersion: 'missionmed.lor.faculty-candidate-auth-handoff.v1',
+    authoritySource: 'server_verified_invitation_token_exchange',
+    invitationId,
+    sealedHandoff: `lorch1.${'i'.repeat(16)}.${'c'.repeat(64)}.${'t'.repeat(22)}`,
+    issuedAt: '2026-08-09T15:59:00.000Z',
+    expiresAt: '2026-08-09T16:09:00.000Z',
+    singlePurpose: true,
+    clientAsserted: false,
+    ...overrides,
+  };
+}
+
 function runtime(options = {}) {
   return createLorStudioRuntime({
     publicDirectory,
@@ -93,10 +125,22 @@ function runtime(options = {}) {
   });
 }
 
-async function invoke(activeRuntime, route, { method = 'GET', activeSession = session(), headers = {} } = {}) {
-  const request = { method, headers };
+async function invoke(activeRuntime, route, {
+  method = 'GET',
+  activeSession = session(),
+  headers = {},
+  body = null,
+  activeCandidateCredential = null,
+} = {}) {
+  const request = Readable.from(body === null ? [] : [Buffer.from(JSON.stringify(body))]);
+  request.method = method;
+  request.headers = headers;
+  request.url = route;
   const response = new MemoryResponse();
-  await activeRuntime.handle(request, response, new URL(route, 'https://hq.example.test'), { session: activeSession });
+  await activeRuntime.handle(request, response, new URL(route, 'https://hq.example.test'), {
+    session: activeSession,
+    candidateCredential: activeCandidateCredential,
+  });
   // Asset responses are piped, so writeHead can return before the body has been written.
   if (response.statusCode !== 0 && !response.writableFinished) {
     await new Promise((resolve) => response.once('finish', resolve));
@@ -396,6 +440,165 @@ test('every mutation requires the LOR CSRF header before application dispatch', 
   assert.equal(dispatched, 1);
 });
 
+test('anonymous candidate start is the one invitation-bound pre-session exchange and emits only an opaque cookie', async () => {
+  const rawToken = 't'.repeat(43);
+  const calls = [];
+  let entitlementLookups = 0;
+  const activeRuntime = runtime({
+    entitlementResolver: {
+      async resolve() {
+        entitlementLookups += 1;
+        throw new Error('ordinary authorization must not run');
+      },
+    },
+    candidateAuthStartService: {
+      async exchangeInvitationToken(input) {
+        calls.push(structuredClone(input));
+        return candidateHandoff();
+      },
+    },
+  });
+  const response = await invoke(activeRuntime, LOR_CANDIDATE_AUTH_START_PATH, {
+    method: 'POST',
+    activeSession: null,
+    headers: {
+      'content-type': 'application/json',
+      origin: 'https://hq.example.test',
+      'sec-fetch-site': 'same-origin',
+      'x-missionmed-lor-candidate': '1',
+    },
+    body: { invitationId: 'invite_abc-123', rawToken },
+  });
+
+  assert.equal(response.statusCode, 204);
+  assert.equal(response.body, '');
+  assert.equal(entitlementLookups, 0);
+  assert.deepEqual(calls, [{ invitationId: 'invite_abc-123', rawToken }]);
+  const cookie = response.headers['Set-Cookie'];
+  assert.match(cookie, new RegExp(`^${LOR_CANDIDATE_HANDOFF_COOKIE_NAME}=lorch1\\.`, 'u'));
+  assert.match(cookie, /; Max-Age=540; Path=\/api\/lor-studio\/auth\/; HttpOnly; Secure; SameSite=Lax$/u);
+  assert.doesNotMatch(cookie, new RegExp(rawToken, 'u'));
+  assert.doesNotMatch(cookie, /invite_abc-123/u);
+  assert.equal(response.headers['Cache-Control'], 'no-store, max-age=0');
+});
+
+test('candidate start rejects every widening before token exchange and clears any stale handoff', async () => {
+  let exchanges = 0;
+  const activeRuntime = runtime({
+    candidateAuthStartService: {
+      async exchangeInvitationToken() {
+        exchanges += 1;
+        return candidateHandoff();
+      },
+    },
+  });
+  const validHeaders = {
+    'content-type': 'application/json',
+    origin: 'https://hq.example.test',
+    'sec-fetch-site': 'same-origin',
+    'x-missionmed-lor-candidate': '1',
+  };
+  const validBody = { invitationId: 'invite_abc-123', rawToken: 't'.repeat(43) };
+  const attempts = [
+    [LOR_CANDIDATE_AUTH_START_PATH, { method: 'GET', activeSession: null }, 405],
+    [`${LOR_CANDIDATE_AUTH_START_PATH}?role=faculty`, {
+      method: 'POST', activeSession: null, headers: validHeaders, body: validBody,
+    }, 400],
+    [LOR_CANDIDATE_AUTH_START_PATH, {
+      method: 'POST', activeSession: null,
+      headers: { ...validHeaders, origin: 'https://attacker.example' }, body: validBody,
+    }, 403],
+    [LOR_CANDIDATE_AUTH_START_PATH, {
+      method: 'POST', activeSession: null,
+      headers: { ...validHeaders, 'x-missionmed-lor-candidate': 'faculty' }, body: validBody,
+    }, 403],
+    [LOR_CANDIDATE_AUTH_START_PATH, {
+      method: 'POST', activeSession: null,
+      headers: { ...validHeaders, 'sec-fetch-site': 'cross-site' }, body: validBody,
+    }, 403],
+    [LOR_CANDIDATE_AUTH_START_PATH, {
+      method: 'POST', activeSession: null,
+      headers: { ...validHeaders, 'content-type': 'text/plain' }, body: validBody,
+    }, 400],
+    [LOR_CANDIDATE_AUTH_START_PATH, {
+      method: 'POST', activeSession: null, headers: validHeaders,
+      body: { ...validBody, actor: { id: 'wp:1', role: 'faculty' } },
+    }, 400],
+    [LOR_CANDIDATE_AUTH_START_PATH, {
+      method: 'POST', activeSession: null, headers: validHeaders,
+      body: { ...validBody, rawToken: 'short' },
+    }, 400],
+  ];
+
+  for (const [route, options, expectedStatus] of attempts) {
+    const response = await invoke(activeRuntime, route, options);
+    assert.equal(response.statusCode, expectedStatus);
+    assert.match(
+      response.headers['Set-Cookie'],
+      new RegExp(`^${LOR_CANDIDATE_HANDOFF_COOKIE_NAME}=; Max-Age=0;`, 'u'),
+    );
+    assert.doesNotMatch(response.body, /tttttttt|wp:1|faculty/u);
+  }
+  assert.equal(exchanges, 0);
+});
+
+test('candidate start fails closed for an absent, denying, or malformed trusted exchange service', async () => {
+  const headers = {
+    'content-type': 'application/json',
+    origin: 'https://hq.example.test',
+    'x-missionmed-lor-candidate': '1',
+  };
+  const body = { invitationId: 'invite_abc-123', rawToken: 't'.repeat(43) };
+
+  const absent = await invoke(runtime(), LOR_CANDIDATE_AUTH_START_PATH, {
+    method: 'POST', activeSession: null, headers, body,
+  });
+  assert.equal(absent.statusCode, 503);
+  assert.equal(JSON.parse(absent.body).error, 'candidate_auth_start_unavailable');
+
+  const deniedRuntime = runtime({
+    candidateAuthStartService: {
+      async exchangeInvitationToken() {
+        throw Object.assign(new Error('must not escape'), { code: 'INVITATION_DENIED' });
+      },
+    },
+  });
+  const denied = await invoke(deniedRuntime, LOR_CANDIDATE_AUTH_START_PATH, {
+    method: 'POST', activeSession: null, headers, body,
+  });
+  assert.equal(denied.statusCode, 403);
+  assert.deepEqual(JSON.parse(denied.body), {
+    error: 'candidate_auth_start_denied',
+    message: 'Faculty invitation sign-in could not be started.',
+  });
+  assert.doesNotMatch(denied.body, /must not escape|invite_abc|tttt/u);
+
+  for (const malformed of [
+    null,
+    candidateHandoff('another-invitation'),
+    candidateHandoff('invite_abc-123', { sealedHandoff: 'raw-browser-token' }),
+    candidateHandoff('invite_abc-123', { expiresAt: '2026-08-09T16:30:00.000Z' }),
+    { ...candidateHandoff(), actor: { id: 'wp:1', role: 'faculty' } },
+  ]) {
+    const malformedRuntime = runtime({
+      candidateAuthStartService: { async exchangeInvitationToken() { return malformed; } },
+    });
+    const response = await invoke(malformedRuntime, LOR_CANDIDATE_AUTH_START_PATH, {
+      method: 'POST', activeSession: null, headers, body,
+    });
+    assert.equal(response.statusCode, 503);
+    assert.equal(JSON.parse(response.body).error, 'candidate_auth_start_unavailable');
+    assert.doesNotMatch(response.body, /invite_abc|wp:1|faculty|tttt/u);
+  }
+});
+
+test('candidate start service shape is validated at construction', () => {
+  assert.throws(
+    () => runtime({ candidateAuthStartService: {} }),
+    /candidateAuthStartService\.exchangeInvitationToken/u,
+  );
+});
+
 test('unexpected application errors are redacted at the LOR boundary', async () => {
   const activeRuntime = runtime({
     application: {
@@ -480,6 +683,132 @@ test('the production projection UI bundle is served, and only to authorized prin
   } finally {
     await rm(stagedPublic, { force: true, recursive: true });
   }
+});
+
+test('exact faculty invitation deep links serve the protected application shell without widening assets', async () => {
+  const deepLink = '/lor-studio/invitations/invite_abc-123';
+  const candidate = runtime({
+    entitlementResolver: { resolve: async () => entitlement({ role: 'faculty' }) },
+  });
+  const authorized = await invoke(candidate, deepLink, {
+    activeCandidateCredential: candidateCredential(),
+  });
+  assert.equal(authorized.statusCode, 200);
+  assert.match(authorized.headers['Content-Type'], /text\/html/u);
+  assert.match(authorized.body, /id="lorRuntimeGate"/u);
+  assert.equal(authorized.headers['Cache-Control'], 'no-store, max-age=0');
+  assert.equal(authorized.headers['X-Robots-Tag'], 'noindex, nofollow');
+
+  const trailingSlash = await invoke(candidate, `${deepLink}/`, {
+    activeCandidateCredential: candidateCredential(),
+  });
+  assert.equal(trailingSlash.statusCode, 200);
+  assert.equal(trailingSlash.body, authorized.body);
+
+  const anonymous = await invoke(runtime(), deepLink, { activeSession: null });
+  assert.equal(anonymous.statusCode, 200);
+  assert.match(anonymous.body, /id="candidateContinue"/u);
+  assert.doesNotMatch(anonymous.body, /id="lorRuntimeGate"/u);
+
+  const alreadySignedIn = await invoke(candidate, deepLink);
+  assert.equal(alreadySignedIn.statusCode, 200);
+  assert.match(alreadySignedIn.body, /id="candidateContinue"/u);
+  assert.doesNotMatch(alreadySignedIn.body, /id="lorRuntimeGate"/u);
+
+  const mismatchedCredential = await invoke(candidate, deepLink, {
+    activeCandidateCredential: candidateCredential('another-invitation'),
+  });
+  assert.equal(mismatchedCredential.statusCode, 200);
+  assert.match(mismatchedCredential.body, /id="candidateContinue"/u);
+  assert.doesNotMatch(mismatchedCredential.body, /id="lorRuntimeGate"/u);
+
+  for (const invalidCredential of [
+    candidateCredential('invite_abc-123', { expiresAt: '2026-08-09T15:59:59.000Z' }),
+    candidateCredential('invite_abc-123', { authenticatedSubject: 'wp:2' }),
+    { invitationId: 'invite_abc-123', rawToken: 'browser-asserted' },
+  ]) {
+    const response = await invoke(candidate, deepLink, {
+      activeCandidateCredential: invalidCredential,
+    });
+    assert.equal(response.statusCode, 200);
+    assert.match(response.body, /id="candidateContinue"/u);
+    assert.doesNotMatch(response.body, /id="lorRuntimeGate"/u);
+    assert.doesNotMatch(response.body, /browser-asserted|wp:2/u);
+  }
+
+  const featureOff = await invoke(runtime({
+    flags: { enabled: false, killSwitch: false, requireCanary: true },
+  }), deepLink, { activeSession: null });
+  assert.equal(featureOff.statusCode, 404);
+  assert.doesNotMatch(featureOff.body, /id="candidateContinue"|id="lorRuntimeGate"/u);
+
+  const killed = await invoke(runtime({
+    flags: { enabled: true, killSwitch: true, requireCanary: true },
+  }), deepLink);
+  assert.equal(killed.statusCode, 423);
+  assert.doesNotMatch(killed.body, /id="candidateContinue"|id="lorRuntimeGate"/u);
+
+  for (const unsafe of [
+    '/lor-studio/invitations/invite_abc-123/extra',
+    '/lor-studio/invitations/invite%2Fother',
+    '/lor-studio/invitations/invite%00other',
+  ]) {
+    const response = await invoke(runtime(), unsafe);
+    assert.equal(response.statusCode, 404);
+    assert.equal(JSON.parse(response.body).error, 'lor_asset_not_found');
+  }
+});
+
+test('candidate bootstrap is invitation-scoped and verification receives only the server credential context', async () => {
+  const seen = [];
+  const activeRuntime = runtime({
+    entitlementResolver: { resolve: async () => entitlement({ role: 'faculty' }) },
+    application: {
+      async getBootstrap() {
+        return {
+          operational: true,
+          runtimeMode: 'live',
+          storageMode: 'durable',
+          providersReady: true,
+          capabilities: { builder: true, export: true },
+        };
+      },
+      async handleRequest() {
+        seen.push(readFacultyCandidateCredentialContext());
+        return { status: 200, body: { verification: { verified: true } } };
+      },
+    },
+  });
+  const credential = candidateCredential();
+  const bootstrap = await invoke(
+    activeRuntime,
+    '/api/lor-studio/invitations/invite_abc-123/bootstrap',
+    { activeCandidateCredential: credential },
+  );
+  assert.equal(bootstrap.statusCode, 200);
+  assert.deepEqual(JSON.parse(bootstrap.body).capabilities, { verifyInvitation: true });
+
+  const verified = await invoke(
+    activeRuntime,
+    '/api/lor-studio/invitations/invite_abc-123/verify',
+    {
+      method: 'POST',
+      headers: { 'x-mmhq-csrf': 'csrf-test-value' },
+      activeCandidateCredential: credential,
+    },
+  );
+  assert.equal(verified.statusCode, 200);
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].tokenHash, credential.tokenHash);
+  assert.equal(seen[0].invitationId, credential.invitationId);
+  assert.throws(() => readFacultyCandidateCredentialContext(), /unavailable/u);
+
+  const otherInvitation = await invoke(
+    activeRuntime,
+    '/api/lor-studio/invitations/invite_other/bootstrap',
+    { activeCandidateCredential: credential },
+  );
+  assert.equal(otherInvitation.statusCode, 403);
 });
 
 test('the binary export seam returns bytes with an attachment disposition and the full security header set', async () => {

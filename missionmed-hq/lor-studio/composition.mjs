@@ -17,10 +17,29 @@
 
 import { DeterministicAiProposalAdapter } from './adapters/deterministic-ai-provider.js';
 import { resolveLorTargetBinding } from './adapters/lor-target-binding.mjs';
+import { createProductionOperationalReadiness } from './adapters/production-operational-readiness.mjs';
+import { isAuthenticOpenAiGroundedProposalAdapter } from './adapters/openai-grounded-proposal-adapter.mjs';
+import { isVerifiedPrivateVersionedStorageAdapter } from './adapters/private-versioned-storage-adapter.mjs';
 import { createLorApplicationAdapter } from './http/application-adapter.mjs';
+import { SupabaseDurableAiProposalStore } from './repositories/supabase-durable-ai-proposal-store.mjs';
+import {
+  SupabaseDurableArtifactAuditSink,
+  isAuthenticDurableArtifactAuditSink,
+} from './repositories/supabase-durable-artifact-audit-sink.mjs';
+import { SupabaseDurableFacultyInvitationCommandRepository } from './repositories/supabase-durable-faculty-invitation-command-repository.mjs';
+import { SupabaseDurableFacultyInvitationRepository } from './repositories/supabase-durable-faculty-invitation-repository.mjs';
 import { SupabaseDurableRecommendationCaseRepository } from './repositories/supabase-durable-recommendation-case-repository.mjs';
 import { AiProposalService, createAiDraftingService } from './services/ai-proposal-service.js';
+import {
+  DurableFacultyInvitationLifecycleService,
+  isAuthenticDurableFacultyInvitationLifecycleService,
+} from './services/durable-faculty-invitation-lifecycle-service.mjs';
+import {
+  DurableFacultyInvitationVerificationService,
+  isAuthenticDurableFacultyInvitationVerificationService,
+} from './services/durable-faculty-invitation-verification-service.mjs';
 import { RecommendationCaseService } from './services/recommendation-case-service.js';
+import { readFacultyCandidateCredentialContext } from './security/faculty-candidate-credential-context.mjs';
 
 /** Environment variable names carrying the explicit target configuration. Values are never logged. */
 export const LOR_TARGET_ENV_KEYS = Object.freeze({
@@ -61,6 +80,50 @@ const BOOLEAN_KEYS = new Set([
   'environmentBound', 'dataCopied', 'productionDataBindingPassed',
 ]);
 
+// Module-private capability. No external caller can manufacture the value that marks a graph as
+// measured-ready; only createReadinessGatedLorStudioApplication receives it after validating the
+// complete, fresh, exact-target dependency receipt. Caller booleans are intentionally ignored.
+const MEASURED_OPERATIONAL_READINESS_AUTHORITY = Symbol('lor-measured-operational-readiness');
+
+const OPERATIONAL_DEPENDENCY_NAMES = Object.freeze([
+  'administrativeGrants',
+  'ai',
+  'audit',
+  'backupRestore',
+  'email',
+  'entitlement',
+  'hydration',
+  'otp',
+  'repository',
+  'rls',
+  'storage',
+]);
+const OPERATIONAL_DATABASE_GROUP_NAMES = Object.freeze([
+  'auditCatalog',
+  'database',
+  'repository',
+  'rls',
+]);
+
+function hasExactEnumerableStringKeys(value, expectedKeys) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  try {
+    const ownKeys = Reflect.ownKeys(value);
+    if (
+      ownKeys.length !== expectedKeys.length
+      || ownKeys.some((key) => typeof key !== 'string' || !expectedKeys.includes(key))
+    ) return false;
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    return expectedKeys.every((key) => (
+      descriptors[key]
+      && Object.hasOwn(descriptors[key], 'value')
+      && descriptors[key].enumerable === true
+    ));
+  } catch {
+    return false;
+  }
+}
+
 /** Strict booleans only: an unset or unrecognised value must not read as true. */
 function readBoolean(raw) {
   if (raw === 'true') return true;
@@ -78,6 +141,52 @@ function closeRuntimeDependenciesSafely(runtimeDependencies) {
   } catch {
     // Composition failures expose only the safe reason code below.
   }
+}
+
+function supportsDurableAiProposalCommands(candidate) {
+  return Boolean(
+    candidate
+    && candidate.rlsEnforced === true
+    && candidate.serverOnly === true
+    && candidate.databaseClock === true
+    && candidate.actorSafeReads === true
+    && candidate.atomicProviderCallReservation === true
+    && candidate.atomicProviderRunAndProposal === true
+    && candidate.conditionalAtomicOneDecision === true
+    && typeof candidate.reserveAiProposalGenerationAtomic === 'function'
+    && typeof candidate.markAiProposalGenerationUnknownAtomic === 'function'
+    && typeof candidate.persistProviderRunAndProposalAtomic === 'function'
+    && typeof candidate.readActorSafeAiProposal === 'function'
+    && typeof candidate.attachDecisionIfUndecidedAtomic === 'function'
+  );
+}
+
+function supportsDurableFacultyInvitationCommands(candidate) {
+  return Boolean(
+    candidate
+    && candidate.rlsEnforced === true
+    && candidate.serverOnly === true
+    && candidate.databaseClock === true
+    && candidate.atomicFacultyInvitationCommands === true
+    && typeof candidate.issueFacultyInvitationAtomic === 'function'
+    && typeof candidate.resendFacultyInvitationOtpAtomic === 'function'
+    && typeof candidate.revokeFacultyInvitationAtomic === 'function'
+    && typeof candidate.reserveFacultyInvitationDeliveryAtomic === 'function'
+    && typeof candidate.markFacultyInvitationDeliveryUnknownAtomic === 'function'
+    && typeof candidate.commitFacultyInvitationDeliveryAtomic === 'function'
+    && typeof candidate.verifyFacultyInvitationAtomic === 'function'
+  );
+}
+
+function supportsDurableArtifactAudit(candidate) {
+  return Boolean(
+    candidate
+    && candidate.rlsEnforced === true
+    && candidate.serverOnly === true
+    && candidate.databaseClock === true
+    && candidate.appendOnlyArtifactAudit === true
+    && typeof candidate.appendArtifactExportAuditAtomic === 'function'
+  );
 }
 
 /**
@@ -121,6 +230,7 @@ export function readLorTargetConfiguration(env = process.env) {
  * @param {object} options
  * @param {Record<string, unknown> | null} [options.targetConfiguration]
  * @param {object} [options.entitlementPort]
+ * @param {({ actorResolver: object }) => object} [options.entitlementPortFactory]
  * @param {object|null} [options.driver] durable case driver; absent means no durable repository
  * @param {object|null} [options.scopeProvider] RLS scope provider paired with the driver
  * @param {(binding: object) => object} [options.runtimeDependencyFactory] production driver/scope factory
@@ -130,12 +240,22 @@ export function readLorTargetConfiguration(env = process.env) {
  * @param {object|null} [options.eventSink]
  * @param {object|null} [options.aiProposalStore] durable proposal store; absent means no drafting
  * @param {object|null} [options.aiProposalProvider] explicit production provider; deterministic only in non-durable tests
+ * @param {object|null} [options.facultyInvitationLifecycleService] durable invitation/email lifecycle
+ * @param {object|null} [options.facultyInvitationVerificationService] durable candidate verification
+ * @param {object|null} [options.facultyEmailPort] verified Postmark delivery adapter
+ * @param {object|null} [options.facultyInvitationSecretDeriver] server-only HMAC secret derivation
+ * @param {string|null} [options.invitationOrigin] exact HTTPS invitation origin
+ * @param {Function|null} [options.candidateScopeProvider] verified candidate database scope provider
+ * @param {Function|null} [options.candidateCredentialProvider] request-local sealed credential provider
+ * @param {object|null} [options.privateStorageService] private immutable object storage surface
+ * @param {object|null} [options.artifactAuditSink] durable actor/case-bound export audit sink
  * @param {() => Date} [options.clock]
  * @param {boolean} [options.requireCanary]
  */
 export function createLorStudioApplication({
   targetConfiguration = null,
   entitlementPort = null,
+  entitlementPortFactory = null,
   driver = null,
   scopeProvider = null,
   runtimeDependencyFactory = null,
@@ -147,14 +267,20 @@ export function createLorStudioApplication({
   // see the store gate and the provider note below.
   aiProposalStore = null,
   aiProposalProvider = null,
+  facultyInvitationLifecycleService = null,
+  facultyInvitationVerificationService = null,
+  facultyEmailPort = null,
+  facultyInvitationSecretDeriver = null,
+  invitationOrigin = null,
+  candidateScopeProvider = null,
+  candidateCredentialProvider = readFacultyCandidateCredentialContext,
+  privateStorageService = null,
+  artifactAuditSink = null,
   clock = () => new Date(),
   requireCanary = true,
-  // Readiness assertions, both DEFAULT FALSE so the honest answer is the automatic one. They are
-  // caller assertions rather than measurements - see the operational-readiness dependency probes,
-  // which are not yet implemented - so nothing may set them true except a caller that genuinely
-  // knows. Production composition never does.
-  providersReady = false,
-  allAcceptedFunctionsOperational = false,
+  // Internal only. The module-private authority is supplied by the measured readiness wrapper;
+  // any ordinary caller value is incapable of making the application live.
+  operationalReadinessAuthority = null,
 } = {}) {
   if (!targetConfiguration) {
     return { application: null, reason: LOR_COMPOSITION_REASONS.TARGET_NOT_CONFIGURED };
@@ -173,7 +299,12 @@ export function createLorStudioApplication({
     };
   }
 
-  if (!entitlementPort || typeof entitlementPort.getStudentEntitlement !== 'function') {
+  if (
+    (entitlementPort !== null
+      && (!entitlementPort || typeof entitlementPort.getStudentEntitlement !== 'function'))
+    || (entitlementPortFactory !== null && typeof entitlementPortFactory !== 'function')
+    || (entitlementPort === null && entitlementPortFactory === null)
+  ) {
     return { application: null, reason: LOR_COMPOSITION_REASONS.ENTITLEMENT_PORT_UNAVAILABLE, binding };
   }
 
@@ -181,6 +312,8 @@ export function createLorStudioApplication({
   try {
     let resolvedDriver = driver;
     let resolvedScopeProvider = scopeProvider;
+    let resolvedCandidateScopeProvider = candidateScopeProvider;
+    let resolvedEntitlementPort = entitlementPort;
     if (
       !testRepository
       && !durableRepositoryFactory
@@ -198,6 +331,21 @@ export function createLorStudioApplication({
       }
       resolvedDriver = runtimeDependencies.driver;
       resolvedScopeProvider = runtimeDependencies.scopeProvider;
+      resolvedCandidateScopeProvider = runtimeDependencies.candidateScopeProvider ?? null;
+    }
+
+    if (resolvedEntitlementPort === null) {
+      const actorResolver = runtimeDependencies?.actorResolver;
+      if (!actorResolver || typeof actorResolver.resolve !== 'function') {
+        throw new TypeError('Production actor resolver is unavailable');
+      }
+      resolvedEntitlementPort = entitlementPortFactory({ actorResolver });
+      if (
+        !resolvedEntitlementPort
+        || typeof resolvedEntitlementPort.getStudentEntitlement !== 'function'
+      ) {
+        throw new TypeError('Production entitlement port factory returned an invalid port');
+      }
     }
 
     let repository;
@@ -232,15 +380,36 @@ export function createLorStudioApplication({
     // But it disables DRAFTING, not the product. Production additionally requires an explicit,
     // privacy-approved provider. The deterministic provider remains reachable only through the
     // explicit non-durable test gate and can never appear because a production store was bound.
+    let resolvedAiProposalStore = aiProposalStore;
+    if (
+      !resolvedAiProposalStore
+      && resolvedScopeProvider
+      && supportsDurableAiProposalCommands(resolvedDriver)
+    ) {
+      resolvedAiProposalStore = new SupabaseDurableAiProposalStore({
+        binding,
+        driver: resolvedDriver,
+        scopeProvider: resolvedScopeProvider,
+      });
+    }
     const proposalProvider = aiProposalProvider
       ?? (allowNonDurableForTests ? new DeterministicAiProposalAdapter() : null);
-    const draftingAvailable = Boolean(aiProposalStore && proposalProvider);
+    const proposalStoreDurableEnough = Boolean(
+      resolvedAiProposalStore
+      && (allowNonDurableForTests || resolvedAiProposalStore.isDurable === true)
+    );
+    const draftingAvailable = Boolean(proposalStoreDurableEnough && proposalProvider);
 
     // The event sink is OMITTED, not passed as null: the service rejects a null sink, and its
     // durable branch forbids a sink outright because a durable repository commits state and
     // audit atomically in one transaction. A non-durable repository has no such transaction and
     // therefore does require one.
-    const serviceOptions = { repository, entitlementPort, clock, requireCanary };
+    const serviceOptions = {
+      repository,
+      entitlementPort: resolvedEntitlementPort,
+      clock,
+      requireCanary,
+    };
     if (eventSink) serviceOptions.eventSink = eventSink;
     const caseService = new RecommendationCaseService(serviceOptions);
 
@@ -257,12 +426,81 @@ export function createLorStudioApplication({
       ? createAiDraftingService({
         proposalService,
         repository,
-        entitlementPort,
-        proposalStore: aiProposalStore,
+        entitlementPort: resolvedEntitlementPort,
+        proposalStore: resolvedAiProposalStore,
         clock,
         requireCanary,
       })
       : null;
+
+    let resolvedFacultyInvitationLifecycleService = facultyInvitationLifecycleService;
+    let facultyInvitationCommandRepository = null;
+    if (
+      !resolvedFacultyInvitationLifecycleService
+      && facultyEmailPort
+      && facultyInvitationSecretDeriver
+      && typeof invitationOrigin === 'string'
+      && resolvedScopeProvider
+      && supportsDurableFacultyInvitationCommands(resolvedDriver)
+    ) {
+      facultyInvitationCommandRepository = new SupabaseDurableFacultyInvitationCommandRepository({
+        binding,
+        driver: resolvedDriver,
+        scopeProvider: resolvedScopeProvider,
+      });
+      resolvedFacultyInvitationLifecycleService = new DurableFacultyInvitationLifecycleService({
+        repository: facultyInvitationCommandRepository,
+        emailPort: facultyEmailPort,
+        secretDeriver: facultyInvitationSecretDeriver,
+        invitationOrigin,
+        clock,
+      });
+    }
+
+    let resolvedFacultyInvitationVerificationService = facultyInvitationVerificationService;
+    let facultyInvitationVerificationRepository = null;
+    if (
+      !resolvedFacultyInvitationVerificationService
+      && typeof resolvedCandidateScopeProvider === 'function'
+      && typeof candidateCredentialProvider === 'function'
+      && supportsDurableFacultyInvitationCommands(resolvedDriver)
+    ) {
+      facultyInvitationVerificationRepository = new SupabaseDurableFacultyInvitationRepository({
+        binding,
+        driver: resolvedDriver,
+        candidateScopeProvider: resolvedCandidateScopeProvider,
+        candidateCredentialProvider,
+      });
+      resolvedFacultyInvitationVerificationService =
+        new DurableFacultyInvitationVerificationService({
+          repository: facultyInvitationVerificationRepository,
+        });
+    }
+
+    let resolvedArtifactAuditSink = artifactAuditSink;
+    if (
+      !resolvedArtifactAuditSink
+      && resolvedScopeProvider
+      && supportsDurableArtifactAudit(resolvedDriver)
+    ) {
+      resolvedArtifactAuditSink = new SupabaseDurableArtifactAuditSink({
+        binding,
+        driver: resolvedDriver,
+        scopeProvider: resolvedScopeProvider,
+      });
+    }
+
+    const authenticProductionProviderGraph = Boolean(
+      isAuthenticOpenAiGroundedProposalAdapter(proposalProvider)
+      && isAuthenticDurableFacultyInvitationLifecycleService(
+        resolvedFacultyInvitationLifecycleService,
+      )
+      && isAuthenticDurableFacultyInvitationVerificationService(
+        resolvedFacultyInvitationVerificationService,
+      )
+      && isVerifiedPrivateVersionedStorageAdapter(privateStorageService)
+      && isAuthenticDurableArtifactAuditSink(resolvedArtifactAuditSink)
+    );
 
     const application = createLorApplicationAdapter({
       caseService,
@@ -270,9 +508,17 @@ export function createLorStudioApplication({
       // null, not omitted: the adapter treats an absent drafting service as
       // INTEGRATION_DISABLED on /ai-proposals only, leaving every other route live.
       aiDraftingService,
+      facultyInvitationLifecycleService: resolvedFacultyInvitationLifecycleService,
+      facultyInvitationVerificationService: resolvedFacultyInvitationVerificationService,
+      privateStorageService,
+      artifactAuditSink: resolvedArtifactAuditSink,
       allowNonDurableForTests,
-      providersReady,
-      allAcceptedFunctionsOperational,
+      providersReady:
+        operationalReadinessAuthority === MEASURED_OPERATIONAL_READINESS_AUTHORITY
+        && authenticProductionProviderGraph,
+      allAcceptedFunctionsOperational:
+        operationalReadinessAuthority === MEASURED_OPERATIONAL_READINESS_AUTHORITY
+        && authenticProductionProviderGraph,
     });
     return {
       application,
@@ -280,13 +526,22 @@ export function createLorStudioApplication({
       repository,
       caseService,
       aiDraftingService,
+      aiProposalStore: resolvedAiProposalStore,
       draftingAvailable,
+      facultyInvitationCommandRepository,
+      facultyInvitationVerificationRepository,
+      facultyInvitationLifecycleService: resolvedFacultyInvitationLifecycleService,
+      facultyInvitationVerificationService: resolvedFacultyInvitationVerificationService,
+      privateStorageService,
+      artifactAuditSink: resolvedArtifactAuditSink,
+      authenticProductionProviderGraph,
       runtimeDependencies,
+      entitlementPort: resolvedEntitlementPort,
       // Present only when drafting is off, so an operator sees the specific cause.
       ...(draftingAvailable
         ? {}
         : {
-          draftingUnavailableReason: aiProposalStore
+          draftingUnavailableReason: proposalStoreDurableEnough
             ? LOR_COMPOSITION_REASONS.AI_PROVIDER_UNAVAILABLE
             : LOR_COMPOSITION_REASONS.AI_PROPOSAL_STORE_UNAVAILABLE,
         }),
@@ -316,7 +571,13 @@ async function closeRuntimeDependencies(runtimeDependencies) {
  * catalog-fingerprint probe must pass before the application is retained.
  */
 export async function createReadinessGatedLorStudioApplication(options = {}) {
-  const { signal = null, ...compositionOptions } = options;
+  const {
+    signal = null,
+    operationalReadinessFactory = undefined,
+    providerReceipts = {},
+    releaseFlags = null,
+    ...compositionOptions
+  } = options;
   if (
     signal !== null
     && (
@@ -325,6 +586,14 @@ export async function createReadinessGatedLorStudioApplication(options = {}) {
       || typeof signal.removeEventListener !== 'function'
       || typeof signal.aborted !== 'boolean'
     )
+  ) {
+    return {
+      application: null,
+      reason: LOR_COMPOSITION_REASONS.RUNTIME_READINESS_FAILED,
+    };
+  }
+  if (
+    operationalReadinessFactory !== undefined
   ) {
     return {
       application: null,
@@ -353,7 +622,27 @@ export async function createReadinessGatedLorStudioApplication(options = {}) {
   let abortReadiness = null;
   try {
     if (signal?.aborted) throw new TypeError('startup aborted');
-    const readiness = dependencies.readiness.probe();
+    const productionReadinessRequired = composition.binding.environment === 'production';
+    let readiness;
+    if (productionReadinessRequired) {
+      // Production readiness is intentionally not injectable. Accepting a caller-supplied
+      // factory here would let an arbitrary structurally-green object mint the module-private
+      // live authority below. The canonical coordinator validates the exact target and fresh
+      // dependency receipts itself; tests exercise it through this same path.
+      const coordinator = createProductionOperationalReadiness({
+        binding: composition.binding,
+        runtimeReadiness: dependencies.readiness,
+        providerReceipts,
+        flags: releaseFlags,
+        clock: compositionOptions.clock,
+      });
+      if (!coordinator || typeof coordinator.snapshot !== 'function') {
+        throw new TypeError('operational readiness coordinator invalid');
+      }
+      readiness = coordinator.snapshot();
+    } else {
+      readiness = dependencies.readiness.probe();
+    }
     const receipt = signal
       ? await Promise.race([
         readiness,
@@ -363,6 +652,67 @@ export async function createReadinessGatedLorStudioApplication(options = {}) {
         }),
       ])
       : await readiness;
+    if (productionReadinessRequired) {
+      const dependencyStates = receipt?.dependencies;
+      const databaseGroups = receipt?.databaseProbeGroups;
+      if (
+        receipt?.status !== 'ready'
+        || receipt?.productionOperational !== true
+        || !hasExactEnumerableStringKeys(
+          dependencyStates,
+          OPERATIONAL_DEPENDENCY_NAMES,
+        )
+        || OPERATIONAL_DEPENDENCY_NAMES.some((name) => {
+          const value = dependencyStates[name];
+          return (
+          !value
+          || typeof value !== 'object'
+          || value.state !== 'ready'
+          || value.errorCode !== ''
+          );
+        })
+        || !hasExactEnumerableStringKeys(
+          databaseGroups,
+          OPERATIONAL_DATABASE_GROUP_NAMES,
+        )
+        || OPERATIONAL_DATABASE_GROUP_NAMES.some((name) => databaseGroups[name] !== true)
+      ) {
+        throw new TypeError('operational readiness rejected');
+      }
+      // The first composition owns the one runtime dependency set. Recompose the pure
+      // application graph over that SAME frozen driver/scope surface so measured readiness,
+      // rather than caller booleans, is the only route to a live bootstrap. No second pool is
+      // created and the original dependency set remains the shutdown owner.
+      const liveComposition = createLorStudioApplication({
+        ...compositionOptions,
+        entitlementPort: composition.entitlementPort,
+        entitlementPortFactory: null,
+        runtimeDependencyFactory: null,
+        driver: dependencies.driver,
+        scopeProvider: dependencies.scopeProvider,
+        candidateScopeProvider: dependencies.candidateScopeProvider ?? null,
+        operationalReadinessAuthority: MEASURED_OPERATIONAL_READINESS_AUTHORITY,
+      });
+      if (liveComposition.application === null) {
+        throw new TypeError('measured-ready composition failed');
+      }
+      const liveBootstrap = await liveComposition.application.getBootstrap();
+      if (
+        liveBootstrap?.operational !== true
+        || liveBootstrap?.runtimeMode !== 'live'
+        || liveBootstrap?.storageMode !== 'durable'
+        || liveBootstrap?.providersReady !== true
+        || liveBootstrap?.capabilities?.fullAcceptedFunctionSet !== true
+      ) {
+        throw new TypeError('measured-ready concrete application surfaces are incomplete');
+      }
+      return {
+        ...liveComposition,
+        runtimeDependencies: dependencies,
+        operationalReadiness: receipt,
+      };
+    }
+
     const checks = receipt?.checks;
     if (
       receipt?.ready !== true
@@ -372,9 +722,7 @@ export async function createReadinessGatedLorStudioApplication(options = {}) {
       || Array.isArray(checks)
       || Object.keys(checks).length < 1
       || Object.values(checks).some((value) => value !== true)
-    ) {
-      throw new TypeError('readiness rejected');
-    }
+    ) throw new TypeError('readiness rejected');
     return composition;
   } catch {
     await closeRuntimeDependencies(dependencies);

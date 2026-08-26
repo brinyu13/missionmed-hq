@@ -16,7 +16,7 @@ import {
   assertSuccessorSchemaPreflightRow,
   buildNonemptyRelationsSql,
   classifySafeFailure,
-  extractIdentityScopeRollbackGuardVerificationSql,
+  extractSuccessorRollbackGuardVerificationSql,
   failDr133,
   postgresOutcomeIsUnknown,
   resolveDr133RunnerEnvironment,
@@ -346,10 +346,11 @@ export async function provisionDr133RailwayStagingRuntimeLogin({
     const resolved = resolveDr133RunnerEnvironment(environment, { mode: 'runtime-login' });
     artifacts = await loadVerifiedArtifacts(readFileFn);
     stage = 'ARTIFACTS_VERIFIED';
-    rollbackArtifact = artifacts.get('identity-scope-rollback');
+    rollbackArtifact = artifacts.get('student-evidence-rollback');
     if (!rollbackArtifact) failDr133('ARTIFACT_INVENTORY_INVALID');
-    const guardVerificationSql = extractIdentityScopeRollbackGuardVerificationSql(
+    const guardVerificationSql = extractSuccessorRollbackGuardVerificationSql(
       rollbackArtifact.bytes.toString('utf8'),
+      rollbackArtifact.id,
     );
 
     adminClient = new ClientClass({
@@ -503,7 +504,7 @@ export async function provisionDr133RailwayStagingRuntimeLogin({
       runnerCode: safeFailure.runnerCode,
       postgresCode: safeFailure.postgresCode,
       ...(rollbackArtifact
-        ? { identityScopeRollbackSha256: rollbackArtifact.sha256 }
+        ? { studentEvidenceRollbackSha256: rollbackArtifact.sha256 }
         : {}),
     });
     failDr133(
@@ -517,7 +518,7 @@ export async function provisionDr133RailwayStagingRuntimeLogin({
     contract: DR133_RUNNER_CONTRACT,
     mode: 'runtime-login',
     result: 'RUNTIME_LOGIN_COMMITTED_VERIFIED',
-    identityScopeRollbackSha256: rollbackArtifact.sha256,
+    studentEvidenceRollbackSha256: rollbackArtifact.sha256,
   });
   return Object.freeze({ result: 'RUNTIME_LOGIN_COMMITTED_VERIFIED' });
 }

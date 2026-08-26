@@ -36,6 +36,7 @@ const PUT_FIELDS = new Set([
   'purpose',
 ]);
 const GET_FIELDS = new Set(['caseId', 'contentClass', 'objectId', 'purpose', 'versionId']);
+const VERIFIED_PRIVATE_STORAGE_ADAPTERS = new WeakSet();
 
 /**
  * @typedef {object} PrivateVersionedStorageDriver
@@ -338,6 +339,7 @@ export class PrivateVersionedStorageAdapter extends PrivateStoragePort {
     this.capabilityProvider = capabilityProvider;
     this.clock = clock;
     this.durability = 'DURABLE_PROVIDER_BOUND';
+    VERIFIED_PRIVATE_STORAGE_ADAPTERS.add(this);
     Object.freeze(this);
   }
 
@@ -419,6 +421,17 @@ export class PrivateVersionedStorageAdapter extends PrivateStoragePort {
     });
     return Object.freeze({ content: Buffer.from(content), receipt });
   }
+}
+
+/**
+ * Only instances constructed through the validating adapter above may satisfy the
+ * production application's concrete storage surface. A caller-supplied object with
+ * no-op `put`/`get` methods and a durability string is deliberately insufficient.
+ *
+ * @param {unknown} value
+ */
+export function isVerifiedPrivateVersionedStorageAdapter(value) {
+  return Boolean(value && typeof value === 'object' && VERIFIED_PRIVATE_STORAGE_ADAPTERS.has(value));
 }
 
 export const PRIVATE_VERSIONED_STORAGE_CONTRACT = deepFreeze({

@@ -94,6 +94,17 @@ test('application adapter refuses non-durable persistence without an explicit te
   );
 });
 
+test('durable composition cannot inject a shape-only artifact service around audit custody', () => {
+  assert.throws(
+    () => createLorApplicationAdapter({
+      caseService: {},
+      repository: { isDurable: true },
+      artifactService: { async exportFinalDocumentArtifact() {} },
+    }),
+    /constructs its audited artifact service internally/u,
+  );
+});
+
 test('in-memory application bootstrap is truthful and cannot enter live mode', async () => {
   const { adapter } = harness();
   assert.deepEqual(await adapter.getBootstrap(), {
@@ -106,6 +117,7 @@ test('in-memory application bootstrap is truthful and cannot enter live mode', a
       autosave: true,
       resume: true,
       versionHistory: true,
+      studentEvidencePublication: false,
       durableStorage: false,
       fullAcceptedFunctionSet: false,
     },
@@ -150,6 +162,55 @@ test('student case creation, autosave, completion, and resume work end to end wi
   assert.equal(resumed.body.progress.nextStepId, 'writer_relationship');
   assert.equal('facultyPrivate' in resumed.body.projection, false);
   assert.equal(eventSink.snapshot().length, 3);
+});
+
+test('student evidence publication is reachable only through the narrow database-owned command', async () => {
+  const calls = [];
+  const repository = new InMemoryRecommendationCaseRepository();
+  const safeProjection = Object.freeze({
+    schemaVersion: 'missionmed.lor.student-projection.v1',
+    caseId: 'case-1',
+    revision: 8,
+  });
+  const adapter = createLorApplicationAdapter({
+    caseService: {
+      async publishStudentEvidence(input) {
+        calls.push(structuredClone(input));
+        return safeProjection;
+      },
+    },
+    repository,
+    allowNonDurableForTests: true,
+  });
+  const actor = { id: 'wp:41', role: 'student' };
+  const published = await call(adapter, '/api/lor-studio/cases/case-1/evidence/publish', {
+    method: 'POST',
+    actor,
+    key: 'publish-evidence-1',
+    body: { expectedRevision: 7 },
+  });
+  assert.deepEqual(published, { status: 200, body: { case: safeProjection } });
+  assert.deepEqual(calls, [{
+    caseId: 'case-1',
+    actor,
+    expectedRevision: 7,
+    idempotencyKey: 'publish-evidence-1',
+  }]);
+
+  const forged = await call(adapter, '/api/lor-studio/cases/case-1/evidence/publish', {
+    method: 'POST',
+    actor,
+    key: 'publish-evidence-forged',
+    body: { expectedRevision: 7, evidence: [{ text: 'caller controlled' }] },
+  });
+  assert.equal(forged.status, 400);
+  assert.equal(calls.length, 1);
+
+  const wrongMethod = await call(adapter, '/api/lor-studio/cases/case-1/evidence/publish', {
+    method: 'GET',
+    actor,
+  });
+  assert.deepEqual(wrongMethod, { status: 405, body: { error: 'method_not_allowed' } });
 });
 
 test('stale writes, idempotency conflicts, IDOR attempts, and unknown fields are safe', async () => {
@@ -319,9 +380,227 @@ test('faculty invitation denials are opaque and never expose the denial reason t
   );
 });
 
+test('faculty invitation issue, OTP resend, and revoke routes accept only their narrow client contracts', async () => {
+  const calls = [];
+  const repository = new InMemoryRecommendationCaseRepository();
+  const projection = Object.freeze({
+    schemaVersion: 'missionmed.lor.student-projection.v1',
+    caseId: 'case-1',
+    revision: 9,
+    status: 'faculty_invited',
+  });
+  const adapter = createLorApplicationAdapter({
+    caseService: {
+      async getCaseProjection(input) {
+        calls.push(['projection', structuredClone(input)]);
+        return projection;
+      },
+    },
+    repository,
+    facultyInvitationLifecycleService: {
+      async issue(input) {
+        calls.push(['issue', structuredClone(input)]);
+        return { schemaVersion: 'missionmed.lor.faculty-invitation-lifecycle-result.v1', action: 'issued' };
+      },
+      async resendOtp(input) {
+        calls.push(['resend', structuredClone(input)]);
+        return { schemaVersion: 'missionmed.lor.faculty-invitation-lifecycle-result.v1', action: 'otp_resent' };
+      },
+      async revoke(input) {
+        calls.push(['revoke', structuredClone(input)]);
+        return { schemaVersion: 'missionmed.lor.faculty-invitation-lifecycle-result.v1', action: 'revoked' };
+      },
+    },
+    allowNonDurableForTests: true,
+  });
+  const actor = { id: 'wp:41', role: 'student' };
+  const issued = await call(adapter, '/api/lor-studio/cases/case-1/faculty-invitations', {
+    method: 'POST', actor, key: 'issue-1',
+    body: { expectedRevision: 8, recipientEmail: 'writer@example.test' },
+  });
+  const resent = await call(adapter, '/api/lor-studio/cases/case-1/faculty-invitations/otp/resend', {
+    method: 'POST', actor, key: 'resend-1',
+    body: { recipientEmail: 'writer@example.test' },
+  });
+  const revoked = await call(adapter, '/api/lor-studio/cases/case-1/faculty-invitations/revoke', {
+    method: 'POST', actor, key: 'revoke-1', body: {},
+  });
+  assert.equal(issued.status, 201);
+  assert.equal(resent.status, 200);
+  assert.equal(revoked.status, 200);
+  const actionCalls = calls.filter(([name]) => name !== 'projection');
+  assert.deepEqual(actionCalls, [
+    ['issue', {
+      actor, caseId: 'case-1', expectedRevision: 8,
+      recipientEmail: 'writer@example.test', idempotencyKey: 'issue-1',
+    }],
+    ['resend', {
+      actor, caseId: 'case-1', recipientEmail: 'writer@example.test', idempotencyKey: 'resend-1',
+    }],
+    ['revoke', { actor, caseId: 'case-1', idempotencyKey: 'revoke-1' }],
+  ]);
+  for (const [, actionInput] of actionCalls) assert.equal('invitationId' in actionInput, false);
+
+  const forbidden = await call(adapter, '/api/lor-studio/cases/case-1/faculty-invitations', {
+    method: 'POST', actor, key: 'issue-forged',
+    body: {
+      expectedRevision: 8,
+      recipientEmail: 'writer@example.test',
+      invitationId: 'attacker-selected',
+    },
+  });
+  assert.equal(forbidden.status, 400);
+  assert.equal(forbidden.body.error, 'validation_failed');
+});
+
+test('faculty invitation routes fail closed when the lifecycle service is absent', async () => {
+  const { adapter } = harness();
+  const response = await call(adapter, '/api/lor-studio/cases/case-1/faculty-invitations', {
+    method: 'POST',
+    actor: { id: 'student-1', role: 'student' },
+    key: 'issue-disabled',
+    body: { expectedRevision: 8, recipientEmail: 'writer@example.test' },
+  });
+  assert.equal(response.status, 503);
+  assert.equal(response.body.error, 'integration_disabled');
+});
+
+test('faculty candidate verification is path-bound, exact, and returns only the safe DB result', async () => {
+  const calls = [];
+  const repository = new InMemoryRecommendationCaseRepository();
+  const safeResult = Object.freeze({
+    schemaVersion: 'missionmed.lor.faculty-verification-result.v2',
+    verified: true,
+    reasonCode: null,
+    caseId: 'case-1',
+    invitationId: 'invitation-1',
+    caseRevision: 4,
+    invitationRevision: 2,
+    auditEventRef: `event_${sha256('faculty-verified')}`,
+    idempotentReplay: false,
+    privateSessionIssued: false,
+    privateEditGranted: true,
+  });
+  const adapter = createLorApplicationAdapter({
+    caseService: {},
+    repository,
+    facultyInvitationVerificationService: {
+      async verify(input) {
+        calls.push(structuredClone(input));
+        return safeResult;
+      },
+    },
+    allowNonDurableForTests: true,
+  });
+  const actor = { id: 'wp:43', role: 'faculty' };
+  const response = await call(adapter, '/api/lor-studio/invitations/invitation-1/verify', {
+    method: 'POST',
+    actor,
+    key: 'verify-1',
+    body: {
+      otpCode: '538291',
+      recipientEmail: 'faculty@example.test',
+    },
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body, { verification: safeResult });
+  assert.deepEqual(calls, [{
+    actor,
+    invitationId: 'invitation-1',
+    idempotencyKey: 'verify-1',
+    otpCode: '538291',
+    recipientEmail: 'faculty@example.test',
+  }]);
+  assert.doesNotMatch(JSON.stringify(response), /538291|faculty@example\.test/u);
+
+  const extra = await call(adapter, '/api/lor-studio/invitations/invitation-1/verify', {
+    method: 'POST', actor, key: 'verify-extra',
+    body: {
+      otpCode: '538291', recipientEmail: 'faculty@example.test',
+      caseId: 'client-selected',
+    },
+  });
+  assert.equal(extra.status, 400);
+  const browserSecret = await call(adapter, '/api/lor-studio/invitations/invitation-1/verify', {
+    method: 'POST', actor, key: 'verify-browser-secret',
+    body: {
+      otpCode: '538291',
+      recipientEmail: 'faculty@example.test',
+      rawToken: 'browser-must-not-carry-this',
+    },
+  });
+  assert.equal(browserSecret.status, 400);
+  const queried = await call(adapter, '/api/lor-studio/invitations/invitation-1/verify?caseId=forged', {
+    method: 'POST', actor, key: 'verify-query',
+    body: { otpCode: '538291', recipientEmail: 'faculty@example.test' },
+  });
+  assert.equal(queried.status, 400);
+  const wrongMethod = await call(adapter, '/api/lor-studio/invitations/invitation-1/verify', {
+    method: 'GET', actor,
+  });
+  assert.equal(wrongMethod.status, 405);
+
+  for (const malformed of [
+    '/api/lor-studio/invitations/invite%/verify',
+    '/api/lor-studio/cases/case%/faculty-invitations',
+    '/api/lor-studio/cases/case-1/ai-proposals/proposal%/decision',
+  ]) {
+    const rejected = await call(adapter, malformed, { method: 'GET', actor });
+    assert.equal(rejected.status, 404);
+    assert.deepEqual(rejected.body, { error: 'lor_route_not_found' });
+  }
+});
+
+test('faculty candidate verification fails closed when absent and makes every DB denial opaque', async () => {
+  const repository = new InMemoryRecommendationCaseRepository();
+  const withoutService = createLorApplicationAdapter({
+    caseService: {}, repository, allowNonDurableForTests: true,
+  });
+  const requestOptions = {
+    method: 'POST', actor: { id: 'wp:43', role: 'faculty' }, key: 'verify-1',
+    body: { otpCode: '538291', recipientEmail: 'faculty@example.test' },
+  };
+  const unavailable = await call(
+    withoutService,
+    '/api/lor-studio/invitations/invitation-1/verify',
+    requestOptions,
+  );
+  assert.equal(unavailable.status, 503);
+  assert.equal(unavailable.body.error, 'integration_disabled');
+
+  const serialized = new Set();
+  for (const reason of ['TOKEN_MISMATCH', 'RECIPIENT_MISMATCH', 'OTP_NOT_VERIFIED', 'INVITATION_LOCKED']) {
+    const adapter = createLorApplicationAdapter({
+      caseService: {},
+      repository,
+      facultyInvitationVerificationService: {
+        async verify() { throw new InvitationDeniedError(reason); },
+      },
+      allowNonDurableForTests: true,
+    });
+    const denied = await call(
+      adapter,
+      '/api/lor-studio/invitations/invitation-1/verify',
+      { ...requestOptions, key: `verify-${reason}` },
+    );
+    assert.equal(denied.status, 403);
+    assert.deepEqual(denied.body, {
+      error: 'invitation_denied',
+      message: 'Faculty invitation verification was denied.',
+    });
+    assert.doesNotMatch(JSON.stringify(denied), new RegExp(reason, 'u'));
+    serialized.add(JSON.stringify(denied));
+  }
+  assert.equal(serialized.size, 1);
+});
+
 const CONSENT_DATA = Object.freeze({
-  scopes: ['timeline_read', 'faculty_share'],
-  policyVersion: 'dr-019-v1',
+  scopes: ['builder_autosave', 'faculty_handoff', 'ai_drafting', 'evidence_grounding'],
+  policyVersion: 'dr-133-identified-education-record-v1',
+});
+const CONSENT_WITHDRAWAL_DATA = Object.freeze({
+  scopes: ['consent_withdrawn'],
+  policyVersion: 'dr-133-identified-education-record-v1',
 });
 
 function waiverData(overrides = {}) {
@@ -372,13 +651,41 @@ test('a consent receipt is minted server-side and appended to the student projec
   assert.equal(receipt.schemaVersion, 'missionmed.lor.consent-receipt.v1');
   assert.equal(receipt.caseId, 'case-1');
   assert.equal(receipt.actorId, 'student-1');
-  assert.deepEqual(receipt.scopes, ['faculty_share', 'timeline_read'], 'scopes are normalised by the domain');
+  assert.deepEqual(
+    receipt.scopes,
+    ['ai_drafting', 'builder_autosave', 'evidence_grounding', 'faculty_handoff'],
+    'scopes are normalised by the domain',
+  );
   assert.match(receipt.receiptHash, /^[a-f0-9]{64}$/u);
   assert.equal(receipt.recordedAt, new Date(receipt.recordedAt).toISOString());
   assert.deepEqual(
     eventSink.snapshot().map((event) => event.eventType),
     ['case.created', 'consent.recorded'],
   );
+});
+
+test('consent rejects stale policy versions, partial grants, and ambiguous withdrawal scopes', async () => {
+  const { adapter } = harness({ clock: monotonicClock() });
+  await openCase(adapter);
+  const invalidDecisions = [
+    { ...CONSENT_DATA, policyVersion: 'dr-119-v1' },
+    { ...CONSENT_DATA, scopes: ['ai_drafting', 'evidence_grounding'] },
+    { ...CONSENT_DATA, scopes: ['consent_withdrawn', 'ai_drafting'] },
+  ];
+  for (const [index, receiptData] of invalidDecisions.entries()) {
+    const response = await postReceipt(adapter, {
+      expectedRevision: 0,
+      receiptType: 'consent',
+      receiptData,
+      key: `invalid-consent-decision-${index}`,
+    });
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error, 'validation_failed');
+  }
+  const untouched = await call(adapter, '/api/lor-studio/cases/case-1');
+  assert.equal(untouched.status, 200);
+  assert.equal(untouched.body.case.revision, 0);
+  assert.deepEqual(untouched.body.case.consentReceipts, []);
 });
 
 test('receipt identity, timestamps, and integrity hashes are never client-assertable', async () => {
@@ -551,7 +858,7 @@ test('receipt writes preserve optimistic concurrency and idempotent retry semant
   const stale = await postReceipt(adapter, {
     expectedRevision: 0,
     receiptType: 'consent',
-    receiptData: { scopes: ['faculty_share'], policyVersion: 'dr-019-v1' },
+    receiptData: CONSENT_WITHDRAWAL_DATA,
     key: 'consent-stale-key',
   });
   assert.equal(stale.status, 409);
@@ -574,7 +881,7 @@ test('receipt writes preserve optimistic concurrency and idempotent retry semant
   const conflicting = await postReceipt(adapter, {
     expectedRevision: 0,
     receiptType: 'consent',
-    receiptData: { scopes: ['faculty_share'], policyVersion: 'dr-019-v2' },
+    receiptData: CONSENT_WITHDRAWAL_DATA,
     key: 'consent-retry-key',
   });
   assert.equal(conflicting.status, 409);
@@ -786,6 +1093,60 @@ async function releaseCall(adapter, {
 async function frozenState(repository, caseId) {
   return JSON.stringify(await repository.getById(caseId));
 }
+
+test('PATCH faculty-private authors exact server-owned faculty content and rejects visibility assertions', async () => {
+  const { adapter, repository } = harness();
+  const seeded = await seedCase(repository, releasableRevisions({ finalDocument: null }));
+  const body = {
+    expectedRevision: seeded.revision,
+    answers: [],
+    notes: [{ text: 'private note' }],
+    draftText: 'Private working draft',
+    finalDocument: {
+      contentHash: null,
+      id: 'document-1',
+      mimeType: 'text/plain',
+      text: FINAL_TEXT,
+    },
+    documentState: 'faculty_final',
+    facultyApproval: { approved: true, signatureAttested: true },
+  };
+  const saved = await call(adapter, '/api/lor-studio/cases/case-1/faculty-private', {
+    method: 'PATCH',
+    body,
+    key: 'faculty-private-save-1',
+    actor: FACULTY,
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.case.revision, seeded.revision + 1);
+  assert.equal(saved.body.case.facultyPrivate.draftText, 'Private working draft');
+  assert.equal(saved.body.case.facultyPrivate.finalDocument.text, FINAL_TEXT);
+  assert.equal(saved.body.case.facultyPrivate.finalDocument.releasedToStudentAt, null);
+
+  const forgedDocument = {
+    ...body.finalDocument,
+    releasedToStudentAt: '2026-08-09T00:00:00.000Z',
+  };
+  const forged = await call(adapter, '/api/lor-studio/cases/case-1/faculty-private', {
+    method: 'PATCH',
+    body: { ...body, expectedRevision: seeded.revision + 1, finalDocument: forgedDocument },
+    key: 'faculty-private-forged-release',
+    actor: FACULTY,
+  });
+  assert.equal(forged.status, 400);
+  assert.equal(
+    (await repository.getById('case-1')).facultyPrivate.finalDocument.releasedToStudentAt,
+    null,
+  );
+
+  const wrongMethod = await call(adapter, '/api/lor-studio/cases/case-1/faculty-private', {
+    method: 'POST',
+    body,
+    key: 'faculty-private-wrong-method',
+    actor: FACULTY,
+  });
+  assert.equal(wrongMethod.status, 405);
+});
 
 test('a final-document release is a recipient-bound faculty action and refuses every other principal', async () => {
   const { adapter, repository, eventSink } = harness();

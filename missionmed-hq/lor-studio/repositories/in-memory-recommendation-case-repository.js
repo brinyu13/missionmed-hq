@@ -1,15 +1,20 @@
 import {
+  AuthorizationDeniedError,
   DomainInvariantError,
   IdempotencyConflictError,
   NotFoundError,
   StaleRevisionError,
   ValidationError,
 } from '../domain/errors.js';
-import { assertRecommendationCase } from '../domain/recommendation-case.js';
+import {
+  assertRecommendationCase,
+  STUDENT_CONSENT_POLICY_VERSION,
+} from '../domain/recommendation-case.js';
 import {
   assertNonEmptyString,
   canonicalize,
   cloneFrozen,
+  sha256,
   toIso,
 } from '../domain/value-utils.js';
 import { RecommendationCaseRepositoryPort } from '../services/ports.js';
@@ -130,6 +135,64 @@ export class InMemoryRecommendationCaseRepository extends RecommendationCaseRepo
     const record = this.#records.get(caseId);
     if (!record) throw new NotFoundError('recommendation_case', caseId);
     return cloneFrozen(record);
+  }
+
+  /** Test-only mirror of the durable actor-safe faculty drafting DTO. */
+  async readFacultyDraftingContext(
+    { caseId, actorId } = /** @type {{caseId?: unknown, actorId?: unknown}} */ ({}),
+  ) {
+    assertNonEmptyString(caseId, 'caseId');
+    assertNonEmptyString(actorId, 'actorId');
+    const record = this.#records.get(caseId);
+    if (!record) throw new NotFoundError('recommendation_case', caseId);
+    if (record.faculty?.facultyId !== actorId) {
+      throw new AuthorizationDeniedError('FACULTY_RECIPIENT_BINDING_MISMATCH');
+    }
+    const latestConsent = record.consentReceipts.at(-1);
+    const approvedConsentIds = new Set(
+      latestConsent
+      && Array.isArray(latestConsent.scopes)
+      && !latestConsent.scopes.includes('consent_withdrawn')
+      && latestConsent.policyVersion === STUDENT_CONSENT_POLICY_VERSION
+      && latestConsent.scopes.includes('ai_drafting')
+      && latestConsent.scopes.includes('evidence_grounding')
+        ? [latestConsent.id]
+        : [],
+    );
+    const studentEvidence = record.studentEvidence
+      .filter((evidence) => (
+        evidence
+        && typeof evidence === 'object'
+        && typeof evidence.id === 'string'
+        && evidence.caseId === record.id
+        && typeof evidence.text === 'string'
+        && evidence.text.trim() === evidence.text
+        && sha256(evidence.text) === evidence.contentHash
+        && approvedConsentIds.has(evidence.consentReceiptId)
+      ))
+      .map(({ id, caseId: evidenceCaseId, text, contentHash, consentReceiptId }) => ({
+        id,
+        caseId: evidenceCaseId,
+        text,
+        contentHash,
+        consentReceiptId,
+      }));
+    const referencedConsentIds = new Set(
+      studentEvidence.map((evidence) => evidence.consentReceiptId),
+    );
+    return cloneFrozen({
+      schemaVersion: 'missionmed.lor.faculty-drafting-context.v1',
+      id: record.id,
+      studentId: record.studentId,
+      status: record.status,
+      faculty: {
+        facultyId: record.faculty.facultyId,
+        verifiedAt: record.faculty.verifiedAt,
+        recipientEmailHash: record.faculty.recipientEmailHash,
+      },
+      consentReceipts: [...referencedConsentIds].map((id) => ({ id })),
+      studentEvidence,
+    });
   }
 
   async save(record, { expectedRevision, idempotencyKey, requestHash }) {

@@ -206,6 +206,10 @@ class DurableAtomicRepositoryTestDouble {
     throw new Error('faculty projection not configured in this student-only test double');
   }
 
+  async commitFacultyPrivateContent() {
+    throw new Error('faculty-private authoring not configured in this student-only test double');
+  }
+
   async commitFacultyFinalDocumentRelease() {
     throw new Error('faculty release not configured in this student-only test double');
   }
@@ -699,6 +703,7 @@ test('durable case writes require and use one atomic state-plus-event repository
     async commitStudentConsentReceipt() {},
     async commitStudentWaiverReceipt() {},
     async readFacultyCaseProjection() {},
+    async commitFacultyPrivateContent() {},
     async commitFacultyFinalDocumentRelease() {},
     async readMentorCaseProjection() {},
     async commitWithEvent() {

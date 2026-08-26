@@ -9,6 +9,10 @@ import { JSDOM, VirtualConsole } from 'jsdom';
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const adapterSource = await readFile(path.resolve(testDirectory, '..', '..', 'public', 'lor-studio', 'production-adapter.js'), 'utf8');
 const materializedHtml = await readFile(path.resolve(testDirectory, '..', '..', 'public', 'lor-studio', 'index.html'), 'utf8');
+const invitationAuthHtml = await readFile(
+  path.resolve(testDirectory, '..', '..', 'public', 'lor-studio', 'invitation-auth.html'),
+  'utf8',
+);
 // The projection UI bundle is produced by a concurrent lane. When it is present the adapter is
 // exercised against the real renderer; when it is not, that one test skips rather than turning
 // this lane red for another lane's file.
@@ -159,6 +163,64 @@ test('materialized production document keeps the entire frozen prototype runtime
   assert.equal(dom.window.document.getElementById('lorFrozenPrototypeRuntime').type, 'application/x-lor-frozen-prototype');
 });
 
+test('anonymous candidate shell scrubs the token before any request and seals it only on user action', async () => {
+  const rawToken = 't'.repeat(43);
+  const requests = [];
+  const dom = new JSDOM(invitationAuthHtml, {
+    runScripts: 'dangerously',
+    url: `https://hq.example.test/lor-studio/invitations/invitation-1#token=${rawToken}`,
+    virtualConsole: quietNavigationConsole(),
+    beforeParse(window) {
+      window.fetch = async (input, init) => {
+        requests.push({ input: String(input), init });
+        return { ok: false, status: 503 };
+      };
+    },
+  });
+  const { document, window } = dom.window;
+  assert.equal(window.location.hash, '');
+  assert.equal(requests.length, 0);
+  assert.equal(document.documentElement.outerHTML.includes(rawToken), false);
+  assert.equal(window.localStorage.length, 0);
+  assert.equal(window.sessionStorage.length, 0);
+
+  document.getElementById('candidateContinue').click();
+  for (let tick = 0; tick < 4; tick += 1) {
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+  }
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].input, '/api/lor-studio/auth/candidate/start');
+  assert.equal(requests[0].init.credentials, 'same-origin');
+  assert.equal(requests[0].init.redirect, 'error');
+  assert.match(invitationAuthHtml, /window\.location\.assign\('\/api\/lor-studio\/auth\/start'\)/u);
+  assert.doesNotMatch(invitationAuthHtml, /mode=faculty_candidate/u);
+  assert.deepEqual(JSON.parse(requests[0].init.body), {
+    invitationId: 'invitation-1',
+    rawToken,
+  });
+  assert.equal(document.documentElement.outerHTML.includes(rawToken), false);
+  assert.equal(document.getElementById('candidateContinue').disabled, false);
+});
+
+test('anonymous candidate shell rejects malformed token fragments without a request', async () => {
+  for (const fragment of ['', '#token=short', '#token=one&token=two', '#case=forged']) {
+    let requests = 0;
+    const dom = new JSDOM(invitationAuthHtml, {
+      runScripts: 'dangerously',
+      url: `https://hq.example.test/lor-studio/invitations/invitation-1${fragment}`,
+      beforeParse(window) {
+        window.fetch = async () => { requests += 1; return { ok: false, status: 503 }; };
+      },
+    });
+    const { document, window } = dom.window;
+    assert.equal(window.location.hash, '');
+    assert.equal(document.getElementById('candidateContinue').disabled, true);
+    document.getElementById('candidateContinue').click();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    assert.equal(requests, 0);
+  }
+});
+
 test('production adapter keeps the prototype gated when durable runtime is unavailable', async () => {
   const dom = await runAdapter();
   const { document } = dom.window;
@@ -288,6 +350,103 @@ test('production mode hydrates the authoritative projection into the isolated pr
 
   // Live does not mean the frozen prototype came back.
   assertPrototypeNeverRevealed(dom);
+});
+
+test('protected faculty verification never retransmits browser token material', async () => {
+  const rawToken = 's'.repeat(43);
+  const { ui, calls } = stubProjectionUi();
+  let verificationRequest = null;
+  const facultyProjection = {
+    schemaVersion: 'missionmed.lor.faculty-projection.v1',
+    caseId: 'case-faculty-1',
+    revision: 4,
+    status: 'faculty_verified',
+  };
+  const { dom, requests } = await runProductionAdapter({
+    url: `https://hq.example.test/lor-studio/invitations/invitation-1#token=${rawToken}`,
+    ui,
+    routes: {
+      '/api/lor-studio/invitations/invitation-1/bootstrap': jsonResponse(200, LIVE_BOOTSTRAP),
+      '/api/lor-studio/invitations/invitation-1/verify': (init) => {
+        verificationRequest = init;
+        return jsonResponse(200, {
+          verification: {
+            schemaVersion: 'missionmed.lor.faculty-verification-result.v2',
+            verified: true,
+            caseId: 'case-faculty-1',
+          },
+        });
+      },
+      '/api/lor-studio/cases/case-faculty-1': jsonResponse(200, { case: facultyProjection }),
+    },
+  });
+  const { document, window } = dom.window;
+  assert.equal(window.location.hash, '');
+  assert.equal(window.location.pathname, '/lor-studio/invitations/invitation-1');
+  assert.equal(document.documentElement.dataset.lorRuntime, 'verification');
+  assert.equal(document.querySelector('.lorCandidateVerification__form') instanceof window.HTMLFormElement, true);
+  assert.equal(document.documentElement.outerHTML.includes(rawToken), false);
+  assert.equal(window.localStorage.length, 0);
+  assert.equal(window.sessionStorage.length, 0);
+  assert.deepEqual(requests.map((entry) => entry.path), [
+    '/api/lor-studio/invitations/invitation-1/bootstrap',
+  ]);
+  assertPrototypeNeverRevealed(dom);
+
+  document.getElementById('lorCandidateEmail').value = 'faculty@example.test';
+  document.getElementById('lorCandidateOtp').value = '538291';
+  document.querySelector('.lorCandidateVerification__form').dispatchEvent(
+    new window.Event('submit', { bubbles: true, cancelable: true }),
+  );
+  for (let tick = 0; tick < 16; tick += 1) {
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+  }
+  assert.notEqual(verificationRequest, null);
+  assert.equal(verificationRequest.method, 'POST');
+  assert.equal(verificationRequest.credentials, 'same-origin');
+  assert.equal(verificationRequest.headers['X-MMHQ-CSRF'], 'csrf-value');
+  assert.match(verificationRequest.headers['Idempotency-Key'], /^[A-Za-z0-9-]{16,200}$/u);
+  assert.deepEqual(JSON.parse(verificationRequest.body), {
+    otpCode: '538291',
+    recipientEmail: 'faculty@example.test',
+  });
+  assert.deepEqual(requests.map((entry) => entry.path), [
+    '/api/lor-studio/invitations/invitation-1/bootstrap',
+    '/api/lor-studio/invitations/invitation-1/verify',
+    '/api/lor-studio/cases/case-faculty-1',
+  ]);
+  assert.equal(window.location.pathname, '/lor-studio/');
+  assert.equal(window.location.search, '?case=case-faculty-1');
+  assert.equal(window.location.hash, '');
+  assert.equal(document.documentElement.outerHTML.includes(rawToken), false);
+  assert.equal(JSON.stringify(window.__LOR_STUDIO_RUNTIME__).includes(rawToken), false);
+  assert.equal(calls.render.length, 1);
+  assert.deepEqual(calls.render[0].projection, facultyProjection);
+  assert.equal(calls.render[0].meta.actorRole, 'faculty');
+  assert.equal(document.documentElement.dataset.lorRuntime, 'live');
+  assertPrototypeNeverRevealed(dom);
+});
+
+test('protected candidate form ignores and scrubs every browser fragment', async () => {
+  for (const fragment of ['', '#token=short', '#token=one&token=two', '#case=forged']) {
+    const { dom, requests } = await runProductionAdapter({
+      url: `https://hq.example.test/lor-studio/invitations/invitation-1${fragment}`,
+      routes: {
+        '/api/lor-studio/invitations/invitation-1/bootstrap': jsonResponse(200, LIVE_BOOTSTRAP),
+      },
+    });
+    const { document, window } = dom.window;
+    assert.equal(window.location.hash, '');
+    assert.deepEqual(requests.map((entry) => entry.path), [
+      '/api/lor-studio/invitations/invitation-1/bootstrap',
+    ]);
+    assert.equal(
+      document.querySelector('.lorCandidateVerification__form') instanceof window.HTMLFormElement,
+      true,
+    );
+    assert.equal(document.documentElement.dataset.lorRuntime, 'verification');
+    assertPrototypeNeverRevealed(dom);
+  }
 });
 
 test('a projection UI supplied as a factory is constructed against a dedicated production mount', async () => {
@@ -556,15 +715,23 @@ function writeRequest(requests, path) {
   return entry;
 }
 
-test('the transport handed to the renderer is exactly the six case commands', async () => {
+test('the transport handed to the renderer exposes only the case-bound production commands', async () => {
   const { commands } = await liveAdapterWithCommands();
   assert.deepEqual(Object.keys(commands).sort(), [
     'autosaveBuilderStep',
     'completeBuilderStep',
+    'decideAiProposal',
     'exportFinalDocument',
+    'inviteFaculty',
+    'publishStudentEvidence',
+    'readAiProposal',
     'recordReceipt',
     'releaseFinalDocument',
     'reloadCase',
+    'requestAiProposal',
+    'resendFacultyOtp',
+    'revokeFacultyInvitation',
+    'saveFacultyPrivateContent',
   ]);
 });
 
@@ -624,6 +791,7 @@ test('step completion and receipts post exactly the fields their routes allow', 
     routes: {
       '/api/lor-studio/cases/case-42/builder/complete': jsonResponse(200, { case: studentProjection({ revision: 4 }) }),
       '/api/lor-studio/cases/case-42/receipts': jsonResponse(201, { case: studentProjection({ revision: 5 }) }),
+      '/api/lor-studio/cases/case-42/evidence/publish': jsonResponse(200, { case: studentProjection({ revision: 6 }) }),
     },
   });
 
@@ -647,6 +815,115 @@ test('step completion and receipts post exactly the fields their routes allow', 
     assert.equal(forbidden in receiptBody.receiptData, false, `receiptData must not carry ${forbidden}`);
   }
   assert.equal(receiptOutcome.status, 201);
+
+  const publicationOutcome = await commands.publishStudentEvidence({
+    caseId: 'case-42',
+    expectedRevision: 5,
+    evidence: [{ text: 'forged' }],
+  });
+  const publication = writeRequest(requests, '/api/lor-studio/cases/case-42/evidence/publish');
+  assert.equal(publication.init.method, 'POST');
+  assert.deepEqual(JSON.parse(publication.init.body), { expectedRevision: 5 });
+  assert.equal(publicationOutcome.status, 200);
+});
+
+test('invitation, faculty-private and AI transports are case-bound and carry only their route contracts', async () => {
+  const base = '/api/lor-studio/cases/case-42';
+  const proposal = {
+    id: 'proposal/one',
+    state: 'proposal',
+    text: 'Grounded proposal wording.',
+    provenance: { caseId: 'case-42' },
+  };
+  const { commands, requests } = await liveAdapterWithCommands({
+    routes: {
+      [`${base}/faculty-invitations`]: jsonResponse(201, { case: studentProjection({ revision: 4 }) }),
+      [`${base}/faculty-invitations/otp/resend`]: jsonResponse(200, { case: studentProjection({ revision: 4 }) }),
+      [`${base}/faculty-invitations/revoke`]: jsonResponse(200, { case: studentProjection({ revision: 4 }) }),
+      [`${base}/faculty-private`]: jsonResponse(200, { case: studentProjection({ revision: 5 }) }),
+      [`${base}/ai-proposals`]: jsonResponse(201, { proposal }),
+      [`${base}/ai-proposals/proposal%2Fone`]: jsonResponse(200, { proposal }),
+      [`${base}/ai-proposals/proposal%2Fone/decision`]: jsonResponse(201, {
+        proposal: { ...proposal, state: 'decided' },
+      }),
+    },
+  });
+
+  await commands.inviteFaculty({
+    caseId: 'case-42',
+    expectedRevision: 3,
+    recipientEmail: 'writer@example.test',
+    role: 'faculty',
+  });
+  const invitation = writeRequest(requests, `${base}/faculty-invitations`);
+  assert.equal(invitation.init.method, 'POST');
+  assert.deepEqual(JSON.parse(invitation.init.body), {
+    expectedRevision: 3,
+    recipientEmail: 'writer@example.test',
+  });
+
+  await commands.resendFacultyOtp({
+    caseId: 'case-42',
+    recipientEmail: 'writer@example.test',
+    invitationId: 'forged',
+  });
+  const resend = writeRequest(requests, `${base}/faculty-invitations/otp/resend`);
+  assert.equal(resend.init.method, 'POST');
+  assert.deepEqual(JSON.parse(resend.init.body), { recipientEmail: 'writer@example.test' });
+
+  await commands.revokeFacultyInvitation({
+    caseId: 'case-42',
+    invitationId: 'forged',
+    reason: 'forged',
+  });
+  const revoke = writeRequest(requests, `${base}/faculty-invitations/revoke`);
+  assert.equal(revoke.init.method, 'POST');
+  assert.deepEqual(JSON.parse(revoke.init.body), {});
+
+  await commands.saveFacultyPrivateContent({
+    caseId: 'case-42',
+    expectedRevision: 4,
+    answers: [{ prompt: 'why', answer: 'Direct observation' }],
+    notes: [{ text: 'Private note' }],
+    draftText: 'Private draft',
+    finalDocument: { contentHash: null, id: null, mimeType: 'text/plain', text: 'Final wording' },
+    documentState: 'faculty_final',
+    facultyApproval: { approved: true, signatureAttested: true },
+    actorId: 'forged',
+    facultyId: 'forged',
+  });
+  const privateWrite = writeRequest(requests, `${base}/faculty-private`);
+  assert.equal(privateWrite.init.method, 'PATCH');
+  assert.deepEqual(Object.keys(JSON.parse(privateWrite.init.body)).sort(), [
+    'answers',
+    'documentState',
+    'draftText',
+    'expectedRevision',
+    'facultyApproval',
+    'finalDocument',
+    'notes',
+  ]);
+  assert.equal(String(privateWrite.init.body).includes('forged'), false);
+
+  await commands.requestAiProposal({ caseId: 'case-42', factIds: ['fact-1'], facts: ['forged'] });
+  assert.deepEqual(JSON.parse(writeRequest(requests, `${base}/ai-proposals`).init.body), {
+    factIds: ['fact-1'],
+  });
+  await commands.readAiProposal({ caseId: 'case-42', proposalId: 'proposal/one' });
+  const proposalRead = requests.find((entry) => entry.path === `${base}/ai-proposals/proposal%2Fone`);
+  assert.equal(proposalRead.init.method, 'GET');
+  await commands.decideAiProposal({
+    caseId: 'case-42',
+    proposalId: 'proposal/one',
+    action: 'edited',
+    resultingText: 'Faculty-edited wording.',
+    facultyId: 'forged',
+  });
+  const decision = writeRequest(requests, `${base}/ai-proposals/proposal%2Fone/decision`);
+  assert.deepEqual(JSON.parse(decision.init.body), {
+    action: 'edited',
+    resultingText: 'Faculty-edited wording.',
+  });
 });
 
 test('a release posts the revision and the document, and no release time in any form', async () => {
@@ -791,6 +1068,17 @@ test('a command naming a case this page was not authorized for is refused before
     await commands.autosaveBuilderStep({ caseId: 'case-99', expectedRevision: 3, stepId: 'case_basics', stepData: {} }),
     await commands.completeBuilderStep({ caseId: 'case-99', expectedRevision: 3, stepId: 'case_basics' }),
     await commands.recordReceipt({ caseId: 'case-99', expectedRevision: 3, receiptType: 'consent', receiptData: {} }),
+    await commands.publishStudentEvidence({ caseId: 'case-99', expectedRevision: 3 }),
+    await commands.inviteFaculty({ caseId: 'case-99', expectedRevision: 3, recipientEmail: 'writer@example.test' }),
+    await commands.resendFacultyOtp({ caseId: 'case-99', recipientEmail: 'writer@example.test' }),
+    await commands.revokeFacultyInvitation({ caseId: 'case-99' }),
+    await commands.saveFacultyPrivateContent({
+      caseId: 'case-99', expectedRevision: 3, answers: [], notes: [], draftText: null,
+      finalDocument: null, documentState: null, facultyApproval: null,
+    }),
+    await commands.requestAiProposal({ caseId: 'case-99', factIds: null }),
+    await commands.readAiProposal({ caseId: 'case-99', proposalId: 'proposal-1' }),
+    await commands.decideAiProposal({ caseId: 'case-99', proposalId: 'proposal-1', action: 'rejected' }),
     await commands.releaseFinalDocument({ caseId: 'case-99', expectedRevision: 3, documentId: 'document-1' }),
     await commands.exportFinalDocument({ caseId: 'case-99' }),
     await commands.reloadCase({ caseId: 'case-99' }),
@@ -833,6 +1121,25 @@ test('the actor role handed to the renderer is read off the projection the serve
   });
   assert.equal(faculty.calls.render.length, 1);
   assert.equal(faculty.calls.render[0].meta.actorRole, 'faculty');
+
+  const mentor = stubProjectionUi();
+  const mentorProjection = {
+    schemaVersion: 'missionmed.lor.mentor-projection.v1',
+    caseId: 'case-42',
+    status: 'faculty_review',
+    strategyStatus: 'faculty_review',
+    nextMilestone: 'faculty_approval',
+    deliveryStatus: 'not_started',
+  };
+  await runProductionAdapter({
+    ui: mentor.ui,
+    routes: {
+      '/api/lor-studio/bootstrap': jsonResponse(200, LIVE_BOOTSTRAP),
+      '/api/lor-studio/cases/case-42': jsonResponse(200, { case: mentorProjection }),
+    },
+  });
+  assert.equal(mentor.calls.render.length, 1);
+  assert.equal(mentor.calls.render[0].meta.actorRole, 'mentor');
 });
 
 test('a projection schema the page cannot present is refused rather than guessed at', async () => {

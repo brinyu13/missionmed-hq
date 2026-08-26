@@ -52,6 +52,16 @@ const productionIdentityScopeRollbackPath = path.join(
   'rollbacks',
   '20260825010300_f2_lor_1012_production_identity_scope_commands.rollback.sql',
 );
+const facultyInvitationRollbackPath = path.join(
+  scriptDirectory,
+  'rollbacks',
+  '20260825010400_f2_lor_1012_faculty_invitation_commands.rollback.sql',
+);
+const productionFacultyInvitationRollbackPath = path.join(
+  scriptDirectory,
+  'rollbacks',
+  '20260825010500_f2_lor_1012_production_faculty_invitation_commands.rollback.sql',
+);
 
 const RELATIONS = Object.freeze([
   'student_auth_bindings',
@@ -765,4 +775,100 @@ test('production identity/scope rollback preserves local reverse operations and 
   const destructiveSql = withoutLineComments(productionSql);
   assert.doesNotMatch(destructiveSql, /\bCASCADE\b/iu);
   assert.doesNotMatch(destructiveSql, /\bDROP\s+(?:TABLE|SCHEMA|ROLE)\b/iu);
+});
+
+test('faculty invitation rollback is exact, empty-ledger guarded, and no-CASCADE', async () => {
+  const sql = await readFile(facultyInvitationRollbackPath, 'utf8');
+  const guardEnd = sql.indexOf('$catalog_guard$;');
+  const reverseStart = sql.indexOf('REVOKE EXECUTE ON FUNCTION');
+  assert.ok(guardEnd > 0);
+  assert.ok(reverseStart > guardEnd);
+  const guard = sql.slice(0, guardEnd);
+  for (const required of [
+    'relation_count IS DISTINCT FROM 29',
+    'function_count IS DISTINCT FROM 57',
+    'definer_count IS DISTINCT FROM 18',
+    'policy_count IS DISTINCT FROM 123',
+    'trigger_count IS DISTINCT FROM 47',
+    'index_count IS DISTINCT FROM 120',
+    'WHEN 16 THEN 320::bigint',
+    'WHEN 18 THEN 642::bigint',
+    'nonowner_acl_count IS DISTINCT FROM 107',
+    'invitation_policy_count IS DISTINCT FROM 23',
+    'EXISTS (SELECT 1 FROM lor_studio.faculty_invitation_command_receipts)',
+    'faculty.invitation_delivered',
+    'faculty.invitation_delivery_pending',
+    'faculty.invitation_delivery_unknown',
+    'faculty.invitation_otp_resent',
+    'faculty.invitation_revoked',
+  ]) {
+    assert.equal(guard.includes(required), true, required);
+  }
+  for (const identity of [
+    'issue_faculty_invitation',
+    'resend_faculty_invitation_otp',
+    'revoke_faculty_invitation',
+    'verify_faculty_invitation',
+    'commit_faculty_invitation_delivery',
+    'resolve_lor_actor_case_access',
+  ]) {
+    assert.match(sql, new RegExp(`DROP FUNCTION lor_studio\\.${identity}\\(`, 'u'), identity);
+  }
+  for (const policy of [
+    'consent_receipts_invitation_command_select',
+    'recommendation_cases_invitation_command_select',
+    'faculty_invitations_invitation_command_select',
+    'faculty_invitation_command_receipts_command_select',
+    'faculty_invitation_command_receipts_command_insert',
+    'mentor_case_assignment_revocations_actor_access_select',
+  ]) {
+    assert.match(sql, new RegExp(`DROP POLICY ${policy}`, 'u'), policy);
+  }
+  assert.match(sql, /DROP TABLE lor_studio\.faculty_invitation_command_receipts;/u);
+  assert.match(sql, /principal_authority = 'durable_otp_provider_proof'/u);
+  assert.match(sql, /CREATE OR REPLACE FUNCTION lor_studio\.faculty_context_allows\(/u);
+  assert.match(sql, /invitation\.expires_at > pg_catalog\.statement_timestamp\(\)/u);
+  assert.match(sql, /verification\.otp_expires_at > pg_catalog\.statement_timestamp\(\)/u);
+  assert.match(
+    sql,
+    /faculty_context_source NOT LIKE '%proof_revocation\.case_id = verification\.case_id%'/u,
+  );
+  assert.match(sql, /facultyInvitationCommands=20260825010400/u);
+  assert.match(sql, /regexp_replace\([\s\S]*facultyInvitationCommands=20260825010400\$/u);
+  const destructiveSql = withoutLineComments(sql);
+  assert.doesNotMatch(destructiveSql, /\bCASCADE\b/iu);
+  assert.doesNotMatch(destructiveSql, /\b(?:DELETE|TRUNCATE)\b/iu);
+  assert.doesNotMatch(destructiveSql, /\bDROP\s+(?:SCHEMA|ROLE)\b/iu);
+  assert.deepEqual(
+    [...destructiveSql.matchAll(/\bDROP\s+TABLE\s+([^;]+);/giu)].map((match) => match[1]),
+    ['lor_studio.faculty_invitation_command_receipts'],
+  );
+});
+
+test('production faculty invitation rollback preserves the local reverse body and target custody', async () => {
+  const [localSql, productionSql] = await Promise.all([
+    readFile(facultyInvitationRollbackPath, 'utf8'),
+    readFile(productionFacultyInvitationRollbackPath, 'utf8'),
+  ]);
+  const bodyMarker = 'LOCK TABLE\n';
+  assert.equal(
+    productionSql.slice(productionSql.indexOf(bodyMarker)).replaceAll(
+      'facultyInvitationCommands=20260825010500',
+      'facultyInvitationCommands=20260825010400',
+    ).trimEnd(),
+    localSql.slice(localSql.indexOf(bodyMarker)).trimEnd(),
+  );
+  for (const required of [
+    'missionmed.lor.railway-postgres-target.v1',
+    '29afe885-b9b1-425d-8fd8-8611cd275409',
+    'f5705d38-393c-4176-9cc2-0d1dbad42c93',
+    'b49a52e7-df15-4417-b67a-a64403aa5db7',
+    'identityScope=20260825010300',
+    'facultyInvitationCommands=20260825010500',
+  ]) {
+    assert.match(productionSql, new RegExp(required.replaceAll('.', '\\.'), 'u'), required);
+  }
+  const destructiveSql = withoutLineComments(productionSql);
+  assert.doesNotMatch(destructiveSql, /\bCASCADE\b/iu);
+  assert.doesNotMatch(destructiveSql, /\bDROP\s+(?:SCHEMA|ROLE)\b/iu);
 });

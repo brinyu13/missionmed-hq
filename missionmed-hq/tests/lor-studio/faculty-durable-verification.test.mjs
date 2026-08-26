@@ -1,14 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  LOR_TARGET_BINDING_SCHEMA,
-  LOR_TARGET_IDENTITY_FIELDS,
-  resolveLorTargetBinding,
-} from '../../lor-studio/adapters/lor-target-binding.mjs';
-import { hashValue, sha256 } from '../../lor-studio/domain/value-utils.js';
-import { createFacultyInvitation, hashFacultyEmail } from '../../lor-studio/security/faculty-invitations.js';
-import { InMemoryFacultyInvitationRepository } from '../../lor-studio/repositories/in-memory-faculty-invitation-repository.js';
+import { resolveLorTargetBinding } from '../../lor-studio/adapters/lor-target-binding.mjs';
+import { sha256 } from '../../lor-studio/domain/value-utils.js';
 import {
   SUPABASE_DURABLE_FACULTY_INVITATION_CONTRACT,
   SupabaseDurableFacultyInvitationRepository,
@@ -16,27 +10,19 @@ import {
 import {
   DURABLE_FACULTY_VERIFICATION_SERVICE_CONTRACT,
   DurableFacultyInvitationVerificationService,
+  isAuthenticDurableFacultyInvitationVerificationService,
 } from '../../lor-studio/services/durable-faculty-invitation-verification-service.mjs';
 
-const T0 = new Date('2026-08-13T12:00:00.000Z');
-const T1 = '2026-08-13T12:01:00.000Z';
-const FACULTY_EMAIL = 'faculty@example.test';
+const ACTOR = Object.freeze({ id: 'wp:43', role: 'faculty' });
+const INVITATION_ID = 'invitation-faculty-1';
+const RAW_TOKEN = 'a'.repeat(43);
 const OTP_CODE = '538291';
-const CHALLENGE_ID = 'otp_challenge_server_1';
+const RECIPIENT_EMAIL = 'faculty@example.test';
+const IDEMPOTENCY_KEY = 'verify-attempt-1';
 
-// DR-133. There is no ambient LOR Studio target: a binding exists only where
-// an explicit, ratified configuration is validated by the target-binding adapter, and a
-// hand-rolled look-alike is not a binding. These two identifiers appear here ONLY as
-// values that must be REJECTED - `fglyvdykwgbuivikqoah` is the RankListIQ production
-// project and `mftguikkftmrxjxrkdln` is the historical no-touch branch. Nothing in this
-// file may assert that either one is a reachable target.
-const RANKLISTIQ_PRODUCTION_IDENTIFIER = 'fglyvdykwgbuivikqoah';
-const HISTORICAL_NO_TOUCH_IDENTIFIER = 'mftguikkftmrxjxrkdln';
-
-/** A complete, explicitly ratified, non-denied staging target configuration. */
-function stagingTargetConfiguration(overrides = {}) {
-  return {
-    schemaVersion: LOR_TARGET_BINDING_SCHEMA,
+function target() {
+  return resolveLorTargetBinding({
+    schemaVersion: 'missionmed.lor.target-binding.v2',
     ratified: true,
     decisionRecord: 'DR-133',
     environment: 'staging',
@@ -54,1125 +40,332 @@ function stagingTargetConfiguration(overrides = {}) {
     environmentBound: true,
     dataCopied: false,
     productionDataBindingPassed: false,
-    ...overrides,
-  };
-}
-
-/** A complete, explicitly ratified, non-denied production target configuration. */
-function productionTargetConfiguration(overrides = {}) {
-  return stagingTargetConfiguration({
-    environment: 'production',
-    projectId: 'lor-faculty-production-project',
-    environmentId: 'lor-faculty-production-environment',
-    serviceId: 'lor-faculty-production-service',
-    migrationLedger: 'lor_studio/migrations/production',
-    productionDataBindingPassed: true,
-    ...overrides,
   });
 }
 
-const STAGING_BINDING = resolveLorTargetBinding(stagingTargetConfiguration());
-const PRODUCTION_BINDING = resolveLorTargetBinding(productionTargetConfiguration());
-
-function failClosedStatus(fn) {
-  try {
-    fn();
-  } catch (error) {
-    assert.equal(error.code, 'INTEGRATION_DISABLED');
-    return error.details.status;
-  }
-  return assert.fail('expected the durable faculty target to fail closed');
-}
-
-function metadataRef(namespace, value) {
-  return `${namespace}_${sha256(`lor-studio:${namespace}:${value}`)}`;
-}
-
-function verifiedContext(overrides = {}) {
+function candidateScope(overrides = {}) {
   return {
-    schemaVersion: 'missionmed.lor.verified-faculty-context.v1',
-    authoritySource: 'server_verified_wordpress_session_crosswalk',
+    schemaVersion: 'missionmed.lor.faculty-invitation-candidate-scope.v1',
+    authoritySource: 'server_verified_wordpress_invitation_candidate',
     authenticated: true,
     roleVerified: true,
-    clientAsserted: false,
+    authUid: '6dbbd3bd-f9ba-5e14-8c28-824f20c81cd4',
+    authenticatedSubject: ACTOR.id,
+    actorId: ACTOR.id,
     actorRole: 'faculty',
-    authenticatedSubject: 'wp:43',
-    caseId: 'case-faculty-1',
     operation: 'verify_faculty_invitation',
     purpose: 'faculty_private_edit',
-    bindingRef: sha256('test-only-verified-context-binding'),
+    invitationId: INVITATION_ID,
+    entitlementVerified: true,
+    lorEnabled: true,
+    canaryAuthorized: true,
     ...overrides,
   };
 }
 
-function verificationScope(overrides = {}) {
+function candidateCredential(overrides = {}) {
   return {
-    schemaVersion: 'missionmed.lor.faculty-verification-scope.v1',
-    authoritySource: 'server_resolved_faculty_invitation_challenge',
+    schemaVersion: 'missionmed.lor.faculty-candidate-credential.v1',
+    authoritySource: 'server_verified_sealed_candidate_cookie',
+    authenticatedSubject: ACTOR.id,
+    invitationId: INVITATION_ID,
+    tokenHash: sha256(RAW_TOKEN),
+    flowNonceHash: sha256('candidate-flow-nonce'),
+    issuedAt: '2026-08-25T12:00:00.000Z',
+    expiresAt: '2026-08-25T12:10:00.000Z',
     clientAsserted: false,
-    actorRole: 'faculty',
-    authenticatedSubject: 'wp:43',
-    caseId: 'case-faculty-1',
-    invitationId: 'invitation-faculty-1',
-    challengeId: CHALLENGE_ID,
-    recipientEmailHash: hashFacultyEmail(FACULTY_EMAIL),
-    operation: 'verify_faculty_invitation',
-    purpose: 'faculty_private_edit',
-    bindingRef: sha256('test-only-verified-context-binding'),
     ...overrides,
   };
 }
 
-function issuedInvitation(invitationOverrides = {}) {
-  const issued = createFacultyInvitation({
-    id: 'invitation-faculty-1',
-    caseId: 'case-faculty-1',
-    recipientEmail: FACULTY_EMAIL,
-    expiresAt: '2026-08-14T12:00:00.000Z',
-    now: T0,
-    tokenFactory: () => Buffer.alloc(32, 0x5a),
-  });
+function receipt(overrides = {}) {
   return {
-    rawToken: issued.rawToken,
-    invitation: {
-      ...structuredClone(issued.invitation),
-      ...invitationOverrides,
-    },
-  };
-}
-
-function driverAuthorizationBinding(command, { verified = true, overrides = {} } = {}) {
-  return {
-    schemaVersion: 'missionmed.lor.faculty-verification-driver-binding.v1',
-    authoritySource: 'atomic_durable_otp_invitation_transaction',
-    actorRole: 'faculty',
-    authenticatedSubject: command.scope.authenticatedSubject,
-    caseId: command.scope.caseId,
-    invitationId: command.scope.invitationId,
-    challengeRef: sha256(`lor-studio:challenge:${command.scope.challengeId}`),
-    contextBindingRef: command.scope.bindingRef,
-    recipientEmailHash: command.scope.recipientEmailHash,
-    operation: command.scope.operation,
-    purpose: command.scope.purpose,
-    verifiedPrincipalId: verified ? 'wp:43' : null,
-    otpProofRef: verified ? sha256('test-only-durable-otp-provider-proof') : null,
-    otpVerifiedAt: verified ? T1 : null,
-    otpExpiresAt: verified ? '2026-08-13T12:10:00.000Z' : null,
-    otpRevoked: verified ? false : null,
-    principalAuthority: verified ? 'durable_otp_provider_proof' : null,
-    ...overrides,
-  };
-}
-
-function attemptState(invitation) {
-  return {
-    schemaVersion: 'missionmed.lor.faculty-attempt-state.v1',
-    revision: invitation.revision,
-    failedAttempts: invitation.failedAttempts,
-    attemptWindowStartedAt: invitation.attemptWindowStartedAt,
-    lockedUntil: invitation.lockedUntil,
-    lastFailureCode: invitation.lastFailureCode,
-    revokedAt: invitation.revokedAt,
-    usedAt: invitation.usedAt,
-    verifiedFacultyId: invitation.verifiedFacultyId,
-  };
-}
-
-function metadataEvent(command, { verified, invitation, databaseNow }) {
-  return {
-    schemaVersion: 'missionmed.lor.service-event.v1',
-    eventRef: verified
-      ? command.auditBindings.successEventRef
-      : command.auditBindings.deniedEventRef,
-    eventType: verified ? 'faculty.verified' : 'faculty.verification_denied',
-    caseRef: command.auditBindings.caseRef,
-    actorRef: command.auditBindings.actorRef,
-    actorRole: 'service',
-    correlationRef: command.auditBindings.correlationRef,
-    outcome: verified ? 'success' : 'denied',
-    revision: invitation.revision,
-    occurredAt: databaseNow,
-  };
-}
-
-function atomicReceipt(command, {
-  invitation,
-  verified,
-  reasonCode,
-  replayed = false,
-  databaseNow = T1,
-  priorAttemptState,
-  overrides = {},
-  bindingOverrides = {},
-} = {}) {
-  const event = metadataEvent(command, { verified, invitation, databaseNow });
-  return {
-    schemaVersion: 'missionmed.lor.atomic-faculty-verification-receipt.v1',
+    schemaVersion: 'missionmed.lor.faculty-invitation-command-receipt.v1',
+    receiptId: `faculty_command_${sha256('receipt')}`,
+    action: 'faculty.invitation.verify',
     committed: true,
-    databaseTime: {
-      schemaVersion: 'missionmed.lor.database-transaction-time.v1',
-      source: 'database_transaction_timestamp',
-      transactionTimestamp: databaseNow,
-    },
-    durable: true,
-    sameTransaction: true,
-    invitationStateCommitted: true,
-    otpChallengeCommitted: true,
-    auditCommitted: true,
-    privateSessionIssued: false,
-    priorAttemptState,
-    nextAttemptState: attemptState(invitation),
-    transactionRef: `transaction_${sha256('faculty-verification-transaction-1')}`,
-    replayed,
-    verified,
-    reasonCode,
-    challengeConsumed: verified,
-    caseId: command.scope.caseId,
-    invitationId: command.scope.invitationId,
-    purpose: command.scope.purpose,
-    idempotencyKey: command.idempotencyKey,
-    requestHash: command.requestHash,
-    invitation,
-    event,
-    recordHash: hashValue(invitation),
-    eventHash: hashValue(event),
-    auditEventRef: event.eventRef,
-    authorizationBinding: driverAuthorizationBinding(command, {
-      verified,
-      overrides: bindingOverrides,
-    }),
+    replayed: false,
+    caseId: 'case-faculty-1',
+    invitationId: INVITATION_ID,
+    challengeIdHash: sha256('challenge-id'),
+    invitationExpiresAt: null,
+    challengeExpiresAt: null,
+    caseRevision: 4,
+    invitationRevision: 2,
+    verified: true,
+    reasonCode: null,
+    auditEventRef: `event_${sha256('audit-event')}`,
+    transactionId: '42',
     ...overrides,
   };
 }
 
-function persistentAtomicFacultyDriver({
-  bypassCredentialChecks = false,
-  databaseNow = T1,
-  invitationOverrides = {},
-  mutateReceipt = (receipt) => receipt,
-  verifiedPrincipalId = 'wp:43',
+function harness({
+  rawReceipt = receipt(),
+  scope = candidateScope(),
+  credential = candidateCredential(),
+  driverOverrides = {},
 } = {}) {
-  const issued = issuedInvitation(invitationOverrides);
-  let invitation = structuredClone(issued.invitation);
-  const commits = new Map();
-  let calls = 0;
-  return {
-    atomicInvitationOtpAndAudit: true,
-    databaseClock: true,
+  const calls = [];
+  const scopeCalls = [];
+  const credentialCalls = [];
+  const driver = {
     rlsEnforced: true,
     serverOnly: true,
-    rawToken: issued.rawToken,
-    async executeAtomicFacultyVerification(command) {
-      calls += 1;
-      if (
-        command.scope.caseId !== invitation.caseId
-        || command.scope.invitationId !== invitation.id
-        || command.scope.challengeId !== CHALLENGE_ID
-        || command.scope.recipientEmailHash !== invitation.recipientEmailHash
-      ) {
-        return { errorCode: 'SCOPE_BINDING_MISMATCH' };
-      }
-      const prior = commits.get(command.idempotencyKey);
-      if (prior) {
-        if (prior.requestHash !== command.requestHash) {
-          return { errorCode: 'IDEMPOTENCY_CONFLICT' };
-        }
-        return mutateReceipt({ ...structuredClone(prior.receipt), replayed: true }, command);
-      }
-      const priorAttemptState = attemptState(invitation);
-      const databaseNowMs = Date.parse(databaseNow);
-      let reasonCode = null;
-      if (invitation.revokedAt) reasonCode = 'INVITATION_REVOKED';
-      else if (invitation.usedAt) reasonCode = 'INVITATION_ALREADY_USED';
-      else if (Date.parse(invitation.expiresAt) <= databaseNowMs) reasonCode = 'INVITATION_EXPIRED';
-      else if (invitation.lockedUntil && databaseNowMs < Date.parse(invitation.lockedUntil)) {
-        reasonCode = 'INVITATION_LOCKED';
-      }
-      else if (!bypassCredentialChecks && command.presentedTokenHash !== invitation.tokenHash) reasonCode = 'TOKEN_MISMATCH';
-      else if (!bypassCredentialChecks && command.presentedRecipientEmailHash !== invitation.recipientEmailHash) reasonCode = 'RECIPIENT_MISMATCH';
-      else if (command.challengeId !== CHALLENGE_ID || command.otpCode !== OTP_CODE) reasonCode = 'OTP_NOT_VERIFIED';
-
-      const verified = reasonCode === null;
-      if (verified) {
-        invitation = {
-          ...invitation,
-          usedAt: databaseNow,
-          verifiedFacultyId: verifiedPrincipalId,
-          failedAttempts: 0,
-          attemptWindowStartedAt: null,
-          lockedUntil: null,
-          lastFailureCode: null,
-          revision: invitation.revision + 1,
-        };
-      } else if (['TOKEN_MISMATCH', 'RECIPIENT_MISMATCH', 'OTP_NOT_VERIFIED'].includes(reasonCode)) {
-        const previousWindow = invitation.attemptWindowStartedAt
-          ? Date.parse(invitation.attemptWindowStartedAt)
-          : null;
-        const withinWindow = previousWindow !== null
-          && databaseNowMs - previousWindow < invitation.attemptWindowMs;
-        const failedAttempts = withinWindow
-          ? Math.min(invitation.failedAttempts + 1, invitation.maxAttempts)
-          : 1;
-        invitation = {
-          ...invitation,
-          failedAttempts,
-          attemptWindowStartedAt: withinWindow
-            ? invitation.attemptWindowStartedAt
-            : databaseNow,
-          lockedUntil: failedAttempts >= invitation.maxAttempts
-            ? new Date(databaseNowMs + invitation.lockoutMs).toISOString()
-            : null,
-          lastFailureCode: reasonCode,
-          revision: invitation.revision + 1,
-        };
-      }
-      const receipt = atomicReceipt(command, {
-        invitation: structuredClone(invitation),
-        verified,
-        reasonCode,
-        databaseNow,
-        priorAttemptState,
-        bindingOverrides: verified
-          ? {
-            verifiedPrincipalId,
-            otpVerifiedAt: databaseNow,
-            otpExpiresAt: new Date(databaseNowMs + 10 * 60 * 1_000).toISOString(),
-          }
-          : {},
-      });
-      commits.set(command.idempotencyKey, {
-        requestHash: command.requestHash,
-        receipt: structuredClone(receipt),
-      });
-      return mutateReceipt(receipt, command);
+    databaseClock: true,
+    atomicFacultyInvitationCommands: true,
+    async verifyFacultyInvitationAtomic(command) {
+      calls.push(structuredClone(command));
+      return structuredClone(rawReceipt);
     },
-    stats() {
-      return {
-        calls,
-        commitRows: commits.size,
-        invitationRevision: invitation.revision,
-      };
-    },
-    snapshot() {
-      return structuredClone(invitation);
-    },
+    ...driverOverrides,
   };
-}
-
-function repository({
-  binding = STAGING_BINDING,
-  context = verifiedContext(),
-  driver = persistentAtomicFacultyDriver(),
-  scope = verificationScope(),
-  scopeProvider,
-  verifiedContextProvider,
-} = {}) {
-  return new SupabaseDurableFacultyInvitationRepository({
-    binding,
+  const repository = new SupabaseDurableFacultyInvitationRepository({
+    binding: target(),
     driver,
-    scopeProvider: scopeProvider ?? (async () => scope),
-    verifiedContextProvider: verifiedContextProvider ?? (async () => context),
+    async candidateScopeProvider(request) {
+      scopeCalls.push(structuredClone(request));
+      return structuredClone(scope);
+    },
+    async candidateCredentialProvider(request) {
+      credentialCalls.push(structuredClone(request));
+      return structuredClone(credential);
+    },
   });
+  const service = new DurableFacultyInvitationVerificationService({ repository });
+  return { calls, credentialCalls, driver, repository, scopeCalls, service };
 }
 
-function validRequest(driver, overrides = {}) {
+function verificationInput(overrides = {}) {
   return {
-    rawToken: driver.rawToken,
-    recipientEmail: FACULTY_EMAIL,
+    actor: ACTOR,
+    invitationId: INVITATION_ID,
+    idempotencyKey: IDEMPOTENCY_KEY,
     otpCode: OTP_CODE,
-    idempotencyKey: 'faculty-verify-idempotency-1',
+    recipientEmail: RECIPIENT_EMAIL,
     ...overrides,
   };
 }
 
-test('durable faculty repository fails closed without exact target, atomic driver, and server-resolved scope', async () => {
-  assert.throws(() => new SupabaseDurableFacultyInvitationRepository(), /integration is unavailable/u);
-  assert.throws(
-    () => repository({
-      driver: { ...persistentAtomicFacultyDriver(), atomicInvitationOtpAndAudit: false },
-    }),
-    /integration is unavailable/u,
-  );
-  assert.throws(
-    () => new SupabaseDurableFacultyInvitationRepository({
-      binding: STAGING_BINDING,
-      driver: persistentAtomicFacultyDriver(),
-    }),
-    /integration is unavailable/u,
-  );
-  assert.throws(
-    () => new SupabaseDurableFacultyInvitationRepository({
-      binding: STAGING_BINDING,
-      driver: persistentAtomicFacultyDriver(),
-      scopeProvider: async () => verificationScope(),
-    }),
-    /integration is unavailable/u,
-  );
-  // The target must be one this process actually resolved. A look-alike literal, a spread
-  // copy of a validated binding, and a copy with an arbitrary service swapped in are all
-  // rejected, so no call site can hand the repository a target that was never validated.
-  for (const forged of [
-    stagingTargetConfiguration(),
-    { ...STAGING_BINDING },
-    { ...STAGING_BINDING, serviceId: 'arbitrary-service' },
-    { ...PRODUCTION_BINDING },
-    { ...STAGING_BINDING, projectId: RANKLISTIQ_PRODUCTION_IDENTIFIER },
-  ]) {
-    assert.equal(
-      failClosedStatus(() => repository({ binding: forged })),
-      'VALIDATED_TARGET_BINDING_REQUIRED',
-    );
-  }
+test('only exact successfully constructed faculty verification services satisfy authenticity', () => {
+  const { repository, service } = harness();
+  assert.equal(isAuthenticDurableFacultyInvitationVerificationService(service), true);
 
-  // A configuration that fails the DR-133 target contract yields no binding at all, so a
-  // repository on the denied production project, the denied no-touch branch, an unverified
-  // environment binding, or production without its own evidence cannot even be built.
-  for (const field of LOR_TARGET_IDENTITY_FIELDS) {
-    for (const denied of [RANKLISTIQ_PRODUCTION_IDENTIFIER, HISTORICAL_NO_TOUCH_IDENTIFIER]) {
-      let resolved = null;
-      const status = failClosedStatus(() => {
-        resolved = resolveLorTargetBinding(stagingTargetConfiguration({ [field]: denied }));
-      });
-      assert.match(status, /^TARGET_BINDING_DENIED_/u, `${field}=${denied} must fail closed`);
-      assert.equal(resolved, null, 'a denied identity must never yield a binding');
-    }
-  }
-
-  for (const [overrides, expected] of [
-    [{ environmentBound: false }, 'TARGET_BINDING_RESOURCE_UNVERIFIED'],
-    [{ provider: 'supabase-postgres' }, 'TARGET_BINDING_PROVIDER_INVALID'],
-    [{ decisionRecord: 'DR-119' }, 'TARGET_BINDING_DECISION_RECORD_INVALID'],
-    [
-      { environment: 'production', productionDataBindingPassed: false },
-      'TARGET_BINDING_PRODUCTION_EVIDENCE_MISMATCH',
-    ],
-  ]) {
-    let resolved = null;
-    const status = failClosedStatus(() => {
-      resolved = resolveLorTargetBinding(stagingTargetConfiguration(overrides));
-    });
-    assert.equal(status, expected, `${JSON.stringify(overrides)} must fail closed`);
-    assert.equal(resolved, null, 'a failed resolution must not yield any binding');
-  }
-
-  const staging = repository();
-  const stagingPersistence = staging.describePersistence();
-  assert.equal(stagingPersistence.productionEligible, false);
-  assert.equal(stagingPersistence.provider, 'railway-postgres');
-  assert.equal(stagingPersistence.projectId, 'lor-faculty-staging-project');
-  assert.equal(stagingPersistence.environmentId, 'lor-faculty-staging-environment');
-  assert.equal(stagingPersistence.serviceId, 'lor-faculty-staging-service');
-  assert.equal(stagingPersistence.databaseName, 'railway');
-  assert.equal(stagingPersistence.region, 'us-west2');
-  assert.equal(stagingPersistence.privateSessionIssued, false);
-  assert.throws(() => staging.assertProductionReady(), /integration is unavailable/u);
-  await assert.rejects(() => staging.create(), /integration is unavailable/u);
-  await assert.rejects(() => staging.getById(), /integration is unavailable/u);
-  await assert.rejects(() => staging.save(), /integration is unavailable/u);
-
-  const production = repository({ binding: PRODUCTION_BINDING });
-  const productionPersistence = production.assertProductionReady();
-  assert.equal(productionPersistence.productionEligible, true);
-  assert.equal(productionPersistence.projectId, 'lor-faculty-production-project');
-  assert.equal(SUPABASE_DURABLE_FACULTY_INVITATION_CONTRACT.privateSessionIssued, false);
-  assert.throws(
-    () => new DurableFacultyInvitationVerificationService({
-      repository: new InMemoryFacultyInvitationRepository(),
-    }),
-    /durable atomic/u,
-  );
-});
-
-test('atomic faculty verification emits only pseudonymous metadata and keeps private session/edit closed', async () => {
-  const driver = persistentAtomicFacultyDriver();
-  const service = new DurableFacultyInvitationVerificationService({ repository: repository({ driver }) });
-  const request = validRequest(driver);
-  const result = await service.verify(request);
-  assert.equal(result.verified, true);
-  assert.equal(result.reasonCode, null);
-  assert.equal(result.purpose, 'faculty_private_edit');
-  assert.equal(result.revision, 1);
-  assert.equal(result.verifiedAt, T1);
-  assert.equal(result.privateSessionIssued, false);
-  assert.equal(result.privateEditGranted, false);
-  assert.match(result.caseRef, /^case_[a-f0-9]{64}$/u);
-  assert.match(result.invitationRef, /^invitation_[a-f0-9]{64}$/u);
-  assert.match(result.facultyRef, /^faculty_[a-f0-9]{64}$/u);
-  assert.equal(result.facultyRef, metadataRef('faculty', 'wp:43'));
-  const serialized = JSON.stringify(result);
-  for (const secret of [
-    request.rawToken,
-    request.otpCode,
-    request.recipientEmail,
-    'invitation-faculty-1',
-    CHALLENGE_ID,
-    'case-faculty-1',
-    'wp:43',
-  ]) {
-    assert.doesNotMatch(serialized, new RegExp(secret.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&'), 'u'));
-  }
-  assert.deepEqual(driver.stats(), { calls: 1, commitRows: 1, invitationRevision: 1 });
-});
-
-test('server resolvers receive no client locator and bind invitation and challenge to verified context', async () => {
-  const driver = persistentAtomicFacultyDriver();
-  const context = verifiedContext();
-  const scope = verificationScope();
-  let contextCalls = 0;
-  let scopeCalls = 0;
-  const candidate = repository({
-    driver,
-    verifiedContextProvider: async (...args) => {
-      contextCalls += 1;
-      assert.equal(args.length, 0);
-      return context;
-    },
-    scopeProvider: async (request) => {
-      scopeCalls += 1;
-      assert.deepEqual(request, {
-        bindingRef: context.bindingRef,
-        operation: 'verify_faculty_invitation',
-        purpose: 'faculty_private_edit',
-      });
-      assert.equal('invitationId' in request, false);
-      assert.equal('challengeId' in request, false);
-      return scope;
-    },
-  });
-  const result = await candidate.verifyAndCommit(validRequest(driver));
-  assert.equal(result.verified, true);
-  assert.equal(result.facultyRef, metadataRef('faculty', context.authenticatedSubject));
-  assert.equal(contextCalls, 1);
-  assert.equal(scopeCalls, 1);
-  assert.deepEqual(DURABLE_FACULTY_VERIFICATION_SERVICE_CONTRACT.clientAcceptedFields, [
-    'idempotencyKey',
-    'otpCode',
-    'rawToken',
-    'recipientEmail',
-  ]);
-  assert.deepEqual(DURABLE_FACULTY_VERIFICATION_SERVICE_CONTRACT.serverResolvedFields, [
-    'authenticatedSubject',
-    'caseId',
-    'actorRole',
-    'purpose',
-    'invitationId',
-    'challengeId',
-    'verifiedPrincipalId',
-  ]);
-});
-
-test('foreign subject, case, or context binding from a server resolver fails before durable access', async () => {
-  for (const { context, scope } of [
-    {
-      context: verifiedContext({ authenticatedSubject: 'wp:44' }),
-      scope: verificationScope(),
-    },
-    {
-      context: verifiedContext({ caseId: 'case-foreign' }),
-      scope: verificationScope(),
-    },
-    {
-      context: verifiedContext({ bindingRef: sha256('context-foreign') }),
-      scope: verificationScope(),
-    },
-    {
-      context: verifiedContext(),
-      scope: verificationScope({ authenticatedSubject: 'wp:44' }),
-    },
-    {
-      context: verifiedContext(),
-      scope: verificationScope({ caseId: 'case-foreign' }),
-    },
-  ]) {
-    const driver = persistentAtomicFacultyDriver();
-    await assert.rejects(
-      () => repository({ context, driver, scope }).verifyAndCommit(validRequest(driver)),
-      /integration is unavailable/u,
-    );
-    assert.deepEqual(driver.stats(), { calls: 0, commitRows: 0, invitationRevision: 0 });
-  }
-});
-
-test('durable idempotency survives service restart and repeated cross-instance verification', async () => {
-  const driver = persistentAtomicFacultyDriver();
-  const makeService = () => new DurableFacultyInvitationVerificationService({
-    repository: repository({ driver }),
-  });
-  const first = makeService();
-  const restarted = makeService();
-  const request = validRequest(driver);
-  const initial = await first.verify(request);
-  for (let attempt = 0; attempt < 200; attempt += 1) {
-    const replay = await (attempt % 2 === 0 ? restarted : first).verify(request);
-    assert.equal(replay.invitationRef, initial.invitationRef);
-    assert.equal(replay.facultyRef, initial.facultyRef);
-    assert.equal(replay.revision, initial.revision);
-    assert.equal(replay.idempotentReplay, true);
-  }
-  assert.deepEqual(driver.stats(), { calls: 201, commitRows: 1, invitationRevision: 1 });
-  for (const service of [first, restarted]) {
-    assert.equal(
-      Reflect.ownKeys(service).some((key) => Reflect.get(service, key) instanceof Map),
-      false,
-      'service instances must not retain process-local idempotency state',
-    );
-  }
-  await assert.rejects(
-    () => restarted.verify(validRequest(driver, { otpCode: '000000' })),
-    (error) => {
-      assert.equal(error.code, 'IDEMPOTENCY_CONFLICT');
-      assert.match(error.details.idempotencyKey, /^idempotency_[a-f0-9]{64}$/u);
-      assert.doesNotMatch(JSON.stringify(error.details), /faculty-verify-idempotency-1/u);
-      return true;
-    },
-  );
-  assert.deepEqual(driver.stats(), { calls: 202, commitRows: 1, invitationRevision: 1 });
-});
-
-test('case, invitation, challenge, recipient, role, and purpose bindings fail closed before access can advance', async () => {
-  for (const { scopeOverride, expectedDriverCalls } of [
-    { scopeOverride: { caseId: 'case-other' }, expectedDriverCalls: 0 },
-    { scopeOverride: { invitationId: 'invitation-other' }, expectedDriverCalls: 1 },
-    { scopeOverride: { challengeId: 'challenge-other' }, expectedDriverCalls: 1 },
-    { scopeOverride: { recipientEmailHash: sha256('other-recipient') }, expectedDriverCalls: 1 },
-    { scopeOverride: { actorRole: 'student' }, expectedDriverCalls: 0 },
-    { scopeOverride: { authenticatedSubject: 'wp:44' }, expectedDriverCalls: 0 },
-    { scopeOverride: { bindingRef: sha256('foreign-context') }, expectedDriverCalls: 0 },
-    { scopeOverride: { purpose: 'case_workflow' }, expectedDriverCalls: 0 },
-    { scopeOverride: { operation: 'read' }, expectedDriverCalls: 0 },
-    { scopeOverride: { authoritySource: 'client_request' }, expectedDriverCalls: 0 },
-    { scopeOverride: { clientAsserted: true }, expectedDriverCalls: 0 },
-    { scopeOverride: { clientAsserted: 'false' }, expectedDriverCalls: 0 },
-    { scopeOverride: { clientAsserted: null }, expectedDriverCalls: 0 },
-    { scopeOverride: { debug: 'unexpected-scope-field' }, expectedDriverCalls: 0 },
-  ]) {
-    const driver = persistentAtomicFacultyDriver();
-    const candidate = repository({ driver, scope: verificationScope(scopeOverride) });
-    await assert.rejects(
-      () => candidate.verifyAndCommit(validRequest(driver)),
-      /integration is unavailable|Access denied/u,
-    );
-    assert.deepEqual(driver.stats(), {
-      calls: expectedDriverCalls,
-      commitRows: 0,
-      invitationRevision: 0,
-    });
-  }
-});
-
-test('atomic receipt rejects split commits, altered hashes, unbound principals, raw secrets, and session claims', async () => {
-  const mutations = [
-    (receipt) => ({ ...receipt, sameTransaction: false }),
-    (receipt) => ({ ...receipt, otpChallengeCommitted: false }),
-    (receipt) => ({ ...receipt, auditCommitted: false }),
-    (receipt) => ({ ...receipt, privateSessionIssued: true }),
-    (receipt) => ({ ...receipt, transactionRef: 'raw-transaction-locator' }),
-    (receipt) => ({ ...receipt, recordHash: sha256('tampered-record') }),
-    (receipt) => ({ ...receipt, eventHash: sha256('tampered-event') }),
-    (receipt) => ({
-      ...receipt,
-      databaseTime: {
-        ...receipt.databaseTime,
-        source: 'application_clock',
-      },
-    }),
-    (receipt) => ({
-      ...receipt,
-      priorAttemptState: {
-        ...receipt.priorAttemptState,
-        revision: receipt.priorAttemptState.revision + 1,
-        failedAttempts: 1,
-        attemptWindowStartedAt: T1,
-        lastFailureCode: 'OTP_NOT_VERIFIED',
-      },
-    }),
-    (receipt) => ({
-      ...receipt,
-      nextAttemptState: {
-        ...receipt.nextAttemptState,
-        lockedUntil: '2026-08-13T12:31:00.000Z',
-      },
-    }),
-    (receipt) => ({ ...receipt, rawToken: 'forbidden-secret' }),
-    (receipt) => ({ ...receipt, debug: 'unreviewed-provider-output' }),
-    (receipt) => {
-      const invitation = {
-        ...receipt.invitation,
-        expiresAt: '2026-08-13T12:00:30.000Z',
-      };
-      return { ...receipt, invitation, recordHash: hashValue(invitation) };
-    },
-    (receipt) => ({
-      ...receipt,
-      authorizationBinding: {
-        ...receipt.authorizationBinding,
-        otpRevoked: true,
-      },
-    }),
-    (receipt) => ({
-      ...receipt,
-      authorizationBinding: {
-        ...receipt.authorizationBinding,
-        otpVerifiedAt: '2026-08-13T11:59:59.999Z',
-      },
-    }),
-    (receipt) => ({
-      ...receipt,
-      authorizationBinding: {
-        ...receipt.authorizationBinding,
-        purpose: 'different-purpose',
-      },
-    }),
-    (receipt) => ({
-      ...receipt,
-      authorizationBinding: {
-        ...receipt.authorizationBinding,
-        verifiedPrincipalId: 'attacker-selected-principal',
-      },
-    }),
-  ];
-  for (const [mutationIndex, mutation] of mutations.entries()) {
-    const driver = persistentAtomicFacultyDriver({ mutateReceipt: mutation });
-    const candidate = repository({ driver });
-    await assert.rejects(
-      () => candidate.verifyAndCommit(validRequest(driver)),
-      /integration is unavailable/u,
-      `mutation ${mutationIndex} must fail closed`,
-    );
-  }
-});
-
-test('canonical WordPress faculty identity cannot be forged on both atomic receipt sides', async () => {
-  for (const forgedPrincipal of [
-    'attacker-selected-principal',
-    'wp:44',
-    'wp:0',
-    'wp:01',
-    'wp:-1',
-    'WP:43',
-    'wp:43\ncontrol',
-  ]) {
-    const driver = persistentAtomicFacultyDriver({
-      mutateReceipt(receipt) {
-        const invitation = {
-          ...receipt.invitation,
-          verifiedFacultyId: forgedPrincipal,
-        };
-        return {
-          ...receipt,
-          invitation,
-          nextAttemptState: {
-            ...receipt.nextAttemptState,
-            verifiedFacultyId: forgedPrincipal,
-          },
-          recordHash: hashValue(invitation),
-          authorizationBinding: {
-            ...receipt.authorizationBinding,
-            verifiedPrincipalId: forgedPrincipal,
-          },
-        };
-      },
-    });
-    await assert.rejects(
-      () => repository({ driver }).verifyAndCommit(validRequest(driver)),
-      (error) => {
-        assert.equal(error.code, 'INTEGRATION_DISABLED');
-        assert.doesNotMatch(
-          `${error.message} ${JSON.stringify(error.details)}`,
-          /attacker-selected|wp:44|wp:0|wp:01|wp:-1|WP:43|control/u,
-        );
-        return true;
-      },
-    );
-  }
-});
-
-test('database-clock attempt transitions enforce reset, lockout, active lock, and post-lock expiry', async () => {
-  const scenarios = [
-    {
-      name: 'attempt window resets after expiry',
-      databaseNow: '2026-08-13T12:20:00.000Z',
-      invitationOverrides: {
-        revision: 2,
-        failedAttempts: 2,
-        attemptWindowStartedAt: '2026-08-13T12:04:00.000Z',
-        lockedUntil: null,
-        lastFailureCode: 'TOKEN_MISMATCH',
-      },
-      requestOverrides: { otpCode: '000000' },
-      expected: {
-        revision: 3,
-        failedAttempts: 1,
-        attemptWindowStartedAt: '2026-08-13T12:20:00.000Z',
-        lockedUntil: null,
-        lastFailureCode: 'OTP_NOT_VERIFIED',
-        reasonCode: 'OTP_NOT_VERIFIED',
-      },
-    },
-    {
-      name: 'maximum attempt creates lockout from database time',
-      invitationOverrides: {
-        revision: 4,
-        failedAttempts: 4,
-        attemptWindowStartedAt: '2026-08-13T12:00:30.000Z',
-        lockedUntil: null,
-        lastFailureCode: 'OTP_NOT_VERIFIED',
-      },
-      requestOverrides: { otpCode: '000000' },
-      expected: {
-        revision: 5,
-        failedAttempts: 5,
-        attemptWindowStartedAt: '2026-08-13T12:00:30.000Z',
-        lockedUntil: '2026-08-13T12:31:00.000Z',
-        lastFailureCode: 'OTP_NOT_VERIFIED',
-        reasonCode: 'OTP_NOT_VERIFIED',
-      },
-    },
-    {
-      name: 'active lock denies without changing attempt state',
-      invitationOverrides: {
-        revision: 5,
-        failedAttempts: 5,
-        attemptWindowStartedAt: '2026-08-13T12:00:00.000Z',
-        lockedUntil: '2026-08-13T12:10:00.000Z',
-        lastFailureCode: 'OTP_NOT_VERIFIED',
-      },
-      requestOverrides: {},
-      expected: {
-        revision: 5,
-        failedAttempts: 5,
-        attemptWindowStartedAt: '2026-08-13T12:00:00.000Z',
-        lockedUntil: '2026-08-13T12:10:00.000Z',
-        lastFailureCode: 'OTP_NOT_VERIFIED',
-        reasonCode: 'INVITATION_LOCKED',
-      },
-    },
-    {
-      name: 'expired lock and attempt window restart from database time',
-      databaseNow: '2026-08-13T12:20:00.000Z',
-      invitationOverrides: {
-        revision: 5,
-        failedAttempts: 5,
-        attemptWindowStartedAt: '2026-08-13T12:00:00.000Z',
-        lockedUntil: '2026-08-13T12:10:00.000Z',
-        lastFailureCode: 'OTP_NOT_VERIFIED',
-      },
-      requestOverrides: { otpCode: '000000' },
-      expected: {
-        revision: 6,
-        failedAttempts: 1,
-        attemptWindowStartedAt: '2026-08-13T12:20:00.000Z',
-        lockedUntil: null,
-        lastFailureCode: 'OTP_NOT_VERIFIED',
-        reasonCode: 'OTP_NOT_VERIFIED',
-      },
-    },
-  ];
-  for (const scenario of scenarios) {
-    const driver = persistentAtomicFacultyDriver({
-      databaseNow: scenario.databaseNow,
-      invitationOverrides: scenario.invitationOverrides,
-    });
-    const result = await repository({ driver }).verifyAndCommit(validRequest(driver, {
-      idempotencyKey: `transition-${scenario.name}`,
-      ...scenario.requestOverrides,
-    }));
-    assert.equal(result.verified, false, scenario.name);
-    assert.equal(result.reasonCode, scenario.expected.reasonCode, scenario.name);
-    assert.equal(result.privateSessionIssued, false, scenario.name);
-    assert.equal(result.privateEditGranted, false, scenario.name);
-    const snapshot = driver.snapshot();
-    for (const field of [
-      'revision',
-      'failedAttempts',
-      'attemptWindowStartedAt',
-      'lockedUntil',
-      'lastFailureCode',
-    ]) {
-      assert.equal(snapshot[field], scenario.expected[field], `${scenario.name}: ${field}`);
-    }
-    assert.deepEqual(driver.stats(), {
-      calls: 1,
-      commitRows: 1,
-      invitationRevision: scenario.expected.revision,
-    });
-  }
-});
-
-test('maximum attempts without a durable lock cannot be forged into success or another denial', async () => {
-  for (const requestOverrides of [
+  for (const lookalike of [
+    null,
     {},
-    { otpCode: '000000' },
+    { async verify() { return { verified: true }; } },
+    Object.create(DurableFacultyInvitationVerificationService.prototype),
+    new Proxy(service, {}),
   ]) {
-    const driver = persistentAtomicFacultyDriver({
-      invitationOverrides: {
-        revision: 5,
-        failedAttempts: 5,
-        attemptWindowStartedAt: '2026-08-13T11:30:00.000Z',
-        lockedUntil: null,
-        lastFailureCode: 'OTP_NOT_VERIFIED',
-      },
-    });
-    await assert.rejects(
-      () => repository({ driver }).verifyAndCommit(validRequest(driver, {
-        idempotencyKey: requestOverrides.otpCode
-          ? 'forged-max-null-denial'
-          : 'forged-max-null-success',
-        ...requestOverrides,
-      })),
-      /integration is unavailable/u,
-    );
-    assert.deepEqual(driver.stats(), {
-      calls: 1,
-      commitRows: 1,
-      invitationRevision: 6,
-    });
+    assert.equal(isAuthenticDurableFacultyInvitationVerificationService(lookalike), false);
   }
+
+  class OverriddenVerificationService extends DurableFacultyInvitationVerificationService {
+    async verify() { return { verified: true }; }
+  }
+  const overridden = new OverriddenVerificationService({ repository });
+  assert.equal(
+    isAuthenticDurableFacultyInvitationVerificationService(overridden),
+    false,
+    'subclass method replacement must not inherit production authenticity',
+  );
 });
 
-test('prior attempt chronology is enforced before success and terminal denial branches', async () => {
-  const scenarios = [
-    {
-      name: 'future window success',
-      invitationOverrides: {
-        revision: 1,
-        failedAttempts: 1,
-        attemptWindowStartedAt: '2026-08-13T12:02:00.000Z',
-        lockedUntil: null,
-        lastFailureCode: 'OTP_NOT_VERIFIED',
-      },
-      requestOverrides: {},
-      expectedRevision: 2,
-    },
-    {
-      name: 'future window terminal lock denial',
-      invitationOverrides: {
-        revision: 5,
-        failedAttempts: 5,
-        attemptWindowStartedAt: '2026-08-13T12:02:00.000Z',
-        lockedUntil: '2026-08-13T12:10:00.000Z',
-        lastFailureCode: 'OTP_NOT_VERIFIED',
-      },
-      requestOverrides: {},
-      expectedRevision: 5,
-    },
-    {
-      name: 'precreation window success',
-      invitationOverrides: {
-        revision: 1,
-        failedAttempts: 1,
-        attemptWindowStartedAt: '2026-08-13T11:59:59.999Z',
-        lockedUntil: null,
-        lastFailureCode: 'OTP_NOT_VERIFIED',
-      },
-      requestOverrides: {},
-      expectedRevision: 2,
-    },
-    {
-      name: 'precreation window terminal revocation denial',
-      invitationOverrides: {
-        revision: 2,
-        failedAttempts: 1,
-        attemptWindowStartedAt: '2026-08-13T11:59:59.999Z',
-        lockedUntil: null,
-        lastFailureCode: 'OTP_NOT_VERIFIED',
-        revokedAt: '2026-08-13T12:00:30.000Z',
-      },
-      requestOverrides: {},
-      expectedRevision: 2,
-    },
-    {
-      name: 'expired incoherent lock success',
-      invitationOverrides: {
-        revision: 5,
-        failedAttempts: 5,
-        attemptWindowStartedAt: '2026-08-13T12:00:30.000Z',
-        lockedUntil: '2026-08-13T12:00:20.000Z',
-        lastFailureCode: 'OTP_NOT_VERIFIED',
-      },
-      requestOverrides: {},
-      expectedRevision: 6,
-    },
-    {
-      name: 'active incoherent lock terminal denial',
-      invitationOverrides: {
-        revision: 5,
-        failedAttempts: 5,
-        attemptWindowStartedAt: '2026-08-13T12:20:00.000Z',
-        lockedUntil: '2026-08-13T12:10:00.000Z',
-        lastFailureCode: 'OTP_NOT_VERIFIED',
-      },
-      requestOverrides: {},
-      expectedRevision: 5,
-    },
-  ];
-  for (const scenario of scenarios) {
-    const driver = persistentAtomicFacultyDriver({
-      invitationOverrides: scenario.invitationOverrides,
-    });
-    await assert.rejects(
-      () => repository({ driver }).verifyAndCommit(validRequest(driver, {
-        idempotencyKey: `invalid-chronology-${scenario.name}`,
-        ...scenario.requestOverrides,
-      })),
-      /integration is unavailable/u,
-      scenario.name,
-    );
-    assert.deepEqual(driver.stats(), {
-      calls: 1,
-      commitRows: 1,
-      invitationRevision: scenario.expectedRevision,
-    }, scenario.name);
-  }
+test('candidate verification uses only the server-held token hash plus one prepared OTP value', async () => {
+  const { calls, credentialCalls, scopeCalls, service } = harness();
+  const result = await service.verify(verificationInput());
+
+  assert.deepEqual(scopeCalls, [{
+    invitationId: INVITATION_ID,
+    operation: 'verify_faculty_invitation',
+  }]);
+  assert.deepEqual(credentialCalls, [{
+    actorId: ACTOR.id,
+    invitationId: INVITATION_ID,
+  }]);
+  assert.equal(calls.length, 1);
+  const command = calls[0];
+  assert.equal(command.candidateScope.actorId, ACTOR.id);
+  assert.equal(command.invitationId, INVITATION_ID);
+  assert.equal(command.otpCode, OTP_CODE);
+  assert.equal(command.tokenHash, sha256(RAW_TOKEN));
+  assert.match(command.recipientEmailHash, /^[a-f0-9]{64}$/u);
+  assert.match(command.requestHash, /^[a-f0-9]{64}$/u);
+  assert.equal(JSON.stringify(command).includes(RAW_TOKEN), false);
+  assert.equal(JSON.stringify(command).includes(RECIPIENT_EMAIL), false);
+  assert.deepEqual(result, {
+    schemaVersion: 'missionmed.lor.faculty-verification-result.v2',
+    verified: true,
+    reasonCode: null,
+    caseId: 'case-faculty-1',
+    invitationId: INVITATION_ID,
+    caseRevision: 4,
+    invitationRevision: 2,
+    auditEventRef: `event_${sha256('audit-event')}`,
+    idempotentReplay: false,
+    privateSessionIssued: false,
+    privateEditGranted: true,
+  });
+  assert.equal(JSON.stringify(result).includes(OTP_CODE), false);
+  assert.equal(Object.isFrozen(result), true);
 });
 
-test('repository independently rejects fabricated success for mismatched token or recipient', async () => {
-  for (const requestOverride of [
-    { rawToken: 'wrong-token-that-the-driver-must-not-accept' },
-    { recipientEmail: 'wrong-faculty@example.test' },
+test('all credential, expiry, revocation, lockout, and replay denials are opaque to callers', async () => {
+  for (const reasonCode of [
+    'TOKEN_MISMATCH',
+    'RECIPIENT_MISMATCH',
+    'OTP_NOT_VERIFIED',
+    'INVITATION_EXPIRED',
+    'INVITATION_REVOKED',
+    'INVITATION_LOCKED',
+    'INVITATION_ALREADY_USED',
   ]) {
-    const driver = persistentAtomicFacultyDriver({ bypassCredentialChecks: true });
+    const { service } = harness({
+      rawReceipt: receipt({ verified: false, reasonCode, caseRevision: 3 }),
+    });
     await assert.rejects(
-      () => repository({ driver }).verifyAndCommit(validRequest(driver, requestOverride)),
-      /integration is unavailable/u,
+      () => service.verify(verificationInput()),
+      (error) => error.code === 'INVITATION_DENIED'
+        && error.details.reasonCode === 'INVITATION_DENIED',
     );
   }
 });
 
-test('denied attempts commit metadata-only audit and expose only a fixed denial', async () => {
-  const driver = persistentAtomicFacultyDriver();
-  const service = new DurableFacultyInvitationVerificationService({ repository: repository({ driver }) });
-  const request = validRequest(driver, {
-    rawToken: 'attacker-token-that-must-not-escape',
-    idempotencyKey: 'faculty-denied-idempotency-1',
-  });
-  await assert.rejects(() => service.verify(request), (error) => {
-    assert.equal(error.code, 'INVITATION_DENIED');
-    assert.deepEqual(error.details, { reasonCode: 'INVITATION_DENIED' });
-    const serialized = `${error.message} ${JSON.stringify(error.details)}`;
-    assert.doesNotMatch(serialized, /attacker-token|faculty@example|538291|case-faculty|invitation-faculty/u);
-    return true;
-  });
-  assert.deepEqual(driver.stats(), { calls: 1, commitRows: 1, invitationRevision: 1 });
-
-});
-
-test('service rejects client invitation, challenge, protected identifiers, and authority assertions', async () => {
-  const driver = persistentAtomicFacultyDriver();
-  const service = new DurableFacultyInvitationVerificationService({ repository: repository({ driver }) });
+test('service rejects client-selected actor, case, challenge, purpose, and principal state', async () => {
+  const { service } = harness();
   for (const forbidden of [
-    { caseId: 'case-client-selected' },
-    { invitationId: 'invitation-client-selected' },
-    { challengeId: 'challenge-client-selected' },
-    { studentId: 'wp:777' },
-    { facultyId: 'wp:778' },
     { actorRole: 'faculty' },
-    { principalId: 'wp:999' },
+    { caseId: 'case-other' },
+    { challengeId: 'challenge-other' },
     { purpose: 'faculty_private_edit' },
-    { sessionToken: 'client-session-secret' },
+    { verifiedPrincipalId: ACTOR.id },
   ]) {
     await assert.rejects(
-      () => service.verify({ ...validRequest(driver), ...forbidden }),
-      (error) => {
-        assert.equal(error.code, 'VALIDATION_FAILED');
-        assert.doesNotMatch(
-          error.message,
-          /case-client-selected|invitation-client-selected|challenge-client-selected|wp:777|wp:778|wp:999|client-session-secret/u,
-        );
-        return true;
-      },
+      () => service.verify({ ...verificationInput(), ...forbidden }),
+      (error) => error.code === 'VALIDATION_FAILED',
     );
   }
-  assert.deepEqual(driver.stats(), { calls: 0, commitRows: 0, invitationRevision: 0 });
+  await assert.rejects(
+    () => service.verify(verificationInput({ actor: { id: ACTOR.id, role: 'student' } })),
+    (error) => error.code === 'INVITATION_DENIED',
+  );
 });
 
-test('scope, driver, and malformed receipt failures suppress raw boundary errors', async () => {
-  const scopeDriver = persistentAtomicFacultyDriver();
-  const scopeFailureRepository = new SupabaseDurableFacultyInvitationRepository({
-    binding: STAGING_BINDING,
-    driver: scopeDriver,
-    verifiedContextProvider: async () => verifiedContext(),
-    async scopeProvider() {
-      throw new Error('SCOPE_SECRET faculty@example.test');
-    },
-  });
-  await assert.rejects(
-    () => scopeFailureRepository.verifyAndCommit(validRequest(scopeDriver)),
-    (error) => {
-      assert.equal(error.code, 'INTEGRATION_DISABLED');
-      assert.doesNotMatch(`${error.message} ${JSON.stringify(error.details)}`, /SCOPE_SECRET|faculty@example/u);
-      return true;
-    },
-  );
-
-  const malformedScopeDriver = persistentAtomicFacultyDriver();
-  const malformedScopeRepository = new SupabaseDurableFacultyInvitationRepository({
-    binding: STAGING_BINDING,
-    driver: malformedScopeDriver,
-    verifiedContextProvider: async () => verifiedContext(),
-    async scopeProvider() {
-      return new Proxy({}, {
-        ownKeys() {
-          throw new Error('SCOPE_OBJECT_SECRET faculty@example.test');
-        },
-      });
-    },
-  });
-  await assert.rejects(
-    () => malformedScopeRepository.verifyAndCommit(validRequest(malformedScopeDriver)),
-    (error) => {
-      assert.equal(error.code, 'INTEGRATION_DISABLED');
-      assert.doesNotMatch(`${error.message} ${JSON.stringify(error.details)}`, /SCOPE_OBJECT_SECRET|faculty@example/u);
-      return true;
-    },
-  );
-
-  const contextFailureDriver = persistentAtomicFacultyDriver();
-  const contextFailureRepository = new SupabaseDurableFacultyInvitationRepository({
-    binding: STAGING_BINDING,
-    driver: contextFailureDriver,
-    scopeProvider: async () => verificationScope(),
-    async verifiedContextProvider() {
-      throw new Error('CONTEXT_SECRET wp:43');
-    },
-  });
-  await assert.rejects(
-    () => contextFailureRepository.verifyAndCommit(validRequest(contextFailureDriver)),
-    (error) => {
-      assert.equal(error.code, 'INTEGRATION_DISABLED');
-      assert.doesNotMatch(`${error.message} ${JSON.stringify(error.details)}`, /CONTEXT_SECRET|wp:43/u);
-      return true;
-    },
-  );
-
-  const driverFailure = persistentAtomicFacultyDriver();
-  driverFailure.executeAtomicFacultyVerification = async () => {
-    throw new Error('DRIVER_SECRET 538291');
+test('repository enforces exact six-digit OTP and exact request keys before the driver', async () => {
+  const { calls, repository } = harness();
+  const base = {
+    actorId: ACTOR.id,
+    invitationId: INVITATION_ID,
+    idempotencyKey: IDEMPOTENCY_KEY,
+    otpCode: OTP_CODE,
+    recipientEmail: RECIPIENT_EMAIL,
   };
+  for (const otpCode of ['12345', '1234567', 'abcdef', '１２３４５６']) {
+    await assert.rejects(
+      () => repository.verifyAndCommit({ ...base, otpCode }),
+      (error) => error.code === 'VALIDATION_FAILED',
+    );
+  }
   await assert.rejects(
-    () => repository({ driver: driverFailure }).verifyAndCommit(validRequest(driverFailure)),
-    (error) => {
-      assert.equal(error.code, 'INTEGRATION_DISABLED');
-      assert.doesNotMatch(`${error.message} ${JSON.stringify(error.details)}`, /DRIVER_SECRET|538291/u);
-      return true;
-    },
+    () => repository.verifyAndCommit({ ...base, caseId: 'case-client' }),
+    (error) => error.code === 'VALIDATION_FAILED',
+  );
+  assert.equal(calls.length, 0);
+});
+
+test('repository rejects forged candidate scope and malformed or secret-bearing receipts', async () => {
+  const request = {
+    actorId: ACTOR.id,
+    invitationId: INVITATION_ID,
+    idempotencyKey: IDEMPOTENCY_KEY,
+    otpCode: OTP_CODE,
+    recipientEmail: RECIPIENT_EMAIL,
+  };
+  const forged = harness({ scope: candidateScope({ actorRole: 'student' }) });
+  await assert.rejects(
+    () => forged.repository.verifyAndCommit(request),
+    (error) => error.code === 'AUTHORIZATION_DENIED',
   );
 
-  const malformedReceiptDriver = persistentAtomicFacultyDriver({
-    mutateReceipt() {
-      return new Proxy({}, {
-        ownKeys() {
-          throw new Error('RECEIPT_SECRET invitation-faculty-1');
-        },
-      });
-    },
-  });
-  await assert.rejects(
-    () => repository({ driver: malformedReceiptDriver }).verifyAndCommit(validRequest(malformedReceiptDriver)),
-    (error) => {
-      assert.equal(error.code, 'INTEGRATION_DISABLED');
-      assert.doesNotMatch(`${error.message} ${JSON.stringify(error.details)}`, /RECEIPT_SECRET|invitation-faculty/u);
-      return true;
-    },
+  for (const rawReceipt of [
+    receipt({ committed: false }),
+    receipt({ action: 'faculty.invitation.issue' }),
+    receipt({ verified: true, reasonCode: 'OTP_NOT_VERIFIED' }),
+    { ...receipt(), otpCode: OTP_CODE },
+  ]) {
+    const invalid = harness({ rawReceipt });
+    await assert.rejects(
+      () => invalid.repository.verifyAndCommit(request),
+      (error) => error.code === 'INTEGRATION_DISABLED',
+    );
+  }
+});
+
+test('idempotent replay remains safe and does not synthesize a browser session', async () => {
+  const { service } = harness({ rawReceipt: receipt({ replayed: true }) });
+  const result = await service.verify(verificationInput());
+  assert.equal(result.idempotentReplay, true);
+  assert.equal(result.privateSessionIssued, false);
+  assert.equal(result.privateEditGranted, true);
+});
+
+test('constructor fails closed without validated target, atomic driver, scope, or credential provider', () => {
+  const validDriver = {
+    rlsEnforced: true,
+    serverOnly: true,
+    databaseClock: true,
+    atomicFacultyInvitationCommands: true,
+    verifyFacultyInvitationAtomic: async () => receipt(),
+  };
+  assert.throws(
+    () => new SupabaseDurableFacultyInvitationRepository({
+      binding: {},
+      driver: validDriver,
+      candidateScopeProvider: async () => candidateScope(),
+      candidateCredentialProvider: async () => candidateCredential(),
+    }),
+    (error) => error.code === 'INTEGRATION_DISABLED',
+  );
+  assert.throws(
+    () => new SupabaseDurableFacultyInvitationRepository({
+      binding: target(),
+      driver: { ...validDriver, databaseClock: false },
+      candidateScopeProvider: async () => candidateScope(),
+      candidateCredentialProvider: async () => candidateCredential(),
+    }),
+    (error) => error.code === 'INTEGRATION_DISABLED',
+  );
+  assert.throws(
+    () => new SupabaseDurableFacultyInvitationRepository({
+      binding: target(),
+      driver: validDriver,
+    }),
+    (error) => error.code === 'INTEGRATION_DISABLED',
+  );
+  assert.throws(
+    () => new SupabaseDurableFacultyInvitationRepository({
+      binding: target(),
+      driver: validDriver,
+      candidateScopeProvider: async () => candidateScope(),
+    }),
+    (error) => error.code === 'INTEGRATION_DISABLED',
+  );
+});
+
+test('published contract exposes no default target and grants no private access before DB commit', () => {
+  assert.equal(SUPABASE_DURABLE_FACULTY_INVITATION_CONTRACT.defaultTarget, null);
+  assert.equal(
+    SUPABASE_DURABLE_FACULTY_INVITATION_CONTRACT.rawOtpBoundary,
+    'single_prepared_parameter_to_database_command_never_persisted_or_returned',
+  );
+  assert.equal(SUPABASE_DURABLE_FACULTY_INVITATION_CONTRACT.privateEditGrantedOnlyAfterCommit, true);
+  assert.deepEqual(SUPABASE_DURABLE_FACULTY_INVITATION_CONTRACT.clientAcceptedFields, [
+    'recipientEmail', 'otpCode',
+  ]);
+  assert.equal(DURABLE_FACULTY_VERIFICATION_SERVICE_CONTRACT.privateSessionIssued, false);
+  assert.equal(
+    DURABLE_FACULTY_VERIFICATION_SERVICE_CONTRACT.privateEditGranted,
+    'only_after_atomic_database_commit',
   );
 });

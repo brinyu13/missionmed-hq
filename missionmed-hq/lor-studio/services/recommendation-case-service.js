@@ -2,6 +2,7 @@ import { AuthorizationDeniedError, ValidationError } from '../domain/errors.js';
 import {
   appendReceipt,
   appendStudentSafeReceipt,
+  assertStudentEvidencePublicationEligible,
   assertFacultyCaseProjection,
   assertMentorCaseProjection,
   assertStudentSafeRecommendationCase,
@@ -12,9 +13,13 @@ import {
   createRecommendationCaseVersionEntry,
   createRecommendationCase,
   createStudentSafeRecommendationCase,
+  CONSENT_WITHDRAWN_SCOPE,
   projectStudentSafeCase,
   releaseFinalDocument,
+  setFacultyPrivateContent,
   studentSafeBuilderProgress,
+  STUDENT_CONSENT_GRANT_SCOPES,
+  STUDENT_CONSENT_POLICY_VERSION,
   toStudentSafeRecommendationCase,
 } from '../domain/recommendation-case.js';
 import { createConsentReceipt, createWaiverReceipt } from '../domain/receipts.js';
@@ -152,6 +157,92 @@ function requestMetadata(operation, caseId, actorId, idempotencyKey, payload) {
   };
 }
 
+function hasExactKeys(value, expected) {
+  return Boolean(value)
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && Object.keys(value).length === expected.length
+    && Object.keys(value).every((key) => expected.includes(key));
+}
+
+function normalizeFacultyPrivateAuthoring({
+  actor,
+  answers,
+  notes,
+  draftText,
+  finalDocument,
+  documentState,
+  facultyApproval,
+  approvedAt,
+}) {
+  for (const [field, value] of [['answers', answers], ['notes', notes]]) {
+    if (!Array.isArray(value) || value.some((item) => {
+      try {
+        assertPlainObject(item, field);
+        return false;
+      } catch {
+        return true;
+      }
+    })) throw new ValidationError(`Faculty-private ${field} must contain objects only`);
+  }
+  if (draftText !== null && typeof draftText !== 'string') {
+    throw new ValidationError('Faculty-private draftText must be a string or null');
+  }
+  if (typeof draftText === 'string' && Buffer.byteLength(draftText, 'utf8') > 256_000) {
+    throw new ValidationError('Faculty-private draftText exceeds the safety limit');
+  }
+
+  let normalizedDocument = null;
+  if (finalDocument !== null) {
+    if (!hasExactKeys(finalDocument, ['contentHash', 'id', 'mimeType', 'text'])) {
+      throw new ValidationError('Faculty finalDocument must contain exactly its four content fields');
+    }
+    for (const field of ['contentHash', 'id', 'mimeType', 'text']) {
+      if (finalDocument[field] !== null && typeof finalDocument[field] !== 'string') {
+        throw new ValidationError(`Faculty finalDocument.${field} must be a string or null`);
+      }
+    }
+    if (
+      finalDocument.contentHash !== null
+      && !/^[a-f0-9]{64}$/u.test(finalDocument.contentHash)
+    ) throw new ValidationError('Faculty finalDocument.contentHash must be a SHA-256 digest or null');
+    if (
+      typeof finalDocument.text === 'string'
+      && Buffer.byteLength(finalDocument.text, 'utf8') > 256_000
+    ) throw new ValidationError('Faculty finalDocument.text exceeds the safety limit');
+    normalizedDocument = structuredClone(finalDocument);
+  }
+  if (documentState !== null && !['ai_proposal', 'faculty_final'].includes(documentState)) {
+    throw new ValidationError('Faculty documentState must be canonical or null');
+  }
+
+  let normalizedApproval = null;
+  if (facultyApproval !== null) {
+    if (
+      !hasExactKeys(facultyApproval, ['approved', 'signatureAttested'])
+      || facultyApproval.approved !== true
+      || facultyApproval.signatureAttested !== true
+    ) throw new ValidationError('Faculty approval requires explicit approval and signature attestation');
+    normalizedApproval = {
+      approved: true,
+      approvedAt,
+      facultyId: actor.id,
+      signatureAttested: true,
+    };
+  }
+  if (normalizedDocument === null && (documentState !== null || normalizedApproval !== null)) {
+    throw new ValidationError('Faculty wording state and approval require a final document');
+  }
+  return {
+    answers: structuredClone(answers),
+    notes: structuredClone(notes),
+    draftText,
+    finalDocument: normalizedDocument,
+    documentState,
+    facultyApproval: normalizedApproval,
+  };
+}
+
 export class RecommendationCaseService {
   constructor({
     repository,
@@ -180,6 +271,7 @@ export class RecommendationCaseService {
           'commitStudentConsentReceipt',
           'commitStudentWaiverReceipt',
           'readFacultyCaseProjection',
+          'commitFacultyPrivateContent',
           'commitFacultyFinalDocumentRelease',
           'readMentorCaseProjection',
           'getById',
@@ -659,6 +751,22 @@ export class RecommendationCaseService {
     if (unexpectedKeys.length > 0) {
       throw new ValidationError('Receipt identity, timestamps, and integrity hashes are server-generated');
     }
+    if (receiptType === 'consent') {
+      const scopes = Array.isArray(input.scopes) ? input.scopes : [];
+      const uniqueScopes = new Set(scopes);
+      const grantsCurrentPolicy = scopes.length === STUDENT_CONSENT_GRANT_SCOPES.length
+        && uniqueScopes.size === STUDENT_CONSENT_GRANT_SCOPES.length
+        && STUDENT_CONSENT_GRANT_SCOPES.every((scope) => uniqueScopes.has(scope));
+      const withdrawsCurrentPolicy = scopes.length === 1
+        && scopes[0] === CONSENT_WITHDRAWN_SCOPE;
+      if (
+        Object.keys(input).length !== allowed.length
+        || input.policyVersion !== STUDENT_CONSENT_POLICY_VERSION
+        || (!grantsCurrentPolicy && !withdrawsCurrentPolicy)
+      ) {
+        throw new ValidationError('Consent must use the current presented policy and exact decision scopes');
+      }
+    }
     return input;
   }
 
@@ -780,7 +888,11 @@ export class RecommendationCaseService {
         actorId: actor.id,
         receiptType,
         receipt,
-        now: this.clock(),
+        // The durable command binds the append-only receipt timestamp, case revision timestamp,
+        // metadata event, and protected-state entry to one instant. Reusing the server-minted
+        // receipt time prevents two successive clock reads from producing a candidate the DB
+        // must reject as internally inconsistent.
+        now: receipt.recordedAt,
       });
       return this.#commitStudentSafe({
         method: receiptType === 'consent'
@@ -811,6 +923,177 @@ export class RecommendationCaseService {
       actor,
     });
     return toStudentSafeRecommendationCase(stored);
+  }
+
+  /**
+   * Convert the already-stored builder evidence into the canonical faculty-drafting evidence set.
+   *
+   * The request intentionally has no content, evidence IDs, hashes, receipt IDs, provenance,
+   * support IDs, roles, or visibility controls. PostgreSQL resolves and seals all of those from
+   * the locked case row and its append-only consent ledger.
+   */
+  async publishStudentEvidence(input = {}) {
+    const request = assertPlainObject(input, 'student evidence publication input');
+    const allowedFields = ['caseId', 'actor', 'expectedRevision', 'idempotencyKey'];
+    if (
+      Object.keys(request).length !== allowedFields.length
+      || Object.keys(request).some((field) => !allowedFields.includes(field))
+    ) {
+      throw new ValidationError('Student evidence publication accepts only its narrow command fields');
+    }
+    const { caseId, actor, expectedRevision, idempotencyKey } = request;
+    assertStudentActor(actor);
+    assertNonEmptyString(caseId, 'caseId', { maxLength: 200 });
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
+      throw new ValidationError('expectedRevision must be a non-negative integer');
+    }
+    if (this.persistenceMode !== 'DURABLE_ATOMIC_STATE_AND_EVENT') {
+      throw new TypeError('Student evidence publication requires the durable database command');
+    }
+    const { state: current, entitlement, authorization } = await this.#readStudentSafeCase({
+      caseId,
+      actor,
+    });
+    authorizeCaseAction({
+      actor,
+      action: 'write_builder',
+      caseRecord: current,
+      entitlement,
+      requireCanary: this.requireCanary,
+    });
+    // A later revision may be an exact retry. Let the append-only command receipt distinguish it
+    // from a new stale request before re-evaluating the now-changed builder state.
+    if (current.revision === expectedRevision) {
+      assertStudentEvidencePublicationEligible(current);
+    }
+    const metadata = requestMetadata(
+      'student.evidence.publish',
+      caseId,
+      actor.id,
+      idempotencyKey,
+      {},
+    );
+    const event = buildMetadataServiceEvent({
+      eventId: `event_${sha256(`${caseId}:student.material_updated:${metadata.idempotencyKey}`).slice(0, 32)}`,
+      eventType: 'student.material_updated',
+      caseId,
+      actorId: actor.id,
+      actorRole: 'student',
+      correlationId: sha256(metadata.idempotencyKey).slice(0, 32),
+      revision: expectedRevision + 1,
+      occurredAt: toIso(this.clock(), 'student evidence occurredAt'),
+    });
+    if (typeof this.repository.commitStudentEvidencePublication !== 'function') {
+      throw new TypeError('Durable repository must expose the student evidence command');
+    }
+    const stored = await this.repository.commitStudentEvidencePublication({
+      caseId,
+      studentId: actor.id,
+      expectedRevision,
+      idempotencyKey: metadata.idempotencyKey,
+      requestHash: metadata.requestHash,
+      event,
+      studentWriteAuthorization: authorization,
+    });
+    assertStudentSafeRecommendationCase(stored);
+    if (stored.id !== caseId || stored.studentId !== actor.id) {
+      throw new AuthorizationDeniedError('CASE_SUBJECT_SCOPE_MISMATCH');
+    }
+    return stored;
+  }
+
+  async saveFacultyPrivateContent({
+    caseId,
+    actor,
+    expectedRevision,
+    idempotencyKey,
+    answers,
+    notes,
+    draftText,
+    finalDocument,
+    documentState,
+    facultyApproval,
+  }) {
+    if (
+      !actor
+      || actor.role !== 'faculty'
+      || typeof actor.id !== 'string'
+      || actor.id.trim() === ''
+    ) throw new AuthorizationDeniedError('FACULTY_ACTOR_REQUIRED');
+    if (this.persistenceMode === 'DURABLE_ATOMIC_STATE_AND_EVENT') assertFacultyActor(actor);
+    assertNonEmptyString(caseId, 'caseId', { maxLength: 200 });
+    if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0) {
+      throw new ValidationError('expectedRevision must be a non-negative integer');
+    }
+    const occurredAt = toIso(this.clock(), 'faculty-private occurredAt');
+    const content = normalizeFacultyPrivateAuthoring({
+      actor,
+      answers,
+      notes,
+      draftText,
+      finalDocument,
+      documentState,
+      facultyApproval,
+      approvedAt: occurredAt,
+    });
+    const metadata = requestMetadata(
+      'faculty.private_content_update',
+      caseId,
+      actor.id,
+      idempotencyKey,
+      content,
+    );
+
+    if (this.persistenceMode === 'DURABLE_ATOMIC_STATE_AND_EVENT') {
+      const event = buildMetadataServiceEvent({
+        eventId: `event_${sha256(`${caseId}:faculty.private_content_updated:${metadata.idempotencyKey}`).slice(0, 32)}`,
+        eventType: 'faculty.private_content_updated',
+        caseId,
+        actorId: actor.id,
+        actorRole: 'faculty',
+        correlationId: sha256(metadata.idempotencyKey).slice(0, 32),
+        revision: expectedRevision + 1,
+        occurredAt,
+      });
+      const stored = await this.repository.commitFacultyPrivateContent({
+        caseId,
+        actorId: actor.id,
+        expectedRevision,
+        content,
+        idempotencyKey: metadata.idempotencyKey,
+        requestHash: metadata.requestHash,
+        event,
+      });
+      assertFacultyCaseProjection(stored);
+      if (stored.caseId !== caseId) {
+        throw new AuthorizationDeniedError('CASE_SUBJECT_SCOPE_MISMATCH');
+      }
+      return stored;
+    }
+
+    const current = await this.repository.getById(caseId);
+    const entitlement = await this.#entitlement(current.studentId);
+    authorizeCaseAction({
+      actor,
+      action: 'write_faculty_private',
+      caseRecord: current,
+      entitlement,
+      requireCanary: this.requireCanary,
+    });
+    const next = setFacultyPrivateContent(current, {
+      actorId: actor.id,
+      facultyId: actor.id,
+      ...content,
+      now: occurredAt,
+    });
+    return this.#commitWrite({
+      operation: 'save',
+      candidate: next,
+      expectedRevision,
+      metadata,
+      eventType: 'faculty.private_content_updated',
+      actor,
+    });
   }
 
   /**

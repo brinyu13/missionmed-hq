@@ -1,7 +1,14 @@
 import pg from 'pg';
 import { X509Certificate } from 'node:crypto';
 
-import { AuthorizationDeniedError, IntegrationDisabledError } from '../domain/errors.js';
+import {
+  AuthorizationDeniedError,
+  IdempotencyConflictError,
+  IntegrationDisabledError,
+  InvitationDeniedError,
+  StaleRevisionError,
+} from '../domain/errors.js';
+import { hashValue, sha256 } from '../domain/value-utils.js';
 import { readTrustedRequestContext } from '../security/trusted-request-context.mjs';
 import { assertValidatedLorTargetBinding } from './lor-target-binding.mjs';
 import {
@@ -9,11 +16,13 @@ import {
   createNodePostgresExecutor,
 } from './node-postgres-executor.mjs';
 import {
-  DR133_APPROVED_DEFINER_IDENTITIES,
   DR133_RELATIONS,
+  DR133_PRE_EVIDENCE_DEFINER_IDENTITY,
   DR133_RUNTIME_LOGIN,
+  DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES,
+  DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES,
   DR133_TARGET,
-  expectedDr133Sentinel,
+  expectedDr133SuccessorSentinel,
   parsePrivateDatabaseUrl,
 } from '../../scripts/lor-studio/railway-dr133-runner-core.mjs';
 
@@ -36,8 +45,12 @@ const RAILWAY_ENV_KEYS = Object.freeze({
 const APP_ROLE = 'lor_studio_app';
 const SCHEMA = 'lor_studio';
 const SCOPE_SCHEMA = 'missionmed.lor.server-query-scope.v1';
+const CANDIDATE_SCOPE_SCHEMA = 'missionmed.lor.faculty-invitation-candidate-scope.v1';
+const AI_COMMAND_SCHEMA = 'missionmed.lor.ai-proposal-driver-command.v1';
+const AI_ERROR_RECEIPT_SCHEMA = 'missionmed.lor.ai-proposal-error-receipt.v1';
+const ACTOR_CASE_ACCESS_SCHEMA = 'missionmed.lor.actor-case-access.v1';
 const BINDING_SCHEMA = 'missionmed.lor.student-auth-binding-receipt.v1';
-const SUCCESSOR_SENTINEL = `${expectedDr133Sentinel()}|identityScope=20260825010300`;
+const SUCCESSOR_SENTINEL = expectedDr133SuccessorSentinel();
 const SHA256 = /^[a-f0-9]{64}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const SUBJECT = /^wp:[1-9][0-9]*$/u;
@@ -46,6 +59,10 @@ const DEPLOYMENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{
 const BINDING_ID = /^binding_[a-f0-9]{64}$/u;
 const OPTION_KEYS = new Set(['environment', 'PoolClass']);
 const REQUEST_KEYS = new Set(['caseId', 'operation', 'resourceStudentId']);
+const ACTOR_ACCESS_REQUEST_KEYS = new Set(['authenticatedSubject', 'caseId']);
+const ACTOR_ACCESS_RESULT_KEYS = new Set([
+  'actorId', 'actorRole', 'authoritySource', 'caseId', 'resourceStudentId', 'schemaVersion',
+]);
 const RECEIPT_KEYS = new Set([
   'schemaVersion', 'studentAuthSubject', 'studentAuthUid', 'bindingId', 'bindingSource',
   'sourceReferenceHash', 'boundAt', 'expiresAt', 'replayed',
@@ -56,22 +73,76 @@ const SCOPE_KEYS = new Set([
   'operation', 'purpose', 'assignmentId', 'invitationId', 'administrativeGrantId',
   'entitlementVerified', 'lorEnabled', 'canaryAuthorized',
 ]);
+const CANDIDATE_SCOPE_REQUEST_KEYS = new Set(['invitationId', 'operation']);
+const CANDIDATE_SCOPE_KEYS = new Set([
+  'schemaVersion', 'authoritySource', 'authenticated', 'roleVerified', 'authUid',
+  'authenticatedSubject', 'actorId', 'actorRole', 'operation', 'purpose', 'invitationId',
+  'entitlementVerified', 'lorEnabled', 'canaryAuthorized',
+]);
+const ISSUE_INVITATION_COMMAND_KEYS = new Set([
+  'binding', 'scope', 'actorId', 'caseId', 'expectedRevision', 'invitationId',
+  'recipientEmailHash', 'tokenHash', 'challengeId', 'otpCodeHash', 'invitationExpiresAt',
+  'challengeExpiresAt', 'maxAttempts', 'attemptWindowMs', 'lockoutMs', 'idempotencyKey',
+  'requestHash',
+]);
+const RESEND_INVITATION_COMMAND_KEYS = new Set([
+  'binding', 'scope', 'actorId', 'caseId', 'recipientEmailHash', 'challengeId',
+  'otpCodeHash', 'challengeExpiresAt', 'idempotencyKey', 'requestHash',
+]);
+const REVOKE_INVITATION_COMMAND_KEYS = new Set([
+  'binding', 'scope', 'actorId', 'caseId', 'idempotencyKey', 'requestHash',
+]);
+const DELIVERY_INVITATION_COMMAND_KEYS = new Set([
+  'binding', 'studentScope', 'caseId', 'invitationId', 'providerMessageRefHash',
+  'idempotencyKey', 'requestHash',
+]);
+const RESERVE_DELIVERY_INVITATION_COMMAND_KEYS = new Set([
+  'binding', 'studentScope', 'caseId', 'invitationId', 'deliveryAction',
+  'idempotencyKey', 'requestHash',
+]);
+const UNKNOWN_DELIVERY_INVITATION_COMMAND_KEYS = new Set([
+  'binding', 'studentScope', 'caseId', 'invitationId', 'idempotencyKey', 'requestHash',
+]);
+const VERIFY_INVITATION_COMMAND_KEYS = new Set([
+  'binding', 'candidateScope', 'invitationId', 'recipientEmailHash', 'tokenHash',
+  'otpCode', 'idempotencyKey', 'requestHash',
+]);
+const AI_WRITE_COMMAND_KEYS = new Set([
+  'schemaVersion', 'operation', 'binding', 'targetBindingHash', 'scope', 'scopeHash',
+  'caseId', 'proposalId', 'idempotencyKey', 'requestHash', 'recordHash', 'providerRunHash',
+  'outputHash', 'decisionHash', 'acceptedContentHash', 'expectedState',
+  'expectedOutputHash', 'expectedDecisionHash', 'record',
+]);
+const AI_RESERVATION_COMMAND_KEYS = new Set([
+  'schemaVersion', 'operation', 'binding', 'targetBindingHash', 'scope', 'scopeHash',
+  'caseId', 'idempotencyKey', 'requestHash',
+]);
+const AI_READ_COMMAND_KEYS = new Set([
+  'schemaVersion', 'operation', 'binding', 'targetBindingHash', 'scope', 'scopeHash',
+  'caseId', 'proposalId',
+]);
+const ARTIFACT_AUDIT_COMMAND_SCHEMA = 'missionmed.lor.artifact-audit-command.v1';
+const ARTIFACT_AUDIT_COMMAND_KEYS = new Set([
+  'schemaVersion', 'binding', 'targetBindingHash', 'scope', 'scopeHash',
+  'caseId', 'event', 'eventHash',
+]);
+const ARTIFACT_AUDIT_EVENT_KEYS = new Set([
+  'schemaVersion', 'eventId', 'type', 'at', 'actorRole', 'actorRef', 'caseRef',
+  'targetRef', 'outcome', 'metadata',
+]);
+const ARTIFACT_GENERATED_METADATA_KEYS = new Set([
+  'action', 'artifactFormat', 'result', 'artifactSha256',
+  'releaseDocumentHash', 'sourceRevision',
+]);
+const ARTIFACT_DENIED_METADATA_KEYS = new Set([
+  'action', 'artifactFormat', 'reasonCode',
+]);
 const RELATIONS = Object.freeze([...DR133_RELATIONS].sort());
-const DEFINERS = Object.freeze([
-  ...DR133_APPROVED_DEFINER_IDENTITIES,
-  'ensure_student_auth_binding(text,text,text)',
-  'resolve_faculty_case_scope(text,text,text)',
-  'resolve_mentor_case_scope(text,text,text)',
-  'revoke_student_auth_binding(text,text)',
-].sort());
+const DEFINERS = DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES;
+const APP_EXECUTABLE_DEFINERS = DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES;
 const APP_RELATION_PRIVILEGES = Object.freeze([
   'administrative_case_grant_revocations:SELECT:false',
   'administrative_case_grants:SELECT:false',
-  'ai_generation_runs:INSERT:false',
-  'ai_generation_runs:SELECT:false',
-  'ai_letter_proposals:INSERT:false',
-  'ai_letter_proposals:SELECT:false',
-  'ai_proposal_decisions:SELECT:false',
   'consent_receipts:SELECT:false',
   'deletion_hold_releases:INSERT:false',
   'deletion_hold_releases:SELECT:false',
@@ -92,7 +163,7 @@ const APP_RELATION_PRIVILEGES = Object.freeze([
   'writer_depot_artifacts:SELECT:false',
 ].sort());
 const APP_FUNCTION_PRIVILEGES = Object.freeze([
-  ...DEFINERS,
+  ...APP_EXECUTABLE_DEFINERS,
   'ai_grounding_manifest_is_complete(jsonb)',
   'audit_event_is_metadata(jsonb)',
   'canonical_jsonb_sha256(jsonb)',
@@ -122,6 +193,46 @@ const RESOLUTION_GUCS_SQL = `SELECT
 const ENSURE_SQL = `SELECT ${SCHEMA}.ensure_student_auth_binding($1, $2, $3) AS result`;
 const FACULTY_SQL = `SELECT ${SCHEMA}.resolve_faculty_case_scope($1, $2, $3) AS result`;
 const MENTOR_SQL = `SELECT ${SCHEMA}.resolve_mentor_case_scope($1, $2, $3) AS result`;
+const ACTOR_ACCESS_SQL = `SELECT ${SCHEMA}.resolve_lor_actor_case_access($1, $2) AS result`;
+const ISSUE_INVITATION_SQL = `SELECT ${SCHEMA}.issue_faculty_invitation(
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14
+) AS result`;
+const RESEND_INVITATION_SQL = `SELECT ${SCHEMA}.resend_faculty_invitation_otp(
+  $1, $2, $3, $4, $5, $6, $7
+) AS result`;
+const REVOKE_INVITATION_SQL = `SELECT ${SCHEMA}.revoke_faculty_invitation(
+  $1, $2, $3
+) AS result`;
+const VERIFY_INVITATION_SQL = `SELECT ${SCHEMA}.verify_faculty_invitation(
+  $1, $2, $3, $4, $5, $6
+) AS result`;
+const DELIVERY_INVITATION_SQL = `SELECT ${SCHEMA}.commit_faculty_invitation_delivery(
+  $1, $2, $3, $4, $5
+) AS result`;
+const RESERVE_DELIVERY_INVITATION_SQL =
+  `SELECT ${SCHEMA}.commit_faculty_invitation_delivery(
+  $1, $2, $3, $4, $5
+) AS result`;
+const UNKNOWN_DELIVERY_INVITATION_SQL =
+  `SELECT ${SCHEMA}.commit_faculty_invitation_delivery(
+  $1, $2, $3, $4, $5
+) AS result`;
+const PERSIST_AI_PROPOSAL_SQL = `SELECT ${SCHEMA}.persist_ai_provider_run_and_proposal_atomic(
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+) AS result`;
+const TRANSITION_AI_GENERATION_SQL =
+  `SELECT ${SCHEMA}.transition_ai_proposal_generation_reservation(
+  $1, $2, $3, $4, $5, $6
+) AS result`;
+const READ_AI_PROPOSAL_SQL = `SELECT ${SCHEMA}.read_actor_safe_ai_proposal(
+  $1, $2, $3, $4
+) AS result`;
+const ATTACH_AI_DECISION_SQL = `SELECT ${SCHEMA}.attach_ai_proposal_decision_if_undecided_atomic(
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+) AS result`;
+const APPEND_ARTIFACT_AUDIT_SQL = `SELECT ${SCHEMA}.append_artifact_export_audit(
+  $1::jsonb, $2, $3, $4
+) AS result`;
 
 const READINESS_SQL = `/* missionmed:dr133:lor-runtime-readiness-v1 */
 WITH ssl_session AS (
@@ -134,13 +245,16 @@ WITH ssl_session AS (
   WHERE namespace.nspname = '${SCHEMA}' AND class.relkind = 'r'
 ), definer_inventory AS (
   SELECT procedure.proname || '(' ||
-    pg_catalog.replace(pg_catalog.oidvectortypes(procedure.proargtypes), ' ', '') || ')'
+    pg_catalog.replace(pg_catalog.oidvectortypes(procedure.proargtypes), ', ', ',') || ')'
       AS function_identity, procedure.oid, procedure.proowner, procedure.proconfig
   FROM pg_catalog.pg_proc AS procedure
   JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
   WHERE namespace.nspname = '${SCHEMA}' AND procedure.prosecdef
 ), public_function_acl AS (
-  SELECT 1 FROM pg_catalog.pg_proc AS procedure
+  SELECT procedure.proname || '(' ||
+    pg_catalog.replace(pg_catalog.oidvectortypes(procedure.proargtypes), ', ', ',') || ')'
+      AS function_identity
+  FROM pg_catalog.pg_proc AS procedure
   JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
   CROSS JOIN LATERAL pg_catalog.aclexplode(
     COALESCE(procedure.proacl, pg_catalog.acldefault('f', procedure.proowner))) AS acl
@@ -213,7 +327,7 @@ WITH ssl_session AS (
     AND acl.grantee = role_oids.runtime_oid
 ), application_function_acl AS (
   SELECT procedure.proname || '(' ||
-    pg_catalog.replace(pg_catalog.oidvectortypes(procedure.proargtypes), ' ', '') || '):' ||
+    pg_catalog.replace(pg_catalog.oidvectortypes(procedure.proargtypes), ', ', ',') || '):' ||
     acl.privilege_type || ':' || acl.is_grantable::text AS privilege_identity
   FROM pg_catalog.pg_proc AS procedure
   JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
@@ -344,6 +458,21 @@ SELECT pg_catalog.current_database()::text AS database_name,
     ARRAY['search_path=""']::text[]), false) FROM definer_inventory) AS definer_custody_safe,
   (SELECT pg_catalog.count(*)::text FROM definer_inventory
     WHERE pg_catalog.has_function_privilege(current_user, oid, 'EXECUTE')) AS app_execute_count,
+  (SELECT COALESCE(pg_catalog.array_agg(function_identity
+      ORDER BY function_identity COLLATE "C"), ARRAY[]::text[])
+    FROM definer_inventory
+    WHERE pg_catalog.has_function_privilege(current_user, oid, 'EXECUTE'))
+      AS app_execute_identities,
+  (SELECT pg_catalog.count(*) = 1
+      AND COALESCE(pg_catalog.bool_and(NOT pg_catalog.has_function_privilege(
+        current_user, oid, 'EXECUTE'
+      )), false)
+    FROM definer_inventory
+    WHERE function_identity = '${DR133_PRE_EVIDENCE_DEFINER_IDENTITY}')
+      AS pre_evidence_app_execute_denied,
+  (SELECT pg_catalog.count(*) = 0 FROM public_function_acl
+    WHERE function_identity = '${DR133_PRE_EVIDENCE_DEFINER_IDENTITY}')
+      AS pre_evidence_public_execute_denied,
   (SELECT pg_catalog.count(*)::text FROM public_function_acl) AS public_function_execute_count,
   (SELECT pg_catalog.count(*)::text FROM public_relation_acl) AS public_relation_privilege_count,
   (SELECT pg_catalog.count(*)::text FROM pg_catalog.pg_class AS class
@@ -616,6 +745,26 @@ function requestSnapshot(raw, context) {
   }
   return Object.freeze(request);
 }
+function actorAccessRequestSnapshot(raw) {
+  const request = exactDataSnapshot(raw, ACTOR_ACCESS_REQUEST_KEYS, 'ACTOR_ACCESS_REQUEST_INVALID');
+  if (!SUBJECT.test(request.authenticatedSubject ?? '') || !CASE_ID.test(request.caseId ?? '')) {
+    throw disabled('ACTOR_ACCESS_REQUEST_INVALID');
+  }
+  return request;
+}
+function actorAccessResult(raw, request) {
+  const result = exactDataSnapshot(raw, ACTOR_ACCESS_RESULT_KEYS, 'ACTOR_ACCESS_RESULT_INVALID');
+  if (result.schemaVersion !== ACTOR_CASE_ACCESS_SCHEMA
+    || result.authoritySource !== 'database_verified_case_access'
+    || result.actorId !== request.authenticatedSubject
+    || !['student', 'faculty', 'mentor'].includes(result.actorRole)
+    || !SUBJECT.test(result.resourceStudentId ?? '')
+    || result.caseId !== request.caseId
+    || (result.actorRole === 'student' && result.resourceStudentId !== result.actorId)) {
+    throw disabled('ACTOR_ACCESS_RESULT_INVALID');
+  }
+  return Object.freeze(result);
+}
 function validTime(value) {
   return typeof value === 'string' && value.length <= 64 && Number.isFinite(Date.parse(value));
 }
@@ -721,14 +870,307 @@ function scopeProviderFor(executor, isHealthy) {
     } catch (error) { throw mapScopeError(error); }
   };
 }
+function actorResolverFor(executor, isHealthy) {
+  return Object.freeze({
+    async resolve(rawRequest) {
+      if (!isHealthy()) throw disabled('RUNTIME_DATABASE_UNAVAILABLE');
+      try {
+        const request = actorAccessRequestSnapshot(rawRequest);
+        const rawResult = await transaction(executor, async (tx) => {
+          await tx.execute(statement('lor_runtime_actor_access_gucs', RESOLUTION_GUCS_SQL, [
+            '', request.authenticatedSubject, 'service', '', request.caseId,
+            'read', 'actor_case_access_resolution', '', '', '',
+            'true', 'true', 'true', 'actor-access-v1', 'true',
+          ]));
+          return oneResult(await tx.execute(statement(
+            'lor_runtime_resolve_actor_case_access',
+            ACTOR_ACCESS_SQL,
+            [request.authenticatedSubject, request.caseId],
+          )));
+        });
+        if (rawResult === null || rawResult === undefined) {
+          throw new AuthorizationDeniedError('DATABASE_CASE_ACCESS_NOT_FOUND');
+        }
+        return actorAccessResult(rawResult, request);
+      } catch (error) {
+        throw mapScopeError(error);
+      }
+    },
+  });
+}
+function identifier(value) {
+  return typeof value === 'string' && CASE_ID.test(value);
+}
+function digest(value) {
+  return typeof value === 'string' && SHA256.test(value);
+}
+function boundedKey(value, maximum = 240) {
+  return typeof value === 'string' && value.length >= 1 && value.length <= maximum;
+}
+function assertBindingMatch(rawBinding, binding, status) {
+  const expectedKeys = new Set(Object.keys(binding));
+  const candidate = exactDataSnapshot(rawBinding, expectedKeys, status);
+  if (Object.entries(binding).some(([key, value]) => candidate[key] !== value)) {
+    throw disabled(status);
+  }
+  return Object.freeze(candidate);
+}
+function commandScope(rawScope, { actorRole, caseId, operation }, status) {
+  const scope = exactDataSnapshot(rawScope, SCOPE_KEYS, status);
+  if (scope.schemaVersion !== SCOPE_SCHEMA
+    || scope.authoritySource !== 'server_verified_session_crosswalk'
+    || scope.authenticated !== true || scope.roleVerified !== true
+    || !UUID.test(scope.authUid ?? '') || !SUBJECT.test(scope.authenticatedSubject ?? '')
+    || scope.actorId !== scope.authenticatedSubject || scope.actorRole !== actorRole
+    || !SUBJECT.test(scope.resourceStudentId ?? '') || scope.caseId !== caseId
+    || scope.operation !== operation || scope.entitlementVerified !== true
+    || scope.lorEnabled !== true || scope.canaryAuthorized !== true) {
+    throw disabled(status);
+  }
+  if (actorRole === 'student' && (scope.resourceStudentId !== scope.actorId
+    || scope.purpose !== (operation === 'read' ? 'student_case_read' : 'student_case_write')
+    || scope.assignmentId !== null
+    || scope.invitationId !== null || scope.administrativeGrantId !== null)) {
+    throw disabled(status);
+  }
+  if (actorRole === 'faculty' && (scope.purpose !== 'faculty_private_edit'
+    || !identifier(scope.invitationId) || scope.assignmentId !== null
+    || scope.administrativeGrantId !== null)) {
+    throw disabled(status);
+  }
+  return Object.freeze(scope);
+}
+function deterministicFacultyAuthUid(subject) {
+  const value = sha256(`missionmed.lor.faculty-auth-uid.v1:${subject}`);
+  return `${value.slice(0, 8)}-${value.slice(8, 12)}-5${value.slice(13, 16)}`
+    + `-8${value.slice(17, 20)}-${value.slice(20, 32)}`;
+}
+function candidateScopeProviderFor(isHealthy) {
+  return async (rawRequest) => {
+    if (!isHealthy()) throw disabled('RUNTIME_DATABASE_UNAVAILABLE');
+    const request = exactDataSnapshot(
+      rawRequest,
+      CANDIDATE_SCOPE_REQUEST_KEYS,
+      'CANDIDATE_SCOPE_REQUEST_INVALID',
+    );
+    if (request.operation !== 'verify_faculty_invitation' || !identifier(request.invitationId)) {
+      throw new InvitationDeniedError();
+    }
+    let context;
+    try { context = readTrustedRequestContext(); } catch {
+      throw disabled('TRUSTED_REQUEST_CONTEXT_REQUIRED');
+    }
+    const authenticatedSubject = context.authenticatedSubject;
+    if (context.actorRole !== 'faculty' || typeof authenticatedSubject !== 'string'
+      || !SUBJECT.test(authenticatedSubject)
+      || context.entitlementVerified !== true || context.lorEnabled !== true
+      || context.canaryAuthorized !== true || context.clientAsserted !== false) {
+      throw new InvitationDeniedError();
+    }
+    return Object.freeze({
+      schemaVersion: CANDIDATE_SCOPE_SCHEMA,
+      authoritySource: 'server_verified_wordpress_invitation_candidate',
+      authenticated: true,
+      roleVerified: true,
+      authUid: deterministicFacultyAuthUid(authenticatedSubject),
+      authenticatedSubject,
+      actorId: authenticatedSubject,
+      actorRole: 'faculty',
+      operation: 'verify_faculty_invitation',
+      purpose: 'faculty_private_edit',
+      invitationId: request.invitationId,
+      entitlementVerified: true,
+      lorEnabled: true,
+      canaryAuthorized: true,
+    });
+  };
+}
+function candidateCommandScope(rawScope, invitationId, status) {
+  const scope = exactDataSnapshot(rawScope, CANDIDATE_SCOPE_KEYS, status);
+  if (scope.schemaVersion !== CANDIDATE_SCOPE_SCHEMA
+    || scope.authoritySource !== 'server_verified_wordpress_invitation_candidate'
+    || scope.authenticated !== true || scope.roleVerified !== true
+    || !SUBJECT.test(scope.authenticatedSubject ?? '')
+    || scope.actorId !== scope.authenticatedSubject || scope.actorRole !== 'faculty'
+    || scope.authUid !== deterministicFacultyAuthUid(scope.actorId)
+    || scope.operation !== 'verify_faculty_invitation'
+    || scope.purpose !== 'faculty_private_edit' || scope.invitationId !== invitationId
+    || scope.entitlementVerified !== true || scope.lorEnabled !== true
+    || scope.canaryAuthorized !== true) {
+    throw new InvitationDeniedError();
+  }
+  return Object.freeze(scope);
+}
+function gucValues(scope, overrides = {}) {
+  return [
+    overrides.authUid ?? scope.authUid,
+    overrides.authenticatedSubject ?? scope.authenticatedSubject,
+    overrides.actorRole ?? scope.actorRole,
+    overrides.resourceStudentId ?? scope.resourceStudentId ?? '',
+    overrides.caseId ?? scope.caseId ?? '',
+    overrides.operation ?? scope.operation,
+    overrides.purpose ?? scope.purpose,
+    overrides.invitationId ?? scope.invitationId ?? '',
+    overrides.assignmentId ?? scope.assignmentId ?? '',
+    overrides.administrativeGrantId ?? scope.administrativeGrantId ?? '',
+    String(overrides.entitlementVerified ?? scope.entitlementVerified),
+    String(overrides.lorEnabled ?? scope.lorEnabled),
+    String(overrides.canaryAuthorized ?? scope.canaryAuthorized),
+    overrides.trustedServiceActor ?? '',
+    'true',
+  ];
+}
+function inertJsonClone(value, status, depth = 0) {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (depth > 24 || (!Array.isArray(value) && !plain(value))) throw disabled(status);
+  let keys;
+  let descriptors;
+  try {
+    keys = Reflect.ownKeys(value);
+    descriptors = Object.getOwnPropertyDescriptors(value);
+  } catch {
+    throw disabled(status);
+  }
+  if (Array.isArray(value)) {
+    if (keys.length !== value.length + 1 || keys.at(-1) !== 'length') throw disabled(status);
+    const clone = [];
+    for (let index = 0; index < value.length; index += 1) {
+      const descriptor = descriptors[String(index)];
+      if (!descriptor || !Object.hasOwn(descriptor, 'value') || descriptor.enumerable !== true) {
+        throw disabled(status);
+      }
+      clone.push(inertJsonClone(descriptor.value, status, depth + 1));
+    }
+    return clone;
+  }
+  const clone = {};
+  for (const key of keys) {
+    if (typeof key !== 'string') throw disabled(status);
+    const descriptor = descriptors[key];
+    if (!descriptor || !Object.hasOwn(descriptor, 'value')
+      || descriptor.enumerable !== true || key === '__proto__') throw disabled(status);
+    clone[key] = inertJsonClone(descriptor.value, status, depth + 1);
+  }
+  return clone;
+}
+async function executeRuntimeCommand(executor, gucs, statementId, text, values, status) {
+  const raw = await transaction(executor, async (tx) => {
+    await tx.execute(statement(`${statementId}_gucs`, RESOLUTION_GUCS_SQL, gucs));
+    return oneResult(await tx.execute(statement(statementId, text, values)));
+  });
+  if (!plain(raw)) throw disabled(status);
+  return raw;
+}
+function mapInvitationDatabaseError(error, command) {
+  const exact = `${typeof error?.code === 'string' ? error.code : ''}/${
+    typeof error?.message === 'string' ? error.message : ''}`;
+  if (exact === 'P1301/LOR_FACULTY_INVITATION_AUTHORIZATION_DENIED') {
+    return new AuthorizationDeniedError('DATABASE_INVITATION_COMMAND_DENIED');
+  }
+  if (exact === 'P1302/LOR_FACULTY_INVITATION_IDEMPOTENCY_CONFLICT') {
+    return new IdempotencyConflictError({ idempotencyKey: command.idempotencyKey });
+  }
+  if (exact === 'P1303/LOR_FACULTY_INVITATION_CASE_NOT_FOUND') {
+    return new InvitationDeniedError();
+  }
+  if (exact === 'P1306/LOR_FACULTY_INVITATION_STALE_REVISION') {
+    return new StaleRevisionError({
+      caseId: command.caseId,
+      expectedRevision: command.expectedRevision ?? null,
+      actualRevision: null,
+    });
+  }
+  return disabled('ATOMIC_FACULTY_INVITATION_TRANSACTION_FAILED');
+}
+function aiErrorReceipt(error, command) {
+  const exact = `${typeof error?.code === 'string' ? error.code : ''}/${
+    typeof error?.message === 'string' ? error.message : ''}`;
+  let errorCode = null;
+  if (exact === 'P1402/LOR_AI_PROPOSAL_IDEMPOTENCY_CONFLICT') {
+    errorCode = 'IDEMPOTENCY_CONFLICT';
+  } else if (exact === 'P1403/LOR_AI_PROPOSAL_NOT_FOUND') {
+    errorCode = 'NOT_FOUND';
+  } else if (command.operation === 'attach_decision' && [
+    'P1404/LOR_AI_PROPOSAL_ALREADY_DECIDED',
+    'P1404/LOR_AI_PROPOSAL_STATE_INVALID',
+  ].includes(exact)) {
+    errorCode = 'AI_PROPOSAL_ALREADY_DECIDED';
+  }
+  if (errorCode === null) return null;
+  return Object.freeze({
+    schemaVersion: AI_ERROR_RECEIPT_SCHEMA,
+    operation: command.operation,
+    errorCode,
+    caseId: command.caseId,
+    proposalId: command.proposalId,
+    idempotencyKey: command.idempotencyKey,
+    requestHash: command.requestHash,
+    scopeHash: command.scopeHash,
+    targetBindingHash: command.targetBindingHash,
+  });
+}
+function aiReservationErrorReceipt(error, command) {
+  const exact = String(typeof error?.code === 'string' ? error.code : '') + '/'
+    + String(typeof error?.message === 'string' ? error.message : '');
+  if (exact !== 'P1402/LOR_AI_PROPOSAL_IDEMPOTENCY_CONFLICT') return null;
+  return Object.freeze({
+    schemaVersion: AI_ERROR_RECEIPT_SCHEMA,
+    operation: command.operation,
+    errorCode: 'IDEMPOTENCY_CONFLICT',
+    caseId: command.caseId,
+    idempotencyKey: command.idempotencyKey,
+    requestHash: command.requestHash,
+    scopeHash: command.scopeHash,
+    targetBindingHash: command.targetBindingHash,
+  });
+}
 function arraysEqual(value, expected) {
   return Array.isArray(value) && value.length === expected.length
     && value.every((entry, index) => entry === expected[index]);
 }
+const READINESS_GROUP_CHECKS = Object.freeze({
+  database: Object.freeze([
+    'runtimeIdentity', 'privateTlsTarget', 'applicationRole', 'targetSentinel',
+    'relationsForcedRls', 'securityDefiners', 'appExecute', 'functionAclCustody',
+    'publicDriftAbsent', 'aclGranteesRestricted', 'viewCustody', 'roleCustody',
+    'relationAclCustody',
+  ]),
+  repository: Object.freeze([
+    'runtimeIdentity', 'privateTlsTarget', 'applicationRole', 'targetSentinel',
+    'functionAclCustody', 'aclGranteesRestricted', 'roleCustody',
+    'relationAclCustody',
+  ]),
+  rls: Object.freeze([
+    'relationsForcedRls', 'securityDefiners', 'appExecute', 'functionAclCustody',
+    'publicDriftAbsent', 'aclGranteesRestricted', 'viewCustody', 'roleCustody',
+    'relationAclCustody',
+  ]),
+  // This is deliberately catalog custody, not a claim that an end-to-end audit
+  // transaction or restore rehearsal has run.  The production operational
+  // coordinator requires a separate fresh audit receipt before `audit` can be
+  // reported ready.
+  auditCatalog: Object.freeze([
+    'targetSentinel', 'relationsForcedRls', 'securityDefiners', 'appExecute',
+    'functionAclCustody', 'publicDriftAbsent', 'aclGranteesRestricted',
+    'roleCustody', 'relationAclCustody',
+  ]),
+});
+function groupedReadiness(checks) {
+  return Object.freeze(Object.fromEntries(
+    Object.entries(READINESS_GROUP_CHECKS).map(([group, names]) => [
+      group,
+      names.every((name) => checks[name] === true),
+    ]),
+  ));
+}
 function safeReadiness(checks, reasonCode) {
   const frozen = Object.freeze({ ...checks });
   return Object.freeze({
-    ready: Object.values(frozen).every((value) => value === true), reasonCode, checks: frozen,
+    ready: Object.values(frozen).every((value) => value === true),
+    reasonCode,
+    checks: frozen,
+    groups: groupedReadiness(frozen),
   });
 }
 function readinessFor(executor, isHealthy) {
@@ -761,13 +1203,16 @@ function readinessFor(executor, isHealthy) {
             && arraysEqual(row.relation_names, RELATIONS),
           securityDefiners: row.definer_count === String(DEFINERS.length)
             && row.definer_custody_safe === true && arraysEqual(row.definer_identities, DEFINERS),
-          appExecute: row.app_execute_count === String(DEFINERS.length),
+          appExecute: row.app_execute_count === String(APP_EXECUTABLE_DEFINERS.length)
+            && arraysEqual(row.app_execute_identities, APP_EXECUTABLE_DEFINERS)
+            && row.pre_evidence_app_execute_denied === true,
           functionAclCustody: arraysEqual(
             row.app_function_privileges,
             APP_FUNCTION_PRIVILEGES,
           ) && row.runtime_function_acl_count === '0',
           publicDriftAbsent: row.public_function_execute_count === '0'
-            && row.public_relation_privilege_count === '0',
+            && row.public_relation_privilege_count === '0'
+            && row.pre_evidence_public_execute_denied === true,
           aclGranteesRestricted: row.unexpected_acl_grantee_count === '0',
           viewCustody: row.view_count === '1'
             && row.view_identity === 'student_recommendation_case_projection@postgres'
@@ -797,22 +1242,501 @@ function readinessFor(executor, isHealthy) {
     },
   });
 }
-function driverFacade(driver, isHealthy) {
+function driverFacade(driver, executor, binding, isHealthy) {
+  const targetBindingHash = hashValue(binding);
+  const assertHealthy = () => {
+    if (!isHealthy()) throw disabled('RUNTIME_DATABASE_UNAVAILABLE');
+  };
+  const invitationCommand = (rawCommand, keys, status, scopeField = 'scope') => {
+    const command = exactDataSnapshot(rawCommand, keys, status);
+    assertBindingMatch(command.binding, binding, status);
+    if (!identifier(command.caseId) || !boundedKey(command.idempotencyKey)
+      || !digest(command.requestHash)) throw disabled(status);
+    command[scopeField] = commandScope(
+      command[scopeField],
+      { actorRole: 'student', caseId: command.caseId, operation: 'save' },
+      status,
+    );
+    return command;
+  };
+  const aiCommand = (rawCommand, keys, operation, status) => {
+    const command = exactDataSnapshot(rawCommand, keys, status);
+    assertBindingMatch(command.binding, binding, status);
+    if (command.schemaVersion !== AI_COMMAND_SCHEMA || command.operation !== operation
+      || !identifier(command.caseId) || !identifier(command.proposalId)
+      || command.targetBindingHash !== targetBindingHash || !digest(command.scopeHash)) {
+      throw disabled(status);
+    }
+    const scopeOperation = operation === 'get_proposal' ? 'read' : 'save';
+    command.scope = commandScope(
+      command.scope,
+      { actorRole: 'faculty', caseId: command.caseId, operation: scopeOperation },
+      status,
+    );
+    if (command.scopeHash !== hashValue(command.scope)) throw disabled(status);
+    if (operation !== 'get_proposal') {
+      if (!boundedKey(command.idempotencyKey, 200) || !digest(command.requestHash)
+        || !digest(command.recordHash) || !digest(command.providerRunHash)
+        || !digest(command.outputHash)) throw disabled(status);
+      command.record = inertJsonClone(command.record, status);
+      if (command.record.caseId !== command.caseId || command.record.id !== command.proposalId) {
+        throw disabled(status);
+      }
+      if (operation === 'put_proposal') {
+        if (command.expectedState !== 'absent_or_same_idempotency'
+          || command.expectedOutputHash !== null || command.expectedDecisionHash !== null
+          || command.decisionHash !== null || command.acceptedContentHash !== null) {
+          throw disabled(status);
+        }
+      } else if (command.expectedState !== 'proposal'
+        || command.expectedOutputHash !== command.outputHash
+        || command.expectedDecisionHash !== null || !digest(command.decisionHash)
+        || (command.acceptedContentHash !== null && !digest(command.acceptedContentHash))) {
+        throw disabled(status);
+      }
+    }
+    return command;
+  };
+  const aiReservationCommand = (rawCommand, operation, status) => {
+    const command = exactDataSnapshot(rawCommand, AI_RESERVATION_COMMAND_KEYS, status);
+    assertBindingMatch(command.binding, binding, status);
+    if (command.schemaVersion !== AI_COMMAND_SCHEMA || command.operation !== operation
+      || !['reserve_generation', 'mark_generation_unknown'].includes(operation)
+      || !identifier(command.caseId) || !boundedKey(command.idempotencyKey, 200)
+      || !digest(command.requestHash) || command.targetBindingHash !== targetBindingHash
+      || !digest(command.scopeHash)) {
+      throw disabled(status);
+    }
+    command.scope = commandScope(
+      command.scope,
+      { actorRole: 'faculty', caseId: command.caseId, operation: 'save' },
+      status,
+    );
+    if (command.scopeHash !== hashValue(command.scope)) throw disabled(status);
+    return command;
+  };
+  const artifactAuditCommand = (rawCommand) => {
+    const status = 'ARTIFACT_AUDIT_COMMAND_INVALID';
+    const command = exactDataSnapshot(rawCommand, ARTIFACT_AUDIT_COMMAND_KEYS, status);
+    assertBindingMatch(command.binding, binding, status);
+    command.event = inertJsonClone(command.event, status);
+    if (command.schemaVersion !== ARTIFACT_AUDIT_COMMAND_SCHEMA
+      || command.targetBindingHash !== targetBindingHash
+      || !digest(command.targetBindingHash)
+      || !identifier(command.caseId)
+      || !digest(command.scopeHash)
+      || !digest(command.eventHash)
+      || !exactKeys(command.event, ARTIFACT_AUDIT_EVENT_KEYS)
+      || command.event.schemaVersion !== 1
+      || !UUID.test(command.event.eventId ?? '')
+      || !['student', 'faculty'].includes(command.event.actorRole)
+      || !['artifact.generated', 'artifact.denied'].includes(command.event.type)
+      || (command.event.type === 'artifact.generated' && command.event.outcome !== 'success')
+      || (command.event.type === 'artifact.denied' && command.event.outcome !== 'denied')
+      || !/^[a-f0-9]{24}$/u.test(command.event.actorRef ?? '')
+      || !/^[a-f0-9]{24}$/u.test(command.event.caseRef ?? '')
+      || (command.event.targetRef !== ''
+        && !/^[a-f0-9]{24}$/u.test(command.event.targetRef ?? ''))
+      || !validTime(command.event.at)
+      || !plain(command.event.metadata)) {
+      throw disabled(status);
+    }
+    const metadata = command.event.metadata;
+    const metadataValid = command.event.type === 'artifact.generated'
+      ? exactKeys(metadata, ARTIFACT_GENERATED_METADATA_KEYS)
+        && metadata.action === 'export_final_document'
+        && metadata.artifactFormat === 'docx'
+        && metadata.result === (command.event.actorRole === 'student'
+          ? 'student_visible'
+          : 'faculty_owner')
+        && digest(metadata.artifactSha256)
+        && (command.event.actorRole === 'student'
+          ? digest(metadata.releaseDocumentHash)
+          : (metadata.releaseDocumentHash === null || digest(metadata.releaseDocumentHash)))
+        && Number.isSafeInteger(metadata.sourceRevision)
+        && Number(metadata.sourceRevision) >= 0
+      : exactKeys(metadata, ARTIFACT_DENIED_METADATA_KEYS)
+        && metadata.action === 'export_final_document'
+        && metadata.artifactFormat === 'docx'
+        && typeof metadata.reasonCode === 'string'
+        && /^[A-Z0-9_:-]{1,120}$/u.test(metadata.reasonCode);
+    if (!metadataValid) throw disabled(status);
+    command.scope = commandScope(
+      command.scope,
+      { actorRole: command.event.actorRole, caseId: command.caseId, operation: 'read' },
+      status,
+    );
+    if (command.event.actorRef !== sha256(
+      `lor-studio:actor:${command.scope.actorId}`,
+    ).slice(0, 24)
+      || command.event.caseRef !== sha256(`lor-studio:case:${command.caseId}`).slice(0, 24)
+      || command.scopeHash !== hashValue(command.scope)
+      || command.eventHash !== hashValue(command.event)) {
+      throw disabled(status);
+    }
+    return command;
+  };
   const facade = {
-    atomicStateAndAudit: true, rlsEnforced: true, serverOnly: true, actorSafeCommands: true,
+    atomicStateAndAudit: true,
+    rlsEnforced: true,
+    serverOnly: true,
+    actorSafeCommands: true,
+    databaseClock: true,
+    actorSafeReads: true,
+    atomicProviderCallReservation: true,
+    atomicFacultyInvitationCommands: true,
+    atomicProviderRunAndProposal: true,
+    conditionalAtomicOneDecision: true,
+    appendOnlyArtifactAudit: true,
   };
   for (const name of [
     'selectCase', 'executeAtomicCaseCommand', 'readStudentSafeCase',
     'readFacultyCaseProjection', 'readMentorCaseProjection', 'reserveCaseCreation',
+    'readFinalDocumentExport',
     'commitStudentCaseCreate', 'commitStudentBuilderAutosave', 'commitStudentBuilderComplete',
     'commitStudentConsentReceipt', 'commitStudentWaiverReceipt',
+    'commitStudentEvidencePublication',
+    'commitFacultyPrivateContent',
     'commitFacultyFinalDocumentRelease',
   ]) {
     facade[name] = (...args) => {
-      if (!isHealthy()) throw disabled('RUNTIME_DATABASE_UNAVAILABLE');
+      assertHealthy();
       return driver[name](...args);
     };
   }
+  facade.issueFacultyInvitationAtomic = async (rawCommand) => {
+    assertHealthy();
+    const command = invitationCommand(
+      rawCommand,
+      ISSUE_INVITATION_COMMAND_KEYS,
+      'ISSUE_FACULTY_INVITATION_COMMAND_INVALID',
+    );
+    if (command.actorId !== command.scope.actorId
+      || !Number.isSafeInteger(command.expectedRevision) || command.expectedRevision < 0
+      || !identifier(command.invitationId) || !digest(command.recipientEmailHash)
+      || !digest(command.tokenHash) || !identifier(command.challengeId)
+      || !digest(command.otpCodeHash) || !validTime(command.invitationExpiresAt)
+      || !validTime(command.challengeExpiresAt)
+      || !Number.isSafeInteger(command.maxAttempts) || command.maxAttempts < 1
+      || command.maxAttempts > 20 || !Number.isSafeInteger(command.attemptWindowMs)
+      || command.attemptWindowMs < 1_000 || command.attemptWindowMs > 86_400_000
+      || !Number.isSafeInteger(command.lockoutMs) || command.lockoutMs < 1_000
+      || command.lockoutMs > 86_400_000) {
+      throw disabled('ISSUE_FACULTY_INVITATION_COMMAND_INVALID');
+    }
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        gucValues(command.scope, { operation: 'issue_faculty_invitation' }),
+        'lor_runtime_issue_faculty_invitation',
+        ISSUE_INVITATION_SQL,
+        [
+          command.caseId, command.expectedRevision, command.invitationId,
+          command.recipientEmailHash, command.tokenHash, command.challengeId,
+          command.otpCodeHash, command.invitationExpiresAt, command.challengeExpiresAt,
+          command.maxAttempts, command.attemptWindowMs, command.lockoutMs,
+          command.idempotencyKey, command.requestHash,
+        ],
+        'ISSUE_FACULTY_INVITATION_RECEIPT_INVALID',
+      );
+    } catch (error) { throw mapInvitationDatabaseError(error, command); }
+  };
+  facade.resendFacultyInvitationOtpAtomic = async (rawCommand) => {
+    assertHealthy();
+    const command = invitationCommand(
+      rawCommand,
+      RESEND_INVITATION_COMMAND_KEYS,
+      'RESEND_FACULTY_INVITATION_COMMAND_INVALID',
+    );
+    if (command.actorId !== command.scope.actorId || !digest(command.recipientEmailHash)
+      || !identifier(command.challengeId) || !digest(command.otpCodeHash)
+      || !validTime(command.challengeExpiresAt)) {
+      throw disabled('RESEND_FACULTY_INVITATION_COMMAND_INVALID');
+    }
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        gucValues(command.scope, { operation: 'resend_faculty_invitation_otp' }),
+        'lor_runtime_resend_faculty_invitation_otp',
+        RESEND_INVITATION_SQL,
+        [command.caseId, command.recipientEmailHash, command.challengeId, command.otpCodeHash,
+          command.challengeExpiresAt, command.idempotencyKey, command.requestHash],
+        'RESEND_FACULTY_INVITATION_RECEIPT_INVALID',
+      );
+    } catch (error) { throw mapInvitationDatabaseError(error, command); }
+  };
+  facade.revokeFacultyInvitationAtomic = async (rawCommand) => {
+    assertHealthy();
+    const command = invitationCommand(
+      rawCommand,
+      REVOKE_INVITATION_COMMAND_KEYS,
+      'REVOKE_FACULTY_INVITATION_COMMAND_INVALID',
+    );
+    if (command.actorId !== command.scope.actorId) {
+      throw disabled('REVOKE_FACULTY_INVITATION_COMMAND_INVALID');
+    }
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        gucValues(command.scope, { operation: 'revoke_faculty_invitation' }),
+        'lor_runtime_revoke_faculty_invitation',
+        REVOKE_INVITATION_SQL,
+        [command.caseId, command.idempotencyKey, command.requestHash],
+        'REVOKE_FACULTY_INVITATION_RECEIPT_INVALID',
+      );
+    } catch (error) { throw mapInvitationDatabaseError(error, command); }
+  };
+  facade.commitFacultyInvitationDeliveryAtomic = async (rawCommand) => {
+    assertHealthy();
+    const command = invitationCommand(
+      rawCommand,
+      DELIVERY_INVITATION_COMMAND_KEYS,
+      'FACULTY_INVITATION_DELIVERY_COMMAND_INVALID',
+      'studentScope',
+    );
+    if (!identifier(command.invitationId) || !digest(command.providerMessageRefHash)) {
+      throw disabled('FACULTY_INVITATION_DELIVERY_COMMAND_INVALID');
+    }
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        gucValues(command.studentScope, {
+          actorRole: 'service',
+          operation: 'commit_faculty_invitation_delivery',
+          purpose: 'faculty_invitation_delivery',
+          invitationId: command.invitationId,
+          trustedServiceActor: 'postmark-delivery-v1',
+        }),
+        'lor_runtime_commit_faculty_invitation_delivery',
+        DELIVERY_INVITATION_SQL,
+        [command.caseId, command.invitationId, command.providerMessageRefHash,
+          command.idempotencyKey, command.requestHash],
+        'FACULTY_INVITATION_DELIVERY_RECEIPT_INVALID',
+      );
+    } catch (error) { throw mapInvitationDatabaseError(error, command); }
+  };
+  facade.reserveFacultyInvitationDeliveryAtomic = async (rawCommand) => {
+    assertHealthy();
+    const command = invitationCommand(
+      rawCommand,
+      RESERVE_DELIVERY_INVITATION_COMMAND_KEYS,
+      'FACULTY_INVITATION_DELIVERY_RESERVATION_COMMAND_INVALID',
+      'studentScope',
+    );
+    if (
+      !identifier(command.invitationId)
+      || !['issue', 'resend'].includes(command.deliveryAction)
+    ) {
+      throw disabled('FACULTY_INVITATION_DELIVERY_RESERVATION_COMMAND_INVALID');
+    }
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        gucValues(command.studentScope, {
+          actorRole: 'service',
+          operation: 'reserve_faculty_invitation_delivery',
+          purpose: 'faculty_invitation_delivery',
+          invitationId: command.invitationId,
+          trustedServiceActor: 'postmark-delivery-v1',
+        }),
+        'lor_runtime_reserve_faculty_invitation_delivery',
+        RESERVE_DELIVERY_INVITATION_SQL,
+        [command.caseId, command.invitationId, command.deliveryAction,
+          command.idempotencyKey, command.requestHash],
+        'FACULTY_INVITATION_DELIVERY_RESERVATION_RECEIPT_INVALID',
+      );
+    } catch (error) { throw mapInvitationDatabaseError(error, command); }
+  };
+  facade.markFacultyInvitationDeliveryUnknownAtomic = async (rawCommand) => {
+    assertHealthy();
+    const command = invitationCommand(
+      rawCommand,
+      UNKNOWN_DELIVERY_INVITATION_COMMAND_KEYS,
+      'FACULTY_INVITATION_DELIVERY_UNKNOWN_COMMAND_INVALID',
+      'studentScope',
+    );
+    if (!identifier(command.invitationId)) {
+      throw disabled('FACULTY_INVITATION_DELIVERY_UNKNOWN_COMMAND_INVALID');
+    }
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        gucValues(command.studentScope, {
+          actorRole: 'service',
+          operation: 'mark_faculty_invitation_delivery_unknown',
+          purpose: 'faculty_invitation_delivery',
+          invitationId: command.invitationId,
+          trustedServiceActor: 'postmark-delivery-v1',
+        }),
+        'lor_runtime_mark_faculty_invitation_delivery_unknown',
+        UNKNOWN_DELIVERY_INVITATION_SQL,
+        [command.caseId, command.invitationId, 'unknown',
+          command.idempotencyKey, command.requestHash],
+        'FACULTY_INVITATION_DELIVERY_UNKNOWN_RECEIPT_INVALID',
+      );
+    } catch (error) { throw mapInvitationDatabaseError(error, command); }
+  };
+  facade.verifyFacultyInvitationAtomic = async (rawCommand) => {
+    assertHealthy();
+    const command = exactDataSnapshot(
+      rawCommand,
+      VERIFY_INVITATION_COMMAND_KEYS,
+      'VERIFY_FACULTY_INVITATION_COMMAND_INVALID',
+    );
+    assertBindingMatch(
+      command.binding,
+      binding,
+      'VERIFY_FACULTY_INVITATION_COMMAND_INVALID',
+    );
+    if (!identifier(command.invitationId) || !digest(command.recipientEmailHash)
+      || !digest(command.tokenHash) || !/^[0-9]{6}$/u.test(command.otpCode ?? '')
+      || !boundedKey(command.idempotencyKey) || !digest(command.requestHash)) {
+      throw new InvitationDeniedError();
+    }
+    command.candidateScope = candidateCommandScope(
+      command.candidateScope,
+      command.invitationId,
+      'VERIFY_FACULTY_INVITATION_COMMAND_INVALID',
+    );
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        gucValues(command.candidateScope, {
+          resourceStudentId: '',
+          caseId: '',
+          invitationId: command.invitationId,
+        }),
+        'lor_runtime_verify_faculty_invitation',
+        VERIFY_INVITATION_SQL,
+        [command.invitationId, command.recipientEmailHash, command.tokenHash, command.otpCode,
+          command.idempotencyKey, command.requestHash],
+        'VERIFY_FACULTY_INVITATION_RECEIPT_INVALID',
+      );
+    } catch (error) { throw mapInvitationDatabaseError(error, command); }
+  };
+  const transitionAiGeneration = async (rawCommand, operation, statementId, invalidStatus) => {
+    assertHealthy();
+    const command = aiReservationCommand(rawCommand, operation, invalidStatus);
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        gucValues(command.scope, { trustedServiceActor: 'lor-ai-proposal-store-v1' }),
+        statementId,
+        TRANSITION_AI_GENERATION_SQL,
+        [command.caseId, command.idempotencyKey, command.requestHash,
+          command.scopeHash, command.targetBindingHash, command.operation],
+        'AI_GENERATION_RESERVATION_RECEIPT_INVALID',
+      );
+    } catch (error) {
+      const receipt = aiReservationErrorReceipt(error, command);
+      if (receipt) return receipt;
+      throw disabled('ATOMIC_AI_GENERATION_RESERVATION_FAILED');
+    }
+  };
+  facade.reserveAiProposalGenerationAtomic = (rawCommand) => transitionAiGeneration(
+    rawCommand,
+    'reserve_generation',
+    'lor_runtime_reserve_ai_proposal_generation',
+    'RESERVE_AI_GENERATION_COMMAND_INVALID',
+  );
+  facade.markAiProposalGenerationUnknownAtomic = (rawCommand) => transitionAiGeneration(
+    rawCommand,
+    'mark_generation_unknown',
+    'lor_runtime_mark_ai_proposal_generation_unknown',
+    'MARK_AI_GENERATION_UNKNOWN_COMMAND_INVALID',
+  );
+  facade.persistProviderRunAndProposalAtomic = async (rawCommand) => {
+    assertHealthy();
+    const command = aiCommand(
+      rawCommand,
+      AI_WRITE_COMMAND_KEYS,
+      'put_proposal',
+      'PERSIST_AI_PROPOSAL_COMMAND_INVALID',
+    );
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        gucValues(command.scope, { trustedServiceActor: 'lor-ai-proposal-store-v1' }),
+        'lor_runtime_persist_ai_provider_run_and_proposal',
+        PERSIST_AI_PROPOSAL_SQL,
+        [command.caseId, command.proposalId, command.idempotencyKey, command.requestHash,
+          command.scopeHash, command.targetBindingHash, command.recordHash,
+          command.providerRunHash, command.outputHash, command.record],
+        'PERSIST_AI_PROPOSAL_RECEIPT_INVALID',
+      );
+    } catch (error) {
+      const receipt = aiErrorReceipt(error, command);
+      if (receipt) return receipt;
+      throw disabled('ATOMIC_AI_PROPOSAL_TRANSACTION_FAILED');
+    }
+  };
+  facade.readActorSafeAiProposal = async (rawCommand) => {
+    assertHealthy();
+    const command = aiCommand(
+      rawCommand,
+      AI_READ_COMMAND_KEYS,
+      'get_proposal',
+      'READ_AI_PROPOSAL_COMMAND_INVALID',
+    );
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        gucValues(command.scope, { trustedServiceActor: 'lor-ai-proposal-store-v1' }),
+        'lor_runtime_read_actor_safe_ai_proposal',
+        READ_AI_PROPOSAL_SQL,
+        [command.caseId, command.proposalId, command.scopeHash, command.targetBindingHash],
+        'READ_AI_PROPOSAL_RECEIPT_INVALID',
+      );
+    } catch { throw disabled('ACTOR_SAFE_AI_PROPOSAL_READ_FAILED'); }
+  };
+  facade.attachDecisionIfUndecidedAtomic = async (rawCommand) => {
+    assertHealthy();
+    const command = aiCommand(
+      rawCommand,
+      AI_WRITE_COMMAND_KEYS,
+      'attach_decision',
+      'ATTACH_AI_DECISION_COMMAND_INVALID',
+    );
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        gucValues(command.scope, { trustedServiceActor: 'lor-ai-proposal-store-v1' }),
+        'lor_runtime_attach_ai_proposal_decision',
+        ATTACH_AI_DECISION_SQL,
+        [command.caseId, command.proposalId, command.idempotencyKey, command.requestHash,
+          command.scopeHash, command.targetBindingHash, command.recordHash,
+          command.providerRunHash, command.outputHash, command.decisionHash,
+          command.acceptedContentHash, command.record],
+        'ATTACH_AI_DECISION_RECEIPT_INVALID',
+      );
+    } catch (error) {
+      const receipt = aiErrorReceipt(error, command);
+      if (receipt) return receipt;
+      throw disabled('ATOMIC_AI_DECISION_TRANSACTION_FAILED');
+    }
+  };
+  facade.appendArtifactExportAuditAtomic = async (rawCommand) => {
+    assertHealthy();
+    const command = artifactAuditCommand(rawCommand);
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        gucValues(command.scope),
+        'lor_runtime_append_artifact_export_audit',
+        APPEND_ARTIFACT_AUDIT_SQL,
+        [command.event, command.eventHash, command.scopeHash, command.targetBindingHash],
+        'ARTIFACT_AUDIT_RECEIPT_INVALID',
+      );
+    } catch (error) {
+      if (error?.code === 'P1002') {
+        throw new IdempotencyConflictError({ idempotencyKey: command.event.eventId });
+      }
+      if (error?.code === 'P1004') {
+        throw new AuthorizationDeniedError('DATABASE_ARTIFACT_AUDIT_DENIED');
+      }
+      throw disabled('ATOMIC_ARTIFACT_AUDIT_FAILED');
+    }
+  };
   return Object.freeze(facade);
 }
 
@@ -856,7 +1780,10 @@ export function createProductionPostgresRuntimeDependencies(rawBinding, rawOptio
       return closePromise;
     };
     return Object.freeze({
-      driver: driverFacade(driver, isHealthy), scopeProvider: scopeProviderFor(executor, isHealthy),
+      driver: driverFacade(driver, executor, binding, isHealthy),
+      scopeProvider: scopeProviderFor(executor, isHealthy),
+      candidateScopeProvider: candidateScopeProviderFor(isHealthy),
+      actorResolver: actorResolverFor(executor, isHealthy),
       readiness: readinessFor(executor, isHealthy), close,
     });
   } catch (error) {
@@ -873,9 +1800,14 @@ export const PRODUCTION_POSTGRES_RUNTIME_CONTRACT = Object.freeze({
   authority: 'DR-133', environmentKey: ENV_KEY, caEnvironmentKey: CA_ENV_KEY,
   runtimeLogin: DR133_RUNTIME_LOGIN,
   applicationRole: APP_ROLE, relationCount: RELATIONS.length, securityDefinerCount: DEFINERS.length,
+  appExecutableSecurityDefinerCount: APP_EXECUTABLE_DEFINERS.length,
+  nonAppExecutableSecurityDefiner: DR133_PRE_EVIDENCE_DEFINER_IDENTITY,
   successorSentinel: SUCCESSOR_SENTINEL,
-  publicSurface: Object.freeze(['driver', 'scopeProvider', 'readiness', 'close']),
+  publicSurface: Object.freeze([
+    'driver', 'scopeProvider', 'candidateScopeProvider', 'actorResolver', 'readiness', 'close',
+  ]),
   identitySource: 'active_trusted_request_context_only',
+  actorRoleSource: 'database_verified_case_access_only',
   tls: 'verified_pinned_railway_root_ca_and_hostname',
   revocationCommand: 'omitted_until_distinct_trusted_service_context_exists',
 });

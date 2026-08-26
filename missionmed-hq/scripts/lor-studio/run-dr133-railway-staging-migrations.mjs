@@ -10,7 +10,9 @@ import {
   DR133_COMMAND_OWNER_ROLE,
   DR133_RELATIONS,
   DR133_RUNNER_CONTRACT,
+  DR133_PRE_EVIDENCE_DEFINER_IDENTITY,
   DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES,
+  DR133_SUCCESSOR_STAGES,
   DR133_TARGET,
   Dr133RunnerError,
   assertBaseSchemaPreflightRow,
@@ -20,14 +22,15 @@ import {
   assertSuccessorSchemaPreflightRow,
   buildNonemptyRelationsSql,
   classifySafeFailure,
-  extractIdentityScopeRollbackGuardVerificationSql,
   extractRollbackGuardVerificationSql,
+  extractSuccessorRollbackGuardVerificationSql,
   failDr133,
   postgresOutcomeIsUnknown,
   resolveDr133RunnerEnvironment,
   sha256Bytes,
   targetGucEntries,
   writeDr133Receipt,
+  expectedDr133SuccessorSentinelAt,
 } from './railway-dr133-runner-core.mjs';
 
 const { Client } = pg;
@@ -199,7 +202,7 @@ WITH relation_inventory AS (
 definer_inventory AS (
   SELECT
     procedure.proname || '(' ||
-      pg_catalog.replace(pg_catalog.oidvectortypes(procedure.proargtypes), ' ', '') || ')'
+      pg_catalog.replace(pg_catalog.oidvectortypes(procedure.proargtypes), ', ', ',') || ')'
       AS function_identity,
     procedure.oid AS function_oid,
     procedure.proowner,
@@ -210,7 +213,10 @@ definer_inventory AS (
     AND procedure.prosecdef
 ),
 public_function_acl AS (
-  SELECT 1
+  SELECT
+    procedure.proname || '(' ||
+      pg_catalog.replace(pg_catalog.oidvectortypes(procedure.proargtypes), ', ', ',') || ')'
+      AS function_identity
   FROM pg_catalog.pg_proc AS procedure
   JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
   CROSS JOIN LATERAL pg_catalog.aclexplode(
@@ -251,6 +257,16 @@ SELECT
   ) AS relation_names,
   (SELECT pg_catalog.count(*)::text FROM relation_inventory) AS relation_count,
   (
+    SELECT COALESCE(
+      pg_catalog.array_agg(function_identity ORDER BY function_identity COLLATE "C"),
+      ARRAY[]::text[]
+    )
+    FROM definer_inventory
+    WHERE pg_catalog.has_function_privilege(
+      'lor_studio_app', function_oid, 'EXECUTE'
+    )
+  ) AS app_execute_identities,
+  (
     SELECT pg_catalog.count(*)::text
     FROM relation_inventory
     WHERE relrowsecurity AND relforcerowsecurity
@@ -278,6 +294,19 @@ SELECT
       'lor_studio_app', function_oid, 'EXECUTE'
     )
   ) AS app_execute_count,
+  (
+    SELECT pg_catalog.count(*) = 1
+      AND COALESCE(pg_catalog.bool_and(NOT pg_catalog.has_function_privilege(
+        'lor_studio_app', function_oid, 'EXECUTE'
+      )), false)
+    FROM definer_inventory
+    WHERE function_identity = '${DR133_PRE_EVIDENCE_DEFINER_IDENTITY}'
+  ) AS pre_evidence_app_execute_denied,
+  (
+    SELECT pg_catalog.count(*) = 0
+    FROM public_function_acl
+    WHERE function_identity = '${DR133_PRE_EVIDENCE_DEFINER_IDENTITY}'
+  ) AS pre_evidence_public_execute_denied,
   (SELECT pg_catalog.count(*)::text FROM public_function_acl)
     AS public_function_execute_count,
   (SELECT pg_catalog.count(*)::text FROM public_relation_acl)
@@ -359,6 +388,72 @@ async function loadVerifiedArtifacts(readFileFn) {
   return artifacts;
 }
 
+function artifactReceiptHashes() {
+  const hash = (id) => DR133_ARTIFACTS.find((artifact) => artifact.id === id)?.sha256;
+  const receipt = {
+    foundationSha256: hash('foundation'),
+    rlsSha256: hash('rls'),
+    identityScopeSha256: hash('identity-scope'),
+    identityScopeRollbackSha256: hash('identity-scope-rollback'),
+    facultyInvitationSha256: hash('faculty-invitation'),
+    facultyInvitationRollbackSha256: hash('faculty-invitation-rollback'),
+    facultyPrivateExportSha256: hash('faculty-private-export'),
+    facultyPrivateExportRollbackSha256: hash('faculty-private-export-rollback'),
+    aiProposalSha256: hash('ai-proposal'),
+    aiProposalRollbackSha256: hash('ai-proposal-rollback'),
+    studentEvidenceSha256: hash('student-evidence'),
+    studentEvidenceRollbackSha256: hash('student-evidence-rollback'),
+  };
+  if (Object.values(receipt).some((value) => typeof value !== 'string')) {
+    failDr133('ARTIFACT_INVENTORY_INVALID');
+  }
+  return Object.freeze(receipt);
+}
+
+function successorGuardSqlByStage(artifacts) {
+  return new Map(DR133_SUCCESSOR_STAGES.map((successor) => {
+    const source = artifactById(artifacts, successor.rollbackId).bytes.toString('utf8');
+    return [
+      successor.id,
+      extractSuccessorRollbackGuardVerificationSql(source, successor.rollbackId),
+    ];
+  }));
+}
+
+async function applySuccessorStages({ client, artifacts, guards, startIndex, setStage }) {
+  for (let index = startIndex; index < DR133_SUCCESSOR_STAGES.length; index += 1) {
+    const successor = DR133_SUCCESSOR_STAGES[index];
+    const stageName = successor.id.replaceAll('-', '_').toUpperCase();
+    setStage(`${stageName}_DISPATCHED`);
+    await client.query(artifactById(artifacts, successor.id).bytes.toString('utf8'));
+    setStage(`${stageName}_RETURNED`);
+    setStage(`${stageName}_GUARD_DISPATCHED`);
+    await client.query(guards.get(successor.id));
+    setStage(`${stageName}_GUARD_VERIFIED`);
+  }
+}
+
+function successorStageName(successorId) {
+  return successorId.replaceAll('-', '_').toUpperCase();
+}
+
+function isSuccessorForwardDispatchStage(stage) {
+  return DR133_SUCCESSOR_STAGES.some((successor) => (
+    stage === `${successorStageName(successor.id)}_DISPATCHED`
+  ));
+}
+
+function isSuccessorCommittedStage(stage) {
+  return DR133_SUCCESSOR_STAGES.some((successor) => {
+    const prefix = successorStageName(successor.id);
+    return [
+      `${prefix}_RETURNED`,
+      `${prefix}_GUARD_DISPATCHED`,
+      `${prefix}_GUARD_VERIFIED`,
+    ].includes(stage);
+  });
+}
+
 function resultForFailure(stage, error) {
   if ([
     'INITIAL',
@@ -383,27 +478,27 @@ function resultForFailure(stage, error) {
     'BASE_GUARD_DISPATCHED',
     'BASE_GUARD_VERIFIED',
   ].includes(stage)) return 'BASE_SCHEMA_ONLY_COMMITTED';
-  if (stage === 'IDENTITY_SCOPE_DISPATCHED') {
+  if (isSuccessorForwardDispatchStage(stage)) {
     return postgresOutcomeIsUnknown(error)
-      ? 'IDENTITY_SCOPE_OUTCOME_UNKNOWN'
-      : 'BASE_SCHEMA_ONLY_COMMITTED';
+      ? 'SUCCESSOR_PROGRESS_OUTCOME_UNKNOWN'
+      : 'SUCCESSOR_PROGRESS_PRESERVED';
   }
-  if ([
-    'IDENTITY_SCOPE_RETURNED',
-    'SUCCESSOR_VERIFICATION_DISPATCHED',
-    'SUCCESSOR_GUARD_VERIFIED',
+  if (
+    isSuccessorCommittedStage(stage)
+    || [
     'POSTFLIGHT_DISPATCHED',
     'POSTFLIGHT_RETURNED',
-  ].includes(stage)) {
+    ].includes(stage)
+  ) {
     const { postgresCode } = classifySafeFailure(error);
     return error instanceof Dr133RunnerError || ['42501', '55000'].includes(postgresCode)
-      ? 'ALL_THREE_COMMITTED_POSTFLIGHT_REJECTED'
-      : 'ALL_THREE_COMMITTED_VERIFICATION_UNKNOWN';
+      ? 'CUMULATIVE_SCHEMA_COMMITTED_POSTFLIGHT_REJECTED'
+      : 'CUMULATIVE_SCHEMA_COMMITTED_VERIFICATION_UNKNOWN';
   }
   if (stage === 'POSTFLIGHT_VERIFIED') {
-    return 'ALL_THREE_COMMITTED_VERIFIED_CLEANUP_FAILED';
+    return 'CUMULATIVE_SCHEMA_COMMITTED_VERIFIED_CLEANUP_FAILED';
   }
-  return 'ALL_THREE_COMMITTED_POSTFLIGHT_REJECTED';
+  return 'CUMULATIVE_SCHEMA_COMMITTED_POSTFLIGHT_REJECTED';
 }
 
 async function closeClientFailClosed(client, state) {
@@ -448,13 +543,7 @@ export async function runDr133StagingMigration({
 
     const rlsRollbackSource = artifactById(artifacts, 'rls-rollback').bytes.toString('utf8');
     const baseGuardVerificationSql = extractRollbackGuardVerificationSql(rlsRollbackSource);
-    const identityScopeRollbackSource = artifactById(
-      artifacts,
-      'identity-scope-rollback',
-    ).bytes.toString('utf8');
-    const successorGuardVerificationSql = extractIdentityScopeRollbackGuardVerificationSql(
-      identityScopeRollbackSource,
-    );
+    const successorGuards = successorGuardSqlByStage(artifacts);
 
     client = new ClientClass({
       connectionString: resolved.adminPgConnectionString,
@@ -505,13 +594,13 @@ export async function runDr133StagingMigration({
     await client.query(baseGuardVerificationSql);
     stage = 'BASE_GUARD_VERIFIED';
 
-    stage = 'IDENTITY_SCOPE_DISPATCHED';
-    await client.query(artifactById(artifacts, 'identity-scope').bytes.toString('utf8'));
-    stage = 'IDENTITY_SCOPE_RETURNED';
-
-    stage = 'SUCCESSOR_VERIFICATION_DISPATCHED';
-    await client.query(successorGuardVerificationSql);
-    stage = 'SUCCESSOR_GUARD_VERIFIED';
+    await applySuccessorStages({
+      client,
+      artifacts,
+      guards: successorGuards,
+      startIndex: 0,
+      setStage(value) { stage = value; },
+    });
     stage = 'POSTFLIGHT_DISPATCHED';
     const catalogResult = await client.query(DR133_POSTFLIGHT_CATALOG_SQL);
     const nonemptyResult = await client.query(buildNonemptyRelationsSql());
@@ -529,12 +618,7 @@ export async function runDr133StagingMigration({
   const cleanupError = await closeClientFailClosed(client, state);
   primaryError ??= cleanupError;
 
-  const foundation = DR133_ARTIFACTS.find((artifact) => artifact.id === 'foundation');
-  const rls = DR133_ARTIFACTS.find((artifact) => artifact.id === 'rls');
-  const identityScope = DR133_ARTIFACTS.find((artifact) => artifact.id === 'identity-scope');
-  const identityScopeRollback = DR133_ARTIFACTS.find(
-    (artifact) => artifact.id === 'identity-scope-rollback',
-  );
+  const receiptHashes = artifactReceiptHashes();
   if (primaryError) {
     const safeFailure = classifySafeFailure(primaryError);
     writeDr133Receipt(output, {
@@ -543,10 +627,7 @@ export async function runDr133StagingMigration({
       result: resultForFailure(stage, primaryError),
       runnerCode: safeFailure.runnerCode,
       postgresCode: safeFailure.postgresCode,
-      foundationSha256: foundation.sha256,
-      rlsSha256: rls.sha256,
-      identityScopeSha256: identityScope.sha256,
-      identityScopeRollbackSha256: identityScopeRollback.sha256,
+      ...receiptHashes,
     });
     failDr133(
       safeFailure.postgresCode
@@ -558,30 +639,34 @@ export async function runDr133StagingMigration({
   writeDr133Receipt(output, {
     contract: DR133_RUNNER_CONTRACT,
     mode: 'migration',
-    result: 'ALL_THREE_COMMITTED_VERIFIED',
+    result: 'CUMULATIVE_SCHEMA_COMMITTED_VERIFIED',
     postgresMajor: preflightRow.postgres_major,
     relationCount: Number(postflightRow.relation_count),
     definerCount: Number(postflightRow.definer_count),
-    foundationSha256: foundation.sha256,
-    rlsSha256: rls.sha256,
-    identityScopeSha256: identityScope.sha256,
-    identityScopeRollbackSha256: identityScopeRollback.sha256,
+    ...receiptHashes,
   });
-  return Object.freeze({ result: 'ALL_THREE_COMMITTED_VERIFIED' });
+  return Object.freeze({ result: 'CUMULATIVE_SCHEMA_COMMITTED_VERIFIED' });
 }
 
-function successorSchemaState(row) {
+function successorSchemaStageIndex(row) {
   try {
     assertBaseSchemaPreflightRow(row);
-    return 'base';
+    return 0;
   } catch {
     try {
-      assertSuccessorSchemaPreflightRow(row);
-      return 'successor';
+      assertSuccessorSchemaPreflightRow({
+        ...row,
+        schema_sentinel: expectedDr133SuccessorSentinelAt(DR133_SUCCESSOR_STAGES.length),
+      });
     } catch {
       failDr133('SUCCESSOR_MIGRATION_PREFLIGHT_TARGET_INVALID');
     }
   }
+  const stageIndex = DR133_SUCCESSOR_STAGES.findIndex((_, index) => (
+    row.schema_sentinel === expectedDr133SuccessorSentinelAt(index + 1)
+  ));
+  if (stageIndex < 0) failDr133('SUCCESSOR_MIGRATION_PREFLIGHT_TARGET_INVALID');
+  return stageIndex + 1;
 }
 
 function successorResultForFailure(stage, error, { alreadyCommitted, mutationDispatched }) {
@@ -599,18 +684,15 @@ function successorResultForFailure(stage, error, { alreadyCommitted, mutationDis
     'BASE_GUARD_DISPATCHED',
     'BASE_GUARD_VERIFIED',
   ].includes(stage)) return 'NO_MUTATION';
-  if (mutationDispatched && stage === 'IDENTITY_SCOPE_DISPATCHED') {
+  if (mutationDispatched && isSuccessorForwardDispatchStage(stage)) {
     return postgresOutcomeIsUnknown(error)
-      ? 'SUCCESSOR_OUTCOME_UNKNOWN'
-      : 'SUCCESSOR_ROLLED_BACK';
+      ? 'SUCCESSOR_NEXT_STEP_OUTCOME_UNKNOWN'
+      : 'SUCCESSOR_NEXT_STEP_ROLLED_BACK';
   }
-  if ([
-    'IDENTITY_SCOPE_RETURNED',
-    'SUCCESSOR_VERIFICATION_DISPATCHED',
-    'SUCCESSOR_GUARD_VERIFIED',
-    'POSTFLIGHT_DISPATCHED',
-    'POSTFLIGHT_RETURNED',
-  ].includes(stage)) {
+  if (
+    isSuccessorCommittedStage(stage)
+    || ['POSTFLIGHT_DISPATCHED', 'POSTFLIGHT_RETURNED'].includes(stage)
+  ) {
     const { postgresCode } = classifySafeFailure(error);
     return error instanceof Dr133RunnerError || ['42501', '55000'].includes(postgresCode)
       ? 'SUCCESSOR_COMMITTED_POSTFLIGHT_REJECTED'
@@ -645,13 +727,7 @@ export async function runDr133StagingSuccessorMigration({
 
     const rlsRollbackSource = artifactById(artifacts, 'rls-rollback').bytes.toString('utf8');
     const baseGuardVerificationSql = extractRollbackGuardVerificationSql(rlsRollbackSource);
-    const identityScopeRollbackSource = artifactById(
-      artifacts,
-      'identity-scope-rollback',
-    ).bytes.toString('utf8');
-    const successorGuardVerificationSql = extractIdentityScopeRollbackGuardVerificationSql(
-      identityScopeRollbackSource,
-    );
+    const successorGuards = successorGuardSqlByStage(artifacts);
 
     client = new ClientClass({
       connectionString: resolved.adminPgConnectionString,
@@ -666,7 +742,7 @@ export async function runDr133StagingSuccessorMigration({
 
     const preflightResult = await client.query(DR133_SUCCESSOR_PREFLIGHT_SQL);
     preflightRow = preflightResult.rows?.[0];
-    const preflightState = successorSchemaState(preflightRow);
+    const preflightStageIndex = successorSchemaStageIndex(preflightRow);
     stage = 'BASE_PREFLIGHT_VERIFIED';
 
     const lockResult = await client.query(DR133_ADVISORY_LOCK_SQL);
@@ -675,11 +751,11 @@ export async function runDr133StagingSuccessorMigration({
     stage = 'LOCKED';
 
     const lockedPreflight = await client.query(DR133_SUCCESSOR_PREFLIGHT_SQL);
-    const lockedState = successorSchemaState(lockedPreflight.rows?.[0]);
-    if (preflightState === 'successor' && lockedState !== 'successor') {
+    const lockedStageIndex = successorSchemaStageIndex(lockedPreflight.rows?.[0]);
+    if (lockedStageIndex < preflightStageIndex) {
       failDr133('SUCCESSOR_SCHEMA_STATE_REGRESSED');
     }
-    alreadyCommitted = lockedState === 'successor';
+    alreadyCommitted = lockedStageIndex === DR133_SUCCESSOR_STAGES.length;
     await client.query("SET statement_timeout = '300s'");
     await client.query("SET lock_timeout = '15s'");
     await client.query("SET idle_in_transaction_session_timeout = '120s'");
@@ -692,17 +768,25 @@ export async function runDr133StagingSuccessorMigration({
     }
 
     if (!alreadyCommitted) {
-      stage = 'BASE_GUARD_DISPATCHED';
-      await client.query(baseGuardVerificationSql);
-      stage = 'BASE_GUARD_VERIFIED';
-      stage = 'IDENTITY_SCOPE_DISPATCHED';
+      if (lockedStageIndex === 0) {
+        stage = 'BASE_GUARD_DISPATCHED';
+        await client.query(baseGuardVerificationSql);
+        stage = 'BASE_GUARD_VERIFIED';
+      }
       mutationDispatched = true;
-      await client.query(artifactById(artifacts, 'identity-scope').bytes.toString('utf8'));
-      stage = 'IDENTITY_SCOPE_RETURNED';
+      await applySuccessorStages({
+        client,
+        artifacts,
+        guards: successorGuards,
+        startIndex: lockedStageIndex,
+        setStage(value) { stage = value; },
+      });
+    } else {
+      const finalSuccessor = DR133_SUCCESSOR_STAGES.at(-1);
+      stage = `${successorStageName(finalSuccessor.id)}_GUARD_DISPATCHED`;
+      await client.query(successorGuards.get(finalSuccessor.id));
+      stage = `${successorStageName(finalSuccessor.id)}_GUARD_VERIFIED`;
     }
-    stage = 'SUCCESSOR_VERIFICATION_DISPATCHED';
-    await client.query(successorGuardVerificationSql);
-    stage = 'SUCCESSOR_GUARD_VERIFIED';
     stage = 'POSTFLIGHT_DISPATCHED';
     const catalogResult = await client.query(DR133_POSTFLIGHT_CATALOG_SQL);
     const nonemptyResult = await client.query(buildNonemptyRelationsSql());
@@ -720,12 +804,7 @@ export async function runDr133StagingSuccessorMigration({
   const cleanupError = await closeClientFailClosed(client, state);
   primaryError ??= cleanupError;
 
-  const foundation = DR133_ARTIFACTS.find((artifact) => artifact.id === 'foundation');
-  const rls = DR133_ARTIFACTS.find((artifact) => artifact.id === 'rls');
-  const identityScope = DR133_ARTIFACTS.find((artifact) => artifact.id === 'identity-scope');
-  const identityScopeRollback = DR133_ARTIFACTS.find(
-    (artifact) => artifact.id === 'identity-scope-rollback',
-  );
+  const receiptHashes = artifactReceiptHashes();
   if (primaryError) {
     const safeFailure = classifySafeFailure(primaryError);
     writeDr133Receipt(output, {
@@ -737,10 +816,7 @@ export async function runDr133StagingSuccessorMigration({
       }),
       runnerCode: safeFailure.runnerCode,
       postgresCode: safeFailure.postgresCode,
-      foundationSha256: foundation.sha256,
-      rlsSha256: rls.sha256,
-      identityScopeSha256: identityScope.sha256,
-      identityScopeRollbackSha256: identityScopeRollback.sha256,
+      ...receiptHashes,
     });
     failDr133(
       safeFailure.postgresCode
@@ -759,10 +835,7 @@ export async function runDr133StagingSuccessorMigration({
     postgresMajor: preflightRow.postgres_major,
     relationCount: Number(postflightRow.relation_count),
     definerCount: Number(postflightRow.definer_count),
-    foundationSha256: foundation.sha256,
-    rlsSha256: rls.sha256,
-    identityScopeSha256: identityScope.sha256,
-    identityScopeRollbackSha256: identityScopeRollback.sha256,
+    ...receiptHashes,
   });
   return Object.freeze({ result: successResult });
 }
@@ -785,12 +858,14 @@ export async function verifyDr133StagingSuccessorSchema({
     const resolved = resolveDr133RunnerEnvironment(environment, { mode: 'schema-verifier' });
     artifacts = await loadVerifiedArtifacts(readFileFn);
     stage = 'ARTIFACTS_VERIFIED';
-    const identityScopeRollbackSource = artifactById(
+    const finalSuccessor = DR133_SUCCESSOR_STAGES.at(-1);
+    const successorRollbackSource = artifactById(
       artifacts,
-      'identity-scope-rollback',
+      finalSuccessor.rollbackId,
     ).bytes.toString('utf8');
-    const successorGuardVerificationSql = extractIdentityScopeRollbackGuardVerificationSql(
-      identityScopeRollbackSource,
+    const successorGuardVerificationSql = extractSuccessorRollbackGuardVerificationSql(
+      successorRollbackSource,
+      finalSuccessor.rollbackId,
     );
 
     client = new ClientClass({
@@ -843,12 +918,7 @@ export async function verifyDr133StagingSuccessorSchema({
   const cleanupError = await closeClientFailClosed(client, state);
   primaryError ??= cleanupError;
 
-  const foundation = DR133_ARTIFACTS.find((artifact) => artifact.id === 'foundation');
-  const rls = DR133_ARTIFACTS.find((artifact) => artifact.id === 'rls');
-  const identityScope = DR133_ARTIFACTS.find((artifact) => artifact.id === 'identity-scope');
-  const identityScopeRollback = DR133_ARTIFACTS.find(
-    (artifact) => artifact.id === 'identity-scope-rollback',
-  );
+  const receiptHashes = artifactReceiptHashes();
   if (primaryError) {
     const safeFailure = classifySafeFailure(primaryError);
     writeDr133Receipt(output, {
@@ -859,10 +929,7 @@ export async function verifyDr133StagingSuccessorSchema({
         : 'NO_MUTATION',
       runnerCode: safeFailure.runnerCode,
       postgresCode: safeFailure.postgresCode,
-      foundationSha256: foundation.sha256,
-      rlsSha256: rls.sha256,
-      identityScopeSha256: identityScope.sha256,
-      identityScopeRollbackSha256: identityScopeRollback.sha256,
+      ...receiptHashes,
     });
     failDr133(
       safeFailure.postgresCode
@@ -878,10 +945,7 @@ export async function verifyDr133StagingSuccessorSchema({
     postgresMajor: preflightRow.postgres_major,
     relationCount: Number(postflightRow.relation_count),
     definerCount: Number(postflightRow.definer_count),
-    foundationSha256: foundation.sha256,
-    rlsSha256: rls.sha256,
-    identityScopeSha256: identityScope.sha256,
-    identityScopeRollbackSha256: identityScopeRollback.sha256,
+    ...receiptHashes,
   });
   return Object.freeze({ result: 'SCHEMA_VERIFIED_NO_MUTATION' });
 }

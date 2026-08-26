@@ -68,13 +68,16 @@ function durableCaseDriver() {
     async selectCase() { return null; },
     async readStudentSafeCase() { return null; },
     async readFacultyCaseProjection() { return null; },
+    async readFacultyDraftingContext() { return null; },
     async readMentorCaseProjection() { return null; },
+    async readFinalDocumentExport() { return null; },
     async reserveCaseCreation() { return null; },
     async commitStudentCaseCreate() { return null; },
     async commitStudentBuilderAutosave() { return null; },
     async commitStudentBuilderComplete() { return null; },
     async commitStudentConsentReceipt() { return null; },
     async commitStudentWaiverReceipt() { return null; },
+    async commitFacultyPrivateContent() { return null; },
     async commitFacultyFinalDocumentRelease() { return null; },
     async executeAtomicCaseCommand() { return null; },
   };
@@ -82,11 +85,11 @@ function durableCaseDriver() {
 
 function durableFacultyDriver() {
   return {
-    atomicInvitationOtpAndAudit: true,
+    atomicFacultyInvitationCommands: true,
     databaseClock: true,
     rlsEnforced: true,
     serverOnly: true,
-    async executeAtomicFacultyVerification() { return null; },
+    async verifyFacultyInvitationAtomic() { return null; },
   };
 }
 
@@ -343,8 +346,8 @@ test('the case repository cannot be constructed without a validated binding', ()
 test('the faculty repository cannot be constructed without a validated binding', () => {
   const options = {
     driver: durableFacultyDriver(),
-    scopeProvider: () => null,
-    verifiedContextProvider: () => null,
+    candidateScopeProvider: () => null,
+    candidateCredentialProvider: () => null,
   };
 
   assert.throws(() => new SupabaseDurableFacultyInvitationRepository(), /integration is unavailable/u);
@@ -368,10 +371,10 @@ test('the faculty repository cannot be constructed without a validated binding',
     ...options,
     binding: resolveLorTargetBinding(localTargetConfiguration({ environment: 'staging' })),
   });
-  const persistence = repository.describePersistence();
-  assert.equal(persistence.environment, 'staging');
-  assert.equal(persistence.productionEligible, false);
-  assert.throws(() => repository.assertProductionReady(), /integration is unavailable/u);
+  assert.equal(repository.binding.environment, 'staging');
+  assert.equal(repository.isDurable, true);
+  assert.equal(repository.databaseClock, true);
+  assert.equal(repository.atomicOtpInvitationAndAudit, true);
 });
 
 test('assertValidatedLorTargetBinding rejects everything it did not produce', () => {

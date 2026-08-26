@@ -346,6 +346,30 @@ function facultyProjection({ revision = 9, releasedAt = '2026-08-19T10:00:00.000
   };
 }
 
+function facultyDraftingContext(overrides = {}) {
+  const text = 'The student coordinated a longitudinal community health project.';
+  return {
+    schemaVersion: 'missionmed.lor.faculty-drafting-context.v1',
+    id: CASE_ID,
+    studentId: STUDENT,
+    status: 'faculty_review',
+    faculty: {
+      facultyId: FACULTY,
+      verifiedAt: '2026-08-19T09:59:00.000Z',
+      recipientEmailHash: sha256('faculty@example.test'),
+    },
+    consentReceipts: [{ id: 'consent-ai-1' }],
+    studentEvidence: [{
+      id: 'evidence-ai-1',
+      caseId: CASE_ID,
+      text,
+      contentHash: sha256(text),
+      consentReceiptId: 'consent-ai-1',
+    }],
+    ...overrides,
+  };
+}
+
 function facultyReleaseCommand(overrides = {}) {
   const expectedRevision = overrides.expectedRevision ?? 8;
   const event = overrides.event ?? createMetadataServiceEvent({
@@ -397,6 +421,107 @@ function facultyReleaseReceipt(statement, transactionId, overrides = {}) {
     auditEventRef: event.eventRef,
     transactionId,
     state,
+    ...overrides,
+  };
+}
+
+function facultyPrivateCommand(overrides = {}) {
+  const expectedRevision = overrides.expectedRevision ?? 8;
+  const event = overrides.event ?? createMetadataServiceEvent({
+    eventId: 'faculty-private-driver',
+    eventType: 'faculty.private_content_updated',
+    caseId: CASE_ID,
+    actorId: FACULTY,
+    actorRole: 'faculty',
+    correlationId: 'faculty-private-driver',
+    revision: expectedRevision + 1,
+    occurredAt: '2026-08-19T09:30:00.000Z',
+  });
+  return {
+    binding: BINDING,
+    scope: scope({
+      actorId: FACULTY,
+      actorRole: 'faculty',
+      resourceStudentId: STUDENT,
+      operation: 'save',
+      invitationId: 'invitation-1',
+      purpose: 'faculty_private_edit',
+    }),
+    expectedRevision,
+    content: {
+      answers: [],
+      notes: [],
+      draftText: 'Faculty draft',
+      finalDocument: {
+        contentHash: null,
+        id: 'document-1',
+        mimeType: 'text/plain',
+        text: 'Final wording',
+      },
+      documentState: 'faculty_final',
+      facultyApproval: {
+        approved: true,
+        approvedAt: '2026-08-19T09:30:00.000Z',
+        facultyId: FACULTY,
+        signatureAttested: true,
+      },
+    },
+    idempotencyKey: 'faculty-private-idempotency',
+    requestHash: sha256('faculty-private-request'),
+    event,
+    ...overrides,
+  };
+}
+
+function facultyPrivateReceipt(statement, transactionId, overrides = {}) {
+  const event = JSON.parse(statement.values[4]);
+  const state = overrides.state ?? facultyProjection({ revision: 9, releasedAt: null });
+  return {
+    schemaVersion: 'missionmed.lor.atomic-command-receipt.v2',
+    action: 'faculty.private_content_update',
+    committed: true,
+    replayed: false,
+    sameTransaction: true,
+    caseId: CASE_ID,
+    studentId: STUDENT,
+    revision: String(state.revision),
+    idempotencyKey: statement.values[2],
+    requestHash: statement.values[3],
+    safeRecordHash: sha256('database-owned-safe-record-private'),
+    protectedStateHash: sha256('database-owned-protected-state-private'),
+    eventHash: statement.values[5],
+    auditEventRef: event.eventRef,
+    transactionId,
+    state,
+    ...overrides,
+  };
+}
+
+function facultyExportDto(overrides = {}) {
+  return {
+    schemaVersion: 'missionmed.lor.final-document-export.v1',
+    caseId: CASE_ID,
+    studentId: STUDENT,
+    actorRef: `actor_${sha256(`lor-studio:actor:${FACULTY}`)}`,
+    actorRole: 'faculty',
+    revision: 9,
+    finalDocument: {
+      contentHash: null,
+      id: 'document-1',
+      mimeType: 'text/plain',
+      releasedToStudentAt: null,
+      text: 'Final wording',
+    },
+    documentState: 'faculty_final',
+    facultyApproval: {
+      approved: true,
+      approvedAt: '2026-08-19T09:30:00.000Z',
+      facultyRef: `faculty_${sha256(`lor-studio:faculty:${FACULTY}`)}`,
+      signatureAttested: true,
+    },
+    waiverState: { decided: true, receiptId: 'waiver-1', waived: false },
+    release: null,
+    exportProjection: 'faculty_owner',
     ...overrides,
   };
 }
@@ -480,7 +605,7 @@ async function captureRejection(operation) {
   assert.fail('expected operation to reject');
 }
 
-test('contract freezes Option A v2 surface and exactly eight privileged read/command functions', () => {
+test('contract freezes the actor-safe Option A v2 privileged read/command surface', () => {
   assert.equal(ATOMIC_RLS_CASE_DRIVER_CONTRACT.authority, 'DR-133');
   assert.equal(
     ATOMIC_RLS_CASE_DRIVER_CONTRACT.commandReceiptSchema,
@@ -493,7 +618,11 @@ test('contract freezes Option A v2 surface and exactly eight privileged read/com
     'commitStudentBuilderComplete',
     'commitStudentConsentReceipt',
     'commitStudentWaiverReceipt',
+    'commitStudentEvidencePublication',
+    'commitFacultyPrivateContent',
     'commitFacultyFinalDocumentRelease',
+    'readFinalDocumentExport',
+    'readFacultyDraftingContext',
   ]);
   assert.deepEqual(ATOMIC_RLS_CASE_DRIVER_CONTRACT.securityDefinerFunctions, [
     'commit_student_case_create',
@@ -503,6 +632,10 @@ test('contract freezes Option A v2 surface and exactly eight privileged read/com
     'commit_student_waiver_receipt',
     'read_mentor_case_projection',
     'read_faculty_case_projection',
+    'read_faculty_drafting_context',
+    'read_final_document_export',
+    'commit_student_evidence_publication',
+    'commit_faculty_private_content',
     'commit_faculty_final_document_release',
   ]);
   assert.equal(ATOMIC_RLS_CASE_DRIVER_CONTRACT.mentorRead.includes('five_field'), true);
@@ -790,6 +923,133 @@ test('faculty read invokes only the exact seven-field actor-safe projection func
   );
   projection = { ...projection, studentId: STUDENT };
   await assert.rejects(() => driver.readFacultyCaseProjection(request));
+});
+
+test('faculty drafting read invokes one fixed DTO function and rejects broader or unbound evidence', async () => {
+  let context = facultyDraftingContext();
+  const executor = createFakeExecutor({
+    respond({ statement }) {
+      assert.equal(statement.statementId, ATOMIC_RLS_CASE_STATEMENTS.readFacultyDraftingContext);
+      assert.deepEqual(statement.values, []);
+      return { rows: [{ result: context }] };
+    },
+  });
+  const driver = createAtomicRlsCaseDriver({ binding: BINDING, executor });
+  const request = {
+    binding: BINDING,
+    scope: scope({
+      actorId: FACULTY,
+      actorRole: 'faculty',
+      resourceStudentId: STUDENT,
+      operation: 'read',
+      invitationId: 'invitation-1',
+      purpose: 'faculty_private_edit',
+    }),
+    caseId: CASE_ID,
+  };
+  assert.deepEqual(await driver.readFacultyDraftingContext(request), {
+    found: true,
+    context,
+  });
+  assert.match(
+    executor.log[1].text,
+    /^SELECT lor_studio\.read_faculty_drafting_context\(\) AS result$/u,
+  );
+
+  context = { ...facultyDraftingContext(), builder: {} };
+  await assert.rejects(() => driver.readFacultyDraftingContext(request));
+  context = facultyDraftingContext({
+    studentEvidence: [{
+      ...facultyDraftingContext().studentEvidence[0],
+      contentHash: sha256('tampered'),
+    }],
+  });
+  await assert.rejects(() => driver.readFacultyDraftingContext(request));
+  context = facultyDraftingContext({
+    faculty: { ...facultyDraftingContext().faculty, facultyId: 'wp:99' },
+  });
+  await assert.rejects(
+    () => driver.readFacultyDraftingContext(request),
+    (error) => error.code === 'AUTHORIZATION_DENIED',
+  );
+});
+
+test('final-document export invokes one fixed actor-safe function and rejects broader DTOs', async () => {
+  let dto = facultyExportDto();
+  const executor = createFakeExecutor({
+    respond({ statement }) {
+      assert.equal(statement.statementId, ATOMIC_RLS_CASE_STATEMENTS.readFinalDocumentExport);
+      assert.deepEqual(statement.values, []);
+      return { rows: [{ result: dto }] };
+    },
+  });
+  const driver = createAtomicRlsCaseDriver({ binding: BINDING, executor });
+  const request = {
+    binding: BINDING,
+    scope: scope({
+      actorId: FACULTY,
+      actorRole: 'faculty',
+      resourceStudentId: STUDENT,
+      operation: 'read',
+      invitationId: 'invitation-1',
+      purpose: 'faculty_private_edit',
+    }),
+    caseId: CASE_ID,
+  };
+  assert.deepEqual(await driver.readFinalDocumentExport(request), {
+    found: true,
+    exportDto: dto,
+  });
+  assert.match(
+    executor.log[1].text,
+    /^SELECT lor_studio\.read_final_document_export\(\) AS result$/u,
+  );
+  dto = { ...dto, facultyPrivate: { draftText: 'must not cross the DTO boundary' } };
+  await assert.rejects(
+    () => driver.readFinalDocumentExport(request),
+    (error) => error.code === 'INTEGRATION_DISABLED',
+  );
+});
+
+test('faculty-private authoring calls the fixed six-argument command ABI with no direct DML', async () => {
+  const executor = createFakeExecutor({
+    respond({ statement, transactionId }) {
+      assert.equal(
+        statement.statementId,
+        ATOMIC_RLS_CASE_STATEMENTS.commitFacultyPrivateContent,
+      );
+      return { rows: [{ result: facultyPrivateReceipt(statement, transactionId) }] };
+    },
+  });
+  const driver = createAtomicRlsCaseDriver({ binding: BINDING, executor });
+  const receipt = await driver.commitFacultyPrivateContent(facultyPrivateCommand());
+  assert.equal(receipt.action, 'faculty.private_content_update');
+  assert.equal(receipt.revision, 9);
+  const rpc = executor.log[1];
+  assert.match(rpc.text, /^SELECT lor_studio\.commit_faculty_private_content\(/u);
+  assert.equal(rpc.values.length, 6);
+  assert.deepEqual(rpc.values.slice(0, 4), [
+    8,
+    JSON.stringify(JSON.parse(rpc.values[1])),
+    'faculty-private-idempotency',
+    sha256('faculty-private-request'),
+  ]);
+  assert.equal(rpc.values[5], hashValue(JSON.parse(rpc.values[4])));
+  const forged = facultyPrivateCommand();
+  forged.content.finalDocument.releasedToStudentAt = '2026-08-19T09:30:00.000Z';
+  await assert.rejects(() => driver.commitFacultyPrivateContent(forged));
+  const unapproved = facultyPrivateCommand();
+  unapproved.content.facultyApproval.approved = false;
+  await assert.rejects(
+    () => driver.commitFacultyPrivateContent(unapproved),
+    (error) => error.code === 'AUTHORIZATION_DENIED',
+  );
+  const unattested = facultyPrivateCommand();
+  unattested.content.facultyApproval.signatureAttested = false;
+  await assert.rejects(
+    () => driver.commitFacultyPrivateContent(unattested),
+    (error) => error.code === 'AUTHORIZATION_DENIED',
+  );
 });
 
 test('faculty release calls the six-argument command ABI and treats database hashes as opaque digests', async () => {

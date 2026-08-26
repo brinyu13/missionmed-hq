@@ -22,6 +22,29 @@ export const BUILDER_STEPS = deepFreeze([
   'faculty_handoff',
 ]);
 
+export const STUDENT_EVIDENCE_SOURCE_FIELDS = deepFreeze({
+  evidence_selection: deepFreeze(['priorityEvidence', 'evidenceSummary']),
+  timeline_highlights: deepFreeze(['standoutMoment', 'timelineSummary']),
+});
+
+export const STUDENT_EVIDENCE_CONSENT_SCOPES = deepFreeze([
+  'ai_drafting',
+  'evidence_grounding',
+]);
+
+/**
+ * Append-only consent receipts use this single-scope value to record withdrawal. The ledger is
+ * never rewritten; the latest receipt is authoritative for future use of student material.
+ */
+export const CONSENT_WITHDRAWN_SCOPE = 'consent_withdrawn';
+export const STUDENT_CONSENT_POLICY_VERSION = 'dr-133-identified-education-record-v1';
+export const STUDENT_CONSENT_GRANT_SCOPES = deepFreeze([
+  'builder_autosave',
+  'faculty_handoff',
+  'ai_drafting',
+  'evidence_grounding',
+]);
+
 export const CASE_STATUSES = deepFreeze([
   'draft',
   'faculty_invited',
@@ -452,8 +475,12 @@ function assertStudentSafeReceipt(receipt, { caseId, studentId, receiptType }) {
       !Array.isArray(receipt.scopes)
       || receipt.scopes.length === 0
       || receipt.scopes.some((scope) => typeof scope !== 'string' || scope.length === 0)
+      || (
+        receipt.scopes.includes(CONSENT_WITHDRAWN_SCOPE)
+        && (receipt.scopes.length !== 1 || receipt.scopes[0] !== CONSENT_WITHDRAWN_SCOPE)
+      )
     ) {
-      throw new DomainInvariantError('Consent receipt scopes must be non-empty strings');
+      throw new DomainInvariantError('Consent receipt scopes must be explicit and unambiguous');
     }
   } else {
     if (typeof receipt.waived !== 'boolean') {
@@ -834,6 +861,71 @@ export function appendStudentSafeReceipt(record, {
     versionChanges: { [field]: receipts },
     now,
   });
+}
+
+/**
+ * Prove that the stored, student-owned builder state is eligible for the database evidence
+ * publication command. This does not construct evidence records: identifiers, text transforms,
+ * hashes, provenance, consent binding, visibility, and the new revision are all derived again by
+ * PostgreSQL from the locked case row. The return value is intentionally metadata-only and is not
+ * forwarded to the repository.
+ */
+export function assertStudentEvidencePublicationEligible(record) {
+  assertStudentSafeRecommendationCase(record);
+  if (record.status !== 'draft') {
+    throw new DomainInvariantError('Student evidence can be published only before faculty invitation');
+  }
+  for (const stepId of [
+    'evidence_selection',
+    'timeline_highlights',
+    'consent_and_waiver',
+  ]) {
+    if (!record.builder.completedStepIds.includes(stepId)) {
+      throw new DomainInvariantError('Evidence publication requires completed evidence and consent steps');
+    }
+  }
+  const understanding = record.builder.stepData.consent_and_waiver?.understanding;
+  if (
+    typeof understanding !== 'string'
+    || understanding.trim() === ''
+    || Buffer.byteLength(understanding.trim(), 'utf8') > 20_000
+  ) {
+    throw new ValidationError('Evidence publication requires a bounded explicit consent understanding');
+  }
+
+  let sourceFieldCount = 0;
+  for (const [stepId, fields] of Object.entries(STUDENT_EVIDENCE_SOURCE_FIELDS)) {
+    const stepData = record.builder.stepData[stepId];
+    if (!stepData || typeof stepData !== 'object' || Array.isArray(stepData)) {
+      throw new ValidationError('Evidence publication requires canonical stored builder evidence');
+    }
+    for (const field of fields) {
+      const value = stepData[field];
+      if (value === undefined || value === null || value === '') continue;
+      if (
+        typeof value !== 'string'
+        || value.trim() === ''
+        || Buffer.byteLength(value.trim(), 'utf8') > 20_000
+      ) {
+        throw new ValidationError('Evidence publication accepts only bounded non-empty builder text');
+      }
+      sourceFieldCount += 1;
+    }
+  }
+  if (sourceFieldCount === 0) {
+    throw new ValidationError('Evidence publication requires at least one eligible builder field');
+  }
+
+  const consentReceipt = record.consentReceipts.at(-1);
+  const consentIsActive = consentReceipt
+    && Array.isArray(consentReceipt.scopes)
+    && !consentReceipt.scopes.includes(CONSENT_WITHDRAWN_SCOPE)
+    && consentReceipt.policyVersion === STUDENT_CONSENT_POLICY_VERSION
+    && STUDENT_EVIDENCE_CONSENT_SCOPES.every((scope) => consentReceipt.scopes.includes(scope));
+  if (!consentIsActive) {
+    throw new DomainInvariantError('Evidence publication requires current drafting and grounding consent');
+  }
+  return deepFreeze({ sourceFieldCount, consentReceiptId: consentReceipt.id });
 }
 
 export function studentSafeBuilderProgress(record) {

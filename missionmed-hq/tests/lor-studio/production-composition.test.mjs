@@ -39,7 +39,16 @@ import {
 import {
   LOR_TARGET_BINDING_SCHEMA,
   LOR_TARGET_IDENTITY_FIELDS,
+  resolveLorTargetBinding,
 } from '../../lor-studio/adapters/lor-target-binding.mjs';
+import {
+  PRODUCTION_DEPENDENCY_RECEIPT_SCHEMA,
+  PRODUCTION_OPERATIONAL_READINESS_CONTRACT,
+  productionOperationalReadinessTargetRef,
+} from '../../lor-studio/adapters/production-operational-readiness.mjs';
+import { PrivateVersionedStorageAdapter } from '../../lor-studio/adapters/private-versioned-storage-adapter.mjs';
+import { PostmarkFacultyInvitationAdapter } from '../../lor-studio/adapters/faculty-otp-postmark-adapters.mjs';
+import { PostmarkFacultyInvitationTransport } from '../../lor-studio/adapters/postmark-faculty-invitation-transport.mjs';
 import { createLorStudioRuntime } from '../../lor-studio/http/runtime.mjs';
 import { InMemoryRecommendationCaseRepository } from '../../lor-studio/repositories/in-memory-recommendation-case-repository.js';
 import {
@@ -71,6 +80,47 @@ import { sha256 } from '../../lor-studio/domain/value-utils.js';
 
 const RANKLISTIQ_PRODUCTION_PROJECT_REF = 'fglyvdykwgbuivikqoah';
 const HISTORICAL_NO_TOUCH_BRANCH_ID = 'mftguikkftmrxjxrkdln';
+
+function authenticTestFacultyEmailPort() {
+  const invitationOrigin = 'https://lor.example.test';
+  const transport = new PostmarkFacultyInvitationTransport({
+    binding: {
+      schemaVersion: 'missionmed.lor.postmark-transport-binding.v1',
+      provider: 'postmark',
+      providerResourceBound: true,
+      independentlyVerified: true,
+      serverId: 'postmark-composition-test',
+      senderIdentityVerified: true,
+      templateVerified: true,
+      fromEmail: 'lor@example.test',
+      replyToEmail: '',
+      invitationOrigin,
+      invitationRouteTemplate: '/lor-studio/invitations/{invitationId}',
+      templateAlias: 'lor-faculty-invitation-v1',
+      messageStream: 'outbound',
+    },
+    credentialProvider: {
+      serverOnly: true,
+      async getServerToken() { return 'test-only-postmark-token'; },
+    },
+    fetchImplementation: async () => { throw new Error('unexpected provider call'); },
+    clock: () => new Date('2026-08-25T12:00:00.000Z'),
+  });
+  return new PostmarkFacultyInvitationAdapter({
+    binding: {
+      providerResourceBound: true,
+      independentlyVerified: true,
+      provider: 'postmark',
+      senderIdentityVerified: true,
+      serverSideCredentials: true,
+      invitationOrigin,
+      invitationRouteTemplate: '/lor-studio/invitations/{invitationId}',
+      templateAlias: 'lor-faculty-invitation-v1',
+    },
+    transport,
+    clock: () => new Date('2026-08-25T12:00:00.000Z'),
+  });
+}
 
 /** An explicit, ratified, NON-denied test target. There is no default target by design. */
 function testTargetConfiguration(overrides = {}) {
@@ -116,9 +166,12 @@ function actorSafeDriver() {
     rlsEnforced: true,
     serverOnly: true,
     actorSafeCommands: true,
+    databaseClock: true,
+    appendOnlyArtifactAudit: true,
     async selectCase() {},
     async readStudentSafeCase() {},
     async readFacultyCaseProjection() {},
+    async readFacultyDraftingContext() {},
     async readMentorCaseProjection() {},
     async reserveCaseCreation() {},
     async commitStudentCaseCreate() {},
@@ -126,8 +179,34 @@ function actorSafeDriver() {
     async commitStudentBuilderComplete() {},
     async commitStudentConsentReceipt() {},
     async commitStudentWaiverReceipt() {},
+    async commitStudentEvidencePublication() {},
     async commitFacultyFinalDocumentRelease() {},
+    async appendArtifactExportAuditAtomic() {},
     async executeAtomicCaseCommand() {},
+  };
+}
+
+function fullProductDriver() {
+  return {
+    ...actorSafeDriver(),
+    databaseClock: true,
+    actorSafeReads: true,
+    atomicProviderCallReservation: true,
+    atomicProviderRunAndProposal: true,
+    conditionalAtomicOneDecision: true,
+    atomicFacultyInvitationCommands: true,
+    async reserveAiProposalGenerationAtomic() {},
+    async markAiProposalGenerationUnknownAtomic() {},
+    async persistProviderRunAndProposalAtomic() {},
+    async readActorSafeAiProposal() {},
+    async attachDecisionIfUndecidedAtomic() {},
+    async issueFacultyInvitationAtomic() {},
+    async resendFacultyInvitationOtpAtomic() {},
+    async revokeFacultyInvitationAtomic() {},
+    async reserveFacultyInvitationDeliveryAtomic() {},
+    async markFacultyInvitationDeliveryUnknownAtomic() {},
+    async commitFacultyInvitationDeliveryAtomic() {},
+    async verifyFacultyInvitationAtomic() {},
   };
 }
 
@@ -183,19 +262,61 @@ class InMemoryAiProposalStore {
   }
 
   #reserve(caseId, idempotencyKey, requestHash, proposalId) {
-    this.idempotency.set(InMemoryAiProposalStore.key(caseId, idempotencyKey), { requestHash, proposalId });
+    this.idempotency.set(InMemoryAiProposalStore.key(caseId, idempotencyKey), {
+      requestHash, proposalId, status: 'accepted',
+    });
   }
 
-  async putProposal({ caseId, idempotencyKey, requestHash, record }) {
+  async reserveProposalGeneration({ caseId, idempotencyKey, requestHash }) {
+    const key = InMemoryAiProposalStore.key(caseId, idempotencyKey);
+    const existing = this.idempotency.get(key);
+    if (existing) {
+      if (existing.requestHash !== requestHash) throw new IdempotencyConflictError({ idempotencyKey });
+      return {
+        status: existing.status,
+        providerCallAuthorized: false,
+        replayed: true,
+        record: existing.proposalId
+          ? structuredClone(this.records.get(InMemoryAiProposalStore.key(caseId, existing.proposalId)))
+          : null,
+      };
+    }
+    this.idempotency.set(key, { requestHash, proposalId: null, status: 'pending' });
+    return { status: 'pending', providerCallAuthorized: true, replayed: false, record: null };
+  }
+
+  async finalizeProposalGeneration({ caseId, idempotencyKey, requestHash, record }) {
     if (record.decision !== null || record.acceptedContent !== null) {
       throw new Error('A stored AI proposal may not arrive already decided');
     }
-    const replay = this.#replay(caseId, idempotencyKey, requestHash);
-    if (replay) return replay;
-    this.#reserve(caseId, idempotencyKey, requestHash, record.id);
+    const key = InMemoryAiProposalStore.key(caseId, idempotencyKey);
+    const reserved = this.idempotency.get(key);
+    if (!reserved || reserved.status === 'unknown') throw new Error('AI generation is not pending');
+    if (reserved.requestHash !== requestHash) throw new IdempotencyConflictError({ idempotencyKey });
+    if (reserved.status === 'accepted') return this.#replay(caseId, idempotencyKey, requestHash);
+    this.idempotency.set(key, { requestHash, proposalId: record.id, status: 'accepted' });
     this.records.set(InMemoryAiProposalStore.key(caseId, record.id), structuredClone(record));
     this.writes.push({ operation: 'put', caseId, proposalId: record.id });
     return { record: structuredClone(record), replayed: false };
+  }
+
+  async putProposal(request) {
+    return this.finalizeProposalGeneration(request);
+  }
+
+  async markProposalGenerationUnknown({ caseId, idempotencyKey, requestHash }) {
+    const key = InMemoryAiProposalStore.key(caseId, idempotencyKey);
+    const reserved = this.idempotency.get(key);
+    if (!reserved) throw new Error('AI generation reservation is absent');
+    if (reserved.requestHash !== requestHash) throw new IdempotencyConflictError({ idempotencyKey });
+    if (reserved.status === 'accepted') {
+      return {
+        status: 'accepted', providerCallAuthorized: false, replayed: true,
+        record: structuredClone(this.records.get(InMemoryAiProposalStore.key(caseId, reserved.proposalId))),
+      };
+    }
+    reserved.status = 'unknown';
+    return { status: 'unknown', providerCallAuthorized: false, replayed: false, record: null };
   }
 
   async getProposal({ caseId, proposalId }) {
@@ -443,6 +564,92 @@ test('production runtime dependencies are constructed only after target and enti
   assert.equal(composed.runtimeDependencies, runtimeDependencies);
 });
 
+test('production entitlement is constructed only after the database actor resolver exists', () => {
+  const actorResolver = Object.freeze({
+    async resolve() { throw new Error('request resolution is lazy'); },
+  });
+  const entitlementPort = new StaticEntitlementTestAdapter([]);
+  let factoryCalls = 0;
+  const runtimeDependencies = Object.freeze({
+    driver: actorSafeDriver(),
+    scopeProvider: async () => { throw new Error('request scope is lazy'); },
+    actorResolver,
+    close: async () => {},
+  });
+
+  const composed = createLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPortFactory(input) {
+      factoryCalls += 1;
+      assert.deepEqual(Object.keys(input), ['actorResolver']);
+      assert.equal(input.actorResolver, actorResolver);
+      return entitlementPort;
+    },
+    runtimeDependencyFactory: () => runtimeDependencies,
+  });
+
+  assert.ok(composed.application);
+  assert.equal(factoryCalls, 1);
+  assert.equal(composed.entitlementPort, entitlementPort);
+  assert.equal(composed.runtimeDependencies, runtimeDependencies);
+});
+
+test('entitlement factory cannot run without the bound database actor resolver', () => {
+  let factoryCalls = 0;
+  let closes = 0;
+  const composed = createLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPortFactory() {
+      factoryCalls += 1;
+      return new StaticEntitlementTestAdapter([]);
+    },
+    runtimeDependencyFactory: () => ({
+      driver: actorSafeDriver(),
+      scopeProvider: async () => ({}),
+      async close() { closes += 1; },
+    }),
+  });
+
+  assert.equal(composed.application, null);
+  assert.equal(composed.reason, LOR_COMPOSITION_REASONS.COMPOSITION_FAILED);
+  assert.equal(factoryCalls, 0);
+  assert.equal(closes, 1);
+});
+
+test('composition constructs the durable AI and faculty invitation graph over one bound driver', () => {
+  const driver = fullProductDriver();
+  const scopeProvider = async () => { throw new Error('request scope is lazy'); };
+  const candidateScopeProvider = async () => { throw new Error('candidate scope is lazy'); };
+  const composed = createLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPort: new StaticEntitlementTestAdapter([]),
+    driver,
+    scopeProvider,
+    candidateScopeProvider,
+    aiProposalProvider: { async generateProposal() {} },
+    facultyEmailPort: authenticTestFacultyEmailPort(),
+    facultyInvitationSecretDeriver: {
+      deriveIssue() {},
+      deriveResend() {},
+      tokenForInvitation() {},
+    },
+    invitationOrigin: 'https://lor.example.test',
+  });
+
+  assert.ok(composed.application);
+  assert.equal(composed.aiProposalStore?.isDurable, true);
+  assert.equal(composed.aiProposalStore?.driver, driver);
+  assert.equal(composed.facultyInvitationCommandRepository?.driver, driver);
+  assert.equal(composed.facultyInvitationVerificationRepository?.driver, driver);
+  for (const method of ['requestProposal', 'recordProposalDecision', 'getProposal']) {
+    assert.equal(typeof composed.aiDraftingService?.[method], 'function');
+  }
+  for (const method of ['issue', 'resendOtp', 'revoke']) {
+    assert.equal(typeof composed.facultyInvitationLifecycleService?.[method], 'function');
+  }
+  assert.equal(typeof composed.facultyInvitationVerificationService?.verify, 'function');
+});
+
 test('runtime dependency construction failures are redacted', () => {
   const secret = 'postgresql://runtime:do-not-emit@private.example.test/railway';
   const composed = createLorStudioApplication({
@@ -625,7 +832,7 @@ function draftCaseRevisions() {
       caseId: DRAFT_CASE_ID,
       studentId: DRAFT_STUDENT_ID,
       scopes: ['ai_drafting', 'evidence_grounding'],
-      policyVersion: 'dr-119-v1',
+      policyVersion: 'dr-133-identified-education-record-v1',
       recordedAt: T0,
     }),
     now: T0,
@@ -764,12 +971,14 @@ test('an absent AI proposal store disables drafting only, and does not take the 
 });
 
 test('production composition never falls back to deterministic AI when a store appears without a provider', () => {
+  const durableStoreWithoutProvider = new InMemoryAiProposalStore();
+  durableStoreWithoutProvider.isDurable = true;
   const composed = createLorStudioApplication({
     targetConfiguration: testTargetConfiguration(),
     entitlementPort: new StaticEntitlementTestAdapter([]),
     driver: actorSafeDriver(),
     scopeProvider: async () => { throw new Error('not executed during composition'); },
-    aiProposalStore: new InMemoryAiProposalStore(),
+    aiProposalStore: durableStoreWithoutProvider,
     allowNonDurableForTests: false,
   });
   assert.ok(composed.application);
@@ -1059,6 +1268,330 @@ test('one exact green runtime readiness receipt retains the durable application'
   assert.equal(closes, 0);
 });
 
+function productionProviderReceipts(targetConfiguration, overrides = {}) {
+  const targetRef = productionOperationalReadinessTargetRef(
+    resolveLorTargetBinding(targetConfiguration),
+  );
+  return Object.fromEntries(
+    PRODUCTION_OPERATIONAL_READINESS_CONTRACT.providerReceiptDependencies.map((dependency) => [
+      dependency,
+      {
+        schemaVersion: PRODUCTION_DEPENDENCY_RECEIPT_SCHEMA,
+        dependency,
+        state: 'ready',
+        errorCode: '',
+        targetRef,
+        evidenceRef: sha256(`production-composition:${dependency}`),
+        observedAt: '2026-08-25T11:59:00.000Z',
+        expiresAt: '2026-08-25T12:10:00.000Z',
+        ...(overrides[dependency] ?? {}),
+      },
+    ]),
+  );
+}
+
+function concreteOperationalSurfaces() {
+  const privateStorageService = new PrivateVersionedStorageAdapter({
+    binding: {
+      providerResourceBound: true,
+      independentlyVerified: true,
+      bucket: 'lor-writer-depot',
+      private: true,
+      versioned: true,
+      serverMediated: true,
+      policyVerified: true,
+      storageIdentity: 'production-composition-test-storage',
+    },
+    driver: {
+      privateOnly: true,
+      immutableVersions: true,
+      serverOnly: true,
+      async putImmutable() { throw new Error('not called by bootstrap'); },
+      async getImmutable() { throw new Error('not called by bootstrap'); },
+    },
+    capabilityProvider: {
+      async resolveStorageCapability() { throw new Error('not called by bootstrap'); },
+    },
+    clock: () => new Date('2026-08-25T12:00:00.000Z'),
+  });
+  return {
+    aiProposalStore: {
+      isDurable: true,
+      atomicProviderCallReservation: true,
+      atomicProviderRunAndProposal: true,
+      conditionalAtomicOneDecision: true,
+      async reserveProposalGeneration() {},
+      async finalizeProposalGeneration() {},
+      async markProposalGenerationUnknown() {},
+      async putProposal() {},
+      async getProposal() {},
+      async attachDecision() {},
+    },
+    aiProposalProvider: { async generateProposal() {} },
+    facultyInvitationLifecycleService: {
+      async issue() {},
+      async resendOtp() {},
+      async revoke() {},
+    },
+    facultyInvitationVerificationService: { async verify() {} },
+    privateStorageService,
+  };
+}
+
+test('caller readiness booleans cannot mint measured operational authority', async () => {
+  const composed = createLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPort: new StaticEntitlementTestAdapter([eligibleStudent('wp:1')]),
+    driver: actorSafeDriver(),
+    scopeProvider: async () => ({}),
+    providersReady: true,
+    allAcceptedFunctionsOperational: true,
+    ...concreteOperationalSurfaces(),
+  });
+  assert.ok(composed.application);
+  const bootstrap = await composed.application.getBootstrap();
+  assert.equal(bootstrap.operational, false);
+  assert.equal(bootstrap.providersReady, false);
+  assert.equal(bootstrap.capabilities.fullAcceptedFunctionSet, false);
+});
+
+test('raw provider receipts cannot recompose one pool into a live durable application', async () => {
+  let runtimeFactoryCalls = 0;
+  let entitlementFactoryCalls = 0;
+  let runtimeProbes = 0;
+  let closes = 0;
+  const targetConfiguration = testTargetConfiguration({
+    environment: 'production',
+    productionDataBindingPassed: true,
+  });
+  const providerReceipts = productionProviderReceipts(targetConfiguration);
+  const releaseFlags = Object.freeze({ enabled: true, killSwitch: false, requireCanary: true });
+  const clock = () => new Date('2026-08-25T12:00:00.000Z');
+  const dependencies = {
+    driver: actorSafeDriver(),
+    scopeProvider: async () => ({}),
+    actorResolver: Object.freeze({ async resolve() { return null; } }),
+    readiness: {
+      async probe() {
+        runtimeProbes += 1;
+        return {
+          ready: true,
+          reasonCode: 'READY',
+          groups: { auditCatalog: true, database: true, repository: true, rls: true },
+        };
+      },
+    },
+    async close() { closes += 1; },
+  };
+
+  const result = await createReadinessGatedLorStudioApplication({
+    targetConfiguration,
+    entitlementPortFactory({ actorResolver }) {
+      entitlementFactoryCalls += 1;
+      assert.equal(actorResolver, dependencies.actorResolver);
+      return new StaticEntitlementTestAdapter([eligibleStudent('wp:1')]);
+    },
+    runtimeDependencyFactory() {
+      runtimeFactoryCalls += 1;
+      return dependencies;
+    },
+    providerReceipts,
+    releaseFlags,
+    clock,
+    ...concreteOperationalSurfaces(),
+  });
+
+  assert.equal(result.application, null);
+  assert.equal(result.reason, LOR_COMPOSITION_REASONS.RUNTIME_READINESS_FAILED);
+  assert.equal(runtimeFactoryCalls, 1, 'the product must allocate exactly one database pool');
+  assert.equal(entitlementFactoryCalls, 1);
+  assert.equal(runtimeProbes, 1);
+  assert.equal(closes, 1);
+});
+
+test('green receipts cannot make the product live while concrete accepted-function surfaces are absent', async () => {
+  let closes = 0;
+  const targetConfiguration = testTargetConfiguration({
+    environment: 'production',
+    productionDataBindingPassed: true,
+  });
+  const result = await createReadinessGatedLorStudioApplication({
+    targetConfiguration,
+    entitlementPort: new StaticEntitlementTestAdapter([eligibleStudent('wp:1')]),
+    runtimeDependencyFactory: () => ({
+      driver: actorSafeDriver(),
+      scopeProvider: async () => ({}),
+      readiness: {
+        async probe() {
+          return {
+            ready: true,
+            reasonCode: 'READY',
+            groups: { auditCatalog: true, database: true, repository: true, rls: true },
+          };
+        },
+      },
+      async close() { closes += 1; },
+    }),
+    providerReceipts: productionProviderReceipts(targetConfiguration),
+    releaseFlags: { enabled: true, killSwitch: false, requireCanary: true },
+    clock: () => new Date('2026-08-25T12:00:00.000Z'),
+  });
+  assert.equal(result.application, null);
+  assert.equal(result.reason, LOR_COMPOSITION_REASONS.RUNTIME_READINESS_FAILED);
+  assert.equal(closes, 1);
+});
+
+test('measured readiness cannot bypass the durable protected-export audit sink', async () => {
+  let closes = 0;
+  const targetConfiguration = testTargetConfiguration({
+    environment: 'production',
+    productionDataBindingPassed: true,
+  });
+  const surfaces = concreteOperationalSurfaces();
+  const driverWithoutArtifactAudit = actorSafeDriver();
+  driverWithoutArtifactAudit.appendOnlyArtifactAudit = false;
+  delete driverWithoutArtifactAudit.appendArtifactExportAuditAtomic;
+  const result = await createReadinessGatedLorStudioApplication({
+    targetConfiguration,
+    entitlementPort: new StaticEntitlementTestAdapter([eligibleStudent('wp:1')]),
+    runtimeDependencyFactory: () => ({
+      driver: driverWithoutArtifactAudit,
+      scopeProvider: async () => ({}),
+      readiness: {
+        async probe() {
+          return {
+            ready: true,
+            reasonCode: 'READY',
+            groups: { auditCatalog: true, database: true, repository: true, rls: true },
+          };
+        },
+      },
+      async close() { closes += 1; },
+    }),
+    providerReceipts: productionProviderReceipts(targetConfiguration),
+    releaseFlags: { enabled: true, killSwitch: false, requireCanary: true },
+    clock: () => new Date('2026-08-25T12:00:00.000Z'),
+    ...surfaces,
+  });
+  assert.equal(result.application, null);
+  assert.equal(result.reason, LOR_COMPOSITION_REASONS.RUNTIME_READINESS_FAILED);
+  assert.equal(closes, 1);
+});
+
+test('a shape-only no-op storage object cannot count as provider-bound storage', async () => {
+  const surfaces = concreteOperationalSurfaces();
+  surfaces.privateStorageService = {
+    durability: 'DURABLE_PROVIDER_BOUND',
+    async put() {},
+    async get() {},
+  };
+  const result = createLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPort: new StaticEntitlementTestAdapter([eligibleStudent('wp:1')]),
+    driver: actorSafeDriver(),
+    scopeProvider: async () => ({}),
+    ...surfaces,
+  });
+  assert.equal(result.application, null);
+  assert.equal(result.reason, LOR_COMPOSITION_REASONS.COMPOSITION_FAILED);
+});
+
+test('operational readiness requires the complete exact dependency and database group sets', async () => {
+  const targetConfiguration = testTargetConfiguration({
+    environment: 'production',
+    productionDataBindingPassed: true,
+  });
+  const validReceipts = productionProviderReceipts(targetConfiguration);
+  const missingStorage = { ...validReceipts };
+  delete missingStorage.storage;
+  const cases = [
+    {
+      providerReceipts: missingStorage,
+      groups: { auditCatalog: true, database: true, repository: true, rls: true },
+    },
+    {
+      providerReceipts: { ...validReceipts, unexpected: validReceipts.ai },
+      groups: { auditCatalog: true, database: true, repository: true, rls: true },
+    },
+    {
+      providerReceipts: productionProviderReceipts(targetConfiguration, {
+        storage: { state: 'unavailable', errorCode: 'NOT_BOUND' },
+      }),
+      groups: { auditCatalog: true, database: true, repository: true, rls: true },
+    },
+    { providerReceipts: validReceipts, groups: {} },
+    {
+      providerReceipts: validReceipts,
+      groups: {
+        auditCatalog: true,
+        database: true,
+        repository: true,
+        rls: true,
+        unexpected: true,
+      },
+    },
+  ];
+
+  for (const candidate of cases) {
+    let closes = 0;
+    const result = await createReadinessGatedLorStudioApplication({
+      targetConfiguration,
+      entitlementPort: new StaticEntitlementTestAdapter([eligibleStudent('wp:1')]),
+      runtimeDependencyFactory: () => ({
+        driver: actorSafeDriver(),
+        scopeProvider: async () => ({}),
+        readiness: {
+          async probe() {
+            return { ready: true, reasonCode: 'READY', groups: candidate.groups };
+          },
+        },
+        async close() { closes += 1; },
+      }),
+      providerReceipts: candidate.providerReceipts,
+      releaseFlags: { enabled: true, killSwitch: false, requireCanary: true },
+      clock: () => new Date('2026-08-25T12:00:00.000Z'),
+    });
+    assert.equal(result.application, null);
+    assert.equal(result.reason, LOR_COMPOSITION_REASONS.RUNTIME_READINESS_FAILED);
+    assert.equal(closes, 1);
+  }
+});
+
+test('caller-supplied operational readiness factories cannot mint live authority', async () => {
+  for (const operationalReadinessFactory of [null, {}, () => ({
+    async snapshot() {
+      return {
+        status: 'ready',
+        productionOperational: true,
+        dependencies: {},
+        databaseProbeGroups: {},
+      };
+    },
+  })]) {
+    let runtimeFactoryCalls = 0;
+    let maliciousFactoryCalls = 0;
+    const suppliedFactory = typeof operationalReadinessFactory === 'function'
+      ? (...args) => {
+        maliciousFactoryCalls += 1;
+        return operationalReadinessFactory(...args);
+      }
+      : operationalReadinessFactory;
+    const result = await createReadinessGatedLorStudioApplication({
+      targetConfiguration: testTargetConfiguration(),
+      entitlementPort: new StaticEntitlementTestAdapter([eligibleStudent('wp:1')]),
+      runtimeDependencyFactory() {
+        runtimeFactoryCalls += 1;
+        throw new Error('must not allocate');
+      },
+      operationalReadinessFactory: suppliedFactory,
+    });
+    assert.equal(result.application, null);
+    assert.equal(result.reason, LOR_COMPOSITION_REASONS.RUNTIME_READINESS_FAILED);
+    assert.equal(runtimeFactoryCalls, 0);
+    assert.equal(maliciousFactoryCalls, 0);
+  }
+});
+
 test('false, malformed, and throwing readiness close once and expose one safe reason', async () => {
   const candidates = [
     async () => ({ ready: false, reasonCode: 'secret provider detail', checks: { database: false } }),
@@ -1191,12 +1724,12 @@ test('SOURCE GUARD: the composition root passes a drafting service to the applic
   assert.match(adapterCall[0], /aiDraftingService,/u,
     'the adapter MUST receive aiDraftingService - omitting it is what leaves clause 8 dark');
 
-  // The store is a dependency, never a default. A composition root that constructed its own
-  // store would be deciding, on a deployment's behalf, that losing proposals is acceptable.
+  // The store is either explicitly injected or constructed over the same validated durable
+  // database driver. It is never an in-memory production default.
   // Production also requires an explicit privacy-approved provider; the deterministic adapter
   // exists only behind the explicit non-durable test gate.
-  assert.match(source, /const draftingAvailable = Boolean\(aiProposalStore && proposalProvider\)/u,
-    'drafting availability must require both a store and an approved provider');
+  assert.match(source, /const draftingAvailable = Boolean\(proposalStoreDurableEnough && proposalProvider\)/u,
+    'drafting availability must require a durable store and an approved provider');
   assert.match(source, /draftingAvailable\s*\?\s*createAiDraftingService\(\{/u,
     'the drafting service must be constructed only when a store was supplied');
   assert.equal(
@@ -1208,7 +1741,10 @@ test('SOURCE GUARD: the composition root passes a drafting service to the applic
   // No credential, no environment key, and no network provider on the drafting path. The only
   // environment reads in this module are the explicit target keys, which are enumerated in
   // LOR_TARGET_ENV_KEYS and validated by the binding resolver.
-  const draftingBlock = source.slice(source.indexOf('const proposalService'), source.indexOf('const application'));
+  const draftingBlock = source.slice(
+    source.indexOf('const proposalService'),
+    source.indexOf('let resolvedFacultyInvitationLifecycleService'),
+  );
   assert.ok(draftingBlock.length > 0, 'the drafting construction block must be present');
   for (const forbidden of ['process.env', 'apiKey', 'API_KEY', 'token', 'secret', 'fetch(']) {
     assert.equal(draftingBlock.includes(forbidden), false,

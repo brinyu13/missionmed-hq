@@ -52,6 +52,7 @@ const RELEASE_AT = new Date('2026-08-09T15:00:00.000Z');
 const NOW = new Date('2026-08-09T16:00:00.000Z');
 const FINAL_TEXT = 'Amara has been the strongest applicant I have supervised in six years.';
 const STUDENT_SCHEMA = 'missionmed.lor.student-projection.v1';
+const CONSENT_POLICY_VERSION = 'dr-133-identified-education-record-v1';
 
 /**
  * The materialized page, reduced to the parts the renderer interacts with. The frozen prototype
@@ -132,7 +133,7 @@ function draftCase() {
       caseId: CASE_ID,
       studentId: STUDENT_ID,
       scopes: ['builder_autosave', 'faculty_handoff'],
-      policyVersion: 'dr-119-v1',
+      policyVersion: CONSENT_POLICY_VERSION,
       recordedAt: T0,
       idFactory,
     }),
@@ -159,6 +160,91 @@ function draftCase() {
   });
 }
 
+/** A draft whose eight steps are complete and is therefore eligible for faculty invitation. */
+function invitableCase() {
+  const idFactory = deterministicIdFactory('iid');
+  let record = createRecommendationCase({
+    id: CASE_ID,
+    studentId: STUDENT_ID,
+    now: T0,
+    builderSessionId: 'builder-session-invitable',
+    idFactory,
+  });
+  record = appendReceipt(record, {
+    actorId: STUDENT_ID,
+    receiptType: 'consent',
+    receipt: createConsentReceipt({
+      caseId: CASE_ID,
+      studentId: STUDENT_ID,
+      scopes: ['builder_autosave', 'faculty_handoff', 'ai_drafting', 'evidence_grounding'],
+      policyVersion: CONSENT_POLICY_VERSION,
+      recordedAt: T0,
+      idFactory,
+    }),
+    now: T0,
+  });
+  for (const [index, stepId] of BUILDER_STEPS.entries()) {
+    record = autosaveBuilderStep(record, {
+      actorId: STUDENT_ID,
+      stepId,
+      stepData: stepDataFor(index),
+      now: new Date(T0.valueOf() + index * 2_000),
+    });
+    record = completeBuilderStep(record, {
+      actorId: STUDENT_ID,
+      stepId,
+      now: new Date(T0.valueOf() + index * 2_000 + 1_000),
+    });
+  }
+  return record;
+}
+
+/** A draft with the minimum completed, consented source material the publication command accepts. */
+function evidencePublishableCase() {
+  const idFactory = deterministicIdFactory('eid');
+  let record = createRecommendationCase({
+    id: CASE_ID,
+    studentId: STUDENT_ID,
+    now: T0,
+    builderSessionId: 'builder-session-evidence',
+    idFactory,
+  });
+  record = appendReceipt(record, {
+    actorId: STUDENT_ID,
+    receiptType: 'consent',
+    receipt: createConsentReceipt({
+      caseId: CASE_ID,
+      studentId: STUDENT_ID,
+      scopes: ['builder_autosave', 'faculty_handoff', 'ai_drafting', 'evidence_grounding'],
+      policyVersion: CONSENT_POLICY_VERSION,
+      recordedAt: T0,
+      idFactory,
+    }),
+    now: T0,
+  });
+  const lastRequiredIndex = BUILDER_STEPS.indexOf('consent_and_waiver');
+  for (const [index, stepId] of BUILDER_STEPS.entries()) {
+    if (index > lastRequiredIndex) break;
+    const stepData = stepId === 'evidence_selection'
+      ? { priorityEvidence: 'Led the clinic quality-improvement project.' }
+      : stepId === 'timeline_highlights'
+        ? { standoutMoment: 'Presented the measured outcome to the care team.' }
+        : stepDataFor(index);
+    record = autosaveBuilderStep(record, {
+      actorId: STUDENT_ID,
+      stepId,
+      stepData,
+      now: new Date(T0.valueOf() + index * 2_000),
+    });
+    record = completeBuilderStep(record, {
+      actorId: STUDENT_ID,
+      stepId,
+      now: new Date(T0.valueOf() + index * 2_000 + 1_000),
+    });
+  }
+  return record;
+}
+
 /** A case carried all the way through faculty approval and an explicit release to the student. */
 function releasedCase({ waived = false, released = true } = {}) {
   const idFactory = deterministicIdFactory('rid');
@@ -176,7 +262,7 @@ function releasedCase({ waived = false, released = true } = {}) {
       caseId: CASE_ID,
       studentId: STUDENT_ID,
       waived,
-      policyVersion: 'dr-119-v1',
+      policyVersion: CONSENT_POLICY_VERSION,
       acknowledgment: waived ? 'I waive access.' : 'I retain access to the final letter.',
       recordedAt: T0,
       idFactory,
@@ -677,7 +763,31 @@ test('rendering is refused when the caller asks for prototype reveal or local pe
   assertPrototypeStillQuarantined(harness);
 });
 
-test('a non-student projection is refused rather than rendered as a student workspace', async () => {
+test('the exact five-field mentor projection renders read only and never becomes a student workspace', async () => {
+  const harness = createHarness();
+  const projection = {
+    schemaVersion: 'missionmed.lor.mentor-projection.v1',
+    caseId: CASE_ID,
+    status: 'faculty_review',
+    strategyStatus: 'faculty_review',
+    nextMilestone: 'faculty_approval',
+    deliveryStatus: 'not_started',
+  };
+  await harness.ui.renderProductionProjection(
+    projection,
+    { ...liveContext(CASE_ID), actorRole: 'mentor', projectionSchema: projection.schemaVersion },
+  );
+  assert.equal(harness.ui.renderedSurface, 'mentor');
+  assert.equal(harness.ui.renderedRevision, null);
+  assert.match(harness.text(), /Mentor case status/u);
+  assert.match(harness.text(), /Faculty approval/u);
+  assert.match(harness.text(), /This is the exact read-only mentor projection/u);
+  assert.equal(harness.mount.querySelector('.stepRail'), null);
+  assert.equal(harness.mount.querySelector('button'), null);
+  assertNoInternalLeak(harness);
+});
+
+test('a mentor projection with any extra field is refused instead of widening the read model', async () => {
   const harness = createHarness();
   await assert.rejects(
     () => harness.ui.renderProductionProjection(
@@ -688,12 +798,17 @@ test('a non-student projection is refused rather than rendered as a student work
         strategyStatus: null,
         nextMilestone: null,
         deliveryStatus: null,
+        facultyPrivate: { draftText: 'must never render' },
       },
-      { ...liveContext(CASE_ID), actorRole: 'mentor', projectionSchema: 'missionmed.lor.mentor-projection.v1' },
+      {
+        ...liveContext(CASE_ID),
+        actorRole: 'mentor',
+        projectionSchema: 'missionmed.lor.mentor-projection.v1',
+      },
     ),
-    /student case view only/u,
+    /exact safe allowlist/u,
   );
-  assert.equal(harness.mount.querySelector('.stepRail'), null);
+  assert.ok(!harness.text().includes('must never render'));
 });
 
 test('a hydration failure leaves a closed, honest screen and no case content', async () => {
@@ -961,6 +1076,14 @@ function commandRecorder(responders = {}) {
       autosaveBuilderStep: command('autosaveBuilderStep'),
       completeBuilderStep: command('completeBuilderStep'),
       recordReceipt: command('recordReceipt'),
+      publishStudentEvidence: command('publishStudentEvidence'),
+      inviteFaculty: command('inviteFaculty'),
+      resendFacultyOtp: command('resendFacultyOtp'),
+      revokeFacultyInvitation: command('revokeFacultyInvitation'),
+      saveFacultyPrivateContent: command('saveFacultyPrivateContent'),
+      requestAiProposal: command('requestAiProposal'),
+      readAiProposal: command('readAiProposal'),
+      decideAiProposal: command('decideAiProposal'),
       releaseFinalDocument: command('releaseFinalDocument'),
       exportFinalDocument: command('exportFinalDocument'),
       reloadCase: command('reloadCase'),
@@ -1347,7 +1470,7 @@ test('a waiver change names the receipt it supersedes, exactly as the chain requ
   assert.equal(waiver.input.receiptData.priorReceiptId, priorId);
 });
 
-test('consent is offered only until it is on file, and carries just the policy and the scopes', async () => {
+test('consent requires a presented disclosure and explicit checkbox before recording current scopes', async () => {
   const projectionSource = plain(studentProjection(draftCase()));
   const harness = createHarness();
   const recorder = commandRecorder({ recordReceipt: () => accepted(projectionSource) });
@@ -1355,13 +1478,334 @@ test('consent is offered only until it is on file, and carries just the policy a
 
   const withoutConsent = { ...projectionSource, consentReceipts: [] };
   await harness.ui.renderProductionProjection(withoutConsent, liveContext(CASE_ID));
-  press(controlLabelled(harness, 'Record my consent'));
+  const consentButton = controlLabelled(harness, 'Record my explicit consent');
+  assert.notEqual(consentButton, null);
+  assert.equal(consentButton.disabled, true);
+  assert.match(harness.mount.textContent, /not a guarantee of de-identification/u);
+  assert.match(harness.mount.textContent, /withdraw future AI use and prevent new sharing/u);
+  const acknowledgment = harness.mount.querySelector('#lorConsentAcknowledgment');
+  assert.notEqual(acknowledgment, null);
+  acknowledgment.click();
+  assert.equal(consentButton.disabled, false);
+  press(consentButton);
   await settle(harness);
 
   const [consent] = recorder.named('recordReceipt');
   assert.equal(consent.input.receiptType, 'consent');
   assert.deepEqual([...Object.keys(consent.input.receiptData)].sort(), ['policyVersion', 'scopes']);
-  assert.deepEqual(plainCopy(consent.input.receiptData.scopes), ['builder_autosave', 'faculty_handoff']);
+  assert.deepEqual(plainCopy(consent.input.receiptData.scopes), [
+    'builder_autosave', 'faculty_handoff', 'ai_drafting', 'evidence_grounding',
+  ]);
+  assert.equal(consent.input.receiptData.policyVersion, CONSENT_POLICY_VERSION);
+});
+
+test('the latest active consent can be withdrawn with an append-only withdrawal receipt', async () => {
+  const projection = plain(studentProjection(evidencePublishableCase()));
+  const harness = createHarness();
+  const recorder = commandRecorder({ recordReceipt: () => accepted(projection) });
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+
+  press(controlLabelled(harness, 'Withdraw future sharing and AI consent'));
+  await settle(harness);
+
+  const [withdrawal] = recorder.named('recordReceipt');
+  assert.equal(withdrawal.input.receiptType, 'consent');
+  assert.deepEqual(plainCopy(withdrawal.input.receiptData), {
+    policyVersion: CONSENT_POLICY_VERSION,
+    scopes: ['consent_withdrawn'],
+  });
+});
+
+test('evidence publication stays disabled until completed source steps and exact consent exist', async () => {
+  const harness = createHarness();
+  const recorder = commandRecorder();
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(
+    plain(studentProjection(draftCase())),
+    liveContext(CASE_ID),
+  );
+
+  const control = controlLabelled(harness, 'Publish evidence for my writer');
+  assert.notEqual(control, null);
+  assert.equal(control.disabled, true);
+  press(control);
+  await settle(harness);
+  assert.equal(recorder.named('publishStudentEvidence').length, 0);
+});
+
+test('eligible evidence publication sends only this case and its current durable revision', async () => {
+  const projection = plain(studentProjection(evidencePublishableCase()));
+  const harness = createHarness();
+  const recorder = commandRecorder({
+    publishStudentEvidence: () => accepted(projection),
+  });
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+
+  const control = controlLabelled(harness, 'Publish evidence for my writer');
+  assert.notEqual(control, null);
+  assert.equal(control.disabled, false);
+  press(control);
+  await settle(harness);
+
+  assert.deepEqual(plainCopy(recorder.named('publishStudentEvidence')), [{
+    name: 'publishStudentEvidence',
+    input: { caseId: CASE_ID, expectedRevision: projection.revision },
+  }]);
+  assert.equal(harness.ui.state, 'saved');
+  assert.equal(harness.ui.renderedRevision, projection.revision + 1);
+  assert.equal(harness.networkCalls.length, 0);
+  assertNoInternalLeak(harness);
+});
+
+test('evidence publication serializes double clicks and adopts a server conflict without claiming success', async () => {
+  const projection = plain(studentProjection(evidencePublishableCase()));
+  const harness = createHarness();
+  let resolveFirst;
+  const firstOutcome = new Promise((resolve) => { resolveFirst = resolve; });
+  const recorder = commandRecorder({ publishStudentEvidence: () => firstOutcome });
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+
+  const control = controlLabelled(harness, 'Publish evidence for my writer');
+  press(control);
+  press(control);
+  await settle(harness, 2);
+  assert.equal(recorder.named('publishStudentEvidence').length, 1);
+  resolveFirst({
+    reached: true,
+    status: 409,
+    body: { case: { ...projection, revision: projection.revision + 1 } },
+  });
+  await settle(harness);
+
+  assert.equal(harness.ui.state, 'version_conflict');
+  assert.equal(harness.ui.renderedRevision, projection.revision + 1);
+  assert.doesNotMatch(harness.text(), /Saved to your account/u);
+  assert.equal(harness.networkCalls.length, 0);
+  assertNoInternalLeak(harness);
+});
+
+test('the student faculty invitation sends only the bound case revision and recipient email', async () => {
+  const projection = plain(studentProjection(invitableCase()));
+  const harness = createHarness();
+  const recorder = commandRecorder({ inviteFaculty: () => accepted(projection, { status: 201 }) });
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+
+  const email = harness.mount.querySelector('#lorFacultyInvitationEmail');
+  assert.notEqual(email, null);
+  email.value = 'writer@example.test';
+  email.dispatchEvent(new harness.win.Event('input', { bubbles: true }));
+  press(controlLabelled(harness, 'Invite faculty writer'));
+  await settle(harness);
+
+  const [invitation] = recorder.named('inviteFaculty');
+  assert.deepEqual(plainCopy(invitation.input), {
+    caseId: CASE_ID,
+    expectedRevision: projection.revision,
+    recipientEmail: 'writer@example.test',
+  });
+  for (const forbidden of ['actorId', 'studentId', 'role', 'grant', 'invitationId', 'recipientEmailHash']) {
+    assert.equal(forbidden in invitation.input, false, `invitation must not carry ${forbidden}`);
+  }
+  assert.equal(harness.ui.state, 'saved');
+  assert.equal(harness.networkCalls.length, 0);
+});
+
+test('a latest consent withdrawal disables every new faculty invitation send path', async () => {
+  const active = invitableCase();
+  const withdrawn = appendReceipt(active, {
+    actorId: STUDENT_ID,
+    receiptType: 'consent',
+    receipt: createConsentReceipt({
+      id: 'consent-invitation-withdrawn',
+      caseId: CASE_ID,
+      studentId: STUDENT_ID,
+      scopes: ['consent_withdrawn'],
+      policyVersion: CONSENT_POLICY_VERSION,
+      recordedAt: NOW,
+    }),
+    now: NOW,
+  });
+  const projection = plain(studentProjection(withdrawn));
+  const harness = createHarness();
+  const recorder = commandRecorder();
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+
+  assert.equal(harness.mount.querySelector('#lorFacultyInvitationEmail').disabled, true);
+  const invitation = controlLabelled(harness, 'Invite faculty writer');
+  assert.notEqual(invitation, null);
+  assert.equal(invitation.disabled, true);
+  press(invitation);
+  await settle(harness);
+  assert.equal(recorder.named('inviteFaculty').length, 0);
+  assert.match(harness.mount.textContent, /Consent required/u);
+});
+
+test('a pending invitation exposes bounded resend, revoke, and replacement controls without client locators', async () => {
+  const invited = bindFacultyInvitation(invitableCase(), {
+    actorId: STUDENT_ID,
+    invitationId: 'invite-pending',
+    recipientEmailHash: sha256('writer@example.test'),
+    now: new Date('2026-08-09T13:00:00.000Z'),
+  });
+  const projection = plain(studentProjection(invited));
+  const harness = createHarness();
+  const recorder = commandRecorder({
+    resendFacultyOtp: () => accepted(projection),
+    revokeFacultyInvitation: () => accepted(projection),
+    inviteFaculty: () => accepted(projection, { status: 201 }),
+  });
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(projection, liveContext(CASE_ID));
+
+  const email = harness.mount.querySelector('#lorFacultyInvitationEmail');
+  email.value = 'writer@example.test';
+  email.dispatchEvent(new harness.win.Event('input', { bubbles: true }));
+  press(controlLabelled(harness, 'Resend one-time code'));
+  await settle(harness);
+  assert.deepEqual(plainCopy(recorder.named('resendFacultyOtp')[0].input), {
+    caseId: CASE_ID,
+    recipientEmail: 'writer@example.test',
+  });
+
+  press(controlLabelled(harness, 'Revoke current invitation'));
+  await settle(harness);
+  assert.deepEqual(plainCopy(recorder.named('revokeFacultyInvitation')[0].input), {
+    caseId: CASE_ID,
+  });
+
+  press(controlLabelled(harness, 'Send replacement invitation'));
+  await settle(harness);
+  const replacement = plainCopy(recorder.named('inviteFaculty')[0].input);
+  assert.deepEqual(replacement, {
+    caseId: CASE_ID,
+    expectedRevision: projection.revision + 1,
+    recipientEmail: 'writer@example.test',
+  });
+  for (const input of [
+    recorder.named('resendFacultyOtp')[0].input,
+    recorder.named('revokeFacultyInvitation')[0].input,
+    recorder.named('inviteFaculty')[0].input,
+  ]) {
+    for (const forbidden of ['invitationId', 'challengeId', 'tokenHash', 'otpCodeHash', 'actorId']) {
+      assert.equal(forbidden in input, false, `${forbidden} must remain server-owned`);
+    }
+  }
+});
+
+test('the faculty private workspace preserves canonical private fields and keeps identity server-owned', async () => {
+  const projection = plain(facultyProjection(releasedCase({ released: false })));
+  const harness = createHarness();
+  const recorder = commandRecorder({
+    saveFacultyPrivateContent: () => accepted(projection),
+  });
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(projection, {
+    ...liveContext(CASE_ID),
+    actorRole: 'faculty',
+    projectionSchema: 'missionmed.lor.faculty-projection.v1',
+  });
+
+  const draft = harness.mount.querySelector('#lorFacultyDraft');
+  const final = harness.mount.querySelector('#lorFacultyFinal');
+  draft.value = 'Private faculty working notes.';
+  draft.dispatchEvent(new harness.win.Event('input', { bubbles: true }));
+  final.value = 'Faculty-authored final wording.';
+  final.dispatchEvent(new harness.win.Event('input', { bubbles: true }));
+  harness.mount.querySelector('#lorFacultyApproval').click();
+  harness.mount.querySelector('#lorFacultySignatureAttestation').click();
+  press(controlLabelled(harness, 'Save private faculty work'));
+  await settle(harness);
+
+  const [saved] = recorder.named('saveFacultyPrivateContent');
+  assert.deepEqual([...Object.keys(saved.input)].sort(), [
+    'answers',
+    'caseId',
+    'documentState',
+    'draftText',
+    'expectedRevision',
+    'facultyApproval',
+    'finalDocument',
+    'notes',
+  ]);
+  assert.equal(saved.input.caseId, CASE_ID);
+  assert.equal(saved.input.expectedRevision, projection.revision);
+  assert.deepEqual(plainCopy(saved.input.answers), plainCopy(projection.facultyPrivate.answers));
+  assert.deepEqual(plainCopy(saved.input.notes), plainCopy(projection.facultyPrivate.notes));
+  assert.equal(saved.input.draftText, 'Private faculty working notes.');
+  assert.deepEqual(plainCopy(saved.input.finalDocument), {
+    contentHash: null,
+    id: 'document-1',
+    mimeType: 'text/plain',
+    text: 'Faculty-authored final wording.',
+  });
+  assert.equal(saved.input.documentState, 'faculty_final');
+  assert.deepEqual(plainCopy(saved.input.facultyApproval), {
+    approved: true,
+    signatureAttested: true,
+  });
+  const wire = JSON.stringify(saved.input);
+  for (const forbidden of ['actorId', 'facultyId', 'approvedAt', 'releasedToStudentAt']) {
+    assert.ok(!wire.includes(forbidden), `private write must not carry ${forbidden}`);
+  }
+  assert.equal(recorder.named('releaseFinalDocument').length, 0);
+});
+
+test('AI remains proposal-only until an explicit human decision and never finalizes or releases', async () => {
+  const projection = plain(facultyProjection(releasedCase({ released: false })));
+  const proposal = {
+    id: 'proposal-1',
+    state: 'proposal',
+    text: 'The student consistently followed up pending clinical questions.',
+    provenance: { caseId: CASE_ID },
+  };
+  const decided = { ...proposal, state: 'decided' };
+  const harness = createHarness();
+  const recorder = commandRecorder({
+    requestAiProposal: () => ({ reached: true, status: 201, body: { proposal } }),
+    readAiProposal: () => ({ reached: true, status: 200, body: { proposal } }),
+    decideAiProposal: () => ({ reached: true, status: 201, body: { proposal: decided } }),
+  });
+  harness.ui.attachCommands(recorder.commands);
+  await harness.ui.renderProductionProjection(projection, {
+    ...liveContext(CASE_ID),
+    actorRole: 'faculty',
+    projectionSchema: 'missionmed.lor.faculty-projection.v1',
+  });
+
+  assert.match(harness.text(), /AI can propose grounded wording only/u);
+  press(controlLabelled(harness, 'Generate an AI proposal'));
+  await settle(harness);
+  assert.deepEqual(plainCopy(recorder.named('requestAiProposal')[0].input), {
+    caseId: CASE_ID,
+    factIds: null,
+  });
+  assert.match(harness.text(), /Proposal only/u);
+  assert.match(harness.text(), /human review required/u);
+
+  press(controlLabelled(harness, 'Refresh this proposal'));
+  await settle(harness);
+  assert.deepEqual(plainCopy(recorder.named('readAiProposal')[0].input), {
+    caseId: CASE_ID,
+    proposalId: 'proposal-1',
+  });
+
+  press(controlLabelled(harness, 'Accept proposal verbatim'));
+  await settle(harness);
+  const decision = recorder.named('decideAiProposal')[0].input;
+  assert.equal(decision.caseId, CASE_ID);
+  assert.equal(decision.proposalId, 'proposal-1');
+  assert.equal(decision.action, 'accepted');
+  assert.equal(decision.resultingText, undefined);
+  assert.match(harness.text(), /did not finalize, approve, release, or export/u);
+  assert.equal(recorder.named('saveFacultyPrivateContent').length, 0);
+  assert.equal(recorder.named('releaseFinalDocument').length, 0);
+  assert.equal(recorder.named('exportFinalDocument').length, 0);
+  assert.equal(harness.networkCalls.length, 0);
 });
 
 /* --------------------------------------------------------------------- release and export */
@@ -1527,7 +1971,7 @@ test('attaching commands keeps every isolation property and cannot install anyth
   assert.equal(harness.ui.canRevealPrototype, false);
   assert.throws(() => { harness.ui.canRevealPrototype = true; }, TypeError);
 
-  // Only the six named commands are kept; anything else in the object is discarded.
+  // Only allowlisted production commands are kept; anything else in the object is discarded.
   const receipt = harness.ui.attachCommands({
     autosaveBuilderStep: async () => ({ reached: true, status: 200, body: {} }),
     revealPrototype: () => true,

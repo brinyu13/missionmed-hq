@@ -6,9 +6,46 @@ import {
   createTrustedRequestContext,
   runWithTrustedRequestContext,
 } from '../security/trusted-request-context.mjs';
+import {
+  createFacultyCandidateCredentialContext,
+  runWithFacultyCandidateCredentialContext,
+} from '../security/faculty-candidate-credential-context.mjs';
 
 export const LOR_STUDIO_ROUTE_PREFIX = '/lor-studio';
 export const LOR_STUDIO_API_PREFIX = '/api/lor-studio';
+export const LOR_CANDIDATE_AUTH_START_PATH = `${LOR_STUDIO_API_PREFIX}/auth/candidate/start`;
+export const LOR_CANDIDATE_HANDOFF_COOKIE_NAME = '__Secure-mmhq_lor_candidate_handoff';
+
+const LOR_CANDIDATE_HANDOFF_SCHEMA =
+  'missionmed.lor.faculty-candidate-auth-handoff.v1';
+const LOR_CANDIDATE_HANDOFF_MAX_LIFETIME_MS = 15 * 60 * 1_000;
+const LOR_CANDIDATE_HANDOFF_CLOCK_SKEW_MS = 30 * 1_000;
+const LOR_CANDIDATE_HANDOFF_COOKIE_PATH = '/api/lor-studio/auth/';
+const LOR_CANDIDATE_START_MAX_BODY_BYTES = 8_192;
+const CANDIDATE_LOCATOR = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u;
+const CANDIDATE_RAW_TOKEN = /^[A-Za-z0-9_-]{43}$/u;
+const SEALED_CANDIDATE_HANDOFF =
+  /^lorch1\.[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{16,3700}\.[A-Za-z0-9_-]{22}$/u;
+
+export const LOR_CANDIDATE_AUTH_START_CONTRACT = Object.freeze({
+  path: LOR_CANDIDATE_AUTH_START_PATH,
+  method: 'POST',
+  sessionRequired: false,
+  csrfProtection: 'exact_same_origin_and_custom_header',
+  exchangeMethod: 'exchangeInvitationToken',
+  handoffSchema: LOR_CANDIDATE_HANDOFF_SCHEMA,
+  maximumLifetimeSeconds: LOR_CANDIDATE_HANDOFF_MAX_LIFETIME_MS / 1_000,
+  cookie: Object.freeze({
+    name: LOR_CANDIDATE_HANDOFF_COOKIE_NAME,
+    path: LOR_CANDIDATE_HANDOFF_COOKIE_PATH,
+    httpOnly: true,
+    secure: true,
+    sameSite: 'Lax',
+  }),
+  successStatus: 204,
+  rawTokenInUrl: false,
+  rawTokenInResponse: false,
+});
 
 const ASSET_CONTENT_TYPES = Object.freeze({
   '.css': 'text/css; charset=utf-8',
@@ -18,11 +55,18 @@ const ASSET_CONTENT_TYPES = Object.freeze({
 
 const SAFE_ASSETS = new Set([
   'index.html',
+  'invitation-auth.html',
   'production-adapter.css',
   'production-adapter.js',
   'production-projection-ui.js',
 ]);
 const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+const FACULTY_INVITATION_PAGE =
+  /^\/lor-studio\/invitations\/[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}\/?$/u;
+const FACULTY_INVITATION_BOOTSTRAP =
+  /^\/api\/lor-studio\/invitations\/([A-Za-z0-9][A-Za-z0-9_.:-]{0,199})\/bootstrap$/u;
+const FACULTY_INVITATION_VERIFY =
+  /^\/api\/lor-studio\/invitations\/([A-Za-z0-9][A-Za-z0-9_.:-]{0,199})\/verify$/u;
 
 /**
  * @typedef {object} LorStudioFlags
@@ -89,6 +133,7 @@ const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
  * @property {LorStudioFlags} [flags]
  * @property {LorEntitlementResolver} [entitlementResolver]
  * @property {LorApplicationContract | null} [application]
+ * @property {{ exchangeInvitationToken: (input: { invitationId: string, rawToken: string }) => Promise<unknown> }} [candidateAuthStartService]
  * @property {(request: import('node:http').IncomingMessage, session: LorSession | null) => boolean} [validateCsrf]
  * @property {() => Date | number} [clock]
  */
@@ -305,6 +350,167 @@ function sendJson(response, status, payload, extraHeaders = {}) {
 }
 
 /**
+ * Candidate-auth start is intentionally the only API operation which may run before a MissionMed
+ * session exists. A browser-supplied token is exchanged exactly once through the injected trusted
+ * service; the HTTP layer receives only a sealed, short-lived handoff which it can place in an
+ * HttpOnly cookie for the normal WordPress sign-in callback to consume.
+ */
+const CANDIDATE_HANDOFF_KEYS = Object.freeze([
+  'schemaVersion',
+  'authoritySource',
+  'invitationId',
+  'sealedHandoff',
+  'issuedAt',
+  'expiresAt',
+  'singlePurpose',
+  'clientAsserted',
+]);
+const CANDIDATE_HANDOFF_KEY_SET = new Set(CANDIDATE_HANDOFF_KEYS);
+
+/** @param {import('node:http').IncomingMessage} request @param {string} name */
+function requestHeader(request, name) {
+  return String(request?.headers?.[name.toLowerCase()] || request?.headers?.[name] || '').trim();
+}
+
+/** @param {unknown} value @param {string} fieldName */
+function canonicalCandidateInstant(value, fieldName) {
+  if (typeof value !== 'string') throw new TypeError(`${fieldName} is invalid`);
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp) || new Date(timestamp).toISOString() !== value) {
+    throw new TypeError(`${fieldName} is invalid`);
+  }
+  return timestamp;
+}
+
+/**
+ * @param {unknown} input
+ * @param {{ invitationId: string, now: Date | number }} options
+ */
+function validateCandidateHandoff(input, { invitationId, now }) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new TypeError('Candidate handoff is unavailable');
+  }
+  let prototype;
+  let keys;
+  let descriptors;
+  try {
+    prototype = Object.getPrototypeOf(input);
+    keys = Reflect.ownKeys(input);
+    descriptors = Object.getOwnPropertyDescriptors(input);
+  } catch {
+    throw new TypeError('Candidate handoff is unavailable');
+  }
+  if (
+    ![Object.prototype, null].includes(prototype)
+    || keys.length !== CANDIDATE_HANDOFF_KEYS.length
+    || keys.some((key) => typeof key !== 'string' || !CANDIDATE_HANDOFF_KEY_SET.has(key))
+  ) {
+    throw new TypeError('Candidate handoff is unavailable');
+  }
+  const value = Object.create(null);
+  for (const key of CANDIDATE_HANDOFF_KEYS) {
+    const descriptor = descriptors[key];
+    if (!descriptor || descriptor.enumerable !== true || !Object.hasOwn(descriptor, 'value')) {
+      throw new TypeError('Candidate handoff is unavailable');
+    }
+    value[key] = descriptor.value;
+  }
+
+  const nowMs = now instanceof Date ? now.getTime() : Number(now);
+  const issuedAt = canonicalCandidateInstant(value.issuedAt, 'issuedAt');
+  const expiresAt = canonicalCandidateInstant(value.expiresAt, 'expiresAt');
+  if (
+    value.schemaVersion !== LOR_CANDIDATE_HANDOFF_SCHEMA
+    || value.authoritySource !== 'server_verified_invitation_token_exchange'
+    || value.invitationId !== invitationId
+    || !SEALED_CANDIDATE_HANDOFF.test(value.sealedHandoff ?? '')
+    || value.singlePurpose !== true
+    || value.clientAsserted !== false
+    || !Number.isFinite(nowMs)
+    || issuedAt > nowMs + LOR_CANDIDATE_HANDOFF_CLOCK_SKEW_MS
+    || expiresAt <= nowMs
+    || expiresAt <= issuedAt
+    || expiresAt - issuedAt > LOR_CANDIDATE_HANDOFF_MAX_LIFETIME_MS
+  ) {
+    throw new TypeError('Candidate handoff is unavailable');
+  }
+  return Object.freeze({
+    sealedHandoff: value.sealedHandoff,
+    maxAgeSeconds: Math.max(1, Math.min(
+      LOR_CANDIDATE_HANDOFF_MAX_LIFETIME_MS / 1_000,
+      Math.ceil((expiresAt - nowMs) / 1_000),
+    )),
+  });
+}
+
+/** @param {import('node:http').IncomingMessage} request */
+async function readCandidateStartPayload(request) {
+  if (requestHeader(request, 'content-type').toLowerCase() !== 'application/json') {
+    throw new TypeError('Candidate start request is invalid');
+  }
+  if (!['', 'identity'].includes(requestHeader(request, 'content-encoding').toLowerCase())) {
+    throw new TypeError('Candidate start request is invalid');
+  }
+  const chunks = [];
+  let bytes = 0;
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    bytes += buffer.length;
+    if (bytes > LOR_CANDIDATE_START_MAX_BODY_BYTES) {
+      throw new TypeError('Candidate start request is invalid');
+    }
+    chunks.push(buffer);
+  }
+  let payload;
+  try {
+    payload = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch {
+    throw new TypeError('Candidate start request is invalid');
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new TypeError('Candidate start request is invalid');
+  }
+  let keys;
+  let descriptors;
+  let prototype;
+  try {
+    keys = Reflect.ownKeys(payload);
+    descriptors = Object.getOwnPropertyDescriptors(payload);
+    prototype = Object.getPrototypeOf(payload);
+  } catch {
+    throw new TypeError('Candidate start request is invalid');
+  }
+  if (
+    prototype !== Object.prototype
+    || keys.length !== 2
+    || !keys.every((key) => typeof key === 'string' && ['invitationId', 'rawToken'].includes(key))
+  ) {
+    throw new TypeError('Candidate start request is invalid');
+  }
+  for (const key of ['invitationId', 'rawToken']) {
+    const descriptor = descriptors[key];
+    if (!descriptor || descriptor.enumerable !== true || !Object.hasOwn(descriptor, 'value')) {
+      throw new TypeError('Candidate start request is invalid');
+    }
+  }
+  const invitationId = descriptors.invitationId.value;
+  const rawToken = descriptors.rawToken.value;
+  if (!CANDIDATE_LOCATOR.test(invitationId ?? '') || !CANDIDATE_RAW_TOKEN.test(rawToken ?? '')) {
+    throw new TypeError('Candidate start request is invalid');
+  }
+  return Object.freeze({ invitationId, rawToken });
+}
+
+/** @param {string} value @param {number} maxAgeSeconds */
+function candidateHandoffCookie(value, maxAgeSeconds) {
+  return `${LOR_CANDIDATE_HANDOFF_COOKIE_NAME}=${value}; Max-Age=${maxAgeSeconds}; Path=${LOR_CANDIDATE_HANDOFF_COOKIE_PATH}; HttpOnly; Secure; SameSite=Lax`;
+}
+
+function clearCandidateHandoffCookie() {
+  return candidateHandoffCookie('', 0);
+}
+
+/**
  * Binary export responses are allowlisted by content type. The list is deliberately narrow and
  * deliberately excludes anything the browser could treat as active content on this origin: an
  * export route must never become an HTML/SVG/script delivery channel for the protected surface.
@@ -397,14 +603,21 @@ function sendAccessPage(response, failure) {
  * @param {string} pathname
  * @param {string} publicDirectory
  */
-async function serveProtectedAsset(request, response, pathname, publicDirectory) {
+async function serveProtectedAsset(
+  request,
+  response,
+  pathname,
+  publicDirectory,
+  forcedAssetName = null,
+) {
   if (!['GET', 'HEAD'].includes(String(request.method || 'GET').toUpperCase())) {
     sendJson(response, 405, { error: 'method_not_allowed', allowed: ['GET', 'HEAD'] }, { Allow: 'GET, HEAD' });
     return;
   }
 
   const suffix = pathname.slice(LOR_STUDIO_ROUTE_PREFIX.length).replace(/^\/+|\/+$/gu, '');
-  const assetName = suffix || 'index.html';
+  const assetName = forcedAssetName
+    ?? (FACULTY_INVITATION_PAGE.test(pathname) ? 'index.html' : (suffix || 'index.html'));
   if (!SAFE_ASSETS.has(assetName)) {
     sendJson(response, 404, { error: 'lor_asset_not_found' });
     return;
@@ -460,6 +673,7 @@ export function createLorStudioRuntime({
   flags = resolveLorStudioFlags(),
   entitlementResolver = createUnavailableLorEntitlementResolver(),
   application = null,
+  candidateAuthStartService = null,
   validateCsrf = () => false,
   clock = () => new Date(),
 } = {}) {
@@ -473,12 +687,49 @@ export function createLorStudioRuntime({
   ) {
     throw new Error('LOR Studio trusted entitlement resolver context consumer is required.');
   }
+  if (
+    candidateAuthStartService !== null
+    && (
+      !candidateAuthStartService
+      || typeof candidateAuthStartService.exchangeInvitationToken !== 'function'
+    )
+  ) {
+    throw new Error('LOR Studio candidateAuthStartService.exchangeInvitationToken is required.');
+  }
   const trustedGrantContexts = new WeakMap();
+  const candidateGrantContexts = new WeakMap();
 
-  async function runApplicationWithAccess(access, operation) {
+  async function runApplicationWithAccess(access, operation, { candidateCredential = false } = {}) {
     const context = trustedGrantContexts.get(access);
-    if (!context) return operation();
-    return runWithTrustedRequestContext(context, operation);
+    const candidate = candidateGrantContexts.get(access);
+    const invoke = candidateCredential && candidate
+      ? () => runWithFacultyCandidateCredentialContext(candidate, operation, clock())
+      : operation;
+    if (!context) return invoke();
+    return runWithTrustedRequestContext(context, invoke);
+  }
+
+  function invitationIdForCandidatePath(pathname) {
+    const pageMatch = FACULTY_INVITATION_PAGE.exec(pathname);
+    const apiMatch = FACULTY_INVITATION_BOOTSTRAP.exec(pathname)
+      ?? FACULTY_INVITATION_VERIFY.exec(pathname);
+    return pageMatch?.[0]
+      ? pageMatch[0].split('/').filter(Boolean).at(-1)
+      : (apiMatch?.[1] ?? null);
+  }
+
+  function hasInvitationBoundCandidateCredential(
+    candidateCredential,
+    invitationId,
+    authenticatedSubject,
+  ) {
+    try {
+      const credential = createFacultyCandidateCredentialContext(candidateCredential, clock());
+      return credential.invitationId === invitationId
+        && credential.authenticatedSubject === authenticatedSubject;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -486,7 +737,7 @@ export function createLorStudioRuntime({
    * @param {LorSession | null} session
    * @returns {Promise<LorAccessFailure | LorAccessGrant>}
    */
-  async function authorize(request, session) {
+  async function authorize(request, session, { url = null, candidateCredential = null } = {}) {
     const freshSession = validateFreshLorSession(session, clock(), {
       requireCanonicalSubject: entitlementResolver.requiresTrustedRequestContext === true,
     });
@@ -541,6 +792,25 @@ export function createLorStudioRuntime({
 
     const access = { ...evaluated };
     if (trustedContext) trustedGrantContexts.set(access, trustedContext);
+    const candidateInvitationId = invitationIdForCandidatePath(url?.pathname ?? '');
+    if (candidateInvitationId !== null) {
+      if (evaluated.actor.role !== 'faculty') {
+        return accessFailure(403, 'faculty_candidate_scope_required', 'Faculty invitation access was denied.');
+      }
+      let credential;
+      try {
+        credential = createFacultyCandidateCredentialContext(candidateCredential, clock());
+      } catch {
+        return accessFailure(403, 'faculty_candidate_credential_required', 'Faculty invitation access was denied.');
+      }
+      if (
+        credential.authenticatedSubject !== freshSession.subject
+        || credential.invitationId !== candidateInvitationId
+      ) {
+        return accessFailure(403, 'faculty_candidate_credential_mismatch', 'Faculty invitation access was denied.');
+      }
+      candidateGrantContexts.set(access, credential);
+    }
     return access;
   }
 
@@ -550,7 +820,7 @@ export function createLorStudioRuntime({
    * @param {URL} url
    * @param {LorSession | null} session
    */
-  async function handleApi(request, response, url, session) {
+  async function handleApi(request, response, url, session, candidateCredential) {
     if (request.method === 'OPTIONS') {
       response.writeHead(204, {
         ...commonHeaders('application/json; charset=utf-8'),
@@ -560,7 +830,104 @@ export function createLorStudioRuntime({
       return;
     }
 
-    const access = await authorize(request, session);
+    if (url.pathname === LOR_CANDIDATE_AUTH_START_PATH) {
+      if (request.method !== 'POST') {
+        sendJson(
+          response,
+          405,
+          { error: 'method_not_allowed' },
+          { Allow: 'POST', 'Set-Cookie': clearCandidateHandoffCookie() },
+        );
+        return;
+      }
+      if (flags.enabled !== true) {
+        sendJson(response, 404, { error: 'lor_feature_disabled' }, {
+          'Set-Cookie': clearCandidateHandoffCookie(),
+        });
+        return;
+      }
+      if (flags.killSwitch !== false) {
+        sendJson(response, 423, { error: 'lor_kill_switch_active' }, {
+          'Set-Cookie': clearCandidateHandoffCookie(),
+        });
+        return;
+      }
+      const origin = requestHeader(request, 'origin');
+      const fetchSite = requestHeader(request, 'sec-fetch-site').toLowerCase();
+      const candidateMarker = requestHeader(request, 'x-missionmed-lor-candidate');
+      if (
+        origin !== url.origin
+        || candidateMarker !== '1'
+        || (fetchSite !== '' && fetchSite !== 'same-origin')
+      ) {
+        sendJson(response, 403, {
+          error: 'candidate_auth_start_denied',
+          message: 'Faculty invitation sign-in could not be started.',
+        }, { 'Set-Cookie': clearCandidateHandoffCookie() });
+        return;
+      }
+      if ([...url.searchParams.keys()].length !== 0) {
+        sendJson(response, 400, {
+          error: 'candidate_auth_start_denied',
+          message: 'Faculty invitation sign-in could not be started.',
+        }, { 'Set-Cookie': clearCandidateHandoffCookie() });
+        return;
+      }
+      if (!candidateAuthStartService) {
+        sendJson(response, 503, {
+          error: 'candidate_auth_start_unavailable',
+          message: 'Faculty invitation sign-in is temporarily unavailable.',
+        }, { 'Set-Cookie': clearCandidateHandoffCookie() });
+        return;
+      }
+
+      let payload;
+      try {
+        payload = await readCandidateStartPayload(request);
+      } catch {
+        sendJson(response, 400, {
+          error: 'candidate_auth_start_denied',
+          message: 'Faculty invitation sign-in could not be started.',
+        }, { 'Set-Cookie': clearCandidateHandoffCookie() });
+        return;
+      }
+
+      let handoff;
+      try {
+        const exchanged = await candidateAuthStartService.exchangeInvitationToken({
+          invitationId: payload.invitationId,
+          rawToken: payload.rawToken,
+        });
+        handoff = validateCandidateHandoff(exchanged, {
+          invitationId: payload.invitationId,
+          now: clock(),
+        });
+      } catch (error) {
+        let code = '';
+        try {
+          code = String(error?.code || '');
+        } catch {
+          code = '';
+        }
+        const denied = code === 'INVITATION_DENIED';
+        sendJson(response, denied ? 403 : 503, {
+          error: denied ? 'candidate_auth_start_denied' : 'candidate_auth_start_unavailable',
+          message: denied
+            ? 'Faculty invitation sign-in could not be started.'
+            : 'Faculty invitation sign-in is temporarily unavailable.',
+        }, { 'Set-Cookie': clearCandidateHandoffCookie() });
+        return;
+      }
+
+      response.writeHead(204, {
+        ...commonHeaders('application/json; charset=utf-8'),
+        'Set-Cookie': candidateHandoffCookie(handoff.sealedHandoff, handoff.maxAgeSeconds),
+      });
+      response.end();
+      return;
+    }
+
+    const access = await authorize(request, session, { url, candidateCredential });
     if (access.ok === false) {
       sendJson(response, access.status, { error: access.error, message: access.message });
       return;
@@ -571,7 +938,15 @@ export function createLorStudioRuntime({
       return;
     }
 
-    if (url.pathname === `${LOR_STUDIO_API_PREFIX}/bootstrap` && request.method === 'GET') {
+    const candidateBootstrap = FACULTY_INVITATION_BOOTSTRAP.exec(url.pathname);
+    if (
+      (url.pathname === `${LOR_STUDIO_API_PREFIX}/bootstrap` || candidateBootstrap)
+      && request.method === 'GET'
+    ) {
+      if ([...url.searchParams.keys()].length !== 0) {
+        sendJson(response, 400, { error: 'lor_bootstrap_query_forbidden' });
+        return;
+      }
       if (!application || typeof application.getBootstrap !== 'function') {
         sendJson(response, 503, {
           error: 'lor_application_unavailable',
@@ -613,6 +988,9 @@ export function createLorStudioRuntime({
 
       sendJson(response, 200, {
         ...bootstrap,
+        ...(candidateBootstrap
+          ? { capabilities: Object.freeze({ verifyInvitation: true }) }
+          : {}),
         csrfToken: String(session.csrfToken || ''),
       });
       return;
@@ -628,12 +1006,16 @@ export function createLorStudioRuntime({
 
     let result;
     try {
-      result = await runApplicationWithAccess(access, () => application.handleRequest({
-        request,
-        url,
-        actor: access.actor,
-        entitlement: access.entitlement,
-      }));
+      result = await runApplicationWithAccess(
+        access,
+        () => application.handleRequest({
+          request,
+          url,
+          actor: access.actor,
+          entitlement: access.entitlement,
+        }),
+        { candidateCredential: FACULTY_INVITATION_VERIFY.test(url.pathname) },
+      );
     } catch {
       sendJson(response, 500, {
         error: 'lor_application_request_failed',
@@ -656,17 +1038,63 @@ export function createLorStudioRuntime({
    * @param {import('node:http').IncomingMessage} request
    * @param {import('node:http').ServerResponse} response
    * @param {URL} url
-   * @param {{ session?: LorSession | null }} [context]
+   * @param {{ session?: LorSession | null, candidateCredential?: unknown }} [context]
    */
-  async function handle(request, response, url, { session = null } = {}) {
+  async function handle(
+    request,
+    response,
+    url,
+    { session = null, candidateCredential = null } = {},
+  ) {
     if (!isLorStudioRequestPath(url?.pathname)) return false;
 
     if (url.pathname === LOR_STUDIO_API_PREFIX || url.pathname.startsWith(`${LOR_STUDIO_API_PREFIX}/`)) {
-      await handleApi(request, response, url, session);
+      await handleApi(request, response, url, session, candidateCredential);
       return true;
     }
 
-    const access = await authorize(request, session);
+    if (FACULTY_INVITATION_PAGE.test(url.pathname)) {
+      if (flags.enabled !== true) {
+        sendAccessPage(response, accessFailure(
+          404,
+          'lor_feature_disabled',
+          'LOR Studio is not enabled in this environment.',
+        ));
+        return true;
+      }
+      if (flags.killSwitch !== false) {
+        sendAccessPage(response, accessFailure(
+          423,
+          'lor_kill_switch_active',
+          'The LOR Studio release kill switch is active.',
+        ));
+        return true;
+      }
+      const freshSession = validateFreshLorSession(session, clock(), {
+        requireCanonicalSubject: entitlementResolver.requiresTrustedRequestContext === true,
+      });
+      const invitationId = invitationIdForCandidatePath(url.pathname);
+      if (
+        freshSession.ok === false
+        || invitationId === null
+        || !hasInvitationBoundCandidateCredential(
+          candidateCredential,
+          invitationId,
+          freshSession.subject,
+        )
+      ) {
+        await serveProtectedAsset(
+          request,
+          response,
+          url.pathname,
+          publicDirectory,
+          'invitation-auth.html',
+        );
+        return true;
+      }
+    }
+
+    const access = await authorize(request, session, { url, candidateCredential });
     if (access.ok === false) {
       sendAccessPage(response, access);
       return true;

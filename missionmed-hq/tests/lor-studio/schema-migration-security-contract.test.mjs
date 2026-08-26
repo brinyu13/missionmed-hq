@@ -46,6 +46,16 @@ const productionIdentityScopePath = path.join(
   'migrations',
   '20260825010300_f2_lor_1012_production_identity_scope_commands.sql',
 );
+const facultyInvitationPath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260825010400_f2_lor_1012_faculty_invitation_commands.sql',
+);
+const productionFacultyInvitationPath = path.join(
+  scriptDirectory,
+  'migrations',
+  '20260825010500_f2_lor_1012_production_faculty_invitation_commands.sql',
+);
 
 const RELATIONS = Object.freeze([
   'student_auth_bindings',
@@ -96,6 +106,15 @@ const APPROVED_IDENTITY_SCOPE_DEFINERS = Object.freeze([
   'resolve_mentor_case_scope(text,text,text)',
 ]);
 
+const APPROVED_FACULTY_INVITATION_DEFINERS = Object.freeze([
+  'issue_faculty_invitation(text,bigint,text,text,text,text,text,timestamptz,timestamptz,integer,bigint,bigint,text,text)',
+  'resend_faculty_invitation_otp(text,text,text,text,timestamptz,text,text)',
+  'revoke_faculty_invitation(text,text,text)',
+  'verify_faculty_invitation(text,text,text,text,text,text)',
+  'commit_faculty_invitation_delivery(text,text,text,text,text)',
+  'resolve_lor_actor_case_access(text,text)',
+]);
+
 const IDENTITY_SCOPE_POLICIES = Object.freeze([
   'student_auth_bindings_identity_command_select',
   'student_auth_bindings_identity_command_insert',
@@ -131,6 +150,27 @@ function commandOwnerFunctionIdentities(sql) {
       : match[2].split(',').map((argument) => argument.trim().split(/\s+/u).at(-1));
     return `${match[1]}(${argumentTypes.join(',')})`;
   });
+}
+
+function declaredFunctionBlock(sql, functionName) {
+  let start = sql.indexOf(`CREATE FUNCTION lor_studio.${functionName}(`);
+  if (start === -1) {
+    start = sql.indexOf(`CREATE OR REPLACE FUNCTION lor_studio.${functionName}(`);
+  }
+  assert.notEqual(start, -1, functionName);
+  const candidateEnds = [
+    sql.indexOf('\nCREATE FUNCTION lor_studio.', start + 1),
+    sql.indexOf('\nCREATE OR REPLACE FUNCTION lor_studio.', start + 1),
+  ].filter((candidate) => candidate !== -1);
+  const end = candidateEnds.length === 0 ? -1 : Math.min(...candidateEnds);
+  return sql.slice(start, end === -1 ? undefined : end);
+}
+
+function declaredPolicyBlock(sql, policyName) {
+  const start = sql.indexOf(`CREATE POLICY ${policyName}\n`);
+  assert.notEqual(start, -1, policyName);
+  const end = sql.indexOf('\nCREATE POLICY ', start + 1);
+  return sql.slice(start, end === -1 ? undefined : end);
 }
 
 test('foundation is executable SQL with the exact relation inventory', async () => {
@@ -488,6 +528,229 @@ test('DR-133 production identity/scope migration preserves the reviewed local co
     'fglyvdykwgbuivikqoah',
     'foundation=20260825010000',
     'identityScope=20260825010300',
+  ]) {
+    assert.match(productionSql, new RegExp(required.replaceAll('.', '\\.'), 'u'), required);
+  }
+  assert.match(productionSql, /inet_server_addr\(\) IS NULL/u);
+  assert.match(productionSql, /current_setting\('ssl'\) IS DISTINCT FROM 'on'/u);
+  assert.match(productionSql, /observed_sentinel IS DISTINCT FROM expected_sentinel/u);
+});
+
+test('faculty invitation successor exposes only the six exact DB-owned command surfaces', async () => {
+  const sql = await readFile(facultyInvitationPath, 'utf8');
+  const declarations = functionDeclarations(sql);
+  const definers = declarations.filter((declaration) => (
+    /SECURITY\s+DEFINER/u.test(declaration.properties)
+  ));
+  assert.deepEqual(
+    definers.map((declaration) => declaration.identity),
+    APPROVED_FACULTY_INVITATION_DEFINERS,
+  );
+  assert.deepEqual(
+    commandOwnerFunctionIdentities(sql),
+    APPROVED_FACULTY_INVITATION_DEFINERS,
+  );
+  for (const declaration of definers) {
+    assert.match(declaration.properties, /SET search_path = ''/u, declaration.identity);
+  }
+  assert.match(sql, /CREATE TABLE lor_studio\.faculty_invitation_command_receipts/u);
+  assert.match(sql, /ALTER TABLE lor_studio\.faculty_invitation_command_receipts FORCE ROW LEVEL SECURITY/u);
+  assert.match(sql, /faculty_invitation_command_receipts_append_only/u);
+  assert.match(sql, /relation_count IS DISTINCT FROM 29/u);
+  assert.match(sql, /definer_count IS DISTINCT FROM 18/u);
+  assert.match(sql, /identityScope=20260825010200/u);
+  assert.match(sql, /facultyInvitationCommands=20260825010400/u);
+  assert.doesNotMatch(sql, /\b(?:TO|GRANT)\s+(?:anon|authenticated|service_role)\b/iu);
+  assert.doesNotMatch(sql, /GRANT\s+[^;]+\s+TO\s+PUBLIC/iu);
+  assert.doesNotMatch(sql, /\bCASCADE\b/iu);
+});
+
+test('faculty invitation commands enforce revision, server resolution, safe receipts, and DB admission', async () => {
+  const sql = await readFile(facultyInvitationPath, 'utf8');
+  const issue = declaredFunctionBlock(sql, 'issue_faculty_invitation');
+  const resend = declaredFunctionBlock(sql, 'resend_faculty_invitation_otp');
+  const revoke = declaredFunctionBlock(sql, 'revoke_faculty_invitation');
+  const verify = declaredFunctionBlock(sql, 'verify_faculty_invitation');
+  const delivery = declaredFunctionBlock(sql, 'commit_faculty_invitation_delivery');
+  const resolver = declaredFunctionBlock(sql, 'resolve_lor_actor_case_access');
+  const durableFacultyContext = declaredFunctionBlock(sql, 'faculty_context_allows');
+  const caseUpdatePolicy = declaredPolicyBlock(
+    sql,
+    'recommendation_cases_invitation_command_update',
+  );
+  const invitationUpdatePolicy = declaredPolicyBlock(
+    sql,
+    'faculty_invitations_invitation_command_update',
+  );
+  const caseUpdateCheck = caseUpdatePolicy.slice(caseUpdatePolicy.indexOf('\nWITH CHECK ('));
+  const invitationUpdateCheck = invitationUpdatePolicy.slice(
+    invitationUpdatePolicy.indexOf('\nWITH CHECK ('),
+  );
+
+  assert.match(issue, /candidate_expected_revision bigint/u);
+  assert.match(issue, /current_case\.revision IS DISTINCT FROM candidate_expected_revision/u);
+  assert.match(issue, /LOR_FACULTY_INVITATION_STALE_REVISION/u);
+  assert.match(issue, /ERRCODE = 'P1306'/u);
+  assert.match(issue, /current_case\.status NOT IN \('draft', 'faculty_invited'\)/u);
+  assert.match(issue, /used_at IS NULL[\s\S]*revoked_at IS NULL[\s\S]*expires_at > command_at/u);
+
+  assert.match(resend, /candidate_recipient_email_hash text/u);
+  assert.doesNotMatch(resend, /candidate_invitation_id/u);
+  assert.match(resend, /active_invitation_count IS DISTINCT FROM 1::bigint/u);
+  assert.match(resend, /current_invitation\.recipient_email_hash <>[\s\S]*candidate_recipient_email_hash/u);
+  assert.match(resend, /set_config\([\s\S]*'lor_studio\.invitation_id', current_invitation\.invitation_id/u);
+  assert.equal(resend.match(/\bFOR UPDATE;/gu)?.length, 1);
+
+  assert.doesNotMatch(revoke, /candidate_invitation_id/u);
+  assert.match(revoke, /active_invitation_count IS DISTINCT FROM 1::bigint/u);
+  assert.match(revoke, /set_config\([\s\S]*'lor_studio\.invitation_id', current_invitation\.invitation_id/u);
+  assert.equal(revoke.match(/\bFOR UPDATE;/gu)?.length, 1);
+
+  for (const operation of [
+    'resend_faculty_invitation_otp',
+    'revoke_faculty_invitation',
+    'commit_faculty_invitation_delivery',
+  ]) {
+    assert.match(caseUpdatePolicy, new RegExp(operation, 'u'), operation);
+    assert.doesNotMatch(caseUpdateCheck, new RegExp(operation, 'u'), operation);
+  }
+  assert.match(invitationUpdatePolicy, /commit_faculty_invitation_delivery/u);
+  assert.doesNotMatch(invitationUpdateCheck, /commit_faculty_invitation_delivery/u);
+  assert.match(caseUpdatePolicy, /reserve_faculty_invitation_delivery/u);
+  assert.doesNotMatch(caseUpdateCheck, /reserve_faculty_invitation_delivery/u);
+  assert.match(invitationUpdatePolicy, /reserve_faculty_invitation_delivery/u);
+  assert.doesNotMatch(invitationUpdateCheck, /reserve_faculty_invitation_delivery/u);
+
+  assert.match(sql, /delivery_action text/u);
+  assert.match(sql, /faculty\.invitation\.delivery_pending/u);
+  assert.match(sql, /faculty\.invitation\.delivery_unknown/u);
+  assert.match(delivery, /pg_catalog\.pg_advisory_xact_lock/u);
+  assert.match(delivery, /reserve_faculty_invitation_delivery/u);
+  assert.match(delivery, /mark_faculty_invitation_delivery_unknown/u);
+  assert.match(delivery, /'dispatchGranted', true/u);
+  assert.match(delivery, /'dispatchGranted', false/u);
+  assert.match(delivery, /'status', 'pending'/u);
+  assert.match(delivery, /'status', 'unknown'/u);
+  assert.match(delivery, /'status', 'accepted'/u);
+  assert.match(delivery, /stored_unknown\.receipt_id IS NOT NULL/u);
+  assert.match(delivery, /stored_delivery\.receipt_id IS NOT NULL/u);
+  assert.match(delivery, /candidate_delivery_value !~ '\^\[a-f0-9\]\{64\}\$'/u);
+  assert.doesNotMatch(delivery, /recipient_email|token_hash|otp_code/u);
+
+  for (const command of [issue, resend, revoke, verify, delivery]) {
+    assert.match(
+      command,
+      /date_trunc\(\s*'milliseconds', pg_catalog\.transaction_timestamp\(\)\s*\)/u,
+    );
+  }
+
+  assert.doesNotMatch(verify, /candidate_case_id/u);
+  assert.doesNotMatch(verify, /request\.jwt\.claim\.sub/u);
+  assert.match(verify, /candidate_otp_code text/u);
+  assert.match(verify, /candidate_otp_code !~ '\^\[0-9\]\{6\}\$'/u);
+  assert.match(verify, /lor-studio:otp-attempt:' \|\| current_challenge\.challenge_id/u);
+  assert.match(verify, /database_otp_proof_ref := lor_studio\.canonical_jsonb_sha256/u);
+  assert.match(verify, /missionmed\.lor\.database-otp-proof\.v1/u);
+  assert.match(verify, /command_at, current_challenge\.expires_at, false/u);
+  assert.match(verify, /database_verified_otp_challenge/u);
+  assert.match(verify, /missionmed\.lor\.faculty-auth-uid\.v1:/u);
+  assert.match(verify, /next_failed_attempts := LEAST\(/u);
+  assert.doesNotMatch(verify, /pg_catalog\.least/u);
+  assert.match(verify, /pg_catalog\.substr\(faculty_uid_hex, 9, 4\) \|\| '-5'/u);
+  assert.match(verify, /pg_catalog\.substr\(faculty_uid_hex, 14, 3\) \|\| '-8'/u);
+  assert.match(verify, /set_config\([\s\S]*'lor_studio\.case_id', current_invitation\.case_id/u);
+  assert.match(verify, /set_config\([\s\S]*'lor_studio\.resource_student_id', current_invitation\.student_auth_subject/u);
+  assert.equal(verify.match(/candidate_otp_code/gu)?.length, 3);
+  assert.match(
+    verify,
+    /pg_advisory_xact_lock\([\s\S]*faculty\.invitation\.verify:idempotency:[\s\S]*candidate_idempotency_key/u,
+  );
+  const caseLockIndex = verify.indexOf('SELECT recommendation_case.* INTO current_case');
+  const invitationLockIndex = verify.indexOf(
+    'SELECT invitation.* INTO current_invitation',
+    verify.indexOf('FOR UPDATE;') + 'FOR UPDATE;'.length,
+  );
+  const selfVerificationGuardIndex = verify.indexOf(
+    'IF faculty_subject = current_case.student_auth_subject THEN',
+  );
+  const verificationReceiptLookupIndex = verify.indexOf(
+    'SELECT receipt.* INTO stored_receipt',
+  );
+  assert.ok(caseLockIndex >= 0);
+  assert.ok(invitationLockIndex >= 0);
+  assert.ok(selfVerificationGuardIndex > invitationLockIndex);
+  assert.ok(verificationReceiptLookupIndex > selfVerificationGuardIndex);
+  assert.match(
+    verify.slice(selfVerificationGuardIndex, verificationReceiptLookupIndex),
+    /LOR_FACULTY_INVITATION_AUTHORIZATION_DENIED'[\s\S]*ERRCODE = 'P1301'/u,
+  );
+  assert.doesNotMatch(
+    verify.slice(0, selfVerificationGuardIndex),
+    /\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+lor_studio\./u,
+  );
+
+  for (const key of [
+    'invitationExpiresAt',
+    'challengeExpiresAt',
+    'challengeIdHash',
+    'caseRevision',
+    'invitationRevision',
+  ]) {
+    assert.match(sql, new RegExp(`'${key}'`, 'u'), key);
+  }
+  assert.match(sql, /missionmed\.lor\.faculty-invitation-command-receipt\.v1/u);
+  assert.match(sql, /principal_authority = 'database_verified_otp_challenge'/u);
+  assert.match(sql, /YYYY-MM-DD"T"HH24:MI:SS\.MS"Z"/u);
+  assert.doesNotMatch(sql, /recipientEmail(?:'|"|\s+text)/u);
+  assert.doesNotMatch(sql, /(?:token|otpCode)(?:'|"|\s+text)/u);
+
+  assert.match(resolver, /missionmed\.lor\.actor-case-access\.v1/u);
+  assert.match(resolver, /database_verified_case_access/u);
+  assert.match(resolver, /eligible_role_count = 0/u);
+  assert.match(resolver, /eligible_role_count <> 1/u);
+  assert.match(resolver, /ERRCODE = 'P1202'/u);
+  assert.match(resolver, /actor_case_access_resolution/u);
+  for (const durableBinding of [durableFacultyContext, resolver]) {
+    assert.match(durableBinding, /invitation\.used_at < invitation\.expires_at/u);
+    assert.match(
+      durableBinding,
+      /verification\.invitation_used_at < verification\.otp_expires_at/u,
+    );
+    assert.doesNotMatch(
+      durableBinding,
+      /invitation\.expires_at > pg_catalog\.statement_timestamp\(\)/u,
+    );
+    assert.doesNotMatch(
+      durableBinding,
+      /verification\.otp_expires_at > pg_catalog\.statement_timestamp\(\)/u,
+    );
+  }
+  assert.match(
+    durableFacultyContext,
+    /proof_revocation\.case_id = verification\.case_id/u,
+  );
+});
+
+test('production faculty invitation successor preserves the reviewed command body', async () => {
+  const [localSql, productionSql] = await Promise.all([
+    readFile(facultyInvitationPath, 'utf8'),
+    readFile(productionFacultyInvitationPath, 'utf8'),
+  ]);
+  const bodyMarker = 'LOCK TABLE\n';
+  assert.equal(
+    productionSql.slice(productionSql.indexOf(bodyMarker)).replaceAll(
+      'facultyInvitationCommands=20260825010500',
+      'facultyInvitationCommands=20260825010400',
+    ).trimEnd(),
+    localSql.slice(localSql.indexOf(bodyMarker)).trimEnd(),
+  );
+  for (const required of [
+    'missionmed.lor.railway-postgres-target.v1',
+    '29afe885-b9b1-425d-8fd8-8611cd275409',
+    'f5705d38-393c-4176-9cc2-0d1dbad42c93',
+    'b49a52e7-df15-4417-b67a-a64403aa5db7',
+    'identityScope=20260825010300',
+    'facultyInvitationCommands=20260825010500',
   ]) {
     assert.match(productionSql, new RegExp(required.replaceAll('.', '\\.'), 'u'), required);
   }

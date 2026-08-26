@@ -17,6 +17,7 @@ import {
   bindVerifiedFaculty,
   completeBuilderStep,
   createRecommendationCase,
+  finalDocumentContentHash,
   releaseFinalDocument,
   setFacultyPrivateContent,
   transitionRecommendationCase,
@@ -35,8 +36,6 @@ function model(overrides = {}) {
   return {
     caseId: 'case-100',
     title: 'Letter of Recommendation',
-    studentDisplayName: 'Example Student',
-    facultyDisplayName: 'Example Faculty',
     documentState: 'faculty_final',
     privacyClass: 'waived_faculty_private',
     containsWaivedContent: true,
@@ -76,7 +75,7 @@ test('DOCX renderer emits a genuine OOXML package with final faculty wording', (
   ]);
   const documentXml = entries.get('word/document.xml').toString('utf8');
   assert.match(documentXml, /The applicant demonstrated reliable clinical reasoning/u);
-  assert.match(documentXml, /Final wording approved and signature attested/u);
+  assert.doesNotMatch(documentXml, /Applicant:|Final wording approved and signature attested by/u);
   assert.doesNotMatch(documentXml, /<script>/u);
 });
 
@@ -93,17 +92,17 @@ test('artifact renderers escape markup and reject non-final or unapproved output
   assert.throws(() => renderRecommendationPdf(model()), /explicit approved-output/u);
 });
 
-test('PDF renderer transliterates non-ASCII names instead of mangling them', () => {
+test('PDF renderer transliterates non-ASCII final wording instead of mangling it', () => {
   // The base-14 PDF font is single-byte, so the output alphabet is ASCII. That must degrade by
-  // TRANSLITERATION, not by destroying the name: the previous implementation ran NFKD and then
-  // mapped every non-ASCII code point to '?', so the combining marks NFKD had just produced
-  // became literal question marks and 'José Álvarez' rendered as 'Jose? A?lvarez'.
+  // TRANSLITERATION, not by destroying approved wording: the previous implementation ran NFKD and
+  // then mapped every non-ASCII code point to '?', so combining marks became literal question marks.
   const artifact = renderRecommendationPdf(model({
-    studentDisplayName: 'José Álvarez',
-    facultyDisplayName: 'François Müller-Lefèvre',
     sections: [{
       heading: 'Clinical Evaluation',
-      paragraphs: ['Trained at Hôpital Saint-Louis — “excellent” throughout…'],
+      paragraphs: [
+        'José Álvarez trained at Hôpital Saint-Louis — “excellent” throughout…',
+        'François Müller-Lefèvre approved this exact final wording.',
+      ],
     }],
   }), { pdfApproved: true });
   const text = artifact.buffer.toString('latin1');
@@ -126,10 +125,36 @@ test('PDF renderer emits a structurally complete PDF only after explicit approva
   assert.match(text, /^%PDF-1\.7/u);
   assert.match(text, /xref\n0 /u);
   assert.match(text, /\/Type \/Catalog/u);
-  assert.match(text, /Final wording approved and signature attested/u);
+  assert.match(text, /This final language is owned and approved by the faculty writer\./u);
+  assert.doesNotMatch(text, /Applicant:|Final wording approved and signature attested by/u);
   assert.match(text, /%%EOF\n$/u);
   const declaredXref = Number(text.match(/startxref\n(\d+)\n%%EOF/u)?.[1]);
   assert.equal(text.slice(declaredXref, declaredXref + 4), 'xref');
+});
+
+test('portable DOCX and PDF bytes omit internal actor, faculty, and case identifiers', () => {
+  const opaqueIdentifiers = [
+    'wp:991',
+    `faculty_${'a'.repeat(64)}`,
+    'case-private-991',
+  ];
+  const rawModel = model({
+    caseId: opaqueIdentifiers[2],
+    // Legacy callers may still carry these now-ignored fields while the renderer contract rolls
+    // forward. They must never be copied into the portable artifact.
+    studentDisplayName: opaqueIdentifiers[0],
+    facultyDisplayName: opaqueIdentifiers[1],
+  });
+  const docx = renderRecommendationDocx(rawModel);
+  const docxPackageText = [...readZipEntries(docx.buffer).values()]
+    .map((entry) => entry.toString('utf8'))
+    .join('\n');
+  const pdfText = renderRecommendationPdf(rawModel, { pdfApproved: true }).buffer.toString('latin1');
+
+  for (const identifier of opaqueIdentifiers) {
+    assert.equal(docxPackageText.includes(identifier), false, `${identifier} must not enter DOCX bytes`);
+    assert.equal(pdfText.includes(identifier), false, `${identifier} must not enter PDF bytes`);
+  }
 });
 
 test('student artifact projection structurally denies waived and faculty-private output', () => {
@@ -856,14 +881,15 @@ function docxText(buffer) {
 test('an entitled student exports the released letter as real DOCX bytes', async () => {
   const auditSink = new InMemoryAuditEventSink();
   const { adapter, repository } = exportHarness({ auditSink });
-  await seedExportCase(repository, exportableRevisions());
+  const seeded = await seedExportCase(repository, exportableRevisions());
 
   const response = await exportCall(adapter);
   assert.equal(response.status, 200);
   assert.equal(response.body, undefined, 'an export is delivered as bytes, never as a JSON body');
   assert.equal(response.binary.contentType, DOCX_MIME);
-  assert.equal(response.binary.filename, 'lor-case-released-document-1.docx');
+  assert.equal(response.binary.filename, 'letter-of-recommendation.docx');
   assert.match(response.binary.filename, /^[A-Za-z0-9._-]+$/u, 'the filename must need no sanitising downstream');
+  assert.doesNotMatch(response.binary.filename, /student-1|faculty-1|case-released|document-1/u);
 
   const buffer = response.binary.body;
   assert.equal(Buffer.isBuffer(buffer), true);
@@ -879,7 +905,8 @@ test('an entitled student exports the released letter as real DOCX bytes', async
   ]);
   const documentXml = entries.get('word/document.xml').toString('utf8');
   assert.match(documentXml, /FINAL LETTER WORDING the student is entitled to hold\./u);
-  assert.match(documentXml, /Final wording approved and signature attested by faculty-1\./u);
+  assert.doesNotMatch(documentXml, /student-1|faculty-1|case-released|document-1/u);
+  assert.doesNotMatch(documentXml, /Applicant:|Final wording approved and signature attested by/u);
   assert.doesNotMatch(documentXml, /FACULTY PRIVATE DRAFT/u, 'the student copy must carry no faculty-private wording');
 
   const events = auditSink.list();
@@ -890,8 +917,119 @@ test('an entitled student exports the released letter as real DOCX bytes', async
     action: 'export_final_document',
     artifactFormat: 'docx',
     result: 'student_visible',
+    artifactSha256: sha256(buffer),
+    releaseDocumentHash: seeded.finalDocumentState.release.documentHash,
+    sourceRevision: seeded.revision,
   });
   assert.doesNotMatch(JSON.stringify(events[0]), /student-1|case-released|document-1/u);
+});
+
+test('durable artifact export uses only the actor-safe export DTO and never getById', async () => {
+  const actor = { id: 'wp:41', role: 'student' };
+  const finalDocument = {
+    contentHash: null,
+    id: 'document-durable',
+    mimeType: 'text/plain',
+    releasedToStudentAt: EXPORT_RELEASED_AT,
+    text: 'DURABLE ACTOR SAFE FINAL LETTER',
+  };
+  const exportDto = {
+    schemaVersion: 'missionmed.lor.final-document-export.v1',
+    caseId: 'case-durable',
+    studentId: 'wp:41',
+    actorRef: `actor_${sha256('lor-studio:actor:wp:41')}`,
+    actorRole: 'student',
+    revision: 12,
+    finalDocument,
+    documentState: 'faculty_final',
+    facultyApproval: {
+      approved: true,
+      approvedAt: EXPORT_APPROVED_AT,
+      facultyRef: `faculty_${sha256('lor-studio:faculty:wp:43')}`,
+      signatureAttested: true,
+    },
+    waiverState: { decided: true, receiptId: 'waiver-durable', waived: false },
+    release: {
+      documentHash: finalDocumentContentHash(finalDocument),
+      documentId: finalDocument.id,
+      releasedAt: EXPORT_RELEASED_AT,
+      releasedAtRevision: 12,
+      waiverReceiptId: 'waiver-durable',
+    },
+    exportProjection: 'student_visible',
+  };
+  let safeReads = 0;
+  let aggregateReads = 0;
+  const repository = {
+    isDurable: true,
+    async readFinalDocumentExport(request) {
+      safeReads += 1;
+      assert.deepEqual(request, {
+        caseId: 'case-durable',
+        actorId: 'wp:41',
+        actorRole: 'student',
+      });
+      return structuredClone(exportDto);
+    },
+    async getById() {
+      aggregateReads += 1;
+      throw new Error('full aggregate export read is forbidden');
+    },
+  };
+  const unaudited = createRecommendationArtifactService({
+    repository,
+    entitlementPort: new StaticEntitlementTestAdapter([exportEligible('wp:41')]),
+    clock: () => EXPORT_NOW,
+    idFactory: () => 'durable-export-id',
+  });
+  await assert.rejects(
+    () => unaudited.exportFinalDocumentArtifact({ actor, caseId: 'case-durable' }),
+    (error) => error.code === 'INTEGRATION_DISABLED',
+    'durable protected bytes must never leave without a durable actor/case-bound audit sink',
+  );
+  const auditEvents = [];
+  const artifacts = createRecommendationArtifactService({
+    repository,
+    entitlementPort: new StaticEntitlementTestAdapter([exportEligible('wp:41')]),
+    auditSink: {
+      isDurable: true,
+      serverOnly: true,
+      actorCaseBound: true,
+      appendOnly: true,
+      async emit(event) { auditEvents.push(event); },
+    },
+    clock: () => EXPORT_NOW,
+    idFactory: () => 'durable-export-id',
+  });
+  const exported = await artifacts.exportFinalDocumentArtifact({
+    actor,
+    caseId: 'case-durable',
+  });
+  assert.equal(safeReads, 2);
+  assert.equal(aggregateReads, 0);
+  assert.equal(auditEvents.length, 1);
+  assert.deepEqual(auditEvents[0].metadata, {
+    action: 'export_final_document',
+    artifactFormat: 'docx',
+    result: 'student_visible',
+    artifactSha256: exported.artifact.sha256,
+    releaseDocumentHash: exportDto.release.documentHash,
+    sourceRevision: exportDto.revision,
+  });
+  assert.equal(exported.exportIntent.projectionHash.length, 64);
+  const durableDocumentXml = docxText(exported.artifact.buffer);
+  assert.match(durableDocumentXml, /DURABLE ACTOR SAFE FINAL LETTER/u);
+  assert.doesNotMatch(durableDocumentXml, /wp:41|faculty_[a-f0-9]{64}|case-durable|document-durable/u);
+
+  repository.readFinalDocumentExport = async () => ({
+    ...exportDto,
+    facultyPrivate: { draftText: 'must never cross the export DTO' },
+  });
+  await assert.rejects(
+    () => artifacts.exportFinalDocumentArtifact({ actor, caseId: 'case-durable' }),
+    (error) => error.code === 'INTEGRATION_DISABLED',
+  );
+  assert.equal(aggregateReads, 0);
 });
 
 test('the student export mirrors the projection exactly: no release, no bytes', async () => {
@@ -1178,7 +1316,8 @@ test('the exported DOCX carries only provenance the aggregate actually holds', a
   assert.equal(exported.exportIntent.remoteMutationPerformed, false);
 
   const core = readZipEntries(exported.artifact.buffer).get('docProps/core.xml').toString('utf8');
-  assert.match(core, /case:case-released;privacy:nonwaived_student_visible/u);
+  assert.match(core, /privacy:nonwaived_student_visible/u);
+  assert.doesNotMatch(core, /case-released|student-1|faculty-1|document-1/u);
 
   // The export is a pure read: the aggregate is byte-identical afterwards.
   assert.equal(
@@ -1245,8 +1384,8 @@ test('the released letter reaches the wire as a protected DOCX download', async 
   assert.equal(delivered.headers['Content-Type'], DOCX_MIME);
   assert.equal(
     delivered.headers['Content-Disposition'],
-    'attachment; filename="lor-case-released-document-1.docx"; '
-      + "filename*=UTF-8''lor-case-released-document-1.docx",
+    'attachment; filename="letter-of-recommendation.docx"; '
+      + "filename*=UTF-8''letter-of-recommendation.docx",
   );
   assert.equal(delivered.headers['X-Content-Type-Options'], 'nosniff');
   assert.equal(delivered.headers['Cache-Control'], 'no-store, max-age=0');

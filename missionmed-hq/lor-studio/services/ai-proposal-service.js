@@ -10,6 +10,7 @@ import {
   validateAiProposal,
 } from '../domain/claim-validator.js';
 import { createAiProposalProvenance, createHumanDecisionRecord } from '../domain/provenance.js';
+import { STUDENT_CONSENT_POLICY_VERSION } from '../domain/recommendation-case.js';
 import {
   assertNonEmptyString,
   assertPlainObject,
@@ -196,7 +197,9 @@ export class AiProposalService {
  *                           over a student whose entitlement is still live (canary included)
  *   resolveApprovedEvidence -> the approved source material, derived from the stored case
  *   AiProposalService.generate -> the grounding invariant (entailment, connective allowlist)
- *   proposalStore.putProposal  -> persisted as a PROPOSAL, with `acceptedContent: null`
+ *   proposalStore.reserveProposalGeneration -> durable winner election BEFORE provider IO
+ *   AiProposalService.generate -> called by the one reservation winner only
+ *   proposalStore.finalizeProposalGeneration -> provider run plus PROPOSAL in one transaction
  *
  * Four properties are worth stating plainly, because they are the ones a future change is most
  * likely to erode:
@@ -208,7 +211,7 @@ export class AiProposalService {
  *    ground any sentence it liked and the entailment gate would attest a fabrication.
  *
  * 2. A PROPOSAL IS NOT CONTENT. `decision` and `acceptedContent` are null on every record this
- *    module writes through `putProposal`, and the only function that can make them non-null is
+ *    module writes through `finalizeProposalGeneration`, and the only function that can make them non-null is
  *    `recordProposalDecision`. There is no request field on the generate path that names an
  *    action, a decision, or a resulting text.
  *
@@ -253,19 +256,24 @@ export const HUMAN_DECISION_ACTIONS = deepFreeze(['accepted', 'edited', 'rejecte
 /**
  * The proposal store port.
  *
- * `putProposal` and `attachDecision` are CONDITIONAL ATOMIC WRITES, exactly like
- * `commitWithEvent` on the case repository:
+ * Provider generation is an external side effect, so ordinary write idempotency after the call
+ * is too late. The store must first reserve `(case, authenticated actor, idempotency key,
+ * request hash)` durably. Only the new reservation winner may call the provider. A replay sees a
+ * durable `pending`, `accepted`, or `unknown` state and never calls the provider again.
  *
- *   putProposal    - keyed by (caseId, idempotencyKey). A repeat with the same requestHash
- *                    replays the stored record; a repeat with a different one is an idempotency
- *                    conflict. It must refuse a record that already carries a decision.
- *   getProposal    - returns the stored record or null. Never throws for absence.
- *   attachDecision - replaces the stored proposal with `record` ONLY IF the stored proposal is
- *                    still undecided, under the same idempotency contract. "Undecided" is
- *                    checked inside the write, not before it: a check-then-write here would let
- *                    two concurrent decisions both pass the check.
+ *   reserveProposalGeneration  - durable winner election before provider IO.
+ *   finalizeProposalGeneration - atomically persists the winning provider run and proposal.
+ *   markProposalGenerationUnknown - seals provider uncertainty; it never authorizes a retry.
+ *   getProposal                - returns the stored record or null. Never throws for absence.
+ *   attachDecision             - conditionally writes the one human decision.
  */
-const AI_PROPOSAL_STORE_METHODS = deepFreeze(['putProposal', 'getProposal', 'attachDecision']);
+const AI_PROPOSAL_STORE_METHODS = deepFreeze([
+  'reserveProposalGeneration',
+  'finalizeProposalGeneration',
+  'markProposalGenerationUnknown',
+  'getProposal',
+  'attachDecision',
+]);
 
 /** Mirrors LIMITS.approvedFactsMax / proposalTextMax in domain/claim-validator.js. */
 const APPROVED_EVIDENCE_MAX = 500;
@@ -300,10 +308,36 @@ const READ_REQUEST_FIELDS = deepFreeze(['actor', 'caseId', 'proposalId']);
  * @param {Record<string, any>} caseRecord
  */
 function resolveApprovedEvidence(caseRecord) {
+  const consentReceipts = Array.isArray(caseRecord.consentReceipts)
+    ? caseRecord.consentReceipts
+    : [];
+  const latestConsent = consentReceipts.at(-1);
+  // A full aggregate carries scopes, so the latest receipt is authoritative. The durable
+  // actor-safe drafting DTO intentionally carries only IDs; its database function has already
+  // applied the same latest-consent rule before emitting those references.
+  const actorSafeReceiptIds = consentReceipts.every((receipt) => (
+    receipt
+    && typeof receipt === 'object'
+    && !Array.isArray(receipt)
+    && Object.keys(receipt).length === 1
+    && typeof receipt.id === 'string'
+    && receipt.id.length > 0
+  ))
+    ? consentReceipts.map((receipt) => receipt.id)
+    : [];
   const consentReceiptIds = new Set(
-    (Array.isArray(caseRecord.consentReceipts) ? caseRecord.consentReceipts : [])
-      .map((receipt) => receipt?.id)
-      .filter((id) => typeof id === 'string' && id.length > 0),
+    actorSafeReceiptIds.length > 0
+      ? actorSafeReceiptIds
+      : latestConsent
+      && Array.isArray(latestConsent.scopes)
+      && !latestConsent.scopes.includes('consent_withdrawn')
+      && latestConsent.policyVersion === STUDENT_CONSENT_POLICY_VERSION
+      && latestConsent.scopes.includes('ai_drafting')
+      && latestConsent.scopes.includes('evidence_grounding')
+      && typeof latestConsent.id === 'string'
+      && latestConsent.id.length > 0
+      ? [latestConsent.id]
+      : [],
   );
   const references = [];
   const facts = [];
@@ -431,9 +465,9 @@ function resolveDecisionText({ action, resultingText, record }) {
 /**
  * @typedef {object} AiDraftingServiceOptions
  * @property {{ generate: Function }} proposalService
- * @property {{ getById: (caseId: string) => Promise<Record<string, any>> }} repository
+ * @property {{ readFacultyDraftingContext: (input: { caseId: string, actorId: string }) => Promise<Record<string, any>> }} repository
  * @property {{ getStudentEntitlement: (input: { studentId: string }) => Promise<any> }} entitlementPort
- * @property {{ putProposal: Function, getProposal: Function, attachDecision: Function }} proposalStore
+ * @property {{ reserveProposalGeneration: Function, finalizeProposalGeneration: Function, markProposalGenerationUnknown: Function, getProposal: Function, attachDecision: Function }} proposalStore
  * @property {() => Date | string | number} [clock]
  * @property {boolean} [requireCanary]
  * @property {string} [templateVersion]
@@ -455,7 +489,7 @@ export function createAiDraftingService({
   templateVersion = AI_DRAFT_TEMPLATE_VERSION,
 } = /** @type {any} */ ({})) {
   assertPort(proposalService, ['generate'], 'proposalService');
-  assertPort(repository, ['getById'], 'repository');
+  assertPort(repository, ['readFacultyDraftingContext'], 'repository');
   assertPort(entitlementPort, ['getStudentEntitlement'], 'entitlementPort');
   assertPort(proposalStore, [...AI_PROPOSAL_STORE_METHODS], 'proposalStore');
   if (typeof clock !== 'function') throw new TypeError('clock must be a server-side function');
@@ -482,12 +516,24 @@ export function createAiDraftingService({
    */
   async function authorize({ actor, caseId, action, now }) {
     assertNonEmptyString(caseId, 'caseId', { maxLength: 200 });
-    const caseRecord = await repository.getById(String(caseId));
+    const actorRecord = assertPlainObject(actor, 'actor');
+    const actorId = assertNonEmptyString(actorRecord.id, 'actor.id', { maxLength: 200 });
+    const caseRecord = await repository.readFacultyDraftingContext({
+      caseId: String(caseId),
+      actorId,
+    });
     const entitlement = await entitlementPort.getStudentEntitlement({ studentId: caseRecord.studentId });
     // The single authorization decision. `write_faculty_private` is the FACULTY_ACTIONS entry
     // for authoring, so a student, a mentor, an operational role, a service principal, and a
     // faculty member who is not the recipient-bound verified writer are all refused here.
-    authorizeCaseAction({ actor, action, caseRecord, entitlement, requireCanary, now });
+    authorizeCaseAction({
+      actor: actorRecord,
+      action,
+      caseRecord,
+      entitlement,
+      requireCanary,
+      now,
+    });
     return caseRecord;
   }
 
@@ -513,13 +559,6 @@ export function createAiDraftingService({
       throw new ValidationError('The case carries no consented, hash-bound evidence to ground a draft on');
     }
 
-    const proposal = await proposalService.generate({
-      caseId: caseRecord.id,
-      evidenceReferences: selected.references,
-      facts: selected.facts,
-      templateVersion,
-    });
-    const record = buildProposalRecord({ proposal, caseRecord, actorId: actor.id, at });
     const requestHash = hashValue({
       operation: 'ai.proposal.generate',
       caseId: caseRecord.id,
@@ -527,13 +566,60 @@ export function createAiDraftingService({
       templateVersion,
       factIds: selected.facts.map((fact) => fact.id),
     });
-    const stored = await proposalStore.putProposal({
+
+    const reservation = await proposalStore.reserveProposalGeneration({
       caseId: caseRecord.id,
       idempotencyKey,
       requestHash,
-      record,
     });
-    return deepFreeze(stored?.record ?? stored);
+    if (reservation?.status === 'accepted' && reservation.record) {
+      return deepFreeze(reservation.record);
+    }
+    if (reservation?.providerCallAuthorized !== true || reservation.status !== 'pending') {
+      const status = reservation?.status === 'unknown'
+        ? 'AI_GENERATION_OUTCOME_UNKNOWN'
+        : 'AI_GENERATION_PENDING_RECONCILIATION_REQUIRED';
+      throw new IntegrationDisabledError('lor_ai_proposal_generation', status);
+    }
+
+    let proposal;
+    try {
+      proposal = await proposalService.generate({
+        caseId: caseRecord.id,
+        evidenceReferences: selected.references,
+        facts: selected.facts,
+        templateVersion,
+      });
+      const record = buildProposalRecord({ proposal, caseRecord, actorId: actor.id, at });
+      const stored = await proposalStore.finalizeProposalGeneration({
+        caseId: caseRecord.id,
+        idempotencyKey,
+        requestHash,
+        record,
+      });
+      return deepFreeze(stored?.record ?? stored);
+    } catch {
+      // Once provider IO starts, absence of a response cannot prove absence of an external side
+      // effect. Seal the key as unknown. If finalize actually committed but its response was
+      // lost, the atomic transition returns the accepted record and that record is safe to replay.
+      let settled;
+      try {
+        settled = await proposalStore.markProposalGenerationUnknown({
+          caseId: caseRecord.id,
+          idempotencyKey,
+          requestHash,
+        });
+      } catch {
+        throw new IntegrationDisabledError(
+          'lor_ai_proposal_generation',
+          'AI_GENERATION_OUTCOME_UNRECORDED',
+        );
+      }
+      if (settled?.status === 'accepted' && settled.record) {
+        return deepFreeze(settled.record);
+      }
+      throw new IntegrationDisabledError('lor_ai_proposal_generation', 'AI_GENERATION_OUTCOME_UNKNOWN');
+    }
   }
 
   /**

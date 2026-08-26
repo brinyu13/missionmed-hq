@@ -1,4 +1,6 @@
 import { createRecommendationArtifactService } from '../services/artifact-service.js';
+import { isVerifiedPrivateVersionedStorageAdapter } from '../adapters/private-versioned-storage-adapter.mjs';
+import { isAuthenticDurableArtifactAuditSink } from '../repositories/supabase-durable-artifact-audit-sink.mjs';
 
 const SAFE_ERROR_MESSAGES = Object.freeze({
   AUTHORIZATION_DENIED: 'Access to this recommendation case was denied.',
@@ -22,6 +24,8 @@ const SAFE_ERROR_MESSAGES = Object.freeze({
  * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, stepId: unknown, stepData: unknown }) => Promise<unknown>} autosaveBuilder
  * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, stepId: unknown }) => Promise<unknown>} completeBuilderStep
  * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, receiptType: unknown, receiptData: unknown }) => Promise<unknown>} recordReceipt
+ * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string }) => Promise<unknown>} publishStudentEvidence
+ * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, answers: unknown, notes: unknown, draftText: unknown, finalDocument: unknown, documentState: unknown, facultyApproval: unknown }) => Promise<unknown>} saveFacultyPrivateContent
  * @property {(input: { caseId: unknown, actor: unknown, expectedRevision: unknown, idempotencyKey: string, documentId: unknown }) => Promise<unknown>} releaseFinalDocument
  * @property {{ getStudentEntitlement: (input: { studentId: string }) => Promise<any> }} [entitlementPort] read, never invoked for an authorization decision - see createLorApplicationAdapter
  * @property {() => Date | string | number} [clock]
@@ -32,11 +36,14 @@ const SAFE_ERROR_MESSAGES = Object.freeze({
  * @typedef {object} RecommendationCaseRepositoryContract
  * @property {boolean} [isDurable]
  * @property {string} [durability]
+ * @property {boolean} [supportsStudentEvidencePublication]
  * @property {(caseId: string) => Promise<Record<string, unknown>>} [getById]
+ * @property {(request: Record<string, unknown>) => Promise<Record<string, unknown>>} [commitStudentEvidencePublication]
  */
 
 /**
  * @typedef {object} RecommendationArtifactServiceContract
+ * @property {string} [auditMode]
  * @property {(input: { actor: unknown, caseId: string }) => Promise<{ artifact: { buffer: Buffer, mimeType: string }, filename: string }>} exportFinalDocumentArtifact
  */
 
@@ -53,6 +60,9 @@ const SAFE_ERROR_MESSAGES = Object.freeze({
  * @property {RecommendationCaseRepositoryContract} [repository]
  * @property {RecommendationArtifactServiceContract | null} [artifactService]
  * @property {AiDraftingServiceContract | null} [aiDraftingService]
+ * @property {{ issue: Function, resendOtp: Function, revoke: Function } | null} [facultyInvitationLifecycleService]
+ * @property {{ verify: Function } | null} [facultyInvitationVerificationService]
+ * @property {{ durability: string, put: Function, get: Function } | null} [privateStorageService]
  * @property {{ emit: (event: unknown) => Promise<unknown> } | null} [artifactAuditSink]
  * @property {boolean} [providersReady]
  * @property {boolean} [allAcceptedFunctionsOperational]
@@ -173,25 +183,96 @@ function mapError(error) {
 }
 
 function routeCase(pathname) {
+  const facultyInvitationMatch = pathname.match(
+    /^\/api\/lor-studio\/cases\/([^/]+)\/faculty-invitations(?:\/(otp\/resend|revoke))?$/u,
+  );
+  if (facultyInvitationMatch) {
+    const caseId = decodeRouteSegment(facultyInvitationMatch[1]);
+    if (caseId === null) return null;
+    return {
+      caseId,
+      builder: false,
+      complete: false,
+      receipts: false,
+      facultyPrivate: false,
+      releaseFinalDocument: false,
+      exportFinalDocument: false,
+      aiProposals: false,
+      proposalId: null,
+      proposalDecision: false,
+      facultyInvitations: true,
+      publishStudentEvidence: false,
+      invitationResend: facultyInvitationMatch[2] === 'otp/resend',
+      invitationRevoke: facultyInvitationMatch[2] === 'revoke',
+    };
+  }
+  const evidencePublishMatch = pathname.match(
+    /^\/api\/lor-studio\/cases\/([^/]+)\/evidence\/publish$/u,
+  );
+  if (evidencePublishMatch) {
+    const caseId = decodeRouteSegment(evidencePublishMatch[1]);
+    if (caseId === null) return null;
+    return {
+      caseId,
+      builder: false,
+      complete: false,
+      receipts: false,
+      facultyPrivate: false,
+      releaseFinalDocument: false,
+      exportFinalDocument: false,
+      aiProposals: false,
+      proposalId: null,
+      proposalDecision: false,
+      facultyInvitations: false,
+      publishStudentEvidence: true,
+      invitationResend: false,
+      invitationRevoke: false,
+    };
+  }
   const match = pathname.match(
-    /^\/api\/lor-studio\/cases\/([^/]+)(?:\/(?:(builder)(?:\/(complete))?|(receipts)|(final-document)\/(release|export)|(ai-proposals)(?:\/([^/]+)(?:\/(decision))?)?))?$/u,
+    /^\/api\/lor-studio\/cases\/([^/]+)(?:\/(?:(builder)(?:\/(complete))?|(receipts)|(faculty-private)|(final-document)\/(release|export)|(ai-proposals)(?:\/([^/]+)(?:\/(decision))?)?))?$/u,
   );
   if (!match) return null;
+  const caseId = decodeRouteSegment(match[1]);
+  const proposalId = match[9] === undefined ? null : decodeRouteSegment(match[9]);
+  if (caseId === null || (match[9] !== undefined && proposalId === null)) return null;
   return {
-    caseId: decodeURIComponent(match[1]),
+    caseId,
     builder: match[2] === 'builder',
     complete: match[3] === 'complete',
     receipts: match[4] === 'receipts',
+    facultyPrivate: match[5] === 'faculty-private',
     // Only the explicit two-segment paths route. `/final-document` on its own is not a resource
     // here, so it falls through to the not-found body rather than to the projection.
-    releaseFinalDocument: match[5] === 'final-document' && match[6] === 'release',
-    exportFinalDocument: match[5] === 'final-document' && match[6] === 'export',
+    releaseFinalDocument: match[6] === 'final-document' && match[7] === 'release',
+    exportFinalDocument: match[6] === 'final-document' && match[7] === 'export',
     // `/ai-proposals` is the collection, `/ai-proposals/:id` one proposal, and
     // `/ai-proposals/:id/decision` the mandatory human decision on it. Nothing deeper routes.
-    aiProposals: match[7] === 'ai-proposals',
-    proposalId: match[8] === undefined ? null : decodeURIComponent(match[8]),
-    proposalDecision: match[9] === 'decision',
+    aiProposals: match[8] === 'ai-proposals',
+    proposalId,
+    proposalDecision: match[10] === 'decision',
+    facultyInvitations: false,
+    publishStudentEvidence: false,
+    invitationResend: false,
+    invitationRevoke: false,
   };
+}
+
+function decodeRouteSegment(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
+function routeFacultyInvitationVerification(pathname) {
+  const match = pathname.match(
+    /^\/api\/lor-studio\/invitations\/([^/]+)\/verify$/u,
+  );
+  if (!match) return null;
+  const invitationId = decodeRouteSegment(match[1]);
+  return invitationId === null ? null : { invitationId };
 }
 
 /**
@@ -203,6 +284,9 @@ export function createLorApplicationAdapter({
   repository,
   artifactService = null,
   aiDraftingService = null,
+  facultyInvitationLifecycleService = null,
+  facultyInvitationVerificationService = null,
+  privateStorageService = null,
   artifactAuditSink = null,
   providersReady = false,
   allAcceptedFunctionsOperational = false,
@@ -212,6 +296,17 @@ export function createLorApplicationAdapter({
   if (!repository) throw new Error('Recommendation case repository is required.');
   if (repository.isDurable !== true && allowNonDurableForTests !== true) {
     throw new Error('Non-durable LOR repositories may only be used by an explicit test harness.');
+  }
+  if (repository.isDurable === true && artifactService && allowNonDurableForTests !== true) {
+    throw new Error('A durable LOR repository constructs its audited artifact service internally.');
+  }
+  if (
+    repository.isDurable === true
+    && artifactAuditSink
+    && allowNonDurableForTests !== true
+    && !isAuthenticDurableArtifactAuditSink(artifactAuditSink)
+  ) {
+    throw new Error('A durable LOR repository requires an authentic actor/case-bound artifact audit sink.');
   }
 
   /**
@@ -274,24 +369,95 @@ export function createLorApplicationAdapter({
     }
     resolvedAiDraftingService = aiDraftingService;
   }
+  let resolvedFacultyInvitationLifecycleService = null;
+  if (facultyInvitationLifecycleService) {
+    for (const method of ['issue', 'resendOtp', 'revoke']) {
+      if (typeof facultyInvitationLifecycleService[method] !== 'function') {
+        throw new Error(`An injected faculty invitation lifecycle service must implement ${method}.`);
+      }
+    }
+    resolvedFacultyInvitationLifecycleService = facultyInvitationLifecycleService;
+  }
+  let resolvedFacultyInvitationVerificationService = null;
+  if (facultyInvitationVerificationService) {
+    if (typeof facultyInvitationVerificationService.verify !== 'function') {
+      throw new Error('An injected faculty invitation verification service must implement verify.');
+    }
+    resolvedFacultyInvitationVerificationService = facultyInvitationVerificationService;
+  }
+  let resolvedPrivateStorageService = null;
+  if (privateStorageService) {
+    if (
+      privateStorageService.durability !== 'DURABLE_PROVIDER_BOUND'
+      || !isVerifiedPrivateVersionedStorageAdapter(privateStorageService)
+    ) {
+      throw new Error('An injected private storage service must be a verified provider-bound adapter.');
+    }
+    for (const method of ['put', 'get']) {
+      if (typeof privateStorageService[method] !== 'function') {
+        throw new Error(`An injected private storage service must implement ${method}.`);
+      }
+    }
+    resolvedPrivateStorageService = privateStorageService;
+  }
+
+  // A validated provider adapter is necessary but not sufficient: this application currently
+  // exposes no case-bound put/get route which uses it. Treating mere construction as durable
+  // accepted-function coverage let a no-op surface make bootstrap claim live. This stays false
+  // until an explicit product route invokes the verified adapter and is covered end to end.
+  const privateStorageAcceptedFunctionBound = false;
+
+  // A readiness receipt is evidence about a dependency at one instant; it is not the dependency
+  // itself.  These surfaces must also be present in this exact application graph before a caller
+  // can receive a live bootstrap.  This prevents a green receipt (or asserted booleans) from
+  // advertising AI, invitation delivery/OTP verification, or private object storage while the
+  // corresponding route is still wired to null.
+  const concreteProviderSurfacesReady = Boolean(
+    resolvedAiDraftingService
+    && resolvedFacultyInvitationLifecycleService
+    && resolvedFacultyInvitationVerificationService
+    && resolvedPrivateStorageService
+    && privateStorageAcceptedFunctionBound
+  );
+  const studentEvidencePublicationBound = Boolean(
+    repository.isDurable === true
+    && repository.supportsStudentEvidencePublication === true
+    && typeof repository.commitStudentEvidencePublication === 'function'
+    && typeof caseService.publishStudentEvidence === 'function'
+  );
+  const concreteAcceptedFunctionSetReady = Boolean(
+    concreteProviderSurfacesReady
+    && resolvedArtifactService
+    && resolvedArtifactService.auditMode === 'durable_actor_case_bound_append_only'
+    && studentEvidencePublicationBound
+  );
 
   async function getBootstrap() {
-    const storageMode = repository.isDurable === true ? 'durable' : String(repository.durability || 'NON_DURABLE_TEST_ONLY');
+    const storageMode = repository.isDurable === true
+      ? (resolvedPrivateStorageService && privateStorageAcceptedFunctionBound
+        ? 'durable'
+        : 'database_only')
+      : String(repository.durability || 'NON_DURABLE_TEST_ONLY');
+    const measuredProvidersReady = providersReady === true && concreteProviderSurfacesReady;
+    const measuredAcceptedFunctionSetReady = allAcceptedFunctionsOperational === true
+      && concreteAcceptedFunctionSetReady;
     const operational = repository.isDurable === true
-      && providersReady === true
-      && allAcceptedFunctionsOperational === true;
+      && storageMode === 'durable'
+      && measuredProvidersReady
+      && measuredAcceptedFunctionSetReady;
     return {
       operational,
       runtimeMode: operational ? 'live' : 'unavailable',
       storageMode,
-      providersReady: providersReady === true,
+      providersReady: measuredProvidersReady,
       capabilities: {
         builder: true,
         autosave: true,
         resume: true,
         versionHistory: true,
-        durableStorage: repository.isDurable === true,
-        fullAcceptedFunctionSet: allAcceptedFunctionsOperational === true,
+        studentEvidencePublication: studentEvidencePublicationBound,
+        durableStorage: storageMode === 'durable',
+        fullAcceptedFunctionSet: measuredAcceptedFunctionSetReady,
       },
     };
   }
@@ -311,15 +477,90 @@ export function createLorApplicationAdapter({
         return { status: 201, body: { case: projection } };
       }
 
+      const verificationRoute = routeFacultyInvitationVerification(url.pathname);
+      if (verificationRoute) {
+        if (method !== 'POST') {
+          return { status: 405, body: { error: 'method_not_allowed' } };
+        }
+        if ([...url.searchParams.keys()].length > 0) {
+          throw validationError('Faculty verification accepts no query parameters.');
+        }
+        if (!resolvedFacultyInvitationVerificationService) {
+          throw Object.assign(
+            new Error('The LOR faculty invitation verification service is not configured.'),
+            { code: 'INTEGRATION_DISABLED' },
+          );
+        }
+        const payload = await readJsonBody(request);
+        assertExactKeys(payload, ['otpCode', 'recipientEmail']);
+        const verification = await resolvedFacultyInvitationVerificationService.verify({
+          actor,
+          invitationId: verificationRoute.invitationId,
+          idempotencyKey: idempotencyKey(request),
+          otpCode: payload.otpCode,
+          recipientEmail: payload.recipientEmail,
+        });
+        return { status: 200, body: { verification } };
+      }
+
       const route = routeCase(url.pathname);
       if (!route) return { status: 404, body: { error: 'lor_route_not_found' } };
+
+      if (route.facultyInvitations) {
+        if (!resolvedFacultyInvitationLifecycleService) {
+          throw Object.assign(
+            new Error('The LOR faculty invitation lifecycle service is not configured.'),
+            { code: 'INTEGRATION_DISABLED' },
+          );
+        }
+        if (!route.invitationResend && !route.invitationRevoke && method === 'POST') {
+          const payload = await readJsonBody(request);
+          assertExactKeys(payload, ['expectedRevision', 'recipientEmail']);
+          const invitation = await resolvedFacultyInvitationLifecycleService.issue({
+            actor,
+            caseId: route.caseId,
+            expectedRevision: payload.expectedRevision,
+            recipientEmail: payload.recipientEmail,
+            idempotencyKey: idempotencyKey(request),
+          });
+          const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
+          return { status: 201, body: { case: projection, invitation } };
+        }
+        if (route.invitationResend && method === 'POST') {
+          const payload = await readJsonBody(request);
+          assertExactKeys(payload, ['recipientEmail']);
+          const invitation = await resolvedFacultyInvitationLifecycleService.resendOtp({
+            actor,
+            caseId: route.caseId,
+            recipientEmail: payload.recipientEmail,
+            idempotencyKey: idempotencyKey(request),
+          });
+          const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
+          return { status: 200, body: { case: projection, invitation } };
+        }
+        if (route.invitationRevoke && method === 'POST') {
+          const payload = await readJsonBody(request);
+          assertExactKeys(payload, []);
+          const invitation = await resolvedFacultyInvitationLifecycleService.revoke({
+            actor,
+            caseId: route.caseId,
+            idempotencyKey: idempotencyKey(request),
+          });
+          const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
+          return { status: 200, body: { case: projection, invitation } };
+        }
+        return { status: 405, body: { error: 'method_not_allowed' } };
+      }
 
       if (
         !route.builder
         && !route.receipts
+        && !route.facultyPrivate
         && !route.releaseFinalDocument
         && !route.exportFinalDocument
         && !route.aiProposals
+        && !route.facultyInvitations
+        && !route.publishStudentEvidence
         && method === 'GET'
       ) {
         const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
@@ -357,6 +598,20 @@ export function createLorApplicationAdapter({
             filename: exported.filename,
           },
         };
+      }
+
+      if (route.publishStudentEvidence && method === 'POST') {
+        const payload = await readJsonBody(request);
+        // The database derives every evidence row, consent binding, content hash, provenance
+        // record, and audit-chain value. The client may identify only the revision it read.
+        assertExactKeys(payload, ['expectedRevision']);
+        const projection = await caseService.publishStudentEvidence({
+          caseId: route.caseId,
+          actor,
+          expectedRevision: payload.expectedRevision,
+          idempotencyKey: idempotencyKey(request),
+        });
+        return { status: 200, body: { case: projection } };
       }
 
       if (route.aiProposals) {
@@ -463,6 +718,33 @@ export function createLorApplicationAdapter({
         });
         const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
         return { status: 201, body: { case: projection } };
+      }
+
+      if (route.facultyPrivate && method === 'PATCH') {
+        const payload = await readJsonBody(request);
+        assertExactKeys(payload, [
+          'expectedRevision',
+          'answers',
+          'notes',
+          'draftText',
+          'finalDocument',
+          'documentState',
+          'facultyApproval',
+        ]);
+        await caseService.saveFacultyPrivateContent({
+          caseId: route.caseId,
+          actor,
+          expectedRevision: payload.expectedRevision,
+          idempotencyKey: idempotencyKey(request),
+          answers: payload.answers,
+          notes: payload.notes,
+          draftText: payload.draftText,
+          finalDocument: payload.finalDocument,
+          documentState: payload.documentState,
+          facultyApproval: payload.facultyApproval,
+        });
+        const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
+        return { status: 200, body: { case: projection } };
       }
 
       if (route.releaseFinalDocument && method === 'POST') {

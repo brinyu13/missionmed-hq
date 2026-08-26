@@ -1715,7 +1715,7 @@ function aiCaseRevisions({ studentEvidence = approvedEvidence(FOUNDER_FACTS), ca
       caseId,
       studentId: AI_STUDENT_ID,
       scopes: ['ai_drafting', 'evidence_grounding'],
-      policyVersion: 'dr-119-v1',
+      policyVersion: 'dr-133-identified-education-record-v1',
       recordedAt: T0,
     }),
     now: T0,
@@ -1797,20 +1797,62 @@ class InMemoryAiProposalStore {
   }
 
   #reserve(caseId, idempotencyKey, requestHash, proposalId) {
-    this.idempotency.set(InMemoryAiProposalStore.key(caseId, idempotencyKey), { requestHash, proposalId });
+    this.idempotency.set(InMemoryAiProposalStore.key(caseId, idempotencyKey), {
+      requestHash, proposalId, status: 'accepted',
+    });
   }
 
-  async putProposal({ caseId, idempotencyKey, requestHash, record }) {
+  async reserveProposalGeneration({ caseId, idempotencyKey, requestHash }) {
+    const key = InMemoryAiProposalStore.key(caseId, idempotencyKey);
+    const existing = this.idempotency.get(key);
+    if (existing) {
+      if (existing.requestHash !== requestHash) throw new IdempotencyConflictError({ idempotencyKey });
+      return {
+        status: existing.status,
+        providerCallAuthorized: false,
+        replayed: true,
+        record: existing.proposalId
+          ? structuredClone(this.records.get(InMemoryAiProposalStore.key(caseId, existing.proposalId)))
+          : null,
+      };
+    }
+    this.idempotency.set(key, { requestHash, proposalId: null, status: 'pending' });
+    return { status: 'pending', providerCallAuthorized: true, replayed: false, record: null };
+  }
+
+  async finalizeProposalGeneration({ caseId, idempotencyKey, requestHash, record }) {
     // A proposal may never arrive already decided: the decision is a separate, human act.
     if (record.decision !== null || record.acceptedContent !== null) {
       throw new Error('A stored AI proposal may not arrive already decided');
     }
-    const replay = this.#replay(caseId, idempotencyKey, requestHash);
-    if (replay) return replay;
-    this.#reserve(caseId, idempotencyKey, requestHash, record.id);
+    const key = InMemoryAiProposalStore.key(caseId, idempotencyKey);
+    const reserved = this.idempotency.get(key);
+    if (!reserved || reserved.status === 'unknown') throw new Error('AI generation is not pending');
+    if (reserved.requestHash !== requestHash) throw new IdempotencyConflictError({ idempotencyKey });
+    if (reserved.status === 'accepted') return this.#replay(caseId, idempotencyKey, requestHash);
+    this.idempotency.set(key, { requestHash, proposalId: record.id, status: 'accepted' });
     this.records.set(InMemoryAiProposalStore.key(caseId, record.id), structuredClone(record));
     this.writes.push({ operation: 'put', caseId, proposalId: record.id });
     return { record: structuredClone(record), replayed: false };
+  }
+
+  async putProposal(request) {
+    return this.finalizeProposalGeneration(request);
+  }
+
+  async markProposalGenerationUnknown({ caseId, idempotencyKey, requestHash }) {
+    const key = InMemoryAiProposalStore.key(caseId, idempotencyKey);
+    const reserved = this.idempotency.get(key);
+    if (!reserved) throw new Error('AI generation reservation is absent');
+    if (reserved.requestHash !== requestHash) throw new IdempotencyConflictError({ idempotencyKey });
+    if (reserved.status === 'accepted') {
+      return {
+        status: 'accepted', providerCallAuthorized: false, replayed: true,
+        record: structuredClone(this.records.get(InMemoryAiProposalStore.key(caseId, reserved.proposalId))),
+      };
+    }
+    reserved.status = 'unknown';
+    return { status: 'unknown', providerCallAuthorized: false, replayed: false, record: null };
   }
 
   async getProposal({ caseId, proposalId }) {
@@ -2009,6 +2051,140 @@ test('DR-119 reachability: a grounded proposal is drafted, persisted, and decide
   );
 });
 
+test('a later consent withdrawal revokes older grounded evidence before any AI provider call', async () => {
+  const revisions = aiCaseRevisions();
+  const current = revisions.at(-1);
+  const withdrawn = appendReceipt(current, {
+    actorId: AI_STUDENT_ID,
+    receiptType: 'consent',
+    receipt: createConsentReceipt({
+      id: 'consent-ai-withdrawn',
+      caseId: AI_CASE_ID,
+      studentId: AI_STUDENT_ID,
+      scopes: ['consent_withdrawn'],
+      policyVersion: 'dr-133-identified-education-record-v1',
+      recordedAt: T0,
+    }),
+    now: T0,
+  });
+  let providerCalls = 0;
+  const harness = aiHarness({
+    revisions: [...revisions, withdrawn],
+    provider: {
+      async generateProposal() {
+        providerCalls += 1;
+        throw new Error('provider must not be reached after withdrawal');
+      },
+    },
+  });
+  await harness.seed();
+
+  const response = await aiCall(harness.adapter, AI_PROPOSALS_PATH, {
+    method: 'POST',
+    body: {},
+    key: 'ai-withdrawn-consent-1',
+  });
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error, 'validation_failed');
+  assert.equal(providerCalls, 0);
+  assert.equal(harness.proposalStore.records.size, 0);
+});
+
+test('a latest receipt under an obsolete policy cannot authorize an AI provider call', async () => {
+  const revisions = aiCaseRevisions();
+  const current = revisions.at(-1);
+  const stalePolicy = appendReceipt(current, {
+    actorId: AI_STUDENT_ID,
+    receiptType: 'consent',
+    receipt: createConsentReceipt({
+      id: 'consent-ai-obsolete-policy',
+      caseId: AI_CASE_ID,
+      studentId: AI_STUDENT_ID,
+      scopes: ['ai_drafting', 'evidence_grounding'],
+      policyVersion: 'dr-119-v1',
+      recordedAt: T0,
+    }),
+    now: T0,
+  });
+  let providerCalls = 0;
+  const harness = aiHarness({
+    revisions: [...revisions, stalePolicy],
+    provider: {
+      async generateProposal() {
+        providerCalls += 1;
+        throw new Error('provider must not be reached under an obsolete policy');
+      },
+    },
+  });
+  await harness.seed();
+  const response = await aiCall(harness.adapter, AI_PROPOSALS_PATH, {
+    method: 'POST', body: {}, key: 'ai-obsolete-consent-policy-1',
+  });
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error, 'validation_failed');
+  assert.equal(providerCalls, 0);
+  assert.equal(harness.proposalStore.records.size, 0);
+});
+
+test('AI provider side effects are reserved once before concurrent calls and unknown is never retried', async () => {
+  const deterministic = new DeterministicAiProposalAdapter();
+  let releaseFirst;
+  const firstGate = new Promise((resolve) => { releaseFirst = resolve; });
+  let calls = 0;
+  const gatedProvider = {
+    async generateProposal(input) {
+      calls += 1;
+      await firstGate;
+      return deterministic.generateProposal(input);
+    },
+  };
+  const winner = aiHarness({ provider: gatedProvider });
+  await winner.seed();
+  const first = aiCall(winner.adapter, AI_PROPOSALS_PATH, {
+    method: 'POST', body: {}, key: 'ai-concurrent-reservation-1',
+  });
+  while (calls === 0) await new Promise((resolve) => setImmediate(resolve));
+  const concurrentReplay = await aiCall(winner.adapter, AI_PROPOSALS_PATH, {
+    method: 'POST', body: {}, key: 'ai-concurrent-reservation-1',
+  });
+  assert.equal(concurrentReplay.status, 503);
+  assert.equal(calls, 1, 'a pending replay must not call the provider');
+  releaseFirst();
+  const accepted = await first;
+  assert.equal(accepted.status, 201, JSON.stringify(accepted.body));
+  const acceptedReplay = await aiCall(winner.adapter, AI_PROPOSALS_PATH, {
+    method: 'POST', body: {}, key: 'ai-concurrent-reservation-1',
+  });
+  assert.equal(acceptedReplay.status, 201);
+  assert.equal(acceptedReplay.body.proposal.id, accepted.body.proposal.id);
+  assert.equal(calls, 1, 'an accepted replay must not call the provider');
+  const conflictingReplay = await aiCall(winner.adapter, AI_PROPOSALS_PATH, {
+    method: 'POST', body: { factIds: ['fact-rounds'] }, key: 'ai-concurrent-reservation-1',
+  });
+  assert.equal(conflictingReplay.status, 409);
+  assert.equal(calls, 1, 'a different request hash must conflict before provider IO');
+
+  let failingCalls = 0;
+  const uncertain = aiHarness({
+    provider: {
+      async generateProposal() {
+        failingCalls += 1;
+        throw new Error('simulated provider response loss');
+      },
+    },
+  });
+  await uncertain.seed();
+  const failed = await aiCall(uncertain.adapter, AI_PROPOSALS_PATH, {
+    method: 'POST', body: {}, key: 'ai-unknown-reservation-1',
+  });
+  assert.equal(failed.status, 503);
+  const unknownReplay = await aiCall(uncertain.adapter, AI_PROPOSALS_PATH, {
+    method: 'POST', body: {}, key: 'ai-unknown-reservation-1',
+  });
+  assert.equal(unknownReplay.status, 503);
+  assert.equal(failingCalls, 1, 'an unknown provider outcome must never authorize an automatic retry');
+});
+
 test('DR-119 reachability: an ungrounded factual assertion is refused at the route and never persisted', async () => {
   // A comparative the approved facts do not entail, carried as a factual segment that CITES a
   // real, consented supportId. Referential existence is not support.
@@ -2024,8 +2200,8 @@ test('DR-119 reachability: an ungrounded factual assertion is refused at the rou
     body: {},
     key: 'ai-ungrounded-1',
   });
-  assert.equal(refused.status, 400);
-  assert.equal(refused.body.error, 'validation_failed');
+  assert.equal(refused.status, 503);
+  assert.equal(refused.body.error, 'integration_disabled');
   assert.equal('proposal' in refused.body, false);
   assert.equal(ungrounded.proposalStore.records.size, 0, 'an ungrounded draft must not be persisted');
 
@@ -2045,7 +2221,7 @@ test('DR-119 reachability: an ungrounded factual assertion is refused at the rou
     body: {},
     key: 'ai-smuggle-1',
   });
-  assert.equal(smuggleRefused.status, 400);
+  assert.equal(smuggleRefused.status, 503);
   assert.equal(smuggled.proposalStore.records.size, 0);
 
   // A dangling supportId is refused before entailment is ever consulted.
@@ -2061,7 +2237,7 @@ test('DR-119 reachability: an ungrounded factual assertion is refused at the rou
     body: {},
     key: 'ai-dangling-1',
   });
-  assert.equal(danglingRefused.status, 400);
+  assert.equal(danglingRefused.status, 503);
   assert.equal(dangling.proposalStore.records.size, 0);
 });
 
@@ -2140,8 +2316,8 @@ test('DR-119 reachability: an entailment port that fails closed refuses the rout
       body: {},
       key: `ai-failclosed-${label}`,
     });
-    assert.equal(response.status, 400, `${label} must refuse, not pass`);
-    assert.equal(response.body.error, 'validation_failed');
+    assert.equal(response.status, 503, `${label} must refuse, not pass`);
+    assert.equal(response.body.error, 'integration_disabled');
     assert.equal('proposal' in response.body, false);
     assert.equal(harness.proposalStore.records.size, 0, `${label} must persist nothing`);
   }
