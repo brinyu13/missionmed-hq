@@ -58,6 +58,7 @@ const ENV_BINARY_SHA256 =
 const PYTHON_BINARY = '/usr/bin/python3';
 const PYTHON_BINARY_SHA256 =
   '12bed4523661307059b879b9b54e77a73176e9d27d27a0e40363271d8f0668ba';
+const PYTHON_BINARY_NLINK = 78n;
 const PYTHON_TOOLCHAIN_DIRECTORY = '/Library/Developer/CommandLineTools';
 const PYTHON_TOOLCHAIN_ENTRY = `${PYTHON_TOOLCHAIN_DIRECTORY}/usr/bin/python3`;
 const PYTHON_RUNTIME_BINARY =
@@ -522,18 +523,20 @@ async function readPinnedFile(executablePath, expectedSha256, {
   expectedMode = null,
   expectedUid = null,
   expectedGid = null,
+  expectedNlink = 1n,
 } = {}) {
   let handle;
   let bytes;
   try {
-    if (await realpath(executablePath) !== executablePath
+    if (typeof expectedNlink !== 'bigint' || expectedNlink < 1n
+      || await realpath(executablePath) !== executablePath
       || !Number.isInteger(fsConstants.O_NOFOLLOW)) fail('PINNED_EXECUTABLE_DRIFT');
     const before = await lstat(executablePath, { bigint: true });
     handle = await open(executablePath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
     const opened = await handle.stat({ bigint: true });
     bytes = await handle.readFile();
     const after = await handle.stat({ bigint: true });
-    if (!opened.isFile() || opened.isSymbolicLink() || opened.nlink !== 1n
+    if (!opened.isFile() || opened.isSymbolicLink() || opened.nlink !== expectedNlink
       || !dr133FileSnapshotsMatch(before, opened)
       || !dr133FileSnapshotsMatch(opened, after)
       || BigInt(bytes.length) !== opened.size
@@ -941,16 +944,17 @@ async function createNodeVerifier() {
     fail('NODE_EXECUTABLE_DRIFT');
   }
   const verify = async () => {
-    for (const [filePath, sha256] of [
-      [NODE_BINARY, NODE_BINARY_SHA256],
-      [ENV_BINARY, ENV_BINARY_SHA256],
-      [PYTHON_BINARY, PYTHON_BINARY_SHA256],
-      [PYTHON_RUNTIME_BINARY, PYTHON_RUNTIME_BINARY_SHA256],
+    for (const [filePath, sha256, expectedNlink] of [
+      [NODE_BINARY, NODE_BINARY_SHA256, 1n],
+      [ENV_BINARY, ENV_BINARY_SHA256, 1n],
+      [PYTHON_BINARY, PYTHON_BINARY_SHA256, PYTHON_BINARY_NLINK],
+      [PYTHON_RUNTIME_BINARY, PYTHON_RUNTIME_BINARY_SHA256, 1n],
     ]) {
       const checked = await readPinnedFile(filePath, sha256, {
         expectedMode: 0o755,
         expectedUid: 0n,
         expectedGid: 0n,
+        expectedNlink,
       });
       checked.bytes.fill(0);
     }
@@ -969,6 +973,12 @@ async function createNodeVerifier() {
   };
   await verify();
   return Object.freeze({ verify, directory: path.dirname(executablePath) });
+}
+
+export async function verifyDr133ProductionPinnedToolchain() {
+  const verifier = await createNodeVerifier();
+  await verifier.verify();
+  return true;
 }
 
 async function verifySshAgentSession(session) {

@@ -30,6 +30,7 @@ import {
   preflightDr133RailwayProductionTunnelSourceCustody,
   validateDr133TunnelServiceReceipt,
   verifyDr133PgDependencyClosure,
+  verifyDr133ProductionPinnedToolchain,
 } from '../../scripts/lor-studio/run-dr133-railway-production-tunnel-operation.mjs';
 
 const PRODUCTION_CA = await readFile(
@@ -303,6 +304,10 @@ test('descriptors pin exact connect name and exact no-local sanitizer-only servi
   assert.equal(operation.at(-2), 'connectivity-preflight');
   assert.equal(operation.at(-1), String(PORT));
   assert.equal(operation.some((value) => value === '-c' || value === 'node'), false);
+});
+
+test('pinned production toolchain accepts the exact root-owned macOS multicall Python stub', async () => {
+  assert.equal(await verifyDr133ProductionPinnedToolchain(), true);
 });
 
 test('child environments are exact allowlists and never give the Node operation SSH-agent access', () => {
@@ -626,6 +631,12 @@ test('source guard proves pre-pg custody, dynamic post-scrub import, and exact c
     true,
   );
   assert.equal(sanitizerSource.indexOf('os.environ.clear()') < sanitizerSource.indexOf('os.execve('), true);
+  assert.match(tunnelSource, /const PYTHON_BINARY_NLINK = 78n;/u);
+  assert.match(tunnelSource, /opened\.nlink !== expectedNlink/u);
+  assert.match(
+    tunnelSource,
+    /\[PYTHON_BINARY, PYTHON_BINARY_SHA256, PYTHON_BINARY_NLINK\]/u,
+  );
   for (const denied of [
     'NODE_OPTIONS', 'DATABASE_PUBLIC_URL', 'PGOPTIONS', 'PGSSLNEGOTIATION',
     'PYTHONPATH', 'PYTHONSTARTUP', 'BASH_ENV',
