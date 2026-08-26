@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { X509Certificate } from 'node:crypto';
-import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { readFile, readdir, realpath, writeFile } from 'node:fs/promises';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -123,6 +123,12 @@ test('uses fixed service-files and variable-set descriptors with no shell or rem
     for (const call of fake.calls) {
       const flattened = call.args.join(' ');
       assert.doesNotMatch(flattened, /(?:^|\s)(?:ssh|sh|bash|-c|env|printenv|run)(?:\s|$)/u);
+      assert.notEqual(call.env.HOME, '/Users/brianb');
+      assert.equal(path.basename(call.env.HOME), 'home');
+      assert.equal(
+        await realpath(path.dirname(path.dirname(call.env.HOME))),
+        await realpath(base),
+      );
       assert.deepEqual(Object.keys(call.env).sort(), [
         'CI', 'DO_NOT_TRACK', 'HOME', 'LANG', 'LC_ALL', 'NO_COLOR', 'PATH',
         'RAILWAY_NO_AUTO_UPDATE', 'RAILWAY_NO_TELEMETRY', 'TERM', 'TMPDIR', 'TZ',

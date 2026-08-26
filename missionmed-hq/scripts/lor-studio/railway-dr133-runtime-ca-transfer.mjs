@@ -459,7 +459,7 @@ async function executeTransfer({ environment, commandRunner, now, sink }) {
     const downloadDirectory = path.join(root, 'download');
     await mkdir(home, { mode: 0o700 });
     await mkdir(downloadDirectory, { mode: 0o700 });
-    const isolatedEnv = Object.freeze({ ...env, TMPDIR: root });
+    const isolatedEnv = Object.freeze({ ...env, HOME: home, TMPDIR: root });
     const localPath = path.join(downloadDirectory, ROOT_CA_FILENAME);
     const downloadOutcome = await commandRunner(Object.freeze({
       args: downloadArgs(localPath), cwd: root, env: isolatedEnv, stdin: null, timeoutMs: 30_000,
