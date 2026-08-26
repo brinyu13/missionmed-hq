@@ -16,14 +16,14 @@ import {
   createNodePostgresExecutor,
 } from './node-postgres-executor.mjs';
 import {
+  PRODUCTION_RUNTIME_TARGET_CONTRACT,
+  resolveProductionRuntimeTarget,
+} from './production-runtime-target.mjs';
+import {
   DR133_RELATIONS,
   DR133_PRE_EVIDENCE_DEFINER_IDENTITY,
-  DR133_RUNTIME_LOGIN,
   DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES,
   DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES,
-  DR133_TARGET,
-  expectedDr133SuccessorSentinel,
-  parsePrivateDatabaseUrl,
 } from '../../scripts/lor-studio/railway-dr133-runner-core.mjs';
 
 const { Pool } = pg;
@@ -50,7 +50,6 @@ const AI_COMMAND_SCHEMA = 'missionmed.lor.ai-proposal-driver-command.v1';
 const AI_ERROR_RECEIPT_SCHEMA = 'missionmed.lor.ai-proposal-error-receipt.v1';
 const ACTOR_CASE_ACCESS_SCHEMA = 'missionmed.lor.actor-case-access.v1';
 const BINDING_SCHEMA = 'missionmed.lor.student-auth-binding-receipt.v1';
-const SUCCESSOR_SENTINEL = expectedDr133SuccessorSentinel();
 const SHA256 = /^[a-f0-9]{64}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const SUBJECT = /^wp:[1-9][0-9]*$/u;
@@ -234,7 +233,8 @@ const APPEND_ARTIFACT_AUDIT_SQL = `SELECT ${SCHEMA}.append_artifact_export_audit
   $1::jsonb, $2, $3, $4
 ) AS result`;
 
-const READINESS_SQL = `/* missionmed:dr133:lor-runtime-readiness-v1 */
+function readinessSql(target) {
+  return `/* missionmed:dr133:lor-runtime-readiness-v2 */
 WITH ssl_session AS (
   SELECT ssl FROM pg_catalog.pg_stat_ssl WHERE pid = pg_catalog.pg_backend_pid()
 ), relation_inventory AS (
@@ -268,12 +268,12 @@ WITH ssl_session AS (
     AND acl.grantee = 0
 ), role_oids AS (
   SELECT
-    (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = '${DR133_TARGET.databaseAdmin}')
+    (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = '${target.databaseAdmin}')
       AS admin_oid,
     (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = '${APP_ROLE}') AS app_oid,
     (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = 'lor_studio_command_owner')
       AS command_owner_oid,
-    (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = '${DR133_RUNTIME_LOGIN}')
+    (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = '${target.runtimeLogin}')
       AS runtime_oid
 ), runtime_memberships AS (
   SELECT membership.* FROM pg_catalog.pg_auth_members AS membership CROSS JOIN role_oids
@@ -508,7 +508,7 @@ SELECT pg_catalog.current_database()::text AS database_name,
       AND role.rolconfig IS NOT DISTINCT FROM ARRAY['search_path=pg_catalog']::text[])
     AS command_owner_role_safe,
   (SELECT pg_catalog.count(*) = 1 FROM pg_catalog.pg_roles AS role
-    WHERE role.rolname = '${DR133_RUNTIME_LOGIN}' AND NOT role.rolsuper
+    WHERE role.rolname = '${target.runtimeLogin}' AND NOT role.rolsuper
       AND NOT role.rolinherit AND NOT role.rolcreaterole AND NOT role.rolcreatedb
       AND role.rolcanlogin AND NOT role.rolreplication AND NOT role.rolbypassrls
       AND role.rolconnlimit = 20 AND role.rolvaliduntil IS NULL
@@ -541,11 +541,12 @@ SELECT pg_catalog.current_database()::text AS database_name,
     AS unexpected_acl_grantee_count,
   NOT pg_catalog.has_schema_privilege('${APP_ROLE}', '${SCHEMA}', 'CREATE')
     AS app_schema_create_denied,
-  NOT pg_catalog.has_schema_privilege('${DR133_RUNTIME_LOGIN}', '${SCHEMA}', 'CREATE')
+  NOT pg_catalog.has_schema_privilege('${target.runtimeLogin}', '${SCHEMA}', 'CREATE')
     AS runtime_schema_create_denied,
   pg_catalog.has_schema_privilege('${APP_ROLE}', '${SCHEMA}', 'USAGE') AS app_schema_usage
 FROM pg_catalog.pg_namespace AS namespace LEFT JOIN ssl_session ON true
 WHERE namespace.nspname = '${SCHEMA}'`;
+}
 
 function disabled(status) {
   return new IntegrationDisabledError(PRODUCTION_POSTGRES_RUNTIME_INTEGRATION, status);
@@ -600,17 +601,13 @@ function descriptorSnapshot(value, allowed) {
 }
 function validateBinding(raw) {
   const binding = assertValidatedLorTargetBinding(raw, PRODUCTION_POSTGRES_RUNTIME_INTEGRATION);
-  const expected = {
-    schemaVersion: 'missionmed.lor.target-binding.v2', decisionRecord: 'DR-133',
-    environment: 'staging', provider: DR133_TARGET.provider,
-    projectId: DR133_TARGET.projectId, environmentId: DR133_TARGET.environmentId,
-    serviceId: DR133_TARGET.databaseServiceId, databaseName: DR133_TARGET.databaseName,
-    region: DR133_TARGET.region, schema: SCHEMA,
-    migrationLedger: 'lor_studio/migrations/staging',
-  };
-  if (Object.entries(expected).some(([key, value]) => binding[key] !== value)) {
-    throw disabled('DR133_TARGET_BINDING_MISMATCH');
-  }
+  if (
+    binding.schemaVersion !== 'missionmed.lor.target-binding.v2'
+    || binding.decisionRecord !== 'DR-133'
+    || binding.provider !== 'railway-postgres'
+    || (binding.environment !== 'staging' && binding.environment !== 'production')
+    || binding.schema !== SCHEMA
+  ) throw disabled('DR133_TARGET_BINDING_MISMATCH');
   return binding;
 }
 function verifiedDatabaseCa(rawValue) {
@@ -633,7 +630,52 @@ function verifiedDatabaseCa(rawValue) {
     throw disabled('RUNTIME_DATABASE_CA_REJECTED');
   }
 }
-function runtimeConfiguration(environment) {
+const CONTROL_CHARACTER = /[\u0000-\u001f\u007f]/u;
+
+function parsePrivateRuntimeDatabaseUrl(rawValue, target) {
+  if (
+    typeof rawValue !== 'string'
+    || rawValue.length === 0
+    || rawValue.length > 4_096
+    || CONTROL_CHARACTER.test(rawValue)
+  ) throw disabled('RUNTIME_DATABASE_URL_REJECTED');
+  let parsed;
+  let databasePath;
+  let username;
+  let password;
+  try {
+    parsed = new URL(rawValue);
+    databasePath = decodeURIComponent(parsed.pathname);
+    username = decodeURIComponent(parsed.username);
+    password = decodeURIComponent(parsed.password);
+  } catch {
+    throw disabled('RUNTIME_DATABASE_URL_REJECTED');
+  }
+  if (
+    CONTROL_CHARACTER.test(databasePath)
+    || CONTROL_CHARACTER.test(username)
+    || CONTROL_CHARACTER.test(password)
+    || !['postgres:', 'postgresql:'].includes(parsed.protocol)
+    || parsed.hostname !== target.databaseHost
+    || parsed.port !== '5432'
+    || databasePath !== `/${target.databaseName}`
+    || username !== target.runtimeLogin
+    || password.length < 32
+    || password.length > 512
+    || parsed.hash !== ''
+  ) throw disabled('RUNTIME_DATABASE_URL_REJECTED');
+  const queryKeys = [...parsed.searchParams.keys()];
+  if (
+    queryKeys.length !== 1
+    || queryKeys[0] !== 'sslmode'
+    || parsed.searchParams.getAll('sslmode').length !== 1
+    || parsed.searchParams.get('sslmode') !== 'require'
+  ) throw disabled('RUNTIME_DATABASE_URL_REJECTED');
+  parsed.search = '';
+  return parsed.toString();
+}
+
+function runtimeConfiguration(environment, target) {
   if (!environment || typeof environment !== 'object') throw disabled('RUNTIME_ENVIRONMENT_REQUIRED');
   let keys;
   let descriptor;
@@ -650,11 +692,11 @@ function runtimeConfiguration(environment) {
     throw disabled('UNEXPECTED_LOR_RUNTIME_ENVIRONMENT_KEY');
   }
   const expectedRailway = {
-    [RAILWAY_ENV_KEYS.environmentId]: DR133_TARGET.environmentId,
-    [RAILWAY_ENV_KEYS.environmentName]: DR133_TARGET.environmentName,
-    [RAILWAY_ENV_KEYS.projectId]: DR133_TARGET.projectId,
-    [RAILWAY_ENV_KEYS.region]: DR133_TARGET.region,
-    [RAILWAY_ENV_KEYS.serviceId]: DR133_TARGET.executionServiceId,
+    [RAILWAY_ENV_KEYS.environmentId]: target.environmentId,
+    [RAILWAY_ENV_KEYS.environmentName]: target.environmentName,
+    [RAILWAY_ENV_KEYS.projectId]: target.projectId,
+    [RAILWAY_ENV_KEYS.region]: target.region,
+    [RAILWAY_ENV_KEYS.serviceId]: target.executionServiceId,
   };
   for (const [key, expected] of Object.entries(expectedRailway)) {
     const railwayDescriptor = Object.getOwnPropertyDescriptor(environment, key);
@@ -681,10 +723,7 @@ function runtimeConfiguration(environment) {
   try {
     return Object.freeze({
       ca,
-      connectionString: parsePrivateDatabaseUrl(
-        descriptor.value,
-        DR133_RUNTIME_LOGIN,
-      ).pgConnectionString,
+      connectionString: parsePrivateRuntimeDatabaseUrl(descriptor.value, target),
     });
   } catch {
     throw disabled('RUNTIME_DATABASE_URL_REJECTED');
@@ -1173,7 +1212,8 @@ function safeReadiness(checks, reasonCode) {
     groups: groupedReadiness(frozen),
   });
 }
-function readinessFor(executor, isHealthy) {
+function readinessFor(executor, isHealthy, target) {
+  const targetReadinessSql = readinessSql(target);
   const allFalse = () => ({
     runtimeIdentity: false, privateTlsTarget: false, applicationRole: false,
     targetSentinel: false, relationsForcedRls: false, securityDefiners: false,
@@ -1186,18 +1226,18 @@ function readinessFor(executor, isHealthy) {
       if (!isHealthy()) return safeReadiness(allFalse(), 'DATABASE_UNAVAILABLE');
       try {
         const row = await transaction(executor, async (tx) => {
-          const result = await tx.execute(statement('lor_runtime_readiness', READINESS_SQL));
+          const result = await tx.execute(statement('lor_runtime_readiness', targetReadinessSql));
           return result.rows.length === 1 ? result.rows[0] : null;
         });
         if (!row) return safeReadiness(allFalse(), 'CATALOG_FINGERPRINT_MISMATCH');
         const checks = {
-          runtimeIdentity: row.database_name === DR133_TARGET.databaseName
+          runtimeIdentity: row.database_name === target.databaseName
             && [16, 18].includes(row.postgres_major)
-            && row.session_user === DR133_RUNTIME_LOGIN,
+            && row.session_user === target.runtimeLogin,
           privateTlsTarget: row.private_server_address === true && row.ssl_active === true,
           applicationRole: row.current_user === APP_ROLE,
-          targetSentinel: row.schema_sentinel === SUCCESSOR_SENTINEL
-            && row.schema_owner === DR133_TARGET.databaseAdmin,
+          targetSentinel: row.schema_sentinel === target.successorSentinel
+            && row.schema_owner === target.databaseAdmin,
           relationsForcedRls: row.relation_count === String(RELATIONS.length)
             && row.forced_rls_count === String(RELATIONS.length)
             && arraysEqual(row.relation_names, RELATIONS),
@@ -1744,9 +1784,10 @@ export function createProductionPostgresRuntimeDependencies(rawBinding, rawOptio
   const options = descriptorSnapshot(rawOptions, OPTION_KEYS);
   const binding = validateBinding(rawBinding);
   const environment = Object.hasOwn(options, 'environment') ? options.environment : process.env;
+  const target = resolveProductionRuntimeTarget(binding, environment);
   const PoolClass = Object.hasOwn(options, 'PoolClass') ? options.PoolClass : Pool;
   if (typeof PoolClass !== 'function') throw disabled('POOL_CLASS_INVALID');
-  const { ca, connectionString } = runtimeConfiguration(environment);
+  const { ca, connectionString } = runtimeConfiguration(environment, target);
   let pool;
   let poolErrorListener = null;
   try {
@@ -1784,7 +1825,7 @@ export function createProductionPostgresRuntimeDependencies(rawBinding, rawOptio
       scopeProvider: scopeProviderFor(executor, isHealthy),
       candidateScopeProvider: candidateScopeProviderFor(isHealthy),
       actorResolver: actorResolverFor(executor, isHealthy),
-      readiness: readinessFor(executor, isHealthy), close,
+      readiness: readinessFor(executor, isHealthy, target), close,
     });
   } catch (error) {
     if (pool && poolErrorListener && typeof pool.removeListener === 'function') {
@@ -1798,11 +1839,12 @@ export function createProductionPostgresRuntimeDependencies(rawBinding, rawOptio
 
 export const PRODUCTION_POSTGRES_RUNTIME_CONTRACT = Object.freeze({
   authority: 'DR-133', environmentKey: ENV_KEY, caEnvironmentKey: CA_ENV_KEY,
-  runtimeLogin: DR133_RUNTIME_LOGIN,
+  runtimeLogin: PRODUCTION_RUNTIME_TARGET_CONTRACT.runtimeLogin,
   applicationRole: APP_ROLE, relationCount: RELATIONS.length, securityDefinerCount: DEFINERS.length,
   appExecutableSecurityDefinerCount: APP_EXECUTABLE_DEFINERS.length,
   nonAppExecutableSecurityDefiner: DR133_PRE_EVIDENCE_DEFINER_IDENTITY,
-  successorSentinel: SUCCESSOR_SENTINEL,
+  successorSentinel: 'derived_from_exact_resolved_runtime_target',
+  runtimeTargetSchemaVersion: PRODUCTION_RUNTIME_TARGET_CONTRACT.schemaVersion,
   publicSurface: Object.freeze([
     'driver', 'scopeProvider', 'candidateScopeProvider', 'actorResolver', 'readiness', 'close',
   ]),

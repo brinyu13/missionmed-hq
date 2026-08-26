@@ -16,6 +16,12 @@ import {
   resolveLorTargetBinding,
 } from '../../lor-studio/adapters/lor-target-binding.mjs';
 import {
+  PRODUCTION_RUNTIME_TARGET_CONTRACT,
+  PRODUCTION_RUNTIME_TARGET_ENV_KEYS,
+  PRODUCTION_RUNTIME_TARGET_SCHEMA,
+  resolveProductionRuntimeTarget,
+} from '../../lor-studio/adapters/production-runtime-target.mjs';
+import {
   TRUSTED_REQUEST_CONTEXT_SCHEMA_VERSION,
   runWithTrustedRequestContext,
 } from '../../lor-studio/security/trusted-request-context.mjs';
@@ -144,7 +150,7 @@ function resetPool(behavior = {}) {
   FakePool.behavior = behavior;
 }
 
-function binding() {
+function binding(overrides = {}) {
   return resolveLorTargetBinding({
     schemaVersion: 'missionmed.lor.target-binding.v2',
     ratified: true,
@@ -164,11 +170,18 @@ function binding() {
     environmentBound: true,
     dataCopied: false,
     productionDataBindingPassed: false,
+    ...overrides,
   });
 }
 
 function environment(overrides = {}) {
   return {
+    [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.schemaVersion]: PRODUCTION_RUNTIME_TARGET_SCHEMA,
+    [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.environmentName]: DR133_TARGET.environmentName,
+    [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.executionServiceId]: DR133_TARGET.executionServiceId,
+    [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.databaseHost]: DR133_TARGET.databaseHost,
+    [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.databaseAdmin]: DR133_TARGET.databaseAdmin,
+    [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.runtimeLogin]: DR133_RUNTIME_LOGIN,
     LOR_DR133_RUNTIME_DATABASE_CA: TEST_CA,
     LOR_DR133_RUNTIME_DATABASE_URL:
       `postgresql://${DR133_RUNTIME_LOGIN}:${PASSWORD}`
@@ -387,6 +400,55 @@ test('constructs one closure-private pool and exposes only the frozen runtime su
     DR133_PRE_EVIDENCE_DEFINER_IDENTITY,
   );
 
+  await dependencies.close();
+});
+
+test('binds a distinct production database and execution service without a staging fallback', async () => {
+  const productionBinding = binding({
+    environment: 'production',
+    projectId: '11111111-1111-4111-8111-111111111111',
+    environmentId: '22222222-2222-4222-8222-222222222222',
+    serviceId: '33333333-3333-4333-8333-333333333333',
+    region: 'us-east4',
+    migrationLedger: 'lor_studio/migrations/production',
+    productionDataBindingPassed: true,
+  });
+  const productionEnvironment = environment({
+    [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.environmentName]: 'production',
+    [PRODUCTION_RUNTIME_TARGET_ENV_KEYS.executionServiceId]:
+      '44444444-4444-4444-8444-444444444444',
+    RAILWAY_ENVIRONMENT_ID: productionBinding.environmentId,
+    RAILWAY_ENVIRONMENT_NAME: 'production',
+    RAILWAY_PROJECT_ID: productionBinding.projectId,
+    RAILWAY_REPLICA_REGION: productionBinding.region,
+    RAILWAY_SERVICE_ID: '44444444-4444-4444-8444-444444444444',
+  });
+  const target = resolveProductionRuntimeTarget(productionBinding, productionEnvironment);
+  let readiness = readinessRow({ schema_sentinel: target.successorSentinel });
+  resetPool({
+    query(input) {
+      if (typeof input !== 'string' && input.text.includes('lor-runtime-readiness-v2')) {
+        return result([readiness]);
+      }
+      return result();
+    },
+  });
+
+  const dependencies = createProductionPostgresRuntimeDependencies(productionBinding, {
+    environment: productionEnvironment,
+    PoolClass: FakePool,
+  });
+  const observed = await dependencies.readiness.probe();
+  assert.equal(observed.ready, true);
+  assert.equal(FakePool.instances.length, 1);
+  assert.equal(target.projectId, productionBinding.projectId);
+  assert.notEqual(target.projectId, DR133_TARGET.projectId);
+  assert.notEqual(target.successorSentinel, expectedDr133SuccessorSentinel());
+
+  readiness = readinessRow({ schema_sentinel: expectedDr133SuccessorSentinel() });
+  const rejected = await dependencies.readiness.probe();
+  assert.equal(rejected.ready, false);
+  assert.equal(rejected.groups.database, false);
   await dependencies.close();
 });
 
