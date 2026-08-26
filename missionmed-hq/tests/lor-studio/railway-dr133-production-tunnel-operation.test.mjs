@@ -169,6 +169,8 @@ function harness({
   let tunnelOpen = false;
   let agentVerifications = 0;
   let cleanupCount = 0;
+  let abortableSleepCount = 0;
+  let abortedSleepCount = 0;
   const queue = [...operationOutcomes];
   const dependencies = {
     allocatePort: async () => PORT,
@@ -202,7 +204,25 @@ function harness({
       queueMicrotask(() => child.close(null, signal));
       return true;
     },
-    sleep: async () => await new Promise((resolve) => setImmediate(resolve)),
+    sleep: async (_milliseconds, { signal } = {}) => {
+      if (!signal) return await new Promise((resolve) => setImmediate(resolve));
+      abortableSleepCount += 1;
+      return await new Promise((resolve) => {
+        let settled = false;
+        const timer = setTimeout(() => finish(false), 100);
+        const finish = (aborted) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          signal.removeEventListener('abort', onAbort);
+          if (aborted) abortedSleepCount += 1;
+          resolve();
+        };
+        const onAbort = () => finish(true);
+        if (signal.aborted) finish(true);
+        else signal.addEventListener('abort', onAbort, { once: true });
+      });
+    },
     spawnProcess: (executable, args, options) => {
       const pid = nextPid;
       nextPid += 1;
@@ -251,6 +271,8 @@ function harness({
     calls,
     cleanupCount: () => cleanupCount,
     agentVerifications: () => agentVerifications,
+    abortableSleepCount: () => abortableSleepCount,
+    abortedSleepCount: () => abortedSleepCount,
     execute: createDr133RailwayProductionTunnelExecutor(dependencies),
   };
 }
@@ -386,6 +408,8 @@ test('executor orders readiness, custody rechecks, exact spawns, safe receipt, S
   ), true);
   assert.equal(fixture.agentVerifications() >= 4, true);
   assert.equal(fixture.cleanupCount(), 1);
+  assert.equal(fixture.abortableSleepCount() >= 1, true);
+  assert.equal(fixture.abortedSleepCount() >= 1, true);
   assert.doesNotMatch(JSON.stringify(receipt), /BEGIN CERTIFICATE|postgres(?:ql)?:\/\//u);
 });
 

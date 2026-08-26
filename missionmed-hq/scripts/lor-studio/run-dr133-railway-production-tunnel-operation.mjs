@@ -1031,8 +1031,21 @@ async function probeLoopbackPort(port, timeoutMs) {
   });
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms, { signal } = {}) {
+  return new Promise((resolve) => {
+    let timer;
+    const finish = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', finish);
+      resolve();
+    };
+    if (signal?.aborted) {
+      finish();
+      return;
+    }
+    timer = setTimeout(finish, ms);
+    signal?.addEventListener('abort', finish, { once: true });
+  });
 }
 
 function signalProcessGroup(pid, signal) {
@@ -1120,10 +1133,16 @@ function zeroCapturedOutput(state) {
 }
 
 async function waitOrTimeout(promise, timeoutMs, sleepFn) {
-  return await Promise.race([
-    promise.then((value) => ({ kind: 'event', value })),
-    sleepFn(timeoutMs).then(() => ({ kind: 'timeout' })),
-  ]);
+  const timeoutCancellation = new AbortController();
+  try {
+    return await Promise.race([
+      promise.then((value) => ({ kind: 'event', value })),
+      sleepFn(timeoutMs, { signal: timeoutCancellation.signal })
+        .then(() => ({ kind: 'timeout' })),
+    ]);
+  } finally {
+    timeoutCancellation.abort();
+  }
 }
 
 async function terminateChild(state, dependencies, { firstSignal }) {
@@ -1232,12 +1251,19 @@ async function runCapturedOperation({
   }
   const operation = childState(child, { captureOutput: true });
   const timeoutMs = dependencies.operationTimeoutMs(mode);
-  const raced = await Promise.race([
-    operation.close.then(() => ({ kind: 'operation-close' })),
-    operation.fault.then((code) => ({ kind: 'operation-fault', code })),
-    tunnel.close.then(() => ({ kind: 'tunnel-close' })),
-    dependencies.sleep(timeoutMs).then(() => ({ kind: 'operation-timeout' })),
-  ]);
+  const timeoutCancellation = new AbortController();
+  let raced;
+  try {
+    raced = await Promise.race([
+      operation.close.then(() => ({ kind: 'operation-close' })),
+      operation.fault.then((code) => ({ kind: 'operation-fault', code })),
+      tunnel.close.then(() => ({ kind: 'tunnel-close' })),
+      dependencies.sleep(timeoutMs, { signal: timeoutCancellation.signal })
+        .then(() => ({ kind: 'operation-timeout' })),
+    ]);
+  } finally {
+    timeoutCancellation.abort();
+  }
   if (raced.kind !== 'operation-close') {
     const reaped = await terminateChild(operation, dependencies, { firstSignal: 'SIGINT' });
     zeroCapturedOutput(operation);
