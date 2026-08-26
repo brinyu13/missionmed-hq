@@ -403,7 +403,9 @@ export function verifiedDr133DatabaseCa(rawValue) {
       || !(Date.parse(certificate.validFrom) <= now && now < Date.parse(certificate.validTo))) {
       failDr133('DATABASE_CA_REJECTED');
     }
-    return certificate.toString();
+    const canonical = certificate.toString();
+    if (rawValue !== canonical) failDr133('DATABASE_CA_REJECTED');
+    return canonical;
   } catch (error) {
     if (error instanceof Dr133RunnerError) throw error;
     failDr133('DATABASE_CA_REJECTED');

@@ -88,7 +88,7 @@ const ADMIN_PASSWORD = 'a'.repeat(48);
 const RUNTIME_PASSWORD = 'b'.repeat(48);
 const DEPLOYMENT_ID = '11111111-1111-4111-8111-111111111111';
 const RUNTIME_ROLE_OID = '42042';
-const TEST_CA = rootCertificates.find((candidate) => {
+const TEST_CA_SOURCE = rootCertificates.find((candidate) => {
   try {
     const certificate = new X509Certificate(candidate);
     const now = Date.now();
@@ -99,7 +99,8 @@ const TEST_CA = rootCertificates.find((candidate) => {
     return false;
   }
 });
-if (!TEST_CA) throw new Error('Node runtime has no valid self-signed test root CA');
+if (!TEST_CA_SOURCE) throw new Error('Node runtime has no valid self-signed test root CA');
+const TEST_CA = new X509Certificate(TEST_CA_SOURCE).toString();
 const { Client: RealPgClient } = pg;
 const execFile = promisify(execFileCallback);
 const RUN_REAL_POSTGRES_MATRIX = process.env.LOR_RUN_REAL_POSTGRES_MATRIX === '1';
@@ -387,6 +388,7 @@ test('private database URL parser requires exact private TLS target and clean de
 test('environment resolver pins every Railway axis and separates runtime credentials', () => {
   const resolvedMigration = resolveDr133RunnerEnvironment(environment(), { mode: 'migration' });
   assert.equal(resolvedMigration.mode, 'migration');
+  assert.equal(resolvedMigration.databaseCa, TEST_CA);
   assert.equal(new X509Certificate(resolvedMigration.databaseCa).fingerprint256.length > 0, true);
   assert.equal(
     resolveDr133RunnerEnvironment(environment('successor-migration'), {
@@ -442,13 +444,22 @@ test('environment resolver pins every Railway axis and separates runtime credent
     '',
     'not-a-certificate',
     `${TEST_CA}\n${TEST_CA}`,
+    `prefix${TEST_CA}`,
+    `${TEST_CA}trailer`,
+    `${TEST_CA}\n`,
+    TEST_CA.slice(0, -1),
+    TEST_CA.replaceAll('\n', '\r\n'),
+    `${TEST_CA}\u0000`,
+    `${TEST_CA}\t`,
+    `Certificate:\n${TEST_CA}`,
+    `${TEST_CA}-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----\n`,
     '-----BEGIN PRIVATE KEY-----\nAAAA\n-----END PRIVATE KEY-----',
   ]) {
     assert.throws(
       () => resolveDr133RunnerEnvironment(environment('migration', {
         LOR_DR133_RUNTIME_DATABASE_CA: databaseCa,
       }), { mode: 'migration' }),
-      Dr133RunnerError,
+      runnerError('DATABASE_CA_REJECTED'),
     );
   }
 });
@@ -1661,9 +1672,22 @@ function assertSafeConfigLiteral(value) {
 async function enableDisposablePrivateTls(harness, binaries, privateHost) {
   const description = harness.describe();
   const dataDirectory = path.join(description.tempRoot, 'd');
+  const caCertificatePath = path.join(dataDirectory, 'dr133-test-ca.crt');
+  const caPrivateKeyPath = path.join(dataDirectory, 'dr133-test-ca.key');
   const certificatePath = path.join(dataDirectory, 'dr133-test-server.crt');
+  const certificateRequestPath = path.join(dataDirectory, 'dr133-test-server.csr');
   const privateKeyPath = path.join(dataDirectory, 'dr133-test-server.key');
-  for (const value of [dataDirectory, certificatePath, privateKeyPath, privateHost]) {
+  const certificateSerialPath = path.join(dataDirectory, 'dr133-test-ca.srl');
+  for (const value of [
+    dataDirectory,
+    caCertificatePath,
+    caPrivateKeyPath,
+    certificatePath,
+    certificateRequestPath,
+    privateKeyPath,
+    certificateSerialPath,
+    privateHost,
+  ]) {
     assertSafeConfigLiteral(value);
   }
   await access('/opt/homebrew/bin/openssl');
@@ -1676,15 +1700,65 @@ async function enableDisposablePrivateTls(harness, binaries, privateHost) {
     'rsa:2048',
     '-days',
     '1',
+    '-sha256',
+    '-subj',
+    '/CN=MissionMed DR133 Disposable Test CA',
+    '-addext',
+    'basicConstraints=critical,CA:TRUE',
+    '-addext',
+    'keyUsage=critical,keyCertSign,cRLSign',
+    '-keyout',
+    caPrivateKeyPath,
+    '-out',
+    caCertificatePath,
+  ], { timeout: 15_000, maxBuffer: 64 * 1024 });
+  await execFile('/opt/homebrew/bin/openssl', [
+    'req',
+    '-new',
+    '-nodes',
+    '-newkey',
+    'rsa:2048',
+    '-sha256',
     '-subj',
     `/CN=${privateHost}`,
+    '-addext',
+    `subjectAltName=DNS:${DR133_TARGET.databaseHost},IP:${privateHost}`,
     '-keyout',
     privateKeyPath,
     '-out',
+    certificateRequestPath,
+  ], { timeout: 15_000, maxBuffer: 64 * 1024 });
+  await execFile('/opt/homebrew/bin/openssl', [
+    'x509',
+    '-req',
+    '-in',
+    certificateRequestPath,
+    '-CA',
+    caCertificatePath,
+    '-CAkey',
+    caPrivateKeyPath,
+    '-CAcreateserial',
+    '-days',
+    '1',
+    '-sha256',
+    '-copy_extensions',
+    'copy',
+    '-out',
     certificatePath,
   ], { timeout: 15_000, maxBuffer: 64 * 1024 });
+  await chmod(caPrivateKeyPath, 0o600);
+  await chmod(caCertificatePath, 0o600);
   await chmod(privateKeyPath, 0o600);
   await chmod(certificatePath, 0o600);
+  const caCertificate = new X509Certificate(await readFile(caCertificatePath, 'utf8'));
+  const serverCertificate = new X509Certificate(await readFile(certificatePath, 'utf8'));
+  assert.equal(caCertificate.ca, true);
+  assert.equal(caCertificate.checkIssued(caCertificate), true);
+  assert.equal(caCertificate.verify(caCertificate.publicKey), true);
+  assert.equal(serverCertificate.ca, false);
+  assert.equal(serverCertificate.checkIssued(caCertificate), true);
+  assert.equal(serverCertificate.verify(caCertificate.publicKey), true);
+  assert.equal(serverCertificate.checkIP(privateHost), privateHost);
   await appendFile(path.join(dataDirectory, 'postgresql.conf'), `
 # DR-133 disposable exact-target guard test. Harness root is removed on stop.
 listen_addresses = '${privateHost}'
@@ -1710,6 +1784,7 @@ post_auth_delay = 0
     '-t',
     '30',
   ], { timeout: 35_000, maxBuffer: 64 * 1024 });
+  return Object.freeze({ databaseCa: caCertificate.toString() });
 }
 
 function postgresStartupPacket(parameters) {
@@ -1738,7 +1813,7 @@ async function onceWithin(emitter, event, timeoutMs) {
   }
 }
 
-async function openStalledScramAuthentication({ host, port }) {
+async function openStalledScramAuthentication({ databaseCa, host, port }) {
   const socket = connectNet({ host, port });
   await onceWithin(socket, 'connect', 3_000);
   const sslRequest = Buffer.alloc(8);
@@ -1751,8 +1826,10 @@ async function openStalledScramAuthentication({ host, port }) {
 
   const secureSocket = connectTls({
     socket,
-    rejectUnauthorized: false,
-    servername: '',
+    ca: databaseCa,
+    rejectUnauthorized: true,
+    minVersion: 'TLSv1.2',
+    servername: DR133_TARGET.databaseHost,
   });
   secureSocket.on('error', () => {});
   await onceWithin(secureSocket, 'secureConnect', 3_000);
@@ -1819,18 +1896,34 @@ function createPrivateTlsHarnessClientClass({ host, port }) {
   return class PrivateTlsHarnessClient extends RealPgClient {
     constructor(options) {
       const parsed = new URL(options.connectionString);
+      assert.equal(options.enableChannelBinding, true);
       super({
         host,
         port,
         database: 'railway',
         user: decodeURIComponent(parsed.username),
         password: decodeURIComponent(parsed.password),
-        ssl: options.ssl,
+        ssl: {
+          ...options.ssl,
+          servername: options.ssl.servername ?? parsed.hostname,
+        },
+        enableChannelBinding: options.enableChannelBinding,
         application_name: options.application_name,
         connectionTimeoutMillis: options.connectionTimeoutMillis,
       });
     }
   };
+}
+
+async function captureSafeConnectionFailureCode(client) {
+  try {
+    await client.connect();
+    return 'NO_ERROR';
+  } catch (error) {
+    return typeof error?.code === 'string' && /^[A-Z0-9_]{2,96}$/u.test(error.code)
+      ? error.code
+      : 'UNKNOWN_ERROR';
+  }
 }
 
 async function configureExactTargetGucs(client) {
@@ -1845,13 +1938,15 @@ async function configureExactTargetGucs(client) {
 
 async function runExactCanonicalRollbacks({
   ClientClass,
+  databaseCa,
   identityScopeRollback,
   rlsRollback,
   foundationRollback,
 }) {
   const client = new ClientClass({
     connectionString: privateUrl('postgres', ADMIN_PASSWORD).replace('?sslmode=require', ''),
-    ssl: { rejectUnauthorized: false },
+    ssl: { ca: databaseCa, rejectUnauthorized: true, minVersion: 'TLSv1.2' },
+    enableChannelBinding: true,
     application_name: 'missionmed-dr133-exact-rollback-matrix',
     connectionTimeoutMillis: 15_000,
   });
@@ -1922,22 +2017,62 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
       let inspectorClient;
       let liveRuntimeClient;
       let rejectedRuntimeClient;
+      let wrongCaClient;
+      let wrongHostClient;
       let stalledAuthentication;
       let running = false;
       try {
         await harness.start();
         running = true;
-        await enableDisposablePrivateTls(harness, binaries, privateHost);
+        const tls = await enableDisposablePrivateTls(harness, binaries, privateHost);
         await bootstrapExactRailwayDatabase(harness);
+        const matrixEnvironment = (mode) => environment(mode, {
+          LOR_DR133_RUNTIME_DATABASE_CA: tls.databaseCa,
+        });
+        const pinnedTls = Object.freeze({
+          ca: tls.databaseCa,
+          rejectUnauthorized: true,
+          minVersion: 'TLSv1.2',
+        });
 
         const ClientClass = createPrivateTlsHarnessClientClass({
           host: privateHost,
           port: harness.describe().port,
         });
 
+        wrongCaClient = new ClientClass({
+          connectionString: privateUrl('postgres', ADMIN_PASSWORD),
+          ssl: { ...pinnedTls, ca: TEST_CA },
+          enableChannelBinding: true,
+          application_name: 'missionmed-dr133-wrong-ca-negative',
+          connectionTimeoutMillis: 3_000,
+        });
+        assert.ok(new Set([
+          'SELF_SIGNED_CERT_IN_CHAIN',
+          'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
+          'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+        ]).has(await captureSafeConnectionFailureCode(wrongCaClient)));
+        await wrongCaClient.end().catch(() => {});
+        wrongCaClient = null;
+
+        wrongHostClient = new ClientClass({
+          connectionString: privateUrl('postgres', ADMIN_PASSWORD),
+          ssl: { ...pinnedTls, servername: 'wrong.railway.internal' },
+          enableChannelBinding: true,
+          application_name: 'missionmed-dr133-wrong-host-negative',
+          connectionTimeoutMillis: 3_000,
+        });
+        assert.equal(
+          await captureSafeConnectionFailureCode(wrongHostClient),
+          'ERR_TLS_CERT_ALTNAME_INVALID',
+        );
+        await wrongHostClient.end().catch(() => {});
+        wrongHostClient = null;
+
         inspectorClient = new ClientClass({
           connectionString: privateUrl('postgres', ADMIN_PASSWORD),
-          ssl: { rejectUnauthorized: false },
+          ssl: pinnedTls,
+          enableChannelBinding: true,
           application_name: 'missionmed-dr133-exact-matrix-inspector',
           connectionTimeoutMillis: 15_000,
         });
@@ -1962,7 +2097,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
         const migrationCapture = captureStream();
         assert.deepEqual(
           await runDr133StagingMigration({
-            environment: environment('migration'),
+            environment: matrixEnvironment('migration'),
             ClientClass,
             output: migrationCapture.stream,
           }),
@@ -1980,7 +2115,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
 
         const verifierCapture = captureStream();
         assert.deepEqual(await verifyDr133StagingSuccessorSchema({
-          environment: environment('schema-verifier'),
+          environment: matrixEnvironment('schema-verifier'),
           ClientClass,
           output: verifierCapture.stream,
         }), { result: 'SCHEMA_VERIFIED_NO_MUTATION' });
@@ -2007,7 +2142,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
 
         const successorCapture = captureStream();
         assert.deepEqual(await runDr133StagingSuccessorMigration({
-          environment: environment('successor-migration'),
+          environment: matrixEnvironment('successor-migration'),
           ClientClass,
           output: successorCapture.stream,
         }), { result: 'SUCCESSOR_COMMITTED_VERIFIED' });
@@ -2017,7 +2152,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
         );
         const successorReplayCapture = captureStream();
         assert.deepEqual(await runDr133StagingSuccessorMigration({
-          environment: environment('successor-migration'),
+          environment: matrixEnvironment('successor-migration'),
           ClientClass,
           output: successorReplayCapture.stream,
         }), { result: 'SUCCESSOR_ALREADY_COMMITTED_VERIFIED' });
@@ -2030,7 +2165,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
 
         const replayCapture = captureStream();
         await assert.rejects(runDr133StagingMigration({
-          environment: environment('migration'),
+          environment: matrixEnvironment('migration'),
           ClientClass,
           output: replayCapture.stream,
         }), runnerError('PREFLIGHT_TARGET_INVALID'));
@@ -2039,7 +2174,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
         const provisionCapture = captureStream();
         assert.deepEqual(
           await provisionDr133RailwayStagingRuntimeLogin({
-            environment: environment('runtime-login'),
+            environment: matrixEnvironment('runtime-login'),
             ClientClass,
             output: provisionCapture.stream,
           }),
@@ -2060,7 +2195,8 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
 
         liveRuntimeClient = new ClientClass({
           connectionString: privateUrl(DR133_RUNTIME_LOGIN, RUNTIME_PASSWORD),
-          ssl: { rejectUnauthorized: false },
+          ssl: pinnedTls,
+          enableChannelBinding: true,
           application_name: 'missionmed-dr133-exact-live-session',
           connectionTimeoutMillis: 15_000,
         });
@@ -2079,7 +2215,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
         const quarantineCapture = captureStream();
         await assert.rejects(
           deprovisionDr133RailwayStagingRuntimeLogin({
-            environment: environment('runtime-login-deprovision'),
+            environment: matrixEnvironment('runtime-login-deprovision'),
             ClientClass,
             output: quarantineCapture.stream,
           }),
@@ -2130,7 +2266,8 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
 
         rejectedRuntimeClient = new ClientClass({
           connectionString: privateUrl(DR133_RUNTIME_LOGIN, RUNTIME_PASSWORD),
-          ssl: { rejectUnauthorized: false },
+          ssl: pinnedTls,
+          enableChannelBinding: true,
           application_name: 'missionmed-dr133-exact-rejected-new-session',
           connectionTimeoutMillis: 15_000,
         });
@@ -2148,7 +2285,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
         const deprovisionCapture = captureStream();
         assert.deepEqual(
           await deprovisionDr133RailwayStagingRuntimeLogin({
-            environment: environment('runtime-login-deprovision'),
+            environment: matrixEnvironment('runtime-login-deprovision'),
             ClientClass,
             output: deprovisionCapture.stream,
           }),
@@ -2167,7 +2304,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
         const reprovisionCapture = captureStream();
         assert.deepEqual(
           await provisionDr133RailwayStagingRuntimeLogin({
-            environment: environment('runtime-login'),
+            environment: matrixEnvironment('runtime-login'),
             ClientClass,
             output: reprovisionCapture.stream,
           }),
@@ -2182,6 +2319,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
         const reprovisionedRuntimeRoleOid = reprovisionedRole.rows[0].runtime_role_oid;
 
         stalledAuthentication = await openStalledScramAuthentication({
+          databaseCa: tls.databaseCa,
           host: privateHost,
           port: harness.describe().port,
         });
@@ -2212,7 +2350,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
         const rawDeprovisionCapture = captureStream();
         const rawDeprovisionStartedAt = Date.now();
         const rawDeprovisionPromise = deprovisionDr133RailwayStagingRuntimeLogin({
-          environment: environment('runtime-login-deprovision'),
+          environment: matrixEnvironment('runtime-login-deprovision'),
           ClientClass,
           output: rawDeprovisionCapture.stream,
         });
@@ -2236,7 +2374,8 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
 
         rejectedRuntimeClient = new ClientClass({
           connectionString: privateUrl(DR133_RUNTIME_LOGIN, RUNTIME_PASSWORD),
-          ssl: { rejectUnauthorized: false },
+          ssl: pinnedTls,
+          enableChannelBinding: true,
           application_name: 'missionmed-dr133-bounded-drain-new-login-refusal',
           connectionTimeoutMillis: 15_000,
         });
@@ -2272,6 +2411,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
 
         await runExactCanonicalRollbacks({
           ClientClass,
+          databaseCa: tls.databaseCa,
           identityScopeRollback,
           rlsRollback,
           foundationRollback,
@@ -2280,7 +2420,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
         const reapplyCapture = captureStream();
         assert.deepEqual(
           await runDr133StagingMigration({
-            environment: environment('migration'),
+            environment: matrixEnvironment('migration'),
             ClientClass,
             output: reapplyCapture.stream,
           }),
@@ -2297,6 +2437,7 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
 
         await runExactCanonicalRollbacks({
           ClientClass,
+          databaseCa: tls.databaseCa,
           identityScopeRollback,
           rlsRollback,
           foundationRollback,
@@ -2315,6 +2456,8 @@ test('exact DR-133 migration, runtime quarantine/deprovision, rollback, and reap
         if (liveRuntimeClient) await liveRuntimeClient.end().catch(() => {});
         if (stalledAuthentication) stalledAuthentication.destroy();
         if (stalledAuthentication) await stalledAuthentication.closed.catch(() => {});
+        if (wrongCaClient) await wrongCaClient.end().catch(() => {});
+        if (wrongHostClient) await wrongHostClient.end().catch(() => {});
         if (rejectedRuntimeClient) await rejectedRuntimeClient.end().catch(() => {});
         if (inspectorClient) await inspectorClient.end().catch(() => {});
         if (running) await harness.stop();
