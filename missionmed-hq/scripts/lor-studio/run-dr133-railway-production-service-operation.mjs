@@ -112,12 +112,10 @@ async function main() {
   const snapshot = Object.freeze({
     adminDatabaseUrl: ambient.DATABASE_URL,
     databaseCa: ambient.LOR_DR133_RUNTIME_DATABASE_CA,
-    deploymentId: ambient.RAILWAY_DEPLOYMENT_ID,
     environmentId: ambient.RAILWAY_ENVIRONMENT_ID,
     environmentName: ambient.RAILWAY_ENVIRONMENT_NAME,
     mode: ambient.LOR_DR133_MODE,
     projectId: ambient.RAILWAY_PROJECT_ID,
-    region: ambient.RAILWAY_REPLICA_REGION,
     runtimeDatabaseUrl: ambient.LOR_DR133_RUNTIME_DATABASE_URL,
     serviceId: ambient.RAILWAY_SERVICE_ID,
     tunnelHost: ambient.LOR_DR133_TUNNEL_HOST,
@@ -142,11 +140,9 @@ async function main() {
     LOR_DR133_TUNNEL_HOST: snapshot.tunnelHost,
     LOR_DR133_TUNNEL_PORT: snapshot.tunnelPort,
     ...(runtimeUrl ? { LOR_DR133_RUNTIME_DATABASE_URL: runtimeUrl } : {}),
-    RAILWAY_DEPLOYMENT_ID: snapshot.deploymentId,
     RAILWAY_ENVIRONMENT_ID: snapshot.environmentId,
     RAILWAY_ENVIRONMENT_NAME: snapshot.environmentName,
     RAILWAY_PROJECT_ID: snapshot.projectId,
-    RAILWAY_REPLICA_REGION: snapshot.region,
     RAILWAY_SERVICE_ID: snapshot.serviceId,
   });
   try {

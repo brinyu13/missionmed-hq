@@ -562,11 +562,9 @@ test('isolated sanitizer argv contains no secret and hostile startup variables c
       LOR_DR133_RUNTIME_DATABASE_CA: PRODUCTION_CA,
       LOR_DR133_TUNNEL_HOST: '127.0.0.1',
       LOR_DR133_TUNNEL_PORT: String(PORT),
-      RAILWAY_DEPLOYMENT_ID: '11111111-1111-4111-8111-111111111111',
       RAILWAY_ENVIRONMENT_ID: DR133_TARGET.environmentId,
       RAILWAY_ENVIRONMENT_NAME: DR133_TARGET.environmentName,
       RAILWAY_PROJECT_ID: DR133_TARGET.projectId,
-      RAILWAY_REPLICA_REGION: DR133_TARGET.region,
       RAILWAY_SERVICE_ID: DR133_TARGET.databaseServiceId,
       NODE_OPTIONS: `--require=${nodePayload}`,
       NODE_PATH: root,
@@ -631,6 +629,10 @@ test('source guard proves pre-pg custody, dynamic post-scrub import, and exact c
     true,
   );
   assert.equal(sanitizerSource.indexOf('os.environ.clear()') < sanitizerSource.indexOf('os.execve('), true);
+  assert.doesNotMatch(
+    `${sanitizerSource}\n${wrapperSource}`,
+    /RAILWAY_(?:DEPLOYMENT_ID|REPLICA_REGION)/u,
+  );
   assert.match(tunnelSource, /const PYTHON_BINARY_NLINK = 78n;/u);
   assert.match(tunnelSource, /opened\.nlink !== expectedNlink/u);
   assert.match(

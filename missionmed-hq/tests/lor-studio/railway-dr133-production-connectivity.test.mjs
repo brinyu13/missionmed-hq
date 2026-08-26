@@ -23,11 +23,9 @@ function environment(overrides = {}) {
     LOR_DR133_MODE: 'connectivity-preflight',
     LOR_DR133_TUNNEL_HOST: '127.0.0.1',
     LOR_DR133_TUNNEL_PORT: '55432',
-    RAILWAY_DEPLOYMENT_ID: 'ada7e2e2-e99c-4d8e-8dd2-ce54e0f0eb91',
     RAILWAY_ENVIRONMENT_ID: DR133_TARGET.environmentId,
     RAILWAY_ENVIRONMENT_NAME: DR133_TARGET.environmentName,
     RAILWAY_PROJECT_ID: DR133_TARGET.projectId,
-    RAILWAY_REPLICA_REGION: DR133_TARGET.region,
     RAILWAY_SERVICE_ID: DR133_TARGET.executionServiceId,
     ...overrides,
   };

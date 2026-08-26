@@ -16,7 +16,9 @@ import {
   DR133_ARTIFACTS,
   DR133_RELATIONS,
   DR133_RUNNER_CONTRACT,
+  DR133_RUNNER_ENV_KEYS,
   DR133_RUNTIME_LOGIN,
+  DR133_RUNTIME_ENV_KEYS,
   DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES,
   DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES,
   DR133_SUCCESSOR_STAGES,
@@ -222,6 +224,13 @@ test('service-operation bootstrap clears ambient state before loading any pg-bac
 
 test('production environment resolution accepts only the database-variable execution identity', () => {
   assert.equal(typeof TEST_CA, 'string');
+  for (const unavailableLocalRunKey of [
+    'RAILWAY_DEPLOYMENT_ID',
+    'RAILWAY_REPLICA_REGION',
+  ]) {
+    assert.equal(DR133_RUNNER_ENV_KEYS.includes(unavailableLocalRunKey), false);
+    assert.equal(DR133_RUNTIME_ENV_KEYS.includes(unavailableLocalRunKey), false);
+  }
   const environment = {
     LOR_DR133_ADMIN_DATABASE_URL:
       `postgresql://postgres:${PASSWORD}@${DR133_TARGET.databaseHost}:5432/railway?sslmode=require`,
@@ -229,11 +238,9 @@ test('production environment resolution accepts only the database-variable execu
     LOR_DR133_MODE: 'schema-verifier',
     LOR_DR133_TUNNEL_HOST: '127.0.0.1',
     LOR_DR133_TUNNEL_PORT: '55432',
-    RAILWAY_DEPLOYMENT_ID: 'ada7e2e2-e99c-4d8e-8dd2-ce54e0f0eb91',
     RAILWAY_ENVIRONMENT_ID: DR133_TARGET.environmentId,
     RAILWAY_ENVIRONMENT_NAME: DR133_TARGET.environmentName,
     RAILWAY_PROJECT_ID: DR133_TARGET.projectId,
-    RAILWAY_REPLICA_REGION: DR133_TARGET.region,
     RAILWAY_SERVICE_ID: DR133_TARGET.executionServiceId,
   };
   const resolved = resolveDr133RunnerEnvironment(environment, { mode: 'schema-verifier' });
@@ -290,11 +297,9 @@ function runtimeLoginEnvironment() {
     LOR_DR133_MODE: 'runtime-login',
     LOR_DR133_TUNNEL_HOST: '127.0.0.1',
     LOR_DR133_TUNNEL_PORT: '55432',
-    RAILWAY_DEPLOYMENT_ID: 'ada7e2e2-e99c-4d8e-8dd2-ce54e0f0eb91',
     RAILWAY_ENVIRONMENT_ID: DR133_TARGET.environmentId,
     RAILWAY_ENVIRONMENT_NAME: DR133_TARGET.environmentName,
     RAILWAY_PROJECT_ID: DR133_TARGET.projectId,
-    RAILWAY_REPLICA_REGION: DR133_TARGET.region,
     RAILWAY_SERVICE_ID: DR133_TARGET.executionServiceId,
   };
 }
@@ -463,11 +468,9 @@ function productionMigrationEnvironment(mode) {
     LOR_DR133_MODE: mode,
     LOR_DR133_TUNNEL_HOST: '127.0.0.1',
     LOR_DR133_TUNNEL_PORT: '55432',
-    RAILWAY_DEPLOYMENT_ID: 'ada7e2e2-e99c-4d8e-8dd2-ce54e0f0eb91',
     RAILWAY_ENVIRONMENT_ID: DR133_TARGET.environmentId,
     RAILWAY_ENVIRONMENT_NAME: DR133_TARGET.environmentName,
     RAILWAY_PROJECT_ID: DR133_TARGET.projectId,
-    RAILWAY_REPLICA_REGION: DR133_TARGET.region,
     RAILWAY_SERVICE_ID: DR133_TARGET.executionServiceId,
   };
 }

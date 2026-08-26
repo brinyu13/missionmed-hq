@@ -46,15 +46,11 @@ const DR133_ROLLBACK_DRILL_ENV_KEYS = Object.freeze([
   'LOR_DR133_RUNTIME_DATABASE_CA',
   'LOR_DR133_TUNNEL_HOST',
   'LOR_DR133_TUNNEL_PORT',
-  'RAILWAY_DEPLOYMENT_ID',
   'RAILWAY_ENVIRONMENT_ID',
   'RAILWAY_ENVIRONMENT_NAME',
   'RAILWAY_PROJECT_ID',
-  'RAILWAY_REPLICA_REGION',
   'RAILWAY_SERVICE_ID',
 ]);
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const SAFE_CODE_PATTERN = /^[A-Z0-9_]{3,80}$/u;
 const POSTGRES_CODE_PATTERN = /^[0-9A-Z]{5}$/u;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u;
@@ -192,11 +188,6 @@ export function resolveDr133RollbackDrillEnvironment(rawEnvironment) {
     DR133_TARGET.executionServiceId,
     'EXECUTION_SERVICE_ID_MISMATCH',
   );
-  assertExact(rawEnvironment.RAILWAY_REPLICA_REGION, DR133_TARGET.region, 'REGION_MISMATCH');
-  if (!UUID_PATTERN.test(rawEnvironment.RAILWAY_DEPLOYMENT_ID)) {
-    failDr133('DEPLOYMENT_ID_INVALID');
-  }
-
   const admin = parsePrivateDatabaseUrl(
     rawEnvironment.LOR_DR133_ADMIN_DATABASE_URL,
     DR133_TARGET.databaseAdmin,

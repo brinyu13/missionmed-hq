@@ -33,7 +33,6 @@ import {
 } from '../../scripts/lor-studio/run-dr133-railway-production-rollback-drill.mjs';
 
 const ADMIN_PASSWORD = 'a'.repeat(48);
-const DEPLOYMENT_ID = '11111111-1111-4111-8111-111111111111';
 const PRODUCTION_CA = await readFile(
   new URL('./dr133-production-root-ca.pem', import.meta.url),
   'utf8',
@@ -65,11 +64,9 @@ function environment(overrides = {}) {
     LOR_DR133_MODE: 'rollback-drill',
     LOR_DR133_TUNNEL_HOST: '127.0.0.1',
     LOR_DR133_TUNNEL_PORT: '55432',
-    RAILWAY_DEPLOYMENT_ID: DEPLOYMENT_ID,
     RAILWAY_ENVIRONMENT_ID: DR133_TARGET.environmentId,
     RAILWAY_ENVIRONMENT_NAME: DR133_TARGET.environmentName,
     RAILWAY_PROJECT_ID: DR133_TARGET.projectId,
-    RAILWAY_REPLICA_REGION: DR133_TARGET.region,
     RAILWAY_SERVICE_ID: DR133_TARGET.executionServiceId,
     ...overrides,
   };
@@ -183,8 +180,6 @@ test('rollback drill environment is exact to production, database-service import
     { RAILWAY_ENVIRONMENT_ID: '22222222-2222-4222-8222-222222222222' },
     { RAILWAY_ENVIRONMENT_NAME: 'staging' },
     { RAILWAY_SERVICE_ID: DR133_TARGET.applicationServiceId },
-    { RAILWAY_REPLICA_REGION: 'us-east4' },
-    { RAILWAY_DEPLOYMENT_ID: 'not-a-uuid' },
     { LOR_DR133_TUNNEL_HOST: 'localhost' },
     { LOR_DR133_TUNNEL_PORT: '5432' },
     {

@@ -262,7 +262,6 @@ const DENIED_IDENTIFIERS = Object.freeze([
   'fglyvdykwgbuivikqoah',
   'mftguikkftmrxjxrkdln',
 ]);
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const POSTGRES_CODE_PATTERN = /^[0-9A-Z]{5}$/u;
 const POSTGRES_CODE_CLASSES = new Set([
   '00', '01', '02', '03', '08', '09', '0A', '0B', '0F', '0L', '0P', '0Z',
@@ -400,11 +399,9 @@ export const DR133_RUNNER_ENV_KEYS = Object.freeze([
   'LOR_DR133_MODE',
   'LOR_DR133_TUNNEL_HOST',
   'LOR_DR133_TUNNEL_PORT',
-  'RAILWAY_DEPLOYMENT_ID',
   'RAILWAY_ENVIRONMENT_ID',
   'RAILWAY_ENVIRONMENT_NAME',
   'RAILWAY_PROJECT_ID',
-  'RAILWAY_REPLICA_REGION',
   'RAILWAY_SERVICE_ID',
 ]);
 
@@ -578,9 +575,6 @@ export function resolveDr133RunnerEnvironment(rawEnvironment, { mode }) {
     DR133_TARGET.executionServiceId,
     'EXECUTION_SERVICE_ID_MISMATCH',
   );
-  assertExact(rawEnvironment.RAILWAY_REPLICA_REGION, DR133_TARGET.region, 'REGION_MISMATCH');
-  if (!UUID_PATTERN.test(rawEnvironment.RAILWAY_DEPLOYMENT_ID)) failDr133('DEPLOYMENT_ID_INVALID');
-
   const admin = parsePrivateDatabaseUrl(
     rawEnvironment.LOR_DR133_ADMIN_DATABASE_URL,
     DR133_TARGET.databaseAdmin,
@@ -608,7 +602,6 @@ export function resolveDr133RunnerEnvironment(rawEnvironment, { mode }) {
 
   return Object.freeze({
     mode,
-    deploymentId: rawEnvironment.RAILWAY_DEPLOYMENT_ID,
     adminPgConnectionString: adminTunnel.connectionString,
     runtimePgConnectionString: runtimeTunnel?.connectionString ?? null,
     runtimePassword: runtime?.password ?? null,

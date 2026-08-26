@@ -59,11 +59,9 @@ def sanitized_environment(source, expected_mode, expected_port):
     mode = required(source, "LOR_DR133_MODE", 3, 64)
     tunnel_host = required(source, "LOR_DR133_TUNNEL_HOST", 9, 9)
     tunnel_port = required(source, "LOR_DR133_TUNNEL_PORT", 4, 5)
-    deployment_id = required(source, "RAILWAY_DEPLOYMENT_ID", 36, 36)
     environment_id = required(source, "RAILWAY_ENVIRONMENT_ID", 36, 36)
     environment_name = required(source, "RAILWAY_ENVIRONMENT_NAME", 10, 10)
     project_id = required(source, "RAILWAY_PROJECT_ID", 36, 36)
-    region = required(source, "RAILWAY_REPLICA_REGION", 3, 32)
     service_id = required(source, "RAILWAY_SERVICE_ID", 36, 36)
     if (
         mode not in MODES
@@ -75,7 +73,7 @@ def sanitized_environment(source, expected_mode, expected_port):
         or environment_name != "production"
         or any(
             UUID.fullmatch(value) is None
-            for value in (deployment_id, environment_id, project_id, service_id)
+            for value in (environment_id, project_id, service_id)
         )
     ):
         raise ValueError("invalid target")
@@ -92,11 +90,9 @@ def sanitized_environment(source, expected_mode, expected_port):
         "LOR_DR133_RUNTIME_DATABASE_CA": database_ca,
         "LOR_DR133_TUNNEL_HOST": tunnel_host,
         "LOR_DR133_TUNNEL_PORT": tunnel_port,
-        "RAILWAY_DEPLOYMENT_ID": deployment_id,
         "RAILWAY_ENVIRONMENT_ID": environment_id,
         "RAILWAY_ENVIRONMENT_NAME": environment_name,
         "RAILWAY_PROJECT_ID": project_id,
-        "RAILWAY_REPLICA_REGION": region,
         "RAILWAY_SERVICE_ID": service_id,
     }
     if mode == "runtime-login":
