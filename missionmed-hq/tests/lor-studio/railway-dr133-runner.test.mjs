@@ -440,6 +440,13 @@ test('environment resolver pins every Railway axis and separates runtime credent
     }), { mode: 'runtime-login' }),
     runnerError('RUNTIME_PASSWORD_FORMAT_INVALID'),
   );
+  const railwayNormalizedCa = TEST_CA.slice(0, -1);
+  assert.equal(
+    resolveDr133RunnerEnvironment(environment('migration', {
+      LOR_DR133_RUNTIME_DATABASE_CA: railwayNormalizedCa,
+    }), { mode: 'migration' }).databaseCa,
+    TEST_CA,
+  );
   for (const databaseCa of [
     '',
     'not-a-certificate',
@@ -447,7 +454,8 @@ test('environment resolver pins every Railway axis and separates runtime credent
     `prefix${TEST_CA}`,
     `${TEST_CA}trailer`,
     `${TEST_CA}\n`,
-    TEST_CA.slice(0, -1),
+    TEST_CA.slice(0, -2),
+    `${railwayNormalizedCa} `,
     TEST_CA.replaceAll('\n', '\r\n'),
     `${TEST_CA}\u0000`,
     `${TEST_CA}\t`,

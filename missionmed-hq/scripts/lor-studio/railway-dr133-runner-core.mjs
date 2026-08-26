@@ -404,7 +404,10 @@ export function verifiedDr133DatabaseCa(rawValue) {
       failDr133('DATABASE_CA_REJECTED');
     }
     const canonical = certificate.toString();
-    if (rawValue !== canonical) failDr133('DATABASE_CA_REJECTED');
+    const railwayNormalized = canonical.endsWith('\n') ? canonical.slice(0, -1) : canonical;
+    if (rawValue !== canonical && rawValue !== railwayNormalized) {
+      failDr133('DATABASE_CA_REJECTED');
+    }
     return canonical;
   } catch (error) {
     if (error instanceof Dr133RunnerError) throw error;
