@@ -56,6 +56,22 @@ function row(overrides = {}) {
   };
 }
 
+test('connectivity SQL accepts the exact Railway tunnel loopback as a private target', () => {
+  assert.match(
+    DR133_PRODUCTION_CONNECTIVITY_SQL,
+    /inet_server_addr\(\) << pg_catalog\.inet '127\.0\.0\.0\/8'/u,
+  );
+  assert.match(
+    DR133_PRODUCTION_CONNECTIVITY_SQL,
+    /inet_server_addr\(\) << pg_catalog\.inet '::1\/128'/u,
+  );
+  assert.match(
+    DR133_PRODUCTION_CONNECTIVITY_SQL,
+    /inet_server_addr\(\) << pg_catalog\.inet '10\.0\.0\.0\/8'/u,
+  );
+  assert.match(DR133_PRODUCTION_CONNECTIVITY_SQL, /AS private_server_address/u);
+});
+
 test('connectivity preflight proves the exact fresh private TLS target through the tunnel', async () => {
   const instances = [];
   class FakeClient {

@@ -120,6 +120,16 @@ async function artifactSources() {
   return sources;
 }
 
+test('rollback custody artifacts retain private-target guards and accept tunnel loopback', async () => {
+  const sources = await artifactSources();
+  for (const source of sources.values()) {
+    assert.match(source, /inet_server_addr\(\) << pg_catalog\.inet '127\.0\.0\.0\/8'/u);
+    assert.match(source, /inet_server_addr\(\) << pg_catalog\.inet '::1\/128'/u);
+    assert.match(source, /inet_server_addr\(\) << pg_catalog\.inet '10\.0\.0\.0\/8'/u);
+    assert.match(source, /inet_server_addr\(\) << pg_catalog\.inet 'fc00::\/7'/u);
+  }
+});
+
 function createFakeClientClass({
   queryOverride = null,
   endError = null,

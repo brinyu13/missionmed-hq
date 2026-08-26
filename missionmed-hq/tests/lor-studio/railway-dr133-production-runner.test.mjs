@@ -41,6 +41,7 @@ import {
   DR133_ADVISORY_UNLOCK_SQL,
   DR133_FOUNDATION_SENTINEL_SQL,
   DR133_POSTFLIGHT_CATALOG_SQL,
+  DR133_PREFLIGHT_SQL,
   DR133_SUCCESSOR_PREFLIGHT_SQL,
   runDr133ProductionMigration,
   runDr133ProductionSuccessorMigration,
@@ -59,6 +60,12 @@ import {
   DR133_RUNTIME_SET_ROLE_SQL,
   provisionDr133RailwayProductionRuntimeLogin,
 } from '../../scripts/lor-studio/provision-dr133-railway-production-runtime-login.mjs';
+import {
+  DR133_RUNTIME_DEPROVISION_PREFLIGHT_SQL,
+} from '../../scripts/lor-studio/deprovision-dr133-railway-production-runtime-login.mjs';
+import {
+  DR133_PRODUCTION_CONNECTIVITY_SQL,
+} from '../../scripts/lor-studio/verify-dr133-railway-production-connectivity.mjs';
 import {
   normalizeDr133ProductionProviderAdminUrl,
   normalizeDr133ProductionProviderRuntimeUrl,
@@ -140,7 +147,31 @@ test('all fourteen live-production artifacts are hash-pinned and target-exclusiv
     assert.match(text, /missionmed\.lor\.railway-postgres-target\.v2\|deploymentEnvironment=production\|migrationLedger=lor_studio\/migrations\/production/u);
     assert.match(text, /missionmed\.lor\.target_deployment_environment/u);
     assert.match(text, /missionmed\.lor\.target_migration_ledger/u);
+    assert.match(text, /inet_server_addr\(\) << pg_catalog\.inet '127\.0\.0\.0\/8'/u);
+    assert.match(text, /inet_server_addr\(\) << pg_catalog\.inet '::1\/128'/u);
+    assert.match(text, /inet_server_addr\(\) << pg_catalog\.inet '10\.0\.0\.0\/8'/u);
+    assert.match(text, /inet_server_addr\(\) << pg_catalog\.inet 'fc00::\/7'/u);
     assert.doesNotMatch(text, /f5705d38|b49a52e7|lor-staging|railway-postgres-target\.v1/u);
+  }
+});
+
+test('all production private-target probes accept the pinned Railway tunnel loopback', () => {
+  for (const sql of [
+    DR133_PRODUCTION_CONNECTIVITY_SQL,
+    DR133_PREFLIGHT_SQL,
+    DR133_SUCCESSOR_PREFLIGHT_SQL,
+    DR133_RUNTIME_ADMIN_PREFLIGHT_SQL,
+    DR133_RUNTIME_IDENTITY_SQL,
+    DR133_RUNTIME_DEPROVISION_PREFLIGHT_SQL,
+  ]) {
+    assert.match(sql, /inet_server_addr\(\) << pg_catalog\.inet '127\.0\.0\.0\/8'/u);
+    assert.match(sql, /inet_server_addr\(\) << pg_catalog\.inet '::1\/128'/u);
+    assert.match(sql, /inet_server_addr\(\) << pg_catalog\.inet '10\.0\.0\.0\/8'/u);
+    assert.match(sql, /inet_server_addr\(\) << pg_catalog\.inet '172\.16\.0\.0\/12'/u);
+    assert.match(sql, /inet_server_addr\(\) << pg_catalog\.inet '192\.168\.0\.0\/16'/u);
+    assert.match(sql, /inet_server_addr\(\) << pg_catalog\.inet '100\.64\.0\.0\/10'/u);
+    assert.match(sql, /inet_server_addr\(\) << pg_catalog\.inet 'fc00::\/7'/u);
+    assert.match(sql, /AS private_server_address/u);
   }
 });
 

@@ -38,7 +38,9 @@ SELECT
   (
     pg_catalog.inet_server_addr() IS NOT NULL
     AND (
-      pg_catalog.inet_server_addr() << pg_catalog.inet '10.0.0.0/8'
+      pg_catalog.inet_server_addr() << pg_catalog.inet '127.0.0.0/8'
+      OR pg_catalog.inet_server_addr() << pg_catalog.inet '::1/128'
+      OR pg_catalog.inet_server_addr() << pg_catalog.inet '10.0.0.0/8'
       OR pg_catalog.inet_server_addr() << pg_catalog.inet '172.16.0.0/12'
       OR pg_catalog.inet_server_addr() << pg_catalog.inet '192.168.0.0/16'
       OR pg_catalog.inet_server_addr() << pg_catalog.inet '100.64.0.0/10'

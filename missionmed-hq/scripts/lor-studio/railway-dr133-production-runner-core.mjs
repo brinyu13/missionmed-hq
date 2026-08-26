@@ -36,97 +36,97 @@ export const DR133_ARTIFACTS = Object.freeze([
     id: 'foundation',
     purpose: 'forward',
     relativePath: 'migrations/20260826010000_f2_lor_1012_live_production_schema_foundation.sql',
-    sha256: '463eb3fe4ef5f70e0a8fe8cd093ce7aad0184376b1d26625f596917513525674',
+    sha256: '2949e54da193ea99c66c6da32fa39a84671bc653beeb6b6691f351f79f66f879',
   }),
   Object.freeze({
     id: 'rls',
     purpose: 'forward',
     relativePath: 'migrations/20260826010100_f2_lor_1012_live_production_rls_projection_grants.sql',
-    sha256: '2228210f4432a9ffe6a697dd0bdc600c5a1d2d3daf214e8cf743b5383251b360',
+    sha256: '292a4033dc223fa9781653b7cf18207cd6b8825e52e47e2f29607cb676e883e2',
   }),
   Object.freeze({
     id: 'foundation-rollback',
     purpose: 'recovery-custody',
     relativePath:
       'rollbacks/20260826010000_f2_lor_1012_live_production_schema_foundation.rollback.sql',
-    sha256: '7b67e2e7fea70968ed46bf8a203f1071c514ad00faec442995b1f8a52aee04f3',
+    sha256: '5b5b2298d14ead9d1be09487b04d6b2f6f29357e89b2bdde8b08cdcc7d54d96b',
   }),
   Object.freeze({
     id: 'rls-rollback',
     purpose: 'recovery-custody-and-guard-verification',
     relativePath:
       'rollbacks/20260826010100_f2_lor_1012_live_production_rls_projection_grants.rollback.sql',
-    sha256: '441c00258309205bd1c8f51578d1284109c0f0670063f743966206742b0556aa',
+    sha256: '16437bb4888121ee05a76e798ddf780013eadcfeb801457cc957646dd028a087',
   }),
   Object.freeze({
     id: 'identity-scope',
     purpose: 'forward-successor',
     relativePath:
       'migrations/20260826010300_f2_lor_1012_live_production_identity_scope_commands.sql',
-    sha256: '069b4b652a14982f9b0fb2eea32a82a07d58f76450b828a12fbb70e5ebb6b192',
+    sha256: '66b3ab755591343aff9220a106bce92f58eb65e3ffb054586f38d9f2be017682',
   }),
   Object.freeze({
     id: 'identity-scope-rollback',
     purpose: 'recovery-custody-and-successor-guard-verification',
     relativePath:
       'rollbacks/20260826010300_f2_lor_1012_live_production_identity_scope_commands.rollback.sql',
-    sha256: 'a9a04cd72b5c9dcffee0f564a3c0f23934472fd59ee04a5b28afe418371f7302',
+    sha256: 'fbacfe8f808938c992adabab3b433afff9cc48838a1e2006ab1d342b91e0bf5d',
   }),
   Object.freeze({
     id: 'faculty-invitation',
     purpose: 'forward-successor',
     relativePath:
       'migrations/20260826010500_f2_lor_1012_live_production_faculty_invitation_commands.sql',
-    sha256: '8cff38a29ec3845b78981e681b450336dac700022664a4e79de83df54c5da37d',
+    sha256: '3551291c59177db338ff68b78a482fd7cbac6efc8e3299dcd556b804774d9fb8',
   }),
   Object.freeze({
     id: 'faculty-invitation-rollback',
     purpose: 'recovery-custody-and-successor-guard-verification',
     relativePath:
       'rollbacks/20260826010500_f2_lor_1012_live_production_faculty_invitation_commands.rollback.sql',
-    sha256: '2d60b92d66853c7e4c0b31f7f0c7c1455513b32707ecfed5760e7bf803dd0c7a',
+    sha256: 'd592c4247567e882c860d1d460218355dbf4cfb62cac58799a66f2dbbae63cb3',
   }),
   Object.freeze({
     id: 'faculty-private-export',
     purpose: 'forward-successor',
     relativePath:
       'migrations/20260826010700_f2_lor_1012_live_production_faculty_private_export_commands.sql',
-    sha256: '8bc5fc083e262c4c66015d2301282caa55cbbf7c51d33c3c019850e744797853',
+    sha256: '6f9371c95505a59742df5e08841190b11a48dd3b505ddea3b7cfaf628d177fea',
   }),
   Object.freeze({
     id: 'faculty-private-export-rollback',
     purpose: 'recovery-custody-and-successor-guard-verification',
     relativePath:
       'rollbacks/20260826010700_f2_lor_1012_live_production_faculty_private_export_commands.rollback.sql',
-    sha256: '7181524f11f09d8670c24e089d53e0838831f2ace616014605af3861e2d26e76',
+    sha256: 'b2e05c2655dca83c8873f37f5ac6e62c3fd4ac99bd4977d5559c121a68d27bc0',
   }),
   Object.freeze({
     id: 'ai-proposal',
     purpose: 'forward-successor',
     relativePath:
       'migrations/20260826010900_f2_lor_1012_live_production_ai_proposal_commands.sql',
-    sha256: 'bba0daf56a0ceafc0ca39ed3ddd3acac13c9f5546dfb5f89b4d8cceb5f985a8a',
+    sha256: 'ebf6a6a050f1311282eba2ef17d8a623d02f9a126022cf0f270a344b5788c9c1',
   }),
   Object.freeze({
     id: 'ai-proposal-rollback',
     purpose: 'recovery-custody-and-successor-guard-verification',
     relativePath:
       'rollbacks/20260826010900_f2_lor_1012_live_production_ai_proposal_commands.rollback.sql',
-    sha256: 'fbb4e588306a3dbbfb1cc428fb8f66a321dcc47492e647b79c9d5584a97ae979',
+    sha256: '68c048f829a1e0179732eea0d7d0c4b030886a67c11453feff918b050edd9b77',
   }),
   Object.freeze({
     id: 'student-evidence',
     purpose: 'forward-successor',
     relativePath:
       'migrations/20260826011100_f2_lor_1012_live_production_student_evidence_commands.sql',
-    sha256: '3f120e6d071ef42f72536294a13f7ddacbabaa1202c9c753d17b09f603f6ede0',
+    sha256: 'cdafdd8e2d2076a5c6ec068e78e764a6f410a4576314605ecbae5e7c0ef76a63',
   }),
   Object.freeze({
     id: 'student-evidence-rollback',
     purpose: 'recovery-custody-and-successor-guard-verification',
     relativePath:
       'rollbacks/20260826011100_f2_lor_1012_live_production_student_evidence_commands.rollback.sql',
-    sha256: '07fa74f9042afdb600eddc7b23933dfa8d5836be59ce31efbf43139f292f8e93',
+    sha256: '03a3ef7e9b1e9c391c8ad24ba4d4756901b24ba4f4398ebca28bba1705711a57',
   }),
 ]);
 
