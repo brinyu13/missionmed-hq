@@ -93,17 +93,17 @@ const LIST_DEPLOYMENTS_DOCUMENT = [
   '    edges { node { id status createdAt canRollback } }',
   '  }',
   '}',
-].join('\n');
+].join(' ');
 const ROLLBACK_DOCUMENT = [
   'mutation LorReleaseRollback($id: String!) {',
   '  deploymentRollback(id: $id) { id }',
   '}',
-].join('\n');
+].join(' ');
 const REDEPLOY_DOCUMENT = [
   'mutation LorReleaseRedeploy($id: String!) {',
   '  deploymentRedeploy(id: $id) { id }',
   '}',
-].join('\n');
+].join(' ');
 
 const TARGET_EXACT_VALUES = Object.freeze({
   MMHQ_LOR_STUDIO_TARGET_SCHEMA_VERSION: 'missionmed.lor.target-binding.v2',

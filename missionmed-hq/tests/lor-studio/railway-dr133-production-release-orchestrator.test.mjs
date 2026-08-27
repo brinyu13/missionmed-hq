@@ -532,6 +532,10 @@ test('capture-preimage returns an exact target-bound deployment reference', asyn
   assert.equal(descriptor.binary, 'railway');
   assert.equal(descriptor.args[0], 'api');
   assert.match(descriptor.args[1], /query LorReleaseDeployments/u);
+  assert.equal(
+    descriptor.args.every((argument) => !/[\u0000\r\n]/u.test(argument)),
+    true,
+  );
   assert.equal(receipt.deploymentRef, dr133ReleaseDeploymentRef(record));
   assert.equal(receipt.result, 'EXACT_DEPLOYMENT_PREIMAGE_CAPTURED');
 });
