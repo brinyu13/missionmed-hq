@@ -139,21 +139,21 @@ test('production runner is pinned to the exact isolated provider target', () => 
   assert.match(expectedDr133Sentinel(), /^missionmed\.lor\.railway-postgres-target\.v2\|deploymentEnvironment=production\|migrationLedger=lor_studio\/migrations\/production\|/u);
   assert.match(
     expectedDr133SuccessorSentinel(),
-    /mentorAssignmentCommands=20260826011700$/u,
+    /privateStorageObjectIdRegex=20260826011900$/u,
   );
   assert.doesNotMatch(expectedDr133SuccessorSentinel(), /f5705d38|b49a52e7|lor-staging/u);
 });
 
-test('all twenty live-production artifacts are hash-pinned and target-exclusive', async () => {
-  assert.equal(DR133_ARTIFACTS.length, 20);
-  assert.equal(new Set(DR133_ARTIFACTS.map((artifact) => artifact.id)).size, 20);
+test('all twenty-two live-production artifacts are hash-pinned and target-exclusive', async () => {
+  assert.equal(DR133_ARTIFACTS.length, 22);
+  assert.equal(new Set(DR133_ARTIFACTS.map((artifact) => artifact.id)).size, 22);
   for (const artifact of DR133_ARTIFACTS) {
     const source = await readFile(path.join(scriptDirectory, artifact.relativePath));
     const text = source.toString('utf8');
     assert.equal(createHash('sha256').update(source).digest('hex'), artifact.sha256, artifact.id);
     assert.match(
       artifact.relativePath,
-      /2026082601(?:00|01|03|05|07|09|11|13|15|17)00_f2_lor_1012_(?:live_production_)?/u,
+      /2026082601(?:00|01|03|05|07|09|11|13|15|17|19)00_f2_lor_1012_(?:live_production_)?/u,
     );
     assert.match(text, /ed3353f7-bcc7-4e25-a000-3c9fc628a9a7/u);
     assert.match(text, /576520f5-a702-4343-a277-decdeeed57f6/u);
@@ -225,7 +225,7 @@ test('production runtime deprovision accepts only exact empty-schema cursor pref
   );
   assert.equal(
     dr133RuntimeDeprovisionRollbackArtifactId(DR133_SUCCESSOR_STAGES.length),
-    'mentor-assignment-rollback',
+    'private-storage-object-id-regex-rollback',
   );
   assert.throws(
     () => assertRuntimeDeprovisionPreflightRow({ ...row, schema_sentinel: 'foreign' }),
@@ -1073,6 +1073,194 @@ async function configureProductionTargetGucs(client) {
   }
 }
 
+const STORAGE_REGEX_CASE_ID = 'case_dr133_storage_regex_matrix';
+const STORAGE_REGEX_STUDENT_SUBJECT = 'wp:9001';
+const STORAGE_REGEX_STUDENT_UID = '90010000-0000-4000-8000-000000000001';
+
+async function expectStorageRegexError(client, expectedCode, operation) {
+  await client.query('SAVEPOINT storage_regex_expected_failure');
+  try {
+    await assert.rejects(operation, (error) => error?.code === expectedCode);
+  } finally {
+    await client.query('ROLLBACK TO SAVEPOINT storage_regex_expected_failure');
+    await client.query('RELEASE SAVEPOINT storage_regex_expected_failure');
+  }
+}
+
+async function provePrivateStorageObjectIdValidation(client) {
+  const objectId300 = 'a'.repeat(300);
+  const objectId301 = 'a'.repeat(301);
+  const studentCase = createStudentSafeRecommendationCase({
+    id: STORAGE_REGEX_CASE_ID,
+    studentId: STORAGE_REGEX_STUDENT_SUBJECT,
+    actorId: STORAGE_REGEX_STUDENT_SUBJECT,
+    builderSessionId: 'builder_dr133_storage_regex_matrix',
+    now: '2026-08-26T00:00:00.000Z',
+  }).state;
+  const studentSafeRecord = {
+    builder: studentCase.builder,
+    studentEvidence: studentCase.studentEvidence,
+    applicantOptions: studentCase.applicantOptions,
+    delivery: studentCase.delivery,
+  };
+  const contentHash = 'c'.repeat(64);
+  const requestHash = 'd'.repeat(64);
+  const aadHash = 'e'.repeat(64);
+  const storageRef = 'f'.repeat(64);
+  const actorRef = `actor_${'1'.repeat(64)}`;
+  const versionId = `version_${'2'.repeat(64)}`;
+  const salt = Buffer.alloc(32, 1);
+  const iv = Buffer.alloc(12, 2);
+  const authTag = Buffer.alloc(16, 3);
+  const ciphertext = Buffer.from('a');
+
+  await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+  try {
+    await client.query(
+      `SELECT pg_catalog.set_config('lor_studio.actor_role', 'student', true)`,
+    );
+    await client.query({
+      text: `INSERT INTO lor_studio.student_auth_bindings (
+          binding_id, student_auth_subject, student_auth_uid, binding_source,
+          source_reference_hash, proof_hash, bound_at
+        ) VALUES (
+          'binding_dr133_storage_regex_matrix', $1, $2::uuid,
+          'wordpress_verified_bootstrap', $3, $4,
+          pg_catalog.transaction_timestamp() - interval '1 second'
+        )`,
+      values: [
+        STORAGE_REGEX_STUDENT_SUBJECT,
+        STORAGE_REGEX_STUDENT_UID,
+        'a'.repeat(64),
+        'b'.repeat(64),
+      ],
+    });
+    await client.query({
+      text: `INSERT INTO lor_studio.recommendation_cases (
+          case_id, student_auth_subject, student_auth_uid, revision, status,
+          created_at, updated_at, closed_at, record, record_hash,
+          protected_state_hash
+        ) VALUES (
+          $1, $2, $3::uuid, 0, 'draft', $4::timestamptz, $4::timestamptz,
+          NULL, $5::jsonb, lor_studio.canonical_jsonb_sha256($5::jsonb),
+          lor_studio.canonical_jsonb_sha256(
+            pg_catalog.jsonb_build_object('caseId', $1::text, 'revision', 0)
+          )
+        )`,
+      values: [
+        STORAGE_REGEX_CASE_ID,
+        STORAGE_REGEX_STUDENT_SUBJECT,
+        STORAGE_REGEX_STUDENT_UID,
+        studentCase.createdAt,
+        studentSafeRecord,
+      ],
+    });
+
+    const insertArtifact = (objectId, suffix) => client.query({
+      text: `INSERT INTO lor_studio.private_artifact_versions (
+          case_id, student_auth_subject, object_id, version_id, private_object_key,
+          content_class, purpose, content_type, content_hash, plaintext_byte_length,
+          idempotency_key, request_hash, created_by_actor_ref, storage_identity_ref,
+          encryption_profile, encryption_key_version, hkdf_salt, aes_gcm_iv,
+          aes_gcm_auth_tag, ciphertext, aad_hash, created_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, 'student_prepared', 'case_workflow',
+          'text/plain', $6, 1, $7, $8, $9, $10,
+          'aes-256-gcm+hkdf-sha256.v1', 'railway-kek-2026-08-v1',
+          $11, $12, $13, $14, $15, pg_catalog.transaction_timestamp()
+        )`,
+      values: [
+        STORAGE_REGEX_CASE_ID,
+        STORAGE_REGEX_STUDENT_SUBJECT,
+        objectId,
+        `version_${suffix.repeat(64)}`,
+        `cases/${STORAGE_REGEX_CASE_ID}/${suffix}`,
+        contentHash,
+        `storage-regex-${suffix}`,
+        requestHash,
+        actorRef,
+        storageRef,
+        salt,
+        iv,
+        authTag,
+        ciphertext,
+        aadHash,
+      ],
+    });
+
+    await insertArtifact(objectId300, '3');
+    const boundary = await client.query({
+      text: `SELECT pg_catalog.length(object_id)::integer AS object_id_length
+        FROM lor_studio.private_artifact_versions
+        WHERE case_id = $1 AND object_id = $2`,
+      values: [STORAGE_REGEX_CASE_ID, objectId300],
+    });
+    assert.deepEqual(boundary.rows[0], { object_id_length: 300 });
+    await expectStorageRegexError(client, '23514', () => insertArtifact(objectId301, '4'));
+
+    const putValues = (objectId) => [
+      STORAGE_REGEX_STUDENT_SUBJECT,
+      'student',
+      STORAGE_REGEX_CASE_ID,
+      objectId,
+      `cases/${STORAGE_REGEX_CASE_ID}/command`,
+      'student_prepared',
+      'case_workflow',
+      'text/plain',
+      contentHash,
+      1,
+      'storage-regex-command',
+      requestHash,
+      'railway-postgres:lor-private-artifacts:v1',
+      'railway-kek-2026-08-v1',
+      `capability_${'5'.repeat(64)}`,
+      `evidence_${'6'.repeat(64)}`,
+      salt.toString('base64'),
+      iv.toString('base64'),
+      authTag.toString('base64'),
+      ciphertext.toString('base64'),
+      aadHash,
+    ];
+    const invokePut = async (objectId) => {
+      await client.query('SET LOCAL ROLE lor_studio_app');
+      return client.query({
+        text: `SELECT lor_studio.put_encrypted_private_artifact_version(
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
+        ) AS result`,
+        values: putValues(objectId),
+      });
+    };
+    const invokeGet = async (objectId) => {
+      await client.query('SET LOCAL ROLE lor_studio_app');
+      return client.query({
+        text: `SELECT lor_studio.get_encrypted_private_artifact_version(
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
+        ) AS result`,
+        values: [
+          STORAGE_REGEX_STUDENT_SUBJECT,
+          'student',
+          STORAGE_REGEX_CASE_ID,
+          objectId,
+          versionId,
+          `cases/${STORAGE_REGEX_CASE_ID}/command`,
+          'student_prepared',
+          'case_workflow',
+          'railway-postgres:lor-private-artifacts:v1',
+          `capability_${'5'.repeat(64)}`,
+          `evidence_${'6'.repeat(64)}`,
+        ],
+      });
+    };
+
+    await expectStorageRegexError(client, 'P1501', () => invokePut(objectId300));
+    await expectStorageRegexError(client, 'P1505', () => invokePut(objectId301));
+    await expectStorageRegexError(client, 'P1501', () => invokeGet(objectId300));
+    await expectStorageRegexError(client, 'P1505', () => invokeGet(objectId301));
+  } finally {
+    await client.query('ROLLBACK');
+  }
+}
+
 const MENTOR_COMMAND_CASE_ID = 'case_dr133_mentor_command_matrix';
 const MENTOR_COMMAND_STUDENT_SUBJECT = 'wp:9101';
 const MENTOR_COMMAND_STUDENT_UID = '91010000-0000-4000-8000-000000000001';
@@ -1500,6 +1688,7 @@ test('production entrypoints recover exact interruption cursors on disposable Po
           output: receiptCapture().stream,
         }), { result: 'SCHEMA_VERIFIED_NO_MUTATION' });
 
+        await provePrivateStorageObjectIdValidation(inspector);
         await proveMentorAssignmentCommands(inspector);
 
         const failedRollbackId = 'ai-proposal-rollback';
@@ -1539,7 +1728,7 @@ test('production entrypoints recover exact interruption cursors on disposable Po
         assert.deepEqual(recoveredRollback, {
           result: 'ROLLBACK_DRILL_COMMITTED_VERIFIED',
         });
-        assert.equal(rollbackSuccess.receipt().rollbackCount, 10);
+        assert.equal(rollbackSuccess.receipt().rollbackCount, 11);
         for (const rollbackId of [
           ...[...DR133_SUCCESSOR_STAGES].reverse().map((stage) => stage.rollbackId),
           'rls-rollback',

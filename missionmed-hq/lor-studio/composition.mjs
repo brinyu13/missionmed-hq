@@ -20,6 +20,7 @@ import { resolveLorTargetBinding } from './adapters/lor-target-binding.mjs';
 import { createProductionOperationalReadiness } from './adapters/production-operational-readiness.mjs';
 import { isAuthenticOpenAiGroundedProposalAdapter } from './adapters/openai-grounded-proposal-adapter.mjs';
 import { isVerifiedPrivateVersionedStorageAdapter } from './adapters/private-versioned-storage-adapter.mjs';
+import { isLorReleaseModeReadinessAccepted } from './adapters/release-mode-readiness.mjs';
 import { createLorApplicationAdapter } from './http/application-adapter.mjs';
 import { SupabaseDurableAiProposalStore } from './repositories/supabase-durable-ai-proposal-store.mjs';
 import {
@@ -676,8 +677,7 @@ export async function createReadinessGatedLorStudioApplication(options = {}) {
       const dependencyStates = receipt?.dependencies;
       const databaseGroups = receipt?.databaseProbeGroups;
       if (
-        receipt?.status !== 'ready'
-        || receipt?.productionOperational !== true
+        !isLorReleaseModeReadinessAccepted(releaseFlags, receipt)
         || !hasExactEnumerableStringKeys(
           dependencyStates,
           OPERATIONAL_DEPENDENCY_NAMES,

@@ -35,6 +35,11 @@ import {
 } from './lor-studio/adapters/production-readiness-surfaces.mjs';
 import { createProductionRuntimeAssembly } from './lor-studio/adapters/production-runtime-assembly.mjs';
 import {
+  isLorReleaseModeDark,
+  isLorReleaseModeReadinessAccepted,
+  readExactLorReleaseFlags,
+} from './lor-studio/adapters/release-mode-readiness.mjs';
+import {
   createWordPressLorAuthState,
   createWordPressLorS2sClient,
   WORDPRESS_LOR_AUDIENCE,
@@ -317,10 +322,10 @@ let LOR_WORDPRESS_S2S_CLIENT = null;
 let LOR_WORDPRESS_ADMISSION = null;
 let LOR_CANDIDATE_AUTH_SERVICE = null;
 const LOR_STARTUP_ABORT = new AbortController();
-const LOR_RELEASE_FLAGS = Object.freeze({
-  enabled: envFlag('MMHQ_LOR_STUDIO_ENABLED', false),
-  killSwitch: envFlag('MMHQ_LOR_STUDIO_KILL_SWITCH', true),
-  requireCanary: envFlag('MMHQ_LOR_STUDIO_REQUIRE_CANARY', true),
+const LOR_RELEASE_FLAGS = readExactLorReleaseFlags({
+  MMHQ_LOR_STUDIO_ENABLED: envValue('MMHQ_LOR_STUDIO_ENABLED', undefined),
+  MMHQ_LOR_STUDIO_KILL_SWITCH: envValue('MMHQ_LOR_STUDIO_KILL_SWITCH', undefined),
+  MMHQ_LOR_STUDIO_REQUIRE_CANARY: envValue('MMHQ_LOR_STUDIO_REQUIRE_CANARY', undefined),
 });
 let LOR_STUDIO_COMPOSITION = Object.freeze({
   application: null,
@@ -413,8 +418,10 @@ async function lorStudioDeploymentReadiness() {
   if (
     !composition
     || composition.application === null
-    || composition.operationalReadiness?.status !== 'ready'
-    || composition.operationalReadiness?.productionOperational !== true
+    || !isLorReleaseModeReadinessAccepted(
+      LOR_RELEASE_FLAGS,
+      composition.operationalReadiness,
+    )
     || !composition.runtimeDependencies?.readiness
     || typeof composition.runtimeDependencies.readiness.probe !== 'function'
   ) return false;
@@ -424,6 +431,17 @@ async function lorStudioDeploymentReadiness() {
   } catch {
     return false;
   }
+}
+
+function denyDarkLorStudioBoundary(response, pathname) {
+  if (!isLorStudioRequestPath(pathname) || !isLorReleaseModeDark(LOR_RELEASE_FLAGS)) {
+    return false;
+  }
+  sendJson(response, 404, { error: 'lor_feature_disabled' }, {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Robots-Tag': 'noindex, nofollow',
+  });
+  return true;
 }
 
 const server = http.createServer(async (request, response) => {
@@ -454,6 +472,11 @@ const server = http.createServer(async (request, response) => {
       response.end(JSON.stringify({ status: ready ? 'ready' : 'unavailable' }));
       return;
     }
+
+    // The canonical dark state contains every LOR surface before auth redirects,
+    // cookies, callback parsing, or static HTML can run. Operator readiness above
+    // remains independently gated by the fully verified dependency graph.
+    if (denyDarkLorStudioBoundary(response, pathname)) return;
 
     if ((pathname === '/hq' || pathname === '/hq/') && request.method === 'GET') {
       const hasHandoffToken = String(url.searchParams.get('token') || '').trim() !== '';

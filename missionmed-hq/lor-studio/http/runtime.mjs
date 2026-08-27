@@ -807,7 +807,21 @@ export function createLorStudioRuntime({
       return accessFailure(503, 'entitlement_lookup_failed', 'The authoritative LOR entitlement lookup failed closed.');
     }
 
-    const evaluated = evaluateLorEntitlement(entitlement, { requireCanary: flags.requireCanary !== false });
+    const candidateInvitationId = invitationIdForCandidatePath(url?.pathname ?? '');
+    const invitationCandidatePolicyAuthorized = (
+      trustedContext?.canaryAuthorized === true
+      && candidateInvitationId !== null
+      && session?.[LOR_SESSION_IDENTITY_CLASS_FIELD] === LOR_CANDIDATE_IDENTITY_CLASS
+      && session?.[LOR_SESSION_CANDIDATE_INVITATION_FIELD] === candidateInvitationId
+      && hasInvitationBoundCandidateCredential(
+        candidateCredential,
+        candidateInvitationId,
+        freshSession.subject,
+      )
+    );
+    const evaluated = evaluateLorEntitlement(entitlement, {
+      requireCanary: flags.requireCanary !== false && !invitationCandidatePolicyAuthorized,
+    });
     if (evaluated.ok === false) return evaluated;
     if (String(evaluated.actor.id) !== String(freshSession.subject)) {
       return accessFailure(
@@ -832,7 +846,6 @@ export function createLorStudioRuntime({
 
     const access = { ...evaluated };
     if (trustedContext) trustedGrantContexts.set(access, trustedContext);
-    const candidateInvitationId = invitationIdForCandidatePath(url?.pathname ?? '');
     if (candidateInvitationId !== null) {
       if (evaluated.actor.role !== 'faculty') {
         return accessFailure(403, 'faculty_candidate_scope_required', 'Faculty invitation access was denied.');

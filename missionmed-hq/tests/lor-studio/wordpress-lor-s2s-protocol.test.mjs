@@ -44,6 +44,8 @@ function receipt(overrides = {}) {
     subject: 'wp:123',
     identityClass: WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
     admitted: true,
+    canaryEnabled: true,
+    canaryConsented: true,
     evaluatedAt: '2026-08-25T15:59:30.000Z',
     expiresAt: '2026-08-25T16:03:30.000Z',
     ...overrides,
@@ -261,6 +263,16 @@ test('every admission uses a fresh signed POST with binding and canonical subjec
   });
 });
 
+test('signed admission preserves explicit false canary facts without widening them', async () => {
+  const result = await client(async () => response(
+    receipt({ canaryEnabled: false, canaryConsented: false }),
+    WORDPRESS_LOR_ADMISSION_PATH,
+  )).admit({ bindingId: BINDING, subject: 'wp:123' });
+  assert.equal(result.admitted, true);
+  assert.equal(result.canaryEnabled, false);
+  assert.equal(result.canaryConsented, false);
+});
+
 test('binding revocation is one exact signed no-cookie POST with a strict receipt', async () => {
   let observed;
   const result = await client(async (url, options) => {
@@ -435,6 +447,10 @@ test('accepts only exact fresh response schemas and time bounds', async () => {
     { ...receipt(), extra: true },
     { ...receipt(), subject: 'wp:456' },
     { ...receipt(), admitted: false },
+    { ...receipt(), canaryEnabled: 'true' },
+    { ...receipt(), canaryConsented: 1 },
+    Object.fromEntries(Object.entries(receipt()).filter(([key]) => key !== 'canaryEnabled')),
+    Object.fromEntries(Object.entries(receipt()).filter(([key]) => key !== 'canaryConsented')),
     { ...receipt(), evaluatedAt: '2026-08-25T16:01:00.000Z' },
     { ...receipt(), expiresAt: '2026-08-25T16:10:00.000Z' },
   ]) {

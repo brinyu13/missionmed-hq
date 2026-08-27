@@ -19,6 +19,7 @@ import {
   DR133_RELEASE_VARIABLE_PROBE_CONTRACT,
   Dr133ProductionReleaseError,
   activateDr133NamedCanaryCandidate,
+  activateDr133NamedRolloutCandidate,
   bindDr133ReleaseVariable,
   captureDr133ReleaseDeploymentPreimage,
   createDr133ProductionReleaseOrchestrator,
@@ -226,6 +227,15 @@ function canaryVariableEnvironment() {
   };
 }
 
+function rolloutVariableEnvironment() {
+  return {
+    ...validVariableEnvironment(),
+    MMHQ_LOR_STUDIO_ENABLED: 'true',
+    MMHQ_LOR_STUDIO_KILL_SWITCH: 'false',
+    MMHQ_LOR_STUDIO_REQUIRE_CANARY: 'false',
+  };
+}
+
 function canaryFetchRecorder({ initiallyDark = false } = {}) {
   const calls = [];
   let candidateProbeCount = 0;
@@ -238,13 +248,42 @@ function canaryFetchRecorder({ initiallyDark = false } = {}) {
         return httpResponse(url, 200, { status: 'ready' });
       }
       candidateProbeCount += 1;
-      if (initiallyDark && candidateProbeCount === 1) {
+      if (
+        initiallyDark
+        && candidateProbeCount <= DR133_PRODUCTION_RELEASE_CONTRACT.darkContainmentSurfaces.length
+      ) {
         return httpResponse(url, 404, { error: 'lor_feature_disabled' });
       }
       return httpResponse(url, 403, {
         error: 'candidate_auth_start_denied',
         message: 'Faculty invitation sign-in could not be started.',
       });
+    },
+  };
+}
+
+function failingRolloutFetchRecorder() {
+  const calls = [];
+  let readinessCount = 0;
+  let candidateCount = 0;
+  return {
+    calls,
+    async fetch(url, options) {
+      calls.push({ url, options });
+      if (url.endsWith('/health')) return httpResponse(url, 200, { status: 'ok' });
+      if (url.endsWith('/health/lor-studio')) {
+        readinessCount += 1;
+        return readinessCount === 2
+          ? httpResponse(url, 503, { status: 'unavailable' })
+          : httpResponse(url, 200, { status: 'ready' });
+      }
+      candidateCount += 1;
+      return candidateCount === 1
+        ? httpResponse(url, 403, {
+          error: 'candidate_auth_start_denied',
+          message: 'Faculty invitation sign-in could not be started.',
+        })
+        : httpResponse(url, 404, { error: 'lor_feature_disabled' });
     },
   };
 }
@@ -269,6 +308,17 @@ test('release inventory is exact, sorted, dedicated, and exposes no arbitrary-co
   );
   assert.equal(DR133_PRODUCTION_RELEASE_CONTRACT.variableMutation,
     'railway variable set KEY --stdin --skip-deploys --json');
+  assert.deepEqual(DR133_PRODUCTION_RELEASE_CONTRACT.operations, [
+    'activate-canary',
+    'activate-rollout',
+    'bind-variable',
+    'capture-preimage',
+    'deploy-dark',
+    'inspect-variable',
+    'rollback-redeploy',
+    'verify-bindings',
+    'verify-dark',
+  ]);
   assert.equal(DR133_PRODUCTION_RELEASE_CONTRACT.arbitraryCommands, false);
   assert.equal(DR133_PRODUCTION_RELEASE_CONTRACT.environmentDump, false);
   assert.equal(DR133_PRODUCTION_RELEASE_CONTRACT.secretOutput, false);
@@ -718,13 +768,46 @@ test('dark health verifies public containment and metadata-only LOR readiness', 
   assert.deepEqual(recorder.calls.map(({ url }) => url), [
     'https://missionmed-hq-production.up.railway.app/health',
     'https://missionmed-hq-production.up.railway.app/health/lor-studio',
-    'https://missionmed-hq-production.up.railway.app/api/lor-studio/auth/candidate/start',
+    ...DR133_PRODUCTION_RELEASE_CONTRACT.darkContainmentSurfaces.map(
+      ({ path: pathname }) => `https://missionmed-hq-production.up.railway.app${pathname}`,
+    ),
   ]);
   assert.equal(recorder.calls[0].options.credentials, 'omit');
   assert.equal(recorder.calls[0].options.redirect, 'error');
   assert.equal(recorder.calls[1].options.method, 'GET');
-  assert.equal(recorder.calls[2].options.method, 'POST');
-  assert.equal(Object.hasOwn(recorder.calls[2].options.headers, 'Authorization'), false);
+  assert.deepEqual(
+    recorder.calls.slice(2).map(({ options }) => options.method),
+    DR133_PRODUCTION_RELEASE_CONTRACT.darkContainmentSurfaces.map(({ method }) => method),
+  );
+  assert.ok(recorder.calls.slice(2).every(
+    ({ options }) => Object.hasOwn(options.headers, 'Authorization') === false,
+  ));
+});
+
+test('dark health rejects exposure or redirect on every auth and canonical HTML surface', async () => {
+  const surfaces = DR133_PRODUCTION_RELEASE_CONTRACT.darkContainmentSurfaces;
+  for (const exposed of surfaces) {
+    const calls = [];
+    await assert.rejects(
+      verifyDr133DarkHealthAndContainment({
+        async fetchImplementation(url, options) {
+          calls.push({ url, options });
+          if (url.endsWith('/health')) return httpResponse(url, 200, { status: 'ok' });
+          if (url.endsWith('/health/lor-studio')) {
+            return httpResponse(url, 200, { status: 'ready' });
+          }
+          if (url === `https://missionmed-hq-production.up.railway.app${exposed.path}`) {
+            return httpResponse(url, 302, { error: 'unexpected_exposure' });
+          }
+          return httpResponse(url, 404, { error: 'lor_feature_disabled' });
+        },
+      }),
+      (error) => error.code === 'HTTP_STATUS_INVALID',
+    );
+    assert.ok(calls.some(
+      ({ url }) => url === `https://missionmed-hq-production.up.railway.app${exposed.path}`,
+    ));
+  }
 });
 
 test('dark health fails closed when metadata-only LOR readiness is unavailable', async () => {
@@ -818,7 +901,7 @@ test('activate-canary binds only known flags, redeploys the exact candidate, and
   assert.equal(descriptors.filter(({ args }) => args[0] === 'variable').length, 3);
   assert.equal(descriptors.some(({ args }) => args[0] === 'up'), false);
   assert.equal(descriptors.some(({ args }) => args[0] === 'variable' && args[1] === 'list'), false);
-  assert.equal(recorder.calls.length, 6);
+  assert.equal(recorder.calls.length, 12);
   assert.equal(JSON.stringify(receipt).includes(validVariableValue('MMHQ_LOR_OPENAI_API_KEY')), false);
 });
 
@@ -898,7 +981,237 @@ test('failed canary verification restores and remotely proves the dark candidate
   );
   assert.equal(mutationCalls, 2);
   assert.equal(probeCalls, 2);
+  assert.equal(recorder.calls.length, 18);
+});
+
+test('activate-rollout promotes only the current remotely verified canary deployment', async () => {
+  const canaryExpectations = variableExpectations(canaryVariableEnvironment());
+  const rolloutExpectations = variableExpectations(rolloutVariableEnvironment());
+  const candidate = deployment(CANDIDATE_ID, CREATED_CANDIDATE);
+  const activated = deployment(REDEPLOY_ID, '2026-08-26T23:00:00.000Z');
+  const recorder = canaryFetchRecorder();
+  const descriptors = [];
+  let listCalls = 0;
+  let probeCalls = 0;
+  const receipt = await activateDr133NamedRolloutCandidate({
+    candidateDeploymentId: CANDIDATE_ID,
+    candidateDeploymentRef: dr133ReleaseDeploymentRef(candidate),
+    encodedExpectations: canaryExpectations.encoded,
+    environment: {
+      HOME: '/tmp/home', TMPDIR: '/tmp', DR133_SSH_AUTH_SOCK: '/tmp/agent.sock',
+    },
+    clock: () => 0,
+    sleep: async () => undefined,
+    fetchImplementation: recorder.fetch,
+    async commandRunner(descriptor) {
+      descriptors.push(descriptor);
+      if (descriptor.args[0] === 'variable') {
+        return outcome({ keys: [descriptor.args[2]], set: true });
+      }
+      if (descriptor.args[1]?.includes('query LorReleaseDeployments')) {
+        listCalls += 1;
+        return deploymentListOutcome(listCalls <= 2 ? [candidate] : [activated, candidate]);
+      }
+      if (descriptor.args[1]?.includes('mutation LorReleaseRedeploy')) {
+        assert.deepEqual(JSON.parse(descriptor.args[3]), { id: CANDIDATE_ID });
+        return outcome({ data: { deploymentRedeploy: { id: REDEPLOY_ID } } });
+      }
+      if (descriptor.args[0] === 'ssh') {
+        probeCalls += 1;
+        const expected = probeCalls === 1 ? canaryExpectations : rolloutExpectations;
+        assert.equal(descriptor.args[9], expected.encoded);
+        return outcome({
+          contract: DR133_RELEASE_VARIABLE_PROBE_CONTRACT,
+          result: 'VARIABLE_KEYS_SHAPES_HASHES_VERIFIED',
+          manifestSha256: expected.manifestSha256,
+          variableCount: 54,
+        });
+      }
+      return assert.fail('unexpected rollout command');
+    },
+  });
+  assert.equal(receipt.result, 'NAMED_ROLLOUT_ACTIVATED_VERIFIED');
+  assert.equal(receipt.operation, 'activate-rollout');
+  assert.equal(receipt.candidateDeploymentId, CANDIDATE_ID);
+  assert.equal(receipt.activatedDeploymentId, REDEPLOY_ID);
+  assert.equal(receipt.activatedDeploymentRef, dr133ReleaseDeploymentRef(activated));
+  assert.equal(receipt.manifestSha256, rolloutExpectations.manifestSha256);
+  assert.equal(receipt.canaryRequired, 'DISABLED_BY_REMOTE_BINDING');
+  assert.equal(receipt.containment, 'FEATURE_ACTIVE_ANONYMOUS_DENIAL_VERIFIED');
+  assert.equal(descriptors.filter(({ args }) => args[0] === 'variable').length, 3);
+  assert.equal(descriptors.some(({ args }) => args[0] === 'up'), false);
+  assert.equal(probeCalls, 2);
+  assert.equal(listCalls, 3);
+  assert.ok(descriptors.findIndex(({ args }) => args[0] === 'ssh')
+    < descriptors.findIndex(({ args }) => args[0] === 'variable'));
   assert.equal(recorder.calls.length, 6);
+});
+
+test('activate-rollout rejects rollout or dark manifests before any provider call', async () => {
+  for (const expectations of [
+    variableExpectations(rolloutVariableEnvironment()),
+    variableExpectations(),
+  ]) {
+    let called = false;
+    await assert.rejects(
+      activateDr133NamedRolloutCandidate({
+        candidateDeploymentId: CANDIDATE_ID,
+        candidateDeploymentRef: 'a'.repeat(64),
+        encodedExpectations: expectations.encoded,
+        environment: {},
+        async commandRunner() { called = true; return outcome(); },
+      }),
+      (error) => error.code === 'CANARY_FLAG_EXPECTATION_INVALID'
+        && error.mutationState === 'NOT_ATTEMPTED',
+    );
+    assert.equal(called, false);
+  }
+});
+
+test('activate-rollout rejects a historical successful deployment before any binding or mutation', async () => {
+  const canaryExpectations = variableExpectations(canaryVariableEnvironment());
+  const historical = deployment(CANDIDATE_ID, CREATED_CANDIDATE);
+  const current = deployment(UNRELATED_ID, '2026-08-26T22:00:00.000Z');
+  const descriptors = [];
+  let fetched = false;
+  await assert.rejects(
+    activateDr133NamedRolloutCandidate({
+      candidateDeploymentId: CANDIDATE_ID,
+      candidateDeploymentRef: dr133ReleaseDeploymentRef(historical),
+      encodedExpectations: canaryExpectations.encoded,
+      environment: {
+        HOME: '/tmp/home', TMPDIR: '/tmp', DR133_SSH_AUTH_SOCK: '/tmp/agent.sock',
+      },
+      async fetchImplementation() { fetched = true; return httpResponse('', 500, {}); },
+      async commandRunner(descriptor) {
+        descriptors.push(descriptor);
+        if (descriptor.args[1]?.includes('query LorReleaseDeployments')) {
+          // Provider order cannot turn an older success into the current preimage.
+          return deploymentListOutcome([historical, current]);
+        }
+        return assert.fail('historical rollout reached a non-read-only command');
+      },
+    }),
+    (error) => error.code === 'ROLLOUT_CANARY_PREIMAGE_UNPROVEN'
+      && error.mutationState === 'NOT_ATTEMPTED',
+  );
+  assert.equal(descriptors.length, 1);
+  assert.equal(descriptors[0].args[1]?.includes('query LorReleaseDeployments'), true);
+  assert.equal(fetched, false);
+});
+
+test('activate-rollout rejects current-deployment drift after the generic canary probe', async () => {
+  const canaryExpectations = variableExpectations(canaryVariableEnvironment());
+  const candidate = deployment(CANDIDATE_ID, CREATED_CANDIDATE);
+  const replacement = deployment(UNRELATED_ID, '2026-08-26T22:00:00.000Z');
+  const recorder = canaryFetchRecorder();
+  const descriptors = [];
+  let listCalls = 0;
+  await assert.rejects(
+    activateDr133NamedRolloutCandidate({
+      candidateDeploymentId: CANDIDATE_ID,
+      candidateDeploymentRef: dr133ReleaseDeploymentRef(candidate),
+      encodedExpectations: canaryExpectations.encoded,
+      environment: {
+        HOME: '/tmp/home', TMPDIR: '/tmp', DR133_SSH_AUTH_SOCK: '/tmp/agent.sock',
+      },
+      fetchImplementation: recorder.fetch,
+      async commandRunner(descriptor) {
+        descriptors.push(descriptor);
+        if (descriptor.args[1]?.includes('query LorReleaseDeployments')) {
+          listCalls += 1;
+          return deploymentListOutcome(
+            listCalls === 1 ? [candidate] : [replacement, candidate],
+          );
+        }
+        if (descriptor.args[0] === 'ssh') {
+          assert.equal(descriptor.args[9], canaryExpectations.encoded);
+          return outcome({
+            contract: DR133_RELEASE_VARIABLE_PROBE_CONTRACT,
+            result: 'VARIABLE_KEYS_SHAPES_HASHES_VERIFIED',
+            manifestSha256: canaryExpectations.manifestSha256,
+            variableCount: 54,
+          });
+        }
+        return assert.fail('drifted rollout reached a mutation command');
+      },
+    }),
+    (error) => error.code === 'ROLLOUT_CANARY_PREIMAGE_UNPROVEN'
+      && error.mutationState === 'NOT_ATTEMPTED',
+  );
+  assert.equal(listCalls, 2);
+  assert.equal(recorder.calls.length, 3);
+  assert.equal(descriptors.filter(({ args }) => args[0] === 'ssh').length, 1);
+  assert.equal(descriptors.some(({ args }) => args[0] === 'variable'), false);
+  assert.equal(descriptors.some(({ args }) => args[1]?.includes('mutation')), false);
+});
+
+test('failed rollout verification restores and remotely proves the canonical dark state', async () => {
+  const canaryExpectations = variableExpectations(canaryVariableEnvironment());
+  const rolloutExpectations = variableExpectations(rolloutVariableEnvironment());
+  const darkExpectations = variableExpectations();
+  const candidate = deployment(CANDIDATE_ID, CREATED_CANDIDATE);
+  const activated = deployment(REDEPLOY_ID, '2026-08-26T23:00:00.000Z');
+  const restored = deployment(ROLLBACK_ID, '2026-08-26T23:01:00.000Z');
+  const recorder = failingRolloutFetchRecorder();
+  let listCalls = 0;
+  let mutationCalls = 0;
+  let probeCalls = 0;
+  await assert.rejects(
+    activateDr133NamedRolloutCandidate({
+      candidateDeploymentId: CANDIDATE_ID,
+      candidateDeploymentRef: dr133ReleaseDeploymentRef(candidate),
+      encodedExpectations: canaryExpectations.encoded,
+      environment: {
+        HOME: '/tmp/home', TMPDIR: '/tmp', DR133_SSH_AUTH_SOCK: '/tmp/agent.sock',
+      },
+      clock: () => 0,
+      sleep: async () => undefined,
+      fetchImplementation: recorder.fetch,
+      async commandRunner(descriptor) {
+        if (descriptor.args[0] === 'variable') {
+          return outcome({ keys: [descriptor.args[2]], set: true });
+        }
+        if (descriptor.args[1]?.includes('query LorReleaseDeployments')) {
+          listCalls += 1;
+          if (listCalls <= 2) return deploymentListOutcome([candidate]);
+          if (listCalls === 3) return deploymentListOutcome([activated, candidate]);
+          return deploymentListOutcome([restored, activated, candidate]);
+        }
+        if (descriptor.args[1]?.includes('mutation LorReleaseRedeploy')) {
+          mutationCalls += 1;
+          return outcome({
+            data: {
+              deploymentRedeploy: {
+                id: mutationCalls === 1 ? REDEPLOY_ID : ROLLBACK_ID,
+              },
+            },
+          });
+        }
+        if (descriptor.args[0] === 'ssh') {
+          probeCalls += 1;
+          const expected = [canaryExpectations, rolloutExpectations, darkExpectations][
+            probeCalls - 1
+          ];
+          assert.ok(expected);
+          assert.equal(descriptor.args[9], expected.encoded);
+          return outcome({
+            contract: DR133_RELEASE_VARIABLE_PROBE_CONTRACT,
+            result: 'VARIABLE_KEYS_SHAPES_HASHES_VERIFIED',
+            manifestSha256: expected.manifestSha256,
+            variableCount: 54,
+          });
+        }
+        return assert.fail('unexpected rollout compensation command');
+      },
+    }),
+    (error) => error.code === 'ROLLOUT_ACTIVATION_FAILED_DARK_RESTORED'
+      && error.mutationState === 'PROVIDER_CONFIRMED',
+  );
+  assert.equal(mutationCalls, 2);
+  assert.equal(probeCalls, 3);
+  assert.equal(listCalls, 4);
+  assert.equal(recorder.calls.length, 14);
 });
 
 test('exact rollback/redeploy proves both deployment identities and uses fixed GraphQL mutations', async () => {
@@ -946,7 +1259,7 @@ test('exact rollback/redeploy proves both deployment identities and uses fixed G
   assert.equal(receipt.redeployedDeploymentId, REDEPLOY_ID);
   assert.equal(receipt.operatorReadiness, 'VERIFIED_METADATA_ONLY');
   assert.equal(receipt.launchReady, true);
-  assert.equal(recorder.calls.length, 4);
+  assert.equal(recorder.calls.length, 10);
 });
 
 test('every malformed deployment mutation receipt is outcome-unknown after provider start', async () => {
@@ -1011,6 +1324,8 @@ test('launchers scrub ambient state before dynamic import and emit no injected s
   );
   const launcherSource = await readFile(launcher, 'utf8');
   const probeSource = await readFile(probe, 'utf8');
+  assert.match(launcherSource, /'activate-rollout'/u,
+    'the scrubbed launcher must expose the fixed rollout operation');
   assert.ok(launcherSource.indexOf('scrub(process.env)')
     < launcherSource.indexOf("await import('./railway-dr133-production-release-orchestrator.mjs')"));
   assert.ok(probeSource.indexOf('scrub(process.env)')

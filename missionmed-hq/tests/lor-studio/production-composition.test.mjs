@@ -1708,6 +1708,14 @@ test('SOURCE GUARD: server.mjs assembles the full production graph and passes it
     'server.mjs must require a verified real isolated-restore proof before assembly');
   assert.match(source, /readLorTargetConfiguration\(/u,
     'the target must come from explicit configuration');
+  assert.match(source, /const LOR_RELEASE_FLAGS = readExactLorReleaseFlags\(\{/u,
+    'release flags must use the exact canonical parser');
+  const releaseFlagBlock = source.match(
+    /const LOR_RELEASE_FLAGS = readExactLorReleaseFlags\(\{[\s\S]*?\n\}\);/u,
+  );
+  assert.ok(releaseFlagBlock, 'the exact LOR release flag block must be present');
+  assert.doesNotMatch(releaseFlagBlock[0], /envFlag\(/u,
+    'the permissive shared flag parser must never control LOR release mode');
 
   const mount = source.match(/createLorStudioRuntime\(\{[\s\S]*?\n\}\);/u);
   assert.ok(mount, 'the LOR Studio runtime mount must be present in server.mjs');
@@ -1743,7 +1751,12 @@ test('SOURCE GUARD: server.mjs assembles the full production graph and passes it
   assert.match(
     source,
     /request\.url === '\/health\/lor-studio'[\s\S]*?lorStudioDeploymentReadiness\(\)[\s\S]*?ready \? 200 : 503/u,
-    'the exact LOR deployment readiness route must fail with 503 while the product graph is dark',
+    'the exact LOR deployment readiness route must remain provider-health-gated',
+  );
+  assert.match(
+    source,
+    /isLorReleaseModeReadinessAccepted\(\s*LOR_RELEASE_FLAGS,\s*composition\.operationalReadiness,\s*\)/u,
+    'deployment readiness must accept only the shared active-ready or canonical dark-closed state',
   );
   assert.match(
     source,
@@ -1752,6 +1765,20 @@ test('SOURCE GUARD: server.mjs assembles the full production graph and passes it
   );
   assert.equal(railway.deploy.healthcheckPath, '/health/lor-studio');
   assert.equal(railway.deploy.healthcheckTimeout, 300);
+
+  const healthBoundary = source.indexOf("request.url === '/health/lor-studio'");
+  const darkBoundary = source.indexOf('if (denyDarkLorStudioBoundary(response, pathname)) return;');
+  const authBoundary = source.indexOf('await handleLorStudioAuthRoute(request, response, url)');
+  const htmlRedirect = source.indexOf('sendRedirect(response, LOR_AUTH_START_PATH, 302)');
+  assert.ok(healthBoundary >= 0 && darkBoundary > healthBoundary,
+    'operator readiness must remain reachable before dark product containment');
+  assert.ok(darkBoundary < authBoundary && darkBoundary < htmlRedirect,
+    'dark containment must execute before every LOR auth handler and HTML redirect');
+  assert.match(
+    source,
+    /function denyDarkLorStudioBoundary\(response, pathname\)[\s\S]*?isLorStudioRequestPath\(pathname\)[\s\S]*?isLorReleaseModeDark\(LOR_RELEASE_FLAGS\)[\s\S]*?sendJson\(response, 404, \{ error: 'lor_feature_disabled' \}/u,
+    'one exact shared dark gate must contain all LOR API/auth/HTML paths with the safe response',
+  );
 
   // The runtime must receive a real URL, not a synthetic { pathname, searchParams } literal.
   assert.match(source, /LOR_STUDIO_RUNTIME\.handle\(request,\s*response,\s*url,/u,

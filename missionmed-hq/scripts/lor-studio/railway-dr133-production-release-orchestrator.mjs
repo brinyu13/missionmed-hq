@@ -41,6 +41,15 @@ const PRODUCTION_ORIGIN = 'https://missionmed-hq-production.up.railway.app';
 const HEALTH_URL = `${PRODUCTION_ORIGIN}/health`;
 const LOR_READINESS_URL = `${PRODUCTION_ORIGIN}/health/lor-studio`;
 const DARK_CONTAINMENT_URL = `${PRODUCTION_ORIGIN}/api/lor-studio/auth/candidate/start`;
+const DARK_CONTAINMENT_PROBES = Object.freeze([
+  Object.freeze({ method: 'GET', path: '/api/lor-studio/auth/start' }),
+  Object.freeze({ method: 'GET', path: '/api/lor-studio/auth/callback' }),
+  Object.freeze({ method: 'POST', path: '/api/lor-studio/auth/logout' }),
+  Object.freeze({ method: 'POST', path: '/api/lor-studio/auth/candidate/start' }),
+  Object.freeze({ method: 'GET', path: '/lor-studio' }),
+  Object.freeze({ method: 'GET', path: '/lor-studio/' }),
+  Object.freeze({ method: 'GET', path: '/lor-studio/index.html' }),
+]);
 const REMOTE_PROBE_PATH =
   'missionmed-hq/scripts/lor-studio/run-dr133-railway-production-release-variable-probe.mjs';
 const REMOTE_NODE_BINARY = '/usr/local/bin/node';
@@ -204,6 +213,7 @@ const ORCHESTRATOR_DEPENDENCY_KEYS = new Set([
 ]);
 const OPERATIONS = new Set([
   'activate-canary',
+  'activate-rollout',
   'bind-variable',
   'capture-preimage',
   'deploy-dark',
@@ -552,6 +562,24 @@ function assertCanaryFlagExpectations(parsed) {
     try {
       if (expected.get(key) !== variableValueSha256(key, bytes)) {
         fail('CANARY_FLAG_EXPECTATION_INVALID');
+      }
+    } finally {
+      bytes.fill(0);
+    }
+  }
+}
+
+function assertRolloutFlagExpectations(parsed) {
+  const expected = expectationMap(parsed);
+  for (const [key, value] of [
+    ['MMHQ_LOR_STUDIO_ENABLED', 'true'],
+    ['MMHQ_LOR_STUDIO_KILL_SWITCH', 'false'],
+    ['MMHQ_LOR_STUDIO_REQUIRE_CANARY', 'false'],
+  ]) {
+    const bytes = Buffer.from(value, 'utf8');
+    try {
+      if (expected.get(key) !== variableValueSha256(key, bytes)) {
+        fail('ROLLOUT_FLAG_EXPECTATION_INVALID');
       }
     } finally {
       bytes.fill(0);
@@ -1106,6 +1134,33 @@ function newestSuccessful(deployments, excluded = new Set()) {
   ) ?? null;
 }
 
+function latestSuccessfulDeployment(deployments) {
+  let latest = null;
+  let ambiguous = false;
+  for (const deployment of deployments) {
+    if (deployment.status !== 'SUCCESS') continue;
+    if (!latest || deployment.createdAt > latest.createdAt) {
+      latest = deployment;
+      ambiguous = false;
+      continue;
+    }
+    if (deployment.createdAt === latest.createdAt && deployment.id !== latest.id) {
+      ambiguous = true;
+    }
+  }
+  return ambiguous ? null : latest;
+}
+
+function assertCurrentSuccessfulDeployment(deployments, deploymentId, deploymentRef) {
+  const current = latestSuccessfulDeployment(deployments);
+  if (
+    !current
+    || current.id !== deploymentId
+    || dr133ReleaseDeploymentRef(current) !== deploymentRef
+  ) fail('ROLLOUT_CANARY_PREIMAGE_UNPROVEN');
+  return current;
+}
+
 async function waitForDeployment({
   clock,
   commandRunner,
@@ -1280,14 +1335,16 @@ export async function verifyDr133DarkHealthAndContainment({
   if (!exactKeys(readiness, new Set(['status'])) || readiness.status !== 'ready') {
     fail('OPERATOR_READINESS_RECEIPT_INVALID');
   }
-  const containment = await fixedHttpJson(
-    fetchImplementation,
-    DARK_CONTAINMENT_URL,
-    { method: 'POST' },
-    404,
-  );
-  if (!exactKeys(containment, new Set(['error']))
-    || containment.error !== 'lor_feature_disabled') fail('DARK_CONTAINMENT_INVALID');
+  for (const { method, path: pathname } of DARK_CONTAINMENT_PROBES) {
+    const containment = await fixedHttpJson(
+      fetchImplementation,
+      `${PRODUCTION_ORIGIN}${pathname}`,
+      { method },
+      404,
+    );
+    if (!exactKeys(containment, new Set(['error']))
+      || containment.error !== 'lor_feature_disabled') fail('DARK_CONTAINMENT_INVALID');
+  }
   return Object.freeze({
     health: 'VERIFIED',
     containment: 'FEATURE_DISABLED_VERIFIED',
@@ -1407,6 +1464,11 @@ async function mutateDeployment({ commandRunner, deploymentId, environment, oper
 
 const CANARY_FLAG_VALUES = Object.freeze([
   Object.freeze(['MMHQ_LOR_STUDIO_REQUIRE_CANARY', 'true']),
+  Object.freeze(['MMHQ_LOR_STUDIO_ENABLED', 'true']),
+  Object.freeze(['MMHQ_LOR_STUDIO_KILL_SWITCH', 'false']),
+]);
+const ROLLOUT_FLAG_VALUES = Object.freeze([
+  Object.freeze(['MMHQ_LOR_STUDIO_REQUIRE_CANARY', 'false']),
   Object.freeze(['MMHQ_LOR_STUDIO_ENABLED', 'true']),
   Object.freeze(['MMHQ_LOR_STUDIO_KILL_SWITCH', 'false']),
 ]);
@@ -1570,6 +1632,103 @@ export async function activateDr133NamedCanaryCandidate({
   }
 }
 
+export async function activateDr133NamedRolloutCandidate({
+  candidateDeploymentId,
+  candidateDeploymentRef,
+  clock = () => Date.now(),
+  commandRunner = createDr133ReleaseCommandRunner(),
+  encodedExpectations,
+  environment = process.env,
+  fetchImplementation = globalThis.fetch,
+  sleep = async (milliseconds) => await new Promise((resolve) => setTimeout(resolve, milliseconds)),
+} = {}) {
+  const candidateId = exactUuid(candidateDeploymentId);
+  exactSha(candidateDeploymentRef, 'DEPLOYMENT_REF_INVALID');
+  const canaryExpectations = parseDr133ReleaseVariableExpectationManifest(encodedExpectations);
+  assertCanaryFlagExpectations(canaryExpectations);
+  const before = await listDeployments(commandRunner, environment);
+  assertCurrentSuccessfulDeployment(before, candidateId, candidateDeploymentRef);
+  await verifyDr133ReleaseRemoteBindings({
+    commandRunner,
+    encodedExpectations: canaryExpectations.encoded,
+    environment,
+  });
+  await verifyDr133CanaryHealthAndContainment({ fetchImplementation });
+  // Re-read after the generic public probe. A newer successful deployment cannot
+  // borrow the named canary's proof and then promote a historical deployment.
+  const confirmed = await listDeployments(commandRunner, environment);
+  assertCurrentSuccessfulDeployment(confirmed, candidateId, candidateDeploymentRef);
+
+  const rolloutExpectations = expectationManifestWithFlags(
+    canaryExpectations,
+    ROLLOUT_FLAG_VALUES,
+  );
+  assertRolloutFlagExpectations(rolloutExpectations);
+  const darkExpectations = expectationManifestWithFlags(canaryExpectations, DARK_FLAG_VALUES);
+  let releaseStateMutationAttempted = false;
+  try {
+    releaseStateMutationAttempted = true;
+    await bindKnownReleaseFlags({
+      commandRunner,
+      environment,
+      flagValues: ROLLOUT_FLAG_VALUES,
+    });
+    const activatedId = await mutateDeployment({
+      commandRunner,
+      deploymentId: candidateId,
+      environment,
+      operation: 'redeploy',
+    });
+    const activated = await waitForDeployment({
+      clock,
+      commandRunner,
+      environment,
+      expectedId: activatedId,
+      sleep,
+    });
+    const bindings = await verifyDr133ReleaseRemoteBindings({
+      commandRunner,
+      encodedExpectations: rolloutExpectations.encoded,
+      environment,
+    });
+    const rollout = await verifyDr133CanaryHealthAndContainment({ fetchImplementation });
+    return Object.freeze({
+      contract: DR133_RELEASE_ORCHESTRATOR_CONTRACT,
+      operation: 'activate-rollout',
+      result: 'NAMED_ROLLOUT_ACTIVATED_VERIFIED',
+      candidateDeploymentId: candidateId,
+      candidateDeploymentRef,
+      activatedDeploymentId: activated.id,
+      activatedDeploymentRef: dr133ReleaseDeploymentRef(activated),
+      manifestSha256: bindings.manifestSha256,
+      variableCount: bindings.variableCount,
+      health: rollout.health,
+      containment: rollout.containment,
+      operatorReadiness: rollout.operatorReadiness,
+      launchReady: rollout.launchReady,
+      canaryRequired: 'DISABLED_BY_REMOTE_BINDING',
+    });
+  } catch (activationError) {
+    if (!releaseStateMutationAttempted) throw activationError;
+    try {
+      await restoreDarkCandidate({
+        candidateDeploymentId: candidateId,
+        clock,
+        commandRunner,
+        darkExpectations,
+        environment,
+        fetchImplementation,
+        sleep,
+      });
+    } catch {
+      fail('ROLLOUT_ACTIVATION_ROLLBACK_UNPROVEN', { mutationState: 'OUTCOME_UNKNOWN' });
+    }
+    fail('ROLLOUT_ACTIVATION_FAILED_DARK_RESTORED', {
+      mutationState: 'PROVIDER_CONFIRMED',
+    });
+  }
+}
+
 export async function runDr133ExactRollbackRedeployDrill({
   candidateDeploymentId,
   candidateDeploymentRef,
@@ -1675,6 +1834,15 @@ export function createDr133ProductionReleaseOrchestrator(rawDependencies = {}) {
           encodedExpectations: args[2],
           environment,
         });
+      case 'activate-rollout':
+        if (args.length !== 3 || stdin !== null) fail('OPERATION_ARGUMENTS_INVALID');
+        return await activateDr133NamedRolloutCandidate({
+          ...dependencies,
+          candidateDeploymentId: args[0],
+          candidateDeploymentRef: args[1],
+          encodedExpectations: args[2],
+          environment,
+        });
       case 'bind-variable':
         if (args.length !== 2 || !Buffer.isBuffer(stdin)) fail('OPERATION_ARGUMENTS_INVALID');
         return await bindDr133ReleaseVariable({
@@ -1739,6 +1907,7 @@ export const DR133_PRODUCTION_RELEASE_CONTRACT = Object.freeze({
   activeCanaryDenial: 'POST_candidate_start_without_credentials_403',
   archivePaths: RELEASE_ARCHIVE_PATHS,
   darkContainmentUrl: DARK_CONTAINMENT_URL,
+  darkContainmentSurfaces: DARK_CONTAINMENT_PROBES,
   healthUrl: HEALTH_URL,
   operatorReadinessRoute: '/health/lor-studio',
   operations: [...OPERATIONS].sort(),

@@ -66,6 +66,9 @@ const HASH_KEYS = Object.freeze({
   identityScopeSha256: 'identity-scope',
   mentorAssignmentRollbackSha256: 'mentor-assignment-rollback',
   mentorAssignmentSha256: 'mentor-assignment',
+  privateStorageObjectIdRegexRollbackSha256:
+    'private-storage-object-id-regex-rollback',
+  privateStorageObjectIdRegexSha256: 'private-storage-object-id-regex',
   rlsSha256: 'rls',
   studentEvidenceRollbackSha256: 'student-evidence-rollback',
   studentEvidenceSha256: 'student-evidence',
@@ -94,8 +97,8 @@ function successReceipt(mode) {
       result: 'ROLLBACK_DRILL_COMMITTED_VERIFIED',
       postgresMajor: 18,
       relationCount: DR133_RELATIONS.length,
-      rollbackCount: 10,
-      verifiedArtifactCount: 20,
+      rollbackCount: 11,
+      verifiedArtifactCount: 22,
       ...runnerHashes(),
       foundationRollbackSha256: artifactHash('foundation-rollback'),
       rlsRollbackSha256: artifactHash('rls-rollback'),
@@ -117,14 +120,16 @@ function successReceipt(mode) {
     });
   }
   if (mode === 'runtime-login') {
-    receipt.mentorAssignmentRollbackSha256 = artifactHash('mentor-assignment-rollback');
+    receipt.privateStorageObjectIdRegexRollbackSha256 = artifactHash(
+      'private-storage-object-id-regex-rollback',
+    );
   }
   if (mode === 'runtime-login-deprovision') {
     receipt.postgresMajor = 18;
     receipt.runtimeDeprovisionGuardRollbackSha256 = artifactHash(
-      'mentor-assignment-rollback',
+      'private-storage-object-id-regex-rollback',
     );
-    receipt.runtimeDeprovisionGuardStage = 8;
+    receipt.runtimeDeprovisionGuardStage = 9;
   }
   return receipt;
 }
@@ -141,13 +146,15 @@ function failureReceipt(mode, result) {
     Object.assign(receipt, runnerHashes());
   }
   if (mode === 'runtime-login' && result !== 'NO_MUTATION') {
-    receipt.mentorAssignmentRollbackSha256 = artifactHash('mentor-assignment-rollback');
+    receipt.privateStorageObjectIdRegexRollbackSha256 = artifactHash(
+      'private-storage-object-id-regex-rollback',
+    );
   }
   if (mode === 'runtime-login-deprovision' && result !== 'NO_MUTATION') {
     receipt.runtimeDeprovisionGuardRollbackSha256 = artifactHash(
-      'mentor-assignment-rollback',
+      'private-storage-object-id-regex-rollback',
     );
-    receipt.runtimeDeprovisionGuardStage = 8;
+    receipt.runtimeDeprovisionGuardStage = 9;
   }
   return receipt;
 }

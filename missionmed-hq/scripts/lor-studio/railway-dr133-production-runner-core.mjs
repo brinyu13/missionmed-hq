@@ -170,6 +170,20 @@ export const DR133_ARTIFACTS = Object.freeze([
       'rollbacks/20260826011700_f2_lor_1012_live_production_mentor_assignment_commands.rollback.sql',
     sha256: '8c0953a5d3a5ff2443619aa670eedb2d47eac784b900177d705554235dbc3aa5',
   }),
+  Object.freeze({
+    id: 'private-storage-object-id-regex',
+    purpose: 'forward-successor',
+    relativePath:
+      'migrations/20260826011900_f2_lor_1012_live_production_private_storage_object_id_regex.sql',
+    sha256: 'b20496605c240c8a86ace6470faa079c7030b22c8cee661ff45ae24b2a825637',
+  }),
+  Object.freeze({
+    id: 'private-storage-object-id-regex-rollback',
+    purpose: 'recovery-custody-and-successor-guard-verification',
+    relativePath:
+      'rollbacks/20260826011900_f2_lor_1012_live_production_private_storage_object_id_regex.rollback.sql',
+    sha256: '1a275b93d5e07a8d922d5b3da0bd4a5fd38a1eced805b4c8926a14a9d7d91f8f',
+  }),
 ]);
 
 export const DR133_RELATIONS = Object.freeze([
@@ -334,6 +348,11 @@ export const DR133_SUCCESSOR_STAGES = Object.freeze([
     rollbackId: 'mentor-assignment-rollback',
     sentinelSuffix: 'mentorAssignmentCommands=20260826011700',
   }),
+  Object.freeze({
+    id: 'private-storage-object-id-regex',
+    rollbackId: 'private-storage-object-id-regex-rollback',
+    sentinelSuffix: 'privateStorageObjectIdRegex=20260826011900',
+  }),
 ]);
 
 const DENIED_IDENTIFIERS = Object.freeze([
@@ -401,6 +420,14 @@ const SUCCESSOR_ROLLBACK_GUARD_BOUNDARIES = Object.freeze({
     guardTerminator: 'END\n$catalog_guard$;',
     literalMarker: ROLLBACK_LITERAL_MARKER,
   }),
+  'private-storage-object-id-regex-rollback': Object.freeze({
+    firstDestructiveStatement: [
+      'ALTER TABLE lor_studio.private_artifact_versions',
+      '  DROP CONSTRAINT private_artifact_versions_identifiers;',
+    ].join('\n'),
+    guardTerminator: 'END\n$catalog_guard$;',
+    literalMarker: ROLLBACK_LITERAL_MARKER,
+  }),
 });
 const DR133_RECEIPT_KEYS = Object.freeze([
   'aiProposalRollbackSha256',
@@ -423,6 +450,8 @@ const DR133_RECEIPT_KEYS = Object.freeze([
   'mode',
   'postgresCode',
   'postgresMajor',
+  'privateStorageObjectIdRegexRollbackSha256',
+  'privateStorageObjectIdRegexSha256',
   'relationCount',
   'result',
   'rlsSha256',
@@ -878,6 +907,8 @@ export function writeDr133Receipt(stream, payload) {
     'identityScopeSha256',
     'mentorAssignmentRollbackSha256',
     'mentorAssignmentSha256',
+    'privateStorageObjectIdRegexRollbackSha256',
+    'privateStorageObjectIdRegexSha256',
     'rlsSha256',
     'runtimeDeprovisionGuardRollbackSha256',
     'studentEvidenceRollbackSha256',
@@ -926,6 +957,8 @@ export function writeDr133Receipt(stream, payload) {
       'identityScopeSha256',
       'mentorAssignmentRollbackSha256',
       'mentorAssignmentSha256',
+      'privateStorageObjectIdRegexRollbackSha256',
+      'privateStorageObjectIdRegexSha256',
       'rlsSha256',
       'studentEvidenceRollbackSha256',
       'studentEvidenceSha256',
@@ -951,6 +984,8 @@ export function writeDr133Receipt(stream, payload) {
       'identityScopeSha256',
       'mentorAssignmentRollbackSha256',
       'mentorAssignmentSha256',
+      'privateStorageObjectIdRegexRollbackSha256',
+      'privateStorageObjectIdRegexSha256',
       'rlsSha256',
       'studentEvidenceRollbackSha256',
       'studentEvidenceSha256',
@@ -979,6 +1014,8 @@ export function writeDr133Receipt(stream, payload) {
       'identityScopeSha256',
       'mentorAssignmentRollbackSha256',
       'mentorAssignmentSha256',
+      'privateStorageObjectIdRegexRollbackSha256',
+      'privateStorageObjectIdRegexSha256',
       'rlsSha256',
       'studentEvidenceRollbackSha256',
       'studentEvidenceSha256',
@@ -990,7 +1027,7 @@ export function writeDr133Receipt(stream, payload) {
   if (
     payload.mode === 'runtime-login'
     && payload.result !== 'NO_MUTATION'
-  ) requireKeys(['mentorAssignmentRollbackSha256']);
+  ) requireKeys(['privateStorageObjectIdRegexRollbackSha256']);
   if (
     payload.mode === 'runtime-login-deprovision'
     && payload.result !== 'NO_MUTATION'

@@ -24,7 +24,7 @@ export const WORDPRESS_LOR_BOOTSTRAP_RESPONSE_CONTRACT =
 export const WORDPRESS_LOR_ADMISSION_REQUEST_CONTRACT =
   'missionmed.lor.wordpress-admission-request.v2';
 export const WORDPRESS_LOR_ADMISSION_CONTRACT =
-  'missionmed.lor.wordpress-admission.v3';
+  'missionmed.lor.wordpress-admission.v4';
 export const WORDPRESS_LOR_BINDING_REVOCATION_REQUEST_CONTRACT =
   'missionmed.lor.wordpress-binding-revocation-request.v2';
 export const WORDPRESS_LOR_BINDING_REVOCATION_CONTRACT =
@@ -80,6 +80,8 @@ const RECEIPT_KEYS = new Set([
   'subject',
   'identityClass',
   'admitted',
+  'canaryEnabled',
+  'canaryConsented',
   'evaluatedAt',
   'expiresAt',
 ]);
@@ -369,6 +371,8 @@ export function assertWordPressLorAdmissionReceipt(rawReceipt, {
     || receipt.subject !== expectedSubject
     || receipt.identityClass !== expectedIdentityClass
     || receipt.admitted !== true
+    || typeof receipt.canaryEnabled !== 'boolean'
+    || typeof receipt.canaryConsented !== 'boolean'
   ) fail('RECEIPT_DENIED');
   const evaluatedAt = exactInstant(receipt.evaluatedAt, 'RECEIPT_TIME_INVALID');
   const expiresAt = exactInstant(receipt.expiresAt, 'RECEIPT_TIME_INVALID');

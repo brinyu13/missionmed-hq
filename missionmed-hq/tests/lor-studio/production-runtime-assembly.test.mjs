@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { Readable } from 'node:stream';
 import test from 'node:test';
 
 import {
@@ -26,6 +27,7 @@ import {
   WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
 } from '../../lor-studio/adapters/wordpress-lor-s2s-protocol.mjs';
 import { IntegrationDisabledError } from '../../lor-studio/domain/errors.js';
+import { createLorStudioRuntime } from '../../lor-studio/http/runtime.mjs';
 import {
   DR133_RELATIONS,
   DR133_RUNTIME_LOGIN,
@@ -315,7 +317,7 @@ function backupRestoreAdapter() {
   });
 }
 
-function resourceEntitlementResolver(calls) {
+function resourceEntitlementResolver(calls, entitlementOverrides = {}) {
   return Object.freeze({
     signedS2s: true,
     async resolve(request) {
@@ -336,6 +338,7 @@ function resourceEntitlementResolver(calls) {
         metadataOnly: true,
         evaluatedAt: '2026-08-26T11:59:30.000Z',
         expiresAt: '2026-08-26T12:03:30.000Z',
+        ...entitlementOverrides,
       });
     },
     async probe({ signal } = {}) {
@@ -354,7 +357,7 @@ function resourceEntitlementResolver(calls) {
   });
 }
 
-function wordpressS2sClient(admissions, resourceResolver) {
+function wordpressS2sClient(admissions, resourceResolver, admissionOverrides = {}) {
   return Object.freeze({
     async admit(request) {
       admissions.push(Object.freeze({ ...request }));
@@ -363,8 +366,11 @@ function wordpressS2sClient(admissions, resourceResolver) {
         subject: request.subject,
         identityClass: request.identityClass,
         admitted: true,
+        canaryEnabled: true,
+        canaryConsented: true,
         evaluatedAt: '2026-08-26T11:59:30.000Z',
         expiresAt: '2026-08-26T12:03:30.000Z',
+        ...admissionOverrides,
       });
     },
     getResourceStudentEntitlement: resourceResolver.resolve,
@@ -476,6 +482,93 @@ test('assembles one production pool, exact nine live probes, shared flags, and a
   assert.equal(FakePool.instances[0].endCalls, 1);
 });
 
+test('canonical dark mode retains the dependency-verified graph while public LOR routes stay 404', async () => {
+  resetPool();
+  const darkFlags = releaseFlags({ enabled: false, killSwitch: true, requireCanary: true });
+  const { assembly } = withoutTestObservations(assemblyOptions({ releaseFlags: darkFlags }));
+  const assembled = await createProductionRuntimeAssembly(assembly);
+
+  assert.equal(assembled.composition.operationalReadiness.status, 'closed');
+  assert.equal(assembled.composition.operationalReadiness.reason, 'feature_disabled');
+  assert.equal(assembled.composition.operationalReadiness.productionOperational, false);
+  assert.ok(Object.values(assembled.composition.operationalReadiness.dependencies)
+    .every((dependency) => dependency.state === 'ready'));
+  assert.ok(Object.values(assembled.composition.operationalReadiness.databaseProbeGroups)
+    .every((ready) => ready === true));
+
+  const runtime = createLorStudioRuntime({
+    publicDirectory: '/tmp/lor-production-dark-test',
+    flags: darkFlags,
+    entitlementResolver: assembled.admission,
+    application: assembled.composition.application,
+    candidateAuthStartService: assembled.candidateAuthService,
+    validateCsrf: () => true,
+  });
+  const request = Readable.from([]);
+  request.method = 'POST';
+  request.headers = {};
+  request.url = '/api/lor-studio/auth/candidate/start';
+  const response = {
+    statusCode: 0,
+    chunks: [],
+    writeHead(statusCode) { this.statusCode = statusCode; },
+    end(chunk) { if (chunk) this.chunks.push(Buffer.from(chunk)); },
+  };
+  const handled = await runtime.handle(
+    request,
+    response,
+    new URL(request.url, 'https://hq.example.test'),
+    { session: null },
+  );
+  assert.equal(handled, true);
+  assert.equal(response.statusCode, 404);
+  assert.deepEqual(JSON.parse(Buffer.concat(response.chunks).toString('utf8')), {
+    error: 'lor_feature_disabled',
+  });
+
+  await assembled.composition.runtimeDependencies.close();
+  assert.equal(FakePool.instances[0].endCalls, 1);
+});
+
+test('full rollout shares requireCanary=false with case services and WordPress admission', async () => {
+  resetPool();
+  const rolloutFlags = releaseFlags({ requireCanary: false });
+  const options = assemblyOptions({ releaseFlags: rolloutFlags });
+  const entitlementCalls = [];
+  const admissions = [];
+  const rolloutResolver = resourceEntitlementResolver(entitlementCalls, {
+    canaryConsented: false,
+    canaryEnabled: false,
+  });
+  options.resourceEntitlementResolver = rolloutResolver;
+  options.wordpressS2sClient = wordpressS2sClient(admissions, rolloutResolver, {
+    canaryConsented: false,
+    canaryEnabled: false,
+  });
+  const { assembly } = withoutTestObservations(options);
+  const assembled = await createProductionRuntimeAssembly(assembly);
+
+  assert.equal(assembled.composition.operationalReadiness.status, 'ready');
+  assert.equal(assembled.composition.operationalReadiness.productionOperational, true);
+  assert.equal(assembled.composition.caseService.requireCanary, false);
+  const projection = await assembled.admission.resolve({
+    subject: ACTOR_SUBJECT,
+    session: {
+      user: { id: 41 },
+      lorAdmissionBindingId: `lorb1_${'a'.repeat(43)}`,
+      lorAdmissionBindingProvenance: WORDPRESS_LOR_BINDING_PROVENANCE,
+      lorAdmissionBindingExpiresAt: '2026-08-26T13:00:00.000Z',
+      [WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD]: WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
+    },
+    request: { url: `/api/lor-studio/cases/${ACTOR_CASE_ID}` },
+  });
+  assert.equal(projection.canaryEnabled, false);
+  assert.equal(projection.canaryConsented, false);
+
+  await assembled.composition.runtimeDependencies.close();
+  assert.equal(FakePool.instances[0].endCalls, 1);
+});
+
 test('pre-wrapper provider binding failure closes the single database owner exactly once', async () => {
   resetPool();
   const options = assemblyOptions({
@@ -490,6 +583,17 @@ test('pre-wrapper provider binding failure closes the single database owner exac
 test('live provider probe failure fails closed and the readiness wrapper closes one pool once', async () => {
   resetPool();
   const { assembly } = withoutTestObservations(assemblyOptions({
+    fetchImplementation: providerFetch({ fail: true }),
+  }));
+  await assert.rejects(createProductionRuntimeAssembly(assembly), statusIs('RUNTIME_READINESS_FAILED'));
+  assert.equal(FakePool.instances.length, 1);
+  assert.equal(FakePool.instances[0].endCalls, 1);
+});
+
+test('dark mode still requires every live provider probe and closes on failure', async () => {
+  resetPool();
+  const { assembly } = withoutTestObservations(assemblyOptions({
+    releaseFlags: releaseFlags({ enabled: false, killSwitch: true, requireCanary: true }),
     fetchImplementation: providerFetch({ fail: true }),
   }));
   await assert.rejects(createProductionRuntimeAssembly(assembly), statusIs('RUNTIME_READINESS_FAILED'));
@@ -595,6 +699,21 @@ test('release flags are an exact frozen shared contract and cannot be widened', 
     statusIs('RELEASE_FLAGS_INVALID'),
   );
   assert.equal(FakePool.instances.length, 0);
+  for (const contradictory of [
+    { enabled: true, killSwitch: true, requireCanary: true },
+    { enabled: false, killSwitch: false, requireCanary: true },
+    { enabled: false, killSwitch: true, requireCanary: false },
+  ]) {
+    await assert.rejects(
+      createProductionRuntimeAssembly({
+        ...base,
+        releaseFlags: Object.freeze(contradictory),
+      }),
+      statusIs('RUNTIME_READINESS_FAILED'),
+    );
+    assert.equal(FakePool.instances.at(-1).endCalls, 1);
+  }
+  assert.equal(FakePool.instances.length, 3);
 });
 
 test('contract exposes no fallback, no caller coordinator, and no readiness hydration', () => {

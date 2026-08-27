@@ -4,6 +4,7 @@ import {
   readTrustedRequestContext,
 } from '../security/trusted-request-context.mjs';
 import {
+  assertWordPressLorAdmissionReceipt,
   createWordPressLorS2sClient,
   WORDPRESS_LOR_ADMISSION_CONTRACT,
   WORDPRESS_LOR_ADMISSION_PATH,
@@ -64,6 +65,7 @@ const RESOURCE_ENTITLEMENT_KEYS = new Set([
 ]);
 const RESOURCE_ENTITLEMENT_MAX_LIFETIME_MS = 5 * 60 * 1_000;
 const CLOCK_SKEW_MS = 30 * 1_000;
+const STUDENT_ENTITLEMENT_CACHE_LIMIT = 1_024;
 
 export class WordPressCurrentUserAdmissionError extends Error {
   constructor(code) {
@@ -328,6 +330,7 @@ function exactResourceStudentEntitlement(value, {
  *   nonceFactory?: () => string,
  *   maximumResponseBytes?: number,
  *   transportTimeoutMs?: number,
+ *   requireCanary?: boolean,
  *   actorResolver?: { resolve(input: { authenticatedSubject: string, caseId: string }): Promise<Record<string, unknown>> } | null,
  *   resourceEntitlementResolver?: { signedS2s: true, resolve(input: { authenticatedSubject: string, actorRole: string, studentId: string }): Promise<Record<string, unknown>>, probe?: (input?: {signal?: AbortSignal}) => Promise<Record<string, unknown>> } | null,
  * }} [options]
@@ -341,10 +344,12 @@ export function createWordPressCurrentUserAdmission({
   nonceFactory,
   maximumResponseBytes,
   transportTimeoutMs,
+  requireCanary = true,
   actorResolver = null,
   resourceEntitlementResolver = null,
 } = {}) {
   if (typeof clock !== 'function') fail('CLOCK_INVALID');
+  if (typeof requireCanary !== 'boolean') fail('CANARY_POLICY_INVALID');
   let client = s2sClient;
   if (client === null) {
     const options = { origin, sharedSecret, fetchImplementation, clock };
@@ -403,6 +408,23 @@ export function createWordPressCurrentUserAdmission({
     transport: 'signed_s2s_post',
   });
   const contexts = new WeakMap();
+  const studentEntitlements = new Map();
+
+  function rememberStudentEntitlement(proofHash, entitlement, expiresAtMs, now) {
+    for (const [key, cached] of studentEntitlements) {
+      if (cached.expiresAtMs <= now) studentEntitlements.delete(key);
+    }
+    if (
+      !studentEntitlements.has(proofHash)
+      && studentEntitlements.size >= STUDENT_ENTITLEMENT_CACHE_LIMIT
+    ) {
+      studentEntitlements.delete(studentEntitlements.keys().next().value);
+    }
+    studentEntitlements.set(proofHash, Object.freeze({
+      entitlement: Object.freeze({ ...entitlement }),
+      expiresAtMs,
+    }));
+  }
 
   const admission = {
     requiresTrustedRequestContext: true,
@@ -412,25 +434,26 @@ export function createWordPressCurrentUserAdmission({
       const authenticatedSubject = canonicalSubject(input.subject);
       const sessionSubject = canonicalSessionSubject(input.session?.user?.id);
       if (sessionSubject !== authenticatedSubject) fail('SESSION_SUBJECT_MISMATCH');
-      const binding = exactBinding(input.session, nowMilliseconds(clock));
+      const resolutionNow = nowMilliseconds(clock);
+      const binding = exactBinding(input.session, resolutionNow);
 
       let receipt;
       try {
-        receipt = await client.admit({
-          bindingId: binding.bindingId,
-          subject: authenticatedSubject,
-          identityClass: binding.identityClass,
-        });
+        receipt = assertWordPressLorAdmissionReceipt(
+          await client.admit({
+            bindingId: binding.bindingId,
+            subject: authenticatedSubject,
+            identityClass: binding.identityClass,
+          }),
+          {
+            subject: authenticatedSubject,
+            identityClass: binding.identityClass,
+            now: resolutionNow,
+          },
+        );
       } catch {
         fail('ADMISSION_DENIED');
       }
-      if (
-        !receipt
-        || receipt.contract !== WORDPRESS_LOR_ADMISSION_CONTRACT
-        || receipt.subject !== authenticatedSubject
-        || receipt.identityClass !== binding.identityClass
-        || receipt.admitted !== true
-      ) fail('ADMISSION_DENIED');
 
       const caseId = requestCaseId(input.request);
       const candidateInvitationId = requestFacultyCandidateInvitationId(input.request);
@@ -478,12 +501,27 @@ export function createWordPressCurrentUserAdmission({
       // This stable proof identifies the verified identity source for the
       // permanent database crosswalk. Freshness/replay are independently
       // enforced by the signed S2S nonce and the bounded receipt on every call.
+      const invitationCandidateAuthorized = candidateInvitationId !== null
+        && actorAccess === null
+        && binding.identityClass === WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS;
+      // The pre-case candidate lane is authorized by its exact invitation-bound session
+      // credential, not by student canary metadata on the invited WordPress principal. Once
+      // a case resolves, the target student's fresh signed resource entitlement is decisive.
+      const canaryEnabled = resourceEntitlement?.canaryEnabled ?? receipt.canaryEnabled;
+      const canaryConsented = resourceEntitlement?.canaryConsented ?? receipt.canaryConsented;
+      const canaryAuthorized = invitationCandidateAuthorized || requireCanary !== true
+        || (canaryEnabled === true && canaryConsented === true);
+      if (!canaryAuthorized) fail('CANARY_ADMISSION_DENIED');
       const proofHash = hashValue({
-        schemaVersion: 'missionmed.lor.wordpress-admission-proof.v3',
+        schemaVersion: 'missionmed.lor.wordpress-admission-proof.v4',
         sourceReferenceHash,
         subject: authenticatedSubject,
         identityClass: binding.identityClass,
         actorRole,
+        canaryEnabled,
+        canaryConsented,
+        requireCanary,
+        invitationCandidateAuthorized,
         ...(actorAccess === null
           ? {}
           : {
@@ -508,7 +546,7 @@ export function createWordPressCurrentUserAdmission({
         proofHash,
         entitlementVerified: true,
         lorEnabled: true,
-        canaryAuthorized: true,
+        canaryAuthorized,
         clientAsserted: false,
       });
       const projection = Object.freeze({
@@ -518,12 +556,29 @@ export function createWordPressCurrentUserAdmission({
         active: resourceEntitlement?.active ?? true,
         tier: resourceEntitlement?.tier ?? 'tier3_360',
         lorEnabled: resourceEntitlement?.lorEnabled ?? true,
-        canaryEnabled: resourceEntitlement?.canaryEnabled ?? true,
-        canaryConsented: resourceEntitlement?.canaryConsented ?? true,
+        canaryEnabled,
+        canaryConsented,
         studentId: resourceStudentId,
         actorId: receipt.subject,
         role: actorRole,
       });
+      if (actorRole === 'student') {
+        rememberStudentEntitlement(
+          proofHash,
+          {
+            studentId: resourceStudentId,
+            active: true,
+            tier: 'tier3_360',
+            lorEnabled: true,
+            revoked: false,
+            canaryEnabled,
+            canaryConsented,
+            producerStatus: 'WORDPRESS_ADMISSION_V4_SIGNED_S2S',
+          },
+          Date.parse(receipt.expiresAt),
+          resolutionNow,
+        );
+      }
       contexts.set(projection, context);
       return projection;
     },
@@ -548,16 +603,16 @@ export function createWordPressCurrentUserAdmission({
       }
       if (context.actorRole === 'student') {
         if (context.authenticatedSubject !== subject) fail('ENTITLEMENT_SUBJECT_MISMATCH');
-        return Object.freeze({
-          studentId: subject,
-          active: true,
-          tier: 'tier3_360',
-          lorEnabled: true,
-          revoked: false,
-          canaryEnabled: true,
-          canaryConsented: true,
-          producerStatus: 'WORDPRESS_ADMISSION_V3_SIGNED_S2S',
-        });
+        const cached = studentEntitlements.get(context.proofHash);
+        if (
+          !cached
+          || cached.expiresAtMs <= nowMilliseconds(clock)
+          || cached.entitlement.studentId !== subject
+        ) {
+          if (cached) studentEntitlements.delete(context.proofHash);
+          fail('ENTITLEMENT_PROOF_UNAVAILABLE');
+        }
+        return cached.entitlement;
       }
       return resolveResourceEntitlement({
         authenticatedSubject: context.authenticatedSubject,
@@ -586,6 +641,10 @@ export const WORDPRESS_CURRENT_USER_ADMISSION_CONTRACT = Object.freeze({
     'subject',
     'identityClass',
     'actorRole',
+    'canaryEnabled',
+    'canaryConsented',
+    'requireCanary',
+    'invitationCandidateAuthorized',
     'actorCaseAccessAuthority_if_case_resolved',
     'caseId_if_case_resolved',
     'resourceStudentId_if_case_resolved',

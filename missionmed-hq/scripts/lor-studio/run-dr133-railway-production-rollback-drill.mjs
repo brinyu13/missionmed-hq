@@ -40,9 +40,9 @@ const DR133_ROLLBACK_ORDER = Object.freeze([
   'rls-rollback',
   'foundation-rollback',
 ]);
-const DR133_EXPECTED_ARTIFACT_COUNT = 20;
+const DR133_EXPECTED_ARTIFACT_COUNT = 22;
 const DR133_EXPECTED_RELATION_COUNT = 36;
-const DR133_EXPECTED_ROLLBACK_COUNT = 10;
+const DR133_EXPECTED_ROLLBACK_COUNT = 11;
 const DR133_ROLLBACK_DRILL_ENV_KEYS = Object.freeze([
   'LOR_DR133_ADMIN_DATABASE_URL',
   'LOR_DR133_MODE',
@@ -81,6 +81,9 @@ const ARTIFACT_RECEIPT_KEYS = Object.freeze({
     'facultyCandidateAuthHandoffRollbackSha256',
   'mentor-assignment': 'mentorAssignmentSha256',
   'mentor-assignment-rollback': 'mentorAssignmentRollbackSha256',
+  'private-storage-object-id-regex': 'privateStorageObjectIdRegexSha256',
+  'private-storage-object-id-regex-rollback':
+    'privateStorageObjectIdRegexRollbackSha256',
 });
 
 const RECEIPT_KEYS = new Set([

@@ -406,6 +406,76 @@ test('a branded production resolver opens trusted context only around applicatio
   assert.throws(() => readTrustedRequestContext(), /unavailable/u);
 });
 
+test('trusted invitation policy admits only the exact pre-case candidate without rewriting canary facts', async () => {
+  const projection = entitlement({
+    role: 'faculty',
+    canaryEnabled: false,
+    canaryConsented: false,
+  });
+  const trustedResolver = {
+    requiresTrustedRequestContext: true,
+    resolve: async () => projection,
+    consumeTrustedRequestContext(value) {
+      assert.equal(value, projection);
+      return {
+        schemaVersion: 'missionmed.lor.trusted-request-context.v1',
+        authenticatedSubject: 'wp:1',
+        actorRole: 'faculty',
+        sourceReferenceHash: 'a'.repeat(64),
+        proofHash: 'b'.repeat(64),
+        entitlementVerified: true,
+        lorEnabled: true,
+        canaryAuthorized: true,
+        clientAsserted: false,
+      };
+    },
+  };
+  const activeRuntime = runtime({ entitlementResolver: trustedResolver });
+  const activeSession = session({
+    [LOR_SESSION_IDENTITY_CLASS_FIELD]: LOR_CANDIDATE_IDENTITY_CLASS,
+    [LOR_SESSION_CANDIDATE_INVITATION_FIELD]: 'invite_abc-123',
+  });
+  const candidateUrl = new URL(
+    '/api/lor-studio/invitations/invite_abc-123/verify',
+    'https://hq.example.test',
+  );
+  const admitted = await activeRuntime.authorize(
+    { method: 'POST', headers: {} },
+    activeSession,
+    { url: candidateUrl, candidateCredential: candidateCredential() },
+  );
+  assert.equal(admitted.ok, true);
+  assert.equal(admitted.actor.role, 'faculty');
+  assert.equal(admitted.entitlement.canaryEnabled, false);
+  assert.equal(admitted.entitlement.canaryConsented, false);
+
+  for (const denied of [
+    await activeRuntime.authorize(
+      { method: 'GET', headers: {} },
+      activeSession,
+      { url: new URL('/api/lor-studio/bootstrap', 'https://hq.example.test') },
+    ),
+    await activeRuntime.authorize(
+      { method: 'POST', headers: {} },
+      activeSession,
+      { url: candidateUrl, candidateCredential: candidateCredential('invite_other') },
+    ),
+    await activeRuntime.authorize(
+      { method: 'POST', headers: {} },
+      session(),
+      { url: candidateUrl, candidateCredential: candidateCredential() },
+    ),
+    await runtime({ entitlementResolver: { resolve: async () => projection } }).authorize(
+      { method: 'POST', headers: {} },
+      activeSession,
+      { url: candidateUrl, candidateCredential: candidateCredential() },
+    ),
+  ]) {
+    assert.equal(denied.ok, false);
+    assert.equal(denied.error, 'lor_canary_consent_required');
+  }
+});
+
 test('a resolver declaring trusted context fails closed when its context cannot be consumed', async () => {
   const activeRuntime = runtime({
     entitlementResolver: {

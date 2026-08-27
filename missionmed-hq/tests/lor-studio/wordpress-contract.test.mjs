@@ -317,9 +317,11 @@ echo json_encode(array(
   assert.equal(result.bootstrap.identityClass, 'student');
   assert.match(result.bootstrap.bindingId, /^lorb1_[A-Za-z0-9_-]{43}$/u);
   assert.equal(result.bootstrap.subject, 'wp:123');
-  assert.equal(result.admission.contract, 'missionmed.lor.wordpress-admission.v3');
+  assert.equal(result.admission.contract, 'missionmed.lor.wordpress-admission.v4');
   assert.equal(result.admission.identityClass, 'student');
   assert.equal(result.admission.admitted, true);
+  assert.equal(result.admission.canaryEnabled, true);
+  assert.equal(result.admission.canaryConsented, true);
   assert.equal(result.revoked_code, 'missionmed_lor_contract_unavailable');
   assert.equal(result.replay_code, 'missionmed_lor_contract_unavailable');
   assert.equal(result.raw_code_stored, false);
@@ -1015,10 +1017,10 @@ $valid = mmhq_lor_studio_identity_entitlement_for_user(123);
 $GLOBALS['lor_entitlement']['course_ids'] = array('3893');
 $wrong_course = mmhq_lor_studio_identity_entitlement_for_user(123);
 lor_valid_fixture(); unset($GLOBALS['lor_meta']['_missionmed_lor_consent_accepted']);
-$missing_gate = mmhq_lor_studio_identity_entitlement_for_user(123);
+$missing_consent = mmhq_lor_studio_identity_entitlement_for_user(123);
 echo json_encode(array(
     'valid' => $valid, 'wrong_course' => is_wp_error($wrong_course),
-    'missing_gate' => is_wp_error($missing_gate),
+    'missing_consent' => $missing_consent,
 ));
 `,
   }));
@@ -1026,9 +1028,63 @@ echo json_encode(array(
     contract: 'missionmed.lor.wordpress-entitlement.v1',
     subject: 'wp:123',
     admitted: true,
+    canaryEnabled: true,
+    canaryConsented: true,
   });
   assert.equal(result.wrong_course, true);
-  assert.equal(result.missing_gate, true);
+  assert.equal(result.missing_consent.admitted, true);
+  assert.equal(result.missing_consent.canaryEnabled, true);
+  assert.equal(result.missing_consent.canaryConsented, false);
+});
+
+test('WordPress admission always emits actual canary facts and never applies release policy', { skip: !phpAvailable }, () => {
+  const result = runPhp(phpProgram({
+    body: `
+lor_valid_fixture();
+unset($GLOBALS['lor_meta']['_missionmed_lor_canary_enabled']);
+$consented_nonmember = mmhq_lor_studio_identity_entitlement_for_user(123);
+lor_valid_fixture();
+unset($GLOBALS['lor_meta']['_missionmed_lor_consent_accepted']);
+$member_without_consent = mmhq_lor_studio_identity_entitlement_for_user(123);
+lor_valid_fixture();
+unset($GLOBALS['lor_meta']['_missionmed_lor_canary_enabled']);
+unset($GLOBALS['lor_meta']['_missionmed_lor_consent_accepted']);
+unset($GLOBALS['lor_meta']['_missionmed_lor_consent_version']);
+unset($GLOBALS['lor_meta']['_missionmed_lor_consent_at']);
+$identity = mmhq_lor_studio_identity_entitlement_for_user(123);
+$resource = mmhq_lor_studio_resource_student_entitlement_for_user(123);
+$receipt = mmhq_lor_studio_receipt('wp:123', 'student', time() + 300, false, false);
+$candidate = mmhq_lor_studio_faculty_candidate_identity_for_user(wp_get_current_user());
+echo json_encode(array(
+    'consented_nonmember' => $consented_nonmember,
+    'member_without_consent' => $member_without_consent,
+    'identity' => $identity,
+    'resource' => $resource,
+    'receipt' => $receipt,
+    'candidate' => $candidate,
+));
+`,
+  }));
+  assert.equal(result.consented_nonmember.canaryEnabled, false);
+  assert.equal(result.consented_nonmember.canaryConsented, true);
+  assert.equal(result.member_without_consent.canaryEnabled, true);
+  assert.equal(result.member_without_consent.canaryConsented, false);
+  assert.deepEqual(result.identity, {
+    contract: 'missionmed.lor.wordpress-entitlement.v1',
+    subject: 'wp:123',
+    admitted: true,
+    canaryEnabled: false,
+    canaryConsented: false,
+  });
+  assert.equal(result.resource.studentId, 'wp:123');
+  assert.equal(result.resource.canaryEnabled, false);
+  assert.equal(result.resource.canaryConsented, false);
+  assert.equal(result.receipt.contract, 'missionmed.lor.wordpress-admission.v4');
+  assert.equal(result.receipt.canaryEnabled, false);
+  assert.equal(result.receipt.canaryConsented, false);
+  assert.equal(result.candidate.identityClass, 'faculty_candidate');
+  assert.equal(result.candidate.canaryEnabled, false);
+  assert.equal(result.candidate.canaryConsented, false);
 });
 
 test('no-store applies to all five S2S routes and unrelated responses are byte-identical', { skip: !phpAvailable }, () => {

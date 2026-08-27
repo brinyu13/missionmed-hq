@@ -53,9 +53,11 @@ const PRODUCTION_FORWARD_LEDGER = Object.freeze([
   'missionmed-hq/scripts/lor-studio/migrations/20260826011300_f2_lor_1012_live_production_encrypted_private_storage_commands.sql',
   'missionmed-hq/scripts/lor-studio/migrations/20260826011500_f2_lor_1012_faculty_candidate_auth_handoff_commands.sql',
   'missionmed-hq/scripts/lor-studio/migrations/20260826011700_f2_lor_1012_live_production_mentor_assignment_commands.sql',
+  'missionmed-hq/scripts/lor-studio/migrations/20260826011900_f2_lor_1012_live_production_private_storage_object_id_regex.sql',
 ]);
 
 const PRODUCTION_ROLLBACK_LEDGER = Object.freeze([
+  'missionmed-hq/scripts/lor-studio/rollbacks/20260826011900_f2_lor_1012_live_production_private_storage_object_id_regex.rollback.sql',
   'missionmed-hq/scripts/lor-studio/rollbacks/20260826011700_f2_lor_1012_live_production_mentor_assignment_commands.rollback.sql',
   'missionmed-hq/scripts/lor-studio/rollbacks/20260826011500_f2_lor_1012_faculty_candidate_auth_handoff_commands.rollback.sql',
   'missionmed-hq/scripts/lor-studio/rollbacks/20260826011300_f2_lor_1012_live_production_encrypted_private_storage_commands.rollback.sql',
@@ -399,8 +401,12 @@ test('schema contract freezes encrypted storage and faculty candidate handoff cu
     directApplicationTableDml: false,
     immutable: true,
     idempotency: 'database_serialized_exact_request_replay',
+    objectIdMaximumCharacters: 300,
+    objectIdValidation:
+      'explicit_length_bound_plus_allowed_character_regex_without_large_repetition_bound',
     rollback: 'exact_no_cascade_refuses_nonempty_artifact_custody',
     productionSentinelSuffix: 'encryptedPrivateStorage=20260826011300',
+    repairSentinelSuffix: 'privateStorageObjectIdRegex=20260826011900',
   });
   assert.deepEqual(contract.facultyCandidateAuthHandoffContract, {
     relations: [
@@ -421,13 +427,14 @@ test('schema contract freezes encrypted storage and faculty candidate handoff cu
     productionSentinelSuffix: 'facultyCandidateAuthHandoff=20260826011500',
   });
   assert.deepEqual(contract.liveProductionSuccessorCatalog, {
-    artifactCount: 20,
-    rollbackCount: 10,
+    artifactCount: 22,
+    rollbackCount: 11,
     relationCount: 36,
     forcedRlsCount: 36,
     securityDefinerCount: 34,
     applicationExecutableSecurityDefinerCount: 33,
-    productionSentinelSuffix: 'mentorAssignmentCommands=20260826011700',
+    policyCount: 155,
+    productionSentinelSuffix: 'privateStorageObjectIdRegex=20260826011900',
   });
   assert.deepEqual(contract.mentorAssignmentCommandContract, {
     securityDefinerFunctions: [

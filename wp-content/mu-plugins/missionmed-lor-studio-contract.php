@@ -247,40 +247,61 @@ function mmhq_lor_studio_entitlement_allows(
 }
 
 /**
- * LOR-owned gates are read only from private, server-written user metadata.
- * This candidate intentionally registers no metadata or mutation endpoint.
+ * Resolve the two canary facts from private, server-written user metadata.
+ * General rollout eligibility never manufactures either fact. Consent is
+ * current only when every configured version/timestamp/revocation field is
+ * exact; malformed or absent evidence yields an explicit false.
  */
-function mmhq_lor_studio_user_gates_allow($user_id, $now) {
+function mmhq_lor_studio_user_canary_facts($user_id, $now) {
 	if (!is_int($user_id) || $user_id < 1 || !is_int($now) || !function_exists('get_user_meta')) {
-		return false;
+		return array('canaryEnabled' => false, 'canaryConsented' => false);
 	}
 
 	if (!defined('MMHQ_LOR_STUDIO_REQUIRED_CONSENT_VERSION')) {
-		return false;
+		return array(
+			'canaryEnabled' => '1' === get_user_meta($user_id, '_missionmed_lor_canary_enabled', true),
+			'canaryConsented' => false,
+		);
 	}
 	$required_consent_version = constant('MMHQ_LOR_STUDIO_REQUIRED_CONSENT_VERSION');
 	if (
 		!is_string($required_consent_version)
 		|| 1 !== preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/D', $required_consent_version)
 	) {
-		return false;
-	}
-
-	if (
-		'1' !== get_user_meta($user_id, '_missionmed_lor_enabled', true)
-		|| '1' !== get_user_meta($user_id, '_missionmed_lor_canary_enabled', true)
-		|| '1' !== get_user_meta($user_id, '_missionmed_lor_consent_accepted', true)
-		|| $required_consent_version !== get_user_meta($user_id, '_missionmed_lor_consent_version', true)
-		|| '' !== get_user_meta($user_id, '_missionmed_lor_consent_revoked_at', true)
-		|| '' !== get_user_meta($user_id, '_missionmed_lor_revoked_at', true)
-	) {
-		return false;
+		return array(
+			'canaryEnabled' => '1' === get_user_meta($user_id, '_missionmed_lor_canary_enabled', true),
+			'canaryConsented' => false,
+		);
 	}
 
 	$consented_at = mmhq_lor_studio_timestamp_to_epoch(
 		get_user_meta($user_id, '_missionmed_lor_consent_at', true)
 	);
-	return false !== $consented_at && $consented_at <= $now;
+	$canary_consented = (
+		'1' !== get_user_meta($user_id, '_missionmed_lor_consent_accepted', true)
+		|| $required_consent_version !== get_user_meta($user_id, '_missionmed_lor_consent_version', true)
+		|| '' !== get_user_meta($user_id, '_missionmed_lor_consent_revoked_at', true)
+	)
+		? false
+		: false !== $consented_at && $consented_at <= $now;
+
+	return array(
+		'canaryEnabled' => '1' === get_user_meta($user_id, '_missionmed_lor_canary_enabled', true),
+		'canaryConsented' => $canary_consented,
+	);
+}
+
+/**
+ * LOR-owned base admission uses only explicit general enablement and current
+ * revocation state. The HQ runtime is the single release-policy authority and
+ * evaluates the separately returned canary facts for named-canary requests.
+ */
+function mmhq_lor_studio_user_gates_allow($user_id, $now) {
+	if (!is_int($user_id) || $user_id < 1 || !is_int($now) || !function_exists('get_user_meta')) {
+		return false;
+	}
+	return '1' === get_user_meta($user_id, '_missionmed_lor_enabled', true)
+		&& '' === get_user_meta($user_id, '_missionmed_lor_revoked_at', true);
 }
 
 /**
@@ -361,11 +382,14 @@ function mmhq_lor_studio_identity_entitlement_for_user($raw_user_id) {
 	) {
 		return mmhq_lor_studio_contract_denied();
 	}
+	$canary = mmhq_lor_studio_user_canary_facts($user_id, $now);
 
 	return array(
 		'contract' => 'missionmed.lor.wordpress-entitlement.v1',
 		'subject' => $subject,
 		'admitted' => true,
+		'canaryEnabled' => $canary['canaryEnabled'],
+		'canaryConsented' => $canary['canaryConsented'],
 	);
 }
 
@@ -400,12 +424,15 @@ function mmhq_lor_studio_faculty_candidate_identity_for_user($user_or_id) {
 		return mmhq_lor_studio_contract_denied();
 	}
 
+	$canary = mmhq_lor_studio_user_canary_facts((int) $raw_user_id, time());
 	return array(
 		'contract' => 'missionmed.lor.wordpress-faculty-candidate-identity.v1',
 		'subject' => 'wp:' . (int) $raw_user_id,
 		'identityClass' => 'faculty_candidate',
 		'studentEntitled' => false,
 		'rootEntitled' => false,
+		'canaryEnabled' => $canary['canaryEnabled'],
+		'canaryConsented' => $canary['canaryConsented'],
 	);
 }
 
@@ -430,6 +457,8 @@ function mmhq_lor_studio_identity_projection_for_class($user_or_id, $identity_cl
 		return array(
 			'subject' => $projection['subject'],
 			'identityClass' => 'student',
+			'canaryEnabled' => $projection['canaryEnabled'],
+			'canaryConsented' => $projection['canaryConsented'],
 		);
 	}
 
@@ -440,6 +469,8 @@ function mmhq_lor_studio_identity_projection_for_class($user_or_id, $identity_cl
 	return array(
 		'subject' => $projection['subject'],
 		'identityClass' => 'faculty_candidate',
+		'canaryEnabled' => $projection['canaryEnabled'],
+		'canaryConsented' => $projection['canaryConsented'],
 	);
 }
 
@@ -474,8 +505,8 @@ function mmhq_lor_studio_resource_student_entitlement_for_user($raw_user_id) {
 		'tier' => 'tier3_360',
 		'lorEnabled' => true,
 		'revoked' => false,
-		'canaryEnabled' => true,
-		'canaryConsented' => true,
+		'canaryEnabled' => $projection['canaryEnabled'],
+		'canaryConsented' => $projection['canaryConsented'],
 		'producerStatus' => 'WORDPRESS_RESOURCE_ADMISSION_V1_SIGNED_S2S',
 		'metadataOnly' => true,
 		'evaluatedAt' => mmhq_lor_studio_utc_instant($now),
@@ -1226,7 +1257,13 @@ function mmhq_lor_studio_read_record($namespace, $opaque_value) {
 	return mmhq_lor_studio_read_record_by_digest($namespace, hash('sha256', (string) $opaque_value));
 }
 
-function mmhq_lor_studio_receipt($subject, $identity_class, $binding_expires_at) {
+function mmhq_lor_studio_receipt(
+	$subject,
+	$identity_class,
+	$binding_expires_at,
+	$canary_enabled,
+	$canary_consented
+) {
 	$now = time();
 	$expires = min($now + 300, (int) $binding_expires_at);
 	$identity_class = mmhq_lor_studio_exact_identity_class($identity_class);
@@ -1234,14 +1271,18 @@ function mmhq_lor_studio_receipt($subject, $identity_class, $binding_expires_at)
 		$expires <= $now
 		|| '' === mmhq_lor_studio_exact_subject($subject)
 		|| '' === $identity_class
+		|| !is_bool($canary_enabled)
+		|| !is_bool($canary_consented)
 	) {
 		return false;
 	}
 	return array(
-		'contract' => 'missionmed.lor.wordpress-admission.v3',
+		'contract' => 'missionmed.lor.wordpress-admission.v4',
 		'subject' => $subject,
 		'identityClass' => $identity_class,
 		'admitted' => true,
+		'canaryEnabled' => $canary_enabled,
+		'canaryConsented' => $canary_consented,
 		'evaluatedAt' => mmhq_lor_studio_utc_instant($now),
 		'expiresAt' => mmhq_lor_studio_utc_instant($expires),
 	);
@@ -1602,10 +1643,15 @@ function mmhq_lor_studio_bootstrap_redeem($request) {
 			$code_record['identityClass']
 		)
 		|| $binding_record['expiresAt'] !== $code_record['bindingExpiresAt']
-		|| is_wp_error(mmhq_lor_studio_identity_projection_for_class(
-			substr($code_record['subject'], 3),
-			$code_record['identityClass']
-		))
+	) {
+		return mmhq_lor_studio_s2s_denied();
+	}
+	$identity_projection = mmhq_lor_studio_identity_projection_for_class(
+		substr($code_record['subject'], 3),
+		$code_record['identityClass']
+	);
+	if (
+		is_wp_error($identity_projection)
 		|| !mmhq_lor_studio_delete_exact_pair('code_v1', hash('sha256', $body['code']), $code_raw)
 	) {
 		return mmhq_lor_studio_s2s_denied();
@@ -1613,7 +1659,9 @@ function mmhq_lor_studio_bootstrap_redeem($request) {
 	$receipt = mmhq_lor_studio_receipt(
 		$code_record['subject'],
 		$code_record['identityClass'],
-		$binding_record['expiresAt']
+		$binding_record['expiresAt'],
+		$identity_projection['canaryEnabled'],
+		$identity_projection['canaryConsented']
 	);
 	if (false === $receipt) {
 		return mmhq_lor_studio_s2s_denied();
@@ -1654,17 +1702,22 @@ function mmhq_lor_studio_current_user_admission($request) {
 			$body['subject'],
 			$body['identityClass']
 		)
-		|| is_wp_error(mmhq_lor_studio_identity_projection_for_class(
-			substr($body['subject'], 3),
-			$body['identityClass']
-		))
 	) {
+		return mmhq_lor_studio_s2s_denied();
+	}
+	$identity_projection = mmhq_lor_studio_identity_projection_for_class(
+		substr($body['subject'], 3),
+		$body['identityClass']
+	);
+	if (is_wp_error($identity_projection)) {
 		return mmhq_lor_studio_s2s_denied();
 	}
 	$receipt = mmhq_lor_studio_receipt(
 		$body['subject'],
 		$body['identityClass'],
-		$binding_record['expiresAt']
+		$binding_record['expiresAt'],
+		$identity_projection['canaryEnabled'],
+		$identity_projection['canaryConsented']
 	);
 	return false === $receipt ? mmhq_lor_studio_s2s_denied() : rest_ensure_response($receipt);
 }

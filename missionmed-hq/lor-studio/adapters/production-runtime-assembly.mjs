@@ -22,6 +22,7 @@ import {
 } from './production-operational-readiness.mjs';
 import { createProductionPostgresRuntimeDependencies } from './production-postgres-runtime.mjs';
 import { createProductionProviderRuntime } from './production-provider-runtime.mjs';
+import { isLorReleaseModeReadinessAccepted } from './release-mode-readiness.mjs';
 import { createWordPressCurrentUserAdmission } from './wordpress-current-user-admission.mjs';
 import {
   WORDPRESS_LOR_RESOURCE_ENTITLEMENT_PRODUCER,
@@ -555,6 +556,7 @@ export async function createProductionRuntimeAssembly(rawOptions = {}) {
       s2sClient: wordpressS2sClient,
       actorResolver: dependencies.actorResolver,
       resourceEntitlementResolver,
+      requireCanary: releaseFlags.requireCanary,
       clock,
     });
 
@@ -689,8 +691,10 @@ export async function createProductionRuntimeAssembly(rawOptions = {}) {
       || frozenComposition.entitlementPort !== admission
       || frozenComposition.privateStorageService !== storageAdapter
       || frozenComposition.artifactAuditSink !== preliminary.artifactAuditSink
-      || frozenComposition.operationalReadiness?.status !== 'ready'
-      || frozenComposition.operationalReadiness?.productionOperational !== true
+      || !isLorReleaseModeReadinessAccepted(
+        releaseFlags,
+        frozenComposition.operationalReadiness,
+      )
     ) fail('RUNTIME_READINESS_FAILED');
 
     return Object.freeze({

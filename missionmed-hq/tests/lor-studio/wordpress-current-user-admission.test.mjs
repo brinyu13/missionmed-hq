@@ -23,6 +23,8 @@ function receipt(overrides = {}) {
     subject: 'wp:123',
     identityClass: WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
     admitted: true,
+    canaryEnabled: true,
+    canaryConsented: true,
     evaluatedAt: '2026-08-25T15:59:30.000Z',
     expiresAt: '2026-08-25T16:03:30.000Z',
     ...overrides,
@@ -63,10 +65,11 @@ function resourceEntitlement(studentId, overrides = {}) {
 
 function admission(client = {
   async admit({ identityClass }) { return receipt({ identityClass }); },
-}) {
+}, options = {}) {
   return createWordPressCurrentUserAdmission({
     s2sClient: client,
     clock: () => new Date(NOW),
+    ...options,
   });
 }
 
@@ -238,6 +241,57 @@ test('faculty and mentor case access requires fresh signed resource-student enti
   }
 });
 
+test('resource-student canary facts override actor receipt and follow the exact release policy', async () => {
+  function resourceAdapter(requireCanary) {
+    return createWordPressCurrentUserAdmission({
+      s2sClient: { async admit() { return receipt(); } },
+      actorResolver: {
+        async resolve() {
+          return {
+            schemaVersion: 'missionmed.lor.actor-case-access.v1',
+            authoritySource: 'database_verified_case_access',
+            actorRole: 'faculty',
+            actorId: 'wp:123',
+            resourceStudentId: 'wp:456',
+            caseId: 'case-role-1',
+          };
+        },
+      },
+      resourceEntitlementResolver: {
+        signedS2s: true,
+        async resolve() {
+          return resourceEntitlement('wp:456', {
+            canaryEnabled: false,
+            canaryConsented: false,
+          });
+        },
+      },
+      requireCanary,
+      clock: () => new Date(NOW),
+    });
+  }
+
+  const rollout = resourceAdapter(false);
+  const projection = await rollout.resolve({
+    subject: 'wp:123',
+    session: session(),
+    request: { url: '/api/lor-studio/cases/case-role-1' },
+  });
+  assert.equal(projection.canaryEnabled, false);
+  assert.equal(projection.canaryConsented, false);
+  assert.equal(rollout.consumeTrustedRequestContext(projection).canaryAuthorized, true);
+
+  await assert.rejects(
+    resourceAdapter(true).resolve({
+      subject: 'wp:123',
+      session: session(),
+      request: { url: '/api/lor-studio/cases/case-role-1' },
+    }),
+    (error) => error instanceof WordPressCurrentUserAdmissionError
+      && error.code === 'CANARY_ADMISSION_DENIED',
+  );
+});
+
 test('case access resolver is required to return one exact database-bound role result', async () => {
   const unsafeResults = [
     null,
@@ -348,6 +402,87 @@ test('exact invitation page and verification API paths create faculty-candidate 
     observed.push(context.proofHash);
   }
   assert.equal(new Set(observed).size, 1, 'page and API bind the same invitation candidate proof');
+});
+
+test('faculty candidate ignores personal canary facts before binding and uses resource facts after binding', async () => {
+  const candidateSession = session({
+    [WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD]:
+      WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+    [WORDPRESS_LOR_SESSION_CANDIDATE_INVITATION_FIELD]: 'invitation-1',
+  });
+  const candidateReceiptClient = {
+    async admit({ identityClass }) {
+      return receipt({
+        identityClass,
+        canaryEnabled: false,
+        canaryConsented: false,
+      });
+    },
+  };
+  const invitationAdapter = createWordPressCurrentUserAdmission({
+    s2sClient: candidateReceiptClient,
+    requireCanary: true,
+    clock: () => new Date(NOW),
+  });
+  const invitationProjection = await invitationAdapter.resolve({
+    subject: 'wp:123',
+    session: candidateSession,
+    request: { url: '/api/lor-studio/invitations/invitation-1/verify' },
+  });
+  assert.equal(invitationProjection.role, 'faculty');
+  assert.equal(invitationProjection.canaryEnabled, false);
+  assert.equal(invitationProjection.canaryConsented, false);
+  assert.equal(
+    invitationAdapter.consumeTrustedRequestContext(invitationProjection).canaryAuthorized,
+    true,
+  );
+
+  function boundCaseAdapter(requireCanary) {
+    return createWordPressCurrentUserAdmission({
+      s2sClient: candidateReceiptClient,
+      actorResolver: {
+        async resolve() {
+          return {
+            schemaVersion: 'missionmed.lor.actor-case-access.v1',
+            authoritySource: 'database_verified_case_access',
+            actorRole: 'faculty',
+            actorId: 'wp:123',
+            resourceStudentId: 'wp:456',
+            caseId: 'case-role-1',
+          };
+        },
+      },
+      resourceEntitlementResolver: {
+        signedS2s: true,
+        async resolve() {
+          return resourceEntitlement('wp:456', {
+            canaryEnabled: false,
+            canaryConsented: false,
+          });
+        },
+      },
+      requireCanary,
+      clock: () => new Date(NOW),
+    });
+  }
+  await assert.rejects(
+    boundCaseAdapter(true).resolve({
+      subject: 'wp:123',
+      session: candidateSession,
+      request: { url: '/api/lor-studio/cases/case-role-1' },
+    }),
+    (error) => error instanceof WordPressCurrentUserAdmissionError
+      && error.code === 'CANARY_ADMISSION_DENIED',
+  );
+  const rolloutAdapter = boundCaseAdapter(false);
+  const rolloutProjection = await rolloutAdapter.resolve({
+    subject: 'wp:123',
+    session: candidateSession,
+    request: { url: '/api/lor-studio/cases/case-role-1' },
+  });
+  assert.equal(rolloutProjection.canaryEnabled, false);
+  assert.equal(rolloutProjection.canaryConsented, false);
+  assert.equal(rolloutAdapter.consumeTrustedRequestContext(rolloutProjection).canaryAuthorized, true);
 });
 
 test('faculty-candidate proof is invitation-bound and malformed invitation paths fail closed', async () => {
@@ -569,7 +704,7 @@ test('case-service entitlement remains request-context bound and subject exact',
       revoked: false,
       canaryEnabled: true,
       canaryConsented: true,
-      producerStatus: 'WORDPRESS_ADMISSION_V3_SIGNED_S2S',
+      producerStatus: 'WORDPRESS_ADMISSION_V4_SIGNED_S2S',
     });
     await assert.rejects(
       adapter.getStudentEntitlement({ studentId: 'wp:456' }),
@@ -642,6 +777,10 @@ test('rejects malformed client receipts even if the client is replaced', async (
     { ...receipt(), subject: 'wp:456' },
     { ...receipt(), admitted: false },
     { ...receipt(), contract: 'missionmed.lor.wordpress-admission.v1' },
+    { ...receipt(), canaryEnabled: 'true' },
+    { ...receipt(), canaryConsented: 1 },
+    Object.fromEntries(Object.entries(receipt()).filter(([key]) => key !== 'canaryEnabled')),
+    Object.fromEntries(Object.entries(receipt()).filter(([key]) => key !== 'canaryConsented')),
   ]) {
     const adapter = admission({ async admit() { return candidate; } });
     await assert.rejects(
@@ -649,6 +788,51 @@ test('rejects malformed client receipts even if the client is replaced', async (
       /ADMISSION_DENIED/u,
     );
   }
+});
+
+test('full rollout preserves false canary facts while policy authorization remains true', async () => {
+  const adapter = admission({
+    async admit() {
+      return receipt({ canaryEnabled: false, canaryConsented: false });
+    },
+  }, { requireCanary: false });
+  const projection = await adapter.resolve({ subject: 'wp:123', session: session() });
+  assert.equal(projection.canaryEnabled, false);
+  assert.equal(projection.canaryConsented, false);
+  const context = adapter.consumeTrustedRequestContext(projection);
+  assert.equal(context.canaryAuthorized, true);
+  await runWithTrustedRequestContext(context, async () => {
+    assert.deepEqual(await adapter.getStudentEntitlement({ studentId: 'wp:123' }), {
+      studentId: 'wp:123',
+      active: true,
+      tier: 'tier3_360',
+      lorEnabled: true,
+      revoked: false,
+      canaryEnabled: false,
+      canaryConsented: false,
+      producerStatus: 'WORDPRESS_ADMISSION_V4_SIGNED_S2S',
+    });
+  });
+});
+
+test('named-canary policy denies exact nonmembers and never widens malformed policy values', async () => {
+  for (const overrides of [
+    { canaryEnabled: false, canaryConsented: true },
+    { canaryEnabled: true, canaryConsented: false },
+    { canaryEnabled: false, canaryConsented: false },
+  ]) {
+    const adapter = admission({ async admit() { return receipt(overrides); } });
+    await assert.rejects(
+      adapter.resolve({ subject: 'wp:123', session: session() }),
+      (error) => error instanceof WordPressCurrentUserAdmissionError
+        && error.code === 'CANARY_ADMISSION_DENIED',
+    );
+  }
+  assert.throws(
+    () => admission(undefined, { requireCanary: 'false' }),
+    (error) => error instanceof WordPressCurrentUserAdmissionError
+      && error.code === 'CANARY_POLICY_INVALID',
+  );
 });
 
 test('contract is signed POST and never a reusable browser grant', () => {

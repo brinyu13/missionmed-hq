@@ -7,6 +7,7 @@ const MAX_STDIN_BYTES = 64 * 1_024;
 const CONTROL = /[\u0000-\u001f\u007f]/u;
 const OPERATIONS = new Set([
   'activate-canary',
+  'activate-rollout',
   'bind-variable',
   'capture-preimage',
   'deploy-dark',

@@ -151,6 +151,9 @@ const RUNNER_HASH_KEYS = Object.freeze({
   facultyCandidateAuthHandoffSha256: 'faculty-candidate-auth-handoff',
   mentorAssignmentRollbackSha256: 'mentor-assignment-rollback',
   mentorAssignmentSha256: 'mentor-assignment',
+  privateStorageObjectIdRegexRollbackSha256:
+    'private-storage-object-id-regex-rollback',
+  privateStorageObjectIdRegexSha256: 'private-storage-object-id-regex',
   facultyInvitationRollbackSha256: 'faculty-invitation-rollback',
   facultyInvitationSha256: 'faculty-invitation',
   facultyPrivateExportRollbackSha256: 'faculty-private-export-rollback',
