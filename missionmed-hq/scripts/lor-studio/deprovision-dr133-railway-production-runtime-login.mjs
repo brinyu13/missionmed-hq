@@ -7,13 +7,16 @@ import pg from 'pg';
 import {
   DR133_ARTIFACTS,
   DR133_RUNNER_CONTRACT,
+  DR133_SUCCESSOR_STAGES,
   Dr133RunnerError,
   assertRuntimeDeprovisionAbsentRow,
   assertRuntimeDeprovisionPreflightRow,
   assertRuntimeDeprovisionQuarantinedRow,
   assertRuntimeDeprovisionRevokedRow,
-  buildNonemptyRelationsSql,
   classifySafeFailure,
+  dr133RuntimeDeprovisionRollbackArtifactId,
+  extractRollbackGuardTransactionBodySql,
+  extractRollbackGuardVerificationSql,
   extractSuccessorRollbackGuardTransactionBodySql,
   extractSuccessorRollbackGuardVerificationSql,
   failDr133,
@@ -165,6 +168,11 @@ SELECT
     FROM pg_catalog.pg_roles
     WHERE rolname = 'lor_studio_runtime_login'
   ) AS runtime_login_count,
+  (
+    SELECT pg_catalog.count(*)::text
+    FROM pg_catalog.pg_roles
+    WHERE rolname LIKE 'lor\\_studio\\_%' ESCAPE '\\'
+  ) AS lor_role_count,
   (SELECT runtime_oid::text FROM role_oids) AS runtime_role_oid,
   (
     SELECT pg_catalog.count(*) = 1
@@ -397,20 +405,51 @@ RESTRICT
 export const DR133_RUNTIME_DEPROVISION_DROP_SQL =
   'DROP ROLE lor_studio_runtime_login';
 
-async function loadVerifiedFinalSuccessorRollback(readFileFn) {
-  const contract = DR133_ARTIFACTS.find(
-    (artifact) => artifact.id === 'mentor-assignment-rollback',
-  );
-  if (!contract) failDr133('ARTIFACT_INVENTORY_INVALID');
-  let bytes;
-  try {
-    bytes = await readFileFn(new URL(contract.relativePath, import.meta.url));
-  } catch {
-    failDr133('ARTIFACT_READ_FAILED');
+export const DR133_RUNTIME_DEPROVISION_EMPTY_SCHEMA_SQL = `
+DO $empty_schema_guard$
+DECLARE
+  relation record;
+  relation_nonempty boolean;
+BEGIN
+  FOR relation IN
+    SELECT class.relname::text AS relation_name
+    FROM pg_catalog.pg_class AS class
+    JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = class.relnamespace
+    WHERE namespace.nspname = 'lor_studio'
+      AND class.relkind IN ('r', 'p')
+    ORDER BY class.relname COLLATE "C"
+  LOOP
+    EXECUTE pg_catalog.format(
+      'SELECT EXISTS (SELECT 1 FROM %I.%I LIMIT 1)',
+      'lor_studio',
+      relation.relation_name
+    ) INTO STRICT relation_nonempty;
+    IF relation_nonempty THEN
+      RAISE EXCEPTION 'DR-133 runtime-login deprovision requires an empty LOR target'
+        USING ERRCODE = '55000';
+    END IF;
+  END LOOP;
+END
+$empty_schema_guard$;
+`;
+
+async function loadVerifiedRuntimeDeprovisionGuards(readFileFn) {
+  const guards = new Map();
+  for (let stageIndex = 0; stageIndex <= DR133_SUCCESSOR_STAGES.length; stageIndex += 1) {
+    const artifactId = dr133RuntimeDeprovisionRollbackArtifactId(stageIndex);
+    const contract = DR133_ARTIFACTS.find((artifact) => artifact.id === artifactId);
+    if (!contract) failDr133('ARTIFACT_INVENTORY_INVALID');
+    let bytes;
+    try {
+      bytes = await readFileFn(new URL(contract.relativePath, import.meta.url));
+    } catch {
+      failDr133('ARTIFACT_READ_FAILED');
+    }
+    if (!Buffer.isBuffer(bytes)) failDr133('ARTIFACT_BYTES_INVALID');
+    if (sha256Bytes(bytes) !== contract.sha256) failDr133('ARTIFACT_HASH_MISMATCH');
+    guards.set(stageIndex, Object.freeze({ ...contract, bytes }));
   }
-  if (!Buffer.isBuffer(bytes)) failDr133('ARTIFACT_BYTES_INVALID');
-  if (sha256Bytes(bytes) !== contract.sha256) failDr133('ARTIFACT_HASH_MISMATCH');
-  return Object.freeze({ ...contract, bytes });
+  return guards;
 }
 
 const SEMANTIC_POSTCOMMIT_POSTGRES_CODES = new Set(['42501', '55000']);
@@ -502,6 +541,10 @@ export async function deprovisionDr133RailwayProductionRuntimeLogin({
   let transactionRolledBack = false;
   let quarantineKnown = false;
   let rollbackArtifact = null;
+  let rollbackGuards = null;
+  let guardBodySql = null;
+  let guardVerificationSql = null;
+  let runtimeDeprovisionGuardStage = null;
   let postgresMajor = null;
   let runtimeRoleOid = null;
 
@@ -509,16 +552,7 @@ export async function deprovisionDr133RailwayProductionRuntimeLogin({
     const resolved = resolveDr133RunnerEnvironment(environment, {
       mode: 'runtime-login-deprovision',
     });
-    rollbackArtifact = await loadVerifiedFinalSuccessorRollback(readFileFn);
-    const rollbackSource = rollbackArtifact.bytes.toString('utf8');
-    const guardBodySql = extractSuccessorRollbackGuardTransactionBodySql(
-      rollbackSource,
-      rollbackArtifact.id,
-    );
-    const guardVerificationSql = extractSuccessorRollbackGuardVerificationSql(
-      rollbackSource,
-      rollbackArtifact.id,
-    );
+    rollbackGuards = await loadVerifiedRuntimeDeprovisionGuards(readFileFn);
     stage = 'ARTIFACT_VERIFIED';
 
     adminClient = new ClientClass({
@@ -541,6 +575,23 @@ export async function deprovisionDr133RailwayProductionRuntimeLogin({
     const preflightState = assertRuntimeDeprovisionPreflightRow(preflightResult.rows?.[0]);
     postgresMajor = preflightResult.rows[0].postgres_major;
     runtimeRoleOid = preflightState.runtimeRoleOid;
+    runtimeDeprovisionGuardStage = preflightState.successorStageIndex;
+    rollbackArtifact = rollbackGuards.get(runtimeDeprovisionGuardStage);
+    if (!rollbackArtifact) failDr133('ARTIFACT_INVENTORY_INVALID');
+    const rollbackSource = rollbackArtifact.bytes.toString('utf8');
+    if (runtimeDeprovisionGuardStage === 0) {
+      guardBodySql = extractRollbackGuardTransactionBodySql(rollbackSource);
+      guardVerificationSql = extractRollbackGuardVerificationSql(rollbackSource);
+    } else {
+      guardBodySql = extractSuccessorRollbackGuardTransactionBodySql(
+        rollbackSource,
+        rollbackArtifact.id,
+      );
+      guardVerificationSql = extractSuccessorRollbackGuardVerificationSql(
+        rollbackSource,
+        rollbackArtifact.id,
+      );
+    }
     quarantineKnown = preflightState.roleState === 'quarantined';
     stage = 'PREFLIGHT_VERIFIED';
 
@@ -559,10 +610,7 @@ export async function deprovisionDr133RailwayProductionRuntimeLogin({
       );
       if (gucResult.rows?.[0]?.configured_value !== value) failDr133('TARGET_GUC_REJECTED');
     }
-    const emptyResult = await adminClient.query(buildNonemptyRelationsSql());
-    if (emptyResult.rows?.[0]?.nonempty_relation_count !== '0') {
-      failDr133('RUNTIME_LOGIN_DEPROVISION_REQUIRES_EMPTY_TARGET');
-    }
+    await adminClient.query(DR133_RUNTIME_DEPROVISION_EMPTY_SCHEMA_SQL);
 
     await adminClient.query('BEGIN');
     transactionStarted = true;
@@ -575,6 +623,9 @@ export async function deprovisionDr133RailwayProductionRuntimeLogin({
       const lockedState = assertRuntimeDeprovisionPreflightRow(lockedPreflight.rows?.[0]);
       if (lockedState.runtimeRoleOid !== runtimeRoleOid) {
         failDr133('RUNTIME_LOGIN_DEPROVISION_ROLE_OID_CHANGED');
+      }
+      if (lockedState.successorStageIndex !== runtimeDeprovisionGuardStage) {
+        failDr133('RUNTIME_LOGIN_DEPROVISION_SCHEMA_STAGE_CHANGED');
       }
       if (
         lockedState.authenticationTimeoutSeconds
@@ -635,6 +686,9 @@ export async function deprovisionDr133RailwayProductionRuntimeLogin({
       postquarantineState.authenticationTimeoutSeconds
       !== preflightState.authenticationTimeoutSeconds
     ) failDr133('RUNTIME_LOGIN_DEPROVISION_AUTH_TIMEOUT_CHANGED');
+    if (postquarantineState.successorStageIndex !== runtimeDeprovisionGuardStage) {
+      failDr133('RUNTIME_LOGIN_DEPROVISION_SCHEMA_STAGE_CHANGED');
+    }
     if (
       postquarantineState.activeSessionCount !== 0
       || postquarantineState.startingClientBackendCount !== 0
@@ -642,6 +696,7 @@ export async function deprovisionDr133RailwayProductionRuntimeLogin({
       stage = 'QUARANTINED_SESSIONS_ACTIVE';
       failDr133('RUNTIME_LOGIN_DEPROVISION_SESSIONS_ACTIVE');
     }
+    await adminClient.query(DR133_RUNTIME_DEPROVISION_EMPTY_SCHEMA_SQL);
     stage = 'QUARANTINE_VERIFIED';
 
     transactionRolledBack = false;
@@ -663,6 +718,10 @@ export async function deprovisionDr133RailwayProductionRuntimeLogin({
         drainBarrierState.authenticationTimeoutSeconds
         !== preflightState.authenticationTimeoutSeconds
       ) failDr133('RUNTIME_LOGIN_DEPROVISION_AUTH_TIMEOUT_CHANGED');
+      if (drainBarrierState.successorStageIndex !== runtimeDeprovisionGuardStage) {
+        failDr133('RUNTIME_LOGIN_DEPROVISION_SCHEMA_STAGE_CHANGED');
+      }
+      await adminClient.query(DR133_RUNTIME_DEPROVISION_EMPTY_SCHEMA_SQL);
 
       stage = 'DEPROVISION_TRANSACTION_DISPATCHED';
       await adminClient.query(DR133_RUNTIME_DEPROVISION_REVOKE_SQL);
@@ -755,8 +814,11 @@ export async function deprovisionDr133RailwayProductionRuntimeLogin({
       }),
       runnerCode: safeFailure.runnerCode,
       postgresCode: safeFailure.postgresCode,
-      ...(rollbackArtifact
-        ? { mentorAssignmentRollbackSha256: rollbackArtifact.sha256 }
+      ...(rollbackArtifact && runtimeDeprovisionGuardStage !== null
+        ? {
+          runtimeDeprovisionGuardRollbackSha256: rollbackArtifact.sha256,
+          runtimeDeprovisionGuardStage,
+        }
         : {}),
       ...(postgresMajor === null ? {} : { postgresMajor }),
     });
@@ -771,7 +833,8 @@ export async function deprovisionDr133RailwayProductionRuntimeLogin({
     contract: DR133_RUNNER_CONTRACT,
     mode: 'runtime-login-deprovision',
     result: 'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED',
-    mentorAssignmentRollbackSha256: rollbackArtifact.sha256,
+    runtimeDeprovisionGuardRollbackSha256: rollbackArtifact.sha256,
+    runtimeDeprovisionGuardStage,
     postgresMajor,
   });
   return Object.freeze({

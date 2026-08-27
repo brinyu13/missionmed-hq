@@ -427,6 +427,8 @@ const DR133_RECEIPT_KEYS = Object.freeze([
   'result',
   'rlsSha256',
   'runnerCode',
+  'runtimeDeprovisionGuardRollbackSha256',
+  'runtimeDeprovisionGuardStage',
   'studentEvidenceRollbackSha256',
   'studentEvidenceSha256',
 ]);
@@ -779,6 +781,16 @@ export function expectedDr133SuccessorSentinelAt(stageCount) {
   );
 }
 
+export function dr133RuntimeDeprovisionRollbackArtifactId(stageCount) {
+  if (!Number.isInteger(stageCount) || stageCount < 0
+    || stageCount > DR133_SUCCESSOR_STAGES.length) {
+    failDr133('SUCCESSOR_STAGE_INVALID');
+  }
+  return stageCount === 0
+    ? 'rls-rollback'
+    : DR133_SUCCESSOR_STAGES[stageCount - 1].rollbackId;
+}
+
 export function targetGucEntries() {
   return Object.freeze([
     Object.freeze(['missionmed.lor.target_provider', DR133_TARGET.provider]),
@@ -867,6 +879,7 @@ export function writeDr133Receipt(stream, payload) {
     'mentorAssignmentRollbackSha256',
     'mentorAssignmentSha256',
     'rlsSha256',
+    'runtimeDeprovisionGuardRollbackSha256',
     'studentEvidenceRollbackSha256',
     'studentEvidenceSha256',
   ]) {
@@ -874,7 +887,12 @@ export function writeDr133Receipt(stream, payload) {
       failDr133('OUTPUT_RECEIPT_INVALID');
     }
   }
-  for (const integerKey of ['definerCount', 'postgresMajor', 'relationCount']) {
+  for (const integerKey of [
+    'definerCount',
+    'postgresMajor',
+    'relationCount',
+    'runtimeDeprovisionGuardStage',
+  ]) {
     if (payload[integerKey] !== undefined && !isCanonicalInteger(payload[integerKey])) {
       failDr133('OUTPUT_RECEIPT_INVALID');
     }
@@ -976,7 +994,29 @@ export function writeDr133Receipt(stream, payload) {
   if (
     payload.mode === 'runtime-login-deprovision'
     && payload.result !== 'NO_MUTATION'
-  ) requireKeys(['mentorAssignmentRollbackSha256']);
+  ) requireKeys([
+    'runtimeDeprovisionGuardRollbackSha256',
+    'runtimeDeprovisionGuardStage',
+  ]);
+  if (
+    payload.runtimeDeprovisionGuardStage !== undefined
+    && payload.runtimeDeprovisionGuardStage > DR133_SUCCESSOR_STAGES.length
+  ) failDr133('OUTPUT_RECEIPT_INVALID');
+  const hasGuardStage = has('runtimeDeprovisionGuardStage');
+  const hasGuardHash = has('runtimeDeprovisionGuardRollbackSha256');
+  if (hasGuardStage !== hasGuardHash
+    || ((hasGuardStage || hasGuardHash) && payload.mode !== 'runtime-login-deprovision')) {
+    failDr133('OUTPUT_RECEIPT_INVALID');
+  }
+  if (hasGuardStage) {
+    const artifactId = dr133RuntimeDeprovisionRollbackArtifactId(
+      payload.runtimeDeprovisionGuardStage,
+    );
+    const expectedHash = DR133_ARTIFACTS.find((artifact) => artifact.id === artifactId)?.sha256;
+    if (payload.runtimeDeprovisionGuardRollbackSha256 !== expectedHash) {
+      failDr133('OUTPUT_RECEIPT_INVALID');
+    }
+  }
   if (payload.result === 'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED') {
     requireKeys(['postgresMajor']);
   }
@@ -1138,10 +1178,14 @@ function runtimeDeprovisionRoleState(row, code) {
     || row.ssl_version.length === 0
     || typeof row.ssl_cipher !== 'string'
     || row.ssl_cipher.length === 0
-    || row.schema_sentinel !== expectedDr133SuccessorSentinel()
+    || !Array.from(
+      { length: DR133_SUCCESSOR_STAGES.length + 1 },
+      (_, index) => expectedDr133SuccessorSentinelAt(index),
+    ).includes(row.schema_sentinel)
     || row.app_role_count !== '1'
     || row.command_owner_count !== '1'
     || row.runtime_login_count !== '1'
+    || row.lor_role_count !== '3'
     || typeof activeRoleSafe !== 'boolean'
     || typeof quarantinedRoleSafe !== 'boolean'
     || activeRoleSafe === quarantinedRoleSafe
@@ -1161,6 +1205,11 @@ function runtimeDeprovisionRoleState(row, code) {
     row.authentication_timeout_seconds,
     code,
   );
+  const successorStageIndex = Array.from(
+    { length: DR133_SUCCESSOR_STAGES.length + 1 },
+    (_, index) => index,
+  ).find((index) => row.schema_sentinel === expectedDr133SuccessorSentinelAt(index));
+  if (successorStageIndex === undefined) failDr133(code);
   if (
     authenticationTimeoutSeconds < 1
     || authenticationTimeoutSeconds > 120
@@ -1172,6 +1221,7 @@ function runtimeDeprovisionRoleState(row, code) {
     activeSessionCount,
     startingClientBackendCount,
     authenticationTimeoutSeconds,
+    successorStageIndex,
     roleState: activeRoleSafe ? 'active' : 'quarantined',
   });
 }

@@ -116,10 +116,16 @@ function successReceipt(mode) {
       definerCount: DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES.length,
     });
   }
-  if (['runtime-login', 'runtime-login-deprovision'].includes(mode)) {
+  if (mode === 'runtime-login') {
     receipt.mentorAssignmentRollbackSha256 = artifactHash('mentor-assignment-rollback');
   }
-  if (mode === 'runtime-login-deprovision') receipt.postgresMajor = 18;
+  if (mode === 'runtime-login-deprovision') {
+    receipt.postgresMajor = 18;
+    receipt.runtimeDeprovisionGuardRollbackSha256 = artifactHash(
+      'mentor-assignment-rollback',
+    );
+    receipt.runtimeDeprovisionGuardStage = 8;
+  }
   return receipt;
 }
 
@@ -134,8 +140,14 @@ function failureReceipt(mode, result) {
   if (['migration', 'successor-migration', 'schema-verifier'].includes(mode)) {
     Object.assign(receipt, runnerHashes());
   }
-  if (mode !== 'runtime-login' || result !== 'NO_MUTATION') {
+  if (mode === 'runtime-login' && result !== 'NO_MUTATION') {
     receipt.mentorAssignmentRollbackSha256 = artifactHash('mentor-assignment-rollback');
+  }
+  if (mode === 'runtime-login-deprovision' && result !== 'NO_MUTATION') {
+    receipt.runtimeDeprovisionGuardRollbackSha256 = artifactHash(
+      'mentor-assignment-rollback',
+    );
+    receipt.runtimeDeprovisionGuardStage = 8;
   }
   return receipt;
 }
@@ -384,11 +396,17 @@ test('all seven service receipt modes accept only canonical one-line fixed recei
 
 test('receipt validator rejects extra output, mode drift, exit drift, artifact drift, and secrets', () => {
   const migration = successReceipt('migration');
+  const deprovision = successReceipt('runtime-login-deprovision');
   for (const [bytes, mode, exitCode] of [
     [Buffer.from(`notice\n${JSON.stringify(migration)}\n`), 'migration', 0],
     [receiptBytes(migration), 'schema-verifier', 0],
     [receiptBytes(migration), 'migration', 1],
     [receiptBytes({ ...migration, foundationSha256: '0'.repeat(64) }), 'migration', 0],
+    [
+      receiptBytes({ ...deprovision, runtimeDeprovisionGuardStage: 5 }),
+      'runtime-login-deprovision',
+      0,
+    ],
     [Buffer.from('{"contract":"postgresql://password"}\n'), 'migration', 1],
   ]) assert.throws(() => validateDr133TunnelServiceReceipt(bytes, mode, exitCode));
 });

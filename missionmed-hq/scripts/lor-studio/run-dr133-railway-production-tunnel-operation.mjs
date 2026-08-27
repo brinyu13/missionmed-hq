@@ -24,6 +24,7 @@ import {
   DR133_RUNNER_CONTRACT,
   DR133_TARGET,
   DR133_TUNNEL_HOST,
+  dr133RuntimeDeprovisionRollbackArtifactId,
   verifiedDr133DatabaseCa,
   writeDr133Receipt,
 } from './railway-dr133-production-runner-core.mjs';
@@ -415,6 +416,15 @@ export function validateDr133TunnelServiceReceipt(bytes, expectedMode, exitCode)
       fail('SERVICE_RECEIPT_INVALID');
     }
     assertExactArtifactHashes(receipt, RUNNER_HASH_KEYS);
+    if (mode === 'runtime-login-deprovision' && receipt.result !== 'NO_MUTATION') {
+      const expectedGuardArtifact = dr133RuntimeDeprovisionRollbackArtifactId(
+        receipt.runtimeDeprovisionGuardStage,
+      );
+      if (
+        receipt.runtimeDeprovisionGuardRollbackSha256
+        !== artifactHash(expectedGuardArtifact)
+      ) fail('SERVICE_RECEIPT_ARTIFACT_HASH_MISMATCH');
+    }
   }
   const success = SUCCESS_RESULTS[mode].has(receipt.result);
   if ((success && exitCode !== 0) || (!success && exitCode !== 1)) {

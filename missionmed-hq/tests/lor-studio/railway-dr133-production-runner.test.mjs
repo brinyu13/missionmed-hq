@@ -28,7 +28,9 @@ import {
   DR133_SUCCESSOR_STAGES,
   DR133_TARGET,
   Dr133RunnerError,
+  assertRuntimeDeprovisionPreflightRow,
   buildNonemptyRelationsSql,
+  dr133RuntimeDeprovisionRollbackArtifactId,
   expectedDr133SuccessorSentinelAt,
   expectedDr133Sentinel,
   expectedDr133SuccessorSentinel,
@@ -65,6 +67,7 @@ import {
   provisionDr133RailwayProductionRuntimeLogin,
 } from '../../scripts/lor-studio/provision-dr133-railway-production-runtime-login.mjs';
 import {
+  DR133_RUNTIME_DEPROVISION_EMPTY_SCHEMA_SQL,
   DR133_RUNTIME_DEPROVISION_PREFLIGHT_SQL,
 } from '../../scripts/lor-studio/deprovision-dr133-railway-production-runtime-login.mjs';
 import {
@@ -183,6 +186,59 @@ test('all production private-target probes accept the pinned Railway tunnel loop
     assert.match(sql, /inet_server_addr\(\) << pg_catalog\.inet 'fc00::\/7'/u);
     assert.match(sql, /AS private_server_address/u);
   }
+});
+
+test('production runtime deprovision accepts only exact empty-schema cursor prefixes', () => {
+  const row = {
+    database_name: DR133_TARGET.databaseName,
+    current_user: DR133_TARGET.databaseAdmin,
+    session_user: DR133_TARGET.databaseAdmin,
+    database_owner: DR133_TARGET.databaseAdmin,
+    postgres_major: 18,
+    private_server_address: true,
+    ssl_active: true,
+    ssl_version: 'TLSv1.3',
+    ssl_cipher: 'TLS_AES_256_GCM_SHA384',
+    schema_sentinel: expectedDr133SuccessorSentinelAt(5),
+    app_role_count: '1',
+    command_owner_count: '1',
+    runtime_login_count: '1',
+    lor_role_count: '3',
+    runtime_role_oid: '42042',
+    runtime_role_active_safe: true,
+    runtime_role_quarantined_safe: false,
+    membership_safe: true,
+    membership_count: '1',
+    runtime_active_session_count: '0',
+    starting_unauthenticated_client_backend_count: '0',
+    runtime_owned_object_count: '0',
+    runtime_default_acl_count: '0',
+    runtime_unsafe_dependency_count: '0',
+    authentication_timeout_seconds: '60',
+    pre_auth_delay_seconds: '0',
+    post_auth_delay_seconds: '0',
+  };
+  assert.equal(assertRuntimeDeprovisionPreflightRow(row).successorStageIndex, 5);
+  assert.equal(
+    dr133RuntimeDeprovisionRollbackArtifactId(5),
+    'student-evidence-rollback',
+  );
+  assert.equal(
+    dr133RuntimeDeprovisionRollbackArtifactId(DR133_SUCCESSOR_STAGES.length),
+    'mentor-assignment-rollback',
+  );
+  assert.throws(
+    () => assertRuntimeDeprovisionPreflightRow({ ...row, schema_sentinel: 'foreign' }),
+    /RUNTIME_LOGIN_DEPROVISION_PREFLIGHT_INVALID/u,
+  );
+  assert.throws(
+    () => assertRuntimeDeprovisionPreflightRow({ ...row, lor_role_count: '4' }),
+    /RUNTIME_LOGIN_DEPROVISION_PREFLIGHT_INVALID/u,
+  );
+  assert.match(DR133_RUNTIME_DEPROVISION_PREFLIGHT_SQL, /AS lor_role_count/u);
+  assert.match(DR133_RUNTIME_DEPROVISION_EMPTY_SCHEMA_SQL, /SELECT EXISTS/u);
+  assert.match(DR133_RUNTIME_DEPROVISION_EMPTY_SCHEMA_SQL, /ERRCODE = '55000'/u);
+  assert.doesNotMatch(DR133_RUNTIME_DEPROVISION_EMPTY_SCHEMA_SQL, /DELETE|TRUNCATE|DROP/u);
 });
 
 test('production GUCs and service-operation URL normalization fail closed', () => {
