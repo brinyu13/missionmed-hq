@@ -203,13 +203,29 @@
 	}
 
 	function normalizeLorStudioMatrixEntry(value) {
-		var entry = value && typeof value === "object" ? value : {};
-		var allowed = entry.allowed === true &&
-			entry.route === LOR_STUDIO_ROUTE &&
-			entry.launchUrl === LOR_STUDIO_LAUNCH_URL;
+		var allowed = false;
+
+		if (value && typeof value === "object") {
+			try {
+				var keys = Reflect.ownKeys(value);
+				var allowedProperty = Object.getOwnPropertyDescriptor(value, "allowed");
+				var routeProperty = Object.getOwnPropertyDescriptor(value, "route");
+				var launchUrlProperty = Object.getOwnPropertyDescriptor(value, "launchUrl");
+
+				allowed = keys.length === 3 &&
+					keys.indexOf("allowed") !== -1 &&
+					keys.indexOf("launchUrl") !== -1 &&
+					keys.indexOf("route") !== -1 &&
+					allowedProperty && Object.prototype.hasOwnProperty.call(allowedProperty, "value") && allowedProperty.value === true &&
+					routeProperty && Object.prototype.hasOwnProperty.call(routeProperty, "value") && routeProperty.value === LOR_STUDIO_ROUTE &&
+					launchUrlProperty && Object.prototype.hasOwnProperty.call(launchUrlProperty, "value") && launchUrlProperty.value === LOR_STUDIO_LAUNCH_URL;
+			} catch (error) {
+				allowed = false;
+			}
+		}
 
 		return {
-			allowed: allowed,
+			allowed: allowed === true,
 			route: LOR_STUDIO_ROUTE,
 			launchUrl: LOR_STUDIO_LAUNCH_URL
 		};
@@ -224,7 +240,20 @@
 	}
 
 	function launchLorStudio() {
-		window.location.assign(LOR_STUDIO_LAUNCH_URL);
+		if (!document.body || typeof document.createElement !== "function") return;
+
+		var anchor = document.createElement("a");
+		anchor.href = LOR_STUDIO_LAUNCH_URL;
+		anchor.referrerPolicy = "no-referrer";
+		anchor.rel = "noreferrer";
+		anchor.style.display = "none";
+		document.body.appendChild(anchor);
+
+		try {
+			anchor.click();
+		} finally {
+			document.body.removeChild(anchor);
+		}
 	}
 
 	function normalizeMatrixRoute(route) {

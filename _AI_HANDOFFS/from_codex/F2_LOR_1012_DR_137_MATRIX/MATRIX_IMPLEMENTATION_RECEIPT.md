@@ -4,19 +4,19 @@
 - Authority: DR-137 canonical Matrix shared launch-seam authority
 - Recorded UTC: `2026-08-27T07:30:02Z`
 - Base/rebaseline commit: `29907236d7f31ba3a4e1d18f390120b8204ee2ea`
-- Transaction: `matrix-lor-source-and-dark-deploy`
-- Lease: `SHARED:MATRIX-SHELL`, fencing epoch `342`
+- Transaction: `matrix-lor-final-correction-and-dark-deploy`
+- Lease: `SHARED:MATRIX-SHELL`, fencing epoch `344`
 - Exposure state: dark; this implementation does not enable Matrix entry or change a student entitlement
 
 ## Bounded implementation
 
 | Path | SHA-256 | Purpose |
 |---|---|---|
-| `wp-content/plugins/missionmed-hub/assets/student-os.js` | `56c7c339ee12cdd06874241fa6134e1db41721e425dc9d988b4af110368dc3fa` | Mutable source removes the legacy in-Matrix LOR renderer/API and adds the fail-closed LOR Studio launch seam. |
-| `wp-content/plugins/missionmed-hub/assets/student-os.56c7c339ee12cdd0.js` | `56c7c339ee12cdd06874241fa6134e1db41721e425dc9d988b4af110368dc3fa` | Byte-identical immutable runtime successor. |
-| `wp-content/mu-plugins/missionmed-matrix-lor-studio-entry.php` | `9e21ac1b1f0f1db8131090300e73e5e86e1ae5dc1f09cd974c47016e2c5dc1a0` | Default-off controller, strict entitlement projection, immutable pin selector, and exact legacy REST retirement. |
-| `tests/matrix-lor-studio-entry-contract.cjs` | `e14a8b29b71c41402d7d3081f887178a5f08424ae8eb593480cf234f203b4a4a` | Browser-runtime authorization, navigation, launch, privacy, and legacy-surface contract. |
-| `tests/matrix-lor-studio-entry-contract.php` | `79d8ee6bf8ca7b0e487919481fd5bc5f2fa501506ff739aa4faf3649ebd537b9` | WordPress mode, entitlement, projection, pin, and legacy-route contract. |
+| `wp-content/plugins/missionmed-hub/assets/student-os.js` | `30068939fc54fb4a21209de4962977b9aa1a89a9557a046d367b1737624c570b` | Mutable source removes the legacy in-Matrix LOR renderer/API and adds the fail-closed LOR Studio launch seam. |
+| `wp-content/plugins/missionmed-hub/assets/student-os.30068939fc54fb4a.js` | `30068939fc54fb4a21209de4962977b9aa1a89a9557a046d367b1737624c570b` | Byte-identical immutable runtime successor. |
+| `wp-content/mu-plugins/missionmed-matrix-lor-studio-entry.php` | `ab87e7272aebdf44f82e640f2d0f7f08111caae67f339c874e9ab85eedf08721` | Default-off controller, strict entitlement projection, immutable pin selector, and exact legacy REST retirement. |
+| `tests/matrix-lor-studio-entry-contract.cjs` | `875fa0ff68a64c1730d24bf0891028b7f2bf1bb7e37031f5eb8770c5c966bfa7` | Browser-runtime authorization, navigation, launch, privacy, and legacy-surface contract. |
+| `tests/matrix-lor-studio-entry-contract.php` | `4e105235a72374c05300a2df6dd1d5b9c7a60f6bc693a950e050f6fb82aca383` | WordPress mode, entitlement, projection, pin, and legacy-route contract. |
 
 The only permitted external launch target is:
 
@@ -24,10 +24,12 @@ The only permitted external launch target is:
 
 The browser projection has exactly three keys: `allowed`, `route`, and `launchUrl`. Authorization is a literal boolean derived only from `mmhq_lor_studio_current_identity_entitlement()`. The controller has no administrator, capability, query-string, cookie, user-metadata, or module-registration bypass.
 
+The successor additionally requires three exact own data properties before it accepts the browser projection; inherited properties, accessors, extra keys, and prototype pollution fail closed. Both sidebar and manual/deep-link launches use a same-tab anchor with `referrerpolicy="no-referrer"`/`rel="noreferrer"`; the runtime no longer uses `location.assign()` for the LOR seam.
+
 ## Validation before deployment
 
 - JavaScript syntax for mutable source, immutable artifact, and CJS test: PASS.
-- JavaScript Matrix LOR contract: `89/89 PASS`.
+- JavaScript Matrix LOR contract: `142/142 PASS`.
 - PHP syntax for controller and PHP test: PASS.
 - PHP Matrix LOR contract: `86/86 PASS`.
 - File Vault V2 PHP contract: `72/72 PASS`.
@@ -43,6 +45,8 @@ The browser contract requiring Playwright was not rerun in this worktree because
 ## Pre-deployment guards
 
 The Matrix origin/public guard matched all production-locked assets and reported one expected local-source difference: `student_os_js`. That difference is exactly the DR-137-authorized successor above; no production byte had changed at that point.
+
+The first source checkpoint (`28ffd114d9e2b1a3b15018ff7b5cfd992e86f783`) was not deployed. A final adversarial review found inherited-property authorization and manual-route referrer gaps. All staged incoming bytes were deleted, epoch `342` was released/provider-confirmed inactive with zero active leases, and the production preimage remained exact. A second review rejected non-enumerable-string and Symbol extras as well; epoch `343` was therefore released/provider-confirmed inactive without staging or production mutation. The `Reflect.ownKeys` successor and expanded `142/142` regression contract above supersede both rejected candidates under epoch `344`.
 
 The repository-wide Critical Systems Gate reported unrelated pre-existing composition/staleness findings for products outside this transaction (including StoryForge/Timeline paths). The relevant MissionMed HQ protected paths and public WordPress/HQ routes passed. DR-137 does not authorize expanding this tranche into those unrelated products, so this receipt records the bounded non-green result rather than misrepresenting it as a pass.
 

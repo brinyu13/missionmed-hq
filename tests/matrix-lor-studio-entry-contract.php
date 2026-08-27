@@ -127,7 +127,7 @@ function matrix_lor_cleanup_fixture() {
 
 register_shutdown_function( 'matrix_lor_cleanup_fixture' );
 
-matrix_lor_assert( 'student-os.56c7c339ee12cdd0.js' === MMHQ_LOR_STUDIO_MATRIX_ASSET, 'successor immutable asset is exact' );
+matrix_lor_assert( 'student-os.30068939fc54fb4a.js' === MMHQ_LOR_STUDIO_MATRIX_ASSET, 'successor immutable asset is exact' );
 matrix_lor_assert( 'student-os.809093d2b5b2bc05.js' === MMHQ_LOR_STUDIO_MATRIX_FALLBACK_ASSET, 'fallback immutable asset is exact' );
 matrix_lor_assert( 'lor-studio' === MMHQ_LOR_STUDIO_MATRIX_ROUTE, 'Matrix route is exact' );
 matrix_lor_assert( 'https://missionmed-hq-production.up.railway.app/api/lor-studio/auth/start' === MMHQ_LOR_STUDIO_MATRIX_LAUNCH_URL, 'launch URL is exact' );

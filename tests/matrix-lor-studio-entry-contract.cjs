@@ -9,7 +9,7 @@ const crypto = require("crypto");
 const root = path.resolve(__dirname, "..");
 const sourcePath = path.join(root, "wp-content/plugins/missionmed-hub/assets/student-os.js");
 const source = fs.readFileSync(sourcePath, "utf8");
-const expectedSourceSha256 = "56c7c339ee12cdd06874241fa6134e1db41721e425dc9d988b4af110368dc3fa";
+const expectedSourceSha256 = "30068939fc54fb4a21209de4962977b9aa1a89a9557a046d367b1737624c570b";
 const launchUrl = "https://missionmed-hq-production.up.railway.app/api/lor-studio/auth/start";
 let checks = 0;
 
@@ -35,6 +35,8 @@ function createNode(attributes) {
 function createHarness(entry, options) {
 	options = options || {};
 	const assigned = [];
+	const launched = [];
+	const appendedAnchors = [];
 	const rendered = [];
 	const baseUrl = "https://missionmedinstitute.com/member-dashboard/";
 	const location = {
@@ -55,13 +57,45 @@ function createHarness(entry, options) {
 		}
 	};
 	const nodes = {};
+	const body = {
+		appendChild(node) {
+			node.parentNode = body;
+			appendedAnchors.push(node);
+			return node;
+		},
+		removeChild(node) {
+			const index = appendedAnchors.indexOf(node);
+			if (index !== -1) appendedAnchors.splice(index, 1);
+			node.parentNode = null;
+			return node;
+		}
+	};
 	const document = {
 		readyState: "loading",
 		documentElement: null,
-		body: null,
+		body,
 		head: null,
 		addEventListener() {},
 		removeEventListener() {},
+		createElement(tagName) {
+			if (String(tagName).toLowerCase() !== "a") return createNode();
+			return {
+				href: "",
+				referrerPolicy: "",
+				rel: "",
+				style: {},
+				parentNode: null,
+				click() {
+					launched.push({
+						href: this.href,
+						referrerPolicy: this.referrerPolicy,
+						rel: this.rel,
+						hasTarget: Object.prototype.hasOwnProperty.call(this, "target"),
+						target: this.target
+					});
+				}
+			};
+		},
 		getElementById(id) {
 			return nodes[id] || null;
 		}
@@ -106,6 +140,13 @@ function createHarness(entry, options) {
 		clearTimeout
 	};
 	vm.createContext(context);
+	if (options.polluteEntryPrototype === true) {
+		context.prototypePollutionLaunchUrl = launchUrl;
+		vm.runInContext(
+			'Object.prototype.allowed=true;Object.prototype.route="lor-studio";Object.prototype.launchUrl=prototypePollutionLaunchUrl;',
+			context
+		);
+	}
 	vm.runInContext(source, context, { filename: sourcePath });
 
 	const originalSidebarRenderer = matrix.render.sidebar;
@@ -123,12 +164,15 @@ function createHarness(entry, options) {
 		document,
 		location,
 		assigned,
+		launched,
+		appendedAnchors,
 		rendered,
 		navItems() {
 			return matrix.components.navItems();
 		},
 		route(hash) {
 			assigned.length = 0;
+			launched.length = 0;
 			rendered.length = 0;
 			location.hash = hash;
 			location.href = baseUrl + hash;
@@ -163,6 +207,10 @@ assert(sourceHash === expectedSourceSha256, "mutable Matrix source matches the r
 assert(source.includes('var LOR_STUDIO_ROUTE = "lor-studio";'), "canonical LOR Studio route is fixed in source");
 assert(source.includes(`var LOR_STUDIO_LAUNCH_URL = "${launchUrl}";`), "canonical Railway auth start URL is fixed in source");
 assert(source.includes("normalizeLorStudioMatrixEntry(window.mmedLorStudioMatrixEntry)"), "server-resolved entry object is consumed before Matrix initialization");
+assert(source.includes('Object.getOwnPropertyDescriptor(value, "allowed")'), "authorization requires own data-property inspection");
+assert(!source.includes("window.location.assign(LOR_STUDIO_LAUNCH_URL)"), "manual LOR launch never uses location.assign without referrer controls");
+assert(source.includes('anchor.referrerPolicy = "no-referrer";'), "manual launch explicitly suppresses its referrer");
+assert(source.includes('anchor.rel = "noreferrer";'), "manual launch carries the noreferrer relationship");
 assert(!source.includes('route: "lor"'), "legacy LOR route is absent from the approved navigation declaration");
 assert(!source.includes("LOR Writer"), "legacy LOR Writer label and renderer copy are absent");
 assert(!source.includes("app.state.lor"), "legacy LOR state is absent");
@@ -171,6 +219,11 @@ assert(!source.includes("bindLOR"), "legacy LOR mutation binder is absent");
 assert(!source.includes("lorFormCard"), "legacy LOR request form is absent");
 assert(!source.includes("lorRequestCard"), "legacy LOR request cards are absent");
 assert(!/app\.api\.(?:get|post|put|delete)\(\s*["']\/lor(?:["'/])/.test(source), "legacy LOR API requests are absent");
+
+const hiddenExtraEntry = { allowed: true, route: "lor-studio", launchUrl };
+Object.defineProperty(hiddenExtraEntry, "hiddenExtra", { value: true, enumerable: false });
+const symbolExtraEntry = { allowed: true, route: "lor-studio", launchUrl };
+symbolExtraEntry[Symbol("extra")] = true;
 
 const deniedEntries = [
 	undefined,
@@ -182,7 +235,16 @@ const deniedEntries = [
 	{ allowed: "true", route: "lor-studio", launchUrl },
 	{ allowed: true, route: "lor", launchUrl },
 	{ allowed: true, route: "lor-studio", launchUrl: `${launchUrl}?user=123` },
-	{ allowed: true, route: "lor-studio", launchUrl: "https://example.invalid/api/lor-studio/auth/start" }
+	{ allowed: true, route: "lor-studio", launchUrl: "https://example.invalid/api/lor-studio/auth/start" },
+	{ allowed: true, route: "lor-studio", launchUrl, extra: true },
+	Object.create({ allowed: true, route: "lor-studio", launchUrl }),
+	Object.defineProperties({}, {
+		allowed: { enumerable: true, get() { return true; } },
+		route: { enumerable: true, get() { return "lor-studio"; } },
+		launchUrl: { enumerable: true, get() { return launchUrl; } }
+	}),
+	hiddenExtraEntry,
+	symbolExtraEntry
 ];
 
 deniedEntries.forEach((entry, index) => {
@@ -196,9 +258,22 @@ deniedEntries.forEach((entry, index) => {
 	assert(!deniedRoutes.includes("lor"), `denied fixture ${index} never restores the legacy route`);
 	harness.route("#lor-studio");
 	assert(harness.assigned.length === 0, `denied fixture ${index} does not launch Railway`);
+	assert(harness.launched.length === 0, `denied fixture ${index} does not synthesize a navigation anchor`);
 	assert(harness.location.hash === "#dashboard", `denied fixture ${index} normalizes the manual route to Dashboard`);
 	assert(harness.matrix.state.route === "dashboard", `denied fixture ${index} renders Dashboard state`);
 });
+
+const polluted = createHarness(undefined, {
+	admin: true,
+	polluteEntryPrototype: true,
+	modulePermissions: { "lor-studio": true },
+	modules: [{ route: "lor-studio", launch_url: launchUrl }]
+});
+assert(!routes(polluted).includes("lor-studio"), "Object.prototype pollution cannot authorize LOR Studio navigation");
+polluted.route("#lor-studio");
+assert(polluted.assigned.length === 0, "prototype pollution cannot reach location.assign");
+assert(polluted.launched.length === 0, "prototype pollution cannot synthesize a launch anchor");
+assert(polluted.location.hash === "#dashboard", "prototype pollution fails closed to Dashboard");
 
 const exactEntry = { allowed: true, route: "lor-studio", launchUrl };
 const allowed = createHarness(exactEntry, {
@@ -230,8 +305,13 @@ assert(allowed.assigned.length === 0, "identity-bearing LOR Studio hashes never 
 assert(allowed.matrix.state.route === "dashboard", "identity-bearing LOR Studio hashes fail closed to Dashboard state");
 
 allowed.route("#lor-studio");
-assert(allowed.assigned.length === 1, "authorized manual LOR Studio route launches exactly once");
-assert(allowed.assigned[0] === launchUrl, "authorized manual route launches only the fixed Railway auth start URL");
+assert(allowed.assigned.length === 0, "authorized manual route never uses location.assign without referrer controls");
+assert(allowed.launched.length === 1, "authorized manual LOR Studio route launches exactly once");
+assert(allowed.launched[0].href === launchUrl, "authorized manual route launches only the fixed Railway auth start URL");
+assert(allowed.launched[0].referrerPolicy === "no-referrer", "authorized manual route explicitly suppresses the referrer");
+assert(allowed.launched[0].rel === "noreferrer", "authorized manual route applies the noreferrer relationship");
+assert(allowed.launched[0].hasTarget === false, "authorized manual route remains same-tab without a target override");
+assert(allowed.appendedAnchors.length === 0, "authorized manual route removes its transient launch anchor");
 assert(allowed.rendered.length === 0, "authorized manual route does not invoke an internal Matrix renderer");
 
 const sidebarHtml = allowed.renderSidebar();

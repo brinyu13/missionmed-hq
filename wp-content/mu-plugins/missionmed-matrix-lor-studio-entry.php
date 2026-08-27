@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 const MMHQ_LOR_STUDIO_MATRIX_ROUTE          = 'lor-studio';
 const MMHQ_LOR_STUDIO_MATRIX_LAUNCH_URL     = 'https://missionmed-hq-production.up.railway.app/api/lor-studio/auth/start';
-const MMHQ_LOR_STUDIO_MATRIX_ASSET          = 'student-os.56c7c339ee12cdd0.js';
+const MMHQ_LOR_STUDIO_MATRIX_ASSET          = 'student-os.30068939fc54fb4a.js';
 const MMHQ_LOR_STUDIO_MATRIX_FALLBACK_ASSET = 'student-os.809093d2b5b2bc05.js';
 
 /**
