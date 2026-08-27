@@ -677,6 +677,17 @@ test('end to end: the real projection UI bundle hydrates production without ever
   assert.notEqual(mount, null);
   assert.equal(mount.className, 'lor-production-root', 'the mount matches the class the adapter stylesheet targets');
   assert.notEqual(mount.childElementCount, 0, 'the real renderer painted the projection');
+  const matrixLinks = [...mount.querySelectorAll('a[data-lor-return-matrix]')];
+  assert.equal(matrixLinks.length, 1, 'the live student surface exposes one Matrix return control');
+  assert.equal(matrixLinks[0].textContent, 'Return to Matrix');
+  assert.equal(
+    matrixLinks[0].getAttribute('href'),
+    'https://missionmedinstitute.com/member-dashboard/#dashboard',
+  );
+  assert.equal(matrixLinks[0].getAttribute('referrerpolicy'), 'no-referrer');
+  assert.equal(matrixLinks[0].getAttribute('target'), null);
+  assert.equal(matrixLinks[0].getAttribute('onclick'), null);
+  assert.equal(mount.contains(document.getElementById('btnMatrix')), false, 'the frozen control remains outside the live mount');
 
   // The whole point: real production data on screen, prototype still sealed.
   assertPrototypeNeverRevealed(dom);

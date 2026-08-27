@@ -63,6 +63,7 @@
   const FACULTY_PROJECTION_SCHEMA = 'missionmed.lor.faculty-projection.v1';
   const MENTOR_PROJECTION_SCHEMA = 'missionmed.lor.mentor-projection.v1';
   const PRODUCTION_MOUNT_ID = 'lorProductionRoot';
+  const MATRIX_DASHBOARD_URL = 'https://missionmedinstitute.com/member-dashboard/#dashboard';
   const FROZEN_PROTOTYPE_SCRIPT_ID = 'lorFrozenPrototypeRuntime';
   const FROZEN_PROTOTYPE_SCRIPT_TYPE = 'application/x-lor-frozen-prototype';
   const VALUE_DISPLAY_LIMIT = 240;
@@ -644,6 +645,14 @@
       if (className) node.className = className;
       if (text !== undefined && text !== null) node.textContent = String(text);
       return node;
+    }
+
+    function buildMatrixReturnLink() {
+      const link = el('a', 'btn alt sm lorMatrixReturnLink', 'Return to Matrix');
+      link.setAttribute('href', MATRIX_DASHBOARD_URL);
+      link.setAttribute('referrerpolicy', 'no-referrer');
+      link.setAttribute('data-lor-return-matrix', '');
+      return link;
     }
 
     function appendAll(parent, children) {
@@ -1323,6 +1332,7 @@
       strip.appendChild(el('span', TONE_STAGE_CLASS[tone], humanize(projection.status)));
       strip.appendChild(el('span', 'chip', `Case ${projection.caseId}`));
       strip.appendChild(el('span', 'chip', `Version ${projection.revision}`));
+      strip.appendChild(buildMatrixReturnLink());
       header.appendChild(strip);
       header.appendChild(el(
         'p',
@@ -2173,6 +2183,7 @@
       strip.appendChild(el('span', 'chip', `Version ${projection.revision}`));
       const saveChip = buildSaveStateChip();
       if (saveChip) strip.appendChild(saveChip);
+      strip.appendChild(buildMatrixReturnLink());
       header.appendChild(strip);
       view.appendChild(header);
 
@@ -2204,6 +2215,7 @@
         humanize(projection.status),
       ));
       strip.appendChild(el('span', 'chip', `Case ${projection.caseId}`));
+      strip.appendChild(buildMatrixReturnLink());
       header.appendChild(strip);
       view.appendChild(header);
       view.appendChild(panel('Mentor case status', [

@@ -787,6 +787,63 @@ test('the exact five-field mentor projection renders read only and never becomes
   assertNoInternalLeak(harness);
 });
 
+test('every live role surface offers exactly one fixed, inert Return to Matrix link', async () => {
+  const mentor = {
+    schemaVersion: 'missionmed.lor.mentor-projection.v1',
+    caseId: CASE_ID,
+    status: 'faculty_review',
+    strategyStatus: 'faculty_review',
+    nextMilestone: 'faculty_approval',
+    deliveryStatus: 'not_started',
+  };
+  const cases = [
+    {
+      role: 'student',
+      projection: plain(studentProjection(draftCase())),
+      context: liveContext(CASE_ID),
+    },
+    {
+      role: 'faculty',
+      projection: plain(facultyProjection(releasedCase({ released: false }))),
+      context: {
+        ...liveContext(CASE_ID),
+        actorRole: 'faculty',
+        projectionSchema: 'missionmed.lor.faculty-projection.v1',
+      },
+    },
+    {
+      role: 'mentor',
+      projection: mentor,
+      context: {
+        ...liveContext(CASE_ID),
+        actorRole: 'mentor',
+        projectionSchema: mentor.schemaVersion,
+      },
+    },
+  ];
+
+  for (const entry of cases) {
+    const harness = createHarness();
+    await harness.ui.renderProductionProjection(entry.projection, entry.context);
+    const links = [...harness.mount.querySelectorAll('a[data-lor-return-matrix]')];
+    assert.equal(links.length, 1, `${entry.role} must receive exactly one return control`);
+    const [link] = links;
+    assert.equal(link.textContent, 'Return to Matrix');
+    assert.equal(link.getAttribute('href'), 'https://missionmedinstitute.com/member-dashboard/#dashboard');
+    assert.equal(link.getAttribute('referrerpolicy'), 'no-referrer');
+    assert.equal(link.getAttribute('target'), null);
+    assert.equal(link.getAttribute('onclick'), null);
+    assert.equal(link.onclick, null);
+    assert.equal(harness.win.document.querySelectorAll('a[data-lor-return-matrix]').length, 1);
+    assert.equal(harness.mount.contains(harness.win.document.getElementById('btnMatrix')), false);
+    assert.deepEqual(harness.storageTouches, []);
+    assert.deepEqual(harness.cookieTouches, []);
+    assert.deepEqual(harness.networkCalls, []);
+    assertNoInlineHandlers(harness);
+    assertPrototypeStillQuarantined(harness);
+  }
+});
+
 test('a mentor projection with any extra field is refused instead of widening the read model', async () => {
   const harness = createHarness();
   await assert.rejects(

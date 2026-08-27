@@ -154,6 +154,11 @@ html:not([data-lor-runtime="live"]):not([data-lor-runtime="verification"]) .lor-
   margin-top: 0;
 }
 
+.lorMatrixReturnLink {
+  margin-left: auto;
+  text-decoration: none;
+}
+
 .lorProductionStepForm {
   margin-top: 14px;
 }
