@@ -399,7 +399,7 @@ export const DR133_RUNTIME_DEPROVISION_DROP_SQL =
 
 async function loadVerifiedFinalSuccessorRollback(readFileFn) {
   const contract = DR133_ARTIFACTS.find(
-    (artifact) => artifact.id === 'student-evidence-rollback',
+    (artifact) => artifact.id === 'mentor-assignment-rollback',
   );
   if (!contract) failDr133('ARTIFACT_INVENTORY_INVALID');
   let bytes;
@@ -756,7 +756,7 @@ export async function deprovisionDr133RailwayProductionRuntimeLogin({
       runnerCode: safeFailure.runnerCode,
       postgresCode: safeFailure.postgresCode,
       ...(rollbackArtifact
-        ? { studentEvidenceRollbackSha256: rollbackArtifact.sha256 }
+        ? { mentorAssignmentRollbackSha256: rollbackArtifact.sha256 }
         : {}),
       ...(postgresMajor === null ? {} : { postgresMajor }),
     });
@@ -771,7 +771,7 @@ export async function deprovisionDr133RailwayProductionRuntimeLogin({
     contract: DR133_RUNNER_CONTRACT,
     mode: 'runtime-login-deprovision',
     result: 'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED',
-    studentEvidenceRollbackSha256: rollbackArtifact.sha256,
+    mentorAssignmentRollbackSha256: rollbackArtifact.sha256,
     postgresMajor,
   });
   return Object.freeze({

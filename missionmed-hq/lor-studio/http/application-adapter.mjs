@@ -2,6 +2,8 @@ import { createRecommendationArtifactService } from '../services/artifact-servic
 import { isVerifiedPrivateVersionedStorageAdapter } from '../adapters/private-versioned-storage-adapter.mjs';
 import { isAuthenticDurableArtifactAuditSink } from '../repositories/supabase-durable-artifact-audit-sink.mjs';
 
+const AUTHENTIC_LOR_APPLICATION_ADAPTERS = new WeakSet();
+
 const SAFE_ERROR_MESSAGES = Object.freeze({
   AUTHORIZATION_DENIED: 'Access to this recommendation case was denied.',
   DOMAIN_INVARIANT: 'The requested case transition is not valid.',
@@ -72,7 +74,7 @@ const SAFE_ERROR_MESSAGES = Object.freeze({
 /**
  * @typedef {object} LorApplicationContract
  * @property {(context?: unknown) => Promise<Record<string, unknown>>} getBootstrap
- * @property {(input: { request: ApplicationRequest, url: URL, actor: unknown }) => Promise<{ status: number, body?: unknown, binary?: { body: Buffer, contentType: string, filename: string } }>} handleRequest
+ * @property {(input: { request: ApplicationRequest, url: URL, actor: unknown }) => Promise<{ status: number, body?: unknown, binary?: { body: Buffer, contentType: string, filename: string, sensitive?: boolean } }>} handleRequest
  */
 
 /**
@@ -90,31 +92,55 @@ function validationError(message) {
 }
 
 /** @param {ApplicationRequest} request */
-async function readJsonBody(request) {
+const DEFAULT_JSON_BODY_MAX_BYTES = 256_000;
+const PRIVATE_ARTIFACT_MAX_BYTES = 52_428_800;
+const PRIVATE_ARTIFACT_BASE64_MAX_LENGTH = Math.ceil(PRIVATE_ARTIFACT_MAX_BYTES / 3) * 4;
+const PRIVATE_ARTIFACT_JSON_MAX_BYTES = 70_000_000;
+
+async function readJsonBody(request, maximumBytes = DEFAULT_JSON_BODY_MAX_BYTES) {
   const contentType = header(request, 'content-type').toLowerCase();
   if (!contentType.startsWith('application/json')) {
     throw validationError('JSON content type is required.');
   }
+  if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 1) {
+    throw validationError('Request body limit is invalid.');
+  }
+  const declaredLength = header(request, 'content-length');
+  if (
+    declaredLength
+    && (!/^(?:0|[1-9][0-9]*)$/u.test(declaredLength) || Number(declaredLength) > maximumBytes)
+  ) throw validationError('Request is too large.');
   const chunks = [];
   let bytes = 0;
-  for await (const chunk of request) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    bytes += buffer.length;
-    if (bytes > 256_000) {
-      throw validationError('Request is too large.');
-    }
-    chunks.push(buffer);
-  }
-  let payload;
+  let combined = null;
+  let text = '';
   try {
-    payload = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-  } catch {
-    throw validationError('Malformed JSON.');
+    for await (const chunk of request) {
+      const buffer = Buffer.isBuffer(chunk) ? Buffer.from(chunk) : Buffer.from(chunk);
+      bytes += buffer.length;
+      if (bytes > maximumBytes) {
+        buffer.fill(0);
+        throw validationError('Request is too large.');
+      }
+      chunks.push(buffer);
+    }
+    combined = Buffer.concat(chunks);
+    text = combined.toString('utf8');
+    let payload;
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      throw validationError('Malformed JSON.');
+    }
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      throw validationError('JSON object is required.');
+    }
+    return payload;
+  } finally {
+    text = '';
+    combined?.fill(0);
+    for (const chunk of chunks) chunk.fill(0);
   }
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw validationError('JSON object is required.');
-  }
-  return payload;
 }
 
 /**
@@ -183,6 +209,38 @@ function mapError(error) {
 }
 
 function routeCase(pathname) {
+  const privateArtifactMatch = pathname.match(
+    /^\/api\/lor-studio\/cases\/([^/]+)\/private-artifacts\/([^/]+)(?:\/versions\/([^/]+))?$/u,
+  );
+  if (privateArtifactMatch) {
+    const caseId = decodeRouteSegment(privateArtifactMatch[1]);
+    const objectId = decodeRouteSegment(privateArtifactMatch[2]);
+    const versionId = privateArtifactMatch[3] === undefined
+      ? null : decodeRouteSegment(privateArtifactMatch[3]);
+    if (caseId === null || objectId === null || (privateArtifactMatch[3] !== undefined && versionId === null)) {
+      return null;
+    }
+    return {
+      caseId,
+      builder: false,
+      complete: false,
+      receipts: false,
+      facultyPrivate: false,
+      releaseFinalDocument: false,
+      exportFinalDocument: false,
+      aiProposals: false,
+      proposalId: null,
+      proposalDecision: false,
+      facultyInvitations: false,
+      publishStudentEvidence: false,
+      invitationResend: false,
+      invitationRevoke: false,
+      privateArtifactPut: versionId === null,
+      privateArtifactGet: versionId !== null,
+      objectId,
+      versionId,
+    };
+  }
   const facultyInvitationMatch = pathname.match(
     /^\/api\/lor-studio\/cases\/([^/]+)\/faculty-invitations(?:\/(otp\/resend|revoke))?$/u,
   );
@@ -204,6 +262,10 @@ function routeCase(pathname) {
       publishStudentEvidence: false,
       invitationResend: facultyInvitationMatch[2] === 'otp/resend',
       invitationRevoke: facultyInvitationMatch[2] === 'revoke',
+      privateArtifactPut: false,
+      privateArtifactGet: false,
+      objectId: null,
+      versionId: null,
     };
   }
   const evidencePublishMatch = pathname.match(
@@ -227,6 +289,10 @@ function routeCase(pathname) {
       publishStudentEvidence: true,
       invitationResend: false,
       invitationRevoke: false,
+      privateArtifactPut: false,
+      privateArtifactGet: false,
+      objectId: null,
+      versionId: null,
     };
   }
   const match = pathname.match(
@@ -255,6 +321,10 @@ function routeCase(pathname) {
     publishStudentEvidence: false,
     invitationResend: false,
     invitationRevoke: false,
+    privateArtifactPut: false,
+    privateArtifactGet: false,
+    objectId: null,
+    versionId: null,
   };
 }
 
@@ -273,6 +343,31 @@ function routeFacultyInvitationVerification(pathname) {
   if (!match) return null;
   const invitationId = decodeRouteSegment(match[1]);
   return invitationId === null ? null : { invitationId };
+}
+
+function decodeCanonicalBase64(value) {
+  if (
+    typeof value !== 'string'
+    || value.length === 0
+    || value.length > PRIVATE_ARTIFACT_BASE64_MAX_LENGTH
+  ) {
+    throw validationError('Private artifact content must be bounded canonical base64.');
+  }
+  let content;
+  try {
+    content = Buffer.from(value, 'base64');
+  } catch {
+    throw validationError('Private artifact content must be bounded canonical base64.');
+  }
+  if (
+    content.byteLength === 0
+    || content.byteLength > PRIVATE_ARTIFACT_MAX_BYTES
+    || content.toString('base64') !== value
+  ) {
+    content.fill(0);
+    throw validationError('Private artifact content must be bounded canonical base64.');
+  }
+  return content;
 }
 
 /**
@@ -401,11 +496,15 @@ export function createLorApplicationAdapter({
     resolvedPrivateStorageService = privateStorageService;
   }
 
-  // A validated provider adapter is necessary but not sufficient: this application currently
-  // exposes no case-bound put/get route which uses it. Treating mere construction as durable
-  // accepted-function coverage let a no-op surface make bootstrap claim live. This stays false
-  // until an explicit product route invokes the verified adapter and is covered end to end.
-  const privateStorageAcceptedFunctionBound = false;
+  // Construction is not counted as accepted-function coverage. These booleans describe the two
+  // explicit case-bound routes below; each invokes the verified adapter while the runtime holds
+  // the authenticated request's trusted context. No actor, case authority, object key, storage
+  // locator, encryption material, or version authority can be supplied through the request body.
+  const privateStorageAcceptedFunctionBound = Boolean(
+    resolvedPrivateStorageService
+    && typeof resolvedPrivateStorageService.put === 'function'
+    && typeof resolvedPrivateStorageService.get === 'function'
+  );
 
   // A readiness receipt is evidence about a dependency at one instant; it is not the dependency
   // itself.  These surfaces must also be present in this exact application graph before a caller
@@ -552,6 +651,71 @@ export function createLorApplicationAdapter({
         return { status: 405, body: { error: 'method_not_allowed' } };
       }
 
+      if (route.privateArtifactPut || route.privateArtifactGet) {
+        if (!resolvedPrivateStorageService) {
+          throw Object.assign(
+            new Error('The LOR private artifact storage service is not configured.'),
+            { code: 'INTEGRATION_DISABLED' },
+          );
+        }
+        if (route.privateArtifactPut && method === 'POST') {
+          if ([...url.searchParams.keys()].length !== 0) {
+            throw validationError('Private artifact writes accept no query parameters.');
+          }
+          const payload = await readJsonBody(request, PRIVATE_ARTIFACT_JSON_MAX_BYTES);
+          assertExactKeys(payload, [
+            'checksum', 'contentBase64', 'contentClass', 'contentType', 'purpose',
+          ]);
+          const content = decodeCanonicalBase64(payload.contentBase64);
+          try {
+            const receipt = await resolvedPrivateStorageService.put({
+              caseId: route.caseId,
+              objectId: route.objectId,
+              content,
+              contentType: payload.contentType,
+              checksum: payload.checksum,
+              contentClass: payload.contentClass,
+              purpose: payload.purpose,
+              idempotencyKey: idempotencyKey(request),
+            });
+            return { status: 201, body: { receipt } };
+          } finally {
+            content.fill(0);
+          }
+        }
+        if (route.privateArtifactGet && method === 'GET') {
+          const queryKeys = [...url.searchParams.keys()];
+          if (
+            queryKeys.length !== 2
+            || new Set(queryKeys).size !== 2
+            || !queryKeys.includes('contentClass')
+            || !queryKeys.includes('purpose')
+            || url.searchParams.getAll('contentClass').length !== 1
+            || url.searchParams.getAll('purpose').length !== 1
+          ) throw validationError('Private artifact reads require the exact class and purpose query.');
+          const stored = await resolvedPrivateStorageService.get({
+            caseId: route.caseId,
+            objectId: route.objectId,
+            versionId: route.versionId,
+            contentClass: url.searchParams.get('contentClass'),
+            purpose: url.searchParams.get('purpose'),
+          });
+          return {
+            status: 200,
+            binary: {
+              body: stored.content,
+              // Private artifacts are always delivered as passive opaque attachments. The
+              // authenticated route never reflects a stored media type into the browser's
+              // content-sniffing surface.
+              contentType: 'application/octet-stream',
+              filename: `${encodeURIComponent(route.objectId)}.bin`,
+              sensitive: true,
+            },
+          };
+        }
+        return { status: 405, body: { error: 'method_not_allowed' } };
+      }
+
       if (
         !route.builder
         && !route.receipts
@@ -561,6 +725,8 @@ export function createLorApplicationAdapter({
         && !route.aiProposals
         && !route.facultyInvitations
         && !route.publishStudentEvidence
+        && !route.privateArtifactPut
+        && !route.privateArtifactGet
         && method === 'GET'
       ) {
         const projection = await caseService.getCaseProjection({ caseId: route.caseId, actor });
@@ -774,5 +940,22 @@ export function createLorApplicationAdapter({
     }
   }
 
-  return Object.freeze({ getBootstrap, handleRequest });
+  const application = Object.freeze({ getBootstrap, handleRequest });
+  AUTHENTIC_LOR_APPLICATION_ADAPTERS.add(application);
+  return application;
+}
+
+export function isAuthenticLorApplicationAdapter(value) {
+  if (!value || typeof value !== 'object') return false;
+  try {
+    return Object.isFrozen(value)
+      && Reflect.ownKeys(value).length === 2
+      && typeof value.getBootstrap === 'function'
+      && typeof value.handleRequest === 'function'
+      && Object.getOwnPropertyDescriptor(value, 'getBootstrap')?.value === value.getBootstrap
+      && Object.getOwnPropertyDescriptor(value, 'handleRequest')?.value === value.handleRequest
+      && AUTHENTIC_LOR_APPLICATION_ADAPTERS.has(value);
+  } catch {
+    return false;
+  }
 }

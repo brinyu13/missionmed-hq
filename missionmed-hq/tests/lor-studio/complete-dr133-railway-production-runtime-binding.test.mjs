@@ -11,7 +11,11 @@ import {
 } from '../../scripts/lor-studio/railway-dr133-production-runtime-ca-transfer.mjs';
 import {
   DR133_RUNTIME_URL_BINDING_CONTRACT,
+  DR133_RUNTIME_URL_VARIABLE_KEY,
 } from '../../scripts/lor-studio/railway-dr133-production-runtime-url-binding.mjs';
+import {
+  dr133ReleaseVariableValueSha256,
+} from '../../scripts/lor-studio/railway-dr133-production-release-orchestrator.mjs';
 import {
   DR133_SOURCE_CUSTODY_PREFLIGHT_CONTRACT,
 } from '../../scripts/lor-studio/run-dr133-railway-production-tunnel-operation.mjs';
@@ -77,20 +81,32 @@ test('lifecycle proves source before provider mutation, stages URL, then provisi
     environment: {},
     sourceCommit: SOURCE_COMMIT,
   });
+  const stagedUrl = calls[2][1].runtimeDatabaseUrl;
+  const stagedUrlBytes = Buffer.from(stagedUrl, 'utf8');
+  let expectedValueSha256;
+  try {
+    expectedValueSha256 = dr133ReleaseVariableValueSha256(
+      DR133_RUNTIME_URL_VARIABLE_KEY,
+      stagedUrlBytes,
+    );
+  } finally {
+    stagedUrlBytes.fill(0);
+  }
   assert.deepEqual(receipt, {
     contract: DR133_RUNTIME_BINDING_LIFECYCLE_CONTRACT,
     result: 'RUNTIME_BINDING_STAGED_NO_DEPLOY_VERIFIED',
     role: DR133_RUNTIME_LOGIN,
     sourceCommit: SOURCE_COMMIT,
-    variableKey: 'LOR_DR133_RUNTIME_DATABASE_URL',
+    variableKey: DR133_RUNTIME_URL_VARIABLE_KEY,
+    valueSha256: expectedValueSha256,
   });
   assert.deepEqual(calls.map(([kind]) => kind), ['source', 'ca', 'url', 'tunnel']);
   assert.deepEqual(calls[0][1], { sourceCommit: SOURCE_COMMIT });
-  const stagedUrl = calls[2][1].runtimeDatabaseUrl;
   assert.equal(calls[3][1].runtimeDatabaseUrl, stagedUrl);
   assert.equal(calls[3][1].sourceCommit, SOURCE_COMMIT);
   assert.match(stagedUrl, new RegExp(`:${PASSWORD}@`, 'u'));
-  assert.doesNotMatch(JSON.stringify(receipt), new RegExp(PASSWORD, 'u'));
+  assert.equal(JSON.stringify(receipt).includes(stagedUrl), false);
+  assert.equal(JSON.stringify(receipt).includes(PASSWORD), false);
 });
 
 test('source custody must pass before CA or URL provider mutation', async () => {

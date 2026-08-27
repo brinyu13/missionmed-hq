@@ -5,6 +5,10 @@ import {
   WORDPRESS_LOR_ADMISSION_CONTRACT,
   WORDPRESS_LOR_ADMISSION_PATH,
   WORDPRESS_LOR_BINDING_PROVENANCE,
+  WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+  WORDPRESS_LOR_SESSION_CANDIDATE_INVITATION_FIELD,
+  WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD,
+  WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
   WordPressCurrentUserAdmissionError,
   createWordPressCurrentUserAdmission,
 } from '../../lor-studio/adapters/wordpress-current-user-admission.mjs';
@@ -17,6 +21,7 @@ function receipt(overrides = {}) {
   return {
     contract: WORDPRESS_LOR_ADMISSION_CONTRACT,
     subject: 'wp:123',
+    identityClass: WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
     admitted: true,
     evaluatedAt: '2026-08-25T15:59:30.000Z',
     expiresAt: '2026-08-25T16:03:30.000Z',
@@ -30,12 +35,17 @@ function session(overrides = {}) {
     lorAdmissionBindingId: BINDING,
     lorAdmissionBindingProvenance: WORDPRESS_LOR_BINDING_PROVENANCE,
     lorAdmissionBindingExpiresAt: '2026-08-25T20:00:00.000Z',
+    [WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD]: WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
     ...overrides,
   };
 }
 
 function resourceEntitlement(studentId, overrides = {}) {
   return {
+    contract: 'missionmed.lor.wordpress-resource-student-entitlement.v1',
+    audience: 'lor-studio',
+    requesterSubject: 'wp:123',
+    actorRole: 'faculty',
     studentId,
     active: true,
     tier: 'tier3_360',
@@ -44,11 +54,16 @@ function resourceEntitlement(studentId, overrides = {}) {
     canaryEnabled: true,
     canaryConsented: true,
     producerStatus: 'WORDPRESS_RESOURCE_ADMISSION_V1_SIGNED_S2S',
+    metadataOnly: true,
+    evaluatedAt: '2026-08-25T15:59:30.000Z',
+    expiresAt: '2026-08-25T16:03:30.000Z',
     ...overrides,
   };
 }
 
-function admission(client = { async admit() { return receipt(); } }) {
+function admission(client = {
+  async admit({ identityClass }) { return receipt({ identityClass }); },
+}) {
   return createWordPressCurrentUserAdmission({
     s2sClient: client,
     clock: () => new Date(NOW),
@@ -56,7 +71,11 @@ function admission(client = { async admit() { return receipt(); } }) {
 }
 
 async function resolvesToContext(overrides = {}) {
-  const adapter = admission({ async admit() { return receipt(overrides.receipt); } });
+  const adapter = admission({
+    async admit({ identityClass }) {
+      return receipt({ identityClass, ...overrides.receipt });
+    },
+  });
   const projection = await adapter.resolve({
     subject: 'wp:123',
     session: session(overrides.session),
@@ -69,11 +88,15 @@ test('uses a non-secret binding for one fresh signed-client admission and never 
   const adapter = admission({
     async admit(input) {
       observed = input;
-      return receipt();
+      return receipt({ identityClass: input.identityClass });
     },
   });
   const projection = await adapter.resolve({ subject: 'wp:123', session: session() });
-  assert.deepEqual(observed, { bindingId: BINDING, subject: 'wp:123' });
+  assert.deepEqual(observed, {
+    bindingId: BINDING,
+    subject: 'wp:123',
+    identityClass: WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
+  });
   assert.equal(JSON.stringify(projection).includes(BINDING), false);
   const context = adapter.consumeTrustedRequestContext(projection);
   assert.equal(JSON.stringify(context).includes(BINDING), false);
@@ -123,7 +146,7 @@ test('database-owned case access selects faculty and mentor roles without trusti
         signedS2s: true,
         async resolve(input) {
           resourceCalls.push(input);
-          return resourceEntitlement(resourceStudentId);
+          return resourceEntitlement(resourceStudentId, { actorRole });
         },
       },
       clock: () => new Date(NOW),
@@ -150,7 +173,7 @@ test('database-owned case access selects faculty and mentor roles without trusti
     await runWithTrustedRequestContext(context, async () => {
       assert.deepEqual(
         { ...await adapter.getStudentEntitlement({ studentId: resourceStudentId }) },
-        resourceEntitlement(resourceStudentId),
+        resourceEntitlement(resourceStudentId, { actorRole }),
       );
     });
     assert.deepEqual(resourceCalls, [
@@ -296,7 +319,9 @@ test('exact invitation page and verification API paths create faculty-candidate 
   ]) {
     let resolverCalls = 0;
     const adapter = createWordPressCurrentUserAdmission({
-      s2sClient: { async admit() { return receipt(); } },
+      s2sClient: {
+        async admit({ identityClass }) { return receipt({ identityClass }); },
+      },
       actorResolver: {
         async resolve() { resolverCalls += 1; throw new Error('case access must not run'); },
       },
@@ -304,7 +329,12 @@ test('exact invitation page and verification API paths create faculty-candidate 
     });
     const projection = await adapter.resolve({
       subject: 'wp:123',
-      session: session({ user: { id: 'wp:123', role: 'administrator' } }),
+      session: session({
+        user: { id: 'wp:123', role: 'administrator' },
+        [WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD]:
+          WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+        [WORDPRESS_LOR_SESSION_CANDIDATE_INVITATION_FIELD]: 'invitation-1',
+      }),
       request: { url },
     });
     assert.equal(resolverCalls, 0);
@@ -322,10 +352,16 @@ test('exact invitation page and verification API paths create faculty-candidate 
 
 test('faculty-candidate proof is invitation-bound and malformed invitation paths fail closed', async () => {
   async function contextFor(invitationId) {
-    const adapter = admission();
+    const adapter = admission({
+      async admit({ identityClass }) { return receipt({ identityClass }); },
+    });
     const projection = await adapter.resolve({
       subject: 'wp:123',
-      session: session(),
+      session: session({
+        [WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD]:
+          WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+        [WORDPRESS_LOR_SESSION_CANDIDATE_INVITATION_FIELD]: invitationId,
+      }),
       request: { url: `/api/lor-studio/invitations/${invitationId}/verify` },
     });
     return adapter.consumeTrustedRequestContext(projection);
@@ -337,11 +373,172 @@ test('faculty-candidate proof is invitation-bound and malformed invitation paths
     '/api/lor-studio/invitations/%2F/verify',
     '/lor-studio/invitations/%00',
   ]) {
-    const adapter = admission();
+    const adapter = admission({
+      async admit({ identityClass }) { return receipt({ identityClass }); },
+    });
     await assert.rejects(
-      adapter.resolve({ subject: 'wp:123', session: session(), request: { url } }),
+      adapter.resolve({
+        subject: 'wp:123',
+        session: session({
+          [WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD]:
+            WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+          [WORDPRESS_LOR_SESSION_CANDIDATE_INVITATION_FIELD]: 'invitation-1',
+        }),
+        request: { url },
+      }),
       (error) => error instanceof WordPressCurrentUserAdmissionError
         && error.code === 'INVITATION_CANDIDATE_INVALID',
+    );
+  }
+});
+
+test('identity classes cannot be swapped and candidate sessions cannot reach general or mismatched routes', async () => {
+  const candidateSession = session({
+    [WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD]:
+      WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+    [WORDPRESS_LOR_SESSION_CANDIDATE_INVITATION_FIELD]: 'invitation-1',
+  });
+  const echoClient = {
+    async admit({ identityClass }) { return receipt({ identityClass }); },
+  };
+  const adapter = admission(echoClient);
+
+  for (const request of [
+    { session: session(), url: '/api/lor-studio/invitations/invitation-1/verify' },
+    { session: candidateSession, url: '/api/lor-studio/bootstrap' },
+    { session: candidateSession, url: '/lor-studio/' },
+    { session: candidateSession, url: '/api/lor-studio/invitations/invitation-2/bootstrap' },
+  ]) {
+    await assert.rejects(
+      adapter.resolve({
+        subject: 'wp:123',
+        session: request.session,
+        request: { url: request.url },
+      }),
+      (error) => error instanceof WordPressCurrentUserAdmissionError
+        && error.code === 'IDENTITY_CLASS_SCOPE_DENIED',
+    );
+  }
+
+  const swappedReceipt = admission({ async admit() { return receipt(); } });
+  await assert.rejects(
+    swappedReceipt.resolve({
+      subject: 'wp:123',
+      session: candidateSession,
+      request: { url: '/api/lor-studio/invitations/invitation-1/bootstrap' },
+    }),
+    /ADMISSION_DENIED/u,
+  );
+});
+
+test('candidate case access requires a database-resolved faculty role and signed student resource', async () => {
+  const candidateSession = session({
+    [WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD]:
+      WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+    [WORDPRESS_LOR_SESSION_CANDIDATE_INVITATION_FIELD]: 'invitation-1',
+  });
+  for (const actorRole of ['student', 'mentor']) {
+    const adapter = createWordPressCurrentUserAdmission({
+      s2sClient: {
+        async admit({ identityClass }) { return receipt({ identityClass }); },
+      },
+      actorResolver: {
+        async resolve() {
+          return {
+            schemaVersion: 'missionmed.lor.actor-case-access.v1',
+            authoritySource: 'database_verified_case_access',
+            actorRole,
+            actorId: 'wp:123',
+            resourceStudentId: actorRole === 'student' ? 'wp:123' : 'wp:456',
+            caseId: 'case-role-1',
+          };
+        },
+      },
+      resourceEntitlementResolver: {
+        signedS2s: true,
+        async resolve() { return resourceEntitlement('wp:456', { actorRole }); },
+      },
+      clock: () => new Date(NOW),
+    });
+    await assert.rejects(
+      adapter.resolve({
+        subject: 'wp:123',
+        session: candidateSession,
+        request: { url: '/api/lor-studio/cases/case-role-1' },
+      }),
+      /IDENTITY_CLASS_SCOPE_DENIED/u,
+    );
+  }
+});
+
+test('verified faculty can re-enter only through one canonical actor-resolved page or bootstrap case query', async () => {
+  const observed = [];
+  const adapter = createWordPressCurrentUserAdmission({
+    s2sClient: {
+      async admit({ identityClass }) { return receipt({ identityClass }); },
+    },
+    actorResolver: {
+      async resolve(input) {
+        observed.push(input);
+        return {
+          schemaVersion: 'missionmed.lor.actor-case-access.v1',
+          authoritySource: 'database_verified_case_access',
+          actorRole: 'faculty',
+          actorId: 'wp:123',
+          resourceStudentId: 'wp:456',
+          caseId: 'case-reentry-1',
+        };
+      },
+    },
+    resourceEntitlementResolver: {
+      signedS2s: true,
+      async resolve() { return resourceEntitlement('wp:456'); },
+    },
+    clock: () => new Date(NOW),
+  });
+  const candidateSession = session({
+    user: { id: 'wp:123', role: 'faculty', roles: ['faculty'] },
+    [WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD]:
+      WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+    [WORDPRESS_LOR_SESSION_CANDIDATE_INVITATION_FIELD]: 'invitation-1',
+  });
+
+  const projection = await adapter.resolve({
+    subject: 'wp:123',
+    session: candidateSession,
+    request: { url: '/lor-studio/?case=case-reentry-1' },
+  });
+  assert.equal(projection.role, 'faculty');
+  assert.equal(projection.studentId, 'wp:456');
+
+  const bootstrapProjection = await adapter.resolve({
+    subject: 'wp:123',
+    session: candidateSession,
+    request: { url: '/api/lor-studio/bootstrap?case=case-reentry-1' },
+  });
+  assert.equal(bootstrapProjection.role, 'faculty');
+  assert.equal(bootstrapProjection.studentId, 'wp:456');
+  assert.deepEqual(observed, [
+    { authenticatedSubject: 'wp:123', caseId: 'case-reentry-1' },
+    { authenticatedSubject: 'wp:123', caseId: 'case-reentry-1' },
+  ]);
+
+  for (const url of [
+    '/lor-studio/?case=case-reentry-1&case=case-other',
+    '/lor-studio/?case=case-reentry-1&actor=wp:999',
+    '/lor-studio/index.html?case=../case',
+    '/api/lor-studio/bootstrap?case=case-reentry-1&case=case-other',
+    '/api/lor-studio/bootstrap?case=case-reentry-1&actor=wp:999',
+    '/api/lor-studio/bootstrap?case=case%2Fother',
+  ]) {
+    await assert.rejects(
+      adapter.resolve({
+        subject: 'wp:123',
+        session: candidateSession,
+        request: { url },
+      }),
+      (error) => error instanceof WordPressCurrentUserAdmissionError
+        && error.code === 'CASE_ACCESS_INVALID',
     );
   }
 });
@@ -372,7 +569,7 @@ test('case-service entitlement remains request-context bound and subject exact',
       revoked: false,
       canaryEnabled: true,
       canaryConsented: true,
-      producerStatus: 'WORDPRESS_ADMISSION_V2_SIGNED_S2S',
+      producerStatus: 'WORDPRESS_ADMISSION_V3_SIGNED_S2S',
     });
     await assert.rejects(
       adapter.getStudentEntitlement({ studentId: 'wp:456' }),
@@ -408,6 +605,22 @@ test('requires exact binding shape, provenance, and unexpired server session', a
       (error) => error instanceof WordPressCurrentUserAdmissionError
         && error.code === 'BINDING_UNAVAILABLE'
         && !error.message.includes(BINDING),
+    );
+  }
+  for (const overrides of [
+    { [WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD]: undefined },
+    { [WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD]: 'faculty' },
+    {
+      [WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD]:
+        WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+    },
+    {
+      [WORDPRESS_LOR_SESSION_CANDIDATE_INVITATION_FIELD]: 'attacker-added',
+    },
+  ]) {
+    await assert.rejects(
+      adapter.resolve({ subject: 'wp:123', session: session(overrides) }),
+      WordPressCurrentUserAdmissionError,
     );
   }
 });

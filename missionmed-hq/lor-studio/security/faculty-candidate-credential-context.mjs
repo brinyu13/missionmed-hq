@@ -8,6 +8,8 @@ const CONTEXT_KEYS = Object.freeze([
   'authoritySource',
   'authenticatedSubject',
   'invitationId',
+  'caseId',
+  'requiresOtpVerification',
   'tokenHash',
   'flowNonceHash',
   'issuedAt',
@@ -82,6 +84,8 @@ export function createFacultyCandidateCredentialContext(input, now = new Date())
     || value.authoritySource !== 'server_verified_sealed_candidate_cookie'
     || !SUBJECT.test(value.authenticatedSubject ?? '')
     || !LOCATOR.test(value.invitationId ?? '')
+    || !LOCATOR.test(value.caseId ?? '')
+    || typeof value.requiresOtpVerification !== 'boolean'
     || !SHA256.test(value.tokenHash ?? '')
     || !SHA256.test(value.flowNonceHash ?? '')
     || value.clientAsserted !== false
@@ -123,4 +127,5 @@ export const FACULTY_CANDIDATE_CREDENTIAL_CONTRACT = Object.freeze({
   rawTokenAccepted: false,
   browserPersistence: 'none',
   requestScope: 'exact_invitation_candidate_verification_only',
+  durableReentry: 'database_verified_case_access_after_exact_wordpress_subject_reauthentication',
 });

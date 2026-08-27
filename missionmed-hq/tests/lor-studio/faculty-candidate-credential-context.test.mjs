@@ -19,6 +19,8 @@ function credential(overrides = {}) {
     authoritySource: 'server_verified_sealed_candidate_cookie',
     authenticatedSubject: 'wp:43',
     invitationId: 'invitation-faculty-1',
+    caseId: 'case-faculty-1',
+    requiresOtpVerification: true,
     tokenHash: TOKEN_HASH,
     flowNonceHash: FLOW_NONCE_HASH,
     issuedAt: '2026-08-25T12:00:00.000Z',
@@ -71,6 +73,7 @@ test('valid server credential is exact, detached, immutable, and request scoped'
     rawTokenAccepted: false,
     browserPersistence: 'none',
     requestScope: 'exact_invitation_candidate_verification_only',
+    durableReentry: 'database_verified_case_access_after_exact_wordpress_subject_reauthentication',
   });
 });
 
@@ -136,6 +139,9 @@ test('malformed subjects and invitation locators are denied; exact valid binding
     credential({ invitationId: '../invitation-faculty-1' }),
     credential({ invitationId: 'invitation/faculty/1' }),
     credential({ invitationId: `invitation-${'x'.repeat(200)}` }),
+    credential({ caseId: '' }),
+    credential({ caseId: '../case-faculty-1' }),
+    credential({ requiresOtpVerification: 'false' }),
   ]) {
     assert.throws(
       () => createFacultyCandidateCredentialContext(candidate, NOW),

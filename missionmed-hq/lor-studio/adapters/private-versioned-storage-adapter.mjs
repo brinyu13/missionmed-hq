@@ -23,6 +23,7 @@ const CONTENT_CLASSES = new Set([
 ]);
 const PURPOSES = new Set(['case_workflow', 'faculty_review', 'final_delivery', 'privacy_request', 'restore_rehearsal']);
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
+const SAFE_CONTENT_TYPE = /^(?=.{3,160}$)[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*(?:; ?[a-z0-9][a-z0-9!#$&^_.+-]*=[A-Za-z0-9][A-Za-z0-9!#$&^_.+:-]*)*$/u;
 const HUMAN_ROLES = new Set(['student', 'faculty']);
 const ADMINISTRATIVE_ROLES = new Set(['service', 'admin', 'founder']);
 const PUT_FIELDS = new Set([
@@ -266,6 +267,13 @@ function bytesFor(content) {
   throw new ValidationError('Private storage content must be bytes or a string');
 }
 
+function assertSafeContentType(value) {
+  if (typeof value !== 'string' || !SAFE_CONTENT_TYPE.test(value)) {
+    throw new ValidationError('Private storage contentType must be a safe canonical media type');
+  }
+  return value;
+}
+
 function assertNoPublicLocator(result) {
   if (
     'publicUrl' in (result || {})
@@ -347,41 +355,45 @@ export class PrivateVersionedStorageAdapter extends PrivateStoragePort {
     assertRequestBase(request);
     assertExactRequestKeys(request, PUT_FIELDS);
     assertNonEmptyString(request.idempotencyKey, 'idempotencyKey', { maxLength: 200 });
-    assertNonEmptyString(request.contentType, 'contentType', { maxLength: 160 });
+    assertSafeContentType(request.contentType);
     const content = bytesFor(request.content);
-    if (content.byteLength === 0) throw new ValidationError('Private storage content cannot be empty');
-    const checksum = sha256(content);
-    if (request.checksum !== checksum) throw new ValidationError('Private storage checksum mismatch');
-    const capability = assertCapability(
-      await this.capabilityProvider.resolveStorageCapability({
+    try {
+      if (content.byteLength === 0) throw new ValidationError('Private storage content cannot be empty');
+      const checksum = sha256(content);
+      if (request.checksum !== checksum) throw new ValidationError('Private storage checksum mismatch');
+      const capability = assertCapability(
+        await this.capabilityProvider.resolveStorageCapability({
+          caseId: request.caseId,
+          objectId: request.objectId,
+          contentClass: request.contentClass,
+          purpose: request.purpose,
+          operation: 'put',
+        }),
+        request,
+        'put',
+        new Date(toIso(this.clock(), 'clock')).valueOf(),
+      );
+      const result = await this.driver.putImmutable({
+        binding: this.binding,
+        capability,
         caseId: request.caseId,
         objectId: request.objectId,
-        contentClass: request.contentClass,
-        purpose: request.purpose,
+        content,
+        contentType: request.contentType,
+        checksum,
+        idempotencyKey: request.idempotencyKey,
+      });
+      return safeReceipt({
         operation: 'put',
-      }),
-      request,
-      'put',
-      new Date(toIso(this.clock(), 'clock')).valueOf(),
-    );
-    const result = await this.driver.putImmutable({
-      binding: this.binding,
-      capability,
-      caseId: request.caseId,
-      objectId: request.objectId,
-      content,
-      contentType: request.contentType,
-      checksum,
-      idempotencyKey: request.idempotencyKey,
-    });
-    return safeReceipt({
-      operation: 'put',
-      request,
-      result,
-      checksum,
-      binding: this.binding,
-      capability,
-    });
+        request,
+        result,
+        checksum,
+        binding: this.binding,
+        capability,
+      });
+    } finally {
+      content.fill(0);
+    }
   }
 
   async get(request) {
@@ -409,17 +421,26 @@ export class PrivateVersionedStorageAdapter extends PrivateStoragePort {
       versionId: request.versionId,
     });
     assertNoPublicLocator(result);
-    const content = bytesFor(result?.content);
-    const checksum = sha256(content);
-    const receipt = safeReceipt({
-      operation: 'get',
-      request,
-      result,
-      checksum,
-      binding: this.binding,
-      capability,
-    });
-    return Object.freeze({ content: Buffer.from(content), receipt });
+    const driverContent = result?.content;
+    const content = bytesFor(driverContent);
+    try {
+      const contentType = assertSafeContentType(result?.contentType);
+      const checksum = sha256(content);
+      const receipt = safeReceipt({
+        operation: 'get',
+        request,
+        result,
+        checksum,
+        binding: this.binding,
+        capability,
+      });
+      return Object.freeze({ content: Buffer.from(content), contentType, receipt });
+    } finally {
+      content.fill(0);
+      if (Buffer.isBuffer(driverContent) || driverContent instanceof Uint8Array) {
+        driverContent.fill(0);
+      }
+    }
   }
 }
 
@@ -445,4 +466,7 @@ export const PRIVATE_VERSIONED_STORAGE_CONTRACT = deepFreeze({
   getCapabilityVersionBinding: 'exact_requested_version_id',
   studentFacultyPrivateAccess: 'denied',
   studentStructuralWaiverAccess: 'denied',
+  storedContentTypeReadback: 'validated_canonical_media_type',
+  httpDownloadContentType: 'application/octet-stream',
+  plaintextOwnership: 'adapter_intermediates_and_response_owned_buffer_zeroed',
 });

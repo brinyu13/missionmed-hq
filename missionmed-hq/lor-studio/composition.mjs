@@ -233,6 +233,7 @@ export function readLorTargetConfiguration(env = process.env) {
  * @param {({ actorResolver: object }) => object} [options.entitlementPortFactory]
  * @param {object|null} [options.driver] durable case driver; absent means no durable repository
  * @param {object|null} [options.scopeProvider] RLS scope provider paired with the driver
+ * @param {object|null} [options.boundRuntimeDependencies] already-constructed production runtime owner
  * @param {(binding: object) => object} [options.runtimeDependencyFactory] production driver/scope factory
  * @param {(binding: object) => object} [options.durableRepositoryFactory]
  * @param {object|null} [options.testRepository] explicit non-durable repository, tests only
@@ -258,6 +259,7 @@ export function createLorStudioApplication({
   entitlementPortFactory = null,
   driver = null,
   scopeProvider = null,
+  boundRuntimeDependencies = null,
   runtimeDependencyFactory = null,
   durableRepositoryFactory = null,
   testRepository = null,
@@ -308,12 +310,28 @@ export function createLorStudioApplication({
     return { application: null, reason: LOR_COMPOSITION_REASONS.ENTITLEMENT_PORT_UNAVAILABLE, binding };
   }
 
-  let runtimeDependencies = null;
+  let runtimeDependencies = boundRuntimeDependencies;
   try {
     let resolvedDriver = driver;
     let resolvedScopeProvider = scopeProvider;
     let resolvedCandidateScopeProvider = candidateScopeProvider;
     let resolvedEntitlementPort = entitlementPort;
+    if (runtimeDependencies !== null) {
+      if (
+        driver !== null
+        || scopeProvider !== null
+        || runtimeDependencyFactory !== null
+        || !runtimeDependencies
+        || typeof runtimeDependencies !== 'object'
+        || typeof runtimeDependencies.driver !== 'object'
+        || typeof runtimeDependencies.scopeProvider !== 'function'
+      ) {
+        throw new TypeError('Bound production runtime dependencies are invalid');
+      }
+      resolvedDriver = runtimeDependencies.driver;
+      resolvedScopeProvider = runtimeDependencies.scopeProvider;
+      resolvedCandidateScopeProvider = runtimeDependencies.candidateScopeProvider ?? null;
+    }
     if (
       !testRepository
       && !durableRepositoryFactory
@@ -575,6 +593,7 @@ export async function createReadinessGatedLorStudioApplication(options = {}) {
     signal = null,
     operationalReadinessFactory = undefined,
     providerReceipts = {},
+    trustedProbeCoordinator = null,
     releaseFlags = null,
     ...compositionOptions
   } = options;
@@ -633,6 +652,7 @@ export async function createReadinessGatedLorStudioApplication(options = {}) {
         binding: composition.binding,
         runtimeReadiness: dependencies.readiness,
         providerReceipts,
+        trustedProbeCoordinator,
         flags: releaseFlags,
         clock: compositionOptions.clock,
       });
@@ -688,9 +708,10 @@ export async function createReadinessGatedLorStudioApplication(options = {}) {
         entitlementPort: composition.entitlementPort,
         entitlementPortFactory: null,
         runtimeDependencyFactory: null,
-        driver: dependencies.driver,
-        scopeProvider: dependencies.scopeProvider,
-        candidateScopeProvider: dependencies.candidateScopeProvider ?? null,
+        boundRuntimeDependencies: dependencies,
+        driver: null,
+        scopeProvider: null,
+        candidateScopeProvider: null,
         operationalReadinessAuthority: MEASURED_OPERATIONAL_READINESS_AUTHORITY,
       });
       if (liveComposition.application === null) {

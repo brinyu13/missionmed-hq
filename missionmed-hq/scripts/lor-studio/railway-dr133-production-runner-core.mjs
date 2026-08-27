@@ -128,6 +128,48 @@ export const DR133_ARTIFACTS = Object.freeze([
       'rollbacks/20260826011100_f2_lor_1012_live_production_student_evidence_commands.rollback.sql',
     sha256: '03a3ef7e9b1e9c391c8ad24ba4d4756901b24ba4f4398ebca28bba1705711a57',
   }),
+  Object.freeze({
+    id: 'encrypted-private-storage',
+    purpose: 'forward-successor',
+    relativePath:
+      'migrations/20260826011300_f2_lor_1012_live_production_encrypted_private_storage_commands.sql',
+    sha256: 'f727024a262524952afdcd5472a9b0188aa21e6cec0cec36529d549b37270220',
+  }),
+  Object.freeze({
+    id: 'encrypted-private-storage-rollback',
+    purpose: 'recovery-custody-and-successor-guard-verification',
+    relativePath:
+      'rollbacks/20260826011300_f2_lor_1012_live_production_encrypted_private_storage_commands.rollback.sql',
+    sha256: '2ba4acfac228cb48e8bd11113e2f10924bbd8193820d21a107205ee51640e226',
+  }),
+  Object.freeze({
+    id: 'faculty-candidate-auth-handoff',
+    purpose: 'forward-successor',
+    relativePath:
+      'migrations/20260826011500_f2_lor_1012_faculty_candidate_auth_handoff_commands.sql',
+    sha256: '187e13e78fa39f6b01420387488ca82e0beb0ccbe60ba82a5928c67b7f47eee0',
+  }),
+  Object.freeze({
+    id: 'faculty-candidate-auth-handoff-rollback',
+    purpose: 'recovery-custody-and-successor-guard-verification',
+    relativePath:
+      'rollbacks/20260826011500_f2_lor_1012_faculty_candidate_auth_handoff_commands.rollback.sql',
+    sha256: 'e4521d638407b4785e83ccfd9f47a162324cbd5035dccda5b9c20b2803e37c51',
+  }),
+  Object.freeze({
+    id: 'mentor-assignment',
+    purpose: 'forward-successor',
+    relativePath:
+      'migrations/20260826011700_f2_lor_1012_live_production_mentor_assignment_commands.sql',
+    sha256: 'b4f664ab9f968d6b625639fe8ab8819ff4a1f262fc4f8c0e3e2bab744f743431',
+  }),
+  Object.freeze({
+    id: 'mentor-assignment-rollback',
+    purpose: 'recovery-custody-and-successor-guard-verification',
+    relativePath:
+      'rollbacks/20260826011700_f2_lor_1012_live_production_mentor_assignment_commands.rollback.sql',
+    sha256: '8c0953a5d3a5ff2443619aa670eedb2d47eac784b900177d705554235dbc3aa5',
+  }),
 ]);
 
 export const DR133_RELATIONS = Object.freeze([
@@ -143,6 +185,8 @@ export const DR133_RELATIONS = Object.freeze([
   'deletion_hold_releases',
   'deletion_intents',
   'deletion_receipts',
+  'faculty_candidate_auth_handoff_redemptions',
+  'faculty_candidate_auth_handoff_reservations',
   'faculty_invitations',
   'faculty_invitation_command_receipts',
   'faculty_otp_challenge_revocations',
@@ -152,6 +196,7 @@ export const DR133_RELATIONS = Object.freeze([
   'faculty_private_content',
   'mentor_case_assignment_revocations',
   'mentor_case_assignments',
+  'private_artifact_versions',
   'recommendation_case_audit_events',
   'recommendation_case_creation_reservations',
   'recommendation_case_private_write_receipts',
@@ -212,6 +257,21 @@ export const DR133_STUDENT_EVIDENCE_DEFINER_IDENTITIES = Object.freeze([
   'read_faculty_drafting_context_pre_evidence()',
 ]);
 
+export const DR133_ENCRYPTED_PRIVATE_STORAGE_DEFINER_IDENTITIES = Object.freeze([
+  'get_encrypted_private_artifact_version(text,text,text,text,text,text,text,text,text,text,text)',
+  'put_encrypted_private_artifact_version(text,text,text,text,text,text,text,text,text,bigint,text,text,text,text,text,text,text,text,text,text,text)',
+]);
+
+export const DR133_FACULTY_CANDIDATE_AUTH_HANDOFF_DEFINER_IDENTITIES = Object.freeze([
+  'redeem_faculty_candidate_auth_handoff(text,text,text,text,timestamp with time zone,timestamp with time zone)',
+  'reserve_faculty_candidate_auth_handoff(text,text,text,integer)',
+]);
+
+export const DR133_MENTOR_ASSIGNMENT_DEFINER_IDENTITIES = Object.freeze([
+  'assign_mentor_to_case(text,text,text,text,integer,text)',
+  'revoke_mentor_case_assignment(text,text,text,text,text)',
+]);
+
 export const DR133_PRE_EVIDENCE_DEFINER_IDENTITY =
   'read_faculty_drafting_context_pre_evidence()';
 
@@ -222,6 +282,9 @@ export const DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES = Object.freeze([
   ...DR133_FACULTY_PRIVATE_EXPORT_DEFINER_IDENTITIES,
   ...DR133_AI_PROPOSAL_DEFINER_IDENTITIES,
   ...DR133_STUDENT_EVIDENCE_DEFINER_IDENTITIES,
+  ...DR133_ENCRYPTED_PRIVATE_STORAGE_DEFINER_IDENTITIES,
+  ...DR133_FACULTY_CANDIDATE_AUTH_HANDOFF_DEFINER_IDENTITIES,
+  ...DR133_MENTOR_ASSIGNMENT_DEFINER_IDENTITIES,
 ].sort());
 
 export const DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES = Object.freeze(
@@ -255,6 +318,21 @@ export const DR133_SUCCESSOR_STAGES = Object.freeze([
     id: 'student-evidence',
     rollbackId: 'student-evidence-rollback',
     sentinelSuffix: 'studentEvidenceCommands=20260826011100',
+  }),
+  Object.freeze({
+    id: 'encrypted-private-storage',
+    rollbackId: 'encrypted-private-storage-rollback',
+    sentinelSuffix: 'encryptedPrivateStorage=20260826011300',
+  }),
+  Object.freeze({
+    id: 'faculty-candidate-auth-handoff',
+    rollbackId: 'faculty-candidate-auth-handoff-rollback',
+    sentinelSuffix: 'facultyCandidateAuthHandoff=20260826011500',
+  }),
+  Object.freeze({
+    id: 'mentor-assignment',
+    rollbackId: 'mentor-assignment-rollback',
+    sentinelSuffix: 'mentorAssignmentCommands=20260826011700',
   }),
 ]);
 
@@ -307,12 +385,32 @@ const SUCCESSOR_ROLLBACK_GUARD_BOUNDARIES = Object.freeze({
       'REVOKE EXECUTE ON FUNCTION lor_studio.commit_student_evidence_publication(',
     guardTerminator: 'END\n$catalog_guard$;',
   }),
+  'encrypted-private-storage-rollback': Object.freeze({
+    firstDestructiveStatement:
+      'REVOKE EXECUTE ON FUNCTION lor_studio.put_encrypted_private_artifact_version(',
+    guardTerminator: 'END\n$catalog_guard$;',
+  }),
+  'faculty-candidate-auth-handoff-rollback': Object.freeze({
+    firstDestructiveStatement:
+      'REVOKE EXECUTE ON FUNCTION lor_studio.reserve_faculty_candidate_auth_handoff(',
+    guardTerminator: 'END\n$catalog_guard$;',
+  }),
+  'mentor-assignment-rollback': Object.freeze({
+    firstDestructiveStatement:
+      'REVOKE EXECUTE ON FUNCTION lor_studio.assign_mentor_to_case(',
+    guardTerminator: 'END\n$catalog_guard$;',
+    literalMarker: ROLLBACK_LITERAL_MARKER,
+  }),
 });
 const DR133_RECEIPT_KEYS = Object.freeze([
   'aiProposalRollbackSha256',
   'aiProposalSha256',
   'contract',
   'definerCount',
+  'encryptedPrivateStorageRollbackSha256',
+  'encryptedPrivateStorageSha256',
+  'facultyCandidateAuthHandoffRollbackSha256',
+  'facultyCandidateAuthHandoffSha256',
   'facultyInvitationRollbackSha256',
   'facultyInvitationSha256',
   'facultyPrivateExportRollbackSha256',
@@ -320,6 +418,8 @@ const DR133_RECEIPT_KEYS = Object.freeze([
   'foundationSha256',
   'identityScopeRollbackSha256',
   'identityScopeSha256',
+  'mentorAssignmentRollbackSha256',
+  'mentorAssignmentSha256',
   'mode',
   'postgresCode',
   'postgresMajor',
@@ -753,6 +853,10 @@ export function writeDr133Receipt(stream, payload) {
   for (const hashKey of [
     'aiProposalRollbackSha256',
     'aiProposalSha256',
+    'encryptedPrivateStorageRollbackSha256',
+    'encryptedPrivateStorageSha256',
+    'facultyCandidateAuthHandoffRollbackSha256',
+    'facultyCandidateAuthHandoffSha256',
     'facultyInvitationRollbackSha256',
     'facultyInvitationSha256',
     'facultyPrivateExportRollbackSha256',
@@ -760,6 +864,8 @@ export function writeDr133Receipt(stream, payload) {
     'foundationSha256',
     'identityScopeRollbackSha256',
     'identityScopeSha256',
+    'mentorAssignmentRollbackSha256',
+    'mentorAssignmentSha256',
     'rlsSha256',
     'studentEvidenceRollbackSha256',
     'studentEvidenceSha256',
@@ -789,6 +895,10 @@ export function writeDr133Receipt(stream, payload) {
     requireKeys([
       'aiProposalRollbackSha256',
       'aiProposalSha256',
+      'encryptedPrivateStorageRollbackSha256',
+      'encryptedPrivateStorageSha256',
+      'facultyCandidateAuthHandoffRollbackSha256',
+      'facultyCandidateAuthHandoffSha256',
       'facultyInvitationRollbackSha256',
       'facultyInvitationSha256',
       'facultyPrivateExportRollbackSha256',
@@ -796,6 +906,8 @@ export function writeDr133Receipt(stream, payload) {
       'foundationSha256',
       'identityScopeRollbackSha256',
       'identityScopeSha256',
+      'mentorAssignmentRollbackSha256',
+      'mentorAssignmentSha256',
       'rlsSha256',
       'studentEvidenceRollbackSha256',
       'studentEvidenceSha256',
@@ -808,6 +920,10 @@ export function writeDr133Receipt(stream, payload) {
     requireKeys([
       'aiProposalRollbackSha256',
       'aiProposalSha256',
+      'encryptedPrivateStorageRollbackSha256',
+      'encryptedPrivateStorageSha256',
+      'facultyCandidateAuthHandoffRollbackSha256',
+      'facultyCandidateAuthHandoffSha256',
       'facultyInvitationRollbackSha256',
       'facultyInvitationSha256',
       'facultyPrivateExportRollbackSha256',
@@ -815,6 +931,8 @@ export function writeDr133Receipt(stream, payload) {
       'foundationSha256',
       'identityScopeRollbackSha256',
       'identityScopeSha256',
+      'mentorAssignmentRollbackSha256',
+      'mentorAssignmentSha256',
       'rlsSha256',
       'studentEvidenceRollbackSha256',
       'studentEvidenceSha256',
@@ -830,6 +948,10 @@ export function writeDr133Receipt(stream, payload) {
     requireKeys([
       'aiProposalRollbackSha256',
       'aiProposalSha256',
+      'encryptedPrivateStorageRollbackSha256',
+      'encryptedPrivateStorageSha256',
+      'facultyCandidateAuthHandoffRollbackSha256',
+      'facultyCandidateAuthHandoffSha256',
       'facultyInvitationRollbackSha256',
       'facultyInvitationSha256',
       'facultyPrivateExportRollbackSha256',
@@ -837,6 +959,8 @@ export function writeDr133Receipt(stream, payload) {
       'foundationSha256',
       'identityScopeRollbackSha256',
       'identityScopeSha256',
+      'mentorAssignmentRollbackSha256',
+      'mentorAssignmentSha256',
       'rlsSha256',
       'studentEvidenceRollbackSha256',
       'studentEvidenceSha256',
@@ -848,11 +972,11 @@ export function writeDr133Receipt(stream, payload) {
   if (
     payload.mode === 'runtime-login'
     && payload.result !== 'NO_MUTATION'
-  ) requireKeys(['studentEvidenceRollbackSha256']);
+  ) requireKeys(['mentorAssignmentRollbackSha256']);
   if (
     payload.mode === 'runtime-login-deprovision'
     && payload.result !== 'NO_MUTATION'
-  ) requireKeys(['studentEvidenceRollbackSha256']);
+  ) requireKeys(['mentorAssignmentRollbackSha256']);
   if (payload.result === 'RUNTIME_LOGIN_DEPROVISION_COMMITTED_VERIFIED') {
     requireKeys(['postgresMajor']);
   }

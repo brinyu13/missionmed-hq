@@ -6,6 +6,7 @@ import {
   IdempotencyConflictError,
   IntegrationDisabledError,
   InvitationDeniedError,
+  NotFoundError,
   StaleRevisionError,
 } from '../domain/errors.js';
 import { hashValue, sha256 } from '../domain/value-utils.js';
@@ -20,18 +21,28 @@ import {
   resolveProductionRuntimeTarget,
 } from './production-runtime-target.mjs';
 import {
-  DR133_RELATIONS,
+  SupabaseDurableMentorAssignmentRepository,
+} from '../repositories/supabase-durable-mentor-assignment-repository.mjs';
+import {
+  createDurableMentorAssignmentOperator,
+} from '../services/durable-mentor-assignment-service.mjs';
+import {
+  DR133_RELATIONS as DR133_STAGING_RELATIONS,
   DR133_PRE_EVIDENCE_DEFINER_IDENTITY,
-  DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES,
-  DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES,
+  DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES as DR133_STAGING_APPROVED_DEFINERS,
+  DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES as DR133_STAGING_APP_DEFINERS,
 } from '../../scripts/lor-studio/railway-dr133-runner-core.mjs';
 import {
   DR133_PRODUCTION_DATABASE_CA_DER_SHA256,
+  DR133_RELATIONS as DR133_PRODUCTION_RELATIONS,
+  DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES as DR133_PRODUCTION_APPROVED_DEFINERS,
+  DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES as DR133_PRODUCTION_APP_DEFINERS,
 } from '../../scripts/lor-studio/railway-dr133-production-runner-core.mjs';
 
 const { Pool } = pg;
 const atomicDriverModuleUrl = new URL('./atomic-rls-case-driver.mjs', import.meta.url);
 const { createAtomicRlsCaseDriver } = await import(atomicDriverModuleUrl.href);
+const AUTHENTIC_PRODUCTION_POSTGRES_READINESS = new WeakSet();
 
 export const PRODUCTION_POSTGRES_RUNTIME_INTEGRATION = 'lor_production_postgres_runtime';
 
@@ -109,6 +120,13 @@ const VERIFY_INVITATION_COMMAND_KEYS = new Set([
   'binding', 'candidateScope', 'invitationId', 'recipientEmailHash', 'tokenHash',
   'otpCode', 'idempotencyKey', 'requestHash',
 ]);
+const RESERVE_CANDIDATE_HANDOFF_COMMAND_KEYS = new Set([
+  'binding', 'invitationId', 'tokenHash', 'flowNonceHash', 'maximumLifetimeSeconds',
+]);
+const REDEEM_CANDIDATE_HANDOFF_COMMAND_KEYS = new Set([
+  'binding', 'invitationId', 'tokenHash', 'flowNonceHash', 'authenticatedSubject',
+  'issuedAt', 'expiresAt',
+]);
 const AI_WRITE_COMMAND_KEYS = new Set([
   'schemaVersion', 'operation', 'binding', 'targetBindingHash', 'scope', 'scopeHash',
   'caseId', 'proposalId', 'idempotencyKey', 'requestHash', 'recordHash', 'providerRunHash',
@@ -139,9 +157,27 @@ const ARTIFACT_GENERATED_METADATA_KEYS = new Set([
 const ARTIFACT_DENIED_METADATA_KEYS = new Set([
   'action', 'artifactFormat', 'reasonCode',
 ]);
-const RELATIONS = Object.freeze([...DR133_RELATIONS].sort());
-const DEFINERS = DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES;
-const APP_EXECUTABLE_DEFINERS = DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES;
+const PRIVATE_STORAGE_PUT_COMMAND_KEYS = new Set([
+  'actorId', 'actorRole', 'aadHash', 'authTagBase64', 'byteLength', 'capabilityId',
+  'caseId', 'checksum', 'ciphertextBase64', 'contentClass', 'contentType', 'evidenceId',
+  'hkdfSaltBase64', 'idempotencyKey', 'ivBase64', 'keyVersion', 'objectId', 'objectKey',
+  'purpose', 'requestHash', 'storageIdentity',
+]);
+const PRIVATE_STORAGE_GET_COMMAND_KEYS = new Set([
+  'actorId', 'actorRole', 'capabilityId', 'caseId', 'contentClass', 'evidenceId',
+  'objectId', 'objectKey', 'purpose', 'storageIdentity', 'versionId',
+]);
+const ASSIGN_MENTOR_COMMAND_KEYS = new Set([
+  'binding', 'caseId', 'studentAuthSubject', 'mentorAuthSubject', 'purpose',
+  'maximumLifetimeSeconds', 'idempotencyKey',
+]);
+const REVOKE_MENTOR_COMMAND_KEYS = new Set([
+  'binding', 'caseId', 'studentAuthSubject', 'assignmentId', 'reasonCode',
+  'idempotencyKey',
+]);
+const RELATIONS = Object.freeze([...DR133_STAGING_RELATIONS].sort());
+const DEFINERS = DR133_STAGING_APPROVED_DEFINERS;
+const APP_EXECUTABLE_DEFINERS = DR133_STAGING_APP_DEFINERS;
 const APP_RELATION_PRIVILEGES = Object.freeze([
   'administrative_case_grant_revocations:SELECT:false',
   'administrative_case_grants:SELECT:false',
@@ -164,8 +200,7 @@ const APP_RELATION_PRIVILEGES = Object.freeze([
   'waiver_receipts:SELECT:false',
   'writer_depot_artifacts:SELECT:false',
 ].sort());
-const APP_FUNCTION_PRIVILEGES = Object.freeze([
-  ...APP_EXECUTABLE_DEFINERS,
+const helperFunctionPrivileges = Object.freeze([
   'ai_grounding_manifest_is_complete(jsonb)',
   'audit_event_is_metadata(jsonb)',
   'canonical_jsonb_sha256(jsonb)',
@@ -173,7 +208,31 @@ const APP_FUNCTION_PRIVILEGES = Object.freeze([
   'operational_content_context_allows(text,text,text[],text[])',
   'student_context_allows(text,text,uuid,text[])',
   'student_write_axes_satisfied()',
-].map((identity) => `${identity}:EXECUTE:false`).sort());
+]);
+function functionPrivileges(definers) {
+  return Object.freeze([
+    ...definers,
+    ...helperFunctionPrivileges,
+  ].map((identity) => `${identity}:EXECUTE:false`).sort());
+}
+const APP_FUNCTION_PRIVILEGES = functionPrivileges(APP_EXECUTABLE_DEFINERS);
+const STAGING_CATALOG = Object.freeze({
+  relations: RELATIONS,
+  definers: DEFINERS,
+  appExecutableDefiners: APP_EXECUTABLE_DEFINERS,
+  appFunctionPrivileges: APP_FUNCTION_PRIVILEGES,
+  appRelationPrivileges: APP_RELATION_PRIVILEGES,
+});
+const PRODUCTION_CATALOG = Object.freeze({
+  relations: Object.freeze([...DR133_PRODUCTION_RELATIONS].sort()),
+  definers: DR133_PRODUCTION_APPROVED_DEFINERS,
+  appExecutableDefiners: DR133_PRODUCTION_APP_DEFINERS,
+  appFunctionPrivileges: functionPrivileges(DR133_PRODUCTION_APP_DEFINERS),
+  appRelationPrivileges: Object.freeze([
+    ...APP_RELATION_PRIVILEGES,
+    'private_artifact_versions:SELECT:false',
+  ].sort()),
+});
 
 const RESOLUTION_GUCS_SQL = `SELECT
   pg_catalog.set_config('request.jwt.claim.sub', $1, true) AS auth_uid,
@@ -208,6 +267,14 @@ const REVOKE_INVITATION_SQL = `SELECT ${SCHEMA}.revoke_faculty_invitation(
 const VERIFY_INVITATION_SQL = `SELECT ${SCHEMA}.verify_faculty_invitation(
   $1, $2, $3, $4, $5, $6
 ) AS result`;
+const RESERVE_CANDIDATE_HANDOFF_SQL =
+  `SELECT ${SCHEMA}.reserve_faculty_candidate_auth_handoff(
+  $1, $2, $3, $4
+) AS result`;
+const REDEEM_CANDIDATE_HANDOFF_SQL =
+  `SELECT ${SCHEMA}.redeem_faculty_candidate_auth_handoff(
+  $1, $2, $3, $4, $5, $6
+) AS result`;
 const DELIVERY_INVITATION_SQL = `SELECT ${SCHEMA}.commit_faculty_invitation_delivery(
   $1, $2, $3, $4, $5
 ) AS result`;
@@ -234,6 +301,20 @@ const ATTACH_AI_DECISION_SQL = `SELECT ${SCHEMA}.attach_ai_proposal_decision_if_
 ) AS result`;
 const APPEND_ARTIFACT_AUDIT_SQL = `SELECT ${SCHEMA}.append_artifact_export_audit(
   $1::jsonb, $2, $3, $4
+) AS result`;
+const PUT_ENCRYPTED_PRIVATE_ARTIFACT_SQL =
+  `SELECT ${SCHEMA}.put_encrypted_private_artifact_version(
+  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21
+) AS result`;
+const GET_ENCRYPTED_PRIVATE_ARTIFACT_SQL =
+  `SELECT ${SCHEMA}.get_encrypted_private_artifact_version(
+  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
+) AS result`;
+const ASSIGN_MENTOR_SQL = `SELECT ${SCHEMA}.assign_mentor_to_case(
+  $1, $2, $3, $4, $5, $6
+) AS result`;
+const REVOKE_MENTOR_SQL = `SELECT ${SCHEMA}.revoke_mentor_case_assignment(
+  $1, $2, $3, $4, $5
 ) AS result`;
 
 function readinessSql(target) {
@@ -1130,6 +1211,15 @@ function mapInvitationDatabaseError(error, command) {
   }
   return disabled('ATOMIC_FACULTY_INVITATION_TRANSACTION_FAILED');
 }
+function mapCandidateHandoffDatabaseError(error) {
+  const exact = String(typeof error?.code === 'string' ? error.code : '')
+    + '/'
+    + String(typeof error?.message === 'string' ? error.message : '');
+  if (exact === 'P1311/LOR_FACULTY_CANDIDATE_HANDOFF_DENIED') {
+    return new InvitationDeniedError();
+  }
+  return disabled('ATOMIC_FACULTY_CANDIDATE_HANDOFF_TRANSACTION_FAILED');
+}
 function aiErrorReceipt(error, command) {
   const exact = `${typeof error?.code === 'string' ? error.code : ''}/${
     typeof error?.message === 'string' ? error.message : ''}`;
@@ -1220,7 +1310,7 @@ function safeReadiness(checks, reasonCode) {
     groups: groupedReadiness(frozen),
   });
 }
-function readinessFor(executor, isHealthy, target) {
+function readinessFor(executor, health, target, catalog) {
   const targetReadinessSql = readinessSql(target);
   const allFalse = () => ({
     runtimeIdentity: false, privateTlsTarget: false, applicationRole: false,
@@ -1229,9 +1319,9 @@ function readinessFor(executor, isHealthy, target) {
     aclGranteesRestricted: false,
     viewCustody: false, roleCustody: false, relationAclCustody: false,
   });
-  return Object.freeze({
+  const readiness = Object.freeze({
     async probe() {
-      if (!isHealthy()) return safeReadiness(allFalse(), 'DATABASE_UNAVAILABLE');
+      if (!health.mayProbe()) return safeReadiness(allFalse(), 'DATABASE_UNAVAILABLE');
       try {
         const row = await transaction(executor, async (tx) => {
           const result = await tx.execute(statement('lor_runtime_readiness', targetReadinessSql));
@@ -1246,17 +1336,18 @@ function readinessFor(executor, isHealthy, target) {
           applicationRole: row.current_user === APP_ROLE,
           targetSentinel: row.schema_sentinel === target.successorSentinel
             && row.schema_owner === target.databaseAdmin,
-          relationsForcedRls: row.relation_count === String(RELATIONS.length)
-            && row.forced_rls_count === String(RELATIONS.length)
-            && arraysEqual(row.relation_names, RELATIONS),
-          securityDefiners: row.definer_count === String(DEFINERS.length)
-            && row.definer_custody_safe === true && arraysEqual(row.definer_identities, DEFINERS),
-          appExecute: row.app_execute_count === String(APP_EXECUTABLE_DEFINERS.length)
-            && arraysEqual(row.app_execute_identities, APP_EXECUTABLE_DEFINERS)
+          relationsForcedRls: row.relation_count === String(catalog.relations.length)
+            && row.forced_rls_count === String(catalog.relations.length)
+            && arraysEqual(row.relation_names, catalog.relations),
+          securityDefiners: row.definer_count === String(catalog.definers.length)
+            && row.definer_custody_safe === true
+            && arraysEqual(row.definer_identities, catalog.definers),
+          appExecute: row.app_execute_count === String(catalog.appExecutableDefiners.length)
+            && arraysEqual(row.app_execute_identities, catalog.appExecutableDefiners)
             && row.pre_evidence_app_execute_denied === true,
           functionAclCustody: arraysEqual(
             row.app_function_privileges,
-            APP_FUNCTION_PRIVILEGES,
+            catalog.appFunctionPrivileges,
           ) && row.runtime_function_acl_count === '0',
           publicDriftAbsent: row.public_function_execute_count === '0'
             && row.public_relation_privilege_count === '0'
@@ -1279,17 +1370,161 @@ function readinessFor(executor, isHealthy, target) {
             && row.app_schema_create_denied === true
             && row.runtime_schema_create_denied === true
             && row.app_schema_usage === true,
-          relationAclCustody: arraysEqual(row.app_relation_privileges, APP_RELATION_PRIVILEGES)
+          relationAclCustody: arraysEqual(
+            row.app_relation_privileges,
+            catalog.appRelationPrivileges,
+          )
             && row.runtime_relation_acl_count === '0'
             && row.unexpected_sequence_acl_count === '0'
             && row.unexpected_column_acl_count === '0',
         };
         const ready = Object.values(checks).every((value) => value === true);
+        if (ready) health.markReady();
+        else health.markUnavailable();
         return safeReadiness(checks, ready ? 'READY' : 'CATALOG_FINGERPRINT_MISMATCH');
-      } catch { return safeReadiness(allFalse(), 'DATABASE_UNAVAILABLE'); }
+      } catch {
+        health.markUnavailable();
+        return safeReadiness(allFalse(), 'DATABASE_UNAVAILABLE');
+      }
+    },
+  });
+  AUTHENTIC_PRODUCTION_POSTGRES_READINESS.add(readiness);
+  return readiness;
+}
+
+export function isAuthenticProductionPostgresReadiness(value) {
+  if (!value || typeof value !== 'object') return false;
+  try {
+    return Object.isFrozen(value)
+      && Reflect.ownKeys(value).length === 1
+      && typeof value.probe === 'function'
+      && Object.getOwnPropertyDescriptor(value, 'probe')?.value === value.probe
+      && AUTHENTIC_PRODUCTION_POSTGRES_READINESS.has(value);
+  } catch {
+    return false;
+  }
+}
+
+function mentorAssignmentCommandDriverFor(executor, binding, isHealthy) {
+  const assertHealthy = () => {
+    if (!isHealthy()) throw disabled('RUNTIME_DATABASE_UNAVAILABLE');
+  };
+  const command = (rawCommand, keys, status) => {
+    const snapshot = exactDataSnapshot(rawCommand, keys, status);
+    assertBindingMatch(snapshot.binding, binding, status);
+    if (
+      !identifier(snapshot.caseId)
+      || !SUBJECT.test(snapshot.studentAuthSubject ?? '')
+      || !boundedKey(snapshot.idempotencyKey, 200)
+      || !CASE_ID.test(snapshot.idempotencyKey)
+    ) throw disabled(status);
+    return snapshot;
+  };
+  const mapError = (error, snapshot) => {
+    const exact = `${typeof error?.code === 'string' ? error.code : ''}/${
+      typeof error?.message === 'string' ? error.message : ''}`;
+    if (exact === 'P1601/LOR_MENTOR_ASSIGNMENT_COMMAND_DENIED') {
+      return new AuthorizationDeniedError('DATABASE_MENTOR_ASSIGNMENT_COMMAND_DENIED');
+    }
+    if (
+      exact === 'P1602/LOR_MENTOR_IDEMPOTENCY_CONFLICT'
+      || exact === 'P1604/LOR_MENTOR_ASSIGNMENT_ALREADY_ACTIVE'
+    ) return new IdempotencyConflictError({ idempotencyKey: snapshot.idempotencyKey });
+    if (exact === 'P1603/LOR_MENTOR_ASSIGNMENT_NOT_FOUND') {
+      return new NotFoundError('mentor_assignment', snapshot.assignmentId);
+    }
+    return disabled('ATOMIC_MENTOR_ASSIGNMENT_TRANSACTION_FAILED');
+  };
+  return Object.freeze({
+    serverOnly: true,
+    rlsEnforced: true,
+    databaseClock: true,
+    atomicMentorAssignmentCommands: true,
+    async assignMentorCaseAtomic(rawCommand) {
+      assertHealthy();
+      const snapshot = command(
+        rawCommand,
+        ASSIGN_MENTOR_COMMAND_KEYS,
+        'MENTOR_ASSIGNMENT_COMMAND_INVALID',
+      );
+      if (
+        !SUBJECT.test(snapshot.mentorAuthSubject ?? '')
+        || snapshot.mentorAuthSubject === snapshot.studentAuthSubject
+        || typeof snapshot.purpose !== 'string'
+        || snapshot.purpose.length < 1
+        || snapshot.purpose.length > 160
+        || snapshot.purpose.trim() !== snapshot.purpose
+        || /[\u0000-\u001f\u007f]/u.test(snapshot.purpose)
+        || !Number.isSafeInteger(snapshot.maximumLifetimeSeconds)
+        || snapshot.maximumLifetimeSeconds < 300
+        || snapshot.maximumLifetimeSeconds > 15_552_000
+      ) throw disabled('MENTOR_ASSIGNMENT_COMMAND_INVALID');
+      try {
+        return await executeRuntimeCommand(
+          executor,
+          [
+            '', 'service:lor-mentor-assignment-operator-v1', 'service',
+            snapshot.studentAuthSubject, snapshot.caseId, 'assign_mentor_case',
+            'mentor_assignment_administration', '', '', '', 'true', 'true', 'true',
+            'lor-mentor-assignment-operator-v1', 'true',
+          ],
+          'lor_runtime_assign_mentor_to_case',
+          ASSIGN_MENTOR_SQL,
+          [
+            snapshot.caseId, snapshot.studentAuthSubject, snapshot.mentorAuthSubject,
+            snapshot.purpose, snapshot.maximumLifetimeSeconds, snapshot.idempotencyKey,
+          ],
+          'MENTOR_ASSIGNMENT_RECEIPT_INVALID',
+        );
+      } catch (error) {
+        if (
+          error instanceof AuthorizationDeniedError
+          || error instanceof IdempotencyConflictError
+          || error instanceof NotFoundError
+        ) throw error;
+        throw mapError(error, snapshot);
+      }
+    },
+    async revokeMentorCaseAssignmentAtomic(rawCommand) {
+      assertHealthy();
+      const snapshot = command(
+        rawCommand,
+        REVOKE_MENTOR_COMMAND_KEYS,
+        'MENTOR_REVOCATION_COMMAND_INVALID',
+      );
+      if (
+        !/^mentor_service_assignment_[a-f0-9]{64}$/u.test(snapshot.assignmentId ?? '')
+        || !/^[A-Z0-9_:-]{1,120}$/u.test(snapshot.reasonCode ?? '')
+      ) throw disabled('MENTOR_REVOCATION_COMMAND_INVALID');
+      try {
+        return await executeRuntimeCommand(
+          executor,
+          [
+            '', 'service:lor-mentor-assignment-operator-v1', 'service',
+            snapshot.studentAuthSubject, snapshot.caseId, 'revoke_mentor_assignment',
+            'mentor_assignment_administration', '', snapshot.assignmentId, '',
+            'true', 'true', 'true', 'lor-mentor-assignment-operator-v1', 'true',
+          ],
+          'lor_runtime_revoke_mentor_case_assignment',
+          REVOKE_MENTOR_SQL,
+          [
+            snapshot.caseId, snapshot.studentAuthSubject, snapshot.assignmentId,
+            snapshot.reasonCode, snapshot.idempotencyKey,
+          ],
+          'MENTOR_REVOCATION_RECEIPT_INVALID',
+        );
+      } catch (error) {
+        if (
+          error instanceof AuthorizationDeniedError
+          || error instanceof IdempotencyConflictError
+          || error instanceof NotFoundError
+        ) throw error;
+        throw mapError(error, snapshot);
+      }
     },
   });
 }
+
 function driverFacade(driver, executor, binding, isHealthy) {
   const targetBindingHash = hashValue(binding);
   const assertHealthy = () => {
@@ -1424,6 +1659,44 @@ function driverFacade(driver, executor, binding, isHealthy) {
     }
     return command;
   };
+  const privateStorageCommand = (rawCommand, expectedKeys, status) => {
+    const command = exactDataSnapshot(rawCommand, expectedKeys, status);
+    let context;
+    try { context = readTrustedRequestContext(); } catch {
+      throw disabled('TRUSTED_REQUEST_CONTEXT_REQUIRED');
+    }
+    if (
+      command.actorId !== context.authenticatedSubject
+      || command.actorRole !== context.actorRole
+      || !['student', 'faculty'].includes(command.actorRole)
+      || !identifier(command.caseId)
+      || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,299}$/u.test(command.objectId ?? '')
+      || !boundedKey(command.objectKey, 1_024)
+      || !['student_prepared', 'faculty_private', 'released_final', 'structural_waiver_material']
+        .includes(command.contentClass)
+      || !['case_workflow', 'faculty_review', 'final_delivery', 'privacy_request', 'restore_rehearsal']
+        .includes(command.purpose)
+      || !/^capability_[a-f0-9]{64}$/u.test(command.capabilityId ?? '')
+      || !/^evidence_[a-f0-9]{64}$/u.test(command.evidenceId ?? '')
+      || !boundedKey(command.storageIdentity, 300)
+    ) throw disabled(status);
+    return command;
+  };
+  const mapPrivateStorageDatabaseError = (error, command) => {
+    const exact = `${typeof error?.code === 'string' ? error.code : ''}/${
+      typeof error?.message === 'string' ? error.message : ''}`;
+    if (exact === 'P1501/LOR_PRIVATE_STORAGE_AUTHORIZATION_DENIED') {
+      return new AuthorizationDeniedError('DATABASE_PRIVATE_STORAGE_DENIED');
+    }
+    if (exact === 'P1502/LOR_PRIVATE_STORAGE_IDEMPOTENCY_CONFLICT') {
+      return new IdempotencyConflictError({ idempotencyKey: command.idempotencyKey });
+    }
+    if (exact === 'P1503/LOR_PRIVATE_STORAGE_NOT_FOUND'
+      || exact === 'P1503/LOR_PRIVATE_STORAGE_RELEASE_NOT_FOUND') {
+      return new NotFoundError('private_artifact_version', command.versionId ?? command.objectId);
+    }
+    return disabled('ATOMIC_PRIVATE_STORAGE_COMMAND_FAILED');
+  };
   const facade = {
     atomicStateAndAudit: true,
     rlsEnforced: true,
@@ -1433,13 +1706,16 @@ function driverFacade(driver, executor, binding, isHealthy) {
     actorSafeReads: true,
     atomicProviderCallReservation: true,
     atomicFacultyInvitationCommands: true,
+    atomicFacultyCandidateHandoffs: true,
     atomicProviderRunAndProposal: true,
     conditionalAtomicOneDecision: true,
     appendOnlyArtifactAudit: true,
+    encryptedPrivateStorageCommands: true,
   };
   for (const name of [
     'selectCase', 'executeAtomicCaseCommand', 'readStudentSafeCase',
-    'readFacultyCaseProjection', 'readMentorCaseProjection', 'reserveCaseCreation',
+    'readFacultyCaseProjection', 'readFacultyDraftingContext',
+    'readMentorCaseProjection', 'reserveCaseCreation',
     'readFinalDocumentExport',
     'commitStudentCaseCreate', 'commitStudentBuilderAutosave', 'commitStudentBuilderComplete',
     'commitStudentConsentReceipt', 'commitStudentWaiverReceipt',
@@ -1662,6 +1938,99 @@ function driverFacade(driver, executor, binding, isHealthy) {
       );
     } catch (error) { throw mapInvitationDatabaseError(error, command); }
   };
+  facade.reserveFacultyCandidateAuthHandoffAtomic = async (rawCommand) => {
+    assertHealthy();
+    const command = exactDataSnapshot(
+      rawCommand,
+      RESERVE_CANDIDATE_HANDOFF_COMMAND_KEYS,
+      'RESERVE_FACULTY_CANDIDATE_HANDOFF_COMMAND_INVALID',
+    );
+    assertBindingMatch(
+      command.binding,
+      binding,
+      'RESERVE_FACULTY_CANDIDATE_HANDOFF_COMMAND_INVALID',
+    );
+    if (
+      !identifier(command.invitationId)
+      || !digest(command.tokenHash)
+      || !digest(command.flowNonceHash)
+      || !Number.isSafeInteger(command.maximumLifetimeSeconds)
+      || command.maximumLifetimeSeconds < 60
+      || command.maximumLifetimeSeconds > 900
+    ) throw new InvitationDeniedError();
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        [
+          '', '', 'service', '', '', 'reserve_faculty_candidate_auth_handoff',
+          'faculty_candidate_auth', command.invitationId, '', '', 'false', 'true', 'true',
+          'lor-candidate-auth-v1', 'true',
+        ],
+        'lor_runtime_reserve_faculty_candidate_auth_handoff',
+        RESERVE_CANDIDATE_HANDOFF_SQL,
+        [
+          command.invitationId,
+          command.tokenHash,
+          command.flowNonceHash,
+          command.maximumLifetimeSeconds,
+        ],
+        'RESERVE_FACULTY_CANDIDATE_HANDOFF_RECEIPT_INVALID',
+      );
+    } catch (error) {
+      if (error instanceof InvitationDeniedError) throw error;
+      throw mapCandidateHandoffDatabaseError(error);
+    }
+  };
+  facade.redeemFacultyCandidateAuthHandoffAtomic = async (rawCommand) => {
+    assertHealthy();
+    const command = exactDataSnapshot(
+      rawCommand,
+      REDEEM_CANDIDATE_HANDOFF_COMMAND_KEYS,
+      'REDEEM_FACULTY_CANDIDATE_HANDOFF_COMMAND_INVALID',
+    );
+    assertBindingMatch(
+      command.binding,
+      binding,
+      'REDEEM_FACULTY_CANDIDATE_HANDOFF_COMMAND_INVALID',
+    );
+    if (
+      !identifier(command.invitationId)
+      || !digest(command.tokenHash)
+      || !digest(command.flowNonceHash)
+      || !SUBJECT.test(command.authenticatedSubject ?? '')
+      || !validTime(command.issuedAt)
+      || !validTime(command.expiresAt)
+      || new Date(command.issuedAt).toISOString() !== command.issuedAt
+      || new Date(command.expiresAt).toISOString() !== command.expiresAt
+      || Date.parse(command.expiresAt) <= Date.parse(command.issuedAt)
+      || Date.parse(command.expiresAt) - Date.parse(command.issuedAt) > 900_000
+    ) throw new InvitationDeniedError();
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        [
+          '', command.authenticatedSubject, 'service', '', '',
+          'redeem_faculty_candidate_auth_handoff', 'faculty_candidate_auth',
+          command.invitationId, '', '', 'false', 'true', 'true',
+          'lor-candidate-auth-v1', 'true',
+        ],
+        'lor_runtime_redeem_faculty_candidate_auth_handoff',
+        REDEEM_CANDIDATE_HANDOFF_SQL,
+        [
+          command.invitationId,
+          command.tokenHash,
+          command.flowNonceHash,
+          command.authenticatedSubject,
+          command.issuedAt,
+          command.expiresAt,
+        ],
+        'REDEEM_FACULTY_CANDIDATE_HANDOFF_RECEIPT_INVALID',
+      );
+    } catch (error) {
+      if (error instanceof InvitationDeniedError) throw error;
+      throw mapCandidateHandoffDatabaseError(error);
+    }
+  };
   const transitionAiGeneration = async (rawCommand, operation, statementId, invalidStatus) => {
     assertHealthy();
     const command = aiReservationCommand(rawCommand, operation, invalidStatus);
@@ -1763,6 +2132,83 @@ function driverFacade(driver, executor, binding, isHealthy) {
       throw disabled('ATOMIC_AI_DECISION_TRANSACTION_FAILED');
     }
   };
+  facade.putEncryptedPrivateArtifactAtomic = async (rawCommand) => {
+    assertHealthy();
+    const command = privateStorageCommand(
+      rawCommand,
+      PRIVATE_STORAGE_PUT_COMMAND_KEYS,
+      'PRIVATE_STORAGE_PUT_COMMAND_INVALID',
+    );
+    if (
+      !digest(command.aadHash)
+      || !digest(command.checksum)
+      || !digest(command.requestHash)
+      || !boundedKey(command.contentType, 160)
+      || !boundedKey(command.idempotencyKey, 200)
+      || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,79}$/u.test(command.keyVersion ?? '')
+      || !Number.isSafeInteger(command.byteLength)
+      || command.byteLength < 1
+      || command.byteLength > 52_428_800
+      || !boundedKey(command.hkdfSaltBase64, 64)
+      || !boundedKey(command.ivBase64, 32)
+      || !boundedKey(command.authTagBase64, 32)
+      || !boundedKey(command.ciphertextBase64, 80_000_000)
+    ) throw disabled('PRIVATE_STORAGE_PUT_COMMAND_INVALID');
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        [
+          '', command.actorId, 'service', '', command.caseId,
+          'read', 'actor_case_access_resolution', '', '', '',
+          'true', 'true', 'true', 'actor-access-v1', 'true',
+        ],
+        'lor_runtime_put_encrypted_private_artifact',
+        PUT_ENCRYPTED_PRIVATE_ARTIFACT_SQL,
+        [
+          command.actorId, command.actorRole, command.caseId, command.objectId,
+          command.objectKey, command.contentClass, command.purpose, command.contentType,
+          command.checksum, command.byteLength, command.idempotencyKey, command.requestHash,
+          command.storageIdentity, command.keyVersion, command.capabilityId, command.evidenceId,
+          command.hkdfSaltBase64, command.ivBase64, command.authTagBase64,
+          command.ciphertextBase64, command.aadHash,
+        ],
+        'PRIVATE_STORAGE_PUT_RECEIPT_INVALID',
+      );
+    } catch (error) {
+      throw mapPrivateStorageDatabaseError(error, command);
+    }
+  };
+  facade.getEncryptedPrivateArtifactAtomic = async (rawCommand) => {
+    assertHealthy();
+    const command = privateStorageCommand(
+      rawCommand,
+      PRIVATE_STORAGE_GET_COMMAND_KEYS,
+      'PRIVATE_STORAGE_GET_COMMAND_INVALID',
+    );
+    if (!/^version_[a-f0-9]{64}$/u.test(command.versionId ?? '')) {
+      throw disabled('PRIVATE_STORAGE_GET_COMMAND_INVALID');
+    }
+    try {
+      return await executeRuntimeCommand(
+        executor,
+        [
+          '', command.actorId, 'service', '', command.caseId,
+          'read', 'actor_case_access_resolution', '', '', '',
+          'true', 'true', 'true', 'actor-access-v1', 'true',
+        ],
+        'lor_runtime_get_encrypted_private_artifact',
+        GET_ENCRYPTED_PRIVATE_ARTIFACT_SQL,
+        [
+          command.actorId, command.actorRole, command.caseId, command.objectId,
+          command.versionId, command.objectKey, command.contentClass, command.purpose,
+          command.storageIdentity, command.capabilityId, command.evidenceId,
+        ],
+        'PRIVATE_STORAGE_GET_RECEIPT_INVALID',
+      );
+    } catch (error) {
+      throw mapPrivateStorageDatabaseError(error, command);
+    }
+  };
   facade.appendArtifactExportAuditAtomic = async (rawCommand) => {
     assertHealthy();
     const command = artifactAuditCommand(rawCommand);
@@ -1793,6 +2239,7 @@ export function createProductionPostgresRuntimeDependencies(rawBinding, rawOptio
   const binding = validateBinding(rawBinding);
   const environment = Object.hasOwn(options, 'environment') ? options.environment : process.env;
   const target = resolveProductionRuntimeTarget(binding, environment);
+  const catalog = binding.environment === 'production' ? PRODUCTION_CATALOG : STAGING_CATALOG;
   const PoolClass = Object.hasOwn(options, 'PoolClass') ? options.PoolClass : Pool;
   if (typeof PoolClass !== 'function') throw disabled('POOL_CLASS_INVALID');
   const { ca, connectionString } = runtimeConfiguration(environment, target);
@@ -1810,13 +2257,30 @@ export function createProductionPostgresRuntimeDependencies(rawBinding, rawOptio
       || typeof pool.on !== 'function' || typeof pool.removeListener !== 'function') {
       throw new TypeError('invalid pool');
     }
-    let unhealthy = false;
     let closed = false;
-    poolErrorListener = () => { unhealthy = true; };
+    let circuitState = 'ready';
+    const health = Object.freeze({
+      isReady: () => !closed && circuitState === 'ready',
+      mayProbe: () => !closed,
+      markReady: () => {
+        if (!closed) circuitState = 'ready';
+      },
+      markUnavailable: () => {
+        if (!closed) circuitState = 'probe_required';
+      },
+    });
+    poolErrorListener = () => { health.markUnavailable(); };
     pool.on('error', poolErrorListener);
-    const isHealthy = () => !unhealthy && !closed;
+    const isHealthy = health.isReady;
     const executor = createNodePostgresExecutor({ pool, databaseRole: NODE_POSTGRES_DATABASE_ROLE });
     const driver = createAtomicRlsCaseDriver({ binding, executor });
+    const mentorAssignmentRepository = new SupabaseDurableMentorAssignmentRepository({
+      binding,
+      driver: mentorAssignmentCommandDriverFor(executor, binding, isHealthy),
+    });
+    const mentorAssignmentOperator = createDurableMentorAssignmentOperator({
+      repository: mentorAssignmentRepository,
+    });
     let closePromise = null;
     const close = () => {
       if (!closePromise) {
@@ -1833,7 +2297,8 @@ export function createProductionPostgresRuntimeDependencies(rawBinding, rawOptio
       scopeProvider: scopeProviderFor(executor, isHealthy),
       candidateScopeProvider: candidateScopeProviderFor(isHealthy),
       actorResolver: actorResolverFor(executor, isHealthy),
-      readiness: readinessFor(executor, isHealthy, target), close,
+      mentorAssignmentOperator,
+      readiness: readinessFor(executor, health, target, catalog), close,
     });
   } catch (error) {
     if (pool && poolErrorListener && typeof pool.removeListener === 'function') {
@@ -1854,10 +2319,12 @@ export const PRODUCTION_POSTGRES_RUNTIME_CONTRACT = Object.freeze({
   successorSentinel: 'derived_from_exact_resolved_runtime_target',
   runtimeTargetSchemaVersion: PRODUCTION_RUNTIME_TARGET_CONTRACT.schemaVersion,
   publicSurface: Object.freeze([
-    'driver', 'scopeProvider', 'candidateScopeProvider', 'actorResolver', 'readiness', 'close',
+    'driver', 'scopeProvider', 'candidateScopeProvider', 'actorResolver',
+    'mentorAssignmentOperator', 'readiness', 'close',
   ]),
   identitySource: 'active_trusted_request_context_only',
   actorRoleSource: 'database_verified_case_access_only',
   tls: 'verified_pinned_railway_root_ca_and_hostname',
-  revocationCommand: 'omitted_until_distinct_trusted_service_context_exists',
+  revocationCommand: 'module_private_trusted_service_operator_only',
+  idlePoolErrorRecovery: 'fail_closed_until_fresh_authenticated_catalog_reprobe',
 });

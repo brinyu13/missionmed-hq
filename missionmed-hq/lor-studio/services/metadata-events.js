@@ -28,6 +28,8 @@ const ALLOWED_EVENT_TYPES = new Set([
   'faculty.private_content_updated',
   'faculty.verification_denied',
   'faculty.verified',
+  'mentor.assignment_issued',
+  'mentor.assignment_revoked',
   'strategy.metadata_updated',
   'student.material_updated',
   'waiver.recorded',

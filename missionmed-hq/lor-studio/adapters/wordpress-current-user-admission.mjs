@@ -8,13 +8,24 @@ import {
   WORDPRESS_LOR_ADMISSION_CONTRACT,
   WORDPRESS_LOR_ADMISSION_PATH,
   WORDPRESS_LOR_BINDING_PROVENANCE,
+  WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+  WORDPRESS_LOR_RESOURCE_ENTITLEMENT_PRODUCER,
+  WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_CONTRACT,
+  WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
 } from './wordpress-lor-s2s-protocol.mjs';
 
 export {
   WORDPRESS_LOR_ADMISSION_CONTRACT,
   WORDPRESS_LOR_ADMISSION_PATH,
   WORDPRESS_LOR_BINDING_PROVENANCE,
+  WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+  WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
 };
+
+export const WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD =
+  'lorAdmissionIdentityClass';
+export const WORDPRESS_LOR_SESSION_CANDIDATE_INVITATION_FIELD =
+  'lorFacultyCandidateInvitationId';
 
 const SUBJECT_PATTERN = /^wp:[1-9][0-9]*$/u;
 const BINDING_PATTERN = /^lorb1_[A-Za-z0-9_-]{43}$/u;
@@ -22,22 +33,37 @@ const UTC_INSTANT_PATTERN =
   /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$/u;
 const ACTOR_CASE_ACCESS_SCHEMA = 'missionmed.lor.actor-case-access.v1';
 const CASE_API_PATTERN = /^\/api\/lor-studio\/cases\/([^/?#]+)(?:[/?#]|$)/u;
+const CASE_PAGE_PATHS = new Set([
+  '/lor-studio',
+  '/lor-studio/',
+  '/lor-studio/index.html',
+]);
+const CASE_BOOTSTRAP_PATH = '/api/lor-studio/bootstrap';
 const FACULTY_CANDIDATE_API_PATTERN =
   /^\/api\/lor-studio\/invitations\/([^/?#]+)\/(?:bootstrap|verify)(?:[?#]|$)/u;
 const FACULTY_CANDIDATE_PAGE_PATTERN =
   /^\/lor-studio\/invitations\/([^/?#]+)\/?(?:[?#]|$)/u;
+const LOCATOR_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u;
 const ACTOR_ROLES = new Set(['student', 'faculty', 'mentor']);
 const RESOURCE_ENTITLEMENT_KEYS = new Set([
+  'actorRole',
   'active',
+  'audience',
   'canaryConsented',
   'canaryEnabled',
+  'contract',
+  'evaluatedAt',
+  'expiresAt',
   'lorEnabled',
+  'metadataOnly',
   'producerStatus',
+  'requesterSubject',
   'revoked',
   'studentId',
   'tier',
 ]);
-const RESOURCE_ENTITLEMENT_PRODUCER = 'WORDPRESS_RESOURCE_ADMISSION_V1_SIGNED_S2S';
+const RESOURCE_ENTITLEMENT_MAX_LIFETIME_MS = 5 * 60 * 1_000;
+const CLOCK_SKEW_MS = 30 * 1_000;
 
 export class WordPressCurrentUserAdmissionError extends Error {
   constructor(code) {
@@ -73,6 +99,21 @@ function canonicalSessionSubject(value) {
   return `wp:${value}`;
 }
 
+function canonicalIdentityClass(value) {
+  if (![
+    WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
+    WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+  ].includes(value)) fail('IDENTITY_CLASS_INVALID');
+  return value;
+}
+
+function exactCandidateInvitationId(value) {
+  if (typeof value !== 'string' || !LOCATOR_PATTERN.test(value)) {
+    fail('CANDIDATE_SESSION_INVALID');
+  }
+  return value;
+}
+
 function exactBinding(session, now) {
   const bindingId = session?.lorAdmissionBindingId;
   if (typeof bindingId !== 'string' || !BINDING_PATTERN.test(bindingId)) {
@@ -89,7 +130,18 @@ function exactBinding(session, now) {
   if (!Number.isFinite(expiresAtMs) || new Date(expiresAtMs).toISOString() !== expiresAt || expiresAtMs <= now) {
     fail('BINDING_UNAVAILABLE');
   }
-  return bindingId;
+  const identityClass = canonicalIdentityClass(
+    session?.[WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD],
+  );
+  const rawCandidateInvitationId =
+    session?.[WORDPRESS_LOR_SESSION_CANDIDATE_INVITATION_FIELD];
+  let candidateInvitationId = null;
+  if (identityClass === WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS) {
+    candidateInvitationId = exactCandidateInvitationId(rawCandidateInvitationId);
+  } else if (rawCandidateInvitationId !== undefined && rawCandidateInvitationId !== null) {
+    fail('CANDIDATE_SESSION_INVALID');
+  }
+  return Object.freeze({ bindingId, identityClass, candidateInvitationId });
 }
 
 function nowMilliseconds(clock) {
@@ -102,10 +154,33 @@ function nowMilliseconds(clock) {
 function requestCaseId(request) {
   const raw = typeof request?.url === 'string' ? request.url : '';
   const match = CASE_API_PATTERN.exec(raw);
-  if (!match) return null;
+  let rawCaseId = match?.[1] ?? null;
+  if (rawCaseId === null && raw.startsWith('/')) {
+    let parsed;
+    try {
+      parsed = new URL(raw, 'https://lor-request.invalid');
+    } catch {
+      fail('CASE_ACCESS_INVALID');
+    }
+    if (
+      (CASE_PAGE_PATHS.has(parsed.pathname) || parsed.pathname === CASE_BOOTSTRAP_PATH)
+      && parsed.searchParams.has('case')
+    ) {
+      const keys = [...parsed.searchParams.keys()];
+      const caseValues = parsed.searchParams.getAll('case');
+      if (
+        parsed.hash !== ''
+        || keys.length !== 1
+        || keys[0] !== 'case'
+        || caseValues.length !== 1
+      ) fail('CASE_ACCESS_INVALID');
+      rawCaseId = caseValues[0];
+    }
+  }
+  if (rawCaseId === null) return null;
   let caseId;
   try {
-    caseId = decodeURIComponent(match[1]);
+    caseId = match ? decodeURIComponent(rawCaseId) : rawCaseId;
   } catch {
     fail('CASE_ACCESS_INVALID');
   }
@@ -175,7 +250,12 @@ function exactActorCaseAccess(value, { authenticatedSubject, caseId }) {
   return Object.freeze(snapshot);
 }
 
-function exactResourceStudentEntitlement(value, studentId) {
+function exactResourceStudentEntitlement(value, {
+  authenticatedSubject,
+  actorRole,
+  now,
+  studentId,
+}) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) fail('RESOURCE_ENTITLEMENT_DENIED');
   let descriptors;
   let keys;
@@ -198,14 +278,34 @@ function exactResourceStudentEntitlement(value, studentId) {
     snapshot[key] = descriptor.value;
   }
   if (
-    snapshot.studentId !== studentId
+    snapshot.contract !== WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_CONTRACT
+    || snapshot.audience !== 'lor-studio'
+    || snapshot.requesterSubject !== authenticatedSubject
+    || snapshot.actorRole !== actorRole
+    || snapshot.studentId !== studentId
     || snapshot.active !== true
     || snapshot.tier !== 'tier3_360'
     || snapshot.lorEnabled !== true
     || snapshot.revoked !== false
     || typeof snapshot.canaryEnabled !== 'boolean'
     || typeof snapshot.canaryConsented !== 'boolean'
-    || snapshot.producerStatus !== RESOURCE_ENTITLEMENT_PRODUCER
+    || snapshot.producerStatus !== WORDPRESS_LOR_RESOURCE_ENTITLEMENT_PRODUCER
+    || snapshot.metadataOnly !== true
+  ) fail('RESOURCE_ENTITLEMENT_DENIED');
+  const evaluatedAt = Date.parse(snapshot.evaluatedAt);
+  const expiresAt = Date.parse(snapshot.expiresAt);
+  if (
+    !UTC_INSTANT_PATTERN.test(snapshot.evaluatedAt ?? '')
+    || !UTC_INSTANT_PATTERN.test(snapshot.expiresAt ?? '')
+    || !Number.isFinite(evaluatedAt)
+    || !Number.isFinite(expiresAt)
+    || new Date(evaluatedAt).toISOString() !== snapshot.evaluatedAt
+    || new Date(expiresAt).toISOString() !== snapshot.expiresAt
+    || evaluatedAt > now + CLOCK_SKEW_MS
+    || evaluatedAt < now - RESOURCE_ENTITLEMENT_MAX_LIFETIME_MS
+    || expiresAt <= now
+    || expiresAt <= evaluatedAt
+    || expiresAt - evaluatedAt > RESOURCE_ENTITLEMENT_MAX_LIFETIME_MS
   ) fail('RESOURCE_ENTITLEMENT_DENIED');
   return Object.freeze(snapshot);
 }
@@ -217,7 +317,10 @@ function exactResourceStudentEntitlement(value, studentId) {
  * binding is useless without the server-held domain-separated HMAC key.
  *
  * @param {{
- *   s2sClient?: { admit(input: { bindingId: string, subject: string }): Promise<Record<string, unknown>> } | null,
+ *   s2sClient?: {
+ *     admit(input: { bindingId: string, subject: string, identityClass: string }): Promise<Record<string, unknown>>,
+ *     resourceEntitlementPort?: { signedS2s: true, resolve(input: Record<string, unknown>): Promise<Record<string, unknown>>, probe(input?: {signal?: AbortSignal}): Promise<Record<string, unknown>> },
+ *   } | null,
  *   origin?: string,
  *   sharedSecret?: string,
  *   fetchImplementation?: typeof globalThis.fetch,
@@ -226,7 +329,7 @@ function exactResourceStudentEntitlement(value, studentId) {
  *   maximumResponseBytes?: number,
  *   transportTimeoutMs?: number,
  *   actorResolver?: { resolve(input: { authenticatedSubject: string, caseId: string }): Promise<Record<string, unknown>> } | null,
- *   resourceEntitlementResolver?: { signedS2s: true, resolve(input: { authenticatedSubject: string, actorRole: string, studentId: string }): Promise<Record<string, unknown>> } | null,
+ *   resourceEntitlementResolver?: { signedS2s: true, resolve(input: { authenticatedSubject: string, actorRole: string, studentId: string }): Promise<Record<string, unknown>>, probe?: (input?: {signal?: AbortSignal}) => Promise<Record<string, unknown>> } | null,
  * }} [options]
  */
 export function createWordPressCurrentUserAdmission({
@@ -254,23 +357,39 @@ export function createWordPressCurrentUserAdmission({
   if (actorResolver !== null && typeof actorResolver?.resolve !== 'function') {
     fail('ACTOR_RESOLVER_UNAVAILABLE');
   }
+  const effectiveResourceEntitlementResolver = resourceEntitlementResolver
+    ?? client.resourceEntitlementPort
+    ?? null;
   if (
-    resourceEntitlementResolver !== null
+    effectiveResourceEntitlementResolver !== null
     && (
-      resourceEntitlementResolver?.signedS2s !== true
-      || typeof resourceEntitlementResolver?.resolve !== 'function'
+      effectiveResourceEntitlementResolver?.signedS2s !== true
+      || typeof effectiveResourceEntitlementResolver?.resolve !== 'function'
     )
   ) fail('RESOURCE_ENTITLEMENT_RESOLVER_UNAVAILABLE');
 
-  async function resolveResourceEntitlement({ authenticatedSubject, actorRole, studentId }) {
+  async function resolveResourceEntitlement({
+    authenticatedSubject,
+    actorRole,
+    studentId,
+  }) {
     if (
-      resourceEntitlementResolver === null
+      effectiveResourceEntitlementResolver === null
       || !['faculty', 'mentor'].includes(actorRole)
     ) fail('RESOURCE_ENTITLEMENT_DENIED');
     try {
       return exactResourceStudentEntitlement(
-        await resourceEntitlementResolver.resolve({ authenticatedSubject, actorRole, studentId }),
-        studentId,
+        await effectiveResourceEntitlementResolver.resolve({
+          authenticatedSubject,
+          actorRole,
+          studentId,
+        }),
+        {
+          authenticatedSubject,
+          actorRole,
+          now: nowMilliseconds(clock),
+          studentId,
+        },
       );
     } catch {
       fail('RESOURCE_ENTITLEMENT_DENIED');
@@ -293,11 +412,15 @@ export function createWordPressCurrentUserAdmission({
       const authenticatedSubject = canonicalSubject(input.subject);
       const sessionSubject = canonicalSessionSubject(input.session?.user?.id);
       if (sessionSubject !== authenticatedSubject) fail('SESSION_SUBJECT_MISMATCH');
-      const bindingId = exactBinding(input.session, nowMilliseconds(clock));
+      const binding = exactBinding(input.session, nowMilliseconds(clock));
 
       let receipt;
       try {
-        receipt = await client.admit({ bindingId, subject: authenticatedSubject });
+        receipt = await client.admit({
+          bindingId: binding.bindingId,
+          subject: authenticatedSubject,
+          identityClass: binding.identityClass,
+        });
       } catch {
         fail('ADMISSION_DENIED');
       }
@@ -305,6 +428,7 @@ export function createWordPressCurrentUserAdmission({
         !receipt
         || receipt.contract !== WORDPRESS_LOR_ADMISSION_CONTRACT
         || receipt.subject !== authenticatedSubject
+        || receipt.identityClass !== binding.identityClass
         || receipt.admitted !== true
       ) fail('ADMISSION_DENIED');
 
@@ -314,7 +438,8 @@ export function createWordPressCurrentUserAdmission({
       let resourceStudentId = authenticatedSubject;
       let actorAccess = null;
       let resourceEntitlement = null;
-      if (caseId !== null && actorResolver !== null) {
+      if (caseId !== null) {
+        if (actorResolver === null) fail('CASE_ACCESS_DENIED');
         try {
           actorAccess = exactActorCaseAccess(
             await actorResolver.resolve({ authenticatedSubject, caseId }),
@@ -325,6 +450,10 @@ export function createWordPressCurrentUserAdmission({
         }
         actorRole = actorAccess.actorRole;
         resourceStudentId = actorAccess.resourceStudentId;
+        if (
+          binding.identityClass === WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS
+          && actorRole !== 'faculty'
+        ) fail('IDENTITY_CLASS_SCOPE_DENIED');
         if (actorRole !== 'student') {
           resourceEntitlement = await resolveResourceEntitlement({
             authenticatedSubject,
@@ -337,16 +466,23 @@ export function createWordPressCurrentUserAdmission({
         // no case identity or faculty access here. The database verification command resolves
         // the case and challenge and commits the faculty binding atomically before later
         // case-scoped requests can resolve a faculty role.
+        if (
+          binding.identityClass !== WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS
+          || binding.candidateInvitationId !== candidateInvitationId
+        ) fail('IDENTITY_CLASS_SCOPE_DENIED');
         actorRole = 'faculty';
+      } else if (binding.identityClass === WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS) {
+        fail('IDENTITY_CLASS_SCOPE_DENIED');
       }
 
       // This stable proof identifies the verified identity source for the
       // permanent database crosswalk. Freshness/replay are independently
       // enforced by the signed S2S nonce and the bounded receipt on every call.
       const proofHash = hashValue({
-        schemaVersion: 'missionmed.lor.wordpress-admission-proof.v2',
+        schemaVersion: 'missionmed.lor.wordpress-admission-proof.v3',
         sourceReferenceHash,
         subject: authenticatedSubject,
+        identityClass: binding.identityClass,
         actorRole,
         ...(actorAccess === null
           ? {}
@@ -420,7 +556,7 @@ export function createWordPressCurrentUserAdmission({
           revoked: false,
           canaryEnabled: true,
           canaryConsented: true,
-          producerStatus: 'WORDPRESS_ADMISSION_V2_SIGNED_S2S',
+          producerStatus: 'WORDPRESS_ADMISSION_V3_SIGNED_S2S',
         });
       }
       return resolveResourceEntitlement({
@@ -448,6 +584,7 @@ export const WORDPRESS_CURRENT_USER_ADMISSION_CONTRACT = Object.freeze({
     'schemaVersion',
     'sourceReferenceHash',
     'subject',
+    'identityClass',
     'actorRole',
     'actorCaseAccessAuthority_if_case_resolved',
     'caseId_if_case_resolved',
@@ -458,11 +595,14 @@ export const WORDPRESS_CURRENT_USER_ADMISSION_CONTRACT = Object.freeze({
     schemaVersion: ACTOR_CASE_ACCESS_SCHEMA,
     authoritySource: 'database_verified_case_access',
     roleSource: 'server_database_only',
-    requestBinding: 'exact_case_api_path',
+    requestBinding: 'exact_case_api_path_or_single_case_page_or_bootstrap_query',
     browserRoleAccepted: false,
-    resourceStudentEntitlement: RESOURCE_ENTITLEMENT_PRODUCER,
+    resourceStudentEntitlement: WORDPRESS_LOR_RESOURCE_ENTITLEMENT_PRODUCER,
   }),
   invitationCandidate: Object.freeze({
+    identityClass: WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+    sessionIdentityClassField: WORDPRESS_LOR_SESSION_IDENTITY_CLASS_FIELD,
+    sessionInvitationField: WORDPRESS_LOR_SESSION_CANDIDATE_INVITATION_FIELD,
     role: 'faculty',
     caseAccessBeforeVerification: false,
     invitationReference: 'hashed_in_trusted_identity_proof_only',

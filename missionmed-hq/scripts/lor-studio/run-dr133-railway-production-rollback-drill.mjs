@@ -40,6 +40,9 @@ const DR133_ROLLBACK_ORDER = Object.freeze([
   'rls-rollback',
   'foundation-rollback',
 ]);
+const DR133_EXPECTED_ARTIFACT_COUNT = 20;
+const DR133_EXPECTED_RELATION_COUNT = 36;
+const DR133_EXPECTED_ROLLBACK_COUNT = 10;
 const DR133_ROLLBACK_DRILL_ENV_KEYS = Object.freeze([
   'LOR_DR133_ADMIN_DATABASE_URL',
   'LOR_DR133_MODE',
@@ -71,6 +74,13 @@ const ARTIFACT_RECEIPT_KEYS = Object.freeze({
   'ai-proposal-rollback': 'aiProposalRollbackSha256',
   'student-evidence': 'studentEvidenceSha256',
   'student-evidence-rollback': 'studentEvidenceRollbackSha256',
+  'encrypted-private-storage': 'encryptedPrivateStorageSha256',
+  'encrypted-private-storage-rollback': 'encryptedPrivateStorageRollbackSha256',
+  'faculty-candidate-auth-handoff': 'facultyCandidateAuthHandoffSha256',
+  'faculty-candidate-auth-handoff-rollback':
+    'facultyCandidateAuthHandoffRollbackSha256',
+  'mentor-assignment': 'mentorAssignmentSha256',
+  'mentor-assignment-rollback': 'mentorAssignmentRollbackSha256',
 });
 
 const RECEIPT_KEYS = new Set([
@@ -218,12 +228,13 @@ function artifactById(artifacts, id) {
 async function loadVerifiedArtifacts(readFileFn) {
   if (typeof readFileFn !== 'function') failDr133('ARTIFACT_READER_INVALID');
   if (
-    DR133_ARTIFACTS.length !== 14
-    || DR133_RELATIONS.length !== 33
+    DR133_ARTIFACTS.length !== DR133_EXPECTED_ARTIFACT_COUNT
+    || DR133_RELATIONS.length !== DR133_EXPECTED_RELATION_COUNT
     || Object.keys(ARTIFACT_RECEIPT_KEYS).length !== DR133_ARTIFACTS.length
-    || new Set(DR133_ARTIFACTS.map((artifact) => artifact.id)).size !== 14
-    || DR133_ROLLBACK_ORDER.length !== 7
-    || new Set(DR133_ROLLBACK_ORDER).size !== 7
+    || new Set(DR133_ARTIFACTS.map((artifact) => artifact.id)).size
+      !== DR133_EXPECTED_ARTIFACT_COUNT
+    || DR133_ROLLBACK_ORDER.length !== DR133_EXPECTED_ROLLBACK_COUNT
+    || new Set(DR133_ROLLBACK_ORDER).size !== DR133_EXPECTED_ROLLBACK_COUNT
   ) failDr133('ROLLBACK_ARTIFACT_INVENTORY_INVALID');
 
   const artifacts = new Map();
@@ -289,10 +300,10 @@ function writeSafeReceipt(stream, payload) {
     || !RECEIPT_RESULTS.has(payload.result)
     || !Number.isSafeInteger(payload.verifiedArtifactCount)
     || payload.verifiedArtifactCount < 0
-    || payload.verifiedArtifactCount > 14
+    || payload.verifiedArtifactCount > DR133_EXPECTED_ARTIFACT_COUNT
     || !Number.isSafeInteger(payload.rollbackCount)
     || payload.rollbackCount < 0
-    || payload.rollbackCount > 7
+    || payload.rollbackCount > DR133_EXPECTED_ROLLBACK_COUNT
   ) failDr133('OUTPUT_RECEIPT_INVALID');
   if (
     payload.runnerCode !== undefined
@@ -325,10 +336,10 @@ function writeSafeReceipt(stream, payload) {
     if (
       payload.runnerCode !== undefined
       || payload.postgresCode !== undefined
-      || payload.verifiedArtifactCount !== 14
-      || payload.rollbackCount !== 7
+      || payload.verifiedArtifactCount !== DR133_EXPECTED_ARTIFACT_COUNT
+      || payload.rollbackCount !== DR133_EXPECTED_ROLLBACK_COUNT
       || ![16, 18].includes(payload.postgresMajor)
-      || payload.relationCount !== 33
+      || payload.relationCount !== DR133_EXPECTED_RELATION_COUNT
       || Object.values(ARTIFACT_RECEIPT_KEYS).some((key) => !payload[key])
     ) failDr133('OUTPUT_RECEIPT_INVALID');
   } else if (

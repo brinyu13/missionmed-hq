@@ -17,14 +17,23 @@ import {
   createLorStudioRuntime,
   createUnavailableLorEntitlementResolver,
   isLorStudioRequestPath,
+  LOR_CANDIDATE_HANDOFF_COOKIE_NAME,
+  LOR_CANDIDATE_HANDOFF_COOKIE_PATH,
+  LOR_CANDIDATE_IDENTITY_CLASS,
+  LOR_SESSION_CANDIDATE_INVITATION_FIELD,
+  LOR_SESSION_IDENTITY_CLASS_FIELD,
+  LOR_STUDENT_IDENTITY_CLASS,
 } from './lor-studio/http/runtime.mjs';
+import { createFacultyCandidateCredentialContext } from './lor-studio/security/faculty-candidate-credential-context.mjs';
 import {
   createLorStudioShutdownCoordinator,
-  createReadinessGatedLorStudioApplication,
   readLorTargetConfiguration,
 } from './lor-studio/composition.mjs';
-import { createProductionPostgresRuntimeDependencies } from './lor-studio/adapters/production-postgres-runtime.mjs';
-import { createWordPressCurrentUserAdmission } from './lor-studio/adapters/wordpress-current-user-admission.mjs';
+import { resolveLorTargetBinding } from './lor-studio/adapters/lor-target-binding.mjs';
+import {
+  createProductionBackupRestoreAdapterFromEnvironment,
+} from './lor-studio/adapters/production-readiness-surfaces.mjs';
+import { createProductionRuntimeAssembly } from './lor-studio/adapters/production-runtime-assembly.mjs';
 import {
   createWordPressLorAuthState,
   createWordPressLorS2sClient,
@@ -47,11 +56,14 @@ const LOR_AUTH_START_PATH = '/api/lor-studio/auth/start';
 const LOR_AUTH_CALLBACK_PATH = '/api/lor-studio/auth/callback';
 const LOR_AUTH_LOGOUT_PATH = '/api/lor-studio/auth/logout';
 const LOR_AUTH_FINAL_PATH = '/lor-studio/';
+const LOR_AUTH_STATE_TTL_MS = 10 * 60 * 1_000;
 const LOR_HTML_ENTRY_PATHS = new Set(['/lor-studio', '/lor-studio/', '/lor-studio/index.html']);
 const LOR_SESSION_COOKIE_PRODUCTION = '__Host-mmhq_lor_session';
 const LOR_STATE_COOKIE_PRODUCTION = '__Host-mmhq_lor_state';
+const LOR_CANDIDATE_CREDENTIAL_COOKIE_PRODUCTION = '__Host-mmhq_lor_candidate';
 const LOR_SESSION_COOKIE_LOCAL = 'mmhq_lor_session_local';
 const LOR_STATE_COOKIE_LOCAL = 'mmhq_lor_state_local';
+const LOR_CANDIDATE_CREDENTIAL_COOKIE_LOCAL = 'mmhq_lor_candidate_local';
 const MMC_PRIVATE_ROUTE_PREFIX = '/mmc-private';
 const MMC_PRIVATE_INDEX_PATH = `${MMC_PRIVATE_ROUTE_PREFIX}/index.html`;
 const RUNTIME_ENV = String(process.env.NODE_ENV || 'development').trim().toLowerCase() || 'development';
@@ -303,7 +315,19 @@ assertStartupConfiguration();
 // `application` option was silently omitted, which is what left the whole product dark.
 let LOR_WORDPRESS_S2S_CLIENT = null;
 let LOR_WORDPRESS_ADMISSION = null;
+let LOR_CANDIDATE_AUTH_SERVICE = null;
 const LOR_STARTUP_ABORT = new AbortController();
+const LOR_RELEASE_FLAGS = Object.freeze({
+  enabled: envFlag('MMHQ_LOR_STUDIO_ENABLED', false),
+  killSwitch: envFlag('MMHQ_LOR_STUDIO_KILL_SWITCH', true),
+  requireCanary: envFlag('MMHQ_LOR_STUDIO_REQUIRE_CANARY', true),
+});
+let LOR_STUDIO_COMPOSITION = Object.freeze({
+  application: null,
+  runtimeDependencies: null,
+  reason: 'LOR_PRODUCTION_RUNTIME_ASSEMBLY_UNAVAILABLE',
+  detail: null,
+});
 let LOR_STUDIO_SHUTDOWN = null;
 let lorShutdownRequested = false;
 
@@ -326,9 +350,6 @@ try {
     origin: new URL(CONFIG.wpBase).origin,
     sharedSecret: AUTH_HANDOFF_SECRET,
   });
-  LOR_WORDPRESS_ADMISSION = createWordPressCurrentUserAdmission({
-    s2sClient: LOR_WORDPRESS_S2S_CLIENT,
-  });
 } catch {
   // Missing/weak configuration keeps the product dark without exposing which
   // credential or endpoint was unavailable.
@@ -336,14 +357,39 @@ try {
   LOR_WORDPRESS_ADMISSION = null;
 }
 
-const LOR_STUDIO_COMPOSITION = await createReadinessGatedLorStudioApplication({
-  targetConfiguration: readLorTargetConfiguration(process.env),
-  entitlementPort: LOR_WORDPRESS_ADMISSION,
-  runtimeDependencyFactory: createProductionPostgresRuntimeDependencies,
-  providersReady: false,
-  allAcceptedFunctionsOperational: false,
-  signal: LOR_STARTUP_ABORT.signal,
-});
+if (LOR_WORDPRESS_S2S_CLIENT) {
+  try {
+    const targetConfiguration = readLorTargetConfiguration(process.env);
+    const binding = resolveLorTargetBinding(targetConfiguration);
+    const backupRestoreAdapter = await createProductionBackupRestoreAdapterFromEnvironment({
+      binding,
+      environment: process.env,
+    });
+    const assembly = await createProductionRuntimeAssembly({
+      targetConfiguration,
+      releaseFlags: LOR_RELEASE_FLAGS,
+      wordpressS2sClient: LOR_WORDPRESS_S2S_CLIENT,
+      resourceEntitlementResolver: LOR_WORDPRESS_S2S_CLIENT.resourceEntitlementPort,
+      backupRestoreAdapter,
+      environment: process.env,
+      signal: LOR_STARTUP_ABORT.signal,
+    });
+    LOR_STUDIO_COMPOSITION = assembly.composition;
+    LOR_WORDPRESS_ADMISSION = assembly.admission;
+    LOR_CANDIDATE_AUTH_SERVICE = assembly.candidateAuthService;
+  } catch {
+    // A single reason-only dark state covers target, credential, provider, restore, database,
+    // storage, and readiness failures. Never disclose which production dependency failed.
+    LOR_STUDIO_COMPOSITION = Object.freeze({
+      application: null,
+      runtimeDependencies: null,
+      reason: 'LOR_PRODUCTION_RUNTIME_ASSEMBLY_UNAVAILABLE',
+      detail: null,
+    });
+    LOR_WORDPRESS_ADMISSION = null;
+    LOR_CANDIDATE_AUTH_SERVICE = null;
+  }
+}
 
 if (LOR_STUDIO_COMPOSITION.application === null) {
   // Reason codes only - never a configured value.
@@ -354,16 +400,31 @@ if (LOR_STUDIO_COMPOSITION.application === null) {
 
 const LOR_STUDIO_RUNTIME = createLorStudioRuntime({
   publicDirectory: path.join(PUBLIC_DIR, 'lor-studio'),
-  flags: {
-    enabled: envFlag('MMHQ_LOR_STUDIO_ENABLED', false),
-    killSwitch: envFlag('MMHQ_LOR_STUDIO_KILL_SWITCH', true),
-    requireCanary: envFlag('MMHQ_LOR_STUDIO_REQUIRE_CANARY', true),
-  },
+  flags: LOR_RELEASE_FLAGS,
   entitlementResolver: LOR_WORDPRESS_ADMISSION
     ?? createUnavailableLorEntitlementResolver('wordpress_lor_s2s_admission_unavailable'),
   application: LOR_STUDIO_COMPOSITION.application,
+  candidateAuthStartService: LOR_CANDIDATE_AUTH_SERVICE,
   validateCsrf,
 });
+
+async function lorStudioDeploymentReadiness() {
+  const composition = LOR_STUDIO_COMPOSITION;
+  if (
+    !composition
+    || composition.application === null
+    || composition.operationalReadiness?.status !== 'ready'
+    || composition.operationalReadiness?.productionOperational !== true
+    || !composition.runtimeDependencies?.readiness
+    || typeof composition.runtimeDependencies.readiness.probe !== 'function'
+  ) return false;
+  try {
+    const database = await composition.runtimeDependencies.readiness.probe();
+    return database?.ready === true && database?.reasonCode === 'READY';
+  } catch {
+    return false;
+  }
+}
 
 const server = http.createServer(async (request, response) => {
   const startedAt = Date.now();
@@ -380,6 +441,17 @@ const server = http.createServer(async (request, response) => {
     if (request.method === 'GET' && request.url === '/health') {
       response.writeHead(200, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify({ status: 'ok' }));
+      return;
+    }
+
+    if (request.method === 'GET' && request.url === '/health/lor-studio') {
+      const ready = await lorStudioDeploymentReadiness();
+      response.writeHead(ready ? 200 : 503, {
+        'Cache-Control': 'no-store, max-age=0',
+        'Content-Type': 'application/json',
+        'X-Content-Type-Options': 'nosniff',
+      });
+      response.end(JSON.stringify({ status: ready ? 'ready' : 'unavailable' }));
       return;
     }
 
@@ -438,7 +510,10 @@ const server = http.createServer(async (request, response) => {
       // { pathname, searchParams } literal, so `url.href`, `url.origin`, `url.searchParams`
       // beyond a plain read, and any `instanceof URL` check would have behaved differently in
       // production than in every test - which all construct a genuine URL.
-      await LOR_STUDIO_RUNTIME.handle(request, response, url, { session });
+      await LOR_STUDIO_RUNTIME.handle(request, response, url, {
+        session,
+        candidateCredential: readLorCandidateCredential(request, session),
+      });
       return;
     }
 
@@ -1111,6 +1186,10 @@ function lorCookieNames(request) {
   return {
     session: production ? LOR_SESSION_COOKIE_PRODUCTION : LOR_SESSION_COOKIE_LOCAL,
     state: production ? LOR_STATE_COOKIE_PRODUCTION : LOR_STATE_COOKIE_LOCAL,
+    candidateCredential: production
+      ? LOR_CANDIDATE_CREDENTIAL_COOKIE_PRODUCTION
+      : LOR_CANDIDATE_CREDENTIAL_COOKIE_LOCAL,
+    candidateHandoff: LOR_CANDIDATE_HANDOFF_COOKIE_NAME,
   };
 }
 
@@ -1169,18 +1248,39 @@ function clearLorCookie(request, cookieName) {
   return buildLorCookie(request, cookieName, '', 0);
 }
 
-function createLorStateCookie(request, stateHash, callback) {
+function createLorStateCookie(
+  request,
+  stateHash,
+  callback,
+  {
+    identityClass = LOR_STUDENT_IDENTITY_CLASS,
+    candidateInvitationId = null,
+  } = {},
+) {
   const names = lorCookieNames(request);
   const issuedAt = new Date();
-  const expiresAt = new Date(issuedAt.getTime() + 60_000);
+  const expiresAt = new Date(issuedAt.getTime() + LOR_AUTH_STATE_TTL_MS);
+  if (
+    ![LOR_STUDENT_IDENTITY_CLASS, LOR_CANDIDATE_IDENTITY_CLASS].includes(identityClass)
+    || (
+      identityClass === LOR_STUDENT_IDENTITY_CLASS
+      && candidateInvitationId !== null
+    )
+    || (
+      identityClass === LOR_CANDIDATE_IDENTITY_CLASS
+      && !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u.test(candidateInvitationId ?? '')
+    )
+  ) throw new Error('LOR_AUTH_INVALID');
   const token = createLorSealedToken({
     schemaVersion: 'missionmed.lor.auth-state.v1',
     stateHash,
     callback,
+    identityClass,
+    candidateInvitationId,
     issuedAt: issuedAt.toISOString(),
     expiresAt: expiresAt.toISOString(),
   }, LOR_STATE_KEY, 'lors1');
-  return buildLorCookie(request, names.state, token, 60);
+  return buildLorCookie(request, names.state, token, LOR_AUTH_STATE_TTL_MS / 1_000);
 }
 
 function readLorStateCookie(request) {
@@ -1189,7 +1289,10 @@ function readLorStateCookie(request) {
   if (!token) return null;
   try {
     const state = readLorSealedToken(token, LOR_STATE_KEY, 'lors1');
-    const exactKeys = ['schemaVersion', 'stateHash', 'callback', 'issuedAt', 'expiresAt'];
+    const exactKeys = [
+      'schemaVersion', 'stateHash', 'callback', 'identityClass',
+      'candidateInvitationId', 'issuedAt', 'expiresAt',
+    ];
     const issuedAt = exactLorInstant(state?.issuedAt);
     const expiresAt = exactLorInstant(state?.expiresAt);
     if (
@@ -1200,12 +1303,24 @@ function readLorStateCookie(request) {
       || exactKeys.some((key) => !Object.hasOwn(state, key))
       || state.schemaVersion !== 'missionmed.lor.auth-state.v1'
       || !/^[a-f0-9]{64}$/u.test(state.stateHash ?? '')
+      || ![LOR_STUDENT_IDENTITY_CLASS, LOR_CANDIDATE_IDENTITY_CLASS]
+        .includes(state.identityClass)
+      || (
+        state.identityClass === LOR_STUDENT_IDENTITY_CLASS
+        && state.candidateInvitationId !== null
+      )
+      || (
+        state.identityClass === LOR_CANDIDATE_IDENTITY_CLASS
+        && !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u.test(
+          state.candidateInvitationId ?? '',
+        )
+      )
       || issuedAt === null
       || expiresAt === null
       || expiresAt <= Date.now()
       || issuedAt > Date.now() + 30_000
       || expiresAt <= issuedAt
-      || expiresAt - issuedAt > 60_000
+      || expiresAt - issuedAt > LOR_AUTH_STATE_TTL_MS
     ) return null;
     return state;
   } catch {
@@ -1213,10 +1328,21 @@ function readLorStateCookie(request) {
   }
 }
 
-function createLorSessionCookie(request, bootstrap) {
+function createLorSessionCookie(request, bootstrap, candidateCredential = null) {
   const names = lorCookieNames(request);
   const now = new Date();
   const bindingExpiry = Date.parse(bootstrap.bindingExpiresAt);
+  const identityClass = bootstrap.identityClass;
+  if (
+    ![LOR_STUDENT_IDENTITY_CLASS, LOR_CANDIDATE_IDENTITY_CLASS].includes(identityClass)
+    || (
+      identityClass === LOR_STUDENT_IDENTITY_CLASS
+      && candidateCredential !== null
+    )
+  ) throw new Error('LOR_AUTH_INVALID');
+  const verifiedCandidateCredential = identityClass === LOR_CANDIDATE_IDENTITY_CLASS
+    ? createFacultyCandidateCredentialContext(candidateCredential, now)
+    : null;
   const expiresAt = new Date(Math.min(
     bindingExpiry,
     now.getTime() + CONFIG.sessionTtlSeconds * 1_000,
@@ -1235,10 +1361,13 @@ function createLorSessionCookie(request, bootstrap) {
     lorAdmissionBindingId: bootstrap.bindingId,
     lorAdmissionBindingProvenance: WORDPRESS_LOR_BINDING_PROVENANCE,
     lorAdmissionBindingExpiresAt: bootstrap.bindingExpiresAt,
+    [LOR_SESSION_IDENTITY_CLASS_FIELD]: identityClass,
+    [LOR_SESSION_CANDIDATE_INVITATION_FIELD]:
+      verifiedCandidateCredential?.invitationId ?? null,
     user: {
       id: bootstrap.subject,
-      role: 'student',
-      roles: ['student'],
+      role: identityClass === LOR_CANDIDATE_IDENTITY_CLASS ? 'faculty' : 'student',
+      roles: [identityClass === LOR_CANDIDATE_IDENTITY_CLASS ? 'faculty' : 'student'],
     },
   };
   const token = createLorSealedToken(session, LOR_SESSION_KEY, 'lor1');
@@ -1259,7 +1388,9 @@ function readLorStudioSession(request) {
     const exactKeys = [
       'schemaVersion', 'issuedAt', 'expiresAt', 'csrfToken', 'authSource',
       'audience', 'apiScope', 'lorAdmissionBindingId',
-      'lorAdmissionBindingProvenance', 'lorAdmissionBindingExpiresAt', 'user',
+      'lorAdmissionBindingProvenance', 'lorAdmissionBindingExpiresAt',
+      LOR_SESSION_IDENTITY_CLASS_FIELD, LOR_SESSION_CANDIDATE_INVITATION_FIELD,
+      'user',
     ];
     const issuedAt = exactLorInstant(session?.issuedAt);
     const expiresAt = exactLorInstant(session?.expiresAt);
@@ -1278,11 +1409,28 @@ function readLorStudioSession(request) {
       || !/^lorb1_[A-Za-z0-9_-]{43}$/u.test(session.lorAdmissionBindingId ?? '')
       || !/^[A-Za-z0-9_-]{24}$/u.test(session.csrfToken ?? '')
       || !/^wp:[1-9][0-9]*$/u.test(session.user?.id ?? '')
-      || session.user?.role !== 'student'
+      || ![LOR_STUDENT_IDENTITY_CLASS, LOR_CANDIDATE_IDENTITY_CLASS]
+        .includes(session[LOR_SESSION_IDENTITY_CLASS_FIELD])
+      || (
+        session[LOR_SESSION_IDENTITY_CLASS_FIELD] === LOR_STUDENT_IDENTITY_CLASS
+        && (
+          session[LOR_SESSION_CANDIDATE_INVITATION_FIELD] !== null
+          || session.user?.role !== 'student'
+        )
+      )
+      || (
+        session[LOR_SESSION_IDENTITY_CLASS_FIELD] === LOR_CANDIDATE_IDENTITY_CLASS
+        && (
+          !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u.test(
+            session[LOR_SESSION_CANDIDATE_INVITATION_FIELD] ?? '',
+          )
+          || session.user?.role !== 'faculty'
+        )
+      )
       || Object.keys(session.user ?? {}).length !== 3
       || !Array.isArray(session.user?.roles)
       || session.user.roles.length !== 1
-      || session.user.roles[0] !== 'student'
+      || session.user.roles[0] !== session.user.role
       || issuedAt === null
       || expiresAt === null
       || bindingExpiresAt === null
@@ -1296,6 +1444,57 @@ function readLorStudioSession(request) {
   } catch {
     return null;
   }
+}
+
+function createLorCandidateCredentialCookie(request, rawCredential) {
+  const names = lorCookieNames(request);
+  const now = new Date();
+  const credential = createFacultyCandidateCredentialContext(rawCredential, now);
+  const expiresAt = Date.parse(credential.expiresAt);
+  if (!Number.isFinite(expiresAt) || expiresAt <= now.getTime()) {
+    throw new Error('LOR_AUTH_INVALID');
+  }
+  const token = createLorSealedToken(credential, LOR_SESSION_KEY, 'lorfc1');
+  return buildLorCookie(
+    request,
+    names.candidateCredential,
+    token,
+    Math.max(1, Math.floor((expiresAt - now.getTime()) / 1_000)),
+  );
+}
+
+function readLorCandidateCredential(request, session) {
+  if (
+    session?.[LOR_SESSION_IDENTITY_CLASS_FIELD] !== LOR_CANDIDATE_IDENTITY_CLASS
+    || !session?.[LOR_SESSION_CANDIDATE_INVITATION_FIELD]
+  ) return null;
+  const names = lorCookieNames(request);
+  const token = exactCookieValue(request, names.candidateCredential);
+  if (!token) return null;
+  try {
+    const credential = createFacultyCandidateCredentialContext(
+      readLorSealedToken(token, LOR_SESSION_KEY, 'lorfc1'),
+      new Date(),
+    );
+    if (
+      credential.authenticatedSubject !== session.user.id
+      || credential.invitationId !== session[LOR_SESSION_CANDIDATE_INVITATION_FIELD]
+    ) return null;
+    return credential;
+  } catch {
+    return null;
+  }
+}
+
+function clearLorCandidateHandoffCookie(request) {
+  const names = lorCookieNames(request);
+  return serializeCookie(names.candidateHandoff, '', {
+    httpOnly: true,
+    maxAge: 0,
+    path: LOR_CANDIDATE_HANDOFF_COOKIE_PATH,
+    sameSite: 'Lax',
+    secure: true,
+  });
 }
 
 function exactLorInstant(value) {
@@ -1494,12 +1693,19 @@ function buildWordPressAuthRedirectUrl(returnTo = '') {
   return target.toString();
 }
 
-function buildWordPressLorAuthRedirectUrl(callback) {
+function buildWordPressLorAuthRedirectUrl(
+  callback,
+  identityClass = LOR_STUDENT_IDENTITY_CLASS,
+) {
   if (!CONFIG.wpBase) return '';
+  if (![LOR_STUDENT_IDENTITY_CLASS, LOR_CANDIDATE_IDENTITY_CLASS].includes(identityClass)) {
+    return '';
+  }
   const target = new URL('/wp-admin/admin-post.php', CONFIG.wpBase);
   target.searchParams.set('action', WORDPRESS_AUTH_REDIRECT_ACTION);
   target.searchParams.set('return_to', callback);
   target.searchParams.set('audience', WORDPRESS_LOR_AUDIENCE);
+  target.searchParams.set('identity_class', identityClass);
   return target.toString();
 }
 
@@ -1524,6 +1730,49 @@ function hasExactSearchKeys(searchParams, expected) {
     && expected.every((key) => keys.includes(key));
 }
 
+async function inspectLorCandidateAuthIntent(request) {
+  const names = lorCookieNames(request);
+  const sealedHandoff = exactCookieValue(request, names.candidateHandoff);
+  if (!sealedHandoff) {
+    return Object.freeze({
+      identityClass: LOR_STUDENT_IDENTITY_CLASS,
+      candidateInvitationId: null,
+      sealedHandoff: null,
+    });
+  }
+  if (
+    !LOR_CANDIDATE_AUTH_SERVICE
+    || typeof LOR_CANDIDATE_AUTH_SERVICE.inspectSealedHandoff !== 'function'
+  ) throw new Error('LOR_AUTH_UNAVAILABLE');
+  const metadata = await LOR_CANDIDATE_AUTH_SERVICE.inspectSealedHandoff({ sealedHandoff });
+  const exactKeys = [
+    'schemaVersion', 'authoritySource', 'identityClass', 'invitationId',
+    'issuedAt', 'expiresAt', 'singlePurpose', 'clientAsserted',
+  ];
+  if (
+    !metadata
+    || typeof metadata !== 'object'
+    || Array.isArray(metadata)
+    || Object.keys(metadata).length !== exactKeys.length
+    || exactKeys.some((key) => !Object.hasOwn(metadata, key))
+    || metadata.schemaVersion
+      !== 'missionmed.lor.faculty-candidate-auth-handoff-metadata.v1'
+    || metadata.authoritySource !== 'server_verified_sealed_candidate_cookie'
+    || metadata.identityClass !== LOR_CANDIDATE_IDENTITY_CLASS
+    || !/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u.test(metadata.invitationId ?? '')
+    || metadata.singlePurpose !== true
+    || metadata.clientAsserted !== false
+    || exactLorInstant(metadata.issuedAt) === null
+    || exactLorInstant(metadata.expiresAt) === null
+    || Date.parse(metadata.expiresAt) <= Date.now()
+  ) throw new Error('LOR_AUTH_INVALID');
+  return Object.freeze({
+    identityClass: LOR_CANDIDATE_IDENTITY_CLASS,
+    candidateInvitationId: metadata.invitationId,
+    sealedHandoff,
+  });
+}
+
 async function handleLorStudioAuthRoute(request, response, url) {
   const { pathname, searchParams } = url;
   if (![LOR_AUTH_START_PATH, LOR_AUTH_CALLBACK_PATH, LOR_AUTH_LOGOUT_PATH].includes(pathname)) {
@@ -1545,16 +1794,21 @@ async function handleLorStudioAuthRoute(request, response, url) {
       ) throw new Error('LOR_AUTH_UNAVAILABLE');
       const hqOrigin = canonicalLorHqOrigin(request);
       if (IS_PRODUCTION && url.origin !== hqOrigin) throw new Error('LOR_AUTH_UNAVAILABLE');
+      const authIntent = await inspectLorCandidateAuthIntent(request);
       const stateHash = createWordPressLorAuthState();
       const callback = new URL(LOR_AUTH_CALLBACK_PATH, hqOrigin);
       callback.searchParams.set('audience', WORDPRESS_LOR_AUDIENCE);
       callback.searchParams.set('state', stateHash);
-      const redirect = buildWordPressLorAuthRedirectUrl(callback.toString());
+      const redirect = buildWordPressLorAuthRedirectUrl(
+        callback.toString(),
+        authIntent.identityClass,
+      );
       if (!redirect) throw new Error('LOR_AUTH_UNAVAILABLE');
       sendRedirect(response, redirect, 302, {
         'Set-Cookie': [
           clearLorCookie(request, names.session),
-          createLorStateCookie(request, stateHash, callback.toString()),
+          clearLorCookie(request, names.candidateCredential),
+          createLorStateCookie(request, stateHash, callback.toString(), authIntent),
         ],
       });
     } catch {
@@ -1562,6 +1816,8 @@ async function handleLorStudioAuthRoute(request, response, url) {
         'Set-Cookie': [
           clearLorCookie(request, names.session),
           clearLorCookie(request, names.state),
+          clearLorCookie(request, names.candidateCredential),
+          clearLorCandidateHandoffCookie(request),
         ],
       });
     }
@@ -1588,6 +1844,7 @@ async function handleLorStudioAuthRoute(request, response, url) {
       await LOR_WORDPRESS_S2S_CLIENT.revokeBinding({
         bindingId: session.lorAdmissionBindingId,
         subject: session.user.id,
+        identityClass: session[LOR_SESSION_IDENTITY_CLASS_FIELD],
       });
     } catch {
       sendJson(response, 503, { error: 'lor_logout_unavailable' });
@@ -1598,6 +1855,8 @@ async function handleLorStudioAuthRoute(request, response, url) {
       'Set-Cookie': [
         clearLorCookie(request, names.session),
         clearLorCookie(request, names.state),
+        clearLorCookie(request, names.candidateCredential),
+        clearLorCandidateHandoffCookie(request),
       ],
     });
     response.end();
@@ -1608,7 +1867,12 @@ async function handleLorStudioAuthRoute(request, response, url) {
   if (request.method !== 'GET') {
     sendJson(response, 405, { error: 'lor_auth_failed' }, {
       Allow: 'GET',
-      'Set-Cookie': [clearLorCookie(request, names.session), clearState],
+      'Set-Cookie': [
+        clearLorCookie(request, names.session),
+        clearState,
+        clearLorCookie(request, names.candidateCredential),
+        clearLorCandidateHandoffCookie(request),
+      ],
     });
     return true;
   }
@@ -1633,14 +1897,49 @@ async function handleLorStudioAuthRoute(request, response, url) {
       code: searchParams.get('code'),
       state: searchParams.get('state'),
       callback: state.callback,
+      identityClass: state.identityClass,
     });
-    const sessionCookie = createLorSessionCookie(request, bootstrap);
-    sendRedirect(response, LOR_AUTH_FINAL_PATH, 303, {
-      'Set-Cookie': [clearState, sessionCookie],
+    const sealedCandidateHandoff = exactCookieValue(request, names.candidateHandoff);
+    let candidateCredential = null;
+    if (state.identityClass === LOR_CANDIDATE_IDENTITY_CLASS) {
+      if (
+        !sealedCandidateHandoff
+        || !LOR_CANDIDATE_AUTH_SERVICE
+        || typeof LOR_CANDIDATE_AUTH_SERVICE.redeemSealedHandoff !== 'function'
+      ) throw new Error('LOR_AUTH_INVALID');
+      candidateCredential = await LOR_CANDIDATE_AUTH_SERVICE.redeemSealedHandoff({
+        authenticatedSubject: bootstrap.subject,
+        invitationId: state.candidateInvitationId,
+        sealedHandoff: sealedCandidateHandoff,
+      });
+    } else if (sealedCandidateHandoff) {
+      throw new Error('LOR_AUTH_INVALID');
+    }
+    const sessionCookie = createLorSessionCookie(request, bootstrap, candidateCredential);
+    const candidateCredentialCookie = candidateCredential === null
+      ? clearLorCookie(request, names.candidateCredential)
+      : createLorCandidateCredentialCookie(request, candidateCredential);
+    const finalPath = candidateCredential === null
+      ? LOR_AUTH_FINAL_PATH
+      : candidateCredential.requiresOtpVerification
+        ? `/lor-studio/invitations/${encodeURIComponent(candidateCredential.invitationId)}/`
+        : `/lor-studio/?case=${encodeURIComponent(candidateCredential.caseId)}`;
+    sendRedirect(response, finalPath, 303, {
+      'Set-Cookie': [
+        clearState,
+        clearLorCandidateHandoffCookie(request),
+        candidateCredentialCookie,
+        sessionCookie,
+      ],
     });
   } catch {
     sendJson(response, 401, { error: 'lor_auth_failed' }, {
-      'Set-Cookie': [clearLorCookie(request, names.session), clearState],
+      'Set-Cookie': [
+        clearLorCookie(request, names.session),
+        clearState,
+        clearLorCookie(request, names.candidateCredential),
+        clearLorCandidateHandoffCookie(request),
+      ],
     });
   }
   return true;

@@ -56,6 +56,7 @@ const LIVE_BOOTSTRAP = Object.freeze({
   csrfToken: 'csrf-value',
   capabilities: { builder: true },
 });
+const CASE_42_BOOTSTRAP_PATH = '/api/lor-studio/bootstrap?case=case-42';
 
 function jsonResponse(status, payload) {
   return { ok: status >= 200 && status < 300, status, json: async () => payload };
@@ -120,7 +121,8 @@ async function runProductionAdapter({
   const requests = [];
   dom.window.fetch = async (input, init = {}) => {
     requests.push({ path: String(input), init });
-    const route = routes[String(input)];
+    const route = routes[String(input)]
+      ?? (String(input) === CASE_42_BOOTSTRAP_PATH ? routes['/api/lor-studio/bootstrap'] : undefined);
     if (!route) return jsonResponse(404, { error: 'route_not_stubbed' });
     return typeof route === 'function' ? route(init) : route;
   };
@@ -323,7 +325,7 @@ test('production mode hydrates the authoritative projection into the isolated pr
 
   // The projection came from the real API, addressed by the real route.
   assert.deepEqual(requests.map((entry) => entry.path), [
-    '/api/lor-studio/bootstrap',
+    CASE_42_BOOTSTRAP_PATH,
     '/api/lor-studio/cases/case-42',
   ]);
   assert.equal(requests[1].init.credentials, 'same-origin');
@@ -490,7 +492,7 @@ test('a projection UI that fails the isolation contract never receives a project
     const { document } = dom.window;
     const { window } = dom;
     assert.equal(calls.render.length, 0, `${label}: must not be handed a projection`);
-    assert.deepEqual(requests.map((entry) => entry.path), ['/api/lor-studio/bootstrap'], `${label}: no projection fetched`);
+    assert.deepEqual(requests.map((entry) => entry.path), [CASE_42_BOOTSTRAP_PATH], `${label}: no projection fetched`);
     assert.equal(document.documentElement.dataset.lorRuntime, 'gated', label);
     assert.equal(document.getElementById('lorRuntimeGateTitle').textContent, 'LOR Studio is not yet available', label);
     assert.equal(document.getElementById('lorRuntimeGateCode').textContent, 'Reference: frontend_hydration_unavailable', label);
@@ -544,7 +546,7 @@ test('a bootstrap that is live but not durably backed never reaches the projecti
     });
     assert.equal(calls.block.length, 0);
     assert.equal(calls.render.length, 0);
-    assert.deepEqual(requests.map((entry) => entry.path), ['/api/lor-studio/bootstrap']);
+    assert.deepEqual(requests.map((entry) => entry.path), [CASE_42_BOOTSTRAP_PATH]);
     assert.equal(dom.window.document.getElementById('lorRuntimeGateTitle').textContent, 'LOR Studio is not yet available');
     assertPrototypeNeverRevealed(dom);
   }
@@ -618,7 +620,7 @@ test('every fail-closed gate branch is unchanged by hydration', async () => {
     assert.equal(document.documentElement.dataset.lorRuntime, 'gated', error);
     assert.equal(document.getElementById('lorRuntimeGateTitle').textContent, heading, error);
     assert.equal(document.getElementById('lorRuntimeGateCode').textContent, `Reference: ${error}`, error);
-    assert.deepEqual(requests.map((entry) => entry.path), ['/api/lor-studio/bootstrap'], error);
+    assert.deepEqual(requests.map((entry) => entry.path), [CASE_42_BOOTSTRAP_PATH], error);
     assert.equal(dom.window.__LOR_STUDIO_RUNTIME__, undefined, error);
     assertPrototypeNeverRevealed(dom);
   }
@@ -656,7 +658,7 @@ test('end to end: the real projection UI bundle hydrates production without ever
 
   const dom = new JSDOM(shell, { runScripts: 'dangerously', url: 'https://hq.example.test/lor-studio/?case=case-42' });
   dom.window.fetch = async (input) => {
-    if (String(input) === '/api/lor-studio/bootstrap') return jsonResponse(200, LIVE_BOOTSTRAP);
+    if (String(input) === CASE_42_BOOTSTRAP_PATH) return jsonResponse(200, LIVE_BOOTSTRAP);
     if (String(input) === '/api/lor-studio/cases/case-42') return jsonResponse(200, { case: liveProjection });
     return jsonResponse(404, { error: 'route_not_stubbed' });
   };
@@ -964,7 +966,7 @@ test('the export is a bare GET on the real route and hands the browser a real fi
   const requests = [];
   dom.window.fetch = async (input, init = {}) => {
     requests.push({ path: String(input), init });
-    if (String(input) === '/api/lor-studio/bootstrap') return jsonResponse(200, LIVE_BOOTSTRAP);
+    if (String(input) === CASE_42_BOOTSTRAP_PATH) return jsonResponse(200, LIVE_BOOTSTRAP);
     if (String(input) === '/api/lor-studio/cases/case-42') return jsonResponse(200, { case: studentProjection() });
     if (String(input) === exportPath) {
       return {
@@ -1040,7 +1042,7 @@ test('a transport failure is an outcome, never an exception, so the renderer can
   let live = true;
   dom.window.fetch = async (input) => {
     if (!live) throw new TypeError('Failed to fetch');
-    if (String(input) === '/api/lor-studio/bootstrap') return jsonResponse(200, LIVE_BOOTSTRAP);
+    if (String(input) === CASE_42_BOOTSTRAP_PATH) return jsonResponse(200, LIVE_BOOTSTRAP);
     if (String(input) === '/api/lor-studio/cases/case-42') return jsonResponse(200, { case: studentProjection() });
     return jsonResponse(404, { error: 'route_not_stubbed' });
   };

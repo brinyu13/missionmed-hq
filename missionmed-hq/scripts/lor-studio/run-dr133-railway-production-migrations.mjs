@@ -462,6 +462,13 @@ function artifactReceiptHashes() {
     aiProposalRollbackSha256: hash('ai-proposal-rollback'),
     studentEvidenceSha256: hash('student-evidence'),
     studentEvidenceRollbackSha256: hash('student-evidence-rollback'),
+    encryptedPrivateStorageSha256: hash('encrypted-private-storage'),
+    encryptedPrivateStorageRollbackSha256: hash('encrypted-private-storage-rollback'),
+    facultyCandidateAuthHandoffSha256: hash('faculty-candidate-auth-handoff'),
+    facultyCandidateAuthHandoffRollbackSha256:
+      hash('faculty-candidate-auth-handoff-rollback'),
+    mentorAssignmentSha256: hash('mentor-assignment'),
+    mentorAssignmentRollbackSha256: hash('mentor-assignment-rollback'),
   };
   if (Object.values(receipt).some((value) => typeof value !== 'string')) {
     failDr133('ARTIFACT_INVENTORY_INVALID');

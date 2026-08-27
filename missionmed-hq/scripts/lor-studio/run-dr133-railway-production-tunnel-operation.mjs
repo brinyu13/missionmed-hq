@@ -143,6 +143,13 @@ const SUCCESS_RESULTS = Object.freeze({
 const RUNNER_HASH_KEYS = Object.freeze({
   aiProposalRollbackSha256: 'ai-proposal-rollback',
   aiProposalSha256: 'ai-proposal',
+  encryptedPrivateStorageRollbackSha256: 'encrypted-private-storage-rollback',
+  encryptedPrivateStorageSha256: 'encrypted-private-storage',
+  facultyCandidateAuthHandoffRollbackSha256:
+    'faculty-candidate-auth-handoff-rollback',
+  facultyCandidateAuthHandoffSha256: 'faculty-candidate-auth-handoff',
+  mentorAssignmentRollbackSha256: 'mentor-assignment-rollback',
+  mentorAssignmentSha256: 'mentor-assignment',
   facultyInvitationRollbackSha256: 'faculty-invitation-rollback',
   facultyInvitationSha256: 'faculty-invitation',
   facultyPrivateExportRollbackSha256: 'faculty-private-export-rollback',
@@ -180,6 +187,10 @@ const ROLLBACK_RESULTS = new Set([
   'ROLLBACK_DRILL_COMMITTED_VERIFIED_CLEANUP_FAILED',
   'ROLLBACK_DRILL_COMMITTED_VERIFIED',
 ]);
+const DR133_ARTIFACT_COUNT = DR133_ARTIFACTS.length;
+const DR133_ROLLBACK_ARTIFACT_COUNT = DR133_ARTIFACTS.filter(
+  (artifact) => artifact.relativePath.startsWith('rollbacks/'),
+).length;
 const DEFAULT_TIMINGS = Object.freeze({
   startupAttempts: 100,
   startupDelayMs: 100,
@@ -330,9 +341,11 @@ function validateRollbackReceipt(receipt) {
     || receipt.mode !== 'rollback-drill'
     || !ROLLBACK_RESULTS.has(receipt.result)
     || !Number.isSafeInteger(receipt.verifiedArtifactCount)
-    || receipt.verifiedArtifactCount < 0 || receipt.verifiedArtifactCount > 14
+    || receipt.verifiedArtifactCount < 0
+    || receipt.verifiedArtifactCount > DR133_ARTIFACT_COUNT
     || !Number.isSafeInteger(receipt.rollbackCount)
-    || receipt.rollbackCount < 0 || receipt.rollbackCount > 7) {
+    || receipt.rollbackCount < 0
+    || receipt.rollbackCount > DR133_ROLLBACK_ARTIFACT_COUNT) {
     fail('SERVICE_RECEIPT_INVALID');
   }
   if (receipt.runnerCode !== undefined
@@ -357,7 +370,8 @@ function validateRollbackReceipt(receipt) {
   const success = receipt.result === 'ROLLBACK_DRILL_COMMITTED_VERIFIED';
   if (success) {
     if (receipt.runnerCode !== undefined || receipt.postgresCode !== undefined
-      || receipt.verifiedArtifactCount !== 14 || receipt.rollbackCount !== 7
+      || receipt.verifiedArtifactCount !== DR133_ARTIFACT_COUNT
+      || receipt.rollbackCount !== DR133_ROLLBACK_ARTIFACT_COUNT
       || ![16, 18].includes(receipt.postgresMajor)
       || receipt.relationCount !== DR133_RELATIONS.length
       || Object.keys(ROLLBACK_HASH_KEYS).some((key) => !receipt[key])) {

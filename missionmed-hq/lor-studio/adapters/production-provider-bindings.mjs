@@ -1,5 +1,10 @@
 import { IntegrationDisabledError } from '../domain/errors.js';
 import { deepFreeze } from '../domain/value-utils.js';
+import {
+  OPENAI_PRODUCTION_PRIVACY_ATTESTATION_CONTRACT,
+  createOpenAiPrivacyBindingFromVerifiedAttestation,
+  verifyOpenAiProductionPrivacyAttestationFromEnvironment,
+} from './openai-production-privacy-attestation.mjs';
 
 const OPENAI_BINDING_SCHEMA = 'missionmed.lor.openai-project-binding.v1';
 const POSTMARK_TRANSPORT_BINDING_SCHEMA = 'missionmed.lor.postmark-transport-binding.v1';
@@ -11,10 +16,7 @@ const POSTMARK_MESSAGE_STREAM = 'outbound';
 const OPENAI_ENV_NAMES = Object.freeze([
   'MMHQ_LOR_OPENAI_API_KEY',
   'MMHQ_LOR_OPENAI_PROJECT_ID',
-  'MMHQ_LOR_OPENAI_ZDR_VERIFIED',
-  'MMHQ_LOR_OPENAI_TRAINING_OPT_OUT_VERIFIED',
-  'MMHQ_LOR_OPENAI_EDUCATION_RECORD_PROCESSING_AUTHORIZED',
-  'MMHQ_LOR_OPENAI_INDEPENDENTLY_VERIFIED',
+  ...OPENAI_PRODUCTION_PRIVACY_ATTESTATION_CONTRACT.environmentKeys,
 ]);
 const POSTMARK_ENV_NAMES = Object.freeze([
   'MMHQ_LOR_POSTMARK_SERVER_TOKEN',
@@ -239,7 +241,10 @@ class FacultyInvitationSecretKeyProvider {
   }
 }
 
-export function createOpenAiProductionProviderBinding(environment = process.env) {
+export function createOpenAiProductionProviderBinding(
+  environment = process.env,
+  { clock = () => new Date() } = {},
+) {
   const integration = 'openai_grounded_proposal';
   const env = snapshotEnvironment(environment, OPENAI_ENV_NAMES, integration);
   const token = exactSecret(
@@ -253,32 +258,15 @@ export function createOpenAiProductionProviderBinding(environment = process.env)
     integration,
     'OPENAI_EXACT_PROJECT_BINDING_REQUIRED',
   );
-  exactTrue(env.MMHQ_LOR_OPENAI_ZDR_VERIFIED, integration, 'OPENAI_ZDR_PROOF_REQUIRED');
-  exactTrue(
-    env.MMHQ_LOR_OPENAI_TRAINING_OPT_OUT_VERIFIED,
-    integration,
-    'OPENAI_TRAINING_OPT_OUT_PROOF_REQUIRED',
-  );
-  exactTrue(
-    env.MMHQ_LOR_OPENAI_EDUCATION_RECORD_PROCESSING_AUTHORIZED,
-    integration,
-    'OPENAI_EDUCATION_RECORD_PROCESSING_AUTHORITY_REQUIRED',
-  );
-  exactTrue(
-    env.MMHQ_LOR_OPENAI_INDEPENDENTLY_VERIFIED,
-    integration,
-    'OPENAI_INDEPENDENT_VERIFICATION_REQUIRED',
-  );
+  const verifiedAttestation = verifyOpenAiProductionPrivacyAttestationFromEnvironment({
+    environment: env,
+    projectId,
+    clock,
+  });
   return Object.freeze({
-    binding: deepFreeze({
-      schemaVersion: OPENAI_BINDING_SCHEMA,
-      provider: 'openai',
-      providerResourceBound: true,
+    binding: createOpenAiPrivacyBindingFromVerifiedAttestation({
       projectId,
-      projectDataRetention: 'zero_data_retention',
-      apiDataTrainingOptOut: true,
-      educationRecordProcessingAuthorized: true,
-      independentlyVerified: true,
+      verifiedAttestation,
     }),
     credentialProvider: new OpenAiServerCredentialProvider(token, projectId),
   });
@@ -399,24 +387,29 @@ export function createFacultyInvitationSecretProviderBinding(environment = proce
       || key.toString('base64url') !== encodedKey
     ) throw new TypeError('invalid key');
   } catch {
+    key?.fill(0);
     throw unavailable(integration, 'BOUND_SECRET_KEY_REQUIRED');
   }
 
-  return Object.freeze({
-    binding: deepFreeze({
-      schemaVersion: INVITATION_SECRET_BINDING_SCHEMA,
-      providerResourceBound: true,
-      independentlyVerified: true,
-      serverSideSecret: true,
-      keyVersion,
-    }),
-    keyProvider: new FacultyInvitationSecretKeyProvider(key, keyVersion),
-  });
+  try {
+    return Object.freeze({
+      binding: deepFreeze({
+        schemaVersion: INVITATION_SECRET_BINDING_SCHEMA,
+        providerResourceBound: true,
+        independentlyVerified: true,
+        serverSideSecret: true,
+        keyVersion,
+      }),
+      keyProvider: new FacultyInvitationSecretKeyProvider(key, keyVersion),
+    });
+  } finally {
+    key.fill(0);
+  }
 }
 
-export function createProductionProviderBindings(environment = process.env) {
+export function createProductionProviderBindings(environment = process.env, options = {}) {
   return Object.freeze({
-    openai: createOpenAiProductionProviderBinding(environment),
+    openai: createOpenAiProductionProviderBinding(environment, options),
     postmark: createPostmarkProductionProviderBinding(environment),
     facultyInvitationSecrets: createFacultyInvitationSecretProviderBinding(environment),
   });
@@ -434,4 +427,5 @@ export const PRODUCTION_PROVIDER_BINDINGS_CONTRACT = deepFreeze({
   genericCredentialFallback: false,
   secretSerialization: 'private_fields_only',
   invitationHmacEncoding: 'canonical_base64url_32_to_256_bytes',
+  openaiPrivacyAuthority: 'source_pinned_signed_attestation_only',
 });

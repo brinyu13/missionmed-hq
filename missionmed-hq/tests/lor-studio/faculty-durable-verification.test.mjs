@@ -69,6 +69,8 @@ function candidateCredential(overrides = {}) {
     authoritySource: 'server_verified_sealed_candidate_cookie',
     authenticatedSubject: ACTOR.id,
     invitationId: INVITATION_ID,
+    caseId: 'case-faculty-verification-1',
+    requiresOtpVerification: true,
     tokenHash: sha256(RAW_TOKEN),
     flowNonceHash: sha256('candidate-flow-nonce'),
     issuedAt: '2026-08-25T12:00:00.000Z',

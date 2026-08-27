@@ -13,7 +13,14 @@ import {
   evaluateLorEntitlement,
   isLorStudioRequestPath,
   LOR_CANDIDATE_AUTH_START_PATH,
+  LOR_CANDIDATE_AUTH_START_CONTRACT,
+  LOR_CANDIDATE_HANDOFF_COOKIE_PATH,
   LOR_CANDIDATE_HANDOFF_COOKIE_NAME,
+  LOR_CANDIDATE_HANDOFF_SCHEMA,
+  LOR_CANDIDATE_IDENTITY_CLASS,
+  LOR_SESSION_CANDIDATE_INVITATION_FIELD,
+  LOR_SESSION_IDENTITY_CLASS_FIELD,
+  LOR_STUDENT_IDENTITY_CLASS,
   resolveLorStudioFlags,
   validateFreshLorSession,
 } from '../../lor-studio/http/runtime.mjs';
@@ -23,6 +30,21 @@ import { readFacultyCandidateCredentialContext } from '../../lor-studio/security
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const publicDirectory = path.resolve(testDirectory, '..', '..', 'public', 'lor-studio');
 const NOW = new Date('2026-08-09T16:00:00.000Z');
+
+test('candidate auth exports one exact server wiring contract without browser secrets', () => {
+  assert.equal(LOR_CANDIDATE_IDENTITY_CLASS, 'faculty_candidate');
+  assert.equal(LOR_STUDENT_IDENTITY_CLASS, 'student');
+  assert.equal(LOR_SESSION_IDENTITY_CLASS_FIELD, 'lorAdmissionIdentityClass');
+  assert.equal(LOR_SESSION_CANDIDATE_INVITATION_FIELD, 'lorFacultyCandidateInvitationId');
+  assert.equal(LOR_CANDIDATE_HANDOFF_COOKIE_PATH, '/api/lor-studio/auth/');
+  assert.equal(
+    LOR_CANDIDATE_HANDOFF_SCHEMA,
+    'missionmed.lor.faculty-candidate-auth-handoff.v1',
+  );
+  assert.equal(LOR_CANDIDATE_AUTH_START_CONTRACT.inspectionMethod, 'inspectSealedHandoff');
+  assert.equal(LOR_CANDIDATE_AUTH_START_CONTRACT.identityClass, 'faculty_candidate');
+  assert.doesNotMatch(JSON.stringify(LOR_CANDIDATE_AUTH_START_CONTRACT), /rawTokenValue|secret/iu);
+});
 
 class MemoryResponse extends Writable {
   constructor() {
@@ -91,6 +113,8 @@ function candidateCredential(invitationId = 'invite_abc-123', overrides = {}) {
     authoritySource: 'server_verified_sealed_candidate_cookie',
     authenticatedSubject: 'wp:1',
     invitationId,
+    caseId: 'case-candidate-1',
+    requiresOtpVerification: true,
     tokenHash: 'a'.repeat(64),
     flowNonceHash: 'b'.repeat(64),
     issuedAt: '2026-08-09T15:55:00.000Z',
@@ -298,6 +322,39 @@ test('bootstrap will not claim live mode without a durable verified application'
     capabilities: { builder: true },
     csrfToken: 'csrf-test-value',
   });
+});
+
+test('general bootstrap accepts only an exact single canonical case scope', async () => {
+  let bootstrapCalls = 0;
+  const activeRuntime = runtime({
+    application: {
+      getBootstrap: async () => {
+        bootstrapCalls += 1;
+        return {
+          operational: true,
+          runtimeMode: 'live',
+          storageMode: 'durable',
+          providersReady: true,
+        };
+      },
+    },
+  });
+
+  const scoped = await invoke(activeRuntime, '/api/lor-studio/bootstrap?case=case-1');
+  assert.equal(scoped.statusCode, 200);
+  assert.equal(bootstrapCalls, 1);
+
+  for (const forbidden of [
+    '/api/lor-studio/bootstrap?case=',
+    '/api/lor-studio/bootstrap?case=case-1&case=case-1',
+    '/api/lor-studio/bootstrap?case=case-1&actor=faculty',
+    '/api/lor-studio/bootstrap?case=case%2Fother',
+  ]) {
+    const response = await invoke(activeRuntime, forbidden);
+    assert.equal(response.statusCode, 400, forbidden);
+    assert.equal(JSON.parse(response.body).error, 'lor_bootstrap_query_forbidden', forbidden);
+  }
+  assert.equal(bootstrapCalls, 1, 'forbidden query shapes never reach the application');
 });
 
 test('a branded production resolver opens trusted context only around application dispatch', async () => {
@@ -685,6 +742,59 @@ test('the production projection UI bundle is served, and only to authorized prin
   }
 });
 
+test('an invitation-bound faculty candidate can load only the three production code assets', async () => {
+  const stagedPublic = await mkdtemp(path.join(tmpdir(), 'lor-candidate-assets-'));
+  const assets = [
+    ['production-adapter.css', 'body { color: white; }\n'],
+    ['production-projection-ui.js', 'globalThis.LorProductionProjectionUi = null;\n'],
+    ['production-adapter.js', 'globalThis.__lorAdapterLoaded = true;\n'],
+  ];
+  for (const [name, contents] of assets) await writeFile(path.join(stagedPublic, name), contents, 'utf8');
+
+  const candidateSession = session({
+    [LOR_SESSION_IDENTITY_CLASS_FIELD]: LOR_CANDIDATE_IDENTITY_CLASS,
+    [LOR_SESSION_CANDIDATE_INVITATION_FIELD]: 'invite_abc-123',
+  });
+  let entitlementLookups = 0;
+  const candidateRuntime = runtime({
+    publicDirectory: stagedPublic,
+    entitlementResolver: {
+      resolve: async () => {
+        entitlementLookups += 1;
+        throw new Error('candidate assets must not enter the general entitlement path');
+      },
+    },
+  });
+
+  try {
+    for (const [name, contents] of assets) {
+      const response = await invoke(candidateRuntime, `/lor-studio/${name}`, {
+        activeSession: candidateSession,
+        activeCandidateCredential: candidateCredential(),
+      });
+      assert.equal(response.statusCode, 200, name);
+      assert.equal(response.body, contents, name);
+    }
+    assert.equal(entitlementLookups, 0);
+
+    for (const invalidCredential of [
+      null,
+      candidateCredential('invite_other'),
+      candidateCredential('invite_abc-123', { expiresAt: '2026-08-09T15:59:59.000Z' }),
+    ]) {
+      const response = await invoke(candidateRuntime, '/lor-studio/production-adapter.js', {
+        activeSession: candidateSession,
+        activeCandidateCredential: invalidCredential,
+      });
+      assert.notEqual(response.statusCode, 200);
+      assert.doesNotMatch(response.body, /__lorAdapterLoaded/u);
+    }
+    assert.equal(entitlementLookups, 3, 'invalid credentials fail through the ordinary closed admission path');
+  } finally {
+    await rm(stagedPublic, { force: true, recursive: true });
+  }
+});
+
 test('exact faculty invitation deep links serve the protected application shell without widening assets', async () => {
   const deepLink = '/lor-studio/invitations/invite_abc-123';
   const candidate = runtime({
@@ -826,6 +936,30 @@ test('the binary export seam returns bytes with an attachment disposition and th
   assert.equal(response.headers['X-Robots-Tag'], 'noindex, nofollow');
   // Real bytes, not JSON, and byte-exact including the non-UTF8 sequence.
   assert.equal(response.raw.equals(DOCX_BYTES), true);
+});
+
+test('private opaque download buffers are zeroed only after response completion', async () => {
+  const plaintext = Buffer.from('private artifact response bytes', 'utf8');
+  const expected = Buffer.from(plaintext);
+  const response = await invoke(runtime({
+    application: {
+      handleRequest: async () => ({
+        status: 200,
+        binary: {
+          body: plaintext,
+          contentType: 'application/octet-stream',
+          filename: 'private.bin',
+          sensitive: true,
+        },
+      }),
+    },
+  }), '/api/lor-studio/cases/case-1/private-artifacts/object-1/versions/version-1?contentClass=student_prepared&purpose=case_workflow');
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers['Content-Type'], 'application/octet-stream');
+  assert.equal(response.raw.equals(expected), true);
+  assert.equal(plaintext.every((byte) => byte === 0), true);
+  expected.fill(0);
 });
 
 test('every gate that precedes the binary seam still fires before a single byte is produced', async () => {

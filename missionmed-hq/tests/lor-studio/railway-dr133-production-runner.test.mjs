@@ -12,6 +12,10 @@ import { promisify } from 'node:util';
 import pg from 'pg';
 
 import {
+  createStudentSafeRecommendationCase,
+} from '../../lor-studio/domain/recommendation-case.js';
+
+import {
   DR133_APPLICATION_ROLE,
   DR133_ARTIFACTS,
   DR133_RELATIONS,
@@ -130,18 +134,24 @@ test('production runner is pinned to the exact isolated provider target', () => 
     sourceBaselineTree: '0f800ef984147c40cd6251ac1c79fb58351c7e32',
   });
   assert.match(expectedDr133Sentinel(), /^missionmed\.lor\.railway-postgres-target\.v2\|deploymentEnvironment=production\|migrationLedger=lor_studio\/migrations\/production\|/u);
-  assert.match(expectedDr133SuccessorSentinel(), /studentEvidenceCommands=20260826011100$/u);
+  assert.match(
+    expectedDr133SuccessorSentinel(),
+    /mentorAssignmentCommands=20260826011700$/u,
+  );
   assert.doesNotMatch(expectedDr133SuccessorSentinel(), /f5705d38|b49a52e7|lor-staging/u);
 });
 
-test('all fourteen live-production artifacts are hash-pinned and target-exclusive', async () => {
-  assert.equal(DR133_ARTIFACTS.length, 14);
-  assert.equal(new Set(DR133_ARTIFACTS.map((artifact) => artifact.id)).size, 14);
+test('all twenty live-production artifacts are hash-pinned and target-exclusive', async () => {
+  assert.equal(DR133_ARTIFACTS.length, 20);
+  assert.equal(new Set(DR133_ARTIFACTS.map((artifact) => artifact.id)).size, 20);
   for (const artifact of DR133_ARTIFACTS) {
     const source = await readFile(path.join(scriptDirectory, artifact.relativePath));
     const text = source.toString('utf8');
     assert.equal(createHash('sha256').update(source).digest('hex'), artifact.sha256, artifact.id);
-    assert.match(artifact.relativePath, /2026082601(?:00|01|03|05|07|09|11)00_f2_lor_1012_live_production_/u);
+    assert.match(
+      artifact.relativePath,
+      /2026082601(?:00|01|03|05|07|09|11|13|15|17)00_f2_lor_1012_(?:live_production_)?/u,
+    );
     assert.match(text, /ed3353f7-bcc7-4e25-a000-3c9fc628a9a7/u);
     assert.match(text, /576520f5-a702-4343-a277-decdeeed57f6/u);
     assert.match(text, /missionmed\.lor\.railway-postgres-target\.v2\|deploymentEnvironment=production\|migrationLedger=lor_studio\/migrations\/production/u);
@@ -945,6 +955,7 @@ function createProductionPrivateTlsClientClass({
   port,
 }) {
   const queries = [];
+  const failures = [];
   let failureConsumed = false;
   class PrivateTlsClient extends RealPgClient {
     constructor(options) {
@@ -971,7 +982,13 @@ function createProductionPrivateTlsClientClass({
 
     async query(input, values) {
       const sql = typeof input === 'string' ? input : input?.text;
-      const result = await super.query(input, values);
+      let result;
+      try {
+        result = await super.query(input, values);
+      } catch (error) {
+        failures.push({ code: error?.code, message: error?.message });
+        throw error;
+      }
       queries.push(sql);
       if (!failureConsumed && failureSql !== null && sql === failureSql) {
         failureConsumed = true;
@@ -987,7 +1004,7 @@ function createProductionPrivateTlsClientClass({
       return await super.end();
     }
   }
-  return Object.freeze({ ClientClass: PrivateTlsClient, queries });
+  return Object.freeze({ ClientClass: PrivateTlsClient, failures, queries });
 }
 
 async function configureProductionTargetGucs(client) {
@@ -997,6 +1014,275 @@ async function configureProductionTargetGucs(client) {
       [name, value],
     );
     assert.equal(result.rows[0].configured_value, value);
+  }
+}
+
+const MENTOR_COMMAND_CASE_ID = 'case_dr133_mentor_command_matrix';
+const MENTOR_COMMAND_STUDENT_SUBJECT = 'wp:9101';
+const MENTOR_COMMAND_STUDENT_UID = '91010000-0000-4000-8000-000000000001';
+const MENTOR_COMMAND_MENTOR_SUBJECT = 'wp:9102';
+
+async function configureMentorCommandContext(client, {
+  assignmentId = '',
+  operation,
+  studentAuthSubject = MENTOR_COMMAND_STUDENT_SUBJECT,
+  caseId = MENTOR_COMMAND_CASE_ID,
+} = {}) {
+  await client.query('SET LOCAL ROLE lor_studio_app');
+  await client.query({
+    text: `SELECT
+      pg_catalog.set_config('request.jwt.claim.sub', $1, true),
+      pg_catalog.set_config('lor_studio.student_auth_subject', $2, true),
+      pg_catalog.set_config('lor_studio.actor_role', $3, true),
+      pg_catalog.set_config('lor_studio.resource_student_id', $4, true),
+      pg_catalog.set_config('lor_studio.case_id', $5, true),
+      pg_catalog.set_config('lor_studio.operation', $6, true),
+      pg_catalog.set_config('lor_studio.purpose', $7, true),
+      pg_catalog.set_config('lor_studio.invitation_id', $8, true),
+      pg_catalog.set_config('lor_studio.assignment_id', $9, true),
+      pg_catalog.set_config('lor_studio.administrative_grant_id', $10, true),
+      pg_catalog.set_config('lor_studio.entitlement_verified', $11, true),
+      pg_catalog.set_config('lor_studio.lor_enabled', $12, true),
+      pg_catalog.set_config('lor_studio.canary_authorized', $13, true),
+      pg_catalog.set_config('lor_studio.trusted_service_actor', $14, true),
+      pg_catalog.set_config('lor_studio.identity_resolution_verified', $15, true)`,
+    values: [
+      '', 'service:lor-mentor-assignment-operator-v1', 'service',
+      studentAuthSubject, caseId, operation, 'mentor_assignment_administration',
+      '', assignmentId, '', 'true', 'true', 'true',
+      'lor-mentor-assignment-operator-v1', 'true',
+    ],
+  });
+}
+
+async function invokeMentorAssignment(client, {
+  caseId = MENTOR_COMMAND_CASE_ID,
+  studentAuthSubject = MENTOR_COMMAND_STUDENT_SUBJECT,
+  mentorAuthSubject = MENTOR_COMMAND_MENTOR_SUBJECT,
+  purpose = 'mentor_case_read',
+  maximumLifetimeSeconds = 3_600,
+  idempotencyKey = 'mentor-command-assign-one',
+} = {}) {
+  await configureMentorCommandContext(client, {
+    caseId,
+    operation: 'assign_mentor_case',
+    studentAuthSubject,
+  });
+  const result = await client.query({
+    text: `SELECT lor_studio.assign_mentor_to_case($1, $2, $3, $4, $5, $6) AS result`,
+    values: [
+      caseId, studentAuthSubject, mentorAuthSubject, purpose,
+      maximumLifetimeSeconds, idempotencyKey,
+    ],
+  });
+  await client.query('RESET ROLE');
+  return result.rows[0].result;
+}
+
+async function invokeMentorRevocation(client, {
+  assignmentId,
+  caseId = MENTOR_COMMAND_CASE_ID,
+  studentAuthSubject = MENTOR_COMMAND_STUDENT_SUBJECT,
+  reasonCode = 'OPERATOR_REVOKED',
+  idempotencyKey = 'mentor-command-revoke-one',
+} = {}) {
+  await configureMentorCommandContext(client, {
+    assignmentId,
+    caseId,
+    operation: 'revoke_mentor_assignment',
+    studentAuthSubject,
+  });
+  const result = await client.query({
+    text: `SELECT lor_studio.revoke_mentor_case_assignment($1, $2, $3, $4, $5) AS result`,
+    values: [caseId, studentAuthSubject, assignmentId, reasonCode, idempotencyKey],
+  });
+  await client.query('RESET ROLE');
+  return result.rows[0].result;
+}
+
+async function expectMentorCommandError(client, expectedCode, operation) {
+  await client.query('SAVEPOINT mentor_command_expected_failure');
+  try {
+    await assert.rejects(operation, (error) => error?.code === expectedCode);
+  } finally {
+    await client.query('ROLLBACK TO SAVEPOINT mentor_command_expected_failure');
+    await client.query('RELEASE SAVEPOINT mentor_command_expected_failure');
+  }
+}
+
+async function proveMentorAssignmentCommands(client) {
+  const studentCase = createStudentSafeRecommendationCase({
+    id: MENTOR_COMMAND_CASE_ID,
+    studentId: MENTOR_COMMAND_STUDENT_SUBJECT,
+    actorId: MENTOR_COMMAND_STUDENT_SUBJECT,
+    builderSessionId: 'builder_dr133_mentor_command_matrix',
+    now: '2026-08-26T00:00:00.000Z',
+  }).state;
+  const studentSafeRecord = {
+    builder: studentCase.builder,
+    studentEvidence: studentCase.studentEvidence,
+    applicantOptions: studentCase.applicantOptions,
+    delivery: studentCase.delivery,
+  };
+
+  await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+  try {
+    await client.query(
+      `SELECT pg_catalog.set_config('lor_studio.actor_role', 'student', true)`,
+    );
+    await client.query({
+      text: `INSERT INTO lor_studio.student_auth_bindings (
+          binding_id, student_auth_subject, student_auth_uid, binding_source,
+          source_reference_hash, proof_hash, bound_at
+        ) VALUES (
+          'binding_dr133_mentor_command_matrix', $1, $2::uuid,
+          'wordpress_verified_bootstrap', $3, $4,
+          pg_catalog.transaction_timestamp() - interval '1 second'
+        )`,
+      values: [
+        MENTOR_COMMAND_STUDENT_SUBJECT,
+        MENTOR_COMMAND_STUDENT_UID,
+        'a'.repeat(64),
+        'b'.repeat(64),
+      ],
+    });
+    await client.query({
+      text: `INSERT INTO lor_studio.recommendation_cases (
+          case_id, student_auth_subject, student_auth_uid, revision, status,
+          created_at, updated_at, closed_at, record, record_hash,
+          protected_state_hash
+        ) VALUES (
+          $1, $2, $3::uuid, 0, 'draft', $4::timestamptz, $4::timestamptz,
+          NULL, $5::jsonb, lor_studio.canonical_jsonb_sha256($5::jsonb),
+          lor_studio.canonical_jsonb_sha256(
+            pg_catalog.jsonb_build_object('caseId', $1::text, 'revision', 0)
+          )
+        )`,
+      values: [
+        MENTOR_COMMAND_CASE_ID,
+        MENTOR_COMMAND_STUDENT_SUBJECT,
+        MENTOR_COMMAND_STUDENT_UID,
+        studentCase.createdAt,
+        studentSafeRecord,
+      ],
+    });
+
+    const privileges = await client.query(`SELECT
+      pg_catalog.has_function_privilege(
+        'lor_studio_app',
+        'lor_studio.assign_mentor_to_case(text,text,text,text,integer,text)',
+        'EXECUTE'
+      ) AS app_assign_execute,
+      pg_catalog.has_function_privilege(
+        'lor_studio_app',
+        'lor_studio.revoke_mentor_case_assignment(text,text,text,text,text)',
+        'EXECUTE'
+      ) AS app_revoke_execute,
+      pg_catalog.has_function_privilege(
+        'lor_studio_app',
+        'lor_studio.mentor_assignment_command_context_allows(text,text,text,text)',
+        'EXECUTE'
+      ) AS app_context_execute,
+      pg_catalog.has_table_privilege(
+        'lor_studio_app', 'lor_studio.mentor_case_assignments', 'INSERT'
+      ) AS app_assignment_insert,
+      pg_catalog.has_table_privilege(
+        'lor_studio_app', 'lor_studio.mentor_case_assignment_revocations', 'INSERT'
+      ) AS app_revocation_insert`);
+    assert.deepEqual(privileges.rows[0], {
+      app_assign_execute: true,
+      app_revoke_execute: true,
+      app_context_execute: false,
+      app_assignment_insert: false,
+      app_revocation_insert: false,
+    });
+
+    const assigned = await invokeMentorAssignment(client);
+    assert.equal(assigned.action, 'mentor.assignment_issued');
+    assert.equal(assigned.committed, true);
+    assert.equal(assigned.replayed, false);
+    assert.equal(assigned.caseId, MENTOR_COMMAND_CASE_ID);
+    assert.equal(assigned.studentAuthSubject, MENTOR_COMMAND_STUDENT_SUBJECT);
+    assert.equal(assigned.mentorAuthSubject, MENTOR_COMMAND_MENTOR_SUBJECT);
+    assert.equal(assigned.operation, 'read');
+    assert.equal(Date.parse(assigned.expiresAt) - Date.parse(assigned.assignedAt), 3_600_000);
+    assert.match(assigned.assignmentHash, /^[a-f0-9]{64}$/u);
+    assert.match(assigned.eventHash, /^[a-f0-9]{64}$/u);
+
+    const replay = await invokeMentorAssignment(client);
+    assert.deepEqual(replay, { ...assigned, replayed: true });
+    await expectMentorCommandError(
+      client,
+      'P1602',
+      () => invokeMentorAssignment(client, { maximumLifetimeSeconds: 7_200 }),
+    );
+    await expectMentorCommandError(
+      client,
+      'P1604',
+      () => invokeMentorAssignment(client, {
+        idempotencyKey: 'mentor-command-assign-active-duplicate',
+      }),
+    );
+    await expectMentorCommandError(
+      client,
+      'P1601',
+      () => invokeMentorAssignment(client, { studentAuthSubject: 'wp:9999' }),
+    );
+
+    const revoked = await invokeMentorRevocation(client, {
+      assignmentId: assigned.assignmentId,
+    });
+    assert.equal(revoked.action, 'mentor.assignment_revoked');
+    assert.equal(revoked.committed, true);
+    assert.equal(revoked.replayed, false);
+    assert.match(revoked.revocationHash, /^[a-f0-9]{64}$/u);
+    const revokeReplay = await invokeMentorRevocation(client, {
+      assignmentId: assigned.assignmentId,
+    });
+    assert.deepEqual(revokeReplay, { ...revoked, replayed: true });
+    await expectMentorCommandError(
+      client,
+      'P1602',
+      () => invokeMentorRevocation(client, {
+        assignmentId: assigned.assignmentId,
+        idempotencyKey: 'mentor-command-revoke-conflict',
+      }),
+    );
+
+    const reassigned = await invokeMentorAssignment(client, {
+      idempotencyKey: 'mentor-command-assign-after-revocation',
+    });
+    assert.notEqual(reassigned.assignmentId, assigned.assignmentId);
+    assert.equal(reassigned.replayed, false);
+
+    const custody = await client.query({
+      text: `SELECT
+        (SELECT pg_catalog.count(*)::integer
+           FROM lor_studio.mentor_case_assignments
+          WHERE case_id = $1 AND student_auth_subject = $2) AS assignment_count,
+        (SELECT pg_catalog.count(*)::integer
+           FROM lor_studio.mentor_case_assignment_revocations
+          WHERE case_id = $1 AND student_auth_subject = $2) AS revocation_count,
+        (SELECT pg_catalog.count(*)::integer
+           FROM lor_studio.recommendation_case_audit_events
+          WHERE case_id = $1 AND student_auth_subject = $2
+            AND event_type = 'mentor.assignment_issued'
+            AND event_hash = lor_studio.canonical_jsonb_sha256(event)) AS issued_audit_count,
+        (SELECT pg_catalog.count(*)::integer
+           FROM lor_studio.recommendation_case_audit_events
+          WHERE case_id = $1 AND student_auth_subject = $2
+            AND event_type = 'mentor.assignment_revoked'
+            AND event_hash = lor_studio.canonical_jsonb_sha256(event)) AS revoked_audit_count`,
+      values: [MENTOR_COMMAND_CASE_ID, MENTOR_COMMAND_STUDENT_SUBJECT],
+    });
+    assert.deepEqual(custody.rows[0], {
+      assignment_count: 2,
+      revocation_count: 1,
+      issued_audit_count: 2,
+      revoked_audit_count: 1,
+    });
+  } finally {
+    await client.query('ROLLBACK');
   }
 }
 
@@ -1089,11 +1375,30 @@ test('production entrypoints recover exact interruption cursors on disposable Po
           output: migrationFailure.stream,
         }), (error) => error?.code === 'POSTGRES_08006');
         assert.equal(migrationFailure.receipt().result, 'FOUNDATION_OUTCOME_UNKNOWN');
-        assert.deepEqual(await runDr133ProductionMigration({
-          environment: productionMigrationEnvironment('migration'),
-          ClientClass: migrationClient.ClientClass,
-          output: receiptCapture().stream,
-        }), { result: 'CUMULATIVE_SCHEMA_COMMITTED_VERIFIED' });
+        let recoveredMigration;
+        try {
+          recoveredMigration = await runDr133ProductionMigration({
+            environment: productionMigrationEnvironment('migration'),
+            ClientClass: migrationClient.ClientClass,
+            output: receiptCapture().stream,
+          });
+        } catch (error) {
+          const completedArtifacts = DR133_ARTIFACTS
+            .filter(({ purpose }) => purpose.startsWith('forward'))
+            .filter(({ id }) => migrationClient.queries.includes(sources.get(id)))
+            .map(({ id }) => id);
+          const firstFailure = migrationClient.failures.find(({ code }) => code === '55000')
+            ?? migrationClient.failures.at(-1);
+          throw new Error(
+            `production migration failed after: ${completedArtifacts.join(',')}; ${
+              firstFailure?.code ?? 'UNKNOWN'
+            }/${firstFailure?.message ?? 'unknown'}`,
+            { cause: error },
+          );
+        }
+        assert.deepEqual(recoveredMigration, {
+          result: 'CUMULATIVE_SCHEMA_COMMITTED_VERIFIED',
+        });
         assert.equal(
           migrationClient.queries.filter((sql) => sql === sources.get('foundation')).length,
           1,
@@ -1139,6 +1444,8 @@ test('production entrypoints recover exact interruption cursors on disposable Po
           output: receiptCapture().stream,
         }), { result: 'SCHEMA_VERIFIED_NO_MUTATION' });
 
+        await proveMentorAssignmentCommands(inspector);
+
         const failedRollbackId = 'ai-proposal-rollback';
         const rollbackClient = createProductionPrivateTlsClientClass({
           ...clientOptions,
@@ -1152,12 +1459,31 @@ test('production entrypoints recover exact interruption cursors on disposable Po
         }), (error) => error?.code === 'POSTGRES_08006');
         assert.equal(rollbackFailure.receipt().result, 'ROLLBACK_PROGRESS_OUTCOME_UNKNOWN');
         const rollbackSuccess = receiptCapture();
-        assert.deepEqual(await runDr133ProductionRollbackDrill({
-          environment: productionMigrationEnvironment('rollback-drill'),
-          ClientClass: rollbackClient.ClientClass,
-          output: rollbackSuccess.stream,
-        }), { result: 'ROLLBACK_DRILL_COMMITTED_VERIFIED' });
-        assert.equal(rollbackSuccess.receipt().rollbackCount, 7);
+        let recoveredRollback;
+        try {
+          recoveredRollback = await runDr133ProductionRollbackDrill({
+            environment: productionMigrationEnvironment('rollback-drill'),
+            ClientClass: rollbackClient.ClientClass,
+            output: rollbackSuccess.stream,
+          });
+        } catch (error) {
+          const completedRollbacks = DR133_ARTIFACTS
+            .filter(({ relativePath }) => relativePath.startsWith('rollbacks/'))
+            .filter(({ id }) => rollbackClient.queries.includes(sources.get(id)))
+            .map(({ id }) => id);
+          const catalogFailure = rollbackClient.failures.find(({ code }) => code === '55000')
+            ?? rollbackClient.failures.at(-1);
+          throw new Error(
+            `production rollback failed after: ${completedRollbacks.join(',')}; ${
+              catalogFailure?.code ?? 'UNKNOWN'
+            }/${catalogFailure?.message ?? 'unknown'}`,
+            { cause: error },
+          );
+        }
+        assert.deepEqual(recoveredRollback, {
+          result: 'ROLLBACK_DRILL_COMMITTED_VERIFIED',
+        });
+        assert.equal(rollbackSuccess.receipt().rollbackCount, 10);
         for (const rollbackId of [
           ...[...DR133_SUCCESSOR_STAGES].reverse().map((stage) => stage.rollbackId),
           'rls-rollback',

@@ -564,6 +564,35 @@ test('production runtime dependencies are constructed only after target and enti
   assert.equal(composed.runtimeDependencies, runtimeDependencies);
 });
 
+test('one preconstructed production runtime owner can compose without allocating a second pool', () => {
+  const dependencies = Object.freeze({
+    driver: actorSafeDriver(),
+    scopeProvider: async () => ({}),
+    candidateScopeProvider: async () => ({}),
+    actorResolver: Object.freeze({ async resolve() { return null; } }),
+    readiness: Object.freeze({ async probe() { return { ready: true }; } }),
+    async close() {},
+  });
+  const result = createLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPort: new StaticEntitlementTestAdapter([eligibleStudent('wp:1')]),
+    boundRuntimeDependencies: dependencies,
+  });
+  assert.ok(result.application);
+  assert.equal(result.runtimeDependencies, dependencies);
+  assert.equal(result.runtimeDependencies.driver, dependencies.driver);
+
+  const ambiguous = createLorStudioApplication({
+    targetConfiguration: testTargetConfiguration(),
+    entitlementPort: new StaticEntitlementTestAdapter([eligibleStudent('wp:1')]),
+    boundRuntimeDependencies: dependencies,
+    driver: dependencies.driver,
+    scopeProvider: dependencies.scopeProvider,
+  });
+  assert.equal(ambiguous.application, null);
+  assert.equal(ambiguous.reason, LOR_COMPOSITION_REASONS.COMPOSITION_FAILED);
+});
+
 test('production entitlement is constructed only after the database actor resolver exists', () => {
   const actorResolver = Object.freeze({
     async resolve() { throw new Error('request resolution is lazy'); },
@@ -1666,11 +1695,17 @@ test('shutdown is one shared promise, closes HTTP before pool, and attempts both
 // SOURCE GUARD - the check that would have caught the original defect
 // ---------------------------------------------------------------------------
 
-test('SOURCE GUARD: server.mjs readiness-gates and passes an application to the runtime', () => {
+test('SOURCE GUARD: server.mjs assembles the full production graph and passes it to the runtime', () => {
   const source = readFileSync(fileURLToPath(new URL('../../server.mjs', import.meta.url)), 'utf8');
+  const railway = JSON.parse(readFileSync(
+    fileURLToPath(new URL('../../../railway.json', import.meta.url)),
+    'utf8',
+  ));
 
-  assert.match(source, /await createReadinessGatedLorStudioApplication\(/u,
-    'server.mjs must construct and readiness-gate the application through the production wrapper');
+  assert.match(source, /await createProductionRuntimeAssembly\(/u,
+    'server.mjs must construct the complete provider, storage, candidate, and readiness graph');
+  assert.match(source, /await createProductionBackupRestoreAdapterFromEnvironment\(/u,
+    'server.mjs must require a verified real isolated-restore proof before assembly');
   assert.match(source, /readLorTargetConfiguration\(/u,
     'the target must come from explicit configuration');
 
@@ -1683,20 +1718,48 @@ test('SOURCE GUARD: server.mjs readiness-gates and passes an application to the 
   // that block: server.mjs legitimately names the RankListIQ project elsewhere as
   // AUTH_ALLOWED_SUPABASE_PROJECT, which is MissionMed HQ's auth project and nothing to do with
   // LOR Studio. The binding-level protection is the denylist in lor-target-binding.mjs.
-  const compositionBlock = source.match(/const LOR_STUDIO_COMPOSITION[\s\S]*?\n\}\);/u);
-  assert.ok(compositionBlock, 'the LOR composition block must be present');
-  assert.equal(compositionBlock[0].includes(RANKLISTIQ_PRODUCTION_PROJECT_REF), false,
+  const assemblyBlock = source.match(/const assembly = await createProductionRuntimeAssembly\(\{[\s\S]*?\n    \}\);/u);
+  assert.ok(assemblyBlock, 'the LOR production assembly block must be present');
+  assert.equal(assemblyBlock[0].includes(RANKLISTIQ_PRODUCTION_PROJECT_REF), false,
     'the LOR composition must never name the RankListIQ production project');
-  assert.equal(compositionBlock[0].includes(HISTORICAL_NO_TOUCH_BRANCH_ID), false,
+  assert.equal(assemblyBlock[0].includes(HISTORICAL_NO_TOUCH_BRANCH_ID), false,
     'the LOR composition must never name the historical no-touch branch');
-  assert.match(compositionBlock[0], /targetConfiguration:\s*readLorTargetConfiguration\(process\.env\)/u,
+  assert.match(source, /const targetConfiguration = readLorTargetConfiguration\(process\.env\)/u,
     'the target must come only from explicit external configuration, never a literal');
+  assert.match(assemblyBlock[0], /wordpressS2sClient:\s*LOR_WORDPRESS_S2S_CLIENT/u);
+  assert.match(assemblyBlock[0], /resourceEntitlementResolver:\s*LOR_WORDPRESS_S2S_CLIENT\.resourceEntitlementPort/u);
+  assert.match(assemblyBlock[0], /backupRestoreAdapter,/u);
+  assert.match(source, /LOR_CANDIDATE_AUTH_SERVICE = assembly\.candidateAuthService/u,
+    'the server callback and runtime must receive the durable candidate service from the graph');
+  assert.match(source, /const LOR_AUTH_STATE_TTL_MS = 10 \* 60 \* 1_000/u,
+    'the sealed state cookie must survive a realistic WordPress login without outliving the candidate handoff');
+  assert.doesNotMatch(source, /const candidateExpiry =/u,
+    'the short invitation credential must not truncate the durable WordPress session');
+  assert.match(
+    source,
+    /candidateCredential\.requiresOtpVerification[\s\S]*?\/lor-studio\/invitations\/[\s\S]*?\/lor-studio\/\?case=/u,
+    'the callback must route first use to OTP verification and verified re-entry to the case page',
+  );
+  assert.match(
+    source,
+    /request\.url === '\/health\/lor-studio'[\s\S]*?lorStudioDeploymentReadiness\(\)[\s\S]*?ready \? 200 : 503/u,
+    'the exact LOR deployment readiness route must fail with 503 while the product graph is dark',
+  );
+  assert.match(
+    source,
+    /composition\.runtimeDependencies\.readiness\.probe\(\)/u,
+    'LOR deployment readiness must re-probe the live production database dependency',
+  );
+  assert.equal(railway.deploy.healthcheckPath, '/health/lor-studio');
+  assert.equal(railway.deploy.healthcheckTimeout, 300);
 
   // The runtime must receive a real URL, not a synthetic { pathname, searchParams } literal.
   assert.match(source, /LOR_STUDIO_RUNTIME\.handle\(request,\s*response,\s*url,/u,
     'the runtime must be handed the genuine URL object');
-  assert.match(source, /createProductionPostgresRuntimeDependencies/u);
-  assert.match(source, /createWordPressCurrentUserAdmission/u);
+  assert.doesNotMatch(source, /import \{ createProductionPostgresRuntimeDependencies \}/u,
+    'server.mjs must not construct a second database dependency graph');
+  assert.doesNotMatch(source, /import \{ createWordPressCurrentUserAdmission \}/u,
+    'server.mjs must not construct a second admission graph');
   assert.match(source, /readLorStudioSession\(request\)/u);
   assert.match(source, /!session[\s\S]*?LOR_HTML_ENTRY_PATHS\.has\(pathname\)[\s\S]*?sendRedirect\(response, LOR_AUTH_START_PATH, 302\)/u,
     'an unauthenticated canonical LOR page must enter the isolated LOR auth lane');
@@ -1704,7 +1767,7 @@ test('SOURCE GUARD: server.mjs readiness-gates and passes an application to the 
   assert.match(source, /process\.once\('SIGINT', requestGracefulShutdown\)/u);
   assert.ok(
     source.indexOf("process.once('SIGTERM', requestGracefulShutdown)")
-      < source.indexOf('await createReadinessGatedLorStudioApplication('),
+      < source.indexOf('await createProductionRuntimeAssembly('),
     'signal handlers must be installed before the network-bound readiness probe',
   );
   assert.match(source, /server\.on\('error',[\s\S]*?process\.exitCode = 1/u,

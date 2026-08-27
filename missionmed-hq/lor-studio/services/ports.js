@@ -41,6 +41,20 @@ export const PORT_CONTRACTS = deepFreeze({
       'raw_token_code_email_or_session_secret_receipt',
     ],
   },
+  mentorAssignmentRepository: {
+    ownership: 'F2-LOR',
+    durabilityRequiredForProduction: true,
+    authority: 'trusted_server_operator_only',
+    concurrency: 'database_advisory_lock_and_append_only_idempotency',
+    operation: 'read_only_mentor_case_access',
+    commandContract: 'assign and revoke are fixed SECURITY DEFINER commands with database-owned hashes and metadata audit',
+    prohibited: [
+      'browser_or_request_context_assignment',
+      'client_asserted_hash_uid_timestamp_or_audit',
+      'direct_application_table_dml',
+      'mutable_or_write_capable_mentor_assignment',
+    ],
+  },
   entitlement: {
     producer: ENTITLEMENT_PRODUCER_STATUS,
     minimumData: ['studentId', 'active', 'tier', 'lorEnabled', 'revoked'],
@@ -125,6 +139,11 @@ export class FacultyInvitationRepositoryPort extends RequiredPort {
   async getById() { return this.notImplemented('getById'); }
   async save() { return this.notImplemented('save'); }
   async verifyAndCommit() { return this.notImplemented('verifyAndCommit'); }
+}
+
+export class MentorAssignmentRepositoryPort extends RequiredPort {
+  async assignAndCommit() { return this.notImplemented('assignAndCommit'); }
+  async revokeAndCommit() { return this.notImplemented('revokeAndCommit'); }
 }
 
 export class EntitlementPort extends RequiredPort {

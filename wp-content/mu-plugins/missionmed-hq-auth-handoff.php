@@ -150,9 +150,23 @@ function mmhq_handoff_handle() {
             status_header(503);
             wp_die('LOR Studio access is unavailable.');
         }
+        // New HQ callers bind the identity class explicitly. A missing value
+        // remains the legacy student class, but an unknown or non-scalar value
+        // is never widened into either admission path.
+        $identity_class = 'student';
+        if (isset($_GET['identity_class'])) {
+            $identity_class = is_string($_GET['identity_class'])
+                ? (string) wp_unslash($_GET['identity_class'])
+                : '';
+        }
+        if (!in_array($identity_class, array('student', 'faculty_candidate'), true)) {
+            status_header(403);
+            wp_die('LOR Studio access is unavailable.');
+        }
         $issued = mmhq_lor_studio_issue_browser_bootstrap_code(
             wp_get_current_user(),
-            $return_to
+            $return_to,
+            $identity_class
         );
         if (is_wp_error($issued) || !is_array($issued) || empty($issued['code']) || empty($issued['callback'])) {
             $failure_status = 403;

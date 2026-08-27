@@ -370,6 +370,120 @@ function mmhq_lor_studio_identity_entitlement_for_user($raw_user_id) {
 }
 
 /**
+ * Resolve an active WordPress identity for the faculty-candidate login class.
+ * This proves only that the user exists and remains active. It deliberately
+ * does not call the student entitlement producer and never returns a role or
+ * an application/root grant; the invitation service remains the sole source
+ * of candidate resource scope after WordPress authentication.
+ */
+function mmhq_lor_studio_faculty_candidate_identity_for_user($user_or_id) {
+	$wp_user = $user_or_id;
+	if (!is_object($wp_user)) {
+		if (
+			(!is_int($user_or_id) && (!is_string($user_or_id) || 1 !== preg_match('/^[1-9][0-9]*$/D', $user_or_id)))
+			|| (int) $user_or_id < 1
+			|| !function_exists('get_userdata')
+		) {
+			return mmhq_lor_studio_contract_denied();
+		}
+		$wp_user = get_userdata((int) $user_or_id);
+	}
+
+	$raw_user_id = is_object($wp_user) && isset($wp_user->ID) ? $wp_user->ID : null;
+	if (
+		(!is_int($raw_user_id) && (!is_string($raw_user_id) || 1 !== preg_match('/^[1-9][0-9]*$/D', $raw_user_id)))
+		|| (int) $raw_user_id < 1
+		|| (string) (int) $raw_user_id !== (string) $raw_user_id
+		|| (method_exists($wp_user, 'exists') && true !== $wp_user->exists())
+		|| (isset($wp_user->user_status) && 0 !== (int) $wp_user->user_status)
+	) {
+		return mmhq_lor_studio_contract_denied();
+	}
+
+	return array(
+		'contract' => 'missionmed.lor.wordpress-faculty-candidate-identity.v1',
+		'subject' => 'wp:' . (int) $raw_user_id,
+		'identityClass' => 'faculty_candidate',
+		'studentEntitled' => false,
+		'rootEntitled' => false,
+	);
+}
+
+/**
+ * Normalize the two isolated login classes to the one subject/class pair
+ * stored in every code, binding, and subject index.
+ */
+function mmhq_lor_studio_identity_projection_for_class($user_or_id, $identity_class) {
+	$identity_class = mmhq_lor_studio_exact_identity_class($identity_class);
+	if ('' === $identity_class) {
+		return mmhq_lor_studio_contract_denied();
+	}
+
+	if ('student' === $identity_class) {
+		$raw_user_id = is_object($user_or_id) && isset($user_or_id->ID)
+			? $user_or_id->ID
+			: $user_or_id;
+		$projection = mmhq_lor_studio_identity_entitlement_for_user($raw_user_id);
+		if (is_wp_error($projection)) {
+			return $projection;
+		}
+		return array(
+			'subject' => $projection['subject'],
+			'identityClass' => 'student',
+		);
+	}
+
+	$projection = mmhq_lor_studio_faculty_candidate_identity_for_user($user_or_id);
+	if (is_wp_error($projection)) {
+		return $projection;
+	}
+	return array(
+		'subject' => $projection['subject'],
+		'identityClass' => 'faculty_candidate',
+	);
+}
+
+function mmhq_lor_studio_resource_entitlement_producer_ready() {
+	return mmhq_lor_studio_contract_enabled()
+		&& '' !== mmhq_lor_studio_s2s_secret()
+		&& function_exists('mmhq_cam_build_entitlement')
+		&& function_exists('get_user_meta')
+		&& !empty(mmhq_lor_studio_verified_course_ids())
+		&& !empty(mmhq_lor_studio_verified_program_tiers())
+		&& mmhq_lor_studio_entitlement_max_age_seconds() > 0;
+}
+
+/**
+ * Produce only the metadata required by the HQ case-service decision. This is
+ * evaluated from the WordPress student record on every signed request; no
+ * email, course list, consent timestamp, or purchase evidence is returned.
+ */
+function mmhq_lor_studio_resource_student_entitlement_for_user($raw_user_id) {
+	$projection = mmhq_lor_studio_identity_entitlement_for_user($raw_user_id);
+	if (is_wp_error($projection)) {
+		return $projection;
+	}
+	$now = time();
+	$lifetime = min(300, mmhq_lor_studio_entitlement_max_age_seconds());
+	if ($lifetime < 30) {
+		return mmhq_lor_studio_contract_denied();
+	}
+	return array(
+		'studentId' => $projection['subject'],
+		'active' => true,
+		'tier' => 'tier3_360',
+		'lorEnabled' => true,
+		'revoked' => false,
+		'canaryEnabled' => true,
+		'canaryConsented' => true,
+		'producerStatus' => 'WORDPRESS_RESOURCE_ADMISSION_V1_SIGNED_S2S',
+		'metadataOnly' => true,
+		'evaluatedAt' => mmhq_lor_studio_utc_instant($now),
+		'expiresAt' => mmhq_lor_studio_utc_instant($now + $lifetime),
+	);
+}
+
+/**
  * LOR-only S2S protocol constants. The browser receives a one-time opaque code
  * only; the HQ session retains a non-secret binding id only.
  */
@@ -378,12 +492,34 @@ function mmhq_lor_studio_s2s_contract() {
 		'audience' => 'lor-studio',
 		'key_domain' => 'missionmed.lor.s2s.key.v1',
 		'request_domain' => 'missionmed.lor.s2s.request.v1',
-			'bootstrap_path' => '/wp-json/missionmed/v1/lor-studio/bootstrap/redeem',
-			'admission_path' => '/wp-json/missionmed/v1/lor-studio/current-user-admission',
-			'revocation_path' => '/wp-json/missionmed/v1/lor-studio/binding/revoke',
+		'bootstrap_path' => '/wp-json/missionmed/v1/lor-studio/bootstrap/redeem',
+		'admission_path' => '/wp-json/missionmed/v1/lor-studio/current-user-admission',
+		'revocation_path' => '/wp-json/missionmed/v1/lor-studio/binding/revoke',
+		'resource_entitlement_path' => '/wp-json/missionmed/v1/lor-studio/resource-student-entitlement',
+		'resource_entitlement_probe_path' => '/wp-json/missionmed/v1/lor-studio/resource-student-entitlement/probe',
 		'callback_path' => '/api/lor-studio/auth/callback',
-		'epoch' => 'dr133-s2s-v1',
+		'epoch' => 'dr133-s2s-v2',
 	);
+}
+
+function mmhq_lor_studio_exact_identity_class($value) {
+	return is_string($value) && in_array($value, array('student', 'faculty_candidate'), true)
+		? $value
+		: '';
+}
+
+function mmhq_lor_studio_exact_subject($value) {
+	return is_string($value) && 1 === preg_match('/^wp:[1-9][0-9]*$/D', $value)
+		? $value
+		: '';
+}
+
+function mmhq_lor_studio_identity_subject_digest($subject, $identity_class) {
+	$subject = mmhq_lor_studio_exact_subject($subject);
+	$identity_class = mmhq_lor_studio_exact_identity_class($identity_class);
+	return '' === $subject || '' === $identity_class
+		? ''
+		: hash('sha256', $identity_class . "\n" . $subject);
 }
 
 function mmhq_lor_studio_has_exact_keys($value, $expected_keys) {
@@ -1090,36 +1226,53 @@ function mmhq_lor_studio_read_record($namespace, $opaque_value) {
 	return mmhq_lor_studio_read_record_by_digest($namespace, hash('sha256', (string) $opaque_value));
 }
 
-function mmhq_lor_studio_receipt($subject, $binding_expires_at) {
+function mmhq_lor_studio_receipt($subject, $identity_class, $binding_expires_at) {
 	$now = time();
 	$expires = min($now + 300, (int) $binding_expires_at);
-	if ($expires <= $now) {
+	$identity_class = mmhq_lor_studio_exact_identity_class($identity_class);
+	if (
+		$expires <= $now
+		|| '' === mmhq_lor_studio_exact_subject($subject)
+		|| '' === $identity_class
+	) {
 		return false;
 	}
 	return array(
-		'contract' => 'missionmed.lor.wordpress-admission.v2',
+		'contract' => 'missionmed.lor.wordpress-admission.v3',
 		'subject' => $subject,
+		'identityClass' => $identity_class,
 		'admitted' => true,
 		'evaluatedAt' => mmhq_lor_studio_utc_instant($now),
 		'expiresAt' => mmhq_lor_studio_utc_instant($expires),
 	);
 }
 
-function mmhq_lor_studio_binding_index_valid($record, $binding_id) {
+function mmhq_lor_studio_binding_index_valid($record, $binding_id, $subject, $identity_class) {
 	$contract = mmhq_lor_studio_s2s_contract();
+	$identity_class = mmhq_lor_studio_exact_identity_class($identity_class);
 	return is_array($record)
-		&& mmhq_lor_studio_has_exact_keys($record, array('contract', 'bindingId', 'expiresAt', 'epoch'))
-		&& 'missionmed.lor.wordpress-subject-binding.v1' === $record['contract']
+		&& mmhq_lor_studio_has_exact_keys(
+			$record,
+			array('contract', 'bindingId', 'subject', 'identityClass', 'expiresAt', 'epoch')
+		)
+		&& 'missionmed.lor.wordpress-subject-binding.v2' === $record['contract']
 		&& $binding_id === $record['bindingId']
+		&& $subject === $record['subject']
+		&& '' !== $identity_class
+		&& $identity_class === $record['identityClass']
 		&& 1 === preg_match('/^lorb1_[A-Za-z0-9_-]{43}$/D', $binding_id)
 		&& is_int($record['expiresAt'])
 		&& $record['expiresAt'] > time()
 		&& $contract['epoch'] === $record['epoch'];
 }
 
-function mmhq_lor_studio_get_or_create_subject_binding($subject, $binding_expires) {
+function mmhq_lor_studio_get_or_create_subject_binding($subject, $identity_class, $binding_expires) {
 	$contract = mmhq_lor_studio_s2s_contract();
-	$subject_digest = hash('sha256', $subject);
+	$identity_class = mmhq_lor_studio_exact_identity_class($identity_class);
+	$subject_digest = mmhq_lor_studio_identity_subject_digest($subject, $identity_class);
+	if ('' === $subject_digest) {
+		return false;
+	}
 	for ($attempt = 0; $attempt < 4; $attempt++) {
 		list($index, $index_name, $index_raw) = mmhq_lor_studio_read_record_by_digest(
 			'binding_subject_v1',
@@ -1129,9 +1282,19 @@ function mmhq_lor_studio_get_or_create_subject_binding($subject, $binding_expire
 			$indexed_binding = isset($index['bindingId']) && is_string($index['bindingId'])
 				? $index['bindingId']
 				: '';
-			if (mmhq_lor_studio_binding_index_valid($index, $indexed_binding)) {
+			if (mmhq_lor_studio_binding_index_valid(
+				$index,
+				$indexed_binding,
+				$subject,
+				$identity_class
+			)) {
 				list($binding_record) = mmhq_lor_studio_read_record('binding_v1', $indexed_binding);
-				if (mmhq_lor_studio_validate_binding_record($binding_record, $indexed_binding, $subject)) {
+				if (mmhq_lor_studio_validate_binding_record(
+					$binding_record,
+					$indexed_binding,
+					$subject,
+					$identity_class
+				)) {
 					return array($indexed_binding, $binding_record, false, '');
 				}
 			}
@@ -1154,8 +1317,9 @@ function mmhq_lor_studio_get_or_create_subject_binding($subject, $binding_expire
 			return false;
 		}
 		$binding_record = array(
-			'contract' => 'missionmed.lor.wordpress-binding.v1',
+			'contract' => 'missionmed.lor.wordpress-binding.v2',
 			'subject' => $subject,
+			'identityClass' => $identity_class,
 			'audience' => $contract['audience'],
 			'issuedAt' => time(),
 			'expiresAt' => $binding_expires,
@@ -1173,8 +1337,10 @@ function mmhq_lor_studio_get_or_create_subject_binding($subject, $binding_expire
 			return false;
 		}
 		$index_record = array(
-			'contract' => 'missionmed.lor.wordpress-subject-binding.v1',
+			'contract' => 'missionmed.lor.wordpress-subject-binding.v2',
 			'bindingId' => $binding_id,
+			'subject' => $subject,
+			'identityClass' => $identity_class,
 			'expiresAt' => $binding_expires,
 			'epoch' => $contract['epoch'],
 		);
@@ -1189,17 +1355,35 @@ function mmhq_lor_studio_get_or_create_subject_binding($subject, $binding_expire
 /**
  * Called only by the exact LOR branch of the authenticated WordPress handoff.
  */
-function mmhq_lor_studio_issue_browser_bootstrap_code($wp_user, $raw_callback) {
+function mmhq_lor_studio_issue_browser_bootstrap_code(
+	$wp_user,
+	$raw_callback,
+	$identity_class = 'student'
+) {
+	$identity_class = mmhq_lor_studio_exact_identity_class($identity_class);
 	if (
 		!mmhq_lor_studio_contract_enabled()
 		|| '' === mmhq_lor_studio_s2s_secret()
+		|| '' === $identity_class
 		|| !is_object($wp_user)
 		|| !isset($wp_user->ID)
 	) {
 		return mmhq_lor_studio_s2s_denied(503);
 	}
+	if ('faculty_candidate' === $identity_class) {
+		$current_user = function_exists('wp_get_current_user') ? wp_get_current_user() : false;
+		if (
+			!function_exists('is_user_logged_in')
+			|| true !== is_user_logged_in()
+			|| !is_object($current_user)
+			|| !isset($current_user->ID)
+			|| (string) $current_user->ID !== (string) $wp_user->ID
+		) {
+			return mmhq_lor_studio_s2s_denied();
+		}
+	}
 	$callback = mmhq_lor_studio_exact_callback($raw_callback);
-	$projection = mmhq_lor_studio_identity_entitlement_for_user($wp_user->ID);
+	$projection = mmhq_lor_studio_identity_projection_for_class($wp_user, $identity_class);
 	if ('' === $callback || is_wp_error($projection)) {
 		return mmhq_lor_studio_s2s_denied();
 	}
@@ -1209,9 +1393,14 @@ function mmhq_lor_studio_issue_browser_bootstrap_code($wp_user, $raw_callback) {
 	$now = time();
 	$code_expires = $now + 60;
 	$binding_expires = $now + 8 * 60 * 60;
-	$issue_digest = hash('sha256', $projection['subject']);
+	$issue_digest = mmhq_lor_studio_identity_subject_digest(
+		$projection['subject'],
+		$identity_class
+	);
 	$issue_record = array(
-		'contract' => 'missionmed.lor.wordpress-bootstrap-issue-window.v1',
+		'contract' => 'missionmed.lor.wordpress-bootstrap-issue-window.v2',
+		'subject' => $projection['subject'],
+		'identityClass' => $identity_class,
 		'issuedAt' => $now,
 		'expiresAt' => $code_expires,
 		'epoch' => $contract['epoch'],
@@ -1238,7 +1427,11 @@ function mmhq_lor_studio_issue_browser_bootstrap_code($wp_user, $raw_callback) {
 		mmhq_lor_studio_delete_exact_pair('issue_v1', $issue_digest, $issue_raw);
 		return mmhq_lor_studio_s2s_denied(503);
 	}
-	$binding_result = mmhq_lor_studio_get_or_create_subject_binding($projection['subject'], $binding_expires);
+	$binding_result = mmhq_lor_studio_get_or_create_subject_binding(
+		$projection['subject'],
+		$identity_class,
+		$binding_expires
+	);
 	if (!is_array($binding_result) || 4 !== count($binding_result)) {
 		mmhq_lor_studio_delete_exact_pair('issue_v1', $issue_digest, $issue_raw);
 		return mmhq_lor_studio_s2s_denied(503);
@@ -1246,8 +1439,9 @@ function mmhq_lor_studio_issue_browser_bootstrap_code($wp_user, $raw_callback) {
 	list($binding_id, $binding_record, $binding_created, $binding_raw) = $binding_result;
 	$binding_expires = $binding_record['expiresAt'];
 	$code_record = array(
-		'contract' => 'missionmed.lor.wordpress-bootstrap-code.v1',
+		'contract' => 'missionmed.lor.wordpress-bootstrap-code.v2',
 		'subject' => $projection['subject'],
+		'identityClass' => $identity_class,
 		'audience' => $contract['audience'],
 		'callback' => $callback,
 		'stateHash' => $callback_query['state'],
@@ -1332,16 +1526,24 @@ function mmhq_lor_studio_verify_s2s_request($request, $expected_path) {
 	return is_array($decoded) ? $decoded : false;
 }
 
-function mmhq_lor_studio_validate_binding_record($record, $binding_id, $subject = '') {
+function mmhq_lor_studio_validate_binding_record(
+	$record,
+	$binding_id,
+	$subject = '',
+	$identity_class = 'student'
+) {
 	$contract = mmhq_lor_studio_s2s_contract();
+	$identity_class = mmhq_lor_studio_exact_identity_class($identity_class);
 	return is_array($record)
 		&& mmhq_lor_studio_has_exact_keys(
 			$record,
-			array('contract', 'subject', 'audience', 'issuedAt', 'expiresAt', 'epoch')
+			array('contract', 'subject', 'identityClass', 'audience', 'issuedAt', 'expiresAt', 'epoch')
 		)
-		&& 'missionmed.lor.wordpress-binding.v1' === $record['contract']
+		&& 'missionmed.lor.wordpress-binding.v2' === $record['contract']
 		&& 1 === preg_match('/^wp:[1-9][0-9]*$/D', (string) $record['subject'])
 		&& ('' === $subject || $subject === $record['subject'])
+		&& '' !== $identity_class
+		&& $identity_class === $record['identityClass']
 		&& 1 === preg_match('/^lorb1_[A-Za-z0-9_-]{43}$/D', $binding_id)
 		&& $contract['audience'] === $record['audience']
 		&& is_int($record['issuedAt'])
@@ -1358,10 +1560,11 @@ function mmhq_lor_studio_bootstrap_redeem($request) {
 		false === $body
 		|| !mmhq_lor_studio_has_exact_keys(
 			$body,
-			array('contract', 'audience', 'code', 'stateHash', 'callback')
+			array('contract', 'audience', 'identityClass', 'code', 'stateHash', 'callback')
 		)
-		|| 'missionmed.lor.wordpress-bootstrap-redemption-request.v1' !== $body['contract']
+		|| 'missionmed.lor.wordpress-bootstrap-redemption-request.v2' !== $body['contract']
 		|| $contract['audience'] !== $body['audience']
+		|| '' === mmhq_lor_studio_exact_identity_class($body['identityClass'])
 		|| 1 !== preg_match('/^lorc1_[A-Za-z0-9_-]{43}$/D', (string) $body['code'])
 		|| 1 !== preg_match('/^[a-f0-9]{64}$/D', (string) $body['stateHash'])
 		|| mmhq_lor_studio_exact_callback($body['callback']) !== $body['callback']
@@ -1370,14 +1573,15 @@ function mmhq_lor_studio_bootstrap_redeem($request) {
 	}
 	list($code_record, $code_name, $code_raw) = mmhq_lor_studio_read_record('code_v1', $body['code']);
 	$expected_code_keys = array(
-		'contract', 'subject', 'audience', 'callback', 'stateHash', 'bindingId',
+		'contract', 'subject', 'identityClass', 'audience', 'callback', 'stateHash', 'bindingId',
 		'bindingExpiresAt', 'issuedAt', 'expiresAt', 'epoch',
 	);
 	if (
 		!is_array($code_record)
 		|| !mmhq_lor_studio_has_exact_keys($code_record, $expected_code_keys)
-		|| 'missionmed.lor.wordpress-bootstrap-code.v1' !== $code_record['contract']
+		|| 'missionmed.lor.wordpress-bootstrap-code.v2' !== $code_record['contract']
 		|| $body['audience'] !== $code_record['audience']
+		|| $body['identityClass'] !== $code_record['identityClass']
 		|| $body['callback'] !== $code_record['callback']
 		|| $body['stateHash'] !== $code_record['stateHash']
 		|| !is_int($code_record['issuedAt'])
@@ -1394,24 +1598,33 @@ function mmhq_lor_studio_bootstrap_redeem($request) {
 		!mmhq_lor_studio_validate_binding_record(
 			$binding_record,
 			$code_record['bindingId'],
-			$code_record['subject']
+			$code_record['subject'],
+			$code_record['identityClass']
 		)
 		|| $binding_record['expiresAt'] !== $code_record['bindingExpiresAt']
-		|| is_wp_error(mmhq_lor_studio_identity_entitlement_for_user(substr($code_record['subject'], 3)))
+		|| is_wp_error(mmhq_lor_studio_identity_projection_for_class(
+			substr($code_record['subject'], 3),
+			$code_record['identityClass']
+		))
 		|| !mmhq_lor_studio_delete_exact_pair('code_v1', hash('sha256', $body['code']), $code_raw)
 	) {
 		return mmhq_lor_studio_s2s_denied();
 	}
-	$receipt = mmhq_lor_studio_receipt($code_record['subject'], $binding_record['expiresAt']);
+	$receipt = mmhq_lor_studio_receipt(
+		$code_record['subject'],
+		$code_record['identityClass'],
+		$binding_record['expiresAt']
+	);
 	if (false === $receipt) {
 		return mmhq_lor_studio_s2s_denied();
 	}
 	return rest_ensure_response(array(
-		'contract' => 'missionmed.lor.wordpress-bootstrap-redemption.v1',
+		'contract' => 'missionmed.lor.wordpress-bootstrap-redemption.v2',
 		'audience' => $contract['audience'],
 		'subject' => $code_record['subject'],
 		'bindingId' => $code_record['bindingId'],
 		'bindingExpiresAt' => mmhq_lor_studio_utc_instant($binding_record['expiresAt']),
+		'identityClass' => $code_record['identityClass'],
 		'receipt' => $receipt,
 	));
 }
@@ -1423,10 +1636,11 @@ function mmhq_lor_studio_current_user_admission($request) {
 		false === $body
 		|| !mmhq_lor_studio_has_exact_keys(
 			$body,
-			array('contract', 'audience', 'bindingId', 'subject')
+			array('contract', 'audience', 'bindingId', 'subject', 'identityClass')
 		)
-		|| 'missionmed.lor.wordpress-admission-request.v1' !== $body['contract']
+		|| 'missionmed.lor.wordpress-admission-request.v2' !== $body['contract']
 		|| $contract['audience'] !== $body['audience']
+		|| '' === mmhq_lor_studio_exact_identity_class($body['identityClass'])
 		|| 1 !== preg_match('/^lorb1_[A-Za-z0-9_-]{43}$/D', (string) $body['bindingId'])
 		|| 1 !== preg_match('/^wp:[1-9][0-9]*$/D', (string) $body['subject'])
 	) {
@@ -1434,12 +1648,24 @@ function mmhq_lor_studio_current_user_admission($request) {
 	}
 	list($binding_record) = mmhq_lor_studio_read_record('binding_v1', $body['bindingId']);
 	if (
-		!mmhq_lor_studio_validate_binding_record($binding_record, $body['bindingId'], $body['subject'])
-		|| is_wp_error(mmhq_lor_studio_identity_entitlement_for_user(substr($body['subject'], 3)))
+		!mmhq_lor_studio_validate_binding_record(
+			$binding_record,
+			$body['bindingId'],
+			$body['subject'],
+			$body['identityClass']
+		)
+		|| is_wp_error(mmhq_lor_studio_identity_projection_for_class(
+			substr($body['subject'], 3),
+			$body['identityClass']
+		))
 	) {
 		return mmhq_lor_studio_s2s_denied();
 	}
-	$receipt = mmhq_lor_studio_receipt($body['subject'], $binding_record['expiresAt']);
+	$receipt = mmhq_lor_studio_receipt(
+		$body['subject'],
+		$body['identityClass'],
+		$binding_record['expiresAt']
+	);
 	return false === $receipt ? mmhq_lor_studio_s2s_denied() : rest_ensure_response($receipt);
 }
 
@@ -1448,9 +1674,13 @@ function mmhq_lor_studio_revoke_binding($request) {
 	$body = mmhq_lor_studio_verify_s2s_request($request, $contract['revocation_path']);
 	if (
 		false === $body
-		|| !mmhq_lor_studio_has_exact_keys($body, array('contract', 'audience', 'bindingId', 'subject'))
-		|| 'missionmed.lor.wordpress-binding-revocation-request.v1' !== $body['contract']
+		|| !mmhq_lor_studio_has_exact_keys(
+			$body,
+			array('contract', 'audience', 'bindingId', 'subject', 'identityClass')
+		)
+		|| 'missionmed.lor.wordpress-binding-revocation-request.v2' !== $body['contract']
 		|| $contract['audience'] !== $body['audience']
+		|| '' === mmhq_lor_studio_exact_identity_class($body['identityClass'])
 		|| 1 !== preg_match('/^lorb1_[A-Za-z0-9_-]{43}$/D', (string) $body['bindingId'])
 		|| 1 !== preg_match('/^wp:[1-9][0-9]*$/D', (string) $body['subject'])
 	) {
@@ -1458,31 +1688,134 @@ function mmhq_lor_studio_revoke_binding($request) {
 	}
 	list($binding_record, $binding_name, $binding_raw) = mmhq_lor_studio_read_record('binding_v1', $body['bindingId']);
 	if (
-		!mmhq_lor_studio_validate_binding_record($binding_record, $body['bindingId'], $body['subject'])
+		!mmhq_lor_studio_validate_binding_record(
+			$binding_record,
+			$body['bindingId'],
+			$body['subject'],
+			$body['identityClass']
+		)
 		|| !mmhq_lor_studio_delete_exact_pair('binding_v1', hash('sha256', $body['bindingId']), $binding_raw)
 	) {
 		return mmhq_lor_studio_s2s_denied();
 	}
-	$subject_digest = hash('sha256', $body['subject']);
+	$subject_digest = mmhq_lor_studio_identity_subject_digest(
+		$body['subject'],
+		$body['identityClass']
+	);
 	list($index_record, $index_name, $index_raw) = mmhq_lor_studio_read_record_by_digest(
 		'binding_subject_v1',
 		$subject_digest
 	);
-	if (is_array($index_record) && ($index_record['bindingId'] ?? '') === $body['bindingId']) {
+	if (
+		is_array($index_record)
+		&& ($index_record['bindingId'] ?? '') === $body['bindingId']
+		&& ($index_record['identityClass'] ?? '') === $body['identityClass']
+	) {
 		if (!mmhq_lor_studio_delete_exact_pair('binding_subject_v1', $subject_digest, $index_raw)) {
 			list($current_index) = mmhq_lor_studio_read_record_by_digest('binding_subject_v1', $subject_digest);
-			if (is_array($current_index) && ($current_index['bindingId'] ?? '') === $body['bindingId']) {
+			if (
+				is_array($current_index)
+				&& ($current_index['bindingId'] ?? '') === $body['bindingId']
+				&& ($current_index['identityClass'] ?? '') === $body['identityClass']
+			) {
 				return mmhq_lor_studio_s2s_denied(503);
 			}
 		}
 	}
 	return rest_ensure_response(array(
-		'contract' => 'missionmed.lor.wordpress-binding-revocation.v1',
+		'contract' => 'missionmed.lor.wordpress-binding-revocation.v2',
 		'audience' => $contract['audience'],
 		'subject' => $body['subject'],
 		'bindingId' => $body['bindingId'],
+		'identityClass' => $body['identityClass'],
 		'revoked' => true,
 		'revokedAt' => mmhq_lor_studio_utc_instant(time()),
+	));
+}
+
+function mmhq_lor_studio_resource_student_entitlement($request) {
+	$contract = mmhq_lor_studio_s2s_contract();
+	$body = mmhq_lor_studio_verify_s2s_request(
+		$request,
+		$contract['resource_entitlement_path']
+	);
+	if (
+		false === $body
+		|| !mmhq_lor_studio_has_exact_keys(
+			$body,
+			array(
+				'contract', 'audience', 'requesterSubject', 'actorRole',
+				'studentId', 'metadataOnly',
+			)
+		)
+		|| 'missionmed.lor.wordpress-resource-student-entitlement-request.v1' !== $body['contract']
+		|| $contract['audience'] !== $body['audience']
+		|| '' === mmhq_lor_studio_exact_subject($body['requesterSubject'])
+		|| !is_string($body['actorRole'])
+		|| !in_array($body['actorRole'], array('faculty', 'mentor'), true)
+		|| '' === mmhq_lor_studio_exact_subject($body['studentId'])
+		|| true !== $body['metadataOnly']
+		|| !mmhq_lor_studio_resource_entitlement_producer_ready()
+	) {
+		return mmhq_lor_studio_s2s_denied();
+	}
+
+	$entitlement = mmhq_lor_studio_resource_student_entitlement_for_user(
+		substr($body['studentId'], 3)
+	);
+	if (is_wp_error($entitlement) || $body['studentId'] !== ($entitlement['studentId'] ?? '')) {
+		return mmhq_lor_studio_s2s_denied();
+	}
+
+	return rest_ensure_response(array(
+		'contract' => 'missionmed.lor.wordpress-resource-student-entitlement.v1',
+		'audience' => $contract['audience'],
+		'requesterSubject' => $body['requesterSubject'],
+		'actorRole' => $body['actorRole'],
+		'studentId' => $entitlement['studentId'],
+		'active' => $entitlement['active'],
+		'tier' => $entitlement['tier'],
+		'lorEnabled' => $entitlement['lorEnabled'],
+		'revoked' => $entitlement['revoked'],
+		'canaryEnabled' => $entitlement['canaryEnabled'],
+		'canaryConsented' => $entitlement['canaryConsented'],
+		'producerStatus' => $entitlement['producerStatus'],
+		'metadataOnly' => $entitlement['metadataOnly'],
+		'evaluatedAt' => $entitlement['evaluatedAt'],
+		'expiresAt' => $entitlement['expiresAt'],
+	));
+}
+
+function mmhq_lor_studio_resource_student_entitlement_probe($request) {
+	$contract = mmhq_lor_studio_s2s_contract();
+	$body = mmhq_lor_studio_verify_s2s_request(
+		$request,
+		$contract['resource_entitlement_probe_path']
+	);
+	if (
+		false === $body
+		|| !mmhq_lor_studio_has_exact_keys($body, array('contract', 'audience', 'metadataOnly'))
+		|| 'missionmed.lor.wordpress-resource-student-entitlement-probe-request.v1' !== $body['contract']
+		|| $contract['audience'] !== $body['audience']
+		|| true !== $body['metadataOnly']
+		|| !mmhq_lor_studio_resource_entitlement_producer_ready()
+	) {
+		return mmhq_lor_studio_s2s_denied();
+	}
+
+	$now = time();
+	$lifetime = min(300, mmhq_lor_studio_entitlement_max_age_seconds());
+	if ($lifetime < 30) {
+		return mmhq_lor_studio_s2s_denied();
+	}
+	return rest_ensure_response(array(
+		'contract' => 'missionmed.lor.wordpress-resource-student-entitlement-probe.v1',
+		'audience' => $contract['audience'],
+		'ready' => true,
+		'metadataOnly' => true,
+		'producerStatus' => 'WORDPRESS_RESOURCE_ADMISSION_V1_SIGNED_S2S',
+		'evaluatedAt' => mmhq_lor_studio_utc_instant($now),
+		'expiresAt' => mmhq_lor_studio_utc_instant($now + $lifetime),
 	));
 }
 
@@ -1496,6 +1829,8 @@ function mmhq_lor_studio_contract_post_dispatch($response, $server, $request) {
 		'/missionmed/v1/lor-studio/bootstrap/redeem',
 		'/missionmed/v1/lor-studio/current-user-admission',
 		'/missionmed/v1/lor-studio/binding/revoke',
+		'/missionmed/v1/lor-studio/resource-student-entitlement',
+		'/missionmed/v1/lor-studio/resource-student-entitlement/probe',
 	);
 	if (
 		!is_object($request)
@@ -1553,6 +1888,24 @@ function mmhq_lor_studio_register_rest_contract() {
 		array(
 			'methods' => 'POST',
 			'callback' => 'mmhq_lor_studio_revoke_binding',
+			'permission_callback' => '__return_true',
+		)
+	);
+	register_rest_route(
+		'missionmed/v1',
+		'/lor-studio/resource-student-entitlement',
+		array(
+			'methods' => 'POST',
+			'callback' => 'mmhq_lor_studio_resource_student_entitlement',
+			'permission_callback' => '__return_true',
+		)
+	);
+	register_rest_route(
+		'missionmed/v1',
+		'/lor-studio/resource-student-entitlement/probe',
+		array(
+			'methods' => 'POST',
+			'callback' => 'mmhq_lor_studio_resource_student_entitlement_probe',
 			'permission_callback' => '__return_true',
 		)
 	);

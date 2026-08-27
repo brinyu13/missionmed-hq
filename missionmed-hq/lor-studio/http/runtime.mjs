@@ -15,12 +15,16 @@ export const LOR_STUDIO_ROUTE_PREFIX = '/lor-studio';
 export const LOR_STUDIO_API_PREFIX = '/api/lor-studio';
 export const LOR_CANDIDATE_AUTH_START_PATH = `${LOR_STUDIO_API_PREFIX}/auth/candidate/start`;
 export const LOR_CANDIDATE_HANDOFF_COOKIE_NAME = '__Secure-mmhq_lor_candidate_handoff';
+export const LOR_CANDIDATE_IDENTITY_CLASS = 'faculty_candidate';
+export const LOR_STUDENT_IDENTITY_CLASS = 'student';
+export const LOR_SESSION_IDENTITY_CLASS_FIELD = 'lorAdmissionIdentityClass';
+export const LOR_SESSION_CANDIDATE_INVITATION_FIELD = 'lorFacultyCandidateInvitationId';
 
-const LOR_CANDIDATE_HANDOFF_SCHEMA =
+export const LOR_CANDIDATE_HANDOFF_SCHEMA =
   'missionmed.lor.faculty-candidate-auth-handoff.v1';
 const LOR_CANDIDATE_HANDOFF_MAX_LIFETIME_MS = 15 * 60 * 1_000;
 const LOR_CANDIDATE_HANDOFF_CLOCK_SKEW_MS = 30 * 1_000;
-const LOR_CANDIDATE_HANDOFF_COOKIE_PATH = '/api/lor-studio/auth/';
+export const LOR_CANDIDATE_HANDOFF_COOKIE_PATH = '/api/lor-studio/auth/';
 const LOR_CANDIDATE_START_MAX_BODY_BYTES = 8_192;
 const CANDIDATE_LOCATOR = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/u;
 const CANDIDATE_RAW_TOKEN = /^[A-Za-z0-9_-]{43}$/u;
@@ -33,6 +37,10 @@ export const LOR_CANDIDATE_AUTH_START_CONTRACT = Object.freeze({
   sessionRequired: false,
   csrfProtection: 'exact_same_origin_and_custom_header',
   exchangeMethod: 'exchangeInvitationToken',
+  inspectionMethod: 'inspectSealedHandoff',
+  identityClass: LOR_CANDIDATE_IDENTITY_CLASS,
+  sessionIdentityClassField: LOR_SESSION_IDENTITY_CLASS_FIELD,
+  sessionInvitationField: LOR_SESSION_CANDIDATE_INVITATION_FIELD,
   handoffSchema: LOR_CANDIDATE_HANDOFF_SCHEMA,
   maximumLifetimeSeconds: LOR_CANDIDATE_HANDOFF_MAX_LIFETIME_MS / 1_000,
   cookie: Object.freeze({
@@ -59,6 +67,11 @@ const SAFE_ASSETS = new Set([
   'production-adapter.css',
   'production-adapter.js',
   'production-projection-ui.js',
+]);
+const FACULTY_CANDIDATE_ASSET_PATHS = new Set([
+  `${LOR_STUDIO_ROUTE_PREFIX}/production-adapter.css`,
+  `${LOR_STUDIO_ROUTE_PREFIX}/production-adapter.js`,
+  `${LOR_STUDIO_ROUTE_PREFIX}/production-projection-ui.js`,
 ]);
 const MUTATION_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const FACULTY_INVITATION_PAGE =
@@ -124,7 +137,7 @@ const FACULTY_INVITATION_VERIFY =
 /**
  * @typedef {object} LorApplicationContract
  * @property {(input: { actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement> }) => Promise<LorApplicationBootstrap>} [getBootstrap]
- * @property {(input: { request: import('node:http').IncomingMessage, url: URL, actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement> }) => Promise<{ status?: number, body?: unknown, binary?: { body: Buffer | Uint8Array | ArrayBuffer, contentType: string, filename?: string } }>} [handleRequest]
+ * @property {(input: { request: import('node:http').IncomingMessage, url: URL, actor: Readonly<LorActor>, entitlement: Readonly<LorAcceptedEntitlement> }) => Promise<{ status?: number, body?: unknown, binary?: { body: Buffer | Uint8Array | ArrayBuffer, contentType: string, filename?: string, sensitive?: boolean } }>} [handleRequest]
  */
 
 /**
@@ -516,6 +529,7 @@ function clearCandidateHandoffCookie() {
  * export route must never become an HTML/SVG/script delivery channel for the protected surface.
  */
 const BINARY_CONTENT_TYPES = new Set([
+  'application/octet-stream',
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/zip',
@@ -553,12 +567,28 @@ function toResponseBuffer(body) {
  * @param {import('node:http').ServerResponse} response
  * @param {number} status
  * @param {unknown} body
- * @param {{ contentType?: string, filename?: string }} [options]
+ * @param {{ contentType?: string, filename?: string, sensitive?: boolean }} [options]
  */
-function sendBuffer(response, status, body, { contentType = '', filename = '' } = {}) {
+function sendBuffer(
+  response,
+  status,
+  body,
+  { contentType = '', filename = '', sensitive = false } = {},
+) {
   const buffer = toResponseBuffer(body);
   const normalizedType = String(contentType || '').trim().toLowerCase();
+  let cleared = false;
+  const clearSensitiveBuffer = () => {
+    if (cleared || sensitive !== true) return;
+    cleared = true;
+    buffer?.fill(0);
+    if ((Buffer.isBuffer(body) || body instanceof Uint8Array) && body !== buffer) body.fill(0);
+    if (body instanceof ArrayBuffer && body !== buffer?.buffer) {
+      new Uint8Array(body).fill(0);
+    }
+  };
   if (!buffer || !BINARY_CONTENT_TYPES.has(normalizedType)) {
+    clearSensitiveBuffer();
     sendJson(response, 500, {
       error: 'lor_binary_response_rejected',
       message: 'The LOR Studio binary response did not satisfy the export contract.',
@@ -567,12 +597,22 @@ function sendBuffer(response, status, body, { contentType = '', filename = '' } 
   }
 
   const safeName = sanitizeDownloadFilename(filename);
-  response.writeHead(status, {
-    ...commonHeaders(normalizedType),
-    'Content-Disposition': `attachment; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(safeName)}`,
-    'Content-Length': String(buffer.byteLength),
-  });
-  response.end(buffer);
+  try {
+    response.writeHead(status, {
+      ...commonHeaders(normalizedType),
+      'Content-Disposition': `attachment; filename="${safeName}"; filename*=UTF-8''${encodeURIComponent(safeName)}`,
+      'Content-Length': String(buffer.byteLength),
+    });
+    if (sensitive === true && typeof response.once === 'function') {
+      response.once('finish', clearSensitiveBuffer);
+      response.once('close', clearSensitiveBuffer);
+      response.once('error', clearSensitiveBuffer);
+    }
+    response.end(buffer, clearSensitiveBuffer);
+  } catch {
+    clearSensitiveBuffer();
+    throw new Error('LOR_BINARY_RESPONSE_SEND_FAILED');
+  }
 }
 
 function escapeHtml(value = '') {
@@ -943,7 +983,17 @@ export function createLorStudioRuntime({
       (url.pathname === `${LOR_STUDIO_API_PREFIX}/bootstrap` || candidateBootstrap)
       && request.method === 'GET'
     ) {
-      if ([...url.searchParams.keys()].length !== 0) {
+      const queryKeys = [...url.searchParams.keys()];
+      const caseValues = url.searchParams.getAll('case');
+      const queryValid = candidateBootstrap
+        ? queryKeys.length === 0
+        : queryKeys.length === 0 || (
+          queryKeys.length === 1
+          && queryKeys[0] === 'case'
+          && caseValues.length === 1
+          && CANDIDATE_LOCATOR.test(caseValues[0])
+        );
+      if (!queryValid) {
         sendJson(response, 400, { error: 'lor_bootstrap_query_forbidden' });
         return;
       }
@@ -1028,6 +1078,7 @@ export function createLorStudioRuntime({
       sendBuffer(response, status, result.binary.body, {
         contentType: result.binary.contentType,
         filename: result.binary.filename,
+        sensitive: result.binary.sensitive === true,
       });
       return;
     }
@@ -1090,6 +1141,28 @@ export function createLorStudioRuntime({
           publicDirectory,
           'invitation-auth.html',
         );
+        return true;
+      }
+    }
+
+    if (FACULTY_CANDIDATE_ASSET_PATHS.has(url.pathname)) {
+      const freshSession = validateFreshLorSession(session, clock(), {
+        requireCanonicalSubject: entitlementResolver.requiresTrustedRequestContext === true,
+      });
+      const invitationId = session?.[LOR_SESSION_CANDIDATE_INVITATION_FIELD];
+      if (
+        flags.enabled === true
+        && flags.killSwitch === false
+        && freshSession.ok === true
+        && session?.[LOR_SESSION_IDENTITY_CLASS_FIELD] === LOR_CANDIDATE_IDENTITY_CLASS
+        && CANDIDATE_LOCATOR.test(invitationId ?? '')
+        && hasInvitationBoundCandidateCredential(
+          candidateCredential,
+          invitationId,
+          freshSession.subject,
+        )
+      ) {
+        await serveProtectedAsset(request, response, url.pathname, publicDirectory);
         return true;
       }
     }

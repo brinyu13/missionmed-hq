@@ -16,6 +16,7 @@ import {
   DR133_ARTIFACTS,
   DR133_RELATIONS,
   DR133_RUNNER_CONTRACT,
+  DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES,
   DR133_TARGET,
 } from '../../scripts/lor-studio/railway-dr133-production-runner-core.mjs';
 import {
@@ -51,6 +52,11 @@ const RUNTIME_URL = `postgresql://lor_studio_runtime_login:${'A'.repeat(48)}`
 const HASH_KEYS = Object.freeze({
   aiProposalRollbackSha256: 'ai-proposal-rollback',
   aiProposalSha256: 'ai-proposal',
+  encryptedPrivateStorageRollbackSha256: 'encrypted-private-storage-rollback',
+  encryptedPrivateStorageSha256: 'encrypted-private-storage',
+  facultyCandidateAuthHandoffRollbackSha256:
+    'faculty-candidate-auth-handoff-rollback',
+  facultyCandidateAuthHandoffSha256: 'faculty-candidate-auth-handoff',
   facultyInvitationRollbackSha256: 'faculty-invitation-rollback',
   facultyInvitationSha256: 'faculty-invitation',
   facultyPrivateExportRollbackSha256: 'faculty-private-export-rollback',
@@ -58,6 +64,8 @@ const HASH_KEYS = Object.freeze({
   foundationSha256: 'foundation',
   identityScopeRollbackSha256: 'identity-scope-rollback',
   identityScopeSha256: 'identity-scope',
+  mentorAssignmentRollbackSha256: 'mentor-assignment-rollback',
+  mentorAssignmentSha256: 'mentor-assignment',
   rlsSha256: 'rls',
   studentEvidenceRollbackSha256: 'student-evidence-rollback',
   studentEvidenceSha256: 'student-evidence',
@@ -86,8 +94,8 @@ function successReceipt(mode) {
       result: 'ROLLBACK_DRILL_COMMITTED_VERIFIED',
       postgresMajor: 18,
       relationCount: DR133_RELATIONS.length,
-      rollbackCount: 7,
-      verifiedArtifactCount: 14,
+      rollbackCount: 10,
+      verifiedArtifactCount: 20,
       ...runnerHashes(),
       foundationRollbackSha256: artifactHash('foundation-rollback'),
       rlsRollbackSha256: artifactHash('rls-rollback'),
@@ -105,11 +113,11 @@ function successReceipt(mode) {
     Object.assign(receipt, runnerHashes(), {
       postgresMajor: 18,
       relationCount: DR133_RELATIONS.length,
-      definerCount: 12,
+      definerCount: DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES.length,
     });
   }
   if (['runtime-login', 'runtime-login-deprovision'].includes(mode)) {
-    receipt.studentEvidenceRollbackSha256 = artifactHash('student-evidence-rollback');
+    receipt.mentorAssignmentRollbackSha256 = artifactHash('mentor-assignment-rollback');
   }
   if (mode === 'runtime-login-deprovision') receipt.postgresMajor = 18;
   return receipt;
@@ -127,7 +135,7 @@ function failureReceipt(mode, result) {
     Object.assign(receipt, runnerHashes());
   }
   if (mode !== 'runtime-login' || result !== 'NO_MUTATION') {
-    receipt.studentEvidenceRollbackSha256 = artifactHash('student-evidence-rollback');
+    receipt.mentorAssignmentRollbackSha256 = artifactHash('mentor-assignment-rollback');
   }
   return receipt;
 }

@@ -157,6 +157,10 @@ function __return_true() { return true; }
 function wp_get_current_user() {
     return (object) array('ID' => $GLOBALS['lor_user_id'], 'user_email' => 'student@example.test', 'user_login' => 'student', 'display_name' => 'Student', 'roles' => array('subscriber'));
 }
+function is_user_logged_in() { return (int) $GLOBALS['lor_user_id'] > 0; }
+function get_userdata($user_id) {
+    return (int) $user_id === (int) $GLOBALS['lor_user_id'] ? wp_get_current_user() : false;
+}
 function get_user_meta($user_id, $key, $single) { return $GLOBALS['lor_meta'][$key] ?? ''; }
 function is_wp_error($value) { return $value instanceof WP_Error; }
 function rest_ensure_response($value) { return new Lor_Test_Rest_Response($value); }
@@ -247,7 +251,7 @@ test('source exposes only signed POST routes, atomic exact CAS, and no browser g
   assert.doesNotMatch(source, /DELETE[^\n]+LIKE|DELETE[^\n]+prefix/iu);
 });
 
-test('feature-off default registers no route; enabled mode registers exactly three POST routes', { skip: !phpAvailable }, () => {
+test('feature-off default registers no route; enabled mode registers exactly five POST routes', { skip: !phpAvailable }, () => {
   const off = runPhp(phpProgram({
     constants: '',
     body: `mmhq_lor_studio_register_rest_contract(); echo json_encode(array('routes' => count($GLOBALS['lor_routes']), 'enabled' => mmhq_lor_studio_contract_enabled()));`,
@@ -260,6 +264,8 @@ test('feature-off default registers no route; enabled mode registers exactly thr
     ['missionmed/v1', '/lor-studio/bootstrap/redeem', 'POST', '__return_true'],
     ['missionmed/v1', '/lor-studio/current-user-admission', 'POST', '__return_true'],
     ['missionmed/v1', '/lor-studio/binding/revoke', 'POST', '__return_true'],
+    ['missionmed/v1', '/lor-studio/resource-student-entitlement', 'POST', '__return_true'],
+    ['missionmed/v1', '/lor-studio/resource-student-entitlement/probe', 'POST', '__return_true'],
   ]);
 });
 
@@ -272,8 +278,8 @@ $callback = 'https://missionmed.example.test/api/lor-studio/auth/callback?audien
 $issued = mmhq_lor_studio_issue_browser_bootstrap_code(wp_get_current_user(), $callback);
 $code_names = mmhq_lor_studio_transient_names('code_v1', hash('sha256', $issued['code']));
 $redeem_body = wp_json_encode(array(
-    'contract' => 'missionmed.lor.wordpress-bootstrap-redemption-request.v1',
-    'audience' => 'lor-studio', 'code' => $issued['code'], 'stateHash' => $state, 'callback' => $callback,
+    'contract' => 'missionmed.lor.wordpress-bootstrap-redemption-request.v2',
+    'audience' => 'lor-studio', 'identityClass' => 'student', 'code' => $issued['code'], 'stateHash' => $state, 'callback' => $callback,
 ));
 $redeem = mmhq_lor_studio_bootstrap_redeem(new Lor_Test_Rest_Request(
     '/missionmed/v1/lor-studio/bootstrap/redeem', 'POST', $redeem_body,
@@ -281,8 +287,8 @@ $redeem = mmhq_lor_studio_bootstrap_redeem(new Lor_Test_Rest_Request(
 ));
 $binding = $redeem->data['bindingId'];
 $admit_body = wp_json_encode(array(
-    'contract' => 'missionmed.lor.wordpress-admission-request.v1',
-    'audience' => 'lor-studio', 'bindingId' => $binding, 'subject' => 'wp:123',
+    'contract' => 'missionmed.lor.wordpress-admission-request.v2',
+    'audience' => 'lor-studio', 'identityClass' => 'student', 'bindingId' => $binding, 'subject' => 'wp:123',
 ));
 $admit = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Request(
     '/missionmed/v1/lor-studio/current-user-admission', 'POST', $admit_body,
@@ -307,10 +313,12 @@ echo json_encode(array(
 `,
   }));
   assert.equal(result.code_pattern, true);
-  assert.equal(result.bootstrap.contract, 'missionmed.lor.wordpress-bootstrap-redemption.v1');
+  assert.equal(result.bootstrap.contract, 'missionmed.lor.wordpress-bootstrap-redemption.v2');
+  assert.equal(result.bootstrap.identityClass, 'student');
   assert.match(result.bootstrap.bindingId, /^lorb1_[A-Za-z0-9_-]{43}$/u);
   assert.equal(result.bootstrap.subject, 'wp:123');
-  assert.equal(result.admission.contract, 'missionmed.lor.wordpress-admission.v2');
+  assert.equal(result.admission.contract, 'missionmed.lor.wordpress-admission.v3');
+  assert.equal(result.admission.identityClass, 'student');
   assert.equal(result.admission.admitted, true);
   assert.equal(result.revoked_code, 'missionmed_lor_contract_unavailable');
   assert.equal(result.replay_code, 'missionmed_lor_contract_unavailable');
@@ -327,8 +335,8 @@ $state = str_repeat('a', 64);
 $callback = 'https://missionmed.example.test/api/lor-studio/auth/callback?audience=lor-studio&state=' . $state;
 $issued = mmhq_lor_studio_issue_browser_bootstrap_code(wp_get_current_user(), $callback);
 $redeem_body = wp_json_encode(array(
-    'contract' => 'missionmed.lor.wordpress-bootstrap-redemption-request.v1',
-    'audience' => 'lor-studio', 'code' => $issued['code'], 'stateHash' => $state, 'callback' => $callback,
+    'contract' => 'missionmed.lor.wordpress-bootstrap-redemption-request.v2',
+    'audience' => 'lor-studio', 'identityClass' => 'student', 'code' => $issued['code'], 'stateHash' => $state, 'callback' => $callback,
 ));
 $redeem = mmhq_lor_studio_bootstrap_redeem(new Lor_Test_Rest_Request(
     '/missionmed/v1/lor-studio/bootstrap/redeem', 'POST', $redeem_body,
@@ -336,8 +344,8 @@ $redeem = mmhq_lor_studio_bootstrap_redeem(new Lor_Test_Rest_Request(
 ));
 $binding = $redeem->data['bindingId'];
 $body = wp_json_encode(array(
-    'contract' => 'missionmed.lor.wordpress-admission-request.v1', 'audience' => 'lor-studio',
-    'bindingId' => $binding, 'subject' => 'wp:123',
+    'contract' => 'missionmed.lor.wordpress-admission-request.v2', 'audience' => 'lor-studio',
+    'identityClass' => 'student', 'bindingId' => $binding, 'subject' => 'wp:123',
 ));
 $nonce = 'lorn1_' . str_repeat('z', 43);
 $headers = lor_headers('/wp-json/missionmed/v1/lor-studio/current-user-admission', $body, $nonce);
@@ -346,8 +354,8 @@ $wrong_signature = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Requ
 $first = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Request('/missionmed/v1/lor-studio/current-user-admission', 'POST', $body, $headers));
 $replay = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Request('/missionmed/v1/lor-studio/current-user-admission', 'POST', $body, $headers));
 $tampered_body = wp_json_encode(array(
-    'contract' => 'missionmed.lor.wordpress-admission-request.v1', 'audience' => 'lor-studio',
-    'bindingId' => $binding, 'subject' => 'wp:124',
+    'contract' => 'missionmed.lor.wordpress-admission-request.v2', 'audience' => 'lor-studio',
+    'identityClass' => 'student', 'bindingId' => $binding, 'subject' => 'wp:124',
 ));
 $tampered_headers = lor_headers('/wp-json/missionmed/v1/lor-studio/current-user-admission', $body, 'lorn1_' . str_repeat('t', 43));
 $body_tamper = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Request('/missionmed/v1/lor-studio/current-user-admission', 'POST', $tampered_body, $tampered_headers));
@@ -903,7 +911,7 @@ lor_valid_fixture();
 $state = str_repeat('a', 64);
 $callback = 'https://missionmed.example.test/api/lor-studio/auth/callback?audience=lor-studio&state=' . $state;
 $first = mmhq_lor_studio_issue_browser_bootstrap_code(wp_get_current_user(), $callback);
-$issue_names = mmhq_lor_studio_transient_names('issue_v1', hash('sha256', 'wp:123'));
+$issue_names = mmhq_lor_studio_transient_names('issue_v1', mmhq_lor_studio_identity_subject_digest('wp:123', 'student'));
 $GLOBALS['lor_options'][$issue_names[1]] = (string) (time() - 1);
 $second = mmhq_lor_studio_issue_browser_bootstrap_code(wp_get_current_user(), $callback);
 echo json_encode(array(
@@ -932,8 +940,8 @@ $state = str_repeat('a', 64);
 $callback = 'https://missionmed.example.test/api/lor-studio/auth/callback?audience=lor-studio&state=' . $state;
 $issued = mmhq_lor_studio_issue_browser_bootstrap_code(wp_get_current_user(), $callback);
 $redeem_body = wp_json_encode(array(
-    'contract' => 'missionmed.lor.wordpress-bootstrap-redemption-request.v1',
-    'audience' => 'lor-studio', 'code' => $issued['code'], 'stateHash' => $state, 'callback' => $callback,
+    'contract' => 'missionmed.lor.wordpress-bootstrap-redemption-request.v2',
+    'audience' => 'lor-studio', 'identityClass' => 'student', 'code' => $issued['code'], 'stateHash' => $state, 'callback' => $callback,
 ));
 $redeem = mmhq_lor_studio_bootstrap_redeem(new Lor_Test_Rest_Request(
     '/missionmed/v1/lor-studio/bootstrap/redeem', 'POST', $redeem_body,
@@ -941,16 +949,16 @@ $redeem = mmhq_lor_studio_bootstrap_redeem(new Lor_Test_Rest_Request(
 ));
 $binding = $redeem->data['bindingId'];
 $admit_body = wp_json_encode(array(
-    'contract' => 'missionmed.lor.wordpress-admission-request.v1', 'audience' => 'lor-studio',
-    'bindingId' => $binding, 'subject' => 'wp:123',
+    'contract' => 'missionmed.lor.wordpress-admission-request.v2', 'audience' => 'lor-studio',
+    'identityClass' => 'student', 'bindingId' => $binding, 'subject' => 'wp:123',
 ));
 $first = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Request(
     '/missionmed/v1/lor-studio/current-user-admission', 'POST', $admit_body,
     lor_headers('/wp-json/missionmed/v1/lor-studio/current-user-admission', $admit_body, 'lorn1_' . str_repeat('a', 43))
 ));
 $revoke_body = wp_json_encode(array(
-    'contract' => 'missionmed.lor.wordpress-binding-revocation-request.v1', 'audience' => 'lor-studio',
-    'bindingId' => $binding, 'subject' => 'wp:123',
+    'contract' => 'missionmed.lor.wordpress-binding-revocation-request.v2', 'audience' => 'lor-studio',
+    'identityClass' => 'student', 'bindingId' => $binding, 'subject' => 'wp:123',
 ));
 $revoke = mmhq_lor_studio_revoke_binding(new Lor_Test_Rest_Request(
     '/missionmed/v1/lor-studio/binding/revoke', 'POST', $revoke_body,
@@ -961,7 +969,7 @@ $copied = mmhq_lor_studio_current_user_admission(new Lor_Test_Rest_Request(
     lor_headers('/wp-json/missionmed/v1/lor-studio/current-user-admission', $admit_body, 'lorn1_' . str_repeat('c', 43))
 ));
 $binding_names = mmhq_lor_studio_transient_names('binding_v1', hash('sha256', $binding));
-$index_names = mmhq_lor_studio_transient_names('binding_subject_v1', hash('sha256', 'wp:123'));
+$index_names = mmhq_lor_studio_transient_names('binding_subject_v1', mmhq_lor_studio_identity_subject_digest('wp:123', 'student'));
 echo json_encode(array(
     'first_admitted' => $first->data['admitted'],
     'revocation' => $revoke->data,
@@ -975,8 +983,9 @@ echo json_encode(array(
   }));
   assert.equal(result.first_admitted, true);
   assert.deepEqual(result.revocation, {
-    contract: 'missionmed.lor.wordpress-binding-revocation.v1',
+    contract: 'missionmed.lor.wordpress-binding-revocation.v2',
     audience: 'lor-studio',
+    identityClass: 'student',
     subject: 'wp:123',
     bindingId: result.revocation.bindingId,
     revoked: true,
@@ -1022,13 +1031,15 @@ echo json_encode(array(
   assert.equal(result.missing_gate, true);
 });
 
-test('no-store applies to all three S2S routes and unrelated responses are byte-identical', { skip: !phpAvailable }, () => {
+test('no-store applies to all five S2S routes and unrelated responses are byte-identical', { skip: !phpAvailable }, () => {
   const result = runPhp(phpProgram({
     body: `
 $routes = array(
     '/missionmed/v1/lor-studio/bootstrap/redeem',
     '/missionmed/v1/lor-studio/current-user-admission',
     '/missionmed/v1/lor-studio/binding/revoke',
+    '/missionmed/v1/lor-studio/resource-student-entitlement',
+    '/missionmed/v1/lor-studio/resource-student-entitlement/probe',
 );
 $headers = array();
 foreach ($routes as $route) {
@@ -1043,6 +1054,8 @@ echo json_encode(array('headers' => $headers, 'same' => $same === $unrelated, 'u
   }));
   assert.deepEqual(result, {
     headers: [
+      'private, no-store, max-age=0',
+      'private, no-store, max-age=0',
       'private, no-store, max-age=0',
       'private, no-store, max-age=0',
       'private, no-store, max-age=0',

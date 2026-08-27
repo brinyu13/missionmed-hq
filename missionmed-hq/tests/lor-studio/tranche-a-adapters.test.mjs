@@ -2203,6 +2203,7 @@ test('private storage uses a trusted capability provider, immutable versions, po
     async getImmutable(request) {
       return {
         ...storageDriverReceipt(request, { checksum, receiptId: 'get-receipt-1' }),
+        contentType: 'application/octet-stream',
         content,
       };
     },
@@ -2422,6 +2423,7 @@ test('private storage rejects any put or get receipt not exactly bound to storag
         async getImmutable(driverRequest) {
           return {
             ...storageDriverReceipt(driverRequest, { checksum, ...mismatch }),
+            contentType: 'application/octet-stream',
             content,
           };
         },
@@ -2464,6 +2466,7 @@ test('private storage rejects any put or get receipt not exactly bound to storag
     async getImmutable(driverRequest) {
       return {
         ...storageDriverReceipt(driverRequest, { versionId: 'version-other', checksum }),
+        contentType: 'application/octet-stream',
         content,
       };
     },

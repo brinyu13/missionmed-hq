@@ -47,6 +47,8 @@ const CANDIDATE_CREDENTIAL_KEYS = new Set([
   'authoritySource',
   'authenticatedSubject',
   'invitationId',
+  'caseId',
+  'requiresOtpVerification',
   'tokenHash',
   'flowNonceHash',
   'issuedAt',
@@ -154,6 +156,8 @@ function assertCandidateCredential(rawCredential, { actorId, invitationId }) {
     || credential.authoritySource !== 'server_verified_sealed_candidate_cookie'
     || credential.authenticatedSubject !== actorId
     || credential.invitationId !== invitationId
+    || !LOCATOR.test(credential.caseId ?? '')
+    || credential.requiresOtpVerification !== true
     || !SHA256.test(credential.tokenHash ?? '')
     || !SHA256.test(credential.flowNonceHash ?? '')
     || credential.clientAsserted !== false

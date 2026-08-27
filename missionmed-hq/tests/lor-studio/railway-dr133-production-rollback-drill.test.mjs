@@ -204,7 +204,7 @@ test('rollback drill environment is exact to production, database-service import
   }
 });
 
-test('successful drill hash-verifies fourteen artifacts, guards six stages, and rolls back all seven in exact reverse order', async () => {
+test('successful drill hash-verifies every artifact, guards every successor, and rolls back in exact reverse order', async () => {
   const sources = await artifactSources();
   const instances = [];
   const output = captureStream();
@@ -269,8 +269,8 @@ test('successful drill hash-verifies fourteen artifacts, guards six stages, and 
   assert.equal(receipt.contract, DR133_PRODUCTION_ROLLBACK_DRILL_CONTRACT);
   assert.equal(receipt.mode, 'rollback-drill');
   assert.equal(receipt.result, 'ROLLBACK_DRILL_COMMITTED_VERIFIED');
-  assert.equal(receipt.verifiedArtifactCount, 14);
-  assert.equal(receipt.rollbackCount, 7);
+  assert.equal(receipt.verifiedArtifactCount, DR133_ARTIFACTS.length);
+  assert.equal(receipt.rollbackCount, expectedRollbackIds.length);
   assert.equal(receipt.relationCount, DR133_RELATIONS.length);
   assert.equal(receipt.postgresMajor, 18);
   for (const artifact of DR133_ARTIFACTS) {
@@ -424,7 +424,7 @@ test('unknown rollback outcome, rejected absence, unknown verification, and clea
         ? { rows: [{ schema_count: '1', role_count: '0' }] }
         : undefined,
       result: 'ROLLBACK_DRILL_COMMITTED_POSTFLIGHT_REJECTED',
-      rollbackCount: 7,
+      rollbackCount: DR133_SUCCESSOR_STAGES.length + 2,
     },
     {
       name: 'postflight transport uncertainty',
@@ -435,7 +435,7 @@ test('unknown rollback outcome, rejected absence, unknown verification, and clea
         return undefined;
       },
       result: 'ROLLBACK_DRILL_COMMITTED_VERIFICATION_UNKNOWN',
-      rollbackCount: 7,
+      rollbackCount: DR133_SUCCESSOR_STAGES.length + 2,
     },
     {
       name: 'verified cleanup failure',
@@ -443,7 +443,7 @@ test('unknown rollback outcome, rejected absence, unknown verification, and clea
         ? { rows: [{ released: false }] }
         : undefined,
       result: 'ROLLBACK_DRILL_COMMITTED_VERIFIED_CLEANUP_FAILED',
-      rollbackCount: 7,
+      rollbackCount: DR133_SUCCESSOR_STAGES.length + 2,
     },
   ];
   for (const scenario of scenarios) {
@@ -574,6 +574,10 @@ async function createStatefulRollbackFake({ cursor, failAfterCommitId = null }) 
 test('rollback drill resumes from the exact reverse cursor without replaying committed stages', async () => {
   const cursor = { state: 'committed', index: DR133_SUCCESSOR_STAGES.length };
   const failedRollbackId = 'ai-proposal-rollback';
+  const failedStageIndex = DR133_SUCCESSOR_STAGES.findIndex(
+    (stage) => stage.rollbackId === failedRollbackId,
+  );
+  assert.notEqual(failedStageIndex, -1);
   const fake = await createStatefulRollbackFake({ cursor, failAfterCommitId: failedRollbackId });
   const first = captureStream();
   await assert.rejects(runDr133ProductionRollbackDrill({
@@ -582,8 +586,11 @@ test('rollback drill resumes from the exact reverse cursor without replaying com
     output: first.stream,
   }), runnerError('POSTGRES_08006'));
   assert.equal(first.receipt().result, 'ROLLBACK_PROGRESS_OUTCOME_UNKNOWN');
-  assert.equal(first.receipt().rollbackCount, 1);
-  assert.deepEqual(cursor, { state: 'committed', index: 3 });
+  assert.equal(
+    first.receipt().rollbackCount,
+    DR133_SUCCESSOR_STAGES.length - failedStageIndex - 1,
+  );
+  assert.deepEqual(cursor, { state: 'committed', index: failedStageIndex });
 
   const retry = captureStream();
   assert.deepEqual(await runDr133ProductionRollbackDrill({
@@ -591,7 +598,7 @@ test('rollback drill resumes from the exact reverse cursor without replaying com
     ClientClass: fake.ClientClass,
     output: retry.stream,
   }), { result: 'ROLLBACK_DRILL_COMMITTED_VERIFIED' });
-  assert.equal(retry.receipt().rollbackCount, 7);
+  assert.equal(retry.receipt().rollbackCount, DR133_SUCCESSOR_STAGES.length + 2);
   assert.deepEqual(cursor, { state: 'absent' });
   for (const rollbackId of [
     ...[...DR133_SUCCESSOR_STAGES].reverse().map((stage) => stage.rollbackId),
@@ -612,7 +619,7 @@ test('rollback drill resumes from the exact reverse cursor without replaying com
     ClientClass: alreadyAbsent.ClientClass,
     output: absentCapture.stream,
   });
-  assert.equal(absentCapture.receipt().rollbackCount, 7);
+  assert.equal(absentCapture.receipt().rollbackCount, DR133_SUCCESSOR_STAGES.length + 2);
   assert.equal([...alreadyAbsent.sources.entries()].some(([id, source]) => (
     id.endsWith('-rollback')
       && alreadyAbsent.calls.some(({ sql }) => sql === source)
@@ -641,13 +648,13 @@ test('rollback drill resumes every exact foundation/base/successor/absence curso
       ClientClass: fake.ClientClass,
       output: output.stream,
     }), { result: 'ROLLBACK_DRILL_COMMITTED_VERIFIED' });
-    assert.equal(output.receipt().rollbackCount, 7);
+    assert.equal(output.receipt().rollbackCount, rollbackIds.length);
     assert.deepEqual(cursor, { state: 'absent' });
 
     const startIndex = initial.state === 'absent'
-      ? 7
+      ? rollbackIds.length
       : initial.state === 'foundation'
-        ? 6
+        ? rollbackIds.length - 1
         : DR133_SUCCESSOR_STAGES.length - initial.index;
     for (const [index, rollbackId] of rollbackIds.entries()) {
       assert.equal(

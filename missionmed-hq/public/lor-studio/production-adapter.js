@@ -897,9 +897,12 @@
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 10_000);
     try {
+      const scopedCaseId = requestedCaseId();
       const bootstrapPath = pendingFacultyCandidate?.invitationId
         ? `/api/lor-studio/invitations/${encodeURIComponent(pendingFacultyCandidate.invitationId)}/bootstrap`
-        : '/api/lor-studio/bootstrap';
+        : scopedCaseId
+          ? `/api/lor-studio/bootstrap?case=${encodeURIComponent(scopedCaseId)}`
+          : '/api/lor-studio/bootstrap';
       const response = await window.fetch(bootstrapPath, {
         credentials: 'same-origin',
         headers: { Accept: 'application/json' },

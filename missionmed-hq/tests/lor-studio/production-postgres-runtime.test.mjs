@@ -7,6 +7,7 @@ import { rootCertificates } from 'node:tls';
 import {
   IntegrationDisabledError,
   InvitationDeniedError,
+  ValidationError,
 } from '../../lor-studio/domain/errors.js';
 import { hashValue, sha256 } from '../../lor-studio/domain/value-utils.js';
 import {
@@ -38,6 +39,9 @@ import {
 } from '../../scripts/lor-studio/railway-dr133-runner-core.mjs';
 import {
   DR133_TARGET as DR133_PRODUCTION_TARGET,
+  DR133_RELATIONS as DR133_PRODUCTION_RELATIONS,
+  DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES as DR133_PRODUCTION_DEFINERS,
+  DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES as DR133_PRODUCTION_APP_DEFINERS,
   expectedDr133SuccessorSentinel as expectedDr133ProductionSuccessorSentinel,
 } from '../../scripts/lor-studio/railway-dr133-production-runner-core.mjs';
 
@@ -87,8 +91,7 @@ const APP_RELATION_PRIVILEGES = [
   'waiver_receipts:SELECT:false',
   'writer_depot_artifacts:SELECT:false',
 ].sort();
-const APP_FUNCTION_PRIVILEGES = [
-  ...APP_EXECUTABLE_DEFINERS,
+const HELPER_FUNCTION_PRIVILEGES = [
   'ai_grounding_manifest_is_complete(jsonb)',
   'audit_event_is_metadata(jsonb)',
   'canonical_jsonb_sha256(jsonb)',
@@ -96,7 +99,17 @@ const APP_FUNCTION_PRIVILEGES = [
   'operational_content_context_allows(text,text,text[],text[])',
   'student_context_allows(text,text,uuid,text[])',
   'student_write_axes_satisfied()',
+];
+const functionPrivileges = (definers) => [
+  ...definers,
+  ...HELPER_FUNCTION_PRIVILEGES,
 ].map((identity) => `${identity}:EXECUTE:false`).sort();
+const APP_FUNCTION_PRIVILEGES = functionPrivileges(APP_EXECUTABLE_DEFINERS);
+const PRODUCTION_APP_RELATION_PRIVILEGES = [
+  ...APP_RELATION_PRIVILEGES,
+  'private_artifact_versions:SELECT:false',
+].sort();
+const PRODUCTION_APP_FUNCTION_PRIVILEGES = functionPrivileges(DR133_PRODUCTION_APP_DEFINERS);
 
 function result(rows = []) {
   return { rows, fields: [] };
@@ -301,6 +314,11 @@ function mentorScope(overrides = {}) {
 }
 
 function readinessRow(overrides = {}) {
+  const schemaSentinel = overrides.schema_sentinel ?? expectedDr133SuccessorSentinel();
+  const production = schemaSentinel === expectedDr133ProductionSuccessorSentinel();
+  const relations = production ? DR133_PRODUCTION_RELATIONS : DR133_RELATIONS;
+  const definers = production ? DR133_PRODUCTION_DEFINERS : DEFINERS;
+  const appDefiners = production ? DR133_PRODUCTION_APP_DEFINERS : APP_EXECUTABLE_DEFINERS;
   return {
     database_name: DR133_TARGET.databaseName,
     postgres_major: 16,
@@ -308,16 +326,16 @@ function readinessRow(overrides = {}) {
     session_user: DR133_RUNTIME_LOGIN,
     private_server_address: true,
     ssl_active: true,
-    schema_sentinel: expectedDr133SuccessorSentinel(),
+    schema_sentinel: schemaSentinel,
     schema_owner: DR133_TARGET.databaseAdmin,
-    relation_names: [...DR133_RELATIONS].sort(),
-    relation_count: String(DR133_RELATIONS.length),
-    forced_rls_count: String(DR133_RELATIONS.length),
-    definer_identities: DEFINERS,
-    definer_count: String(DEFINERS.length),
+    relation_names: [...relations].sort(),
+    relation_count: String(relations.length),
+    forced_rls_count: String(relations.length),
+    definer_identities: definers,
+    definer_count: String(definers.length),
     definer_custody_safe: true,
-    app_execute_count: String(APP_EXECUTABLE_DEFINERS.length),
-    app_execute_identities: APP_EXECUTABLE_DEFINERS,
+    app_execute_count: String(appDefiners.length),
+    app_execute_identities: appDefiners,
     pre_evidence_app_execute_denied: true,
     pre_evidence_public_execute_denied: true,
     public_function_execute_count: '0',
@@ -334,9 +352,11 @@ function readinessRow(overrides = {}) {
     runtime_owned_object_count: '0',
     app_owned_object_count: '0',
     runtime_default_acl_count: '0',
-    app_relation_privileges: APP_RELATION_PRIVILEGES,
+    app_relation_privileges: production
+      ? PRODUCTION_APP_RELATION_PRIVILEGES : APP_RELATION_PRIVILEGES,
     runtime_relation_acl_count: '0',
-    app_function_privileges: APP_FUNCTION_PRIVILEGES,
+    app_function_privileges: production
+      ? PRODUCTION_APP_FUNCTION_PRIVILEGES : APP_FUNCTION_PRIVILEGES,
     runtime_function_acl_count: '0',
     unexpected_sequence_acl_count: '0',
     unexpected_column_acl_count: '0',
@@ -366,7 +386,10 @@ test('constructs one closure-private pool and exposes only the frozen runtime su
 
   assert.deepEqual(
     Object.keys(dependencies),
-    ['driver', 'scopeProvider', 'candidateScopeProvider', 'actorResolver', 'readiness', 'close'],
+    [
+      'driver', 'scopeProvider', 'candidateScopeProvider', 'actorResolver',
+      'mentorAssignmentOperator', 'readiness', 'close',
+    ],
   );
   assert.equal(Object.isFrozen(dependencies), true);
   assert.equal(Object.isFrozen(dependencies.driver), true);
@@ -375,6 +398,7 @@ test('constructs one closure-private pool and exposes only the frozen runtime su
   assert.equal(typeof dependencies.driver.commitStudentEvidencePublication, 'function');
   for (const flag of [
     'databaseClock', 'actorSafeReads', 'atomicFacultyInvitationCommands',
+    'atomicFacultyCandidateHandoffs',
     'atomicProviderRunAndProposal', 'conditionalAtomicOneDecision',
     'appendOnlyArtifactAudit',
   ]) assert.equal(dependencies.driver[flag], true);
@@ -382,12 +406,18 @@ test('constructs one closure-private pool and exposes only the frozen runtime su
     'issueFacultyInvitationAtomic', 'resendFacultyInvitationOtpAtomic',
     'revokeFacultyInvitationAtomic', 'reserveFacultyInvitationDeliveryAtomic',
     'commitFacultyInvitationDeliveryAtomic', 'markFacultyInvitationDeliveryUnknownAtomic',
-    'verifyFacultyInvitationAtomic', 'persistProviderRunAndProposalAtomic',
+    'verifyFacultyInvitationAtomic', 'reserveFacultyCandidateAuthHandoffAtomic',
+    'redeemFacultyCandidateAuthHandoffAtomic', 'persistProviderRunAndProposalAtomic',
     'readActorSafeAiProposal', 'attachDecisionIfUndecidedAtomic',
     'appendArtifactExportAuditAtomic',
   ]) assert.equal(typeof dependencies.driver[method], 'function');
   assert.equal(typeof dependencies.candidateScopeProvider, 'function');
   assert.equal(Object.isFrozen(dependencies.actorResolver), true);
+  assert.equal(Object.isFrozen(dependencies.mentorAssignmentOperator), true);
+  assert.deepEqual(
+    Reflect.ownKeys(dependencies.mentorAssignmentOperator),
+    ['assign', 'revoke'],
+  );
   assert.equal(Object.hasOwn(dependencies, 'pool'), false);
   assert.equal(Object.hasOwn(dependencies, 'executor'), false);
   assert.equal(pool.options.connectionString.includes(PASSWORD), true);
@@ -519,6 +549,70 @@ test('candidate scope is derived only from the active verified faculty context',
   });
   assert.equal(Object.isFrozen(scope), true);
   assert.equal(FakePool.instances[0].connections, 0);
+  await dependencies.close();
+});
+
+test('mentor assignment operator uses only the fixed trusted-service GUC envelope', async () => {
+  const assignmentId = `mentor_service_assignment_${'a'.repeat(64)}`;
+  const mentorReceipt = {
+    schemaVersion: 'missionmed.lor.mentor-assignment-command-receipt.v1',
+    action: 'mentor.assignment_issued',
+    committed: true,
+    replayed: false,
+    assignmentId,
+    caseId: 'case-1',
+    studentAuthSubject: 'wp:123',
+    mentorAuthSubject: 'wp:789',
+    mentorAuthUid: 'aaaaaaaa-aaaa-5aaa-8aaa-aaaaaaaaaaaa',
+    operation: 'read',
+    purpose: 'mentor_case_read',
+    assignedAt: '2026-08-26T16:00:00.000Z',
+    expiresAt: '2026-09-25T16:00:00.000Z',
+    revokedAt: null,
+    assignmentHash: HASH_A,
+    revocationHash: null,
+    auditEventRef: `event_${HASH_B}`,
+    eventHash: HASH_B,
+    transactionId: '404',
+  };
+  resetPool({
+    query(input) {
+      if (typeof input !== 'string' && input.text.includes('assign_mentor_to_case(')) {
+        return result([{ result: mentorReceipt }]);
+      }
+      return result();
+    },
+  });
+  const dependencies = runtime();
+  const command = {
+    caseId: 'case-1',
+    studentAuthSubject: 'wp:123',
+    mentorAuthSubject: 'wp:789',
+    purpose: 'mentor_case_read',
+    maximumLifetimeSeconds: 2_592_000,
+    idempotencyKey: 'mentor-assign-1',
+  };
+  const observed = await dependencies.mentorAssignmentOperator.assign(command);
+  assert.deepEqual(observed, mentorReceipt);
+
+  const objects = queryObjects(FakePool.instances[0]);
+  const gucs = objects.find((query) => query.text.includes('trusted_service_actor'));
+  const invocation = objects.find((query) => query.text.includes('assign_mentor_to_case('));
+  assert.deepEqual(gucs.values, [
+    '', 'service:lor-mentor-assignment-operator-v1', 'service', 'wp:123',
+    'case-1', 'assign_mentor_case', 'mentor_assignment_administration',
+    '', '', '', 'true', 'true', 'true', 'lor-mentor-assignment-operator-v1', 'true',
+  ]);
+  assert.deepEqual(invocation.values, [
+    'case-1', 'wp:123', 'wp:789', 'mentor_case_read', 2_592_000, 'mentor-assign-1',
+  ]);
+
+  const connectionsBeforeRejected = FakePool.instances[0].connections;
+  await assert.rejects(
+    dependencies.mentorAssignmentOperator.assign({ ...command, actorRole: 'admin' }),
+    (error) => error instanceof ValidationError,
+  );
+  assert.equal(FakePool.instances[0].connections, connectionsBeforeRejected);
   await dependencies.close();
 });
 
@@ -686,6 +780,107 @@ test('invitation facade binds all fixed ABIs and maps P1303 to an opaque denial'
       && error.code === 'INVITATION_DENIED'
       && error.details?.reasonCode === 'INVITATION_DENIED'
       && !error.message.includes('CASE_NOT_FOUND'),
+  );
+  assert.equal(FakePool.instances[0].calls.includes('ROLLBACK'), true);
+  await dependencies.close();
+});
+
+test('candidate handoff facade binds fixed reserve/redeem ABIs and maps one generic denial', async () => {
+  let denyRedemption = false;
+  resetPool({
+    query(input) {
+      if (
+        typeof input !== 'string'
+        && input.text.includes('redeem_faculty_candidate_auth_handoff(')
+        && denyRedemption
+      ) {
+        const error = new Error('LOR_FACULTY_CANDIDATE_HANDOFF_DENIED');
+        error.code = 'P1311';
+        throw error;
+      }
+      if (
+        typeof input !== 'string'
+        && input.text.includes('faculty_candidate_auth_handoff(')
+      ) return result([{ result: { accepted: true } }]);
+      return result();
+    },
+  });
+  const targetBinding = binding();
+  const dependencies = createProductionPostgresRuntimeDependencies(targetBinding, {
+    environment: environment(),
+    PoolClass: FakePool,
+  });
+  const reserve = {
+    binding: targetBinding,
+    invitationId: 'invitation-1',
+    tokenHash: HASH_A,
+    flowNonceHash: HASH_B,
+    maximumLifetimeSeconds: 600,
+  };
+  const redeem = {
+    binding: targetBinding,
+    invitationId: 'invitation-1',
+    tokenHash: HASH_A,
+    flowNonceHash: HASH_B,
+    authenticatedSubject: 'wp:456',
+    issuedAt: '2026-08-26T12:00:00.000Z',
+    expiresAt: '2026-08-26T12:10:00.000Z',
+  };
+
+  assert.deepEqual(
+    await dependencies.driver.reserveFacultyCandidateAuthHandoffAtomic(reserve),
+    { accepted: true },
+  );
+  assert.deepEqual(
+    await dependencies.driver.redeemFacultyCandidateAuthHandoffAtomic(redeem),
+    { accepted: true },
+  );
+
+  const objects = queryObjects(FakePool.instances[0]);
+  const reserveQuery = objects.find(
+    (entry) => entry.text.includes('reserve_faculty_candidate_auth_handoff('),
+  );
+  const redeemQuery = objects.find(
+    (entry) => entry.text.includes('redeem_faculty_candidate_auth_handoff('),
+  );
+  assert.deepEqual(reserveQuery.values, ['invitation-1', HASH_A, HASH_B, 600]);
+  assert.deepEqual(redeemQuery.values, [
+    'invitation-1',
+    HASH_A,
+    HASH_B,
+    'wp:456',
+    '2026-08-26T12:00:00.000Z',
+    '2026-08-26T12:10:00.000Z',
+  ]);
+  const gucs = objects.filter((entry) => entry.text.includes('request.jwt.claim.sub'));
+  assert.deepEqual(gucs[0].values, [
+    '', '', 'service', '', '', 'reserve_faculty_candidate_auth_handoff',
+    'faculty_candidate_auth', 'invitation-1', '', '', 'false', 'true', 'true',
+    'lor-candidate-auth-v1', 'true',
+  ]);
+  assert.deepEqual(gucs[1].values, [
+    '', 'wp:456', 'service', '', '', 'redeem_faculty_candidate_auth_handoff',
+    'faculty_candidate_auth', 'invitation-1', '', '', 'false', 'true', 'true',
+    'lor-candidate-auth-v1', 'true',
+  ]);
+
+  const queryCount = objects.length;
+  await assert.rejects(
+    dependencies.driver.reserveFacultyCandidateAuthHandoffAtomic({
+      ...reserve,
+      rawToken: 'must-not-cross-driver-boundary',
+    }),
+    statusIs('RESERVE_FACULTY_CANDIDATE_HANDOFF_COMMAND_INVALID'),
+  );
+  assert.equal(queryObjects(FakePool.instances[0]).length, queryCount);
+
+  denyRedemption = true;
+  await assert.rejects(
+    dependencies.driver.redeemFacultyCandidateAuthHandoffAtomic(redeem),
+    (error) => error instanceof InvitationDeniedError
+      && error.code === 'INVITATION_DENIED'
+      && error.details?.reasonCode === 'INVITATION_DENIED'
+      && !error.message.includes('HANDOFF_DENIED'),
   );
   assert.equal(FakePool.instances[0].calls.includes('ROLLBACK'), true);
   await dependencies.close();
@@ -1377,8 +1572,16 @@ test('readiness requires the exact DR-133 catalog fingerprint', async () => {
   await dependencies.close();
 });
 
-test('pool errors poison new work without exposing their message', async () => {
-  resetPool();
+test('pool errors fail closed without leaking and recover only after an authenticated catalog re-probe', async () => {
+  resetPool({
+    query(input) {
+      if (
+        typeof input !== 'string'
+        && input.text.includes('missionmed:dr133:lor-runtime-readiness')
+      ) return result([readinessRow()]);
+      return result();
+    },
+  });
   const dependencies = runtime();
   const pool = FakePool.instances[0];
   const secret = 'pool-secret-that-must-not-escape';
@@ -1397,8 +1600,19 @@ test('pool errors poison new work without exposing their message', async () => {
     statusIs('RUNTIME_DATABASE_UNAVAILABLE'),
   );
   const readiness = await dependencies.readiness.probe();
-  assert.equal(readiness.ready, false);
-  assert.equal(readiness.reasonCode, 'DATABASE_UNAVAILABLE');
+  assert.equal(readiness.ready, true);
+  assert.equal(readiness.reasonCode, 'READY');
+  assert.equal(pool.connections, 1);
+
+  pool.emit('error', new Error(secret));
+  FakePool.behavior.connectError = new Error(secret);
+  const unavailable = await dependencies.readiness.probe();
+  assert.equal(unavailable.ready, false);
+  assert.equal(unavailable.reasonCode, 'DATABASE_UNAVAILABLE');
+  FakePool.behavior.connectError = null;
+  const recovered = await dependencies.readiness.probe();
+  assert.equal(recovered.ready, true);
+  assert.equal(recovered.reasonCode, 'READY');
   await dependencies.close();
 });
 

@@ -11,7 +11,7 @@ import {
   DR133_RELATIONS,
   DR133_SUCCESSOR_APP_EXECUTABLE_DEFINER_IDENTITIES,
   DR133_SUCCESSOR_APPROVED_DEFINER_IDENTITIES,
-} from '../../scripts/lor-studio/railway-dr133-runner-core.mjs';
+} from '../../scripts/lor-studio/railway-dr133-production-runner-core.mjs';
 
 const testDirectory = path.dirname(fileURLToPath(import.meta.url));
 const scriptDirectory = path.resolve(testDirectory, '..', '..', 'scripts', 'lor-studio');
@@ -50,9 +50,15 @@ const PRODUCTION_FORWARD_LEDGER = Object.freeze([
   'missionmed-hq/scripts/lor-studio/migrations/20260825010700_f2_lor_1012_production_faculty_private_export_commands.sql',
   'missionmed-hq/scripts/lor-studio/migrations/20260825010900_f2_lor_1012_production_ai_proposal_commands.sql',
   'missionmed-hq/scripts/lor-studio/migrations/20260825011100_f2_lor_1012_production_student_evidence_commands.sql',
+  'missionmed-hq/scripts/lor-studio/migrations/20260826011300_f2_lor_1012_live_production_encrypted_private_storage_commands.sql',
+  'missionmed-hq/scripts/lor-studio/migrations/20260826011500_f2_lor_1012_faculty_candidate_auth_handoff_commands.sql',
+  'missionmed-hq/scripts/lor-studio/migrations/20260826011700_f2_lor_1012_live_production_mentor_assignment_commands.sql',
 ]);
 
 const PRODUCTION_ROLLBACK_LEDGER = Object.freeze([
+  'missionmed-hq/scripts/lor-studio/rollbacks/20260826011700_f2_lor_1012_live_production_mentor_assignment_commands.rollback.sql',
+  'missionmed-hq/scripts/lor-studio/rollbacks/20260826011500_f2_lor_1012_faculty_candidate_auth_handoff_commands.rollback.sql',
+  'missionmed-hq/scripts/lor-studio/rollbacks/20260826011300_f2_lor_1012_live_production_encrypted_private_storage_commands.rollback.sql',
   'missionmed-hq/scripts/lor-studio/rollbacks/20260825011100_f2_lor_1012_production_student_evidence_commands.rollback.sql',
   'missionmed-hq/scripts/lor-studio/rollbacks/20260825010900_f2_lor_1012_production_ai_proposal_commands.rollback.sql',
   'missionmed-hq/scripts/lor-studio/rollbacks/20260825010700_f2_lor_1012_production_faculty_private_export_commands.rollback.sql',
@@ -172,6 +178,22 @@ const SUCCESSOR_COMMAND_OWNER_POLICY_SURFACE = Object.freeze([
   'ai_proposal_generation_reservations_faculty_insert@ai_proposal_generation_reservation_receipts:INSERT',
   'student_evidence_records_command_select@student_evidence_records:SELECT',
   'student_evidence_records_student_command_insert@student_evidence_records:INSERT',
+  'private_artifact_versions_storage_select@private_artifact_versions:SELECT',
+  'private_artifact_versions_storage_insert@private_artifact_versions:INSERT',
+  'released_student_documents_private_storage_select@released_student_documents:SELECT',
+  'faculty_invitations_candidate_handoff_select@faculty_invitations:SELECT',
+  'faculty_invitations_candidate_handoff_lock@faculty_invitations:UPDATE',
+  'faculty_candidate_auth_handoff_reservations_command_select@faculty_candidate_auth_handoff_reservations:SELECT',
+  'faculty_candidate_auth_handoff_reservations_command_insert@faculty_candidate_auth_handoff_reservations:INSERT',
+  'faculty_candidate_auth_handoff_redemptions_command_select@faculty_candidate_auth_handoff_redemptions:SELECT',
+  'faculty_candidate_auth_handoff_redemptions_command_insert@faculty_candidate_auth_handoff_redemptions:INSERT',
+  'recommendation_cases_mentor_assignment_service_select@recommendation_cases:SELECT',
+  'mentor_case_assignments_service_select@mentor_case_assignments:SELECT',
+  'mentor_case_assignments_service_insert@mentor_case_assignments:INSERT',
+  'mentor_case_assignment_revocations_service_select@mentor_case_assignment_revocations:SELECT',
+  'mentor_case_assignment_revocations_service_insert@mentor_case_assignment_revocations:INSERT',
+  'recommendation_case_audit_mentor_assignment_service_select@recommendation_case_audit_events:SELECT',
+  'recommendation_case_audit_mentor_assignment_service_insert@recommendation_case_audit_events:INSERT',
 ]);
 
 const COMMAND_OWNER_EXECUTE_HELPERS = Object.freeze([
@@ -197,6 +219,9 @@ const COMMAND_OWNER_EXECUTE_HELPERS = Object.freeze([
   'ai_proposal_scope_hash(text,text)',
   'student_evidence_record_is_complete(jsonb,jsonb)',
   'build_student_safe_case_state(text,text,bigint,text,timestamp with time zone,timestamp with time zone,timestamp with time zone,jsonb)',
+  'private_storage_context_allows(text,text,text[])',
+  'faculty_candidate_auth_context_allows(text,text[])',
+  'mentor_assignment_command_context_allows(text,text,text,text)',
 ]);
 
 const ORIGINAL_DESIGN_RELATIONS = Object.freeze([
@@ -360,6 +385,72 @@ test('schema contract binds the complete ordered successor ledgers', async () =>
   });
 });
 
+test('schema contract freezes encrypted storage and faculty candidate handoff custody', async () => {
+  const contract = await readContract();
+  assert.deepEqual(contract.encryptedPrivateStorageContract, {
+    relation: 'private_artifact_versions',
+    securityDefinerFunctions: [
+      'get_encrypted_private_artifact_version(text,text,text,text,text,text,text,text,text,text,text)',
+      'put_encrypted_private_artifact_version(text,text,text,text,text,text,text,text,text,bigint,text,text,text,text,text,text,text,text,text,text,text)',
+    ],
+    encryption: 'application_aes_256_gcm_per_version_hkdf_sha256',
+    databaseContent: 'ciphertext_only',
+    authorization: 'trusted_request_context_plus_database_actor_case_scope',
+    directApplicationTableDml: false,
+    immutable: true,
+    idempotency: 'database_serialized_exact_request_replay',
+    rollback: 'exact_no_cascade_refuses_nonempty_artifact_custody',
+    productionSentinelSuffix: 'encryptedPrivateStorage=20260826011300',
+  });
+  assert.deepEqual(contract.facultyCandidateAuthHandoffContract, {
+    relations: [
+      'faculty_candidate_auth_handoff_reservations',
+      'faculty_candidate_auth_handoff_redemptions',
+    ],
+    securityDefinerFunctions: [
+      'reserve_faculty_candidate_auth_handoff(text,text,text,integer)',
+      'redeem_faculty_candidate_auth_handoff(text,text,text,text,timestamp with time zone,timestamp with time zone)',
+    ],
+    helperFunction: 'faculty_candidate_auth_context_allows(text,text[])',
+    databaseClocked: true,
+    maximumLifetimeSeconds: 900,
+    storesRawInvitationToken: false,
+    directApplicationTableDml: false,
+    singleUseRedemption: true,
+    rollback: 'exact_no_cascade_refuses_nonempty_handoff_custody',
+    productionSentinelSuffix: 'facultyCandidateAuthHandoff=20260826011500',
+  });
+  assert.deepEqual(contract.liveProductionSuccessorCatalog, {
+    artifactCount: 20,
+    rollbackCount: 10,
+    relationCount: 36,
+    forcedRlsCount: 36,
+    securityDefinerCount: 34,
+    applicationExecutableSecurityDefinerCount: 33,
+    productionSentinelSuffix: 'mentorAssignmentCommands=20260826011700',
+  });
+  assert.deepEqual(contract.mentorAssignmentCommandContract, {
+    securityDefinerFunctions: [
+      'assign_mentor_to_case(text,text,text,text,integer,text)',
+      'revoke_mentor_case_assignment(text,text,text,text,text)',
+    ],
+    helperFunction: 'mentor_assignment_command_context_allows(text,text,text,text)',
+    receiptSchemaVersion: 'missionmed.lor.mentor-assignment-command-receipt.v1',
+    trustedServiceActor: 'lor-mentor-assignment-operator-v1',
+    operation: 'read',
+    minimumLifetimeSeconds: 300,
+    maximumLifetimeSeconds: 15_552_000,
+    databaseComputedHashes: true,
+    databaseComputedMentorUid: true,
+    appendOnlyAssignmentAndRevocation: true,
+    atomicMetadataAudit: true,
+    directApplicationTableDml: false,
+    browserRoute: false,
+    rollback: 'exact_no_cascade_refuses_nonempty_command_custody',
+    productionSentinelSuffix: 'mentorAssignmentCommands=20260826011700',
+  });
+});
+
 test('schema contract freezes the narrow actor-safe faculty drafting context', async () => {
   const contract = await readContract();
   assert.deepEqual(contract.aiDraftingContextContract, {
@@ -479,13 +570,14 @@ test('canonical owner and application role remain fail-closed', async () => {
       'ai_proposal_command_receipts',
       'ai_proposal_generation_reservation_receipts',
       'student_evidence_records',
-    ],
-    selectUpdateRelations: ['recommendation_case_creation_reservations'],
-    selectRelations: [
+      'private_artifact_versions',
+      'faculty_candidate_auth_handoff_reservations',
+      'faculty_candidate_auth_handoff_redemptions',
       'mentor_case_assignments',
       'mentor_case_assignment_revocations',
-      'faculty_otp_proof_revocations',
     ],
+    selectUpdateRelations: ['recommendation_case_creation_reservations'],
+    selectRelations: ['faculty_otp_proof_revocations'],
     executeHelpers: COMMAND_OWNER_EXECUTE_HELPERS,
     columnPrivileges: [],
   });

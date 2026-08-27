@@ -18,6 +18,15 @@ import {
   WORDPRESS_LOR_BOOTSTRAP_REDEEM_PATH,
   WORDPRESS_LOR_BOOTSTRAP_REQUEST_CONTRACT,
   WORDPRESS_LOR_BOOTSTRAP_RESPONSE_CONTRACT,
+  WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS,
+  WORDPRESS_LOR_RESOURCE_ENTITLEMENT_PRODUCER,
+  WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_CONTRACT,
+  WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_PATH,
+  WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_PROBE_CONTRACT,
+  WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_PROBE_PATH,
+  WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_PROBE_REQUEST_CONTRACT,
+  WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_REQUEST_CONTRACT,
+  WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
 } from '../../lor-studio/adapters/wordpress-lor-s2s-protocol.mjs';
 
 const ORIGIN = 'https://missionmed.example.test';
@@ -33,6 +42,7 @@ function receipt(overrides = {}) {
   return {
     contract: WORDPRESS_LOR_ADMISSION_CONTRACT,
     subject: 'wp:123',
+    identityClass: WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
     admitted: true,
     evaluatedAt: '2026-08-25T15:59:30.000Z',
     expiresAt: '2026-08-25T16:03:30.000Z',
@@ -41,25 +51,63 @@ function receipt(overrides = {}) {
 }
 
 function bootstrap(overrides = {}) {
+  const identityClass = overrides.identityClass ?? WORDPRESS_LOR_STUDENT_IDENTITY_CLASS;
   return {
     contract: WORDPRESS_LOR_BOOTSTRAP_RESPONSE_CONTRACT,
     audience: WORDPRESS_LOR_AUDIENCE,
     subject: 'wp:123',
     bindingId: BINDING,
     bindingExpiresAt: '2026-08-25T20:00:00.000Z',
-    receipt: receipt(),
+    identityClass,
+    receipt: receipt({ identityClass }),
     ...overrides,
   };
 }
 
 function revocation(overrides = {}) {
+  const identityClass = overrides.identityClass ?? WORDPRESS_LOR_STUDENT_IDENTITY_CLASS;
   return {
     contract: WORDPRESS_LOR_BINDING_REVOCATION_CONTRACT,
     audience: WORDPRESS_LOR_AUDIENCE,
     subject: 'wp:123',
     bindingId: BINDING,
+    identityClass,
     revoked: true,
     revokedAt: '2026-08-25T16:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function resourceEntitlement(overrides = {}) {
+  return {
+    contract: WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_CONTRACT,
+    audience: WORDPRESS_LOR_AUDIENCE,
+    requesterSubject: 'wp:123',
+    actorRole: 'faculty',
+    studentId: 'wp:456',
+    active: true,
+    tier: 'tier3_360',
+    lorEnabled: true,
+    revoked: false,
+    canaryEnabled: true,
+    canaryConsented: true,
+    producerStatus: WORDPRESS_LOR_RESOURCE_ENTITLEMENT_PRODUCER,
+    metadataOnly: true,
+    evaluatedAt: '2026-08-25T15:59:30.000Z',
+    expiresAt: '2026-08-25T16:03:30.000Z',
+    ...overrides,
+  };
+}
+
+function resourceProbe(overrides = {}) {
+  return {
+    contract: WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_PROBE_CONTRACT,
+    audience: WORDPRESS_LOR_AUDIENCE,
+    ready: true,
+    metadataOnly: true,
+    producerStatus: WORDPRESS_LOR_RESOURCE_ENTITLEMENT_PRODUCER,
+    evaluatedAt: '2026-08-25T15:59:30.000Z',
+    expiresAt: '2026-08-25T16:03:30.000Z',
     ...overrides,
   };
 }
@@ -101,6 +149,7 @@ test('Node/PHP derive the same domain-separated key and fixed request signature'
     audience: WORDPRESS_LOR_AUDIENCE,
     bindingId: BINDING,
     subject: 'wp:123',
+    identityClass: WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
   });
   const timestamp = String(Math.floor(NOW / 1_000));
   const canonical = canonicalWordPressLorRequest({
@@ -169,6 +218,7 @@ test('bootstrap redemption is one exact signed no-cookie POST and returns only b
   assert.deepEqual(JSON.parse(observed.options.body), {
     contract: WORDPRESS_LOR_BOOTSTRAP_REQUEST_CONTRACT,
     audience: WORDPRESS_LOR_AUDIENCE,
+    identityClass: WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
     code: CODE,
     stateHash: STATE_HASH,
     callback: CALLBACK,
@@ -207,6 +257,7 @@ test('every admission uses a fresh signed POST with binding and canonical subjec
     audience: WORDPRESS_LOR_AUDIENCE,
     bindingId: BINDING,
     subject: 'wp:123',
+    identityClass: WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
   });
 });
 
@@ -226,12 +277,122 @@ test('binding revocation is one exact signed no-cookie POST with a strict receip
     audience: WORDPRESS_LOR_AUDIENCE,
     bindingId: BINDING,
     subject: 'wp:123',
+    identityClass: WORDPRESS_LOR_STUDENT_IDENTITY_CLASS,
   });
   assert.deepEqual(result, revocation());
 
   await assert.rejects(
     client(async () => response(revocation({ bindingId: `lorb1_${'x'.repeat(43)}` }), WORDPRESS_LOR_BINDING_REVOCATION_PATH))
       .revokeBinding({ bindingId: BINDING, subject: 'wp:123' }),
+  );
+});
+
+test('faculty-candidate identity class is signed through bootstrap, admission, and revocation without widening', async () => {
+  const bodies = [];
+  const s2s = client(async (_url, options) => {
+    const body = JSON.parse(options.body);
+    bodies.push(body);
+    if (body.contract === WORDPRESS_LOR_BOOTSTRAP_REQUEST_CONTRACT) {
+      return response(
+        bootstrap({ identityClass: WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS }),
+        WORDPRESS_LOR_BOOTSTRAP_REDEEM_PATH,
+      );
+    }
+    if (body.contract === WORDPRESS_LOR_ADMISSION_REQUEST_CONTRACT) {
+      return response(
+        receipt({ identityClass: WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS }),
+        WORDPRESS_LOR_ADMISSION_PATH,
+      );
+    }
+    return response(
+      revocation({ identityClass: WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS }),
+      WORDPRESS_LOR_BINDING_REVOCATION_PATH,
+    );
+  });
+  const identityClass = WORDPRESS_LOR_FACULTY_CANDIDATE_IDENTITY_CLASS;
+  await s2s.redeemBootstrap({
+    code: CODE,
+    state: STATE_HASH,
+    callback: CALLBACK,
+    identityClass,
+  });
+  await s2s.admit({ bindingId: BINDING, subject: 'wp:123', identityClass });
+  await s2s.revokeBinding({ bindingId: BINDING, subject: 'wp:123', identityClass });
+  assert.deepEqual(bodies.map((body) => body.identityClass), [
+    identityClass,
+    identityClass,
+    identityClass,
+  ]);
+
+  await assert.rejects(
+    client(async () => response(receipt(), WORDPRESS_LOR_ADMISSION_PATH))
+      .admit({ bindingId: BINDING, subject: 'wp:123', identityClass }),
+    /RECEIPT_DENIED/u,
+  );
+  await assert.rejects(
+    s2s.admit({ bindingId: BINDING, subject: 'wp:123', identityClass: 'faculty' }),
+    /IDENTITY_CLASS_INVALID/u,
+  );
+});
+
+test('resource-student entitlement and readiness probe are exact signed metadata-only calls', async () => {
+  const observed = [];
+  const s2s = client(async (url, options) => {
+    observed.push({ url, body: JSON.parse(options.body), signal: options.signal });
+    if (url.endsWith('/probe')) {
+      return response(resourceProbe(), WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_PROBE_PATH);
+    }
+    return response(resourceEntitlement(), WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_PATH);
+  });
+  const entitlement = await s2s.getResourceStudentEntitlement({
+    authenticatedSubject: 'wp:123',
+    actorRole: 'faculty',
+    studentId: 'wp:456',
+  });
+  assert.deepEqual(entitlement, resourceEntitlement());
+  assert.deepEqual(observed[0].body, {
+    contract: WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_REQUEST_CONTRACT,
+    audience: WORDPRESS_LOR_AUDIENCE,
+    requesterSubject: 'wp:123',
+    actorRole: 'faculty',
+    studentId: 'wp:456',
+    metadataOnly: true,
+  });
+  const probe = await s2s.resourceEntitlementPort.probe();
+  assert.deepEqual(probe, resourceProbe());
+  assert.deepEqual(observed[1].body, {
+    contract: WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_PROBE_REQUEST_CONTRACT,
+    audience: WORDPRESS_LOR_AUDIENCE,
+    metadataOnly: true,
+  });
+  assert.doesNotMatch(JSON.stringify(observed[1].body), /wp:|studentId|subject/iu);
+  assert.equal(s2s.resourceEntitlementPort.signedS2s, true);
+});
+
+test('resource entitlement rejects cross-subject/class-like widening, stale schemas, and aborts', async () => {
+  for (const unsafe of [
+    resourceEntitlement({ requesterSubject: 'wp:999' }),
+    resourceEntitlement({ actorRole: 'mentor' }),
+    resourceEntitlement({ studentId: 'wp:999' }),
+    resourceEntitlement({ metadataOnly: false }),
+    resourceEntitlement({ expiresAt: '2026-08-25T16:10:00.000Z' }),
+    { ...resourceEntitlement(), privateProfile: { email: 'never' } },
+  ]) {
+    await assert.rejects(
+      client(async () => response(unsafe, WORDPRESS_LOR_RESOURCE_STUDENT_ENTITLEMENT_PATH))
+        .getResourceStudentEntitlement({
+          authenticatedSubject: 'wp:123',
+          actorRole: 'faculty',
+          studentId: 'wp:456',
+        }),
+    );
+  }
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(
+    client(async () => { throw new Error('must not run'); })
+      .probeResourceStudentEntitlement({ signal: controller.signal }),
+    /TRANSPORT_ABORTED/u,
   );
 });
 

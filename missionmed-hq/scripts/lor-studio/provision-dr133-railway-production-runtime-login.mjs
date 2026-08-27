@@ -382,7 +382,7 @@ export async function provisionDr133RailwayProductionRuntimeLogin({
     const resolved = resolveDr133RunnerEnvironment(environment, { mode: 'runtime-login' });
     artifacts = await loadVerifiedArtifacts(readFileFn);
     stage = 'ARTIFACTS_VERIFIED';
-    rollbackArtifact = artifacts.get('student-evidence-rollback');
+    rollbackArtifact = artifacts.get('mentor-assignment-rollback');
     if (!rollbackArtifact) failDr133('ARTIFACT_INVENTORY_INVALID');
     const guardVerificationSql = extractSuccessorRollbackGuardVerificationSql(
       rollbackArtifact.bytes.toString('utf8'),
@@ -559,7 +559,7 @@ export async function provisionDr133RailwayProductionRuntimeLogin({
       runnerCode: safeFailure.runnerCode,
       postgresCode: safeFailure.postgresCode,
       ...(rollbackArtifact
-        ? { studentEvidenceRollbackSha256: rollbackArtifact.sha256 }
+        ? { mentorAssignmentRollbackSha256: rollbackArtifact.sha256 }
         : {}),
     });
     failDr133(
@@ -573,7 +573,7 @@ export async function provisionDr133RailwayProductionRuntimeLogin({
     contract: DR133_RUNNER_CONTRACT,
     mode: 'runtime-login',
     result: 'RUNTIME_LOGIN_COMMITTED_VERIFIED',
-    studentEvidenceRollbackSha256: rollbackArtifact.sha256,
+    mentorAssignmentRollbackSha256: rollbackArtifact.sha256,
   });
   return Object.freeze({ result: 'RUNTIME_LOGIN_COMMITTED_VERIFIED' });
 }

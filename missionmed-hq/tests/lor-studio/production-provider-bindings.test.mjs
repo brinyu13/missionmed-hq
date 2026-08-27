@@ -9,21 +9,25 @@ import {
   createProductionProviderBindings,
 } from '../../lor-studio/adapters/production-provider-bindings.mjs';
 import { IntegrationDisabledError } from '../../lor-studio/domain/errors.js';
+import { canonicalize } from '../../lor-studio/domain/value-utils.js';
+import {
+  signedOpenAiPrivacyAttestation,
+  signedOpenAiPrivacyEnvironment,
+} from './fixtures/signed-openai-privacy-attestations.mjs';
 
 const OPENAI_SECRET = 'sk-project-lor-test-secret-value';
 const POSTMARK_SECRET = 'postmark-test-server-token-value';
 const HMAC_KEY = Buffer.alloc(32, 0x5a).toString('base64url');
 const PROJECT_ID = 'proj_lorproduction123';
 const SERVER_ID = 'postmark-server-lor-production';
+const NOW = new Date('2026-08-26T12:00:00.000Z');
+const OPENAI_OPTIONS = Object.freeze({ clock: () => NOW });
 
 function environment(overrides = {}) {
   return {
     MMHQ_LOR_OPENAI_API_KEY: OPENAI_SECRET,
     MMHQ_LOR_OPENAI_PROJECT_ID: PROJECT_ID,
-    MMHQ_LOR_OPENAI_ZDR_VERIFIED: 'true',
-    MMHQ_LOR_OPENAI_TRAINING_OPT_OUT_VERIFIED: 'true',
-    MMHQ_LOR_OPENAI_EDUCATION_RECORD_PROCESSING_AUTHORIZED: 'true',
-    MMHQ_LOR_OPENAI_INDEPENDENTLY_VERIFIED: 'true',
+    ...signedOpenAiPrivacyEnvironment(PROJECT_ID),
     MMHQ_LOR_POSTMARK_SERVER_TOKEN: POSTMARK_SECRET,
     MMHQ_LOR_POSTMARK_SERVER_ID: SERVER_ID,
     MMHQ_LOR_POSTMARK_FROM_EMAIL: 'lor@example.test',
@@ -52,7 +56,7 @@ function assertSafeFailure(error) {
 }
 
 test('dedicated production factory binds exact OpenAI, Postmark and invitation-secret resources', async () => {
-  const result = createProductionProviderBindings(environment());
+  const result = createProductionProviderBindings(environment(), OPENAI_OPTIONS);
   assert.deepEqual(result.openai.binding, {
     schemaVersion: 'missionmed.lor.openai-project-binding.v1',
     provider: 'openai',
@@ -101,7 +105,7 @@ test('dedicated production factory binds exact OpenAI, Postmark and invitation-s
 });
 
 test('private credential material is absent from serialization and public property descriptors', () => {
-  const result = createProductionProviderBindings(environment());
+  const result = createProductionProviderBindings(environment(), OPENAI_OPTIONS);
   const serialized = JSON.stringify(result);
   for (const secret of [OPENAI_SECRET, POSTMARK_SECRET, HMAC_KEY]) {
     assert.equal(serialized.includes(secret), false);
@@ -118,7 +122,7 @@ test('private credential material is absent from serialization and public proper
 });
 
 test('credential providers refuse reuse against a different project, server or key version', async () => {
-  const result = createProductionProviderBindings(environment());
+  const result = createProductionProviderBindings(environment(), OPENAI_OPTIONS);
   await assert.rejects(
     () => result.openai.credentialProvider.getBearerToken({
       provider: 'openai',
@@ -157,24 +161,37 @@ test('generic credentials are never fallbacks and are not read', () => {
       return 'must-not-be-read';
     },
   });
-  assert.throws(() => createOpenAiProductionProviderBinding(env), assertSafeFailure);
+  assert.throws(() => createOpenAiProductionProviderBinding(env, OPENAI_OPTIONS), assertSafeFailure);
   assert.throws(() => createPostmarkProductionProviderBinding(env), assertSafeFailure);
   assert.equal(genericGetterCalls, 0);
 });
 
 test('partial provider evidence and non-exact truth values fail closed', () => {
+  const tamperedClaims = (overrides) => Buffer.from(canonicalize({
+    ...signedOpenAiPrivacyAttestation(PROJECT_ID),
+    ...overrides,
+  }), 'utf8').toString('base64url');
   const openaiOverrides = [
     { MMHQ_LOR_OPENAI_API_KEY: '' },
     { MMHQ_LOR_OPENAI_PROJECT_ID: 'project-default' },
-    { MMHQ_LOR_OPENAI_ZDR_VERIFIED: '1' },
-    { MMHQ_LOR_OPENAI_TRAINING_OPT_OUT_VERIFIED: 'TRUE' },
-    { MMHQ_LOR_OPENAI_EDUCATION_RECORD_PROCESSING_AUTHORIZED: 'false' },
-    { MMHQ_LOR_OPENAI_EDUCATION_RECORD_PROCESSING_AUTHORIZED: 'TRUE' },
-    { MMHQ_LOR_OPENAI_INDEPENDENTLY_VERIFIED: 'false' },
+    { MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL: '' },
+    { MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL: '***' },
+    { MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL: tamperedClaims({
+      projectDataRetention: 'provider_default',
+    }) },
+    { MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL: tamperedClaims({
+      apiDataTrainingOptOut: false,
+    }) },
+    { MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL: tamperedClaims({
+      educationRecordProcessingAuthorized: false,
+    }) },
+    { MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL: tamperedClaims({
+      independentlyVerified: false,
+    }) },
   ];
   for (const overrides of openaiOverrides) {
     assert.throws(
-      () => createOpenAiProductionProviderBinding(environment(overrides)),
+      () => createOpenAiProductionProviderBinding(environment(overrides), OPENAI_OPTIONS),
       assertSafeFailure,
     );
   }
@@ -245,7 +262,14 @@ test('contract publishes the exact allowlisted env names without generic provide
   assert.equal(names.includes('OPENAI_API_KEY'), false);
   assert.equal(names.includes('POSTMARK_SERVER_TOKEN'), false);
   assert.equal(names.includes('AWS_SECRET_ACCESS_KEY'), false);
-  assert.equal(names.includes('MMHQ_LOR_OPENAI_EDUCATION_RECORD_PROCESSING_AUTHORIZED'), true);
+  assert.equal(names.includes('MMHQ_LOR_OPENAI_EDUCATION_RECORD_PROCESSING_AUTHORIZED'), false);
+  assert.equal(names.includes('MMHQ_LOR_OPENAI_ZDR_VERIFIED'), false);
+  assert.equal(names.includes('MMHQ_LOR_OPENAI_PRIVACY_ATTESTATION_BASE64URL'), true);
+  assert.equal(names.includes('MMHQ_LOR_OPENAI_PRIVACY_VERIFICATION_SPKI_BASE64'), true);
+  assert.equal(
+    PRODUCTION_PROVIDER_BINDINGS_CONTRACT.openaiPrivacyAuthority,
+    'source_pinned_signed_attestation_only',
+  );
   assert.equal(PRODUCTION_PROVIDER_BINDINGS_CONTRACT.genericCredentialFallback, false);
   assert.equal(
     PRODUCTION_PROVIDER_BINDINGS_CONTRACT.invitationHmacEncoding,

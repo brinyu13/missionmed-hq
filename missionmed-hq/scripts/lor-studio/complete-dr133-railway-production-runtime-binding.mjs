@@ -12,8 +12,12 @@ import {
 } from './railway-dr133-production-runtime-ca-transfer.mjs';
 import {
   DR133_RUNTIME_URL_BINDING_CONTRACT,
+  DR133_RUNTIME_URL_VARIABLE_KEY,
   bindDr133RailwayProductionRuntimeDatabaseUrl,
 } from './railway-dr133-production-runtime-url-binding.mjs';
+import {
+  dr133ReleaseVariableValueSha256,
+} from './railway-dr133-production-release-orchestrator.mjs';
 import {
   DR133_SOURCE_CUSTODY_PREFLIGHT_CONTRACT,
   preflightDr133RailwayProductionTunnelSourceCustody,
@@ -71,6 +75,15 @@ function buildRuntimeUrl(password) {
   }
   return `postgresql://${DR133_RUNTIME_LOGIN}:${password}`
     + `@${DR133_TARGET.databaseHost}:5432/${DR133_TARGET.databaseName}?sslmode=require`;
+}
+
+function runtimeUrlExpectationSha256(runtimeUrl) {
+  const bytes = Buffer.from(runtimeUrl, 'utf8');
+  try {
+    return dr133ReleaseVariableValueSha256(DR133_RUNTIME_URL_VARIABLE_KEY, bytes);
+  } finally {
+    bytes.fill(0);
+  }
 }
 
 function validateSourceReceipt(receipt, sourceCommit) {
@@ -170,46 +183,52 @@ export function createDr133RailwayProductionRuntimeBindingLifecycle(rawDependenc
       fail('ROOT_CA_BINDING_UNPROVEN');
     }
 
-    const runtimeUrl = buildRuntimeUrl(dependencies.createPassword());
+    let runtimeUrl = buildRuntimeUrl(dependencies.createPassword());
+    const valueSha256 = runtimeUrlExpectationSha256(runtimeUrl);
     try {
-      validateRuntimeUrlReceipt(await dependencies.bindRuntimeUrl({
-        environment,
-        runtimeDatabaseUrl: runtimeUrl,
-      }));
-    } catch (error) {
-      throw new Dr133RuntimeBindingLifecycleError('RUNTIME_URL_STAGING_FAILED', {
-        roleAbsent: true,
-        variableState: bindingFailureState(error),
-      });
-    }
+      try {
+        validateRuntimeUrlReceipt(await dependencies.bindRuntimeUrl({
+          environment,
+          runtimeDatabaseUrl: runtimeUrl,
+        }));
+      } catch (error) {
+        throw new Dr133RuntimeBindingLifecycleError('RUNTIME_URL_STAGING_FAILED', {
+          roleAbsent: true,
+          variableState: bindingFailureState(error),
+        });
+      }
 
-    try {
-      validateProvisionReceipt(await dependencies.runTunnelOperation({
-        databaseCa,
-        environment,
-        mode: 'runtime-login',
-        runtimeDatabaseUrl: runtimeUrl,
+      try {
+        validateProvisionReceipt(await dependencies.runTunnelOperation({
+          databaseCa,
+          environment,
+          mode: 'runtime-login',
+          runtimeDatabaseUrl: runtimeUrl,
+          sourceCommit,
+        }));
+      } catch (error) {
+        throw new Dr133RuntimeBindingLifecycleError(
+          loginKnownAbsent(error)
+            ? 'RUNTIME_LOGIN_FAILED_VARIABLE_STAGED_ROLE_ABSENT'
+            : 'RUNTIME_LOGIN_FAILED_CLEANUP_UNPROVEN',
+          {
+            roleAbsent: loginKnownAbsent(error),
+            variableState: 'STAGED_NO_DEPLOY',
+          },
+        );
+      }
+
+      return Object.freeze({
+        contract: DR133_RUNTIME_BINDING_LIFECYCLE_CONTRACT,
+        result: 'RUNTIME_BINDING_STAGED_NO_DEPLOY_VERIFIED',
+        role: DR133_RUNTIME_LOGIN,
         sourceCommit,
-      }));
-    } catch (error) {
-      throw new Dr133RuntimeBindingLifecycleError(
-        loginKnownAbsent(error)
-          ? 'RUNTIME_LOGIN_FAILED_VARIABLE_STAGED_ROLE_ABSENT'
-          : 'RUNTIME_LOGIN_FAILED_CLEANUP_UNPROVEN',
-        {
-          roleAbsent: loginKnownAbsent(error),
-          variableState: 'STAGED_NO_DEPLOY',
-        },
-      );
+        variableKey: DR133_RUNTIME_URL_VARIABLE_KEY,
+        valueSha256,
+      });
+    } finally {
+      runtimeUrl = null;
     }
-
-    return Object.freeze({
-      contract: DR133_RUNTIME_BINDING_LIFECYCLE_CONTRACT,
-      result: 'RUNTIME_BINDING_STAGED_NO_DEPLOY_VERIFIED',
-      role: DR133_RUNTIME_LOGIN,
-      sourceCommit,
-      variableKey: 'LOR_DR133_RUNTIME_DATABASE_URL',
-    });
   };
 }
 
