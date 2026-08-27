@@ -2,11 +2,12 @@
   "schema_version": "1.0",
   "status": "ACTIVE",
   "lock_name": "MissionMed Matrix Runtime Known-Good Lock",
-  "last_updated_utc": "2026-08-27T07:08:33Z",
+  "last_updated_utc": "2026-08-27T07:56:14Z",
   "owner": "Brian",
   "purpose": "Prevent AI/worktree/source/deploy drift from silently replacing Brian-validated Matrix-owned App Mode runtimes with older or embedded versions.",
   "canonical_worktrees": [
     "/Users/brianb/MissionMed_worktrees/J1-FileVault-1014-release",
+    "/Users/brianb/MissionMed_worktrees/F2-LOR-1012-DR137-Matrix",
     "/Users/brianb/MissionMed_worktrees/D8-443_matrix_student_entry_learndash_phase0",
     "/Users/brianb/MissionMed_worktrees/mm-matrix-062-calendar-app-mode-source-locked",
     "/Users/brianb/MissionMed_worktrees/b1-storyforge-advanced-102-live-matrix-source-export"
@@ -21,16 +22,17 @@
   },
   "source_custody": {
     "repository": "https://github.com/brinyu13/missionmed-hq.git",
-    "immutable_commit": "3cc3eac32b50bc63da1bc7743e910ff634042ccc",
-    "immutable_tree": "296a276903a586f58a8d0ba60f042b033ba0dc40",
+    "immutable_commit": "4275274071c7c3c9ee8507527c5d8fcaa2ea93d5",
+    "immutable_tree": "662004b08e82e39fe1a1943159f768fac76beb27",
     "remote_refs": [
+      "origin/codex/f2-lor-1012-dr137-matrix",
       "origin/codex/j1-filevault-1014-production",
       "origin/codex/v1-study-schedule-production-connected-rc",
       "origin/codex/v1-study-schedule-8010d-validation"
     ],
-    "verified_utc": "2026-08-27T07:08:33Z",
-    "verification_scope": "J1-FILEVAULT-1014 final sealed source custody preserves the deployed 809 Matrix shell and every protected sibling asset while recording the four production-current File Vault V2 bytes and their immutable runtime artifacts after production closure.",
-    "amendment_scope": "F2-LOR-1012 DR-137 pre-implementation rebaseline of exactly four already-deployed File Vault V2 assets; no production mutation.",
+    "verified_utc": "2026-08-27T07:56:14Z",
+    "verification_scope": "F2-LOR-1012 DR-137 remote-exact source custody for the default-off external LOR Studio Matrix entry, immutable 30068939 shell successor, and all 17 pre-existing protected sibling assets.",
+    "amendment_scope": "F2-LOR-1012 DR-137 exact Matrix shell seam: mutable/immutable student runtime, default-off MU controller, tests, deployment receipts, route lock, and rollback custody. No Matrix exposure or entitlement mutation.",
     "founder_authorization": "DR-131, DR-132, and DR-137; J1-FILEVAULT-1014 LIVE PRODUCTION COMPLETION"
   },
   "global_runtime_invariants": [
@@ -57,36 +59,108 @@
   "assets": {
     "student_os_js": {
       "app": "matrix-shell",
-      "role": "student Matrix router, App Mode protocol, Dashboard widgets, Messages/StoryForge shell routes",
+      "role": "student Matrix router, App Mode protocol, Dashboard widgets, Messages/StoryForge shell routes, and default-off external LOR Studio entry",
       "source_path": "wp-content/plugins/missionmed-hub/assets/student-os.js",
-      "production_path": "assets/student-os.809093d2b5b2bc05.js",
-      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os.809093d2b5b2bc05.js",
-      "approved_sha256": "809093d2b5b2bc05cdd4f355511f2c8d5303c71edbca4f71823d319976ced54f",
-      "approved_version": "20260820T182018Z",
-      "approved_state": "MX-LOGIN-UX-008F deployed Matrix student entry experience: approved 14-item sidebar (9 unlocked incl. File Vault, 5 locked, CAM hidden), Welcome Home chooser, Current Match Season Priority replacing the Matrix Journey tracker, dashboard filler/promo/dead-widget removal, and neutral locked-module notices. Published as a NEW immutable asset whose filename matches its own content hash; no existing hashed file was overwritten. The enqueue is repointed by wp-content/mu-plugins/missionmed-matrix-runtime-pin.php because class-mmed-student-os.php is runtime-locked and was not granted an override.",
+      "production_path": "assets/student-os.30068939fc54fb4a.js",
+      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os.30068939fc54fb4a.js",
+      "approved_sha256": "30068939fc54fb4a21209de4962977b9aa1a89a9557a046d367b1737624c570b",
+      "approved_version": "30068939fc54fb4a",
+      "approved_state": "F2-LOR-1012 DR-137 dark production runtime. Preserves the sealed Matrix/FileVault shell, removes the legacy embedded LOR renderer and REST client, and exposes only a fixed same-tab no-referrer Railway auth-start entry when a strict server projection literally allows it. The production controller remains mode=off and the WordPress LOR contract remains disabled, so no user sees the entry.",
       "source_reference_path": "wp-content/plugins/missionmed-hub/assets/student-os.js",
-      "source_reference_commit": "60e7169b544e6c93eb41f0de9717d8e61d2d49d0",
-      "source_reference_tree": "291a1f4dff573e2f64635ddd069ac9275f3984ff",
-      "source_reference_sha256": "809093d2b5b2bc05cdd4f355511f2c8d5303c71edbca4f71823d319976ced54f",
-      "runtime_artifact_path": "wp-content/plugins/missionmed-hub/assets/student-os.809093d2b5b2bc05.js",
+      "source_reference_commit": "4275274071c7c3c9ee8507527c5d8fcaa2ea93d5",
+      "source_reference_tree": "662004b08e82e39fe1a1943159f768fac76beb27",
+      "source_reference_sha256": "30068939fc54fb4a21209de4962977b9aa1a89a9557a046d367b1737624c570b",
+      "runtime_artifact_path": "wp-content/plugins/missionmed-hub/assets/student-os.30068939fc54fb4a.js",
       "runtime_version_strategy": "immutable filename; WordPress enqueue version is null",
-      "source_owner": "MX-LOGIN-UX-008F",
-      "source_provenance": "MissionMed_worktrees/MX-LOGIN-UX-008C @ branch mx-login-ux-008c-production",
-      "production_evidence": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4005R/evidence/4005r_final_live_hashes.json",
-      "approved_backup_path": "/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/MX-LOGIN-UX-008F/20260820T182018Z",
-      "normalization_backup_path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4005R/backups/predeployment-20260715T020324Z/",
-      "validation_ticket": "MX-LOGIN-UX-008F",
-      "validated_utc": "2026-08-20T18:20:18Z",
-      "rollback_sha256": "0b112c74e770e3b8decc2c7d8e6a6b73570647aa5f759a3a85cea68ec82f4201",
-      "rollback_production_path": "assets/student-os.16ca42c53ca2e890.js",
+      "source_owner": "F2-LOR-1012 DR-137",
+      "source_provenance": "MissionMed_worktrees/F2-LOR-1012-DR137-Matrix @ codex/f2-lor-1012-dr137-matrix",
+      "production_evidence": "_AI_HANDOFFS/from_codex/F2_LOR_1012_DR_137_MATRIX/MATRIX_DEPLOYMENT_RECEIPT.md",
+      "approved_backup_path": "/www/theresidencyacademy_209/private/f2-lor-1012/dr137/student-os.preimage.js",
+      "validation_ticket": "F2-LOR-1012-DR137",
+      "validated_utc": "2026-08-27T07:56:14Z",
+      "rollback_sha256": "809093d2b5b2bc05cdd4f355511f2c8d5303c71edbca4f71823d319976ced54f",
+      "rollback_production_path": "assets/student-os.809093d2b5b2bc05.js",
       "allowed_scoped_changes": [
         "route-level Matrix App Mode guard fixes",
         "Dashboard overview widgets with no app-mode regression",
-        "Messages/StoryForge shell route work under explicit scoped ticket"
+        "Messages/StoryForge shell route work under explicit scoped ticket",
+        "External LOR Studio Matrix entry changes only under DR-137 or a superseding decision"
       ],
       "requires_brian_validation": true,
       "filename_integrity_warning": "assets/student-os.c1d97237eab4936d.js and assets/student-os.16ca42c53ca2e890.js were both overwritten in place, so neither filename matches its own content hash. Do not trust a hashed filename as a content assertion for those two legacy files. New assets must be published under a filename derived from their own content hash and never overwritten.",
-      "enqueue_mechanism": "mu-plugin wp-content/mu-plugins/missionmed-matrix-runtime-pin.php filters script_loader_src for handle mmed-student-os-js. Deleting that file reverts to whatever class-mmed-student-os.php names."
+      "enqueue_mechanism": "missionmed-matrix-runtime-pin.php selects the sealed 809093 runtime, then missionmed-matrix-lor-studio-entry.php filters only that exact selection to the immutable 30068939 successor when the regular non-symlink artifact exists. Removing the LOR controller restores 809093."
+    },
+    "student_os_mutable_js": {
+      "app": "matrix-shell",
+      "role": "mutable recovery/source mirror for the active immutable student Matrix runtime",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os.js",
+      "production_path": "assets/student-os.js",
+      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os.js",
+      "approved_sha256": "30068939fc54fb4a21209de4962977b9aa1a89a9557a046d367b1737624c570b",
+      "approved_version": "30068939fc54fb4a",
+      "approved_state": "Byte-identical mutable recovery/source mirror installed atomically with the immutable DR-137 runtime.",
+      "source_reference_path": "wp-content/plugins/missionmed-hub/assets/student-os.js",
+      "source_reference_commit": "4275274071c7c3c9ee8507527c5d8fcaa2ea93d5",
+      "source_reference_tree": "662004b08e82e39fe1a1943159f768fac76beb27",
+      "source_reference_sha256": "30068939fc54fb4a21209de4962977b9aa1a89a9557a046d367b1737624c570b",
+      "runtime_version_strategy": "mutable recovery mirror; active browser enqueue remains the immutable artifact",
+      "source_owner": "F2-LOR-1012 DR-137",
+      "approved_backup_path": "/www/theresidencyacademy_209/private/f2-lor-1012/dr137/student-os.preimage.js",
+      "validation_ticket": "F2-LOR-1012-DR137",
+      "validated_utc": "2026-08-27T07:56:14Z",
+      "rollback_sha256": "646e3598d284fff31d22dec98c70c1800e74743276872bb65f1afeeda1c17e5a",
+      "rollback_production_path": "assets/student-os.js",
+      "allowed_scoped_changes": [
+        "Must remain byte-identical to the approved immutable student Matrix runtime"
+      ],
+      "requires_brian_validation": true
+    },
+    "student_os_previous_immutable_js": {
+      "app": "matrix-shell",
+      "role": "immediate known-good rollback runtime for the student Matrix shell",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os.809093d2b5b2bc05.js",
+      "production_path": "assets/student-os.809093d2b5b2bc05.js",
+      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os.809093d2b5b2bc05.js",
+      "approved_sha256": "809093d2b5b2bc05cdd4f355511f2c8d5303c71edbca4f71823d319976ced54f",
+      "approved_version": "809093d2b5b2bc05",
+      "approved_state": "Preserved unchanged as the immediate controller-removal rollback target proved during the DR-137 rollback drill.",
+      "source_reference_path": "wp-content/plugins/missionmed-hub/assets/student-os.809093d2b5b2bc05.js",
+      "source_reference_commit": "4275274071c7c3c9ee8507527c5d8fcaa2ea93d5",
+      "source_reference_tree": "662004b08e82e39fe1a1943159f768fac76beb27",
+      "source_reference_sha256": "809093d2b5b2bc05cdd4f355511f2c8d5303c71edbca4f71823d319976ced54f",
+      "runtime_version_strategy": "immutable filename; selected when the DR-137 controller is absent",
+      "source_owner": "MX-LOGIN-UX-008F / preserved by F2-LOR-1012 DR-137",
+      "validation_ticket": "F2-LOR-1012-DR137",
+      "validated_utc": "2026-08-27T07:56:14Z",
+      "rollback_sha256": "809093d2b5b2bc05cdd4f355511f2c8d5303c71edbca4f71823d319976ced54f",
+      "rollback_production_path": "assets/student-os.809093d2b5b2bc05.js",
+      "allowed_scoped_changes": [],
+      "requires_brian_validation": true
+    },
+    "lor_studio_matrix_entry_php": {
+      "app": "lor-studio",
+      "role": "default-off WordPress entitlement projection, exact legacy REST retirement, and immutable Matrix runtime selector",
+      "source_path": "wp-content/mu-plugins/missionmed-matrix-lor-studio-entry.php",
+      "production_path": "../../mu-plugins/missionmed-matrix-lor-studio-entry.php",
+      "public_url": null,
+      "approved_sha256": "ab87e7272aebdf44f82e640f2d0f7f08111caae67f339c874e9ab85eedf08721",
+      "approved_version": "F2-LOR-1012-DR137",
+      "approved_state": "Installed dark with exact mode=off, allowed=false, and WordPress LOR contract enabled=false. The browser projection contains only allowed, route, and launchUrl; no administrator, capability, query, cookie, or user-metadata bypass exists.",
+      "source_reference_path": "wp-content/mu-plugins/missionmed-matrix-lor-studio-entry.php",
+      "source_reference_commit": "4275274071c7c3c9ee8507527c5d8fcaa2ea93d5",
+      "source_reference_tree": "662004b08e82e39fe1a1943159f768fac76beb27",
+      "source_reference_sha256": "ab87e7272aebdf44f82e640f2d0f7f08111caae67f339c874e9ab85eedf08721",
+      "source_owner": "F2-LOR-1012 DR-137",
+      "production_evidence": "_AI_HANDOFFS/from_codex/F2_LOR_1012_DR_137_MATRIX/MATRIX_DEPLOYMENT_RECEIPT.md",
+      "approved_backup_path": "absent preimage; removal is the exact rollback",
+      "validation_ticket": "F2-LOR-1012-DR137",
+      "validated_utc": "2026-08-27T07:56:14Z",
+      "rollback_state": "absent",
+      "rollback_production_path": "../../mu-plugins/missionmed-matrix-lor-studio-entry.php",
+      "allowed_scoped_changes": [
+        "LOR Studio Matrix entitlement and external launch seam only under explicit shared-runtime authority"
+      ],
+      "requires_brian_validation": true
     },
     "student_os_css": {
       "app": "matrix-shell",
@@ -507,6 +581,20 @@
       ],
       "return_target": "#dashboard",
       "status": "route-level app-mode canon protected; separate visual lock pending"
+    },
+    "lor_studio": {
+      "route": "https://missionmed-hq-production.up.railway.app/api/lor-studio/auth/start",
+      "matrix_hash_route": "#lor-studio",
+      "entry_mode": "external same-tab anchor with no-referrer policy; never an embedded Matrix renderer",
+      "authorization_source": "mmhq_lor_studio_current_identity_entitlement strict three-key browser projection",
+      "return_target": "https://missionmedinstitute.com/member-dashboard/#dashboard",
+      "status": "dark installed; Matrix mode=off, allowed=false, WordPress contract enabled=false",
+      "forbidden_surfaces": [
+        "legacy Matrix /lor REST client",
+        "legacy embedded LOR Writer renderer",
+        "administrator or module-permission bypass",
+        "identity-bearing launch query parameters"
+      ]
     }
   },
   "rebaseline_history": [
@@ -563,6 +651,27 @@
       },
       "scope": "Exactly four FileVault V2 lock entries and source-custody metadata; no runtime or production mutation.",
       "phase": "pre-implementation rebaseline to verified production"
+    },
+    {
+      "ticket": "F2-LOR-1012-DR137",
+      "utc": "2026-08-27T07:56:14Z",
+      "authorization": "DR-137 canonical Matrix shared launch-seam authority under SHARED:MATRIX-SHELL epoch 344.",
+      "reason": "Install the production-connected LOR Studio entry without reviving the legacy embedded LOR Writer or exposing any user before provider/privacy and consent gates clear.",
+      "verification": "Final source review APPROVE; JS 142/142, PHP 86/86, FileVault siblings 72/72 and 92/92; mutable/immutable origin and public SHA256 matched; WordPress effective mode=off, asset=student-os.30068939fc54fb4a.js, allowed=false, contract_enabled=false; rollback restored the exact mutable preimage and effective 809093 immutable runtime, then redeploy restored the successor. FileVault remained mode=on with beta_count=0.",
+      "before": {
+        "student_os_effective_js": "809093d2b5b2bc05cdd4f355511f2c8d5303c71edbca4f71823d319976ced54f",
+        "student_os_mutable_js": "646e3598d284fff31d22dec98c70c1800e74743276872bb65f1afeeda1c17e5a",
+        "lor_studio_matrix_entry_php": "absent"
+      },
+      "after": {
+        "student_os_js": "30068939fc54fb4a21209de4962977b9aa1a89a9557a046d367b1737624c570b",
+        "student_os_mutable_js": "30068939fc54fb4a21209de4962977b9aa1a89a9557a046d367b1737624c570b",
+        "student_os_previous_immutable_js": "809093d2b5b2bc05cdd4f355511f2c8d5303c71edbca4f71823d319976ced54f",
+        "lor_studio_matrix_entry_php": "ab87e7272aebdf44f82e640f2d0f7f08111caae67f339c874e9ab85eedf08721"
+      },
+      "rollback_backup": "/www/theresidencyacademy_209/private/f2-lor-1012/dr137/student-os.preimage.js",
+      "scope": "Exactly the DR-137 Matrix LOR shell seam and its lock/evidence records; no exposure, entitlement, FileVault, Calendar, Scheduler, StoryForge, or other product mutation.",
+      "phase": "dark production deploy, rollback proof, and lock reseal"
     }
   ]
 }
