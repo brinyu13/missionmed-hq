@@ -19,7 +19,8 @@
     "test:stress": "node tests/stress-synthetic.mjs"
   },
   "dependencies": {
-    "lucide": "1.24.0"
+    "lucide": "1.24.0",
+    "pg": "8.23.0"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",

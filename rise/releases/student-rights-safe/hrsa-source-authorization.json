@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "authorizationId": "rise-auth-hrsa-thcgme-public-domain-v1",
+  "status": "approved",
+  "provider": "U.S. Health Resources and Services Administration",
+  "product": "THCGME AY 2025-2026 Awardees",
+  "writtenAuthorizationReference": "https://bhw.hrsa.gov/funding/apply-grant/teaching-health-center-graduate-medical-education/ay2025-2026-awardees",
+  "sourceOwnerGrantSha256": "6ad77fbd436f988cf9cab6bc3cea214c63e5382dbd610cb54735e7a0fedbc76e",
+  "allowedUses": [
+    "create_or_supplement_missionmed_rise_database"
+  ],
+  "effectiveFrom": "2026-08-28T00:00:00.000Z",
+  "validThrough": "2027-08-28T23:59:59.999Z",
+  "projection": [
+    "grantee",
+    "city",
+    "state",
+    "specialty"
+  ],
+  "excluded": [
+    "award_amount",
+    "narrative_copy",
+    "logos",
+    "photos",
+    "ACGME_ID",
+    "official_program_url"
+  ],
+  "missionMedReview": {
+    "decision": "approved",
+    "decisionRecordId": "P1-RISE-5005-HRSA-PUBLIC-FACT-PROJECTION",
+    "reviewerSubject": "founder-ticket:P1-RISE-5005",
+    "reviewedAt": "2026-08-28T00:00:00.000Z",
+    "legalStatus": "technical release-governance classification; not legal advice"
+  }
+}

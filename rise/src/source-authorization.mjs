@@ -7,6 +7,10 @@ const ALLOWED_USE = "create_or_supplement_missionmed_rise_database";
 export const SOURCE_POLICIES = Object.freeze({
   FREIDA: Object.freeze({ provider: "AMA", product: "FREIDA" }),
   "Residency Explorer": Object.freeze({ provider: "AAMC", product: "Residency Explorer" }),
+  "HRSA THCGME": Object.freeze({
+    provider: "U.S. Health Resources and Services Administration",
+    product: "THCGME AY 2025-2026 Awardees",
+  }),
 });
 
 function authorizationError(message, code = "RISE_SOURCE_AUTHORIZATION_INVALID", source) {

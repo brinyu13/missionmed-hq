@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "dataset": "INTERNAL_FULL_RISE",
+  "publication": "prohibited",
+  "storage": "existing_governed_internal_corpora",
+  "canonicalWorkbookSha256": "c627397c69d2fad42c07a0b66951f3f3a4957a86c231d93a5bd925cdb2d87b9e",
+  "canonicalContentSha256": "40d86561cf08ff56ede703d999849740bad36ac536518da23495cbada1262494",
+  "canonicalFieldCount": 196,
+  "copiedIntoStudentRelease": false,
+  "note": "This manifest binds the internal corpus without copying restricted field values into Git, the image, or the student API."
+}

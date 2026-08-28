@@ -53,6 +53,9 @@ const ENV_FILE = path.join(__dirname, '.env');
 const ENV_LOCAL_FILE = path.join(__dirname, '.env.local');
 const INTERNAL_REQUEST_ORIGIN = 'http://internal.invalid';
 const WORDPRESS_AUTH_REDIRECT_ACTION = 'mmac_hq_auth_redirect';
+const RISE_WORDPRESS_AUTH_REDIRECT_ACTION = 'mmed_rise_auth_redirect';
+const DEFAULT_AUTH_AUDIENCE = 'missionmed-hq';
+const RISE_AUTH_AUDIENCE = 'rise';
 const MMC_PRIVATE_ROUTE_PREFIX = '/mmc-private';
 const MMC_PRIVATE_INDEX_PATH = `${MMC_PRIVATE_ROUTE_PREFIX}/index.html`;
 const USCE_ADMIN_AUTH_RELAY_PATH = '/api/usce/admin/auth/relay';
@@ -1037,6 +1040,16 @@ function readEncryptedSession(token) {
   return payload;
 }
 
+function normalizeAuthAudience(value = '') {
+  const audience = String(value || '').trim().toLowerCase();
+  if (!audience || audience === DEFAULT_AUTH_AUDIENCE) return DEFAULT_AUTH_AUDIENCE;
+  return audience === RISE_AUTH_AUDIENCE ? RISE_AUTH_AUDIENCE : '';
+}
+
+function sessionAuthAudience(session = null) {
+  return normalizeAuthAudience(session?.authAudience) || DEFAULT_AUTH_AUDIENCE;
+}
+
 function createSessionRecord(user, authContext = {}, authSource) {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + CONFIG.sessionTtlSeconds * 1000);
@@ -1047,6 +1060,7 @@ function createSessionRecord(user, authContext = {}, authSource) {
     expiresAt: expiresAt.toISOString(),
     csrfToken: base64UrlEncode(randomBytes(18)),
     authSource,
+    authAudience: normalizeAuthAudience(authContext.authAudience) || DEFAULT_AUTH_AUDIENCE,
     wpAuthorization: String(authContext.wpAuthorization || '').trim(),
     user,
   };
@@ -1096,13 +1110,15 @@ function clearSessionCookie(request) {
   });
 }
 
-function buildWordPressAuthRedirectUrl(returnTo = '') {
+function buildWordPressAuthRedirectUrl(returnTo = '', audience = DEFAULT_AUTH_AUDIENCE) {
   if (!CONFIG.wpBase) {
     return '';
   }
 
   const target = new URL('/wp-admin/admin-post.php', CONFIG.wpBase);
-  target.searchParams.set('action', WORDPRESS_AUTH_REDIRECT_ACTION);
+  target.searchParams.set('action', normalizeAuthAudience(audience) === RISE_AUTH_AUDIENCE
+    ? RISE_WORDPRESS_AUTH_REDIRECT_ACTION
+    : WORDPRESS_AUTH_REDIRECT_ACTION);
 
   if (returnTo) {
     target.searchParams.set('return_to', returnTo);
@@ -1170,6 +1186,9 @@ function buildSessionPayload(session = null, request = null) {
       authenticated: false,
       authRequired: CONFIG.authRequired,
       sessionPersistent: Boolean(SESSION_SECRET),
+      revoked: false,
+      revokedAt: null,
+      authAudience: null,
       authMode: buildAuthDebugSnapshot(null, request),
       activeEndpoints: buildActiveEndpoints(request),
       login: getLoginHints(request),
@@ -1181,6 +1200,9 @@ function buildSessionPayload(session = null, request = null) {
     authenticated: true,
     authRequired: CONFIG.authRequired,
     sessionPersistent: Boolean(SESSION_SECRET),
+    revoked: false,
+    revokedAt: null,
+    authAudience: sessionAuthAudience(session),
     csrfToken: session.csrfToken,
     expiresAt: session.expiresAt,
     user: {
@@ -2022,20 +2044,38 @@ async function handleApiRoute(request, response, url, context) {
     return;
   }
 
+  if (
+    sessionAuthAudience(session) === RISE_AUTH_AUDIENCE &&
+    !new Set(['/api/auth/session', '/api/auth/logout', '/api/health']).has(pathname)
+  ) {
+    sendJson(response, 403, {
+      error: 'rise_audience_isolated',
+      message: 'A RISE audience session cannot access MissionMed HQ application APIs.',
+    });
+    return;
+  }
+
   if (pathname === '/api/auth/start') {
     if (request.method !== 'GET') {
       sendMethodNotAllowed(response, ['GET']);
       return;
     }
 
+    const requestedAudience = normalizeAuthAudience(searchParams.get('audience'));
+    if (searchParams.get('audience') && !requestedAudience) {
+      sendJson(response, 400, { error: 'invalid_auth_audience' });
+      return;
+    }
+    const authAudience = requestedAudience || DEFAULT_AUTH_AUDIENCE;
     const hqBase = getHqBaseForRequest(request);
     const hqEntry = hqBase ? new URL('/api/auth/session', hqBase) : null;
     const finalRedirect = resolveAuthSessionFinalRedirect(searchParams.get('final'), request);
     if (hqEntry && finalRedirect) {
       hqEntry.searchParams.set('final', finalRedirect);
     }
+    if (hqEntry && authAudience === RISE_AUTH_AUDIENCE) hqEntry.searchParams.set('audience', RISE_AUTH_AUDIENCE);
     const hqEntryUrl = hqEntry ? hqEntry.toString() : '';
-    const redirectUrl = buildWordPressAuthRedirectUrl(hqEntryUrl);
+    const redirectUrl = buildWordPressAuthRedirectUrl(hqEntryUrl, authAudience);
 
     if (!redirectUrl) {
       sendJson(response, 503, {
@@ -2064,11 +2104,17 @@ async function handleApiRoute(request, response, url, context) {
   }
 
   if (pathname === '/api/auth/session') {
+    const requestedAudience = normalizeAuthAudience(searchParams.get('audience'));
+    if (searchParams.get('audience') && !requestedAudience) {
+      sendJson(response, 400, { error: 'invalid_auth_audience' }, authHeaders);
+      return;
+    }
+    const authAudience = requestedAudience || DEFAULT_AUTH_AUDIENCE;
     const handoffToken = String(searchParams.get('token') || '').trim();
     const finalRedirect = resolveAuthSessionFinalRedirect(searchParams.get('final'), request);
 
     if (handoffToken) {
-      const exchange = await exchangeWordPressAuth({ token: handoffToken }, request);
+      const exchange = await exchangeWordPressAuth({ token: handoffToken, authAudience }, request);
       if (!exchange.ok || !exchange.session) {
         sendJson(response, exchange.status || 401, {
           error: 'auth_exchange_failed',
@@ -2078,7 +2124,9 @@ async function handleApiRoute(request, response, url, context) {
         return;
       }
 
-      const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(exchange.session);
+      const bootstrap = authAudience === RISE_AUTH_AUDIENCE
+        ? { ok: true, status: 200, session: exchange.session }
+        : await bootstrapSupabaseSessionFromWordPressSession(exchange.session);
       if (!bootstrap.ok) {
         sendJson(response, bootstrap.status || 502, {
           error: bootstrap.error || 'supabase_bootstrap_failed',
@@ -2107,7 +2155,8 @@ async function handleApiRoute(request, response, url, context) {
       return;
     }
 
-    sendJson(response, 200, buildSessionPayload(session, request), authHeaders);
+    const audienceSession = session && sessionAuthAudience(session) === authAudience ? session : null;
+    sendJson(response, 200, buildSessionPayload(audienceSession, request), authHeaders);
     return;
   }
 
@@ -6849,7 +6898,7 @@ async function ensureSupabaseAuthUser(email, password, session = null) {
   };
 }
 
-function parseWordPressHandoffToken(wpToken = '') {
+function parseWordPressHandoffToken(wpToken = '', requestedAudience = DEFAULT_AUTH_AUDIENCE) {
   // WordPress handoff tokens are signed payloads, not bearer tokens from /auth/token.
   const rawToken = String(wpToken || '').trim();
   const parts = rawToken.match(/^([A-Za-z0-9_-]+)\.([a-fA-F0-9]{64})$/u);
@@ -6922,6 +6971,16 @@ function parseWordPressHandoffToken(wpToken = '') {
     };
   }
 
+  const tokenAudience = normalizeAuthAudience(payload?.auth_audience) || DEFAULT_AUTH_AUDIENCE;
+  if (tokenAudience !== requestedAudience) {
+    return {
+      ok: false,
+      recognized: true,
+      status: 401,
+      error: 'handoff_audience_mismatch',
+    };
+  }
+
   const wpUser = normalizeWordPressUser({
     id: payload?.wp_user_id || payload?.id,
     username: payload?.username || payload?.login,
@@ -6939,7 +6998,7 @@ function parseWordPressHandoffToken(wpToken = '') {
     };
   }
 
-  if (!isAuthorizedWordPressUser(wpUser)) {
+  if (!isAuthorizedWordPressUser(wpUser, requestedAudience)) {
     return {
       ok: false,
       recognized: true,
@@ -6959,9 +7018,10 @@ function parseWordPressHandoffToken(wpToken = '') {
 async function exchangeWordPressAuth(payload = {}, request = null) {
   const cookieHeader = getRequestCookieHeader(request);
   const wpToken = String(payload.wpToken || payload.token || payload.bearerToken || '').trim();
+  const authAudience = normalizeAuthAudience(payload.authAudience) || DEFAULT_AUTH_AUDIENCE;
 
   if (wpToken) {
-    const handoff = parseWordPressHandoffToken(wpToken);
+    const handoff = parseWordPressHandoffToken(wpToken, authAudience);
     if (handoff.ok && handoff.user) {
       const wpUser = handoff.user;
       return {
@@ -6978,6 +7038,7 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
           },
           {
             wpAuthorization: getWordPressServiceAuthorization(),
+            authAudience,
           },
           'wordpress-handoff',
         ),
@@ -7004,7 +7065,7 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
     }
 
     const wpUser = normalizeWordPressIdentityUser(cookieValidation.user || {});
-    if (!isAuthorizedWordPressUser(wpUser)) {
+    if (!isAuthorizedWordPressUser(wpUser, authAudience)) {
       return {
         ok: false,
         status: 403,
@@ -7026,6 +7087,7 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
         },
         {
           wpAuthorization: getWordPressServiceAuthorization(),
+          authAudience,
         },
         'wordpress-cookie',
       ),
@@ -7254,7 +7316,10 @@ function normalizeWordPressUser(user) {
   };
 }
 
-function isAuthorizedWordPressUser(user) {
+function isAuthorizedWordPressUser(user, audience = DEFAULT_AUTH_AUDIENCE) {
+  if (normalizeAuthAudience(audience) === RISE_AUTH_AUDIENCE) {
+    return Number(user?.id || 0) > 0 && Boolean(String(user?.email || '').trim());
+  }
   const roles = Array.isArray(user.roles) ? user.roles : [];
   if (roles.some((role) => CONFIG.wpAllowedRoles.includes(String(role).toLowerCase()))) {
     return true;

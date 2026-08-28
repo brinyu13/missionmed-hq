@@ -1,0 +1,205 @@
+field,projection,provenance_category,source,production_action,notes
+RISE_ID,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Specialty,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Program Name,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Institution,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Hospital,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+City,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+State,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Zip,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Region,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+ACGME ID,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+NRMP Code,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Program Website,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Residency Explorer URL,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+FREIDA URL,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Program Type,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+University Affiliated,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Community,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Hybrid,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Teaching Hospital,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Program Status,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Last Verified,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Source Confidence,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Program Director,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Program Director Credentials,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Associate Program Director 1,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Associate Program Director 2,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Associate Program Director 3,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Program Coordinator,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Coordinator Email,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Coordinator Phone,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Department Chair,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Chief Residents,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Faculty Page URL,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Categorical Positions,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Residents Per Year,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Total Residents,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Salary PGY1,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Salary PGY2,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Salary PGY3,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Salary PGY4,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Vacation,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Meal Allowance,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Educational Stipend,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Research Requirement,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Research Track,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Night Float,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Call Schedule,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Clinic Structure,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Moonlighting,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Visa Sponsorship,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+J1,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+H1B,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Step Preferences,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+COMLEX Accepted,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+IMG Friendly Indicators,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+International Graduates,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+US Graduates,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Board Pass Rate,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Fellowship Placement,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Research Opportunities,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Simulation Center,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Benefits,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Housing,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Parking,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Childcare,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Wellness,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Program Length,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+First Year Positions,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Application Deadline,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Application Service,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Average Work Hours,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Applicant Interview Format,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Interviews Conducted Last Year,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Interviews Per First Year Position,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+ERAS Participates,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+NRMP Main Match Participation,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+US MD Step 1 Required,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+US MD Step 2 Required,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+IMG Step 1 Required,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+IMG Step 2 Required,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+DO COMLEX Level 1 Required,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+DO COMLEX Level 2 Required,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+DO Step 1 Required,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+DO Step 2 Required,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Minimum LOR,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Maximum LOR,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Specialty Specific LOR Required,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Requires Previous GME,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Offers Preliminary Positions,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Required Away Rotations,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Required Supplemental Information,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Osteopathic Recognition,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Medical School Graduation Timeline,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Gap Experience Requirement,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Faculty Resident Ratio,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Program Faculty Count,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Female Faculty Percent,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Faculty Distribution,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Program Start Date,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Average Hours Per Week First Year,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Maximum Consecutive Hours First Year,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Average 24h Off Duty Periods Per Week First Year,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+F1 OPT First Year,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Current Residents PGY1,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Current Residents PGY2,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Current Residents PGY3,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Structured Didactic Activities PGY1 Hours,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Hospital Outpatient Percent,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Non Hospital Ambulatory Care Percent,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Technology Allowance,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Placement Assistance,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Interprofessional Teamwork,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Debt Counseling,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Resident Retreats,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Off Campus Electives,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Research Rotation,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Integrative Medicine Curriculum,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Health Systems Leadership Curriculum,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Medical Spanish Curriculum,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Complementary Medicine Curriculum,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Healthcare Economics Curriculum,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Step 3 or COMLEX Level 3 Support,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Global Health Experience,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Hospice Home Care Experience,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Advanced Degree Training,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Primary Care Track,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Hospitalist Track,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Women's Health Track,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Clinician Educator Track,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Additional Training Beyond Accredited Length,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Milestone Evaluation,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Board Certification Pass Rate Evaluation,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+OSCE Assessment Evaluation,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Patient Surveys Evaluation,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Portfolio System Evaluation,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Resident OSCE Evaluation,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Major Medical Residents,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Major Medical Dependents,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Major Medical Domestic Partners,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Outpatient Mental Health,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Inpatient Mental Health,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Group Life Insurance,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Dental Insurance,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Disability Insurance,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Salary Paid By,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Sick Days,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Family Medical Leave Paid Days,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Family Medical Leave Unpaid Days,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Quality of Life City,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Purchasing Power Index,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Safety Index,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Health Care Index,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Climate Index,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Cost of Living Index,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Property Price to Income Ratio,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Traffic Commute Time Index,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Pollution Index,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Estimated Monthly Cost Family of 4,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Estimated Monthly Cost Single Person,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Survey Received,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+FREIDA Last Updated,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+FREIDA Program ID,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Program Best Described As,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Resident Gender Female Percent,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Resident Gender Male Percent,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+DO Graduates Percent,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+US MD Graduates Percent,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+IMG Graduates Percent,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Historical Interview Stats,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Official Program Description,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Curriculum Summary,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Didactics,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Career Mentorship,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Interview Style,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Behavioral %,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Traditional %,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Stress Interview,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Virtual,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+In Person,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Program Values,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Mission Statement,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Culture Notes,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+MissionMed Alumni,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+ACTN Connections,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+StoryForge Tags,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Timeline Assets,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+CAM Interview Pack,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Interview Questions,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+MissionMed Notes,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Primary Source,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Secondary Source,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Evidence URL,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Evidence Notes,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Verification Date,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Verified By,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+Confidence,INTERNAL_FULL_RISE,E,FREIDA-derived canonical workbook,EXCLUDE,Retained internally; never exposed by the student release.
+program_name,STUDENT_RIGHTS_SAFE_RISE,B,HRSA THCGME,INCLUDE,Derived only from HRSA grantee plus specialty and visibly labeled THCGME.
+institution,STUDENT_RIGHTS_SAFE_RISE,B,HRSA THCGME,INCLUDE,HRSA grantee name.
+city,STUDENT_RIGHTS_SAFE_RISE,B,HRSA THCGME,INCLUDE,HRSA awardee table.
+state,STUDENT_RIGHTS_SAFE_RISE,B,HRSA THCGME,INCLUDE,HRSA awardee table.
+specialty,STUDENT_RIGHTS_SAFE_RISE,B,HRSA THCGME,INCLUDE,HRSA awardee table.
+RISE_ID,STUDENT_RIGHTS_SAFE_RISE,A,MissionMed,INCLUDE,MissionMed-generated opaque identifier.
+research_status,STUDENT_RIGHTS_SAFE_RISE,A,MissionMed,INCLUDE,MissionMed-generated release state.
+source_and_freshness,STUDENT_RIGHTS_SAFE_RISE,A/B,HRSA THCGME,INCLUDE,MissionMed projection of HRSA source URL and retrieval date.

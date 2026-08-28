@@ -65,6 +65,44 @@ function toFableProgram(record) {
   };
 }
 
+const MATRIX_PROFILE_LABELS = Object.freeze({
+  primary_specialty: 'Specialty of choice', medical_school: 'Medical school', medical_school_country: 'Medical school country',
+  graduation_year: 'Graduation year', is_img: 'IMG status', step1_status: 'Step 1 / Level 1 status',
+  step1_score: 'Step 1 / Level 1 score', step2_status: 'Step 2 CK / Level 2 status',
+  step2_score: 'Step 2 CK / Level 2 score', visa_status: 'Visa / citizenship', usce_months: 'USCE months',
+  current_location: 'Application-season location', match_cycle: 'Match cycle', phone_mobile: 'Phone / mobile',
+  first_name: 'First name', last_name: 'Last name',
+});
+
+function profileFromMatrix(payload) {
+  if (payload?.unavailable) {
+    return {
+      name: 'Student', demo: false, available: false, facts: [], completeness: 0,
+      missing: [], missingKeys: [], raw: {},
+      unavailableMessage: payload.message || 'Matrix profile integration is unavailable',
+    };
+  }
+  const raw = payload?.profile && typeof payload.profile === 'object' ? payload.profile : {};
+  const factKeys = ['primary_specialty', 'medical_school', 'medical_school_country', 'graduation_year', 'is_img', 'step1_status', 'step1_score', 'step2_status', 'step2_score', 'visa_status', 'usce_months', 'current_location', 'match_cycle'];
+  const facts = factKeys.filter(key => raw[key] !== undefined && raw[key] !== null && String(raw[key]).trim() !== '')
+    .map(key => [MATRIX_PROFILE_LABELS[key], String(raw[key])]);
+  const missingKeys = Array.isArray(payload?.required_fields)
+    ? payload.required_fields.filter(key => !raw[key])
+    : ['first_name', 'last_name', 'phone_mobile', 'primary_specialty'].filter(key => !raw[key]);
+  const name = [raw.first_name, raw.last_name].filter(Boolean).join(' ').trim() || 'Student';
+  const progress = Number(payload?.progress);
+  return {
+    name,
+    demo: false,
+    available: true,
+    facts,
+    completeness: Number.isFinite(progress) ? Math.max(0, Math.min(100, Math.round(progress))) : 0,
+    missing: missingKeys.map(key => MATRIX_PROFILE_LABELS[key] || key.replaceAll('_', ' ')),
+    missingKeys,
+    raw,
+  };
+}
+
 async function loadAllPrograms() {
   const catalog = await riseFetch('/api/rise/v1/programs/catalog');
   return {
@@ -76,10 +114,15 @@ async function loadAllPrograms() {
 
 async function loadRuntime() {
   const session = await riseFetch('/api/rise/v1/session');
-  const [status, registry, savedResult] = await Promise.all([
+  const matrixProfileRequest = riseFetch('/api/rise/v1/me/profile').catch(error => ({
+    unavailable: true,
+    message: error?.message || 'Matrix profile integration is unavailable',
+  }));
+  const [status, registry, savedResult, matrixProfile] = await Promise.all([
     riseFetch('/api/rise/v1/status'),
     loadAllPrograms(),
     riseFetch('/api/rise/v1/me/programs'),
+    matrixProfileRequest,
   ]);
   const saved = new Map((savedResult.records || []).map(record => [record.programSpecialtyId, {
     state: record.state,
@@ -98,14 +141,7 @@ async function loadRuntime() {
         programCount: registry.total,
         soapJoined: 0,
       },
-      profile: {
-        name: 'Student',
-        demo: false,
-        available: false,
-        facts: [],
-        completeness: 0,
-        missing: ['Matrix profile integration is not authorized for this release'],
-      },
+      profile: profileFromMatrix(matrixProfile),
       programs: registry.records.map(toFableProgram),
     },
   };
@@ -739,6 +775,37 @@ function cvSheet() {
 }
 window.cvSheet = cvSheet;
 
+window.editMatrixProfile = (focusField = '') => {
+  if (!D.profile.available) { toast('Matrix profile integration is unavailable.'); return; }
+  const p = D.profile.raw || {};
+  const fields = [
+    ['first_name','First name','text'], ['last_name','Last name','text'], ['phone_mobile','Phone/mobile','tel'],
+    ['current_location','Application-season location','text'], ['medical_school','Medical school','text'],
+    ['step1_score','Step 1 / Level 1 score','number'], ['step2_score','Step 2 CK / Level 2 score','number'],
+    ['usce_months','USCE months','number']
+  ];
+  openModal(`<div class="mKicker">Canonical Matrix profile</div><div class="mTitle">Update approved fields</div>
+    <div class="mSum">These edits go through RISE to Matrix and are re-read from the canonical owner. Specialty, visa and other controlled fields remain in the full Matrix editor.</div>
+    <form id="matrixProfileForm" onsubmit="saveMatrixProfile(event)">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:18px 0">${fields.map(([key,label,type]) => `<label style="display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase"><span>${esc(label)}</span><input name="${key}" type="${type}" value="${esc(p[key] ?? '')}" style="width:100%;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);padding:11px 12px" ${focusField === key ? 'autofocus' : ''}></label>`).join('')}</div>
+      <div class="mActs"><button class="mBtn pri" type="submit">Save to Matrix</button><button class="mBtn sec" type="button" onclick="location.assign('/member-dashboard/#profile')">Open full Matrix profile</button><button class="mBtn sec" type="button" onclick="closeModal()">Cancel</button></div>
+    </form>`);
+};
+window.saveMatrixProfile = async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const profile = Object.fromEntries([...new FormData(form).entries()].map(([key, value]) => [key, String(value).trim()]));
+  form.querySelector('button[type="submit"]').disabled = true;
+  try {
+    const result = await riseFetch('/api/rise/v1/me/profile', { method: 'POST', body: JSON.stringify({ profile, mark_complete: false }) });
+    Object.assign(D.profile, profileFromMatrix(result));
+    closeModal(); rerender(); toast('Matrix profile updated and re-read.');
+  } catch (error) {
+    form.querySelector('button[type="submit"]').disabled = false;
+    toast(error.message || 'Matrix profile update failed.');
+  }
+};
+
 /* ---------- MY PROGRAMS ---------- */
 /* ---------- MY PROGRAMS ---------- */
 const MY_STATES = ['SAVED', 'APPLIED', 'INTERVIEWING', 'RANKED'];
@@ -830,16 +897,16 @@ function viewProfile() {
   return `<div class="view" data-view="profile">
     <p class="eyebrow">My Profile · shared with Matrix</p>
     <h1 class="h1">Your <em>profile</em></h1>
-    <p class="sub" style="max-width:680px;margin:8px 0 18px">RISE will render and update the canonical Matrix profile only after an authorized profile adapter is configured. This release creates no duplicate profile truth.</p>
-    <div class="covBanner">Matrix profile integration is unavailable and fails closed. No representative applicant facts are shown.</div>
+    <p class="sub" style="max-width:680px;margin:8px 0 18px">This is your canonical Matrix profile rendered in RISE — there is no separate RISE profile truth. Approved edits write through the server adapter and are re-read from Matrix.</p>
+    <div class="covBanner">${prof.available ? 'Canonical Matrix values only. No representative applicant facts are shown.' : 'Matrix profile integration is unavailable. RISE will not create or display a second profile truth.'}</div>
     <div class="homeGrid">
-      <section class="panel"><div class="pHead"><h2 class="h2">Applicant <em>facts</em></h2></div>
+      <section class="panel"><div class="pHead"><h2 class="h2">Applicant <em>facts</em></h2>${prof.available ? '<button class="pMore" onclick="editMatrixProfile()">Update ▸</button>' : ''}</div>
         <div class="pBody">${prof.facts.map(([k, v]) => `<div class="kv"><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`).join('')}
         <p class="sub" style="margin-top:12px;font-size:14px">Each fact powers requirement checks across the corpus — e.g. “USMLE Step 2 CK” is used by every published score preference.</p></div>
       </section>
       <div>
         <section class="panel" style="margin-bottom:20px"><div class="pHead"><h2 class="h2">Completeness</h2></div>
-          <div class="pBody"><div class="profRow">${ringSVG(prof.completeness)}<div class="profMissing">${prof.missing.map(m => `<button class="missChip" onclick="toast('Matrix profile editing is unavailable in this release.')">+ ${esc(m)}</button>`).join('')}</div></div></div>
+          <div class="pBody"><div class="profRow">${ringSVG(prof.completeness)}<div class="profMissing">${prof.missing.map((m, i) => `<button class="missChip" onclick="editMatrixProfile('${esc(prof.missingKeys[i] || '')}')">+ ${esc(m)}</button>`).join('')}</div></div></div>
         </section>
         <section class="panel"><div class="pHead"><h2 class="h2">Use it</h2></div>
           <div class="pBody" style="display:flex;flex-direction:column;gap:10px">

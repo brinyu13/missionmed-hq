@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "policyId": "rise-entitlements-2026-08-28",
+  "core": {
+    "requiredCapability": "rise:read",
+    "grantRule": "authenticated MissionMed learner session with audience rise",
+    "default": "deny"
+  },
+  "premium": {
+    "requiredCapability": "rise:premium",
+    "default": "deny",
+    "mappingStatus": "unresolved_fail_closed",
+    "notes": "No current production entitlement identifier has been approved to mint rise:premium. Product labels alone do not grant access."
+  },
+  "observedCurrentProducts": {
+    "missionResidency360": {
+      "courseId": 3893,
+      "meaning": "current Matrix course shell identifier; does not grant RISE premium"
+    },
+    "matchPrepPro": {
+      "labelObserved": true,
+      "technicalIdentifier": null
+    },
+    "interviewPrepComplete": {
+      "labelObserved": false,
+      "technicalIdentifier": null
+    }
+  },
+  "deferredPremiumFeatures": [
+    "resident atomic detail",
+    "advanced people and outcomes depth",
+    "Mission Alumni Connections",
+    "Letter of Interest",
+    "Match Bridge",
+    "RankList IQ"
+  ]
+}

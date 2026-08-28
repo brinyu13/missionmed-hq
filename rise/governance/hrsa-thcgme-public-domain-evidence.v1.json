@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "source": "HRSA THCGME",
+  "agency": "U.S. Health Resources and Services Administration",
+  "awardeeSourceUrl": "https://bhw.hrsa.gov/funding/apply-grant/teaching-health-center-graduate-medical-education/ay2025-2026-awardees",
+  "programContextUrl": "https://bhw.hrsa.gov/programs/teaching-health-center-graduate-medical-education-program-thcgme/faq",
+  "publicDomainPolicyUrl": "https://mchb.hrsa.gov/national-maternal-mental-health-hotline/order-faq",
+  "reviewedAt": "2026-08-28T00:00:00.000Z",
+  "classification": "government_public_domain_factual_projection",
+  "decisionBoundary": "Only the four normalized factual columns grantee, city, state, and specialty are included. Narrative, design, logos, images, award amount, identifiers, and third-party content are excluded.",
+  "legalStatus": "technical release-governance classification; not legal advice",
+  "attributionRequired": true,
+  "endorsementProhibited": true
+}

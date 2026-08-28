@@ -7,6 +7,8 @@
 !src/**
 !adapters/
 !adapters/**
+!releases/
+!releases/**
 !tools/
 !tools/build-app.mjs
 !tools/prepare-runtime.mjs

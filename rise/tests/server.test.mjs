@@ -22,6 +22,14 @@ function durableStudentStore() {
   return { ...createMemoryStudentStore(), scope: "durable_private" };
 }
 
+function canonicalMatrixProfileAdapter() {
+  return {
+    scope: "canonical_matrix_owner_transport",
+    async read() { return { profile: {} }; },
+    async write() { return { profile: {}, canonicalReadback: true }; },
+  };
+}
+
 function authenticatedSession(overrides = {}) {
   const subject = String(overrides.subject ?? "test-subject");
   return {
@@ -479,6 +487,7 @@ test("production requires a shared durable abuse controller", () => {
     production: true,
     expectedSourceAuthorizationSha256s: source.authorizationSha256,
     studentStore: durableStudentStore(),
+    matrixProfileAdapter: canonicalMatrixProfileAdapter(),
   };
   assert.throws(() => createRiseServer(options), /shared durable abuse controller/);
   const abuseController = {
@@ -535,6 +544,7 @@ test("production source rights fail closed after activation when the live decisi
         return current ? { current: true, decisionId: "source-rights-live-test" } : false;
       },
     },
+    matrixProfileAdapter: canonicalMatrixProfileAdapter(),
     logger: { info(entry) { logs.push(entry); }, error() {} },
   });
   await new Promise((resolve) => guarded.listen(0, "127.0.0.1", resolve));

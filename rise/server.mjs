@@ -343,24 +343,18 @@ const PRODUCTION_REQUIRED_ENVIRONMENT = [
   "RISE_SESSION_BINDING_HMAC_KEY",
   "RISE_AUDIT_HMAC_KEY",
   "RISE_ABUSE_ADAPTER_MODULE",
-  "RISE_ABUSE_CONTROL_URL",
-  "RISE_ABUSE_CONTROL_TOKEN",
   "RISE_SOURCE_RIGHTS_ADAPTER_MODULE",
-  "RISE_SOURCE_RIGHTS_CONTROL_URL",
-  "RISE_SOURCE_RIGHTS_CONTROL_TOKEN",
   "RISE_STUDENT_STATE_ADAPTER_MODULE",
-  "RISE_STUDENT_STATE_CONTROL_URL",
-  "RISE_STUDENT_STATE_CONTROL_TOKEN",
   "RISE_STUDENT_STATE_SUBJECT_HMAC_KEY",
-  "RISE_ARTIFACT_ORIGIN",
-  "RISE_ARTIFACT_BEARER_TOKEN",
-  "RISE_INDEX_URL",
+  "RISE_MATRIX_PROFILE_ADAPTER_MODULE",
+  "RISE_MATRIX_PROFILE_URL",
+  "RISE_DATABASE_URL",
+  "RISE_DATABASE_SSL_MODE",
+  "RISE_ARTIFACT_MODE",
   "RISE_INDEX_PATH",
   "RISE_INDEX_SHA256",
-  "RISE_INDEX_MANIFEST_URL",
   "RISE_INDEX_MANIFEST_PATH",
   "RISE_INDEX_MANIFEST_SHA256",
-  "RISE_ACTIVATION_RECEIPT_URL",
   "RISE_ACTIVATION_RECEIPT_PATH",
   "RISE_ACTIVATION_RECEIPT_SHA256",
   "RISE_SOURCE_AUTHORIZATION_SHA256S",
@@ -378,11 +372,18 @@ export function validateProductionEnvironment(environment = process.env) {
   if (environment.RISE_AUTH_MODE !== "injected") {
     throw new Error("Production RISE requires RISE_AUTH_MODE=injected");
   }
+  if (environment.RISE_ARTIFACT_MODE !== "bundled") {
+    throw new Error("Production RISE requires immutable bundled artifacts");
+  }
+  if (environment.RISE_DATABASE_SSL_MODE !== "require") {
+    throw new Error("Production RISE requires RISE_DATABASE_SSL_MODE=require");
+  }
   for (const name of [
     "RISE_ALLOW_INSECURE_LOOPBACK_AUTH",
     "RISE_ALLOW_INSECURE_LOOPBACK_ABUSE",
     "RISE_ALLOW_INSECURE_LOOPBACK_SOURCE_RIGHTS",
     "RISE_ALLOW_INSECURE_LOOPBACK_STUDENT_STATE",
+    "RISE_ALLOW_INSECURE_LOOPBACK_MATRIX_PROFILE",
     "RISE_ALLOW_INSECURE_LOOPBACK_ARTIFACTS",
   ]) {
     if (environment[name] === "true") throw new Error(`${name} is prohibited in production`);
@@ -390,14 +391,18 @@ export function validateProductionEnvironment(environment = process.env) {
   for (const name of ["RISE_INDEX_SHA256", "RISE_INDEX_MANIFEST_SHA256", "RISE_ACTIVATION_RECEIPT_SHA256", "RISE_ASSET_MANIFEST_SHA256"]) {
     if (!/^[a-f0-9]{64}$/.test(environment[name])) throw new Error(`${name} must be a lowercase SHA-256`);
   }
-  for (const name of ["RISE_AUTH_ADAPTER_MODULE", "RISE_ABUSE_ADAPTER_MODULE", "RISE_SOURCE_RIGHTS_ADAPTER_MODULE", "RISE_STUDENT_STATE_ADAPTER_MODULE", "RISE_INDEX_PATH", "RISE_INDEX_MANIFEST_PATH", "RISE_ACTIVATION_RECEIPT_PATH"]) {
+  for (const name of ["RISE_AUTH_ADAPTER_MODULE", "RISE_ABUSE_ADAPTER_MODULE", "RISE_SOURCE_RIGHTS_ADAPTER_MODULE", "RISE_STUDENT_STATE_ADAPTER_MODULE", "RISE_MATRIX_PROFILE_ADAPTER_MODULE", "RISE_INDEX_PATH", "RISE_INDEX_MANIFEST_PATH", "RISE_ACTIVATION_RECEIPT_PATH"]) {
     if (!path.isAbsolute(environment[name])) throw new Error(`${name} must be an absolute path`);
   }
   for (const [name, expected] of Object.entries({
     RISE_AUTH_ADAPTER_MODULE: "/app/adapters/hq-auth.mjs",
-    RISE_ABUSE_ADAPTER_MODULE: "/app/adapters/http-abuse.mjs",
-    RISE_SOURCE_RIGHTS_ADAPTER_MODULE: "/app/adapters/http-source-rights.mjs",
-    RISE_STUDENT_STATE_ADAPTER_MODULE: "/app/adapters/http-student-state.mjs",
+    RISE_ABUSE_ADAPTER_MODULE: "/app/adapters/postgres-runtime.mjs",
+    RISE_SOURCE_RIGHTS_ADAPTER_MODULE: "/app/adapters/postgres-runtime.mjs",
+    RISE_STUDENT_STATE_ADAPTER_MODULE: "/app/adapters/postgres-runtime.mjs",
+    RISE_MATRIX_PROFILE_ADAPTER_MODULE: "/app/adapters/http-matrix-profile.mjs",
+    RISE_INDEX_PATH: "/app/releases/student-rights-safe/api-index.json",
+    RISE_INDEX_MANIFEST_PATH: "/app/releases/student-rights-safe/index-manifest.json",
+    RISE_ACTIVATION_RECEIPT_PATH: "/app/releases/student-rights-safe/activation-receipt.json",
   })) {
     if (environment[name] !== expected) throw new Error(`${name} must be ${expected}`);
   }
@@ -405,15 +410,21 @@ export function validateProductionEnvironment(environment = process.env) {
   const authIssuer = new URL(environment.RISE_AUTH_ISSUER);
   const hqSessionUrl = new URL(environment.RISE_HQ_AUTH_SESSION_URL);
   const loginUrl = new URL(environment.RISE_LOGIN_URL);
-  const studentStateUrl = new URL(environment.RISE_STUDENT_STATE_CONTROL_URL);
+  const matrixProfileUrl = new URL(environment.RISE_MATRIX_PROFILE_URL);
+  const databaseUrl = new URL(environment.RISE_DATABASE_URL);
   if (
     publicOrigin.protocol !== "https:" || publicOrigin.pathname !== "/" || publicOrigin.search || publicOrigin.hash ||
     authIssuer.protocol !== "https:" || authIssuer.href !== `${authIssuer.origin}/` ||
     hqSessionUrl.protocol !== "https:" || hqSessionUrl.origin !== authIssuer.origin || hqSessionUrl.pathname !== "/api/auth/session" ||
-    loginUrl.protocol !== "https:" || loginUrl.origin !== authIssuer.origin ||
+    loginUrl.protocol !== "https:" || loginUrl.origin !== publicOrigin.origin ||
+    loginUrl.pathname !== "/wp-admin/admin-post.php" ||
+    loginUrl.searchParams.get("action") !== "mmed_rise_auth_redirect" ||
+    [...loginUrl.searchParams.keys()].some((key) => key !== "action") ||
     loginUrl.username || loginUrl.password || loginUrl.hash ||
-    studentStateUrl.protocol !== "https:" || studentStateUrl.username || studentStateUrl.password ||
-    studentStateUrl.search || studentStateUrl.hash
+    matrixProfileUrl.protocol !== "https:" || matrixProfileUrl.origin !== publicOrigin.origin ||
+    matrixProfileUrl.pathname !== "/wp-json/mmed/v1/profile/me" || matrixProfileUrl.search || matrixProfileUrl.hash ||
+    !new Set(["postgres:", "postgresql:"]).has(databaseUrl.protocol) ||
+    !databaseUrl.hostname || !databaseUrl.username || !databaseUrl.password
   ) {
     throw new Error("RISE public-origin and HQ-auth topology is invalid");
   }
@@ -667,6 +678,21 @@ function resolveSourceRightsController(controller, { production }) {
   return controller;
 }
 
+function resolveMatrixProfileAdapter(adapter, { production }) {
+  if (!adapter) {
+    if (production) throw new Error("Production RISE requires the canonical Matrix profile adapter");
+    return null;
+  }
+  if (
+    adapter.scope !== "canonical_matrix_owner_transport" ||
+    typeof adapter.read !== "function" ||
+    typeof adapter.write !== "function"
+  ) {
+    throw new Error("RISE Matrix profile adapter must provide canonical read() and write() transport");
+  }
+  return adapter;
+}
+
 async function serveStatic(request, requestPath, response, webDirectory, requestId) {
   let relative = requestPath === "/rise/" || requestPath === "/rise" ? "index.html" : requestPath.slice("/rise/".length);
   if (requestPath === "/rise/vendor/lucide.js") {
@@ -739,6 +765,7 @@ export function createRiseServer({
   abuseController,
   sourceRightsController,
   studentStore,
+  matrixProfileAdapter,
   logger = createJsonLogger(),
 } = {}) {
   if (!registryIndex?.programs || !registryIndex?.registryReleaseId) {
@@ -771,6 +798,7 @@ export function createRiseServer({
     ? null
     : resolveSourceRightsController(sourceRightsController, { production });
   const studentPrograms = resolveStudentStore(studentStore, { production });
+  const matrixProfile = resolveMatrixProfileAdapter(matrixProfileAdapter, { production });
   const authorizationSha256s = registryIndex.releaseGate?.sourceRights?.map((right) => right.sha256) ?? [];
   async function assertLiveSourceRights() {
     if (syntheticTestFixture) return true;
@@ -919,8 +947,8 @@ export function createRiseServer({
           environment,
           activationDecisionRecordId: registryIndex.activationReceipt?.decisionRecordId ?? null,
           integrations: {
-            matrix: "disabled",
-            matrixProfile: "disabled",
+            matrix: matrixProfile ? "canonical_owner_transport" : "disabled",
+            matrixProfile: matrixProfile ? "read_write" : "disabled",
             fileVault: "disabled",
             rankListIq: "disabled",
             researchFactory: "disabled",
@@ -984,10 +1012,26 @@ export function createRiseServer({
         sendJson(response, 200, { record }, { requestId });
         return;
       }
-      if (request.method === "GET" && url.pathname === "/api/rise/v1/me/profile") {
-        status = 409;
-        apiError(response, 409, "MATRIX_PROFILE_UNAVAILABLE",
-          "No authorized canonical Matrix profile adapter is configured for this release", requestId);
+      if (url.pathname === "/api/rise/v1/me/profile" && (request.method === "GET" || request.method === "POST")) {
+        if (!matrixProfile) {
+          status = 409;
+          apiError(response, 409, "MATRIX_PROFILE_UNAVAILABLE",
+            "No authorized canonical Matrix profile adapter is configured for this release", requestId);
+          return;
+        }
+        const payload = request.method === "GET"
+          ? await matrixProfile.read({ request, subject: session.subject })
+          : await (async () => {
+            const body = await readBody(request);
+            return matrixProfile.write({
+              request,
+              subject: session.subject,
+              profile: body.profile,
+              markComplete: body.mark_complete === true,
+            });
+          })();
+        status = 200;
+        sendJson(response, 200, payload, { cache: "no-store", requestId });
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/programs/catalog") {
@@ -1096,6 +1140,18 @@ export function createRiseServer({
       } else if (error.code === "SOURCE_RIGHTS_UNAVAILABLE") {
         status = 503;
         apiError(response, 503, error.code, "Current registry source rights could not be verified", requestId);
+      } else if (error.code === "MATRIX_AUTH_REQUIRED" || error.code === "MATRIX_AUTH_REJECTED") {
+        status = 401;
+        apiError(response, 401, error.code, "Canonical Matrix authentication is required", requestId);
+      } else if (error.code === "MATRIX_SUBJECT_INVALID" || error.code === "MATRIX_SUBJECT_MISMATCH") {
+        status = 403;
+        apiError(response, 403, error.code, "Canonical Matrix subject binding failed", requestId);
+      } else if (error.code === "MATRIX_PROFILE_INVALID") {
+        status = 400;
+        apiError(response, 400, error.code, error.message, requestId);
+      } else if (error.code === "MATRIX_PROFILE_UPSTREAM_UNAVAILABLE" || error.code === "MATRIX_PROFILE_UPSTREAM_REJECTED") {
+        status = 503;
+        apiError(response, 503, error.code, "Canonical Matrix profile owner is unavailable", requestId);
       } else {
         status = 500;
         logger.error?.({ event: "rise_request_error", requestId, message: error.message });
@@ -1262,6 +1318,7 @@ export async function startFromEnvironment() {
   let abuseController;
   let sourceRightsController;
   let studentStore;
+  let matrixProfileAdapter;
   if (authMode === "injected") {
     const adapterPath = process.env.RISE_AUTH_ADAPTER_MODULE;
     if (!adapterPath) throw new Error("RISE_AUTH_ADAPTER_MODULE is required for injected authentication");
@@ -1295,6 +1352,14 @@ export async function startFromEnvironment() {
     }
     studentStore = await adapter.createRiseStudentStore();
   }
+  const matrixProfileAdapterPath = process.env.RISE_MATRIX_PROFILE_ADAPTER_MODULE;
+  if (matrixProfileAdapterPath) {
+    const adapter = await import(pathToFileURL(path.resolve(matrixProfileAdapterPath)).href);
+    if (typeof adapter.createMatrixProfileAdapter !== "function") {
+      throw new Error("RISE Matrix profile adapter must export createMatrixProfileAdapter()");
+    }
+    matrixProfileAdapter = adapter.createMatrixProfileAdapter();
+  }
   if (production && index.dataClassification !== "synthetic_test_fixture") {
     const current = await sourceRightsController?.assertCurrent({
       registryReleaseId: index.registryReleaseId,
@@ -1322,6 +1387,7 @@ export async function startFromEnvironment() {
     abuseController,
     sourceRightsController,
     studentStore,
+    matrixProfileAdapter,
     buildId: webBuild.buildId,
     production,
   });

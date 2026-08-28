@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "source": "HRSA THCGME",
+  "title": "Teaching Health Center Graduate Medical Education (THCGME) Academic Year 2025-2026 Awardees",
+  "sourceUrl": "https://bhw.hrsa.gov/funding/apply-grant/teaching-health-center-graduate-medical-education/ay2025-2026-awardees",
+  "programContextUrl": "https://bhw.hrsa.gov/programs/teaching-health-center-graduate-medical-education-program-thcgme/faq",
+  "retrievedAt": "2026-08-28",
+  "permittedProjection": [
+    "grantee",
+    "city",
+    "state",
+    "specialty"
+  ],
+  "excludedFromStudentProjection": [
+    "award_amount",
+    "narrative_copy",
+    "logos",
+    "photos",
+    "ACGME_ID",
+    "official_program_url"
+  ],
+  "records": [
+    ["Cahaba Medical Care Foundation", "Centreville", "AL", "Psychiatry"],
+    ["Regional Center for Border Health, Inc.", "Somerton", "AZ", "Family Medicine"],
+    ["El Rio Santa Cruz Neighborhood Health Center", "Tucson", "AZ", "Family Medicine"],
+    ["El Rio Santa Cruz Neighborhood Health Center", "Tucson", "AZ", "Psychiatry"],
+    ["Clinica Sierra Vista", "Bakersfield", "CA", "Family Medicine"],
+    ["United Health Centers of the San Joaquin Valley", "Fresno", "CA", "Internal Medicine"],
+    ["Central Neighborhood Health Foundation", "Los Angeles", "CA", "Family Medicine"],
+    ["Family Health Centers of San Diego, Inc.", "San Diego", "CA", "Family Medicine"],
+    ["Ehab Yacoub, M.D., Inc.", "Van Nuys", "CA", "Psychiatry"],
+    ["Community Health Centers Of Pinellas, Inc.", "Clearwater", "FL", "Family Medicine"],
+    ["Banyan Community Health Center, Inc.", "Doral", "FL", "Psychiatry"],
+    ["Prime Healthcare Foundation - Southern Regional, LLC", "Riverdale", "GA", "Internal Medicine"],
+    ["Waianae District Comprehensive Health and Hospital Board, Inc.", "Waianae", "HI", "Family Medicine"],
+    ["Marillac Community Health Centers", "New Orleans", "LA", "Family Medicine"],
+    ["Medstar Health Research Institute, Inc.", "Hyattsville", "MD", "Family Medicine"],
+    ["Advocates for a Healthy Community, Inc.", "Springfield", "MO", "Family Medicine"],
+    ["Syracuse Community Health Center, Inc.", "Syracuse", "NY", "Family Medicine"],
+    ["The Wright Center for Graduate Medical Education (HealthSource)", "Hillsboro", "OH", "Family Medicine"],
+    ["Great Salt Plains Health Center", "Cherokee", "OK", "Family Medicine"],
+    ["Osteopathic Medical Education Consortium Of Oklahoma, Inc.", "Tulsa", "OK", "Family Medicine"],
+    ["The Wright Center for Graduate Medical Education", "Scranton", "PA", "Family Medicine"],
+    ["Ibn Sina Foundation, Inc.", "Houston", "TX", "Family Medicine"],
+    ["Barrio Comprehensive Family Health Care Center, Inc.", "San Antonio", "TX", "Family Medicine"],
+    ["Community Health Centers, Inc.", "West Valley City", "UT", "Family Medicine"],
+    ["Healthpoint", "Renton", "WA", "Family Medicine"],
+    ["Yakima Valley Farm Workers Clinic", "Toppenish", "WA", "Family Medicine"]
+  ]
+}

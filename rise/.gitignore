@@ -1,0 +1,3 @@
+dist/
+!governance/FIELD_PROVENANCE_AUDIT.csv
+!governance/RIGHTS_REVIEW_REQUIRED.csv

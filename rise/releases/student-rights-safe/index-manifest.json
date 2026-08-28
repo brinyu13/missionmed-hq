@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "indexId": "rise_index_rise_rights_safe_hrsa_20260828_716fceb7d0ac",
+  "immutable": true,
+  "builderVersion": "rise-rights-safe-release/1.0.0",
+  "registryReleaseId": "rise_rights_safe_hrsa_20260828_716fceb7d0ac",
+  "registryContentSha256": "716fceb7d0ac50bb8599b75d573f8a1f717793fca15679899edf73b7ec9e10a3",
+  "dataClassification": "source_controlled_registry",
+  "releaseProjection": "STUDENT_RIGHTS_SAFE_RISE",
+  "sourceRightsApproved": true,
+  "sourceRights": [
+    {
+      "source": "HRSA THCGME",
+      "status": "approved",
+      "sha256": "583cf5c8ba4bc1cd655ae9a40f64ed2ff43e995f083cd5ee8b8b79741630dfd0",
+      "sourceOwnerGrantSha256": "6ad77fbd436f988cf9cab6bc3cea214c63e5382dbd610cb54735e7a0fedbc76e",
+      "sourceOwnerGrantBytesVerified": true,
+      "authorizationId": "rise-auth-hrsa-thcgme-public-domain-v1",
+      "decisionRecordId": "P1-RISE-5005-HRSA-PUBLIC-FACT-PROJECTION",
+      "validThrough": "2027-08-28T23:59:59.999Z"
+    }
+  ],
+  "programCount": 26,
+  "selectedFieldCount": 0,
+  "rightsBlockedFieldCount": 196,
+  "apiIndexSha256": "119982e51d38e4294bb05bf33122718ec76275736b233f4ddd7d21aca5765486"
+}

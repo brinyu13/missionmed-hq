@@ -24,7 +24,9 @@ RUN rm -rf /usr/local/lib/node_modules/npm \
 COPY server.mjs ./server.mjs
 COPY src ./src
 COPY adapters ./adapters
+COPY releases ./releases
 COPY tools/prepare-runtime.mjs tools/start-production.mjs ./tools/
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 USER node
 EXPOSE 4177

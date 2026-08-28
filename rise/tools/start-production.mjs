@@ -3,5 +3,5 @@ import { prepareRuntimeArtifacts } from "./prepare-runtime.mjs";
 import { isProductionEnvironment, startFromEnvironment, validateProductionEnvironment } from "../server.mjs";
 
 if (isProductionEnvironment()) validateProductionEnvironment();
-await prepareRuntimeArtifacts();
+if (process.env.RISE_ARTIFACT_MODE !== "bundled") await prepareRuntimeArtifacts();
 await startFromEnvironment();
