@@ -228,10 +228,10 @@ const PRODUCTION_CATALOG = Object.freeze({
   definers: DR133_PRODUCTION_APPROVED_DEFINERS,
   appExecutableDefiners: DR133_PRODUCTION_APP_DEFINERS,
   appFunctionPrivileges: functionPrivileges(DR133_PRODUCTION_APP_DEFINERS),
-  appRelationPrivileges: Object.freeze([
-    ...APP_RELATION_PRIVILEGES,
-    'private_artifact_versions:SELECT:false',
-  ].sort()),
+  // The encrypted private-storage table is reachable only through the two
+  // command-owner SECURITY DEFINER functions. The application role must never
+  // acquire a direct table grant, including SELECT.
+  appRelationPrivileges: APP_RELATION_PRIVILEGES,
 });
 
 const RESOLUTION_GUCS_SQL = `SELECT
@@ -319,9 +319,7 @@ const REVOKE_MENTOR_SQL = `SELECT ${SCHEMA}.revoke_mentor_case_assignment(
 
 function readinessSql(target) {
   return `/* missionmed:dr133:lor-runtime-readiness-v2 */
-WITH ssl_session AS (
-  SELECT ssl FROM pg_catalog.pg_stat_ssl WHERE pid = pg_catalog.pg_backend_pid()
-), relation_inventory AS (
+WITH relation_inventory AS (
   SELECT class.oid AS relation_oid, class.relname::text AS relation_name,
     class.relrowsecurity, class.relforcerowsecurity
   FROM pg_catalog.pg_class AS class
@@ -520,13 +518,6 @@ WITH ssl_session AS (
 SELECT pg_catalog.current_database()::text AS database_name,
   (pg_catalog.current_setting('server_version_num')::integer / 10000) AS postgres_major,
   current_user::text AS current_user, session_user::text AS session_user,
-  (pg_catalog.inet_server_addr() IS NOT NULL AND (
-    pg_catalog.inet_server_addr() << pg_catalog.inet '10.0.0.0/8'
-    OR pg_catalog.inet_server_addr() << pg_catalog.inet '172.16.0.0/12'
-    OR pg_catalog.inet_server_addr() << pg_catalog.inet '192.168.0.0/16'
-    OR pg_catalog.inet_server_addr() << pg_catalog.inet '100.64.0.0/10'
-    OR pg_catalog.inet_server_addr() << pg_catalog.inet 'fc00::/7')) AS private_server_address,
-  (pg_catalog.current_setting('ssl') = 'on' AND COALESCE(ssl_session.ssl, false)) AS ssl_active,
   pg_catalog.obj_description(namespace.oid, 'pg_namespace') AS schema_sentinel,
   pg_catalog.pg_get_userbyid(namespace.nspowner)::text AS schema_owner,
   (SELECT COALESCE(pg_catalog.array_agg(relation_name ORDER BY relation_name COLLATE "C"),
@@ -628,8 +619,64 @@ SELECT pg_catalog.current_database()::text AS database_name,
   NOT pg_catalog.has_schema_privilege('${target.runtimeLogin}', '${SCHEMA}', 'CREATE')
     AS runtime_schema_create_denied,
   pg_catalog.has_schema_privilege('${APP_ROLE}', '${SCHEMA}', 'USAGE') AS app_schema_usage
-FROM pg_catalog.pg_namespace AS namespace LEFT JOIN ssl_session ON true
+FROM pg_catalog.pg_namespace AS namespace
 WHERE namespace.nspname = '${SCHEMA}'`;
+}
+
+const TRANSPORT_READINESS_SQL = `/* missionmed:dr133:lor-runtime-transport-readiness-v1 */
+SELECT pg_catalog.current_database()::text AS database_name,
+  (pg_catalog.current_setting('server_version_num')::integer / 10000) AS postgres_major,
+  current_user::text AS current_user, session_user::text AS session_user,
+  (pg_catalog.inet_server_addr() IS NOT NULL AND (
+    pg_catalog.inet_server_addr() << pg_catalog.inet '10.0.0.0/8'
+    OR pg_catalog.inet_server_addr() << pg_catalog.inet '172.16.0.0/12'
+    OR pg_catalog.inet_server_addr() << pg_catalog.inet '192.168.0.0/16'
+    OR pg_catalog.inet_server_addr() << pg_catalog.inet '100.64.0.0/10'
+    OR pg_catalog.inet_server_addr() << pg_catalog.inet 'fc00::/7')) AS private_server_address,
+  (pg_catalog.current_setting('ssl') = 'on' AND COALESCE((
+    SELECT ssl FROM pg_catalog.pg_stat_ssl WHERE pid = pg_catalog.pg_backend_pid()
+  ), false)) AS ssl_active`;
+const TRANSPORT_READINESS_QUERY_TIMEOUT_MILLISECONDS = 5_000;
+
+async function probePrivateTlsTarget(pool, target) {
+  let client = null;
+  let destroyConnection = false;
+  let ready = false;
+  try {
+    client = await pool.connect();
+    const result = await client.query({
+      text: TRANSPORT_READINESS_SQL,
+      values: [],
+      query_timeout: TRANSPORT_READINESS_QUERY_TIMEOUT_MILLISECONDS,
+    });
+    const row = Array.isArray(result?.rows) && result.rows.length === 1
+      ? result.rows[0] : null;
+    ready = Boolean(
+      row
+      && row.database_name === target.databaseName
+      && [16, 18].includes(row.postgres_major)
+      && row.current_user === target.runtimeLogin
+      && row.session_user === target.runtimeLogin
+      && row.private_server_address === true
+      && row.ssl_active === true
+    );
+    // A client whose session identity or transport cannot be positively
+    // attested is not safe to return to the shared pool.
+    destroyConnection = !ready;
+  } catch {
+    destroyConnection = true;
+    ready = false;
+  } finally {
+    if (client) {
+      try {
+        if (destroyConnection) client.release(true);
+        else client.release();
+      } catch {
+        ready = false;
+      }
+    }
+  }
+  return ready;
 }
 
 function disabled(status) {
@@ -1310,7 +1357,7 @@ function safeReadiness(checks, reasonCode) {
     groups: groupedReadiness(frozen),
   });
 }
-function readinessFor(executor, health, target, catalog) {
+function readinessFor(executor, health, target, catalog, pool) {
   const targetReadinessSql = readinessSql(target);
   const allFalse = () => ({
     runtimeIdentity: false, privateTlsTarget: false, applicationRole: false,
@@ -1322,17 +1369,28 @@ function readinessFor(executor, health, target, catalog) {
   const readiness = Object.freeze({
     async probe() {
       if (!health.mayProbe()) return safeReadiness(allFalse(), 'DATABASE_UNAVAILABLE');
+      // pg_stat_ssl redacts its current-session row after SET LOCAL ROLE switches
+      // to the no-login application role. Prove the exact runtime login, private
+      // address, and live TLS session before entering the least-privilege catalog
+      // transaction, then keep every catalog query under lor_studio_app.
+      if (!await probePrivateTlsTarget(pool, target)) {
+        health.markUnavailable();
+        return safeReadiness(allFalse(), 'DATABASE_UNAVAILABLE');
+      }
       try {
         const row = await transaction(executor, async (tx) => {
           const result = await tx.execute(statement('lor_runtime_readiness', targetReadinessSql));
           return result.rows.length === 1 ? result.rows[0] : null;
         });
-        if (!row) return safeReadiness(allFalse(), 'CATALOG_FINGERPRINT_MISMATCH');
+        if (!row) {
+          health.markUnavailable();
+          return safeReadiness(allFalse(), 'CATALOG_FINGERPRINT_MISMATCH');
+        }
         const checks = {
           runtimeIdentity: row.database_name === target.databaseName
             && [16, 18].includes(row.postgres_major)
             && row.session_user === target.runtimeLogin,
-          privateTlsTarget: row.private_server_address === true && row.ssl_active === true,
+          privateTlsTarget: true,
           applicationRole: row.current_user === APP_ROLE,
           targetSentinel: row.schema_sentinel === target.successorSentinel
             && row.schema_owner === target.databaseAdmin,
@@ -2298,7 +2356,7 @@ export function createProductionPostgresRuntimeDependencies(rawBinding, rawOptio
       candidateScopeProvider: candidateScopeProviderFor(isHealthy),
       actorResolver: actorResolverFor(executor, isHealthy),
       mentorAssignmentOperator,
-      readiness: readinessFor(executor, health, target, catalog), close,
+      readiness: readinessFor(executor, health, target, catalog, pool), close,
     });
   } catch (error) {
     if (pool && poolErrorListener && typeof pool.removeListener === 'function') {

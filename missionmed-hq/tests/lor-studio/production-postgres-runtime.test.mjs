@@ -105,14 +105,23 @@ const functionPrivileges = (definers) => [
   ...HELPER_FUNCTION_PRIVILEGES,
 ].map((identity) => `${identity}:EXECUTE:false`).sort();
 const APP_FUNCTION_PRIVILEGES = functionPrivileges(APP_EXECUTABLE_DEFINERS);
-const PRODUCTION_APP_RELATION_PRIVILEGES = [
-  ...APP_RELATION_PRIVILEGES,
-  'private_artifact_versions:SELECT:false',
-].sort();
+const PRODUCTION_APP_RELATION_PRIVILEGES = APP_RELATION_PRIVILEGES;
 const PRODUCTION_APP_FUNCTION_PRIVILEGES = functionPrivileges(DR133_PRODUCTION_APP_DEFINERS);
 
 function result(rows = []) {
   return { rows, fields: [] };
+}
+
+function transportReadinessRow(overrides = {}) {
+  return {
+    database_name: DR133_TARGET.databaseName,
+    postgres_major: 16,
+    current_user: DR133_RUNTIME_LOGIN,
+    session_user: DR133_RUNTIME_LOGIN,
+    private_server_address: true,
+    ssl_active: true,
+    ...overrides,
+  };
 }
 
 class FakePool {
@@ -151,11 +160,22 @@ class FakePool {
     return {
       async query(input) {
         pool.calls.push(input);
+        if (
+          typeof input !== 'string'
+          && input?.text?.includes('missionmed:dr133:lor-runtime-transport-readiness')
+        ) {
+          if (FakePool.behavior.transportQuery) {
+            return FakePool.behavior.transportQuery(input, pool);
+          }
+          return result([transportReadinessRow()]);
+        }
         if (FakePool.behavior.query) return FakePool.behavior.query(input, pool);
         return result();
       },
       release(...args) {
         pool.releases.push(args);
+        if (FakePool.behavior.release) return FakePool.behavior.release(args, pool);
+        return undefined;
       },
     };
   }
@@ -324,8 +344,6 @@ function readinessRow(overrides = {}) {
     postgres_major: 16,
     current_user: 'lor_studio_app',
     session_user: DR133_RUNTIME_LOGIN,
-    private_server_address: true,
-    ssl_active: true,
     schema_sentinel: schemaSentinel,
     schema_owner: DR133_TARGET.databaseAdmin,
     relation_names: [...relations].sort(),
@@ -1533,6 +1551,21 @@ test('readiness requires the exact DR-133 catalog fingerprint', async () => {
     repository: true,
     rls: true,
   });
+  assert.equal(FakePool.instances[0].connections, 2);
+  const transportQuery = queryObjects(FakePool.instances[0])[0];
+  assert.ok(transportQuery.text.includes('missionmed:dr133:lor-runtime-transport-readiness'));
+  assert.deepEqual(Object.keys(transportQuery).sort(), ['query_timeout', 'text', 'values']);
+  assert.equal(transportQuery.query_timeout, 5_000);
+  assert.deepEqual(transportQuery.values, []);
+  assert.equal(FakePool.instances[0].calls[1], 'BEGIN ISOLATION LEVEL READ COMMITTED');
+
+  // The catalog transaction executes after SET LOCAL ROLE lor_studio_app, where
+  // pg_stat_ssl redacts the runtime login's row. Transport readiness therefore
+  // comes only from the preceding session-user probe, never these catalog fields.
+  row = readinessRow({ private_server_address: false, ssl_active: false });
+  const redactedCatalogTransport = await dependencies.readiness.probe();
+  assert.equal(redactedCatalogTransport.ready, true);
+  assert.equal(redactedCatalogTransport.checks.privateTlsTarget, true);
 
   const drifts = [
     { postgres_major: 17 },
@@ -1572,6 +1605,68 @@ test('readiness requires the exact DR-133 catalog fingerprint', async () => {
   await dependencies.close();
 });
 
+test('readiness fails closed before catalog access when the session-user transport is not exact', async () => {
+  for (const drift of [
+    { database_name: 'postgres' },
+    { postgres_major: 17 },
+    { current_user: 'postgres' },
+    { session_user: 'postgres' },
+    { private_server_address: false },
+    { ssl_active: false },
+  ]) {
+    resetPool({
+      transportQuery() {
+        return result([transportReadinessRow(drift)]);
+      },
+      query() {
+        return assert.fail('catalog query must not run after transport rejection');
+      },
+    });
+    const dependencies = runtime();
+    const observed = await dependencies.readiness.probe();
+    assert.equal(observed.ready, false);
+    assert.equal(observed.reasonCode, 'DATABASE_UNAVAILABLE');
+    assert.equal(Object.values(observed.checks).every((value) => value === false), true);
+    assert.equal(FakePool.instances[0].connections, 1);
+    assert.deepEqual(FakePool.instances[0].releases, [[true]]);
+    await dependencies.close();
+  }
+});
+
+test('malformed transport cardinality is destroyed before catalog access', async () => {
+  for (const rows of [[], [transportReadinessRow(), transportReadinessRow()]]) {
+    resetPool({
+      transportQuery() { return result(rows); },
+      query() { return assert.fail('catalog query must not run after malformed transport receipt'); },
+    });
+    const dependencies = runtime();
+    const observed = await dependencies.readiness.probe();
+    assert.equal(observed.ready, false);
+    assert.equal(observed.reasonCode, 'DATABASE_UNAVAILABLE');
+    assert.deepEqual(FakePool.instances[0].releases, [[true]]);
+    await dependencies.close();
+  }
+});
+
+test('transport probe errors destroy the connection and never leak provider detail', async () => {
+  const secret = 'transport-provider-secret';
+  resetPool({
+    transportQuery() {
+      throw new Error(secret);
+    },
+    query() {
+      return assert.fail('catalog query must not run after transport failure');
+    },
+  });
+  const dependencies = runtime();
+  const observed = await dependencies.readiness.probe();
+  assert.equal(observed.ready, false);
+  assert.equal(observed.reasonCode, 'DATABASE_UNAVAILABLE');
+  assert.doesNotMatch(JSON.stringify(observed), new RegExp(secret, 'u'));
+  assert.deepEqual(FakePool.instances[0].releases, [[true]]);
+  await dependencies.close();
+});
+
 test('pool errors fail closed without leaking and recover only after an authenticated catalog re-probe', async () => {
   resetPool({
     query(input) {
@@ -1602,7 +1697,7 @@ test('pool errors fail closed without leaking and recover only after an authenti
   const readiness = await dependencies.readiness.probe();
   assert.equal(readiness.ready, true);
   assert.equal(readiness.reasonCode, 'READY');
-  assert.equal(pool.connections, 1);
+  assert.equal(pool.connections, 2);
 
   pool.emit('error', new Error(secret));
   FakePool.behavior.connectError = new Error(secret);

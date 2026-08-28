@@ -1210,31 +1210,40 @@ function uploadedDeploymentId(bytes) {
   if ((!legacy && !current)
     || typeof payload.deploymentId !== 'string'
     || !UUID.test(payload.deploymentId)
-    || (current && !validDeploymentLogsUrl(payload.logsUrl))) {
+    || (current && !validDeploymentLogsUrl(payload.logsUrl, payload.deploymentId))) {
     fail('DEPLOYMENT_UPLOAD_RECEIPT_INVALID', failure);
   }
   return payload.deploymentId;
 }
 
-function validDeploymentLogsUrl(value) {
+function validDeploymentLogsUrl(value, deploymentId) {
   if (typeof value !== 'string' || value.length > 2_048 || CONTROL.test(value)
-    || /\s/u.test(value) || value.includes('%') || value.includes('+')) return false;
+    || /\s/u.test(value) || value.includes('%') || value.includes('+')
+    || !UUID.test(deploymentId ?? '')) return false;
   const expectedPath = `/project/${DR133_TARGET.projectId}`
     + `/service/${DR133_TARGET.applicationServiceId}`;
   if (!value.startsWith(`${RAILWAY_DASHBOARD_ORIGIN}${expectedPath}?`)) return false;
+  // Existing-project uploads return Backboard's raw logs_url. Railway v5.30.4
+  // does not construct this URL and has emitted both an id-only form with a
+  // trailing ampersand and environment/id variants. Accept only the six exact
+  // observed/compatible query strings, all bound to this deployment and target.
+  const allowedSearches = new Set([
+    `?id=${deploymentId}`,
+    `?id=${deploymentId}&`,
+    `?environmentId=${DR133_TARGET.environmentId}&id=${deploymentId}`,
+    `?environmentId=${DR133_TARGET.environmentId}&id=${deploymentId}&`,
+    `?id=${deploymentId}&environmentId=${DR133_TARGET.environmentId}`,
+    `?id=${deploymentId}&environmentId=${DR133_TARGET.environmentId}&`,
+  ]);
   try {
     const url = new URL(value);
-    const entries = [...url.searchParams.entries()];
     return url.protocol === 'https:'
       && url.host === 'railway.com'
       && url.username === ''
       && url.password === ''
       && url.pathname === expectedPath
       && url.hash === ''
-      && entries.length === 1
-      && url.searchParams.getAll('environmentId').length === 1
-      && url.searchParams.get('environmentId') === DR133_TARGET.environmentId
-      && entries.every(([key]) => key === 'environmentId');
+      && allowedSearches.has(url.search);
   } catch {
     return false;
   }

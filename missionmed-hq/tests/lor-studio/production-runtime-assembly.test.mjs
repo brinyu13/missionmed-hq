@@ -75,10 +75,7 @@ const BASE_RELATION_PRIVILEGES = [
   'waiver_receipts:SELECT:false',
   'writer_depot_artifacts:SELECT:false',
 ];
-const APP_RELATION_PRIVILEGES = [
-  ...BASE_RELATION_PRIVILEGES,
-  'private_artifact_versions:SELECT:false',
-].sort();
+const APP_RELATION_PRIVILEGES = [...BASE_RELATION_PRIVILEGES].sort();
 const HELPER_FUNCTION_PRIVILEGES = [
   'ai_grounding_manifest_is_complete(jsonb)',
   'audit_event_is_metadata(jsonb)',
@@ -97,6 +94,18 @@ function result(rows = []) {
   return { rows, fields: [] };
 }
 
+function transportReadinessRow(overrides = {}) {
+  return {
+    database_name: DR133_TARGET.databaseName,
+    postgres_major: 18,
+    current_user: DR133_RUNTIME_LOGIN,
+    session_user: DR133_RUNTIME_LOGIN,
+    private_server_address: true,
+    ssl_active: true,
+    ...overrides,
+  };
+}
+
 class FakePool {
   static instances = [];
 
@@ -107,6 +116,8 @@ class FakePool {
     this.endCalls = 0;
     this.listeners = new Map();
     this.queries = [];
+    this.connections = 0;
+    this.releases = [];
     FakePool.instances.push(this);
   }
 
@@ -122,10 +133,14 @@ class FakePool {
 
   async connect() {
     const pool = this;
+    this.connections += 1;
     return {
       async query(input) {
         pool.queries.push(input);
         const text = typeof input === 'string' ? input : String(input?.text ?? '');
+        if (text.includes('missionmed:dr133:lor-runtime-transport-readiness')) {
+          return result([transportReadinessRow()]);
+        }
         if (text.includes('lor-runtime-readiness-v2')) return result([readinessRow()]);
         if (text.includes('resolve_lor_actor_case_access')) {
           return result([{ result: Object.freeze({
@@ -139,7 +154,7 @@ class FakePool {
         }
         return result();
       },
-      release() {},
+      release(...args) { pool.releases.push(args); },
     };
   }
 
@@ -227,8 +242,6 @@ function readinessRow(overrides = {}) {
     postgres_major: 18,
     current_user: 'lor_studio_app',
     session_user: DR133_RUNTIME_LOGIN,
-    private_server_address: true,
-    ssl_active: true,
     schema_sentinel: expectedDr133SuccessorSentinel(),
     schema_owner: DR133_TARGET.databaseAdmin,
     relation_names: [...DR133_RELATIONS].sort(),
@@ -422,6 +435,13 @@ test('assembles one production pool, exact nine live probes, shared flags, and a
   const assembled = await createProductionRuntimeAssembly(options);
 
   assert.equal(FakePool.instances.length, 1);
+  assert.equal(FakePool.instances[0].connections, 6);
+  assert.ok(
+    FakePool.instances[0].queries[0].text
+      .includes('missionmed:dr133:lor-runtime-transport-readiness'),
+  );
+  assert.equal(FakePool.instances[0].queries[1], 'BEGIN ISOLATION LEVEL READ COMMITTED');
+  assert.deepEqual(FakePool.instances[0].releases[0], []);
   assert.equal(Object.isFrozen(assembled), true);
   assert.deepEqual(Object.keys(assembled), [
     'composition',
