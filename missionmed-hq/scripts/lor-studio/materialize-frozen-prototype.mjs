@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { constants as fsConstants } from 'node:fs';
 import {
   lstat,
   mkdir,
@@ -11,6 +12,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const CANONICAL_PROTOTYPE_SHA256 = '8560559341895f2973c51bdf7d7ba28ba7a9890d70c6bc6eb5976fc67371e037';
+export const CANONICAL_PROTOTYPE_BYTES = 332807;
+export const CANONICAL_MATERIALIZED_OUTPUT_SHA256 = 'a9ac6af59acbacedf23d8603f43a90aa6209017ab9b4d1a19503b588f5e946f8';
+export const CANONICAL_MATERIALIZED_OUTPUT_BYTES = 333791;
 export const PRODUCTION_ADAPTER_VERSION = 7;
 export const PROTOTYPE_SOURCE_ENV_VAR = 'LOR_STUDIO_PROTOTYPE_SOURCE';
 
@@ -24,7 +28,22 @@ const defaultSource = '/Users/brianb/MissionMed/F2-LOR-1003-functional-prototype
 const defaultOutput = path.join(runtimeDirectory, 'public', 'lor-studio', 'index.html');
 const defaultManifest = path.join(runtimeDirectory, 'public', 'lor-studio', 'FROZEN_PRESENTATION_MANIFEST.json');
 const MISSING_SOURCE_CODES = new Set(['ENOENT', 'ENOTDIR', 'EISDIR']);
+const ABSENT_SOURCE_CODES = new Set(['ENOENT', 'ENOTDIR']);
 const MISSING_OUTPUT_CODES = new Set(['ENOENT', 'ENOTDIR']);
+const CANONICAL_SOURCE_NAME = 'F2-LOR-1003-functional-prototype.html';
+const SECURITY_TRANSFORMS = Object.freeze([
+  'toast_text_only',
+  'prototype_script_execution_quarantine',
+]);
+const EXPECTED_MANIFEST_KEYS = Object.freeze([
+  'adapterVersion',
+  'outputBytes',
+  'outputSha256',
+  'securityTransforms',
+  'sourceBytes',
+  'sourceName',
+  'sourceSha256',
+]);
 
 export function resolvePrototypeSource(environment = process.env) {
   const configured = environment[PROTOTYPE_SOURCE_ENV_VAR];
@@ -52,6 +71,126 @@ async function readPrototypeSource(sourcePath) {
 
 function digest(value) {
   return createHash('sha256').update(value).digest('hex');
+}
+
+function isConfiguredSource(environment) {
+  const configured = environment[PROTOTYPE_SOURCE_ENV_VAR];
+  return typeof configured === 'string' && configured.trim() !== '';
+}
+
+function isAbsentSourceError(error) {
+  return Boolean(
+    error
+    && ABSENT_SOURCE_CODES.has(error.cause?.code || error.code),
+  );
+}
+
+async function readCommittedRegularFile(targetPath, label) {
+  let handle;
+  try {
+    handle = await open(targetPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    const stat = await handle.stat();
+    if (!stat.isFile()) {
+      throw new Error(`Committed ${label} is not a regular file at ${targetPath}`);
+    }
+    return await handle.readFile();
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith(`Committed ${label}`)) {
+      throw error;
+    }
+    throw new Error(`Committed ${label} was not safely readable at ${targetPath}`, { cause: error });
+  } finally {
+    if (handle) await handle.close().catch(() => {});
+  }
+}
+
+function assertExactManifest(manifest) {
+  if (
+    manifest === null
+    || typeof manifest !== 'object'
+    || Array.isArray(manifest)
+    || Object.getPrototypeOf(manifest) !== Object.prototype
+  ) {
+    throw new Error('Committed frozen presentation manifest must be a plain JSON object.');
+  }
+  const keys = Object.keys(manifest).sort();
+  if (JSON.stringify(keys) !== JSON.stringify(EXPECTED_MANIFEST_KEYS)) {
+    throw new Error('Committed frozen presentation manifest has an unexpected shape.');
+  }
+  if (manifest.sourceName !== CANONICAL_SOURCE_NAME) {
+    throw new Error('Committed frozen presentation manifest source name mismatch.');
+  }
+  if (manifest.sourceSha256 !== CANONICAL_PROTOTYPE_SHA256) {
+    throw new Error('Committed frozen presentation manifest source digest mismatch.');
+  }
+  if (manifest.sourceBytes !== CANONICAL_PROTOTYPE_BYTES) {
+    throw new Error('Committed frozen presentation manifest source byte count mismatch.');
+  }
+  if (manifest.adapterVersion !== PRODUCTION_ADAPTER_VERSION) {
+    throw new Error('Committed frozen presentation manifest adapter version mismatch.');
+  }
+  if (manifest.outputSha256 !== CANONICAL_MATERIALIZED_OUTPUT_SHA256) {
+    throw new Error('Committed frozen presentation manifest output digest mismatch.');
+  }
+  if (manifest.outputBytes !== CANONICAL_MATERIALIZED_OUTPUT_BYTES) {
+    throw new Error('Committed frozen presentation manifest output byte count mismatch.');
+  }
+  if (
+    !Array.isArray(manifest.securityTransforms)
+    || manifest.securityTransforms.length !== SECURITY_TRANSFORMS.length
+    || manifest.securityTransforms.some((value, index) => value !== SECURITY_TRANSFORMS[index])
+  ) {
+    throw new Error('Committed frozen presentation manifest security transforms mismatch.');
+  }
+}
+
+function assertMaterializedSecurityMarkers(output) {
+  const expectedMarkers = [
+    `Frozen source SHA-256: ${CANONICAL_PROTOTYPE_SHA256}`,
+    `production-adapter.css?v=${PRODUCTION_ADAPTER_VERSION}`,
+    'id="lorRuntimeGate"',
+    FROZEN_SCRIPT_MARKER,
+    `production-projection-ui.js?v=${PRODUCTION_ADAPTER_VERSION}`,
+    `production-adapter.js?v=${PRODUCTION_ADAPTER_VERSION}`,
+    SAFE_TOAST_IMPLEMENTATION,
+  ];
+  for (const marker of expectedMarkers) {
+    if (!output.includes(marker)) {
+      throw new Error(`Committed materialized output is missing required security marker: ${marker}`);
+    }
+  }
+  if (output.indexOf(FROZEN_SCRIPT_MARKER) !== output.lastIndexOf(FROZEN_SCRIPT_MARKER)) {
+    throw new Error('Committed materialized output must contain exactly one quarantined prototype script marker.');
+  }
+  if (output.includes(UNSAFE_TOAST_IMPLEMENTATION)) {
+    throw new Error('Committed materialized output contains the unsafe toast implementation.');
+  }
+}
+
+export async function verifyCommittedMaterialization({
+  outputPath = defaultOutput,
+  manifestPath = defaultManifest,
+} = {}) {
+  const [output, manifestBytes] = await Promise.all([
+    readCommittedRegularFile(outputPath, 'materialized output'),
+    readCommittedRegularFile(manifestPath, 'frozen presentation manifest'),
+  ]);
+  let manifest;
+  try {
+    manifest = JSON.parse(manifestBytes.toString('utf8'));
+  } catch (error) {
+    throw new Error('Committed frozen presentation manifest is not valid JSON.', { cause: error });
+  }
+  assertExactManifest(manifest);
+  if (output.byteLength !== CANONICAL_MATERIALIZED_OUTPUT_BYTES) {
+    throw new Error('Committed materialized output byte count mismatch.');
+  }
+  const outputText = output.toString('utf8');
+  assertMaterializedSecurityMarkers(outputText);
+  if (digest(output) !== CANONICAL_MATERIALIZED_OUTPUT_SHA256) {
+    throw new Error('Committed materialized output digest mismatch.');
+  }
+  return { outputPath, manifestPath, ...manifest };
 }
 
 function replaceLast(value, needle, replacement) {
@@ -150,34 +289,56 @@ export function materializeFrozenPrototype(sourceHtml) {
 }
 
 export async function materialize({
-  sourcePath = resolvePrototypeSource(),
+  sourcePath,
   outputPath = defaultOutput,
   manifestPath = defaultManifest,
+  environment = process.env,
 } = {}) {
-  const source = await readPrototypeSource(sourcePath);
+  const implicitDefaultSource = sourcePath === undefined && !isConfiguredSource(environment);
+  const resolvedSourcePath = sourcePath === undefined
+    ? resolvePrototypeSource(environment)
+    : path.resolve(sourcePath);
+  let source;
+  try {
+    source = await readPrototypeSource(resolvedSourcePath);
+  } catch (error) {
+    if (!implicitDefaultSource || !isAbsentSourceError(error)) throw error;
+    const committed = await verifyCommittedMaterialization({ outputPath, manifestPath });
+    return {
+      sourcePath: resolvedSourcePath,
+      ...committed,
+      reusedCommittedMaterialization: true,
+    };
+  }
   const generated = materializeFrozenPrototype(source.toString('utf8'));
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeAtomicallyIfChanged(outputPath, generated);
   const result = {
-    sourceName: path.basename(sourcePath),
+    sourceName: path.basename(resolvedSourcePath),
     sourceSha256: digest(source),
     sourceBytes: source.byteLength,
     outputSha256: digest(generated),
     outputBytes: Buffer.byteLength(generated),
     adapterVersion: PRODUCTION_ADAPTER_VERSION,
-    securityTransforms: ['toast_text_only', 'prototype_script_execution_quarantine'],
+    securityTransforms: [...SECURITY_TRANSFORMS],
   };
   await mkdir(path.dirname(manifestPath), { recursive: true });
   await writeAtomicallyIfChanged(manifestPath, `${JSON.stringify(result, null, 2)}\n`);
-  return { sourcePath, outputPath, manifestPath, ...result };
+  return {
+    sourcePath: resolvedSourcePath,
+    outputPath,
+    manifestPath,
+    ...result,
+    reusedCommittedMaterialization: false,
+  };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   let result;
   try {
     result = await materialize({
-      sourcePath: process.argv[2] || resolvePrototypeSource(),
-      outputPath: process.argv[3] || defaultOutput,
+      sourcePath: process.argv.length > 2 ? process.argv[2] : undefined,
+      outputPath: process.argv.length > 3 ? process.argv[3] : undefined,
     });
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);

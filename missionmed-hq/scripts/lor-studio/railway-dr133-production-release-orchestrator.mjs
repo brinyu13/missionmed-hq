@@ -54,6 +54,7 @@ const DARK_CONTAINMENT_PROBES = Object.freeze([
 const REMOTE_PROBE_PATH =
   'missionmed-hq/scripts/lor-studio/run-dr133-railway-production-release-variable-probe.mjs';
 const REMOTE_NODE_BINARY = '/usr/local/bin/node';
+const RAILWAY_DASHBOARD_ORIGIN = 'https://railway.com';
 
 const RAILWAY_BINARY = '/opt/homebrew/Cellar/railway/5.30.4/bin/railway';
 const RAILWAY_BINARY_SHA256 =
@@ -1204,12 +1205,41 @@ async function waitForDeployment({
 function uploadedDeploymentId(bytes) {
   const failure = { mutationState: 'OUTCOME_UNKNOWN' };
   const payload = parseJsonBytes(bytes, 'DEPLOYMENT_UPLOAD_RECEIPT_INVALID', failure);
-  if (!exactKeys(payload, new Set(['deploymentId']))
+  const legacy = exactKeys(payload, new Set(['deploymentId']));
+  const current = exactKeys(payload, new Set(['deploymentId', 'logsUrl']));
+  if ((!legacy && !current)
     || typeof payload.deploymentId !== 'string'
-    || !UUID.test(payload.deploymentId)) {
+    || !UUID.test(payload.deploymentId)
+    || (current && !validDeploymentLogsUrl(payload.logsUrl, payload.deploymentId))) {
     fail('DEPLOYMENT_UPLOAD_RECEIPT_INVALID', failure);
   }
   return payload.deploymentId;
+}
+
+function validDeploymentLogsUrl(value, deploymentId) {
+  if (typeof value !== 'string' || value.length > 2_048 || CONTROL.test(value)
+    || /\s/u.test(value) || value.includes('%') || value.includes('+')) return false;
+  const expectedPath = `/project/${DR133_TARGET.projectId}`
+    + `/service/${DR133_TARGET.applicationServiceId}`;
+  if (!value.startsWith(`${RAILWAY_DASHBOARD_ORIGIN}${expectedPath}?`)) return false;
+  try {
+    const url = new URL(value);
+    const entries = [...url.searchParams.entries()];
+    return url.protocol === 'https:'
+      && url.host === 'railway.com'
+      && url.username === ''
+      && url.password === ''
+      && url.pathname === expectedPath
+      && url.hash === ''
+      && entries.length === 2
+      && url.searchParams.getAll('environmentId').length === 1
+      && url.searchParams.get('environmentId') === DR133_TARGET.environmentId
+      && url.searchParams.getAll('id').length === 1
+      && url.searchParams.get('id') === deploymentId
+      && entries.every(([key]) => key === 'environmentId' || key === 'id');
+  } catch {
+    return false;
+  }
 }
 
 export async function deployDr133ImmutableDarkCandidate({

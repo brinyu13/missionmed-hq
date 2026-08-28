@@ -175,6 +175,14 @@ function deployment(id, createdAt, { canRollback = false, status = 'SUCCESS' } =
   return { id, status, createdAt, canRollback };
 }
 
+function deploymentLogsUrl(id, { reversed = false } = {}) {
+  const base = `https://railway.com/project/${DR133_TARGET.projectId}`
+    + `/service/${DR133_TARGET.applicationServiceId}`;
+  const environment = `environmentId=${DR133_TARGET.environmentId}`;
+  const deploymentId = `id=${id}`;
+  return `${base}?${reversed ? `${deploymentId}&${environment}` : `${environment}&${deploymentId}`}`;
+}
+
 function deploymentListOutcome(records) {
   return outcome({
     data: {
@@ -684,7 +692,10 @@ test('immutable dark deploy requires dark flag hashes and uploads only a fixed c
         );
       }
       assert.equal(descriptor.args[0], 'up');
-      return outcome({ deploymentId: CANDIDATE_ID });
+      return outcome({
+        deploymentId: CANDIDATE_ID,
+        logsUrl: deploymentLogsUrl(CANDIDATE_ID),
+      });
     },
     async createArchive(options) {
       assert.equal(options.sourceCommit, PATH_B_FIXTURE_RELEASE_COMMIT);
@@ -713,15 +724,118 @@ test('immutable dark deploy requires dark flag hashes and uploads only a fixed c
   assert.equal(receipt.preimageDeploymentId, PREIMAGE_ID);
   assert.equal(receipt.candidateDeploymentId, CANDIDATE_ID);
   assert.equal(receipt.archiveSha256, 'b'.repeat(64));
+  assert.equal(JSON.stringify(receipt).includes('railway.com'), false);
+});
+
+test('immutable dark deploy preserves the exact legacy one-key upload receipt', async () => {
+  const before = deployment(PREIMAGE_ID, CREATED_PREIMAGE);
+  const candidate = deployment(CANDIDATE_ID, CREATED_CANDIDATE);
+  let listCalls = 0;
+  const receipt = await deployDr133ImmutableDarkCandidate({
+    sourceCommit: PATH_B_FIXTURE_RELEASE_COMMIT,
+    encodedExpectations: variableExpectations().encoded,
+    environment: { HOME: '/tmp/home', TMPDIR: '/tmp' },
+    clock: () => 0,
+    async sleep() {},
+    async commandRunner(descriptor) {
+      if (descriptor.args[0] === 'api') {
+        listCalls += 1;
+        return deploymentListOutcome(listCalls === 1 ? [before] : [candidate, before]);
+      }
+      assert.equal(descriptor.args[0], 'up');
+      return outcome({ deploymentId: CANDIDATE_ID });
+    },
+    async createArchive() {
+      return {
+        archiveSha256: 'b'.repeat(64),
+        treeSha256: 'c'.repeat(64),
+        fileCount: 321,
+        stageDirectory: '/tmp/f2-lor-dr133-release-test/stage',
+        async verify() { return true; },
+        async cleanup() { return true; },
+      };
+    },
+  });
+  assert.equal(receipt.candidateDeploymentId, CANDIDATE_ID);
+  assert.equal(listCalls, 2);
+});
+
+test('immutable dark deploy accepts the exact current receipt with query order reversed', async () => {
+  const before = deployment(PREIMAGE_ID, CREATED_PREIMAGE);
+  const candidate = deployment(CANDIDATE_ID, CREATED_CANDIDATE);
+  let listCalls = 0;
+  const receipt = await deployDr133ImmutableDarkCandidate({
+    sourceCommit: PATH_B_FIXTURE_RELEASE_COMMIT,
+    encodedExpectations: variableExpectations().encoded,
+    environment: { HOME: '/tmp/home', TMPDIR: '/tmp' },
+    clock: () => 0,
+    async sleep() {},
+    async commandRunner(descriptor) {
+      if (descriptor.args[0] === 'api') {
+        listCalls += 1;
+        return deploymentListOutcome(listCalls === 1 ? [before] : [candidate, before]);
+      }
+      assert.equal(descriptor.args[0], 'up');
+      return outcome({
+        deploymentId: CANDIDATE_ID,
+        logsUrl: deploymentLogsUrl(CANDIDATE_ID, { reversed: true }),
+      });
+    },
+    async createArchive() {
+      return {
+        archiveSha256: 'b'.repeat(64),
+        treeSha256: 'c'.repeat(64),
+        fileCount: 321,
+        stageDirectory: '/tmp/f2-lor-dr133-release-test/stage',
+        async verify() { return true; },
+        async cleanup() { return true; },
+      };
+    },
+  });
+  assert.equal(receipt.candidateDeploymentId, CANDIDATE_ID);
+  assert.equal(JSON.stringify(receipt).includes('logsUrl'), false);
 });
 
 test('immutable dark deploy rejects unbound upload receipts with unknown mutation state', async () => {
+  const validLogsUrl = deploymentLogsUrl(CANDIDATE_ID);
+  const expectedPath = `/project/${DR133_TARGET.projectId}`
+    + `/service/${DR133_TARGET.applicationServiceId}`;
   const invalidReceipts = [
     Buffer.alloc(0),
     Buffer.from('{', 'utf8'),
     {},
     { deploymentId: 'not-a-deployment-id' },
     { deploymentId: CANDIDATE_ID, secondDeploymentId: UNRELATED_ID },
+    { deploymentId: CANDIDATE_ID, logsUrl: null },
+    { deploymentId: CANDIDATE_ID, logsUrl: validLogsUrl, extra: true },
+    { deploymentId: CANDIDATE_ID, logsUrl: validLogsUrl.replace('https:', 'http:') },
+    { deploymentId: CANDIDATE_ID, logsUrl: validLogsUrl.replace('railway.com', 'railway.example') },
+    { deploymentId: CANDIDATE_ID, logsUrl: validLogsUrl.replace('railway.com', 'railway.com.evil.example') },
+    { deploymentId: CANDIDATE_ID, logsUrl: validLogsUrl.replace('https://', 'https://operator@') },
+    { deploymentId: CANDIDATE_ID, logsUrl: validLogsUrl.replace('railway.com', 'railway.com:443') },
+    { deploymentId: CANDIDATE_ID, logsUrl: validLogsUrl.replace(DR133_TARGET.projectId, UNRELATED_ID) },
+    {
+      deploymentId: CANDIDATE_ID,
+      logsUrl: validLogsUrl.replace(DR133_TARGET.applicationServiceId, UNRELATED_ID),
+    },
+    {
+      deploymentId: CANDIDATE_ID,
+      logsUrl: validLogsUrl.replace(DR133_TARGET.environmentId, UNRELATED_ID),
+    },
+    { deploymentId: CANDIDATE_ID, logsUrl: validLogsUrl.replace(CANDIDATE_ID, UNRELATED_ID) },
+    { deploymentId: CANDIDATE_ID, logsUrl: `${validLogsUrl}&view=build` },
+    {
+      deploymentId: CANDIDATE_ID,
+      logsUrl: `${validLogsUrl}&environmentId=${DR133_TARGET.environmentId}`,
+    },
+    { deploymentId: CANDIDATE_ID, logsUrl: `${validLogsUrl}&id=${CANDIDATE_ID}` },
+    { deploymentId: CANDIDATE_ID, logsUrl: `${validLogsUrl}#build` },
+    { deploymentId: CANDIDATE_ID, logsUrl: `${validLogsUrl}\n` },
+    {
+      deploymentId: CANDIDATE_ID,
+      logsUrl: `https://railway.com${expectedPath}?%65nvironmentId=`
+        + `${DR133_TARGET.environmentId}&id=${CANDIDATE_ID}`,
+    },
   ];
   for (const invalidReceipt of invalidReceipts) {
     let listCalls = 0;
