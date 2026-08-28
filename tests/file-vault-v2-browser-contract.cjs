@@ -82,6 +82,21 @@ async function browserAccessibilityAudit(page, label) {
 				return { tag: heading.tagName, className: heading.className, ratio };
 			})
 			.filter(heading => heading.ratio < 4.5);
+		const shortcutVisualFailures = [...document.querySelectorAll(".fv2-shortcut-card")]
+			.filter(card => card.getClientRects().length > 0)
+			.map(card => {
+				const art = card.querySelector(".fv2-shortcut-art");
+				const copy = card.querySelector(".fv2-shortcut-copy");
+				const artStyle = art ? getComputedStyle(art) : null;
+				const copyStyle = copy ? getComputedStyle(copy) : null;
+				return {
+					label: card.textContent.trim(),
+					hasDestinationArt: !!artStyle && artStyle.backgroundImage.includes("student-os-file-vault-v2-destinations"),
+					hasDarkBlend: !!artStyle && artStyle.backgroundBlendMode.includes("multiply"),
+					hasTextShadow: !!copyStyle && copyStyle.textShadow !== "none"
+				};
+			})
+			.filter(card => !card.hasDestinationArt || !card.hasDarkBlend || !card.hasTextShadow);
 		const duplicateIds = [...document.querySelectorAll("[id]")]
 			.map(node => node.id)
 			.filter((id, index, ids) => id && ids.indexOf(id) !== index);
@@ -97,7 +112,7 @@ async function browserAccessibilityAudit(page, label) {
 			return rect.width > 0 && rect.height > 0 && (rect.width < 44 || rect.height < 44);
 		}).map(button => ({ text: button.textContent.trim(), width: button.getBoundingClientRect().width, height: button.getBoundingClientRect().height }));
 			const buttonsWithListitemRole = document.querySelectorAll('button[role="listitem"]').length;
-			return { duplicateIds, unnamedButtons, unlabeledFields, smallTargets, buttonsWithListitemRole, lowContrastHeadings };
+			return { duplicateIds, unnamedButtons, unlabeledFields, smallTargets, buttonsWithListitemRole, lowContrastHeadings, shortcutVisualFailures };
 	});
 	assert(audit.duplicateIds.length === 0, `${label}: duplicate DOM IDs: ${audit.duplicateIds.join(", ")}`);
 	assert(audit.unnamedButtons === 0, `${label}: ${audit.unnamedButtons} unnamed buttons`);
@@ -105,6 +120,7 @@ async function browserAccessibilityAudit(page, label) {
 	assert(audit.smallTargets.length === 0, `${label}: undersized button targets ${JSON.stringify(audit.smallTargets)}`);
 	assert(audit.buttonsWithListitemRole === 0, `${label}: ${audit.buttonsWithListitemRole} buttons lost button semantics to listitem roles`);
 	assert(audit.lowContrastHeadings.length === 0, `${label}: low-contrast headings ${JSON.stringify(audit.lowContrastHeadings)}`);
+	assert(audit.shortcutVisualFailures.length === 0, `${label}: premium destination legibility treatment missing ${JSON.stringify(audit.shortcutVisualFailures)}`);
 }
 
 async function overflowAudit(page, label) {
@@ -219,7 +235,7 @@ async function abortedMountRemountFlow(browser) {
 				firstDestroyed: firstInstance.destroyed,
 				secondDestroyed: secondInstance.destroyed,
 				appCount: root.querySelectorAll("[data-fv2-app]").length,
-				hasHome: !!root.querySelector(".fv2-upload-launcher")
+				hasHome: !!root.querySelector(".fv2-home-upload-command")
 			};
 		});
 		assert(result.distinct && result.firstDestroyed && !result.secondDestroyed, `Matrix takeover: aborted mount was reused ${JSON.stringify(result)}`);
@@ -233,15 +249,37 @@ async function abortedMountRemountFlow(browser) {
 async function studentFlow(browser) {
 	const { context, page, diagnostics } = await createPage(browser, { role: "student" });
 	try {
-		assert(await page.getByRole("heading", { name: "What type of document would you like to upload?", exact: true }).isVisible(), "student: upload-first Home heading missing");
+		assert(await page.locator(".fv2-home-greeting h1").isVisible(), "student: StoryForge-family Home greeting missing");
+		assert(/^Good (morning|afternoon|evening), Avery\.$/.test((await page.locator(".fv2-home-greeting h1").textContent()).trim()), "student: personalized daypart greeting is incorrect");
 		const navLabels = await page.locator(".fv2-nav-item").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
 		assert(navLabels.join("|") === "Home|Upload|Your Files|Recently Uploaded|Mission Files|Notifications|Settings", `student: navigation is incorrect ${navLabels.join("|")}`);
 		assert(await page.locator(".fv2-nav-key").count() === 0, "student: obsolete numeric shortcut badges remain visible");
+		assert(await page.locator(".fv2-upload-choice").count() === 0, "student: utility document tiles still dominate Home");
+		assert(await page.locator(".fv2-home-upload-command").isVisible(), "student: primary signed-upload command missing from Home");
+		const shortcutLabels = await page.locator(".fv2-shortcut-card strong").allTextContents();
+		assert(shortcutLabels.join("|") === "CV|Timeline|Personal Statement|Shared by MissionMed", `student: visual destinations are incorrect ${shortcutLabels.join("|")}`);
+		await page.locator(".fv2-home-upload-command").click();
+		assert(await page.getByRole("heading", { name: "Upload", exact: true }).isVisible(), "student: primary Home upload command did not open Upload");
 		const primaryActions = await page.locator(".fv2-upload-choice strong").allTextContents();
 		assert(primaryActions.join("|") === "CV|Personal Statement|LOR-Related|Timeline|Score Report|Certification|Miscellaneous", `student: upload categories are incorrect ${primaryActions.join("|")}`);
 		assert(await page.locator(".fv2-upload-choice").nth(3).getAttribute("data-fv2-document-type") === "timeline", "student: Timeline is not a distinct upload type");
 		assert(await page.locator(".fv2-upload-choice").nth(6).getAttribute("data-fv2-document-type") === "other", "student: Miscellaneous upload type changed unexpectedly");
-		assert(await page.locator(".fv2-upload-launcher").isVisible(), "student: dominant document-type launcher missing");
+		assert(await page.locator(".fv2-upload-launcher").isVisible(), "student: dedicated Upload page document-type launcher missing");
+		await page.locator('.fv2-nav-item[data-fv2-view="vault"]').click();
+		await page.locator(".fv2-shortcut-card").nth(0).click();
+		await page.waitForSelector(".fv2-binary-workspace");
+		assert(await page.evaluate(() => window.__FV2_HARNESS__.instance.state.view === "docdocs" && window.__FV2_HARNESS__.instance.state.selectedDocumentId === 1102), "student: CV premium card did not open its workspace");
+		await page.locator('.fv2-nav-item[data-fv2-view="vault"]').click();
+		await page.locator(".fv2-shortcut-card").nth(1).click();
+		assert(await page.getByRole("heading", { name: "Journey", exact: true }).isVisible(), "student: Timeline premium card did not open Journey");
+		await page.locator('.fv2-nav-item[data-fv2-view="vault"]').click();
+		await page.locator(".fv2-shortcut-card").nth(2).click();
+		await page.waitForSelector(".fv2-binary-workspace");
+		assert(await page.evaluate(() => window.__FV2_HARNESS__.instance.state.view === "docdocs" && window.__FV2_HARNESS__.instance.state.selectedDocumentId === 1101), "student: Personal Statement premium card did not open its workspace");
+		await page.locator('.fv2-nav-item[data-fv2-view="vault"]').click();
+		await page.locator(".fv2-shortcut-card").nth(3).click();
+		assert(await page.getByRole("heading", { name: "Mission Files", exact: true }).isVisible(), "student: Mission Files premium card did not open the shared library");
+		await page.locator('.fv2-nav-item[data-fv2-view="vault"]').click();
 		assert(await page.locator(".fv2-matrix-return").isVisible() && await page.locator(".fv2-header-search").isVisible() && await page.locator(".fv2-header-upload").isVisible(), "student: StoryForge-family Matrix/search/upload header is incomplete");
 		assert(await page.locator(".fv2-shortcut-card").count() === 4, "student: expected four first-class visual shortcuts");
 		assert(await page.getByRole("button", { name: "Journey", exact: true }).count() === 0, "student: Journey remains an equal top-level destination");
@@ -606,7 +644,7 @@ async function mobileAdminActivityFlow(browser) {
 		assert(await page.getByRole("button", { name: "Return to student Home", exact: true }).isVisible(), "mobile admin activity: return control missing");
 		assert(await page.getByRole("button", { name: "Back to Students", exact: true }).count() >= 1, "mobile admin activity: exit control missing");
 		await page.getByRole("button", { name: "Return to student Home", exact: true }).click();
-		assert(await page.getByRole("heading", { name: "What type of document would you like to upload?", exact: true }).isVisible(), "mobile admin activity: return did not restore the student Vault");
+		assert(await page.locator(".fv2-home-greeting h1").isVisible(), "mobile admin activity: return did not restore the student Vault");
 		await page.getByRole("button", { name: "Staff activity", exact: true }).click();
 		await page.getByRole("button", { name: "Back to Students", exact: true }).last().click();
 		assert(await page.getByRole("heading", { name: "Whose File Vault would you like to open?", exact: true }).isVisible(), "mobile admin activity: exit did not return to Students");
@@ -698,7 +736,7 @@ async function lateMatrixTakeoverRecoveryFlow(browser) {
 		});
 
 		await page.waitForSelector("[data-fv2-app]", { timeout: 5000 });
-		await page.getByRole("heading", { name: "What type of document would you like to upload?", exact: true }).waitFor({ timeout: 5000 });
+		await page.locator(".fv2-home-greeting h1").waitFor({ timeout: 5000 });
 		const firstRecovery = await page.evaluate(() => ({
 			v1Rendered: window.__FV2_HARNESS__.v1FallbackRendered === true,
 			moduleId: window.MatrixRuntime.current.module.id,
@@ -748,7 +786,7 @@ async function lateMatrixTakeoverRecoveryFlow(browser) {
 			window.MMED_FILE_VAULT_V1.render();
 		});
 		await page.waitForSelector("[data-fv2-app]", { timeout: 3000 });
-		await page.getByRole("heading", { name: "What type of document would you like to upload?", exact: true }).waitFor();
+		await page.locator(".fv2-home-greeting h1").waitFor();
 		assert(await page.evaluate(() => window.MatrixRuntime.navigationCount === 3 && window.MatrixRuntime.completedMountCount === 3 && window.__FV2_RUNTIME_REQUESTS__.bootstrapCount === 3 && window.__FV2_RUNTIME_REQUESTS__.maxActiveBootstrap === 1), "Matrix takeover: a later distinct overwrite did not recover exactly once without overlap");
 		assert(await page.locator("[data-fv2-app]").count() === 1, "Matrix takeover: recovery left duplicate V2 roots");
 		assert(diagnostics.length === 0, `Matrix takeover: browser diagnostics ${diagnostics.join(" | ")}`);
@@ -1076,6 +1114,7 @@ async function responsiveFlow(browser) {
 				});
 				assert(Math.abs(mobileLayout.railBottom - mobileLayout.viewportBottom) <= 2, `responsive ${viewport.width}: mobile rail is not bottom anchored`);
 				if (viewport.width === 320) {
+					assert(await page.locator(".fv2-brand strong").isVisible() && (await page.locator(".fv2-brand strong").textContent()).trim() === "FileVault", "responsive 320: File Vault product identity disappeared from the mobile header");
 					const visibleNav = await page.locator(".fv2-nav-item:visible, .fv2-nav-more:visible").evaluateAll(nodes => nodes.map(node => node.getAttribute("aria-label")));
 					assert(visibleNav.join("|") === "Home|Upload|Your Files|Recently Uploaded|More", `responsive 320: primary mobile destinations are not all visible ${visibleNav.join("|")}`);
 					await page.getByRole("button", { name: "More", exact: true }).click();
