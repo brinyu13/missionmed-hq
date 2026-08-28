@@ -19,6 +19,14 @@ function mmrise_route_matches($path) {
     return $path === '/rise' || strpos($path, '/rise/') === 0 || strpos($path, '/api/rise/v1/') === 0;
 }
 
+function mmrise_route_upstream_path($path) {
+    $asset_aliases = array(
+        '/rise/assets/app' => '/rise/app.js',
+        '/rise/assets/styles' => '/rise/styles.css',
+    );
+    return isset($asset_aliases[$path]) ? $asset_aliases[$path] : $path;
+}
+
 function mmrise_route_origin() {
     if (!defined('MMED_RISE_ORIGIN')) {
         return '';
@@ -99,7 +107,8 @@ function mmrise_route_handle() {
         ));
     }
     $request_uri = isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : $path;
-    $target = $origin . $request_uri;
+    $query = (string) wp_parse_url($request_uri, PHP_URL_QUERY);
+    $target = $origin . mmrise_route_upstream_path($path) . ($query !== '' ? '?' . $query : '');
     $method = isset($_SERVER['REQUEST_METHOD']) ? strtoupper((string) $_SERVER['REQUEST_METHOD']) : 'GET';
     $headers = array(
         'Accept' => isset($_SERVER['HTTP_ACCEPT']) ? (string) $_SERVER['HTTP_ACCEPT'] : '*/*',
@@ -153,7 +162,15 @@ function mmrise_route_handle() {
     }
     header('X-MissionMed-RISE-Proxy: 1');
     if ($method !== 'HEAD') {
-        echo (string) wp_remote_retrieve_body($response);
+        $response_body = (string) wp_remote_retrieve_body($response);
+        if (($path === '/rise' || $path === '/rise/') && stripos((string) wp_remote_retrieve_header($response, 'content-type'), 'text/html') === 0) {
+            $response_body = str_replace(
+                array('href="/rise/styles.css"', 'src="/rise/app.js"'),
+                array('href="/rise/assets/styles"', 'src="/rise/assets/app"'),
+                $response_body
+            );
+        }
+        echo $response_body;
     }
     exit;
 }

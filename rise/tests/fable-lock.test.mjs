@@ -23,8 +23,9 @@ test("production shell is mechanically derived from the immutable Fable 5002 loc
 
   const productionHtml = await fs.readFile(path.join(riseRoot, "web/index.html"), "utf8");
   assert.match(productionHtml, /Founder-approved Fable 5002 · Production data/);
-  assert.match(productionHtml, /<script type="module" src="\/rise\/app\.js"><\/script>/);
-  assert.match(productionHtml, /<link rel="stylesheet" href="\/rise\/styles\.css">/);
+  assert.match(productionHtml, /<script type="module" src="\/rise\/assets\/app"><\/script>/);
+  assert.match(productionHtml, /<link rel="stylesheet" href="\/rise\/assets\/styles">/);
+  assert.doesNotMatch(productionHtml, /\/rise\/(?:app\.js|styles\.css)/);
   assert.doesNotMatch(productionHtml, /window\.RISE_DATA|demo-brookdale|Ignacio/);
 });
 

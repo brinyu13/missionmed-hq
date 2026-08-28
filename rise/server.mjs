@@ -694,7 +694,13 @@ function resolveMatrixProfileAdapter(adapter, { production }) {
 }
 
 async function serveStatic(request, requestPath, response, webDirectory, requestId) {
-  let relative = requestPath === "/rise/" || requestPath === "/rise" ? "index.html" : requestPath.slice("/rise/".length);
+  const assetAliases = new Map([
+    ["/rise/assets/app", "app.js"],
+    ["/rise/assets/styles", "styles.css"],
+  ]);
+  let relative = requestPath === "/rise/" || requestPath === "/rise"
+    ? "index.html"
+    : assetAliases.get(requestPath) ?? requestPath.slice("/rise/".length);
   if (requestPath === "/rise/vendor/lucide.js") {
     const bundledVendorPath = path.resolve(webDirectory, "vendor/lucide.js");
     let body;

@@ -202,6 +202,13 @@ test("health is public and static responses include restrictive headers", async 
   assert.equal(head.status, 200);
   assert.equal(await head.text(), "");
 
+  const script = await fetch(`${baseUrl}/rise/assets/app`);
+  assert.equal(script.status, 200);
+  assert.equal(script.headers.get("content-type"), "text/javascript; charset=utf-8");
+  const styles = await fetch(`${baseUrl}/rise/assets/styles`);
+  assert.equal(styles.status, 200);
+  assert.equal(styles.headers.get("content-type"), "text/css; charset=utf-8");
+
   const vendor = await fetch(`${baseUrl}/rise/vendor/lucide.js`);
   assert.equal(vendor.status, 200);
   assert.equal(vendor.headers.get("cache-control"), "no-cache");

@@ -22,10 +22,20 @@ function wp_json_encode($value) { return json_encode($value); }
 function add_action($name, $callback, $priority = 10) {}
 
 function wp_remote_request($url, $options) {
+    $path = (string) parse_url($url, PHP_URL_PATH);
+    $content_type = 'text/html; charset=utf-8';
+    $body = '<!doctype html><link rel="stylesheet" href="/rise/styles.css"><script type="module" src="/rise/app.js"></script>';
+    if ($path === '/rise/app.js') {
+        $content_type = 'text/javascript; charset=utf-8';
+        $body = 'globalThis.RISE_FIXTURE = true;';
+    } elseif ($path === '/rise/styles.css') {
+        $content_type = 'text/css; charset=utf-8';
+        $body = 'body { color: #111; }';
+    }
     return array(
         'response' => array('code' => 200),
         'headers' => array(
-            'content-type' => 'text/html; charset=utf-8',
+            'content-type' => $content_type,
             'cache-control' => 'private, no-store',
             'etag' => '"rise-fixture"',
             'x-request-id' => 'rise-fixture-request',
@@ -39,7 +49,7 @@ function wp_remote_request($url, $options) {
             'set-cookie' => 'must-not-forward=1',
             'connection' => 'keep-alive',
         ),
-        'body' => '<!doctype html><title>RISE proxy fixture</title>',
+        'body' => $body,
     );
 }
 

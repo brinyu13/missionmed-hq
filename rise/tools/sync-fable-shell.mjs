@@ -483,9 +483,9 @@ async function main() {
   const styles = `${styleMatch[1].replace(/\n+$/, "")}\n`;
 
   let html = source
-    .replace(styleMatch[0], '<link rel="stylesheet" href="/rise/styles.css">')
+    .replace(styleMatch[0], '<link rel="stylesheet" href="/rise/assets/styles">')
     .replace(scripts[0][0], "")
-    .replace(scripts[1][0], '<script type="module" src="/rise/app.js"></script>')
+    .replace(scripts[1][0], '<script type="module" src="/rise/assets/app"></script>')
     .replace("<title>RISE · MissionMed Intelligence — Founder Shell (P1-RISE-5002)</title>", "<title>RISE · MissionMed Intelligence</title>")
     .replace("Founder Shell 5002 · Real corpus + demo profile", "Founder-approved Fable 5002 · Production data");
 
